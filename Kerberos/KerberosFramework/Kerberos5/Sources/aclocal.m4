@@ -1,5 +1,5 @@
 AC_PREREQ(2.52)
-AC_COPYRIGHT([Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+AC_COPYRIGHT([Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 Massachusetts Institute of Technology.
 ])
 dnl
@@ -7,41 +7,61 @@ dnl Figure out the top of the source and build trees.  We depend on localdir
 dnl being a relative pathname; we could make it general later, but for now 
 dnl this is good enough.
 dnl
+dnl esyscmd([test -r aclocal.m4 && echo YES])
+define([fileexists],[dnl
+pushdef([x],esyscmd([if test -r $1; then echo YES;else echo NO; fi]))dnl
+dnl Strip out newline.
+ifelse(x,[YES
+],[YES],x,[NO
+],[NO],UNKNOWN)[]popdef([x])])
+define([K5_TOPDIR],dnl
+ifelse(fileexists(./aclocal.m4),YES,[.],[dnl
+ifelse(fileexists(../aclocal.m4),YES,[..],[dnl
+ifelse(fileexists(../../aclocal.m4),YES,[../..],[dnl
+ifelse(fileexists(../../../aclocal.m4),YES,[../../..],[dnl
+ifelse(fileexists(../../../../aclocal.m4),YES,[../../../..],[dnl
+errprint(__file__:__line__: Cannot find path to aclocal.m4[
+]) m4exit(1) dnl sometimes that does not work?
+builtin(m4exit,1)UNKNOWN])])])])]))
+dnl
 AC_DEFUN(V5_SET_TOPDIR,[dnl
-ifdef([AC_LOCALDIR], [dnl AC_LOCALDIR exists in 2.13, but not newer autoconfs.
-ac_reltopdir=AC_LOCALDIR
-case "$ac_reltopdir" in 
-/*)
-	echo "Configure script built with absolute localdir pathname"
-	exit 1
-	;;
-"")
-	ac_reltopdir=.
-	;;
-esac
-],[
-ac_reltopdir=
-for x in . .. ../.. ../../.. ../../../..; do
-	if test "x$ac_reltopdir" = "x" -a -r "$srcdir/$x/aclocal.m4" ; then
-		ac_reltopdir=$x
-	fi
-done
-if test "x$ac_reltopdir" = "x"; then
-	echo "Configure could not determine the relative topdir"
-	exit 1
+ac_reltopdir="K5_TOPDIR"
+if test ! -r "$srcdir/K5_TOPDIR/aclocal.m4"; then
+  AC_MSG_ERROR([Configure could not determine the relative topdir])
 fi
-])
 ac_topdir=$srcdir/$ac_reltopdir
 ac_config_fragdir=$ac_reltopdir/config
-krb5_pre_in=$ac_config_fragdir/pre.in
-krb5_post_in=$ac_config_fragdir/post.in
 # echo "Looking for $srcdir/$ac_config_fragdir"
 if test -d "$srcdir/$ac_config_fragdir"; then
-  AC_CONFIG_AUX_DIR($ac_config_fragdir)
+  AC_CONFIG_AUX_DIR(K5_TOPDIR/config)
 else
   AC_MSG_ERROR([can not find config/ directory in $ac_reltopdir])
 fi
 ])dnl
+dnl
+dnl Version info.
+dnl
+pushdef([x],esyscmd([sed -n 's/#define \([A-Z0-9_]*\)[ \t]*\(.*\)/\1=\2/p' < ]K5_TOPDIR/patchlevel.h))
+define([PL_KRB5_MAJOR_RELEASE],regexp(x,[KRB5_MAJOR_RELEASE=\(.*\)],[\1]))
+ifelse(PL_KRB5_MAJOR_RELEASE,,[errprint([Can't determine KRB5_MAJOR_RELEASE value from patchlevel.h.
+]) m4exit(1) dnl sometimes that does not work?
+builtin(m4exit,1)])
+define([PL_KRB5_MINOR_RELEASE],regexp(x,[KRB5_MINOR_RELEASE=\(.*\)],[\1]))
+ifelse(PL_KRB5_MINOR_RELEASE,,[errprint([Can't determine KRB5_MINOR_RELEASE value from patchlevel.h.
+]) m4exit(1) dnl sometimes that does not work?
+builtin(m4exit,1)])
+define([PL_KRB5_PATCHLEVEL],regexp(x,[KRB5_PATCHLEVEL=\(.*\)],[\1]))
+ifelse(PL_KRB5_PATCHLEVEL,,[errprint([Can't determine KRB5_PATCHLEVEL value from patchlevel.h.
+]) m4exit(1) dnl sometimes that does not work?
+builtin(m4exit,1)])
+define([PL_KRB5_RELTAIL],regexp(x,[KRB5_RELTAIL="\(.*\)"],[\1]))
+dnl RELTAIL is allowed to not be defined.
+popdef([x])
+define([K5_VERSION],PL_KRB5_MAJOR_RELEASE.PL_KRB5_MINOR_RELEASE[]ifelse(PL_KRB5_PATCHLEVEL,0,,.PL_KRB5_PATCHLEVEL)ifelse(PL_KRB5_RELTAIL,,,-PL_KRB5_RELTAIL))
+define([K5_BUGADDR],krb5-bugs@mit.edu)
+define([K5_AC_INIT],[AC_INIT(Kerberos 5, K5_VERSION, K5_BUGADDR, krb5)
+AC_CONFIG_SRCDIR($1)
+build_dynobj=no])
 dnl
 dnl drop in standard rules for all configure files -- CONFIG_RULES
 dnl
@@ -59,8 +79,8 @@ KRB5_AC_CHOOSE_ET dnl
 KRB5_AC_CHOOSE_SS dnl
 KRB5_AC_CHOOSE_DB dnl
 dnl allow stuff in tree to access deprecated/private stuff for now
-AC_DEFINE([KRB5_PRIVATE], 1, [Define only if building in-tree])
-AC_DEFINE([KRB5_DEPRECATED], 1, [Define only if building in-tree])
+dnl AC_DEFINE([KRB5_PRIVATE], 1, [Define only if building in-tree])
+dnl AC_DEFINE([KRB5_DEPRECATED], 1, [Define only if building in-tree])
 AC_C_CONST dnl
 WITH_NETLIB dnl
 WITH_HESIOD dnl
@@ -77,11 +97,16 @@ lib_frag=$srcdir/$ac_config_fragdir/lib.in
 AC_SUBST_FILE(lib_frag)
 libobj_frag=$srcdir/$ac_config_fragdir/libobj.in
 AC_SUBST_FILE(libobj_frag)
+libnover_frag=$srcdir/$ac_config_fragdir/libnover.in
+AC_SUBST_FILE(libnover_frag)
 dnl
 KRB5_AC_PRAGMA_WEAK_REF
+WITH_LDAP
 KRB5_LIB_PARAMS
 KRB5_AC_INITFINI
 KRB5_AC_ENABLE_THREADS
+KRB5_AC_FIND_DLOPEN
+KRB5_AC_KEYRING_CCACHE
 ])dnl
 
 dnl Maintainer mode, akin to what automake provides, 'cept we don't
@@ -132,6 +157,20 @@ if test "$use_linker_fini_option" = yes; then
 fi
 ])
 
+dnl find dlopen
+AC_DEFUN([KRB5_AC_FIND_DLOPEN],[
+old_LIBS="$LIBS"
+DL_LIB=
+AC_SEARCH_LIBS(dlopen, dl, [
+if test "$ac_cv_search_dlopen" != "none required"; then
+  DL_LIB=$ac_cv_search_dlopen
+fi
+LIBS="$old_LIBS"
+AC_DEFINE(USE_DLOPEN,1,[Define if dlopen should be used])])
+AC_SUBST(DL_LIB)
+])
+
+
 dnl Hack for now.
 AC_DEFUN([KRB5_AC_ENABLE_THREADS],[
 AC_ARG_ENABLE([thread-support],
@@ -142,7 +181,7 @@ if test "$enable_thread_support" = yes ; then
 fi
 dnl Maybe this should be inside the conditional above?  Doesn't cache....
 if test "$enable_thread_support" = yes; then
-  ACX_PTHREAD(,[AC_MSG_ERROR([cannot determine options for enabling thread support])])
+  ACX_PTHREAD(,[AC_MSG_ERROR([cannot determine options for enabling thread support; try --disable-thread-support])])
   AC_MSG_NOTICE(PTHREAD_CC = $PTHREAD_CC)
   AC_MSG_NOTICE(PTHREAD_CFLAGS = $PTHREAD_CFLAGS)
   AC_MSG_NOTICE(PTHREAD_LIBS = $PTHREAD_LIBS)
@@ -163,15 +202,29 @@ if test "$enable_thread_support" = yes; then
       # These are the flags that "gcc -pthread" adds.  But we don't
       # want "-pthread" because that has link-time effects, and we
       # don't exclude CFLAGS when linking.  *sigh*
-      CFLAGS="-D_REENTRANT -D_THREAD_SAFE -D_POSIX_C_SOURCE=199506L"
+      PTHREAD_CFLAGS="-D_REENTRANT -D_THREAD_SAFE -D_POSIX_C_SOURCE=199506L"
+      ;;
+    solaris*)
+      # On Solaris 10 with gcc 3.4.3, the autoconf archive macro doesn't
+      # get the right result.
+      if test "$GCC" = yes ; then
+        PTHREAD_CFLAGS="-D_REENTRANT -pthreads"
+      fi
       ;;
   esac
+  THREAD_SUPPORT=1
+else
+  PTHREAD_CC="$CC"
+  PTHREAD_CFLAGS=""
+  PTHREAD_LIBS=""
+  THREAD_SUPPORT=0
 fi
+AC_SUBST(THREAD_SUPPORT)
 dnl We want to know where these routines live, so on systems with weak
 dnl reference support we can figure out whether or not the pthread library
 dnl has been linked in.
 dnl If we don't add any libraries for thread support, don't bother.
-AC_CHECK_FUNCS(pthread_once pthread_mutexattr_setrobust_np pthread_rwlock_init)
+AC_CHECK_FUNCS(pthread_once pthread_rwlock_init)
 old_CC="$CC"
 test "$PTHREAD_CC" != "" && test "$ac_cv_c_compiler_gnu" = no && CC=$PTHREAD_CC
 old_CFLAGS="$CFLAGS"
@@ -181,8 +234,6 @@ AC_SUBST(PTHREAD_CFLAGS)
 old_LIBS="$LIBS"
 LIBS="$PTHREAD_LIBS $LIBS"
 AC_MSG_NOTICE(rechecking with PTHREAD_... options)
-AC_CHECK_LIB(c, pthread_mutexattr_setrobust_np,
-  [AC_DEFINE(HAVE_PTHREAD_MUTEXATTR_SETROBUST_NP_IN_THREAD_LIB,1,[Define if pthread_mutexattr_setrobust_np is provided in the thread library.])])
 AC_CHECK_LIB(c, pthread_rwlock_init,
   [AC_DEFINE(HAVE_PTHREAD_RWLOCK_INIT_IN_THREAD_LIB,1,[Define if pthread_rwlock_init is provided in the thread library.])])
 LIBS="$old_LIBS"
@@ -230,7 +281,7 @@ AC_TRY_LINK([#include <signal.h>], [sigmask(1);],
  krb5_cv_func_sigprocmask_use=no, krb5_cv_func_sigprocmask_use=yes))])
 AC_MSG_RESULT($krb5_cv_func_sigprocmask_use)
 if test $krb5_cv_func_sigprocmask_use = yes; then
- AC_DEFINE(USE_SIGPROCMASK)
+ AC_DEFINE(USE_SIGPROCMASK,1,[Define if sigprocmask should be used])
 fi
 ])dnl
 dnl
@@ -321,7 +372,7 @@ AC_CACHE_VAL(krb5_cv_struct_sigjmp_buf,
 krb5_cv_struct_sigjmp_buf=yes,krb5_cv_struct_sigjmp_buf=no)])
 AC_MSG_RESULT($krb5_cv_struct_sigjmp_buf)
 if test $krb5_cv_struct_sigjmp_buf = yes; then
-  AC_DEFINE(POSIX_SETJMP)
+  AC_DEFINE(POSIX_SETJMP,1,[Define if setjmp indicates POSIX interface])
 fi
 )])dnl
 dnl
@@ -347,18 +398,8 @@ if test $ac_cv_func_getaddrinfo = yes; then
 fi
 dnl
 AC_REQUIRE([KRB5_SOCKADDR_SA_LEN])dnl
-AC_ARG_ENABLE([ipv6],
-AC_HELP_STRING([--enable-ipv6],[turn on IPv6 support])
-AC_HELP_STRING([--disable-ipv6],[turn off IPv6 support @<:@enabled if available@:>@]), ,enableval=try)dnl
-case "$enableval" in
-  yes | try)
-	KRB5_AC_CHECK_INET6
-	if test "$enableval/$krb5_cv_inet6" = yes/no ; then
-	  AC_MSG_ERROR(IPv6 support does not appear to be available)
-	fi ;;
-  no)	;;
-  *)	AC_MSG_ERROR(bad value "$enableval" for enable-ipv6 option) ;;
-esac
+AC_ARG_ENABLE([ipv6], , AC_MSG_WARN(enable/disable-ipv6 option is deprecated))dnl
+KRB5_AC_CHECK_INET6
 ])dnl
 dnl
 AC_DEFUN(KRB5_AC_CHECK_TYPE_WITH_HEADERS,[
@@ -371,7 +412,7 @@ AC_TRY_COMPILE([$2],[ $1 foo; ], eval krb5_cv_$varname=yes, eval krb5_cv_$varnam
 eval x="\$krb5_cv_$varname"
 AC_MSG_RESULT($x)
 if eval test "$x" = yes ; then
-  AC_DEFINE_UNQUOTED(HAVE_`echo $varname | tr [[[a-z]]] [[[A-Z]]]`)
+  AC_DEFINE_UNQUOTED(HAVE_`echo $varname | tr '[[[a-z]]]' '[[[A-Z]]]'`)
 fi])
 dnl
 dnl
@@ -568,6 +609,8 @@ if test "$GCC" = yes ; then
     CFLAGS="$CFLAGS $extra_gcc_warn_opts"
     if test "`uname -s`" = Darwin ; then
       AC_MSG_NOTICE(skipping pedantic warnings on Darwin)
+    elif test "`uname -s`" = Linux ; then
+      AC_MSG_NOTICE(skipping pedantic warnings on Linux)
     else
       CFLAGS="$CFLAGS -pedantic"
     fi
@@ -654,7 +697,7 @@ dnl  Note: Be careful in quoting.
 dnl        The ac_foreach generates the list of fragments to include
 dnl        or "" if $2 is empty
 AC_DEFUN(_K5_GEN_MAKEFILE,[dnl
-AC_CONFIG_FILES([$1/Makefile:$krb5_pre_in:$1/Makefile.in:$krb5_post_in])
+AC_CONFIG_FILES([$1/Makefile:$srcdir/]K5_TOPDIR[/config/pre.in:$1/Makefile.in:$srcdir/]K5_TOPDIR[/config/post.in])
 ])
 dnl
 dnl K5_GEN_FILE( <ac_output arguments> )
@@ -663,13 +706,8 @@ AC_DEFUN(K5_GEN_FILE,[AC_CONFIG_FILES($1)])dnl
 dnl
 dnl K5_AC_OUTPUT
 dnl    Note: Adds the variables to config.status for individual 
-dnl          Makefile generation from config.statsu
-AC_DEFUN(K5_AC_OUTPUT,[dnl
-AC_CONFIG_COMMANDS([krb5_config_prefix], [], dnl
- [krb5_pre_in=$krb5_pre_in
- ac_config_fragdir=$ac_config_fragdir
- krb5_post_in=$krb5_post_in])
-AC_OUTPUT])dnl
+dnl          Makefile generation from config.status
+AC_DEFUN(K5_AC_OUTPUT,[AC_OUTPUT])dnl
 dnl
 dnl V5_AC_OUTPUT_MAKEFILE
 dnl
@@ -679,7 +717,7 @@ dnl
 define(_V5_AC_OUTPUT_MAKEFILE,
 [ifelse($2, , ,AC_CONFIG_FILES($2))
 AC_FOREACH([DIR], [$1],dnl
- [AC_CONFIG_FILES(DIR[/Makefile:$krb5_pre_in:]DIR[/Makefile.in:$krb5_post_in])])
+ [AC_CONFIG_FILES(DIR[/Makefile:$srcdir/]K5_TOPDIR[/config/pre.in:]DIR[/Makefile.in:$srcdir/]K5_TOPDIR[/config/post.in])])
 K5_AC_OUTPUT])dnl
 dnl
 dnl
@@ -687,72 +725,34 @@ dnl KRB5_SOCKADDR_SA_LEN: define HAVE_SA_LEN if sockaddr contains the sa_len
 dnl component
 dnl
 AC_DEFUN([KRB5_SOCKADDR_SA_LEN],[ dnl
-AC_MSG_CHECKING(whether struct sockaddr contains sa_len)
-AC_CACHE_VAL(krb5_cv_sockaddr_sa_len,
-[AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/socket.h>
-],
-[struct sockaddr sa;
-sa.sa_len;],
-krb5_cv_sockaddr_sa_len=yes,krb5_cv_sockaddr_sa_len=no)])
-AC_MSG_RESULT([$]krb5_cv_sockaddr_sa_len)
-if test $krb5_cv_sockaddr_sa_len = yes; then
-   AC_DEFINE_UNQUOTED(HAVE_SA_LEN,1,[Define if struct sockaddr contains sa_len])
-   fi
-])
+AC_CHECK_MEMBER(struct sockaddr.sa_len,
+  AC_DEFINE(HAVE_SA_LEN,1,[Define if struct sockaddr contains sa_len])
+,,[#include <sys/types.h>
+#include <sys/socket.h>])])
 dnl
 dnl
 dnl CHECK_UTMP: check utmp structure and functions
 dnl
 AC_DEFUN(CHECK_UTMP,[
-AC_MSG_CHECKING([ut_pid in struct utmp])
-AC_CACHE_VAL(krb5_cv_struct_ut_pid,
-[AC_TRY_COMPILE(
+AC_CHECK_MEMBERS([struct utmp.ut_pid, struct utmp.ut_type, struct utmp.ut_host, struct utmp.ut_exit],,,
 [#include <sys/types.h>
-#include <utmp.h>],
-[struct utmp ut; ut.ut_pid;],
-krb5_cv_struct_ut_pid=yes, krb5_cv_struct_ut_pid=no)])
-AC_MSG_RESULT($krb5_cv_struct_ut_pid)
-if test $krb5_cv_struct_ut_pid = no; then
-  AC_DEFINE(NO_UT_PID)
+#include <utmp.h>])
+
+# Define the names actually used in the krb5 code currently:
+if test $ac_cv_member_struct_utmp_ut_pid = no; then
+  AC_DEFINE(NO_UT_PID,1,[Define if ut_pid field not found])
 fi
-AC_MSG_CHECKING([ut_type in struct utmp])
-AC_CACHE_VAL(krb5_cv_struct_ut_type,
-[AC_TRY_COMPILE(
-[#include <sys/types.h>
-#include <utmp.h>],
-[struct utmp ut; ut.ut_type;],
-krb5_cv_struct_ut_type=yes, krb5_cv_struct_ut_type=no)])
-AC_MSG_RESULT($krb5_cv_struct_ut_type)
-if test $krb5_cv_struct_ut_type = no; then
-  AC_DEFINE(NO_UT_TYPE)
+if test $ac_cv_member_struct_utmp_ut_type = no; then
+  AC_DEFINE(NO_UT_TYPE,1,[Define if ut_type field not found])
 fi
-AC_MSG_CHECKING([ut_host in struct utmp])
-AC_CACHE_VAL(krb5_cv_struct_ut_host,
-[AC_TRY_COMPILE(
-[#include <sys/types.h>
-#include <utmp.h>],
-[struct utmp ut; ut.ut_host;],
-krb5_cv_struct_ut_host=yes, krb5_cv_struct_ut_host=no)])
-AC_MSG_RESULT($krb5_cv_struct_ut_host)
-if test $krb5_cv_struct_ut_host = no; then
-  AC_DEFINE(NO_UT_HOST)
+if test $ac_cv_member_struct_utmp_ut_host = no; then
+  AC_DEFINE(NO_UT_HOST,1,[Define if ut_host field not found])
 fi
-AC_MSG_CHECKING([ut_exit in struct utmp])
-AC_CACHE_VAL(krb5_cv_struct_ut_exit,
-[AC_TRY_COMPILE(
-[#include <sys/types.h>
-#include <utmp.h>],
-[struct utmp ut; ut.ut_exit;],
-krb5_cv_struct_ut_exit=yes, krb5_cv_struct_ut_exit=no)])
-AC_MSG_RESULT($krb5_cv_struct_ut_exit)
-if test $krb5_cv_struct_ut_exit = no; then
-  AC_DEFINE(NO_UT_EXIT)
+if test $ac_cv_member_struct_utmp_ut_exit = no; then
+  AC_DEFINE(NO_UT_EXIT,1,[Define if ut_exit field not found])
 fi
-AC_CHECK_FUNC(setutent,AC_DEFINE(HAVE_SETUTENT))
-AC_CHECK_FUNC(setutxent,AC_DEFINE(HAVE_SETUTXENT))
-AC_CHECK_FUNC(updwtmp,AC_DEFINE(HAVE_UPDWTMP))
-AC_CHECK_FUNC(updwtmpx,AC_DEFINE(HAVE_UPDWTMPX))
+
+AC_CHECK_FUNCS(setutent setutxent updwtmp updwtmpx)
 ])dnl
 dnl
 dnl WITH_NETLIB
@@ -871,10 +871,18 @@ dnl
 AC_DEFUN(AC_KRB5_TCL_FIND_CONFIG,[
 AC_REQUIRE([KRB5_LIB_AUX])dnl
 AC_MSG_CHECKING(for tclConfig.sh)
+dnl On Debian, we might be given --with-tcl=/usr, or tclsh might
+dnl point us to /usr/lib/tcl8.4; either way, we need to find
+dnl /usr/lib/tcl8.4/tclConfig.sh.
+dnl On NetBSD, we might be given --with-tcl=/usr/pkg, or tclsh
+dnl might point us to /usr/pkg/lib/tcl8.4; we need to find
+dnl /usr/pkg/lib/tclConfig.sh.
 if test -r "$tcl_dir/lib/tclConfig.sh" ; then
   tcl_conf="$tcl_dir/lib/tclConfig.sh"
 elif test -r "$tcl_dir/tclConfig.sh" ; then
   tcl_conf="$tcl_dir/tclConfig.sh"
+elif test -r "$tcl_dir/../tclConfig.sh" ; then
+  tcl_conf="$tcl_dir/../tclConfig.sh"
 else
   tcl_conf=
   lib="$tcl_dir/lib"
@@ -953,9 +961,9 @@ if test -n "$tcl_ok_conf" ; then
     TCL_MAYBE_RPATH=
   fi
   CPPFLAGS="$old_CPPFLAGS $TCL_INCLUDES"
-  AC_CHECK_HEADER(tcl.h,AC_DEFINE(HAVE_TCL_H) tcl_header=yes)
+  AC_CHECK_HEADER(tcl.h,AC_DEFINE(HAVE_TCL_H,1,[Define if tcl.h is available]) tcl_header=yes)
   if test $tcl_header=no; then
-     AC_CHECK_HEADER(tcl/tcl.h,AC_DEFINE(HAVE_TCL_TCL_H) tcl_header=yes)
+     AC_CHECK_HEADER(tcl/tcl.h,AC_DEFINE(HAVE_TCL_TCL_H,1,[Define if tcl/tcl.h is available]) tcl_header=yes)
   fi
   CPPFLAGS="$old_CPPFLAGS"
   tcl_lib=yes
@@ -974,6 +982,7 @@ dnl AC_KRB5_TCL_TRYOLD
 dnl attempt to use old search algorithm for locating tcl
 dnl
 AC_DEFUN(AC_KRB5_TCL_TRYOLD, [
+AC_REQUIRE([KRB5_AC_FIND_DLOPEN])
 AC_MSG_WARN([trying old tcl search code])
 if test "$with_tcl" != yes -a "$with_tcl" != no; then
 	TCL_INCLUDES=-I$with_tcl/include
@@ -981,16 +990,14 @@ if test "$with_tcl" != yes -a "$with_tcl" != no; then
 	TCL_RPATH=:$with_tcl/lib
 fi
 if test "$with_tcl" != no ; then
-	AC_CHECK_LIB(dl, dlopen, DL_LIB=-ldl)
-	AC_CHECK_LIB(ld, main, DL_LIB=-lld)
 	krb5_save_CPPFLAGS="$CPPFLAGS"
 	krb5_save_LDFLAGS="$LDFLAGS"
 	CPPFLAGS="$CPPFLAGS $TCL_INCLUDES"
 	LDFLAGS="$LDFLAGS $TCL_LIBPATH"
 	tcl_header=no
-	AC_CHECK_HEADER(tcl.h,AC_DEFINE(HAVE_TCL_H) tcl_header=yes)
+	AC_CHECK_HEADER(tcl.h,AC_DEFINE(HAVE_TCL_H,1,[Define if tcl.h found]) tcl_header=yes)
 	if test $tcl_header=no; then
-	   AC_CHECK_HEADER(tcl/tcl.h,AC_DEFINE(HAVE_TCL_TCL_H) tcl_header=yes)
+	   AC_CHECK_HEADER(tcl/tcl.h,AC_DEFINE(HAVE_TCL_TCL_H,1,[Define if tcl/tcl.h found]) tcl_header=yes)
 	fi
 
 	if test $tcl_header = yes ; then
@@ -998,23 +1005,23 @@ if test "$with_tcl" != no ; then
 
 		if test $tcl_lib = no; then
 			AC_CHECK_LIB(tcl8.0, Tcl_CreateCommand, 
-				TCL_LIBS="$TCL_LIBS -ltcl8.0 -lm $DL_LIB" 
+				TCL_LIBS="$TCL_LIBS -ltcl8.0 -lm $DL_LIB $LIBS"
 				tcl_lib=yes,,-lm $DL_LIB)
 		fi
 		if test $tcl_lib = no; then
 			AC_CHECK_LIB(tcl7.6, Tcl_CreateCommand, 
-				TCL_LIBS="$TCL_LIBS -ltcl7.6 -lm $DL_LIB" 
+				TCL_LIBS="$TCL_LIBS -ltcl7.6 -lm $DL_LIB $LIBS"
 				tcl_lib=yes,,-lm $DL_LIB)
 		fi
 		if test $tcl_lib = no; then
 			AC_CHECK_LIB(tcl7.5, Tcl_CreateCommand, 
-				TCL_LIBS="$TCL_LIBS -ltcl7.5 -lm $DL_LIB"
+				TCL_LIBS="$TCL_LIBS -ltcl7.5 -lm $DL_LIB $LIBS"
 				tcl_lib=yes,,-lm $DL_LIB)
 
 		fi
 		if test $tcl_lib = no ; then
 			AC_CHECK_LIB(tcl, Tcl_CreateCommand, 
-				TCL_LIBS="$TCL_LIBS -ltcl -lm $DL_LIB"
+				TCL_LIBS="$TCL_LIBS -ltcl -lm $DL_LIB $LIBS"
 				tcl_lib=yes,,-lm $DL_LIB)
 
 		fi
@@ -1155,6 +1162,8 @@ AC_SUBST(LIBLINKS)
 AC_SUBST(MAKE_SHLIB_COMMAND)
 AC_SUBST(SHLIB_EXPFLAGS)
 AC_SUBST(SHLIB_EXPORT_FILE_DEP)
+AC_SUBST(DYNOBJ_EXPDEPS)
+AC_SUBST(DYNOBJ_EXPFLAGS)
 AC_SUBST(INSTALL_SHLIB)
 AC_SUBST(STLIBEXT)
 AC_SUBST(SHLIBEXT)
@@ -1162,7 +1171,10 @@ AC_SUBST(SHLIBVEXT)
 AC_SUBST(SHLIBSEXT)
 AC_SUBST(DEPLIBEXT)
 AC_SUBST(PFLIBEXT)
-AC_SUBST(LIBINSTLIST)])
+AC_SUBST(LIBINSTLIST)
+AC_SUBST(DYNOBJEXT)
+AC_SUBST(MAKE_DYNOBJ_COMMAND)
+])
 
 dnl
 dnl KRB5_BUILD_LIBOBJS
@@ -1209,10 +1221,14 @@ AC_DEFUN(KRB5_LIB_AUX,
 [AC_REQUIRE([KRB5_LIB_PARAMS])dnl
 
 # Check whether to build static libraries.
-AC_ARG_ENABLE([static],
-AC_HELP_STRING([--enable-static],[build static libraries @<:@disabled for most platforms@:>@])
-AC_HELP_STRING([--disable-static],[don't build static libraries]), ,
+dnl AC_HELP_STRING([--enable-static],[build static libraries @<:@disabled for most platforms@:>@])
+dnl AC_HELP_STRING([--disable-static],[don't build static libraries])
+AC_ARG_ENABLE([static],, ,
 [enable_static=$default_static])
+
+if test "$enable_static" = yes; then
+  AC_MSG_ERROR([Sorry, static libraries do not work in this release.])
+fi
 
 if test "$enable_static" = no && test "$krb5_force_static" != yes; then
 	AC_MSG_NOTICE([disabling static libraries])
@@ -1225,13 +1241,19 @@ else
 	OBJLISTS=OBJS.ST
 	LIBINSTLIST=install-static
 	DEPLIBEXT=$STLIBEXT
+#	CFLAGS="$CFLAGS -D_KDB5_STATIC_LINK"
 fi
 
 # Check whether to build shared libraries.
 AC_ARG_ENABLE([shared],
-AC_HELP_STRING([--enable-shared],[build shared libraries @<:@enabled for most platforms@:>@])
-AC_HELP_STRING([--disable-shared],[don't build shared libraries]), ,
+dnl AC_HELP_STRING([--enable-shared],[build shared libraries @<:@enabled for most platforms@:>@])
+dnl AC_HELP_STRING([--disable-shared],[don't build shared libraries])
+, ,
 [enable_shared=$default_shared])
+
+if test "$enable_shared" != yes; then
+  AC_MSG_ERROR([Sorry, this release builds only shared libraries, cannot disable them.])
+fi
 
 if test "$enable_shared" = yes; then
 	case "$SHLIBEXT" in
@@ -1284,14 +1306,23 @@ else
 	SHLIBSEXT=.so.s-nobuild
 fi
 
+if test "$build_dynobj" = yes; then
+	OBJLISTS=`echo $OBJLISTS | sed -e s/OBJS.ST//g -e s/OBJS.SH//g`
+	OBJLISTS="$OBJLISTS OBJS.SH"
+fi
+
 if test -z "$LIBLIST"; then
 	AC_MSG_ERROR([must enable one of shared or static libraries])
 fi
 
 # Check whether to build profiled libraries.
 AC_ARG_ENABLE([profiled],
-[  --enable-profiled       build profiled libraries @<:@disabled@:>@],
+dnl [  --enable-profiled       build profiled libraries @<:@disabled@:>@]
+,
 [if test "$enableval" = yes; then
+  AC_MSG_ERROR([Sorry, profiled libraries do not work in this release.])
+fi
+if false; then
 	case $PFLIBEXT in
 	.po-nobuild)
 		AC_MSG_WARN([Profiled libraries not supported on this architecture.])
@@ -1378,8 +1409,9 @@ AC_DEFUN(AC_LIBRARY_NET, [
     # We assume that if libresolv exists we can link against it.
     # This may get us a gethostby* that doesn't respect nsswitch.
     AC_CHECK_LIB(resolv, main)
-_KRB5_AC_CHECK_RES_FUNCS(res_nsearch res_search ns_initparse dnl
-ns_name_uncompress dn_skipname res_ndestroy)
+
+_KRB5_AC_CHECK_RES_FUNCS(res_ninit res_nclose res_ndestroy res_nsearch dnl
+ns_initparse ns_name_uncompress dn_skipname res_search)
     if test $krb5_cv_func_res_nsearch = no \
       && test $krb5_cv_func_res_search = no; then
 	# Attempt to link with res_search(), in case it's not prototyped.
@@ -1468,8 +1500,8 @@ dnl =============================================================
 dnl Internal function for testing for getpeername prototype
 dnl
 AC_DEFUN([KRB5_GETPEERNAME_ARGS],[
-AC_DEFINE([GETPEERNAME_ARG2_TYPE],GETSOCKNAME_ARG2_TYPE)
-AC_DEFINE([GETPEERNAME_ARG3_TYPE],GETSOCKNAME_ARG3_TYPE)
+AC_DEFINE([GETPEERNAME_ARG2_TYPE],GETSOCKNAME_ARG2_TYPE,[Type of getpeername second argument.])
+AC_DEFINE([GETPEERNAME_ARG3_TYPE],GETSOCKNAME_ARG3_TYPE,[Type of getpeername second argument.])
 ])
 dnl
 dnl =============================================================
@@ -1487,11 +1519,7 @@ extern int getsockname(int, $1, $2);
     eval "krb5_cv_getsockname_proto_$krb5_lib_var=no")])
 if eval "test \"`echo '$krb5_cv_getsockname_proto_'$krb5_lib_var`\" = yes"; then
 	AC_MSG_RESULT(yes)
-	sock_set=yes
-	res1=`echo "$1" | tr -d '*' | sed -e 's/ *$//'`
-	res2=`echo "$2" | tr -d '*' | sed -e 's/ *$//'`
-	AC_DEFINE_UNQUOTED([GETSOCKNAME_ARG2_TYPE],$res1)
-	AC_DEFINE_UNQUOTED([GETSOCKNAME_ARG3_TYPE],$res2)
+	sock_set=yes; res1="$1"; res2="$2"
 else
 	AC_MSG_RESULT(no)
 fi
@@ -1512,11 +1540,13 @@ do
 done
 if test "$sock_set" = no; then
   AC_MSG_NOTICE(assuming struct sockaddr and socklen_t for getsockname args)
-  res1=`echo "struct sockaddr *" | tr -d '*' | sed -e 's/ *$//'`
-  AC_DEFINE_UNQUOTED([GETSOCKNAME_ARG2_TYPE],$res1)
-  res2=`echo "socklen_t *" | tr -d '*' | sed -e 's/ *$//'`
-  AC_DEFINE_UNQUOTED([GETSOCKNAME_ARG3_TYPE],$res2)
+  res1="struct sockaddr *"
+  res2="socklen_t *"
 fi
+res1=`echo "$res1" | tr -d '*' | sed -e 's/ *$//'`
+res2=`echo "$res2" | tr -d '*' | sed -e 's/ *$//'`
+AC_DEFINE_UNQUOTED([GETSOCKNAME_ARG2_TYPE],$res1,[Type of pointer target for argument 2 to getsockname])
+AC_DEFINE_UNQUOTED([GETSOCKNAME_ARG3_TYPE],$res2,[Type of pointer target for argument 3 to getsockname])
 ])
 dnl
 dnl
@@ -1550,7 +1580,7 @@ EOF
     AC_MSG_ERROR(execution failed)
   fi
   AC_TRY_COMPILE([#include "conf$$e.h"
-      		 ],[ et_foo_error_table; ],:,
+      		 ],[ &et_foo_error_table; ],:,
 		 [AC_MSG_ERROR(cannot use et_foo_error_table)])
   # Anything else we need to test for?
   rm -f conf$$e.et conf$$e.c conf$$e.h
@@ -1741,7 +1771,55 @@ m4_include(config/ac-archive/acx_pthread.m4)
 #
 AC_DEFUN([KRB5_AC_LIBUTIL],
 	[AC_CHECK_LIB(util, main,
-		[AC_DEFINE(HAVE_LIBUTIL)
+		[AC_DEFINE(HAVE_LIBUTIL,1,[Define if util library is available with openpty, logwtmp, etc])
   UTIL_LIB=-lutil])dnl
 AC_SUBST(UTIL_LIB)
 ])
+dnl
+dnl
+dnl
+dnl --with-ldap=value
+dnl
+AC_DEFUN(WITH_LDAP,[
+AC_ARG_WITH([ldap],
+[  --with-ldap             compile OpenLDAP database backend module],
+[case "$withval" in
+    OPENLDAP) with_ldap=yes ;;
+    yes | no) ;;
+    EDIRECTORY) AC_MSG_ERROR(Option --with-ldap=EDIRECTORY is deprecated; use --with-edirectory instead.) ;;
+    *)  AC_MSG_ERROR(Invalid option value --with-ldap="$withval") ;;
+esac], with_ldap=no)dnl
+AC_ARG_WITH([edirectory],
+[  --with-edirectory       compile eDirectory database backend module],
+[case "$withval" in
+    yes | no) ;;
+    *)  AC_MSG_ERROR(Invalid option value --with-edirectory="$withval") ;;
+esac], with_edirectory=no)dnl
+
+if test $with_ldap = yes; then
+  if test $with_edirectory = yes; then
+    AC_MSG_ERROR(Cannot enable both OpenLDAP and eDirectory backends; choose one.)
+  fi
+  AC_MSG_NOTICE(enabling OpenLDAP database backend module support)
+  OPENLDAP_PLUGIN=yes
+elif test $with_edirectory = yes; then
+  AC_MSG_NOTICE(enabling eDirectory database backend module support)
+  OPENLDAP_PLUGIN=yes
+  AC_DEFINE(HAVE_EDIRECTORY,1,[Define if LDAP KDB interface should assume eDirectory.])
+else
+  : # neither enabled
+dnl  AC_MSG_NOTICE(disabling ldap backend module support)
+fi
+AC_SUBST(OPENLDAP_PLUGIN)
+])dnl
+dnl
+dnl If libkeyutils exists (on Linux) include it and use keyring ccache
+AC_DEFUN(KRB5_AC_KEYRING_CCACHE,[
+  AC_CHECK_HEADERS([keyutils.h],
+    AC_CHECK_LIB(keyutils, add_key, 
+      [dnl Pre-reqs were found
+       AC_DEFINE(USE_KEYRING_CCACHE, 1, [Define if the keyring ccache should be enabled])
+       LIBS="-lkeyutils $LIBS"
+      ]))
+])dnl
+dnl

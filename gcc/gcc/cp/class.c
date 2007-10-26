@@ -287,13 +287,26 @@ build_base_path (enum tree_code code,
 
   offset = BINFO_OFFSET (binfo);
   fixed_type_p = resolves_to_fixed_type_p (expr, &nonnull);
+  /* APPLE LOCAL begin mainline 2006-01-22 4416452 */
+  /* Generate a NOP_EXPR instead of a COMPONENT_REF if the base and derived classes are at the same address */
+  target_type = code == PLUS_EXPR ? BINFO_TYPE (binfo) : BINFO_TYPE (d_binfo);
 
   /* Do we need to look in the vtable for the real offset?  */
   virtual_access = (v_binfo && fixed_type_p <= 0);
 
   /* Do we need to check for a null pointer?  */
-  if (want_pointer && !nonnull && (virtual_access || !integer_zerop (offset)))
+  if (want_pointer && !nonnull)
+    {
+      /* If we know the conversion will not actually change the value
+         of EXPR, then we can avoid testing the expression for NULL.
+         We have to avoid generating a COMPONENT_REF for a base class
+         field, because other parts of the compiler know that such
+         expressions are always non-NULL. Ê*/
+      if (!virtual_access && integer_zerop (offset))
+        return build_nop (build_pointer_type (target_type), expr);
     null_test = error_mark_node;
+    }
+  /* APPLE LOCAL end mainline 2006-01-22 4416452 */
 
   /* Protect against multiple evaluation if necessary.  */
   if (TREE_SIDE_EFFECTS (expr) && (null_test || virtual_access))
@@ -375,7 +388,9 @@ build_base_path (enum tree_code code,
 	offset = v_offset;
     }
 
-  target_type = code == PLUS_EXPR ? BINFO_TYPE (binfo) : BINFO_TYPE (d_binfo);
+  /* APPLE LOCAL begin mainline 2006-01-22 4416452 */
+  /* Generate a NOP_EXPR instead of a COMPONENT_REF if the base and derived classes are at the same address */
+  /* APPLE LOCAL end mainline 2006-01-22 4416452 */
   
   target_type = cp_build_qualified_type
     (target_type, cp_type_quals (TREE_TYPE (TREE_TYPE (expr))));
@@ -1017,9 +1032,11 @@ add_method (tree type, tree method)
       for (fns = current_fns; fns; fns = OVL_NEXT (fns))
 	{
 	  tree fn = OVL_CURRENT (fns);
+	  /* APPLE LOCAL begin mainline 2005-12-19 4407995 */
+	  tree fn_type;
+	  tree method_type;
 	  tree parms1;
 	  tree parms2;
-	  bool same = 1;
 
 	  if (TREE_CODE (fn) != TREE_CODE (method))
 	    continue;
@@ -1034,8 +1051,10 @@ add_method (tree type, tree method)
 	     functions in the derived class override and/or hide member
 	     functions with the same name and parameter types in a base
 	     class (rather than conflicting).  */
-	  parms1 = TYPE_ARG_TYPES (TREE_TYPE (fn));
-	  parms2 = TYPE_ARG_TYPES (TREE_TYPE (method));
+	  fn_type = TREE_TYPE (fn);
+	  method_type = TREE_TYPE (method);
+	  parms1 = TYPE_ARG_TYPES (fn_type);
+	  parms2 = TYPE_ARG_TYPES (method_type);
 
 	  /* Compare the quals on the 'this' parm.  Don't compare
 	     the whole types, as used functions are treated as
@@ -1044,23 +1063,26 @@ add_method (tree type, tree method)
 	      && ! DECL_STATIC_FUNCTION_P (method)
 	      && (TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms1)))
 		  != TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms2)))))
-	    same = 0;
+	    continue;
 	  
 	  /* For templates, the template parms must be identical.  */
 	  if (TREE_CODE (fn) == TEMPLATE_DECL
-	      && !comp_template_parms (DECL_TEMPLATE_PARMS (fn),
-				       DECL_TEMPLATE_PARMS (method)))
-	    same = 0;
+	      && (!same_type_p (TREE_TYPE (fn_type),
+				TREE_TYPE (method_type))
+                  || !comp_template_parms (DECL_TEMPLATE_PARMS (fn),
+                                           DECL_TEMPLATE_PARMS (method))))
+           continue;
 	  
 	  if (! DECL_STATIC_FUNCTION_P (fn))
 	    parms1 = TREE_CHAIN (parms1);
 	  if (! DECL_STATIC_FUNCTION_P (method))
 	    parms2 = TREE_CHAIN (parms2);
 
-	  if (same && compparms (parms1, parms2) 
+	  if (compparms (parms1, parms2)
 	      && (!DECL_CONV_FN_P (fn) 
-		  || same_type_p (TREE_TYPE (TREE_TYPE (fn)),
-				  TREE_TYPE (TREE_TYPE (method)))))
+		  || same_type_p (TREE_TYPE (fn_type),
+				  TREE_TYPE (method_type))))
+	  /* APPLE LOCAL end mainline 2005-12-19 4407995 */
 	    {
 	      if (using && DECL_CONTEXT (fn) == type)
 		/* Defer to the local function.  */
@@ -1474,8 +1496,8 @@ finish_struct_bits (tree t)
       TYPE_VFIELD (variants) = TYPE_VFIELD (t);
       TYPE_METHODS (variants) = TYPE_METHODS (t);
       TYPE_FIELDS (variants) = TYPE_FIELDS (t);
-      TYPE_SIZE (variants) = TYPE_SIZE (t);
-      TYPE_SIZE_UNIT (variants) = TYPE_SIZE_UNIT (t);
+      /* APPLE LOCAL begin mainline 4121962 */
+      /* APPLE LOCAL end mainline 4121962 */
     }
 
   if (BINFO_N_BASE_BINFOS (TYPE_BINFO (t)) && TYPE_POLYMORPHIC_P (t))
@@ -1781,7 +1803,7 @@ layout_vtable_decl (tree binfo, int n)
   /* Enlarge suggested vtable size by one entry; it will be filled
      with a zero word.  Darwin kernel dynamic-driver loader looks
      for this value to find vtable ends for patching.  */
-  if (flag_apple_kext)
+  if (TARGET_KEXTABI)
     n_entries += 1;
   /* APPLE LOCAL end KEXT terminated-vtables */
 
@@ -2869,13 +2891,19 @@ check_field_decls (tree t, tree *access_decls,
 
       if (TREE_CODE (x) == FIELD_DECL)
 	{
+	  /* APPLE LOCAL begin mainline 4121962 */
+          type = strip_array_types (type);
+	  /* APPLE LOCAL end mainline 4121962 */
+
 	  if (TYPE_PACKED (t))
 	    {
-	      if (!pod_type_p (TREE_TYPE (x)) && !TYPE_PACKED (TREE_TYPE (x)))
-		cp_warning_at
-		  ("ignoring packed attribute on unpacked non-POD field %q#D",
+	      /* APPLE LOCAL begin mainline 4121962 */
+	      if (!pod_type_p (type) && !TYPE_PACKED (type))
+		warning
+		   ("ignoring packed attribute on unpacked non-POD field %q+#D",
 		   x);
-	      else
+	      else if (TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT)
+	      /* APPLE LOCAL end mainline 4121962 */
 		DECL_PACKED (x) = 1;
 	    }
 
@@ -2885,17 +2913,18 @@ check_field_decls (tree t, tree *access_decls,
 	    ;
 	  else
 	    {
-	      tree element_type;
-
+	      /* APPLE LOCAL begin mainline 4121962 */
+	      /* APPLE LOCAL end mainline 4121962 */
 	      /* The class is non-empty.  */
 	      CLASSTYPE_EMPTY_P (t) = 0;
 	      /* The class is not even nearly empty.  */
 	      CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
 	      /* If one of the data members contains an empty class,
 		 so does T.  */
-	      element_type = strip_array_types (type);
-	      if (CLASS_TYPE_P (element_type) 
-		  && CLASSTYPE_CONTAINS_EMPTY_CLASS_P (element_type))
+	      /* APPLE LOCAL begin mainline 4121962 */
+	      if (CLASS_TYPE_P (type) 
+		  && CLASSTYPE_CONTAINS_EMPTY_CLASS_P (type))
+	      /* APPLE LOCAL end mainline 4121962 */
 		CLASSTYPE_CONTAINS_EMPTY_CLASS_P (t) = 1;
 	    }
 	}
@@ -3906,7 +3935,7 @@ clone_function_decl (tree fn, int update_method_vec_p)
 
       /* APPLE LOCAL begin KEXT double destructor */
       /* Don't use the complete dtor.  */
-      if (! flag_apple_kext
+      if (! TARGET_KEXTABI
 	  || ! has_apple_kext_compatibility_attr_p (DECL_CONTEXT (fn)))
 	{
 	  clone = build_clone (fn, complete_dtor_identifier);
@@ -4648,6 +4677,10 @@ layout_class_type (tree t, tree *virtuals_p)
 	    }
 	  continue;
 	}
+      /* APPLE LOCAL begin radar 4592503 */
+      if (c_dialect_objc ())
+        objc_checkon_weak_attribute (field);
+      /* APPLE LOCAL end radar 4592503 */
 
       type = TREE_TYPE (field);
       
@@ -7171,7 +7204,7 @@ dfs_accumulate_vtbl_inits (tree binfo,
       /* APPLE LOCAL begin KEXT double destructor */
 #ifdef VPTR_INITIALIZER_ADJUSTMENT
       /* Subtract VPTR_INITIALIZER_ADJUSTMENT from INDEX.  */
-      if (flag_apple_kext && !ctor_vtbl_p && ! BINFO_PRIMARY_P (binfo)
+      if (TARGET_KEXTABI && !ctor_vtbl_p && ! BINFO_PRIMARY_P (binfo)
 	  && TREE_CODE (index) == INTEGER_CST
 	  && TREE_INT_CST_LOW (index) >= VPTR_INITIALIZER_ADJUSTMENT
 	  && TREE_INT_CST_HIGH (index) == 0)

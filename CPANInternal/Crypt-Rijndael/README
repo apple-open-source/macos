@@ -1,0 +1,46 @@
+This is Crypt::Rijndael version 0.05, an XS-based implementation of
+the newly-selected Advanced Encryption Standard algorithm Rijndael,
+designed by Joan Daemen and Vincent Rijmen.
+
+Installing Crypt::Rijndael
+--------------------------
+
+The usual:
+
+	1. perl Makefile.PL
+	2. make
+	3. make test
+	4. make install
+
+Notes
+-----
+
+This module has been tested successfully on:
+
+Linux 2.2.x (x86)
+Linux 2.4.x (x86)
+Win95/VC++ (x86)
+Linux/PPC
+Solaris/Sparc
+
+Perl 5.005_03, 5.004_02, 5.6.0
+
+Kindly report any other successful platform/architecture successes.
+
+Tests from the draft FIPS for AES Modes of Operation (as of July
+2001) have also been added.
+
+Thanks to Mike Blazer <blazer@mail.nevalink.ru> for fixes involving
+Win32 and older Perl version compatibility.
+
+For more information on Rijndael, see NIST's page on the Advanced
+Encryption Standard:
+
+http://csrc.nist.gov/encryption/aes/
+
+or the original Rijndael page at
+
+http://www.esat.kuleuven.ac.be/~rijmen/rijndael/
+
+Rafael R. Sevilla - Inter.Net Philippines
+<sevillar@team.ph.inter.net>

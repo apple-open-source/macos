@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 #include	<ast.h>
@@ -94,7 +90,7 @@ static const char sh_lexstate1[256] =
 	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,
 	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,
 
-	S_BREAK,S_EPAT,	S_QUOTE,S_REG,	S_DOL,	S_REG,	S_BREAK,S_LIT,
+	S_BREAK,S_EPAT,	S_QUOTE,S_REG,	S_DOL,	S_EPAT,	S_BREAK,S_LIT,
 	S_BREAK,S_BREAK,S_PAT,	S_EPAT,	S_REG,	S_EPAT,	S_DOT,	S_REG,
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	S_LABEL,S_BREAK,S_BREAK,S_EQ,	S_BREAK,S_PAT,
@@ -138,7 +134,7 @@ static const char sh_lexstate2[256] =
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
 
-	S_BREAK,S_EPAT,	S_QUOTE,0,	S_DOL,	0,	S_BREAK,S_LIT,
+	S_BREAK,S_EPAT,	S_QUOTE,0,	S_DOL,	S_EPAT,	S_BREAK,S_LIT,
 	S_BREAK,S_BREAK,S_PAT,	S_EPAT,	0,	S_EPAT,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	S_COLON,S_BREAK,S_BREAK,0,	S_BREAK,S_PAT,
@@ -204,10 +200,10 @@ static const char sh_lexstate4[256] =
 static const char sh_lexstate5[256] =
 {
 	S_EOF,	0,	0,	0,	0,	0,	0,	0,
-	0,	0,	S_NL,	0,	0,	0,	0,	0,
+	0,	S_BLNK,	S_NL,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
-	0,	0,	S_QUOTE,0,	S_DOL,	0,	S_META,	S_LIT,
+	S_BLNK,	0,	S_QUOTE,0,	S_DOL,	0,	S_META,	S_LIT,
 	S_PUSH,	S_POP,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	S_POP,	S_META,	0,	S_META,	0,
@@ -232,15 +228,15 @@ static const char sh_lexstate6[256] =
 	S_ERR,	S_ERR,	S_ERR,	S_ERR,	S_ERR,	S_ERR,	S_ERR,	S_ERR,
 
 	S_ERR,	S_SPC1,	S_ERR,	S_SPC1,	S_SPC2,	S_ERR,	S_ERR,	S_LIT,
-#if SHOPT_OO
-	S_PAR,	S_ERR,	S_SPC2,	S_ERR,	S_ERR,	S_SPC1,	S_ALP,	S_ERR,
-#else
 	S_PAR,	S_ERR,	S_SPC2,	S_ERR,	S_ERR,	S_SPC2,	S_ALP,	S_ERR,
-#endif /* SHOPT_OO */
 	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,
 	S_DIG,	S_DIG,	S_ERR,	S_ERR,	S_ERR,	S_ERR,	S_ERR,	S_SPC2,
 
+#if SHOPT_TYPEDEF
+	S_SPC1,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,
+#else
 	S_SPC2,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,
+#endif
 	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,
 	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,	S_ALP,
 	S_ALP,	S_ALP,	S_ALP,	S_ERR,	S_ERR,	S_ERR,	S_ERR,	S_ALP,
@@ -364,7 +360,7 @@ static const char sh_lexstate9[256] =
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	S_QUOTE,0,	S_DOL,	0,	S_PAT,	S_LIT,
-	S_PAT,	S_PAT,	S_PAT,	0,	0,	0,	0,	S_SLASH,
+	S_PAT,	S_PAT,	S_PAT,	0,	S_COM,	0,	0,	S_SLASH,
 	0,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,
 	S_DIG,	S_DIG,	S_COLON,0,	0,	S_EQ,	0,	S_PAT,
 	0,	0,	0,	0,	0,	0,	0,	0,

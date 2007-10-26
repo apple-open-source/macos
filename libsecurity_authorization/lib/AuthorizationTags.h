@@ -33,7 +33,6 @@
 
 /*!
 	@header AuthorizationTags
-	Draft version 2 01/23/2001
 
 	This header defines some of the supported rights tags to be used in the Authorization API.
 */

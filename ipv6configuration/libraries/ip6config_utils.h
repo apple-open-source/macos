@@ -87,8 +87,6 @@ int		inet6_routing_socket();
 int		cfstring_to_numeric(int family, CFStringRef str, void * addr);
 void		prefixLen2mask(struct in6_addr * mask, int len);
 int		prefixmask2len(struct in6_addr * mask, u_char * lim0);
-void		network_addr(struct in6_addr * addr, struct in6_addr * prefixmask,
-			struct in6_addr * netaddr);
 int		ifflags_set(int s, char * name, short flags);
 int		get_llocal_if_addr_flags(const char * name, short * flags);
 int		inet6_difaddr(int s, char * name, const struct in6_addr * addr);

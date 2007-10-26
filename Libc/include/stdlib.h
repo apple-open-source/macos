@@ -58,13 +58,14 @@
 #ifndef _STDLIB_H_
 #define _STDLIB_H_
 
-#include <sys/cdefs.h>
+#include <available.h>
+
 #include <_types.h>
 #if !defined(_ANSI_SOURCE)
 #include <sys/wait.h>
-#if !defined(_POSIX_C_SOURCE)
+#if (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 #include <alloca.h>
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 #endif /* !_ANSI_SOURCE */
 
 #ifndef	_SIZE_T
@@ -74,7 +75,7 @@
 typedef	__darwin_size_t		size_t;
 #endif
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 #ifndef _CT_RUNE_T
 #define _CT_RUNE_T
 typedef	__darwin_ct_rune_t	ct_rune_t;
@@ -84,7 +85,7 @@ typedef	__darwin_ct_rune_t	ct_rune_t;
 #define _RUNE_T
 typedef __darwin_rune_t   	rune_t;
 #endif
-#endif
+#endif	/* !_ANSI_SOURCE && (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 #ifndef	__cplusplus
 #ifndef	_WCHAR_T
@@ -135,7 +136,7 @@ extern int __mb_cur_max;
 #endif /* _USE_EXTENDED_LOCALES_ */
 #endif /* MB_CUR_MAX */
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE) \
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)) \
     && defined(_USE_EXTENDED_LOCALES_) && !defined(MB_CUR_MAX_L)
 #define	MB_CUR_MAX_L(x)	(___mb_cur_max_l(x))
 #endif
@@ -174,8 +175,8 @@ void	 qsort(void *, size_t, size_t,
 int	 rand(void);
 void	*realloc(void *, size_t);
 void	 srand(unsigned);
-double	 strtod(const char *, char **);
-float	 strtof(const char *, char **);
+double	 strtod(const char *, char **) __DARWIN_ALIAS(strtod);
+float	 strtof(const char *, char **) __DARWIN_ALIAS(strtof);
 long	 strtol(const char *, char **, int);
 long double
 	 strtold(const char *, char **) __DARWIN_LDBL_COMPAT(strtold);
@@ -189,7 +190,15 @@ unsigned long
 unsigned long long
 	 strtoull(const char *, char **, int);
 #endif /* !__DARWIN_NO_LONG_LONG */
-int	 system(const char *);
+//Begin-Libc
+#ifndef LIBC_ALIAS_SYSTEM
+//End-Libc
+int	 system(const char *) __DARWIN_ALIAS_C(system);
+//Begin-Libc
+#else /* LIBC_ALIAS_SYSTEM */
+int	 system(const char *) LIBC_ALIAS_C(system);
+#endif /* !LIBC_ALIAS_SYSTEM */
+//End-Libc
 size_t	 wcstombs(char * __restrict, const wchar_t * __restrict, size_t);
 int	 wctomb(char *, wchar_t);
 
@@ -218,14 +227,59 @@ long	 mrand48(void);
 long	 nrand48(unsigned short[3]);
 int	 posix_openpt(int);
 char	*ptsname(int);
+//Begin-Libc
+#ifndef LIBC_ALIAS_PUTENV
+//End-Libc
 int	 putenv(char *) __DARWIN_ALIAS(putenv);
+//Begin-Libc
+#else /* LIBC_ALIAS_PUTENV */
+int	 putenv(char *) LIBC_ALIAS(putenv);
+#endif /* !LIBC_ALIAS_PUTENV */
+//End-Libc
 long	 random(void);
-char	*realpath(const char *, char *resolved_path);
+int	 rand_r(unsigned *);
+//Begin-Libc
+#ifdef __LIBC__
+#ifndef LIBC_ALIAS_REALPATH
+char	*realpath(const char * __restrict, char * __restrict) __DARWIN_EXTSN(realpath);
+#else /* LIBC_ALIAS_REALPATH */
+#ifdef VARIANT_DARWINEXTSN
+char	*realpath(const char * __restrict, char * __restrict) LIBC_EXTSN(realpath);
+#else /* !VARIANT_DARWINEXTSN */
+char	*realpath(const char * __restrict, char * __restrict) LIBC_ALIAS(realpath);
+#endif /* VARIANT_DARWINEXTSN */
+#endif /* !LIBC_ALIAS_REALPATH */
+#else /* !__LIBC__ */
+//End-Libc
+#if (__DARWIN_UNIX03 && !defined(_POSIX_C_SOURCE)) || defined(_DARWIN_C_SOURCE) || defined(_DARWIN_BETTER_REALPATH)
+char	*realpath(const char * __restrict, char * __restrict) __DARWIN_EXTSN(realpath);
+#else /* (!__DARWIN_UNIX03 || _POSIX_C_SOURCE) && !_DARWIN_C_SOURCE && !_DARWIN_BETTER_REALPATH */
+char	*realpath(const char * __restrict, char * __restrict) __DARWIN_ALIAS(realpath);
+#endif /* (__DARWIN_UNIX03 && _POSIX_C_SOURCE) || _DARWIN_C_SOURCE || _DARWIN_BETTER_REALPATH */
+//Begin-Libc
+#endif /* __LIBC__ */
+//End-Libc
 unsigned short
 	*seed48(unsigned short[3]);
+//Begin-Libc
+#ifndef LIBC_ALIAS_SETENV
+//End-Libc
 int	 setenv(const char *, const char *, int) __DARWIN_ALIAS(setenv);
+//Begin-Libc
+#else /* LIBC_ALIAS_SETENV */
+int	 setenv(const char *, const char *, int) LIBC_ALIAS(setenv);
+#endif /* !LIBC_ALIAS_SETENV */
+//End-Libc
 #if __DARWIN_UNIX03
+//Begin-Libc
+#ifndef LIBC_ALIAS_SETKEY
+//End-Libc
 void	 setkey(const char *) __DARWIN_ALIAS(setkey);
+//Begin-Libc
+#else /* LIBC_ALIAS_SETKEY */
+void	 setkey(const char *) LIBC_ALIAS(setkey);
+#endif /* !LIBC_ALIAS_SETKEY */
+//End-Libc
 #else /* !__DARWIN_UNIX03 */
 int	 setkey(const char *);
 #endif /* __DARWIN_UNIX03 */
@@ -238,13 +292,21 @@ void	 srandom(unsigned long);
 #endif /* __DARWIN_UNIX03 */
 int	 unlockpt(int);
 #if __DARWIN_UNIX03
+//Begin-Libc
+#ifndef LIBC_ALIAS_UNSETENV
+//End-Libc
 int	 unsetenv(const char *) __DARWIN_ALIAS(unsetenv);
+//Begin-Libc
+#else /* LIBC_ALIAS_UNSETENV */
+int	 unsetenv(const char *) LIBC_ALIAS(unsetenv);
+#endif /* !LIBC_ALIAS_UNSETENV */
+//End-Libc
 #else /* !__DARWIN_UNIX03 */
 void	 unsetenv(const char *);
 #endif /* __DARWIN_UNIX03 */
-#endif
+#endif	/* !_ANSI_SOURCE */
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 #include <machine/types.h>
 
 #ifndef _DEV_T
@@ -274,7 +336,7 @@ int	 cgetset(const char *);
 int	 cgetstr(char *, const char *, char **);
 int	 cgetustr(char *, const char *, char **);
 
-int	 daemon(int, int);
+int	 daemon(int, int) __DARWIN_1050(daemon) __AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 char	*devname(dev_t, mode_t);
 char	*devname_r(dev_t, mode_t, char *buf, int len);
 char	*getbsize(int *, long *);
@@ -295,7 +357,6 @@ int	 sradixsort(const unsigned char **, int, const unsigned char *,
 	    unsigned);
 void	 sranddev(void);
 void	 srandomdev(void);
-int	 rand_r(unsigned *);
 void	*reallocf(void *, size_t);
 #if !__DARWIN_NO_LONG_LONG
 long long
@@ -305,6 +366,11 @@ unsigned long long
 #endif /* !__DARWIN_NO_LONG_LONG */
 extern char *suboptarg;		/* getsubopt(3) external variable */
 void	*valloc(size_t);
+#endif	/* !_ANSI_SOURCE && !_POSIX_SOURCE */
+
+/* Poison the following routines if -fshort-wchar is set */
+#if !defined(__cplusplus) && defined(__WCHAR_MAX__) && __WCHAR_MAX__ <= 0xffffU
+#pragma GCC poison mbstowcs mbtowc wcstombs wctomb
 #endif
 __END_DECLS
 

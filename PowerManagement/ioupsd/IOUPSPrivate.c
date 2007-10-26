@@ -40,7 +40,7 @@
 #include <IOKit/ps/IOPSKeys.h>
 
 #include "IOUPSPrivate.h"
-#include "ioupsplugin.h"
+#include "IOUPSPlugIn.h"
 
 Boolean IOUPSMIGServerIsRunning(mach_port_t * bootstrap_port_ref, mach_port_t * upsd_port_ref)
 {
@@ -49,7 +49,7 @@ Boolean IOUPSMIGServerIsRunning(mach_port_t * bootstrap_port_ref, mach_port_t * 
     kern_return_t kern_result = KERN_SUCCESS;
     mach_port_t   bootstrap_port;
 
-    if (bootstrap_port_ref && (*bootstrap_port_ref != PORT_NULL)) {
+    if (bootstrap_port_ref && (*bootstrap_port_ref != MACH_PORT_NULL)) {
         bootstrap_port = *bootstrap_port_ref;
     } else {
         /* Get the bootstrap server port */
@@ -112,9 +112,9 @@ IOReturn IOUPSSendCommand(mach_port_t connect, int upsID, CFDictionaryRef comman
 
 IOReturn IOUPSGetEvent(mach_port_t connect, int upsID, CFDictionaryRef *event)
 {
-    IOReturn 		ret;
-    void *		buffer = NULL;
-    IOByteCount		bufferSize;
+    IOReturn        ret;
+    void *          buffer = NULL;
+    IOByteCount     bufferSize;
 
     if (!connect || !event)
         return kIOReturnBadArgument;
@@ -126,7 +126,7 @@ IOReturn IOUPSGetEvent(mach_port_t connect, int upsID, CFDictionaryRef *event)
 
     *event = IOCFUnserialize(buffer, kCFAllocatorDefault, kNilOptions, NULL);
 
-    vm_deallocate(mach_task_self(), buffer, bufferSize);
+    vm_deallocate(mach_task_self(), (vm_address_t)buffer, bufferSize);
     
     return ret;
 }
@@ -147,7 +147,7 @@ IOReturn IOUPSGetCapabilities(mach_port_t connect, int upsID, CFSetRef *capabili
 
     *capabilities = IOCFUnserialize(buffer, kCFAllocatorDefault, kNilOptions, NULL);
 
-    vm_deallocate(mach_task_self(), buffer, bufferSize);
+    vm_deallocate(mach_task_self(), (vm_address_t)buffer, bufferSize);
 
     return ret;
 }

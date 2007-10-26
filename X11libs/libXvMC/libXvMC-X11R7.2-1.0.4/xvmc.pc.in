@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: XvMC
+Description: The XvMC Library
+Version: @PACKAGE_VERSION@
+Requires: xproto videoproto xv
+Requires.private: x11 xext xv
+Cflags: -I${includedir}
+Libs: -L${libdir} -lXvMC

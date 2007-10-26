@@ -1,7 +1,7 @@
 /*
  * %W% %E%
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
  *
  */
 
@@ -136,7 +136,7 @@ private:
     static const char fgClassID;
 };
 
-inline const void *ScriptCompositeFontInstance::getFontTable(LETag tableTag) const
+inline const void *ScriptCompositeFontInstance::getFontTable(LETag /*tableTag*/) const
 {
     return NULL;
 }

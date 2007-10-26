@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -116,7 +116,7 @@ static int sapi_tux_send_headers(sapi_headers_struct *sapi_headers)
 	status_line = malloc(30);
 	
 	/* safe sprintf use */
-	len = sprintf(status_line, "HTTP/1.1 %d NA\r\n", SG(sapi_headers).http_response_code);
+	len = slprintf(status_line, 30, "HTTP/1.1 %d NA\r\n", SG(sapi_headers).http_response_code);
 	
 	vec[0].iov_base = status_line;
 	vec[0].iov_len = len;
@@ -195,7 +195,7 @@ static void sapi_tux_register_variables(zval *track_vars_array TSRMLS_DC)
 	sapi_header_line ctr = {0};
 	
 	ctr.line = buf;
-	ctr.line_len = sprintf(buf, "Server: %s", TUXAPI_version);
+	ctr.line_len = slprintf(buf, sizeof(buf), "Server: %s", TUXAPI_version);
 	sapi_header_op(SAPI_HEADER_REPLACE, &ctr TSRMLS_CC);
 	
 	php_register_variable("PHP_SELF", SG(request_info).request_uri, track_vars_array TSRMLS_CC);
@@ -215,7 +215,7 @@ static void sapi_tux_register_variables(zval *track_vars_array TSRMLS_DC)
 		ADD_STRING("REMOTE_HOST");
 	}
 
-	sprintf(buf, "%d", CGI_SERVER_PORT(TG(req)));
+	snprintf(buf, sizeof(buf), "%d", CGI_SERVER_PORT(TG(req)));
 	ADD_STRING("SERVER_PORT");
 
 #if 0
@@ -241,7 +241,7 @@ static void sapi_tux_register_variables(zval *track_vars_array TSRMLS_DC)
 
 #if 0
 	if (TG(hc)->contentlength != -1) {
-		sprintf(buf, "%ld", (long) TG(hc)->contentlength);
+		snprintf(buf, sizeof(buf), "%ld", (long) TG(hc)->contentlength);
 		ADD_STRING("CONTENT_LENGTH");
 	}
 #endif
@@ -287,16 +287,14 @@ static sapi_module_struct tux_sapi_module = {
 
 	sapi_tux_register_variables,
 	NULL,									/* Log message */
-
-	NULL,									/* Block interruptions */
-	NULL,									/* Unblock interruptions */
+	NULL,									/* Get request time */
 
 	STANDARD_SAPI_MODULE_PROPERTIES
 };
 
 static void tux_module_main(TSRMLS_D)
 {
-	zend_file_handle file_handle = {0};
+	zend_file_handle file_handle;
 
 	file_handle.type = ZEND_HANDLE_FILENAME;
 	file_handle.filename = SG(request_info).path_translated;
@@ -338,6 +336,8 @@ static void tux_request_ctor(TSRMLS_D)
 	smart_str_0(&s);
 	SG(request_info).request_uri = s.c;
 	SG(request_info).request_method = CGI_REQUEST_METHOD(TG(req));
+	if(TG(req)->http_version == HTTP_1_1) SG(request_info).proto_num = 1001;
+	else SG(request_info).proto_num = 1000;
 	SG(sapi_headers).http_response_code = 200;
 	SG(request_info).content_type = TG(req)->content_type;
 	SG(request_info).content_length = 0; /* TG(req)->contentlength; */

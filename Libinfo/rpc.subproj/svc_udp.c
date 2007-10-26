@@ -129,7 +129,7 @@ svcudp_bufcreate(sock, sendsz, recvsz)
 	register SVCXPRT *xprt;
 	register struct svcudp_data *su;
 	struct sockaddr_in addr;
-	int len = sizeof(struct sockaddr_in);
+	unsigned int len = sizeof(struct sockaddr_in);
 
 	if (sock == RPC_ANYSOCK) {
 		if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
@@ -209,8 +209,7 @@ svcudp_recv(xprt, msg)
 
     again:
 	xprt->xp_addrlen = sizeof(struct sockaddr_in);
-	rlen = recvfrom(xprt->xp_sock, rpc_buffer(xprt), (int) su->su_iosz,
-	    0, (struct sockaddr *)&(xprt->xp_raddr), &(xprt->xp_addrlen));
+	rlen = recvfrom(xprt->xp_sock, rpc_buffer(xprt), (int) su->su_iosz, 0, (struct sockaddr *)&(xprt->xp_raddr), (unsigned int *)&(xprt->xp_addrlen));
 	if (rlen == -1 && errno == EINTR)
 		goto again;
 	if (rlen < 4*sizeof(u_long))

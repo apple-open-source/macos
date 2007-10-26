@@ -40,6 +40,11 @@
 
 @class DSoUser, DSoGroup;
 
+#define DS_API_IS_UNSUPPORTED(err)  (err == eNotHandledByThisNode \
+                                     || err == eNotYetImplemented \
+                                     || err == eNoLongerSupported \
+                                     || err == eUnknownAPICall) 
+
 @implementation DSoRecord
 
 // ----------------------------------------------------------------------------
@@ -155,6 +160,11 @@
 - (NSDictionary*)getAllAttributesAndValues
 {
     return [self _getAllAttributesIncludeValues:YES];
+}
+
+- (NSDictionary*)getAttributes:(NSArray*)inAttributes
+{
+    return [self _getAttributes:inAttributes includeValues:YES];
 }
 
 - (NSString*)getAttribute:(const char*)inAttributeType
@@ -293,17 +303,18 @@
         attrValuesList = [[DSoDataList alloc] initWithDir: mDirectory values: inAttributeValues];
         err = dsSetAttributeValues (mRecRef, attrTypeNodePtr, [attrValuesList dsDataList]);
         [attrValuesList release];
-        if (err == eNotHandledByThisNode || err == eNotYetImplemented
-            || err == eNoLongerSupported) 
+        if (DS_API_IS_UNSUPPORTED(err)) 
         {
             // not supported by this node, fall back to the old approach
             [mParent setSupportsSetAttributeValues:NO];
         }
-        else
-        { 
+        else if (err != eDSEmptyDataList)
+        {
             [attrType release];
             if (err)
                 [DSoException raiseWithStatus:err];
+            
+            dsFlushRecord( mRecRef );
             return;
         }
     }
@@ -414,6 +425,8 @@
         }
     }
     
+    dsFlushRecord( mRecRef );
+    
     [attrType release];
 }
 
@@ -452,6 +465,8 @@
             }
 		}
     }
+
+    dsFlushRecord( mRecRef );
 
     [attrType release];
 }
@@ -507,6 +522,8 @@
 	dsDeallocAttributeValueEntry (dirRef, newValue) ;
     if (err)
         [DSoException raiseWithStatus:err];
+    
+    dsFlushRecord( mRecRef );
 }
 
 - (void)changeAttribute:(const char*)inAttributeType index:(unsigned int)inIndex newValue:(id)inNewAttrValue
@@ -554,9 +571,12 @@
 	err = dsSetAttributeValue (mRecRef, [attrType dsDataNode], newValue);
     [attrType release];
     
+	dsDeallocAttributeValueEntry (dirRef, newValue) ;
+
     if (err)
         [DSoException raiseWithStatus:err];
-	dsDeallocAttributeValueEntry (dirRef, newValue) ;
+    
+    dsFlushRecord( mRecRef );
 }
 
 /*******************
@@ -599,6 +619,7 @@
     [attrType release];
     if (nError)
         [DSoException raiseWithStatus:nError];
+    dsFlushRecord( mRecRef );
 }
 
 - (void)removeAttribute:(const char*)inAttributeType value:(id)inAttributeValue
@@ -637,6 +658,7 @@
     [attrType release];
     if (nError)
         [DSoException raiseWithStatus:nError];
+    dsFlushRecord( mRecRef );
 }
 
 - (void)removeAttribute:(const char*)inAttributeType index:(unsigned int)inIndex
@@ -660,6 +682,7 @@
     [attrType release];
     if (nError)
         [DSoException raiseWithStatus:nError];
+    dsFlushRecord( mRecRef );
 }
 
 - (void)removeRecord
@@ -691,7 +714,7 @@
     return self;
 }
 
-- initInNode:(DSoNode*)inParent type:(const char*)inType name:(NSString*)inName create:(BOOL)inShouldCreate
+- (DSoRecord*)initInNode:(DSoNode*)inParent type:(const char*)inType name:(NSString*)inName create:(BOOL)inShouldCreate
 {
     tDirStatus nError;
 
@@ -740,21 +763,24 @@
  */
 - (id)_getAllAttributesIncludeValues:(BOOL)inIncludeVals
 {
-    tContextData 		localcontext	= NULL;
+    return [self _getAttributes:[NSArray arrayWithObject:@kDSAttributesAll] includeValues:inIncludeVals];
+}
+
+- (id)_getAttributes:(NSArray*)inAttributes includeValues:(BOOL)inIncludeVals
+{
+    tContextData 		localcontext	= 0;
     tRecordEntryPtr		pRecEntry		= nil;
     tAttributeListRef	attrListRef		= 0;
     DSoBuffer		   *recordBuf		= nil;
     DSoDataList		   *recName			= [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory string:mName];
     DSoDataList		   *recType			= [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory string:mType];
-    DSoDataList		   *attrType		= [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory cString:kDSAttributesAll];
+    DSoDataList		   *attrType		= [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory values:inAttributes];
     id					userAttributes  = nil;
     tDirStatus 			err				= eDSNoErr;
-    unsigned long		returnCount		= 0;
-	unsigned long		bufferIncrement = 4096;
-	unsigned long		bufferSize		= 4096;
+    UInt32              returnCount		= 0;
 
-
-    recordBuf = [[DSoBuffer alloc] initWithDir:mDirectory bufferSize:bufferSize];
+    // default to an 8k buffer initially, the inline DS buffer is 16k so plenty of room
+    recordBuf = [[DSoBuffer alloc] initWithDir:mDirectory bufferSize:8192];
 
     do {
         err = dsGetRecordList([mParent dsNodeReference], [recordBuf dsDataBuffer], [recName dsDataList], eDSExact, [recType dsDataList], [attrType dsDataList], !inIncludeVals, &returnCount, &localcontext);
@@ -786,12 +812,11 @@
         }
         else if (err == eDSBufferTooSmall)
         {
-            bufferSize += bufferIncrement;
-            [recordBuf grow:bufferSize];
+            [recordBuf grow:2 * [recordBuf getBufferSize]];
         }
-    } while (err == eDSBufferTooSmall || (err == eDSNoErr && returnCount == 0 && localcontext != nil));
+    } while (err == eDSBufferTooSmall || (err == eDSNoErr && returnCount == 0 && localcontext != 0));
     
-    if (localcontext != nil)
+    if (localcontext != 0)
         dsReleaseContinueData([mParent dsNodeReference], localcontext);
     
     [recordBuf release];

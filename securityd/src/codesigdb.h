@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,8 +28,10 @@
 #ifndef _H_CODESIGDB
 #define _H_CODESIGDB
 
+#include "acls.h"
 #include <security_cdsa_utilities/db++.h>
-#include <security_cdsa_client/osxsigner.h>
+#include <security_cdsa_utilities/osxverifier.h>
+#include <Security/CodeSigning.h>
 
 
 class Process;
@@ -64,7 +66,7 @@ public:
 		IFDUMP(void debugDump(const char *how = NULL) const);
 		
 		virtual std::string getPath() const = 0;
-		virtual const CssmData getHash(CodeSigning::OSXSigner &signer) const = 0;
+		virtual const CssmData getHash() const = 0;
 	
 	private:
 		enum { untried, valid, invalid } mState;
@@ -81,7 +83,6 @@ public:
 	bool find(Identity &id, uid_t user);
 	
 	void makeLink(Identity &id, const std::string &ident, bool forUser = false, uid_t user = 0);
-	void makeApplication(const std::string &name, const std::string &path);
 
 	void addLink(const CssmData &oldHash, const CssmData &newHash,
 		const char *name, bool forSystem);
@@ -90,12 +91,15 @@ public:
 	IFDUMP(void debugDump(const char *how = NULL) const);
 	
 public:
-	bool verify(Process &process,
-		const CodeSigning::Signature *trustedSignature, const CssmData *comment);
+	bool verify(Process &process, const OSXVerifier &verifier, const AclValidationContext &context);
+	
+private:
+	OSStatus matchSignedClientToLegacyACL(Process &process, SecCodeRef code,
+		const OSXVerifier &verifier, const AclValidationContext &context);
+	bool verifyLegacy(Process &process, const CssmData &signature, string path);
 	
 private:
 	UnixPlusPlus::UnixDb mDb;
-	CodeSigning::OSXSigner mSigner;
 
 	// lock hierarchy: mUILock first, then mDatabaseLock, no back-off
 	Mutex mDatabaseLock;			// controls mDb access

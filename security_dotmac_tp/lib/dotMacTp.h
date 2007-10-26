@@ -47,12 +47,18 @@ extern "C" {
 /* By default, sign requests go to http://certmgmt.mac.com/sign */
 #define DOT_MAC_SIGN_SCHEMA				"http://"
 #define DOT_MAC_SIGN_HOST_NAME			"certmgmt.mac.com"		/* default server */
-#define DOT_MAC_SIGN_PATH				"/sign"
+#define DOT_MAC_SIGN_PATH				"/signing"
 
 /* By default, archive requests go to http://certmgmt.mac.com/archive */
 #define DOT_MAC_ARCHIVE_SCHEMA			"http://"
 #define DOT_MAC_ARCHIVE_HOST_NAME		"certmgmt.mac.com"		/* default server */
 #define DOT_MAC_ARCHIVE_PATH			"/archive"
+
+/* Certificate Type Tags, as seen in the XMLRPC interface */
+#define DOT_MAC_CERT_TYPE_ICHAT				"iChat"
+#define DOT_MAC_CERT_TYPE_SHARED_SERVICES	"dmSharedServices"
+#define DOT_MAC_CERT_TYPE_EMAIL_SIGNING		"dmEmailSigning"
+#define DOT_MAC_CERT_TYPE_EMAIL_ENCRYPT		"dmEmailEncryption"
 
 /* 
  * lookup requests go to http://certinfo.mac.com/ 
@@ -60,20 +66,34 @@ extern "C" {
  * alternate lookup host
  */
 #define DOT_MAC_LOOKUP_SCHEMA			"http://"
-#ifdef	NDEBUG
 #define DOT_MAC_LOOKUP_HOST				"certinfo.mac.com"
-#else
-#define DOT_MAC_LOOKUP_HOST				"certinfo.mac.com"
-#endif
 
-/* the path to use when fetching all of a user's certs */
-#define DOT_MAC_LOOKUP_PATH				"/lookup?"			/* followed by user name */
-
-/* paths for per-cert-type lookups (all followed name) */
-
-#define DOT_MAC_LOOKUP_ID_PATH			"/lookup/ichat?"
+/* 
+ * Paths for per-cert-type lookups.
+ * These are for backwards compatibility, not used in Treadstone.
+ */
+#define DOT_MAC_LOOKUP_ID_PATH			"/locate?ichat?"
 #define DOT_MAC_LOOKUP_SIGN_PATH		"/lookup/email?"
 #define DOT_MAC_LOOKUP_ENCRYPT_PATH		"/lookup/emailencrypt?"
+
+/*
+ * Cert lookup, Treadstone form. 
+ * The full URL is of the form
+ * http://certinfo.mac.com/locate?accountName&type=certType
+ *
+ * E.g. 
+ * http://certinfo.mac.com/locate?foobar&type=dmSharedServices
+ */
+#define DOT_MAC_LOOKUP_PATH				"/locate?"
+/* then user name */
+#define DOT_MAC_LOOKUP_TYPE				"&type="
+/* then cert type tag string */
+
+/* optional lookup arguments */
+#define DOT_MAC_LOOKUP_INCLUDE			"&include="
+#define DOT_MAC_LOOKUP_INCLUDE_EXPIRED	"expired"
+#define DOT_MAC_LOOKUP_INCLUDE_REVOKED	"revoked"
+#define DOT_MAC_LOOKUP_INCLUDE_ALL		"all"
 
 /*
  * Contents of CSSM_APPLE_DOTMAC_TP_CERT_REQUEST.flags.
@@ -125,7 +145,7 @@ typedef struct {
 	CSSM_DATA						userName;			// UTF8 encoded user name
 	CSSM_DATA						password;			// UTF8 encoded password
 	uint32							flags;
-	CSSM_DATA						csr;				//Êoptional in/out
+	CSSM_DATA						csr;				// optional in/out
 } CSSM_APPLE_DOTMAC_TP_CERT_REQUEST;
 
 /*
@@ -138,6 +158,15 @@ enum
 	CSSM_TP_AUTHORITY_REQUEST_CERTLOOKUP		= CSSM_TP_AUTHORITY_REQUEST_PRIVATE + 0
 };
 
+/* Cert type, analogous to CertTypeTag in the Treadstone spec */
+#define CSSM_DOT_MAC_TYPE_UNSPECIFIED		0
+#define CSSM_DOT_MAC_TYPE_ICHAT				1
+#define CSSM_DOT_MAC_TYPE_SHARED_SERVICES	2
+#define CSSM_DOT_MAC_TYPE_EMAIL_ENCRYPT		3
+#define CSSM_DOT_MAC_TYPE_EMAIL_SIGNING		4
+
+typedef uint32 DotMacCertTypeTag;
+
 /* 
  * An archive List operation returns an array of these in the 
  * CSSM_APPLE_DOTMAC_TP_ARCHIVE_REQUEST.list field. Caller must
@@ -149,15 +178,31 @@ typedef struct {
 	CSSM_DATA	timeString;			// UNIX timestring
 } DotMacArchive;
 
+/*
+ * Archive format for CSSM_DOT_MAC_TP_ARCHIVE_REQ_VERSION_2.
+ * Since this is allocated and returned, we can't just have a 
+ * version in the DotMacArchive struct. 
+ */
+typedef struct {
+	CSSM_DATA			archiveName;		// UTF8 encoded archive name
+	CSSM_DATA			timeString;			// UNIX timestring
+	DotMacCertTypeTag	certTypeTag;		// iChat, SharedServices, etc. 
+	CSSM_DATA			serialNumber;		// certificate serial number 
+} DotMacArchive_v2;
+
 /* 
  * Archive request passed to CSSM_TP_SubmitCredRequest() in the
  * CSSM_TP_AUTHORITY_REQUEST_TYPE.Requests field.
  */
 
+/* request version for Tiger and previous */
 #define CSSM_DOT_MAC_TP_ARCHIVE_REQ_VERSION		0
+#define CSSM_DOT_MAC_TP_ARCHIVE_REQ_VERSION_v1	0
+/* request version for Leopard with the Treadstone XMLRPC */
+#define CSSM_DOT_MAC_TP_ARCHIVE_REQ_VERSION_v2	1
 
 typedef struct {
-	uint32			version;		// CSSM_DOT_MAC_TP_ARCHIVE_REQ_VERSION
+	uint32			version;		// CSSM_DOT_MAC_TP_ARCHIVE_REQ_VERSION[_v2]
 	CSSM_DATA		userName;		// UTF8 encoded user name required for all
 	CSSM_DATA		password;		// UTF8 encoded password required for all
 	CSSM_DATA		archiveName;	// UTF8 encoded archive name: store, fetch, remove
@@ -168,12 +213,21 @@ typedef struct {
 	 * On archive fetch, the fetched PKCS12 PFX is returned here. App must free
 	 *   the referent data via the CSSM-registered free() callback.
 	 */
-	CSSM_DATA		pfx;
+	CSSM_DATA			pfx;
 	
-	/* archive list only: see comments above for DotMacArchive */
-	unsigned		numArchives;
-	DotMacArchive	*archives;
-
+	/* 
+	 * Archive list only: see comments above for DotMacArchive
+	 * *archives is returned for a version 0 archive request;
+	 * *archives_v2 is returned for subsequent requests. 
+	 */
+	unsigned			numArchives;
+	DotMacArchive		*archives;
+	
+	/* remainder added for CSSM_DOT_MAC_TP_ARCHIVE_REQ_VERSION_v2 */
+	DotMacArchive_v2	*archives_v2;
+	DotMacCertTypeTag	certTypeTag;
+	CSSM_DATA			serialNumber;	// cert serial number, store only
+	
 } CSSM_APPLE_DOTMAC_TP_ARCHIVE_REQUEST;
 
 #ifdef __cplusplus

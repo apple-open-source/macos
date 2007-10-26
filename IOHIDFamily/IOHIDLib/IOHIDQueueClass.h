@@ -30,171 +30,121 @@
 
 class IOHIDQueueClass : public IOHIDIUnknown
 {
-private:
-    // friends with our parent device class
-    friend class IOHIDDeviceClass;
-    
     // Disable copy constructors
     IOHIDQueueClass(IOHIDQueueClass &src);
     void operator =(IOHIDQueueClass &src);
 
 protected:
-    IOHIDQueueClass();
-    virtual ~IOHIDQueueClass();
-
-    static IOHIDQueueInterface	sHIDQueueInterfaceV1;
+    static IOHIDDeviceQueueInterface	sHIDQueueInterfaceV2;
 
     struct InterfaceMap fHIDQueue;
-    mach_port_t fAsyncPort;
-	bool fAsyncPortIsCreated;
-    CFRunLoopSourceRef fCFSource;
+    mach_port_t         fAsyncPort;
+    CFRunLoopSourceRef  fCFSource;
     
     // if created, how we were created
-    bool fIsCreated;
-    bool fIsStopped;
-    UInt32 fCreatedFlags;
-    UInt32 fCreatedDepth;
-    unsigned int fQueueRef;
+    bool                fIsCreated;
+    uint32_t            fCreatedFlags;
+    uint32_t            fCreatedDepth;
+    uint32_t            fQueueRef;
     
-    bool fQueueEntrySizeChanged;
+    bool                fQueueEntrySizeChanged;
     
     // ptr to shared memory for queue
     IODataQueueMemory * fQueueMappedMemory;
-    vm_size_t		fQueueMappedMemorySize;
+    vm_size_t           fQueueMappedMemorySize;
     
     // owming device
     IOHIDDeviceClass *	fOwningDevice;
-    
-    // CFMachPortCallBack routine for IOHIDQueue
-    static void queueEventSourceCallback(CFMachPortRef cfPort, mach_msg_header_t *msg, CFIndex size, void *info);
-    
-	IOReturn setAsyncPort(mach_port_t port);
+        
     // Related IOHIDQueue call back info
-    IOHIDCallbackFunction	fEventCallback;
-    void *			fEventTarget;
-    void *			fEventRefcon;
+    IOHIDCallback       fEventCallback;
+    void *              fEventRefcon;
+    CFMutableSetRef     fElements;
+
+    static IOReturn _getAsyncEventSource(void *self, CFTypeRef *source);
+    static IOReturn _getAsyncPort(void *self, mach_port_t *port);
+    static IOReturn _setDepth(void *self, uint32_t depth, IOOptionBits options);
+    static IOReturn _getDepth(void *self, uint32_t *pDepth);
+    static IOReturn _addElement (void * self, IOHIDElementRef element, IOOptionBits options);
+    static IOReturn _removeElement (void * self, IOHIDElementRef element, IOOptionBits options);
+    static IOReturn _hasElement (void * self, IOHIDElementRef element, Boolean *pValue, IOOptionBits options);
+    static IOReturn _start (void * self, IOOptionBits options);
+    static IOReturn _stop (void * self, IOOptionBits options);    
+    static IOReturn _copyNextEventValue (void * self, IOHIDValueRef * pEvent, uint32_t timeout, IOOptionBits options);
+    static IOReturn _setEventCallback ( void * self, IOHIDCallback callback, void * refcon);
     
 public:
-    // set owner
+    IOHIDQueueClass();
+    virtual ~IOHIDQueueClass();
+
     void setOwningDevice (IOHIDDeviceClass * owningDevice) { fOwningDevice = owningDevice; };
-    
-    // get interface map (for queryInterface)
-    void * getInterfaceMap (void) { return &fHIDQueue; };
+    void * getInterfaceMap () { return &fHIDQueue; };
 
-    // IOCFPlugin stuff
     virtual HRESULT queryInterface(REFIID iid, void **ppv);
+    virtual IOReturn getAsyncEventSource(CFTypeRef *source);
+    virtual IOReturn getAsyncPort(mach_port_t *port);
+	IOReturn setAsyncPort(mach_port_t port);
 
-    virtual IOReturn createAsyncEventSource(CFRunLoopSourceRef *source);
-    virtual CFRunLoopSourceRef getAsyncEventSource();
-
-    virtual IOReturn createAsyncPort(mach_port_t *port);
-    virtual mach_port_t getAsyncPort();
-
-    /* Basic IOHIDQueue interface */
-    /* depth is the maximum number of elements in the queue before	*/
-    /*   the oldest elements in the queue begin to be lost		*/
-    virtual IOReturn create (UInt32 			flags,
-                            UInt32			depth);
+    virtual IOReturn create (IOOptionBits options, uint32_t depth);
     virtual IOReturn dispose ();
-    
-    /* Any number of hid elements can feed the same queue */
-    virtual IOReturn addElement (IOHIDElementCookie elementCookie,
-                                UInt32 flags);
-    virtual IOReturn removeElement (IOHIDElementCookie elementCookie);
-    virtual Boolean hasElement (IOHIDElementCookie elementCookie);
+    virtual IOReturn getDepth(uint32_t * pDepth);
+    virtual IOReturn addElement (IOHIDElementRef element, IOOptionBits options = 0);
+    virtual IOReturn removeElement (IOHIDElementRef element, IOOptionBits options = 0);
+    virtual IOReturn hasElement (IOHIDElementRef element, Boolean * pValue, IOOptionBits options = 0);
+    virtual IOReturn start (IOOptionBits options = 0);
+    virtual IOReturn stop (IOOptionBits options = 0);
+    virtual IOReturn copyNextEventValue (IOHIDValueRef * pEvent, uint32_t timeout, IOOptionBits options = 0);
+    virtual IOReturn setEventCallback (IOHIDCallback callback, void * refcon);
 
-    /* start/stop data delivery to a queue */
-    virtual IOReturn start ();
-    virtual IOReturn stop ();
-    
-    /* read next event from a queue */
-    /* maxtime, if non-zero, limits read events to those that occured */
-    /*   on or before maxTime */
-    /* timoutMS is the timeout in milliseconds, a zero timeout will cause */
-    /*	this call to be non-blocking (returning queue empty) if there */
-    /*	is a NULL callback, and blocking forever until the queue is */
-    /*	non-empty if their is a valid callback */
-    virtual IOReturn getNextEvent (
-                            IOHIDEventStruct *		event,
-                            AbsoluteTime		maxTime,
-                            UInt32 			timeoutMS);
-    
-    /* set a callback for notification when queue transistions from non-empty */
-    /* callback, if non-NULL is a callback to be called when data is */
-    /*  inserted to the queue  */
-    /* callbackTarget and callbackRefcon are passed to the callback */
-    virtual IOReturn setEventCallout (
-                            IOHIDCallbackFunction  	callback,
-                            void * 			callbackTarget,
-                            void *			callbackRefcon);
+    static void queueEventSourceCallback(CFMachPortRef cfPort, mach_msg_header_t *msg, CFIndex size, void *info);
 
-    /* Get the current notification callout */
-    virtual IOReturn getEventCallout (
-                            IOHIDCallbackFunction * 	outCallback,
-                            void ** 			outCallbackTarget,
-                            void **			outCallbackRefcon);
-    
-/*
- * Routing gumf for CFPlugIn interfaces
- */
+    static inline IOHIDQueueClass *getThis(void *self) { return (IOHIDQueueClass *) ((InterfaceMap *) self)->obj; };
+};
+
+
+class IOHIDObsoleteQueueClass : public IOHIDQueueClass
+{
+    // Disable copy constructors
+    IOHIDObsoleteQueueClass(IOHIDObsoleteQueueClass &src);
+    void operator =(IOHIDObsoleteQueueClass &src);
+
+    IOHIDCallbackFunction   fCallback;
+    void *                  fTarget;
+    void *                  fRefcon;
+
+    static void _eventCallback(void * refcon, IOReturn result, void * sender);
 protected:
 
-    static inline IOHIDQueueClass *getThis(void *self)
-        { return (IOHIDQueueClass *) ((InterfaceMap *) self)->obj; };
-
-    // Methods for routing the iocfplugin Interface v1r1
-
-    // Methods for routing asynchronous completion plumbing.
-    static IOReturn queueCreateAsyncEventSource(void *self,
-                                                 CFRunLoopSourceRef *source);
-    static CFRunLoopSourceRef queueGetAsyncEventSource(void *self);
-    static IOReturn queueCreateAsyncPort(void *self, mach_port_t *port);
-    static mach_port_t queueGetAsyncPort(void *self);
-
-    /* Basic IOHIDQueue interface */
-    static IOReturn queueCreate (void * 			self, 
-                            UInt32 			flags,
-                            UInt32			depth);
-    static IOReturn queueDispose (void * self);
+    static IOHIDQueueInterface	sHIDQueueInterface;
+    static IOReturn _createAsyncEventSource(void * self, CFRunLoopSourceRef * pSource);
+    static CFRunLoopSourceRef _getAsyncEventSource(void *self);
+    static mach_port_t  _getAsyncPort(void *self);
+    static IOReturn _create(void * self, uint32_t flags, uint32_t depth);
+    static IOReturn _dispose (void * self);
+    static IOReturn _addElement (void * self, IOHIDElementCookie cookie, uint32_t flags);
+    static IOReturn _removeElement (void * self, IOHIDElementCookie cookie);
+    static Boolean  _hasElement (void * self, IOHIDElementCookie cookie);
+    static IOReturn _start (void * self);
+    static IOReturn _stop (void * self);    
+    static IOReturn _getNextEvent (void * self, IOHIDEventStruct * event, AbsoluteTime maxTime, uint32_t timeoutMS);
+    static IOReturn _getEventCallout (void * self, IOHIDCallbackFunction * pCallback,  void ** pTarget, void ** pRefcon);
+    static IOReturn _setEventCallout (void * self, IOHIDCallbackFunction callback, void * target, void * refcon);
     
-    /* Any number of hid elements can feed the same queue */
-    static IOReturn queueAddElement (void * self,
-                                IOHIDElementCookie elementCookie,
-                                UInt32 flags);
-    static IOReturn queueRemoveElement (void * self, IOHIDElementCookie elementCookie);
-    static Boolean queueHasElement (void * self, IOHIDElementCookie elementCookie);
+public:
+    IOHIDObsoleteQueueClass();
 
-    /* start/stop data delivery to a queue */
-    static IOReturn queueStart (void * self);
-    static IOReturn queueStop (void * self);
-    
-    /* read next event from a queue */
-    static IOReturn queueGetNextEvent (
-                            void * 			self,
-                            IOHIDEventStruct *		event,
-                            AbsoluteTime		maxTime,
-                            UInt32 			timeoutMS);
-    
-    /* set a callback for notification when queue transistions from non-empty */
-    static IOReturn queueSetEventCallout (
-                            void * 			self,
-                            IOHIDCallbackFunction  	callback,
-                            void * 			callbackTarget,
-                            void *			callbackRefcon);
+    virtual HRESULT     queryInterface(REFIID iid, void **ppv);
+    virtual IOReturn    createAsyncEventSource(CFRunLoopSourceRef * pSource);
+    virtual IOReturn    addElement (IOHIDElementCookie cookie, uint32_t flags);
+    virtual IOReturn    removeElement (IOHIDElementCookie cookie);
+    virtual Boolean     hasElement (IOHIDElementCookie cookie);
+    virtual IOReturn    getNextEvent (IOHIDEventStruct * event, AbsoluteTime maxTime, uint32_t timeoutMS);
+    virtual IOReturn    getEventCallout (IOHIDCallbackFunction * pCallback, void ** pTarget, void ** pRefcon);
+    virtual IOReturn    setEventCallout (IOHIDCallbackFunction callback, void * target, void * refcon);
 
-    /* Get the current notification callout */
-    static IOReturn queueGetEventCallout (
-                            void * 			self,
-                            IOHIDCallbackFunction * 	outCallback,
-                            void ** 			outCallbackTarget,
-                            void **			outCallbackRefcon);
+    static inline IOHIDObsoleteQueueClass *getThis(void *self){ return (IOHIDObsoleteQueueClass *)((InterfaceMap *) self)->obj; };
 
-
-
-/*
- * Internal functions
- */
-    
 };
+
 
 #endif /* !_IOKIT_IOHIDQueueClass_H */

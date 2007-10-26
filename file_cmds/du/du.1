@@ -30,80 +30,77 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)du.1	8.2 (Berkeley) 4/1/94
-.\" $FreeBSD: src/usr.bin/du/du.1,v 1.25 2002/12/12 17:26:00 ru Exp $
+.\" $FreeBSD: src/usr.bin/du/du.1,v 1.30 2005/05/21 09:55:05 ru Exp $
 .\"
-.Dd April 1, 1994
+.Dd June 2, 2004
 .Dt DU 1
 .Os
 .Sh NAME
 .Nm du
 .Nd display disk usage statistics
 .Sh SYNOPSIS
-.Nm
+.Nm du
 .Op Fl H | L | P
-.Op Fl I Ar mask
 .Op Fl a | s | d Ar depth
 .Op Fl c
-.Op Fl h | k
+.Op Fl h | k | m
 .Op Fl x
+.Op Fl I Ar mask
 .Op Ar
 .Sh DESCRIPTION
 The
-.Nm
+.Nm du
 utility displays the file system block usage for each file argument
 and for each directory in the file hierarchy rooted in each directory
 argument.
 If no file is specified, the block usage of the hierarchy rooted in
 the current directory is displayed.
-If the
-.Fl k
-flag is specified, the number of 1024-byte
-blocks used by the file is displayed, otherwise
-.Xr getbsize 3
-is used to determine the preferred block size.
-Partial numbers of blocks are rounded up.
 .Pp
 The options are as follows:
 .Bl -tag -width indent
+.It Fl a
+Display an entry for each file in a file hierarchy.
+.It Fl c
+Display a grand total.
+.It Fl d Ar depth
+Display an entry for all files and directories
+.Ar depth
+directories deep.
 .It Fl H
 Symbolic links on the command line are followed, symbolic links in file
 hierarchies are not followed.
-.It Fl L
-Symbolic links on the command line and in file hierarchies are followed.
+.It Fl h
+"Human-readable" output.
+Use unit suffixes: Byte, Kilobyte, Megabyte,
+Gigabyte, Terabyte and Petabyte.
 .It Fl I Ar mask
 Ignore files and directories matching the specified
 .Ar mask .
+.It Fl k
+Display block counts in 1024-byte (1-Kbyte) blocks.
+.It Fl L
+Symbolic links on the command line and in file hierarchies are followed.
+.It Fl m
+Display block counts in 1048576-byte (1-Mbyte) blocks.
 .It Fl P
 No symbolic links are followed.
 This is the default.
-.It Fl a
-Display an entry for each file in a file hierarchy.
-.It Fl h
-"Human-readable" output.  Use unit suffixes: Byte, Kilobyte, Megabyte,
-Gigabyte, Terabyte and Petabyte
 .It Fl r
 Generate messages about directories that cannot be read, files
-that cannot be opened, and so on.  This is the default case.
+that cannot be opened, and so on.
+This is the default case.
 This option exists solely for conformance with
 .St -xpg4 .
 .It Fl s
 Display an entry for each specified file.
 (Equivalent to
 .Fl d Li 0 )
-.It Fl d Ar depth
-Display an entry for all files and directories
-.Ar depth
-directories deep.
-.It Fl c
-Display a grand total.
-.It Fl k
-Display block counts in 1024-byte (1-Kbyte) blocks.
 .It Fl x
 File system mount points are not traversed.
 .El
 .Pp
 The
-.Nm
+.Nm du
 utility counts the storage used by symbolic links and not the files they
 reference unless the
 .Fl H
@@ -116,10 +113,16 @@ or
 .Fl L
 options are specified, storage used by any symbolic links which are
 followed is not counted or displayed.
+If more than one of the
+.Fl H ,
+.Fl L ,
+and
+.Fl P
+options is specified, the last one given is used.
 .Pp
 Files having multiple hard links are counted (and displayed) a single
 time per
-.Nm
+.Nm du
 execution.
 .Sh ENVIRONMENT
 .Bl -tag -width BLOCKSIZE
@@ -136,13 +139,25 @@ is not set, and the
 .Fl k
 option is not specified, the block counts will be displayed in 512-byte blocks.
 .El
+.Sh LEGACY DESCRIPTION
+In legacy mode, only one of the
+.Fl H ,
+.Fl L ,
+or
+.Fl P
+options may be specified.
+.Pp
+The command will detect and report a SYMLOOP error
+(loop involving symbolic links).
+In legacy mode, this is not the case.
 .Sh SEE ALSO
 .Xr df 1 ,
 .Xr fts 3 ,
+.Xr compat 5 ,
 .Xr symlink 7 ,
 .Xr quot 8
 .Sh HISTORY
 A
-.Nm
+.Nm du
 command appeared in
 .At v1 .

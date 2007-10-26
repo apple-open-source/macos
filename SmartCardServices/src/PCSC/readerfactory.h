@@ -1,65 +1,128 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please
- * obtain a copy of the License at http://www.apple.com/publicsource and
- * read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please
- * see the License for the specific language governing rights and
- * limitations under the License.
+ *  Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * 
+ *  @APPLE_LICENSE_HEADER_START@
+ *  
+ *  This file contains Original Code and/or Modifications of Original Code
+ *  as defined in and that are subject to the Apple Public Source License
+ *  Version 2.0 (the 'License'). You may not use this file except in
+ *  compliance with the License. Please obtain a copy of the License at
+ *  http://www.opensource.apple.com/apsl/ and read it before using this
+ *  file.
+ *  
+ *  The Original Code and all software distributed under the License are
+ *  distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *  EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ *  INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ *  Please see the License for the specific language governing rights and
+ *  limitations under the License.
+ *  
+ *  @APPLE_LICENSE_HEADER_END@
  */
 
-/******************************************************************
+/*
+ *  readerfactory.h
+ *  SmartCardServices
+ */
 
-	MUSCLE SmartCard Development ( http://www.linuxnet.com )
-	    Title  : readerfactory.h
-	    Package: pcsc lite
-            Author : David Corcoran
-            Date   : 7/27/99
-	    License: Copyright (C) 1999 David Corcoran
-	             <corcoran@linuxnet.com>
-            Purpose: This keeps track of a list of currently 
-	             available reader structures.
+/*
+ * MUSCLE SmartCard Development ( http://www.linuxnet.com )
+ *
+ * Copyright (C) 1999
+ *  David Corcoran <corcoran@linuxnet.com>
+ * Copyright (C) 2004
+ *  Ludovic Rousseau <ludovic.rousseau@free.fr>
+ *
+ * $Id: readerfactory.h 2330 2007-01-11 16:54:16Z rousseau $
+ */
 
-********************************************************************/
+/**
+ * @file
+ * @brief This keeps track of a list of currently available reader structures.
+ */
 
 #ifndef __readerfactory_h__
 #define __readerfactory_h__
 
-#include <thread_generic.h>
+#include <inttypes.h>
+
+#include "thread_generic.h"
+#include "ifdhandler.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-	struct FctMap
+	typedef struct
 	{
-		LPVOID pvfCreateChannel;
-		LPVOID pvfCloseChannel;
-		LPVOID pvfGetCapabilities;
-		LPVOID pvfSetCapabilities;
-		LPVOID pvfSetProtocol;
-		LPVOID pvfPowerICC;
-		LPVOID pvfSwallowICC;	/* Deprecated in 2.0 */
-		LPVOID pvfEjectICC;		/* Deprecated in 2.0 */
-		LPVOID pvfConfiscateICC;	/* Deprecated in 2.0 */
-		LPVOID pvfTransmitICC;
-		LPVOID pvfICCPresent;
-		LPVOID pvfICCAbsent;	/* Deprecated in 2.0 */
-		LPVOID pvfControl;		/* MUSCLE IFD 2.0 Compliance */
+		char *pcFriendlyname;
+		char *pcDevicename;
+		char *pcLibpath;
+		int dwChannelId;
+	} SerialReader;
+
+	struct FctMap_V1
+	{
+		RESPONSECODE (*pvfCreateChannel)(DWORD);
+		RESPONSECODE (*pvfCloseChannel)(void);
+		RESPONSECODE (*pvfGetCapabilities)(DWORD, PUCHAR);
+		RESPONSECODE (*pvfSetCapabilities)(DWORD, PUCHAR);
+		RESPONSECODE (*pvfSetProtocolParameters)(DWORD, UCHAR, UCHAR, UCHAR,
+			UCHAR);
+		RESPONSECODE (*pvfPowerICC)(DWORD);
+		RESPONSECODE (*pvfTransmitToICC)(SCARD_IO_HEADER, PUCHAR, DWORD,
+			PUCHAR, PDWORD, PSCARD_IO_HEADER);
+		RESPONSECODE (*pvfICCPresence)(void);
 	};
 
-	typedef struct FctMap FCT_MAP, *PFCT_MAP;
+	typedef struct FctMap_V1 FCT_MAP_V1, *PFCT_MAP_V1;
+
+	struct FctMap_V2
+	{
+		/* shared with API 3.0 */
+		RESPONSECODE (*pvfCreateChannel)(DWORD, DWORD);
+		RESPONSECODE (*pvfCloseChannel)(DWORD);
+		RESPONSECODE (*pvfGetCapabilities)(DWORD, DWORD, PDWORD, PUCHAR);
+		RESPONSECODE (*pvfSetCapabilities)(DWORD, DWORD, DWORD, PUCHAR);
+		RESPONSECODE (*pvfSetProtocolParameters)(DWORD, DWORD, UCHAR, UCHAR,
+			UCHAR, UCHAR);
+		RESPONSECODE (*pvfPowerICC)(DWORD, DWORD, PUCHAR, PDWORD);
+		RESPONSECODE (*pvfTransmitToICC)(DWORD, SCARD_IO_HEADER, PUCHAR,
+			DWORD, PUCHAR, PDWORD, PSCARD_IO_HEADER);
+		RESPONSECODE (*pvfICCPresence)(DWORD);
+
+		/* API v2.0 only */
+		RESPONSECODE (*pvfControl)(DWORD, PUCHAR, DWORD, PUCHAR, PDWORD);
+	};
+
+	typedef struct FctMap_V2 FCT_MAP_V2, *PFCT_MAP_V2;
+
+	struct FctMap_V3
+	{
+		/* the common fields SHALL be in the same order as in FctMap_V2 */
+		RESPONSECODE (*pvfCreateChannel)(DWORD, DWORD);
+		RESPONSECODE (*pvfCloseChannel)(DWORD);
+		RESPONSECODE (*pvfGetCapabilities)(DWORD, DWORD, PDWORD, PUCHAR);
+		RESPONSECODE (*pvfSetCapabilities)(DWORD, DWORD, DWORD, PUCHAR);
+		RESPONSECODE (*pvfSetProtocolParameters)(DWORD, DWORD, UCHAR, UCHAR,
+				UCHAR, UCHAR);
+		RESPONSECODE (*pvfPowerICC)(DWORD, DWORD, PUCHAR, PDWORD);
+		RESPONSECODE (*pvfTransmitToICC)(DWORD, SCARD_IO_HEADER, PUCHAR,
+			DWORD, PUCHAR, PDWORD, PSCARD_IO_HEADER);
+		RESPONSECODE (*pvfICCPresence)(DWORD);
+
+		/* API V3.0 only */
+		RESPONSECODE (*pvfControl)(DWORD, DWORD, LPCVOID, DWORD, LPVOID,
+			DWORD, LPDWORD);
+		RESPONSECODE (*pvfCreateChannelByName)(DWORD, LPSTR);
+	};
+
+	typedef struct FctMap_V3 FCT_MAP_V3, *PFCT_MAP_V3;
 
 	/*
-	 * The following is not currently used but in place if needed 
+	 * The following is not currently used but in place if needed
 	 */
 
 	struct RdrCapabilities
@@ -109,36 +172,47 @@ extern "C"
 	{
 		char lpcReader[MAX_READERNAME];	/* Reader Name */
 		char lpcLibrary[MAX_LIBNAME];	/* Library Path */
+		char lpcDevice[MAX_DEVICENAME];	/* Device Name */
 		PCSCLITE_THREAD_T pthThread;	/* Event polling thread */
 		PCSCLITE_MUTEX_T mMutex;	/* Mutex for this connection */
-		RDR_CAPABILITIES psCapabilites;	/* Structure of reader
-						   capabilities */
-		PROT_OPTIONS psProtOptions;	/* Structure of protocol options */
-		RDR_CLIHANDLES psHandles[PCSCLITE_MAX_CONTEXTS];	
+		RDR_CLIHANDLES psHandles[PCSCLITE_MAX_READER_CONTEXT_CHANNELS];
                                          /* Structure of connected handles */
-		FCT_MAP psFunctions;	/* Structure of function pointers */
-		UCHAR ucAtr[MAX_ATR_SIZE];	/* Atr for inserted card */
-		DWORD dwAtrLen;			/* Size of the ATR */
+		union
+		{
+			FCT_MAP_V1 psFunctions_v1;	/* API V1.0 */
+			FCT_MAP_V2 psFunctions_v2;	/* API V2.0 */
+			FCT_MAP_V3 psFunctions_v3;	/* API V3.0 */
+		} psFunctions;
+
 		LPVOID vHandle;			/* Dlopen handle */
 		DWORD dwVersion;		/* IFD Handler version number */
 		DWORD dwPort;			/* Port ID */
-		DWORD dwProtocol;		/* Currently used protocol */
 		DWORD dwSlot;			/* Current Reader Slot */
 		DWORD dwBlockStatus;	/* Current blocking status */
-		DWORD dwStatus;			/* Current Status Mask */
 		DWORD dwLockId;			/* Lock Id */
 		DWORD dwIdentity;		/* Shared ID High Nibble */
-		DWORD dwContexts;		/* Number of open contexts */
-		DWORD dwPublicID;		/* Public id of public state struct */
-		PDWORD dwFeeds;			/* Number of shared client to lib */
+		int32_t dwContexts;		/* Number of open contexts */
+		PDWORD pdwFeeds;		/* Number of shared client to lib */
+		PDWORD pdwMutex;		/* Number of client to mutex */
+
+		struct pubReaderStatesList *readerState; /* link to the reader state */
+		/* we can't use PREADER_STATE here since eventhandler.h can't be
+		 * included because of circular dependencies */
+
+		/* these structures are unused */
+#if 0
+		RDR_CAPABILITIES psCapabilites;	/* Structure of reader
+						   capabilities */
+		PROT_OPTIONS psProtOptions;	/* Structure of protocol options */
+#endif
 	};
 
 	typedef struct ReaderContext READER_CONTEXT, *PREADER_CONTEXT;
 
-	LONG RFAllocateReaderSpace(DWORD);
-	LONG RFAddReader(LPSTR, DWORD, LPSTR);
+	LONG RFAllocateReaderSpace(void);
+	LONG RFAddReader(LPSTR, DWORD, LPSTR, LPSTR);
 	LONG RFRemoveReader(LPSTR, DWORD);
-	LONG RFSetReaderName(PREADER_CONTEXT, LPSTR, LPSTR, DWORD, DWORD);
+	LONG RFSetReaderName(PREADER_CONTEXT, LPCSTR, LPCSTR, DWORD, DWORD);
 	LONG RFListReaders(LPSTR, LPDWORD);
 	LONG RFReaderInfo(LPSTR, struct ReaderContext **);
 	LONG RFReaderInfoNamePort(DWORD, LPSTR, struct ReaderContext **);
@@ -148,10 +222,12 @@ extern "C"
 	LONG RFUnlockSharing(DWORD);
 	LONG RFUnblockReader(PREADER_CONTEXT);
 	LONG RFUnblockContext(SCARDCONTEXT);
+#if 0
 	LONG RFLoadReader(PREADER_CONTEXT);
 	LONG RFBindFunctions(PREADER_CONTEXT);
 	LONG RFUnBindFunctions(PREADER_CONTEXT);
 	LONG RFUnloadReader(PREADER_CONTEXT);
+#endif	
 	LONG RFInitializeReader(PREADER_CONTEXT);
 	LONG RFUnInitializeReader(PREADER_CONTEXT);
 	SCARDHANDLE RFCreateReaderHandle(PREADER_CONTEXT);
@@ -164,8 +240,14 @@ extern "C"
 	LONG RFClearReaderEventState(PREADER_CONTEXT, SCARDHANDLE);
 	LONG RFCheckReaderStatus(PREADER_CONTEXT);
 	void RFCleanupReaders(int);
-        void RFSuspendAllReaders(); 
-        void RFAwakeAllReaders(); 
+	int RFStartSerialReaders(const char *readerconf);
+	void RFReCheckReaderConf(void);
+	void RFSuspendAllReaders(void);
+	void RFAwakeAllReaders(void);
+
+	void ReaderContextLock(PREADER_CONTEXT rContext);
+	void ReaderContextUnlock(PREADER_CONTEXT rContext);
+	int ReaderContextIsLocked(PREADER_CONTEXT rContext);
 
 #ifdef __cplusplus
 }

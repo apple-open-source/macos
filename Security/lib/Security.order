@@ -675,7 +675,6 @@ single module:_uw_install_context_1
 single module:_init_dwarf_reg_size_table
 single module:eh_rest_world_r10
 single module:rest_world_eh_r7r8
-single module:__Unwind_Resume
 single module:___cxa_begin_catch
 single module:__ZN8Security9CssmError9cssmErrorERKNS_11CommonErrorEl
 single module:__ZN8Security9CssmError9cssmErrorEll

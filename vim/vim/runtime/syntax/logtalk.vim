@@ -1,8 +1,8 @@
 " Vim syntax file
 "
 " Language:	Logtalk
-" Maintainer:	Paulo Moura <pmoura@noe.ubi.pt>
-" Last Change:	2003 Apr 25
+" Maintainer:	Paulo Moura <pmoura@logtalk.org>
+" Last Change:	February 24, 2006
 
 
 " Quit when a syntax file was already loaded:
@@ -17,6 +17,11 @@ endif
 " Logtalk is case sensitive:
 
 syn case match
+
+
+" Logtalk variables
+
+syn match   logtalkVariable		"\<\(\u\|_\)\(\w\)*\>"
 
 
 " Logtalk clause functor
@@ -43,9 +48,9 @@ syn region	logtalkExtCall		matchgroup=logtalkExtCallTag		start="{"		matchgroup=l
 
 " Logtalk opening entity directives
 
-syn region	logtalkOpenEntityDir	matchgroup=logtalkOpenEntityDirTag	start=":- object("	matchgroup=logtalkOpenEntityDirTag	end=")\."	contains=ALL
-syn region	logtalkOpenEntityDir	matchgroup=logtalkOpenEntityDirTag	start=":- protocol("	matchgroup=logtalkOpenEntityDirTag	end=")\."	contains=ALL
-syn region	logtalkOpenEntityDir	matchgroup=logtalkOpenEntityDirTag	start=":- category("	matchgroup=logtalkOpenEntityDirTag	end=")\."	contains=ALL
+syn region	logtalkOpenEntityDir	matchgroup=logtalkOpenEntityDirTag	start=":- object("	matchgroup=logtalkOpenEntityDirTag	end=")\."	contains=logtalkEntity,logtalkVariable,logtalkNumber,logtalkOperator,logtalkEntityRel
+syn region	logtalkOpenEntityDir	matchgroup=logtalkOpenEntityDirTag	start=":- protocol("	matchgroup=logtalkOpenEntityDirTag	end=")\."	contains=logtalkEntity,logtalkVariable,logtalkNumber,logtalkOperator,logtalkEntityRel
+syn region	logtalkOpenEntityDir	matchgroup=logtalkOpenEntityDirTag	start=":- category("	matchgroup=logtalkOpenEntityDirTag	end=")\."	contains=logtalkEntity,logtalkVariable,logtalkNumber,logtalkOperator,logtalkEntityRel
 
 
 " Logtalk closing entity directives
@@ -57,21 +62,24 @@ syn match	logtalkCloseEntityDir	":- end_category\."
 
 " Logtalk entity relations
 
-syn region	logtalkEntityRel	matchgroup=logtalkEntityRelTag	start="instantiates("	matchgroup=logtalkEntityRelTag	end=")"		contains=logtalkEntity		contained
-syn region	logtalkEntityRel	matchgroup=logtalkEntityRelTag	start="specializes("	matchgroup=logtalkEntityRelTag	end=")"		contains=logtalkEntity		contained
-syn region	logtalkEntityRel	matchgroup=logtalkEntityRelTag	start="extends("	matchgroup=logtalkEntityRelTag	end=")"		contains=logtalkEntity		contained
-syn region	logtalkEntityRel	matchgroup=logtalkEntityRelTag	start="imports("		matchgroup=logtalkEntityRelTag	end=")"		contains=logtalkEntity		contained
-syn region	logtalkEntityRel	matchgroup=logtalkEntityRelTag	start="implements("		matchgroup=logtalkEntityRelTag	end=")"		contains=logtalkEntity		contained
+syn region	logtalkEntityRel	matchgroup=logtalkEntityRelTag	start="instantiates("	matchgroup=logtalkEntityRelTag	end=")"		contains=logtalkEntity,logtalkVariable,logtalkNumber,logtalkOperator	contained
+syn region	logtalkEntityRel	matchgroup=logtalkEntityRelTag	start="specializes("	matchgroup=logtalkEntityRelTag	end=")"		contains=logtalkEntity,logtalkVariable,logtalkNumber,logtalkOperator	contained
+syn region	logtalkEntityRel	matchgroup=logtalkEntityRelTag	start="extends("	matchgroup=logtalkEntityRelTag	end=")"		contains=logtalkEntity,logtalkVariable,logtalkNumber,logtalkOperator	contained
+syn region	logtalkEntityRel	matchgroup=logtalkEntityRelTag	start="imports("	matchgroup=logtalkEntityRelTag	end=")"		contains=logtalkEntity,logtalkVariable,logtalkNumber,logtalkOperator	contained
+syn region	logtalkEntityRel	matchgroup=logtalkEntityRelTag	start="implements("	matchgroup=logtalkEntityRelTag	end=")"		contains=logtalkEntity,logtalkVariable,logtalkNumber,logtalkOperator	contained
 
 
 " Logtalk directives
 
+syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- alias("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
+syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- encoding("	matchgroup=logtalkDirTag	end=")\."	contains=ALL
 syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- initialization("	matchgroup=logtalkDirTag	end=")\."	contains=ALL
 syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- info("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
-syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- mode("		matchgroup=logtalkDirTag	end=")\."	contains=logtalkOperator,logtalkAtom
+syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- mode("		matchgroup=logtalkDirTag	end=")\."	contains=logtalkOperator, logtalkAtom
 syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- dynamic("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
 syn match	logtalkDirTag		":- dynamic\."
 syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- discontiguous("	matchgroup=logtalkDirTag	end=")\."	contains=ALL
+syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- multifile("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
 syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- public("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
 syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- protected("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
 syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- private("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
@@ -81,70 +89,56 @@ syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- calls("		matchgroup=lo
 syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- uses("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
 
 
+" Module directives
+
+syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- module("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
+syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- export("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
+syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- meta_predicate("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
+syn region	logtalkDir		matchgroup=logtalkDirTag	start=":- use_module("		matchgroup=logtalkDirTag	end=")\."	contains=ALL
+
+
 " Logtalk built-in predicates
 
-syn keyword	logtalkBuiltIn		current_object
-syn keyword	logtalkBuiltIn		current_protocol
-syn keyword	logtalkBuiltIn		current_category
+syn match	logtalkBuiltIn		"\<\(abolish\|c\(reate\|urrent\)\)_\(object\|protocol\|category\)\ze("
 
-syn keyword	logtalkBuiltIn		create_object
-syn keyword	logtalkBuiltIn		create_protocol
-syn keyword	logtalkBuiltIn		create_category
+syn match	logtalkBuiltIn		"\<\(object\|protocol\|category\)_property\ze("
 
-syn keyword	logtalkBuiltIn		object_property
-syn keyword	logtalkBuiltIn		protocol_property
-syn keyword	logtalkBuiltIn		category_property
+syn match	logtalkBuiltIn		"\<extends_\(object\|protocol\)\ze("
+syn match	logtalkBuiltIn		"\<imp\(orts_category\|lements_protocol\)\ze("
+syn match	logtalkBuiltIn		"\<\(instantiates\|specializes\)_class\ze("
 
-syn keyword	logtalkBuiltIn		abolish_object
-syn keyword	logtalkBuiltIn		abolish_protocol
-syn keyword	logtalkBuiltIn		abolish_category
+syn match	logtalkBuiltIn		"\<\(abolish\|define\)_events\ze("
+syn match	logtalkBuiltIn		"\<current_event\ze("
 
-syn keyword	logtalkBuiltIn		extends_object
-syn keyword	logtalkBuiltIn		extends_protocol
-syn keyword	logtalkBuiltIn		implements_protocol
-syn keyword	logtalkBuiltIn		instantiates_object
-syn keyword	logtalkBuiltIn		specializes_object
-syn keyword	logtalkBuiltIn		imports_category
+syn match	logtalkBuiltIn		"\<\(current\|set\)_logtalk_flag\ze("
 
-syn keyword	logtalkBuiltIn		abolish_events
-syn keyword	logtalkBuiltIn		current_event
-syn keyword	logtalkBuiltIn		define_events
+syn match	logtalkBuiltIn		"\<logtalk_\(compile\|l\(ibrary_path\|oad\)\)\ze("
 
-syn keyword	logtalkBuiltIn		current_logtalk_flag
-syn keyword	logtalkBuiltIn		set_logtalk_flag
-
-syn keyword	logtalkBuiltIn		logtalk_compile
-syn keyword	logtalkBuiltIn		logtalk_load
-
-syn keyword	logtalkBuiltIn		forall
-syn keyword	logtalkBuiltIn		logtalk_version
-syn keyword	logtalkBuiltIn		retractall
+syn match	logtalkBuiltIn		"\<\(for\|retract\)all\ze("
 
 
 " Logtalk built-in methods
 
-syn keyword	logtalkBuiltInMethod	parameter
-syn keyword	logtalkBuiltInMethod	self
-syn keyword	logtalkBuiltInMethod	sender
-syn keyword	logtalkBuiltInMethod	this
+syn match	logtalkBuiltInMethod	"\<parameter\ze("
+syn match	logtalkBuiltInMethod	"\<se\(lf\|nder\)\ze("
+syn match	logtalkBuiltInMethod	"\<this\ze("
 
-syn keyword	logtalkBuiltInMethod	current_predicate
-syn keyword	logtalkBuiltInMethod	predicate_property
+syn match	logtalkBuiltInMethod	"\<current_predicate\ze("
+syn match	logtalkBuiltInMethod	"\<predicate_property\ze("
 
-syn keyword	logtalkBuiltInMethod	abolish
-syn keyword	logtalkBuiltInMethod	asserta
-syn keyword	logtalkBuiltInMethod	assertz
-syn keyword	logtalkBuiltInMethod	clause
-syn keyword	logtalkBuiltInMethod	retract
-syn keyword	logtalkBuiltInMethod	retractall
+syn match	logtalkBuiltInMethod	"\<a\(bolish\|ssert\(a\|z\)\)\ze("
+syn match	logtalkBuiltInMethod	"\<clause\ze("
+syn match	logtalkBuiltInMethod	"\<retract\(all\)\?\ze("
 
-syn keyword	logtalkBuiltInMethod	bagof
-syn keyword	logtalkBuiltInMethod	findall
-syn keyword	logtalkBuiltInMethod	forall
-syn keyword	logtalkBuiltInMethod	setof
+syn match	logtalkBuiltInMethod	"\<\(bag\|set\)of\ze("
+syn match	logtalkBuiltInMethod	"\<f\(ind\|or\)all\ze("
 
-syn keyword	logtalkBuiltInMethod	before
-syn keyword	logtalkBuiltInMethod	after
+syn match	logtalkBuiltInMethod	"\<before\ze("
+syn match	logtalkBuiltInMethod	"\<after\ze("
+
+syn match	logtalkBuiltInMethod	"\<expand_term\ze("
+syn match	logtalkBuiltInMethod	"\<term_expansion\ze("
+syn match	logtalkBuiltInMethod	"\<phrase\ze("
 
 
 " Mode operators
@@ -155,34 +149,32 @@ syn match	logtalkOperator		"@"
 
 " Control constructs
 
-syn keyword	logtalkKeyword		true
-syn keyword	logtalkKeyword		fail
-syn keyword	logtalkKeyword		call
+syn match	logtalkKeyword		"\<true\>"
+syn match	logtalkKeyword		"\<fail\>"
+syn match	logtalkKeyword		"\<ca\(ll\|tch\)\ze("
 syn match	logtalkOperator		"!"
-syn match	logtalkOperator		","
+" syn match	logtalkOperator		","
 syn match	logtalkOperator		";"
+syn match	logtalkOperator		"-->"
 syn match	logtalkOperator		"->"
-syn keyword	logtalkKeyword		catch
-syn keyword	logtalkKeyword		throw
+syn match	logtalkKeyword		"\<throw\ze("
 
 
 " Term unification
 
 syn match	logtalkOperator		"="
-syn keyword	logtalkKeyword		unify_with_occurs_check
+syn match	logtalkKeyword		"\<unify_with_occurs_check\ze("
 syn match	logtalkOperator		"\\="
 
 
 " Term testing
 
-syn keyword	logtalkKeyword		var
-syn keyword	logtalkKeyword		atom
-syn keyword	logtalkKeyword		integer
-syn keyword	logtalkKeyword		float
-syn keyword	logtalkKeyword		atomic
-syn keyword	logtalkKeyword		compound
-syn keyword	logtalkKeyword		nonvar
-syn keyword	logtalkKeyword		number
+syn match	logtalkKeyword		"\<var\ze("
+syn match	logtalkKeyword		"\<atom\(ic\)\?\ze("
+syn match	logtalkKeyword		"\<integer\ze("
+syn match	logtalkKeyword		"\<float\ze("
+syn match	logtalkKeyword		"\<compound\ze("
+syn match	logtalkKeyword		"\<n\(onvar\|umber\)\ze("
 
 
 " Term comparison
@@ -197,15 +189,15 @@ syn match	logtalkOperator		"@>="
 
 " Term creation and decomposition
 
-syn keyword	logtalkKeyword		functor
-syn keyword	logtalkKeywor		arg
+syn match	logtalkKeyword		"\<functor\ze("
+syn match	logtalkKeyword		"\<arg\ze("
 syn match	logtalkOperator		"=\.\."
-syn keyword	logtalkKeyword		copy_term
+syn match	logtalkKeyword		"\<copy_term\ze("
 
 
 " Arithemtic evaluation
 
-syn keyword	logtalkOperator		is
+syn match	logtalkOperator		"\<is\>"
 
 
 " Arithemtic comparison
@@ -220,74 +212,52 @@ syn match	logtalkOperator		">="
 
 " Stream selection and control
 
-syn keyword	logtalkKeyword		current_input
-syn keyword	logtalkKeyword		current_output
-syn keyword	logtalkKeyword		set_input
-syn keyword	logtalkKeyword		set_output
-syn keyword	logtalkKeyword		open
-syn keyword	logtalkKeyword		close
-syn keyword	logtalkKeyword		flush_output
-syn keyword	logtalkKeyword		stream_property
-syn keyword	logtalkKeyword		at_end_of_stream
-syn keyword	logtalkKeyword		set_stream_position
+syn match	logtalkKeyword		"\<\(current\|set\)_\(in\|out\)put\ze("
+syn match	logtalkKeyword		"\<open\ze("
+syn match	logtalkKeyword		"\<close\ze("
+syn match	logtalkKeyword		"\<flush_output\ze("
+syn match	logtalkKeyword		"\<flush_output\>"
+syn match	logtalkKeyword		"\<stream_property\ze("
+syn match	logtalkKeyword		"\<at_end_of_stream\ze("
+syn match	logtalkKeyword		"\<at_end_of_stream\>"
+syn match	logtalkKeyword		"\<set_stream_position\ze("
 
 
-" Character input/output
+" Character and byte input/output
 
-syn keyword	logtalkKeyword		get_char
-syn keyword	logtalkKeyword		get_code
-syn keyword	logtalkKeyword		peek_char
-syn keyword	logtalkKeyword		peek_code
-syn keyword	logtalkKeyword		put_char
-syn keyword	logtalkKeyword		put_code
-syn keyword	logtalkKeyword		nl
-
-
-" Byte input/output
-
-syn keyword	logtalkKeyword		get_byte
-syn keyword	logtalkKeyword		peek_byte
-syn keyword	logtalkKeyword		put_byte
+syn match	logtalkKeyword		"\<\(get\|p\(eek\|ut\)\)_\(c\(har\|ode\)\|byte\)\ze("
+syn match	logtalkKeyword		"\<nl\ze("
+syn match	logtalkKeyword		"\<nl\>"
 
 
 " Term input/output
 
-syn keyword	logtalkKeyword		read_term
-syn keyword	logtalkKeyword		read
-syn keyword	logtalkKeyword		write_term
-syn keyword	logtalkKeyword		write
-syn keyword	logtalkKeyword		writeq
-syn keyword	logtalkKeyword		write_canonical
-syn keyword	logtalkKeyword		op
-syn keyword	logtalkKeyword		current_op
-syn keyword	logtalkKeyword		char_conversion
-syn keyword	logtalkKeyword		current_char_conversion
+syn match	logtalkKeyword		"\<read\(_term\)\?\ze("
+syn match	logtalkKeyword		"\<write\(q\|_\(canonical\|term\)\)\?\ze("
+syn match	logtalkKeyword		"\<\(current_\)\?op\ze("
+syn match	logtalkKeyword		"\<\(current\)\?char_conversion\ze("
 
 
 " Logic and control
 
 syn match	logtalkOperator		"\\+"
-syn keyword	logtalkKeyword		once
-syn keyword	logtalkKeyword		repeat
+syn match	logtalkKeyword		"\<once\ze("
+syn match	logtalkKeyword		"\<repeat\>"
 
 
 " Atomic term processing
 
-syn keyword	logtalkKeyword		atom_length
-syn keyword	logtalkKeyword		atom_concat
-syn keyword	logtalkKeyword		sub_atom
-syn keyword	logtalkKeyword		atom_chars
-syn keyword	logtalkKeyword		atom_codes
-syn keyword	logtalkKeyword		char_code
-syn keyword	logtalkKeyword		number_chars
-syn keyword	logtalkKeyword		number_codes
+syn match	logtalkKeyword		"\<atom_\(length\|c\(hars\|o\(ncat\|des\)\)\)\ze("
+syn match	logtalkKeyword		"\<sub_atom\ze("
+syn match	logtalkKeyword		"\<char_code\ze("
+syn match	logtalkKeyword		"\<number_\(c\(hars\|odes\)\)\ze("
 
 
 " Implementation defined hooks functions
 
-syn keyword	logtalkKeyword		set_prolog_flag
-syn keyword	logtalkKeyword		current_prolog_flag
-syn keyword	logtalkKeyword		halt
+syn match	logtalkKeyword		"\<\(current\|set\)_prolog_flag\ze("
+syn match	logtalkKeyword		"\<halt\ze("
+syn match	logtalkKeyword		"\<halt\>"
 
 
 " Evaluable functors
@@ -297,28 +267,25 @@ syn match	logtalkOperator		"-"
 syn match	logtalkOperator		"\*"
 syn match	logtalkOperator		"//"
 syn match	logtalkOperator		"/"
-syn keyword	logtalkKeyword		rem
-syn keyword	logtalkKeyword		mod
-syn keyword	logtalkKeyword		abs
-syn keyword	logtalkKeyword		sign
-syn keyword	logtalkKeyword		float_integer_part
-syn keyword	logtalkKeyword		float_fractional_part
-syn keyword	logtalkKeyword		float
-syn keyword	logtalkKeyword		floor
-syn keyword	logtalkKeyword		truncate
-syn keyword	logtalkKeyword		round
-syn keyword	logtalkKeyword		ceiling
+syn match	logtalkKeyword		"\<r\(ound\|em\)\ze("
+syn match	logtalkKeyword		"\<rem\>"
+syn match	logtalkKeyword		"\<mod\ze("
+syn match	logtalkKeyword		"\<mod\>"
+syn match	logtalkKeyword		"\<abs\ze("
+syn match	logtalkKeyword		"\<sign\ze("
+syn match	logtalkKeyword		"\<flo\(or\|at\(_\(integer\|fractional\)_part\)\?\)\ze("
+syn match	logtalkKeyword		"\<truncate\ze("
+syn match	logtalkKeyword		"\<ceiling\ze("
 
 
 " Other arithemtic functors
 
 syn match	logtalkOperator		"\*\*"
-syn keyword	logtalkKeyword		sin
-syn keyword	logtalkKeyword		cos
-syn keyword	logtalkKeyword		atan
-syn keyword	logtalkKeyword		exp
-syn keyword	logtalkKeyword		log
-syn keyword	logtalkKeyword		sqrt
+syn match	logtalkKeyword		"\<s\(in\|qrt\)\ze("
+syn match	logtalkKeyword		"\<cos\ze("
+syn match	logtalkKeyword		"\<atan\ze("
+syn match	logtalkKeyword		"\<exp\ze("
+syn match	logtalkKeyword		"\<log\ze("
 
 
 " Bitwise functors
@@ -330,23 +297,42 @@ syn match	logtalkOperator		"\\/"
 syn match	logtalkOperator		"\\"
 
 
-" Logtalk end-of-clause
-
-syn match	logtalkOperator		"\."
-
-
 " Logtalk list operator
 
 syn match	logtalkOperator		"|"
 
 
+" Logtalk numbers 
+
+syn match	logtalkNumber		"\<\d\+\>"
+syn match	logtalkNumber		"\<\d\+\.\d\+\>"
+syn match	logtalkNumber		"\<\d\+[eE][-+]\=\d\+\>"
+syn match	logtalkNumber		"\<\d\+\.\d\+[eE][-+]\=\d\+\>"
+syn match	logtalkNumber		"\<0'.\>"
+syn match	logtalkNumber		"\<0b[0-1]\+\>"
+syn match	logtalkNumber		"\<0o\o\+\>"
+syn match	logtalkNumber		"\<0x\x\+\>"
+
+
+" Logtalk end-of-clause
+
+syn match	logtalkOperator		"\."
+
+
 " Logtalk comments
 
-syn region	logtalkBlockComment	start="/\*"	end="\*/"
+syn region	logtalkBlockComment	start="/\*"	end="\*/"	fold
 syn match	logtalkLineComment	"%.*"
 
 
-syn sync ccomment maxlines=50
+" Logtalk entity folding
+
+syn region logtalkEntity transparent fold keepend start=":- object(" end=":- end_object\." contains=ALL
+syn region logtalkEntity transparent fold keepend start=":- protocol(" end=":- end_protocol\." contains=ALL
+syn region logtalkEntity transparent fold keepend start=":- category(" end=":- end_category\." contains=ALL
+
+
+syn sync ccomment logtalkBlockComment maxlines=50
 
 
 " Define the default highlighting.
@@ -360,25 +346,27 @@ if version >= 508 || !exists("did_logtalk_syn_inits")
 	else
 		command -nargs=+ HiLink hi def link <args>
 	endif
-
+	
 	HiLink	logtalkBlockComment	Comment
 	HiLink	logtalkLineComment	Comment
 
 	HiLink	logtalkOpenEntityDir	Normal
-	HiLink	logtalkOpenEntityDirTag	Statement
+	HiLink	logtalkOpenEntityDirTag	PreProc
 
 	HiLink	logtalkEntity		Normal
 
 	HiLink	logtalkEntityRel	Normal
-	HiLink	logtalkEntityRelTag	Statement
+	HiLink	logtalkEntityRelTag	PreProc
 
-	HiLink	logtalkCloseEntityDir	Statement
+	HiLink	logtalkCloseEntityDir	PreProc
 
 	HiLink	logtalkDir		Normal
-	HiLink	logtalkDirTag		Statement
+	HiLink	logtalkDirTag		PreProc
 
 	HiLink	logtalkAtom		String
 	HiLink	logtalkString		String
+
+	HiLink	logtalkNumber		Number
 
 	HiLink	logtalkKeyword		Keyword
 
@@ -390,6 +378,8 @@ if version >= 508 || !exists("did_logtalk_syn_inits")
 	HiLink	logtalkExtCall		Normal
 	HiLink	logtalkExtCallTag	Operator
 
+	HiLink	logtalkVariable		Identifier
+
 	delcommand HiLink
 
 endif
@@ -397,4 +387,6 @@ endif
 
 let b:current_syntax = "logtalk"
 
-set ts=8
+setlocal ts=4
+setlocal fdm=syntax
+setlocal fdc=2

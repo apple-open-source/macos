@@ -1,11 +1,11 @@
 " Vim syntax file
 " Language:     LambdaProlog (Teyjus)
 " Filenames:    *.mod *.sig
-" Maintainer:   Markus Mottl  <markus@oefai.at>
-" URL:		http://www.ai.univie.ac.at/~markus/vim/syntax/lprolog.vim
-" Last Change:	2003 May 11
-"		2001 Apr 26 - Upgraded for new Vim version
-"		2000 Jun  5 - Initial release
+" Maintainer:   Markus Mottl  <markus.mottl@gmail.com>
+" URL:          http://www.ocaml.info/vim/syntax/lprolog.vim
+" Last Change:  2006 Feb 05
+"               2001 Apr 26 - Upgraded for new Vim version
+"               2000 Jun  5 - Initial release
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded

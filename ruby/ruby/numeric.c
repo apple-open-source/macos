@@ -2,8 +2,8 @@
 
   numeric.c -
 
-  $Author: matz $
-  $Date: 2004/11/18 03:47:14 $
+  $Author: knu $
+  $Date: 2007-02-23 13:24:16 +0900 (Fri, 23 Feb 2007) $
   created at: Fri Aug 13 18:33:09 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -198,6 +198,7 @@ num_sadded(x, name)
     return Qnil;		/* not reached */
 }
 
+/* :nodoc: */
 static VALUE
 num_init_copy(x, y)
     VALUE x, y;
@@ -255,6 +256,8 @@ num_quo(x, y)
 }
 
 
+static VALUE num_floor(VALUE num);
+
 /*
  *  call-seq:
  *     num.div(numeric)    => integer
@@ -268,7 +271,7 @@ static VALUE
 num_div(x, y)
     VALUE x, y;
 {
-    return rb_Integer(rb_funcall(x, '/', 1, y));
+    return num_floor(rb_funcall(x, '/', 1, y));
 }
 
 
@@ -296,21 +299,21 @@ num_div(x, y)
  *    ------+-----+---------------+---------+-------------+---------------
  *    -13   | -4  |   3,   -1     |   3     |   -1        |    -1
  *    ------+-----+---------------+---------+-------------+---------------
- *     11.5 |  4  |   2.0,  3.5   |   2.875 |    3.5      |     3.5
+ *     11.5 |  4  |   2,    3.5   |   2.875 |    3.5      |     3.5
  *    ------+-----+---------------+---------+-------------+---------------
- *     11.5 | -4  |  -3.0, -0.5   |  -2.875 |   -0.5      |     3.5
+ *     11.5 | -4  |  -3,   -0.5   |  -2.875 |   -0.5      |     3.5
  *    ------+-----+---------------+---------+-------------+---------------
- *    -11.5 |  4  |  -3.0   0.5   |  -2.875 |    0.5      |    -3.5
+ *    -11.5 |  4  |  -3,    0.5   |  -2.875 |    0.5      |    -3.5
  *    ------+-----+---------------+---------+-------------+---------------
- *    -11.5 | -4  |   2.0  -3.5   |   2.875 |   -3.5      |    -3.5
+ *    -11.5 | -4  |   2    -3.5   |   2.875 |   -3.5      |    -3.5
  *
  *
  *  Examples
  *     11.divmod(3)         #=> [3, 2]
  *     11.divmod(-3)        #=> [-4, -1]
- *     11.divmod(3.5)       #=> [3.0, 0.5]
- *     (-11).divmod(3.5)    #=> [-4.0, 3.0]
- *     (11.5).divmod(3.5)   #=> [3.0, 1.0]
+ *     11.divmod(3.5)       #=> [3, 0.5]
+ *     (-11).divmod(3.5)    #=> [-4, 3.0]
+ *     (11.5).divmod(3.5)   #=> [3, 1.0]
  */
 
 static VALUE
@@ -592,7 +595,7 @@ flo_minus(x, y)
  * call-seq:
  *   float * other   => float
  *
- * Returns a new float with is the product of <code>float</code>
+ * Returns a new float which is the product of <code>float</code>
  * and <code>other</code>.
  */
 
@@ -714,7 +717,7 @@ static VALUE
 flo_divmod(x, y)
     VALUE x, y;
 {
-    double fy, div, mod;
+    double fy, div, mod, val;
     volatile VALUE a, b;
 
     switch (TYPE(y)) {
@@ -731,7 +734,13 @@ flo_divmod(x, y)
 	return rb_num_coerce_bin(x, y);
     }
     flodivmod(RFLOAT(x)->value, fy, &div, &mod);
-    a = rb_float_new(div);
+    if (FIXABLE(div)) {
+        val = div;
+        a = LONG2FIX(val);
+    }
+    else {
+        a = rb_dbl2big(div);
+    }
     b = rb_float_new(mod);
     return rb_assoc_new(a, b);
 }
@@ -832,12 +841,13 @@ flo_eq(x, y)
 	break;
       case T_FLOAT:
 	b = RFLOAT(y)->value;
+	if (isnan(b)) return Qfalse;
 	break;
       default:
 	return num_equal(x, y);
     }
     a = RFLOAT(x)->value;
-    if (isnan(a) || isnan(b)) return Qfalse;
+    if (isnan(a)) return Qfalse;
     return (a == b)?Qtrue:Qfalse;
 }
 
@@ -860,7 +870,7 @@ flo_hash(num)
     if (d == 0) d = fabs(d);
     c = (char*)&d;
     for (hash=0, i=0; i<sizeof(double);i++) {
-	hash += c[i] * 971;
+	hash = (hash * 971) ^ (unsigned char)c[i];
     }
     if (hash < 0) hash = -hash;
     return INT2FIX(hash);
@@ -937,12 +947,13 @@ flo_gt(x, y)
 
       case T_FLOAT:
 	b = RFLOAT(y)->value;
+	if (isnan(b)) return Qfalse;
 	break;
 
       default:
 	return rb_num_coerce_relop(x, y);
     }
-    if (isnan(a) || isnan(b)) return Qfalse;
+    if (isnan(a)) return Qfalse;
     return (a > b)?Qtrue:Qfalse;
 }
 
@@ -972,12 +983,13 @@ flo_ge(x, y)
 
       case T_FLOAT:
 	b = RFLOAT(y)->value;
+	if (isnan(b)) return Qfalse;
 	break;
 
       default:
 	return rb_num_coerce_relop(x, y);
     }
-    if (isnan(a) || isnan(b)) return Qfalse;
+    if (isnan(a)) return Qfalse;
     return (a >= b)?Qtrue:Qfalse;
 }
 
@@ -1006,12 +1018,13 @@ flo_lt(x, y)
 
       case T_FLOAT:
 	b = RFLOAT(y)->value;
+	if (isnan(b)) return Qfalse;
 	break;
 
       default:
 	return rb_num_coerce_relop(x, y);
     }
-    if (isnan(a) || isnan(b)) return Qfalse;
+    if (isnan(a)) return Qfalse;
     return (a < b)?Qtrue:Qfalse;
 }
 
@@ -1041,12 +1054,13 @@ flo_le(x, y)
 
       case T_FLOAT:
 	b = RFLOAT(y)->value;
+	if (isnan(b)) return Qfalse;
 	break;
 
       default:
 	return rb_num_coerce_relop(x, y);
     }
-    if (isnan(a) || isnan(b)) return Qfalse;
+    if (isnan(a)) return Qfalse;
     return (a <= b)?Qtrue:Qfalse;
 }
 
@@ -1260,9 +1274,9 @@ flo_ceil(num)
  *  Rounds <i>flt</i> to the nearest integer. Equivalent to:
  *     
  *     def round
- *       return floor(self+0.5) if self > 0.0
- *       return ceil(self-0.5)  if self < 0.0
- *       return 0.0
+ *       return (self+0.5).floor if self > 0.0
+ *       return (self-0.5).ceil  if self < 0.0
+ *       return 0
  *     end
  *     
  *     1.5.round      #=> 2
@@ -1437,7 +1451,7 @@ num_step(argc, argv, from)
 	    rb_raise(rb_eArgError, "wrong number of arguments");
 	}
 	if (rb_equal(step, INT2FIX(0))) {
-	    rb_raise(rb_eArgError, "step cannot be 0");
+	    rb_raise(rb_eArgError, "step can't be 0");
 	}
     }
 
@@ -1945,10 +1959,6 @@ fix_to_s(argc, argv, x)
     if (argc == 0) base = 10;
     else base = NUM2INT(b);
 
-    if (base == 2) {
-	/* rb_fix2str() does not handle binary */
-	return rb_big2str(rb_int2big(FIX2INT(x)), 2);
-    }
     return rb_fix2str(x, base);
 }
 
@@ -1972,11 +1982,8 @@ fix_plus(x, y)
 	a = FIX2LONG(x);
 	b = FIX2LONG(y);
 	c = a + b;
-	r = LONG2FIX(c);
+	r = LONG2NUM(c);
 
-	if (FIX2LONG(r) != c) {
-	    r = rb_big_plus(rb_int2big(a), rb_int2big(b));
-	}
 	return r;
     }
     if (TYPE(y) == T_FLOAT) {
@@ -2005,11 +2012,8 @@ fix_minus(x, y)
 	a = FIX2LONG(x);
 	b = FIX2LONG(y);
 	c = a - b;
-	r = LONG2FIX(c);
+	r = LONG2NUM(c);
 
-	if (FIX2LONG(r) != c) {
-	    r = rb_big_minus(rb_int2big(a), rb_int2big(b));
-	}
 	return r;
     }
     if (TYPE(y) == T_FLOAT) {
@@ -2032,6 +2036,10 @@ fix_mul(x, y)
     VALUE x, y;
 {
     if (FIXNUM_P(y)) {
+#ifdef __HP_cc
+        /* avoids an optimization bug of HP aC++/ANSI C B3910B A.06.05 [Jul 25 2005] */
+        volatile
+#endif
 	long a, b, c;
 	VALUE r;
 
@@ -2196,6 +2204,9 @@ fix_pow(x, y)
 	    return rb_big_pow(rb_int2big(a), y);
 	}
 	return rb_float_new(pow((double)a, (double)b));
+    } else if (TYPE(y) == T_FLOAT) {
+        long a = FIX2LONG(x);
+        return rb_float_new(pow((double)a, RFLOAT(y)->value));
     }
     return rb_num_coerce_bin(x, y);
 }
@@ -2215,12 +2226,9 @@ static VALUE
 fix_equal(x, y)
     VALUE x, y;
 {
-    if (FIXNUM_P(y)) {
-	return (FIX2LONG(x) == FIX2LONG(y))?Qtrue:Qfalse;
-    }
-    else {
-	return num_equal(x, y);
-    }
+    if (x == y) return Qtrue;
+    if (FIXNUM_P(y)) return Qfalse;
+    return num_equal(x, y);
 }
 
 /*
@@ -2236,10 +2244,10 @@ static VALUE
 fix_cmp(x, y)
     VALUE x, y;
 {
+    if (x == y) return INT2FIX(0);
     if (FIXNUM_P(y)) {
 	long a = FIX2LONG(x), b = FIX2LONG(y);
 
-	if (a == b) return INT2FIX(0);
 	if (a > b) return INT2FIX(1);
 	return INT2FIX(-1);
     }
@@ -2448,7 +2456,7 @@ fix_lshift(x, y)
  * call-seq:
  *   fix >> count     => integer
  *
- * Shifts _fix_ left _count_ positions (right if _count_ is negative).
+ * Shifts _fix_ right _count_ positions (left if _count_ is negative).
  */
 
 static VALUE
@@ -2767,6 +2775,9 @@ Init_Numeric()
 #elif defined(_UNICOSMP)
     /* Turn off floating point exceptions for divide by zero, etc. */
     _set_Creg(0, 0);
+#elif defined(__BORLANDC__)
+    /* Turn off floating point exceptions for overflow, etc. */
+    _control87(MCW_EM, MCW_EM);
 #endif
     id_coerce = rb_intern("coerce");
     id_to_i = rb_intern("to_i");

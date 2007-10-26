@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -37,6 +40,7 @@
 #include <dce/idlddefs.h>
 #include <ndrui.h>
 #include <lsysdep.h>
+#include <asl.h>
 
 static void rpc_ss_init_new_store_ptrs
 (
@@ -69,7 +73,7 @@ static void rpc_ss_ndr_unmar_ptr_ptee
         case IDL_DT_FULL_PTR:
             /* Unmarshall the node number */
             IDL_UNMAR_ULONG( &node_number );
-            *(rpc_void_p_t *)p_node = (rpc_void_p_t)node_number;
+            *(idl_ulong_int *)p_node = node_number;
             defn_vec_ptr++;
             pointee_desc.dimensionality = 0;
             rpc_ss_ndr_unmar_pointee_desc( pointee_type, defn_vec_ptr,
@@ -153,7 +157,7 @@ void rpc_ss_ndr_unmar_pointee
     if ( (pointer_type == IDL_DT_FULL_PTR) 
             || (pointer_type == IDL_DT_UNIQUE_PTR) )
     {
-        node_number = (idl_ulong_int)*p_pointer;
+        node_number = *(idl_ulong_int *)p_pointer;
         if (node_number == 0)
         {
             /* Pointee of a null [ptr] or [unique] pointer */
@@ -525,8 +529,7 @@ void rpc_ss_ndr_unmar_pointee
             break;
         default:
 #ifdef DEBUG_INTERP
-             printf("rpc_ss_ndr_unmar_pointee:unrecognized type %d\n",
-                        pointee_type);
+             asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_unmar_pointee:unrecognized type %d\n", pointee_type);
              exit(0);
 #endif
              RAISE(rpc_x_coding_error);
@@ -832,8 +835,7 @@ void rpc_ss_ndr_u_struct_pointees
                 break;
             default:
 #ifdef DEBUG_INTERP
-                printf("rpc_ss_ndr_u_struct_pointees:unrecognized type %d\n",
-                        type_byte);
+                asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_u_struct_pointees:unrecognized type %d\n", type_byte);
                 exit(0);
 #endif
                 RAISE(rpc_x_coding_error);
@@ -1149,8 +1151,7 @@ void rpc_ss_alloc_pointer_target
             break;
         default:
 #ifdef DEBUG_INTERP
-             printf("rpc_ss_alloc_pointer_target:unrecognized type %d\n",
-                        pointee_type);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_alloc_pointer_target:unrecognized type %d\n", pointee_type);
              exit(0);
 #endif
              RAISE(rpc_x_coding_error);
@@ -1394,8 +1395,7 @@ void rpc_ss_init_new_struct_ptrs
                 break;
             default:
 #ifdef DEBUG_INTERP
-                printf("rpc_ss_init_new_struct_ptrs:unrecognized type %d\n",
-                        type_byte);
+				asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_init_new_struct_ptrs:unrecognized type %d\n", type_byte);
                 exit(0);
 #endif
                 RAISE(rpc_x_coding_error);
@@ -1527,8 +1527,7 @@ static void rpc_ss_init_new_store_ptrs
             break;
         default:
 #ifdef DEBUG_INTERP
-            printf("rpc_ss_init_new_store_ptrs:unrecognized type %d\n",
-                        storage_type);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_init_new_store_ptrs:unrecognized type %d\n", storage_type);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);
@@ -1573,8 +1572,7 @@ void rpc_ss_init_out_ref_ptrs
             break;
         default:
 #ifdef DEBUG_INTERP
-            printf("rpc_ss_init_out_ref_ptrs:unrecognized type %d\n",
-                        type_byte);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_init_out_ref_ptrs:unrecognized type %d\n", type_byte);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);

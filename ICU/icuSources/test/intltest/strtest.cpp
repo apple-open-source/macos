@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*   file name:  strtest.cpp
@@ -18,7 +18,7 @@
 #include "strtest.h"
 #include "unicode/ustring.h"
 
-#if defined(WIN32) && defined(_MSC_VER)
+#if defined(U_WINDOWS) && defined(_MSC_VER)
 #include <vector>
 using namespace std;
 #endif
@@ -178,7 +178,7 @@ void StringTest::runIndexedTest(int32_t index, UBool exec, const char *&name, ch
     case 7:
         name="TestSTLCompatibility";
         if(exec) {
-#if defined(WIN32) && defined(_MSC_VER)
+#if defined(U_WINDOWS) && defined(_MSC_VER)
             /* Just make sure that it compiles with STL's placement new usage. */
             vector<UnicodeString> myvect;
             myvect.push_back(UnicodeString("blah"));

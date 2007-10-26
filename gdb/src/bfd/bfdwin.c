@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "sysdep.h"
 
@@ -44,14 +44,21 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 static bfd_boolean _bfd_get_file_window_mmap
 PARAMS ((bfd *abfd, ufile_ptr offset, bfd_size_type size,
 	 bfd_window *windowp, bfd_window_internal *i, bfd_boolean writable));
+
+#if ! HAVE_MMAP
 static bfd_boolean _bfd_get_file_window_malloc
 PARAMS ((bfd *abfd, ufile_ptr offset, bfd_size_type size,
 	 bfd_window *windowp, bfd_window_internal *i, bfd_boolean writable));
+#endif /* ! HAVE_MMAP */
 
 /* The idea behind the next and refcount fields is that one mapped
    region can suffice for multiple read-only windows or multiple
    non-overlapping read-write windows.  It's not implemented yet
    though.  */
+
+/* APPLE LOCAL: Add new value for 'mapped', for the case where we have
+   a window into a bfd that has already been fully mapped into
+   memory. */
 
 /*
 INTERNAL_DEFINITION
@@ -60,8 +67,8 @@ INTERNAL_DEFINITION
 .  struct _bfd_window_internal *next;
 .  void *data;
 .  bfd_size_type size;
-.  int refcount : 31;		{* should be enough...  *}
-.  unsigned mapped : 1;		{* 1 = mmap, 0 = malloc *}
+.  int refcount : 30;		{* should be enough...  *}
+.  unsigned mapped : 2;		{* 2 = window into mapped bfd, 1 = mmap, 0 = malloc *}
 .};
 */
 
@@ -94,7 +101,7 @@ bfd_free_window (bfd_window *windowp)
   i->refcount--;
   if (debug_windows)
     fprintf (stderr, "freeing window @%p<%p,%lx,%p>\n",
-	     windowp, windowp->data, windowp->size, windowp->i);
+	     windowp, windowp->data, (unsigned long) windowp->size, windowp->i);
   if (i->refcount > 0)
     return;
 
@@ -268,6 +275,7 @@ _bfd_get_file_window_mmap (abfd, offset, size, windowp, i, writable)
 }
 #endif /* HAVE_MMAP */
 
+#if ! HAVE_MMAP
 static bfd_boolean
 _bfd_get_file_window_malloc (abfd, offset, size, windowp, i, writable)
      bfd *abfd;
@@ -329,6 +337,7 @@ _bfd_get_file_window_malloc (abfd, offset, size, windowp, i, writable)
   windowp->size = i->size;
   return TRUE;
 }
+#endif /* ! HAVE_MMAP */
 
 bfd_boolean
 bfd_get_file_window (abfd, offset, size, windowp, writable)
@@ -356,12 +365,7 @@ bfd_get_file_window (abfd, offset, size, windowp, writable)
       i->data = 0;
     }
 
-  if ((abfd->flags & BFD_IO_FUNCS) != 0)
-    {
-      if (! _bfd_get_file_window_malloc (abfd, offset, size, windowp, i, writable))
-	return FALSE;
-    }
-  else if ((abfd->flags & BFD_IN_MEMORY) != 0) 
+  if ((abfd->flags & BFD_IN_MEMORY) != 0) 
     {
       struct bfd_in_memory *bim = (struct bfd_in_memory *) abfd->iostream;
       BFD_ASSERT (bim != NULL);

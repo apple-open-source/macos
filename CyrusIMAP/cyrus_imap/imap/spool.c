@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: spool.c,v 1.5 2005/03/05 00:37:06 dasenbro Exp $
+ * $Id: spool.c,v 1.9 2006/11/30 17:11:20 murch Exp $
  */
 
 #include <config.h>
@@ -140,6 +140,7 @@ static int parseheader(struct protstream *fin, FILE *fout,
     state s = NAME_START;
     int r = 0;
     int reject8bit = config_getswitch(IMAPOPT_REJECT8BIT);
+    int munge8bit = config_getswitch(IMAPOPT_MUNGE8BIT);
     const char **skip = NULL;
 
     if (namelen == 0) {
@@ -266,10 +267,12 @@ static int parseheader(struct protstream *fin, FILE *fout,
 			   form. */
 			r = IMAP_MESSAGE_CONTAINS8BIT;
 			goto ph_error;
-		    } else {
+		    } else if (munge8bit) {
 			/* We have been configured to munge all mail of this
 			   form. */
-/*			c = 'X'; */
+#ifndef APPLE_OS_X_SERVER
+			c = 'X';
+#endif
 		    }
 		}
 		/* just an ordinary character */
@@ -451,7 +454,7 @@ int spool_copy_msg(struct protstream *fin, FILE *fout)
 	    p[1] = '\n';
 	    p[2] = '\0';
 	}
-	else if (p[0] != '\n' && (strlen(buf) < sizeof(buf)-2)) {
+	else if (p[0] != '\n' && (strlen(buf) < sizeof(buf)-3)) {
 	    /* line contained a \0 not at the end */
 	    r = IMAP_MESSAGE_CONTAINSNULL;
 	    continue;

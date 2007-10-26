@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1988, 1989, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 1988, 1989 by Adam de Boor
@@ -37,47 +37,56 @@
  * SUCH DAMAGE.
  *
  *	@(#)buf.h	8.2 (Berkeley) 4/28/95
- * $FreeBSD: src/usr.bin/make/buf.h,v 1.12 2002/09/17 21:29:06 jmallett Exp $
+ * $FreeBSD: src/usr.bin/make/buf.h,v 1.27 2005/05/13 08:53:00 harti Exp $
  */
+
+#ifndef buf_h_a61a6812
+#define	buf_h_a61a6812
 
 /*-
  * buf.h --
  *	Header for users of the buf library.
  */
 
-#ifndef _BUF_H
-#define	_BUF_H
+#include <sys/types.h>
 
-#include    "sprite.h"
+#include "util.h"
+
+/*
+ * There are several places where expandable buffers are used (parse.c and
+ * var.c). This constant is merely the starting point for those buffers. If
+ * lines tend to be much shorter than this, it would be best to reduce BSIZE.
+ * If longer, it should be increased. Reducing it will cause more copying to
+ * be done for longer lines, but will save space for shorter ones. In any
+ * case, it ought to be a power of two simply because most storage allocation
+ * schemes allocate in powers of two.
+ */
+#define	MAKE_BSIZE	256	/* starting size for expandable buffers */
+
+#define	BUF_DEF_SIZE	256	/* Default buffer size */
+#define	BUF_ADD_INC	256	/* Expansion increment when Adding */
 
 typedef char Byte;
 
 typedef struct Buffer {
-    int	    size; 	/* Current size of the buffer */
-    int     left;	/* Space left (== size - (inPtr - buffer)) */
-    Byte    *buffer;	/* The buffer itself */
-    Byte    *inPtr;	/* Place to write to */
-    Byte    *outPtr;	/* Place to read from */
-} *Buffer;
+	size_t	size;	/* Current size of the buffer */
+	Byte	*buf;	/* The buffer itself */
+	Byte	*end;	/* Place to write to */
+} Buffer;
 
-/* Buf_AddByte adds a single byte to a buffer. */
-#define	Buf_AddByte(bp, byte) \
-	(void) (--(bp)->left <= 0 ? Buf_OvAddByte(bp, byte), 1 : \
-		(*(bp)->inPtr++ = (byte), *(bp)->inPtr = 0), 1)
+void Buf_AddByte(Buffer *, Byte);
+void Buf_AddBytes(Buffer *, size_t, const Byte *);
+void Buf_Append(Buffer *, const char []);
+void Buf_AppendBuf(Buffer *, const Buffer *);
+void Buf_AppendRange(Buffer *, const char [], const char *);
+void Buf_Clear(Buffer *);
+char *Buf_Data(const Buffer *);
+void Buf_Destroy(Buffer *, Boolean);
+Byte *Buf_GetAll(Buffer *, size_t *);
+Buffer *Buf_Init(size_t);
+char *Buf_Peel(Buffer *);
+void Buf_ReplaceLastByte(Buffer *, Byte);
+size_t Buf_Size(const Buffer *);
+void Buf_StripNewlines(Buffer *);
 
-#define	BUF_ERROR 256
-
-void Buf_OvAddByte(Buffer, int);
-void Buf_AddBytes(Buffer, int, const Byte *);
-void Buf_UngetByte(Buffer, int);
-void Buf_UngetBytes(Buffer, int, Byte *);
-int Buf_GetByte(Buffer);
-int Buf_GetBytes(Buffer, int, Byte *);
-Byte *Buf_GetAll(Buffer, int *);
-void Buf_Discard(Buffer, int);
-int Buf_Size(Buffer);
-Buffer Buf_Init(int);
-void Buf_Destroy(Buffer, Boolean);
-void Buf_ReplaceLastByte(Buffer, int);
-
-#endif /* _BUF_H */
+#endif /* buf_h_a61a6812 */

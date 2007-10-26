@@ -66,6 +66,7 @@ extern void mi_interp_context_hook (int thread_id);
 extern void mi_interp_stepping_command_hook(void);
 extern void mi_interp_continue_command_hook(void);
 extern int mi_interp_run_command_hook(void);
+extern void mi_interp_hand_call_function_hook (void);
 
 void mi_insert_notify_hooks (void);
 void mi_remove_notify_hooks (void);

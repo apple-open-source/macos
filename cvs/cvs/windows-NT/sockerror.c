@@ -14,7 +14,7 @@
    GNU General Public License for more details.  */
 
 #include <stdio.h>
-#include <winsock.h>
+#include <sys/socket.h>
 
 struct err_strs {
     char **strs;

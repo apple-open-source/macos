@@ -1,0 +1,22 @@
+--- config/bsd4.4.old   2005-01-18 12:24:52.000000000 -0800
++++ config/bsd4.4       2007-02-23 15:32:53.000000000 -0800
+@@ -23,7 +23,7 @@
+ /*
+  * POSIXSIGS   Use the POSIX signal facilities to emulate BSD signals.
+  */
+-#undef POSIXSIGS
++#define POSIXSIGS
+ 
+ /*
+  * VFORK       This machine has a vfork().  
+@@ -51,7 +51,9 @@
+  *             Note: POSIX systems should not define this unless they
+  *             have sigvec() and friends (ie: 4.3BSD-RENO, HP-UX).
+  */
++#ifndef DARWIN /* sigpause is USG */
+ #define BSDSIGS
++#endif /* DARWIN */
+ 
+ /*
+  * BSDTIMES    You have BSD-style process time stuff (like rusage)
+

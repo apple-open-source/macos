@@ -281,7 +281,10 @@ mod_export int lastend;
 
 #define inststr(X) inststrlen((X),1,-1)
 
-/* Main completion entry point, called from zle. */
+/*
+ * Main completion entry point, called from zle. 
+ * At this point the line is already metafied.
+ */
 
 /**/
 int
@@ -292,17 +295,21 @@ do_completion(UNUSED(Hookdef dummy), Compldat dat)
     char *opm;
     LinkNode n;
 
+    METACHECK();
+
     pushheap();
 
     ainfo = fainfo = NULL;
     matchers = newlinklist();
 
     zsfree(compqstack);
-    compqstack = ztrdup("\\");
-    if (instring == 2)
-	compqstack[0] = '"';
-    else if (instring)
-	compqstack[0] = '\'';
+    compqstack = zalloc(2);
+    /*
+     * It looks like we may need to do stuff with backslashes even
+     * if instring is QT_NONE.
+     */
+    *compqstack = (instring == QT_NONE) ? QT_BACKSLASH : (char)instring;
+    compqstack[1] = '\0';
 
     hasunqu = 0;
     useline = (wouldinstab ? -1 : (lst != COMP_LIST_COMPLETE));
@@ -329,7 +336,7 @@ do_completion(UNUSED(Hookdef dummy), Compldat dat)
 		      (isset(LISTPACKED) ? "packed rows" : "rows") :
 		      (isset(LISTPACKED) ? "packed" : ""));
     startauto = isset(AUTOMENU);
-    movetoend = ((cs == we || isset(ALWAYSTOEND)) ? 2 : 1);
+    movetoend = ((zlemetacs == we || isset(ALWAYSTOEND)) ? 2 : 1);
     showinglist = 0;
     hasmatched = hasunmatched = 0;
     minmlen = 1000000;
@@ -341,15 +348,19 @@ do_completion(UNUSED(Hookdef dummy), Compldat dat)
     /* Make sure we have the completion list and compctl. */
     if (makecomplist(s, incmd, lst)) {
 	/* Error condition: feeeeeeeeeeeeep(). */
-	cs = 0;
-	foredel(ll);
+	zlemetacs = 0;
+	foredel(zlemetall);
 	inststr(origline);
-	cs = origcs;
+	zlemetacs = origcs;
 	clearlist = 1;
 	ret = 1;
 	minfo.cur = NULL;
-	if (useline < 0)
+	if (useline < 0) {
+	    /* unmetafy line before calling ZLE */
+	    unmetafy_line();
 	    ret = selfinsert(zlenoargs);
+	    metafy_line();
+	}
 	goto compend;
     }
     zsfree(lastprebr);
@@ -362,14 +373,17 @@ do_completion(UNUSED(Hookdef dummy), Compldat dat)
 	if (nmatches)
             do_ambig_menu();
 	ret = !nmatches;
-    } else if (useline < 0)
+    } else if (useline < 0) {
+	/* unmetafy line before calling ZLE */
+	unmetafy_line();
 	ret = selfinsert(zlenoargs);
-    else if (!useline && uselist) {
+	metafy_line();
+    } else if (!useline && uselist) {
 	/* All this and the guy only wants to see the list, sigh. */
-	cs = 0;
-	foredel(ll);
+	zlemetacs = 0;
+	foredel(zlemetall);
 	inststr(origline);
-	cs = origcs;
+	zlemetacs = origcs;
 	showinglist = -2;
     } else if (useline == 2 && nmatches > 1) {
 	do_allmatches(1);
@@ -414,10 +428,10 @@ do_completion(UNUSED(Hookdef dummy), Compldat dat)
 	invalidatelist();
 	if (forcelist)
 	    clearlist = 1;
-	cs = 0;
-	foredel(ll);
+	zlemetacs = 0;
+	foredel(zlemetall);
 	inststr(origline);
-	cs = origcs;
+	zlemetacs = origcs;
     }
     /* Print the explanation strings if needed. */
     if (!showinglist && validlist && usemenu != 2 && uselist &&
@@ -430,9 +444,9 @@ do_completion(UNUSED(Hookdef dummy), Compldat dat)
     for (n = firstnode(matchers); n; incnode(n))
 	freecmatcher((Cmatcher) getdata(n));
 
-    ll = strlen((char *)line);
-    if (cs > ll)
-	cs = ll;
+    zlemetall = strlen(zlemetaline);
+    if (zlemetacs > zlemetall)
+	zlemetacs = zlemetall;
     popheap();
 
     return ret;
@@ -454,12 +468,12 @@ before_complete(UNUSED(Hookdef dummy), int *lst)
 
     /* If we are doing a menu-completion... */
 
-    if (menucmp && *lst != COMP_LIST_EXPAND && 
+    if (minfo.cur && menucmp && *lst != COMP_LIST_EXPAND && 
 	(menucmp != 1 || !compwidget || compwidget == lastcompwidget)) {
 	do_menucmp(*lst);
 	return 1;
     }
-    if (menucmp && validlist && *lst == COMP_LIST_COMPLETE) {
+    if (minfo.cur && menucmp && validlist && *lst == COMP_LIST_COMPLETE) {
 	showinglist = -2;
 	onlyexpl = listdat.valid = 0;
 	return 1;
@@ -469,8 +483,13 @@ before_complete(UNUSED(Hookdef dummy), int *lst)
     /* We may have to reset the cursor to its position after the   *
      * string inserted by the last completion. */
 
-    if ((fromcomp & FC_INWORD) && (cs = lastend) > ll)
-	cs = ll;
+    /*
+     * Currently this hook runs before metafication.
+     * This is the only hook of the three defined here of
+     * which that is true.
+     */
+    if ((fromcomp & FC_INWORD) && (zlecs = lastend) > zlell)
+	zlecs = zlell;
 
     /* Check if we have to start a menu-completion (via automenu). */
 
@@ -499,10 +518,10 @@ after_complete(UNUSED(Hookdef dummy), int *dat)
 	    minfo.cur = NULL;
 	    if (ret >= 2) {
 		fixsuffix();
-		cs = 0;
-		foredel(ll);
+		zlemetacs = 0;
+		foredel(zlemetall);
 		inststr(origline);
-		cs = origcs;
+		zlemetacs = origcs;
 		if (ret == 2) {
 		    clearlist = 1;
 		    invalidatelist();
@@ -524,6 +543,8 @@ callcompfunc(char *s, char *fn)
     Eprog prog;
     int lv = lastval;
     char buf[20];
+
+    METACHECK();
 
     if ((prog = getshfunc(fn)) != &dummy_eprog) {
 	char **p, *tmp;
@@ -631,13 +652,22 @@ callcompfunc(char *s, char *fn)
 	compredirect = ztrdup(compredirect);
 	zsfree(compquote);
 	zsfree(compquoting);
-	if (instring) {
-	    if (instring == 1) {
+	if (instring > QT_BACKSLASH) {
+	    switch (instring) {
+	    case QT_SINGLE:
 		compquote = ztrdup("\'");
 		compquoting = ztrdup("single");
-	    } else {
+		break;
+
+	    case QT_DOUBLE:
 		compquote = ztrdup("\"");
 		compquoting = ztrdup("double");
+		break;
+
+	    case QT_DOLLARS:
+		compquote = ztrdup("$'");
+		compquoting = ztrdup("dollars");
+		break;
 	    }
 	    kset |= CP_QUOTE | CP_QUOTING;
 	} else if (inbackt) {
@@ -683,10 +713,10 @@ callcompfunc(char *s, char *fn)
 	    int l;
 
 	    compiprefix = (char *) zalloc((l = wb - parwb) + 1);
-	    memcpy(compiprefix, line + parwb, l);
+	    memcpy(compiprefix, zlemetaline + parwb, l);
 	    compiprefix[l] = '\0';
 	    compisuffix = (char *) zalloc((l = parwe - we) + 1);
-	    memcpy(compisuffix, line + we, l);
+	    memcpy(compisuffix, zlemetaline + we, l);
 	    compisuffix[l] = '\0';
 
 	    wb = parwb;
@@ -1007,8 +1037,7 @@ multiquote(char *s, int ign)
 		p += ign;
 	    while (*p) {
 		if (ign >= 0 || p[1])
-		    s = bslashquote(s, NULL,
-				    (*p == '\'' ? 1 : (*p == '"' ? 2 : 0)));
+		    s = quotestring(s, NULL, *p);
 		p++;
 	    }
 	}
@@ -1044,25 +1073,57 @@ mod_export char *
 check_param(char *s, int set, int test)
 {
     char *p;
+    int found = 0;
 
     zsfree(parpre);
     parpre = NULL;
 
     if (!test)
 	ispar = parq = eparq = 0;
-    /* Try to find a `$'. */
-    for (p = s + offs; p > s && *p != String && *p != Qstring; p--);
-    if (*p == String || *p == Qstring) {
-	/* Handle $$'s */
+    /*
+     * Try to find a `$'.
+     *
+     * TODO: passing s as a parameter while we get some mysterious
+     * offset "offs" into it via a global sucks badly.
+     */ 
+    for (p = s + offs; ; p--) {
+	if (*p == String || *p == Qstring) {
+	    /*
+	     * String followed by Snull (unquoted) or
+	     * QString followed by ' (quoted) indicate a nested
+	     * $'...', not a substitution.
+	     *
+	     * TODO: the argument passing is obscure, no idea if
+	     * it's safe to test for the "'" at the end.
+	     */
+	    if (p < s + offs &&
+		!(*p == String && p[1] == Snull) &&
+		!(*p == Qstring && p[1] == '\'')) {
+		found = 1;
+		break;
+	    }
+	}
+	if (p == s)
+	    break;
+    }
+    if (found) {
+	/*
+	 * Handle $$'s
+	 *
+	 * TODO: this is already bad enough, so I haven't tried
+	 * testing for $'...' here.  If we parsed this forwards
+	 * it wouldn't be quite so bad.
+	 */
 	while (p > s && (p[-1] == String || p[-1] == Qstring))
 	    p--;
 	while ((p[1] == String || p[1] == Qstring) &&
 	       (p[2] == String || p[2] == Qstring))
 	    p += 2;
     }
-    if ((*p == String || *p == Qstring) && p[1] != Inpar && p[1] != Inbrack) {
-	/* This is really a parameter expression (not $(...) or $[...]). */
-	char *b = p + 1, *e = b;
+    if (found &&
+	p[1] != Inpar && p[1] != Inbrack && p[1] != Snull) {
+	/* This is a parameter expression, not $(...), $[...], $'...'. */
+	char *b = p + 1, *e = b, *ie;
 	int n = 0, br = 1, nest = 0;
 
 	if (*b == Inbrace) {
@@ -1105,10 +1166,16 @@ check_param(char *s, int set, int test)
 	else if (idigit(*e))
 	    while (idigit(*e))
 		e++;
-	else if (iident(*e))
-	    while (iident(*e) ||
-		   (comppatmatch && *comppatmatch && (*e == Star || *e == Quest)))
-		e++;
+	else if ((ie = itype_end(e, IIDENT, 0)) != e) {
+	    do {
+		e = ie;
+		if (comppatmatch && *comppatmatch &&
+		    (*e == Star || *e == Quest))
+		    ie = e + 1;
+		else
+		    ie = itype_end(e, IIDENT, 0);
+	    } while (ie != e);
+	}
 
 	/* Now make sure that the cursor is inside the name. */
 	if (offs <= e - s && offs >= b - s && n <= 0) {
@@ -1152,7 +1219,7 @@ check_param(char *s, int set, int test)
 	    }
 	    /* And adjust wb, we, and offs again. */
 	    offs -= b - s;
-	    wb = cs - offs;
+	    wb = zlemetacs - offs;
 	    we = wb + e - b;
 	    ispar = (br >= 2 ? 2 : 1);
 	    b[we-wb] = '\0';
@@ -1233,6 +1300,17 @@ ctokenize(char *p)
     return r;
 }
 
+
+/*
+ * This function reconstructs the full completion argument in
+ * heap memory by concatenating and, if untok is non-zero, untokenizing
+ * the ignored prefix and the active prefix and suffix.
+ * (It appears from the function that the ignored prefix won't
+ * be tokenized but I haven't checked this.)
+ * ipl and/or pl may be passed and if so will be set to the ignored
+ * prefix length and active prefix length respectively.
+ */
+
 /**/
 mod_export char *
 comp_str(int *ipl, int *pl, int untok)
@@ -1266,18 +1344,122 @@ comp_str(int *ipl, int *pl, int untok)
 }
 
 /**/
+mod_export char *
+comp_quoting_string(int stype)
+{
+    switch (stype)
+    {
+    case QT_SINGLE:
+	return "'";
+    case QT_DOUBLE:
+	return "\"";
+    case QT_DOLLARS:
+	return "$'";
+    default:			/* shuts up compiler */
+	return "\\";
+    }
+}
+
+/*
+ * This is the code behind compset -q, which splits the
+ * the current word as if it were a command line.
+ *
+ * This is one of those completion functions that merits the
+ * coveted title "not just ordinarily horrific".
+ */
+
+/**/
 int
 set_comp_sep(void)
 {
+    /*
+     * s: full (reconstructed) completion argument
+     * lip: ignored prefix length
+     * lp: active prefix length
+     * 1: the number "one" => untokenize
+     */
     int lip, lp;
     char *s = comp_str(&lip, &lp, 1);
     LinkList foo = newlinklist();
     LinkNode n;
-    int owe = we, owb = wb, ocs = cs, swb, swe, scs, soffs, ne = noerrs;
-    int tl, got = 0, i = 0, j, cur = -1, oll = ll, sl, css = 0;
-    int remq = 0, dq = 0, odq, sq = 0, osq, issq = 0, sqq = 0, lsq = 0, qa = 0;
+    /* Save word position */
+    int owe = we, owb = wb;
+    /* Save cursor position and line length */
+    int ocs, oll;
+    /*
+     * Values of word beginning and end and cursor after subtractions
+     * due to separators.   I think these are indexes into zlemetaline,
+     * but with some subtractions; they don't see to be indexes into
+     * s, which is the current argument before quote stripping.
+     */
+    int swb, swe, scs;
+    /* Offset into current word after subtractions. */
+    int soffs;
+    /* Current state of error suppression. */
+    int ne = noerrs;
+    /* Length of tmp string */
+    int tl;
+    /* flag that we've got the current completion word, perhaps? */
+    int got = 0;
+    /*
+     * i starts off as the number of the completion word we're looking at,
+     * which is why it's initialised, but is then recycled as a
+     * loop variable.  j is always a loop variable.
+     */
+    int i = 0, j;
+    /*
+     * cur: completion word currently being completed (0 offset).
+     * sl: length of string s, the string we're manipulating.
+     * css: modification of offset into current word beyond cursor
+     * position due to the effects of backslashing, counted during our first
+     * examination of compqstack for double quotes and dollar quotes.
+     * However, for some reason, when the current quoting scheme is
+     * backslashing we modify swb directly later rather than counting it at
+     * the point we remove the backquotes.
+     */
+    int cur = -1, sl, css = 0;
+    /*
+     * Flag that we're doing the thing with backslashes mentioned
+     * for css.
+     */
+    int remq = 0;
+    /*
+     * dq: backslash-removals for double quotes
+     * odq: value of dq before modification for active (Bnull'ed)
+     *      backslashes, or something.
+     * sq: quote-removals for single quotes; either RCQUOTES or '\'' which
+     *     are specially handled (but currently only if RCQUOTES is not
+     *     set, which isn't necessarily correct if the quotes were typed by
+     *     the user).
+     * osq: c.f. odq, taking account of Snull's and embeded "'"'s.
+     * qttype: type of quotes using standard QT_* definitions.
+     * lsq: when quoting is single quotes (QT_SINGLE), counts the offset
+     *      adjustment needed in the word being examined in the lexer loop.
+     * sqq: the value of lsq for the current completion word.
+     * qa:  not, unfortunately, a question and answer session with the
+     *      original author, but the number of characters being removed
+     *      when stripping single quotes: 1 for RCQUOTES, 3 otherwise
+     *      (because we leave a "'" in the final string).
+     */
+    int dq = 0, odq, sq = 0, osq, qttype, sqq = 0, lsq = 0, qa = 0;
+    /* dolq: like sq and dq but for dollars quoting. */
+    int dolq = 0;
+    /* remember some global variable values (except lp is local) */
     int ois = instring, oib = inbackt, noffs = lp, ona = noaliases;
-    char *tmp, *p, *ns, *ol = (char *) line, sav, *qp, *qs, *ts, qc = '\0';
+    /*
+     * tmp: used for temporary processing of strings
+     * p: loop pointer for tmp etc.
+     * ns: holds yet another version of the current completion string,
+     *     goodness knows how it differs from s, tmp, ts, ...
+     * ts: untokenized ns
+     * ol: saves old metafied editing line
+     * sav: save character when NULLed; careful, there's a nested
+     *      definition of sav just to keep you on your toes
+     * qp, qs: prefix and suffix strings deduced from s.
+     */
+    char *tmp, *p, *ns, *ts, *ol, sav, *qp, *qs;
+
+    METACHECK();
 
     s += lip;
     wb += lip;
@@ -1289,48 +1471,89 @@ set_comp_sep(void)
     /* Put the string in the lexer buffer and call the lexer to *
      * get the words we have to expand.                        */
     zleparse = 1;
+    ocs = zlemetacs;
+    oll = zlemetall;
+    ol = zlemetaline;
     addedx = 1;
     noerrs = 1;
     lexsave();
-    tmp = (char *) zhalloc(tl = 3 + strlen(s));
+    /*
+     * tl is the length of the temporary string including
+     * the space at the start and the x at the cursor position,
+     * but not the NULL byte.
+     */
+    tl = strlen(s) + 2;
+    tmp = (char *) zhalloc(tl + 1);
     tmp[0] = ' ';
     memcpy(tmp + 1, s, noffs);
-    tmp[(scs = cs = 1 + noffs)] = 'x';
+    tmp[(scs = zlemetacs = 1 + noffs)] = 'x';
     strcpy(tmp + 2 + noffs, s + noffs);
 
-    switch (*compqstack) {
-    case '\\':
+    switch ((qttype = *compqstack)) {
+    case QT_BACKSLASH:
         remq = 1;
 	tmp = rembslash(tmp);
         break;
-    case '\'':
-        issq = 1;
+
+    case QT_SINGLE:
         if (isset(RCQUOTES))
             qa = 1;
         else
             qa = 3;
-
         sq = remsquote(tmp);
-
         break;
-    case '"':
+
+    case QT_DOUBLE:
         for (j = 0, p = tmp; *p; p++, j++)
-            if (*p == '\\' && p[1] == '\\') {
-                dq++;
+	    /*
+	     * I added the handling for " here: before it just handled
+	     * backslashes.  This meant that a \" inside a " wasn't
+	     * handled properly.  I presume that was an oversight.
+	     * I don't know if this is the right place to fix this
+	     * particular problem because I'm utterly confused by
+	     * the structure of the code in this function.
+	     */
+            if (*p == '\\' && (p[1] == '\\' || p[1] == '"')) {
+		dq++;
                 chuck(p);
-                if (j > cs) {
-                    cs++;
+		if (*p == '"')
+		    zlemetacs--;
+		else if (j > zlemetacs) {
+                    zlemetacs++;
                     css++;
                 }
                 if (!*p)
                     break;
             }
+	break;
+
+    case QT_DOLLARS:
+	j = zlemetacs;
+	tmp = getkeystring(tmp, &sl,
+			   GETKEY_DOLLAR_QUOTE|GETKEY_UPDATE_OFFSET,
+			   &zlemetacs);
+	/* The number of bytes we removed because of $' quoting */
+	dolq = tl - sl;
+	/* Offset into the word is modified, too... */
+	css += zlemetacs - j;
+	break;
+
+    case QT_NONE:
+    default: /* to silence compiler warnings */
+#ifdef DEBUG
+	dputs("BUG: head of compqstack is NULL");
+#endif
+	break;
+
     }
     odq = dq;
     osq = sq;
     inpush(dupstrspace(tmp), 0, NULL);
-    line = (unsigned char *) tmp;
-    ll = tl - 1;
+    zlemetaline = tmp;
+    /*
+     * Length of temporary string, calculated above.
+     */
+    zlemetall = tl;
     strinbeg(0);
     noaliases = 1;
     do {
@@ -1340,6 +1563,12 @@ set_comp_sep(void)
 
 	    if (!tokstr)
 		break;
+	    /*
+	     * If there was an error, it may be because we're in
+	     * an unterminated string.  Count the active quote
+	     * characters to see.  We need an odd number.
+	     * This works for $', too, since the ' there is an Snull.
+	     */
 	    for (j = 0, p = tokstr; *p; p++) {
 		if (*p == Snull || *p == Dnull)
 		    j++;
@@ -1360,7 +1589,7 @@ set_comp_sep(void)
                         dq--;
                 }
             }
-            if (issq) {
+            if (qttype == QT_SINGLE) {
                 for (p = tokstr, lsq = 0; *p; p++) {
                     if (sq && *p == Snull)
                         sq -= qa;
@@ -1380,10 +1609,12 @@ set_comp_sep(void)
 	    DPUTS(!p, "no current word in substr");
 	    got = 1;
 	    cur = i;
-	    swb = wb - 1 - dq - sq;
-	    swe = we - 1 - dq - sq;
+	    swb = wb - 1 - dq - sq - dolq;
+	    swe = we - 1 - dq - sq - dolq;
             sqq = lsq;
-	    soffs = cs - swb - css;
+	    soffs = zlemetacs - swb - css;
+	    DPUTS2(p[soffs] != 'x', "expecting 'x' at offset %d of \"%s\"",
+		   soffs, p);
 	    chuck(p + soffs);
 	    ns = dupstring(p);
 	}
@@ -1397,9 +1628,9 @@ set_comp_sep(void)
     lexrestore();
     wb = owb;
     we = owe;
-    cs = ocs;
-    line = (unsigned char *) ol;
-    ll = oll;
+    zlemetacs = ocs;
+    zlemetaline = ol;
+    zlemetall = oll;
     if (cur < 0 || i < 1)
 	return 1;
     owb = offs;
@@ -1415,24 +1646,54 @@ set_comp_sep(void)
 
     untokenize(ts = dupstring(ns));
 
-    if (*ns == Snull || *ns == Dnull) {
-	instring = (*ns == Snull ? 1 : 2);
+    if (*ns == Snull || *ns == Dnull ||
+	((*ns == String || *ns == Qstring) && ns[1] == Snull)) {
+	char *tsptr = ts, *nsptr = ns, sav;
+	switch (*ns) {
+	case Snull:
+	    instring = QT_SINGLE;
+	    break;
+
+	case Dnull:
+	    instring = QT_DOUBLE;
+	    break;
+
+	default:
+	    instring = QT_DOLLARS;
+	    nsptr++;
+	    tsptr++;
+	    swb++;
+	    break;
+	}
+
 	inbackt = 0;
 	swb++;
-	if (ns[strlen(ns) - 1] == *ns && ns[1])
+	if (nsptr[strlen(nsptr) - 1] == *nsptr && nsptr[1])
 	    swe--;
 	zsfree(autoq);
-	autoq = ztrdup(compqstack[1] ? "" :
-		       multiquote(*ns == Snull ? "'" : "\"", 1));
-	qc = (*ns == Snull ? '\'' : '"');
-	ts++;
+	sav = *++tsptr;
+	*tsptr = '\0';
+	autoq = ztrdup(compqstack[1] ? "" : multiquote(ts, 1));
+	*(ts = tsptr) = sav;
     } else {
-	instring = 0;
+	instring = QT_NONE;
 	zsfree(autoq);
 	autoq = NULL;
     }
+
+    /*
+     * In the following loop we look for parse quotes yet again.
+     * I don't really have the faintest idea why, but given that
+     * ns is immediately reassigned from ts afterwards (why? what's
+     * wrong with it being in ts?) and scs isn't used again, I
+     * presume it's in aid of getting the indexes for word beginning
+     * (swb) and start offset (soffs) into s correct.
+     *
+     * I think soffs is an index into s, while swb and scs are indexes
+     * into the full line but with some jiggery pokery for quote removal.
+     */
     for (p = ns, i = swb; *p; p++, i++) {
-	if (INULL(*p)) {
+	if (inull(*p)) {
 	    if (i < scs) {
 		if (*p == Bnull) {
                     if (p[1] && remq)
@@ -1461,15 +1722,30 @@ set_comp_sep(void)
     }
     ns = ts;
 
-    if (instring && strchr(compqstack, '\\')) {
+    if (instring && strchr(compqstack, QT_BACKSLASH)) {
 	int rl = strlen(ns), ql = strlen(multiquote(ns, !!compqstack[1]));
 
 	if (ql > rl)
 	    swb -= ql - rl;
     }
-    sav = s[(i = swb - 1 - sqq)];
+    /*
+     * Using the word beginning and end as an index into the reconstructed
+     * string s, swb and swe, we can get the strings before and after
+     * the word we're considering.
+     *
+     * Because it would be too easy otherwise, there are random
+     * additional subtractions to be made.  The 1 might be something
+     * to do with the space that appeared mysteriously at the start of the
+     * line when we passed it through the lexer.  The sqq is to do with
+     * the single quote quoting when we passed it through the lexer.
+     *
+     * TODO: I added the "+ dq" because it seemed to improve matters for
+     * double quoting but the fact it's arrived at in a rather different way
+     * from sqq may indicate this is wrong.  $'...' may need something, too.
+     */
+    sav = s[(i = swb - 1 - sqq + dq)];
     s[i] = '\0';
-    qp = (issq ? dupstring(s) : rembslash(s));
+    qp = (qttype == QT_SINGLE) ? dupstring(s) : rembslash(s);
     s[i] = sav;
     if (swe < swb)
 	swe = swb;
@@ -1480,34 +1756,48 @@ set_comp_sep(void)
 	if ((int)strlen(ns) > swe - swb + 1)
 	    ns[swe - swb + 1] = '\0';
     }
-    qs = (issq ? dupstring(s + swe) : rembslash(s + swe));
+    qs = (qttype == QT_SINGLE) ? dupstring(s + swe) : rembslash(s + swe);
     sl = strlen(ns);
     if (soffs > sl)
 	soffs = sl;
-    if (issq) {
+    if (qttype == QT_SINGLE) {
         remsquote(qp);
         remsquote(qs);
     }
     {
 	int set = CP_QUOTE | CP_QUOTING, unset = 0;
 
-	p = tricat((instring ? (instring == 1 ? "'" : "\"") : "\\"),
-		   compqstack, "");
+	tl = strlen(compqstack);
+	p = zalloc(tl + 2);
+	*p = (char)(instring == QT_NONE ? QT_BACKSLASH : instring);
+	memcpy(p+1, compqstack, tl);
+	p[tl+1] = '\0';
 	zsfree(compqstack);
 	compqstack = p;
 
 	zsfree(compquote);
 	zsfree(compquoting);
-	if (instring == 2) {
+	switch (instring) {
+	case QT_DOUBLE:
 	    compquote = "\"";
 	    compquoting = "double";
-	} else if (instring == 1) {
+	    break;
+
+	case QT_SINGLE:
 	    compquote = "'";
 	    compquoting = "single";
-	} else {
+	    break;
+
+	case QT_DOLLARS:
+	    compquote = "$'";
+	    compquoting = "dollars";
+	    break;
+
+	default:
 	    compquote = compquoting = "";
 	    unset = set;
 	    set = 0;
+	    break;
 	}
 	compquote = ztrdup(compquote);
 	compquoting = ztrdup(compquoting);
@@ -1532,8 +1822,8 @@ set_comp_sep(void)
 	    untokenize(ss);
 	    compsuffix = ztrdup(ss);
 	}
-        if ((i = strlen(compprefix)) &&
-            compprefix[i - 1] == '\\' && compprefix[i - 2] != '\\')
+        if ((i = strlen(compprefix)) > 1 && compprefix[i - 1] == '\\' &&
+	    compprefix[i - 2] != '\\' && compprefix[i - 2] != Meta)
             compprefix[i - 1] = '\0';
         
 	tmp = tricat(compqiprefix, compiprefix, multiquote(qp, 1));
@@ -1769,20 +2059,33 @@ addmatches(Cadata dat, char **argv)
 	dat->flags |= parflags;
     if (compquote && (qc = *compquote)) {
 	if (qc == '`') {
-	    instring = 0;
+	    instring = QT_NONE;
+	    /*
+	     * Yes, inbackt has always been set to zero here.  I'm
+	     * sure there's a simple explanation.
+	     */
 	    inbackt = 0;
 	    autoq = "";
 	} else {
-	    char buf[2];
+	    switch (qc) {
+	    case '\'':
+		instring = QT_SINGLE;
+		break;
 
-	    instring = (qc == '\'' ? 1 : 2);
+	    case '"':
+		instring = QT_DOUBLE;
+		break;
+
+	    case '$':
+		instring = QT_DOLLARS;
+		break;
+	    }
 	    inbackt = 0;
-	    buf[0] = qc;
-	    buf[1] = '\0';
-	    autoq = multiquote(buf, 1);
+	    autoq = multiquote(*compquote == '$' ? compquote+1 : compquote, 1);
 	}
     } else {
-	instring = inbackt = 0;
+	instring = QT_NONE;
+	inbackt = 0;
 	autoq = NULL;
     }
     qipre = ztrdup(compqiprefix ? compqiprefix : "");
@@ -2198,10 +2501,16 @@ add_match_data(int alt, char *str, char *orig, Cline line,
 	       char *psuf, Cline sline,
 	       char *suf, int flags, int exact)
 {
+#ifdef MULTIBYTE_SUPPORT
+    mbstate_t mbs;
+    char curchar, *t, *f, *fs, *fe, *new_str = NULL;
+    size_t cnt;
+    wchar_t wc;
+#endif
     Cmatch cm;
     Aminfo ai = (alt ? fainfo : ainfo);
     int palen, salen, qipl, ipl, pl, ppl, qisl, isl, psl;
-    int sl, lpl, lsl, ml;
+    int stl, lpl, lsl, ml;
 
     palen = salen = qipl = ipl = pl = ppl = qisl = isl = psl = 0;
 
@@ -2416,6 +2725,60 @@ add_match_data(int alt, char *str, char *orig, Cline line,
 	    line = p;
 	}
     }
+
+    stl = strlen(str);
+#ifdef MULTIBYTE_SUPPORT
+    /* If "str" contains a character that won't convert into a wide
+     * character, change it into a $'\123' sequence. */
+    memset(&mbs, '\0', sizeof mbs);
+    for (t = f = fs = str, fe = f + stl; fs < fe; ) {
+	if ((curchar = *f++) == Meta)
+	    curchar = *f++ ^ 32;
+	cnt = mbrtowc(&wc, &curchar, 1, &mbs);
+	switch (cnt) {
+	case MB_INCOMPLETE:
+	    if (f < fe)
+		continue;
+	    /* FALL THROUGH */
+	case MB_INVALID:
+	    /* Get mbs out of its undefined state. */
+	    memset(&mbs, '\0', sizeof mbs);
+	    if (!new_str) {
+		/* Be very pessimistic about how much space we'll need. */
+		new_str = zhalloc((t - str) + (fe - fs)*7 + 1);
+		memcpy(new_str, str, t - str);
+		t = new_str + (t - str);
+	    }
+	    /* Output one byte from the start of this invalid multibyte
+	     * sequence unless we got MB_INCOMPLETE at the end of the
+	     * string, in which case we output all the incomplete bytes. */
+	    do {
+		if ((curchar = *fs++) == Meta)
+		    curchar = *fs++ ^ 32;
+		*t++ = '$';
+		*t++ = '\'';
+		*t++ = '\\';
+		*t++ = '0' + ((STOUC(curchar) >> 6) & 7);
+		*t++ = '0' + ((STOUC(curchar) >> 3) & 7);
+		*t++ = '0' + (STOUC(curchar) & 7);
+		*t++ = '\'';
+	    } while (cnt == MB_INCOMPLETE && fs < fe);
+	    /* Scanning restarts from the spot after the char we skipped. */
+	    f = fs;
+	    break;
+	default:
+	    while (fs < f)
+		*t++ = *fs++;
+	    break;
+	}
+    }
+    if (new_str) {
+	*t = '\0';
+	str = new_str;
+	stl = t - str;
+    }
+#endif
+
     /* Allocate and fill the match structure. */
     cm = (Cmatch) zhalloc(sizeof(struct cmatch));
     cm->str = str;
@@ -2442,7 +2805,7 @@ add_match_data(int alt, char *str, char *orig, Cline line,
     cm->modec = '\0';
     if ((flags & CMF_FILE) && orig[0] && orig[strlen(orig) - 1] != '/') {
         struct stat buf;
-        char *pb;
+	char *pb;
 
         pb = (char *) zhalloc((cm->prpre ? strlen(cm->prpre) : 0) +
                               3 + strlen(orig));
@@ -2454,8 +2817,8 @@ add_match_data(int alt, char *str, char *orig, Cline line,
                 cm->modec = '\0';
         }
     }
-    if ((*compqstack == '\\' && compqstack[1]) ||
-	(autoq && *compqstack && compqstack[1] == '\\'))
+    if ((*compqstack == QT_BACKSLASH && compqstack[1]) ||
+	(autoq && *compqstack && compqstack[1] == QT_BACKSLASH))
 	cm->flags |= CMF_NOSPACE;
     if (nbrbeg) {
 	int *p;
@@ -2510,10 +2873,9 @@ add_match_data(int alt, char *str, char *orig, Cline line,
     if (!ai->firstm)
 	ai->firstm = cm;
 
-    sl = strlen(str);
     lpl = (cm->ppre ? strlen(cm->ppre) : 0);
     lsl = (cm->psuf ? strlen(cm->psuf) : 0);
-    ml = sl + lpl + lsl;
+    ml = stl + lpl + lsl;
 
     if (ml < minmlen)
 	minmlen = ml;
@@ -2537,7 +2899,7 @@ add_match_data(int alt, char *str, char *orig, Cline line,
 		    e += lpl;
 		}
 		strcpy(e, str);
-		e += sl;
+		e += stl;
 		if (cm->psuf)
 		    strcpy(e, cm->psuf);
 		comp_setunset(0, 0, CP_EXACTSTR, 0);
@@ -2647,7 +3009,7 @@ addexpl(int always)
 static int
 matchcmp(Cmatch *a, Cmatch *b)
 {
-    if ((*a)->disp) {
+    if ((*a)->disp && !((*a)->flags & CMF_MORDER)) {
 	if ((*b)->disp) {
 	    if ((*a)->flags & CMF_DISPLINE) {
 		if ((*b)->flags & CMF_DISPLINE)
@@ -2663,10 +3025,10 @@ matchcmp(Cmatch *a, Cmatch *b)
 	}
 	return -1;
     }
-    if ((*b)->disp)
+    if ((*b)->disp && !((*b)->flags & CMF_MORDER))
 	return 1;
 
-    return strbpcmp(&((*a)->str), &((*b)->str));
+    return zstrbcmp((*a)->str, (*b)->str);
 }
 
 /* This tests whether two matches are equal (would produce the same
@@ -2715,8 +3077,9 @@ makearray(LinkList l, int type, int flags, int *np, int *nlp, int *llp)
 	    char **ap, **bp, **cp;
 
 	    /* Now sort the array (it contains strings). */
-	    qsort((void *) rp, n, sizeof(char *),
-		  (int (*) _((const void *, const void *)))strbpcmp);
+	    strmetasort((char **)rp, SORTIT_IGNORING_BACKSLASHES |
+			(isset(NUMERICGLOBSORT) ? SORTIT_NUMERICALLY : 0),
+			NULL);
 
 	    /* And delete the ones that occur more than once. */
 	    for (ap = cp = (char **) rp; *ap; ap++) {

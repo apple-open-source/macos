@@ -1,28 +1,31 @@
+# APPLE LOCAL file x86_64
+#ifndef __x86_64__
 # APPLE LOCAL file 4099000
 #define THUNK(REG)				\
 .private_extern ___i686.get_pc_thunk.REG	;\
 ___i686.get_pc_thunk.REG:			;\
 	movl    (%esp,1),%REG			;\
 	ret					;
-	
+
 #ifdef L_get_pc_thunk_ax
-THUNK(ax)
+THUNK(eax)
 #endif
 #ifdef L_get_pc_thunk_dx
-THUNK(dx)
+THUNK(edx)
 #endif
 #ifdef L_get_pc_thunk_cx
-THUNK(cx)
+THUNK(ecx)
 #endif
 #ifdef L_get_pc_thunk_bx
-THUNK(bx)
+THUNK(ebx)
 #endif
 #ifdef L_get_pc_thunk_si
-THUNK(si)
+THUNK(esi)
 #endif
 #ifdef L_get_pc_thunk_di
-THUNK(di)
+THUNK(edi)
 #endif
 #ifdef L_get_pc_thunk_bp
-THUNK(bp)
+THUNK(ebp)
+#endif
 #endif

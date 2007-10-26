@@ -11,47 +11,30 @@ module RSS
 
   module TrackBackUtils
     private
-    def new_with_value_if_need(klass, value)
-      if value.is_a?(klass)
-        value
-      else
-        klass.new(value)
-      end
-    end
-          
-    def trackback_validate(tags)
-      counter = {}
-      %w(ping about).each do |x|
-        counter["#{TRACKBACK_PREFIX}_#{x}"] = 0
-      end
-
-      tags.each do |tag|
-        key = "#{TRACKBACK_PREFIX}_#{tag}"
-        raise UnknownTagError.new(tag, TRACKBACK_URI) unless counter.has_key?(key)
-        counter[key] += 1
-        if tag != "about" and counter[key] > 1
-          raise TooMuchTagError.new(tag, tag_name)
-        end
-      end
-
-      if counter["#{TRACKBACK_PREFIX}_ping"].zero? and
-          counter["#{TRACKBACK_PREFIX}_about"].nonzero?
+    def trackback_validate(ignore_unknown_element, tags, uri)
+      return if tags.nil?
+      if tags.find {|tag| tag == "about"} and
+          !tags.find {|tag| tag == "ping"}
         raise MissingTagError.new("#{TRACKBACK_PREFIX}:ping", tag_name)
       end
     end
   end
-  
+
   module BaseTrackBackModel
+
+    ELEMENTS = %w(ping about)
+    
     def append_features(klass)
       super
 
       unless klass.class == Module
-        klass.__send__(:include, TrackBackUtils)
+        klass.module_eval {include TrackBackUtils}
 
-        %w(ping).each do |x|
-          var_name = "#{TRACKBACK_PREFIX}_#{x}"
-          klass_name = x.capitalize
-          klass.install_have_child_element(var_name)
+        klass.install_must_call_validator(TRACKBACK_PREFIX, TRACKBACK_URI)
+        %w(ping).each do |name|
+          var_name = "#{TRACKBACK_PREFIX}_#{name}"
+          klass_name = "TrackBack#{Utils.to_class_name(name)}"
+          klass.install_have_child_element(name, TRACKBACK_URI, "?", var_name)
           klass.module_eval(<<-EOC, __FILE__, __LINE__)
             remove_method :#{var_name}
             def #{var_name}
@@ -60,22 +43,23 @@ module RSS
 
             remove_method :#{var_name}=
             def #{var_name}=(value)
-              @#{var_name} = new_with_value_if_need(#{klass_name}, value)
+              @#{var_name} = Utils.new_with_value_if_need(#{klass_name}, value)
             end
           EOC
         end
         
         [%w(about s)].each do |name, postfix|
           var_name = "#{TRACKBACK_PREFIX}_#{name}"
-          klass_name = name.capitalize
-          klass.install_have_children_element(var_name)
+          klass_name = "TrackBack#{Utils.to_class_name(name)}"
+          klass.install_have_children_element(name, TRACKBACK_URI, "*",
+                                              var_name)
           klass.module_eval(<<-EOC, __FILE__, __LINE__)
             remove_method :#{var_name}
             def #{var_name}(*args)
               if args.empty?
                 @#{var_name}.first and @#{var_name}.first.value
               else
-                ret = @#{var_name}.send("[]", *args)
+                ret = @#{var_name}.__send__("[]", *args)
                 if ret.is_a?(Array)
                   ret.collect {|x| x.value}
                 else
@@ -88,18 +72,18 @@ module RSS
             remove_method :set_#{var_name}
             def #{var_name}=(*args)
               if args.size == 1
-                item = new_with_value_if_need(#{klass_name}, args[0])
+                item = Utils.new_with_value_if_need(#{klass_name}, args[0])
                 @#{var_name}.push(item)
               else
                 new_val = args.last
                 if new_val.is_a?(Array)
                   new_val = new_value.collect do |val|
-                    new_with_value_if_need(#{klass_name}, val)
+                    Utils.new_with_value_if_need(#{klass_name}, val)
                   end
                 else
-                  new_val = new_with_value_if_need(#{klass_name}, new_val)
+                  new_val = Utils.new_with_value_if_need(#{klass_name}, new_val)
                 end
-                @#{var_name}.send("[]=", *(args[0..-2] + [new_val]))
+                @#{var_name}.__send__("[]=", *(args[0..-2] + [new_val]))
               end
             end
             alias set_#{var_name} #{var_name}=
@@ -113,7 +97,7 @@ module RSS
     extend BaseModel
     extend BaseTrackBackModel
 
-    class Ping < Element
+    class TrackBackPing < Element
       include RSS10
 
       class << self
@@ -127,41 +111,33 @@ module RSS
         end
 
       end
-      
+
+      @tag_name = "ping"
+
       [
         ["resource", ::RSS::RDF::URI, true]
       ].each do |name, uri, required|
-        install_get_attribute(name, uri, required)
+        install_get_attribute(name, uri, required, nil, nil,
+                              "#{::RSS::RDF::PREFIX}:#{name}")
       end
 
       alias_method(:value, :resource)
       alias_method(:value=, :resource=)
-      
-      def initialize(resource=nil)
-        super()
-        @resource = resource
+      def initialize(*args)
+        if Utils.element_initialize_arguments?(args)
+          super
+        else
+          super()
+          self.resource = args[0]
+        end
       end
 
       def full_name
         tag_name_with_prefix(TRACKBACK_PREFIX)
       end
-      
-      def to_s(convert=true, indent=calc_indent)
-        rv = tag(indent)
-        rv = @converter.convert(rv) if convert and @converter
-        rv
-      end
-
-      private
-      def _attrs
-        [
-          ["#{::RSS::RDF::PREFIX}:resource", true, "resource"],
-        ]
-      end
-
     end
 
-    class About < Element
+    class TrackBackAbout < Element
       include RSS10
 
       class << self
@@ -176,37 +152,32 @@ module RSS
 
       end
       
+      @tag_name = "about"
+
       [
         ["resource", ::RSS::RDF::URI, true]
       ].each do |name, uri, required|
-        install_get_attribute(name, uri, required)
+        install_get_attribute(name, uri, required, nil, nil,
+                              "#{::RSS::RDF::PREFIX}:#{name}")
       end
 
       alias_method(:value, :resource)
       alias_method(:value=, :resource=)
       
-      def initialize(resource=nil)
-        super()
-        @resource = resource
+      def initialize(*args)
+        if Utils.element_initialize_arguments?(args)
+          super
+        else
+          super()
+          self.resource = args[0]
+        end
       end
 
       def full_name
         tag_name_with_prefix(TRACKBACK_PREFIX)
       end
-      
-      def to_s(convert=true, indent=calc_indent)
-        rv = tag(indent)
-        rv = @converter.convert(rv) if convert and @converter
-        rv
-      end
 
       private
-      def _attrs
-        [
-          ["#{::RSS::RDF::PREFIX}:resource", true, "resource"],
-        ]
-      end
-
       def maker_target(abouts)
         abouts.new_about
       end
@@ -222,9 +193,11 @@ module RSS
     extend BaseModel
     extend BaseTrackBackModel
 
-    class Ping < Element
+    class TrackBackPing < Element
       include RSS09
 
+      @tag_name = "ping"
+      
       content_setup
 
       class << self
@@ -242,9 +215,13 @@ module RSS
       alias_method(:value, :content)
       alias_method(:value=, :content=)
 
-      def initialize(content=nil)
-        super()
-        @content = content
+      def initialize(*args)
+        if Utils.element_initialize_arguments?(args)
+          super
+        else
+          super()
+          self.content = args[0]
+        end
       end
       
       def full_name
@@ -253,9 +230,11 @@ module RSS
       
     end
 
-    class About < Element
+    class TrackBackAbout < Element
       include RSS09
 
+      @tag_name = "about"
+      
       content_setup
 
       class << self
@@ -273,9 +252,13 @@ module RSS
       alias_method(:value, :content)
       alias_method(:value=, :content=)
 
-      def initialize(content=nil)
-        super()
-        @content = content
+      def initialize(*args)
+        if Utils.element_initialize_arguments?(args)
+          super
+        else
+          super()
+          self.content = args[0]
+        end
       end
       
       def full_name
@@ -295,4 +278,11 @@ module RSS
     end
   end
 
+  BaseTrackBackModel::ELEMENTS.each do |name|
+    class_name = Utils.to_class_name(name)
+    BaseListener.install_class_name(TRACKBACK_URI, name,
+                                    "TrackBack#{class_name}")
+  end
+
+  BaseTrackBackModel::ELEMENTS.collect! {|name| "#{TRACKBACK_PREFIX}_#{name}"}
 end

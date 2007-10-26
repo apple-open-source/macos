@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,58 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Tue Apr 30 2002.
- *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2002-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLLoadFile.c,v 1.14 2005/08/22 20:49:24 ssen Exp $
- *
- *  $Log: BLLoadFile.c,v $
- *  Revision 1.14  2005/08/22 20:49:24  ssen
- *  Change functions to take "char *foo" instead of "char foo[]".
- *  It should be semantically identical, and be more consistent with
- *  other system APIs
- *
- *  Revision 1.13  2005/06/24 16:39:51  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.12  2005/02/03 00:42:27  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.11  2004/04/20 21:40:44  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.10  2004/03/21 18:10:04  ssen
- *  Update includes
- *
- *  Revision 1.9  2003/10/17 00:10:39  ssen
- *  add more const
- *
- *  Revision 1.8  2003/07/22 15:58:34  ssen
- *  APSL 2.0
- *
- *  Revision 1.7  2003/04/19 00:11:12  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.6  2003/04/16 23:57:33  ssen
- *  Update Copyrights
- *
- *  Revision 1.5  2003/03/20 04:07:25  ssen
- *  Use _PATH_RSRCFORKSPEC from sys/paths.h
- *
- *  Revision 1.4  2003/03/19 20:27:56  ssen
- *  #include <CF/CF.h> and use full CFData/CFDictionary pointers instead of
- *  void *. Eww, what in the world was I thinking.
- *
- *  Revision 1.3  2002/12/04 05:02:57  ssen
- *  add some newlines at the end of the files
- *
- *  Revision 1.2  2002/06/11 00:50:50  ssen
- *  All function prototypes need to use BLContextPtr. This is really
- *  a minor change in all of the files.
- *
- *  Revision 1.1  2002/05/03 04:23:55  ssen
- *  Consolidate APIs, and update bless to use it
+ *  $Id: BLLoadFile.c,v 1.15 2006/02/20 22:49:56 ssen Exp $
  *
  */
 

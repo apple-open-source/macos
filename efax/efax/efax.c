@@ -137,6 +137,8 @@ int sighup = 0 ;		/* received a SIGHUP (should exit when we go idle) */
 int waiting = 0 ;		/* blocked waiting for activity (okay to exit on SIGHUP) */
 int manual_answer = 0 ;		/* Manual answer flag (set by client connection) */
 int answer_wait = 0 ;		/* blocked waiting for the first fax frame (inclusive of RING messages) */
+char *faxfile = FAXFILE ;	/* modem to use ("/dev/<*>.modem") */
+int modem_found = 0;		/* modem found */
 
                                         /* capability fields... */
 enum  captype {	         VR, BR, WD, LN, DF, EC, BF, ST } ;
@@ -731,7 +733,7 @@ int send_data ( TFILE *mf, IFILE *f, int page, int pages,
 int end_data ( TFILE *mf, cap session, int ppm, int *good )
 {
   int err=0, c ;
-  uchar *p ;
+  char *p ;
   long dt, draintime ;
 
   if ( ! ppm ) p = DLE_ETX ;
@@ -2201,8 +2203,8 @@ int answer ( TFILE *f, char **lkfile,
     notify(CFSTR("recvidle"), NULL);
 #endif
 
-    if (tdata ( f, -1 ) == -6)
-      return ( -6 ) ;		/* machine is about to sleep... */
+    if (tdata ( f, -1 ) == TDATA_SLEEP)
+      return ( TDATA_SLEEP ) ;		/* machine is about to sleep... */
 
     /*
      * If the manual answer command came in while we were waiting 
@@ -2541,8 +2543,6 @@ int main( int argc, char **argv)
 
   int nicmd[3]={0,0,0}, nlkfile=0, nverb=0 ;
 
-  char *faxfile = FAXFILE ;
-
   int softaa=0, share=0, wait=0, reverse=1, ignerr=0, noretry=0, hwfc=0 ;
   int capsset=0 ;
   char *getty = "", *vcmd = "", *acmd=ANSCMD ;
@@ -2721,8 +2721,32 @@ SLEEP_RETRY:
 		    getty, vcmd, acmd ) ;
       if ( err == 1 ) locked = 1 ;
 
+    }
+
+    if ( ! err ) {
+    now = time(0) ;		/* do it here so use reception time */
+    strftime ( fnamepat, EFAX_PATH_MAX, ansfname, localtime ( &now ) ) ;
+    strncat ( fnamepat, ".%03d", EFAX_PATH_MAX - strlen ( fnamepat ) ) ;
+    newOFILE ( &ofile, O_TIFF_FAX, fnamepat, 0, 0, 0, 0 ) ;
+    
+      if ( c1 ) {
+	err = c1sndrcv ( &faxdev, local, localid,
+			&ofile, &ifile, pages, header, &font,
+			maxpgerr, noretry, calling ) ;
+      } else {
+	err = c2sndrcv ( &faxdev, local, localid,
+			&ofile, &ifile, pages, header, &font,
+			maxpgerr, noretry, calling ) ;
+      }
+
+#if defined(__APPLE__)
+      notify(CFSTR("disconnecting"), NULL);
+#endif
+
+    }
+  }
 #ifdef __APPLE__
-      if ( err == -6 )
+      if ( err == TDATA_SLEEP )
       {
        /*
 	* The system is going to sleep; reset the modem and close the port
@@ -2743,30 +2767,6 @@ SLEEP_RETRY:
 	goto SLEEP_RETRY;
       }
 #endif
-    }
-
-    now = time(0) ;		/* do it here so use reception time */
-    strftime ( fnamepat, EFAX_PATH_MAX, ansfname, localtime ( &now ) ) ;
-    strncat ( fnamepat, ".%03d", EFAX_PATH_MAX - strlen ( fnamepat ) ) ;
-    newOFILE ( &ofile, O_TIFF_FAX, fnamepat, 0, 0, 0, 0 ) ;
-    
-    if ( ! err ) {
-      if ( c1 ) {
-	err = c1sndrcv ( &faxdev, local, localid,
-			&ofile, &ifile, pages, header, &font,
-			maxpgerr, noretry, calling ) ;
-      } else {
-	err = c2sndrcv ( &faxdev, local, localid,
-			&ofile, &ifile, pages, header, &font,
-			maxpgerr, noretry, calling ) ;
-      }
-
-#if defined(__APPLE__)
-      notify(CFSTR("disconnecting"), NULL);
-#endif
-
-    }
-  }
 
   return cleanup ( err ) ;
 }

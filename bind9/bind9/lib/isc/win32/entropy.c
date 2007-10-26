@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: entropy.c,v 1.3.12.4 2004/03/08 09:04:58 marka Exp $ */
+/* $Id: entropy.c,v 1.6 2004/03/05 05:11:56 marka Exp $ */
 
 /*
  * This is the system depenedent part of the ISC entropy API.

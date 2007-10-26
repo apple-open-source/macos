@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,7 +49,7 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	CFStringRef			sessionKey;
 	CFStringRef			storeSessionKey;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -236,9 +236,19 @@ _configset(mach_port_t			server,
 	CFStringRef		key		= NULL;	/* key  (un-serialized) */
 	serverSessionRef	mySession	= getSession(server);
 
+	*sc_status = kSCStatusOK;
+
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
+	}
+
+	/* un-serialize the data */
+	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
+		*sc_status = kSCStatusFailed;
+	}
+
+	if (*sc_status != kSCStatusOK) {
 		goto done;
 	}
 
@@ -247,13 +257,7 @@ _configset(mach_port_t			server,
 		goto done;
 	}
 
-	/* un-serialize the data */
-	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
-		*sc_status = kSCStatusFailed;
-		goto done;
-	}
-
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		goto done;
 	}
@@ -325,7 +329,7 @@ __SCDynamicStoreSetMultiple(SCDynamicStoreRef store, CFDictionaryRef keysToSet, 
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	int				sc_status	= kSCStatusOK;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -397,46 +401,49 @@ _configset_m(mach_port_t		server,
 	CFArrayRef		notify		= NULL;		/* keys to notify (un-serialized) */
 	CFArrayRef		remove		= NULL;		/* keys to remove (un-serialized) */
 
-	if (dictRef && (dictLen > 0)) {
+	*sc_status = kSCStatusOK;
+
+	if ((dictRef != NULL) && (dictLen > 0)) {
 		/* un-serialize the key/value pairs to set */
 		if (!_SCUnserialize((CFPropertyListRef *)&dict, NULL, (void *)dictRef, dictLen)) {
 			*sc_status = kSCStatusFailed;
-			goto done;
-		}
-
-		if (!isA_CFDictionary(dict)) {
-			*sc_status = kSCStatusInvalidArgument;
-			goto done;
 		}
 	}
 
-	if (removeRef && (removeLen > 0)) {
+	if ((removeRef != NULL) && (removeLen > 0)) {
 		/* un-serialize the keys to remove */
 		if (!_SCUnserialize((CFPropertyListRef *)&remove, NULL, (void *)removeRef, removeLen)) {
 			*sc_status = kSCStatusFailed;
-			goto done;
-		}
-
-		if (!isA_CFArray(remove)) {
-			*sc_status = kSCStatusInvalidArgument;
-			goto done;
 		}
 	}
 
-	if (notifyRef && (notifyLen > 0)) {
+	if ((notifyRef != NULL) && (notifyLen > 0)) {
 		/* un-serialize the keys to notify */
 		if (!_SCUnserialize((CFPropertyListRef *)&notify, NULL, (void *)notifyRef, notifyLen)) {
 			*sc_status = kSCStatusFailed;
-			goto done;
-		}
-
-		if (!isA_CFArray(notify)) {
-			*sc_status = kSCStatusInvalidArgument;
-			goto done;
 		}
 	}
 
-	if (!mySession) {
+	if (*sc_status != kSCStatusOK) {
+		goto done;
+	}
+
+	if ((dict != NULL) && !isA_CFDictionary(dict)) {
+		*sc_status = kSCStatusInvalidArgument;
+		goto done;
+	}
+
+	if ((remove != NULL) && !isA_CFArray(remove)) {
+		*sc_status = kSCStatusInvalidArgument;
+		goto done;
+	}
+
+	if ((notify != NULL) && !isA_CFArray(notify)) {
+		*sc_status = kSCStatusInvalidArgument;
+		goto done;
+	}
+
+	if (mySession == NULL) {
 		/* you must have an open session to play */
 		*sc_status = kSCStatusNoStoreSession;
 		goto done;
@@ -446,9 +453,9 @@ _configset_m(mach_port_t		server,
 
     done :
 
-	if (dict)	CFRelease(dict);
-	if (remove)	CFRelease(remove);
-	if (notify)	CFRelease(notify);
+	if (dict != NULL)	CFRelease(dict);
+	if (remove != NULL)	CFRelease(remove);
+	if (notify != NULL)	CFRelease(notify);
 
 	return KERN_SUCCESS;
 }

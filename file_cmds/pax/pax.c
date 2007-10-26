@@ -1,4 +1,4 @@
-/*	$OpenBSD: pax.c,v 1.11 1997/09/01 18:29:58 deraadt Exp $	*/
+/*	$OpenBSD: pax.c,v 1.27 2004/04/16 22:50:23 deraadt Exp $	*/
 /*	$NetBSD: pax.c,v 1.5 1996/03/26 23:54:20 mrg Exp $	*/
 
 /*-
@@ -17,11 +17,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -39,16 +35,16 @@
  */
 
 #ifndef lint
-static char copyright[] __attribute__((__unused__)) =
+static const char copyright[] __attribute__((__unused__)) =
 "@(#) Copyright (c) 1992, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
-static char sccsid[] = "@(#)pax.c	8.2 (Berkeley) 4/18/94";
+static const char sccsid[] = "@(#)pax.c	8.2 (Berkeley) 4/18/94";
 #else
-static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: pax.c,v 1.11 1997/09/01 18:29:58 deraadt Exp $";
+static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: pax.c,v 1.27 2004/04/16 22:50:23 deraadt Exp $";
 #endif
 #endif /* not lint */
 
@@ -61,11 +57,14 @@ static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: pax.c,v 1.11 1997/0
 #include <signal.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
+#include <err.h>
 #include <fcntl.h>
+#include <paths.h>
 #include "pax.h"
 #include "extern.h"
-static int gen_init __P((void));
+static int gen_init(void);
 
 /*
  * PAX main routines, general globals and some simple start up routines
@@ -86,13 +85,13 @@ int	nflag;			/* select first archive member match */
 int	tflag;			/* restore access time after read */
 int	uflag;			/* ignore older modification time files */
 int	vflag;			/* produce verbose output */
-int	zflag;			/* use gzip */
 int	Dflag;			/* same as uflag except inode change time */
 int	Hflag;			/* follow command line symlinks (write only) */
 int	Lflag;			/* follow symlinks when writing */
 int	Xflag;			/* archive files with same device id only */
-int	Yflag;			/* same as Dflg except after name mode */
-int	Zflag;			/* same as uflg except after name mode */
+int	Yflag;			/* same as Dflag except after name mode */
+int	Zflag;			/* same as uflag except after name mode */
+int	zeroflag;		/* use \0 as pathname terminator */
 int	vfpart;			/* is partial verbose output in progress */
 int	patime = 1;		/* preserve file access time */
 int	pmtime = 1;		/* preserve file modification times */
@@ -106,11 +105,14 @@ char	*dirptr;		/* destination dir in a copy */
 char	*ltmfrmt;		/* -v locale time format (if any) */
 char	*argv0;			/* root of argv[0] */
 sigset_t s_mask;		/* signal mask for cleanup critical sect */
+FILE	*listf;		        /* file pointer to print file list to */
+char	*tempfile;		/* tempfile to use for mkstemp(3) */
+char	*tempbase;		/* basename of tempfile to use for mkstemp(3) */
 
 /*
  *	PAX - Portable Archive Interchange
  *
- * 	A utility to read, write, and write lists of the members of archive
+ *	A utility to read, write, and write lists of the members of archive
  *	files and copy directory hierarchies. A variety of archive formats
  *	are supported (some are described in POSIX 1003.1 10.1):
  *
@@ -126,7 +128,7 @@ sigset_t s_mask;		/* signal mask for cleanup critical sect */
  *
  * 1	READ ENHANCEMENTS
  * 1.1	Operations which read archives will continue to operate even when
- *	processing archives which may be damaged, truncated, or fail to meet 
+ *	processing archives which may be damaged, truncated, or fail to meet
  *	format specs in several different ways. Damaged sections of archives
  *	are detected and avoided if possible. Attempts will be made to resync
  *	archive read operations even with badly damaged media.
@@ -141,7 +143,7 @@ sigset_t s_mask;		/* signal mask for cleanup critical sect */
  * 1.5	The user is notified whenever something is found during archive
  *	read operations which violates spec (but the read will continue).
  * 1.6	Multiple archive volumes can be read and may span over different
- *	archive devices 
+ *	archive devices
  * 1.7	Rigidly restores all file attributes exactly as they are stored on the
  *	archive.
  * 1.8	Modification change time ranges can be specified via multiple -T
@@ -151,14 +153,14 @@ sigset_t s_mask;		/* signal mask for cleanup critical sect */
  *	-U options.
  * 1.10	Files can be selected based on group (group name or gid) via one o
  *	more -G options.
- * 1.11	File modification time can be checked against exisiting file after
+ * 1.11	File modification time can be checked against existing file after
  *	name modification (-Z)
  *
  * 2	WRITE ENHANCEMENTS
  * 2.1	Write operation will stop instead of allowing a user to create a flawed
  *	flawed archive (due to any problem).
- * 2.2	Archives writtens by pax are forced to strictly conform to both the
- *	archive and pax the spceific format specifications.
+ * 2.2	Archives written by pax are forced to strictly conform to both the
+ *	archive and pax the specific format specifications.
  * 2.3	Blocking size and format is rigidly enforced on writes.
  * 2.4	Formats which may exhibit header overflow problems (they have fields
  *	too small for large file systems, such as inode number storage), use
@@ -167,11 +169,11 @@ sigset_t s_mask;		/* signal mask for cleanup critical sect */
  *	these fields. This removes any restrictions on using these archive
  *	formats on large file systems.
  * 2.5	Multiple archive volumes can be written and may span over different
- *	archive devices 
+ *	archive devices
  * 2.6	A archive volume record limit allows the user to specify the number
  *	of bytes stored on an archive volume. When reached the user is
  *	prompted for the next archive volume. This is specified with the
- *	non-standard -B flag. THe limit is rounded up to the next blocksize.
+ *	non-standard -B flag. The limit is rounded up to the next blocksize.
  * 2.7	All archive padding during write use zero filled sections. This makes
  *	it much easier to pull data out of flawed archive during read
  *	operations.
@@ -206,15 +208,15 @@ sigset_t s_mask;		/* signal mask for cleanup critical sect */
  *	more -G options.
  * 3.8	Symlinks which appear on the command line can be followed (without
  *	following other symlinks; -H flag)
- * 3.9  File inode change time can be checked against exisiting file before
+ * 3.9  File inode change time can be checked against existing file before
  *	name modification (-D)
- * 3.10 File inode change time can be checked against exisiting file after
+ * 3.10 File inode change time can be checked against existing file after
  *	name modification (-Y)
- * 3.11	File modification time can be checked against exisiting file after
+ * 3.11	File modification time can be checked against existing file after
  *	name modification (-Z)
  *
  * 4	GENERAL ENHANCEMENTS
- * 4.1	Internal structure is designed to isolate format dependent and 
+ * 4.1	Internal structure is designed to isolate format dependent and
  *	independent functions. Formats are selected via a format driver table.
  *	This encourages the addition of new archive formats by only having to
  *	write those routines which id, read and write the archive header.
@@ -227,16 +229,16 @@ sigset_t s_mask;		/* signal mask for cleanup critical sect */
  * Return: 0 if ok, 1 otherwise
  */
 
-#ifdef __STDC__
+extern void pax_usage();
+
 int
 main(int argc, char **argv)
-#else
-int
-main(argc, argv)
-	int argc;
-	char **argv;
-#endif
 {
+	char *tmpdir;
+	size_t tdlen;
+
+	if (argc < 1)
+		pax_usage();
 	/*
 	 * Keep a reference to cwd, so we can always come back home.
 	 */
@@ -247,6 +249,24 @@ main(argc, argv)
 	}
 
 	/*
+	 * Where should we put temporary files?
+	 */
+	if ((tmpdir = getenv("TMPDIR")) == NULL || *tmpdir == '\0')
+		tmpdir = _PATH_TMP;
+	tdlen = strlen(tmpdir);
+	while (tdlen > 0 && tmpdir[tdlen - 1] == '/')
+		tdlen--;
+	tempfile = malloc(tdlen + 1 + sizeof(_TFILE_BASE));
+	if (tempfile == NULL) {
+		paxwarn(1, "Cannot allocate memory for temp file name.");
+		return(exit_val);
+	}
+	if (tdlen)
+		memcpy(tempfile, tmpdir, tdlen);
+	tempbase = tempfile + tdlen;
+	*tempbase++ = '/';
+
+	/*
 	 * parse options, determine operational mode, general init
 	 */
 	options(argc, argv);
@@ -254,9 +274,9 @@ main(argc, argv)
 		return(exit_val);
 
 	/*
-	 * select a primary operation mode 
+	 * select a primary operation mode
 	 */
-	switch(act) {
+	switch (act) {
 	case EXTRACT:
 		extract();
 		break;
@@ -264,6 +284,8 @@ main(argc, argv)
 		archive();
 		break;
 	case APPND:
+		if (gzip_program != NULL)
+			errx(1, "can not gzip while appending");
 		append();
 		break;
 	case COPY:
@@ -286,15 +308,11 @@ main(argc, argv)
  *	never....
  */
 
-#ifdef __STDC__
 void
 sig_cleanup(int which_sig)
-#else
-void
-sig_cleanup(which_sig)
-	int which_sig;
-#endif
 {
+	/* XXX signal races */
+
 	/*
 	 * restore modes and times for any dirs we may have created
 	 * or any dirs we may have read. Set vflag and vfpart so the user
@@ -319,13 +337,8 @@ sig_cleanup(which_sig)
  *	when dealing with a medium to large sized archives.
  */
 
-#ifdef __STDC__
 static int
 gen_init(void)
-#else
-static int
-gen_init()
-#endif
 {
 	struct rlimit reslimit;
 	struct sigaction n_hand;
@@ -368,14 +381,14 @@ gen_init()
 	/*
 	 * Handle posix locale
 	 *
-	 * set user defines time printing format for -v option 
+	 * set user defines time printing format for -v option
 	 */
 	ltmfrmt = getenv("LC_TIME");
 
 	/*
 	 * signal handling to reset stored directory times and modes. Since
 	 * we deal with broken pipes via failed writes we ignore it. We also
-	 * deal with any file size limit thorugh failed writes. Cpu time
+	 * deal with any file size limit through failed writes. Cpu time
 	 * limits are caught and a cleanup is forced.
 	 */
 	if ((sigemptyset(&s_mask) < 0) || (sigaddset(&s_mask, SIGTERM) < 0) ||
@@ -385,6 +398,7 @@ gen_init()
 		paxwarn(1, "Unable to set up signal mask");
 		return(-1);
 	}
+	memset(&n_hand, 0, sizeof n_hand);
 	n_hand.sa_mask = s_mask;
 	n_hand.sa_flags = 0;
 	n_hand.sa_handler = sig_cleanup;

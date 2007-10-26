@@ -4,6 +4,8 @@
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-fnext-runtime" } */
 /* { dg-do compile } */
+/* APPLE LOCAL radar 4894756 */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 #include <objc/Object.h>
 

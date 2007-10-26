@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -42,30 +42,13 @@ ResourceBundle::constructForLocale(const UnicodeString& path,
                                    const Locale& locale,
                                    UErrorCode& error)
 {
-    char name[300];
-
-    if(path.length() >= (int32_t)sizeof(name)) {
-        fResource = NULL;
-        error = U_ILLEGAL_ARGUMENT_ERROR;
-    } else if(!path.isEmpty()) {
-        if(uprv_isInvariantUString(path.getBuffer(), path.length())) {
-            // the invariant converter is sufficient for package and tree names
-            // and is more efficient
-            path.extract(0, INT32_MAX, name, (int32_t)sizeof(name), US_INV);
-        } else {
-#if !UCONFIG_NO_CONVERSION
-            // use the default converter to support variant-character paths
-            path.extract(name, sizeof(name), 0, error);
-#else
-            // the default converter is not available
-            fResource = NULL;
-            error = U_UNSUPPORTED_ERROR;
-            return;
-#endif
-        }
-        fResource = ures_open(name, locale.getName(), &error);
-    } else {
-        fResource = ures_open(0, locale.getName(), &error);
+    if (path.isEmpty()) {
+        fResource = ures_open(NULL, locale.getName(), &error);
+    }
+    else {
+        UnicodeString nullTerminatedPath(path);
+        nullTerminatedPath.append((UChar)0);
+        fResource = ures_openU(nullTerminatedPath.getBuffer(), locale.getName(), &error);
     }
 }
 

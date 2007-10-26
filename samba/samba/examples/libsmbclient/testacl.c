@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <popt.h>
 #include "libsmbclient.h"
+#include "get_auth_data_fn.h"
 
 enum acl_mode
 {
@@ -15,59 +16,6 @@ enum acl_mode
     SMB_ACL_CHGRP
 };
 
-static void
-get_auth_data_fn(const char * pServer,
-                 const char * pShare,
-                 char * pWorkgroup,
-                 int maxLenWorkgroup,
-                 char * pUsername,
-                 int maxLenUsername,
-                 char * pPassword,
-                 int maxLenPassword)
-    
-{
-    char temp[128];
-    
-    fprintf(stdout, "Workgroup: [%s] ", pWorkgroup);
-    fgets(temp, sizeof(temp), stdin);
-    
-    if (temp[strlen(temp) - 1] == '\n') /* A new line? */
-    {
-        temp[strlen(temp) - 1] = '\0';
-    }
-    
-    if (temp[0] != '\0')
-    {
-        strncpy(pWorkgroup, temp, maxLenWorkgroup - 1);
-    }
-    
-    fprintf(stdout, "Username: [%s] ", pUsername);
-    fgets(temp, sizeof(temp), stdin);
-    
-    if (temp[strlen(temp) - 1] == '\n') /* A new line? */
-    {
-        temp[strlen(temp) - 1] = '\0';
-    }
-    
-    if (temp[0] != '\0')
-    {
-        strncpy(pUsername, temp, maxLenUsername - 1);
-    }
-    
-    fprintf(stdout, "Password: ");
-    fgets(temp, sizeof(temp), stdin);
-    
-    if (temp[strlen(temp) - 1] == '\n') /* A new line? */
-    {
-        temp[strlen(temp) - 1] = '\0';
-    }
-    
-    if (temp[0] != '\0')
-    {
-        strncpy(pPassword, temp, maxLenPassword - 1);
-    }
-}
-
 
 int main(int argc, const char *argv[])
 {
@@ -75,6 +23,7 @@ int main(int argc, const char *argv[])
     int flags;
     int debug = 0;
     int numeric = 0;
+    int full_time_names = 0;
     enum acl_mode mode = SMB_ACL_GET;
     static char *the_acl = NULL;
     int ret;
@@ -93,6 +42,11 @@ int main(int argc, const char *argv[])
             {
                 "debug", 'd', POPT_ARG_INT, &debug,
                 0, "Set debug level (0-100)"
+            },
+            {
+                "full_time_names", 'f', POPT_ARG_NONE, &full_time_names,
+                1,
+                "Use new style xattr names, which include CREATE_TIME"
             },
             {
                 "delete", 'D', POPT_ARG_STRING, NULL,
@@ -185,6 +139,11 @@ int main(int argc, const char *argv[])
         printf("Could not initialize smbc_ library\n");
         return 1;
     }
+
+    if (full_time_names) {
+        SMBCCTX *context = smbc_set_context(NULL);
+        smbc_option_set(context, "full_time_names", 1);
+    }
     
     /* Perform requested action */
     
@@ -195,11 +154,11 @@ int main(int argc, const char *argv[])
         {
             if (numeric)
             {
-                the_acl = "system.nt_sec_desc.*";
+                the_acl = "system.*";
             }
             else
             {
-                the_acl = "system.nt_sec_desc.*+";
+                the_acl = "system.*+";
             }
         }
         ret = smbc_getxattr(path, the_acl, value, sizeof(value));

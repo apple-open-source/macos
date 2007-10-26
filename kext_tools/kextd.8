@@ -41,8 +41,7 @@ If this option is not given,
 will attempt to use cache files and to create them
 if they are out of date or don't exist.
 .It Fl d
-Debug mode; run in the foreground without forking
-as a daemon process.
+Debug mode; run in the foreground and print messages to stdout/stderr.
 .It Fl f
 Don't fork a child task when loading kexts.
 This option is present for debugging
@@ -77,10 +76,39 @@ Run
 in safe boot mode (indicating startup with the Shift key held down).
 Kexts that don't specify a proper value for the OSBundleRequired
 info dictionary property will not be loaded.
-This option implies the use of the
+As of Mac OS X 10.5,
+.Nm
+determines from the kernel
+whether the system has started in safe boot mode,
+so this flag is no longer necessary (but may be used for testing).
+In safe boot mode,
+.Nm
+does not use caches
+(that is, this option implies the use of the
 .Fl c
-option.
+option).
 .El
+.Sh RESETTING KEXTD
+On Mac OS X 10.3 and later, it is possible to reset
+.Nm
+without terminating and restarting it, by sending it a HUP signal.  This
+causes
+.Nm
+to rescan the Extensions folder, rebuild all its caches, and
+send all driver personalities to the kernel for a new round of driver
+matching.  In OS X 10.5,
+.Nm
+watches
+.Pa /System/Library/Extensions
+and automatically rebuilds their mkext caches.  It will send new drivers
+personalities to the kernel at this time.
+.Pp
+Installers that add new drivers can signal
+.Nm
+in these ways instead of requiring the computer to be restarted.
+Note that if a hardware device has a driver attached when this is done,
+a newly-installed driver will not match on it.
+See the Apple Developer Connection's Technical Q&A QA1319 for more information.
 .Sh DIAGNOSTICS
 .Nm
 normally never exits.

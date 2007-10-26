@@ -1,0 +1,46 @@
+--- src/ftp.c.ORIG      2006-11-09 15:06:13.000000000 -0800
++++ src/ftp.c   2006-11-09 15:08:14.000000000 -0800
+@@ -101,6 +101,10 @@
+ #include "lukemftp.h"
+ 
+ #include <arpa/telnet.h>
++#ifdef __APPLE__
++#include <sys/mount.h>
++#include <fcntl.h>
++#endif /* __APPLE__ */
+ 
+ #include "ftp_var.h"
+ 
+@@ -1055,6 +1059,31 @@
+ 
+        progressmeter(-1);
+ 
++#ifdef __APPLE__       
++       /*
++        * Pre-allocate blocks for the destination file if it
++        * resides on Xsan.
++        * Take the restart position into consideration
++        * when computing the length.  PR-4074918
++        */
++       
++       if (filesize - restart_point > 0 ) {
++           struct statfs sfs;
++
++           if (fstatfs(fileno(fout), &sfs) == 0 &&
++             strcmp(sfs.f_fstypename, "acfs") == 0) {
++               fstore_t fst;
++               
++               fst.fst_flags = 0;
++               fst.fst_posmode = F_PEOFPOSMODE;
++               fst.fst_offset = 0;
++               fst.fst_length = filesize - restart_point;
++               
++               (void) fcntl(fileno(fout), F_PREALLOCATE, &fst);
++           }
++       }
++#endif /* __APPLE__ */
++
+        switch (curtype) {
+ 
+        case TYPE_I:
+

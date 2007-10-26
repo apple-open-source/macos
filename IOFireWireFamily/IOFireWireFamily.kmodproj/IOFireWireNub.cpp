@@ -31,6 +31,7 @@
 #import <IOKit/firewire/IOFireWireNub.h>
 #import <IOKit/firewire/IOFireWireController.h>
 #import <IOKit/firewire/IOConfigDirectory.h>
+#import <IOKit/firewire/IOFWSimpleContiguousPhysicalAddressSpace.h>
 
 // protected
 #import <IOKit/firewire/IOFireWireLink.h>
@@ -127,6 +128,33 @@ TerminationState IOFireWireNubAux::getTerminationState( void )
 void IOFireWireNubAux::setTerminationState( TerminationState state )
 {
 	fTerminationState = state;
+}
+
+// isPhysicalAccessEnabled
+//
+//
+
+bool IOFireWireNubAux::isPhysicalAccessEnabled( void )
+{
+	return false;
+}
+
+// createSimpleContiguousPhysicalAddressSpace
+//
+//
+
+IOFWSimpleContiguousPhysicalAddressSpace * IOFireWireNubAux::createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction )
+{
+	return fPrimary->fControl->createSimpleContiguousPhysicalAddressSpace( size, direction );
+}
+
+// createSimplePhysicalAddressSpace
+//
+//
+
+IOFWSimplePhysicalAddressSpace * IOFireWireNubAux::createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction )
+{
+	return fPrimary->fControl->createSimplePhysicalAddressSpace( size, direction );
 }
 
 #pragma mark -
@@ -474,9 +502,13 @@ IOFWPseudoAddressSpace *IOFireWireNub::createPseudoAddressSpace(FWAddress *addr,
 
 IOReturn IOFireWireNub::getConfigDirectory(IOConfigDirectory *&dir)
 {
+	fControl->closeGate();
+	
     dir = fDirectory;
 	fConfigDirectorySet->setObject( fDirectory );
     
+	fControl->openGate();
+	
 	return kIOReturnSuccess;    
 }
 
@@ -536,48 +568,6 @@ const CSRNodeUniqueID& IOFireWireNub::getUniqueID() const
 	return fUniqueID; 
 }
 
-/**
- ** IOUserClient methods
- **/
-
-// newUserClient
-//
-//
-
-IOReturn IOFireWireNub::newUserClient(task_t		owningTask,
-                                      void * 		/* security_id */,
-                                      UInt32  		type,
-                                      IOUserClient **	handler )
-
-{
-    IOReturn			err = kIOReturnSuccess;
-    IOFireWireUserClient *	client;
-
-    if( type != 11 )
-        return( kIOReturnBadArgument);
-
-	if( isInactive() )
-	{
-		return kIOReturnNoMemory;
-	}
-	
-    client = IOFireWireUserClient::withTask(owningTask);
-
-    if( !client || (false == client->attach( this )) ||
-        (false == client->start( this )) ) 
-	{
-        if(client) 
-		{
-            client->detach( this );
-            client->release();
-        }
-        err = kIOReturnNoMemory;
-    }
-
-    *handler = client;
-    return( err );
-}
-
 // setNodeFlags
 //
 //
@@ -602,4 +592,3 @@ UInt32 IOFireWireNub::getNodeFlags( void )
 {
 	return 0;
 }
-

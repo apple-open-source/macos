@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/init.c,v 1.82.2.5 2004/09/07 22:34:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/init.c,v 1.93.2.9 2006/04/03 19:49:54 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,13 +23,15 @@
 #include <ac/ctype.h>
 #include <ac/time.h>
 
+#ifdef HAVE_LIMITS_H
 #include <limits.h>
+#endif
 
 #include "ldap-int.h"
 #include "ldap_defaults.h"
 
 struct ldapoptions ldap_int_global_options =
-	{ LDAP_UNINITIALIZED, LDAP_DEBUG_NONE };
+	{ LDAP_UNINITIALIZED, LDAP_DEBUG_NONE };  
 
 #ifdef __APPLE__
 #include <pthread.h>
@@ -38,7 +40,6 @@ static pthread_mutex_t _init_lock_main_ = PTHREAD_MUTEX_INITIALIZER;
 static int _init_lock_count_ = 0;
 static unsigned int _init_thread_ = (unsigned int)-1;
 #endif
-
 
 #define ATTR_NONE	0
 #define ATTR_BOOL	1
@@ -107,12 +108,17 @@ static const struct ol_attribute {
   	{0, ATTR_TLS,	"TLS_REQCERT",		NULL,	LDAP_OPT_X_TLS_REQUIRE_CERT},
 	{0, ATTR_TLS,	"TLS_RANDFILE",		NULL,	LDAP_OPT_X_TLS_RANDOM_FILE},
 	{0, ATTR_TLS,	"TLS_CIPHER_SUITE",	NULL,	LDAP_OPT_X_TLS_CIPHER_SUITE},
+
+#ifdef HAVE_OPENSSL_CRL
+	{0, ATTR_TLS,	"TLS_CRLCHECK",		NULL,	LDAP_OPT_X_TLS_CRLCHECK},
+#endif
+        
 #endif
 
 	{0, ATTR_NONE,		NULL,		NULL,	0}
 };
 
-#define MAX_LDAP_ATTR_LEN  sizeof("TLS_CACERTDIR")
+#define MAX_LDAP_ATTR_LEN  sizeof("TLS_CIPHER_SUITE")
 #define MAX_LDAP_ENV_PREFIX_LEN 8
 
 #ifdef __APPLE__
@@ -178,12 +184,7 @@ static void openldap_ldap_init_w_conf(
 		return;
 	}
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( CONFIG, DETAIL1, 
-		"openldap_init_w_conf: trying %s\n", file, 0, 0 );
-#else
 	Debug(LDAP_DEBUG_TRACE, "ldap_init: trying %s\n", file, 0, 0);
-#endif
 
 	fp = fopen(file, "r");
 	if(fp == NULL) {
@@ -191,11 +192,7 @@ static void openldap_ldap_init_w_conf(
 		return;
 	}
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( CONFIG, DETAIL1, "openldap_init_w_conf: using %s\n", file, 0, 0 );
-#else
 	Debug(LDAP_DEBUG_TRACE, "ldap_init: using %s\n", file, 0, 0);
-#endif
 
 	while((start = fgets(linebuf, sizeof(linebuf), fp)) != NULL) {
 		/* skip lines starting with '#' */
@@ -323,22 +320,12 @@ static void openldap_ldap_init_w_userconf(const char *file)
 	home = getenv("HOME");
 
 	if (home != NULL) {
-#ifdef NEW_LOGGING
-	LDAP_LOG ( CONFIG, ARGS, 
-		"openldap_init_w_userconf: HOME env is %s\n", home, 0, 0 );
-#else
 		Debug(LDAP_DEBUG_TRACE, "ldap_init: HOME env is %s\n",
 		      home, 0, 0);
-#endif
 		path = LDAP_MALLOC(strlen(home) + strlen(file) + sizeof( LDAP_DIRSEP "."));
 	} else {
-#ifdef NEW_LOGGING
-	LDAP_LOG ( CONFIG, ARGS, "openldap_init_w_userconf: HOME env is NULL\n",
-		0, 0, 0 );
-#else
 		Debug(LDAP_DEBUG_TRACE, "ldap_init: HOME env is NULL\n",
 		      0, 0, 0);
-#endif
 	}
 
 	if(home != NULL && path != NULL) {
@@ -462,6 +449,9 @@ ldap_int_destroy_global_options(void)
 {
 	struct ldapoptions *gopts = LDAP_INT_GLOBAL_OPT();
 
+	if ( gopts == NULL )
+		return;
+
 	gopts->ldo_valid = LDAP_UNINITIALIZED;
 
 	if ( gopts->ldo_defludp ) {
@@ -470,6 +460,20 @@ ldap_int_destroy_global_options(void)
 	}
 #if defined(HAVE_WINSOCK) || defined(HAVE_WINSOCK2)
 	WSACleanup( );
+#endif
+
+#if defined(LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND) \
+	|| defined(HAVE_TLS) || defined(HAVE_CYRUS_SASL)
+	if ( ldap_int_hostname ) {
+		LDAP_FREE( ldap_int_hostname );
+		ldap_int_hostname = NULL;
+	}
+#endif
+#ifdef HAVE_CYRUS_SASL
+	if ( gopts->ldo_def_sasl_authcid ) {
+		LDAP_FREE( gopts->ldo_def_sasl_authcid );
+		gopts->ldo_def_sasl_authcid = NULL;
+	}
 #endif
 }
 
@@ -529,6 +533,11 @@ void ldap_int_initialize_global_options( struct ldapoptions *gopts, int *dbglvl 
 	gopts->ldo_sasl_secprops.maxbufsize = SASL_MAX_BUFF_SIZE;
 	gopts->ldo_sasl_secprops.security_flags =
 		SASL_SEC_NOPLAINTEXT | SASL_SEC_NOANONYMOUS;
+#endif
+
+#ifdef HAVE_TLS
+	gopts->ldo_tls_connect_cb = NULL;
+	gopts->ldo_tls_connect_arg = NULL;
 #endif
 
 	gopts->ldo_valid = LDAP_INITIALIZED;
@@ -594,17 +603,27 @@ void ldap_int_initialize( struct ldapoptions *gopts, int *dbglvl )
 #ifdef __APPLE__
 		_unlock_init();
 #endif
-		return;
+	    return;
 	}
 }
 #endif
 
 #if defined(LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND) \
 	|| defined(HAVE_TLS) || defined(HAVE_CYRUS_SASL)
-	ldap_int_hostname = ldap_pvt_get_fqdn( ldap_int_hostname );
+	{
+		char	*name = ldap_int_hostname;
+
+		ldap_int_hostname = ldap_pvt_get_fqdn( name );
+
+		if ( name != NULL && name != ldap_int_hostname ) {
+			LDAP_FREE( name );
+		}
+	}
 #endif
-	if ( ldap_int_tblsize == 0 )
-		ldap_int_ip_init();
+
+#ifndef HAVE_POLL
+	if ( ldap_int_tblsize == 0 ) ldap_int_ip_init();
+#endif
 
 	ldap_int_initialize_global_options(gopts, NULL);
 
@@ -624,7 +643,7 @@ void ldap_int_initialize( struct ldapoptions *gopts, int *dbglvl )
 		if( user == NULL ) user = getenv("LOGNAME");
 
 		if( user != NULL ) {
-			gopts->ldo_def_sasl_authcid = user;
+			gopts->ldo_def_sasl_authcid = LDAP_STRDUP( user );
 		}
     }
 #endif
@@ -636,50 +655,26 @@ void ldap_int_initialize( struct ldapoptions *gopts, int *dbglvl )
 		char *altfile = getenv(LDAP_ENV_PREFIX "CONF");
 
 		if( altfile != NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( CONFIG, DETAIL1, 
-				"openldap_init_w_userconf: %sCONF env is %s\n",
-				LDAP_ENV_PREFIX, altfile, 0 );
-#else
 			Debug(LDAP_DEBUG_TRACE, "ldap_init: %s env is %s\n",
 			      LDAP_ENV_PREFIX "CONF", altfile, 0);
-#endif
 			openldap_ldap_init_w_sysconf( altfile );
 		}
 		else
-#ifdef NEW_LOGGING
-			LDAP_LOG ( CONFIG, DETAIL1, 
-				"openldap_init_w_userconf: %sCONF env is NULL\n",
-				LDAP_ENV_PREFIX, 0, 0 );
-#else
 			Debug(LDAP_DEBUG_TRACE, "ldap_init: %s env is NULL\n",
 			      LDAP_ENV_PREFIX "CONF", 0, 0);
-#endif
 	}
 
 	{
 		char *altfile = getenv(LDAP_ENV_PREFIX "RC");
 
 		if( altfile != NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( CONFIG, DETAIL1, 
-				"openldap_init_w_userconf: %sRC env is %s\n",
-				LDAP_ENV_PREFIX, altfile, 0 );
-#else
 			Debug(LDAP_DEBUG_TRACE, "ldap_init: %s env is %s\n",
 			      LDAP_ENV_PREFIX "RC", altfile, 0);
-#endif
 			openldap_ldap_init_w_userconf( altfile );
 		}
 		else
-#ifdef NEW_LOGGING
-			LDAP_LOG ( CONFIG, DETAIL1, 
-				"openldap_init_w_userconf: %sRC env is NULL\n",
-				LDAP_ENV_PREFIX, 0, 0 );
-#else
 			Debug(LDAP_DEBUG_TRACE, "ldap_init: %s env is NULL\n",
 			      LDAP_ENV_PREFIX "RC", 0, 0);
-#endif
 	}
 
 	openldap_ldap_init_w_env(gopts, NULL);

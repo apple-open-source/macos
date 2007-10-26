@@ -1,0 +1,65 @@
+# Host: IA86 running Mac OS X
+
+SER_HARDWIRE = ser-unix.o ser-tcp.o
+
+XM_FILE = xm-i386-macosx.h
+
+XDEPFILES = \
+	macosx-nat-cmds-load.o \
+	macosx-xdep.o
+
+MACOSX_FILES = \
+	macosx-nat-watchpoint.o \
+	macosx-nat-dyld.o \
+	macosx-nat-dyld-path.o \
+	macosx-nat-dyld-info.o \
+	macosx-nat-dyld-process.o \
+	macosx-nat-dyld-io.o \
+	macosx-nat-inferior.o \
+	macosx-nat-inferior-stubs.o \
+	macosx-nat-inferior-util.o \
+	macosx-nat-inferior-debug.o \
+	macosx-nat-sigthread.o \
+	macosx-nat-excthread.o \
+	macosx-nat-mutils.o \
+	macosx-nat-threads.o \
+	macosx-nat-infthread.o \
+	macosx-nat-info.o \
+	macosx-nat.o \
+	excServer.o \
+	excUser.o
+
+IA86_FILES = i386-macosx-nat-exec.o 
+
+NAT_FILE = nm-i386-macosx.h
+
+NATDEPFILES = \
+	fork-child.o \
+	inftarg.o \
+	$(IA86_FILES) \
+	$(MACOSX_FILES) \
+	$(CFM_FILES)
+
+XM_CLIBS = $(CFM_LIBS)
+
+MH_CFLAGS = -I$(srcdir)/macosx $(CFM_CFLAGS)
+
+CFM_FILES = \
+	macosx-nat-cfm.o \
+	macosx-nat-cfm-io.o \
+	macosx-nat-cfmthread.o \
+	macosx-metrowerks.o
+
+CFM_CFLAGS = -DWITH_CFM=1
+
+CFM_LIBS = 
+
+MH_CFLAGS += -DUSE_PTHREADS=1 -Wall -Wimplicit -Wno-long-double
+
+_all: all
+
+excServer.c excUser.c: macosx.defs
+	$(NEXT_ROOT)/usr/bin/mig $<
+
+clean::
+	rm -f excServer.c excUser.c exc.h

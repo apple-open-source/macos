@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Shell arithmetic - uses streval library
@@ -34,7 +30,25 @@
 #include	"name.h"
 #include	"streval.h"
 #include	"variables.h"
-#include	"FEATURE/locale"
+
+#ifndef LLONG_MAX
+#define LLONG_MAX	LONG_MAX
+#endif
+
+static Sfdouble_t	Zero, NaN, Inf;
+static Namval_t Infnod =
+{
+	{ 0 },
+	"Inf",
+	NV_NOFREE|NV_LDOUBLE,NV_RDONLY
+};
+
+static Namval_t NaNnod =
+{
+	{ 0 },
+	"NaN",
+	NV_NOFREE|NV_LDOUBLE,NV_RDONLY
+};
 
 static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int assign)
 {
@@ -61,7 +75,7 @@ static Namval_t *scope(register Namval_t *np,register struct lval *lvalue,int as
 		{
 			while(nv_isref(mp))
 			{
-				sub = mp->nvenv;
+				sub = nv_refsub(mp);
 				mp = nv_refnode(mp);
 			}
 			np = mp;
@@ -83,30 +97,33 @@ static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdoubl
 {
 	register Sfdouble_t r= 0;
 	char *str = (char*)*ptr;
+	register char *cp;
 	switch(type)
 	{
 	    case ASSIGN:
 	    {
 		register Namval_t *np = (Namval_t*)(lvalue->value);
 		np = scope(np,lvalue,1);
-		nv_putval(np, (char*)&n, NV_INTEGER|NV_DOUBLE|NV_LONG);
+		nv_putval(np, (char*)&n, NV_LDOUBLE);
 		r=nv_getnum(np);
 		break;
 	    }
 	    case LOOKUP:
 	    {
 		register int c = *str;
+		register char *xp=str;
 		lvalue->value = (char*)0;
 		if(c=='.')
-			c = str[1];
+			str++;
+		c = mbchar(str);
 		if(isaletter(c))
 		{
 			register Namval_t *np;
 			int dot=0;
-			char *cp;
 			while(1)
 			{
-				while(c= *++str, isaname(c));
+				while(xp=str, c=mbchar(str), isaname(c));
+				str = xp;
 				if(c!='.')
 					break;
 				dot=1;
@@ -149,8 +166,49 @@ static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdoubl
 				np = L_ARGNOD;
 			else
 			{
+				int offset = staktell();
+				char *saveptr = stakfreeze(0);
 				Dt_t  *root = (lvalue->emode&ARITH_COMP)?sh.var_base:sh.var_tree;
-				np = nv_open(*ptr,root,NV_NOASSIGN|NV_VARNAME);
+				*str = c;
+				while(c=='[' || c=='.')
+				{
+					if(c=='[')
+					{
+						str = nv_endsubscript(np,cp=str,0);
+						if((c= *str)!='[' &&  c!='.')
+						{
+							str = cp;
+							c = '[';
+							break;
+						}
+					}
+					else
+					{
+						str++;
+						while(xp=str, c=mbchar(str), isaname(c));
+						str = xp;
+					}
+				}
+				*str = 0;
+				cp = (char*)*ptr;
+				if ((cp[0] == 'i' || cp[0] == 'I') && (cp[1] == 'n' || cp[1] == 'N') && (cp[2] == 'f' || cp[2] == 'F') && cp[3] == 0)
+				{
+					Inf = 1.0/Zero;
+					Infnod.nvalue.ldp = &Inf;
+					np = &Infnod;
+				}
+				else if ((cp[0] == 'n' || cp[0] == 'N') && (cp[1] == 'a' || cp[1] == 'A') && (cp[2] == 'n' || cp[2] == 'N') && cp[3] == 0)
+				{
+					NaN = 0.0/Zero;
+					NaNnod.nvalue.ldp = &NaN;
+					np = &NaNnod;
+				}
+				else
+					np = nv_open(*ptr,root,NV_NOASSIGN|NV_VARNAME);
+				if(saveptr != stakptr(0))
+					stakset(saveptr,offset);
+				else
+					stakseek(offset);
 			}
 			*str = c;
 			lvalue->value = (char*)np;
@@ -161,12 +219,18 @@ static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdoubl
 				if(c=='[')
 				{
 					lvalue->flag = (str-lvalue->expr);
-					str = nv_endsubscript(np,str,0);
+					do
+						str = nv_endsubscript(np,str,0);
+					while((c= *str)=='[');
 				}
 				break;
 			}
 			if(c=='[')
-				str = nv_endsubscript(np,str,NV_ADD|NV_SUBQUOTE);
+			{
+				do
+					str = nv_endsubscript(np,str,NV_ADD|NV_SUBQUOTE);
+				while((c=*str)=='[');
+			}
 			else if(nv_isarray(np))
 				nv_putsub(np,NIL(char*),ARRAY_UNDEF);
 			if(nv_isattr(np,NV_INTEGER|NV_DOUBLE)==(NV_INTEGER|NV_DOUBLE))
@@ -175,7 +239,7 @@ static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdoubl
 		}
 		else
 		{
-			char	lastbase=0, *val = str, oerrno = errno;
+			char	lastbase=0, *val = xp, oerrno = errno;
 			errno = 0;
 			r = strtonll(val,&str, &lastbase,-1);
 			if(*str=='8' || *str=='9')
@@ -190,17 +254,17 @@ static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdoubl
 			{
 				while(*val=='0')
 					val++;
-				if(*val==0 || *val=='.')
+				if(*val==0 || *val=='.' || *val=='x' || *val=='X')
 					val--;
 			}
-			if(r==LONG_MAX && errno)
+			if(r==LLONG_MAX && errno)
 				c='e';
 			else
 				c = *str;
 			if(c==GETDECIMAL(0) || c=='e' || c == 'E')
 			{
 				lvalue->isfloat=1;
-				r = strtod(val,&str);
+				r = strtold(val,&str);
 			}
 			else if(lastbase==10 && val[1])
 			{
@@ -242,7 +306,7 @@ static Sfdouble_t arith(const char **ptr, struct lval *lvalue, int type, Sfdoubl
 		return(r);
 	    }
 
-	    case ERRMSG:
+	    case MESSAGE:
 		sfsync(NIL(Sfio_t*));
 #if 0
 		if(warn)
@@ -266,7 +330,11 @@ Sfdouble_t sh_strnum(register const char *str, char** ptr, int mode)
 	register Sfdouble_t d;
 	char base=0, *last;
 	if(*str==0)
+	{
+		if(ptr)
+			*ptr = (char*)str;
 		return(0);
+	}
 	errno = 0;
 	d = strtonll(str,&last,&base,-1);
 	if(*last || errno)

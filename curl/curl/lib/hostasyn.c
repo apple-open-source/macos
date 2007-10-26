@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,21 +18,15 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: hostasyn.c,v 1.9 2005/02/09 13:06:40 bagder Exp $
+ * $Id: hostasyn.c,v 1.18 2007-04-03 18:25:18 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
 
 #include <string.h>
-#include <errno.h>
 
-#define _REENTRANT
-
-#if defined(WIN32) && !defined(__GNUC__) || defined(__MINGW32__)
+#ifdef NEED_MALLOC_H
 #include <malloc.h>
-#else
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
 #endif
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
@@ -57,13 +51,12 @@
 #include <inet.h>
 #include <stdlib.h>
 #endif
-#endif
 
 #ifdef HAVE_SETJMP_H
 #include <setjmp.h>
 #endif
 
-#ifdef WIN32
+#ifdef HAVE_PROCESS_H
 #include <process.h>
 #endif
 
@@ -116,8 +109,8 @@ static CURLcode addrinfo_callback(void *arg, /* "struct connectdata *" */
   if(CURL_ASYNC_SUCCESS == status) {
 
     /*
-     * IPv4: Curl_addrinfo_copy() copies the address and returns an allocated
-     * version.
+     * IPv4/ares: Curl_addrinfo_copy() copies the address and returns an
+     * allocated version.
      *
      * IPv6: Curl_addrinfo_copy() returns the input pointer!
      */
@@ -168,6 +161,9 @@ CURLcode Curl_addrinfo6_callback(void *arg, /* "struct connectdata *" */
                                  int status,
                                  struct addrinfo *ai)
 {
+ /* NOTE: for CURLRES_ARES, the 'ai' argument is really a
+  * 'struct hostent' pointer.
+  */
   return addrinfo_callback(arg, status, ai);
 }
 #endif

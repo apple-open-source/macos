@@ -43,7 +43,7 @@
 ################################################################
 
 all_sasl_libs = ../lib/libsasl2.la $(SASL_DB_LIB) $(LIB_SOCKET)
-all_sasl_static_libs = ../lib/.libs/libsasl2.a $(SASL_DB_LIB) $(LIB_SOCKET) $(GSSAPIBASE_LIBS) $(GSSAPI_LIBS) $(SASL_KRB_LIB) $(LIB_DES) $(PLAIN_LIBS) $(SRP_LIBS) $(LIB_MYSQL) $(LIB_PGSQL)
+all_sasl_static_libs = ../lib/.libs/libsasl2.a $(SASL_DB_LIB) $(LIB_SOCKET) $(GSSAPIBASE_LIBS) $(GSSAPI_LIBS) $(SASL_KRB_LIB) $(LIB_DES) $(PLAIN_LIBS) $(SRP_LIBS) $(LIB_MYSQL) $(LIB_PGSQL) $(LIB_SQLITE)
 
 sbin_PROGRAMS = @SASL_DB_UTILS@ @SMTPTEST_PROGRAM@
 EXTRA_PROGRAMS = saslpasswd2 sasldblistusers2 testsuite testsuitestatic smtptest
@@ -56,9 +56,9 @@ else
 man_MANS = saslpasswd2.8 sasldblistusers2.8
 endif
 
-saslpasswd2_LDADD = ../sasldb/libsasldb.la $(all_sasl_libs)
+saslpasswd2_LDADD = $(all_sasl_libs) ../sasldb/libsasldb.la
 saslpasswd2_SOURCES = saslpasswd.c
-sasldblistusers2_LDADD = ../sasldb/libsasldb.la $(all_sasl_libs)
+sasldblistusers2_LDADD = $(all_sasl_libs) ../sasldb/libsasldb.la
 sasldblistusers2_SOURCES = sasldblistusers.c
 dbconverter_2_LDADD = ../sasldb/libsasldb.la $(all_sasl_libs)
 

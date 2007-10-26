@@ -1,18 +1,45 @@
-/* Machine description file for DEC MIPS machines.  */
+/* Machine description file for DEC MIPS machines.
+
+   Copyright (C) 1992, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
 
 #include "mips.h"
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
-   USUAL-OPSYS="note"  
+   USUAL-OPSYS="note"
 
 NOTE-START
 The operating system would be either osf1, ultrix, or NetBSD.
 NOTE-END  */
 
+#ifndef __MIPSEB__
 #undef WORDS_BIG_ENDIAN
+#endif
+#if defined (__NetBSD__)
+#define BROKEN_NOCOMBRELOC
+#else
 #undef LIB_STANDARD
 #undef START_FILES
+#endif
 #undef COFF
 #undef TERMINFO
 #define MAIL_USE_FLOCK
@@ -22,17 +49,12 @@ NOTE-END  */
 #ifdef MACH
 #define START_FILES pre-crt0.o /usr/lib/crt0.o
 #else
+#if !defined (__NetBSD__)
 /* This line starts being needed with ultrix 4.0.  */
 /* You must delete it for version 3.1.  */
 #define START_FILES pre-crt0.o /usr/lib/cmplrs/cc/crt0.o
 #endif
-
-#if defined (__NetBSD__) || defined (__OpenBSD__)
-#undef START_FILES
-#undef RUN_TIME_REMAP
-#undef UNEXEC
-#define UNEXEC unexelf.o
-#endif /* NetBSD || OpenBSD */
+#endif
 
 /* Supposedly the following will overcome a kernel bug.  */
 #undef LD_SWITCH_MACHINE
@@ -59,11 +81,6 @@ NOTE-END  */
    but it doesn't work right;
    and it causes hanging in read_process_output.  */
 #define BROKEN_O_NONBLOCK
-#endif
-
-#if defined (OSF1) || defined (MACH)
-#undef C_ALLOCA
-#define HAVE_ALLOCA
 #endif
 
 #ifndef __NetBSD__
@@ -107,3 +124,6 @@ NOTE-END  */
 
 /* Enable a fix in process.c.  */
 #define SET_CHILD_PTY_PGRP
+
+/* arch-tag: 45d5070e-d2b7-479f-b336-3fd497c36e15
+   (do not change this comment) */

@@ -1,0 +1,85 @@
+Index: samba/source/client/smbmount.c
+===================================================================
+--- samba/source/client/smbmount.c.orig
++++ samba/source/client/smbmount.c
+@@ -789,7 +789,7 @@ static void parse_mount_smb(int argc, ch
+ 			} else if(!strcmp(opts, "uid")) {
+ 				mount_uid = nametouid(opteq+1);
+ 			} else if(!strcmp(opts, "gid")) {
+-				mount_gid = nametogid(opteq+1);
++				nametogid(opteq+1, &mount_gid);
+ 			} else if(!strcmp(opts, "port")) {
+ 				smb_port = val;
+ 			} else if(!strcmp(opts, "fmask")) {
+Index: samba/source/lib/util.c
+===================================================================
+--- samba/source/lib/util.c.orig
++++ samba/source/lib/util.c
+@@ -1592,20 +1592,24 @@ uid_t nametouid(const char *name)
+  Convert a name to a gid_t if possible. Return -1 if not a group. 
+ ********************************************************************/
+ 
+-gid_t nametogid(const char *name)
++BOOL nametogid(const char *name, gid_t *gid)
+ {
+ 	struct group *grp;
+ 	char *p;
+ 	gid_t g;
+ 
+ 	g = (gid_t)strtol(name, &p, 0);
+-	if ((p != name) && (*p == '\0'))
+-		return g;
++	if ((p != name) && (*p == '\0')) {
++		*gid = g;
++		return True;
++	}
+ 
+ 	grp = sys_getgrnam(name);
+-	if (grp)
+-		return(grp->gr_gid);
+-	return (gid_t)-1;
++	if (grp) {
++		*gid = grp->gr_gid;
++		return True;
++	}
++	return False;
+ }
+ 
+ /*******************************************************************
+Index: samba/source/utils/net_groupmap.c
+===================================================================
+--- samba/source/utils/net_groupmap.c.orig
++++ samba/source/utils/net_groupmap.c
+@@ -273,17 +273,15 @@ static int net_groupmap_add(int argc, co
+ 		return -1;
+ 	}
+ 	
+-	if ( (gid = nametogid(unixgrp)) == (gid_t)-1 ) {
++	if (!nametogid(unixgrp, &gid)) {
+ 		d_fprintf(stderr, "Can't lookup UNIX group %s\n", unixgrp);
+ 		return -1;
+ 	}
+ 
+-	{
+-		if (pdb_getgrgid(&map, gid)) {
+-			d_printf("Unix group %s already mapped to SID %s\n",
+-				 unixgrp, sid_string_static(&map.sid));
+-			return -1;
+-		}
++	if (pdb_getgrgid(&map, gid)) {
++		d_printf("Unix group %s already mapped to SID %s\n",
++			 unixgrp, sid_string_static(&map.sid));
++		return -1;
+ 	}
+ 	
+ 	if ( (rid == 0) && (string_sid[0] == '\0') ) {
+@@ -448,8 +446,7 @@ static int net_groupmap_modify(int argc,
+ 		fstrcpy( map.nt_name, ntgroup );
+ 		
+ 	if ( unixgrp[0] ) {
+-		gid = nametogid( unixgrp );
+-		if ( gid == -1 ) {
++		if ( !nametogid( unixgrp, &gid ) ) {
+ 			d_fprintf(stderr, "Unable to lookup UNIX group %s.  Make sure the group exists.\n",
+ 				unixgrp);
+ 			return -1;

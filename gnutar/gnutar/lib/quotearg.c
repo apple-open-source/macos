@@ -30,6 +30,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -83,7 +84,7 @@ struct quoting_options
 
   /* Quote the characters indicated by this bit vector even if the
      quoting style would not normally require them to be quoted.  */
-  int quote_these_too[(UCHAR_MAX / INT_BITS) + 1];
+  unsigned int quote_these_too[(UCHAR_MAX / INT_BITS) + 1];
 };
 
 /* Names of quoting styles.  */
@@ -151,7 +152,8 @@ int
 set_char_quoting (struct quoting_options *o, char c, int i)
 {
   unsigned char uc = c;
-  int *p = (o ? o : &default_quoting_options)->quote_these_too + uc / INT_BITS;
+  unsigned int *p =
+    (o ? o : &default_quoting_options)->quote_these_too + uc / INT_BITS;
   int shift = uc % INT_BITS;
   int r = (*p >> shift) & 1;
   *p ^= ((i & 1) ^ r) << shift;
@@ -192,8 +194,8 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
   size_t len = 0;
   char const *quote_string = 0;
   size_t quote_string_len = 0;
-  int backslash_escapes = 0;
-  int unibyte_locale = MB_CUR_MAX == 1;
+  bool backslash_escapes = false;
+  bool unibyte_locale = MB_CUR_MAX == 1;
 
 #define STORE(c) \
     do \
@@ -208,13 +210,13 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
     {
     case c_quoting_style:
       STORE ('"');
-      backslash_escapes = 1;
+      backslash_escapes = true;
       quote_string = "\"";
       quote_string_len = 1;
       break;
 
     case escape_quoting_style:
-      backslash_escapes = 1;
+      backslash_escapes = true;
       break;
 
     case locale_quoting_style:
@@ -239,7 +241,7 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
 	char const *right = gettext_quote (N_("'"), quoting_style);
 	for (quote_string = left; *quote_string; quote_string++)
 	  STORE (*quote_string);
-	backslash_escapes = 1;
+	backslash_escapes = true;
 	quote_string = right;
 	quote_string_len = strlen (quote_string);
       }
@@ -396,12 +398,12 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
 	    /* Length of multibyte sequence found so far.  */
 	    size_t m;
 
-	    int printable;
+	    bool printable;
 
 	    if (unibyte_locale)
 	      {
 		m = 1;
-		printable = isprint (c);
+		printable = isprint (c) != 0;
 	      }
 	    else
 	      {
@@ -409,7 +411,7 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
 		memset (&mbstate, 0, sizeof mbstate);
 
 		m = 0;
-		printable = 1;
+		printable = true;
 		if (argsize == SIZE_MAX)
 		  argsize = strlen (arg);
 
@@ -422,12 +424,12 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
 		      break;
 		    else if (bytes == (size_t) -1)
 		      {
-			printable = 0;
+			printable = false;
 			break;
 		      }
 		    else if (bytes == (size_t) -2)
 		      {
-			printable = 0;
+			printable = false;
 			while (i + m < argsize && arg[i + m])
 			  m++;
 			break;
@@ -449,9 +451,9 @@ quotearg_buffer_restyled (char *buffer, size_t buffersize,
 				  goto use_shell_always_quoting_style;
 				}
 			  }
-			    
+
 			if (! iswprint (w))
-			  printable = 0;
+			  printable = false;
 			m += bytes;
 		      }
 		  }

@@ -1,4 +1,4 @@
-# Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+# Copyright (C) 2002, 2003, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,8 +12,8 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 package Autom4te::ChannelDefs;
 
@@ -174,7 +174,7 @@ sub usage ()
   `gnu'           GNU coding standards (default in gnu and gnits modes)
   `obsolete'      obsolete features or constructions
   `override'      user redefinitions of Automake rules or variables
-  `portability'   portability issues
+  `portability'   portability issues (default in gnu and gnits modes)
   `syntax'        dubious syntactic constructs (default)
   `unsupported'   unsupported or incomplete features (default)
   `all'           all the warnings
@@ -330,29 +330,12 @@ sub set_strictness ($)
 {
   my ($name) = @_;
 
-  # FIXME: 'portability' warnings are currently disabled by default.
-  # Eventually we want to turn them on in GNU and GNITS modes, but
-  # we don't do this yet in Automake 1.7 to help the 1.6/1.7 transition.
-  #
-  # Indeed there would be only two ways to get rid of these new warnings:
-  #  1. adjusting Makefile.am
-  #     This is not always easy (or wanted).  Consider %-rules or
-  #     $(function args) variables.
-  #  2. using -Wno-portability
-  #     This means there is no way to have the same Makefile.am
-  #     working both with Automake 1.6 and 1.7 (since 1.6 does not
-  #     understand -Wno-portability).
-  #
-  # In Automake 1.8 (or whatever it is called) we can turn these
-  # warnings on, since -Wno-portability will not be an issue for
-  # the 1.7/1.8 transition.
-
   if ($name eq 'gnu')
     {
       setup_channel 'error-gnu', silent => 0;
       setup_channel 'error-gnu/warn', silent => 0, type => 'error';
       setup_channel 'error-gnits', silent => 1;
-      # setup_channel 'portability', silent => 0;
+      setup_channel 'portability', silent => 0;
       setup_channel 'gnu', silent => 0;
     }
   elsif ($name eq 'gnits')
@@ -360,7 +343,7 @@ sub set_strictness ($)
       setup_channel 'error-gnu', silent => 0;
       setup_channel 'error-gnu/warn', silent => 0, type => 'error';
       setup_channel 'error-gnits', silent => 0;
-      # setup_channel 'portability', silent => 0;
+      setup_channel 'portability', silent => 0;
       setup_channel 'gnu', silent => 0;
     }
   elsif ($name eq 'foreign')
@@ -368,7 +351,7 @@ sub set_strictness ($)
       setup_channel 'error-gnu', silent => 1;
       setup_channel 'error-gnu/warn', silent => 0, type => 'warning';
       setup_channel 'error-gnits', silent => 1;
-      # setup_channel 'portability', silent => 1;
+      setup_channel 'portability', silent => 1;
       setup_channel 'gnu', silent => 1;
     }
   else

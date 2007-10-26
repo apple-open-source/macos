@@ -31,7 +31,7 @@
 #include <IOKit/firewire/IOFireWireController.h>
 
 #if FIRELOG
-#import <IOKit/firewire/IOFireLog.h>
+#import <IOKit/firewire/FireLog.h>
 #define FIRELOG_MSG(x) FireLog x
 #else
 #define FIRELOG_MSG(x) do {} while (0)
@@ -44,135 +44,105 @@ OSDefineMetaClassAndStructors(IOFireWireAVCUserClient, IOUserClient)
 void AVCUserClientAsyncCommandCallback(void *pRefCon, IOFireWireAVCAsynchronousCommand *pCommandObject);
 
 //////////////////////////////////////////////////////
-// IOFireWireAVCUserClient::sMethods
+// IOFireWireAVCUserClient::externalMethod
 //////////////////////////////////////////////////////
-IOExternalMethod IOFireWireAVCUserClient::sMethods[kIOFWAVCUserClientNumCommands] =
+IOReturn IOFireWireAVCUserClient::externalMethod( uint32_t selector, 
+						IOExternalMethodArguments * arguments,
+						IOExternalMethodDispatch * dispatch, 
+						OSObject * target, 
+						void * reference)
 {
-    { //    kIOFWAVCUserClientOpen
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::open,
-        kIOUCScalarIScalarO,
-        0,
-        0
-    },
-    { //    kIOFWAVCUserClientClose
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::close,
-        kIOUCScalarIScalarO,
-        0,
-        0
-    },
-	{ //    kIOFWAVCUserClientOpenWithSessionRef
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::openWithSessionRef,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-	{ //    kIOFWAVCUserClientGetSessionRef
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::getSessionRef,
-        kIOUCScalarIScalarO,
-        0,
-        1
-    },
-    { //    kIOFWAVCUserClientAVCCommand
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::AVCCommand,
-        kIOUCStructIStructO,
-        0xffffffff,
-        0xffffffff
-    },
-    { //    kIOFWAVCUserClientAVCCommandInGeneration
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::AVCCommandInGen,
-        kIOUCStructIStructO,
-        0xffffffff,
-        0xffffffff
-    },
-    { //    kIOFWAVCUserClientUpdateAVCCommandTimeout
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::updateAVCCommandTimeout,
-        kIOUCScalarIScalarO,
-        0,
-        0
-    },
-	{ //    kIOFWAVCUserClientMakeP2PInputConnection
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::makeP2PInputConnection,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-	{ //    kIOFWAVCUserClientBreakP2PInputConnection
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::breakP2PInputConnection,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-	{ //    kIOFWAVCUserClientMakeP2POutputConnection
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::makeP2POutputConnection,
-        kIOUCScalarIScalarO,
-        3,
-        0
-    },
-	{ //    kIOFWAVCUserClientBreakP2POutputConnection
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::breakP2POutputConnection,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-	{ //    kIOFWAVCUserClientCreateAsyncAVCCommand
-		0,
-		(IOMethod) &IOFireWireAVCUserClient::CreateAVCAsyncCommand,
-		kIOUCStructIStructO,
-		0xffffffff,
-		0xffffffff
-	},
-	{ //    kIOFWAVCUserClientSubmitAsyncAVCCommand
-		0,
-		(IOMethod) &IOFireWireAVCUserClient::SubmitAVCAsyncCommand,
-        kIOUCScalarIScalarO,
-		1,
-		0
-	},
-	{ //    kIOFWAVCUserClientCancelAsyncAVCCommand
-		0,
-		(IOMethod) &IOFireWireAVCUserClient::CancelAVCAsyncCommand,
-		kIOUCScalarIScalarO,
-		1,
-		0
-	},
-	{ //    kIOFWAVCUserClientReleaseAsyncAVCCommand
-		0,
-		(IOMethod) &IOFireWireAVCUserClient::ReleaseAVCAsyncCommand,
-		kIOUCScalarIScalarO,
-		1,
-		0
-	},
-	{ //    kIOFWAVCUserClientReinitAsyncAVCCommand
-        0,
-        (IOMethod) &IOFireWireAVCUserClient::ReinitAVCAsyncCommand,
-        kIOUCScalarIStructI,
-        1,
-        0xFFFFFFFF	// variable
-	}
-};
-
-IOExternalAsyncMethod IOFireWireAVCUserClient::sAsyncMethods[kIOFWAVCUserClientNumAsyncCommands] =
-{
+	IOReturn result = kIOReturnBadArgument;
+	
+	FIRELOG_MSG(("IOFireWireAVCUserClient::externalMethod (this=0x%08X), selector=0x%08X\n",this,selector));
+	
+	// Dispatch the method call
+	switch (selector)
 	{
-		//    kIOFWAVCUserClientInstallAsyncAVCCommandCallback
-        0,
-        (IOAsyncMethod) &IOFireWireAVCUserClient::installUserLibAsyncAVCCommandCallback,
-        kIOUCScalarIScalarO,
-        1,
-        1
-    }
-};
+	    case kIOFWAVCUserClientOpen:
+			result = open(NULL,NULL,NULL,NULL,NULL,NULL);
+			break;
+		
+		case kIOFWAVCUserClientClose:
+			result = close(NULL,NULL,NULL,NULL,NULL,NULL);
+			break;
+
+		case kIOFWAVCUserClientGetSessionRef:
+			result = getSessionRef( arguments->scalarOutput,NULL,NULL,NULL,NULL,NULL);
+			break;
+
+		case kIOFWAVCUserClientAVCCommand:
+			result = AVCCommand((UInt8*)arguments->structureInput, 
+								(UInt8*)arguments->structureOutput, 
+								arguments->structureInputSize, 
+								(UInt32*)&arguments->structureOutputSize);
+			break;
+		
+		case kIOFWAVCUserClientOpenWithSessionRef:
+			result = openWithSessionRef((IOFireWireSessionRef) arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
+			break;
+		
+		case kIOFWAVCUserClientAVCCommandInGen:
+			result = AVCCommandInGen((UInt8*) arguments->structureInput,
+								(UInt8*)arguments->structureOutput, 
+								arguments->structureInputSize, 
+								(UInt32*)&arguments->structureOutputSize);
+			break;
+		
+		case kIOFWAVCUserClientUpdateAVCCommandTimeout:
+			result = updateAVCCommandTimeout(NULL,NULL,NULL,NULL,NULL,NULL);
+			break;
+		
+		case kIOFWAVCUserClientMakeP2PInputConnection:
+			result = makeP2PInputConnection(arguments->scalarInput[0],arguments->scalarInput[1],NULL,NULL,NULL,NULL);
+			break;
+		
+		case kIOFWAVCUserClientBreakP2PInputConnection:
+			result = breakP2PInputConnection(arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
+			break;
+		
+		case kIOFWAVCUserClientMakeP2POutputConnection:
+			result = makeP2POutputConnection(arguments->scalarInput[0],arguments->scalarInput[1],(IOFWSpeed)arguments->scalarInput[2],NULL,NULL,NULL);
+			break;
+		
+		case kIOFWAVCUserClientBreakP2POutputConnection:
+			result = breakP2POutputConnection(arguments->scalarInput[0],NULL,NULL,NULL,NULL,NULL);
+			break;
+		
+		case kIOFWAVCUserClientCreateAsyncAVCCommand:
+			result = CreateAVCAsyncCommand((UInt8*)arguments->structureInput, 
+								(UInt8*)arguments->structureOutput, 
+								arguments->structureInputSize, 
+								(UInt32*)&arguments->structureOutputSize);
+			break; 
+		
+		case kIOFWAVCUserClientSubmitAsyncAVCCommand:
+			result = SubmitAVCAsyncCommand(arguments->scalarInput[0]);
+			break;
+		
+		case kIOFWAVCUserClientCancelAsyncAVCCommand:
+			result = CancelAVCAsyncCommand(arguments->scalarInput[0]);
+			break;
+		
+		case kIOFWAVCUserClientReleaseAsyncAVCCommand:
+			result = ReleaseAVCAsyncCommand(arguments->scalarInput[0]);
+			break;
+		
+		case kIOFWAVCUserClientReinitAsyncAVCCommand:
+			result = ReinitAVCAsyncCommand(arguments->scalarInput[0], (const UInt8*) arguments->structureInput, arguments->structureInputSize); 
+			break;
+		
+		case kIOFWAVCUserClientInstallAsyncAVCCommandCallback:
+			result = installUserLibAsyncAVCCommandCallback(arguments->asyncReference,arguments->scalarInput[0], arguments->scalarOutput);
+			break;
+		
+		default:
+			// None of the above!
+			break;
+	};
+
+	return result;
+}
 
 //////////////////////////////////////////////////////
 // IOFireWireAVCUserClient::initWithTask
@@ -184,6 +154,11 @@ bool IOFireWireAVCUserClient::initWithTask(
 	FIRELOG_MSG(("IOFireWireAVCUserClient::initWithTask (this=0x%08X)\n",this));
 	
 	fTask = owningTask;
+	
+	// Allow Rosetta based apps access to this user-client
+	if (properties)
+		properties->setObject("IOUserClientCrossEndianCompatible", kOSBooleanTrue);
+	
 	return IOUserClient::initWithTask(owningTask, securityToken, type,properties);
 }
 
@@ -313,38 +288,6 @@ bool IOFireWireAVCUserClient::start( IOService * provider )
 }
 
 //////////////////////////////////////////////////////
-// IOFireWireAVCUserClient::getTargetAndMethodForIndex
-//////////////////////////////////////////////////////
-IOExternalMethod* IOFireWireAVCUserClient::getTargetAndMethodForIndex(IOService **target, UInt32 index)
-{
-    FIRELOG_MSG(("IOFireWireAVCUserClient::getTargetAndMethodForIndex (this=0x%08X)\n",this));
-	
-    if( index >= kIOFWAVCUserClientNumCommands )
-        return NULL;
-    else
-    {
-        *target = this;
-        return &sMethods[index];
-    }
-}
-
-//////////////////////////////////////////////////////
-// IOFireWireAVCUserClient::getAsyncTargetAndMethodForIndex
-//////////////////////////////////////////////////////
-IOExternalAsyncMethod* IOFireWireAVCUserClient::getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index)
-{
-    FIRELOG_MSG(("IOFireWireAVCUserClient::getAsyncTargetAndMethodForIndex (this=0x%08X)\n",this));
-	
-    if( index >= kIOFWAVCUserClientNumAsyncCommands )
-       return NULL;
-    else
-    {
-        *target = this;
-        return &sAsyncMethods[index];
-    }
-}
-
-//////////////////////////////////////////////////////
 // IOFireWireAVCUserClient::clientClose
 //////////////////////////////////////////////////////
 IOReturn IOFireWireAVCUserClient::clientClose( void )
@@ -436,7 +379,7 @@ IOReturn IOFireWireAVCUserClient::openWithSessionRef( IOFireWireSessionRef sessi
 //////////////////////////////////////////////////////
 // IOFireWireAVCUserClient::getSessionRef
 //////////////////////////////////////////////////////
-IOReturn IOFireWireAVCUserClient::getSessionRef( IOFireWireSessionRef * sessionRef, void *, void *, void *, void *, void * )
+IOReturn IOFireWireAVCUserClient::getSessionRef( uint64_t * sessionRef, void *, void *, void *, void *, void * )
 {
 	FIRELOG_MSG(("IOFireWireAVCUserClient::getSessionRef (this=0x%08X)\n",this));
 	
@@ -447,7 +390,7 @@ IOReturn IOFireWireAVCUserClient::getSessionRef( IOFireWireSessionRef * sessionR
 
     if( status == kIOReturnSuccess )
     {
-		*sessionRef = (IOFireWireSessionRef)this;
+		*sessionRef = (uint64_t) this;
 	}
     
 	return status;
@@ -637,6 +580,7 @@ IOReturn IOFireWireAVCUserClient::updateP2PCount(UInt32 addr, SInt32 inc, bool f
     IOFWReadQuadCommand *readCmd;
     IOFWCompareAndSwapCommand *lockCmd;
     UInt32 plugVal, newVal;
+	UInt32 plugValHost, newValHost;
 	UInt32 curCount;
 	UInt32 curChan;
 	IOFWSpeed curSpeed;
@@ -647,15 +591,17 @@ IOReturn IOFireWireAVCUserClient::updateP2PCount(UInt32 addr, SInt32 inc, bool f
     readCmd->release();
     if(res != kIOReturnSuccess)
         return res;
-        
+    
+	plugValHost = OSSwapBigToHostInt32( plugVal );
+		    
     for(int i=0; i<4; i++) {
         bool success;
 
 		// Parse current plug value
-		curCount = ((plugVal & kIOFWPCRP2PCount) >> 24);
-		curChan = ((plugVal & kIOFWPCRChannel) >> 16);
-		curSpeed = (IOFWSpeed)((plugVal & kIOFWPCROutputDataRate) >> 14);
-		newVal = plugVal;
+		curCount = ((plugValHost & kIOFWPCRP2PCount) >> 24);
+		curChan = ((plugValHost & kIOFWPCRChannel) >> 16);
+		curSpeed = (IOFWSpeed)((plugValHost & kIOFWPCROutputDataRate) >> 14);
+		newValHost = plugValHost;
 
 		// If requested, modify channel
 		if (chan != 0xFFFFFFFF)
@@ -663,8 +609,8 @@ IOReturn IOFireWireAVCUserClient::updateP2PCount(UInt32 addr, SInt32 inc, bool f
 			if ((curCount != 0) && (chan != curChan))
 				return kIOReturnError;
 
-			newVal &= ~kIOFWPCRChannel;
-			newVal |= ((chan & 0x3F) << 16);
+			newValHost &= ~kIOFWPCRChannel;
+			newValHost |= ((chan & 0x3F) << 16);
 		}
 
 		// If requested, modify speed
@@ -673,28 +619,30 @@ IOReturn IOFireWireAVCUserClient::updateP2PCount(UInt32 addr, SInt32 inc, bool f
 			if ((curCount != 0) && (speed != curSpeed))
 				return kIOReturnError;
 
-			newVal &= ~kIOFWPCROutputDataRate;
-			newVal |= ((speed & 0x03) << 14);
+			newValHost &= ~kIOFWPCROutputDataRate;
+			newValHost |= ((speed & 0x03) << 14);
 		}
 
 		// Modify P2P count
-		newVal &= ~kIOFWPCRP2PCount;
+		newValHost &= ~kIOFWPCRP2PCount;
 		if (inc > 0)
 		{
 			if (curCount == 0x3F)
 				return kIOReturnError;
-			newVal |= ((curCount+1) << 24);
+			newValHost |= ((curCount+1) << 24);
 		}
 		else
 		{
 			if (curCount == 0)
 				return kIOReturnError;
-			newVal |= ((curCount-1) << 24);
+			newValHost |= ((curCount-1) << 24);
 		}
 		
+		newVal = OSSwapHostToBigInt32( newValHost );
         lockCmd = device->createCompareAndSwapCommand(plugAddr, &plugVal, &newVal, 1);
         res = lockCmd->submit();
         success = lockCmd->locked(&plugVal);
+		plugValHost = OSSwapBigToHostInt32( plugVal );
         lockCmd->release();
         if(res != kIOReturnSuccess)
             break;
@@ -830,12 +778,11 @@ void IOFireWireAVCUserClient::remakeConnections(void *arg)
 //////////////////////////////////////////////////////
 // IOFireWireAVCUserClient::installUserLibAsyncAVCCommandCallback
 //////////////////////////////////////////////////////
-IOReturn IOFireWireAVCUserClient::installUserLibAsyncAVCCommandCallback(OSAsyncReference asyncRef, void *userRefcon, UInt32 *returnParam)
+IOReturn IOFireWireAVCUserClient::installUserLibAsyncAVCCommandCallback(io_user_reference_t *asyncRef, uint64_t userRefcon, uint64_t *returnParam)
 {
 	FIRELOG_MSG(("IOFireWireAVCUserClient::installUserLibAsyncAVCCommandCallback (this=0x%08X, userRefcon=0x%08X)\n",this,userRefcon));
 
-	bcopy(asyncRef, fAsyncAVCCmdCallbackInfo, sizeof(OSAsyncReference));
-	
+	bcopy(asyncRef,fAsyncAVCCmdCallbackInfo,sizeof(OSAsyncReference64));
 	*returnParam = 0x12345678;
 	
 	return kIOReturnSuccess;
@@ -848,8 +795,8 @@ IOReturn IOFireWireAVCUserClient::CreateAVCAsyncCommand(UInt8 * cmd, UInt8 * asy
 {
 	IOReturn res = kIOReturnNoMemory;
 	UInt32 *pReturnedCommandHandle = (UInt32*) asyncAVCCommandHandle;
-	UInt32 cmdLen = len - sizeof(UInt8*);
-	UInt8 **ppSharedBufAddress = (UInt8**) &cmd[cmdLen];
+	UInt32 cmdLen = len - sizeof(mach_vm_address_t);
+	mach_vm_address_t *ppSharedBufAddress = (mach_vm_address_t*) &cmd[cmdLen];
 	IOFireWireAVCUserClientAsyncCommand *pUCAsyncCommand;
 	bool memDescPrepared = false;
 	
@@ -869,10 +816,10 @@ IOReturn IOFireWireAVCUserClient::CreateAVCAsyncCommand(UInt8 * cmd, UInt8 * asy
 		pUCAsyncCommand->pUserClient = this;
 		
 		// Create the memory descriptor for the user/kernel shared response buffer
-		pUCAsyncCommand->fMem = IOMemoryDescriptor::withAddress( (vm_address_t) *ppSharedBufAddress, 1024, kIODirectionInOut, fTask ) ;
+		pUCAsyncCommand->fMem = IOMemoryDescriptor::withAddressRange( *ppSharedBufAddress, 1024, kIODirectionInOut, fTask ) ;
 		if (!pUCAsyncCommand->fMem)
 			break;
-
+		
 		// Prepare the memory descriptor
 		res = pUCAsyncCommand->fMem->prepare() ;
 		if (res != kIOReturnSuccess)
@@ -892,14 +839,14 @@ IOReturn IOFireWireAVCUserClient::CreateAVCAsyncCommand(UInt8 * cmd, UInt8 * asy
 		res = pUCAsyncCommand->pAsyncCommand->init(cmd,cmdLen,AVCUserClientAsyncCommandCallback,pUCAsyncCommand);
 		if (res != kIOReturnSuccess)
 			break;
-		
+
 	}while(0);
 	
 	if (res == kIOReturnSuccess)
 	{
 		// Everything created successfully. Add this to the array of created async commands
 		IOTakeLock(fAsyncAVCCmdLock);
-		pUCAsyncCommand->commandIdentifierHandle == fNextAVCAsyncCommandHandle++; 
+		pUCAsyncCommand->commandIdentifierHandle = fNextAVCAsyncCommandHandle++; 
 		fUCAsyncCommands->setObject(pUCAsyncCommand);
 		IOUnlock(fAsyncAVCCmdLock);
 
@@ -980,7 +927,7 @@ IOReturn IOFireWireAVCUserClient::ReleaseAVCAsyncCommand(UInt32 commandHandle)
 	bool found = false;
 	UInt32 i;
 	
-	FIRELOG_MSG(("IOFireWireAVCUserClient::CancelAVCAsyncCommand (this=0x%08X)\n",this));
+	FIRELOG_MSG(("IOFireWireAVCUserClient::ReleaseAVCAsyncCommand (this=0x%08X)\n",this));
 	
 	// Look for an command in our array with the specified command handle
 	IOTakeLock(fAsyncAVCCmdLock);
@@ -1067,13 +1014,14 @@ IOFireWireAVCUserClientAsyncCommand *IOFireWireAVCUserClient::FindUCAsyncCommand
 void IOFireWireAVCUserClient::HandleUCAsyncCommandCallback(IOFireWireAVCUserClientAsyncCommand *pUCAsyncCommand)
 {
 	UInt32 respLen;
-	void * args[kMaxAsyncArgs];
-	OSAsyncReference asyncRef;
+	//void * args[kMaxAsyncArgs];
+	io_user_reference_t args[kMaxAsyncArgs];
+	OSAsyncReference64 asyncRef;
 	
 	FIRELOG_MSG(("IOFireWireAVCUserClient::HandleUCAsyncCommandCallback (this=0x%08X)\n",this));
 
-	bcopy(fAsyncAVCCmdCallbackInfo, asyncRef, sizeof(OSAsyncReference));
-	
+	bcopy(fAsyncAVCCmdCallbackInfo, asyncRef, kOSAsyncRef64Size);
+
 	// If we just got a response, copy it into the shared user/kernel response memory buffer for this command 
 	switch(pUCAsyncCommand->pAsyncCommand->cmdState)
 	{
@@ -1105,10 +1053,10 @@ void IOFireWireAVCUserClient::HandleUCAsyncCommandCallback(IOFireWireAVCUserClie
 	}
 	
 	// Send the results to user space
-	args[0] = (void*) pUCAsyncCommand->commandIdentifierHandle;
-	args[1] = (void*) pUCAsyncCommand->pAsyncCommand->cmdState;
-	args[2] = (void*) respLen;
-	sendAsyncResult(asyncRef, kIOReturnSuccess, args, 3);
+	args[0] = (io_user_reference_t) pUCAsyncCommand->commandIdentifierHandle;
+	args[1] = (io_user_reference_t) pUCAsyncCommand->pAsyncCommand->cmdState;
+	args[2] = (io_user_reference_t) respLen;
+	sendAsyncResult64(asyncRef, kIOReturnSuccess, args, 3);
 }
 
 //////////////////////////////////////////////////////

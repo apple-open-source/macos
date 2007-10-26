@@ -71,10 +71,6 @@ boolean_t
 EAPOLSocket_set_wpa_session_key(EAPOLSocket * sock, 
 				const uint8_t * key, int key_length);
 
-boolean_t
-EAPOLSocket_set_wpa_server_key(EAPOLSocket * sock,
-			       const uint8_t * key, int key_length);
-
 /*
  * Function: EAPOLSocket_link_update
  * Purpose:

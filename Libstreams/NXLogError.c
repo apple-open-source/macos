@@ -47,6 +47,7 @@ static int hasTerminal()
 }
 #endif // not WIN32
 
+__private_extern__
 void _NXLogError(const char *format, ...)
 {
     va_list ap;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,23 +19,26 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include <sys/cdefs.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include <mach/mach.h>
-#include <IOKit/iokitmig.h> 	// mig generated
 #include <mach/mach_init.h>
 
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOCFSerialize.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include "IOPMLib.h"
 
+#define arrayCnt(var) (sizeof(var) / sizeof(var[0]))
 
 io_connect_t IOPMFindPowerManagement( mach_port_t master_device_port )
 {
-    io_connect_t	fb;
-    kern_return_t	kr;
-    io_service_t	obj = MACH_PORT_NULL;
+    io_connect_t    fb;
+    kern_return_t    kr;
+    io_service_t    obj = MACH_PORT_NULL;
 
-    obj = IORegistryEntryFromPath( master_device_port, kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+    obj = IORegistryEntryFromPath( master_device_port, 
+                        kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
     if( obj ) {
         kr = IOServiceOpen( obj,mach_task_self(), 0, &fb);
         if ( kr == kIOReturnSuccess ) {
@@ -48,116 +51,201 @@ io_connect_t IOPMFindPowerManagement( mach_port_t master_device_port )
 }
 
 
-IOReturn IOPMGetAggressiveness ( io_connect_t fb, unsigned long type, unsigned long * aggressiveness )
+IOReturn IOPMGetAggressiveness ( 
+    io_connect_t fb, 
+    unsigned long type, 
+    unsigned long * lAggressiveness )
 {
-    mach_msg_type_number_t	len = 1;
-    kern_return_t	err;
-    int		param = type;
 
-    err = io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMGetAggressiveness, &param, 1, (int *)aggressiveness, &len);
+    uint64_t inData = type;
+    uint64_t aggressiveness = 0;
+    uint32_t len = 1;
+    kern_return_t err = IOConnectCallScalarMethod(fb, kPMGetAggressiveness,
+                &inData, 1, &aggressiveness, &len);
+    *lAggressiveness = aggressiveness;
 
-    if (err==KERN_SUCCESS)
-      return kIOReturnSuccess;
+    if (err)
+        return kIOReturnError;
     else
-      return kIOReturnError;
+        return err;
 }
 
 
-IOReturn IOPMSetAggressiveness ( io_connect_t fb, unsigned long type, unsigned long aggressiveness )
+IOReturn IOPMSetAggressiveness ( 
+    io_connect_t fb, 
+    unsigned long type, 
+    unsigned long aggressiveness )
 {
-   mach_msg_type_number_t	len = 1;
-   kern_return_t	        err;
-   int		                params[2];
-   int                      ret_val = kIOReturnSuccess;
+    uint64_t inData[] = { type, aggressiveness };
+    uint64_t rtn = 0;
+    uint32_t len = 1;
+    kern_return_t err = IOConnectCallScalarMethod(fb, kPMSetAggressiveness,
+               inData, arrayCnt(inData), &rtn, &len);
 
-    params[0] = (int)type;
-    params[1] = (int)aggressiveness;
-
-    err = io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMSetAggressiveness, params, 2, &ret_val, &len);
-
-    if (err==KERN_SUCCESS)
-      return ret_val;
+    if (err)
+        return kIOReturnError;
     else
-      return kIOReturnError;
+        return (IOReturn) rtn;
 }
 
 
 IOReturn IOPMSleepSystem ( io_connect_t fb )
 {
-    mach_msg_type_number_t	len = 1;
-    kern_return_t  err;
-    int             ret_val = kIOReturnSuccess;
-    
-    err = io_connect_method_scalarI_scalarO( (io_connect_t) fb, kPMSleepSystem, NULL, 0, &ret_val, &len);
+    uint64_t rtn = 0;
+    uint32_t len = 1;
+    kern_return_t err = IOConnectCallScalarMethod(fb, kPMSleepSystem,
+                NULL, 0, &rtn, &len);
 
-    if (err==KERN_SUCCESS)
-      return ret_val;
+    if (err)
+    return kIOReturnError;
     else
-      return kIOReturnError;
+    return (IOReturn) rtn;
+}
+
+/* Private call for Apple Internal use only */
+IOReturn IOPMSleepSystemWithOptions ( io_connect_t fb, CFDictionaryRef options )
+{
+    uint64_t rtn = 0;
+    uint32_t len = sizeof(uint32_t);
+    kern_return_t err;
+    CFDataRef serializedOptions = NULL;
+    
+    if( !options ) {
+        return IOPMSleepSystem( fb );
+    }
+    
+    serializedOptions = IOCFSerialize( options, 0 );
+
+    if (!serializedOptions) 
+    {
+        return kIOReturnInternalError;
+    }
+    
+    /* kPMSleepSystemOptions
+     * in: serialized CFDictionary of options
+     * out: IOReturn code returned from sleepSystem
+     */
+    err = IOConnectCallStructMethod(
+                fb, 
+                kPMSleepSystemOptions,
+                CFDataGetBytePtr(serializedOptions), /* inputStruct */
+                CFDataGetLength(serializedOptions), /* inputStructCnt */
+                &rtn, /* outputStruct */
+                &len); /* outputStructCnt */
+                
+    if (kIOReturnSuccess != err)
+        return err;
+    else
+        return (IOReturn) rtn;
 }
 
 
 IOReturn IOPMCopyBatteryInfo( mach_port_t masterPort, CFArrayRef * oInfo )
 {
     io_registry_entry_t         root_domain;
-    io_registry_entry_t	        entry;
-    IOReturn		            kr = kIOReturnUnsupported;
+    IOReturn                    kr = kIOReturnUnsupported;
     
-    // SMU case
-    // Battery location is published under IOPMrootDomain
+    *oInfo = NULL;
+    
+    // ********************************************************************
+    // For PPC machines (with PMU), battery location is published under 
+    // IOPMrootDomain
     root_domain = IORegistryEntryFromPath( masterPort, 
                         kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
     if(!root_domain) return kIOReturnUnsupported;
-    *oInfo = IORegistryEntryCreateCFProperty( root_domain, CFSTR(kIOBatteryInfoKey),
-                    kCFAllocatorDefault, kNilOptions);
+    *oInfo = IORegistryEntryCreateCFProperty( 
+                            root_domain, CFSTR(kIOBatteryInfoKey),
+                            kCFAllocatorDefault, kNilOptions);
     IOObjectRelease(root_domain);
     
     if(*oInfo) {
         // Successfully read battery info from IOPMrootDomain
         return kIOReturnSuccess;
-    } else {
-        // Attempt to read battery data from PMU-generated battery node
-        entry = IORegistryEntryFromPath( masterPort,
-                                         kIODeviceTreePlane ":mac-io/battery");
-        if( !entry) entry = IORegistryEntryFromPath( masterPort,
-                                         kIODeviceTreePlane ":mac-io/via-pmu/battery");
-        if(entry) 
-        {
-            *oInfo = IORegistryEntryCreateCFProperty( entry, CFSTR(kIOBatteryInfoKey),
-                            kCFAllocatorDefault, kNilOptions);
-            IOObjectRelease(entry);
-        }
-        if( *oInfo)
-            kr = kIOReturnSuccess;
-        return kr;
+    } 
+    
+    
+    // ********************************************************************
+    // For non-PMU based batteries with IOPMPowerSource conforming classes
+    // Scan IORegistry for IOPMPowerSource nodes with IOLegacyBatteryInfo
+    // - Toss all IOLegacyBatteryInfo dictionaries into an OSArray
+    int                     batt_count = 0;
+    io_registry_entry_t     battery;
+    io_iterator_t           ioreg_batteries;
+    CFMutableArrayRef       legacyArray = CFArrayCreateMutable( 
+                                kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
+
+    if(!legacyArray) return kIOReturnNoMemory;
+    
+    kr = IOServiceGetMatchingServices( 
+                    MACH_PORT_NULL, 
+                    IOServiceMatching("IOPMPowerSource"), 
+                    &ioreg_batteries);
+    if(KERN_SUCCESS != kr) {
+        CFRelease(legacyArray);
+        return kIOReturnError;
     }
+    
+    while( (battery = (io_registry_entry_t)IOIteratorNext(ioreg_batteries)) )
+    {
+        CFDictionaryRef     legacyDict;
+        
+        legacyDict = IORegistryEntryCreateCFProperty( battery, 
+                                CFSTR(kIOPMPSLegacyBatteryInfoKey),
+                                kCFAllocatorDefault,
+                                0);
+
+        if(!legacyDict) continue;
+
+        batt_count++;
+        CFArrayAppendValue(legacyArray, legacyDict);
+        CFRelease(legacyDict);        
+        IOObjectRelease(battery);
+    }
+    IOObjectRelease(ioreg_batteries);
+    
+    if(batt_count > 0) {
+        *oInfo = legacyArray;
+    } else {
+        CFRelease(legacyArray);
+
+        // Returns kIOReturnUnsupported if no batteries found
+        return kIOReturnUnsupported;
+    }
+
+    return kIOReturnSuccess;
 }
 
 
-io_connect_t IORegisterApp( void * refcon,
-                            io_service_t theDriver,
-                            IONotificationPortRef * thePortRef,
-                            IOServiceInterestCallback callback,
-                            io_object_t * notifier )
-
+io_connect_t IORegisterApp( 
+    void * refcon,
+    io_service_t theDriver,
+    IONotificationPortRef * thePortRef,
+    IOServiceInterestCallback callback,
+    io_object_t * notifier )
 {
-    io_connect_t		fb = MACH_PORT_NULL;
-    kern_return_t		kr;
+    io_connect_t        fb = MACH_PORT_NULL;
+    kern_return_t        kr;
     
     *notifier = MACH_PORT_NULL;
+    
+    if ( theDriver == MACH_PORT_NULL ) goto failure_exit;
 
-    if ( theDriver != MACH_PORT_NULL ) {
-        kr = IOServiceOpen(theDriver,mach_task_self(), 0, &fb);
-        if ( kr == kIOReturnSuccess ) {
-            if ( fb != MACH_PORT_NULL ) {
-                kr = IOServiceAddInterestNotification(*thePortRef,theDriver,kIOAppPowerStateInterest,
-                                                        callback,refcon,notifier);
-                if ( kr == KERN_SUCCESS ) {
-                    return fb;
-                }
-            }
-        }
+    kr = IOServiceOpen(theDriver, mach_task_self(), 0, &fb);
+
+    if ( (kr != kIOReturnSuccess) || (fb == MACH_PORT_NULL) )  {
+        goto failure_exit;
     }
+
+    kr = IOServiceAddInterestNotification(
+                            *thePortRef, theDriver, kIOAppPowerStateInterest,
+                            callback, refcon, notifier);
+
+    if ( kr == KERN_SUCCESS ) {
+        // Successful exit case
+        return fb;
+    }
+
+failure_exit:
     if ( fb != MACH_PORT_NULL ) {
         IOServiceClose(fb);
     }
@@ -173,31 +261,38 @@ io_connect_t IORegisterForSystemPower ( void * refcon,
                                         IOServiceInterestCallback callback,
                                         io_object_t * root_notifier )
 {
-    mach_port_t			master_device_port;
-    io_connect_t		fb = MACH_PORT_NULL;
-    IONotificationPortRef	notify = NULL;
-    kern_return_t		kr;
-    io_service_t		obj = MACH_PORT_NULL;
+    io_connect_t                fb = MACH_PORT_NULL;
+    IONotificationPortRef       notify = NULL;
+    kern_return_t               kr;
+    io_service_t                obj = MACH_PORT_NULL;
      
     *root_notifier = MACH_PORT_NULL;
 
-    IOMasterPort(bootstrap_port,&master_device_port);
-    notify = IONotificationPortCreate( master_device_port );
-    obj = IORegistryEntryFromPath( master_device_port, kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
-    if( obj != MACH_PORT_NULL ) {
-        kr = IOServiceOpen( obj,mach_task_self(), 0, &fb);
-        if ( kr == kIOReturnSuccess ) {
-            if ( fb != MACH_PORT_NULL ) {
-                kr = IOServiceAddInterestNotification(notify,obj,kIOAppPowerStateInterest,
-                                                        callback,refcon,root_notifier);
-                IOObjectRelease(obj);
-                if ( kr == KERN_SUCCESS ) {
-                    *thePortRef = notify;
-                    return fb;
-                }
-            }
-        }
+    notify = IONotificationPortCreate(MACH_PORT_NULL);
+
+    obj = IORegistryEntryFromPath( MACH_PORT_NULL, 
+                    kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+
+    if( obj == MACH_PORT_NULL ) goto failure_exit;
+    
+    kr = IOServiceOpen( obj,mach_task_self(), 0, &fb);
+
+    if ( (kr != kIOReturnSuccess) || (fb == MACH_PORT_NULL) )  {
+        goto failure_exit;
     }
+
+    kr = IOServiceAddInterestNotification(
+                            notify,obj,kIOAppPowerStateInterest,
+                            callback,refcon,root_notifier);
+
+    IOObjectRelease(obj);
+    if ( kr == KERN_SUCCESS ) {
+        // Successful exit case
+        *thePortRef = notify;
+        return fb;
+    }
+    
+failure_exit:    
     if ( obj != MACH_PORT_NULL ) {
         IOObjectRelease(obj);
     }
@@ -235,54 +330,54 @@ IOReturn IODeregisterForSystemPower ( io_object_t * root_notifier )
 }
 
 
-IOReturn IOAllowPowerChange ( io_connect_t kernelPort, long notificationID )
+IOReturn IOAllowPowerChange(io_connect_t kernelPort, long notificationID)
 {
-    kern_return_t               err;
-    mach_msg_type_number_t	len = 0;
+    uint64_t inData = notificationID;
+    kern_return_t err = IOConnectCallScalarMethod(
+                                kernelPort, kPMAllowPowerChange,
+                                &inData, 1, NULL, NULL);
 
-    err =  io_connect_method_scalarI_scalarO( kernelPort, kPMAllowPowerChange, (int *)&notificationID, 1, NULL, &len);
-
-    if (err==KERN_SUCCESS)
-      return kIOReturnSuccess;
-    else
-      return kIOReturnError;
+    if (err) {
+        return kIOReturnError;
+    } else {
+        return err;
+    }
 }
 
 
 IOReturn IOCancelPowerChange ( io_connect_t kernelPort, long notificationID )
 {
-    kern_return_t               err;
-    mach_msg_type_number_t	len = 0;
+    uint64_t inData = notificationID;
+    kern_return_t err = IOConnectCallScalarMethod(
+                                kernelPort, kPMCancelPowerChange,
+                                &inData, 1, NULL, NULL);
 
-    err = io_connect_method_scalarI_scalarO( kernelPort, kPMCancelPowerChange, (int *)&notificationID, 1, NULL, &len);
-
-    if (err==KERN_SUCCESS)
-      return kIOReturnSuccess;
-    else
-      return kIOReturnError;
+    if (err) {
+        return kIOReturnError;
+    } else {
+        return err;
+    }
 }
 
 
-boolean_t IOPMSleepEnabled ( void ) {
-    mach_port_t			masterPort;
-    io_registry_entry_t		root;
-    kern_return_t		kr;
-    boolean_t			flag = false;
+boolean_t IOPMSleepEnabled ( void ) 
+{
+    io_registry_entry_t         root;
+    boolean_t                   flag = false;
+    CFTypeRef                   data = NULL;
     
-    kr = IOMasterPort(bootstrap_port,&masterPort);
-
-    if ( kIOReturnSuccess == kr ) {
-        root = IORegistryEntryFromPath(masterPort,kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
-        if ( root ) {
-            CFTypeRef data;
-            
-            data = IORegistryEntryCreateCFProperty(root,CFSTR("IOSleepSupported"),kCFAllocatorDefault,kNilOptions);
-            if ( data ) {
-                flag = true;
-                CFRelease(data);
-            }
-            IOObjectRelease(root);
-        }
+    root = IORegistryEntryFromPath(MACH_PORT_NULL, 
+                    kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+    if ( !root ) return false;
+    
+    data = IORegistryEntryCreateCFProperty(
+                            root, CFSTR("IOSleepSupported"),
+                            kCFAllocatorDefault, kNilOptions);
+    if ( data ) {
+        flag = true;
+        CFRelease(data);
     }
+
+    IOObjectRelease(root);
     return flag;
 }

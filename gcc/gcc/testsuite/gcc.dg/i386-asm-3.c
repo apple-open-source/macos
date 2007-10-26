@@ -1,6 +1,9 @@
+/* APPLE LOCAL file mainline */
 /* PR inline-asm/6806 */
 /* { dg-do run { target i?86-*-* } } */
 /* { dg-options "-O2" } */
+/* { dg-skip-if "" { ilp32 } { "-fpic" "-fPIC" } { "" } } */
+/* { dg-skip-if "" { i?86-*-darwin* } { "*" } { "" } } */
 
 extern void abort (void);
 

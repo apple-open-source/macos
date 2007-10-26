@@ -66,6 +66,7 @@ struct bcache
   /* All the bstrings are allocated here.  */
   struct obstack cache;
 
+  /* APPLE LOCAL bcache pool */
   void *pool;
 
   /* How many hash buckets we're using.  */
@@ -155,6 +156,7 @@ expand_hash_table (struct bcache *bcache)
   /* Allocate the new table.  */
   {
     size_t new_size = new_num_buckets * sizeof (new_buckets[0]);
+    /* APPLE LOCAL bcache pool */
     new_buckets = (struct bstring **) xmmalloc (bcache->pool, new_size);
     memset (new_buckets, 0, new_size);
 
@@ -182,6 +184,7 @@ expand_hash_table (struct bcache *bcache)
 
   /* Plug in the new table.  */
   if (bcache->bucket)
+    /* APPLE LOCAL bcache pool */
     xmfree (bcache->pool, bcache->bucket);
   bcache->bucket = new_buckets;
   bcache->num_buckets = new_num_buckets;
@@ -249,7 +252,7 @@ bcache_data (const void *addr, int length, struct bcache *bcache)
   }
 }
 
-
+/* APPLE LOCAL begin bcache pool */
 /* Allocating and freeing bcaches.  */
 
 void
@@ -267,6 +270,7 @@ bcache_specify_allocation
 {
   obstack_specify_allocation (&b->cache, 0, 0, alloc, free);
 }
+/* APPLE LOCAL end bcache pool */
 
 void *
 deprecated_bcache (const void *addr, int length, struct bcache *bcache)
@@ -283,12 +287,15 @@ bcache (const void *addr, int length, struct bcache *bcache)
 /* Allocating and freeing bcaches.  */
 
 struct bcache *
+/* APPLE LOCAL bcache pool */
 bcache_xmalloc (void *pool)
 {
   /* Allocate the bcache pre-zeroed.  */
+  /* APPLE LOCAL begin bcache pool */
   struct bcache *b = (struct bcache *) xmcalloc (pool, 1, sizeof (struct bcache));
   b->pool = pool;
   obstack_specify_allocation_with_arg (&b->cache, 0, 0, xmmalloc, xmfree, pool);
+  /* APPLE LOCAL end bcache pool */
   return b;
 }
 
@@ -299,8 +306,10 @@ bcache_xfree (struct bcache *bcache)
   if (bcache == NULL)
     return;
   obstack_free (&bcache->cache, 0);
+  /* APPLE LOCAL begin bcache pool */
   xmfree (bcache->pool, bcache->bucket);
   xmfree (bcache->pool, bcache);
+  /* APPLE LOCAL end bcache pool */
 }
 
 
@@ -320,9 +329,10 @@ static void
 print_percentage (int portion, int total)
 {
   if (total == 0)
-    printf_filtered ("(not applicable)\n");
+    /* i18n: Like "Percentage of duplicates, by count: (not applicable)" */
+    printf_filtered (_("(not applicable)\n"));
   else
-    printf_filtered ("%3d%%\n", portion * 100 / total);
+    printf_filtered ("%3d%%\n", (int) (portion * 100.0 / total));
 }
 
 
@@ -401,53 +411,55 @@ print_bcache_statistics (struct bcache *c, char *type)
     xfree (entry_size);
   }
 
-  printf_filtered ("  Cached '%s' statistics:\n", type);
-  printf_filtered ("    Total object count:  %ld\n", c->total_count);
-  printf_filtered ("    Unique object count: %lu\n", c->unique_count);
-  printf_filtered ("    Percentage of duplicates, by count: ");
+  printf_filtered (_("  Cached '%s' statistics:\n"), type);
+  printf_filtered (_("    Total object count:  %ld\n"), c->total_count);
+  printf_filtered (_("    Unique object count: %lu\n"), c->unique_count);
+  printf_filtered (_("    Percentage of duplicates, by count: "));
   print_percentage (c->total_count - c->unique_count, c->total_count);
   printf_filtered ("\n");
 
-  printf_filtered ("    Total object size:   %ld\n", c->total_size);
-  printf_filtered ("    Unique object size:  %ld\n", c->unique_size);
-  printf_filtered ("    Percentage of duplicates, by size:  ");
+  printf_filtered (_("    Total object size:   %ld\n"), c->total_size);
+  printf_filtered (_("    Unique object size:  %ld\n"), c->unique_size);
+  printf_filtered (_("    Percentage of duplicates, by size:  "));
   print_percentage (c->total_size - c->unique_size, c->total_size);
   printf_filtered ("\n");
 
-  printf_filtered ("    Max entry size:     %d\n", max_entry_size);
-  printf_filtered ("    Average entry size: ");
+  printf_filtered (_("    Max entry size:     %d\n"), max_entry_size);
+  printf_filtered (_("    Average entry size: "));
   if (c->unique_count > 0)
     printf_filtered ("%ld\n", c->unique_size / c->unique_count);
   else
-    printf_filtered ("(not applicable)\n");    
-  printf_filtered ("    Median entry size:  %d\n", median_entry_size);
+    /* i18n: "Average entry size: (not applicable)" */
+    printf_filtered (_("(not applicable)\n"));    
+  printf_filtered (_("    Median entry size:  %d\n"), median_entry_size);
   printf_filtered ("\n");
 
-  printf_filtered ("    Total memory used by bcache, including overhead: %ld\n",
+  printf_filtered (_("    Total memory used by bcache, including overhead: %ld\n"),
 		   c->structure_size);
-  printf_filtered ("    Percentage memory overhead: ");
+  printf_filtered (_("    Percentage memory overhead: "));
   print_percentage (c->structure_size - c->unique_size, c->unique_size);
-  printf_filtered ("    Net memory savings:         ");
+  printf_filtered (_("    Net memory savings:         "));
   print_percentage (c->total_size - c->structure_size, c->total_size);
   printf_filtered ("\n");
 
-  printf_filtered ("    Hash table size:           %3d\n", c->num_buckets);
-  printf_filtered ("    Hash table expands:        %lu\n",
+  printf_filtered (_("    Hash table size:           %3d\n"), c->num_buckets);
+  printf_filtered (_("    Hash table expands:        %lu\n"),
 		   c->expand_count);
-  printf_filtered ("    Hash table hashes:         %lu\n",
+  printf_filtered (_("    Hash table hashes:         %lu\n"),
 		   c->total_count + c->expand_hash_count);
-  printf_filtered ("    Half hash misses:          %lu\n",
+  printf_filtered (_("    Half hash misses:          %lu\n"),
 		   c->half_hash_miss_count);
-  printf_filtered ("    Hash table population:     ");
+  printf_filtered (_("    Hash table population:     "));
   print_percentage (occupied_buckets, c->num_buckets);
-  printf_filtered ("    Median hash chain length:  %3d\n",
+  printf_filtered (_("    Median hash chain length:  %3d\n"),
 		   median_chain_length);
-  printf_filtered ("    Average hash chain length: ");
+  printf_filtered (_("    Average hash chain length: "));
   if (c->num_buckets > 0)
     printf_filtered ("%3lu\n", c->unique_count / c->num_buckets);
   else
-    printf_filtered ("(not applicable)\n");
-  printf_filtered ("    Maximum hash chain length: %3d\n", max_chain_length);
+    /* i18n: "Average hash chain length: (not applicable)" */
+    printf_filtered (_("(not applicable)\n"));
+  printf_filtered (_("    Maximum hash chain length: %3d\n"), max_chain_length);
   printf_filtered ("\n");
 }
 

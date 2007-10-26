@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test016-subref,v 1.2.2.4 2004/01/01 18:16:43 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test016-subref,v 1.7.2.4 2006/01/03 22:16:29 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2004 The OpenLDAP Foundation.
+## Copyright 1998-2006 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -18,7 +18,7 @@ RCODE=10
 echo "running defines.sh"
 . $SRCDIR/scripts/defines.sh
 
-mkdir $TESTDIR $DBDIR1
+mkdir -p $TESTDIR $DBDIR1
 
 echo "Running slapadd to build slapd database..."
 . $CONFFILTER $BACKEND $MONITORDB < $RCONF > $CONF1
@@ -37,6 +37,8 @@ if test $WAIT != 0 ; then
     read foo
 fi
 KILLPIDS="$PID"
+
+sleep 1
 
 echo "Testing slapd searching..."
 for i in 0 1 2 3 4 5; do

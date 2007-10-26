@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,21 +18,15 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: hostsyn.c,v 1.4 2005/02/09 13:06:40 bagder Exp $
+ * $Id: hostsyn.c,v 1.12 2007-04-03 18:25:18 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
 
 #include <string.h>
-#include <errno.h>
 
-#define _REENTRANT
-
-#if defined(WIN32) && !defined(__GNUC__) || defined(__MINGW32__)
+#ifdef NEED_MALLOC_H
 #include <malloc.h>
-#else
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
 #endif
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
@@ -57,13 +51,12 @@
 #include <inet.h>
 #include <stdlib.h>
 #endif
-#endif
 
 #ifdef HAVE_SETJMP_H
 #include <setjmp.h>
 #endif
 
-#ifdef WIN32
+#ifdef HAVE_PROCESS_H
 #include <process.h>
 #endif
 
@@ -128,17 +121,15 @@ CURLcode Curl_is_resolved(struct connectdata *conn,
  * It is present here to keep #ifdefs out from multi.c
  */
 
-CURLcode Curl_resolv_fdset(struct connectdata *conn,
-                           fd_set *read_fd_set,
-                           fd_set *write_fd_set,
-                           int *max_fdp)
+int Curl_resolv_getsock(struct connectdata *conn,
+                        curl_socket_t *sock,
+                        int numsocks)
 {
   (void)conn;
-  (void)read_fd_set;
-  (void)write_fd_set;
-  (void)max_fdp;
+  (void)sock;
+  (void)numsocks;
 
-  return CURLE_OK;
+  return 0; /* no bits since we don't use any socks */
 }
 
 #endif /* truly sync */

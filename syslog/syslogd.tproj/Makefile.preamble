@@ -16,7 +16,7 @@
 ## (e.g. change -O to -O2), see Makefile.postamble.
 
 # Flags passed to compiler (in addition to -g, -O, etc)
-OTHER_CFLAGS =  -DINET6 -Dsocklen_t=int
+OTHER_CFLAGS = -DINET6 -I/System/Library/Frameworks/System.framework/PrivateHeaders
 # Flags passed to ld (in addition to -ObjC, etc.)
 OTHER_LDFLAGS =
 
@@ -92,6 +92,7 @@ CLEAN_ALL_SUBPROJECTS =
 MSGFILES = 
 # .defs files that should have mig run on them
 DEFSFILES = 
+
 # .mig files (no .defs files) that should have mig run on them
 MIGFILES = 
 

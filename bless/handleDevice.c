@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,9 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Dec 6 2001.
- *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: handleDevice.c,v 1.49 2005/12/02 19:13:49 ssen Exp $
+ *  $Id: handleDevice.c,v 1.54 2006/07/19 00:15:36 ssen Exp $
  *
  *
  */
@@ -40,21 +40,14 @@
 #include <sys/paths.h>
 #include <string.h>
 
-
 #include "enums.h"
 #include "structs.h"
 
 #include "bless.h"
-
-extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...)
-    __attribute__ ((format (printf, 3, 4)));
-extern int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
-				   CFDataRef labelData);
-extern int setefidevice(BLContextPtr context, const char * bsdname,
-                        int bootNext, const char *optionalData);
+#include "protos.h"
 
 int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
-    int err = 0;
+    int ret = 0;
 	CFDataRef labeldata = NULL;
 	CFDataRef bootXdata = NULL;
 	
@@ -65,8 +58,8 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
 		return 1;
     }
 
-	err = BLGetPreBootEnvironmentType(context, &preboot);
-	if(err) {
+	ret = BLGetPreBootEnvironmentType(context, &preboot);
+	if(ret) {
 		blesscontextprintf(context, kBLLogLevelError,  "Could not determine preboot environment\n");
 		return 1;
 	}
@@ -75,15 +68,15 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
 
     /* try to grovel the HFS+ catalog and update a label if present */
 	if(actargs[klabelfile].present) {
-		err = BLLoadFile(context, actargs[klabelfile].argument, 0, &labeldata);
-		if(err) {
+		ret = BLLoadFile(context, actargs[klabelfile].argument, 0, &labeldata);
+		if(ret) {
 			blesscontextprintf(context, kBLLogLevelError, "Can't load label '%s'\n",
 							   actargs[klabelfile].argument);
 			return 2;
 		}
 	} else if(actargs[klabel].present) {
-		err = BLGenerateOFLabel(context, actargs[klabel].argument, &labeldata);
-		if(err) {
+		ret = BLGenerateOFLabel(context, actargs[klabel].argument, &labeldata);
+		if(ret) {
 			blesscontextprintf(context, kBLLogLevelError, "Can't render label '%s'\n",
 							   actargs[klabel].argument);
 			return 3;
@@ -97,30 +90,33 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
 			return 4;
         }
 		
-		err = BLLoadFile(context, actargs[kbootinfo].argument, 0, &bootXdata);
-		if(err) {
+		ret = BLLoadFile(context, actargs[kbootinfo].argument, 0, &bootXdata);
+		if(ret) {
 			blesscontextprintf(context, kBLLogLevelError,  "Could not load BootX data from %s\n",
 							   actargs[kbootinfo].argument);
 		}
 	}
-		
+    		
     /* Set Open Firmware to boot off the specified volume*/
     if(actargs[ksetboot].present) {
         if(preboot == kBLPreBootEnvType_EFI) {
 
-            err = setefidevice(context, actargs[kdevice].argument + strlen("/dev/"),
+            ret = setefidevice(context, actargs[kdevice].argument + strlen("/dev/"),
                                  actargs[knextonly].present,
-                                 actargs[koptions].present ? actargs[koptions].argument : NULL);
+                                 actargs[klegacy].present,
+                                 actargs[klegacydrivehint].present ? actargs[klegacydrivehint].argument : NULL,
+                                 actargs[koptions].present ? actargs[koptions].argument : NULL,
+                                 actargs[kshortform].present ? true : false);
         } else {        
-            err = setboot(context, actargs[kdevice].argument, bootXdata, labeldata);
+            ret = setboot(context, actargs[kdevice].argument, bootXdata, labeldata);
         }
         
-		if(err) {
+		if(ret) {
 			return 3;
 		}
     } else if(labeldata) {
-		err = BLSetOFLabelForDevice(context, actargs[kdevice].argument, labeldata);
-		if(err) {
+		ret = BLSetOFLabelForDevice(context, actargs[kdevice].argument, labeldata);
+		if(ret) {
 			blesscontextprintf(context, kBLLogLevelError,  "Error while setting label for %s\n", actargs[kdevice].argument );
 			return 3;
 		}		

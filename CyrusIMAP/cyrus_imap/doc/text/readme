@@ -36,15 +36,21 @@ Features
     when an email message is addressed to multiple recipients. 
 
     We current support the following IMAP capabilities: IMAP4 IMAP4rev1 ACL
-    QUOTA LITERAL+ NAMESPACE UIDPLUS ID NO_ATOMIC_RENAME UNSELECT CHILDREN
-    MULTIAPPEND SORT THREAD=ORDEREDSUBJECT THREAD=REFERENCES ANNOTATEMORE
-    IDLE STARTTLS. 
+    RIGHTS=kxte QUOTA LITERAL+ NAMESPACE UIDPLUS ID NO_ATOMIC_RENAME
+    UNSELECT CHILDREN MULTIAPPEND SORT SORT=MODSEQ THREAD=ORDEREDSUBJECT
+    THREAD=REFERENCES ANNOTATEMORE CATENATE CONDSTORE URLAUTH IDLE STARTTLS
+    SASL-IR. 
 
     The server supports SIEVE for server side email filtering. 
 
 Upgrade Caveats
 
     This section reserved for WARNING WARNING WARNING comments. 
+    Note that the replication protocol currently does not have the facility
+    to support the IMAP CONDSTORE extension (modification sequences). It is
+    recommended that you do not try to use both CONDSTORE and replication
+    at this time. The deficiencies in the replication protocol will be
+    fixed in version 2.3.9. 
 
 Installation Overview
 
@@ -61,7 +67,7 @@ Installation Overview
     A detailed overview of the server is available in overview.html. 
 
     This server has been successfully installed on a number of Unix
-    systems. We run the software under SPARC Solaris 2.7. Please refer to
+    systems. We run the software under SPARC Solaris 8. Please refer to
     os.html for operating system specific issues. 
 
 Server Notes

@@ -44,7 +44,7 @@ namespace Tokend {
 //
 // The server singleton 
 //
-Server server;
+Server *server = NULL;
 
 
 //

@@ -18,205 +18,247 @@
 .IP "\\$1" \\$2
 ..
 .TH "VFSTEST" 1 "" "" ""
-.SH NAME
-vfstest \- tool for testing samba VFS modules
+.SH "NAME"
+vfstest - tool for testing samba VFS modules
 .SH "SYNOPSIS"
-.ad l
-.hy 0
-.HP 8
-\fBvfstest\fR [\-d\ debuglevel] [\-c\ command] [\-l\ logdir] [\-h]
-.ad
-.hy
-
+.HP 1
+vfstest [-d debuglevel] [-c command] [-l logdir] [-h]
 .SH "DESCRIPTION"
-
 .PP
-This tool is part of the \fBsamba\fR(7) suite\&.
-
+This tool is part of the
+\fBsamba\fR(7)
+suite.
 .PP
-\fBvfstest\fR is a small command line utility that has the ability to test dso samba VFS modules\&. It gives the user the ability to call the various VFS functions manually and supports cascaded VFS modules\&.
-
+vfstest
+is a small command line utility that has the ability to test dso samba VFS modules. It gives the user the ability to call the various VFS functions manually and supports cascaded VFS modules.
 .SH "OPTIONS"
+.PP
+-c|--command=command
+.RS 3n
+Execute the specified (colon-separated) commands. See below for the commands that are available.
+.RE
+.PP
+-h|--help
+.RS 3n
+Print a summary of command line options.
+.RE
+.PP
+-l|--logfile=logbasename
+.RS 3n
+File name for log/debug files. The extension
+\fB'.client'\fR
+will be appended. The log file is never removed by the client.
+.RE
+.PP
+-V
+.RS 3n
+Prints the program version number.
+.RE
+.PP
+-s <configuration file>
+.RS 3n
+The file specified contains the configuration details required by the server. The information in this file includes server-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide. See
+\fIsmb.conf\fR
+for more information. The default configuration file name is determined at compile time.
+.RE
+.PP
+-d|--debuglevel=level
+.RS 3n
+\fIlevel\fR
+is an integer from 0 to 10. The default value if this parameter is not specified is zero.
+.sp
+The higher this value, the more detail will be logged to the log files about the activities of the server. At level 0, only critical errors and serious warnings will be logged. Level 1 is a reasonable level for day-to-day running - it generates a small amount of information about operations carried out.
+.sp
+Levels above 1 will generate considerable amounts of log data, and should only be used when investigating a problem. Levels above 3 are designed for use only by developers and generate HUGE amounts of log data, most of which is extremely cryptic.
+.sp
+Note that specifying this parameter here will override the
 
-.TP
-\-c|\-\-command=command
-Execute the specified (colon\-separated) commands\&. See below for the commands that are available\&.
-
-.TP
-\-h|\-\-help
-Print a summary of command line options\&.
-
-.TP
-\-l|\-\-logfile=logbasename
-File name for log/debug files\&. The extension\fB'\&.client'\fR will be appended\&. The log file is never removed by the client\&.
-
-.TP
-\-V
-Prints the program version number\&.
-
-.TP
-\-s <configuration file>
-The file specified contains the configuration details required by the server\&. The information in this file includes server\-specific information such as what printcap file to use, as well as descriptions of all the services that the server is to provide\&. See \fIsmb\&.conf\fR for more information\&. The default configuration file name is determined at compile time\&.
-
-.TP
-\-d|\-\-debug=debuglevel
-\fIdebuglevel\fR is an integer from 0 to 10\&. The default value if this parameter is not specified is zero\&.
-
-The higher this value, the more detail will be logged to the log files about the activities of the server\&. At level 0, only critical errors and serious warnings will be logged\&. Level 1 is a reasonable level for day\-to\-day running \- it generates a small amount of information about operations carried out\&.
-
-Levels above 1 will generate considerable amounts of log data, and should only be used when investigating a problem\&. Levels above 3 are designed for use only by developers and generate HUGE amounts of log data, most of which is extremely cryptic\&.
-
-Note that specifying this parameter here will override the log level parameter in the \fIsmb\&.conf\fR file\&.
-
-.TP
-\-l|\-\-logfile=logdirectory
-Base directory name for log/debug files\&. The extension \fB"\&.progname"\fR will be appended (e\&.g\&. log\&.smbclient, log\&.smbd, etc\&.\&.\&.)\&. The log file is never removed by the client\&.
-
+parameter in the
+\fIsmb.conf\fR
+file.
+.RE
+.PP
+-l|--logfile=logdirectory
+.RS 3n
+Base directory name for log/debug files. The extension
+\fB".progname"\fR
+will be appended (e.g. log.smbclient, log.smbd, etc...). The log file is never removed by the client.
+.RE
 .SH "COMMANDS"
-
 .PP
 \fBVFS COMMANDS\fR
-
-.TP 3
+.TP 3n
 \(bu
-\fBload <module\&.so>\fR \- Load specified VFS module
-.TP
+load <module.so>
+- Load specified VFS module
+.TP 3n
 \(bu
-\fBpopulate <char> <size>\fR \- Populate a data buffer with the specified data
-.TP
+populate <char> <size>
+- Populate a data buffer with the specified data
+.TP 3n
 \(bu
-\fBshowdata [<offset> <len>]\fR \- Show data currently in data buffer
-.TP
+showdata [<offset> <len>]
+- Show data currently in data buffer
+.TP 3n
 \(bu
-\fBconnect\fR \- VFS connect()
-.TP
+connect
+- VFS connect()
+.TP 3n
 \(bu
-\fBdisconnect\fR \- VFS disconnect()
-.TP
+disconnect
+- VFS disconnect()
+.TP 3n
 \(bu
-\fBdisk_free\fR \- VFS disk_free()
-.TP
+disk_free
+- VFS disk_free()
+.TP 3n
 \(bu
-\fBopendir\fR \- VFS opendir()
-.TP
+opendir
+- VFS opendir()
+.TP 3n
 \(bu
-\fBreaddir\fR \- VFS readdir()
-.TP
+readdir
+- VFS readdir()
+.TP 3n
 \(bu
-\fBmkdir\fR \- VFS mkdir()
-.TP
+mkdir
+- VFS mkdir()
+.TP 3n
 \(bu
-\fBrmdir\fR \- VFS rmdir()
-.TP
+rmdir
+- VFS rmdir()
+.TP 3n
 \(bu
-\fBclosedir\fR \- VFS closedir()
-.TP
+closedir
+- VFS closedir()
+.TP 3n
 \(bu
-\fBopen\fR \- VFS open()
-.TP
+open
+- VFS open()
+.TP 3n
 \(bu
-\fBclose\fR \- VFS close()
-.TP
+close
+- VFS close()
+.TP 3n
 \(bu
-\fBread\fR \- VFS read()
-.TP
+read
+- VFS read()
+.TP 3n
 \(bu
-\fBwrite\fR \- VFS write()
-.TP
+write
+- VFS write()
+.TP 3n
 \(bu
-\fBlseek\fR \- VFS lseek()
-.TP
+lseek
+- VFS lseek()
+.TP 3n
 \(bu
-\fBrename\fR \- VFS rename()
-.TP
+rename
+- VFS rename()
+.TP 3n
 \(bu
-\fBfsync\fR \- VFS fsync()
-.TP
+fsync
+- VFS fsync()
+.TP 3n
 \(bu
-\fBstat\fR \- VFS stat()
-.TP
+stat
+- VFS stat()
+.TP 3n
 \(bu
-\fBfstat\fR \- VFS fstat()
-.TP
+fstat
+- VFS fstat()
+.TP 3n
 \(bu
-\fBlstat\fR \- VFS lstat()
-.TP
+lstat
+- VFS lstat()
+.TP 3n
 \(bu
-\fBunlink\fR \- VFS unlink()
-.TP
+unlink
+- VFS unlink()
+.TP 3n
 \(bu
-\fBchmod\fR \- VFS chmod()
-.TP
+chmod
+- VFS chmod()
+.TP 3n
 \(bu
-\fBfchmod\fR \- VFS fchmod()
-.TP
+fchmod
+- VFS fchmod()
+.TP 3n
 \(bu
-\fBchown\fR \- VFS chown()
-.TP
+chown
+- VFS chown()
+.TP 3n
 \(bu
-\fBfchown\fR \- VFS fchown()
-.TP
+fchown
+- VFS fchown()
+.TP 3n
 \(bu
-\fBchdir\fR \- VFS chdir()
-.TP
+chdir
+- VFS chdir()
+.TP 3n
 \(bu
-\fBgetwd\fR \- VFS getwd()
-.TP
+getwd
+- VFS getwd()
+.TP 3n
 \(bu
-\fButime\fR \- VFS utime()
-.TP
+utime
+- VFS utime()
+.TP 3n
 \(bu
-\fBftruncate\fR \- VFS ftruncate()
-.TP
+ftruncate
+- VFS ftruncate()
+.TP 3n
 \(bu
-\fBlock\fR \- VFS lock()
-.TP
+lock
+- VFS lock()
+.TP 3n
 \(bu
-\fBsymlink\fR \- VFS symlink()
-.TP
+symlink
+- VFS symlink()
+.TP 3n
 \(bu
-\fBreadlink\fR \- VFS readlink()
-.TP
+readlink
+- VFS readlink()
+.TP 3n
 \(bu
-\fBlink\fR \- VFS link()
-.TP
+link
+- VFS link()
+.TP 3n
 \(bu
-\fBmknod\fR \- VFS mknod()
-.TP
+mknod
+- VFS mknod()
+.TP 3n
 \(bu
-\fBrealpath\fR \- VFS realpath()
-.LP
-
+realpath
+- VFS realpath()
 .PP
 \fBGENERAL COMMANDS\fR
-
-.TP 3
+.TP 3n
 \(bu
-\fBconf <smb\&.conf>\fR \- Load a different configuration file
-.TP
+conf <smb.conf>
+- Load a different configuration file
+.TP 3n
 \(bu
-\fBhelp [<command>]\fR \- Get list of commands or info about specified command
-.TP
+help [<command>]
+- Get list of commands or info about specified command
+.TP 3n
 \(bu
-\fBdebuglevel <level>\fR \- Set debug level
-.TP
+debuglevel <level>
+- Set debug level
+.TP 3n
 \(bu
-\fBfreemem\fR \- Free memory currently in use
-.TP
+freemem
+- Free memory currently in use
+.TP 3n
 \(bu
-\fBexit\fR \- Exit vfstest
-.LP
-
+exit
+- Exit vfstest
 .SH "VERSION"
-
 .PP
-This man page is correct for version 3\&.0 of the Samba suite\&.
-
+This man page is correct for version 3.0 of the Samba suite.
 .SH "AUTHOR"
-
 .PP
-The original Samba software and related utilities were created by Andrew Tridgell\&. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed\&.
-
+The original Samba software and related utilities were created by Andrew Tridgell. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed.
 .PP
-The vfstest man page was written by Jelmer Vernooij\&.
+The vfstest man page was written by Jelmer Vernooij.
 

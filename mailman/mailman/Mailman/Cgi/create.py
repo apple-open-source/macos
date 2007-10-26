@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Create mailing lists through the web."""
 
@@ -84,7 +85,8 @@ def process_request(doc, cgidata):
     except ValueError:
         notify = 0
     try:
-        moderate = int(cgidata.getvalue('moderate', '0'))
+        moderate = int(cgidata.getvalue('moderate',
+                       mm_cfg.DEFAULT_DEFAULT_MEMBER_MODERATION))
     except ValueError:
         moderate = mm_cfg.DEFAULT_DEFAULT_MEMBER_MODERATION
 
@@ -125,7 +127,8 @@ def process_request(doc, cgidata):
                 blank if you want Mailman to autogenerate the list
                 passwords.'''))
             return
-        password = confirm = Utils.MakeRandomPassword(length=8)
+        password = confirm = Utils.MakeRandomPassword(
+            mm_cfg.ADMIN_PASSWORD_LENGTH)
     else:
         if password <> confirm:
             request_creation(doc, cgidata,
@@ -187,15 +190,24 @@ def process_request(doc, cgidata):
                 mlist.Create(listname, owner, pw, langs, emailhost)
             finally:
                 os.umask(oldmask)
-        except Errors.EmailAddressError, s:
+        except Errors.EmailAddressError, e:
+            if e.args:
+                s = Utils.websafe(e.args[0])
+            else:
+                s = Utils.websafe(owner)
             request_creation(doc, cgidata,
                              _('Bad owner email address: %(s)s'))
             return
         except Errors.MMListAlreadyExistsError:
+            # MAS: List already exists so we don't need to websafe it.
             request_creation(doc, cgidata,
                              _('List already exists: %(listname)s'))
             return
-        except Errors.BadListNameError, s:
+        except Errors.BadListNameError, e:
+            if e.args:
+                s = Utils.websafe(e.args[0])
+            else:
+                s = Utils.websafe(listname)
             request_creation(doc, cgidata,
                              _('Illegal list name: %(s)s'))
             return
@@ -227,7 +239,7 @@ def process_request(doc, cgidata):
 
     # And send the notice to the list owner.
     if notify:
-        siteadmin = Utils.get_site_email(mlist.host_name, 'admin')
+        siteowner = Utils.get_site_email(mlist.host_name, 'owner')
         text = Utils.maketext(
             'newlist.txt',
             {'listname'    : listname,
@@ -235,10 +247,10 @@ def process_request(doc, cgidata):
              'admin_url'   : mlist.GetScriptURL('admin', absolute=1),
              'listinfo_url': mlist.GetScriptURL('listinfo', absolute=1),
              'requestaddr' : mlist.GetRequestEmail(),
-             'siteowner'   : siteadmin,
+             'siteowner'   : siteowner,
              }, mlist=mlist)
         msg = Message.UserNotification(
-            owner, siteadmin,
+            owner, siteowner,
             _('Your new mailing list: %(listname)s'),
             text, mlist.preferred_language)
         msg.send(mlist)
@@ -318,15 +330,17 @@ def request_creation(doc, cgidata=dummy, errmsg=None):
     ftable.AddRow([Center(Italic(_('List Identity')))])
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, colspan=2)
 
-    safelistname = Utils.websafe(cgidata.getvalue('listname', ''))
+    listname = cgidata.getvalue('listname', '')
+    # MAS: Don't websafe twice.  TextBox does it.
     ftable.AddRow([Label(_('Name of list:')),
-                   TextBox('listname', safelistname)])
+                   TextBox('listname', listname)])
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, bgcolor=GREY)
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 1, bgcolor=GREY)
 
-    safeowner = Utils.websafe(cgidata.getvalue('owner', ''))
+    owner = cgidata.getvalue('owner', '')
+    # MAS: Don't websafe twice.  TextBox does it.
     ftable.AddRow([Label(_('Initial list owner address:')),
-                   TextBox('owner', safeowner)])
+                   TextBox('owner', owner)])
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, bgcolor=GREY)
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 1, bgcolor=GREY)
 
@@ -357,6 +371,11 @@ def request_creation(doc, cgidata=dummy, errmsg=None):
         notify = int(cgidata.getvalue('notify', '1'))
     except ValueError:
         notify = 1
+    try:
+        moderate = int(cgidata.getvalue('moderate',
+                       mm_cfg.DEFAULT_DEFAULT_MEMBER_MODERATION))
+    except ValueError:
+        moderate = mm_cfg.DEFAULT_DEFAULT_MEMBER_MODERATION
 
     ftable.AddRow([Center(Italic(_('List Characteristics')))])
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, colspan=2)
@@ -366,7 +385,7 @@ def request_creation(doc, cgidata=dummy, errmsg=None):
     are allowed to post unmoderated to this list?  Answer <em>Yes</em> to hold
     new member postings for moderator approval by default.""")),
         RadioButtonArray('moderate', (_('No'), _('Yes')),
-                         checked=mm_cfg.DEFAULT_DEFAULT_MEMBER_MODERATION,
+                         checked=moderate,
                          values=(0,1))])
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, bgcolor=GREY)
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 1, bgcolor=GREY)

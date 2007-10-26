@@ -1,0 +1,187 @@
+2006-04-30  Matthieu Herrb <matthieu.herrb@laas.fr>
+
+	* src/Makefile.am
+	Define BITMAPDIR for the case where ${prefix} != /usr
+
+2006-04-26  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Bump to 1.0.1
+
+2006-03-20  Adam Jackson  <ajax@freedesktop.org>
+
+	* src/Makefile.am:
+	Bug #6276: Fix build on Cygwin. (Yaakov Selkowitz)
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-11-19  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* xmu.pc.in:
+	* xmuu.pc.in:
+	Update pkgconfig files to separate library build-time dependencies
+	from application build-time dependencies.
+	* configure.ac:
+	Update dependencies to work with separate build roots.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-10-05  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	Add missing file to EXTRA_DIST
+
+2005-07-08  Keith Packard  <keithp@keithp.com>
+
+	* .cvsignore:
+	* include/.cvsignore:
+	* src/.cvsignore:
+	Add .cvsignore files
+
+2005-05-21  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* configure.ac:
+	Add XTRANS_CONNECTION_FLAGS to get network transport #defines
+	for CvdStdSel.c
+	* src/Makefile.am:
+	Add libXmuu_la_LIBADD
+
+2005-01-29  Daniel Stone  <daniel@freedesktop.org>
+
+	* CvtStdSel.c (get_os_name):
+	Change uname == 0 to uname >= 0 (X.Org HEAD).
+
+	* include/X11/Xmu/SysUtil.h:
+	* include/X11/Xmu/Xmu.h:
+	Add gcc format attribute (X.Org HEAD).
+
+2005-01-01  Phil Blundell  <philb@gnu.org>
+
+	* configure.ac (XMUU_CFLAGS, XMUU_LIBS): New.
+	* xmuu.pc.in: Use XMUU_CFLAGS+XMUU_LIBS, not XMU_CFLAGS+XMU_LIBS.
+
+2004-05-17  Eric Anholt  <anholt@FreeBSD.org>
+
+	* EditresCom.c:
+	* WidgetNode.c: (XmuWnFetchResources):
+	Axe the Xaw header dependency again.
+
+2004-05-10  Eric Anholt  <anholt@FreeBSD.org>
+
+	* configure.ac:
+	* xmu.pc.in:
+	* xmuu.pc.in:
+	Properly include LIBS/CFLAGS in .pc and linking.
+	Bump to version 6.2.3.
+
+2004-04-13  Daniel Stone  <daniel@freedesktop.org>
+
+	* EditresCom.c:
+	X11R6.7 merge - various minor cleanups.
+
+	* Bump version to 6.2.2 for xlibs 1.0.1.
+
+2004-03-17  Carlos Romero <kidcrash@bellsouth.net>
+
+	(Commit sponsored by Daniel Stone.)
+	* Makefile.am:
+	* xmu.pc.in:
+	* configure.ac:
+	Various cleanups to build system, including correct use of pkg-config.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* ChangeLog
+	Caught up on all missing by me starting Dec. 16.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* Makefile.am
+	* configure.ac
+	Fix versions for Xmu and Xmuu libraries.  Using
+	-version-number 6:2:1 for Xmu.  And using -version-info
+	1:0:1 for Xmuu. (This may be out of order, need to test
+	again.)
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* configure.ac
+	* xmu.pc.in
+	* xmuu.pc.in
+	Fix LIBS and CFLAGS for xmuu.pc.in and xmu.pc.in.  Also use
+	pkgconfig info for Xt for xmu.pc.in.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* EditresCom.c
+	* WidgetNode.c
+	Get rid of X11/Xaw/Cardinals.h include. Xmu should
+	not depend on Xaw to build, because Xaw needs many Xmu
+	functions to build.  In WidgetNode.c, define ZERO (which
+	X11/Xaw/Cardinals.h would define).
+
+2003-12-17 Jeremy C. Reed <reed@reedmedia.net>
+
+	* Makefile.am
+	Don't repeat source filenames for both Xmu and Xmuu.
+	Just list in libXmuu_la_SOURCES; and use that variable in
+	the libXmu_la_SOURCES list.  (As suggested by keithp on
+	xlibs@ list.)
+
+2003-12-16 Jeremy C. Reed <reed@reedmedia.net>
+
+	* .cvsignore
+	Add two ltconfig related files for CVS to ignore.
+
+2003-12-16 Jeremy C. Reed <reed@reedmedia.net>
+
+	* Lower.c
+	Comment out snprintf.c include. (Maybe as a temporary
+	workaround.)  Later, maybe have autoconf check for it.
+
+2003-12-16 Jeremy C. Reed <reed@reedmedia.net>
+
+	* INSTALL
+	Add autoconf (./configure) INSTALL instructions.
+
+2003-12-16 Jeremy C. Reed <reed@reedmedia.net>
+
+	* AUTHORS
+	* COPYING
+	* ChangeLog
+	* Makefile.am
+	* NEWS
+	* autogen.sh
+	* configure.ac
+	* xmu.pc.in
+	* xmuu.pc.in
+	Add beginnings of autoconf/automake/pkgconfig framework for Xmu
+	and mini Xmu (Xmuu).
+
+2003-12-16 Jeremy C. Reed <reed@reedmedia.net>
+
+	* include/Makefile.am
+	Using automake/autoconf for headers.  (Note that
+	headers from original xc/Xmu were moved in CVS to this
+	Xmu/include/X11/Xmu/ directory.)
+
+2003-12-16 Jeremy C. Reed <reed@reedmedia.net>
+
+	* include/.cvsignore
+	Add .cvsignore for CVS to ignore Makefile and Makefile.in.
+
+2003-12-16 Jeremy C. Reed <reed@reedmedia.net>
+
+	* .cvsignore
+	Add .cvsignore to list files that should be ignored by CVS.

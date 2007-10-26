@@ -13,7 +13,7 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
 HFILES = CaseTables.h ext2fs.h ext2fs_dinode.h ext2fs_dir.h\
-         ufs_byteorder.h
+         ufs_byteorder.h md5.h
 
 CFILES = cache.c ext2fs.c ext2fs_bswap.c fs.c hfs.c HFSCompare.c\
          net.c ufs.c ufs_byteorder.c md5c.c

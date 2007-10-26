@@ -1,0 +1,22 @@
+--- src/read.c.old	2006-09-05 16:25:43.000000000 -0700
++++ src/read.c	2006-09-05 16:26:06.000000000 -0700
+@@ -212,7 +212,7 @@
+  *	Push a macro
+  */
+ public void
+-el_push(EditLine *el, char *str)
++el_push(EditLine *el, const char *str)
+ {
+ 	c_macro_t *ma = &el->el_chared.c_macro;
+ 
+--- src/histedit.h.old	2006-09-05 16:24:51.000000000 -0700
++++ src/histedit.h	2006-09-05 16:26:47.000000000 -0700
+@@ -88,7 +88,7 @@
+  */
+ const char	*el_gets(EditLine *, int *);
+ int		 el_getc(EditLine *, char *);
+-void		 el_push(EditLine *, char *);
++void		 el_push(EditLine *, const char *);
+ 
+ /*
+  * Beep!

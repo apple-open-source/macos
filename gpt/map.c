@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 2002 Marcel Moolenaar
  * All rights reserved.
  *
@@ -25,10 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/sbin/gpt/map.c,v 1.5 2004/08/07 06:24:25 marcel Exp $");
-#endif
+__FBSDID("$FreeBSD: src/sbin/gpt/map.c,v 1.5.8.1 2005/09/06 23:59:01 marcel Exp $");
 
 #include <sys/types.h>
 #include <err.h>

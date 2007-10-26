@@ -1,3 +1,5 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Wed Feb  7 14:01:44 2007 -->
 <html>
 <head>
 <meta name="generator" content="groff -Thtml, see www.gnu.org">
@@ -15,12 +17,10 @@
 <a href="#SEE ALSO">SEE ALSO</a><br>
 
 <hr>
-<!-- Creator     : groff version 1.18 -->
-<!-- CreationDate: Mon Feb 14 13:02:17 2005 -->
 <a name="NAME"></a>
 <h2>NAME</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -28,11 +28,11 @@
 <p>ctl_mboxlist &minus; perform operations on the mailbox
 list database</p>
 </td>
-</table></p>
+</table>
 <a name="SYNOPSIS"></a>
 <h2>SYNOPSIS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -47,11 +47,11 @@ ctl_mboxlist</b> [ <b>&minus;C</b> <i>config-file</i> ]
 <b>&minus;m</b> [ <b>&minus;a</b> ] [ <b>&minus;w</b> ]<br>
 [ <b>&minus;f</b> <i>filename</i> ]</p>
 </td>
-</table></p>
+</table>
 <a name="DESCRIPTION"></a>
 <h2>DESCRIPTION</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -65,17 +65,17 @@ by <b>-C</b>. The <i>configdirectory</i> option is used to
 determine the default location of the mailbox list
 database.</p>
 </td>
-</table></p>
+</table>
 <a name="OPTIONS"></a>
 <h2>OPTIONS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;C</b> <i>config-file</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -86,11 +86,11 @@ database.</p>
 </td>
 </table>
 <!-- TABS -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="4" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
-<td width="11%"></td>
-<td width="4%">
+<td width="13%"></td>
+<td width="2%">
 
 <p><b>&minus;d</b></p>
 </td>
@@ -98,11 +98,14 @@ database.</p>
 <td width="77%">
 
 <p>Dump the contents of the database to standard output in
-a portable flat-text format.</p>
+a portable flat-text format. NOTE: In Cyrus versions 2.2.13
+and earlier, the dump format did not include the mailbox
+type flags, breaking remote mailboxes (frontends, mupdate
+master, unified backends) when undumped.</p>
 </td>
 <tr valign="top" align="left">
-<td width="11%"></td>
-<td width="4%">
+<td width="13%"></td>
+<td width="2%">
 
 <p><b>&minus;x</b></p>
 </td>
@@ -112,15 +115,15 @@ a portable flat-text format.</p>
 <p>When performing a dump, remove the mailboxes dumped from
 the mailbox list (mostly useful when specified with -p)</p>
 </td>
-</table></p>
+</table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;p</b> <i>partition</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -132,7 +135,7 @@ live on <i>partition</i></p>
 </td>
 </table>
 <!-- TABS -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="4" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="11%"></td>
@@ -145,7 +148,9 @@ live on <i>partition</i></p>
 
 <p>Load the contents of the database from standard input.
 The input MUST be in the format output using the
-<b>&minus;d</b> option.</p>
+<b>&minus;d</b> option. NOTE: Both the old and new formats
+can be loaded, but the old format will break remote
+mailboxes.</p>
 </td>
 <tr valign="top" align="left">
 <td width="11%"></td>
@@ -185,15 +190,15 @@ as it allows namespace collisions into the murder.</p>
 <p>When used with -m, print out what would be done but do
 not perform the operations.</p>
 </td>
-</table></p>
+</table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;f</b> <i>filename</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -208,24 +213,24 @@ the default
 <a name="FILES"></a>
 <h2>FILES</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>/etc/imapd.conf</b></p></td>
-</table></p>
+</table>
 <a name="SEE ALSO"></a>
 <h2>SEE ALSO</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imapd.conf(5)</b>, <b>master(8)</b></p>
 </td>
-</table></p>
+</table>
 <hr>
 </body>
 </html>

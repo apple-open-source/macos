@@ -26,9 +26,8 @@
 subsystem ipconfig 10000;
 serverprefix _;
 
-import <ipconfig_types.h>;
+import "ipconfig_types.h";
 
-type port_t = mach_port_t;
 type ip_address_t = MACH_MSG_TYPE_INTEGER_32;
 type ipconfig_method_t = MACH_MSG_TYPE_INTEGER_32;
 type ipconfig_status_t = MACH_MSG_TYPE_INTEGER_32;
@@ -37,45 +36,79 @@ type if_name_t = array[32] of char;
 type ooline_data_t = ^ array [] of char;
 type inline_data_t = array [ * : 2048 ] of char;
 
-routine ipconfig_wait_if(	server : port_t;
+routine ipconfig_wait_if(	server : mach_port_t;
 				name : if_name_t);
 
-routine ipconfig_wait_all(	server : port_t);
+routine ipconfig_wait_all(	server : mach_port_t);
 
-routine ipconfig_if_count(	server : port_t;
+routine ipconfig_if_count(	server : mach_port_t;
 			 out	count : int);
 
-routine ipconfig_if_name(	server : port_t;
+routine ipconfig_if_name(	server : mach_port_t;
 				intface : int;
 			 out	name : if_name_t);
 
-routine ipconfig_get_option(	server : port_t;
+routine ipconfig_get_option(	server : mach_port_t;
 				name : if_name_t;
 				option_code : int;
 			 out	option_data : inline_data_t);
 
-routine ipconfig_if_addr(	server : port_t;
+routine ipconfig_if_addr(	server : mach_port_t;
 				name : if_name_t;
 			 out	addr : ip_address_t);
 
-routine ipconfig_get_packet(	server : port_t;
+routine ipconfig_get_packet(	server : mach_port_t;
 				name : if_name_t;
 			 out	packet : inline_data_t);
 
-routine ipconfig_set(		server : port_t;
+routine ipconfig_set(		server : mach_port_t;
 				name : if_name_t;
 				method : ipconfig_method_t;
 				method_data : inline_data_t;
 			 out	status : ipconfig_status_t );
 
-routine ipconfig_set_verbose(	server : port_t;
+routine ipconfig_set_verbose(	server : mach_port_t;
 				verbose : int;
 			 out	status : ipconfig_status_t );
 #ifdef IPCONFIG_TEST_NO_ENTRY
-routine ipconfig_set_something(	server : port_t;
+routine ipconfig_set_something(	server : mach_port_t;
 				verbose : int;
 			 out	status : ipconfig_status_t );
 #else IPCONFIG_TEST_NO_ENTRY
 	skip;
 #endif IPCONFIG_TEST_NO_ENTRY
+
+routine ipconfig_add_service(	server : mach_port_t;
+				name : if_name_t;
+				method : ipconfig_method_t;
+				method_data : inline_data_t;
+			out	service_id : inline_data_t;
+			out	status : ipconfig_status_t );
+
+routine ipconfig_remove_service_with_id(
+				server : mach_port_t;
+				service_id : inline_data_t;
+			out	status : ipconfig_status_t );
+
+routine ipconfig_find_service(	server : mach_port_t;
+				name : if_name_t;
+				exact : boolean_t;
+				method : ipconfig_method_t;
+				method_data : inline_data_t;
+			out	service_id : inline_data_t;
+			out	status : ipconfig_status_t );
+
+routine ipconfig_remove_service(server : mach_port_t;
+				name : if_name_t;
+				method : ipconfig_method_t;
+				method_data : inline_data_t;
+			out	status : ipconfig_status_t );
+
+routine ipconfig_set_service(	server : mach_port_t;
+				name : if_name_t;
+				method : ipconfig_method_t;
+				method_data : inline_data_t;
+			out	service_id : inline_data_t;
+			out	status : ipconfig_status_t );
+
 

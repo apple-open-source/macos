@@ -1,5 +1,5 @@
 newcode	:
-/* $Header: /cvs/root/tcsh/tcsh/host.defs,v 1.3 2003/01/17 04:17:26 nicolai Exp $ */
+/* $Header: /src/pub/tcsh/host.defs,v 1.40 2005/03/03 16:49:15 kim Exp $ */
 /*
  * host.defs: Hosttype/Machtype etc.
  */
@@ -33,12 +33,14 @@ newcode	:
  */
 #include "sh.h"
 
-RCSID("$Id: host.defs,v 1.3 2003/01/17 04:17:26 nicolai Exp $")
+RCSID("$Id: host.defs,v 1.40 2005/03/03 16:49:15 kim Exp $")
 
 endcode	:
 
-macro	: M_mipsel : (defined(mips) || defined(__mips)) && (defined(MIPSEL) || defined(__MIPSEL))
-macro	: M_mipseb : (defined(mips) || defined(__mips)) && (defined(MIPSEB) || defined(__MIPSEB))
+macro	: M_mips64el : (defined(mips64) || defined(__mips64)) && (defined(MIPSEL) || defined(__MIPSEL))
+macro	: M_mips64eb : (defined(mips64) || defined(__mips64)) && (defined(MIPSEB) || defined(__MIPSEB))
+macro	: M_mipsel : (!defined(M_mips64el)) && (defined(mips) || defined(__mips)) && (defined(MIPSEL) || defined(__MIPSEL))
+macro	: M_mipseb : (!defined(M_mips64eb)) && (defined(mips) || defined(__mips)) && (defined(MIPSEB) || defined(__MIPSEB))
 macro	: M_i386 : (defined(i386) || defined(__i386__))
 macro	: M_i486 : (defined(i486) || defined(__i486__))
 macro	: M_i586 : (defined(i586) || defined(__i586__))
@@ -172,10 +174,10 @@ newcode	:
 void
 getmachine()
 {
-     char *hosttype;
-     char *ostype;
-     char *vendor;
-     char *machtype;
+     const char *hosttype;
+     const char *ostype;
+     const char *vendor;
+     const char *machtype;
 
 endcode	:
 
@@ -433,14 +435,24 @@ machtype: defined(M_i386)				: "i386"
 enddef	:
 
 
-newdef	: defined(linux)
+newdef	: defined(linux) || defined(__GNU__) || defined(__GLIBC__)
 comment	: Linus Torvalds's linux
 vendor	: defined(M_intel)				: "intel"
+hosttype: defined(__ia64__)				: "ia64-linux"
+hosttype: defined(__powerpc64__)			: "powerpc64-linux"
+hosttype: defined(__s390x__)				: "s390x-linux"
+hosttype: defined(__s390__)				: "s390-linux"
+hosttype: defined(__x86_64__)				: "x86_64-linux"
 hosttype: defined(M_i586) 				: "i586-linux"
 hosttype: defined(M_i486) 				: "i486-linux"
 hosttype: defined(M_i386)				: "i386-linux"
 ostype	: !defined(PPC) 				: "linux"
 ostype	: defined(PPC)					: "mklinux"
+machtype: defined(__ia64__)				: "ia64"
+machtype: defined(__powerpc64__)			: "powerpc64"
+machtype: defined(__s390x__)				: "s390x"
+machtype: defined(__s390__)				: "s390"
+machtype: defined(__x86_64__)				: "x86_64"
 machtype: defined(M_i586) 				: "i586"
 machtype: defined(M_i486) 				: "i486"
 machtype: defined(M_i386)				: "i386"
@@ -450,6 +462,10 @@ hosttype: defined(__alpha)				: "alpha"
 hosttype: defined(PPC)					: "powerpc"
 machtype: defined(__alpha)				: "alpha"
 machtype: defined(PPC)					: "powerpc"
+machtype: defined(M_mipsel)				: "mipsel"
+machtype: defined(M_mipseb)				: "mipseb"
+machtype: defined(M_mips64el)				: "mips64el"
+machtype: defined(M_mips64eb)				: "mips64eb"
 enddef	:
 
 
@@ -725,17 +741,6 @@ machtype: defined(sparc)   || defined(__sparc__)	: "sparc"
 enddef	:
 
 
-newdef	: defined(RHAPSODY)
-comment	: Darwin
-vendor	:						: "apple"
-hosttype: defined(__i386__)				: "intel-pc"
-hosttype: defined(__ppc__)				: "macintosh"
-ostype  : 						: "rhapsody"
-machtype: defined(__i386__)				: "i386"
-machtype: defined(__ppc__)				: "powerpc"
-enddef	:
-
-
 newdef	: defined(__APPLE__) && defined(__MACH__)
 comment	: OS X
 vendor	:						: "apple"
@@ -1001,9 +1006,9 @@ machtype:						: "clipper"
 enddef	:
 
 
-newdef	: defined(SNI) || defined(sinix)
-comment	: Siemens Nixdorf Informationssysteme SINIX
-vendor	:						: "sni"
+newdef	: (defined(SNI) || defined(sinix)) && !defined(_OSD_POSIX)
+comment	: Fujitsu Siemens Computers (former "Siemens Nixdorf Informationssysteme"): SINIX aka. ReliantUNIX, a SVR4 derivative
+vendor	:						: "fsc"
 hosttype: defined(M_intel)				: "wx200i"
 hosttype: defined(MIPSEB)				: "rm400"
 ostype	: defined(sinix)				: "sinix"
@@ -1016,10 +1021,13 @@ machtype:						: "mips"
 enddef	:
 
 newdef	: defined(_OSD_POSIX)
-comment	: Siemens Nixdorf Informationssysteme BS2000 POSIX (mainframe, EBCDIC)
-vendor	:						: "sni"
-hosttype: defined(M_intel)				: "bs2000"
-ostype	: 						: "posix"
+comment	: Fujitsu Siemens Computers (former "Siemens Nixdorf Informationssysteme"): BS2000 POSIX (mainframe, EBCDIC)
+vendor	:						: "fsc"
+hosttype:						: "bs2000"
+ostype	:						: "osdposix"
+machtype: #machine(7500)				: "s390"
+machtype: #machine(mips)				: "mips"
+machtype: #machine(sparc)				: "sparc"
 machtype:						: "bs2000"
 enddef	:
 

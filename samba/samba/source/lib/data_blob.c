@@ -22,8 +22,9 @@
 #include "includes.h"
 
 /*******************************************************************
- free() a data blob
+ Free() a data blob.
 *******************************************************************/
+
 static void free_data_blob(DATA_BLOB *d)
 {
 	if ((d) && (d->free)) {
@@ -32,9 +33,10 @@ static void free_data_blob(DATA_BLOB *d)
 }
 
 /*******************************************************************
- construct a data blob, must be freed with data_blob_free()
- you can pass NULL for p and get a blank data blob
+ Construct a data blob, must be freed with data_blob_free().
+ You can pass NULL for p and get a blank data blob
 *******************************************************************/
+
 DATA_BLOB data_blob(const void *p, size_t length)
 {
 	DATA_BLOB ret;
@@ -45,9 +47,9 @@ DATA_BLOB data_blob(const void *p, size_t length)
 	}
 
 	if (p) {
-		ret.data = smb_xmemdup(p, length);
+		ret.data = (uint8 *)smb_xmemdup(p, length);
 	} else {
-		ret.data = SMB_XMALLOC_ARRAY(char, length);
+		ret.data = SMB_XMALLOC_ARRAY(uint8, length);
 	}
 	ret.length = length;
 	ret.free = free_data_blob;
@@ -55,8 +57,9 @@ DATA_BLOB data_blob(const void *p, size_t length)
 }
 
 /*******************************************************************
- construct a data blob, using supplied TALLOC_CTX
+ Construct a data blob, using supplied TALLOC_CTX.
 *******************************************************************/
+
 DATA_BLOB data_blob_talloc(TALLOC_CTX *mem_ctx, const void *p, size_t length)
 {
 	DATA_BLOB ret;
@@ -67,11 +70,11 @@ DATA_BLOB data_blob_talloc(TALLOC_CTX *mem_ctx, const void *p, size_t length)
 	}
 
 	if (p) {
-		ret.data = TALLOC_MEMDUP(mem_ctx, p, length);
+		ret.data = (uint8 *)TALLOC_MEMDUP(mem_ctx, p, length);
 		if (ret.data == NULL)
-			smb_panic("data_blob_talloc: talloc_memdup failed.\n");
+			smb_panic("data_blob_talloc: TALLOC_MEMDUP failed.\n");
 	} else {
-		ret.data = TALLOC(mem_ctx, length);
+		ret.data = (uint8 *)TALLOC(mem_ctx, length);
 		if (ret.data == NULL)
 			smb_panic("data_blob_talloc: talloc failed.\n");
 	}
@@ -82,8 +85,9 @@ DATA_BLOB data_blob_talloc(TALLOC_CTX *mem_ctx, const void *p, size_t length)
 }
 
 /*******************************************************************
-free a data blob
+ Free a data blob.
 *******************************************************************/
+
 void data_blob_free(DATA_BLOB *d)
 {
 	if (d) {
@@ -95,9 +99,10 @@ void data_blob_free(DATA_BLOB *d)
 }
 
 /*******************************************************************
-clear a DATA_BLOB's contents
+ Clear a DATA_BLOB's contents
 *******************************************************************/
-static void data_blob_clear(DATA_BLOB *d)
+
+void data_blob_clear(DATA_BLOB *d)
 {
 	if (d->data) {
 		memset(d->data, 0, d->length);
@@ -105,11 +110,36 @@ static void data_blob_clear(DATA_BLOB *d)
 }
 
 /*******************************************************************
-free a data blob and clear its contents
+ Free a data blob and clear its contents
 *******************************************************************/
+
 void data_blob_clear_free(DATA_BLOB *d)
 {
 	data_blob_clear(d);
 	data_blob_free(d);
 }
 
+/**
+  useful for constructing data blobs in test suites, while
+  avoiding const warnings
+**/
+DATA_BLOB data_blob_string_const(const char *str)
+{
+	DATA_BLOB blob;
+	blob.data = CONST_DISCARD(uint8 *, str);
+	blob.length = strlen(str);
+	blob.free = NULL;
+	return blob;
+}
+
+/**
+ * Create a new data blob from const data 
+ */
+DATA_BLOB data_blob_const(const void *p, size_t length)
+{
+	DATA_BLOB blob;
+	blob.data = CONST_DISCARD(uint8 *, p);
+	blob.length = length;
+	blob.free = NULL;
+	return blob;
+}

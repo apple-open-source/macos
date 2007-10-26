@@ -1,0 +1,118 @@
+--- Tagged nasm-13 ---
+
+2007-03-28  Eric Christopher  <echristo@apple.com>
+
+	* nasm/doc/Makefile.in (install): Move the html documentation
+	a bit more.
+
+--- Tagged nasm-12 ---
+
+2007-02-28  Eric Christopher  <echristo@apple.com>
+
+	* nasm/doc/Makefile.in (install): Move the html documentation
+	in the new apple standard place.
+
+--- Tagged nasm-11 ---
+
+2006-06-25  Eric Christopher  <echristo@apple.com>
+
+	Import from mainline:
+	2006-06-25  Eric Christopher  <echristo@apple.com>
+	            Hector Chu  <hkcc2@cantab.net>
+	* output/outmacho.c (macho_section): Default align to -1.
+	Update check for alignment.
+	(macho_write_segment): If alignment is still -1, reset to
+	DEFAULT_SECTION_ALIGNMENT.
+
+2006-06-25  Eric Christopher  <echristo@apple.com>
+
+	Import from mainline:
+	2006-06-25  Eric Christopher  <echristo@apple.com>
+	            Hector Chu  <hkcc2@cantab.net>
+
+	* output/outmacho.c (macho_write_section): Don't depend on
+	S_ZEROFILL when adding sizes.
+
+2006-06-25  Eric Christopher  <echristo@apple.com>
+
+	Import from mainline:
+	2006-06-25  Eric Christopher  <echristo@apple.com>
+	            Hector Chu  <hkcc2@cantab.net>
+
+	* output/outmacho.c (macho_fixup_relocs): Break if we've
+	found the sym we're looking for.
+
+--- Tagged nasm-10 ---
+
+2006-04-04  Eric Christopher  <echristo@apple.com>
+
+	* nasm/doc/Makefile.in (install): Place the html documentation
+	also in the apple standard place.
+
+2006-02-28  Eric Christopher  <echristo@apple.com>
+
+	* nasm/insns.dat: Add VMX instructions.
+	* nasm/insns.h: Add VMX define.
+
+--- Tagged nasm-9 ---
+
+2006-02-08  Eric Christopher  <echristo@apple.com>
+
+	* nasm/doc/Makefile.in (install): Make the info directory before
+	attempting to install there.
+
+2006-02-07  Eric Christopher  <echristo@apple.com>
+
+	* Makefile.in (everything): Remove rdf directory.
+	(install_everything): Ditto.
+
+2006-02-03  Eric Christopher  <echristo@apple.com>
+
+	* Makefile (Install_Target): Use install_everything.
+	* nasm/Makefile.in (INSTALL_PROGRAM) Set to $INSTALL.
+	(INSTALL_DATA): Ditto.
+	* nasm/version: Update.
+	* nasm/doc/Makefile.in (docdir): Set to $(prefix)/share/doc/nasm.
+	Set install programs. Limit OUT to .info. Export srcdir PERL.
+	(nasmdoc.ps): version depend is in $(srcdir).
+	(install): Add $(DESTDIR).
+	* nasm/doc/genps.pl: Use Env. Add srcdir to lib.
+	* nasm/doc/genpsdriver.pl: Use Env. Fix usage of environment variables.
+	* nasm/doc/nasmdoc.src: Add Mach-O documentation.
+
+2006-02-02  Eric Christopher  <echristo@apple.com>
+	    Wade Tregaskis  <wtregaskis@apple.com>
+
+	Import from Mainline:
+	2006-02-02  Eric Christopher  <echristo@apple.com>
+		    Wade Tregaskis  <wtregaskis@apple.com>
+
+	    * output/outmacho.c (macho_cleanup): Depend on symbols
+	    existing.
+
+2005-12-08  Eric Christopher  <echristo@apple.com>
+
+	Import from Mainline:
+	2005-12-08  Wade Tregaskis <wtregaskis@apple.com>
+
+	* nasm/nasm/output/outmacho.c (struct section): Added "align" field.
+	(sectmap): Added ".rodata" section.
+	(exact_log2): New.
+	(macho_section): Added support for section attributes.
+	"align=" and "data" specifically.
+	(macho_write_segment): Write out section alignment to Mach-O file.
+
+2005-12-05  Eric Christopher  <echristo@apple.com>
+
+	Import from Mainline:
+	2005-12-05  Eric Christopher  <echristo@apple.com>
+
+        * nasm/nasm/output/outmacho.c (macho_write_section): Don't add
+	section offset to the symbol to be relocated.
+	(add_reloc): Update comment.
+
+2005-10-14  Eric Christopher  <echristo@apple.com>
+
+	* nasm/nasm/Makefile.in: Explicitly call install program from
+	srcdir. Use DESTDIR as base install directory.
+	* nasm/nasm/install-sh: Update.

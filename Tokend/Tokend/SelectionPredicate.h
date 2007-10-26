@@ -61,4 +61,3 @@ private:
 
 #endif /* !_TOKEND_SELECTIONPREDICATE_H_ */
 
-/* arch-tag: E96F0CEA-DF80-11D8-923F-000A95C4302E */

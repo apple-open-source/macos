@@ -1,0 +1,21 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -3272,6 +3272,16 @@ if test x"$with_ldap_support" != x"no"; 
+ fi
+ 
+ 
++########################################################
++# Search for various MacOS X headers
++
++AC_CHECK_HEADERS(DirectoryService/DirectoryService.h)
++AC_CHECK_HEADERS(DirectoryService/DirServices.h)
++AC_CHECK_HEADERS(DirectoryService/DirServicesConst.h)
++AC_CHECK_HEADERS(DirectoryService/DirServicesUtils.h)
++AC_CHECK_HEADERS(Security/Security.h)
++AC_CHECK_HEADERS(CoreFoundation/CoreFoundation.h)
++
+ #################################################
+ # active directory support
+ 

@@ -1,0 +1,57 @@
+--- swab.3	2003-05-20 15:23:55.000000000 -0700
++++ swab.3.edit	2006-07-12 11:27:22.000000000 -0700
+@@ -41,26 +41,48 @@
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+-.In string.h
++.In unistd.h
+ .Ft void
+-.Fn swab "const void * restrict src" "void * restrict dst" "size_t len"
++.Fo swab
++.Fa "const void *restrict src"
++.Fa "void *restrict dest"
++.Fa "ssize_t nbytes"
++.Fc
+ .Sh DESCRIPTION
+ The function
+ .Fn swab
+ copies
+-.Fa len
++.Fa nbytes
+ bytes from the location referenced by
+ .Fa src
+ to the location referenced by
+-.Fa dst ,
++.Fa dest ,
+ swapping adjacent bytes.
+ .Pp
+ The argument
+-.Fa len
++.Fa nbytes
+ must be an even number.
++.Sh LEGACY SYNOPSIS
++.Fd #include <string.h>
++.Pp
++.Ft void
++.br
++.Fo swab
++.Fa "const void *restrict src"
++.Fa "void *restrict dest"
++.Fa "size_t nbytes"
++.Fc ;
++.Pp
++The include file
++.In string.h
++is necessary for this function.
++The type of
++.Fa nbytes
++has changed.
+ .Sh SEE ALSO
+ .Xr bzero 3 ,
+-.Xr memset 3
++.Xr memset 3 ,
++.Xr compat 5
+ .Sh HISTORY
+ A
+ .Fn swab

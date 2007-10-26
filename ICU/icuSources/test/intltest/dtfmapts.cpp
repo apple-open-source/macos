@@ -1,6 +1,6 @@
 /***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation
+ * Copyright (c) 1997-2005, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
 
@@ -29,11 +29,13 @@ void IntlTestDateFormatAPI::runIndexedTest( int32_t index, UBool exec, const cha
                 if (exec) {
                     logln("DateFormat API test---"); logln("");
                     UErrorCode status = U_ZERO_ERROR;
+                    Locale saveLocale;
                     Locale::setDefault(Locale::getEnglish(), status);
                     if(U_FAILURE(status)) {
                         errln("ERROR: Could not set default locale, test may not give correct results");
                     }
                     testAPI(/*par*/);
+                    Locale::setDefault(saveLocale, status);
                 }
                 break;
 
@@ -66,6 +68,13 @@ void IntlTestDateFormatAPI::TestEquals(void)
     UDate start = Calendar::getNow();
     while (Calendar::getNow() == start) ; // Wait for time to change
     DateFormat *b = DateFormat::createInstance();
+
+    if (a == NULL || b == NULL){
+        dataerrln("Error calling DateFormat::createInstance()");
+        delete a;
+        delete b;
+        return;
+    }
 
     if (!(*a == *b))
         errln("FAIL: DateFormat objects created at different times are unequal.");
@@ -100,16 +109,23 @@ void IntlTestDateFormatAPI::testAPI(/* char* par */)
     DateFormat *it = DateFormat::createDateInstance(DateFormat::MEDIUM, Locale::getItalian());
     DateFormat *de = DateFormat::createDateTimeInstance(DateFormat::LONG, DateFormat::LONG, Locale::getGerman());
 
-// ======= Test equality
+    if (def == NULL || fr == NULL || it == NULL || de == NULL){
+        dataerrln("Error creating instnaces.");
+    }
 
+// ======= Test equality
+if (fr != NULL && def != NULL)
+{
     logln("Testing equality operator");
     
     if( *fr == *it ) {
         errln("ERROR: == failed");
     }
+}
 
 // ======= Test various format() methods
-
+if (fr != NULL && it != NULL && de != NULL)
+{
     logln("Testing various format() methods");
 
     UDate d = 837039928046.0;
@@ -130,9 +146,11 @@ void IntlTestDateFormatAPI::testAPI(/* char* par */)
 
     res3 = de->format(d, res3);
     logln( (UnicodeString) "" + d + " formatted to " + res3);
+}
 
 // ======= Test parse()
-
+if (def != NULL)
+{
     logln("Testing parse()");
 
     UnicodeString text("02/03/76 2:50 AM, CST");
@@ -155,10 +173,11 @@ void IntlTestDateFormatAPI::testAPI(/* char* par */)
 
     result3 = def->parse(text, pos01);
     logln(text + " parsed into " + result3);
-
+}
 
 // ======= Test getters and setters
-
+if (fr != NULL && it != NULL && de != NULL)
+{
     logln("Testing getters and setters");
 
     int32_t count = 0;
@@ -198,7 +217,7 @@ void IntlTestDateFormatAPI::testAPI(/* char* par */)
     if( de->getTimeZone() != it->getTimeZone()) {
         errln("ERROR: adopt or set TimeZone() failed");
     }
-
+}
 // ======= Test getStaticClassID()
 
     logln("Testing getStaticClassID()");

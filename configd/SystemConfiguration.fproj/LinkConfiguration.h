@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,7 +62,7 @@ NetworkInterfaceCopyMediaOptions(
 				 CFDictionaryRef	*active,
 				 CFArrayRef		*available,
 				 Boolean		filter
-				 );
+				 )		AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 /*!
 	@function NetworkInterfaceCopyMediaSubTypes
@@ -76,10 +76,10 @@ NetworkInterfaceCopyMediaOptions(
 CFArrayRef
 NetworkInterfaceCopyMediaSubTypes(
 				  CFArrayRef		available
-				  );
+				  )		AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 /*!
-	@function NetworkInterfaceCopyMediaSubTypes
+	@function NetworkInterfaceCopyMediaSubTypeOptions
 	@discussion For the provided interface configuration options and specific
 		subtype, return a list of available media options.
 	@param available The available options as returned by the
@@ -93,7 +93,7 @@ CFArrayRef
 NetworkInterfaceCopyMediaSubTypeOptions(
 					CFArrayRef		available,
 					CFStringRef		subType
-					);
+					)	AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 /*!
 	@function NetworkInterfaceCopyMTU
@@ -102,7 +102,7 @@ NetworkInterfaceCopyMediaSubTypeOptions(
 	@param mtu_cur A pointer to memory that will be filled with the current
 		MTU setting for the interface.
 	@param mtu_min A pointer to memory that will be filled with the minimum
-		MTU setting for the interface.  If negative, the minumum setting
+		MTU setting for the interface.  If negative, the minimum setting
 		could not be determined.
 	@param mtu_max A pointer to memory that will be filled with the maximum
 		MTU setting for the interface.  If negative, the maximum setting
@@ -116,7 +116,7 @@ NetworkInterfaceCopyMTU(
 			int		*mtu_cur,
 			int		*mtu_min,
 			int		*mtu_max
-			);
+			)			AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 
 __END_DECLS

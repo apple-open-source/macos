@@ -149,4 +149,3 @@ uint32 Attribute::uint32Value() const
 
 } // end namespace Tokend
 
-/* arch-tag: 5C8EA178-F190-11D8-BEF2-000A9595DEEE */

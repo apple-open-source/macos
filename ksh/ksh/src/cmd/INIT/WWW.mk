@@ -35,13 +35,13 @@ WWWTYPES =
 	(html_info) : $$(MM2HTMLINFO) $$(MM2HTMLINIT)
 	if WWWSTYLE == "frame"
 		%.html %-index.html : %.mm (html_info)
-			$(MM2HTML) $(MM2HTMLFLAGS) -f $(%) -x -o WWWTYPES=$(WWWTYPES:@Q:@Q) $(>)
+			$(MM2HTML) $(MM2HTMLFLAGS) $(%:N=faq.*:?> $(<:O=1)?-f $(%) -x?) -o WWWTYPES=$(WWWTYPES:@Q:@Q) $(WWWSOURCE.$(%)) $(>)
 	else
 		%.html : %.mm (html_info)
-			$(MM2HTML) $(MM2HTMLFLAGS) -o WWWTYPES=$(WWWTYPES:@Q:@Q) $(>) > $(<)
+			$(MM2HTML) $(MM2HTMLFLAGS) -o WWWTYPES=$(WWWTYPES:@Q:@Q) $(>) $(WWWSOURCE.$(%)) > $(<)
 	end
 	%.html : %.1 (html_info)
-		$(MM2HTML) $(MM2HTMLFLAGS) $(>) > $(<)
+		$(MM2HTML) $(MM2HTMLFLAGS) $(>) $(WWWSOURCE.$(%)) > $(<)
 	%-man.html : $(BINDIR)/% (html_info)
 		ignore $(>) --html 2> $(<)
 	.DO.WWW.MAN : .USE
@@ -222,18 +222,86 @@ WWWTYPES =
 		cd $(WWWDIR)
 		pax -wvf $(<:P=A) -z $(*:N=*.pax:P=A) .
 
+.WWW.FAQ : .USE
+	{
+	set -o noglob
+	print .xx title=\"$(<:B:/\..*//) FAQ index\"
+	print .MT 4
+	print .TL
+	print
+	print .H 1 \"$(<:B:/\..*//) FAQ index\"
+	print .BL
+	for i in $(*)
+	do	exec < $i || exit 1
+		e=0 l=0 x=y
+		while	read -r op a1 a2
+		do	case $op in
+			.H)	case $e in
+				0)	e=1 ;;
+				1)	print .LE ;;
+				esac
+				print .sp
+				print .LI
+				a2=${a2//\"/}
+				a2=${a2%\ [Ff][Aa][Qq]}
+				f=${i%.*}.html
+				f=${f#*/}
+				print .xx link=\"$f'	'$a2\"
+				print .sp
+				print .NL
+				;;
+			.AL|.BL|.NL)
+				case $x in
+				y)	x=x ;;
+				*)	x=xx$x ;;
+				esac
+				;;
+			.LE)	x=${x%xx}
+				;;
+			.LI)	case $x in
+				x)	x=
+					print .LI
+					;;
+				esac
+				;;
+			.sp)	case $x in
+				'')	x=x ;;
+				esac
+				;;
+			*)	case $x in
+				'')	print -r -- $op $a1 $a2 ;;
+				esac
+				;;
+			esac
+		done
+		case $e in
+		1)	print .LE ;;
+		esac
+	done
+	print .LE
+	} > $(<)
+
 /*
  * [ dir ] :WWWPAGE: [ source ... ] file.mm file
  *
  *	*.mm generates *.html
+ *	faq.*.mm generates faq.mm
  *	other files copied to $(WWWDIR)[/dir]
  *	files after - (toggle) are just asserted on ::
  */
 
 ":WWWPAGE:" : .MAKE .OPERATOR
-	local B D I J O X G A
+	local B D I J O P Q S X G A
 	A = 0
-	if D = "$(<:O=1)"
+	D := $(<:O=1)
+	P := $(>:N!=*=*)
+	S := $(>:N=*=*)
+	if X = "$(P:B:S:N=faq.*.mm)"
+		Q := $(D:+$(D).)faq.mm
+		$(Q) : .WWW.FAQ $(X)
+		P += $(Q)
+	end
+	if D
 		B := $(D:B)
 		if D != "/*"
 			D := $(WWWDIR)/$(D)
@@ -244,7 +312,7 @@ WWWTYPES =
 			.WWW.LOCAL : $(WWWDIR)/man/man1/$(I).html
 			$(WWWDIR)/man/man1/$(I).html : .DONTCARE
 		end
-		for I $(>)
+		for I $(P)
 			if I == "-"
 				let A = !A
 				continue
@@ -255,6 +323,9 @@ WWWTYPES =
 			end
 			if "$(I:T=FD)"
 				.SOURCE : $(I)
+				if "$(<)"
+					WWWSOURCE.$(<:O=1) += $(I:T=F:P=L=*)
+				end
 				continue
 			end
 			if I == "*.html"
@@ -262,10 +333,13 @@ WWWTYPES =
 				O := $(I)
 				X := $(I)
 			elif ( G = "$(I:G=%.html)" )
-				$(G) : .IMPLICIT $(I)
+				$(G) : .IMPLICIT $(S) $(I)
 				if $(G:O) > 1
 					for J $(G)
-						if J == "*-index.html" && ! X
+						if J == "*-index.html"
+							if J == "faq.*.*"
+								continue
+							end
 							O := index.html
 						else
 							O := $(J)
@@ -289,7 +363,7 @@ WWWTYPES =
 			.WWW.LOCAL : $(D)/$(O)
 		end
 	else
-		for I $(>)
+		for I $(P)
 			if I == "-"
 				let A = !A
 				continue
@@ -306,7 +380,7 @@ WWWTYPES =
 				$(I) : .TERMINAL
 				O := $(I)
 			elif ( O = "$(I:G=%.html)" )
-				$(O) : .IMPLICIT $(I)
+				$(O) : $(S) .IMPLICIT $(I)
 			end
 			for J $(O)
 				if J == "*-index.html"

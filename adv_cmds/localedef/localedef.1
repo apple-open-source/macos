@@ -16,14 +16,17 @@
 The 
 .Nm
 utility reads source definitions for one or more locale categories
-belonging to the same locale from the file named in the -i option
-(if specified) or from standard input.
+belonging to the same locale from the file named in the
+.Fl i
+option (if specified) or from standard input.
 .Pp
-The name operand identifies the target locale. The utility supports
-.Pp
-as private, or restricted-access locales. Implementations may
-restrict the capability to create or modify public locales to users
-with the appropriate privileges.
+The
+.Ar name
+operand identifies the target locale. The
+.Nm
+utility supports
+the creation of public, or generally accessible locales, as well
+as private, or restricted-access locales.
 .Pp
 Each category source definition is identified by the corresponding
 environment variable name and terminated by an END category-name
@@ -37,7 +40,7 @@ Defines collation rules.
 .It LC_MONETARY
 Defines the format and symbols used in formatting of monetary information.
 .It LC_NUMERIC
-Defines the decimal delimiter, grouping and grouping symbol for non-monetary numeric editing.
+Defines the decimal delimiter, grouping, and grouping symbol for non-monetary numeric editing.
 .It LC_TIME
 Defines the format and content of date and time information.
 .It LC_MESSAGES
@@ -49,37 +52,65 @@ The following options are supported:
 .Bl -tag -width -indent
 .It Fl c
 Create permanent output even if warning messages have been issued.
-.It Fl f
-.Ar charmap
+.It Fl f Ar charmap
 Specify the pathname of a file containing a mapping of character symbols and collating element symbols to actual character encodings.
-.It Fl i
-.Ar inputfile
+.It Fl i Ar sourcefile
 The pathname of a file containing the source definitions. If this option is not present, source definitions will be read from standard input.
 .El
 .Sh OPERANDS
 The following operand is supported:
-.Pp
+.Bl -tag -width -indent
+.It Ar name
+Identifies the locale.
+If the name contains one or more slash characters,
 .Ar name
-Identifies the locale. If the name contains one or more slash characters, name will be interpreted as a pathname where the created locale definitions will be stored. If name does not contain any slash characters, the locale will be public. This capability is restricted to users with appropriate privileges. (As a consequence of specifying one name, although several categories can be processed in one execution, only categories belonging to the same locale can be processed.)
+will be interpreted as a pathname
+where the created locale definitions will be stored.
+If
+.Ar name
+does not contain any slash characters,
+the locale will be public.
+This capability is restricted to users with appropriate privileges.
+(As a consequence of specifying one name,
+although several categories can be processed in one execution,
+only categories belonging to the same locale can be processed.)
+.El
 .Sh ENVIRONMENT
-The following environment variables affect the execution of localedef:
+The following environment variables affect the execution of
+.Nm :
 .Bl -tag -width "LC_COLLATE"
 .It Ev LANG
-Provide a default value for the internationalisation variables that are unset or null. If LANG is unset or null, the corresponding value from the implementation-dependent default locale will be used. If any of the internationalisation variables contains an invalid setting, the utility will behave as if none of the variables had been defined.
+Provide a default value for the internationalization variables
+that are unset or null.
+If LANG is unset or null,
+the corresponding value from the implementation-dependent default locale
+will be used.
+If any of the internationalization variables contains an invalid setting,
+the utility will behave as if none of the variables had been defined.
 .It Ev LC_ALL
-If set to a non-empty string value, override the values of all the other internationalisation variables.
+If set to a non-empty string value, override the values of all the other internationalization variables.
 .It Ev LC_COLLATE
-(This variable has no affect on localedef; the POSIX locale will be used for this category.)
+(This variable has no effect on
+.Nm ;
+the POSIX locale will be used for this category.)
 .It Ev LC_CTYPE
-Determine the locale for the interpretation of sequences of bytes of text data as characters (for example, single- as opposed to multi-byte characters in arguments and input files). This variable has no affect on the processing of localedef input data; the POSIX locale is used for this purpose, regardless of the value of this variable.
+Determine the locale for the interpretation of sequences of bytes
+of text data as characters
+(for example, single- as opposed to multi-byte characters
+in arguments and input files).
+This variable has no effect on the processing of
+.Nm
+input data;
+the POSIX locale is used for this purpose,
+regardless of the value of this variable.
 .It Ev LC_MESSAGES
 Determine the locale that should be used to affect the format and contents of diagnostic messages written to standard error.
 .It Ev NLSPATH
-Determine the location of message catalogues for the processing of LC_MESSAGES .
+Determine the location of message catalogues for the processing of LC_MESSAGES.
 .El
 .Sh EXIT STATUS
 The following exit values are returned:
-.Bl -tag -width "00"
+.Bl -tag -width -indent
 .It 0
 No errors occurred and the locales were successfully created.
 .It 1

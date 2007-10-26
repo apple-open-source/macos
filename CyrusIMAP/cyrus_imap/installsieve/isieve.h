@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: isieve.h,v 1.5 2005/03/05 00:37:10 dasenbro Exp $ */
+/* $Id: isieve.h,v 1.5 2003/02/13 20:15:37 rjs3 Exp $ */
 
 #ifndef ISIEVE_H_
 #define ISIEVE_H_

@@ -1,6 +1,11 @@
---- err.c.orig	2004-08-30 09:45:37.000000000 -0700
-+++ err.c	2004-08-30 09:58:06.000000000 -0700
-@@ -48,8 +48,15 @@
+--- err.c.orig	2006-12-15 11:18:17.000000000 -0800
++++ err.c	2006-12-15 11:46:52.000000000 -0800
+@@ -44,12 +44,85 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <vis.h>
+ #include "un-namespace.h"
  
  #include "libc_private.h"
  
@@ -10,15 +15,80 @@
 +
 +__private_extern__ FILE *_e_err_file; /* file to use for error output */
 +__private_extern__ void (*_e_err_exit)(int);
++__private_extern__ void _e_visprintf(FILE * __restrict, const char * __restrict, va_list);
 +
 +#else /* !BUILDING_VARIANT */
 +
 +__private_extern__ FILE *_e_err_file = NULL; /* file to use for error output */
 +__private_extern__ void (*_e_err_exit)(int) = NULL;
++
++/*
++ * zero means pass as is
++ * 255 means use \nnn (octal)
++ * otherwise use \x (x is value)
++ * (NUL isn't used)
++ */
++static unsigned char escape[256] = {
++     /* NUL  SOH  STX  ETX  EOT  ENQ  ACK  BEL */
++	0  , 255, 255, 255, 255, 255, 255, 'a',
++     /* BS   HT   NL   VT   NP   CR   SO   SI  */
++	'b', 't', 'n', 'v', 'f', 'r', 255, 255,
++     /* DLE  DC1  DC2  DC3  DC4  NAK  SYN  ETB */
++	255, 255, 255, 255, 255, 255, 255, 255,
++     /* CAN  EM   SUB  ESC  FS   GS   RS   US  */
++	255, 255, 255, 255, 255, 255, 255, 255,
++     /* the rest are zero */
++};
++
++/*
++ * Make characters visible.  If we can't allocate enough
++ * memory, we fall back on vfprintf().
++ */
++__private_extern__ void
++_e_visprintf(FILE * __restrict stream, const char * __restrict format, va_list ap)
++{
++	int failed = 0;
++	char *str, *visstr;
++	va_list backup;
++
++	va_copy(backup, ap);
++	vasprintf(&str, format, ap);
++	if (str != NULL) {
++		if ((visstr = malloc(4 * strlen(str) + 1)) != NULL) {
++			unsigned char *fp = (unsigned char *)str;
++			unsigned char *tp = (unsigned char *)visstr;
++			while(*fp) {
++				switch(escape[*fp]) {
++				case 0:
++					*tp++ = *fp;
++					break;
++				case 255:
++					sprintf(tp, "\\%03o", *fp);
++					tp += 4;
++					break;
++				default:
++					*tp++ = '\\';
++					*tp++ = escape[*fp];
++					break;
++				}
++				fp++;
++			}
++			*tp = 0;
++			fputs(visstr, stream);
++			free(visstr);
++		} else
++			failed = 1;
++		free(str);
++	} else
++		failed = 1;
++	if (failed)
++		vfprintf(stream, format, backup);
++	va_end(backup);
++}
  
  /*
   * This is declared to take a `void *' so that the caller is not required
-@@ -60,16 +67,17 @@
+@@ -60,16 +133,17 @@
  err_set_file(void *fp)
  {
  	if (fp)
@@ -39,7 +109,7 @@
  
  __weak_reference(_err, err);
  
-@@ -107,16 +115,16 @@
+@@ -107,16 +181,16 @@
  	const char *fmt;
  	va_list ap;
  {
@@ -51,7 +121,7 @@
  	if (fmt != NULL) {
 -		vfprintf(err_file, fmt, ap);
 -		fprintf(err_file, ": ");
-+		vfprintf(_e_err_file, fmt, ap);
++		_e_visprintf(_e_err_file, fmt, ap);
 +		fprintf(_e_err_file, ": ");
  	}
 -	fprintf(err_file, "%s\n", strerror(code));
@@ -63,7 +133,7 @@
  	exit(eval);
  }
  
-@@ -135,14 +143,14 @@
+@@ -135,14 +209,14 @@
  	const char *fmt;
  	va_list ap;
  {
@@ -77,14 +147,14 @@
 -	fprintf(err_file, "\n");
 -	if (err_exit)
 -		err_exit(eval);
-+		vfprintf(_e_err_file, fmt, ap);
++		_e_visprintf(_e_err_file, fmt, ap);
 +	fprintf(_e_err_file, "\n");
 +	if (_e_err_exit)
 +		_e_err_exit(eval);
  	exit(eval);
  }
  
-@@ -180,14 +188,14 @@
+@@ -180,14 +254,14 @@
  	const char *fmt;
  	va_list ap;
  {
@@ -96,7 +166,7 @@
  	if (fmt != NULL) {
 -		vfprintf(err_file, fmt, ap);
 -		fprintf(err_file, ": ");
-+		vfprintf(_e_err_file, fmt, ap);
++		_e_visprintf(_e_err_file, fmt, ap);
 +		fprintf(_e_err_file, ": ");
  	}
 -	fprintf(err_file, "%s\n", strerror(code));
@@ -104,7 +174,7 @@
  }
  
  void
-@@ -204,10 +212,10 @@
+@@ -204,10 +278,10 @@
  	const char *fmt;
  	va_list ap;
  {
@@ -116,6 +186,6 @@
  	if (fmt != NULL)
 -		vfprintf(err_file, fmt, ap);
 -	fprintf(err_file, "\n");
-+		vfprintf(_e_err_file, fmt, ap);
++		_e_visprintf(_e_err_file, fmt, ap);
 +	fprintf(_e_err_file, "\n");
  }

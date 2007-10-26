@@ -1,3 +1,12 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP GET
+followlocation
+HTTP proxy
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -14,6 +23,7 @@ This server reply is for testing a simple Location: following
 HTTP/1.1 200 Followed here fine swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
+Content-Length: 52
 
 If this is received, the location following worked
 
@@ -28,6 +38,7 @@ Connection: close
 HTTP/1.1 200 Followed here fine swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
+Content-Length: 52
 
 If this is received, the location following worked
 
@@ -57,11 +68,14 @@ GET http://127.0.0.1:%HTTPPORT/want/43 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 GET http://127.0.0.1:%HTTPPORT/want/data/430002.txt?coolsite=yes HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 </protocol>
 </verify>
+</testcase>

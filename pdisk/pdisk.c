@@ -210,6 +210,7 @@ main(int argc, char **argv)
 #endif
 	}
     } else if (name_index < argc) {
+	interactive = 1;
 	while (name_index < argc) {
 	    edit(argv[name_index++], 0);
 	}

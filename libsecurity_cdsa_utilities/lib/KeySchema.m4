@@ -54,7 +54,7 @@ define(`attributeBody',
 `{
 ifelse(index(`$1',`s'),-1,
 `    CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER,
-    {(char *)$3},',
+    {(char *)((uint64_t)$3<<32|$3)},',
 `    CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
     {$4},')
     CSSM_DB_ATTRIBUTE_FORMAT_$7

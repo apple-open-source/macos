@@ -1,4 +1,4 @@
-/*	$OpenBSD: sel_subs.c,v 1.7 1997/08/17 23:05:09 millert Exp $	*/
+/*	$OpenBSD: sel_subs.c,v 1.18 2004/04/16 22:50:23 deraadt Exp $	*/
 /*	$NetBSD: sel_subs.c,v 1.5 1995/03/21 09:07:42 cgd Exp $	*/
 
 /*-
@@ -17,11 +17,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -40,9 +36,9 @@
 
 #ifndef lint
 #if 0
-static char sccsid[] = "@(#)sel_subs.c	8.1 (Berkeley) 5/31/93";
+static const char sccsid[] = "@(#)sel_subs.c	8.1 (Berkeley) 5/31/93";
 #else
-static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: sel_subs.c,v 1.7 1997/08/17 23:05:09 millert Exp $";
+static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: sel_subs.c,v 1.18 2004/04/16 22:50:23 deraadt Exp $";
 #endif
 #endif /* not lint */
 
@@ -50,20 +46,22 @@ static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: sel_subs.c,v 1.7 19
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/param.h>
-#include <pwd.h>
+#include <ctype.h>
 #include <grp.h>
+#include <pwd.h>
 #include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
+#include <tzfile.h>
+#include <unistd.h>
 #include "pax.h"
 #include "sel_subs.h"
 #include "extern.h"
 
-static int str_sec __P((register char *, time_t *));
-static int usr_match __P((register ARCHD *));
-static int grp_match __P((register ARCHD *));
-static int trng_match __P((register ARCHD *));
+static int str_sec(const char *, time_t *);
+static int usr_match(ARCHD *);
+static int grp_match(ARCHD *);
+static int trng_match(ARCHD *);
 
 static TIME_RNG *trhead = NULL;		/* time range list head */
 static TIME_RNG *trtail = NULL;		/* time range list tail */
@@ -76,19 +74,13 @@ static GRPT **grptb = NULL;		/* group selection table */
 
 /*
  * sel_chk()
- *	check if this file matches a specfied uid, gid or time range
+ *	check if this file matches a specified uid, gid or time range
  * Return:
  *	0 if this archive member should be processed, 1 if it should be skipped
  */
 
-#ifdef __STDC__
 int
-sel_chk(register ARCHD *arcn)
-#else
-int
-sel_chk(arcn)
-	register ARCHD *arcn;
-#endif
+sel_chk(ARCHD *arcn)
 {
 	if (((usrtb != NULL) && usr_match(arcn)) ||
 	    ((grptb != NULL) && grp_match(arcn)) ||
@@ -101,8 +93,8 @@ sel_chk(arcn)
  * User/group selection routines
  *
  * Routines to handle user selection of files based on the file uid/gid. To
- * add an entry, the user supplies either then name or the uid/gid starting with
- * a # on the command line. A \# will eascape the #.
+ * add an entry, the user supplies either the name or the uid/gid starting with
+ * a # on the command line. A \# will escape the #.
  */
 
 /*
@@ -112,19 +104,13 @@ sel_chk(arcn)
  *	0 if added ok, -1 otherwise;
  */
 
-#ifdef __STDC__
 int
-usr_add(register char *str)
-#else
-int
-usr_add(str)
-	register char *str;
-#endif
+usr_add(char *str)
 {
-	register u_int indx;
-	register USRT *pt;
-	register struct passwd *pw;
-	register uid_t uid;
+	u_int indx;
+	USRT *pt;
+	struct passwd *pw;
+	uid_t uid;
 
 	/*
 	 * create the table if it doesn't exist
@@ -152,11 +138,7 @@ usr_add(str)
 		}
 		uid = (uid_t)pw->pw_uid;
 	} else
-#		ifdef NET2_STAT
-		uid = (uid_t)atoi(str+1);
-#		else
 		uid = (uid_t)strtoul(str+1, NULL, 10);
-#		endif
 	endpwent();
 
 	/*
@@ -191,16 +173,10 @@ usr_add(str)
  *	0 if this archive member should be processed, 1 if it should be skipped
  */
 
-#ifdef __STDC__
 static int
-usr_match(register ARCHD *arcn)
-#else
-static int
-usr_match(arcn)
-	register ARCHD *arcn;
-#endif
+usr_match(ARCHD *arcn)
 {
-	register USRT *pt;
+	USRT *pt;
 
 	/*
 	 * hash and look for it in the table
@@ -225,19 +201,13 @@ usr_match(arcn)
  *	0 if added ok, -1 otherwise;
  */
 
-#ifdef __STDC__
 int
-grp_add(register char *str)
-#else
-int
-grp_add(str)
-	register char *str;
-#endif
+grp_add(char *str)
 {
-	register u_int indx;
-	register GRPT *pt;
-	register struct group *gr;
-	register gid_t gid;
+	u_int indx;
+	GRPT *pt;
+	struct group *gr;
+	gid_t gid;
 
 	/*
 	 * create the table if it doesn't exist
@@ -265,11 +235,7 @@ grp_add(str)
 		}
 		gid = (gid_t)gr->gr_gid;
 	} else
-#		ifdef NET2_STAT
-		gid = (gid_t)atoi(str+1);
-#		else
 		gid = (gid_t)strtoul(str+1, NULL, 10);
-#		endif
 	endgrent();
 
 	/*
@@ -304,16 +270,10 @@ grp_add(str)
  *	0 if this archive member should be processed, 1 if it should be skipped
  */
 
-#ifdef __STDC__
 static int
-grp_match(register ARCHD *arcn)
-#else
-static int
-grp_match(arcn)
-	register ARCHD *arcn;
-#endif
+grp_match(ARCHD *arcn)
 {
-	register GRPT *pt;
+	GRPT *pt;
 
 	/*
 	 * hash and look for it in the table
@@ -353,27 +313,21 @@ grp_match(arcn)
  * trng_add()
  *	add a time range match to the time range list.
  *	This is a non-standard pax option. Lower and upper ranges are in the
- *	format: [yy[mm[dd[hh]]]]mm[.ss] and are comma separated.
+ *	format: [[[[[cc]yy]mm]dd]HH]MM[.SS] and are comma separated.
  *	Time ranges are based on current time, so 1234 would specify a time of
  *	12:34 today.
  * Return:
  *	0 if the time range was added to the list, -1 otherwise
  */
 
-#ifdef __STDC__
 int
-trng_add(register char *str)
-#else
-int
-trng_add(str)
-	register char *str;
-#endif
+trng_add(char *str)
 {
-	register TIME_RNG *pt;
-	register char *up_pt = NULL;
-	register char *stpt;
-	register char *flgpt;
-	register int dot = 0;
+	TIME_RNG *pt;
+	char *up_pt = NULL;
+	char *stpt;
+	char *flgpt;
+	int dot = 0;
 
 	/*
 	 * throw out the badly formed time ranges
@@ -419,7 +373,7 @@ trng_add(str)
 	}
 
 	/*
-	 * by default we only will check file mtime, but usee can specify
+	 * by default we only will check file mtime, but user can specify
 	 * mtime, ctime (inode change time) or both.
 	 */
 	if ((flgpt == NULL) || (*flgpt == '\0'))
@@ -427,7 +381,7 @@ trng_add(str)
 	else {
 		pt->flgs = 0;
 		while (*flgpt != '\0') {
-			switch(*flgpt) {
+			switch (*flgpt) {
 			case 'M':
 			case 'm':
 				pt->flgs |= CMPMTME;
@@ -495,7 +449,7 @@ trng_add(str)
 	return(0);
 
     out:
-	paxwarn(1, "Time range format is: [yy[mm[dd[hh]]]]mm[.ss][/[c][m]]");
+	paxwarn(1, "Time range format is: [[[[[cc]yy]mm]dd]HH]MM[.SS][/[c][m]]");
 	return(-1);
 }
 
@@ -506,16 +460,10 @@ trng_add(str)
  *	0 if this archive member should be processed, 1 if it should be skipped
  */
 
-#ifdef __STDC__
 static int
-trng_match(register ARCHD *arcn)
-#else
-static int
-trng_match(arcn)
-	register ARCHD *arcn;
-#endif
+trng_match(ARCHD *arcn)
 {
-	register TIME_RNG *pt;
+	TIME_RNG *pt;
 
 	/*
 	 * have to search down the list one at a time looking for a match.
@@ -523,7 +471,7 @@ trng_match(arcn)
 	 */
 	pt = trhead;
 	while (pt != NULL) {
-		switch(pt->flgs & CMPBOTH) {
+		switch (pt->flgs & CMPBOTH) {
 		case CMPBOTH:
 			/*
 			 * user wants both mtime and ctime checked for this
@@ -575,87 +523,89 @@ trng_match(arcn)
 
 /*
  * str_sec()
- *	Convert a time string in the format of [yy[mm[dd[hh]]]]mm[.ss] to gmt
- *	seconds. Tval already has current time loaded into it at entry.
+ *	Convert a time string in the format of [[[[[cc]yy]mm]dd]HH]MM[.SS] to
+ *	seconds UTC. Tval already has current time loaded into it at entry.
  * Return:
  *	0 if converted ok, -1 otherwise
  */
 
-#ifdef __STDC__
 static int
-str_sec(register char *str, time_t *tval)
-#else
-static int
-str_sec(str, tval)
-	register char *str;
-	time_t *tval;
-#endif
+str_sec(const char *p, time_t *tval)
 {
-	register struct tm *lt;
-	register char *dot = NULL;
+	struct tm *lt;
+	const char *dot, *t;
+	size_t len;
+	int bigyear;
+	int yearset;
+
+	yearset = 0;
+	len = strlen(p);
+
+	for (t = p, dot = NULL; *t; ++t) {
+		if (isdigit(*t))
+			continue;
+		if (*t == '.' && dot == NULL) {
+			dot = t;
+			continue;
+		}
+		return(-1);
+	}
 
 	lt = localtime(tval);
-	if ((dot = strchr(str, '.')) != NULL) {
-		/*
-		 * seconds (.ss)
-		 */
-		*dot++ = '\0';
-		if (strlen(dot) != 2)
+
+	if (dot != NULL) {			/* .SS */
+		if (strlen(++dot) != 2)
 			return(-1);
-		if ((lt->tm_sec = ATOI2(dot)) > 61)
+		lt->tm_sec = ATOI2(dot);
+		if (lt->tm_sec > 61)
 			return(-1);
+		len -= 3;
 	} else
 		lt->tm_sec = 0;
 
-	switch (strlen(str)) {
-	case 10:
-		/*
-		 * year (yy)
-		 * watch out for year 2000
-		 */
-		if ((lt->tm_year = ATOI2(str)) < 69)
-			lt->tm_year += 100;
-		str += 2;
+	switch (len) {
+	case 12:				/* cc */
+		bigyear = ATOI2(p);
+		lt->tm_year = (bigyear * 100) - TM_YEAR_BASE;
+		yearset = 1;
 		/* FALLTHROUGH */
-	case 8:
-		/*
-		 * month (mm)
-		 * watch out months are from 0 - 11 internally
-		 */
-		if ((lt->tm_mon = ATOI2(str)) > 12)
+	case 10:				/* yy */
+		if (yearset) {
+			lt->tm_year += ATOI2(p);
+		} else {
+			lt->tm_year = ATOI2(p);
+			if (lt->tm_year < 69)		/* hack for 2000 ;-} */
+				lt->tm_year += (2000 - TM_YEAR_BASE);
+			else
+				lt->tm_year += (1900 - TM_YEAR_BASE);
+		}
+		/* FALLTHROUGH */
+	case 8:					/* mm */
+		lt->tm_mon = ATOI2(p);
+		if ((lt->tm_mon > 12) || !lt->tm_mon)
 			return(-1);
-		--lt->tm_mon;
-		str += 2;
+		--lt->tm_mon;			/* time struct is 0 - 11 */
 		/* FALLTHROUGH */
-	case 6:
-		/*
-		 * day (dd)
-		 */
-		if ((lt->tm_mday = ATOI2(str)) > 31)
+	case 6:					/* dd */
+		lt->tm_mday = ATOI2(p);
+		if ((lt->tm_mday > 31) || !lt->tm_mday)
 			return(-1);
-		str += 2;
 		/* FALLTHROUGH */
-	case 4:
-		/*
-		 * hour (hh)
-		 */
-		if ((lt->tm_hour = ATOI2(str)) > 23)
+	case 4:					/* HH */
+		lt->tm_hour = ATOI2(p);
+		if (lt->tm_hour > 23)
 			return(-1);
-		str += 2;
 		/* FALLTHROUGH */
-	case 2:
-		/*
-		 * minute (mm)
-		 */
-		if ((lt->tm_min = ATOI2(str)) > 59)
+	case 2:					/* MM */
+		lt->tm_min = ATOI2(p);
+		if (lt->tm_min > 59)
 			return(-1);
 		break;
 	default:
 		return(-1);
 	}
-	/*
-	 * convert broken-down time to GMT clock time seconds
-	 */
+
+	/* convert broken-down time to UTC clock time seconds */
 	if ((*tval = mktime(lt)) == -1)
 		return(-1);
 	return(0);

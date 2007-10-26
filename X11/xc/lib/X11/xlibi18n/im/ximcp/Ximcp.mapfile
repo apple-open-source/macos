@@ -1,6 +1,0 @@
-{
-	local:
-		*;
-	global:
-		_XimOpenIM;
-};

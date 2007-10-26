@@ -1,8 +1,8 @@
 /*
  * handler.c
  *
- * $Author: why $
- * $Date: 2004/05/16 16:09:40 $
+ * $Author: shyouhei $
+ * $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
  *
  * Copyright (C) 2003 why the lucky stiff
  */
@@ -31,6 +31,8 @@ syck_hdlr_add_node( SyckParser *p, SyckNode *n )
 SyckNode *
 syck_hdlr_add_anchor( SyckParser *p, char *a, SyckNode *n )
 {
+    SyckNode *ntmp = NULL;
+
     n->anchor = a;
     if ( p->bad_anchors != NULL )
     {
@@ -48,6 +50,13 @@ syck_hdlr_add_anchor( SyckParser *p, char *a, SyckNode *n )
     {
         p->anchors = st_init_strtable();
     }
+    if ( st_lookup( p->anchors, (st_data_t)a, (st_data_t *)&ntmp ) )
+    {
+        if ( ntmp != (void *)1 )
+        {
+            syck_free_node( ntmp );
+        }
+    }
     st_insert( p->anchors, (st_data_t)a, (st_data_t)n );
     return n;
 }
@@ -55,9 +64,18 @@ syck_hdlr_add_anchor( SyckParser *p, char *a, SyckNode *n )
 void
 syck_hdlr_remove_anchor( SyckParser *p, char *a )
 {
+    char *atmp = a;
+    SyckNode *ntmp;
     if ( p->anchors == NULL )
     {
         p->anchors = st_init_strtable();
+    }
+    if ( st_delete( p->anchors, (st_data_t *)&atmp, (st_data_t *)&ntmp ) )
+    {
+        if ( ntmp != (void *)1 )
+        {
+            syck_free_node( ntmp );
+        }
     }
     st_insert( p->anchors, (st_data_t)a, (st_data_t)1 );
 }

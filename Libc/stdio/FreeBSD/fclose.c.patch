@@ -1,0 +1,18 @@
+Index: fclose.c
+===================================================================
+RCS file: /cvs/root/Libc/stdio/FreeBSD/fclose.c,v
+retrieving revision 1.2
+diff -u -d -b -w -p -r1.2 fclose.c
+--- fclose.c	2003/05/20 22:22:40	1.2
++++ fclose.c	2005/02/14 21:57:28
+@@ -53,6 +53,10 @@ fclose(FILE *fp)
+ {
+ 	int r;
+ 
++	if (fp == NULL) {
++		errno = EFAULT;
++		return (EOF);
++	}
+ 	if (fp->_flags == 0) {	/* not open! */
+ 		errno = EBADF;
+ 		return (EOF);

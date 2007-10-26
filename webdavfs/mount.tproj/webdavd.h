@@ -94,6 +94,8 @@ extern char * gtimeout_string;			/* the length of time LOCKs are held on on the 
 extern int gWebdavfsDebug;				/* TRUE if the WEBDAVFS_DEBUG environment variable is set */
 extern uid_t gProcessUID;				/* the daemon's UID */
 extern int gSuppressAllUI;				/* if TRUE, the mount requested that all UI be supressed */
+extern int gSecureServerAuth;			/* if TRUE, the authentication for server challenges must be sent securely (not clear-text) */
+
 extern char gWebdavCachePath[MAXPATHLEN + 1]; /* the current path to the cache directory */
 extern int gSecureConnection;			/* if TRUE, the connection is secure */
 extern CFURLRef gBaseURL;				/* the base URL for this mount */

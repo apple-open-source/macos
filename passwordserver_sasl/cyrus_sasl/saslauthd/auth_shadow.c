@@ -1,3 +1,5 @@
+#define PWBUFSZ 256 /***SWB***/
+
 /* MODULE: auth_shadow */
 
 /* COPYRIGHT
@@ -28,7 +30,7 @@
  * END COPYRIGHT */
 
 #ifdef __GNUC__
-#ident "$Id: auth_shadow.c,v 1.5 2005/01/10 19:01:35 snsimon Exp $"
+#ident "$Id: auth_shadow.c,v 1.9 2006/01/24 00:16:03 snsimon Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */
@@ -93,15 +95,22 @@ auth_shadow (
 
 # ifdef HAVE_GETSPNAM
 
-/**************
- * getspnam() *
- *************/
+ /***************
+ * getspnam_r() *
+ ***************/
 
     /* VARIABLES */
-    struct passwd	*pw;		/* return from getpwent() */
-    struct spwd   	*sp;		/* return from getspnam() */
     long today;				/* the current time */
     char *cpw;				/* pointer to crypt() result */
+    struct passwd	*pw;		/* return from getpwnam_r() */
+    struct spwd   	*sp;		/* return from getspnam_r() */
+#  ifdef _REENTRANT
+    struct passwd pwbuf;
+    char pwdata[PWBUFSZ];		/* pwbuf indirect data goes in here */
+
+    struct spwd spbuf;
+    char spdata[PWBUFSZ];		/* spbuf indirect data goes in here */
+#  endif /* _REENTRANT */
     /* END VARIABLES */
 
 #  define RETURN(x) return strdup(x)
@@ -121,7 +130,11 @@ auth_shadow (
 #  define SHADOW_PW_LOCKED "*LK*"	/* account locked (not used by us) */
 #  define SHADOW_PW_EPERM  "*NP*"	/* insufficient database perms */
 
+#  ifdef _REENTRANT
+    pw = getpwnam_r(login, &pwbuf, pwdata, sizeof(pwdata));
+#  else
     pw = getpwnam(login);
+#  endif /* _REENTRANT */
     endpwent();
     if (pw == NULL) {
 	if (flags & VERBOSE) {
@@ -132,7 +145,11 @@ auth_shadow (
 
     today = (long)time(NULL)/(24L*60*60);
 
+#  ifdef _REENTRANT
+    sp = getspnam_r(login, &spbuf, spdata, sizeof(spdata));
+#  else
     sp = getspnam(login);
+#  endif /* _REENTRANT */
     endspent();
 
     if (sp == NULL) {

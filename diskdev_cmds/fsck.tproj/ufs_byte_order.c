@@ -109,7 +109,7 @@ byte_swap_sbin(struct fs *sb)
 			return;	/* don't stray outside our buffer! */
 
 		usptr = (u_int16_t *)((u_int8_t *)(sb) + (sb)->fs_postbloff);
-		byte_swap_shorts(usptr,size);	/* fs_postbloff */
+		byte_swap_shorts((short *)usptr,size);	/* fs_postbloff */
 	}
 }
 
@@ -122,7 +122,7 @@ byte_swap_sbout(struct fs *sb)
 	if (sb->fs_nrpos != 8 || sb->fs_cpc > 16) {
 		usptr = (u_int16_t *)((u_int8_t *)(sb) + (sb)->fs_postbloff);
 		size = sb->fs_cpc * sb->fs_nrpos;
-		byte_swap_shorts(usptr,size);	/* fs_postbloff */
+		byte_swap_shorts((short *)usptr,size);	/* fs_postbloff */
 	}
 
 	byte_swap_ints(((int32_t *)&sb->fs_firstfield), 52);
@@ -169,7 +169,7 @@ byte_swap_cgin(struct cg *cg, struct fs * fs)
 	byte_swap_int(cg->cg_nextfreeoff);
 	byte_swap_int(cg->cg_clusteroff);
 	byte_swap_int(cg->cg_nclusterblks);
-	byte_swap_ints(cg->cg_sparecon, 13);
+	byte_swap_ints((int *)&cg->cg_sparecon, 13);
 
 	byte_swap_int(cg->cg_btotoff);
 	if (cg->cg_btotoff < 0 || cg->cg_btotoff > sblock.fs_bsize) {
@@ -243,7 +243,7 @@ byte_swap_cgout(struct cg *cg, struct fs * fs)
 	byte_swap_int(cg->cg_freeoff);
 	byte_swap_int(cg->cg_nextfreeoff);
 	byte_swap_int(cg->cg_nclusterblks);
-	byte_swap_ints(cg->cg_sparecon, 13);
+	byte_swap_ints((int *)&cg->cg_sparecon, 13);
 
 	byte_swap_int(cg->cg_iusedoff);
 	byte_swap_int(cg->cg_clusteroff);

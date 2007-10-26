@@ -311,6 +311,8 @@ extern void pushlevel_class (void);
 extern void poplevel_class (void);
 extern tree pushdecl_with_scope (tree, cxx_scope *);
 extern tree lookup_name	(tree, int);
+/* APPLE LOCAL mainline lookup_name 4125055 */
+extern tree lookup_name_two (tree, int);
 extern tree lookup_name_real (tree, int, int, bool, int, int);
 extern tree lookup_type_scope (tree, tag_scope);
 extern tree namespace_binding (tree, tree);

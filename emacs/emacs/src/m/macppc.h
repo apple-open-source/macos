@@ -1,11 +1,12 @@
 /* machine description file For the powerpc Macintosh.
-   Copyright (C) 1994, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1994, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
 GNU Emacs is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
+the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
 GNU Emacs is distributed in the hope that it will be useful,
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Define WORDS_BIG_ENDIAN iff lowest-numbered byte in a word
    is the most significant byte.  */
@@ -51,15 +52,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define LOAD_AVE_CVT(x) (int) (((double) (x)) * 100.0 / FSCALE)
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#define HAVE_ALLOCA
-
 /* Some really obscure 4.2-based systems (like Sequent DYNIX)
  * do not support asynchronous I/O (using SIGIO) on sockets,
  * even though it works fine on tty's.  If you have one of
@@ -73,10 +65,6 @@ Boston, MA 02111-1307, USA.  */
  */
 
 /* #define NO_SOCK_SIGIO */
-
-#if defined(__OpenBSD__)
-#define ORDINARY_LINK
-#endif
 
 #define UNEXEC unexelf.o
 
@@ -95,11 +83,16 @@ Boston, MA 02111-1307, USA.  */
 
 #ifdef LINUX
 #define LINKER $(CC) -nostdlib
-#define LD_SWITCH_MACHINE -Xlinker -m -Xlinker elf32ppc
 /* s/gnu-linux.h defines this to `-z nocombreloc' which does not work here
    because prefix-args is not used.  */
 #undef LD_SWITCH_SYSTEM_TEMACS
 #define LD_SWITCH_MACHINE_TEMACS -Xlinker -znocombreloc
+#ifdef _ARCH_PPC64
+#undef START_FILES
+#define START_FILES pre-crt0.o /usr/lib64/crt1.o /usr/lib64/crti.o
+#undef LIB_STANDARD
+#define LIB_STANDARD -lgcc -lc -lgcc /usr/lib64/crtn.o
+#endif
 #endif
 
 #if 0  /* This breaks things on PPC GNU/Linux ecept for Yellowdog,
@@ -113,3 +106,12 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #endif
 #endif /* 0 */
+
+#ifdef _ARCH_PPC64
+#ifndef _LP64
+#define _LP64
+#endif
+#endif
+
+/* arch-tag: 41913e4e-e7d1-4023-aadb-210cc31712ed
+   (do not change this comment) */

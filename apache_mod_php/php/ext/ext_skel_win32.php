@@ -1,5 +1,5 @@
 <?php
-/* $Id: ext_skel_win32.php,v 1.1.2.2 2003/10/29 05:34:21 fmk Exp $ */
+/* $Id: ext_skel_win32.php,v 1.6 2003/10/29 05:42:05 fmk Exp $ */
 
 if (php_sapi_name() != "cli") {
 	echo "Please run this script using the CLI version of PHP\n";
@@ -45,6 +45,19 @@ if ($fp) {
 	$fp = fopen("$extname/$extname.dsp", "wb");
 	if ($fp) {
 		fwrite($fp, $dsp_file);
+		fclose($fp);
+	}
+}
+
+$fp = fopen("$extname/$extname.php", "rb");
+if ($fp) {
+	$php_file = fread($fp, filesize("$extname/$extname.php"));
+	fclose($fp);
+	
+	$php_file = str_replace("dl('", "dl('php_", $php_file);
+	$fp = fopen("$extname/$extname.php", "wb");
+	if ($fp) {
+		fwrite($fp, $php_file);
 		fclose($fp);
 	}
 }

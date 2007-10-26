@@ -72,7 +72,7 @@ int	getopt_long_only(int, char * const *, const char *,
 	const struct option *, int *);
 #ifndef _GETOPT
 #define	_GETOPT
-int	 getopt(int, char * const [], const char *);
+int	 getopt(int, char * const [], const char *) __DARWIN_ALIAS(getopt);
 
 extern char *optarg;			/* getopt(3) external variables */
 extern int optind, opterr, optopt;

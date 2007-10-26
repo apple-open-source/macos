@@ -2,7 +2,7 @@
 /*
  * addr-lex.l -- RFC 822 address lexer
  * Ken Murchison
- * $Id: addr-lex.l,v 1.4 2005/03/05 00:37:36 dasenbro Exp $
+ * $Id: addr-lex.l,v 1.9 2006/11/30 17:11:24 murch Exp $
  */
 /***********************************************************
         Copyright 1999 by Carnegie Mellon University
@@ -28,6 +28,7 @@ OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ******************************************************************/
 
 #include "addr.h"
+#include <stdlib.h>
 #include <string.h>
 
 #undef YY_INPUT

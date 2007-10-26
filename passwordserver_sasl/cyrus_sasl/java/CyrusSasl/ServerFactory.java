@@ -16,13 +16,8 @@ class ServerFactory implements SaslServerFactory
 
     public ServerFactory()
     {
-	initialized = init("javasasl application");
-
 	/* these parameters aren't needed for getting mech list */
-	if (initialized)
-	    localptr = jni_sasl_server_new("foo", 
-					   "bar",
-					   0);
+	localptr = jni_sasl_server_new("foo", "bar", 0);
     }
 
     private boolean init(String appname)
@@ -31,7 +26,8 @@ class ServerFactory implements SaslServerFactory
 	try {
 	    System.loadLibrary("javasasl");
 	} catch (UnsatisfiedLinkError e) {
-	    return false;
+	    /* xxx */
+	    System.out.println("Unable to load javasasl library");
 	}
 
 	jni_sasl_server_init(appname);
@@ -39,7 +35,9 @@ class ServerFactory implements SaslServerFactory
 	return true;
     }
 
-    private static boolean initialized = false;
+    {
+	init("javasasl application");
+    }
 
     public SaslServer createSaslServer(String mechanism,
 				       String protocol,
@@ -49,16 +47,6 @@ class ServerFactory implements SaslServerFactory
 	throws SaslException
     {
 	int cptr;
-
-	if (initialized == false) {
-	    /* TODO: This should only be done once, even if called in
-	     * multiple threads... */
-	    initialized = init("javasasl application");
-
-	    if (initialized == false) 
-		throw new SaslException("Unable to initialize sasl library",
-					new Throwable());
-	}
 
 	cptr = jni_sasl_server_new(protocol,
 				   serverName,

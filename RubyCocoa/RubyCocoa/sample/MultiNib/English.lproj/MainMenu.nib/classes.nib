@@ -1,0 +1,12 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {createWindowA = id; createWindowB = id; }; 
+            CLASS = ApplicationDelegate; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }
+    ); 
+    IBVersion = 1; 
+}

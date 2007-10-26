@@ -33,7 +33,6 @@ __private_extern__ void RepeatingAutoWakePrefsHaveChanged(void);
 __private_extern__ void RepeatingAutoWakeSleepWakeNotification(natural_t);
 
 /* For shutdown/sleep handling from AutoWakeScheduler.c */
-__private_extern__ void RepeatingAutoWakeTimeForPowerOff(void);
-__private_extern__ void RepeatingAutoWakeTimeForPowerOn(void);
+__private_extern__ void RepeatingAutoWakeRepeatingEventOcurred(CFDictionaryRef);
 
 #endif // _RepeatingAutoWake_h_

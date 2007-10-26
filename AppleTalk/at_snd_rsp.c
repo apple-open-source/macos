@@ -94,7 +94,7 @@ atp_sendrsp (fd, dest, xo, tid, resp)
 	NET_ASSIGN(ddphdr->dst_net, dest->net);
 	ddphdr->dst_node   	= dest->node;
 	ddphdr->dst_socket 	= dest->socket;
-	UAS_ASSIGN(atphdr->tid, tid);
+	UAS_ASSIGN_HTON(atphdr->tid, tid);
 	atphdr->xo	 	= xo;
 
 	/* We're ready to send the response buffers,

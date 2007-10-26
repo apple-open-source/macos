@@ -31,7 +31,9 @@ EAPIPAGES=EXSLT/APIconstructors.html EXSLT/APIfiles.html \
 EXTRA_DIST = 			\
 	api.xsl			\
 	apibuild.py		\
-	EXSLT/exslt.html	\
+	EXSLT/*.html		\
+	EXSLT/html/*.html	\
+	EXSLT/html/*.png	\
 	EXSLT/libexslt-api.xml	\
 	EXSLT/libexslt-refs.xml	\
 	libxslt-api.xml		\

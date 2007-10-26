@@ -36,4 +36,3 @@ int main(int argc, const char *argv[])
 	return SecTokendMain(argc, argv, token->callbacks(), token->support());
 }
 
-/* arch-tag: 5C6C5EC2-F306-11D8-B7E9-000A9595DEEE */

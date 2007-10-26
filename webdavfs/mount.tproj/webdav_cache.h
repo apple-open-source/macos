@@ -205,7 +205,7 @@ int nodecache_delete_invalid_directory_nodes(
 
 /*****************************************************************************/
 
-#ifdef DEBUG
+#if 0
 void nodecache_display_node_tree(void);
 void nodecache_display_file_cache(void);
 #endif

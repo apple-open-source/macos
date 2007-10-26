@@ -1,8 +1,8 @@
 /* operational.c - monitor backend operational attributes function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/operational.c,v 1.7.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/operational.c,v 1.14.2.3 2006/01/03 22:16:21 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Copyright 2001-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -37,28 +37,29 @@
 int
 monitor_back_operational(
 	Operation	*op,
-	SlapReply	*rs,
-	int		opattrs,
-	Attribute	**a )
+	SlapReply	*rs )
 {
-	Attribute	**aa = a;
+	Attribute	**ap;
 
-	assert( rs->sr_entry );
+	assert( rs->sr_entry != NULL );
 
-	if ( opattrs || ad_inlist( slap_schema.si_ad_hasSubordinates,
-				rs->sr_attrs ) ) {
+	for ( ap = &rs->sr_operational_attrs; *ap; ap = &(*ap)->a_next )
+		/* just count */ ;
+
+	if ( SLAP_OPATTRS( rs->sr_attr_flags ) ||
+			ad_inlist( slap_schema.si_ad_hasSubordinates, rs->sr_attrs ) )
+	{
 		int			hs;
-		struct monitorentrypriv	*mp;
+		monitor_entry_t	*mp;
 
-		mp = ( struct monitorentrypriv * )rs->sr_entry->e_private;
+		mp = ( monitor_entry_t * )rs->sr_entry->e_private;
 
-		assert( mp );
+		assert( mp != NULL );
 
 		hs = MONITOR_HAS_CHILDREN( mp );
-		*aa = slap_operational_hasSubordinate( hs );
-		if ( *aa != NULL ) {
-			aa = &(*aa)->a_next;
-		}
+		*ap = slap_operational_hasSubordinate( hs );
+		assert( *ap != NULL );
+		ap = &(*ap)->a_next;
 	}
 	
 	return 0;

@@ -28,13 +28,8 @@
 #ifndef	_COMMON_DIGEST_PRIV_H_
 #define _COMMON_DIGEST_PRIV_H_
 
+#include <CommonCrypto/CommonCryptoPriv.h>
 #include <CommonCrypto/CommonDigest.h>
-
-/* 
- * Changes from original source to current implementation 
- * flagged with this.
- */
-#define APPLE_COMMON_DIGEST	1
 
 /* MD2 */
 
@@ -69,5 +64,21 @@ typedef CC_LONG				MD5_LONG;
 #define SHA_LAST_BLOCK  	(SHA_CBLOCK-8)
 typedef CC_SHA1_CTX			SHA_CTX;
 typedef CC_LONG				SHA_LONG;
+
+/* 
+ * Macro to make an algorithm-specific one shot.
+ */
+#define CC_DIGEST_ONE_SHOT(fcnName, ctxName, initFcn, updateFcn, finalFcn)	\
+unsigned char * fcnName (const void *data, CC_LONG len, unsigned char *md) \
+{									\
+	ctxName ctx;					\
+	if(md == NULL) {				\
+		return NULL;				\
+	}								\
+	initFcn(&ctx);					\
+	updateFcn(&ctx, data, len);		\
+	finalFcn(md, &ctx);				\
+	return md;						\
+}
 
 #endif	/* _COMMON_DIGEST_PRIV_H_ */

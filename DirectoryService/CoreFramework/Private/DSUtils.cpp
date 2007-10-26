@@ -28,7 +28,9 @@
 #include "CLog.h"
 #include "DSUtils.h"
 #include "SharedConsts.h"
+#include "GetMACAddress.h"
 #include <DirectoryService/DirServicesConst.h>
+#include <DirectoryService/DirServicesConstPriv.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +38,77 @@
 #include <stdio.h>
 #include <mach/mach_time.h>	// for dsTimeStamp
 #include <syslog.h>			// for syslog()
+#include <sys/sysctl.h>		// for struct kinfo_proc and sysctl()
 
+
+typedef struct AuthMethodMap {
+	const char *name;
+	int value;
+} AuthMethodMap;
+
+AuthMethodMap gAuthMethodTable[] = 
+{
+	{ kDSStdAuthClearText, kAuthClearText },
+	{ kDSStdAuthNodeNativeClearTextOK, kAuthNativeClearTextOK },
+	{ kDSStdAuthNodeNativeNoClearText, kAuthNativeNoClearText },
+	{ kDSStdAuthCrypt, kAuthCrypt },
+	{ kDSStdAuth2WayRandom, kAuth2WayRandom },
+	{ kDSStdAuth2WayRandomChangePasswd, kAuth2WayRandomChangePass },
+	{ kDSStdAuthSMB_NT_Key, kAuthSMB_NT_Key },
+	{ kDSStdAuthSMB_LM_Key, kAuthSMB_LM_Key },
+	{ kDSStdAuthSecureHash, kAuthSecureHash },
+	{ kDSStdAuthReadSecureHash, kAuthReadSecureHash },
+	{ kDSStdAuthWriteSecureHash, kAuthWriteSecureHash },
+	{ kDSStdAuthSetPasswd, kAuthSetPasswd },
+	{ kDSStdAuthSetPasswdAsRoot, kAuthSetPasswdAsRoot },
+	{ kDSStdAuthSetComputerAcctPasswdAsRoot, kAuthSetComputerAcctPasswdAsRoot },
+	{ kDSStdAuthChangePasswd, kAuthChangePasswd },
+	{ kDSStdAuthAPOP, kAuthAPOP },
+	{ kDSStdAuthCRAM_MD5, kAuthCRAM_MD5 },
+	{ kDSStdAuthSetPolicy, kAuthSetPolicy },
+	{ kDSStdAuthWithAuthorizationRef, kAuthWithAuthorizationRef },
+	{ kDSStdAuthGetPolicy, kAuthGetPolicy },
+	{ kDSStdAuthGetGlobalPolicy, kAuthGetGlobalPolicy },
+	{ kDSStdAuthSetGlobalPolicy, kAuthSetGlobalPolicy },
+	{ "dsAuthMethodSetPasswd:dsAuthNodeNativeCanUseClearText", kAuthSetPasswdCheckAdmin },
+	{ kDSStdAuthSetPolicyAsRoot, kAuthSetPolicyAsRoot },
+	{ kDSStdAuthSetLMHash, kAuthSetLMHash },
+	{ "dsAuthMethodStandard:dsAuthVPN_MPPEMasterKeys", kAuthVPN_PPTPMasterKeys },
+	{ "dsAuthMethodStandard:dsAuthVPN_PPTPMasterKeys", kAuthVPN_PPTPMasterKeys },
+	{ kDSStdAuthMPPEMasterKeys, kAuthVPN_PPTPMasterKeys },
+	{ kDSStdAuthGetKerberosPrincipal, kAuthGetKerberosPrincipal },
+	{ kDSStdAuthGetEffectivePolicy, kAuthGetEffectivePolicy },
+	{ kDSStdAuthSetWorkstationPasswd, kAuthNTSetWorkstationPasswd },
+	{ kDSStdAuthSMBWorkstationCredentialSessionKey, kAuthSMBWorkstationCredentialSessionKey },
+	{ kDSStdAuthSetNTHash, kAuthSMB_NTUserSessionKey },
+	{ kDSStdAuthSMB_NT_UserSessionKey, kAuthSMB_NTUserSessionKey },
+	{ kDSStdAuthGetUserName, kAuthGetUserName },
+	{ kDSStdAuthSetUserName, kAuthSetUserName },
+	{ kDSStdAuthGetUserData, kAuthGetUserData },
+	{ kDSStdAuthSetUserData, kAuthSetUserData },
+	{ kDSStdAuthDeleteUser, kAuthDeleteUser },
+	{ kDSStdAuthNewUser, kAuthNewUser },
+	{ kDSStdAuthNewComputer, kAuthNewComputer },
+	{ kDSStdAuthNTLMv2, kAuthNTLMv2 },
+	{ kDSStdAuthMSCHAP2, kAuthMSCHAP2 },
+	{ kDSStdAuthDIGEST_MD5, kAuthDIGEST_MD5 },
+	{ kDSStdAuth2WayRandom, kAuth2WayRandom },
+	{ kDSStdAuth2WayRandomChangePasswd, kAuth2WayRandomChangePass },
+	{ kDSStdAuthSMB_NT_Key, kAuthSMB_NT_Key },
+	{ kDSStdAuthSMB_LM_Key, kAuthSMB_LM_Key },
+	{ kDSStdAuthNewUserWithPolicy, kAuthNewUserWithPolicy },
+	{ kDSStdAuthSetShadowHashWindows, kAuthSetShadowHashWindows },
+	{ kDSStdAuthSetShadowHashSecure, kAuthSetShadowHashSecure },
+	{ kDSStdAuthGetMethodsForUser, kAuthGetMethodListForUser },
+	{ kDSStdAuthSMB_NT_WithUserSessionKey, kAuthNTSessionKey },
+	{ kDSStdAuthKerberosTickets, kAuthKerberosTickets },
+	{ kDSStdAuthNTLMv2WithSessionKey, kAuthNTLMv2WithSessionKey },
+	{ "dsAuthMethodStandard:dsAuthMSLMCHAP2ChangePasswd", kAuthMSLMCHAP2ChangePasswd },
+	{ "dsAuthMethodStandard:dsAuthNodePPS", kAuthPPS },
+	{ kDSStdAuthNodeNativeRetainCredential, kAuthNativeRetainCredential },
+	{ kDSStdAuthSetCertificateHashAsRoot, kAuthSetCertificateHashAsRoot },
+	{ NULL, 0 }
+};
 
 
 //--------------------------------------------------------------------------------------------------
@@ -44,9 +116,9 @@
 //
 //--------------------------------------------------------------------------------------------------
 
-tDataBufferPtr dsDataBufferAllocatePriv ( unsigned long inBufferSize )
+tDataBufferPtr dsDataBufferAllocatePriv ( UInt32 inBufferSize )
 {
-	uInt32				size	= 0;
+	UInt32				size	= 0;
 	tDataBufferPtr		outBuff	= nil;
 
 	size = sizeof( tDataBufferPriv ) + inBufferSize;
@@ -163,12 +235,12 @@ tDirStatus dsDataListDeallocatePriv ( tDataListPtr inDataList  )
 char* dsGetPathFromListPriv ( tDataListPtr inDataList, const char *inDelimiter )
 {
 	char			   *outStr			= nil;
-	uInt32				uiSafetyCntr	= 0;
-	uInt32				uiStrLen		= 0;
+	UInt32				uiSafetyCntr	= 0;
+	UInt32				uiStrLen		= 0;
 	tDataNode		   *pCurrNode		= nil;
 	tDataBufferPriv	   *pPrivData		= nil;
 	char			   *prevStr			= nil;
-	uInt32				cStrLen			= 256;
+	UInt32				cStrLen			= 256;
 	char			   *nextStr			= nil;
 
 	if ( (inDataList == nil) || (inDelimiter == nil) )
@@ -240,9 +312,9 @@ tDataListPtr dsBuildFromPathPriv ( const char *inPathCString, const char *inPath
 	const char		   *inStr		= nil;
 	char			   *ptr			= nil;
 	const char		   *inDelim		= nil;
-	sInt32				delimLen	= 0;
+	SInt32				delimLen	= 0;
 	bool				done		= false;
-	sInt32				len			= 0;
+	SInt32				len			= 0;
 	tDataList		   *outDataList	= nil;
     char			   *cStr		= nil;
 
@@ -282,24 +354,20 @@ tDataListPtr dsBuildFromPathPriv ( const char *inPathCString, const char *inPath
 		ptr = ::strstr( inStr, inDelim );
 		if ( ptr == nil )
 		{
-			len = ::strlen( inStr );
-
-            cStr = (char *)calloc(len + 1, sizeof(char));
-            strncpy(cStr,inStr,len);
-
-            ::dsAppendStringToListAllocPriv( outDataList, cStr );
+			len = strlen( inStr );
+			cStr = strdup( inStr );
+			
+            dsAppendStringToListAllocPriv( outDataList, cStr );
             free(cStr);
-
+			
             done = true;
 		}
 		else
 		{
 			len = ptr - inStr;
-
-            cStr = (char *)calloc(len + 1, sizeof(char));
-            strncpy(cStr,inStr,len);
-
-            ::dsAppendStringToListAllocPriv( outDataList, cStr );
+			
+			cStr = dsCStrFromCharacters( inStr, len );
+			dsAppendStringToListAllocPriv( outDataList, cStr );
             free(cStr);
             
 			inStr += len + delimLen;
@@ -396,8 +464,8 @@ tDirStatus dsAppendStringToListAllocPriv (	tDataList	   *inOutDataList,
 
 tDataNodePtr dsAllocListNodeFromStringPriv ( const char *inString )
 {
-	uInt32				nodeSize	= 0;
-	uInt32				strLen		= 0;
+	UInt32				nodeSize	= 0;
+	UInt32				strLen		= 0;
 	tDataNode		   *pOutNode	= nil;
 	tDataBufferPriv	   *pPrivData	= nil;
 
@@ -429,9 +497,9 @@ tDataNodePtr dsAllocListNodeFromStringPriv ( const char *inString )
 //
 //--------------------------------------------------------------------------------------------------
 
-tDataNodePtr dsAllocListNodeFromBuffPriv ( const void *inData, const uInt32 inSize )
+tDataNodePtr dsAllocListNodeFromBuffPriv ( const void *inData, const UInt32 inSize )
 {
-	uInt32				nodeSize	= 0;
+	UInt32				nodeSize	= 0;
 	tDataNode		   *pOutNode	= nil;
 	tDataBufferPriv	   *pPrivData	= nil;
 
@@ -462,9 +530,9 @@ tDataNodePtr dsAllocListNodeFromBuffPriv ( const void *inData, const uInt32 inSi
 //
 //--------------------------------------------------------------------------------------------------
 
-tDataNodePtr dsGetThisNodePriv ( tDataNode *inFirsNode, const unsigned long inIndex )
+tDataNodePtr dsGetThisNodePriv ( tDataNode *inFirsNode, const UInt32 inIndex )
 {
-	uInt32				i			= 1;
+	UInt32				i			= 1;
 	tDataNode		   *pCurrNode	= nil;
 	tDataBufferPriv    *pPrivData	= nil;
 
@@ -593,7 +661,7 @@ tDirStatus dsAppendStringToListPriv ( tDataListPtr inOutDataList, const char *in
 //
 //--------------------------------------------------------------------------------------------------
 
-unsigned long dsDataListGetNodeCountPriv ( tDataListPtr inDataList )
+UInt32 dsDataListGetNodeCountPriv ( tDataListPtr inDataList )
 {
 	return( inDataList->fDataNodeCount );
 } // dsDataListGetNodeCountPriv
@@ -604,10 +672,10 @@ unsigned long dsDataListGetNodeCountPriv ( tDataListPtr inDataList )
 //
 //--------------------------------------------------------------------------------------------------
 
-unsigned long dsGetDataLengthPriv ( tDataListPtr inDataList )
+UInt32 dsGetDataLengthPriv ( tDataListPtr inDataList )
 {
 	bool				done		= false;
-	unsigned long		outStrLen	= 0;
+	UInt32				outStrLen	= 0;
 	tDataNodePtr		pCurrNode	= nil;
 	tDataBufferPriv    *pPrivData	= nil;
 
@@ -645,10 +713,10 @@ unsigned long dsGetDataLengthPriv ( tDataListPtr inDataList )
 //--------------------------------------------------------------------------------------------------
 
 tDirStatus dsDataListGetNodePriv ( tDataListPtr		inDataList,
-									unsigned long	inNodeIndex,
+									UInt32			inNodeIndex,
 									tDataNodePtr	*outDataListNode )
 {
-	uInt32				i			= 0;
+	UInt32				i			= 0;
 	tDirStatus			tdsResult	= eDSNoErr;
 	tDataNodePtr		pCurrNode	= nil;
 	tDataBufferPriv    *pPrivData	= nil;
@@ -695,9 +763,9 @@ tDirStatus dsDataListGetNodePriv ( tDataListPtr		inDataList,
 //--------------------------------------------------------------------------------------------------
 
 char* dsDataListGetNodeStringPriv (	tDataListPtr	inDataList,
-									unsigned long	inNodeIndex )
+									UInt32			inNodeIndex )
 {
-	uInt32				iSegment	= 0;
+	UInt32				iSegment	= 0;
 	tDataNodePtr		pCurrNode	= nil;
 	tDataBufferPriv    *pPrivData	= nil;
 	char			   *outSegStr	= nil;
@@ -760,7 +828,7 @@ tDataList* dsBuildListFromStringsPriv ( const char *in1stCString, ... )
 	tDirStatus			tdsResult	= eDSNoErr;
 	tDataList		   *pOutList	= nil;
 	const char		   *pStr		= nil;
-	uInt32				nodeCount	= 0;
+	UInt32				nodeCount	= 0;
 	tDataNodePtr		pCurrNode	= nil;
 	tDataNodePtr		pPrevNode	= nil;
 	tDataBufferPriv    *pPrivData	= nil;
@@ -839,11 +907,11 @@ tDataList* dsBuildListFromStringsPriv ( const char *in1stCString, ... )
 //--------------------------------------------------------------------------------------------------
 
 tDirStatus dsDataListGetNodeAllocPriv ( const tDataList		   *inDataList,
-										const unsigned long		inIndex,
+										const UInt32			inIndex,
 										tDataNode			  **outDataNode )
 {
 	tDirStatus			tResult			= eDSNoErr;
-	uInt32				uiLength		= 0;
+	UInt32				uiLength		= 0;
 	tDataBuffer		   *pOutDataNode	= nil;
 	tDataNode		   *pCurrNode		= nil;
 	tDataBufferPriv	   *pPrivData		= nil;
@@ -932,10 +1000,10 @@ tDataListPtr dsAuthBufferGetDataListAllocPriv ( tDataBufferPtr inAuthBuff )
 tDirStatus dsAuthBufferGetDataListPriv ( tDataBufferPtr inAuthBuff, tDataListPtr inOutDataList )
 {
 	char		   *pData			= nil;
-	uInt32			itemLen			= 0;
-	uInt32			offset			= 0;
-	uInt32			buffSize		= 0;
-	uInt32			buffLen			= 0;
+	UInt32			itemLen			= 0;
+	UInt32			offset			= 0;
+	UInt32			buffSize		= 0;
+	UInt32			buffLen			= 0;
 	tDirStatus			tResult		= eDSNoErr;
 	tDataNode		   *pCurrNode	= nil;
 	tDataNode		   *pPrevNode	= nil;
@@ -960,18 +1028,19 @@ tDirStatus dsAuthBufferGetDataListPriv ( tDataBufferPtr inAuthBuff, tDataListPtr
 	buffSize	= inAuthBuff->fBufferSize;
 	buffLen		= inAuthBuff->fBufferLength;
 
-	if (buffLen > buffSize) throw( (sInt32)eDSInvalidBuffFormat );
+	if (buffLen > buffSize)
+		return eDSInvalidBuffFormat;
 
 	while ( (offset < buffLen) && (tResult == eDSNoErr) )
 	{
-		if (offset + sizeof( unsigned long ) > buffLen)
+		if (offset + sizeof( UInt32 ) > buffLen)
 		{
 			tResult = eDSInvalidBuffFormat;
 			break;
 		}
-		::memcpy( &itemLen, pData, sizeof( unsigned long ) );
-		pData += sizeof( unsigned long );
-		offset += sizeof( unsigned long );
+		::memcpy( &itemLen, pData, sizeof( UInt32 ) );
+		pData += sizeof( UInt32 );
+		offset += sizeof( UInt32 );
 		if (itemLen + offset > buffLen)
 		{
 			tResult = eDSInvalidBuffFormat;
@@ -1037,13 +1106,32 @@ tDirStatus dsAuthBufferGetDataListPriv ( tDataBufferPtr inAuthBuff, tDataListPtr
 
 
 // --------------------------------------------------------------------------------
+//	dsCStrFromCharacters
+// --------------------------------------------------------------------------------
+
+char* dsCStrFromCharacters( const char *inChars, size_t inLen )
+{
+	register char *retVal = NULL;
+	
+	if ( inChars != NULL )
+	{
+		retVal = (char *) malloc( inLen + 1 );
+		if ( retVal != NULL )
+			strlcpy( retVal, inChars, inLen + 1 );
+	}
+	
+	return retVal;
+}
+
+
+// --------------------------------------------------------------------------------
 //	BinaryToHexConversion
 // --------------------------------------------------------------------------------
-void BinaryToHexConversion( const unsigned char *inBinary, unsigned long inLength, char *outHexStr )
+void BinaryToHexConversion( const unsigned char *inBinary, UInt32 inLength, char *outHexStr )
 {
     const unsigned char		   *sptr	= inBinary;
     char					   *tptr	= outHexStr;
-    unsigned long 				index	= 0;
+    UInt32						index	= 0;
     char 						high;
 	char						low;
     
@@ -1073,7 +1161,7 @@ void BinaryToHexConversion( const unsigned char *inBinary, unsigned long inLengt
 //	HexToBinaryConversion
 // --------------------------------------------------------------------------------
 
-void HexToBinaryConversion( const char *inHexStr, unsigned long *outLength, unsigned char *outBinary )
+void HexToBinaryConversion( const char *inHexStr, UInt32 *outLength, unsigned char *outBinary )
 {
     unsigned char	   *tptr = outBinary;
     unsigned char		val;
@@ -1110,8 +1198,8 @@ void HexToBinaryConversion( const char *inHexStr, unsigned long *outLength, unsi
 
 double dsTimestamp(void)
 {
-	static uint32_t	num		= 0;
-	static uint32_t	denom	= 0;
+	static UInt32	num		= 0;
+	static UInt32	denom	= 0;
 	uint64_t		now;
 	
 	if (denom == 0) 
@@ -1138,11 +1226,13 @@ double dsTimestamp(void)
 }
 
 
-tDirStatus dsGetAuthMethodEnumValue( tDataNode *inData, uInt32 *outAuthMethod )
+tDirStatus dsGetAuthMethodEnumValue( tDataNode *inData, UInt32 *outAuthMethod )
 {
 	tDirStatus		siResult			= eDSNoErr;
-	uInt32			uiNativeLen			= 0;
+	UInt32			uiNativeLen			= 0;
 	char		   *authMethodPtr		= NULL;
+	int				index				= 0;
+	bool			found				= false;
 	
 	if ( inData == NULL )
 	{
@@ -1152,222 +1242,24 @@ tDirStatus dsGetAuthMethodEnumValue( tDataNode *inData, uInt32 *outAuthMethod )
 	
 	authMethodPtr = (char *)inData->fBufferData;
 	
-	//DBGLOG1( kLogPlugin, "Using authentication method %s.", authMethodPtr );
+	//DbgLog( kLogPlugin, "Using authentication method %s.", authMethodPtr );
 	
-	if ( ::strcmp( authMethodPtr, kDSStdAuthClearText ) == 0 )
+	for ( index = 0; gAuthMethodTable[index].name != NULL; index++ )
 	{
-		// Clear text auth method
-		*outAuthMethod = kAuthClearText;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthNodeNativeClearTextOK ) == 0 )
-	{
-		// Node native auth method
-		*outAuthMethod = kAuthNativeClearTextOK;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthNodeNativeNoClearText ) == 0 )
-	{
-		// Node native auth method
-		*outAuthMethod = kAuthNativeNoClearText;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthCrypt ) == 0 )
-	{
-		// Unix Crypt auth method
-		*outAuthMethod = kAuthCrypt;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuth2WayRandom ) == 0 )
-	{
-		// Two way random auth method
-		*outAuthMethod = kAuth2WayRandom;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuth2WayRandomChangePasswd ) == 0 )
-	{
-		// Two way random auth method
-		*outAuthMethod = kAuth2WayRandomChangePass;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSMB_NT_Key ) == 0 )
-	{
-		// Two way random auth method
-		*outAuthMethod = kAuthSMB_NT_Key;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSMB_LM_Key ) == 0 )
-	{
-		// Two way random auth method
-		*outAuthMethod = kAuthSMB_LM_Key;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSecureHash ) == 0 )
-	{
-		// secure hash method
-		*outAuthMethod = kAuthSecureHash;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthReadSecureHash ) == 0 )
-	{
-		// secure hash method
-		*outAuthMethod = kAuthReadSecureHash;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthWriteSecureHash ) == 0 )
-	{
-		// secure hash method
-		*outAuthMethod = kAuthWriteSecureHash;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetPasswd ) == 0 )
-	{
-		// Admin set password
-		*outAuthMethod = kAuthSetPasswd;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetPasswdAsRoot ) == 0 )
-	{
-		// Admin set password
-		*outAuthMethod = kAuthSetPasswdAsRoot;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthChangePasswd ) == 0 )
-	{
-		// User change password
-		*outAuthMethod = kAuthChangePasswd;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthAPOP ) == 0 )
-	{
-		// APOP auth method
-		*outAuthMethod = kAuthAPOP;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthCRAM_MD5 ) == 0 )
-	{
-		// CRAM-MD5 auth method
-		*outAuthMethod = kAuthCRAM_MD5;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetPolicy ) == 0 )
-	{
-		*outAuthMethod = kAuthSetPolicy;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthWithAuthorizationRef ) == 0 )
-	{
-		*outAuthMethod = kAuthWithAuthorizationRef;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthGetPolicy ) == 0 )
-	{
-		*outAuthMethod = kAuthGetPolicy;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthGetGlobalPolicy ) == 0 )
-	{
-		*outAuthMethod = kAuthGetGlobalPolicy;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetGlobalPolicy ) == 0 )
-	{
-		*outAuthMethod = kAuthSetGlobalPolicy;
-	}
-	else if ( ::strcmp( authMethodPtr, "dsAuthMethodSetPasswd:dsAuthNodeNativeCanUseClearText" ) == 0 )
-	{
-		*outAuthMethod = kAuthSetPasswdCheckAdmin;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetPolicyAsRoot ) == 0 )
-	{
-		*outAuthMethod = kAuthSetPolicyAsRoot;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetLMHash ) == 0 )
-	{
-		*outAuthMethod = kAuthSetLMHash;
-	}
-	else if ( ::strcmp( authMethodPtr, "dsAuthMethodStandard:dsAuthVPN_MPPEMasterKeys" ) == 0 ||
-			  ::strcmp( authMethodPtr, "dsAuthMethodStandard:dsAuthVPN_PPTPMasterKeys" ) == 0 ||
-			  ::strcmp( authMethodPtr, kDSStdAuthMPPEMasterKeys ) == 0 )
-	{
-		*outAuthMethod = kAuthVPN_PPTPMasterKeys;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthGetKerberosPrincipal ) == 0 )
-	{
-		*outAuthMethod = kAuthGetKerberosPrincipal;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthGetEffectivePolicy ) == 0 )
-	{
-		*outAuthMethod = kAuthGetEffectivePolicy;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetWorkstationPasswd ) == 0 )
-	{
-		*outAuthMethod = kAuthNTSetWorkstationPasswd;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSMBWorkstationCredentialSessionKey ) == 0 ||
-			  ::strcmp( authMethodPtr, kDSStdAuthSetNTHash ) == 0 )
-	{
-		*outAuthMethod = kAuthSMBWorkstationCredentialSessionKey;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSMB_NT_UserSessionKey ) == 0 )
-	{
-		*outAuthMethod = kAuthSMB_NTUserSessionKey;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthGetUserName ) == 0 )
-	{
-		*outAuthMethod = kAuthGetUserName;
-	}
-    else if ( ::strcmp( authMethodPtr, kDSStdAuthSetUserName ) == 0 )
-	{
-		*outAuthMethod = kAuthSetUserName;
-	}
-    else if ( ::strcmp( authMethodPtr, kDSStdAuthGetUserData ) == 0 )
-	{
-		*outAuthMethod = kAuthGetUserData;
-	}
-    else if ( ::strcmp( authMethodPtr, kDSStdAuthSetUserData ) == 0 )
-	{
-		*outAuthMethod = kAuthSetUserData;
-	}
-    else if ( ::strcmp( authMethodPtr, kDSStdAuthDeleteUser ) == 0 )
-	{
-		*outAuthMethod = kAuthDeleteUser;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthNewUser ) == 0 )
-	{
-        *outAuthMethod = kAuthNewUser;
-    }
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthNTLMv2 ) == 0 )
-	{
-		*outAuthMethod = kAuthNTLMv2;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthMSCHAP2 ) == 0 )
-	{
-		*outAuthMethod = kAuthMSCHAP2;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthDIGEST_MD5 ) == 0 )
-	{
-		*outAuthMethod = kAuthDIGEST_MD5;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuth2WayRandom ) == 0 )
-	{
-		*outAuthMethod = kAuth2WayRandom;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuth2WayRandomChangePasswd ) == 0 )
-	{
-		*outAuthMethod = kAuth2WayRandomChangePass;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSMB_NT_Key ) == 0 )
-	{
-		*outAuthMethod = kAuthSMB_NT_Key;
-	}
-    else if ( ::strcmp( authMethodPtr, kDSStdAuthSMB_LM_Key ) == 0 )
-	{
-		*outAuthMethod = kAuthSMB_LM_Key;
-	}
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthNewUserWithPolicy ) == 0 )
-	{
-        *outAuthMethod = kAuthNewUserWithPolicy;
-    }
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetShadowHashWindows ) == 0 )
-	{
-        *outAuthMethod = kAuthSetShadowHashWindows;
-    }
-	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetShadowHashSecure ) == 0 )
-	{
-        *outAuthMethod = kAuthSetShadowHashSecure;
-    }
-	else if ( ::strcmp( authMethodPtr, "dsAuthMethodStandard:dsAuthNTWithSessionKey" ) == 0 )
-	{
-        *outAuthMethod = kAuthNTSessionKey;
-	}
-	else
-	{
-		uiNativeLen	= ::strlen( kDSNativeAuthMethodPrefix );
-
-		if ( ::strncmp( authMethodPtr, kDSNativeAuthMethodPrefix, uiNativeLen ) == 0 )
+		if ( strcmp(authMethodPtr, gAuthMethodTable[index].name) == 0 )
 		{
-			// User change password
+			*outAuthMethod = gAuthMethodTable[index].value;
+			found = true;
+			break;
+		}
+	}
+	
+	if ( !found )
+	{
+		uiNativeLen	= strlen( kDSNativeAuthMethodPrefix );
+
+		if ( strncmp( authMethodPtr, kDSNativeAuthMethodPrefix, uiNativeLen ) == 0 )
+		{
 			*outAuthMethod = kAuthNativeMethod;
 		}
 		else
@@ -1511,9 +1403,301 @@ const char* dsGetPatternMatchName ( tDirPatternMatch inPatternMatchEnum )
 			outString = "eDSDefaultNetworkNodes";
 			break;
 
+		case eDSCacheNodeName:
+			outString = "eDSCacheNodeName";
+			break;
+
 		default:
 			outString = "Pattern Match Unknown";
 	}
 	
 	return(outString);
 }
+
+char* dsGetNameForProcessID ( pid_t inPID )
+{
+	int mib []		= { CTL_KERN, KERN_PROC, KERN_PROC_PID, (int)inPID };
+	size_t ulSize	= 0;
+	char *procName	= nil;
+
+	// Look for a given pid
+	if (inPID > 1) {
+		struct kinfo_proc kpsInfo;
+		ulSize = sizeof (kpsInfo);
+		if (!::sysctl (mib, 4, &kpsInfo, &ulSize, NULL, 0)
+			&& (kpsInfo.kp_proc.p_pid == inPID))
+		{
+			if (kpsInfo.kp_proc.p_comm != NULL)
+			{
+				procName = (char *)calloc(1, 1+strlen(kpsInfo.kp_proc.p_comm));
+				strcpy(procName,kpsInfo.kp_proc.p_comm);
+			}
+		}
+	}
+
+	return( procName );
+}
+
+
+//--------------------------------------------------------------------------------------------------
+//	Name:	dsConvertAuthBufferToCFArray
+//
+//--------------------------------------------------------------------------------------------------
+
+CFArrayRef dsConvertAuthBufferToCFArray( tDataBufferPtr inAuthBuff )
+{
+	CFArrayRef itemArray = NULL;
+	tDataListPtr bufferItemListPtr = dsAuthBufferGetDataListAllocPriv( inAuthBuff );
+	if ( bufferItemListPtr != NULL )
+	{
+		itemArray = dsConvertDataListToCFArray( bufferItemListPtr );
+		dsDataListDeallocatePriv( bufferItemListPtr );
+		free( bufferItemListPtr );
+	}
+	
+	return itemArray;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+//	Name:	dsConvertDataListToCFArray
+//
+//--------------------------------------------------------------------------------------------------
+
+CFArrayRef dsConvertDataListToCFArray( tDataList *inDataList )
+{
+	CFMutableArrayRef   cfArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+	tDataBufferPriv     *dsDataNode  = (tDataBufferPriv *)(NULL != inDataList ? inDataList->fDataListHead : NULL);
+	
+	while( NULL != dsDataNode )
+	{
+		if( NULL != dsDataNode->fBufferData )
+		{
+			CFDataRef cfRef = CFDataCreate( kCFAllocatorDefault, (const UInt8 *) dsDataNode->fBufferData, dsDataNode->fBufferLength );
+			
+			if( NULL != cfRef )
+			{
+				CFArrayAppendValue( cfArray, cfRef );
+				
+				CFRelease( cfRef );
+				cfRef = NULL;
+			}
+		}
+		
+		dsDataNode = (tDataBufferPriv *)dsDataNode->fNextPtr;
+	}
+	
+	return cfArray;
+}
+
+tDataListPtr dsConvertCFArrayToDataList( CFArrayRef inArray )
+{
+	tDataListPtr    dsDataList  = dsDataListAllocatePriv();
+	
+	if( NULL != inArray )
+	{
+		tDataBufferPriv *pCurNodeData   = NULL;
+		CFIndex         iCount          = CFArrayGetCount( inArray );
+		CFIndex         ii;
+		
+		// extract values out of the CFArray into a tDataList
+		for( ii = 0; ii < iCount; ii++ )
+		{
+			CFTypeRef       cfRef           = CFArrayGetValueAtIndex( inArray, ii );
+			char            *pTempBuffer    = NULL;
+			Boolean         bDeallocBuffer  = FALSE;
+			uint32_t        uiLength        = 0;
+			
+			if( CFStringGetTypeID() == CFGetTypeID(cfRef) )
+			{
+				CFIndex iBufferSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength((CFStringRef)cfRef), kCFStringEncodingUTF8) + 1;
+				pTempBuffer         = (char *)malloc( iBufferSize );
+				
+				if( NULL != pTempBuffer )
+				{
+					CFStringGetCString( (CFStringRef) cfRef, pTempBuffer, iBufferSize, kCFStringEncodingUTF8 );
+					uiLength = strlen( pTempBuffer );
+					bDeallocBuffer = TRUE;
+				}
+			}
+			else if( CFDataGetTypeID() == CFGetTypeID(cfRef) )
+			{
+				uiLength = (uint32_t) CFDataGetLength( (CFDataRef) cfRef );
+				pTempBuffer = (char *) CFDataGetBytePtr( (CFDataRef) cfRef );
+			}
+			
+			if( NULL != pTempBuffer )
+			{
+				tDataBufferPriv *pNewNodeData = (tDataBufferPriv *)::calloc( sizeof(tDataBufferPriv) + uiLength, sizeof(char) );
+				if ( pNewNodeData != nil )
+				{
+					pNewNodeData->fBufferSize = uiLength;
+					pNewNodeData->fBufferLength = uiLength;
+					
+					bcopy( pTempBuffer, pNewNodeData->fBufferData, uiLength );
+					
+					// Get the new node's header and point it to the prevous end
+					pNewNodeData->fPrevPtr	= (tDataNodePtr) pCurNodeData;
+					
+					// Set the script code to ASCII
+					pNewNodeData->fScriptCode = kASCIICodeScript;
+				}
+				
+				// if we have a current node, means we are appending to the list
+				if( pCurNodeData != nil )
+					pCurNodeData->fNextPtr = (tDataNodePtr) pNewNodeData;
+				else
+					dsDataList->fDataListHead = (tDataNodePtr) pNewNodeData;
+				
+				if( TRUE == bDeallocBuffer )
+				{
+					free( pTempBuffer );
+					pTempBuffer = NULL;
+				}
+				
+				dsDataList->fDataNodeCount++;
+				
+				pCurNodeData = pNewNodeData;
+			}
+		}
+	}
+	
+	return dsDataList;
+}
+
+// ----------------------------------------------------------------------------------------
+//  dsCreateEventLogDict
+// ----------------------------------------------------------------------------------------
+
+CFMutableDictionaryRef dsCreateEventLogDict( CFStringRef inEventType, const char *inUser, CFDictionaryRef inDetails )
+{
+	CFMutableDictionaryRef eventDict = NULL;
+	
+	// add the service supplied items first so our event keys override collisions
+	if ( inDetails != NULL )
+		eventDict = CFDictionaryCreateMutableCopy( NULL, 0, inDetails );
+	else
+		eventDict = CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+
+	if ( eventDict == NULL )
+		return NULL;
+	
+	// add required items
+	CFDictionaryAddValue( eventDict, CFSTR("event_type"), inEventType );
+	CFStringRef userString = CFStringCreateWithCString( NULL, inUser, kCFStringEncodingUTF8 );
+	if ( userString != NULL ) {
+		CFDictionaryAddValue( eventDict, CFSTR("user"), userString );
+		CFRelease( userString );
+	}
+	
+	return eventDict;
+}
+
+
+// ----------------------------------------------------------------------------------------
+//  mkdir_p
+//
+//	Returns: 0=ok, -1=fail
+// ----------------------------------------------------------------------------------------
+
+static int mkdir_p( const char *path, mode_t mode )
+{
+	int err = 0;
+	char buffer[PATH_MAX];
+	char *segPtr;
+	char *inPtr;
+		
+	// make the directory
+	int len = snprintf( buffer, sizeof(buffer), "%s", path );
+	if ( len >= (int)sizeof(buffer) - 1 )
+		return -1;
+	
+	inPtr = buffer;
+	if ( *inPtr == '/' )
+		inPtr++;
+	while ( inPtr != NULL )
+	{
+		segPtr = strsep( &inPtr, "/" );
+		if ( segPtr != NULL )
+		{
+			err = mkdir( buffer, mode );
+			if ( err != 0 && errno != EEXIST )
+				break;
+			if ( err == 0 )
+				chmod( buffer, mode );
+			err = 0;
+			
+			if ( inPtr != NULL )
+				*(inPtr - 1) = '/';
+		}
+	}
+	
+	return err;
+}
+
+
+// ---------------------------------------------------------------------------
+//	dsCreatePrefsDirectory
+// ---------------------------------------------------------------------------
+
+int dsCreatePrefsDirectory( void )
+{
+	int err = 0;
+	mode_t saved_mask;
+    struct stat statResult;
+		
+	//step 1- see if the file exists
+	//if not then make sure the directories exist or create them
+	//then create a new file if necessary
+	err = stat( kDSLDAPPrefsDirPath, &statResult );
+	
+	//if path does not exist
+	if (err != 0)
+	{
+		saved_mask = umask( 0777 );
+		err = mkdir_p( kDSLDAPPrefsDirPath, 0755 );
+		umask( saved_mask );
+	}
+	
+	return err;
+}
+
+
+// ---------------------------------------------------------------------------
+//	* dsCreatePrefsFilename
+// ---------------------------------------------------------------------------
+
+CFStringRef dsCreatePrefsFilename( const char *inFileNameBase )
+{
+	CFStringRef		cfENetAddr			= NULL;
+	CFStringRef		fileString			= nil;
+	struct stat		statResult;
+	char			filenameStr[PATH_MAX];
+	
+	// this routine is used during reading and writing to ensure we use a specific config for this
+	// computer if it exists
+
+	if ( inFileNameBase == NULL )
+		return NULL;
+		
+	GetMACAddress( &cfENetAddr, NULL, false );
+	if ( cfENetAddr )
+	{
+		fileString = CFStringCreateWithFormat( NULL, NULL, CFSTR("%s/%s.%@.plist"),
+						inFileNameBase, kDSLDAPPrefsDirPath, cfENetAddr );
+		
+		DSCFRelease( cfENetAddr );
+		
+		if ( CFStringGetCString(fileString, filenameStr, sizeof(filenameStr), kCFStringEncodingUTF8) &&
+			 stat(filenameStr, &statResult) != 0 )
+		{
+			DSCFRelease( fileString );
+		}
+	}
+	
+	if ( fileString == NULL )
+		fileString = CFStringCreateWithCString( kCFAllocatorDefault, inFileNameBase, kCFStringEncodingUTF8 );
+	
+	return fileString;
+}
+

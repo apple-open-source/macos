@@ -54,7 +54,6 @@
  * SUCH DAMAGE.
  */
 
-
 #include <sys/param.h>
 #include <sys/time.h>
 
@@ -71,6 +70,15 @@
 
 extern void		ffs_fragacct __P((struct fs *, int, int32_t [], int));
 
+/*
+ * This define is used for the size of buf[] in pass5(), below.
+ *
+ * As I understand it, this at most one file system block.  And our current
+ * implementation limits the UFS block size to 4KiB.  So the number below
+ * is a very generous overestimate.
+ */
+#define UFS_MAX_BLOCK_SIZE (64 * 1024)
+
 void
 pass5()
 {
@@ -83,9 +91,16 @@ pass5()
 	struct csum *cs;
 	struct csum cstotal;
 	struct inodesc idesc[3];
-	char buf[MAXBSIZE];
-	register struct cg *newcg = (struct cg *)buf;
-	struct ocg *ocg = (struct ocg *)buf;
+	char *buf;
+	register struct cg *newcg = NULL;
+	struct ocg *ocg = NULL;
+
+	buf = malloc(UFS_MAX_BLOCK_SIZE);
+	if (buf == NULL)
+		errx(EEXIT, "CANNOT ALLOCATE CYLINDER GROUP BUFFER");
+	
+	newcg = (struct cg*)buf;
+	ocg = (struct ocg*)buf;
 
 	statemap[WINO] = USTATE;
 	memset(newcg, 0, (size_t)fs->fs_cgsize);
@@ -360,4 +375,6 @@ pass5()
 		fs->fs_fmod = 0;
 		sbdirty();
 	}
+	
+	free(buf);
 }

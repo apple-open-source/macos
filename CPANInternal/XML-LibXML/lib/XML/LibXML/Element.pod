@@ -1,0 +1,371 @@
+=head1 NAME
+
+XML::LibXML::Element - XML::LibXML Class for Element Nodes
+
+=head1 SYNOPSIS
+
+  $node = XML::LibXML::Element->new( $name )
+  $node->setAttribute( $aname, $avalue );
+  $node->setAttributeNS( $nsURI, $aname, $avalue );
+  $avalue = $node->getAttribute( $aname );
+  $avalue = $node->setAttributeNS( $nsURI, $aname );
+  $attrnode = $node->getAttributeNode( $aname );
+  $attrnode = $node->getAttributeNodeNS( $namespaceURI, $aname );
+  $node->removeAttribute( $aname );
+  $node->removeAttributeNS( $nsURI, $aname );
+  $boolean = $node->hasAttribute( $aname );
+  $boolean = $node->hasAttributeNS( $nsURI, $aname );
+  @nodes = $node->getChildrenByTagName($tagname);
+  @nodes = $node->getChildrenByTagNameNS($nsURI,$tagname);
+  @nodes = $node->;getElementsByTagName($tagname);
+  @nodes = $node->getElementsByTagNameNS($nsURI,$localname);
+  @nodes = $node->getElementsByLocalName($localname);
+  $node->appendWellBalancedChunk( $chunk )
+  $node->appendText( $PCDATA );
+  $node->appendTextNode( $PCDATA );
+  $node->appendTextChild( $childname , $PCDATA )
+  $node->setNamespace( $nsURI , $nsPrefix, $activate )
+
+
+=head1 DESCRIPTION
+
+=over 4
+
+=item B<new>
+
+  $node = XML::LibXML::Element->new( $name )
+
+This function creates a new node unbound to any DOM.
+
+
+
+=back
+
+=over 4
+
+=item B<setAttribute>
+
+  $node->setAttribute( $aname, $avalue );
+
+This method sets or replaces the node's attribute $aname to the value $avalue
+
+
+
+=back
+
+=over 4
+
+=item B<setAttributeNS>
+
+  $node->setAttributeNS( $nsURI, $aname, $avalue );
+
+Namespaceversion of setAttribute.
+
+
+
+=back
+
+=over 4
+
+=item B<getAttribute>
+
+  $avalue = $node->getAttribute( $aname );
+
+If $node has an attribute with the name $aname, the value of this attribute
+will get returned.
+
+
+
+=back
+
+=over 4
+
+=item B<getAttributeNS>
+
+  $avalue = $node->setAttributeNS( $nsURI, $aname );
+
+Namespaceversion of getAttribute.
+
+
+
+=back
+
+=over 4
+
+=item B<getAttributeNode>
+
+  $attrnode = $node->getAttributeNode( $aname );
+
+Returns the attribute as a node if the attribute exists. If the Attribute does
+not exists undef will be returned.
+
+
+
+=back
+
+=over 4
+
+=item B<getAttributeNodeNS>
+
+  $attrnode = $node->getAttributeNodeNS( $namespaceURI, $aname );
+
+Namespaceversion of getAttributeNode.
+
+
+
+=back
+
+=over 4
+
+=item B<removeAttribute>
+
+  $node->removeAttribute( $aname );
+
+The method removes the attribute $aname from the node's attribute list, if the
+attribute can be found.
+
+
+
+=back
+
+=over 4
+
+=item B<removeAttributeNS>
+
+  $node->removeAttributeNS( $nsURI, $aname );
+
+Namespace version of removeAttribute
+
+
+
+=back
+
+=over 4
+
+=item B<hasAttribute>
+
+  $boolean = $node->hasAttribute( $aname );
+
+This funcion tests if the named attribute is set for the node. If the attribute
+is specified, TRUE (1) will be returned, otherwise the returnvalue is FALSE
+(0).
+
+
+
+=back
+
+=over 4
+
+=item B<hasAttributeNS>
+
+  $boolean = $node->hasAttributeNS( $nsURI, $aname );
+
+namespace version of hasAttribute
+
+
+
+=back
+
+=over 4
+
+=item B<getChildrenByTagName>
+
+  @nodes = $node->getChildrenByTagName($tagname);
+
+The function gives direct access to all childnodes of the current node with the
+same tagname. It makes things a lot easier if you need to handle big datasets.
+
+If this function is called in SCALAR context, it returns the number of Elements
+found.
+
+
+
+=back
+
+=over 4
+
+=item B<getChildrenByTagNameNS>
+
+  @nodes = $node->getChildrenByTagNameNS($nsURI,$tagname);
+
+Namespace version of getChildrenByTagName.
+
+If this function is called in SCALAR context, it returns the number of Elements
+found.
+
+
+
+=back
+
+=over 4
+
+=item B<getElementsByTagName>
+
+  @nodes = $node->;getElementsByTagName($tagname);
+
+This function is part of the spec it fetches all descendants of a node with a
+given tagname. If one is as confused with tagname as I was, tagname is a
+qualified tagname which is in case of namespace useage prefix and local name
+
+In SCALAR context this function returns a XML::LibXML::NodeList object.
+
+
+
+=back
+
+=over 4
+
+=item B<getElementsByTagNameNS>
+
+  @nodes = $node->getElementsByTagNameNS($nsURI,$localname);
+
+Namespace version of getElementsByTagName as found in the DOM spec.
+
+In SCALAR context this function returns a XML::LibXML::NodeList object.
+
+
+
+=back
+
+=over 4
+
+=item B<getElementsByLocalName>
+
+  @nodes = $node->getElementsByLocalName($localname);
+
+This function is not found in the DOM specification. It is a mix of
+getElementsByTagName and getElementsByTagNameNS. It will fetch all tags
+matching the given local-name. This alows one to select tags with the same
+local name across namespace borders.
+
+In SCALAR context this function returns a XML::LibXML::NodeList object.
+
+
+
+=back
+
+=over 4
+
+=item B<appendWellBalancedChunk>
+
+  $node->appendWellBalancedChunk( $chunk )
+
+Sometimes it is nessecary to append a string coded XML Tree to a node.
+appendWellBalancedChunk will do the trick for you. But this is only done if the
+String is well-balanced.
+
+Note that appendWellBalancedChunk() is only left for compatibility reasons.
+Implicitly it uses
+
+   my $fragment = $parser->parse_xml_chunk( $chunk );
+   $node->appendChild( $fragment );
+
+This form is more explicit and makes it easier to control the flow of a script.
+
+
+
+=back
+
+=over 4
+
+=item B<appendText>
+
+  $node->appendText( $PCDATA );
+
+alias for appendTextNode().
+
+
+
+=back
+
+=over 4
+
+=item B<appendTextNode>
+
+  $node->appendTextNode( $PCDATA );
+
+This wrapper function lets you add a string directly to an element node.
+
+
+
+=back
+
+=over 4
+
+=item B<appendTextChild>
+
+  $node->appendTextChild( $childname , $PCDATA )
+
+Somewhat similar with appendTextNode: It lets you set an Element, that contains
+only a text node directly by specifying the name and the text content.
+
+
+
+=back
+
+=over 4
+
+=item B<setNamespace>
+
+  $node->setNamespace( $nsURI , $nsPrefix, $activate )
+
+setNamespace() allows one to apply a namespace to an element. The function
+takes three parameters: 1. the namespace URI, which is required and the two
+optional values prefix, which is the namespace prefix, as it should be used in
+child elements or attributes as well as the additional activate parameter.
+
+The activate parameter is most useful: If this parameter is set to FALSE (0),
+the namespace is simply added to the namespacelist of the node, while the
+element's namespace itself is not altered. Nevertheless activate is set to TRUE
+(1) on default. In this case the namespace automatically is used as the nodes
+effective namespace. This means the namespace prefix is added to the node name
+and if there was a namespace already active for the node, this will be replaced
+(but not removed from the global namespace list)
+
+The following example may clarify this:
+
+   my $e1 = $doc->createElement("bar");
+   $e1->setNamespace("http://foobar.org", "foo")
+
+results
+
+   <foo:bar xmlns:foo="http://foobar.org"/>
+
+while
+
+   my $e2 = $doc->createElement("bar");
+   $e2->setNamespace("http://foobar.org", "foo",0)
+
+results only
+
+   <bar xmlns:foo="http://foobar.org"/>
+
+By using $activate == 0 it is possible to apply multiple namepace declarations
+to a single element.
+
+Alternativly you can call setAttribute() simply to declare a new namespace for
+a node, without activating it:
+
+    $e2->setAttribute( "xmlns:foo", "http://bar.org" );
+
+has the same result as
+
+   $e2->setNamespace( "http://foobar.org", "foo", 0 );
+
+
+
+=back
+
+=head1 AUTHORS
+
+Matt Sergeant, 
+Christian Glahn, 
+=head1 VERSION
+
+1.58
+
+=head1 COPYRIGHT
+
+2001-2004, AxKit.com Ltd; 2002-2004 Christian Glahn, All rights reserved.
+
+=cut

@@ -12,7 +12,7 @@
 
 #include "gdfonts.h"
 
-char gdFontSmallData[] =
+static const char gdFontSmallData[] =
 {
 /* Char 0 */
   0, 0, 0, 0, 0, 0,
@@ -3863,7 +3863,7 @@ gdFont gdFontSmallRep =
   0,
   6,
   13,
-  gdFontSmallData
+  (char*)gdFontSmallData
 };
 
 gdFontPtr gdFontSmall = &gdFontSmallRep;

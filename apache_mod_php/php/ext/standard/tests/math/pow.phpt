@@ -1,9 +1,7 @@
 --TEST--
 Various pow() tests
---POST--
---GET--
 --FILE--
-<?php // $Id: pow.phpt,v 1.12.4.1 2003/09/24 02:29:12 iliaa Exp $
+<?php // $Id: pow.phpt,v 1.14 2004/05/19 08:45:22 helly Exp $
 
 define('LONG_MAX', is_int(5000000000)? 9223372036854775807 : 0x7FFFFFFF);
 define('LONG_MIN', -LONG_MAX - 1);

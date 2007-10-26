@@ -1,0 +1,208 @@
+# English translations for libidn package.
+# Copyright (C) 2005 Simon Josefsson
+# This file is distributed under the same license as the libidn package.
+# Automatically generated, 2005.
+#
+# All this catalog "translates" are quotation characters.
+# The msgids must be ASCII and therefore cannot contain real quotation
+# characters, only substitutes like grave accent (0x60), apostrophe (0x27)
+# and double quote (0x22). These substitutes look strange; see
+# http://www.cl.cam.ac.uk/~mgk25/ucs/quotes.html
+#
+# This catalog translates grave accent (0x60) and apostrophe (0x27) to
+# left single quotation mark (U+2018) and right single quotation mark (U+2019).
+# It also translates pairs of apostrophe (0x27) to
+# left single quotation mark (U+2018) and right single quotation mark (U+2019)
+# and pairs of quotation mark (0x22) to
+# left double quotation mark (U+201C) and right double quotation mark (U+201D).
+#
+# When output to an UTF-8 terminal, the quotation characters appear perfectly.
+# When output to an ISO-8859-1 terminal, the single quotation marks are
+# transliterated to apostrophes (by iconv in glibc 2.2 or newer) or to
+# grave/acute accent (by libiconv), and the double quotation marks are
+# transliterated to 0x22.
+# When output to an ASCII terminal, the single quotation marks are
+# transliterated to apostrophes, and the double quotation marks are
+# transliterated to 0x22.
+#
+# This catalog furthermore displays the text between the quotation marks in
+# bold face, assuming the VT100/XTerm escape sequences.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: libidn 0.6.0\n"
+"Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
+"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"PO-Revision-Date: 2005-12-03 11:36+0100\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Success"
+msgstr "Success"
+
+msgid "String preparation failed"
+msgstr "String preparation failed"
+
+msgid "Punycode failed"
+msgstr "Punycode failed"
+
+msgid "Non-digit/letter/hyphen in input"
+msgstr "Non-digit/letter/hyphen in input"
+
+msgid "Forbidden leading or trailing minus sign (`-')"
+msgstr "Forbidden leading or trailing minus sign (‘[1m-[0m’)"
+
+msgid "Output would be too large or too small"
+msgstr "Output would be too large or too small"
+
+msgid "Input does not start with ACE prefix (`xn--')"
+msgstr "Input does not start with ACE prefix (‘[1mxn--[0m’)"
+
+msgid "String not idempotent under ToASCII"
+msgstr "String not idempotent under ToASCII"
+
+msgid "Input already contain ACE prefix (`xn--')"
+msgstr "Input already contain ACE prefix (‘[1mxn--[0m’)"
+
+msgid "System iconv failed"
+msgstr "System iconv failed"
+
+msgid "Cannot allocate memory"
+msgstr "Cannot allocate memory"
+
+msgid "System dlopen failed"
+msgstr "System dlopen failed"
+
+msgid "Unknown error"
+msgstr "Unknown error"
+
+msgid "String not idempotent under Unicode NFKC normalization"
+msgstr "String not idempotent under Unicode NFKC normalization"
+
+msgid "Invalid input"
+msgstr "Invalid input"
+
+msgid "Output would exceed the buffer space provided"
+msgstr "Output would exceed the buffer space provided"
+
+msgid "String size limit exceeded"
+msgstr "String size limit exceeded"
+
+msgid "Forbidden unassigned code points in input"
+msgstr "Forbidden unassigned code points in input"
+
+msgid "Prohibited code points in input"
+msgstr "Prohibited code points in input"
+
+msgid "Conflicting bidirectional properties in input"
+msgstr "Conflicting bidirectional properties in input"
+
+msgid "Malformed bidirectional string"
+msgstr "Malformed bidirectional string"
+
+msgid "Prohibited bidirectional code points in input"
+msgstr "Prohibited bidirectional code points in input"
+
+msgid "Error in stringprep profile definition"
+msgstr "Error in stringprep profile definition"
+
+msgid "Flag conflict with profile"
+msgstr "Flag conflict with profile"
+
+msgid "Unknown profile"
+msgstr "Unknown profile"
+
+msgid "Unicode normalization failed (internal error)"
+msgstr "Unicode normalization failed (internal error)"
+
+msgid "Code points prohibited by top-level domain"
+msgstr "Code points prohibited by top-level domain"
+
+msgid "Missing input"
+msgstr "Missing input"
+
+msgid "No top-level domain found in input"
+msgstr "No top-level domain found in input"
+
+msgid "Only one of -s, -e, -d, -a or -u can be specified."
+msgstr "Only one of -s, -e, -d, -a or -u can be specified."
+
+#, c-format
+msgid "Charset `%s'.\n"
+msgstr "Charset ‘[1m%s[0m’.\n"
+
+#, c-format
+msgid ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+msgstr ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+
+msgid "Input error"
+msgstr "Input error"
+
+#, c-format
+msgid "Could not convert from %s to UTF-8."
+msgstr "Could not convert from %s to UTF-8."
+
+msgid "Could not convert from UTF-8 to UCS-4."
+msgstr "Could not convert from UTF-8 to UCS-4."
+
+#, c-format
+msgid "input[%d] = U+%04x\n"
+msgstr "input[%d] = U+%04x\n"
+
+#, c-format
+msgid "stringprep_profile: %s"
+msgstr "stringprep_profile: %s"
+
+#, c-format
+msgid "output[%d] = U+%04x\n"
+msgstr "output[%d] = U+%04x\n"
+
+#, c-format
+msgid "Could not convert from UTF-8 to %s."
+msgstr "Could not convert from UTF-8 to %s."
+
+#, c-format
+msgid "punycode_encode: %s"
+msgstr "punycode_encode: %s"
+
+msgid "malloc"
+msgstr "malloc"
+
+#, c-format
+msgid "punycode_decode: %s"
+msgstr "punycode_decode: %s"
+
+msgid "Could not convert from UCS-4 to UTF-8."
+msgstr "Could not convert from UCS-4 to UTF-8."
+
+#, c-format
+msgid "idna_to_ascii_4z: %s"
+msgstr "idna_to_ascii_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z (TLD): %s"
+msgstr "idna_to_unicode_8z4z (TLD): %s"
+
+#, c-format
+msgid "tld[%d] = U+%04x\n"
+msgstr "tld[%d] = U+%04x\n"
+
+#, c-format
+msgid "tld_check_4z (position %d): %s"
+msgstr "tld_check_4z (position %d): %s"
+
+#, c-format
+msgid "tld_check_4z: %s"
+msgstr "tld_check_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z: %s"
+msgstr "idna_to_unicode_8z4z: %s"

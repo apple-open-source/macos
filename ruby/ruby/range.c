@@ -2,8 +2,8 @@
 
   range.c -
 
-  $Author: matz $
-  $Date: 2004/10/19 10:25:20 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Thu Aug 19 17:46:47 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -29,11 +29,7 @@ static VALUE
 range_check(args)
     VALUE *args;
 {
-    VALUE v;
-
-    v = rb_funcall(args[0], id_cmp, 1, args[1]);
-    if (NIL_P(v)) range_failed();
-    return Qnil;
+    return rb_funcall(args[0], id_cmp, 1, args[1]);
 }
 
 static void
@@ -47,7 +43,10 @@ range_init(range, beg, end, exclude_end)
     args[1] = end;
     
     if (!FIXNUM_P(beg) || !FIXNUM_P(end)) {
-	rb_rescue(range_check, (VALUE)args, range_failed, 0);
+	VALUE v;
+
+	v = rb_rescue(range_check, (VALUE)args, range_failed, 0);
+	if (NIL_P(v)) range_failed();
     }
 
     SET_EXCL(range, exclude_end);
@@ -352,7 +351,7 @@ range_step(argc, argv, range)
 
 	    if (unit == 0) rb_raise(rb_eArgError, "step can't be 0");
 	    if (!rb_respond_to(b, id_succ)) {
-		rb_raise(rb_eTypeError, "cannot iterate from %s",
+		rb_raise(rb_eTypeError, "can't iterate from %s",
 			 rb_obj_classname(b));
 	    }
 	
@@ -400,7 +399,7 @@ range_each(range)
     end = rb_ivar_get(range, id_end);
 
     if (!rb_respond_to(beg, id_succ)) {
-	rb_raise(rb_eTypeError, "cannot iterate from %s",
+	rb_raise(rb_eTypeError, "can't iterate from %s",
 		 rb_obj_classname(beg));
     }
     if (FIXNUM_P(beg) && FIXNUM_P(end)) { /* fixnums are special */

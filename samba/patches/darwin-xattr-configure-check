@@ -1,0 +1,31 @@
+Index: PR-4838928/samba/source/configure.in
+===================================================================
+--- PR-4838928.orig/samba/source/configure.in
++++ PR-4838928/samba/source/configure.in
+@@ -1655,6 +1655,26 @@ case "$host_os" in
+     ;;
+ esac
+ 
++############################################
++# Check for MacOS version 10.5 streams support
++AC_CHECK_HEADER([sys/xattr.h],
++[
++    AC_CACHE_CHECK([for Darwin streams support],
++	[samba_cv_WITH_DARWIN_STREAMS],
++	[
++	    AC_TRY_LINK([#include <sys/xattr.h>],
++	    [ return (strlen(XATTR_RESOURCEFORK_NAME) > 0); ],
++	    samba_cv_WITH_DARWIN_STREAMS=yes,
++	    samba_cv_WITH_DARWIN_STREAMS=no)
++	])
++    if test x"$samba_cv_WITH_DARWIN_STREAMS" = x"yes"; then
++	AC_DEFINE(WITH_DARWIN_STREAMS,1,[Whether Darwin streams available])
++	AC_MSG_RESULT(yes)
++    else
++	AC_MSG_RESULT(no)
++    fi
++])
++
+ # Assume non-shared by default and override below
+ BLDSHARED="false"
+ 

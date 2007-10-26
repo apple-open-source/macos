@@ -78,7 +78,7 @@
 #include <libkern/OSByteOrder.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOCDMedia.h>
-#include "../disklib/mntopts.h"
+#include <mntopts.h>
 
 /*
  * Minutes, Seconds, Frames (M:S:F)
@@ -315,7 +315,7 @@ get_ssector(char *devpath)
 
 					if ((dp = strrchr(devpath, '/')) == 0)
 						continue;
-					sprintf(rawname, "/dev/r%s", dp + 1);
+					snprintf(rawname, sizeof(rawname), "/dev/r%s", dp + 1);
 					rawfd = open(rawname, O_RDONLY | O_NDELAY , 0);
 					if (rawfd <= 0)
 						continue;

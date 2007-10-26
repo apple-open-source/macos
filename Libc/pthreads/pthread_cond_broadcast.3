@@ -40,12 +40,13 @@
 .Sh DESCRIPTION
 The
 .Fn pthread_cond_broadcast
-function unblocks all threads waiting for the condition variable
+function unblocks all threads that are waiting for the condition variable
 .Fa cond .
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_cond_broadcast
-function will return zero, otherwise an error number will be returned
+function will return zero.
+Otherwise, an error number will be returned
 to indicate the error.
 .Sh ERRORS
 .Fn pthread_cond_broadcast

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +23,9 @@
 
 /*
  * Modification History
+ *
+ * June 13, 2005		Allan Nathanson <ajn@apple.com>
+ * - added SCPreferences support
  *
  * August 4, 2004		Allan Nathanson <ajn@apple.com>
  * - added network configuration (prefs) support
@@ -70,6 +73,7 @@
 #define LINE_LENGTH 256
 
 
+__private_extern__ AuthorizationRef	authorization	= NULL;
 __private_extern__ InputRef		currentInput	= NULL;
 __private_extern__ int			nesting		= 0;
 __private_extern__ CFRunLoopRef		notifyRl	= NULL;
@@ -91,6 +95,7 @@ static const struct option longopts[] = {
 	{ "get",		required_argument,	NULL,	0	},
 	{ "help",		no_argument,		NULL,	'?'	},
 	{ "net",		no_argument,		NULL,	0	},
+	{ "prefs",		no_argument,		NULL,	0	},
 	{ "proxy",		no_argument,		NULL,	0	},
 	{ "set",		required_argument,	NULL,	0	},
 	{ NULL,			0,			NULL,	0	}
@@ -132,6 +137,7 @@ getLine(char *buf, int len, InputRef src)
 
 		history(src->h, &ev, H_ENTER, buf);
 	}
+
 
 	return buf;
 }
@@ -243,6 +249,9 @@ usage(const char *command)
 	SCPrint(TRUE, stderr, CFSTR("usage: %s\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tinteractive access to the dynamic store.\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --prefs\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tinteractive access to the [raw] stored preferences.\n"));
+	SCPrint(TRUE, stderr, CFSTR("\n"));
 	SCPrint(TRUE, stderr, CFSTR("   or: %s -r nodename\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("   or: %s -r address\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("   or: %s -r local-address remote-address\n"), command);
@@ -256,7 +265,7 @@ usage(const char *command)
 	SCPrint(TRUE, stderr, CFSTR("   or: %s --set pref [newval]\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tpref\tdisplay (or set) the specified preference.  Valid preferences\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\tinclude:\n"));
-	SCPrint(TRUE, stderr, CFSTR("\t\t\tComputerName, LocalHostName\n"));
+	SCPrint(TRUE, stderr, CFSTR("\t\t\tComputerName, LocalHostName, HostName\n"));
 	SCPrint(TRUE, stderr, CFSTR("\tnewval\tNew preference value to be set.  If not specified,\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\tthe new value will be read from standard input.\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
@@ -286,15 +295,16 @@ prompt(EditLine *el)
 int
 main(int argc, char * const argv[])
 {
-	Boolean			dns	= FALSE;
+	Boolean			doDNS	= FALSE;
+	Boolean			doNet	= FALSE;
+	Boolean			doPrefs	= FALSE;
+	Boolean			doProxy	= FALSE;
+	Boolean			doReach	= FALSE;
 	char			*get	= NULL;
-	Boolean			net	= FALSE;
 	extern int		optind;
 	int			opt;
 	int			opti;
 	const char		*prog	= argv[0];
-	Boolean			proxy	= FALSE;
-	Boolean			reach	= FALSE;
 	char			*set	= NULL;
 	InputRef		src;
 	int			timeout	= 15;	/* default timeout (in seconds) */
@@ -317,7 +327,7 @@ main(int argc, char * const argv[])
 			enablePrivateAPI = TRUE;
 			break;
 		case 'r':
-			reach = TRUE;
+			doReach = TRUE;
 			xStore++;
 			break;
 		case 't':
@@ -329,16 +339,19 @@ main(int argc, char * const argv[])
 			break;
 		case 0:
 			if        (strcmp(longopts[opti].name, "dns") == 0) {
-				dns = TRUE;
+				doDNS = TRUE;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "get") == 0) {
 				get = optarg;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "net") == 0) {
-				net = TRUE;
+				doNet = TRUE;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "prefs") == 0) {
+				doPrefs = TRUE;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "proxy") == 0) {
-				proxy = TRUE;
+				doProxy = TRUE;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "set") == 0) {
 				set = optarg;
@@ -358,7 +371,7 @@ main(int argc, char * const argv[])
 	}
 
 	/* are we checking the reachability of a host/address */
-	if (reach) {
+	if (doReach) {
 		if ((argc < 1) || (argc > 2)) {
 			usage(prog);
 		}
@@ -373,7 +386,7 @@ main(int argc, char * const argv[])
 	}
 
 	/* are we looking up the DNS configuration */
-	if (dns) {
+	if (doDNS) {
 		do_showDNSConfiguration(argc, (char **)argv);
 		/* NOT REACHED */
 	}
@@ -388,7 +401,7 @@ main(int argc, char * const argv[])
 	}
 
 	/* are we looking up the proxy configuration */
-	if (proxy) {
+	if (doProxy) {
 		do_showProxyConfiguration(argc, (char **)argv);
 		/* NOT REACHED */
 	}
@@ -402,10 +415,10 @@ main(int argc, char * const argv[])
 		/* NOT REACHED */
 	}
 
-	if (net) {
+	if (doNet) {
 		/* if we are going to be managing the network configuration */
-		commands  = (cmdInfo *)commands_prefs;
-		nCommands = nCommands_prefs;
+		commands  = (cmdInfo *)commands_net;
+		nCommands = nCommands_net;
 
 		if (!getenv("ENABLE_EXPERIMENTAL_SCUTIL_COMMANDS")) {
 			usage(prog);
@@ -413,6 +426,14 @@ main(int argc, char * const argv[])
 
 		do_net_init();		/* initialization */
 		do_net_open(0, NULL);	/* open default prefs */
+	} else if (doPrefs) {
+		/* if we are going to be managing the network configuration */
+		commands  = (cmdInfo *)commands_prefs;
+		nCommands = nCommands_prefs;
+
+		do_dictInit(0, NULL);	/* start with an empty dictionary */
+		do_prefs_init();	/* initialization */
+		do_prefs_open(0, NULL);	/* open default prefs */
 	} else {
 		/* if we are going to be managing the dynamic store */
 		commands  = (cmdInfo *)commands_store;

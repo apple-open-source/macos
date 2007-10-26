@@ -29,24 +29,17 @@
 #include <mach/mach.h>
 #include <stdio.h>
 #include <string.h>
-#include <rpc/types.h>
-#include <rpc/xdr.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
-
-#include "_lu_types.h"
-#include "lookup.h"
 #include "lu_utils.h"
 
 #define SERVICE_CACHE_SIZE 10
-#define DEFAULT_SERVICE_CACHE_TTL 10
 
 static pthread_mutex_t _service_cache_lock = PTHREAD_MUTEX_INITIALIZER;
 static void *_service_cache[SERVICE_CACHE_SIZE] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
-static unsigned int _service_cache_best_before[SERVICE_CACHE_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 static unsigned int _service_cache_index = 0;
-static unsigned int _service_cache_ttl = DEFAULT_SERVICE_CACHE_TTL;
+static unsigned int _service_cache_init = 0;
 
 static pthread_mutex_t _service_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -61,264 +54,146 @@ extern void _old_setservent();
 extern void _old_endservent();
 extern void _old_setservfile();
 
-static void
-free_service_data(struct servent *s)
-{
-	char **aliases;
-
-	if (s == NULL) return;
-
-	if (s->s_name != NULL) free(s->s_name);
-	if (s->s_proto != NULL) free(s->s_proto);
-
-	aliases = s->s_aliases;
-	if (aliases != NULL)
-	{
-		while (*aliases != NULL) free(*aliases++);
-		free(s->s_aliases);
-	}
-}
-
-static void
-free_service(struct servent *s)
-{
-	if (s == NULL) return;
-	free_service_data(s);
-	free(s);
-}
-
-static void
-free_lu_thread_info_service(void *x)
-{
-	struct lu_thread_info *tdata;
-
-	if (x == NULL) return;
-
-	tdata = (struct lu_thread_info *)x;
-	
-	if (tdata->lu_entry != NULL)
-	{
-		free_service((struct servent *)tdata->lu_entry);
-		tdata->lu_entry = NULL;
-	}
-
-	_lu_data_free_vm_xdr(tdata);
-
-	free(tdata);
-}
-
-static struct servent *
-extract_service(XDR *xdr, const char *proto)
-{
-	struct servent *s;
-	int i, j, nvals, nkeys, status;
-	char *key, **vals;
-
-	if (xdr == NULL) return NULL;
-
-	if (!xdr_int(xdr, &nkeys)) return NULL;
-
-	s = (struct servent *)calloc(1, sizeof(struct servent));
-
-	for (i = 0; i < nkeys; i++)
-	{
-		key = NULL;
-		vals = NULL;
-		nvals = 0;
-
-		status = _lu_xdr_attribute(xdr, &key, &vals, &nvals);
-		if (status < 0)
-		{
-			free_service(s);
-			return NULL;
-		}
-
-		if (nvals == 0)
-		{
-			free(key);
-			continue;
-		}
-
-		j = 0;
-
-		if ((s->s_name == NULL) && (!strcmp("name", key)))
-		{
-			s->s_name = vals[0];
-			if (nvals > 1)
-			{
-				s->s_aliases = (char **)calloc(nvals, sizeof(char *));
-				for (j = 1; j < nvals; j++) s->s_aliases[j-1] = vals[j];
-			}
-			j = nvals;
-		}		
-		else if ((s->s_proto == NULL) && (!strcmp("protocol", key)))
-		{
-			if ((proto == NULL) || (proto[0] == '\0'))
-			{
-				s->s_proto = vals[0];
-				j = 1;
-			}
-			else
-			{
-				s->s_proto = strdup(proto);
-			}
-		}
-		else if ((s->s_port == 0) && (!strcmp("port", key)))
-		{
-			s->s_port = htons(atoi(vals[0]));
-		}
-		
-		free(key);
-		if (vals != NULL)
-		{
-			for (; j < nvals; j++) free(vals[j]);
-			free(vals);
-		}
-	}
-
-	if (s->s_name == NULL) s->s_name = strdup("");
-	if (s->s_proto == NULL) s->s_proto = strdup("");
-	if (s->s_aliases == NULL) s->s_aliases = (char **)calloc(1, sizeof(char *));
-
-	return s;
-}
+#define ENTRY_SIZE sizeof(struct servent)
+#define ENTRY_KEY _li_data_key_service
 
 static struct servent *
 copy_service(struct servent *in)
 {
-	int i, len;
-	struct servent *s;
+	if (in == NULL) return NULL;
+
+	return LI_ils_create("s*4s", in->s_name, in->s_aliases, in->s_port, in->s_proto);
+}
+
+/*
+ * Extract the next service entry from a kvarray.
+ */
+static void *
+extract_service(kvarray_t *in)
+{
+	struct servent tmp;
+	uint32_t d, k, kcount;
+	char *empty[1];
 
 	if (in == NULL) return NULL;
 
-	s = (struct servent *)calloc(1, sizeof(struct servent));
+	d = in->curr;
+	in->curr++;
 
-	s->s_name = LU_COPY_STRING(in->s_name);
+	if (d >= in->count) return NULL;
 
-	len = 0;
-	if (in->s_aliases != NULL)
+	empty[0] = NULL;
+	memset(&tmp, 0, ENTRY_SIZE);
+
+	kcount = in->dict[d].kcount;
+
+	for (k = 0; k < kcount; k++)
 	{
-		for (len = 0; in->s_aliases[len] != NULL; len++);
-	}
-
-	s->s_aliases = (char **)calloc(len + 1, sizeof(char *));
-	for (i = 0; i < len; i++)
-	{
-		s->s_aliases[i] = strdup(in->s_aliases[i]);
-	}
-
-	s->s_proto = LU_COPY_STRING(in->s_proto);
-	s->s_port = in->s_port;
-
-	return s;
-}
-
-static void
-recycle_service(struct lu_thread_info *tdata, struct servent *in)
-{
-	struct servent *s;
-
-	if (tdata == NULL) return;
-	s = (struct servent *)tdata->lu_entry;
-
-	if (in == NULL)
-	{
-		free_service(s);
-		tdata->lu_entry = NULL;
-	}
-
-	if (tdata->lu_entry == NULL)
-	{
-		tdata->lu_entry = in;
-		return;
-	}
-
-	free_service_data(s);
-
-	s->s_name = in->s_name;
-	s->s_aliases = in->s_aliases;
-	s->s_proto = in->s_proto;
-	s->s_port = in->s_port;
-
-	free(in);
-}
-
-__private_extern__ unsigned int
-get_service_cache_ttl()
-{
-	return _service_cache_ttl;
-}
-
-__private_extern__ void
-set_service_cache_ttl(unsigned int ttl)
-{
-	int i;
-
-	pthread_mutex_lock(&_service_cache_lock);
-
-	_service_cache_ttl = ttl;
-
-	if (ttl == 0)
-	{
-		for (i = 0; i < SERVICE_CACHE_SIZE; i++)
+		if (!strcmp(in->dict[d].key[k], "s_name"))
 		{
-			if (_service_cache[i] == NULL) continue;
+			if (tmp.s_name != NULL) continue;
+			if (in->dict[d].vcount[k] == 0) continue;
 
-			free_service((struct servent *)_service_cache[i]);
-			_service_cache[i] = NULL;
-			_service_cache_best_before[i] = 0;
+			tmp.s_name = (char *)in->dict[d].val[k][0];
+		}
+		else if (!strcmp(in->dict[d].key[k], "s_aliases"))
+		{
+			if (tmp.s_aliases != NULL) continue;
+			if (in->dict[d].vcount[k] == 0) continue;
+
+			tmp.s_aliases = (char **)in->dict[d].val[k];
+		}
+		else if (!strcmp(in->dict[d].key[k], "s_port"))
+		{
+			if (in->dict[d].vcount[k] == 0) continue;
+			tmp.s_port = htons(atoi(in->dict[d].val[k][0]));
+		}
+		else if (!strcmp(in->dict[d].key[k], "s_proto"))
+		{
+			if (tmp.s_proto != NULL) continue;
+			if (in->dict[d].vcount[k] == 0) continue;
+
+			tmp.s_proto = (char *)in->dict[d].val[k][0];
 		}
 	}
 
-	pthread_mutex_unlock(&_service_cache_lock);
+	if (tmp.s_name == NULL) tmp.s_name = "";
+	if (tmp.s_proto == NULL) tmp.s_proto = "";
+	if (tmp.s_aliases == NULL) tmp.s_aliases = empty;
+
+	return copy_service(&tmp);
 }
 
 static void
 cache_service(struct servent *s)
 {
-	struct timeval now;
 	struct servent *scache;
 
-	if (_service_cache_ttl == 0) return;
 	if (s == NULL) return;
 
 	pthread_mutex_lock(&_service_cache_lock);
 
 	scache = copy_service(s);
-
-	gettimeofday(&now, NULL);
         
-	if (_service_cache[_service_cache_index] != NULL)
-		free_service((struct servent *)_service_cache[_service_cache_index]);
-
+	if (_service_cache[_service_cache_index] != NULL) LI_ils_free(_service_cache[_service_cache_index], ENTRY_SIZE);
 	_service_cache[_service_cache_index] = scache;
-	_service_cache_best_before[_service_cache_index] = now.tv_sec + _service_cache_ttl;
 	_service_cache_index = (_service_cache_index + 1) % SERVICE_CACHE_SIZE;
+
+	_service_cache_init = 1;
 
 	pthread_mutex_unlock(&_service_cache_lock);
 }
+
+static int
+service_cache_check()
+{
+	uint32_t i, status;
+
+	/* don't consult cache if it has not been initialized */
+	if (_service_cache_init == 0) return 1;
+
+	status = LI_L1_cache_check(ENTRY_KEY);
+
+	/* don't consult cache if it is disabled or if we can't validate */
+	if ((status == LI_L1_CACHE_DISABLED) || (status == LI_L1_CACHE_FAILED)) return 1;
+
+	/* return 0 if cache is OK */
+	if (status == LI_L1_CACHE_OK) return 0;
+
+	/* flush cache */
+	pthread_mutex_lock(&_service_cache_lock);
+
+	for (i = 0; i < SERVICE_CACHE_SIZE; i++)
+	{
+		LI_ils_free(_service_cache[i], ENTRY_SIZE);
+		_service_cache[i] = NULL;
+	}
+
+	_service_cache_index = 0;
+
+	pthread_mutex_unlock(&_service_cache_lock);
+
+	/* don't consult cache - it's now empty */
+	return 1;
+}
+
 
 static struct servent *
 cache_getservbyname(const char *name, const char *proto)
 {
 	int i;
 	struct servent *s, *res;
-	struct timeval now;
 	char **aliases;
 
-	if (_service_cache_ttl == 0) return NULL;
 	if (name == NULL) return NULL;
+	if (service_cache_check() != 0) return NULL;
 
 	pthread_mutex_lock(&_service_cache_lock);
 
-	gettimeofday(&now, NULL);
-
 	for (i = 0; i < SERVICE_CACHE_SIZE; i++)
 	{
-		if (_service_cache_best_before[i] == 0) continue;
-		if ((unsigned int)now.tv_sec > _service_cache_best_before[i]) continue;
-
 		s = (struct servent *)_service_cache[i];
+		if (s == NULL) continue;
 
 		if (s->s_name != NULL) 
 		{
@@ -363,20 +238,15 @@ cache_getservbyport(int port, const char *proto)
 {
 	int i;
 	struct servent *s, *res;
-	struct timeval now;
 
-	if (_service_cache_ttl == 0) return NULL;
+	if (service_cache_check() != 0) return NULL;
 
 	pthread_mutex_lock(&_service_cache_lock);
 
-	gettimeofday(&now, NULL);
-
 	for (i = 0; i < SERVICE_CACHE_SIZE; i++)
 	{
-		if (_service_cache_best_before[i] == 0) continue;
-		if ((unsigned int)now.tv_sec > _service_cache_best_before[i]) continue;
-
 		s = (struct servent *)_service_cache[i];
+		if (s == NULL) continue;
 
 		if (port == s->s_port)
 		{
@@ -394,258 +264,108 @@ cache_getservbyport(int port, const char *proto)
 }
 
 static struct servent *
-lu_getservbyport(int port, const char *proto)
+ds_getservbyport(int port, const char *proto)
 {
-	struct servent *s;
-	unsigned int datalen;
-	XDR outxdr, inxdr;
+	struct servent *entry;
+	kvbuf_t *request;
+	kvarray_t *reply;
+	kern_return_t status;
 	static int proc = -1;
-	char output_buf[_LU_MAXLUSTRLEN + 3 * BYTES_PER_XDR_UNIT];
-	char *lookup_buf;
-	int count;
+	uint16_t sport;
+	char val[16];
 
 	if (proc < 0)
 	{
-		if (_lookup_link(_lu_port, "getservbyport", &proc) != KERN_SUCCESS)
-		{
-			return NULL;
-		}
+		status = LI_DSLookupGetProcedureNumber("getservbyport", &proc);
+		if (status != KERN_SUCCESS) return NULL;
 	}
 
-	/* Encode NULL for xmission to lookupd. */
-	if (proto == NULL) proto = "";	
-
-	/* convert to host order */
-	port = ntohs(port);
-
-	xdrmem_create(&outxdr, output_buf, sizeof(output_buf), XDR_ENCODE);
-	if (!xdr_int(&outxdr, &port) || !xdr__lu_string(&outxdr, (_lu_string *)&proto))
-	{
-		xdr_destroy(&outxdr);
-		return NULL;
-	}
-
-	datalen = 0;
-	lookup_buf = NULL;
-
-	if (_lookup_all(_lu_port, proc, (unit *)output_buf, 
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen)
-		!= KERN_SUCCESS)
-	{
-		xdr_destroy(&outxdr);
-		return NULL;
-	}
-
-	xdr_destroy(&outxdr);
-
-	datalen *= BYTES_PER_XDR_UNIT;
-	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
-
-	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
-
-	count = 0;
-	if (!xdr_int(&inxdr, &count))
-	{
-		xdr_destroy(&inxdr);
-		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-		return NULL;
-	}
-
-	if (count == 0)
-	{
-		xdr_destroy(&inxdr);
-		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-		return NULL;
-	}
-
-	/*
-	 * lookupd will only send back a reply for a service with the protocol specified
-	 * if it finds a match.  We pass the protocol name to extract_service, which
-	 * copies the requested protocol name into the returned servent.  This is a
-	 * bit of a kludge, but since NetInfo / lookupd treat services as single entities
-	 * with multiple protocols, we are forced to do some special-case handling. 
-	 */
-	s = extract_service(&inxdr, proto);
-	xdr_destroy(&inxdr);
-	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-
-	return s;
-}
-
-static struct servent *
-lu_getservbyname(const char *name, const char *proto)
-{
-	struct servent *s;
-	unsigned int datalen;
-	char *lookup_buf;
-	char output_buf[2 * (_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT)];
-	XDR outxdr, inxdr;
-	static int proc = -1;
-	int count;
-
-	if (proc < 0)
-	{
-		if (_lookup_link(_lu_port, "getservbyname", &proc) != KERN_SUCCESS)
-		{
-		    return NULL;
-		}
-	}
-
-	/* Encode NULL for xmission to lookupd. */
+	/* Encode NULL */
 	if (proto == NULL) proto = "";
 
-	xdrmem_create(&outxdr, output_buf, sizeof(output_buf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, (_lu_string *)&name) ||
-	    !xdr__lu_string(&outxdr, (_lu_string *)&proto))
-	{
-		xdr_destroy(&outxdr);
-		return NULL;
-	}
+	sport = port;
+	snprintf(val, sizeof(val), "%d", ntohs(sport));
 
-	datalen = 0;
-	lookup_buf = NULL;
+	request = kvbuf_query("ksks", "port", val, "proto", proto);
+	if (request == NULL) return NULL;
 
-	if (_lookup_all(_lu_port, proc, (unit *)output_buf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen)
-		!= KERN_SUCCESS)
-	{
-		xdr_destroy(&outxdr);
-		return NULL;
-	}
+	reply = NULL;
+	status = LI_DSLookupQuery(proc, request, &reply);
+	kvbuf_free(request);
 
-	xdr_destroy(&outxdr);
+	if (status != KERN_SUCCESS) return NULL;
 
-	datalen *= BYTES_PER_XDR_UNIT;
-	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+	entry = extract_service(reply);
+	kvarray_free(reply);
 
-	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
-
-	count = 0;
-	if (!xdr_int(&inxdr, &count))
-	{
-		xdr_destroy(&inxdr);
-		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-		return NULL;
-	}
-
-	if (count == 0)
-	{
-		xdr_destroy(&inxdr);
-		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-		return NULL;
-	}
-
-	/*
-	 * lookupd will only send back a reply for a service with the protocol specified
-	 * if it finds a match.  We pass the protocol name to extract_service, which
-	 * copies the requested protocol name into the returned servent.  This is a
-	 * bit of a kludge, but since NetInfo / lookupd treat services as single entities
-	 * with multiple protocols, we are forced to do some special-case handling. 
-	 */
-	s = extract_service(&inxdr, proto);
-	xdr_destroy(&inxdr);
-	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-
-	return s;
-}
-
-static void
-lu_endservent()
-{
-	struct lu_thread_info *tdata;
-
-	tdata = _lu_data_create_key(_lu_data_key_service, free_lu_thread_info_service);
-	_lu_data_free_vm_xdr(tdata);
-}
-
-static void
-lu_setservent()
-{
-	lu_endservent();
+	return entry;
 }
 
 static struct servent *
-lu_getservent()
+ds_getservbyname(const char *name, const char *proto)
 {
-	struct servent *s;
+	struct servent *entry;
+	kvbuf_t *request;
+	kvarray_t *reply;
+	kern_return_t status;
 	static int proc = -1;
-	struct lu_thread_info *tdata;
 
-	tdata = _lu_data_create_key(_lu_data_key_service, free_lu_thread_info_service);
-	if (tdata == NULL)
+	if (proc < 0)
 	{
-		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
-		_lu_data_set_key(_lu_data_key_service, tdata);
+		status = LI_DSLookupGetProcedureNumber("getservbyname", &proc);
+		if (status != KERN_SUCCESS) return NULL;
 	}
 
-	if (tdata->lu_vm == NULL)
-	{
-		if (proc < 0)
-		{
-			if (_lookup_link(_lu_port, "getservent", &proc) != KERN_SUCCESS)
-			{
-				lu_endservent();
-				return NULL;
-			}
-		}
+	/* Encode NULL */
+	if (name == NULL) name = "";
+	if (proto == NULL) proto = "";
 
-		if (_lookup_all(_lu_port, proc, NULL, 0, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
-		{
-			lu_endservent();
-			return NULL;
-		}
+	request = kvbuf_query("ksks", "name", name, "proto", proto);
+	if (request == NULL) return NULL;
 
-		/* mig stubs measure size in words (4 bytes) */
-		tdata->lu_vm_length *= 4;
+	reply = NULL;
+	status = LI_DSLookupQuery(proc, request, &reply);
+	kvbuf_free(request);
 
-		if (tdata->lu_xdr != NULL)
-		{
-			xdr_destroy(tdata->lu_xdr);
-			free(tdata->lu_xdr);
-		}
-		tdata->lu_xdr = (XDR *)calloc(1, sizeof(XDR));
+	if (status != KERN_SUCCESS) return NULL;
 
-		xdrmem_create(tdata->lu_xdr, tdata->lu_vm, tdata->lu_vm_length, XDR_DECODE);
-		if (!xdr_int(tdata->lu_xdr, &tdata->lu_vm_cursor))
-		{
-			lu_endservent();
-			return NULL;
-		}
-	}
+	entry = extract_service(reply);
+	kvarray_free(reply);
 
-	if (tdata->lu_vm_cursor == 0)
-	{
-		lu_endservent();
-		return NULL;
-	}
+	return entry;
+}
 
-	s = extract_service(tdata->lu_xdr, NULL);
-	if (s == NULL)
-	{
-		lu_endservent();
-		return NULL;
-	}
+static void
+ds_endservent()
+{
+	LI_data_free_kvarray(LI_data_find_key(ENTRY_KEY));
+}
 
-	tdata->lu_vm_cursor--;
-	
-	return s;
+static void
+ds_setservent()
+{
+	ds_endservent();
+}
+
+static struct servent *
+ds_getservent()
+{
+	static int proc = -1;
+
+	return (struct servent *)LI_getent("getservent", &proc, extract_service, ENTRY_KEY, ENTRY_SIZE);
 }
 
 static struct servent *
 getserv(const char *name, const char *proto, int port, int source)
 {
 	struct servent *res = NULL;
-	struct lu_thread_info *tdata;
-	int from_cache;
+	struct li_thread_info *tdata;
+	int add_to_cache;
 
-	tdata = _lu_data_create_key(_lu_data_key_service, free_lu_thread_info_service);
-	if (tdata == NULL)
-	{
-		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
-		_lu_data_set_key(_lu_data_key_service, tdata);
-	}
+	tdata = LI_data_create_key(ENTRY_KEY, ENTRY_SIZE);
+	if (tdata == NULL) return NULL;
 
-	from_cache = 0;
+	add_to_cache = 0;
 	res = NULL;
 
 	switch (source)
@@ -661,23 +381,24 @@ getserv(const char *name, const char *proto, int port, int source)
 
 	if (res != NULL)
 	{
-		from_cache = 1;
 	}
-	else if (_lu_running())
+	else if (_ds_running())
 	{
 		switch (source)
 		{
 			case S_GET_NAME:
-				res = lu_getservbyname(name, proto);
+				res = ds_getservbyname(name, proto);
 				break;
 			case S_GET_PORT:
-				res = lu_getservbyport(port, proto);
+				res = ds_getservbyport(port, proto);
 				break;
 			case S_GET_ENT:
-				res = lu_getservent();
+				res = ds_getservent();
 				break;
 			default: res = NULL;
 		}
+
+		if (res != NULL) add_to_cache = 1;
 	}
 	else
 	{
@@ -698,10 +419,10 @@ getserv(const char *name, const char *proto, int port, int source)
 		pthread_mutex_unlock(&_service_lock);
 	}
 
-	if (from_cache == 0) cache_service(res);
+	if (add_to_cache == 1) cache_service(res);
 
-	recycle_service(tdata, res);
-	return (struct servent *)tdata->lu_entry;
+	LI_data_recycle(tdata, res, ENTRY_SIZE);
+	return (struct servent *)tdata->li_entry;
 }
 
 struct servent *
@@ -725,13 +446,13 @@ getservent(void)
 void
 setservent(int stayopen)
 {
-	if (_lu_running()) lu_setservent();
+	if (_ds_running()) ds_setservent();
 	else _old_setservent();
 }
 
 void
 endservent(void)
 {
-	if (_lu_running()) lu_endservent();
+	if (_ds_running()) ds_endservent();
 	else _old_endservent();
 }

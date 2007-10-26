@@ -70,7 +70,8 @@
 #define MBR_PART_SIZE	0x10
 #define MBR_PART_OFF 0x1BE
 #define MBR_SIG_OFF 0x1FE
-#define MBR_BUF_SIZE 0x200
+/* MBR_BUF_SIZE is the largest sector size we support */
+#define MBR_BUF_SIZE 4096
 
 #define MBR_SIGNATURE 0xAA55
 
@@ -80,8 +81,8 @@ typedef struct _mbr_t {
         off_t offset; /* the absolute offset of this partition */
         struct _mbr_t *next; /* pointer to the next MBR in an extended partition chain */
 	unsigned char code[MBR_CODE_SIZE];
-	prt_t part[NDOSPART];
 	unsigned short signature;
+	prt_t part[NDOSPART];
         unsigned char buf[MBR_BUF_SIZE];
 } mbr_t;
 
@@ -92,8 +93,8 @@ void MBR_print_all __P((mbr_t *));
 void MBR_parse __P((disk_t *, off_t, off_t, mbr_t *));
 void MBR_make __P((mbr_t *));
 void MBR_init __P((disk_t *, mbr_t *));
-int MBR_read __P((int, off_t, mbr_t *));
-int MBR_write __P((int, mbr_t *));
+int MBR_read __P((disk_t *,int, off_t, mbr_t *));
+int MBR_write __P((disk_t *,int, mbr_t *));
 void MBR_pcopy __P((disk_t *, mbr_t *));
 mbr_t * MBR_parse_spec __P((FILE *, disk_t *));
 void MBR_dump __P((mbr_t *));

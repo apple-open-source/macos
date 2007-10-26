@@ -21,13 +21,14 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "macosx-nat-inferior.h"
-#include "macosx-nat-cfmthread.h"
-
 #include "defs.h"
 #include "gdbcmd.h"
 #include "breakpoint.h"
 #include "annotate.h"
+#include "inferior.h"
+
+#include "macosx-nat-inferior.h"
+#include "macosx-nat-cfmthread.h"
 
 static CORE_ADDR
 lookup_address (const char *s)
@@ -46,7 +47,6 @@ macosx_cfm_thread_init (macosx_cfm_thread_status *s)
 {
   s->notify_debugger = 0;
   s->info_api_cookie = 0;
-  s->breakpoint_offset = 0;
   s->cfm_breakpoint = NULL;
 }
 
@@ -62,10 +62,7 @@ macosx_cfm_thread_create (macosx_cfm_thread_status *s)
   if (s->info_api_cookie == 0)
     return;
 
-  snprintf (buf, 64, "PrepareClosure + %s",
-            core_addr_to_string (s->breakpoint_offset));
-  s->notify_debugger =
-    lookup_address ("PrepareClosure") + s->breakpoint_offset;
+  s->notify_debugger = lookup_address ("NotifyDebugger");
 
   init_sal (&sal);
   sal.pc = s->notify_debugger;

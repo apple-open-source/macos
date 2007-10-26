@@ -68,15 +68,15 @@ static enum bool toc(
     enum bool commons_in_toc,
     enum bool attr_no_toc);
 
-static int ranlib_name_qsort(
-    const struct ranlib *ran1,
-    const struct ranlib *ran2);
+static int toc_entry_name_qsort(
+    const struct toc_entry *toc1,
+    const struct toc_entry *toc2);
 
-static int ranlib_offset_qsort(
-    const struct ranlib *ran1,
-    const struct ranlib *ran2);
+static int toc_entry_index_qsort(
+    const struct toc_entry *toc1,
+    const struct toc_entry *toc2);
 
-static enum bool check_sort_ranlibs(
+static enum bool check_sort_toc_entries(
     struct arch *arch,
     char *output,
     enum bool library_warnings);
@@ -295,7 +295,8 @@ enum bool commons_in_toc,
 enum bool library_warnings,
 enum bool *seen_archive)
 {
-    unsigned long i, j, k, l, file_size, offset, pad, size;
+    unsigned long i, j, k, file_size, offset, pad, size;
+    uint32_t i32;
     enum byte_sex target_byte_sex, host_byte_sex;
     char *file, *p;
     kern_return_t r;
@@ -435,7 +436,7 @@ enum bool *seen_archive)
 		 * table of contents but this is allowed in the original
 		 * bsd4.3 ranlib(1) implementation.
 		 */
-		if(library_warnings == TRUE && archs[i].toc_nranlibs == 0){
+		if(library_warnings == TRUE && archs[i].ntocs == 0){
 		    if(narchs > 1 || archs[i].fat_arch != NULL)
 			warning("warning library: %s for architecture: %s the "
 			        "table of contents is empty (no object file "
@@ -452,7 +453,7 @@ enum bool *seen_archive)
 		 */
 		target_byte_sex = UNKNOWN_BYTE_SEX;
 		for(j = 0;
-		    j < archs[i].nmembers && target_byte_sex == UNKNOWN_BYTE_SEX;
+		    j < archs[i].nmembers && target_byte_sex ==UNKNOWN_BYTE_SEX;
 		    j++){
 		    if(archs[i].members[j].type == OFILE_Mach_O)
 			target_byte_sex =
@@ -464,9 +465,9 @@ enum bool *seen_archive)
 		/*
 		 * Put in the table of contents member:
 		 *	the archive header
-		 *	a long for the number of bytes of the ranlib structs
+		 *	a 32-bit for the number of bytes of the ranlib structs
 		 *	the ranlib structs
-		 *	a long for the number of bytes of the ranlib strings
+		 *	a 32-bit for the number of bytes of the ranlib strings
 		 *	the strings for the ranlib structs
 		 */
 		memcpy(p, (char *)(&archs[i].toc_ar_hdr),sizeof(struct ar_hdr));
@@ -479,24 +480,24 @@ enum bool *seen_archive)
 			  sizeof(struct ar_hdr));
 		}
 
-		l = archs[i].toc_nranlibs * sizeof(struct ranlib);
+		i32 = archs[i].ntocs * sizeof(struct ranlib);
 		if(target_byte_sex != host_byte_sex)
-		    l = SWAP_LONG(l);
-		memcpy(p, (char *)&l, sizeof(long));
-		p += sizeof(long);
+		    i32 = SWAP_INT(i32);
+		memcpy(p, (char *)&i32, sizeof(uint32_t));
+		p += sizeof(uint32_t);
 
 		if(target_byte_sex != host_byte_sex)
-		    swap_ranlib(archs[i].toc_ranlibs, archs[i].toc_nranlibs,
+		    swap_ranlib(archs[i].toc_ranlibs, archs[i].ntocs,
 				target_byte_sex);
 		memcpy(p, (char *)archs[i].toc_ranlibs,
-		       archs[i].toc_nranlibs * sizeof(struct ranlib));
-		p += archs[i].toc_nranlibs * sizeof(struct ranlib);
+		       archs[i].ntocs * sizeof(struct ranlib));
+		p += archs[i].ntocs * sizeof(struct ranlib);
 
-		l = archs[i].toc_strsize;
+		i32 = archs[i].toc_strsize;
 		if(target_byte_sex != host_byte_sex)
-		    l = SWAP_LONG(l);
-		memcpy(p, (char *)&l, sizeof(long));
-		p += sizeof(long);
+		    i32 = SWAP_INT(i32);
+		memcpy(p, (char *)&i32, sizeof(uint32_t));
+		p += sizeof(uint32_t);
 
 		memcpy(p, (char *)archs[i].toc_strings, archs[i].toc_strsize);
 		p += archs[i].toc_strsize;
@@ -627,7 +628,7 @@ enum bool *seen_archive)
 			    swapped = archs[index].object->object_byte_sex !=
 			              host_byte_sex;
 			    if(swapped)
-				ncmds = SWAP_LONG(ncmds);
+				ncmds = SWAP_INT(ncmds);
 			    for(j = 0; j < ncmds; j++){
 				lc = *lcp;
 				if(swapped)
@@ -735,6 +736,12 @@ struct object *object)
 		   dyst->nlocrel * sizeof(struct relocation_info));
 	    *size += dyst->nlocrel *
 		     sizeof(struct relocation_info);
+	    if(object->output_split_info_data_size != 0){
+		if(object->output_split_info_data != NULL)
+		    memcpy(p + *size, object->output_split_info_data,
+			   object->output_split_info_data_size);
+		*size += object->output_split_info_data_size;
+	    }
 	    if(object->mh != NULL){
 		memcpy(p + *size, object->output_symbols,
 		       object->output_nsymbols * sizeof(struct nlist));
@@ -758,9 +765,9 @@ struct object *object)
 	    *size += dyst->nextrel *
 		     sizeof(struct relocation_info);
 	    memcpy(p + *size, object->output_indirect_symtab,
-		   dyst->nindirectsyms * sizeof(unsigned long));
-	    *size += dyst->nindirectsyms *
-		     sizeof(unsigned long);
+		   dyst->nindirectsyms * sizeof(uint32_t));
+	    *size += dyst->nindirectsyms * sizeof(uint32_t) +
+		     object->input_indirectsym_pad;
 	    memcpy(p + *size, object->output_tocs,
 		   object->output_ntoc *sizeof(struct dylib_table_of_contents));
 	    *size += object->output_ntoc *
@@ -784,6 +791,13 @@ struct object *object)
 	    memcpy(p + *size, object->output_strings,
 		   object->output_strings_size);
 	    *size += object->output_strings_size;
+	    if(object->output_code_sig_data_size != 0){
+		*size = round(*size, 16);
+		if(object->output_code_sig_data != NULL)
+		    memcpy(p + *size, object->output_code_sig_data,
+			   object->output_code_sig_data_size);
+		*size += object->output_code_sig_data_size;
+	    }
 	}
 	else{
 	    if(object->mh != NULL){
@@ -801,6 +815,13 @@ struct object *object)
 	    memcpy(p + *size, object->output_strings,
 		   object->output_strings_size);
 	    *size += object->output_strings_size;
+	    if(object->output_code_sig_data_size != 0){
+		*size = round(*size, 16);
+		if(object->output_code_sig_data != NULL)
+		    memcpy(p + *size, object->output_code_sig_data,
+			   object->output_code_sig_data_size);
+		*size += object->output_code_sig_data_size;
+	    }
 	}
 }
 
@@ -941,7 +962,7 @@ enum bool library_warnings)
 		    if(object->mh != NULL){
 			if(toc_symbol(symbols + j, commons_in_toc,
 			   object->sections) == TRUE){
-			    arch->toc_nranlibs++;
+			    arch->ntocs++;
 			    arch->toc_strsize +=
 				strlen(strings + symbols[j].n_un.n_strx) + 1;
 			}
@@ -949,7 +970,7 @@ enum bool library_warnings)
 		    else{
 			if(toc_symbol_64(symbols64 + j, commons_in_toc,
 			   object->sections64) == TRUE){
-			    arch->toc_nranlibs++;
+			    arch->ntocs++;
 			    arch->toc_strsize +=
 				strlen(strings + symbols64[j].n_un.n_strx) + 1;
 			}
@@ -959,21 +980,22 @@ enum bool library_warnings)
 	}
 
 	/*
-	 * Allocate the space for the ranlib structs and strings for the
-	 * table of contents.
+	 * Allocate the space for the table of content entries, the ranlib
+	 * structs and strings for the table of contents.
 	 */
-	arch->toc_ranlibs = allocate(sizeof(struct ranlib) *arch->toc_nranlibs);
+	arch->toc_entries = allocate(sizeof(struct toc_entry) * arch->ntocs);
+	arch->toc_ranlibs = allocate(sizeof(struct ranlib) * arch->ntocs);
 	arch->toc_strsize = round(arch->toc_strsize, 8);
 	arch->toc_strings = allocate(arch->toc_strsize);
 
 	/*
-	 * Second pass over the members to fill in the ranlib structs and
-	 * the strings for the table of contents.  The ran_name field is
+	 * Second pass over the members to fill in the toc_entry structs and
+	 * the strings for the table of contents.  The symbol_name field is
 	 * filled in with a pointer to a string contained in arch->toc_strings
-	 * for easy sorting and conversion to an index.  The ran_off field is
-	 * filled in with the member index plus one to allow marking with it's
-	 * negative value by check_sort_ranlibs() and easy conversion to the
-	 * real offset.
+	 * for easy sorting and conversion to an index.  The member_index field
+         * is filled in with the member index plus one to allow marking with
+	 * its negative value by check_sort_toc_entries() and easy conversion to
+	 * the real offset.
 	 */
 	r = 0;
 	s = 0;
@@ -1012,30 +1034,30 @@ enum bool library_warnings)
 		}
 		for(j = 0; j < nsymbols; j++){
 		    if(object->mh != NULL){
-			if((unsigned long)symbols[j].n_un.n_strx > strings_size)
+			if((uint32_t)symbols[j].n_un.n_strx > strings_size)
 			    continue;
 			if(toc_symbol(symbols + j, commons_in_toc,
 			   object->sections) == TRUE){
 			    strcpy(arch->toc_strings + s, 
 				   strings + symbols[j].n_un.n_strx);
-			    arch->toc_ranlibs[r].ran_un.ran_name =
+			    arch->toc_entries[r].symbol_name =
 							arch->toc_strings + s;
-			    arch->toc_ranlibs[r].ran_off = i + 1;
+			    arch->toc_entries[r].member_index = i + 1;
 			    r++;
 			    s += strlen(strings + symbols[j].n_un.n_strx) + 1;
 			}
 		    }
 		    else{
-			if((unsigned long)symbols64[j].n_un.n_strx >
+			if((uint32_t)symbols64[j].n_un.n_strx >
 			   strings_size)
 			    continue;
 			if(toc_symbol_64(symbols64 + j, commons_in_toc,
 			   object->sections64) == TRUE){
 			    strcpy(arch->toc_strings + s, 
 				   strings + symbols64[j].n_un.n_strx);
-			    arch->toc_ranlibs[r].ran_un.ran_name =
+			    arch->toc_entries[r].symbol_name =
 							arch->toc_strings + s;
-			    arch->toc_ranlibs[r].ran_off = i + 1;
+			    arch->toc_entries[r].member_index = i + 1;
 			    r++;
 			    s += strlen(strings + symbols64[j].n_un.n_strx) + 1;
 			}
@@ -1059,13 +1081,13 @@ enum bool library_warnings)
 	 * sort it and leave it sorted if no duplicates.
 	 */
 	if(sort_toc == TRUE){
-	    qsort(arch->toc_ranlibs, arch->toc_nranlibs, sizeof(struct ranlib),
-		  (int (*)(const void *, const void *))ranlib_name_qsort);
-	    sorted = check_sort_ranlibs(arch, output, library_warnings);
+	    qsort(arch->toc_entries, arch->ntocs, sizeof(struct toc_entry),
+		  (int (*)(const void *, const void *))toc_entry_name_qsort);
+	    sorted = check_sort_toc_entries(arch, output, library_warnings);
 	    if(sorted == FALSE){
-		qsort(arch->toc_ranlibs, arch->toc_nranlibs,
-		      sizeof(struct ranlib),
-		      (int (*)(const void *, const void *))ranlib_offset_qsort);
+		qsort(arch->toc_entries, arch->ntocs, sizeof(struct toc_entry),
+		      (int (*)(const void *, const void *))
+		      toc_entry_index_qsort);
 		arch->toc_long_name = FALSE;
 	    }
 	}
@@ -1081,9 +1103,9 @@ enum bool library_warnings)
 	 * sizeof an archive header struct, plus the sizeof the name if we are
 	 * using extended format #1 for the long name, then the toc which is
 	 * (as defined in ranlib.h):
-	 *	a long for the number of bytes of the ranlib structs
+	 *	a 32-bit int for the number of bytes of the ranlib structs
 	 *	the ranlib structures
-	 *	a long for the number of bytes of the strings
+	 *	a 32-bit int for the number of bytes of the strings
 	 *	the strings
 	 */
 	/*
@@ -1114,9 +1136,9 @@ enum bool library_warnings)
 	    }
 	}
 	arch->toc_size = sizeof(struct ar_hdr) +
-			 sizeof(long) +
-			 arch->toc_nranlibs * sizeof(struct ranlib) +
-			 sizeof(long) +
+			 sizeof(uint32_t) +
+			 arch->ntocs * sizeof(struct ranlib) +
+			 sizeof(uint32_t) +
 			 arch->toc_strsize;
 	if(arch->toc_long_name == TRUE)
 	    arch->toc_size += arch->toc_name_size +
@@ -1124,11 +1146,11 @@ enum bool library_warnings)
 			       sizeof(struct ar_hdr));
 	for(i = 0; i < arch->nmembers; i++)
 	    arch->members[i].offset += SARMAG + arch->toc_size;
-	for(i = 0; i < arch->toc_nranlibs; i++){
+	for(i = 0; i < arch->ntocs; i++){
 	    arch->toc_ranlibs[i].ran_un.ran_strx = 
-		arch->toc_ranlibs[i].ran_un.ran_name - arch->toc_strings;
+		arch->toc_entries[i].symbol_name - arch->toc_strings;
 	    arch->toc_ranlibs[i].ran_off = 
-		arch->members[arch->toc_ranlibs[i].ran_off - 1].offset;
+		arch->members[arch->toc_entries[i].member_index - 1].offset;
 	}
 
 	numask = 0;
@@ -1221,44 +1243,44 @@ enum bool attr_no_toc)
 }
 
 /*
- * Function for qsort() for comparing ranlib structures by name.
+ * Function for qsort() for comparing toc_entry structures by name.
  */
 static
 int
-ranlib_name_qsort(
-const struct ranlib *ran1,
-const struct ranlib *ran2)
+toc_entry_name_qsort(
+const struct toc_entry *toc1,
+const struct toc_entry *toc2)
 {
-	return(strcmp(ran1->ran_un.ran_name, ran2->ran_un.ran_name));
+	return(strcmp(toc1->symbol_name, toc2->symbol_name));
 }
 
 /*
- * Function for qsort() for comparing ranlib structures by offset.
+ * Function for qsort() for comparing toc_entry structures by index.
  */
 static
 int
-ranlib_offset_qsort(
-const struct ranlib *ran1,
-const struct ranlib *ran2)
+toc_entry_index_qsort(
+const struct toc_entry *toc1,
+const struct toc_entry *toc2)
 {
-	if(ran1->ran_off < ran2->ran_off)
+	if(toc1->member_index < toc2->member_index)
 	    return(-1);
-	if(ran1->ran_off > ran2->ran_off)
+	if(toc1->member_index > toc2->member_index)
 	    return(1);
-	/* ran1->ran_off == ran2->ran_off */
+	/* toc1->member_index == toc2->member_index */
 	    return(0);
 }
 
 /*
- * check_sort_ranlibs() checks the table of contents for the specified arch
+ * check_sort_toc_entries() checks the table of contents for the specified arch
  * which is sorted by name for more then one object defining the same symbol.
- * It this is the case it prints each symbol that is defined in more than one
+ * If this is the case it prints each symbol that is defined in more than one
  * object along with the object it is defined in.  It returns TRUE if there are
  * no multiple definitions and FALSE otherwise.
  */
 static
 enum bool
-check_sort_ranlibs(
+check_sort_toc_entries(
 struct arch *arch,
 char *output,
 enum bool library_warnings)
@@ -1267,18 +1289,18 @@ enum bool library_warnings)
     enum bool multiple_defs;
     struct member *member;
 
-	if(arch->toc_nranlibs == 0 || arch->toc_nranlibs == 1)
+	if(arch->ntocs == 0 || arch->ntocs == 1)
 	    return(TRUE);
 
 	/*
 	 * Since the symbol table is sorted by name look to any two adjcent
 	 * entries with the same name.  If such entries are found print them
-	 * only once (marked by changing the sign of their ran_off).
+	 * only once (marked by changing the sign of their member_index).
 	 */
 	multiple_defs = FALSE;
-	for(i = 0; i < arch->toc_nranlibs - 1; i++){
-	    if(strcmp(arch->toc_ranlibs[i].ran_un.ran_name,
-		      arch->toc_ranlibs[i+1].ran_un.ran_name) == 0){
+	for(i = 0; i < arch->ntocs - 1; i++){
+	    if(strcmp(arch->toc_entries[i].symbol_name,
+		      arch->toc_entries[i+1].symbol_name) == 0){
 		if(multiple_defs == FALSE){
 		    if(library_warnings == FALSE)
 			return(FALSE);
@@ -1291,19 +1313,21 @@ enum bool library_warnings)
 			    "sorted)\n", output);
 		    multiple_defs = TRUE;
 		}
-		if(arch->toc_ranlibs[i].ran_off > 0){
-		    member = arch->members + arch->toc_ranlibs[i].ran_off - 1;
+		if(arch->toc_entries[i].member_index > 0){
+		    member = arch->members +
+			     arch->toc_entries[i].member_index - 1;
 		    warn_member(arch, member, "defines symbol: %s",
-				arch->toc_ranlibs[i].ran_un.ran_name);
-		    arch->toc_ranlibs[i].ran_off =
-				-(arch->toc_ranlibs[i].ran_off);
+				arch->toc_entries[i].symbol_name);
+		    arch->toc_entries[i].member_index =
+				-(arch->toc_entries[i].member_index);
 		}
-		if(arch->toc_ranlibs[i+1].ran_off > 0){
-		    member = arch->members + arch->toc_ranlibs[i+1].ran_off - 1;
+		if(arch->toc_entries[i+1].member_index > 0){
+		    member = arch->members +
+			     arch->toc_entries[i+1].member_index - 1;
 		    warn_member(arch, member, "defines symbol: %s",
-				arch->toc_ranlibs[i+1].ran_un.ran_name);
-		    arch->toc_ranlibs[i+1].ran_off =
-				-(arch->toc_ranlibs[i+1].ran_off);
+				arch->toc_entries[i+1].symbol_name);
+		    arch->toc_entries[i+1].member_index =
+				-(arch->toc_entries[i+1].member_index);
 		}
 	    }
 	}
@@ -1311,10 +1335,10 @@ enum bool library_warnings)
 	if(multiple_defs == FALSE)
 	    return(TRUE);
 	else{
-	    for(i = 0; i < arch->toc_nranlibs; i++)
-		if((int)arch->toc_ranlibs[i].ran_off < 0)
-		    arch->toc_ranlibs[i].ran_off =
-			-(arch->toc_ranlibs[i].ran_off);
+	    for(i = 0; i < arch->ntocs; i++)
+		if(arch->toc_entries[i].member_index < 0)
+		    arch->toc_entries[i].member_index =
+			-(arch->toc_entries[i].member_index);
 	    return(FALSE);
 	}
 }

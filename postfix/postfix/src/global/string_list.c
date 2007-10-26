@@ -28,8 +28,8 @@
 /*
 /*	A string matches a string list when it appears in the list of
 /*	string patterns. The matching process is case insensitive.
-/*	In order to reverse the result, precede a non-file name pattern
-/*	with an exclamation point (!).
+/*	In order to reverse the result, precede a pattern with an
+/*	exclamation point (!).
 /*
 /*	string_list_init() performs initializations. The flags argument
 /*	is ignored; pattern_list specifies a list of string patterns.
@@ -105,6 +105,7 @@ int     main(int argc, char **argv)
 		   "YES" : "NO");
     vstream_fflush(VSTREAM_OUT);
     string_list_free(list);
+    return (0);
 }
 
 #endif

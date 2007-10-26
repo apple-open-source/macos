@@ -107,13 +107,13 @@
     // Set this flag to match directly to interface, without finding device first.
 #define MATCH_INTERFACE 1
 
-void useUSBInterface(IOUSBInterfaceInterface **intf)
+void useUSBInterface(IOUSBInterfaceInterface245 **intf)
 {
     printf("Now we actually get to do something with this device, wow!!!!\n");
 	finallyDoSomethingWithThisDevice(intf);
 }
 
-UInt32 openUSBInterface(IOUSBInterfaceInterface **intf)
+UInt32 openUSBInterface(IOUSBInterfaceInterface245 **intf)
 {
 IOReturn ret;
 
@@ -131,8 +131,8 @@ static char *types[]={
         "Bulk",
         "Interrupt"};
 static char *directionStr[]={
-        "In",
         "Out",
+        "In",
         "Control"};
 #endif
 
@@ -172,11 +172,11 @@ static char *directionStr[]={
     return(0);
 }
 
-IOUSBInterfaceInterface **getUSBInterfaceInterface(io_service_t usbInterface)
+IOUSBInterfaceInterface245 **getUSBInterfaceInterface(io_service_t usbInterface)
 {
 IOReturn err;
 IOCFPlugInInterface **plugInInterface=NULL;
-IOUSBInterfaceInterface **intf=NULL;
+IOUSBInterfaceInterface245 **intf=NULL;
 SInt32 score;
 HRESULT res;
 
@@ -194,7 +194,7 @@ HRESULT res;
         return(nil);
     }
     
-    res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID), (LPVOID)&intf);
+    res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID245), (LPVOID)&intf);
     IODestroyPlugInInterface(plugInInterface);			// done with this
 	
     if (res || !intf)
@@ -205,7 +205,7 @@ HRESULT res;
     return(intf);
 }
 
-Boolean isThisTheInterfaceYoureLookingFor(IOUSBInterfaceInterface **intf)
+Boolean isThisTheInterfaceYoureLookingFor(IOUSBInterfaceInterface245 **intf)
 {
     //	Check to see if this is the interface you're interested in
     //  This code is only expecting one interface, so returns true
@@ -228,7 +228,7 @@ int iterateinterfaces(io_iterator_t interfaceIterator)
 io_service_t usbInterface;
 int err = 0;
 IOReturn ret;
-IOUSBInterfaceInterface **intf=NULL;
+IOUSBInterfaceInterface245 **intf=NULL;
 
     usbInterface = IOIteratorNext(interfaceIterator);
     if(usbInterface == nil)
@@ -266,7 +266,7 @@ IOUSBInterfaceInterface **intf=NULL;
     return(-1);
 }
 
-void useUSBDevice(IOUSBDeviceInterface **dev, UInt32 configuration)
+void useUSBDevice(IOUSBDeviceInterface245 **dev, UInt32 configuration)
 {
 io_iterator_t interfaceIterator;
 IOUSBFindInterfaceRequest req;
@@ -300,7 +300,7 @@ IOReturn err;
 }
 
 
-SInt32 openUSBDevice(IOUSBDeviceInterface **dev)
+SInt32 openUSBDevice(IOUSBDeviceInterface245 **dev)
 {
 UInt8 numConfig;
 IOReturn err;
@@ -350,11 +350,11 @@ IOUSBConfigurationDescriptorPtr desc;
 }
 
 
-IOUSBDeviceInterface **getUSBDevice(io_object_t usbDevice)
+IOUSBDeviceInterface245 **getUSBDevice(io_object_t usbDevice)
 {
 IOReturn err;
 IOCFPlugInInterface **plugInInterface=NULL;
-IOUSBDeviceInterface **dev=NULL;
+IOUSBDeviceInterface245 **dev=NULL;
 SInt32 score;
 HRESULT res;
 
@@ -371,7 +371,7 @@ HRESULT res;
         return(nil);
     }
     
-    res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID)&dev);
+    res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID245), (LPVOID)&dev);
     IODestroyPlugInInterface(plugInInterface);			// done with this
 	
     if (res || !dev)
@@ -399,7 +399,7 @@ int iterateDevices(io_iterator_t deviceIterator)
 io_object_t usbDevice;
 int err = -1;
 IOReturn ret;
-IOUSBDeviceInterface **dev=NULL;
+IOUSBDeviceInterface245 **dev=NULL;
 SInt32 config = 0;
 int exclusiveErrs, attempts;
 

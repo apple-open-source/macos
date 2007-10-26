@@ -27,6 +27,7 @@
 //
 // This file is the unified implementation of the Authorization and AuthSession APIs.
 //
+#include <stdint.h>
 #include <Security/Authorization.h>
 #include <Security/AuthorizationPriv.h>
 #include <Security/AuthorizationDB.h>
@@ -41,6 +42,9 @@
 #include <security_cdsa_utilities/AuthorizationWalkers.h>
 #include <securityd_client/ssclient.h>
 #include <CoreFoundation/CFPreferences.h>
+#include <Carbon/../Frameworks/HIToolbox.framework/Headers/TextInputSources.h>
+
+#include <security_utilities/logging.h>
 
 using namespace SecurityServer;
 using namespace MachPlusPlus;
@@ -183,7 +187,18 @@ OSStatus SessionGetInfo(SecuritySessionId session,
 {
     BEGIN_API
     SecuritySessionId sid = session;
-    server().getSessionInfo(sid, Required(attributes));
+	try {
+		server().getSessionInfo(sid, Required(attributes));
+	} catch (const MachPlusPlus::Error &err) {
+		Syslog::alert("SessionGetInfo(0x%x) -> Mach %d", session, err.error);
+		throw;
+	} catch (const CommonError &err) {
+		Syslog::alert("SessionGetInfo(0x%x) -> %d", session, err.osStatus());
+		throw;
+	} catch (...) {
+		Syslog::alert("SessionGetInfo(0x%x) -> non-OSStatus error", session);
+		throw;
+	}
     if (sessionId)
         *sessionId = sid;
     END_API(CSSM)
@@ -206,6 +221,7 @@ OSStatus SessionCreate(SessionCreationFlags flags,
 		TaskPort self;
 		bootstrap = bootstrap.subset(TaskPort());
 		self.bootstrap(bootstrap);
+		::bootstrap_port = bootstrap;		// update libc global
     }
     
     // now call the SecurityServer and tell it to initialize the (new) session
@@ -241,14 +257,22 @@ OSStatus SessionGetDistinguishedUser(SecuritySessionId session, uid_t *user)
     END_API(CSSM)
 }
 
+OSStatus _SessionSetUserPreferences(SecuritySessionId session);
 
-OSStatus SessionSetUserPreferences(SecuritySessionId session)
+void SessionUserPreferencesChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
+{
+	_SessionSetUserPreferences(uintptr_t(observer));
+}
+
+OSStatus _SessionSetUserPreferences(SecuritySessionId session)
 {
     BEGIN_API
 	CFStringRef appleLanguagesStr = CFSTR("AppleLanguages");
 	CFStringRef controlTintStr = CFSTR("AppleAquaColorVariant");
 	CFStringRef keyboardUIModeStr = CFSTR("AppleKeyboardUIMode");
 	CFStringRef hitoolboxAppIDStr = CFSTR("com.apple.HIToolbox");
+    CFStringRef displayScaleFactorStr = CFSTR("AppleDisplayScaleFactor");
+	CFNotificationCenterRef center = CFNotificationCenterGetDistributedCenter();
 
 	CFRef<CFMutableDictionaryRef> userPrefsDict(CFDictionaryCreateMutable(NULL, 10, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 	CFRef<CFMutableDictionaryRef> globalPrefsDict(CFDictionaryCreateMutable(NULL, 10, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
@@ -257,31 +281,52 @@ OSStatus SessionSetUserPreferences(SecuritySessionId session)
 		return errSessionValueNotSet;
 	
 	CFRef<CFArrayRef> appleLanguagesArray(static_cast<CFArrayRef>(CFPreferencesCopyAppValue(appleLanguagesStr, kCFPreferencesCurrentApplication)));
-	if (NULL != appleLanguagesArray)
+	if (appleLanguagesArray)
 		CFDictionarySetValue(globalPrefsDict, appleLanguagesStr, appleLanguagesArray);
 	
 	CFRef<CFNumberRef> controlTintNumber(static_cast<CFNumberRef>(CFPreferencesCopyAppValue(controlTintStr, kCFPreferencesCurrentApplication)));
-	if (NULL != controlTintNumber)
+	if (controlTintNumber)
 		CFDictionarySetValue(globalPrefsDict, controlTintStr, controlTintNumber);
 
 	CFRef<CFNumberRef> keyboardUIModeNumber(static_cast<CFNumberRef>(CFPreferencesCopyAppValue(keyboardUIModeStr, kCFPreferencesCurrentApplication)));
-	if (NULL != keyboardUIModeNumber)
+	if (keyboardUIModeNumber)
 		CFDictionarySetValue(globalPrefsDict, keyboardUIModeStr, keyboardUIModeNumber);
 
 	if (CFDictionaryGetCount(globalPrefsDict) > 0)
 		CFDictionarySetValue(userPrefsDict, kCFPreferencesAnyApplication, globalPrefsDict);
 
+	CFPreferencesSynchronize(hitoolboxAppIDStr, kCFPreferencesCurrentUser, 
+			kCFPreferencesCurrentHost);
 	CFRef<CFDictionaryRef> hitoolboxPrefsDict(static_cast<CFDictionaryRef>(CFPreferencesCopyMultiple(NULL, hitoolboxAppIDStr, kCFPreferencesCurrentUser, kCFPreferencesCurrentHost)));
-	if (NULL != hitoolboxPrefsDict)
+	if (hitoolboxPrefsDict) {
 		CFDictionarySetValue(userPrefsDict, hitoolboxAppIDStr, hitoolboxPrefsDict);
+		CFNotificationCenterPostNotification(center, CFSTR("com.apple.securityagent.InputPrefsChanged"), CFSTR("com.apple.loginwindow"), hitoolboxPrefsDict, true);
+	}
+	
+	CFRef<CFNumberRef> displayScaleFactor(static_cast<CFNumberRef>(CFPreferencesCopyAppValue(displayScaleFactorStr, kCFPreferencesCurrentApplication)));
+	if (displayScaleFactor)
+		CFDictionarySetValue(globalPrefsDict, displayScaleFactorStr, displayScaleFactor);
 
 	CFRef<CFDataRef> userPrefsData(CFPropertyListCreateXMLData(NULL, userPrefsDict));
 	if (!userPrefsData)
 		return errSessionValueNotSet;
 	server().setSessionUserPrefs(session, CFDataGetLength(userPrefsData), CFDataGetBytePtr(userPrefsData));
-	
+
     END_API(CSSM)
 }
+
+OSStatus SessionSetUserPreferences(SecuritySessionId session)
+{
+	OSStatus status = _SessionSetUserPreferences(session);
+	if (noErr == status) {
+		CFNotificationCenterRef center = CFNotificationCenterGetDistributedCenter();
+		// We've succeeded in setting up a static set of prefs, now set up 
+		CFNotificationCenterAddObserver(center, (void*)session, SessionUserPreferencesChanged, CFSTR("com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged"), NULL, CFNotificationSuspensionBehaviorCoalesce);
+		CFNotificationCenterAddObserver(center, (void*)session, SessionUserPreferencesChanged, CFSTR("com.apple.Carbon.TISNotifyEnabledKeyboardInputSourcesChanged"), NULL, CFNotificationSuspensionBehaviorCoalesce);
+	}
+	return status;
+}
+
 
 //
 // Modify Authorization rules

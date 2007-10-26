@@ -141,45 +141,45 @@ bool				singleAttributeValueMissing	(   tDirReference inDSRef,
 													char* inRecordType,
 													char* inAttributeType,
 													char* inAttributeValue,
-													signed long *outResult,
+													SInt32 *outResult,
 													bool inVerbose)
 {
 	bool					bMissing		= false;
 	tDataBufferPtr			dataBuff		= nil;
-	tContextData			context			= nil;
+	tContextData			context			= 0;
 	tDataListPtr			recType			= nil;
-	unsigned long			recCount		= 1;
+	UInt32					recCount		= 1;
 	tDataNodePtr			pAttrType		= nil;
 	tDataNodePtr			pPatMatchPtr	= nil;
 	
 	if (inRecordType == nil)
 	{
 		if (inVerbose) printf("Null record type\n");
-		*outResult = (signed long) eDSNullRecType;
+		*outResult = (SInt32) eDSNullRecType;
 		return(nil);
 	}
 	if (inAttributeType == nil)
 	{
 		if (inVerbose) printf("Null attribute type\n");
-		*outResult = (signed long) eDSNullAttributeType;
+		*outResult = (SInt32) eDSNullAttributeType;
 		return(nil);
 	}
 	if (inAttributeValue == nil)
 	{
 		if (inVerbose) printf("Null attribute value\n");
-		*outResult = (signed long) eDSNullAttributeValue;
+		*outResult = (SInt32) eDSNullAttributeValue;
 		return(nil);
 	}
 	if (inDSRef == 0)
 	{
 		if (inVerbose) printf("Null dir reference\n");
-		*outResult = (signed long) eDSInvalidDirRef;
+		*outResult = (SInt32) eDSInvalidDirRef;
 		return(nil);
 	}
 	if (inDSNodeRef == 0)
 	{
 		if (inVerbose) printf("Null node reference\n");
-		*outResult = (signed long) eDSInvalidNodeRef;
+		*outResult = (SInt32) eDSInvalidNodeRef;
 		return(nil);
 	}
 
@@ -201,8 +201,8 @@ bool				singleAttributeValueMissing	(   tDirReference inDSRef,
 			*outResult = dsDoAttributeValueSearch( inDSNodeRef, dataBuff, recType, pAttrType, eDSExact, pPatMatchPtr, &recCount, &context );
 			if (*outResult == eDSBufferTooSmall)
 			{
-				unsigned long bufSize = dataBuff->fBufferSize;
-				if (inVerbose) printf("dsDoAttributeValueSearch returned buffer too small so doubling size of buffer to <%ld>\n", bufSize);
+				UInt32 bufSize = dataBuff->fBufferSize;
+				if (inVerbose) printf("dsDoAttributeValueSearch returned buffer too small so doubling size of buffer to <%lu>\n", bufSize);
 				dsDataBufferDeAllocate( inDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = dsDataBufferAllocate( inDSRef, bufSize * 2 );
@@ -211,7 +211,7 @@ bool				singleAttributeValueMissing	(   tDirReference inDSRef,
 					if (inVerbose) printf("dsDataBufferAllocate returned NULL\n");
 				}
 			}
-		} while ( ( (*outResult == eDSBufferTooSmall) || ( (*outResult == eDSNoErr) && (recCount == 0) && (context != nil) ) ) && (dataBuff != nil) );
+		} while ( ( (*outResult == eDSBufferTooSmall) || ( (*outResult == eDSNoErr) && (recCount == 0) && (context != 0) ) ) && (dataBuff != nil) );
 		
 		if (recCount < 1)
 		{
@@ -254,7 +254,7 @@ bool				singleAttributeValueMissing	(   tDirReference inDSRef,
 
 char* createNewuid  ( tDirReference inDSRef, tDirNodeReference inDSNodeRef, bool inVerbose)
 {
-	signed long siResult		= eDSNoErr;
+	SInt32		siResult		= eDSNoErr;
 	int			numericUID		= 502;
 	char		uidValue[32]	= {};
 	bool		bNextNotFound	= true;
@@ -285,7 +285,7 @@ char* createNewuid  ( tDirReference inDSRef, tDirNodeReference inDSNodeRef, bool
 
 char* createNewgid  ( tDirReference inDSRef, tDirNodeReference inDSNodeRef, bool inVerbose)
 {
-	signed long siResult		= eDSNoErr;
+	SInt32		siResult		= eDSNoErr;
 	int			numericGID		= 500;
 	char		gidValue[32]	= {};
 	bool		bNextNotFound	= true;
@@ -331,14 +331,14 @@ char* createNewGUID  ( bool inVerbose)
 	return( outGUID );
 }//addRecordParameter
 
-signed long addRecordParameter (   tDirReference inDSRef, tDirNodeReference inDSNodeRef,
+SInt32 addRecordParameter (   tDirReference inDSRef, tDirNodeReference inDSNodeRef,
 									tRecordReference inRecordRef, char* inAttrType, char* inAttrValue, bool inVerbose)
 {
-	signed long					siResult			= eDSNoErr;
+	SInt32						siResult			= eDSNoErr;
 	tDirNodeReference			aDSNodeRef			= 0;
 	tDataNode				   *pAttrType			= nil;
 	tAttributeValueEntry	   *pAttrValueEntry		= nil;
-	unsigned long				k					= 0;
+	UInt32						k					= 0;
 	tAttributeEntry			   *pAttrEntry			= nil;
 	char					   *guidValue			= nil;
 	bool						bExists				= false;
@@ -348,27 +348,27 @@ signed long addRecordParameter (   tDirReference inDSRef, tDirNodeReference inDS
 	if (inAttrValue == nil)
 	{
 		if (inVerbose) printf("Null attribute value\n");
-		return((signed long) eDSNullAttributeValue);
+		return((SInt32) eDSNullAttributeValue);
 	}
 	if (inAttrType == nil)
 	{
 		if (inVerbose) printf("Null attribute type\n");
-		return((signed long) eDSNullAttributeType);
+		return((SInt32) eDSNullAttributeType);
 	}
 	if (inDSRef == 0)
 	{
 		if (inVerbose) printf("Null dir reference\n");
-		return((signed long) eDSInvalidDirRef);
+		return((SInt32) eDSInvalidDirRef);
 	}
 	if (inDSNodeRef == 0)
 	{
 		if (inVerbose) printf("Null node reference\n");
-		return((signed long) eDSInvalidNodeRef);
+		return((SInt32) eDSInvalidNodeRef);
 	}
 	if (inRecordRef == 0)
 	{
 		if (inVerbose) printf("Null record reference\n");
-		return((signed long) eDSInvalidRecordRef);
+		return((SInt32) eDSInvalidRecordRef);
 	}
 
 	do
@@ -443,7 +443,7 @@ signed long addRecordParameter (   tDirReference inDSRef, tDirNodeReference inDS
 	return( siResult );
 }//addRecordParameter
 
-tRecordReference createAndOpenRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, char* inRecordName, char* inRecordType, signed long *outResult, bool inVerbose)
+tRecordReference createAndOpenRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, char* inRecordName, char* inRecordType, SInt32 *outResult, bool inVerbose)
 {
 	tRecordReference		outRecordRef	= 0;
 	tDataNode				*pRecName		= nil;
@@ -452,26 +452,26 @@ tRecordReference createAndOpenRecord(tDirReference inDSRef, tDirNodeReference in
 	if (inRecordName == nil)
 	{
 		if (inVerbose) printf("Null group record name\n");
-		*outResult = (signed long) eDSInvalidRecordName;
-		return(nil);
+		*outResult = (SInt32) eDSInvalidRecordName;
+		return(0);
 	}
 	if (inRecordType == nil)
 	{
 		if (inVerbose) printf("Null record type\n");
-		*outResult = (signed long) eDSInvalidRecordType;
-		return(nil);
+		*outResult = (SInt32) eDSInvalidRecordType;
+		return(0);
 	}
 	if (inDSRef == 0)
 	{
 		if (inVerbose) printf("Null dir reference\n");
-		*outResult = (signed long) eDSInvalidDirRef;
-		return(nil);
+		*outResult = (SInt32) eDSInvalidDirRef;
+		return(0);
 	}
 	if (inDSNodeRef == 0)
 	{
 		if (inVerbose) printf("Null node reference\n");
-		*outResult = (signed long) eDSInvalidNodeRef;
-		return(nil);
+		*outResult = (SInt32) eDSInvalidNodeRef;
+		return(0);
 	}
 
 	do
@@ -500,16 +500,16 @@ tRecordReference createAndOpenRecord(tDirReference inDSRef, tDirNodeReference in
 
 }//createAndOpenRecord
 
-signed long getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, char* inRecordName, char* inRecordType, bool inVerbose)
+SInt32 getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, char* inRecordName, char* inRecordType, bool inVerbose)
 {
-	signed long				siResult		= eDSNoErr;
+	SInt32					siResult		= eDSNoErr;
 	tDirReference			aDSRef			= 0;
 	tDataBufferPtr			dataBuff		= nil;
-	tContextData			context			= nil;
+	tContextData			context			= 0;
 	tDataListPtr			recName			= nil;
 	tDataListPtr			recType			= nil;
 	tDataListPtr			attrTypes		= nil;
-	unsigned long			recCount		= 1;
+	UInt32					recCount		= 1;
 	tAttributeListRef		attrListRef		= 0;
 	tRecordEntry		   *pRecEntry		= nil;
 	tAttributeValueListRef	valueRef		= 0;
@@ -519,22 +519,22 @@ signed long getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNode
 	if (inRecordName == nil)
 	{
 		if (inVerbose) printf("Null group record name\n");
-		return((signed long) eDSInvalidRecordName);
+		return((SInt32) eDSInvalidRecordName);
 	}
 	if (inRecordType == nil)
 	{
 		if (inVerbose) printf("Null record type\n");
-		return((signed long) eDSInvalidRecordType);
+		return((SInt32) eDSInvalidRecordType);
 	}
 	if (inDSRef == 0)
 	{
 		if (inVerbose) printf("Null dir reference\n");
-		return ((signed long)eDSInvalidDirRef);
+		return ((SInt32)eDSInvalidDirRef);
 	}
 	if (inDSNodeRef == 0)
 	{
 		if (inVerbose) printf("Null node reference\n");
-		return ((signed long)eDSInvalidNodeRef);
+		return ((SInt32)eDSInvalidNodeRef);
 	}
 
 	do
@@ -556,8 +556,8 @@ signed long getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNode
 																	attrTypes, false, &recCount, &context);
 			if (siResult == eDSBufferTooSmall)
 			{
-				unsigned long bufSize = dataBuff->fBufferSize;
-				if (inVerbose) printf("dsGetRecordList returned buffer too small so doubling size of buffer to <%ld>\n", bufSize);
+				UInt32 bufSize = dataBuff->fBufferSize;
+				if (inVerbose) printf("dsGetRecordList returned buffer too small so doubling size of buffer to <%lu>\n", bufSize);
 				dsDataBufferDeAllocate( aDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = dsDataBufferAllocate( aDSRef, bufSize * 2 );
@@ -566,7 +566,7 @@ signed long getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNode
 					if (inVerbose) printf("dsDataBufferAllocate returned NULL\n");
 				}
 			}
-		} while ( ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != nil) ) ) && (dataBuff != nil) );
+		} while ( ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != 0) ) ) && (dataBuff != nil) );
 		
 		if (recCount < 1)
 		{
@@ -675,14 +675,14 @@ signed long getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNode
 tDirNodeReference getNodeRef(tDirReference inDSRef, char* inNodename, char* inUsername, char* inPassword, bool inVerbose)
 {
 	tDirNodeReference		outNodeRef		= 0;
-	signed long				siResult		= eDSNoErr;
+	SInt32					siResult		= eDSNoErr;
 	tDataBufferPtr			dataBuff		= nil;
-	unsigned long			nodeCount		= 0;
-	tContextData			context			= nil;
+	UInt32					nodeCount		= 0;
+	tContextData			context			= 0;
 	tDataListPtr			nodeName		= nil;
 	tDataNodePtr			authMethod		= nil;
 	tDataBufferPtr			authBuff		= nil;
-	unsigned long			length			= 0;
+	UInt32					length			= 0;
 	char*					ptr				= nil;
 	
 	do
@@ -722,7 +722,7 @@ tDirNodeReference getNodeRef(tDirReference inDSRef, char* inNodename, char* inUs
 			}
 			if (siResult == eDSBufferTooSmall)
 			{
-				unsigned long bufSize = dataBuff->fBufferSize;
+				UInt32 bufSize = dataBuff->fBufferSize;
 				dsDataBufferDeAllocate( inDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = dsDataBufferAllocate( inDSRef, bufSize * 2 );
@@ -842,16 +842,16 @@ tDirNodeReference getNodeRef(tDirReference inDSRef, char* inNodename, char* inUs
 	return(outNodeRef);
 }//getNodeRef
 	
-char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNodeRef, char* inRecordName, char* inRecordType, char* inAttributeType, signed long *outResult, bool inVerbose)
+char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNodeRef, char* inRecordName, char* inRecordType, char* inAttributeType, SInt32 *outResult, bool inVerbose)
 {
 	char				   *outRecordName   = nil;
 	tDirReference			aDSRef			= 0;
 	tDataBufferPtr			dataBuff		= nil;
-	tContextData			context			= nil;
+	tContextData			context			= 0;
 	tDataListPtr			recName			= nil;
 	tDataListPtr			recType			= nil;
 	tDataListPtr			attrTypes		= nil;
-	unsigned long			recCount		= 1;
+	UInt32					recCount		= 1;
 	tAttributeListRef		attrListRef		= 0;
 	tRecordEntry		   *pRecEntry		= nil;
 	tAttributeValueListRef	valueRef		= 0;
@@ -861,31 +861,31 @@ char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNode
 	if (inRecordName == nil)
 	{
 		if (inVerbose) printf("Null group record name\n");
-		*outResult = (signed long) eDSInvalidRecordName;
+		*outResult = (SInt32) eDSInvalidRecordName;
 		return(nil);
 	}
 	if (inAttributeType == nil)
 	{
 		if (inVerbose) printf("Null attribute type\n");
-		*outResult = (signed long) eDSInvalidAttributeType;
+		*outResult = (SInt32) eDSInvalidAttributeType;
 		return(nil);
 	}
 	if (inRecordType == nil)
 	{
 		if (inVerbose) printf("Null record type\n");
-		*outResult = (signed long) eDSInvalidRecordType;
+		*outResult = (SInt32) eDSInvalidRecordType;
 		return(nil);
 	}
 	if (inDSRef == 0)
 	{
 		if (inVerbose) printf("Null dir reference\n");
-		*outResult = (signed long) eDSInvalidDirRef;
+		*outResult = (SInt32) eDSInvalidDirRef;
 		return(nil);
 	}
 	if (inDSNodeRef == 0)
 	{
 		if (inVerbose) printf("Null node reference\n");
-		*outResult = (signed long) eDSInvalidNodeRef;
+		*outResult = (SInt32) eDSInvalidNodeRef;
 		return(nil);
 	}
 
@@ -908,8 +908,8 @@ char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNode
 																	attrTypes, false, &recCount, &context);
 			if (*outResult == eDSBufferTooSmall)
 			{
-				unsigned long bufSize = dataBuff->fBufferSize;
-				if (inVerbose) printf("dsGetRecordList returned buffer too small so doubling size of buffer to <%ld>\n", bufSize);
+				UInt32 bufSize = dataBuff->fBufferSize;
+				if (inVerbose) printf("dsGetRecordList returned buffer too small so doubling size of buffer to <%lu>\n", bufSize);
 				dsDataBufferDeAllocate( aDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = dsDataBufferAllocate( aDSRef, bufSize * 2 );
@@ -918,7 +918,7 @@ char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNode
 					if (inVerbose) printf("dsDataBufferAllocate returned NULL\n");
 				}
 			}
-		} while ( ( (*outResult == eDSBufferTooSmall) || ( (*outResult == eDSNoErr) && (recCount == 0) && (context != nil) ) ) && (dataBuff != nil) );
+		} while ( ( (*outResult == eDSBufferTooSmall) || ( (*outResult == eDSNoErr) && (recCount == 0) && (context != 0) ) ) && (dataBuff != nil) );
 		
 		if (recCount < 1)
 		{
@@ -1017,7 +1017,7 @@ char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNode
 	return(outRecordName);
 }//getSingleRecordAttribute
 
-tRecordReference openRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, char* inRecordName, char* inRecordType, signed long *outResult, bool inVerbose)
+tRecordReference openRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, char* inRecordName, char* inRecordType, SInt32 *outResult, bool inVerbose)
 {
 	tRecordReference		outRecordRef	= 0;
 	tDataNode				*pRecName		= nil;
@@ -1026,26 +1026,26 @@ tRecordReference openRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef
 	if (inRecordName == nil)
 	{
 		if (inVerbose) printf("Null group record name\n");
-		*outResult = (signed long) eDSInvalidRecordName;
-		return(nil);
+		*outResult = (SInt32) eDSInvalidRecordName;
+		return(0);
 	}
 	if (inRecordType == nil)
 	{
 		if (inVerbose) printf("Null record type\n");
-		*outResult = (signed long) eDSInvalidRecordType;
-		return(nil);
+		*outResult = (SInt32) eDSInvalidRecordType;
+		return(0);
 	}
 	if (inDSRef == 0)
 	{
 		if (inVerbose) printf("Null dir reference\n");
-		*outResult = (signed long) eDSInvalidDirRef;
-		return(nil);
+		*outResult = (SInt32) eDSInvalidDirRef;
+		return(0);
 	}
 	if (inDSNodeRef == 0)
 	{
 		if (inVerbose) printf("Null node reference\n");
-		*outResult = (signed long) eDSInvalidNodeRef;
-		return(nil);
+		*outResult = (SInt32) eDSInvalidNodeRef;
+		return(0);
 	}
 
 	do
@@ -1080,13 +1080,13 @@ bool UserIsMemberOfGroup( tDirReference inDSRef, tDirNodeReference inDSNodeRef, 
 	tDirStatus					dsStatus			= eDSNoErr;
 	tAttributeEntryPtr			attrPtr				= nil;
 	tAttributeValueEntryPtr		pValueEntry			= nil;
-	unsigned long				i					= 0;
+	UInt32						i					= 0;
 	tDataListPtr				attrTypeList		= NULL;
 	tDataListPtr				recNames			= NULL;
 	tDataListPtr				recTypes			= NULL;
 	tDataBufferPtr				dataBuff			= NULL;
-	unsigned long				curRecCount			= 1;
-	tContextData				context				= NULL;
+	UInt32						curRecCount			= 1;
+	tContextData				context				= 0;
 	tAttributeListRef			attrListRef			= 0;
 	tAttributeValueListRef		attrValueListRef	= 0;
 	tRecordEntryPtr				recEntry			= NULL;
@@ -1112,7 +1112,7 @@ bool UserIsMemberOfGroup( tDirReference inDSRef, tDirNodeReference inDSNodeRef, 
 			dataBuff = NULL;
 			dataBuff = dsDataBufferAllocate( inDSRef, buffSize * 2 );
 		}
-	} while (((dsStatus == eDSNoErr) && (curRecCount == 0) && (context != NULL)) || (dsStatus == eDSBufferTooSmall));
+	} while (((dsStatus == eDSNoErr) && (curRecCount == 0) && (context != 0)) || (dsStatus == eDSBufferTooSmall));
 
 	if ( ( dsStatus == eDSNoErr ) && ( curRecCount > 0 ) )
 	{
@@ -1164,10 +1164,10 @@ bool UserIsMemberOfGroup( tDirReference inDSRef, tDirNodeReference inDSNodeRef, 
 		dsDataBufferDeAllocate( inDSRef, dataBuff );
 		dataBuff = NULL;
 	}
-	if ( context != NULL )
+	if ( context != 0 )
 	{
 		dsReleaseContinueData( inDSNodeRef, context );
-		context = NULL;
+		context = 0;
 	}
 	if ( attrTypeList != NULL)
 	{

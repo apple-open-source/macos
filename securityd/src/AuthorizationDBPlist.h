@@ -41,7 +41,7 @@ namespace Authorization
 class AuthorizationDBPlist /* : public AuthorizationDB */
 {
 public:
-	AuthorizationDBPlist(const char *configFile = "/etc/authorization");
+	AuthorizationDBPlist(const char *configFile);
 	
 	void sync(CFAbsoluteTime now);
 	bool validateRule(string inRightName, CFDictionaryRef inRightDefinition) const;
@@ -54,8 +54,8 @@ public:
 	void removeRule(const char *inRightName);
 
 protected:
-	void load(CFTimeInterval now);
-	void save() const;
+	void load();
+	void save();
 	
 private:
 	string mFileName;

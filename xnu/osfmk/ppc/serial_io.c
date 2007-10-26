@@ -1,23 +1,29 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*
  * @OSF_COPYRIGHT@
@@ -96,39 +102,35 @@ struct scc_tty scc_tty[NSCC_LINE];
 #define scc_dev_no(chan) ((chan)^0x01)
 #define scc_chan(dev_no) ((dev_no)^0x01)
 
-extern unsigned int disableSerialOuput;
-
 int	serial_initted = 0;
 unsigned int scc_parm_done = 0;
-
-extern unsigned int serialmode;
 
 static struct scc_byte {
 	unsigned char	reg;
 	unsigned char	val;
 } scc_init_hw[] = {
 	
-	9, 0x80,
-	4, 0x44,
-	3, 0xC0,
-	5, 0xE2,
-	2, 0x00,
-	10, 0x00,
-	11, 0x50,
-	12, 0x0A,
-	13, 0x00,
-	3, 0xC1,
-	5, 0xEA,
-	14, 0x01,
-	15, 0x00,
-	0, 0x10,
-	0, 0x10,
+	{9, 0x80},
+	{4, 0x44},
+	{3, 0xC0},
+	{5, 0xE2},
+	{2, 0x00},
+	{10, 0x00},
+	{11, 0x50},
+	{12, 0x0A},
+	{13, 0x00},
+	{3, 0xC1},
+	{5, 0xEA},
+	{14, 0x01},
+	{15, 0x00},
+	{0, 0x10},
+	{0, 0x10},
 #if 0
-	1, 0x12,			/* int or Rx, Tx int enable */
+	{1, 0x12},			/* int or Rx, Tx int enable */
 #else
-	1, 0x10,			/* int or Rx,  no Tx int enable */
+	{1, 0x10},			/* int or Rx,  no Tx int enable */
 #endif
-	9, 0x0A
+	{9, 0x0A}
 };
 
 static int	scc_init_hw_count = sizeof(scc_init_hw)/sizeof(scc_init_hw[0]);
@@ -254,8 +256,8 @@ int
 scc_probe(int32_t serial_baud)
 {
 	scc_softc_t     scc;
-	register int	val, i;
-	register scc_regmap_t	regs;
+	int i;
+	scc_regmap_t regs;
 	spl_t	s;
 	DECL_FUNNEL_VARS
 
@@ -318,12 +320,11 @@ scc_probe(int32_t serial_baud)
  */
 
 int
-scc_getc(int unit, int line, boolean_t wait, boolean_t raw)
+scc_getc(__unused int unit, int line, boolean_t wait, __unused boolean_t raw)
 {
-	register scc_regmap_t	regs;
+	scc_regmap_t	regs;
 	unsigned char   c, value;
-	int             rcvalue, from_line;
-	uint32_t 	fcrmunge;
+	int             rcvalue;
 	spl_t		s = splhigh();
 	DECL_FUNNEL_VARS
 
@@ -399,23 +400,33 @@ again:
 	return c;
 }
 
+
+/*
+ *	This front-ends scc_getc to make some intel changes easier
+ */
+ 
+int _serial_getc(int unit, int line, boolean_t wait, boolean_t raw) {
+
+	return(scc_getc(unit, line, wait, raw));
+
+}
+
 /*
  * Put a char on a specific SCC line
  * use splhigh since we might be doing a printf in high spl'd code
  */
 
-int
-scc_putc(int unit, int line, int c)
+void
+scc_putc(__unused int unit, int line, int c)
 {
 	scc_regmap_t	regs;
 	spl_t            s;
 	unsigned char	 value;
-	uint32_t fcrmunge;
 	DECL_FUNNEL_VARS
 
 
-	if (disableSerialOuput)
-		return 0;
+	if (disable_serial_output)
+		return;
 
 	s = splhigh();
 	FUNNEL_ENTER(&SCC_FUNNEL);
@@ -444,7 +455,6 @@ scc_putc(int unit, int line, int c)
 	splx(s);
 
 	FUNNEL_EXIT(&SCC_FUNNEL);
-	return 0;
 }
 
 
@@ -499,7 +509,7 @@ scc_param(struct scc_tty *tp)
 	
 	/* Do a quick check to see if the hardware needs to change */
 	if ((sr->flags & (TF_ODDP|TF_EVENP)) == (tp->t_flags & (TF_ODDP|TF_EVENP))
-	    && sr->speed == tp->t_ispeed) {
+	    && sr->speed == (unsigned long)tp->t_ispeed) {
 		assert(FUNNEL_IN_USE(&SCC_FUNNEL));
 		simple_unlock(&scc_stomp);
 		splx(s);
@@ -646,56 +656,4 @@ scc_param(struct scc_tty *tp)
 	return 0;
 
 }
-
-/*
- *  This routine will start a thread that polls the serial port, listening for
- *  characters that have been typed.
- */
-
-void
-serial_keyboard_init(void)
-{
-	kern_return_t	result;
-	thread_t		thread;
-
-	if(!(serialmode & 2)) return;		/* Leave if we do not want a serial console */
-
-	kprintf("Serial keyboard started\n");
-	result = kernel_thread_start_priority((thread_continue_t)serial_keyboard_start, NULL, MAXPRI_KERNEL, &thread);
-	if (result != KERN_SUCCESS)
-		panic("serial_keyboard_init");
-
-	thread_deallocate(thread);
-}
-
-void
-serial_keyboard_start(void)
-{
-	serial_keyboard_poll();			/* Go see if there are any characters pending now */
-	panic("serial_keyboard_start: we can't get back here\n");
-}
-
-static int ptestxxx = 0;
-
-void
-serial_keyboard_poll(void)
-{
-	int chr;
-	uint64_t next;
-	extern void cons_cinput(char ch);	/* The BSD routine that gets characters */
-
-
-	while(1) {				/* Do this for a while */
-		chr = scc_getc(0, 1, 0, 1);	/* Get a character if there is one */
-		if(chr < 0) break;		/* The serial buffer is empty */
-		cons_cinput((char)chr);		/* Buffer up the character */
-	}
-
-	clock_interval_to_deadline(16, 1000000, &next);	/* Get time of pop */
-
-	assert_wait_deadline((event_t)serial_keyboard_poll, THREAD_UNINT, next);	/* Show we are "waiting" */
-	thread_block((thread_continue_t)serial_keyboard_poll);	/* Wait for it */
-	panic("serial_keyboard_poll: Shouldn't never ever get here...\n");
-}
-
 #endif	/* NSCC > 0 */

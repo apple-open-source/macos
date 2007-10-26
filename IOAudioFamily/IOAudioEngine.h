@@ -329,6 +329,11 @@ public:
 	 */
     virtual void setOutputSampleOffset(UInt32 numSamples);
 
+protected:
+	
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 12);
+    virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioEngineUserClient **newUserClient, OSDictionary *properties);
+	
 private:
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 0);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 1);
@@ -342,8 +347,8 @@ private:
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 9);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 10);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 11);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 12);
 
-	OSMetaClassDeclareReservedUnused(IOAudioEngine, 12);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 13);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 14);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 15);
@@ -499,13 +504,18 @@ public:
      *  to connect to this service.  It allocates a new IOAudioEngineUserClient object and increments
      *  the number of connections for this audio engine.  If this is the first user client for this IOAudioEngine,
      *  it calls startAudioEngine().  There is no need to call this function directly.
+	 *  A derived class that requires overriding of newUserClient should override the version with the properties
+	 *  parameter for Intel targets, and without the properties parameter for PPC targets.  The #if __i386__ directive
+	 *  can be used to select between the two behaviors.
      * @param task The task requesting the new user client.
      * @param securityID Optional security paramater passed in by the client - ignored.
      * @param type Optional user client type passed in by the client - ignored.
      * @param handler The new IOUserClient * must be stored in this param on a successful completion.
+     * @param properties A dictionary of additional properties for the connection.
      * @result Returns kIOReturnSuccess on success.  May also result kIOReturnError or kIOReturnNoMemory.
      */
     virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, IOUserClient **handler);
+    virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, OSDictionary *properties, IOUserClient **handler);
 
     /*!
      * @function addAudioStream
@@ -553,7 +563,7 @@ public:
      *  This must be overridden by the subclass.  No call to the superclass's implementation is
      *  necessary.  The subclass's implementation must start up the audio I/O engine.  This includes any audio
      *  engine that needs to be started as well as any interrupts that need to be enabled.  Upon successfully
-     *  starting the engine, the subclass's implementation must call setState(kAudioEngineRunning).  If
+     *  starting the engine, the subclass's implementation must call setState(kIOAudioEngineRunning).  If
      *  it has also checked the state using getState() earlier in the implementation, the stateLock must be
      *  acquired for the entire initialization process (using IORecursiveLockLock(stateLock) and
      *  IORecursiveLockUnlock(stateLock)) to ensure that the state remains consistent.  See the general class
@@ -608,7 +618,7 @@ public:
      *  be acquired before the first call to getState() and held until after the last call to setState().
      *  Be careful not to return from the code acquiring the lock while the lock is being held.  That
      *  will cause a deadlock situation.
-     * @result The current state of the IOAudioEngine: kAudioEngineRunning, kAudioEngineStopped.
+     * @result The current state of the IOAudioEngine: kIOAudioEngineRunning, kIOAudioEngineStopped.
      */
     virtual IOAudioEngineState getState();
 
@@ -776,7 +786,7 @@ protected:
      *  and performing flushing operations. When the timer fires, the method timerFired() is ultimately
      *  called which in turn calls performErase() and performFlush().  This is called automatically
      *  to enable the timer event for this audio engine.  It is called by setState() when the audio engine state
-     *  is set to kAudioEngineRunning.  When the timer is no longer needed, removeTimer() is called.
+     *  is set to kIOAudioEngineRunning.  When the timer is no longer needed, removeTimer() is called.
      *  There is no need to call this directly.  
      */
     virtual void addTimer();
@@ -786,7 +796,7 @@ protected:
      * @abstract Disables the timer event for the audio engine.
      * @discussion  This method is called automatically to disable the timer event for this audio engine.
      *  There is need to call it directly.  This method is called by setState() when the audio engine state
-     *  is changed from kAudioEngineRunning to one of the stopped states.
+     *  is changed from kIOAudioEngineRunning to one of the stopped states.
      */
     virtual void removeTimer();
 

@@ -88,6 +88,8 @@ sigaddset(set, signo)
 		errno = EINVAL;
 		return(-1);
 	}
+	if (signo == 0)
+		return(0);
 	*set |= sigmask(signo);
 	return (0);
 }
@@ -101,6 +103,8 @@ sigdelset(set, signo)
 		errno = EINVAL;
 		return(-1);
 	}
+	if (signo == 0)
+		return(0);
 	*set &= ~sigmask(signo);
 	return (0);
 }
@@ -114,5 +118,7 @@ sigismember(set, signo)
 		errno = EINVAL;
 		return(-1);
 	}
+	if (signo == 0)
+		return(0);
 	return ((*set & sigmask(signo)) != 0);
 }

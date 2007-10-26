@@ -1,6 +1,7 @@
 ;;; ehelp.el --- bindings for electric-help mode
 
-;; Copyright (C) 1986, 1995, 2000, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1986, 1995, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: help, extensions
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -85,11 +86,11 @@
     (define-key map "<" 'beginning-of-buffer)
     (define-key map ">" 'end-of-buffer)
     ;(define-key map "\C-g" 'electric-help-exit)
-    (define-key map "q" 'electric-help-exit)
     (define-key map "Q" 'electric-help-exit)
+    (define-key map "q" 'electric-help-exit)
     ;;a better key than this?
-    (define-key map "r" 'electric-help-retain)
     (define-key map "R" 'electric-help-retain)
+    (define-key map "r" 'electric-help-retain)
     (define-key map "\ex" 'electric-help-execute-extended)
     (define-key map "\C-x" 'electric-help-ctrl-x-prefix)
 
@@ -112,7 +113,6 @@
 ;;;###autoload
 (defun with-electric-help (thunk &optional buffer noerase minheight)
   "Pop up an \"electric\" help buffer.
-The arguments are THUNK &optional BUFFER NOERASE MINHEIGHT.
 THUNK is a function of no arguments which is called to initialize the
 contents of BUFFER.  BUFFER defaults to `*Help*'.  BUFFER will be
 erased before THUNK is called unless NOERASE is non-nil.  THUNK will
@@ -124,7 +124,7 @@ shrink the window to fit.  If THUNK returns non-nil, we don't do those things.
 
 After THUNK has been called, this function \"electrically\" pops up a window
 in which BUFFER is displayed and allows the user to scroll through that buffer
-in electric-help-mode. The window's height will be at least MINHEIGHT if
+in `electric-help-mode'. The window's height will be at least MINHEIGHT if
 this value is non-nil.
 
 If THUNK returns nil, we display BUFFER starting at the top, and
@@ -133,7 +133,7 @@ If THUNK returns non-nil, we don't do those things.
 
 When the user exits (with `electric-help-exit', or otherwise), the help
 buffer's window disappears (i.e., we use `save-window-excursion'), and
-BUFFER is put into `default-major-mode' (or `fundamental-mode') when we exit."
+BUFFER is put into `default-major-mode' (or `fundamental-mode')."
   (setq buffer (get-buffer-create (or buffer "*Help*")))
   (let ((one (one-window-p t))
 	(config (current-window-configuration))
@@ -181,7 +181,7 @@ BUFFER is put into `default-major-mode' (or `fundamental-mode') when we exit."
       (condition-case ()
           (funcall (or default-major-mode 'fundamental-mode))
         (error nil))
-      
+
       (set-window-configuration config)
       (when bury
 	;;>> Perhaps this shouldn't be done,
@@ -196,26 +196,26 @@ BUFFER is put into `default-major-mode' (or `fundamental-mode') when we exit."
     (if (pos-visible-in-window-p (point-max))
 	(progn (message "%s" (substitute-command-keys "<<< Press Space to bury the help buffer, Press \\[electric-help-retain] to retain it >>>"))
 	       (if (equal (setq unread-command-events (list (read-event)))
-			  '(?\ ))
+			  '(?\s))
 		   (progn (setq unread-command-events nil)
 			  (throw 'exit t)))))
     (let (up down both neither
-	  (standard (and (eq (key-binding " ")
+	  (standard (and (eq (key-binding " " nil t)
 			     'scroll-up)
-			 (eq (key-binding "\^?")
+			 (eq (key-binding "\^?" nil t)
 			     'scroll-down)
-			 (eq (key-binding "q")
+			 (eq (key-binding "q" nil t)
 			     'electric-help-exit)
-			 (eq (key-binding "r")
+			 (eq (key-binding "r" nil t)
 			     'electric-help-retain))))
       (Electric-command-loop
         'exit
 	(function (lambda ()
-	  (sit-for 0) ;necessary if last command was end-of-buffer or 
-	              ;beginning-of-buffer - otherwise pos-visible-in-window-p 
+	  (sit-for 0) ;necessary if last command was end-of-buffer or
+	              ;beginning-of-buffer - otherwise pos-visible-in-window-p
 	              ;will yield a wrong result.
 	  (let ((min (pos-visible-in-window-p (point-min)))
-		(max (pos-visible-in-window-p (point-max))))
+		(max (pos-visible-in-window-p (1- (point-max)))))
 	    (cond (isearch-mode 'noprompt)
 		  ((and min max)
 		   (cond (standard "Press q to exit, r to retain ")
@@ -245,7 +245,7 @@ BUFFER is put into `default-major-mode' (or `fundamental-mode') when we exit."
 ;    (scroll-up arg)))
 
 (defun electric-help-exit ()
-  "Exit `electric-help', restoring the previous window/buffer configuration.
+  "Exit `with-electric-help', restoring the previous window/buffer configuration.
 \(The *Help* buffer will be buried.)"
   (interactive)
   ;; Make sure that we don't throw twice, even if two events cause
@@ -256,7 +256,7 @@ BUFFER is put into `default-major-mode' (or `fundamental-mode') when we exit."
 	(throw 'exit t))))
 
 (defun electric-help-retain ()
-  "Exit `electric-help', retaining the current window/buffer configuration.
+  "Exit `with-electric-help', retaining the current window/buffer configuration.
 \(The *Help* buffer will not be selected, but \\[switch-to-buffer-other-window] RET
 will select it.)"
   (interactive)
@@ -272,7 +272,7 @@ will select it.)"
   (interactive)
   (error "%s is undefined -- Press %s to exit"
 	 (mapconcat 'single-key-description (this-command-keys) " ")
-	 (if (eq (key-binding "q") 'electric-help-exit)
+	 (if (eq (key-binding "q" nil t) 'electric-help-exit)
 	     "q"
 	   (substitute-command-keys "\\[electric-help-exit]"))))
 
@@ -280,10 +280,10 @@ will select it.)"
 ;>>> this needs to be hairified (recursive help, anybody?)
 (defun electric-help-help ()
   (interactive)
-  (if (and (eq (key-binding "q") 'electric-help-exit)
-	   (eq (key-binding " ") 'scroll-up)
-	   (eq (key-binding "\^?") 'scroll-down)
-	   (eq (key-binding "r") 'electric-help-retain))
+  (if (and (eq (key-binding "q" nil t) 'electric-help-exit)
+	   (eq (key-binding " " nil t) 'scroll-up)
+	   (eq (key-binding "\^?" nil t) 'scroll-down)
+	   (eq (key-binding "r" nil t) 'electric-help-retain))
       (message "SPC scrolls up, DEL scrolls down, q exits burying help buffer, r exits")
     (message "%s" (substitute-command-keys "\\[scroll-up] scrolls up, \\[scroll-down] scrolls down, \\[electric-help-exit] exits burying help buffer, \\[electric-help-retain] exits")))
   (sit-for 2))
@@ -343,7 +343,7 @@ will select it.)"
 
 
 
-;; This is to be bound to M-x in ehelp mode. Retains ehelp buffer and then 
+;; This is to be bound to M-x in ehelp mode. Retains ehelp buffer and then
 ;; continues with execute-extended-command.
 (defun electric-help-execute-extended (prefixarg)
   (interactive "p")
@@ -407,7 +407,7 @@ will select it.)"
 (defvar ehelp-map ())
 (if ehelp-map
     nil
-  (let ((map (copy-keymap help-map))) 
+  (let ((map (copy-keymap help-map)))
     (substitute-key-definition 'apropos 'electric-apropos map)
     (substitute-key-definition 'command-apropos 'electric-command-apropos map)
     (substitute-key-definition 'describe-key 'electric-describe-key map)
@@ -418,9 +418,13 @@ will select it.)"
     (substitute-key-definition 'describe-bindings 'electric-describe-bindings map)
     (substitute-key-definition 'describe-syntax 'electric-describe-syntax map)
 
-    (setq ehelp-map map)
-    (fset 'ehelp-command map)))
+    (setq ehelp-map map)))
 
-(provide 'ehelp) 
+;;;###(autoload 'ehelp-command "ehelp" "Prefix command for ehelp." t 'keymap)
+(defalias 'ehelp-command ehelp-map)
+(put 'ehelp-command 'documentation "Prefix command for ehelp.")
 
+(provide 'ehelp)
+
+;;; arch-tag: e0e3037f-42c0-433e-ba18-322c5d951f46
 ;;; ehelp.el ends here

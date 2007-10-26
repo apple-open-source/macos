@@ -3,13 +3,13 @@
 	<key>OpenSourceProject</key>
 	<string>texinfo</string>
 	<key>OpenSourceVersion</key>
-	<string>4.7</string>
+	<string>4.8</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.gnu.org/software/texinfo/</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.gnu.org/pub/gnu/texinfo/texinfo-4.7.tar.bz2</string>
+	<string>http://ftp.gnu.org/pub/gnu/texinfo/texinfo-4.8.tar.bz2</string>
 	<key>OpenSourceMD5</key>
-	<string>c2fa2ef957f0d728f821ae9b2362ef4e</string>
+	<string>6ba369bbfe4afaa56122e65b3ee3a68c</string>
 	<key>OpenSourceModifications</key>
 	<array>
 	</array>

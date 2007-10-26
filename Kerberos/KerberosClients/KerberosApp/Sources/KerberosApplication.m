@@ -31,7 +31,7 @@
  * specific to Kerberos 
  */
 
-#import "ErrorAlert.h"
+#import "KerberosErrorAlert.h"
 
 #import "KerberosApplication.h"
 
@@ -39,13 +39,13 @@
 
 // ---------------------------------------------------------------------------
 
-- (Principal *) getPrincipalArgumentForCommand: (NSScriptCommand *) command
+- (KerberosPrincipal *) getPrincipalArgumentForCommand: (NSScriptCommand *) command
 {
     NSDictionary *args = [command evaluatedArguments];
     NSString *principalString = [args objectForKey: @"forPrincipal"];
     
-    if (principalString != NULL) {
-        return [[[Principal alloc] initWithString: principalString klVersion: kerberosVersion_V5] autorelease];
+    if (principalString) {
+        return [[[KerberosPrincipal alloc] initWithString: principalString] autorelease];
     }
     return NULL;
 }
@@ -67,14 +67,14 @@
 - (id) handleGetTicketsScriptCommand: (NSScriptCommand *) command
 {
     //NSLog (@"Entering %s....", __FUNCTION__);
-    Principal *principal = [self getPrincipalArgumentForCommand: command];
-    if (principal != NULL) {
+    KerberosPrincipal *principal = [self getPrincipalArgumentForCommand: command];
+    if (principal) {
         KLStatus err = [principal getTickets];
-        if (err == klNoErr) {
-            [[CacheCollection sharedCacheCollection] update];
+        if (!err) {
+            [[KerberosCacheCollection sharedCacheCollection] update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosGetTicketsAction];
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosGetTicketsAction];
         }
     } else {
         [[self delegate] getTickets: self];
@@ -87,14 +87,14 @@
 - (id) handleRenewTicketsScriptCommand: (NSScriptCommand *) command
 {
     //NSLog (@"Entering %s....", __FUNCTION__);
-    Principal *principal = [self getPrincipalArgumentForCommand: command];
-    if (principal != NULL) {
+    KerberosPrincipal *principal = [self getPrincipalArgumentForCommand: command];
+    if (principal) {
         KLStatus err = [principal renewTickets];
-        if (err == klNoErr) {
-            [[CacheCollection sharedCacheCollection] update];
+        if (!err) {
+            [[KerberosCacheCollection sharedCacheCollection] update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosRenewTicketsAction];
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosRenewTicketsAction];
         }
     } else {
         [[self delegate] renewTicketsForActiveUser: self];
@@ -107,14 +107,14 @@
 - (id) handleDestroyTicketsScriptCommand: (NSScriptCommand *) command
 {
     //NSLog (@"Entering %s....", __FUNCTION__);
-    Principal *principal = [self getPrincipalArgumentForCommand: command];
-    if (principal != NULL) {
+    KerberosPrincipal *principal = [self getPrincipalArgumentForCommand: command];
+    if (principal) {
         KLStatus err = [principal destroyTickets];
-        if (err == klNoErr) {
-            [[CacheCollection sharedCacheCollection] update];
+        if (!err) {
+            [[KerberosCacheCollection sharedCacheCollection] update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosDestroyTicketsAction];
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosDestroyTicketsAction];
         }
     } else {
         [[self delegate] destroyTicketsForActiveUser: self];
@@ -127,14 +127,14 @@
 - (id) handleChangePasswordScriptCommand: (NSScriptCommand *) command
 {
     //NSLog (@"Entering %s....", __FUNCTION__);
-    Principal *principal = [self getPrincipalArgumentForCommand: command];
-    if (principal != NULL) {
+    KerberosPrincipal *principal = [self getPrincipalArgumentForCommand: command];
+    if (principal) {
         KLStatus err = [principal changePassword];
-        if (err == klNoErr) {
-            [[CacheCollection sharedCacheCollection] update];
+        if (!err) {
+            [[KerberosCacheCollection sharedCacheCollection] update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosChangePasswordAction];
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosChangePasswordAction];
         }
     } else {
         [[self delegate] changePasswordForActiveUser: self];
@@ -153,23 +153,23 @@
 
 // ---------------------------------------------------------------------------
 
-- (CacheCollection *) cacheCollection
+- (KerberosCacheCollection *) cacheCollection
 {
-    return [CacheCollection sharedCacheCollection];  
+    return [KerberosCacheCollection sharedCacheCollection];  
 }
 
 // ---------------------------------------------------------------------------
 
 - (NSArray *) caches
 {
-    return [[CacheCollection sharedCacheCollection] caches];  
+    return [[KerberosCacheCollection sharedCacheCollection] caches];  
 }
 
 // ---------------------------------------------------------------------------
 
-- (Cache *) defaultCache
+- (KerberosCache *) defaultCache
 {
-    return [[CacheCollection sharedCacheCollection] defaultCache];  
+    return [[KerberosCacheCollection sharedCacheCollection] defaultCache];  
 }
 
 

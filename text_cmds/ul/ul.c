@@ -1,5 +1,3 @@
-/*	$NetBSD: ul.c,v 1.6 1997/10/20 02:08:29 lukem Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,29 +31,29 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1980, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)ul.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: ul.c,v 1.6 1997/10/20 02:08:29 lukem Exp $");
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/ul/ul.c,v 1.14 2005/05/21 09:55:09 ru Exp $";
 #endif /* not lint */
 
+#include <err.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef __APPLE__
-#include <curses.h>
-#include <term.h>
-#else
 #include <termcap.h>
-#endif
 #include <unistd.h>
+#include <wchar.h>
+#include <wctype.h>
 
 #define	IESC	'\033'
 #define	SO	'\016'
@@ -73,13 +71,15 @@ __RCSID("$NetBSD: ul.c,v 1.6 1997/10/20 02:08:29 lukem Exp $");
 #define	BOLD	020	/* Bold */
 
 int	must_use_uc, must_overstrike;
-char	*CURS_UP, *CURS_RIGHT, *CURS_LEFT,
+const char
+	*CURS_UP, *CURS_RIGHT, *CURS_LEFT,
 	*ENTER_STANDOUT, *EXIT_STANDOUT, *ENTER_UNDERLINE, *EXIT_UNDERLINE,
 	*ENTER_DIM, *ENTER_BOLD, *ENTER_REVERSE, *UNDER_CHAR, *EXIT_ATTRIBUTES;
 
 struct	CHAR	{
 	char	c_mode;
-	char	c_char;
+	wchar_t	c_char;
+	int	c_width;	/* width or -1 if multi-column char. filler */
 } ;
 
 struct	CHAR	obuf[MAXBUF];
@@ -89,53 +89,46 @@ int	halfpos;
 int	upln;
 int	iflag;
 
-int	main __P((int, char **));
-void	ul_filter __P((FILE *));
-void	flushln __P((void));
-void	fwd __P((void));
-void	iattr __P((void));
-void	initbuf __P((void));
-void	initcap __P((void));
-void	outc __P((int));
-int	outchar __P((int));
-void	overstrike __P((void));
-void	reverse __P((void));
-void	setulmode __P((int));
-
+static void usage(void);
+void setnewmode(int);
+void initcap(void);
+void reverse(void);
+int outchar(int);
+void fwd(void);
+void initbuf(void);
+void iattr(void);
+void overstrike(void);
+void flushln(void);
+void filter(FILE *);
+void outc(wint_t, int);
 
 #define	PRINT(s)	if (s == NULL) /* void */; else tputs(s, 1, outchar)
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char **argv)
 {
-	extern int optind;
-	extern char *optarg;
 	int c;
-	char *termtype;
+	const char *termtype;
 	FILE *f;
 	char termcap[1024];
 
+	setlocale(LC_ALL, "");
+
 	termtype = getenv("TERM");
-	if (termtype == NULL || (argv[0][0] == 'c' && !isatty(1)))
+	if (termtype == NULL || (argv[0] && argv[0][0] == 'c' && !isatty(1)))
 		termtype = "lpr";
 	while ((c=getopt(argc, argv, "it:T:")) != -1)
 		switch(c) {
 
 		case 't':
 		case 'T': /* for nroff compatibility */
-				termtype = optarg;
+			termtype = optarg;
 			break;
 		case 'i':
 			iflag = 1;
 			break;
-
 		default:
-			fprintf(stderr,
-				"usage: %s [ -i ] [ -tTerm ] file...\n",
-				argv[0]);
-			exit(1);
+			usage();
 		}
 
 	switch(tgetent(termcap, termtype)) {
@@ -144,8 +137,8 @@ main(argc, argv)
 		break;
 
 	default:
-		fprintf(stderr,"trouble reading termcap");
-		/* fall through to ... */
+		warnx("trouble reading termcap");
+		/* FALLTHROUGH */
 
 	case 0:
 		/* No such terminal type - assume dumb */
@@ -158,27 +151,31 @@ main(argc, argv)
 			must_overstrike = 1;
 	initbuf();
 	if (optind == argc)
-		ul_filter(stdin);
-	else for (; optind<argc; optind++) {
+		filter(stdin);
+	else for (; optind<argc && argv[optind]; optind++) {
 		f = fopen(argv[optind],"r");
-		if (f == NULL) {
-			perror(argv[optind]);
-			exit(1);
-		}
-
-		ul_filter(f);
-		fclose(f);
+		if (f == NULL)
+			err(1, "%s", argv[optind]);
+		else
+			filter(f);
 	}
 	exit(0);
 }
 
-void
-ul_filter(f)
-	FILE *f;
+static void
+usage(void)
 {
-	int c;
+	fprintf(stderr, "usage: ul [-i] [-t terminal] [file ...]\n");
+	exit(1);
+}
 
-	while ((c = getc(f)) != EOF) switch(c) {
+void
+filter(FILE *f)
+{
+	wint_t c;
+	int i, w;
+
+	while ((c = getwc(f)) != WEOF && col < MAXBUF) switch(c) {
 
 	case '\b':
 		if (col > 0)
@@ -204,7 +201,7 @@ ul_filter(f)
 		continue;
 
 	case IESC:
-		switch (c = getc(f)) {
+		switch (c = getwc(f)) {
 
 		case HREV:
 			if (halfpos == 0) {
@@ -237,18 +234,24 @@ ul_filter(f)
 			continue;
 
 		default:
-			fprintf(stderr,
-				"Unknown escape sequence in input: %o, %o\n",
-				IESC, c);
-			exit(1);
+			errx(1, "unknown escape sequence in input: %o, %o", IESC, c);
 		}
 		continue;
 
 	case '_':
-		if (obuf[col].c_char)
-			obuf[col].c_mode |= UNDERL | mode;
-		else
-			obuf[col].c_char = '_';
+		if (obuf[col].c_char || obuf[col].c_width < 0) {
+			while (col > 0 && obuf[col].c_width < 0)
+				col--;
+			w = obuf[col].c_width;
+			for (i = 0; i < w; i++)
+				obuf[col++].c_mode |= UNDERL | mode;
+			if (col > maxcol)
+				maxcol = col;
+			continue;
+		}
+		obuf[col].c_char = '_';
+		obuf[col].c_width = 1;
+		/* FALLTHROUGH */
 	case ' ':
 		col++;
 		if (col > maxcol)
@@ -261,33 +264,47 @@ ul_filter(f)
 
 	case '\f':
 		flushln();
-		putchar('\f');
+		putwchar('\f');
 		continue;
 
 	default:
-		if (c < ' ')	/* non printing */
+		if ((w = wcwidth(c)) <= 0)	/* non printing */
 			continue;
 		if (obuf[col].c_char == '\0') {
 			obuf[col].c_char = c;
-			obuf[col].c_mode = mode;
+			for (i = 0; i < w; i++)
+				obuf[col + i].c_mode = mode;
+			obuf[col].c_width = w;
+			for (i = 1; i < w; i++)
+				obuf[col + i].c_width = -1;
 		} else if (obuf[col].c_char == '_') {
 			obuf[col].c_char = c;
-			obuf[col].c_mode |= UNDERL|mode;
-		} else if (obuf[col].c_char == c)
-			obuf[col].c_mode |= BOLD|mode;
-		else
-			obuf[col].c_mode = mode;
-		col++;
+			for (i = 0; i < w; i++)
+				obuf[col + i].c_mode |= UNDERL|mode;
+			obuf[col].c_width = w;
+			for (i = 1; i < w; i++)
+				obuf[col + i].c_width = -1;
+		} else if (obuf[col].c_char == c) {
+			for (i = 0; i < w; i++)
+				obuf[col + i].c_mode |= BOLD|mode;
+		} else {
+			w = obuf[col].c_width;
+			for (i = 0; i < w; i++)
+				obuf[col + i].c_mode = mode;
+		}
+		col += w;
 		if (col > maxcol)
 			maxcol = col;
 		continue;
 	}
+	if (ferror(f))
+		err(1, NULL);
 	if (maxcol)
 		flushln();
 }
 
 void
-flushln()
+flushln(void)
 {
 	int lastmode;
 	int i;
@@ -297,23 +314,25 @@ flushln()
 	for (i=0; i<maxcol; i++) {
 		if (obuf[i].c_mode != lastmode) {
 			hadmodes++;
-			setulmode(obuf[i].c_mode);
+			setnewmode(obuf[i].c_mode);
 			lastmode = obuf[i].c_mode;
 		}
 		if (obuf[i].c_char == '\0') {
 			if (upln)
 				PRINT(CURS_RIGHT);
 			else
-				outc(' ');
+				outc(' ', 1);
 		} else
-			outc(obuf[i].c_char);
+			outc(obuf[i].c_char, obuf[i].c_width);
+		if (obuf[i].c_width > 1)
+			i += obuf[i].c_width - 1;
 	}
 	if (lastmode != NORMAL) {
-		setulmode(0);
+		setnewmode(0);
 	}
 	if (must_overstrike && hadmodes)
 		overstrike();
-	putchar('\n');
+	putwchar('\n');
 	if (iflag && hadmodes)
 		iattr();
 	(void)fflush(stdout);
@@ -327,11 +346,11 @@ flushln()
  * We don't do anything with halfline ups and downs, or Greek.
  */
 void
-overstrike()
+overstrike(void)
 {
 	int i;
-	char lbuf[256];
-	char *cp = lbuf;
+	wchar_t lbuf[256];
+	wchar_t *cp = lbuf;
 	int hadbold=0;
 
 	/* Set up overstrike buffer */
@@ -346,30 +365,32 @@ overstrike()
 			break;
 		case BOLD:
 			*cp++ = obuf[i].c_char;
+			if (obuf[i].c_width > 1)
+				i += obuf[i].c_width - 1;
 			hadbold=1;
 			break;
 		}
-	putchar('\r');
+	putwchar('\r');
 	for (*cp=' '; *cp==' '; cp--)
 		*cp = 0;
 	for (cp=lbuf; *cp; cp++)
-		putchar(*cp);
+		putwchar(*cp);
 	if (hadbold) {
-		putchar('\r');
+		putwchar('\r');
 		for (cp=lbuf; *cp; cp++)
-			putchar(*cp=='_' ? ' ' : *cp);
-		putchar('\r');
+			putwchar(*cp=='_' ? ' ' : *cp);
+		putwchar('\r');
 		for (cp=lbuf; *cp; cp++)
-			putchar(*cp=='_' ? ' ' : *cp);
+			putwchar(*cp=='_' ? ' ' : *cp);
 	}
 }
 
 void
-iattr()
+iattr(void)
 {
 	int i;
-	char lbuf[256];
-	char *cp = lbuf;
+	wchar_t lbuf[256];
+	wchar_t *cp = lbuf;
 
 	for (i=0; i<maxcol; i++)
 		switch (obuf[i].c_mode) {
@@ -384,22 +405,22 @@ iattr()
 	for (*cp=' '; *cp==' '; cp--)
 		*cp = 0;
 	for (cp=lbuf; *cp; cp++)
-		putchar(*cp);
-	putchar('\n');
+		putwchar(*cp);
+	putwchar('\n');
 }
 
 void
-initbuf()
+initbuf(void)
 {
 
-	memset((char *)obuf, 0, sizeof (obuf));	/* depends on NORMAL == 0 */
+	bzero((char *)obuf, sizeof (obuf));	/* depends on NORMAL == 0 */
 	col = 0;
 	maxcol = 0;
 	mode &= ALTSET;
 }
 
 void
-fwd()
+fwd(void)
 {
 	int oldcol, oldmax;
 
@@ -411,7 +432,7 @@ fwd()
 }
 
 void
-reverse()
+reverse(void)
 {
 	upln++;
 	fwd();
@@ -421,7 +442,7 @@ reverse()
 }
 
 void
-initcap()
+initcap(void)
 {
 	static char tcapbuf[512];
 	char *bp = tcapbuf;
@@ -460,7 +481,7 @@ initcap()
 		ENTER_REVERSE = ENTER_STANDOUT;
 	if (!EXIT_ATTRIBUTES && EXIT_STANDOUT)
 		EXIT_ATTRIBUTES = EXIT_STANDOUT;
-	
+
 	/*
 	 * Note that we use REVERSE for the alternate character set,
 	 * not the as/ae capabilities.  This is because we are modelling
@@ -474,34 +495,33 @@ initcap()
 }
 
 int
-outchar(c)
-	int c;
+outchar(int c)
 {
-	putchar(c & 0177);
-
-	return OK;
+	return (putwchar(c) != WEOF ? c : EOF);
 }
 
 static int curmode = 0;
 
 void
-outc(c)
-	int c;
+outc(wint_t c, int width)
 {
-	putchar(c);
+	int i;
+
+	putwchar(c);
 	if (must_use_uc && (curmode&UNDERL)) {
-		PRINT(CURS_LEFT);
-		PRINT(UNDER_CHAR);
+		for (i = 0; i < width; i++)
+			PRINT(CURS_LEFT);
+		for (i = 0; i < width; i++)
+			PRINT(UNDER_CHAR);
 	}
 }
 
 void
-setulmode(newmode)
-	int newmode;
+setnewmode(int newmode)
 {
 	if (!iflag) {
 		if (curmode != NORMAL && newmode != NORMAL)
-			setulmode(NORMAL);
+			setnewmode(NORMAL);
 		switch (newmode) {
 		case NORMAL:
 			switch(curmode) {

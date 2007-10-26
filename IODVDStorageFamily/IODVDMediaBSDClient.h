@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,6 @@
 #define _IODVDMEDIABSDCLIENT_H
 
 #include <sys/ioctl.h>
-#include <sys/types.h>
 
 #include <IOKit/storage/IODVDTypes.h>
 
@@ -50,76 +49,96 @@
 
 typedef struct
 {
-    u_int8_t  format;
+    uint8_t  format;
 
-    u_int8_t  reserved0008[3];                     /* reserved, clear to zero */
+    uint8_t  reserved0008[3];                      /* reserved, clear to zero */
 
-    u_int32_t address;
-    u_int8_t  grantID;
-    u_int8_t  layer;
+    uint32_t address;
+    uint8_t  grantID;
+    uint8_t  layer;
 
-    u_int16_t bufferLength;
-    void *    buffer;
+#ifdef __LP64__
+    uint8_t  reserved0080[4];                      /* reserved, clear to zero */
+#endif /* __LP64__ */
+
+    uint16_t bufferLength;
+    void *   buffer;
 } dk_dvd_read_structure_t;
 
 typedef struct
 {
-    u_int8_t  format;
-    u_int8_t  keyClass;
+    uint8_t  format;
+    uint8_t  keyClass;
 
-    u_int8_t  reserved0016[2];                     /* reserved, clear to zero */
+    uint8_t  reserved0016[2];                      /* reserved, clear to zero */
 
-    u_int32_t address;
-    u_int8_t  grantID;
+    uint32_t address;
+    uint8_t  grantID;
 
-    u_int8_t  reserved0072[1];                     /* reserved, clear to zero */
+#ifdef __LP64__
+    uint8_t  reserved0072[5];                      /* reserved, clear to zero */
+#else /* !__LP64__ */
+    uint8_t  reserved0072[1];                      /* reserved, clear to zero */
+#endif /* !__LP64__ */
 
-    u_int16_t bufferLength;
-    void *    buffer;
+    uint16_t bufferLength;
+    void *   buffer;
 } dk_dvd_report_key_t;
 
 typedef struct
 {
-    u_int8_t  format;
-    u_int8_t  keyClass;
+    uint8_t  format;
+    uint8_t  keyClass;
 
-    u_int8_t  reserved0016[6];                     /* reserved, clear to zero */
+    uint8_t  reserved0016[6];                      /* reserved, clear to zero */
 
-    u_int8_t  grantID;
+    uint8_t  grantID;
 
-    u_int8_t  reserved0072[1];                     /* reserved, clear to zero */
+#ifdef __LP64__
+    uint8_t  reserved0072[5];                      /* reserved, clear to zero */
+#else /* !__LP64__ */
+    uint8_t  reserved0072[1];                      /* reserved, clear to zero */
+#endif /* !__LP64__ */
 
-    u_int16_t bufferLength;
-    void *    buffer;
+    uint16_t bufferLength;
+    void *   buffer;
 } dk_dvd_send_key_t;
 
 typedef struct
 {
-    u_int8_t  reserved0000[10];                    /* reserved, clear to zero */
+#ifdef __LP64__
+    uint8_t  reserved0000[14];                     /* reserved, clear to zero */
+#else /* !__LP64__ */
+    uint8_t  reserved0000[10];                     /* reserved, clear to zero */
+#endif /* !__LP64__ */
 
-    u_int16_t bufferLength;                        /* actual length on return */
-    void *    buffer;
+    uint16_t bufferLength;                         /* actual length on return */
+    void *   buffer;
 } dk_dvd_read_disc_info_t;
 
 typedef struct
 {
-    u_int8_t  reserved0000[4];                     /* reserved, clear to zero */
+    uint8_t  reserved0000[4];                      /* reserved, clear to zero */
 
-    u_int32_t address;
-    u_int8_t  addressType;
+    uint32_t address;
+    uint8_t  addressType;
 
-    u_int8_t  reserved0072[1];                     /* reserved, clear to zero */
+#ifdef __LP64__
+    uint8_t  reserved0072[5];                      /* reserved, clear to zero */
+#else /* !__LP64__ */
+    uint8_t  reserved0072[1];                      /* reserved, clear to zero */
+#endif /* !__LP64__ */
 
-    u_int16_t bufferLength;                        /* actual length on return */
-    void *    buffer;
+    uint16_t bufferLength;                         /* actual length on return */
+    void *   buffer;
 } dk_dvd_read_rzone_info_t;
 
 #define DKIOCDVDREADSTRUCTURE _IOW('d', 128, dk_dvd_read_structure_t)
 #define DKIOCDVDREPORTKEY     _IOW('d', 129, dk_dvd_report_key_t)
 #define DKIOCDVDSENDKEY       _IOW('d', 130, dk_dvd_send_key_t)
 
-#define DKIOCDVDGETSPEED      _IOR('d', 131, u_int16_t)
-#define DKIOCDVDSETSPEED      _IOW('d', 131, u_int16_t)
+#define DKIOCDVDGETSPEED      _IOR('d', 131, uint16_t)
+#define DKIOCDVDSETSPEED      _IOW('d', 131, uint16_t)
 
 #define DKIOCDVDREADDISCINFO  _IOWR('d', 132, dk_dvd_read_disc_info_t)
 #define DKIOCDVDREADRZONEINFO _IOWR('d', 133, dk_dvd_read_rzone_info_t)

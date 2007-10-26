@@ -453,12 +453,12 @@ double sin ( double x )
 }
 #endif
 
-//#ifdef notdef
+#ifdef notdef
 float sinf( float x)
 {
     return (float)sin( x );
 }
-//#endif
+#endif
 /*******************************************************************************
 *     Cosine section.                                                          *
 *******************************************************************************/

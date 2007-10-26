@@ -2,6 +2,8 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,151 +31,114 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: subr.c,v 1.19 2005/02/09 00:23:45 lindak Exp $
+ * $Id: subr.c,v 1.20 2006/04/12 04:55:30 lindak Exp $
  */
+#include <mach/mach.h>
+#include <mach/mach_error.h>
+#include <servers/bootstrap.h>
 
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/errno.h>
 #include <sys/sysctl.h>
 #include <sys/syscall.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <err.h>
+#include <asl.h>
+#ifndef USE_ASL_LOGGING
+#include <syslog.h>
+#endif // USE_ASL_LOGGING
+
+#include <locale.h>
 
 #include <netsmb/netbios.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/nb_lib.h>
 #include <cflib.h>
+#include <sys/smb_iconv.h>
 
-#include <sysexits.h>
-#include <sys/wait.h>
-
-uid_t real_uid, eff_uid;
-
-extern char *__progname;
-
-static int smblib_initialized;
-
-struct rcfile *smb_rc;
-
-int
-smb_lib_init(void)
-{
-	int error;
-
-	if (smblib_initialized)
-		return 0;
-	if ((error = nls_setlocale("")) != 0) {
-		warnx("%s: can't initialise locale\n", __FUNCTION__);
-		return error;
-	}
-	smblib_initialized++;
-	return 0;
-}
+#include <fs/smbfs/smbfs.h>
+#include <load_smbfs.h>
+#include "smbfs_load_kext.h"
 
 /*
- * Print a (descriptive) error message
- * error values:
- *  	   0 - no specific error code available;
- *  1..32767 - system error
+ * Generic routine to log information or errors
  */
-void
-smb_error(const char *fmt, int error,...) {
+void smb_log_info(const char *fmt, int error, int log_level,...) 
+{
 	va_list ap;
-	const char *cp;
-	int errtype;
-
-	fprintf(stderr, "%s: ", __progname);
-	va_start(ap, error);
-	vfprintf(stderr, fmt, ap);
+	char *fstr = NULL;
+	
+	va_start(ap, log_level);
+	if (vasprintf(&fstr, fmt, ap) == -1)
+		asl_log(NULL, NULL, log_level, fmt, ap);
 	va_end(ap);
-	if (error == -1) {
-		error = errno;
-		errtype = SMB_SYS_ERROR;
-	} else {
-		errtype = error & SMB_ERRTYPE_MASK;
-		error &= ~SMB_ERRTYPE_MASK;
-	}
-	switch (errtype) {
-	    case SMB_SYS_ERROR:
-		if (error)
-			fprintf(stderr, ": syserr = %s\n", strerror(error));
-		else
-			fprintf(stderr, "\n");
-		break;
-	    case SMB_RAP_ERROR:
-		fprintf(stderr, ": raperr = %d (0x%04x)\n", error, error);
-		break;
-	    case SMB_NB_ERROR:
-		cp = nb_strerror(error);
-		if (cp == NULL)
-			fprintf(stderr, ": nberr = unknown (0x%04x)\n", error);
-		else
-			fprintf(stderr, ": nberr = %s\n", cp);
-		break;
-	    default:
-		fprintf(stderr, "\n");
-	}
-}
-
-char *
-smb_printb(char *dest, int flags, const struct smb_bitname *bnp) {
-	int first = 1;
-
-	strcpy(dest, "<");
-	for(; bnp->bn_bit; bnp++) {
-		if (flags & bnp->bn_bit) {
-			strcat(dest, bnp->bn_name);
-			first = 0;
-		}
-		if (!first && (flags & bnp[1].bn_bit))
-			strcat(dest, "|");
-	}
-	strcat(dest, ">");
-	return dest;
+	/* Some day when asl_log works correctly we can turn this back on. */
+#ifdef USE_ASL_LOGGING
+	if (error == -1)
+		asl_log(NULL, NULL, log_level, "%s: syserr = %s\n", (fstr) ? fstr : "", strerror(errno));
+	else if (error)
+		asl_log(NULL, NULL, log_level, "%s: syserr = %s\n", (fstr) ? fstr : "", strerror(error));
+	else
+		asl_log(NULL, NULL, log_level, "%s\n", (fstr) ? fstr : "");
+#else // USE_ASL_LOGGING
+	if (log_level == ASL_LEVEL_ERR)
+		log_level = LOG_ERR;
+	else
+		log_level = LOG_DEBUG;
+	
+	if (error == -1)
+		syslog(log_level, "%s: syserr = %s\n", (fstr) ? fstr : "", strerror(errno));
+	else if (error)
+		syslog(log_level, "%s: syserr = %s\n", (fstr) ? fstr : "", strerror(error));
+	else
+		syslog(log_level, "%s\n", (fstr) ? fstr : "");
+#endif // USE_ASL_LOGGING
+	if (fstr)
+		free(fstr);
 }
 
 /*
- * first read ~/.smbrc, next try to merge SMB_CFG_FILE - if that fails
- * because SMB_CFG_FILE doesn't exist, try to merge OLD_SMB_CFG_FILE
+ * first read ~/.smbrc, next try to merge SMB_CFG_FILE - 
  */
-int
-smb_open_rcfile(void)
+struct rcfile * smb_open_rcfile(int NoUserPreferences)
 {
-	char *home, *fn;
+	struct rcfile * smb_rc = NULL;
+	char *home = NULL, *fn;
 	int error;
+	int fnlen;
 
-	home = getenv("HOME");
+	if (! NoUserPreferences)
+		home = getenv("HOME");
+		
 	if (home) {
-		fn = malloc(strlen(home) + 20);
-		sprintf(fn, "%s/.nsmbrc", home);
+		fnlen = strlen(home) + strlen(SMB_CFG_LOCAL_FILE) + 1;
+		fn = malloc(fnlen);
+		snprintf(fn, fnlen, "%s%s", home, SMB_CFG_LOCAL_FILE);		
 		error = rc_open(fn, "r", &smb_rc);
-		if (error != 0 && error != ENOENT) {
-			fprintf(stderr, "Can't open %s: %s\n", fn,
-			    strerror(errno));
-		}
+			/* Used for debugging bad configuration files. */
+		if (error && (error != ENOENT) )
+			smb_log_info("%s: Can't open %s: %s ", error, ASL_LEVEL_DEBUG, __FUNCTION__, fn, strerror(errno));
 		free(fn);
 	}
 	fn = SMB_CFG_FILE;
 	error = rc_merge(fn, &smb_rc);
-	if (error == ENOENT) {
-		/*
-		 * OK, try to read a config file in the old location.
-		 */
-		fn = OLD_SMB_CFG_FILE;
-		error = rc_merge(fn, &smb_rc);
-	}
-	if (error != 0 && error != ENOENT)
-		fprintf(stderr, "Can't open %s: %s\n", fn, strerror(errno));
-	if (smb_rc == NULL) {
-		return ENOENT;
-	}
-	return 0;
+	/* Used for debugging bad configuration files. */
+	if (error && (error != ENOENT) )
+		smb_log_info("%s: Can't open %s: %s ", error, ASL_LEVEL_DEBUG, __FUNCTION__, fn, strerror(errno));
+	
+	fn = SMB_GCFG_FILE;
+	error = rc_merge(fn, &smb_rc);
+	/* Used for debugging bad configuration files. */
+	if (error && (error != ENOENT) )
+		smb_log_info("%s: Can't open %s: %s ", error, ASL_LEVEL_DEBUG, __FUNCTION__, fn, strerror(errno));
+	
+	return smb_rc;
 }
 
 void
@@ -230,70 +195,65 @@ smb_simpledecrypt(char *dst, const char *src)
 	return 0;
 }
 
-void
-dropsuid()
+/*
+ * Check to make sure all the required code pages are load. Remember if we load by hand
+ * some of our code pages may not be load. Call load_kext to load them.
+ */
+static int need_codepages()
 {
-	/* drop setuid root privs asap */
-	eff_uid = geteuid();
-	real_uid = getuid();
-	seteuid(real_uid);
-	return;
+	struct iconv_cspair_info csi[6];
+	size_t olen = sizeof(csi);
+	int ii;
+	
+	bzero(&csi, sizeof(csi));
+	if (sysctlbyname("net.smb.fs.iconv.cslist", &csi, &olen, NULL, 0) == -1) {
+		if (errno != ENOMEM) {
+			smb_log_info("%s: sysctlbyname failed", -1, ASL_LEVEL_DEBUG, __FUNCTION__);
+			return TRUE;
+		}
+	}
+	for (ii=0; ii < 6; ii++) {
+		if ((csi[ii].cs_id == 0) || ( csi[ii].cs_version != ICONV_CSPAIR_INFO_VER))
+			return TRUE;
+	}
+	
+	return FALSE;
 }
-
-
-#define KEXTLOAD_COMMAND	"/sbin/kextload"
-#define FS_KEXT_DIR		"/System/Library/Extensions/smbfs.kext"
-#define FULL_KEXTNAME		"com.apple.filesystems.smbfs"
-
 
 /*
- * We need to create a new enviroment to pass to kextload. We wanted to pass
- * a NULL enviroment, but seems kextload calls CFInitialize which tries to
- * get the system encoding. If automount called us, then kextload could end
- * up calling automounter which can cause a hang. So by adding the enviroment
- * variable __CF_USER_TEXT_ENCODING we can protect ourself having this 
- * happening.
- */ 
-static int LoadKext(char *inKextPath)
+ * Currently we only support code page CP437, if we decide to support others they will need to be loaded by
+ * the load_smbfs application. The codepage value will hold the name of said code page. 
+ */
+int smb_load_library(char * codepage)
 {
-	pid_t   childPID;
-	int     status = 0;
-	char *env[] = {"__CF_USER_TEXT_ENCODING=0x1D29:0:0", "", (char *) 0 };
-	
-	if ((childPID = vfork()) < 0) {
-		fprintf(stderr, "%s: vfork failed, %s\n", __progname, strerror(errno));
-		return errno;
-	}
-	
-	if (childPID == 0) {
-		if (execle(KEXTLOAD_COMMAND, KEXTLOAD_COMMAND, "-q", inKextPath, NULL, env) == -1)
-			errx(EX_OSERR, "%s: execle %s failed, %s\n", __progname, KEXTLOAD_COMMAND, strerror(errno));
-		else
-		    _exit(0);
-	} 
-	else
-		waitpid(childPID, &status, 0);
-	
-	if(WIFEXITED(status))      /* normal exit */
-		return WEXITSTATUS(status);
-	else if(WIFSIGNALED(status)) {
-		fprintf(stderr, "%s command aborted: %s\n", KEXTLOAD_COMMAND, strsignal(WTERMSIG(status)));
-		return EIO;
-	}
-	else
-		return EIO;
-}
-
-int
-loadsmbvfs()
-{       
+	struct vfsconf vfc;
 	int error = 0;
-
+	static mach_port_t mp = MACH_PORT_NULL;
+	
+	setlocale(LC_CTYPE, "");
 	/*
-	 * temporarily revert to root (required for kextload)
+	 * They are not changing code pages, we are already loaded, and we were not loaded by hand
+	 * then just get out nothing else to do here. We need to make sure our default code pages
+	 * our load even if the kext is already load. This can happen when we are debugging our kext.
 	 */
-	seteuid(eff_uid);
-	error = LoadKext(FS_KEXT_DIR);
-	seteuid(real_uid); /* and back to real user */
-	return (error);
-}       
+	if ((codepage == NULL) && (getvfsbyname(SMBFS_VFSNAME, &vfc) == 0) && (!need_codepages())) {
+			return 0;	/* Already loaded and they are not changing the encoding */		
+	}
+	
+	if (!mp) {
+		error = bootstrap_look_up(bootstrap_port, SMBFS_LOAD_KEXT_BOOTSTRAP_NAME, &mp);
+		if (error != KERN_SUCCESS) {
+			smb_log_info("%s: bootstrap_look_up: %s", 0, ASL_LEVEL_DEBUG, __FUNCTION__, bootstrap_strerror(error));
+			return error;
+		}
+	}
+	
+	if (codepage == NULL)
+		codepage = SMBFS_DEFAULT_CODE_PAGE;
+	
+	error = load_kext(mp, SMBFS_VFSNAME, codepage);
+	if (error != KERN_SUCCESS)
+		smb_log_info("%s: load_kext: %s", 0, ASL_LEVEL_DEBUG, __FUNCTION__, bootstrap_strerror(error));
+	
+	return error;
+}

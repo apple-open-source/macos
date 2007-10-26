@@ -21,7 +21,7 @@
 
 #include "includes.h"
 
-extern DOM_SID global_sid_Builtin;
+extern NT_USER_TOKEN anonymous_token;
 
 /*********************************************************************************
  Check an ACE against a SID.  We return the remaining needed permission
@@ -31,7 +31,7 @@ extern DOM_SID global_sid_Builtin;
 static uint32 check_ace(SEC_ACE *ace, const NT_USER_TOKEN *token, uint32 acc_desired, 
 			NTSTATUS *status)
 {
-	uint32 mask = ace->info.mask;
+	uint32 mask = ace->access_mask;
 
 	/*
 	 * Inherit only is ignored.
@@ -97,8 +97,8 @@ static BOOL get_max_access( SEC_ACL *the_acl, const NT_USER_TOKEN *token, uint32
 	size_t i;
 	
 	for ( i = 0 ; i < the_acl->num_aces; i++) {
-		SEC_ACE *ace = &the_acl->ace[i];
-		uint32 mask = ace->info.mask;
+		SEC_ACE *ace = &the_acl->aces[i];
+		uint32 mask = ace->access_mask;
 
 		if (!token_sid_in_ace( token, ace))
 			continue;
@@ -214,7 +214,6 @@ BOOL se_access_check(const SEC_DESC *sd, const NT_USER_TOKEN *token,
 		     uint32 acc_desired, uint32 *acc_granted, 
 		     NTSTATUS *status)
 {
-	extern NT_USER_TOKEN anonymous_token;
 	size_t i;
 	SEC_ACL *the_acl;
 	fstring sid_str;
@@ -282,12 +281,12 @@ BOOL se_access_check(const SEC_DESC *sd, const NT_USER_TOKEN *token,
 	}
 
 	for ( i = 0 ; i < the_acl->num_aces && tmp_acc_desired != 0; i++) {
-		SEC_ACE *ace = &the_acl->ace[i];
+		SEC_ACE *ace = &the_acl->aces[i];
 
 		DEBUGADD(10,("se_access_check: ACE %u: type %d, flags = 0x%02x, SID = %s mask = %x, current desired = %x\n",
 			  (unsigned int)i, ace->type, ace->flags,
 			  sid_to_string(sid_str, &ace->trustee),
-			  (unsigned int) ace->info.mask, 
+			  (unsigned int) ace->access_mask, 
 			  (unsigned int)tmp_acc_desired ));
 
 		tmp_acc_desired = check_ace( ace, token, tmp_acc_desired, status);
@@ -323,7 +322,6 @@ BOOL se_access_check(const SEC_DESC *sd, const NT_USER_TOKEN *token,
 
 NTSTATUS samr_make_sam_obj_sd(TALLOC_CTX *ctx, SEC_DESC **psd, size_t *sd_size)
 {
-	extern DOM_SID global_sid_World;
 	DOM_SID adm_sid;
 	DOM_SID act_sid;
 

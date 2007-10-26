@@ -7,7 +7,7 @@
 ** Simon Loader -- original mysql plugin
 ** Patrick Welche -- original pgsql plugin
 **
-** $Id: sql.c,v 1.4 2005/01/10 19:01:39 snsimon Exp $
+** $Id: sql.c,v 1.6 2006/01/24 20:37:26 snsimon Exp $
 **
 */
 
@@ -62,7 +62,7 @@ static const char * SQL_NULL_VALUE = "NULL";
 
 
 #ifdef HAVE_MYSQL
-#include <mysql.h>
+#include <mysql/mysql.h>
 
 static void *_mysql_open(char *host, char *port, int usessl,
 			 const char *user, const char *password,
@@ -332,6 +332,133 @@ static void _pgsql_close(void *conn)
 }
 #endif /* HAVE_PGSQL */
 
+#ifdef HAVE_SQLITE
+#include <sqlite.h>
+
+static void *_sqlite_open(char *host __attribute__((unused)),
+			  char *port __attribute__((unused)),
+			  int usessl __attribute__((unused)),
+			  const char *user __attribute__((unused)),
+			  const char *password __attribute__((unused)),
+			  const char *database, const sasl_utils_t *utils)
+{
+    int rc;
+    sqlite *db;
+    char *zErrMsg = NULL;
+
+    db = sqlite_open(database, 0, &zErrMsg);
+    if (db == NULL) {
+	utils->log(NULL, SASL_LOG_ERR, "sql plugin: %s", zErrMsg);
+	sqlite_freemem (zErrMsg);
+	return NULL;
+    }
+
+    rc = sqlite_exec(db, "PRAGMA empty_result_callbacks = ON", NULL, NULL, &zErrMsg);
+    if (rc != SQLITE_OK) {
+	utils->log(NULL, SASL_LOG_ERR, "sql plugin: %s", zErrMsg);
+	sqlite_freemem (zErrMsg);
+	sqlite_close(db);
+	return NULL;
+    }
+
+    return (void*)db;
+}
+
+static int _sqlite_escape_str(char *to, const char *from)
+{
+    char s;
+
+    while ( (s = *from++) != '\0' ) {
+	if (s == '\'' || s == '\\') {
+	    *to++ = '\\';
+	}
+	*to++ = s;
+    }
+    *to = '\0';
+
+    return 0;
+}
+
+static int sqlite_my_callback(void *pArg, int argc __attribute__((unused)),
+			      char **argv,
+			      char **columnNames __attribute__((unused)))
+{
+    char **result = (char**)pArg;
+
+    if (argv == NULL) {
+	*result = NULL;				/* no record */
+    } else if (argv[0] == NULL) {
+	*result = strdup(SQL_NULL_VALUE);	/* NULL IS SQL_NULL_VALUE */
+    } else {
+	*result = strdup(argv[0]);
+    }
+
+    return /*ABORT*/1;
+}
+
+static int _sqlite_exec(void *db, const char *cmd, char *value, size_t size,
+		        size_t *value_len, const sasl_utils_t *utils)
+{
+    int rc;
+    char *result = NULL;
+    char *zErrMsg = NULL;
+
+    rc = sqlite_exec((sqlite*)db, cmd, sqlite_my_callback, (void*)&result, &zErrMsg);
+    if (rc != SQLITE_OK && rc != SQLITE_ABORT) {
+	utils->log(NULL, SASL_LOG_DEBUG, "sql plugin: %s ", zErrMsg);
+	sqlite_freemem (zErrMsg);
+	return -1;
+    }
+
+    if (rc == SQLITE_OK) {
+	/* no results (BEGIN, COMMIT, DELETE, INSERT, UPDATE) */
+	return 0;
+    }
+
+    if (result == NULL) {
+	/* umm nothing found */
+	utils->log(NULL, SASL_LOG_NOTE, "sql plugin: no result found");
+	return -1;
+    }
+
+    /* XXX: Duplication cannot be found by this method. */
+
+    /* now get the result set value and value_len */
+    /* we only fetch one because we don't care about the rest */
+    if (value) {
+	strncpy(value, result, size - 2);
+	value[size - 1] = '\0';
+	if (value_len) {
+	    *value_len = strlen(value);
+	}
+    }
+
+    /* free result */
+    free(result);
+    return 0;
+}
+
+static int _sqlite_begin_txn(void *db, const sasl_utils_t *utils)
+{
+    return _sqlite_exec(db, "BEGIN TRANSACTION", NULL, 0, NULL, utils);
+}
+
+static int _sqlite_commit_txn(void *db, const sasl_utils_t *utils)
+{
+    return _sqlite_exec(db, "COMMIT TRANSACTION", NULL, 0, NULL, utils);
+}
+
+static int _sqlite_rollback_txn(void *db, const sasl_utils_t *utils)
+{
+    return _sqlite_exec(db, "ROLLBACK TRANSACTION", NULL, 0, NULL, utils);
+}
+
+static void _sqlite_close(void *db)
+{
+    sqlite_close((sqlite*)db);
+}
+#endif /* HAVE_SQLITE */
+
 static const sql_engine_t sql_engines[] = {
 #ifdef HAVE_MYSQL
     { "mysql", &_mysql_open, &_mysql_escape_str,
@@ -342,6 +469,11 @@ static const sql_engine_t sql_engines[] = {
     { "pgsql", &_pgsql_open, &_pgsql_escape_str,
       &_pgsql_begin_txn, &_pgsql_commit_txn, &_pgsql_rollback_txn,
       &_pgsql_exec, &_pgsql_close },
+#endif
+#ifdef HAVE_SQLITE
+    { "sqlite", &_sqlite_open, &_sqlite_escape_str,
+      &_sqlite_begin_txn, &_sqlite_commit_txn, &_sqlite_rollback_txn,
+      &_sqlite_exec, &_sqlite_close },
 #endif
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -958,6 +1090,7 @@ int sql_auxprop_plug_init(const sasl_utils_t *utils,
 
     if (!sql_exists(settings->sql_select)) {
 	utils->log(NULL, SASL_LOG_ERR, "sql_select option missing");
+	utils->free(settings);	
 	return SASL_NOMECH;
     }
 

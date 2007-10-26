@@ -317,4 +317,4 @@ dsdata *dsengine_map_name(dsengine *e, dsdata *name, u_int32_t intype);
  */
 void dsengine_set_filter_test_delegate(dsengine *, Logic3 (*)(dsfilter *, dsrecord *, void *), void *);
 
-#endif __DSENGINE_H__
+#endif /* __DSENGINE_H__ */

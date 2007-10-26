@@ -582,6 +582,12 @@ java_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   /* Java requires left-to-right evaluation of subexpressions.  */
   flag_evaluation_order = 1;
 
+  /* APPLE LOCAL begin mainline 4840357 */
+  /* Unit at a time is disabled for Java because it is considered
+     too expensive.  */
+  no_unit_at_a_time_default = 1;
+  /* APPLE LOCAL end mainline 4840357 */
+
   jcf_path_init ();
 
   return CL_Java;
@@ -796,9 +802,9 @@ int disable_typechecking_for_spec_flag = 0;
 
 /* APPLE LOCAL begin CW asm blocks */
 /* Dummies needed because we use them from cpplib, yuck.  */
-int flag_cw_asm_blocks;
-int cw_asm_state;
-int cw_asm_in_operands;
+int flag_iasm_blocks;
+int iasm_state;
+int iasm_in_operands;
 /* APPLE LOCAL end CW asm blocks */
 
 /* APPLE LOCAL begin 4174833 */

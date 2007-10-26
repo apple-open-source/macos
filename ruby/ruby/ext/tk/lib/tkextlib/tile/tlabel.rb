@@ -9,22 +9,22 @@ module Tk
   module Tile
     class TLabel < TkLabel
     end
+    Label = TLabel
   end
 end
 
 class Tk::Tile::TLabel < TkLabel
   include Tk::Tile::TileWidget
 
-  TkCommandNames = ['tlabel'.freeze].freeze
+  if Tk::Tile::USE_TTK_NAMESPACE
+    TkCommandNames = ['::ttk::label'.freeze].freeze
+  else
+    TkCommandNames = ['::tlabel'.freeze].freeze
+  end
   WidgetClassName = 'TLabel'.freeze
   WidgetClassNames[WidgetClassName] = self
 
-  def create_self(keys)
-    if keys and keys != None
-      tk_call_without_enc('tlabel', @path, *hash_kv(keys, true))
-    else
-      tk_call_without_enc('tlabel', @path)
-    end
+  def self.style(*args)
+    [self::WidgetClassName, *(args.map!{|a| _get_eval_string(a)})].join('.')
   end
-  private :create_self
 end

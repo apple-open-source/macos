@@ -218,7 +218,7 @@ fetch_lm_info (CORE_ADDR addr)
     }
   else
     {
-      error ("Unable to fetch shared library obj_info or obj_list info.");
+      error (_("Unable to fetch shared library obj_info or obj_list info."));
     }
 
   return li;
@@ -324,15 +324,11 @@ disable_break (void)
       status = 0;
     }
 
-  /* For the SVR4 version, we always know the breakpoint address.  For the
-     SunOS version we don't know it until the above code is executed.
-     Grumble if we are stopped anywhere besides the breakpoint address. */
-
-  if (stop_pc != breakpoint_addr)
-    {
-      warning
-	("stopped at unknown breakpoint while handling shared libraries");
-    }
+  /* Note that it is possible that we have stopped at a location that
+     is different from the location where we inserted our breakpoint.
+     On mips-irix, we can actually land in __dbx_init(), so we should
+     not check the PC against our breakpoint address here.  See procfs.c
+     for more details.  */
 
   return (status);
 }
@@ -375,7 +371,7 @@ enable_break (void)
 
    SYNOPSIS
 
-   void solib_create_inferior_hook()
+   void solib_create_inferior_hook ()
 
    DESCRIPTION
 
@@ -424,7 +420,7 @@ irix_solib_create_inferior_hook (void)
 {
   if (!enable_break ())
     {
-      warning ("shared library handler failed to enable breakpoint");
+      warning (_("shared library handler failed to enable breakpoint"));
       return;
     }
 
@@ -450,7 +446,7 @@ irix_solib_create_inferior_hook (void)
 
   if (!disable_break ())
     {
-      warning ("shared library handler failed to disable breakpoint");
+      warning (_("shared library handler failed to disable breakpoint"));
     }
 
   /* solib_add will call reinit_frame_cache.
@@ -543,10 +539,8 @@ irix_current_sos (void)
 	  target_read_string (lm.pathname_addr, &name_buf,
 			      name_size, &errcode);
 	  if (errcode != 0)
-	    {
-	      warning ("current_sos: Can't read pathname for load map: %s\n",
+	    warning (_("Can't read pathname for load map: %s."),
 		       safe_strerror (errcode));
-	    }
 	  else
 	    {
 	      strncpy (new->so_name, name_buf, name_size);
@@ -625,7 +619,7 @@ irix_open_symbol_file_object (void *from_ttyp)
 
   if (errcode)
     {
-      warning ("failed to read exec filename from attached file: %s",
+      warning (_("failed to read exec filename from attached file: %s"),
 	       safe_strerror (errcode));
       return 0;
     }

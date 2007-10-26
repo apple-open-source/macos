@@ -16,7 +16,8 @@ CFILES = dynamic_pager.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
             default_pager_alerts.defs backing_store_alerts.defs\
-            backing_store_triggers.defs dynamic_pager.8
+            backing_store_triggers.defs dynamic_pager.8\
+	    com.apple.dynamic_pager.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

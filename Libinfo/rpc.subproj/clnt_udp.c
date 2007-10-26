@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,6 +77,8 @@ static char *rcsid = "$Id: clnt_udp.c,v 1.4 2002/03/15 22:07:49 majka Exp $";
 extern int	bindresvport();
 extern bool_t	xdr_opaque_auth();
 
+__private_extern__ u_short pmap_getport_timeout(struct sockaddr_in *address, uint32_t program, uint32_t version, uint32_t protocol, struct timeval *timeout, struct timeval *totaltimeout);
+
 extern int errno;
 
 /*
@@ -106,8 +108,8 @@ struct cu_data {
 	bool_t		   cu_closeit;
 	struct sockaddr_in cu_raddr;
 	int		   cu_rlen;
-	struct timeval	   cu_wait;
-	struct timeval     cu_total;
+	struct timeval	   cu_retry_timeout;
+	struct timeval     cu_total_timeout;
 	struct rpc_err	   cu_error;
 	XDR		   cu_outxdrs;
 	u_int		   cu_xdrpos;
@@ -133,57 +135,60 @@ struct cu_data {
  * sendsz and recvsz are the maximum allowable packet sizes that can be
  * sent and received.
  */
-CLIENT *
-clntudp_bufcreate(raddr, program, version, wait, sockp, sendsz, recvsz)
-	struct sockaddr_in *raddr;
-	u_long program;
-	u_long version;
-	struct timeval wait;
-	register int *sockp;
-	u_int sendsz;
-	u_int recvsz;
+__private_extern__ CLIENT *
+clntudp_bufcreate_timeout(struct sockaddr_in *raddr, uint32_t program, uint32_t version, int *sockp, uint32_t sendsz, uint32_t recvsz, struct timeval *retry_timeout, struct timeval *total_timeout)
 {
 	CLIENT *cl;
-	register struct cu_data *cu = NULL;
+	struct cu_data *cu = NULL;
 	struct timeval now;
 	struct rpc_msg call_msg;
 	int rfd;
+	u_short port;
+	socklen_t len;
+	unsigned int rsize;
 
 	cl = (CLIENT *)mem_alloc(sizeof(CLIENT));
-	if (cl == NULL) {
-		(void) fprintf(stderr, "clntudp_create: out of memory\n");
+	if (cl == NULL)
+	{
 		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
 		rpc_createerr.cf_error.re_errno = errno;
 		goto fooy;
 	}
+
 	sendsz = ((sendsz + 3) / 4) * 4;
 	recvsz = ((recvsz + 3) / 4) * 4;
 	cu = (struct cu_data *)mem_alloc(sizeof(*cu) + sendsz + recvsz);
-	if (cu == NULL) {
-		(void) fprintf(stderr, "clntudp_create: out of memory\n");
+	if (cu == NULL)
+	{
 		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
 		rpc_createerr.cf_error.re_errno = errno;
 		goto fooy;
 	}
+
 	cu->cu_outbuf = &cu->cu_inbuf[recvsz];
 
-	if (raddr->sin_port == 0) {
-		u_short port;
-		if ((port =
-		    pmap_getport(raddr, program, version, IPPROTO_UDP)) == 0) {
-			goto fooy;
-		}
+	if (raddr->sin_port == 0)
+	{
+		port = pmap_getport_timeout(raddr, program, version, IPPROTO_UDP, retry_timeout, total_timeout);
+		if (port == 0) goto fooy;
+
 		raddr->sin_port = htons(port);
 	}
+
 	cl->cl_ops = &udp_ops;
 	cl->cl_private = (caddr_t)cu;
 	cu->cu_raddr = *raddr;
 	cu->cu_rlen = sizeof (cu->cu_raddr);
-	cu->cu_wait = wait;
-	cu->cu_total.tv_sec = -1;
-	cu->cu_total.tv_usec = -1;
 	cu->cu_sendsz = sendsz;
 	cu->cu_recvsz = recvsz;
+
+	cu->cu_retry_timeout.tv_sec = 1;
+	cu->cu_retry_timeout.tv_usec = 0;
+	if (retry_timeout != NULL) cu->cu_retry_timeout = *retry_timeout;
+	
+	cu->cu_total_timeout.tv_sec = -1;
+	cu->cu_total_timeout.tv_usec = -1;
+	if (total_timeout != NULL) cu->cu_total_timeout = *retry_timeout;
 	
 	rfd = open("/dev/random", O_RDONLY, 0);
 	if ((rfd < 0) || (read(rfd, &call_msg.rm_xid, sizeof(call_msg.rm_xid)) != sizeof(call_msg.rm_xid)))
@@ -191,57 +196,110 @@ clntudp_bufcreate(raddr, program, version, wait, sockp, sendsz, recvsz)
 		gettimeofday(&now, (struct timezone *)0);
 		call_msg.rm_xid = getpid() ^ now.tv_sec ^ now.tv_usec;
 	}
+
 	if (rfd > 0) close(rfd);
 
 	call_msg.rm_direction = CALL;
 	call_msg.rm_call.cb_rpcvers = RPC_MSG_VERSION;
 	call_msg.rm_call.cb_prog = program;
 	call_msg.rm_call.cb_vers = version;
-	xdrmem_create(&(cu->cu_outxdrs), cu->cu_outbuf,
-	    sendsz, XDR_ENCODE);
-	if (! xdr_callhdr(&(cu->cu_outxdrs), &call_msg)) {
-		goto fooy;
-	}
+	xdrmem_create(&(cu->cu_outxdrs), cu->cu_outbuf, sendsz, XDR_ENCODE);
+	if (! xdr_callhdr(&(cu->cu_outxdrs), &call_msg)) goto fooy;
+
 	cu->cu_xdrpos = XDR_GETPOS(&(cu->cu_outxdrs));
-	if (*sockp < 0) {
+	if (*sockp < 0)
+	{
 		int dontblock = 1;
 
 		*sockp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		if (*sockp < 0) {
+		if (*sockp < 0)
+		{
 			rpc_createerr.cf_stat = RPC_SYSTEMERROR;
 			rpc_createerr.cf_error.re_errno = errno;
 			goto fooy;
 		}
+
 		/* attempt to bind to prov port */
 		(void)bindresvport(*sockp, (struct sockaddr_in *)0);
-		/* the sockets rpc controls are non-blocking */
+
+		/* the socket's rpc controls are non-blocking */
 		(void)ioctl(*sockp, FIONBIO, (char *) &dontblock);
 		cu->cu_closeit = TRUE;
-	} else {
+
+		/* set receive size */
+		rsize = 0;
+		len = sizeof(rsize);
+		if (getsockopt(*sockp, SOL_SOCKET, SO_RCVBUF, (char *)&rsize, &len) != 0)
+		{
+			close(*sockp);
+			*sockp = -1;
+			goto fooy;
+		}
+
+		len = sizeof(recvsz);
+		if ((recvsz > rsize) && (setsockopt(*sockp, SOL_SOCKET, SO_RCVBUF, (char *)&recvsz, len)))
+		{
+			close(*sockp);
+			*sockp = -1;
+			goto fooy;
+		}
+	}
+	else
+	{
 		cu->cu_closeit = FALSE;
 	}
+
 	cu->cu_sock = *sockp;
 	cl->cl_auth = authnone_create();
 	return (cl);
+
 fooy:
-	if (cu)
-		mem_free((caddr_t)cu, sizeof(*cu) + sendsz + recvsz);
-	if (cl)
-		mem_free((caddr_t)cl, sizeof(CLIENT));
-	return ((CLIENT *)NULL);
+	if (cu) mem_free((caddr_t)cu, sizeof(*cu) + sendsz + recvsz);
+	if (cl) mem_free((caddr_t)cl, sizeof(CLIENT));
+	return NULL;
+}
+
+CLIENT *
+clntudp_bufcreate(raddr, program, version, wait, sockp, sendsz, recvsz)
+#ifdef __LP64__
+struct sockaddr_in *raddr;
+uint32_t program;
+uint32_t version;
+struct timeval wait;
+int *sockp;
+uint32_t sendsz;
+uint32_t recvsz;
+#else
+struct sockaddr_in *raddr;
+u_long program;
+u_long version;
+struct timeval wait;
+register int *sockp;
+u_int sendsz;
+u_int recvsz;
+#endif
+{
+	return clntudp_bufcreate_timeout(raddr, (uint32_t)program, (uint32_t)version, sockp, (uint32_t)sendsz, (uint32_t)recvsz, &wait, NULL);
 }
 
 CLIENT *
 clntudp_create(raddr, program, version, wait, sockp)
+#ifdef __LP64__
+	struct sockaddr_in *raddr;
+	uint32_t program;
+	uint32_t version;
+	struct timeval wait;
+	int *sockp;
+#else
 	struct sockaddr_in *raddr;
 	u_long program;
 	u_long version;
 	struct timeval wait;
 	register int *sockp;
+#endif
 {
 
-	return(clntudp_bufcreate(raddr, program, version, wait, sockp,
-	    UDPMSGSIZE, UDPMSGSIZE));
+	return clntudp_bufcreate(raddr, program, version, wait, sockp, UDPMSGSIZE, UDPMSGSIZE);
 }
 
 static enum clnt_stat 
@@ -258,7 +316,7 @@ clntudp_call(cl, proc, xargs, argsp, xresults, resultsp, utimeout)
 	register XDR *xdrs;
 	register int outlen;
 	register int inlen;
-	int fromlen;
+	u_int32_t fromlen;
 	fd_set readfds;
 	fd_set mask;
 	struct sockaddr_in from;
@@ -269,32 +327,45 @@ clntudp_call(cl, proc, xargs, argsp, xresults, resultsp, utimeout)
 	int nrefreshes = 2;	/* number of times to refresh cred */
 	struct timeval timeout;
 
-	if (cu->cu_total.tv_usec == -1) {
-		timeout = utimeout;     /* use supplied timeout */
-	} else {
-		timeout = cu->cu_total; /* use default timeout */
+	if (cu->cu_total_timeout.tv_sec == -1)
+	{
+		/* use supplied total timeout */
+		timeout = utimeout;
+	}
+	else
+	{
+		/* use client's total timeout */
+		timeout = cu->cu_total_timeout;
 	}
 
 	time_waited.tv_sec = 0;
 	time_waited.tv_usec = 0;
+
 call_again:
 	xdrs = &(cu->cu_outxdrs);
 	xdrs->x_op = XDR_ENCODE;
 	XDR_SETPOS(xdrs, cu->cu_xdrpos);
+
 	/*
 	 * the transaction is the first thing in the out buffer
 	 */
 	(*(u_short *)(cu->cu_outbuf))++;
+#ifdef __LP64__
+	if ((! XDR_PUTLONG(xdrs, (int *)&proc)) ||
+	    (! AUTH_MARSHALL(cl->cl_auth, xdrs)) ||
+	    (! (*xargs)(xdrs, argsp)))
+		return (cu->cu_error.re_status = RPC_CANTENCODEARGS);
+#else
 	if ((! XDR_PUTLONG(xdrs, (long *)&proc)) ||
 	    (! AUTH_MARSHALL(cl->cl_auth, xdrs)) ||
 	    (! (*xargs)(xdrs, argsp)))
 		return (cu->cu_error.re_status = RPC_CANTENCODEARGS);
+#endif
 	outlen = (int)XDR_GETPOS(xdrs);
 
 send_again:
-	if (sendto(cu->cu_sock, cu->cu_outbuf, outlen, 0,
-	    (struct sockaddr *)&(cu->cu_raddr), cu->cu_rlen)
-	    != outlen) {
+	if (sendto(cu->cu_sock, cu->cu_outbuf, outlen, 0, (struct sockaddr *)&(cu->cu_raddr), cu->cu_rlen) != outlen)
+	{
 		cu->cu_error.re_errno = errno;
 		return (cu->cu_error.re_status = RPC_CANTSEND);
 	}
@@ -302,9 +373,11 @@ send_again:
 	/*
 	 * Hack to provide rpc-based message passing
 	 */
-	if (timeout.tv_sec == 0 && timeout.tv_usec == 0) {
+	if (timeout.tv_sec == 0 && timeout.tv_usec == 0)
+	{
 		return (cu->cu_error.re_status = RPC_TIMEDOUT);
 	}
+
 	/*
 	 * sub-optimal code appears here because we have
 	 * some clock time to spare while the packets are in flight.
@@ -315,14 +388,13 @@ send_again:
 	reply_msg.acpted_rply.ar_results.proc = xresults;
 	FD_ZERO(&mask);
 	FD_SET(cu->cu_sock, &mask);
-	for (;;) {
+	for (;;)
+	{
 		readfds = mask;
-		switch (select(cu->cu_sock+1, &readfds, NULL, 
-			       NULL, &(cu->cu_wait))) {
-
+		switch (select(cu->cu_sock+1, &readfds, NULL, NULL, &(cu->cu_retry_timeout))) {
 		case 0:
-			time_waited.tv_sec += cu->cu_wait.tv_sec;
-			time_waited.tv_usec += cu->cu_wait.tv_usec;
+			time_waited.tv_sec += cu->cu_retry_timeout.tv_sec;
+			time_waited.tv_usec += cu->cu_retry_timeout.tv_usec;
 			while (time_waited.tv_usec >= 1000000) {
 				time_waited.tv_sec++;
 				time_waited.tv_usec -= 1000000;
@@ -438,16 +510,16 @@ clntudp_control(cl, request, info)
 
 	switch (request) {
 	case CLSET_TIMEOUT:
-		cu->cu_total = *(struct timeval *)info;
+		cu->cu_total_timeout = *(struct timeval *)info;
 		break;
 	case CLGET_TIMEOUT:
-		*(struct timeval *)info = cu->cu_total;
+		*(struct timeval *)info = cu->cu_total_timeout;
 		break;
 	case CLSET_RETRY_TIMEOUT:
-		cu->cu_wait = *(struct timeval *)info;
+		cu->cu_retry_timeout = *(struct timeval *)info;
 		break;
 	case CLGET_RETRY_TIMEOUT:
-		*(struct timeval *)info = cu->cu_wait;
+		*(struct timeval *)info = cu->cu_retry_timeout;
 		break;
 	case CLGET_SERVER_ADDR:
 		*(struct sockaddr_in *)info = cu->cu_raddr;

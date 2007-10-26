@@ -1,0 +1,46 @@
+--- src/dfa.c.orig	2005-05-11 09:44:00.000000000 -0700
++++ src/dfa.c	2005-05-11 09:45:10.000000000 -0700
+@@ -89,6 +89,13 @@
+ #define ISCNTRL(C) (isascii(C) && iscntrl(C))
+ #endif
+ 
++#ifdef __APPLE__
++#include "get_compat.h"
++#else
++#define COMPAT_MODE(func, mode) 1
++#endif
++
++
+ /* ISASCIIDIGIT differs from ISDIGIT, as follows:
+    - Its arg may be any int or unsigned int; it need not be an unsigned char.
+    - It's guaranteed to evaluate its argument exactly once.
+@@ -849,6 +856,9 @@
+ 	    goto normal_char;
+ 	  if (!(syntax_bits & RE_CONTEXT_INDEP_OPS) && laststart)
+ 	    goto normal_char;
++	  if (lasttok == BEGLINE && COMPAT_MODE("bin/grep", "unix2003")) {
++	    dfaerror(_("Invalid extended regular expression (^?)"));
++	  }
+ 	  return lasttok = QMARK;
+ 
+ 	case '*':
+@@ -856,6 +866,9 @@
+ 	    goto normal_char;
+ 	  if (!(syntax_bits & RE_CONTEXT_INDEP_OPS) && laststart)
+ 	    goto normal_char;
++	  if (lasttok == BEGLINE && COMPAT_MODE("bin/grep", "unix2003")) {
++	    dfaerror(_("Invalid extended regular expression (^*)"));
++	  }
+ 	  return lasttok = STAR;
+ 
+ 	case '+':
+@@ -865,6 +878,9 @@
+ 	    goto normal_char;
+ 	  if (!(syntax_bits & RE_CONTEXT_INDEP_OPS) && laststart)
+ 	    goto normal_char;
++	  if (lasttok == BEGLINE && COMPAT_MODE("bin/grep", "unix2003")) {
++	    dfaerror(_("Invalid extended regular expression (^+)"));
++	  }
+ 	  return lasttok = PLUS;
+ 
+ 	case '{':

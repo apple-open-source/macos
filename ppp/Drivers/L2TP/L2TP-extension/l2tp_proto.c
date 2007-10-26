@@ -442,6 +442,7 @@ int l2tp_send(struct socket *so, int flags, mbuf_t m, struct sockaddr *to,
         mbuf_freem(m);
         return 0;
     }
+
     return l2tp_rfc_output(so->so_pcb, m, to);
 }
 

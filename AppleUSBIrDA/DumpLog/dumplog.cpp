@@ -292,7 +292,7 @@ DumpRemoteLog(int argc, char ** argv)
 
     if (1) {                // bind doesn't return our port number, sheesh.  get it now.    
 	sockaddr buffer;
-	int sz = sizeof(buffer);
+	socklen_t sz = sizeof(buffer);
 	rc = getsockname(f, &buffer, &sz);      // udp returns length, family, port high, port low
 	if (rc) PuntErr("Failed to get local udp port number");
 	// seems our udp port number is in the first two bytes, wonder where this
@@ -381,7 +381,7 @@ DoConnect(UInt16 localport)
 Boolean
 DoRequest(kdp_req_t command, UInt32 length)
 {
-    int fromlen;
+    socklen_t fromlen;
     struct sockaddr_in from;
     kdp_hdr_t   *hdr = (kdp_hdr_t *)packet;
     ssize_t rc;

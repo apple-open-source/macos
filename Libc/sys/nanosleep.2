@@ -46,25 +46,33 @@
 .Sh SYNOPSIS
 .In time.h
 .Ft int
-.Fn nanosleep "const struct timespec *rqtp" "struct timespec *rmtp"
+.Fo nanosleep
+.Fa "const struct timespec *rqtp"
+.Fa "struct timespec *rmtp"
+.Fc
 .Sh DESCRIPTION
-.Fn Nanosleep
-causes the calling thread to sleep for the specified time
+The
+.Fn nanosleep
+function causes the calling thread to sleep
+for the amount of time specified in
+.Fa rqtp
 (the actual time slept may be longer, due to system latencies
 and possible limitations in the timer resolution of the hardware).
 An unmasked signal will
-cause it to terminate the sleep early, regardless of the
+cause
+.Fn nanosleep
+to terminate the sleep early, regardless of the
 .Dv SA_RESTART
 value on the interrupting signal.
 .Sh RETURN VALUES
-If the
+If
 .Fn nanosleep
-function returns because the requested time has elapsed, the value
-returned will be zero.
+returns because the requested time has elapsed,
+the value returned will be zero.
 .Pp
-If the
+If
 .Fn nanosleep
-function returns due to the delivery of a signal, the value returned
+returns due to the delivery of a signal, the value returned
 will be the -1, and the global variable
 .Va errno
 will be set to indicate the interruption.

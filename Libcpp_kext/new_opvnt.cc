@@ -33,7 +33,7 @@
 #include "kern_fns.h"
 
 void *
-operator new[] (unsigned long sz, const std::nothrow_t& nothrow) 
+operator new[] (unsigned long sz, const std::nothrow_t& /* nothrow */) 
 {
   return kern_os_malloc(sz);
 }

@@ -22,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include "SRuntime.h"
+#include "../fsck_hfs.h"
 
 #if BSD
 
@@ -47,12 +48,12 @@ OSErr GetDeviceSize(int driveRefNum, UInt64 *numBlocks, UInt32 *blockSize)
 	int devBlockSize = 0;
 
 	if (ioctl(driveRefNum, DKIOCGETBLOCKCOUNT, &devBlockCount) < 0) {
-		printf("ioctl(DKIOCGETBLOCKCOUNT) for fd %d: %s\n", driveRefNum, strerror(errno));
+	plog("ioctl(DKIOCGETBLOCKCOUNT) for fd %d: %s\n", driveRefNum, strerror(errno));
 		return (-1);
 	}
 	
 	if (ioctl(driveRefNum, DKIOCGETBLOCKSIZE, &devBlockSize) < 0) {
-		printf("ioctl(DKIOCGETBLOCKSIZE) for fd %d: %s\n", driveRefNum, strerror(errno));
+	plog("ioctl(DKIOCGETBLOCKSIZE) for fd %d: %s\n", driveRefNum, strerror(errno));
 		return (-1);
 	}
 
@@ -193,7 +194,7 @@ OSErr DeviceRead(int device, int drive, void* buffer, SInt64 offset, UInt32 reqB
 
 	seek_off = lseek(device, offset, SEEK_SET);
 	if (seek_off == -1) {
-		printf("# DeviceRead: lseek(%qd) failed with %d\n", offset, errno);
+	plog("# DeviceRead: lseek(%qd) failed with %d\n", offset, errno);
 		return (errno);
 	}
 
@@ -201,7 +202,7 @@ OSErr DeviceRead(int device, int drive, void* buffer, SInt64 offset, UInt32 reqB
 	if (nbytes == -1)
 		return (errno);
 	if (nbytes == 0) {
-		printf("CANNOT READ: BLK %ld\n", (long)offset/512);
+	plog("CANNOT READ: BLK %ld\n", (long)offset/512);
 		return (5);
 	}
 
@@ -245,7 +246,7 @@ OSErr DeviceWrite(int device, int drive, void* buffer, SInt64 offset, UInt32 req
 
 	seek_off = lseek(device, offset, SEEK_SET);
 	if (seek_off == -1) {
-		printf("# DeviceRead: lseek(%qd) failed with %d\n", offset, errno);
+	plog("# DeviceRead: lseek(%qd) failed with %d\n", offset, errno);
 		return (errno);
 	}
 
@@ -254,7 +255,7 @@ OSErr DeviceWrite(int device, int drive, void* buffer, SInt64 offset, UInt32 req
 		return (errno);
 	}
 	if (nbytes == 0) {
-		printf("CANNOT WRITE: BLK %ld\n", (long)offset/512);
+	plog("CANNOT WRITE: BLK %ld\n", (long)offset/512);
 		return (5);
 	}
 

@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,14 +17,12 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_pgsql.h,v 1.56.2.4.2.2 2007/01/01 09:46:46 sebastian Exp $ */
+/* $Id: php_pgsql.h,v 1.73.2.1.2.2 2007/01/01 09:36:05 sebastian Exp $ */
 
 #ifndef PHP_PGSQL_H
 #define PHP_PGSQL_H
 
 #if HAVE_PGSQL
-
-#define PHP_PGSQL_API 20020419
 
 extern zend_module_entry pgsql_module_entry;
 #define pgsql_module_ptr &pgsql_module_entry
@@ -36,14 +34,15 @@ extern zend_module_entry pgsql_module_entry;
 #ifdef PHP_WIN32
 #define INV_WRITE            0x00020000
 #define INV_READ             0x00040000
-#undef PHPAPI
+#undef PHP_PGSQL_API
 #ifdef PGSQL_EXPORTS
-#define PHPAPI __declspec(dllexport)
+#define PHP_PGSQL_API __declspec(dllexport)
 #else
-#define PHPAPI __declspec(dllimport)
+#define PHP_PGSQL_API __declspec(dllimport)
 #endif
 #else
 #include <libpq/libpq-fs.h>
+#define PHP_PGSQL_API /* nothing special */
 #endif
 
 #ifdef HAVE_PG_CONFIG_H
@@ -71,10 +70,35 @@ PHP_FUNCTION(pg_dbname);
 PHP_FUNCTION(pg_port);
 PHP_FUNCTION(pg_tty);
 PHP_FUNCTION(pg_options);
+PHP_FUNCTION(pg_version);
 PHP_FUNCTION(pg_ping);
+#if HAVE_PQPARAMETERSTATUS
+PHP_FUNCTION(pg_parameter_status);
+#endif
+#if HAVE_PGTRANSACTIONSTATUS
+PHP_FUNCTION(pg_transaction_status);
+#endif
 /* query functions */
 PHP_FUNCTION(pg_query);
+#if HAVE_PQEXECPARAMS
+PHP_FUNCTION(pg_query_params);
+#endif
+#if HAVE_PQPREPARE
+PHP_FUNCTION(pg_prepare);
+#endif
+#if HAVE_PQEXECPREPARED
+PHP_FUNCTION(pg_execute);
+#endif
 PHP_FUNCTION(pg_send_query);
+#if HAVE_PQSENDQUERYPARAMS
+PHP_FUNCTION(pg_send_query_params);
+#endif
+#if HAVE_PQSENDPREPARE
+PHP_FUNCTION(pg_send_prepare);
+#endif
+#if HAVE_PQSENDQUERYPREPARED
+PHP_FUNCTION(pg_send_execute);
+#endif
 PHP_FUNCTION(pg_cancel_query);
 /* result functions */
 PHP_FUNCTION(pg_fetch_assoc);
@@ -83,6 +107,7 @@ PHP_FUNCTION(pg_fetch_object);
 PHP_FUNCTION(pg_fetch_result);
 PHP_FUNCTION(pg_fetch_row);
 PHP_FUNCTION(pg_fetch_all);
+PHP_FUNCTION(pg_fetch_all_columns);
 #if HAVE_PQCMDTUPLES
 PHP_FUNCTION(pg_affected_rows);
 #endif
@@ -97,13 +122,18 @@ PHP_FUNCTION(pg_field_name);
 PHP_FUNCTION(pg_field_num);
 PHP_FUNCTION(pg_field_size);
 PHP_FUNCTION(pg_field_type);
+PHP_FUNCTION(pg_field_type_oid);
 PHP_FUNCTION(pg_field_prtlen);
 PHP_FUNCTION(pg_field_is_null);
+PHP_FUNCTION(pg_field_table);
 /* async message functions */
 PHP_FUNCTION(pg_get_notify);
 PHP_FUNCTION(pg_get_pid);
 /* error message functions */
 PHP_FUNCTION(pg_result_error);
+#if HAVE_PQRESULTERRORFIELD
+PHP_FUNCTION(pg_result_error_field);
+#endif
 PHP_FUNCTION(pg_last_error);
 PHP_FUNCTION(pg_last_notice);
 /* copy functions */
@@ -131,6 +161,9 @@ PHP_FUNCTION(pg_untrace);
 /* utility functions */
 PHP_FUNCTION(pg_client_encoding);
 PHP_FUNCTION(pg_set_client_encoding);
+#if HAVE_PQSETERRORVERBOSITY
+PHP_FUNCTION(pg_set_error_verbosity);
+#endif
 #if HAVE_PQESCAPE
 PHP_FUNCTION(pg_escape_string);
 PHP_FUNCTION(pg_escape_bytea);
@@ -159,13 +192,13 @@ PHP_FUNCTION(pg_select);
 #define PGSQL_DML_STRING            (1<<11)    /* Return query string */
 
 /* exported functions */
-PHPAPI int php_pgsql_meta_data(PGconn *pg_link, const char *table_name, zval *meta TSRMLS_DC);
-PHPAPI int php_pgsql_convert(PGconn *pg_link, const char *table_name, const zval *values, zval *result, ulong opt TSRMLS_DC);
-PHPAPI int php_pgsql_insert(PGconn *pg_link, const char *table, zval *values, ulong opt, char **sql TSRMLS_DC);
-PHPAPI int php_pgsql_update(PGconn *pg_link, const char *table, zval *values, zval *ids, ulong opt , char **sql TSRMLS_DC);
-PHPAPI int php_pgsql_delete(PGconn *pg_link, const char *table, zval *ids, ulong opt, char **sql TSRMLS_DC);
-PHPAPI int php_pgsql_select(PGconn *pg_link, const char *table, zval *ids, zval *ret_array, ulong opt, char **sql  TSRMLS_DC);
-PHPAPI int php_pgsql_result2array(PGresult *pg_result, zval *ret_array TSRMLS_DC);
+PHP_PGSQL_API int php_pgsql_meta_data(PGconn *pg_link, const char *table_name, zval *meta TSRMLS_DC);
+PHP_PGSQL_API int php_pgsql_convert(PGconn *pg_link, const char *table_name, const zval *values, zval *result, ulong opt TSRMLS_DC);
+PHP_PGSQL_API int php_pgsql_insert(PGconn *pg_link, const char *table, zval *values, ulong opt, char **sql TSRMLS_DC);
+PHP_PGSQL_API int php_pgsql_update(PGconn *pg_link, const char *table, zval *values, zval *ids, ulong opt , char **sql TSRMLS_DC);
+PHP_PGSQL_API int php_pgsql_delete(PGconn *pg_link, const char *table, zval *ids, ulong opt, char **sql TSRMLS_DC);
+PHP_PGSQL_API int php_pgsql_select(PGconn *pg_link, const char *table, zval *ids, zval *ret_array, ulong opt, char **sql  TSRMLS_DC);
+PHP_PGSQL_API int php_pgsql_result2array(PGresult *pg_result, zval *ret_array TSRMLS_DC);
 
 /* internal functions */
 static void php_pgsql_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent);
@@ -245,7 +278,7 @@ ZEND_BEGIN_MODULE_GLOBALS(pgsql)
 	long allow_persistent;
 	long auto_reset_persistent;
 	int le_lofp,le_string;
-	long ignore_notices,log_notices;
+	int ignore_notices,log_notices;
 	HashTable notices;  /* notice message for each connection */
 ZEND_END_MODULE_GLOBALS(pgsql)
 

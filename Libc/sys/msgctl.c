@@ -23,19 +23,19 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <sys/msg.h>
-#include <sys/syscall.h>
 
 /*
  * Stub function to account for the differences in the ipc_perm structure,
  * while maintaining binary backward compatibility.
+ *
+ * This is only the legacy behavior.
  */
+extern int __msgctl(int, int, struct msqid_ds *);
+
 int
 msgctl(int msqid, int cmd, struct msqid_ds *ds)
 {
-#ifdef __DARWIN_UNIX03
-	return syscall(SYS_msgctl, msqid, cmd, ds);
-#else	/* !__DARWIN_UNIX03 */
-	struct __msqid_ds_old	*ds_old = ds;
+	struct __msqid_ds_old	*ds_old = (struct __msqid_ds_old *)ds;
 	struct __msqid_ds_new	ds2;
 	struct __msqid_ds_new	*ds_new = &ds2;
 	int			rv;
@@ -71,7 +71,7 @@ msgctl(int msqid, int cmd, struct msqid_ds *ds)
 		_UP_CVT(msg_pad4[3]);	/* binary compatibility */
 	}
 
-	rv = syscall(SYS_msgctl, msqid, semnum, cmd, ds_new);
+	rv = __msgctl(msqid, cmd, ds_new);
 
 	if (cmd == IPC_STAT) {
 		/* convert after call */
@@ -80,8 +80,8 @@ msgctl(int msqid, int cmd, struct msqid_ds *ds)
 		_DN_CVT(msg_perm.cuid);	/* warning!  precision loss! */
 		_DN_CVT(msg_perm.cgid);	/* warning!  precision loss! */
 		_DN_CVT(msg_perm.mode);
-		ds_new->msg_perm.seq = ds_old->msg_perm._seq;
-		ds_new->msg_perm.key = ds_old->msg_perm._key;
+		ds_old->msg_perm.seq = ds_new->msg_perm._seq;
+		ds_old->msg_perm.key = ds_new->msg_perm._key;
 		_DN_CVT(msg_first);
 		_DN_CVT(msg_last);
 		_DN_CVT(msg_cbytes);
@@ -102,5 +102,4 @@ msgctl(int msqid, int cmd, struct msqid_ds *ds)
 	}
 
 	return (rv);
-#endif	/* !__DARWIN_UNIX03 */
 }

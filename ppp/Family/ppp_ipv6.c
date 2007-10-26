@@ -188,8 +188,9 @@ errno_t ppp_ipv6_input(ifnet_t ifp, protocol_family_t protocol,
 {
     LOGMBUF("ppp_ipv6_input", packet);
 
-	proto_input(PF_INET6, packet);
-   
+	if (proto_input(PF_INET6, packet))
+		mbuf_freem(packet);
+
 	return 0;
 }
 

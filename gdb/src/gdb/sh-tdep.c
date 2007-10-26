@@ -1,6 +1,7 @@
 /* Target-dependent code for Renesas Super-H, for GDB.
-   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004 Free Software Foundation, Inc.
+
+   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -56,7 +57,7 @@
 
 static void (*sh_show_regs) (void);
 
-#define SH_NUM_REGS 59
+#define SH_NUM_REGS 67
 
 struct sh_frame_cache
 {
@@ -86,6 +87,7 @@ sh_sh_register_name (int reg_nr)
     "", "",
     "", "", "", "", "", "", "", "",
     "", "", "", "", "", "", "", "",
+    "", "", "", "", "", "", "", "",
   };
   if (reg_nr < 0)
     return NULL;
@@ -107,6 +109,7 @@ sh_sh3_register_name (int reg_nr)
     "ssr", "spc",
     "r0b0", "r1b0", "r2b0", "r3b0", "r4b0", "r5b0", "r6b0", "r7b0",
     "r0b1", "r1b1", "r2b1", "r3b1", "r4b1", "r5b1", "r6b1", "r7b1"
+    "", "", "", "", "", "", "", "",
   };
   if (reg_nr < 0)
     return NULL;
@@ -128,6 +131,7 @@ sh_sh3e_register_name (int reg_nr)
     "ssr", "spc",
     "r0b0", "r1b0", "r2b0", "r3b0", "r4b0", "r5b0", "r6b0", "r7b0",
     "r0b1", "r1b1", "r2b1", "r3b1", "r4b1", "r5b1", "r6b1", "r7b1",
+    "", "", "", "", "", "", "", "",
   };
   if (reg_nr < 0)
     return NULL;
@@ -148,6 +152,87 @@ sh_sh2e_register_name (int reg_nr)
     "fr8", "fr9", "fr10", "fr11", "fr12", "fr13", "fr14", "fr15",
     "", "",
     "", "", "", "", "", "", "", "",
+    "", "", "", "", "", "", "", "",
+    "", "", "", "", "", "", "", "",
+  };
+  if (reg_nr < 0)
+    return NULL;
+  if (reg_nr >= (sizeof (register_names) / sizeof (*register_names)))
+    return NULL;
+  return register_names[reg_nr];
+}
+
+static const char *
+sh_sh2a_register_name (int reg_nr)
+{
+  static char *register_names[] = {
+    /* general registers 0-15 */
+    "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
+    "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+    /* 16 - 22 */
+    "pc", "pr", "gbr", "vbr", "mach", "macl", "sr",
+    /* 23, 24 */
+    "fpul", "fpscr",
+    /* floating point registers 25 - 40 */
+    "fr0", "fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7",
+    "fr8", "fr9", "fr10", "fr11", "fr12", "fr13", "fr14", "fr15",
+    /* 41, 42 */
+    "", "",
+    /* 43 - 62.  Banked registers.  The bank number used is determined by
+       the bank register (63). */
+    "r0b", "r1b", "r2b", "r3b", "r4b", "r5b", "r6b", "r7b",
+    "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b",
+    "machb", "ivnb", "prb", "gbrb", "maclb",
+    /* 63: register bank number, not a real register but used to
+       communicate the register bank currently get/set.  This register
+       is hidden to the user, who manipulates it using the pseudo
+       register called "bank" (67).  See below.  */
+    "",
+    /* 64 - 66 */
+    "ibcr", "ibnr", "tbr",
+    /* 67: register bank number, the user visible pseudo register.  */
+    "bank",
+    /* double precision (pseudo) 68 - 75 */
+    "dr0", "dr2", "dr4", "dr6", "dr8", "dr10", "dr12", "dr14",
+  };
+  if (reg_nr < 0)
+    return NULL;
+  if (reg_nr >= (sizeof (register_names) / sizeof (*register_names)))
+    return NULL;
+  return register_names[reg_nr];
+}
+
+static const char *
+sh_sh2a_nofpu_register_name (int reg_nr)
+{
+  static char *register_names[] = {
+    /* general registers 0-15 */
+    "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
+    "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+    /* 16 - 22 */
+    "pc", "pr", "gbr", "vbr", "mach", "macl", "sr",
+    /* 23, 24 */
+    "", "",
+    /* floating point registers 25 - 40 */
+    "", "", "", "", "", "", "", "",
+    "", "", "", "", "", "", "", "",
+    /* 41, 42 */
+    "", "",
+    /* 43 - 62.  Banked registers.  The bank number used is determined by
+       the bank register (63). */
+    "r0b", "r1b", "r2b", "r3b", "r4b", "r5b", "r6b", "r7b",
+    "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b",
+    "machb", "ivnb", "prb", "gbrb", "maclb",
+    /* 63: register bank number, not a real register but used to
+       communicate the register bank currently get/set.  This register
+       is hidden to the user, who manipulates it using the pseudo
+       register called "bank" (67).  See below.  */
+    "",
+    /* 64 - 66 */
+    "ibcr", "ibnr", "tbr",
+    /* 67: register bank number, the user visible pseudo register.  */
+    "bank",
+    /* double precision (pseudo) 68 - 75 */
     "", "", "", "", "", "", "", "",
   };
   if (reg_nr < 0)
@@ -170,6 +255,7 @@ sh_sh_dsp_register_name (int reg_nr)
     "", "",
     "rs", "re", "", "", "", "", "", "",
     "", "", "", "", "", "", "", "",
+    "", "", "", "", "", "", "", "",
   };
   if (reg_nr < 0)
     return NULL;
@@ -191,6 +277,7 @@ sh_sh3_dsp_register_name (int reg_nr)
     "ssr", "spc",
     "rs", "re", "", "", "", "", "", "",
     "r0b", "r1b", "r2b", "r3b", "r4b", "r5b", "r6b", "r7b",
+    "", "", "", "", "", "", "", "",
     "", "", "", "", "", "", "", "",
   };
   if (reg_nr < 0)
@@ -220,6 +307,9 @@ sh_sh4_register_name (int reg_nr)
     "r0b0", "r1b0", "r2b0", "r3b0", "r4b0", "r5b0", "r6b0", "r7b0",
     /* bank 1 51 - 58 */
     "r0b1", "r1b1", "r2b1", "r3b1", "r4b1", "r5b1", "r6b1", "r7b1",
+    "", "", "", "", "", "", "", "",
+    /* pseudo bank register. */
+    "",
     /* double precision (pseudo) 59 - 66 */
     "dr0", "dr2", "dr4", "dr6", "dr8", "dr10", "dr12", "dr14",
     /* vectors (pseudo) 67 - 70 */
@@ -254,6 +344,9 @@ sh_sh4_nofpu_register_name (int reg_nr)
     "r0b0", "r1b0", "r2b0", "r3b0", "r4b0", "r5b0", "r6b0", "r7b0",
     /* bank 1 51 - 58 */
     "r0b1", "r1b1", "r2b1", "r3b1", "r4b1", "r5b1", "r6b1", "r7b1",
+    "", "", "", "", "", "", "", "",
+    /* pseudo bank register. */
+    "",
     /* double precision (pseudo) 59 - 66 -- not for nofpu target */
     "", "", "", "", "", "", "", "",
     /* vectors (pseudo) 67 - 70 -- not for nofpu target */
@@ -279,6 +372,7 @@ sh_sh4al_dsp_register_name (int reg_nr)
     "ssr", "spc",
     "rs", "re", "", "", "", "", "", "",
     "r0b", "r1b", "r2b", "r3b", "r4b", "r5b", "r6b", "r7b",
+    "", "", "", "", "", "", "", "",
     "", "", "", "", "", "", "", "",
   };
   if (reg_nr < 0)
@@ -317,6 +411,10 @@ sh_breakpoint_from_pc (CORE_ADDR *pcptr, int *lenptr)
 /* STS.L PR,@-r15  0100111100100010
    r15-4-->r15, PR-->(r15) */
 #define IS_STS(x)  		((x) == 0x4f22)
+
+/* STS.L MACL,@-r15  0100111100010010
+   r15-4-->r15, MACL-->(r15) */
+#define IS_MACL_STS(x)  	((x) == 0x4f12)
 
 /* MOV.L Rm,@-r15  00101111mmmm0110
    r15-4-->r15, Rm-->(R15) */
@@ -365,6 +463,8 @@ sh_breakpoint_from_pc (CORE_ADDR *pcptr, int *lenptr)
 #define IS_MOVW_PCREL_TO_REG(x)	(((x) & 0xf000) == 0x9000)
 /* MOV.L @(disp*4,PC),Rn      1101nnnndddddddd */
 #define IS_MOVL_PCREL_TO_REG(x)	(((x) & 0xf000) == 0xd000)
+/* MOVI20 #imm20,Rn           0000nnnniiii0000 */
+#define IS_MOVI20(x)		(((x) & 0xf00f) == 0x0000)
 /* SUB Rn,R15                 00111111nnnn1000 */
 #define IS_SUB_REG_FROM_SP(x)	(((x) & 0xff0f) == 0x3f08)
 
@@ -374,6 +474,7 @@ sh_breakpoint_from_pc (CORE_ADDR *pcptr, int *lenptr)
 #define IS_RESTORE_FP(x)	((x) == 0x6ef6)
 #define IS_RTS(x)		((x) == 0x000b)
 #define IS_LDS(x)  		((x) == 0x4f26)
+#define IS_MACL_LDS(x)  	((x) == 0x4f16)
 #define IS_MOV_FP_SP(x)  	((x) == 0x6fe3)
 #define IS_ADD_REG_TO_FP(x)	(((x) & 0xff0f) == 0x3e0c)
 #define IS_ADD_IMM_FP(x) 	(((x) & 0xff00) == 0x7e00)
@@ -415,6 +516,11 @@ sh_analyze_prologue (CORE_ADDR pc, CORE_ADDR current_pc,
 	  cache->saved_regs[PR_REGNUM] = cache->sp_offset;
 	  cache->sp_offset += 4;
 	}
+      else if (IS_MACL_STS (inst))
+	{
+	  cache->saved_regs[MACL_REGNUM] = cache->sp_offset;
+	  cache->sp_offset += 4;
+	}
       else if (IS_MOV_R3 (inst))
 	{
 	  r3_val = ((inst & 0xff) ^ 0x80) - 0x80;
@@ -440,9 +546,9 @@ sh_analyze_prologue (CORE_ADDR pc, CORE_ADDR current_pc,
 	      if (reg < 14)
 		{
 		  sav_reg = reg;
-		  offset = (((inst & 0xff) ^ 0x80) - 0x80) << 1;
+		  offset = (inst & 0xff) << 1;
 		  sav_offset =
-		    read_memory_integer (((pc + 4) & ~3) + offset, 2);
+		    read_memory_integer ((pc + 4) + offset, 2);
 		}
 	    }
 	}
@@ -450,13 +556,32 @@ sh_analyze_prologue (CORE_ADDR pc, CORE_ADDR current_pc,
 	{
 	  if (sav_reg < 0)
 	    {
-	      reg = (inst & 0x0f00) >> 8;
+	      reg = GET_TARGET_REG (inst);
 	      if (reg < 14)
 		{
 		  sav_reg = reg;
-		  offset = (((inst & 0xff) ^ 0x80) - 0x80) << 1;
+		  offset = (inst & 0xff) << 2;
 		  sav_offset =
-		    read_memory_integer (((pc + 4) & ~3) + offset, 4);
+		    read_memory_integer (((pc & 0xfffffffc) + 4) + offset, 4);
+		}
+	    }
+	}
+      else if (IS_MOVI20 (inst))
+        {
+	  if (sav_reg < 0)
+	    {
+	      reg = GET_TARGET_REG (inst);
+	      if (reg < 14)
+	        {
+		  sav_reg = reg;
+		  sav_offset = GET_SOURCE_REG (inst) << 16;
+		  /* MOVI20 is a 32 bit instruction! */
+		  pc += 2;
+		  sav_offset |= read_memory_unsigned_integer (pc, 2);
+		  /* Now sav_offset contains an unsigned 20 bit value.
+		     It must still get sign extended.  */
+		  if (sav_offset & 0x00080000)
+		    sav_offset |= 0xfff00000;
 		}
 	    }
 	}
@@ -752,12 +877,12 @@ sh_justify_value_in_reg (struct value *val, int len)
     {
       /* value gets right-justified in the register or stack word */
       if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
-	memcpy (valbuf + (4 - len), (char *) VALUE_CONTENTS (val), len);
+	memcpy (valbuf + (4 - len), (char *) value_contents (val), len);
       else
-	memcpy (valbuf, (char *) VALUE_CONTENTS (val), len);
+	memcpy (valbuf, (char *) value_contents (val), len);
       return valbuf;
     }
-  return (char *) VALUE_CONTENTS (val);
+  return (char *) value_contents (val);
 }
 
 /* Helper function to eval number of bytes to allocate on stack. */
@@ -766,7 +891,7 @@ sh_stack_allocsize (int nargs, struct value **args)
 {
   int stack_alloc = 0;
   while (nargs-- > 0)
-    stack_alloc += ((TYPE_LENGTH (VALUE_TYPE (args[nargs])) + 3) & ~3);
+    stack_alloc += ((TYPE_LENGTH (value_type (args[nargs])) + 3) & ~3);
   return stack_alloc;
 }
 
@@ -885,7 +1010,7 @@ sh_treat_as_flt_p (struct type *type)
 
 static CORE_ADDR
 sh_push_dummy_call_fpu (struct gdbarch *gdbarch,
-			CORE_ADDR func_addr,
+			struct value *function,
 			struct regcache *regcache,
 			CORE_ADDR bp_addr, int nargs,
 			struct value **args,
@@ -921,7 +1046,7 @@ sh_push_dummy_call_fpu (struct gdbarch *gdbarch,
      in four registers available.  Loop thru args from first to last.  */
   for (argnum = 0; argnum < nargs; argnum++)
     {
-      type = VALUE_TYPE (args[argnum]);
+      type = value_type (args[argnum]);
       len = TYPE_LENGTH (type);
       val = sh_justify_value_in_reg (args[argnum], len);
 
@@ -997,7 +1122,7 @@ sh_push_dummy_call_fpu (struct gdbarch *gdbarch,
 
 static CORE_ADDR
 sh_push_dummy_call_nofpu (struct gdbarch *gdbarch,
-			  CORE_ADDR func_addr,
+			  struct value *function,
 			  struct regcache *regcache,
 			  CORE_ADDR bp_addr,
 			  int nargs, struct value **args,
@@ -1027,7 +1152,7 @@ sh_push_dummy_call_nofpu (struct gdbarch *gdbarch,
      in four registers available.  Loop thru args from first to last.  */
   for (argnum = 0; argnum < nargs; argnum++)
     {
-      type = VALUE_TYPE (args[argnum]);
+      type = value_type (args[argnum]);
       len = TYPE_LENGTH (type);
       val = sh_justify_value_in_reg (args[argnum], len);
 
@@ -1070,8 +1195,8 @@ sh_push_dummy_call_nofpu (struct gdbarch *gdbarch,
    containing the (raw) register state a function return value of type
    TYPE, and copy that, in virtual format, into VALBUF.  */
 static void
-sh_default_extract_return_value (struct type *type, struct regcache *regcache,
-				 void *valbuf)
+sh_extract_return_value_nofpu (struct type *type, struct regcache *regcache,
+			       void *valbuf)
 {
   int len = TYPE_LENGTH (type);
   int return_register = R0_REGNUM;
@@ -1091,12 +1216,12 @@ sh_default_extract_return_value (struct type *type, struct regcache *regcache,
 	regcache_raw_read (regcache, regnum++, (char *) valbuf + i);
     }
   else
-    error ("bad size for return value");
+    error (_("bad size for return value"));
 }
 
 static void
-sh3e_sh4_extract_return_value (struct type *type, struct regcache *regcache,
-			       void *valbuf)
+sh_extract_return_value_fpu (struct type *type, struct regcache *regcache,
+			     void *valbuf)
 {
   if (sh_treat_as_flt_p (type))
     {
@@ -1109,7 +1234,7 @@ sh3e_sh4_extract_return_value (struct type *type, struct regcache *regcache,
 	  regcache_raw_read (regcache, regnum++, (char *) valbuf + i);
     }
   else
-    sh_default_extract_return_value (type, regcache, valbuf);
+    sh_extract_return_value_nofpu (type, regcache, valbuf);
 }
 
 /* Write into appropriate registers a function return value
@@ -1119,8 +1244,8 @@ sh3e_sh4_extract_return_value (struct type *type, struct regcache *regcache,
    depending on the type of the return value. In all the other cases
    the result is stored in r0, left-justified. */
 static void
-sh_default_store_return_value (struct type *type, struct regcache *regcache,
-			       const void *valbuf)
+sh_store_return_value_nofpu (struct type *type, struct regcache *regcache,
+			     const void *valbuf)
 {
   ULONGEST val;
   int len = TYPE_LENGTH (type);
@@ -1139,18 +1264,50 @@ sh_default_store_return_value (struct type *type, struct regcache *regcache,
 }
 
 static void
-sh3e_sh4_store_return_value (struct type *type, struct regcache *regcache,
-			     const void *valbuf)
+sh_store_return_value_fpu (struct type *type, struct regcache *regcache,
+			   const void *valbuf)
 {
   if (sh_treat_as_flt_p (type))
     {
       int len = TYPE_LENGTH (type);
       int i, regnum = FP0_REGNUM;
       for (i = 0; i < len; i += 4)
-	regcache_raw_write (regcache, regnum++, (char *) valbuf + i);
+	if (TARGET_BYTE_ORDER == BFD_ENDIAN_LITTLE)
+	  regcache_raw_write (regcache, regnum++,
+			      (char *) valbuf + len - 4 - i);
+	else
+	  regcache_raw_write (regcache, regnum++, (char *) valbuf + i);
     }
   else
-    sh_default_store_return_value (type, regcache, valbuf);
+    sh_store_return_value_nofpu (type, regcache, valbuf);
+}
+
+static enum return_value_convention
+sh_return_value_nofpu (struct gdbarch *gdbarch, struct type *type,
+		       struct regcache *regcache,
+		       void *readbuf, const void *writebuf)
+{
+  if (sh_use_struct_convention (0, type))
+    return RETURN_VALUE_STRUCT_CONVENTION;
+  if (writebuf)
+    sh_store_return_value_nofpu (type, regcache, writebuf);
+  else if (readbuf)
+    sh_extract_return_value_nofpu (type, regcache, readbuf);
+  return RETURN_VALUE_REGISTER_CONVENTION;
+}
+
+static enum return_value_convention
+sh_return_value_fpu (struct gdbarch *gdbarch, struct type *type,
+		     struct regcache *regcache,
+		     void *readbuf, const void *writebuf)
+{
+  if (sh_use_struct_convention (0, type))
+    return RETURN_VALUE_STRUCT_CONVENTION;
+  if (writebuf)
+    sh_store_return_value_fpu (type, regcache, writebuf);
+  else if (readbuf)
+    sh_extract_return_value_fpu (type, regcache, readbuf);
+  return RETURN_VALUE_REGISTER_CONVENTION;
 }
 
 /* Print the registers in a form similar to the E7000 */
@@ -1244,6 +1401,141 @@ sh2e_show_regs (void)
 
   printf_filtered (("FP0-FP7  %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n"), (long) read_register (FP0_REGNUM + 0), (long) read_register (FP0_REGNUM + 1), (long) read_register (FP0_REGNUM + 2), (long) read_register (FP0_REGNUM + 3), (long) read_register (FP0_REGNUM + 4), (long) read_register (FP0_REGNUM + 5), (long) read_register (FP0_REGNUM + 6), (long) read_register (FP0_REGNUM + 7));
   printf_filtered (("FP8-FP15 %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n"), (long) read_register (FP0_REGNUM + 8), (long) read_register (FP0_REGNUM + 9), (long) read_register (FP0_REGNUM + 10), (long) read_register (FP0_REGNUM + 11), (long) read_register (FP0_REGNUM + 12), (long) read_register (FP0_REGNUM + 13), (long) read_register (FP0_REGNUM + 14), (long) read_register (FP0_REGNUM + 15));
+}
+
+static void
+sh2a_show_regs (void)
+{
+  int pr = read_register (FPSCR_REGNUM) & 0x80000;
+  printf_filtered ("PC=%s SR=%08lx PR=%08lx MACH=%08lx MACHL=%08lx\n",
+		   paddr (read_register (PC_REGNUM)),
+		   (long) read_register (SR_REGNUM),
+		   (long) read_register (PR_REGNUM),
+		   (long) read_register (MACH_REGNUM),
+		   (long) read_register (MACL_REGNUM));
+
+  printf_filtered ("GBR=%08lx VBR=%08lx TBR=%08lx",
+		   (long) read_register (GBR_REGNUM),
+		   (long) read_register (VBR_REGNUM),
+		   (long) read_register (TBR_REGNUM));
+  printf_filtered (" FPUL=%08lx FPSCR=%08lx\n",
+		   (long) read_register (FPUL_REGNUM),
+		   (long) read_register (FPSCR_REGNUM));
+
+  printf_filtered ("R0-R7  %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+		   (long) read_register (0), (long) read_register (1),
+		   (long) read_register (2), (long) read_register (3),
+		   (long) read_register (4), (long) read_register (5),
+		   (long) read_register (6), (long) read_register (7));
+  printf_filtered ("R8-R15 %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+		   (long) read_register (8), (long) read_register (9),
+		   (long) read_register (10), (long) read_register (11),
+		   (long) read_register (12), (long) read_register (13),
+		   (long) read_register (14), (long) read_register (15));
+
+  printf_filtered ((pr
+		    ? "DR0-DR6  %08lx%08lx %08lx%08lx %08lx%08lx %08lx%08lx\n"
+		    :
+		    "FP0-FP7  %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n"),
+		   (long) read_register (FP0_REGNUM + 0),
+		   (long) read_register (FP0_REGNUM + 1),
+		   (long) read_register (FP0_REGNUM + 2),
+		   (long) read_register (FP0_REGNUM + 3),
+		   (long) read_register (FP0_REGNUM + 4),
+		   (long) read_register (FP0_REGNUM + 5),
+		   (long) read_register (FP0_REGNUM + 6),
+		   (long) read_register (FP0_REGNUM + 7));
+  printf_filtered ((pr ?
+		    "DR8-DR14 %08lx%08lx %08lx%08lx %08lx%08lx %08lx%08lx\n" :
+		    "FP8-FP15 %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n"),
+		   (long) read_register (FP0_REGNUM + 8),
+		   (long) read_register (FP0_REGNUM + 9),
+		   (long) read_register (FP0_REGNUM + 10),
+		   (long) read_register (FP0_REGNUM + 11),
+		   (long) read_register (FP0_REGNUM + 12),
+		   (long) read_register (FP0_REGNUM + 13),
+		   (long) read_register (FP0_REGNUM + 14),
+		   (long) read_register (FP0_REGNUM + 15));
+  printf_filtered ("BANK=%-3d\n", (int) read_register (BANK_REGNUM));
+  printf_filtered ("R0b - R7b  %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+		   (long) read_register (R0_BANK0_REGNUM + 0),
+		   (long) read_register (R0_BANK0_REGNUM + 1),
+		   (long) read_register (R0_BANK0_REGNUM + 2),
+		   (long) read_register (R0_BANK0_REGNUM + 3),
+		   (long) read_register (R0_BANK0_REGNUM + 4),
+		   (long) read_register (R0_BANK0_REGNUM + 5),
+		   (long) read_register (R0_BANK0_REGNUM + 6),
+		   (long) read_register (R0_BANK0_REGNUM + 7));
+  printf_filtered ("R8b - R14b %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+		   (long) read_register (R0_BANK0_REGNUM + 8),
+		   (long) read_register (R0_BANK0_REGNUM + 9),
+		   (long) read_register (R0_BANK0_REGNUM + 10),
+		   (long) read_register (R0_BANK0_REGNUM + 11),
+		   (long) read_register (R0_BANK0_REGNUM + 12),
+		   (long) read_register (R0_BANK0_REGNUM + 13),
+		   (long) read_register (R0_BANK0_REGNUM + 14));
+  printf_filtered ("MACHb=%08lx IVNb=%08lx PRb=%08lx GBRb=%08lx MACLb=%08lx\n",
+		   (long) read_register (R0_BANK0_REGNUM + 15),
+		   (long) read_register (R0_BANK0_REGNUM + 16),
+		   (long) read_register (R0_BANK0_REGNUM + 17),
+		   (long) read_register (R0_BANK0_REGNUM + 18),
+		   (long) read_register (R0_BANK0_REGNUM + 19));
+}
+
+static void
+sh2a_nofpu_show_regs (void)
+{
+  int pr = read_register (FPSCR_REGNUM) & 0x80000;
+  printf_filtered ("PC=%s SR=%08lx PR=%08lx MACH=%08lx MACHL=%08lx\n",
+		   paddr (read_register (PC_REGNUM)),
+		   (long) read_register (SR_REGNUM),
+		   (long) read_register (PR_REGNUM),
+		   (long) read_register (MACH_REGNUM),
+		   (long) read_register (MACL_REGNUM));
+
+  printf_filtered ("GBR=%08lx VBR=%08lx TBR=%08lx",
+		   (long) read_register (GBR_REGNUM),
+		   (long) read_register (VBR_REGNUM),
+		   (long) read_register (TBR_REGNUM));
+  printf_filtered (" FPUL=%08lx FPSCR=%08lx\n",
+		   (long) read_register (FPUL_REGNUM),
+		   (long) read_register (FPSCR_REGNUM));
+
+  printf_filtered ("R0-R7  %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+		   (long) read_register (0), (long) read_register (1),
+		   (long) read_register (2), (long) read_register (3),
+		   (long) read_register (4), (long) read_register (5),
+		   (long) read_register (6), (long) read_register (7));
+  printf_filtered ("R8-R15 %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+		   (long) read_register (8), (long) read_register (9),
+		   (long) read_register (10), (long) read_register (11),
+		   (long) read_register (12), (long) read_register (13),
+		   (long) read_register (14), (long) read_register (15));
+
+  printf_filtered ("BANK=%-3d\n", (int) read_register (BANK_REGNUM));
+  printf_filtered ("R0b - R7b  %08lx %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+		   (long) read_register (R0_BANK0_REGNUM + 0),
+		   (long) read_register (R0_BANK0_REGNUM + 1),
+		   (long) read_register (R0_BANK0_REGNUM + 2),
+		   (long) read_register (R0_BANK0_REGNUM + 3),
+		   (long) read_register (R0_BANK0_REGNUM + 4),
+		   (long) read_register (R0_BANK0_REGNUM + 5),
+		   (long) read_register (R0_BANK0_REGNUM + 6),
+		   (long) read_register (R0_BANK0_REGNUM + 7));
+  printf_filtered ("R8b - R14b %08lx %08lx %08lx %08lx %08lx %08lx %08lx\n",
+		   (long) read_register (R0_BANK0_REGNUM + 8),
+		   (long) read_register (R0_BANK0_REGNUM + 9),
+		   (long) read_register (R0_BANK0_REGNUM + 10),
+		   (long) read_register (R0_BANK0_REGNUM + 11),
+		   (long) read_register (R0_BANK0_REGNUM + 12),
+		   (long) read_register (R0_BANK0_REGNUM + 13),
+		   (long) read_register (R0_BANK0_REGNUM + 14));
+  printf_filtered ("MACHb=%08lx IVNb=%08lx PRb=%08lx GBRb=%08lx MACLb=%08lx\n",
+		   (long) read_register (R0_BANK0_REGNUM + 15),
+		   (long) read_register (R0_BANK0_REGNUM + 16),
+		   (long) read_register (R0_BANK0_REGNUM + 17),
+		   (long) read_register (R0_BANK0_REGNUM + 18),
+		   (long) read_register (R0_BANK0_REGNUM + 19));
 }
 
 static void
@@ -1467,6 +1759,18 @@ sh_show_regs_command (char *args, int from_tty)
     (*sh_show_regs) ();
 }
 
+static struct type *
+sh_sh2a_register_type (struct gdbarch *gdbarch, int reg_nr)
+{
+  if ((reg_nr >= FP0_REGNUM
+       && (reg_nr <= FP_LAST_REGNUM)) || (reg_nr == FPUL_REGNUM))
+    return builtin_type_float;
+  else if (reg_nr >= DR0_REGNUM && reg_nr <= DR_LAST_REGNUM)
+    return builtin_type_double;
+  else
+    return builtin_type_int;
+}
+
 /* Return the GDB type object for the "standard" data type
    of data in register N.  */
 static struct type *
@@ -1561,7 +1865,7 @@ sh_register_convert_to_raw (struct type *type, int regnum,
 				 &val, to);
     }
   else
-    error ("sh_register_convert_to_raw called with non DR register number");
+    error (_("sh_register_convert_to_raw called with non DR register number"));
 }
 
 /* For vectors of 4 floating point registers. */
@@ -1591,6 +1895,9 @@ sh_pseudo_register_read (struct gdbarch *gdbarch, struct regcache *regcache,
   int base_regnum, portion;
   char temp_buffer[MAX_REGISTER_SIZE];
 
+  if (reg_nr == PSEUDO_BANK_REGNUM)
+    regcache_raw_read (regcache, BANK_REGNUM, buffer);
+  else
   if (reg_nr >= DR0_REGNUM && reg_nr <= DR_LAST_REGNUM)
     {
       base_regnum = dr_reg_base_num (reg_nr);
@@ -1627,7 +1934,19 @@ sh_pseudo_register_write (struct gdbarch *gdbarch, struct regcache *regcache,
   int base_regnum, portion;
   char temp_buffer[MAX_REGISTER_SIZE];
 
-  if (reg_nr >= DR0_REGNUM && reg_nr <= DR_LAST_REGNUM)
+  if (reg_nr == PSEUDO_BANK_REGNUM)
+    {
+      /* When the bank register is written to, the whole register bank
+         is switched and all values in the bank registers must be read
+	 from the target/sim again. We're just invalidating the regcache
+	 so that a re-read happens next time it's necessary.  */
+      int bregnum;
+
+      regcache_raw_write (regcache, BANK_REGNUM, buffer);
+      for (bregnum = R0_BANK0_REGNUM; bregnum < MACLB_REGNUM; ++bregnum)
+        set_register_cached (bregnum, 0);
+    }
+  else if (reg_nr >= DR0_REGNUM && reg_nr <= DR_LAST_REGNUM)
     {
       base_regnum = dr_reg_base_num (reg_nr);
 
@@ -1681,6 +2000,12 @@ do_dr_register_info (struct gdbarch *gdbarch, struct ui_file *file,
 		    (int) read_register (first_fp_reg_num),
 		    (int) read_register (first_fp_reg_num + 1));
 }
+static void
+do_bank_register_info (struct gdbarch *gdbarch, struct ui_file *file)
+{
+  fprintf_filtered (file, "bank           %d\n",
+		    (int) read_register (BANK_REGNUM));
+}
 
 static void
 sh_print_pseudo_register (struct gdbarch *gdbarch, struct ui_file *file,
@@ -1688,7 +2013,9 @@ sh_print_pseudo_register (struct gdbarch *gdbarch, struct ui_file *file,
 {
   if (regnum < NUM_REGS || regnum >= NUM_REGS + NUM_PSEUDO_REGS)
     internal_error (__FILE__, __LINE__,
-		    "Invalid pseudo register number %d\n", regnum);
+		    _("Invalid pseudo register number %d\n"), regnum);
+  else if (regnum == PSEUDO_BANK_REGNUM)
+    do_bank_register_info (gdbarch, file);
   else if (regnum >= DR0_REGNUM && regnum <= DR_LAST_REGNUM)
     do_dr_register_info (gdbarch, file, regnum);
   else if (regnum >= FV0_REGNUM && regnum <= FV_LAST_REGNUM)
@@ -1707,8 +2034,8 @@ sh_do_fp_register (struct gdbarch *gdbarch, struct ui_file *file, int regnum)
   raw_buffer = (char *) alloca (register_size (gdbarch, FP0_REGNUM));
 
   /* Get the data in raw format.  */
-  if (!frame_register_read (get_selected_frame (), regnum, raw_buffer))
-    error ("can't read register %d (%s)", regnum, REGISTER_NAME (regnum));
+  if (!frame_register_read (get_selected_frame (NULL), regnum, raw_buffer))
+    error (_("can't read register %d (%s)"), regnum, REGISTER_NAME (regnum));
 
   /* Get the register as a number */
   flt = unpack_double (builtin_type_float, raw_buffer, &inv);
@@ -1745,7 +2072,7 @@ sh_do_register (struct gdbarch *gdbarch, struct ui_file *file, int regnum)
   print_spaces_filtered (15 - strlen (REGISTER_NAME (regnum)), file);
 
   /* Get the data in raw format.  */
-  if (!frame_register_read (get_selected_frame (), regnum, raw_buffer))
+  if (!frame_register_read (get_selected_frame (NULL), regnum, raw_buffer))
     fprintf_filtered (file, "*value not available*\n");
 
   val_print (gdbarch_register_type (gdbarch, regnum), raw_buffer, 0, 0,
@@ -1761,7 +2088,7 @@ sh_print_register (struct gdbarch *gdbarch, struct ui_file *file, int regnum)
 {
   if (regnum < 0 || regnum >= NUM_REGS + NUM_PSEUDO_REGS)
     internal_error (__FILE__, __LINE__,
-		    "Invalid register number %d\n", regnum);
+		    _("Invalid register number %d\n"), regnum);
 
   else if (regnum >= 0 && regnum < NUM_REGS)
     {
@@ -1785,43 +2112,36 @@ sh_print_registers_info (struct gdbarch *gdbarch, struct ui_file *file,
   if (regnum != -1)		/* do one specified register */
     {
       if (*(REGISTER_NAME (regnum)) == '\0')
-	error ("Not a valid register for the current processor type");
+	error (_("Not a valid register for the current processor type"));
 
       sh_print_register (gdbarch, file, regnum);
     }
   else
     /* do all (or most) registers */
     {
-      regnum = 0;
-      while (regnum < NUM_REGS)
+      for (regnum = 0; regnum < NUM_REGS; ++regnum)
 	{
 	  /* If the register name is empty, it is undefined for this
 	     processor, so don't display anything.  */
 	  if (REGISTER_NAME (regnum) == NULL
 	      || *(REGISTER_NAME (regnum)) == '\0')
-	    {
-	      regnum++;
-	      continue;
-	    }
+	    continue;
 
 	  if (TYPE_CODE (gdbarch_register_type (gdbarch, regnum)) ==
 	      TYPE_CODE_FLT)
 	    {
+	      /* true for "INFO ALL-REGISTERS" command */
 	      if (fpregs)
-		{
-		  /* true for "INFO ALL-REGISTERS" command */
-		  sh_do_fp_register (gdbarch, file, regnum);	/* FP regs */
-		  regnum++;
-		}
-	      else
-		regnum += (FP_LAST_REGNUM - FP0_REGNUM);	/* skip FP regs */
+		sh_do_fp_register (gdbarch, file, regnum);	/* FP regs */
 	    }
 	  else
-	    {
-	      sh_do_register (gdbarch, file, regnum);	/* All other regs */
-	      regnum++;
-	    }
+	    sh_do_register (gdbarch, file, regnum);	/* All other regs */
 	}
+
+      if (regnum == PSEUDO_BANK_REGNUM
+      	  && REGISTER_NAME (regnum)
+	  && *REGISTER_NAME (regnum))
+	sh_print_pseudo_register (gdbarch, file, regnum++);
 
       if (fpregs)
 	while (regnum < NUM_REGS + NUM_PSEUDO_REGS)
@@ -1831,50 +2151,6 @@ sh_print_registers_info (struct gdbarch *gdbarch, struct ui_file *file,
 	  }
     }
 }
-
-#ifdef SVR4_SHARED_LIBS
-
-/* Fetch (and possibly build) an appropriate link_map_offsets structure
-   for native i386 linux targets using the struct offsets defined in
-   link.h (but without actual reference to that file).
-
-   This makes it possible to access i386-linux shared libraries from
-   a gdb that was not built on an i386-linux host (for cross debugging).
-   */
-
-struct link_map_offsets *
-sh_linux_svr4_fetch_link_map_offsets (void)
-{
-  static struct link_map_offsets lmo;
-  static struct link_map_offsets *lmp = 0;
-
-  if (lmp == 0)
-    {
-      lmp = &lmo;
-
-      lmo.r_debug_size = 8;	/* 20 not actual size but all we need */
-
-      lmo.r_map_offset = 4;
-      lmo.r_map_size = 4;
-
-      lmo.link_map_size = 20;	/* 552 not actual size but all we need */
-
-      lmo.l_addr_offset = 0;
-      lmo.l_addr_size = 4;
-
-      lmo.l_name_offset = 4;
-      lmo.l_name_size = 4;
-
-      lmo.l_next_offset = 12;
-      lmo.l_next_size = 4;
-
-      lmo.l_prev_offset = 16;
-      lmo.l_prev_size = 4;
-    }
-
-  return lmp;
-}
-#endif /* SVR4_SHARED_LIBS */
 
 static int
 sh_dsp_register_sim_regno (int nr)
@@ -1892,6 +2168,35 @@ sh_dsp_register_sim_regno (int nr)
   if (nr >= DSP_R0_BANK_REGNUM && nr <= DSP_R7_BANK_REGNUM)
     return nr - DSP_R0_BANK_REGNUM + SIM_SH_R0_BANK_REGNUM;
   return nr;
+}
+
+static int
+sh_sh2a_register_sim_regno (int nr)
+{
+  switch (nr)
+    {
+      case TBR_REGNUM:
+        return SIM_SH_TBR_REGNUM;
+      case IBNR_REGNUM:
+        return SIM_SH_IBNR_REGNUM;
+      case IBCR_REGNUM:
+        return SIM_SH_IBCR_REGNUM;
+      case BANK_REGNUM:
+        return SIM_SH_BANK_REGNUM;
+      case MACLB_REGNUM:
+        return SIM_SH_BANK_MACL_REGNUM;
+      case GBRB_REGNUM:
+        return SIM_SH_BANK_GBR_REGNUM;
+      case PRB_REGNUM:
+        return SIM_SH_BANK_PR_REGNUM;
+      case IVNB_REGNUM:
+        return SIM_SH_BANK_IVN_REGNUM;
+      case MACHB_REGNUM:
+        return SIM_SH_BANK_MACH_REGNUM;
+      default:
+        break;
+    }
+  return legacy_register_sim_regno (nr);
 }
 
 static struct sh_frame_cache *
@@ -1975,7 +2280,8 @@ sh_frame_cache (struct frame_info *next_frame, void **this_cache)
 
 static void
 sh_frame_prev_register (struct frame_info *next_frame, void **this_cache,
-			int regnum, int *optimizedp,
+			/* APPLE LOCAL variable opt states.  */
+			int regnum, enum opt_state *optimizedp,
 			enum lval_type *lvalp, CORE_ADDR *addrp,
 			int *realnump, void *valuep)
 {
@@ -1985,7 +2291,8 @@ sh_frame_prev_register (struct frame_info *next_frame, void **this_cache,
 
   if (regnum == SP_REGNUM && cache->saved_sp)
     {
-      *optimizedp = 0;
+      /* APPLE LOCAL variable opt states.  */
+      *optimizedp = opt_okay;
       *lvalp = not_lval;
       *addrp = 0;
       *realnump = -1;
@@ -2005,7 +2312,8 @@ sh_frame_prev_register (struct frame_info *next_frame, void **this_cache,
 
   if (regnum < SH_NUM_REGS && cache->saved_regs[regnum] != -1)
     {
-      *optimizedp = 0;
+      /* APPLE LOCAL variable opt states.  */
+      *optimizedp = opt_okay;
       *lvalp = lval_memory;
       *addrp = cache->saved_regs[regnum];
       *realnump = -1;
@@ -2018,8 +2326,13 @@ sh_frame_prev_register (struct frame_info *next_frame, void **this_cache,
       return;
     }
 
-  frame_register_unwind (next_frame, regnum,
-			 optimizedp, lvalp, addrp, realnump, valuep);
+  /* APPLE LOCAL variable opt states.  */
+  *optimizedp = opt_okay;
+  *lvalp = lval_register;
+  *addrp = 0;
+  *realnump = regnum;
+  if (valuep)
+    frame_unwind_register (next_frame, (*realnump), valuep);
 }
 
 static void
@@ -2118,8 +2431,16 @@ sh_in_function_epilogue_p (struct gdbarch *gdbarch, CORE_ADDR pc)
       else if (!IS_RESTORE_FP (read_memory_unsigned_integer (addr + 2, 2)))
 	return 0;
 
-      /* Step over possible lds.l @r15+,pr. */
       inst = read_memory_unsigned_integer (addr - 2, 2);
+
+      /* Step over possible lds.l @r15+,macl. */
+      if (IS_MACL_LDS (inst))
+	{
+	  addr -= 2;
+	  inst = read_memory_unsigned_integer (addr - 2, 2);
+	}
+
+      /* Step over possible lds.l @r15+,pr. */
       if (IS_LDS (inst))
 	{
 	  addr -= 2;
@@ -2142,13 +2463,20 @@ sh_in_function_epilogue_p (struct gdbarch *gdbarch, CORE_ADDR pc)
 	  inst = read_memory_unsigned_integer (addr - 2, 2);
 	}
 
+      /* On SH2a check if the previous instruction was perhaps a MOVI20.
+         That's allowed for the epilogue.  */
+      if ((gdbarch_bfd_arch_info (gdbarch)->mach == bfd_mach_sh2a
+           || gdbarch_bfd_arch_info (gdbarch)->mach == bfd_mach_sh2a_nofpu)
+          && addr > func_addr + 6
+	  && IS_MOVI20 (read_memory_unsigned_integer (addr - 4, 2)))
+	addr -= 4;
+
       if (pc >= addr)
 	return 1;
     }
   return 0;
 }
-
-static gdbarch_init_ftype sh_gdbarch_init;
+
 
 static struct gdbarch *
 sh_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
@@ -2160,6 +2488,12 @@ sh_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     {
     case bfd_mach_sh2e:
       sh_show_regs = sh2e_show_regs;
+      break;
+    case bfd_mach_sh2a:
+      sh_show_regs = sh2a_show_regs;
+      break;
+    case bfd_mach_sh2a_nofpu:
+      sh_show_regs = sh2a_nofpu_show_regs;
       break;
     case bfd_mach_sh_dsp:
       sh_show_regs = sh_dsp_show_regs;
@@ -2223,23 +2557,21 @@ sh_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_print_registers_info (gdbarch, sh_print_registers_info);
 
   set_gdbarch_breakpoint_from_pc (gdbarch, sh_breakpoint_from_pc);
-  set_gdbarch_use_struct_convention (gdbarch, sh_use_struct_convention);
 
   set_gdbarch_print_insn (gdbarch, gdb_print_insn_sh);
   set_gdbarch_register_sim_regno (gdbarch, legacy_register_sim_regno);
 
   set_gdbarch_write_pc (gdbarch, generic_target_write_pc);
 
-  set_gdbarch_store_return_value (gdbarch, sh_default_store_return_value);
-  set_gdbarch_extract_return_value (gdbarch, sh_default_extract_return_value);
-  set_gdbarch_deprecated_extract_struct_value_address (gdbarch, sh_extract_struct_value_address);
+  set_gdbarch_return_value (gdbarch, sh_return_value_nofpu);
+  set_gdbarch_deprecated_extract_struct_value_address (gdbarch,
+					    sh_extract_struct_value_address);
 
   set_gdbarch_skip_prologue (gdbarch, sh_skip_prologue);
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
 
   set_gdbarch_push_dummy_call (gdbarch, sh_push_dummy_call_nofpu);
 
-  set_gdbarch_deprecated_frameless_function_invocation (gdbarch, legacy_frameless_look_for_prologue);
   set_gdbarch_believe_pcc_promotion (gdbarch, 1);
 
   set_gdbarch_frame_align (gdbarch, sh_frame_align);
@@ -2267,10 +2599,30 @@ sh_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       set_gdbarch_register_name (gdbarch, sh_sh2e_register_name);
       set_gdbarch_register_type (gdbarch, sh_sh3e_register_type);
       set_gdbarch_fp0_regnum (gdbarch, 25);
-      set_gdbarch_store_return_value (gdbarch, sh3e_sh4_store_return_value);
-      set_gdbarch_extract_return_value (gdbarch,
-					sh3e_sh4_extract_return_value);
+      set_gdbarch_return_value (gdbarch, sh_return_value_fpu);
       set_gdbarch_push_dummy_call (gdbarch, sh_push_dummy_call_fpu);
+      break;
+
+    case bfd_mach_sh2a:
+      set_gdbarch_register_name (gdbarch, sh_sh2a_register_name);
+      set_gdbarch_register_type (gdbarch, sh_sh2a_register_type);
+      set_gdbarch_register_sim_regno (gdbarch, sh_sh2a_register_sim_regno);
+
+      set_gdbarch_fp0_regnum (gdbarch, 25);
+      set_gdbarch_num_pseudo_regs (gdbarch, 9);
+      set_gdbarch_pseudo_register_read (gdbarch, sh_pseudo_register_read);
+      set_gdbarch_pseudo_register_write (gdbarch, sh_pseudo_register_write);
+      set_gdbarch_return_value (gdbarch, sh_return_value_fpu);
+      set_gdbarch_push_dummy_call (gdbarch, sh_push_dummy_call_fpu);
+      break;
+
+    case bfd_mach_sh2a_nofpu:
+      set_gdbarch_register_name (gdbarch, sh_sh2a_nofpu_register_name);
+      set_gdbarch_register_sim_regno (gdbarch, sh_sh2a_register_sim_regno);
+
+      set_gdbarch_num_pseudo_regs (gdbarch, 1);
+      set_gdbarch_pseudo_register_read (gdbarch, sh_pseudo_register_read);
+      set_gdbarch_pseudo_register_write (gdbarch, sh_pseudo_register_write);
       break;
 
     case bfd_mach_sh_dsp:
@@ -2289,9 +2641,7 @@ sh_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       set_gdbarch_register_name (gdbarch, sh_sh3e_register_name);
       set_gdbarch_register_type (gdbarch, sh_sh3e_register_type);
       set_gdbarch_fp0_regnum (gdbarch, 25);
-      set_gdbarch_store_return_value (gdbarch, sh3e_sh4_store_return_value);
-      set_gdbarch_extract_return_value (gdbarch,
-					sh3e_sh4_extract_return_value);
+      set_gdbarch_return_value (gdbarch, sh_return_value_fpu);
       set_gdbarch_push_dummy_call (gdbarch, sh_push_dummy_call_fpu);
       break;
 
@@ -2305,12 +2655,10 @@ sh_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       set_gdbarch_register_name (gdbarch, sh_sh4_register_name);
       set_gdbarch_register_type (gdbarch, sh_sh4_register_type);
       set_gdbarch_fp0_regnum (gdbarch, 25);
-      set_gdbarch_num_pseudo_regs (gdbarch, 12);
+      set_gdbarch_num_pseudo_regs (gdbarch, 13);
       set_gdbarch_pseudo_register_read (gdbarch, sh_pseudo_register_read);
       set_gdbarch_pseudo_register_write (gdbarch, sh_pseudo_register_write);
-      set_gdbarch_store_return_value (gdbarch, sh3e_sh4_store_return_value);
-      set_gdbarch_extract_return_value (gdbarch,
-					sh3e_sh4_extract_return_value);
+      set_gdbarch_return_value (gdbarch, sh_return_value_fpu);
       set_gdbarch_push_dummy_call (gdbarch, sh_push_dummy_call_fpu);
       break;
 
@@ -2347,5 +2695,5 @@ _initialize_sh_tdep (void)
 
   gdbarch_register (bfd_arch_sh, sh_gdbarch_init, NULL);
 
-  add_com ("regs", class_vars, sh_show_regs_command, "Print all registers");
+  add_com ("regs", class_vars, sh_show_regs_command, _("Print all registers"));
 }

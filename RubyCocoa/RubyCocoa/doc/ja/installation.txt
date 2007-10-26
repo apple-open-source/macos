@@ -1,0 +1,50 @@
+RubyCocoaのインストール
+=======================
+
+
+ソースをダウンロード
+--------------------
+
+最新のリリースを使う場合
+
+[ダウンロードページ](http://sourceforge.net/project/showfiles.php?group_id=44114)から最新の tgz をダウンロードして、展開する。
+
+svn の trunk を使う場合
+
+    svn co https://rubycocoa.svn.sourceforge.net/svnroot/rubycocoa/trunk/src rubycocoa
+
+
+ビルド
+------
+
+/usr/bin/ruby を使う場合
+
+    cd rubycocoa
+    /usr/bin/ruby install.rb config --prefix=/usr
+    /usr/bin/ruby install.rb setup
+    sudo /usr/bin/ruby install.rb install
+
+
+MacPorts で入れた /opt/local/bin/ruby を使う場合
+
+    cd rubycocoa
+    /opt/local/bin/ruby install.rb config --prefix=/opt/local
+    /opt/local/bin/ruby install.rb setup
+    sudo /opt/local/bin/ruby install.rb install
+
+
+ユニバーサルバイナリのアプリケーションを開発する場合:
+
+    cd rubycocoa
+    /usr/bin/ruby install.rb config --prefix=/usr --build-universal
+    /usr/bin/ruby install.rb setup
+    sudo /usr/bin/ruby install.rb install
+
+
+サンプルプログムのビルド
+------------------------
+
+    cd /Developer/Examples/RubyCocoa
+    mkdir -p apps
+    ruby buildall.rb apps
+    open /Developer/Examples/RubyCocoa/apps

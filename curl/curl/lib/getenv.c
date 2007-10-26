@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: getenv.c,v 1.26 2004/11/02 10:12:23 bagder Exp $
+ * $Id: getenv.c,v 1.28 2006/01/09 13:17:14 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -26,10 +26,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifdef WIN32
-#include <windows.h>
-#endif
 
 #ifdef VMS
 #include <unixlib.h>
@@ -47,7 +43,6 @@ char *GetEnv(const char *variable)
   return NULL;
 #else
 #ifdef WIN32
-  /* This shit requires windows.h (HUGE) to be included */
   char env[MAX_PATH]; /* MAX_PATH is from windef.h */
   char *temp = getenv(variable);
   env[0] = '\0';

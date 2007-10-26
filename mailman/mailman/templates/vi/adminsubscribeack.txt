@@ -1,0 +1,3 @@
+%(member)s đã được đăng ký với hộp thư chung %(listname)s.
+
+

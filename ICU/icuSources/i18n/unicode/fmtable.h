@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -17,6 +17,10 @@
 
 #include "unicode/utypes.h"
 #include "unicode/unistr.h"
+/**
+ * \file 
+ * \brief C++ API: Formattable is a thin wrapper for primitive numeric types.
+ */
 
 #if !UCONFIG_NO_FORMATTING
 
@@ -84,10 +88,11 @@ public:
     /**
      * Creates a Formattable object with an int64_t number
      * @param ll the int64_t number.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     Formattable(int64_t ll);
 
+#if !UCONFIG_NO_CONVERSION
     /**
      * Creates a Formattable object with a char string pointer.
      * Assumes that the char string is null terminated.
@@ -95,6 +100,7 @@ public:
      * @stable ICU 2.0
      */
     Formattable(const char* strToCopy);
+#endif
 
     /**
      * Creates a Formattable object with a UnicodeString object to copy from.
@@ -121,7 +127,7 @@ public:
     /**
      * Creates a Formattable object that adopts the given UObject.
      * @param objectToAdopt the UObject to set this object to
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     Formattable(UObject* objectToAdopt);
 
@@ -170,7 +176,7 @@ public:
      * @return a clone of this object
      *
      * @see getDynamicClassID
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     Formattable *clone() const;
 
@@ -219,14 +225,14 @@ public:
         /**
          * Selector indicating a 64-bit integer value.  Use getInt64
          * to retrieve the value.
-         * @draft ICU 2.8
+         * @stable ICU 2.8
          */
         kInt64,
 
         /**
          * Selector indicating a UObject value.  Use getObject to
          * retrieve the value.
-         * @draft ICU 3.0
+         * @stable ICU 3.0
          */
         kObject
    };
@@ -242,7 +248,7 @@ public:
      * Returns TRUE if the data type of this Formattable object
      * is kDouble, kLong, or kInt64.
      * @return TRUE if this is a pure numeric object
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     UBool           isNumeric() const;
     
@@ -264,7 +270,7 @@ public:
      * the status is set to U_INVALID_FORMAT_ERROR.
      * @param status the error code
      * @return the double value of this object.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */ 
     double          getDouble(UErrorCode& status) const;
 
@@ -290,7 +296,7 @@ public:
      * the status is set to U_INVALID_FORMAT_ERROR.
      * @param status the error code
      * @return    the long value of this object.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */ 
     int32_t         getLong(UErrorCode& status) const;
 
@@ -298,7 +304,7 @@ public:
      * Gets the int64 value of this object. If this object is not of type
      * kInt64 then the result is undefined.
      * @return    the int64 value of this object.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */ 
     int64_t         getInt64(void) const { return fValue.fInt64; }
 
@@ -315,7 +321,7 @@ public:
      * the status is set to U_INVALID_FORMAT_ERROR.
      * @param status the error code
      * @return    the int64 value of this object.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */ 
     int64_t         getInt64(UErrorCode& status) const;
 
@@ -333,7 +339,7 @@ public:
      * undefined.
      * @param status the error code.
      * @return    the Date value of this object.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */ 
      UDate          getDate(UErrorCode& status) const;
 
@@ -354,7 +360,7 @@ public:
      * @param result    Output param to receive the Date value of this object.
      * @param status    the error code. 
      * @return          A reference to 'result'.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */ 
     UnicodeString&  getString(UnicodeString& result, UErrorCode& status) const;
 
@@ -373,7 +379,7 @@ public:
      * U_INVALID_FORMAT_ERROR and the result is a bogus string.
      * @param status    the error code.
      * @return   a const reference to the string value of this object.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     const UnicodeString& getString(UErrorCode& status) const;
 
@@ -391,7 +397,7 @@ public:
      * and the result is a bogus string.
      * @param status    the error code. 
      * @return   a reference to the string value of this object.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     UnicodeString& getString(UErrorCode& status);
 
@@ -412,7 +418,7 @@ public:
      * @param count    fill-in with the count of this object.
      * @param status the error code. 
      * @return         the array value of this object.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */ 
     const Formattable* getArray(int32_t& count, UErrorCode& status) const;
 
@@ -430,7 +436,7 @@ public:
      * Returns a pointer to the UObject contained within this
      * formattable, or NULL if this object does not contain a UObject.
      * @return a UObject pointer, or NULL
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     const UObject*  getObject() const;
 
@@ -454,7 +460,7 @@ public:
      * Sets the int64 value of this object and changes the type to
      * kInt64.
      * @param ll    the new int64 value to be set.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */ 
     void            setInt64(int64_t ll);
 
@@ -503,7 +509,7 @@ public:
      * the type to kObject.  After this call, the caller must not
      * delete the given object.
      * @param objectToAdopt the UObject value to be adopted
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     void            adoptObject(UObject* objectToAdopt);
 
@@ -536,15 +542,6 @@ private:
      */
     void            dispose(void);
 
-    /**
-     * Creates a new Formattable array and copies the values from the specified
-     * original.
-     * @param array the original array
-     * @param count the original array count
-     * @return the new Formattable array.
-     */
-    static Formattable* createArrayCopy(const Formattable* array, int32_t count);
-
     UnicodeString* getBogus() const;
 
     union {
@@ -562,14 +559,6 @@ private:
     Type                fType;
     UnicodeString       fBogus; // Bogus string when it's needed.
 };
-
-inline Formattable*
-Formattable::createArrayCopy(const Formattable* array, int32_t count)
-{
-    Formattable *result = new Formattable[count];
-    for (int32_t i=0; i<count; ++i) result[i] = array[i]; // Don't memcpy!
-    return result;
-}
 
 inline UDate Formattable::getDate(UErrorCode& status) const {
     if (fType != kDate) {

@@ -21,16 +21,14 @@
  */
 
 /*
- * $Id: import_name.c 16548 2004-07-07 00:29:31Z raeburn $
+ * $Id: import_name.c 18015 2006-05-17 05:26:12Z raeburn $
  */
 
 #include "gssapiP_krb5.h"
 
 #ifndef NO_PASSWORD
 #include <pwd.h>
-#ifdef HAVE_GETPWUID_R
 #include <stdio.h>
-#endif
 #endif
 
 #ifdef HAVE_STRING_H
@@ -63,7 +61,7 @@ krb5_gss_import_name(minor_status, input_name_buffer,
    struct passwd *pw;
 #endif
 
-   code = krb5_init_context(&context);
+   code = krb5_gss_init_context(&context);
    if (code) {
        *minor_status = code;
        return GSS_S_FAILURE;
@@ -121,10 +119,8 @@ krb5_gss_import_name(minor_status, input_name_buffer,
    } else {
 #ifndef NO_PASSWORD
       uid_t uid;
-#ifdef HAVE_GETPWUID_R
       struct passwd pwx;
       char pwbuf[BUFSIZ];
-#endif
 #endif
 
       stringrep = NULL;
@@ -148,18 +144,8 @@ krb5_gss_import_name(minor_status, input_name_buffer,
       } else if (g_OID_equal(input_name_type, gss_nt_machine_uid_name)) {
 	 uid = *(uid_t *) input_name_buffer->value;
       do_getpwuid:
-#ifndef HAVE_GETPWUID_R
-	 pw = getpwuid(uid);
-#elif defined(GETPWUID_R_4_ARGS)
-	 /* old POSIX drafts */
-	 pw = getpwuid_r(uid, &pwx, pwbuf, sizeof(pwbuf));
-#else
-	 /* POSIX */
-	 if (getpwuid_r(uid, &pwx, pwbuf, sizeof(pwbuf), &pw) != 0)
-	     pw = NULL;
-#endif
-	 if (pw)
-	    stringrep = pw->pw_name;
+	 if (k5_getpwuid_r(uid, &pwx, pwbuf, sizeof(pwbuf), &pw) == 0)
+	     stringrep = pw->pw_name;
 	 else
 	    *minor_status = (OM_uint32) G_NOUSER;
       } else if (g_OID_equal(input_name_type, gss_nt_string_uid_name)) {
@@ -201,6 +187,7 @@ krb5_gss_import_name(minor_status, input_name_buffer,
 	 
 	 stringrep = tmp2;
      } else {
+	 xfree(tmp);
 	 krb5_free_context(context);
 	 return(GSS_S_BAD_NAMETYPE);
       }

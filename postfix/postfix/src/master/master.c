@@ -4,11 +4,9 @@
 /* SUMMARY
 /*	Postfix master process
 /* SYNOPSIS
-/* .fi
-/*	\fBmaster\fR [\fB-Dtv\fR] [\fB-c \fIconfig_dir\fR]
-/*		[\fB-e \fIexit_time\fR]
+/*	\fBmaster\fR [\fB-Ddtv\fR] [\fB-c \fIconfig_dir\fR] [\fB-e \fIexit_time\fR]
 /* DESCRIPTION
-/*	The \fBmaster\fR daemon is the resident process that runs Postfix
+/*	The \fBmaster\fR(8) daemon is the resident process that runs Postfix
 /*	daemons on demand: daemons to send or receive messages via the
 /*	network, daemons to deliver mail locally, etc.  These daemons are
 /*	created on demand up to a configurable maximum number per service.
@@ -16,30 +14,33 @@
 /*	Postfix daemons terminate voluntarily, either after being idle for
 /*	a configurable amount of time, or after having serviced a
 /*	configurable number of requests. Exceptions to this rule are the
-/*	resident queue manager and the resident address verification server.
+/*	resident queue manager, address verification server, and the TLS
+/*	session cache and pseudo-random number server.
 /*
-/*	The behavior of the \fBmaster\fR daemon is controlled by the
-/*	\fBmaster.cf\fR configuration file. The table specifies zero or
-/*	more servers in the \fBUNIX\fR or \fBINET\fR domain, or servers
-/*	that take requests from a FIFO. Precise configuration details are
-/*	given in the \fBmaster.cf\fR file, and in the manual pages of the
-/*	respective daemons.
+/*	The behavior of the \fBmaster\fR(8) daemon is controlled by the
+/*	\fBmaster.cf\fR configuration file, as described in \fBmaster\fR(5).
 /*
 /*	Options:
 /* .IP "\fB-c \fIconfig_dir\fR"
 /*	Read the \fBmain.cf\fR and \fBmaster.cf\fR configuration files in
 /*	the named directory instead of the default configuration directory.
-/* .IP "\fB-e \fIexit_time\fR"
-/*	Terminate the master process after \fIexit_time\fR seconds. Child
-/*	processes terminate at their convenience.
+/*	This also overrides the configuration files for other Postfix
+/*	daemon processes.
 /* .IP \fB-D\fR
 /*	After initialization, run a debugger on the master process. The
 /*	debugging command is specified with the \fBdebugger_command\fR in
 /*	the \fBmain.cf\fR global configuration file.
+/* .IP \fB-d\fR
+/*	Do not redirect stdin, stdout or stderr to /dev/null, and
+/*	do not discard the controlling terminal. This must be used
+/*	for debugging only.
+/* .IP "\fB-e \fIexit_time\fR"
+/*	Terminate the master process after \fIexit_time\fR seconds. Child
+/*	processes terminate at their convenience.
 /* .IP \fB-t\fR
 /*	Test mode. Return a zero exit status when the \fBmaster.pid\fR lock
 /*	file does not exist or when that file is not locked.  This is evidence
-/*	that the \fBmaster\fR daemon is not running.
+/*	that the \fBmaster\fR(8) daemon is not running.
 /* .IP \fB-v\fR
 /*	Enable verbose logging for debugging purposes. This option
 /*	is passed on to child processes. Multiple \fB-v\fR options
@@ -47,7 +48,7 @@
 /* .PP
 /*	Signals:
 /* .IP \fBSIGHUP\fR
-/*	Upon receipt of a \fBHUP\fR signal (e.g., after \fBpostfix reload\fR),
+/*	Upon receipt of a \fBHUP\fR signal (e.g., after "\fBpostfix reload\fR"),
 /*	the master process re-reads its configuration files. If a service has
 /*	been removed from the \fBmaster.cf\fR file, its running processes
 /*	are terminated immediately.
@@ -55,11 +56,11 @@
 /*	as is convenient, so that changes in configuration settings
 /*	affect only new service requests.
 /* .IP \fBSIGTERM\fR
-/*	Upon receipt of a \fBTERM\fR signal (e.g., after \fBpostfix abort\fR),
+/*	Upon receipt of a \fBTERM\fR signal (e.g., after "\fBpostfix abort\fR"),
 /*	the master process passes the signal on to its child processes and
 /*	terminates.
 /*	This is useful for an emergency shutdown. Normally one would
-/*	terminate only the master (\fBpostfix stop\fR) and allow running
+/*	terminate only the master ("\fBpostfix stop\fR") and allow running
 /*	processes to finish what they are doing.
 /* DIAGNOSTICS
 /*	Problems are reported to \fBsyslogd\fR(8).
@@ -75,27 +76,24 @@
 /* CONFIGURATION PARAMETERS
 /* .ad
 /* .fi
-/*	Unlike most Postfix daemon processes, the master(8) server does
+/*	Unlike most Postfix daemon processes, the \fBmaster\fR(8) server does
 /*	not automatically pick up changes to \fBmain.cf\fR. Changes
 /*	to \fBmaster.cf\fR are never picked up automatically.
-/*	Use the \fBpostfix reload\fR command after a configuration change.
+/*	Use the "\fBpostfix reload\fR" command after a configuration change.
 /* RESOURCE AND RATE CONTROLS
 /* .ad
 /* .fi
-/* .IP "\fBdaemon_timeout (18000s)\fR"
-/*	How much time a Postfix daemon process may take to handle a
-/*	request before it is terminated by a built-in watchdog timer.
 /* .IP "\fBdefault_process_limit (100)\fR"
 /*	The default maximal number of Postfix child processes that provide
 /*	a given service.
 /* .IP "\fBmax_idle (100s)\fR"
-/*	The maximum amount of time that an idle Postfix daemon process
-/*	waits for the next service request before exiting.
+/*	The maximum amount of time that an idle Postfix daemon process waits
+/*	for an incoming connection before terminating voluntarily.
 /* .IP "\fBmax_use (100)\fR"
-/*	The maximal number of connection requests before a Postfix daemon
-/*	process terminates.
+/*	The maximal number of incoming connections that a Postfix daemon
+/*	process will service before terminating voluntarily.
 /* .IP "\fBservice_throttle_time (60s)\fR"
-/*	How long the Postfix master(8) waits before forking a server that
+/*	How long the Postfix \fBmaster\fR(8) waits before forking a server that
 /*	appears to be malfunctioning.
 /* MISCELLANEOUS CONTROLS
 /* .ad
@@ -109,8 +107,11 @@
 /*	The external command to execute when a Postfix daemon program is
 /*	invoked with the -D option.
 /* .IP "\fBinet_interfaces (all)\fR"
-/*	The network interface addresses that this mail system receives mail
-/*	on.
+/*	The network interface addresses that this mail system receives
+/*	mail on.
+/* .IP "\fBinet_protocols (ipv4)\fR"
+/*	The Internet protocols Postfix will attempt to use when making
+/*	or accepting connections.
 /* .IP "\fBimport_environment (see 'postconf -d' output)\fR"
 /*	The list of environment parameters that a Postfix process will
 /*	import from a non-Postfix parent process.
@@ -135,7 +136,8 @@
 /* SEE ALSO
 /*	qmgr(8), queue manager
 /*	verify(8), address verification
-/*	postconf(5), configuration parameters
+/*	master(5), master.cf configuration file syntax
+/*	postconf(5), main.cf configuration parameter syntax
 /*	syslogd(8), system logging
 /* LICENSE
 /* .ad
@@ -184,10 +186,18 @@
 #include <mail_task.h>
 #include <mail_conf.h>
 #include <open_lock.h>
+#include <inet_proto.h>
 
 /* Application-specific. */
 
 #include "master.h"
+
+#ifdef __APPLE_OS_X_SERVER__
+int smtp_count = 0;
+int smtpd_count = 0;
+#endif
+
+int     master_detach = 1;
 
 /* master_exit_event - exit for memory leak testing purposes */
 
@@ -196,6 +206,15 @@ static void master_exit_event(int unused_event, char *unused_context)
     msg_info("master exit time has arrived");
     exit(0);
 }
+
+/* usage - show hint and terminate */
+
+static NORETURN usage(const char *me)
+{
+    msg_fatal("usage: %s [-c config_dir] [-D (debug)] [-d (don't detach from terminal)] [-e exit_time] [-t (test)] [-v]", me);
+}
+
+MAIL_VERSION_STAMP_DECLARE;
 
 /* main - main program */
 
@@ -209,10 +228,14 @@ int     main(int argc, char **argv)
     int     fd;
     int     n;
     int     test_lock = 0;
-    int     fd_limit = open_limit(0);
     VSTRING *why;
     WATCHDOG *watchdog;
     ARGV   *import_env;
+
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
 
     /*
      * Initialize.
@@ -252,10 +275,10 @@ int     main(int argc, char **argv)
      * of this we have to close descriptors > 2, and pray that doing so does
      * not break things.
      */
-    if (fd_limit > 500)
-	fd_limit = 500;
-    for (fd = 3; fd < fd_limit; fd++)
-	(void) close(fd);
+#ifdef __APPLE_OS_X_SERVER__
+    if (getsid(0) != 1)
+#endif
+    closefrom(3);
 
     /*
      * Initialize logging and exit handler.
@@ -273,31 +296,65 @@ int     main(int argc, char **argv)
 	msg_fatal("the master command must not run as a set-uid process");
 
     /*
+     * Process JCL.
+     */
+    while ((ch = GETOPT(argc, argv, "c:Dde:tv")) > 0) {
+	switch (ch) {
+	case 'c':
+	    if (setenv(CONF_ENV_PATH, optarg, 1) < 0)
+		msg_fatal("out of memory");
+	    break;
+	case 'd':
+	    master_detach = 0;
+	    break;
+	case 'e':
+	    event_request_timer(master_exit_event, (char *) 0, atoi(optarg));
+	    break;
+	case 'D':
+	    debug_me = 1;
+	    break;
+	case 't':
+	    test_lock = 1;
+	    break;
+	case 'v':
+	    msg_verbose++;
+	    break;
+	default:
+	    usage(argv[0]);
+	    /* NOTREACHED */
+	}
+    }
+
+    /*
+     * This program takes no other arguments.
+     */
+    if (argc > optind)
+	usage(argv[0]);
+
+    /*
      * If started from a terminal, get rid of any tty association. This also
      * means that all errors and warnings must go to the syslog daemon.
      */
-    for (fd = 0; fd < 3; fd++) {
-	(void) close(fd);
-	if (open("/dev/null", O_RDWR, 0) != fd)
-	    msg_fatal("open /dev/null: %m");
-    }
+#ifdef __APPLE_OS_X_SERVER__
+    if (getsid(0) != 1)
+#endif
+    if (master_detach)
+	for (fd = 0; fd < 3; fd++) {
+	    (void) close(fd);
+	    if (open("/dev/null", O_RDWR, 0) != fd)
+		msg_fatal("open /dev/null: %m");
+	}
 
     /*
      * Run in a separate process group, so that "postfix stop" can terminate
      * all MTA processes cleanly. Give up if we can't separate from our
      * parent process. We're not supposed to blow away the parent.
      */
-
-    /* 
-     * Changed msg_fatal to no message to allow for master to run supervised
-     */
-
-    setsid();
-
-    /*
-    if (setsid() == -1)
+#ifdef __APPLE_OS_X_SERVER__
+    if (getsid(0) != 1)
+#endif
+    if (debug_me == 0 && master_detach != 0 && setsid() == -1 && getsid(0) != getpid())
 	msg_fatal("unable to set session and process group ID: %m");
-     */
 
     /*
      * Make some room for plumbing with file descriptors. XXX This breaks
@@ -314,39 +371,19 @@ int     main(int argc, char **argv)
     }
 
     /*
-     * Process JCL.
-     */
-    while ((ch = GETOPT(argc, argv, "c:e:Dtv")) > 0) {
-	switch (ch) {
-	case 'c':
-	    if (setenv(CONF_ENV_PATH, optarg, 1) < 0)
-		msg_fatal("out of memory");
-	    break;
-	case 'e':
-	    event_request_timer(master_exit_event, (char *) 0, atoi(optarg));
-	    break;
-	case 'D':
-	    debug_me = 1;
-	    break;
-	case 't':
-	    test_lock = 1;
-	    break;
-	case 'v':
-	    msg_verbose++;
-	    break;
-	default:
-	    msg_fatal("usage: %s [-c config_dir] [-e exit_time] [-D (debug)] [-t (test)] [-v]", argv[0]);
-	    /* NOTREACHED */
-	}
-    }
-
-    /*
      * Final initializations. Unfortunately, we must read the global Postfix
      * configuration file after doing command-line processing, so that we get
      * consistent results when we SIGHUP the server to reload configuration
      * files.
      */
     master_vars_init();
+
+    /*
+     * In case of multi-protocol support. This needs to be done because
+     * master does not invoke mail_params_init() (it was written before that
+     * code existed).
+     */
+    (void) inet_proto_init(VAR_INET_PROTOCOLS, var_inet_protocols);
 
     /*
      * Environment import filter, to enforce consistent behavior whether
@@ -401,7 +438,8 @@ int     main(int argc, char **argv)
     master_config();
     master_sigsetup();
     master_flow_init();
-    msg_info("daemon started -- version %s", var_mail_version);
+    msg_info("daemon started -- version %s, configuration %s",
+	     var_mail_version, var_config_dir);
 
     /*
      * Process events. The event handler will execute the read/write/timer
@@ -420,7 +458,7 @@ int     main(int argc, char **argv)
 	watchdog_start(watchdog);		/* same as trigger servers */
 	event_loop(-1);
 	if (master_gotsighup) {
-	    msg_info("reload configuration");
+	    msg_info("reload configuration %s", var_config_dir);
 	    master_gotsighup = 0;		/* this first */
 	    master_vars_init();			/* then this */
 	    master_refresh();			/* then this */

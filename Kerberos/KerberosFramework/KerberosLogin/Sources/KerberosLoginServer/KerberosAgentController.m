@@ -59,33 +59,6 @@
 
 // ---------------------------------------------------------------------------
 
-- (void) awakeFromNib 
-{
-    // Fill in the version field in the about dialog
-    NSString *name      = [[NSBundle mainBundle] objectForInfoDictionaryKey: @"CFBundleName"];
-    NSString *version   = [[NSBundle mainBundle] objectForInfoDictionaryKey: @"KfMDisplayVersion"];
-    NSString *copyright = [[NSBundle mainBundle] objectForInfoDictionaryKey: @"KfMDisplayCopyright"];
-    
-    [aboutVersionTextField setStringValue: [NSString stringWithFormat: @"%@ %@", 
-                                               (name != NULL) ? name : @"", (version != NULL) ? version : @""]];    
-    [aboutCopyrightTextField setStringValue: (copyright != NULL) ? copyright : @""];
-
-    // Delete the services menu
-    NSMenu *mainMenu = [NSApp mainMenu];
-    if ((mainMenu != NULL) && ([mainMenu numberOfItems] > 1)) {
-        NSMenuItem *appMenuItem = [mainMenu itemAtIndex: 0];
-        if ((appMenuItem != NULL) && [appMenuItem hasSubmenu]) {
-            NSMenu *appMenu = [appMenuItem submenu];
-            if ((appMenu != NULL) && ([appMenu numberOfItems] == 7)) {
-                [appMenu removeItemAtIndex: 2]; // services
-                [appMenu removeItemAtIndex: 2]; // separator after services
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-
 - (void) applicationDidFinishLaunching: (NSNotification *) notification
 {
     OSStatus err = 0;
@@ -104,15 +77,6 @@
         err = SetSystemUIMode (kUIModeNormal, kUIOptionDisableAppleMenu);
     }
     dprintf ("applicationDidFinishLaunching: SetSystemUIMode returned err %ld", err);
-}
-
-// ---------------------------------------------------------------------------
-
-- (IBAction) showAboutBox: (id) sender
-{
-    [aboutWindow center];
-    [aboutWindow makeKeyAndOrderFront: self];
-    [NSApp mainMenu];
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 dnl gdb/gdbserver/configure.in uses BFD_HAVE_SYS_PROCFS_TYPE.
-sinclude(../../bfd/acinclude.m4)
+sinclude(../../bfd/bfd.m4)
 
 AC_DEFUN([SRV_CHECK_THREAD_DB],
 [AC_CACHE_CHECK([for libthread_db],[srv_cv_thread_db],
@@ -13,6 +13,7 @@ AC_DEFUN([SRV_CHECK_THREAD_DB],
    void ps_lsetregs() {}
    void ps_lgetfpregs() {}
    void ps_lsetfpregs() {}
+   void ps_get_thread_area() {}
    void ps_getpid() {}],
   [td_ta_new();],
   [srv_cv_thread_db="-lthread_db"],
@@ -32,10 +33,11 @@ AC_DEFUN([SRV_CHECK_THREAD_DB],
    void ps_lsetregs() {}
    void ps_lgetfpregs() {}
    void ps_lsetfpregs() {}
+   void ps_get_thread_area() {}
    void ps_getpid() {}],
   [td_ta_new();],
   [srv_cv_thread_db="$thread_db"],
   [srv_cv_thread_db=no])
+  ]])
  LIBS="$old_LIBS"
- ]])
 )])

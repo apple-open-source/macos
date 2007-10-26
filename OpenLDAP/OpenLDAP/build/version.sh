@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/build/version.sh,v 1.8.2.5 2004/03/25 23:20:32 kurt Exp $
+# $OpenLDAP: pkg/ldap/build/version.sh,v 1.14.2.2 2006/01/03 22:16:01 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2004 The OpenLDAP Foundation.
+## Copyright 1998-2006 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without

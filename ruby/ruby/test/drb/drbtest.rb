@@ -2,21 +2,25 @@ require 'test/unit'
 require 'drb/drb'
 require 'drb/extservm'
 require 'timeout'
-require 'rbconfig'
-
-DRb::DRbServer.new(nil)
+begin
+  loadpath = $:.dup
+  $:.replace($: | [File.expand_path("../ruby", File.dirname(__FILE__))])
+  require 'envutil'
+ensure
+  $:.replace(loadpath)
+end
 
 class DRbService
   @@manager = DRb::ExtServManager.new
-  @@ruby = File.join(
-    Config::CONFIG["bindir"],
-    Config::CONFIG["ruby_install_name"] + Config::CONFIG["EXEEXT"]
-  )
+  @@ruby = EnvUtil.rubybin
   @@ruby += " -d" if $DEBUG
-  @@dir = File.dirname(File.expand_path(__FILE__))
+  def self.add_service_command(nm)
+    dir = File.dirname(File.expand_path(__FILE__))
+    DRb::ExtServManager.command[nm] = "\"#{@@ruby}\" \"#{dir}/#{nm}\""
+  end
 
   %w(ut_drb.rb ut_array.rb ut_port.rb ut_large.rb ut_safe1.rb ut_eval.rb).each do |nm|
-    DRb::ExtServManager.command[nm] = "#{@@ruby} #{@@dir}/#{nm}"
+    add_service_command(nm)
   end
   @server = @@server = DRb::DRbServer.new(nil, @@manager, {})
   @@manager.uri = @@server.uri
@@ -25,6 +29,11 @@ class DRbService
   end
   def self.server
     @server || @@server
+  end
+  def self.ext_service(name)
+    timeout(100, RuntimeError) do
+      manager.service(name)
+    end
   end
 end
 
@@ -61,12 +70,12 @@ end
 
 module DRbCore
   def setup
-    @ext = DRbService.manager.service('ut_drb.rb')
+    @ext = DRbService.ext_service('ut_drb.rb')
     @there = @ext.front
   end
 
   def teardown
-    @ext.stop_service
+    @ext.stop_service if @ext
   end
 
   def test_00_DRbObject
@@ -89,6 +98,11 @@ module DRbCore
     assert_equal(6, @there.sample(onecky, 1, 2))
     ary = @there.to_a
     assert_kind_of(DRb::DRbObject, ary)
+    
+    assert(@there.respond_to?(:to_a, true))
+    assert(@there.respond_to?(:eval, true))
+    assert(! @there.respond_to?(:eval, false))
+    assert(! @there.respond_to?(:eval))
   end
 
   def test_01_02_loop
@@ -162,24 +176,42 @@ module DRbCore
     end
   end
 
-  def test_07_public_private
+  def test_07_public_private_protected_missing
     assert_nothing_raised() {
       begin
 	@there.method_missing(:eval)
-      rescue NameError
+      rescue NoMethodError
 	assert_match(/^private method \`eval\'/, $!.message)
       end
     }
     assert_nothing_raised() {
       begin
+        @there.call_private_method
+      rescue NoMethodError
+        assert_equal(NoMethodError, $!.class)
+	assert_match(/^private method \`call_private_method\'/, $!.message)
+      end
+    }
+    assert_nothing_raised() {
+      begin
+        @there.call_protected_method
+      rescue NoMethodError
+        assert_equal(NoMethodError, $!.class)
+	assert_match(/^protected method \`call_protected_method\'/, $!.message)
+      end
+    }
+    assert_nothing_raised() {
+      begin
 	@there.method_missing(:undefined_method_test)
-      rescue NameError
+      rescue NoMethodError
+        assert_equal(NoMethodError, $!.class)
 	assert_match(/^undefined method \`undefined_method_test\'/, $!.message)
       end
     }
     assert_raises(SecurityError) do
       @there.method_missing(:__send__, :to_s)
     end
+    assert_equal(true, @there.missing)
   end
 
   def test_08_here
@@ -244,12 +276,12 @@ end
 
 module DRbAry
   def setup
-    @ext = DRbService.manager.service('ut_array.rb')
+    @ext = DRbService.ext_service('ut_array.rb')
     @there = @ext.front
   end
 
   def teardown
-    @ext.stop_service
+    @ext.stop_service if @ext
   end
 
   def test_01

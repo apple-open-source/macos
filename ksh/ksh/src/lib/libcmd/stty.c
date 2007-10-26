@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * stty.c
@@ -30,7 +26,7 @@
  */
 
 static const char usage[] =
-"[-?@(#)$Id: stty (AT&T Labs Research) 2003-06-04 $\n]"
+"[-?@(#)$Id: stty (AT&T Research) 2006-10-31 $\n]"
 USAGE_LICENSE
 "[+NAME?stty - set or get terminal modes]"
 "[+DESCRIPTION?\bstty\b sets certain terminal I/O modes for the device "
@@ -63,8 +59,6 @@ USAGE_LICENSE
 
 
 #include	<cmd.h>
-#include	<ast.h>
-#include	<error.h>
 #include	<ccode.h>
 #include	<ctype.h>
 #include	<ast_tty.h>
@@ -113,6 +107,8 @@ USAGE_LICENSE
 #define TABS	11
 #define WIND	12
 
+#undef	SS			/* who co-opted this namespace?	*/
+
 #define IG	0x0001		/* ignore display		*/
 #define NL	0x0002		/* entry ends line of display	*/
 #define SS	0x0004		/* set in sane mode		*/
@@ -120,19 +116,19 @@ USAGE_LICENSE
 
 typedef struct tty_s
 {
-	const char	*name;
+	const char	name[8];
 	unsigned char	type;
 	unsigned char	field;
 	short		flags;
 	unsigned long	mask;
 	unsigned long	val;
-	const char	*description;
+	const char	description[76];
 } Tty_t; 
 
 static const Tty_t Ttable[] =
 {
 #ifdef CBAUD
-{ "ispeed",	NUM,	C_SPEED,0,	CBAUD, 0, C("\an\a is the input baud rate")},
+{ "ispeed",	NUM,	C_SPEED,0,	CBAUD, 0, C("\an\a is the input baud rate") },
 { "ospeed",	NUM,	C_SPEED,0,	CBAUD, 0, C("\an\a is the output baud rate") },
 { "speed",	NUM,	C_SPEED,IG,	CBAUD },
 #endif
@@ -177,7 +173,7 @@ static const Tty_t Ttable[] =
 { "stop",	CHAR,	T_CHAR,	SS,	VSTOP, 'S', C("Stop the output") },
 #endif /* VSTOP */
 #ifdef VDSUSP
-{ "dsusp",	CHAR,	T_CHAR,	SS,	VDSUSP, 'Y', C("Send a terminal stop signal  after flushing the input.") },
+{ "dsusp",	CHAR,	T_CHAR,	SS,	VDSUSP, 'Y', C("Send a terminal stop signal after flushing the input") },
 #endif /* VDSUSP */
 #ifdef VSUSP
 { "susp",	CHAR,	T_CHAR,	NL|SS,	VSUSP, 'Z', C("Send a terminal stop signal") },
@@ -186,33 +182,33 @@ static const Tty_t Ttable[] =
 { "rprnt",	CHAR,	T_CHAR,	SS,	VREPRINT, 'R', C("Redraw the current line") },
 #endif /* VREPRINT */
 #ifdef VDISCARD
-{ "flush",	CHAR,	T_CHAR,	SS,	VDISCARD, 'O', C("Discard output.") },
+{ "flush",	CHAR,	T_CHAR,	SS,	VDISCARD, 'O', C("Discard output") },
 #endif /* VDISCARD */
 #ifdef VWERASE
 { "werase",	CHAR,	T_CHAR,	SS,	VWERASE, 'W', C("Erase the last word entered") },
 #endif /* VWERASE */
 #ifdef VLNEXT
-{ "lnext",	CHAR,	T_CHAR,	NL|SS,	VLNEXT, 'V', C("Enter the next character typed literally, even  if it is a special character") },
+{ "lnext",	CHAR,	T_CHAR,	NL|SS,	VLNEXT, 'V', C("Enter the next input character literally") },
 #endif /* VLNEXT */
 	
 #if _mem_c_line_termios
-{ "line",	NUM,	C_LINE,	0,	0, 0, C("Line discipline number")},
+{ "line",	NUM,	C_LINE,	0,	0, 0, C("Line discipline number") },
 #endif
-{ "min",	NUM,	T_CHAR,	0,	VMIN, 0, C("Mininmum number of characters to read in raw mode")},
-{ "time",	NUM,	T_CHAR,	0,	VTIME, 0, C("Number of .1 second intervals with raw mode")},
+{ "min",	NUM,	T_CHAR,	0,	VMIN, 0, C("Mininmum number of characters to read in raw mode") },
+{ "time",	NUM,	T_CHAR,	0,	VTIME, 0, C("Number of .1 second intervals with raw mode") },
 
 { "parenb",	BIT,	C_FLAG,	0,	PARENB,	PARENB, C("Enable (disable) parity generation and detection") },
-{ "parodd",	BIT,	C_FLAG,	0,	PARODD, PARODD,  "Use odd (even) parity" },
+{ "parodd",	BIT,	C_FLAG,	0,	PARODD, PARODD, C("Use odd (even) parity") },
 #ifdef PAREXT
 { "parext",	BIT,	C_FLAG,	0,	PAREXT, PAREXT },
 #endif /* PAREXT */
 #ifdef CREAD
 { "cread",	BIT,	C_FLAG,	SS,	CREAD, CREAD, C("Enable (disable) input") },
 #endif /* CREAD */
-{ "cs5",	SIZE,	C_FLAG,	0,	CSIZE,	CS5 , C("Char size 5")},
-{ "cs6",	SIZE,	C_FLAG,	0,	CSIZE,	CS6 , C("Char size 6")},
-{ "cs7",	SIZE,	C_FLAG,	0,	CSIZE,	CS7 , C("Char size 7")},
-{ "cs8",	SIZE,	C_FLAG,	0,	CSIZE,	CS8 , C("Char size 8")},
+{ "cs5",	SIZE,	C_FLAG,	0,	CSIZE,	CS5 , C("Char size 5") },
+{ "cs6",	SIZE,	C_FLAG,	0,	CSIZE,	CS6 , C("Char size 6") },
+{ "cs7",	SIZE,	C_FLAG,	0,	CSIZE,	CS7 , C("Char size 7") },
+{ "cs8",	SIZE,	C_FLAG,	0,	CSIZE,	CS8 , C("Char size 8") },
 { "hupcl",	BIT,	C_FLAG,	0,	HUPCL, HUPCL, C("Hangup (do not hangup) connection on last close") },
 { "hup",	BIT,	C_FLAG,	IG,	HUPCL, HUPCL, C("Same as \bhupcl\b") },
 { "cstopb",	BIT,	C_FLAG,	0,	CSTOPB, CSTOPB, C("Use two (one) stop bits") },
@@ -223,8 +219,8 @@ static const Tty_t Ttable[] =
 	
 { "ignbrk",	BIT,	I_FLAG,	US,	IGNBRK, IGNBRK, C("Ignore (do not ignore) break characters") },
 { "brkint",	BIT,	I_FLAG,	SS,	BRKINT, BRKINT, C("Generate (do not generate) INTR signal on break") },
-{ "ignpar",	BIT,	I_FLAG,	0,	IGNPAR, IGNPAR, C("Ignore (do not ignore) characters with parity errors")},
-{ "parmrk",	BIT,	I_FLAG,	0,	PARMRK, PARMRK, C("Mark (do not mark) parity errors")},
+{ "ignpar",	BIT,	I_FLAG,	0,	IGNPAR, IGNPAR, C("Ignore (do not ignore) characters with parity errors") },
+{ "parmrk",	BIT,	I_FLAG,	0,	PARMRK, PARMRK, C("Mark (do not mark) parity errors") },
 { "inpck",	BIT,	I_FLAG,	0,	INPCK, INPCK, C("Enable (disable) input parity checking") },
 { "istrip",	BIT,	I_FLAG,	0,	ISTRIP, ISTRIP, C("Clear (do not clear) high bit of input characters") },
 { "inlcr",	BIT,	I_FLAG,	US,	INLCR, INLCR, C("Translate (do not translate) carriage return to newline") },
@@ -232,14 +228,14 @@ static const Tty_t Ttable[] =
 #ifdef IUCLC
 { "iuclc",	BIT,	I_FLAG,	US,	IUCLC, IUCLC, C("Map (do not map) upper-case to lower case") },
 #endif /* IUCLC */
-{ "ixon",	BIT,	I_FLAG,	0,	IXON, IXON, C("Enable (disable) XON/XOFF flow control.  Output is stopped with \bstop\b character") },
+{ "ixon",	BIT,	I_FLAG,	0,	IXON, IXON, C("Enable (disable) XON/XOFF flow control. \bstop\b character stops output") },
 #ifdef IXANY
-{ "ixany",	BIT,	I_FLAG,	US,	IXANY, IXANY, C("Any character (only start character) can restart output.  Otherwise, only \bstart\b character can restart output") },
+{ "ixany",	BIT,	I_FLAG,	US,	IXANY, IXANY, C("Any character (only start character) can restart output.") },
 { "decctlq",	BIT,	I_FLAG,	IG,	IXANY, 0, C("Same as \b-ixany\b") },
 #endif /* IXANY */
 { "ixoff",	BIT,	I_FLAG,	US,	IXOFF, IXOFF, C("Disable (enable) XON/XOFF flow control") },
 #ifdef IMAXBEL
-{ "imaxbel",	BIT,	I_FLAG,	SS,	IMAXBEL, IMAXBEL, C("Beep (do not beep) if a character arrives with full input buffer")},
+{ "imaxbel",	BIT,	I_FLAG,	SS,	IMAXBEL, IMAXBEL, C("Beep (do not beep) if a character arrives with full input buffer") },
 #endif /* IMAXBEL */
 { "icrnl",	BIT,	I_FLAG,	NL|SS,	ICRNL, ICRNL, C("Translate (do not translate) carriage return to newline") },
 	
@@ -256,32 +252,32 @@ static const Tty_t Ttable[] =
 { "echoke",	BIT,	L_FLAG,	SS,	ECHOKE, ECHOKE, C("Echo (do not echo) a newline after a kill character") },
 #endif
 { "lfkc",	BIT,	L_FLAG,	IG,	ECHOK, ECHOK, C("Same as \bechok\b (\b-echok\b); obsolete") },
-{ "echonl",	BIT,	L_FLAG,	SS,	ECHONL, ECHONL,"Echo (do not echo) newline even if not echoing other  character" },
+{ "echonl",	BIT,	L_FLAG,	SS,	ECHONL, ECHONL,"Echo (do not echo) newline even if not echoing other character" },
 #ifdef ECHOCTL
-{ "echoctl",	BIT,	L_FLAG,	SS,	ECHOCTL, ECHOCTL, C("Echo (do not echo) control  characters as \b^\b\ac\a") },
+{ "echoctl",	BIT,	L_FLAG,	SS,	ECHOCTL, ECHOCTL, C("Echo (do not echo) control characters as \b^\b\ac\a") },
 #else
 #define ECHOCTL		0
 #endif /* ECHOCTL */
 #ifdef ECHOPRT
-{ "echoprt",	BIT,	L_FLAG,	US,	ECHOPRT, ECHOPRT, C("Echo  (do not echo) erased  characters  backward, between '\\' and '/'") },
+{ "echoprt",	BIT,	L_FLAG,	US,	ECHOPRT, ECHOPRT, C("Echo (do not echo) erased characters backward, between '\\' and '/'") },
 #else
 #define ECHOPRT		0
 #endif /* ECHOPRT */
 #ifdef XCASE
-{ "xcase",	BIT,	L_FLAG,	US,	XCASE, XCASE,"Enable (disable) input and output of uppercase characters  by preceding  their  lowercase  equivalents  with'\\' when \bicanon\b is set" },
+{ "xcase",	BIT,	L_FLAG,	US,	XCASE, XCASE, C("Enable (disable) \bicanon\b uppercase as lowercase with '\\' prefix") },
 #endif /* XCASE */
 #ifdef DEFECHO
 { "defecho",	BIT,	L_FLAG,	0,	DEFECHO, DEFECHO },
 #endif /* DEFECHO */
 #ifdef FLUSHO
-{ "flusho",	BIT,	L_FLAG,	0,	FLUSHO, FLUSHO, C("Discard (do not discard) data written to the terminal.  Cleared by subsequent input to the terminal") },
+{ "flusho",	BIT,	L_FLAG,	0,	FLUSHO, FLUSHO, C("Discard (do not discard) written data. Cleared by subsequent input") },
 #endif /* FLUSHO */
 #ifdef PENDIN
 { "pendin",	BIT,	L_FLAG,	0,	PENDIN, PENDIN, C("Redisplay pending input at next read and then automatically clear \bpendin\b") },
 #endif /* PENDIN */
-{ "noflsh",	BIT,	L_FLAG,	US,	NOFLSH, NOFLSH, C("Disable  (enable) flushing  after \bintr\b and \bquit\b special characters") },
+{ "noflsh",	BIT,	L_FLAG,	US,	NOFLSH, NOFLSH, C("Disable (enable) flushing after \bintr\b and \bquit\b special characters") },
 #ifdef TOSTOP
-{ "tostop",	BIT,	L_FLAG,	NL|US,	TOSTOP, TOSTOP, C("Stop (do not stop) background jobs that try to write to the  terminal") },
+{ "tostop",	BIT,	L_FLAG,	NL|US,	TOSTOP, TOSTOP, C("Stop (do not stop) background jobs that try to write to the terminal") },
 #endif /* TOSTOP */
 #ifdef OLCUC
 { "olcuc",	BIT,	O_FLAG,	US,	OLCUC, OLCUC, C("Translate (do not translate) lowercase characters to uppercase") },
@@ -299,10 +295,10 @@ static const Tty_t Ttable[] =
 { "onocr",	BIT,	O_FLAG,	US,	ONOCR, ONOCR, C("Do not (do) print carriage returns in the first column") },
 #endif /* ONOCR */
 #ifdef OFILL
-{ "ofill",	BIT,	O_FLAG,	US,	OFILL, OFILL, C("Use fill characters (use timing) for delays")},
+{ "ofill",	BIT,	O_FLAG,	US,	OFILL, OFILL, C("Use fill characters (use timing) for delays") },
 #endif /* OFILL */
 #ifdef OFDEL
-{ "ofdel",	BIT,	O_FLAG,	US,	OFDEL, OFDEL, C("Use DEL (NUL) as fill characters for delays")},
+{ "ofdel",	BIT,	O_FLAG,	US,	OFDEL, OFDEL, C("Use DEL (NUL) as fill characters for delays") },
 #endif /* OFDEL */
 { "opost",	BIT,	O_FLAG,	SS,	OPOST, OPOST, C(" Postprocess (do not postprocess) output") },
 #ifdef CRDLY
@@ -336,15 +332,15 @@ static const Tty_t Ttable[] =
 #endif
 { "",		MIXED,	O_FLAG,	NL|IG },
 	
-{ "evenp",	MIXED,	C_FLAG,	IG,	PARENB, 0, C("Same as \bparenb -parodd cs7\b")},
-{ "oddp",	MIXED,	C_FLAG,	IG,	PARODD, 0, C("Same  as  \bparenb parodd  cs7\b") },
+{ "evenp",	MIXED,	C_FLAG,	IG,	PARENB, 0, C("Same as \bparenb -parodd cs7\b") },
+{ "oddp",	MIXED,	C_FLAG,	IG,	PARODD, 0, C("Same as \bparenb parodd cs7\b") },
 { "parity",	MIXED,	C_FLAG,	IG,	0, 0, C("Same as parenb \b-parodd cs7\b") },
-{ "ek",		MIXED,	C_FLAG,	IG,	0, 0, C("Reset the \berase\b and \bkill\b  special characters to their default values") },
+{ "ek",		MIXED,	C_FLAG,	IG,	0, 0, C("Reset the \berase\b and \bkill\b special characters to their default values") },
 { "sane",	SANE,	C_FLAG,	IG,	0, 0, C("Reset all modes to some reasonable values") },
 { "cooked",	COOKED,	C_FLAG,	IG,	0, 0, C("Disable raw input and output") },
-{ "raw",	COOKED,	C_FLAG,	IG,	0, 0, C("Enable raw input and output")  },
-{ "lcase",	CASE,	C_FLAG,	IG,	0 , 0, C("Set \bxcase\b, \biuclc\b, and \bolcuc\b")},
-{ "LCASE",	CASE,	C_FLAG,	IG,	0 , 0, C("Same as \blcase\b")}
+{ "raw",	COOKED,	C_FLAG,	IG,	0, 0, C("Enable raw input and output") },
+{ "lcase",	CASE,	C_FLAG,	IG,	0 , 0, C("Set \bxcase\b, \biuclc\b, and \bolcuc\b") },
+{ "LCASE",	CASE,	C_FLAG,	IG,	0 , 0, C("Same as \blcase\b") }
 };
 
 #if CC_NATIVE == CC_ASCII
@@ -464,7 +460,7 @@ static void output(struct termios *sp, int flags)
 	struct termios tty;
 	register int delim = ' ';
 	register int i,off,off2;
-	static char schar[2];
+	char schar[2];
 	unsigned int ispeed = cfgetispeed(sp);
 	unsigned int ospeed = cfgetospeed(sp);
 	if(flags&G_FLAG)
@@ -556,14 +552,15 @@ static void output(struct termios *sp, int flags)
 			if(tp->mask==ispeed)
 			{
 				if(ispeed!=ospeed)
-					*schar='i';
+					schar[0]='i';
 				else
-					*schar=0;
+					schar[0]=0;
 			}
 			else if(tp->mask==ospeed)
-				*schar='o';
+				schar[0]='o';
 			else
 				continue;
+			schar[1] = 0;
 #ifdef TIOCSWINSZ
 			{
 				struct winsize win;
@@ -624,7 +621,7 @@ static int gettchar(register const char *cp)
 	return(*((unsigned char*)cp));
 }
 
-static void setmode(char *argv[], struct termios *sp)
+static void set(char *argv[], struct termios *sp)
 {
 	const Tty_t *tp;
 	register int c,off;
@@ -785,7 +782,7 @@ static void listchars(Sfio_t *sp,int type)
 	c = (type==CHAR?'c':'n');
 	for(i=0; i < elementsof(Ttable); i++)
 	{
-		if(Ttable[i].type==type && Ttable[i].description)
+		if(Ttable[i].type==type && *Ttable[i].description)
 			sfprintf(sp,"[+%s \a%c\a?%s.]",Ttable[i].name,c,Ttable[i].description);
 	}
 }
@@ -819,7 +816,7 @@ static void listfields(Sfio_t *sp,int field)
 	int i;
 	for(i=0; i < elementsof(Ttable); i++)
 	{
-		if(Ttable[i].field==field &&  Ttable[i].type==BIT && Ttable[i].description)
+		if(Ttable[i].field==field &&  Ttable[i].type==BIT && *Ttable[i].description)
 			sfprintf(sp,"[+%s (-%s)?%s.]",Ttable[i].name,Ttable[i].name,Ttable[i].description);
 	}
 }
@@ -889,8 +886,7 @@ b_stty(int argc, char** argv, void* context)
 	const Tty_t*		tp;
 	Optdisc_t		disc;
 
-	NoP(argc);
-	cmdinit(argv, context, ERROR_CATALOG, 0);
+	cmdinit(argc, argv, context, ERROR_CATALOG, ERROR_INTERACTIVE);
 	if (tcgetattr(0, &tty) < 0)
 		error(ERROR_system(1),"not a tty");
 	memset(&disc, 0, sizeof(disc));
@@ -937,7 +933,7 @@ b_stty(int argc, char** argv, void* context)
 		if (!argv[1] && **argv == ':')
 			gin(*argv, &tty);
 		else
-			setmode(argv, &tty);
+			set(argv, &tty);
 		if (tcsetattr(0, TCSANOW, &tty) < 0)
 			error(ERROR_system(1), "cannot set tty");
 	}

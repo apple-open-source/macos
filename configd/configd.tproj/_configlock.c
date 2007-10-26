@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,7 +43,7 @@ __SCDynamicStoreLock(SCDynamicStoreRef store, Boolean recursive)
 	serverSessionRef		mySession;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;		/* you must have an open session to play */
 	}
 
@@ -98,7 +98,7 @@ _configlock(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
 	}

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2006, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: hash.c,v 1.26 2005/01/25 00:06:29 bagder Exp $
+ * $Id: hash.c,v 1.28 2006-09-10 22:12:24 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -124,8 +124,11 @@ mk_hash_element(char *key, size_t key_len, const void *p)
     (struct curl_hash_element *) malloc(sizeof(struct curl_hash_element));
 
   if(he) {
-    char *dup = strdup(key);
+    char *dup = malloc(key_len);
     if(dup) {
+      /* copy the key */
+      memcpy(dup, key, key_len);
+
       he->key = dup;
       he->key_len = key_len;
       he->ptr = (void *) p;
@@ -179,6 +182,23 @@ Curl_hash_add(struct curl_hash *h, char *key, size_t key_len, void *p)
   return NULL; /* failure */
 }
 
+/* remove the identified hash entry, returns non-zero on failure */
+int Curl_hash_delete(struct curl_hash *h, char *key, size_t key_len)
+{
+  struct curl_llist_element *le;
+  struct curl_hash_element  *he;
+  struct curl_llist *l = FETCH_LIST(h, key, key_len);
+
+  for (le = l->head; le; le = le->next) {
+    he = le->ptr;
+    if (hash_key_compare(he->key, he->key_len, key, key_len)) {
+      Curl_llist_remove(l, le, (void *) h);
+      return 0;
+    }
+  }
+  return 1;
+}
+
 void *
 Curl_hash_pick(struct curl_hash *h, char *key, size_t key_len)
 {
@@ -186,9 +206,7 @@ Curl_hash_pick(struct curl_hash *h, char *key, size_t key_len)
   struct curl_hash_element  *he;
   struct curl_llist *l = FETCH_LIST(h, key, key_len);
 
-  for (le = l->head;
-       le;
-       le = le->next) {
+  for (le = l->head; le; le = le->next) {
     he = le->ptr;
     if (hash_key_compare(he->key, he->key_len, key, key_len)) {
       return he->ptr;
@@ -264,3 +282,34 @@ Curl_hash_destroy(struct curl_hash *h)
   free(h);
 }
 
+#if 0 /* useful function for debugging hashes and their contents */
+void Curl_hash_print(struct curl_hash *h,
+                     void (*func)(void *))
+{
+  int i;
+  struct curl_llist_element *le;
+  struct curl_llist *list;
+  struct curl_hash_element  *he;
+  if (!h)
+    return;
+
+  fprintf(stderr, "=Hash dump=\n");
+
+  for (i = 0; i < h->slots; i++) {
+    list = h->table[i];
+    le = list->head; /* get first list entry */
+    if(le) {
+      fprintf(stderr, "index %d:", i);
+      while(le) {
+        he = le->ptr;
+        if(func)
+          func(he->ptr);
+        else
+          fprintf(stderr, " [%p]", he->ptr);
+        le = le->next;
+      }
+      fprintf(stderr, "\n");
+    }
+  }
+}
+#endif

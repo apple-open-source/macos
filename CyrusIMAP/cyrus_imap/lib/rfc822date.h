@@ -1,5 +1,5 @@
 /* rfc822date.h -- Generate an 822 date
- $Id: rfc822date.h,v 1.5 2005/03/05 00:37:18 dasenbro Exp $
+ $Id: rfc822date.h,v 1.3 2003/02/13 20:15:42 rjs3 Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

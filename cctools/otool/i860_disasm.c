@@ -38,7 +38,7 @@ static void i860_dump_operands(
     unsigned long sect_addr,
     struct relocation_info *relocs,
     unsigned long nrelocs,
-    nlist_t *symbols,
+    struct nlist *symbols,
     unsigned long nsymbols,
     struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
@@ -53,7 +53,7 @@ static void i860_dump_addr(
     unsigned long sect_addr,
     struct relocation_info *relocs,
     unsigned long nrelocs,
-    nlist_t *symbols,
+    struct nlist *symbols,
     unsigned long nsymbols,
     struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
@@ -64,7 +64,7 @@ static void i860_dump_addr(
 static enum bool i860_print_symbol(
     unsigned long value,
     struct relocation_info *rp,
-    nlist_t *symbols,
+    struct nlist *symbols,
     unsigned long nsymbols,
     struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
@@ -85,7 +85,7 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-nlist_t *symbols,
+struct nlist *symbols,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
@@ -181,7 +181,7 @@ unsigned long addr,
 unsigned long sect_addr,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-nlist_t *symbols,
+struct nlist *symbols,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
@@ -335,7 +335,7 @@ long addr,
 unsigned long sect_addr,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-nlist_t *symbols,
+struct nlist *symbols,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
@@ -481,7 +481,7 @@ enum bool
 i860_print_symbol(
 unsigned long value,
 struct relocation_info *rp,
-nlist_t *symbols,
+struct nlist *symbols,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
@@ -511,11 +511,11 @@ enum bool verbose)
 	high = nsorted_symbols - 1;
 	mid = (high - low) / 2;
 	while(high >= low){
-	    if(sorted_symbols[mid].nl.n_value == value){
+	    if(sorted_symbols[mid].n_value == value){
 		printf("%s", sorted_symbols[mid].name);
 		return(TRUE);
 	    }
-	    if(sorted_symbols[mid].nl.n_value > value){
+	    if(sorted_symbols[mid].n_value > value){
 		high = mid - 1;
 		mid = (high + low) / 2;
 	    }

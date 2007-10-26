@@ -78,7 +78,7 @@ SecKeyCreatePair(
 	if (privateKeyRef)
 		*privateKeyRef = privItem->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecKeyCreatePair")
 }
 
 OSStatus
@@ -88,7 +88,7 @@ SecKeyGetCSSMKey(SecKeyRef key, const CSSM_KEY **cssmKey)
 
 	Required(cssmKey) = KeyItem::required(key)->key();
 
-	END_SECAPI
+	END_SECAPI2("SecKeyGetCSSMKey")
 }
 
 
@@ -104,7 +104,7 @@ SecKeyGetCSPHandle(SecKeyRef keyRef, CSSM_CSP_HANDLE *cspHandle)
 	SecPointer<KeyItem> keyItem(KeyItem::required(keyRef));
 	Required(cspHandle) = keyItem->csp()->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecKeyGetCSPHandle")
 }
 
 OSStatus
@@ -115,7 +115,7 @@ SecKeyGetAlgorithmID(SecKeyRef keyRef, const CSSM_X509_ALGORITHM_IDENTIFIER **al
 	SecPointer<KeyItem> keyItem(KeyItem::required(keyRef));
 	Required(algid) = &keyItem->algorithmIdentifier();
 
-	END_SECAPI
+	END_SECAPI2("SecKeyGetAlgorithmID")
 }
 
 OSStatus
@@ -126,7 +126,7 @@ SecKeyGetStrengthInBits(SecKeyRef keyRef, const CSSM_X509_ALGORITHM_IDENTIFIER *
 	SecPointer<KeyItem> keyItem(KeyItem::required(keyRef));
 	Required(strength) = keyItem->strengthInBits(algid);
 
-	END_SECAPI
+	END_SECAPI2("SecKeyGetStrengthInBits")
 }
 
 OSStatus
@@ -141,7 +141,7 @@ SecKeyGetCredentials(
 	SecPointer<KeyItem> keyItem(KeyItem::required(keyRef));
 	Required(outCredentials) = keyItem->getCredentials(operation, credentialType);
 
-	END_SECAPI
+	END_SECAPI2("SecKeyGetCredentials")
 }
 
 OSStatus
@@ -172,7 +172,7 @@ SecKeyImportPair(
 	if (privateKey)
 		*privateKey = privItem->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecKeyImportPair")
 }
 
 OSStatus
@@ -196,7 +196,7 @@ SecKeyGenerate(
 	if (initialAccess)
 		theAccess = Access::required(initialAccess);
 
-	KeyItem *item = KeyItem::generate(keychain,
+	SecPointer<KeyItem> item = KeyItem::generate(keychain,
         algorithm,
         keySizeInBits,
         contextHandle,
@@ -208,7 +208,7 @@ SecKeyGenerate(
 	if (keyRef)
 		*keyRef = item->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecKeyGenerate")
 }
 
 
@@ -226,5 +226,5 @@ OSStatus SecKeyCreate(const CSSM_KEY *cssmKey,
 	if (keyRef)
 		*keyRef = item->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecKeyCreate")
 }

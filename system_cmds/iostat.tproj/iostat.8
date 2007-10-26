@@ -69,8 +69,8 @@
 .Tn I/O
 statistics
 .Sh SYNOPSIS
-.Nm
-.Op Fl CdKIoT?\&
+.Nm iostat
+.Op Fl CUdKIoT?\&
 .Op Fl c Ar count
 .Op Fl n Ar devs
 .Op Fl w Ar wait
@@ -87,6 +87,16 @@ averaged over that time.
 .Pp
 The options are as follows:
 .Bl -tag -width flag
+.\" ==========
+.It Fl ?\&
+Display a usage statement and exit.
+.\" ==========
+.It Fl C
+Display CPU statistics.
+This is on by default, unless
+.Fl d
+is specified.
+.\" ==========
 .It Fl c
 Repeat the display
 .Ar count
@@ -94,35 +104,37 @@ times.
 If no
 .Ar wait
 interval is specified, the default is 1 second.
-.It Fl C
-Display CPU statistics.
-This is on by default, unless
-.Fl d
-is specified.
+.\" ==========
 .It Fl d
 Display only device statistics.
 If this flag is turned on, only device statistics will be displayed, unless
 .Fl C
 or
+.Fl U
+or
 .Fl T
-is also specfied to enable the display of CPU or TTY statistics.
+is also specfied to enable the display of CPU, load average or TTY statistics.
+.\" ==========
 .It Fl I
 Display total statstics for a given time period, rather than average
 statistics for each second during that time period.
+.\" ==========
 .It Fl K
 In the blocks transferred display (-o), display block count in kilobytes rather
 then the device native block size.
+.\" ==========
 .It Fl n
 Display up to
 .Ar devs
 number of devices.
-.Nm
+.Nm iostat
 will display fewer devices if there aren't
 .Ar devs
 devices present.
+.\" ==========
 .It Fl o
 Display old-style
-.Nm
+.Nm iostat
 device statistics.
 Sectors per second, transfers per second, and miliseconds per seek are
 displayed.
@@ -130,11 +142,19 @@ If
 .Fl I
 is specified, total blocks/sectors, total transfers, and
 miliseconds per seek are displayed.
+.\" ==========
 .It Fl T
 Display TTY statistics.
 This is on by default, unless
 .Fl d
 is specified.
+.\" ==========
+.It Fl U
+Display system load averages.
+This is on by default, unless
+.Fl d
+is specified.
+.\" ==========
 .It Fl w
 Pause
 .Ar wait
@@ -142,8 +162,6 @@ seconds between each display.
 If no repeat
 .Ar count
 is specified, the default is infinity.
-.It Fl ?\&
-Display a usage statement and exit.
 .El
 .Pp
 .Nm Iostat
@@ -159,20 +177,20 @@ characters written to terminals
 .It devices
 Device operations.
 The header of the field is the device name and unit number.
-.Nm
+.Nm iostat
 will display as many devices as will fit in a standard 80 column screen, or
 the maximum number of devices in the system, whichever is smaller.
 If
 .Fl n
 is specified on the command line,
-.Nm
+.Nm iostat
 will display the smaller of the
 requested number of devices, and the maximum number of devices in the system.
 To force
-.Nm
+.Nm iostat
 to display specific drives, their names may be supplied on the command
 line.
-.Nm
+.Nm iostat
 will not display more devices than will fit in an 80 column screen, unless
 the
 .Fl n
@@ -180,11 +198,11 @@ argument is given on the command line to specify a maximum number of
 devices to display, or the list of specified devices exceeds 80 columns.
 If fewer devices are specified on the command line than will fit in an 80
 column screen,
-.Nm
+.Nm iostat
 will show only the specified devices.
 .Pp
 The standard
-.Nm
+.Nm iostat
 device display shows the following statistics:
 .Pp
 .Bl -tag -width indent -compact
@@ -197,7 +215,7 @@ megabytes per second
 .El
 .Pp
 The standard
-.Nm
+.Nm iostat
 device display, with the
 .Fl I
 flag specified, shows the following statistics:
@@ -212,7 +230,7 @@ total number of megabytes transferred
 .El
 .Pp
 The old-style
-.Nm
+.Nm iostat
 display (using
 .Fl o )
 shows the following statistics:
@@ -227,7 +245,7 @@ average milliseconds per transaction
 .El
 .Pp
 The old-style
-.Nm
+.Nm iostat
 display, with the
 .Fl I
 flag specified, shows the following statistics:
@@ -281,12 +299,12 @@ flags are given, the TTY and CPU displays will be displayed.
 .Xr netstat 1 ,
 .Xr nfsstat 1 ,
 .Xr ps 1 ,
-.Xr pstat 8 ,
+.Xr pstat 8
 .Pp
 The sections starting with ``Interpreting system activity'' in
 .%T "Installing and Operating 4.3BSD" .
 .Sh HISTORY
 This version of
-.Nm
+.Nm iostat
 first appeared in
 .Nm FreeBSD 3.0 .

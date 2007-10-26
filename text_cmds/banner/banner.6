@@ -30,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	From: @(#)banner.6	8.2 (Berkeley) 4/29/95
-.\" $FreeBSD: src/usr.bin/banner/banner.6,v 1.7 2001/07/15 08:01:06 dd Exp $
+.\" $FreeBSD: src/usr.bin/banner/banner.6,v 1.9 2005/01/25 22:24:04 tjr Exp $
 .\"
-.Dd April 29, 1995
+.Dd January 26, 2005
 .Dt BANNER 6
 .Os
 .Sh NAME
@@ -64,6 +64,8 @@ Change the output from a width of 132 to
 .Ar width ,
 suitable for a narrow terminal.
 .El
+.Sh AUTHORS
+.An Mark Horton
 .Sh BUGS
 Several
 .Tn ASCII
@@ -76,5 +78,5 @@ The
 option is implemented by skipping some rows and columns.
 The smaller it gets, the grainier the output.
 Sometimes it runs letters together.
-.Sh AUTHORS
-.An Mark Horton
+.Pp
+Messages are limited to 1024 characters in length.

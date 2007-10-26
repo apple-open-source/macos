@@ -1,0 +1,40 @@
+;;
+;; named - sandbox profile
+;; Copyright (c) 2006-2007 Apple Inc.  All Rights reserved.
+;;
+;; WARNING: The sandbox rules in this file currently constitute 
+;; Apple System Private Interface and are subject to change at any time and
+;; without notice. The contents of this file are also auto-generated and not
+;; user editable; it may be overwritten at any time.
+;;
+(version 1)
+(debug deny)
+
+(import "bsd.sb")
+
+(deny default)
+(allow process*)
+; If this was commented out because it didn't work, i can be brought back.
+; if it was commented out because it broke named-xfer we can fix that with
+;   (allow process-fork)
+;   (allow process-exec (regex "^/usr/sbin/named$"))
+;   (allow process-exec (regex "^/usr/sbin/named-xfer$") (drop-profile!))
+(deny signal)
+(allow sysctl-read)
+; can this be
+;   (allow network* (tcp to "0.0.0.0/0:42"))
+;   (allow network* (udp to "0.0.0.0/0:42"))
+; or does named do other network traffic?  There is a control port on
+; modern named isn't there?
+(allow network*)
+
+;;; Allow named-specific files
+(allow file-write* file-read-data file-read-metadata
+  (regex "^(/private)?/var/run/named\\.pid$"
+         "^/Library/Logs/named\\.log$"))
+
+(allow file-read-data file-read-metadata
+  (regex "^(/private)?/etc/rndc\\.key$"
+         "^(/private)?/etc/resolv\\.conf$"
+         "^(/private)?/etc/named\\.conf$"
+         "^(/private)?/var/named/"))

@@ -21,76 +21,135 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*!
- * @header DSSemaphore
- * Implementation of the DSSemaphore (lock) base class.
- */
-
-#include <errno.h>
-#include <sys/time.h>	// for struct timespec and gettimeofday()
-
 #include "DSSemaphore.h"
+#include <stdlib.h>
+#include <errno.h>
+#include <syslog.h>
+#include <libkern/OSAtomic.h>
+#include <unistd.h>		// for _POSIX_THREADS
 
-/******************************************************************************
-	==>  DSSemaphore class implementation  <==
-******************************************************************************/
-
-DSSemaphore::DSSemaphore (
-	sInt32 initialCount)
-	: mExcessSignals (initialCount), mDestroying (false)
+#if defined(DEBUG_LOCKS_HISTORY) || defined(DEBUG_LOCKS)
+struct sLockHistoryInfo
 {
-	::pthread_mutex_init (&mConditionLock, NULL);
-	::pthread_cond_init (&mSemaphore, NULL);
-}
+	OSSpinLock		fOSLock;
+	pthread_key_t	fThreadKey;
+	char			*fFile;
+	int32_t			fLine;
+};
+#endif
 
-DSSemaphore::~DSSemaphore (void)
+DSSemaphore::DSSemaphore( const char *inName )
 {
-	::pthread_mutex_lock (&mConditionLock);
-	mDestroying = true;
-	::pthread_cond_broadcast (&mSemaphore);
-	::pthread_mutex_unlock (&mConditionLock);
+	pthread_mutexattr_t attr;
 
-	::pthread_cond_destroy (&mSemaphore);
-	::pthread_mutex_destroy (&mConditionLock);
-}
+	mMutexName = (inName != NULL ? inName : "no name provided");
+	mLockHistoryInfo = NULL;
 
-void
-DSSemaphore::Signal (void)
-{
-	::pthread_mutex_lock (&mConditionLock);
-	mExcessSignals++;
-	::pthread_cond_signal (&mSemaphore);
-	::pthread_mutex_unlock (&mConditionLock);
-}
-
-sInt32 DSSemaphore::Wait (sInt32 milliSecs)
-{
-	::pthread_mutex_lock (&mConditionLock);
-	if ((mExcessSignals <= 0) && (milliSecs == kNever)) {
-		::pthread_mutex_unlock (&mConditionLock);
-		return semTimedOutErr;
+	pthread_mutexattr_init( &attr );
+	pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_ERRORCHECK );
+	
+	int error = pthread_mutex_init( &mMutex, &attr );
+	if ( error != 0 )
+	{
+		syslog( LOG_CRIT, "Error %d - Setting mutex thread type to PTHREAD_MUTEX_ERRORCHECK - Thread %x - aborting", error, pthread_self() );
+		abort(); // we can't recover from this
 	}
-	if (milliSecs == kForever) {
-		while (!mDestroying && (mExcessSignals <= 0))
-			::pthread_cond_wait (&mSemaphore, &mConditionLock);
-	} else {
-		struct timeval	tvNow;
-		struct timespec	tsTimeout;
+	
+	pthread_mutexattr_destroy( &attr);
+	
+#if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY)
+	mLockHistoryInfo = new sLockHistoryInfo;
+	mLockHistoryInfo->fOSLock = OS_SPINLOCK_INIT;
+	pthread_key_create( &mLockHistoryInfo->fThreadKey, LockCleanup );
+	mLockHistoryInfo->fFile = "";
+	mLockHistoryInfo->fLine = 0;
+#endif
+}
 
-		// Timeout is passed as an absolute time!
-		::gettimeofday (&tvNow, NULL);
-		TIMEVAL_TO_TIMESPEC (&tvNow, &tsTimeout);
-		tsTimeout.tv_sec += (milliSecs / 1000);
-		tsTimeout.tv_nsec += ((milliSecs % 1000) * 1000000);
-		while (!mDestroying && (mExcessSignals <= 0))
-			if (ETIMEDOUT == ::pthread_cond_timedwait (&mSemaphore,
-											&mConditionLock, &tsTimeout)) {
-				::pthread_mutex_unlock (&mConditionLock);
-				return semTimedOutErr;
-			}
+DSSemaphore::~DSSemaphore( void )
+{
+#if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY)
+	if ( mLockHistoryInfo )
+	{
+		pthread_setspecific( mLockHistoryInfo->fThreadKey, NULL );
+		pthread_key_delete( mLockHistoryInfo->fThreadKey );
+		delete mLockHistoryInfo;
 	}
-	if (!mDestroying)
-		mExcessSignals--;
-	::pthread_mutex_unlock (&mConditionLock);
-	return (mDestroying ? semDestroyedErr : semNoErr);
+#endif
+	pthread_mutex_destroy( &mMutex );
+}
+
+void DSSemaphore::WaitDebug( char *file, int line )
+{
+	int error = pthread_mutex_lock( &mMutex );
+	if ( error != 0 )
+	{
+#if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY)
+		DSMutexSemaphore::BreakIfDebugging();
+		syslog( LOG_CRIT, "DSSemaphore::WaitDebug - %s - error %d in %s:%d attempting to lock mutex - aborting", mMutexName, error, file, line );		
+#else
+		syslog( LOG_CRIT, "DSSemaphore::Wait - %s - error %d attempting to lock mutex - aborting", mMutexName, error );
+#endif
+		abort();
+	}
+
+#if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY)
+	pthread_setspecific( mLockHistoryInfo->fThreadKey, this );
+#endif
+}
+
+bool DSSemaphore::WaitTryDebug( char *file, int line )
+{
+	int error = pthread_mutex_trylock( &mMutex );
+	if ( error == 0 )
+	{
+#if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY)
+		pthread_setspecific( mLockHistoryInfo->fThreadKey, this );
+		mLockHistoryInfo->fFile = file;
+		mLockHistoryInfo->fLine = line;
+#endif
+	}
+	
+	return (error == 0);
+}
+
+void DSSemaphore::SignalDebug( char *file, int line )
+{
+#if defined(DEBUG_LOCKS) || defined(DEBUG_LOCKS_HISTORY)
+	OSSpinLockLock( &mLockHistoryInfo->fOSLock );
+	int error = pthread_mutex_unlock( &mMutex );
+	if ( error == 0 )
+	{
+		pthread_setspecific( mLockHistoryInfo->fThreadKey, NULL );
+		mLockHistoryInfo->fFile = "";
+		mLockHistoryInfo->fLine = 0;
+	}
+	else
+	{
+		DSMutexSemaphore::BreakIfDebugging();
+		syslog( LOG_CRIT, "DSSemaphore::SignalDebug - %s - attempt to unlock not owned by %s:%d", mMutexName, file, line );
+	}
+	OSSpinLockUnlock( &mLockHistoryInfo->fOSLock );
+#else
+	int error = pthread_mutex_unlock( &mMutex );
+	if ( error != 0 )
+	{
+		syslog( LOG_CRIT, "DSSemaphore::Signal - %s - error %d attempting to unlock mutex - aborting", mMutexName, error );
+		abort();
+	}
+#endif
+}
+
+void DSSemaphore::LockCleanup( void *value )
+{
+	if ( value != NULL )
+	{
+		syslog( LOG_CRIT, "DSSemaphore::LockCleanup was called, this should never happen unless a lock was still held by thread");
+#if defined(DEBUG_LOCKS_HISTORY) || defined(DEBUG_LOCKS)
+		DSSemaphore *mutex = (DSSemaphore *) value;
+		if ( mutex->mLockHistoryInfo != NULL )
+			syslog( LOG_CRIT, "DSSemaphore::LockCleanup - %s - last owner %s:%d", mutex->mMutexName, mutex->mLockHistoryInfo->fFile, 
+				    mutex->mLockHistoryInfo->fLine );
+#endif
+	}
 }

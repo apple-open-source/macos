@@ -4,7 +4,7 @@
 /* { dg-options "-lobjc" } */
 /* { dg-do run } */
 /* APPLE LOCAL testsuite nested functions */
-/* { dg-xfail-if "" { *-*-darwin* } } */
+/* { dg-options "-fnested-functions" } */
 #include <stdio.h>
 #include <stdlib.h>
 #include <objc/objc.h>

@@ -64,23 +64,73 @@
 #include "lock.h"
 #include "retry.h"
 #include "xmalloc.h"
+#include "ptloader.h"
 
 static char rcsid[] __attribute__((unused)) = 
-      "$Id: ptloader.c,v 1.5 2005/03/05 00:37:36 dasenbro Exp $";
+      "$Id: ptloader.c,v 1.44 2007/01/09 21:25:04 jeaton Exp $";
 
-extern const char *ptsmodule_name;
-extern void ptsmodule_init(void);
+struct pts_module *pts_modules[] = {
+#ifdef HAVE_LDAP
+    &pts_ldap,
+#endif
+#ifdef HAVE_AFSKRB
+    &pts_afskrb,
+#endif
+    NULL };
+
 extern void setproctitle_init(int argc, char **argv, char **envp);
-extern struct auth_state *ptsmodule_make_authstate(const char *identifier,
-						   size_t size,
-						   const char **reply,
-						   int *dsize);
+
+static struct pts_module *pts_fromname()
+{
+    int i;
+    const char *name = config_getstring(IMAPOPT_PTS_MODULE);
+    static struct pts_module *pts = NULL;
+    
+    if (pts)
+        return pts;
+    
+    for (i = 0; pts_modules[i]; i++) {
+	if (!strcmp(pts_modules[i]->name, name)) {
+	    pts = pts_modules[i]; break;
+	}
+    }
+
+    if (!pts) {
+	char errbuf[1024];
+	snprintf(errbuf, sizeof(errbuf),
+		 "PTS module %s not supported", name);
+	fatal(errbuf, EC_CONFIG);
+    }
+    
+    return pts;
+}
+
+void ptsmodule_init(void)
+{
+    struct pts_module *pts = pts_fromname();
+    
+    pts->init();
+}
+
+struct auth_state *ptsmodule_make_authstate(const char *identifier,
+					    size_t size,
+					    const char **reply, int *dsize)
+{
+    struct pts_module *pts = pts_fromname();
+    
+    return pts->make_authstate(identifier, size, reply, dsize);
+}
 
 /* config.c info (libimap) */
 const int config_need_data = 0;
 
 /* Globals */
 #define DB (config_ptscache_db)
+
+/* XXXXXXXXX */
+void des_init_random_number_generator() {
+        return;
+} 
 
 static char ptclient_debug = 0;
 struct db *ptsdb = NULL;
@@ -98,9 +148,7 @@ int service_init(int argc, char *argv[], char **envp __attribute__((unused)))
     /* set signal handlers */
     signal(SIGPIPE, SIG_IGN);
 
-    syslog(LOG_NOTICE,
-	   "starting: $Id: ptloader.c,v 1.5 2005/03/05 00:37:36 dasenbro Exp $ (%s)",
-	   ptsmodule_name);
+    syslog(LOG_NOTICE, "starting: $Id: ptloader.c,v 1.44 2007/01/09 21:25:04 jeaton Exp $");
 
     while ((opt = getopt(argc, argv, "d:")) != EOF) {
 	switch (opt) {
@@ -178,6 +226,12 @@ int service_main_fd(int c, int argc __attribute__((unused)),
 	goto sendreply;
     }
 
+    if (size == 0) {
+        syslog(LOG_ERR, "size sent is 0");
+        reply = "Error: zero request size";
+        goto sendreply;
+    }
+
     memset(&user, 0, sizeof(user));
     if (read(c, &user, size) < 0) {
         syslog(LOG_ERR, "socket(user; size = %d; key = %s): %m", 
@@ -189,6 +243,7 @@ int service_main_fd(int c, int argc __attribute__((unused)),
     if (ptclient_debug) {
 	syslog(LOG_DEBUG, "user %s, cacheid %s", user, keyinhex);
     }
+
 
     newstate = ptsmodule_make_authstate(user, size, &reply, &dsize);
 

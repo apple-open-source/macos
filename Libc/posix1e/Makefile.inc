@@ -16,7 +16,6 @@ MAN3 +=	acl.3				\
 	acl_clear_perms.3		\
 	acl_copy_entry.3		\
 	acl_create_entry.3		\
-	acl_delete.3			\
 	acl_delete_entry.3		\
 	acl_delete_flag_np.3		\
 	acl_delete_perm.3		\
@@ -39,16 +38,25 @@ MAN3 +=	acl.3				\
 	acl_to_text.3			\
 	acl_valid.3
 
-MLINKS+=acl_create_entry.3 acl_create_entry_np.3 \
-	acl_delete.3 acl_delete_file_np.3	\
-	acl_delete.3 acl_delete_fd_np.3		\
-	acl_get.3 acl_get_file.3		\
-	acl_get.3 acl_get_fd.3			\
-	acl_get.3 acl_get_fd_np.3		\
-	acl_set.3 acl_set_file.3		\
-	acl_set.3 acl_set_fd.3			\
-	acl_set.3 acl_set_fd_np.3		\
-	acl_valid.3 acl_valid_file_np.3		\
-	acl_valid.3 acl_valid_fd_np.3
+MLINKS+= acl_create_entry.3 acl_create_entry_np.3
+
+#MLINKS+= acl_delete.3 acl_delete_fd_np.3		\
+#         acl_delete.3 acl_delete_file_np.3		\
+#         acl_delete.3 acl_delete_link_np.3
+
+MLINKS+= acl_get.3 acl_get_fd.3				\
+         acl_get.3 acl_get_fd_np.3			\
+         acl_get.3 acl_get_file.3			\
+         acl_get.3 acl_get_link_np.3
+
+MLINKS+= acl_set.3 acl_set_fd.3				\
+         acl_set.3 acl_set_fd_np.3			\
+         acl_set.3 acl_set_file.3			\
+         acl_set.3 acl_set_link.3
+        
+
+MLINKS+= acl_valid.3 acl_valid_fd_np.3			\
+         acl_valid.3 acl_valid_file_np.3		\
+         acl_valid.3 acl_valid_link_np.3
 
 .endif

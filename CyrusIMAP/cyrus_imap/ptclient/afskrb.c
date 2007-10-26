@@ -40,10 +40,15 @@
  *
  */
 
-static char rcsid[] __attribute__((unused)) = 
-      "$Id: afskrb.c,v 1.4 2005/03/05 00:37:35 dasenbro Exp $";
+static char rcsid[] =
+      "$Id: afskrb.c,v 1.14 2007/02/05 18:58:27 jeaton Exp $";
 
 #include <config.h>
+#include "ptloader.h"
+#include "exitcodes.h"
+#include "xmalloc.h"
+
+#ifdef HAVE_AFSKRB
 
 #include <string.h>
 #include <stdio.h>
@@ -64,10 +69,8 @@ static char rcsid[] __attribute__((unused)) =
 #endif
 
 #include "auth_pts.h"
-#include "exitcodes.h"
 #include "libconfig.h"
 #include "strhash.h"
-#include "xmalloc.h"
 
 /* AFS stuff */
 #include <des.h> /* for int32, necessary for the AFS includes below */
@@ -128,11 +131,13 @@ int is_local_realm(const char *realm)
 static char *afspts_canonifyid(const char *identifier, size_t len)
 {
     static char *retbuf = NULL;
+    char *tmp = NULL;
     krb5_context context;
     krb5_principal princ, princ_dummy;
     char *realm;
     char *realmbegin;
     int striprealm = 0;
+    char *identifier2;
 
     if(retbuf) free(retbuf);
     retbuf = NULL;
@@ -146,14 +151,23 @@ static char *afspts_canonifyid(const char *identifier, size_t len)
     if (strcasecmp(identifier, "anyone") == 0) 
 	return "anyone";
 
+    identifier2 = strdup(identifier);
+    if (tmp = strchr(identifier2, '+')) {
+	syslog(LOG_DEBUG, "afspts_canonifyid stripping: %s", identifier2);
+        tmp[0] = 0;
+	syslog(LOG_DEBUG, "afspts_canonifyid stripped: %s", identifier2);
+    }
+
     if (krb5_init_context(&context))
 	return NULL;
 
-    if (krb5_parse_name(context,identifier,&princ))
+    if (krb5_parse_name(context,identifier2,&princ))
     {
 	krb5_free_context(context);
+        free(identifier2);
 	return NULL;
     }
+    free(identifier2);
 
     if(config_getswitch(IMAPOPT_PTSKRB5_STRIP_DEFAULT_REALM)) {
 	/* get local realm */
@@ -421,9 +435,8 @@ static char *afspts_canonifyid(const char *identifier, size_t len)
 #endif /* AFSPTS_USE_KRB5 */
 
 /* API */
-const char *ptsmodule_name = "afskrb";
 
-void ptsmodule_init(void) 
+static void myinit(void) 
 {
     int r = pr_Initialize (1L, AFSCONF_CLIENTNAME, config_getstring(IMAPOPT_AFSPTS_MYCELL));
     if (r) {
@@ -436,7 +449,7 @@ void ptsmodule_init(void)
     return;
 }
 
-struct auth_state *ptsmodule_make_authstate(const char *identifier,
+static struct auth_state *myauthstate(const char *identifier,
 					    size_t size,
 					    const char **reply, int *dsize) 
 {
@@ -476,7 +489,7 @@ struct auth_state *ptsmodule_make_authstate(const char *identifier,
     /* fill in our new state structure */
     *dsize = sizeof(struct auth_state) + 
 	(groups.namelist_len * sizeof(struct auth_ident));
-    newstate = (struct auth_state *) xmalloc(*dsize);
+    newstate = (struct auth_state *) xzmalloc(*dsize);
 
     strcpy(newstate->userid.id, canon_id);
     newstate->userid.hash = strhash(canon_id);
@@ -508,3 +521,29 @@ struct auth_state *ptsmodule_make_authstate(const char *identifier,
 
     return newstate;
 }
+
+#else /* HAVE_AFSKRB */
+
+static void myinit(void)
+{
+	fatal("PTS module (afskrb) not compiled in", EC_CONFIG);
+}
+
+static struct auth_state *myauthstate(
+    const char *identifier __attribute__((unused)),
+    size_t size __attribute__((unused)),
+    const char **reply __attribute__((unused)), 
+    int *dsize __attribute__((unused))) 
+{
+	fatal("PTS module (afskrb) not compiled in", EC_CONFIG);
+}
+
+#endif /* HAVE_AFSKRB */
+
+struct pts_module pts_afskrb = 
+{
+    "afskrb",		/* name */
+
+    &myinit,
+    &myauthstate,
+};

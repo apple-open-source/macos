@@ -1,32 +1,26 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 /*
  * bash specific extensions
  * originally provided by Karsten Fleischer
  */
-
-#include <string.h>
 
 #include "defs.h"
 #include "path.h"
@@ -48,7 +42,6 @@ void	sh_applyopts(Shopt_t);
 
 extern const char	bash_pre_rc[];
 
-static const char	e_bash_logout[] = "$HOME/.bash_logout";
 static char *login_files[4];
 
 const char sh_bash1[] =
@@ -57,8 +50,6 @@ const char sh_bash1[] =
 	"[P?Do not follow symbolic links, use physical directory structure "
 	"instead. Only available in bash compatibility mode.]";
 const char sh_bash2[] =
-"[l:login?Make the shell act as if it had been invoked as a login shell. "
-"Only available if invoked as \bbash\b.]"
 "[O]:?[shopt_option?\ashopt_option\a is one of the shell options accepted by "
 	"the \bshopt\b builtin. If \ashopt_option\a is present, \b-O\b sets "
 	"the value of that option; \b+O\b unsets it. If \ashopt_option\a is "
@@ -69,18 +60,16 @@ const char sh_bash2[] =
 "[01:init-file|rcfile]:[file?Execute commands from \afile\a instead of the "
 	"standard personal initialization file ~/.bashrc if the shell is "
 	"interactive. Only available if invoked as \bbash\b.]"
-"[02:noediting?For option compatibility with \bbash\b only. Ignored.]"
-"[03:noprofile?Do not read either the system-wide startup file or any of the "
-	"personal initialization files. Only available if invoked as \bbash\b.]"
-"[04:norc?Do not read and execute the personal initialization file "
-	"~/.bashrc if the shell is interactive. Only available if invoked as "
-	"\bbash\b.]"
-"[05:posix?If invoked as \bbash\b, turn on POSIX compatibility. \bBash\b in "
+"[02:editing?For option compatibility with \bbash\b only. Ignored.]"
+"[03:profile?Read either the system-wide startup file or any of the "
+	"personal initialization files. On by default for interactive "
+	"shells. Only available if invoked as \bbash\b.]"
+"[04:posix?If invoked as \bbash\b, turn on POSIX compatibility. \bBash\b in "
 	"POSIX mode is not the same as \bksh\b.]"
-"[06:version?Print version number and exit.]";
+"[05:version?Print version number and exit.]";
 
 const char sh_optshopt[] =
-"+[-1c?\n@(#)$Id: shopt (AT&T Labs Research) 2003-02-13 $\n]"
+"+[-1c?\n@(#)$Id: shopt (AT&T Research) 2003-02-13 $\n]"
 "[-author?Karsten Fleischer <K.Fleischer@omnium.de>]"
 USAGE_LICENSE
 "[+NAME?shopt - set/unset variables controlling optional shell behavior]"
@@ -100,7 +89,7 @@ USAGE_LICENSE
 "[+?If either \b-s\b or \b-u\b is used with no \aoptname\a arguments, the "
 	"display is limited to those options which are set or unset.]"
 "[+?\bshopt\b supports all bash options. Some settings do not have any effect "
-	"or are are always on and cannot be changed."
+	"or are are always on and cannot be changed.]"
 "[+?The value of \aoptname\a must be one of the following:]{"
 		"[+cdable_vars?If set, arguments to the \bcd\b command are "
 			"assumed to be names of variables whose values are to "
@@ -203,12 +192,12 @@ const Namdisc_t SH_FUNCNAME_disc  = { sizeof(struct funcname), put_funcname };
 int     b_shopt(int argc,register char *argv[],void *extra)
 {
         Shell_t *shp = (Shell_t*)extra;
-	int n, ret=0;
+	int n, f, ret=0;
 	Shopt_t newflags=shp->options, opt;
 	int verbose=PRINT_SHOPT|PRINT_ALL|PRINT_NO_HEADER|PRINT_VERBOSE;
 	int setflag=0, quietflag=0, oflag=0;
 	memset(&opt,0,sizeof(opt));
-#ifdef SHOPT_RAWONLY
+#if SHOPT_RAWONLY
 	on_option(&newflags,SH_VIRAW);
 #endif
 	while((n = optget(argv,sh_optshopt)))
@@ -260,7 +249,8 @@ int     b_shopt(int argc,register char *argv[],void *extra)
 	}
 	while(argc>0)
 	{
-		n=sh_lookup(argv[opt_info.index],shtab_options);
+		f=1;
+		n=sh_lookopt(argv[opt_info.index],&f);
 		if(n<=0||(setflag 
 			&& (is_option(&opt,SH_INTERACTIVE)
 			    || is_option(&opt,SH_RESTRICTED)
@@ -273,8 +263,10 @@ int     b_shopt(int argc,register char *argv[],void *extra)
 			error_info.errors++;
 			ret=1;
 		}
-		else
+		else if(f)
 			on_option(&opt,n&0xff);
+		else
+			off_option(&opt,n&0xff);
 		opt_info.index++;
 		argc--;
 	}
@@ -328,21 +320,8 @@ void bash_init(int mode)
 	if(mode < 0)
 	{
 		/* termination code */
-		int fdin;
-		if(sh_isoption(SH_LOGIN_SHELL) && !sh_isoption(SH_POSIX)
-#ifdef PATH_BFPATH
-			&& (fdin = path_open(sh_mactry((char*)e_bash_logout),NIL(Pathcomp_t*))) >= 0)
-#else
-			&& (fdin = path_open(sh_mactry((char*)e_bash_logout),"")) >= 0))
-#endif		
-		{
-			char buff[IOBSIZE+1];
-			sh_offstate(SH_INTERACTIVE);
-			sh_onstate(SH_PROFILE);
-			error_info.id = path_basename(e_bash_logout);
-			iop = sfnew(NIL(Sfio_t*),buff,IOBSIZE,fdin,SF_READ);
-			sh_eval(iop,0);
-		}
+		if(sh_isoption(SH_LOGIN_SHELL) && !sh_isoption(SH_POSIX))
+			sh_source(&sh, NiL, sh_mactry((char*)e_bash_logout));
 		return;	
 	}
 
@@ -359,13 +338,13 @@ void bash_init(int mode)
 		sh_onoption(SH_NOEMPTYCMDCOMPL);
 		if(sh.login_sh==2)
 			sh_onoption(SH_LOGIN_SHELL);
-		if(strcmp(astgetconf("CONFORMANCE",0,0,0),"standard")==0)
+		if(strcmp(astconf("CONFORMANCE",0,0),"standard")==0)
 			sh_onoption(SH_POSIX);
-		if(strcmp(astgetconf("UNIVERSE",0,0,0),"att")==0)
+		if(strcmp(astconf("UNIVERSE",0,0),"att")==0)
 			sh_onoption(SH_XPG_ECHO);
 		else
 			sh_offoption(SH_XPG_ECHO);
-		if(strcmp(astgetconf("PATH_RESOLVE",0,0,0),"physical")==0)
+		if(strcmp(astconf("PATH_RESOLVE",0,0),"physical")==0)
 			sh_onoption(SH_PHYSICAL);
 		else
 			sh_offoption(SH_PHYSICAL);
@@ -420,20 +399,16 @@ void bash_init(int mode)
 
 	/* set startup files */
 	n=0;
-	if(!sh_isoption(SH_NOPROFILE))
+	if(sh_isoption(SH_LOGIN_SHELL))
 	{
 		if(!sh_isoption(SH_POSIX))
 		{
-			login_files[n++] = "$HOME/.bash_profile";
-			login_files[n++] = "$HOME/.bash_login";
+			login_files[n++] = (char*)e_bash_profile;
+			login_files[n++] = (char*)e_bash_login;
 		}
 		login_files[n++] = (char*)e_profile;
 	}
 	sh.login_files = login_files;
-	if(sh_isoption(SH_NORC))
-		sh.rcfile=0;
-	else if(!sh.rcfile)
-		sh.rcfile = strdup(sh_mactry("$HOME/.bashrc"));
 reinit:
 	xtrace = sh_isoption(SH_XTRACE);
 	sh_offoption(SH_XTRACE);

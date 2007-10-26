@@ -1,0 +1,24 @@
+--- stable/pyobjc-core/setup.py.orig	2007-04-03 12:48:04.000000000 -0700
++++ stable/pyobjc-core/setup.py	2007-04-06 02:51:02.000000000 -0700
+@@ -300,7 +300,7 @@
+          CoreExtensions
+     ),
+     packages = [ 'objc', 'objc.test', 'PyObjCTools' ], # 'ExceptionHandling'
+-    namespace_packages = ['PyObjCTools'],
++    #namespace_packages = ['PyObjCTools'],
+     package_dir = { '': 'Lib' },
+     install_requires = install_requires,
+     setup_requires = setup_requires,
+--- stable/pyobjc-xcode/setup.py.orig	2007-05-18 04:26:48.000000000 -0700
++++ stable/pyobjc-xcode/setup.py	2007-07-06 17:17:00.000000000 -0700
+@@ -25,8 +25,8 @@
+     author_email='pyobjc-dev@lists.sourceforge.net',
+     url='http://pyobjc.sourceforge.net',
+     platforms = [ "MacOS X" ],
+-    packages = [ 'PyObjCTools', ], 
+-    namespace_packages = [ 'PyObjCTools' ],
++    packages = [ 'PyObjCTools/XcodeSupport' ], 
++    #namespace_packages = [ 'PyObjCTools' ],
+     package_dir = { '': 'Lib' },
+     install_requires = [ 
+         'pyobjc-core>=2.0' 

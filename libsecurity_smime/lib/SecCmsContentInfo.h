@@ -169,6 +169,9 @@ SecCmsContentInfoSetContentDigestedData(SecCmsMessageRef cmsg, SecCmsContentInfo
 extern OSStatus
 SecCmsContentInfoSetContentEncryptedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsEncryptedDataRef encd);
 
+OSStatus
+SecCmsContentInfoSetContentOther(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached, const CSSM_OID *eContentType);
+
 /*!
     @function
  */

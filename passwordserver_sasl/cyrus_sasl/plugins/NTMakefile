@@ -21,6 +21,20 @@ SRP_FLAGS=/DDO_SRP_SETPASS=1
 PLUGINS_EXT=$(PLUGINS_EXT) saslOTP.dll
 !ENDIF
 
+!IF "$(LDAP)" == "1"
+PLUGINS_EXT=$(PLUGINS_EXT) saslLDAPDB.dll
+
+# NB: linking to libsasl itself!!!
+LDAP_FLAGS = /I $(LDAP_INCLUDE)
+LDAP_LIBS = $(LDAP_LIB_BASE)\olber32.lib $(LDAP_LIB_BASE)\oldap32.lib ..\lib\libsasl.lib
+!ENDIF 
+
+!IF "$(SQL)" == "SQLITE"
+PLUGINS_EXT=$(PLUGINS_EXT) saslSQLITE.dll
+SQL_FLAGS= $(SQLITE_INCLUDES) /DHAVE_SQLITE=1
+SQLITE_LIBS = /libpath:$(SQLITE_LIBPATH) libsqlite.lib
+!ENDIF
+
 PLUGINS=saslANONYMOUS.dll \
 	saslPLAIN.dll \
 	saslCRAMMD5.dll \
@@ -29,8 +43,15 @@ PLUGINS=saslANONYMOUS.dll \
 	$(PLUGINS_EXT) \
 	saslSASLDB.dll
 
+generated_rc=saslANONYMOUS.rc saslPLAIN.rc saslCRAMMD5.rc saslDIGESTMD5.rc saslLOGIN.rc saslNTLM.rc saslGSSAPI.rc saslSRP.rc saslOTP.rc saslSASLDB.rc saslSQLITE.rc saslLDAPDB.rc
+
+# WS2tcpip.h included in Visual Studio 7 provides getaddrinfo, ...
+# emulation on Windows, so there is no need to build getaddrinfo.c
+
+!IF "$(VCVER)" == "6"
 compat_sources = getaddrinfo.c getnameinfo.c
 compat_objs = getaddrinfo.obj getnameinfo.obj
+!ENDIF
 
 common_sources = plugin_common.c plugin_common.h
 common_objs = plugin_common.obj $(compat_objs)
@@ -71,10 +92,19 @@ saslOTP_sources = otp.c otp_init.c $(common_sources)
 saslOTP_objs = otp.obj otp_init.obj $(common_objs)
 saslOTP_out = saslOTP.dll saslOTP.exp saslOTP.lib
 
+saslSQL_sources = sql.c sql_init.c $(common_sources)
+saslSQL_objs = sql.obj sql_init.obj $(common_objs)
+# saslSQL_out is an agregation of all generated files for all SQL plugins
+saslSQL_out = saslSQLITE.dll saslSQLITE.exp saslSQLITE.lib
+
+saslLDAPDB_sources = ldapdb.c $(common_sources)
+saslLDAPDB_objs = ldapdb.obj $(common_objs)
+saslLDAPDB_out = saslLDAPDB.dll saslLDAPDB.exp saslLDAPDB.lib
+
 !IF "$(NTLM)" == "1" || "$(SRP)" == "1" || "$(OTP)" == "1"
-OPENSLL_FLAGS= /I $(OPENSSL_INCLUDE)
+OPENSSL_FLAGS= /I $(OPENSSL_INCLUDE)
 !ELSE 
-OPENSLL_FLAGS=
+OPENSSL_FLAGS=
 !ENDIF 
 
 !IF "$(GSSAPI)" == "CyberSafe"
@@ -93,15 +123,21 @@ saslSASLDB_sources = sasldb.c sasldb_init.c $(libsasldb_sources) $(common_source
 saslSASLDB_objs = sasldb.obj sasldb_init.obj $(libsasldb_objs) $(common_objs)
 saslSASLDB_out = saslSASLDB.dll saslSASLDB.exp saslSASLDB.lib
 
-all_objs = $(saslANONYMOUS_objs) $(saslPLAIN_objs) $(saslCRAMMD5_objs) $(saslDIGESTMD5_objs) $(saslLOGIN_objs) $(saslNTLM_objs) $(saslGSSAPI_objs) $(saslSRP_objs) $(saslOTP_objs) $(saslSASLDB_objs)
-all_out = $(saslANONYMOUS_out) $(saslPLAIN_out) $(saslCRAMMD5_out) $(saslDIGESTMD5_out) $(saslLOGIN_out) $(saslNTLM_out) $(saslGSSAPI_out) $(saslSRP_out) $(saslOTP_out) $(saslSASLDB_out)
+all_objs = $(saslANONYMOUS_objs) $(saslPLAIN_objs) $(saslCRAMMD5_objs) $(saslDIGESTMD5_objs) $(saslLOGIN_objs) $(saslNTLM_objs) $(saslGSSAPI_objs) $(saslSRP_objs) $(saslOTP_objs) $(saslSASLDB_objs) $(saslSQL_objs) $(saslLDAPDB_objs)
+all_out = $(saslANONYMOUS_out) $(saslPLAIN_out) $(saslCRAMMD5_out) $(saslDIGESTMD5_out) $(saslLOGIN_out) $(saslNTLM_out) $(saslGSSAPI_out) $(saslSRP_out) $(saslOTP_out) $(saslSASLDB_out) $(saslSQL_out) $(saslLDAPDB_out)
 
 # LIBSASL_EXPORTS is required to export additional DB routines from sasldb
 DB_FLAGS = /I $(DB_INCLUDE) /I "..\sasldb" /D "LIBSASL_EXPORTS"
-CPPFLAGS = /I "..\win32\include" /I "." /I "..\include" $(DB_FLAGS) $(OPENSLL_FLAGS) $(GSS_FLAGS) $(SRP_FLAGS) /D "WIN32" /D "_WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL"
+
+!IF $(TARGET_WIN_SYSTEM) >= 51
+EXTRA_FLAGS = /D TARGET_WIN_SYSTEM=$(TARGET_WIN_SYSTEM) $(EXTRA_FLAGS)
+!ENDIF
+
+EXTRA_FLAGS=$(EXTRA_FLAGS) $(DB_FLAGS) $(OPENSSL_FLAGS) $(GSS_FLAGS) $(SRP_FLAGS) $(SQL_FLAGS) $(LDAP_FLAGS)
+CPPFLAGS = /I "..\win32\include" /I "." /I "..\include" $(EXTRA_FLAGS) /D "WIN32" /D "_WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL"
 
 DB_LIBS=/libpath:$(DB_LIBPATH) $(DB_LIB)
-OPENSSL_LIBS=/libpath:$(OPENSSL_LIBPATH) libeay32.lib
+OPENSSL_LIBS=/libpath:$(OPENSSL_LIBPATH) libeay32.lib ssleay32.lib
 
 # Where to install files from this directory
 libdir = $(prefix)\lib
@@ -178,6 +214,14 @@ saslSASLDB.dll: $(saslSASLDB_objs) saslSASLDB.res
 	$(LINK32DLL) @<< $(DB_LIBS) $(LINK32DLL_FLAGS) /out:"saslSASLDB.dll" /implib:"saslSASLDB.lib" $(saslSASLDB_objs) saslSASLDB.res
 <<
 
+saslSQLITE.dll: $(saslSQL_objs) saslSQLITE.res
+	$(LINK32DLL) @<< $(SQLITE_LIBS) $(LINK32DLL_FLAGS) /out:"saslSQLITE.dll" /implib:"saslSQLITE.lib" $(saslSQL_objs) saslSQLITE.res
+<<
+
+saslLDAPDB.dll: $(saslLDAPDB_objs) saslLDAPDB.res
+	$(LINK32DLL) @<< $(LDAP_LIBS) $(OPENSSL_LIBS) $(LINK32DLL_FLAGS) /out:"saslLDAPDB.dll" /implib:"saslLDAPDB.lib" $(saslLDAPDB_objs) saslLDAPDB.res
+<<
+
 CLEAN :
 	-@erase $(all_objs)
 	-@erase "*.idb"
@@ -186,7 +230,7 @@ CLEAN :
 	-@erase allockey.c
 	-@erase db_berkeley.c
 	-@erase getnameinfo.c
-	-@erase "*.rc"
+	-@erase $(generated_rc)
 	-@erase "*.res"
 	-@erase $(all_out)
 
@@ -208,7 +252,7 @@ CLEAN :
 .rc.res:
 	rc $<
 
-saslANONYMOUS.rc saslPLAIN.rc saslCRAMMD5.rc saslDIGESTMD5.rc saslLOGIN.rc saslNTLM.rc saslGSSAPI.rc saslSRP.rc saslOTP.rc saslSASLDB.rc:
+$(generated_rc):
 	copy <<temp.rc $@
 #include "afxres.h"
 
@@ -233,7 +277,7 @@ BEGIN
             VALUE "FileDescription", "CMU SASL $(@B) plugin\0"
             VALUE "FileVersion", "$(SASL_VERSION_MAJOR).$(SASL_VERSION_MINOR).$(SASL_VERSION_STEP).0\0"
             VALUE "InternalName", "$(@B)\0"
-            VALUE "LegalCopyright", "Copyright (c) Carnegie Mellon University 2004\0"
+            VALUE "LegalCopyright", "Copyright (c) Carnegie Mellon University 2005\0"
             VALUE "OriginalFilename", "$(@B).dll\0"
             VALUE "ProductName", "Carnegie Mellon University SASL\0"
             VALUE "ProductVersion", "$(SASL_VERSION_MAJOR).$(SASL_VERSION_MINOR).$(SASL_VERSION_STEP)-0"

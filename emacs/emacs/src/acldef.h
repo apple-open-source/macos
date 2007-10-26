@@ -1,3 +1,8 @@
+/*
+ * The code here is forced by the interface, and is not subject to
+ * copyright, constituting the only possible expression of the
+ * algorithm in this format.
+ */
 #define	ACL$K_LENGTH	12
 #define	ACL$C_LENGTH	12
 #define	ACL$C_FILE	1
@@ -38,3 +43,6 @@
 #define	ACL$W_SIZE	8
 #define	ACL$B_TYPE	10
 #define	ACL$L_LIST	12
+
+/* arch-tag: 7c11e99d-34df-41e8-98e2-20f152c4ad73
+   (do not change this comment) */

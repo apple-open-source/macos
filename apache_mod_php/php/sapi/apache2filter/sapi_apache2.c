@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -18,9 +18,11 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.91.2.27.2.3 2007/01/01 09:46:51 sebastian Exp $ */
+/* $Id: sapi_apache2.c,v 1.136.2.2.2.8 2007/01/01 09:36:12 sebastian Exp $ */
 
 #include <fcntl.h>
+
+#define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
 #include "php.h"
 #include "php_main.h"
@@ -29,10 +31,15 @@
 #include "SAPI.h"
 
 #include "ext/standard/php_smart_str.h"
+#ifndef NETWARE
 #include "ext/standard/php_standard.h"
+#else
+#include "ext/standard/basic_functions.h"
+#endif
 
 #include "apr_strings.h"
 #include "ap_config.h"
+#include "apr_buckets.h"
 #include "util_filter.h"
 #include "httpd.h"
 #include "http_config.h"
@@ -47,13 +54,12 @@
 
 #include "php_apache.h"
 
-/* UnixWare defines shutdown to _shutdown, which causes problems later
+/* UnixWare and Netware define shutdown to _shutdown, which causes problems later
  * on when using a structure member named shutdown. Since this source
  * file does not use the system call shutdown, it is safe to #undef it.
  */
 #undef shutdown
 
- 
 /* A way to specify the location of the php.ini dir in an apache directive */
 char *apache2_php_ini_path_override = NULL;
 
@@ -68,7 +74,7 @@ php_apache_sapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 
 	ctx = SG(server_context);
 	f = ctx->f;
-
+	
 	if (str_length == 0) return 0;
 	
 	ba = f->c->bucket_alloc;
@@ -77,15 +83,6 @@ php_apache_sapi_ub_write(const char *str, uint str_length TSRMLS_DC)
 	b = apr_bucket_transient_create(str, str_length, ba);
 	APR_BRIGADE_INSERT_TAIL(bb, b);
 
-#if 0
-	/* Add a Flush bucket to the end of this brigade, so that
-	 * the transient buckets above are more likely to make it out
-	 * the end of the filter instead of having to be copied into
-	 * someone's setaside. */
-	b = apr_bucket_flush_create(ba);
-	APR_BRIGADE_INSERT_TAIL(bb, b);
-#endif
-	
 	if (ap_pass_brigade(f->next, bb) != APR_SUCCESS || ctx->r->connection->aborted) {
 		php_handle_aborted_connection();
 	}
@@ -98,7 +95,7 @@ php_apache_sapi_header_handler(sapi_header_struct *sapi_header, sapi_headers_str
 {
 	php_struct *ctx;
 	ap_filter_t *f;
-	char *val;
+	char *val, *ptr;
 
 	ctx = SG(server_context);
 	f = ctx->r->output_filters;
@@ -109,6 +106,7 @@ php_apache_sapi_header_handler(sapi_header_struct *sapi_header, sapi_headers_str
 		sapi_free_header(sapi_header);
 		return 0;
 	}
+	ptr = val;
 
 	*val = '\0';
 	
@@ -123,9 +121,8 @@ php_apache_sapi_header_handler(sapi_header_struct *sapi_header, sapi_headers_str
 	else
 		apr_table_add(ctx->r->headers_out, sapi_header->header, val);
 	
-	sapi_free_header(sapi_header);
-
-	return 0;
+	*ptr = ':';
+	return SAPI_HEADER_ADD;
 }
 
 static int
@@ -169,14 +166,15 @@ php_apache_sapi_get_stat(TSRMLS_D)
 	ctx->finfo.st_dev = ctx->r->finfo.device;
 	ctx->finfo.st_ino = ctx->r->finfo.inode;
 #ifdef NETWARE
-	ctx->finfo.st_atime.tv_sec = ctx->r->finfo.atime/1000000;
-	ctx->finfo.st_mtime.tv_sec = ctx->r->finfo.mtime/1000000;
-	ctx->finfo.st_ctime.tv_sec = ctx->r->finfo.ctime/1000000;
+	ctx->finfo.st_atime.tv_sec = apr_time_sec(ctx->r->finfo.atime);
+	ctx->finfo.st_mtime.tv_sec = apr_time_sec(ctx->r->finfo.mtime);
+	ctx->finfo.st_ctime.tv_sec = apr_time_sec(ctx->r->finfo.ctime);
 #else
-	ctx->finfo.st_atime = ctx->r->finfo.atime/1000000;
-	ctx->finfo.st_mtime = ctx->r->finfo.mtime/1000000;
-	ctx->finfo.st_ctime = ctx->r->finfo.ctime/1000000;
+	ctx->finfo.st_atime = apr_time_sec(ctx->r->finfo.atime);
+	ctx->finfo.st_mtime = apr_time_sec(ctx->r->finfo.mtime);
+	ctx->finfo.st_ctime = apr_time_sec(ctx->r->finfo.ctime);
 #endif
+
 	ctx->finfo.st_size = ctx->r->finfo.size;
 	ctx->finfo.st_nlink = ctx->r->finfo.nlink;
 
@@ -212,20 +210,21 @@ php_apache_sapi_register_variables(zval *track_vars_array TSRMLS_DC)
 	php_struct *ctx = SG(server_context);
 	const apr_array_header_t *arr = apr_table_elts(ctx->r->subprocess_env);
 	char *key, *val;
- 	zval **path_translated_zv;
+	int new_val_len;
 	
 	APR_ARRAY_FOREACH_OPEN(arr, key, val)
-		if (!val) val = empty_string;
-		php_register_variable(key, val, track_vars_array TSRMLS_CC);
+		if (!val) {
+			val = "";
+		}
+		if (sapi_module.input_filter(PARSE_SERVER, key, &val, strlen(val), &new_val_len TSRMLS_CC)) {
+			php_register_variable_safe(key, val, new_val_len, track_vars_array TSRMLS_CC);
+		}
 	APR_ARRAY_FOREACH_CLOSE()
-
+		
 	php_register_variable("PHP_SELF", ctx->r->uri, track_vars_array TSRMLS_CC);
-
-	/* If PATH_TRANSLATED doesn't exist, copy it from SCRIPT_FILENAME */
- 	if (!zend_hash_exists(Z_ARRVAL_P(track_vars_array), "PATH_TRANSLATED", sizeof("PATH_TRANSLATED"))
- 		&& zend_hash_find(Z_ARRVAL_P(track_vars_array), "SCRIPT_FILENAME", sizeof("SCRIPT_FILENAME"), (void **) &path_translated_zv) == SUCCESS) {
- 		php_register_variable("PATH_TRANSLATED", Z_STRVAL_PP(path_translated_zv), track_vars_array TSRMLS_CC);
- 	}
+	if (sapi_module.input_filter(PARSE_SERVER, "PHP_SELF", &ctx->r->uri, strlen(ctx->r->uri), &new_val_len TSRMLS_CC)) {
+		php_register_variable_safe("PHP_SELF", ctx->r->uri, new_val_len, track_vars_array TSRMLS_CC);
+	}
 }
 
 static void
@@ -293,6 +292,12 @@ php_apache_disable_caching(ap_filter_t *f)
 	return OK;
 }
 
+static time_t php_apache_sapi_get_request_time(TSRMLS_D)
+{
+	php_struct *ctx = SG(server_context);
+	return apr_time_sec(ctx->r->request_time);
+}
+
 extern zend_module_entry php_apache_module;
 
 static int php_apache2_startup(sapi_module_struct *sapi_module)
@@ -329,11 +334,7 @@ static sapi_module_struct apache2_sapi_module = {
 
 	php_apache_sapi_register_variables,
 	php_apache_sapi_log_message,			/* Log message */
-
-    NULL,									/* php_ini_path_override */
-
-	NULL,									/* Block interruptions */
-	NULL,									/* Unblock interruptions */
+	php_apache_sapi_get_request_time,		/* Get Request Time */
 
 	STANDARD_SAPI_MODULE_PROPERTIES
 };
@@ -365,7 +366,7 @@ static int php_input_filter(ap_filter_t *f, apr_bucket_brigade *bb,
 	}
 
 	for (b = APR_BRIGADE_FIRST(bb); b != APR_BRIGADE_SENTINEL(bb); b = APR_BUCKET_NEXT(b)) {
-		apr_bucket_read(b, &str, &n, 1);
+		apr_bucket_read(b, &str, &n, APR_NONBLOCK_READ);
 		if (n > 0) {
 			old_index = ctx->post_len;
 			ctx->post_len += n;
@@ -381,7 +382,7 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 	char *content_type;
 	char *content_length;
 	const char *auth;
-	
+
 	PG(during_request_startup) = 0;
 	SG(sapi_headers).http_response_code = !f->r->status ? HTTP_OK : f->r->status;
 	SG(request_info).content_type = apr_table_get(f->r->headers_in, "Content-Type");
@@ -389,6 +390,7 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 #define safe_strdup(x) ((x)?strdup((x)):NULL)	
 	SG(request_info).query_string = safe_strdup(f->r->args);
 	SG(request_info).request_method = f->r->method;
+	SG(request_info).proto_num = f->r->proto_num;
 	SG(request_info).request_uri = safe_strdup(f->r->uri);
 	SG(request_info).path_translated = safe_strdup(f->r->filename);
 	f->r->no_local_copy = 1;
@@ -396,6 +398,7 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 	f->r->content_type = apr_pstrdup(f->r->pool, content_type);
 	SG(request_info).post_data = ctx->post_data;
 	SG(request_info).post_data_length = ctx->post_len;
+
 	efree(content_type);
 
 	content_length = (char *) apr_table_get(f->r->headers_in, "Content-Length");
@@ -412,12 +415,13 @@ static void php_apache_request_ctor(ap_filter_t *f, php_struct *ctx TSRMLS_DC)
 		SG(request_info).auth_user = NULL;
 		SG(request_info).auth_password = NULL;
 	}
-
 	php_request_startup(TSRMLS_C);
 }
 
 static void php_apache_request_dtor(ap_filter_t *f TSRMLS_DC)
 {
+	php_apr_bucket_brigade *pbb = (php_apr_bucket_brigade *)f->ctx;
+	
 	php_request_shutdown(NULL);
 
 	if (SG(request_info).query_string) {
@@ -429,16 +433,20 @@ static void php_apache_request_dtor(ap_filter_t *f TSRMLS_DC)
 	if (SG(request_info).path_translated) {
 		free(SG(request_info).path_translated);
 	}
+	
+	apr_brigade_destroy(pbb->bb);
 }
 
 static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 {
 	php_struct *ctx;
-	apr_bucket *b;
-	void *conf = ap_get_module_config(f->r->per_dir_config, &php4_module);
+	void *conf = ap_get_module_config(f->r->per_dir_config, &php5_module);
 	char *p = get_php_config(conf, "engine", sizeof("engine"));
+	zend_file_handle zfd;
+	php_apr_bucket_brigade *pbb;
+	apr_bucket *b;
 	TSRMLS_FETCH();
-
+	
 	if (f->r->proxyreq) {
 		zend_try {
 			zend_ini_deactivate(TSRMLS_C);
@@ -452,8 +460,28 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 			zend_ini_deactivate(TSRMLS_C);
 		} zend_end_try();
 		return ap_pass_brigade(f->next, bb);
+	}	
+	
+	if(f->ctx) {
+		pbb = (php_apr_bucket_brigade *)f->ctx;
+	} else {
+		pbb = f->ctx = apr_palloc(f->r->pool, sizeof(*pbb));
+		pbb->bb = apr_brigade_create(f->r->pool, f->c->bucket_alloc);
+		pbb->total_len = 0;
 	}
 
+	if(ap_save_brigade(NULL, &pbb->bb, &bb, f->r->pool) != APR_SUCCESS) {
+		// Bad
+	}
+	
+	apr_brigade_cleanup(bb);
+	
+	// Check to see if the last bucket in this brigade, it not
+	// we have to wait until then.
+	if(!APR_BUCKET_IS_EOS(APR_BRIGADE_LAST(pbb->bb))) {
+		return 0;
+	}	
+	
 	/* Setup the CGI variables if this is the main request.. */
 	if (f->r->main == NULL || 
 		/* .. or if the sub-request envinronment differs from the main-request. */
@@ -473,7 +501,8 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 		} zend_end_try();
         return HTTP_INTERNAL_SERVER_ERROR;
 	}
-	ctx->f = f; /* save whatever filters are after us in the chain. */
+	
+	ctx->f = f->next; /* save whatever filters are after us in the chain. */
 
 	if (ctx->request_processed) {
 		zend_try {
@@ -482,69 +511,40 @@ static int php_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 		return ap_pass_brigade(f->next, bb);
 	}
 
-	for (b = APR_BRIGADE_FIRST(bb); b != APR_BRIGADE_SENTINEL(bb); b = APR_BUCKET_NEXT(b)) {
-		zend_file_handle zfd = {0};
+	apply_config(conf);
+	php_apache_request_ctor(f, ctx TSRMLS_CC);
+	
+	// It'd be nice if we could highlight based of a zend_file_handle here....
+	// ...but we can't.
+	
+	zfd.type = ZEND_HANDLE_STREAM;
+	
+	zfd.handle.stream.handle = pbb;
+	zfd.handle.stream.reader = php_apache_read_stream;
+	zfd.handle.stream.closer = php_apache_close_stream;
+	zfd.handle.stream.fteller = php_apache_fteller_stream;
+	zfd.handle.stream.interactive = 0;
+	
+	zfd.filename = f->r->filename;
+	zfd.opened_path = NULL;
+	zfd.free_filename = 0;
+	
+	php_execute_script(&zfd TSRMLS_CC);
 
-		if (!ctx->request_processed && APR_BUCKET_IS_FILE(b)) {
-			const char *path;
-			apr_bucket_brigade *prebb = bb;
-
-			/* Split the brigade into two brigades before and after
-			 * the file bucket. Leave the "after the FILE" brigade
-			 * in the original bb, so it gets passed outside of this
-			 * loop. */
-			bb = apr_brigade_split(prebb, b);
-
-			/* Pass the "before the FILE" brigade here
-			 * (if it's non-empty). */
-			if (!APR_BRIGADE_EMPTY(prebb)) {
-				apr_status_t rv;
-				rv = ap_pass_brigade(f->next, prebb);
-				/* XXX: destroy the prebb, since we know we're
-				 * done with it? */
-				if (rv != APR_SUCCESS || ctx->r->connection->aborted) {
-					php_handle_aborted_connection();
-				}
-			}
-
-			apply_config(conf);
-			php_apache_request_ctor(f, ctx TSRMLS_CC);
-
-			apr_file_name_get(&path, ((apr_bucket_file *) b->data)->fd);
-			
-			/* Determine if we need to parse the file or show the source */
-			if (strncmp(ctx->r->handler, "application/x-httpd-php-source", sizeof("application/x-httpd-php-source"))) { 
-				zfd.type = ZEND_HANDLE_FILENAME;
-				zfd.filename = (char *) path;
-				zfd.free_filename = 0;
-				zfd.opened_path = NULL;
-
-				php_execute_script(&zfd TSRMLS_CC);
-			} else { 
-				zend_syntax_highlighter_ini syntax_highlighter_ini;
-				
-				php_get_highlight_struct(&syntax_highlighter_ini);
-				
- 				highlight_file((char *)path, &syntax_highlighter_ini TSRMLS_CC);
-			}	
-			
-			php_apache_request_dtor(f TSRMLS_CC);
-			
-			if (!f->r->main) {
-				ctx->request_processed = 1;
-			}
-
-			/* Delete the FILE bucket from the brigade. */
-			apr_bucket_delete(b);
-
-			/* We won't handle any more buckets in this brigade, so
-			 * it's ok to break out now. */
-			break;
-		}
+	apr_table_set(ctx->r->notes, "mod_php_memory_usage",
+		apr_psprintf(ctx->r->pool, "%u", zend_memory_peak_usage(1 TSRMLS_CC)));
+		
+	php_apache_request_dtor(f TSRMLS_CC);
+		
+	if (!f->r->main) {
+		ctx->request_processed = 1;
 	}
-
+	
+	b = apr_bucket_eos_create(f->c->bucket_alloc);
+	APR_BRIGADE_INSERT_TAIL(pbb->bb,  b);
+	
 	/* Pass whatever is left on the brigade. */
-	return ap_pass_brigade(f->next, bb);
+	return ap_pass_brigade(f->next, pbb->bb);
 }
 
 static apr_status_t
@@ -693,7 +693,39 @@ static void php_register_hook(apr_pool_t *p)
 	ap_register_input_filter("PHP", php_input_filter, php_apache_disable_caching, AP_FTYPE_RESOURCE);
 }
 
-AP_MODULE_DECLARE_DATA module php4_module = {
+static size_t php_apache_read_stream(void *handle, char *buf, size_t wantlen TSRMLS_DC)
+{
+	php_apr_bucket_brigade *pbb = (php_apr_bucket_brigade *)handle;
+	apr_bucket_brigade *rbb;
+	apr_size_t readlen;
+	apr_bucket *b = NULL;
+	
+	rbb = pbb->bb;
+	
+	if((apr_brigade_partition(pbb->bb, wantlen, &b) == APR_SUCCESS) && b){
+		pbb->bb = apr_brigade_split(rbb, b);
+	} 	
+
+	readlen = wantlen;
+	apr_brigade_flatten(rbb, buf, &readlen);
+	apr_brigade_cleanup(rbb);
+	pbb->total_len += readlen;
+	
+	return readlen;
+}
+
+static void php_apache_close_stream(void *handle TSRMLS_DC)
+{
+	return;	
+}
+
+static long php_apache_fteller_stream(void *handle TSRMLS_DC)
+{
+	php_apr_bucket_brigade *pbb = (php_apr_bucket_brigade *)handle;
+	return pbb->total_len;
+}
+
+AP_MODULE_DECLARE_DATA module php5_module = {
 	STANDARD20_MODULE_STUFF,
 	create_php_config,		/* create per-directory config structure */
 	merge_php_config,		/* merge per-directory config structures */

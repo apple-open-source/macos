@@ -25,223 +25,149 @@
  * Netgroup lookup
  * Copyright (C) 1989 by NeXT, Inc.
  */
-#include <netgr.h>
+#include <netdb.h>
 #include <mach/mach.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <rpc/types.h>
-#include <rpc/xdr.h>
-
-#include "_lu_types.h"
-#include "lookup.h"
 #include "lu_utils.h"
 #include "lu_overrides.h"
 
-#define FIX(x) ((x == NULL) ? NULL : (_lu_string *)&(x))
-
-struct lu_netgrent
+struct li_netgrent
 {
 	char *ng_host;
 	char *ng_user;
 	char *ng_domain;
 };
 
-static void 
-free_netgroup_data(struct lu_netgrent *ng)
-{
-	if (ng == NULL) return;
+#define ENTRY_SIZE sizeof(struct li_netgrent)
+#define ENTRY_KEY _li_data_key_netgroup
 
-	if (ng->ng_host != NULL) free(ng->ng_host);
-	if (ng->ng_user != NULL) free(ng->ng_user);
-	if (ng->ng_domain != NULL) free(ng->ng_domain);
+static struct li_netgrent *
+copy_netgroup(struct li_netgrent *in)
+{
+	if (in == NULL) return NULL;
+
+	return (struct li_netgrent *)LI_ils_create("sss", in->ng_host, in->ng_user, in->ng_domain);
 }
 
-static void 
-free_netgroup(struct lu_netgrent *ng)
+/*
+ * Extract the next netgroup entry from a kvarray.
+ */
+static struct li_netgrent *
+extract_netgroup(kvarray_t *in)
 {
-	if (ng == NULL) return;
-	free_netgroup_data(ng);
-	free(ng);
- }
-
-static void
-free_lu_thread_info_netgroup(void *x)
-{
-	struct lu_thread_info *tdata;
-
-	if (x == NULL) return;
-
-	tdata = (struct lu_thread_info *)x;
-	
-	if (tdata->lu_entry != NULL)
-	{
-		free_netgroup((struct lu_netgrent *)tdata->lu_entry);
-		tdata->lu_entry = NULL;
-	}
-
-	_lu_data_free_vm_xdr(tdata);
-
-	free(tdata);
-}
-
-static struct lu_netgrent *
-extract_netgroup(XDR *xdr)
-{
-	char *h, *u, *d;
-	struct lu_netgrent *ng;
-
-	if (xdr == NULL) return NULL;
-
-	h = NULL;
-	u = NULL;
-	d = NULL;
-
-	if (!xdr_string(xdr, &h, LU_LONG_STRING_LENGTH))
-	{
-		return NULL;
-	}
-
-	if (!xdr_string(xdr, &u, LU_LONG_STRING_LENGTH))
-	{
-		free(h);
-		return NULL;
-	}
-
-	if (!xdr_string(xdr, &d, LU_LONG_STRING_LENGTH))
-	{
-		free(h);
-		free(u);
-		return NULL;
-	}
-
-	ng = (struct lu_netgrent *)calloc(1, sizeof(struct lu_netgrent));
-
-	ng->ng_host = h;
-	ng->ng_user = u;
-	ng->ng_domain = d;
-
-	return ng;
-}
-
-#ifdef NOTDEF
-static struct lu_netgrent *
-copy_netgroup(struct lu_netgrent *in)
-{
-	struct lu_netgrent *ng;
+	struct li_netgrent tmp;
+	uint32_t d, k, kcount;
 
 	if (in == NULL) return NULL;
 
-	ng = (struct group *)calloc(1, sizeof(struct lu_netgrent));
+	d = in->curr;
+	in->curr++;
 
-	ng->ng_host = LU_COPY_STRING(in->ng_host);
-	ng->ng_user = LU_COPY_STRING(in->ng_user);
-	ng->ng_domain = LU_COPY_STRING(in->ng_domain);
+	if (d >= in->count) return NULL;
 
-	return ng;
-}
-#endif
+	memset(&tmp, 0, ENTRY_SIZE);
 
-static void
-recycle_netgroup(struct lu_thread_info *tdata, struct lu_netgrent *in)
-{
-	struct lu_netgrent *ng;
+	kcount = in->dict[d].kcount;
 
-	if (tdata == NULL) return;
-	ng = (struct lu_netgrent *)tdata->lu_entry;
-
-	if (in == NULL)
+	for (k = 0; k < kcount; k++)
 	{
-		free_netgroup(ng);
-		tdata->lu_entry = NULL;
-	}
-
-	if (tdata->lu_entry == NULL)
-	{
-		tdata->lu_entry = in;
-		return;
-	}
-
-	free_netgroup_data(ng);
-
-	ng->ng_host = in->ng_host;
-	ng->ng_user = in->ng_user;
-	ng->ng_domain = in->ng_domain;
-
-	free(in);
-}
-
-
-static int
-lu_innetgr(const char *group, const char *host, const char *user,
-	const char *domain)
-{
-	unsigned datalen;
-	XDR xdr;
-	char namebuf[4*_LU_MAXLUSTRLEN + 3*BYTES_PER_XDR_UNIT];
-	static int proc = -1;
-	int size;
-	int res;
-	_lu_innetgr_args args;
-	char *lookup_buf;
-
-	if (proc < 0)
-	{
-		if (_lookup_link(_lu_port, "innetgr", &proc) != KERN_SUCCESS)
+		if (!strcmp(in->dict[d].key[k], "user"))
 		{
-			return 0;
+			if (tmp.ng_user != NULL) continue;
+			if (in->dict[d].vcount[k] == 0) continue;
+
+			tmp.ng_user = (char *)in->dict[d].val[k][0];
+		}
+		else if (!strcmp(in->dict[d].key[k], "host"))
+		{
+			if (tmp.ng_host != NULL) continue;
+			if (in->dict[d].vcount[k] == 0) continue;
+
+			tmp.ng_host = (char *)in->dict[d].val[k][0];
+		}
+		else if (!strcmp(in->dict[d].key[k], "domain"))
+		{
+			if (tmp.ng_domain != NULL) continue;
+			if (in->dict[d].vcount[k] == 0) continue;
+
+			tmp.ng_domain = (char *)in->dict[d].val[k][0];
 		}
 	}
 
-	args.group = (char *)group;
-	args.host = FIX(host);
-	args.user = FIX(user);
-	args.domain = FIX(domain);
+	if (tmp.ng_user == NULL) tmp.ng_user = "";
+	if (tmp.ng_host == NULL) tmp.ng_host = "";
+	if (tmp.ng_domain == NULL) tmp.ng_domain = "";
 
-	xdrmem_create(&xdr, namebuf, sizeof(namebuf), XDR_ENCODE);
-	if (!xdr__lu_innetgr_args(&xdr, &args))
+	return copy_netgroup(&tmp);
+}
+
+static int
+check_innetgr(kvarray_t *in)
+{
+	uint32_t d, k, kcount;
+
+	if (in == NULL) return 0;
+
+	d = in->curr;
+	if (d >= in->count) return 0;
+
+	kcount = in->dict[d].kcount;
+
+	for (k = 0; k < kcount; k++)
 	{
-		xdr_destroy(&xdr);
-		return 0;
+		if (!strcmp(in->dict[d].key[k], "result"))
+		{
+			if (in->dict[d].vcount[k] == 0) continue;
+			return atoi(in->dict[d].val[k][0]);
+		}
 	}
 
-	size = xdr_getpos(&xdr) / BYTES_PER_XDR_UNIT;
-	xdr_destroy(&xdr);
+	return 0;
+}
 
-	datalen = 0;
-	lookup_buf = NULL;
+static int
+ds_innetgr(const char *group, const char *host, const char *user, const char *domain)
+{
+	int is_innetgr;
+	kvbuf_t *request;
+	kvarray_t *reply;
+	kern_return_t status;
+	static int proc = -1;
 
-	if (_lookup_all(_lu_port, proc, (unit *)namebuf, size, &lookup_buf, &datalen) != KERN_SUCCESS)
+	if (proc < 0)
 	{
-		return 0;
+		status = LI_DSLookupGetProcedureNumber("innetgr", &proc);
+		if (status != KERN_SUCCESS) return 0;
 	}
 
-	datalen *= BYTES_PER_XDR_UNIT;
-	if ((lookup_buf == NULL) || (datalen == 0)) return 0;
+	/* Encode NULL */
+	if (group == NULL) group = "";
+	if (host == NULL) host = "";
+	if (user == NULL) user = "";
+	if (domain == NULL) domain = "";
 
-	xdrmem_create(&xdr, lookup_buf, datalen, XDR_DECODE);
-	if (!xdr_int(&xdr, &res))
-	{
-		xdr_destroy(&xdr);
-		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-		return 0;
-	}
+	request = kvbuf_query("ksksksks", "netgroup", group, "host", host, "user", user, "domain", domain);
+	if (request == NULL) return 0;
 
-	xdr_destroy(&xdr);
-	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
+	reply = NULL;
+	status = LI_DSLookupQuery(proc, request, &reply);
+	kvbuf_free(request);
 
-	return 1;
+	if (status != KERN_SUCCESS) return 0;
+
+	is_innetgr = check_innetgr(reply);
+	kvarray_free(reply);
+
+	return is_innetgr;
 }
 
 static void
-lu_endnetgrent(void)
+ds_endnetgrent(void)
 {
-	struct lu_thread_info *tdata;
-
-	tdata = _lu_data_create_key(_lu_data_key_netgroup, free_lu_thread_info_netgroup);
-	_lu_data_free_vm_xdr(tdata);
+	LI_data_free_kvarray(LI_data_find_key(ENTRY_KEY));
 }
-
 
 /* 
  * This is different than the other setXXXent routines
@@ -249,115 +175,86 @@ lu_endnetgrent(void)
  * getnetgrent().
  */ 
 static void
-lu_setnetgrent(const char *name)
+ds_setnetgrent(const char *name)
 {
-	unsigned datalen;
-	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
-	XDR outxdr;
+	struct li_thread_info *tdata;
+	kvbuf_t *request;
+	kvarray_t *reply;
+	kern_return_t status;
 	static int proc = -1;
-	struct lu_thread_info *tdata;
 
-	tdata = _lu_data_create_key(_lu_data_key_netgroup, free_lu_thread_info_netgroup);
-	if (tdata == NULL)
-	{
-		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
-		_lu_data_set_key(_lu_data_key_netgroup, tdata);
-	}
+	tdata = LI_data_create_key(ENTRY_KEY, ENTRY_SIZE);
+	if (tdata == NULL) return;
 
-	lu_endnetgrent();
+	if (tdata->li_vm != NULL) return;
 
 	if (proc < 0)
 	{
-		if (_lookup_link(_lu_port, "getnetgrent", &proc) != KERN_SUCCESS)
+		status = LI_DSLookupGetProcedureNumber("getnetgrent", &proc);
+		if (status != KERN_SUCCESS)
 		{
-			lu_endnetgrent();
+			LI_data_free_kvarray(tdata);
 			return;
 		}
 	}
 
-	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
+	request = kvbuf_query_key_val("netgroup", name);
+	if (request == NULL) return;
+
+	reply = NULL;
+	status = LI_DSLookupQuery(proc, request, &reply);
+	kvbuf_free(request);
+
+	if (status != KERN_SUCCESS)
 	{
-		xdr_destroy(&outxdr);
-		lu_endnetgrent();
-		return;
-	}
-	
-	datalen = xdr_getpos(&outxdr);
-	xdr_destroy(&outxdr);
-	if (_lookup_all(_lu_port, proc, (unit *)namebuf, datalen / BYTES_PER_XDR_UNIT, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
-	{
-		lu_endnetgrent();
+		LI_data_free_kvarray(tdata);
 		return;
 	}
 
-	/* mig stubs measure size in words (4 bytes) */
-	tdata->lu_vm_length *= 4;
-
-	if (tdata->lu_xdr != NULL)
-	{	
-		xdr_destroy(tdata->lu_xdr);
-		free(tdata->lu_xdr);
-	}
-	tdata->lu_xdr = (XDR *)calloc(1, sizeof(XDR));
-
-	xdrmem_create(tdata->lu_xdr, tdata->lu_vm, tdata->lu_vm_length, XDR_DECODE);
-	if (!xdr_int(tdata->lu_xdr, &tdata->lu_vm_cursor)) lu_endnetgrent();
+	tdata->li_vm = (char *)reply;
 }
 
 
-static struct lu_netgrent *
-lu_getnetgrent(void)
+static struct li_netgrent *
+ds_getnetgrent(void)
 {
-	struct lu_netgrent *ng;
-	struct lu_thread_info *tdata;
+	struct li_netgrent *entry;
+	struct li_thread_info *tdata;
 
-	tdata = _lu_data_create_key(_lu_data_key_netgroup, free_lu_thread_info_netgroup);
+	tdata = LI_data_create_key(ENTRY_KEY, ENTRY_SIZE);
 	if (tdata == NULL) return NULL;
 
-	if (tdata->lu_vm_cursor == 0)
+	entry = extract_netgroup((kvarray_t *)(tdata->li_vm));
+	if (entry == NULL)
 	{
-		lu_endnetgrent();
+		ds_endnetgrent();
 		return NULL;
 	}
 
-	ng = extract_netgroup(tdata->lu_xdr);
-	if (ng == NULL)
-	{
-		lu_endnetgrent();
-		return NULL;
-	}
-
-	tdata->lu_vm_cursor--;
-	
-	return ng;
+	return entry;
 }
 
 int 
 innetgr(const char *group, const char *host, const char *user,
 	const char *domain)
 {
-	if (_lu_running()) return (lu_innetgr(group, host, user, domain));
+	if (_ds_running()) return (ds_innetgr(group, host, user, domain));
 	return 0;
 }
 
 int
 getnetgrent(char **host, char **user, char **domain)
 {
-	struct lu_netgrent *res = NULL;
-	struct lu_thread_info *tdata;
+	struct li_netgrent *res = NULL;
+	struct li_thread_info *tdata;
 
-	tdata = _lu_data_create_key(_lu_data_key_netgroup, free_lu_thread_info_netgroup);
-	if (tdata == NULL)
-	{
-		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
-		_lu_data_set_key(_lu_data_key_netgroup, tdata);
-	}
+	tdata = LI_data_create_key(ENTRY_KEY, ENTRY_SIZE);
+	if (tdata == NULL) return 0;
 
 	res = NULL;
-	if (_lu_running()) res = lu_getnetgrent();
+	if (_ds_running()) res = ds_getnetgrent();
 
-	recycle_netgroup(tdata, res);
+	LI_data_recycle(tdata, res, ENTRY_SIZE);
 	if (res == NULL) return 0;
 
 	if (host != NULL) *host = res->ng_host;
@@ -370,11 +267,11 @@ getnetgrent(char **host, char **user, char **domain)
 void
 setnetgrent(const char *name)
 {
-	if (_lu_running()) lu_setnetgrent(name);
+	if (_ds_running()) ds_setnetgrent(name);
 }
 
 void
 endnetgrent(void)
 {
-	if (_lu_running()) lu_endnetgrent();
+	if (_ds_running()) ds_endnetgrent();
 }

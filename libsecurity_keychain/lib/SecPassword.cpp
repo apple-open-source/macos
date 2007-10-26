@@ -56,6 +56,13 @@ SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecKeychainAt
 	END_SECAPI
 }
 
+OSStatus
+SecPasswordSetInitialAccess(SecPasswordRef itemRef, SecAccessRef accessRef)
+{
+	BEGIN_SECAPI
+	PasswordImpl::required(itemRef)->setAccess(Access::required(accessRef));
+	END_SECAPI2("SecPasswordSetInitialAccess")
+}
 
 OSStatus
 SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt32 *length, const void **data)
@@ -66,6 +73,7 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
     
     void *passwordData = NULL;
     uint32_t passwordLength = 0;
+	bool gotPassword = false;
 
     // no flags has no meaning, and there is no apparent default
     assert( flags );
@@ -120,32 +128,38 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
         AuthorizationItem right = { NULL, 0, NULL, 0 };
         AuthorizationItemSet rightSet = { 1, &right };
         uint32_t reason, tries;
-        bool keychain, addToKeychain;
+        bool keychain = 0, addToKeychain = 0;
 
         if (passwordRef->useKeychain())
         {
             keychain = 1;
-            addToKeychain = 1;
+            addToKeychain = passwordRef->rememberInKeychain();
         }
+		else
+		{
+            keychain = 0;
+            addToKeychain = 0;
+		}
         
         // Get|Fail conceivable would have it enabled, but since the effect is that it will get overwritten
         // we'll make the user explicitly do it       
-        if (flags & kSecPasswordNew)
-            addToKeychain = 1; // turn it on for new items
-        else 
-            if (flags & kSecPasswordGet)
-                addToKeychain = 0; // turn it off for old items that weren't successfully retrieved from the keychain
+        if (flags & kSecPasswordGet)
+            addToKeychain = 0; // turn it off for old items that weren't successfully retrieved from the keychain
 
         if (flags & kSecPasswordFail) // set up retry to reflect failure
-        {        
+        {
+	        tries = 1;
             if (flags & kSecPasswordNew)
                 reason = 34; // passphraseUnacceptable = 34 passphrase unacceptable for some other reason
             else
                 reason = 21; // invalidPassphrase = 21 passphrase was wrong
         }
         else
-            reason = 0;
-        
+		{
+			reason = 0;
+			tries = 0;
+		}
+
         if (flags & kSecPasswordNew) // pick new passphrase
             right.name = "com.apple.builtin.generic-new-passphrase";
         else
@@ -159,12 +173,14 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
                                             
         AuthorizationItemSet envSet = { sizeof(envRights) / sizeof(*envRights), envRights };
 
+	    secdebug("SecPassword", "dialog(%s)%s%s%s.", right.name, tries?" retry":"", keychain?" show-add-keychain":"", addToKeychain?" save-to-keychain":"");
+
         status = AuthorizationCopyRights(authRef, &rightSet, &envSet, kAuthorizationFlagDefaults|kAuthorizationFlagInteractionAllowed|kAuthorizationFlagExtendRights, NULL);
         
         if (status)
         {
             AuthorizationFree(authRef, 0);
-            return errAuthorizationCanceled;
+            return status;
         }
         
         // if success pull the data
@@ -186,6 +202,7 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
                 
                 if (!strcmp(AGENT_PASSWORD, item.name))
                 {
+					gotPassword = true;
                     passwordLength = item.valueLength;
 
                     if (passwordLength)
@@ -200,13 +217,15 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
                         *length = passwordLength;
                     if (data) 
                         *data = passwordData;
+						
+					secdebug("SecPassword", "Got password (%d,%p).", passwordLength, passwordData);
                 }
                 else if (!strcmp(AGENT_ADD_TO_KEYCHAIN, item.name))
                 {
-                    if (item.value && item.valueLength == strlen("YES") && !memcmp("YES", static_cast<char *>(item.value), item.valueLength))
-                        passwordRef->setRememberInKeychain(true);
-                    else
-                        passwordRef->setRememberInKeychain(false);
+                    bool remember = (item.value && item.valueLength == strlen("YES") && !memcmp("YES", static_cast<char *>(item.value), item.valueLength));
+					passwordRef->setRememberInKeychain(remember);
+					if (remember)
+						secdebug("SecPassword", "User wants to add the password to the Keychain.");
                 }
             }
         }
@@ -219,11 +238,12 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
     // If we're still here the use gave us his password, store it if keychain is in use
     if (passwordRef->useKeychain())
     {
-        if (passwordRef->rememberInKeychain() && passwordLength && passwordData)
-            passwordRef->setData(passwordLength, passwordData);
-
-        if ((flags & kSecPasswordSet) && passwordRef->rememberInKeychain())
-            passwordRef->save();
+        if (passwordRef->rememberInKeychain()) {
+            if (gotPassword)
+				passwordRef->setData(passwordLength, passwordData);
+			if (flags & kSecPasswordSet)
+				passwordRef->save();
+		}
     }
 
     END_SECAPI

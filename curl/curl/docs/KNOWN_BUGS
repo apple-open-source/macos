@@ -3,19 +3,96 @@ join in and help us correct one or more of these! Also be sure to check the
 changelog of the current development status, as one or more of these problems
 may have been fixed since this was written!
 
-20. valgrind errors occur too often when 'make test' is used. It is because
-  too many third-party libs and tools have problems. When curl is built
-  without --disable-shared, the testing is done with a front-end script which
-  makes the valgrind testing include (ba)sh as well and that often causes
-  valgrind errors. Either we improve the valgrind error scanner a lot to
-  better identify (lib)curl errors only, or we disable valgrind checking by
-  default.
+44. --ftp-method nocwd does not handle URLs ending with a slash properly (it
+  should list the contents of that directory). See test case 351.
 
-19. FTP 3rd party transfers with the multi interface doesn't work. Test:
-  define CURL_MULTIEASY, rebuild curl, run test case 230 - 232.
+43. There seems to be a problem when connecting to the Microsoft telnet server.
+  http://curl.haxx.se/bug/view.cgi?id=1720605
 
-18. test case 57 has </test> that should be </client> but when corrected, the
-  test case fails!
+41. When doing an operation over FTP that requires the ACCT command (but not
+  when logging in), the operation will fail since libcurl doesn't detect this
+  and thus fails to issue the correct command:
+  http://curl.haxx.se/bug/view.cgi?id=1693337
+
+39. Steffen Rumler's Race Condition in Curl_proxyCONNECT:
+  http://curl.haxx.se/mail/lib-2007-01/0045.html
+
+38. Kumar Swamy Bhatt's problem in ftp/ssl "LIST" operation:
+  http://curl.haxx.se/mail/lib-2007-01/0103.html
+
+37. Having more than one connection to the same host when doing NTLM
+  authentication (with performs multiple "passes" and authenticates a
+  connection rather than a HTTP request), and particularly when using the
+  multi interface, there's a risk that libcurl will re-use a wrong connection
+  when doing the different passes in the NTLM negotiation and thus fail to
+  negotiate (in seemingly mysterious ways).
+
+35. Both SOCKS5 and SOCKS4 proxy connections are done blocking, which is very
+  bad when used with the multi interface.
+
+34. The SOCKS4 connection codes don't properly acknowledge (connect) timeouts.
+  Also see #12. According to bug #1556528, even the SOCKS5 connect code does
+  not do it right: http://curl.haxx.se/bug/view.cgi?id=1556528,
+
+33. Doing multi-pass HTTP authentication on a non-default port does not work.
+  This happens because the multi-pass code abuses the redirect following code
+  for doing multiple requests, and when we following redirects to an absolute
+  URL we must use the newly specified port and not the one specified in the
+  original URL. A proper fix to this would need to separate the negotiation
+  "redirect" from an actual redirect.
+
+32. (At least on Windows) If libcurl is built with c-ares and there's no DNS
+  server configured in the system, the ares_init() call fails and thus
+  curl_easy_init() fails as well. This causes weird effects for people who use
+  numerical IP addresses only.
+
+31. "curl-config --libs" will include details set in LDFLAGS when configure is
+  run that might be needed only for building libcurl. Similarly, it might
+  include options that perhaps aren't suitable both for static and dynamic
+  linking. Further, curl-config --cflags suffers from the same effects with
+  CFLAGS/CPPFLAGS.
+
+30. You need to use -g to the command line tool in order to use RFC2732-style
+  IPv6 numerical addresses in URLs.
+
+29. IPv6 URLs with zone ID is not supported.
+  http://www.ietf.org/internet-drafts/draft-fenner-literal-zone-02.txt
+  specifies the use of a plus sign instead of a percent when specifying zone
+  IDs in URLs to get around the problem of percent signs being
+  special. According to the reporter, Firefox deals with the URL _with_ a
+  percent letter (which seems like a blatant URL spec violation).
+
+   See http://curl.haxx.se/bug/view.cgi?id=1371118
+
+26. NTLM authentication using SSPI (on Windows) when (lib)curl is running in
+  "system context" will make it use wrong(?) user name - at least when compared
+  to what winhttp does. See http://curl.haxx.se/bug/view.cgi?id=1281867
+
+23. SOCKS-related problems:
+  A) libcurl doesn't support SOCKS for IPv6.
+  B) libcurl doesn't support FTPS over a SOCKS proxy.
+  C) We don't have any test cases for SOCKS proxy.
+  E) libcurl doesn't support active FTP over a SOCKS proxy
+
+  We probably have even more bugs and lack of features when a SOCKS proxy is
+  used.
+
+22. Sending files to a FTP server using curl on VMS, might lead to curl
+  complaining on "unaligned file size" on completion. The problem is related
+  to VMS file structures and the perceived file sizes stat() returns. A
+  possible fix would involve sending a "STRU VMS" command.
+  http://curl.haxx.se/bug/view.cgi?id=1156287
+  
+21. FTP ASCII transfers do not follow RFC959. They don't convert the data
+   accordingly (not for sending nor for receiving). RFC 959 section 3.1.1.1
+   clearly describes how this should be done:
+
+     The sender converts the data from an internal character representation to
+     the standard 8-bit NVT-ASCII representation (see the Telnet
+     specification).  The receiver will convert the data from the standard
+     form to his own internal form.
+
+   Since 7.15.4 at least line endings are converted.
 
 16. FTP URLs passed to curl may contain NUL (0x00) in the RFC 1738 <user>,
   <password>, and <fpath> components, encoded as "%00".  The problem is that
@@ -26,10 +103,6 @@ may have been fixed since this was written!
   embedded NUL characters.  From a practical standpoint, most FTP servers
   would not meaningfully support NUL characters within RFC 959 <string>,
   anyway (e.g., UNIX pathnames may not contain NUL).
-
-15. Test case 241 fails on all systems that support IPv6 but that don't have
-  the host name 'ip6-localhost' in /etc/hosts (or similar) since the test case
-  uses that host name to test the IPv6 name to address resolver.
 
 14. Test case 165 might fail on system which has libidn present, but with an
   old iconv version (2.1.3 is a known bad version), since it doesn't recognize
@@ -42,19 +115,13 @@ may have been fixed since this was written!
 
 12. When connecting to a SOCKS proxy, the (connect) timeout is not properly
   acknowledged after the actual TCP connect (during the SOCKS "negotiate"
-  phase). Pointed out by Lucas. Fix: need to select() and timeout properly.
-
-11. Using configure --disable-[protocol] may cause 'make test' to fail for
-  tests using the disabled protocol(s).
+  phase).
 
 10. To get HTTP Negotiate authentication to work fine, you need to provide a
   (fake) user name (this concerns both curl and the lib) because the code
   wrongly only considers authentication if there's a user name provided.
-  Bug report #1004841. How? http://curl.haxx.se/mail/lib-2004-08/0182.html
-
-9. --limit-rate using -d or -F does not work. This is because the limit logic
-  is provided by the curl app in its read/write callbacks, and when doing
-  -d/-F the callbacks aren't used! Bug report #921395.
+  http://curl.haxx.se/bug/view.cgi?id=1004841. How?
+  http://curl.haxx.se/mail/lib-2004-08/0182.html
 
 8. Doing resumed upload over HTTP does not work with '-C -', because curl
   doesn't do a HEAD first to get the initial size. This needs to be done
@@ -77,11 +144,6 @@ may have been fixed since this was written!
   libcurl thinks of it as the *compressed* length. Some explanations are here:
   http://curl.haxx.se/mail/lib-2003-06/0146.html
 
-4. IPv6 support on AIX 4.3.3 doesn't work due to a missing sockaddr_storage
-  struct. It has been reported to work on AIX 5.1 though.
-
-3. GOPHER transfers seem broken
-
 2. If a HTTP server responds to a HEAD request and includes a body (thus
   violating the RFC2616), curl won't wait to read the response but just stop
   reading and return back. If a second request (let's assume a GET) is then
@@ -91,7 +153,3 @@ may have been fixed since this was written!
   and havoc is what happens.
   More details on this is found in this libcurl mailing list thread:
   http://curl.haxx.se/mail/lib-2002-08/0000.html
-
-1. LDAP support requires that not only the OpenLDAP shared libraries be
-   present at run time, but the development libraries (liblber.so and
-   libldap.so) as well (not applicable to Windows).

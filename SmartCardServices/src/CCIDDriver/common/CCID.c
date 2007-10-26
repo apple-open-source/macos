@@ -598,7 +598,7 @@ CCIDRv CCID_IccPowerOn(DWORD Lun, BYTE *abDataResp, DWORD *pdwDataRespLength)
     }
     rv =  CCID_Exchange_Command(Lun, PC_to_RDR_IccPowerOn,
                                 abMessageSpecificCmd,
-                                "", 0,
+                                (BYTE *)"", 0,
                                 &bMessageTypeResp,
                                 &bStatus, &bError,
                                 &bMessageSpecificResp,
@@ -698,7 +698,7 @@ CCIDRv CCID_IccPowerOff(DWORD Lun, BYTE *pbClockStatus)
     }
     rv =  CCID_Exchange_Command(Lun, PC_to_RDR_IccPowerOff,
                                 abMessageSpecificCmd,
-                                "", 0,
+                                (BYTE *)"", 0,
                                 &bMessageTypeResp,
                                 &bStatus, &bError,
                                 &bMessageSpecificResp,
@@ -739,7 +739,7 @@ CCIDRv CCID_GetSlotStatus(DWORD Lun,  BYTE *pbStatus, BYTE *pbClockStatus)
     }
     rv =  CCID_Exchange_Command(Lun, PC_to_RDR_GetSlotStatus,
                                 abMessageSpecificCmd,
-                                "", 0,
+                                (BYTE *)"", 0,
                                 &bMessageTypeResp,
                                 &bStatus, &bError,
                                 &bMessageSpecificResp,
@@ -950,7 +950,7 @@ CCIDRv CCID_Escape(DWORD Lun,
     BYTE bMessageSpecificResp;
     *pbErrorSpecific = 0;
     rv =  CCID_Exchange_Command(Lun, PC_to_RDR_Escape,
-                                "\x00\x00\x00",
+                                (BYTE *)"\x00\x00\x00",
                                 abDataCmd, dwDataCmdLength,
                                 &bMessageTypeResp,
                                 &bStatus, &bError,

@@ -33,7 +33,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)join.1	8.3 (Berkeley) 4/28/95
-.\" $FreeBSD: src/usr.bin/join/join.1,v 1.15 2004/07/05 13:20:03 tjr Exp $
+.\" $FreeBSD: src/usr.bin/join/join.1,v 1.20 2005/02/13 22:25:23 ru Exp $
 .\"
 .Dd July 5, 2004
 .Dt JOIN 1
@@ -166,7 +166,7 @@ or
 is
 .Dq - ,
 the standard input is used.
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 .Ex -std
 .Sh COMPATIBILITY
 For compatibility with historic versions of
@@ -204,16 +204,29 @@ This has obvious difficulties in the presence of files named
 .Ql 1.2 .
 .El
 .Pp
-These options are available only so historic shellscripts don't require
-modification and should not be used.
-.Sh STANDARDS
+These options are available only
+so historic shell scripts do not require modification.
+They should not be used in new code.
+.Sh LEGACY DESCRIPTION
 The
-.Nm
-command conforms to
-.St -p1003.1-2001 .
+.Fl e
+option causes a specified string to be substituted into empty fields,
+even if they are in the middle of a line.
+In legacy mode,
+the substitution only takes place at the end of a line.
+.Pp
+Only documented options are allowed.
+In legacy mode,
+some obsolete options are re-written into current options.
 .Sh SEE ALSO
 .Xr awk 1 ,
 .Xr comm 1 ,
 .Xr paste 1 ,
 .Xr sort 1 ,
-.Xr uniq 1
+.Xr uniq 1 ,
+.Xr compat 5
+.Sh STANDARDS
+The
+.Nm
+command conforms to
+.St -p1003.1-2001 .

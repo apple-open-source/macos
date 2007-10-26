@@ -30,7 +30,7 @@
 .Nm md
 .Nd process raw dependency files produced by cpp -MD
 .Sh SYNOPSIS
-.Nm md
+.Nm
 .Op Fl d
 .Op Fl f
 .Op Fl m Ar makefile
@@ -41,7 +41,7 @@
 .Op Fl D Ar c|d|m|o|t|D
 .Sh DESCRIPTION
 The
-.Nm 
+.Nm
 command basically does two things:
 .Pp
 Process the raw dependency files produced by the cpp -MD option.
@@ -61,7 +61,7 @@ option).  This is done to save space.
 assumes that dependency information in the makefile is sorted by .o
 file name and it procedes to merge in (add/or replace [as appropriate])
 the new dependency lines that it has generated.
-For time effeciency,
+For time efficiency,
 .Nm
 assumes that any .d files it is given that were created
 before the creation date of the "makefile" were processed
@@ -70,45 +70,47 @@ already.  It ignores them unless the force flag
 is given.
 .Pp
 .Sh FLAG SUMMARY
-.Fl d
-delete the .d file after it is processed
-.Pp
-.Fl f
-force an update of the dependencies in the makefile
-even though the makefile is more recent than the .n file
+.Bl -tag -width indent
+.It Fl D Ar c|D|d|m|o|t
+Specify debugging option(s):
+.Bl -tag -width indent
+.It c
+show file contents
+.It D
+show very low level debugging
+.It d
+show new dependency crunching
+.It m
+show generation of makefile
+.It o
+show files being opened
+.It t
+show time comparisons
+.El
+.It Fl d
+Delete the .d file after it is processed
+.It Fl f
+Force an update of the dependencies in the makefile,
+even if the makefile is more recent than the .n file.
 (This implies that
 .Nm
 has been run already.)
-.Pp
-.Fl m Ar makefile
-specify the makefile to be upgraded.  The defaults are
+.It Fl m Ar makefile
+Specify the makefile to be upgraded.  The defaults are
 .Ar makefile
 and then
-.Ar Makefile
-.Pp
-.Fl u Ar makefile
-like -m above, but the file will be created if necessary
-.Pp
-.Fl o Ar outputfile
-specify an output file for the dependencies other than a makefile
-.Pp
-.Fl v
-set the verbose flag
-.Pp
-.Fl x
-expunge old dependency info from makefile
-.Pp
-.Fl D Ar c|d|m|o|t|D
-subswitch for debugging.  can be followed by any of
-"c", "d", "m", "o", "t", "D" meaning:
-.Pp
-         c       show file contents
-         d       show new dependency crunching
-         m       show generation of makefile
-         o       show files being opened
-         t       show time comparisons
-         D       show very low level debugging
-.Pp
+.Ar Makefile .
+.It Fl o Ar outputfile
+Specify an output file (other than a makefile) for the dependencies.
+.It Fl u Ar makefile
+Like
+.Fl m ,
+but the file will be created if necessary.
+.It Fl v
+Set the verbose flag.
+.It Fl x
+Expunge old dependency information from the makefile.
+.El
 .Sh SEE ALSO
 .Xr make 1
 .Sh BUGS
@@ -116,4 +118,4 @@ Old, possibly not used by anyone.
 .Sh HISTORY
 The
 .Nm
-utility was written by Robert V Baron at Carnegie-Mellon University.
+utility was written by Robert V. Baron at Carnegie-Mellon University.

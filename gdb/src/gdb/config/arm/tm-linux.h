@@ -27,13 +27,6 @@
 #include "config/tm-linux.h"
 
 /* We've multi-arched this.  */
-#undef IN_SOLIB_CALL_TRAMPOLINE
-
-/* On ARM GNU/Linux, a call to a library routine does not have to go
-   through any trampoline code.  */
-#define IN_SOLIB_RETURN_TRAMPOLINE(pc, name)	0
-
-/* We've multi-arched this.  */
 #undef SKIP_TRAMPOLINE_CODE
 
 /* When we call a function in a shared library, and the PLT sends us
@@ -57,7 +50,7 @@ extern CORE_ADDR in_svr4_dynsym_resolve_code (CORE_ADDR pc, char *name);
    through calls to signal handlers. */
 
 int arm_linux_in_sigtramp (CORE_ADDR pc, char *name);
-#define IN_SIGTRAMP(pc, name) arm_linux_in_sigtramp (pc, name)
+#define DEPRECATED_IN_SIGTRAMP(pc, name) arm_linux_in_sigtramp (pc, name)
 
 /* Each OS has different mechanisms for accessing the various
    registers stored in the sigcontext structure.  These definitions

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,13 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDevice.cpp,v 1.11 2006/02/02 00:24:46 hpanther Exp $
+ *	File: $Id: IOI2CDevice.cpp,v 1.12 2007/07/07 19:53:32 raddog Exp $
  *
  *  DRI: Joseph Lehrer
  *
  *		$Log: IOI2CDevice.cpp,v $
+ *		Revision 1.12  2007/07/07 19:53:32  raddog
+ *		[5143931]-Leopard: IOI2CFamily: platform functions need synchronization
+ *		
  *		Revision 1.11  2006/02/02 00:24:46  hpanther
  *		Replace flawed IOLock synchronization with semaphores.
  *		A bit of cleanup on the logging side.
@@ -389,6 +392,7 @@ IOI2CDevice::freeI2CResources(void)
 		if (symClientRead)		{ symClientRead->release();		symClientRead = 0; }
 		if (symClientWrite)		{ symClientWrite->release();	symClientWrite = 0; }
 		if (symPowerInterest)	{ symPowerInterest->release();	symPowerInterest = 0; }
+		if (fPFLock)			{ IOLockFree(fPFLock);			fPFLock =  0; }
 	}
 
 	DLOG("-IOI2CDevice@%lx::freeI2CResources\n",fI2CAddress);
@@ -1126,8 +1130,12 @@ IOI2CDevice::InitializePlatformFunctions(void)
 			{
 				flags = func->getCommandFlags();
 
-				if ((flags & kIOPFFlagOnDemand) || (flags & kIOPFFlagIntGen))
+				if ((flags & kIOPFFlagOnDemand) || (flags & kIOPFFlagIntGen)) {
+					// Secure a lock for these functions
+					if (!fPFLock) fPFLock = IOLockAlloc();
+					
 					func->publishPlatformFunction(this);
+				}
 			}
 		}
 	}
@@ -1262,9 +1270,15 @@ IOI2CDevice::performFunction(
 	if (!func)
 		return kIOReturnBadArgument;
 
-	if (!(iter = func->getCommandIterator()))
+	if (fPFLock)
+		IOLockLock (fPFLock);
+		
+	if (!(iter = func->getCommandIterator())) {
+		if (fPFLock)
+			IOLockUnlock (fPFLock);
 		return kIOReturnNotFound;
-
+	}
+	
 	// Check for I2C function...
 	while (iter->getNextCommand (&cmd, &cmdLen, &param1, &param2, &param3, &param4, 
 		&param5, &param6, &param7, &param8, &param9, &param10, (UInt32 *)&status)
@@ -1398,6 +1412,9 @@ IOI2CDevice::performFunction(
 
 	if (iter)
 		iter->release();
+
+	if (fPFLock)
+		IOLockUnlock (fPFLock);
 
 	if (i2cIsLocked)
 		unlockI2CBus(key);

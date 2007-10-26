@@ -1,33 +1,29 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
  * Glenn Fowler
- * AT&T Labs Research
+ * AT&T Research
  *
  * machine independent binary message catalog implementation
  */
@@ -48,7 +44,6 @@
 #include <error.h>
 #include <mc.h>
 #include <nl_types.h>
-#include <sfstr.h>
 
 /*
  * find the binary message catalog path for <locale,catalog>
@@ -84,7 +79,7 @@ mcfind(char* path, const char* locale, const char* catalog, int category, int nl
 	oerrno = errno;
 	if (catalog && *catalog == '/')
 	{
-		i = access(catalog, R_OK);
+		i = eaccess(catalog, R_OK);
 		errno = oerrno;
 		if (i)
 			return 0;
@@ -159,7 +154,7 @@ mcfind(char* path, const char* locale, const char* catalog, int category, int nl
 						case_C:
 							if (!catalog)
 								last = 1;
-							v = categories[category].name;
+							v = lc_categories[category].name;
 							break;
 						default:
 							*s++ = c;
@@ -360,7 +355,10 @@ mcget(register Mc_t* mc, int set, int num, const char* msg)
 	if (mc->cvt == (iconv_t)(-1))
 		return s;
 	if ((p = sfstrtell(mc->tmp)) > sfstrsize(mc->tmp) / 2)
-		sfstrset(mc->tmp, p = 0);
+	{
+		p = 0;
+		sfstrseek(mc->tmp, p, SEEK_SET);
+	}
 	n = strlen(s) + 1;
 	iconv_write(mc->cvt, mc->tmp, &s, &n, NiL);
 	return sfstrbase(mc->tmp) + p;

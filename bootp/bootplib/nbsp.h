@@ -29,10 +29,16 @@
 #ifndef _S_NBSP_H
 #define _S_NBSP_H
 
+#include <stdbool.h>
+
+#define NBSP_NO_READONLY	FALSE
+#define NBSP_READONLY_OK	TRUE
+
 typedef struct {
     char *	name;
     char *	path;
-    int		is_hfs;
+    bool	is_hfs;
+    bool	is_readonly;
 } NBSPEntry, * NBSPEntryRef;
 
 struct NBSPList_s;
@@ -43,6 +49,6 @@ int		NBSPList_count(NBSPListRef list);
 NBSPEntryRef	NBSPList_element(NBSPListRef list, int i);
 void		NBSPList_print(NBSPListRef list);
 void		NBSPList_free(NBSPListRef * list);
-NBSPListRef	NBSPList_init(const char * symlink_name);
+NBSPListRef	NBSPList_init(const char * symlink_name, bool readonly_ok);
 
 #endif _S_NBSP_H

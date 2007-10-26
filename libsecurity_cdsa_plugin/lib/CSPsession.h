@@ -219,6 +219,8 @@ public:
     // an algorithm factory. This is an optional feature
     class AlgorithmFactory {
     public:
+		virtual ~AlgorithmFactory();
+		
         // set ctx and return true if you can handle this
         virtual bool setup(CSPContext * &ctx, const Context &context) = 0;
     };
@@ -230,7 +232,7 @@ public:
                      uint32 ClearBufCount,
                      CssmData CipherBufs[],
                      uint32 CipherBufCount,
-                     uint32 &bytesEncrypted,
+                     CSSM_SIZE &bytesEncrypted,
                      CssmData &RemData,
                      CSSM_PRIVILEGE Privilege);
     void EncryptDataInit(CSSM_CC_HANDLE CCHandle,
@@ -241,7 +243,7 @@ public:
                            uint32 ClearBufCount,
                            CssmData CipherBufs[],
                            uint32 CipherBufCount,
-                           uint32 &bytesEncrypted);
+                           CSSM_SIZE &bytesEncrypted);
     void EncryptDataFinal(CSSM_CC_HANDLE CCHandle,
                           CssmData &RemData);
 
@@ -251,7 +253,7 @@ public:
                      uint32 CipherBufCount,
                      CssmData ClearBufs[],
                      uint32 ClearBufCount,
-                     uint32 &bytesDecrypted,
+                     CSSM_SIZE &bytesDecrypted,
                      CssmData &RemData,
                      CSSM_PRIVILEGE Privilege);
     void DecryptDataInit(CSSM_CC_HANDLE CCHandle,
@@ -262,7 +264,7 @@ public:
                            uint32 CipherBufCount,
                            CssmData ClearBufs[],
                            uint32 ClearBufCount,
-                           uint32 &bytesDecrypted);
+                           CSSM_SIZE &bytesDecrypted);
     void DecryptDataFinal(CSSM_CC_HANDLE CCHandle,
                           CssmData &RemData);
                
@@ -466,8 +468,7 @@ class ReferencedKey
 	friend class KeyPool; // So it can call deactivate()
 public:
 	// What we use to reference a ReferencedKey.
-	typedef uint32 KeyReference;
-
+	typedef CSSM_INTPTR KeyReference;
 	ReferencedKey(KeyPool &session); // Calls KeyPool::add()
 	virtual ~ReferencedKey(); // Calls KeyPool::erase()
 

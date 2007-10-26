@@ -1,8 +1,8 @@
 /* addentry.c */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/addentry.c,v 1.11.2.2 2004/01/01 18:16:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/addentry.c,v 1.14.2.2 2006/01/03 22:16:08 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,10 +43,15 @@ ldap_delete_result_entry( LDAPMessage **list, LDAPMessage *e )
 	if ( tmp == NULL )
 		return( NULL );
 
-	if ( prev == NULL )
+	if ( prev == NULL ) {
+		if ( tmp->lm_chain )
+			tmp->lm_chain->lm_chain_tail = (*list)->lm_chain_tail;
 		*list = tmp->lm_chain;
-	else
+	} else {
 		prev->lm_chain = tmp->lm_chain;
+		if ( prev->lm_chain == NULL )
+			(*list)->lm_chain_tail = prev;
+	}
 	tmp->lm_chain = NULL;
 
 	return( tmp );
@@ -59,5 +64,6 @@ ldap_add_result_entry( LDAPMessage **list, LDAPMessage *e )
 	assert( e != NULL );
 
 	e->lm_chain = *list;
+	e->lm_chain_tail = (*list)->lm_chain_tail;
 	*list = e;
 }

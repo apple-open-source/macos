@@ -1,3 +1,137 @@
+2006-11-28  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.c: Remove cvs merge goo added accidentally by Carolyn.
+
+2006-10-30  Jim Ingham  <jingham@apple.com>
+
+	From Ira:
+	
+        2006-08-21  Ira Ruben  <iraruben@acm.org>
+
+	* gdb.c: Changed copyright date and fixed some formatting.
+	(termios.h): Added #include for new gdb_show_objc_object().
+	(demangle.h): Added #include for new gdb_demangled_symbol().
+	(gdb_initialize): Changed comments and warning message.
+	(gdb_get_function_start): Reworked to support minimal symbols.
+	(gdb_address_symbol): Added function get symbolic address.
+	(gdb_set_address): Fix address for 32-bit computations.
+	(gdb_read_memory_from_addr): New report_error argument.
+	Fix address for 32-bit computations.
+	(gdb_write_memory_to_addr): Fix address for 32-bit computations.
+	(gdb_demangled_symbol): New function to demangle symbols.
+	(ignore_function_output): For gdb_show_objc_object() test.
+	(cleanup_gdb_objc_object): Ditto.
+	(gdb_show_objc_object): New function (variant of print-object).
+	(gdb_is_addr_in_section): New function to get section for an
+	address.
+	(gdb_find_section): New function to find a section by name.
+	(show_all_section_ranges): New private debugging function.
+
+	* gdb.h: Changed copyright date.
+	(gdb_initialize): Updatted comments.
+	(gdb_define_set): Restored for_set_and_show arg.
+	(gdb_define_set_enum): Ditto.
+	(gdb_address_symbol): New function get symbolic address.
+	(gdb_read_memory): Added report_error argument.
+	(gdb_demangled_symbol): New function to demangle symbols.
+	(gdb_show_objc_object): New function (variant of print-object).
+	(gdb_is_addr_in_section): New function to get section for an
+	address.
+	(gdb_find_section): New function to find a section by name.
+
+	* gdb_io_redirection.c:  Changed copyright date.
+	(interps.h): Added #include for interpreter manipulations.
+	(console_interp): New static to point to consle interpreter.
+	(struct interp): !! HACK ALERT !! Copied friom interps.c since
+	there is no other way to set it's interpreter_out field. 
+	(set_interp_ui_out): New function which really needs to be
+	added to interps.c.  See comments for this function for details.
+	(gdb_redirect_output): Set consol interpreter's interpreter_out.
+	(__initialize_io): Save console interpreter's struct interp ptr.
+
+	* gdb_private_interfaces.h: Changed copyright date.
+	(GDB4): Hard coded for backward compatibility with new comments.
+	(GDB_VERSION): New macro.
+	(FIX_TARGET_ADDR): Ditto.
+	(deprecated_set_hook): Fixed comment terminator spacing.
+	(rl_instream): Extern added (comment box also changed.
+	(rl_outstream): Extern added.
+
+	* gdb_set.c: Changed copyright date.
+	(gdb_define_set): Restored support for for_set_and_show.
+	(gdb_define_set_enum): Fixed comment and restored support
+	for for_set_and_show.
+	(gdb_define_set_generic): Restored support for for_set_and_show.
+	(define_set): Changed to work with latest gdb interfaces.
+
+	* gdb_special_events.c: Changed copyright date and fixed
+	lots of formatting to accomodate the renamed "deprecated" hooks.
+	(case Gdb_Before_Deleting_Breakpoint): Fixed comment.
+	(case Gdb_After_Modified_Breakpoint_): Use GDB_ADDRESS address.
+	(case Gdb_After_Memory_Changed): Ditto.
+	(case Gdb_After_File_Changed): Fixed comment.
+	(case Gdb_After_Attach_To_File:): Fixed comment and change
+	deprecated_file_changed_hook to deprecated_exec_file_display_hook.
+
+	* gdb_testing.i:  Changed copyright date.
+	(gdb_teste): New test experimenting with object files.
+
+	* ChangeLog: Moved Klee's gdb_plugin_support 2005-06-15 changes
+	to here where they "belong" from the MacsBug ChangeLog.
+
+2006-07-11  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Build with the pre-conformance header file mode
+	to be consistent with gdb.
+
+2006-03-28  Jason Molenda  (jmolenda@apple.com)
+
+        * gdb_set.c (my_set): Recognize new
+        var_auto_boolean, var_optional_filename.
+        (__my_set_hook_guts): Treat var_auto_boolean as a Set_Boolean 
+        which is not correct.  Treat var_optional_filename as
+        Set_Filename which is less likely to cause problems.
+
+2006-02-16  Stan Shebs  <shebs@apple.com>
+
+	* gdb.c: Uncomment #if 0 "APPLE MERGE" bits.
+	* gdb_special_events.c: Likewise.
+
+2006-01-26  Jim Ingham  <jingham@apple.com>
+
+	* gdb.h: Change gdb_initialize to return int.
+	* gdb.c: gdb_initialize returns int, 1 for success, 0 for failure.
+	Use this to block loading plugin if target is not ppc.
+	
+2005-12-21  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.c (gdb_set_register, gdb_get_register, gdb_get_sp):
+	Don't use DEPRECATED_REGISTER_VIRTUAL_SIZE.
+	* gdb_set.c (define_set): Hack the add_set_cmd call to be close,
+	but not really right, to how this is supposed to work with the
+	current sources.
+	* gdb_sspecial_events.c (gdb_special_events): Update variable name.
+
+2005-12-16  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb_private_interfaces.h (GDB4): Hardcode to be 0.
+
+2005-09-14  Ira Ruben  <iraruben@acm.org>
+	* gdb.c (gdb_enable_filename_completion): Replace explict
+	setting of completer with call to set_cmd_completer() and
+	comment out the setting of completer_word_break_characters.
+	(gdb_get_sp): Fixed return type (GDB_ADDRESS).
+	(gdb_read_memory): Handle negative n with a new routine.
+	(gdb_write_memory): Ditto.
+	(gdb_read_memory_from_addr): New routine.
+	(gdb_write_memory_to_addr): Ditto.
+
+	* gdb.h (gdb_get_sp): Fixed return type (GDB_ADDRESS).
+	(gdb_read_memory): Changed comments.
+	(gdb_write_memory): Ditto.
+	(gdb_read_memory_from_addr): New declaration.
+	(gdb_write_memory_to_addr): Ditto.
+
 2005-07-25  Ira Ruben  <iraruben@acm.org>
 
 	* Makefile: Changed copyright date.
@@ -18,7 +152,6 @@
 	(gdb_set_long): New routine used to get long values instead
 	of using gdb_set_int() for all data types.
 	(gdb_set_long_long): Ditto (but for long long values).
-	(gdb_set_address): Ditto (but for GDB_ADDRESS values).
 	(gdb_get_long): New routine used to get long values instead
 	of using gdb_get_int() for all data types.
 	(gdb_get_long_long): Ditto (but for long long values).
@@ -105,6 +238,27 @@
 	
 	* gdb_testing.i: Changed copyright date.
 	Used gdb_testw() to experiment with getting objfile pathname.
+
+2005-06-15  Klee Dienes  <kdienes@apple.com>
+	* gdb.c: Include "exceptions.h" for some catch_error flags.
+	Disable the quit-handling code --- we'll probably need to replace
+	with some sort of observer.  Replace all get_selected_frame()
+	calls with get_selected_frame(NULL).  Convert VALUE_TYPE to value_type.
+	(gdb_enable_filename_completion): Just set the completer, don't
+	need to set the wrap characters.
+	(gdb_eval_silent): Remove cast from wrap_parse_and_eval.
+	(gdb_define_set): Remove for_set_and_show argument.
+	
+	* gdb_io_redirection: Replace X_hook with deprecated_X_hook, where
+	appropriate.
+	
+	* gdb_set.c (define_set): Remove for_set_and_show argument.
+	(gdb_define_set): Remove for_set_and_show argument.
+	(gdb_define_set_enum): Remove for_set_and_show argument.
+	(define_set): Update (partially) to the new set/show conventions.
+	
+	* gdb_special_events.c: Replace X_hook with deprecated_X_hook,
+	where appropriate.  Temporarily Remove state-changed hooks.
 
 2005-01-21  Jim Ingham  <jingham@apple.com>
 

@@ -89,7 +89,7 @@ char **envp)
 
 	process(archs, narchs);
 
-	writeout(archs, narchs, output, 0777, TRUE, FALSE, FALSE);
+	writeout(archs, narchs, output, 0777, TRUE, FALSE, FALSE, NULL);
 
 	if(errors)
 	    return(EXIT_FAILURE);
@@ -171,23 +171,43 @@ void
 setup_object_symbolic_info(
 struct object *object)
 {
+    unsigned long output_indirectsym_pad_diff;
+
 	if(object->st != NULL && object->st->nsyms != 0){
-	    object->output_symbols = (struct nlist *)
-		(object->object_addr + object->st->symoff);
-	    if(object->object_byte_sex != get_host_byte_sex())
-		swap_nlist(object->output_symbols,
-			   object->st->nsyms,
-			   get_host_byte_sex());
+	    if(object->mh != NULL){
+		object->output_symbols = (struct nlist *)
+		    (object->object_addr + object->st->symoff);
+		if(object->object_byte_sex != get_host_byte_sex())
+		    swap_nlist(object->output_symbols,
+			       object->st->nsyms,
+			       get_host_byte_sex());
+		object->output_symbols64 = NULL;
+	    }
+	    else{
+		object->output_symbols64 = (struct nlist_64 *)
+		    (object->object_addr + object->st->symoff);
+		if(object->object_byte_sex != get_host_byte_sex())
+		    swap_nlist_64(object->output_symbols64,
+				  object->st->nsyms,
+				  get_host_byte_sex());
+		object->output_symbols = NULL;
+	    }
 	    object->output_nsymbols = object->st->nsyms;
 	    object->output_strings =
 		object->object_addr + object->st->stroff;
 	    object->output_strings_size = object->st->strsize;
-	    object->input_sym_info_size =
-		object->st->nsyms * sizeof(struct nlist) +
-		object->st->strsize;
-	    object->output_sym_info_size =
-		object->input_sym_info_size;
+	    if(object->mh != NULL){
+		object->input_sym_info_size =
+		    object->st->nsyms * sizeof(struct nlist) +
+		    object->st->strsize;
+	    }
+	    else{
+		object->input_sym_info_size =
+		    object->st->nsyms * sizeof(struct nlist_64) +
+		    object->st->strsize;
+	    }
 	}
+	output_indirectsym_pad_diff = 0;
 	if(object->dyst != NULL){
 	    object->output_ilocalsym = object->dyst->ilocalsym;
 	    object->output_nlocalsym = object->dyst->nlocalsym;
@@ -195,59 +215,102 @@ struct object *object)
 	    object->output_nextdefsym = object->dyst->nextdefsym;
 	    object->output_iundefsym = object->dyst->iundefsym;
 	    object->output_nundefsym = object->dyst->nundefsym;
-
+	    object->output_indirect_symtab = (uint32_t *)
+		(object->object_addr + object->dyst->indirectsymoff);
 	    object->output_loc_relocs = (struct relocation_info *)
 		(object->object_addr + object->dyst->locreloff);
+	    if(object->split_info_cmd != NULL){
+		object->output_split_info_data = 
+		(object->object_addr + object->split_info_cmd->dataoff);
+		object->output_split_info_data_size = 
+		    object->split_info_cmd->datasize;
+	    }
 	    object->output_ext_relocs = (struct relocation_info *)
 		(object->object_addr + object->dyst->extreloff);
-	    object->output_indirect_symtab = (unsigned long *)
-		(object->object_addr + object->dyst->indirectsymoff);
 	    object->output_tocs =
 		(struct dylib_table_of_contents *)
 		(object->object_addr + object->dyst->tocoff);
 	    object->output_ntoc = object->dyst->ntoc;
-	    object->output_mods = (struct dylib_module *)
-		(object->object_addr + object->dyst->modtaboff);
+	    if(object->mh != NULL){
+		object->output_mods = (struct dylib_module *)
+		    (object->object_addr + object->dyst->modtaboff);
+		object->output_mods64 = NULL;
+	    }
+	    else{
+		object->output_mods64 = (struct dylib_module_64 *)
+		    (object->object_addr + object->dyst->modtaboff);
+		object->output_mods = NULL;
+	    }
 	    object->output_nmodtab = object->dyst->nmodtab;
 	    object->output_refs = (struct dylib_reference *)
 		(object->object_addr + object->dyst->extrefsymoff);
 	    object->output_nextrefsyms = object->dyst->nextrefsyms;
+	    if(object->hints_cmd != NULL){
+		object->output_hints = (struct twolevel_hint *)
+		    (object->object_addr +
+		     object->hints_cmd->offset);
+	    }
+	    if(object->code_sig_cmd != NULL){
+		object->output_code_sig_data = object->object_addr +
+		    object->code_sig_cmd->dataoff;
+		object->output_code_sig_data_size = 
+		    object->code_sig_cmd->datasize;
+	    }
 	    object->input_sym_info_size +=
 		object->dyst->nlocrel *
 		    sizeof(struct relocation_info) +
 		object->dyst->nextrel *
 		    sizeof(struct relocation_info) +
-		object->dyst->nindirectsyms *
-		    sizeof(unsigned long) +
 		object->dyst->ntoc *
 		    sizeof(struct dylib_table_of_contents)+
-		object->dyst->nmodtab *
-		    sizeof(struct dylib_module) +
 		object->dyst->nextrefsyms *
 		    sizeof(struct dylib_reference);
-	    object->output_sym_info_size +=
-		object->dyst->nlocrel *
-		    sizeof(struct relocation_info) +
-		object->dyst->nextrel *
-		    sizeof(struct relocation_info) +
-		object->dyst->nindirectsyms *
-		    sizeof(unsigned long) +
-		object->dyst->ntoc *
-		    sizeof(struct dylib_table_of_contents)+
-		object->dyst->nmodtab *
-		    sizeof(struct dylib_module) +
-		object->dyst->nextrefsyms *
-		    sizeof(struct dylib_reference);
+	    if(object->split_info_cmd != NULL)
+		object->input_sym_info_size += object->split_info_cmd->datasize;
+	    if(object->mh != NULL){
+		object->input_sym_info_size +=
+		    object->dyst->nmodtab *
+			sizeof(struct dylib_module) +
+		    object->dyst->nindirectsyms *
+			sizeof(unsigned long);
+	    }
+	    else{
+		object->input_sym_info_size +=
+		    object->dyst->nmodtab *
+			sizeof(struct dylib_module_64)+
+		    object->dyst->nindirectsyms *
+			  sizeof(unsigned long) +
+		    object->input_indirectsym_pad;
+		    if(object->input_indirectsym_pad == 0 &&
+		       (object->dyst->nindirectsyms % 2) != 0)
+			output_indirectsym_pad_diff = 4;
+	    }
 	    if(object->hints_cmd != NULL){
-		object->output_hints = (struct twolevel_hint *)
-		    (object->object_addr +
-		     object->hints_cmd->offset);
 		object->input_sym_info_size +=
 		    object->hints_cmd->nhints *
 		    sizeof(struct twolevel_hint);
-		object->output_sym_info_size +=
-		    object->hints_cmd->nhints *
-		    sizeof(struct twolevel_hint);
+	    }
+	    if(object->code_sig_cmd != NULL){
+		object->input_sym_info_size = round(object->input_sym_info_size,
+						    16);
+		object->input_sym_info_size += object->code_sig_cmd->datasize;
+	    }
+	    if(output_indirectsym_pad_diff != 0){
+		if(object->output_ntoc != 0)
+		    object->dyst->tocoff += output_indirectsym_pad_diff;
+		if(object->output_nmodtab != 0)
+		    object->dyst->modtaboff += output_indirectsym_pad_diff;
+		if(object->output_nextrefsyms != 0)
+		    object->dyst->extrefsymoff += output_indirectsym_pad_diff;
+		if(object->output_strings_size != 0)
+		    object->st->stroff += output_indirectsym_pad_diff;
+		object->seg_linkedit64->filesize += output_indirectsym_pad_diff;
+		if(object->seg_linkedit64->filesize >
+		   object->seg_linkedit64->vmsize)
+		    object->seg_linkedit64->vmsize +=
+			output_indirectsym_pad_diff;
 	    }
 	}
+	object->output_sym_info_size =
+	    object->input_sym_info_size + output_indirectsym_pad_diff;
 }

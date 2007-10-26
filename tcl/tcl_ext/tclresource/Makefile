@@ -6,7 +6,7 @@
 
 # Project info
 Project               = tclresource
-ProjectName           = Tclresource
+ProjectName           = tclResource
 
 Extra_Environment     = FRAMEWORK_SEARCH_PATHS="$(shell dirname $(TclFramework))" \
                         LIBRARY_SEARCH_PATHS="$(TclFramework)" $(TEA_Environment)

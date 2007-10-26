@@ -15,7 +15,7 @@ PROJECT_TYPE = Tool
 CFILES = itime.c main.c optr.c tape.c traverse.c unctime.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble Makefile.dist\
-            dump.8
+            dump.8 rdump.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

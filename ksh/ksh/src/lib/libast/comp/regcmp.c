@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * regcmp implementation
@@ -31,11 +27,10 @@
 #include <ast.h>
 #include <libgen.h>
 #include <regex.h>
-#include <sfstr.h>
 #include <align.h>
 
 #define INC		(2*1024)
-#define MAX		(16*1024)
+#define TOT		(16*1024)
 #define SUB		10
 
 typedef struct
@@ -151,12 +146,16 @@ regcmp(const char* pattern, ...)
 		}
 	} while (s = va_arg(ap, char*));
 	va_end(ap);
-	s = sfstruse(sp);
+	if (!(s = sfstruse(sp)))
+	{
+		sfstrclose(sp);
+		return 0;
+	}
 	re = 0;
 	n = 0;
 	do
 	{
-		if ((n += INC) > MAX || !(re = newof(re, Regex_t, 0, n)))
+		if ((n += INC) > TOT || !(re = newof(re, Regex_t, 0, n)))
 		{
 			if (re)
 				free(re);

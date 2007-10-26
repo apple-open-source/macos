@@ -31,6 +31,10 @@
 #include <mach-o/reloc.h>
 #include <mach-o/ranlib.h>
 
+#if __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 extern void swap_fat_header(
     struct fat_header *fat_header,
     enum NXByteOrder target_byte_order);
@@ -195,5 +199,9 @@ extern void swap_dylib_table_of_contents(
     struct dylib_table_of_contents *tocs,
     uint32_t ntocs,
     enum NXByteOrder target_byte_sex);
+
+#if __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _MACH_O_SWAP_H_ */

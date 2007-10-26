@@ -1,3 +1,4 @@
+<testcase>
 # Server-side
 <reply>
 
@@ -30,7 +31,7 @@ Funny-head: yesyes
 daniel
 </data2>
 
-# then this is returned when we get proxý-auth
+# then this is returned when we get proxy-auth
 <data1000>
 HTTP/1.1 200 OK swsbounce
 Server: no
@@ -62,9 +63,8 @@ daniel
 <server>
 http
 </server>
-# NTLM requires SSL
 <features>
-SSL
+NTLM
 </features>
  <name>
 HTTP proxy CONNECT auth NTLM and then POST
@@ -79,17 +79,25 @@ http://test.remote.server.com:213/path/2130002 --proxy http://%HOSTIP:%HTTPPORT 
 <strip>
 ^User-Agent: curl/.*
 </strip>
-<protocol nonewline=yes>
+# We strip off a large chunk of the type-2 NTLM message since it depends on
+# the local host name and thus differs on different machines!
+<strippart>
+s/^(Proxy-Authorization: NTLM TlRMTVNTUAADAAAAGAAYAEAAAAAYABgAWAAAAAAAAABwAAAABQAFAHAAAAA).*/$1/
+</strippart>
+<protocol nonewline="yes">
 CONNECT test.remote.server.com:213 HTTP/1.0
-Proxy-Authorization: NTLM TlRMTVNTUAABAAAAAgIAAAAAAAAgAAAAAAAAACAAAAA=
+Host: test.remote.server.com:213
+Proxy-Authorization: NTLM TlRMTVNTUAABAAAABoIIAAAAAAAAAAAAAAAAAAAAAAA=
+Proxy-Connection: Keep-Alive
 
 CONNECT test.remote.server.com:213 HTTP/1.0
-Proxy-Authorization: NTLM TlRMTVNTUAADAAAAGAAYAEUAAAAYABgAXQAAAAAAAABAAAAABQAFAEAAAAAAAAAARQAAAAAAAAB1AAAAAYIAAHNpbGx5oB5CPMq0JDu5tbxLow3sHn3jfoYDE+7QJVE7DA0GyDEwvj2BxsBctP9tT4fnCtL1
+Host: test.remote.server.com:213
+Proxy-Authorization: NTLM TlRMTVNTUAADAAAAGAAYAEAAAAAYABgAWAAAAAAAAABwAAAABQAFAHAAAAA
+Proxy-Connection: Keep-Alive
 
 POST /path/2130002 HTTP/1.1
 User-Agent: curl/7.12.3-CVS (i686-pc-linux-gnu) libcurl/7.12.3-CVS OpenSSL/0.9.6b zlib/1.1.4
 Host: test.remote.server.com:213
-Pragma: no-cache
 Accept: */*
 Content-Length: 6
 Content-Type: application/x-www-form-urlencoded
@@ -97,3 +105,4 @@ Content-Type: application/x-www-form-urlencoded
 postit
 </protocol>
 </verify>
+</testcase>

@@ -1,0 +1,32 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                changeActiveUser = id; 
+                changePasswordForActiveUser = id; 
+                destroyTicketsForActiveUser = id; 
+                getTickets = id; 
+                menuBarStatusItemModeDidChange = id; 
+                openKerberosApplication = id; 
+                renewTicketsForActiveUser = id; 
+                validateTicketsForActiveUser = id; 
+            }; 
+            CLASS = KerberosHelperController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                statusChangePasswordMenuItem = NSMenuItem; 
+                statusDestroyTicketsMenuItem = NSMenuItem; 
+                statusMenu = NSMenu; 
+                statusModesMenu = NSMenu; 
+                statusNewTicketsMenuItem = NSMenuItem; 
+                statusOpenKerberosAppMenuItem = NSMenuItem; 
+                statusRenewTicketsMenuItem = NSMenuItem; 
+                statusSeparatorItem = NSMenuItem; 
+                statusValidateTicketsMenuItem = NSMenuItem; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

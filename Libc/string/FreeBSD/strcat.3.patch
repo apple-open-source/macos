@@ -1,6 +1,71 @@
---- strcat.3.orig	Fri May 28 16:23:18 2004
-+++ strcat.3	Fri May 28 16:23:32 2004
-@@ -114,7 +114,7 @@
+--- _SB/Libc/string/FreeBSD/strcat.3	2003-05-20 15:23:54.000000000 -0700
++++ _SB/Libc/string/FreeBSD/strcat.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -40,16 +40,24 @@
+ .Dt STRCAT 3
+ .Os
+ .Sh NAME
+-.Nm strcat
++.Nm strcat ,
++.Nm strncat
+ .Nd concatenate strings
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+ .In string.h
+ .Ft char *
+-.Fn strcat "char * restrict s" "const char * restrict append"
++.Fo strcat
++.Fa "char *restrict s1"
++.Fa "const char *restrict s2"
++.Fc
+ .Ft char *
+-.Fn strncat "char * restrict s" "const char * restrict append" "size_t count"
++.Fo strncat
++.Fa "char *restrict s1"
++.Fa "const char *restrict s2"
++.Fa "size_t n"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn strcat
+@@ -57,22 +65,22 @@
+ .Fn strncat
+ functions
+ append a copy of the null-terminated string
+-.Fa append
++.Fa s2
+ to the end of the null-terminated string
+-.Fa s ,
++.Fa s1 ,
+ then add a terminating
+ .Ql \e0 .
+ The string
+-.Fa s
++.Fa s1
+ must have sufficient space to hold the result.
+ .Pp
+ The
+ .Fn strncat
+ function
+ appends not more than
+-.Fa count
++.Fa n
+ characters from
+-.Fa append ,
++.Fa s2 ,
+ and then adds a terminating
+ .Ql \e0 .
+ .Sh RETURN VALUES
+@@ -82,7 +90,7 @@
+ .Fn strncat
+ functions
+ return the pointer
+-.Fa s .
++.Fa s1 .
+ .Sh SECURITY CONSIDERATIONS
+ The
+ .Fn strcat
+@@ -114,7 +122,7 @@
  void
  foo(const char *arbitrary_string)
  {
@@ -9,7 +74,7 @@
  
  #if defined(BAD)
  	/*
-@@ -149,11 +149,6 @@
+@@ -149,11 +157,6 @@
  .Xr strcpy 3 ,
  .Xr strlcat 3 ,
  .Xr strlcpy 3

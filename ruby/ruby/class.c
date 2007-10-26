@@ -2,8 +2,8 @@
 
   class.c -
 
-  $Author: ocean $
-  $Date: 2004/07/15 11:42:46 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Tue Aug 10 15:05:44 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -58,6 +58,7 @@ clone_method(mid, body, tbl)
     return ST_CONTINUE;
 }
 
+/* :nodoc: */
 VALUE
 rb_mod_init_copy(clone, orig)
     VALUE clone, orig;
@@ -85,12 +86,16 @@ rb_mod_init_copy(clone, orig)
     return clone;
 }
 
+/* :nodoc: */
 VALUE
 rb_class_init_copy(clone, orig)
     VALUE clone, orig;
 {
     if (RCLASS(clone)->super != 0) {
 	rb_raise(rb_eTypeError, "already initialized class");
+    }
+    if (FL_TEST(orig, FL_SINGLETON)) {
+	rb_raise(rb_eTypeError, "can't copy singleton class");
     }
     return rb_mod_init_copy(clone, orig);
 }
@@ -374,9 +379,6 @@ rb_include_module(klass, module)
 	rb_secure(4);
     }
     
-    if (NIL_P(module)) return;
-    if (klass == module) return;
-
     if (TYPE(module) != T_MODULE) {
 	Check_Type(module, T_MODULE);
     }

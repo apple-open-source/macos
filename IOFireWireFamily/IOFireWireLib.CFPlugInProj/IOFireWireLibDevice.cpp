@@ -19,9 +19,14 @@
 #import "IOFireWireLibDCLCommandPool.h"
 #import "IOFireWireLibNuDCLPool.h"
 #import "IOFireWireLibBufferFillIsochPort.h"
+#import "IOFireWireLibAsyncStreamListener.h"
+#import "IOFireWireLibIRMAllocation.h"
+#import "IOFireWireLibVectorCommand.h"
+#import "IOFireWireLibPHYPacketListener.h"
 
 #import <IOKit/iokitmig.h>
 #import <mach/mach.h>
+#import <System/libkern/OSCrossEndian.h>
 
 namespace IOFireWireLib {
 
@@ -38,8 +43,6 @@ namespace IOFireWireLib {
 		mNotifyIsOn					= false ;
 		mAsyncPort					= 0 ;
 		mAsyncCFPort				= 0 ;
-		mBusResetAsyncRef[0] 		= 0 ;
-		mBusResetDoneAsyncRef[0]	= 0 ;
 		mBusResetHandler 			= 0 ;
 		mBusResetDoneHandler 		= 0 ;
 	
@@ -161,7 +164,11 @@ namespace IOFireWireLib {
 				// v8
 				
 				|| CFEqual( interfaceID, kIOFireWireDeviceInterfaceID_v8 )
-			)
+
+				// v9
+				
+				|| CFEqual( interfaceID, kIOFireWireDeviceInterfaceID_v9 )
+				)
 		{
 			*ppv = & GetInterface() ;
 			AddRef() ;
@@ -252,8 +259,9 @@ namespace IOFireWireLib {
 			return kIOReturnSuccess ;
 		}
 			
-		IOReturn result = ::IOConnectMethodScalarIScalarO( GetUserClientConnection(), kOpen, 0, 0 ) ;
-			
+		uint32_t outputCnt = 0;
+		IOReturn result = IOConnectCallScalarMethod(GetUserClientConnection(),kOpen,NULL,0,NULL,&outputCnt);
+													
 		mIsOpen = (kIOReturnSuccess == result) ;
 	
 		return result ;
@@ -267,7 +275,11 @@ namespace IOFireWireLib {
 			return kIOReturnSuccess ;
 		}
 
-		IOReturn result = ::IOConnectMethodScalarIScalarO( GetUserClientConnection(), kOpenWithSessionRef, 1, 0, session ) ;
+		uint32_t outputCnt = 0;
+
+		const uint64_t inputs[1]={(const uint64_t)session};
+
+		IOReturn result = IOConnectCallScalarMethod(GetUserClientConnection(), kOpenWithSessionRef,inputs,1,NULL,&outputCnt);
 			
 		mIsOpen = (kIOReturnSuccess == result) ;
 		
@@ -283,10 +295,13 @@ namespace IOFireWireLib {
 			return kIOReturnError ;
 		}
 		
-		if ( nil == mConnection )
+		if (!mConnection)
 			return kIOReturnNoDevice ;
 	
-		IOReturn err = ::IOConnectMethodScalarIScalarO( GetUserClientConnection(), kSeize, 1, 0, flags ) ;
+		uint32_t outputCnt = 0;
+		const uint64_t inputs[1]={(const uint64_t)flags};
+		IOReturn err = IOConnectCallScalarMethod(GetUserClientConnection(), kSeize,inputs,1,NULL,&outputCnt);
+		
 		DebugLogCond(err, "Could not seize service! err=%x\n", err) ;
 		
 		return err ;
@@ -301,9 +316,10 @@ namespace IOFireWireLib {
 			return ;
 		}
 	
+		uint32_t outputCnt = 0;
 		IOReturn err = kIOReturnSuccess;
-		err = IOConnectMethodScalarIScalarO( GetUserClientConnection(), kClose, 0, 0 ) ;
-			
+		err = IOConnectCallScalarMethod(GetUserClientConnection(),kClose,NULL,0,NULL,&outputCnt);
+		
 		DebugLogCond( err, "Device::Close(): error %x returned from Close()!\n", err ) ;
 	
 		mIsOpen = false ;
@@ -365,9 +381,13 @@ namespace IOFireWireLib {
 		CFRunLoopSourceRef		runLoopSource,
 		CFStringRef				mode)
 	{
-		if ( runLoop && runLoopSource )
-			if (CFRunLoopContainsSource( runLoop, runLoopSource, mode ))
-				CFRunLoopRemoveSource( runLoop, runLoopSource, mode );
+//		if ( runLoop && runLoopSource )
+//			if (CFRunLoopContainsSource( runLoop, runLoopSource, mode ))
+//				CFRunLoopRemoveSource( runLoop, runLoopSource, mode );
+		if ( runLoopSource )
+		{
+			CFRunLoopSourceInvalidate( runLoopSource ) ;
+		}
 	}
 	
 	const Boolean
@@ -375,10 +395,8 @@ namespace IOFireWireLib {
 		void*					callBackRefCon)
 	{
 		IOReturn				result					= kIOReturnSuccess ;
-		io_scalar_inband_t		params ;
-		mach_msg_type_number_t	size = 0 ;
 		
-		if ( nil == mConnection )
+		if ( !mConnection )
 			result = kIOReturnNoDevice ;
 		
 		if (!AsyncPortsExist())
@@ -386,23 +404,32 @@ namespace IOFireWireLib {
 	
 		if ( kIOReturnSuccess == result )
 		{
-			params[0]	= (UInt32)(IOAsyncCallback) & Device::BusResetHandler ;
-			params[1]	= (UInt32) callBackRefCon; //(UInt32) this ;
-		
-			result = ::io_async_method_scalarI_scalarO( mConnection, mAsyncPort, mBusResetAsyncRef, 1, 
-					kSetAsyncRef_BusReset, params, 2, params, & size ) ;
-			
+			uint64_t refrncData[kOSAsyncRef64Count];
+			refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t) 0;
+			refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long) 0;
+			const uint64_t inputs[2] = {(const uint64_t)& Device::BusResetHandler,(const uint64_t)callBackRefCon};
+			uint32_t outputCnt = 0;
+			result = IOConnectCallAsyncScalarMethod(mConnection,
+													kSetAsyncRef_BusReset,
+													mAsyncPort, 
+													refrncData,kOSAsyncRef64Count,
+													inputs,2,
+													NULL,&outputCnt);
 		}
 	
 		if ( kIOReturnSuccess == result )
 		{
-			params[0]	= (UInt32)(IOAsyncCallback) & Device::BusResetDoneHandler ;
-			params[1]	= (UInt32) callBackRefCon; //(UInt32) this ;
-			size = 0 ;
-		
-			result = ::io_async_method_scalarI_scalarO( mConnection, mAsyncPort, mBusResetDoneAsyncRef, 1, 
-					kSetAsyncRef_BusResetDone, params, 2, params, & size) ;
-			
+			uint64_t refrncData[kOSAsyncRef64Count];
+			refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t) 0;
+			refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long) 0;
+			const uint64_t inputs[2] = {(const uint64_t)& Device::BusResetDoneHandler,(const uint64_t)callBackRefCon};
+			uint32_t outputCnt = 0;
+			result = IOConnectCallAsyncScalarMethod(mConnection,
+													kSetAsyncRef_BusResetDone,
+													mAsyncPort, 
+													refrncData,kOSAsyncRef64Count,
+													inputs,2,
+													NULL,&outputCnt);
 		}
 		
 		if ( kIOReturnSuccess == result )
@@ -415,8 +442,6 @@ namespace IOFireWireLib {
 	Device::TurnOffNotification()
 	{
 		IOReturn				result			= kIOReturnSuccess ;
-		io_scalar_inband_t		params ;
-		mach_msg_type_number_t	size 		= 0 ;
 		
 		// if notification isn't on, skip out.
 		if (!mNotifyIsOn)
@@ -427,19 +452,26 @@ namespace IOFireWireLib {
 		
 		if ( kIOReturnSuccess == result )
 		{
-			params[0]	= (UInt32)(IOAsyncCallback) 0 ;
-			params[1]	= 0 ;
-		
-			result = ::io_async_method_scalarI_scalarO( mConnection, mAsyncPort, mBusResetAsyncRef, 1, 
-					kSetAsyncRef_BusReset, params, 2, params, & size) ;
+
+			uint64_t refrncData[kOSAsyncRef64Count];
+			refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t) 0;
+			refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long) 0;
+			const uint64_t inputs[2] = {0,0};
+			uint32_t outputCnt = 0;
+			result = IOConnectCallAsyncScalarMethod(mConnection,
+													kSetAsyncRef_BusReset,
+													mAsyncPort, 
+													refrncData,kOSAsyncRef64Count,
+													inputs,2,
+													NULL,&outputCnt);
 			
-			params[0]	= (UInt32)(IOAsyncCallback) 0 ;
-			params[1]	= 0 ;
-			size = 0 ;
-		
-			result = ::io_async_method_scalarI_scalarO( mConnection, mAsyncPort, mBusResetDoneAsyncRef, 1,
-					kSetAsyncRef_BusResetDone, params, 2, params, & size) ;
-			
+			outputCnt = 0;
+			result = IOConnectCallAsyncScalarMethod(mConnection,
+													kSetAsyncRef_BusResetDone,
+													mAsyncPort, 
+													refrncData,kOSAsyncRef64Count,
+													inputs,2,
+													NULL,&outputCnt);
 		}
 		
 		mNotifyIsOn = false ;
@@ -503,10 +535,38 @@ namespace IOFireWireLib {
 		if ( device != mDefaultDevice && device != 0 )
 			return kIOReturnBadArgument ;
 	
-		IOByteCount 			resultSize	 	= sizeof( *size ) ;
-		ReadParams	 			params 			= { addr, buf, *size, failOnReset, generation, device == 0 /*isAbs*/ } ;
-	
-		return IOConnectMethodStructureIStructureO( mConnection, kRead, sizeof(params), & resultSize, & params, size ) ;
+		ReadParams	 			params 			= { addr, (mach_vm_address_t)buf, *size, failOnReset, generation, device == 0 /*isAbs*/ } ;
+
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				params.addr.nodeID = OSSwapInt16( params.addr.nodeID );
+				params.addr.addressHi = OSSwapInt16( params.addr.addressHi );
+				params.addr.addressLo = OSSwapInt32( params.addr.addressLo );
+				params.buf = (mach_vm_address_t)OSSwapInt64(params.buf);
+				params.size = OSSwapInt32( params.size);
+			//	params.failOnReset = params.failOnReset;
+				params.generation = OSSwapInt32( params.generation );
+			//	params.isAbs = params.isAbs;
+			}
+		);
+#endif
+		
+		size_t outputStructSize = sizeof( *size ) ;
+		IOReturn status = IOConnectCallStructMethod(mConnection, 
+													kRead,
+													&params,sizeof(params),
+													size,&outputStructSize);
+
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				*size = OSSwapInt32( *size );
+			}
+		);		
+#endif
+		
+		return status;
 	}
 	
 	IOReturn
@@ -518,10 +578,28 @@ namespace IOFireWireLib {
 		if ( device != mDefaultDevice && device != 0 )
 			return kIOReturnBadArgument ;
 	
-		IOByteCount 				resultSize 		= sizeof( *val ) ;
-		ReadQuadParams	 			params 			= { addr, val, 1, failOnReset, generation, device == 0 /*isAbs*/ } ;
-	
-		return IOConnectMethodStructureIStructureO( mConnection, kReadQuad, sizeof(params), & resultSize, & params, val ) ;
+		ReadQuadParams	 			params 			= { addr, (mach_vm_address_t)val, 1, failOnReset, generation, device == 0 /*isAbs*/ } ;
+
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				params.addr.nodeID = OSSwapInt16( params.addr.nodeID );
+				params.addr.addressHi = OSSwapInt16( params.addr.addressHi );
+				params.addr.addressLo = OSSwapInt32( params.addr.addressLo );
+				params.buf = (mach_vm_address_t)OSSwapInt64(params.buf);
+				params.size = OSSwapInt32( params.size);
+			//	params.failOnReset = params.failOnReset; // byte
+				params.generation = OSSwapInt32( params.generation);
+			//	params.isAbs = params.isAbs; // byte
+			}
+		);
+#endif
+		
+		size_t outputStructSize = sizeof( *val ) ;
+		return IOConnectCallStructMethod(mConnection, 
+										 kReadQuad,
+										 &params,sizeof(params),
+										 val,&outputStructSize);
 	}
 	
 	IOReturn
@@ -538,10 +616,39 @@ namespace IOFireWireLib {
 		if ( device != mDefaultDevice && device != 0 )
 			return kIOReturnBadArgument ;
 	
-		IOByteCount 				resultSize 		= sizeof( *size ) ;
-		WriteParams		 			params 			= { addr, buf, *size, failOnReset, generation, device == 0 /*isAbs*/ } ;
-	
-		return IOConnectMethodStructureIStructureO( mConnection, kWrite, sizeof(params), & resultSize, & params, size ) ;
+		WriteParams		 			params 			= { addr, (mach_vm_address_t)buf, *size, failOnReset, generation, device == 0 /*isAbs*/ } ;
+
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				params.addr.nodeID = OSSwapInt16( params.addr.nodeID );
+				params.addr.addressHi = OSSwapInt16( params.addr.addressHi );
+				params.addr.addressLo = OSSwapInt32( params.addr.addressLo );
+				params.buf = (mach_vm_address_t)OSSwapInt64(params.buf);
+				params.size = OSSwapInt32( params.size);
+			//	params.failOnReset = params.failOnReset; // byte
+				params.generation = OSSwapInt32( params.generation);
+			//	params.isAbs = params.isAbs; // byte
+			}
+		);
+#endif		
+			
+		size_t outputStructSize = sizeof( *size ) ;
+		IOReturn status =  IOConnectCallStructMethod(mConnection, 
+													 kWrite,
+													 &params,sizeof(params),
+													 size,&outputStructSize);
+
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				if ( status == kIOReturnSuccess )
+					*size = OSSwapInt32( *size );
+			}
+		);		
+#endif
+		
+		return status;
 	}
 	
 	IOReturn
@@ -558,9 +665,26 @@ namespace IOFireWireLib {
 			return kIOReturnBadArgument ;
 	
 		WriteQuadParams 			params 			= { addr, val, failOnReset, generation, device == 0 } ;
-		IOByteCount 				resultSize 		= 0 ;
+
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				params.addr.nodeID = OSSwapInt16( params.addr.nodeID );
+				params.addr.addressHi = OSSwapInt16( params.addr.addressHi );
+				params.addr.addressLo = OSSwapInt32( params.addr.addressLo );
+			//	params.val = params.val; // data
+			//	params.failOnReset = params.failOnReset; // byte
+				params.generation = OSSwapInt32( params.generation);
+			//	params.isAbs = params.isAbs; // byte
+			}
+		);
+#endif		
 	
-		return IOConnectMethodStructureIStructureO( mConnection, kWriteQuad, sizeof(params), & resultSize, & params, nil ) ;
+		size_t outputStructSize = 0 ;
+		return IOConnectCallStructMethod(mConnection, 
+										 kWriteQuad,
+										 &params,sizeof(params),
+										 NULL,&outputStructSize);
 	}
 	
 	IOReturn
@@ -577,8 +701,7 @@ namespace IOFireWireLib {
 		if ( device != mDefaultDevice && device != 0 )
 			return kIOReturnBadArgument ;
 	
-		IOByteCount 				resultSize 		= sizeof(UInt64) ;
-		UInt64						result ;
+		UInt32						result ;
 		CompareSwapParams			params ;
 		
 		params.addr					= addr ;
@@ -588,8 +711,35 @@ namespace IOFireWireLib {
 		params.failOnReset			= failOnReset ;
 		params.generation			= generation ;
 		params.isAbs				= device == 0 ;
-	
-		return IOConnectMethodStructureIStructureO( mConnection, kCompareSwap, sizeof(params), & resultSize, & params, & result ) ;
+
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				params.addr.nodeID = OSSwapInt16( params.addr.nodeID );
+				params.addr.addressHi = OSSwapInt16( params.addr.addressHi );
+				params.addr.addressLo = OSSwapInt32( params.addr.addressLo );
+			//	params.cmpVal = params.cmpVal;	// data
+			//	params.newVal = params.newVal;	// data
+				params.size = OSSwapInt32( params.size);
+			//	params.failOnReset = params.failOnReset; // byte
+				params.generation = OSSwapInt32( params.generation);
+			//	params.isAbs = params.isAbs; // byte
+			}
+		);
+#endif
+		
+		size_t outputStructSize = sizeof(UInt32) ;
+		IOReturn error = IOConnectCallStructMethod(mConnection, 
+												   kCompareSwap,
+												   &params,sizeof(params),
+												   &result,&outputStructSize);
+		
+		// Make sure lock transaction succeeed by
+		// checking the expected vs actual old value!
+		if ( cmpVal != result)
+			error = kIOReturnCannotLock ;
+		
+		return error;
 	}
 	
 	IOReturn
@@ -627,11 +777,30 @@ namespace IOFireWireLib {
 		params.failOnReset		= failOnReset ;
 		params.generation		= generation ;
 		params.isAbs			= device == 0 ;
-	
+
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				params.addr.nodeID = OSSwapInt16( params.addr.nodeID );
+				params.addr.addressHi = OSSwapInt16( params.addr.addressHi );
+				params.addr.addressLo = OSSwapInt32( params.addr.addressLo );
+			//	params.cmpVal = params.cmpVal;	// data
+			//	params.newVal = params.newVal;	// data
+				params.size = OSSwapInt32( params.size);
+			//	params.failOnReset = params.failOnReset; // byte
+				params.generation = OSSwapInt32( params.generation);
+			//	params.isAbs = params.isAbs; // byte
+			}
+		);
+#endif
+		
 		UInt64			result ;
-		IOByteCount 	resultSize 	= sizeof(UInt64) ;
-		IOReturn error = ::IOConnectMethodStructureIStructureO( mConnection, kCompareSwap, sizeof(params), 
-				& resultSize, & params, & result ) ;
+		
+		size_t outputStructSize = sizeof(UInt64) ;
+		IOReturn error = IOConnectCallStructMethod(mConnection, 
+												   kCompareSwap,
+												   &params,sizeof(params),
+												   &result,&outputStructSize);
 		
 		if (size==4)
 		{
@@ -690,12 +859,7 @@ namespace IOFireWireLib {
 	{
 		IOFireWireLibCommandRef	result = 0 ;
 		
-		IUnknownVTbl** iUnknown = ReadQuadCmd::Alloc(*this, device, addr, quads, numQuads, callback, failOnReset, generation, inRefCon) ;
-		if (iUnknown)
-		{
-			(*iUnknown)->QueryInterface(iUnknown, iid, (void**) & result) ;
-			(*iUnknown)->Release(iUnknown) ;
-		}
+		// no longer supported
 		
 		return result ;
 	}
@@ -739,12 +903,7 @@ namespace IOFireWireLib {
 	{
 		IOFireWireLibCommandRef	result = 0 ;
 		
-		IUnknownVTbl** iUnknown = WriteQuadCmd::Alloc(*this, device, addr, quads, numQuads, callback, failOnReset, generation, inRefCon) ;
-		if (iUnknown)
-		{
-			(*iUnknown)->QueryInterface(iUnknown, iid, (void**) & result) ;
-			(*iUnknown)->Release(iUnknown) ;
-		}
+		// no longer supported
 		
 		return result ;
 	}
@@ -773,22 +932,49 @@ namespace IOFireWireLib {
 		if (!mIsOpen)
 			return kIOReturnNotOpen ;
 	
-		return IOConnectMethodScalarIScalarO( mConnection, kBusReset, 0, 0 ) ;
+		uint32_t outputCnt = 0;
+		return IOConnectCallScalarMethod(mConnection,kBusReset,NULL,0,NULL,&outputCnt);
 	}
 	
 	IOReturn
 	Device::GetCycleTime(
 		UInt32*		outCycleTime)
 	{
-		return IOConnectMethodScalarIScalarO( mConnection, kCycleTime, 0, 1, outCycleTime ) ;
+		uint32_t outputCnt = 2;
+		uint64_t outputVal[2];
+		outputVal[0] = 0;
+		outputVal[1] = 0;
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kCycleTime,NULL,0,outputVal,&outputCnt);
+		*outCycleTime = outputVal[0] & 0xFFFFFFFF;
+		return result;
 	}
-	
+
+	IOReturn
+	Device::GetCycleTimeAndUpTime(
+		UInt32*		outCycleTime,
+		UInt64*		outUpTime )
+	{
+		uint32_t outputCnt = 2;
+		uint64_t outputVal[2];
+		outputVal[0] = 0;
+		outputVal[1] = 0;
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kCycleTime,NULL,0,outputVal,&outputCnt);
+		*outCycleTime = outputVal[0] & 0xFFFFFFFF;
+		*outUpTime = outputVal[1];
+		return result;
+	}
+		
 	IOReturn
 	Device::GetBusCycleTime(
 		UInt32*		outBusTime,
 		UInt32*		outCycleTime)
 	{
-		return IOConnectMethodScalarIScalarO( mConnection, kGetBusCycleTime, 0, 2, outBusTime, outCycleTime ) ;
+		uint32_t outputCnt = 2;
+		uint64_t outputVal[2];
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetBusCycleTime,NULL,0,outputVal,&outputCnt);
+		*outBusTime = outputVal[0] & 0xFFFFFFFF;
+		*outCycleTime = outputVal[1] & 0xFFFFFFFF;
+		return result;
 	}
 	
 	IOReturn
@@ -796,32 +982,45 @@ namespace IOFireWireLib {
 		UInt32*		outGeneration,
 		UInt16*		outNodeID)
 	{
-		UInt32	nodeID ;
-		IOReturn result = IOConnectMethodScalarIScalarO( mConnection, kGetGenerationAndNodeID, 0, 2, outGeneration, & nodeID ) ;
-		
-		*outNodeID = (UInt16)nodeID ;
-	
-		return result ;
+		uint32_t outputCnt = 2;
+		uint64_t outputVal[2];
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetGenerationAndNodeID,NULL,0,outputVal,&outputCnt);
+		*outGeneration = outputVal[0] & 0xFFFFFFFF;
+		*outNodeID = outputVal[1] & 0xFFFF;
+		return result;
 	}
 	
 	IOReturn
 	Device::GetLocalNodeID(
 		UInt16*		outLocalNodeID)
 	{
-		UInt32	localNodeID ;
-	
-		IOReturn result = IOConnectMethodScalarIScalarO( mConnection, kGetLocalNodeID, 0, 1, & localNodeID ) ;
-		*outLocalNodeID = (UInt16)localNodeID ;
-		
-		return result ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetLocalNodeID,NULL,0,&outputVal,&outputCnt);
+		*outLocalNodeID = outputVal & 0xFFFF;
+		return result;
 	}
 	
 	IOReturn
 	Device::GetResetTime(
 		AbsoluteTime*			resetTime)
 	{
-		IOByteCount		size = sizeof(*resetTime) ;
-		return IOConnectMethodStructureIStructureO( mConnection, kGetResetTime, 0, & size, NULL, resetTime ) ;
+		
+		size_t outputStructSize = sizeof(*resetTime) ;
+		IOReturn status = IOConnectCallStructMethod(mConnection, kGetResetTime,
+													NULL,0,
+													resetTime,&outputStructSize);
+		
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				(*resetTime).hi = OSSwapInt32( (*resetTime).hi );
+				(*resetTime).lo = OSSwapInt32( (*resetTime).lo );
+			}
+		);
+#endif
+		
+		return status;
 	}
 	
 	#pragma mark -
@@ -906,10 +1105,12 @@ namespace IOFireWireLib {
 		if ( mIsOpen )
 		{
 			UserObjectHandle	output ;
-			
-			if ( kIOReturnSuccess  == IOConnectMethodScalarIScalarO ( mConnection, kPhysicalAddrSpace_Allocate,
-																			3, 1, inSize, inBackingStore, inFlags, & output ) )
+			uint32_t outputCnt = 1;
+			uint64_t outputVal = 0;
+			const uint64_t inputs[3] = {inSize, (const uint64_t)inBackingStore, inFlags};
+			if ( kIOReturnSuccess  == IOConnectCallScalarMethod(mConnection,kPhysicalAddrSpace_Allocate,inputs,3,&outputVal,&outputCnt) )
 			{
+				output = (UserObjectHandle) outputVal;
 				if (output)
 				{
 					// we allocate a user space pseudo address space with the reference we
@@ -919,7 +1120,7 @@ namespace IOFireWireLib {
 					// we got a new iUnknown from the object. Query it for the interface
 					// requested in iid...
 					if (iUnknown)
-					{
+					{				
 						(*iUnknown)->QueryInterface(iUnknown, iid, (void**) & result) ;
 						
 						// we got the interface we wanted (or at least another ref to iUnknown),
@@ -930,7 +1131,7 @@ namespace IOFireWireLib {
 			}			
 	
 		}
-		
+	
 		return result ;
 	}
 	
@@ -965,21 +1166,43 @@ namespace IOFireWireLib {
 	
 		AddressSpaceCreateParams	params ;
 		params.size 			= inSize ;
-		params.queueBuffer 		= (Byte*) queueBuffer ;
+		params.queueBuffer 		= (mach_vm_address_t) queueBuffer ;
 		params.queueSize		= (UInt32) inQueueBufferSize ;
-		params.backingStore 	= (Byte*) inBackingStore ;
-		params.refCon			= this ;
+		params.backingStore 	= (mach_vm_address_t) inBackingStore ;
+		params.refCon			= (mach_vm_address_t)this ;  //zzz is this even used?
 		params.flags			= inFlags ;
 		params.isInitialUnits	= isInitialUnits ;
 		params.addressLo		= inAddressLo ;
 		
-		UserObjectHandle	addrSpaceRef ;
-		IOByteCount			size	= sizeof(addrSpaceRef) ;
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				params.size = OSSwapInt64( params.size );
+				params.queueBuffer = (mach_vm_address_t)OSSwapInt64( (UInt64)params.queueBuffer );
+				params.queueSize = OSSwapInt64( params.queueSize );
+				params.backingStore = (mach_vm_address_t)OSSwapInt64( (UInt64)params.backingStore );
+				params.flags = OSSwapInt32( params.flags );
+				// params.isInitialUnits = params.isInitialUnits // byte
+				params.addressLo = OSSwapInt32( params.addressLo );
+			}
+		);
+#endif
 		
-		// call the routine which creates a pseudo address space in the kernel.
-		IOReturn err = ::IOConnectMethodStructureIStructureO( mConnection, kPseudoAddrSpace_Allocate,
-										sizeof(params), & size, & params, & addrSpaceRef ) ;
+		UserObjectHandle	addrSpaceRef ;
+
+		size_t outputStructSize = sizeof(addrSpaceRef) ;
+		IOReturn err = IOConnectCallStructMethod(mConnection, kPseudoAddrSpace_Allocate,
+												 &params,sizeof(params),
+												 & addrSpaceRef,&outputStructSize);
 	
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				addrSpaceRef = (UserObjectHandle)OSSwapInt32( (UInt32)addrSpaceRef );
+			}
+		);
+#endif
+		
 		if ( !err )
 		{
 			// we allocate a user space pseudo address space with the reference we
@@ -1039,9 +1262,11 @@ namespace IOFireWireLib {
 		char		msg[128] ;
 		vsnprintf( msg, 127, format, ap ) ;
 	
-		IOByteCount outSize = 0 ;
-		
-		IOReturn	err = ::IOConnectMethodStructureIStructureO( GetUserClientConnection(), kFireLog, strlen( msg )+1, & outSize, msg, nil ) ;
+		size_t outputStructSize = 0 ;
+		IOReturn err = IOConnectCallStructMethod(GetUserClientConnection(), 
+												 kFireLog,
+												 msg,strlen( msg )+1,
+												 NULL,&outputStructSize);
 		return err ;
 	}
 	
@@ -1067,15 +1292,18 @@ namespace IOFireWireLib {
 		CFStringRef*&		text)
 	{
 		char*				textBuffer = new char[inStringLen+1] ;
-		io_connect_t		connection = GetUserClientConnection() ;
+		//io_connect_t		connection = GetUserClientConnection() ;
 		UInt32				stringSize ;
 		
 		if (!textBuffer)
 			return kIOReturnNoMemory ;
 		
-		IOReturn result = ::IOConnectMethodScalarIScalarO( connection, kGetOSStringData, 3, 1, inStringRef, 
-				inStringLen, textBuffer, & stringSize) ;
-	
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		const uint64_t inputs[3] = {(uint64_t)inStringRef, inStringLen, (uint64_t)textBuffer};
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetOSStringData,inputs,3,&outputVal,&outputCnt);
+		stringSize = outputVal & 0xFFFFFFFF;
+		
 		textBuffer[inStringLen] = 0 ;
 		
 		if (text && (kIOReturnSuccess == result))
@@ -1101,9 +1329,12 @@ namespace IOFireWireLib {
 		if (!mConnection)
 			return kIOReturnError ;
 		
-		IOReturn result = IOConnectMethodScalarIScalarO( mConnection, kGetOSDataData, 3, 1,
-									inDataRef, inDataSize, buffer, & dataSize) ;
-	
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		const uint64_t inputs[3] = {(uint64_t)inDataRef, inDataSize, (uint64_t)buffer};
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetOSDataData,inputs,3,&outputVal,&outputCnt);
+		dataSize = outputVal & 0xFFFFFFFF;
+		
 		if (data && (kIOReturnSuccess == result))
 			*data = CFDataCreate(kCFAllocatorDefault, buffer, inDataSize) ;
 	
@@ -1221,87 +1452,326 @@ namespace IOFireWireLib {
 	IOReturn
 	Device::GetBusGeneration( UInt32* outGeneration )
 	{
-		return IOConnectMethodScalarIScalarO( mConnection, kGetBusGeneration, 0, 1, outGeneration ) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetBusGeneration,NULL,0,&outputVal,&outputCnt);
+		*outGeneration = outputVal & 0xFFFFFFFF;
+		return result;
 	}
 	
 	IOReturn
 	Device::GetLocalNodeIDWithGeneration( UInt32 checkGeneration, UInt16* outLocalNodeID )
 	{
-		UInt32	nodeID ;
-		IOReturn error = IOConnectMethodScalarIScalarO( mConnection, kGetLocalNodeIDWithGeneration, 1, 1, checkGeneration, & nodeID ) ;
-		
-		*outLocalNodeID = (UInt16)nodeID ;
-		
-		return error ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		const uint64_t inputs[1]={(const uint64_t)checkGeneration};
+
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetLocalNodeIDWithGeneration,inputs,1,&outputVal,&outputCnt);
+		*outLocalNodeID = outputVal & 0xFFFF;
+		return result;
 	}
 	
 	IOReturn
 	Device::GetRemoteNodeID( UInt32 checkGeneration, UInt16* outRemoteNodeID )
 	{
-		UInt32	nodeID ;
-		IOReturn error = IOConnectMethodScalarIScalarO( mConnection, kGetRemoteNodeID, 1, 1, checkGeneration, & nodeID ) ;
-		
-		*outRemoteNodeID = (UInt16)nodeID ;
-		
-		return error ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		const uint64_t inputs[1]={(const uint64_t)checkGeneration};
+
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetRemoteNodeID,inputs,1,&outputVal,&outputCnt);
+		*outRemoteNodeID = outputVal & 0xFFFF;
+		return result;
 	}
 	
 	IOReturn
 	Device::GetSpeedToNode( UInt32 checkGeneration, IOFWSpeed* outSpeed)
 	{
-		UInt32	speed ;
-		IOReturn error = IOConnectMethodScalarIScalarO( mConnection, kGetSpeedToNode, 1, 1, checkGeneration, & speed ) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		const uint64_t inputs[1]={(const uint64_t)checkGeneration};
 
-		*outSpeed = (IOFWSpeed)speed ;
-		
-		return error ;
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetSpeedToNode,inputs,1,&outputVal,&outputCnt);
+		*outSpeed = (IOFWSpeed)(outputVal & 0xFFFFFFFF);
+		return result;
 	}
 	
 	IOReturn
 	Device::GetSpeedBetweenNodes( UInt32 checkGeneration, UInt16 srcNodeID, UInt16 destNodeID, IOFWSpeed* outSpeed)
 	{
-		UInt32 speed ;
-		
-		IOReturn error = IOConnectMethodScalarIScalarO( mConnection, kGetSpeedBetweenNodes, 3, 1, checkGeneration, (UInt32)srcNodeID, (UInt32)destNodeID, & speed ) ;
-		
-		*outSpeed = (IOFWSpeed)speed ;
-		
-		return error ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		const uint64_t inputs[3] = {checkGeneration, srcNodeID, destNodeID};
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetSpeedBetweenNodes,inputs,3,&outputVal,&outputCnt);
+		*outSpeed = (IOFWSpeed)(outputVal & 0xFFFFFFFF);
+		return result;
 	}
 
 	IOReturn
 	Device::GetIRMNodeID( UInt32 checkGeneration, UInt16* outIRMNodeID )
 	{
-		UInt32 tempNodeID ;
-		
-		IOReturn error = ::IOConnectMethodScalarIScalarO( mConnection, kGetIRMNodeID, 1, 1, checkGeneration, & tempNodeID ) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		const uint64_t inputs[1]={(const uint64_t)checkGeneration};
 
-		*outIRMNodeID = (UInt16)tempNodeID ;
-		
-		return error ;
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kGetIRMNodeID,inputs,1,&outputVal,&outputCnt);
+		*outIRMNodeID = outputVal & 0xFFFF;
+		return result;
 	}
 	
 	IOReturn
 	Device::ClipMaxRec2K( Boolean clipMaxRec )
 	{
 		//fprintf(stderr, "Device::ClipMaxRec2K\n") ;
-	
-		IOReturn error = ::IOConnectMethodScalarIScalarO( mConnection, kClipMaxRec2K, 1, 0, clipMaxRec ) ;
 		
-		return error ;
+		uint32_t outputCnt = 0;
+		const uint64_t inputs[1]={(const uint64_t)clipMaxRec};
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kClipMaxRec2K,inputs,1,NULL,&outputCnt);
+		return result;
 	}
 
 	IOFireWireSessionRef
 	Device::GetSessionRef()
 	{
-		IOFireWireSessionRef sessionRef = 0 ;
-		IOReturn error = ::IOConnectMethodScalarIScalarO( mConnection, kGetSessionRef, 0, 1, & sessionRef ) ;
-
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		IOReturn error = kIOReturnSuccess;
+		error = IOConnectCallScalarMethod(mConnection,kGetSessionRef,NULL,0,&outputVal,&outputCnt);
 		DebugLogCond( error, "Device::GetSessionRef error=%x\n", error ) ;
-
-		return sessionRef;
+		return (IOFireWireSessionRef) outputVal;
 	}
 	
+	IOFireWireLibVectorCommandRef 
+	Device::CreateVectorCommand( 
+		IOFireWireLibCommandCallback callback, 
+		void* inRefCon, 
+		REFIID iid )
+	{
+		IOFireWireLibVectorCommandRef	result = 0;
+		
+		IUnknownVTbl** iUnknown = VectorCommand::Alloc( *this, callback, inRefCon );
+		if( iUnknown )
+		{
+			(*iUnknown)->QueryInterface( iUnknown, iid, (void**)&result );
+			(*iUnknown)->Release( iUnknown );
+		}
+		
+		return result;
+	}
+
+	IOFireWireLibCommandRef 
+	Device::CreatePHYCommand( 
+		UInt32							data1,
+		UInt32							data2,
+		IOFireWireLibCommandCallback	callback,
+		Boolean							failOnReset, 
+		UInt32							generation,
+		void*							inRefCon, 
+		REFIID							iid )
+	{
+		IOFireWireLibCommandRef	result = 0;
+											
+		IUnknownVTbl** iUnknown = PHYCmd::Alloc( *this, data1, data2, callback, failOnReset, generation, inRefCon );
+		if( iUnknown )
+		{
+			(*iUnknown)->QueryInterface( iUnknown, iid, (void**)&result );
+			(*iUnknown)->Release( iUnknown );
+		}
+		
+		return result;
+	}
+
+	IOFireWireLibPHYPacketListenerRef 
+	Device::CreatePHYPacketListener( 
+		UInt32	queueCount,  
+		REFIID iid )
+	{
+		IOFireWireLibPHYPacketListenerRef	result = 0;
+											
+		IUnknownVTbl** iUnknown = PHYPacketListener::Alloc( *this, queueCount );
+		if( iUnknown )
+		{
+			(*iUnknown)->QueryInterface( iUnknown, iid, (void**)&result );
+			(*iUnknown)->Release( iUnknown );
+		}
+		
+		return result;
+	}
+	
+	IOReturn Device::AllocateIRMBandwidthInGeneration(UInt32 bandwidthUnits, UInt32 generation)
+	{
+		uint32_t outputCnt = 0;
+		const uint64_t inputs[2]={bandwidthUnits,generation};
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kAllocateIRMBandwidth,inputs,2,NULL,&outputCnt);
+		return result;
+	}
+	
+	IOReturn Device::ReleaseIRMBandwidthInGeneration(UInt32 bandwidthUnits, UInt32 generation) 
+	{
+		uint32_t outputCnt = 0;
+		const uint64_t inputs[2]={bandwidthUnits,generation};
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kReleaseIRMBandwidth,inputs,2,NULL,&outputCnt);
+		return result;
+	}
+	
+	IOReturn Device::AllocateIRMChannelInGeneration(UInt8 isochChannel, UInt32 generation) 
+	{
+		uint32_t outputCnt = 0;
+		const uint64_t inputs[2]={isochChannel,generation};
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kAllocateIRMChannel,inputs,2,NULL,&outputCnt);
+		return result;
+	}
+	
+	IOReturn Device::ReleaseIRMChannelInGeneration(UInt8 isochChannel, UInt32 generation) 
+	{
+		uint32_t outputCnt = 0;
+		const uint64_t inputs[2]={isochChannel,generation};
+		IOReturn result = IOConnectCallScalarMethod(mConnection,kReleaseIRMChannel,inputs,2,NULL,&outputCnt);
+		return result;
+	}
+	
+	IOFireWireLibIRMAllocationRef Device::CreateIRMAllocation(Boolean releaseIRMResourcesOnFree, 
+															  IOFireWireLibIRMAllocationLostNotificationProc callback,
+															  void *pLostNotificationProcRefCon,
+															  REFIID iid) 
+	{
+		if (!mIsOpen)
+		{
+			DebugLog( "Device::CreateIRMAllocation: no connection or device is not open\n") ;
+			return 0 ;
+		}
+		
+		IOFireWireLibIRMAllocationRef returnInterface = 0 ;
+		IOReturn result;
+		const uint64_t inputs[1] = {releaseIRMResourcesOnFree};
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		UserObjectHandle userObjectRef ;
+		
+		result = IOConnectCallScalarMethod(mConnection,
+										   kIRMAllocation_Allocate,
+										   inputs,1,
+										   &outputVal,&outputCnt);
+		
+		if (result == kIOReturnSuccess)
+		{
+			userObjectRef = (UserObjectHandle) outputVal;
+			
+			IUnknownVTbl**	iUnknown = IRMAllocationCOM::Alloc(*this, userObjectRef, (void*)callback, pLostNotificationProcRefCon) ;
+			
+			// we got a new iUnknown from the object. Query it for the interface
+			// requested in iid...
+			(*iUnknown)->QueryInterface(iUnknown, iid, (void**) & returnInterface) ;
+			
+			// we got the interface we wanted (or at least another ref to iUnknown),
+			// so we call iUnknown.Release()
+			(*iUnknown)->Release(iUnknown) ;
+		}
+		
+		return returnInterface;
+	}
+	
+	IOFWAsyncStreamListenerInterfaceRef Device::CreateAsyncStreamListener( UInt32							channel,
+  																		   IOFWAsyncStreamListenerHandler	callback,																			
+																		   void *							inRefCon, 
+																		   UInt32							inQueueBufferSize, 
+																		   REFIID							iid )
+	{
+		if (!mIsOpen)
+		{
+			DebugLog( "Device::CreateAsyncStreamListener: no connection or device is not open\n") ;
+			return 0 ;
+		}
+		
+		IOFWAsyncStreamListenerInterfaceRef		result = 0 ;
+	
+		void*	queueBuffer = nil ;
+		if ( inQueueBufferSize > 0 )
+			queueBuffer	= new Byte[inQueueBufferSize] ;
+	
+		FWUserAsyncStreamListenerCreateParams	params ;
+		
+		params.channel			= channel;
+		params.queueBuffer 		= (mach_vm_address_t) queueBuffer ;
+		params.queueSize		= (UInt32) inQueueBufferSize ;
+		params.flags			= 0 ;
+		params.callback			= (mach_vm_address_t)callback;
+		params.refCon			= (mach_vm_address_t)this ;
+		
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				params.channel	   = OSSwapInt32( params.channel );
+				params.queueBuffer = (mach_vm_address_t)OSSwapInt32( (UInt32)params.queueBuffer );
+				params.queueSize = OSSwapInt32( params.queueSize );
+				params.flags = OSSwapInt32( params.flags );
+			}
+		);
+#endif
+		
+		UserObjectHandle	asyncStreamListenerRef ;
+
+		size_t outputStructSize = sizeof(asyncStreamListenerRef) ;
+		IOReturn err = IOConnectCallStructMethod(mConnection, 
+												 kAsyncStreamListener_Allocate,
+												 &params,sizeof(params),
+												 &asyncStreamListenerRef,&outputStructSize);
+	
+		//IOByteCount			size	= sizeof(asyncStreamListenerRef) ;
+		// call the routine which creates a pseudo address space in the kernel.
+		//IOReturn err = ::IOConnectMethodStructureIStructureO( mConnection, kAsyncStreamListener_Allocate,
+		//									sizeof(params), & size, & params, & asyncStreamListenerRef ) ;
+	
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				asyncStreamListenerRef = (UserObjectHandle)OSSwapInt32( (UInt32)asyncStreamListenerRef );
+			}
+		);
+#endif
+		
+		if ( !err )
+		{
+			// we allocate a async stream listener with the reference we
+			// got from the kernel
+			IUnknownVTbl**	iUnknown = AsyncStreamListenerCOM::Alloc(*this, asyncStreamListenerRef, queueBuffer, inQueueBufferSize, (void*)callback, inRefCon) ;
+			
+			// we got a new iUnknown from the object. Query it for the interface
+			// requested in iid...
+			(*iUnknown)->QueryInterface(iUnknown, iid, (void**) & result) ;
+			
+			// we got the interface we wanted (or at least another ref to iUnknown),
+			// so we call iUnknown.Release()
+			(*iUnknown)->Release(iUnknown) ;
+			
+		}
+		
+		return result ;
+	}
+
+	IOFireWireLibCommandRef	Device::CreateAsyncStreamCommand(	UInt32							channel,
+																UInt32							sync,
+																UInt32							tag,
+																void*							buf, 
+																UInt32							size,
+																IOFireWireLibCommandCallback	callback, 
+																Boolean							failOnReset,
+																UInt32							generation,
+																void*							inRefCon,
+																REFIID							iid)
+	{
+		IOFireWireLibCommandRef	result = 0;
+											
+		IUnknownVTbl** iUnknown = AsyncStreamCmd::Alloc( *this, channel, sync, tag, buf, size, callback, failOnReset, generation, inRefCon );
+		if( iUnknown )
+		{
+			(*iUnknown)->QueryInterface( iUnknown, iid, (void**)&result );
+			(*iUnknown)->Release( iUnknown );
+		}
+		
+		return result;
+	}
+
+
 #pragma mark -
 	const IOFireWireDeviceInterface DeviceCOM::sInterface = 
 	{
@@ -1423,7 +1893,35 @@ namespace IOFireWireLib {
 		// v8
 		//
 		
-		, & DeviceCOM :: S_CreateLocalIsochPortWithOptions
+		, & DeviceCOM::S_CreateLocalIsochPortWithOptions
+		
+		//
+		// v9
+		//
+		
+		, &DeviceCOM::S_CreateVectorCommand
+		
+		, &DeviceCOM::S_AllocateIRMBandwidthInGeneration
+		
+		, &DeviceCOM::S_ReleaseIRMBandwidthInGeneration
+		
+		, &DeviceCOM::S_AllocateIRMChannelInGeneration
+		
+		, &DeviceCOM::S_ReleaseIRMChannelInGeneration
+		
+		, &DeviceCOM::S_CreateIRMAllocation
+
+		, &DeviceCOM::S_CreateAsyncStreamListener
+		
+		, &DeviceCOM::S_GetIsochAsyncPort
+				
+		, &DeviceCOM::S_CreatePHYCommand
+		
+		, &DeviceCOM::S_CreatePHYPacketListener
+		
+		, &DeviceCOM::S_CreateAsyncStreamCommand
+		
+		, &DeviceCOM::SGetCycleTimeAndUpTime
 	} ;
 	
 	DeviceCOM::DeviceCOM( CFDictionaryRef propertyTable, io_service_t service )
@@ -1876,42 +2374,73 @@ namespace IOFireWireLib {
 		const DCLCommand*		currentDCL	= dcl ;
 		UInt32						index		= 0 ;
 		
+#ifdef __LP64__
+		printf( "IsochPort::printDCLProgram: dcl=%p, inDCLCount=%ud\n", dcl, inDCLCount) ;
+#else
 		printf( "IsochPort::printDCLProgram: dcl=%p, inDCLCount=%lud\n", dcl, inDCLCount) ;
-		
+#endif		
 		while ( (inDCLCount == 0 || index < inDCLCount ) && currentDCL )
 		{
+#ifdef __LP64__
+			printf( "\n#0x%04X  @%p   next=%p, cmplrData=0x%08X, op=%u ", 
+				index, 
+				currentDCL,
+				currentDCL->pNextDCLCommand,
+				currentDCL->compilerData,
+				currentDCL->opcode) ;
+#else
 			printf( "\n#0x%04lX  @%p   next=%p, cmplrData=0x%08lX, op=%lu ", 
 				index, 
 				currentDCL,
 				currentDCL->pNextDCLCommand,
 				currentDCL->compilerData,
 				currentDCL->opcode) ;
-	
+#endif	
 			switch(currentDCL->opcode & ~kFWDCLOpFlagMask)
 			{
 				case kDCLSendPacketStartOp:
-				case kDCLSendPacketWithHeaderStartOp:
+				//case kDCLSendPacketWithHeaderStartOp:
 				case kDCLSendPacketOp:
 				case kDCLReceivePacketStartOp:
 				case kDCLReceivePacketOp:
+#ifdef __LP64__
+					printf( "(DCLTransferPacket) buffer=%p, size=%u",
+						((DCLTransferPacket*)currentDCL)->buffer,
+						((DCLTransferPacket*)currentDCL)->size) ;
+#else
 					printf( "(DCLTransferPacket) buffer=%p, size=%lu",
 						((DCLTransferPacket*)currentDCL)->buffer,
 						((DCLTransferPacket*)currentDCL)->size) ;
+#endif
 					break ;
 					
 				case kDCLSendBufferOp:
 				case kDCLReceiveBufferOp:
+#ifdef __LP64__
+					printf( "(DCLTransferBuffer) buffer=%p, size=%u, packetSize=0x%x, bufferOffset=%08X",
+						((DCLTransferBuffer*)currentDCL)->buffer,
+						((DCLTransferBuffer*)currentDCL)->size,
+						((DCLTransferBuffer*)currentDCL)->packetSize,
+						((DCLTransferBuffer*)currentDCL)->bufferOffset) ;
+#else
 					printf( "(DCLTransferBuffer) buffer=%p, size=%lu, packetSize=0x%x, bufferOffset=%08lX",
 						((DCLTransferBuffer*)currentDCL)->buffer,
 						((DCLTransferBuffer*)currentDCL)->size,
 						((DCLTransferBuffer*)currentDCL)->packetSize,
 						((DCLTransferBuffer*)currentDCL)->bufferOffset) ;
+#endif
 					break ;
 		
 				case kDCLCallProcOp:
+#ifdef __LP64__
+					printf( "(DCLCallProc) proc=%p, procData=%08llX",
+						((DCLCallProc*)currentDCL)->proc,
+						(UInt64)((DCLCallProc*)currentDCL)->procData) ;
+#else
 					printf( "(DCLCallProc) proc=%p, procData=%08lX",
 						((DCLCallProc*)currentDCL)->proc,
 						((DCLCallProc*)currentDCL)->procData) ;
+#endif
 					break ;
 					
 				case kDCLLabelOp:
@@ -1930,10 +2459,15 @@ namespace IOFireWireLib {
 					break ;
 					
 				case kDCLUpdateDCLListOp:
+#ifdef __LP64__
+					printf( "(DCLUpdateDCLList) dclCommandList=%p, numDCLCommands=%ud \n",
+						((DCLUpdateDCLList*)currentDCL)->dclCommandList,
+						((DCLUpdateDCLList*)currentDCL)->numDCLCommands) ;
+#else
 					printf( "(DCLUpdateDCLList) dclCommandList=%p, numDCLCommands=%lud \n",
 						((DCLUpdateDCLList*)currentDCL)->dclCommandList,
 						((DCLUpdateDCLList*)currentDCL)->numDCLCommands) ;
-					
+#endif					
 					for(UInt32 listIndex=0; listIndex < ((DCLUpdateDCLList*)currentDCL)->numDCLCommands; ++listIndex)
 					{
 						printf( "%p ", (((DCLUpdateDCLList*)currentDCL)->dclCommandList)[listIndex]) ;
@@ -2038,5 +2572,130 @@ namespace IOFireWireLib {
 												dclProgramRanges, dclProgramRangeCount, bufferRanges, 
 												bufferRangeCount, options, iid) ;
 	}
+	
+	IOFireWireLibVectorCommandRef 
+	DeviceCOM::S_CreateVectorCommand( 
+		IOFireWireLibDeviceRef self, 
+		IOFireWireLibCommandCallback callback, 
+		void* inRefCon, 
+		REFIID iid)
+	{
+			return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->CreateVectorCommand( callback, inRefCon, iid );
+	}
+
+	IOFireWireLibCommandRef 
+	DeviceCOM::S_CreatePHYCommand( 
+		IOFireWireLibDeviceRef			self, 
+		UInt32							data1,
+		UInt32							data2,
+		IOFireWireLibCommandCallback	callback, 
+		Boolean							failOnReset, 
+		UInt32							generation,
+		void*							inRefCon, 
+		REFIID							iid )
+	{
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->CreatePHYCommand( data1, data2, callback, failOnReset, generation, inRefCon, iid );
+	}
+
+	IOFireWireLibPHYPacketListenerRef 
+	DeviceCOM::S_CreatePHYPacketListener( 
+		IOFireWireLibDeviceRef self,
+		UInt32	queueCount,  
+		REFIID iid)
+	{
+			return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->CreatePHYPacketListener( queueCount, iid );
+	}
+	
+	IOReturn DeviceCOM::S_AllocateIRMBandwidthInGeneration(IOFireWireLibDeviceRef self, UInt32 bandwidthUnits, UInt32 generation)
+	{
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AllocateIRMBandwidthInGeneration(bandwidthUnits, generation);
+	}
+
+	IOReturn DeviceCOM::S_ReleaseIRMBandwidthInGeneration(IOFireWireLibDeviceRef self, UInt32 bandwidthUnits, UInt32 generation) 
+	{
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->ReleaseIRMBandwidthInGeneration(bandwidthUnits, generation);
+	}
+
+	IOReturn DeviceCOM::S_AllocateIRMChannelInGeneration(IOFireWireLibDeviceRef self, UInt8 isochChannel, UInt32 generation) 
+	{
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->AllocateIRMChannelInGeneration(isochChannel, generation);
+	}
+
+	IOReturn DeviceCOM::S_ReleaseIRMChannelInGeneration(IOFireWireLibDeviceRef self, UInt8 isochChannel, UInt32 generation) 
+	{
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->ReleaseIRMChannelInGeneration(isochChannel, generation);
+	}
+
+	IOFireWireLibIRMAllocationRef DeviceCOM::S_CreateIRMAllocation( IOFireWireLibDeviceRef self, 
+																	Boolean releaseIRMResourcesOnFree, 
+																	IOFireWireLibIRMAllocationLostNotificationProc callback,
+																	void *pLostNotificationProcRefCon,
+																	REFIID iid) 
+	{
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->CreateIRMAllocation(releaseIRMResourcesOnFree, 
+																								callback,
+																								pLostNotificationProcRefCon,
+																								iid);
+	}
+
+	IOFWAsyncStreamListenerInterfaceRef 
+	DeviceCOM::S_CreateAsyncStreamListener( 
+		IOFireWireLibDeviceRef			self, 
+		UInt32							channel,
+		IOFWAsyncStreamListenerHandler	callback,																			
+		void*							inRefCon, 
+		UInt32							inQueueBufferSize, 
+		REFIID							iid )
+	{
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->CreateAsyncStreamListener( channel, 
+																									  callback, 
+																									  inRefCon, 
+																									  inQueueBufferSize, 
+																									  iid );
+	}
+	
+	mach_port_t DeviceCOM::S_GetIsochAsyncPort( IOFireWireLibDeviceRef	self )
+	{
+		IOReturn status = kIOReturnSuccess;
+		mach_port_t port = NULL;
 		
+		Device * device = IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self);
+		
+		if( !device->IsochAsyncPortsExist() )
+		{
+			status = device->CreateIsochAsyncPorts();
+		}
+		
+		if( status == kIOReturnSuccess )
+		{
+			port = device->GetIsochAsyncPort();
+		}
+		
+		return port;
+	}
+	
+	IOFireWireLibCommandRef	DeviceCOM::S_CreateAsyncStreamCommand(	IOFireWireLibDeviceRef			self, 
+																	UInt32							channel,
+																	UInt32							sync,
+																	UInt32							tag,
+																	void*							buf, 
+																	UInt32							size,
+																	IOFireWireLibCommandCallback	callback, 
+																	Boolean							failOnReset,
+																	UInt32							generation,
+																	void*							inRefCon,
+																	REFIID							iid)
+	{
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->CreateAsyncStreamCommand( channel,
+																									 sync,
+																									 tag,
+																									 buf,
+																									 size,
+																									 callback, 
+																									 failOnReset,
+																									 generation,
+																									 inRefCon, 
+																									 iid );
+	}
+	
 } // namespace

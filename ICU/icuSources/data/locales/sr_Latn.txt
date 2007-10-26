@@ -1,16 +1,46 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/sr_Latn.xml
+// * Source File:<path>/common/main/sr_Latn.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: ../../../locale/icu/main/sr_Latn.xml
+ *  ICU <specials> source: <path>/xml/main/sr_Latn.xml
  */
 sr_Latn{
+    AuxExemplarCharacters{"[q w-y]"}
     Countries{
+        001{"Svet"}
+        002{"Afrika"}
+        005{"Južna Amerika"}
+        009{"Okeanija"}
+        011{"Zapadna Afrika"}
+        013{"Centralna Amerika"}
+        014{"Istočna Afrika"}
+        015{"Severna Afrika"}
+        017{"Centralna Afrika"}
+        018{"Južna Afrika"}
+        019{"Amerike"}
+        021{"Severna Amerika"}
+        029{"Karibi"}
+        030{"Istočna Azija"}
+        035{"Jugoistočna Azija"}
+        039{"Južna Evropa"}
+        053{"Australija i Novi Zeland"}
+        054{"Melanezija"}
+        057{"Micronezija"}
+        061{"Polinezija"}
+        062{"Južno-centralna Azija"}
+        142{"Azija"}
+        145{"Zapadna Azija"}
+        150{"Evropa"}
+        151{"Istočna Evropa"}
+        154{"Severna Evropa"}
+        155{"Zapadna Evropa"}
+        830{"Kanalska ostrva"}
+        833{"Ostrvo Man"}
         AD{"Andora"}
         AE{"Ujedinjeni Arapski Emirati"}
         AF{"Avganistan"}
@@ -26,6 +56,7 @@ sr_Latn{
         AT{"Austrija"}
         AU{"Australija"}
         AW{"Aruba"}
+        AX{"Alandska ostrva"}
         AZ{"Azerbejdžan"}
         BA{"Bosna i Hercegovina"}
         BB{"Barbados"}
@@ -59,6 +90,7 @@ sr_Latn{
         CN{"Kina"}
         CO{"Kolumbija"}
         CR{"Kostarika"}
+        CS{"Srbija i Crna Gora"}
         CU{"Kuba"}
         CV{"Kape Verde"}
         CX{"Uskršnja Ostrva"}
@@ -79,7 +111,7 @@ sr_Latn{
         ET{"Etiopija"}
         FI{"Finska"}
         FJ{"Fidži"}
-        FK{"Folklendska Ostrva"}
+        FK{"Folklandska Ostrva"}
         FM{"Mikronezija"}
         FO{"Farska Ostrva"}
         FR{"Francuska"}
@@ -120,7 +152,7 @@ sr_Latn{
         JO{"Jordan"}
         JP{"Japan"}
         KE{"Kenija"}
-        KG{"Kirgistan"}
+        KG{"Kirgizstan"}
         KH{"Kambodža"}
         KI{"Kiribati"}
         KM{"Komorska Ostrva"}
@@ -134,7 +166,7 @@ sr_Latn{
         LB{"Liban"}
         LC{"Sent Lucija"}
         LI{"Lihtenštajn"}
-        LK{"Šrilanka"}
+        LK{"Šri Lanka"}
         LR{"Liberija"}
         LS{"Lesoto"}
         LT{"Litvanija"}
@@ -154,7 +186,7 @@ sr_Latn{
         MP{"Severna Marijanska Ostrva"}
         MQ{"Martinik"}
         MR{"Mauritanija"}
-        MS{"Montserrat"}
+        MS{"Monserat"}
         MT{"Malta"}
         MU{"Mauricius"}
         MV{"Maldivi"}
@@ -190,19 +222,20 @@ sr_Latn{
         PW{"Palau"}
         PY{"Paragvaj"}
         QA{"Katar"}
+        QO{"Ostala okeanija"}
         RE{"Rejunion"}
         RO{"Rumunija"}
         RU{"Rusija"}
         RW{"Ruanda"}
         SA{"Saudijska Arabija"}
-        SB{"Solomon Islands"}
+        SB{"Solomonska Ostrva"}
         SC{"Sejšeli"}
         SD{"Sudan"}
         SE{"Švedska"}
         SG{"Singapur"}
-        SH{"Saint Helena"}
+        SH{"Sveta Jelena"}
         SI{"Slovenija"}
-        SJ{"Svalbard i Jan Majen"}
+        SJ{"Svalbard i Janmajen Ostrva"}
         SK{"Slovačka"}
         SL{"Sijera Leone"}
         SM{"San Marino"}
@@ -242,22 +275,158 @@ sr_Latn{
         VI{"S.A.D. Devičanska Ostrva"}
         VN{"Vijetnam"}
         VU{"Vanuatu"}
-        WF{"Valis i Futuna"}
+        WF{"Valis i Futuna Ostrva"}
         WS{"Samoa"}
         YE{"Jemen"}
-        YT{"Mayotte"}
-        YU{"Jugoslavija"}
-        ZA{"Južna Afrika"}
+        YT{"Majote"}
+        ZA{"Južnoafrička Republika"}
         ZM{"Zambija"}
         ZW{"Zimbabve"}
     }
     Currencies{
+        ATS{
+            "ATS",
+            "Austrijski šiling",
+        }
+        AUD{
+            "$A",
+            "Australijski dolar",
+        }
+        BAM{
+            "KM",
+            "Konvertibilna marka",
+        }
+        BEF{
+            "BF",
+            "Belgijski franak",
+        }
+        BRL{
+            "BRL",
+            "Brazilski Real",
+        }
+        CAD{
+            "Can$",
+            "Kanadski dolar",
+        }
+        CHF{
+            "SwF",
+            "Švajcarski franak",
+        }
+        CNY{
+            "U",
+            "Kineski Juan Renminbi",
+        }
+        CSD{
+            "CSD",
+            "Srpski Dinar",
+        }
+        DEM{
+            "DEM",
+            "Nemačka marka",
+        }
+        DKK{
+            "DKr",
+            "Danska kruna",
+        }
+        ESP{
+            "ESP",
+            "Španska pezeta",
+        }
+        EUR{
+            "€",
+            "EVRO",
+        }
+        FIM{
+            "FIM",
+            "Finska marka",
+        }
+        FRF{
+            "FRF",
+            "Francuski franak",
+        }
+        GBP{
+            "£",
+            "Funta sterlinga",
+        }
+        GRD{
+            "GRD",
+            "Drahma",
+        }
+        HRD{
+            "HRD",
+            "Hrvatski dinar",
+        }
+        HRK{
+            "HRK",
+            "Kuna",
+        }
+        IEP{
+            "IR£",
+            "Irska funta",
+        }
+        INR{
+            "INR",
+            "Indijski Rupi",
+        }
+        ITL{
+            "₤",
+            "Italijanska lira",
+        }
+        JPY{
+            "¥",
+            "Jen",
+        }
+        KWD{
+            "KD",
+            "Kuvajtski dinar",
+        }
+        LUF{
+            "LUF",
+            "Luksemburški franak",
+        }
+        NLG{
+            "NLG",
+            "Holandski gulden",
+        }
+        NOK{
+            "NKr",
+            "Norveška kruna",
+        }
+        PTE{
+            "PTE",
+            "Portugalski eskudo",
+        }
+        RUB{
+            "RUB",
+            "Ruska rublja",
+        }
+        RUR{
+            "RUR",
+            "Ruska rublja (1991-1998)",
+        }
+        SEK{
+            "SKr",
+            "Švedska kruna",
+        }
+        SIT{
+            "SIT",
+            "Tolar",
+        }
+        USD{
+            "US$",
+            "Američki dolar",
+        }
         YUN{
             "Din",
             "YUN",
         }
     }
-    ExemplarCharacters{"[a-p r-v z đ ć č ž š {lj} {nj} {dž}]"}
+    ExemplarCharacters{"[a-c ć č d đ {dž} e-l {lj} m n {nj} o p r s š t-v z ž]"}
+    Keys{
+        calendar{"Kalendar"}
+        collation{"Sortiranje"}
+        currency{"Valuta"}
+    }
     Languages{
         af{"Afrikanerski"}
         ar{"Arapski"}
@@ -271,6 +440,7 @@ sr_Latn{
         de{"Nemački"}
         el{"Grčki"}
         en{"Engleski"}
+        eo{"Esperanto"}
         es{"Španski"}
         et{"Estonski"}
         eu{"Baskijski"}
@@ -279,6 +449,7 @@ sr_Latn{
         fr{"Francuski"}
         ga{"Irski"}
         he{"Hebrejski"}
+        hi{"Hindi"}
         hr{"Hrvatski"}
         hu{"Mađarski"}
         hy{"Armenski"}
@@ -305,6 +476,7 @@ sr_Latn{
         rm{"Reto-Romanski"}
         ro{"Rumunski"}
         ru{"Ruski"}
+        sa{"Sanskrit"}
         sh{"Srpsko-Hrvatski"}
         sk{"Slovački"}
         sl{"Slovenački"}
@@ -313,7 +485,7 @@ sr_Latn{
         sv{"Švedski"}
         sw{"Svahili"}
         tr{"Turski"}
-        uk{"Ukrajnski"}
+        uk{"Ukrajinski"}
         vi{"Vijetnamski"}
         yi{"Jidiš"}
         zh{"Kineski"}
@@ -329,19 +501,44 @@ sr_Latn{
         Cher{"Čeroki"}
         Copt{"koptičko pismo"}
         Cyrl{"Ćirilica"}
+        Cyrs{"ćirilica (crkveno slovenska varijanta)"}
         Deva{"Devanagari"}
         Dsrt{"Dezeret"}
         Ethi{"etiopsko pismo"}
         Geor{"gruzijsko pismo"}
+        Glag{"glagoljica"}
         Goth{"Gotika"}
         Grek{"grčko pismo"}
         Hebr{"hebrejsko pismo"}
         Hira{"Hiragana"}
         Hrkt{"Katakana ili Hiragana"}
         Kana{"Katakana"}
+        Khmr{"kmersko pismo"}
+        Latf{"Latinica (Fraktur varijanta)"}
         Latn{"Latinica"}
+        Runr{"runsko pismo"}
     }
-    Version{"1.2"}
+    Types{
+        calendar{
+            buddhist{"Budistički kalendar"}
+            chinese{"Kineski kalendar"}
+            gregorian{"Gregorijanski kalendar"}
+            hebrew{"Hebrejski kalendar"}
+            islamic{"Islamski kalendar"}
+            islamic-civil{"Islamski civilni kalendar"}
+            japanese{"Japanski kalendar"}
+        }
+        collation{
+            big5han{"Tradicionalni kineski"}
+            direct{"Direktno sortiranje"}
+            gb2312han{"Pojednostavljeni kineski"}
+            phonebook{"Sortiranje po azbuci"}
+            pinyin{"Pinjin sortiranje"}
+            stroke{"Sortiranje po broju crta"}
+            traditional{"Tradicionalno sortiranje"}
+        }
+    }
+    Version{"1.52"}
     calendar{
         gregorian{
             DateTimePatterns{
@@ -366,15 +563,6 @@ sr_Latn{
                         "pet",
                         "sub",
                     }
-                    narrow{
-                        "n",
-                        "p",
-                        "u",
-                        "s",
-                        "č",
-                        "p",
-                        "s",
-                    }
                     wide{
                         "nedelja",
                         "ponedeljak",
@@ -383,6 +571,17 @@ sr_Latn{
                         "četvrtak",
                         "petak",
                         "subota",
+                    }
+                }
+                stand-alone{
+                    narrow{
+                        "n",
+                        "p",
+                        "u",
+                        "s",
+                        "č",
+                        "p",
+                        "s",
                     }
                 }
             }
@@ -408,20 +607,6 @@ sr_Latn{
                         "nov",
                         "dec",
                     }
-                    narrow{
-                        "j",
-                        "f",
-                        "m",
-                        "a",
-                        "m",
-                        "j",
-                        "j",
-                        "a",
-                        "s",
-                        "o",
-                        "n",
-                        "d",
-                    }
                     wide{
                         "januar",
                         "februar",
@@ -437,7 +622,86 @@ sr_Latn{
                         "decembar",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "j",
+                        "f",
+                        "m",
+                        "a",
+                        "m",
+                        "j",
+                        "j",
+                        "a",
+                        "s",
+                        "o",
+                        "n",
+                        "d",
+                    }
+                }
             }
+            quarters{
+                format{
+                    abbreviated{
+                        "K1",
+                        "K2",
+                        "K3",
+                        "K4",
+                    }
+                    wide{
+                        "Prvi kvartal",
+                        "Drugi kvartal",
+                        "Treći kvartal",
+                        "Četvrti kvartal",
+                    }
+                }
+            }
+        }
+    }
+    zoneStrings{
+        "Africa:Kinshasa"{
+            ec{"Kinšasa"}
+        }
+        "Africa:Lubumbashi"{
+            ec{"Lumumbaši"}
+        }
+        "Antarctica:South_Pole"{
+            ec{"Južni pol"}
+        }
+        "Asia:Anadyr"{
+            ec{"Anadir"}
+        }
+        "Asia:Kamchatka"{
+            ec{"Kamčatka"}
+        }
+        "Asia:Krasnoyarsk"{
+            ec{"Krasnojarsk"}
+        }
+        "Asia:Shanghai"{
+            ec{"Šangaj"}
+        }
+        "Asia:Tashkent"{
+            ec{"Taškent"}
+        }
+        "Europe:Belgrade"{
+            ec{"Belgrade"}
+            ld{"Centralno Evropsko Letnje Vreme"}
+            ls{"Centralno Evropsko Vreme"}
+        }
+        "Europe:Kiev"{
+            ec{"Kijev"}
+        }
+        "Europe:Moscow"{
+            ec{"Moskva"}
+        }
+        "Europe:Sarajevo"{
+            ec{"Sarajevo"}
+            ls{"Srednje Evropsko Vrijeme"}
+        }
+        "Europe:Uzhgorod"{
+            ec{"Užgorod"}
+        }
+        "Europe:Zaporozhye"{
+            ec{"Zaporožje"}
         }
     }
 }

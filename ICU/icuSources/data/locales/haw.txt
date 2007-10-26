@@ -1,15 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: /Users/deglocal/Desktop/Totoro/icucvs/locale/common/main/haw.xml
+// * Source File:<path>/common/main/haw.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: /Users/deglocal/Desktop/Totoro/icucvs/locale/icu/main/haw.xml
+ *  ICU <specials> source: <path>/xml/main/haw.xml
  */
 haw{
+    AuxExemplarCharacters{"[b-d f g j q-t v x-z]"}
     Countries{
         AU{"Nūhōlani"}
         CA{"Kanakā"}
@@ -32,17 +33,14 @@ haw{
         RU{"Lūkia"}
         US{"ʻAmelika Hui Pū ʻIa"}
     }
-    ExemplarCharacters{"[āēīōūaeiouhklmnpwʻ]"}
+    ExemplarCharacters{"[a ā e ē h ʻ i ī k-o ō p u ū w]"}
     Languages{
         haw{"ʻōlelo Hawaiʻi"}
     }
     LocaleScript{
         "Latn",
     }
-    /**
-     * Draft
-     */
-    Version{"x1.2"}
+    Version{"1.26"}
     calendar{
         gregorian{
             dayNames{

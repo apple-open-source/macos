@@ -39,6 +39,7 @@
 
 #define forever for(;;)
 
+#define UDP_SOCKET_NAME "NetworkListener"
 #define MY_ID "udp_in"
 #define MAXLINE 4096
 
@@ -52,29 +53,9 @@ static char uline[MAXLINE + 1];
 #define FMT_ASL 1
 
 asl_msg_t *
-udp_convert(int fmt, char *s, int len, char *from)
-{
-	char *out;
-	asl_msg_t *m;
-
-	out = NULL;
-	m = NULL;
-
-	if (fmt == FMT_ASL)
-	{
-		m = asl_msg_from_string(s);
-		if (from != NULL) asl_set(m, ASL_KEY_HOST, from);
-		return m;
-	}
-
-	return asl_syslog_input_convert(uline, len, from, 0);
-}
-
-asl_msg_t *
 udp_in_acceptmsg(int fd)
 {
-	int format, status, x, fromlen;
-	size_t off;
+	socklen_t fromlen;
 	ssize_t len;
 	struct sockaddr_storage from;
 	char fromstr[64], *r, *p;
@@ -110,77 +91,76 @@ udp_in_acceptmsg(int fd)
 	p = strrchr(uline, '\n');
 	if (p != NULL) *p = '\0';
 
-
-	/*
-	 * Determine if the input is "old" syslog format or new ASL format.
-	 * Old format lines should start with "<", but they can just be
-	 * straight text.  ASL input starts with a length (10 bytes)
-	 * followed by a space and a '['.
-	 */
-	format = FMT_LEGACY;
-	off = 0;
-
-	if ((uline[0] != '<') && (len > 11))
-	{
-		status = sscanf(uline, "%d ", &x);
-		if (status == 1) 
-		{
-			if ((uline[10] == ' ') && (uline[11] == '['))
-			{
-				format = FMT_ASL;
-				off = 11;
-			}
-		}
-	}
-
-	return udp_convert(format, uline+off, len-off, r);
+	return asl_input_parse(uline, len, r, 0);
 }
 
 int
 udp_in_init(void)
 {
-	struct addrinfo hints, *gai, *ai;
-	int status, i;
+	int i, rbufsize, len;
+	launch_data_t sockets_dict, fd_array, fd_dict;
 
 	asldebug("%s: init\n", MY_ID);
 	if (nsock > 0) return 0;
-
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_flags = AI_PASSIVE;
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;
-
-	status = getaddrinfo(NULL, "syslog", &hints, &gai);
-	if (status != 0) return -1;
-
-	for (ai = gai; (ai != NULL) && (nsock < MAXSOCK); ai = ai->ai_next)
+	if (launch_dict == NULL)
 	{
-		ufd[nsock] = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-		if (ufd[nsock] < 0)
-		{
-			asldebug("%s: socket: %s\n", MY_ID, strerror(errno));
-			continue;
-		}
-
-		if (bind(ufd[nsock], ai->ai_addr, ai->ai_addrlen) < 0)
-		{
-			asldebug("%s: bind: %s\n", MY_ID, strerror(errno));
-			close(ufd[nsock]);
-			continue;
-		}
-
-		nsock++;
-	}
-
-	freeaddrinfo(gai);
-
-	if (nsock == 0)
-	{
-		asldebug("%s: no input sockets\n", MY_ID);
+		asldebug("%s: laucnchd dict is NULL\n", MY_ID);
 		return -1;
 	}
 
-	for (i = 0; i < nsock; i++) aslevent_addfd(ufd[i], udp_in_acceptmsg, NULL, NULL);
+	sockets_dict = launch_data_dict_lookup(launch_dict, LAUNCH_JOBKEY_SOCKETS);
+	if (sockets_dict == NULL)
+	{
+		asldebug("%s: laucnchd lookup of LAUNCH_JOBKEY_SOCKETS failed\n", MY_ID);
+		return -1;
+	}
+	
+	fd_array = launch_data_dict_lookup(sockets_dict, UDP_SOCKET_NAME);
+	if (fd_array == NULL)
+	{
+		asldebug("%s: laucnchd lookup of UDP_SOCKET_NAME failed\n", MY_ID);
+		return -1;
+	}
+	
+	nsock = launch_data_array_get_count(fd_array);
+	if (nsock <= 0)
+	{
+		asldebug("%s: laucnchd fd array is empty\n", MY_ID);
+		return -1;
+	}
+	
+	for (i = 0; i < nsock; i++)
+	{
+		fd_dict = launch_data_array_get_index(fd_array, i);
+		if (fd_dict == NULL)
+		{
+			asldebug("%s: laucnchd file discriptor array element 0 is NULL\n", MY_ID);
+			return -1;
+		}
+		
+		ufd[i] = launch_data_get_fd(fd_dict);
+
+		rbufsize = 128 * 1024;
+		len = sizeof(rbufsize);
+
+		if (setsockopt(ufd[i], SOL_SOCKET, SO_RCVBUF, &rbufsize, len) < 0)
+		{
+			asldebug("%s: couldn't set receive buffer size for socket %d: %s\n", MY_ID, ufd[i], strerror(errno));
+			close(ufd[i]);
+			ufd[i] = -1;
+			continue;
+		}
+
+		if (fcntl(ufd[i], F_SETFL, O_NONBLOCK) < 0)
+		{
+			asldebug("%s: couldn't set O_NONBLOCK for socket %d: %s\n", MY_ID, ufd[i], strerror(errno));
+			close(ufd[i]);
+			ufd[i] = -1;
+			continue;
+		}
+	}
+
+	for (i = 0; i < nsock; i++) if (ufd[i] != -1) aslevent_addfd(ufd[i], 0, udp_in_acceptmsg, NULL, NULL);
 	return 0;
 }
 
@@ -199,7 +179,7 @@ udp_in_close(void)
 
 	for (i = 0; i < nsock; i++)
 	{
-		close(ufd[i]);
+		if (ufd[i] != -1) close(ufd[i]);
 		ufd[i] = -1;
 	}
 

@@ -27,13 +27,6 @@
  *
  */
 
-#define trashzle()      trashzleptr()
-#define zleread(X,Y,H,C)  zlereadptr(X,Y,H,C)
-#define spaceinline(X)  spaceinlineptr(X)
-#define zrefresh()      refreshptr()
-
-#define compctlread(N,A,O,R) compctlreadptr(N,A,O,R)
-
 /* A few typical macros */
 #define minimum(a,b)  ((a) < (b) ? (a) : (b))
 
@@ -93,8 +86,12 @@ struct mathfunc {
     int funcid;
 };
 
+/* Math function takes a string argument */
 #define MFF_STR      1
+/* Math function has been loaded from library */
 #define MFF_ADDED    2
+/* Math function is implemented by a shell function */
+#define MFF_USERFUNC 4
 
 #define NUMMATHFUNC(name, func, min, max, id) \
     { NULL, name, 0, func, NULL, NULL, min, max, id }
@@ -127,7 +124,10 @@ struct mathfunc {
 
 #define DEFAULT_IFS	" \t\n\203 "
 
-/* Character tokens */
+/*
+ * Character tokens.
+ * These should match the characters in ztokens, defined in lex.c
+ */
 #define Pound		((char) 0x84)
 #define String		((char) 0x85)
 #define Hat		((char) 0x86)
@@ -148,19 +148,70 @@ struct mathfunc {
 #define Tilde		((char) 0x95)
 #define Qtick		((char) 0x96)
 #define Comma		((char) 0x97)
+/*
+ * Null arguments: placeholders for single and double quotes
+ * and backslashes.
+ */
 #define Snull		((char) 0x98)
 #define Dnull		((char) 0x99)
 #define Bnull		((char) 0x9a)
-#define Nularg		((char) 0x9b)
+/*
+ * Backslash which will be returned to "\" instead of being stripped
+ * when we turn the string into a printable format.
+ */
+#define Bnullkeep       ((char) 0x9b)
+/*
+ * Null argument that does not correspond to any character.
+ * This should be last as it does not appear in ztokens and
+ * is used to initialise the IMETA type in inittyptab().
+ */
+#define Nularg		((char) 0x9c)
 
-#define INULL(x)	(((x) & 0xfc) == 0x98)
-
+/*
+ * Take care to update the use of IMETA appropriately when adding
+ * tokens here.
+ */
 /* Marker used in paramsubst for rc_expand_param */
-#define Marker		((char) 0x9c)
+#define Marker		((char) 0xa0)
 
 /* chars that need to be quoted if meant literally */
 
 #define SPECCHARS "#$^*()=|{}[]`<>?~;&\n\t \\\'\""
+
+/*
+ * Types of quote.  This is used in various places, so care needs
+ * to be taken when changing them.  (Oooh, don't you look surprised.)
+ * - Passed to quotestring() to indicate style.  This is the ultimate
+ *   destiny of most of the other uses of members of the enum.
+ * - In paramsubst(), to count q's in parameter substitution.
+ * - In the completion code, where we maintain a stack of quotation types.
+ */
+enum {
+    /*
+     * No quote.  Not a valid quote, but useful in the substitution
+     * and completion code to indicate we're not doing any quoting.
+     */
+    QT_NONE,
+    /* Backslash: \ */
+    QT_BACKSLASH,
+    /* Single quote: ' */
+    QT_SINGLE,
+    /* Double quote: " */
+    QT_DOUBLE,
+    /* Print-style quote: $' */
+    QT_DOLLARS,
+    /*
+     * Backtick: `
+     * Not understood by many parts of the code; here for a convenience
+     * in those cases where we need to represent a complete set.
+     */
+    QT_BACKTICK,
+};
+
+/*
+ * Lexical tokens: unlike the character tokens above, these never
+ * appear in strings and don't necessarily represent a single character.
+ */
 
 enum {
     NULLTOK,		/* 0  */
@@ -195,37 +246,38 @@ enum {
     DOUTPAR,
     AMPERBANG,		/* 30 */
     SEMIAMP,
+    SEMIBAR,
     DOUTBRACK,
     STRING,
-    ENVSTRING,
-    ENVARRAY,		/* 35 */
+    ENVSTRING,		/* 35 */
+    ENVARRAY,
     ENDINPUT,
     LEXERR,
 
     /* Tokens for reserved words */
     BANG,	/* !         */
-    DINBRACK,	/* [[        */
-    INBRACE,    /* {         */	/* 40 */
+    DINBRACK,	/* [[        */	/* 40 */
+    INBRACE,    /* {         */
     OUTBRACE,   /* }         */
     CASE,	/* case      */
     COPROC,	/* coproc    */
-    DOLOOP,	/* do        */
-    DONE,	/* done      */ /* 45 */
+    DOLOOP,	/* do        */ /* 45 */
+    DONE,	/* done      */
     ELIF,	/* elif      */
     ELSE,	/* else      */
     ZEND,	/* end       */
-    ESAC,	/* esac      */
-    FI,		/* fi        */ /* 50 */
+    ESAC,	/* esac      */ /* 50 */
+    FI,		/* fi        */
     FOR,	/* for       */
     FOREACH,	/* foreach   */
     FUNC,	/* function  */
-    IF,		/* if        */
-    NOCORRECT,	/* nocorrect */ /* 55 */
+    IF,		/* if        */ /* 55 */
+    NOCORRECT,	/* nocorrect */
     REPEAT,	/* repeat    */
     SELECT,	/* select    */
     THEN,	/* then      */
-    TIME,	/* time      */
-    UNTIL,	/* until     */ /* 60 */
+    TIME,	/* time      */ /* 60 */
+    UNTIL,	/* until     */
     WHILE	/* while     */
 };
 
@@ -253,6 +305,8 @@ enum {
     REDIR_INPIPE,		/* < <(...) */
     REDIR_OUTPIPE		/* > >(...) */
 };
+#define REDIR_TYPE_MASK	(0x1f)
+#define REDIR_VARID_MASK (0x20)
 
 #define IS_WRITE_FILE(X)      ((X)>=REDIR_WRITE && (X)<=REDIR_READWRITE)
 #define IS_APPEND_REDIR(X)    (IS_WRITE_FILE(X) && ((X) & 2))
@@ -260,6 +314,37 @@ enum {
 #define IS_ERROR_REDIR(X)     ((X)>=REDIR_ERRWRITE && (X)<=REDIR_ERRAPPNOW)
 #define IS_READFD(X)          (((X)>=REDIR_READWRITE && (X)<=REDIR_MERGEIN) || (X)==REDIR_INPIPE)
 #define IS_REDIROP(X)         ((X)>=OUTANG && (X)<=TRINANG)
+
+/*
+ * Values for the fdtable array.  They say under what circumstances
+ * the fd will be close.  The fdtable is an unsigned char, so these are
+ * #define's rather than an enum.
+ */
+/* Entry not used. */
+#define FDT_UNUSED		0
+/*
+ * Entry used internally by the shell, should not be visible to other
+ * processes.
+ */
+#define FDT_INTERNAL		1
+/*
+ * Entry visible to other processes, for example created using
+ * the {varid}> file syntax.
+ */
+#define FDT_EXTERNAL		2
+/*
+ * Entry used by output from the XTRACE option.
+ */
+#define FDT_XTRACE		3
+#ifdef PATH_DEV_FD
+/*
+ * Entry used by a process substition.
+ * The value will be incremented on entering a function and
+ * decremented on exit; we don't close entries greater than
+ * FDT_PROC_SUBST except when closing everything.
+ */
+#define FDT_PROC_SUBST		4
+#endif
 
 /* Flags for input stack */
 #define INP_FREE      (1<<0)	/* current buffer can be free'd            */
@@ -284,40 +369,38 @@ enum {
 /* Abstract types for zsh */
 /**************************/
 
-typedef struct linknode  *LinkNode;
-typedef struct linklist  *LinkList;
-typedef struct hashnode  *HashNode;
-typedef struct hashtable *HashTable;
-
-typedef struct optname   *Optname;
-typedef struct reswd     *Reswd;
 typedef struct alias     *Alias;
-typedef struct param     *Param;
-typedef struct paramdef  *Paramdef;
+typedef struct asgment   *Asgment;
+typedef struct builtin   *Builtin;
 typedef struct cmdnam    *Cmdnam;
-typedef struct shfunc    *Shfunc;
+typedef struct complist  *Complist;
+typedef struct conddef   *Conddef;
 typedef struct funcstack *Funcstack;
 typedef struct funcwrap  *FuncWrap;
-typedef struct options	 *Options;
-typedef struct builtin   *Builtin;
-typedef struct nameddir  *Nameddir;
-typedef struct module    *Module;
-typedef struct linkedmod *Linkedmod;
-
-typedef struct patprog   *Patprog;
-typedef struct process   *Process;
-typedef struct job       *Job;
-typedef struct value     *Value;
-typedef struct conddef   *Conddef;
-typedef struct redir     *Redir;
-typedef struct complist  *Complist;
+typedef struct hashnode  *HashNode;
+typedef struct hashtable *HashTable;
 typedef struct heap      *Heap;
 typedef struct heapstack *Heapstack;
 typedef struct histent   *Histent;
 typedef struct hookdef   *Hookdef;
-
-typedef struct asgment   *Asgment;
-
+typedef struct job       *Job;
+typedef struct linkedmod *Linkedmod;
+typedef struct linknode  *LinkNode;
+typedef union  linkroot  *LinkList;
+typedef struct module    *Module;
+typedef struct nameddir  *Nameddir;
+typedef struct options	 *Options;
+typedef struct optname   *Optname;
+typedef struct param     *Param;
+typedef struct paramdef  *Paramdef;
+typedef struct patprog   *Patprog;
+typedef struct prepromptfn *Prepromptfn;
+typedef struct process   *Process;
+typedef struct redir     *Redir;
+typedef struct reswd     *Reswd;
+typedef struct shfunc    *Shfunc;
+typedef struct timedfn   *Timedfn;
+typedef struct value     *Value;
 
 /********************************/
 /* Definitions for linked lists */
@@ -327,53 +410,83 @@ typedef struct asgment   *Asgment;
 
 struct linknode {
     LinkNode next;
-    LinkNode last;
+    LinkNode prev;
     void *dat;
 };
 
 struct linklist {
     LinkNode first;
     LinkNode last;
+    int flags;
+};
+
+union linkroot {
+    struct linklist list;
+    struct linknode node;
 };
 
 /* Macros for manipulating link lists */
 
-#define addlinknode(X,Y)    insertlinknode(X,(X)->last,Y)
-#define zaddlinknode(X,Y)   zinsertlinknode(X,(X)->last,Y)
-#define uaddlinknode(X,Y)   uinsertlinknode(X,(X)->last,Y)
-#define empty(X)            ((X)->first == NULL)
-#define nonempty(X)         ((X)->first != NULL)
-#define firstnode(X)        ((X)->first)
+#define firstnode(X)        ((X)->list.first)
+#define lastnode(X)         ((X)->list.last)
+#define peekfirst(X)        (firstnode(X)->dat)
+#define addlinknode(X,Y)    insertlinknode(X,lastnode(X),Y)
+#define zaddlinknode(X,Y)   zinsertlinknode(X,lastnode(X),Y)
+#define uaddlinknode(X,Y)   uinsertlinknode(X,lastnode(X),Y)
+#define empty(X)            (firstnode(X) == NULL)
+#define nonempty(X)         (firstnode(X) != NULL)
 #define getaddrdata(X)      (&((X)->dat))
 #define getdata(X)          ((X)->dat)
 #define setdata(X,Y)        ((X)->dat = (Y))
-#define lastnode(X)         ((X)->last)
 #define nextnode(X)         ((X)->next)
-#define prevnode(X)         ((X)->last)
-#define peekfirst(X)        ((X)->first->dat)
-#define pushnode(X,Y)       insertlinknode(X,(LinkNode) X,Y)
-#define zpushnode(X,Y)      zinsertlinknode(X,(LinkNode) X,Y)
+#define prevnode(X)         ((X)->prev)
+#define pushnode(X,Y)       insertlinknode(X,&(X)->node,Y)
+#define zpushnode(X,Y)      zinsertlinknode(X,&(X)->node,Y)
 #define incnode(X)          (X = nextnode(X))
 #define firsthist()         (hist_ring? hist_ring->down->histnum : curhist)
-#define setsizednode(X,Y,Z) ((X)->first[(Y)].dat = (void *) (Z))
+#define setsizednode(X,Y,Z) (firstnode(X)[(Y)].dat = (void *) (Z))
 
 /* stack allocated linked lists */
 
-#define local_list0(N) struct linklist N
+#define local_list0(N) union linkroot N
 #define init_list0(N) \
     do { \
-        (N).first = NULL; \
-        (N).last = (LinkNode) &(N); \
+        (N).list.first = NULL; \
+        (N).list.last = &(N).node; \
+        (N).list.flags = 0; \
     } while (0)
-#define local_list1(N) struct linklist N; struct linknode __n0
+#define local_list1(N) union linkroot N; struct linknode __n0
 #define init_list1(N,V0) \
     do { \
-        (N).first = &__n0; \
-        (N).last = &__n0; \
+        (N).list.first = &__n0; \
+        (N).list.last = &__n0; \
+        (N).list.flags = 0; \
         __n0.next = NULL; \
-        __n0.last = (LinkNode) &(N); \
+        __n0.prev = &(N).node; \
         __n0.dat = (void *) (V0); \
     } while (0)
+
+/*************************************/
+/* Specific elements of linked lists */
+/*************************************/
+
+typedef void (*voidvoidfnptr_t) _((void));
+
+/*
+ * Element of the prepromptfns list.
+ */
+struct prepromptfn {
+    voidvoidfnptr_t func;
+};
+
+
+/*
+ * Element of the timedfns list.
+ */
+struct timedfn {
+    voidvoidfnptr_t func;
+    time_t when;
+};
 
 /********************************/
 /* Definitions for syntax trees */
@@ -434,6 +547,7 @@ struct redir {
     int type;
     int fd1, fd2;
     char *name;
+    char *varid;
 };
 
 /* The number of fds space is allocated for  *
@@ -590,8 +704,9 @@ struct eccstr {
 #define WC_LIST_TYPE(C)     wc_data(C)
 #define Z_END               (1<<4) 
 #define Z_SIMPLE            (1<<5)
-#define WC_LIST_SKIP(C)     (wc_data(C) >> 6)
-#define WCB_LIST(T,O)       wc_bld(WC_LIST, ((T) | ((O) << 6)))
+#define WC_LIST_FREE        (6)	/* Next bit available in integer */
+#define WC_LIST_SKIP(C)     (wc_data(C) >> WC_LIST_FREE)
+#define WCB_LIST(T,O)       wc_bld(WC_LIST, ((T) | ((O) << WC_LIST_FREE)))
 
 #define WC_SUBLIST_TYPE(C)  (wc_data(C) & ((wordcode) 3))
 #define WC_SUBLIST_END      0
@@ -601,8 +716,10 @@ struct eccstr {
 #define WC_SUBLIST_COPROC   4
 #define WC_SUBLIST_NOT      8
 #define WC_SUBLIST_SIMPLE  16
-#define WC_SUBLIST_SKIP(C)  (wc_data(C) >> 5)
-#define WCB_SUBLIST(T,F,O)  wc_bld(WC_SUBLIST, ((T) | (F) | ((O) << 5)))
+#define WC_SUBLIST_FREE    (5)	/* Next bit available in integer */
+#define WC_SUBLIST_SKIP(C)  (wc_data(C) >> WC_SUBLIST_FREE)
+#define WCB_SUBLIST(T,F,O)  wc_bld(WC_SUBLIST, \
+				   ((T) | (F) | ((O) << WC_SUBLIST_FREE)))
 
 #define WC_PIPE_TYPE(C)     (wc_data(C) & ((wordcode) 1))
 #define WC_PIPE_END         0
@@ -610,8 +727,11 @@ struct eccstr {
 #define WC_PIPE_LINENO(C)   (wc_data(C) >> 1)
 #define WCB_PIPE(T,L)       wc_bld(WC_PIPE, ((T) | ((L) << 1)))
 
-#define WC_REDIR_TYPE(C)    wc_data(C)
+#define WC_REDIR_TYPE(C)    ((int)(wc_data(C) & REDIR_TYPE_MASK))
+#define WC_REDIR_VARID(C)   ((int)(wc_data(C) & REDIR_VARID_MASK))
 #define WCB_REDIR(T)        wc_bld(WC_REDIR, (T))
+/* Size of redir is 4 words if REDIR_VARID_MASK is set, else 3 */
+#define WC_REDIR_WORDS(C)   (WC_REDIR_VARID(C) ? 4 : 3)
 
 #define WC_ASSIGN_TYPE(C)   (wc_data(C) & ((wordcode) 1))
 #define WC_ASSIGN_TYPE2(C)  ((wc_data(C) & ((wordcode) 2)) >> 1)
@@ -664,12 +784,14 @@ struct eccstr {
 #define WC_TRY_SKIP(C)	    wc_data(C)
 #define WCB_TRY(O)	    wc_bld(WC_TRY, (O))
 
-#define WC_CASE_TYPE(C)     (wc_data(C) & 3)
+#define WC_CASE_TYPE(C)     (wc_data(C) & 7)
 #define WC_CASE_HEAD        0
 #define WC_CASE_OR          1
 #define WC_CASE_AND         2
-#define WC_CASE_SKIP(C)     (wc_data(C) >> 2)
-#define WCB_CASE(T,O)       wc_bld(WC_CASE, ((T) | ((O) << 2)))
+#define WC_CASE_TESTAND     3
+#define WC_CASE_FREE	    (3) /* Next bit available in integer */
+#define WC_CASE_SKIP(C)     (wc_data(C) >> WC_CASE_FREE)
+#define WCB_CASE(T,O)       wc_bld(WC_CASE, ((T) | ((O) << WC_CASE_FREE)))
 
 #define WC_IF_TYPE(C)       (wc_data(C) & 3)
 #define WC_IF_HEAD          0
@@ -758,7 +880,6 @@ struct process {
 struct execstack {
     struct execstack *next;
 
-    LinkList args;
     pid_t list_pipe_pid;
     int nowait;
     int pline_level;
@@ -859,27 +980,21 @@ struct hashnode {
 /* node in shell option table */
 
 struct optname {
-    HashNode next;		/* next in hash chain */
-    char *nam;			/* hash data */
-    int flags;
+    struct hashnode node;
     int optno;			/* option number */
 };
 
 /* node in shell reserved word hash table (reswdtab) */
 
 struct reswd {
-    HashNode next;		/* next in hash chain        */
-    char *nam;			/* name of reserved word     */
-    int flags;			/* flags                     */
+    struct hashnode node;
     int token;			/* corresponding lexer token */
 };
 
 /* node in alias hash table (aliastab) */
 
 struct alias {
-    HashNode next;		/* next in hash chain       */
-    char *nam;			/* hash data                */
-    int flags;			/* flags for alias types    */
+    struct hashnode node;
     char *text;			/* expansion of alias       */
     int inuse;			/* alias is being expanded  */
 };
@@ -893,9 +1008,7 @@ struct alias {
 /* node in command path hash table (cmdnamtab) */
 
 struct cmdnam {
-    HashNode next;		/* next in hash chain */
-    char *nam;			/* hash data          */
-    int flags;
+    struct hashnode node;
     union {
 	char **name;		/* full pathname for external commands */
 	char *cmd;		/* file name for hashed commands       */
@@ -910,9 +1023,7 @@ struct cmdnam {
 /* node in shell function hash table (shfunctab) */
 
 struct shfunc {
-    HashNode next;		/* next in hash chain     */
-    char *nam;			/* name of shell function */
-    int flags;			/* various flags          */
+    struct hashnode node;
     Eprog funcdef;		/* function definition    */
 };
 
@@ -931,6 +1042,8 @@ struct shfunc {
 struct funcstack {
     Funcstack prev;		/* previous in stack */
     char *name;			/* name of function called */
+    char *caller;		/* name of caller */
+    int lineno;			/* line number in file */
 };
 
 /* node in list of function call wrappers */
@@ -998,9 +1111,7 @@ typedef int (*HandlerFunc) _((char *, char **, Options, int));
 #define NULLBINCMD ((HandlerFunc) 0)
 
 struct builtin {
-    HashNode next;		/* next in hash chain                                 */
-    char *nam;			/* name of builtin                                    */
-    int flags;			/* various flags                                      */
+    struct hashnode node;
     HandlerFunc handlerfunc;	/* pointer to function that executes this builtin     */
     int minargs;		/* minimum number of arguments                        */
     int maxargs;		/* maximum number of arguments, or -1 for no limit    */
@@ -1010,7 +1121,7 @@ struct builtin {
 };
 
 #define BUILTIN(name, flags, handler, min, max, funcid, optstr, defopts) \
-    { NULL, name, flags, handler, min, max, funcid, optstr, defopts }
+    { { NULL, name, flags }, handler, min, max, funcid, optstr, defopts }
 #define BIN_PREFIX(name, flags) \
     BUILTIN(name, flags | BINF_PREFIX, NULLBINCMD, 0, 0, 0, NULL, NULL)
 
@@ -1116,6 +1227,7 @@ struct patprog {
 #define GF_IGNCASE	0x0200
 #define GF_BACKREF	0x0400
 #define GF_MATCHREF	0x0800
+#define GF_MULTIBYTE	0x1000	/* Use multibyte if supported by build */
 
 /* Dummy Patprog pointers. Used mainly in executable code, but the
  * pattern code needs to know about it, too. */
@@ -1169,9 +1281,7 @@ struct gsu_hash {
 /* node used in parameter hash table (paramtab) */
 
 struct param {
-    HashNode next;		/* next in hash chain */
-    char *nam;			/* hash data          */
-    int flags;			/* PM_* flags         */
+    struct hashnode node;
 
     /* the value of this parameter */
     union {
@@ -1301,6 +1411,9 @@ struct tieddata {
 #define SUB_ALL		0x0100	/* match complete string */
 #define SUB_GLOBAL	0x0200	/* global substitution ${..//all/these} */
 #define SUB_DOSUBST	0x0400	/* replacement string needs substituting */
+#define SUB_RETFAIL	0x0800  /* return status 0 if no match */
+#define SUB_START	0x1000  /* force match at start with SUB_END
+				 * and no SUB_SUBSTR */
 
 /* Flags as the second argument to prefork */
 #define PF_TYPESET	0x01	/* argument handled like typeset foo=bar */
@@ -1331,12 +1444,18 @@ struct paramdef {
 #define setsparam(S,V) assignsparam(S,V,0)
 #define setaparam(S,V) assignaparam(S,V,0)
 
+/*
+ * Flags for assignsparam and assignaparam.
+ */
+enum {
+    ASSPM_AUGMENT = 1 << 0,
+    ASSPM_WARN_CREATE = 1 << 1
+};
+
 /* node for named directory hash table (nameddirtab) */
 
 struct nameddir {
-    HashNode next;		/* next in hash chain               */
-    char *nam;			/* directory name                   */
-    int flags;			/* see below                        */
+    struct hashnode node;
     char *dir;			/* the directory in full            */
     int diff;			/* strlen(.dir) - strlen(.nam)      */
 };
@@ -1369,13 +1488,16 @@ struct nameddir {
 /* history entry */
 
 struct histent {
-    HashNode hash_next;		/* next in hash chain               */
-    char *text;			/* the history line itself          */
-    int flags;			/* Misc flags                       */
+    struct hashnode node;
 
     Histent up;			/* previous line (moving upward)    */
     Histent down;		/* next line (moving downward)      */
+#ifdef MULTIBYTE_SUPPORT	/* (Note: must match ZLE_STRING_T!) */
+    wchar_t *zle_text;		/* the edited history line          */
+#else
     char *zle_text;		/* the edited history line          */
+#endif
+    int zle_len;		/* length of zle_text */
     time_t stim;		/* command started time (datestamp) */
     time_t ftim;		/* command finished time            */
     short *words;		/* Position of words in history     */
@@ -1486,6 +1608,7 @@ enum {
     CSHJUNKIEQUOTES,
     CSHNULLCMD,
     CSHNULLGLOB,
+    DEBUGBEFORECMD,
     EMACSMODE,
     EQUALS,
     ERREXIT,
@@ -1516,7 +1639,9 @@ enum {
     HISTNOFUNCTIONS,
     HISTNOSTORE,
     HISTREDUCEBLANKS,
+    HISTSAVEBYCOPY,
     HISTSAVENODUPS,
+    HISTSUBSTPATTERN,
     HISTVERIFY,
     HUP,
     IGNOREBRACES,
@@ -1543,6 +1668,7 @@ enum {
     MARKDIRS,
     MENUCOMPLETE,
     MONITOR,
+    MULTIBYTE,
     MULTIOS,
     NOMATCH,
     NOTIFY,
@@ -1552,12 +1678,14 @@ enum {
     OVERSTRIKE,
     PATHDIRS,
     POSIXBUILTINS,
+    POSIXIDENTIFIERS,
     PRINTEIGHTBIT,
     PRINTEXITVALUE,
     PRIVILEGED,
     PROMPTBANG,
     PROMPTCR,
     PROMPTPERCENT,
+    PROMPTSP,
     PROMPTSUBST,
     PUSHDIGNOREDUPS,
     PUSHDMINUS,
@@ -1587,6 +1715,7 @@ enum {
     UNSET,
     VERBOSE,
     VIMODE,
+    WARNCREATEGLOBAL,
     XTRACE,
     USEZLE,
     DVORAK,
@@ -1637,7 +1766,9 @@ struct ttyinfo {
 #  ifdef OXTABS
 #define SGTABTYPE       OXTABS
 #  else
+#   ifdef XTABS
 #define SGTABTYPE       XTABS
+#   endif
 #  endif
 # endif
 
@@ -1680,7 +1811,10 @@ struct ttyinfo {
 #define TCDOWNCURSOR   26
 #define TCLEFTCURSOR   27
 #define TCRIGHTCURSOR  28
-#define TC_COUNT       29
+#define TCSAVECURSOR   29
+#define TCRESTRCURSOR  30
+#define TCBACKSPACE    31
+#define TC_COUNT       32
 
 #define tccan(X) (tclen[X])
 
@@ -1705,20 +1839,6 @@ struct ttyinfo {
 /****************************************/
 
 #define CMDSTACKSZ 256
-#define cmdpush(X) do { \
-                       if (cmdsp >= 0 && cmdsp < CMDSTACKSZ) \
-                           cmdstack[cmdsp++]=(X); \
-                   } while (0)
-#ifdef DEBUG
-# define cmdpop()  do { \
-                       if (cmdsp <= 0) { \
-			   fputs("BUG: cmdstack empty\n", stderr); \
-			   fflush(stderr); \
-		       } else cmdsp--; \
-                   } while (0)
-#else
-# define cmdpop()   do { if (cmdsp > 0) cmdsp--; } while (0)
-#endif
 
 #define CS_FOR          0
 #define CS_WHILE        1
@@ -1799,9 +1919,18 @@ struct heap {
 /****************/
 
 #ifdef DEBUG
-# define DPUTS(X,Y) if (!(X)) {;} else dputs(Y)
+#define STRINGIFY_LITERAL(x)	# x
+#define STRINGIFY(x)		STRINGIFY_LITERAL(x)
+#define ERRMSG(x)		(__FILE__ ":" STRINGIFY(__LINE__) ": " x)
+# define DPUTS(X,Y) if (!(X)) {;} else dputs(ERRMSG(Y))
+# define DPUTS1(X,Y,Z1) if (!(X)) {;} else dputs(ERRMSG(Y), Z1)
+# define DPUTS2(X,Y,Z1,Z2) if (!(X)) {;} else dputs(ERRMSG(Y), Z1, Z2)
+# define DPUTS3(X,Y,Z1,Z2,Z3) if (!(X)) {;} else dputs(ERRMSG(Y), Z1, Z2, Z3)
 #else
 # define DPUTS(X,Y)
+# define DPUTS1(X,Y,Z1)
+# define DPUTS2(X,Y,Z1,Z2)
+# define DPUTS3(X,Y,Z1,Z2,Z3)
 #endif
 
 /**************************/
@@ -1816,7 +1945,129 @@ struct heap {
 /* Mask to get the above flags */
 #define ZSIG_MASK	(ZSIG_TRAPPED|ZSIG_IGNORED|ZSIG_FUNC)
 /* No. of bits to shift local level when storing in sigtrapped */
-#define ZSIG_SHIFT	3
+#define ZSIG_ALIAS	(1<<3)  /* Trap is stored under an alias */
+#define ZSIG_SHIFT	4
+
+/***********/
+/* Sorting */
+/***********/
+
+typedef int (*CompareFn) _((const void *, const void *));
+
+enum {
+    SORTIT_ANYOLDHOW = 0,	/* Defaults */
+    SORTIT_IGNORING_CASE = 1,
+    SORTIT_NUMERICALLY = 2,
+    SORTIT_BACKWARDS = 4,
+    /*
+     * Ignore backslashes that quote another character---which may
+     * be another backslash; the second backslash is active.
+     */
+    SORTIT_IGNORING_BACKSLASHES = 8,
+    /*
+     * Ignored by strmetasort(); used by paramsubst() to indicate
+     * there is some sorting to do.
+     */
+    SORTIT_SOMEHOW = 16,
+};
+
+/*
+ * Element of array passed to qsort().
+ */
+struct sortelt {
+    /* The original string. */
+    char *orig;
+    /* The string used for comparison. */
+    const char *cmp;
+    /*
+     * The length of the string if passed down to the sort algorithm.
+     * Used to sort the lengths together with the strings.
+     */
+    int origlen;
+    /*
+     * The length of the string, if needed, else -1.
+     * The length is only needed if there are embededded nulls.
+     */
+    int len;
+};
+
+typedef struct sortelt *SortElt;
+
+/************************/
+/* Flags to casemodifiy */
+/************************/
+
+enum {
+    CASMOD_NONE,		/* dummy for tests */
+    CASMOD_UPPER,
+    CASMOD_LOWER,
+    CASMOD_CAPS
+};
+
+/*******************************************/
+/* Flags to third argument of getkeystring */
+/*******************************************/
+
+/*
+ * By default handles some subset of \-escapes.  The following bits
+ * turn on extra features.
+ */
+enum {
+    /*
+     * Handle octal where the first digit is non-zero e.g. \3, \33, \333
+     * Otherwise \0333 etc. is handled, i.e. one of \0123 or \123 will
+     * work, but not both.
+     */
+    GETKEY_OCTAL_ESC = (1 << 0),
+    /*
+     * Handle Emacs-like key sequences \C-x etc.
+     * Also treat \E like \e and use backslashes to escape the
+     * next character if not special, i.e. do all the things we
+     * don't do with the echo builtin.
+     */
+    GETKEY_EMACS = (1 << 1),
+    /* Handle ^X etc. */
+    GETKEY_CTRL = (1 << 2),
+    /* Handle \c (uses misc arg to getkeystring()) */
+    GETKEY_BACKSLASH_C = (1 << 3),
+    /* Do $'...' quoting (len arg to getkeystring() not used) */
+    GETKEY_DOLLAR_QUOTE = (1 << 4),
+    /* Handle \- (uses misc arg to getkeystring()) */
+    GETKEY_BACKSLASH_MINUS = (1 << 5),
+    /* Parse only one character (len arg to getkeystring() not used) */
+    GETKEY_SINGLE_CHAR = (1 << 6),
+    /*
+     * If beyond offset in misc arg, add 1 to it for each character removed.
+     * Yes, I know that doesn't seem to make much sense.
+     * It's for use in completion, comprenez?
+     */
+    GETKEY_UPDATE_OFFSET = (1 << 7)
+};
+
+/*
+ * Standard combinations used within the shell.
+ * Note GETKEYS_... instead of GETKEY_...: this is important in some cases.
+ */
+/* echo builtin */
+#define GETKEYS_ECHO	(GETKEY_BACKSLASH_C)
+/* printf format string:  \123 -> S, \0123 -> NL 3 */
+#define GETKEYS_PRINTF_FMT	(GETKEY_OCTAL_ESC|GETKEY_BACKSLASH_C)
+/* printf argument:  \123 -> \123, \0123 -> S */
+#define GETKEYS_PRINTF_ARG	(GETKEY_BACKSLASH_C)
+/* Full print without -e */
+#define GETKEYS_PRINT	(GETKEY_OCTAL_ESC|GETKEY_BACKSLASH_C|GETKEY_EMACS)
+/* bindkey */
+#define GETKEYS_BINDKEY	(GETKEY_OCTAL_ESC|GETKEY_EMACS|GETKEY_CTRL)
+/* $'...' */
+#define GETKEYS_DOLLARS_QUOTE (GETKEY_OCTAL_ESC|GETKEY_EMACS|GETKEY_DOLLAR_QUOTE)
+/* Single character for math processing */
+#define GETKEYS_MATH	\
+	(GETKEY_OCTAL_ESC|GETKEY_EMACS|GETKEY_CTRL|GETKEY_SINGLE_CHAR)
+/* Used to process separators etc. with print-style escapes */
+#define GETKEYS_SEP	(GETKEY_OCTAL_ESC|GETKEY_EMACS)
+/* Used for suffix removal */
+#define GETKEYS_SUFFIX		\
+	(GETKEY_OCTAL_ESC|GETKEY_EMACS|GETKEY_CTRL|GETKEY_BACKSLASH_MINUS)
 
 /**********************************/
 /* Flags to third argument of zle */
@@ -1849,7 +2100,8 @@ typedef int (*CompctlReadFn) _((char *, char **, Options, char *));
 
 typedef void (*ZleVoidFn) _((void));
 typedef void (*ZleVoidIntFn) _((int));
-typedef unsigned char * (*ZleReadFn) _((char **, char **, int, int));
+typedef char *(*ZleReadFn) _((char **, char **, int, int));
+typedef char *(*ZleGetLineFn) _((int *, int *));
 
 /***************************************/
 /* Hooks in core.                      */
@@ -1858,3 +2110,55 @@ typedef unsigned char * (*ZleReadFn) _((char **, char **, int, int));
 #define EXITHOOK       (zshhooks + 0)
 #define BEFORETRAPHOOK (zshhooks + 1)
 #define AFTERTRAPHOOK  (zshhooks + 2)
+
+#ifdef MULTIBYTE_SUPPORT
+#define nicezputs(str, outs)	(void)mb_niceformat((str), (outs), NULL, 0)
+#define MB_METACHARINIT()	mb_metacharinit()
+typedef wint_t convchar_t;
+#define MB_METACHARLENCONV(str, cp)	mb_metacharlenconv((str), (cp))
+#define MB_METACHARLEN(str)	mb_metacharlenconv(str, NULL)
+#define MB_METASTRLEN(str)	mb_metastrlen(str, 0)
+#define MB_METASTRWIDTH(str)	mb_metastrlen(str, 1)
+#define MB_METASTRLEN2(str, widthp)	mb_metastrlen(str, widthp)
+
+/*
+ * Note WCWIDTH() takes wint_t, typically as a convchar_t.
+ * It's written to use the wint_t from mb_metacharlenconv() without
+ * further tests.
+ */
+#define WCWIDTH(wc)	zwcwidth(wc)
+
+#define MB_INCOMPLETE	((size_t)-2)
+#define MB_INVALID	((size_t)-1)
+
+/*
+ * MB_CUR_MAX is the maximum number of bytes that a single wide
+ * character will convert into.  We use it to keep strings
+ * sufficiently long.  It should always be defined, but if it isn't
+ * just assume we are using Unicode which requires 6 characters.
+ * (Note that it's not necessarily defined to a constant.)
+ */
+#ifndef MB_CUR_MAX
+#define MB_CUR_MAX 6
+#endif
+
+/* Convert character or string to wide character or string */
+#define ZWC(c)	L ## c
+#define ZWS(s)	L ## s
+
+#else
+#define MB_METACHARINIT()
+typedef int convchar_t;
+#define MB_METACHARLENCONV(str, cp)	metacharlenconv((str), (cp))
+#define MB_METACHARLEN(str)	(*(str) == Meta ? 2 : 1)
+#define MB_METASTRLEN(str)	ztrlen(str)
+#define MB_METASTRWIDTH(str)	ztrlen(str)
+#define MB_METASTRLEN2(str, widthp)	ztrlen(str)
+
+#define WCWIDTH(c)	(1)
+
+/* Leave character or string as is. */
+#define ZWC(c)	c
+#define ZWS(s)	s
+
+#endif

@@ -31,7 +31,7 @@
 .Ft int
 .Fn sem_post "sem_t *sem"
 .Sh DESCRIPTION
-The the semaphore referenced by
+The semaphore referenced by
 .Fa sem
 is unlocked, the value of the semaphore is incremented, and all
 threads which are waiting on the semaphore are awakened.
@@ -54,12 +54,12 @@ succeeds unless:
 is not a valid semaphore descriptor.
 .El
 .Sh SEE ALSO
-.Xr semctl 2 ,
-.Xr semget 2 ,
-.Xr semop 2 ,
 .Xr sem_open 2 ,
 .Xr sem_trywait 2 ,
-.Xr sem_wait 2
+.Xr sem_wait 2 ,
+.Xr semctl 2 ,
+.Xr semget 2 ,
+.Xr semop 2
 .Sh HISTORY
 .Fn sem_post
 is specified in the POSIX Realtime Extension (1003.1b-1993/1003.1i-1995).

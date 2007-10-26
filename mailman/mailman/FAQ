@@ -1,6 +1,6 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 Note: We're migrating the FAQ to an on-line interactive system called
       "FAQ Wizard".  To see the Mailman FAQ Wizard in action, go to
@@ -40,19 +40,14 @@ A. These headers are described in RFC 2369 and are added by Mailman
 Q. Can I put the user's address in the footer that Mailman adds to
    each message?
 
-A. Yes, in Mailman 2.1.  The site admin needs to enable
-   personalization by setting the following variables in the mm_cfg.py
-   file:
+A. Yes, in Mailman 2.1.  The site admin needs to enable personalization by
+   setting the following variable in the mm_cfg.py file:
 
-    VERP_PASSWORD_REMINDERS = 1
-    VERP_PERSONALIZED_DELIVERIES = 1
-    VERP_DELIVERY_INTERVAL = 1
-    VERP_CONFIRMATIONS = 1
+    OWNERS_CAN_ENABLE_PERSONALIZATION = Yes
 
-   Once this is done, list admins can enable personalization for
-   regular delivery members (digest deliveries can't be
-   personalized currently).  A personalized list can include the
-   user's address in the footer.
+   Once this is done, list admins can enable personalization for regular
+   delivery members (digest deliveries can't be personalized currently).  A
+   personalized list can include the user's address in the footer.
 
 Q. My users hate HTML in their email and for security reasons, I want
    to strip out all MIME attachments.  How can I do this?

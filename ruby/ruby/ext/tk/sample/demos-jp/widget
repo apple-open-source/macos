@@ -11,7 +11,7 @@ require 'tk'
 $demo_dir = File.dirname($0)
 
 # root の生成
-$root = TkRoot.new{title "Widget Demonstration"}
+$root = TkRoot.new{title "Ruby/Tk Widget Demonstration"}
 
 # tk バージョンの取得
 $tk_version = Tk::TK_VERSION
@@ -438,6 +438,18 @@ txt.insert('end', "3. 色選択ダイアログ\n", tag_demo, "demo-clrpick")
 txt.insert('end', " \n ", tag_demospace)
 
 txt.insert('end', "\n")
+#txt.insert('end', "アニメーション\n", tag_middle)
+txt.insert('end', "アニメーション\n", tag_kanji_title)
+txt.insert('end', " \n ", tag_demospace)
+txt.insert('end', "1. アニメーションラベル (機能に対応したバージョンのTkが必要)\n", tag_demo, "demo-anilabel")
+txt.insert('end', " \n ", tag_demospace)
+txt.insert('end', "2. 波形のアニメーション (機能に対応したバージョンのTkが必要)\n", tag_demo, "demo-aniwave")
+txt.insert('end', " \n ", tag_demospace)
+txt.insert('end', "3. 振り子のシミュレーション (機能に対応したバージョンのTkが必要)\n", tag_demo, "demo-pendulum")
+txt.insert('end', " \n ", tag_demospace)
+txt.insert('end', "4. A celebration of Rube Goldberg (機能に対応したバージョンのTkが必要)\n", tag_demo, "demo-goldberg")
+
+txt.insert('end', "\n")
 #txt.insert('end', "その他\n", tag_middle)
 txt.insert('end', "その他\n", tag_kanji_title)
 txt.insert('end', " \n ", tag_demospace)
@@ -539,11 +551,113 @@ else # ver >= 8.4
   alias showVars showVars2
 end
 
+# 疑似トップレベルサポート
+module PseudoToplevel_Evaluable
+  def pseudo_toplevel_eval(body = Proc.new)
+    Thread.current[:TOPLEVEL] = self
+    begin
+      body.call
+    ensure
+      Thread.current[:TOPLEVEL] = nil
+    end
+  end
+
+  def pseudo_toplevel_evaluable?
+    @pseudo_toplevel_evaluable
+  end
+  def pseudo_toplevel_evaluable=(mode)
+    @pseudo_toplevel_evaluable = (mode)? true: false
+  end
+
+  def self.extended(mod)
+    mod.__send__(:extend_object, mod)
+    mod.instance_variable_set('@pseudo_toplevel_evaluable', true)
+  end
+end
+
+class Object
+  alias __method_missing__ method_missing
+  private :__method_missing__
+
+  def method_missing(id, *args)
+    begin
+      has_top = (top = Thread.current[:TOPLEVEL]) && 
+                   top.respond_to?(:pseudo_toplevel_evaluable?) && 
+                   top.pseudo_toplevel_evaluable? && 
+                   top.respond_to?(id)
+    rescue Exception => e
+      has_top = false
+    end
+
+    if has_top
+      top.__send__(id, *args)
+    else
+      __method_missing__(id, *args)
+    end
+  end
+end
+
+class Proc
+  def initialize(*args, &b)
+    super
+    @__pseudo_toplevel__ = Thread.current[:TOPLEVEL]
+  end
+
+  alias __call__ call
+  def call(*args, &b)
+    if top = @__pseudo_toplevel__
+      orig_top = Thread.current[:TOPLEVEL]
+      Thread.current[:TOPLEVEL] = top
+      begin
+        __call__(*args, &b)
+      ensure
+        Thread.current[:TOPLEVEL] = orig_top
+      end
+    else
+      __call__(*args, &b)
+    end
+  end
+end
+
+def proc(&b)
+  Proc.new(&b)
+end
+def lambda(&b)
+  Proc.new(&b)
+end
+
+def _null_binding
+  Module.new.instance_eval{extend PseudoToplevel_Evaluable}
+  # binding
+  # Module.new.instance_eval{binding}
+end
+private :_null_binding
+
+def eval_samplecode(code)
+  Thread.new{ _null_binding.pseudo_toplevel_eval{ eval(code) } }.run
+  Tk.update
+end
+
 # テキスト上での click に対する動作
-def invoke (txt, index)
-  tag = txt.tag_names(index).find{|t| t.kind_of?(String) && t =~ /^demo-/}
+def invoke(txt, idx)
+  tag = txt.tag_names(idx).find{|t| t.kind_of?(String) && t =~ /^demo-/}
   return unless tag
+
   cursor = txt.cget('cursor')
+  txt.cursor('watch')
+  Tk.update
+  # eval(IO.readlines("#{[$demo_dir, tag[5..-1]].join(File::Separator)}.rb").join, _null_binding)
+  # Tk.update
+  eval_samplecode(IO.readlines("#{[$demo_dir, tag[5..-1]].join(File::Separator)}.rb").join)
+  txt.cursor(cursor)
+
+  $tag_visited.add("#{idx} linestart +1 chars", "#{idx} lineend +1 chars")
+end
+=begin
+def invoke (txt, idx)
+  tag = txt.tag_names(idx).find{|t| t.kind_of?(String) && t =~ /^demo-/}
+  return unless tag
+  current_cursor = txt.cget('cursor')
   txt.cursor('watch')
   Tk.update
 #  eval `cat #{tag[5..-1]}.rb`
@@ -551,10 +665,11 @@ def invoke (txt, index)
   eval IO.readlines("#{[$demo_dir, tag[5..-1]].join(File::Separator)}.rb").join
   Tk.update
 #  txt.cursor('xterm')
-  txt.cursor(cursor)
+  txt.cursor(current_cursor)
 
-  $tag_visited.add("#{index} linestart +1 chars", "#{index} lineend +1 chars")
+  $tag_visited.add("#{idx} linestart +1 chars", "#{idx} lineend +1 chars")
 end
+=end
 
 # 状態表示
 def showStatus (txt, index)
@@ -589,7 +704,8 @@ def showCode1(demo)
     }.pack('side'=>'left', 'expand'=>'yes', 'pady'=>2)
     TkButton.new(f) {
       text "再実行"
-      command proc{eval($code_text.get('1.0','end'))}
+      # command proc{eval($code_text.get('1.0','end'), _null_binding)}
+      command proc{eval_samplecode($code_text.get('1.0','end'))}
     }.pack('side'=>'left', 'expand'=>'yes', 'pady'=>2)
 #    f.pack('side'=>'bottom', 'expand'=>'yes', 'fill'=>'x')
     f.pack('side'=>'bottom', 'fill'=>'x')
@@ -682,7 +798,10 @@ def showCode2(demo)
                          :command=>proc{printCode($code_text, file)}, 
                          :image=>$image['print'], :compound=>:left)
     b_run = TkButton.new(bf, :text=>'再実行', 
-                         :command=>proc{eval($code_text.get('1.0','end'))}, 
+                         :command=>proc{
+                           # eval($code_text.get('1.0','end'), _null_binding)
+                           eval_samplecode($code_text.get('1.0','end'))
+                         }, 
                          :image=>$image['refresh'], :compound=>:left)
 
     TkGrid('x', b_run, b_prn, b_dis, :padx=>4, :pady=>[6,4])
@@ -807,14 +926,15 @@ end
 #
 def aboutBox
   Tk.messageBox('icon'=>'info', 'type'=>'ok', 'title'=>'About Widget Demo', 
-                'message'=>"Ruby/Tk ウィジェットデモ Ver.1.4.4-jp\n\n" + 
+                'message'=>"Ruby/Tk ウィジェットデモ Ver.1.6.0-jp\n\n" + 
                            "based on demos of Tk8.1 -- 8.5  " + 
                            "( Copyright:: " + 
                            "(c) 1996-1997 Sun Microsystems, Inc. / " + 
                            "(c) 1997-2000 Ajuba Solutions, Inc. / " + 
                            "(c) 2001-2003 Donal K. Fellows )\n\n" +
                            "Your Ruby & Tk Version ::\n" + 
-                           "Ruby#{RUBY_VERSION}(#{RUBY_RELEASE_DATE})[#{RUBY_PLATFORM}] / Tk#{$tk_patchlevel}#{(Tk::JAPANIZED_TK)? '-jp': ''}")
+                           "Ruby#{RUBY_VERSION}(#{RUBY_RELEASE_DATE})[#{RUBY_PLATFORM}] / Tk#{$tk_patchlevel}#{(Tk::JAPANIZED_TK)? '-jp': ''}\n\n" + 
+                           "Ruby/Tk release date :: tcltklib #{TclTkLib::RELEASE_DATE}; tk #{Tk::RELEASE_DATE}")
 end
 
 ####################################
@@ -823,12 +943,17 @@ no_launcher = false
 if ARGV[0] == '-n'
   ARGV.shift
   no_launcher = true if ARGV.size > 0
+else
+  # show the root widget to make it lower then demo windows
+  Tk.update
 end
 ARGV.each{|cmd| 
   if cmd =~ /(.*).rb/
     cmd = $1
   end
-  eval IO.readlines("#{[$demo_dir, cmd].join(File::Separator)}.rb").join
+  #eval(IO.readlines("#{[$demo_dir, cmd].join(File::Separator)}.rb").join, 
+  #     _null_binding)
+  eval_samplecode(IO.readlines("#{[$demo_dir, cmd].join(File::Separator)}.rb").join)
 }
 if no_launcher
   $root.withdraw  # hide root window

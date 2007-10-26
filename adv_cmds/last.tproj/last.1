@@ -38,7 +38,7 @@
 .Nm last
 .Nd indicate last logins of users and ttys
 .Sh SYNOPSIS
-.Nm last
+.Nm
 .Op Fl Ns Ar n
 .Op Fl f Ar file
 .Op Fl h Ar host
@@ -56,20 +56,17 @@ the user name, the tty from which the session was conducted, any
 hostname, the start and stop times for the session, and the duration
 of the session.  If the session is still continuing or was cut short by
 a crash or shutdown,
-.Nm last
+.Nm
 will so indicate.
 .Pp
 .Bl -tag -width indent-two
-.It Fl f Ar file
-.Nm Last
-reads the file
-.Ar file
-instead of the default,
-.Pa /var/log/wtmp .
-.It Fl Ar n
+.It Fl Ns Ar n
 Limits the report to
 .Ar n
 lines.
+.It Fl h Ar host
+.Ar Host
+names may be names or internet numbers.
 .It Fl t Ar tty
 Specify the
 .Ar tty .
@@ -78,9 +75,6 @@ Tty names may be given fully or abbreviated, for example,
 is
 equivalent to
 .Dq Li "last -t tty03" .
-.It Fl h Ar host
-.Ar Host
-names may be names or internet numbers.
 .El
 .Pp
 If
@@ -91,7 +85,7 @@ would list all of
 .Dq Li root Ns 's
 sessions as well as all sessions on the console terminal. If no
 users, hostnames or terminals are specified,
-.Nm last
+.Nm
 prints a record of
 all logins and logouts.
 .Pp
@@ -102,20 +96,15 @@ logs in at reboots of the system, thus
 will give an indication of mean time between reboot.
 .Pp
 If
-.Nm last
+.Nm
 is interrupted, it indicates to what date the search has
 progressed.  If interrupted with a quit signal
-.Nm last
+.Nm
 indicates how
 far the search has progressed and then continues.
-.Sh FILES
-.Bl -tag -width /var/log/wtmp -compact
-.It Pa /var/log/wtmp
-login data base
-.El
 .Sh SEE ALSO
 .Xr lastcomm 1 ,
-.Xr utmp 5 ,
+.Xr utmpx 5 ,
 .Xr ac 8
 .Sh HISTORY
 .Nm Last

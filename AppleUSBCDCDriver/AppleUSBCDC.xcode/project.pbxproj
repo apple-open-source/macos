@@ -191,6 +191,7 @@
 				D223633C05EC2B9F00C17DDB,
 				D223633F05EC2BD600C17DDB,
 				D223634105EC2C0F00C17DDB,
+				D2DEC60C08A27C0E0017ADD2,
 			);
 			isa = PBXGroup;
 			name = Headers;
@@ -628,6 +629,7 @@
 				D2277A2A07417BF9002AF184,
 				D2277A2B07417BF9002AF184,
 				D2277A2C07417BF9002AF184,
+				D2DEC60D08A27C0E0017ADD2,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1733,6 +1735,21 @@
 			path = AppleUSBCDCEEM/Classes/AppleUSBCDCEEM.cpp;
 			refType = 4;
 			sourceTree = "<group>";
+		};
+		D2DEC60C08A27C0E0017ADD2 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = AppleUSBCDCACMDataUser.h;
+			path = AppleUSBCDCACM/DataDriver/Headers/AppleUSBCDCACMDataUser.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D2DEC60D08A27C0E0017ADD2 = {
+			fileRef = D2DEC60C08A27C0E0017ADD2;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 //D20
 //D21

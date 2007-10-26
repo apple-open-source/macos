@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: ntpaths.h,v 1.12.2.1.10.1 2004/03/06 08:15:16 marka Exp $ */
+/* $Id: ntpaths.h,v 1.14 2004/03/05 05:12:05 marka Exp $ */
 
 /*
  * Windows-specific path definitions

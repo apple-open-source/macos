@@ -1,13 +1,13 @@
-README.txt for version 6.2 of Vim: Vi IMproved.
+README.txt for version 7.0 of Vim: Vi IMproved.
 
 
 WHAT IS VIM
 
 Vim is an almost compatible version of the UNIX editor Vi.  Many new features
 have been added: multi-level undo, syntax highlighting, command line history,
-on-line help, filename completion, block operations, etc.  There is also a
-Graphical User Interface (GUI) available.  See "runtime/doc/vi_diff.txt" for
-differences with Vi.
+on-line help, spell checking, filename completion, block operations, etc.
+There is also a Graphical User Interface (GUI) available.  See
+"runtime/doc/vi_diff.txt" for differences with Vi.
 
 This editor is very useful for editing programs and other plain ASCII files.
 All commands are given with normal keyboard characters, so those who can type
@@ -54,6 +54,21 @@ The license is GPL compatible, you may compile Vim with GPL libraries and
 distribute it.
 
 
+SPONSORING
+
+Fixing bugs and adding new features takes a lot of time and effort.  To show
+your appreciation for the work and motivate Bram and others to continue
+working on Vim please send a donation.
+
+Since Bram is back to a paid job the money will now be used to help children
+in Uganda.  See runtime/doc/uganda.txt.  But at the same time donations
+increase Bram's motivation to keep working on Vim!
+
+For the most recent information about sponsoring look on the Vim web site:
+
+	http://www.vim.org/sponsor/
+
+
 COMPILING
 
 If you obtained a binary distribution you don't need to compile Vim.  If you
@@ -83,28 +98,23 @@ If you have problems, have a look at the Vim FAQ:
 Send bug reports to:
 	Bram Moolenaar <Bram@vim.org>
 
-There are four mailing lists for Vim:
+There are five mailing lists for Vim:
 <vim@vim.org>
 	For discussions about using existing versions of Vim: Useful mappings,
 	questions, answers, where to get a specific version, etc.
-	Archive: http://groups.yahoo.com/group/vim
 <vim-dev@vim.org>
 	For discussions about changing Vim: New features, porting, beta-test
 	versions, etc.
-	Archive: http://groups.yahoo.com/group/vimdev
 <vim-announce@vim.org>
 	Announcements about new versions of Vim; also beta-test versions and
 	ports to different systems.
-	Archive: http://groups.yahoo.com/group/vimannounce
 <vim-multibyte@vim.org>
 	For discussions about using and improving the multi-byte aspects of
 	Vim: XIM, Hangul, fontset, etc.
-	Archive: http://groups.yahoo.com/group/vim-multibyte
 <vim-mac@vim.org>
 	For discussions about using and improving Vim on the Macintosh.
-	Archive: http://groups.yahoo.com/group/vim-mac
 
-See "http://www.vim.org/maillist.php"
+For more info and URLs of the archives see "http://www.vim.org/maillist.php".
 
 NOTE:
 - You can only send messages to these lists if you have subscribed!
@@ -123,6 +133,9 @@ MAIN AUTHOR
 Send any other comments, patches, pizza and suggestions to:
 
 	Bram Moolenaar		E-mail:	Bram@vim.org
-	Clematisstraat 30
-	5925 BE  Venlo		Tel: +31 77 3872340
-	The Netherlands		Fax/voice-mail: +31 84 8508509
+	Molenstraat 2
+	2161 HP  Lisse
+	The Netherlands
+
+This is the address of my parents, they will forward mail and eat the pizza.
+My actual address will change a couple of times in 2006.

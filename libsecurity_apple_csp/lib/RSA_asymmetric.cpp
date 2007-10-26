@@ -28,6 +28,8 @@
 #define rsaCryptDebug(args...)	secdebug("rsaCrypt", ## args)
 #define rbprintf(args...)		secdebug("rsaBuf", ## args)
 
+static ModuleNexus<Mutex> gMutex;
+
 RSA_CryptContext::~RSA_CryptContext()
 {
 	if(mAllocdRsaKey) {
@@ -41,6 +43,8 @@ RSA_CryptContext::~RSA_CryptContext()
 /* called by CSPFullPluginSession */
 void RSA_CryptContext::init(const Context &context, bool encoding /*= true*/)
 {
+	StLock<Mutex> _(gMutex());
+	
 	if(mInitFlag && !opStarted()) {
 		/* reusing - e.g. query followed by encrypt */
 		return;
@@ -66,11 +70,18 @@ void RSA_CryptContext::init(const Context &context, bool encoding /*= true*/)
 	/* fetch key from context */
 	if(mRsaKey == NULL) {
 		assert(!opStarted());
+		CSSM_DATA label = {0, NULL};
 		mRsaKey = contextToRsaKey(context,
 			session(),
 			keyClass,
 			encoding ? CSSM_KEYUSE_ENCRYPT : CSSM_KEYUSE_DECRYPT,
-			mAllocdRsaKey);
+			mAllocdRsaKey,
+			label);
+		if(label.Data) {
+			mLabel.copy(label);
+			mOaep = true;
+			free(label.Data);
+		}
 	}
 	else {
 		assert(opStarted());	
@@ -90,7 +101,14 @@ void RSA_CryptContext::init(const Context &context, bool encoding /*= true*/)
 			mPadding = RSA_PKCS1_PADDING;
 			plainBlockSize = cipherBlockSize - 11;
 			break;
+		case CSSM_PADDING_APPLE_SSLv2:
+			rsaCryptDebug("RSA_CryptContext::init using CSSM_PADDING_APPLE_SSLv2");
+			mPadding = RSA_SSLV23_PADDING;
+			plainBlockSize = cipherBlockSize - 11;
+			break;
 		default:
+			rsaCryptDebug("RSA_CryptContext::init bad padding (0x%x)",
+				(unsigned)padding);
 			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PADDING);
 	}
 	
@@ -124,8 +142,11 @@ void RSA_CryptContext::encryptBlock(
 	size_t			&cipherTextLen,		// in/out, throws on overflow
 	bool			final)
 {
+	StLock<Mutex> _(gMutex());
+	
 	int irtn;
 	
+	/* FIXME do OAEP encoding here */
 	if(mRsaKey->d == NULL) {
 		irtn =	RSA_public_encrypt(plainTextLen, 
 			(unsigned char *)plainText,
@@ -152,12 +173,17 @@ void RSA_CryptContext::encryptBlock(
 
 void RSA_CryptContext::decryptBlock(
 	const void		*cipherText,		// length implied (one cipher block)
+	size_t			cipherTextLen,
 	void			*plainText,	
 	size_t			&plainTextLen,		// in/out, throws on overflow
 	bool			final)
 {
+	StLock<Mutex> _(gMutex());
+	
 	int irtn;
 	
+	rsaCryptDebug("decryptBlock padding %d", mPadding);
+	/* FIXME do OAEP encoding here */
 	if(mRsaKey->d == NULL) {
 		irtn = RSA_public_decrypt(inBlockSize(), 
 			(unsigned char *)cipherText,
@@ -173,6 +199,7 @@ void RSA_CryptContext::decryptBlock(
 			mPadding);
 	}
 	if(irtn < 0) {
+		rsaCryptDebug("decryptBlock err");
 		throwRsaDsa("RSA_private_decrypt");
 	}
 	else if((unsigned)irtn > plainTextLen) {
@@ -186,8 +213,10 @@ size_t RSA_CryptContext::outputSize(
 	bool 			final,				// ignored
 	size_t 			inSize /*= 0*/)		// output for given input size
 {
-	UInt32 rawBytes = inSize + inBufSize();
-	UInt32 rawBlocks = (rawBytes + inBlockSize() - 1) / inBlockSize();
+	StLock<Mutex> _(gMutex());
+	
+	uint32 rawBytes = inSize + inBufSize();
+	uint32 rawBlocks = (rawBytes + inBlockSize() - 1) / inBlockSize();
 	rbprintf("--- RSA_CryptContext::outputSize inSize 0x%lx outSize 0x%lx mInBufSize 0x%lx",
 		inSize, rawBlocks * outBlockSize(), inBufSize());
 	return rawBlocks * outBlockSize();

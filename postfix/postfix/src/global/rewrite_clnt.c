@@ -81,6 +81,8 @@ static VSTRING *last_result;
 VSTRING *rewrite_clnt(const char *rule, const char *addr, VSTRING *result)
 {
     VSTREAM *stream;
+    int     server_flags;
+    int     count = 0;
 
     /*
      * One-entry cache.
@@ -128,6 +130,7 @@ VSTRING *rewrite_clnt(const char *rule, const char *addr, VSTRING *result)
     for (;;) {
 	stream = clnt_stream_access(rewrite_clnt_stream);
 	errno = 0;
+	count += 1;
 	if (attr_print(stream, ATTR_FLAG_NONE,
 		       ATTR_TYPE_STR, MAIL_ATTR_REQ, REWRITE_ADDR,
 		       ATTR_TYPE_STR, MAIL_ATTR_RULE, rule,
@@ -135,15 +138,19 @@ VSTRING *rewrite_clnt(const char *rule, const char *addr, VSTRING *result)
 		       ATTR_TYPE_END) != 0
 	    || vstream_fflush(stream)
 	    || attr_scan(stream, ATTR_FLAG_STRICT,
+			 ATTR_TYPE_INT, MAIL_ATTR_FLAGS, &server_flags,
 			 ATTR_TYPE_STR, MAIL_ATTR_ADDR, result,
-			 ATTR_TYPE_END) != 1) {
-	    if (msg_verbose || (errno != EPIPE && errno != ENOENT))
+			 ATTR_TYPE_END) != 2) {
+	    if (msg_verbose || count > 1 || (errno && errno != EPIPE && errno != ENOENT))
 		msg_warn("problem talking to service %s: %m",
 			 var_rewrite_service);
 	} else {
 	    if (msg_verbose)
 		msg_info("rewrite_clnt: %s: %s -> %s",
 			 rule, addr, vstring_str(result));
+	    /* Server-requested disconnect. */
+	    if (server_flags != 0)
+		clnt_stream_recover(rewrite_clnt_stream);
 	    break;
 	}
 	sleep(1);				/* XXX make configurable */

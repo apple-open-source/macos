@@ -1,11 +1,11 @@
-" When you're writing shell scripts, are you then in doubt which
-" test to use, which shell environment variables that are defined,
-" the syntax of the case statement, and need to call 'man sh'?
+" When you're writing shell scripts and you are in doubt which test to use,
+" which shell environment variables are defined, what the syntax of the case
+" statement is, and you need to invoke 'man sh'?
 "
 " Your problems are over now!
 "
-" Attached is a vim 'so' file making vim to a shell script editor (in
-" graphics mode). It may also be used as an example how to use menues in Vim.
+" Attached is a Vim script file for turning gvim into a shell script editor.
+" It may also be used as an example how to use menus in Vim.
 "
 " Written by: Lennart Schultz <les@dmi.min.dk>
 

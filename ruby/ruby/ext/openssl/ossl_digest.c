@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_digest.c,v 1.4.2.2 2004/12/15 01:54:39 matz Exp $
+ * $Id: ossl_digest.c 12043 2007-03-12 04:12:32Z knu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -264,6 +264,10 @@ ossl_digest_size(VALUE self)
 void
 Init_ossl_digest()
 {
+#if 0 /* let rdoc know about mOSSL */
+    mOSSL = rb_define_module("OpenSSL");
+#endif
+
     mDigest = rb_define_module_under(mOSSL, "Digest");
 	
     eDigestError = rb_define_class_under(mDigest, "DigestError", eOSSLError);

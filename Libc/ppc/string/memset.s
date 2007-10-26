@@ -49,23 +49,14 @@
         .align	5
 _memset:                        // void *   memset(void *b, int c, size_t len);
         andi.	r7,r4,0xFF      // copy value to working register, test for 0
-        mr		r4,r5           // move length to working register
+        mr	r4,r5           // move length to working register
         cmplgi	cr1,r5,kShort	// long enough to bother with _COMM_PAGE_MEMSET_PATTERN?
         beqa++	_COMM_PAGE_BZERO    // if (c==0), map to bzero()
         rlwimi	r7,r7,8,16,23	// replicate nonzero value to low 2 bytes
-        neg		r5,r3           // start to compute #bytes to align
-        mr		r8,r3           // make working copy of operand ptr
+        neg	r5,r3           // start to compute #bytes to align
+        mr	r8,r3           // make working copy of operand ptr
         rlwimi	r7,r7,16,0,15	// value now in all 4 bytes
-        blt		cr1,Lmemset3    // too short to use commpage
-        
-        // TEMPORARY HACK
-        // Operand is long enough to use _COMM_PAGE_MEMSET_PATTERN.  During Tiger
-        // development, B&I uses Panther kernels on their builders but runs Tiger
-        // apps on it.  So _COMM_PAGE_MEMSET_PATTERN may not be on this machine.
-        // Rather than patch build fleet kernels, we just test to see if it is there
-        // and use the short-operand case if not.  We can remove the hack when Tiger ships.
-        
-        lhz     r10,_COMM_PAGE_VERSION(0) // REMOVE THIS LINE WHEN TIGER SHIPS
+        blt	cr1,Lmemset3    // too short to use commpage
         andi.	r0,r5,0xF       // r0 <- #bytes to align on quadword
         
         // Align ptr and store enough so that we have an aligned 16-byte pattern.
@@ -74,7 +65,6 @@ _memset:                        // void *   memset(void *b, int c, size_t len);
         stw     r7,4(r8)
         stw     r7,8(r8)
         stw     r7,12(r8)
-        cmpwi   cr1,r10,1       // REMOVE THIS LINE WHEN TIGER SHIPS
         beq     Lmemset1        // skip if (r0==0), ie if r8 is 16-byte aligned
         add     r8,r8,r0        // 16-byte align ptr
         sub     r4,r4,r0        // adjust length
@@ -96,7 +86,7 @@ Lmemset1:
         mr      r9,r8           // point to 16-byte-aligned 16-byte pattern
         addi    r8,r8,16        // point to first unstored byte
         subi    r4,r4,16        // account for the aligned bytes we have stored
-        bnela++ cr1,_COMM_PAGE_MEMSET_PATTERN   // CHANGE THIS LINE WHEN TIGER SHIPS
+        bla	_COMM_PAGE_MEMSET_PATTERN
         mtlr    r12
 
         // Here for short nonzero memset.
@@ -139,20 +129,20 @@ Lmemset5:
         blr
         
 
-/* *************************************
- * * _ M E M S E T _ P A T T E R N 1 6 *
- * *************************************
+/* ***********************************
+ * * M E M S E T _ P A T T E R N 1 6 *
+ * ***********************************
  *
  * Used to store a 16-byte pattern in memory:
  *
- *  void    _memset_pattern16(void *b, const void *c16, size_t len);
+ *  void    memset_pattern16(void *b, const void *c16, size_t len);
  *
  * Where c16 points to the 16-byte pattern.  None of the parameters need be aligned.
  */
 
-        .globl	__memset_pattern16
+        .globl	_memset_pattern16
         .align	5
-__memset_pattern16:
+_memset_pattern16:
         cmplgi  cr1,r5,kShort   // check length
         lwz     r7,0(r4)        // load pattern into (these remain lwz in 64-bit mode)
         lwz     r9,4(r4)
@@ -162,20 +152,20 @@ __memset_pattern16:
         b       __memset_pattern_common
         
 
-/* ***********************************
- * * _ M E M S E T _ P A T T E R N 8 *
- * ***********************************
+/* *********************************
+ * * M E M S E T _ P A T T E R N 8 *
+ * *********************************
  *
  * Used to store an 8-byte pattern in memory:
  *
- *  void    _memset_pattern8(void *b, const void *c8, size_t len);
+ *  void    memset_pattern8(void *b, const void *c8, size_t len);
  *
  * Where c8 points to the 8-byte pattern.  None of the parameters need be aligned.
  */
 
-        .globl	__memset_pattern8
+        .globl	_memset_pattern8
         .align	5
-__memset_pattern8:
+_memset_pattern8:
         lwz     r7,0(r4)        // load pattern (these remain lwz in 64-bit mode)
         lwz     r9,4(r4)
         cmplgi  cr1,r5,kShort   // check length
@@ -185,20 +175,20 @@ __memset_pattern8:
         b       __memset_pattern_common
         
 
-/* ***********************************
- * * _ M E M S E T _ P A T T E R N 4 *
- * ***********************************
+/* *********************************
+ * * M E M S E T _ P A T T E R N 4 *
+ * *********************************
  *
  * Used to store a 4-byte pattern in memory:
  *
- *  void    _memset_pattern4(void *b, const void *c4, size_t len);
+ *  void    memset_pattern4(void *b, const void *c4, size_t len);
  *
  * Where c4 points to the 4-byte pattern.  None of the parameters need be aligned.
  */
 
-        .globl	__memset_pattern4
+        .globl	_memset_pattern4
         .align	5
-__memset_pattern4:
+_memset_pattern4:
         lwz     r7,0(r4)        // load pattern
         cmplgi  cr1,r5,kShort   // check length
         neg     r6,r3           // start to compute ptr alignment
@@ -212,7 +202,7 @@ __memset_pattern4:
  * * _ M E M S E T _ P A T T E R N _ C O M M O N *
  * ***********************************************
  *
- * This is the common code used by _memset_patter16, 8, and 4.  They all get here via
+ * This is the common code used by _memset_pattern16, 8, and 4.  They all get here via
  * long branch (ie, "b") in case the routines are re-ordered, with:
  *      r3 = ptr to memory to store pattern into (unaligned)
  *      r5 = length in bytes
@@ -222,6 +212,7 @@ __memset_pattern4:
  */
 
         .globl	__memset_pattern_common
+        .private_extern __memset_pattern_common // avoid dyld stub, which trashes r11
         .align	5
 __memset_pattern_common:
         andi.   r0,r6,0xF       // get #bytes to 16-byte align ptr

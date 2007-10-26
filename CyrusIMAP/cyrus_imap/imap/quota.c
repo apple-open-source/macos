@@ -40,7 +40,7 @@
  *
  */
 
-/* $Id: quota.c,v 1.10 2005/08/10 21:38:44 dasenbro Exp $ */
+/* $Id: quota.c,v 1.67 2007/02/05 18:41:48 jeaton Exp $ */
 
 
 #include <config.h>
@@ -57,9 +57,12 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
+
+#ifdef APPLE_OS_X_SERVER
 #include <com_err.h>
 #include <pwd.h>
 #include <sys/wait.h>
+#endif
 
 #if HAVE_DIRENT_H
 # include <dirent.h>
@@ -85,6 +88,8 @@
 #include "imap_err.h"
 #include "mailbox.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 #include "mboxlist.h"
 #include "mboxname.h"
 #include "quota.h"
@@ -100,21 +105,6 @@ static struct namespace quota_namespace;
 /* config.c stuff */
 const int config_need_data = CONFIG_NEED_PARTITION_DATA;
 
-/* forward declarations */
-void usage(void);
-void reportquota(void);
-void genquotareport(void);
-int doquotacheck( void );
-int buildquotalist(char *domain, char **roots, int nroots);
-int fixquota_mailbox(char *name,
-		     int matchlen,
-		     int maycreate,
-		     void *rock);
-int fixquota(char *domain, int ispartial);
-int fixquota_fixroot(struct mailbox *mailbox,
-		     char *root);
-int fixquota_finish(int thisquota, struct txn **tid, unsigned long *count);
-
 struct fix_rock {
     char *domain;
     struct txn **tid;
@@ -122,33 +112,64 @@ struct fix_rock {
 };
 
 struct quotaentry {
+#ifdef APPLE_OS_X_SERVER
     struct quota mail_quota;
+#else
+    struct quota quota;
+#endif
     int refcount;
     int deleted;
-    unsigned long newused;
+    uquota_t newused;
 };
+
+/* forward declarations */
+void usage(void);
+void reportquota(void);
+int buildquotalist(char *domain, char **roots, int nroots,
+		   struct fix_rock *frock);
+int fixquota_mailbox(char *name, int matchlen, int maycreate, void *rock);
+int fixquota(struct fix_rock *frock);
+int fixquota_fixroot(struct mailbox *mailbox, char *root);
+int fixquota_finish(int thisquota, struct txn **tid, unsigned long *count);
+
+#ifdef APPLE_OS_X_SERVER
+void genquotareport(void);
+void doquotacheck( void );
+#endif
 
 #define QUOTAGROW 300
 
+#ifdef APPLE_OS_X_SERVER
 struct quotaentry *quota_list;
+#else
+struct quotaentry *quota;
+#endif
 int quota_num = 0, quota_alloc = 0;
 
-int firstquota;
-int redofix;
+int firstquota = 0;
+int redofix = 0;
 int partial;
 
 int main(int argc,char **argv)
 {
     int opt;
     int fflag = 0;
-	int qflag = 0;
-    int rflag = 0;
     int r, code = 0;
     char *alt_config = NULL, *domain = NULL;
+    struct fix_rock frock;
+    struct txn *tid = NULL;
+#ifdef APPLE_OS_X_SERVER
+	int qflag = 0;
+    int rflag = 0;
+#endif
 
     if (geteuid() == 0) fatal("must run as the Cyrus user", EC_USAGE);
 
+#ifdef APPLE_OS_X_SERVER
     while ((opt = getopt(argc, argv, "C:d:fqr")) != EOF) {
+#else
+    while ((opt = getopt(argc, argv, "C:d:f")) != EOF) {
+#endif
 	switch (opt) {
 	case 'C': /* alt config file */
 	    alt_config = optarg;
@@ -162,6 +183,7 @@ int main(int argc,char **argv)
 	    fflag = 1;
 	    break;
 
+#ifdef APPLE_OS_X_SERVER
 	case 'q':
 		qflag = 1;
 		fflag = 1;
@@ -170,13 +192,18 @@ int main(int argc,char **argv)
 	case 'r':
 	    rflag = 1;
 	    break;
+#endif
 
 	default:
 	    usage();
 	}
     }
 
+#ifdef APPLE_OS_X_SERVER
     cyrus_init(alt_config, "cyrus-quota", 0);
+#else
+    cyrus_init(alt_config, "quota", 0);
+#endif
 
     /* Set namespace -- force standard (internal) */
     if ((r = mboxname_init_namespace(&quota_namespace, 1)) != 0) {
@@ -184,25 +211,42 @@ int main(int argc,char **argv)
 	fatal(error_message(r), EC_CONFIG);
     }
 
+    /*
+     * Lock mailbox list to prevent mailbox creation/deletion
+     * during work
+     */
+    mboxlist_init(0);
+    mboxlist_open(NULL);
+
     quotadb_init(0);
     quotadb_open(NULL);
 
-    if (!r) r = buildquotalist(domain, argv+optind, argc-optind);
+    if (!r) {
+	frock.domain = domain;
+	frock.tid = &tid;
+	frock.change_count = 0;
+
+	r = buildquotalist(domain, argv+optind, argc-optind,
+			   fflag ? &frock : NULL);
+    }
 
     if (!r && fflag) {
-	mboxlist_init(0);
-	r = fixquota(domain, argc-optind);
-	mboxlist_done();
+	partial = argc-optind;
+	r = fixquota(&frock);
     }
 
     quotadb_close();
     quotadb_done();
 
-	if ( !r )
+    mboxlist_close();
+    mboxlist_done();
+
+#ifdef APPLE_OS_X_SERVER
+	if(!r)
 	{
 		if ( qflag == 1 )
 		{
-			r = doquotacheck();
+			doquotacheck();
 		}
 		else if ( rflag == 1 )
 		{
@@ -213,11 +257,14 @@ int main(int argc,char **argv)
 			reportquota();
 		}
 	}
-
-    if (r) {
-	com_err("cyrus-quota", r, (r == IMAP_IOERROR) ? error_message(errno) : NULL);
-	code = convert_code(r);
-    }
+	else
+	{
+		 code = convert_code(r);
+	}
+#else
+    if (r) code = convert_code(r);
+    else reportquota();
+#endif
 
     cyrus_done();
 
@@ -226,102 +273,598 @@ int main(int argc,char **argv)
 
 void usage(void)
 {
-    fprintf(stderr, "usage: cyrus-quota [-C <alt_config>] [-d <domain>] [-f] [prefix]...\n");
+    fprintf(stderr,
+#ifdef APPLE_OS_X_SERVER
+	    "usage: cyrus-quota [-C <alt_config>] [-d <domain>] [-f] [prefix]...\n");
+#else
+	    "usage: quota [-C <alt_config>] [-d <domain>] [-f] [prefix]...\n");
+#endif
     exit(EC_USAGE);
 }    
 
-struct find_rock {
-    char **roots;
-    int nroots;
-};
-
-static int find_p(void *rockp,
-		  const char *key, int keylen,
-		  const char *data __attribute__((unused)),
-		  int datalen __attribute__((unused)))
+void errmsg(const char *fmt, const char *arg, int err)
 {
-    struct find_rock *frock = (struct find_rock *) rockp;
-    int i;
+    char buf[1024];
+    int len;
 
-    /* If restricting our list, see if this quota root matches */
-    if (frock->nroots) {
-	const char *p;
+    len = snprintf(buf, sizeof(buf), fmt, arg);
+    if (len < sizeof(buf))
+	len += snprintf(buf+len, sizeof(buf)-len, ": %s", error_message(err));
+    if ((err == IMAP_IOERROR) && (len < sizeof(buf)))
+	len += snprintf(buf+len, sizeof(buf)-len, ": %%m");
 
-	/* skip over domain */
-	if (config_virtdomains && (p = strchr(key, '!'))) {
-	    keylen -= (++p - key);
-	    key = p;
-	}
-
- 	for (i = 0; i < frock->nroots; i++) {
-	    if (keylen >= strlen(frock->roots[i]) &&
-		!strncmp(key, frock->roots[i], strlen(frock->roots[i]))) {
-		break;
-	    }
-	}
-	if (i == frock->nroots) return 0;
-    }
-
-    return 1;
+    syslog(LOG_ERR, buf);
+    fprintf(stderr, "%s\n", buf);
 }
 
 /*
- * Add a quota root to the list in 'quota'
+ * A matching mailbox was found, process it.
  */
-static int find_cb(void *rockp __attribute__((unused)),
-		   const char *key, int keylen,
-		   const char *data, int datalen __attribute__((unused)))
+static int found_match(char *name, int matchlen, int maycreate, void *frock)
 {
-    if (!data) return 0;
+    int r;
 
     if (quota_num == quota_alloc) {
+	/* Create new qr list entry */
 	quota_alloc += QUOTAGROW;
+#ifdef APPLE_OS_X_SERVER
 	quota_list = (struct quotaentry *)
-	  xrealloc((char *)quota_list, quota_alloc * sizeof(struct quotaentry));
+	    xrealloc((char *)quota_list, quota_alloc * sizeof(struct quotaentry));
+	memset(&quota_list[quota_num], 0, QUOTAGROW * sizeof(struct quotaentry));
+#else
+	quota = (struct quotaentry *)
+	    xrealloc((char *)quota, quota_alloc * sizeof(struct quotaentry));
+	memset(&quota[quota_num], 0, QUOTAGROW * sizeof(struct quotaentry));
+#endif
     }
-    memset(&quota_list[quota_num], 0, sizeof(struct quotaentry));
-    quota_list[quota_num].mail_quota.root = xstrndup(key, keylen);
-    sscanf(data, "%lu %d",
-	   &quota_list[quota_num].mail_quota.used, &quota_list[quota_num].mail_quota.limit);
-  
-    quota_num++;
 
-    return 0;
+    /* See if the mailbox name corresponds to a quotaroot */
+#ifdef APPLE_OS_X_SERVER
+    quota_list[quota_num].mail_quota.root = name;
+    do {
+	r = quota_read(&quota_list[quota_num].mail_quota, NULL, 0);
+#else
+    quota[quota_num].quota.root = name;
+    do {
+	r = quota_read(&quota[quota_num].quota, NULL, 0);
+#endif
+    } while (r == IMAP_AGAIN);
+
+    switch (r) {
+    case 0:
+	/* Its a quotaroot! */
+#ifdef APPLE_OS_X_SERVER
+	quota_list[quota_num++].mail_quota.root = xstrdup(name);
+#else
+	quota[quota_num++].quota.root = xstrdup(name);
+#endif
+	break;
+    case IMAP_QUOTAROOT_NONEXISTENT:
+	if (!frock || !quota_num ||
+#ifdef APPLE_OS_X_SERVER
+	    strncmp(name, quota_list[quota_num-1].mail_quota.root,
+		    strlen(quota_list[quota_num-1].mail_quota.root))) {
+#else
+	    strncmp(name, quota[quota_num-1].quota.root,
+		    strlen(quota[quota_num-1].quota.root))) {
+#endif
+	    /* Its not a quotaroot, and either we're not fixing quotas,
+	       or its not part of the most recent quotaroot */
+	    return 0;
+	}
+	break;
+    default:
+	return r;
+	break;
+    }
+
+    if (frock) {
+	/* Recalculate the quota (we need the subfolders too!) */
+	r = fixquota_mailbox(name, matchlen, maycreate, frock);
+    }
+
+    return r;
 }
 
 /*
  * Build the list of quota roots in 'quota'
  */
-int buildquotalist(char *domain, char **roots, int nroots)
+int buildquotalist(char *domain, char **roots, int nroots,
+		   struct fix_rock *frock)
 {
-    int i;
-    char buf[MAX_MAILBOX_NAME+1];
-    struct find_rock frock;
-
-    frock.roots = roots;
-    frock.nroots = nroots;
-
-    /* Translate separator in mailboxnames.
-     *
-     * We do this directly instead of using the mboxname_tointernal()
-     * function pointer because we know that we are using the internal
-     * namespace and so we don't have to allocate a buffer for the
-     * translated name.
-     */
-    for (i = 0; i < nroots; i++) {
-	mboxname_hiersep_tointernal(&quota_namespace, roots[i], 0);
-    }
+    int i, r;
+    char buf[MAX_MAILBOX_NAME+1], *tail;
+    size_t domainlen = 0;
 
     buf[0] = '\0';
-    if (domain) snprintf(buf, sizeof(buf), "%s!", domain);
+    tail = buf;
+    if (domain) {
+	domainlen = snprintf(buf, sizeof(buf), "%s!", domain);
+	tail += domainlen;
+    }
 
-    /* if we have exactly one root specified, narrow the search */
-    if (nroots == 1) strlcat(buf, roots[0], sizeof(buf));
-	    
-    config_quota_db->foreach(qdb, buf, strlen(buf),
-			     &find_p, &find_cb, &frock, NULL);
+    /*
+     * Walk through all given pattern(s) and resolve them to all
+     * matching mailbox names. Call found_match() for every mailbox
+     * name found. If no pattern is given, assume "*".
+     */
+    i = 0;
+    do {
+	if (nroots > 0) {
+	    /* Translate separator in quotaroot.
+	     *
+	     * We do this directly instead of using the mboxname_tointernal()
+	     * function pointer because we know that we are using the internal
+	     * namespace and so we don't have to allocate a buffer for the
+	     * translated name.
+	     */
+	    mboxname_hiersep_tointernal(&quota_namespace, roots[i], 0);
+
+	    strlcpy(tail, roots[i], sizeof(buf) - domainlen);
+	}
+	else {
+	    strlcpy(tail, "*", sizeof(buf) - domainlen);
+	}
+	i++;
+
+	r = (*quota_namespace.mboxlist_findall)(&quota_namespace, buf, 1, 0, 0,
+						&found_match, frock);
+	if (r < 0) {
+	    errmsg("failed building quota list for '%s'", buf, IMAP_IOERROR);
+	    return IMAP_IOERROR;
+	}
+
+    } while (i < nroots);
 
     return 0;
+}
+
+/*
+ * Account for mailbox 'name' when fixing the quota roots
+ */
+int fixquota_mailbox(char *name,
+		     int matchlen __attribute__((unused)),
+		     int maycreate __attribute__((unused)),
+		     void *rock)
+{
+    int r;
+    struct mailbox mailbox;
+    int i, len, thisquota, thisquotalen;
+    struct fix_rock *frock = (struct fix_rock *) rock;
+    char *p, *domain = frock->domain;
+
+    /* make sure the domains match */
+    if (domain &&
+	(!(p = strchr(name, '!')) || (p - name) != strlen(domain) ||
+	 strncmp(name, domain, p - name))) {
+	return 0;
+    }
+
+    while (firstquota < quota_num &&
+#ifdef APPLE_OS_X_SERVER
+	   strncmp(name, quota_list[firstquota].mail_quota.root,
+		       strlen(quota_list[firstquota].mail_quota.root)) > 0) {
+#else
+	   strncmp(name, quota[firstquota].quota.root,
+		       strlen(quota[firstquota].quota.root)) > 0) {
+#endif
+	r = fixquota_finish(firstquota++, frock->tid, &frock->change_count);
+	if (r) return r;
+    }
+
+    thisquota = -1;
+    thisquotalen = 0;
+    for (i = firstquota;
+#ifdef APPLE_OS_X_SERVER
+	 i < quota_num && strcmp(name, quota_list[i].mail_quota.root) >= 0; i++) {
+	len = strlen(quota_list[i].mail_quota.root);
+	if (!strncmp(name, quota_list[i].mail_quota.root, len) &&
+#else
+	 i < quota_num && strcmp(name, quota[i].quota.root) >= 0; i++) {
+	len = strlen(quota[i].quota.root);
+	if (!strncmp(name, quota[i].quota.root, len) &&
+#endif
+	    (!name[len] || name[len] == '.' ||
+	     (domain && name[len-1] == '!'))) {
+#ifdef APPLE_OS_X_SERVER
+	    quota_list[i].refcount++;
+#else
+	    quota[i].refcount++;
+#endif
+	    if (len > thisquotalen) {
+		thisquota = i;
+		thisquotalen = len;
+	    }
+	}
+    }
+
+    if (partial && thisquota == -1) return 0;
+
+    r = mailbox_open_header(name, 0, &mailbox);
+    if (r) errmsg("failed opening header for mailbox '%s'", name, r);
+    else {
+	if (thisquota == -1) {
+	    if (mailbox.quota.root) {
+		r = fixquota_fixroot(&mailbox, (char *)0);
+	    }
+	}
+	else {
+	    if (!mailbox.quota.root ||
+#ifdef APPLE_OS_X_SERVER
+		strcmp(mailbox.quota.root, quota_list[thisquota].mail_quota.root) != 0) {
+		r = fixquota_fixroot(&mailbox, quota_list[thisquota].mail_quota.root);
+#else
+		strcmp(mailbox.quota.root, quota[thisquota].quota.root) != 0) {
+		r = fixquota_fixroot(&mailbox, quota[thisquota].quota.root);
+#endif
+	    }
+	    if (!r) {
+		r = mailbox_open_index(&mailbox);
+		if (r) errmsg("failed opening index for mailbox '%s'", name, r);
+	    }
+
+#ifdef APPLE_OS_X_SERVER
+	    if (!r) quota_list[thisquota].newused += mailbox.quota_mailbox_used;
+#else
+	    if (!r) quota[thisquota].newused += mailbox.quota_mailbox_used;
+#endif
+	}
+
+	mailbox_close(&mailbox);
+    }
+
+    if (r) {
+	/* mailbox error of some type, commit what we have */
+	quota_commit(frock->tid);
+	*(frock->tid) = NULL;
+    }
+
+    return r;
+}
+	
+int fixquota_fixroot(struct mailbox *mailbox,
+		     char *root)
+{
+    int r;
+
+    redofix = 1;
+
+    r = mailbox_lock_header(mailbox);
+    if (r) {
+	errmsg("failed locking header for mailbox '%s'", mailbox->name, r);
+	return r;
+    }
+
+    printf("%s: quota root %s --> %s\n", mailbox->name,
+	   mailbox->quota.root ? mailbox->quota.root : "(none)",
+	   root ? root : "(none)");
+
+    if (mailbox->quota.root) free(mailbox->quota.root);
+    if (root) {
+	mailbox->quota.root = xstrdup(root);
+    }
+    else {
+	mailbox->quota.root = 0;
+    }
+
+    r = mailbox_write_header(mailbox);
+    (void) mailbox_unlock_header(mailbox);
+    if (r) errmsg("failed writing header for mailbox '%s'", mailbox->name, r);
+
+    return r;
+}
+
+/*
+ * Finish fixing up a quota root
+ */
+int fixquota_finish(int thisquota, struct txn **tid, unsigned long *count)
+{
+    int r = 0;
+
+#ifdef APPLE_OS_X_SERVER
+    if (!quota_list[thisquota].refcount) {
+	if (!quota_list[thisquota].deleted++) {
+	    printf("%s: removed\n", quota_list[thisquota].mail_quota.root);
+	    r = quota_delete(&quota_list[thisquota].mail_quota, tid);
+#else
+    if (!quota[thisquota].refcount) {
+	if (!quota[thisquota].deleted++) {
+	    printf("%s: removed\n", quota[thisquota].quota.root);
+	    r = quota_delete(&quota[thisquota].quota, tid);
+#endif
+	    if (r) {
+		errmsg("failed deleting quotaroot '%s'",
+#ifdef APPLE_OS_X_SERVER
+		       quota_list[thisquota].mail_quota.root, r);
+#else
+		       quota[thisquota].quota.root, r);
+#endif
+		return r;
+	    }
+	    (*count)++;
+#ifdef APPLE_OS_X_SERVER
+	    free(quota_list[thisquota].mail_quota.root);
+	    quota_list[thisquota].mail_quota.root = NULL;
+	}
+	return 0;
+    }
+
+    if (quota_list[thisquota].mail_quota.used != quota_list[thisquota].newused) {
+#else
+	    free(quota[thisquota].quota.root);
+	    quota[thisquota].quota.root = NULL;
+	}
+	return 0;
+    }
+
+    if (quota[thisquota].quota.used != quota[thisquota].newused) {
+#endif
+	/* re-read the quota with the record locked */
+#ifdef APPLE_OS_X_SERVER
+	r = quota_read(&quota_list[thisquota].mail_quota, tid, 1);
+#else
+	r = quota_read(&quota[thisquota].quota, tid, 1);
+#endif
+	if (r) {
+	    errmsg("failed reading quotaroot '%s'",
+#ifdef APPLE_OS_X_SERVER
+		   quota_list[thisquota].mail_quota.root, r);
+	    return r;
+	}
+	(*count)++;
+    }
+    if (quota_list[thisquota].mail_quota.used != quota_list[thisquota].newused) {
+#else
+		   quota[thisquota].quota.root, r);
+	    return r;
+	}
+	(*count)++;
+    }
+    if (quota[thisquota].quota.used != quota[thisquota].newused) {
+#endif
+	printf("%s: usage was " UQUOTA_T_FMT ", now " UQUOTA_T_FMT "\n",
+#ifdef APPLE_OS_X_SERVER
+	       quota_list[thisquota].mail_quota.root,
+	       quota_list[thisquota].mail_quota.used, quota_list[thisquota].newused);
+	quota_list[thisquota].mail_quota.used = quota_list[thisquota].newused;
+	r = quota_write(&quota_list[thisquota].mail_quota, tid);
+#else
+	       quota[thisquota].quota.root,
+	       quota[thisquota].quota.used, quota[thisquota].newused);
+	quota[thisquota].quota.used = quota[thisquota].newused;
+	r = quota_write(&quota[thisquota].quota, tid);
+#endif
+	if (r) {
+	    errmsg("failed writing quotaroot '%s'",
+#ifdef APPLE_OS_X_SERVER
+		   quota_list[thisquota].mail_quota.root, r);
+#else
+		   quota[thisquota].quota.root, r);
+#endif
+	    return r;
+	}
+	(*count)++;
+    }
+
+    /* commit the transaction every 100 changes */
+    if (*count && !(*count % 100)) {
+	quota_commit(tid);
+	*tid = NULL;
+    }
+
+    return r;
+}
+
+
+/*
+ * Fix all the quota roots
+ */
+int fixquota(struct fix_rock *frock)
+{
+    int i, r = 0;
+
+    while (!r && redofix) {
+	while (!r && firstquota < quota_num) {
+	    r = fixquota_finish(firstquota++, frock->tid, &frock->change_count);
+	}
+
+	redofix = 0;
+	firstquota = 0;
+
+	/*
+	 * Loop over all qr entries and recalculate the quota.
+	 * We need the subfolders too!
+	 */
+	for (i = 0; !r && i < quota_num; i++) {
+	    r = (*quota_namespace.mboxlist_findall)(&quota_namespace,
+#ifdef APPLE_OS_X_SERVER
+						    quota_list[i].mail_quota.root,
+#else
+						    quota[i].quota.root,
+#endif
+						    1, 0, 0, fixquota_mailbox,
+						    frock);
+	}
+    }
+
+    while (!r && firstquota < quota_num) {
+	r = fixquota_finish(firstquota++, frock->tid, &frock->change_count);
+    }
+
+    if (!r && *(frock->tid)) quota_commit(frock->tid);
+    
+    return 0;
+}
+    
+/*
+ * Print out the quota report
+ */
+void reportquota(void)
+{
+    int i;
+    char buf[MAX_MAILBOX_PATH+1];
+
+    printf("   Quota   %% Used     Used Root\n");
+
+    for (i = 0; i < quota_num; i++) {
+#ifdef APPLE_OS_X_SERVER
+	if (quota_list[i].deleted) continue;
+	if (quota_list[i].mail_quota.limit > 0) {
+	    printf(" %7d " QUOTA_REPORT_FMT , quota_list[i].mail_quota.limit,
+		   ((quota_list[i].mail_quota.used / QUOTA_UNITS) * 100) / quota_list[i].mail_quota.limit);
+	}
+	else if (quota_list[i].mail_quota.limit == 0) {
+#else
+	if (quota[i].deleted) continue;
+	if (quota[i].quota.limit > 0) {
+	    printf(" %7d " QUOTA_REPORT_FMT , quota[i].quota.limit,
+		   ((quota[i].quota.used / QUOTA_UNITS) * 100) / quota[i].quota.limit);
+	}
+	else if (quota[i].quota.limit == 0) {
+#endif
+	    printf("       0        ");
+	}
+	else {
+	    printf("                ");
+	}
+	/* Convert internal name to external */
+	(*quota_namespace.mboxname_toexternal)(&quota_namespace,
+#ifdef APPLE_OS_X_SERVER
+					       quota_list[i].mail_quota.root,
+					       "_cyrus", buf);
+#else
+					       quota[i].quota.root,
+					       "cyrus", buf);
+#endif
+	printf(" " QUOTA_REPORT_FMT " %s\n",
+#ifdef APPLE_OS_X_SERVER
+	       quota_list[i].mail_quota.used / QUOTA_UNITS, buf);
+#else
+	       quota[i].quota.used / QUOTA_UNITS, buf);
+#endif
+    }
+}
+
+#ifdef APPLE_OS_X_SERVER
+/*
+ * Print out the quota report
+ */
+const char *_dict = "		<dict>\n"
+"			<key>acctLocation</key>\n"
+"			<string>%s</string>\n"
+"			<key>diskQuota</key>\n"
+"			<integer>%lu</integer>\n"
+"			<key>diskUsed</key>\n"
+"			<integer>%lu</integer>\n"
+"			<key>percentFree</key>\n"
+"			<integer>%lu</integer>\n"
+"			<key>name</key>\n"
+"			<string>%s</string>\n"
+"		</dict>\n";
+
+const char *header		= "<dict>\n	<key>accountsArray</key>\n	<array>\n";
+const char *end_array	= "	</array>\n";
+const char *ms_key		= "	<key>mail_store_size</key>\n	<string>%lld</string>\n";
+const char *end_dict	= "</dict>";
+
+#include "libcyr_cfg.h"
+
+void genquotareport ( void )
+{
+    int				i = 0;
+	char		   *partition = NULL;
+	int				type = 0;
+	const char	   *dbDir = libcyrus_config_getstring( CYRUSOPT_CONFIG_DIR );
+	FILE		   *f = NULL;
+	char			userbuf[ MAX_MAILBOX_PATH + 1 ];
+    char			dataBuf[ MAX_MAILBOX_PATH + 1 ];
+    char			filePath[ MAX_MAILBOX_PATH + 1 ];
+	long long unsigned int				total = 0;
+
+	if ( !dbDir )
+	{
+		return;
+	}
+
+	strcpy( filePath, dbDir );
+	strcat( filePath, "/quota/quotadata.txt" );
+
+    f = fopen( filePath, "w+" );
+	if ( f )
+	{
+		mboxlist_init( 0 );
+		mboxlist_open( NULL );
+
+		lseek( fileno( f ), 0, SEEK_SET );
+		fwrite( header, sizeof( char ), strlen( header ), f );
+
+		for ( i = 0; i < quota_num; i++ )
+		{
+			if ( quota_list[ i ].deleted )
+			{
+				continue;
+			}
+
+			/* get the partition */
+			mboxlist_detail( quota_list[ i ].mail_quota.root, &type, &partition, NULL, NULL, NULL, NULL );
+			if ( partition == NULL )
+			{
+				partition = "default";
+			}
+
+			/* convert internal name to external */
+			(*quota_namespace.mboxname_toexternal)
+				(&quota_namespace, quota_list[i].mail_quota.root, "_cyrus", userbuf);
+
+			char *p = strchr( userbuf, '/' );
+			if ( p != NULL )
+			{
+				p++;
+
+				unsigned int	quota_limit = 0;
+				unsigned int	quota_used = 0;
+				unsigned int	quota_free = 100;
+
+				if ( (quota_list[ i ].mail_quota.limit > 0) && (quota_list[ i ].mail_quota.limit != 2147483647) )
+				{
+					quota_limit = quota_list[i].mail_quota.limit * QUOTA_UNITS;
+					quota_free = 100 - (((quota_list[i].mail_quota.used * QUOTA_UNITS) * 100) / quota_list[i].mail_quota.limit);
+				}
+
+				quota_used = quota_list[i].mail_quota.used;
+
+				memset( dataBuf, 0, sizeof( dataBuf ) );
+				snprintf( dataBuf, sizeof( dataBuf ), _dict, partition, quota_limit, quota_used, quota_free, p );
+
+				fwrite( dataBuf, sizeof( char ), strlen( dataBuf ), f );
+
+				total+= quota_list[ i ].mail_quota.used;
+			}
+		}
+
+		// Close out the array of dictionaries
+		fwrite( end_array, sizeof( char ), strlen( end_array ), f );
+
+		// Set total
+		if ( total != 0 )
+		{
+			snprintf( dataBuf, sizeof( dataBuf ), ms_key, (total / QUOTA_UNITS) );
+		}
+		else
+		{
+			snprintf( dataBuf, sizeof( dataBuf ), ms_key, 0 );
+		}
+		fwrite( dataBuf, sizeof( char ), strlen( dataBuf ), f );
+		
+		// Close out the dictionary
+		fwrite( end_dict, sizeof( char ), strlen( end_dict ), f );
+
+		fflush( f );
+		fclose( f );
+
+		mboxlist_close();
+		mboxlist_done();
+	}
 }
 
 char * get_message_text ( enum imapopt opt )
@@ -383,26 +926,31 @@ char * get_message_text ( enum imapopt opt )
 } /* get_message_text */
 
 
-int doquotacheck ( void )
+void doquotacheck ( void )
 {
-	int			r				= 0;
     int			i				= 0;
-	int			fd[ 2 ];
 	int			warnLevel		= 0;
 	int			status			= 0;
 	pid_t		pid				= 0;
-	char	   *warnData		= NULL;
-	char	   *errorData		= NULL;
+	char	   *error_txt		= NULL;
+	char	   *warning_txt		= NULL;
+    int			used			= 0;
     int			usage			= 0;
+    int			limit			= 0;
+	char	   *pUser			= NULL;
     char		user[ MAX_MAILBOX_PATH + 1 ];
-    char		buf[ MAX_MAILBOX_PATH + 1 ];
+	int			fd[ 2 ];
 
 	/* don't do quota check of option not set */
 	if ( config_getswitch( IMAPOPT_ENABLE_QUOTA_WARNINGS ) )
 	{
-		warnData  = get_message_text( IMAPOPT_QUOTA_CUSTOM_WARNING_PATH );
-		errorData = get_message_text( IMAPOPT_QUOTA_CUSTOM_ERROR_PATH );
+		syslog( LOG_INFO, "Starting mail quota warning checks." );
 
+		mboxlist_init( 0 );
+		mboxlist_open( NULL );
+
+		warning_txt  = get_message_text( IMAPOPT_QUOTA_CUSTOM_WARNING_PATH );
+		error_txt = get_message_text( IMAPOPT_QUOTA_CUSTOM_ERROR_PATH );
 		warnLevel = config_getint( IMAPOPT_QUOTAWARN );
 
 		for ( i = 0; i < quota_num; i++ )
@@ -412,408 +960,93 @@ int doquotacheck ( void )
 				continue;
 			}
 
-			if ( quota_list[ i ].mail_quota.limit > 0 )
+			/* Convert internal name to external */
+			(*quota_namespace.mboxname_toexternal)( &quota_namespace, quota_list[ i ].mail_quota.root, "_cyrus", user );
+			pUser = strchr( user, '/' );
+			if ( pUser == NULL )
 			{
-				usage = ((quota_list[i].mail_quota.used / QUOTA_UNITS) * 100) / quota_list[i].mail_quota.limit;
+				continue;
+			}
+			pUser++;
+
+			limit = quota_list[ i ].mail_quota.limit;
+			used  = quota_list[i].mail_quota.used / QUOTA_UNITS;
+			usage = (used * 100) / limit;
+			syslog( LOG_INFO, "Account: %s; Quota limit: %d MB; Usage: %d MB", pUser, (limit/QUOTA_UNITS), (used/QUOTA_UNITS) );
+
+			if ( limit > 0 )
+			{
 				if ( usage >= warnLevel )
 				{
 					/* send quota warning */
 					if ( pipe( fd ) >= 0 )
 					{
-						if ( (pid = fork()) >= 0 )
+						pid = fork();
+						if ( pid == 0 )
 						{
-							if ( pid == 0 )
+							/* -- child -- */
+							/* duplicate pipe's reading end into stdin */
+							status = dup2( fd[ 0 ], STDIN_FILENO );
+							if ( status == -1 )
 							{
-						        /* -- child -- */
+								fatal( "deliver: dup2 error", EC_OSERR );
+							}
 
-								/* duplicate pipe's reading end into stdin */
-								status = dup2( fd[ 0 ], STDIN_FILENO );
-								if ( status == -1 )
-								{
-									fatal( "deliver: dup2 error", EC_OSERR );
-								}
+							/* close file descriptors */
+							close( fd[ 1 ] );
+							close( fd[ 0 ] );
 
-								/* close file descriptors */
-								close( fd[ 1 ] );
-								close( fd[ 0 ] );
+							/* exec deliver */
+							execlp( "/usr/bin/cyrus/bin/deliver", "deliver", "-q", pUser, NULL );
+							_exit( 0 );
+						}
+						else
+						{
+							/* -- parent -- */
+							/* close file descriptors */
+							close( fd[ 0 ] );
 
-								/* get deliver path */
-								r = snprintf( buf, sizeof( buf ), "%s/deliver", SERVICE_PATH );
-								if ( (r < 0) || (r >= sizeof( buf )) )
+							if ( usage >= 100 )
+							{
+								/* dump message to the pipe */
+								if ( error_txt != NULL )
 								{
-									fatal( "deliver command buffer not sufficiently big", EC_CONFIG );
+									syslog( LOG_INFO, "Sending quota exceeded error to: %s", pUser );
+									write( fd[ 1 ], error_txt, strlen( error_txt ) );
 								}
-								else
-								{
-									/* Convert internal name to external */
-									(*quota_namespace.mboxname_toexternal)( &quota_namespace, quota_list[ i ].mail_quota.root, "cyrusimap", user );
-									char *p = strchr( user, '/' );
-									if ( p )
-									{
-										/* execute deliver command with user id */
-										p++;
-										execl( buf, buf, "-q", p, NULL );
-									}
-								}
-								exit( 1);
 							}
 							else
 							{
-								/* -- parent -- */
-
-								/* close file descriptors */
-								close( STDIN_FILENO );
-								close( STDOUT_FILENO );
-								close( fd[ 0 ] );
-
-								if ( usage >= 100 )
+								/* dump message to the pipe */
+								if ( warning_txt != NULL )
 								{
-									/* dump message to the pipe */
-									if ( errorData != NULL )
-									{
-										write( fd[ 1 ], errorData, strlen( errorData ) );
-									}
+									write( fd[ 1 ], warning_txt, strlen( warning_txt ) );
+									syslog( LOG_INFO, "Sending quota usage warning to: %s", pUser );
 								}
-								else
-								{
-									/* dump message to the pipe */
-									if ( warnData != NULL )
-									{
-										write( fd[ 1 ], warnData, strlen( warnData ) );
-									}
-								}
-
-								/* close the pipe when finished */
-								close( fd[ 1 ] );
-
-								/* wait for it */
-								(*quota_namespace.mboxname_toexternal)( &quota_namespace, quota_list[ i ].mail_quota.root, "cyrusimap", user );
-
-								if ( usage >= 100 )
-								{
-									syslog( LOG_INFO, "User account \"%s\" has exceeded quota.", user );
-								}
-								else
-								{
-									syslog( LOG_INFO, "User account \"%s\" is approaching quota.", user );
-								}
-								waitpid( pid, &status, 0 );
 							}
+
+							/* close the pipe when finished */
+							close( fd[ 1 ] );
+
+							/* wait for it */
+							waitpid( pid, &status, 0 );
 						}
+					}
+					else
+					{
+						syslog( LOG_DEBUG, "ERROR: pipe failed." );
 					}
 				}
 			}
 		}
-	}
-
-	return( 0 );
-
-} /* doquotacheck */
-
-
-/*
- * Account for mailbox 'name' when fixing the quota roots
- */
-int fixquota_mailbox(char *name,
-		     int matchlen __attribute__((unused)),
-		     int maycreate __attribute__((unused)),
-		     void* rock)
-{
-    int r;
-    struct mailbox mailbox;
-    int i, len, thisquota, thisquotalen;
-    struct fix_rock *frock = (struct fix_rock *) rock;
-    char *p, *domain = frock->domain;
-
-    /* make sure the domains match */
-    if (domain &&
-	(!(p = strchr(name, '!')) || (p - name) != strlen(domain) ||
-	 strncmp(name, domain, p - name))) {
-	return 0;
-    }
-
-    while (firstquota < quota_num &&
-	   strncmp(name, quota_list[firstquota].mail_quota.root,
-		       strlen(quota_list[firstquota].mail_quota.root)) > 0) {
-	r = fixquota_finish(firstquota++, frock->tid, &frock->change_count);
-	if (r) return r;
-    }
-
-    thisquota = -1;
-    thisquotalen = 0;
-    for (i = firstquota;
-	 i < quota_num && strcmp(name, quota_list[i].mail_quota.root) >= 0; i++) {
-	len = strlen(quota_list[i].mail_quota.root);
-	if (!strncmp(name, quota_list[i].mail_quota.root, len) &&
-	    (!name[len] || name[len] == '.' ||
-	     (domain && name[len-1] == '!'))) {
-	    quota_list[i].refcount++;
-	    if (len > thisquotalen) {
-		thisquota = i;
-		thisquotalen = len;
-	    }
-	}
-    }
-
-    if (partial && thisquota == -1) return 0;
-
-    r = mailbox_open_header(name, 0, &mailbox);
-    if (!r) {
-	if (thisquota == -1) {
-	    if (mailbox.quota.root) {
-		r = fixquota_fixroot(&mailbox, (char *)0);
-	    }
-	}
-	else {
-	    if (!mailbox.quota.root ||
-		strcmp(mailbox.quota.root, quota_list[thisquota].mail_quota.root) != 0) {
-		r = fixquota_fixroot(&mailbox, quota_list[thisquota].mail_quota.root);
-	    }
-	    if (!r) r = mailbox_open_index(&mailbox);
-   
-	    if (!r) quota_list[thisquota].newused += mailbox.quota_mailbox_used;
-	}
-
-	mailbox_close(&mailbox);
-    }
-
-    if (r) {
-	/* mailbox error of some type, commit what we have */
-	quota_commit(frock->tid);
-	*(frock->tid) = NULL;
-    }
-
-    return r;
-}
-	
-int fixquota_fixroot(struct mailbox *mailbox,
-		     char *root)
-{
-    int r;
-
-    redofix = 1;
-
-    r = mailbox_lock_header(mailbox);
-    if (r) return r;
-
-    printf("%s: quota root %s --> %s\n", mailbox->name,
-	   mailbox->quota.root ? mailbox->quota.root : "(none)",
-	   root ? root : "(none)");
-
-    if (mailbox->quota.root) free(mailbox->quota.root);
-    if (root) {
-	mailbox->quota.root = xstrdup(root);
-    }
-    else {
-	mailbox->quota.root = 0;
-    }
-
-    r = mailbox_write_header(mailbox);
-    (void) mailbox_unlock_header(mailbox);
-    return r;
-}
-
-/*
- * Finish fixing up a quota root
- */
-int fixquota_finish(int thisquota, struct txn **tid, unsigned long *count)
-{
-    int r;
-
-    if (!quota_list[thisquota].refcount) {
-	if (!quota_list[thisquota].deleted++) {
-	    printf("%s: removed\n", quota_list[thisquota].mail_quota.root);
-	    r = quota_delete(&quota_list[thisquota].mail_quota, tid);
-	    if (r) return r;
-	    (*count)++;
-	    free(quota_list[thisquota].mail_quota.root);
-	    quota_list[thisquota].mail_quota.root = NULL;
-	}
-	return 0;
-    }
-
-    if (quota_list[thisquota].mail_quota.used != quota_list[thisquota].newused) {
-	/* re-read the quota with the record locked */
-	r = quota_read(&quota_list[thisquota].mail_quota, tid, 1);
-	if (r) return r;
-	(*count)++;
-    }
-    if (quota_list[thisquota].mail_quota.used != quota_list[thisquota].newused) {
-	printf("%s: usage was %lu, now %lu\n", quota_list[thisquota].mail_quota.root,
-	       quota_list[thisquota].mail_quota.used, quota_list[thisquota].newused);
-	quota_list[thisquota].mail_quota.used = quota_list[thisquota].newused;
-	r = quota_write(&quota_list[thisquota].mail_quota, tid);
-	if (r) return r;
-	(*count)++;
-    }
-
-    /* commit the transaction every 100 changes */
-    if (*count && !(*count % 100)) {
-	quota_commit(tid);
-	*tid = NULL;
-    }
-
-    return 0;
-}
-
-
-/*
- * Fix all the quota roots
- */
-int fixquota(char *domain, int ispartial)
-{
-    int r = 0;
-    static char pattern[2] = "*";
-    struct fix_rock frock;
-    struct txn *tid = NULL;
-
-    /*
-     * Lock mailbox list to prevent mailbox creation/deletion
-     * during the fix
-     */
-    mboxlist_open(NULL);
-
-    frock.domain = domain;
-    frock.tid = &tid;
-    frock.change_count = 0;
-
-    redofix = 1;
-    while (!r && redofix) {
-	redofix = 0;
-	firstquota = 0;
-	partial = ispartial;
-
-	r = (*quota_namespace.mboxlist_findall)(&quota_namespace, pattern, 1,
-						0, 0, fixquota_mailbox, &frock);
-	while (!r && firstquota < quota_num) {
-	    r = fixquota_finish(firstquota++, &tid, &frock.change_count);
-	}
-    }
-
-    if (!r && tid) quota_commit(&tid);
-    
-    mboxlist_close();
-
-    return 0;
-}
-    
-/*
- * Print out the quota report
- */
-void
-reportquota(void)
-{
-    int i;
-    char buf[MAX_MAILBOX_PATH+1];
-
-    printf("   Quota  %% Used    Used Root\n");
-
-    for (i = 0; i < quota_num; i++) {
-	if (quota_list[i].deleted) continue;
-	if (quota_list[i].mail_quota.limit > 0) {
-	    printf(" %7d %7ld", quota_list[i].mail_quota.limit,
-		   ((quota_list[i].mail_quota.used / QUOTA_UNITS) * 100) / quota_list[i].mail_quota.limit);
-	}
-	else if (quota_list[i].mail_quota.limit == 0) {
-	    printf("       0        ");
-	}
-	else {
-	    printf("                ");
-	}
-	/* Convert internal name to external */
-	(*quota_namespace.mboxname_toexternal)(&quota_namespace,
-					       quota_list[i].mail_quota.root,
-					       "cyrusimap", buf);
-	printf(" %7ld %s\n", quota_list[i].mail_quota.used / QUOTA_UNITS, buf);
-    }
-}
-
-/*
- * Print out the quota report
- */
-const char *dict = "		<dict>\n"
-"			<key>acctLocation</key>\n"
-"			<string>%s</string>\n"
-"			<key>diskQuota</key>\n"
-"			<integer>%d</integer>\n"
-"			<key>diskUsed</key>\n"
-"			<integer>%d</integer>\n"
-"			<key>name</key>\n"
-"			<string>%s</string>\n"
-"		</dict>\n";
-
-const char *header = "<dict>\n	<key>accountsArray</key>\n	<array>\n";
-const char *tailer = "	</array>\n</dict>";
-#include "libcyr_cfg.h"
-
-void
-genquotareport(void)
-{
-    int				i = 0;
-	char		   *partition = NULL;
-	int				type = 0;
-	const char	   *dbDir = libcyrus_config_getstring( CYRUSOPT_CONFIG_DIR );
-	FILE		   *f = NULL;
-	char			userbuf[ MAX_MAILBOX_PATH + 1 ];
-    char			tmpbuf[ MAX_MAILBOX_PATH + 1 ];
-    char			filePath[ MAX_MAILBOX_PATH + 1 ];
-
-	if ( !dbDir )
-	{
-		return;
-	}
-
-	strcpy( filePath, dbDir );
-	strcat( filePath, "/quota/quotadata.txt" );
-
-    f = fopen( filePath, "w+" );
-	if ( f )
-	{
-		mboxlist_init( 0 );
-		mboxlist_open( NULL );
-
-		lseek( fileno( f ), 0, SEEK_SET );
-		fwrite( header, sizeof( char ), strlen( header ), f );
-
-		for ( i = 0; i < quota_num; i++ )
-		{
-			if ( quota_list[ i ].deleted )
-			{
-				continue;
-			}
-
-			/* get the partition */
-			mboxlist_detail( quota_list[ i ].mail_quota.root, &type, NULL, &partition, NULL, NULL );
-
-			/* convert internal name to external */
-			(*quota_namespace.mboxname_toexternal)
-				(&quota_namespace, quota_list[i].mail_quota.root, "cyrusimap", userbuf);
-
-			char *p = strchr( userbuf, '/' );
-			if ( p )
-			{
-				p++;
-
-				memset( tmpbuf, 0, sizeof( tmpbuf ) );
-				if ( (quota_list[ i ].mail_quota.limit == 0) || (quota_list[ i ].mail_quota.limit == 2147483647) )
-				{
-					snprintf( tmpbuf, sizeof( tmpbuf ), dict, partition, 0, quota_list[ i ].mail_quota.used, p );
-				}
-				else
-				{
-					snprintf( tmpbuf, sizeof( tmpbuf ), dict, partition, quota_list[ i ].mail_quota.limit * QUOTA_UNITS, quota_list[ i ].mail_quota.used, p );
-				}
-
-				fwrite( tmpbuf, sizeof( char ), strlen( tmpbuf ), f );
-			}
-		}
-
-		fwrite( tailer, sizeof( char ), strlen( tailer ), f );
-
-		fflush( f );
-		fclose( f );
 
 		mboxlist_close();
 		mboxlist_done();
 	}
-}
+	else
+	{
+		syslog( LOG_WARNING, "Mail quota warnings not enabled" );
+	}
+} /* doquotacheck */
+
+#endif

@@ -1,7 +1,5 @@
-/*	$NetBSD: ed.h,v 1.24 1997/07/20 06:35:37 thorpej Exp $	*/
-
 /* ed.h: type and constant definitions for the ed editor. */
-/*
+/*-
  * Copyright (c) 1993 Andrew Moore
  * All rights reserved.
  *
@@ -27,16 +25,12 @@
  * SUCH DAMAGE.
  *
  *	@(#)ed.h,v 1.5 1994/02/01 00:34:39 alm Exp
+ * $FreeBSD: src/bin/ed/ed.h,v 1.20 2005/01/10 08:39:22 imp Exp $
  */
 
-#include <sys/types.h>
-#if defined(BSD) && BSD >= 199103 || defined(__386BSD__)
-# include <sys/param.h>		/* for MAXPATHLEN */
-#endif
+#include <sys/param.h>
 #include <errno.h>
-#if defined(sun) || defined(__NetBSD__) || defined(__APPLE__)
-# include <limits.h>
-#endif
+#include <limits.h>
 #include <regex.h>
 #include <signal.h>
 #include <stdio.h>
@@ -47,10 +41,6 @@
 #define ERR		(-2)
 #define EMOD		(-3)
 #define FATAL		(-4)
-
-#ifndef MAXPATHLEN
-# define MAXPATHLEN 255		/* _POSIX_PATH_MAX */
-#endif
 
 #define MINBUFSZ 512		/* minimum buffer size - must be > 0 */
 #define SE_MAX 30		/* max subexpressions in a regular expression */
@@ -66,6 +56,7 @@
 #define GLS 004		/* list after command */
 #define GNP 010		/* enumerate after command */
 #define GSG 020		/* global substitute */
+#define GINT 040	/* interactive cmd: G or V */
 
 typedef regex_t pattern_t;
 
@@ -115,7 +106,7 @@ if (--mutex == 0) { \
 #define STRTOL(i, p) { \
 	if (((i = strtol(p, &p, 10)) == LONG_MIN || i == LONG_MAX) && \
 	    errno == ERANGE) { \
-		sprintf(errmsg, "number out of range"); \
+		errmsg = "number out of range"; \
 	    	i = 0; \
 		return ERR; \
 	} \
@@ -131,14 +122,14 @@ if ((i) > (n)) { \
 	if ((b) != NULL) { \
 		if ((ts = (char *) realloc((b), ti += max((i), MINBUFSZ))) == NULL) { \
 			fprintf(stderr, "%s\n", strerror(errno)); \
-			sprintf(errmsg, "out of memory"); \
+			errmsg = "out of memory"; \
 			SPL0(); \
 			return err; \
 		} \
 	} else { \
 		if ((ts = (char *) malloc(ti += max((i), MINBUFSZ))) == NULL) { \
 			fprintf(stderr, "%s\n", strerror(errno)); \
-			sprintf(errmsg, "out of memory"); \
+			errmsg = "out of memory"; \
 			SPL0(); \
 			return err; \
 		} \
@@ -156,7 +147,7 @@ if ((i) > (n)) { \
 	SPL1(); \
 	if ((ts = (char *) realloc((b), ti += max((i), MINBUFSZ))) == NULL) { \
 		fprintf(stderr, "%s\n", strerror(errno)); \
-		sprintf(errmsg, "out of memory"); \
+		errmsg = "out of memory"; \
 		SPL0(); \
 		return err; \
 	} \
@@ -176,7 +167,7 @@ if ((i) > (n)) { \
 	REQUE((pred), elem); \
 }
 
-/* remque: remove_lines elem from circular queue */
+/* REMQUE: remove_lines elem from circular queue */
 #define REMQUE(elem) REQUE((elem)->q_back, (elem)->q_forw);
 
 /* NUL_TO_NEWLINE: overwrite ASCII NULs with newlines */
@@ -185,93 +176,86 @@ if ((i) > (n)) { \
 /* NEWLINE_TO_NUL: overwrite newlines with ASCII NULs */
 #define NEWLINE_TO_NUL(s, l) translit_text(s, l, '\n', '\0')
 
-#ifdef sun
-# define strerror(n) sys_errlist[n]
+#ifdef ED_DES_INCLUDES
+void des_error(const char *);
+void expand_des_key(char *, char *);
+void set_des_key(DES_cblock *);
 #endif
 
-#ifndef __P
-# ifndef __STDC__
-#  define __P(proto) ()
-# else
-#  define __P(proto) proto
-# endif
-#endif
+/* Other DES support stuff */
+void init_des_cipher(void);
+int flush_des_file(FILE *);
+int get_des_char(FILE *);
+int put_des_char(int, FILE *);
 
 /* Local Function Declarations */
-void add_line_node __P((line_t *));
-int append_lines __P((long));
-int apply_subst_template __P((char *, regmatch_t *, int, int));
-int build_active_list __P((int));
-int cbc_decode __P((char *, FILE *));
-int cbc_encode __P((char *, int, FILE *));
-int check_addr_range __P((long, long));
-void clear_active_list __P((void));
-void clear_undo_stack __P((void));
-int close_sbuf __P((void));
-int copy_lines __P((long));
-int delete_lines __P((long, long));
-void des_error __P((char *));
-int display_lines __P((long, long, int));
-line_t *dup_line_node __P((line_t *));
-int exec_command __P((void));
-long exec_global __P((int, int));
-void expand_des_key __P((char *, char *));
-int extract_addr_range __P((void));
-char *extract_pattern __P((int));
-int extract_subst_tail __P((int *, long *));
-char *extract_subst_template __P((void));
-int filter_lines __P((long, long, char *));
-int flush_des_file __P((FILE *));
-line_t *get_addressed_line_node __P((long));
-pattern_t *get_compiled_pattern __P((void));
-int get_des_char __P((FILE *));
-char *get_extended_line __P((int *, int));
-char *get_filename __P((void));
-int get_keyword __P((void));
-long get_line_node_addr __P((line_t *));
-long get_matching_node_addr __P((pattern_t *, int));
-long get_marked_node_addr __P((int));
-char *get_sbuf_line __P((line_t *));
-int get_shell_command __P((void));
-int get_stream_line __P((FILE *));
-int get_tty_line __P((void));
-void handle_hup __P((int));
-void handle_int __P((int));
-void handle_winch __P((int));
-int has_trailing_escape __P((char *, char *));
-int hex_to_binary __P((int, int));
-void init_buffers __P((void));
-void init_des_cipher __P((void));
-int is_legal_filename __P((char *));
-int join_lines __P((long, long));
-int mark_line_node __P((line_t *, int));
-int move_lines __P((long));
-line_t *next_active_node __P((void));
-long next_addr __P((void));
-int open_sbuf __P((void));
-char *parse_char_class __P((char *));
-int pop_undo_stack __P((void));
-undo_t *push_undo_stack __P((int, long, long));
-int put_des_char __P((int, FILE *));
-char *put_sbuf_line __P((char *));
-int put_stream_line __P((FILE *, char *, int));
-int put_tty_line __P((char *, int, long, int));
-void quit __P((int));
-long read_file __P((char *, long));
-long read_stream __P((FILE *, long));
-void replace_marks __P((line_t *, line_t *));
-int search_and_replace __P((pattern_t *, int, int));
-int set_active_node __P((line_t *));
-void set_des_key __P((char *));
-void signal_hup __P((int));
-void signal_int __P((int));
-char *strip_escapes __P((char *));
-int substitute_matching_text __P((pattern_t *, line_t *, int, int));
-char *translit_text __P((char *, int, int, int));
-void unmark_line_node __P((line_t *));
-void unset_active_nodes __P((line_t *, line_t *));
-long write_file __P((char *, char *, long, long));
-long write_stream __P((FILE *, long, long));
+void add_line_node(line_t *);
+int append_lines(long);
+int apply_subst_template(const char *, regmatch_t *, int, int);
+int build_active_list(int);
+int cbc_decode(unsigned char *, FILE *);
+int cbc_encode(unsigned char *, int, FILE *);
+int check_addr_range(long, long);
+void clear_active_list(void);
+void clear_undo_stack(void);
+int close_sbuf(void);
+int copy_lines(long);
+int delete_lines(long, long);
+int display_lines(long, long, int);
+line_t *dup_line_node(line_t *);
+int exec_command(void);
+long exec_global(int, int);
+int extract_addr_range(void);
+char *extract_pattern(int);
+int extract_subst_tail(int *, long *);
+char *extract_subst_template(void);
+int filter_lines(long, long, char *);
+line_t *get_addressed_line_node(long);
+pattern_t *get_compiled_pattern(void);
+char *get_extended_line(int *, int);
+char *get_filename(void);
+int get_keyword(void);
+long get_line_node_addr(line_t *);
+long get_matching_node_addr(pattern_t *, int);
+long get_marked_node_addr(int);
+char *get_sbuf_line(line_t *);
+int get_shell_command(void);
+int get_stream_line(FILE *);
+int get_tty_line(void);
+void handle_hup(int);
+void handle_int(int);
+void handle_winch(int);
+int has_trailing_escape(char *, char *);
+int hex_to_binary(int, int);
+void init_buffers(void);
+int is_legal_filename(char *);
+int join_lines(long, long);
+int mark_line_node(line_t *, int);
+int move_lines(long);
+line_t *next_active_node(void);
+long next_addr(void);
+int open_sbuf(void);
+char *parse_char_class(char *);
+int pop_undo_stack(void);
+undo_t *push_undo_stack(int, long, long);
+const char *put_sbuf_line(const char *);
+int put_stream_line(FILE *, const char *, int);
+int put_tty_line(const char *, int, long, int);
+void quit(int);
+long read_file(char *, long);
+long read_stream(FILE *, long);
+void replace_marks(line_t *, line_t *);
+int search_and_replace(pattern_t *, int, int);
+int set_active_node(line_t *);
+void signal_hup(int);
+void signal_int(int);
+char *strip_escapes(char *);
+int substitute_matching_text(pattern_t *, line_t *, int, int);
+char *translit_text(char *, int, int, int);
+void unmark_line_node(line_t *);
+void unset_active_nodes(line_t *, line_t *);
+long write_file(char *, const char *, long, long);
+long write_stream(FILE *, long, long);
 
 /* global buffers */
 extern char stdinbuf[];
@@ -289,11 +273,10 @@ extern int sigflags;
 /* global vars */
 extern long addr_last;
 extern long current_addr;
-extern char errmsg[];
+extern const char *errmsg;
 extern long first_addr;
 extern int lineno;
 extern long second_addr;
+extern long u_addr_last;
+extern long u_current_addr;
 extern int posixly_correct;
-#ifdef sun
-extern char *sys_errlist[];
-#endif

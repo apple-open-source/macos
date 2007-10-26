@@ -5,7 +5,7 @@
 # libraries when they exist, but this doesn't mean they are needed for Vim.
 #
 #      Author: Bram Moolenaar
-# Last change: 2002 Feb 21
+# Last change: 2005 Jan 25
 #
 # Warning: This fails miserably if the linker doesn't return an error code!
 #
@@ -40,7 +40,7 @@ else
   if sh link.cmd; then
     touch auto/link.sed
     cp link.cmd linkit.sh
-    for libname in SM ICE nsl dnet dnet_stub inet socket dir elf iconv Xt Xmu Xp Xpm X11 Xdmcp x pthread thread readline m perl crypt attr; do
+    for libname in SM ICE nsl dnet dnet_stub inet socket dir elf iconv Xt Xmu Xp Xpm X11 Xdmcp x w dl pthread thread readline m perl crypt attr; do
       cont=yes
       while test -n "$cont"; do
         if grep "l$libname " linkit.sh >/dev/null; then

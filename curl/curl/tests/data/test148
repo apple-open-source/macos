@@ -1,5 +1,10 @@
+<testcase>
 # Server-side
 <reply>
+<servercmd>
+REPLY CWD 550 I won't allow this on my server
+REPLY MKD 550 We will have no such thing
+</servercmd>
 </reply>
 
 # Client-side
@@ -13,10 +18,6 @@ FTP with --ftp-create-dirs (failing MKD)
  <command>
 ftp://%HOSTIP:%FTPPORT/attempt/to/get/this/148 --ftp-create-dirs
 </command>
-<file name="log/ftpserver.cmd">
-REPLY CWD 550 I won't allow this on my server
-REPLY MKD 550 We will have no such thing
-</file>
 </client>
 
 # Verify data after the test has been "shot"
@@ -32,10 +33,11 @@ REPLY MKD 550 We will have no such thing
 </errorcode>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 CWD attempt
 MKD attempt
 QUIT
 </protocol>
 </verify>
+</testcase>

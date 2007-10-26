@@ -1,0 +1,11 @@
+--- arc4random.c.orig	2006-02-19 03:33:43.000000000 -0800
++++ arc4random.c	2006-02-19 15:35:04.000000000 -0800
+@@ -117,7 +117,7 @@
+ 	/* fd < 0?  Ah, what the heck. We'll just take whatever was on the
+ 	 * stack... */
+ 
+-	arc4_addrandom(as, (void *) &rdat, sizeof(rdat));
++	arc4_addrandom(as, (u_char *) &rdat, sizeof(rdat));
+ 
+ 	/*
+ 	 * Throw away the first N bytes of output, as suggested in the

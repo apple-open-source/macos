@@ -1,8 +1,8 @@
 /* Generic bytes.h */
-/* $OpenLDAP: pkg/ldap/include/ac/bytes.h,v 1.15.2.2 2004/01/01 18:16:28 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ac/bytes.h,v 1.18.2.2 2006/01/03 22:16:06 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -67,7 +67,7 @@ typedef unsigned AC_INT2_TYPE ac_uint2;
 
 /* assume autoconf's AC_C_BIGENDIAN has been ran */
 /* if it hasn't, we assume (maybe falsely) the order is LITTLE ENDIAN */
-#	ifdef WORDS_BIGENDIAN
+#	ifdef __BIG_ENDIAN__
 #		define BYTE_ORDER  BIG_ENDIAN
 #	else
 #		define BYTE_ORDER  LITTLE_ENDIAN

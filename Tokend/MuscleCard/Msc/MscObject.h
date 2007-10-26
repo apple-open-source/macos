@@ -70,4 +70,3 @@ std::ostream& operator << (std::ostream& strm, const MscObject& ee);
 
 #endif /* !_MSCOBJECT_H_ */
 
-/* arch-tag: 953506DC-BE68-11D8-BDBC-000A95C4302E */

@@ -1,0 +1,129 @@
+#!/bin/sh
+#
+# Upgrade cyrus mail database
+#
+
+BACKUP="1 2 3 4 5 6 7 8 9"
+USER_DIR="a b c d e f g h i j k l m n o p q r s t u v w x y z"
+CY_PATH="/usr/bin/cyrus/bin"
+IMAPD_CONF="/etc/imapd.conf"
+
+###################
+# Is there an imap config file
+
+if [ ! -e "$IMAPD_CONF" ] ; then
+  echo "Unable to upgrade mail database due to missing config file: $IMAPD_CONF" 
+  exit 0
+fi
+
+
+###################
+# Get the path to the mail database and verify that it exists
+
+DB_PATH="`/usr/bin/grep "configdirectory" "$IMAPD_CONF" | sed 's/^.*://' | sed -e 's/^ *//'`"
+
+if [ ! -d "$DB_PATH" ] ; then
+  echo "Mail database path: $DB_PATH does not exist" 
+  exit 0
+fi
+
+
+###################
+# Upgrade mail databases
+
+cd "$DB_PATH"
+
+###################
+# Delete old mail db files
+
+if [ -d "$DB_PATH/db" ] ; then
+  echo "Removing old mail database files in: $DB_PATH/db"
+  cd "$DB_PATH/db"
+  /usr/bin/sudo -u _cyrus /bin/rm -rf *
+fi
+
+
+###################
+# Delete backups
+
+for X in $BACKUP
+do
+  if [ -d "$DB_PATH/db.backup$X" ] ; then
+    cd "$DB_PATH/db.backup$X"
+    for backup_file in *
+    do
+      echo "Removing old mail database file: $backup_file"
+      /usr/bin/sudo -u _cyrus /bin/rm "$backup_file"
+    done
+  fi
+done
+
+
+###################
+# Delete deliver and tls session database files
+
+if [ -e "$DB_PATH/deliver.db" ] ; then
+  /usr/bin/sudo -u _cyrus /bin/rm "$DB_PATH/deliver.db"
+fi
+
+if [ -e "$DB_PATH/tls_sessions.db" ] ; then
+  /usr/bin/sudo -u _cyrus /bin/rm "$DB_PATH/tls_sessions.db"
+fi
+
+
+###################
+# Upgrade mailboxes.db if it exists
+
+# First check for mailboxes.db
+#  If it exists set mboxlist_db key to berkeley in imapd.conf
+#  Then convert the mailboxes.db file form Berkeley DB to test
+#  Remove the mboxlist_db key from imapd.conf
+#  Import mailboxes into new mailboxes.db as skiplist
+
+if [  -e "$DB_PATH/mailboxes.db" ] ; then
+  ###################
+  # Create skipstamp so that cyrus doesn't complain
+  /usr/bin/sudo -u _cyrus touch "$DB_PATH/db/skipstamp"
+
+  ###################
+  # Convert mailboxes.db to text file
+  /usr/bin/sudo -u _cyrus "$CY_PATH/ctl_mboxlist.old" -d > "$DB_PATH/mailboxes.txt"
+  /usr/bin/sudo -u _cyrus /bin/mv "$DB_PATH/mailboxes.db" "$DB_PATH/mailboxes.db.old"
+  chown _cyrus:mail $DB_PATH/mailboxes.txt
+
+  ###################
+  # Remove newly created db files
+  if [ -d "$DB_PATH/db" ] ; then
+    cd "$DB_PATH/db"
+    /usr/bin/sudo -u _cyrus /bin/rm -rf *
+  fi
+
+  ###################
+  # Create skipstamp so that cyrus doesn't complain
+  /usr/bin/sudo -u _cyrus touch "$DB_PATH/db/skipstamp"
+
+  ###################
+  # Import user mailboxes to new skiplist format
+  if [ -e "$DB_PATH/mailboxes.txt" ] ; then
+    /usr/bin/sudo -u _cyrus "$CY_PATH/ctl_mboxlist" -u < "$DB_PATH/mailboxes.txt"
+    /usr/bin/sudo -u _cyrus /bin/rm "$DB_PATH/mailboxes.txt"
+  fi
+fi
+
+###################
+# Convert individual user seen.db files to skiplist
+#  Go to each user directory from a - z and look for .seen files and convert
+
+for dir in $USER_DIR
+do
+  if [ -d "$DB_PATH/user/$dir" ] ; then
+    cd "$DB_PATH/user/$dir"
+    WORKING_DIR=`pwd`
+    for file in `find . -name \*.seen`
+    do
+      echo "Converting db file: $WORKING_DIR/$file"
+      /usr/bin/sudo -u _cyrus /bin/mv "$WORKING_DIR/$file" "$WORKING_DIR/$file.old"
+      /usr/bin/sudo -u _cyrus "$CY_PATH/cvt_cyrusdb" "$WORKING_DIR/$file.old" flat "$WORKING_DIR/$file" skiplist >/dev/null
+    done
+  fi
+done

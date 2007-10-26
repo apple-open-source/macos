@@ -223,6 +223,22 @@ struct arch_flag *specific_arch_flag)
 		if(specific_arch_flag != NULL)
 		    specific_arch_flag->name = "veo2";
 		return(1);
+	    case CPU_SUBTYPE_VEO_3:
+		if(family_arch_flag != NULL){
+		    family_arch_flag->name = "veo";
+		    family_arch_flag->cpusubtype = CPU_SUBTYPE_VEO_ALL;
+		}
+		if(specific_arch_flag != NULL)
+		    specific_arch_flag->name = "veo3";
+		return(1);
+	    case CPU_SUBTYPE_VEO_4:
+		if(family_arch_flag != NULL){
+		    family_arch_flag->name = "veo";
+		    family_arch_flag->cpusubtype = CPU_SUBTYPE_VEO_ALL;
+		}
+		if(specific_arch_flag != NULL)
+		    specific_arch_flag->name = "veo4";
+		return(1);
 	    default:
 		if(family_arch_flag != NULL){
                     family_arch_flag->name = "veo";

@@ -1,6 +1,7 @@
 ;;; pcvs.el --- a front-end to CVS
 
-;; Copyright (C) 1991,92,93,94,95,95,97,98,99,2000  Free Software Foundation, Inc.
+;; Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+;;   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: (The PCL-CVS Trust) pcl-cvs@cyclic.com
 ;;	(Per Cederqvist) ceder@lysator.liu.se
@@ -11,9 +12,8 @@
 ;;	(Stefan Monnier) monnier@cs.yale.edu
 ;;	(Greg Klanderman) greg@alphatech.com
 ;;	(Jari Aalto+mail.emacs) jari.aalto@poboxes.com
-;; Maintainer: (Stefan Monnier) monnier+lists/cvs/pcl@flint.cs.yale.edu
+;; Maintainer: (Stefan Monnier) monnier@gnu.org
 ;; Keywords: CVS, version control, release management
-;; Revision: $Id: pcvs.el,v 1.1.1.1 2001/10/31 17:55:59 jevans Exp $
 
 ;; This file is part of GNU Emacs.
 
@@ -29,8 +29,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -59,9 +59,8 @@
 ;;; Todo:
 
 ;; ******** FIX THE DOCUMENTATION *********
-;; 
+;;
 ;; - rework the displaying of error messages.
-;; - use UP-TO-DATE rather than DEAD when cleaning before `examine'.
 ;; - allow to flush messages only
 ;; - allow to protect files like ChangeLog from flushing
 ;; - automatically cvs-mode-insert files from find-file-hook
@@ -72,7 +71,7 @@
 ;; - allow cvs-confirm-removals to force always confirmation.
 ;; - cvs-checkout should ask for a revision (with completion).
 ;; - removal confirmation should allow specifying another file name.
-;; 
+;;
 ;; - hide fileinfos without getting rid of them (will require ewok work).
 ;; - add toolbar entries
 ;; - marking
@@ -173,22 +172,26 @@
 (defun cvs-reread-cvsrc ()
   "Reset the default arguments to those in the `cvs-cvsrc-file'."
   (interactive)
-  (let ((cvsrc (cvs-file-to-string cvs-cvsrc-file)))
-    (when (stringp cvsrc)
-      ;; fetch the values
-      (dolist (cmd '("cvs" "checkout" "status" "log" "diff" "tag"
-		     "add" "commit" "remove" "update"))
-	(let* ((sym (intern (concat "cvs-" cmd "-flags")))
-	       (val (when (string-match (concat "^" cmd "\\s-\\(.*\\)$") cvsrc)
-		      (cvs-string->strings (match-string 1 cvsrc)))))
-	  (cvs-flags-set sym 0 val)))
-      ;; ensure that cvs doesn't have -q or -Q
-      (cvs-flags-set 'cvs-cvs-flags 0
-		     (cons "-f"
-			   (cdr (cvs-partition
-				 (lambda (x) (member x '("-q" "-Q")))
-				 (cvs-flags-query 'cvs-cvs-flags
-						  nil 'noquery))))))))
+  (condition-case nil
+      (with-temp-buffer
+	(insert-file-contents cvs-cvsrc-file)
+	;; fetch the values
+	(dolist (cmd '("cvs" "checkout" "status" "log" "diff" "tag"
+		       "add" "commit" "remove" "update"))
+	  (goto-char (point-min))
+	  (when (re-search-forward
+		 (concat "^" cmd "\\(\\s-+\\(.*\\)\\)?$") nil t)
+	    (let* ((sym (intern (concat "cvs-" cmd "-flags")))
+		   (val (cvs-string->strings (or (match-string 2) ""))))
+	      (cvs-flags-set sym 0 val))))
+	;; ensure that cvs doesn't have -q or -Q
+	(cvs-flags-set 'cvs-cvs-flags 0
+		       (cons "-f"
+			     (cdr (cvs-partition
+				   (lambda (x) (member x '("-q" "-Q" "-f")))
+				   (cvs-flags-query 'cvs-cvs-flags
+						    nil 'noquery))))))
+      (file-error nil)))
 
 ;; initialize to cvsrc's default values
 (cvs-reread-cvsrc)
@@ -197,6 +200,8 @@
 ;;;;
 ;;;; Mouse bindings and mode motion
 ;;;;
+
+(defvar cvs-minor-current-files)
 
 (defun cvs-menu (e)
   "Popup the CVS menu."
@@ -228,7 +233,7 @@
 			     nil	;don't update display while running
 			     "status"
 			     "-v"
-			     (cvs-fileinfo->full-path (car marked)))
+			     (cvs-fileinfo->full-name (car marked)))
 	       (goto-char (point-min))
 	       (let ((tags (cvs-status-get-tags)))
 		 (when (listp tags) tags)))))))
@@ -239,17 +244,14 @@
 
 ;;;;
 
-(defun cvs-mode! (&optional -cvs-mode!-fun -cvs-mode!-noerror)
+(defun cvs-mode! (&optional -cvs-mode!-fun)
   "Switch to the *cvs* buffer.
 If -CVS-MODE!-FUN is provided, it is executed *cvs* being the current buffer
   and with its window selected.  Else, the *cvs* buffer is simply selected.
-If -CVS-MODE!-NOERROR is non-nil, then failure to find a *cvs* buffer does
-  not generate an error and the current buffer is kept selected.
 -CVS-MODE!-FUN is called interactively if applicable and else with no argument."
   (let* ((-cvs-mode!-buf (current-buffer))
 	 (cvsbuf (cond ((cvs-buffer-p) (current-buffer))
 		       ((and cvs-buffer (cvs-buffer-p cvs-buffer)) cvs-buffer)
-		       (-cvs-mode!-noerror (current-buffer))
 		       (t (error "can't find the *cvs* buffer"))))
 	 (-cvs-mode!-wrapper cvs-minor-wrap-function)
 	 (-cvs-mode!-cont (lambda ()
@@ -334,7 +336,8 @@ the primay since reading the primary can deactivate it."
   "This mode is used for buffers related to a main *cvs* buffer.
 All the `cvs-mode' buffer operations are simply rebound under
 the \\[cvs-mode-map] prefix."
-  nil " CVS")
+  nil " CVS"
+  :group 'pcl-cvs)
 (put 'cvs-minor-mode 'permanent-local t)
 
 
@@ -355,7 +358,7 @@ from the current buffer."
 	 (dir default-directory)
 	 (buf (cond
 	       (name (cvs-get-buffer-create name))
-	       ((and (bufferp cvs-temp-buffer) (buffer-name cvs-temp-buffer))
+	       ((and (bufferp cvs-temp-buffer) (buffer-live-p cvs-temp-buffer))
 		cvs-temp-buffer)
 	       (t
 		(set (make-local-variable 'cvs-temp-buffer)
@@ -366,7 +369,14 @@ from the current buffer."
     (let ((proc (get-buffer-process buf)))
       (when (and (not normal) (processp proc)
 		 (memq (process-status proc) '(run stop)))
-	(error "Can not run two cvs processes simultaneously")))
+	(if cmd
+	    ;; When CMD is specified, the buffer is normally shown to the
+	    ;; user, so interrupting the process is not harmful.
+	    ;; Use `delete-process' rather than `kill-process' otherwise
+	    ;; the pending output of the process will still get inserted
+	    ;; after we erase the buffer.
+	    (delete-process proc)
+	  (error "Can not run two cvs processes simultaneously"))))
 
     (if (not name) (kill-local-variable 'other-window-scroll-buffer)
       ;; Strangely, if no window is created, `display-buffer' ends up
@@ -441,17 +451,23 @@ If non-nil, NEW means to create a new buffer no matter what."
 	 (setq default-directory dir)
 	 (setq buffer-read-only nil)
 	 (erase-buffer)
-	 (insert "\
-Repository : " (directory-file-name (cvs-get-cvsroot)) "
-Module     : " (cvs-get-module) "
-Working dir: " (abbreviate-file-name dir) "
-
-")
+	 (insert "Repository : " (directory-file-name (cvs-get-cvsroot))
+		 "\nModule     : " (cvs-get-module)
+		 "\nWorking dir: " (abbreviate-file-name dir)
+		 (if (not (file-readable-p "CVS/Tag")) "\n"
+		   (let ((tag (cvs-file-to-string "CVS/Tag")))
+		     (cond
+		      ((string-match "\\`T" tag)
+		       (concat "\nTag        : " (substring tag 1)))
+		      ((string-match "\\`D" tag)
+		       (concat "\nDate       : " (substring tag 1)))
+		      ("\n"))))
+		 "\n")
 	 (setq buffer-read-only t)
 	 (cvs-mode)
 	 (set (make-local-variable 'list-buffers-directory) buffer-name)
 	 ;;(set (make-local-variable 'cvs-temp-buffer) (cvs-temp-buffer))
-	 (let ((cookies (ewoc-create 'cvs-fileinfo-pp "\n" "")))
+	 (let ((cookies (ewoc-create 'cvs-fileinfo-pp "\n\n" "\n" t)))
 	   (set (make-local-variable 'cvs-cookies) cookies)
 	   (add-hook 'kill-buffer-hook
 		     (lambda ()
@@ -468,7 +484,8 @@ Working dir: " (abbreviate-file-name dir) "
     ;; Check that dir is under CVS control.
     (unless (file-directory-p dir)
       (error "%s is not a directory" dir))
-    (unless (or noexist (file-directory-p (expand-file-name "CVS" dir)))
+    (unless (or noexist (file-directory-p (expand-file-name "CVS" dir))
+		(file-expand-wildcards (expand-file-name "*/CVS" dir)))
       (error "%s does not contain CVS controlled files" dir))
 
     (set-buffer cvsbuf)
@@ -495,7 +512,7 @@ Working dir: " (abbreviate-file-name dir) "
       (let* ((dir+files+rest
 	      (if (or (null fis) (not single-dir))
 		  ;; not single-dir mode: just process the whole thing
-		  (list "" (mapcar 'cvs-fileinfo->full-path fis) nil)
+		  (list "" (mapcar 'cvs-fileinfo->full-name fis) nil)
 		;; single-dir mode: extract the same-dir-elements
 		(let ((dir (cvs-fileinfo->dir (car fis))))
 		  ;; output the concerned dir so the parser can translate paths
@@ -511,32 +528,49 @@ Working dir: " (abbreviate-file-name dir) "
 	     (files (nth 1 dir+files+rest))
 	     (rest (nth 2 dir+files+rest)))
 
-	;; setup the (current) process buffer
-	(set (make-local-variable 'cvs-postprocess)
-	     (if (null rest)
-		 ;; this is the last invocation
-		 postprocess
-	       ;; else, we have to register ourselves to be rerun on the rest
-	       `(cvs-run-process ',args ',rest ',postprocess ',single-dir)))
 	(add-hook 'kill-buffer-hook
 		  (lambda ()
 		    (let ((proc (get-buffer-process (current-buffer))))
 		      (when (processp proc)
 			(set-process-filter proc nil)
-			(set-process-sentinel proc nil)
-			(delete-process proc))))
+			;; Abort postprocessing but leave the sentinel so it
+			;; will update the list of running procs.
+			(process-put proc 'cvs-postprocess nil)
+			(interrupt-process proc))))
 		  nil t)
 
 	;; create the new process and setup the procbuffer correspondingly
-	(let* ((args (append (cvs-flags-query 'cvs-cvs-flags nil 'noquery)
+	(let* ((msg (cvs-header-msg args fis))
+	       (args (append (cvs-flags-query 'cvs-cvs-flags nil 'noquery)
 			     (if cvs-cvsroot (list "-d" cvs-cvsroot))
 			     args
 			     files))
+	       ;; If process-connection-type is nil and the repository
+	       ;; is accessed via SSH, a bad interaction between libc,
+	       ;; CVS and SSH can lead to garbled output.
+	       ;; It might be a glibc-specific problem (but it can also happens
+	       ;; under Mac OS X, it seems).
+	       ;; It seems that using a pty can help circumvent the problem,
+	       ;; but at the cost of screwing up when the process thinks it
+	       ;; can ask for user input (such as password or host-key
+	       ;; confirmation).  A better workaround is to set CVS_RSH to
+	       ;; an appropriate script, or to use a later version of CVS.
 	       (process-connection-type nil) ; Use a pipe, not a pty.
 	       (process
 		;; the process will be run in the selected dir
 		(let ((default-directory (cvs-expand-dir-name dir)))
 		  (apply 'start-process "cvs" procbuf cvs-program args))))
+	  ;; setup the process.
+	  (process-put process 'cvs-buffer cvs-buffer)
+	  (with-current-buffer cvs-buffer (cvs-update-header msg 'add))
+	  (process-put process 'cvs-header msg)
+	  (process-put
+	   process 'cvs-postprocess
+	   (if (null rest)
+	       ;; this is the last invocation
+	       postprocess
+	     ;; else, we have to register ourselves to be rerun on the rest
+	     `(cvs-run-process ',args ',rest ',postprocess ',single-dir)))
 	  (set-process-sentinel process 'cvs-sentinel)
 	  (set-process-filter process 'cvs-update-filter)
 	  (set-marker (process-mark process) (point-max))
@@ -551,50 +585,63 @@ Working dir: " (abbreviate-file-name dir) "
   ;; emacsen. It shouldn't be needed, but it does no harm.
   (sit-for 0))
 
-(defun cvs-update-header (args fis) ; inline
+(defun cvs-header-msg (args fis)
   (let* ((lastarg nil)
-	 ;; filter out the largish commit message
 	 (args (mapcar (lambda (arg)
 			 (cond
+			  ;; filter out the largish commit message
 			  ((and (eq lastarg nil) (string= arg "commit"))
 			   (setq lastarg 'commit) arg)
 			  ((and (eq lastarg 'commit) (string= arg "-m"))
 			   (setq lastarg '-m) arg)
 			  ((eq lastarg '-m)
 			   (setq lastarg 'done) "<log message>")
+			  ;; filter out the largish `admin -mrev:msg' message
+			  ((and (eq lastarg nil) (string= arg "admin"))
+			   (setq lastarg 'admin) arg)
+			  ((and (eq lastarg 'admin)
+				(string-match "\\`-m[^:]*:" arg))
+			   (setq lastarg 'done)
+			   (concat (match-string 0 arg) "<log message>"))
+			  ;; Keep the rest as is.
 			  (t arg)))
-		       args))
-	 ;; turn them into a string
-	 (arg (cvs-strings->string
-	       (append (cvs-flags-query 'cvs-cvs-flags nil 'noquery)
-		       (if cvs-cvsroot (list "-d" cvs-cvsroot))
-		       args
-		       (mapcar 'cvs-fileinfo->full-path fis))))
-	 (str (if args (concat "-- Running " cvs-program " " arg " ...\n")
-		"\n")))
-    (if nil (insert str)		;inline
-      ;;(with-current-buffer cvs-buffer
-      (let* ((prev-msg (car (ewoc-get-hf cvs-cookies)))
-	     (tin (ewoc-nth cvs-cookies 0)))
-	;; look for the first *real* fileinfo (to determine emptyness)
-	(while
-	    (and tin
-		 (memq (cvs-fileinfo->type (ewoc-data tin))
-		       '(MESSAGE DIRCHANGE)))
-	  (setq tin (ewoc-next cvs-cookies tin)))
-	;; cleanup the prev-msg
-	(when (string-match "Running \\(.*\\) ...\n" prev-msg)
-	  (setq prev-msg
-		(concat
-		 "-- last cmd: "
-		 (match-string 1 prev-msg)
-		 " --")))
-	;; set the new header and footer
-	(ewoc-set-hf cvs-cookies
-		     str (concat "\n--------------------- "
-				 (if tin "End" "Empty")
-				 " ---------------------\n"
-				 prev-msg))))))
+		       args)))
+    (concat cvs-program " "
+	    (cvs-strings->string
+	     (append (cvs-flags-query 'cvs-cvs-flags nil 'noquery)
+		     (if cvs-cvsroot (list "-d" cvs-cvsroot))
+		     args
+		     (mapcar 'cvs-fileinfo->full-name fis))))))
+
+(defun cvs-update-header (cmd add)
+  (let* ((hf (ewoc-get-hf cvs-cookies))
+	 (str (car hf))
+	 (done "")
+	 (tin (ewoc-nth cvs-cookies 0)))
+    ;; look for the first *real* fileinfo (to determine emptyness)
+    (while
+	(and tin
+	     (memq (cvs-fileinfo->type (ewoc-data tin))
+		   '(MESSAGE DIRCHANGE)))
+      (setq tin (ewoc-next cvs-cookies tin)))
+    (if add
+        (progn
+          ;; Remove the default empty line, if applicable.
+          (if (not (string-match "." str)) (setq str "\n"))
+          (setq str (concat "-- Running " cmd " ...\n" str)))
+      (if (not (string-match
+		(concat "^-- Running " (regexp-quote cmd) " \\.\\.\\.\n") str))
+	  (error "Internal PCL-CVS error while removing message")
+	(setq str (replace-match "" t t str))
+        ;; Re-add the default empty line, if applicable.
+        (if (not (string-match "." str)) (setq str "\n\n"))
+	(setq done (concat "-- last cmd: " cmd " --\n"))))
+    ;; set the new header and footer
+    (ewoc-set-hf cvs-cookies
+		 str (concat "\n--------------------- "
+			     (if tin "End" "Empty")
+			     " ---------------------\n"
+			     done))))
 
 
 (defun cvs-sentinel (proc msg)
@@ -602,56 +649,89 @@ Working dir: " (abbreviate-file-name dir) "
 This is responsible for parsing the output from the cvs update when
 it is finished."
   (when (memq (process-status proc) '(signal exit))
-    (if (null (buffer-name (process-buffer proc)))
-	;;(set-process-buffer proc nil)
-	(error "cvs' process buffer was killed")
-      (let* ((obuf (current-buffer))
-	     (procbuffer (process-buffer proc)))
-	(set-buffer (with-current-buffer procbuffer cvs-buffer))
-	(setq cvs-mode-line-process (symbol-name (process-status proc)))
-	(force-mode-line-update)
-	(set-buffer procbuffer)
-	(let ((cvs-postproc cvs-postprocess))
-	  ;; Since the buffer and mode line will show that the
-	  ;; process is dead, we can delete it now.  Otherwise it
-	  ;; will stay around until M-x list-processes.
-	  (delete-process proc)
-	  (setq cvs-postprocess nil)
-	  ;; do the postprocessing like parsing and such
-	  (save-excursion (eval cvs-postproc))
-	  ;; check whether something is left
-	  (unless cvs-postprocess
-	    (buffer-enable-undo)
-	    (with-current-buffer cvs-buffer
-	      (cvs-update-header nil nil) ;FIXME: might need to be inline
-	      (message "CVS process has completed"))))
-	;; This might not even be necessary
-	(set-buffer obuf)))))
+    (let ((cvs-postproc (process-get proc 'cvs-postprocess))
+	  (cvs-buf (process-get proc 'cvs-buffer))
+          (procbuf (process-buffer proc)))
+      (unless (buffer-live-p cvs-buf) (setq cvs-buf nil))
+      (unless (buffer-live-p procbuf) (setq procbuf nil))
+      ;; Since the buffer and mode line will show that the
+      ;; process is dead, we can delete it now.  Otherwise it
+      ;; will stay around until M-x list-processes.
+      (process-put proc 'postprocess nil)
+      (delete-process proc)
+      ;; Don't do anything if the main buffer doesn't exist any more.
+      (when cvs-buf
+	(with-current-buffer cvs-buf
+	  (cvs-update-header (process-get proc 'cvs-header) nil)
+	  (setq cvs-mode-line-process (symbol-name (process-status proc)))
+	  (force-mode-line-update)
+	  (when cvs-postproc
+	    (if (null procbuf)
+		;;(set-process-buffer proc nil)
+		(error "cvs' process buffer was killed")
+	      (with-current-buffer procbuf
+		;; Do the postprocessing like parsing and such.
+		(save-excursion (eval cvs-postproc)))))))
+      ;; Check whether something is left.
+      (when (and procbuf (not (get-buffer-process procbuf)))
+        (with-current-buffer procbuf
+          ;; IIRC, we enable undo again once the process is finished
+          ;; for cases where the output was inserted in *vc-diff* or
+          ;; in a file-like buffer.  --Stef
+          (buffer-enable-undo)
+          (with-current-buffer (or cvs-buf (current-buffer))
+            (message "CVS process has completed in %s"
+                     (buffer-name))))))))
 
-(defun cvs-parse-process (dcd &optional subdir)
-  "FIXME: bad name, no doc."
-  (let* ((from-buf (current-buffer))
-	 (fileinfos (cvs-parse-buffer 'cvs-parse-table dcd subdir))
-	 (_ (set-buffer cvs-buffer))
-	 last
-	 (from-pt (point)))
-    ;; add the new fileinfos
-    (dolist (fi fileinfos)
-      (setq last (cvs-addto-collection cvs-cookies fi last)))
-    (cvs-cleanup-collection cvs-cookies
-			    (eq cvs-auto-remove-handled t)
-			    cvs-auto-remove-directories
-			    nil)
-    ;; update the display (might be unnecessary)
-    ;;(ewoc-refresh cvs-cookies)
-    ;; revert buffers if necessary
-    (when (and cvs-auto-revert (not dcd) (not cvs-from-vc))
-      (cvs-revert-if-needed fileinfos))
-    ;; get back to where we were.  `save-excursion' doesn't seem to
-    ;; work in this case, probably because the buffer is reconstructed
-    ;; by the cookie code.
-    (goto-char from-pt)
-    (set-buffer from-buf)))
+(defun cvs-parse-process (dcd &optional subdir old-fis)
+  "Parse the output of a cvs process.
+DCD is the `dont-change-disc' flag to use when parsing that output.
+SUBDIR is the subdirectory (if any) where this command was run.
+OLD-FIS is the list of fileinfos on which the cvs command was applied and
+  which should be considered up-to-date if they are missing from the output."
+  (when (eq system-type 'darwin)
+    ;; Fixup the ^D^H^H inserted at beginning of buffer sometimes on MacOSX
+    ;; because of the call to `process-send-eof'.
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "^\\^D+" nil t)
+	(let ((inhibit-read-only t))
+	  (delete-region (match-beginning 0) (match-end 0))))))
+  (let* ((fileinfos (cvs-parse-buffer 'cvs-parse-table dcd subdir))
+	 last)
+    (with-current-buffer cvs-buffer
+      ;; Expand OLD-FIS to actual files.
+      (let ((fis nil))
+	(dolist (fi old-fis)
+	  (setq fis (if (eq (cvs-fileinfo->type fi) 'DIRCHANGE)
+			(nconc (ewoc-collect cvs-cookies 'cvs-dir-member-p
+					     (cvs-fileinfo->dir fi))
+			       fis)
+		      (cons fi fis))))
+	(setq old-fis fis))
+      ;; Drop OLD-FIS which were already up-to-date.
+      (let ((fis nil))
+	(dolist (fi old-fis)
+	  (unless (eq (cvs-fileinfo->type fi) 'UP-TO-DATE) (push fi fis)))
+	(setq old-fis fis))
+      ;; Add the new fileinfos to the ewoc.
+      (dolist (fi fileinfos)
+	(setq last (cvs-addto-collection cvs-cookies fi last))
+	;; This FI was in the output, so remove it from OLD-FIS.
+	(setq old-fis (delq (ewoc-data last) old-fis)))
+      ;; Process the "silent output" (i.e. absence means up-to-date).
+      (dolist (fi old-fis)
+	(setf (cvs-fileinfo->type fi) 'UP-TO-DATE)
+	(setq last (cvs-addto-collection cvs-cookies fi last)))
+      (setq fileinfos (nconc old-fis fileinfos))
+      ;; Clean up the ewoc as requested by the user.
+      (cvs-cleanup-collection cvs-cookies
+			      (eq cvs-auto-remove-handled t)
+			      cvs-auto-remove-directories
+			      nil)
+      ;; Revert buffers if necessary.
+      (when (and cvs-auto-revert (not dcd) (not cvs-from-vc))
+	(cvs-revert-if-needed fileinfos)))))
 
 (defmacro defun-cvs-mode (fun args docstring interact &rest body)
   "Define a function to be used in a *cvs* buffer.
@@ -671,6 +751,7 @@ clear what alternative to use.
 - NOARGS will get all the arguments from the *cvs* buffer and will
   always behave as if called interactively.
 - DOUBLE is the generic case."
+  (declare (debug (&define sexp lambda-list stringp ("interactive" interactive) def-body)))
   (let ((style (cvs-cdr fun))
 	(fun (cvs-car fun)))
     (cond
@@ -690,7 +771,6 @@ clear what alternative to use.
      ((eq style 'DOUBLE)
       (string-match ".*" docstring)
       (let ((line1 (match-string 0 docstring))
-	    (restdoc (substring docstring (match-end 0)))
 	    (fun-1 (intern (concat (symbol-name fun) "-1"))))
 	`(progn
 	   (defun ,fun-1 ,args
@@ -698,19 +778,19 @@ clear what alternative to use.
 For interactive use, use `" (symbol-name fun) "' instead.")
 	     ,interact
 	     ,@body)
+	   (put ',fun-1 'definition-name ',fun)
 	   (defun ,fun ()
 	     ,(concat line1 "\nWrapper function that switches to a *cvs* buffer
 before calling the real function `" (symbol-name fun-1) "'.\n")
 	     (interactive)
 	     (cvs-mode! ',fun-1)))))
 
-     (t (error "unknown style %s in `defun-cvs-mode'" style)))))
-(def-edebug-spec defun-cvs-mode (&define sexp lambda-list stringp ("interactive" interactive) def-body))
+     (t (error "Unknown style %s in `defun-cvs-mode'" style)))))
 
 (defun-cvs-mode cvs-mode-kill-process ()
   "Kill the temporary buffer and associated process."
   (interactive)
-  (when (and (bufferp cvs-temp-buffer) (buffer-name cvs-temp-buffer))
+  (when (and (bufferp cvs-temp-buffer) (buffer-live-p cvs-temp-buffer))
     (let ((proc (get-buffer-process cvs-temp-buffer)))
       (when proc (delete-process proc)))))
 
@@ -739,6 +819,8 @@ TIN specifies an optional starting point."
 	;; fi == tin
 	(cvs-fileinfo-update (ewoc-data tin) fi)
 	(ewoc-invalidate c tin)
+	;; Move cursor back to where it belongs.
+	(when (bolp) (cvs-move-to-goal-column))
 	tin))))
 
 (defcustom cvs-cleanup-functions nil
@@ -757,7 +839,7 @@ the problem."
   (and (or (eq (cvs-fileinfo->type fi) 'REMOVED)
 	   (and (eq (cvs-fileinfo->type fi) 'CONFLICT)
 		(eq (cvs-fileinfo->subtype fi) 'REMOVED)))
-       (file-exists-p (cvs-fileinfo->full-path fi))))
+       (file-exists-p (cvs-fileinfo->full-name fi))))
 
 ;; called at the following times:
 ;; - postparse  ((eq cvs-auto-remove-handled t) cvs-auto-remove-directories nil)
@@ -844,24 +926,44 @@ This usually doesn't really work but is a handy initval in a prompt."
 ;;;;
 
 ;;;###autoload
-(defun cvs-checkout (modules dir flags)
+(defun cvs-checkout (modules dir flags &optional root)
   "Run a 'cvs checkout MODULES' in DIR.
 Feed the output to a *cvs* buffer, display it in the current window,
 and run `cvs-mode' on it.
 
 With a prefix argument, prompt for cvs FLAGS to use."
   (interactive
-   (list (cvs-string->strings (read-string "Module(s): " (cvs-get-module)))
-	 (read-file-name "CVS Checkout Directory: "
-			 nil default-directory nil)
-	 (cvs-add-branch-prefix
-	  (cvs-flags-query 'cvs-checkout-flags "cvs checkout flags"))))
+   (let ((root (cvs-get-cvsroot)))
+     (if (or (null root) current-prefix-arg)
+	 (setq root (read-string "CVS Root: ")))
+     (list (cvs-string->strings (read-string "Module(s): " (cvs-get-module)))
+	   (read-directory-name "CVS Checkout Directory: "
+				nil default-directory nil)
+	   (cvs-add-branch-prefix
+	    (cvs-flags-query 'cvs-checkout-flags "cvs checkout flags"))
+	   root)))
   (when (eq flags t)
     (setf flags (cvs-flags-query 'cvs-checkout-flags nil 'noquery)))
-  (cvs-cmd-do "checkout" (or dir default-directory)
-	      (append flags modules) nil 'new
-	      :noexist t))
+  (let ((cvs-cvsroot root))
+    (cvs-cmd-do "checkout" (or dir default-directory)
+		(append flags modules) nil 'new
+		:noexist t)))
 
+(defun-cvs-mode (cvs-mode-checkout . NOARGS) (dir)
+  "Run cvs checkout against the current branch.
+The files are stored to DIR."
+  (interactive
+   (let* ((branch (cvs-prefix-get 'cvs-branch-prefix))
+	  (prompt (format "CVS Checkout Directory for `%s%s': "
+			 (cvs-get-module)
+			 (if branch (format " (branch: %s)" branch)
+			   ""))))
+     (list (read-directory-name prompt nil default-directory nil))))
+  (let ((modules (cvs-string->strings (cvs-get-module)))
+	(flags (cvs-add-branch-prefix
+		(cvs-flags-query 'cvs-checkout-flags "cvs checkout flags")))
+	(cvs-cvsroot (cvs-get-cvsroot)))
+    (cvs-checkout modules dir flags)))
 
 ;;;;
 ;;;; The code for running a "cvs update" and friends in various ways.
@@ -879,7 +981,7 @@ With a prefix argument, prompt for cvs FLAGS to use."
 	   (not current-prefix-arg)
 	   (not (eq last-command-char ?\r)))
       default-directory
-    (read-file-name msg nil default-directory nil)))
+    (read-directory-name msg nil default-directory nil)))
 
 ;;;###autoload
 (defun cvs-quickdir (dir &optional flags noshow)
@@ -924,6 +1026,7 @@ Optional argument NOSHOW if non-nil means not to display the buffer."
 		     (cvs-flags-query 'cvs-update-flags "cvs -n update flags")))
   (when (eq flags t)
     (setf flags (cvs-flags-query 'cvs-update-flags nil 'noquery)))
+  (when find-file-visit-truename (setq directory (file-truename directory)))
   (cvs-cmd-do "update" directory flags nil
 	      (> (prefix-numeric-value current-prefix-arg) 8)
 	      :cvsargs '("-n")
@@ -935,9 +1038,11 @@ Optional argument NOSHOW if non-nil means not to display the buffer."
 (defun cvs-update (directory flags)
   "Run a `cvs update' in the current working DIRECTORY.
 Feed the output to a *cvs* buffer and run `cvs-mode' on it.
-With a prefix argument, prompt for a directory and cvs FLAGS to use.
+With a \\[universal-argument] prefix argument, prompt for a directory to use.
 A prefix arg >8 (ex: \\[universal-argument] \\[universal-argument]),
-  prevents reuse of an existing *cvs* buffer."
+  prevents reuse of an existing *cvs* buffer.
+The prefix is also passed to `cvs-flags-query' to select the FLAGS
+  passed to cvs."
   (interactive (list (cvs-query-directory "CVS Update (directory): ")
 		     (cvs-flags-query 'cvs-update-flags "cvs update flags")))
   (when (eq flags t)
@@ -1016,7 +1121,7 @@ the override will persist until the next toggle."
   (cvs-prefix-set 'cvs-force-command arg))
 
 (put 'cvs-mode 'mode-class 'special)
-(define-derived-mode cvs-mode fundamental-mode "CVS"
+(define-derived-mode cvs-mode nil "CVS"
   "Mode used for PCL-CVS, a frontend to CVS.
 Full documentation is in the Texinfo file."
   (setq mode-line-process
@@ -1025,7 +1130,9 @@ Full documentation is in the Texinfo file."
 	       ("" cvs-branch-prefix (cvs-secondary-branch-prefix
 				      ("->" cvs-secondary-branch-prefix))))
 	  " " cvs-mode-line-process))
-  (buffer-disable-undo (current-buffer))
+  (if buffer-file-name
+      (error "Use M-x cvs-quickdir to get a *cvs* buffer"))
+  (buffer-disable-undo)
   ;;(set (make-local-variable 'goal-column) cvs-cursor-column)
   (set (make-local-variable 'revert-buffer-function) 'cvs-mode-revert-buffer)
   (setq truncate-lines t)
@@ -1051,7 +1158,7 @@ Full documentation is in the Texinfo file."
 	     (eq (ewoc-buffer cvs-cookies) buf)
 	     (setq check 'cvs-temp-buffer)
 	     (or (null cvs-temp-buffer)
-		 (null (buffer-name cvs-temp-buffer))
+		 (null (buffer-live-p cvs-temp-buffer))
 		 (and (eq (with-current-buffer cvs-temp-buffer cvs-buffer) buf)
 		      (equal (with-current-buffer cvs-temp-buffer
 			       default-directory)
@@ -1072,7 +1179,7 @@ Full documentation is in the Texinfo file."
   (interactive)
   (if (eq last-command 'cvs-help)
       (describe-function 'cvs-mode)   ; would need minor-mode for log-edit-mode
-    (message
+    (message "%s"
      (substitute-command-keys
       "`\\[cvs-help]':help `\\[cvs-mode-add]':add `\\[cvs-mode-commit]':commit \
 `\\[cvs-mode-diff-map]':diff* `\\[cvs-mode-log]':log \
@@ -1081,17 +1188,25 @@ Full documentation is in the Texinfo file."
 
 ;; Move around in the buffer
 
+(defun cvs-move-to-goal-column ()
+  (let* ((eol (line-end-position))
+	 (fpos (next-single-property-change (point) 'cvs-goal-column nil eol)))
+    (when (< fpos eol)
+      (goto-char fpos))))
+
 (defun-cvs-mode cvs-mode-previous-line (arg)
   "Go to the previous line.
 If a prefix argument is given, move by that many lines."
   (interactive "p")
-  (ewoc-goto-prev cvs-cookies arg))
+  (ewoc-goto-prev cvs-cookies arg)
+  (cvs-move-to-goal-column))
 
 (defun-cvs-mode cvs-mode-next-line (arg)
   "Go to the next line.
 If a prefix argument is given, move by that many lines."
   (interactive "p")
-  (ewoc-goto-next cvs-cookies arg))
+  (ewoc-goto-next cvs-cookies arg)
+  (cvs-move-to-goal-column))
 
 ;;;;
 ;;;; Mark handling
@@ -1120,11 +1235,12 @@ marked instead. A directory can never be marked."
       (ewoc-invalidate cvs-cookies tin)
       (cvs-mode-next-line 1))))
 
-(defun cvs-mouse-toggle-mark (e)
-  "Toggle the mark of the entry under the mouse."
-  (interactive "e")
+(defalias 'cvs-mouse-toggle-mark 'cvs-mode-toggle-mark)
+(defun cvs-mode-toggle-mark (e)
+  "Toggle the mark of the entry at point."
+  (interactive (list last-input-event))
   (save-excursion
-    (mouse-set-point e)
+    (posn-set-point (event-end e))
     (cvs-mode-mark 'toggle)))
 
 (defun-cvs-mode cvs-mode-unmark ()
@@ -1190,7 +1306,8 @@ they should always be unmarked."
   (let ((tin (ewoc-goto-prev cvs-cookies 1)))
     (when tin
       (setf (cvs-fileinfo->marked (ewoc-data tin)) nil)
-      (ewoc-invalidate cvs-cookies tin))))
+      (ewoc-invalidate cvs-cookies tin)))
+  (cvs-move-to-goal-column))
 
 (defconst cvs-ignore-marks-alternatives
   '(("toggle-marks"	. "/TM")
@@ -1230,17 +1347,13 @@ See `cvs-prefix-set' for further description of the behavior.
 (defun cvs-mode-mark-get-modif (cmd)
   (if (cvs-ignore-marks-p cmd 'read-only) "/IM" "/FM"))
 
-(defvar cvs-minor-current-files)
 (defun cvs-get-marked (&optional ignore-marks ignore-contents)
   "Return a list of all selected fileinfos.
 If there are any marked tins, and IGNORE-MARKS is nil, return them.
 Otherwise, if the cursor selects a directory, and IGNORE-CONTENTS is
 nil, return all files in it, else return just the directory.
 Otherwise return (a list containing) the file the cursor points to, or
-an empty list if it doesn't point to a file at all.
-
-Args: &optional IGNORE-MARKS IGNORE-CONTENTS."
-
+an empty list if it doesn't point to a file at all."
   (let ((fis nil))
     (dolist (fi (if (and (boundp 'cvs-minor-current-files)
 			 (consp cvs-minor-current-files))
@@ -1301,7 +1414,7 @@ If FILE is non-nil, directory entries won't be selected."
 (defun cvs-mode-files (&rest -cvs-mode-files-args)
   (cvs-mode!
    (lambda ()
-     (mapcar 'cvs-fileinfo->full-path
+     (mapcar 'cvs-fileinfo->full-name
 	     (apply 'cvs-mode-marked -cvs-mode-files-args)))))
 
 ;;
@@ -1312,6 +1425,12 @@ If FILE is non-nil, directory entries won't be selected."
   "Run `cvs-mode-commit' with setup."
   (interactive)
   (cvs-mode-commit 'force))
+
+(defcustom cvs-mode-commit-hook nil
+  "Hook run after setting up the commit buffer."
+  :type 'hook
+  :options '(cvs-mode-diff)
+  :group 'pcl-cvs)
 
 (defun cvs-mode-commit (setup)
   "Check in all marked files, or the current file.
@@ -1327,12 +1446,11 @@ The POSTPROC specified there (typically `log-edit') is then called,
   ;; displayed in the wrong minibuffer).
   (cvs-mode!)
   (let ((buf (cvs-temp-buffer "message" 'normal 'nosetup))
-	(lbd list-buffers-directory)
 	(setupfun (or (nth 2 (cdr (assoc "message" cvs-buffer-name-alist)))
 		      'log-edit)))
     (funcall setupfun 'cvs-do-commit setup 'cvs-commit-filelist buf)
     (set (make-local-variable 'cvs-minor-wrap-function) 'cvs-commit-minor-wrap)
-    (set (make-local-variable 'list-buffers-directory) lbd)))
+    (run-hooks 'cvs-mode-commit-hook)))
 
 (defun cvs-commit-minor-wrap (buf f)
   (let ((cvs-ignore-marks-modif (cvs-mode-mark-get-modif "commit")))
@@ -1350,12 +1468,87 @@ The POSTPROC specified there (typically `log-edit') is then called,
     (cvs-mode-do "commit" (list* "-m" msg flags) 'commit)))
 
 
+;;;; Editing existing commit log messages.
+
+(defun cvs-edit-log-text-at-point ()
+  (save-excursion
+    (end-of-line)
+    (when (re-search-backward "^revision " nil t)
+      (forward-line 1)
+      (if (looking-at "date:") (forward-line 1))
+      (if (looking-at "branches:") (forward-line 1))
+      (buffer-substring
+       (point)
+       (if (re-search-forward
+	    "^\\(-\\{28\\}\\|=\\{77\\}\\|revision [.0-9]+\\)$"
+	    nil t)
+	   (match-beginning 0)
+	 (point))))))
+
+(defvar cvs-edit-log-revision)
+(defvar cvs-edit-log-files) (put 'cvs-edit-log-files 'permanent-local t)
+(defun cvs-mode-edit-log (file rev &optional text)
+  "Edit the log message at point.
+This is best called from a `log-view-mode' buffer."
+  (interactive
+   (list
+    (or (cvs-mode! (lambda ()
+                     (car (cvs-mode-files nil nil
+                                          :read-only t :file t :noquery t))))
+        (read-string "File name: "))
+    (or (cvs-mode! (lambda () (cvs-prefix-get 'cvs-branch-prefix)))
+	(read-string "Revision to edit: "))
+    (cvs-edit-log-text-at-point)))
+  ;; It seems that the save-excursion that happens if I use the better
+  ;; form of `(cvs-mode! (lambda ...))' screws up a couple things which
+  ;; end up being rather annoying (like log-edit-mode's message being
+  ;; displayed in the wrong minibuffer).
+  (cvs-mode!)
+  (let ((buf (cvs-temp-buffer "message" 'normal 'nosetup))
+	(setupfun (or (nth 2 (cdr (assoc "message" cvs-buffer-name-alist)))
+		      'log-edit)))
+    (with-current-buffer buf
+      ;; Set the filename before, so log-edit can correctly setup its
+      ;; log-edit-initial-files variable.
+      (set (make-local-variable 'cvs-edit-log-files) (list file)))
+    (funcall setupfun 'cvs-do-edit-log nil 'cvs-edit-log-filelist buf)
+    (when text (erase-buffer) (insert text))
+    (set (make-local-variable 'cvs-edit-log-revision) rev)
+    (set (make-local-variable 'cvs-minor-wrap-function)
+         'cvs-edit-log-minor-wrap)
+    ;; (run-hooks 'cvs-mode-commit-hook)
+    ))
+
+(defun cvs-edit-log-minor-wrap (buf f)
+  (let ((cvs-branch-prefix (with-current-buffer buf cvs-edit-log-revision))
+        (cvs-minor-current-files
+         (with-current-buffer buf cvs-edit-log-files))
+        ;; FIXME:  I need to force because the fileinfos are UNKNOWN
+        (cvs-force-command "/F"))
+    (funcall f)))
+
+(defun cvs-edit-log-filelist ()
+  (if cvs-minor-wrap-function
+      (cvs-mode-files nil nil :read-only t :file t :noquery t)
+    cvs-edit-log-files))
+
+(defun cvs-do-edit-log (rev)
+  "Do the actual commit, using the current buffer as the log message."
+  (interactive (list cvs-edit-log-revision))
+  (let ((msg (buffer-substring-no-properties (point-min) (point-max))))
+    (cvs-mode!
+     (lambda ()
+       (cvs-mode-do "admin" (list (concat "-m" rev ":" msg)) nil)))))
+
+
 ;;;;
 ;;;; CVS Mode commands
 ;;;;
 
 (defun-cvs-mode (cvs-mode-insert . NOARGS) (file)
-  "Insert an entry for a specific file."
+  "Insert an entry for a specific file into the current listing.
+This is typically used if the file is up-to-date (or has been added
+outside of PCL-CVS) and one wants to do some operation on it."
   (interactive
    (list (read-file-name
 	  "File to insert: "
@@ -1392,7 +1585,7 @@ With prefix argument, prompt for cvs flags."
     ;; find directories and look for fis needing a description
     (dolist (fi fis)
       (cond
-       ((file-directory-p (cvs-fileinfo->full-path fi)) (push fi dirs))
+       ((file-directory-p (cvs-fileinfo->full-name fi)) (push fi dirs))
        ((eq (cvs-fileinfo->type fi) 'UNKNOWN) (setq needdesc t))))
     ;; prompt for description if necessary
     (let* ((msg (if (and needdesc
@@ -1426,6 +1619,18 @@ See ``cvs-mode-diff'' for more info."
   (interactive (list (cvs-flags-query 'cvs-diff-flags "cvs diff flags")))
   (cvs-mode-diff-1 (cons "-rHEAD" flags)))
 
+(defun-cvs-mode (cvs-mode-diff-repository . SIMPLE) (flags)
+  "Diff the files for changes in the repository since last co/update/commit.
+See ``cvs-mode-diff'' for more info."
+  (interactive (list (cvs-flags-query 'cvs-diff-flags "cvs diff flags")))
+  (cvs-mode-diff-1 (cons "-rBASE" (cons "-rHEAD" flags))))
+
+(defun-cvs-mode (cvs-mode-diff-yesterday . SIMPLE) (flags)
+  "Diff the selected files against yesterday's head of the current branch.
+See ``cvs-mode-diff'' for more info."
+  (interactive (list (cvs-flags-query 'cvs-diff-flags "cvs diff flags")))
+  (cvs-mode-diff-1 (cons "-Dyesterday" flags)))
+
 (defun-cvs-mode (cvs-mode-diff-vendor . SIMPLE) (flags)
   "Diff the selected files against the head of the vendor branch.
 See ``cvs-mode-diff'' for more info."
@@ -1440,9 +1645,7 @@ or \"Conflict\" in the *cvs* buffer."
   (interactive (list (cvs-flags-query 'cvs-diff-flags "diff flags")))
   (unless (listp flags) (error "flags should be a list of strings"))
   (save-some-buffers)
-  (let* ((filter 'diff)
-	 (marked (cvs-get-marked (cvs-ignore-marks-p "diff")))
-	 ;;(tins (cvs-filter-applicable filter marked))
+  (let* ((marked (cvs-get-marked (cvs-ignore-marks-p "diff")))
 	 (fis (car (cvs-partition 'cvs-fileinfo->backup-file marked))))
     (unless (consp fis)
       (error "No files with a backup file selected!"))
@@ -1460,8 +1663,8 @@ or \"Conflict\" in the *cvs* buffer."
 Signal an error if there is no backup file."
   (let ((backup-file (cvs-fileinfo->backup-file fileinfo)))
     (unless backup-file
-      (error "%s has no backup file" (cvs-fileinfo->full-path fileinfo)))
-    (list backup-file (cvs-fileinfo->full-path fileinfo))))
+      (error "%s has no backup file" (cvs-fileinfo->full-name fileinfo)))
+    (list backup-file (cvs-fileinfo->full-name fileinfo))))
 
 ;;
 ;; Emerge support
@@ -1475,6 +1678,7 @@ Signal an error if there is no backup file."
 ;;
 
 (defvar ediff-after-quit-destination-buffer)
+(defvar ediff-after-quit-hook-internal)
 (defvar cvs-transient-buffers)
 (defun cvs-ediff-startup-hook ()
   (add-hook 'ediff-after-quit-hook-internal
@@ -1514,23 +1718,37 @@ Signal an error if there is no backup file."
 
 (defun cvs-retrieve-revision (fileinfo rev)
   "Retrieve the given REVision of the file in FILEINFO into a new buffer."
-  (let* ((file (cvs-fileinfo->full-path fileinfo))
+  (let* ((file (cvs-fileinfo->full-name fileinfo))
 	 (buffile (concat file "." rev)))
     (or (find-buffer-visiting buffile)
 	(with-current-buffer (create-file-buffer buffile)
 	  (message "Retrieving revision %s..." rev)
-	  (let ((res (call-process cvs-program nil t nil
-				   "-q" "update" "-p" "-r" rev file)))
+	  ;; Discard stderr output to work around the CVS+SSH+libc
+	  ;; problem when stdout and stderr are the same.
+	  (let ((res
+                 (let ((coding-system-for-read 'binary))
+                   (apply 'call-process cvs-program nil '(t nil) nil
+                          "-q" "update" "-p"
+                          ;; If `rev' is HEAD, don't pass it at all:
+                          ;; the default behavior is to get the head
+                          ;; of the current branch whereas "-r HEAD"
+                          ;; stupidly gives you the head of the trunk.
+                          (append (unless (equal rev "HEAD") (list "-r" rev))
+                                  (list file))))))
 	    (when (and res (not (and (equal 0 res))))
 	      (error "Something went wrong retrieving revision %s: %s" rev res))
+            ;; Figure out the encoding used and decode the byte-sequence
+            ;; into a sequence of chars.
+            (decode-coding-inserted-region
+             (point-min) (point-max) file t nil nil t)
+            ;; Set buffer-file-coding-system.
+            (after-insert-file-set-coding (buffer-size) t)
 	    (set-buffer-modified-p nil)
 	    (let ((buffer-file-name (expand-file-name file)))
 	      (after-find-file))
 	    (toggle-read-only 1)
 	    (message "Retrieving revision %s... Done" rev)
 	    (current-buffer))))))
-
-(eval-and-compile (autoload 'smerge-ediff "smerge-mode"))
 
 ;; FIXME: The user should be able to specify ancestor/head/backup and we should
 ;; provide sensible defaults when merge info is unavailable (rather than rely
@@ -1540,7 +1758,7 @@ Signal an error if there is no backup file."
   (interactive)
   (let ((fi (cvs-mode-marked 'merge nil :one t :file t)))
     (let ((merge (cvs-fileinfo->merge fi))
-	  (file (cvs-fileinfo->full-path fi))
+	  (file (cvs-fileinfo->full-name fi))
 	  (backup-file (cvs-fileinfo->backup-file fi)))
       (if (not (and merge backup-file))
 	  (let ((buf (find-file-noselect file)))
@@ -1571,7 +1789,7 @@ Signal an error if there is no backup file."
      (list (or rev1 (cvs-flags-query 'cvs-idiff-version))
 	   rev2)))
   (let ((fi (cvs-mode-marked 'diff "idiff" :one t :file t)))
-    (let* ((file (cvs-fileinfo->full-path fi))
+    (let* ((file (cvs-fileinfo->full-name fi))
 	   (rev1-buf (cvs-retrieve-revision fi (or rev1 "BASE")))
 	   (rev2-buf (if rev2 (cvs-retrieve-revision fi rev2)))
 	   ;; this binding is used by cvs-ediff-startup-hook
@@ -1589,13 +1807,13 @@ Signal an error if there is no backup file."
       (error "idiff-other cannot be applied to more than 2 files at a time"))
     (let* ((fi1 (car fis))
 	   (rev1-buf (if rev1 (cvs-retrieve-revision fi1 rev1)
-		       (find-file-noselect (cvs-fileinfo->full-path fi1))))
+		       (find-file-noselect (cvs-fileinfo->full-name fi1))))
 	   rev2-buf)
       (if (cdr fis)
 	  (let ((fi2 (nth 1 fis)))
 	    (setq rev2-buf
 		  (if rev2 (cvs-retrieve-revision fi2 rev2)
-		    (find-file-noselect (cvs-fileinfo->full-path fi2)))))
+		    (find-file-noselect (cvs-fileinfo->full-name fi2)))))
 	(error "idiff-other doesn't know what other file/buffer to use"))
       (let* (;; this binding is used by cvs-ediff-startup-hook
 	     (cvs-transient-buffers (list rev1-buf rev2-buf)))
@@ -1603,22 +1821,14 @@ Signal an error if there is no backup file."
 		 rev1-buf rev2-buf)))))
 
 
-(defun cvs-fileinfo-kill (c fi)
-  "Mark a fileinfo xor its members (in case of a directory) as dead."
-  (if (eq (cvs-fileinfo->type fi) 'DIRCHANGE)
-      (dolist (fi (ewoc-collect c 'cvs-dir-member-p
-				(cvs-fileinfo->dir fi)))
-	(setf (cvs-fileinfo->type fi) 'DEAD))
-    (setf (cvs-fileinfo->type fi) 'DEAD)))
-
 (defun cvs-is-within-p (fis dir)
-  "Non-nil is buffer is inside one of FIS (in DIR)."
+  "Non-nil if buffer is inside one of FIS (in DIR)."
   (when (stringp buffer-file-name)
     (setq buffer-file-name (expand-file-name buffer-file-name))
     (let (ret)
       (dolist (fi (or fis (list (cvs-create-fileinfo 'DIRCHANGE "" "." ""))))
 	(when (cvs-string-prefix-p
-	       (expand-file-name (cvs-fileinfo->full-path fi) dir)
+	       (expand-file-name (cvs-fileinfo->full-name fi) dir)
 	       buffer-file-name)
 	  (setq ret t)))
       ret)))
@@ -1632,13 +1842,18 @@ BUF is the buffer to be used for cvs' output.
 DONT-CHANGE-DISC non-nil indicates that the command will not change the
   contents of files.  This is only used by the parser.
 POSTPROC is a list of expressions to be evaluated at the very end (after
-  parsing if applicable).  It will be prepended with `progn' is necessary."
+  parsing if applicable).  It will be prepended with `progn' if necessary."
   (let ((def-dir default-directory))
     ;; Save the relevant buffers
     (save-some-buffers nil (lambda () (cvs-is-within-p fis def-dir))))
   (unless (listp flags) (error "flags should be a list of strings"))
-  (let* ((cvs-buf (current-buffer))
-	 (single-dir (or (not (listp cvs-execute-single-dir))
+  ;; Some w32 versions of CVS don't like an explicit . too much.
+  (when (and (car fis) (null (cdr fis))
+	     (eq (cvs-fileinfo->type (car fis)) 'DIRCHANGE)
+	     ;; (equal (cvs-fileinfo->file (car fis)) ".")
+	     (equal (cvs-fileinfo->dir (car fis)) ""))
+    (setq fis nil))
+  (let* ((single-dir (or (not (listp cvs-execute-single-dir))
 			 (member cmd cvs-execute-single-dir)))
 	 (parse (member cmd cvs-parse-known-commands))
 	 (args (append cvsargs (list cmd) flags))
@@ -1647,25 +1862,21 @@ POSTPROC is a list of expressions to be evaluated at the very end (after
 			    (eq cvs-auto-remove-handled 'delayed) nil t)
     (when (fboundp after-mode)
       (setq postproc (append postproc `((,after-mode)))))
-    (when parse (push `(cvs-parse-process ',dont-change-disc) postproc))
-    (when (member cmd '("status" "update"))	;FIXME: Yuck!!
-      ;; absence of `cvs update' output has a specific meaning.
-      (push
-       `(dolist (fi ',(or fis
-			  (list (cvs-create-fileinfo 'DIRCHANGE "" "." ""))))
-	  (cvs-fileinfo-kill ',cvs-cookies fi))
-       postproc))
+    (when parse
+      (let ((old-fis
+	     (when (member cmd '("status" "update"))	;FIXME: Yuck!!
+		;; absence of `cvs update' output has a specific meaning.
+		(or fis (list (cvs-create-fileinfo 'DIRCHANGE "" "." ""))))))
+	(push `(cvs-parse-process ',dont-change-disc nil ',old-fis) postproc)))
     (setq postproc (if (cdr postproc) (cons 'progn postproc) (car postproc)))
-    (cvs-update-header args fis)
     (with-current-buffer buf
-      ;;(set (make-local-variable 'cvs-buffer) cvs-buf)
       (let ((inhibit-read-only t)) (erase-buffer))
       (message "Running cvs %s ..." cmd)
       (cvs-run-process args fis postproc single-dir))))
 
 
 (defun* cvs-mode-do (cmd flags filter
-		     &key show dont-change-disc parse cvsargs postproc)
+		     &key show dont-change-disc cvsargs postproc)
   "Generic cvs-mode-<foo> function.
 Executes `cvs CVSARGS CMD FLAGS' on the selected files.
 FILTER is passed to `cvs-applicable-p' to only apply the command to
@@ -1735,24 +1946,27 @@ With a prefix argument, prompt for cvs flags."
 This command ignores files that are not flagged as `Unknown'."
   (interactive)
   (dolist (fi (cvs-mode-marked 'ignore))
-    (cvs-append-to-ignore (cvs-fileinfo->dir fi) (cvs-fileinfo->file fi))
+    (cvs-append-to-ignore (cvs-fileinfo->dir fi) (cvs-fileinfo->file fi)
+			  (eq (cvs-fileinfo->subtype fi) 'NEW-DIR))
     (setf (cvs-fileinfo->type fi) 'DEAD))
   (cvs-cleanup-collection cvs-cookies nil nil nil))
 
 
-(defun cvs-append-to-ignore (dir str)
-  "Add STR to the .cvsignore file in DIR."
-  (save-window-excursion
-    (set-buffer (find-file-noselect (expand-file-name ".cvsignore" dir)))
+(defun cvs-append-to-ignore (dir str &optional old-dir)
+  "Add STR to the .cvsignore file in DIR.
+If OLD-DIR is non-nil, then this is a directory that we don't want
+to hear about anymore."
+  (with-current-buffer
+      (find-file-noselect (expand-file-name ".cvsignore" dir))
     (when (ignore-errors
 	    (and buffer-read-only
 		 (eq 'CVS (vc-backend buffer-file-name))
 		 (not (vc-editable-p buffer-file-name))))
       ;; CVSREAD=on special case
-      (vc-toggle-read-only))
+      (vc-checkout buffer-file-name t))
     (goto-char (point-max))
-    (unless (zerop (current-column)) (insert "\n"))
-    (insert str "\n")
+    (unless (bolp) (insert "\n"))
+    (insert str (if old-dir "/\n" "\n"))
     (if cvs-sort-ignore-file (sort-lines nil (point-min) (point-max)))
     (save-buffer)))
 
@@ -1769,6 +1983,18 @@ This command ignores files that are not flagged as `Unknown'."
   (cvs-mode-find-file e 'dont-select))
 
 
+(defun cvs-mode-view-file (e)
+  "View the file."
+  (interactive (list last-input-event))
+  (cvs-mode-find-file e nil t))
+
+
+(defun cvs-mode-view-file-other-window (e)
+  "View the file."
+  (interactive (list last-input-event))
+  (cvs-mode-find-file e t t))
+
+
 (defun cvs-find-modif (fi)
   (with-temp-buffer
     (call-process cvs-program nil (current-buffer) nil
@@ -1779,14 +2005,16 @@ This command ignores files that are not flagged as `Unknown'."
       1)))
 
 
-(defun cvs-mode-find-file (e &optional other)
+(defun cvs-mode-find-file (e &optional other view)
   "Select a buffer containing the file.
 With a prefix, opens the buffer in an OTHER window."
   (interactive (list last-input-event current-prefix-arg))
-  (when (ignore-errors (mouse-set-point e) t)	;for invocation via the mouse
-    (unless (memq (get-text-property (point) 'face)
-		  '(cvs-header-face cvs-filename-face))
-      (error "Not a file name")))
+  ;; If the event moves point, check that it moves it to a valid location.
+  (when (and (/= (point) (progn (posn-set-point (event-end e)) (point)))
+	     (not (memq (get-text-property (1- (line-end-position))
+                                           'font-lock-face)
+                        '(cvs-header cvs-filename))))
+    (error "Not a file name"))
   (cvs-mode!
    (lambda (&optional rev)
      (interactive (list (cvs-prefix-get 'cvs-branch-prefix)))
@@ -1803,10 +2031,12 @@ With a prefix, opens the buffer in an OTHER window."
 	     (set-buffer cvs-buf)
 	     (setq default-directory odir))
 	 (let ((buf (if rev (cvs-retrieve-revision fi rev)
-		      (find-file-noselect (cvs-fileinfo->full-path fi)))))
+		      (find-file-noselect (cvs-fileinfo->full-name fi)))))
 	   (funcall (cond ((eq other 'dont-select) 'display-buffer)
-			  (other 'switch-to-buffer-other-window)
-			  (t 'switch-to-buffer))
+			  (other
+			   (if view 'view-buffer-other-window
+			     'switch-to-buffer-other-window))
+			  (t (if view 'view-buffer 'switch-to-buffer)))
 		    buf)
 	   (when (and cvs-find-file-and-jump (cvs-applicable-p fi 'diff-base))
 	     (goto-line (cvs-find-modif fi)))
@@ -1820,7 +2050,10 @@ The file is removed and `cvs update FILE' is run."
   (interactive (list nil));; (cvs-flags-query 'cvs-undo-flags "undo flags")
   (if current-prefix-arg (call-interactively 'cvs-mode-revert-to-rev)
     (let* ((fis (cvs-do-removal 'undo "update" 'all))
-	   (removedp (lambda (fi) (eq (cvs-fileinfo->type fi) 'REMOVED)))
+	   (removedp (lambda (fi)
+		       (or (eq (cvs-fileinfo->type fi) 'REMOVED)
+			   (and (eq (cvs-fileinfo->type fi) 'CONFLICT)
+				(eq (cvs-fileinfo->subtype fi) 'REMOVED)))))
 	   (fis-split (cvs-partition removedp fis))
 	   (fis-removed (car fis-split))
 	   (fis-other (cdr fis-split)))
@@ -1889,23 +2122,33 @@ Returns a list of FIS that should be `cvs remove'd."
 	 (silent (or (not cvs-confirm-removals)
 		     (cvs-every (lambda (fi)
 				  (or (not (file-exists-p
-					    (cvs-fileinfo->full-path fi)))
+					    (cvs-fileinfo->full-name fi)))
 				      (cvs-applicable-p fi 'safe-rm)))
 				files)))
 	 (tmpbuf (cvs-temp-buffer)))
     (when (and (not silent) (equal cvs-confirm-removals 'list))
       (with-current-buffer tmpbuf
-	(cvs-insert-strings (mapcar 'cvs-fileinfo->full-path fis))
-	(cvs-pop-to-buffer-same-frame (current-buffer))
-	(shrink-window-if-larger-than-buffer)))
+	(let ((inhibit-read-only t))
+	  (cvs-insert-strings (mapcar 'cvs-fileinfo->full-name fis))
+	  (cvs-pop-to-buffer-same-frame (current-buffer))
+	  (shrink-window-if-larger-than-buffer))))
     (if (not (or silent
 		 (unwind-protect
-		     (yes-or-no-p (format "Delete %d files? " (length files)))
+		     (yes-or-no-p
+		      (let ((nfiles (length files))
+			    (verb (if (eq filter 'undo) "Undo" "Delete")))
+			(if (= 1 nfiles)
+			    (format "%s file: \"%s\" ? "
+				    verb
+				    (cvs-fileinfo->file (car files)))
+			  (format "%s %d files? "
+				  verb
+				  nfiles))))
 		   (cvs-bury-buffer tmpbuf cvs-buffer))))
 	(progn (message "Aborting") nil)
       (dolist (fi files)
 	(let* ((type (cvs-fileinfo->type fi))
-	       (file (cvs-fileinfo->full-path fi)))
+	       (file (cvs-fileinfo->full-name fi)))
 	  (when (or all (eq type 'UNKNOWN))
 	    (when (file-exists-p file) (delete-file file))
 	    (unless all (setf (cvs-fileinfo->type fi) 'DEAD) t))))
@@ -1923,7 +2166,10 @@ With prefix argument, prompt for cvs flags."
 (defvar cvs-tag-name "")
 (defun-cvs-mode (cvs-mode-tag . SIMPLE) (tag &optional flags)
   "Run `cvs tag TAG' on all selected files.
-With prefix argument, prompt for cvs flags."
+With prefix argument, prompt for cvs flags.
+By default this can only be used on directories.
+Use \\[cvs-mode-force-command] or change `cvs-force-dir-tag' if you need
+to use it on individual files."
   (interactive
    (list (setq cvs-tag-name
 	       (cvs-query-read cvs-tag-name "Tag name: " cvs-qtypedesc-tag))
@@ -1949,7 +2195,7 @@ With prefix argument, prompt for cvs flags."
   (interactive)
   (let ((marked (cvs-get-marked (cvs-ignore-marks-p "byte-compile"))))
     (dolist (fi marked)
-      (let ((filename (cvs-fileinfo->full-path fi)))
+      (let ((filename (cvs-fileinfo->full-name fi)))
 	(when (string-match "\\.el\\'" filename)
 	  (byte-compile-file filename))))))
 
@@ -1958,11 +2204,11 @@ With prefix argument, prompt for cvs flags."
 (defun-cvs-mode cvs-mode-add-change-log-entry-other-window ()
   "Add a ChangeLog entry in the ChangeLog of the current directory."
   (interactive)
-  (let* ((fi (cvs-mode-marked nil nil :one t))
-	 (default-directory (cvs-expand-dir-name (cvs-fileinfo->dir fi)))
-	 (buffer-file-name (expand-file-name (cvs-fileinfo->file fi))))
-    (kill-local-variable 'change-log-default-name)
-    (add-change-log-entry-other-window)))
+  (dolist (fi (cvs-mode-marked nil nil))
+    (let* ((default-directory (cvs-expand-dir-name (cvs-fileinfo->dir fi)))
+	   (buffer-file-name (expand-file-name (cvs-fileinfo->file fi))))
+      (kill-local-variable 'change-log-default-name)
+      (save-excursion (add-change-log-entry-other-window)))))
 
 ;; interactive commands to set optional flags
 
@@ -1971,8 +2217,8 @@ With prefix argument, prompt for cvs flags."
   (interactive
    (list (completing-read
 	  "Which flag: "
-	  (mapcar 'list '("cvs" "diff" "update" "status" "log" "tag" ;"rtag"
-			  "commit" "remove" "undo" "checkout"))
+	  '("cvs" "diff" "update" "status" "log" "tag" ;"rtag"
+	    "commit" "remove" "undo" "checkout")
 	  nil t)))
   (let* ((sym (intern (concat "cvs-" flag "-flags"))))
     (let ((current-prefix-arg '(16)))
@@ -2020,7 +2266,7 @@ this file, or a list of arguments to send to the program."
 
 (defun cvs-revert-if-needed (fis)
   (dolist (fileinfo fis)
-    (let* ((file (cvs-fileinfo->full-path fileinfo))
+    (let* ((file (cvs-fileinfo->full-name fileinfo))
 	   (buffer (find-buffer-visiting file)))
       ;; For a revert to happen the user must be editing the file...
       (unless (or (null buffer)
@@ -2045,7 +2291,7 @@ this file, or a list of arguments to send to the program."
   (interactive "DNew repository: ")
   (if (or (file-directory-p (expand-file-name "CVSROOT" newroot))
 	  (y-or-n-p (concat "Warning: no CVSROOT found inside repository."
-			    " Change cvs-cvsroot anyhow?")))
+			    " Change cvs-cvsroot anyhow? ")))
       (setq cvs-cvsroot newroot)))
 
 ;;;;
@@ -2069,7 +2315,7 @@ Sensible values are `cvs-examine', `cvs-status' and `cvs-quickdir'."
 ;;;###autoload
 (defcustom cvs-dired-use-hook '(4)
   "Whether or not opening a CVS directory should run PCL-CVS.
-NIL means never do it.
+A value of nil means never do it.
 ALWAYS means to always do it unless a prefix argument is given to the
   command that prompted the opening of the directory.
 Anything else means to do it only if the prefix arg is equal to this value."
@@ -2101,9 +2347,18 @@ The exact behavior is determined also by `cvs-dired-use-hook'."
 
 (defun cvs-vc-command-advice (command file flags)
   (when (and (equal command "cvs")
-	     ;; don't parse output we don't understand.
-	     (member (car flags) cvs-parse-known-commands))
-    (save-excursion
+	     (progn
+	       (while (and (stringp (car flags))
+			   (string-match "\\`-" (car flags)))
+		 (pop flags))
+	       ;; don't parse output we don't understand.
+	       (member (car flags) cvs-parse-known-commands))
+	     ;; Don't parse "update -p" output.
+	     (not (and (member (car flags) '("update" "checkout"))
+		       (let ((found-p nil))
+			 (dolist (flag flags found-p)
+			   (if (equal flag "-p") (setq found-p t)))))))
+    (save-current-buffer
       (let ((buffer (current-buffer))
 	    (dir default-directory)
 	    (cvs-from-vc t))
@@ -2115,6 +2370,13 @@ The exact behavior is determined also by `cvs-dired-use-hook'."
 	    (let ((subdir (substring dir (length default-directory))))
 	      (set-buffer buffer)
 	      (set (make-local-variable 'cvs-buffer) cvs-buf)
+	      ;; `cvs -q add file' produces no useful output :-(
+	      (when (and (equal (car flags) "add")
+			 (goto-char (point-min))
+			 (looking-at ".*to add this file permanently\n\\'"))
+		(insert "cvs add: scheduling file `"
+			(file-name-nondirectory file)
+			"' for addition\n"))
 	      ;; VC never (?) does `cvs -n update' so dcd=nil
 	      ;; should probably always be the right choice.
 	      (cvs-parse-process nil subdir))))))))
@@ -2149,4 +2411,5 @@ The exact behavior is determined also by `cvs-dired-use-hook'."
 
 (provide 'pcvs)
 
+;; arch-tag: 8e3a7494-0453-4389-9ab3-a557ce9fab61
 ;;; pcvs.el ends here

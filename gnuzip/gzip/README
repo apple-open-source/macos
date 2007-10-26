@@ -1,25 +1,4 @@
-This is the file README for the gzip distribution, test version 1.3.5.
-
-	Copyright (C) 1999, 2001, 2002 Free Software Foundation, Inc.
-	Copyright (C) 1992, 1993 Jean-loup Gailly
-
-	This file is part of gzip (GNU zip).
-
-	gzip is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation; either version 2, or (at your option)
-	any later version.
-
-	gzip is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with tar; see the file COPYING.  If not, write to
-	the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-	Boston, MA 02111-1307, USA.
-
+This is the file README for the gzip distribution.
 
 gzip (GNU zip) is a compression utility designed to be a replacement
 for 'compress'. Its main advantages over compress are much better
@@ -151,3 +130,16 @@ are, for historical reasons, two separate programs, although the
 authors of these two programs work closely together in the info-zip
 team. zip and unzip are not associated with the GNU project.
 See http://www.cdrom.com/pub/infozip/ for more about zip and unzip.
+
+
+========================================================================
+
+Copyright (C) 1999, 2001, 2002, 2006 Free Software Foundation, Inc.
+Copyright (C) 1992, 1993 Jean-loup Gailly
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with no Front-Cover Texts, and with no Back-Cover
+Texts.  A copy of the license is included in the ``GNU Free
+Documentation License'' file as part of this distribution.

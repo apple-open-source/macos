@@ -1,0 +1,46 @@
+--- _SB/Libc/string/FreeBSD/ffs.3	2004-11-25 11:38:46.000000000 -0800
++++ _SB/Libc/string/FreeBSD/ffs.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -48,20 +48,20 @@
+ .Sh SYNOPSIS
+ .In strings.h
+ .Ft int
+-.Fn ffs "int value"
++.Fn ffs "int i"
+ .Ft int
+-.Fn ffsl "long value"
++.Fn ffsl "long i"
+ .Ft int
+-.Fn fls "int value"
++.Fn fls "int i"
+ .Ft int
+-.Fn flsl "long value"
++.Fn flsl "long i"
+ .Sh DESCRIPTION
+ The
+ .Fn ffs
+ and
+ .Fn ffsl
+ functions find the first bit set in
+-.Fa value
++.Fa i
+ and return the index of that bit.
+ .Pp
+ The
+@@ -69,7 +69,7 @@
+ and
+ .Fn flsl
+ functions find the last bit set in
+-.Fa value
++.Fa i
+ and return the index of that bit.
+ .Pp
+ Bits are numbered starting from 1, starting at the right-most
+@@ -93,7 +93,7 @@
+ .Pp
+ The
+ .Fn ffsl ,
+-.Fn fls
++.Fn fls ,
+ and
+ .Fn flsl
+ functions appeared in

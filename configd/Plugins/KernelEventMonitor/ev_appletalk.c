@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,12 +43,12 @@ get_atalk_interface_cfg(const char *if_name, at_if_cfg_t *cfg)
 	int 	fd;
 
 	/* open socket */
-	if ((fd = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0)
+	if ((fd = socket(AF_APPLETALK, SOCK_RAW, 0)) == -1)
 		return -1;
 
 	/* get config info for given interface */
 	strncpy(cfg->ifr_name, if_name, sizeof(cfg->ifr_name));
-	if (ioctl(fd, AIOCGETIFCFG, (caddr_t)cfg) < 0) {
+	if (ioctl(fd, AIOCGETIFCFG, (caddr_t)cfg) == -1) {
 		(void)close(fd);
 		return -1;
 	}
@@ -107,6 +107,7 @@ updateStore(const void *key, const void *value, void *context)
 		} else if (dict) {
 			cache_SCDynamicStoreRemoveValue(store, key);
 		}
+		network_changed = TRUE;
 	}
 
 	return;
@@ -136,7 +137,7 @@ interface_update_appletalk(struct ifaddrs *ifap, const char *if_name)
 					   &kCFTypeDictionaryValueCallBacks);
 
 	if (!ifap) {
-		if (getifaddrs(&ifap_temp) < 0) {
+		if (getifaddrs(&ifap_temp) == -1) {
 			SCLog(TRUE, LOG_ERR, CFSTR("getifaddrs() failed: %s"), strerror(errno));
 			goto error;
 		}
@@ -303,6 +304,7 @@ interface_update_atalk_address(struct kev_atalk_data *aEvent, const char *if_nam
 
 	/* update cache */
 	cache_SCDynamicStoreSetValue(store, key, newDict);
+	network_changed = TRUE;
 	CFRelease(newDict);
 	CFRelease(key);
 	return;
@@ -351,6 +353,7 @@ interface_update_atalk_zone(struct kev_atalk_data *aEvent, const char *if_name)
 
 	/* update cache */
 	cache_SCDynamicStoreSetValue(store, key, newDict);
+	network_changed = TRUE;
 	CFRelease(newDict);
 	CFRelease(key);
 	return;
@@ -377,7 +380,7 @@ interface_update_shutdown_atalk()
 	if (dict) {
 		if (isA_CFDictionary(dict)) {
 			/*get a list of the interfaces*/
-			ifList  = isA_CFArray(CFDictionaryGetValue(dict, kSCDynamicStorePropNetInterfaces));
+			ifList  = isA_CFArray(CFDictionaryGetValue(dict, kSCPropNetInterfaces));
 			if (ifList) {
 				count = CFArrayGetCount(ifList);
 
@@ -389,6 +392,7 @@ interface_update_shutdown_atalk()
 												  interface,
 												  kSCEntNetAppleTalk);
 					cache_SCDynamicStoreRemoveValue(store, key);
+					network_changed = TRUE;
 					CFRelease(key);
 				}
 			}

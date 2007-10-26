@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -18,10 +18,22 @@
 ******************************************************************************
 */
 
+#include "unicode/utypes.h"
+#include "uassert.h"
+#include "ucln_cmn.h"
+
+#if defined(U_DARWIN)
+#include <AvailabilityMacros.h>
+#if (ICU_USE_THREADS == 1) && defined(MAC_OS_X_VERSION_10_4) && defined(MAC_OS_X_VERSION_MIN_REQUIRED) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4)
+#include <libkern/OSAtomic.h>
+#define USE_MAC_OS_ATOMIC_INCREMENT 1
+#endif
+#endif
+
 /* Assume POSIX, and modify as necessary below */
 #define POSIX
 
-#if defined(_WIN32)
+#if defined(U_WINDOWS)
 #undef POSIX
 #endif
 #if defined(macintosh)
@@ -31,18 +43,12 @@
 #undef POSIX
 #endif
 
-
-#include "unicode/utypes.h"
-#include "uassert.h"
-#include "ucln_cmn.h"
-
-
 #if defined(POSIX) && (ICU_USE_THREADS==1)
 # include <pthread.h> /* must be first, so that we get the multithread versions of things. */
 
 #endif /* POSIX && (ICU_USE_THREADS==1) */
 
-#ifdef WIN32
+#ifdef U_WINDOWS
 # define WIN32_LEAN_AND_MEAN
 # define VC_EXTRALEAN
 # define NOUSER
@@ -91,7 +97,7 @@ static UMTX              gIncDecMutex          = NULL;
 static UBool             gMutexPoolInitialized = FALSE;
 static char              gMutexesInUse[MAX_MUTEXES];   
 
-#if defined(WIN32) 
+#if defined(U_WINDOWS) 
 /*-------------------------------------------------------------
  *
  *   WINDOWS  platform variable declarations
@@ -206,7 +212,7 @@ umtx_lock(UMTX *mutex)
     } else {
 
 #if (ICU_USE_THREADS == 1)
-#if defined(WIN32)
+#if defined(U_WINDOWS)
         EnterCriticalSection((CRITICAL_SECTION*) *mutex);
 #elif defined(POSIX)
         pthread_mutex_lock((pthread_mutex_t*) *mutex);
@@ -214,14 +220,14 @@ umtx_lock(UMTX *mutex)
 #endif /* ICU_USE_THREADS==1 */
     }
 
-#if defined(WIN32) && defined(U_DEBUG) && (ICU_USE_THREADS==1)
+#if defined(U_WINDOWS) && defined(U_DEBUG) && (ICU_USE_THREADS==1)
     if (mutex == &gGlobalMutex) {         /* Detect Reentrant locking of the global mutex.      */
         gRecursionCount++;                /* Recursion causes deadlocks on Unixes.              */
         U_ASSERT(gRecursionCount == 1);   /* Detection works on Windows.  Debug problems there. */
     }
     /* This handles gGlobalMutex too, but only if there is no pMutexLockFn */
     else if (pMutexLockFn == NULL) { /* see comments above */
-        int i = ((CRITICAL_SECTION*)*mutex) - &gMutexes[0];
+        size_t i = ((CRITICAL_SECTION*)*mutex) - &gMutexes[0];
         U_ASSERT(i >= 0 && i < MAX_MUTEXES);
         ++gRecursionCountPool[i];
 
@@ -256,14 +262,14 @@ umtx_unlock(UMTX* mutex)
         return; 
     }
 
-#if defined (WIN32) && defined (U_DEBUG) && (ICU_USE_THREADS==1)
+#if defined (U_WINDOWS) && defined (U_DEBUG) && (ICU_USE_THREADS==1)
     if (mutex == &gGlobalMutex) {
         gRecursionCount--;
         U_ASSERT(gRecursionCount == 0);  /* Detect unlock of an already unlocked mutex */
     }
     /* This handles gGlobalMutex too, but only if there is no pMutexLockFn */
     else if (pMutexLockFn == NULL) { /* see comments above */
-        int i = ((CRITICAL_SECTION*)*mutex) - &gMutexes[0];
+        size_t i = ((CRITICAL_SECTION*)*mutex) - &gMutexes[0];
         U_ASSERT(i >= 0 && i < MAX_MUTEXES);
         --gRecursionCountPool[i];
 
@@ -283,7 +289,7 @@ umtx_unlock(UMTX* mutex)
         (*pMutexUnlockFn)(gMutexContext, mutex);
     } else {
 #if (ICU_USE_THREADS==1)
-#if defined (WIN32)
+#if defined (U_WINDOWS)
         LeaveCriticalSection((CRITICAL_SECTION*)*mutex);
 #elif defined (POSIX)
         pthread_mutex_unlock((pthread_mutex_t*)*mutex);
@@ -326,7 +332,7 @@ static void initGlobalMutex() {
      *  for Windows, init the pool of critical sections that we
      *    will use as needed for ICU mutexes.
      */
-#if defined (WIN32)
+#if defined (U_WINDOWS)
     if (gMutexPoolInitialized == FALSE) {
         int i;
         for (i=0; i<MAX_MUTEXES; i++) {
@@ -502,7 +508,7 @@ u_setMutexFunctions(const void *context, UMtxInitFn *i, UMtxFn *d, UMtxFn *l, UM
 /* Pointers to user-supplied inc/dec functions.  Null if no funcs have been set.  */
 static UMtxAtomicFn  *pIncFn = NULL;
 static UMtxAtomicFn  *pDecFn = NULL;
-static void *gIncDecContext  = NULL;
+static const void *gIncDecContext  = NULL;
 
 
 U_CAPI int32_t U_EXPORT2
@@ -511,8 +517,10 @@ umtx_atomic_inc(int32_t *p)  {
     if (pIncFn) {
         retVal = (*pIncFn)(gIncDecContext, p);
     } else {
-        #if defined (WIN32) && ICU_USE_THREADS == 1
+        #if defined (U_WINDOWS) && ICU_USE_THREADS == 1
             retVal = InterlockedIncrement((LONG*)p);
+        #elif defined(USE_MAC_OS_ATOMIC_INCREMENT)
+            retVal = OSAtomicIncrement32Barrier(p);
         #elif defined (POSIX) && ICU_USE_THREADS == 1
             umtx_lock(&gIncDecMutex);
             retVal = ++(*p);
@@ -531,8 +539,10 @@ umtx_atomic_dec(int32_t *p) {
     if (pDecFn) {
         retVal = (*pDecFn)(gIncDecContext, p);
     } else {
-        #if defined (WIN32) && ICU_USE_THREADS == 1
+        #if defined (U_WINDOWS) && ICU_USE_THREADS == 1
             retVal = InterlockedDecrement((LONG*)p);
+        #elif defined(USE_MAC_OS_ATOMIC_INCREMENT)
+            retVal = OSAtomicDecrement32Barrier(p);
         #elif defined (POSIX) && ICU_USE_THREADS == 1
             umtx_lock(&gIncDecMutex);
             retVal = --(*p);
@@ -554,7 +564,6 @@ umtx_atomic_dec(int32_t *p) {
 U_CAPI void U_EXPORT2
 u_setAtomicIncDecFunctions(const void *context, UMtxAtomicFn *ip, UMtxAtomicFn *dp,
                                 UErrorCode *status) {
-    int32_t   testInt;
     if (U_FAILURE(*status)) {
         return;
     }
@@ -571,12 +580,17 @@ u_setAtomicIncDecFunctions(const void *context, UMtxAtomicFn *ip, UMtxAtomicFn *
 
     pIncFn = ip;
     pDecFn = dp;
+    gIncDecContext = context;
 
-    testInt = 0;
-    U_ASSERT(umtx_atomic_inc(&testInt) == 1);     /* Sanity Check.    Do the functions work at all? */
-    U_ASSERT(testInt == 1);
-    U_ASSERT(umtx_atomic_dec(&testInt) == 0);
-    U_ASSERT(testInt == 0);
+#if !U_RELEASE
+    {
+        int32_t   testInt = 0;
+        U_ASSERT(umtx_atomic_inc(&testInt) == 1);     /* Sanity Check.    Do the functions work at all? */
+        U_ASSERT(testInt == 1);
+        U_ASSERT(umtx_atomic_dec(&testInt) == 0);
+        U_ASSERT(testInt == 0);
+    }
+#endif
 }
 
 
@@ -596,6 +610,7 @@ U_CFUNC UBool umtx_cleanup(void) {
     gGlobalMutex    = NULL;
     pIncFn          = NULL;
     pDecFn          = NULL;
+    gIncDecContext  = NULL;
     gIncDecMutex    = NULL;
 
 #if (ICU_USE_THREADS == 1)
@@ -603,7 +618,7 @@ U_CFUNC UBool umtx_cleanup(void) {
         int i;
         for (i=0; i<MAX_MUTEXES; i++) {
             if (gMutexesInUse[i]) {
-#if defined (WIN32)
+#if defined (U_WINDOWS)
                 DeleteCriticalSection(&gMutexes[i]);
 #elif defined (POSIX)
                 pthread_mutex_destroy(&gMutexes[i]);

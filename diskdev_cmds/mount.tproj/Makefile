@@ -26,11 +26,12 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /sbin
 WINDOWS_INSTALLDIR = /sbin
 PDO_UNIX_INSTALLDIR = /sbin
-LIBS = -ldisk
+LIBS = -lutil -ldisk
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+NEXTSTEP_PB_CFLAGS += -I/usr/local/include
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

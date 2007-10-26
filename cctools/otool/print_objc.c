@@ -22,7 +22,6 @@
  */
 #include "stdio.h"
 #include "string.h"
-#include "stuff/target_arch.h"
 #include "mach-o/loader.h"
 #include "objc/objc-runtime.h"
 #include "objc/Protocol.h"
@@ -52,6 +51,21 @@ struct _hashEntry {
     struct _hashEntry *next;
     char *sel;
 };
+
+struct imageInfo {
+    uint32_t version;
+    uint32_t flags;
+};
+
+static
+void
+swap_imageInfo(
+struct imageInfo *o,
+enum byte_sex target_byte_sex)
+{
+	o->version = SWAP_LONG(o->version);
+	o->flags = SWAP_LONG(o->flags);
+}
 
 void
 swap_objc_module(
@@ -243,14 +257,15 @@ enum byte_sex target_byte_sex)
 }
 
 struct section_info {
-    section_t s;
     char *contents;
-    unsigned long size;
+    uint64_t addr;
+    uint64_t size;
 };
 
 static void get_objc_sections(
-    mach_header_t *mh,
     struct load_command *load_commands,
+    uint32_t ncmds,
+    uint32_t sizeofcmds,
     enum byte_sex object_byte_sex,
     char *object_addr,
     unsigned long object_size,
@@ -258,12 +273,13 @@ static void get_objc_sections(
     unsigned long *nobjc_sections,
     char *sectname,
     char **sect,
-    unsigned long *sect_addr,
-    unsigned long *sect_size);
+    uint64_t *sect_addr,
+    uint64_t *sect_size);
 
 static void get_cstring_section(
-    mach_header_t *mh,
     struct load_command *load_commands,
+    uint32_t ncmds,
+    uint32_t sizeofcmds,
     enum byte_sex object_byte_sex,
     char *object_addr,
     unsigned long object_size,
@@ -426,8 +442,9 @@ static enum bool get_hashEntry(
  */
 void
 print_objc_segment(
-mach_header_t *mh,
 struct load_command *load_commands,
+uint32_t ncmds,
+uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
 unsigned long object_size,
@@ -444,7 +461,7 @@ enum bool verbose)
     struct section_info cstring_section;
 
     struct objc_module *modules, *m, module;
-    unsigned long modules_addr, modules_size;
+    uint64_t modules_addr, modules_size;
     struct objc_symtab symtab;
     void **defs;
     struct objc_class objc_class;
@@ -452,10 +469,14 @@ enum bool verbose)
     struct objc_ivar *ivar_list, ivar;
     struct objc_category objc_category;
 
+    struct imageInfo *imageInfo, info;
+    uint64_t imageInfo_addr, imageInfo_size;
+
 	printf("Objective-C segment\n");
-	get_objc_sections(mh, load_commands, object_byte_sex, object_addr,
-		object_size, &objc_sections, &nobjc_sections, SECT_OBJC_MODULES,
-		(char **)&modules, &modules_addr, &modules_size);
+	get_objc_sections(load_commands, ncmds, sizeofcmds, object_byte_sex,
+			  object_addr, object_size, &objc_sections,
+			  &nobjc_sections, SECT_OBJC_MODULES, (char **)&modules,
+			  &modules_addr, &modules_size);
 
 	if(modules == NULL){
 	    printf("can't print objective-C information no (" SEG_OBJC ","
@@ -464,7 +485,7 @@ enum bool verbose)
 	}
 
     if (verbose)
-        get_cstring_section(mh, load_commands, object_byte_sex,
+        get_cstring_section(load_commands, ncmds, sizeofcmds, object_byte_sex,
                             object_addr, object_size, &cstring_section);
 
     host_byte_sex = get_host_byte_sex();
@@ -668,7 +689,8 @@ print_objc_class:
 			   (unsigned int)objc_class.methodLists);
 		    if(print_method_list((struct objc_method_list *)
 					 objc_class.methodLists,
-					 objc_sections, nobjc_sections, &cstring_section,
+					 objc_sections, nobjc_sections,
+					 &cstring_section,
 					 host_byte_sex, swapped, sorted_symbols,
 					 nsorted_symbols, verbose) == FALSE)
 			printf(" (not in an " SEG_OBJC " section)\n");
@@ -772,12 +794,39 @@ print_objc_class:
 			   (unsigned int)def);
 	    }
 	}
+
+	printf("Contents of (%s,%s) section\n", SEG_OBJC, "__image_info");
+	get_objc_sections(load_commands, ncmds, sizeofcmds, object_byte_sex,
+			  object_addr, object_size, &objc_sections,
+			  &nobjc_sections, "__image_info", (char **)&imageInfo,
+			  &imageInfo_addr, &imageInfo_size);
+	memset(&info, '\0', sizeof(struct imageInfo));
+	if(imageInfo_size < sizeof(struct imageInfo)){
+	    memcpy(&info, imageInfo, imageInfo_size);
+	    printf(" (imageInfo entends past the end of the section)\n");
+	}
+	else
+	    memcpy(&info, imageInfo, sizeof(struct imageInfo));
+	if(swapped)
+	    swap_imageInfo(&info, host_byte_sex);
+	printf("  version %u\n", info.version);
+	printf("    flags 0x%x", info.flags);
+	if(info.flags & 0x1)
+	    printf("  F&C");
+	if(info.flags & 0x2)
+	    printf(" GC");
+	if(info.flags & 0x4)
+	    printf(" GC-only");
+	else
+	    printf(" RR");
+	printf("\n");
 }
 
 void
 print_objc_protocol_section(
-mach_header_t *mh,
 struct load_command *load_commands,
+uint32_t ncmds,
+uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
 unsigned long object_size,
@@ -788,16 +837,17 @@ enum bool verbose)
     struct section_info *objc_sections, cstring_section;
     unsigned long nobjc_sections;
     struct objc_protocol *protocols, *p, protocol;
-    unsigned long protocols_addr, protocols_size;
+    uint64_t protocols_addr, protocols_size;
     unsigned long size, left;
 
 	printf("Contents of (" SEG_OBJC ",__protocol) section\n");
-	get_objc_sections(mh, load_commands, object_byte_sex, object_addr,
-		object_size, &objc_sections, &nobjc_sections, "__protocol",
-		(char **)&protocols, &protocols_addr, &protocols_size);
+	get_objc_sections(load_commands, ncmds, sizeofcmds, object_byte_sex,
+			  object_addr, object_size, &objc_sections,
+			  &nobjc_sections, "__protocol", (char **)&protocols,
+			  &protocols_addr, &protocols_size);
 
     if (verbose)
-        get_cstring_section(mh, load_commands, object_byte_sex,
+        get_cstring_section(load_commands, ncmds, sizeofcmds, object_byte_sex,
                             object_addr, object_size, &cstring_section);
 
     host_byte_sex = get_host_byte_sex();
@@ -826,8 +876,9 @@ enum bool verbose)
 void
 print_objc_string_object_section(
 char *sectname,
-mach_header_t *mh,
 struct load_command *load_commands,
+uint32_t ncmds,
+uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
 unsigned long object_size,
@@ -839,18 +890,18 @@ enum bool verbose)
     unsigned long nobjc_sections;
     struct section_info cstring_section;
     struct objc_string_object *string_objects, *s, string_object;
-    unsigned long string_objects_addr, string_objects_size;
+    uint64_t string_objects_addr, string_objects_size;
     unsigned long size, left;
     char *p;
 
 	printf("Contents of (" SEG_OBJC ",%s) section\n", sectname);
-	get_objc_sections(mh, load_commands, object_byte_sex, object_addr,
-		object_size, &objc_sections, &nobjc_sections, sectname,
-		(char **)&string_objects, &string_objects_addr,
-		&string_objects_size);
+	get_objc_sections(load_commands, ncmds, sizeofcmds, object_byte_sex,
+			  object_addr, object_size, &objc_sections,
+			  &nobjc_sections, sectname, (char **)&string_objects,
+			  &string_objects_addr, &string_objects_size);
 
-	get_cstring_section(mh, load_commands, object_byte_sex, object_addr,
-    		object_size, &cstring_section);
+	get_cstring_section(load_commands, ncmds, sizeofcmds, object_byte_sex,
+			    object_addr, object_size, &cstring_section);
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -898,8 +949,9 @@ enum bool verbose)
  */
 void
 print_objc_runtime_setup_section(
-mach_header_t *mh,
 struct load_command *load_commands,
+uint32_t ncmds,
+uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
 unsigned long object_size,
@@ -912,15 +964,16 @@ enum bool verbose)
     unsigned long i, nobjc_sections, left;
     struct _hashEntry **PHASH, *phash, *HASH, _hashEntry;
     char *sect, *p;
-    unsigned long sect_addr, sect_size;
+    uint64_t sect_addr, sect_size;
 
 	printf("Contents of (" SEG_OBJC ",__runtime_setup) section\n");
-	get_objc_sections(mh, load_commands, object_byte_sex, object_addr,
-		object_size, &objc_sections, &nobjc_sections, "__runtime_setup",
-		&sect, &sect_addr, &sect_size);
+	get_objc_sections(load_commands, ncmds, sizeofcmds, object_byte_sex,
+			  object_addr, object_size, &objc_sections,
+			  &nobjc_sections, "__runtime_setup", &sect, &sect_addr,
+			  &sect_size);
 
     if (verbose)
-        get_cstring_section(mh, load_commands, object_byte_sex,
+        get_cstring_section(load_commands, ncmds, sizeofcmds, object_byte_sex,
                             object_addr, object_size, &cstring_section);
 
     host_byte_sex = get_host_byte_sex();
@@ -984,8 +1037,9 @@ enum bool verbose)
 static
 void
 get_objc_sections(
-mach_header_t *mh,
 struct load_command *load_commands,
+uint32_t ncmds,
+uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
 unsigned long object_size,
@@ -993,8 +1047,8 @@ struct section_info **objc_sections,
 unsigned long *nobjc_sections,
 char *sectname,
 char **sect,
-unsigned long *sect_addr,
-unsigned long *sect_size)
+uint64_t *sect_addr,
+uint64_t *sect_size)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
@@ -1002,8 +1056,10 @@ unsigned long *sect_size)
     unsigned long i, j, left, size;
     struct load_command lcmd, *lc;
     char *p;
-    segment_command_t sg;
-    section_t s;
+    struct segment_command sg;
+    struct segment_command_64 sg64;
+    struct section s;
+    struct section_64 s64;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -1015,7 +1071,7 @@ unsigned long *sect_size)
 	*sect_size = 0;
 
 	lc = load_commands;
-	for(i = 0 ; i < mh->ncmds; i++){
+	for(i = 0 ; i < ncmds; i++){
 	    memcpy((char *)&lcmd, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&lcmd, host_byte_sex);
@@ -1023,39 +1079,39 @@ unsigned long *sect_size)
 		printf("load command %lu size not a multiple of "
 		       "sizeof(long)\n", i);
 	    if((char *)lc + lcmd.cmdsize >
-	       (char *)load_commands + mh->sizeofcmds)
+	       (char *)load_commands + sizeofcmds)
 		printf("load command %lu extends past end of load "
 		       "commands\n", i);
-	    left = mh->sizeofcmds - ((char *)lc - (char *)load_commands);
+	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
 
 	    switch(lcmd.cmd){
-	    case LC_SEGMENT_VALUE:
-		memset((char *)&sg, '\0', sizeof(segment_command_t));
-		size = left < sizeof(segment_command_t) ?
-		       left : sizeof(segment_command_t);
+	    case LC_SEGMENT:
+		memset((char *)&sg, '\0', sizeof(struct segment_command));
+		size = left < sizeof(struct segment_command) ?
+		       left : sizeof(struct segment_command);
 		memcpy((char *)&sg, (char *)lc, size);
 		if(swapped)
-		    swap_segment_command_t(&sg, host_byte_sex);
+		    swap_segment_command(&sg, host_byte_sex);
 
-		p = (char *)lc + sizeof(segment_command_t);
+		p = (char *)lc + sizeof(struct segment_command);
 		for(j = 0 ; j < sg.nsects ; j++){
-		    if(p + sizeof(section_t) >
-		       (char *)load_commands + mh->sizeofcmds){
+		    if(p + sizeof(struct section) >
+		       (char *)load_commands + sizeofcmds){
 			printf("section structure command extends past "
 			       "end of load commands\n");
 		    }
-		    left = mh->sizeofcmds - (p - (char *)load_commands);
-		    memset((char *)&s, '\0', sizeof(section_t));
-		    size = left < sizeof(section_t) ?
-			   left : sizeof(section_t);
+		    left = sizeofcmds - (p - (char *)load_commands);
+		    memset((char *)&s, '\0', sizeof(struct section));
+		    size = left < sizeof(struct section) ?
+			   left : sizeof(struct section);
 		    memcpy((char *)&s, p, size);
 		    if(swapped)
-			swap_section_t(&s, 1, host_byte_sex);
+			swap_section(&s, 1, host_byte_sex);
 
 		    if(strcmp(s.segname, SEG_OBJC) == 0){
 			*objc_sections = reallocate(*objc_sections,
 			   sizeof(struct section_info) * (*nobjc_sections + 1));
-			(*objc_sections)[*nobjc_sections].s = s;
+			(*objc_sections)[*nobjc_sections].addr = s.addr;
 			(*objc_sections)[*nobjc_sections].contents = 
 							 object_addr + s.offset;
 			if(s.offset > object_size){
@@ -1086,8 +1142,71 @@ unsigned long *sect_size)
 			(*nobjc_sections)++;
 		    }
 
-		    if(p + sizeof(section_t) >
-		       (char *)load_commands + mh->sizeofcmds)
+		    if(p + sizeof(struct section) >
+		       (char *)load_commands + sizeofcmds)
+			break;
+		    p += size;
+		}
+		break;
+	    case LC_SEGMENT_64:
+		memset((char *)&sg64, '\0', sizeof(struct segment_command_64));
+		size = left < sizeof(struct segment_command_64) ?
+		       left : sizeof(struct segment_command_64);
+		memcpy((char *)&sg64, (char *)lc, size);
+		if(swapped)
+		    swap_segment_command_64(&sg64, host_byte_sex);
+
+		p = (char *)lc + sizeof(struct segment_command_64);
+		for(j = 0 ; j < sg64.nsects ; j++){
+		    if(p + sizeof(struct section_64) >
+		       (char *)load_commands + sizeofcmds){
+			printf("section structure command extends past "
+			       "end of load commands\n");
+		    }
+		    left = sizeofcmds - (p - (char *)load_commands);
+		    memset((char *)&s64, '\0', sizeof(struct section_64));
+		    size = left < sizeof(struct section_64) ?
+			   left : sizeof(struct section_64);
+		    memcpy((char *)&s64, p, size);
+		    if(swapped)
+			swap_section_64(&s64, 1, host_byte_sex);
+
+		    if(strcmp(s64.segname, SEG_OBJC) == 0){
+			*objc_sections = reallocate(*objc_sections,
+			   sizeof(struct section_info) * (*nobjc_sections + 1));
+			(*objc_sections)[*nobjc_sections].addr = s64.addr;
+			(*objc_sections)[*nobjc_sections].contents = 
+						     object_addr + s64.offset;
+			if(s64.offset > object_size){
+			    printf("section contents of: (%.16s,%.16s) is past "
+				   "end of file\n", s64.segname, s64.sectname);
+			    (*objc_sections)[*nobjc_sections].size =  0;
+			}
+			else if(s64.offset + s64.size > object_size){
+			    printf("part of section contents of: (%.16s,%.16s) "
+				   "is past end of file\n",
+				   s64.segname, s64.sectname);
+			    (*objc_sections)[*nobjc_sections].size =
+				object_size - s64.offset;
+			}
+			else
+			    (*objc_sections)[*nobjc_sections].size = s64.size;
+
+			if(strncmp(s64.sectname, sectname, 16) == 0){
+			    if(*sect != NULL)
+				printf("more than one (" SEG_OBJC ",%s) "
+				       "section\n", sectname);
+			    else{
+				*sect = (object_addr + s64.offset);
+				*sect_size = s64.size;
+				*sect_addr = s64.addr;
+			    }
+			}
+			(*nobjc_sections)++;
+		    }
+
+		    if(p + sizeof(struct section) >
+		       (char *)load_commands + sizeofcmds)
 			break;
 		    p += size;
 		}
@@ -1099,27 +1218,17 @@ unsigned long *sect_size)
 		break;
 	    }
 	    lc = (struct load_command *)((char *)lc + lcmd.cmdsize);
-	    if((char *)lc > (char *)load_commands + mh->sizeofcmds)
+	    if((char *)lc > (char *)load_commands + sizeofcmds)
 		break;
 	}
-
-#ifdef notdef
-	printf("*nobjc_sections %lu\n", *nobjc_sections);
-	for(i = 0; i < *nobjc_sections; i++){
-	    printf("(%.16s,%.16s) addr = 0x%x size = 0x%x\n",
-		(*objc_sections)[i].s.segname,
-		(*objc_sections)[i].s.sectname,
-		(unsigned int)((*objc_sections)[i].s.addr),
-		(unsigned int)((*objc_sections)[i].size));
-	}
-#endif /* notdef */
 }
 
 static
 void
 get_cstring_section(
-mach_header_t *mh,
 struct load_command *load_commands,
+uint32_t ncmds,
+uint32_t sizeofcmds,
 enum byte_sex object_byte_sex,
 char *object_addr,
 unsigned long object_size,
@@ -1131,8 +1240,10 @@ struct section_info *cstring_section)
     unsigned long i, j, left, size;
     struct load_command lcmd, *lc;
     char *p;
-    segment_command_t sg;
-    section_t s;
+    struct segment_command sg;
+    struct segment_command_64 sg64;
+    struct section s;
+    struct section_64 s64;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -1140,7 +1251,7 @@ struct section_info *cstring_section)
 	memset(cstring_section, '\0', sizeof(struct section_info));
 
 	lc = load_commands;
-	for(i = 0 ; i < mh->ncmds; i++){
+	for(i = 0 ; i < ncmds; i++){
 	    memcpy((char *)&lcmd, (char *)lc, sizeof(struct load_command));
 	    if(swapped)
 		swap_load_command(&lcmd, host_byte_sex);
@@ -1148,38 +1259,38 @@ struct section_info *cstring_section)
 		printf("load command %lu size not a multiple of "
 		       "sizeof(long)\n", i);
 	    if((char *)lc + lcmd.cmdsize >
-	       (char *)load_commands + mh->sizeofcmds)
+	       (char *)load_commands + sizeofcmds)
 		printf("load command %lu extends past end of load "
 		       "commands\n", i);
-	    left = mh->sizeofcmds - ((char *)lc - (char *)load_commands);
+	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
 
 	    switch(lcmd.cmd){
-	    case LC_SEGMENT_VALUE:
-		memset((char *)&sg, '\0', sizeof(segment_command_t));
-		size = left < sizeof(segment_command_t) ?
-		       left : sizeof(segment_command_t);
+	    case LC_SEGMENT:
+		memset((char *)&sg, '\0', sizeof(struct segment_command));
+		size = left < sizeof(struct segment_command) ?
+		       left : sizeof(struct segment_command);
 		memcpy((char *)&sg, (char *)lc, size);
 		if(swapped)
-		    swap_segment_command_t(&sg, host_byte_sex);
+		    swap_segment_command(&sg, host_byte_sex);
 
-		p = (char *)lc + sizeof(segment_command_t);
+		p = (char *)lc + sizeof(struct segment_command);
 		for(j = 0 ; j < sg.nsects ; j++){
-		    if(p + sizeof(section_t) >
-		       (char *)load_commands + mh->sizeofcmds){
+		    if(p + sizeof(struct section) >
+		       (char *)load_commands + sizeofcmds){
 			printf("section structure command extends past "
 			       "end of load commands\n");
 		    }
-		    left = mh->sizeofcmds - (p - (char *)load_commands);
-		    memset((char *)&s, '\0', sizeof(section_t));
-		    size = left < sizeof(section_t) ?
-			   left : sizeof(section_t);
+		    left = sizeofcmds - (p - (char *)load_commands);
+		    memset((char *)&s, '\0', sizeof(struct section));
+		    size = left < sizeof(struct section) ?
+			   left : sizeof(struct section);
 		    memcpy((char *)&s, p, size);
 		    if(swapped)
-			swap_section_t(&s, 1, host_byte_sex);
+			swap_section(&s, 1, host_byte_sex);
 
 		    if(strcmp(s.segname, SEG_TEXT) == 0 &&
 		       strcmp(s.sectname, "__cstring") == 0){
-			cstring_section->s = s;
+			cstring_section->addr = s.addr;
 			cstring_section->contents = object_addr + s.offset;
 			if(s.offset > object_size){
 			    printf("section contents of: (%.16s,%.16s) is past "
@@ -1197,8 +1308,57 @@ struct section_info *cstring_section)
 			return;
 		    }
 
-		    if(p + sizeof(section_t) >
-		       (char *)load_commands + mh->sizeofcmds)
+		    if(p + sizeof(struct section) >
+		       (char *)load_commands + sizeofcmds)
+			break;
+		    p += size;
+		}
+		break;
+	    case LC_SEGMENT_64:
+		memset((char *)&sg64, '\0', sizeof(struct segment_command_64));
+		size = left < sizeof(struct segment_command_64) ?
+		       left : sizeof(struct segment_command_64);
+		memcpy((char *)&sg64, (char *)lc, size);
+		if(swapped)
+		    swap_segment_command_64(&sg64, host_byte_sex);
+
+		p = (char *)lc + sizeof(struct segment_command_64);
+		for(j = 0 ; j < sg64.nsects ; j++){
+		    if(p + sizeof(struct section_64) >
+		       (char *)load_commands + sizeofcmds){
+			printf("section structure command extends past "
+			       "end of load commands\n");
+		    }
+		    left = sizeofcmds - (p - (char *)load_commands);
+		    memset((char *)&s64, '\0', sizeof(struct section_64));
+		    size = left < sizeof(struct section_64) ?
+			   left : sizeof(struct section_64);
+		    memcpy((char *)&s64, p, size);
+		    if(swapped)
+			swap_section_64(&s64, 1, host_byte_sex);
+
+		    if(strcmp(s64.segname, SEG_TEXT) == 0 &&
+		       strcmp(s64.sectname, "__cstring") == 0){
+			cstring_section->addr = s64.addr;
+			cstring_section->contents = object_addr + s64.offset;
+			if(s64.offset > object_size){
+			    printf("section contents of: (%.16s,%.16s) is past "
+				   "end of file\n", s64.segname, s64.sectname);
+			    cstring_section->size = 0;
+			}
+			else if(s64.offset + s64.size > object_size){
+			    printf("part of section contents of: (%.16s,%.16s) "
+				   "is past end of file\n",
+				   s64.segname, s64.sectname);
+			    cstring_section->size = object_size - s64.offset;
+			}
+			else
+			    cstring_section->size = s64.size;
+			return;
+		    }
+
+		    if(p + sizeof(struct section) >
+		       (char *)load_commands + sizeofcmds)
 			break;
 		    p += size;
 		}
@@ -1210,7 +1370,7 @@ struct section_info *cstring_section)
 		break;
 	    }
 	    lc = (struct load_command *)((char *)lc + lcmd.cmdsize);
-	    if((char *)lc > (char *)load_commands + mh->sizeofcmds)
+	    if((char *)lc > (char *)load_commands + sizeofcmds)
 		break;
 	}
 }
@@ -1325,7 +1485,7 @@ enum bool verbose)
 	printf("         next 0x%08x\n",
 	       (unsigned int)protocol_list.next);
 	print_indent(indent);
-	printf("        count %d\n",
+	printf("        count %ld\n",
 	       protocol_list.count);
 	
 	for(i = 0; i < (unsigned long)protocol_list.count; i++){
@@ -1580,20 +1740,20 @@ struct section_info *cstring_section_ptr)
     unsigned long i, addr;
 
     addr = (unsigned long)p;
-    if(addr >= cstring_section_ptr->s.addr &&
-       addr < cstring_section_ptr->s.addr + cstring_section_ptr->size){
+    if(addr >= cstring_section_ptr->addr &&
+       addr < cstring_section_ptr->addr + cstring_section_ptr->size){
         *left = cstring_section_ptr->size -
-        (addr - cstring_section_ptr->s.addr);
+        (addr - cstring_section_ptr->addr);
         returnValue = (cstring_section_ptr->contents +
-                       (addr - cstring_section_ptr->s.addr));
+                       (addr - cstring_section_ptr->addr));
     }
 	for(i = 0; !returnValue && i < nobjc_sections; i++){
-	    if(addr >= objc_sections[i].s.addr &&
-	       addr < objc_sections[i].s.addr + objc_sections[i].size){
+	    if(addr >= objc_sections[i].addr &&
+	       addr < objc_sections[i].addr + objc_sections[i].size){
 		*left = objc_sections[i].size -
-		        (addr - objc_sections[i].s.addr);
+		        (addr - objc_sections[i].addr);
 		returnValue = (objc_sections[i].contents +
-		       (addr - objc_sections[i].s.addr));
+		       (addr - objc_sections[i].addr));
 	    }
 	}
 	return returnValue;
@@ -1617,26 +1777,26 @@ enum bool swapped)
 	addr = (unsigned long)p;
 	memset(symtab, '\0', sizeof(struct objc_symtab));
 	for(i = 0; i < nobjc_sections; i++){
-	    if(addr >= objc_sections[i].s.addr &&
-	       addr < objc_sections[i].s.addr + objc_sections[i].size){
+	    if(addr >= objc_sections[i].addr &&
+	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		*left = objc_sections[i].size -
-		        (addr - objc_sections[i].s.addr);
+		        (addr - objc_sections[i].addr);
 		if(*left >= sizeof(struct objc_symtab) - sizeof(void *)){
 		    memcpy(symtab,
 			   objc_sections[i].contents +
-			       (addr - objc_sections[i].s.addr),
+			       (addr - objc_sections[i].addr),
 			   sizeof(struct objc_symtab) - sizeof(void *));
 		    *left -= sizeof(struct objc_symtab) - sizeof(void *);
 		    *defs = (void **)(objc_sections[i].contents +
-				     (addr - objc_sections[i].s.addr) +
+				     (addr - objc_sections[i].addr) +
 			   	     sizeof(struct objc_symtab)-sizeof(void *));
 		    *trunc = FALSE;
 		}
 		else{
 		    memcpy(symtab,
 			   objc_sections[i].contents +
-			        (addr - objc_sections[i].s.addr),
+			        (addr - objc_sections[i].addr),
 			   *left);
 		    *left = 0;
 		    *defs = NULL;
@@ -1665,22 +1825,22 @@ enum bool swapped)
 
 	memset(objc_class, '\0', sizeof(struct objc_class));
 	for(i = 0; i < nobjc_sections; i++){
-	    if(addr >= objc_sections[i].s.addr &&
-	       addr < objc_sections[i].s.addr + objc_sections[i].size){
+	    if(addr >= objc_sections[i].addr &&
+	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		left = objc_sections[i].size -
-		        (addr - objc_sections[i].s.addr);
+		        (addr - objc_sections[i].addr);
 		if(left >= sizeof(struct objc_class)){
 		    memcpy(objc_class,
 			   objc_sections[i].contents +
-			       (addr - objc_sections[i].s.addr),
+			       (addr - objc_sections[i].addr),
 			   sizeof(struct objc_class));
 		    *trunc = FALSE;
 		}
 		else{
 		    memcpy(objc_class,
 			   objc_sections[i].contents +
-			        (addr - objc_sections[i].s.addr),
+			        (addr - objc_sections[i].addr),
 			   left);
 		    *trunc = TRUE;
 		}
@@ -1707,22 +1867,22 @@ enum bool swapped)
 
 	memset(objc_category, '\0', sizeof(struct objc_category));
 	for(i = 0; i < nobjc_sections; i++){
-	    if(addr >= objc_sections[i].s.addr &&
-	       addr < objc_sections[i].s.addr + objc_sections[i].size){
+	    if(addr >= objc_sections[i].addr &&
+	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		left = objc_sections[i].size -
-		        (addr - objc_sections[i].s.addr);
+		        (addr - objc_sections[i].addr);
 		if(left >= sizeof(struct objc_category)){
 		    memcpy(objc_category,
 			   objc_sections[i].contents +
-			       (addr - objc_sections[i].s.addr),
+			       (addr - objc_sections[i].addr),
 			   sizeof(struct objc_category));
 		    *trunc = FALSE;
 		}
 		else{
 		    memcpy(objc_category,
 			   objc_sections[i].contents +
-			        (addr - objc_sections[i].s.addr),
+			        (addr - objc_sections[i].addr),
 			   left);
 		    *trunc = TRUE;
 		}
@@ -1752,23 +1912,23 @@ enum bool swapped)
 	addr = (unsigned long)p;
 	memset(objc_ivar_list, '\0', sizeof(struct objc_ivar_list));
 	for(i = 0; i < nobjc_sections; i++){
-	    if(addr >= objc_sections[i].s.addr &&
-	       addr < objc_sections[i].s.addr + objc_sections[i].size){
+	    if(addr >= objc_sections[i].addr &&
+	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		*left = objc_sections[i].size -
-		        (addr - objc_sections[i].s.addr);
+		        (addr - objc_sections[i].addr);
 		if(*left >= sizeof(struct objc_ivar_list) -
 			    sizeof(struct objc_ivar)){
 		    memcpy(objc_ivar_list,
 			   objc_sections[i].contents +
-				(addr - objc_sections[i].s.addr),
+				(addr - objc_sections[i].addr),
 			   sizeof(struct objc_ivar_list) -
 				sizeof(struct objc_ivar));
 		    *left -= sizeof(struct objc_ivar_list) -
 			     sizeof(struct objc_ivar);
 		    *ivar_list = (struct objc_ivar *)
 				 (objc_sections[i].contents +
-				     (addr - objc_sections[i].s.addr) +
+				     (addr - objc_sections[i].addr) +
 				  sizeof(struct objc_ivar_list) -
 				      sizeof(struct objc_ivar));
 		    *trunc = FALSE;
@@ -1776,7 +1936,7 @@ enum bool swapped)
 		else{
 		    memcpy(objc_ivar_list,
 			   objc_sections[i].contents +
-			        (addr - objc_sections[i].s.addr),
+			        (addr - objc_sections[i].addr),
 			   *left);
 		    *left = 0;
 		    *ivar_list = NULL;
@@ -1808,23 +1968,23 @@ enum bool swapped)
 	addr = (unsigned long)p;
 	memset(method_list, '\0', sizeof(struct objc_method_list));
 	for(i = 0; i < nobjc_sections; i++){
-	    if(addr >= objc_sections[i].s.addr &&
-	       addr < objc_sections[i].s.addr + objc_sections[i].size){
+	    if(addr >= objc_sections[i].addr &&
+	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		*left = objc_sections[i].size -
-		        (addr - objc_sections[i].s.addr);
+		        (addr - objc_sections[i].addr);
 		if(*left >= sizeof(struct objc_method_list) -
 			    sizeof(struct objc_method)){
 		    memcpy(method_list,
 			   objc_sections[i].contents +
-				(addr - objc_sections[i].s.addr),
+				(addr - objc_sections[i].addr),
 			   sizeof(struct objc_method_list) -
 				sizeof(struct objc_method));
 		    *left -= sizeof(struct objc_method_list) -
 			     sizeof(struct objc_method);
 		    *methods = (struct objc_method *)
 				 (objc_sections[i].contents +
-				     (addr - objc_sections[i].s.addr) +
+				     (addr - objc_sections[i].addr) +
 				  sizeof(struct objc_method_list) -
 				      sizeof(struct objc_method));
 		    *trunc = FALSE;
@@ -1832,7 +1992,7 @@ enum bool swapped)
 		else{
 		    memcpy(method_list,
 			   objc_sections[i].contents +
-			        (addr - objc_sections[i].s.addr),
+			        (addr - objc_sections[i].addr),
 			   *left);
 		    *left = 0;
 		    *methods = NULL;
@@ -1864,23 +2024,23 @@ enum bool swapped)
 	addr = (unsigned long)p;
 	memset(protocol_list, '\0', sizeof(struct objc_protocol_list));
 	for(i = 0; i < nobjc_sections; i++){
-	    if(addr >= objc_sections[i].s.addr &&
-	       addr < objc_sections[i].s.addr + objc_sections[i].size){
+	    if(addr >= objc_sections[i].addr &&
+	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		*left = objc_sections[i].size -
-		        (addr - objc_sections[i].s.addr);
+		        (addr - objc_sections[i].addr);
 		if(*left >= sizeof(struct objc_protocol_list) -
 			    sizeof(struct objc_protocol *)){
 		    memcpy(protocol_list,
 			   objc_sections[i].contents +
-				(addr - objc_sections[i].s.addr),
+				(addr - objc_sections[i].addr),
 			   sizeof(struct objc_protocol_list) -
 				sizeof(struct objc_protocol *));
 		    *left -= sizeof(struct objc_protocol_list) -
 			     sizeof(struct objc_protocol *);
 		    *list = (struct objc_protocol **)
 				 (objc_sections[i].contents +
-				     (addr - objc_sections[i].s.addr) +
+				     (addr - objc_sections[i].addr) +
 				  sizeof(struct objc_protocol_list) -
 				      sizeof(struct objc_protocol **));
 		    *trunc = FALSE;
@@ -1888,7 +2048,7 @@ enum bool swapped)
 		else{
 		    memcpy(protocol_list,
 			   objc_sections[i].contents +
-			        (addr - objc_sections[i].s.addr),
+			        (addr - objc_sections[i].addr),
 			   *left);
 		    *left = 0;
 		    *list = NULL;
@@ -1917,22 +2077,22 @@ enum bool swapped)
 
 	memset(protocol, '\0', sizeof(struct objc_protocol));
 	for(i = 0; i < nobjc_sections; i++){
-	    if(addr >= objc_sections[i].s.addr &&
-	       addr < objc_sections[i].s.addr + objc_sections[i].size){
+	    if(addr >= objc_sections[i].addr &&
+	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		left = objc_sections[i].size -
-		        (addr - objc_sections[i].s.addr);
+		        (addr - objc_sections[i].addr);
 		if(left >= sizeof(struct objc_protocol)){
 		    memcpy(protocol,
 			   objc_sections[i].contents +
-			       (addr - objc_sections[i].s.addr),
+			       (addr - objc_sections[i].addr),
 			   sizeof(struct objc_protocol));
 		    *trunc = FALSE;
 		}
 		else{
 		    memcpy(protocol,
 			   objc_sections[i].contents +
-			        (addr - objc_sections[i].s.addr),
+			        (addr - objc_sections[i].addr),
 			   left);
 		    *trunc = TRUE;
 		}
@@ -1962,23 +2122,23 @@ enum bool swapped)
 	addr = (unsigned long)p;
 	memset(mdl, '\0', sizeof(struct objc_method_description_list));
 	for(i = 0; i < nobjc_sections; i++){
-	    if(addr >= objc_sections[i].s.addr &&
-	       addr < objc_sections[i].s.addr + objc_sections[i].size){
+	    if(addr >= objc_sections[i].addr &&
+	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		*left = objc_sections[i].size -
-		        (addr - objc_sections[i].s.addr);
+		        (addr - objc_sections[i].addr);
 		if(*left >= sizeof(struct objc_method_description_list) -
 			    sizeof(struct objc_method_description)){
 		    memcpy(mdl,
 			   objc_sections[i].contents +
-				(addr - objc_sections[i].s.addr),
+				(addr - objc_sections[i].addr),
 			   sizeof(struct objc_method_description_list) -
 				sizeof(struct objc_method_description));
 		    *left -= sizeof(struct objc_method_description_list) -
 			     sizeof(struct objc_method_description);
 		    *list = (struct objc_method_description *)
 				 (objc_sections[i].contents +
-				     (addr - objc_sections[i].s.addr) +
+				     (addr - objc_sections[i].addr) +
 				  sizeof(struct objc_method_description_list) -
 				      sizeof(struct objc_method_description));
 		    *trunc = FALSE;
@@ -1986,7 +2146,7 @@ enum bool swapped)
 		else{
 		    memcpy(mdl,
 			   objc_sections[i].contents +
-			        (addr - objc_sections[i].s.addr),
+			        (addr - objc_sections[i].addr),
 			   *left);
 		    *left = 0;
 		    *list = NULL;
@@ -2015,22 +2175,22 @@ enum bool swapped)
 
 	memset(_hashEntry, '\0', sizeof(struct _hashEntry));
 	for(i = 0; i < nobjc_sections; i++){
-	    if(addr >= objc_sections[i].s.addr &&
-	       addr < objc_sections[i].s.addr + objc_sections[i].size){
+	    if(addr >= objc_sections[i].addr &&
+	       addr < objc_sections[i].addr + objc_sections[i].size){
 
 		left = objc_sections[i].size -
-		        (addr - objc_sections[i].s.addr);
+		        (addr - objc_sections[i].addr);
 		if(left >= sizeof(struct _hashEntry)){
 		    memcpy(_hashEntry,
 			   objc_sections[i].contents +
-			       (addr - objc_sections[i].s.addr),
+			       (addr - objc_sections[i].addr),
 			   sizeof(struct _hashEntry));
 		    *trunc = FALSE;
 		}
 		else{
 		    memcpy(_hashEntry,
 			   objc_sections[i].contents +
-			        (addr - objc_sections[i].s.addr),
+			        (addr - objc_sections[i].addr),
 			   left);
 		    *trunc = TRUE;
 		}

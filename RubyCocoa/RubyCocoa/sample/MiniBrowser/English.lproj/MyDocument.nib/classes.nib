@@ -1,0 +1,33 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {connectURL = id; reload = id; stopLoading = id; }; 
+            CLASS = MyDocument; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                backButton = id; 
+                forwardButton = id; 
+                textField = id; 
+                webView = id; 
+                window = id; 
+            }; 
+            SUPERCLASS = NSDocument; 
+        }, 
+        {
+            ACTIONS = {
+                goBack = id; 
+                goForward = id; 
+                makeTextLarger = id; 
+                makeTextSmaller = id; 
+                reload = id; 
+                stopLoading = id; 
+                takeStringURLFrom = id; 
+            }; 
+            CLASS = WebView; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSView; 
+        }
+    ); 
+    IBVersion = 1; 
+}

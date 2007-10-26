@@ -1,3 +1,4 @@
+<testcase>
 # Server-side
 <reply>
 
@@ -20,6 +21,7 @@ you should ignore this data too
 <data1001>
 HTTP/1.1 200 OK swsclose
 Server: no
+Content-Length: 15
 
 Nice auth sir!
 </data1001>
@@ -33,6 +35,7 @@ WWW-Authenticate: Digest realm="realmweirdo", nonce="123456"
 
 HTTP/1.1 200 OK swsclose
 Server: no
+Content-Length: 15
 
 Nice auth sir!
 </datacheck>
@@ -43,6 +46,9 @@ Nice auth sir!
 <server>
 http
 </server>
+<features>
+crypto
+</features>
  <name>
 HTTP with proxy-requiring-Digest to site-requiring-Digest
  </name>
@@ -62,6 +68,7 @@ User-Agent: curl/7.12.0-CVS (i686-pc-linux-gnu) libcurl/7.12.0-CVS OpenSSL/0.9.6
 Host: data.from.server.requiring.digest.hohoho.com
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 GET http://data.from.server.requiring.digest.hohoho.com/168 HTTP/1.1
 Proxy-Authorization: Digest username="foo", realm="weirdorealm", nonce="12345", uri="/168", response="fb8608e00ad9239a3dedb14bc8575976"
@@ -69,6 +76,7 @@ User-Agent: curl/7.12.0-CVS (i686-pc-linux-gnu) libcurl/7.12.0-CVS OpenSSL/0.9.6
 Host: data.from.server.requiring.digest.hohoho.com
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 GET http://data.from.server.requiring.digest.hohoho.com/168 HTTP/1.1
 Proxy-Authorization: Digest username="foo", realm="weirdorealm", nonce="12345", uri="/168", response="fb8608e00ad9239a3dedb14bc8575976"
@@ -77,6 +85,8 @@ User-Agent: curl/7.12.0-CVS (i686-pc-linux-gnu) libcurl/7.12.0-CVS OpenSSL/0.9.6
 Host: data.from.server.requiring.digest.hohoho.com
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 </protocol>
 </verify>
+</testcase>

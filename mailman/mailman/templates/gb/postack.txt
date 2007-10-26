@@ -1,7 +1,0 @@
-您的信息标题为:
-
-    %(subject)s
-
-%(listname)s 列表已经成功收到了.
-
-本列表相关信息网页在 : %(listinfo_url)s

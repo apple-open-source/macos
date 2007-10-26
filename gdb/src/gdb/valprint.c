@@ -1,8 +1,8 @@
 /* Print values for GDB, the GNU debugger.
 
    Copyright 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation,
-   Inc.
+   1996, 1997, 1998, 1999, 2000, 2001, 2002, 2005 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -36,7 +36,8 @@
 #include "doublest.h"
 
 #include <errno.h>
-#include <ctype.h> /* APPLE LOCAL: for isprint() */
+/* APPLE LOCAL: for isprint() */
+#include <ctype.h>
 
 /* Prototypes for local functions */
 
@@ -68,11 +69,37 @@ void _initialize_valprint (void);
 
 unsigned int print_max;
 #define PRINT_MAX_DEFAULT 200	/* Start print_max off at this value. */
+static void
+show_print_max (struct ui_file *file, int from_tty,
+		struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Limit on string chars or array elements to print is %s.\n"),
+		    value);
+}
+
 
 /* Default input and output radixes, and output format letter.  */
 
 unsigned input_radix = 10;
+static void
+show_input_radix (struct ui_file *file, int from_tty,
+		  struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Default input radix for entering numbers is %s.\n"),
+		    value);
+}
+
 unsigned output_radix = 10;
+static void
+show_output_radix (struct ui_file *file, int from_tty,
+		   struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Default output radix for printing of values is %s.\n"),
+		    value);
+}
 int output_format = 0;
 
 /* Print repeat counts if there are more than this many repetitions of an
@@ -80,27 +107,68 @@ int output_format = 0;
    print routines. */
 
 unsigned int repeat_count_threshold = 10;
+static void
+show_repeat_count_threshold (struct ui_file *file, int from_tty,
+			     struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Threshold for repeated print elements is %s.\n"),
+		    value);
+}
 
 /* If nonzero, stops printing of char arrays at first null. */
 
 int stop_print_at_null;
+static void
+show_stop_print_at_null (struct ui_file *file, int from_tty,
+			 struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Printing of char arrays to stop at first null char is %s.\n"),
+		    value);
+}
 
 /* Controls pretty printing of structures. */
 
 int prettyprint_structs;
+static void
+show_prettyprint_structs (struct ui_file *file, int from_tty,
+			  struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Prettyprinting of structures is %s.\n"), value);
+}
 
 /* Controls pretty printing of arrays.  */
 
 int prettyprint_arrays;
+static void
+show_prettyprint_arrays (struct ui_file *file, int from_tty,
+			 struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Prettyprinting of arrays is %s.\n"), value);
+}
 
 /* If nonzero, causes unions inside structures or other unions to be
    printed. */
 
 int unionprint;			/* Controls printing of nested unions.  */
+static void
+show_unionprint (struct ui_file *file, int from_tty,
+		 struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Printing of unions interior to structures is %s.\n"),
+		    value);
+}
 
 /* If nonzero, causes machine addresses to be printed in certain contexts. */
 
 int addressprint;		/* Controls printing of machine addresses */
+static void
+show_addressprint (struct ui_file *file, int from_tty,
+		   struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Printing of addresses is %s.\n"), value);
+}
 
 
 /* Print data of type TYPE located at VALADDR (within GDB), which came from
@@ -124,9 +192,9 @@ int addressprint;		/* Controls printing of machine addresses */
 
 
 int
-val_print (struct type *type, char *valaddr, int embedded_offset,
-	   CORE_ADDR address, struct ui_file *stream, int format, int deref_ref,
-	   int recurse, enum val_prettyprint pretty)
+val_print (struct type *type, const gdb_byte *valaddr, int embedded_offset,
+	   CORE_ADDR address, struct ui_file *stream, int format,
+	   int deref_ref, int recurse, enum val_prettyprint pretty)
 {
   struct type *real_type = check_typedef (type);
   if (pretty == Val_pretty_default)
@@ -151,6 +219,67 @@ val_print (struct type *type, char *valaddr, int embedded_offset,
 			stream, format, deref_ref, recurse, pretty));
 }
 
+/* Check whether the value VAL is printable.  Return 1 if it is;
+   return 0 and print an appropriate error message to STREAM if it
+   is not.  */
+
+static int
+value_check_printable (struct value *val, struct ui_file *stream)
+{
+  if (val == 0)
+    {
+      fprintf_filtered (stream, _("<address of value unknown>"));
+      return 0;
+    }
+
+  /* APPLE LOCAL begin variable opt states.  */
+  switch (value_optimized_out (val))
+    {
+    case opt_okay:
+      break;
+    case opt_away:
+      fprintf_filtered (stream, _("<variable optimized away by compiler>"));
+      return 0;
+    case opt_evicted:
+    case opt_other:
+      fprintf_filtered (stream, 
+		      _("<value temporarily unavailable, due to optimizations>"));
+      return 0;
+    default:
+      fprintf_filtered (stream, _("<variable not found>"));
+      return 0;
+    }
+  /* APPLE LOCAL end variable opt states.  */
+
+  return 1;
+}
+
+/* Print the value VAL onto stream STREAM according to FORMAT (a
+   letter, or 0 for natural format using TYPE).
+
+   If DEREF_REF is nonzero, then dereference references, otherwise just print
+   them like pointers.
+
+   The PRETTY parameter controls prettyprinting.
+
+   If the data are a string pointer, returns the number of string characters
+   printed.
+
+   This is a preferable interface to val_print, above, because it uses
+   GDB's value mechanism.  */
+
+int
+common_val_print (struct value *val, struct ui_file *stream, int format,
+		  int deref_ref, int recurse, enum val_prettyprint pretty)
+{
+  if (!value_check_printable (val, stream))
+    return 0;
+
+  return val_print (value_type (val), value_contents_all (val),
+		    value_embedded_offset (val), VALUE_ADDRESS (val),
+		    stream, format, deref_ref, recurse, pretty);
+}
+
 /* Print the value VAL in C-ish syntax on stream STREAM.
    FORMAT is a format-letter, or 0 for print in natural format of data type.
    If the object printed is a string pointer, returns
@@ -160,16 +289,9 @@ int
 value_print (struct value *val, struct ui_file *stream, int format,
 	     enum val_prettyprint pretty)
 {
-  if (val == 0)
-    {
-      printf_filtered ("<address of value unknown>");
-      return 0;
-    }
-  if (VALUE_OPTIMIZED_OUT (val))
-    {
-      printf_filtered ("<value optimized out>");
-      return 0;
-    }
+  if (!value_check_printable (val, stream))
+    return 0;
+
   return LA_VALUE_PRINT (val, stream, format, pretty);
 }
 
@@ -178,7 +300,7 @@ value_print (struct value *val, struct ui_file *stream, int format,
    value.  STREAM is where to print the value.  */
 
 void
-val_print_type_code_int (struct type *type, char *valaddr,
+val_print_type_code_int (struct type *type, const gdb_byte *valaddr,
 			 struct ui_file *stream)
 {
   if (TYPE_LENGTH (type) > sizeof (LONGEST))
@@ -186,6 +308,7 @@ val_print_type_code_int (struct type *type, char *valaddr,
       LONGEST val;
 
       if (TYPE_UNSIGNED (type)
+	  /* APPLE LOCAL byte order */
 	  && extract_long_unsigned_integer_with_byte_order 
 	  (valaddr, TYPE_LENGTH (type), &val, TYPE_BYTE_ORDER (type)))
 	{
@@ -197,6 +320,7 @@ val_print_type_code_int (struct type *type, char *valaddr,
 	     LONGEST.  For signed values, one could assume two's
 	     complement (a reasonable assumption, I think) and do
 	     better than this.  */
+	  /* APPLE LOCAL byte order */
 	  print_hex_chars_with_byte_order (stream, (const bfd_byte *) valaddr,
 					   TYPE_LENGTH (type), TYPE_BYTE_ORDER (type));
 	}
@@ -210,202 +334,52 @@ val_print_type_code_int (struct type *type, char *valaddr,
 
 /* Print a number according to FORMAT which is one of d,u,x,o,b,h,w,g.
    The raison d'etre of this function is to consolidate printing of 
-   LONG_LONG's into this one function.  Some platforms have long longs but
-   don't have a printf() that supports "ll" in the format string.  We handle
-   these by seeing if the number is representable as either a signed or
-   unsigned long, depending upon what format is desired, and if not we just
-   bail out and print the number in hex.
+   LONG_LONG's into this one function. The format chars b,h,w,g are 
+   from print_scalar_formatted().  Numbers are printed using C
+   format. 
 
-   The format chars b,h,w,g are from print_scalar_formatted().  If USE_LOCAL,
-   format it according to the current language (this should be used for most
-   integers which GDB prints, the exception is things like protocols where
-   the format of the integer is a protocol thing, not a user-visible thing).
- */
-
-#if defined (CC_HAS_LONG_LONG) && !defined (PRINTF_HAS_LONG_LONG)
-static void print_decimal (struct ui_file * stream, char *sign,
-			   int use_local, ULONGEST val_ulong);
-static void
-print_decimal (struct ui_file *stream, char *sign, int use_local,
-	       ULONGEST val_ulong)
-{
-  unsigned long temp[3];
-  int i = 0;
-  do
-    {
-      temp[i] = val_ulong % (1000 * 1000 * 1000);
-      val_ulong /= (1000 * 1000 * 1000);
-      i++;
-    }
-  while (val_ulong != 0 && i < (sizeof (temp) / sizeof (temp[0])));
-  switch (i)
-    {
-    case 1:
-      fprintf_filtered (stream, "%s%lu",
-			sign, temp[0]);
-      break;
-    case 2:
-      fprintf_filtered (stream, "%s%lu%09lu",
-			sign, temp[1], temp[0]);
-      break;
-    case 3:
-      fprintf_filtered (stream, "%s%lu%09lu%09lu",
-			sign, temp[2], temp[1], temp[0]);
-      break;
-    default:
-      internal_error (__FILE__, __LINE__, "failed internal consistency check");
-    }
-  return;
-}
-#endif
+   USE_C_FORMAT means to use C format in all cases.  Without it, 
+   'o' and 'x' format do not include the standard C radix prefix
+   (leading 0 or 0x). 
+   
+   Hilfinger/2004-09-09: USE_C_FORMAT was originally called USE_LOCAL
+   and was intended to request formating according to the current
+   language and would be used for most integers that GDB prints.  The
+   exceptional cases were things like protocols where the format of
+   the integer is a protocol thing, not a user-visible thing).  The
+   parameter remains to preserve the information of what things might
+   be printed with language-specific format, should we ever resurrect
+   that capability. */
 
 void
-print_longest (struct ui_file *stream, int format, int use_local,
+print_longest (struct ui_file *stream, int format, int use_c_format,
 	       LONGEST val_long)
 {
-#if defined (CC_HAS_LONG_LONG) && !defined (PRINTF_HAS_LONG_LONG)
-  if (sizeof (long) < sizeof (LONGEST))
-    {
-      switch (format)
-	{
-	case 'd':
-	  {
-	    /* Print a signed value, that doesn't fit in a long */
-	    if ((long) val_long != val_long)
-	      {
-		if (val_long < 0)
-		  print_decimal (stream, "-", use_local, -val_long);
-		else
-		  print_decimal (stream, "", use_local, val_long);
-		return;
-	      }
-	    break;
-	  }
-	case 'u':
-	  {
-	    /* Print an unsigned value, that doesn't fit in a long */
-	    if ((unsigned long) val_long != (ULONGEST) val_long)
-	      {
-		print_decimal (stream, "", use_local, val_long);
-		return;
-	      }
-	    break;
-	  }
-	case 'x':
-	case 'o':
-	case 'b':
-	case 'h':
-	case 'w':
-	case 'g':
-	  /* Print as unsigned value, must fit completely in unsigned long */
-	  {
-	    unsigned long temp = val_long;
-	    if (temp != val_long)
-	      {
-		/* Urk, can't represent value in long so print in hex.
-		   Do shift in two operations so that if sizeof (long)
-		   == sizeof (LONGEST) we can avoid warnings from
-		   picky compilers about shifts >= the size of the
-		   shiftee in bits */
-		unsigned long vbot = (unsigned long) val_long;
-		LONGEST temp = (val_long >> (sizeof (long) * HOST_CHAR_BIT - 1));
-		unsigned long vtop = temp >> 1;
-		fprintf_filtered (stream, "0x%lx%08lx", vtop, vbot);
-		return;
-	      }
-	    break;
-	  }
-	}
-    }
-#endif
-
-#if defined (CC_HAS_LONG_LONG) && defined (PRINTF_HAS_LONG_LONG)
-  switch (format)
-    {
-    case 'd':
-      fprintf_filtered (stream,
-			use_local ? local_decimal_format_custom ("ll")
-			: "%lld",
-			(long long) val_long);
-      break;
-    case 'u':
-      fprintf_filtered (stream, "%llu", (long long) val_long);
-      break;
-    case 'x':
-      fprintf_filtered (stream,
-			use_local ? local_hex_format_custom ("ll")
-			: "%llx",
-			(unsigned long long) val_long);
-      break;
-    case 'o':
-      fprintf_filtered (stream,
-			use_local ? local_octal_format_custom ("ll")
-			: "%llo",
-			(unsigned long long) val_long);
-      break;
-    case 'b':
-      fprintf_filtered (stream, local_hex_format_custom ("02ll"), val_long);
-      break;
-    case 'h':
-      fprintf_filtered (stream, local_hex_format_custom ("04ll"), val_long);
-      break;
-    case 'w':
-      fprintf_filtered (stream, local_hex_format_custom ("08ll"), val_long);
-      break;
-    case 'g':
-      fprintf_filtered (stream, local_hex_format_custom ("016ll"), val_long);
-      break;
-    default:
-      internal_error (__FILE__, __LINE__, "failed internal consistency check");
-    }
-#else /* !CC_HAS_LONG_LONG || !PRINTF_HAS_LONG_LONG */
-  /* In the following it is important to coerce (val_long) to a long. It does
-     nothing if !LONG_LONG, but it will chop off the top half (which we know
-     we can ignore) if the host supports long longs.  */
+  const char *val;
 
   switch (format)
     {
     case 'd':
-      fprintf_filtered (stream,
-			use_local ? local_decimal_format_custom ("l")
-			: "%ld",
-			(long) val_long);
-      break;
+      val = int_string (val_long, 10, 1, 0, 1); break;
     case 'u':
-      fprintf_filtered (stream, "%lu", (unsigned long) val_long);
-      break;
+      val = int_string (val_long, 10, 0, 0, 1); break;
     case 'x':
-      fprintf_filtered (stream,
-			use_local ? local_hex_format_custom ("l")
-			: "%lx",
-			(unsigned long) val_long);
+      val = int_string (val_long, 16, 0, 0, use_c_format); break;
+    case 'b':
+      val = int_string (val_long, 16, 0, 2, 1); break;
+    case 'h':
+      val = int_string (val_long, 16, 0, 4, 1); break;
+    case 'w':
+      val = int_string (val_long, 16, 0, 8, 1); break;
+    case 'g':
+      val = int_string (val_long, 16, 0, 16, 1); break;
       break;
     case 'o':
-      fprintf_filtered (stream,
-			use_local ? local_octal_format_custom ("l")
-			: "%lo",
-			(unsigned long) val_long);
-      break;
-    case 'b':
-      fprintf_filtered (stream, local_hex_format_custom ("02l"),
-			(unsigned long) val_long);
-      break;
-    case 'h':
-      fprintf_filtered (stream, local_hex_format_custom ("04l"),
-			(unsigned long) val_long);
-      break;
-    case 'w':
-      fprintf_filtered (stream, local_hex_format_custom ("08l"),
-			(unsigned long) val_long);
-      break;
-    case 'g':
-      fprintf_filtered (stream, local_hex_format_custom ("016l"),
-			(unsigned long) val_long);
-      break;
+      val = int_string (val_long, 8, 0, 0, use_c_format); break;
     default:
-      internal_error (__FILE__, __LINE__, "failed internal consistency check");
-    }
-#endif /* CC_HAS_LONG_LONG || PRINTF_HAS_LONG_LONG */
+      internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
+    } 
+  fputs_filtered (val, stream);
 }
 
 /* This used to be a macro, but I don't think it is called often enough
@@ -425,7 +399,7 @@ longest_to_int (LONGEST arg)
     {
       if (rtnval != arg)
 	{
-	  error ("Value out of range.");
+	  error (_("Value out of range."));
 	}
     }
   return (rtnval);
@@ -435,7 +409,8 @@ longest_to_int (LONGEST arg)
    TYPE_CODE_FLT), pointed to in GDB by VALADDR, on STREAM.  */
 
 void
-print_floating (char *valaddr, struct type *type, struct ui_file *stream)
+print_floating (const gdb_byte *valaddr, struct type *type,
+		struct ui_file *stream)
 {
   DOUBLEST doub;
   int inv;
@@ -450,9 +425,8 @@ print_floating (char *valaddr, struct type *type, struct ui_file *stream)
       if (floatformat_is_negative (fmt, valaddr))
 	fprintf_filtered (stream, "-");
       fprintf_filtered (stream, "nan(");
-      fputs_filtered (local_hex_format_prefix (), stream);
+      fputs_filtered ("0x", stream);
       fputs_filtered (floatformat_mantissa (fmt, valaddr), stream);
-      fputs_filtered (local_hex_format_suffix (), stream);
       fprintf_filtered (stream, ")");
       return;
     }
@@ -477,7 +451,7 @@ print_floating (char *valaddr, struct type *type, struct ui_file *stream)
      assumptions about the host and target floating point format.  */
 
   /* NOTE: cagney/2002-02-03: Since the TYPE of what was passed in may
-     not necessarially be a TYPE_CODE_FLT, the below ignores that and
+     not necessarily be a TYPE_CODE_FLT, the below ignores that and
      instead uses the type's length to determine the precision of the
      floating-point value being printed.  */
 
@@ -496,13 +470,13 @@ print_floating (char *valaddr, struct type *type, struct ui_file *stream)
 }
 
 void
-print_binary_chars (struct ui_file *stream, unsigned char *valaddr,
+print_binary_chars (struct ui_file *stream, const gdb_byte *valaddr,
 		    unsigned len)
 {
 
 #define BITS_IN_BYTES 8
 
-  unsigned char *p;
+  const gdb_byte *p;
   unsigned int i;
   int b;
 
@@ -513,7 +487,6 @@ print_binary_chars (struct ui_file *stream, unsigned char *valaddr,
 
   /* FIXME: We should be not printing leading zeroes in most cases.  */
 
-  fputs_filtered (local_binary_format_prefix (), stream);
   if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
     {
       for (p = valaddr;
@@ -551,14 +524,13 @@ print_binary_chars (struct ui_file *stream, unsigned char *valaddr,
 	    }
 	}
     }
-  fputs_filtered (local_binary_format_suffix (), stream);
 }
 
 /* APPLE LOCAL: Formatting for OSType variables.  */
 void
-print_ostype (struct ui_file *stream, unsigned char *valaddr)
+print_ostype (struct ui_file *stream, struct type *type, unsigned char *valaddr)
 {
-    unsigned int buf_extracted = extract_unsigned_integer (valaddr, 4);
+    unsigned int buf_extracted = unpack_long (type, valaddr);
     int i;
     for (i = 3; i >= 0; i--)
       {
@@ -577,9 +549,10 @@ print_ostype (struct ui_file *stream, unsigned char *valaddr)
  * Print it in octal on stream or format it in buf.
  */
 void
-print_octal_chars (struct ui_file *stream, unsigned char *valaddr, unsigned len)
+print_octal_chars (struct ui_file *stream, const gdb_byte *valaddr,
+		   unsigned len)
 {
-  unsigned char *p;
+  const gdb_byte *p;
   unsigned char octa1, octa2, octa3, carry;
   int cycle;
 
@@ -619,7 +592,7 @@ print_octal_chars (struct ui_file *stream, unsigned char *valaddr, unsigned len)
   cycle = (len * BITS_IN_BYTES) % BITS_IN_OCTAL;
   carry = 0;
 
-  fputs_filtered (local_octal_format_prefix (), stream);
+  fputs_filtered ("0", stream);
   if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
     {
       for (p = valaddr;
@@ -663,7 +636,7 @@ print_octal_chars (struct ui_file *stream, unsigned char *valaddr, unsigned len)
 	      break;
 
 	    default:
-	      error ("Internal error in octal conversion;");
+	      error (_("Internal error in octal conversion;"));
 	    }
 
 	  cycle++;
@@ -710,7 +683,7 @@ print_octal_chars (struct ui_file *stream, unsigned char *valaddr, unsigned len)
 	      break;
 
 	    default:
-	      error ("Internal error in octal conversion;");
+	      error (_("Internal error in octal conversion;"));
 	    }
 
 	  cycle++;
@@ -718,14 +691,13 @@ print_octal_chars (struct ui_file *stream, unsigned char *valaddr, unsigned len)
 	}
     }
 
-  fputs_filtered (local_octal_format_suffix (), stream);
 }
 
 /* VALADDR points to an integer of LEN bytes.
  * Print it in decimal on stream or format it in buf.
  */
 void
-print_decimal_chars (struct ui_file *stream, unsigned char *valaddr,
+print_decimal_chars (struct ui_file *stream, const gdb_byte *valaddr,
 		     unsigned len)
 {
 #define TEN             10
@@ -742,7 +714,7 @@ print_decimal_chars (struct ui_file *stream, unsigned char *valaddr,
 #define LOW_NIBBLE(  x ) ( (x) & 0x00F)
 #define HIGH_NIBBLE( x ) (((x) & 0x0F0) >> 4)
 
-  unsigned char *p;
+  const gdb_byte *p;
   unsigned char *digits;
   int carry;
   int decimal_len;
@@ -760,8 +732,6 @@ print_decimal_chars (struct ui_file *stream, unsigned char *valaddr,
     {
       digits[i] = 0;
     }
-
-  fputs_filtered (local_decimal_format_prefix (), stream);
 
   /* Ok, we have an unknown number of bytes of data to be printed in
    * decimal.
@@ -857,21 +827,29 @@ print_decimal_chars (struct ui_file *stream, unsigned char *valaddr,
       fprintf_filtered (stream, "%1d", digits[i]);
     }
   xfree (digits);
-
-  fputs_filtered (local_decimal_format_suffix (), stream);
 }
 
 /* VALADDR points to an integer of LEN bytes.  Print it in hex on stream.  */
 
 void
+print_hex_chars (struct ui_file *stream, const gdb_byte *valaddr,
+ 		 unsigned int len)
+{
+  /* APPLE LOCAL auto endianness */
+  print_hex_chars_with_byte_order (stream, valaddr, len, BFD_ENDIAN_UNKNOWN);
+}
+
+/* APPLE LOCAL auto endianness */
+void
 print_hex_chars_with_byte_order (struct ui_file *stream, const bfd_byte *valaddr,
 				 unsigned int len, int byte_order)
 {
-  unsigned char *p;
+  const gdb_byte *p;
 
   /* FIXME: We should be not printing leading zeroes in most cases.  */
 
-  fputs_filtered (local_hex_format_prefix (), stream);
+  fputs_filtered ("0x", stream);
+  /* APPLE LOCAL auto endianness */
   if (byte_order == BFD_ENDIAN_UNKNOWN)
     byte_order = TARGET_BYTE_ORDER;
   if (byte_order == BFD_ENDIAN_BIG)
@@ -892,52 +870,24 @@ print_hex_chars_with_byte_order (struct ui_file *stream, const bfd_byte *valaddr
 	  fprintf_filtered (stream, "%02x", *p);
 	}
     }
-  fputs_filtered (local_hex_format_suffix (), stream);
-}
-
-/* APPLE LOCAL: Given an array type TYPE, and memory address VALADDR,
-   return the appropriate memory address for the index specified by I.
-   Does not check I against the bounds of the array (nor should it, as
-   GDB allows the user to print array elements past the standard array
-   bounds. */
-
-static const bfd_byte *val_elt_addr (struct type *type, 
-				     const bfd_byte *valaddr,
-				     unsigned int i)
-{
-  struct type *elttype;
-  unsigned eltlen;
-  LONGEST lowerbound, upperbound, stride;
-
-  get_array_bounds (type, &lowerbound, &upperbound, &stride);
-  if (stride == 1)
-    ;
-  else if (stride == -1)
-    i = (upperbound - i);
-  else
-    internal_error (__FILE__, __LINE__, _("unsupported stride %lld"), stride);
-
-  elttype = TYPE_TARGET_TYPE (type);
-  eltlen = TYPE_LENGTH (check_typedef (elttype));
-
-  return (valaddr + i * eltlen);
-}
-
-void
-print_hex_chars (struct ui_file *stream, const bfd_byte *valaddr,
- 		 unsigned int len)
-{
-  print_hex_chars_with_byte_order (stream, valaddr, len, BFD_ENDIAN_UNKNOWN);
 }
 
 /* VALADDR points to a char integer of LEN bytes.  Print it out in appropriate language form on stream.  
    Omit any leading zero chars.  */
 
 void
-print_char_chars_with_byte_order (struct ui_file *stream, const bfd_byte *valaddr,
-				   unsigned int len, int byte_order)
+print_char_chars (struct ui_file *stream, const gdb_byte *valaddr,
+		  unsigned int len)
 {
-  unsigned char *p;
+  /* APPLE LOCAL auto endianness */
+  print_char_chars_with_byte_order (stream, valaddr, len, BFD_ENDIAN_UNKNOWN);
+}
+
+void
+print_char_chars_with_byte_order (struct ui_file *stream, const gdb_byte *valaddr,
+				  unsigned int len, int byte_order)
+{
+  const gdb_byte *p;
 
   if (byte_order == BFD_ENDIAN_UNKNOWN)
     byte_order = TARGET_BYTE_ORDER;
@@ -967,12 +917,35 @@ print_char_chars_with_byte_order (struct ui_file *stream, const bfd_byte *valadd
     }
 }
 
-void
-print_char_chars (struct ui_file *stream, const bfd_byte *valaddr,
-		  unsigned int len)
+/* APPLE LOCAL begin val_elt_addr */
+/* Given an array type TYPE, and memory address VALADDR, return the
+   appropriate memory address for the index specified by I.  Does not
+   check I against the bounds of the array (nor should it, as GDB
+   allows the user to print array elements past the standard array
+   bounds. */
+
+static const gdb_byte *
+val_elt_addr (struct type *type, const gdb_byte *valaddr,
+	      unsigned int i)
 {
-  print_char_chars_with_byte_order (stream, valaddr, len, BFD_ENDIAN_UNKNOWN);
+  struct type *elttype;
+  unsigned eltlen;
+  LONGEST lowerbound, upperbound, stride;
+
+  get_array_bounds (type, &lowerbound, &upperbound, &stride);
+  if (stride == 1)
+    ;
+  else if (stride == -1)
+    i = (upperbound - i);
+  else
+    internal_error (__FILE__, __LINE__, _("unsupported stride %lld"), stride);
+
+  elttype = TYPE_TARGET_TYPE (type);
+  eltlen = TYPE_LENGTH (check_typedef (elttype));
+
+  return (valaddr + i * eltlen);
 }
+/* APPLE LOCAL end val_elt_addr */
 
 /*  Called by various <lang>_val_print routines to print elements of an
    array in the form "<elem1>, <elem2>, <elem3>, ...".
@@ -984,8 +957,9 @@ print_char_chars (struct ui_file *stream, const bfd_byte *valaddr,
  */
 
 void
-val_print_array_elements (struct type *type, char *valaddr, CORE_ADDR address,
-			  struct ui_file *stream, int format, int deref_ref,
+val_print_array_elements (struct type *type, const gdb_byte *valaddr,
+			  CORE_ADDR address, struct ui_file *stream,
+			  int format, int deref_ref,
 			  int recurse, enum val_prettyprint pretty,
 			  unsigned int i)
 {
@@ -1264,13 +1238,13 @@ val_print_string (CORE_ADDR addr, int len, int width, struct ui_file *stream)
       if (errcode == EIO)
 	{
 	  fprintf_filtered (stream, " <Address ");
-	  print_address_numeric (addr, 1, stream);
+	  deprecated_print_address_numeric (addr, 1, stream);
 	  fprintf_filtered (stream, " out of bounds>");
 	}
       else
 	{
 	  fprintf_filtered (stream, " <Error reading address ");
-	  print_address_numeric (addr, 1, stream);
+	  deprecated_print_address_numeric (addr, 1, stream);
 	  fprintf_filtered (stream, ": %s>", safe_strerror (errcode));
 	}
     }
@@ -1304,7 +1278,7 @@ set_input_radix_1 (int from_tty, unsigned radix)
     {
       /* FIXME: cagney/2002-03-17: This needs to revert the bad radix
          value.  */
-      error ("Nonsense input radix ``decimal %u''; input radix unchanged.",
+      error (_("Nonsense input radix ``decimal %u''; input radix unchanged."),
 	     radix);
     }
   input_radix = radix;
@@ -1312,7 +1286,7 @@ set_input_radix_1 (int from_tty, unsigned radix)
 		   value_from_longest (builtin_type_int, (LONGEST) radix));
   if (from_tty)
     {
-      printf_filtered ("Input radix now set to decimal %u, hex %x, octal %o.\n",
+      printf_filtered (_("Input radix now set to decimal %u, hex %x, octal %o.\n"),
 		       radix, radix, radix);
     }
 }
@@ -1342,7 +1316,7 @@ set_output_radix_1 (int from_tty, unsigned radix)
     default:
       /* FIXME: cagney/2002-03-17: This needs to revert the bad radix
          value.  */
-      error ("Unsupported output radix ``decimal %u''; output radix unchanged.",
+      error (_("Unsupported output radix ``decimal %u''; output radix unchanged."),
 	     radix);
     }
   output_radix = radix;
@@ -1350,7 +1324,7 @@ set_output_radix_1 (int from_tty, unsigned radix)
 		   value_from_longest (builtin_type_int, (LONGEST) radix));
   if (from_tty)
     {
-      printf_filtered ("Output radix now set to decimal %u, hex %x, octal %o.\n",
+      printf_filtered (_("Output radix now set to decimal %u, hex %x, octal %o.\n"),
 		       radix, radix, radix);
     }
 }
@@ -1373,7 +1347,7 @@ set_radix (char *arg, int from_tty)
   set_input_radix_1 (0, radix);
   if (from_tty)
     {
-      printf_filtered ("Input and output radices now set to decimal %u, hex %x, octal %o.\n",
+      printf_filtered (_("Input and output radices now set to decimal %u, hex %x, octal %o.\n"),
 		       radix, radix, radix);
     }
 }
@@ -1387,14 +1361,14 @@ show_radix (char *arg, int from_tty)
     {
       if (input_radix == output_radix)
 	{
-	  printf_filtered ("Input and output radices set to decimal %u, hex %x, octal %o.\n",
+	  printf_filtered (_("Input and output radices set to decimal %u, hex %x, octal %o.\n"),
 			   input_radix, input_radix, input_radix);
 	}
       else
 	{
-	  printf_filtered ("Input radix set to decimal %u, hex %x, octal %o.\n",
+	  printf_filtered (_("Input radix set to decimal %u, hex %x, octal %o.\n"),
 			   input_radix, input_radix, input_radix);
-	  printf_filtered ("Output radix set to decimal %u, hex %x, octal %o.\n",
+	  printf_filtered (_("Output radix set to decimal %u, hex %x, octal %o.\n"),
 			   output_radix, output_radix, output_radix);
 	}
     }
@@ -1421,93 +1395,99 @@ _initialize_valprint (void)
   struct cmd_list_element *c;
 
   add_prefix_cmd ("print", no_class, set_print,
-		  "Generic command for setting how things print.",
+		  _("Generic command for setting how things print."),
 		  &setprintlist, "set print ", 0, &setlist);
   add_alias_cmd ("p", "print", no_class, 1, &setlist);
   /* prefer set print to set prompt */
   add_alias_cmd ("pr", "print", no_class, 1, &setlist);
 
   add_prefix_cmd ("print", no_class, show_print,
-		  "Generic command for showing print settings.",
+		  _("Generic command for showing print settings."),
 		  &showprintlist, "show print ", 0, &showlist);
   add_alias_cmd ("p", "print", no_class, 1, &showlist);
   add_alias_cmd ("pr", "print", no_class, 1, &showlist);
 
-  add_show_from_set
-    (add_set_cmd ("elements", no_class, var_uinteger, (char *) &print_max,
-		  "Set limit on string chars or array elements to print.\n\
-\"set print elements 0\" causes there to be no limit.",
-		  &setprintlist),
-     &showprintlist);
+  add_setshow_uinteger_cmd ("elements", no_class, &print_max, _("\
+Set limit on string chars or array elements to print."), _("\
+Show limit on string chars or array elements to print."), _("\
+\"set print elements 0\" causes there to be no limit."),
+			    NULL,
+			    show_print_max,
+			    &setprintlist, &showprintlist);
 
-  add_show_from_set
-    (add_set_cmd ("null-stop", no_class, var_boolean,
-		  (char *) &stop_print_at_null,
-		  "Set printing of char arrays to stop at first null char.",
-		  &setprintlist),
-     &showprintlist);
+  add_setshow_boolean_cmd ("null-stop", no_class, &stop_print_at_null, _("\
+Set printing of char arrays to stop at first null char."), _("\
+Show printing of char arrays to stop at first null char."), NULL,
+			   NULL,
+			   show_stop_print_at_null,
+			   &setprintlist, &showprintlist);
 
-  add_show_from_set
-    (add_set_cmd ("repeats", no_class, var_uinteger,
-		  (char *) &repeat_count_threshold,
-		  "Set threshold for repeated print elements.\n\
-\"set print repeats 0\" causes all elements to be individually printed.",
-		  &setprintlist),
-     &showprintlist);
+  add_setshow_uinteger_cmd ("repeats", no_class,
+			    &repeat_count_threshold, _("\
+Set threshold for repeated print elements."), _("\
+Show threshold for repeated print elements."), _("\
+\"set print repeats 0\" causes all elements to be individually printed."),
+			    NULL,
+			    show_repeat_count_threshold,
+			    &setprintlist, &showprintlist);
 
-  add_show_from_set
-    (add_set_cmd ("pretty", class_support, var_boolean,
-		  (char *) &prettyprint_structs,
-		  "Set prettyprinting of structures.",
-		  &setprintlist),
-     &showprintlist);
+  add_setshow_boolean_cmd ("pretty", class_support, &prettyprint_structs, _("\
+Set prettyprinting of structures."), _("\
+Show prettyprinting of structures."), NULL,
+			   NULL,
+			   show_prettyprint_structs,
+			   &setprintlist, &showprintlist);
 
-  add_show_from_set
-    (add_set_cmd ("union", class_support, var_boolean, (char *) &unionprint,
-		  "Set printing of unions interior to structures.",
-		  &setprintlist),
-     &showprintlist);
+  add_setshow_boolean_cmd ("union", class_support, &unionprint, _("\
+Set printing of unions interior to structures."), _("\
+Show printing of unions interior to structures."), NULL,
+			   NULL,
+			   show_unionprint,
+			   &setprintlist, &showprintlist);
 
-  add_show_from_set
-    (add_set_cmd ("array", class_support, var_boolean,
-		  (char *) &prettyprint_arrays,
-		  "Set prettyprinting of arrays.",
-		  &setprintlist),
-     &showprintlist);
+  add_setshow_boolean_cmd ("array", class_support, &prettyprint_arrays, _("\
+Set prettyprinting of arrays."), _("\
+Show prettyprinting of arrays."), NULL,
+			   NULL,
+			   show_prettyprint_arrays,
+			   &setprintlist, &showprintlist);
 
-  add_show_from_set
-    (add_set_cmd ("address", class_support, var_boolean, (char *) &addressprint,
-		  "Set printing of addresses.",
-		  &setprintlist),
-     &showprintlist);
+  add_setshow_boolean_cmd ("address", class_support, &addressprint, _("\
+Set printing of addresses."), _("\
+Show printing of addresses."), NULL,
+			   NULL,
+			   show_addressprint,
+			   &setprintlist, &showprintlist);
 
-  c = add_set_cmd ("input-radix", class_support, var_uinteger,
-		   (char *) &input_radix,
-		   "Set default input radix for entering numbers.",
-		   &setlist);
-  add_show_from_set (c, &showlist);
-  set_cmd_sfunc (c, set_input_radix);
+  add_setshow_uinteger_cmd ("input-radix", class_support, &input_radix, _("\
+Set default input radix for entering numbers."), _("\
+Show default input radix for entering numbers."), NULL,
+			    set_input_radix,
+			    show_input_radix,
+			    &setlist, &showlist);
 
-  c = add_set_cmd ("output-radix", class_support, var_uinteger,
-		   (char *) &output_radix,
-		   "Set default output radix for printing of values.",
-		   &setlist);
-  add_show_from_set (c, &showlist);
-  set_cmd_sfunc (c, set_output_radix);
+  add_setshow_uinteger_cmd ("output-radix", class_support, &output_radix, _("\
+Set default output radix for printing of values."), _("\
+Show default output radix for printing of values."), NULL,
+			    set_output_radix,
+			    show_output_radix,
+			    &setlist, &showlist);
 
-  /* The "set radix" and "show radix" commands are special in that they are
-     like normal set and show commands but allow two normally independent
-     variables to be either set or shown with a single command.  So the
-     usual add_set_cmd() and add_show_from_set() commands aren't really
-     appropriate. */
-  add_cmd ("radix", class_support, set_radix,
-	   "Set default input and output number radices.\n\
+  /* The "set radix" and "show radix" commands are special in that
+     they are like normal set and show commands but allow two normally
+     independent variables to be either set or shown with a single
+     command.  So the usual deprecated_add_set_cmd() and [deleted]
+     add_show_from_set() commands aren't really appropriate. */
+  /* FIXME: i18n: With the new add_setshow_integer command, that is no
+     longer true - show can display anything.  */
+  add_cmd ("radix", class_support, set_radix, _("\
+Set default input and output number radices.\n\
 Use 'set input-radix' or 'set output-radix' to independently set each.\n\
-Without an argument, sets both radices back to the default value of 10.",
+Without an argument, sets both radices back to the default value of 10."),
 	   &setlist);
-  add_cmd ("radix", class_support, show_radix,
-	   "Show the default input and output number radices.\n\
-Use 'show input-radix' or 'show output-radix' to independently show each.",
+  add_cmd ("radix", class_support, show_radix, _("\
+Show the default input and output number radices.\n\
+Use 'show input-radix' or 'show output-radix' to independently show each."),
 	   &showlist);
 
   /* Give people the defaults which they are used to.  */

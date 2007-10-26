@@ -936,6 +936,16 @@ for_each_memref (tree stmt, bool (*callback)(tree *, void *), void *data)
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
       op = &TREE_OPERAND (stmt, 0);
+
+      /* APPLE LOCAL begin 5276895 */
+      if (TREE_CODE (*op) == COMPONENT_REF)
+	{
+	  tree field = TREE_OPERAND (*op, 1);
+	  if (DECL_NONADDRESSABLE_P (field))
+	    return false;
+	}
+      /* APPLE LOCAL end 5276895 */
+
       if (TREE_CODE (*op) != SSA_NAME
 	  && !callback (op, data))
 	return false;

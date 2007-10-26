@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2000, 2002, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,8 +62,8 @@ enum {
 
 extern int gGUIControl;
 
-extern int CheckHFS(	int fsReadRef, int fsWriteRef, 
+extern int CheckHFS(	const char *rdevnode, int fsReadRef, int fsWriteRef, 
 						int checkLevel, int repairLevel, 
 						int logLevel, int guiControl, 
 						int lostAndFoundMode, int canWrite,
-						int *modified  );
+						int *modified, int liveMode );

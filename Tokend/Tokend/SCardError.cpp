@@ -431,4 +431,3 @@ const char *SCardError::errorstr(uint16_t sw)
 
 } // end namespace Tokend
 
-/* arch-tag: 0BEE055D-8BC7-49A8-B695-DD3C6FD9089A */

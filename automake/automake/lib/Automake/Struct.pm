@@ -1,5 +1,5 @@
 # autoconf -- create `configure' using m4 macros
-# Copyright 2001 Free Software Foundation, Inc.
+# Copyright (C) 2001, 2002, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,8 +13,8 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 # This file is basically Perl 5.6's Class::Struct, but made compatible
 # with Perl 5.5.  If someday this has to be updated, be sure to rename
@@ -22,11 +22,16 @@
 # if we `use' a Perl module (e.g., File::stat) that uses Class::Struct,
 # we would have two packages defining the same symbols.  Boom.
 
+###############################################################
+# The main copy of this file is in Automake's CVS repository. #
+# Updates should be sent to automake-patches@gnu.org.         #
+###############################################################
+
 package Automake::Struct;
 
 ## See POD after __END__
 
-use 5.005;
+use 5.005_03;
 
 use strict;
 use vars qw(@ISA @EXPORT $VERSION);
@@ -564,8 +569,8 @@ Modified by Damian Conway, 1999-03-05, v0.58.
     Added classname prefixes to keys in hash-based classes
     (refer to "Perl Cookbook", Recipe 13.12 for rationale).
 
-    Corrected behaviour of accessors for '*@' and '*%' struct
-    elements.  Package now implements documented behaviour when
+    Corrected behavior of accessors for '*@' and '*%' struct
+    elements.  Package now implements documented behavior when
     returning a reference to an entire hash or array element.
     Previously these were returned as a reference to a reference
     to the element.
@@ -606,3 +611,20 @@ Originally C<Class::Template> by Dean Roehrich.
     # idea.
 
 =cut
+
+### Setup "GNU" style for perl-mode and cperl-mode.
+## Local Variables:
+## perl-indent-level: 2
+## perl-continued-statement-offset: 2
+## perl-continued-brace-offset: 0
+## perl-brace-offset: 0
+## perl-brace-imaginary-offset: 0
+## perl-label-offset: -2
+## cperl-indent-level: 2
+## cperl-brace-offset: 0
+## cperl-continued-brace-offset: 0
+## cperl-label-offset: -2
+## cperl-extra-newline-before-brace: t
+## cperl-merge-trailing-else: nil
+## cperl-continued-statement-offset: 2
+## End:

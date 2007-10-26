@@ -66,7 +66,9 @@ static const int                _delayedRemovePowerMinutes = 3;
 static const int                _delayBeforeStartupMinutes = 4;
 static CFAbsoluteTime           _switchedToUPSPowerTime = 0.0;
 static threshold_struct        *_thresh;
+#if HAVE_CF_USER_NOTIFICATION
 static CFUserNotificationRef    _UPSAlert = NULL;
+#endif
 
 // Local functions defined below
 static  int         _upsSupports(CFNumberRef whichUPS, CFStringRef  command);
@@ -143,7 +145,7 @@ PSLowPowerPSChange(CFTypeRef ps_blob)
     // *** Inspect UPS power levels
     // We assume we're only dealing with 1 UPS for simplicity.
     // The "more than one UPS attached " case is undefined.
-    if(ups = IOPSGetActiveUPS(ps_blob))
+    if((ups = IOPSGetActiveUPS(ps_blob)))
     {
         ups_info = isA_CFDictionary(IOPSGetPowerSourceDescription(ps_blob, ups));
         if(!ups_info) goto _exit_PowerSourcesHaveChanged_;
@@ -155,11 +157,13 @@ PSLowPowerPSChange(CFTypeRef ps_blob)
         isPresent = isA_CFBoolean(CFDictionaryGetValue(ups_info, CFSTR(kIOPSIsPresentKey)));
         if(!isPresent || !CFBooleanGetValue(isPresent))
         {
+#if HAVE_CF_USER_NOTIFICATION
             if(_UPSAlert)
             {
                 CFUserNotificationCancel(_UPSAlert);
                 _UPSAlert = 0;
             }
+#endif
             // If UPS isn't active or connected we shouldn't base policy decisions on it
             goto _exit_PowerSourcesHaveChanged_;
         }
@@ -168,14 +172,14 @@ PSLowPowerPSChange(CFTypeRef ps_blob)
         power_source = isA_CFString(CFDictionaryGetValue(ups_info, CFSTR(kIOPSPowerSourceStateKey)));
         if(!power_source || !CFEqual(power_source, CFSTR(kIOPSBatteryPowerValue)))
         {
+#if HAVE_CF_USER_NOTIFICATION
             // Running off of AC Power
             if(_UPSAlert)
             {
                 CFUserNotificationCancel(_UPSAlert);
                 _UPSAlert = 0;
-                syslog(LOG_INFO, "PM UPS Alert: External power has been restored to system.\n");
             }
-                
+#endif                
             // we have to be draining the internal battery to do a shutdown, so we'll just exit from here.
             goto _exit_PowerSourcesHaveChanged_;
         }
@@ -191,8 +195,10 @@ PSLowPowerPSChange(CFTypeRef ps_blob)
                 _reEvaluatePowerSourcesLater(5 + (60*_thresh->haltafter[kHaltValue]));
             }
             
+#if HAVE_CF_USER_NOTIFICATION
             if(!_UPSAlert) _UPSAlert = _showUPSWarning();
-            syslog(LOG_INFO, "PM UPS Alert: External power has been removed; Running off UPS battery.\n");
+#endif 
+
         }
         
         // TODO: switch this battery-present check for the IOKit 
@@ -230,7 +236,6 @@ PSLowPowerPSChange(CFTypeRef ps_blob)
     
                 if( _thresh->haltpercent[kHaltEnabled] ) {
                     if( percent_remaining <= _thresh->haltpercent[kHaltValue] ) {
-                        syslog(LOG_INFO, "PM UPS Alert: Shutting down at battery level %d\%.\n", minutes_remaining);
                         _doPowerEmergencyShutdown(ups_id);
                     }
                 }
@@ -245,7 +250,6 @@ PSLowPowerPSChange(CFTypeRef ps_blob)
             {
                 if( _thresh->haltremain[kHaltEnabled] ) {
                     if( minutes_remaining <= _thresh->haltremain[kHaltValue] ) {
-                        syslog(LOG_INFO, "PM UPS Alert: Shutting down with %d minutes remaining on UPS.\n", minutes_remaining);
                         _doPowerEmergencyShutdown(ups_id);
                     }
                 }
@@ -255,7 +259,6 @@ PSLowPowerPSChange(CFTypeRef ps_blob)
         // Determine how long we've been running on UPS power
         if( _thresh->haltafter[kHaltEnabled] ) {
             if(_minutesSpentOnUPSPower() >= _thresh->haltafter[kHaltValue]) {
-                syslog(LOG_INFO, "PM UPS Alert: Shutting down after running on UPS for %d minutes.\n", _minutesSpentOnUPSPower());
                 _doPowerEmergencyShutdown(ups_id);
             }
         }
@@ -263,11 +266,13 @@ PSLowPowerPSChange(CFTypeRef ps_blob)
     } else {
         // No "active UPS" detected. 
         // One could have just disappeared - if we're showing an alert, clear it.
+#if HAVE_CF_USER_NOTIFICATION
         if(_UPSAlert)
         {
             CFUserNotificationCancel(_UPSAlert);
             _UPSAlert = 0;
         }
+#endif
     }
     
     // exit point
@@ -315,7 +320,8 @@ _doPowerEmergencyShutdown(CFNumberRef ups_id)
     pid_t           shutdown_pid;
     CFNumberRef     auto_restart;
     IOReturn        error;
-    int             r;
+    bool            upsRestart;
+    int             restart_setting;
     
     if(_alreadyShuttingDown) return;
     _alreadyShuttingDown = 1;
@@ -327,13 +333,17 @@ _doPowerEmergencyShutdown(CFNumberRef ups_id)
     
     auto_restart = isA_CFNumber(CFDictionaryGetValue(_ESSettings, CFSTR(kIOPMRestartOnPowerLossKey)));
     CFRelease(_ESSettings);
-    if(auto_restart) 
-        CFNumberGetValue(auto_restart, kCFNumberIntType, &r);
-    else 
-        r = 0;
-    if(!r)
+    if(auto_restart) {
+        CFNumberGetValue(auto_restart, kCFNumberIntType, &restart_setting);
+    } else { 
+        restart_setting = 0;
+    }
+    upsRestart = restart_setting ? true:false;
+        
+    if(!upsRestart)
     {
-        // Automatic Restart On Power Loss checkbox is disabled - just do a plain old shutdown
+        // Automatic Restart On Power Loss checkbox is disabled - 
+        // just do a plain old shutdown
         // and don't attempt to auto-restart.
         goto shutdown;
     }
@@ -343,7 +353,10 @@ _doPowerEmergencyShutdown(CFNumberRef ups_id)
     {
         syslog(LOG_INFO, "System will restart when external power is restored to UPS.");
 
-        error = _upsCommand(ups_id, CFSTR(kIOPSCommandStartupDelayKey), _delayBeforeStartupMinutes);
+        error = _upsCommand(ups_id, 
+                    CFSTR(kIOPSCommandStartupDelayKey), 
+                    _delayBeforeStartupMinutes);
+
         if(kIOReturnSuccess != error)
         {
             // Attempt to set "startup when power restored" delay failed
@@ -355,28 +368,34 @@ _doPowerEmergencyShutdown(CFNumberRef ups_id)
         error = _upsCommand(ups_id, CFSTR(kIOPSCommandDelayedRemovePowerKey), _delayedRemovePowerMinutes);
         if(kIOReturnSuccess != error)
         {
-            // We tried telling the UPS to auto-restart us, but since that's failing we're
-            // just going to do an old school shutdown that requires human intervention to power on.
+            // We tried telling the UPS to auto-restart us, but since that's 
+            // failing we're just going to do an old school shutdown that 
+            // requires human intervention to power on.
             syslog(LOG_INFO, "UPS Emergency shutdown: error 0x%08x communicating shutdown time to UPS\n", error);
             goto shutdown;
-        }
-            
-        error = _setRootDomainProperty(CFSTR("StallSystemAtHalt"), kCFBooleanTrue);
-        if(kIOReturnSuccess != error) {
-            syslog(LOG_INFO, "UPS Emergency shutdown: internal kernel error 0x%08x\n", error);
         }
     }
     
 shutdown:    
     shutdown_argv[0] = (char *)"/usr/libexec/upsshutdown";
-    shutdown_argv[1] = NULL;
-    shutdown_pid = _SCDPluginExecCommand(0, 0, 0, 0, "/usr/libexec/upsshutdown", shutdown_argv);
+
+    if(upsRestart) {
+        shutdown_argv[1] = (char *)"WaitForUPS";
+        shutdown_argv[2] = NULL;
+    } else {
+        shutdown_argv[1] = NULL; 
+    }
+    shutdown_pid = _SCDPluginExecCommand(0, 0, 0, 0, 
+                        "/usr/libexec/upsshutdown", shutdown_argv);
 }
 
 
 static int
 _upsSupports(CFNumberRef whichUPS, CFStringRef  command)
 {
+#ifdef STANDALONE
+    return true;
+#else
     mach_port_t                 bootstrap_port = MACH_PORT_NULL;
     mach_port_t                 connect = MACH_PORT_NULL;
     int                         prop_supported;
@@ -384,9 +403,6 @@ _upsSupports(CFNumberRef whichUPS, CFStringRef  command)
     int                         _id;
     IOReturn                    ret;
 
-#ifdef STANDALONE
-    return true;
-#else
     if (!IOUPSMIGServerIsRunning(&bootstrap_port, &connect))
     {
         return 0;
@@ -406,15 +422,16 @@ _upsSupports(CFNumberRef whichUPS, CFStringRef  command)
 static IOReturn
 _upsCommand(CFNumberRef whichUPS, CFStringRef command, int arg)
 {
+#ifdef STANDALONE
+    return kIOReturnSuccess;
+#else
     CFMutableDictionaryRef      command_dict;
     IOReturn                    ret = kIOReturnSuccess;
     mach_port_t                 bootstrap_port = MACH_PORT_NULL;
     mach_port_t                 connect = MACH_PORT_NULL;
     CFNumberRef                 minutes;
     int                         _id;
-#ifdef STANDALONE
-    return kIOReturnSuccess;
-#else
+
     if (!IOUPSMIGServerIsRunning(&bootstrap_port, &connect))
     {
         return kIOReturnNoDevice;
@@ -435,8 +452,9 @@ _upsCommand(CFNumberRef whichUPS, CFStringRef command, int arg)
     
     ret = IOUPSSendCommand(connect, _id, command_dict);
     CFRelease(command_dict);
-#endif
+
     return ret;
+#endif
 }
 
 static int
@@ -509,17 +527,20 @@ _getUPSShutdownThresholdsFromDisk(threshold_struct *thresho)
 
     if(!isA_CFDictionary(happytown)) goto exit;
 
-    if(d = isA_CFDictionary(CFDictionaryGetValue(happytown, CFSTR(kIOUPSShutdownAtLevelKey))))
+    if((d = isA_CFDictionary(CFDictionaryGetValue(happytown, 
+                            CFSTR(kIOUPSShutdownAtLevelKey)))))
     {
         thresho->haltpercent[kHaltEnabled] = _threshEnabled(d);
         thresho->haltpercent[kHaltValue] = _threshValue(d);    
     }
-    if(d = isA_CFDictionary(CFDictionaryGetValue(happytown, CFSTR(kIOUPSShutdownAfterMinutesOn))))
+    if((d = isA_CFDictionary(CFDictionaryGetValue(happytown, 
+                            CFSTR(kIOUPSShutdownAfterMinutesOn)))))
     {
         thresho->haltafter[kHaltEnabled] = _threshEnabled(d);
         thresho->haltafter[kHaltValue] = _threshValue(d);    
     }
-    if(d = isA_CFDictionary(CFDictionaryGetValue(happytown, CFSTR(kIOUPSShutdownAtMinutesLeft))))
+    if((d = isA_CFDictionary(CFDictionaryGetValue(happytown, 
+                            CFSTR(kIOUPSShutdownAtMinutesLeft)))))
     {
         thresho->haltremain[kHaltEnabled] = _threshEnabled(d);
         thresho->haltremain[kHaltValue] = _threshValue(d);    

@@ -82,14 +82,14 @@ void
 addarc(
 nltype *parentp,
 nltype *childp,
-unsigned long count,
-unsigned long order)
+uint32_t count,
+uint32_t order)
 {
     arctype *arcp;
 
 #ifdef DEBUG
 	if(debug & TALLYDEBUG){
-	    printf("[addarc] %lu arcs from %s to %s\n" ,
+	    printf("[addarc] %u arcs from %s to %s\n" ,
 		   count, parentp->name, childp->name);
 	}
 #endif
@@ -100,7 +100,7 @@ unsigned long order)
 	     */
 #ifdef DEBUG
 	    if(debug & TALLYDEBUG){
-		printf("[tally] hit %ld += %lu\n",
+		printf("[tally] hit %u += %u\n",
 		       arcp->arc_count, count);
 	    }
 #endif
@@ -343,7 +343,7 @@ nltype *parentp)
 	    if(debug & PROPDEBUG){
 		printf("[dotime] child \t");
 		printname(childp);
-		printf(" with %f %f %ld/%ld\n",
+		printf(" with %f %f %u/%ld\n",
 			childp->time, childp->childtime,
 			arcp->arc_count, childp->ncall);
 		printf("[dotime] parent\t");

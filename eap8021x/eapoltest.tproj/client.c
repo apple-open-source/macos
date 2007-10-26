@@ -77,6 +77,19 @@ S_state_names(EAPOLControlState state)
     return ("<unknown>");
 }
 
+static void
+dump_plist(FILE * f, CFTypeRef p)
+{
+    CFDataRef	data;
+    data = CFPropertyListCreateXMLData(NULL, p);
+    if (data == NULL) {
+	return;
+    }
+    fwrite(CFDataGetBytePtr(data), CFDataGetLength(data), 1, f);
+    CFRelease(data);
+    return;
+}
+
 static int
 get_eapol_interface_status(const char * ifname)
 {
@@ -89,7 +102,8 @@ get_eapol_interface_status(const char * ifname)
 	fprintf(stdout, "EAPOLControlCopyStateAndStatus(%s) =  %s\n", ifname,
 		S_state_names(state));
 	if (dict != NULL) {
-	    SCPrint(TRUE, stdout, CFSTR("Status dict:\n%@\n"), dict);
+	    fprintf(stdout, "Status dict:\n");
+	    dump_plist(stdout, dict);
 	    CFRelease(dict);
 	}
     }

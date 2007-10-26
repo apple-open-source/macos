@@ -721,7 +721,7 @@ cflags: config-check
 
 $(DLIB): $(LIB_OBJ) 
 	rm -f $(DLIB)
-	/usr/bin/libtool -dynamic -o $(DLIB) -install_name /usr/lib/$(DLIB) -compatibility_version $(MAJOR) -current_version $(MAJOR).$(MINOR) $(LIB_OBJ) tcpd.o -lSystem -lgcc
+	$(CC) $(RC_CFLAGS) -dynamiclib -o $(DLIB) -install_name /usr/lib/$(DLIB) -compatibility_version $(MAJOR) -current_version $(MAJOR).$(MINOR) $(LIB_OBJ) tcpd.o
 
 $(LIB):	$(DLIB)
 	rm -f $(LIB)
@@ -749,6 +749,9 @@ TCPDCHK_OBJ = tcpdchk.o fakelog.o inetcf.o scaffold.o
 
 tcpdchk: $(TCPDCHK_OBJ) $(LIB)
 	$(CC) $(CFLAGS) -o $@ $(TCPDCHK_OBJ) $(LIB) $(LIBS)
+
+$(TCPDCHK_OBJ) $(TCPDMATCH_OBJ):
+	$(CC) -mdynamic-no-pic $(CFLAGS) $(CPPFLAGS) -c $*.c
 
 shar:	$(KIT)
 	@shar $(KIT)

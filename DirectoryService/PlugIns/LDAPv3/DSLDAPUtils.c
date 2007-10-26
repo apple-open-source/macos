@@ -27,39 +27,117 @@
 
 #include <lber.h>
 #include <ldap.h>
+#include <ldap_private.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <syslog.h>
+
+#include <Security/Authorization.h>
 
 #include "PrivateTypes.h"
 #include "DSLDAPUtils.h"
+#include "GetMACAddress.h"
 
-void DSSearchCleanUp (	LDAP		   *inHost,
-						int				inMsgId )
+extern uint32_t gSystemGoingToSleep;
+
+// ---------------------------------------------------------------------------
+//	* GetXMLFromBuffer
+// ---------------------------------------------------------------------------
+
+CFMutableDictionaryRef GetXMLFromBuffer( tDataBufferPtr inBuffer )
 {
-	struct timeval		tv					= { 0, 10 }; //do not anticipate any delay ie. 10 usecs
-	LDAPMessage		   *aTestResult			= nil;
-	int					aTestLDAPReturnCode = LDAP_RES_SEARCH_ENTRY;
-
-	SetNetworkTimeoutsForHost( inHost, kLDAPDefaultNetworkTimeoutInSeconds );
-	//here we attempt to read any remaining results from this LDAP msg chain so that the ld_responses list gets cleaned up in the LDAP FW
-	if (inMsgId != 0)
+	SInt32					iBufLen			= inBuffer->fBufferLength;
+	CFMutableDictionaryRef  cfXMLDict		= NULL;
+	SInt32					iXMLDataLength	= 0;
+	CFDataRef				cfXMLData		= NULL;
+	
+	// we always get an XML blob, so let's parse the blob so we can do something with it
+	iXMLDataLength = iBufLen - sizeof( AuthorizationExternalForm );
+	if ( iXMLDataLength > 0 )
 	{
-		while( (aTestLDAPReturnCode != 0) && (aTestLDAPReturnCode != -1) && (aTestLDAPReturnCode != LDAP_RES_SEARCH_RESULT) )
+		cfXMLData = CFDataCreate( kCFAllocatorDefault, (UInt8 *)(inBuffer->fBufferData + sizeof(AuthorizationExternalForm)), iXMLDataLength );
+		if ( cfXMLData != NULL )
 		{
-			aTestLDAPReturnCode = ldap_result(inHost, inMsgId, LDAP_MSG_ONE, &tv, &aTestResult);
-			if (aTestResult != nil)
-			{
-				ldap_msgfree(aTestResult);
-				aTestResult = nil;
-			}
-			//syslog(LOG_INFO,"DSSearchCleanUp: flush calls to ldap_result for msgID = %d with result = %d", inMsgId, aTestLDAPReturnCode );
+			// extract the config dictionary from the XML data.
+			cfXMLDict = (CFMutableDictionaryRef) CFPropertyListCreateFromXMLData( kCFAllocatorDefault, cfXMLData, kCFPropertyListMutableContainersAndLeaves, NULL );
+			
+			CFRelease( cfXMLData ); // let's release it, we're done with it
+			cfXMLData = NULL;
 		}
 	}
-} // DSSearchLDAP
+	
+	return cfXMLDict;
+} // GetXMLFromBuffer
 
-void SetNetworkTimeoutsForHost( LDAP* host, int numSeconds )
+
+// ---------------------------------------------------------------------------
+//	* PutXMLInBuffer
+// ---------------------------------------------------------------------------
+
+SInt32 PutXMLInBuffer( CFDictionaryRef inXMLDict, tDataBufferPtr outBuffer )
 {
-	struct timeval networkTimeout = { numSeconds, 0 };
-	ldap_set_option( host, LDAP_OPT_TIMEOUT, &networkTimeout );
-	ldap_set_option( host, LDAP_OPT_NETWORK_TIMEOUT, &networkTimeout );
-}				
+	CFDataRef   cfReturnData	= (CFDataRef) CFPropertyListCreateXMLData( kCFAllocatorDefault, inXMLDict );
+	SInt32		siResult		= eDSNoErr;
+	
+	if ( cfReturnData != NULL )
+	{
+		CFRange stRange = CFRangeMake( 0, CFDataGetLength(cfReturnData) );
+		if ( outBuffer->fBufferSize < (unsigned int) stRange.length ) 
+		{
+			siResult = eDSBufferTooSmall;
+		}
+		else
+		{
+			CFDataGetBytes( cfReturnData, stRange, (UInt8*)(outBuffer->fBufferData) );
+			outBuffer->fBufferLength = stRange.length;
+		}
+		CFRelease( cfReturnData );
+		cfReturnData = 0;
+	}
+	return siResult;
+} // PutXMLInBuffer
+
+//------------------------------------------------------------------------------------
+//	* BuildEscapedRDN
+//------------------------------------------------------------------------------------
+
+char *
+BuildEscapedRDN( const char *inLDAPRDN )
+{
+	char	   *outLDAPRDN		= nil;
+	UInt32		recNameLen		= 0;
+	UInt32		originalIndex	= 0;
+	UInt32		escapedIndex	= 0;
+
+	if (inLDAPRDN != nil)
+	{
+		recNameLen = strlen(inLDAPRDN);
+		outLDAPRDN = (char *)calloc(1, 2 * recNameLen + 1);
+		// assume at most all characters will be escaped
+		while (originalIndex < recNameLen)
+		{
+			switch (inLDAPRDN[originalIndex])
+			{
+				case '#':
+				case ' ':
+				case ',':
+				case '+':
+				case '"':
+				case '\\':
+				case '<':
+				case '>':
+				case ';':
+					outLDAPRDN[escapedIndex] = '\\';
+					++escapedIndex;
+					//fall thru to complete these escaped cases
+				default:
+					outLDAPRDN[escapedIndex] = inLDAPRDN[originalIndex];
+					++escapedIndex;
+					break;
+			}
+			++originalIndex;
+		}
+	}
+	return(outLDAPRDN);
+}
+

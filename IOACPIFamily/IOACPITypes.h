@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,28 +64,32 @@ enum {
     kIOACPIAddressSpaceIDSMBus              = 4
 };
 
-// Address space operations.
-
+/*
+ * Address space operation
+ */
 enum {
     kIOACPIAddressSpaceOpRead  = 0,
     kIOACPIAddressSpaceOpWrite = 1
 };
 
-// 64-bit ACPI address.
-
+/*
+ * 64-bit ACPI address
+ */
 union IOACPIAddress {
     UInt64 addr64;
     struct {
-        UInt16  offset;
-        UInt16  function;
-        UInt16  device;
-        UInt8   bus;
-        UInt8   reserved;
+        unsigned int offset     :16;
+        unsigned int function   :3;
+        unsigned int device     :5;
+        unsigned int bus        :8;
+        unsigned int segment    :16;
+        unsigned int reserved   :16;
     } pci;
 };
 
-// Address space handler.
-
+/*
+ * Address space handler
+ */
 typedef IOReturn (*IOACPIAddressSpaceHandler)( UInt32         operation,
                                                IOACPIAddress  address,
                                                UInt64 *       value,
@@ -93,8 +97,9 @@ typedef IOReturn (*IOACPIAddressSpaceHandler)( UInt32         operation,
                                                UInt32         bitOffset,
                                                void *         context );
 
-// Fixed ACPI event types.
-
+/*
+ * ACPI fixed event types
+ */
 enum {
     kIOACPIFixedEventPMTimer       = 0,
     kIOACPIFixedEventPowerButton   = 2,
@@ -117,8 +122,9 @@ enum {
  */
 #define kIOACPIMessageDeviceNotification  iokit_family_msg(sub_iokit_acpi, 0x10)
 
-// ACPI device power states.
-
+/*
+ * ACPI device power states
+ */
 enum {
     kIOACPIDevicePowerStateD0    = 0,
     kIOACPIDevicePowerStateD1    = 1,

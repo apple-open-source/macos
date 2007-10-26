@@ -40,6 +40,7 @@ static const char rcsid[] =
 #endif /* not lint */
 
 #include <sys/cdefs.h>
+#include <sys/ioctl.h>
 
 /*
  * Mail -- a mail program
@@ -110,9 +111,12 @@ grabh(hp, gflags)
 			warn("TIOCEXT: off");
 	}
 # endif	/* TIOCEXT */
-	if (setjmp(intjmp))
-		goto out;
 	saveint = signal(SIGINT, ttyint);
+	if (setjmp(intjmp)) {
+		/* Interrupt from headers needs to be told to caller */
+		errs++;
+		goto out;
+	}
 #endif
 	if (gflags & GTO) {
 #ifndef TIOCSTI

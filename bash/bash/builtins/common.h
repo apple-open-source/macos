@@ -1,6 +1,6 @@
 /* common.h -- extern declarations for functions defined in common.c. */
 
-/* Copyright (C) 1993-2002 Free Software Foundation, Inc.
+/* Copyright (C) 1993-2004 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -30,6 +30,7 @@
 #define SEVAL_INTERACT	0x002
 #define SEVAL_NOHIST	0x004
 #define SEVAL_NOFREE	0x008
+#define SEVAL_RESETLINE	0x010
 
 /* Flags for describe_command, shared between type.def and command.def */
 #define CDESC_ALL		0x001	/* type -a */
@@ -39,6 +40,7 @@
 #define CDESC_PATH_ONLY		0x010	/* type -p */
 #define CDESC_FORCE_PATH	0x020	/* type -ap or type -P */
 #define CDESC_NOFUNCS		0x040	/* type -f */
+#define CDESC_ABSPATH		0x080	/* convert to absolute path, no ./ */
 
 /* Flags for get_job_by_name */
 #define JM_PREFIX		0x01	/* prefix of job name */
@@ -74,6 +76,8 @@ extern void sh_badjob __P((char *));
 extern void sh_readonly __P((const char *));
 extern void sh_nojobs __P((char *));
 extern void sh_restricted __P((char *));
+extern void sh_notbuiltin __P((char *));
+extern void sh_wrerror __P((void));
 
 extern char **make_builtin_argv __P((WORD_LIST *, int *));
 extern void remember_args __P((WORD_LIST *, int));
@@ -104,6 +108,9 @@ extern sh_builtin_func_t *find_shell_builtin __P((char *));
 extern sh_builtin_func_t *builtin_address __P((char *));
 extern sh_builtin_func_t *find_special_builtin __P((char *));
 extern void initialize_shell_builtins __P((void));
+
+/* Functions from exit.def */
+extern void bash_logout __P((void));
 
 /* Functions from getopts.def */
 extern void getopts_reset __P((int));
@@ -142,7 +149,7 @@ extern void set_var_attribute __P((char *, int, int));
 extern char *get_dirstack_from_string __P((char *));
 extern char *get_dirstack_element __P((intmax_t, int));
 extern void set_dirstack_element __P((intmax_t, int, char *));
-extern WORD_LIST *get_directory_stack __P((void));
+extern WORD_LIST *get_directory_stack __P((int));
 
 /* Functions from evalstring.c */
 extern int parse_and_execute __P((char *, const char *, int));
@@ -150,7 +157,7 @@ extern void parse_and_execute_cleanup __P((void));
 
 /* Functions from evalfile.c */
 extern int maybe_execute_file __P((const char *, int));
-extern int source_file __P((const char *));
+extern int source_file __P((const char *, int));
 extern int fc_execute_file __P((const char *));
 
 #endif /* !__COMMON_H */

@@ -26,6 +26,7 @@
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderFile=".\Release/uresb.pch"
 				AssemblerListingLocation=".\Release/"
@@ -38,7 +39,6 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="icuuc.lib icuio.lib icutu.lib"
 				OutputFile=".\Release/uresb.exe"
 				LinkIncremental="1"
@@ -85,6 +85,7 @@
 				PreprocessorDefinitions="WIN32,_DEBUG,_CONSOLE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				TreatWChar_tAsBuiltInType="TRUE"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderFile=".\Debug/uresb.pch"
 				AssemblerListingLocation=".\Debug/"
@@ -95,13 +96,9 @@
 				DebugInformationFormat="4"
 				CompileAs="0"/>
 			<Tool
-				Name="VCCustomBuildTool"
-				CommandLine="copy $(InputPath) ..\..\..\bin
-"
-				Outputs="..\..\..\bin\$(InputName).exe"/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="icuucd.lib icuiod.lib icutud.lib"
 				OutputFile=".\Debug/uresb.exe"
 				LinkIncremental="2"

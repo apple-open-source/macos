@@ -129,35 +129,35 @@ IOReturn IOFireWireSBP2LibMgmtORB::init( io_connect_t connection, mach_port_t as
 		
 	if( status == kIOReturnSuccess )
 	{
-		mach_msg_type_number_t len = 1;
-		status = io_connect_method_scalarI_scalarO( connection, 					 
-													kIOFWSBP2UserClientCreateMgmtORB, 
-													NULL, 0, (int*)&fMgmtORBRef, &len );
+		uint32_t len = 1;
+		status = IOConnectCallScalarMethod( connection, 					 
+											kIOFWSBP2UserClientCreateMgmtORB, 
+											NULL, 0, &fMgmtORBRef, &len );
 		if( status != kIOReturnSuccess )
 			fMgmtORBRef = 0; // just to make sure
-													
-		FWLOG(( "IOFireWireSBP2LibMgmtORB :  status = 0x%08x = fMgmtORBRef 0x%08lx\n",
-																	status, fMgmtORBRef ));
+		
+		#if __LP64__
+			FWLOG(( "IOFireWireSBP2LibMgmtORB :  status = 0x%08x = fMgmtORBRef 0x%016llx\n", status, fMgmtORBRef ));
+		#else
+			FWLOG(( "IOFireWireSBP2LibMgmtORB :  status = 0x%08x = fMgmtORBRef 0x%08lx\n", status, fMgmtORBRef ));
+		#endif
 	}
 	
 	if( status == kIOReturnSuccess )
 	{
-		io_async_ref_t 			asyncRef;
-		io_scalar_inband_t		params;
+		io_async_ref64_t asyncRef;
 		mach_msg_type_number_t	size = 0;
+
+		asyncRef[0]	= fAsyncPort;
+		asyncRef[1]	= (uint64_t)this;
+		asyncRef[2]	= (uint64_t)&IOFireWireSBP2LibMgmtORB::staticORBCompletion;
 		
-		asyncRef[0] = 0;
-		params[0]	= (UInt32)fMgmtORBRef;
-		params[1]	= (UInt32)this;
-		params[2]	= (UInt32)(IOAsyncCallback1)&IOFireWireSBP2LibMgmtORB::staticORBCompletion;
-	
-		status = io_async_method_scalarI_scalarO( fConnection, fAsyncPort, 
-												  asyncRef, 1, 
-												  kIOFWSBP2UserClientSetMgmtORBCallback,
-												  params, 3,
-												  NULL, &size );	
-	}
-		
+		uint64_t params[1];
+		params[0] = fMgmtORBRef;
+		 		
+		status = IOConnectCallAsyncScalarMethod( fConnection, kIOFWSBP2UserClientSetMgmtORBCallback, fAsyncPort, asyncRef, 3, params, 1, NULL, &size  );
+	}		
+
 	return status;
 }
 
@@ -171,10 +171,10 @@ IOFireWireSBP2LibMgmtORB::~IOFireWireSBP2LibMgmtORB()
 	{
 		IOReturn status = kIOReturnSuccess;
 		
-		mach_msg_type_number_t len = 0;
-		status = io_connect_method_scalarI_scalarO( fConnection, 	
-													kIOFWSBP2UserClientReleaseMgmtORB, 
-													(int*)&fMgmtORBRef, 1, NULL, &len );
+		uint32_t len = 0;
+		status = IOConnectCallScalarMethod( fConnection, 	
+											kIOFWSBP2UserClientReleaseMgmtORB, 
+											&fMgmtORBRef, 1, NULL, &len );
 		FWLOG(( "IOFireWireSBP2LibMgmtORB : release orb status = 0x%08x\n", status ));
 	}
 }
@@ -268,10 +268,10 @@ IOReturn IOFireWireSBP2LibMgmtORB::submitORB( void )
 	
 	FWLOG(( "IOFireWireSBP2LibMgmtORB : submitORB\n" ));
 		
-	mach_msg_type_number_t len = 0;
-	status = io_connect_method_scalarI_scalarO( fConnection, 	
-												kIOFWSBP2UserClientSubmitMgmtORB, 
-												(int*)&fMgmtORBRef, 1, NULL, &len );
+	uint32_t len = 0;
+	status = IOConnectCallScalarMethod( fConnection, 	
+										kIOFWSBP2UserClientSubmitMgmtORB, 
+										&fMgmtORBRef, 1, NULL, &len );
 	return status;
 }
 
@@ -296,12 +296,12 @@ void IOFireWireSBP2LibMgmtORB::setORBCallback( void * refCon,
 //
 //
 
-void IOFireWireSBP2LibMgmtORB::staticSetRefCon( void * self, UInt32 refCon )
+void IOFireWireSBP2LibMgmtORB::staticSetRefCon( void * self, void * refCon )
 {
 	getThis(self)->setRefCon( refCon );
 }
 
-void IOFireWireSBP2LibMgmtORB::setRefCon( UInt32 refCon )
+void IOFireWireSBP2LibMgmtORB::setRefCon( void * refCon )
 {
 	fRefCon = refCon;
 }
@@ -310,12 +310,12 @@ void IOFireWireSBP2LibMgmtORB::setRefCon( UInt32 refCon )
 //
 //
 
-UInt32 IOFireWireSBP2LibMgmtORB::staticGetRefCon( void * self )
+void * IOFireWireSBP2LibMgmtORB::staticGetRefCon( void * self )
 {
 	return getThis(self)->getRefCon();
 }
 
-UInt32 IOFireWireSBP2LibMgmtORB::getRefCon( void )
+void * IOFireWireSBP2LibMgmtORB::getRefCon( void )
 {
 	return fRefCon;
 }
@@ -334,21 +334,21 @@ IOReturn IOFireWireSBP2LibMgmtORB::setCommandFunction( UInt32 function )
 {
 	IOReturn status = kIOReturnSuccess;
 
-	if( fMgmtORBRef == NULL ) 
+	if( fMgmtORBRef == 0 ) 
 		status = kIOReturnError;
 		
 	if( status == kIOReturnSuccess )
 	{
-		mach_msg_type_number_t len = 0;
-		UInt32 params[2];
+		uint32_t len = 0;
+		uint64_t params[2];
 	
 		params[0] = fMgmtORBRef;
 		params[1] = function;
 
-		status = io_connect_method_scalarI_scalarO
+		status = IOConnectCallScalarMethod
 						( fConnection, 	
 						  kIOFWSBP2UserClientMgmtORBSetCommandFunction, 
-						  (int*)&params, 2, NULL, &len );
+						  params, 2, NULL, &len );
 						  
 		FWLOG(( "IOFireWireSBP2LibMgmtORB : setCommandFunction = 0x%08lx\n", function ));
 	}
@@ -370,28 +370,28 @@ IOReturn IOFireWireSBP2LibMgmtORB::setManageeORB( void * orb )
 {
 	IOReturn status = kIOReturnSuccess;
 
-	if( fMgmtORBRef == NULL ) 
+	if( fMgmtORBRef == 0 ) 
 		status = kIOReturnError;
 	
 	UInt32 orbRef;
 
 	if( orb == NULL )
-		orbRef = NULL;
+		orbRef = 0;
 	else
 		orbRef = IOFireWireSBP2LibORB::getThis(orb)->getORBRef();
 		
 	if( status == kIOReturnSuccess )
 	{
-		mach_msg_type_number_t len = 0;
-		UInt32 params[2];
+		uint32_t len = 0;
+		uint64_t params[2];
 	
 		params[0] = fMgmtORBRef;
 		params[1] = orbRef;
 
-		status = io_connect_method_scalarI_scalarO
+		status = IOConnectCallScalarMethod
 						( fConnection, 	
 						  kIOFWSBP2UserClientMgmtORBSetManageeORB, 
-						  (int*)&params, 2, NULL, &len );
+						  params, 2, NULL, &len );
 	}
 	
 	return status;
@@ -410,28 +410,28 @@ IOReturn IOFireWireSBP2LibMgmtORB::setManageeLogin( void * login )
 {
 	IOReturn status = kIOReturnSuccess;
 
-	if( fMgmtORBRef == NULL ) 
+	if( fMgmtORBRef == 0 ) 
 		status = kIOReturnError;
 	
 	UInt32 loginRef;
 
 	if( login == NULL )
-		loginRef = NULL;
+		loginRef = 0;
 	else
 		loginRef = IOFireWireSBP2LibLogin::getThis(login)->getLoginRef();
 
 	if( status == kIOReturnSuccess )
 	{
-		mach_msg_type_number_t len = 0;
-		UInt32 params[2];
+		uint32_t len = 0;
+		uint64_t params[2];
 	
 		params[0] = fMgmtORBRef;
 		params[1] = loginRef;
 
-		status = io_connect_method_scalarI_scalarO
+		status = IOConnectCallScalarMethod
 						( fConnection, 	
 						  kIOFWSBP2UserClientMgmtORBSetManageeLogin, 
-						  (int*)&params, 2, NULL, &len );
+						  params, 2, NULL, &len );
 	}
 	
 	return status;
@@ -451,22 +451,22 @@ IOReturn IOFireWireSBP2LibMgmtORB::setResponseBuffer( void * buf, UInt32 len )
 {
 	IOReturn status = kIOReturnSuccess;
 
-	if( fMgmtORBRef == NULL ) 
+	if( fMgmtORBRef == 0 ) 
 		status = kIOReturnError;
 		
 	if( status == kIOReturnSuccess )
 	{
-		mach_msg_type_number_t len = 0;
-		UInt32 params[3];
+		uint32_t len = 0;
+		uint64_t params[3];
 	
 		params[0] = fMgmtORBRef;
-		params[1] = (UInt32)buf;
+		params[1] = (uint64_t)buf;
 		params[2] = len;
 		
-		status = io_connect_method_scalarI_scalarO
+		status = IOConnectCallScalarMethod
 						( fConnection, 	
 						  kIOFWSBP2UserClientMgmtORBSetResponseBuffer, 
-						  (int*)&params, 3, NULL, &len );
+						  params, 3, NULL, &len );
 	}
 	
 	return status;
@@ -476,15 +476,15 @@ IOReturn IOFireWireSBP2LibMgmtORB::setResponseBuffer( void * buf, UInt32 len )
 // callback methods
 
 void IOFireWireSBP2LibMgmtORB::staticORBCompletion( void *refcon, IOReturn result, 
-													void * arg0 )
+													io_user_reference_t *args )
 {
-	((IOFireWireSBP2LibMgmtORB*)refcon)->ORBCompletion( result, arg0 );
+	((IOFireWireSBP2LibMgmtORB*)refcon)->ORBCompletion( result, args );
 }
 
-void IOFireWireSBP2LibMgmtORB::ORBCompletion( IOReturn result, void * arg0 )
+void IOFireWireSBP2LibMgmtORB::ORBCompletion( IOReturn result, io_user_reference_t *args )
 {
 	FWLOG(( "IOFireWireSBP2LibMgmtORB : ORBCompletion\n" ));
 	
 	if( fORBCallbackRoutine != NULL )
-		(fORBCallbackRoutine)( fORBCallbackRefCon, (IOReturn)arg0, (void*)fRefCon );
+		(fORBCallbackRoutine)( fORBCallbackRefCon, (IOReturn)args[0], (void*)fRefCon );
 }

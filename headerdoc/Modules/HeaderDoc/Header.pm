@@ -4,7 +4,7 @@
 # Synopsis: Holds header-wide comments parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/10/04 23:11:19 $
+# Last Updated: $Date: 2006/07/10 22:07:24 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -41,7 +41,7 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.11.2.9.2.20 $';
+$VERSION = '$Revision: 1.11.2.9.2.24 $';
 
 # Inheritance
 @ISA = qw( HeaderDoc::APIOwner );
@@ -199,8 +199,7 @@ sub updated {
 		    # my $filename = $HeaderDoc::headerObject->filename();
 		    my $filename = $self->filename();
 		    my $linenum = $self->linenum();
-		    print "$filename:$linenum:Bogus date format: $updated.\n";
-		    print "Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		    print "$filename:$linenum: warning: Bogus date format: $updated. Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		    return $self->{UPDATED};
 		} else {
 		    $month =~ s/(\d\d)-\d\d-\d\d/$1/smog;
@@ -263,11 +262,10 @@ sub updated {
 		# my $filename = $HeaderDoc::headerObject->filename();
 		my $filename = $self->filename();
 		my $linenum = $self->linenum();
-		print "$filename:$linenum:Invalid date (year = $year, month = $month, day = $day).\n";
-		print "$filename:$linenum:Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		print "$filename:$linenum: warning: Invalid date (year = $year, month = $month, day = $day). Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		return $self->{UPDATED};
 	} else {
-		$self->{UPDATED} = HeaderDoc::HeaderElement::strdate($month, $day, $year);
+		$self->{UPDATED} = HeaderDoc::HeaderElement::strdate($month-1, $day, $year);
 		print "date set to ".$self->{UPDATED}."\n" if ($localDebug);
 	}
     }
@@ -491,20 +489,25 @@ sub writeCategories {
     }
 }
 
+# use Devel::Peek;
 
 sub docNavigatorComment {
     my $self = shift;
+    # print "IX0\n"; Dump($self);
     my $name = $self->name();
-    $name =~ s/;//sgo;
+    my $procname = $name;
+    $procname =~ s/;//sgo;
+    $name =~ s/;/\\;/sgo;
     my $shortname = $self->filename();
     $shortname =~ s/\.hdoc$//so;
-    $shortname = sanitize($shortname);
+    $shortname = sanitize($shortname, 1);
+    # print "IX1\n"; Dump($self);
     
     if ($self->isFramework()) {
 	# Don't insert a UID.  It will go on the landing page.
 	return "<!-- headerDoc=Framework; shortname=$shortname; name=$name-->";
     } else {
-	# return "<!-- headerDoc=Header; name=$name-->";
+	# return "<!-- headerDoc=Header; name=$procname-->";
 	return $self->apiref(0, "Header");
     }
 }

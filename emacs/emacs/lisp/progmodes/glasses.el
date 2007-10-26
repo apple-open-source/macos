@@ -1,6 +1,7 @@
 ;;; glasses.el --- make cantReadThis readable
 
-;; Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
 
 ;; Author: Milan Zamazal <pdm@zamazal.org>
 ;; Maintainer: Milan Zamazal <pdm@zamazal.org>
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -67,34 +68,59 @@
 
 
 (defcustom glasses-separator "_"
-  "*String to be displayed as a visual separator in unreadable identifiers."
+  "String to be displayed as a visual separator in identifiers.
+It is used both for adding missing separators and for replacing separators
+defined by `glasses-original-separator'.  If you don't want to add missing
+separators, set `glasses-separator' to an empty string.  If you don't want to
+replace existent separators, set `glasses-original-separator' to an empty
+string."
   :group 'glasses
   :type 'string
   :set 'glasses-custom-set
   :initialize 'custom-initialize-default)
 
 
+(defcustom glasses-original-separator "_"
+  "*String to be displayed as `glasses-separator' in separator positions.
+For instance, if you set it to \"_\" and set `glasses-separator' to \"-\",
+underscore separators are displayed as hyphens.
+If `glasses-original-separator' is an empty string, no such display change is
+performed."
+  :group 'glasses
+  :type 'string
+  :set 'glasses-custom-set
+  :initialize 'custom-initialize-default
+  :version "22.1")
+
+
 (defcustom glasses-face nil
-  "*Face to be put on capitals of an identifier looked through glasses.
+  "Face to be put on capitals of an identifier looked through glasses.
 If it is nil, no face is placed at the capitalized letter.
 
 For example, you can set `glasses-separator' to an empty string and
 `glasses-face' to `bold'.  Then unreadable identifiers will have no separators,
 but will have their capitals in bold."
   :group 'glasses
-  :type 'symbol
+  :type '(choice (const :tag "None" nil) face)
   :set 'glasses-custom-set
   :initialize 'custom-initialize-default)
 
 
 (defcustom glasses-separate-parentheses-p t
-  "*If non-nil, ensure space between an identifier and an opening parenthesis."
+  "If non-nil, ensure space between an identifier and an opening parenthesis."
   :group 'glasses
   :type 'boolean)
 
+(defcustom glasses-separate-parentheses-exceptions
+  '("^#[\t ]*define[\t ]*[A-Za-z0-9_-]* ?($")
+  "List of regexp that are exceptions for `glasses-separate-parentheses-p'.
+They are matched to the current line truncated to the point where the
+parenthesis expression starts."
+  :group 'glasses
+  :type '(repeat regexp))
 
 (defcustom glasses-uncapitalize-p nil
-  "*If non-nil, downcase embedded capital letters in identifiers.
+  "If non-nil, downcase embedded capital letters in identifiers.
 Only identifiers starting with lower case letters are affected, letters inside
 other identifiers are unchanged."
   :group 'glasses
@@ -104,7 +130,7 @@ other identifiers are unchanged."
 
 
 (defcustom glasses-uncapitalize-regexp "[a-z]"
-  "*Regexp matching beginnings of words to be uncapitalized.
+  "Regexp matching beginnings of words to be uncapitalized.
 Only words starting with this regexp are uncapitalized.
 The regexp is case sensitive.
 It has any effect only when `glasses-uncapitalize-p' is non-nil."
@@ -115,7 +141,7 @@ It has any effect only when `glasses-uncapitalize-p' is non-nil."
 
 
 (defcustom glasses-convert-on-write-p nil
-  "*If non-nil, remove separators when writing glasses buffer to a file.
+  "If non-nil, remove separators when writing glasses buffer to a file.
 If you are confused by glasses so much, that you write the separators into code
 during coding, set this variable to t.  The separators will be removed on each
 file write then.
@@ -135,6 +161,14 @@ Used in :set parameter of some customized glasses variables."
 
 ;;; Utility functions
 
+(defun glasses-parenthesis-exception-p (beg end)
+  "Tell if (BEG, END) is an exception to `glasses-separate-parentheses-p'.
+See `glasses-separate-parentheses-exceptions'."
+  (save-match-data
+    (let ((str (buffer-substring beg end)))
+      (catch 'match
+	(dolist (re glasses-separate-parentheses-exceptions)
+	  (and (string-match re str) (throw 'match t)))))))
 
 (defun glasses-set-overlay-properties ()
   "Set properties of glasses overlays.
@@ -195,12 +229,28 @@ CATEGORY is the overlay category.  If it is nil, use the `glasses' category."
 			   (looking-at glasses-uncapitalize-regexp))))
 	      (overlay-put o 'invisible t)
 	      (overlay-put o 'after-string (downcase (match-string n))))))
+        ;; Separator change
+	(when (and (not (string= glasses-original-separator glasses-separator))
+		   (not (string= glasses-original-separator "")))
+          (goto-char beg)
+	  (let ((original-regexp (regexp-quote glasses-original-separator)))
+	    (while (re-search-forward
+		    (format "[a-zA-Z0-9]\\(\\(%s\\)+\\)[a-zA-Z0-9]"
+			    original-regexp)
+		    end t)
+	      (goto-char (match-beginning 1))
+	      (while (looking-at original-regexp)
+		(let ((o (glasses-make-overlay (point) (1+ (point)))))
+		  ;; `concat' ensures the character properties won't merge
+		  (overlay-put o 'display (concat glasses-separator)))
+		(goto-char (match-end 0))))))
 	;; Parentheses
 	(when glasses-separate-parentheses-p
 	  (goto-char beg)
 	  (while (re-search-forward "[a-zA-Z]_*\\(\(\\)" end t)
-	    (glasses-make-overlay (match-beginning 1) (match-end 1)
-				  'glasses-parenthesis)))))))
+	    (unless (glasses-parenthesis-exception-p (point-at-bol) (match-end 1))
+	      (glasses-make-overlay (match-beginning 1) (match-end 1)
+				    'glasses-parenthesis))))))))
 
 
 (defun glasses-make-unreadable (beg end)
@@ -214,23 +264,31 @@ CATEGORY is the overlay category.  If it is nil, use the `glasses' category."
   "Convert current buffer to unreadable identifiers and return nil.
 This function modifies buffer contents, it removes all the separators,
 recognized according to the current value of the variable `glasses-separator'."
-  (when (and glasses-convert-on-write-p
-	     (not (string= glasses-separator "")))
+  (when glasses-convert-on-write-p
     (let ((case-fold-search nil)
 	  (separator (regexp-quote glasses-separator)))
       (save-excursion
-	(goto-char (point-min))
-	(while (re-search-forward
-		(format "[a-z]\\(%s\\)[A-Z]\\|[A-Z]\\(%s\\)[A-Z][a-z]"
-			separator separator)
-		nil t)
-	  (let ((n (if (match-string 1) 1 2)))
-	    (replace-match "" t nil nil n)
-	    (goto-char (match-end n))))
+	(unless (string= glasses-separator "")
+	  (goto-char (point-min))
+	  (while (re-search-forward
+		  (format "[a-z]\\(%s\\)[A-Z]\\|[A-Z]\\(%s\\)[A-Z][a-z]"
+			  separator separator)
+		  nil t)
+	    (let ((n (if (match-string 1) 1 2)))
+	      (replace-match "" t nil nil n)
+	      (goto-char (match-end n))))
+	  (unless (string= glasses-separator glasses-original-separator)
+	    (goto-char (point-min))
+	    (while (re-search-forward (format "[a-zA-Z0-9]\\(%s+\\)[a-zA-Z0-9]"
+					      separator)
+				      nil t)
+	      (replace-match glasses-original-separator nil nil nil 1)
+	      (goto-char (match-beginning 1)))))
 	(when glasses-separate-parentheses-p
 	  (goto-char (point-min))
 	  (while (re-search-forward "[a-zA-Z]_*\\( \\)\(" nil t)
-	    (replace-match "" t nil nil 1))))))
+	    (unless (glasses-parenthesis-exception-p (point-at-bol) (1+ (match-end 1)))
+	      (replace-match "" t nil nil 1)))))))
   ;; nil must be returned to allow use in write file hooks
   nil)
 
@@ -251,7 +309,7 @@ recognized according to the current value of the variable `glasses-separator'."
   "Minor mode for making identifiers likeThis readable.
 When this mode is active, it tries to add virtual separators (like underscores)
 at places they belong to."
-  nil " o^o" nil
+  :group 'glasses :lighter " o^o"
   (save-excursion
     (save-restriction
       (widen)
@@ -273,4 +331,5 @@ at places they belong to."
 (provide 'glasses)
 
 
+;; arch-tag: a3515167-c89e-484f-90a1-d85143e52b12
 ;;; glasses.el ends here

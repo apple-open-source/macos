@@ -1,8 +1,9 @@
-thisconfigdir=./..
+thisconfigdir=../../..
 myfulldir=lib/crypto/aes
-mydir=aes
+mydir=lib/crypto/aes
 BUILDTOP=$(REL)..$(S)..$(S)..
 LOCALINCLUDES = -I$(srcdir)/.. -I$(srcdir)/../dk
+DEFS=
 
 ##DOS##BUILDTOP = ..\..\..
 ##DOS##PREFIXDIR=aes
@@ -38,14 +39,14 @@ GEN_OBJS=\
 
 ##DOS##LIBOBJS = $(OBJS)
 
-all-unix:: all-libobjs aes-gen
+all-unix:: all-libobjs # aes-gen
 
 includes:: depend
 
 depend:: $(SRCS)
 
 aes-gen: aes-gen.o $(GEN_OBJS)
-	$(CC) -o aes-gen aes-gen.o $(GEN_OBJS)
+	$(CC_LINK) -o aes-gen aes-gen.o $(GEN_OBJS)
 
 run-aes-gen: aes-gen
 	./aes-gen > kresults.out
@@ -57,9 +58,9 @@ aes-test: aes-test.$(OBJEXT) $(CRYPTO_DEPLIB)
 
 check:: run-aes-test
 run-aes-test: aes-test
-	$(RUN_SETUP) ./aes-test -k > vk.txt
+	$(RUN_SETUP) $(VALGRIND) ./aes-test -k > vk.txt
 	cmp vk.txt $(srcdir)/expect-vk.txt
-	$(RUN_SETUP) ./aes-test > vt.txt
+	$(RUN_SETUP) $(VALGRIND) ./aes-test > vt.txt
 	cmp vt.txt $(srcdir)/expect-vt.txt
 
 clean-unix:: clean-libobjs
@@ -67,23 +68,26 @@ clean-unix:: clean-libobjs
 clean::
 	-$(RM) aes-gen aes-gen.o vt.txt vk.txt kresults.out aes-test aes-test.o
 
-# @libobj_frag@
+@libobj_frag@
 
 # +++ Dependency line eater +++
 # 
 # Makefile dependencies follow.  This must be the last section in
 # the Makefile.in file
 #
-aescrypt.so aescrypt.po $(OUTPRE)aescrypt.$(OBJEXT): aescrypt.c aesopt.h aes.h \
+aescrypt.so aescrypt.po $(OUTPRE)aescrypt.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h aes.h aescrypt.c aesopt.h \
   uitypes.h
-aestab.so aestab.po $(OUTPRE)aestab.$(OBJEXT): aestab.c aesopt.h aes.h \
-  uitypes.h
-aeskey.so aeskey.po $(OUTPRE)aeskey.$(OBJEXT): aeskey.c aesopt.h aes.h \
-  uitypes.h
-aes_s2k.so aes_s2k.po $(OUTPRE)aes_s2k.$(OBJEXT): aes_s2k.c $(SRCTOP)/include/k5-int.h \
-  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
-  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
-  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
-  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
-  $(SRCTOP)/include/krb5/kdb.h $(srcdir)/../dk/dk.h aes_s2k.h
-
+aestab.so aestab.po $(OUTPRE)aestab.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  aes.h aesopt.h aestab.c uitypes.h
+aeskey.so aeskey.po $(OUTPRE)aeskey.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  aes.h aeskey.c aesopt.h uitypes.h
+aes_s2k.so aes_s2k.po $(OUTPRE)aes_s2k.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/krb5/krb5.h $(BUILDTOP)/include/osconf.h \
+  $(BUILDTOP)/include/profile.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-err.h \
+  $(SRCTOP)/include/k5-int.h $(SRCTOP)/include/k5-platform.h \
+  $(SRCTOP)/include/k5-plugin.h $(SRCTOP)/include/k5-thread.h \
+  $(SRCTOP)/include/krb5.h $(SRCTOP)/include/krb5/locate_plugin.h \
+  $(SRCTOP)/include/krb5/preauth_plugin.h $(SRCTOP)/include/port-sockets.h \
+  $(SRCTOP)/include/socket-utils.h $(srcdir)/../dk/dk.h \
+  aes_s2k.c aes_s2k.h

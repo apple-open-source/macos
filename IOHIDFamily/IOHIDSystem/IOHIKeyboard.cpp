@@ -214,7 +214,7 @@ bool IOHIKeyboard::updateProperties( void )
     bool	ok;
 	
     ok = setProperty( kIOHIDKeyMappingKey, _keyMap );
-
+    
     return( ok & super::updateProperties() );
 }
 
@@ -283,6 +283,11 @@ IOReturn IOHIKeyboard::setParamProperties( OSDictionary * dict )
 			err = kIOReturnBadArgument;
 		} 
     }
+    if ( number = OSDynamicCast(OSNumber, dict->getObject(kIOHIDSubinterfaceIDKey)) )
+    {
+        _deviceType = number->unsigned32BitValue();
+        updated = true;
+    }
 		
 	// give the keymap a chance to update to new properties
 	if (_keyMap)
@@ -297,28 +302,17 @@ IOReturn IOHIKeyboard::setParamProperties( OSDictionary * dict )
 	if (err == kIOReturnSuccess)
 		err = err2;
 	
-    return( err );
+    return( err == kIOReturnSuccess ) ? super::setParamProperties(dict) : err;
 }
 
-// RY: Override IORegistryEntry::setProperties().  This will allow properties 
-// such as the subinterfaceid (deviceType) to be set per device, instead of 
-// globally via setParamProperties.
+// RY: Override IORegistryEntry::setProperties().  This was removed earlier 
+// in Leopard, but turns out that won't work as the linker will not end up 
+// doing the right thing and travese the super class to resolve the symbol.
 IOReturn IOHIKeyboard::setProperties( OSObject * properties )
 {
-    OSDictionary *  propertyDict    = OSDynamicCast(OSDictionary, properties);
-    OSNumber *      subinterfaceID  = 0;
-    
-    if ( !propertyDict )
-        return kIOReturnError;
-         
-    if ( subinterfaceID = OSDynamicCast(OSNumber, propertyDict->getObject(kIOHIDSubinterfaceIDKey)) )
-    {
-        _deviceType  = subinterfaceID->unsigned32BitValue();
-        updateProperties();
-    }
-                
-    return kIOReturnSuccess;
+    return super::setProperties(properties);
 }
+
 
 
 bool IOHIKeyboard::resetKeyboard()

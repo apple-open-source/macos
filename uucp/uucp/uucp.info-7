@@ -1,0 +1,1102 @@
+This is uucp.info, produced by makeinfo version 4.1 from uucp.texi.
+
+START-INFO-DIR-ENTRY
+* UUCP: (uucp).                 Transfer mail and news across phone lines.
+END-INFO-DIR-ENTRY
+
+   This file documents Taylor UUCP, version 1.07.
+
+   Copyright (C) 1992, 1993, 1994, 1995, 2002 Ian Lance Taylor
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "Copying" are included exactly as in the
+original, and provided that the entire resulting derived work is
+distributed under the terms of a permission notice identical to this
+one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the section entitled "Copying" may be included in
+a translation approved by the author instead of in the original English.
+
+
+File: uucp.info,  Node: i Protocol,  Next: j Protocol,  Prev: Big G Protocol,  Up: Protocols
+
+UUCP `i' Protocol
+=================
+
+   The `i' protocol was written by Ian Lance Taylor (who also wrote this
+manual).  It was first used by Taylor UUCP version 1.04.
+
+   It is a sliding window packet protocol, like the `g' protocol, but
+it supports bidirectional transfers (i.e., file transfers in both
+directions simultaneously).  It requires an eight bit clear connection.
+Several ideas for the protocol were taken from the paper `A
+High-Throughput Message Transport System' by P. Lauder.  I don't know
+where the paper was published, but the author's e-mail address is
+<piers@cs.su.oz.au>.  The `i' protocol does not adopt his main idea,
+which is to dispense with windows entirely.  This is because some links
+still do require flow control and, more importantly, because using
+windows sets a limit to the amount of data which the protocol must be
+able to resend upon request.  To reduce the costs of window
+acknowledgements, the protocol uses a large window and only requires an
+ack at the halfway point.
+
+   Each packet starts with a six byte header, optionally followed by
+data bytes with a four byte checksum.  There are currently five defined
+packet types (`DATA', `SYNC', `ACK', `NAK', `SPOS', `CLOSE') which are
+described below.  Although any packet type may include data, any data
+provided with an `ACK', `NAK' or `CLOSE' packet is ignored.
+
+   Every `DATA', `SPOS' and `CLOSE' packet has a sequence number.  The
+sequence numbers are independent for each side.  The first packet sent
+by each side is always number 1.  Each packet is numbered one greater
+than the previous packet, modulo 32.
+
+   Every packet has a local channel number and a remote channel number.
+For all packets at least one channel number is zero.  When a UUCP
+command is sent to the remote system, it is assigned a non-zero local
+channel number.  All packets associated with that UUCP command sent by
+the local system are given the selected local channel number.  All
+associated packets sent by the remote system are given the selected
+number as the remote channel number.  This permits each UUCP command to
+be uniquely identified by the channel number on the originating system,
+and therefore each UUCP package can associate all file data and UUCP
+command responses with the appropriate command.  This is a requirement
+for bidirectional UUCP transfers.
+
+   The protocol maintains a single global file position, which starts
+at 0.  For each incoming packet, any associated data is considered to
+occur at the current file position, and the file position is
+incremented by the amount of data contained.  The exception is a packet
+of type `SPOS', which is used to change the file position.  The reason
+for keeping track of the file position is described below.
+
+   The header is as follows:
+
+`\007'
+     Every packet begins with `^G'.
+
+`(PACKET << 3) + LOCCHAN'
+     The five bit packet number combined with the three bit local
+     channel number.  `DATA', `SPOS' and `CLOSE' packets use the packet
+     sequence number for the PACKET field.  `NAK' packet types use the
+     PACKET field for the sequence number to be resent.  `ACK' and
+     `SYNC' do not use the PACKET field, and generally leave it set to
+     0.  Packets which are not associated with a UUCP command from the
+     local system use a local channel number of 0.
+
+`(ACK << 3) + REMCHAN'
+     The five bit packet acknowledgement combined with the three bit
+     remote channel number.  The packet acknowledgement is the number
+     of the last packet successfully received; it is used by all packet
+     types.  Packets which are not sent in response to a UUCP command
+     from the remote system use a remote channel number of 0.
+
+`(TYPE << 5) + (CALLER << 4) + LEN1'
+     The three bit packet type combined with the one bit packet
+     direction combined with the upper four bits of the data length.
+     The packet direction bit is always 1 for packets sent by the
+     calling UUCP, and 0 for packets sent by the called UUCP.  This
+     prevents confusion caused by echoed packets.
+
+LEN2
+     The lower eight bits of the data length.  The twelve bits of data
+     length permit packets ranging in size from 0 to 4095 bytes.
+
+CHECK
+     The exclusive or of the second through fifth bytes of the header.
+     This provides an additional check that the header is valid.
+
+   If the data length is non-zero, the packet is immediately followed by
+the specified number of data bytes.  The data bytes are followed by a
+four byte CRC 32 checksum, with the most significant byte first.  The
+CRC is calculated over the contents of the data field.
+
+   The defined packet types are as follows:
+
+0 `DATA'
+     This is a plain data packet.
+
+1 `SYNC'
+     `SYNC' packets are exchanged when the protocol is initialized, and
+     are described further below.  `SYNC' packets do not carry sequence
+     numbers (that is, the PACKET field is ignored).
+
+2 `ACK'
+     This is an acknowledgement packet.  Since `DATA' packets also carry
+     packet acknowledgements, `ACK' packets are only used when one side
+     has no data to send.  `ACK' packets do not carry sequence numbers.
+
+3 `NAK'
+     This is a negative acknowledgement.  This is sent when a packet is
+     received incorrectly, and means that the packet number appearing
+     in the PACKET field must be resent.  `NAK' packets do not carry
+     sequence numbers (the PACKET field is already used).
+
+4 `SPOS'
+     This packet changes the file position.  The packet contains four
+     bytes of data holding the file position, most significant byte
+     first.  The next packet received will be considered to be at the
+     named file position.
+
+5 `CLOSE'
+     When the protocol is shut down, each side sends a `CLOSE' packet.
+     This packet does have a sequence number, which could be used to
+     ensure that all packets were correctly received (this is not
+     needed by UUCP, however, which uses the higher level `H' command
+     with an `HY' response).
+
+   When the protocol starts up, both systems send a `SYNC' packet.  The
+`SYNC' packet includes at least three bytes of data.  The first two
+bytes are the maximum packet size the remote system should send, most
+significant byte first.  The third byte is the window size the remote
+system should use.  The remote system may send packets of any size up
+to the maximum.  If there is a fourth byte, it is the number of
+channels the remote system may use (this must be between 1 and 7,
+inclusive).  Additional data bytes may be defined in the future.
+
+   The window size is the number of packets that may be sent before a
+packet is acknowledged.  There is no requirement that every packet be
+acknowledged; any acknowledgement is considered to acknowledge all
+packets through the number given.  In the current implementation, if one
+side has no data to send, it sends an `ACK' when half the window is
+received.
+
+   Note that the `NAK' packet corresponds to the unused `g' protocol
+`SRJ' packet type, rather than to the `RJ' packet type.  When a `NAK'
+is received, only the named packet should be resent, not any subsequent
+packets.
+
+   Note that if both sides have data to send, but a packet is lost, it
+is perfectly reasonable for one side to continue sending packets, all of
+which will acknowledge the last packet correctly received, while the
+system whose packet was lost will be unable to send a new packet because
+the send window will be full.  In this circumstance, neither side will
+time out and one side of the communication will be effectively shut down
+for a while.  Therefore, any system with outstanding unacknowledged
+packets should arrange to time out and resend a packet even if data is
+being received.
+
+   Commands are sent as a sequence of data packets with a non-zero local
+channel number.  The last data packet for a command includes a trailing
+null byte (normally a command will fit in a single data packet).  Files
+are sent as a sequence of data packets ending with one of length zero.
+
+   The channel numbers permit a more efficient implementation of the
+UUCP file send command.  Rather than send the command and then wait for
+the `SY' response before sending the file, the file data is sent
+beginning immediately after the `S' command is sent.  If an `SN'
+response is received, the file send is aborted, and a final data packet
+of length zero is sent to indicate that the channel number may be
+reused.  If an `SY' reponse with a file position indicator is received,
+the file send adjusts to the file position; this is why the protocol
+maintains a global file position.
+
+   Note that the use of channel numbers means that each UUCP system may
+send commands and file data simultaneously.  Moreover, each UUCP system
+may send multiple files at the same time, using the channel number to
+disambiguate the data.  Sending a file before receiving an
+acknowledgement for the previous file helps to eliminate the round trip
+delays inherent in other UUCP protocols.
+
+
+File: uucp.info,  Node: j Protocol,  Next: x Protocol,  Prev: i Protocol,  Up: Protocols
+
+UUCP `j' Protocol
+=================
+
+   The `j' protocol is a variant of the `i' protocol.  It was also
+written by Ian Lance Taylor, and first appeared in Taylor UUCP version
+1.04.
+
+   The `j' protocol is a version of the `i' protocol designed for
+communication links which intercept a few characters, such as XON or
+XOFF.  It is not efficient to use it on a link which intercepts many
+characters, such as a seven bit link.  The `j' protocol performs no
+error correction or detection; that is presumed to be the responsibility
+of the `i' protocol.
+
+   When the `j' protocol starts up, each system sends a printable ASCII
+string indicating which characters it wants to avoid using.  The string
+begins with the ASCII character `^' (octal 136) and ends with the ASCII
+character `~' (octal 176).  After sending this string, each system
+looks for the corresponding string from the remote system.  The strings
+are composed of escape sequences: `\ooo', where `o' is an octal digit.
+For example, sending the string `^\021\023~' means that the ASCII XON
+and XOFF characters should be avoided.  The union of the characters
+described in both strings (the string which is sent and the string
+which is received) is the set of characters which must be avoided in
+this conversation.  Avoiding a printable ASCII character (octal 040 to
+octal 176, inclusive) is not permitted.
+
+   After the exchange of characters to avoid, the normal `i' protocol
+start up is done, and the rest of the conversation uses the normal `i'
+protocol.  However, each `i' protocol packet is wrapped to become a `j'
+protocol packet.
+
+   Each `j' protocol packet consists of a seven byte header, followed
+by data bytes, followed by index bytes, followed by a one byte trailer.
+The packet header looks like this:
+
+`^'
+     Every packet begins with the ASCII character `^', octal 136.
+
+HIGH
+LOW
+     These two characters give the total number of bytes in the packet.
+     Both HIGH and LOW are printable ASCII characters.  The length of
+     the packet is `(HIGH - 040) * 0100 + (LOW - 040)', where `040 <=
+     HIGH < 0177' and `040 <= LOW < 0140'.  This permits a length of
+     6079 bytes, but there is a further restriction on packet size
+     described below.
+
+`='
+     The ASCII character `=', octal 075.
+
+DATA-HIGH
+DATA-LOW
+     These two characters give the total number of data bytes in the
+     packet.  The encoding is as described for HIGH and LOW.  The number
+     of data bytes is the size of the `i' protocol packet wrapped inside
+     this `j' protocol packet.
+
+`@'
+     The ASCII character `@', octal 100.
+
+   The header is followed by the number of data bytes given in
+DATA-HIGH and DATA-LOW.  These data bytes are the `i' protocol packet
+which is being wrapped in the `j' protocol packet.  However, each
+character in the `i' protocol packet which the `j' protocol must avoid
+is transformed into a printable ASCII character (recall that avoiding a
+printable ASCII character is not permitted).  Two index bytes are used
+for each character which must be transformed.
+
+   The index bytes immediately follow the data bytes.  The index bytes
+are created in pairs.  Each pair of index bytes encodes the location of
+a character in the `i' protocol packet which was transformed to become
+a printable ASCII character.  Each pair of index bytes also encodes the
+precise transformation which was performed.
+
+   When the sender finds a character which must be avoided, it will
+transform it using one or two operations.  If the character is 0200 or
+greater, it will subtract 0200.  If the resulting character is less than
+020, or is equal to 0177, it will xor by 020.  The result is a printable
+ASCII character.
+
+   The zero based byte index of the character within the `i' protocol
+packet is determined.  This index is turned into a two byte printable
+ASCII index, INDEX-HIGH and INDEX-LOW, such that the index is
+`(INDEX-HIGH - 040) * 040 + (INDEX-LOW - 040)'.  INDEX-LOW is
+restricted such that `040 <= INDEX-LOW < 0100'.  INDEX-HIGH is not
+permitted to be 0176, so `040 <= INDEX-HIGH < 0176'.  INDEX-LOW is then
+modified to encode the transformation:
+
+   * If the character transformation only had to subtract 0200, then
+     INDEX-LOW is used as is.
+
+   * If the character transformation only had to xor by 020, then 040
+     is added to INDEX-LOW.
+
+   * If both operations had to be performed, then 0100 is added to
+     INDEX-LOW.  However, if the value of INDEX-LOW was initially 077,
+     then adding 0100 would result in 0177, which is not a printable
+     ASCII character.  For that special case, INDEX-HIGH is set to
+     0176, and INDEX-LOW is set to the original value of INDEX-HIGH.
+
+   The receiver decodes the index bytes as follows (this is the reverse
+of the operations performed by the sender, presented here for additional
+clarity):
+
+   * The first byte in the index is INDEX-HIGH, and the second is
+     INDEX-LOW.
+
+   * If `040 <= INDEX-HIGH < 0176', the index refers to the data byte
+     at position `(INDEX-HIGH - 040) * 040 + INDEX-LOW % 040'.
+
+   * If `040 <= INDEX-LOW < 0100', then 0200 must be added to indexed
+     byte.
+
+   * If `0100 <= INDEX-LOW < 0140', then 020 must be xor'ed to the
+     indexed byte.
+
+   * If `0140 <= INDEX-LOW < 0177', then 0200 must be added to the
+     indexed byte, and 020 must be xor'ed to the indexed byte.
+
+   * If `INDEX-HIGH == 0176', the index refers to the data byte at
+     position `(INDEX-LOW - 040) * 040 + 037'.  0200 must be added to
+     the indexed byte, and 020 must be xor'ed to the indexed byte.
+
+   This means the largest `i' protocol packet which may be wrapped
+inside a `j' protocol packet is `(0175 - 040) * 040 + (077 - 040) ==
+3007' bytes.
+
+   The final character in a `j' protocol packet, following the index
+bytes, is the ASCII character `~' (octal 176).
+
+   The motivation behind using an indexing scheme, rather than escape
+characters, is to avoid data movement.  The sender may simply add a
+header and a trailer to the `i' protocol packet.  Once the receiver has
+loaded the `j' protocol packet, it may scan the index bytes,
+transforming the data bytes, and then pass the data bytes directly on to
+the `i' protocol routine.
+
+
+File: uucp.info,  Node: x Protocol,  Next: y Protocol,  Prev: j Protocol,  Up: Protocols
+
+UUCP `x' Protocol
+=================
+
+   The `x' protocol is used in Europe (and probably elsewhere) with
+machines that contain an builtin X.25 card and can send eight bit data
+transparently across X.25 circuits, without interference from the X.28
+or X.29 layers.  The protocol sends packets of 512 bytes, and relies on
+a write of zero bytes being read as zero bytes without stopping
+communication.  It first appeared in the original System V UUCP
+implementation.
+
+
+File: uucp.info,  Node: y Protocol,  Next: d Protocol,  Prev: x Protocol,  Up: Protocols
+
+UUCP `y' Protocol
+=================
+
+   The `y' protocol was developed by Jorge Cwik for use in FX UUCICO, a
+PC uucico program.  It is designed for communication lines which handle
+error correction and flow control.  It requires an eight bit clean
+connection.  It performs error detection, but not error correction:
+when an error is detected, the line is dropped.  It is a streaming
+protocol, like the `f' protocol; there are no packet acknowledgements,
+so the protocol is efficient over a half-duplex communication line such
+as PEP.
+
+   Every packet contains a six byte header:
+
+sequence low byte
+sequence high byte
+     A two byte sequence number, in little endian order.  The first
+     sequence number is 0.  Since the first packet is always a sync
+     packet (described below) the sequence number of the first data
+     packet is always 1.  Each system counts sequence numbers
+     independently.
+
+length low byte
+length high byte
+     A two byte data length, in little endian order.  If the high bit
+     of the sixteen bit field is clear, this is the number of data
+     bytes which follow the six byte header.  If the high bit is set,
+     there is no data, and the length field is a type of control packet.
+
+checksum low byte
+checksum high byte
+     A two byte checksum, in little endian order.  The checksum is
+     computed over the data bytes.  The checksum algorithm is described
+     below.  If there are no data bytes, the checksum is sent as 0.
+
+   When the protocol starts up, each side must send a sync packet.
+This is a packet with a normal six byte header followed by data.  The
+sequence number of the sync packet should be 0.  Currently at least
+four bytes of data must be sent with the sync packet.  Additional bytes
+should be ignored.  They are defined as follows:
+
+version
+     The version number of the protocol.  Currently this must be 1.
+     Larger numbers should be ignored; it is the responsibility of the
+     newer version to accommodate the older one.
+
+packet size
+     The maximum data length to use divided by 256.  This is sent as a
+     single byte.  The maximum data length permitted is 32768, which
+     would be sent as 128.  Customarily both systems will use the same
+     maximum data length, the lower of the two requested.
+
+flags low byte
+flags high byte
+     Two bytes of flags.  None are currently defined.  These bytes
+     should be sent as 0, and ignored by the receiver.
+
+   A length field with the high bit set is a control packet.  The
+following control packet types are defined:
+
+0xfffe `YPKT_ACK'
+     Acknowledges correct receipt of a file.
+
+0xfffd `YPKT_ERR'
+     Indicates an incorrect checksum.
+
+0xfffc `YPKT_BAD'
+     Indicates a bad sequence number, an invalid length, or some other
+     error.
+
+   If a control packet other than `YPKT_ACK' is received, the
+connection is dropped.  If a checksum error is detected for a received
+packet, a `YPKT_ERR' control packet is sent, and the connection is
+dropped.  If a packet is received out of sequence, a `YPKT_BAD' control
+packet is sent, and the connection is dropped.
+
+   The checksum is initialized to 0xffff.  For each data byte in a
+packet it is modified as follows (where B is the byte before it has been
+transformed as described above):
+
+           /* Rotate the checksum left.  */
+           if ((ichk & 0x8000) == 0)
+             ichk <<= 1;
+           else
+             {
+               ichk <<= 1;
+               ++ichk;
+             }
+     
+           /* Add the next byte into the checksum.  */
+           ichk += B;
+
+   This is the same algorithm as that used by the `f' protocol.
+
+   A command is sent as a sequence of data packets followed by a null
+byte.  In the normal case, a command will fit into a single packet.
+The packet should be exactly the length of the command plus a null
+byte.  If the command is too long, more packets are sent as required.
+
+   A file is sent as a sequence of data packets, ending with a zero
+length packet.  The data packets may be of any length greater than zero
+and less than or equal to the maximum permitted packet size specified
+in the initial sync packet.
+
+   After the zero length packet ending a file transfer has been
+received, the receiving system sends a `YPKT_ACK' control packet.  The
+sending system waits for the `YPKT_ACK' control packet before
+continuing; this wait should be done with a large timeout, since there
+may be a considerable amount of data buffered on the communication path.
+
+
+File: uucp.info,  Node: d Protocol,  Next: h Protocol,  Prev: y Protocol,  Up: Protocols
+
+UUCP `d' Protocol
+=================
+
+   The `d' protocol is apparently used for DataKit muxhost (not RS-232)
+connections.  No file size is sent.  When a file has been completely
+transferred, a write of zero bytes is done; this must be read as zero
+bytes on the other end.
+
+
+File: uucp.info,  Node: h Protocol,  Next: v Protocol,  Prev: d Protocol,  Up: Protocols
+
+UUCP `h' Protocol
+=================
+
+   The `h' protocol is apparently used in some places with HST modems.
+It does no error checking, and is not that different from the `t'
+protocol.  I don't know the details.
+
+
+File: uucp.info,  Node: v Protocol,  Prev: h Protocol,  Up: Protocols
+
+UUCP `v' Protocol
+=================
+
+   The `v' protocol is used by UUPC/extended, a PC UUCP program.  It is
+simply a version of the `g' protocol which supports packets of any
+size, and also supports sending packets of different sizes during the
+same conversation.  There are many `g' protocol implementations which
+support both, but there are also many which do not.  Using `v' ensures
+that everything is supported.
+
+
+File: uucp.info,  Node: Hacking,  Next: Acknowledgements,  Prev: Protocols,  Up: Top
+
+Hacking Taylor UUCP
+*******************
+
+   This chapter provides the briefest of guides to the Taylor UUCP
+source code itself.
+
+* Menu:
+
+* System Dependence::           System Dependence
+* Naming Conventions::          Naming Conventions
+* Patches::                     Patches
+
+
+File: uucp.info,  Node: System Dependence,  Next: Naming Conventions,  Prev: Hacking,  Up: Hacking
+
+System Dependence
+=================
+
+   The code is carefully segregated into a system independent portion
+and a system dependent portion.  The system dependent code is in the
+`unix' subdirectory, and also in the file `sysh.unx' (also known as
+`sysdep.h').
+
+   With the right configuration parameters, the system independent code
+calls only ANSI C functions.  Some of the less common ANSI C functions
+are also provided in the `lib' directory.  The replacement function
+`strtol' in `lib/strtol.c' assumes that the characters `A' to `F' and
+`a' to `f' appear in strictly sequential order.  The function
+`igradecmp' in `uuconf/grdcmp.c' assumes that the upper and lower case
+letters appear in order.  Both assumptions are true for ASCII and
+EBCDIC, but neither is guaranteed by ANSI C.  Disregarding these
+caveats, I believe that the system independent portion of the code is
+strictly conforming.
+
+   That's not too exciting, since all the work is done in the system
+dependent code.  I think that this code can conform to POSIX 1003.1,
+given the right compilation parameters.  I'm a bit less certain about
+this, though.
+
+   The code has been used on a 16 bit segmented system with no function
+prototypes, so I'm fairly certain that all casts to long and pointers
+are done when necessary.
+
+
+File: uucp.info,  Node: Naming Conventions,  Next: Patches,  Prev: System Dependence,  Up: Hacking
+
+Naming Conventions
+==================
+
+   I use a modified Hungarian naming convention for my variables and
+functions.  As with all naming conventions, the code is rather opaque if
+you are not familiar with it, but becomes clear and easy to use with
+time.
+
+   The first character indicates the type of the variable (or function
+return value).  Sometimes additional characters are used.  I use the
+following type prefixes:
+
+`a'
+     array; the next character is the type of an element
+
+`b'
+     byte or character
+
+`c'
+     count of something
+
+`e'
+     stdio FILE *
+
+`f'
+     boolean
+
+`i'
+     generic integer
+
+`l'
+     double
+
+`o'
+     file descriptor (as returned by open, creat, etc.)
+
+`p'
+     generic pointer
+
+`q'
+     pointer to structure
+
+`s'
+     structure
+
+`u'
+     void (function return values only)
+
+`z'
+     character string
+
+   A generic pointer (`p') is sometimes a `void *', sometimes a
+function pointer in which case the prefix is pf, and sometimes a pointer
+to another type, in which case the next character is the type to which
+it points (pf is overloaded).
+
+   An array of strings (`char *[]') would be named `az' (array of
+string).  If this array were passed to a function, the function
+parameter would be named `paz' (pointer to array of string).
+
+   Note that the variable name prefixes do not necessarily indicate the
+type of the variable.  For example, a variable prefixed with `i' may be
+int, long or short.  Similarly, a variable prefixed with `b' may be a
+char or an int; for example, the return value of `getchar' would be
+caught in an int variable prefixed with `b'.
+
+   For a non-local variable (extern or file static), the first character
+after the type prefix is capitalized.
+
+   Most static variables and functions use another letter after the type
+prefix to indicate which module they come from.  This is to help
+distinguish different names in the debugger.  For example, all static
+functions in `protg.c', the `g' protocol source code, use a module
+prefix of `g'.  This isn't too useful, as a number of modules use a
+module prefix of `s'.
+
+
+File: uucp.info,  Node: Patches,  Prev: Naming Conventions,  Up: Hacking
+
+Patches
+=======
+
+   I am always grateful for any patches sent in.  Much of the
+flexibility and portability of the code is due to other people.  Please
+do not hesitate to send me any changes you have found necessary or
+useful.
+
+   When sending a patch, please send the output of the Unix `diff'
+program invoked with the `-c' option (if you have the GNU version of
+`diff', use the `-p' option).  Always invoke `diff' with the original
+file first and the modified file second.
+
+   If your `diff' does not support `-c' (or you don't have `diff'),
+send a complete copy of the modified file (if you have just changed a
+single function, you can just send the new version of the function).
+In particular, please do not send `diff' output without the `-c'
+option, as it is useless.
+
+   If you have made a number of changes, it is very convenient for me if
+you send each change as a separate mail message.  Sometimes I will think
+that one change is useful but another one is not.  If they are in
+different messages it is much easier for me to apply one but not the
+other.
+
+   I rarely apply the patches directly.  Instead I work my way through
+the hunks and apply each one separately.  This ensures that the naming
+remains consistent, and that I understand all the code.
+
+   If you can not follow all these rules, then don't.  But if you do, it
+makes it more likely that I will incorporate your changes.  I am not
+paid for my UUCP work, and my available time is unfortunately very
+restricted.  The package is important to me, and I do what I can, but I
+can not do all that I would like, much less all that everybody else
+would like.
+
+   Finally, please do not be offended if I do not reply to messages for
+some time, even a few weeks.  I am often behind on my mail, and if I
+think your message deserves a considered reply I will often put it aside
+until I have time to deal with it.
+
+
+File: uucp.info,  Node: Acknowledgements,  Next: Index (concepts),  Prev: Hacking,  Up: Top
+
+Acknowledgements
+****************
+
+   This is a list of people who gave help or suggestions while I was
+working on the Taylor UUCP project.  Appearance on this list does not
+constitute endorsement of the program, particularly since some of the
+comments were criticisms.  I've probably left some people off, and I
+apologize for any oversight; it does not mean your contribution was
+unappreciated.
+
+   First of all, I would like to thank the people at Infinity
+Development Systems (formerly AIRS, which lives on in the domain name)
+for permitting me to use their computers and `uunet' access.  I would
+also like to thank Richard Stallman <rms@gnu.org> for founding the Free
+Software Foundation, and John Gilmore <gnu@toad.com> for writing the
+initial version of gnuucp (based on uuslave) which was a direct
+inspiration for this somewhat larger project.  Chip Salzenberg
+<chip@tct.com> has contributed many patches.  Franc,ois Pinard
+<pinard@iro.umontreal.ca> tirelessly tested the code and suggested many
+improvements.  He also put together the initial version of this manual.
+Doug Evans contributed the zmodem protocol.  Marc Boucher
+<marc@CAM.ORG> contributed the code supporting the pipe port type.
+Jorge Cwik <jorge@laser.satlink.net> contributed the `y' protocol code.
+Finally, Verbus M. Counts <verbus@westmark.com> and Centel Federal
+Systems, Inc., deserve special thanks, since they actually paid me
+money to port this code to System III.
+
+   In alphabetical order:
+
+     Meno Abels <Meno.Abels@Technical.Adviser.com>
+     "Earle F. Ake - SAIC" <ake@Dayton.SAIC.COM>
+     <mra@searchtech.com> (Michael Almond)
+     <cambler@zeus.calpoly.edu> (Christopher J. Ambler)
+     Brian W. Antoine <briana@tau-ceti.isc-br.com>
+     <jantypas@soft21.s21.com> (John Antypas)
+     <james@bigtex.cactus.org> (James Van Artsdalen)
+     <jima@netcom.com> (Jim Avera)
+     <nba@sysware.DK> (Niels Baggesen)
+     <uunet!hotmomma!sdb> (Scott Ballantyne)
+     Zacharias Beckman <zac@dolphin.com>
+     <mike@mbsun.ann-arbor.mi.us> (Mike Bernson)
+     <bob@usixth.sublink.org> (Roberto Biancardi)
+     <statsci!scott@coco.ms.washington.edu> (Scott Blachowicz)
+     <bag%wood2.cs.kiev.ua@relay.ussr.eu.net> (Andrey G Blochintsev)
+     <spider@Orb.Nashua.NH.US> (Spider Boardman)
+     Gregory Bond <gnb@bby.com.au>
+     Marc Boucher <marc@CAM.ORG>
+     Ard van Breemen <ard@cstmel.hobby.nl>
+     <dean@coplex.com> (Dean Brooks)
+     <jbrow@radical.com> (Jim Brownfield)
+     <dave@dlb.com> (Dave Buck)
+     <gordon@sneaky.lonestar.org> (Gordon Burditt)
+     <dburr@sbphy.physics.ucsb.edu> (Donald Burr)
+     <mib@gnu.ai.mit.edu> (Michael I Bushnell)
+     Brian Campbell <brianc@quantum.on.ca>
+     Andrew A. Chernov <ache@astral.msk.su>
+     <jhc@iscp.bellcore.com> (Jonathan Clark)
+     <mafc!frank@bach.helios.de> (Frank Conrad)
+     Ed Carp <erc@apple.com>
+     <mpc@mbs.linet.org> (Mark Clements)
+     <verbus@westmark.westmark.com> (Verbus M. Counts)
+     <cbmvax!snark.thyrsus.com!cowan> (John Cowan)
+     Bob Cunningham <bob@soest.hawaii.edu>
+     <jorge@laser.satlink.net> (Jorge Cwik)
+     <kdburg@incoahe.hanse.de> (Klaus Dahlenburg)
+     Damon <d@exnet.co.uk>
+     <celit!billd@UCSD.EDU> (Bill Davidson)
+     <hubert@arakis.fdn.org> (Hubert Delahaye)
+     <markd@bushwire.apana.org.au> (Mark Delany)
+     Allen Delaney <allen@brc.ubc.ca>
+     Gerriet M. Denkmann <gerriet@hazel.north.de>
+     <denny@dakota.alisa.com> (Bob Denny)
+     Drew Derbyshire <ahd@kew.com>
+     <ssd@nevets.oau.org> (Steven S. Dick)
+     <gert@greenie.gold.sub.org> (Gert Doering)
+     <gemini@geminix.in-berlin.de> (Uwe Doering)
+     Hans-Dieter Doll <hd2@Insel.DE>
+     <deane@deane.teleride.on.ca> (Dean Edmonds)
+     Mark W. Eichin <eichin@cygnus.com>
+     <erik@pdnfido.fidonet.org>
+     Andrew Evans <andrew@airs.com>
+     <dje@cygnus.com> (Doug Evans)
+     Marc Evans <marc@synergytics.com>
+     Dan Everhart <dan@dyndata.com>
+     <kksys!kegworks!lfahnoe@cs.umn.edu> (Larry Fahnoe)
+     Matthew Farwell <dylan@ibmpcug.co.uk>
+     <fenner@jazz.psu.edu> (Bill Fenner)
+     <jaf@inference.com> (Jose A. Fernandez)
+     "David J. Fiander" <golem!david@news.lsuc.on.ca>
+     Thomas Fischer <batman@olorin.dark.sub.org>
+     Mister Flash <flash@sam.imash.ras.ru>
+     <louis@marco.de> (Ju"rgen Fluk)
+     <erik@eab.retix.com> (Erik Forsberg)
+     <andy@scp.caltech.edu> (Andy Fyfe)
+     Lele Gaifax <piggy@idea.sublink.org>
+     <Peter.Galbavy@micromuse.co.uk>
+     <hunter@phoenix.pub.uu.oz.au> (James Gardiner [hunter])
+     Terry Gardner <cphpcom!tjg01>
+     <dgilbert@gamiga.guelphnet.dweomer.org> (David Gilbert)
+     <ol@infopro.spb.su> (Oleg Girko)
+     <jimmy@tokyo07.info.com> (Jim Gottlieb)
+     Benoit Grange <ben@fizz.fdn.org>
+     <elg@elgamy.jpunix.com> (Eric Lee Green)
+     <ryan@cs.umb.edu> (Daniel R. Guilderson)
+     <greg@gagme.chi.il.us> (Gregory Gulik)
+     Richard H. Gumpertz <rhg@cps.com>
+     Scott Guthridge <scooter@cube.rain.com>
+     Michael Haberler <mah@parrot.prv.univie.ac.at>
+     Daniel Hagerty <hag@eddie.mit.edu>
+     <jh@moon.nbn.com> (John Harkin)
+     <guy@auspex.auspex.com> (Guy Harris)
+     <hsw1@papa.attmail.com> (Stephen Harris)
+     Tom Ivar Helbekkmo <tih@Norway.EU.net>
+     Petri Helenius <pete@fidata.fi>
+     <gabe@edi.com> (B. Gabriel Helou)
+     Bob Hemedinger <bob@dalek.mwc.com>
+     Andrew Herbert <andrew@werple.pub.uu.oz.au>
+     <kherron@ms.uky.edu> (Kenneth Herron)
+     Peter Honeyman <honey@citi.umich.edu>
+     <jhood@smoke.marlboro.vt.us> (John Hood)
+     Mark Horsburgh <markh@kcbbs.gen.nz>
+     John Hughes <john@Calva.COM>
+     Mike Ipatow <mip@fido.itc.e-burg.su>
+     Bill Irwin <bill@twg.bc.ca>
+     <pmcgw!personal-media.co.jp!ishikawa> (Chiaki Ishikawa)
+     <ai@easy.in-chemnitz.de> (Andreas Israel)
+     <iverson@lionheart.com> (Tim Iverson)
+     <bei@dogface.austin.tx.us> (Bob Izenberg)
+     <djamiga!djjames@fsd.com> (D.J.James)
+     Rob Janssen <cmgit!rob@relay.nluug.nl>
+     <harvee!esj> (Eric S Johansson)
+     Kevin Johnson <kjj@pondscum.phx.mcd.mot.com>
+     <rj@rainbow.in-berlin.de> (Robert Joop)
+     Alan Judge <aj@dec4ie.IEunet.ie>
+     <chris@cj_net.in-berlin.de> (Christof Junge)
+     Romain Kang <romain@pyramid.com>
+     <tron@Veritas.COM> (Ronald S. Karr)
+     Brendan Kehoe <brendan@cs.widener.edu>
+     <warlock@csuchico.edu> (John Kennedy)
+     <kersing@nlmug.nl.mugnet.org> (Jac Kersing)
+     <ok@daveg.PFM-Mainz.de> (Olaf Kirch)
+     Gabor Kiss <kissg@sztaki.hu>
+     <gero@gkminix.han.de> (Gero Kuhlmann)
+     <rob@pact.nl> (Rob Kurver)
+     "C.A. Lademann" <cal@zls.gtn.com>
+     <kent@sparky.IMD.Sterling.COM> (Kent Landfield)
+     Tin Le <tin@saigon.com>
+     <lebaron@inrs-telecom.uquebec.ca>  (Gregory LeBaron)
+     <karl@sugar.NeoSoft.Com> (Karl Lehenbauer)
+     <alex@hal.rhein-main.de> (Alexander Lehmann)
+     <merlyn@digibd.com> (Merlyn LeRoy)
+     <clewis@ferret.ocunix.on.ca> (Chris Lewis)
+     <gdonl@ssi1.com> (Don Lewis)
+     <libove@libove.det.dec.com> (Jay Vassos-Libove)
+     <bruce%blilly@Broadcast.Sony.COM> (Bruce Lilly)
+     Godfrey van der Linden <Godfrey_van_der_Linden@NeXT.COM>
+     Ted Lindgreen <tlindgreen@encore.nl>
+     <andrew@cubetech.com> (Andrew Loewenstern)
+     "Arne Ludwig" <arne@rrzbu.hanse.de>
+     Matthew Lyle <matt@mips.mitek.com>
+     <djm@eng.umd.edu> (David J. MacKenzie)
+     John R MacMillan <chance!john@sq.sq.com>
+     <jum@helios.de> (Jens-Uwe Mager)
+     Giles D Malet <shrdlu!gdm@provar.kwnet.on.ca>
+     <mem@mv.MV.COM> (Mark E. Mallett)
+     <pepe@dit.upm.es> (Jose A. Manas)
+     <peter@xpoint.ruessel.sub.org> (Peter Mandrella)
+     <martelli@cadlab.sublink.org> (Alex Martelli)
+     W Christopher Martin <wcm@geek.ca.geac.com>
+     Yanek Martinson <yanek@mthvax.cs.miami.edu>
+     <thomasm@mechti.wupper.de> (Thomas Mechtersheimer)
+     <jm@aristote.univ-paris8.fr> (Jean Mehat)
+     <me@halfab.freiburg.sub.org> (Udo Meyer)
+     <les@chinet.chi.il.us> (Leslie Mikesell)
+     <bug@cyberdex.cuug.ab.ca> (Trever Miller)
+     <mmitchel@digi.lonestar.org> (Mitch Mitchell)
+     Emmanuel Mogenet <mgix@krainte.jpn.thomson-di.fr>
+     <rmohr@infoac.rmi.de> (Rupert Mohr)
+     Jason Molenda <molenda@sequent.com>
+     <ianm@icsbelf.co.uk> (Ian Moran)
+     <jmorriso@bogomips.ee.ubc.ca> (John Paul Morrison)
+     <brian@ilinx.wimsey.bc.ca> (Brian J. Murrell)
+     <service@infohh.rmi.de> (Dirk Musstopf)
+     <lyndon@cs.athabascau.ca> (Lyndon Nerenberg)
+     <rolf@saans.north.de> (Rolf Nerstheimer)
+     <tom@smart.bo.open.de> (Thomas Neumann)
+     <mnichols@pacesetter.com>
+     Richard E. Nickle <trystro!rick@Think.COM>
+     <stephan@sunlab.ka.sub.org> (Stephan Niemz)
+     <raymond@es.ele.tue.nl> (Raymond Nijssen)
+     <nolan@helios.unl.edu> (Michael Nolan)
+     david nugent <david@csource.oz.au>
+     Jim O'Connor <jim@bahamut.fsc.com>
+     <kevin%kosman.uucp@nrc.com> (Kevin O'Gorman)
+     Petri Ojala <ojala@funet.fi>
+     <oneill@cs.ulowell.edu> (Brian 'Doc' O'Neill)
+     <Stephen.Page@prg.oxford.ac.uk>
+     Peter Palfrader <peter@palfrader.org>
+     <abekas!dragoman!mikep@decwrl.dec.com> (Mike Park)
+     Tim Peiffer <peiffer@cs.umn.edu>
+     <don@blkhole.resun.com> (Don Phillips)
+     "Mark Pizzolato 415-369-9366" <mark@infocomm.com>
+     John Plate <plate@infotek.dk>
+     <dplatt@ntg.com> (Dave Platt)
+     <eldorado@tharr.UUCP> (Mark Powell)
+     Mark Powell <mark@inet-uk.co.uk>
+     <pozar@kumr.lns.com> (Tim Pozar)
+     <joey@tessi.UUCP> (Joey Pruett)
+     Paul Pryor <ptp@fallschurch-acirs2.army.mil>
+     <putsch@uicc.com> (Jeff Putsch)
+     <ar@nvmr.robin.de> (Andreas Raab)
+     Vadim Radionov <rvp@zfs.lg.ua>
+     Jarmo Raiha <jarmo@ksvltd.FI>
+     James Revell <revell@uunet.uu.net>
+     Scott Reynolds <scott@clmqt.marquette.Mi.US>
+     <mcr@Sandelman.OCUnix.On.Ca> (Michael Richardson)
+     Kenji Rikitake <kenji@rcac.astem.or.jp>
+     <arnold@cc.gatech.edu> (Arnold Robbins)
+     <steve@Nyongwa.cam.org> (Steve M. Robbins)
+     Ollivier Robert <Ollivier.Robert@keltia.frmug.fr.net>
+     Serge Robyns <sr@denkart.be>
+     Lawrence E. Rosenman <ler@lerami.lerctr.org>
+     Jeff Ross <jeff@wisdom.bubble.org>
+     Aleksey P. Rudnev <alex@kiae.su>
+     "Heiko W.Rupp" <hwr@pilhuhn.ka.sub.org>
+     <wolfgang@wsrcc.com> (Wolfgang S. Rupprecht)
+     <tbr@tfic.bc.ca> (Tom Rushworth)
+     Peter Rye <prye@picu-sgh.demon.co.uk>
+     <jsacco@ssl.com> (Joseph E. Sacco)
+     <rsalz@bbn.com> (Rich Salz)
+     Curt Sampson <curt@portal.ca>
+     <sojurn!mike@hobbes.cert.sei.cmu.edu> (Mike Sangrey)
+     Nickolay Saukh <nms@ussr.EU.net>
+     Ignatios Souvatzis <is@jocelyn.rhein.de>
+     <heiko@lotte.sax.de> (Heiko Schlittermann)
+     Eric Schnoebelen <eric@cirr.com>
+     <russell@alpha3.ersys.edmonton.ab.ca> (Russell Schulz)
+     <scott@geom.umn.edu>
+     Igor V. Semenyuk <iga@argrd0.argonaut.su>
+     Christopher Sawtell <chris@gerty.equinox.gen.nz>
+     <schuler@bds.sub.org> (Bernd Schuler)
+     <uunet!gold.sub.org!root> (Christian Seyb)
+     Marcus Shang <marcus.shang@canada.cdev.com>
+     <s4mjs!mjs@nirvo.nirvonics.com> (M. J. Shannon Jr.)
+     <shields@tembel.org> (Michael Shields)
+     <peter@ficc.ferranti.com> (Peter da Silva)
+     <vince@victrola.sea.wa.us> (Vince Skahan)
+     <frumious!pat> (Patrick Smith)
+     <roscom!monty@bu.edu> (Monty Solomon)
+     <sommerfeld@orchard.medford.ma.us> (Bill Sommerfeld)
+     Julian Stacey <stacey@guug.de>
+     <evesg@etlrips.etl.go.jp> (Gjoen Stein)
+     Harlan Stenn <harlan@mumps.pfcs.com>
+     Ralf Stephan <ralf@ark.abg.sub.org>
+     <johannes@titan.westfalen.de> (Johannes Stille)
+     <chs@antic.apu.fi> (Hannu Strang)
+     <ralf@reswi.ruhr.de> (Ralf E. Stranzenbach)
+     <sullivan@Mathcom.com> (S. Sullivan)
+     Shigeya Suzuki <shigeya@dink.foretune.co.jp>
+     <kls@ditka.Chicago.COM> (Karl Swartz)
+     <swiers@plains.NoDak.edu>
+     Oleg Tabarovsky <olg@olghome.pccentre.msk.su>
+     <ikeda@honey.misystems.co.jp> (Takatoshi Ikeda)
+     John Theus <john@theus.rain.com>
+     <rd@aii.com> (Bob Thrush)
+     ppKarsten Thygesen <karthy@dannug.dk>
+     Graham Toal <gtoal@pizzabox.demon.co.uk>
+     <rmtodd@servalan.servalan.com> (Richard Todd)
+     Michael Ju. Tokarev <mjt@tls.msk.ru>
+     Martin Tomes <mt00@controls.eurotherm.co.uk>
+     Len Tower <tower-prep@ai.mit.edu>
+     Mark Towfiq <justice!towfiq@Eingedi.Newton.MA.US>
+     <mju@mudos.ann-arbor.mi.us> (Marc Unangst)
+     Matthias Urlichs <urlichs@smurf.noris.de>
+     Tomi Vainio <tomppa@fidata.fi>
+     <a3@a3.xs4all.nl> (Adri Verhoef)
+     Andrew Vignaux <ajv@ferrari.datamark.co.nz>
+     <vogel@omega.ssw.de> (Andreas Vogel)
+     Dima Volodin <dvv@hq.demos.su>
+     <jos@bull.nl> (Jos Vos)
+     <jv@nl.net> (Johan Vromans)
+     David Vrona <dave@sashimi.wwa.com>
+     <Marcel.Waldvogel@nice.usergroup.ethz.ch> (Marcel Waldvogel)
+     <steve@nshore.org> (Stephen J. Walick)
+     <syd@dsinc.dsi.com> (Syd Weinstein)
+     <gerben@rna.indiv.nluug.nl> (Gerben Wierda)
+     <jbw@cs.bu.edu> (Joe Wells)
+     <frnkmth!twwells.com!bill> (T. William Wells)
+     Peter Wemm <Peter_Wemm@zeus.dialix.oz.au>
+     <mauxci!eci386!woods@apple.com> (Greg A. Woods)
+     <John.Woods@proteon.com> (John Woods)
+     Michael Yu.Yaroslavtsev <mike@yaranga.ipmce.su>
+     Alexei K. Yushin <root@july.elis.crimea.ua>
+     <jon@console.ais.org> (Jon Zeeff)
+     Matthias Zepf <agnus@amylnd.stgt.sub.org>
+     Eric Ziegast <uunet!ziegast>
+
+
+File: uucp.info,  Node: Index (concepts),  Next: Index (configuration file),  Prev: Acknowledgements,  Up: Top
+
+Concept Index
+*************
+
+* Menu:
+
+* .Corrupt:                              Execution Subdirectories.
+* .Failed:                               Execution Subdirectories.
+* .Preserve:                             Other Spool Subdirectories.
+* .Received:                             Other Spool Subdirectories.
+* .Sequence:                             Other Spool Subdirectories.
+* .Status:                               Status Directory.
+* .Temp:                                 Other Spool Subdirectories.
+* .Xqtdir:                               Execution Subdirectories.
+* /usr/spool/uucp:                       Miscellaneous (config).
+* /usr/spool/uucppublic:                 Miscellaneous (config).
+* accepting calls:                       Accepting Calls.
+* anonymous UUCP:                        config File Examples.
+* call configuration file:               Configuration File Names.
+* call in login name:                    Configuration File Names.
+* call in password:                      Configuration File Names.
+* call out file:                         Configuration File Names.
+* call out login name:                   Configuration File Names.
+* call out password:                     Configuration File Names.
+* calling in:                            Accepting Calls.
+* calling out:                           Calling Other Systems.
+* changing spool directory:              config File Examples.
+* chat scripts:                          Chat Scripts.
+* cleaning the spool directory:          Spool Directory Cleaning.
+* config file:                           config File.
+* config file examples:                  config File Examples.
+* configuration file (call):             Configuration File Names.
+* configuration file (config):           config File.
+* configuration file (dial):             dial File.
+* configuration file (dialcode):         Configuration File Names.
+* configuration file (passwd):           Configuration File Names.
+* configuration file (port):             port File.
+* configuration file (sys):              sys File.
+* d protocol:                            d Protocol.
+* debugging file:                        Log File Names.
+* dial file:                             dial File.
+* dialcode configuration file:           Configuration File Names.
+* dialcode file:                         Configuration File Names.
+* dialer configuration file:             dial File.
+* e protocol:                            e Protocol.
+* E UUCP protocol command:               The E Command.
+* execution file format:                 Execution File Format.
+* f protocol:                            f Protocol.
+* final handshake:                       The Final Handshake.
+* G protocol:                            Big G Protocol.
+* g protocol:                            g Protocol.
+* gateway:                               Gateway Example.
+* grades:                                When to Call.
+* grades implementation:                 UUCP Grades.
+* h protocol:                            h Protocol.
+* H UUCP protocol command:               The H Command.
+* i protocol:                            i Protocol.
+* initial handshake:                     The Initial Handshake.
+* j protocol:                            j Protocol.
+* L.XXX:                                 Spool Lock Files.
+* LCK..SYS:                              Spool Lock Files.
+* LCK.XQT.NN:                            Spool Lock Files.
+* leaf site:                             Leaf Example.
+* lock directory:                        Miscellaneous (config).
+* lock files:                            UUCP Lock Files.
+* lock files in spool directory:         Spool Lock Files.
+* log file:                              Log File Names.
+* LXQ.CMD:                               Spool Lock Files.
+* mail:                                  Mail and News.
+* main configuration file:               config File.
+* news:                                  Mail and News.
+* parity in login names:                 Miscellaneous (config).
+* passwd configuration file:             Configuration File Names.
+* passwd file:                           Configuration File Names.
+* port configuration file:               port File.
+* port file:                             port File.
+* protocol d:                            d Protocol.
+* protocol e:                            e Protocol.
+* protocol f:                            f Protocol.
+* protocol G:                            Big G Protocol.
+* protocol g:                            g Protocol.
+* protocol h:                            h Protocol.
+* protocol i:                            i Protocol.
+* protocol j:                            j Protocol.
+* protocol t:                            t Protocol.
+* protocol v:                            v Protocol.
+* protocol x:                            x Protocol.
+* protocol y:                            y Protocol.
+* protocol, UUCP:                        UUCP Protocol.
+* public directory:                      Miscellaneous (config).
+* R UUCP protocol command:               The R Command.
+* S UUCP protocol command:               The S Command.
+* spool directory:                       The Spool Directory Layout.
+* spool directory, changing:             config File Examples.
+* spool directory, cleaning:             Spool Directory Cleaning.
+* spool directory, setting:              Miscellaneous (config).
+* statistics file:                       Log File Names.
+* status files:                          Status Directory.
+* sys file:                              sys File.
+* sys file example (gateway):            Gateway Example.
+* sys file example (leaf):               Leaf Example.
+* system configuration file:             sys File.
+* system lock files:                     Spool Lock Files.
+* system name:                           Miscellaneous (config).
+* system spool directories:              System Spool Directories.
+* t protocol:                            t Protocol.
+* time strings:                          Time Strings.
+* unknown systems:                       Miscellaneous (config).
+* UUCP protocol:                         UUCP Protocol.
+* UUCP protocol E command:               The E Command.
+* UUCP protocol H command:               The H Command.
+* UUCP protocol R command:               The R Command.
+* UUCP protocol S command:               The S Command.
+* UUCP protocol X command:               The X Command.
+* UUCP system name:                      Miscellaneous (config).
+* uucppublic:                            Miscellaneous (config).
+* v protocol:                            v Protocol.
+* x protocol:                            x Protocol.
+* X UUCP protocol command:               The X Command.
+* X.* file format:                       Execution File Format.
+* y protocol:                            y Protocol.
+

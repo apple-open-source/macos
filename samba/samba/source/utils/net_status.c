@@ -31,7 +31,7 @@ static int show_session(TDB_CONTEXT *tdb, TDB_DATA kbuf, TDB_DATA dbuf,
 
 	memcpy(&sessionid, dbuf.dptr, sizeof(sessionid));
 
-	if (!process_exists(sessionid.pid)) {
+	if (!process_exists_by_pid(sessionid.pid)) {
 		return 0;
 	}
 
@@ -74,7 +74,7 @@ static int net_status_sessions(int argc, const char **argv)
 			   TDB_DEFAULT, O_RDONLY, 0);
 
 	if (tdb == NULL) {
-		d_printf("%s not initialised\n", lock_path("sessionid.tdb"));
+		d_fprintf(stderr, "%s not initialised\n", lock_path("sessionid.tdb"));
 		return -1;
 	}
 
@@ -101,10 +101,10 @@ static int show_share(TDB_CONTEXT *tdb, TDB_DATA kbuf, TDB_DATA dbuf,
 		return 0;
 	}
 
-	d_printf("%-10.10s   %5d   %-12s  %s",
-	       crec.name,(int)crec.pid,
+	d_printf("%-10.10s   %s   %-12s  %s",
+	       crec.servicename,procid_str_static(&crec.pid),
 	       crec.machine,
-	       asctime(LocalTime(&crec.start)));
+	       time_to_asc(crec.start));
 
 	return 0;
 }
@@ -125,11 +125,15 @@ static int collect_pid(TDB_CONTEXT *tdb, TDB_DATA kbuf, TDB_DATA dbuf,
 
 	memcpy(&sessionid, dbuf.dptr, sizeof(sessionid));
 
-	if (!process_exists(sessionid.pid))
+	if (!process_exists_by_pid(sessionid.pid)) 
 		return 0;
 
 	ids->num_entries += 1;
 	ids->entries = SMB_REALLOC_ARRAY(ids->entries, struct sessionid, ids->num_entries);
+	if (!ids->entries) {
+		ids->num_entries = 0;
+		return 0;
+	}
 	ids->entries[ids->num_entries-1] = sessionid;
 
 	return 0;
@@ -156,19 +160,20 @@ static int show_share_parseable(TDB_CONTEXT *tdb, TDB_DATA kbuf, TDB_DATA dbuf,
 	}
 
 	for (i=0; i<ids->num_entries; i++) {
-		if (ids->entries[i].pid == crec.pid) {
+		struct process_id id = pid_to_procid(ids->entries[i].pid);
+		if (procid_equal(&id, &crec.pid)) {
 			guest = False;
 			break;
 		}
 	}
 
-	d_printf("%s\\%d\\%s\\%s\\%s\\%s\\%s",
-		 crec.name,(int)crec.pid,
+	d_printf("%s\\%s\\%s\\%s\\%s\\%s\\%s",
+		 crec.servicename,procid_str_static(&crec.pid),
 		 guest ? "" : uidtoname(ids->entries[i].uid),
 		 guest ? "" : gidtoname(ids->entries[i].gid),
 		 crec.machine, 
 		 guest ? "" : ids->entries[i].hostname,
-		 asctime(LocalTime(&crec.start)));
+		 time_to_asc(crec.start));
 
 	return 0;
 }
@@ -185,7 +190,7 @@ static int net_status_shares_parseable(int argc, const char **argv)
 			   TDB_DEFAULT, O_RDONLY, 0);
 
 	if (tdb == NULL) {
-		d_printf("%s not initialised\n", lock_path("sessionid.tdb"));
+		d_fprintf(stderr, "%s not initialised\n", lock_path("sessionid.tdb"));
 		return -1;
 	}
 
@@ -196,9 +201,9 @@ static int net_status_shares_parseable(int argc, const char **argv)
 			   TDB_DEFAULT, O_RDONLY, 0);
 
 	if (tdb == NULL) {
-		d_printf("%s not initialised\n", lock_path("connections.tdb"));
-		d_printf("This is normal if no SMB client has ever connected "
-			 "to your server.\n");
+		d_fprintf(stderr, "%s not initialised\n", lock_path("connections.tdb"));
+		d_fprintf(stderr, "This is normal if no SMB client has ever "
+			 "connected to your server.\n");
 		return -1;
 	}
 
@@ -225,10 +230,10 @@ static int net_status_shares(int argc, const char **argv)
 				   TDB_DEFAULT, O_RDONLY, 0);
 
 		if (tdb == NULL) {
-			d_printf("%s not initialised\n",
+			d_fprintf(stderr, "%s not initialised\n",
 				 lock_path("connections.tdb"));
-			d_printf("This is normal if no SMB client has ever "
-				 "connected to your server.\n");
+			d_fprintf(stderr, "This is normal if no SMB client has "
+				 "ever connected to your server.\n");
 			return -1;
 		}
 

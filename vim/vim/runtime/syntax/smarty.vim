@@ -1,9 +1,9 @@
 " Vim syntax file
-" Language:	Smarty Templates (http://www.phpinsider.com/php/code/Smarty/)
+" Language:	Smarty Templates
 " Maintainer:	Manfred Stienstra manfred.stienstra@dwerg.net
-" Last Change:  Fri Apr 12 10:33:51 CEST 2002
+" Last Change:  Mon Nov  4 11:42:23 CET 2002
 " Filenames:    *.tpl
-" URL:		http://www.dwerg.net/download/vim/smarty.vim
+" URL:		http://www.dwerg.net/projects/vim/smarty.vim
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -26,9 +26,18 @@ syn match smartyBlock contained "[\[\]]"
 syn keyword smartyTagName capture config_load include include_php
 syn keyword smartyTagName insert if elseif else ldelim rdelim literal
 syn keyword smartyTagName php section sectionelse foreach foreachelse
-syn keyword smartyTagName strip
+syn keyword smartyTagName strip assign counter cycle debug eval fetch
+syn keyword smartyTagName html_options html_select_date html_select_time
+syn keyword smartyTagName math popup_init popup html_checkboxes html_image
+syn keyword smartyTagName html_radios html_table mailto textformat
 
-syn keyword smartyInFunc ne eq
+syn keyword smartyModifier cat capitalize count_characters count_paragraphs
+syn keyword smartyModifier count_sentences count_words date_format default
+syn keyword smartyModifier escape indent lower nl2br regex_replace replace
+syn keyword smartyModifier spacify string_format strip strip_tags truncate
+syn keyword smartyModifier upper wordwrap
+
+syn keyword smartyInFunc neq eq
 
 syn keyword smartyProperty contained "file="
 syn keyword smartyProperty contained "loop="
@@ -41,7 +50,7 @@ syn keyword smartyConstant "\$smarty"
 
 syn keyword smartyDot .
 
-syn region smartyZone matchgroup=Delimiter start="{" end="}" contains=smartyProperty, smartyString, smartyBlock, smartyTagName, smartyConstant, smartyInFunc
+syn region smartyZone matchgroup=Delimiter start="{" end="}" contains=smartyProperty, smartyString, smartyBlock, smartyTagName, smartyConstant, smartyInFunc, smartyModifier
 
 syn region  htmlString   contained start=+"+ end=+"+ contains=htmlSpecialChar,javaScriptExpression,@htmlPreproc,smartyZone
 syn region  htmlString   contained start=+'+ end=+'+ contains=htmlSpecialChar,javaScriptExpression,@htmlPreproc,smartyZone
@@ -64,6 +73,7 @@ if version >= 508 || !exists("did_smarty_syn_inits")
   HiLink smartyInFunc Function
   HiLink smartyBlock Constant
   HiLink smartyDot SpecialChar
+  HiLink smartyModifier Function
   delcommand HiLink
 endif
 

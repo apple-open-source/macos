@@ -111,10 +111,9 @@ and set the priority to any value in the range
 to
 .Dv PRIO_MAX .
 Useful priorities are:
-20 (the affected processes will run only when nothing else
-in the system wants to),
+20 (the affected processes will run at the lowest priority),
 0 (the ``base'' scheduling priority),
-anything negative (to make things go very fast).
+anything negative (lower values cause more favorable scheduling).
 .Sh FILES
 .Bl -tag -width /etc/passwd -compact
 .It Pa /etc/passwd

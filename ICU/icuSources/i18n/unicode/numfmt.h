@@ -1,5 +1,7 @@
 /*
-* Copyright (C) {1997-2004}, International Business Machines Corporation and others. All Rights Reserved.
+********************************************************************************
+* Copyright (C) 1997-2006, International Business Machines Corporation and others.
+* All Rights Reserved.
 ********************************************************************************
 *
 * File NUMFMT.H
@@ -22,6 +24,11 @@
 
 #include "unicode/utypes.h"
 
+/**
+ * \file 
+ * \brief C++ API: Abstract base class for all number formats.
+ */
+ 
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/unistr.h"
@@ -34,14 +41,10 @@ U_NAMESPACE_BEGIN
 #if !UCONFIG_NO_SERVICE
 class NumberFormatFactory;
 class StringEnumeration;
-
-/**
- * @internal
- */
-typedef const void* URegistryKey;
 #endif
 
 /**
+ *
  * Abstract base class for all number formats.  Provides interface for
  * formatting and parsing a number.  Also provides methods for
  * determining which locales have number formats, and what their names
@@ -265,7 +268,7 @@ public:
      * @param appendTo  Output parameter to receive result.
      *                  Result is appended to existing contents.
      * @return          Reference to 'appendTo' parameter.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     UnicodeString& format(  int64_t number,
                             UnicodeString& appendTo) const;
@@ -312,7 +315,7 @@ public:
      * @param pos       On input: an alignment field, if desired.
      *                  On output: the offsets of the alignment field.
      * @return          Reference to 'appendTo' parameter.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
     */
     virtual UnicodeString& format(int64_t number,
                                   UnicodeString& appendTo,
@@ -639,7 +642,7 @@ public:
      * to use.  It need not be null-terminated.  May be the empty
      * string or NULL to indicate no currency.
      * @param ec input-output error code
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     virtual void setCurrency(const UChar* theCurrency, UErrorCode& ec);
 
@@ -708,10 +711,6 @@ protected:
     virtual void getEffectiveCurrency(UChar* result, UErrorCode& ec) const;
 
 private:
-    static const int32_t fgMaxIntegerDigits;
-    static const int32_t fgMinIntegerDigits;
-
-private:
 
     enum EStyles {
         kNumberStyle,
@@ -740,8 +739,6 @@ private:
      * @return                 A new NumberFormat instance.
      */
     static NumberFormat* makeInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
-    static const int32_t    fgNumberPatternsCount;
-    static const UChar* const fgLastResortNumberPatterns[];
 
     UBool      fGroupingUsed;
     int32_t     fMaxIntegerDigits;
@@ -771,7 +768,7 @@ public:
 
     /**
      * Destructor
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     virtual ~NumberFormatFactory();
 
@@ -802,7 +799,7 @@ public:
 
 /**
  * A NumberFormatFactory that supports a single locale.  It can be visible or invisible.
- * @draft ICU 3.0
+ * @stable ICU 2.6
  */
 class U_I18N_API SimpleNumberFormatFactory : public NumberFormatFactory {
 protected:
@@ -825,7 +822,7 @@ public:
     SimpleNumberFormatFactory(const Locale& locale, UBool visible = TRUE);
 
     /**
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     virtual ~SimpleNumberFormatFactory();
 

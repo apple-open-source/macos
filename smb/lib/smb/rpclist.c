@@ -3,6 +3,9 @@
  * (c) Copyright 1990 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1990 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1990 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -222,7 +225,7 @@ PRIVATE pointer_t rpc__list_element_alloc
          */
         if (list_desc->cur_size > 0)
         {
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
             if (list_desc->list_head.next == NULL)
             {
 		/*
@@ -236,7 +239,7 @@ PRIVATE pointer_t rpc__list_element_alloc
 		    rpc_m_lookaside_corrupt,
 		    "rpc__list_element_alloc" ));
             }
-#endif
+#endif // DEBUG_DCE_RPC
             list_desc->cur_size--;
             RPC_LIST_REMOVE_HEAD (list_desc->list_head, element, pointer_t);
 

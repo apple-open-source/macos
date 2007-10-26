@@ -1,5 +1,8 @@
 
 $Log: PlatformPlugin-README,v $
+Revision 1.8  2005/11/09 22:59:47  raddog
+Remove IOPlatformPluginFamily and related files from the project.  A branch was created prior to removal called AppleMacRISC4PE-no-plugins-branch for use pre-Chardonnay.  The new project is a Subversion project at svn+ssh://src.apple.com/cvs/cpusw/Platform/IOPlatformPluginFamily/trunk
+
 Revision 1.7  2004/08/13 22:04:41  eem
 Dummy checkin to test change to commit messages.
 
@@ -21,6 +24,12 @@ section headings.
 
 Revision 1.1  2003/09/16 19:00:33  eem
 Initial checkin of Platform Plugin README file.
+
+[raddog - 11/09/2005] Platform Plugins were moved to a separate svn project
+and are no longer built out of AppleMacRISC4PE.  Main sources can be found
+here:
+
+svn+ssh://src.apple.com/cvs/cpusw/Platform/IOPlatformPluginFamily/trunk
 
 --------------------------------------------------------------------------------
 MacRISC4 Platform Plugin README

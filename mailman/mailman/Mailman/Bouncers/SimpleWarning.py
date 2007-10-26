@@ -1,4 +1,4 @@
-# Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,10 +12,12 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software 
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Recognizes simple heuristically delimited warnings."""
 
+from Mailman.Bouncers.BouncerAPI import Stop
 from Mailman.Bouncers.SimpleMatch import _c
 from Mailman.Bouncers.SimpleMatch import process as _process
 
@@ -41,4 +43,8 @@ patterns = [
 
 
 def process(msg):
-    return _process(msg, patterns)
+    if _process(msg, patterns):
+        # It's a recognized warning so stop now
+        return Stop
+    else:
+        return []

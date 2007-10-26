@@ -28,7 +28,6 @@
 #include <err.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <kvm.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <sys/param.h>

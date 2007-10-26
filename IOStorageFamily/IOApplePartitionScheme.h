@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,7 @@
  * Apple Partition Map Definitions
  */
 
-#pragma pack(2)     /* (enable 16-bit struct packing for dpme, DDMap, Block0) */
+#pragma pack(push, 1)                        /* (enable 8-bit struct packing) */
 
 /* Structure constants. */
 
@@ -62,10 +62,10 @@ typedef struct dpme
     UInt32  dpme_flags;           /* (partition flags, see defines below)     */
     UInt32  dpme_boot_block;      /* (logical block start of boot code)       */
     UInt32  dpme_boot_bytes;      /* (byte count of boot code)                */
-    UInt8 * dpme_load_addr;       /* (load address in memory of boot code)    */
-    UInt8 * dpme_load_addr_2;     /* (reserved for future use)                */
-    UInt8 * dpme_goto_addr;       /* (jump address in memory of boot code)    */
-    UInt8 * dpme_goto_addr_2;     /* (reserved for future use)                */
+    UInt32  dpme_load_addr;       /* (load address in memory of boot code)    */
+    UInt32  dpme_load_addr_2;     /* (reserved for future use)                */
+    UInt32  dpme_goto_addr;       /* (jump address in memory of boot code)    */
+    UInt32  dpme_goto_addr_2;     /* (reserved for future use)                */
     UInt32  dpme_checksum;        /* (checksum of boot code)                  */
     UInt8   dpme_process_id[16];  /* (processor type)                         */
     UInt32  dpme_reserved_2[32];  /* (reserved for future use)                */
@@ -117,7 +117,7 @@ typedef struct Block0
 #define DPME_FLAGS_OS_SPECIFIC_1  0x00000100                   /* (bit 8)     */
 #define DPME_FLAGS_RESERVED_2     0xFFFFFE00                   /* (bit 9..31) */
 
-#pragma options align=reset              /* (reset to default struct packing) */
+#pragma pack(pop)                        /* (reset to default struct packing) */
 
 #ifdef KERNEL
 #ifdef __cplusplus
@@ -200,13 +200,13 @@ protected:
      * Attach the given media object to the device tree plane.
      */
 
-    virtual bool attachMediaObjectToDeviceTree(IOMedia * media);
+    virtual bool attachMediaObjectToDeviceTree(IOMedia * media) __attribute__ ((deprecated));
 
     /*
      * Detach the given media object from the device tree plane.
      */
 
-    virtual void detachMediaObjectFromDeviceTree(IOMedia * media);
+    virtual void detachMediaObjectFromDeviceTree(IOMedia * media) __attribute__ ((deprecated));
 
 public:
 
@@ -233,6 +233,12 @@ public:
      */
 
     virtual void stop(IOService * provider);
+
+    /*
+     * Request that the provider media be re-scanned for partitions.
+     */
+
+    virtual IOReturn requestProbe(IOOptionBits options);
 
     OSMetaClassDeclareReservedUnused(IOApplePartitionScheme,  0);
     OSMetaClassDeclareReservedUnused(IOApplePartitionScheme,  1);

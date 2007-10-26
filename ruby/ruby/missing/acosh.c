@@ -2,8 +2,8 @@
 
   acosh.c -
 
-  $Author: eban $
-  $Date: 2003/10/18 14:04:18 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Fri Apr 12 00:34:17 JST 2002
 
   public domain rewrite of acosh(3), asinh(3) and atanh(3)

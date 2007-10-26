@@ -62,7 +62,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: main.c,v 1.33 2005/03/11 05:48:32 lindak Exp $"
+#define RCSID	"$Id: main.c,v 1.34.20.1 2006/04/17 18:37:15 callie Exp $"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -143,6 +143,7 @@ struct notifier *sigreceived = NULL;
 struct notifier *fork_notifier = NULL;
 
 int hungup;			/* terminal has been hung up */
+int do_modem_hungup;			/* need to finish disconnection */
 int privileged;			/* we're running as real uid root */
 int need_holdoff;		/* need holdoff period before restarting */
 int detached;			/* have detached from terminal */
@@ -279,6 +280,8 @@ struct notifier *disconnect_started_notify = NULL;
 struct notifier *disconnect_done_notify = NULL;
 struct notifier *stop_notify = NULL;
 struct notifier *cont_notify = NULL;
+struct notifier *system_inited_notify = NULL;
+
 #endif
 
 #ifdef ultrix
@@ -352,6 +355,7 @@ main(argc, argv)
     link_stats_valid = 0;
     new_phase(PHASE_INITIALIZE);
 
+	
     script_env = NULL;
 
     /* Initialize syslog facilities */
@@ -459,7 +463,6 @@ main(argc, argv)
     if (the_channel->check_options)
 	(*the_channel->check_options)();
 
-
     if (dump_options || dryrun) {
 	init_pr_log(NULL, LOG_INFO);
 	print_options(pr_log, NULL);
@@ -473,6 +476,10 @@ main(argc, argv)
      * Initialize system-dependent stuff.
      */
     sys_init();
+#ifdef __APPLE__
+	notify(system_inited_notify, 0);
+#endif
+
 
     /* Make sure fds 0, 1, 2 are open to somewhere. */
     fd_devnull = open(_PATH_DEVNULL, O_RDWR);
@@ -606,7 +613,7 @@ main(argc, argv)
         if (start_link_hook) {
             t = (*start_link_hook)();
             if (t == 0) {	
-                // cancelled
+               // cancelled
                 status = EXIT_USER_REQUEST;
                 goto end;
             }
@@ -764,7 +771,11 @@ main(argc, argv)
 #endif
 	    if (kill_link) {
 #ifdef __APPLE__
-                if (stop_link || phase == PHASE_ONHOLD) {
+                if (do_modem_hungup || stop_link || phase == PHASE_ONHOLD) {
+					if (do_modem_hungup) {
+						notice("Modem hangup");
+						do_modem_hungup = 0;
+					}
                     hungup = 1;
                     lcp_lowerdown(0);
                     link_terminated(0);
@@ -984,6 +995,7 @@ handle_events()
     struct timeval timo;
     sigset_t mask;
 
+
     kill_link = open_ccp_flag = 0;
 #ifdef __APPLE__
     stop_link = cont_link = 0;
@@ -1017,21 +1029,25 @@ handle_events()
     calltimeout();
 #ifdef __APPLE__
     if (got_sigtstp) {
+		info("Stopping on signal %d.", got_sigtstp);
         stop_link = 1;
         got_sigtstp = 0;
     }
     if (got_sigcont) {
+		info("Resuming on signal %d.", got_sigcont);
         cont_link = 1;
         got_sigcont = 0;
     }
 #endif
     if (got_sighup) {
+    info("Hangup (SIGHUP)");
 	kill_link = 1;
 	got_sighup = 0;
 	if (status != EXIT_HANGUP)
 	    status = EXIT_USER_REQUEST;
     }
     if (got_sigterm) {
+    info("Terminating on signal %d.", got_sigterm);
 	kill_link = 1;
 	persist = 0;
 	status = EXIT_USER_REQUEST;
@@ -1785,8 +1801,7 @@ static void
 hup(sig)
     int sig;
 {
-    info("Hangup (SIGHUP)");
-    got_sighup = 1;
+    got_sighup = sig;
 
 #ifdef __APPLE__
     // connectors test that flag
@@ -1817,8 +1832,7 @@ static void
 term(sig)
     int sig;
 {
-    info("Terminating on signal %d.", sig);
-    got_sigterm = 1;
+    got_sigterm = sig;
 
 #ifdef __APPLE__
     // connectors test that flag
@@ -1861,9 +1875,8 @@ static void
 stop(sig)
     int sig;
 {
-    info("Stopping on signal %d.", sig);
 
-    got_sigtstp = 1;
+    got_sigtstp = sig;
     switch (phase) {
         case PHASE_ONHOLD:	// already on hold
             break;
@@ -1890,9 +1903,8 @@ static void
 cont(sig)
     int sig;
 {
-    info("Resuming on signal %d.", sig);
     
-    got_sigcont = 1;
+    got_sigcont = sig;
     notify(sigreceived, sig);
     if (waiting)
 	siglongjmp(sigjmp, 1);
@@ -1977,6 +1989,9 @@ safe_fork()
 		return pid;
 	}
 	sys_close();
+#ifdef __APPLE__
+	options_close();
+#endif
 #ifdef USE_TDB
 	tdb_close(pppdb);
 #endif
@@ -1993,12 +2008,15 @@ safe_fork()
  * stderr gets connected to the log fd or to the _PATH_CONNERRS file.
  */
 #ifdef __APPLE__
+#define PPP_ARG_FD 3
 int
-device_script(program, in, out, dont_wait, program_uid)
+device_script(program, in, out, dont_wait, program_uid, pipe_args, pipe_args_len)
     char *program;
     int in, out;
     int dont_wait;
 	uid_t program_uid; 
+	char *pipe_args;
+	int pipe_args_len;
 #else
 int
 device_script(program, in, out, dont_wait)
@@ -2011,46 +2029,69 @@ device_script(program, in, out, dont_wait)
     int status = -1;
     int errfd;
     int fd;
-
+	int fdp[2];	
+	
+//error("device script '%s'\n", program);
+	
+	fdp[0] = fdp[1] = -1;
+    if (pipe_args) {
+		if (pipe(fdp) == -1) {
+			error("Failed to setup pipe with device script: %m");
+			return -1;
+		}
+	}
+	
     ++conn_running;
     pid = safe_fork();
 
     if (pid < 0) {
-	--conn_running;
-	error("Failed to create child process: %m");
-	return -1;
+		--conn_running;
+		error("Failed to create child process: %m");
+		return -1;
     }
 
-    if (pid != 0) {
-	if (dont_wait) {
-	    record_child(pid, program, NULL, NULL);
-	    status = 0;
-	} else {
-	    while (waitpid(pid, &status, 0) < 0) {
-		if (errno == EINTR)
-		    continue;
-		fatal("error waiting for (dis)connection process: %m");
-	    }
-	    --conn_running;
-	}
+	if (pid > 0) {
+		// running in parent
+		// close read end of the pipe
+			if (fdp[0] != -1) {
+			close(fdp[0]);
+			fdp[0] = -1;
+		}
+		// write args on the write end of the pipe, and close it
+			if (fdp[1] != -1) {
+			write(fdp[1], pipe_args, pipe_args_len);
+			close(fdp[1]);
+			fdp[1] = -1;
+		}
+		if (dont_wait) {
+			record_child(pid, program, NULL, NULL);
+			status = 0;
+		} else {
+			while (waitpid(pid, &status, 0) < 0) {
+				if (errno == EINTR)
+					continue;
+				fatal("error waiting for (dis)connection process: %m");
+			}
+			--conn_running;
+		}
 #ifdef __APPLE__
-        // return real status code
-        // Fix me : return only the lowest 8 bits 
-        return WEXITSTATUS(status);
-#else    
-	return (status == 0 ? 0 : -1);
+	// return real status code
+	// Fix me :	return only the lowest 8 bits
+			return WEXITSTATUS(status);
+#else
+		return (status == 0 ? 0 : -1);
 #endif
-    }
-
-    /* here we are executing in the child */
-
-    /* make sure fds 0, 1, 2 are occupied */
-    while ((fd = dup(in)) >= 0) {
-        if (fd > 2) {
-	    close(fd);
-	    break;
 	}
-    }
+
+	/* here we are executing in the child */
+
+	/* make sure fds 0, 1, 2 are occupied */
+	while ((fd = dup(in)) >= 0) {
+		if (fd > 2) {
+			close(fd);
+			break;
+		}
+	}
 
     /* dup in and out to fds > 2 */
     {
@@ -2072,13 +2113,14 @@ device_script(program, in, out, dont_wait)
     close(0);
     close(1);
     close(2);
-#ifdef __APPLE__
-    sys_close();
-#endif
     if (the_channel->close)
 	(*the_channel->close)();
     closelog();
     close(fd_devnull);
+	if (fdp[1] != -1) {
+		close(fdp[1]);
+		fdp[1] = -1; 
+	}
 
     /* dup the in, out, err fds to 0, 1, 2 */
     dup2(in, 0);
@@ -2091,8 +2133,18 @@ device_script(program, in, out, dont_wait)
     }
 
 #ifdef __APPLE__
-	if (program_uid == -1)
-		program_uid = uid;
+    if (fdp[0] != -1) {
+        dup2(fdp[0], PPP_ARG_FD);
+        close(fdp[0]);
+        fdp[0] = PPP_ARG_FD; 
+        closeallfrom(PPP_ARG_FD + 1);
+    } else {
+        /* make sure all fds 3 and above get closed, in case a library leaked */
+        closeallfrom(3);
+    }
+
+    if (program_uid == -1)
+        program_uid = uid;
     setuid(program_uid);
     if (getuid() != program_uid) {
 	error("setuid failed");
@@ -2180,6 +2232,12 @@ run_program(prog, args, must_exist, done, arg)
     dup2(fd_devnull, 1);
     dup2(fd_devnull, 2);
     close(fd_devnull);
+
+
+#ifdef __APPLE__
+	/* make sure all fd 3 and above, in case a library leaked */
+	closeallfrom(3);
+#endif
 
 #ifdef BSD
     /* Force the priority back to zero if pppd is running higher. */
@@ -2358,7 +2416,19 @@ script_setenv(var, value, iskey)
     newstring = (char *) malloc(vl+1);
     if (newstring == 0)
 	return;
+
+#ifdef USE_TDB
+	/*	
+		The byte before the string is used to store the "iskey" value.
+		It will be used later to know if delete_db_key() needs to be called.
+		By moving the pointer to the actual start of the string, the original 
+		pointer to the allocated memory is "lost", and the string will appear
+		as leaked in the 'leaks' command.
+		This could be done better. It is only necessary when TDB is used.
+	*/
     *newstring++ = iskey;
+#endif
+
     slprintf(newstring, vl, "%s=%s", var, value);
 
     /* check if this variable is already set */
@@ -2369,7 +2439,12 @@ script_setenv(var, value, iskey)
 		if (p[-1] && pppdb != NULL)
 		    delete_db_key(p);
 #endif
+#ifdef USE_TDB
+		/* see comment about how "iskey" is stored */
 		free(p-1);
+#else
+		free(p);
+#endif
 		script_env[i] = newstring;
 #ifdef USE_TDB
 		if (iskey && pppdb != NULL)
@@ -2431,7 +2506,12 @@ script_unsetenv(var)
 	    if (p[-1] && pppdb != NULL)
 		delete_db_key(p);
 #endif
-	    free(p-1);
+#ifdef USE_TDB
+		/* see comment about how "iskey" is stored */
+		free(p-1);
+#else
+		free(p);
+#endif
 	    while ((script_env[i] = script_env[i+1]) != 0)
 		++i;
 	    break;

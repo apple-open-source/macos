@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,8 +22,6 @@
 
 #include "AppleRAID.h"
 
-const OSSymbol * gAppleRAIDMirrorName;
-
 #define super AppleRAIDSet
 OSDefineMetaClassAndStructors(AppleRAIDMirrorSet, AppleRAIDSet);
 
@@ -33,8 +31,6 @@ AppleRAIDSet * AppleRAIDMirrorSet::createRAIDSet(AppleRAIDMember * firstMember)
 
     IOLog1("AppleRAIDMirrorSet::createRAIDSet(%p) called, new set = %p  *********\n", firstMember, raidSet);
 
-    if (!gAppleRAIDMirrorName) gAppleRAIDMirrorName = OSSymbol::withCString(kAppleRAIDLevelNameMirror);  // XXX free
-            
     while (raidSet){
 
 	if (!raidSet->init()) break;
@@ -58,6 +54,7 @@ bool AppleRAIDMirrorSet::init()
     arRebuildThreadCall = 0;
     arSetCompleteThreadCall = 0;
     arExpectingLiveAdd = 0;
+    arMaxReadRequestFactor = 32;	// with the default 32KB blocksize -> 1 MB
 
     queue_init(&arFailedRequestQueue);
 
@@ -72,6 +69,11 @@ bool AppleRAIDMirrorSet::initWithHeader(OSDictionary * header, bool firstTime)
 {
     if (super::initWithHeader(header, firstTime) == false) return false;
 
+    setProperty(kAppleRAIDSetAutoRebuildKey, header->getObject(kAppleRAIDSetAutoRebuildKey));
+    setProperty(kAppleRAIDSetTimeoutKey, header->getObject(kAppleRAIDSetTimeoutKey));
+
+    //	arQuickRebuildBitSize = 0;  //XXX 
+
     // schedule a timeout to start up degraded sets
     if (firstTime) startSetCompleteTimer();
 
@@ -85,9 +87,33 @@ void AppleRAIDMirrorSet::free(void)
     if (arSetCompleteThreadCall) thread_call_free(arSetCompleteThreadCall);
     arSetCompleteThreadCall = 0;
 
+    if (arLastSeek) IODelete(arLastSeek, UInt64, arLastAllocCount);
+    if (arSkippedIOCount) IODelete(arSkippedIOCount, UInt64, arLastAllocCount);
+
     assert(queue_empty(&arFailedRequestQueue));
 
     super::free();
+}
+
+//8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
+IOBufferMemoryDescriptor * AppleRAIDMirrorSet::readPrimaryMetaData(AppleRAIDMember * member)
+{
+    IOBufferMemoryDescriptor * primaryBuffer = super::readPrimaryMetaData(member);
+
+    // XXX
+    
+    return primaryBuffer;
+}
+
+IOReturn AppleRAIDMirrorSet::writePrimaryMetaData(IOBufferMemoryDescriptor * primaryBuffer)
+{
+
+    // XXX
+    
+    return super::writePrimaryMetaData(primaryBuffer);
 }
 
 //8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
@@ -132,6 +158,19 @@ bool AppleRAIDMirrorSet::resizeSet(UInt32 newMemberCount)
 {
     UInt32 oldMemberCount = arMemberCount;
 
+    // if downsizing, just hold on to the extra space
+    if (arLastAllocCount < newMemberCount) {
+	if (arLastSeek) IODelete(arLastSeek, UInt64, arLastAllocCount);
+	arLastSeek = IONew(UInt64, newMemberCount);
+	if (!arLastSeek) return false;
+
+	if (arSkippedIOCount) IODelete(arSkippedIOCount, UInt64, arLastAllocCount);
+	arSkippedIOCount = IONew(UInt64, newMemberCount);
+	if (!arSkippedIOCount) return false;
+    }
+    bzero(arLastSeek, sizeof(UInt64) * newMemberCount);
+    bzero(arSkippedIOCount, sizeof(UInt64) * newMemberCount);
+
     if (super::resizeSet(newMemberCount) == false) return false;
 
     if (oldMemberCount && arMemberCount > oldMemberCount) arExpectingLiveAdd += arMemberCount - oldMemberCount;
@@ -152,8 +191,24 @@ UInt32 AppleRAIDMirrorSet::nextSetState(void)
     return nextState;
 }
 
+OSDictionary * AppleRAIDMirrorSet::getSetProperties(void)
+{
+    OSDictionary * props = super::getSetProperties();
+
+    if (props) {
+	props->setObject(kAppleRAIDSetAutoRebuildKey, getProperty(kAppleRAIDSetAutoRebuildKey));
+	props->setObject(kAppleRAIDSetTimeoutKey, getProperty(kAppleRAIDSetTimeoutKey));
+//	props->setObject(kAppleRAIDSetQuickRebuildKey, kOSBooleanTrue);  // XXX
+    }
+
+    return props;
+}
+    
 bool AppleRAIDMirrorSet::startSet(void)
 {
+    IOLog1("AppleRAIDMirrorSet::startSet() - parallel read request max %lld bytes.\n", getSmallestMaxByteCount());
+    arMaxReadRequestFactor = getSmallestMaxByteCount() / arSetBlockSize;
+		
     if (super::startSet() == false) return false;
 
     if (getSetState() == kAppleRAIDSetStateDegraded) {
@@ -198,6 +253,104 @@ bool AppleRAIDMirrorSet::bumpOnError(void)
 //8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 //8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
 
+void AppleRAIDMirrorSet::activeReadMembers(AppleRAIDMember ** activeMembers, UInt64 byteStart, UInt32 byteCount)
+{
+    // this code try's to do three things:
+    //   1) send large single sequential i/o requests to each disk		(arMaxReadRequestFactor)
+    //   2) send i/o requests to the disk with the smallest seek distance	(arLastSeek)
+    //   3) balance the number of i/o requests between the available drives	(arSkippedIOCount)
+    //
+    // this code completely ignores the effects of writes on the head position since writes move
+    // the heads on all disks.  if the disk is doing track caching then ignoring the writes can
+    // still get us to a disk that may have that data already cached.
+    //
+    // note that arLastSeek is the last previously scheduled head position, the head may not
+    // be anywhere near there yet, hence this code can schedule multiple future i/o requests
+
+#define isOnline(member) ((UInt32)(member) >= 0x1000)    
+#define isOffline(member) ((UInt32)(member) < 0x1000)    
+
+    UInt64 distances[arMemberCount];
+
+    for (UInt32 index = 0; index < arMemberCount; index++) {
+
+	AppleRAIDMember * member = arMembers[index];
+	if (member) {
+
+	    UInt32 memberState = member->getMemberState();
+	    if (memberState == kAppleRAIDMemberStateOpen || memberState == kAppleRAIDMemberStateClosing) {
+
+//		UInt64 distance = (arLastSeek[index] <= byteStart) ? (byteStart - arLastSeek[index]) : 0xfffffffffffffffeULL;  // elevator
+		UInt64 distance = max(arLastSeek[index], byteStart) - min(arLastSeek[index], byteStart);
+//		if (arSkippedIOCount[index] >= (arMaxReadRequestFactor / 2)) distance = 0;
+		if (arSkippedIOCount[index] >= 12) distance = 1;
+		
+		UInt32 sort = index;
+		while (sort) {
+
+		    if (isOnline(activeMembers[sort-1]) && distance > distances[sort-1]) break;
+
+		    activeMembers[sort] = activeMembers[sort-1];
+		    distances[sort] = distances[sort-1];
+
+		    sort--;
+		}
+		activeMembers[sort] = member;
+		distances[sort] = distance;
+		continue;
+	    } 
+	}
+	activeMembers[index] = (AppleRAIDMember *)index;
+	distances[index] = 0xffffffffffffffffULL;
+    }
+
+    assert((arActiveCount != arMemberCount) ? (isOffline(activeMembers[arActiveCount])) : (isOnline(activeMembers[arMemberCount-1])));
+
+    // adjust last seeked to pointers and skipped counts
+    UInt64 balancedBlockCount = arSetBlockSize * arMaxReadRequestFactor;
+    UInt64 perMemberCount = byteCount / balancedBlockCount / arActiveCount * balancedBlockCount;
+    UInt64 count = 0;
+
+    for (UInt32 virtualIndex = 0; virtualIndex < arActiveCount; virtualIndex++) {
+
+	AppleRAIDMember * member = activeMembers[virtualIndex];
+	if (isOffline(member)) break;
+	UInt32 memberIndex = member->getMemberIndex();
+
+	count = perMemberCount ? min(byteCount, perMemberCount) : min(byteCount, balancedBlockCount);
+	if (count) {
+	    byteStart += count;
+	    byteCount -= count;
+	    arLastSeek[memberIndex] = byteStart;
+	    arSkippedIOCount[memberIndex] = 0;
+	} else {
+	    arSkippedIOCount[memberIndex]++;
+	}
+    }
+    assert(byteCount == 0);
+
+#ifdef DEBUG2
+    static UInt32 sumCount = 0, skippedSum0 = 0, skippedSum1 = 0, overflowCount = 0;
+    static UInt64 averageSeekSum = 0;
+
+    skippedSum0 += arSkippedIOCount[0];
+    skippedSum1 += arSkippedIOCount[1];
+    averageSeekSum += distances[0];
+    if (perMemberCount) overflowCount++;
+    if (sumCount++ >= 99) {
+	printf("skip0=%ld skip1=%ld, over=%ld, lastseek0=%llx lastseek1=%llx, avseek=%llx\n",
+	       skippedSum0, skippedSum1, overflowCount,
+	       arLastSeek[0], arLastSeek[1], averageSeekSum/100);
+	sumCount = skippedSum0 = skippedSum1 = overflowCount = 0;
+	averageSeekSum = 0;
+    }
+#endif    
+}
+
+//8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+//8888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888
+
 void AppleRAIDMirrorSet::completeRAIDRequest(AppleRAIDStorageRequest *storageRequest)
 {
     UInt32		cnt;
@@ -218,21 +371,21 @@ void AppleRAIDMirrorSet::completeRAIDRequest(AppleRAIDStorageRequest *storageReq
 	// Ignore missing members.
 	if (arMembers[cnt] == 0) continue;
 
-	// rebuild members
+	// rebuilding members
 	if (arMembers[cnt]->getMemberState() == kAppleRAIDMemberStateRebuilding) {
 
 	    if (!isWrite) {
-		assert(storageRequest->srMemberByteCounts[cnt] == 0);
+		assert(storageRequest->srRequestByteCounts[cnt] == 0);
 		continue;
 	    }
 	    
-	    if (storageRequest->srMemberStatus[cnt] != kIOReturnSuccess ||
-		storageRequest->srMemberByteCounts[cnt] != storageRequest->srByteCount) {
+	    if (storageRequest->srRequestStatus[cnt] != kIOReturnSuccess ||
+		storageRequest->srRequestByteCounts[cnt] != storageRequest->srByteCount) {
 		
 		// This will terminate the rebuild thread
 		arMembers[cnt]->changeMemberState(kAppleRAIDMemberStateBroken);
 		IOLog("AppleRAID::completeRAIDRequest - write error %u detected during rebuild for set \"%s\" (%s) on target member %s, set byte offset = %llu.\n",
-		      storageRequest->srMemberStatus[cnt], getSetNameString(), getUUIDString(),
+		      storageRequest->srRequestStatus[cnt], getSetNameString(), getUUIDString(),
 		      arMembers[cnt]->getUUIDString(), storageRequest->srByteStart);
 	    }
 	    continue;
@@ -241,7 +394,7 @@ void AppleRAIDMirrorSet::completeRAIDRequest(AppleRAIDStorageRequest *storageReq
 	// offline members
 	if (arMembers[cnt]->getMemberState() != kAppleRAIDMemberStateOpen) {
 	    IOLogRW("AppleRAIDMirrorSet::completeRAIDRequest - [%lu] tbc 0x%llx, sbc 0x%llx bc 0x%llx, member %p, member state %lu\n",
-		    cnt, storageRequest->srByteCount, storageRequest->srMemberByteCounts[cnt],
+		    cnt, storageRequest->srByteCount, storageRequest->srRequestByteCounts[cnt],
 		    byteCount, arMembers[cnt], arMembers[cnt]->getMemberState());
 
 	    status = kIOReturnIOError;
@@ -250,22 +403,22 @@ void AppleRAIDMirrorSet::completeRAIDRequest(AppleRAIDStorageRequest *storageReq
 	}
         
         // failing members
-        if (storageRequest->srMemberStatus[cnt] != kIOReturnSuccess) {
+        if (storageRequest->srRequestStatus[cnt] != kIOReturnSuccess) {
 	    IOLog("AppleRAID::completeRAIDRequest - error 0x%x detected for set \"%s\" (%s), member %s, set byte offset = %llu.\n",
-		  storageRequest->srMemberStatus[cnt], getSetNameString(), getUUIDString(),
+		  storageRequest->srRequestStatus[cnt], getSetNameString(), getUUIDString(),
 		  arMembers[cnt]->getUUIDString(), storageRequest->srByteStart);
 
-            status = storageRequest->srMemberStatus[cnt];
+            status = storageRequest->srRequestStatus[cnt];
 
 	    // mark this member to be removed
 	    arMembers[cnt]->changeMemberState(kAppleRAIDMemberStateClosing);
 	    continue;
         }
 
-	byteCount += storageRequest->srMemberByteCounts[cnt];
+	byteCount += storageRequest->srRequestByteCounts[cnt];
 
 	IOLogRW("AppleRAIDMirrorSet::completeRAIDRequest - [%lu] tbc 0x%llx, sbc 0x%llx bc 0x%llx, member %p\n",
-		cnt, storageRequest->srByteCount, storageRequest->srMemberByteCounts[cnt],
+		cnt, storageRequest->srByteCount, storageRequest->srRequestByteCounts[cnt],
 		byteCount, arMembers[cnt]);
     }
 
@@ -552,8 +705,8 @@ void AppleRAIDMirrorSet::rebuildStart(void)
 	    }
 	}
     }
-	    
-    target->setHeaderProperty(kAppleRAIDMemberIndexKey, memberIndex, 32);
+
+    target->setMemberIndex(memberIndex);
     target->setHeaderProperty(kAppleRAIDSequenceNumberKey, getSequenceNumber(), 32);
     
     IOLog1("AppleRAIDMirrorSet::rebuildStart(%p) - found a target %p for index = %d\n", this, target, (int)memberIndex);
@@ -561,6 +714,7 @@ void AppleRAIDMirrorSet::rebuildStart(void)
     arRebuildingMember = target;
 
     // add member to set at the index we are rebuilding
+    // note that arActiveCount is not bumped
     if (memberUUIDs) {
 	memberUUIDs->replaceObject(memberIndex, target->getUUID());
 	setProperty(kAppleRAIDMembersKey, memberUUIDs);
@@ -631,7 +785,7 @@ void AppleRAIDMirrorSet::rebuild()
 	target->writeRAIDHeader();
 
 	offset = arBaseOffset;
-	UInt32 percentDone = 99, currentDone = 0x99;
+	uint32_t oldTime = 0;
 	while (offset < arSetMediaSize) {
 
 	    IOLog2("AppleRAIDMirrorSet::rebuild(%p) - offset = %llu bs=%llu\n", this, offset, arSetBlockSize);
@@ -679,14 +833,15 @@ void AppleRAIDMirrorSet::rebuild()
 
 	    arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDMirrorSet::unpauseSet));
 
-	    // calculate % done
-	    currentDone = ((offset / arSetBlockSize) * 100) / arSetBlockCount;
-	    if (percentDone != currentDone) {
-		percentDone = currentDone;
-                OSNumber * percent = OSNumber::withNumber(percentDone, 32);
-                if (percent) {
-		    target->setProperty(kAppleRAIDRebuildStatus, percent);
-                    percent->release();
+	    // update rebuild status once a second
+	    uint32_t newTime, dontcare;	
+	    clock_get_system_microtime(&newTime, &dontcare);
+	    if (newTime != oldTime) {	
+		oldTime = newTime;
+                OSNumber * bytesCompleted = OSNumber::withNumber(offset, 64);
+                if (bytesCompleted) {
+		    target->setProperty(kAppleRAIDRebuildStatus, bytesCompleted);
+                    bytesCompleted->release();
                 }
 	    }
 
@@ -710,13 +865,14 @@ void AppleRAIDMirrorSet::rebuild()
     if (sourceOpen) close(this, 0);
     if (targetOpen) target->close(this, 0);
 
-    // if the target state went back to spare that mean the member is being removed from the set
+    // if the target state went back to spare that means the member is being removed from the set
     bool aborting = target->getMemberState() == kAppleRAIDMemberStateSpare;
     if (aborting) target->changeMemberState(kAppleRAIDMemberStateBroken);
 
     if (arSetIsPaused) arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &AppleRAIDMirrorSet::unpauseSet));
 
     if (aborting) {
+	// calling rebuildComplete hangs on the global lock, just bail out
 	arRebuildingMember = 0;
     } else {
 	bool success = offset >= arSetMediaSize;
@@ -816,7 +972,6 @@ bool AppleRAIDMirrorMemoryDescriptor::initWithStorageRequest(AppleRAIDStorageReq
 {
     if (!super::initWithStorageRequest(storageRequest, memberIndex)) return false;
     
-    mdMemberCount = storageRequest->srMemberCount;
     mdSetBlockSize = storageRequest->srSetBlockSize;
     
     return true;
@@ -824,64 +979,88 @@ bool AppleRAIDMirrorMemoryDescriptor::initWithStorageRequest(AppleRAIDStorageReq
 
 bool AppleRAIDMirrorMemoryDescriptor::configureForMemoryDescriptor(IOMemoryDescriptor *memoryDescriptor, UInt64 byteStart, UInt32 activeIndex)
 {
-    UInt32 raidBlockStop, raidBlockEndOffset;
-    UInt32 virtualMemberIndex, startMember, stopMember;
-    UInt32 blockCount, extraBlocks, memberBlockCount, memberBlockStart;
     UInt32 byteCount = memoryDescriptor->getLength();
+    UInt32 blockCount, memberBlockCount;
+    UInt64 setBlockStop, memberBlockStart;
+    UInt32 extraBlocks, setBlockStopOffset;
+    UInt32 startIndex, virtualIndex;
     UInt32 activeCount = mdStorageRequest->srActiveCount;
     
     _direction = memoryDescriptor->getDirection();
     
     if (_direction == kIODirectionOut) {
-        mdMemberByteStart = byteStart;
-        _length = byteCount;
+	mdMemberByteStart = byteStart;
+	_length = byteCount;
     } else {
-        mdSetBlockStart		= byteStart / mdSetBlockSize;
-        mdSetBlockOffset	= byteStart % mdSetBlockSize;
-        startMember		= mdSetBlockStart % activeCount;
-        raidBlockStop		= (byteStart + byteCount - 1) / mdSetBlockSize;
-        raidBlockEndOffset	= (byteStart + byteCount - 1) % mdSetBlockSize;
-        stopMember		= raidBlockStop % activeCount;
-        blockCount		= raidBlockStop - mdSetBlockStart + 1;
-        memberBlockCount	= blockCount / activeCount;
-        extraBlocks		= blockCount % activeCount;
-        virtualMemberIndex	= (activeCount + activeIndex - startMember) % activeCount;
-	memberBlockStart	= mdSetBlockStart + virtualMemberIndex * memberBlockCount + min(virtualMemberIndex, extraBlocks);
+	mdSetBlockStart		= byteStart / mdSetBlockSize;
+	mdSetBlockOffset	= byteStart % mdSetBlockSize;
+	setBlockStop		= (byteStart + byteCount - 1) / mdSetBlockSize;
+	setBlockStopOffset	= (byteStart + byteCount - 1) % mdSetBlockSize;
+	blockCount		= setBlockStop - mdSetBlockStart + 1;
+	memberBlockCount	= blockCount / activeCount;
+	extraBlocks		= blockCount % activeCount;
+	startIndex		= mdSetBlockStart % activeCount;
 
-	if (virtualMemberIndex < extraBlocks) memberBlockCount++;
-        
-        mdMemberByteStart = (UInt64)memberBlockStart * mdSetBlockSize;
-        _length = memberBlockCount * mdSetBlockSize;
-        
-        if (virtualMemberIndex == 0) {
-            mdMemberByteStart += mdSetBlockOffset;
-            _length -= mdSetBlockOffset;
-        }
-        
-        if (virtualMemberIndex == min(blockCount - 1, activeCount - 1)) _length -= mdSetBlockSize - raidBlockEndOffset - 1;
-	
+	// per member stuff
+
+	// find our index relative to this starting member for this request
+	virtualIndex = (activeCount + activeIndex - startIndex) % activeCount;
+	memberBlockStart = mdSetBlockStart + virtualIndex * memberBlockCount + min(virtualIndex, extraBlocks);
+	if (virtualIndex < extraBlocks) memberBlockCount++;
+
+	// find the transfer size for this member
+	mdMemberByteStart = memberBlockStart * mdSetBlockSize;
+	_length = memberBlockCount * mdSetBlockSize;
+
+	// adjust for the starting inter-block offset
+	if (virtualIndex == 0) {
+	    mdMemberByteStart += mdSetBlockOffset;   // XXX same as byteStart?
+	    _length	      -= mdSetBlockOffset;
+	}
+
+	// adjust for ending inter-block offset
+	if (virtualIndex == min(blockCount - 1, activeCount - 1)) _length -= mdSetBlockSize - setBlockStopOffset - 1;
+
 	IOLogRW("mirror activeIndex = %ul, mdMemberByteStart = %llu _length =0x%lx\n", (int)activeIndex, mdMemberByteStart, _length);
     }
     
     mdMemoryDescriptor = memoryDescriptor;
-        
+	
     return _length != 0;
 }
 
 IOPhysicalAddress AppleRAIDMirrorMemoryDescriptor::getPhysicalSegment(IOByteCount offset, IOByteCount *length)
 {
-    UInt32		memberBlockNumber, memberBlockOffset, raidBlockNumber;
-    IOByteCount		raidOffset = offset;
+    IOByteCount		setOffset = offset;
     IOPhysicalAddress	physAddress;
-    
+    UInt32		memberBlockStart, memberBlockOffset, blockCount;
+
     if (_direction != kIODirectionOut) {
-        memberBlockNumber = (mdMemberByteStart + offset) / mdSetBlockSize;
+        memberBlockStart = (mdMemberByteStart + offset) / mdSetBlockSize;
         memberBlockOffset = (mdMemberByteStart + offset) % mdSetBlockSize;
-        raidBlockNumber = memberBlockNumber - mdSetBlockStart;
-        raidOffset = raidBlockNumber * mdSetBlockSize + memberBlockOffset - mdSetBlockOffset;
+        blockCount = memberBlockStart - mdSetBlockStart;
+        setOffset = blockCount * mdSetBlockSize + memberBlockOffset - mdSetBlockOffset;
     }
     
-    physAddress = mdMemoryDescriptor->getPhysicalSegment(raidOffset, length);
+    physAddress = mdMemoryDescriptor->getPhysicalSegment(setOffset, length);
+    
+    return physAddress;
+}
+
+addr64_t AppleRAIDMirrorMemoryDescriptor::getPhysicalSegment64(IOByteCount offset, IOByteCount *length)
+{
+    IOByteCount		setOffset = offset;
+    addr64_t		physAddress;
+    UInt32		memberBlockStart, memberBlockOffset, blockCount;
+
+    if (_direction != kIODirectionOut) {
+        memberBlockStart = (mdMemberByteStart + offset) / mdSetBlockSize;
+        memberBlockOffset = (mdMemberByteStart + offset) % mdSetBlockSize;
+        blockCount = memberBlockStart - mdSetBlockStart;
+        setOffset = blockCount * mdSetBlockSize + memberBlockOffset - mdSetBlockOffset;
+    }
+    
+    physAddress = mdMemoryDescriptor->getPhysicalSegment64(setOffset, length);
     
     return physAddress;
 }

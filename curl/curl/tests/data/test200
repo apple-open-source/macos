@@ -1,3 +1,4 @@
+<testcase>
 # Server-side
 <reply>
 <data>
@@ -12,7 +13,7 @@ moo
 # Client-side
 <client>
 <server>
-none
+file
 </server>
  <name>
 basic file:// file
@@ -32,3 +33,4 @@ moo
 # Verify data after the test has been "shot"
 <verify>
 </verify>
+</testcase>

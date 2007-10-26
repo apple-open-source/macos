@@ -34,9 +34,10 @@
 //	* CPlugInRef
 //------------------------------------------------------------------------------------
 
-CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr )
+CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr ) : fMutex("CPluginRef::fMutex")
 {
 	fHashArrayLength = 128;
+	fRefNumCount = 0;
 	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
 
 	fDeallocProcPtr = inProcPtr;
@@ -44,9 +45,10 @@ CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr )
 } // CPlugInRef
 
 
-CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr, uInt32 inHashArrayLength )
+CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr, UInt32 inHashArrayLength ) : fMutex("CPluginRef::fMutex")
 {
 	fHashArrayLength = inHashArrayLength;
+	fRefNumCount = 0;
 	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
 
 	fDeallocProcPtr = inProcPtr;
@@ -67,14 +69,14 @@ CPlugInRef::~CPlugInRef ( void )
 //	* AddItem
 //------------------------------------------------------------------------------------
 
-sInt32 CPlugInRef::AddItem ( uInt32 inRefNum, void *inData )
+SInt32 CPlugInRef::AddItem ( UInt32 inRefNum, void *inData )
 {
-	sInt32			siResult	= eDSNoErr;
-	uInt32			uiSlot		= 0;
+	SInt32			siResult	= eDSNoErr;
+	UInt32			uiSlot		= 0;
 	sDSTableEntry	   *pNewEntry	= nil;
 	sDSTableEntry	   *pCurrEntry	= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	// Create the new entry object
 	pNewEntry = (sDSTableEntry *)::calloc( 1, sizeof( sDSTableEntry ) );
@@ -97,6 +99,7 @@ sInt32 CPlugInRef::AddItem ( uInt32 inRefNum, void *inData )
 		{
 			// This slot is currently empty so this is the first one
 			fLookupTable[ uiSlot ] = pNewEntry;
+			fRefNumCount++;
 		}
 		else
 		{
@@ -123,11 +126,12 @@ sInt32 CPlugInRef::AddItem ( uInt32 inRefNum, void *inData )
 				pNewEntry->fNext = pCurrEntry;
 
 				fLookupTable[ uiSlot ] = pNewEntry;
+				fRefNumCount++;
 			}
 		}
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -138,13 +142,13 @@ sInt32 CPlugInRef::AddItem ( uInt32 inRefNum, void *inData )
 //	* GetItem
 //------------------------------------------------------------------------------------
 
-void *CPlugInRef::GetItemData ( uInt32 inRefNum )
+void *CPlugInRef::GetItemData ( UInt32 inRefNum )
 {
 	void		   *pvResult	= nil;
-	uInt32			uiSlot		= 0;
+	UInt32			uiSlot		= 0;
 	sDSTableEntry	   *pEntry		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	// Calculate where we thought we put it last
 	uiSlot = inRefNum % fHashArrayLength;
@@ -164,9 +168,9 @@ void *CPlugInRef::GetItemData ( uInt32 inRefNum )
 		pEntry = pEntry->fNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
-	// A return of NULL meas that we did not find the item
+	// A return of NULL means that we did not find the item
 	return( pvResult );
 
 } // GetItem
@@ -179,14 +183,14 @@ void *CPlugInRef::GetItemData ( uInt32 inRefNum )
 //
 //------------------------------------------------------------------------------------
 
-sInt32 CPlugInRef::RemoveItem ( uInt32 inRefNum )
+SInt32 CPlugInRef::RemoveItem ( UInt32 inRefNum )
 {
-	sInt32			siResult	= eDSIndexNotFound;
-	uInt32			uiSlot		= 0;
+	SInt32			siResult	= eDSIndexNotFound;
+	UInt32			uiSlot		= 0;
 	sDSTableEntry	   *pCurrEntry	= nil;
 	sDSTableEntry	   *pPrevEntry	= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	// Calculate where we thought we put it last
 	uiSlot = inRefNum % fHashArrayLength;
@@ -213,12 +217,13 @@ sInt32 CPlugInRef::RemoveItem ( uInt32 inRefNum )
 
 			if ( (fDeallocProcPtr != nil) && (pCurrEntry->fData != nil) )
 			{
-				fMutex.Signal();
+				fMutex.SignalLock();
 				(fDeallocProcPtr)( pCurrEntry->fData );
-				fMutex.Wait();
+				fMutex.WaitLock();
 			}
 			free( pCurrEntry );
 			pCurrEntry = nil;
+			fRefNumCount--;
 			
 			siResult = eDSNoErr;
 
@@ -232,7 +237,7 @@ sInt32 CPlugInRef::RemoveItem ( uInt32 inRefNum )
 		}
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -244,14 +249,14 @@ sInt32 CPlugInRef::RemoveItem ( uInt32 inRefNum )
 
 void CPlugInRef:: DoOnAllItems ( OperationProc *inProcPtr )
 {
-	uInt32			uiSlot		= 0;
+	UInt32			uiSlot		= 0;
 	sDSTableEntry	   *pEntry		= nil;
 
 	if (inProcPtr == nil)
 	{
 		return;
 	}
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	for (uiSlot = 0; uiSlot < fHashArrayLength; uiSlot++)
 	{
@@ -267,7 +272,7 @@ void CPlugInRef:: DoOnAllItems ( OperationProc *inProcPtr )
 		}
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 } // DoOnAllItems
 

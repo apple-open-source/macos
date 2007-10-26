@@ -1,5 +1,5 @@
 /* message.h -- Message parsing
- $Id: message.h,v 1.5 2005/03/05 00:37:00 dasenbro Exp $
+ $Id: message.h,v 1.8 2006/12/19 18:56:27 murch Exp $
 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -58,18 +58,48 @@
 #include "mailbox.h"
 
 extern int message_copy_strict P((struct protstream *from, FILE *to,
-				  unsigned size));
+				  unsigned size, int allow_null));
 
 /* Flags for parsing message date/time - to be bitwise OR'd */
-#define PARSE_DATE	(1<<0)
+#define PARSE_DATE	(1<<0)  /* Default (always parsed) */
 #define PARSE_TIME	(1<<1)
 #define PARSE_ZONE	(1<<2)
+#define PARSE_NOCREATE	(1<<15) /* Don't create one if its missing/invalid */
 
 extern time_t message_parse_date P((char *hdr, unsigned flags));
-extern int message_parse_file P((FILE *infile, struct mailbox *mailbox,
-				 struct index_record *message_index));
-extern int message_parse_mapped P((const char *msg_base, unsigned long msg_len,
-				   struct mailbox *mailbox,
-				   struct index_record *message_index));
+
+/* declare this here so it can be used externally, but remain opaque */
+struct body;
+
+struct message_content {
+    const char *base;  /* memory mapped file */
+    unsigned long len;
+    struct body *body; /* parsed body structure */
+};
+
+/* MUST keep this struct sync'd with sieve_bodypart in sieve_interface.h */
+struct bodypart {
+    char section[128];
+    const char *content;
+    const char *encoding;
+    unsigned long size;
+};
+
+extern int message_parse_binary_file P((FILE *infile, struct body **body));
+extern int message_parse_file P((FILE *infile,
+				 const char **msg_base, unsigned long *msg_len,
+				 struct body **body));
+extern void message_fetch_part P((struct message_content *msg,
+				  const char **content_types,
+				  struct bodypart ***parts));
+extern int message_create_record P((struct mailbox *mailbox,
+				    struct index_record *message_index,
+				    struct body *body));
+extern void message_free_body P((struct body *body));
+
+extern int
+message_parse_mapped_async P((const char *msg_base, unsigned long msg_len,
+                              int format, int cache_fd,
+                              struct index_record *message_index));
 
 #endif /* INCLUDED_MESSAGE_H */

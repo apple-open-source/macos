@@ -20,7 +20,7 @@
  *
  * AppleTalk protocol formats (courtesy Bill Croft of Stanford/SUMEX).
  *
- * @(#) $Header: /cvs/root/tcpdump/tcpdump/appletalk.h,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $ (LBL)
+ * @(#) $Header: /tcpdump/master/tcpdump/appletalk.h,v 1.16 2004/05/01 09:41:50 hannes Exp $ (LBL)
  */
 
 struct LAP {
@@ -67,6 +67,7 @@ struct atShortDDP {
 #define	ddpECHO		4	/* ECHO type */
 #define	ddpIP		22	/* IP type */
 #define	ddpARP		23	/* ARP type */
+#define ddpEIGRP        88      /* EIGRP over Appletalk */
 #define	ddpKLAP		0x4b	/* Kinetics KLAP type */
 
 

@@ -64,7 +64,7 @@
  */
 nltype *
 nllookup(
-unsigned long address)
+uint64_t address)
 {
     long low;
     long middle;

@@ -120,7 +120,8 @@
    (set_attr "cirrus" "normal")]
 )
 
-(define_insn "muldi3"
+;; APPLE LOCAL ARM 20060428 DImode multiply enhancement 
+(define_insn "cirrus_muldi3"
   [(set (match_operand:DI          0 "cirrus_fp_register" "=v")
 	(mult:DI (match_operand:DI 2 "cirrus_fp_register"  "v")
 		 (match_operand:DI 1 "cirrus_fp_register"  "v")))]
@@ -368,6 +369,11 @@
   [(set_attr "cirrus" "normal")]
 )
 
+;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
+
 (define_insn "*cirrus_arm_movdi"
   [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,r,o<>,v,r,v,m,v")
 	(match_operand:DI 1 "di_operand"              "rIK,mi,r,r,v,mi,v,v"))]
@@ -377,9 +383,10 @@
   switch (which_alternative)
     {
     case 0:
+      return \"#\";
     case 1:
     case 2:
-      return (output_move_double (operands));
+      return output_move_double (operands);
 
     case 3: return \"cfmv64lr%?\\t%V0, %Q1\;cfmv64hr%?\\t%V0, %R1\";
     case 4: return \"cfmvr64l%?\\t%Q0, %V1\;cfmvr64h%?\\t%R0, %V1\";
@@ -399,6 +406,7 @@
    (set_attr "neg_pool_range" "  *,1012,     *,   *,     *,  1008,     *,     *")
    (set_attr "cirrus"         "not, not,   not,move,normal,double,double,normal")]
 )
+;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 
 ;; Cirrus SI values have been outlawed.  Look in arm.h for the comment
 ;; on HARD_REGNO_MODE_OK.
@@ -447,6 +455,11 @@
    (set_attr "cirrus"         "normal,normal,move,normal,normal,not, not,   not")]
 )
 
+;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
+
 (define_insn "*cirrus_movdf_hard_insn"
   [(set (match_operand:DF 0 "nonimmediate_operand" "=r,Q,r,m,r,v,v,v,r,m")
 	(match_operand:DF 1 "general_operand"       "Q,r,r,r,mF,v,mF,r,v,v"))]
@@ -460,7 +473,8 @@
     {
     case 0: return \"ldm%?ia\\t%m1, %M0\\t%@ double\";
     case 1: return \"stm%?ia\\t%m0, %M1\\t%@ double\";
-    case 2: case 3: case 4: return output_move_double (operands);
+    case 2: return \"#\";
+    case 3: case 4: return output_move_double (operands);
     case 5: return \"cfcpyd%?\\t%V0, %V1\";
     case 6: return \"cfldrd%?\\t%V0, %1\";
     case 7: return \"cfmvdlr\\t%V0, %Q1\;cfmvdhr%?\\t%V0, %R1\";
@@ -475,4 +489,5 @@
    (set_attr "neg_pool_range" "   *,     *,  *,     *, 244,     *,  1008,   *,     *,     *")
    (set_attr "cirrus"         " not,   not,not,   not, not,normal,double,move,normal,double")]
 )
+;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 

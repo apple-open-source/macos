@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,31 +22,35 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * The common startup code.  This code is ifdef'ed with the 'C' preprocessor
- * macros CRT0, CRT1, GCRT and POSTSCRIPT.  It is used to create
+ * The common startup code.  This code is if'ed with the 'C' preprocessor
+ * macros __DYNAMIC__ and GCRT.  It is used to create
  * the following files when compiled with the following macros defined:
  *
  *  File      Dedined Macros	   Purpose
- * crt1.o	CRT1		 startup for programs compiled -dynamic
- * gcrt1.o	CRT1, GCRT	 profiling startup, programs compiled -dynamic
+ * crt1.o	__DYNAMIC__	    startup for programs compiled -dynamic
+ * gcrt1.o	__DYNAMIC__, GCRT   profiling startup, programs compiled -dynamic
  *
- * pscrt1.o	CRT1, POSTSCRIPT startup for postscript compiled -dynamic
- * crt0.o	CRT0		 startup for programs compiled -static 
- * gcrt0.o	CRT0, GCRT	 profiling startup for programs compiled -static
- * pscrt0.o	CRT0, POSTSCRIPT startup for postscript compiled -static
+ * crt0.o			    startup for programs compiled -static 
  * 
- * Starting in 5.0, Rhapsody, the first two files are to be placed in /lib the
- * others in /usr/local/lib.
  */
+
+#include <stddef.h>
+#include <AvailabilityMacros.h>
 
 /*
  * Global data definitions (initialized data).
  */
-int NXArgc = 0;
-char **NXArgv = (char **)0;
-char **environ = (char **)0;
-char *__progname = "";
-#if defined(CRT1)
+int           NXArgc = 0;
+const char**  NXArgv = NULL;
+const char**  environ = NULL;
+const char*   __progname = NULL;
+
+
+/*
+ * This file is not needed for executables targeting 10.5 or later
+ * start calls main() directly.
+ */
+#if __DYNAMIC__ && (MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5)
 /*
  * The following symbols are reference by System Framework symbolicly (instead
  * of through undefined references (to allow prebinding). To get strip(1) to
@@ -91,7 +95,6 @@ asm(".comm _receive_samples, 4");
 asm(".desc _receive_samples, 0x10");
 #endif /* __ppc__ || __i386__ */
 asm(".desc ___progname, 0x10");
-#endif /* CRT1 */
 
 /*
  * Common data definitions.  If the routines in System Framework are not pulled
@@ -111,11 +114,11 @@ asm(".desc ___progname, 0x10");
  */
 extern int (*mach_init_routine)(void);
 extern int (*_cthread_init_routine)(void);
-#ifdef CRT0
+#if !__DYNAMIC__
 asm(".comm __cplus_init, 4");
 extern void _cplus_init(void);
 #endif
-#if defined(__ppc__) && defined(CRT1)
+#if __DYNAMIC__ && __ppc__
 asm(".comm ___darwin_gcc3_preregister_frame_info, 4");
 extern void __darwin_gcc3_preregister_frame_info (void);
 static void (*pointer_to__darwin_gcc3_preregister_frame_info)(void) =
@@ -125,43 +128,23 @@ static void (*pointer_to__darwin_gcc3_preregister_frame_info)(void) =
 /*
  * Prototypes for routines that are called.
  */
-extern int main(
-    int argc,
-    char **argv,
-    char **envp,
-    char **apple);
-extern void exit(
-    int status) __attribute__ ((noreturn));
-extern int atexit(
-    void (*fcn)(void));
+extern int main(int argc, const char* argv[], const char* envp[], const char* apple[]);
+extern void exit(int status) __attribute__ ((noreturn));
+extern int atexit(void (*fcn)(void));
+static const char* crt_basename(const char* path);
 
-#ifdef GCRT
-extern void moninit(
-    void);
-static void _mcleanup(
-    void);
-extern void monitor(
-    char *lowpc,
-    char *highpc,
-    char *buf,
-    int bufsiz,
-    int nfunc);
+#if GCRT
+extern void moninit(void);
+static void _mcleanup(void);
+extern void monitor(char *lowpc,char *highpc,char *buf,int bufsiz,int nfunc);
 #endif /* GCRT */
 
-#ifdef  CRT1
-extern void _dyld_init_check(
-    void);
-static void _call_mod_init_funcs(
-    void);
-__private_extern__
-int _dyld_func_lookup(
-    const char *dyld_func_name,
-    unsigned long *address);
-
+#if __DYNAMIC__
+extern int _dyld_func_lookup(const char *dyld_func_name,unsigned long *address);
 extern void __keymgr_dwarf2_register_sections (void);
-#endif /* CRT1 */
+#endif /* __DYNAMIC__ */
 
-#if defined(CRT1)  &&  !defined(POSTSCRIPT) && defined(__ppc__)
+#if __DYNAMIC__ && __ppc__ 
 static void _call_objcInit(void);
 #endif
 
@@ -174,55 +157,57 @@ extern int errno;
  */
 __private_extern__
 void
-_start(
-int argc,
-char **argv,
-char **envp)
+_start(int argc, const char* argv[], const char* envp[])
 {
-    int i;
-    char *p, **apple;
-#if defined(__ppc__) ||defined(__ppc64__) || defined(__i386__)
-    char **q;
-#endif
-#ifdef CRT1
+    const char** apple;
+#if __DYNAMIC__
     void (*term)(void);
+    void (*init)(void);
 #endif
 
-#if defined(CRT1) && !defined(__i386__)
-	_dyld_init_check();
-#endif
-
+	// initialize global variables 
 	NXArgc = argc;
 	NXArgv = argv;
 	environ = envp;
-
-	if(mach_init_routine != 0)
+	__progname = ((argv[0] != NULL) ? crt_basename(argv[0]) : "");
+	// see start.s for how "apple" parameter follow envp
+	for(apple = envp; *apple != NULL; ++apple) { /* loop */ }
+	++apple;
+	
+	// initialize libSystem
+	if ( mach_init_routine != 0 )
 	    (void) mach_init_routine();
-	if(_cthread_init_routine != 0)
+	if ( _cthread_init_routine != 0 )
 	    (*_cthread_init_routine)();
 
-#ifdef CRT1
+#ifdef __DYNAMIC__
 	__keymgr_dwarf2_register_sections ();
 #endif
 
-#if defined(__ppc__) && defined(CRT1)
+#if __ppc__ && __DYNAMIC__
        /* Call a ppc GCC 3.3-specific function (in libgcc.a) to
           "preregister" exception frame info, meaning to set up the
           dyld hooks that do the actual registration.  */
-       if(*((int *)pointer_to__darwin_gcc3_preregister_frame_info) != 0)
+       if ( *((int *)pointer_to__darwin_gcc3_preregister_frame_info) != 0 )
            pointer_to__darwin_gcc3_preregister_frame_info ();
 #endif
 
-#ifdef CRT0
+#if !__DYNAMIC__
         if(*((int *)_cplus_init) != 0)
             _cplus_init();
 #endif
 
-#ifdef CRT1
-	_call_mod_init_funcs();
+#ifdef __DYNAMIC__
+	/*
+	 * Call into dyld to run all initializers. This must be done 
+	 * after mach_init()
+	 */
+        _dyld_func_lookup("__dyld_make_delayed_module_initializer_calls",
+                          (unsigned long *)&init);
+        init();
 #endif
 
-#if defined(CRT1)  &&  !defined(POSTSCRIPT) && defined(__ppc__)
+#if __DYNAMIC__ && __ppc__ 
         _call_objcInit();
 #endif
 
@@ -231,48 +216,25 @@ char **envp)
 	moninit();
 #endif
 
-#ifdef CRT1
+#ifdef __DYNAMIC__
 	/*
 	 * If the dyld we are running with supports module termination routines
 	 * for all types of images then register the function to call them with
-     * atexit().
+	 * atexit().
 	 */
         _dyld_func_lookup("__dyld_mod_term_funcs", (unsigned long *)&term);
-        if(term != 0)
+        if ( term != 0 )
 	    atexit(term);
 #endif
 
+	// clear errno, so main() starts fresh
 	errno = 0;
 
-	if(argv[0] != 0){
-	    p = 0;
-	    for(i = 0; argv[0][i] != 0; i++){
-		if(argv[0][i] == '/')
-		    p = argv[0] + i; 
-	    }
-	    if(p != 0)
-		__progname = p + 1;
-	    else
-		__progname = argv[0];
-	}
-
-#if defined(__ppc__) ||defined(__ppc64__) || defined(__i386__)
-	/*
-	 * Pickup the pointer to the array that contains as its first pointer a
-     * pointer to the exec path (the actual first argument to exec(2) which
-	 * most of the time is the same as argv[0]).  This array is placed by
-	 * the kernel just after the trailing 0 of the envp[] array.  See the
-	 * comments in start.s .
-	 */
-	for(q = envp; *q != (char *)0; q++)
-	    ;
-	apple = q + 1;
-#endif
-
+	// call main() and return to exit()
 	exit(main(argc, argv, envp, apple));
 }
 
-#ifdef GCRT
+#if GCRT
 /*
  * For profiling the routine _mcleanup gets registered with atexit so monitor(0)
  * gets called.
@@ -286,33 +248,6 @@ void)
 }
 #endif /* GCRT */
 
-#ifdef CRT1
-/*
- * Cause the module initialization routines to be called for the modules linked
- * into the program that have been delayed waiting for the initialization in the
- * runtime startoff (like mach_init, etc).  This is used for C++ constructors
- * and destructors when -dynamic is used.
- */
-static
-void
-_call_mod_init_funcs(void)
-{
-    void (*p)(void);
-
-        _dyld_func_lookup("__dyld_make_delayed_module_initializer_calls",
-                          (unsigned long *)&p);
-        p();
-}
-#endif /* CRT1 */
-
-#if defined(CRT1)  &&  !defined(POSTSCRIPT) && defined(__ppc__)
-
-/*
- * Look for a function called _objcInit() in any library whose name 
- * starts with "libobjc", and call it if one exists. This is used to 
- * initialize the Objective-C runtime on Panther and earlier. This 
- * is completely unnecessary on Tiger and later.
- */
 static 
 const char *
 crt_basename(const char *path)
@@ -327,6 +262,7 @@ crt_basename(const char *path)
     return last;
 }
 
+#if __DYNAMIC__ && __ppc__ 
 static 
 int
 crt_strbeginswith(const char *s1, const char *s2)
@@ -339,6 +275,12 @@ crt_strbeginswith(const char *s1, const char *s2)
     }
 }
 
+/*
+ * Look for a function called _objcInit() in any library whose name 
+ * starts with "libobjc", and call it if one exists. This is used to 
+ * initialize the Objective-C runtime on Mac OS X 10.3 and earlier.  
+ * This is completely unnecessary on Mac OS X 10.4 and later.
+ */
 static
 void
 _call_objcInit(void)
@@ -395,4 +337,6 @@ _call_objcInit(void)
     }
 }
 
-#endif /* defined(CRT1)  &&  !defined(POSTSCRIPT) && defined(__ppc__) */
+#endif /* __DYNAMIC__ && __ppc__ */
+
+#endif /* __DYNAMIC__ && (MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_5) */

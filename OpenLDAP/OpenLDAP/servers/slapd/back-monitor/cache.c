@@ -1,8 +1,8 @@
 /* cache.c - routines to maintain an in-core cache of entries */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/cache.c,v 1.12.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/cache.c,v 1.19.2.5 2006/04/04 22:34:43 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Copyright 2001-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -22,22 +22,33 @@
 #include "portable.h"
 
 #include <stdio.h>
+#include "ac/string.h"
 
 #include "slap.h"
 
 #include "back-monitor.h"
 
 /*
+ * The cache maps DNs to Entries.
+ * Each entry, on turn, holds the list of its children in the e_private field.
+ * This is used by search operation to perform onelevel and subtree candidate
+ * selection.
+ */
+typedef struct monitor_cache_t {
+	struct berval		mc_ndn;
+	Entry   		*mc_e;
+} monitor_cache_t;
+
+/*
  * compares entries based on the dn
  */
 int
 monitor_cache_cmp(
-		const void *c1,
-		const void *c2
-)
+	const void	*c1,
+	const void	*c2 )
 {
-	struct monitorcache 	*cc1 = ( struct monitorcache * )c1;
-	struct monitorcache 	*cc2 = ( struct monitorcache * )c2;
+	monitor_cache_t 	*cc1 = ( monitor_cache_t * )c1;
+	monitor_cache_t 	*cc2 = ( monitor_cache_t * )c2;
 
 	/*
 	 * case sensitive, because the dn MUST be normalized
@@ -50,12 +61,11 @@ monitor_cache_cmp(
  */
 int
 monitor_cache_dup(
-		void *c1,
-		void *c2
-)
+	void		*c1,
+	void		*c2 )
 {
-	struct monitorcache *cc1 = ( struct monitorcache * )c1;
-	struct monitorcache *cc2 = ( struct monitorcache * )c2;
+	monitor_cache_t *cc1 = ( monitor_cache_t * )c1;
+	monitor_cache_t *cc2 = ( monitor_cache_t * )c2;
 
 	/*
 	 * case sensitive, because the dn MUST be normalized
@@ -68,21 +78,19 @@ monitor_cache_dup(
  */
 int
 monitor_cache_add(
-		struct monitorinfo	*mi,
-		Entry			*e
-)
+	monitor_info_t	*mi,
+	Entry		*e )
 {
-	struct monitorcache	*mc;
-	struct monitorentrypriv *mp;
-	int			rc;
+	monitor_cache_t	*mc;
+	monitor_entry_t	*mp;
+	int		rc;
 
 	assert( mi != NULL );
 	assert( e != NULL );
 
-	mp = ( struct monitorentrypriv *)e->e_private;
-	ldap_pvt_thread_mutex_init( &mp->mp_mutex );
+	mp = ( monitor_entry_t *)e->e_private;
 
-	mc = ( struct monitorcache * )ch_malloc( sizeof( struct monitorcache ) );
+	mc = ( monitor_cache_t * )ch_malloc( sizeof( monitor_cache_t ) );
 	mc->mc_ndn = e->e_nname;
 	mc->mc_e = e;
 	ldap_pvt_thread_mutex_lock( &mi->mi_cache_mutex );
@@ -98,18 +106,17 @@ monitor_cache_add(
  */
 int
 monitor_cache_lock(
-		Entry			*e
-)
+	Entry		*e )
 {
-		struct monitorentrypriv *mp;
+	monitor_entry_t *mp;
 
-		assert( e != NULL );
-		assert( e->e_private != NULL );
+	assert( e != NULL );
+	assert( e->e_private != NULL );
 
-		mp = ( struct monitorentrypriv * )e->e_private;
-		ldap_pvt_thread_mutex_lock( &mp->mp_mutex );
+	mp = ( monitor_entry_t * )e->e_private;
+	ldap_pvt_thread_mutex_lock( &mp->mp_mutex );
 
-		return( 0 );
+	return( 0 );
 }
 
 /*
@@ -118,35 +125,32 @@ monitor_cache_lock(
  */
 int
 monitor_cache_get(
-		struct monitorinfo      *mi,
-		struct berval		*ndn,
-		Entry			**ep
-)
+	monitor_info_t	*mi,
+	struct berval	*ndn,
+	Entry		**ep )
 {
-	struct monitorcache tmp_mc, *mc;
+	monitor_cache_t tmp_mc, *mc;
 
 	assert( mi != NULL );
 	assert( ndn != NULL );
 	assert( ep != NULL );
 
+	*ep = NULL;
+
 	tmp_mc.mc_ndn = *ndn;
 	ldap_pvt_thread_mutex_lock( &mi->mi_cache_mutex );
-	mc = ( struct monitorcache * )avl_find( mi->mi_cache,
+	mc = ( monitor_cache_t * )avl_find( mi->mi_cache,
 			( caddr_t )&tmp_mc, monitor_cache_cmp );
 
 	if ( mc != NULL ) {
 		/* entry is returned with mutex locked */
 		monitor_cache_lock( mc->mc_e );
-		ldap_pvt_thread_mutex_unlock( &mi->mi_cache_mutex );
 		*ep = mc->mc_e;
-
-		return( 0 );
 	}
-	
-	ldap_pvt_thread_mutex_unlock( &mi->mi_cache_mutex );
-	*ep = NULL;
 
-	return( -1 );
+	ldap_pvt_thread_mutex_unlock( &mi->mi_cache_mutex );
+
+	return ( *ep == NULL ? -1 : 0 );
 }
 
 /*
@@ -157,17 +161,17 @@ monitor_cache_get(
  */
 int
 monitor_cache_dn2entry(
-		Operation		*op,
-		struct berval		*ndn,
-		Entry			**ep,
-		Entry			**matched
-)
+	Operation		*op,
+	SlapReply		*rs,
+	struct berval		*ndn,
+	Entry			**ep,
+	Entry			**matched )
 {
-	struct monitorinfo *mi = (struct monitorinfo *)op->o_bd->be_private;
+	monitor_info_t *mi = (monitor_info_t *)op->o_bd->be_private;
 	int 			rc;
-	struct berval		p_ndn = { 0L, NULL };
+	struct berval		p_ndn = BER_BVNULL;
 	Entry 			*e_parent;
-	struct monitorentrypriv *mp;
+	monitor_entry_t 	*mp;
 		
 	assert( mi != NULL );
 	assert( ndn != NULL );
@@ -176,39 +180,39 @@ monitor_cache_dn2entry(
 
 	*matched = NULL;
 
+	if ( !dnIsSuffix( ndn, &op->o_bd->be_nsuffix[ 0 ] ) ) {
+		return( -1 );
+	}
+
 	rc = monitor_cache_get( mi, ndn, ep );
        	if ( !rc && *ep != NULL ) {
 		return( 0 );
 	}
 
 	/* try with parent/ancestors */
-	if ( ndn->bv_len ) {
+	if ( BER_BVISNULL( ndn ) ) {
+		BER_BVSTR( &p_ndn, "" );
+
+	} else {
 		dnParent( ndn, &p_ndn );
 	}
 
-	if ( p_ndn.bv_val == NULL ) {
-		p_ndn.bv_val = "";
-		p_ndn.bv_len = 0;
-		
-	} else {
-		p_ndn.bv_len = ndn->bv_len 
-			- ( ber_len_t ) ( p_ndn.bv_val - ndn->bv_val );
-	}
-
-	rc = monitor_cache_dn2entry( op, &p_ndn, &e_parent, matched );
-	if ( rc || e_parent == NULL) {
+	rc = monitor_cache_dn2entry( op, rs, &p_ndn, &e_parent, matched );
+	if ( rc || e_parent == NULL ) {
 		return( -1 );
 	}
 
-	mp = ( struct monitorentrypriv * )e_parent->e_private;
+	mp = ( monitor_entry_t * )e_parent->e_private;
 	rc = -1;
 	if ( mp->mp_flags & MONITOR_F_VOLATILE_CH ) {
 		/* parent entry generates volatile children */
-		rc = monitor_entry_create( op, ndn, e_parent, ep );
+		rc = monitor_entry_create( op, rs, ndn, e_parent, ep );
 	}
 
 	if ( !rc ) {
+		monitor_cache_lock( *ep );
 		monitor_cache_release( mi, e_parent );
+
 	} else {
 		*matched = e_parent;
 	}
@@ -222,20 +226,19 @@ monitor_cache_dn2entry(
  */
 int
 monitor_cache_release(
-	struct monitorinfo	*mi,
-	Entry			*e
-)
+	monitor_info_t	*mi,
+	Entry		*e )
 {
-	struct monitorentrypriv *mp;
+	monitor_entry_t *mp;
 
 	assert( mi != NULL );
 	assert( e != NULL );
 	assert( e->e_private != NULL );
 	
-	mp = ( struct monitorentrypriv * )e->e_private;
+	mp = ( monitor_entry_t * )e->e_private;
 
 	if ( mp->mp_flags & MONITOR_F_VOLATILE ) {
-		struct monitorcache	*mc, tmp_mc;
+		monitor_cache_t	*mc, tmp_mc;
 
 		/* volatile entries do not return to cache */
 		ldap_pvt_thread_mutex_lock( &mi->mi_cache_mutex );
@@ -243,7 +246,9 @@ monitor_cache_release(
 		mc = avl_delete( &mi->mi_cache,
 				( caddr_t )&tmp_mc, monitor_cache_cmp );
 		ldap_pvt_thread_mutex_unlock( &mi->mi_cache_mutex );
-		ch_free( mc );
+		if ( mc != NULL ) {
+			ch_free( mc );
+		}
 		
 		ldap_pvt_thread_mutex_unlock( &mp->mp_mutex );
 		ldap_pvt_thread_mutex_destroy( &mp->mp_mutex );
@@ -257,5 +262,46 @@ monitor_cache_release(
 	ldap_pvt_thread_mutex_unlock( &mp->mp_mutex );
 
 	return( 0 );
+}
+
+static void
+monitor_entry_destroy( void *v_mc )
+{
+	monitor_cache_t		*mc = (monitor_cache_t *)v_mc;
+
+	if ( mc->mc_e != NULL ) {
+		monitor_entry_t *mp;
+
+		assert( mc->mc_e->e_private != NULL );
+	
+		mp = ( monitor_entry_t * )mc->mc_e->e_private;
+
+		if ( mp->mp_cb ) {
+			if ( mp->mp_cb->mc_free ) {
+				mp->mp_cb->mc_free( mc->mc_e,
+					mp->mp_cb->mc_private );
+			}
+			ch_free( mp->mp_cb );
+		}
+
+		ldap_pvt_thread_mutex_destroy( &mp->mp_mutex );
+
+		ch_free( mp );
+		mc->mc_e->e_private = NULL;
+		entry_free( mc->mc_e );
+	}
+
+	ch_free( mc );
+}
+
+int
+monitor_cache_destroy(
+	monitor_info_t	*mi )
+{
+	if ( mi->mi_cache ) {
+		avl_free( mi->mi_cache, monitor_entry_destroy );
+	}
+
+	return 0;
 }
 

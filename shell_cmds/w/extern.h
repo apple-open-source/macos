@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -37,9 +33,12 @@
 
 extern	int use_ampm;
 
-struct extern_proc;
+struct kinfo_proc;
+
+#ifdef __APPLE__
+#define KI_PROC(ki) (&(ki)->kp->kp_proc)
+#endif
+
 void	pr_attime(time_t *, time_t *);
 int	pr_idle(time_t);
-int	proc_compare(struct extern_proc *, struct extern_proc *);
-
-#define KI_PROC(ki) (&(ki)->kp->kp_proc)
+int	proc_compare(struct kinfo_proc *, struct kinfo_proc *);

@@ -69,6 +69,12 @@ static void maintenance_do_deprecate (char *, int);
    and one with slow communications.  */
 
 int watchdog = 0;
+static void
+show_watchdog (struct ui_file *file, int from_tty,
+	       struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Watchdog timer is %s.\n"), value);
+}
 
 /*
 
@@ -87,7 +93,7 @@ int watchdog = 0;
 static void
 maintenance_command (char *args, int from_tty)
 {
-  printf_unfiltered ("\"maintenance\" must be followed by the name of a maintenance command.\n");
+  printf_unfiltered (_("\"maintenance\" must be followed by the name of a maintenance command.\n"));
   help_list (maintenancelist, "maintenance ", -1, gdb_stdout);
 }
 
@@ -146,7 +152,7 @@ maintenance_demangle (char *args, int from_tty)
 
   if (args == NULL || *args == '\0')
     {
-      printf_unfiltered ("\"maintenance demangle\" takes an argument to demangle.\n");
+      printf_unfiltered (_("\"maintenance demangle\" takes an argument to demangle.\n"));
     }
   else
     {
@@ -177,7 +183,7 @@ maintenance_demangle (char *args, int from_tty)
 	}
       else
 	{
-	  printf_unfiltered ("Can't demangle \"%s\"\n", args);
+	  printf_unfiltered (_("Can't demangle \"%s\"\n"), args);
 	}
     }
 }
@@ -188,7 +194,7 @@ maintenance_time_display (char *args, int from_tty)
   extern int display_time;
 
   if (args == NULL || *args == '\0')
-    printf_unfiltered ("\"maintenance time\" takes a numeric argument.\n");
+    printf_unfiltered (_("\"maintenance time\" takes a numeric argument.\n"));
   else
     display_time = strtol (args, NULL, 10);
 }
@@ -211,7 +217,7 @@ maintenance_space_display (char *args, int from_tty)
 static void
 maintenance_info_command (char *arg, int from_tty)
 {
-  printf_unfiltered ("\"maintenance info\" must be followed by the name of an info command.\n");
+  printf_unfiltered (_("\"maintenance info\" must be followed by the name of an info command.\n"));
   help_list (maintenanceinfolist, "maintenance info ", -1, gdb_stdout);
 }
 
@@ -322,11 +328,12 @@ maint_print_section_info (const char *name, flagword flags,
 			  CORE_ADDR addr, CORE_ADDR endaddr, 
 			  unsigned long filepos)
 {
-  /* FIXME-32x64: Need print_address_numeric with field width.  */
+  /* FIXME-32x64: Need deprecated_print_address_numeric with field
+     width.  */
   printf_filtered ("    0x%s", paddr (addr));
   printf_filtered ("->0x%s", paddr (endaddr));
   printf_filtered (" at %s",
-		   local_hex_string_custom ((unsigned long) filepos, "08l"));
+		   hex_string_custom ((unsigned long) filepos, 8));
   printf_filtered (": %s", name);
   print_bfd_flags (flags);
   printf_filtered ("\n");
@@ -374,10 +381,10 @@ maintenance_info_sections (char *arg, int from_tty)
 {
   if (exec_bfd)
     {
-      printf_filtered ("Exec file:\n");
+      printf_filtered (_("Exec file:\n"));
       printf_filtered ("    `%s', ", bfd_get_filename (exec_bfd));
       wrap_here ("        ");
-      printf_filtered ("file type %s.\n", bfd_get_target (exec_bfd));
+      printf_filtered (_("file type %s.\n"), bfd_get_target (exec_bfd));
       if (arg && *arg && match_substring (arg, "ALLOBJ"))
 	{
 	  struct objfile *ofile;
@@ -392,7 +399,7 @@ maintenance_info_sections (char *arg, int from_tty)
 
 	  ALL_OBJFILES (ofile)
 	    {
-	      printf_filtered ("  Object file: %s\n", 
+	      printf_filtered (_("  Object file: %s\n"), 
 			       bfd_get_filename (ofile->obfd));
 	      ALL_OBJFILE_OSECTIONS (ofile, osect)
 		{
@@ -406,10 +413,10 @@ maintenance_info_sections (char *arg, int from_tty)
 
   if (core_bfd)
     {
-      printf_filtered ("Core file:\n");
+      printf_filtered (_("Core file:\n"));
       printf_filtered ("    `%s', ", bfd_get_filename (core_bfd));
       wrap_here ("        ");
-      printf_filtered ("file type %s.\n", bfd_get_target (core_bfd));
+      printf_filtered (_("file type %s.\n"), bfd_get_target (core_bfd));
       bfd_map_over_sections (core_bfd, print_bfd_section_info, arg);
     }
 }
@@ -430,7 +437,7 @@ maintenance_print_architecture (char *args, int from_tty)
     {
       struct ui_file *file = gdb_fopen (args, "w");
       if (file == NULL)
-	perror_with_name ("maintenance print architecture");
+	perror_with_name (_("maintenance print architecture"));
       gdbarch_dump (current_gdbarch, file);    
       ui_file_delete (file);
     }
@@ -443,7 +450,7 @@ maintenance_print_architecture (char *args, int from_tty)
 static void
 maintenance_print_command (char *arg, int from_tty)
 {
-  printf_unfiltered ("\"maintenance print\" must be followed by the name of a print command.\n");
+  printf_unfiltered (_("\"maintenance print\" must be followed by the name of a print command.\n"));
   help_list (maintenanceprintlist, "maintenance print ", -1, gdb_stdout);
 }
 
@@ -463,7 +470,7 @@ maintenance_translate_address (char *arg, int from_tty)
   struct objfile *objfile;
 
   if (arg == NULL || *arg == 0)
-    error ("requires argument (address or section + address)");
+    error (_("requires argument (address or section + address)"));
 
   sect = NULL;
   p = arg;
@@ -473,7 +480,7 @@ maintenance_translate_address (char *arg, int from_tty)
       while (*p && !isspace (*p))	/* Find end of section name */
 	p++;
       if (*p == '\000')		/* End of command? */
-	error ("Need to specify <section-name> and <address>");
+	error (_("Need to specify <section-name> and <address>"));
       *p++ = '\000';
       while (isspace (*p))
 	p++;			/* Skip whitespace */
@@ -486,7 +493,7 @@ maintenance_translate_address (char *arg, int from_tty)
       }
 
       if (!sect)
-	error ("Unknown section %s.", arg);
+	error (_("Unknown section %s."), arg);
     }
 
   address = parse_and_eval_address (p);
@@ -501,9 +508,9 @@ maintenance_translate_address (char *arg, int from_tty)
 		     SYMBOL_PRINT_NAME (sym),
 		     paddr_u (address - SYMBOL_VALUE_ADDRESS (sym)));
   else if (sect)
-    printf_filtered ("no symbol at %s:0x%s\n", sect->name, paddr (address));
+    printf_filtered (_("no symbol at %s:0x%s\n"), sect->name, paddr (address));
   else
-    printf_filtered ("no symbol at 0x%s\n", paddr (address));
+    printf_filtered (_("no symbol at 0x%s\n"), paddr (address));
 
   return;
 }
@@ -518,9 +525,9 @@ maintenance_deprecate (char *args, int from_tty)
 {
   if (args == NULL || *args == '\0')
     {
-      printf_unfiltered ("\"maintenance deprecate\" takes an argument, \n\
+      printf_unfiltered (_("\"maintenance deprecate\" takes an argument, \n\
 the command you want to deprecate, and optionally the replacement command \n\
-enclosed in quotes.\n");
+enclosed in quotes.\n"));
     }
 
   maintenance_do_deprecate (args, 1);
@@ -533,8 +540,8 @@ maintenance_undeprecate (char *args, int from_tty)
 {
   if (args == NULL || *args == '\0')
     {
-      printf_unfiltered ("\"maintenance undeprecate\" takes an argument, \n\
-the command you want to undeprecate.\n");
+      printf_unfiltered (_("\"maintenance undeprecate\" takes an argument, \n\
+the command you want to undeprecate.\n"));
     }
 
   maintenance_do_deprecate (args, 0);
@@ -566,7 +573,7 @@ maintenance_do_deprecate (char *text, int deprecate)
 
   if (!lookup_cmd_composition (text, &alias, &prefix_cmd, &cmd))
     {
-      printf_filtered ("Can't find command '%s' to deprecate.\n", text);
+      printf_filtered (_("Can't find command '%s' to deprecate.\n"), text);
       return;
     }
 
@@ -627,13 +634,13 @@ maintenance_do_deprecate (char *text, int deprecate)
 
 /* Maintenance set/show framework.  */
 
-static struct cmd_list_element *maintenance_set_cmdlist;
-static struct cmd_list_element *maintenance_show_cmdlist;
+struct cmd_list_element *maintenance_set_cmdlist;
+struct cmd_list_element *maintenance_show_cmdlist;
 
 static void
 maintenance_set_cmd (char *args, int from_tty)
 {
-  printf_unfiltered ("\"maintenance set\" must be followed by the name of a set command.\n");
+  printf_unfiltered (_("\"maintenance set\" must be followed by the name of a set command.\n"));
   help_list (maintenance_set_cmdlist, "maintenance set ", -1, gdb_stdout);
 }
 
@@ -646,6 +653,12 @@ maintenance_show_cmd (char *args, int from_tty)
 /* Profiling support.  */
 
 static int maintenance_profile_p;
+static void
+show_maintenance_profile_p (struct ui_file *file, int from_tty,
+			    struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Internal profiling is %s.\n"), value);
+}
 
 #if defined (HAVE_MONSTARTUP) && defined (HAVE__MCLEANUP)
 
@@ -703,33 +716,268 @@ maintenance_set_profile_cmd (char *args, int from_tty, struct cmd_list_element *
 static void
 maintenance_set_profile_cmd (char *args, int from_tty, struct cmd_list_element *c)
 {
-  error ("Profiling support is not available on this system.");
+  error (_("Profiling support is not available on this system."));
 }
 #endif
+
+
+/* APPLE LOCAL: Provide "functional area" timers...  */
+struct gdb_timer
+{
+  char *name;          /* The name of this timer */
+  char *last_mssg;     /* When you start the timer, you register a mssg to */
+		       /* be printed when it is reported.  This is the mssg.  */
+  long last_start;     /* This is the clock time when the timer was last started.  */
+  long total_time;     /* This is the cumulative time on this timer.  */
+  long last_interval;  /* This is the last interval added to the timer.  */
+
+  long child_times;    /* This is the sum total of times that accrued */
+		       /* in other timers while this one was running.  */
+		       /* We subtract that from this timer's total time.  */
+};
+
+struct gdb_timer_stack
+{
+  struct gdb_timer *timer;
+  struct gdb_timer_stack *next;
+};
+
+static struct gdb_timer *timer_list;
+static struct gdb_timer_stack *timer_stack;
+static int max_timers = 0;
+static int n_timers = 0;
+int maint_use_timers = 0;
+
+/* Turns on and off printing interval timers.  Right now this
+   is an all or nothing thing.  But we could ass a timer regexp 
+   or timer list or something and check the timers against that.  */
+
+static void
+maintenance_interval_display (char *args, int from_tty)
+{
+  extern int display_time;
+
+  if (args == NULL || *args == '\0')
+    printf_unfiltered (_("\"maintenance interval\" takes a numeric argument.\n"));
+  else
+    maint_use_timers = strtol (args, NULL, 10);
+}
+
+/* init_timer makes a new timer with name NAME, and
+   returns the token for the timer.  */
+
+/* Allocate space for a new timer with name "NAME" on the timer_list.
+   This doesn't check whether the timer exists or not, but will always
+   add a new one.  */
+
+static int
+init_timer (char *name)
+{
+  int this_timer;
+
+  if (n_timers == max_timers)
+    {
+      max_timers += 64;
+      timer_list = (struct gdb_timer *) 
+	xrealloc (timer_list, max_timers * sizeof (struct gdb_timer *));
+    }
+  this_timer = n_timers;
+  n_timers++;
+
+  bzero (&timer_list[this_timer], sizeof (struct gdb_timer));
+  timer_list[this_timer].name = xstrdup (name);
+
+  return this_timer;
+}
+
+/* Push TIMER onto the timer stack.  */
+ 
+static void
+push_timer (struct gdb_timer *timer)
+{
+  struct gdb_timer_stack *next = 
+    (struct gdb_timer_stack *) xmalloc (sizeof (struct gdb_timer_stack));
+
+  next->timer = timer;
+  next->next = timer_stack;
+  timer_stack = next;
+}
+
+/* This pops the top timer from the timer stack, and 
+   also charges it's time to the next timer's child_time.  */
+
+void
+pop_timer (void)
+{
+  struct gdb_timer_stack *this_timer = timer_stack;
+  struct gdb_timer_stack *next_timer = timer_stack->next;
+
+  if (next_timer != NULL)
+    next_timer->timer->child_times += this_timer->timer->last_interval
+      + this_timer->timer->child_times;
+
+  timer_stack = next_timer;
+  xfree (this_timer);
+}
+
+/* This gets the current interval for TIMER, and charges it
+   to the timer.  */
+
+static void 
+stop_timer (struct gdb_timer *timer)
+{
+  timer->last_interval = get_run_time () - timer->last_start  - timer->child_times;
+  timer->total_time += timer->last_interval;
+}
+
+/* Print out the data for TIMER.  If LAST_INTERVAL_P is 1, we print out
+   the interval information, otherwise we just print out the total.  */
+
+static void
+report_timer_internal (struct gdb_timer *timer, int last_interval_p)
+{
+  struct cleanup *notify_cleanup;
+  notify_cleanup = make_cleanup_ui_out_notify_begin_end (uiout, "timer-data");
+
+  ui_out_text (uiout, "\n*+*+* Timer ");
+  ui_out_field_string (uiout, "name", timer->name);
+  if (last_interval_p)
+    {
+      ui_out_text (uiout, " - ");
+      ui_out_field_string (uiout, "mssg", timer->last_mssg);
+    }
+  ui_out_text (uiout, " total: ");
+  ui_out_field_fmt (uiout, "total", "%0.5f", timer->total_time/ 1000000.0);
+  if (last_interval_p)
+    {
+      ui_out_text (uiout, " interval: ");
+      ui_out_field_fmt (uiout, "interval", "%0.5f", timer->last_interval / 1000000.0);
+      ui_out_text (uiout, " child times: ");
+      ui_out_field_fmt (uiout, "child", "%0.5f", timer->child_times / 1000000.0);
+    }
+  ui_out_text (uiout, " *-*-*\n");
+  
+  if (last_interval_p)
+    xfree (timer->last_mssg);
+  do_cleanups (notify_cleanup);
+}
+
+/* Report summary times for all timers.  */
+
+static void
+maintenance_report_interval_command (char *args, int is_tty)
+{
+  int i;
+  for (i = 0; i < n_timers; i++)
+    report_timer_internal (&timer_list[i], 0);
+}
+
+/* Stops timer pointed to by PTR, reports it and pops it.
+   For now we require all timers to strictly nest, and throw
+   an error if they don't.  */
+
+static void
+stop_report_timer (void *ptr)
+{
+  struct gdb_timer *timer = (struct gdb_timer *) ptr;
+  if (timer_stack->timer != timer)
+    internal_error (__FILE__, __LINE__, "stoping timer not on top of stack: "
+		    "timer %s top of stack: %s", timer->name, timer_stack->timer->name);
+
+  stop_timer (timer);
+  report_timer_internal (timer, 1);
+  pop_timer ();
+}
+
+/* Starts timer TIMER_ID, STRING is the name associated with this
+   interval.  Returns a cleanup to stop & report it.  N.B. the timers
+   are required to strictly nest.  So be sure you stop your timer in
+   the same scope where you start it.  */
+
+struct cleanup *
+make_cleanup_start_report_timer (int timer_id, char *string)
+{
+  struct gdb_timer *timer;
+  if (timer_id == -1)
+    return make_cleanup (null_cleanup, NULL);
+
+  if (timer_id > n_timers)
+    error ("Invalid timer in start_timers");
+  
+  timer = &timer_list[timer_id];
+
+  push_timer (timer);
+  timer->last_start = get_run_time ();
+  if (string == NULL)
+    string = "<Unknown>";
+
+  timer->last_mssg = xstrdup (string);
+  timer->last_interval = 0;
+  timer->child_times = 0;
+  return make_cleanup (stop_report_timer, timer);
+}
+
+/* Finds the timer NAME or creates a new one if
+   one doesn't already exist.  Returns the timer token.  */
+
+int
+find_timer (char *name)
+{
+  int i;
+  if (maint_use_timers == 0)
+    return -1;
+
+  for (i = 0; i < n_timers; i++)
+    {
+      if (strcmp (timer_list[i].name, name) == 0)
+	return i;
+    }
+  return init_timer (name);
+}
+/* This is the easiest way to start "interval timers".  Pass in
+   a pointer to timer id TIMER_VAR.  First time you call this pass
+   in TIMER_VAR set to -1 and it will find the timer TIMER_NAME and
+   return that timer's TIMER_VAR.  After that, you can pass back
+   the value of TIMER_VAR you got, and we'll start up that timer without
+   having to do the name search.  THIS_MSSG is the message that this
+   interval will be labeled with.  It will return a cleanup you can
+   use to stop the timer.  */
+
+struct cleanup *
+start_timer (int *timer_var, char *timer_name, char *this_mssg)
+{
+  if (*timer_var == -1)
+    *timer_var = find_timer (timer_name);
+  
+  return make_cleanup_start_report_timer (*timer_var, this_mssg);	
+}
+
+
+/* END APPLE LOCAL */
 
 void
 _initialize_maint_cmds (void)
 {
   struct cmd_list_element *tmpcmd;
 
-  add_prefix_cmd ("maintenance", class_maintenance, maintenance_command,
-		  "Commands for use by GDB maintainers.\n\
+  add_prefix_cmd ("maintenance", class_maintenance, maintenance_command, _("\
+Commands for use by GDB maintainers.\n\
 Includes commands to dump specific internal GDB structures in\n\
 a human readable form, to cause GDB to deliberately dump core,\n\
-to test internal functions such as the C++/ObjC demangler, etc.",
+to test internal functions such as the C++/ObjC demangler, etc."),
 		  &maintenancelist, "maintenance ", 0,
 		  &cmdlist);
 
   add_com_alias ("mt", "maintenance", class_maintenance, 1);
 
-  add_prefix_cmd ("info", class_maintenance, maintenance_info_command,
-     "Commands for showing internal info about the program being debugged.",
+  add_prefix_cmd ("info", class_maintenance, maintenance_info_command, _("\
+Commands for showing internal info about the program being debugged."),
 		  &maintenanceinfolist, "maintenance info ", 0,
 		  &maintenancelist);
   add_alias_cmd ("i", "info", class_maintenance, 1, &maintenancelist);
 
-  add_cmd ("sections", class_maintenance, maintenance_info_sections,
-	   "List the BFD sections of the exec and core files. \n\
+  add_cmd ("sections", class_maintenance, maintenance_info_sections, _("\
+List the BFD sections of the exec and core files. \n\
 Arguments may be any combination of:\n\
 	[one or more section names]\n\
 	ALLOC LOAD RELOC READONLY CODE DATA ROM CONSTRUCTOR\n\
@@ -737,150 +985,165 @@ Arguments may be any combination of:\n\
 Sections matching any argument will be listed (no argument\n\
 implies all sections).  In addition, the special argument\n\
 	ALLOBJ\n\
-lists all sections from all object files, including shared libraries.",
+lists all sections from all object files, including shared libraries."),
 	   &maintenanceinfolist);
 
   add_prefix_cmd ("print", class_maintenance, maintenance_print_command,
-		  "Maintenance command for printing GDB internal state.",
+		  _("Maintenance command for printing GDB internal state."),
 		  &maintenanceprintlist, "maintenance print ", 0,
 		  &maintenancelist);
 
-  add_prefix_cmd ("set", class_maintenance, maintenance_set_cmd, "\
+  add_prefix_cmd ("set", class_maintenance, maintenance_set_cmd, _("\
 Set GDB internal variables used by the GDB maintainer.\n\
-Configure variables internal to GDB that aid in GDB's maintenance",
+Configure variables internal to GDB that aid in GDB's maintenance"),
 		  &maintenance_set_cmdlist, "maintenance set ",
 		  0/*allow-unknown*/,
 		  &maintenancelist);
 
-  add_prefix_cmd ("show", class_maintenance, maintenance_show_cmd, "\
+  add_prefix_cmd ("show", class_maintenance, maintenance_show_cmd, _("\
 Show GDB internal variables used by the GDB maintainer.\n\
-Configure variables internal to GDB that aid in GDB's maintenance",
+Configure variables internal to GDB that aid in GDB's maintenance"),
 		  &maintenance_show_cmdlist, "maintenance show ",
 		  0/*allow-unknown*/,
 		  &maintenancelist);
 
 #ifndef _WIN32
-  add_cmd ("dump-me", class_maintenance, maintenance_dump_me,
-	   "Get fatal error; make debugger dump its core.\n\
+  add_cmd ("dump-me", class_maintenance, maintenance_dump_me, _("\
+Get fatal error; make debugger dump its core.\n\
 GDB sets its handling of SIGQUIT back to SIG_DFL and then sends\n\
-itself a SIGQUIT signal.",
+itself a SIGQUIT signal."),
 	   &maintenancelist);
 #endif
 
-  add_cmd ("internal-error", class_maintenance, maintenance_internal_error,
-	   "Give GDB an internal error.\n\
-Cause GDB to behave as if an internal error was detected.",
+  add_cmd ("internal-error", class_maintenance,
+	   maintenance_internal_error, _("\
+Give GDB an internal error.\n\
+Cause GDB to behave as if an internal error was detected."),
 	   &maintenancelist);
 
-  add_cmd ("internal-warning", class_maintenance, maintenance_internal_warning,
-	   "Give GDB an internal warning.\n\
-Cause GDB to behave as if an internal warning was reported.",
+  add_cmd ("internal-warning", class_maintenance,
+	   maintenance_internal_warning, _("\
+Give GDB an internal warning.\n\
+Cause GDB to behave as if an internal warning was reported."),
 	   &maintenancelist);
 
-  add_cmd ("demangle", class_maintenance, maintenance_demangle,
-	   "Demangle a C++/ObjC mangled name.\n\
+  add_cmd ("demangle", class_maintenance, maintenance_demangle, _("\
+Demangle a C++/ObjC mangled name.\n\
 Call internal GDB demangler routine to demangle a C++ link name\n\
-and prints the result.",
+and prints the result."),
 	   &maintenancelist);
 
-  add_cmd ("time", class_maintenance, maintenance_time_display,
-	   "Set the display of time usage.\n\
+  add_cmd ("time", class_maintenance, maintenance_time_display, _("\
+Set the display of time usage.\n\
 If nonzero, will cause the execution time for each command to be\n\
-displayed, following the command's output.",
+displayed, following the command's output."),
 	   &maintenancelist);
 
-  add_cmd ("space", class_maintenance, maintenance_space_display,
-	   "Set the display of space usage.\n\
+  add_cmd ("space", class_maintenance, maintenance_space_display, _("\
+Set the display of space usage.\n\
 If nonzero, will cause the execution space for each command to be\n\
-displayed, following the command's output.",
+displayed, following the command's output."),
 	   &maintenancelist);
 
-  add_cmd ("type", class_maintenance, maintenance_print_type,
-	   "Print a type chain for a given symbol.\n\
+  /* APPLE LOCAL: interval timers */
+  add_cmd ("interval", class_maintenance, maintenance_interval_display, _("\
+Set the report of low-level interval timers.\n\
+If nonzero, will cause the interval timer data to be gathered and printed."),
+	   &maintenancelist);
+
+  add_cmd ("report-interval", class_maintenance, maintenance_report_interval_command, _("\
+Report the summary values for all the low-level interval timers."),
+	   &maintenancelist);
+
+  add_cmd ("type", class_maintenance, maintenance_print_type, _("\
+Print a type chain for a given symbol.\n\
 For each node in a type chain, print the raw data for each member of\n\
-the type structure, and the interpretation of the data.",
+the type structure, and the interpretation of the data."),
 	   &maintenanceprintlist);
 
-  add_cmd ("symbols", class_maintenance, maintenance_print_symbols,
-	   "Print dump of current symbol definitions.\n\
+  add_cmd ("symbols", class_maintenance, maintenance_print_symbols, _("\
+Print dump of current symbol definitions.\n\
 Entries in the full symbol table are dumped to file OUTFILE.\n\
-If a SOURCE file is specified, dump only that file's symbols.",
+If a SOURCE file is specified, dump only that file's symbols."),
 	   &maintenanceprintlist);
 
-  add_cmd ("msymbols", class_maintenance, maintenance_print_msymbols,
-	   "Print dump of current minimal symbol definitions.\n\
+  add_cmd ("msymbols", class_maintenance, maintenance_print_msymbols, _("\
+Print dump of current minimal symbol definitions.\n\
 Entries in the minimal symbol table are dumped to file OUTFILE.\n\
-If a SOURCE file is specified, dump only that file's minimal symbols.",
+If a SOURCE file is specified, dump only that file's minimal symbols."),
 	   &maintenanceprintlist);
 
-  add_cmd ("psymbols", class_maintenance, maintenance_print_psymbols,
-	   "Print dump of current partial symbol definitions.\n\
+  add_cmd ("psymbols", class_maintenance, maintenance_print_psymbols, _("\
+Print dump of current partial symbol definitions.\n\
 Entries in the partial symbol table are dumped to file OUTFILE.\n\
-If a SOURCE file is specified, dump only that file's partial symbols.",
+If a SOURCE file is specified, dump only that file's partial symbols."),
 	   &maintenanceprintlist);
 
   add_cmd ("objfiles", class_maintenance, maintenance_print_objfiles,
-	   "Print dump of current object file definitions.",
+	   _("Print dump of current object file definitions."),
 	   &maintenanceprintlist);
 
-  add_cmd ("symtabs", class_maintenance, maintenance_info_symtabs,
-	   "List the full symbol tables for all object files.\n\
+  add_cmd ("symtabs", class_maintenance, maintenance_info_symtabs, _("\
+List the full symbol tables for all object files.\n\
 This does not include information about individual symbols, blocks, or\n\
 linetables --- just the symbol table structures themselves.\n\
-With an argument REGEXP, list the symbol tables whose names that match that.",
+With an argument REGEXP, list the symbol tables whose names that match that."),
 	   &maintenanceinfolist);
 
-  add_cmd ("psymtabs", class_maintenance, maintenance_info_psymtabs,
-	   "List the partial symbol tables for all object files.\n\
+  add_cmd ("psymtabs", class_maintenance, maintenance_info_psymtabs, _("\
+List the partial symbol tables for all object files.\n\
 This does not include information about individual partial symbols,\n\
-just the symbol table structures themselves.",
+just the symbol table structures themselves."),
 	   &maintenanceinfolist);
 
   add_cmd ("statistics", class_maintenance, maintenance_print_statistics,
-	   "Print statistics about internal gdb state.",
+	   _("Print statistics about internal gdb state."),
 	   &maintenanceprintlist);
 
-  add_cmd ("architecture", class_maintenance, maintenance_print_architecture,
-	   "Print the internal architecture configuration.\
-Takes an optional file parameter.",
+  add_cmd ("architecture", class_maintenance,
+	   maintenance_print_architecture, _("\
+Print the internal architecture configuration.\n\
+Takes an optional file parameter."),
 	   &maintenanceprintlist);
 
   add_cmd ("check-symtabs", class_maintenance, maintenance_check_symtabs,
-	   "Check consistency of psymtabs and symtabs.",
+	   _("Check consistency of psymtabs and symtabs."),
 	   &maintenancelist);
 
   add_cmd ("translate-address", class_maintenance, maintenance_translate_address,
-	   "Translate a section name and address to a symbol.",
+	   _("Translate a section name and address to a symbol."),
 	   &maintenancelist);
 
-  add_cmd ("deprecate", class_maintenance, maintenance_deprecate,
-	   "Deprecate a command.  Note that this is just in here so the \n\
+  add_cmd ("deprecate", class_maintenance, maintenance_deprecate, _("\
+Deprecate a command.  Note that this is just in here so the \n\
 testsuite can check the comamnd deprecator. You probably shouldn't use this,\n\
 rather you should use the C function deprecate_cmd().  If you decide you \n\
 want to use it: maintenance deprecate 'commandname' \"replacement\". The \n\
-replacement is optional.", &maintenancelist);
+replacement is optional."), &maintenancelist);
 
-  add_cmd ("undeprecate", class_maintenance, maintenance_undeprecate,
-	   "Undeprecate a command.  Note that this is just in here so the \n\
+  add_cmd ("undeprecate", class_maintenance, maintenance_undeprecate, _("\
+Undeprecate a command.  Note that this is just in here so the \n\
 testsuite can check the comamnd deprecator. You probably shouldn't use this,\n\
-If you decide you want to use it: maintenance undeprecate 'commandname'",
+If you decide you want to use it: maintenance undeprecate 'commandname'"),
 	   &maintenancelist);
 
-  add_show_from_set (
-		      add_set_cmd ("watchdog", class_maintenance, var_zinteger, (char *) &watchdog,
-				   "Set watchdog timer.\n\
-When non-zero, this timeout is used instead of waiting forever for a target to\n\
-finish a low-level step or continue operation.  If the specified amount of time\n\
-passes without a response from the target, an error occurs.", &setlist),
-		      &showlist);
-
+  add_setshow_zinteger_cmd ("watchdog", class_maintenance, &watchdog, _("\
+Set watchdog timer."), _("\
+Show watchdog timer."), _("\
+When non-zero, this timeout is used instead of waiting forever for a target\n\
+to finish a low-level step or continue operation.  If the specified amount\n\
+of time passes without a response from the target, an error occurs."),
+			    NULL,
+			    show_watchdog,
+			    &setlist, &showlist);
 
   add_setshow_boolean_cmd ("profile", class_maintenance,
-			   &maintenance_profile_p,
-			   "Set internal profiling.\n"
-			   "When enabled GDB is profiled.",
-			   "Show internal profiling.\n",
-			   maintenance_set_profile_cmd, NULL,
+			   &maintenance_profile_p, _("\
+Set internal profiling."), _("\
+Show internal profiling."), _("\
+When enabled GDB is profiled."),
+			   maintenance_set_profile_cmd,
+			   show_maintenance_profile_p,
 			   &maintenance_set_cmdlist,
 			   &maintenance_show_cmdlist);
 }

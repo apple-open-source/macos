@@ -1,3 +1,4 @@
+<testcase>
 #
 # Server-side
 <reply>
@@ -24,7 +25,7 @@ nothing
 #
 # Verify data after the test has been "shot"
 <verify>
-<stdout>
+<stdout mode="text">
 0: Sun, 06 Nov 1994 08:49:37 GMT => 784111777
 1: Sunday, 06-Nov-94 08:49:37 GMT => 784111777
 2: Sun Nov  6 08:49:37 1994 => 784111777
@@ -47,6 +48,14 @@ nothing
 19: Sat, 11 Sep 2004 21:32:11 +0200 => 1094931131
 20: 20040912 15:05:58 -0700 => 1095026758
 21: 20040911 +0200 => 1094853600
-22: 2094 Nov 6 => 2147483647
 </stdout>
+
+# This test case previously testes an overflow case ("2094 Nov 6 =>
+# 2147483647") for 32bit time_t, but since some systems have 64bit time_t and
+# handles this (returning 3939840000), and some 64bit-time_t systems don't
+# handle this and returns -1 for this, it turned very tricky to write a fine
+# test case and thus it is now removed until we have a way to write test cases
+# for this kind of things.
+
 </verify>
+</testcase>

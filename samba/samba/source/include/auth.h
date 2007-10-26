@@ -20,16 +20,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-/* AUTH_STR - string */
-typedef struct normal_string
-{
-	int len;
-	char *str;
-} AUTH_STR;
-
-typedef struct auth_usersupplied_info
-{
-	
+typedef struct auth_usersupplied_info {
  	DATA_BLOB lm_resp;
 	DATA_BLOB nt_resp;
  	DATA_BLOB lm_interactive_pwd;
@@ -38,29 +29,30 @@ typedef struct auth_usersupplied_info
 	
 	BOOL encrypted;
 	
-	AUTH_STR           client_domain;          /* domain name string */
-	AUTH_STR           domain;               /* domain name after mapping */
-	AUTH_STR           internal_username;    /* username after mapping */
-	AUTH_STR           smb_name;        /* username before mapping */
-	AUTH_STR           wksta_name;           /* workstation name (netbios calling name) unicode string */
+	BOOL was_mapped;	      /* Did the username map actually match? */
+	char *client_domain;          /* domain name string */
+	char *domain;                 /* domain name after mapping */
+	char *internal_username;      /* username after mapping */
+	char *smb_name;               /* username before mapping */
+	char *wksta_name;             /* workstation name (netbios calling
+				       * name) unicode string */
 	
+	uint32 logon_parameters;
+
 } auth_usersupplied_info;
 
-#define SAM_FILL_NAME  0x01
-#define SAM_FILL_INFO3 0x02
-#define SAM_FILL_SAM   0x04
-#define SAM_FILL_UNIX  0x08
-#define SAM_FILL_ALL (SAM_FILL_NAME | SAM_FILL_INFO3 | SAM_FILL_SAM | SAM_FILL_UNIX)
-
-typedef struct auth_serversupplied_info 
-{
+typedef struct auth_serversupplied_info {
 	BOOL guest;
+
+	DOM_SID *sids; 	/* These SIDs are preliminary between
+			   check_ntlm_password and the token creation. */
+	size_t num_sids;
 
 	uid_t uid;
 	gid_t gid;
 	
 	/* This groups info is needed for when we become_user() for this uid */
-	int n_groups;
+	size_t n_groups;
 	gid_t *groups;
 	
 	/* NT group information taken from the info3 structure */
@@ -69,13 +61,14 @@ typedef struct auth_serversupplied_info
 	
 	DATA_BLOB user_session_key;
 	DATA_BLOB lm_session_key;
+
+        char *login_server; /* which server authorized the login? */
 	
-	uint32 sam_fill_level;  /* How far is this structure filled? */
-	
-	SAM_ACCOUNT *sam_account;
+	struct samu *sam_account;
 	
 	void *pam_handle;
 
+	BOOL was_mapped;	/* Did the username map match? */
 	char *unix_name;
 	
 } auth_serversupplied_info;
@@ -112,6 +105,10 @@ typedef struct auth_methods
 			 const struct auth_usersupplied_info *user_info, 
 			 auth_serversupplied_info **server_info);
 
+	/* If you are using this interface, then you are probably
+	 * getting something wrong.  This interface is only for
+	 * security=server, and makes a number of compromises to allow
+	 * that.  It is not compatible with being a PDC.  */
 	DATA_BLOB (*get_chal)(const struct auth_context *auth_context,
 			      void **my_private_data, 
 			      TALLOC_CTX *mem_ctx);
@@ -138,14 +135,14 @@ struct auth_init_function_entry {
 	struct auth_init_function_entry *prev, *next;
 };
 
-typedef struct auth_ntlmssp_state
-{
+typedef struct auth_ntlmssp_state {
 	TALLOC_CTX *mem_ctx;
 	struct auth_context *auth_context;
 	struct auth_serversupplied_info *server_info;
 	struct ntlmssp_state *ntlmssp_state;
 } AUTH_NTLMSSP_STATE;
 
-#define AUTH_INTERFACE_VERSION 1
+/* Changed from 1 -> 2 to add the logon_parameters field. */
+#define AUTH_INTERFACE_VERSION 2
 
 #endif /* _SMBAUTH_H_ */

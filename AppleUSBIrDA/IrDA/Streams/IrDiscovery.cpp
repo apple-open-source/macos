@@ -48,7 +48,7 @@ EventTraceCauseDesc IrDiscoverEvents[] = {
     {kDequeueEventEnd,          "IrDiscovery: Event End"}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd( x, y, z, IrDiscoverEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, IrDiscoverEvents, true )
 
 #else
     #define XTRACE(x, y, z) ((void)0)
@@ -67,7 +67,7 @@ CIrDiscovery::cIrDiscovery(TIrGlue * glue)
 {
     CIrDiscovery *obj = new CIrDiscovery;
     
-    XTRACE(kLogNew, (int)obj >> 16, (short)obj);
+    XTRACE(kLogNew, (int)obj >> 16, obj);
 
     if (obj && !obj->Init(glue)) {
 	obj->release();
@@ -81,7 +81,7 @@ CIrDiscovery::free()
 {
     int Review_Event_Usage;     // release events on the pendng discover list?
     
-    XTRACE(kLogFree, (int)this >> 16, (short)this);
+    XTRACE(kLogFree, (int)this >> 16, this);
 
     DeleteDiscoveredDevicesList();      // free the objects on the list
 
@@ -101,7 +101,7 @@ CIrDiscovery::Init(TIrGlue * glue)
 {
     int SET_LOCAL_HOSTNAME_HERE;            // how to set hostname for discovery info?
     
-    XTRACE(kLogInit, (int)this >> 16, (short)this);
+    XTRACE(kLogInit, (int)this >> 16, this);
     
     fState  = kDiscoverIdle;
     fPendingDiscoverList = nil;
@@ -274,7 +274,7 @@ void CIrDiscovery::HandleDiscoverComplete()
     TIrDiscoverReply    *   discoverReply = (TIrDiscoverReply*)GetCurrentEvent();
     TIrDiscoverReply    *   pendingRequest;
     
-    XTRACE( kLogDiscoverComplete, (int)this >> 16, (short)this);
+    XTRACE( kLogDiscoverComplete, (int)this >> 16, this);
     check( fDiscoveredDevices == discoverReply->fDiscoveredDevices );
 
     // Complete discover request (let caller pick a device to connect to)

@@ -1,18 +1,19 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 
 """Library for program-based construction of an HTML documents.
@@ -84,7 +85,7 @@ class Table:
     # Add a new blank cell at the end
     def NewCell(self):
         self.cells[-1].append('')
-        
+
     def AddRow(self, row):
         self.cells.append(row)
 
@@ -99,7 +100,7 @@ class Table:
             DictMerge(self.cell_info[row], kws)
         else:
             self.cell_info[row][col] = kws
-        
+
     def AddRowInfo(self, row, **kws):
         kws = CaseInsensitiveKeyedDict(kws)
         if not self.row_info.has_key(row):
@@ -110,7 +111,7 @@ class Table:
     # What's the index for the row we just put in?
     def GetCurrentRowIndex(self):
         return len(self.cells)-1
-    
+
     # What's the index for the col we just put in?
     def GetCurrentCellIndex(self):
         return len(self.cells[-1])-1
@@ -154,7 +155,7 @@ class Table:
             if key == 'border' and val == None:
                 output = output + ' BORDER'
                 continue
-            else:       
+            else:
                 output = output + ' %s="%s"' % (key.upper(), val)
 
         return output
@@ -202,14 +203,14 @@ class Table:
         output = output + '\n' + ' '*indent + '</table>\n'
 
         return output
-        
+
 
 class Link:
     def __init__(self, href, text, target=None):
         self.href = href
         self.text = text
         self.target = target
-    
+
     def Format(self, indent=0):
         texpr = ""
         if self.target != None:
@@ -223,7 +224,7 @@ class FontSize:
     def __init__(self, size, *items):
         self.items = list(items)
         self.size = size
-    
+
     def Format(self, indent=0):
         output = '<font size="%s">' % self.size
         for item in self.items:
@@ -236,7 +237,7 @@ class FontAttr:
     def __init__(self, *items, **kw):
         self.items = list(items)
         self.attrs = kw
-    
+
     def Format(self, indent=0):
         seq = []
         for k, v in self.attrs.items():
@@ -334,18 +335,18 @@ class Document(Container):
             output.append('%s</HTML>' % tab)
         return NL.join(output)
 
-    def addError(self, errmsg, tag=None, *args):
+    def addError(self, errmsg, tag=None):
         if tag is None:
             tag = _('Error: ')
         self.AddItem(Header(3, Bold(FontAttr(
             _(tag), color=mm_cfg.WEB_ERROR_COLOR, size='+2')).Format() +
-                            Italic(errmsg % args).Format()))
+                            Italic(errmsg).Format()))
 
 
 class HeadlessDocument(Document):
     """Document without head section, for templates that provide their own."""
     suppress_head = 1
-    
+
 
 class StdContainer(Container):
     def Format(self, indent=0):
@@ -353,7 +354,7 @@ class StdContainer(Container):
         output = '<%s>' % self.tag
         output = output + Container.Format(self, indent)
         output = '%s</%s>' % (output, self.tag)
-        return output       
+        return output
 
 
 class QuotedContainer(Container):
@@ -375,9 +376,9 @@ class Address(StdContainer):
 
 class Underline(StdContainer):
     tag = 'u'
-        
+
 class Bold(StdContainer):
-    tag = 'strong'  
+    tag = 'strong'
 
 class Italic(StdContainer):
     tag = 'em'
@@ -448,7 +449,11 @@ class PasswordBox(InputObj):
 
 class TextBox(InputObj):
     def __init__(self, name, value='', size=mm_cfg.TEXTFIELDWIDTH):
-        InputObj.__init__(self, name, "TEXT", value, checked=0, size=size)
+        if isinstance(value, str):
+            safevalue = Utils.websafe(value)
+        else:
+            safevalue = value
+        InputObj.__init__(self, name, "TEXT", safevalue, checked=0, size=size)
 
 class Hidden(InputObj):
     def __init__(self, name, value=''):
@@ -457,8 +462,12 @@ class Hidden(InputObj):
 class TextArea:
     def __init__(self, name, text='', rows=None, cols=None, wrap='soft',
                  readonly=0):
+        if isinstance(text, str):
+            safetext = Utils.websafe(text)
+        else:
+            safetext = text
         self.name = name
-        self.text = text
+        self.text = safetext
         self.rows = rows
         self.cols = cols
         self.wrap = wrap
@@ -494,7 +503,7 @@ class VerticalSpacer:
         self.size = size
     def Format(self, indent=0):
         output = '<spacer type="vertical" height="%d">' % self.size
-        return output 
+        return output
 
 class WidgetArray:
     Widget = None
@@ -578,7 +587,7 @@ class OrderedList(Container):
                      (spaces, HTMLFormatObject(item, indent + 2))
         output = output + '%s</ol>\n' % spaces
         return output
-        
+
 class DefinitionList(Container):
     def Format(self, indent=0):
         spaces = ' ' * indent
@@ -632,14 +641,14 @@ def MailmanLogo():
 
 
 class SelectOptions:
-   def __init__(self, varname, values, legend, 
+   def __init__(self, varname, values, legend,
                 selected=0, size=1, multiple=None):
       self.varname  = varname
       self.values   = values
       self.legend   = legend
       self.size     = size
       self.multiple = multiple
-      # we convert any type to tuple, commas are needed 
+      # we convert any type to tuple, commas are needed
       if not multiple:
          if type(selected) == types.IntType:
              self.selected = (selected,)
@@ -649,7 +658,7 @@ class SelectOptions:
              self.selected = (selected[0],)
          else:
              self.selected = (0,)
- 
+
    def Format(self, indent=0):
       spaces = " " * indent
       items  = min( len(self.values), len(self.legend) )
@@ -657,22 +666,22 @@ class SelectOptions:
       # jcrey: If there is no argument, we return nothing to avoid errors
       if items == 0:
           return ""
- 
+
       text = "\n" + spaces + "<Select name=\"%s\"" % self.varname
       if self.size > 1:
           text = text + " size=%d" % self.size
       if self.multiple:
           text = text + " multiple"
       text = text + ">\n"
- 
+
       for i in range(items):
           if i in self.selected:
               checked = " Selected"
           else:
               checked = ""
- 
+
           opt = " <option value=\"%s\"%s> %s </option>" % (
               self.values[i], checked, self.legend[i])
           text = text + spaces + opt + "\n"
- 
+
       return text + spaces + '</Select>'

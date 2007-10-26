@@ -31,6 +31,20 @@ struct using_direct;
 struct obstack;
 struct dictionary;
 
+/* APPLE LOCAL begin address ranges  */
+struct address_range
+{
+  CORE_ADDR startaddr;
+  CORE_ADDR endaddr;
+};
+
+struct address_range_list
+{
+  int nelts;
+  struct address_range *ranges;
+};
+/* APPLE LOCAL end address ranges  */
+
 /* All of the name-scope contours of the program
    are represented by `struct block' objects.
    All of these objects are pointed to by the blockvector.
@@ -64,6 +78,15 @@ struct block
 
   CORE_ADDR startaddr;
   CORE_ADDR endaddr;
+
+  /* APPLE LOCAL begin address ranges  */
+  /* Address ranges in the executable code that are in this block, if
+     the block has non-contiguous address ranges in the executable code.
+     If the block uses address ranges, then the startaddr and endaddr
+     fields (above) should be 0 and -1, respectively.  */
+
+  struct address_range_list *ranges;
+  /* APPLE LOCAL end address ranges  */
 
   /* The symbol that names this block, if the block is the body of a
      function; otherwise, zero.  */
@@ -118,6 +141,14 @@ struct block
 #define BLOCK_GCC_COMPILED(bl)	(bl)->gcc_compile_flag
 #define BLOCK_DICT(bl)		(bl)->dict
 #define BLOCK_NAMESPACE(bl)   (bl)->language_specific.cplus_specific.namespace
+/* APPLE LOCAL begin address ranges  */
+#define BLOCK_RANGES(bl)        (bl)->ranges
+#define BLOCK_RANGE_START(bl,i)  (bl)->ranges->ranges[i].startaddr
+#define BLOCK_RANGE_END(bl,i)  (bl)->ranges->ranges[i].endaddr
+#define BLOCK_LOWEST_PC(bl) \
+  ( BLOCK_RANGES (bl) ? BLOCK_RANGE_START (bl, 0) : BLOCK_START (bl))
+#define BLOCK_HIGHEST_PC(bl)  block_highest_pc ((bl))
+/* APPLE LOCAL end address ranges  */
 
 /* Macro to loop through all symbols in a block BL, in no particular
    order.  ITER helps keep track of the iteration, and should be a
@@ -170,5 +201,13 @@ extern const struct block *block_static_block (const struct block *block);
 extern const struct block *block_global_block (const struct block *block);
 
 extern struct block *allocate_block (struct obstack *obstack);
+
+/* APPLE LOCAL begin address ranges  */
+extern int block_contains_pc (const struct block *, CORE_ADDR);
+
+extern int block_starts_and_ends (struct block *, CORE_ADDR, CORE_ADDR);
+
+extern CORE_ADDR block_highest_pc (const struct block *bl);
+/* APPLE LOCAL end address ranges  */
 
 #endif /* BLOCK_H */

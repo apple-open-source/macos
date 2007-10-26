@@ -18,8 +18,6 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define NO_SYSLOG
-
 #include "includes.h"
 
 #include <mntent.h>
@@ -28,6 +26,8 @@
 
 extern BOOL in_client;
 extern pstring user_socket_options;
+extern char *optarg;
+extern int optind;
 
 static pstring credentials;
 static pstring my_netbios_name;
@@ -151,7 +151,7 @@ static struct cli_state *do_connection(char *the_service)
 	if (have_ip) ip = dest_ip;
 
 	/* have to open a new connection */
-	if (!(c=cli_initialise(NULL)) || (cli_set_port(c, smb_port) != smb_port) ||
+	if (!(c=cli_initialise()) || (cli_set_port(c, smb_port) != smb_port) ||
 	    !cli_connect(c, server_n, &ip)) {
 		DEBUG(0,("%d: Connection to %s failed\n", sys_getpid(), server_n));
 		if (c) {
@@ -213,14 +213,14 @@ static struct cli_state *do_connection(char *the_service)
 		c->force_dos_errors = True;
 	}
 
-	if (!cli_session_setup(c, username, 
-			       password, strlen(password),
-			       password, strlen(password),
-			       workgroup)) {
+	if (!NT_STATUS_IS_OK(cli_session_setup(c, username, 
+					       password, strlen(password),
+					       password, strlen(password),
+					       workgroup))) {
 		/* if a password was not supplied then try again with a
 			null username */
 		if (password[0] || !username[0] ||
-				!cli_session_setup(c, "", "", 0, "", 0, workgroup)) {
+		    !NT_STATUS_IS_OK(cli_session_setup(c, "", "", 0, "", 0, workgroup))) {
 			DEBUG(0,("%d: session setup failed: %s\n",
 				sys_getpid(), cli_errstr(c)));
 			cli_shutdown(c);
@@ -388,6 +388,9 @@ static void send_fs_socket(char *the_service, char *mount_point, struct cli_stat
 		c = NULL;
 
 		if (!closed) {
+			/* close the name cache so that close_our_files() doesn't steal its FD */
+			namecache_shutdown();
+
 			/* redirect stdout & stderr since we can't know that
 			   the library functions we use are using DEBUG. */
 			if ( (fd = open("/dev/null", O_WRONLY)) < 0)
@@ -666,6 +669,9 @@ static void usage(void)
 
 	printf("Version %s\n\n",SAMBA_VERSION_STRING);
 
+	printf("Please be aware that smbfs is deprecated in favor of "
+	       "cifs\n\n");
+
 	printf(
 "Options:\n\
       username=<arg>                  SMB username\n\
@@ -711,7 +717,6 @@ static void parse_mount_smb(int argc, char **argv)
 	int opt;
 	char *opts;
 	char *opteq;
-	extern char *optarg;
 	int val;
 	char *p;
 
@@ -784,7 +789,7 @@ static void parse_mount_smb(int argc, char **argv)
 			} else if(!strcmp(opts, "uid")) {
 				mount_uid = nametouid(opteq+1);
 			} else if(!strcmp(opts, "gid")) {
-				mount_gid = nametogid(opteq+1);
+				nametogid(opteq+1, &mount_gid);
 			} else if(!strcmp(opts, "port")) {
 				smb_port = val;
 			} else if(!strcmp(opts, "fmask")) {
@@ -792,7 +797,7 @@ static void parse_mount_smb(int argc, char **argv)
 			} else if(!strcmp(opts, "dmask")) {
 				mount_dmask = strtol(opteq+1, NULL, 8);
 			} else if(!strcmp(opts, "debug")) {
-				SAMBA_DEBUGLEVEL = val;
+				DEBUGLEVEL = val;
 			} else if(!strcmp(opts, "ip")) {
 				dest_ip = *interpret_addr2(opteq+1);
 				if (is_zero_ip(dest_ip)) {
@@ -861,11 +866,11 @@ static void parse_mount_smb(int argc, char **argv)
 ****************************************************************************/
  int main(int argc,char *argv[])
 {
-	extern char *optarg;
-	extern int optind;
 	char *p;
 
-	SAMBA_DEBUGLEVEL = 1;
+	DEBUGLEVEL = 1;
+
+	load_case_tables();
 
 	/* here we are interactive, even if run from autofs */
 	setup_logging("mount.smbfs",True);
@@ -909,7 +914,7 @@ static void parse_mount_smb(int argc, char **argv)
 		pstrcpy(username,getenv("LOGNAME"));
 	}
 
-	if (!lp_load(dyn_CONFIGFILE,True,False,False)) {
+	if (!lp_load(dyn_CONFIGFILE,True,False,False,True)) {
 		fprintf(stderr, "Can't load %s - run testparm to debug it\n", 
 			dyn_CONFIGFILE);
 	}

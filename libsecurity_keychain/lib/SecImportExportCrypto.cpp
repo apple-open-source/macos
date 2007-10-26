@@ -56,14 +56,11 @@
 #define SEC_KEY_PRINT_NAME_ATTR_NAME	"PrintName"
 
 /*
- * This the value we ultimately assign to the PrintName attr.
+ * Default values we ultimately assign to the PrintName attr.
  */
-#define SEC_KEY_PRINT_NAME_ATTR_VALUE   "Imported Private Key"
-
-/*
- * Label and PrintName for imported keys other than private keys.
- */
-#define SEC_PUBKEY_PRINT_NAME_ATTR_VALUE "Imported Key"
+#define SEC_PRIVKEY_PRINT_NAME_ATTR_VALUE		"Imported Private Key"
+#define SEC_PUBKEY_PRINT_NAME_ATTR_VALUE		"Imported Public Key"
+#define SEC_SESSIONKEY_PRINT_NAME_ATTR_VALUE	"Imported Key"
 
 /*
  * Set private key's Label and PrintName attributes. On entry Label 
@@ -72,115 +69,84 @@
  * replace the Label attr with the public key hash and the PrintName
  * attr with a caller-supplied value.
  */
-static CSSM_RETURN impExpSetPrivKeyLabel(
+static CSSM_RETURN impExpSetKeyLabel(
 	CSSM_CSP_HANDLE 	cspHand,		// where the key lives
 	CSSM_DL_DB_HANDLE 	dlDbHand,		// ditto
-	CSSM_KEY_PTR		key,	
+	SecKeychainRef		kcRef,			// ditto
+	CSSM_KEY_PTR		cssmKey,	
 	const CSSM_DATA		*existKeyLabel,	// existing label, a random string
 	const CSSM_DATA		*newPrintName,
-	CssmOwnedData		&newLabel)		// RETURNED as what we set
+	CssmOwnedData		&newLabel,		// RETURNED as what we set
+	SecKeyRef			*secKey)		// RETURNED
 {
-	CSSM_QUERY						query;
-	CSSM_SELECTION_PREDICATE		predicate;
-	CSSM_DB_UNIQUE_RECORD_PTR		record = NULL;
 	CSSM_RETURN						crtn;
-	CSSM_HANDLE						resultHand = 0;
 	CSSM_DATA						keyDigest = {0, NULL};
 	
-	crtn = impExpKeyDigest(cspHand, key, &keyDigest);
+	crtn = impExpKeyDigest(cspHand, cssmKey, &keyDigest);
 	if(crtn) {
 		return crtn;
 	}
 	
 	/* caller needs this for subsequent DL lookup */
 	newLabel.copy(keyDigest);
-	
-	/*
-	 * Look up the private key in the DL.
-	 */
-	query.RecordType = CSSM_DL_DB_RECORD_PRIVATE_KEY;
-	query.Conjunctive = CSSM_DB_NONE;
-	query.NumSelectionPredicates = 1;
-	predicate.DbOperator = CSSM_DB_EQUAL;
-	
-	predicate.Attribute.Info.AttributeNameFormat = 
-		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	predicate.Attribute.Info.Label.AttributeName = "Label";
-	predicate.Attribute.Info.AttributeFormat = 
-		CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
-	/* hope this cast is OK */
-	predicate.Attribute.Value = (CSSM_DATA_PTR)existKeyLabel;
-	query.SelectionPredicate = &predicate;
-	
-	query.QueryLimits.TimeLimit = 0;	// FIXME - meaningful?
-	query.QueryLimits.SizeLimit = 1;	// FIXME - meaningful?
-	query.QueryFlags = 0; // CSSM_QUERY_RETURN_DATA;	// FIXME - used?
 
-	/* build Record attribute with two attrs */
-	CSSM_DB_RECORD_ATTRIBUTE_DATA recordAttrs;
-	CSSM_DB_ATTRIBUTE_DATA attr[2];
+	/* Find this key as a SecKeychainItem */
+	SecItemClass itemClass = (cssmKey->KeyHeader.KeyClass == 
+		CSSM_KEYCLASS_PRIVATE_KEY) ? kSecPrivateKeyItemClass :
+			kSecPublicKeyItemClass;
+	SecKeychainAttribute kcAttr = {kSecKeyLabel, existKeyLabel->Length, existKeyLabel->Data};
+	SecKeychainAttributeList kcAttrList = {1, &kcAttr};
+	SecKeychainSearchRef srchRef = NULL;
+	OSStatus ortn;
+	SecKeychainItemRef itemRef = NULL;
 	
-	attr[0].Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr[0].Info.Label.AttributeName = SEC_KEY_HASH_ATTR_NAME;
-	attr[0].Info.AttributeFormat     = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
-	attr[1].Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr[1].Info.Label.AttributeName = SEC_KEY_PRINT_NAME_ATTR_NAME;
-	attr[1].Info.AttributeFormat     = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
-	
-	recordAttrs.DataRecordType		 = CSSM_DL_DB_RECORD_PRIVATE_KEY;
-	recordAttrs.NumberOfAttributes   = 2;
-	recordAttrs.AttributeData        = attr;
-	
-	crtn = CSSM_DL_DataGetFirst(dlDbHand,
-		&query,
-		&resultHand,
-		&recordAttrs,
-		NULL,			// theData
-		&record);
-	/* abort only on success */
-	if(crtn != CSSM_OK) {
-		SecImpExpDbg("CSSM_DL_DataGetFirst error");
-		record = NULL;
-		resultHand = 0;
+	ortn = SecKeychainSearchCreateFromAttributes(kcRef, itemClass,
+		&kcAttrList, &srchRef);
+	if(ortn) {
+		SecImpExpDbg("SecKeychainSearchCreateFromAttributes error");
+		crtn = ortn;
 		goto errOut;
 	}
-	
-	/* 
-	 * Update existing attr data.
-	 * NOTE: the module which allocated this attribute data - a DL -
-	 * was loaded and attached by our client layer, not by us. Thus 
-	 * we can't use the memory allocator functions *we* used when 
-	 * attaching to the CSP - we have to use the ones
-	 * which the client registered with the DL.
-	 */
-	impExpFreeCssmMemory(dlDbHand.DLHandle, attr[0].Value->Data);
-	impExpFreeCssmMemory(dlDbHand.DLHandle, attr[0].Value);
-	impExpFreeCssmMemory(dlDbHand.DLHandle, attr[1].Value->Data);
-	impExpFreeCssmMemory(dlDbHand.DLHandle, attr[1].Value);
-	attr[0].Value = &keyDigest;
-	attr[1].Value = const_cast<CSSM_DATA *>(newPrintName);
-	
-	crtn = CSSM_DL_DataModify(dlDbHand,
-			CSSM_DL_DB_RECORD_PRIVATE_KEY,
-			record,
-			&recordAttrs,
-            NULL,				// DataToBeModified
-			CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
-	if(crtn) {
-		SecImpExpDbg("CSSM_DL_DataModify error");
+	ortn = SecKeychainSearchCopyNext(srchRef, &itemRef);
+	if(ortn) {
+		SecImpExpDbg("SecKeychainSearchCopyNext error");
+		crtn = ortn;
 		goto errOut;
 	}
+	#ifndef	NDEBUG
+	ortn = SecKeychainSearchCopyNext(srchRef, &itemRef);
+	if(ortn == noErr) {
+		SecImpExpDbg("impExpSetKeyLabel: found second key with same label!");
+		crtn = internalComponentErr;
+		goto errOut;
+	}
+	#endif	/* NDEBUG */
+	
+	/* modify two attributes... */
+	SecKeychainAttribute modAttrs[2];
+	modAttrs[0].tag    = kSecKeyLabel;
+	modAttrs[0].length = keyDigest.Length;
+	modAttrs[0].data   = keyDigest.Data;
+	modAttrs[1].tag    = kSecKeyPrintName;
+	modAttrs[1].length = newPrintName->Length;
+	modAttrs[1].data   = newPrintName->Data;
+	kcAttrList.count = 2;
+	kcAttrList.attr = modAttrs;
+	ortn = SecKeychainItemModifyAttributesAndData(itemRef, &kcAttrList,
+		0, NULL);
+	if(ortn) {
+		SecImpExpDbg("SecKeychainItemModifyAttributesAndData error");
+		crtn = ortn;
+		goto errOut;
+	}
+	*secKey = (SecKeyRef)itemRef;
 errOut:
-	/* free resources */
-	if(resultHand) {
-		CSSM_DL_DataAbortQuery(dlDbHand, resultHand);
-	}
-	if(record) {
-		CSSM_DL_FreeUniqueRecord(dlDbHand, record);
-	}
 	if(keyDigest.Data)  {
 		/* mallocd by CSP */
 		impExpFreeCssmMemory(cspHand, keyDigest.Data);
+	}
+	if(srchRef) {
+		CFRelease(srchRef);
 	}
 	return crtn;
 }
@@ -199,6 +165,7 @@ OSStatus impExpImportRawKey(
 	CSSM_CSP_HANDLE					cspHand,		// required
 	SecItemImportExportFlags		flags,
 	const SecKeyImportExportParameters	*keyParams,		// optional 
+	const char						*printName,		// optional
 	CFMutableArrayRef				outArray)		// optional, append here 
 {
 	CSSM_RETURN			crtn;
@@ -230,8 +197,8 @@ OSStatus impExpImportRawKey(
 	
 	/* 
 	 * Get key size in bits from raw CSP. Doing this right now is a good
-	 * optimization for the "guessing" case; getting the key size from he 
-	 * raw CSP involves a full DER decode on an alg- and format-specific manner.
+	 * optimization for the "guessing" case; getting the key size from the 
+	 * raw CSP involves a full decode on an alg- and format-specific manner.
 	 * If we've been given the wrong params, we'll fail right here without 
 	 * the complication of a full UnwrapKey op.
 	 */
@@ -239,7 +206,7 @@ OSStatus impExpImportRawKey(
 	if(rawCspHand == 0) {
 		return CSSMERR_CSSM_ADDIN_LOAD_FAILED;
 	}
-	crtn = CSSM_QueryKeySizeInBits(rawCspHand, NULL, &wrappedKey, &keySize);
+	crtn = CSSM_QueryKeySizeInBits(rawCspHand, CSSM_INVALID_HANDLE, &wrappedKey, &keySize);
 	cuCspDetachUnload(rawCspHand, CSSM_TRUE);
 	if(crtn) {
 		SecImpExpDbg("CSSM_QueryKeySizeInBits error");
@@ -261,6 +228,7 @@ OSStatus impExpImportRawKey(
 		flags,
 		keyParams,
 		&unwrapParams,
+		printName,
 		outArray);
 }
 
@@ -316,7 +284,7 @@ OSStatus impExpKeyNotify(
 	 * Get a Keychain-style Item, post notification. 
 	 */
 	Item keyItem = keychain->item(recordType, uniqueId);
-	KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, keyItem);
+	keychain->postEvent(kSecAddEvent, keyItem);
 
 	return noErr;
 }
@@ -341,12 +309,13 @@ OSStatus impExpImportKeyCommon(
 	SecItemImportExportFlags		flags,
 	const SecKeyImportExportParameters	*keyParams, // optional 
 	const impExpKeyUnwrapParams		*unwrapParams,
+	const char						*printName,		// optional
 	CFMutableArrayRef				outArray)		// optional, append here 
 {
 	CSSM_CC_HANDLE		ccHand = 0;
 	CSSM_RETURN			crtn;
 	CSSM_DATA			labelData;
-	CSSM_KEY_PTR		unwrappedKey = NULL;
+	CSSM_KEY			unwrappedKey;
 	CSSM_DL_DB_HANDLE   dlDbHandle;
 	CSSM_DL_DB_HANDLE   *dlDbPtr = NULL;
 	OSStatus			ortn;
@@ -361,6 +330,8 @@ OSStatus impExpImportKeyCommon(
 	ResourceControlContext *rccPtr = NULL;
 	SecAccessRef		accessRef = keyParams ? keyParams->accessRef : NULL;
 	CssmAutoData		keyLabel(Allocator::standard());
+	SecKeyRef			secKeyRef = NULL;
+	bool				usedSecKeyCreate = false;
 	
 	assert(unwrapParams != NULL);
 	assert(cspHand != 0);
@@ -373,9 +344,7 @@ OSStatus impExpImportKeyCommon(
 		dlDbPtr = &dlDbHandle;
 	}
 	
-	/* FIXME - who owns this key memory? */
-	unwrappedKey = (CSSM_KEY_PTR)malloc(sizeof(CSSM_KEY));
-	memset(unwrappedKey, 0, sizeof(CSSM_KEY));
+	memset(&unwrappedKey, 0, sizeof(CSSM_KEY));
 	memset(&nullCreds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
 	
 	/* context for unwrap */
@@ -403,7 +372,7 @@ OSStatus impExpImportKeyCommon(
 		}
 	}
 
-	if((hdr.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY) && (dlDbPtr != NULL)) {
+	if((hdr.KeyClass != CSSM_KEYCLASS_SESSION_KEY) && (dlDbPtr != NULL)) {
 		/* Generate random 16-char label to facilitate DL lookup */
 		char *randAscii = (char *)randLabel;		
 		uint8 randBinary[SEC_RANDOM_LABEL_LEN / 2];
@@ -420,8 +389,8 @@ OSStatus impExpImportKeyCommon(
 		/* actual keyLabel value set later */
 	}
 	else {
-		labelData.Data = (uint8 *)SEC_PUBKEY_PRINT_NAME_ATTR_VALUE;
-		labelData.Length = strlen(SEC_PUBKEY_PRINT_NAME_ATTR_VALUE);
+		labelData.Data = (uint8 *)SEC_SESSIONKEY_PRINT_NAME_ATTR_VALUE;
+		labelData.Length = strlen(SEC_SESSIONKEY_PRINT_NAME_ATTR_VALUE);
 		keyLabel.copy(labelData);
 	}
 	
@@ -477,7 +446,7 @@ OSStatus impExpImportKeyCommon(
 		assert(unwrapParams->unwrappingKey->KeyHeader.AlgorithmId ==
 			CSSM_ALGID_RC2);
 		SecImpExpDbg("impExpImportKeyCommon: setting effectiveKeySizeInBits to %lu",
-			unwrapParams->effectiveKeySizeInBits);
+			(unsigned long)unwrapParams->effectiveKeySizeInBits);
 		crtn = impExpAddContextAttribute(ccHand, 
 			CSSM_ATTRIBUTE_EFFECTIVE_BITS,
 			sizeof(uint32),
@@ -492,7 +461,7 @@ OSStatus impExpImportKeyCommon(
 		assert(unwrapParams->unwrappingKey->KeyHeader.AlgorithmId ==
 			CSSM_ALGID_RC5);
 		SecImpExpDbg("impExpImportKeyCommon: setting rounds to %lu",
-			unwrapParams->rounds);
+			(unsigned long)unwrapParams->rounds);
 		crtn = impExpAddContextAttribute(ccHand, 
 			CSSM_ATTRIBUTE_ROUNDS,
 			sizeof(uint32),
@@ -507,9 +476,9 @@ OSStatus impExpImportKeyCommon(
 		/* Our RC5 implementation has a fixed block size */
 		if(unwrapParams->blockSizeInBits != 64) {
 			SecImpExpDbg("WARNING impExpImportKeyCommon: setting block size to %lu",
-				unwrapParams->blockSizeInBits);
+				(unsigned long)unwrapParams->blockSizeInBits);
 			/* 
-			 * WIth the current CSP this will actually be ignored 
+			 * With the current CSP this will actually be ignored 
 			 */
 			crtn = impExpAddContextAttribute(ccHand, 
 				CSSM_ATTRIBUTE_BLOCK_SIZE,
@@ -530,7 +499,7 @@ OSStatus impExpImportKeyCommon(
 		keyAttributes,
 		&labelData,
 		rccPtr,				// CredAndAclEntry
-		unwrappedKey,
+		&unwrappedKey,
 		&descrData);		// required
 	if(crtn != CSSM_OK) {
 		SecImpExpDbg("CSSM_UnwrapKey failure");
@@ -541,13 +510,30 @@ OSStatus impExpImportKeyCommon(
 		goto errOut;
 	}
 	
-	/* Private key: update Label as public key hash */
-	if((hdr.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY) && (dlDbPtr != NULL)) {
+	/* Private and public keys: update Label as public key hash */
+	if((hdr.KeyClass != CSSM_KEYCLASS_SESSION_KEY) && (dlDbPtr != NULL)) {
 		CSSM_DATA newPrintName;
-		newPrintName.Data = (uint8 *)SEC_KEY_PRINT_NAME_ATTR_VALUE;
+		if(printName) {
+			/* caller specified */
+			newPrintName.Data = (uint8 *)printName;
+		}
+		else {
+			/* use defaults */
+			if(hdr.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY) {
+				newPrintName.Data = (uint8 *)SEC_PRIVKEY_PRINT_NAME_ATTR_VALUE;
+			}
+			else {
+				newPrintName.Data = (uint8 *)SEC_PUBKEY_PRINT_NAME_ATTR_VALUE;
+			}
+		}
 		newPrintName.Length = strlen((char *)newPrintName.Data);
-		crtn = impExpSetPrivKeyLabel(cspHand, *dlDbPtr, unwrappedKey, 
+		#if old_way
+		crtn = impExpSetKeyLabel(cspHand, *dlDbPtr, &unwrappedKey, 
 			&labelData, &newPrintName, keyLabel);
+		#else
+		crtn = impExpSetKeyLabel(cspHand, *dlDbPtr, importKeychain,
+			&unwrappedKey, &labelData, &newPrintName, keyLabel, &secKeyRef);
+		#endif
 		if(crtn) {
 			goto errOut;
 		}
@@ -559,7 +545,7 @@ OSStatus impExpImportKeyCommon(
 			KeychainCore::Access::required(accessRef) : 
 			new KeychainCore::Access("Imported Private Key"));
 		try {
-			CssmClient::KeyAclBearer bearer(cspHand, *unwrappedKey, Allocator::standard());
+			CssmClient::KeyAclBearer bearer(cspHand, unwrappedKey, Allocator::standard());
 			theAccess->setAccess(bearer, maker);
 		}
 		catch (const CssmError &e) {
@@ -577,27 +563,38 @@ OSStatus impExpImportKeyCommon(
 	
 	/*
 	 * If importKeychain is non-NULL we've already added the key to the keychain.
-	 * Convert it to a SecKeyRef if the caller wants that too.
+	 * If importKeychain is NULL, and outArray is non-NULL, we have to use the
+	 * half-baked SecKeyCreate to give the caller *something*.
 	 */
 	if(outArray) {
-		SecKeyRef keyRef;
-		OSStatus ortn;
-		
-		ortn = SecKeyCreate(unwrappedKey, &keyRef);
-		if(ortn) {
-			SecImpExpDbg("SecKeyCreate failure");
-			goto errOut;
+		if(secKeyRef == NULL) {
+			assert(importKeychain == NULL);
+			ortn = SecKeyCreate(&unwrappedKey, &secKeyRef);
+			if(ortn) {
+				SecImpExpDbg("SecKeyCreate failure");
+				crtn = ortn;
+				goto errOut;
+			}
+			/* don't CSSM_FreeKey() this key */
+			usedSecKeyCreate = true;
 		}
-		CFArrayAppendValue(outArray, keyRef);
+		CFArrayAppendValue(outArray, secKeyRef);
 	}
 	
 	if(importKeychain) {
-		impExpKeyNotify(importKeychain, keyLabel.get(), *unwrappedKey);
+		impExpKeyNotify(importKeychain, keyLabel.get(), unwrappedKey);
 	}
 	
 errOut:
 	if(ccHand != 0) {
 		CSSM_DeleteContext(ccHand);
+	}
+	if(secKeyRef) {
+		CFRelease(secKeyRef);
+	}
+	if((unwrappedKey.KeyData.Data != NULL) && !usedSecKeyCreate) {
+		/* skip this free if we used SecKeyCreate() */
+		CSSM_FreeKey(cspHand, NULL, &unwrappedKey, CSSM_FALSE);
 	}
 	return crtn;
 }
@@ -616,6 +613,7 @@ CSSM_RETURN impExpExportKeyCommon(
 	CSSM_KEYBLOB_FORMAT	wrapFormat,		// NONE, PKCS7, PKCS8
 	CSSM_ATTRIBUTE_TYPE blobAttrType,	// optional raw key format attr
 	CSSM_KEYBLOB_FORMAT blobForm,		// ditto
+	const CSSM_DATA		*descData,		// optional descriptive data
 	const CSSM_DATA		*iv)
 {
 	OSStatus ortn;
@@ -688,13 +686,16 @@ CSSM_RETURN impExpExportKeyCommon(
 		}
 	}
 
-	CSSM_DATA descData = {0, 0};
+	CSSM_DATA dData = {0, 0};
+	if(descData) {
+		dData = *descData;
+	}
 	memset(wrappedKey, 0, sizeof(wrappedKey));
 
 	crtn = CSSM_WrapKey(ccHand,
 		creds,
 		unwrappedKey,
-		&descData,	
+		&dData,	
 		wrappedKey);
 	CSSM_DeleteContext(ccHand);
 	switch(crtn) {

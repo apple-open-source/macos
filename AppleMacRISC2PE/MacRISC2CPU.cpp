@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -193,6 +193,7 @@ bool MacRISC2CPU::start(IOService *provider)
 	if (resetOnWake) {
 		vm_address_t reserveMem;
 		
+
 		reserveMem = (vm_address_t)IOMallocAligned (PAGE_SIZE, PAGE_SIZE);	// Get one page (which we keep forever)
 		if (reserveMem) {			
 			// map it
@@ -296,7 +297,7 @@ bool MacRISC2CPU::start(IOService *provider)
     pmRootDomain = OSDynamicCast(IOPMrootDomain, service);
     if (pmRootDomain != 0)
     {
-        kprintf("Register MacRISC2CPU %d to acknowledge power changes\n", getCPUNumber());
+        kprintf("Register MacRISC2CPU %ld to acknowledge power changes\n", getCPUNumber());
         pmRootDomain->registerInterestedDriver(this);
         
         // Join the Power Management Tree to receive setAggressiveness calls.
@@ -394,7 +395,7 @@ IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned
 
     if ( ! (theFlags & IOPMPowerOn) ) {
         // Sleep sequence:
-        kprintf("MacRISC2CPU %d powerStateWillChangeTo to acknowledge power changes (DOWN) we set napping %d\n", getCPUNumber(), false);
+        kprintf("MacRISC2CPU %ld powerStateWillChangeTo to acknowledge power changes (DOWN) we set napping %d\n", getCPUNumber(), false);
         rememberNap = ml_enable_nap(getCPUNumber(), false);        // Disable napping (the function returns the previous state)
 
 		// If processor based and currently slow, kick it back up so we safely come out of sleep
@@ -422,7 +423,7 @@ IOReturn MacRISC2CPU::powerStateWillChangeTo ( IOPMPowerFlags theFlags, unsigned
 			ignoreSpeedChange = false;
 		}
 
-        kprintf("MacRISC2CPU %d powerStateWillChangeTo to acknowledge power changes (UP) we set napping %d\n", getCPUNumber(), rememberNap);
+        kprintf("MacRISC2CPU %ld powerStateWillChangeTo to acknowledge power changes (UP) we set napping %d\n", getCPUNumber(), rememberNap);
         ml_enable_nap(getCPUNumber(), rememberNap); 		   // Re-set the nap as it was before.
 		
 		// If we have an ioPMon, it will handle this
@@ -696,13 +697,13 @@ void MacRISC2CPU::initCPU(bool boot)
 			// Enables the interrupts for this CPU.
 			if (macRISC2PE->getMachineType() == kMacRISC2TypePowerMac) {
 				haveSleptMPIC = false;
-				kprintf("MacRISC2CPU::initCPU %d -> mpic->setUpForSleep off", getCPUNumber());
+				kprintf("MacRISC2CPU::initCPU %ld -> mpic->setUpForSleep off", getCPUNumber());
 				mpic->callPlatformFunction(mpic_setUpForSleep, false, (void *)false, (void *)getCPUNumber(), 0, 0);
 			}
 		}
     }
 
-    kprintf("MacRISC2CPU::initCPU %d Here!\n", getCPUNumber());
+    kprintf("MacRISC2CPU::initCPU %ld Here!\n", getCPUNumber());
  
     // Set time base.
     if (bootCPU)
@@ -713,18 +714,17 @@ void MacRISC2CPU::initCPU(bool boot)
 		if (gCPUIC)
 			gCPUIC->enableCPUInterrupt(this);
 		else
-			panic ("MacRISC2CPU: gCPUIC uninitialized for CPU %d\n", getCPUNumber());
+			panic ("MacRISC2CPU: gCPUIC uninitialized for CPU %ld\n", getCPUNumber());
     
         // Register and enable IPIs.
         cpuNub->registerInterrupt(0, this, OSMemberFunctionCast(IOInterruptAction, this, &MacRISC2CPU::ipiHandler), 0);		// [4091924]
         cpuNub->enableInterrupt(0);
     }
-    else
-    {
-        long priority = 0;
-        mpic->callPlatformFunction(mpic_setCurrentTaskPriority, false, (void *)&priority, 0, 0, 0);
-    }
-  
+
+	// [5376988] - MPIC is no longer automatically setting priority to 0 so now must do this in all cases, not just non-boot case
+	long priority = 0;
+	mpic->callPlatformFunction(mpic_setCurrentTaskPriority, false, (void *)&priority, 0, 0, 0);
+	
     setCPUState(kIOCPUStateRunning);
 }
 
@@ -745,23 +745,23 @@ void MacRISC2CPU::quiesceCPU(void)
 			if (!haveSleptMPIC && (macRISC2PE->getMachineType() == kMacRISC2TypePowerMac))
 			{
 				haveSleptMPIC = true;
-				kprintf("MacRISC2CPU::quiesceCPU %d -> mpic->setUpForSleep off", getCPUNumber());
+				kprintf("MacRISC2CPU::quiesceCPU %ld -> mpic->setUpForSleep off", getCPUNumber());
 				mpic->callPlatformFunction(mpic_setUpForSleep, false, (void *)true, (void *)getCPUNumber(), 0, 0);
 			}
 	
-			kprintf("MacRISC2CPU::quiesceCPU %d -> keyLargo->saveRegisterState()\n", getCPUNumber());
+			kprintf("MacRISC2CPU::quiesceCPU %ld -> keyLargo->saveRegisterState()\n", getCPUNumber());
 			// Save KeyLargo's register state.
 			keyLargo->callPlatformFunction(keyLargo_saveRegisterState, false, 0, 0, 0, 0);
 	
 			// Turn Off all KeyLargo I/O.
 			if (!gPHibernateState || !*gPHibernateState)
 			{
-			    kprintf("MacRISC2CPU::quiesceCPU %d -> keyLargo->turnOffIO\n", getCPUNumber());
+			    kprintf("MacRISC2CPU::quiesceCPU %ld -> keyLargo->turnOffIO\n", getCPUNumber());
 				keyLargo->callPlatformFunction(keyLargo_turnOffIO, false, (void *)false, 0, 0, 0);
 			}
         }
         
-        kprintf("MacRISC2CPU::quiesceCPU %d -> here\n", getCPUNumber());
+        kprintf("MacRISC2CPU::quiesceCPU %ld -> here\n", getCPUNumber());
 
         // Set the wake vector to point to the reset vector
         ml_phys_write(0x0080, 0x100);
@@ -847,7 +847,7 @@ void MacRISC2CPU::haltCPU(void)
 										// Remember this driver
 										topLevelPCIBridges[topLevelPCIBridgeCount++] = pciDriver;
 									else
-										kprintf ("MacRISC2CPU::haltCPU - warning, more than %ld PCI bridges - cannot save/restore them all\n");
+										kprintf ("MacRISC2CPU::haltCPU - warning, more than %d PCI bridges - cannot save/restore them all\n", kMaxPCIBridges);
 								childDriver->release();
 							}
 						}
@@ -863,7 +863,7 @@ void MacRISC2CPU::haltCPU(void)
 			}
     }
 
-   kprintf("MacRISC2CPU::haltCPU %d Here!\n", getCPUNumber());
+   kprintf("MacRISC2CPU::haltCPU %ld Here!\n", getCPUNumber());
 
    processor_exit(machProcessor);
 }
@@ -951,9 +951,9 @@ void MacRISC2CPU::ipiHandler(void *refCon, void *nub, int source)
 
 const OSSymbol *MacRISC2CPU::getCPUName(void)
 {
-    char tmpStr[256];
+    char tmpStr[16];
   
-    sprintf(tmpStr, "Primary%ld", getCPUNumber());
+    snprintf(tmpStr, sizeof(tmpStr), "Primary%ld", getCPUNumber());
   
     return OSSymbol::withCString(tmpStr);
 }

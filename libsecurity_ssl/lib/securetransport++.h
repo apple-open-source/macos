@@ -47,10 +47,10 @@ public:
     SSLProtocol version() const;
     void version(SSLProtocol v);
     
-	UInt32 numSupportedCiphers() const;
+	size_t numSupportedCiphers() const;
 	void supportedCiphers(SSLCipherSuite *ciphers, size_t &numCiphers) const;
 	
-	UInt32 numEnabledCiphers() const;
+	size_t numEnabledCiphers() const;
 	void enabledCiphers(SSLCipherSuite *ciphers, size_t &numCiphers) const;	// get
 	void enabledCiphers(SSLCipherSuite *ciphers, size_t numCiphers);		// set
 	

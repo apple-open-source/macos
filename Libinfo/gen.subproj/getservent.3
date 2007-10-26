@@ -36,26 +36,38 @@
 .Dt GETSERVENT 3
 .Os
 .Sh NAME
-.Nm getservent ,
-.Nm getservbyport ,
+.Nm endservent ,
 .Nm getservbyname ,
-.Nm setservent ,
-.Nm endservent
+.Nm getservbyport ,
+.Nm getservent ,
+.Nm setservent
 .Nd get service entry
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .Fd #include <netdb.h>
-.Ft struct servent *
-.Fn getservent
-.Ft struct servent *
-.Fn getservbyname "const char *name" "const char *proto"
-.Ft struct servent *
-.Fn getservbyport "int port" "const char *proto"
 .Ft void
-.Fn setservent "int stayopen"
+.Fo endservent
+.Fa void
+.Fc
+.Ft struct servent *
+.Fo getservbyname
+.Fa "const char *name"
+.Fa "const char *proto"
+.Fc
+.Ft struct servent *
+.Fo getservbyport
+.Fa "int port"
+.Fa "const char *proto"
+.Fc
+.Ft struct servent *
+.Fo getservent
+.Fa void
+.Fc
 .Ft void
-.Fn endservent void
+.Fo setservent
+.Fa "int stayopen"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn getservent ,

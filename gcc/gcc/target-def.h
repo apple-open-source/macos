@@ -62,6 +62,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_EMIT_UNWIND_LABEL default_emit_unwind_label
 #endif
 
+/* APPLE LOCAL begin mainline */
+#ifndef TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL
+#define TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL default_emit_except_table_label
+#endif
+/* APPLE LOCAL end mainline */
 #ifndef TARGET_UNWIND_EMIT
 #define TARGET_UNWIND_EMIT default_unwind_emit
 #endif
@@ -207,6 +212,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 			TARGET_ASM_INTEGER,			\
 			TARGET_ASM_GLOBALIZE_LABEL,		\
                         TARGET_ASM_EMIT_UNWIND_LABEL,           \
+      /* APPLE LOCAL mainline */				\
+			TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL,	\
 			TARGET_UNWIND_EMIT,			\
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_ASM_ASSEMBLE_VISIBILITY,		\
@@ -274,9 +281,16 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SCHED_IS_COSTLY_DEPENDENCE}
 
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD 0
-
+/* APPLE LOCAL begin 4375453 */
+#ifndef TARGET_VECTOR_ALIGNMENT_REACHABLE
+#define TARGET_VECTOR_ALIGNMENT_REACHABLE default_vector_alignment_reachable
+#endif
+/* APPLE LOCAL end 4375453 */
 #define TARGET_VECTORIZE                                                \
-  {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD}
+/* APPLE LOCAL begin 4375453 */                                         \
+  {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,                              \
+   TARGET_VECTOR_ALIGNMENT_REACHABLE}
+/* APPLE LOCAL end 4375453 */
 
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
@@ -346,7 +360,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_DELEGITIMIZE_ADDRESS hook_rtx_rtx_identity
 #define TARGET_FUNCTION_OK_FOR_SIBCALL hook_bool_tree_tree_false
 #define TARGET_COMP_TYPE_ATTRIBUTES hook_int_tree_tree_1
+/* APPLE LOCAL begin mainline */
+#ifndef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
 #define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES hook_void_tree
+#endif
+/* APPLE LOCAL end mainline */
 #define TARGET_INSERT_ATTRIBUTES hook_void_tree_treeptr
 #define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_tree_false
 #define TARGET_MS_BITFIELD_LAYOUT_P hook_bool_tree_false
@@ -398,6 +416,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_DWARF_HANDLE_FRAME_UNSPEC 0
 
+/* APPLE LOCAL ARM strings in code */
+#define TARGET_STRINGS_IN_CODE_P hook_bool_void_false
+
+/* APPLE LOCAL begin mainline */
+#define TARGET_STACK_PROTECT_GUARD  default_stack_protect_guard
+#define TARGET_STACK_PROTECT_FAIL   default_external_stack_protect_fail
+/* APPLE LOCAL end mainline */
+
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_false
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_false
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_false
@@ -405,6 +431,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
 #define TARGET_RETURN_IN_MEMORY default_return_in_memory
 #define TARGET_RETURN_IN_MSB hook_bool_tree_false
+/* APPLE LOCAL radar 4781080 */
+#define TARGET_OBJC_FPRETURN_MSGCALL default_objc_fpreturn_msgcall
 
 #define TARGET_EXPAND_BUILTIN_SAVEREGS default_expand_builtin_saveregs
 #define TARGET_SETUP_INCOMING_VARARGS default_setup_incoming_varargs
@@ -426,6 +454,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
 #define TARGET_ARG_PARTIAL_BYTES hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
 
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+#define TARGET_INTERNAL_ARG_POINTER default_internal_arg_pointer
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
+
 /* APPLE LOCAL begin mainline 2005-04-14 */
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -434,6 +466,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_STRUCT_VALUE_RTX,					\
    TARGET_RETURN_IN_MEMORY,					\
    TARGET_RETURN_IN_MSB,					\
+   /* APPLE LOCAL radar 4781080 */				\
+   TARGET_OBJC_FPRETURN_MSGCALL,				\
    TARGET_PASS_BY_REFERENCE,					\
    TARGET_EXPAND_BUILTIN_SAVEREGS,				\
    TARGET_SETUP_INCOMING_VARARGS,				\
@@ -446,7 +480,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_MUST_PASS_IN_STACK,					\
    TARGET_CALLEE_COPIES,					\
    TARGET_ARG_PARTIAL_BYTES,					\
-   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN                     \
+   /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */	\
+   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN,			\
+   TARGET_INTERNAL_ARG_POINTER					\
+   /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */		\
    }
 /* APPLE LOCAL end mainline 2005-04-14 */
 
@@ -489,10 +526,24 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CXX_KEY_METHOD_MAY_BE_INLINE hook_bool_void_true
 #endif
 
-#ifndef TARGET_CXX_EXPORT_CLASS_DATA
-#define TARGET_CXX_EXPORT_CLASS_DATA hook_bool_void_false
+/* APPLE LOCAL begin mainline 4.2 2006-03-01 4311680 */
+#ifndef TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY
+#define TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY hook_void_tree
 #endif
 
+/* APPLE LOCAL end mainline 4.2 2006-03-01 4311680 */
+/* APPLE LOCAL begin mainline 4.2 2006-03-01 4311680 */
+#ifndef TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT
+#define TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT hook_bool_void_true
+#endif
+
+/* APPLE LOCAL end mainline 4.2 2006-03-01 4311680 */
+/* APPLE LOCAL begin mainline 4.3 2006-01-10 4871915 */
+#ifndef TARGET_CXX_LIBRARY_RTTI_COMDAT
+#define TARGET_CXX_LIBRARY_RTTI_COMDAT hook_bool_void_true
+#endif
+
+/* APPLE LOCAL end mainline 4.3 2006-01-10 4871915 */
 #define TARGET_CXX				\
   {						\
     TARGET_CXX_GUARD_TYPE,			\
@@ -502,7 +553,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
     TARGET_CXX_IMPORT_EXPORT_CLASS,		\
     TARGET_CXX_CDTOR_RETURNS_THIS,		\
     TARGET_CXX_KEY_METHOD_MAY_BE_INLINE,	\
-    TARGET_CXX_EXPORT_CLASS_DATA		\
+/* APPLE LOCAL begin mainline 4.2 2006-03-01 4311680 */ \
+    TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY,	\
+    TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT,        \
+/* APPLE LOCAL end mainline 4.2 2006-03-01 4311680 */ \
+/* APPLE LOCAL begin mainline 4.3 2006-01-10 4871915 */ \
+    TARGET_CXX_LIBRARY_RTTI_COMDAT,	        \
+/* APPLE LOCAL end mainline 4.3 2006-01-10 4871915 */ \
   }
 
 /* The whole shebang.  */
@@ -520,7 +577,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_INSERT_ATTRIBUTES,			\
   TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P,	\
   TARGET_MS_BITFIELD_LAYOUT_P,			\
-  /* APPLE LOCAL pragma reverse bitfields */    \
+  /* APPLE LOCAL pragma reverse_bitfields */    \
   TARGET_REVERSE_BITFIELDS_P,			\
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
@@ -564,6 +621,12 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_MD_ASM_CLOBBERS,			\
   TARGET_DWARF_CALLING_CONVENTION,              \
   TARGET_DWARF_HANDLE_FRAME_UNSPEC,		\
+  /* APPLE LOCAL ARM strings in code */	\
+  TARGET_STRINGS_IN_CODE_P,			\
+  /* APPLE LOCAL begin mainline */		\
+  TARGET_STACK_PROTECT_GUARD,			\
+  TARGET_STACK_PROTECT_FAIL,			\
+  /* APPLE LOCAL end mainline */		\
   TARGET_CALLS,					\
   TARGET_CXX,					\
   TARGET_HAVE_NAMED_SECTIONS,			\

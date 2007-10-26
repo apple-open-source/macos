@@ -1,5 +1,5 @@
 /* auth_krb.c -- Kerberos authorization
- * $Id: auth_krb.c,v 1.6 2005/08/10 21:41:29 dasenbro Exp $
+ * $Id: auth_krb.c,v 1.42 2006/11/30 17:11:22 murch Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,13 @@
 
 #include <config.h>
 #include <stdlib.h>
+
+#include "auth.h"
+#include "exitcodes.h"
+#include "xmalloc.h"
+
+#ifdef HAVE_KRB
+
 #include <limits.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -49,7 +56,7 @@
 #include <sys/types.h>
 
 #include <krb.h>
-#ifdef HAVE_LIBDB
+#ifdef HAVE_BDB
 #ifdef HAVE_DB_185_H
 #include <db_185.h>
 #else
@@ -60,15 +67,12 @@
 #endif
 #include <krb.h>
 
-#include "xmalloc.h"
-#include "auth.h"
-
+#ifdef APPLE_OS_X_SERVER
 #include <unistd.h>
 #include <membershipPriv.h>
 
 #include <syslog.h>
-
-const char *auth_method_desc = "krb";
+#endif
 
 #ifndef KRB_MAPNAME
 #define KRB_MAPNAME (SYSCONFDIR "/krb.equiv")
@@ -89,8 +93,11 @@ static struct auth_state auth_anonymous = {
 
 static int parse_krbequiv_line (const char *src,
 				  char *principal, char *localuser);
-char *auth_map_krbid (const char *real_aname, const char *real_inst,
-		      const char *real_realm);
+static char *auth_map_krbid (const char *real_aname, const char *real_inst,
+			     const char *real_realm);
+
+
+#ifdef APPLE_OS_X_SERVER
 
 /*
  * Check for group membership
@@ -115,6 +122,8 @@ int isMember ( const char *inUser, const char *inGroup )
 
 } /* isMember */
 
+#endif
+
 /*
  * Determine if the user is a member of 'identifier'
  * Returns one of:
@@ -123,8 +132,7 @@ int isMember ( const char *inUser, const char *inGroup )
  *	2	User is in the group that is identifier
  *	3	User is identifer
  */
-int
-auth_memberof(auth_state, identifier)
+static int mymemberof(auth_state, identifier)
 struct auth_state *auth_state;
 const char *identifier;
 {
@@ -141,8 +149,11 @@ const char *identifier;
     /* "anonymous" is not a member of any group */
     if (strcmp(auth_state->userid, "anonymous") == 0) return 0;
 
+#ifdef APPLE_OS_X_SERVER
 	/* lookup group membership using memberd */
-	if (isMember(auth_state->userid, identifier) != 0) return 2;
+    if ((strncmp(identifier, "group:", 6) == 0) && (strlen(identifier) > 6))
+		if (isMember(auth_state->userid, identifier+6) != 0) return 2;
+#endif
 
     aname[0] = inst[0] = realm[0] = '\0';
     if (kname_parse(aname, inst, realm, (char *) identifier) != 0) {
@@ -203,7 +214,7 @@ char *localuser;
  * a NULL pointer is returned.
  * Eventually, this may be more sophisticated than a simple file scan.
  */
-char *auth_map_krbid(real_aname, real_inst, real_realm)
+static char *auth_map_krbid(real_aname, real_inst, real_realm)
 const char *real_aname;
 const char *real_inst;
 const char *real_realm;
@@ -278,7 +289,7 @@ const char *real_realm;
  * Returns a pointer to a static buffer containing the canonical form
  * or NULL if 'identifier' is invalid.
  */
-char *auth_canonifyid(identifier, len)
+static char *mycanonifyid(identifier, len)
 const char *identifier;
 size_t len;
 {
@@ -345,8 +356,8 @@ size_t len;
  * points to a 16-byte binary key to cache identifier's information
  * with.
  */
-struct auth_state *
-auth_newstate(const char *identifier)
+static struct auth_state *mynewstate(identifier)
+const char *identifier;
 {
     struct auth_state *newstate;
 
@@ -362,10 +373,48 @@ auth_newstate(const char *identifier)
     return newstate;
 }
 
-void
-auth_freestate(auth_state)
+static void myfreestate(auth_state)
 struct auth_state *auth_state;
 {
     free((char *)auth_state);
 }
 
+#else /* HAVE_KRB */
+
+static int mymemberof(
+    struct auth_state *auth_state __attribute__((unused)), 
+    const char *identifier __attribute__((unused)))
+{
+	fatal("Authentication mechanism (krb) not compiled in", EC_CONFIG);
+}
+
+static char *mycanonifyid(
+    const char *identifier __attribute__((unused)), 
+    size_t len __attribute__((unused)))
+{
+	fatal("Authentication mechanism (krb) not compiled in", EC_CONFIG);
+}
+
+static struct auth_state *mynewstate(
+    const char *identifier __attribute__((unused)))
+{
+	fatal("Authentication mechanism (krb) not compiled in", EC_CONFIG);
+}
+
+static void myfreestate(
+    struct auth_state *auth_state __attribute__((unused)))
+{
+	fatal("Authentication mechanism (krb) not compiled in", EC_CONFIG);
+}
+
+#endif
+
+struct auth_mech auth_krb = 
+{
+    "krb",		/* name */
+
+    &mycanonifyid,
+    &mymemberof,
+    &mynewstate,
+    &myfreestate,
+};

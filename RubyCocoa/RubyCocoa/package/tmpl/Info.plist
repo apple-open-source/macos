@@ -1,0 +1,79 @@
+<%
+  framework = "RubyCocoa"
+  version = @config['rubycocoa-version']
+  version_short = version[0..4] # x.y.z
+  system_version = @config['macosx-deployment-target']
+ %>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleGetInfoString</key>
+	<string><%= framework %> <%= version %></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.fobj.rubycocoa</string>
+	<key>CFBundleName</key>
+	<string><%= framework %></string>
+	<key>CFBundleShortVersionString</key>
+	<string><%= version_short %></string>
+	<key>IFMajorVersion</key>
+	<integer><%= version_short.split('.')[0] %></integer>
+	<key>IFMinorVersion</key>
+	<integer><%= version_short.split('.')[1] %></integer>
+	<key>IFPkgFlagAllowBackRev</key>
+	<true/>
+	<key>IFPkgFlagAuthorizationAction</key>
+	<string>RootAuthorization</string>
+	<key>IFPkgFlagDefaultLocation</key>
+	<string>/</string>
+	<key>IFPkgFlagInstallFat</key>
+	<false/>
+	<key>IFPkgFlagIsRequired</key>
+	<false/>
+	<key>IFPkgFlagOverwritePermissions</key>
+	<false/>
+	<key>IFPkgFlagRelocatable</key>
+	<false/>
+	<key>IFPkgFlagRestartAction</key>
+	<string>NoRestart</string>
+	<key>IFPkgFlagRootVolumeOnly</key>
+	<true/>
+	<key>IFPkgFlagUpdateInstalledLanguages</key>
+	<false/>
+	<key>IFPkgFormatVersion</key>
+	<real>0.1</real>
+	<key>IFPkgUseUserMask</key>
+	<false/>
+	<key>IFRequirementDicts</key>
+	<array>
+		<dict>
+			<key>SpecArgument</key>
+			<string>/System/Library/CoreServices/SystemVersion.plist</string>
+			<key>SpecProperty</key>
+			<string>ProductVersion</string>
+			<key>SpecType</key>
+			<string>plist</string>
+			<key>TestObject</key>
+			<string><%= system_version %></string>
+			<key>TestOperator</key>
+			<string>&gt;=</string>
+		</dict>
+		<dict>
+			<key>SpecArgument</key>
+			<string>/System/Library/CoreServices/SystemVersion.plist</string>
+			<key>SpecProperty</key>
+			<string>ProductVersion</string>
+			<key>SpecType</key>
+			<string>plist</string>
+			<key>TestObject</key>
+			<string><%= system_version.to_f + 0.1 %></string>
+			<key>TestOperator</key>
+			<string>&lt;</string>
+		</dict>
+	</array>
+    <key>IFPkgFlagBackgroundScaling</key>
+    <string>none</string>
+    <key>IFPkgFlagBackgroundAlignment</key>
+    <string>bottomleft</string>
+</dict>
+</plist>

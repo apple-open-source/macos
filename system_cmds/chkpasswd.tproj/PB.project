@@ -5,7 +5,7 @@
         C_FILES = (); 
         H_FILES = (stringops.h); 
         OTHER_LIBS = (); 
-        OTHER_LINKED = (nis_passwd.c, file_passwd.c, netinfo_passwd.c, passwd.c, stringops.c); 
+        OTHER_LINKED = (nis_passwd.c, file_passwd.c, passwd.c, stringops.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
         SUBPROJECTS = (); 
     }; 

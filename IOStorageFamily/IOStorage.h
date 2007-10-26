@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,58 @@
 #define kIOStorageClass "IOStorage"
 
 /*!
+ * @defined kIOStorageCategory
+ * @abstract
+ * kIOStorageCategory is a value for IOService's kIOMatchCategoryKey property.
+ * @discussion
+ * The kIOStorageCategory value is the standard value for the IOService property
+ * kIOMatchCategoryKey ("IOMatchCategory") for all storage drivers.  All storage
+ * objects that expect to drive new content (that is, produce new media objects)
+ * are expected to compete within the kIOStorageCategory namespace.
+ *
+ * See the IOService documentation for more information on match categories.
+ */
+
+#define kIOStorageCategory "IOStorage"                /* (as IOMatchCategory) */
+
+/*!
+ * @defined kIOStorageFeaturesKey
+ * @abstract
+ * A property of any object in the storage stack.
+ * @discussion
+ * kIOStorageFeaturesKey is a property of any object in the storage stack that
+ * wishes to express support of additional features, such as Force Unit Access.
+ * It is typically defined in the device object below the block storage driver
+ * object.  It has an OSDictionary value, where each entry describes one given
+ * feature.
+ */
+
+#define kIOStorageFeaturesKey "IOStorageFeatures"
+
+/*!
+ * @defined kIOStorageFeatureForceUnitAccess
+ * @abstract
+ * Describes the presence of the Force Unit Access feature.
+ * @discussion
+ * This property describes the ability of the storage stack to force a request
+ * to access the media.  It is one of the feature entries listed under the top-
+ * level kIOStorageFeaturesKey property table.  It has an OSBoolean value.
+ */
+
+#define kIOStorageFeatureForceUnitAccess "Force Unit Access"
+
+#ifdef KERNEL
+#ifdef __cplusplus
+
+/*
+ * Kernel
+ */
+
+#include <IOKit/assert.h>
+#include <IOKit/IOMemoryDescriptor.h>
+#include <IOKit/IOService.h>
+
+/*!
  * @enum IOStorageAccess
  * @discussion
  * The IOStorageAccess enumeration describes the possible access levels for open
@@ -69,30 +121,37 @@ enum
 typedef UInt32 IOStorageAccess;
 
 /*!
- * @defined kIOStorageCategory
- * @abstract
- * kIOStorageCategory is a value for IOService's kIOMatchCategoryKey property.
+ * @enum IOStorageOptions
  * @discussion
- * The kIOStorageCategory value is the standard value for the IOService property
- * kIOMatchCategoryKey ("IOMatchCategory") for all storage drivers.  All storage
- * objects that expect to drive new content (that is, produce new media objects)
- * are expected to compete within the kIOStorageCategory namespace.
- *
- * See the IOService documentation for more information on match categories.
+ * Options for read and write storage requests.
+ * @constant kIOStorageOptionForceUnitAccess
+ * Force the request to access the media.
  */
 
-#define kIOStorageCategory "IOStorage"                /* (as IOMatchCategory) */
+enum
+{
+    kIOStorageOptionNone            = 0x00000000,
+    kIOStorageOptionForceUnitAccess = 0x00000001,
+    kIOStorageOptionReserved        = 0xFFFFFFFE
+};
 
-#ifdef KERNEL
-#ifdef __cplusplus
+typedef UInt32 IOStorageOptions;
 
-/*
- * Kernel
+/*!
+ * @struct IOStorageAttributes
+ * @discussion
+ * Attributes of read and write storage requests.
+ * @field options
+ * Options for the request.  See IOStorageOptions.
+ * @field reserved
+ * Reserved for future use.  Set to zero.
  */
 
-#include <IOKit/assert.h>
-#include <IOKit/IOMemoryDescriptor.h>
-#include <IOKit/IOService.h>
+struct IOStorageAttributes
+{
+    IOStorageOptions options;
+    UInt32           reserved[3];
+};
 
 /*!
  * @typedef IOStorageCompletionAction
@@ -213,6 +272,34 @@ protected:
 
 public:
 
+    /*
+     * Initialize this object's minimal state.
+     */
+
+    virtual bool init(OSDictionary * properties = 0);
+
+    /*!
+     * @function complete
+     * @discussion
+     * Invokes the specified completion action of the read/write request.  If
+     * the completion action is unspecified, no action is taken.  This method
+     * serves simply as a convenience to storage subclass developers.
+     * @param completion
+     * Completion information for the data transfer.
+     * @param status
+     * Status of the data transfer.
+     * @param actualByteCount
+     * Actual number of bytes transferred in the data transfer.
+     */
+
+    static void complete(IOStorageCompletion * completion,
+                         IOReturn              status,
+                         UInt64                actualByteCount = 0);
+
+    static void complete(IOStorageCompletion completion,
+                         IOReturn            status,
+                         UInt64              actualByteCount = 0); /* DEPRECATED */
+
     /*!
      * @function open
      * @discussion
@@ -236,53 +323,15 @@ public:
                       IOOptionBits    options,
                       IOStorageAccess access);
 
-    /*!
-     * @function read
-     * @discussion
-     * Read data from the storage object at the specified byte offset into the
-     * specified buffer, asynchronously.   When the read completes, the caller
-     * will be notified via the specified completion action.
-     *
-     * The buffer will be retained for the duration of the read.
-     * @param client
-     * Client requesting the read.
-     * @param byteStart
-     * Starting byte offset for the data transfer.
-     * @param buffer
-     * Buffer for the data transfer.  The size of the buffer implies the size of
-     * the data transfer.
-     * @param completion
-     * Completion routine to call once the data transfer is complete.
-     */
-
     virtual void read(IOService *          client,
                       UInt64               byteStart,
                       IOMemoryDescriptor * buffer,
-                      IOStorageCompletion  completion) = 0;
-
-    /*!
-     * @function write
-     * @discussion
-     * Write data into the storage object at the specified byte offset from the
-     * specified buffer, asynchronously.   When the write completes, the caller
-     * will be notified via the specified completion action.
-     *
-     * The buffer will be retained for the duration of the write.
-     * @param client
-     * Client requesting the write.
-     * @param byteStart
-     * Starting byte offset for the data transfer.
-     * @param buffer
-     * Buffer for the data transfer.  The size of the buffer implies the size of
-     * the data transfer.
-     * @param completion
-     * Completion routine to call once the data transfer is complete.
-     */
+                      IOStorageCompletion  completion); /* DEPRECATED */
 
     virtual void write(IOService *          client,
                        UInt64               byteStart,
                        IOMemoryDescriptor * buffer,
-                       IOStorageCompletion  completion) = 0;
+                       IOStorageCompletion  completion); /* DEPRECATED */
 
     /*!
      * @function read
@@ -345,25 +394,71 @@ public:
     virtual IOReturn synchronizeCache(IOService * client) = 0;
 
     /*!
-     * @function complete
+     * @function read
      * @discussion
-     * Invokes the specified completion action of the read/write request.  If
-     * the completion action is unspecified, no action is taken.  This method
-     * serves simply as a convenience to storage subclass developers.
+     * Read data from the storage object at the specified byte offset into the
+     * specified buffer, asynchronously.   When the read completes, the caller
+     * will be notified via the specified completion action.
+     *
+     * The buffer will be retained for the duration of the read.
+     * @param client
+     * Client requesting the read.
+     * @param byteStart
+     * Starting byte offset for the data transfer.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion information for the data transfer.
-     * @param status
-     * Status of the data transfer.
-     * @param actualByteCount
-     * Actual number of bytes transferred in the data transfer.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    static void complete(IOStorageCompletion completion,
-                         IOReturn            status,
-                         UInt64              actualByteCount = 0);
+    virtual void read(IOService *           client,
+                      UInt64                byteStart,
+                      IOMemoryDescriptor *  buffer,
+                      IOStorageAttributes * attributes,
+                      IOStorageCompletion * completion); /* ABSTRACT */
 
-    OSMetaClassDeclareReservedUnused(IOStorage,  0);
-    OSMetaClassDeclareReservedUnused(IOStorage,  1);
+    OSMetaClassDeclareReservedUsed(IOStorage, 0); /* 10.5.0 */
+
+    /*!
+     * @function write
+     * @discussion
+     * Write data into the storage object at the specified byte offset from the
+     * specified buffer, asynchronously.   When the write completes, the caller
+     * will be notified via the specified completion action.
+     *
+     * The buffer will be retained for the duration of the write.
+     * @param client
+     * Client requesting the write.
+     * @param byteStart
+     * Starting byte offset for the data transfer.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
+     * @param completion
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
+     */
+
+    virtual void write(IOService *           client,
+                       UInt64                byteStart,
+                       IOMemoryDescriptor *  buffer,
+                       IOStorageAttributes * attributes,
+                       IOStorageCompletion * completion); /* ABSTRACT */
+
+    OSMetaClassDeclareReservedUsed(IOStorage, 1); /* 10.5.0 */
+
     OSMetaClassDeclareReservedUnused(IOStorage,  2);
     OSMetaClassDeclareReservedUnused(IOStorage,  3);
     OSMetaClassDeclareReservedUnused(IOStorage,  4);

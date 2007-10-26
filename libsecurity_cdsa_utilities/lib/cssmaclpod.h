@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -208,7 +208,7 @@ public:
 	// allocator can be set after construction
 	AutoAclEntryInfoList(Allocator *allocator = NULL)
     : mEntries(NULL), mCount(0), mAllocator(allocator) { }
-	~AutoAclEntryInfoList();
+	~AutoAclEntryInfoList()							{ clear(); }
 
 	operator bool () const							{ return mAllocator; }
 	bool operator ! () const						{ return !mAllocator; }
@@ -228,11 +228,14 @@ public:
 	uint32 count() const { return mCount; }
 	AclEntryInfo *entries() const { return mEntries; }
 	
+	void clear();
 	void size(uint32 newSize);
 	
 	// structured adders. Inputs must be chunk-allocated with our Allocator
 	void add(const TypedList &subj, const AclAuthorizationSet &auths, const char *tag = NULL);
 	void addPin(const TypedList &subj, uint32 slot);
+	void addPinState(uint32 slot, uint32 state);
+	void addPinState(uint32 slot, uint32 state, uint32 count);
 	
 	void release()		{ mAllocator = NULL; }
 
@@ -241,6 +244,13 @@ private:
 	uint32 mCount;
 	Allocator *mAllocator;
 };
+
+//
+// Extract the pin number from a "PIN%d?" tag.
+// Returns 0 if the tag isn't of that form.
+//
+uint32 pinFromAclTag(const char *tag, const char *suffix = NULL);
+
 
 class AutoAuthorizationGroup : public AuthorizationGroup {
 public:
@@ -288,7 +298,9 @@ void walk(Action &operate, AuthorizationGroup &auth)
 {
 	operate(auth);
 	uint32 count = auth.count();
-	operate.blob(auth.AuthTags, count * sizeof(AclAuthorization));
+	operate.blob(auth.AuthTags, count * sizeof(auth.AuthTags[0]));
+	for (uint32 n = 0; n < count; n++)
+		operate(auth.AuthTags[n]);
 }
 
 template <class Action>

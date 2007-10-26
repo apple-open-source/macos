@@ -1,7 +1,7 @@
 # Makefile.am for the SASL plugins
 # Rob Siemborski
 # Rob Earhart
-# $Id: Makefile.am,v 1.5 2005/01/10 19:01:37 snsimon Exp $
+# $Id: Makefile.am,v 1.6 2006/01/24 20:37:09 snsimon Exp $
 #
 ################################################################
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
@@ -46,18 +46,20 @@
 
 # Library version info - here at the top, for sanity
 # CURRENT:REVISION:AGE
-anonymous_version = 2:18:0
-digestmd5_version = 2:18:0
-kerberos4_version = 2:18:0
-gssapiv2_version = 2:18:0
-crammd5_version = 2:18:0
-sasldb_version = 2:18:0
-login_version = 2:18:0
-plain_version = 2:18:0
-ntlm_version = 2:18:0
-otp_version = 2:18:0
-sql_version = 2:18:0
-srp_version = 2:18:0
+anonymous_version = 2:22:0
+digestmd5_version = 2:22:0
+kerberos4_version = 2:22:0
+gssapiv2_version = 2:22:0
+crammd5_version = 2:22:0
+passdss_version = 2:22:0
+sasldb_version = 2:22:0
+login_version = 2:22:0
+plain_version = 2:22:0
+ntlm_version = 2:22:0
+otp_version = 2:22:0
+sql_version = 2:22:0
+ldapdb_version = 2:22:0
+srp_version = 2:22:0
 
 INCLUDES=-I$(top_srcdir)/include -I$(top_srcdir)/lib -I$(top_srcdir)/sasldb -I$(top_builddir)/include
 AM_LDFLAGS = -module -export-dynamic -rpath $(plugindir)
@@ -77,7 +79,7 @@ sasldir = $(prefix)/lib/sasl2
 sasl_LTLIBRARIES = @SASL_MECHS@
 EXTRA_LTLIBRARIES = libplain.la libanonymous.la libkerberos4.la libcrammd5.la \
 	libgssapiv2.la libdigestmd5.la liblogin.la libsrp.la libotp.la \
-	libntlm.la libsasldb.la libsql.la
+	libntlm.la libpassdss.la libsasldb.la libsql.la libldapdb.la
 
 libplain_la_SOURCES = plain.c plain_init.c $(common_sources)
 libplain_la_LDFLAGS = -version-info $(plain_version)
@@ -129,14 +131,24 @@ libntlm_la_LDFLAGS = -version-info $(ntlm_version)
 libntlm_la_DEPENDENCIES = $(COMPAT_OBJS)
 libntlm_la_LIBADD = $(NTLM_LIBS) $(COMPAT_OBJS)
 
+libpassdss_la_SOURCES = passdss.c passdss_init.c $(common_sources)
+libpassdss_la_LDFLAGS = -version-info $(passdss_version)
+libpassdss_la_DEPENDENCIES = $(COMPAT_OBJS)
+libpassdss_la_LIBADD = $(PASSDSS_LIBS) $(COMPAT_OBJS)
+
 # Auxprop Plugins
 libsasldb_la_SOURCES = sasldb.c sasldb_init.c $(common_sources)
 libsasldb_la_LDFLAGS = -version-info $(sasldb_version)
 libsasldb_la_DEPENDENCIES = $(COMPAT_OBJS)
 libsasldb_la_LIBADD = ../sasldb/libsasldb.la $(SASL_DB_LIB) $(COMPAT_OBJS)
 
+libldapdb_la_SOURCES = ldapdb.c ldapdb_init.c $(common_sources)
+libldapdb_la_LDFLAGS = $(LIB_LDAP) -version-info $(ldapdb_version)
+libldapdb_la_DEPENDENCIES = $(COMPAT_OBJS)
+libldapdb_la_LIBADD = $(COMPAT_OBJS)
+
 libsql_la_SOURCES = sql.c sql_init.c $(common_sources)
-libsql_la_LDFLAGS = $(LIB_MYSQL) $(LIB_PGSQL) -version-info $(sql_version)
+libsql_la_LDFLAGS = $(LIB_MYSQL) $(LIB_PGSQL) $(LIB_SQLITE) -version-info $(sql_version)
 libsql_la_DEPENDENCIES = $(COMPAT_OBJS)
 libsql_la_LIBADD = $(COMPAT_OBJS)
 
@@ -145,7 +157,7 @@ libsql_la_LIBADD = $(COMPAT_OBJS)
 
 init_src=anonymous_init.c crammd5_init.c digestmd5_init.c gssapiv2_init.c \
 kerberos4_init.c login_init.c plain_init.c srp_init.c otp_init.c ntlm_init.c \
-sasldb_init.c sql_init.c
+passdss_init.c sasldb_init.c sql_init.c ldapdb_init.c
 
 
 CLEANFILES=$(init_src)

@@ -42,13 +42,15 @@ namespace Security
 // Elementary debugging support.
 // #include <debugging.h> for more debugging facilities.
 //
+#define IFDEBUG(it)		IFELSEDEBUG(it,)
+#define IFNDEBUG(it)	IFELSEDEBUG(,it)
+
 #if defined(NDEBUG)
 
 # define safe_cast	static_cast
 # define safer_cast	static_cast
 
-# define IFDEBUG(it)	/* do nothing */
-# define IFNDEBUG(it)	it
+# define IFELSEDEBUG(d,nd) nd
 
 #else
 
@@ -68,8 +70,7 @@ inline Derived safe_cast(Base *base)
     return p;
 }
 
-# define IFDEBUG(it)	it
-# define IFNDEBUG(it)	/* do nothing */
+# define IFELSEDEBUG(d,nd) d
 
 #endif //NDEBUG
 

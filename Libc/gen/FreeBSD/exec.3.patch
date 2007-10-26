@@ -1,23 +1,78 @@
---- exec.3.orig	2003-09-10 12:24:32.000000000 -0700
-+++ exec.3	2004-10-24 17:12:17.000000000 -0700
-@@ -39,7 +39,6 @@
+--- exec.3.orig	2006-09-18 18:04:52.000000000 -0700
++++ exec.3	2006-09-18 18:05:37.000000000 -0700
+@@ -37,9 +37,8 @@
+ .Os
+ .Sh NAME
  .Nm execl ,
- .Nm execlp ,
+-.Nm execlp ,
  .Nm execle ,
 -.Nm exect ,
++.Nm execlp ,
  .Nm execv ,
  .Nm execvp ,
  .Nm execvP
-@@ -62,8 +61,6 @@
+@@ -50,25 +49,43 @@
+ .In unistd.h
+ .Vt extern char **environ ;
+ .Ft int
+-.Fn execl "const char *path" "const char *arg" ... /* "(char *)0" */
+-.Ft int
+-.Fn execlp "const char *file" "const char *arg" ... /* "(char *)0" */
++.Fo execl
++.Fa "const char *path"
++.Fa "const char *arg0"
++.Fa ... /* "(char *)0" */
++.Fc
+ .Ft int
+ .Fo execle
+-.Fa "const char *path" "const char *arg" ...
++.Fa "const char *path"
++.Fa "const char *arg0"
++.Fa ...
+ .Fa /*
+ .Bk -words
+ .Fa "(char *)0" "char *const envp[]" */
  .Ek
  .Fc
  .Ft int
 -.Fn exect "const char *path" "char *const argv[]" "char *const envp[]"
--.Ft int
- .Fn execv "const char *path" "char *const argv[]"
++.Fo execlp
++.Fa "const char *file"
++.Fa "const char *arg0"
++.Fa ... /* "(char *)0" */
++.Fc
  .Ft int
- .Fn execvp "const char *file" "char *const argv[]"
-@@ -106,7 +103,6 @@
+-.Fn execv "const char *path" "char *const argv[]"
++.Fo execv
++.Fa "const char *path"
++.Fa "char *const argv[]"
++.Fc
+ .Ft int
+-.Fn execvp "const char *file" "char *const argv[]"
++.Fo execvp
++.Fa "const char *file"
++.Fa "char *const argv[]"
++.Fc
+ .Ft int
+-.Fn execvP "const char *file" "const char *search_path" "char *const argv[]"
++.Fo execvP
++.Fa "const char *file"
++.Fa "const char *search_path"
++.Fa "char *const argv[]"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Nm exec
+@@ -84,7 +101,7 @@
+ is to be executed.
+ .Pp
+ The
+-.Fa "const char *arg"
++.Fa "const char *arg0"
+ and subsequent ellipses in the
+ .Fn execl ,
+ .Fn execlp ,
+@@ -106,7 +123,6 @@
  pointer.
  .Pp
  The
@@ -25,18 +80,20 @@
  .Fn execv ,
  .Fn execvp ,
  and
-@@ -123,9 +119,7 @@
+@@ -123,10 +139,8 @@
  .Pp
  The
  .Fn execle
 -and
 -.Fn exect
 -functions also specify the environment of the executed process by following
-+function also specify the environment of the executed process by following
- the
+-the
++function also specifies the environment of the executed process
++by following the
  .Dv NULL
  pointer that terminates the list of arguments in the argument list
-@@ -203,11 +197,6 @@
+ or the pointer to the argv array with an additional argument.
+@@ -203,11 +217,6 @@
  these functions will execute the shell with the path of
  the file as its first argument.
  (If this attempt fails, no further searching is done.)
@@ -48,7 +105,16 @@
  .Sh RETURN VALUES
  If any of the
  .Fn exec
-@@ -237,10 +226,8 @@
+@@ -225,7 +234,7 @@
+ .Fn execl ,
+ .Fn execle ,
+ .Fn execlp ,
+-.Fn execvp
++.Fn execvp ,
+ and
+ .Fn execvP
+ functions
+@@ -237,11 +246,8 @@
  .Xr malloc 3 .
  .Pp
  The
@@ -56,7 +122,39 @@
 -and
  .Fn execv
 -functions
-+function
- may fail and set
+-may fail and set
++function may fail and set
  .Va errno
  for any of the errors specified for the library function
+ .Xr execve 2 .
+@@ -249,7 +255,6 @@
+ .Xr sh 1 ,
+ .Xr execve 2 ,
+ .Xr fork 2 ,
+-.Xr ktrace 2 ,
+ .Xr ptrace 2 ,
+ .Xr environ 7
+ .Sh COMPATIBILITY
+@@ -272,11 +277,11 @@
+ .Tn POSIX
+ standard.
+ .Pp
+-Traditionally, the functions
++Traditionally, the
+ .Fn execlp
+ and
+ .Fn execvp
+-ignored all errors except for the ones described above and
++functions ignored all errors except for the ones described above and
+ .Er ETXTBSY ,
+ upon which they retried after sleeping for several seconds, and
+ .Er ENOMEM
+@@ -313,7 +318,7 @@
+ .Fn execl ,
+ .Fn execv ,
+ .Fn execle ,
+-.Fn execlp
++.Fn execlp ,
+ and
+ .Fn execvp
+ functions

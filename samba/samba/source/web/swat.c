@@ -32,6 +32,7 @@
 #include "web/swat_proto.h"
 
 static BOOL demo_mode = False;
+static BOOL passwd_only = False;
 static BOOL have_write_access = False;
 static BOOL have_read_access = False;
 static int iNumNonAutoPrintServices = 0;
@@ -76,13 +77,33 @@ static char *fix_backslash(const char *str)
 	return newstring;
 }
 
+static char *fix_quotes(const char *str)
+{
+	static pstring newstring;
+	char *p = newstring;
+	size_t newstring_len = sizeof(newstring);
+	int quote_len = strlen("&quot;");
+
+	while (*str) {
+		if ( *str == '\"' && (newstring_len - PTR_DIFF(p, newstring) - 1) > quote_len ) {
+			strncpy( p, "&quot;", quote_len); 
+			p += quote_len;
+		} else {
+			*p++ = *str;
+		}
+		++str;
+	}
+	*p = '\0';
+	return newstring;
+}
+
 static char *stripspaceupper(const char *str)
 {
 	static char newstring[1024];
 	char *p = newstring;
 
 	while (*str) {
-		if (*str != ' ') *p++ = toupper(*str);
+		if (*str != ' ') *p++ = toupper_ascii(*str);
 		++str;
 	}
 	*p = '\0';
@@ -167,12 +188,12 @@ static const char* get_parm_translated(
 	if(strcmp(pLabel, pTranslated) != 0)
 	{
 		pstr_sprintf(output,
-		  "<A HREF=\"/swat/help/smb.conf.5.html#%s\" target=\"docs\"> %s</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; %s <br><span class=\"i18n_translated_parm\">%s</span>",
+		  "<A HREF=\"/swat/help/manpages/smb.conf.5.html#%s\" target=\"docs\"> %s</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; %s <br><span class=\"i18n_translated_parm\">%s</span>",
 		   pAnchor, pHelp, pLabel, pTranslated);
 		return output;
 	}
 	pstr_sprintf(output, 
-	  "<A HREF=\"/swat/help/smb.conf.5.html#%s\" target=\"docs\"> %s</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; %s",
+	  "<A HREF=\"/swat/help/manpages/smb.conf.5.html#%s\" target=\"docs\"> %s</A>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; %s",
 	  pAnchor, pHelp, pLabel);
 	return output;
 }
@@ -193,8 +214,9 @@ static void show_parameter(int snum, struct parm_struct *parm)
 {
 	int i;
 	void *ptr = parm->ptr;
+	char *utf8_s1, *utf8_s2;
 
-	if (parm->class == P_LOCAL && snum >= 0) {
+	if (parm->p_class == P_LOCAL && snum >= 0) {
 		ptr = lp_local_ptr(snum, ptr);
 	}
 
@@ -213,11 +235,18 @@ static void show_parameter(int snum, struct parm_struct *parm)
 		if ((char ***)ptr && *(char ***)ptr && **(char ***)ptr) {
 			char **list = *(char ***)ptr;
 			for (;*list;list++) {
-				/* enclose in quotes if the string contains a space */
-				if ( strchr_m(*list, ' ') ) 
-					printf("\'%s\'%s", *list, ((*(list+1))?", ":""));
-				else
-					printf("%s%s", *list, ((*(list+1))?", ":""));
+				/* enclose in HTML encoded quotes if the string contains a space */
+				if ( strchr_m(*list, ' ') ) {
+					push_utf8_allocate(&utf8_s1, *list);
+					push_utf8_allocate(&utf8_s2, ((*(list+1))?", ":""));
+					printf("&quot;%s&quot;%s", utf8_s1, utf8_s2);
+				} else {
+					push_utf8_allocate(&utf8_s1, *list);
+					push_utf8_allocate(&utf8_s2, ((*(list+1))?", ":""));
+					printf("%s%s", utf8_s1, utf8_s2);
+				}
+				SAFE_FREE(utf8_s1);
+				SAFE_FREE(utf8_s2);
 			}
 		}
 		printf("\">");
@@ -226,9 +255,9 @@ static void show_parameter(int snum, struct parm_struct *parm)
 		if (parm->def.lvalue) {
 			char **list = (char **)(parm->def.lvalue);
 			for (; *list; list++) {
-				/* enclose in quotes if the string contains a space */
+				/* enclose in HTML encoded quotes if the string contains a space */
 				if ( strchr_m(*list, ' ') ) 
-					printf("\'%s\'%s", *list, ((*(list+1))?", ":""));
+					printf("&quot;%s&quot;%s", *list, ((*(list+1))?", ":""));
 				else
 					printf("%s%s", *list, ((*(list+1))?", ":""));
 			}
@@ -238,16 +267,20 @@ static void show_parameter(int snum, struct parm_struct *parm)
 
 	case P_STRING:
 	case P_USTRING:
+		push_utf8_allocate(&utf8_s1, *(char **)ptr);
 		printf("<input type=text size=40 name=\"parm_%s\" value=\"%s\">",
-		       make_parm_name(parm->label), *(char **)ptr);
+		       make_parm_name(parm->label), fix_quotes(utf8_s1));
+		SAFE_FREE(utf8_s1);
 		printf("<input type=button value=\"%s\" onClick=\"swatform.parm_%s.value=\'%s\'\">",
 			_("Set Default"), make_parm_name(parm->label),fix_backslash((char *)(parm->def.svalue)));
 		break;
 
 	case P_GSTRING:
 	case P_UGSTRING:
+		push_utf8_allocate(&utf8_s1, (char *)ptr);
 		printf("<input type=text size=40 name=\"parm_%s\" value=\"%s\">",
-		       make_parm_name(parm->label), (char *)ptr);
+		       make_parm_name(parm->label), fix_quotes(utf8_s1));
+		SAFE_FREE(utf8_s1);
 		printf("<input type=button value=\"%s\" onClick=\"swatform.parm_%s.value=\'%s\'\">",
 			_("Set Default"), make_parm_name(parm->label),fix_backslash((char *)(parm->def.svalue)));
 		break;
@@ -311,9 +344,9 @@ static void show_parameters(int snum, int allparameters, unsigned int parm_filte
 	const char *last_heading = NULL;
 
 	while ((parm = lp_next_parameter(snum, &i, allparameters))) {
-		if (snum < 0 && parm->class == P_LOCAL && !(parm->flags & FLAG_GLOBAL))
+		if (snum < 0 && parm->p_class == P_LOCAL && !(parm->flags & FLAG_GLOBAL))
 			continue;
-		if (parm->class == P_SEPARATOR) {
+		if (parm->p_class == P_SEPARATOR) {
 			heading = parm->label;
 			continue;
 		}
@@ -327,7 +360,7 @@ static void show_parameters(int snum, int allparameters, unsigned int parm_filte
 			if (!(parm->flags & FLAG_BASIC)) {
 					void *ptr = parm->ptr;
 
-				if (parm->class == P_LOCAL && snum >= 0) {
+				if (parm->p_class == P_LOCAL && snum >= 0) {
 					ptr = lp_local_ptr(snum, ptr);
 				}
 
@@ -389,7 +422,7 @@ static void show_parameters(int snum, int allparameters, unsigned int parm_filte
 static BOOL load_config(BOOL save_def)
 {
 	lp_resetnumservices();
-	return lp_load(dyn_CONFIGFILE,False,save_def,False);
+	return lp_load(dyn_CONFIGFILE,False,save_def,False,True);
 }
 
 /****************************************************************************
@@ -399,7 +432,7 @@ static void write_config(FILE *f, BOOL show_defaults)
 {
 	fprintf(f, "# Samba config file created using SWAT\n");
 	fprintf(f, "# from %s (%s)\n", cgi_remote_host(), cgi_remote_addr());
-	fprintf(f, "# Date: %s\n\n", timestring(False));
+	fprintf(f, "# Date: %s\n\n", current_timestring(False));
 	
 	lp_dump(f, show_defaults, iNumNonAutoPrintServices);
 }
@@ -455,7 +488,7 @@ static void commit_parameter(int snum, struct parm_struct *parm, const char *v)
 	int i;
 	char *s;
 
-	if (snum < 0 && parm->class == P_LOCAL) {
+	if (snum < 0 && parm->p_class == P_LOCAL) {
 		/* this handles the case where we are changing a local
 		   variable globally. We need to change the parameter in 
 		   all shares where it is currently set to the default */
@@ -482,7 +515,7 @@ static void commit_parameters(int snum)
 
 	while ((parm = lp_next_parameter(snum, &i, 1))) {
 		slprintf(label, sizeof(label)-1, "parm_%s", make_parm_name(parm->label));
-		if ((v = cgi_variable(label))) {
+		if ((v = cgi_variable(label)) != NULL) {
 			if (parm->flags & FLAG_HIDE) continue;
 			commit_parameter(snum, parm, v); 
 		}
@@ -518,7 +551,8 @@ static void show_main_buttons(void)
 		image_link(_("Printers"), "printers", "images/printers.gif");
 		image_link(_("Wizard"), "wizard", "images/wizard.gif");
 	}
-	if (have_read_access) {
+   /* root always gets all buttons, otherwise look for -P */
+	if ( have_write_access || (!passwd_only && have_read_access) ) {
 		image_link(_("Status"), "status", "images/status.gif");
 		image_link(_("View Config"), "viewconfig", "images/viewconfig.gif");
 	}
@@ -546,7 +580,11 @@ static void ViewModeBoxes(int mode)
 ****************************************************************************/
 static void welcome_page(void)
 {
-	include_html("help/welcome.html");
+	if (file_exist("help/welcome.html", NULL)) {
+		include_html("help/welcome.html");
+	} else {
+		include_html("help/welcome-no-samba-doc.html");
+	}
 }
 
 /****************************************************************************
@@ -640,10 +678,10 @@ static void wizard_page(void)
 	}
 
 	if (cgi_variable("Commit")){
-		SerType = atoi(cgi_variable("ServerType"));
-		winstype = atoi(cgi_variable("WINSType"));
+		SerType = atoi(cgi_variable_nonull("ServerType"));
+		winstype = atoi(cgi_variable_nonull("WINSType"));
 		have_home = lp_servicenumber(HOMES_NAME);
-		HomeExpo = atoi(cgi_variable("HomeExpo"));
+		HomeExpo = atoi(cgi_variable_nonull("HomeExpo"));
 
 		/* Plain text passwords are too badly broken - use encrypted passwords only */
 		lp_do_parameter( GLOBAL_SECTION_SNUM, "encrypt passwords", "Yes");
@@ -676,7 +714,7 @@ static void wizard_page(void)
 				break;
 			case 2:
 				lp_do_parameter( GLOBAL_SECTION_SNUM, "wins support", "No" );
-				lp_do_parameter( GLOBAL_SECTION_SNUM, "wins server", cgi_variable("WINSAddr"));
+				lp_do_parameter( GLOBAL_SECTION_SNUM, "wins server", cgi_variable_nonull("WINSAddr"));
 				break;
 		}
 
@@ -801,7 +839,7 @@ static void globals_page(void)
 	}
 
 	if ( cgi_variable("ViewMode") )
-		mode = atoi(cgi_variable("ViewMode"));
+		mode = atoi(cgi_variable_nonull("ViewMode"));
 	if ( cgi_variable("BasicMode"))
 		mode = 0;
 	if ( cgi_variable("AdvMode"))
@@ -877,7 +915,7 @@ static void shares_page(void)
 	printf("<table>\n");
 
 	if ( cgi_variable("ViewMode") )
-		mode = atoi(cgi_variable("ViewMode"));
+		mode = atoi(cgi_variable_nonull("ViewMode"));
 	if ( cgi_variable("BasicMode"))
 		mode = 0;
 	if ( cgi_variable("AdvMode"))
@@ -948,7 +986,7 @@ static BOOL change_password(const char *remote_machine, const char *user_name,
 			    const char *old_passwd, const char *new_passwd, 
 				int local_flags)
 {
-	BOOL ret = False;
+	NTSTATUS ret;
 	pstring err_str;
 	pstring msg_str;
 
@@ -962,7 +1000,7 @@ static BOOL change_password(const char *remote_machine, const char *user_name,
 									 new_passwd, err_str, sizeof(err_str));
 		if(*err_str)
 			printf("%s\n<p>", err_str);
-		return ret;
+		return NT_STATUS_IS_OK(ret);
 	}
 
 	if(!initialize_password_db(True)) {
@@ -978,7 +1016,7 @@ static BOOL change_password(const char *remote_machine, const char *user_name,
 	if(*err_str)
 		printf("%s\n<p>", err_str);
 
-	return ret;
+	return NT_STATUS_IS_OK(ret);
 }
 
 /****************************************************************************
@@ -991,7 +1029,7 @@ static void chg_passwd(void)
 	int local_flags = 0;
 
 	/* Make sure users name has been specified */
-	if (strlen(cgi_variable(SWAT_USER)) == 0) {
+	if (strlen(cgi_variable_nonull(SWAT_USER)) == 0) {
 		printf("<p>%s\n", _(" Must specify \"User Name\" "));
 		return;
 	}
@@ -1006,27 +1044,27 @@ static void chg_passwd(void)
 		 * If current user is not root, make sure old password has been specified 
 		 * If REMOTE change, even root must provide old password 
 		 */
-		if (((!am_root()) && (strlen( cgi_variable(OLD_PSWD)) <= 0)) ||
-		    ((cgi_variable(CHG_R_PASSWD_FLAG)) &&  (strlen( cgi_variable(OLD_PSWD)) <= 0))) {
+		if (((!am_root()) && (strlen( cgi_variable_nonull(OLD_PSWD)) <= 0)) ||
+		    ((cgi_variable(CHG_R_PASSWD_FLAG)) &&  (strlen( cgi_variable_nonull(OLD_PSWD)) <= 0))) {
 			printf("<p>%s\n", _(" Must specify \"Old Password\" "));
 			return;
 		}
 
 		/* If changing a users password on a remote hosts we have to know what host */
-		if ((cgi_variable(CHG_R_PASSWD_FLAG)) && (strlen( cgi_variable(RHOST)) <= 0)) {
+		if ((cgi_variable(CHG_R_PASSWD_FLAG)) && (strlen( cgi_variable_nonull(RHOST)) <= 0)) {
 			printf("<p>%s\n", _(" Must specify \"Remote Machine\" "));
 			return;
 		}
 
 		/* Make sure new passwords have been specified */
-		if ((strlen( cgi_variable(NEW_PSWD)) <= 0) ||
-		    (strlen( cgi_variable(NEW2_PSWD)) <= 0)) {
+		if ((strlen( cgi_variable_nonull(NEW_PSWD)) <= 0) ||
+		    (strlen( cgi_variable_nonull(NEW2_PSWD)) <= 0)) {
 			printf("<p>%s\n", _(" Must specify \"New, and Re-typed Passwords\" "));
 			return;
 		}
 
 		/* Make sure new passwords was typed correctly twice */
-		if (strcmp(cgi_variable(NEW_PSWD), cgi_variable(NEW2_PSWD)) != 0) {
+		if (strcmp(cgi_variable_nonull(NEW_PSWD), cgi_variable_nonull(NEW2_PSWD)) != 0) {
 			printf("<p>%s\n", _(" Re-typed password didn't match new password "));
 			return;
 		}
@@ -1053,17 +1091,17 @@ static void chg_passwd(void)
 	
 
 	rslt = change_password(host,
-			       cgi_variable(SWAT_USER),
-			       cgi_variable(OLD_PSWD), cgi_variable(NEW_PSWD),
+			       cgi_variable_nonull(SWAT_USER),
+			       cgi_variable_nonull(OLD_PSWD), cgi_variable_nonull(NEW_PSWD),
 				   local_flags);
 
 	if(cgi_variable(CHG_S_PASSWD_FLAG)) {
 		printf("<p>");
 		if (rslt == True) {
-			printf(_(" The passwd for '%s' has been changed."), cgi_variable(SWAT_USER));
+			printf(_(" The passwd for '%s' has been changed."), cgi_variable_nonull(SWAT_USER));
 			printf("\n");
 		} else {
-			printf(_(" The passwd for '%s' has NOT been changed."), cgi_variable(SWAT_USER));
+			printf(_(" The passwd for '%s' has NOT been changed."), cgi_variable_nonull(SWAT_USER));
 			printf("\n");
 		}
 	}
@@ -1083,7 +1121,7 @@ static void passwd_page(void)
 	 * changed the User box text to another users name, remember it.
 	 */
 	if (cgi_variable(SWAT_USER)) {
-		new_name = cgi_variable(SWAT_USER);
+		new_name = cgi_variable_nonull(SWAT_USER);
 	} 
 
 	if (!new_name) new_name = "";
@@ -1227,7 +1265,7 @@ static void printers_page(void)
 	printf("<FORM name=\"swatform\" method=post>\n");
 
 	if ( cgi_variable("ViewMode") )
-		mode = atoi(cgi_variable("ViewMode"));
+		mode = atoi(cgi_variable_nonull("ViewMode"));
         if ( cgi_variable("BasicMode"))
                 mode = 0;
         if ( cgi_variable("AdvMode"))
@@ -1297,12 +1335,12 @@ static void printers_page(void)
  **/
  int main(int argc, char *argv[])
 {
-	int opt;
 	const char *page;
 	poptContext pc;
 	struct poptOption long_options[] = {
 		POPT_AUTOHELP
 		{ "disable-authentication", 'a', POPT_ARG_VAL, &demo_mode, True, "Disable authentication (demo mode)" },
+        	{ "password-menu-only", 'P', POPT_ARG_VAL, &passwd_only, True, "Show only change password menu" }, 
 		POPT_COMMON_SAMBA
 		POPT_TABLEEND
 	};
@@ -1333,12 +1371,15 @@ static void printers_page(void)
 
 	/* Parse command line options */
 
-	while((opt = poptGetNextOpt(pc)) != -1) { }
+	while(poptGetNextOpt(pc) != -1) { }
 
 	poptFreeContext(pc);
 
+	load_case_tables();
+
 	setup_logging(argv[0],False);
 	load_config(True);
+	load_interfaces();
 	iNumNonAutoPrintServices = lp_numservices();
 	load_printers();
 

@@ -7,5 +7,4 @@ endif
 
 OTHER_PUBLIC_HEADERS = project_version.h
 OTHER_PROJECT_HEADERS = project_version.h
-DEFSFILES = lookup.defs
-RPCFILES = nibind_prot.x ni_prot.x _lu_types.x
+RPCFILES = nibind_prot.x ni_prot.x

@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_subr.c,v 1.18.102.2 2006/02/10 18:17:36 lindak Exp $
+ * $Id: smbfs_subr.c,v 1.24 2006/02/03 04:04:12 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -155,13 +157,21 @@ smb_time_NT2local(u_int64_t nsec, int tzoff, struct timespec *tsp)
 }
 
 void
-smb_time_local2NT(struct timespec *tsp, int tzoff, u_int64_t *nsec)
+smb_time_local2NT(struct timespec *tsp, int tzoff, u_int64_t *nsec, int fat_fstype)
 {
 	#pragma unused(tzoff)
 	long seconds;
 
 	smb_time_local2server(tsp, 0, &seconds);
-	*nsec = (((u_int64_t)(seconds) & ~1) + DIFF1970TO1601) * (u_int64_t)10000000;
+	/* 
+	 * Remember that FAT file systems only have a two second interval for 
+	 * time. NTFS volumes do not have have this limitation, so only force 
+	 * the two second interval on FAT File Systems.
+	 */
+	if (fat_fstype)
+		*nsec = (((u_int64_t)(seconds) & ~1) + DIFF1970TO1601) * (u_int64_t)10000000;
+	else
+		*nsec = ((u_int64_t)seconds + DIFF1970TO1601) * (u_int64_t)10000000;
 }
 
 void
@@ -270,6 +280,11 @@ smb_dos2unixtime(u_int dd, u_int dt, u_int dh, int tzoff,
 	    + ((dt & DT_MINUTES_MASK) >> DT_MINUTES_SHIFT) * 60
 	    + ((dt & DT_HOURS_MASK) >> DT_HOURS_SHIFT) * 3600
 	    + dh / 100;
+	 /* Invalid seconds field, Windows 98 can return a bogus value */
+	if (seconds < 0 || seconds > (24*60*60)) {
+		SMBERROR("Bad DOS time! seconds = %lu\n", seconds);
+		seconds = 0;
+	}	
 	/*
 	 * If the year, month, and day from the last conversion are the
 	 * same then use the saved value.
@@ -288,6 +303,7 @@ smb_dos2unixtime(u_int dd, u_int dt, u_int dh, int tzoff,
 		months = year & 0x03 ? regyear : leapyear;
 		month = (dd & DD_MONTH_MASK) >> DD_MONTH_SHIFT;
 		if (month < 1 || month > 12) {
+			SMBERROR("Bad DOS time! month = %lu\n", month);
 			month = 1;
 		}
 		if (month > 1)
@@ -300,13 +316,26 @@ smb_dos2unixtime(u_int dd, u_int dt, u_int dh, int tzoff,
 }
 
 static int
-smb_fphelp(struct mbchain *mbp, struct smb_vc *vcp, struct smbnode *np,
-	int caseopt, int *lenp)
+smb_fphelp(struct smbmount *smp, struct mbchain *mbp, struct smb_vc *vcp, struct smbnode *np, int flags, int *lenp)
 {
-        struct smbnode  *npstack[SMBFS_MAXPATHCOMP]; 
-        struct smbnode  **npp = &npstack[0]; 
+	struct smbnode  *npstack[SMBFS_MAXPATHCOMP]; 
+	struct smbnode  **npp = &npstack[0]; 
 	int i, error = 0;
 
+	if (smp->sm_args.path) {
+		if (SMB_UNICODE_STRINGS(vcp))
+			error = mb_put_uint16le(mbp, '\\');
+		else
+			error = mb_put_uint8(mbp, '\\');
+		if (!error && lenp)
+			*lenp += SMB_UNICODE_STRINGS(vcp) ? 2 : 1;
+		/* We have a starting path, that has already been converted add it to the path */
+		if (!error)
+			error = mb_put_mem(mbp, (c_caddr_t)smp->sm_args.path, smp->sm_args.path_len, MB_MSYSTEM);
+		if (!error && lenp)
+			*lenp += smp->sm_args.path_len;
+	}
+	
 	i = 0;
 	while (np->n_parent) {
 		if (i++ == SMBFS_MAXPATHCOMP)
@@ -325,7 +354,7 @@ smb_fphelp(struct mbchain *mbp, struct smb_vc *vcp, struct smbnode *np,
 		if (error)
 			break;
 		error = smb_put_dmem(mbp, vcp, (char *)(np->n_name), (int)(np->n_nmlen),
-				     caseopt, lenp);
+				     flags, lenp);
 		if (error)
 			break;
 	}
@@ -334,9 +363,8 @@ smb_fphelp(struct mbchain *mbp, struct smb_vc *vcp, struct smbnode *np,
 
 int
 smbfs_fullpath(struct mbchain *mbp, struct smb_vc *vcp, struct smbnode *dnp,
-	const char *name, int *lenp, u_int8_t sep)
+	const char *name, int *lenp, int name_flags, u_int8_t sep)
 {
-	int caseopt = SMB_CS_NONE;
 	int error, len = 0;
 
         if (lenp) {
@@ -348,13 +376,13 @@ smbfs_fullpath(struct mbchain *mbp, struct smb_vc *vcp, struct smbnode *dnp,
 		if (error)
 			return error;
 	}
-	if (SMB_DIALECT(vcp) < SMB_DIALECT_LANMAN1_0)
-		caseopt |= SMB_CS_UPPER;
 	if (dnp != NULL) {
-		error = smb_fphelp(mbp, vcp, dnp, caseopt, lenp);
+		struct smbmount *smp = dnp->n_mount;
+		
+		error = smb_fphelp(smp, mbp, vcp, dnp, UTF_SFM_CONVERSIONS, lenp);
 		if (error)
 			return error;
-		if (dnp->n_ino == 2 && !name)
+		if (((smp->sm_args.path == NULL) && (dnp->n_ino == 2) && !name))
 			name = ""; /* to get one backslash below */
 	}
 	if (name) {
@@ -366,7 +394,7 @@ smbfs_fullpath(struct mbchain *mbp, struct smb_vc *vcp, struct smbnode *dnp,
                         *lenp += SMB_UNICODE_STRINGS(vcp) ? 2 : 1;
 		if (error)
 			return error;
-		error = smb_put_dmem(mbp, vcp, name, len, caseopt, lenp);
+		error = smb_put_dmem(mbp, vcp, name, len, name_flags, lenp);
 		if (error)
 			return error;
 	}
@@ -380,6 +408,100 @@ smbfs_fullpath(struct mbchain *mbp, struct smb_vc *vcp, struct smbnode *dnp,
 	}
 	return error;
 }
+
+/* 
+ * Given a UTF8 path create a netowrk path
+ *
+ * utf8str - Must be null terminated. 
+ * network - May be UTF16 or ASCII
+ * 
+ */
+int smbfs_fullpath_to_network(struct smb_vc *vcp, char *utf8str, char *network, int32_t *ntwrk_len, 
+							  char ntwrk_delimiter, int flags)
+{
+	int error = 0;
+	char * delimiter;
+	size_t component_len;	/* component length*/
+	size_t resid = *ntwrk_len;	/* Room left in the the network buffer */
+	
+	while (utf8str && resid) {
+		DBG_ASSERT(resid > 0);	/* Should never fail */
+			/* Find the next delimiter in the utf-8 string */
+		delimiter = strchr(utf8str, '/');
+		/* Remove the delimiter so we can get the component */
+		if (delimiter)
+			*delimiter = 0;
+			/* Get the size of this component */
+		component_len = strlen(utf8str);
+		if (vcp->vc_toserver == NULL) {
+			strlcpy(network, utf8str, resid);
+			network += component_len;	/* Move our network pointer */
+			resid -= component_len;
+		} else {
+			error = iconv_conv(vcp->vc_toserver, (const char **)&utf8str, &component_len, &network, &resid, flags);
+			if (error)
+				return error;
+		}
+		/* Put the delimiter back and move the pointer pass it */
+		if (delimiter)
+			*delimiter++ = '/';
+		utf8str = delimiter;
+		/* If we have more to process then add a bacck slash */
+		if (utf8str) {
+			if (!resid)
+				return E2BIG;
+			resid -= 1;
+			*network++ = ntwrk_delimiter;	/* Use the network delimter passed in */
+			if ((SMB_UNICODE_STRINGS(vcp))) {
+				if (!resid)
+					return E2BIG;
+				resid -= 1;
+				*network++ = 0;
+			}					
+		}
+	}
+	*ntwrk_len -= resid;
+	DBG_ASSERT(*ntwrk_len >= 0);
+	return error;
+}
+
+/*
+ * They want the mount to start at some path offest. Take the path they gave us and create a
+ * buffer that can be added to the front of every path we send across the network. This new
+ * buffer will already be convert to a network style string.
+ */
+void smbfs_create_start_path(struct smb_vc *vcp, struct smbmount *smp, struct smb_mount_args *args)
+{
+	int error;
+	int flags = UTF_PRECOMPOSED|UTF_NO_NULL_TERM|UTF_SFM_CONVERSIONS;
+	
+	/* Just in case someone sends us a bad string */
+	args->path[MAXPATHLEN-1] = 0;
+	
+	/* Path length cannot be bigger than MAXPATHLEN and cannot contain the null byte */
+	args->path_len = (args->path_len < MAXPATHLEN) ? args->path_len : (MAXPATHLEN - 1);
+	/* path should never end with a slash */
+	if (args->path[args->path_len - 1] == '/') {
+		args->path_len -= 1;
+		args->path[args->path_len] = 0;
+	}
+	
+	smp->sm_args.path_len = (args->path_len * 2) + 2;	/* Start with the max size */
+	MALLOC(smp->sm_args.path, char *, smp->sm_args.path_len, M_SMBFSDATA, M_WAITOK);
+	if (smp->sm_args.path == NULL) {
+		smp->sm_args.path_len = 0;
+		return;	/* Give up */
+	}
+	/* Convert it to a network style path */
+	error = smbfs_fullpath_to_network(vcp, args->path, smp->sm_args.path, &smp->sm_args.path_len, '\\', flags);
+	if (error || (smp->sm_args.path_len == 0)) {
+		SMBDEBUG("Deep Path Failed %d\n", error);
+		if (smp->sm_args.path)
+			free(smp->sm_args.path, M_SMBFSDATA);
+		smp->sm_args.path_len = 0;
+		smp->sm_args.path = NULL;
+	}
+} 
 
 void
 smbfs_fname_tolocal(struct smbfs_fctx *ctx)
@@ -415,9 +537,9 @@ smbfs_fname_tolocal(struct smbfs_fctx *ctx)
 	outlen = length;
 	src = ctx->f_name;
 	inlen = ctx->f_nmlen;
-	if (iconv_conv(vcp->vc_tolocal, NULL, NULL, &dst, &outlen) == 0) {
+	if (iconv_conv(vcp->vc_tolocal, NULL, NULL, &dst, &outlen, UTF_SFM_CONVERSIONS) == 0) {
 		odst = dst;
-		(void) iconv_conv(vcp->vc_tolocal, &src, &inlen, &dst, &outlen);
+		(void) iconv_conv(vcp->vc_tolocal, &src, &inlen, &dst, &outlen, UTF_SFM_CONVERSIONS);
 		if (ctx->f_name)
 			free(ctx->f_name, M_SMBFSDATA);
 		ctx->f_name = odst;
@@ -427,3 +549,44 @@ smbfs_fname_tolocal(struct smbfs_fctx *ctx)
 	return;
 }
 
+/*
+ * Converts a network name to a local UTF-8 name.
+ *
+ * Returns a UTF-8 string or NULL.
+ *	ntwrk_name - either UTF-16 or ASCII Code Page
+ *	nmlen - on input the length of the network name
+ *			on output the length of the UTF-8 name
+ * NOTE:
+ *	This routine will not free the ntwrk_name.
+ */
+char *
+smbfs_ntwrkname_tolocal(struct smb_vc *vcp, const char *ntwrk_name, int *nmlen)
+{
+	int length;
+	char *dst, *odst = NULL;
+	size_t inlen, outlen;
+
+	if (!nmlen || *nmlen == 0)
+		return NULL;
+	if (vcp->vc_tolocal == NULL)
+		return NULL;
+	/*
+	 * In Mac OS X the local name can be larger and
+	 * in-place conversions are not supported.
+	 */
+	if (SMB_UNICODE_STRINGS(vcp))
+		length = *nmlen * 9; /* why 9 */
+	else
+		length = *nmlen * 3; /* why 3 */
+	length = max(length, SMB_MAXFNAMELEN);
+	dst = malloc(length, M_SMBFSDATA, M_WAITOK);
+	outlen = length;
+	inlen = *nmlen;
+	if (iconv_conv(vcp->vc_tolocal, NULL, NULL, &dst, &outlen, UTF_SFM_CONVERSIONS) == 0) {
+		odst = dst;
+		(void) iconv_conv(vcp->vc_tolocal, &ntwrk_name, &inlen, &dst, &outlen, UTF_SFM_CONVERSIONS);
+		*nmlen = length - outlen;
+	} else
+		free(dst, M_SMBFSDATA);
+	return odst;
+}

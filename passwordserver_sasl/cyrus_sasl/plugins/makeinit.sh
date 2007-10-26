@@ -1,4 +1,4 @@
-for mech in anonymous crammd5 digestmd5 gssapiv2 kerberos4 login ntlm otp plain srp; do
+for mech in anonymous crammd5 digestmd5 gssapiv2 kerberos4 login ntlm otp passdss plain srp; do
 
 echo "
 #include <config.h>
@@ -45,7 +45,7 @@ SASL_SERVER_PLUG_INIT( $mech )
 " > ${mech}_init.c
 done
 
-for mech in sasldb sql ; do
+for mech in sasldb sql ldapdb; do
 
 echo "
 #include <config.h>

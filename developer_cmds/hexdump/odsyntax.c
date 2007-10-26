@@ -212,7 +212,7 @@ odoffset(int argc, char ***argvp)
 	 *
 	 * We assume it's a file if the offset is bad.
 	 */
-	p = argc == 1 ? (*argvp)[0] : (*argvp)[1];
+	p = (unsigned char *)(argc == 1 ? (*argvp)[0] : (*argvp)[1]);
 
 	if (*p != '+' && (argc < 2 ||
 	    (!isdigit(p[0]) && (p[0] != 'x' || !isxdigit(p[1])))))
@@ -251,7 +251,7 @@ odoffset(int argc, char ***argvp)
 		q++;
 	}
 
-	skip = strtoll(num, (char **)&end, base ? base : 8);
+	skip = strtoll((const char *)num, (char **)&end, base ? base : 8);
 
 	/* if end isn't the same as p, we got a non-octal digit */
 	if (end != p) {

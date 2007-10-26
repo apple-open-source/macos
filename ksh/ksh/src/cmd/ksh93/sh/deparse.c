@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -55,20 +51,20 @@ static void p_keyword(const char*,int);
 static void p_redirect(const struct ionod*);
 static void p_switch(const struct regnod*);
 static void here_body(const struct ionod*);
-static void p_tree(const union anynode*,int);
+static void p_tree(const Shnode_t*,int);
 
 static int level;
 static int begin_line;
 static int end_line;
-static char io_op[5];
+static char io_op[7];
 static char un_op[3] = "-?";
 static const struct ionod *here_doc;
 static Sfio_t *outfile;
 static const char *forinit = "";
 
-extern void sh_deparse(Sfio_t*, const union anynode*,int);
+extern void sh_deparse(Sfio_t*, const Shnode_t*,int);
 
-void sh_deparse(Sfio_t *out, const union anynode *t,int tflags)
+void sh_deparse(Sfio_t *out, const Shnode_t *t,int tflags)
 {
 	outfile = out;
 	p_tree(t,tflags);
@@ -76,7 +72,7 @@ void sh_deparse(Sfio_t *out, const union anynode *t,int tflags)
 /*
  * print script corresponding to shell tree <t>
  */
-static void p_tree(register const union anynode *t,register int tflags)
+static void p_tree(register const Shnode_t *t,register int tflags)
 {
 	register char *cp;
 	int save = end_line;
@@ -176,7 +172,7 @@ static void p_tree(register const union anynode *t,register int tflags)
 
 		case TLST:
 		{
-			union anynode *tr = t->lst.lstrit;
+			Shnode_t *tr = t->lst.lstrit;
 			if(tr->tre.tretyp==TWH && tr->wh.whinc && t->lst.lstlef->tre.tretyp==TARITH)
 			{
 				/* arithmetic for statement */
@@ -420,28 +416,41 @@ static void p_arg(register const struct argnod *arg,register int endchar,int opt
 
 static void p_redirect(register const struct ionod *iop)
 {
-	register int iof;
 	register char *cp;
+	register int iof,iof2;
 	for(;iop;iop=iop->ionxt)
 	{
 		iof=iop->iofile;
 		cp = io_op;
-		*cp = '0'+(iof&IOUFD);
+		if(iop->iovname)
+		{
+			sfwrite(outfile,"(;",2);
+			sfputr(outfile,iop->iovname,')');
+			cp++;
+		}
+		else
+			*cp = '0'+(iof&IOUFD);
 		if(iof&IOPUT)
 		{
-			if(*cp == '1')
+			if(*cp == '1' && !iop->iovname)
 				cp++;
 			io_op[1] = '>';
 		}
 		else
 		{
-			if(*cp == '0')
+			if(*cp == '0' && !iop->iovname)
 				cp++;
 			io_op[1] = '<';
 		}
 		io_op[2] = 0;
 		io_op[3] = 0;
-		if(iof&IOMOV)
+		if(iof&IOLSEEK)
+		{
+			io_op[1] = '#';
+			if(iof&IOARITH)
+				strcpy(&io_op[3]," ((");
+		}
+		else if(iof&IOMOV)
 			io_op[2] = '&';
 		else if(iof&(IORDW|IOAPP))
 			io_op[2] = '>';
@@ -468,6 +477,8 @@ static void p_redirect(register const struct ionod *iop)
 			if((iof=end_line)=='\n')
 				begin_line = 1;
 		}
+		if((iof&IOLSEEK) && (iof&IOARITH))
+			iof2 = iof, iof = ' ';
 		if(iop->iodelim)
 		{
 			if(!(iop->iofile&IODOC))
@@ -478,6 +489,8 @@ static void p_redirect(register const struct ionod *iop)
 			sfputr(outfile,sh_fmtq(iop->ioname),iof);
 		else
 			sfputr(outfile,iop->ioname,iof);
+		if((iof&IOLSEEK) && (iof&IOARITH))
+			sfputr(outfile, "))", iof2);
 	}
 	return;
 }

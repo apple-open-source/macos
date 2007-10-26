@@ -123,7 +123,7 @@ USER_write(disk, tt, preserve, force)
 	    /* Since we're updating boot code, we don't require exclusive access */
 	    fd = DISK_openshared(disk->name, O_RDWR, &shared);
 	    MBR_make(tt);
-	    MBR_write(fd, tt);
+	    MBR_write(disk, fd, tt);
 	    DISK_close(fd);
 	  } else {
 	    MBR_write_all(disk, tt);
@@ -158,7 +158,7 @@ USER_modify(disk, tt, offset, reloff)
 	/* Read MBR & partition */
 	mbr = MBR_alloc(NULL);
 	fd = DISK_open(disk->name, O_RDONLY);
-	MBR_read(fd, offset, mbr);
+	MBR_read(disk, fd, offset, mbr);
 	DISK_close(fd);
 
 	/* Parse the sucker */
@@ -228,7 +228,7 @@ again:
 			}
 
 			MBR_make(mbr);
-			MBR_write(fd, mbr);
+			MBR_write(disk, fd, mbr);
 			close(fd);
 		} else {
 	                int yn = ask_yn("MBR was modified; really quit without saving?", 0);

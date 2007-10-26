@@ -1,0 +1,8 @@
+2002-08-14  Keith Seitz  <keiths@redhat.com>
+
+	* acinclude.m4, aclocal.m4, configure, configure.in,
+	HOW-TO, Makefile.am, Makefile.in, Make-rules,
+	plugins.tcl: New files adding improved support for plugins.
+	* rhabout/: Add new sample plugin.
+	* intel-pentium/: Add new Intel Pentium plugin.
+

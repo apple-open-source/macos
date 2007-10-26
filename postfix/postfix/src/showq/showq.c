@@ -6,38 +6,35 @@
 /* SYNOPSIS
 /*	\fBshowq\fR [generic Postfix daemon options]
 /* DESCRIPTION
-/*	The \fBshowq\fR daemon reports the Postfix mail queue status.
+/*	The \fBshowq\fR(8) daemon reports the Postfix mail queue status.
 /*	It is the program that emulates the sendmail `mailq' command.
 /*
-/*	The \fBshowq\fR daemon can also be run in stand-alone mode
+/*	The \fBshowq\fR(8) daemon can also be run in stand-alone mode
 /*	by the superuser. This mode of operation is used to emulate
 /*	the `mailq' command while the Postfix mail system is down.
 /* SECURITY
 /* .ad
 /* .fi
-/*	The \fBshowq\fR daemon can run in a chroot jail at fixed low
+/*	The \fBshowq\fR(8) daemon can run in a chroot jail at fixed low
 /*	privilege, and takes no input from the client. Its service port
 /*	is accessible to local untrusted users, so the service can be
 /*	susceptible to denial of service attacks.
 /* STANDARDS
 /* .ad
 /* .fi
-/*	None. The showq daemon does not interact with the outside world.
+/*	None. The \fBshowq\fR(8) daemon does not interact with the
+/*	outside world.
 /* DIAGNOSTICS
 /*	Problems and transactions are logged to \fBsyslogd\fR(8).
-/* BUGS
-/*	The \fBshowq\fR daemon runs at a fixed low privilege; consequently,
-/*	it cannot extract information from queue files in the
-/*	\fBmaildrop\fR directory.
 /* CONFIGURATION PARAMETERS
 /* .ad
 /* .fi
-/*	Changes to \fBmain.cf\fR are picked up automatically as showq(8)
+/*	Changes to \fBmain.cf\fR are picked up automatically as \fBshowq\fR(8)
 /*	processes run for only a limited amount of time. Use the command
 /*	"\fBpostfix reload\fR" to speed up a change.
 /*
 /*	The text below provides only a parameter summary. See
-/*	postconf(5) for more details including examples.
+/*	\fBpostconf\fR(5) for more details including examples.
 /* .IP "\fBconfig_directory (see 'postconf -d' output)\fR"
 /*	The default location of the Postfix main.cf and master.cf
 /*	configuration files.
@@ -46,19 +43,19 @@
 /*	request before it is terminated by a built-in watchdog timer.
 /* .IP "\fBduplicate_filter_limit (1000)\fR"
 /*	The maximal number of addresses remembered by the address
-/*	duplicate filter for aliases(5) or virtual(5) alias expansion, or
-/*	for showq(8) queue displays.
+/*	duplicate filter for \fBaliases\fR(5) or \fBvirtual\fR(5) alias expansion, or
+/*	for \fBshowq\fR(8) queue displays.
 /* .IP "\fBempty_address_recipient (MAILER-DAEMON)\fR"
 /*	The recipient of mail addressed to the null address.
 /* .IP "\fBipc_timeout (3600s)\fR"
 /*	The time limit for sending or receiving information over an internal
 /*	communication channel.
 /* .IP "\fBmax_idle (100s)\fR"
-/*	The maximum amount of time that an idle Postfix daemon process
-/*	waits for the next service request before exiting.
+/*	The maximum amount of time that an idle Postfix daemon process waits
+/*	for an incoming connection before terminating voluntarily.
 /* .IP "\fBmax_use (100)\fR"
-/*	The maximal number of connection requests before a Postfix daemon
-/*	process terminates.
+/*	The maximal number of incoming connections that a Postfix daemon
+/*	process will service before terminating voluntarily.
 /* .IP "\fBprocess_id (read-only)\fR"
 /*	The process ID of a Postfix command or daemon process.
 /* .IP "\fBprocess_name (read-only)\fR"
@@ -121,6 +118,7 @@
 #include <mail_proto.h>
 #include <mail_date.h>
 #include <mail_params.h>
+#include <mail_version.h>
 #include <mail_scan_dir.h>
 #include <mail_conf.h>
 #include <record.h>
@@ -139,10 +137,11 @@ int     var_dup_filter_limit;
 char   *var_empty_addr;
 
 #define STRING_FORMAT	"%-10s %8s %-20s %s\n"
-#define SENDER_FORMAT	"%-11s%8ld %20.20s %s\n"
-#define DROP_FORMAT	"%-10s%c%8ld %20.20s (maildrop queue, sender UID %u)\n"
+#define SENDER_FORMAT	"%-11s %7ld %20.20s %s\n"
+#define DROP_FORMAT	"%-10s%c %7ld %20.20s (maildrop queue, sender UID %u)\n"
 
-static void showq_reasons(VSTREAM *, BOUNCE_LOG *, HTABLE *);
+static void showq_reasons(VSTREAM *, BOUNCE_LOG *, RCPT_BUF *, DSN_BUF *,
+			          HTABLE *);
 
 #define STR(x)	vstring_str(x)
 
@@ -159,6 +158,8 @@ static void showq_report(VSTREAM *client, char *queue, char *id,
     long    msg_size = 0;
     BOUNCE_LOG *logfile;
     HTABLE *dup_filter = 0;
+    RCPT_BUF *rcpt_buf = 0;
+    DSN_BUF *dsn_buf = 0;
     char    status = (strcmp(queue, MAIL_QUEUE_ACTIVE) == 0 ? '*' :
 		      strcmp(queue, MAIL_QUEUE_HOLD) == 0 ? '!' : ' ');
     int     msg_size_ok = 0;
@@ -235,47 +236,58 @@ static void showq_report(VSTREAM *client, char *queue, char *id,
 	    && dup_filter == 0
 	    && (logfile = bounce_log_open(MAIL_QUEUE_DEFER, id, O_RDONLY, 0)) != 0) {
 	    dup_filter = htable_create(var_dup_filter_limit);
-	    showq_reasons(client, logfile, dup_filter);
+	    if (rcpt_buf == 0)
+		rcpt_buf = rcpb_create();
+	    if (dsn_buf == 0)
+		dsn_buf = dsb_create();
+	    showq_reasons(client, logfile, rcpt_buf, dsn_buf, dup_filter);
 	    if (bounce_log_close(logfile))
 		msg_warn("close %s %s: %m", MAIL_QUEUE_DEFER, id);
 	}
     }
     vstring_free(buf);
     vstring_free(printable_quoted_addr);
+    if (rcpt_buf)
+	rcpb_free(rcpt_buf);
+    if (dsn_buf)
+	dsb_free(dsn_buf);
     if (dup_filter)
 	htable_free(dup_filter, (void (*) (char *)) 0);
 }
 
 /* showq_reasons - show deferral reasons */
 
-static void showq_reasons(VSTREAM *client, BOUNCE_LOG *bp, HTABLE *dup_filter)
+static void showq_reasons(VSTREAM *client, BOUNCE_LOG *bp, RCPT_BUF *rcpt_buf,
+			          DSN_BUF *dsn_buf, HTABLE *dup_filter)
 {
     char   *saved_reason = 0;
     int     padding;
+    RECIPIENT *rcpt = &rcpt_buf->rcpt;
+    DSN    *dsn = &dsn_buf->dsn;
 
-    while (bounce_log_read(bp) != 0) {
+    while (bounce_log_read(bp, rcpt_buf, dsn_buf) != 0) {
 
 	/*
 	 * Update the duplicate filter.
 	 */
 	if (var_dup_filter_limit == 0
 	    || dup_filter->used < var_dup_filter_limit)
-	    if (htable_locate(dup_filter, bp->recipient) == 0)
-		htable_enter(dup_filter, bp->recipient, (char *) 0);
+	    if (htable_locate(dup_filter, rcpt->address) == 0)
+		htable_enter(dup_filter, rcpt->address, (char *) 0);
 
 	/*
 	 * Don't print the reason when the previous recipient had the same
 	 * problem.
 	 */
-	if (saved_reason == 0 || strcmp(saved_reason, bp->text) != 0) {
+	if (saved_reason == 0 || strcmp(saved_reason, dsn->reason) != 0) {
 	    if (saved_reason)
 		myfree(saved_reason);
-	    saved_reason = mystrdup(bp->text);
+	    saved_reason = mystrdup(dsn->reason);
 	    if ((padding = 76 - strlen(saved_reason)) < 0)
 		padding = 0;
 	    vstream_fprintf(client, "%*s(%s)\n", padding, "", saved_reason);
 	}
-	vstream_fprintf(client, STRING_FORMAT, "", "", "", bp->recipient);
+	vstream_fprintf(client, STRING_FORMAT, "", "", "", rcpt->address);
     }
     if (saved_reason)
 	myfree(saved_reason);
@@ -380,6 +392,8 @@ static void showq_service(VSTREAM *client, char *unused_service, char **argv)
     }
 }
 
+MAIL_VERSION_STAMP_DECLARE;
+
 /* main - pass control to the single-threaded server skeleton */
 
 int     main(int argc, char **argv)
@@ -392,6 +406,11 @@ int     main(int argc, char **argv)
 	VAR_EMPTY_ADDR, DEF_EMPTY_ADDR, &var_empty_addr, 1, 0,
 	0,
     };
+
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
 
     single_server_main(argc, argv, showq_service,
 		       MAIL_SERVER_INT_TABLE, int_table,

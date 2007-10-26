@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #ifndef SEQPOINT
 /*
@@ -37,35 +33,38 @@
 #endif
 
 #if _ast_fltmax_double
-#define LDBL_LONGLONG_MAX	DBL_LONGLONG_MAX
-#define LDBL_ULONGLONG_MAX	DBL_ULONGLONG_MAX
-#define LDBL_LONGLONG_MIN	DBL_LONGLONG_MIN
+#define LDBL_LLONG_MAX		DBL_LLONG_MAX
+#define LDBL_ULLONG_MAX		DBL_ULLONG_MAX
+#define LDBL_LLONG_MIN		DBL_LLONG_MIN
 #endif
 
-#ifndef LDBL_LONGLONG_MAX
+#ifndef LDBL_LLONG_MAX
 #   ifdef LLONG_MAX
-#	define LDBL_LONGLONG_MAX	((Sfdouble_t)LLONG_MAX)
+#	define LDBL_LLONG_MAX	((Sfdouble_t)LLONG_MAX)
 #   else
-#	ifdef LONGLONG_MAX
-#	   define LDBL_LONGLONG_MAX	((Sfdouble_t)LONGLONG_MAX)
+#	ifdef LLONG_MAX
+#	   define LDBL_LLONG_MAX	((Sfdouble_t)LLONG_MAX)
 #	else
-#	   define LDBL_LONGLONG_MAX	((Sfdouble_t)((1LL << (8*sizeof(Sflong_t)-1)) -1 ))
+#	   define LDBL_LLONG_MAX	((Sfdouble_t)((((Sflong_t)1) << (8*sizeof(Sflong_t)-1)) -1 ))
 #	endif
 #   endif
 #endif
-#ifndef LDBL_ULONGLONG_MAX
+#ifndef LDBL_ULLONG_MAX
 #   ifdef ULLONG_MAX
-#	define LDBL_ULONGLONG_MAX	((Sfdouble_t)ULLONG_MAX)
+#	define LDBL_ULLONG_MAX		((Sfdouble_t)ULLONG_MAX)
 #   else
-#	define LDBL_ULONGLONG_MAX	(2.*((Sfdouble_t)LDBL_LONGLONG_MAX))
+#	define LDBL_ULLONG_MAX		(2.*((Sfdouble_t)LDBL_LLONG_MAX))
 #   endif
 #endif
-#ifndef LDBL_LONGLONG_MIN
+#ifndef LDBL_LLONG_MIN
 #   ifdef LLONG_MIN
-#	define LDBL_LONGLONG_MIN	((Sfdouble_t)LLONG_MIN)
+#	define LDBL_LLONG_MIN		((Sfdouble_t)LLONG_MIN)
 #   else
-#	define LDBL_LONGLONG_MIN	(-LDBL_LONGLONG_MAX)
+#	define LDBL_LLONG_MIN		(-LDBL_LLONG_MAX)
 #   endif
+#endif
+#ifndef LDBL_DIG
+#   define LDBL_DIG DBL_DIG
 #endif
 
 struct lval
@@ -83,7 +82,7 @@ struct lval
 
 struct mathtab
 {
-	char		fname[8];
+	char		fname[16];
 	Sfdouble_t	(*fnptr)(Sfdouble_t,...);
 };
 
@@ -139,25 +138,26 @@ typedef struct _arith_
 #define A_TILDE		31
 #define A_REG		32
 #define A_DIG		33
-#define A_INCR          34
-#define A_DECR          35
-#define A_PUSHV         36
-#define A_PUSHL         37
-#define A_PUSHN         38
-#define A_PUSHF         39
-#define A_STORE         40
-#define A_POP           41
-#define A_SWAP          42
+#define A_INCR		34
+#define A_DECR  	35
+#define A_PUSHV 	36
+#define A_PUSHL 	37
+#define A_PUSHN 	38
+#define A_PUSHF 	39
+#define A_STORE 	40
+#define A_POP   	41
+#define A_SWAP  	42
 #define A_UMINUS	43
-#define A_JMPZ          44
-#define A_JMPNZ         45
-#define A_JMP           46
-#define A_CALL1         47
-#define A_CALL2         48
-#define A_CALL3         49
-#define A_DOT		50
-#define A_LIT		51
-#define A_NOTNOT        52
+#define A_JMPZ  	44
+#define A_JMPNZ		45
+#define A_JMP		46
+#define A_CALL0		47
+#define A_CALL1		48
+#define A_CALL2		49
+#define A_CALL3		50
+#define A_DOT		51
+#define A_LIT		52
+#define A_NOTNOT        53
 
 
 /* define error messages */
@@ -187,7 +187,7 @@ extern const struct 		mathtab shtab_math[];
 #define LOOKUP	0
 #define ASSIGN	1
 #define VALUE	2
-#define ERRMSG	3
+#define MESSAGE	3
 
 extern Sfdouble_t strval(const char*,char**,Sfdouble_t(*)(const char**,struct lval*,int,Sfdouble_t),int);
 extern Arith_t *arith_compile(const char*,char**,Sfdouble_t(*)(const char**,struct lval*,int,Sfdouble_t),int);

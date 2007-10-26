@@ -35,7 +35,10 @@ extern char *	eapolclient_path;
 
 #include "eapolcontroller_types.h"
 void
-ControllerInitialize();
+_ControllerInitialize();
+
+void
+_ControllerBegin();
 
 int 
 ControllerCopyStateAndStatus(if_name_t if_name, 

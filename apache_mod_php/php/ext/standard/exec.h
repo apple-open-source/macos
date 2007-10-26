@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: exec.h,v 1.15.2.1.8.4 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: exec.h,v 1.24.2.3.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
 #ifndef EXEC_H
 #define EXEC_H
@@ -28,13 +28,14 @@ PHP_FUNCTION(escapeshellarg);
 PHP_FUNCTION(passthru);
 PHP_FUNCTION(shell_exec);
 PHP_FUNCTION(proc_open);
+PHP_FUNCTION(proc_get_status);
 PHP_FUNCTION(proc_close);
+PHP_FUNCTION(proc_terminate);
+PHP_FUNCTION(proc_nice);
 PHP_MINIT_FUNCTION(proc_open);
 
 PHPAPI char *php_escape_shell_cmd(char *);
 PHPAPI char *php_escape_shell_arg(char *);
-int php_Exec(int type, char *cmd, pval *array, pval *return_value TSRMLS_DC);
-
-#define PHP_EMPTY_EXEC_PARAM { php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot execute a blank command"); RETURN_FALSE; }
+int php_exec(int type, char *cmd, zval *array, zval *return_value TSRMLS_DC);
 
 #endif /* EXEC_H */

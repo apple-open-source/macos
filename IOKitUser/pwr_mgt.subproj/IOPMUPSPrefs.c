@@ -20,8 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCValidation.h>
+#include "IOSystemConfiguration.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
@@ -104,7 +103,7 @@ _createDefaultThresholdDict(void)
 
 static void
 _mergeUnspecifiedUPSThresholds(
-    CFTypeRef whichUPS, 
+    CFTypeRef whichUPS __unused, 
     CFMutableDictionaryRef ret_dict)
 {
     int                 i;
@@ -126,7 +125,7 @@ _mergeUnspecifiedUPSThresholds(
 
 static void    
 _removeUnsupportedUPSThresholds(
-    CFTypeRef whichUPS, 
+    CFTypeRef whichUPS __unused, 
     CFMutableDictionaryRef ret_dict)
 {
     CFTypeRef                   snap;

@@ -93,7 +93,7 @@ main(int argc, char *argv[])
 #ifndef __APPLE__
 	while ((ch = getopt(argc, argv, "HLPRXfghorstuvwx")) != -1)
 #else
-	while ((ch = getopt(argc, argv, "ACEHILNPRVXafginorstuvwx")) != -1)
+	while ((ch = getopt(argc, argv, "ACEHILNPRVXafghinorstuvwx")) != -1)
 #endif
 		switch (ch) {
 		case 'H':
@@ -113,7 +113,6 @@ main(int argc, char *argv[])
 		case 'f':
 			fflag = 1;
 			break;
-#ifndef __APPLE__
 		case 'h':
 			/*
 			 * In System V (and probably POSIX.2) the -h option
@@ -125,11 +124,16 @@ main(int argc, char *argv[])
 			 */
 			hflag = 1;
 			break;
-#else
+#ifdef __APPLE__
 		case 'a':
 			if (argv[optind - 1][0] == '-' &&
 			    argv[optind - 1][1] == ch)
 				--optind;
+			goto done;
+		case 'A':
+			acloptflags |= ACL_FLAG | ACL_TO_STDOUT;
+			ace_arg_not_required = 1;
+			errx(1, "-A not implemented");
 			goto done;
 		case 'E':
 			acloptflags |= ACL_FLAG | ACL_FROM_STDIN;
@@ -156,6 +160,7 @@ main(int argc, char *argv[])
 		case 'V':
 			acloptflags |= ACL_FLAG | ACL_INVOKE_EDITOR;
 			ace_arg_not_required = 1;
+			errx(1, "-V not implemented");
 			goto done;
 #endif /* __APPLE__ */
 		/*
@@ -272,14 +277,10 @@ apnoacl:
 	} else
 		fts_options = hflag ? FTS_PHYSICAL : FTS_LOGICAL;
 
-#ifndef __APPLE__
 	if (hflag)
 		change_mode = lchmod;
 	else
 		change_mode = chmod;
-#else
-	change_mode = chmod;
-#endif /* __APPLE__ */
 #ifdef __APPLE__
 	if (acloptflags & ACL_FROM_STDIN) {
 		int readval = 0, readtotal = 0;
@@ -350,16 +351,20 @@ apnoacl:
 		err(1, "fts_open");
 	for (rval = 0; (p = fts_read(ftsp)) != NULL;) {
 		switch (p->fts_info) {
-		case FTS_D:			/* Change it at FTS_DP. */
+		case FTS_D:
 			if (!Rflag)
-				fts_set(ftsp, p, FTS_SKIP);
-			continue;
+				(void)fts_set(ftsp, p, FTS_SKIP);
+			break;
 		case FTS_DNR:			/* Warn, chmod, continue. */
 			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
 			rval = 1;
 			break;
-		case FTS_ERR:			/* Warn, continue. */
+		case FTS_DP:			/* Already changed at FTS_D. */
+			continue;
 		case FTS_NS:
+			if (acloptflags & ACL_FLAG) /* don't need stat for -N */
+				break;
+		case FTS_ERR:			/* Warn, continue. */
 			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
 			rval = 1;
 			continue;
@@ -434,7 +439,8 @@ usage(void)
 {
 #ifdef __APPLE__
 	(void)fprintf(stderr,
-	    "usage: chmod [-fv] [-R [-H | -L | -P]] [-a | +a | =a  [i][# [ n]]] mode|entry file ...\n");
+		      "usage:\tchmod [-fhv] [-R [-H | -L | -P]] [-a | +a | =a  [i][# [ n]]] mode|entry file ...\n"
+		      "\tchmod [-fhv] [-R [-H | -L | -P]] [-E | -C | -i | -I] file ...\n"); /* add -A and -V when implemented */
 #else
 	(void)fprintf(stderr,
 	    "usage: chmod [-fhv] [-R [-H | -L | -P]] mode file ...\n");

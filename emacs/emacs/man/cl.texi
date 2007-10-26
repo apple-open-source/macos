@@ -2,23 +2,15 @@
 @setfilename ../info/cl
 @settitle Common Lisp Extensions
 
-@dircategory Emacs
-@direntry
-* CL: (cl).		Partial Common Lisp support for Emacs Lisp.
-@end direntry
-
-@iftex
-@finalout
-@end iftex
-
-@ifinfo
+@copying
 This file documents the GNU Emacs Common Lisp emulation package.
 
-Copyright (C) 1993 Free Software Foundation, Inc.
+Copyright @copyright{} 1993, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+Free Software Foundation, Inc.
 
-
+@quotation
 Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
+under the terms of the GNU Free Documentation License, Version 1.2 or
 any later version published by the Free Software Foundation; with no
 Invariant Sections, with the Front-Cover texts being ``A GNU
 Manual'', and with the Back-Cover Texts as in (a) below.  A copy of the
@@ -33,7 +25,15 @@ This document is part of a collection distributed under the GNU Free
 Documentation License.  If you want to distribute this document
 separately from the collection, you can do so by adding a copy of the
 license to the document, as described in section 6 of the license.
-@end ifinfo
+@end quotation
+@end copying
+
+@dircategory Emacs
+@direntry
+* CL: (cl).		Partial Common Lisp support for Emacs Lisp.
+@end direntry
+
+@finalout
 
 @titlepage
 @sp 6
@@ -46,30 +46,12 @@ license to the document, as described in section 6 of the license.
 @center Dave Gillespie
 @center daveg@@synaptics.com
 @page
-
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1993 Free Software Foundation, Inc.
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
-any later version published by the Free Software Foundation; with no
-Invariant Sections, with the Front-Cover texts being ``A GNU
-Manual'', and with the Back-Cover Texts as in (a) below.  A copy of the
-license is included in the section entitled ``GNU Free Documentation
-License'' in the Emacs manual.
-
-(a) The FSF's Back-Cover Text is: ``You have freedom to copy and modify
-this GNU Manual, like GNU software.  Copies published by the Free
-Software Foundation raise funds for GNU development.''
-
-This document is part of a collection distributed under the GNU Free
-Documentation License.  If you want to distribute this document
-separately from the collection, you can do so by adding a copy of the
-license to the document, as described in section 6 of the license.
+@insertcopying
 @end titlepage
 
 @node Top, Overview, (dir), (dir)
-@chapter Common Lisp Extensions
+@chapter Introduction
 
 @noindent
 This document describes a set of Emacs Lisp facilities borrowed from
@@ -96,17 +78,15 @@ does assume a basic familiarity with Emacs Lisp.
 * Old CL Compatibility::        All known differences with old cl.el
 * Porting Common Lisp::         Hints for porting Common Lisp code
 
+* GNU Free Documentation License:: The license for this documentation.
 * Function Index::
 * Variable Index::
 @end menu
 
 @node Overview, Program Structure, Top, Top
-@ifinfo
+@ifnottex
 @chapter Overview
-@end ifinfo
-@iftex
-@section Overview
-@end iftex
+@end ifnottex
 
 @noindent
 Common Lisp is a huge language, and Common Lisp systems tend to be
@@ -120,6 +100,16 @@ The @dfn{CL} package adds a number of Common Lisp functions and
 control structures to Emacs Lisp.  While not a 100% complete
 implementation of Common Lisp, @dfn{CL} adds enough functionality
 to make Emacs Lisp programming significantly more convenient.
+
+@strong{Please note:} the @dfn{CL} functions are not standard parts of
+the Emacs Lisp name space, so it is legitimate for users to define
+them with other, conflicting meanings.  To avoid conflicting with
+those user activities, we have a policy that packages installed in
+Emacs must not load @dfn{CL} at run time.  (It is ok for them to load
+@dfn{CL} at compile time only, with @code{eval-when-compile}, and use
+the macros it provides.)  If you are writing packages that you plan to
+distribute and invite widespread use for, you might want to observe
+the same rule.
 
 Some Common Lisp features have been omitted from this package
 for various reasons:
@@ -148,7 +138,7 @@ Lisp version of the function (e.g., @code{assoc*}).
 The package described here was written by Dave Gillespie,
 @file{daveg@@synaptics.com}.  It is a total rewrite of the original
 1986 @file{cl.el} package by Cesar Quiroz.  Most features of the
-the Quiroz package have been retained; any incompatibilities are
+Quiroz package have been retained; any incompatibilities are
 noted in the descriptions below.  Care has been taken in this
 version to ensure that each function is defined efficiently,
 concisely, and with minimal impact on the rest of the Emacs
@@ -748,6 +738,11 @@ Thus @code{(typep @var{object} 'null)} is equivalent to
 @code{(null @var{object})}.
 
 @item
+The type symbol @code{atom} represents all objects that are not cons
+cells. Thus @code{(typep @var{object} 'atom)} is equivalent to
+@code{(atom @var{object})}.
+
+@item
 The type symbol @code{real} is a synonym for @code{number}, and
 @code{fixnum} is a synonym for @code{integer}.
 
@@ -1003,7 +998,7 @@ just as with @code{setq}.  @code{setf} returns the value of the last
 @var{form}.
 
 The following Lisp forms will work as generalized variables, and
-so may legally appear in the @var{place} argument of @code{setf}:
+so may appear in the @var{place} argument of @code{setf}:
 
 @itemize @bullet
 @item
@@ -1040,41 +1035,41 @@ to standard Common Lisp.
 The following Emacs-specific functions are also @code{setf}-able.
 
 @smallexample
-buffer-file-name                  marker-position          
-buffer-modified-p                 match-data               
-buffer-name                       mouse-position           
-buffer-string                     overlay-end              
-buffer-substring                  overlay-get              
-current-buffer                    overlay-start            
-current-case-table                point                    
-current-column                    point-marker             
-current-global-map                point-max                
-current-input-mode                point-min                
-current-local-map                 process-buffer           
-current-window-configuration      process-filter           
-default-file-modes                process-sentinel         
-default-value                     read-mouse-position      
-documentation-property            screen-height            
-extent-data                       screen-menubar           
-extent-end-position               screen-width             
-extent-start-position             selected-window          
-face-background                   selected-screen          
-face-background-pixmap            selected-frame           
-face-font                         standard-case-table      
-face-foreground                   syntax-table             
-face-underline-p                  window-buffer            
-file-modes                        window-dedicated-p       
-frame-height                      window-display-table     
-frame-parameters                  window-height            
-frame-visible-p                   window-hscroll           
-frame-width                       window-point             
-get-register                      window-start             
-getenv                            window-width             
-global-key-binding                x-get-cut-buffer         
-keymap-parent                     x-get-cutbuffer          
+buffer-file-name                  marker-position
+buffer-modified-p                 match-data
+buffer-name                       mouse-position
+buffer-string                     overlay-end
+buffer-substring                  overlay-get
+current-buffer                    overlay-start
+current-case-table                point
+current-column                    point-marker
+current-global-map                point-max
+current-input-mode                point-min
+current-local-map                 process-buffer
+current-window-configuration      process-filter
+default-file-modes                process-sentinel
+default-value                     read-mouse-position
+documentation-property            screen-height
+extent-data                       screen-menubar
+extent-end-position               screen-width
+extent-start-position             selected-window
+face-background                   selected-screen
+face-background-pixmap            selected-frame
+face-font                         standard-case-table
+face-foreground                   syntax-table
+face-underline-p                  window-buffer
+file-modes                        window-dedicated-p
+frame-height                      window-display-table
+frame-parameters                  window-height
+frame-visible-p                   window-hscroll
+frame-width                       window-point
+get-register                      window-start
+getenv                            window-width
+global-key-binding                x-get-cut-buffer
+keymap-parent                     x-get-cutbuffer
 local-key-binding                 x-get-secondary-selection
-mark                              x-get-selection          
-mark-marker                       
+mark                              x-get-selection
+mark-marker
 @end smallexample
 
 Most of these have directly corresponding ``set'' functions, like
@@ -1085,7 +1080,7 @@ x (point-max))} in this case).
 
 @item
 A call of the form @code{(substring @var{subplace} @var{n} [@var{m}])},
-where @var{subplace} is itself a legal generalized variable whose
+where @var{subplace} is itself a valid generalized variable whose
 current value is a string, and where the value stored is also a
 string.  The new string is spliced into the specified part of the
 destination string.  For example:
@@ -2010,7 +2005,7 @@ just as in Common Lisp.
 Because they are implemented in terms of Emacs Lisp @code{catch}
 and @code{throw}, blocks have the same overhead as actual
 @code{catch} constructs (roughly two function calls).  However,
-the optimizing byte compiler will optimize away the @code{catch} 
+the optimizing byte compiler will optimize away the @code{catch}
 if the block does
 not in fact contain any @code{return} or @code{return-from} calls
 that jump to it.  This means that @code{do} loops and @code{defun*}
@@ -2391,7 +2386,7 @@ that they are exclusive rather than inclusive limits:
 
 The @code{by} value is always positive, even for downward-counting
 loops.  Some sort of @code{from} value is required for downward
-loops; @samp{for x downto 5} is not a legal loop clause all by
+loops; @samp{for x downto 5} is not a valid loop clause all by
 itself.
 
 @item for @var{var} in @var{list} by @var{function}
@@ -2493,7 +2488,7 @@ are also recognized but are equivalent to @code{symbols} in Emacs Lisp.
 Due to a minor implementation restriction, it will not work to have
 more than one @code{for} clause iterating over symbols, hash tables,
 keymaps, overlays, or intervals in a given @code{loop}.  Fortunately,
-it would rarely if ever be useful to do so.  It @emph{is} legal to mix
+it would rarely if ever be useful to do so.  It @emph{is} valid to mix
 one of these types of clauses with other clauses like @code{for ... to}
 or @code{while}.
 
@@ -2739,7 +2734,7 @@ not automatically imply a return value.  The loop must use some
 explicit mechanism, such as @code{finally return}, to return
 the accumulated result.
 
-It is legal for several accumulation clauses of the same type to
+It is valid for several accumulation clauses of the same type to
 accumulate into the same place.  From Steele:
 
 @example
@@ -3136,7 +3131,7 @@ and declare it inline all at once.
 (defsubst foo (...) ...)       ; instead of defun
 @end example
 
-@strong{Note:}  This declaration remains in effect after the
+@strong{Please note:}  this declaration remains in effect after the
 containing source file is done.  It is correct to use it to
 request that a function you have defined should be inlined,
 but it is impolite to use it to request inlining of an external
@@ -3260,8 +3255,8 @@ In particular,
 (get sym prop)  @equiv{}  (getf (symbol-plist sym) prop)
 @end example
 
-It is legal to use @code{getf} as a @code{setf} place, in which case
-its @var{place} argument must itself be a legal @code{setf} place.
+It is valid to use @code{getf} as a @code{setf} place, in which case
+its @var{place} argument must itself be a valid @code{setf} place.
 The @var{default} argument, if any, is ignored in this context.
 The effect is to change (via @code{setcar}) the value cell in the
 list that corresponds to @var{property}, or to cons a new property-value
@@ -3360,7 +3355,7 @@ which were left out of Emacs Lisp.
 * Predicates on Numbers::       `plusp', `oddp', `floatp-safe', etc.
 * Numerical Functions::         `abs', `floor*', etc.
 * Random Numbers::              `random*', `make-random-state'
-* Implementation Parameters::   `most-positive-fixnum', `most-positive-float'
+* Implementation Parameters::   `most-positive-float'
 @end menu
 
 @iftex
@@ -3547,7 +3542,7 @@ be an integer in which case the new object is seeded from that
 integer; each different integer seed will result in a completely
 different sequence of random numbers.
 
-It is legal to print a @code{random-state} object to a buffer or
+It is valid to print a @code{random-state} object to a buffer or
 file and later read it back with @code{read}.  If a program wishes
 to use a sequence of pseudo-random numbers which can be reproduced
 later for debugging, it can call @code{(make-random-state t)} to
@@ -3566,16 +3561,6 @@ This predicate returns @code{t} if @var{object} is a
 
 @noindent
 This package defines several useful constants having to with numbers.
-
-@defvar most-positive-fixnum
-This constant equals the largest value a Lisp integer can hold.
-It is typically @code{2^23-1} or @code{2^25-1}.
-@end defvar
-
-@defvar most-negative-fixnum
-This constant equals the smallest (most negative) value a Lisp
-integer can hold.
-@end defvar
 
 The following parameters have to do with floating-point numbers.
 This package determines their values by exercising the computer's
@@ -4102,13 +4087,15 @@ accepts a @code{:key} argument which is used to preprocess data
 fed to the @var{predicate} function.  For example,
 
 @example
-(setq data (sort data 'string-lessp :key 'downcase))
+(setq data (sort* data 'string-lessp :key 'downcase))
 @end example
 
 @noindent
 sorts @var{data}, a sequence of strings, into increasing alphabetical
 order without regard to case.  A @code{:key} function of @code{car}
-would be useful for sorting association lists.
+would be useful for sorting association lists.  It should only be a
+simple accessor though, it's used heavily in the current
+implementation.
 
 The @code{sort*} function is destructive; it sorts lists by actually
 rearranging the @code{cdr} pointers in suitable fashion.
@@ -4597,7 +4584,7 @@ initialized from the corresponding argument.  Slots whose names
 do not appear in the argument list are initialized based on the
 @var{default-value} in their slot descriptor.  Also, @code{&optional}
 and @code{&key} arguments which don't specify defaults take their
-defaults from the slot descriptor.  It is legal to include arguments
+defaults from the slot descriptor.  It is valid to include arguments
 which don't correspond to slot names; these are useful if they are
 referred to in the defaults for optional, keyword, or @code{&aux}
 arguments which @emph{do} correspond to slots.
@@ -5155,7 +5142,7 @@ older versions of the old package used the unadorned names
 @code{floor}, @code{ceiling}, etc.; @code{cl-compat} cannot use
 these names because they conflict with Emacs built-ins.
 
-@node Porting Common Lisp, Function Index, Old CL Compatibility, Top
+@node Porting Common Lisp, GNU Free Documentation License, Old CL Compatibility, Top
 @appendix Porting Common Lisp
 
 @noindent
@@ -5166,7 +5153,7 @@ difficult to port large Common Lisp applications to Emacs.  For
 one, some of the features in this package are not fully compliant
 with ANSI or Steele; @pxref{Common Lisp Compatibility}.  But there
 are also quite a few features that this package does not provide
-at all.  Here are some major omissions that you will want watch out
+at all.  Here are some major omissions that you will want to watch out
 for when bringing Common Lisp code into Emacs.
 
 @itemize @bullet
@@ -5367,7 +5354,11 @@ note that the current Emacs Lisp compiler does not optimize tail
 recursion.
 @end itemize
 
-@node Function Index, Variable Index, Porting Common Lisp, Top
+@node GNU Free Documentation License, Function Index, Porting Common Lisp, Top
+@appendix GNU Free Documentation License
+@include doclicense.texi
+
+@node Function Index, Variable Index, GNU Free Documentation License, Top
 @unnumbered Function Index
 
 @printindex fn
@@ -5380,3 +5371,7 @@ recursion.
 @setchapternewpage odd
 @contents
 @bye
+
+@ignore
+   arch-tag: b61e7200-3bfa-4a70-a9d3-095e152696f8
+@end ignore

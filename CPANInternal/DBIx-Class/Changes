@@ -1,0 +1,390 @@
+Revision history for DBIx::Class
+
+0.07005 2007-01-10 18:36:00
+        - fixup changes file
+        - remove erroneous .orig files - oops
+
+0.07004 2007-01-09 21:52:00
+        - fix find_related-based queries to correctly grep the unique key
+        - fix InflateColumn to inflate/deflate all refs but scalar refs
+
+0.07003 2006-11-16 11:52:00
+        - fix for rt.cpan.org #22740 (use $^X instead of hardcoded "perl")
+        - Tweaks to resultset to allow inflate_result to return an array
+        - Fix UTF8Columns to work under Perl <= 5.8.0
+        - Fix up new_result in ResultSet to avoid alias-related bugs
+        - Made new/update/find handle 'single' rel accessor correctly
+        - Fix NoBindVars to be safer and handle non-true bind values
+        - Don't blow up if columns_info_for returns useless results
+        - Documentation updates
+
+0.07002 2006-09-14 21:17:32
+        - fix quote tests for recent versions of SQLite
+        - added reference implementation of Manual::Example
+        - backported column_info_from_storage accessor from -current, but
+          defaults true instead of false in 0.07xxx
+        - fixed inflate_datetime.t tests/stringify under older Test::More
+        - minor fixes for many-to-many relationship helpers
+        - cleared up Relationship docs, and fixed some typos
+        - use ref instead of eval to check limit syntax (to avoid issues with
+          Devel::StackTrace)
+        - update ResultSet::_cond_for_update_delete to handle more complicated
+          queries
+        - bugfix to Oracle columns_info_for
+        - remove_columns now deletes columns from _columns
+
+0.07001 2006-08-18 19:55:00
+        - add directory argument to deploy()
+        - support default aliases in many_to_many accessors.
+        - support for relationship attributes in many_to_many accessors.
+        - stop search_rs being destructive to attrs
+        - better error reporting when loading components
+        - UTF8Columns changed to use "utf8" instead of "Encode"
+        - restore automatic aliasing in ResultSet::find() on nonunique queries
+        - allow aliases in ResultSet::find() queries (in cases of relationships
+          with prefetch)
+        - pass $attrs to find from update_or_create so a specific key can be
+          provided
+        - remove anonymous blesses to avoid major speed hit on Fedora Core 5's
+          Perl and possibly others; for more information see:
+          https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=196836
+        - fix a pathological prefetch case
+        - table case fix for Oracle in columns_info_for
+        - stopped search_rs deleting attributes from passed hash
+
+0.07000 2006-07-23 02:30:00
+        - supress warnings for possibly non-unique queries, since
+          _is_unique_query doesn't infer properly in all cases
+        - skip empty queries to eliminate spurious warnings on ->deploy
+        - fixups to ORDER BY, tweaks to deepen some copies in ResultSet
+        - fixup for RowNum limit syntax with functions
+
+0.06999_07 2006-07-12 20:58:05
+        - fix issue with from attr copying introduced in last release
+
+0.06999_06 2006-07-12 17:16:55
+        - documentation for new storage options, fix S::A::L hanging on to $dbh
+        - substantial refactor of search_related code to fix alias numbering
+        - don't generate partial unique keys in ResultSet::find() when a table
+          has more than one unique constraint which share a column and only one
+          is satisfied
+        - cleanup UTF8Columns and make more efficient
+        - rename DBIX_CLASS_STORAGE_DBI_DEBUG to DBIC_TRACE (with compat)
+        - rename _parent_rs to _parent_source in ResultSet
+        - new FAQ.pod!
+
+0.06999_05 2006-07-04 14:40:01
+        - fix issue with incorrect $rs->{attrs}{alias}
+        - fix subclassing issue with source_name
+        - tweak quotes test to output text on failure
+        - fix Schema->txn_do to not fail as a classmethod
+
+0.06999_04 2006-06-29 20:18:47
+        - disable cdbi-t/02-Film.t warning tests under AS perl
+        - fixups to MySQL tests (aka "work round mysql being retarded")
+        - compat tweaks for Storage debug logging
+
+0.06999_03 2006-06-26 21:04:44
+        - various documentation improvements
+        - fixes to pass test suite on Windows
+        - rewrote and cleaned up SQL::Translator tests
+        - changed relationship helpers to only call ensure_class_loaded when the
+          join condition is inferred 
+        - rewrote many_to_many implementation, now provides helpers for adding
+          and deleting objects without dealing with the link table
+        - reworked InflateColumn implementation to lazily deflate where
+          possible; now handles passing an inflated object to new()
+        - changed join merging to not create a rel_2 alias when adding a join
+          that already exists in a parent resultset
+        - Storage::DBI::deployment_statements now calls ensure_connected
+          if it isn't passed a type 
+        - fixed Componentized::ensure_class_loaded
+        - InflateColumn::DateTime supports date as well as datetime
+        - split Storage::DBI::MSSQL into MSSQL and Sybase::MSSQL
+        - fixed wrong debugging hook call in Storage::DBI 
+        - set connect_info properly before setting any ->sql_maker things 
+
+0.06999_02 2006-06-09 23:58:33
+        - Fixed up POD::Coverage tests, filled in some POD holes
+        - Added a warning for incorrect component order in load_components
+        - Fixed resultset bugs to do with related searches
+        - added code and tests for Componentized::ensure_class_found and
+          load_optional_class
+        - NoBindVars + Sybase + MSSQL stuff
+        - only rebless S::DBI if it is still S::DBI and not a subclass
+        - Added `use' statement for DBD::Pg in Storage::DBI::Pg
+        - stopped test relying on order of unordered search
+        - bugfix for join-types in nested joins using the from attribute
+        - obscure prefetch problem fixed
+        - tightened up deep search_related
+        - Fixed 'DBIx/Class/DB.pm did not return a true value' error
+        - Revert change to test for deprecated find usage and swallow warnings
+        - Slight wording change to new_related() POD
+        - new specific test for connect_info coderefs
+        - POD clarification and content bugfixing + a few code formatting fixes
+        - POD::Coverage additions
+        - fixed debugfh
+        - Fix column_info stomping
+
+0.06999_01 2006-05-28 17:19:30
+        - add automatic naming of unique constraints
+        - marked DB.pm as deprecated and noted it will be removed by 1.0
+        - add ResultSetColumn
+        - refactor ResultSet code to resolve attrs as late as possible
+        - merge prefetch attrs into join attrs
+        - add +select and +as attributes to ResultSet
+        - added InflateColumn::DateTime component
+        - refactor debugging to allow for profiling using Storage::Statistics
+        - removed Data::UUID from deps, made other optionals required
+        - modified SQLT parser to skip dupe table names
+        - added remove_column(s) to ResultSource/ResultSourceProxy
+        - added add_column alias to ResultSourceProxy
+        - added source_name to ResultSource
+        - load_classes now uses source_name and sets it if necessary
+        - add update_or_create_related to Relationship::Base
+        - add find_or_new to ResultSet/ResultSetProxy and find_or_new_related
+          to Relationship::Base
+        - add accessors for unique constraint names and coulums to
+          ResultSource/ResultSourceProxy
+        - rework ResultSet::find() to search unique constraints
+        - CDBICompat: modify retrieve to fix column casing when ColumnCase is
+          loaded
+        - CDBICompat: override find_or_create to fix column casing when
+          ColumnCase is loaded
+        - reorganized and simplified tests
+        - added Ordered
+        - added the ability to set on_connect_do and the various sql_maker
+          options as part of Storage::DBI's connect_info.
+
+0.06003 2006-05-19 15:37:30
+        - make find_or_create_related check defined() instead of truth
+        - don't unnecessarily fetch rels for cascade_update
+        - don't set_columns explicitly in update_or_create; instead use
+          update($hashref) so InflateColumn works
+        - fix for has_many prefetch with 0 related rows
+        - make limit error if rows => 0
+        - added memory cycle tests and a long-needed weaken call
+
+0.06002 2006-04-20 00:42:41
+        - fix set_from_related to accept undef
+        - fix to Dumper-induced hash iteration bug
+        - fix to copy() with non-composed resultsource
+        - fix to ->search without args to clone rs but maintain cache
+        - grab $self->dbh once per function in Storage::DBI
+        - nuke ResultSource caching of ->resultset for consistency reasons
+        - fix for -and conditions when updating or deleting on a ResultSet
+
+0.06001
+        - Added fix for quoting with single table
+        - Substantial fixes and improvements to deploy
+        - slice now uses search directly
+        - fixes for update() on resultset
+        - bugfix to Cursor to avoid error during DESTROY
+        - transaction DBI operations now in debug trace output
+
+0.06000 2006-03-25 18:03:46
+        - Lots of documentation improvements
+        - Minor tweak to related_resultset to prevent it storing a searched rs
+        - Fixup to columns_info_for when database returns type(size)
+        - Made do_txn respect void context (on the off-chance somebody cares)
+        - Fix exception text for nonexistent key in ResultSet::find()
+
+0.05999_04 2006-03-18 19:20:49
+        - Fix for delete on full-table resultsets
+        - Removed caching on count() and added _count for pager()
+        - ->connection does nothing if ->storage defined and no args
+          (and hence ->connect acts like ->clone under the same conditions)
+        - Storage::DBI throws better exception if no connect info
+        - columns_info_for made more robust / informative
+        - ithreads compat added, fork compat improved
+        - weaken result_source in all resultsets
+        - Make pg seq extractor less sensitive.
+
+0.05999_03 2006-03-14 01:58:10
+        - has_many prefetch fixes
+        - deploy now adds drop statements before creates
+        - deploy outputs debugging statements if DBIX_CLASS_STORAGE_DBI_DEBUG
+            is set
+
+0.05999_02 2006-03-10 13:31:37
+        - remove test dep on YAML
+        - additional speed tweaks for C3
+        - allow scalarefs passed to order_by to go straight through to SQL
+        - renamed insert_or_update to update_or_insert (with compat alias)
+        - hidden lots of packages from the PAUSE Indexer
+
+0.05999_01 2006-03-09 18:31:44
+        - renamed cols attribute to columns (cols still supported)
+        - added has_column_loaded to Row
+        - Storage::DBI connect_info supports coderef returning dbh as 1st arg
+        - load_components() doesn't prepend base when comp. prefixed with +
+        - $schema->deploy
+        - HAVING support
+        - prefetch for has_many
+        - cache attr for resultsets
+        - PK::Auto::* no longer required since Storage::DBI::* handle auto-inc
+        - minor tweak to tests for join edge case
+        - added cascade_copy relationship attribute
+          (sponsored by Airspace Software, http://www.airspace.co.uk/)
+        - clean up set_from_related
+        - made copy() automatically null out auto-inc columns
+        - added txn_do() method to Schema, which allows a coderef to be
+          executed atomically
+
+0.05007 2006-02-24 00:59:00
+        - tweak to Componentised for Class::C3 0.11
+        - fixes for auto-inc under MSSQL
+
+0.05006 2006-02-17 15:32:40
+        - storage fix for fork() and workaround for Apache::DBI
+        - made update(\%hash) work on row as well as rs
+        - another fix for count with scalar group_by
+        - remove dependency on Module::Find in 40resultsetmanager.t (RT #17598)
+
+0.05005 2006-02-13 21:24:51
+        - remove build dependency on version.pm
+
+0.05004 2006-02-13 20:59:00
+        - allow specification of related columns via cols attr when primary
+          keys of the related table are not fetched
+        - fix count for group_by as scalar
+        - add horrific fix to make Oracle's retarded limit syntax work
+        - remove Carp require
+        - changed UUIDColumns to use new UUIDMaker classes for uuid creation
+        using whatever module may be available
+
+0.05003 2006-02-08 17:50:20
+        - add component_class accessors and use them for *_class
+        - small fixes to Serialize and ResultSetManager
+        - rollback on disconnect, and disconnect on DESTROY
+
+0.05002 2006-02-06 12:12:03
+        - Added recommends for Class::Inspector
+        - Added skip_all to t/40resultsetmanager.t if no Class::Inspector available
+
+0.05001 2006-02-05 15:28:10
+        - debug output now prints NULL for undef params
+        - multi-step prefetch along the same rel (e.g. for trees) now works
+        - added multi-join (join => [ 'foo', 'foo' ]), aliases second to foo_2
+        - hack PK::Auto::Pg for "table" names referencing a schema
+        - find() with attributes works
+        - added experimental Serialize and ResultSetManager components
+        - added code attribute recording to DBIx::Class
+        - fix to find() for complex resultsets
+        - added of $storage->debugcb(sub { ... })
+        - added $source->resultset_attributes accessor
+        - added include_columns rs attr
+
+0.05000 2006-02-01 16:48:30
+        - assorted doc fixes
+        - remove ObjectCache, not yet working in 0.05
+        - let many_to_many rels have attrs
+        - fix ID method in PK.pm to be saner for new internals
+        - fix t/30dbicplain.t to use ::Schema instead of
+          Catalyst::Model::DBIC::Plain
+
+0.04999_06 2006-01-28 21:20:32
+        - fix Storage/DBI (tried to load deprecated ::Exception component)
+
+0.04999_05 2006-01-28 20:13:52
+        - count will now work for grouped resultsets
+        - added accessor => option to column_info to specify accessor name
+        - added $schema->populate to load test data (similar to AR fixtures)
+        - removed cdbi-t dependencies, only run tests if installed
+        - Removed DBIx::Class::Exception
+        - unified throw_exception stuff, using Carp::Clan
+        - report query when sth generation fails.
+        - multi-step prefetch!
+        - inheritance fixes
+        - test tweaks
+
+0.04999_04 2006-01-24 21:48:21
+        - more documentation improvements
+        - add columns_info_for for vendor-specific column info (Zbigniew Lukasiak)
+        - add SQL::Translator::Producer for DBIx::Class table classes (Jess Robinson)
+        - add unique constraint declaration (Daniel Westermann-Clark)
+        - add new update_or_create method (Daniel Westermann-Clark)
+        - rename ResultSetInstance class to ResultSetProxy, ResultSourceInstance
+          to ResultSourceProxy, and TableInstance to ResultSourceProxy::Table
+        - minor fixes to UUIDColumns
+        - add debugfh method and ENV magic for tracing SQL (Nigel Metheringham)
+
+0.04999_03 2006-01-20 06:05:27
+        - imported Jess Robinson's SQL::Translator::Parser::DBIx::Class
+        - lots of internals cleanup to eliminate result_source_instance requirement
+        - added register_column and register_relationship class APIs
+        - made Storage::DBI use prepare_cached safely (thanks to Tim Bunce)
+        - many documentation improvements (thanks guys!)
+        - added ->connection, ->connect, ->register_source and ->clone schema methods
+        - Use croak instead of die for user errors.
+
+0.04999_02 2006-01-14 07:17:35
+        - Schema is now self-contained; no requirement for co-operation
+        - add_relationship, relationships, relationship_info, has_relationship
+        - relationship handling on ResultSource
+        - all table handling now in Table.pm / ResultSource.pm
+        - added GROUP BY and DISTINCT support
+        - hacked around SQL::Abstract::Limit some more in DBIC::SQL::Abstract
+          (this may have fixed complex quoting)
+        - moved inflation to inflate_result in Row.pm
+        - added $rs->search_related
+        - split compose_namespace out of compose_connection in Schema
+        - ResultSet now handles find
+        - various *_related methods are now ->search_related->*
+        - added new_result to ResultSet
+
+0.04999_01 2005-12-27 03:33:42
+        - search and related methods moved to ResultSet
+        - select and as added to ResultSet attrs
+        - added DBIx::Class::Table and TableInstance for table-per-class
+        - added DBIx::Class::ResultSetInstance which handles proxying
+          search etc. as a superclass of DBIx::Class::DB
+        - assorted test and code cleanup work
+
+0.04001 2005-12-13 22:00:00
+        - Fix so set_inflated_column calls set_column
+        - Syntax errors in relationship classes are now reported
+        - Better error detection in set_primary_key and columns methods
+        - Documentation improvements
+        - Better transaction support with txn_* methods
+        - belongs_to now works when $cond is a string
+        - PK::Auto::Pg updated, only tries primary keys instead of all cols
+
+0.04 2005-11-26
+        - Moved get_simple and set_simple into AccessorGroup
+        - Made 'new' die if given invalid columns
+        - Added has_column and column_info to Table.pm
+        - Refactored away from direct use of _columns and _primaries
+        - Switched from NEXT to Class::C3
+
+0.03004
+        - Added an || '' to the CDBICompat stringify to avoid null warnings
+        - Updated name section for manual pods
+0.03003 2005-11-03 17:00:00
+        - POD fixes.
+        - Changed use to require in Relationship/Base to avoid import.
+
+0.03002 2005-10-20 22:35:00
+        - Minor bugfix to new (Row.pm)
+        - Schema doesn't die if it can't load a class (Schema.pm)
+        - New UUID columns plugin (UUIDColumns.pm)
+        - Documentation improvements.
+
+0.03001 2005-09-23 14:00:00
+        - Fixes to relationship helpers
+        - IMPORTANT: prefetch/schema combination bug fix
+
+0.03    2005-09-19 19:35:00
+        - Paging support
+        - Join support on search
+        - Prefetch support on search
+
+0.02    2005-08-12 18:00:00
+        - Test fixes.
+        - Performance improvements.
+        - Oracle primary key support.
+        - MS-SQL primary key support.
+        - SQL::Abstract::Limit integration for database-agnostic limiting.
+
+0.01    2005-08-08 17:10:00
+        - initial release

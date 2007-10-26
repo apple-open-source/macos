@@ -28,7 +28,7 @@
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDynamicStore.h>
-
+#include <Security/Security.h>
 
 /*!
 	@header SCPreferences
@@ -157,6 +157,38 @@ SCPreferencesCreate		(
 				CFStringRef		name,
 				CFStringRef		prefsID
 				);
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
+
+/*!
+	@function SCPreferencesCreateWithAuthorization
+	@discussion Initiates access to the per-system set of configuration
+		preferences.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this preferences session.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used.
+		If this reference is not a valid CFAllocator, the behavior
+		is undefined.
+	@param name A string that describes the name of the calling
+		process.
+	@param prefsID A string that identifies the name of the
+		group of preferences to be accessed or updated.
+	@param authorization An authorization reference that is used to
+		authorize any access to the enhanced privileges needed
+		to manage the preferences session.
+	@result Returns a reference to the new SCPreferences.
+		You must release the returned value.
+ */
+SCPreferencesRef
+SCPreferencesCreateWithAuthorization	(
+					CFAllocatorRef		allocator,
+					CFStringRef		name,
+					CFStringRef		prefsID,
+					AuthorizationRef	authorization
+					)				AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
 
 /*!
 	@function SCPreferencesLock

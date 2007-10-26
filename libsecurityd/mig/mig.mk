@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+#  Copyright (c) 2003-2004,2006-2007 Apple Inc. All Rights Reserved.
 #
 #  @APPLE_LICENSE_HEADER_START@
 #  
@@ -24,9 +24,11 @@
 #
 DERIVED_SRC = $(BUILT_PRODUCTS_DIR)/derived_src
 
-HDRS = $(DERIVED_SRC)/ucsp.h $(DERIVED_SRC)/ucspNotify.h
+HDRS = $(DERIVED_SRC)/ucsp.h $(DERIVED_SRC)/ucspNotify.h $(DERIVED_SRC)/cshosting.h
 SRCS =	$(DERIVED_SRC)/ucspServer.cpp $(DERIVED_SRC)/ucspClient.cpp \
-		$(DERIVED_SRC)/ucspNotifyReceiver.cpp $(DERIVED_SRC)/ucspNotifySender.cpp
+		$(DERIVED_SRC)/ucspClientC.c \
+		$(DERIVED_SRC)/ucspNotifyReceiver.cpp $(DERIVED_SRC)/ucspNotifySender.cpp \
+		$(DERIVED_SRC)/cshostingServer.cpp $(DERIVED_SRC)/cshostingClient.cpp
 INCLUDES = $(SRCROOT)/mig/ss_types.defs
 
 build: $(HDRS) $(SRCS)
@@ -44,8 +46,16 @@ $(DERIVED_SRC)/ucsp.h $(DERIVED_SRC)/ucspServer.cpp $(DERIVED_SRC)/ucspClient.cp
 	mkdir -p $(DERIVED_SRC)
 	mig -server $(DERIVED_SRC)/ucspServer.cpp -user $(DERIVED_SRC)/ucspClient.cpp \
 		-header $(DERIVED_SRC)/ucsp.h $(SRCROOT)/mig/ucsp.defs
+		
+$(DERIVED_SRC)/ucspClientC.c: $(DERIVED_SRC)/ucspClient.cpp
+	cp $(DERIVED_SRC)/ucspClient.cpp $(DERIVED_SRC)/ucspClientC.c
 
 $(DERIVED_SRC)/ucspNotify.h $(DERIVED_SRC)/ucspNotifyReceiver.cpp $(DERIVED_SRC)/ucspNotifySender.cpp: $(SRCROOT)/mig/ucspNotify.defs $(INCLUDES)
 	mkdir -p $(DERIVED_SRC)
 	mig -server $(DERIVED_SRC)/ucspNotifyReceiver.cpp -user $(DERIVED_SRC)/ucspNotifySender.cpp \
 		-header $(DERIVED_SRC)/ucspNotify.h $(SRCROOT)/mig/ucspNotify.defs
+
+$(DERIVED_SRC)/cshosting.h $(DERIVED_SRC)/cshostingServer.cpp $(DERIVED_SRC)/cshostingClient.cpp: $(SRCROOT)/mig/cshosting.defs $(INCLUDES)
+	mkdir -p $(DERIVED_SRC)
+	mig -server $(DERIVED_SRC)/cshostingServer.cpp -user $(DERIVED_SRC)/cshostingClient.cpp \
+		-header $(DERIVED_SRC)/cshosting.h $(SRCROOT)/mig/cshosting.defs

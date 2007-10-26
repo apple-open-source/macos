@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,9 +16,9 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: flock_compat.c,v 1.21.2.2.8.3 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: flock_compat.c,v 1.29.2.1.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
-#include <php.h>
+#include "php.h"
 #include <errno.h>
 #include "ext/standard/flock_compat.h"
 
@@ -29,7 +29,6 @@
 #endif
 
 #ifdef PHP_WIN32
-#include <windows.h>
 #include <io.h>
 #endif
 

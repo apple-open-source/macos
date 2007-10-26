@@ -47,6 +47,7 @@
 #include <arpa/inet.h>
 #include <sys/sysctl.h>
 #include <pthread.h>
+#include <net/if.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>

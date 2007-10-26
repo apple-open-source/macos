@@ -1,6 +1,7 @@
 /* Target-dependent code for Atmel AVR, for GDB.
-   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
-   Free Software Foundation, Inc.
+
+   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2005 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -588,7 +589,7 @@ avr_scan_prologue (CORE_ADDR pc, struct avr_unwind_cache *info)
 
       if (num_pushes > AVR_MAX_PUSHES)
         {
-          fprintf_unfiltered (gdb_stderr, "Num pushes too large: %d\n",
+          fprintf_unfiltered (gdb_stderr, _("Num pushes too large: %d\n"),
                               num_pushes);
           num_pushes = 0;
         }
@@ -667,7 +668,7 @@ avr_scan_prologue (CORE_ADDR pc, struct avr_unwind_cache *info)
 
   if (vpc >= AVR_MAX_PROLOGUE_SIZE)
      fprintf_unfiltered (gdb_stderr,
-                         "Hit end of prologue while scanning pushes\n");
+                         _("Hit end of prologue while scanning pushes\n"));
 
   /* Second stage of the prologue scanning.
      Scan:
@@ -966,23 +967,14 @@ avr_frame_this_id (struct frame_info *next_frame,
     return;
 
   id = frame_id_build (base, func);
-
-  /* Check that we're not going round in circles with the same frame
-     ID (but avoid applying the test to sentinel frames which do go
-     round in circles).  Can't use frame_id_eq() as that doesn't yet
-     compare the frame's PC value.  */
-  if (frame_relative_level (next_frame) >= 0
-      && get_frame_type (next_frame) != DUMMY_FRAME
-      && frame_id_eq (get_frame_id (next_frame), id))
-    return;
-
   (*this_id) = id;
 }
 
 static void
 avr_frame_prev_register (struct frame_info *next_frame,
 			  void **this_prologue_cache,
-			  int regnum, int *optimizedp,
+			 /* APPLE LOCAL variable opt states.  */
+			  int regnum, enum opt_state *optimizedp,
 			  enum lval_type *lvalp, CORE_ADDR *addrp,
 			  int *realnump, void *bufferp)
 {
@@ -993,7 +985,8 @@ avr_frame_prev_register (struct frame_info *next_frame,
     {
       if (trad_frame_addr_p (info->saved_regs, regnum))
         {
-          *optimizedp = 0;
+	  /* APPLE LOCAL variable opt states.  */
+          *optimizedp = opt_okay;
           *lvalp = lval_memory;
           *addrp = info->saved_regs[regnum].addr;
           *realnump = -1;
@@ -1035,8 +1028,8 @@ avr_frame_prev_register (struct frame_info *next_frame,
         }
     }
   else
-    trad_frame_prev_register (next_frame, info->saved_regs, regnum,
-                              optimizedp, lvalp, addrp, realnump, bufferp);
+    trad_frame_get_prev_register (next_frame, info->saved_regs, regnum,
+				  optimizedp, lvalp, addrp, realnump, bufferp);
 }
 
 static const struct frame_unwind avr_frame_unwind = {
@@ -1091,10 +1084,8 @@ struct stack_item
   void *data;
 };
 
-static struct stack_item *push_stack_item (struct stack_item *prev,
-					   void *contents, int len);
 static struct stack_item *
-push_stack_item (struct stack_item *prev, void *contents, int len)
+push_stack_item (struct stack_item *prev, const bfd_byte *contents, int len)
 {
   struct stack_item *si;
   si = xmalloc (sizeof (struct stack_item));
@@ -1156,7 +1147,7 @@ pop_stack_item (struct stack_item *si)
    registers R0 to R2. */
 
 static CORE_ADDR
-avr_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
+avr_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
                      struct regcache *regcache, CORE_ADDR bp_addr,
                      int nargs, struct value **args, CORE_ADDR sp,
                      int struct_return, CORE_ADDR struct_addr)
@@ -1182,8 +1173,8 @@ avr_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
       int last_regnum;
       int j;
       struct value *arg = args[i];
-      struct type *type = check_typedef (VALUE_TYPE (arg));
-      char *contents = VALUE_CONTENTS (arg);
+      struct type *type = check_typedef (value_type (arg));
+      const bfd_byte *contents = value_contents (arg);
       int len = TYPE_LENGTH (type);
 
       /* Calculate the potential last register needed. */
@@ -1302,14 +1293,10 @@ avr_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_address_to_pointer (gdbarch, avr_address_to_pointer);
   set_gdbarch_pointer_to_address (gdbarch, avr_pointer_to_address);
 
-  set_gdbarch_use_struct_convention (gdbarch, generic_use_struct_convention);
-
   set_gdbarch_skip_prologue (gdbarch, avr_skip_prologue);
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
 
   set_gdbarch_breakpoint_from_pc (gdbarch, avr_breakpoint_from_pc);
-
-  set_gdbarch_deprecated_frameless_function_invocation (gdbarch, legacy_frameless_look_for_prologue);
 
   frame_unwind_append_sniffer (gdbarch, avr_frame_sniffer);
   frame_base_set_default (gdbarch, &avr_frame_base);
@@ -1351,8 +1338,8 @@ avr_io_reg_read_command (char *args, int from_tty)
   if (bufsiz < 0)
     {
       fprintf_unfiltered (gdb_stderr,
-			  "ERR: info io_registers NOT supported by current "
-                          "target\n");
+			  _("ERR: info io_registers NOT supported "
+			    "by current target\n"));
       return;
     }
   if (bufsiz > sizeof (buf))
@@ -1366,20 +1353,20 @@ avr_io_reg_read_command (char *args, int from_tty)
   if (strncmp (buf, "", bufsiz) == 0)
     {
       fprintf_unfiltered (gdb_stderr,
-			  "info io_registers NOT supported by target\n");
+			  _("info io_registers NOT supported by target\n"));
       return;
     }
 
   if (sscanf (buf, "%x", &nreg) != 1)
     {
       fprintf_unfiltered (gdb_stderr,
-			  "Error fetching number of io registers\n");
+			  _("Error fetching number of io registers\n"));
       return;
     }
 
   reinitialize_more_filter ();
 
-  printf_unfiltered ("Target has %u io registers:\n\n", nreg);
+  printf_unfiltered (_("Target has %u io registers:\n\n"), nreg);
 
   /* only fetch up to 8 registers at a time to keep the buffer small */
   step = 8;
@@ -1426,5 +1413,6 @@ _initialize_avr_tdep (void)
      io_registers' to signify it is not available on other platforms. */
 
   add_cmd ("io_registers", class_info, avr_io_reg_read_command,
-	   "query remote avr target for io space register values", &infolist);
+	   _("query remote avr target for io space register values"),
+	   &infolist);
 }

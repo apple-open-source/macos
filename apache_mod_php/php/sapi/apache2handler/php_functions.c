@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,9 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_functions.c,v 1.1.2.12.2.6 2007/03/05 22:00:12 stas Exp $ */
+/* $Id: php_functions.c,v 1.18.2.6.2.5 2007/02/24 02:17:28 helly Exp $ */
+
+#define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
 #include "php.h"
 #include "ext/standard/php_smart_str.h"
@@ -40,7 +42,7 @@
 #include "util_script.h"
 #include "http_core.h"
 #include "ap_mpm.h"
-#if !defined(WIN32) && !defined(WINNT)
+#if !defined(WIN32) && !defined(WINNT) && !defined(NETWARE)
 #include "unixd.h"
 #endif
 
@@ -92,7 +94,7 @@ PHP_FUNCTION(virtual)
 
 	/* Flush everything. */
 	php_end_ob_buffers(1 TSRMLS_CC);
-	php_header();
+	php_header(TSRMLS_C);
 
 	/* Ensure that the ap_r* layer for the main request is flushed, to
 	 * work around http://issues.apache.org/bugzilla/show_bug.cgi?id=17629 */
@@ -111,7 +113,7 @@ PHP_FUNCTION(virtual)
 #define ADD_LONG(name) \
 		add_property_long(return_value, #name, rr->name)
 #define ADD_TIME(name) \
-		add_property_long(return_value, #name, rr->name / APR_USEC_PER_SEC);
+		add_property_long(return_value, #name, apr_time_sec(rr->name));
 #define ADD_STRING(name) \
 		if (rr->name) add_property_string(return_value, #name, (char *) rr->name, 1)
 
@@ -157,7 +159,6 @@ PHP_FUNCTION(apache_lookup_uri)
 		ADD_LONG(allowed);
 		ADD_LONG(sent_bodyct);
 		ADD_LONG(bytes_sent);
-		ADD_LONG(request_time);
 		ADD_LONG(mtime);
 		ADD_TIME(request_time);
 
@@ -178,13 +179,17 @@ PHP_FUNCTION(apache_request_headers)
 	const apr_array_header_t *arr;
 	char *key, *val;
 
+	if (ZEND_NUM_ARGS()) {
+		WRONG_PARAM_COUNT;
+	}
+
 	array_init(return_value);
 	
 	ctx = SG(server_context);
 	arr = apr_table_elts(ctx->r->headers_in);
 
 	APR_ARRAY_FOREACH_OPEN(arr, key, val)
-		if (!val) val = empty_string;
+		if (!val) val = "";
 		add_assoc_string(return_value, key, val, 1);
 	APR_ARRAY_FOREACH_CLOSE()
 }
@@ -198,13 +203,17 @@ PHP_FUNCTION(apache_response_headers)
 	const apr_array_header_t *arr;
 	char *key, *val;
 
+	if (ZEND_NUM_ARGS()) {
+		WRONG_PARAM_COUNT;
+	}
+
 	array_init(return_value);
 	
 	ctx = SG(server_context);
 	arr = apr_table_elts(ctx->r->headers_out);
 
 	APR_ARRAY_FOREACH_OPEN(arr, key, val)
-		if (!val) val = empty_string;
+		if (!val) val = "";
 		add_assoc_string(return_value, key, val, 1);
 	APR_ARRAY_FOREACH_CLOSE()
 }
@@ -324,7 +333,11 @@ PHP_FUNCTION(apache_getenv)
 
 static char *php_apache_get_version()
 {
+#if MODULE_MAGIC_NUMBER_MAJOR >= 20060905
+	return (char *) ap_get_server_banner();
+#else
 	return (char *) ap_get_server_version();
+#endif
 }
 
 /* {{{ proto string apache_get_version(void)
@@ -369,7 +382,7 @@ PHP_MINFO_FUNCTION(apache)
 	int n, max_requests;
 	char *p;
 	server_rec *serv = ((php_struct *) SG(server_context))->r->server;
-#if !defined(WIN32) && !defined(WINNT)
+#if !defined(WIN32) && !defined(WINNT) && !defined(NETWARE)
 	AP_DECLARE_DATA extern unixd_config_rec unixd_config;
 #endif
 	
@@ -390,7 +403,7 @@ PHP_MINFO_FUNCTION(apache)
 	if (apv && *apv) {
 		php_info_print_table_row(2, "Apache Version", apv);
 	}
-	sprintf(tmp, "%d", MODULE_MAGIC_NUMBER);
+	snprintf(tmp, sizeof(tmp), "%d", MODULE_MAGIC_NUMBER);
 	php_info_print_table_row(2, "Apache API Version", tmp);
 	
 	if (serv->server_admin && *(serv->server_admin)) {
@@ -400,16 +413,18 @@ PHP_MINFO_FUNCTION(apache)
 	snprintf(tmp, sizeof(tmp), "%s:%u", serv->server_hostname, serv->port);
 	php_info_print_table_row(2, "Hostname:Port", tmp);
 	
-#if !defined(WIN32) && !defined(WINNT)
+#if !defined(WIN32) && !defined(WINNT) && !defined(NETWARE)
 	snprintf(tmp, sizeof(tmp), "%s(%d)/%d", unixd_config.user_name, unixd_config.user_id, unixd_config.group_id);
 	php_info_print_table_row(2, "User/Group", tmp);
 #endif
 
 	ap_mpm_query(AP_MPMQ_MAX_REQUESTS_DAEMON, &max_requests);
-	sprintf(tmp, "Per Child: %d - Keep Alive: %s - Max Per Connection: %d", max_requests, (serv->keep_alive ? "on":"off"), serv->keep_alive_max);
+	snprintf(tmp, sizeof(tmp), "Per Child: %d - Keep Alive: %s - Max Per Connection: %d", max_requests, (serv->keep_alive ? "on":"off"), serv->keep_alive_max);
 	php_info_print_table_row(2, "Max Requests", tmp);
 
-	sprintf(tmp, "Connection: %lld - Keep-Alive: %lld", (serv->timeout / 1000000), (serv->keep_alive_timeout / 1000000));
+	apr_snprintf(tmp, sizeof tmp,
+				 "Connection: %" APR_TIME_T_FMT " - Keep-Alive: %" APR_TIME_T_FMT, 
+				 apr_time_sec(serv->timeout), apr_time_sec(serv->keep_alive_timeout));
 	php_info_print_table_row(2, "Timeouts", tmp);
 	
 	php_info_print_table_row(2, "Virtual Server", (serv->is_virtual ? "Yes" : "No"));
@@ -430,7 +445,7 @@ PHP_MINFO_FUNCTION(apache)
 		php_info_print_table_header(2, "Variable", "Value");
 		APR_ARRAY_FOREACH_OPEN(arr, key, val)
 			if (!val) {
-				val = empty_string;
+				val = "";
 			}
 			php_info_print_table_row(2, key, val);
 		APR_ARRAY_FOREACH_CLOSE()
@@ -445,7 +460,7 @@ PHP_MINFO_FUNCTION(apache)
 		arr = apr_table_elts(((php_struct *) SG(server_context))->r->headers_in);
 		APR_ARRAY_FOREACH_OPEN(arr, key, val)
 			if (!val) {
-				val = empty_string;
+				val = "";
 			}
 		        php_info_print_table_row(2, key, val);
 		APR_ARRAY_FOREACH_CLOSE()
@@ -454,7 +469,7 @@ PHP_MINFO_FUNCTION(apache)
 		arr = apr_table_elts(((php_struct *) SG(server_context))->r->headers_out);
 		APR_ARRAY_FOREACH_OPEN(arr, key, val)
 			if (!val) {
-				val = empty_string;
+				val = "";
 			}
 		        php_info_print_table_row(2, key, val);
 		APR_ARRAY_FOREACH_CLOSE()
@@ -463,7 +478,7 @@ PHP_MINFO_FUNCTION(apache)
 	}
 }
 
-static function_entry apache_functions[] = {
+static zend_function_entry apache_functions[] = {
 	PHP_FE(apache_lookup_uri, NULL)
 	PHP_FE(virtual, NULL) 
 	PHP_FE(apache_request_headers, NULL)
@@ -478,9 +493,9 @@ static function_entry apache_functions[] = {
 };
 
 PHP_INI_BEGIN()
-	STD_PHP_INI_ENTRY("xbithack",		"0",	PHP_INI_ALL,	OnUpdateInt,	xbithack,		php_apache2_info_struct, php_apache2_info)
-	STD_PHP_INI_ENTRY("engine",			"1",	PHP_INI_ALL,	OnUpdateInt,	engine, 		php_apache2_info_struct, php_apache2_info)
-	STD_PHP_INI_ENTRY("last_modified",	"0",	PHP_INI_ALL,	OnUpdateInt,	last_modified,	php_apache2_info_struct, php_apache2_info)
+	STD_PHP_INI_ENTRY("xbithack",		"0",	PHP_INI_ALL,	OnUpdateLong,	xbithack,	php_apache2_info_struct, php_apache2_info)
+	STD_PHP_INI_ENTRY("engine",		"1",	PHP_INI_ALL,	OnUpdateLong,	engine, 	php_apache2_info_struct, php_apache2_info)
+	STD_PHP_INI_ENTRY("last_modified",	"0",	PHP_INI_ALL,	OnUpdateLong,	last_modified,	php_apache2_info_struct, php_apache2_info)
 PHP_INI_END()
 
 static PHP_MINIT_FUNCTION(apache)

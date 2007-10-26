@@ -1,4 +1,26 @@
-#define IRIX6
+/* Definitions file for GNU Emacs running on Silicon Graphics Irix system 6.0.
+
+Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+  2007  Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
+
 #include "irix5-0.h"
 
 /* Irix 6 tries to do 64 bits, but doesn't do it fully,
@@ -16,7 +38,7 @@
 #undef C_SWITCH_SYSTEM
 #endif
 
-/* The only supported configuration of GCC under IRIX6.x produces
+/* The only supported 32-bit configuration of GCC under IRIX6.x produces
    n32 MIPS ABI binaries and also supports -g. */
 #ifdef __GNUC__
 #undef C_DEBUG_SWITCH
@@ -27,23 +49,15 @@
 
 /* It turns out that the #define in irix5-0.h is needed in Irix 6 as well.  */
 #if 0
-/* Canced the #define that is in irix5-0.h.  */
+/* Cancel the #define that is in irix5-0.h.  */
 #undef ospeed
 #endif
 
-/* Cancel some #define's in usg5-4.h.
-   Larry Hunter <hunter@nlm.nih.gov> said this was needed
-   for Irix 6.5.  Let's see if it is safe in 6.N, N<5, as well.  */
-/* Extrapolating from Irix 6.5, the problem is that (at least) the
-   bzero definition breaks what the X headers do.  The following means
-   that we lack prototypes for these functions, and we presumably lose
-   at least in the 64-bit ABI (though that's only supported on Irix
-   6.5, which I can test).  We may be saved by the fact that these
-   appear to be intrinsics in the SGI (Cray) compiler.  It's probably
-   appropriate to include strings.h here, but I can't test it.  See
-   irix6-5.h.  -- fx  */
-#undef bcopy
-#undef bcmp
-#undef bzero
-
 #undef TIOCSIGSEND
+
+/* Tested on Irix 6.5.  SCM worked on earlier versions.  */
+#define GC_SETJMP_WORKS 1
+#define GC_MARK_STACK GC_MAKE_GCPROS_NOOPS
+
+/* arch-tag: a775e465-a619-4655-a58f-5982aad0c624
+   (do not change this comment) */

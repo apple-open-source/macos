@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -26,7 +26,7 @@
 
 #define kAppleRAIDLevelNameConcat "Concat"
 
-extern const OSSymbol * gAppleRAIDConcatName;
+#ifdef KERNEL
 
 class AppleRAIDConcatSet : public AppleRAIDSet
 {
@@ -75,6 +75,9 @@ protected:
  public:
     static AppleRAIDMemoryDescriptor *withStorageRequest(AppleRAIDStorageRequest *storageRequest, UInt32 memberIndex);
     virtual IOPhysicalAddress getPhysicalSegment(IOByteCount offset, IOByteCount *length);
+    virtual addr64_t getPhysicalSegment64(IOByteCount offset, IOByteCount *length);
 };
+
+#endif KERNEL
 
 #endif /* ! _APPLERAIDCONCATSET_H */

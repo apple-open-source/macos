@@ -2,7 +2,8 @@
 /* Typedefs of ObjC types should work without any bogus warnings. */
 /* { dg-do compile } */
 
-#include <objc/Object.h>
+/* APPLE LOCAL radar 4894756 */
+#include "../objc/execute/Object2.h"
 
 typedef Object MyObject;
 

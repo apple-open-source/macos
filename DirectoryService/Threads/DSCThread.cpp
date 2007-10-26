@@ -30,14 +30,14 @@
 #include "PrivateTypes.h"
 #include <syslog.h>
 
-sInt32 DSCThread::fStatThreadCount = 0;
+SInt32 DSCThread::fStatThreadCount = 0;
 
 // ----------------------------------------------------------------------------
 //	* DSCThread()
 //
 // ----------------------------------------------------------------------------
 
-DSCThread::DSCThread ( const OSType inThreadSig )
+DSCThread::DSCThread ( const UInt32 inThreadSig )
 {
 	fStatThreadCount++;
 	fThreadSignature	= inThreadSig;
@@ -62,11 +62,11 @@ DSCThread::~DSCThread ()
 //
 // ----------------------------------------------------------------------------
 
-uInt32 DSCThread::GetCurThreadRunState ( void )
+UInt32 DSCThread::GetCurThreadRunState ( void )
 {
 	// All threads in our universe are DSCThread objects
 	DSCThread *cur = (DSCThread *)DSLThread::GetCurrentThread();
-	if ( cur == nil ) throw((sInt32)eMemoryError);
+	if ( cur == nil ) throw((SInt32)eMemoryError);
 
 	return( cur->GetThreadRunState() );
 
@@ -78,7 +78,7 @@ uInt32 DSCThread::GetCurThreadRunState ( void )
 //
 // ----------------------------------------------------------------------------
 
-sInt32 DSCThread::Count ( void )
+SInt32 DSCThread::Count ( void )
 {
 	return( fStatThreadCount );
 
@@ -90,10 +90,14 @@ sInt32 DSCThread::Count ( void )
 //
 // ----------------------------------------------------------------------------
 
-uInt32 DSCThread::GetID ( void ) const
+UInt32 DSCThread::GetID ( void ) const
 {
+#ifdef __LP64__
+	return(0); //does not work for 64 bit - unused anyways
+#else
 	// member from LThread
-	return( (uInt32)fThread );
+	return( (UInt32)fThread );
+#endif
 } // GetID
 
 
@@ -102,7 +106,7 @@ uInt32 DSCThread::GetID ( void ) const
 //
 // ----------------------------------------------------------------------------
 
-OSType DSCThread::GetSignature ( void ) const
+UInt32 DSCThread::GetSignature ( void ) const
 {
 	return( fThreadSignature );
 } // GetSignature
@@ -117,7 +121,7 @@ OSType DSCThread::GetSignature ( void ) const
 
 void *DSCThread::Run ( void )
 {
-	uInt32 result = 0;
+	UInt32 result = 0;
 
 	try {
 		fStateFlags = kThreadRun;
@@ -149,7 +153,7 @@ void *DSCThread::Run ( void )
 //
 // ----------------------------------------------------------------------------
 
-OSType DSCThread::GetThreadRunState ( void )
+UInt32 DSCThread::GetThreadRunState ( void )
 {
 	return( fStateFlags );
 } // GetThreadRunState

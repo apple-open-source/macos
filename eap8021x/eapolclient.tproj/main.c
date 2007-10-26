@@ -271,6 +271,7 @@ main(int argc, char * argv[1])
     fd = eapol_socket(if_name, FALSE);
     if (fd < 0) {
 	my_log(LOG_NOTICE, "eapol_socket(%s) failed", if_name);
+	exit(EX_UNAVAILABLE);
     }
     if (g_flag) {
 	if (setgid(gid) < 0) {

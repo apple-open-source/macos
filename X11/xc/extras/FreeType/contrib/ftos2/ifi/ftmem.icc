@@ -1,4 +1,0 @@
-ftmem.exe:       $*.obj
-   ilink /PM:PM /ST:0x8000 /BAS:0x10000 /E:2 /A:4 $*.obj
-ftmem.obj:       $*.c
-   icc -C $*.c

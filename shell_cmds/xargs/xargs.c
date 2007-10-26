@@ -36,26 +36,27 @@
  * $xMach: xargs.c,v 1.6 2002/02/23 05:27:47 tim Exp $
  */
 
+#if 0
 #ifndef lint
 static const char copyright[] =
 "@(#) Copyright (c) 1990, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
-#if 0
 #ifndef lint
 static char sccsid[] = "@(#)xargs.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 #endif
-
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/xargs/xargs.c,v 1.41 2002/07/01 03:21:05 tjr Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/xargs/xargs.c,v 1.57 2005/02/27 02:01:31 gad Exp $");
 
-#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/wait.h>
 
 #include <err.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <langinfo.h>
 #include <locale.h>
 #include <paths.h>
 #include <regex.h>
@@ -66,19 +67,32 @@ __RCSID("$FreeBSD: src/usr.bin/xargs/xargs.c,v 1.41 2002/07/01 03:21:05 tjr Exp 
 
 #include "pathnames.h"
 
+#ifdef __APPLE__
+#include <get_compat.h>
+#else
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
+
 static void	parse_input(int, char *[]);
 static void	prerun(int, char *[]);
 static int	prompt(void);
 static void	run(char **);
 static void	usage(void);
 void		strnsubst(char **, const char *, const char *, size_t);
+static void	waitchildren(const char *, int);
+
+static int last_was_newline = 1;
+static int last_was_blank = 0;
 
 static char echo[] = _PATH_ECHO;
-static char **av, **bxp, **ep, **exp, **xp;
+static char **av, **bxp, **ep, **endxp, **xp;
 static char *argp, *bbp, *ebp, *inpline, *p, *replstr;
 static const char *eofstr;
-static int count, insingle, indouble, pflag, tflag, Rflag, rval, zflag;
+static int count, insingle, indouble, oflag, pflag, tflag, Rflag, rval, zflag;
 static int cnt, Iflag, jfound, Lflag, wasquoted, xflag;
+static int curprocs, maxprocs;
+
+static volatile int childerr;
 
 extern char **environ;
 
@@ -88,11 +102,14 @@ main(int argc, char *argv[])
 	long arg_max;
 	int ch, Jflag, nargs, nflag, nline;
 	size_t linelen;
+	char *endptr;
 
 	inpline = replstr = NULL;
 	ep = environ;
 	eofstr = "";
 	Jflag = nflag = 0;
+
+	(void)setlocale(LC_ALL, "");
 
 	/*
 	 * POSIX.2 limits the exec line length to ARG_MAX - 2K.  Running that
@@ -115,7 +132,8 @@ main(int argc, char *argv[])
 		/* 1 byte for each '\0' */
 		nline -= strlen(*ep++) + 1 + sizeof(*ep);
 	}
-	while ((ch = getopt(argc, argv, "0E:I:J:L:n:pR:s:tx")) != -1)
+	maxprocs = 1;
+	while ((ch = getopt(argc, argv, "0E:I:J:L:n:oP:pR:s:tx")) != -1)
 		switch(ch) {
 		case 'E':
 			eofstr = optarg;
@@ -133,18 +151,33 @@ main(int argc, char *argv[])
 			break;
 		case 'L':
 			Lflag = atoi(optarg);
+			if (COMPAT_MODE("bin/xargs", "Unix2003")) {
+				nflag = 0; /* Override */
+				nargs = 5000;
+			}
 			break;
 		case 'n':
 			nflag = 1;
 			if ((nargs = atoi(optarg)) <= 0)
 				errx(1, "illegal argument count");
+			if (COMPAT_MODE("bin/xargs", "Unix2003")) {
+				Lflag = 0; /* Override */
+			}
+			break;
+		case 'o':
+			oflag = 1;
+			break;
+		case 'P':
+			if ((maxprocs = atoi(optarg)) <= 0)
+				errx(1, "max. processes must be >0");
 			break;
 		case 'p':
 			pflag = 1;
 			break;
 		case 'R':
-			if ((Rflag = atoi(optarg)) <= 0)
-				errx(1, "illegal number of replacements");
+			Rflag = strtol(optarg, &endptr, 10);
+			if (*endptr != '\0')
+				errx(1, "replacements must be a number");
 			break;
 		case 's':
 			nline = atoi(optarg);
@@ -211,7 +244,7 @@ main(int argc, char *argv[])
 	 * count doesn't include the trailing NULL pointer, so the malloc
 	 * added in an extra slot.
 	 */
-	exp = (xp = bxp) + nargs;
+	endxp = (xp = bxp) + nargs;
 
 	/*
 	 * Allocate buffer space for the arguments read from stdin and the
@@ -237,29 +270,52 @@ parse_input(int argc, char *argv[])
 {
 	int ch, foundeof;
 	char **avj;
+	int last_was_backslashed = 0;
 
 	foundeof = 0;
 
 	switch(ch = getchar()) {
 	case EOF:
 		/* No arguments since last exec. */
-		if (p == bbp)
+		if (p == bbp) {
+			waitchildren(*argv, 1);
 			exit(rval);
+		}
 		goto arg1;
 	case ' ':
+		last_was_blank = 1;
 	case '\t':
 		/* Quotes escape tabs and spaces. */
 		if (insingle || indouble || zflag)
 			goto addch;
 		goto arg2;
 	case '\0':
-		if (zflag)
+		if (zflag) {
+			/*
+			 * Increment 'count', so that nulls will be treated
+			 * as end-of-line, as well as end-of-argument.  This
+			 * is needed so -0 works properly with -I and -L.
+			 */
+			count++;
 			goto arg2;
+		}
 		goto addch;
 	case '\n':
-		count++;
 		if (zflag)
 			goto addch;
+		if (COMPAT_MODE("bin/xargs", "Unix2003")) {
+			if (last_was_newline) {
+				/* don't count empty line */
+				break;
+			}
+			if (!last_was_blank ) {
+				/* only count if NOT continuation line */
+				count++;
+			} 
+		} else {
+			count++;
+		}
+		last_was_newline = 1;
 
 		/* Quotes do not escape newlines. */
 arg1:		if (insingle || indouble)
@@ -281,7 +337,7 @@ arg2:
 					/*
 					 * If this string is not zero
 					 * length, append a space for
-					 * seperation before the next
+					 * separation before the next
 					 * argument.
 					 */
 					if ((curlen = strlen(inpline)))
@@ -312,17 +368,19 @@ arg2:
 		 * of input lines, as specified by -L is the same as
 		 * maxing out on arguments.
 		 */
-		if (xp == exp || p > ebp || ch == EOF ||
+		if (xp == endxp || p > ebp || ch == EOF ||
 		    (Lflag <= count && xflag) || foundeof) {
-			if (xflag && xp != exp && p > ebp)
+			if (xflag && xp != endxp && p > ebp)
 				errx(1, "insufficient space for arguments");
 			if (jfound) {
 				for (avj = argv; *avj; avj++)
 					*xp++ = *avj;
 			}
 			prerun(argc, av);
-			if (ch == EOF || foundeof)
+			if (ch == EOF || foundeof) {
+				waitchildren(*argv, 1);
 				exit(rval);
+			}
 			p = bbp;
 			xp = bxp;
 			count = 0;
@@ -343,6 +401,7 @@ arg2:
 		wasquoted = 1;
 		break;
 	case '\\':
+		last_was_backslashed = 1;
 		if (zflag)
 			goto addch;
 		/* Backslash escapes anything, is escaped by quotes. */
@@ -374,7 +433,10 @@ addch:		if (p < ebp) {
 		*p++ = ch;
 		break;
 	}
-	return;
+	if (ch != ' ')
+		last_was_blank = 0;
+	if (ch != '\n' || last_was_backslashed)
+		last_was_newline = 0;
 }
 
 /*
@@ -416,7 +478,7 @@ prerun(int argc, char *argv[])
 	/*
 	 * For each argument to utility, if we have not used up
 	 * the number of replacements we are allowed to do, and
-	 * if the argument contains at least one occurance of
+	 * if the argument contains at least one occurrence of
 	 * replstr, call strnsubst(), else just save the string.
 	 * Iterations over elements of avj and tmp are done
 	 * where appropriate.
@@ -425,7 +487,8 @@ prerun(int argc, char *argv[])
 		*tmp = *avj++;
 		if (repls && strstr(*tmp, replstr) != NULL) {
 			strnsubst(tmp++, replstr, inpline, (size_t)255);
-			repls--;
+			if (repls > 0)
+				repls--;
 		} else {
 			if ((*tmp = strdup(*tmp)) == NULL)
 				errx(1, "strdup failed");
@@ -461,10 +524,9 @@ prerun(int argc, char *argv[])
 static void
 run(char **argv)
 {
-	volatile int childerr;
-	char **avec;
 	pid_t pid;
-	int status;
+	int fd;
+	char **avec;
 
 	/*
 	 * If the user wants to be notified of each command before it is
@@ -502,21 +564,50 @@ exec:
 	case -1:
 		err(1, "vfork");
 	case 0:
+		if (oflag) {
+			if ((fd = open(_PATH_TTY, O_RDONLY)) == -1)
+				err(1, "can't open /dev/tty");
+		} else {
+			fd = open(_PATH_DEVNULL, O_RDONLY);
+		}
+		if (fd > STDIN_FILENO) {
+			if (dup2(fd, STDIN_FILENO) != 0)
+				err(1, "can't dup2 to stdin");
+			close(fd);
+		}
 		execvp(argv[0], argv);
 		childerr = errno;
 		_exit(1);
 	}
-	pid = waitpid(pid, &status, 0);
-	if (pid == -1)
-		err(1, "waitpid");
-	/* If we couldn't invoke the utility, exit. */
-	if (childerr != 0)
-		err(childerr == ENOENT ? 127 : 126, "%s", *argv);
-	/* If utility signaled or exited with a value of 255, exit 1-125. */
-	if (WIFSIGNALED(status) || WEXITSTATUS(status) == 255)
-		exit(1);
-	if (WEXITSTATUS(status))
-		rval = 1;
+	curprocs++;
+	waitchildren(*argv, 0);
+}
+
+static void
+waitchildren(const char *name, int waitall)
+{
+	pid_t pid;
+	int status;
+
+	while ((pid = waitpid(-1, &status, !waitall && curprocs < maxprocs ?
+	    WNOHANG : 0)) > 0) {
+		curprocs--;
+		/* If we couldn't invoke the utility, exit. */
+		if (childerr != 0) {
+			errno = childerr;
+			err(errno == ENOENT ? 127 : 126, "%s", name);
+		}
+		/*
+		 * If utility signaled or exited with a value of 255,
+		 * exit 1-125.
+		 */
+		if (WIFSIGNALED(status) || WEXITSTATUS(status) == 255)
+			exit(1);
+		if (WEXITSTATUS(status))
+			rval = 1;
+	}
+	if (pid == -1 && errno != ECHILD)
+		err(1, "wait3");
 }
 
 /*
@@ -536,9 +627,7 @@ prompt(void)
 	(void)fprintf(stderr, "?...");
 	(void)fflush(stderr);
 	if ((response = fgetln(ttyfp, &rsize)) == NULL ||
-	    regcomp(&cre,
-		"^[yY]",
-		REG_BASIC) != 0) {
+	    regcomp(&cre, nl_langinfo(YESEXPR), REG_BASIC) != 0) {
 		(void)fclose(ttyfp);
 		return (0);
 	}
@@ -552,7 +641,8 @@ static void
 usage(void)
 {
 	fprintf(stderr,
-"usage: xargs [-0pt] [-E eofstr] [-I replstr [-R replacements]] [-J replstr]\n"
-"             [-L number] [-n number [-x] [-s size] [utility [argument ...]]\n");
+"usage: xargs [-0opt] [-E eofstr] [-I replstr [-R replacements]] [-J replstr]\n"
+"             [-L number] [-n number [-x]] [-P maxprocs] [-s size]\n"
+"             [utility [argument ...]]\n");
 	exit(1);
 }

@@ -1,5 +1,6 @@
 /* machine description file for U-station (Nihon Unisys, SS5E; Sumitomo Denkoh, U-Station E30).
-   Copyright (C) 1986, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="usg5-3"  */
 
@@ -82,21 +83,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef VIRT_ADDR_VARIES
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-/* On return from a subroutine, the 68020 compiler restores old contents of
-   register variables relative to sp, so alloca() screws up such routines.
-   The following definitions should work on all Masscomps.  On the MC-5500
-   (a 68000) one can #undef C_ALLOCA and #define HAVE_ALLOCA.  */
-
-#define C_ALLOCA
-#undef HAVE_ALLOCA
-
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
    when Emacs is dumped.  If you define this, the preloaded Lisp
@@ -141,3 +127,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define BROKEN_SIGIO
 #define BROKEN_SIGTSTP
+
+/* arch-tag: 797f1d3e-3077-4eee-a81b-03fcf3a988fe
+   (do not change this comment) */

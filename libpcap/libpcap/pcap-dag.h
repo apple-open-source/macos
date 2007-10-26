@@ -7,8 +7,8 @@
  *
  * Author: Richard Littin, Sean Irvine ({richard,sean}@reeltwo.com)
  *
- * @(#) $Header: /cvs/root/libpcap/libpcap/pcap-dag.h,v 1.1.1.1 2004/02/05 19:22:28 rbraun Exp $ (LBL)
+ * @(#) $Header: /tcpdump/master/libpcap/pcap-dag.h,v 1.3.4.1 2005/07/07 06:56:04 guy Exp $ (LBL)
  */
 
 pcap_t *dag_open_live(const char *device, int snaplen, int promisc, int to_ms, char *ebuf);
-
+int dag_platform_finddevs(pcap_if_t **devlistp, char *errbuf);

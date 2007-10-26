@@ -6,8 +6,15 @@ Project = ksh
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version = 2004-02-29
+Version = 2007-06-28
 Sources = $(SRCROOT)/$(Project)
+Patches=src__cmd__ksh93__sh.1.diff \
+	src__lib__libast__features__lib.diff \
+	src__lib__libast__features__common.diff \
+	bin__package.diff \
+	src__cmd__INIT__package.sh.diff \
+	src__cmd__ksh93__jobs.c.diff \
+	src__lib__libast__string__strmatch.c.diff
 
 EXTRA_CCFLAGS = -mdynamic-no-pic
 #find ksh overrides before libSystem
@@ -20,19 +27,23 @@ install_source::
 	for project in cmd/ksh93 lib/libast lib/libcmd lib/libdll; do \
 		ed - $(Sources)/src/$$project/Mamfile < $(SRCROOT)/patches/add_ARCH_CCFLAGS.ed; \
 	done
-	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/src__cmd__ksh93__sh.1.diff
+	for p in $(Patches); do \
+		cd $(Sources) && patch -p0 < $(SRCROOT)/patches/$$p || exit 1; \
+	done
 
-PASS_CCFLAGS = $(CC_Debug) $(CC_Optimize) $(CC_Other)
+PASS_CCFLAGS = $(CC_Debug) $(CC_Optimize) $(CC_Other) -DSHOPT_SPAWN
 ARCH_CCFLAGS = $(CC_Archs)
 
 build:: shadow_source
-	cd $(BuildDirectory) && LDFLAGS="$(EXTRA_LDFLAGS)" CCFLAGS="$(PASS_CCFLAGS) $(EXTRA_CCFLAGS)" ARCH_CCFLAGS="$(ARCH_CCFLAGS)" ./bin/package DEBUG make SHELL=$(SHELL)
+	cd $(BuildDirectory) && LDFLAGS="$(EXTRA_LDFLAGS)" CCFLAGS="$(PASS_CCFLAGS) $(EXTRA_CCFLAGS)" ARCH_CCFLAGS="$(ARCH_CCFLAGS)" ./bin/package DEBUG make SHELL=$(SHELL) AR=/Developer/Makefiles/bin/ar.sh
+	@grep -q '*** exit code' $(OBJROOT)/arch/darwin.*/lib/package/gen/make.out && exit 1 || exit 0
 
 KSH_ARCH = $(shell $(BuildDirectory)/bin/package host)
 OSV      = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL      = $(DSTROOT)/usr/local/OpenSourceLicenses
 
 install::
+	$(CP) $(BuildDirectory)/arch/$(KSH_ARCH)/bin/ksh $(SYMROOT)/ksh
 	$(MKDIR) $(DSTROOT)/bin
 	$(INSTALL_PROGRAM) $(BuildDirectory)/arch/$(KSH_ARCH)/bin/ksh \
 		$(DSTROOT)/bin/ksh

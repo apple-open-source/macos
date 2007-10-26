@@ -1,10 +1,11 @@
 ;;; octave-hlp.el --- getting help on Octave symbols using info
 
-;; Copyright (C) 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;; Free Software Foundation, Inc.
 
-;; Author: Kurt Hornik <Kurt.Hornik@ci.tuwien.ac.at>
+;; Author: Kurt Hornik <Kurt.Hornik@wu-wien.ac.at>
 ;; Author: John Eaton <jwe@bevo.che.wisc.edu>
-;; Maintainer: Kurt Hornik <Kurt.Hornik@ci.tuwien.ac.at>
+;; Maintainer: Kurt Hornik <Kurt.Hornik@wu-wien.ac.at>
 ;; Keywords: languages
 
 ;; This file is part of GNU Emacs.
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -80,7 +81,7 @@ If KEY is not a string, prompt for it with completion."
 The files specified by `octave-help-files' are searched."
   (if octave-help-lookup-alist
       ()
-    (message "Building help lookup alist...")    
+    (message "Building help lookup alist...")
     (let ((files octave-help-files) file key node)
       (save-window-excursion
 	(while files
@@ -127,11 +128,12 @@ The files specified by `octave-help-files' are searched."
 	(add-to-list 'octave-help-completion-alist
 		     (cons (car entry) (car entry)))
 	(setq alist (cdr alist))))
-    (message "Building help completion alist...done"))    
+    (message "Building help completion alist...done"))
   octave-help-completion-alist)
 
 ;;; provide ourself
 
 (provide 'octave-hlp)
 
+;;; arch-tag: df5ef8fa-76c9-44e5-9835-cb5a502c6282
 ;;; octave-hlp.el ends here

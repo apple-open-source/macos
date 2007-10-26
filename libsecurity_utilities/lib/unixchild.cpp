@@ -23,10 +23,24 @@
 
 
 //
-// unixchild - low-level UNIX process child management
+// unixchild - low-level UNIX process child management.
+//
+// Note that the map-of-children (mChildren) only holds children presumed to
+// be alive. Neither unborn nor dead children are included. This is important
+// for how children are reaped and death notifications dispatched, and should
+// not be changed without prior deep contemplation.
+//
+// A note on locking:
+// All Child objects in this subsystem are mutated under control of a single
+// lock (mChildren). This means that children will not step on each other.
+// However, death callbacks (Child::dying) are made outside the lock's scope
+// to avoid deadlock scenarios with outside locking hierarchies. When Child::dying
+// is called, the child has already transitioned to "dead" state and is no longer
+// in the (live) children map.
 //
 #include "unixchild.h"
 #include <security_utilities/debugging.h>
+#include <signal.h>
 
 
 namespace Security {
@@ -57,7 +71,7 @@ Child::~Child()
 //
 // Take a Child object that is not alive (i.e. is either unborn or dead),
 // and reset it to unborn, so you can fork() it again.
-// This call forgets everything all about the previous process.
+// This call forgets everything about the previous process.
 //
 void Child::reset()
 {
@@ -89,6 +103,55 @@ bool Child::sharedChildren()
 {
 	StLock<Mutex> _(mChildren());
 	return mChildren().shared;
+}
+
+
+//
+// Check status for one Child
+//
+Child::State Child::check()
+{
+	Child::State state;
+	bool reaped = false;
+	{
+		StLock<Mutex> _(mChildren());
+		state = mState;
+		switch (mState) {
+		case alive:
+			reaped = checkStatus(WNOHANG);
+			break;
+		default:
+			break;
+		}
+	}
+	if (reaped)
+		this->dying();
+	return state;
+}
+
+
+//
+// Wait for a particular child to be dead.
+// This call cannot wait for multiple children; you'll have
+// to program that yourself using whatever event loop you're using.
+//
+void Child::wait()
+{
+	bool reaped = false;
+	{
+		StLock<Mutex> _(mChildren());
+		switch (mState) {
+		case alive:
+			reaped = checkStatus(0);	// wait for it
+			break;
+		case unborn:
+			assert(false);		// don't do that
+		default:
+			break;
+		}
+	}
+	if (reaped)
+		this->dying();
 }
 
 
@@ -233,7 +296,6 @@ void Child::fork()
 
 	assert(mState == unborn);
 	for (unsigned delay = 1; ;) {
-		StLock<Mutex> _(mChildren());
 		switch (pid_t pid = ::fork()) {
 		case -1:	// fork failed
 			switch (errno) {
@@ -270,17 +332,52 @@ void Child::fork()
 			_exit(1);
 
 		default:	// parent
-			mState = alive;
-			mPid = pid;
-			mChildren().insert(make_pair(pid, this));
+			{
+				StLock<Mutex> _(mChildren());
+				mState = alive;
+				mPid = pid;
+				mChildren().insert(make_pair(pid, this));
+			}
+			secdebug("unixchild", "%p (parent) running parent action", this);
+			this->parentAction();
 			break;
 		}
 		break;
 	}
+}
 
-	// run parent action after releasing the lock
-	secdebug("unixchild", "%p (parent) running parent action", this);
-	this->parentAction();
+
+//
+// Check the status of this child by explicitly probing it.
+// Caller must hold master lock.
+//
+bool Child::checkStatus(int options)
+{
+	assert(state() == alive);
+	secdebug("unixchild", "checking %p (pid %d)", this, this->pid());
+	int status;
+  again:
+	switch (IFDEBUG(pid_t pid =) ::wait4(this->pid(), &status, options, NULL)) {
+	case pid_t(-1):
+		switch (errno) {
+		case EINTR:
+			goto again;		// retry
+		case ECHILD:
+			secdebug("unixchild", "%p (pid=%d) unknown to kernel", this, this->pid());
+			mState = invalid;
+			mChildren().erase(this->pid());
+			return false;
+		default:
+			UnixError::throwMe();
+		}
+		break;	// placebo
+	case 0:
+		return false;	// child not ready (do nothing)
+	default:
+		assert(pid == this->pid());
+		bury(status);
+		return true;
+	}
 }
 
 
@@ -300,70 +397,50 @@ void Child::fork()
 //
 void Child::checkChildren()
 {
-	StLock<Mutex> _(mChildren());
-	if (mChildren().shared) {
-		for (Children::iterator it = mChildren().begin(); it != mChildren().end(); it++) {
-			Child *child = it->second;
-			assert(child->state() == alive);
-			secdebug("unixchild", "checking %p (pid %d)", child, child->pid());
+	Bier casualties;
+	{
+		StLock<Mutex> _(mChildren());
+		if (mChildren().shared) {
+			for (Children::iterator it = mChildren().begin(); it != mChildren().end(); it++)
+				if (it->second->checkStatus(WNOHANG))
+					casualties.add(it->second);
+		} else if (!mChildren().empty()) {
 			int status;
-		  again:
-			switch (IFDEBUG(pid_t pid =) ::wait4(child->pid(), &status, WNOHANG, NULL)) {
-			case pid_t(-1):
-				switch (errno) {
-				case EINTR:
-					goto again;		// retry THIS child
-				case ECHILD:
-					secdebug("unixchild", "%p (pid=%d) unknown to kernel", child, child->pid());
-					child->mState = invalid;
-					mChildren().erase(it);
+			while (pid_t pid = ::wait4(0, &status, WNOHANG, NULL)) {
+				secdebug("unixchild", "universal child check (%ld children known alive)", mChildren().size());
+				switch (pid) {
+				case pid_t(-1):
+					switch (errno) {
+					case EINTR:
+						secdebug("unixchild", "EINTR on wait4; retrying");
+						continue;	// benign, but retry the wait()
+					case ECHILD:
+						// Should not normally happen (there *is* a child around),
+						// but gets returned anyway if the child is stopped in the debugger.
+						// Treat like a zero return (no children ready to be buried).
+						secdebug("unixchild", "ECHILD with filled nursery (ignored)");
+						goto no_more;
+					default:
+						UnixError::throwMe();
+					}
 					break;
 				default:
-					UnixError::throwMe();
-					break;	// placebo
+					if (Child *child = mChildren()[pid]) {
+						child->bury(status);
+						casualties.add(child);
+					} else
+						secdebug("unixchild", "reaping feral child pid=%d", pid);
+					if (mChildren().empty())
+						goto no_more;	// none left
+					break;
 				}
-				break;
-			case 0:
-				break;		// not ready
-			default:
-				assert(pid == child->pid());
-				child->bury(status);
-				break;
 			}
+		  no_more: ;
+		} else {
+			secdebug("unixchild", "spurious checkChildren (the nursery is empty)");
 		}
-	} else if (!mChildren().empty()) {
-		int status;
-		while (pid_t pid = ::wait4(0, &status, WNOHANG, NULL)) {
-			secdebug("unixchild", "universal child check (%ld children alive)", mChildren().size());
-			switch (pid) {
-			case pid_t(-1):
-				switch (errno) {
-				case EINTR:
-					secdebug("unixchild", "EINTR on wait4; retrying");
-					continue;	// benign, but retry the wait()
-				case ECHILD:
-					// Should not normally happen (there *is* a child around),
-					// but gets returned anyway if the child is stopped in the debugger.
-					// Treat like a zero return (no children ready to be buried).
-					secdebug("unixchild", "ECHILD with filled nursery (ignored)");
-					return;
-				default:
-					UnixError::throwMe();
-				}
-				break;
-			default:
-				if (Child *child = mChildren()[pid])
-					child->bury(status);
-				else
-					secdebug("unixchild", "reaping feral child pid=%d", pid);
-				if (mChildren().empty())
-					return;		// none left
-				break;
-			}
-		}
-	} else {
-		secdebug("unixchild", "spurious checkChildren (the nursery is empty)");
-	}
+	}	// release master lock
+	casualties.notify();
 }
 
 
@@ -386,7 +463,6 @@ void Child::bury(int status)
 		secdebug("unixchild", "%p (pid %d) died by exit(%d)",
 			this, mPid, exitCode());
 #endif //NDEBUG
-	this->dying();
 }
 
 
@@ -398,6 +474,16 @@ void Child::parentAction()
 
 void Child::dying()
 { /* nothing */ }
+
+
+//
+// Biers
+//
+void Child::Bier::notify()
+{
+	for (const_iterator it = begin(); it != end(); ++it)
+		(*it)->dying();
+}
 
 
 }	// end namespace IPPlusPlus

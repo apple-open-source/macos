@@ -1,16 +1,16 @@
 {
     DOCICONFILES = (); 
     FILESTABLE = {
-        C_FILES = (update.c disk_power.c power_mgmt.c); 
-        H_FILES = (disk_power.h power_mgmt.h); 
+        C_FILES = (update.c); 
+        H_FILES = (); 
         OTHER_LIBS = (); 
         OTHER_LINKED = (); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, update.8); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, update.8, com.apple.update.plist); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 
         PUBLIC_HEADERS = (); 
         SUBPROJECTS = ();
-	FRAMEWORKS = (CoreFoundation.framework, IOKit.framework);
+	FRAMEWORKS = ();
     }; 
     GENERATEMAIN = YES; 
     LANGUAGE = English; 

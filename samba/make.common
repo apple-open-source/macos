@@ -1,0 +1,81 @@
+# Set these variables as needed, then include this file, then:
+#
+
+# Tell make never to try to create make.local if it doesn't exist.
+.PHONY: make.local
+
+# If you want to set some variables for just this build, create a file called
+# make.local, and set them in there.
+-include make.local
+
+SMB_CONFDIR := $(ETCDIR)
+SMB_PRIVDIR := $(VARDIR)/db/samba
+SMB_LOCKDIR := $(VARDIR)/samba
+SMB_LIBDIR := $(USRLIBDIR)/samba
+SMB_LOGDIR := $(LOGDIR)/samba
+SMB_PIDDIR := $(RUNDIR)
+SMB_MANDIR := $(MANDIR)
+SMB_PAMDIR := $(USRLIBDIR)/pam
+SMB_LIBEXEC := $(LIBEXECDIR)/samba
+
+# This contains warnings that are valid for both C and C++ code.
+SANE_GCC_WARNINGS := \
+	-Wall \
+	-Wshadow \
+	-Wpointer-arith \
+	-Wcast-align \
+	-Wwrite-strings \
+	-Wformat=2
+
+Extra_CC_Flags  += \
+	$(SANE_GCC_WARNINGS) \
+	-Wstrict-prototypes \
+	-F/System/Library/PrivateFrameworks \
+	-DWINBINDD_SOCKET_DIR=\\\"$(SMB_LOCKDIR)/winbindd_public\\\" \
+	-DWITH_OPENDIRECTORY \
+	-DWITH_MEMBERD -DUSES_KEYCHAIN -DWITH_SACL
+
+NCPU := $(shell sysctl hw.ncpu | awk -F: '{print $$2}' )
+NPROCS := $(shell expr $(NCPU) '*' 2)
+
+LDAP_MODULES := pdb_ldap,idmap_ldap
+IDMAP_MODULES := idmap_rid,idmap_ad,idmap_odsam
+PDB_MODULES := pdb_odsam
+AUTH_MODULES := auth_unix,auth_winbind,auth_server,auth_domain,auth_ods
+VFS_MODULES := vfs_recycle,vfs_audit,vfs_extd_audit,vfs_full_audit,vfs_readonly,vfs_expand_msdfs,vfs_shadow_copy,vfs_darwin_streams,vfs_darwinacl,vfs_cacheprime,vfs_commit,vfs_catia,vfs_prealloc
+
+SHARED_MODULES := $(LDAP_MODULES),$(IDMAP_MODULES),$(AUTH_MODULES),$(VFS_MODULES),$(PDB_MODULES)
+
+Extra_Configure_Flags := \
+		--with-configdir="$(SMB_CONFDIR)" 	\
+		--with-privatedir="$(SMB_PRIVDIR)" 	\
+		--with-libdir="$(SMB_LIBDIR)" 		\
+		--with-lockdir="$(SMB_LOCKDIR)" 	\
+		--with-logfilebase="$(SMB_LOGDIR)" 	\
+		--with-piddir="$(SMB_PIDDIR)" 		\
+		--with-mandir="$(SMB_MANDIR)" 		\
+		--with-pammodulesdir="$(SMB_PAMDIR)"	\
+		--disable-swat				\
+		--with-krb5						\
+		--with-ads						\
+		--with-cups						\
+		--with-ldap						\
+		--with-libiconv="$(USRDIR)"				\
+		--with-sendfile-support					\
+		--without-readline					\
+		--disable-pie 						\
+		--without-libsmbclient					\
+		--with-winbind						\
+		--with-pam						\
+		--with-libmsrpc						\
+		--with-libsmbclient					\
+		--with-libsmbsharemodes					\
+		--with-quotas						\
+		--with-sys-quotas					\
+		--with-profiling-data					\
+		--with-kdebug-trace					\
+		--enable-launchd					\
+		--with-dnsupdate					\
+		--with-shared-modules=$(SHARED_MODULES)
+
+# vim: set sw=8 ts=8 noet tw=0 :

@@ -5,7 +5,6 @@
             ACTIONS = {
                 changeActiveUser = id; 
                 changePasswordForSelectedCache = id; 
-                customizeToolbar = id; 
                 destroyTicketsForSelectedCache = id; 
                 getTickets = id; 
                 renewTicketsForSelectedCache = id; 
@@ -19,8 +18,8 @@
                 cacheCollectionTableColumn = NSTableColumn; 
                 cacheCollectionTableView = NSTableView; 
                 cacheCollectionTimeRemainingTableColumn = NSTableColumn; 
-                ticketsOutlineView = NSOutlineView; 
                 ticketsTableColumn = NSTableColumn; 
+                ticketsTableView = NSTableView; 
                 ticketsTimeRemainingTableColumn = NSTableColumn; 
             }; 
             SUPERCLASS = NSWindowController; 

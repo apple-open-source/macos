@@ -1,9 +1,11 @@
+#if !__LP64__
+
 #ifndef __KXKEXT_H__
 #define __KXKEXT_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 #include <mach/mach.h>
 #include <mach/kmod.h>
@@ -107,6 +109,7 @@ CFMutableArrayRef KXKextCopyAllDependents(KXKextRef aKext);
 // This may be NULL
 CFMutableDictionaryRef KXKextGetWarnings(KXKextRef aKext);
 
+Boolean KXKextSupportsHostArchitecture(KXKextRef aKext);
 Boolean KXKextIsLoadable(KXKextRef aKext, Boolean safeBoot);
 
 // isLoaded is the same value for all kexts of a given {id, version}.
@@ -204,10 +207,6 @@ extern const CFStringRef kKXKextErrorKeyCompatibleVersionLaterThanVersion;
 
 // These are expensive to determine....
 extern const CFStringRef kKXKextErrorKeyExecutableBad;
-extern const CFStringRef kKXKextErrorKeyBundleIdentifierMismatch; // plist vs binary
-// value is true
-extern const CFStringRef kKXKextErrorKeyBundleVersionMismatch;    // plist vs binary
-// value is true
 extern const CFStringRef kKXKextErrorKeyExecutableBadArch; // Executable present but
                                                     //  not for this arch.
 
@@ -245,6 +244,24 @@ extern const CFStringRef kKXKextErrorKeySignature;
 extern const CFStringRef kKXKextErrorKeyDependenciesUnresolvable;
 
 /*****
+ * WARNINGS
+ *
+ */
+extern const CFStringRef kKXKextErrorKeyNonuniqueIOResourcesMatch;
+// These are expensive to determine....
+extern const CFStringRef kKXKextErrorKeyNoExplicitKernelDependency;
+// These are expensive to determine....
+extern const CFStringRef kKXKextErrorKeyBundleIdentifierMismatch; // plist vs binary
+// value is true
+extern const CFStringRef kKXKextErrorKeyBundleVersionMismatch;    // plist vs binary
+// value is true
+
+// The kext declares dependencies on both "com.apple.kernel.*" and
+// "com.apple.kpi.*" components, which is not allowed.
+extern const CFStringRef kKXKextErrorKeyDeclaresBothKernelAndKPIDependencies;
+
+
+/*****
  * DEPENDENCY ERROR INDICATORS
  *
  * These constants are used as values in the dictionary of missing
@@ -271,8 +288,7 @@ extern const CFStringRef kKXKextDependencyCircularReference;
 
 #endif _KEXT_KEYS
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif __KXKEXT_H__
+#endif // !__LP64__

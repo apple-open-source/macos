@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2002  Mark Nudelman
+ * Copyright (C) 1984-2004  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -18,6 +18,13 @@
 #include <windows.h>
 #endif
 
+#ifdef __APPLE__
+#include "get_compat.h"
+#else
+#define COMPAT_MODE(func, mode) 1
+#endif
+
+
 public char *	every_first_cmd = NULL;
 public int	new_file;
 public int	is_tty;
@@ -33,6 +40,11 @@ public int	quitting;
 public int	secure;
 public int	dohelp;
 public int	more_mode = 0;
+public int	file_errors = 0;
+public int	unix2003_compat = 0;
+public int	add_newline = 0;
+public char *	active_dashp_command = NULL;
+public char *	dashp_commands = NULL;
 
 #if LOGFILE
 public int	logfile = -1;
@@ -71,6 +83,9 @@ main(argc, argv)
 	char *s;
 	extern char *__progname;
 
+	if (COMPAT_MODE("bin/more", "unix2003")) {
+		unix2003_compat = 1;
+	}
 #ifdef __EMX__
 	_response(&argc, &argv);
 	_wildcard(&argc, &argv);
@@ -112,6 +127,8 @@ main(argc, argv)
 	 */
 	if (strcmp(__progname, "more") == 0)
 		more_mode = 1;
+	else
+		unix2003_compat = 0;
 
 	is_tty = isatty(1);
 	get_term();
@@ -119,10 +136,13 @@ main(argc, argv)
 	init_prompt();
 	init_charset();
 	init_line();
+	init_cmdhist();
 	init_option();
 
 	if (more_mode) {
-		scan_option("-E");
+		if (!unix2003_compat) {
+			scan_option("-E");
+		}
 		scan_option("-m");
 		scan_option("-G");
 		scan_option("-f");
@@ -164,8 +184,20 @@ main(argc, argv)
 	}
 	editproto = lgetenv("LESSEDIT");
 	if (editproto == NULL || *editproto == '\0')
-		editproto = "%E ?lm+%lm. %f";
+	{
+		if (unix2003_compat) {
+			editproto = "%E ?l+%l. %f";
+		} else {
+			editproto = "%E ?lm+%lm. %f";
+		}
+	}
 #endif
+	if (more_mode) {
+		if (unix2003_compat) {
+			/* If -n option appears, force screen size override */
+			get_term();
+		}
+	}
 
 	/*
 	 * Call get_ifile with all the command line filenames
@@ -219,11 +251,18 @@ main(argc, argv)
 		{
 			if (edit_stdin() == 0)
 				cat_file();
+			else
+				file_errors++;
 		} else if (edit_first() == 0)
 		{
 			do {
 				cat_file();
 			} while (edit_next(1) == 0);
+		} else
+			file_errors++;
+		if (file_errors) {
+			if (unix2003_compat) 
+				quit(QUIT_ERROR);
 		}
 		quit(QUIT_OK);
 	}
@@ -241,16 +280,21 @@ main(argc, argv)
 #if TAGS
 	if (tagoption != NULL || strcmp(tags, "-") == 0)
 	{
+		int tags_skip_other_files = 1;
 		/*
 		 * A -t option was given.
 		 * Verify that no filenames were also given.
 		 * Edit the file selected by the "tags" search,
 		 * and search for the proper line in the file.
 		 */
-		if (nifile() > 0)
-		{
-			error("No filenames allowed with -t option", NULL_PARG);
-			quit(QUIT_ERROR);
+		if (unix2003_compat) {
+			tags_skip_other_files = 0;
+		} else {
+			if (nifile() > 0)
+			{
+				error("No filenames allowed with -t option", NULL_PARG);
+				quit(QUIT_ERROR);
+			}
 		}
 		findtag(tagoption);
 		if (edit_tagfile())  /* Edit file which contains the tag */
@@ -263,7 +307,14 @@ main(argc, argv)
 		if (initial_scrpos.pos == NULL_POSITION)
 			quit(QUIT_ERROR);
 		initial_scrpos.ln = jump_sline;
-	} else
+		if (!tags_skip_other_files) {
+			/* TBD: -t under unix2003 requires other files on
+			   command line to be processed after tagfile, but
+			   conformance tests do not test this feature
+			 */
+		}
+	}
+	else
 #endif
 	if (nifile() == 0)
 	{
@@ -277,6 +328,10 @@ main(argc, argv)
 
 	init();
 	commands();
+	if (file_errors) {
+		if (unix2003_compat) 
+			quit(QUIT_ERROR);
+	}
 	quit(QUIT_OK);
 	/*NOTREACHED*/
 	return (0);
@@ -349,14 +404,14 @@ sprefix(ps, s, uppercase)
 		c = *ps;
 		if (uppercase)
 		{
-			if (len == 0 && SIMPLE_IS_LOWER(c))
+			if (len == 0 && ASCII_IS_LOWER(c))
 				return (-1);
-			if (SIMPLE_IS_UPPER(c))
-				c = SIMPLE_TO_LOWER(c);
+			if (ASCII_IS_UPPER(c))
+				c = ASCII_TO_LOWER(c);
 		}
 		sc = *s;
-		if (len > 0 && SIMPLE_IS_UPPER(sc))
-			sc = SIMPLE_TO_LOWER(sc);
+		if (len > 0 && ASCII_IS_UPPER(sc))
+			sc = ASCII_TO_LOWER(sc);
 		if (c != sc)
 			break;
 		len++;
@@ -383,6 +438,7 @@ quit(status)
 		save_status = status;
 	quitting = 1;
 	edit((char*)NULL);
+	save_cmdhist();
 	if (any_display && is_tty)
 		clear_bot();
 	deinit();

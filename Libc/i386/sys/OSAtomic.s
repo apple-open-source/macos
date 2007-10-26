@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,15 +66,48 @@ DECLARE(_OSAtomicXor32)
 	movl %edx, %eax
 	ret
 
+DECLARE(_OSAtomicAnd32Orig)
+	movl 8(%esp), %ecx
+	movl (%ecx), %eax
+1:
+	movl 4(%esp), %edx
+	andl %eax, %edx
+	call *_COMM_PAGE_COMPARE_AND_SWAP32
+	jnz  1b
+	ret
+
+DECLARE(_OSAtomicOr32Orig)
+	movl 8(%esp), %ecx
+	movl (%ecx), %eax
+1:
+	movl 4(%esp), %edx
+	orl %eax, %edx
+	call *_COMM_PAGE_COMPARE_AND_SWAP32
+	jnz  1b
+	ret
+
+DECLARE(_OSAtomicXor32Orig)
+	movl 8(%esp), %ecx
+	movl (%ecx), %eax
+1:
+	movl 4(%esp), %edx
+	xorl %eax, %edx
+	call *_COMM_PAGE_COMPARE_AND_SWAP32
+	jnz  1b
+	ret
+
+DECLARE(_OSAtomicCompareAndSwapPtr)
+DECLARE(_OSAtomicCompareAndSwapInt)
+DECLARE(_OSAtomicCompareAndSwapLong)
 DECLARE(_OSAtomicCompareAndSwap32)
 	movl     4(%esp), %eax
 	movl     8(%esp), %edx
 	movl    12(%esp), %ecx
 	call	*_COMM_PAGE_COMPARE_AND_SWAP32
 	sete	%al
+	movzbl	%al,%eax	// widen in case caller assumes we return an int
 	ret
 
-.align 2, 0x90
 DECLARE(_OSAtomicCompareAndSwap64)
 	pushl	%ebx
 	pushl	%esi
@@ -84,6 +118,7 @@ DECLARE(_OSAtomicCompareAndSwap64)
 	movl	28(%esp), %esi
 	call	*_COMM_PAGE_COMPARE_AND_SWAP64
 	sete	%al
+	movzbl	%al,%eax	// widen in case caller assumes we return an int
 	popl	%esi
 	popl	%ebx
 	ret
@@ -109,7 +144,7 @@ DECLARE(_OSAtomicAdd64)
 	call	*_COMM_PAGE_COMPARE_AND_SWAP64
 	jnz	1b
 	movl	%ebx, %eax
-	movl	%ecx, %ebx
+	movl	%ecx, %edx
 	popl	%esi
 	popl	%ebx	
 	ret
@@ -117,37 +152,119 @@ DECLARE(_OSAtomicAdd64)
 DECLARE(_OSAtomicTestAndSet)
 	movl	4(%esp), %eax
 	movl	8(%esp), %edx
+	movl	%eax, %ecx
+	andl	$-8, %ecx
+	notl	%eax
+	andl	$7, %eax
+	orl	%ecx, %eax
 	call	*_COMM_PAGE_BTS
 	setc	%al
+	movzbl	%al,%eax	// widen in case caller assumes we return an int
 	ret
 
 DECLARE(_OSAtomicTestAndClear)
 	movl	4(%esp), %eax
 	movl	8(%esp), %edx
+	movl	%eax, %ecx
+	andl	$-8, %ecx
+	notl	%eax
+	andl	$7, %eax
+	orl	%ecx, %eax
 	call	*_COMM_PAGE_BTC
 	setc	%al
+	movzbl	%al,%eax	// widen in case caller assumes we return an int
 	ret
 
-.align 2, 0x90
-.globl _OSSpinLockTry
+	.align	2, 0x90
+	.globl	_OSSpinLockTry
+	.globl	__spin_lock_try
 _OSSpinLockTry:
+__spin_lock_try:
 	movl	$(_COMM_PAGE_SPINLOCK_TRY), %eax
-	jmpl	%eax
+	jmpl	*%eax
 
-.align 2, 0x90
-.globl _OSSpinLockLock
+	.align	2, 0x90
+	.globl	_OSSpinLockLock
+	.globl	_spin_lock
+	.globl	__spin_lock
 _OSSpinLockLock:
+_spin_lock:
+__spin_lock:
 	movl	$(_COMM_PAGE_SPINLOCK_LOCK), %eax
-	jmpl	%eax
+	jmpl	*%eax
 
-.align 2, 0x90
-.globl _OSSpinLockUnlock
+	.align	2, 0x90
+	.globl	_OSSpinLockUnlock
+	.globl	_spin_unlock
+	.globl	__spin_unlock
 _OSSpinLockUnlock:
+_spin_unlock:
+__spin_unlock:
 	movl	4(%esp), %eax
 	movl	$0, (%eax)
 	ret
 
-.align 2, 0x90
-.globl _OSMemoryBarrier
+	.align 2, 0x90
+	.globl _OSMemoryBarrier
 _OSMemoryBarrier:
+	movl	$(_COMM_PAGE_MEMORY_BARRIER), %eax
+	jmpl	*%eax
+
+/*
+ *	typedef	volatile struct {
+ *		void	*opaque1;  <-- ptr to 1st queue element or null
+ *		long	 opaque2;  <-- generation count
+ *	} OSQueueHead;
+ *
+ * void  OSAtomicEnqueue( OSQueueHead *list, void *new, size_t offset);
+ */
+	.align	2
+	.globl	_OSAtomicEnqueue
+_OSAtomicEnqueue:
+	pushl	%edi
+	pushl	%esi
+	pushl	%ebx
+	movl	16(%esp),%edi	// %edi == ptr to list head
+	movl	20(%esp),%ebx	// %ebx == new
+	movl	24(%esp),%esi	// %esi == offset
+	movl	(%edi),%eax	// %eax == ptr to 1st element in Q
+	movl	4(%edi),%edx	// %edx == current generation count
+1:
+	movl	%eax,(%ebx,%esi)// link to old list head from new element
+	movl	%edx,%ecx
+	incl	%ecx		// increment generation count
+	lock			// always lock for now...
+	cmpxchg8b (%edi)	// ...push on new element
+	jnz	1b
+	popl	%ebx
+	popl	%esi
+	popl	%edi
 	ret
+	
+	
+/* void* OSAtomicDequeue( OSQueueHead *list, size_t offset); */
+	.align	2
+	.globl	_OSAtomicDequeue
+_OSAtomicDequeue:
+	pushl	%edi
+	pushl	%esi
+	pushl	%ebx
+	movl	16(%esp),%edi	// %edi == ptr to list head
+	movl	20(%esp),%esi	// %esi == offset
+	movl	(%edi),%eax	// %eax == ptr to 1st element in Q
+	movl	4(%edi),%edx	// %edx == current generation count
+1:
+	testl	%eax,%eax	// list empty?
+	jz	2f		// yes
+	movl	(%eax,%esi),%ebx // point to 2nd in Q
+	movl	%edx,%ecx
+	incl	%ecx		// increment generation count
+	lock			// always lock for now...
+	cmpxchg8b (%edi)	// ...pop off 1st element
+	jnz	1b
+2:
+	popl	%ebx
+	popl	%esi
+	popl	%edi
+	ret			// ptr to 1st element in Q still in %eax
+

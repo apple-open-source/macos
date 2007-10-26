@@ -1,3 +1,4 @@
+<testcase>
 # Server-side
 <reply>
 <data>
@@ -28,7 +29,7 @@ ftp://%HOSTIP:%FTPPORT/first/dir/here/146 ftp://%HOSTIP:%FTPPORT/146
 </strip>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 CWD first
 CWD dir
@@ -39,9 +40,9 @@ SIZE 146
 RETR 146
 CWD /nowhere/anywhere
 EPSV
-TYPE I
 SIZE 146
 RETR 146
 QUIT
 </protocol>
 </verify>
+</testcase>

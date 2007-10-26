@@ -53,8 +53,8 @@ extern "C" {
 	#include <openssl/rc4.h>
 	#include <openssl/rc5.h>
 	
-	#include "sasl.h"
-	#include "saslutil.h"
+	#include <sasl/sasl.h>
+	#include <sasl/saslutil.h>
 	
 	#include "key.h"
 };
@@ -72,11 +72,11 @@ extern "C" {
 
 #include <CoreFoundation/CoreFoundation.h>
 
-#include "sasl.h"
 #include "AuthFile.h"
 #include "CReplicaFile.h"
 #include "CPSUtilities.h"
 #include "CPSPluginDefines.h"
+#include "CAuthParams.h"
 
 #define kUserIDLength						34
 #define kMaxOpenNodesBeforeQuickClose		100
@@ -87,7 +87,8 @@ extern "C" {
 #define kOneKBuffer							1024
 
 
-#define Throw_NULL(A,B)			if ((A)==NULL) throw((sInt32)B)
+#define Throw_NULL(A,B)			if ((A)==NULL) throw((SInt32)B)
+#define Return_if_NULL(A,B)		if ((A)==NULL) return((tDirStatus)B)
 
 #if 1
 #define DEBUGLOG(A,args...)		CShared::LogIt( 0x0F, (A), ##args )
@@ -96,11 +97,13 @@ extern "C" {
 #endif
 
 enum {
-	kAuthDIGEST_MD5_Reauth		= 153,
-	kAuthPull					= 156,
-	kAuthPush					= 157,
-	kAuthProcessNoReply			= 158,
-	kAuthNTLMv2SessionKey		= 165
+	kAuthDIGEST_MD5_Reauth			= 153,
+	kAuthPull						= 156,
+	kAuthPush						= 157,
+	kAuthProcessNoReply				= 158,
+	kAuthNTLMv2SessionKey			= 165,
+	kAuthGetStats					= 167,
+	kAuthGetChangeList				= 168
 };
 
 typedef enum NewUserParamListType {
@@ -110,135 +113,170 @@ typedef enum NewUserParamListType {
 	kNewUserParamsPrincipalNameAndPolicy
 };
 
+typedef struct MethodMapEntry {
+	const char *saslName;
+	const char *odName;
+} MethodMapEntry;
+
 class CPSPlugIn : public CDSServerModule
 {
 public:
 						CPSPlugIn					(	void );
 	virtual			   ~CPSPlugIn					(	void );
 
-	virtual sInt32		Validate					(	const char *inVersionStr,
-														const uInt32 inSignature );
-	virtual sInt32		Initialize					(	void );
-	virtual sInt32		ProcessRequest				(	void *inData );
-	virtual sInt32		SetPluginState				(	const uInt32 inState );
+	virtual SInt32		Validate					(	const char *inVersionStr,
+														const UInt32 inSignature );
+	virtual SInt32		Initialize					(	void );
+	virtual SInt32		ProcessRequest				(	void *inData );
+	virtual SInt32		SetPluginState				(	const UInt32 inState );
 	static void			ContinueDeallocProc			(	void* inContinueData );
 	static void			ContextDeallocProc			(	void* inContextData );
-	
+	static void			ReleaseCloseWaitConnections	(	void* inContextData );
+
 protected:
 	void				WakeUpRequests				(	void );
 	void				WaitForInit					(	void );
-	sInt32				HandleRequest				(	void *inData );
-	sInt32				ReleaseContinueData			(	sReleaseContinueData *inData );
-    sInt32				OpenDirNode					(	sOpenDirNode *inData );
-    sInt32				CloseDirNode				(	sCloseDirNode *inData );
-	sInt32				GetDirNodeInfo				(	sGetDirNodeInfo *inData );
-	sInt32				HandleFirstContact			(	sPSContextData *inContext,
+	SInt32				HandleRequest				(	void *inData );
+	SInt32				ReleaseContinueData			(	sReleaseContinueData *inData );
+    SInt32				OpenDirNode					(	sOpenDirNode *inData );
+    SInt32				CloseDirNode				(	sCloseDirNode *inData );
+	SInt32				GetDirNodeInfo				(	sGetDirNodeInfo *inData );
+	SInt32				HandleFirstContact			(	sPSContextData *inContext,
 														const char *inIP,
 														const char *inUserKeyHash,
 														const char *inUserKeyStr = NULL,
 														bool inSecondTime = false );
-	sInt32				BeginServerSession			(	sPSContextData *inContext, int inSock, const char *inUserKeyHash );
-	static sInt32		EndServerSession			(	sPSContextData *inContext, bool inSendQuit = false );
-    sInt32				GetRSAPublicKey				(	sPSContextData *inContext, char *inData = NULL );
-    bool				RSAPublicKeysEqual			(	const char *rsaKeyStr1, const char *rsaKeyStr2 );
-	sInt32				DoRSAValidation				(	sPSContextData *inContext, const char *inUserKey );
-	sInt32				SetupSecureSyncSession		(	sPSContextData *inContext );
+	SInt32				BeginServerSession			(	sPSContextData *inContext, int inSock, const char *inUserKeyHash );
+	static SInt32		EndServerSession			(	sPSContextData *inContext, bool inSendQuit = false );
+	SInt32				GetSASLMechListFromString	(	const char *inSASLList, AuthMethName **mechList, int *mechCount );
+    SInt32				GetRSAPublicKey				(	sPSContextData *inContext, char *inData = NULL );
+ 	SInt32				DoRSAValidation				(	sPSContextData *inContext, const char *inUserKey );
+	SInt32				SetupSecureSyncSession		(	sPSContextData *inContext );
 	static bool			SecureSyncSessionIsSetup	(	sPSContextData *inContext );
-	sInt32				GetAttributeEntry			(	sGetAttributeEntry *inData );
-	sInt32				GetAttributeValue			(	sGetAttributeValue *inData );
-	uInt32				CalcCRC						(	char *inStr );
-    static sInt32		CleanContextData			(	sPSContextData *inContext );
+	SInt32				GetAttributeEntry			(	sGetAttributeEntry *inData );
+	SInt32				GetAttributeValue			(	sGetAttributeValue *inData );
+	UInt32				CalcCRC						(	char *inStr );
+    static SInt32		CleanContextData			(	sPSContextData *inContext );
     sPSContextData	   *MakeContextData				(	void );
-	sInt32				CloseAttributeList			(	sCloseAttributeList *inData );
-	sInt32				CloseAttributeValueList		(	sCloseAttributeValueList *inData );
-    sInt32				GetStringFromAuthBuffer		(	tDataBufferPtr inAuthData,
+	SInt32				CloseAttributeList			(	sCloseAttributeList *inData );
+	SInt32				CloseAttributeValueList		(	sCloseAttributeValueList *inData );
+    SInt32				GetStringFromAuthBuffer		(	tDataBufferPtr inAuthData,
                                                         int stringNum,
                                                         char **outString );
-	sInt32				Get2StringsFromAuthBuffer	(	tDataBufferPtr inAuthData, char **outString1, char **outString2 );
+	SInt32				Get2StringsFromAuthBuffer	(	tDataBufferPtr inAuthData, char **outString1, char **outString2 );
 	
-    sInt32				GetDataFromAuthBuffer		(	tDataBufferPtr inAuthData,
+    SInt32				GetDataFromAuthBuffer		(	tDataBufferPtr inAuthData,
                                                         int nodeNum,
                                                         unsigned char **outData,
-                                                        long *outLen );
+                                                        UInt32 *outLen );
     
 	void				UpdateCachedPasswordOnChange (   sPSContextData *inContext,
 														const char *inChangedUser,
 														const char *inPassword,
 														long inPasswordLen );
 	
-	sInt32				DoAuthentication			(	sDoDirNodeAuth *inData );
+	int					GetSASLMechCount			(	sPSContextData *inContext );
+	void				SASLInit					(	void );
+	SInt32				DoAuthentication			(	sDoDirNodeAuth *inData );
+	SInt32				DoAuthenticationSetup		(	sDoDirNodeAuth *inData );
+	SInt32				DoAuthenticationResponse	(	sDoDirNodeAuth *inData, CAuthParams &pb );
 
 	// ------------------------------------------------------------------------------------------------
 
-	sInt32				DoAuthMethodNewUser			(   sDoDirNodeAuth *inData,
+	SInt32				DoAuthMethodNewUser			(   sDoDirNodeAuth *inData,
 														sPSContextData *inContext,
 														bool inWithPolicy,
 														tDataBufferPtr outBuf );
-	sInt32				DoAuthMethodListReplicas	(   sDoDirNodeAuth *inData,
+	SInt32				DoAuthMethodNewComputer		(   sDoDirNodeAuth *inData,
 														sPSContextData *inContext,
 														tDataBufferPtr outBuf );
-    sInt32				DoAuthMethodPull			(	sDoDirNodeAuth *inData,
+	SInt32				DoAuthMethodSetComputerAccountPassword
+													(   sDoDirNodeAuth *inData,
 														sPSContextData *inContext,
 														tDataBufferPtr outBuf );
-    sInt32				DoAuthMethodPush			(	sDoDirNodeAuth *inData,
+	SInt32				DoAuthMethodListReplicas	(   sDoDirNodeAuth *inData,
 														sPSContextData *inContext,
 														tDataBufferPtr outBuf );
-	sInt32				DoAuthMethodNTUserSessionKey(	sInt32 inAuthenticatorAuthResult,
-														uInt32 inAuthMethod,
+    SInt32				DoAuthMethodPull			(	sDoDirNodeAuth *inData,
+														sPSContextData *inContext,
+														tDataBufferPtr outBuf );
+    SInt32				DoAuthMethodPush			(	sDoDirNodeAuth *inData,
+														sPSContextData *inContext,
+														tDataBufferPtr outBuf );
+	SInt32				DoAuthMethodNTUserSessionKey(	SInt32 inAuthenticatorAuthResult,
+														UInt32 inAuthMethod,
 														sDoDirNodeAuth *inData,
 														sPSContextData *inContext,
 														tDataBufferPtr outBuf );
-	sInt32				DoAuthMethodMSChapChangePass(	sDoDirNodeAuth *inData, sPSContextData *inContext );
-	sInt32				DoAuthMethodEncryptToUser	(	sDoDirNodeAuth *inData,
+	SInt32				DoAuthMethodMSChapChangePass(	sDoDirNodeAuth *inData, sPSContextData *inContext );
+	SInt32				DoAuthMethodEncryptToUser	(	sDoDirNodeAuth *inData,
 														sPSContextData *inContext,
 														tDataBufferPtr outBuf );
-	sInt32				DoAuthMethodDecrypt			(	sDoDirNodeAuth *inData,
+	SInt32				DoAuthMethodDecrypt			(	sDoDirNodeAuth *inData,
 														sPSContextData *inContext,
 														tDataBufferPtr outBuf );
-	sInt32				DoAuthMethodSetHash			(	sDoDirNodeAuth *inData, sPSContextData *inContext, const char *inCommandStr );
-	sInt32				DoAuthMethodNTLMv2SessionKey(   sDoDirNodeAuth *inData, sPSContextData *inContext, tDataBufferPtr outBuf );
+	SInt32				DoAuthMethodSetHash			(	sDoDirNodeAuth *inData, sPSContextData *inContext, const char *inCommandStr );
+	SInt32				DoAuthMethodNTLMv2SessionKey(   SInt32 inAuthenticatorAuthResult,
+														UInt32 inAuthMethod,
+														sDoDirNodeAuth *inData,
+														sPSContextData *inContext,
+														tDataBufferPtr outBuf );
+	SInt32				DoAuthMethodGetStats		(	sDoDirNodeAuth *inData, sPSContextData *inContext, tDataBufferPtr outBuf );
+	SInt32				DoAuthMethodGetChangeList	(	sDoDirNodeAuth *inData, sPSContextData *inContext, tDataBufferPtr outBuf );
 	
 	// ------------------------------------------------------------------------------------------------
 	
-	sInt32				GetReplicaListFromServer	(   sPSContextData *inContext,
+	SInt32				SetServiceInfo				(	sDoDirNodeAuth *inData, sPSContextData *inContext );
+	SInt32				GetReplicaListFromServer	(   sPSContextData *inContext,
 														char **outData,
 														unsigned long *outDataLen );
-	sInt32				UseCurrentAuthenticationIfPossible
+	SInt32				GetLargeReplyFromServer		(	const char *inCommand,
+														sPSContextData *inContext,
+														char **outData,
+														unsigned long *outDataLen );
+	SInt32				UseCurrentAuthenticationIfPossible
 													(	sPSContextData *inContext,
 														const char *inUserName,
 														UInt32 inAuthMethod,
 														Boolean *inOutHasValidAuth );
 	
-	sInt32				PackStepBuffer				(	const char *inArg1,
+	SInt32				PackStepBuffer				(	const char *inArg1,
 														bool inUseBuffPlus4, 
 														const char *inArg2,
 														const char *inArg3,
 														const char *inArg4,
 														tDataBufferPtr inOutDataBuffer );
 	
-	sInt32				UnpackUsernameAndPassword	(	sPSContextData *inContext,
-                                                        uInt32 uiAuthMethod,
+	SInt32				UnpackUsernameAndPassword	(	sPSContextData *inContext,
+                                                        UInt32 uiAuthMethod,
                                                         tDataBufferPtr inAuthBuf,
                                                         char **outUserName,
                                                         char **outPassword,
-                                                        long *outPasswordLen,
+                                                        UInt32 *outPasswordLen,
                                                         char **outChallenge );
 														
-	sInt32				UnpackUsernameAndPasswordDefault
+	SInt32				UnpackUsernameAndPasswordDefault
 													(	tDataBufferPtr inAuthBuf,
                                                         char **outUserName,
                                                         char **outPassword,
-                                                        long *outPasswordLen );
+                                                        UInt32 *outPasswordLen );
 														
-    sInt32				GetAuthMethodConstant		(	sPSContextData *inContext, 
+	SInt32				UnpackUsernameAndPasswordAtOffset
+													(	tDataBufferPtr inAuthBuf,
+														UInt32 inUserItem,
+                                                        char **outUserName,
+                                                        char **outPassword,
+                                                        UInt32 *outPasswordLen );
+														
+    SInt32				GetAuthMethodConstant		(	sPSContextData *inContext, 
                                                         tDataNode *inData,
-														uInt32 *outAuthMethod,
+														UInt32 *outAuthMethod,
                                                         char *outNativeAuthMethodSASLName );
                                                         
-    bool				RequiresSASLAuthentication	(	uInt32 inAuthMethodConstant );
+    bool				RequiresSASLAuthentication	(	UInt32 inAuthMethodConstant );
 	
-    sInt32				GetAuthMethodSASLName		(	sPSContextData *inContext, 
-														uInt32 inAuthMethodConstant,
+    SInt32				GetAuthMethodSASLName		(	sPSContextData *inContext, 
+														UInt32 inAuthMethodConstant,
                                                         bool inAuthOnly,
                                                         char *outMechName,
 														bool *outMethodCanSetPassword );
@@ -246,10 +284,10 @@ protected:
 	void				GetAuthMethodFromSASLName	(	const char *inMechName,
 														char *outDSType );
 	
-	sInt32				DoSASLNew					(	sPSContextData *inContext,
+	SInt32				DoSASLNew					(	sPSContextData *inContext,
 														sPSContinueData *inContinue );
 	
-	sInt32				DoSASLAuth					(	sPSContextData *inContext,
+	SInt32				DoSASLAuth					(	sPSContextData *inContext,
 														char *userName,
 														const char *password,
 														long inPasswordLen,
@@ -258,9 +296,15 @@ protected:
 														sDoDirNodeAuth *inData,
 														char **outStepData );
 		
-	sInt32				DoSASLTwoWayRandAuth		(	sPSContextData *inContext,
+	SInt32				DoSASLTwoWayRandAuth		(	sPSContextData *inContext,
 														const char *userName,
 														const char *inMechName,
+														sDoDirNodeAuth *inData );
+	
+	tDirStatus			DoSASLPPSAuth				(	sPSContextData *inContext,
+														const char *inUserName,
+														const char *inMechData,
+														long inMechDataLen,
 														sDoDirNodeAuth *inData );
 	
 	static
@@ -271,18 +315,16 @@ protected:
 														char *inOutBuf,
 														unsigned long inBufLen );
 	
-	sInt32				GetServerListFromDSDiscovery(	CFMutableArrayRef inOutServerList );
-	sInt32				PWSErrToDirServiceError		(	PWServerError inError );
-	sInt32				SASLErrToDirServiceError	(	int inSASLError );
-	sInt32				PolicyErrToDirServiceError	(	int inPolicyError );
+	SInt32				GetServerListFromDSDiscovery(	CFMutableArrayRef inOutServerList );
 	
-	sInt32				DoPlugInCustomCall			(	sDoPlugInCustomCall *inData );
+	SInt32				DoPlugInCustomCall			(	sDoPlugInCustomCall *inData );
 	
 private:
-	uInt32				fState;
-	uInt32				fSignature;
-	sInt32				fOpenNodeCount;
+	UInt32				fState;
+	UInt32				fSignature;
+	SInt32				fOpenNodeCount;
 	bool				fCalledSASLInit;
+	char				fSASLMechPriority[256];
 };
 
 #endif	// __CPSPlugIn_h__

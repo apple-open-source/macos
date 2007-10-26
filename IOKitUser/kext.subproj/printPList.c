@@ -1,3 +1,5 @@
+#if !__LP64__
+
 #include "printPList.h"
 
 static void _indent(CFMutableStringRef string, unsigned indentLevel)
@@ -45,7 +47,7 @@ finish:
 
 void _appendPlist(CFMutableStringRef string, CFTypeRef plist, unsigned indentLevel)
 {
-    CFTypeID typeID = NULL;
+    CFTypeID typeID = 0;
 
     if (!plist) {
         return;
@@ -125,7 +127,7 @@ void _appendPlist(CFMutableStringRef string, CFTypeRef plist, unsigned indentLev
 void printPList(FILE * stream, CFTypeRef plist)
 {
     CFMutableStringRef string = NULL;  // must release
-    CFIndex stringLength;
+    CFIndex bufSize;
     char * c_string = NULL; // must free
 
     string = createCFStringForPlist(plist);
@@ -133,15 +135,14 @@ void printPList(FILE * stream, CFTypeRef plist)
         goto finish;
     }
 
-    stringLength = CFStringGetLength(string);
-    c_string = (char *)malloc((1 + stringLength) * sizeof(char));
+    bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(string),
+	    kCFStringEncodingUTF8) + sizeof('\0');
+    c_string = (char *)malloc(bufSize);
     if (!c_string) {
         goto finish;
     }
 
-    if (CFStringGetCString(string, c_string, stringLength + 1,
-        kCFStringEncodingUTF8)) {
-
+    if (CFStringGetCString(string, c_string, bufSize, kCFStringEncodingUTF8)) {
         fprintf(stream, c_string);
     }
 
@@ -172,3 +173,4 @@ CFMutableStringRef createCFStringForPlist(CFTypeRef plist)
 finish:
     return string;
 }
+#endif // !__LP64__

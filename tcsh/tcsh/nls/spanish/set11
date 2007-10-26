@@ -1,4 +1,4 @@
-$ $Id: set11,v 1.1.1.2 2001/06/28 23:11:21 bbraun Exp $
+$ $Id: set11,v 1.1 1998/04/08 17:59:52 christos Exp $
 $ sh.c
 $set 11 
 1 Aviso: no se puede acceder a la tty (%s).\n

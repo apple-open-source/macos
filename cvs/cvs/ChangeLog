@@ -1,51 +1,1106 @@
-2004-11-05  Conrad T. Pino  <Conrad@Pino.com>
+2005-10-03  Derek Price  <derek@ximbiot.com>
 
-	* cvsnt.dep: Regenerated after complete rebuild.
-	* cvsnt.mak: Regenerated after complete rebuild.
+	* NEWS: Note ZLib security issues.
+
+2005-09-30  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Mention Conrad's Windows client fix.
+
+2005-09-28  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Consolidate TmpDir with the other new config keys.
+
+2005-09-26  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note FreeBSD 5.x GSSAPI fix.
+
+	* NEWS: Note fsync'd commits.
+
+2005-09-25  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add files (lib\getdelim.h lib\setenv.h) to project.
+
+	* cvsnt.dep: Regenerated for "cvsnt.dsp" changes.
+
+2005-09-24  Derek Price  <derek@ximbiot.com>
+
+	* NEWS, HACKING: Standardize on Automake 1.9.6.
+
+2005-09-22  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Mention conflict fixes.
+
+2005-09-20  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add files (lib\canon-host.h lib\glob-libc.h) to project.
+
+	* cvsnt.dep: Regenerated for "cvsnt.dsp" changes.
+
+2005-09-19  Derek Price  <derek@ximbiot.com>
+
+	* maint-aux/gnulib-update: Default $GNULIB path rather than setting.
+	Check for error return from gnulib-tool before expecting results.
+
+2005-09-13  Derek Price  <derek@ximbiot.com>
+
+	* TESTS: Mention new $username8 & $anyusername variables.
+
+2005-09-06  Derek Price  <derek@ximbiot.com>
+
+	* TESTS: Reword slightly.  s/\$PROG/\$CPROG/.  Document $tempfile &
+	$tempname.
+
+	* NEWS: Note Kerberos4 build fix.
+
+2005-09-05  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note TmpDir config key.  Reorder config news items.  Reword
+	the [root] specification item.
+
+	* configure.in (--enable-config-override): Verify $prefix is set before
+	expanding $sysconfdir.
+
+2005-09-04  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove putenv cruft.
+
+	* maint-aux/gnulib-modules: Add glob.
+
+	* NEWS: Note new [root] specification in config files.
+
+	* configure.in: Remove unneeded search for hstrerror.
+	* maint-aux/gnulib-modules: Add canon-host.
+
+2005-09-04  Larry Jones  <lawrence.jones@ugs.com>
+
+	* NEWS: s/bug-cvs@gnu.org/bug-cvs@nongnu.org/.
+	* configure.in: s/info-cvs@gnu.org/info-cvs@nongnu.org/.
+	* configure: Regenerated.
+
+2005-09-03  Larry Jones  <lawrence.jones.ugs.com>
+
+	* configure: Regenerated.
+
+2005-09-01  Derek Price  <derek@ximbiot.com>
+
+	* DEVEL-CVS, FAQ, HACKING, INSTALL-CVS, README, README.VMS,
+	configure.in, build-aux/bison-missing: Update links and email
+	addresses.
+
+2005-08-31  Derek Price  <derek@ximbiot.com>
+
+	* www/.htaccess: Remove this file.
+
+2005-08-31  Derek Price  <derek@ximbiot.com>
+
+	* cvs.spec.in: Note last spec file change in internal ChangeLog.
+
+2005-08-31  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note spec file repair.
+
+2005-08-31  Derek Price  <derek@ximbiot.com>
+
+	* cvs.spec.in: Update links to point to Savannah.  s/Copyright/License/
+	for RPM 4.mumble.
+
+2005-08-31  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note configurable config file path.
+	* configure.in (--enable-config-override): New option.
+
+2005-08-30  Larry Jones  <lawrence.jones@ugs.com>
+
+	* NEWS: Note import locking fix.
+
+2005-08-29  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new verifymsg %{sV} format strings.
+
+2005-08-04  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Move 1.12 change from BUG FIXES to NEW FEATURES and rephrase.
+	Correct spelling error in different entry.
+
+2005-07-20  Derek Price  <derek@ximbiot.com>
+
+	* AUTHORS, HACKING, README, cvs.spec.in:
+	s/cvshome.org/nongnu.org.etc.../.
+	* DEVEL-CVS: Ditto.  Remove devel-cvs mailing list charter.
+
+2005-07-12  Derek Price  <derek@ximbiot.com>
+
+	* FAQ, HACKING, INSTALL: Add copyright notices.
+
+2005-07-11  Derek Price  <derek@ximbiot.com>
+
+	* FAQ, HACKING, INSTALL-CVS: Update license notices.
+
+2005-06-15  Derek Price  <derek@ximbiot.com>
+
+	* build-aux/missing: Add hack to fail gracefully when Bison is too old.
+
+2005-06-15  Derek Price  <derek@ximbiot.com>
+
+	* HACKING: Note GNU Bison 1.875 requirement.
+
+2005-06-12  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add file "lstat.h" to project.
+	* cvsnt.dep: Regenerate for "cvsnt.dsp" change.
+
+2005-06-10  Derek Price  <derek@ximbiot.com>
+
+	* maint-aux/gnulib-modules: Remove stat module.
+
+2005-06-10  Mark D. Baushke  <mdb@cvshome.org>
+
+	* HACKING: Add a few more guidelines.  Adjust examples for switch
+	labels.  Fix some spelling mistakes.
+	* cvs-format.el (c-label-offset, case-label): Adjust indentation
+	to agree with changes in the HACKING document.
+	
+2005-06-03  Derek Price  <derek@ximbiot.com>
+
+	* HACKING: Remove `!= NULL' in example conditional.
+
+2005-06-03  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new server compression limit config options.  Correct
+	HistorySearchPath name.
+
+2005-06-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note server compression hang fix.
+
+2005-06-01  Derek Price  <derek@ximbiot.com>
+
+	* TODO (214): Remove completed item.
+
+2005-06-01  Conrad T. Pino  <Conrad@Pino.com>
+
+	* makewin32.cmd: Add options to support CLEAN build target.
+
+2005-06-01  Conrad T. Pino  <Conrad@Pino.com>
+
+	* makewin32.cmd: Add Windows NT command file to build CVS Project.
+
+2005-05-31  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dep: Regenerate after build for #include changes.
+
+2005-05-30  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add files "lib/quotearg.h", "lib/stat-macros.h",
+	  "windows-NT/woe32.h" and "windows-NT/unistd.c" to project.
+	* cvsnt.dep, cvsnt.mak: Regenerate for "cvsnt.dsp" changes.
+
+2005-05-27  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note diff space split fix.
+	* BUGS: Remove diff space split note.
+
+2005-05-27  Derek Price  <derek@ximbiot.com>
+
+	* maint-aux/gnulib-modules: Add quotearg module.
+
+2005-05-26  Derek Price  <derek@ximbiot.com>
+
+	* maint-aux/gnulib-modules: Add stat-macros module.
+
+2005-05-25  Derek Price  <derek@ximbiot.com>
+
+	* maint-aux/gnulib-modules: Add getlogin_r module.
+
+2005-05-24  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add lib/canonicalize.h and lib/glob.h to project.
+	* cvsnt.dep: Regenerate for cvsnt.dsp changes.
+
+2005-05-23  Derek Price  <derek@ximbiot.com>
+
+	* maint-aux/gnulib-modules: Add GNULIB canonicalize module.
+
+2005-05-23  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update Copyright years.
+
+2005-05-17  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dep: Regenerated for "lib/libcvs.dsp" change.
+
+2005-05-11  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new History* config options.
+	* maint-aux/gnulib-filelist.txt: Add strdup module.
+
+2005-05-09  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dep, cvsnt.mak: Regenerated after Windows full rebuild.
+
+2005-05-09  Derek Price  <derek@ximbiot.com>
+
+	* cvs.spec.in: Find install-sh in its new location.
+
+2005-05-06  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Solaris 10 command option parsing fix.
+
+2005-05-04  Mark D. Baushke  <mdb@cvshome.org>
+
+	* maint-aux/gnulib-update: Depend on maint-aux/gnulib-modules
+	which needs to exist relative to the top-level directory rather
+	than config.h which may be sitting in a build subdirectory.
+
+2005-05-03  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL-CVS: Add footnote about compiling a CVS checkout of CVS on a
+	case-insensitive UNIX file system like Mac OS X.
+
+2005-05-03  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note GNULIB updates as misc efficiency and portability fixes.
+
+2005-05-02  Derek Price  <derek@ximbiot.com>
+
+	* TODO (231): New item.
+	(22, 30, 31): Remove completed items.
+
+2005-05-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new val-tags locks.
+
+2005-05-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that lock compatibility is now enabled on Windows by
+	default.
+
+2005-05-01  Mark D. Baushke  <mdb@cvshome.org>
+
+	* maint-aux/gnulib-filelist.txt: Update from GNULIB.
+	* configure: Regenerated.
+
+2005-04-30  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new history locks.
+
+2005-04-25  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure.in: Add support for <pam/pam_appl.h> to allow
+	--enable-pam to work on MacOSX 10.2 and newer.
+	(Pach from Moriyoshi Koizumi <moriyoshi@at.wakwak.com>.)
+	* configure, config.h.in: Regenerated.
+	
+2005-04-20  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note log overflow fix.
+
+2005-04-15  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Klocwork fixes.
+
+2005-04-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note contrib Perl taint vulnerability fix.
+
+2005-04-12  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Avoid self-aggrandizement.
+
+2005-04-08  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note GMT/get_date fix.
+
+2005-04-06  Derek Price  <derek@ximbiot.com>
+
+	* gnulib.txt: Move to...
+	* gnulib-filelist.txt: ...this new file.
+	* gnulib-update: Clean up slightly.  Use new file.
+
+2005-04-06  Derek Price  <derek@ximbiot.com>
+
+	* maint-aux/.cvsignore: New file.
+
+2005-04-06  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Generate maint-aux/Makefile.
+	* Makefile.am (SUBDIRS): Add maint-aux.
+	* maint-aux/Makefile.am, maint-aux/Makefile.in: New files.
+
+2005-04-06  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-modules, gnulib-update, gnulib.txt, srclist.txt: Move these...
+	* maint-aux: ...to this new directory, with minor modifications.
+	* Makefile.am (EXTRA_DIST): Accomodate move of the above files.  Add
+	maint-aux/gnulib-modules.
+	* HACKING: s#srclist.txt#maint-aux/srclist.txt#.
+
+2005-04-05  Derek Price  <derek@ximbiot.com>
+
+	* mkinstalldirs: Remove this obsolete file.  It's work is now done by
+	`build-aux/install-sh -d'.
+
+2005-04-05  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Specify new build-aux directory for auxiliary build
+	files.
+	* compile, config.guess, config.rpath, config.sub, depcomp, install-sh,
+	mdate-sh, missing, texinfo.tex, ylwrap: Move to...
+	* build-aux: ...this new directory.
+	* INSTALL: Replace with generic version from Automake, moving...
+	* INSTALL-CVS: ...original to here.  Reference INSTALL for more
+	configure information.
+	* FAQ, README: Reference INSTALL-CVS rather than INSTALL.
+
+2005-03-29  Mark D. Baushke  <mdb@cvshome.org>
+
+	* config.guess, config.rpath, config.sub, depcomp, gnulib.txt,
+	install-sh, mdate-sh, missing, mkinstalldirs: Update from GNULIB.
+	* configure: Regenerated.
+	
+2005-03-22  Mark D. Baushke  <mdb@cvshome.org>
+
+	* aclocal.m4, gnulib.txt: Update from GNULIB.
+	* Makefile.in, config.h.in, configure: Regenerated.
+
+2005-03-16  Mark Baushke  <mdb@cvshome.org>
+
+	* cvs-format.el: Update to work with modern GNU Emacs versions
+	that have cc-mode instead of c-mode.
+
+2005-03-16  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that writeproxy primary failures are now detected.
+
+2005-03-16  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that failure to open debug logs is no longer fatal.
+
+2005-03-15  Derek Price  <derek@ximbiot.com>
+
+	* HACKING, NEWS: Note new Automake version.
+
+2005-03-10  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure: Regenerated.
+
+2005-03-09 Derek Price <derek@ximbiot.com>
+
+	* configure.in: Don't generate windows-NT/mkconfig or
+	windows-NT/fix-msvc-mak.
+	* configure: Regenerated.
+
+2005-03-07  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add .\lib\closeout.h, .\lib\getpagesize.h and
+	.\lib\pagealign_alloc.h files.
+	* cvsnt.dep, cvsnt.mak: Regenerate for cvsnt.dsp changes.
+
+2005-03-07  Mark D. Baushke  <mdb@cvshome.org>
+
+	* config.h.in, configure: Regenerated.
+
+2005-03-04  Jim Hyslop  <jhyslop@ieee.org>
+
+	* NEWS: Note fix for compile errors on IRIX 5.3.
+
+2005-03-03 Derek Price <derek@ximbiot.com>
+
+	* configure.in: Remove checks for valloc and mmap.
+	* gnulib-modules: Add pagealign_alloc.
+	* NEWS: Note new buffer allocation method.
+
+2005-03-03 Derek Price <derek@ximbiot.com>
+
+	* gnulib-update: Clean up "saved" files on interrupt.
+
+2005-03-02  Jim Meyering  <jim@meyering.net>
+
+	* NEWS: Note that cvs now detects write errors on stdout.
+	* gnulib-modules: Add closeout.
+	* gnulib.txt: Regenerate.
+
+2005-03-02 Derek Price <derek@ximbiot.com>
+
+	* configure.in: Remove checks for funcs covered by GNULIB.
+
+2005-03-02 Derek Price <derek@ximbiot.com>
+
+	* gnulib-update: Redirect gnulib-tool output back to /dev/null.
+
+2005-03-02 Derek Price <derek@ximbiot.com>
+
+	* gnulib-update: Avoid munging timestamps when files haven't changed.
+
+2005-03-01 Derek Price <derek@ximbiot.com>
+
+	* NEWS: Note GNULIB update.  Expand --disables-* note.
+
+2005-03-01 Derek Price <derek@ximbiot.com>
+
+	* gnulib-update: Correct m4/error.m4 to avoid compiling the GNULIB
+	lib/error.c.
+	(MODULES): Move content to...
+	* gnulib-modules: This new file.
+
+2005-02-25 Derek Price <derek@ximbiot.com>
+
+	* NEWS: Note commitid feature.
+	(Patch from Frank Hemer <frank@hemer.org>.)
+
+2005-02-24 Derek Price <derek@ximbiot.com>
+
+	* configure.in:  Disable proxy when either the client or server are
+	disabled.  Other minor cleanup.
+	* NEWS: Note --disable-client fix.
+
+2005-02-23  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note -r<tag>:<date> change.
+
+2005-02-21  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note zlib update.
+	* srclist.txt: Note new source for zlib.
+
+2005-02-20  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note `cvs -n release' fix.
+
+2005-02-19  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (--with-rsh): Prefer ssh to rsh.
+	* NEWS: Note this.
+
+2005-02-04  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note zlib fix.
+
+2005-01-31  Derek Price  <derek@ximbiot.com>
+
+	* AUTHORS: Add Conrad Pino.
+	* README: Update copyright notice.
+
+2005-01-29  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note some recent changes.
+
+2004-12-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note no-longer missing files.
+	* Makefile.am (EXTRA_DIST): Add m4/README, gnulib-update, gnulib.txt,
+	and srclist.txt.
+	* configure.in (AC_OUTPUT): Add doc/i18n/Makefile &
+	doc/i18n/pt_BR/Makefile.
+
+2004-12-13  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Windows build fixes.
+
+2004-12-09  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note `Redirect' CVSROOT method option and doc improvements.
+
+2004-12-09  Mark D. Baushke  <mdb@cvshome.org>
+
+	* README: Remove Dr. Pascal Molli's CVS URL from the
+	documentation.
+	* FAQ: Ditto.
+
+2004-12-03  Mark D. Baushke  <mdb@cvshome.org>
+
+	* NEWS: Document new CVSROOT options and case insensitivity.
+
+2004-11-30  Mark D. Baushke  <mdb@cvshome.org>
+
+	* HACKING (Coding standards): Add the primary URL for the GNU
+	coding standards.
+
+2004-11-30  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add "src/subr.h" to project.
+	* cvsnt.dep: Regenerated for "cvsnt.dsp" change.
+	* cvsnt.mak: Regenerated for "cvsnt.dsp" change.
+
+2004-11-21  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvsnt.dep: Add "xgethostname.h" to project.
+	* cvsnt.dsp: Add "xgethostname.h" to project.
+
+2004-11-20  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Remove note about BSDI test failure.
+
+2004-11-19  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add xgethostname.
+
+2004-11-17  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note "red file" fix source inclusion.
+
+2004-11-17  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Windows distribution fix.
+
+2004-11-17  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note most recent GNULIB update.
+
+2004-11-15  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Note current CVS test failures on BSD/OS & Cray.
+
+2004-11-11  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Note current CVS server turds on AIX.
+
+2004-11-11  Mark D. Baushke  <mdb@cvshome.org>
+
+	* config.h.in, configure: Regenerated.
+
+2004-11-09  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure: Regenerated.
+
+2004-11-04  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Remove "lib/allocsa.c", "lib/readlink.c", "lib/xreadlink.c"
+	and "allocsa.h" from project.
+	* cvsnt.dep: Regenerate for "cvsnt.dsp" change.
+	* cvsnt.mak: Regenerate for "cvsnt.dsp" change.
+
+2004-11-04  Derek Price  <derek@ximbiot.com>
+
+	* TODO (233): New item.
+
+2004-11-04  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvsnt.dsp: Add entries for allocsa.c and allocsa.h.
+	* cvsnt.dep: Re-order sources in front of includes.
+	* Makefile.am: Update allocsa from GNULIB.
+	* gnulib.txt, Makefile.gnulib: Regenerated.
 
 2004-11-03  Derek Price  <derek@ximbiot.com>
 
 	* HACKING, NEWS: Note new Autoconf & Automake versions.
 
+2004-11-03  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvsnt.dsp: Add readlink.c, xreadlink.c and xreadlink.h.
+	* cvsnt.dep: Add readlink.c and xreadlink.c dependencies.
+
+	* gnulib-update (MODULES): Add readlink xreadlink.
+	* Makefile.in, aclocal.m4, configure, configure.in, gnulib.txt:
+	Regenerated.
+
+2004-11-02  Mark D. Baushke  <mdb@cvshome.org>
+
+	* config.h.in, configure: Regenerated.
+
+2004-11-01  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dep: Regenerated for "lib/libcvs.dsp" change.
+
+2004-11-01  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new date format documentation.
+
+2004-11-01  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that CVS handles new time zones.
+
+2004-11-01  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt: Remove getdate module.
+
+2004-11-01  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add allocsa, setenv, getdate.
+
+2004-10-30  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure.in: Add AC_SEARCH_LIBS for hstrerror in resolv to also
+	define HAVE_HSTRERROR if it is found.
+	* configure: Regenerated.
+
+2004-10-29  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure.in: Add AC_SEARCH_LIBS for hstrerror in resolv.
+	* configure: Regenerated.
+
 2004-10-29  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note xreadlink fix.
+
+2004-10-26  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add "lib/yesno.h" to project.
+	* cvsnt.dep: Regenerate for "cvsnt.dsp" change.
 
 2004-10-26  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note GSSAPI error message fix.
 
+2004-10-25  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add yesno.
+
+2004-10-23  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dep: Regenerate for "lib/libcvs.dsp" change.
+
+2004-10-22  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvsnt.dsp: Add "windows-NT/stdint.h" to project.
+	* cvsnt.dep: Regenerated.
+
+2004-10-22  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure: Regenerated.
+
+2004-10-22  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add "lib/strftime.h" to project.
+	* cvsnt.dep: Regenerate for "cvsnt.dsp" change.
+
+2004-10-22  Mark D. Baushke  <mdb@cvshome.org>
+
+	* gnulib-update (MODULES): Add stdint.
+	* Makefile.in, aclocal.m4, config.h.in, configure, gnulib.txt:
+	Regenerated.
+
+2004-10-22  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.am (proxycheck): Add new test target.
+	* Makefile.in: Regenerated.
+
+2004-10-22  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add md5.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Backout addition of rpmatch & yesno.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt (error): Update from GNULIB.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add rpmatch & yesno.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add getpagesize.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add xsize module explicitly.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove outdated comment.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_GNU_STRFTIME.
+	* gnulib-update (MODULES): Add strftime module.
+	* srclist.txt: Remove GNULIB strftime module.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to jm_REALLOC.
+	* gnulib-update (MODULES): Add realloc module.
+	* srclist.txt: Remove GNULIB realloc module.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to jm_MALLOC.
+	* gnulib-update (MODULES): Add malloc module.
+	* srclist.txt: Remove GNULIB malloc module.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* TODO (22, 31): Remove completed items.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Remove ls assertion failure bug.
+
+2001-10-21  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dep: Regenerated for "../zlib/lib.dsp" change.
+
+2004-10-21  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note `cvs ls filename' fix.
+
+2004-10-20  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure.in (ccvs_FUNC_SELECT): Work around Solaris 7 select()
+	hang.
+	* Makefile.in, aclocal.m4, config.h.in, configure:
+	Regenerate for new configure.in.
+
+2004-10-20  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note validate_repo change.
+
 2004-10-19  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note resurrection fix.
+
+2004-10-19  Derek Price  <derek@ximbiot.com>
+
+	* HACKING (Portability): Note assumption of sys/stat.h.
+
+2004-10-16  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add "lib/vasprintf.h" to project.
+	* cvsnt.dep: Regenerate for "cvsnt.dsp" change.
+	* cvsnt.mak: Regenerate for "cvsnt.dsp" change.
+
+2004-10-15  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add vasprintf.
 
 2004-10-14  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note new import branch verification.
 
+2004-10-10  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_STRERROR.
+	* gnulib-update (MODULES): Add strerror.
+	* srclist.txt (strerror): Remove list generated by gnulib-update.
+
+2004-10-09  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_LSTAT.
+	* gnulib-update (MODULES): Add lstat.
+	* srclist.txt (lstat): Remove list generated by gnulib-update.
+
+2004-10-09  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_STAT.
+	* gnulib-update (MODULES): Add stat.
+	* srclist.txt (stat): Remove list generated by gnulib-update.
+
+2004-10-09  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_NANOSLEEP.
+	* gnulib-update (MODULES): Add nanosleep.
+	* srclist.txt (nanosleep): Remove list generated by gnulib-update.
+
+2004-10-09  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_MEMMOVE.
+	* gnulib-update (MODULES): Add memmove.
+	* srclist.txt (memmove): Remove list generated by gnulib-update.
+
+2004-10-09  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add minmax.
+	* srclist.txt (minmax): Remove list generated by gnulib-update.
+
+2004-10-07  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_TIME_R, gl_FUNC_MKTIME.
+	* gnulib-update (MODULES): Add restrict, time_r, & mktime.
+	* srclist.txt (restrict, time_r, mktime): Remove lists generated by
+	gnulib-update.
+
+2004-10-07  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_TZSET_CLOBBER.
+	* gnulib-update (MODULES): Add tzset.
+	* srclist.txt (tzset): Remove list generated by gnulib-update.
+
+2004-10-07  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_GLIBC_UNLOCKED_IO.
+	* gnulib-update (MODULES): Add unlocked-io.
+	* srclist.txt (unlocked-io): Remove list generated by gnulib-update.
+
+2004-10-07  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_GETTIME.
+	* gnulib-update (MODULES): Add gettime.
+	* srclist.txt (gettime): Remove list generated by gnulib-update.
+
+2004-10-07  Derek Price  <derek@ximbiot.com>
+
+	* HACKING, NEWS: Note new Autoconf & Automake version requirements.
+	* Makefile.am (SUBDIRS): Remove m4.
+	(EXTRA_DIST): Distribute m4/ChangeLog.
+	* configure.in (AM_INIT_AUTOMAKE): Require Automake 1.9.2.
+	(AC_PREREQ): Require Automake 2.59.
+
+2004-10-07  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add "lib/getpass.h" and "lib/strcase.h" to project.
+	* cvsnt.dep: Regenerate for "cvsnt.dsp" change.
+	* cvsnt.mak: Regenerate for "cvsnt.dsp" change.
+
+2004-10-06  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_TIMESPEC.
+	* gnulib-update (MODULES): Add timespec.
+	* srclist.txt (timespec): Remove list generated by gnulib-update.
+
+2004-10-06  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to AC_FUNC_GETTIMEOFDAY_CLOBBER.
+	* gnulib-update (MODULES): Add gettimeofday.
+	* srclist.txt (gettimeofday): Remove list generated by gnulib-update.
+
+2004-10-06  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_GETPASS.
+	* gnulib-update (MODULES): Add getpass.
+	* srclist.txt (getpass): Remove list generated by gnulib-update.
+
+2004-10-06  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add strcase.
+
+2004-10-06  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_GETHOSTNAME.
+	* gnulib-update (MODULES): Add gethostname.
+	* srclist.txt (gethostname): Remove list generated by gnulib-update.
+
+2004-10-06  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove calls to AM_FUNC_GETLINE, gl_GETNLINE,
+	& gl_GETNDELIM2.
+	* gnulib-update (MODULES): Add getline, getnline, & getndelim2.
+	* srclist.txt (getline, getnline, getndelim2): Remove lists now
+	generated by gnulib-update.
+
+2004-10-06  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to AM_STDBOOL_H.
+	* gnulib-update (MODULES): Add stdbool.
+	* srclist.txt (stdbool): Remove list now generated by gnulib-update.
+
+2004-10-06  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_GETOPT.
+	* gnulib-update (MODULES): Add getopt.
+	* srclist.txt (getopt): Remove list now generated by gnulib-update.
+
+2004-10-06  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to UTILS_FUNC_MKSTEMP.
+	* gnulib-update (MODULES): Add mkstemp.
+	* srclist.txt (mkstemp): Remove list now generated by gnulib-update.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_FUNC_FNMATCH_POSIX.
+	* gnulib-update (MODULES): Add fnmatch & fnmatch-posix.
+	* srclist.txt (fnmatch, fnmatch-posix): Remove list now generated by
+	gnulib-update.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add extensions.
+	* srclist.txt (extensions): Remove list now generated by gnulib-update.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_EXITFAIL.
+	* gnulib-update (MODULES): Add exitfail.
+	* srclist.txt (exitfail): Remove list now generated by gnulib-update.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update (MODULES): Add exit.
+	* srclist.txt (exit): Remove list now generated by gnulib-update.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt (xalloc): Remove list since it is now generated by
+	gnulib-update.
+
+2004-10-05  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add "lib/save-cwd.h" and "lib/xgetcwd.h" to project.
+	* cvsnt.dep: Regenerated for "cvsnt.dsp" change.
+	* cvsnt.mak: Regenerated for "cvsnt.dsp" change.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove call to gl_DIRNAME.
+	* gnulib-update (MODULES): Add dirname.
+	* srclist.txt: Remove auto-updated GNULIB modules.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* gnulib.txt: New file.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* gnulib-update: Keep track of file changes.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Consolidate some GNULIB macro calls into a call to the
+	autogenerated gl_INIT.
+	* gnulib-update: New script.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Rename some GNULIB macro calls.
+	* srclist.txt (gettext, vasnprintf, shared): Add new files.
+	* config.rpath: Import new version from GNULIB.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call gl_SAVE_CWD.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call gl_XGETCWD.
+	* srclist.txt (xgetcwd): New module.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt (pathmax): Remove dependency on onceonly_2_57.m4.
+
+2004-10-05  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt (unlocked-io): Remove dependency on onceonly_2_57.m4.
+
+2004-10-05  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dsp: Add "lib/dirname.h" and "src/parseinfo.h" to project.
+	* cvsnt.dep: Regenerated for "cvsnt.dsp" change.
+	* cvsnt.mak: Regenerated for "cvsnt.dsp" change.
+
+2004-10-04  Derek Price  <derek@ximbiot.com>
+
+	* TODO: Item 180 is now done (cvs edit should report editors).
+	It reports editors as long as it can successfully contact the
+	server.  (Part of advisary locks patch originally from Noel Yap
+	<yap_noel@yahoo.com>, originally ported forward and enhanced by Matthew
+	Ogilvie <mmo9317bd@mailcan.com>.)
+
+2004-10-01  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (getpass): Don't define twice.
+	(Report and original patch from Martin Neitzel
+	<neitzel@sco.gaertner.de>.)
+
 2004-09-25  Derek Price  <derek@ximbiot.com>
 
 	* configure.in: Use doc/mkman.pl as source for doc/mkman.
 
-2004-09-08  Conrad T. Pino <Conrad@Pino.com>
+2004-09-23  Mark D. Baushke  <mdb@cvshome.org>
+
+	* NEWS: Fix spelling.
+	(Reported by Shane Turner <shane.turner@infointeractive.com>.)
+
+2004-09-17  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Correct file cache note.
+	* configure.in (--enable-trust-file-cache): Remove option.
+
+2004-09-16  Derek Price  <derek@ximbiot.com>
+
+	* HACKING: Correct obsolete note about configure not remembering -Wall.
+
+2004-09-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note potential new Log keyword expansion behaviors.
+
+2004-09-13  Mark D. Baushke  <mdb@cvshome.org>
+
+	* NEWS: Note change to contrib/cvs_acls and addition of
+	contrib/cvs_acls.html
+
+2004-09-09  Conrad T. Pino  <Conrad@Pino.com>
+
+	* cvsnt.dep: Regenerated for "cvsnt.dsp" changes made 2004-09-08.
+	* cvsnt.mak: Regenerated for "cvsnt.dsp" changes made 2004-09-08.
+
+2004-09-08  Conrad T. Pino  <Conrad@Pino.com>
 
 	* cvsnt.dsp: Add "windows-NT/JmgStat.c" to project.  Add
-	"windows-NT/JmgStat.h" to project.  Add "lib/xsize.h" to project.
-	* cvsnt.dep: Regenerated for "cvsnt.dsp" change.
-	* cvsnt.mak: Regenerated for "cvsnt.dsp" change.
+	"windows-NT/JmgStat.h" to project.  Add "src/ms-buffer.h" to project.
 
 2004-09-07  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note Windows DST fix.
+	* srclist.txt: Add Windows stat files.
+
+2004-09-03  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new commit message format.
 
 2004-09-03  Derek Price  <derek@ximbiot.com>
 
 	* HACKING: Codify backwards compatibility conventions.  Remove outdated
 	reference to very old MSVC++ releases.
 
+2004-08-11  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Mention Juniper's funding for other items.
+
+2004-08-10  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Enable proxy support by default.
+	* NEWS: Note this.
+
+2004-08-10  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: s/SECONDARY_SUPPORT/PROXY_SUPPORT/.
+
+2004-08-10  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note recent attempts at improving I/O efficiency.
+	* configure.in (--enable-file-cache-trust): New option.
+
+2004-08-10  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Credit Juniper Networks funding for writeproxy code and add a
+	few other details.
+
+2004-08-05  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (--enable-proxy): Switch to turn off writeproxy support.
+
+2004-06-29  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new scripting hooks and new loginfo behavior.
+
+2004-06-28  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt: Note minmax imported from GNULIB.
+
+2004-06-10  Derek Price  <derek@ximbiot.com>
+
+	* Note addition of write proxy functionality.
+
 2004-08-30  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note compliance of log_accum.pl with Perl 5.8.5.
+
+2004-08-27  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt: Note minmax imported from GNULIB.
+
+2004-08-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (--enable-file-cache-trust, --enable-proxy): New
+	options.
+
+2004-08-25  Derek Price  <derek@ximbiot.com>
+
+	* TODO (232): New item.
 
 2004-08-24  Derek Price  <derek@ximbiot.com>
 
@@ -65,9 +1120,50 @@
 
 	* NEWS: Note invalid tag fix.
 
+2004-08-24  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note error message corrections.
+
 2004-08-24  Mark D. Baushke  <mdb@cvshome.org>
 
 	* NEWS: Note that modules -a bugfix has a change in behavior.
+
+2004-06-29  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new scripting hooks and val-tags behavior.
+
+2004-07-17  Mark D. Baushke  <mdb@cvshome.org>
+
+	* NEWS: Add note about new ImportNewFilesToVendorBranchOnly
+	option.
+
+2004-07-17  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note PAM session management support.
+
+2004-07-16  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Generate contrib/pam/Makefile.
+	* NEWS: Note distribution of sample PAM configs.
+	(Thanks to a report from Brian Murphy <brian@murphy.dk>.)
+
+2004-07-12  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note improved time zone handling.  Attribute previous change.
+
+2004-07-12  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update copyright year.
+
+2004-06-29  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note client/server sending short repositories.
+
+2004-06-24  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dsp: Add "./lib/xsize.h" to Header file list.
+	* cvsnt.dep: Regenerated for "./cvsnt.dsp" change.
+	(Patch submitted by Conrad T. Pino <Conrad@Pino.com>.)
 
 2004-06-22  Derek Price  <derek@ximbiot.com>
 
@@ -91,9 +1187,48 @@
 
 	* NEWS: Note CAN-2004-0414 fix.
 
+2004-06-02  Derek Price  <derek@ximbiot.com>
+
+	* TODO (231): New item.
+
+2004-05-20  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add calls to gl_FUNC_TZSET_CLOBBER &
+	gl_FUNC_GNU_STRFTIME.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
+	* srclist.txt (strftime): New module.
+
+2004-05-20  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt (tzet): New GNULIB module.
+	* configure: Regenerated.
+
+2004-05-20  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Add `cvs ls' to localtime item.  1.12.9, not 1.12.8.
+
+2004-05-19  Derek Price  <derek@ximbiot.com>
+
+	* TODO (224): Remove completed item.
+	(Patch from Bart Robinson <lomew@pobox.com>.)
+
+	* NEWS: Note new local time output.
+
+2004-05-19  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note generation of windows-NT/config.h.in.
+	* configure.in: Use new plhead.pl for windows-NT/fix-msvc-mak.  Add
+	windows-NT/mkconfig target.
+	* configure: Regenerated.
+
 2004-05-19  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note CAN-2004-0396 fix.
+
+2004-05-17  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dsp: Add "lib/xtime.h" to project header files.
+	* cvsnt.dep: Regnerated for "cvsnt.dsp" file change.
 
 2004-05-17  Derek Price  <derek@ximbiot.com>
 
@@ -101,32 +1236,38 @@
 
 2004-05-17  Derek Price  <derek@ximbiot.com>
 
-	* BUGS: Remove out of date comment about out of date Windows build
-	files and several bug reports that are so old, without similar recent
-	reports, that I'm assuming that the problems have been fixed.
+	* BUGS: Note current `cvs ls' assertion failure.  Remove out of date
+	comment about out of date Windows build files and several bug reports
+	that are so old, without similar recent reports, that I'm assuming that
+	the problems have been fixed.
 
 2004-05-15  Derek Price  <derek@ximbiot.com>
 
-	* cvsnt.dsp: Header file list updated.
+	Back out getdate.y update.
+	* NEWS: Remove note about half-hour time zones.
+
+2004-05-15  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dsp: Move "lib/*.c" to project "lib/libcvs".  Header file list
+	updated for GNULIB updates.
 	* cvsnt.dep: Regenerated for "cvsnt.dsp" change.
 	* cvsnt.mak: Regenerated for "cvsnt.dsp" change.
-	(Patch from Conrad Pino <conrad@pino.com>.)
+	(Patch from Conrad T. Pino <Conrad@Pino.com>.)
 
-2004-05-13  Derek Price  <derek@ximbiot.com>
+2004-05-11  Derek Price  <derek@ximbiot.com>
 
-	* NEWS: Note MSVC++ project file regeneration.
+	* NEWS: Note commit output suppression.
 
-2004-05-13  Derek Price  <derek@ximbiot.com>
+2004-05-03  Derek Price  <derek@ximbiot.com>
 
-	* cvsnt.dsw: Rename "zlib/zlib.*" to "zlib/libz.*".
-	Add project "lib/libcvs".
-	* cvsnt.dsp: Revised for "cvsnt.dsw" changes.  Move "lib/*.c" to
-	project "lib/libcvs".  Upgraded to Visual C++ 6.0 format.
-	* cvsnt.dep: Added for "cvsnt.dsp" change.
-	* cvsnt.mak: Regenerated for "cvsnt.dsp" change.
-	(Patch from Conrad Pino <conrad@pino.com>.)
+	* srclist.txt: Note bison.m4 forked from GNULIB.
+	* aclocal.m4, configure: Regenerated.
 
-	* configure.in: Generate windows-NT/fix-msvc-mak.
+2004-05-02  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call AC_FUNC_STRERROR_R.
+	* srclist.txt (error): New module, kinda.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
 
 2004-04-30  Derek Price  <derek@ximbiot.com>
 
@@ -134,18 +1275,155 @@
 	* configure.in: Build doc/mkman.
 	* configure, Makefile.in: Regenerated.
 
+2004-04-29  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove AC_PROG_YACC invocation in favor of gl_BISON.
+	* configure: Regenerated.
+
+2004-04-29  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: s/jm_FUNC_GLIBC_UNLOCKED_IO/gl_FUNC_GLIBC_UNLOCKED_IO/.
+	* aclocal.m4, configure: Regenerated.
+
+2004-04-28  Derek Price  <derek@ximbiot.com>
+
+	* ylwrap: Add from Automake to support YACC.
+	* Makefile.in: Regenerated.
+
+2004-04-28  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note half-hour timezone strings handled.
+
+2004-04-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call gl_GETDATE and remove obsoleted cruft.
+	* srclist.txt (getdate): New module.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
+
+2004-04-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call gl_FUNC_MKTIME.
+	* srclist.txt (mktime): New module.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
+
+2004-04-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call gl_TIME_R.
+	* srclist.txt (time_r): New module.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
+
+2004-04-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call gl_FUNC_NANOSLEEP.
+	* srclist.txt (nanosleep): New module.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
+
+2004-04-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call gl_GETTIME.
+	* srclist.txt (gettime): New module.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
+
+2004-04-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call AC_FUNC_GETTIMEOFDAY_CLOBBER.
+	* srclist.txt (gettimeofday): New module.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
+
+2004-04-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call gl_TIMESPEC.
+	* srclist.txt (timespec): New module.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
+
+2004-04-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Replace calls to AC_AIX, AC_MINIX, & AC_GNU_SOURCE
+	with gl_USE_SYSTEM_EXTENSIONS.
+	* srclist.txt (extensions): New module.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
+
+2004-04-27  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt (dirname): Mark as not forked.
+	* aclocal.m4: Regenerated.
+
+2004-04-27  Derek Price  <derek@ximbiot.com>
+
+	Add dirname module from GNULIB.
+
+	* configure.in: Use gl_DIRNAME.
+	* srclist.txt (dirname): New module.
+	* Makefile.in, aclocal.m4, config.h.in, configure: Regenerated.
+
 2004-04-26  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note that :ext: no longer relies on an external transport with
 	a GNU argument processor.
 
+2004-04-26  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dsp: Add ls.c & stdbool.h as dependencies.
+	* cvsnt.dep, cvsnt.mak: Regenerated.
+
+2004-04-23  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new cvs ls subcommand.
+	(Thanks for patches from Mark D Baushke <mdb@cvshome.org>
+	& Alexander Taler <dissent@cvshome.org>.)
+
+2004-04-23  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dep, cvsnt.mak: Back out previous change.
+
+2004-04-23  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dep, cvsnt.mak: Regenerated.
+
+2004-04-21  Derek Price  <derek@ximbiot.com>
+
+	Add stdbool module from GNULIB.
+
+	* HACKING: Note availability of stdbool, fnmatch, alloca & GNULIB
+	substitutes in general.
+	* configure.in: Call AM_STDBOOL_H.
+	* srclist.txt: Add stdbool.
+	* aclocal.m4, configure, config.h.in, Makefile.in: Regenerated.
+
 2004-04-20  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note XP directory deletion fix.
 
+2004-04-19  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak: Regenerated for "zlib/libz.dsp" change.
+	(Patch from Conrad T. Pino <Conrad@Pino.com>.)
+
+2004-04-17  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dsw, cvsnt.dsp: Rename "lib/lib.*" to "lib/libcvs.*" and
+	"zlib/zlib.*" to "zlib/libz.*".
+	* cvsnt.dep, cvsnt.mak: Regenerated.
+	(Patch from Conrad T. Pino <Conrad@Pino.com>.)
+
 2004-04-16  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Correct CVS name for piped checkout issue now that we have one.
+
+2004-04-15  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dsp: Set PROP BASE directories to projet standard,
+	synchronize ADD BASE statements with ADD counter part,
+	remove child note property overrides which taken together
+	reduce file size and "Reset" function uses project defaults.
+	Place project libraries first in link library order.
+	* cvsnt.mak: Regenerated for cvsnt.dsp change.
+	(Patch from Conrad T. Pino <Conrad@Pino.com>.)
+
+2004-04-15  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dep: Regenerated for lib/lib.dsp change.
+	(Patch from Conrad T. Pino <Conrad@Pino.com>.)
 
 2004-04-15  Derek Price  <derek@ximbiot.com>
 
@@ -155,15 +1433,70 @@
 
 	* NEWS: Retroactively add CVE issue name for the trojan server issue.
 
+2004-04-15  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dsp: Set default configuration on generated make files to
+	Win32 Debug.
+	(Patch from Conrad T. Pino <conrad@pino.com>.)
+	* cvsnt.dep, cvsnt.mak: Regenerated.
+
+2004-04-15  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note MSVC++ project file regeneration.
+
+2004-04-15  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (EXTRA_DIST): Add cvsnt.dep.
+	* Makefile.in: Regenerated.
+
+2004-04-15  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dep: New generated file.
+	* cvsnt.mak: Regenerated.
+	(Original patch from Conrad T. Pino <conrad@pino.com>.)
+
+2004-04-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note use of POSIX.2 fnmatch.
+
+2004-04-14  Derek Price  <derek@ximbiot.com>
+
+	* HACKING: s/cvsntfix.pl/fix-msvc-head.pl/.
+
+2004-04-14  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Generate windows-NT/fix-msvc-mak.
+	* configure, Makefile.in: Regenerated.
+
 2004-04-14  Derek Price  <derek@ximbiot.com>
 
 	* INSTALL (Building from source code under Unix): Move Autoconf &
 	Automake notes...
-	* HACKING (Regenerating Build Files): ...here.
+	* HACKING (Regenerating Build Files (UNIX)): ...here.
+	(Regenerating Build Files (Windows)): New section.
+
+2004-04-14  Derek Price  <derek@ximbiot.com>
+
+	Update to current fnmatch module from GNULIB.
+
+	* configure.in: Call gl_FUNC_FNMATCH_POSIX.
+	(AC_CHECK_HEADERS): Don't bother checking for fnmatch.h - we can assume
+	it.
+	* srclist.txt: Note origins of fnmatch.
+	* aclocal.m4, config.h.in, configure, Makefile.in: Regenerated.
+
+2004-04-14  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (EXTRA_DIST): Remove cvsnt.dep.
+	* Makefile.in: Regenerated.
 
 2004-04-13  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note validation of paths passed to the client.
+
+2004-04-13  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note restriction of modules to within $CVSROOT.
 
 2004-04-07  Derek Price  <derek@ximbiot.com>
 
@@ -171,7 +1504,16 @@
 
 2004-04-07  Derek Price  <derek@ximbiot.com>
 
-	* NEWS: Note ignoring of method options in CVSROOTs.
+	Update regex module from GNULIB.
+
+	* NEWS: Note update.
+	* configure.in: Call gl_REGEX.
+	* srclist.txt: Note origins of regex module.
+	* Makefile.in, configure, config.h.in, aclocal.m4: Regenerated.
+
+2004-04-06  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note web proxy support.
 
 2004-04-06  Derek Price  <derek@ximbiot.com>
 
@@ -184,6 +1526,10 @@
 	* configure.in: Do not try and use TMP, TEMP, or TMPDIR as default
 	temporary directories.
 	* configure: Regenerated.
+
+2004-04-05  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt: Note new location for GNULIB CVS repository.
 
 2004-04-04  Derek Price  <derek@ximbiot.com>
 
@@ -211,12 +1557,51 @@
 
 	* NEWS: Record run race removal.
 
+2004-03-31  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note contrb script renames.
+	* configure.in: Rename contrib scripts.
+	* configure: Regenerated.
+
 2004-03-31  Mark D. Baushke  <mdb@cvshome.org>
 
 	* cvs.spec.in (BuildRequires): Do not fail if info DIR file does
 	not exist. (Not everyone has an install-info that generates the
 	dir file that we want deleted.)
 	(Report from Geoff Beier <geoff@caradas.com>.)
+
+2004-03-29  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak: Regenerated with VC++ 5.0.
+	(Original sent by Dennis Jones <djones@oregon.com>.)
+	* cvsnt.dep: Removed.
+
+2004-03-28  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak: Print "Debug" when defaulting to Debug.
+
+2004-03-28  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak: Default to using debugging symbols so that folks who don't
+	know enough to remove the debugging symbols might still be able to send
+	us stack traces after encountering problems.
+
+2004-03-28  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dep, cvsnt.mak: Regnerated.  Remove system specific
+	dependency reference.
+
+2004-03-27  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dep, cvsnt.mak: Regnerated.
+
+2004-03-26  Derek Price  <derek@ximbiot.com>
+
+	* INSTALL: Note that build files have been regenerated with MSVC 6.0.
+
+2004-03-26  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Windows build file regeneration.
 
 2004-03-25  Derek Price  <derek@ximbiot.com>
 
@@ -225,6 +1610,24 @@
 2004-03-25  Derek Price  <derek@ximbiot.com>
 
 	* cvs.spec.in (BuildRoot): Use a more unique directory name.
+
+2004-03-25  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2004-03-25  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (EXTRA_DIST): Add cvsnt.dep.
+
+2004-03-25  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.dep: New files created by Visual C++ 6.0.
+	* cvsnt.dsp, cvsnt.dsw, cvsnt.mak: Updated by Visual C++ 6.0.
+	* .cvsignore: Add and remove files for new MSVC++ setup.
+
+2004-03-25  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note Windows memory allocation fix.
 
 2004-03-22  Derek Price  <derek@ximbiot.com>
 
@@ -239,6 +1642,10 @@
 2004-03-18  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Back out previous NEWS change at Larry Jones' suggestion.
+
+2004-03-17  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note spelling fix.
 
 2004-03-17  Derek Price  <derek@ximbiot.com>
 
@@ -274,12 +1681,58 @@
 
 2004-03-12  Derek Price  <derek@ximbiot.com>
 
-	* NEWS: Note Larry's recent documentation fixes.
+	* NEWS: Remove header comment fix note, per GNU coding standards.
+
+2004-03-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note sanity.sh client/server message fix.
+
+2004-03-14  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note add.c message changes.
+
+2004-03-13  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note server.c header comment fix.
+
+2004-03-13  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Restore since 1.12.5 section since 1.12.6 distcheck failed.
+
+2004-03-11  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak (alloca.obj, alloca.h): New targets.
+	(CLEAN): Clean generated headers.
+	(vasnprintf.c): Add dependency on alloca.h.
+
+2004-03-11  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt: Note unfork of lib/xsize.h.
+
+2004-03-07  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak (asnprintf, vasnprintf, printf-args, printf-parse):
+	New targets.
+	* srclist.txt: Note fork of lib/xsize.h.
+	* NEWS: Note that CVSROOT/*info scripts may not work as expected under
+	Windows.
 
 2004-03-03  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note that directories and files named `CVS' are now also
 	rejected by import.
+
+2004-02-26  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak (cvs.exe): Build xmalloc.obj, not xalloc.obj.
+
+2004-02-26  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak (xmalloc.obj, xstrdup.obj): s/windows-NT/lib/.
+
+2004-02-25  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note `checkout -d' behavior change.
 
 2004-02-25  Derek Price  <derek@ximbiot.com>
 
@@ -287,11 +1740,78 @@
 
 2004-02-25  Derek Price  <derek@ximbiot.com>
 
+	* cvsnt.mak (exitfail.obj): s/windows-NT/lib/.
+
+2004-02-25  Derek Price  <derek@ximbiot.com>
+
 	* NEWS: Note `cvs release' Entries corruption fix.
+
+2004-02-24  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak: Add xstrdup, xalloc, exitfail.
 
 2004-02-20  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note that the dying gasp check has now been completely removed.
+
+2004-02-20  Derek Price  <derek@ximbiot.com>
+
+	Import xalloc module from GNULIB, as well as its remaining unimported
+	dependency, the exitfail module.
+
+	* NEWS: Note addition of xalloc & vasnprintf modules from GNULIB.
+	* configure.in: Call gl_XALLOC & gl_EXITFAIL.
+	* cvsnt.mak: Add new objects & sources.
+	* srclist.txt (exitfail, xalloc): New GNULIB modules.
+	* Makefile.in, aclocal.m4, configure: Regenerated.
+
+2004-02-20  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* configure.in: Don't use grep -w, it's not portable.
+	* configure: Regenerated.
+
+2004-02-19  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* configure.in: Move the wint_t size check after all the base type
+	size checks and include the relevant header file, use "short" rather
+	than "short int" (ala "long" and "long long"), add a size check for
+	intmax_t, remove "CVSROOT/*" since it ends up embedded in a C
+	comment where the "/*" looks like an attempt to have a nested comment.
+	* config.h.in, configure: Regenerated.
+
+2004-02-19  Derek Price <derek@ximbiot.com>
+
+	* configure.in: AC_REQUIRE some HAVE_TYPE functions to avoid using
+	post-C89 constructs in the new format_cmdline stuff when they are not
+	available.  Update comments.  s/_LONG_INT\>/_LONG/i;
+	s/\<long int\>/long/.  Don't check size of types that are not
+	available.  Check size of size_t and ptrdiff_t.
+	* config.h.in, configure:  Regenerated.
+
+2004-02-18  Derek Price <derek@ximbiot.com>
+
+	* configure.in: Don't require AC_C_INLINE, now that m4/xsize.m4 does
+	this itself.
+	* aclocal.m4, configure:  Regenerated.
+
+2004-02-17  Derek Price <derek@ximbiot.com>
+
+	* configure.in:  added macros to set the UNIQUE_*_TYPE_* flags and
+	HAVE_STDINT_T (for intmax_t) for some stuff involving varargs in
+	format_cmdline() in src/run.c.  UNIQUE_X_TYPE_Y means that
+	type Y (e.g. INT, SHORT_INT, or DOUBLE) is the first type, according
+	to an arbitrary order of precedence within type group X (e.g. INT or
+	FLOAT), that has a particular size, in bytes.  Added
+	SUPPORT_OLD_INFO_FMT_STRINGS in order to make configurable whether to
+	support the old style info file command line format strings.  The idea
+	is to deprecate the use of the old strings until one day this can be
+	switched to off.  This option can be enabled/disabled with
+	--enable-old-info-format-support and --disable-old-info-format-support.
+	* HACKING (Run-time behaviors): Remove reference to Parse_Info not
+	accepting a void * argument.
+
+	* config.h.in:  Regenerated.
+	* configure:  Ditto..
 
 2004-02-17  Derek Price  <derek@ximbiot.com>
 
@@ -303,6 +1823,33 @@
 
 	* NEWS: Note recent commenting of src/checkout.c and Mark's leak fixes.
 
+2004-02-16  Larry Jones  <lawrence.jones@ugsplm.com>
+
+	* configure.in: Add AC_C_INLINE for vasnprintf and friends.
+	* config.h.in, configure: Regenerated.
+
+2004-02-15  Derek Price  <derek@ximbiot.com>
+
+	Import vasnprintf module from GNULIB.
+	* configure.in: Call gl_FUNC_VASNPRINTF.
+	* srclist.txt: Add vasnprintf module.
+
+2004-02-15  Derek Price  <derek@ximbiot.com>
+
+	Import xsize module from GNULIB for vasnprintf().
+	* configure.in: Call gl_XSIZE.
+	* srclist.txt: Add xsize module.
+
+2004-02-15  Derek Price  <derek@ximbiot.com>
+
+	Import alloca module from GNULIB for vasnprintf().
+	* configure.in: Use gl_FUNC_ALLOCA.
+	* srclist.txt: Add alloca module.
+
+2004-02-15  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note GNULIB updates.
+
 2004-02-12  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note Mark D. Baushke's recent memory leak plugs.
@@ -313,7 +1860,7 @@
 
 2004-02-12  Derek Price  <derek@ximbiot.com>
 
-	* NEWS: Note Ville Skyttä's recent man page patch.
+	* NEWS: Note lock wait seg fault fix.
 
 2004-02-11  Derek Price  <derek@ximbiot.com>
 
@@ -340,7 +1887,6 @@
 2004-02-10  Derek Price  <derek@ximbiot.com>
 
 	* cvsnt.mak: Add stack.c and stack.h in order to compile under Windows.
-	* NEWS: Note Windows fixes.
 	* README: Update copyright notice.
 
 2004-02-09  Derek Price  <derek@ximbiot.com>
@@ -361,12 +1907,30 @@
 
 2004-02-02  Derek Price  <derek@ximbiot.com>
 
+	* NEWS: Correct "error message" from two commits back to read
+	"status mesage".
+
+2004-02-02  Derek Price  <derek@ximbiot.com>
+
 	* NEWS: Note new join-rm tests.
 
 2004-02-02  Derek Price  <derek@ximbiot.com>
 
-	* NEWS: Note removal from the server of support for case insensitive
-	clients.
+	* NEWS: Note update error message correction.
+
+2004-02-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that the server no longer claims to support the "Case"
+	request.
+
+2004-02-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Ammend last note to specify the continued lack of any server
+	support for case insensitive clients more clearly.
+
+2004-02-02  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that client handling of case insensitivity is restored.
 
 2004-01-30  Derek Price  <derek@ximbiot.com>
 
@@ -409,14 +1973,18 @@
 
 2003-12-18  Derek Price  <derek@ximbiot.com>
 
-	* NEWS: Add since 1.11.11 section.
-	* configure.in: Update for dev 1.11.11.1.
+	* NEWS: Add since 1.12.5 section.
+	* configure.in: Update for dev 1.12.5.1.
 	* configure: Regenerated.
 
 2003-12-18  Derek Price  <derek@ximbiot.com>
 
-	* configure.in: Update for release 1.11.11.
+	* configure.in: Update for release 1.12.5.
 	* configure: Regenerated.
+
+2003-12-18  Derek Price  <derek@ximbiot.com>
+
+	*  NEWS: Note Mark and Rob Clevenger's recent Windows build fixes.
 
 2003-12-18  Derek Price  <derek@ximbiot.com>
 
@@ -425,6 +1993,61 @@
 2003-12-18  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note that pserver can no longer run as root.
+
+2003-12-12  Derek Price  <derek@ximbiot.com>
+
+	* cvs.spec.in (%post): Do the same for cvsclient.info.
+
+2003-12-12  Derek Price  <derek@ximbiot.com>
+
+	* cvs.spec.in (%post): Remove info's uncompressed info file cache after
+	installing the new gzipped files.
+
+2003-12-10  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure.in(AC_FUNC_FSEEKO): Add. Include handling for fseeko
+	and ftello with AC_LIBOBJ.
+	(AC_REPLACE_FUNCS): Remove fseeko and ftello.
+	* config.h.in, configure: Regenerated.
+
+2003-12-10  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvsnt.mak (CLEAN, CPP_SBRS): Add ftello, fseeko, exithandle and
+	getndelim2.
+	(ftello.c, fseeko.c, exithandle.c, getndelim2): Add new source
+	file definitions.
+	(Patch from Rob Clevenger <rob@robsite.org>.)
+
+2003-12-09  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Add section for 1.12.4.
+
+2003-12-09  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update for release 1.12.4.1.
+	* configure: Regenerated.
+
+2003-12-09  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new promotable read locks.
+	* configure.in (--enable-lock-compatibility): New option.
+	* configure, config.h.in: Regenerated.
+
+2003-12-09  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Reorder enables slightly and improve commenting.
+	* configure: Regenerated.
+
+2003-12-09  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure.in (fseeko, ftello): Add to AC_REPLACE_FUNCS list.
+	* configure, config.h.in: Regenerated.
+
+2003-12-08  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure.in (AC_SYS_LARGEFILE). Add.
+	* configure, config.h.in: Regenerated.
+	* NEWS: Document.
 
 2003-12-07  Mark D. Baushke  <mdb@cvshome.org>
 
@@ -442,22 +2065,30 @@
 
 	* configure.in: Update to require Automake 1.7.9.
 
-2003-12-04  Derek Price  <derek@ximbiot.com>
+2003-12-05  Derek Price  <derek@ximbiot.com>
 
-	* configure.in: Update for dev version 1.11.10.1.
-	* NEWS: Add Changes since 1.11.10 section.
+	* NEWS: Add since 1.12.3 section.
+	* configure.in: Update for dev version 1.12.3.1.
 	* configure: Regenerated.
 
 2003-12-04  Derek Price  <derek@ximbiot.com>
 
-	* configure.in: Update for release 1.11.10.
+	* configure.in: Update for release 1.12.3.
 	* configure: Regenerated.
 
 2003-12-03  Derek Price  <derek@ximbiot.com>
 
-	* configure.in: Always AC_LIBOBJ(fncase) when filenames are found to be
-	case insensitive.
-	* configure: Regenerated.
+	* configure.in (--enable-case-sensitivity): Restore this option.
+	Always AC_LIBOBJ(fncase) when filenames are found to be case
+	insensitive.
+	* configure, config.h.in: Regenerated.
+
+2003-11-26  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (--enable-case-sensitivity): Remove this option.
+	* NEWS: Note removal of case sensitivity support.
+
+	* config.h.in, configure: Regenerated.
 
 2003-11-26  Derek Price  <derek@ximbiot.com>
 
@@ -467,9 +2098,16 @@
 
 	* NEWS: Note new test suite functionality.
 
-2003-11-25  Derek Price  <derek@ximbiot.com>
+2003-11-25  Mark D. Baushke  <mdb@cvshome.org>
 
-	* NEWS: Note latest case insensitivity fix.
+	* configure.in (RSH_DFLT): Macro substitution for configured CVS_RSH.
+	* Makefile.in, configure: Regenerated.
+
+2003-11-19  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt (getline): Update to match new module definitions and
+	imports.
+	* aclocal.m4, configure: Regenerated.
 
 2003-11-19  Derek Price  <derek@ximbiot.com>
 
@@ -490,11 +2128,9 @@
 
 2003-11-10  Mark D. Baushke  <mdb@cvshome.org>
 
-	* BUGS: Note that symlinks to files will not work with or without
+	* BUGS: Note bugs symlinks to files will not work with or without
 	LockDir. Note that symlinks to directories will not work with
 	LockDir.
-
-	* NEWS (Changes since 1.11.9): Note symlinked CVSROOT now works.
 
 2003-11-10  Derek Price  <derek@ximbiot.com>
 
@@ -510,11 +2146,40 @@
 
 2003-11-03  Derek Price  <derek@ximbiot.com>
 
-	* configure.in: Require Automake 1.7.5.
+	* configure.in (AM_INIT_AUTOMAKE): Require Automake 1.7.5.
 
 2003-11-03  Derek Price  <derek@ximbiot.com>
 
 	* INSTALL: Add some notes on Autoconf requirements.
+
+2003-11-03  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2003-11-03  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.am (ACLOCAL_AMFLAGS): autoreconf does not understand
+	what to do with $(srcdir) so remove it -- autoreconf needs to be
+	done in the srcdir in order to regenerate all the files properly
+	in any case.
+
+	* configure.in (AM_GNU_GETTEXT_VERSION): Add to allow autoreconf
+	to regenerate files instead of using the incantation:
+	'aclocal -I m4 && autoconf && automake && autoheader' to do the
+	same thing as 'autoreconf' should do.
+
+2003-11-03  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that we're better at detecting ZLIB versions now.
+
+2003-11-03  Derek Price  <derek@ximbiot.com>
+
+	* aclocal.m4, configure: Regenerated.
+
+2003-11-03  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that server ignores `-l' rather than rejecting it with a
+	fatal error.
 
 2003-10-31  Derek Price  <derek@ximbiot.com>
 
@@ -537,6 +2202,21 @@
 	* configure, config.h.in: Regenerated.
 	* NEWS: Note the above change.
 
+2003-10-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update version to 1.12.2.1.
+	* NEWS (Changes since 1.12.2): New section.
+	* configure: Regenerated.
+
+2003-10-27  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Update version to 1.12.2.
+	* configure: Regenerated.
+
+2003-10-27  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak: /PROTO\.h/d;.
+
 2003-10-24  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Update recent text about joins to reflect new behavior.
@@ -545,6 +2225,11 @@
 
 	* BUGS: Note that release of a project subdir does not remove the entry
 	from `./CVS/Entries'.
+
+2003-10-24  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note things like plugging memory leaks and code cleanup and
+	reorganization under misc.
 
 2003-10-24  Derek Price  <derek@ximbiot.com>
 
@@ -559,6 +2244,17 @@
 2003-10-23  Mark D. Baushke  <mdb@cvshome.org>
 
 	* NEWS: Note behavior change for cvs update -jrev1 -jrev2.
+
+2003-10-23  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that double include of getndelim2.o problem is gone from
+	OS X.
+	* srclist.txt (getline, getndelim2): Note divergence from GNULIB.
+	* aclocal.m4, configure: Regenerated.
+
+2003-10-22  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note that we build on systems with gettext installed now.
 
 2003-10-21  Derek Price  <derek@ximbiot.com>
 
@@ -589,20 +2285,18 @@
 	* INSTALL: Add HPPA 2.0 running HP-UX 10.20 for CVS 1.11.9.
 	(Report from Tom Kuiper <kuiper@DSNra.JPL.NASA.gov>.)
 
-2003-10-10  Derek Price  <derek@ximbiot.com>
+2003-10-09  Derek Price  <derek@ximbiot.com>
 
-	* NEWS (Changes since 1.11.9): New section.
-	* configure.in: Update package version to 1.11.9.1.
-	* configure: Regenerated.
-
-2003-10-10  Derek Price  <derek@ximbiot.com>
-
-	* configure.in: Update package version to 1.11.9.
-	* configure: Regenerated.
+	* HACKING (Other style issues): Note the dev team's preference for
+	consistency in the use of the `extern' storage-class identifier.
 
 2003-10-08  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note history reporting fix.
+
+2003-10-08  Larry Jones  <lawrence.jones@eds.com>
+
+	* TESTS: Add pointer to debug_check_log script.
 
 2003-10-08  Derek Price  <derek@ximbiot.com>
 
@@ -612,43 +2306,60 @@
 
 	* NEWS: Note history fix for clients requesting `P' records.
 
-2003-10-07  Derek Price  <derek@ximbiot.com>
+2003-10-08  Derek Price  <derek@ximbiot.com>
 
-	* NEWS: Note case insensitive file lookup fix.
+	* NEWS: Note case insensitive file lookup fix.  Note getpass fix.
 
-2003-10-03  Derek Price  <derek@ximbiot.com>
+2003-10-01  Derek Price  <derek@ximbiot.com>
 
-	* NEWS: Note server ignoring `-l' with a warning.
+	Add the GNULIB restrict module.
 
-2003-10-02  Derek Price  <derek@ximbiot.com>
+	* configure.in: Add call to gl_C_RESTRICT.
+	* srclist.txt: Add m4/restrict.m4.
+	* aclocal.m4, configure, config.h.in: Regenerated.
 
-	* NEWS (Changes since 1.11.8): Add empty section.
-	* configure.in: Update package version to 1.11.8.1.
-	* configure: Regenerated.
+2003-10-01  Derek Price  <derek@ximbiot.com>
 
-2003-10-02  Derek Price  <derek@ximbiot.com>
+	* configure.in: Remove check for getopt function.  Add call to
+	gl_GETOPT.
+	* srclist.txt: Add entries for GNULIB getopt module.
+	* aclocal.m4, config.h.in, configure: Regenerated.
 
-	* configure.in: Update package version to 1.11.8.
-	* configure: Regenerated.
+2003-10-01  Derek Price  <derek@ximbiot.com>
 
-2003-10-02  Derek Price  <derek@ximbiot.com>
+	Assume headers in m4/gettext.m4 per notes in HACKING.
 
-	* NEWS: Note getpass fix.
+	* aclocal.m4: Regenerated.
 
-2003-09-29  Derek Price  <derek@ximbiot.com>
+2003-10-01  Derek Price  <derek@ximbiot.com>
 
-	* NEWS (Changes since 1.11.7): Insert empty entry.
-	* configure.in: Update to 1.11.7.1.
-	* configure: Regenerated.
+	* configure.in: Remove call to AC_TYPE_SIZE_T since size_t can be
+	assumed via our C89 assumption of stddef.h.  Don't check for errno.h
+	or string.h.  We are assuming these headers.
+	* HACKING (Portability): Add a few more notes on our header assumptions
+	based on some comments from Paul Eggert <eggert@cs.ucla.edu> on the
+	GNULIB list.
+	* config.h.in, configure.in: Regenerated.
 
-2003-09-29  Derek Price  <derek@ximbiot.com>
+2003-09-30  Derek Price  <derek@ximbiot.com>
 
-	* configure.in: Update package version to 1.11.7.
-	* configure: Regenerated.
+	Provide an atexit() function on systems which provide on_exit() but not
+	atexit().
+
+	* configure.in: Add a call to gl_FUNC_ATEXIT.
+	* srclist.txt: List atexit sources.
+	* aclocal.m4, config.h.in, configure: Regenerated.
 
 2003-09-29  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note recent fix of the potential segfault during a diff.
+
+2003-09-29  Derek Price  <derek@ximbiot.com>
+
+	* HACKING (Indentation style): Put an ANSI function prototype in the
+	indentation style example.
+	(Portability): Add a few more notes on assuming a freestanding C89
+	compiler and what that means.
 
 2003-09-26  Derek Price  <derek@ximbiot.com>
 
@@ -656,7 +2367,26 @@
 
 2003-09-12  Derek Price  <derek@ximbiot.com>
 
-	* NEWS: Note checkoutlist error message handling fix.
+	* NEWS: Move last blurb into an item with more detail.
+
+2003-09-12  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Add the recent checkoutlist fix as "Other miscellaneous
+	bug fixes."
+
+2003-09-08  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note removal of the workaround for a bug in GLIBC prior to
+	GLIBC 2.0.7 and advise upgrading GLIBC rather than depending on silly
+	hacks that don't fix other programs installed on the system.
+
+2003-08-29  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note removal of CVSROOT/editinfo functionality.
+
+2003-08-29  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Remove typo in recent getpass() note.
 
 2003-08-27  Larry Jones  <lawrence.jones@eds.com>
 
@@ -664,16 +2394,34 @@
 	server updates get logged in history file, history file has "P"
 	record type.
 
+2003-08-19  Derek Price  <derek@ximbiot.com>
+
+	* HACKING (Portability): Add further comments about which headers we
+	can use.
+
+2003-08-12  Derek Price  <derek@ximbiot.com>
+
+	* aclocal.m4, configure: Regenerated.
+
+2003-07-31  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call the newly prescribed gl_FUNC_GETPASS_GNU rather
+	than the internal gl_PREREQ_GETPASS.
+	* srclist.txt ($GNULIB/modules/getpass): Rename to...
+	($GNULIB/modules/getpass-gnu): ...this new module.
+	* aclocal.m4, configure: Regenerated.
+
 2003-07-29  Derek Price  <derek@ximbiot.com>
 
 	* configure.in: Replace my recent misuse of AH_VERBATIM with a call to
 	AC_DEFINE.
 	* config.h.in, configure: Regenerated.
-	
+
 2003-07-29  Derek Price  <derek@ximbiot.com>
 
 	* configure.in: Do not check for getpassphrase.  Define `getpass' to
 	`cvs_getpass' in config.h to avoid conflicts with system decls.
+	* srclist.txt ($GNULIB/modules/getpass): New entry.
 	* NEWS: Note use of GNULIB getpass.
 
 	* config.h.in, configure: Regenerated.
@@ -681,6 +2429,98 @@
 2003-07-25  Derek Price  <derek@ximbiot.com>
 
 	* INSTALL: Note --without-gssapi required to configure on OS X.
+
+2003-07-25  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt (lstat, stat): Correct typo.
+
+2003-07-25  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt (getline, getnline, getndelim2): Mark some files sync'd.
+	* aclocal.m4, config.h.in, configure: Regenerated.
+
+2003-07-24  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove gethostname from AC_REPLACE_FUNCS call and add a
+	call to gl_FUNC_GETHOSTNAME.
+	* srclist.txt ($GNULIB/modules/gethostname): Add this source.
+
+	* aclocal.m4, config.h.in, configure: Regenerated.
+
+2003-07-23  Derek Price  <derek@ximbiot.com>
+
+	* HACKING (Indentation style): Note the new C89 literal string
+	standard.
+	(Portability): Ditto, plus mention the headers we assume from C89.
+	* NEWS: Mention that we dropped K&R support.
+
+2003-07-22  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: We can assume <limits.h> and <stdarg.h>, so we no
+	longer need to check for <limits.h> or <varargs.h>.
+	* srclist.txt (m4/gettext): Note local modifications.
+
+	* aclocal.m4: Regenerate.
+	* config.h.in: Ditto.
+	* configure: Ditto.
+
+2003-07-22  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add call to gl_FUNC_STRERROR,
+	s/jm_FUNC_MEMMOVE/gl_FUNC_MEMMOVE/, and alphebetize list.
+	* srclist.txt: Add GNULIB strerror module.
+
+	* aclocal.m4: Regenerated.
+	* config.h.in: Ditto.
+	* configure: Ditto.
+
+2003-07-22  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add call to gl_FUNC_MEMMOVE and remove memmove from the
+	call to AC_REPLACE_FUNCS.
+	* srclist.txt: Note import of GNULIB memmove module.
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+
+2003-07-22  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt: Note GNULIB exit() function support.
+
+2003-07-20  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Mention experimental PAM support.
+
+2003-07-20  Derek Price  <derek@ximbiot.com>
+
+	* configure.in (--enable-pam): New experimental option to enable PAM
+	support on systems that support it.
+	(--with-hardcoded-pam-service-name): PAM configuration option.
+	(Original patch from Brian Murphy <brian@murphy.dk>.)
+
+	* config.h.in: Regenerated.
+	* configure: Ditto.
+
+2003-07-19  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt: Add a few missed files and reorganize slightly.
+
+2003-07-19  Derek Price  <derek@ximbiot.com>
+
+	* srclist.txt: New file which describes where various external source
+	files come from.
+
+2003-07-19  Derek Price  <derek@ximbiot.com>
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+
+2003-07-19  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Always call gl_GETNDELIM2 as per new API.
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
 
 2003-07-18  Derek Price  <derek@ximbiot.com>
 
@@ -698,6 +2538,66 @@
 	* TODO (72): Remove mention of the -i/-o in the modules file since they
 	have been removed.
 
+2003-07-18  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new keyword expansion mode behavior.
+	* TODO (216): Remove completed item.
+
+2003-07-17  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Use gl_GETNLINE rather than the obsolete
+	gl_FUNC_GETNLINE.
+	* aclocal.m4: Regenerated.
+
+2003-07-17  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Use gl_FUNC_GETNLINE rather than the obsolete
+	gl_PREREQ_GETNLINE,
+
+	* aclocal.m4: Regenerated.
+	* config.h.in: Ditto.
+	* configure: Ditto.
+
+2003-07-17  Derek Price  <derek@ximbiot.com>
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+
+2003-07-16  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call gl_PATHMAX, not gl_PATH_MAX.
+
+	* config.h.in: Regenerated.
+	* configure: Ditto.
+
+2003-07-16  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Remove AC_C_PROTOTYPES call.
+
+	* config.h.in: Regenerated.
+	* configure: Ditto.
+
+2003-07-16  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add calls to new pathmax macro.
+
+	* aclocal.m4: Regenerated.
+	* config.h.in: Ditto.
+	* configure: Ditto.
+
+2003-07-16  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add calls to new getline & getnline macros.
+
+	* aclocal.m4: Regenerated.
+	* config.h.in: Ditto.
+	* configure: Ditto.
+
+2003-07-15  Derek Price  <derek@ximbiot.com>
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+
 2003-06-27  Larry Jones  <lawrence.jones@eds.com>
 
 	* NEWS: Note LockDir fix.
@@ -710,10 +2610,57 @@
 	* config.h.in: Regenerated.
 	* configure: Ditto.
 
-2003-06-20  Derek Price  <derek@ximbiot.com>
+2003-06-23  Derek Price  <derek@ximbiot.com>
 
 	* INSTALL: Add some OS X platforms to the compile list. Correct link to
 	cvsgui.org -> wincvs.org.
+
+2003-06-20  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Compile kerberos4-client.[ch] if needed.
+	(Patch from Alexey Mahotkin <alexm@hsys.msk.ru>.)
+
+	* configure: Regenerated.
+
+2003-06-14  Derek Price  <derek@ximbiot.com>
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+
+2003-06-13  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call UTILS_FUNC_MKSTEMP for lib/mkstemp.c.
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+	* config.h.in: Ditto.
+
+2003-06-13  Derek Price  <derek@ximbiot.com>
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+
+2003-06-11  Derek Price  <derek@ximbiot.com>
+
+	* HACKING: Update note on reentrancy.
+	(Original patch from Ken Lorber <keni@his.com>.)
+
+2003-06-11  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Call AM_GNU_GETTEXT.
+	* ABOUT-NLS: New file for GNU gettext support.
+	* config.guess: Ditto.
+	* config.rpath: Ditto.
+	* config.sub: Ditto.
+
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Ditto.
+	* config.h.in: Ditto.
+	* configure: Ditto.
+
+2003-06-10  Mark D. Baushke  <mdb@cvshome.org>
+
+	* NEWS: New LocalKeyword and KeywordExpand options.
 
 2003-06-09  Derek Price  <derek@ximbiot.com>
 
@@ -735,9 +2682,17 @@
 
 	* NEWS: Note empty diff change text fix.
 
+2003-05-31  Derek Price  <derek@ximbiot.com>
+
+	* TESTS: Note new $SPROG & $testcvs_server_support variables.
+
 2003-05-29  Derek Price  <derek@ximbiot.com>
 
 	* NEWS: Note removal of global -l option.
+
+2003-05-28  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak: Add lib\PROTO.h to appropriate DEPS.
 
 2003-05-27  Derek Price  <derek@ximbiot.com>
 
@@ -749,28 +2704,36 @@
 
 2003-05-27  Derek Price  <derek@ximbiot.com>
 
-	* NEWS (Changes since 1.11.5): Add missing entry.
-
-2003-05-27  Derek Price  <derek@ximbiot.com>
-
 	* README (Credits): Move...
 	* AUTHORS: ...here and update.
 
 2003-05-26  Derek Price  <derek@ximbiot.com>
 
-	* configure.in: Update CVS version to 1.11.6.1.
+	* configure.in: Update CVS version to 1.12.1.1.
 
 	* configure: Regenerated.
 
 2003-05-25  Derek Price  <derek@ximbiot.com>
 
-	* configure.in: Update CVS version to 1.11.6.
+	* configure.in: Update CVS version to 1.12.1.
 
 	* configure: Regenerated.
 
 2003-05-25  Derek Price  <derek@ximbiot.com>
 
 	* BUGS: Note current intermittant BSDI failures.
+
+2003-05-22  Derek Price  <derek@ximbiot.com>
+
+	* TODO (230): Remove this completed item.
+
+2003-05-22  Derek Price  <derek@ximbiot.com>
+
+	* NEWS: Note new --with-external-zlib option.
+	* configure.in (AC_PREREQ): 2.57.
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
 
 2003-05-22  Larry Jones  <lawrence.jones@eds.com>
 
@@ -786,12 +2749,91 @@
 	* config.h.in: Ditto.
 	* configure: Ditto.
 
+2003-05-21  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add call to AC_GNU_SOURCE & jm_FUNC_GLIBC_UNLOCKED_IO.
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+
+2003-05-21  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add call to jm_FUNC_REALLOC.
+
+	* config.h.in: Regenerated.
+	* configure: Ditto.
+	* aclocal.m4: Ditto.
+
+2003-05-20  Derek Price  <derek@ximbiot.com>
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+
 2003-05-20  Derek Price  <derek@ximbiot.com>
 
 	* INSTALL: Using Autoconf version 2.57.
 	* NEWS: Ditto.  Reorder NEWS items to put the stuff which it is likely
 	that only developers care about last.
 	* configure: Regenerated with Autoconf 2.57.
+
+2003-05-20  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Remove note about build being broken on windows.  That was
+	fixed a few commits back.
+
+2003-05-20  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add call to ACX_WITH_SYSTEM_VLIB.
+	* Makefile.am: Macro substitution for "zlib" subdir.
+	(Original patch from Anthon Pang <apang@telus.net>.)
+
+	* TODO (230): Add note about possible improvements to
+	ACX_WITH_EXTERNAL_ZLIB.
+	* aclocal.m4: Regenerated
+	* config.h.in: Ditto
+	* configure: Ditto
+	* Makefile.in: Ditto
+
+2003-05-19  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add calls to support lib/malloc.c from GNULIB.
+
+	* aclocal: Regenerated.
+	* configure: Ditto.
+	* config.h.in: Ditto.
+
+2003-05-19  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Add calls to support lib/lstat.c and lib/stat.c.  Add
+	m4/Makefile to AC_OUTPUT.
+
+	* aclocal: Regenerated.
+	* configure: Ditto.
+	* config.h.in: Ditto.
+
+2003-05-19  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (SUBDIRS): Add m4 subdir.
+	(ACLOCAL_AMFLAGS): Include m4 subdir when generating aclocal.m4.
+	* acinclude.m4: Remove this file, moving contents into two files in the
+	m4 subdirectory to ease maintenance.
+
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Ditto.
+
+2003-05-19  Derek Price  <derek@ximbiot.com>
+
+	* cvsnt.mak: added rules and dependencies for log-buffer.[c,obj],
+	socket-client.[c,obj], and rsh-client.[c,obj]
+	(Patch from Anthon Pang <apang@telus.net>.)
+
+2003-05-18  Larry Jones  <lawrence.jones@eds.com>
+
+	* acinclude.m4 (CVS_FUNC_PRINTF_PTR): New test.
+	* configure.in: Use it.
+	* aclocal.m4: Regenerated.
+	* config.h.in: Ditto.
+	* configure: Ditto.
 
 2003-05-09  Derek Price  <derek@ximbiot.com>
 
@@ -800,6 +2842,17 @@
 
 	* configure.in: Regenerated.
 	* config.h.in: Ditto.
+
+2003-05-09  Derek Price  <derek@ximbiot.com>
+
+	* acinclude.m4: set cvs_client_objects in order to support optional
+	compilation of src/gssapi-client.c.
+	* configure.in: AC_SUBST(cvs_client_objects).
+	(Original patch from Alexey Mahotkin <alexm@hsys.msk.ru>.)
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+	* Makefile.in: Ditto.
 
 2003-05-09  Derek Price  <derek@ximbiot.com>
 
@@ -822,9 +2875,30 @@
 	* config.h.in: Regenerated.
 	* configure: Ditto.
 
+2003-05-07  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Add rsh-client.{h,c} to the note that I probably just broke the
+	Windows build by comitting Alexey Mahotkin's patches.
+
+2003-05-06  Derek Price  <derek@ximbiot.com>
+
+	* BUGS: Note that I probably just broke the Windows build by comitting
+	Alexey Mahotkin's patch.
+
 2003-05-01  Derek Price  <derek@ximbiot.com>
 
 	* TODO (149): Remove reference to defunct RELATIVE_REPOS macro.
+
+2003-04-30  Derek Price  <derek@ximbiot.com>
+
+	* acinclude.m4 (ACX_WITH_GSSAPI): Get rid of $includeopt, using
+	$CPPFLAGS as intended by the Autoconf folk.
+	* configure.in: Ditto.
+	(Original patch from Alexey Mahotkin <alexm@hsys.msk.ru>.)
+
+	* aclocal.m4: Regenerated.
+	* configure: Ditto.
+	* Makefile.in: Ditto.
 
 2003-04-30  Derek Price  <derek@ximbiot.com>
 
@@ -857,7 +2931,7 @@
 
 	* BUGS: Remove a pcl-cvs bug.  pcl-cvs is no longer part of the CVS
 	source distribution.
-	
+
 2003-04-01  Derek Price  <derek@ximbiot.com>
 
 	* BUGS: Remove reference to cvs admin SEGV bug Larry Jones fixed
@@ -869,6 +2943,10 @@
 	* configure.in: Tail the BUGS file for status.
 
 	* configure: Regenerated.
+
+2003-03-31  Derek Price  <derek@ximbiot.com>
+
+	* NEWS (Changes since 1.11.5): Note symlinked CVSROOT now works.
 
 2003-03-28  Derek Price  <derek@ximbiot.com>
 
@@ -894,16 +2972,57 @@
 	* Makefile.in: Regenerated.
 	* configure: Ditto.
 
+2003-03-19  Mark D. Baushke  <mdb@cvshome.org>
+
+	* configure.in (WITH_RSH): Add --with-rsh configure option. The
+	default is still "rsh" but it will look for "ssh" if "rsh" is not
+	found on the system.
+
+	* configure: Regenerated.
+	* config.h.in: Ditto.
+	* Makefile.in: Ditto.
+
+2003-03-19  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: AC_SUBST HAVE_PUTENV and create a dynamic config file
+	for src/sanity.sh.
+
+	* Makefile.in: Regenerated.
+	* configure: Ditto.
+
+2003-03-16  Mark D. Baushke  <mdb@cvshome.org>
+
+	* NEWS (changes since 1.11.5): Mention CVSREADONLYFS environment
+	variable and new `-R' cvs global option for read-only file-system
+	repository mode.
+
+2003-03-07  Mark D. Baushke  <mdb@cvshome.org>
+
+	* NEWS: (Changes since 1.11.5): Mention rcsinfo template updates.
+
+	* TESTS: Document some new global variables.
+
+	* TESTS: Remove some obsolete global variables.
+
 2003-03-07  Derek Price  <derek@ximbiot.com>
 
 	* TESTS: Document some more global variables.
 
-2003-03-05  Mark D Baushke <mdb@cvshome.org>
+2003-03-04  Mark D Baushke <mdb@cvshome.org>
 
-	* NEWS (Changes since 1.11.5): Backout CVS_LOCAL_BRANCH_NUM feature.
+	* NEWS (Changes since 1.11.5): Mention CVS_LOCAL_BRANCH_NUM
+	environment varaible.
 
-	* NEWS (Changes since 1.11.5): Mention CVS_LOCAL_BRANCH_NUM 
-        environment varaible.
+2003-02-28  Larry Jones  <lawrence.jones@eds.com>
+
+	* TODO (206): Done in 1.11.3.
+	(226): Add comment about deadlock.
+	(228, 229): New items.
+
+2003-02-26  Derek Price  <derek@ximbiot.com>
+
+	* mktemp.sh: Add copyright notice, some comments, and attempt to return
+	success and error codes.
 
 2003-02-25  Derek Price  <derek@ximbiot.com>
 
@@ -915,25 +3034,12 @@
 	* configure: Regenerated.
 	* config.h.in: Ditto.
 
-2003-02-28  Derek Price  <derek@ximbiot.com>
+2003-02-25  Derek Price  <derek@ximbiot.com>
 
-	* acinclude.m4 (ACX_WITH_GSSAPI): Move the checkin from 1/23 to
-	aclocal.m4 to the source, here.
+	* configure.in: Remove the forced nondetection of mktemp I was using
+	to test the scripts.
 
-	* aclocal.m4: Regenerated.
 	* configure: Regenerated.
-
-2003-02-28  Larry Jones  <lawrence.jones@eds.com>
-
-	* TODO (206): Done in 1.11.3.
-	(226): Add comment about deadlock.
-	(228, 229): New items.
-
-2003-02-26  Derek Price  <derek@ximbiot.com>
-
-	* mktemp.sh: Actually add file this time.
-	* mktemp.sh: Add copyright notice, some comments, and attempt to return
-	success and error codes.
 
 2003-02-25  Derek Price  <derek@ximbiot.com>
 
@@ -943,9 +3049,30 @@
 	* Makefile.in: Regenerated.
 	* configure: Ditto.
 
+2003-02-25  Derek Price  <derek@ximbiot.com>
+
+	* NEWS (Changes since 1.11.5): Mention UserAdminOptions.
+
 2003-02-06  Derek Price  <derek@ximbiot.com>
 
-	* NEWS (Changes since 1.11.5): Note error message corrections.
+	* NEWS (Changes since 1.11.5): Note error message corrections and
+	documentation corrections.
+
+2003-01-31  Derek Price  <derek@ximbiot.com>
+
+	* configure.in: Check for varargs.h.  Use the AC_C_PROTOTYPES macro
+	to check for handling of prototypes.
+
+	* configure: Regenerated.
+	* config.h.in: Regenerated.
+
+2003-01-31  Derek Price  <derek@ximbiot.com>
+
+	* acinclude.m4 (ACX_WITH_GSSAPI): Move the checkin from 1/23 to here.
+	* configure.in: Update version to 1.12.10.1.
+
+	* aclocal.m4: Regenerated.
+	* configure: Regenerated.
 
 2003-01-30  Larry Jones  <lawrence.jones@eds.com>
 
@@ -1710,7 +3837,7 @@
 	* configure.in: Comment definition of PR_PROGRAM.
 
 	* configure: Regenerated.
-	
+
 2001-02-22  Derek Price  <derek.price@openavenue.com>
 	    Pavel Roskin  <proski@gnu.org>
 
@@ -1780,7 +3907,7 @@
 	acceptable to both Autoconf 1.13 and the new 1.49 beta.
 
 	* configure: regenerated
- 
+
 2001-01-29  Larry Jones  <larry.jones@sdrc.com>
 
 	* configure.in: Check for syslog.h.
@@ -1976,7 +4103,7 @@
 	* configure: regenerated
 
 2000-11-08  Larry Jones  <larry.jones@sdrc.com>
- 
+
 	* configure.in: Check for getgroups function.
 	* configure, config.h.in: Regenerated.
 
@@ -3560,7 +5687,7 @@ Fri Aug 16 16:09:59 1996  Norbert Kiesel  <nk@col.sw-ley.de>
 
 	* Makefile.in (installdirs-local): new (empty) target
 	(all install uninstall installdirs): add installdirs to list of
-	targets which are done for all subdirs 
+	targets which are done for all subdirs
 	(spec): new target to create a rpm specification file (which can
 	be used to create RPM source and binary packages)
 	(dist): depend on spec (which now also creates .fname)
@@ -3876,9 +6003,9 @@ Sun Apr 14 11:06:44 1996  Karl Fogel  <kfogel@floss.red-bean.com>
         * configure.in (AC_OUTPUT): generate contrib/elib/Makefile,
         tools/Makefile, and tools/pcl-cvs/Makefile.  Do not any longer
         generate contrib/pcl-cvs/Makefile.
-        
+
         * Makefile.in: deal w/ above changes.
-        
+
         * configure: regenerated.
 
         * Added `tools' subdir (pcl-cvs will live there, as will other
@@ -4132,7 +6259,7 @@ Fri Jan 12 13:38:12 1996  Jim Kingdon  <kingdon@harvey.cyclic.com>
 Fri Jan 12 12:46:23 1996  Karl Fogel  <kfogel@floss.red-bean.com>
 
         * configure: regenerated.
-        
+
         * configure.in: print "Checking user's gender... ok".  I mean,
         what the heck, you only live once.
 
@@ -4150,7 +6277,7 @@ Wed Jan 10 20:40:23 1996  Karl Fogel  <kfogel@floss.red-bean.com>
         * configure: regenerated.
 
         * configure.in (AC_OUTPUT): added `macintosh/Makefile'.
-        
+
         * Makefile.in (SUBDIRS): added `macintosh'.
 
 Wed Jan 10 01:17:18 1996  Jim Kingdon  <kingdon@harvey.cyclic.com>
@@ -4980,4 +7107,3 @@ Mon Dec	 6 17:02:18 1993  K. Richard Pixley  (rich@sendai.cygnus.com)
 
 	* src/diff.c (diff_fileproc): add support for "cvs diff -N" which
 	  allows for adding or removing files via patches.
-

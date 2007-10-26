@@ -2,7 +2,7 @@
 "
 " Menu Translations:	Japanese (UTF-8)
 " Translated By:	MURAOKA Taro  <koron@tka.att.ne.jp>
-" Last Change:		31-May-2003.
+" Last Change:		18-Apr-2006.
 
 " Quit when menu translations have already been done.
 if exists("did_menu_trans")
@@ -19,6 +19,7 @@ menutrans &User\ Manual		ユーザマニュアル(&U)
 menutrans &How-to\ links	&How-toリンク
 menutrans &Credits		クレジット(&C)
 menutrans Co&pying		著作権情報(&P)
+menutrans &Sponsor/Register	スポンサー/登録(&S)
 menutrans O&rphans		孤児(&R)
 menutrans &Version		バージョン情報(&V)
 menutrans &About		Vimについて(&A)
@@ -29,6 +30,7 @@ let g:menutrans_help_dialog = "ヘルプを検索したいコマンドもしく�
 menutrans &File				ファイル(&F)
 menutrans &Open\.\.\.<Tab>:e		開く(&O)\.\.\.<Tab>:e
 menutrans Sp&lit-Open\.\.\.<Tab>:sp	分割して開く(&L)\.\.\.<Tab>:sp
+menutrans Open\ Tab\.\.\.<Tab>:tabnew	タブページで開く<Tab>:tabnew
 menutrans &New<Tab>:enew		新規作成(&N)<Tab>:enew
 menutrans &Close<Tab>:close		閉じる(&C)<Tab>:close
 menutrans &Save<Tab>:w			保存(&S)<Tab>:w
@@ -50,7 +52,7 @@ menutrans &Paste<Tab>"+gP		貼り付け(&P)<Tab>"+gP
 menutrans Put\ &Before<Tab>[p		前に貼る(&B)<Tab>[p
 menutrans Put\ &After<Tab>]p		後に貼る(&A)<Tab>]p
 menutrans &Delete<Tab>x			消す(&D)<Tab>x
-menutrans &Select\ all<Tab>ggVG		全て選択(&S)<Tab>ggvG
+menutrans &Select\ All<Tab>ggVG		全て選択(&S)<Tab>ggVG
 menutrans &Find\.\.\.			検索(&F)\.\.\.
 menutrans &Find<Tab>/			検索(&F)<Tab>/
 menutrans Find\ and\ Rep&lace\.\.\.	置換(&L)\.\.\.
@@ -58,6 +60,7 @@ menutrans Find\ and\ Rep&lace<Tab>:%s	置換(&L)<Tab>:%s
 menutrans Find\ and\ Rep&lace<Tab>:s	置換(&L)<Tab>:s
 "menutrans Options\.\.\.			オプション(&O)\.\.\.
 menutrans Settings\ &Window		設定ウィンドウ(&W)
+menutrans Startup\ &Settings		起動時の設定(&S)
 
 " Edit/Global Settings
 menutrans &Global\ Settings		全体設定(&G)
@@ -141,7 +144,23 @@ menutrans &Open<Tab>:copen		開く(&O)<Tab>:copen
 menutrans &Close<Tab>:cclose		閉じる(&C)<Tab>:cclose
 menutrans &Convert\ to\ HEX<Tab>:%!xxd	HEXへ変換(&C)<Tab>:%!xxd
 menutrans Conve&rt\ back<Tab>:%!xxd\ -r	HEXから逆変換(&R)<Tab>%!xxd\ -r
-menutrans &Set\ Compiler		コンパイラ設定(&S)
+menutrans Se&T\ Compiler		コンパイラ設定(&T)
+
+" Tools.Spelling Menu
+menutrans &Spelling			スペリング(&S)
+menutrans &Spell\ Check\ On		スペルチェック有効(&S)
+menutrans Spell\ Check\ &Off		スペルチェック有効(&O)
+menutrans To\ &Next\ error<Tab>]s	次のエラー(&N)<Tab>]s
+menutrans To\ &Previous\ error<Tab>[s	前のエラー(&P)<Tab>[s
+menutrans Suggest\ &Corrections<Tab>z=	修正候補(&C)<Tab>z=
+menutrans &Repeat\ correction<Tab>:spellrepall	修正を繰り返す(&R)<Tab>:spellrepall
+menutrans Set\ language\ to\ "en"	言語を\ "en"\ に設定する
+menutrans Set\ language\ to\ "en_au"	言語を\ "en_au"\ に設定する
+menutrans Set\ language\ to\ "en_ca"	言語を\ "en_ca"\ に設定する
+menutrans Set\ language\ to\ "en_gb"	言語を\ "en_gb"\ に設定する
+menutrans Set\ language\ to\ "en_nz"	言語を\ "en_nz"\ に設定する
+menutrans Set\ language\ to\ "en_us"	言語を\ "en_us"\ に設定する
+menutrans &Find\ More\ Languages	他の言語を検索する(&F)
 
 " Tools.Fold Menu
 menutrans &Folding			折畳み(&F)
@@ -312,3 +331,8 @@ if has('iconv')
   endif
   an 10.396.120.130 ファイル(&F).エンコード指定(&E)\.\.\..保存(&S)\.\.\..UTF-8(&8)<Tab>fenc=utf-8 :set fenc=utf-8 \| w<CR>
 endif
+
+" filler to avoid the line above being recognized as a modeline
+" filler
+" filler
+" filler

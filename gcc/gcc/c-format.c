@@ -30,6 +30,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "diagnostic.h"
 #include "langhooks.h"
+/* APPLE LOCAL radar 4985544 - radar 5096648 */
+#include "tm_p.h"
 #include "c-format.h"
 
 /* Set format warning options according to a -Wformat=n option.  */
@@ -61,7 +63,12 @@ enum format_type { printf_format_type, asm_fprintf_format_type,
 		   gcc_diag_format_type, gcc_cdiag_format_type,
 		   gcc_cxxdiag_format_type,
 		   scanf_format_type, strftime_format_type,
-		   strfmon_format_type, format_type_error = -1};
+		   /* APPLE LOCAL begin radar 4985544 */
+		   strfmon_format_type, nsstring_format_type, 
+		   /* APPLE LOCAL radar 5096648 */
+		   cfstring_format_type,
+		   format_type_error = -1};
+		   /* APPLE LOCAL end radar 4985544 */
 
 typedef struct function_format_info
 {
@@ -196,7 +203,11 @@ decode_format_attr (tree args, function_format_info *info, int validated_p)
 
       info->format_type = decode_format_type (p);
 
-      if (info->format_type == format_type_error)
+      /* APPLE LOCAL begin radar 4985544 */
+      if (info->format_type == format_type_error
+	  || (info->format_type == nsstring_format_type 
+	      && !c_dialect_objc ()))
+      /* APPLE LOCAL end radar 4985544 */
 	{
 	  gcc_assert (!validated_p);
 	  warning ("%qs is an unrecognized format function type", p);
@@ -696,7 +707,21 @@ static const format_kind_info format_types_orig[] =
     strfmon_flag_specs, strfmon_flag_pairs,
     FMT_FLAG_ARG_CONVERT, 'w', '#', 'p', 0, 'L',
     NULL, NULL
+  /* APPLE LOCAL begin radar 4985544 */
+  },
+  { "NSString",   NULL,  NULL, NULL, NULL, 
+    NULL, NULL, 
+    FMT_FLAG_ARG_CONVERT, 0, 0, 0, 0, 0,
+    NULL, NULL
+  },
+  /* APPLE LOCAL end radar 4985544 */
+  /* APPLE LOCAL begin radar 5096648 */
+  { "CFString",   NULL,  NULL, NULL, NULL, 
+    NULL, NULL, 
+    FMT_FLAG_ARG_CONVERT, 0, 0, 0, 0, 0,
+    NULL, NULL
   }
+  /* APPLE LOCAL end radar 5096648 */
 };
 
 /* This layer of indirection allows GCC to reassign format_types with
@@ -1094,6 +1119,34 @@ get_flag_spec (const format_flag_spec *spec, int flag, const char *predicates)
 }
 
 
+/* APPLE LOCAL begin radar 4985544 - radar 5096648 */
+/* This routine checks to see if FORMAT_TREE is a valid CFString format, such as
+   @"any-string@". */
+
+static void
+objc_check_cfformat_arg (void *ctx, tree format_tree,
+                         unsigned HOST_WIDE_INT ARG_UNUSED (arg_num))
+{
+  format_check_results *res = ((format_check_context *)ctx)->res;
+
+  if (TREE_CODE (format_tree) != ADDR_EXPR)
+    {
+      res->number_non_literal++;
+      return;
+    }
+#ifdef CFSTRING_TYPE_NODE
+  /* check that format_tree is a valid CFString format, @"any-string@". */
+  format_tree = TREE_OPERAND (format_tree, 0);
+  if (TREE_CODE (format_tree) != CONST_DECL
+      || !CFSTRING_TYPE_NODE (TREE_TYPE (format_tree)))
+#endif
+    {
+      res->number_non_literal++;
+      return;
+    }
+}
+/* APPLE LOCAL end radar 4985544 - radar 5096648 */
+
 /* Check the argument list of a call to printf, scanf, etc.
    INFO points to the function_format_info structure.
    PARAMS is the list of argument values.  */
@@ -1132,8 +1185,15 @@ check_format_info (function_format_info *info, tree params)
   format_ctx.info = info;
   format_ctx.params = params;
 
-  check_function_arguments_recurse (check_format_arg, &format_ctx,
+  /* APPLE LOCAL begin radar 4985544 - radar 5096648 */
+  check_function_arguments_recurse (
+				    ((c_dialect_objc () 
+				      && info->format_type == nsstring_format_type) 
+				     || info->format_type == cfstring_format_type)
+				    ? objc_check_cfformat_arg 
+				    : check_format_arg, &format_ctx,
 				    format_tree, arg_num);
+  /* APPLE LOCAL end radar 4985544 - radar 5096648 */
 
   if (res.number_non_literal > 0)
     {
@@ -2216,6 +2276,8 @@ format_type_warning (const char *descr, const char *format_start,
       memset (p + 1, '*', pointer_count);
       p[pointer_count + 1] = 0;
     }
+  /* APPLE LOCAL radar 4529765 */
+  arg_num = objc_message_selector () ? (arg_num-2) : arg_num;
   if (wanted_type_name)
     {
       if (descr)
@@ -2549,9 +2611,24 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   argument = TYPE_ARG_TYPES (type);
   if (argument)
     {
-      if (!check_format_string (argument, info.format_num, flags,
-				no_add_attrs))
-	return NULL_TREE;
+      /* APPLE LOCAL begin radar 4985544 - radar 5096648 */
+      if (c_dialect_objc () && info.format_type == nsstring_format_type)
+	{
+	  if (!objc_check_format_nsstring (argument, info.format_num, no_add_attrs))
+	    return NULL;
+	}
+#ifdef CHECK_FORMAT_CFSTRING
+      else if (info.format_type == cfstring_format_type)
+	{
+	  if (!CHECK_FORMAT_CFSTRING (argument, info.format_num, no_add_attrs))
+	    return NULL;
+	}
+#endif
+      else
+        if (!check_format_string (argument, info.format_num, flags,
+				  no_add_attrs))
+	  return NULL_TREE;
+      /* APPLE LOCAL end radar 4985544 - radar 5096648 */
 
       if (info.first_arg_num != 0)
 	{

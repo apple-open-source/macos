@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1998-2004, International Business Machines
+*   Copyright (C) 1998-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -43,7 +43,7 @@
 
 #include "unicode/ucol.h"
 #include "utrie.h"
-#include "unicode/ures.h"
+#include "uresimp.h"
 #include "unicode/udata.h"
 #include "unicode/uiter.h"
 
@@ -58,7 +58,7 @@
  * The following describes the formats for collation binaries
  * (UCA & tailorings) and for the inverse UCA table.
  * Substructures are described in the collation design document at
- * http://oss.software.ibm.com/cvs/icu/~checkout~/icuhtml/design/collation/ICU_collation_design.htm
+ * http://dev.icu-project.org/cgi-bin/viewcvs.cgi/~checkout~/icuhtml/design/collation/ICU_collation_design.htm
  *
  * -------------------------------------------------------------
  *
@@ -261,7 +261,7 @@ minimum number for special Jamo
 
 #define NFC_ZERO_CC_BLOCK_LIMIT_  0x300
 
-struct collIterate {
+typedef struct collIterate {
   UChar *string; /* Original string */
   /* UChar *start;  Pointer to the start of the source string. Either points to string
                     or to writableBuffer */
@@ -280,7 +280,7 @@ struct collIterate {
   UChar stackWritableBuffer[UCOL_WRITABLE_BUFFER_SIZE]; /* A writable buffer. */
   UCharIterator *iterator;
   /*int32_t iteratorIndex;*/
-};
+} collIterate;
 
 /* 
 struct used internally in getSpecial*CE.
@@ -558,7 +558,7 @@ enum {
     UCOL_BYTE_FIRST_TAILORED = 0x04,
     UCOL_BYTE_COMMON = 0x05,
     UCOL_BYTE_FIRST_UCA = UCOL_BYTE_COMMON,
-    UCOL_CODAN_PLACEHOLDER = 0x24,
+    UCOL_CODAN_PLACEHOLDER = 0x27,
     UCOL_BYTE_LAST_LATIN_PRIMARY = 0x4C,
     UCOL_BYTE_FIRST_NON_LATIN_PRIMARY = 0x4D,
     UCOL_BYTE_UNSHIFTED_MAX = 0xFF
@@ -848,22 +848,28 @@ SortKeyGenerator(const    UCollator    *coll,
         UBool allocatePrimary,
         UErrorCode *status);
 
+typedef void U_CALLCONV
+ResourceCleaner(UCollator *coll);
+
+
 struct UCollator {
     UColOptionSet  *options;
     SortKeyGenerator *sortKeyGen;
     uint32_t *latinOneCEs;
     char* validLocale;
     char* requestedLocale;
+    const UChar *rules;
+    const UCollator *UCA;
+    ResourceCleaner *resCleaner;
     UResourceBundle *rb;
     UResourceBundle *elements;
     const UCATableHeader *image;
-    /*CompactEIntArray *mapping;*/
-    UTrie *mapping;
+    UTrie mapping;
     const uint32_t *latinOneMapping;
     const uint32_t *expansion;
     const UChar    *contractionIndex;
     const uint32_t *contractionCEs;
-    const uint8_t  *scriptOrder;
+    /*const uint8_t  *scriptOrder;*/
 
     const uint32_t *endExpansionCE;    /* array of last ces in an expansion ce.
                                           corresponds to expansionCESize */
@@ -877,11 +883,8 @@ struct UCollator {
     UChar          minUnsafeCP;        /* Smallest unsafe Code Point. */
     UChar          minContrEndCP;      /* Smallest code point at end of a contraction */
 
-    const UChar *rules;
     int32_t rulesLength;
     int32_t latinOneTableLen;
-
-    /*UErrorCode errorCode;*/             /* internal error code */
 
     uint32_t variableTopValue;
     UColAttributeValue frenchCollation;
@@ -923,9 +926,7 @@ struct UCollator {
     uint8_t tertiaryTopCount;
     uint8_t tertiaryBottomCount;
 
-    UDataInfo dataInfo;               /* Data info of UCA table */
-    const UCollator *UCA;
-
+    UVersionInfo dataVersion;               /* Data info of UCA table */
 };
 
 U_CDECL_END
@@ -954,7 +955,6 @@ U_CFUNC
 void ucol_updateInternalState(UCollator *coll, UErrorCode *status);
 
 U_CAPI uint32_t U_EXPORT2 ucol_getFirstCE(const UCollator *coll, UChar u, UErrorCode *status);
-U_CAPI char* U_EXPORT2 ucol_sortKeyToString(const UCollator *coll, const uint8_t *sortkey, char *buffer, uint32_t *len);
 U_CAPI UBool U_EXPORT2 ucol_isTailored(const UCollator *coll, const UChar u, UErrorCode *status);
 
 U_CAPI const InverseUCATableHeader* U_EXPORT2 ucol_initInverseUCA(UErrorCode *status);

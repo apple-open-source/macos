@@ -1,3 +1,12 @@
+<testcase>
+<info>
+<keywords>
+FTP
+PASV
+RETR
+post-quote
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -8,6 +17,9 @@ that FTP
 works
   so does it?
 </data>
+<servercmd>
+REPLY EPSV 314 bluah you f00l!
+</servercmd>
 </reply>
 
 # Client-side
@@ -21,16 +33,13 @@ ftp download with post-quote delete operation
  <command>
 ftp://%HOSTIP:%FTPPORT/120 -Q "-DELE file"
 </command>
-<file name="log/ftpserver.cmd">
-REPLY EPSV 314 bluah you f00l!
-</file>
 </client>
 
 # Verify data after the test has been "shot"
 <verify>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 EPSV
 PASV
@@ -41,3 +50,4 @@ DELE file
 QUIT
 </protocol>
 </verify>
+</testcase>

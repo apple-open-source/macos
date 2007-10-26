@@ -95,4 +95,3 @@ void CACSchema::create()
 	mr_gen.attributeCoderForData(&mCACDataAttributeCoder);
 }
 
-/* arch-tag: 36BF1864-0DBC-11D9-8518-000A9595DEEE */

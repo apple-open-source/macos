@@ -1,3 +1,69 @@
+Jan 05 2006, V3.53.5:
+    * Added support for FileDSN
+    * Added support for Connection Pooling
+    * Added check for tracefile size
+    * Call ODBC 2.x functions in driver if application uses ODBC 2.x only calls
+    * Fixed problem parsing driver result in SQLSetStmtAttr
+    * Fixed source code readability
+    * Fixed bug in overwriting driver name
+    * Fixed check for /Library/ODBC for Mac OS X
+    * Fixed prototypes
+    * Rewrote bootstrap script and configure summary
+    * Use localtime_r in tracing when available
+    * Fixed build issues with Mac OS X
+    * Small code cleanups and fixes
+
+Jan 26 2006, V3.52.4:
+    * Added support for Mac OS X 10.4 Universal kit (ppc, ppc64 and i386)
+    * Removed dependency between iodbc and iodbcinst shared libraries
+    * Cleanup Mac OS X build process
+    * Clarify LGPL license conditions
+    * Fixed problem with error on subsequent SQLExecute statements
+    * Fixed problem building 64bit GUI components
+    * Fixed compiler warnings
+    * Fixed problem determining which compiler to use on AIX
+    * Enabled SHLIB_PATH on HP/UX
+    * Fixed problem using # as comment in odbc.ini file
+    * Disabled --disable-odbc3 flag
+    * Small code cleanups and fixes
+
+Nov 04 2005, V3.52.3:
+    * Added support for DSN-less connections
+    * Added timestamp to ENTER/EXIT lines in trace file
+    * Added build support for AIX 5.x, HP/UX 11.23 Itanium
+    * Added build support for Mac OS X 10.3 (32bit) and 10.4 (32bit+64bit)
+    * Fixed problem with certain compilers hating lvalue casting
+    * Fixed problem with truncated messages in iodbctest
+    * Fixed problem calling setup dialog multiple times
+    * Fixed problem with ODBC_BOTH_DSN
+    * Fixed problem with tracing SQLGetInfo
+    * Fixed problem with NUL termination on setup dialog
+    * Fixed problem building on Mac OS X 10.4 64bit
+    * Fixed problem calculating buffer length after calling setup dialog
+    * Fixed problem with SQLDriverConnect (SQL_DRIVER_PROMPT) if no
+      setup dialog had been registered
+    * Fixed symbol clash between Oracle Instant client and iODBC on Mac OS X
+    * Fixed problem building iODBCadm and drvproxy on Mac OS X
+    * Fixed problem building on machines with older iODBC installation
+
+Feb 04 2005, V3.52.2:
+    * Added tracing option for root without overwriting existing files
+    * Added PORT.OpenLink script
+    * Added special iodbc-config script for Mac OS X framework build
+    * Fixed problem starting/stopping tracing
+    * Fixed SQLSetConnectAttr to return SQL_SUCCESS_WITH_INFO
+      if driver cannot handle option set before connect time
+    * Fixed SQLInfo to use pcbInfoValue if present
+    * Fixed NULL pointer problem in GTK choose driver dialog
+    * Fixed problem with C++ prototypes with older 32bit code
+    * Fixed locking problem with SQLAllocEnv/SQLAllocHandle
+    * Fixed tracefile name expansion
+    * Fixed problem running bootstrap.sh on machines without GTK
+    * Fixed problem installing code in temp directory for packaging
+    * Fixed problem calling SQLGetDiagRec on uninitialized handles
+      in iodbctest program
+    * Link iodbctest program with static iodbc libraries
+   
 Sep 29 2004, V3.52.1:
     * Added support for new ODBC 3.52 specification for 64bit environments
     * Added support for SQLGetEnvAttr(SQL_ATTR_WCHAR_SIZE extension

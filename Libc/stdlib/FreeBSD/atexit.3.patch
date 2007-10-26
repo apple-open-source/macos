@@ -1,0 +1,30 @@
+--- _SB/Libc/stdlib/FreeBSD/atexit.3	2003-05-20 15:23:24.000000000 -0700
++++ _SB/Libc/stdlib/FreeBSD/atexit.3.edit	2006-06-28 16:55:52.000000000 -0700
+@@ -47,13 +47,13 @@
+ .Sh SYNOPSIS
+ .In stdlib.h
+ .Ft int
+-.Fn atexit "void (*function)(void)"
++.Fn atexit "void (*func)(void)"
+ .Sh DESCRIPTION
+ The
+ .Fn atexit
+ function
+-registers the given
+-.Fa function
++registers the function
++.Fa func
+ to be called at program exit, whether via
+ .Xr exit 3
+ or via return from the program's
+@@ -71,8 +71,8 @@
+ process termination, for example by calling
+ .Xr abort 3 . )
+ .Pp
+-At least 32 functions can always be registered,
+-and more are allowed as long as sufficient memory can be allocated.
++At least 32 functions can always be registered;
++more are allowed as long as sufficient memory can be allocated.
+ .\" XXX {ATEXIT_MAX} is not implemented yet
+ .Sh RETURN VALUES
+ .Rv -std atexit

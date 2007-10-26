@@ -1,6 +1,6 @@
 Velkommen til maillisten %(real_name)s@%(host_name)s !
 %(welcome)s
-For at sende mail til listen, skal du buge denne e-mailadresse:
+For at sende mail til listen, skal du bruge denne e-mailadresse:
 
   %(emailaddr)s
 
@@ -8,9 +8,9 @@ Generelle informationer om listen finder du på:
 
   %(listinfo_url)s
 
-Hvis du ønsker at framelde dig fra listen eller at ændre på dine
-indstillinger for listen (f. eks. ændre password, få tilsendt sammendrag
-med jævne mellemrum), så kan du ændre dette fra din personlige
+Hvis du ønsker at afmelde dig listen eller at ændre på dine
+indstillinger for listen (f. eks. ændre adgangskode, få tilsendt sammendrag
+med jævne mellemrum osv.), kan du ændre dette fra din personlige
 medlemsside:
 
   %(optionsurl)s
@@ -19,22 +19,23 @@ Du kan også ændre de samme indstillinger ved at sende en e-mail til:
 
   %(real_name)s-request@%(host_name)s
 
-med ordet 'help' i Subject feltet eller i mailen. Så vil du modtage
-en e-mail med nærmee instruktioner.
+med ordet 'help' i Emne feltet eller i mailen. Så vil du modtage
+en e-mail med nærmere instruktioner.
 
-Du skal bruge et password for at ændre på disse indstillinger for listen
-(også for at ændre dit password) eller for at framelde dig fra listen.
-Dit password er:
+Du skal bruge en adgangskode for at ændre på disse indstillinger for listen
+(også for at ændre din adgangskode) eller for at afmelde dig listen.
+Din adgangskode er:
 
   %(password)s
 
-Normalt vil Mailman en gang hver måned sende en e-mal til dig, med en 
-reminder om det password du har til den maillist som du er medlem af,
+Normalt vil Mailman en gang hver måned sende en e-mail til dig, med en
+påmindelse om den adgangskode du har til den mailliste som du er medlem af,
 på %(host_name)s,
 men det kan du vælge fra, hvis du ønsker det.
-Reminderen vil også indeholde information om hvordan du kan framelde
-dig fra listen, eller hvordan du kan ændre i dine personlige indstillinger
+Påmindelsen vil også indeholde information om hvordan du kan afmelde
+dig listen, eller hvordan du kan ændre i dine personlige indstillinger
 for listen.
 
 På din personlige medlemsside findes der også en knap, hvor du kan klikke
-hvis du ønsker at få dit password tilsendt, i en e-mail.
+hvis du ønsker at få din adgangskode tilsendt i en e-mail.
+

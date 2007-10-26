@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,26 +37,30 @@
 namespace Security {
 
 
-// stock leading argument profile used by all calls
-#define UCSP_ARGS	mGlobal().serverPort, mGlobal().thread().replyPort, &rcode
+// stock leading argument profile used by (almost) all calls
+#define UCSP_ARGS	mGlobal().serverPort, mGlobal().thread().replyPort, &securitydCreds, &rcode
 
-// IPC/IPCN wrap the actual Mach IPC call. IPC also activates the connection first
-#define IPCN(statement) \
-	{ CSSM_RETURN rcode; check(statement); if (rcode != CSSM_OK) CssmError::throwMe(rcode); }
+// common invocation profile (don't use directly)
+#define IPCSTART(statement) \
+	CSSM_RETURN rcode; security_token_t securitydCreds; check(statement)
+#define IPCEND \
+	if (securitydCreds.val[0] != 0   IFDEBUG( && !getenv("SECURITYSERVER_NONROOT"))) \
+		CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE)
+#define IPCEND_CHECK	IPCEND; if (rcode != CSSM_OK) CssmError::throwMe(rcode);
+#define IPCN(statement) { \
+	IPCSTART(statement); IPCEND_CHECK;  \
+	}
 #define IPC(statement)	{ activate(); IPCN(statement); }
-#define IPCKEY(statement, key, tag) \
-{ \
-	activate(); \
-	CSSM_RETURN rcode; \
-	for (bool retried = false;; retried = true) \
-	{ \
-		check(statement); \
-		if (retried || rcode != CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT) \
-			break; \
-		addApplicationAclSubject(key, tag); \
-	} \
-	if (rcode != CSSM_OK) \
+#define IPCKEY(statement, key, tag) { \
+	activate(); IPCSTART(statement); IPCEND; \
+	switch (rcode) { \
+	case CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT: \
+		notifyAclChange(key, tag); \
+	case CSSM_OK: \
+		break; \
+	default: \
 		CssmError::throwMe(rcode); \
+	} \
 }
 
 // pass mandatory or optional CssmData arguments into an IPC call
@@ -103,22 +107,6 @@ public:
 private:
 	void mapKeySample(CSSM_CSP_HANDLE &cspHandle, CssmKey &key);
 };
-
-
-//
-// Bundle up a Context for IPC transmission
-//
-class SendContext {
-public:
-	SendContext(const Context &ctx);
-	~SendContext() { Allocator::standard().free(attributes); }
-	
-	const Context &context;
-	CSSM_CONTEXT_ATTRIBUTE *attributes;
-	size_t attributeSize;
-};
-
-#define CONTEXT(ctx)	ctx.context, ctx.attributes, ctx.attributes, ctx.attributeSize
 
 
 //

@@ -173,6 +173,22 @@ struct mach_header_64 {
 					   in the task will be given stack
 					   execution privilege.  Only used in
 					   MH_EXECUTE filetypes. */
+#define MH_ROOT_SAFE 0x40000           /* When this bit is set, the binary 
+					  declares it is safe for use in
+					  processes with uid zero */
+                                         
+#define MH_SETUID_SAFE 0x80000         /* When this bit is set, the binary 
+					  declares it is safe for use in
+					  processes when issetugid() is true */
+
+#define MH_NO_REEXPORTED_DYLIBS 0x100000 /* When this bit is set on a dylib, 
+					  the static linker does not need to
+					  examine dependent dylibs to see
+					  if any are re-exported */
+#define	MH_PIE 0x200000			/* When this bit is set, the OS will
+					   load the main executable at a
+					   random address.  Only used in
+					   MH_EXECUTE filetypes. */
 
 /*
  * The load commands directly follow the mach_header.  The total size of all
@@ -243,6 +259,10 @@ struct load_command {
 				   mapped */
 #define	LC_ROUTINES_64	0x1a	/* 64-bit image routines */
 #define LC_UUID		0x1b	/* the uuid */
+#define LC_RPATH       (0x1c | LC_REQ_DYLD)    /* runpath additions */
+#define LC_CODE_SIGNATURE 0x1d	/* local of code signature */
+#define LC_SEGMENT_SPLIT_INFO 0x1e /* local of info to split segments */
+#define LC_REEXPORT_DYLIB (0x1f | LC_REQ_DYLD) /* load and re-export dylib */
 
 /*
  * A variable length string in a load command is represented by an lc_str
@@ -425,7 +445,10 @@ struct section_64 { /* for 64-bit architectures */
 #define	S_INTERPOSING			0xd	/* section with only pairs of
 						   function pointers for
 						   interposing */
-#define	S_16BYTE_LITERALS	0xe	/* section with only 16 byte literals */
+#define	S_16BYTE_LITERALS		0xe	/* section with only 16 byte
+						   literals */
+#define	S_DTRACE_DOF			0xf	/* section contains 
+						   DTrace Object Format */
 /*
  * Constants for the section attributes part of the flags field of a section
  * structure.
@@ -569,11 +592,12 @@ struct dylib {
  * A dynamically linked shared library (filetype == MH_DYLIB in the mach header)
  * contains a dylib_command (cmd == LC_ID_DYLIB) to identify the library.
  * An object that uses a dynamically linked shared library also contains a
- * dylib_command (cmd == LC_LOAD_DYLIB or cmd == LC_LOAD_WEAK_DYLIB) for each
- * library it uses.
+ * dylib_command (cmd == LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, or
+ * LC_REEXPORT_DYLIB) for each library it uses.
  */
 struct dylib_command {
-	uint32_t	cmd;		/* LC_ID_DYLIB, LC_LOAD_{,WEAK_}DYLIB */
+	uint32_t	cmd;		/* LC_ID_DYLIB, LC_LOAD_{,WEAK_}DYLIB,
+					   LC_REEXPORT_DYLIB */
 	uint32_t	cmdsize;	/* includes pathname string */
 	struct dylib	dylib;		/* the library identification */
 };
@@ -1060,6 +1084,27 @@ struct uuid_command {
     uint32_t	cmd;		/* LC_UUID */
     uint32_t	cmdsize;	/* sizeof(struct uuid_command) */
     uint8_t	uuid[16];	/* the 128-bit uuid */
+};
+
+/*
+ * The rpath_command contains a path which at runtime should be added to
+ * the current run path used to find @rpath prefixed dylibs.
+ */
+struct rpath_command {
+    uint32_t	 cmd;		/* LC_RPATH */
+    uint32_t	 cmdsize;	/* includes string */
+    union lc_str path;		/* path to add to run path */
+};
+
+/*
+ * The linkedit_data_command contains the offsets and sizes of a blob
+ * of data in the __LINKEDIT segment.  
+ */
+struct linkedit_data_command {
+    uint32_t	cmd;		/* LC_CODE_SIGNATURE or LC_SEGMENT_SPLIT_INFO */
+    uint32_t	cmdsize;	/* sizeof(struct linkedit_data_command) */
+    uint32_t	dataoff;	/* file offset of data in __LINKEDIT segment */
+    uint32_t	datasize;	/* file size of data in __LINKEDIT segment  */
 };
 
 /*

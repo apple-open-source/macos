@@ -29,7 +29,7 @@
 #define KERBEROSLOGIN_DEPRECATED
 #include <Kerberos/KerberosLogin.h>
 #include <Kerberos/KerberosLoginPrivate.h>
-#include <Kerberos/mach_server_utilities.h>
+#include <Kerberos/kipc_server.h>
 #include <Kerberos/KerberosDebug.h>
 
 #include <mach/message.h>

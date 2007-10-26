@@ -93,6 +93,12 @@ cross-realm. Entries in the section are used by the client to determine
 the intermediate realms which may be used in cross-realm
 authentication. It is also used by the end-service when checking the
 transited field for trusted intermediate realms.
+
+.IP [dbdefaults]
+Contains default values for database specific parameters.
+
+.IP [dbmodules]
+Contains database specific parameters used by the database library.
 .PP 
 Each of these sections will be covered in more details in the following
 sections.
@@ -156,6 +162,12 @@ libraries, use a value of 3 to use the CKSUMTYPE_RSA_MD4_DES
 instead.  This field is ignored when its value is incompatible with
 the session key type.
 
+.IP preferred_preauth_types
+This allows you to set the preferred preauthentication types which the
+client will attempt before others which may be advertised by a KDC.  The
+default value for this setting is "17, 16, 15, 14", which forces libkrb5
+to attempt to use PKINIT if it is supported.
+
 .IP ccache_type
 User this parameter on systems which are DCE clients, to specify the
 type of cache to be created by kinit, or when forwarded tickets are
@@ -169,7 +181,7 @@ Specifies the location of the Kerberos V4 srvtab file.  Default is
 "/etc/srvtab".
 
 .IP krb4_config
-Specifies the location of hte Kerberos V4 configuration file.  Default
+Specifies the location of the Kerberos V4 configuration file.  Default
 is "/etc/krb.conf".
 
 .IP krb4_realms
@@ -196,8 +208,8 @@ be in a comma-separated list.
 
 .IP udp_preference_limit
 When sending a message to the KDC, the library will try using TCP
-before UDP if the size of the message is above "udp_preference_list".
-If the message is smaller than "udp_preference_list", then UDP will be
+before UDP if the size of the message is above "udp_preference_limit".
+If the message is smaller than "udp_preference_limit", then UDP will be
 tried before TCP.  Regardless of the size, both protocols will be
 tried if the first attempt fails.
 
@@ -275,6 +287,7 @@ subsection define the properties of that particular realm.  For example:
 	ATHENA.MIT.EDU = {
 		admin_server = KERBEROS.MIT.EDU
 		default_domain = MIT.EDU
+		database_module = ldapconf
 		v4_instance_convert = {
 			mit = mit.edu
 			lithium = lithium.lcs.mit.edu
@@ -297,6 +310,10 @@ administrator has not made the information available through DNS.
 .IP admin_server
 This relation identifies the host where the administration server is
 running.  Typically this is the Master Kerberos server.
+
+.IP database_module
+This relation indicates the name of the configuration section under dbmodules
+for database specific parameters used by the loadable database library.
 
 .IP default_domain
 This relation identifies the default domain for which hosts in this
@@ -549,7 +566,100 @@ This feature is not currently supported by DCE. DCE security servers can
 be used with Kerberized clients and servers, but versions prior to DCE
 1.1 did not fill in the transited field, and should be used with
 caution.
+
+.SH DATABASE DEFAULT SECTION
+
+The [dbdefaults] section indicates default values for the database specific parameters.
+It can also specify the configuration section under dbmodules for database
+specific parameters used by the loadable database library.  
+
+.PP
+The following tags are used in this section:
+.IP database_module
+This relation indicates the name of the configuration section under dbmodules
+for database specific parameters used by the loadable database library.
+
+.IP ldap_kerberos_container_dn 
+This LDAP specific tag indicates the DN of the container object where the realm
+objects will be located. This value is used if no object DN is mentioned in the
+configuration section under dbmodules.
+
+.IP ldap_kdc_dn
+This LDAP specific tag indicates the default bind DN for the KDC server.
+The KDC server does a login to the directory as this object. This value is used if
+no object DN is mentioned in the configuration section under dbmodules.
+
+.IP ldap_kadmind_dn
+This LDAP specific tag indicates the default bind DN for the
+Administration server. The Administration server does a login to the directory
+as this object. This value is used if no object DN is mentioned in
+the configuration section under dbmodules.
+
+.IP ldap_service_password_file
+This LDAP specific tag indicates the file containing the stashed passwords for the
+objects used for starting the Kerberos servers. This value is used if no
+service password file is mentioned in the configuration section under dbmodules.
+
+.IP ldap_server
+This LDAP specific tag indicates the list of LDAP servers. The list of LDAP servers
+is whitespace-separated. The LDAP server is specified by a LDAP URI.
+This value is used if no LDAP servers are mentioned in the configuration
+section under dbmodules.
+
+.IP ldap_conns_per_server
+This LDAP specific tag indicates the number of connections to be maintained per
+LDAP server. This value is used if the number of connections per LDAP server are not 
+mentioned in the configuration section under dbmodules. The default value is 5.
+
+.SH DATABASE MODULE SECTION
+Each tag in the [dbmodules] section of the file names a configuration section
+for database specific parameters that can be referred to by a realm. 
+The value of the tag is a subsection where the relations in that subsection
+define the database specific parameters.
+
+.PP
+For each section, the following tags may be specified in the subsection:
+
+.IP db_library
+This tag indicates the name of the loadable database library.
+The value should be db2 for db2 database and kldap for LDAP database.
+
+.IP ldap_kerberos_container_dn 
+This LDAP specific tag indicates the DN of the container object where the realm
+objects will be located.
+
+.IP ldap_kdc_dn
+This LDAP specific tag indicates the bind DN for the KDC server.
+The KDC does a login to the directory as this object.
+
+.IP ldap_kadmind_dn
+This LDAP specific tag indicates the bind DN for the Administration server.
+The Administration server does a login to the directory
+as this object.
+
+.IP ldap_service_password_file
+This LDAP specific tag indicates the file containing the stashed passwords for the
+objects used for starting the Kerberos servers.
+
+.IP ldap_server
+This LDAP specific tag indicates the list of LDAP servers. The list of LDAP servers
+is whitespace-separated. The LDAP server is specified by a LDAP URI.
+
+.IP ldap_conns_per_server
+This LDAP specific tag indicates the number of connections to be maintained per
+LDAP server.
 .SH FILES 
+Changes made in the Kerberos application are saved to
+~/Library/Preferences/edu.mit.Kerberos.KerberosApp.plist, and take precedence over
+the Kerberos configuration files.  The order of precedence (with highest precedence
+first) of the Kerberos configuration files is as as follows:
+.sp
+.nf
+.RS
+~/Library/Preferences/edu.mit.Kerberos
+/Library/Preferences/edu.mit.Kerberos
 /etc/krb5.conf
+.RE
+.fi
 .SH SEE ALSO
 syslog(3)

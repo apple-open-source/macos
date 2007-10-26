@@ -39,24 +39,26 @@
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft void *
-.Fn pthread_getspecific "pthread_key_t key"
+.Fo pthread_getspecific
+.Fa "pthread_key_t key"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_getspecific
-function returns the value currently bound to the specified
-.Fa key
+function returns the value that is currently bound to the specified
+.Fa key ,
 on behalf of the calling thread.
 .Pp
 The effect of calling
 .Fn pthread_getspecific
 with a
 .Fa key
-value not obtained from
-.Fn pthread_key_create
-or after
+value that was not obtained from
+.Fn pthread_key_create ,
+or after a
 .Fa key
 has been deleted with
-.Fn pthread_key_delete
+.Fn pthread_key_delete ,
 is undefined.
 .Pp
 .Fn pthread_getspecific
@@ -68,7 +70,7 @@ function will return the thread-specific data value associated with the given
 .Fa key .
 If no thread-specific data value is associated with
 .Fa key ,
-then the value NULL is returned.
+the value NULL is returned.
 .Sh ERRORS
 None.
 .Sh SEE ALSO

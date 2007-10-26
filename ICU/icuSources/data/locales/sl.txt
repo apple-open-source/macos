@@ -1,16 +1,46 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/sl.xml
+// * Source File:<path>/common/main/sl.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: ../../../locale/icu/main/sl.xml
+ *  ICU <specials> source: <path>/xml/main/sl.xml
  */
 sl{
+    AuxExemplarCharacters{"[q w-y]"}
     Countries{
+        001{"Svet"}
+        002{"Afrika"}
+        005{"Južna Amerika"}
+        009{"Oceanija"}
+        011{"Zahodna Afrika"}
+        013{"Centralna Amerika"}
+        014{"Vzhodna Afrika"}
+        015{"Severna Afrika"}
+        017{"Centralna Afrika"}
+        018{"Južna Afrika [018]"}
+        019{"Amerike"}
+        021{"Severna Amerika"}
+        029{"Karibi"}
+        030{"Vzhodna Azija"}
+        035{"Jugovzhodna Azija"}
+        039{"Južna Evropa"}
+        053{"Avstralija i Nova Zelandija"}
+        054{"Melanezija"}
+        057{"Micronezija"}
+        061{"Polinezija"}
+        062{"Južno-centralna Azija"}
+        142{"Azija"}
+        145{"Zahodna Azija"}
+        150{"Evropa"}
+        151{"Vzhodna Evropa"}
+        154{"Severna Evropa"}
+        155{"Zapadna Evropa"}
+        830{"Kanalski otoki"}
+        833{"Otok Man"}
         AD{"Andora"}
         AE{"Združeni arabski emirati"}
         AF{"Afganistan"}
@@ -26,6 +56,7 @@ sl{
         AT{"Avstrija"}
         AU{"Avstralija"}
         AW{"Aruba"}
+        AX{"Alandski otoki"}
         AZ{"Azerbajdžan"}
         BA{"Bosna in Hercegovina"}
         BB{"Barbados"}
@@ -59,6 +90,7 @@ sl{
         CN{"Kitajska"}
         CO{"Kolumbija"}
         CR{"Kostarika"}
+        CS{"Srbija in Črna gora"}
         CU{"Kuba"}
         CV{"Kapverdski otoki"}
         CX{"Božični otok"}
@@ -190,6 +222,7 @@ sl{
         PW{"Palau"}
         PY{"Paragvaj"}
         QA{"Katar"}
+        QO{"Ostala oceanija"}
         RE{"Reunion"}
         RO{"Romunija"}
         RU{"Ruska federacija"}
@@ -208,7 +241,6 @@ sl{
         SM{"San Marino"}
         SN{"Senegal"}
         SO{"Somalija"}
-        SP{"Serbia"}
         SR{"Surinam"}
         ST{"Sao Tome in Principe"}
         SV{"Salvador"}
@@ -247,18 +279,49 @@ sl{
         WS{"Samoa"}
         YE{"Jemen"}
         YT{"Mayotte"}
-        YU{"Jugoslavija"}
         ZA{"Južna Afrika"}
         ZM{"Zambija"}
         ZW{"Zimbabve"}
     }
     Currencies{
+        BRL{
+            "BRL",
+            "Brazilski Real",
+        }
+        CNY{
+            "CNY",
+            "Kitajski Yuan Renminbi",
+        }
+        EUR{
+            "€",
+            "Evro",
+        }
+        GBP{
+            "£",
+            "Britanski Funt Sterling",
+        }
+        INR{
+            "=0#Rs.|1#Re.|1<Rs.",
+            "Indijski Rupi",
+        }
+        JPY{
+            "¥",
+            "Japonski Jen",
+        }
+        RUB{
+            "RUB",
+            "Ruska Rublja",
+        }
         SIT{
             "SIT",
             "Slovenski tolar",
         }
+        USD{
+            "$",
+            "Ameriški Dolar",
+        }
     }
-    ExemplarCharacters{"[a-pr-vzčšž]"}
+    ExemplarCharacters{"[a-c č d-p r s š t-v z ž]"}
     Keys{
         calendar{"Kolendar"}
         collation{"Zlaganje"}
@@ -310,8 +373,11 @@ sl{
         "E",
         "‰",
         "∞",
-        "�",
+        "NaN",
         "+",
+    }
+    Scripts{
+        Latn{"Latinski"}
     }
     Types{
         calendar{
@@ -331,13 +397,9 @@ sl{
             traditional{"Tradicionano zlaganje"}
         }
     }
-    Version{"1.2"}
+    Version{"1.67"}
     calendar{
         gregorian{
-            DateTimeElements:intvector{
-                2,
-                1,
-            }
             DateTimePatterns{
                 "H:mm:ss z",
                 "H:mm:ss z",
@@ -345,8 +407,8 @@ sl{
                 "H:mm",
                 "EEEE, dd. MMMM yyyy",
                 "dd. MMMM yyyy",
-                "yyyy.M.d",
-                "yy.M.d",
+                "d.M.yyyy",
+                "d.M.yy",
                 "{1} {0}",
             }
             dayNames{
@@ -360,15 +422,6 @@ sl{
                         "pet",
                         "sob",
                     }
-                    narrow{
-                        "n",
-                        "p",
-                        "t",
-                        "s",
-                        "č",
-                        "p",
-                        "s",
-                    }
                     wide{
                         "nedelja",
                         "ponedeljek",
@@ -379,11 +432,26 @@ sl{
                         "sobota",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "n",
+                        "p",
+                        "t",
+                        "s",
+                        "č",
+                        "p",
+                        "s",
+                    }
+                }
             }
             eras{
                 abbreviated{
                     "pr.n.š.",
                     "po Kr.",
+                }
+                wide{
+                    "pred našim štetjem",
+                    "naše štetje",
                 }
             }
             monthNames{
@@ -402,20 +470,6 @@ sl{
                         "nov",
                         "dec",
                     }
-                    narrow{
-                        "j",
-                        "f",
-                        "m",
-                        "a",
-                        "m",
-                        "j",
-                        "j",
-                        "a",
-                        "s",
-                        "o",
-                        "n",
-                        "d",
-                    }
                     wide{
                         "januar",
                         "februar",
@@ -431,8 +485,79 @@ sl{
                         "december",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "j",
+                        "f",
+                        "m",
+                        "a",
+                        "m",
+                        "j",
+                        "j",
+                        "a",
+                        "s",
+                        "o",
+                        "n",
+                        "d",
+                    }
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "K1",
+                        "K2",
+                        "K3",
+                        "K4",
+                    }
+                    wide{
+                        "Prvo četrtletje",
+                        "Drugo četrtletje",
+                        "Tretje četrtletje",
+                        "Četrto četrtletje",
+                    }
+                }
             }
         }
     }
-    localPatternChars{"GanjkHmsSEDFwWxhKzAeugXZ"}
+    localPatternChars{"GanjkHmsSEDFwWxhKzAeugXZvcL"}
+    zoneStrings{
+        "Africa:Kinshasa"{
+            ec{"Kinšasa"}
+        }
+        "Africa:Lubumbashi"{
+            ec{"Lubumbaši"}
+        }
+        "Antarctica:South_Pole"{
+            ec{"Južni pol"}
+        }
+        "Asia:Anadyr"{
+            ec{"Anadir"}
+        }
+        "Asia:Kamchatka"{
+            ec{"Kamčatka"}
+        }
+        "Asia:Krasnoyarsk"{
+            ec{"Krasnojarsk"}
+        }
+        "Asia:Shanghai"{
+            ec{"Šangaj"}
+        }
+        "Asia:Tashkent"{
+            ec{"Taškent"}
+        }
+        "Europe:Kiev"{
+            ec{"Kijev"}
+        }
+        "Europe:Moscow"{
+            ec{"Moskva"}
+        }
+        "Europe:Uzhgorod"{
+            ec{"Užgorod"}
+        }
+        "Europe:Zaporozhye"{
+            ec{"Zaporožje"}
+        }
+        hourFormat{"+HHmm;-HHmm"}
+    }
 }

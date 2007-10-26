@@ -1,9 +1,11 @@
+#if !__LP64__
+
 #ifndef _LIBSA_VERS_H_
 #define _LIBSA_VERS_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 #ifndef KERNEL
 #include <sys/types.h>
@@ -17,8 +19,7 @@ typedef SInt64 VERS_version;
 VERS_version VERS_parse_string(const char * vers_string);
 int VERS_string(char * buffer, UInt32 length, VERS_version vers);
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif _LIBSA_VERS_H_
+#endif // !__LP64__

@@ -16,7 +16,7 @@
 
 # Makefile.am for the SASL library
 # Rob Earhart
-# $Id: Makefile.in,v 1.6 2005/01/10 19:13:35 snsimon Exp $
+# $Id: Makefile.in,v 1.8 2006/01/24 20:37:08 snsimon Exp $
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -89,6 +89,7 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+CMU_LIB_SUBDIR = @CMU_LIB_SUBDIR@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -124,9 +125,12 @@ LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIB_CRYPT = @LIB_CRYPT@
 LIB_DES = @LIB_DES@
+LIB_DOOR = @LIB_DOOR@
+LIB_LDAP = @LIB_LDAP@
 LIB_MYSQL = @LIB_MYSQL@
 LIB_PGSQL = @LIB_PGSQL@
 LIB_SOCKET = @LIB_SOCKET@
+LIB_SQLITE = @LIB_SQLITE@
 LN_S = @LN_S@
 LTGETADDRINFOOBJS = @LTGETADDRINFOOBJS@
 LTGETNAMEINFOOBJS = @LTGETNAMEINFOOBJS@
@@ -148,6 +152,7 @@ PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
+PASSDSS_LIBS = @PASSDSS_LIBS@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PLAIN_LIBS = @PLAIN_LIBS@
 PURECOV = @PURECOV@
@@ -171,6 +176,7 @@ SASL_KRB_LIB = @SASL_KRB_LIB@
 SASL_MECHS = @SASL_MECHS@
 SASL_STATIC_LIBS = @SASL_STATIC_LIBS@
 SASL_STATIC_OBJS = @SASL_STATIC_OBJS@
+SASL_STATIC_SRCS = @SASL_STATIC_SRCS@
 SASL_UTIL_HEADERS_EXTRA = @SASL_UTIL_HEADERS_EXTRA@
 SASL_UTIL_LIBS_EXTRA = @SASL_UTIL_LIBS_EXTRA@
 SET_MAKE = @SET_MAKE@
@@ -224,9 +230,9 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 
 # Library version info - here at the top, for sanity
-sasl_version = 2:18:0
+sasl_version = 2:22:0
 
-INCLUDES = -I$(top_srcdir)/include -I$(top_srcdir)/plugins -I$(top_builddir)/include
+INCLUDES = -I$(top_srcdir)/include -I$(top_srcdir)/plugins -I$(top_builddir)/include -I$(top_srcdir)/sasldb
 
 EXTRA_DIST = windlopen.c staticopen.h NTMakefile
 EXTRA_LIBRARIES = libsasl2.a
@@ -241,7 +247,7 @@ lib_LTLIBRARIES = libsasl2.la
 libsasl2_la_SOURCES = $(common_sources) $(common_headers)
 libsasl2_la_LDFLAGS = -version-info $(sasl_version)
 libsasl2_la_DEPENDENCIES = $(LTLIBOBJS)
-libsasl2_la_LIBADD = $(LTLIBOBJS) $(SASL_DL_LIB) $(LIB_SOCKET)
+libsasl2_la_LIBADD = $(LTLIBOBJS) $(SASL_DL_LIB) $(LIB_SOCKET) $(LIB_DOOR)
 
 @MACOSX_TRUE@framedir = /Library/Frameworks/SASL2.framework
 subdir = lib
@@ -638,6 +644,11 @@ libsasl2.a: libsasl2.la $(SASL_STATIC_OBJS)
 	libsasl2.la >TMP.$$ && mv TMP.$$ libsasl2.la
 	rm -f $@
 	ln -s .libs/$@ $@
+
+$(SASL_STATIC_OBJS): linksrcs
+
+linksrcs:
+	-ln -s $(SASL_STATIC_SRCS) .
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

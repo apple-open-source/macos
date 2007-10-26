@@ -156,6 +156,14 @@ extern int (*chap_verify_hook)(char *name, char *ourname, int id,
 			unsigned char *challenge, unsigned char *response,
 			unsigned char *message, int message_space);
 
+#ifdef __APPLE__
+/* Hook for a plugin to validate unknown CHAP packets */
+extern int (*chap_unknown_hook)(char *name, char *ourname, int code, int id,
+			struct chap_digest_type *digest,
+			unsigned char *challenge, unsigned char *pkt, int pkt_len,
+			unsigned char *message, int message_space);
+#endif
+
 /* Called by digest code to register a digest type */
 extern void chap_register_digest(struct chap_digest_type *);
 

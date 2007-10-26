@@ -21,23 +21,21 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "macosx-nat-dyld-path.h"
-#include "macosx-nat-dyld-info.h"
-#include "macosx-nat-dyld.h"
-#include "macosx-nat-inferior.h"
-
 #include <string.h>
-#include <sys/types.h>
 #include <sys/file.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include "defs.h"
 #include "inferior.h"
 #include "environ.h"
 #include "gdbcore.h"
 
-extern macosx_inferior_status *macosx_status;
+#include "macosx-nat-dyld-path.h"
+#include "macosx-nat-dyld-info.h"
+#include "macosx-nat-dyld.h"
+#include "macosx-nat-inferior.h"
+
+extern macosx_dyld_thread_status macosx_dyld_status;
 
 #define assert CHECK_FATAL
 
@@ -348,10 +346,9 @@ dyld_library_basename (const char *path, const char **s, int *len,
   const char *dyld_image_suffix = NULL;
 
   /* If the user specified a DYLD_IMAGE_SUFFIX, get a pointer to that string. */
-  if (macosx_status != NULL
-      && macosx_status->dyld_status.path_info.image_suffix != NULL)
+  if (macosx_dyld_status.path_info.image_suffix != NULL)
     {
-      dyld_image_suffix = macosx_status->dyld_status.path_info.image_suffix;
+      dyld_image_suffix = macosx_dyld_status.path_info.image_suffix;
     }
 
   if (is_framework != NULL)
@@ -641,55 +638,49 @@ dyld_init_paths (dyld_path_info * d)
     "/lib:" 
     "/usr/lib";
 
-  /* Neither framework path searching nor library insertion is done
-     for setuid programs which are not run by the real user.  */
-
-  if (getuid () == geteuid () && getgid () == getegid ())
-    {
-      if (d->framework_path != NULL)
-        xfree (d->framework_path);
-      if (d->library_path != NULL)
-        xfree (d->library_path);
-      if (d->fallback_framework_path != NULL)
-        xfree (d->fallback_framework_path);
-      if (d->fallback_library_path != NULL)
-        xfree (d->fallback_library_path);
-      if (d->image_suffix != NULL)
-        xfree (d->image_suffix);
-      if (d->insert_libraries != NULL)
-        xfree (d->insert_libraries);
-
-      d->framework_path =
-        get_in_environ (inferior_environ, "DYLD_FRAMEWORK_PATH");
-      if (d->framework_path != NULL)
-        d->framework_path = xstrdup (d->framework_path);
-
-      d->library_path =
-        get_in_environ (inferior_environ, "DYLD_LIBRARY_PATH");
-      if (d->library_path != NULL)
-        d->library_path = xstrdup (d->library_path);
-
-      d->fallback_framework_path =
-        get_in_environ (inferior_environ, "DYLD_FALLBACK_FRAMEWORK_PATH");
-      if (d->fallback_framework_path != NULL)
-        d->fallback_framework_path = xstrdup (d->fallback_framework_path);
-
-      d->fallback_library_path =
-        get_in_environ (inferior_environ, "DYLD_FALLBACK_LIBRARY_PATH");
-      if (d->fallback_library_path != NULL)
-        d->fallback_library_path = xstrdup (d->fallback_library_path);
-
-      d->image_suffix =
-        get_in_environ (inferior_environ, "DYLD_IMAGE_SUFFIX");
-      if (d->image_suffix != NULL)
-        d->image_suffix = xstrdup (d->image_suffix);
-
-      d->insert_libraries =
-        get_in_environ (inferior_environ, "DYLD_INSERT_LIBRARIES");
-      if (d->insert_libraries != NULL)
-        d->insert_libraries = xstrdup (d->insert_libraries);
-    }
-
+  if (d->framework_path != NULL)
+    xfree (d->framework_path);
+  if (d->library_path != NULL)
+    xfree (d->library_path);
+  if (d->fallback_framework_path != NULL)
+    xfree (d->fallback_framework_path);
+  if (d->fallback_library_path != NULL)
+    xfree (d->fallback_library_path);
+  if (d->image_suffix != NULL)
+    xfree (d->image_suffix);
+  if (d->insert_libraries != NULL)
+    xfree (d->insert_libraries);
+  
+  d->framework_path =
+    get_in_environ (inferior_environ, "DYLD_FRAMEWORK_PATH");
+  if (d->framework_path != NULL)
+    d->framework_path = xstrdup (d->framework_path);
+  
+  d->library_path =
+    get_in_environ (inferior_environ, "DYLD_LIBRARY_PATH");
+  if (d->library_path != NULL)
+    d->library_path = xstrdup (d->library_path);
+  
+  d->fallback_framework_path =
+    get_in_environ (inferior_environ, "DYLD_FALLBACK_FRAMEWORK_PATH");
+  if (d->fallback_framework_path != NULL)
+    d->fallback_framework_path = xstrdup (d->fallback_framework_path);
+  
+  d->fallback_library_path =
+    get_in_environ (inferior_environ, "DYLD_FALLBACK_LIBRARY_PATH");
+  if (d->fallback_library_path != NULL)
+    d->fallback_library_path = xstrdup (d->fallback_library_path);
+  
+  d->image_suffix =
+    get_in_environ (inferior_environ, "DYLD_IMAGE_SUFFIX");
+  if (d->image_suffix != NULL)
+    d->image_suffix = xstrdup (d->image_suffix);
+  
+  d->insert_libraries =
+    get_in_environ (inferior_environ, "DYLD_INSERT_LIBRARIES");
+  if (d->insert_libraries != NULL)
+    d->insert_libraries = xstrdup (d->insert_libraries);
+  
   home = get_in_environ (inferior_environ, "HOME");
   if (home != NULL)
     home = xstrdup (home);

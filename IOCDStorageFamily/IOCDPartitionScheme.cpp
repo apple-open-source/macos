@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -739,7 +739,7 @@ IOMedia * IOCDPartitionScheme::instantiateMediaObject(
         char       hintIndex[5];
         OSString * hintValue;
 
-        sprintf(hintIndex, "0x%02X", partitionBlockType & 0xFF);
+        snprintf(hintIndex, sizeof(hintIndex), "0x%02X", partitionBlockType & 0xFF);
 
         hintValue = OSDynamicCast(OSString, hintTable->getObject(hintIndex));
 
@@ -773,13 +773,13 @@ IOMedia * IOCDPartitionScheme::instantiateMediaObject(
             // Set a name for this partition.
 
             char name[24];
-            sprintf(name, "Untitled %d", partition->point);
+            snprintf(name, sizeof(name), "Untitled %d", partition->point);
             newMedia->setName(name);
 
             // Set a location value (the partition number) for this partition.
 
             char location[12];
-            sprintf(location, "%d", partition->point);
+            snprintf(location, sizeof(location), "%d", partition->point);
             newMedia->setLocation(location);
 
             // Set the "Partition ID" key for this partition.

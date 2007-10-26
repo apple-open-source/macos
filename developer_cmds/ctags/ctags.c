@@ -205,19 +205,19 @@ init()
 		_wht[i] = _etk[i] = _itk[i] = _btk[i] = NO;
 		_gd[i] = YES;
 	}
-#define	CWHITE	" \f\t\n"
+#define	CWHITE	(unsigned char *)" \f\t\n"
 	for (sp = CWHITE; *sp; sp++)	/* white space chars */
 		_wht[*sp] = YES;
-#define	CTOKEN	" \t\n\"'#()[]{}=-+%*/&|^~!<>;,.:?"
+#define	CTOKEN	(unsigned char *)" \t\n\"'#()[]{}=-+%*/&|^~!<>;,.:?"
 	for (sp = CTOKEN; *sp; sp++)	/* token ending chars */
 		_etk[*sp] = YES;
-#define	CINTOK	"ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz0123456789"
+#define	CINTOK	(unsigned char *)"ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz0123456789"
 	for (sp = CINTOK; *sp; sp++)	/* valid in-token chars */
 		_itk[*sp] = YES;
-#define	CBEGIN	"ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz"
+#define	CBEGIN	(unsigned char *)"ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz"
 	for (sp = CBEGIN; *sp; sp++)	/* token starting chars */
 		_btk[*sp] = YES;
-#define	CNOTGD	",;"
+#define	CNOTGD	(unsigned char *)",;"
 	for (sp = CNOTGD; *sp; sp++)	/* invalid after-function chars */
 		_gd[*sp] = NO;
 }

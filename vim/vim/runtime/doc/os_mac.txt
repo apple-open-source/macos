@@ -1,10 +1,22 @@
-*os_mac.txt*    For Vim version 6.2.  Last change: 2002 Oct 07
+*os_mac.txt*    For Vim version 7.0.  Last change: 2006 Apr 30
 
 
-		  VIM REFERENCE MANUAL    by Bram Moolenaar
+		  VIM REFERENCE MANUAL    by Bram Moolenaar et al.
 
 
 					*mac* *Mac* *macintosh* *Macintosh*
+
+This file documents the particularities of the Macintosh version of Vim.
+
+NOTE: This file is a bit outdated.  You might find more useful info here:
+	http://macvim.org/
+
+1. Filename Convention		|mac-filename|
+2. .vimrc an .vim files		|mac-vimfile|
+3. FAQ				|mac-faq|
+4. Known Lack			|mac-lack|
+5. Mac Bug Report		|mac-bug|
+6. Compiling Vim		|mac-compile|
 
 There was a Mac port for version 3.0 of Vim.  Here are the first few lines
 from the old file:
@@ -18,22 +30,13 @@ Eric Fischer
 5759 N. Guilford Ave
 Indianapolis IN 46220 USA
 
-This file documents the particularities of the macintosh version of Vim.
-
-NOTE: This version 5, is still in the alpha stage
-
-1. Filename Convention		|mac-filename|
-2. .vimrc an .vim files		|mac-vimfile|
-3. Known Lack			|mac-lack|
-4. Mac Bug Report		|mac-bug|
-5. Compiling Vim		|mac-compile|
-
 ==============================================================================
 1. Filename Convention					*mac-filename*
 
-You can use either the unix or mac path separator or a mix of both. In order
-to determine if the specified filename is relative to the current folder or
-absolute (i.e. relative to the "Desktop"), the following algorithm is used:
+Starting with Vim version 7 you can just use the unix path separators with
+Vim. In order to determine if the specified filename is relative to the
+current folder or absolute (i.e. relative to the "Desktop"), the following
+algorithm is used:
 
 	If the path start by a "/", the path is absolute
 	If the path start by a ":", the path is relative
@@ -56,23 +59,49 @@ You can use the |$VIM| and |$VIMRUNTIME|  variable. >
 ==============================================================================
 2. .vimrc and .vim files				*mac-vimfile*
 
-On the Mac files starting with a dot "." are discouraged, thus the rc files
-are named "vimrc" or "_vimrc" and "gvimrc" or "_gvimrc". These files can be in
-any format (mac, dos or unix).  Vim can handle any file format when the
-|'nocompatible'| option is set, otherwise it will only handle mac format
+It is recommended to use Unix style line separators for Vim scripts, thus a
+single newline character.
+
+When starting up Vim will load the $VIMRUNTIME/macmap.vim script to define
+default command-key mappings.
+
+On older systems files starting with a dot "." are discouraged, thus the rc
+files are named "vimrc" or "_vimrc" and "gvimrc" or "_gvimrc".  These files
+can be in any format (mac, dos or unix).  Vim can handle any file format when
+the |'nocompatible'| option is set, otherwise it will only handle mac format
 files.
 
 ==============================================================================
-3. Mac Lack						*mac-lack*
+3. Mac FAQ						*mac-faq*
 
--The filenames containing both ":" and "/" are sometimes misinterpreted.
-  (just re-execute the command)
--Scrollbar are not scrolling live, and  when only the arrow or scroll area,
-   a limit of 32 line or page is scrolled.
--Syntax highlighting works on 68k Macs but is _really_ slow.
+On the internet:  http://macvim.org/OSX/index.php#FAQ
+
+Q: I can't enter non-ASCII character in Apple Terminal.
+A: Under Window Settings, Emulation, make sure that "Escape non-ASCII
+   characters" is not checked.
+
+Q: How do I start the GUI from the command line?
+A: Assuming that Vim.app is located in /Applications:
+	open /Applications/Vim.app
+   Or:
+	/Applications/Vim.app/Contents/MacOS/Vim -g  {arguments}
+
+Q: How can I set $PATH to something reasonable when I start Vim.app from the
+   GUI or with open?
+A: The following trick works with most shells.  Put it in your vimrc file.
+   This is included in the system vimrc file included with the binaries
+   distributed at macvim.org . >
+	let s:path = system("echo echo VIMPATH'${PATH}' | $SHELL -l")
+	let $PATH = matchstr(s:path, 'VIMPATH\zs.\{-}\ze\n')
 
 ==============================================================================
-4. Mac Bug Report					*mac-bug*
+4. Mac Lack						*mac-lack*
+
+In a terminal CTRL-^ needs to be entered as Shift-Control-6.  CTRL-@ as
+Shift-Control-2.
+
+==============================================================================
+5. Mac Bug Report					*mac-bug*
 
 When reporting any Mac specific bug or feature change, please use the vim-mac
 maillist |vim-mac|.  However, you need to be subscribed.  An alternative is to
@@ -81,15 +110,9 @@ send a message to the current MacVim maintainers:
 	mac@vim.org
 
 ==============================================================================
-5. Compiling Vim					*mac-compile*
+6. Compiling Vim					*mac-compile*
 
-Vim compiles out of the box with the supplied CodeWarrior project when using
-CodeWarrior 9. If you are using a more recent version (e. g. CW Pro) you have
-to convert the project first.
-When compiling Vim for 68k Macs you have to open the "size" resource in
-ResEdit and enable the "High level events aware" button to get drag and drop
-working.
-You have to increase the memory partition to at least 1024 kBytes to prevent
-Vim from crashing due to low memory.
+See the file "src/INSTALLmac.txt" that comes with the source files.
+
 
  vim:tw=78:ts=8:ft=help:norl:

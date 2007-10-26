@@ -1,8 +1,8 @@
 /* bind.c - DNS SRV backend bind function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/bind.c,v 1.14.2.3 2004/04/06 18:16:01 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/bind.c,v 1.19.2.4 2006/01/03 22:16:17 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * Portions Copyright 2000-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *
@@ -28,7 +28,7 @@
 #include <ac/string.h>
 
 #include "slap.h"
-#include "external.h"
+#include "proto-dnssrv.h"
 
 int
 dnssrv_back_bind(
@@ -39,24 +39,25 @@ dnssrv_back_bind(
 		op->o_req_dn.bv_val == NULL ? "" : op->o_req_dn.bv_val, 
 		op->oq_bind.rb_method, NULL );
 		
-	if( op->oq_bind.rb_method == LDAP_AUTH_SIMPLE &&
-		op->oq_bind.rb_cred.bv_val != NULL && op->oq_bind.rb_cred.bv_len )
+	if ( op->oq_bind.rb_method == LDAP_AUTH_SIMPLE &&
+		!BER_BVISNULL( &op->oq_bind.rb_cred ) &&
+		!BER_BVISEMPTY( &op->oq_bind.rb_cred ) )
 	{
 		Statslog( LDAP_DEBUG_STATS,
-		   	"conn=%lu op=%lu DNSSRV BIND dn=\"%s\" provided passwd\n",
-	   		 op->o_connid, op->o_opid,
-			op->o_req_dn.bv_val == NULL ? "" : op->o_req_dn.bv_val , 0, 0 );
+		   	"%s DNSSRV BIND dn=\"%s\" provided passwd\n",
+	   		op->o_log_prefix,
+			BER_BVISNULL( &op->o_req_dn ) ? "" : op->o_req_dn.bv_val , 0, 0, 0 );
 
 		Debug( LDAP_DEBUG_TRACE,
 			"DNSSRV: BIND dn=\"%s\" provided cleartext password\n",
-			op->o_req_dn.bv_val == NULL ? "" : op->o_req_dn.bv_val, 0, 0 );
+			BER_BVISNULL( &op->o_req_dn ) ? "" : op->o_req_dn.bv_val, 0, 0 );
 
 		send_ldap_error( op, rs, LDAP_UNWILLING_TO_PERFORM,
-			"you shouldn\'t send strangers your password" );
+			"you shouldn't send strangers your password" );
 
 	} else {
 		Debug( LDAP_DEBUG_TRACE, "DNSSRV: BIND dn=\"%s\"\n",
-			op->o_req_dn.bv_val == NULL ? "" : op->o_req_dn.bv_val, 0, 0 );
+			BER_BVISNULL( &op->o_req_dn ) ? "" : op->o_req_dn.bv_val, 0, 0 );
 
 		send_ldap_error( op, rs, LDAP_UNWILLING_TO_PERFORM,
 			"anonymous bind expected" );

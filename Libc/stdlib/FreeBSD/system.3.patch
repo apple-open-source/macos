@@ -1,0 +1,27 @@
+--- _SB/Libc/stdlib/FreeBSD/system.3	2003-05-20 15:23:25.000000000 -0700
++++ _SB/Libc/stdlib/FreeBSD/system.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -47,13 +47,13 @@
+ .Sh SYNOPSIS
+ .In stdlib.h
+ .Ft int
+-.Fn system "const char *string"
++.Fn system "const char *command"
+ .Sh DESCRIPTION
+ The
+ .Fn system
+ function
+ hands the argument
+-.Fa string
++.Fa command
+ to the command interpreter
+ .Xr sh 1 .
+ The calling process waits for the shell
+@@ -66,7 +66,7 @@
+ .Dv SIGCHLD .
+ .Pp
+ If
+-.Fa string
++.Fa command
+ is a
+ .Dv NULL
+ pointer,

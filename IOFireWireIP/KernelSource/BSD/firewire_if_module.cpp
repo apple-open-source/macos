@@ -72,6 +72,8 @@ struct firewire_desc_blk_str {
 /* Size of the above struct before the array of struct fw_desc */
 #define FIREWIRE_DESC_HEADER_SIZE	((size_t)&(((struct firewire_desc_blk_str*)0)->block_ptr[0]))
 
+static ifnet_t	loop_ifp;
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -91,14 +93,18 @@ __private_extern__
 int  firewire_del_proto(ifnet_t ifp, protocol_family_t protocol_family)
 {
 	IOFWInterface					*fwIf		= (IOFWInterface*)ifnet_softc(ifp);
+
+	if(fwIf == NULL)
+		return EINVAL;
+		
 	struct firewire_desc_blk_str	*desc_blk	= (struct firewire_desc_blk_str *)fwIf->getFamilyCookie();
-	u_long	current = 0;
+
+	if (desc_blk == NULL)
+		return EINVAL;
+		
 	int		found = 0;
 	
-	if (desc_blk == NULL)
-		return 0;
-		
-	for (current = desc_blk->n_max_used; current > 0; current--) 
+	for (u_long current = desc_blk->n_max_used; current > 0; current--) 
 	{
 		if (desc_blk->block_ptr[current - 1].protocol_family == protocol_family) 
 		{
@@ -138,6 +144,10 @@ __private_extern__ int
 firewire_add_proto_internal(ifnet_t ifp, u_long protocol_family, const struct ifnet_demux_desc	*demux)
 {
 	IOFWInterface					*fwIf		= (IOFWInterface*)ifnet_softc(ifp);
+
+	if(fwIf == NULL)
+		return EINVAL;
+	
 	struct firewire_desc_blk_str	*desc_blk	= (struct firewire_desc_blk_str *)fwIf->getFamilyCookie();
 
 	struct fw_desc	*ed;
@@ -253,20 +263,26 @@ firewire_add_proto(ifnet_t   ifp, protocol_family_t protocol, const struct ifnet
 __private_extern__ int firewire_demux(ifnet_t ifp, mbuf_t m, char *frame_header, protocol_family_t *protocol_family)
 {
     register struct firewire_header *eh = (struct firewire_header *)frame_header;
+
 	IOFWInterface					*fwIf		= (IOFWInterface*)ifnet_softc(ifp);
+	
+	if(fwIf == NULL)
+		return EINVAL;
+	
 	struct firewire_desc_blk_str	*desc_blk	= (struct firewire_desc_blk_str *)fwIf->getFamilyCookie();
+
+	if (desc_blk == NULL)
+		return EINVAL;
 
 	u_short			fw_type = eh->fw_type;
     u_int16_t		type = DLIL_DESC_ETYPE2;
-    u_long			i = 0;
     u_long			maxd = desc_blk->n_max_used;
     struct fw_desc	*ed = desc_blk->block_ptr;
-	
 
     /* 
      * Search through the connected protocols for a match. 
      */
-	for (i = 0; i < maxd; i++) 
+	for (u_long i = 0; i < maxd; i++) 
 	{
 		if ((ed[i].type == type) && (ed[i].data[0] == fw_type)) 
 		{
@@ -276,11 +292,7 @@ __private_extern__ int firewire_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
 	}
     
     return ENOENT;
-}			
-
-
-extern struct ifnet *lo_ifp;
-
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -305,11 +317,6 @@ firewire_frameout(ifnet_t ifp, mbuf_t *m,
 {
 	register struct firewire_header *fwh;
 		
-	//log(LOG_DEBUG,"fw: edst %02x:%02x:%02x:%02x:%02x:%02x:%02x::%02x\n",
-    //          edst[0], edst[1], edst[2], edst[3],
-    //          edst[4], edst[5], edst[6], edst[7]);
-
-
 	/*
 	 * If a simplex interface, and the packet is being sent to our
 	 * Ethernet address or a broadcast address, loopback a copy.
@@ -321,21 +328,34 @@ firewire_frameout(ifnet_t ifp, mbuf_t *m,
 	 */
 	 
 	if ((ifnet_flags(ifp) & IFF_SIMPLEX) &&
-	    (((struct mbuf*)(*m))->m_flags & M_LOOP)) 
+	    (mbuf_flags(*m) & M_LOOP))
 	{
-	    if (lo_ifp) 
+		if (loop_ifp == NULL) {
+			ifnet_find_by_name("lo0", &loop_ifp);
+			
+			/*
+			 * We make an assumption here that lo0 will never go away. This
+			 * means we don't have to worry about releasing the reference
+			 * later and we don't have to worry about leaking a reference
+			 * every time we are loaded.
+			 */
+			ifnet_release(loop_ifp);
+		}
+		
+	    if (loop_ifp) 
 		{
-            if (((struct mbuf*)(*m))->m_flags & M_BCAST) 
+            if (mbuf_flags(*m) & M_BCAST)
 			{
-                struct mbuf *n = m_copy((struct mbuf*)*m, 0, (int)M_COPYALL);
-                if (n != NULL)
-                    dlil_output(lo_ifp, PF_INET, n, 0, ndest, 0);
+                mbuf_t n;
+                
+                if (mbuf_copym(*m, 0, MBUF_COPYALL, M_WAITOK, &n) == 0)
+                    ifnet_output(loop_ifp, PF_INET, n, 0, ndest);
             } 
             else 
             {
 				if (bcmp(edst, ifnet_lladdr(ifp), FIREWIRE_ADDR_LEN) == 0) 
 				{
-                    dlil_output(lo_ifp, PF_INET, (struct mbuf*)*m, 0, ndest, 0);
+                    ifnet_output(loop_ifp, PF_INET, *m, 0, ndest);
                     return EJUSTRETURN;
                 }
             }
@@ -346,15 +366,14 @@ firewire_frameout(ifnet_t ifp, mbuf_t *m,
 	// Add local net header.  If no space in first mbuf,
 	// allocate another.
 	//
-	M_PREPEND((struct mbuf*)*m, sizeof(struct firewire_header), M_DONTWAIT);
-	if (*m == 0)
+	if (mbuf_prepend(m, sizeof(struct firewire_header), M_DONTWAIT) != 0)
 	    return (EJUSTRETURN);
 
 	//
 	// Lets put this intelligent here into the mbuf 
 	// so we can demux on our output path
 	//
-	fwh = mtod((struct mbuf*)*m, struct firewire_header *);
+	fwh = (struct firewire_header*)mbuf_data(*m);
 	(void)memcpy(&fwh->fw_type, fw_type,sizeof(fwh->fw_type));
 	memcpy(fwh->fw_dhost, edst, FIREWIRE_ADDR_LEN);
 	(void)memcpy(fwh->fw_shost, ifnet_lladdr(ifp), sizeof(fwh->fw_shost));
@@ -367,9 +386,6 @@ firewire_frameout(ifnet_t ifp, mbuf_t *m,
 // firewire_add_if
 //
 // IN:	ifnet_t ifp
-//
-// Invoked by : 
-//    firewire_ifattach calls this function
 //
 ////////////////////////////////////////////////////////////////////////////////
 __private_extern__

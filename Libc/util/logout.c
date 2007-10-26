@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,39 +53,47 @@
  * SUCH DAMAGE.
  */
 
-
 #include <sys/types.h>
 #include <sys/time.h>
 
-#include <fcntl.h>
+#ifdef UTMP_COMPAT
 #include <utmp.h>
+#endif /* UTMP_COMPAT */
+#include <utmpx.h>
+#include <utmpx-darwin.h>
 #include <unistd.h>
-#include <stdlib.h>
 #include <string.h>
 
-typedef struct utmp UTMP;
-
 int
-logout(line)
-	register char *line;
+logout(char *line)
 {
-	register int fd;
-	UTMP ut;
-	int rval;
+	struct utmpx *ux, utx;
+#ifdef UTMP_COMPAT
+#ifdef __LP64__
+	struct utmp32 u;
+#else /* __LP64__ */
+	struct utmp u;
+#endif /* __LP64__ */
+	int which;
+#endif /* UTMP_COMPAT */
 
-	if ((fd = open(_PATH_UTMP, O_RDWR, 0)) < 0)
-		return(0);
-	rval = 0;
-	while (read(fd, &ut, sizeof(UTMP)) == sizeof(UTMP)) {
-		if (!ut.ut_name[0] || strncmp(ut.ut_line, line, UT_LINESIZE))
-			continue;
-		bzero(ut.ut_name, UT_NAMESIZE);
-		bzero(ut.ut_host, UT_HOSTSIZE);
-		(void)time(&ut.ut_time);
-		(void)lseek(fd, -(off_t)sizeof(UTMP), L_INCR);
-		(void)write(fd, &ut, sizeof(UTMP));
-		rval = 1;
+	bzero(&utx, sizeof(utx));
+	strncpy(utx.ut_line, line, sizeof(utx.ut_line));
+	utx.ut_type = UTMPX_AUTOFILL_MASK | UTMPX_DEAD_IF_CORRESPONDING_MASK | DEAD_PROCESS;
+	(void)gettimeofday(&utx.ut_tv, NULL);
+	setutxent();
+	ux = _pututxline(&utx);
+	endutxent();
+	if (!ux)
+		return 0;
+#ifdef UTMP_COMPAT
+	if (utfile_system) { /* only if we are using _PATH_UTMPX */
+		which = _utmp_compat(ux, &u);
+		if (which & UTMP_COMPAT_UTMP0)
+			_write_utmp(&u, 0);
+		else if (which & UTMP_COMPAT_UTMP1)
+			_write_utmp(&u, 1);
 	}
-	(void)close(fd);
-	return(rval);
+#endif /* UTMP_COMPAT */
+	return 1;
 }

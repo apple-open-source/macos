@@ -130,7 +130,7 @@ CCIDRv CCIDPropExtIccPowerOnGemPC433(DWORD Lun, BYTE *abDataResp, DWORD *pdwData
     abMessageSpecificCmd[0] = 0x01;
     rv =  CCID_Exchange_Command(Lun, PC_to_RDR_IccPowerOn,
                                 abMessageSpecificCmd,
-                                "", 0,
+                                (BYTE *)"", 0,
                                 &bMessageTypeResp,
                                 &bStatus, &bError,
                                 &bMessageSpecificResp,

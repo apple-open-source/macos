@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,7 +27,7 @@
 //
 #include <security_cdsa_utilities/cssmpods.h>
 #include <security_cdsa_utilities/cssmbridge.h>
-
+#include <security_utilities/endian.h>
 
 //
 // GUID <-> string conversions.
@@ -36,13 +36,13 @@
 //
 char *Guid::toString(char buffer[stringRepLength+1]) const
 {
-    sprintf(buffer, "{%8.8lx-%4.4x-%4.4x-",
-            (unsigned long)Data1, unsigned(Data2), unsigned(Data3));
+    sprintf(buffer, "{%8.8x-%4.4hx-%4.4hx-",
+            int(n2h(Data1)), n2h(Data2), n2h(Data3));
     for (int n = 0; n < 2; n++)
-        sprintf(buffer + 20 + 2*n, "%2.2x", Data4[n]);
+        sprintf(buffer + 20 + 2*n, "%2.2hhx", Data4[n]);
 	buffer[24] = '-';
     for (int n = 2; n < 8; n++)
-        sprintf(buffer + 21 + 2*n, "%2.2x", Data4[n]);
+        sprintf(buffer + 21 + 2*n, "%2.2hhx", Data4[n]);
     buffer[37] = '}';
     buffer[38] = '\0';
     return buffer;
@@ -71,16 +71,18 @@ void Guid::parseGuid(const char *string)
 	// "doubtful" variations? Given that GUIDs are essentially magic
 	// cookies, everybody's better off if we just cut-and-paste them
 	// around the universe...
-    unsigned long d1;
-    unsigned int d2, d3;
-    if (sscanf(string, "{%lx-%x-%x-", &d1, &d2, &d3) != 3)
+    int d1;
+    uint16 d2, d3;
+    if (sscanf(string, "{%8x-%4hx-%4hx-", &d1, &d2, &d3) != 3)
         CssmError::throwMe(CSSM_ERRCODE_INVALID_GUID);
-	Data1 = d1;	Data2 = d2;	Data3 = d3;
+	Data1 = h2n(uint32(d1));
+	Data2 = h2n(d2);
+	Data3 = h2n(d3);
 	// once, we did not expect the - after byte 2 of Data4
 	bool newForm = string[24] == '-';
     for (int n = 0; n < 8; n++) {
-        unsigned int dn;
-        if (sscanf(string + 20 + 2*n + (newForm && n >= 2), "%2x", &dn) != 1)
+        unsigned char dn;
+        if (sscanf(string + 20 + 2*n + (newForm && n >= 2), "%2hhx", &dn) != 1)
             CssmError::throwMe(CSSM_ERRCODE_INVALID_GUID);
         Data4[n] = dn;
     }

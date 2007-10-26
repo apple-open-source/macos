@@ -54,6 +54,8 @@ AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemS
     
     AuthItemSet hints = inHints;
     AuthItemSet context = inContext;
+    // add saved-off sticky context values to context for evaluation
+    context.insert(mStickyContext.begin(), mStickyContext.end());
 	
     while ( (result == kAuthorizationResultAllow)  &&
             (currentMechanism != mMechanisms.end()) ) // iterate mechanisms
@@ -178,7 +180,25 @@ AgentMechanismEvaluator::run(const AuthValueVector &inArguments, const AuthItemS
         (result == kAuthorizationResultAllow))
     {
         mHints = hints;
-        mContext = context;
+        mContext.clear(); 
+        // only make non-sticky context values available externally
+        AuthItemSet::const_iterator end = context.end();
+        for (AuthItemSet::const_iterator it = context.begin(); it != end; ++it) {
+            const AuthItemRef &item = *it;
+            if (item->flags() != kAuthorizationContextFlagSticky)
+                mContext.insert(item);
+        }
+    }
+    else if (result == kAuthorizationResultDeny)
+    {
+        // save off sticky values in context
+        mStickyContext.clear();
+        AuthItemSet::const_iterator end = context.end();
+        for (AuthItemSet::const_iterator it = context.begin(); it != end; ++it) {
+            const AuthItemRef &item = *it;
+            if (item->flags() == kAuthorizationContextFlagSticky)
+                mStickyContext.insert(item);
+        }
     }
     
     // convert AuthorizationResult to OSStatus
@@ -210,17 +230,9 @@ AuthorizationResult AgentMechanismEvaluator::authinternal(AuthItemSet &context)
         string password(static_cast<const char *>((*found)->value().data), (*found)->value().length);
         secdebug("AuthEvalMech", "found password");
 
-		// Call to checkpw in DS
-		Server::active().longTermActivity();		
         Credential newCredential(username, password, true); // create a new shared credential
-        
         if (newCredential->isValid())
-        {
-            Syslog::info("authinternal authenticated user %s (uid %lu).", newCredential->username().c_str(), newCredential->uid());
             return kAuthorizationResultAllow;
-        }
-        
-        Syslog::error("authinternal failed to authenticate user %s.", newCredential->username().c_str());
         
     } while (0);
     

@@ -1,0 +1,31 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                alphaChanged = id; 
+                complete = id; 
+                evaluate = id; 
+                selectBlock = id; 
+                selectScratchView = id; 
+                tabChanged = id; 
+            }; 
+            CLASS = ReplController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                alphaSlider = id; 
+                descriptionText = id; 
+                outText = id; 
+                resultText = id; 
+                scratchText = id; 
+                statusView = id; 
+                tabView = id; 
+                window = id; 
+                wordsTable = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = RubyProgramTextView; LANGUAGE = ObjC; SUPERCLASS = NSTextView; }
+    ); 
+    IBVersion = 1; 
+}

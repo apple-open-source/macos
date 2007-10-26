@@ -20,7 +20,7 @@ module REXML
         path.gsub!(/([\(\[])\s+/, '\1') # Strip ignorable spaces
         path.gsub!( /\s+([\]\)])/, '\1' )
         parsed = []
-        path = LocationPath(path, parsed)
+        path = OrExpr(path, parsed)
         parsed
       end
 
@@ -302,7 +302,7 @@ module REXML
             path = path[1..-1]
           end
           parsed << :processing_instruction
-          parsed << literal
+          parsed << (literal || '')
         when NCNAMETEST
           #puts "NCNAMETEST"
           prefix = $1
@@ -589,13 +589,20 @@ module REXML
         when /^(\w[-\w]*)(?:\()/
           #puts "PrimaryExpr :: Function >>> #$1 -- '#$''"
           fname = $1
-          path = $'
+          tmp = $'
           #puts "#{fname} =~ #{NT.inspect}"
-          #return nil if fname =~ NT
+          return path if fname =~ NT
+          path = tmp
           parsed << :function
           parsed << fname
           path = FunctionCall(path, parsed)
-        when LITERAL, NUMBER
+        when NUMBER
+          #puts "LITERAL or NUMBER: #$1"
+          varname = $1.nil? ? $2 : $1
+          path = $'
+          parsed << :literal 
+          parsed << (varname.include?('.') ? varname.to_f : varname.to_i)
+        when LITERAL
           #puts "LITERAL or NUMBER: #$1"
           varname = $1.nil? ? $2 : $1
           path = $'

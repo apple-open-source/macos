@@ -1,7 +1,7 @@
 " Menu Translations:	Italian / Italiano
-" Maintainer:		Antonio Colombo <antonio.colombo@jrc.it>
-"			Vlad Sandrini <sator72@libero.it>
-" Last Change:	2003 Mar 30
+" Maintainer:		Antonio Colombo <azc100@gmail.com>
+"			Vlad Sandrini <vlad.gently@gmail.com>
+" Last Change:	2006 Apr 03
 
 " Quit when menu translations have already been done.
 if exists("did_menu_trans")
@@ -19,6 +19,7 @@ menut &How-to\ links	Co&me\.\.\.
 "menut &GUI			&GUI
 menut &Credits		Cr&editi
 menut Co&pying		C&opie
+menut &Sponsor/Register &Sponsor/Registrazione
 menut O&rphans		O&rfani
 "menut &Find\.\.\.		&Cerca\.\.\.
 "NOTA: fa conflitto con 'cerca' nel menu 'modifica'
@@ -32,6 +33,7 @@ let g:menutrans_help_dialog = "Batti un comando o una parola per cercare aiuto:\
 "
 menut &Open\.\.\.<Tab>:e		&Apri\.\.\.<Tab>:e
 menut Sp&lit-Open\.\.\.<Tab>:sp	A&pri\ nuova\ Finestra\.\.\.<Tab>:sp
+menut Open\ Tab\.\.\.<Tab>:tabnew Apri\ nuova\ &Linguetta\.\.\.<Tab>:tabnew
 menut &New<Tab>:enew		&Nuovo<Tab>:enew
 menut &Close<Tab>:close		&Chiudi<Tab>:close
 menut &Save<Tab>:w			&Salva<Tab>:w
@@ -59,10 +61,12 @@ menut Put\ &Before<Tab>[p		&Metti\ davanti<Tab>[p
 menut Put\ &After<Tab>]p		M&etti\ dietro<Tab>]p
 menut &Delete<Tab>x			Cance&lla<Tab>x
 menut &Select\ all<Tab>ggVG		Seleziona\ &tutto<Tab>ggVG
+menut &Select\ All<Tab>ggVG		Seleziona\ &tutto<Tab>ggVG
 menut &Find\.\.\.			&Cerca\.\.\.
 menut Find\ and\ Rep&lace\.\.\.	&Sostituisci\.\.\.
 menut Settings\ &Window		&Finestra\ Impostazioni
-menut &Global\ Settings		Impostazioni\ &globali
+menut Startup\ &Settings	Impostazioni\ di\ &Avvio
+menut &Global\ Settings		Impostazioni\ &Globali
 menut Question			Domanda
 
 " Edit / Modifica Impostazioni Globali
@@ -82,7 +86,7 @@ menut Always		Sempre
 
 menut Toggle\ Insert\ &Mode<Tab>:set\ im!	&Modalità\ Inserimento\ Sì/No<Tab>:set\ im!
 menut Toggle\ Vi\ C&ompatible<Tab>:set\ cp!	C&ompatibile\ Vi\ Sì/No<Tab>:set\ cp!
-menut Search\ &Path\.\.\.	Ca&mmino\ di\ ricerca\.\.\.
+menut Search\ &Path\.\.\.	&Percorso\ di\ ricerca\.\.\.
 menut Ta&g\ Files\.\.\.		File\ Ta&g\.\.\.
 "
 " Opzioni GUI
@@ -157,6 +161,26 @@ menut &Jump\ to\ this\ tag<Tab>g^]	&Vai\ a\ questa\ Tag<Tab>g^]
 menut Jump\ &back<Tab>^T		Torna\ &indietro<Tab>^T
 menut Build\ &Tags\ File		Costruisci\ File\ &Tags\
 
+" Menu ortografia / Spelling
+menut &Spelling			&Ortografia
+
+menut &Spell\ Check\ On			Attiva\ &Controllo\ ortografico
+menut Spell\ Check\ &Off		&Disattiva\ controllo\ ortografico
+menut To\ &Next\ error<Tab>]s		Errore\ &Seguente<tab>]s
+menut To\ &Previous\ error<Tab>[s	Errore\ &Precedente<tab>[s
+menut Suggest\ &Corrections<Tab>z=	&Suggerimenti<Tab>z=
+menut &Repeat\ correction<Tab>:spellrepall	&Ripeti\ correzione<Tab>:spellrepall
+menut Set\ language\ to\ "en"		Imposta\ lingua\ a\ "en"
+menut Set\ language\ to\ "en_au"	Imposta\ lingua\ a\ "en_au"
+menut Set\ language\ to\ "en_ca"	Imposta\ lingua\ a\ "en_ca"
+menut Set\ language\ to\ "en_gb"	Imposta\ lingua\ a\ "en_gb"
+menut Set\ language\ to\ "en_nz"	Imposta\ lingua\ a\ "en_nz"
+menut Set\ language\ to\ "en_us"	Imposta\ lingua\ a\ "en_us"
+menut Set\ language\ to\ "it"		Imposta\ lingua\ a\ "it"
+menut Set\ language\ to\ "it_it"	Imposta\ lingua\ a\ "it_it"
+menut Set\ language\ to\ "it_ch"	Imposta\ lingua\ a\ "it_ch"
+menut &Find\ More\ Languages		&Trova\ altre\ lingue
+
 " Menu piegature / Fold
 if has("folding")
   menut &Folding					&Piegature
@@ -181,7 +205,7 @@ if has("folding")
   menut &Delete\ Fold<Tab>zd			&Leva\ Piegatura<Tab>zd
   menut Delete\ &All\ Folds<Tab>zD			Leva\ &tutte\ le\ Piegature<Tab>zD
   " movimenti all'interno delle piegature
-  menut Fold\ column\ &width			Larg&hezza\ piegature\ in\ colonne
+  menut Fold\ col&umn\ width			Larghezza\ piegat&ure\ in\ colonne
 endif  " has folding
 
 if has("diff")
@@ -210,7 +234,7 @@ menut &Close<Tab>:cclose	&Chiudi<Tab>:cclose
 menut &Convert\ to\ HEX<Tab>:%!xxd	&Converti\ a\ Esadecimale<Tab>:%!xxd
 menut Conve&rt\ back<Tab>:%!xxd\ -r	Conve&rti\ da\ Esadecimale<Tab>:%!xxd\ -r
 
-menut &Set\ Compiler		Impo&sta\ Compilatore
+menut &SeT\ Compiler		Impo&sta\ Compilatore
 
 " Buffers / Buffer
 menut &Buffers		&Buffer
@@ -223,7 +247,7 @@ menut &Previous		&Precedente
 menut [No\ File]		[Nessun\ File]
 " Syntax / Sintassi
 menut &Syntax		&Sintassi
-menut &Show\ individual\ choices	Mo&stra\ opzioni\ individuali
+menut &Show\ filetypes\ in\ menu	Mo&stra\ tipi\ di\ file\ nel\ menu
 menut Set\ '&syntax'\ only	Attiva\ solo\ \ '&syntax'
 menut Set\ '&filetype'\ too	Attiva\ anche\ '&filetype'
 menut &Off			&Disattiva

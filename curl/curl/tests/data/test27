@@ -1,9 +1,18 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP GET
+cookies
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
 HTTP/1.1 200 Mooo swsclose
 Connection: close
 Set-Cookie: path=/; thewinneris=nowayyouwin;
+Content-Length: 8
 
 *flopp*
 </data>
@@ -30,20 +39,18 @@ Get same cookie page several times
 <protocol>
 GET /want/27 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 
 GET /want/27 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Cookie: thewinneris=nowayyouwin
 
 GET /want/27 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Cookie: thewinneris=nowayyouwin
 
 </protocol>
 </verify>
+</testcase>

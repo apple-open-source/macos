@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2001, 2005 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -14,8 +14,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
- * If not, write to the Free Software Foundation, Inc., 59 Temple Place -
- * Suite 330, Boston, MA 02111-1307, USA.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 /*
@@ -124,15 +124,21 @@ isoir165_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 static int
 isoir165_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
 {
-  unsigned char buf[1];
+  unsigned char buf[2];
   int ret;
 
-  /* Try the Unicode -> GB2312 table table. */
-  ret = gb2312_wctomb(conv,r,wc,n);
+  /* Try the Unicode -> GB2312 table. */
+  ret = gb2312_wctomb(conv,buf,wc,2);
   if (ret != RET_ILUNI) {
     if (ret != 2) abort();
-    if (!(r[0] == 0x28 && r[1] >= 0x21 && r[1] <= 0x40))
-      return ret;
+    if (!(buf[0] == 0x28 && buf[1] >= 0x21 && buf[1] <= 0x40)) {
+      if (n >= 2) {
+        r[0] = buf[0];
+        r[1] = buf[1];
+        return 2;
+      }
+      return RET_TOOSMALL;
+    }
   }
   /* Row 0x2A is GB_1988-80. */
   ret = iso646_cn_wctomb(conv,buf,wc,1);

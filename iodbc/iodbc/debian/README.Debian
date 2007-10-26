@@ -1,0 +1,23 @@
+#
+# What about libodbc.so? (bug #171370)
+#
+
+According to the upstream authors the library can safely be installed
+as libodbc.so to use it with OpenOffice, R and other applications.
+
+It is not yet done in Debian by default as currently unixODBC maintains
+a symlink to libodbc.so and using alternatives for shared libraries is
+maybe dangerous. We are currently deciding if maybe one ODBC library
+can be dropped alltogether.
+
+last edited: 2004-03-01, ch@debian.org
+
+#
+# Why are .so libraries not in -dev packages? (bug #275179)
+#
+
+This is an unfortunate side effect from the (legacy) version of libtool
+used at the time when this code was written and will be fixed in an
+upcoming version.
+
+last edited: 2007-01-05, iodbc@openlinksw.com

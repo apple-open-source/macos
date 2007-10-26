@@ -1,8 +1,9 @@
 SRCDIR=../src
 DVI=texi2dvi
 DVIPS=dvips -o "$@"
+PSPDF=ps2pdf
 INFO=makeinfo
-HTML=makeinfo --html
+HTML=makeinfo --html --no-split
 RM=rm -f
 TAR=tar -chvf
 GZIP=gzip -9
@@ -41,6 +42,9 @@ admin-guide.ps: $(ADMIN_DEPS)
 	$(DVI) admin.texinfo
 	$(DVIPS) admin
 
+admin-guide.pdf: admin-guide.ps
+	$(PSPDF) admin-guide.ps admin-guide.pdf
+
 .PHONY: admin-guide-html
 admin-guide-html:: admin.html
 
@@ -62,6 +66,9 @@ install-guide:: install-guide.ps
 install-guide.ps: $(INSTALL_DEPS)
 	$(DVI) install.texinfo
 	$(DVIPS) install
+
+install-guide.pdf: install-guide.ps
+	$(PSPDF) install-guide.ps install-guide.pdf
 
 .PHONY: install-guide-html
 install-guide-html:: install.html
@@ -85,6 +92,9 @@ user-guide.ps: $(USER_GUIDE_DEPS)
 	$(DVI) user-guide.texinfo
 	$(MANPS) $(MANPAGES)
 	$(DVIPS) user-guide
+
+user-guide.pdf: user-guide.ps
+	$(PSPDF) user-guide.ps user-guide.pdf
 
 .PHONY: user-guide-info
 user-guide-info:: krb5-user.info
@@ -130,6 +140,15 @@ krb425-guide-info:: krb425.info
 krb425.info: $(KRB425_DEPS)
 	$(INFO) krb425.texinfo
 
+.PHONY: implementor.ps implementor.pdf implementor.info
+implementor.pdf: implementor.ps
+	$(PSPDF) implementor.ps
+implementor.ps: implementor.texinfo
+	$(DVI) implementor.texinfo
+	$(DVIPS) implementor
+implementor.info: implementor.texinfo
+	$(INFO) implementor.texinfo
+
 .PHONY: clean
 clean:: clean-all
 
@@ -138,11 +157,11 @@ clean-all:: clean-tex clean-backup clean-final clean-tarfiles
 
 .PHONY: clean-final
 clean-final::
-	$(RM) *.ps *.info *.info-? *.html
+	$(RM) *.ps *.info *.info-? *.html *.pdf
 
 .PHONY: clean-tex
 clean-tex::
-	$(RM) *.aux *.cp *.dvi *.fn *.ky *.log *.pg *.toc *.tp *.vr
+	$(RM) *.aux *.cp *.dvi *.fn *.ky *.log *.pg *.toc *.tp *.vr *.fns *.vrs *.tps
 
 .PHONY: clean-backup
 clean-backup::

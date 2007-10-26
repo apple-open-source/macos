@@ -1,6 +1,6 @@
 " Vim script language tests
 " Author:	Servatius Brandt <Servatius.Brandt@fujitsu-siemens.com>
-" Last Change:	2003 May 30
+" Last Change:	2006 Apr 28
 
 "-------------------------------------------------------------------------------
 " Test environment							    {{{1
@@ -95,7 +95,7 @@ if exists("test49_set_env") && test49_set_env
 	    " that it is not read away by the call to "input()" below.  Restore
 	    " afterwards.
 	    call inputsave()
-	    let loops = input("Number of loops? ")
+	    let loops = input("Number of iterations in previous loop? ")
 	    call inputrestore()
 	    while (loops > 0)
 		let num = num * factor
@@ -147,7 +147,7 @@ endif
 " The Xpath/Xloop commands can be used for computing the eXecution path by
 " adding (different) powers of 2 from those script lines, for which the
 " execution should be checked.  Xloop provides different addends for each
-" execution of a loop.  Permittable values are 2^0 to 2^30, so that 31 execution
+" execution of a loop.  Permitted values are 2^0 to 2^30, so that 31 execution
 " points (multiply counted inside loops) can be tested.
 "
 " Note that the arguments of the following commands can be generated
@@ -257,18 +257,17 @@ com! -count	    Xcheck	let Xresult = "*** Test " .
 				    \ let Xtest = Xtest + 1
 
 if exists("g:ExtraVimResult")
-    com! -nargs=+    Xout	exec "exec \"!echo @R:'\" ."
-				    \ 'substitute(substitute("' . <args> .
-				    \ '", "' . "'" . '", ' . "'" . '&\\&&' . "'"
-				    \ . ', "g"), "\n", "@NL@", "g")'
-				    \ ". \"' >>\" . g:ExtraVimResult"
+    com! -nargs=+    Xoutq	exec "!echo @R:'" .
+				    \ substitute(substitute(<q-args>,
+				    \ "'", '&\\&&', "g"), "\n", "@NL@", "g")
+				    \ . "' >>" . g:ExtraVimResult
 else
-    com! -nargs=+    Xout	exec 'let @R = "--- Test ' .
+    com! -nargs=+    Xoutq	let @R = "--- Test " .
 				    \ (g:Xtest<10?"  ":g:Xtest<100?" ":"") .
-				    \ g:Xtest . ": " .
-				    \ '" . substitute("' . <args> .
-				    \ '", "\n", "&\t      ", "g") . "\n"'
+				    \ g:Xtest . ": " . substitute(<q-args>,
+				    \ "\n", "&\t      ", "g") . "\n"
 endif
+com! -nargs=+	    Xout	exec 'Xoutq' <args>
 
 " Switch off storing of lines for undoing changes.  Speeds things up a little.
 set undolevels=-1
@@ -383,11 +382,6 @@ function! ExtraVim(...)
 	    let func_start = line(".")
 	    let func_name = substitute(theline,
 		\ '^\s*fu\%[nction]!\=\s*\(\%(\u\|s:\)\w*\).*', '\1', "")
-	    let func_conts = 0
-	elseif theline =~ '^\s*\\'
-	    if in_func
-		let func_conts = func_conts + 1
-	    endif
 	elseif theline =~ '^\s*endf'
 	    " End of function definition.
 	    let in_func = 0
@@ -412,7 +406,7 @@ function! ExtraVim(...)
 		    " Add the function breakpoint and note the number of quits
 		    " to be used, if specified, or one for every call else.
 		    let breakpoints = breakpoints . " -c 'breakadd func " .
-			\ (line(".") - func_start - func_conts) . " " .
+			\ (line(".") - func_start) . " " .
 			\ func_name . "'"
 		    if quits != ""
 			let debug_quits = debug_quits . quits
@@ -458,11 +452,12 @@ function! ExtraVim(...)
     " resultfile in ExtraVimResult.  Redirect messages to the file specified as
     " argument if any.  Use ":debuggreedy" so that the commands provided on the
     " pipe are consumed at the debug prompt.  Use "-N" to enable command-line
-    " contiunation ("C" in 'cpo').
+    " continuation ("C" in 'cpo').  Add "nviminfo" to 'viminfo' to avoid
+    " messing up the user's viminfo file.
     let redirect = a:0 ?
 	\ " -c 'au VimLeave * redir END' -c 'redir\\! >" . a:1 . "'" : ""
-    exec "!echo '" . debug_quits . "q' | ../vim -u NONE -N -e -s" . redirect .
-	\ " -c 'debuggreedy'" .
+    exec "!echo '" . debug_quits . "q' | ../vim -u NONE -N -Xes" . redirect .
+	\ " -c 'debuggreedy|set viminfo+=nviminfo'" .
 	\ " -c 'let ExtraVimBegin = " . extra_begin . "'" .
 	\ " -c 'let ExtraVimResult = \"" . resultfile . "\"'" . breakpoints .
 	\ " -S " . extra_script
@@ -501,7 +496,7 @@ endfunction
 
 " ExtraVimThrowpoint() - Relative throwpoint in ExtraVim script		    {{{2
 "
-" Evaluates v:throwpoint and returns the throwpoint relativ to the beginning of
+" Evaluates v:throwpoint and returns the throwpoint relative to the beginning of
 " an ExtraVim script as passed by ExtraVim() in ExtraVimBegin.
 "
 " EXTRA_VIM_START - do not change or remove this line.
@@ -817,7 +812,154 @@ Xcheck 32883
 
 
 "-------------------------------------------------------------------------------
-" Test 6:   Continuing on errors outside functions			    {{{1
+" Test 6:   Defining functions in :while loops				    {{{1
+"
+"	     Functions can be defined inside other functions.  An inner function
+"	     gets defined when the outer function is executed.  Functions may
+"	     also be defined inside while loops.  Expressions in braces for
+"	     defining the function name are allowed.
+"-------------------------------------------------------------------------------
+
+XpathINIT
+
+if ExtraVim()
+
+    " The command CALL collects the argument of all its invocations in "calls"
+    " when used from a function (that is, when the global variable "calls" needs
+    " the "g:" prefix).  This is to check that the function code is skipped when
+    " the function is defined.  For inner functions, do so only if the outer
+    " function is not being executed.
+    "
+    let calls = ""
+    com! -nargs=1 CALL
+		\ if !exists("calls") && !exists("outer") |
+		\ let g:calls = g:calls . <args> |
+		\ endif
+
+
+    XloopINIT! 1 16
+
+    let i = 0
+    while i < 3
+
+	XloopNEXT
+	let i = i + 1
+
+	if i == 1
+	    Xloop 1				" X: 1
+	    function! F1(arg)
+		CALL a:arg
+		let outer = 1
+
+		XloopINIT! 4096 4
+		let j = 0
+		while j < 1
+		    XloopNEXT
+		    Xloop 1			" X: 4096
+		    let j = j + 1
+		    function! G1(arg)
+			CALL a:arg
+		    endfunction
+		    Xloop 2			" X: 8192
+		endwhile
+	    endfunction
+	    Xloop 2				" X: 2
+
+	    continue
+	endif
+
+	Xloop 4					" X: 4 * (16 + 256)
+	function! F{i}(i, arg)
+	    CALL a:arg
+	    let outer = 1
+
+	    XloopINIT! 16384 4
+	    if a:i == 3
+		XloopNEXT
+		XloopNEXT
+		XloopNEXT
+	    endif
+	    let k = 0
+	    while k < 3
+		XloopNEXT
+		Xloop 1				" X: 16384*(1+4+16+64+256+1024)
+		let k = k + 1
+		function! G{a:i}{k}(arg)
+		    CALL a:arg
+		endfunction
+		Xloop 2				" X: 32768*(1+4+16+64+256+1024)
+	    endwhile
+	endfunction
+	Xloop 8					" X: 8 * (16 + 256)
+
+    endwhile
+
+    if exists("*G1")
+	Xpath 67108864				" X: 0
+    endif
+    if exists("*F1")
+	call F1("F1")
+	if exists("*G1")
+	    call G1("G1")
+	endif
+    endif
+
+    if exists("G21") || exists("G21") || exists("G21")
+	Xpath 134217728				" X: 0
+    endif
+    if exists("*F2")
+	call F2(2, "F2")
+	if exists("*G21")
+	    call G21("G21")
+	endif
+	if exists("*G22")
+	    call G22("G22")
+	endif
+	if exists("*G23")
+	    call G23("G23")
+	endif
+    endif
+
+    if exists("G31") || exists("G31") || exists("G31")
+	Xpath 268435456				" X: 0
+    endif
+    if exists("*F3")
+	call F3(3, "F3")
+	if exists("*G31")
+	    call G31("G31")
+	endif
+	if exists("*G32")
+	    call G32("G32")
+	endif
+	if exists("*G33")
+	    call G33("G33")
+	endif
+    endif
+
+    Xpath 536870912				" X: 536870912
+
+    if calls != "F1G1F2G21G22G23F3G31G32G33"
+	Xpath 1073741824			" X: 0
+	Xout "calls is" calls
+    endif
+
+    delfunction F1
+    delfunction G1
+    delfunction F2
+    delfunction G21
+    delfunction G22
+    delfunction G23
+    delfunction G31
+    delfunction G32
+    delfunction G33
+
+endif
+
+Xcheck 603978947
+
+
+"-------------------------------------------------------------------------------
+" Test 7:   Continuing on errors outside functions			    {{{1
 "
 "	    On an error outside a function, the script processing continues
 "	    at the line following the outermost :endif or :endwhile.  When not
@@ -861,7 +1003,7 @@ Xcheck 90563
 
 
 "-------------------------------------------------------------------------------
-" Test 7:   Aborting and continuing on errors inside functions		    {{{1
+" Test 8:   Aborting and continuing on errors inside functions		    {{{1
 "
 "	    On an error inside a function without the "abort" attribute, the
 "	    script processing continues at the next line (unless the error was
@@ -955,7 +1097,7 @@ Xcheck 562493431
 
 
 "-------------------------------------------------------------------------------
-" Test 8:   Continuing after aborted functions				    {{{1
+" Test 9:   Continuing after aborted functions				    {{{1
 "
 "	    When a function with the "abort" attribute is aborted due to an
 "	    error, the next function back in the call hierarchy without an
@@ -1010,7 +1152,7 @@ Xcheck 363
 
 
 "-------------------------------------------------------------------------------
-" Test 9:   :if, :elseif, :while argument parsing			    {{{1
+" Test 10:  :if, :elseif, :while argument parsing			    {{{1
 "
 "	    A '"' or '|' in an argument expression must not be mixed up with
 "	    a comment or a next command after a bar.  Parsing errors should
@@ -1090,7 +1232,7 @@ Xcheck 559615
 
 
 "-------------------------------------------------------------------------------
-" Test 10:  :if, :elseif, :while argument evaluation after abort	    {{{1
+" Test 11:  :if, :elseif, :while argument evaluation after abort	    {{{1
 "
 "	    When code is skipped over due to an error, the boolean argument to
 "	    an :if, :elseif, or :while must not be evaluated.
@@ -1141,7 +1283,7 @@ Xcheck 2049
 
 
 "-------------------------------------------------------------------------------
-" Test 11:  Expressions in braces in skipped code			    {{{1
+" Test 12:  Expressions in braces in skipped code			    {{{1
 "
 "	    In code skipped over due to an error or inactive conditional,
 "	    an expression in braces as part of a variable or function name
@@ -1202,7 +1344,7 @@ Xcheck 352256
 
 
 "-------------------------------------------------------------------------------
-" Test 12:  Failure in argument evaluation for :while			    {{{1
+" Test 13:  Failure in argument evaluation for :while			    {{{1
 "
 "	    A failure in the expression evaluation for the condition of a :while
 "	    causes the whole :while loop until the matching :endwhile being
@@ -1230,7 +1372,7 @@ Xcheck 145
 
 
 "-------------------------------------------------------------------------------
-" Test 13:  Failure in argument evaluation for :if			    {{{1
+" Test 14:  Failure in argument evaluation for :if			    {{{1
 "
 "	    A failure in the expression evaluation for the condition of an :if
 "	    does not cause the corresponding :else or :endif being matched to
@@ -1274,7 +1416,7 @@ Xcheck 42413
 
 
 "-------------------------------------------------------------------------------
-" Test 14:  Failure in argument evaluation for :if (bar)		    {{{1
+" Test 15:  Failure in argument evaluation for :if (bar)		    {{{1
 "
 "	    Like previous test, except that the failing :if ... | ... | :endif
 "	    is in a single line.
@@ -1312,7 +1454,7 @@ Xcheck 42413
 
 
 "-------------------------------------------------------------------------------
-" Test 15:  Double :else or :elseif after :else				    {{{1
+" Test 16:  Double :else or :elseif after :else				    {{{1
 "
 "	    Multiple :elses or an :elseif after an :else are forbidden.
 "-------------------------------------------------------------------------------
@@ -1381,7 +1523,7 @@ Xcheck 8722
 
 
 "-------------------------------------------------------------------------------
-" Test 16:  Nesting of unmatched :if or :endif inside a :while		    {{{1
+" Test 17:  Nesting of unmatched :if or :endif inside a :while		    {{{1
 "
 "	    The :while/:endwhile takes precedence in nesting over an unclosed
 "	    :if or an unopened :endif.
@@ -1500,7 +1642,7 @@ Xcheck 285127993
 
 
 "-------------------------------------------------------------------------------
-" Test 17:  Interrupt (Ctrl-C pressed)					    {{{1
+" Test 18:  Interrupt (Ctrl-C pressed)					    {{{1
 "
 "	    On an interrupt, the script processing is terminated immediately.
 "-------------------------------------------------------------------------------
@@ -1579,7 +1721,7 @@ Xcheck 67224583
 
 
 "-------------------------------------------------------------------------------
-" Test 18:  Aborting on errors inside :try/:endtry			    {{{1
+" Test 19:  Aborting on errors inside :try/:endtry			    {{{1
 "
 "	    An error in a command dynamically enclosed in a :try/:endtry region
 "	    aborts script processing immediately.  It does not matter whether
@@ -1664,7 +1806,7 @@ endif
 
 Xcheck 69275973
 "-------------------------------------------------------------------------------
-" Test 19:  Aborting on errors after :try/:endtry			    {{{1
+" Test 20:  Aborting on errors after :try/:endtry			    {{{1
 "
 "	    When an error occurs after the last active :try/:endtry region has
 "	    been left, termination behavior is as if no :try/:endtry has been
@@ -1781,7 +1923,7 @@ Xcheck 1874575085
 
 
 "-------------------------------------------------------------------------------
-" Test 20:  :finally for :try after :continue/:break/:return/:finish	    {{{1
+" Test 21:  :finally for :try after :continue/:break/:return/:finish	    {{{1
 "
 "	    If a :try conditional stays inactive due to a preceding :continue,
 "	    :break, :return, or :finish, its :finally clause should not be
@@ -1855,7 +1997,7 @@ Xcheck 147932225
 
 
 "-------------------------------------------------------------------------------
-" Test 21:  :finally for a :try after an error/interrupt/:throw		    {{{1
+" Test 22:  :finally for a :try after an error/interrupt/:throw		    {{{1
 "
 "	    If a :try conditional stays inactive due to a preceding error or
 "	    interrupt or :throw, its :finally clause should not be executed.
@@ -1943,7 +2085,7 @@ Xcheck 4161
 
 
 "-------------------------------------------------------------------------------
-" Test 22:  :catch clauses for a :try after a :throw			    {{{1
+" Test 23:  :catch clauses for a :try after a :throw			    {{{1
 "
 "	    If a :try conditional stays inactive due to a preceding :throw,
 "	    none of its :catch clauses should be executed.
@@ -1983,7 +2125,7 @@ Xcheck 49
 
 
 "-------------------------------------------------------------------------------
-" Test 23:  :endtry for a :try after a :throw				    {{{1
+" Test 24:  :endtry for a :try after a :throw				    {{{1
 "
 "	    If a :try conditional stays inactive due to a preceding :throw,
 "	    its :endtry should not rethrow the exception to the next surrounding
@@ -2015,7 +2157,7 @@ Xcheck 41
 
 
 "-------------------------------------------------------------------------------
-" Test 24:  Executing :finally clauses on normal control flow		    {{{1
+" Test 25:  Executing :finally clauses on normal control flow		    {{{1
 "
 "	    Control flow in a :try conditional should always fall through to its
 "	    :finally clause.  A :finally clause of a :try conditional inside an
@@ -2079,7 +2221,7 @@ Xcheck 260177811
 
 
 "-------------------------------------------------------------------------------
-" Test 25:  Executing :finally clauses after :continue or :break	    {{{1
+" Test 26:  Executing :finally clauses after :continue or :break	    {{{1
 "
 "	    For a :continue or :break dynamically enclosed in a :try/:endtry
 "	    region inside the next surrounding :while/:endwhile, if the
@@ -2150,7 +2292,7 @@ Xcheck 1681500476
 
 
 "-------------------------------------------------------------------------------
-" Test 26:  Executing :finally clauses after :return			    {{{1
+" Test 27:  Executing :finally clauses after :return			    {{{1
 "
 "	    For a :return command dynamically enclosed in a :try/:endtry region,
 "	    :finally clauses are executed and the called function is ended.
@@ -2216,7 +2358,7 @@ Xcheck 1996459
 
 
 "-------------------------------------------------------------------------------
-" Test 27:  Executing :finally clauses after :finish			    {{{1
+" Test 28:  Executing :finally clauses after :finish			    {{{1
 "
 "	    For a :finish command dynamically enclosed in a :try/:endtry region,
 "	    :finally clauses are executed and the sourced file is finished.
@@ -2252,7 +2394,7 @@ Xcheck 1996459
 
 
 "-------------------------------------------------------------------------------
-" Test 28:  Executing :finally clauses on errors			    {{{1
+" Test 29:  Executing :finally clauses on errors			    {{{1
 "
 "	    After an error in a command dynamically enclosed in a :try/:endtry
 "	    region, :finally clauses are executed and the script processing is
@@ -2333,7 +2475,7 @@ Xcheck 170428555
 
 
 "-------------------------------------------------------------------------------
-" Test 29:  Executing :finally clauses on interrupt			    {{{1
+" Test 30:  Executing :finally clauses on interrupt			    {{{1
 "
 "	    After an interrupt in a command dynamically enclosed in
 "	    a :try/:endtry region, :finally clauses are executed and the
@@ -2409,7 +2551,7 @@ Xcheck 190905173
 
 
 "-------------------------------------------------------------------------------
-" Test 30:  Executing :finally clauses after :throw			    {{{1
+" Test 31:  Executing :finally clauses after :throw			    {{{1
 "
 "	    After a :throw dynamically enclosed in a :try/:endtry region,
 "	    :finally clauses are executed and the script processing is
@@ -2485,7 +2627,7 @@ Xcheck 190905173
 
 
 "-------------------------------------------------------------------------------
-" Test 31:  Remembering the :return value on :finally			    {{{1
+" Test 32:  Remembering the :return value on :finally			    {{{1
 "
 "	    If a :finally clause is executed due to a :return specifying
 "	    a value, this is the value visible to the caller if not overwritten
@@ -2587,7 +2729,7 @@ Xcheck 354833067
 
 
 "-------------------------------------------------------------------------------
-" Test 32:  :return under :execute or user command and :finally		    {{{1
+" Test 33:  :return under :execute or user command and :finally		    {{{1
 "
 "	    A :return command may be executed under an ":execute" or from
 "	    a user command.  Executing of :finally clauses and passing through
@@ -2732,7 +2874,7 @@ Xcheck 1216907538
 
 
 "-------------------------------------------------------------------------------
-" Test 33:  :finally reason discarded by :continue			    {{{1
+" Test 34:  :finally reason discarded by :continue			    {{{1
 "
 "	    When a :finally clause is executed due to a :continue, :break,
 "	    :return, :finish, error, interrupt or :throw, the jump reason is
@@ -2811,7 +2953,7 @@ Xcheck 2146584868
 
 
 "-------------------------------------------------------------------------------
-" Test 34:  :finally reason discarded by :break				    {{{1
+" Test 35:  :finally reason discarded by :break				    {{{1
 "
 "	    When a :finally clause is executed due to a :continue, :break,
 "	    :return, :finish, error, interrupt or :throw, the jump reason is
@@ -2890,7 +3032,7 @@ Xcheck 2146584868
 
 
 "-------------------------------------------------------------------------------
-" Test 35:  :finally reason discarded by :return			    {{{1
+" Test 36:  :finally reason discarded by :return			    {{{1
 "
 "	    When a :finally clause is executed due to a :continue, :break,
 "	    :return, :finish, error, interrupt or :throw, the jump reason is
@@ -2972,7 +3114,7 @@ Xcheck 1071644672
 
 
 "-------------------------------------------------------------------------------
-" Test 36:  :finally reason discarded by :finish			    {{{1
+" Test 37:  :finally reason discarded by :finish			    {{{1
 "
 "	    When a :finally clause is executed due to a :continue, :break,
 "	    :return, :finish, error, interrupt or :throw, the jump reason is
@@ -3061,7 +3203,7 @@ Xcheck 1071644672
 
 
 "-------------------------------------------------------------------------------
-" Test 37:  :finally reason discarded by an error			    {{{1
+" Test 38:  :finally reason discarded by an error			    {{{1
 "
 "	    When a :finally clause is executed due to a :continue, :break,
 "	    :return, :finish, error, interrupt or :throw, the jump reason is
@@ -3159,7 +3301,7 @@ Xcheck 357908480
 
 
 "-------------------------------------------------------------------------------
-" Test 38:  :finally reason discarded by an interrupt			    {{{1
+" Test 39:  :finally reason discarded by an interrupt			    {{{1
 "
 "	    When a :finally clause is executed due to a :continue, :break,
 "	    :return, :finish, error, interrupt or :throw, the jump reason is
@@ -3258,7 +3400,7 @@ Xcheck 357908480
 
 
 "-------------------------------------------------------------------------------
-" Test 39:  :finally reason discarded by :throw				    {{{1
+" Test 40:  :finally reason discarded by :throw				    {{{1
 "
 "	    When a :finally clause is executed due to a :continue, :break,
 "	    :return, :finish, error, interrupt or :throw, the jump reason is
@@ -3356,7 +3498,7 @@ Xcheck 357908480
 
 
 "-------------------------------------------------------------------------------
-" Test 40:  Skipped :throw finding next command				    {{{1
+" Test 41:  Skipped :throw finding next command				    {{{1
 "
 "	    A :throw in an inactive conditional must not hide a following
 "	    command.
@@ -3425,7 +3567,7 @@ Xcheck 3076095
 
 
 "-------------------------------------------------------------------------------
-" Test 41:  Catching number and string exceptions			    {{{1
+" Test 42:  Catching number and string exceptions			    {{{1
 "
 "	    When a number is thrown, it is converted to a string exception.
 "	    Numbers and strings may be caught by specifying a regular exception
@@ -3530,7 +3672,7 @@ Xcheck 1505155949
 
 
 "-------------------------------------------------------------------------------
-" Test 42:  Selecting the correct :catch clause				    {{{1
+" Test 43:  Selecting the correct :catch clause				    {{{1
 "
 "	    When an exception is thrown and there are multiple :catch clauses,
 "	    the first matching one is taken.
@@ -3576,7 +3718,7 @@ Xcheck 1157763329
 
 
 "-------------------------------------------------------------------------------
-" Test 43:  Missing or empty :catch patterns				    {{{1
+" Test 44:  Missing or empty :catch patterns				    {{{1
 "
 "	    A missing or empty :catch pattern means the same as /.*/, that is,
 "	    catches everything.  To catch only empty exceptions, /^$/ must be
@@ -3707,7 +3849,7 @@ Xcheck 1031761407
 
 
 "-------------------------------------------------------------------------------
-" Test 44:  Catching exceptions from nested :try blocks			    {{{1
+" Test 45:  Catching exceptions from nested :try blocks			    {{{1
 "
 "	    When :try blocks are nested, an exception is caught by the innermost
 "	    try conditional that has a matching :catch clause.
@@ -3759,7 +3901,7 @@ Xcheck 1157763329
 
 
 "-------------------------------------------------------------------------------
-" Test 45:  Executing :finally after a :throw in nested :try		    {{{1
+" Test 46:  Executing :finally after a :throw in nested :try		    {{{1
 "
 "	    When an exception is thrown from within nested :try blocks, the
 "	    :finally clauses of the non-catching try conditionals should be
@@ -3836,7 +3978,7 @@ Xcheck 739407
 
 
 "-------------------------------------------------------------------------------
-" Test 46:  Throwing exceptions from a :catch clause			    {{{1
+" Test 47:  Throwing exceptions from a :catch clause			    {{{1
 "
 "	    When an exception is thrown from a :catch clause, it should not be
 "	    caught by a :catch of the same :try conditional.  After executing
@@ -3909,7 +4051,7 @@ Xcheck 371213935
 
 
 "-------------------------------------------------------------------------------
-" Test 47:  Throwing exceptions from a :finally clause			    {{{1
+" Test 48:  Throwing exceptions from a :finally clause			    {{{1
 "
 "	    When an exception is thrown from a :finally clause, it should not be
 "	    caught by a :catch of the same :try conditional.  Surrounding try
@@ -3994,7 +4136,7 @@ Xcheck 756255461
 
 
 "-------------------------------------------------------------------------------
-" Test 48:  Throwing exceptions accross functions			    {{{1
+" Test 49:  Throwing exceptions across functions			    {{{1
 "
 "	    When an exception is thrown but not caught inside a function, the
 "	    caller is checked for a matching :catch clause.
@@ -4076,7 +4218,7 @@ Xcheck 179000669
 
 
 "-------------------------------------------------------------------------------
-" Test 49:  Throwing exceptions accross script files			    {{{1
+" Test 50:  Throwing exceptions across script files			    {{{1
 "
 "	    When an exception is thrown but not caught inside a script file,
 "	    the sourcing script or function is checked for a matching :catch
@@ -4145,7 +4287,7 @@ Xcheck 363550045
 
 
 "-------------------------------------------------------------------------------
-" Test 50:  Throwing exceptions accross :execute and user commands	    {{{1
+" Test 51:  Throwing exceptions across :execute and user commands	    {{{1
 "
 "	    A :throw command may be executed under an ":execute" or from
 "	    a user command.
@@ -4264,7 +4406,7 @@ Xcheck 40744667
 
 
 "-------------------------------------------------------------------------------
-" Test 51:  Uncaught exceptions						    {{{1
+" Test 52:  Uncaught exceptions						    {{{1
 "
 "	    When an exception is thrown but not caught, an error message is
 "	    displayed when the script is terminated.  In case of an interrupt
@@ -4431,7 +4573,7 @@ Xcheck 1247112011
 
 
 "-------------------------------------------------------------------------------
-" Test 52:  Nesting errors: :endif/:else/:elseif			    {{{1
+" Test 53:  Nesting errors: :endif/:else/:elseif			    {{{1
 "
 "	    For nesting errors of :if conditionals the correct error messages
 "	    should be given.
@@ -4611,7 +4753,7 @@ Xcheck 131071
 
 
 "-------------------------------------------------------------------------------
-" Test 53:  Nesting errors: :while/:endwhile				    {{{1
+" Test 54:  Nesting errors: :while/:endwhile				    {{{1
 "
 "	    For nesting errors of :while conditionals the correct error messages
 "	    should be given.
@@ -4745,7 +4887,7 @@ Xcheck 2047
 
 
 "-------------------------------------------------------------------------------
-" Test 54:  Nesting errors: :continue/:break				    {{{1
+" Test 55:  Nesting errors: :continue/:break				    {{{1
 "
 "	    For nesting errors of :continue and :break commands the correct
 "	    error messages should be given.
@@ -4859,7 +5001,7 @@ Xcheck 1023
 
 
 "-------------------------------------------------------------------------------
-" Test 55:  Nesting errors: :endtry					    {{{1
+" Test 56:  Nesting errors: :endtry					    {{{1
 "
 "	    For nesting errors of :try conditionals the correct error messages
 "	    should be given.
@@ -4966,7 +5108,7 @@ Xcheck 511
 
 
 "-------------------------------------------------------------------------------
-" Test 56:  v:exception and v:throwpoint for user exceptions		    {{{1
+" Test 57:  v:exception and v:throwpoint for user exceptions		    {{{1
 "
 "	    v:exception evaluates to the value of the exception that was caught
 "	    most recently and is not finished.  (A caught exception is finished
@@ -5076,7 +5218,10 @@ catch /.*/
 	    Xpath 1048576			" X: 1048576
 	    let exception  = v:exception
 	    let throwpoint = v:throwpoint
-	    call CHECK(7, "autsch", scriptT, '\<6\>')
+	    " Symbolic links in tempname()s are not resolved, whereas resolving
+	    " is done for v:throwpoint.  Resolve the temporary file name for
+	    " scriptT, so that it can be matched against v:throwpoint.
+	    call CHECK(7, "autsch", resolve(scriptT), '\<6\>')
 	finally
 	    Xpath 2097152			" X: 2097152
 	    let exception  = v:exception
@@ -5091,7 +5236,8 @@ catch /.*/
 		Xpath 8388608			" X: 8388608
 		let exception  = v:exception
 		let throwpoint = v:throwpoint
-		call CHECK(9, "brrrr", scriptT, '\<8\>')
+		" Resolve scriptT for matching it against v:throwpoint.
+		call CHECK(9, "brrrr", resolve(scriptT), '\<8\>')
 	    finally
 		Xpath 16777216			" X: 16777216
 		let exception  = v:exception
@@ -5147,7 +5293,7 @@ Xcheck 2147450880
 
 "-------------------------------------------------------------------------------
 "
-" Test 57:  v:exception and v:throwpoint for error/interrupt exceptions	    {{{1
+" Test 58:  v:exception and v:throwpoint for error/interrupt exceptions	    {{{1
 "
 "	    v:exception and v:throwpoint work also for error and interrupt
 "	    exceptions.
@@ -5250,7 +5396,7 @@ Xcheck 624945
 
 "-------------------------------------------------------------------------------
 "
-" Test 58:  v:exception and v:throwpoint when discarding exceptions	    {{{1
+" Test 59:  v:exception and v:throwpoint when discarding exceptions	    {{{1
 "
 "	    When a :catch clause is left by a ":break" etc or an error or
 "	    interrupt exception, v:exception and v:throwpoint are reset.  They
@@ -5283,7 +5429,7 @@ if ExtraVim()
 	let line      = a:0 != 0 ? a:3 : 0	" fourth parameter (optional)
 	let error = 0
 	if emsg != ""
-	    " exception is the error number, emsg the english error message text
+	    " exception is the error number, emsg the English error message text
 	    if exception !~ '^E\d\+$'
 		Xout "TODO: Add message number for:" emsg
 	    elseif v:lang == "C" || v:lang =~ '^[Ee]n'
@@ -5561,7 +5707,7 @@ Xcheck 2038431743
 
 "-------------------------------------------------------------------------------
 "
-" Test 59:  (Re)throwing v:exception; :echoerr.				    {{{1
+" Test 60:  (Re)throwing v:exception; :echoerr.				    {{{1
 "
 "	    A user exception can be rethrown after catching by throwing
 "	    v:exception.  An error or interrupt exception cannot be rethrown
@@ -5717,7 +5863,7 @@ Xcheck 311511339
 
 
 "-------------------------------------------------------------------------------
-" Test 60:  Catching interrupt exceptions				    {{{1
+" Test 61:  Catching interrupt exceptions				    {{{1
 "
 "	    When an interrupt occurs inside a :try/:endtry region, an
 "	    interrupt exception is thrown and can be caught.  Its value is
@@ -5853,7 +5999,7 @@ Xcheck 374889517
 
 
 "-------------------------------------------------------------------------------
-" Test 61:  Catching error exceptions					    {{{1
+" Test 62:  Catching error exceptions					    {{{1
 "
 "	    An error inside a :try/:endtry region is converted to an exception
 "	    and can be caught.  The error exception has a "Vim(cmdname):" prefix
@@ -6089,7 +6235,7 @@ Xcheck 286331153
 
 
 "-------------------------------------------------------------------------------
-" Test 62:  Suppressing error exceptions by :silent!.			    {{{1
+" Test 63:  Suppressing error exceptions by :silent!.			    {{{1
 "
 "	    A :silent! command inside a :try/:endtry region suppresses the
 "	    conversion of errors to an exception and the immediate abortion on
@@ -6154,7 +6300,7 @@ function! Foo()
 		    Xpath 4194304		" X: 0
 		endif
 		silent! call S(5)			" X: 3 * 256
-		" Break out of try conds that cover ":silent!".  This also
+		" Break out of try conditionals that cover ":silent!".  This also
 		" discards the aborting error when $VIMNOERRTHROW is non-zero.
 		break
 	    endtry
@@ -6207,7 +6353,7 @@ Xcheck 236978127
 
 
 "-------------------------------------------------------------------------------
-" Test 63:  Error exceptions after error, interrupt or :throw		    {{{1
+" Test 64:  Error exceptions after error, interrupt or :throw		    {{{1
 "
 "	    When an error occurs after an interrupt or a :throw but before
 "	    a matching :catch is reached, all following :catches of that try
@@ -6375,7 +6521,7 @@ Xcheck 1499645335
 
 
 "-------------------------------------------------------------------------------
-" Test 64:  Errors in the /pattern/ argument of a :catch		    {{{1
+" Test 65:  Errors in the /pattern/ argument of a :catch		    {{{1
 "
 "	    On an error in the /pattern/ argument of a :catch, the :catch does
 "	    not match.  Any following :catches of the same :try/:endtry don't
@@ -6470,7 +6616,7 @@ Xcheck 70187
 
 
 "-------------------------------------------------------------------------------
-" Test 65:  Stop range :call on error, interrupt, or :throw		    {{{1
+" Test 66:  Stop range :call on error, interrupt, or :throw		    {{{1
 "
 "	    When a function which is multiply called for a range since it
 "	    doesn't handle the range itself has an error in a command
@@ -6568,7 +6714,7 @@ Xcheck 5464
 
 
 "-------------------------------------------------------------------------------
-" Test 66:  :throw accross :call command				    {{{1
+" Test 67:  :throw across :call command					    {{{1
 "
 "	    On a call command, an exception might be thrown when evaluating the
 "	    function name, during evaluation of the arguments, or when the
@@ -6580,104 +6726,170 @@ XpathINIT
 
 function! THROW(x, n)
     if a:n == 1
-	Xpath 1					" X: 1
+	Xpath 1						" X: 1
     elseif a:n == 2
-	Xpath 2					" X: 2
+	Xpath 2						" X: 2
     elseif a:n == 3
-	Xpath 4					" X: 4
+	Xpath 4						" X: 4
     endif
     throw a:x
 endfunction
 
 function! NAME(x, n)
     if a:n == 1
-	Xpath 8					" X: 0
+	Xpath 8						" X: 0
     elseif a:n == 2
-	Xpath 16				" X: 16
+	Xpath 16					" X: 16
     elseif a:n == 3
-	Xpath 32				" X: 32
+	Xpath 32					" X: 32
     elseif a:n == 4
-	Xpath 64				" X: 64
+	Xpath 64					" X: 64
     endif
     return a:x
 endfunction
 
 function! ARG(x, n)
     if a:n == 1
-	Xpath 128				" X: 0
+	Xpath 128					" X: 0
     elseif a:n == 2
-	Xpath 256				" X: 0
+	Xpath 256					" X: 0
     elseif a:n == 3
-	Xpath 512				" X: 512
+	Xpath 512					" X: 512
     elseif a:n == 4
-	Xpath 1024				" X: 1024
+	Xpath 1024					" X: 1024
     endif
     return a:x
 endfunction
 
 function! F(x, n)
     if a:n == 2
-	Xpath 2048				" X: 0
+	Xpath 2048					" X: 0
     elseif a:n == 4
-	Xpath 4096				" X: 4096
+	Xpath 4096					" X: 4096
     endif
 endfunction
 
-try
-
+while 1
     try
-	Xpath 8192				" X: 8192
-	call {NAME(THROW("name", 1), 1)}(ARG(4711, 1), 1)
-	Xpath 16384				" X: 0
-    catch /^name$/
-	Xpath 32768				" X: 32768
-    catch /.*/
-	Xpath 65536				" X: 0
-	Xout "1:" v:exception "in" v:throwpoint
-    endtry
+	let error = 0
+	let v:errmsg = ""
 
-    try
-	Xpath 131072				" X: 131072
-	call {NAME("F", 2)}(ARG(THROW("arg", 2), 2), 2)
-	Xpath 262144				" X: 0
-    catch /^arg$/
-	Xpath 524288				" X: 524288
-    catch /.*/
-	Xpath 1048576				" X: 0
-	Xout "2:" v:exception "in" v:throwpoint
-    endtry
+	while 1
+	    try
+		Xpath 8192				" X: 8192
+		call {NAME(THROW("name", 1), 1)}(ARG(4711, 1), 1)
+		Xpath 16384				" X: 0
+	    catch /^name$/
+		Xpath 32768				" X: 32768
+	    catch /.*/
+		let error = 1
+		Xout "1:" v:exception "in" v:throwpoint
+	    finally
+		if !error && $VIMNOERRTHROW && v:errmsg != ""
+		    let error = 1
+		    Xout "1:" v:errmsg
+		endif
+		if error
+		    Xpath 65536				" X: 0
+		endif
+		let error = 0
+		let v:errmsg = ""
+		break		" discard error for $VIMNOERRTHROW
+	    endtry
+	endwhile
 
-    try
-	Xpath 2097152				" X: 2097152
-	call {NAME("THROW", 3)}(ARG("call", 3), 3)
-	Xpath 4194304				" X: 0
-    catch /^call$/
-	Xpath 8388608				" X: 8388608
+	while 1
+	    try
+		Xpath 131072				" X: 131072
+		call {NAME("F", 2)}(ARG(THROW("arg", 2), 2), 2)
+		Xpath 262144				" X: 0
+	    catch /^arg$/
+		Xpath 524288				" X: 524288
+	    catch /.*/
+		let error = 1
+		Xout "2:" v:exception "in" v:throwpoint
+	    finally
+		if !error && $VIMNOERRTHROW && v:errmsg != ""
+		    let error = 1
+		    Xout "2:" v:errmsg
+		endif
+		if error
+		    Xpath 1048576			" X: 0
+		endif
+		let error = 0
+		let v:errmsg = ""
+		break		" discard error for $VIMNOERRTHROW
+	    endtry
+	endwhile
+
+	while 1
+	    try
+		Xpath 2097152				" X: 2097152
+		call {NAME("THROW", 3)}(ARG("call", 3), 3)
+		Xpath 4194304				" X: 0
+	    catch /^call$/
+		Xpath 8388608				" X: 8388608
+	    catch /^0$/	    " default return value
+		Xpath 16777216				" X: 0
+		Xout "3:" v:throwpoint
+	    catch /.*/
+		let error = 1
+		Xout "3:" v:exception "in" v:throwpoint
+	    finally
+		if !error && $VIMNOERRTHROW && v:errmsg != ""
+		    let error = 1
+		    Xout "3:" v:errmsg
+		endif
+		if error
+		    Xpath 33554432			" X: 0
+		endif
+		let error = 0
+		let v:errmsg = ""
+		break		" discard error for $VIMNOERRTHROW
+	    endtry
+	endwhile
+
+	while 1
+	    try
+		Xpath 67108864				" X: 67108864
+		call {NAME("F", 4)}(ARG(4711, 4), 4)
+		Xpath 134217728				" X: 134217728
+	    catch /.*/
+		let error = 1
+		Xout "4:" v:exception "in" v:throwpoint
+	    finally
+		if !error && $VIMNOERRTHROW && v:errmsg != ""
+		    let error = 1
+		    Xout "4:" v:errmsg
+		endif
+		if error
+		    Xpath 268435456			" X: 0
+		endif
+		let error = 0
+		let v:errmsg = ""
+		break		" discard error for $VIMNOERRTHROW
+	    endtry
+	endwhile
+
     catch /^0$/	    " default return value
-	Xpath 16777216				" X: 0
-	Xout "3:" v:throwpoint
+	Xpath 536870912					" X: 0
+	Xout v:throwpoint
     catch /.*/
-	Xpath 33554432				" X: 0
-	Xout "3:" v:exception "in" v:throwpoint
+	let error = 1
+	Xout v:exception "in" v:throwpoint
+    finally
+	if !error && $VIMNOERRTHROW && v:errmsg != ""
+	    let error = 1
+	    Xout v:errmsg
+	endif
+	if error
+	    Xpath 1073741824				" X: 0
+	endif
+	break		" discard error for $VIMNOERRTHROW
     endtry
+endwhile
 
-    try
-	Xpath 67108864				" X: 67108864
-	call {NAME("F", 4)}(ARG(4711, 4), 4)
-	Xpath 134217728				" X: 134217728
-    catch /.*/
-	Xpath 268435456				" X: 0
-	Xout "4:" v:exception "in" v:throwpoint
-    endtry
-
-catch /^0$/	    " default return value
-    Xpath 536870912				" X: 0
-    Xout v:throwpoint
-catch /.*/
-    Xpath 1073741824				" X: 0
-    Xout v:exception "in" v:throwpoint
-endtry
-
+unlet error
 delfunction F
 
 Xcheck 212514423
@@ -6686,7 +6898,7 @@ Xcheck 212514423
 
 
 "-------------------------------------------------------------------------------
-" Test 67:  :throw accross function calls in expressions		    {{{1
+" Test 68:  :throw across function calls in expressions			    {{{1
 "
 "	    On a function call within an expression, an exception might be
 "	    thrown when evaluating the function name, during evaluation of the
@@ -6701,74 +6913,139 @@ XpathINIT
 
 function! F(x, n)
     if a:n == 2
-	Xpath 2048				" X: 0
+	Xpath 2048					" X: 0
     elseif a:n == 4
-	Xpath 4096				" X: 4096
+	Xpath 4096					" X: 4096
     endif
     return a:x
 endfunction
 
 unlet! var1 var2 var3 var4
 
-try
-
+while 1
     try
-	Xpath 8192				" X: 8192
-	let var1 = {NAME(THROW("name", 1), 1)}(ARG(4711, 1), 1)
-	Xpath 16384				" X: 0
-    catch /^name$/
-	Xpath 32768				" X: 32768
-    catch /.*/
-	Xpath 65536				" X: 0
-	Xout "1:" v:exception "in" v:throwpoint
-    endtry
+	let error = 0
+	let v:errmsg = ""
 
-    try
-	Xpath 131072				" X: 131072
-	let var2 = {NAME("F", 2)}(ARG(THROW("arg", 2), 2), 2)
-	Xpath 262144				" X: 0
-    catch /^arg$/
-	Xpath 524288				" X: 524288
-    catch /.*/
-	Xpath 1048576				" X: 0
-	Xout "2:" v:exception "in" v:throwpoint
-    endtry
+	while 1
+	    try
+		Xpath 8192				" X: 8192
+		let var1 = {NAME(THROW("name", 1), 1)}(ARG(4711, 1), 1)
+		Xpath 16384				" X: 0
+	    catch /^name$/
+		Xpath 32768				" X: 32768
+	    catch /.*/
+		let error = 1
+		Xout "1:" v:exception "in" v:throwpoint
+	    finally
+		if !error && $VIMNOERRTHROW && v:errmsg != ""
+		    let error = 1
+		    Xout "1:" v:errmsg
+		endif
+		if error
+		    Xpath 65536				" X: 0
+		endif
+		let error = 0
+		let v:errmsg = ""
+		break		" discard error for $VIMNOERRTHROW
+	    endtry
+	endwhile
 
-    try
-	Xpath 2097152				" X: 2097152
-	let var3 = {NAME("THROW", 3)}(ARG("call", 3), 3)
-	Xpath 4194304				" X: 0
-    catch /^call$/
-	Xpath 8388608				" X: 8388608
+	while 1
+	    try
+		Xpath 131072				" X: 131072
+		let var2 = {NAME("F", 2)}(ARG(THROW("arg", 2), 2), 2)
+		Xpath 262144				" X: 0
+	    catch /^arg$/
+		Xpath 524288				" X: 524288
+	    catch /.*/
+		let error = 1
+		Xout "2:" v:exception "in" v:throwpoint
+	    finally
+		if !error && $VIMNOERRTHROW && v:errmsg != ""
+		    let error = 1
+		    Xout "2:" v:errmsg
+		endif
+		if error
+		    Xpath 1048576			" X: 0
+		endif
+		let error = 0
+		let v:errmsg = ""
+		break		" discard error for $VIMNOERRTHROW
+	    endtry
+	endwhile
+
+	while 1
+	    try
+		Xpath 2097152				" X: 2097152
+		let var3 = {NAME("THROW", 3)}(ARG("call", 3), 3)
+		Xpath 4194304				" X: 0
+	    catch /^call$/
+		Xpath 8388608				" X: 8388608
+	    catch /^0$/	    " default return value
+		Xpath 16777216				" X: 0
+		Xout "3:" v:throwpoint
+	    catch /.*/
+		let error = 1
+		Xout "3:" v:exception "in" v:throwpoint
+	    finally
+		if !error && $VIMNOERRTHROW && v:errmsg != ""
+		    let error = 1
+		    Xout "3:" v:errmsg
+		endif
+		if error
+		    Xpath 33554432			" X: 0
+		endif
+		let error = 0
+		let v:errmsg = ""
+		break		" discard error for $VIMNOERRTHROW
+	    endtry
+	endwhile
+
+	while 1
+	    try
+		Xpath 67108864				" X: 67108864
+		let var4 = {NAME("F", 4)}(ARG(4711, 4), 4)
+		Xpath 134217728				" X: 134217728
+	    catch /.*/
+		let error = 1
+		Xout "4:" v:exception "in" v:throwpoint
+	    finally
+		if !error && $VIMNOERRTHROW && v:errmsg != ""
+		    let error = 1
+		    Xout "4:" v:errmsg
+		endif
+		if error
+		    Xpath 268435456			" X: 0
+		endif
+		let error = 0
+		let v:errmsg = ""
+		break		" discard error for $VIMNOERRTHROW
+	    endtry
+	endwhile
+
     catch /^0$/	    " default return value
-	Xpath 16777216				" X: 0
-	Xout "3:" v:throwpoint
+	Xpath 536870912					" X: 0
+	Xout v:throwpoint
     catch /.*/
-	Xpath 33554432				" X: 0
-	Xout "3:" v:exception "in" v:throwpoint
+	let error = 1
+	Xout v:exception "in" v:throwpoint
+    finally
+	if !error && $VIMNOERRTHROW && v:errmsg != ""
+	    let error = 1
+	    Xout v:errmsg
+	endif
+	if error
+	    Xpath 1073741824				" X: 0
+	endif
+	break		" discard error for $VIMNOERRTHROW
     endtry
-
-    try
-	Xpath 67108864				" X: 67108864
-	let var4 = {NAME("F", 4)}(ARG(4711, 4), 4)
-	Xpath 134217728				" X: 134217728
-    catch /.*/
-	Xpath 268435456				" X: 0
-	Xout "4:" v:exception "in" v:throwpoint
-    endtry
-
-catch /^0$/	    " default return value
-    Xpath 536870912				" X: 0
-    Xout v:throwpoint
-catch /.*/
-    Xpath 1073741824				" X: 0
-    Xout v:exception "in" v:throwpoint
-endtry
+endwhile
 
 if exists("var1") || exists("var2") || exists("var3") ||
 	    \ !exists("var4") || var4 != 4711
     " The Xpath command does not accept 2^31 (negative); add explicitly:
-    let Xpath = Xpath + 2147483648		" X: 0
+    let Xpath = Xpath + 2147483648			" X: 0
     if exists("var1")
 	Xout "var1 =" var1
     endif
@@ -6785,7 +7062,7 @@ if exists("var1") || exists("var2") || exists("var3") ||
     endif
 endif
 
-unlet! var1 var2 var3 var4
+unlet! error var1 var2 var3 var4
 delfunction THROW
 delfunction NAME
 delfunction ARG
@@ -6795,7 +7072,7 @@ Xcheck 212514423
 
 
 "-------------------------------------------------------------------------------
-" Test 68:  :throw accross :if, :elseif, :while				    {{{1
+" Test 69:  :throw across :if, :elseif, :while				    {{{1
 "
 "	    On an :if, :elseif, or :while command, an exception might be thrown
 "	    during evaluation of the expression to test.  The exception can be
@@ -6876,7 +7153,7 @@ Xcheck 8995471
 
 
 "-------------------------------------------------------------------------------
-" Test 69:  :throw accross :return or :throw				    {{{1
+" Test 70:  :throw across :return or :throw				    {{{1
 "
 "	    On a :return or :throw command, an exception might be thrown during
 "	    evaluation of the expression to return or throw, respectively.  The
@@ -6994,7 +7271,7 @@ Xcheck 69544277
 
 
 "-------------------------------------------------------------------------------
-" Test 70:  :throw accross :echo variants and :execute			    {{{1
+" Test 71:  :throw across :echo variants and :execute			    {{{1
 "
 "	    On an :echo, :echon, :echomsg, :echoerr, or :execute command, an
 "	    exception might be thrown during evaluation of the arguments to
@@ -7101,7 +7378,7 @@ Xcheck 34886997
 
 
 "-------------------------------------------------------------------------------
-" Test 71:  :throw accross :let or :unlet				    {{{1
+" Test 72:  :throw across :let or :unlet				    {{{1
 "
 "	    On a :let command, an exception might be thrown during evaluation
 "	    of the expression to assign.  On an :let or :unlet command, the
@@ -7260,7 +7537,7 @@ Xcheck 1789569365
 
 
 "-------------------------------------------------------------------------------
-" Test 72:  :throw accross :function, :delfunction			    {{{1
+" Test 73:  :throw across :function, :delfunction			    {{{1
 "
 "	    The :function and :delfunction commands may cause an expression
 "	    specified in braces to be evaluated.  During evaluation, an
@@ -7364,7 +7641,7 @@ Xcheck 9032615
 
 
 "-------------------------------------------------------------------------------
-" Test 73:  :throw accross builtin functions and commands		    {{{1
+" Test 74:  :throw across builtin functions and commands		    {{{1
 "
 "	    Some functions like exists(), searchpair() take expression
 "	    arguments, other functions or commands like substitute() or
@@ -7563,7 +7840,188 @@ Xcheck 224907669
 
 
 "-------------------------------------------------------------------------------
-" Test 74:  Errors, interupts, :throw during expression evaluation	    {{{1
+" Test 75:  Errors in builtin functions.				    {{{1
+"
+"	    On an error in a builtin function called inside a :try/:endtry
+"	    region, the evaluation of the expression calling that function and
+"	    the command containing that expression are abandoned.  The error can
+"	    be caught as an exception.
+"
+"	    A simple :call of the builtin function is a trivial case.  If the
+"	    builtin function is called in the argument list of another function,
+"	    no further arguments are evaluated, and the other function is not
+"	    executed.  If the builtin function is called from the argument of
+"	    a :return command, the :return command is not executed.  If the
+"	    builtin function is called from the argument of a :throw command,
+"	    the :throw command is not executed.  The evaluation of the
+"	    expression calling the builtin function is abandoned.
+"-------------------------------------------------------------------------------
+
+XpathINIT
+
+function! F1(arg1)
+    Xpath 1					" X: 0
+endfunction
+
+function! F2(arg1, arg2)
+    Xpath 2					" X: 0
+endfunction
+
+function! G()
+    Xpath 4					" X: 0
+endfunction
+
+function! H()
+    Xpath 8					" X: 0
+endfunction
+
+function! R()
+    while 1
+	try
+	    let caught = 0
+	    let v:errmsg = ""
+	    Xpath 16				" X: 16
+	    return append(1, "s")
+	catch /E21/
+	    let caught = 1
+	catch /.*/
+	    Xpath 32				" X: 0
+	finally
+	    Xpath 64				" X: 64
+	    if caught || $VIMNOERRTHROW && v:errmsg =~ 'E21'
+		Xpath 128			" X: 128
+	    endif
+	    break		" discard error for $VIMNOERRTHROW
+	endtry
+    endwhile
+    Xpath 256					" X: 256
+endfunction
+
+try
+    set noma	" let append() fail with "E21"
+
+    while 1
+	try
+	    let caught = 0
+	    let v:errmsg = ""
+	    Xpath 512				" X: 512
+	    call append(1, "s")
+	catch /E21/
+	    let caught = 1
+	catch /.*/
+	    Xpath 1024				" X: 0
+	finally
+	    Xpath 2048				" X: 2048
+	    if caught || $VIMNOERRTHROW && v:errmsg =~ 'E21'
+		Xpath 4096			" X: 4096
+	    endif
+	    break		" discard error for $VIMNOERRTHROW
+	endtry
+    endwhile
+
+    while 1
+	try
+	    let caught = 0
+	    let v:errmsg = ""
+	    Xpath 8192				" X: 8192
+	    call F1('x' . append(1, "s"))
+	catch /E21/
+	    let caught = 1
+	catch /.*/
+	    Xpath 16384				" X: 0
+	finally
+	    Xpath 32768				" X: 32768
+	    if caught || $VIMNOERRTHROW && v:errmsg =~ 'E21'
+		Xpath 65536			" X: 65536
+	    endif
+	    break		" discard error for $VIMNOERRTHROW
+	endtry
+    endwhile
+
+    while 1
+	try
+	    let caught = 0
+	    let v:errmsg = ""
+	    Xpath 131072			" X: 131072
+	    call F2('x' . append(1, "s"), G())
+	catch /E21/
+	    let caught = 1
+	catch /.*/
+	    Xpath 262144			" X: 0
+	finally
+	    Xpath 524288			" X: 524288
+	    if caught || $VIMNOERRTHROW && v:errmsg =~ 'E21'
+		Xpath 1048576			" X: 1048576
+	    endif
+	    break		" discard error for $VIMNOERRTHROW
+	endtry
+    endwhile
+
+    call R()
+
+    while 1
+	try
+	    let caught = 0
+	    let v:errmsg = ""
+	    Xpath 2097152			" X: 2097152
+	    throw "T" . append(1, "s")
+	catch /E21/
+	    let caught = 1
+	catch /^T.*/
+	    Xpath 4194304			" X: 0
+	catch /.*/
+	    Xpath 8388608			" X: 0
+	finally
+	    Xpath 16777216			" X: 16777216
+	    if caught || $VIMNOERRTHROW && v:errmsg =~ 'E21'
+		Xpath 33554432			" X: 33554432
+	    endif
+	    break		" discard error for $VIMNOERRTHROW
+	endtry
+    endwhile
+
+    while 1
+	try
+	    let caught = 0
+	    let v:errmsg = ""
+	    Xpath 67108864			" X: 67108864
+	    let x = "a"
+	    let x = x . "b" . append(1, "s") . H()
+	catch /E21/
+	    let caught = 1
+	catch /.*/
+	    Xpath 134217728			" X: 0
+	finally
+	    Xpath 268435456			" X: 268435456
+	    if caught || $VIMNOERRTHROW && v:errmsg =~ 'E21'
+		Xpath 536870912			" X: 536870912
+	    endif
+	    if x == "a"
+		Xpath 1073741824		" X: 1073741824
+	    endif
+	    break		" discard error for $VIMNOERRTHROW
+	endtry
+    endwhile
+catch /.*/
+    " The Xpath command does not accept 2^31 (negative); add explicitly:
+    let Xpath = Xpath + 2147483648		" X: 0
+    Xout v:exception "in" v:throwpoint
+finally
+    set ma&
+endtry
+
+unlet! caught x
+delfunction F1
+delfunction F2
+delfunction G
+delfunction H
+delfunction R
+
+Xcheck 2000403408
+
+
+"-------------------------------------------------------------------------------
+" Test 76:  Errors, interrupts, :throw during expression evaluation	    {{{1
 "
 "	    When a function call made during expression evaluation is aborted
 "	    due to an error inside a :try/:endtry region or due to an interrupt
@@ -7586,7 +8044,13 @@ if ExtraVim()
     function! ERRabort(n) abort
 	let g:taken = g:taken . "A" . a:n
 	asdf
-    endfunction	" returns -1
+    endfunction	" returns -1; may cause follow-up msg for illegal var/func name
+
+    function! WRAP(n, arg)
+	let g:taken = g:taken . "W" . a:n
+	let g:saved_errmsg = v:errmsg
+	return arg
+    endfunction
 
     function! INT(n)
 	let g:taken = g:taken . "I" . a:n
@@ -7605,22 +8069,18 @@ if ExtraVim()
 
     function! MSG(n)
 	let g:taken = g:taken . "M" . a:n
-	if (a:n >= 10 && a:n <= 27) ? v:errmsg != "" : v:errmsg !~ "asdf"
+	let errmsg = (a:n >= 37 && a:n <= 44) ? g:saved_errmsg : v:errmsg
+	let msgptn = (a:n >= 10 && a:n <= 27) ? "^$" : "asdf"
+	if errmsg !~ msgptn
 	    let g:taken = g:taken . "x"
+	    Xout "Expr" a:n.": Unexpected message:" v:errmsg
 	endif
 	let v:errmsg = ""
+	let g:saved_errmsg = ""
     endfunction
 
     let v:errmsg = ""
 
-    " Vim bug: functions cannot be defined inside while loops.  Use workaround:
-    function! WA_t5()
-    endfunction
-    " Vim bug: functions using {} names cannot be defined inside functions.  Use
-    " workaround:
-    let WA_t5 = MakeScript("WA_t5")
-    exec '!echo "function F{ERR(5) + CONT(5)}()" >>' . WA_t5
-    exec '!echo "endfunction" >> ' . WA_t5
     try
 	let t = 1
 	XloopINIT 1 2
@@ -7636,9 +8096,8 @@ if ExtraVim()
 		elseif t == 4
 		    unlet v{ERR(t) + CONT(t)}
 		elseif t == 5
-		    "function F{ERR(t) + CONT(t)}()
-		    "endfunction
-		    exec "source" WA_t5
+		    function F{ERR(t) + CONT(t)}()
+		    endfunction
 		elseif t == 6
 		    function F{ERR(t) + CONT(t)}
 		elseif t == 7
@@ -7667,14 +8126,6 @@ if ExtraVim()
 	Xout v:exception "in" ExtraVimThrowpoint()
     endtry
 
-    " Vim bug: functions cannot be defined inside while loops.  Use workaround:
-    function! WA_t14()
-    endfunction
-    " Vim bug: functions using {} names cannot be defined inside functions.  Use
-    " workaround:
-    let WA_t14 = MakeScript("WA_t14")
-    exec '!echo "function F{INT(14) + CONT(14)}()" >>' . WA_t14
-    exec '!echo "endfunction" >> ' . WA_t14
     try
 	let t = 10
 	XloopINIT 1024 2
@@ -7690,9 +8141,8 @@ if ExtraVim()
 		elseif t == 13
 		    unlet v{INT(t) + CONT(t)}
 		elseif t == 14
-		    "function F{INT(t) + CONT(t)}()
-		    "endfunction
-		    exec "source" WA_t14
+		    function F{INT(t) + CONT(t)}()
+		    endfunction
 		elseif t == 15
 		    function F{INT(t) + CONT(t)}
 		elseif t == 16
@@ -7718,14 +8168,6 @@ if ExtraVim()
 	Xout v:exception "in" ExtraVimThrowpoint()
     endtry
 
-    " Vim bug: functions cannot be defined inside while loops.  Use workaround:
-    function! WA_t23()
-    endfunction
-    " Vim bug: functions using {} names cannot be defined inside functions.  Use
-    " workaround:
-    let WA_t23 = MakeScript("WA_t23")
-    exec '!echo "function F{THR(23) + CONT(23)}()" >>' . WA_t23
-    exec '!echo "endfunction" >> ' . WA_t23
     try
 	let t = 19
 	XloopINIT 1048576 2
@@ -7741,9 +8183,8 @@ if ExtraVim()
 		elseif t == 22
 		    unlet v{THR(t) + CONT(t)}
 		elseif t == 23
-		    "function F{THR(t) + CONT(t)}()
-		    "endfunction
-		    exec "source" WA_t23
+		    function F{THR(t) + CONT(t)}()
+		    endfunction
 		elseif t == 24
 		    function F{THR(t) + CONT(t)}
 		elseif t == 25
@@ -7789,22 +8230,24 @@ if ExtraVim()
     let var = ERR(36) + CONT(36)
     call MSG(36)
 
-    let v{ERRabort(37) + CONT(37)} = 0
+    let saved_errmsg = ""
+
+    let v{WRAP(37, ERRabort(37)) + CONT(37)} = 0
     call MSG(37)
-    let v{ERRabort(38) + CONT(38)}
+    let v{WRAP(38, ERRabort(38)) + CONT(38)}
     call MSG(38)
-    let var = exists('v{ERRabort(39) + CONT(39)}')
+    let var = exists('v{WRAP(39, ERRabort(39)) + CONT(39)}')
     call MSG(39)
-    unlet v{ERRabort(40) + CONT(40)}
+    unlet v{WRAP(40, ERRabort(40)) + CONT(40)}
     call MSG(40)
-    function F{ERRabort(41) + CONT(41)}()
+    function F{WRAP(41, ERRabort(41)) + CONT(41)}()
     endfunction
     call MSG(41)
-    function F{ERRabort(42) + CONT(42)}
+    function F{WRAP(42, ERRabort(42)) + CONT(42)}
     call MSG(42)
-    let var = exists('*F{ERRabort(43) + CONT(43)}')
+    let var = exists('*F{WRAP(43, ERRabort(43)) + CONT(43)}')
     call MSG(43)
-    delfunction F{ERRabort(44) + CONT(44)}
+    delfunction F{WRAP(44, ERRabort(44)) + CONT(44)}
     call MSG(44)
     let var = ERRabort(45) + CONT(45)
     call MSG(45)
@@ -7817,8 +8260,8 @@ if ExtraVim()
 	\ . "T19M19T20M20T21M21T22M22T23M23T24M24T25M25T26M26T27M27"
 	\ . "E28C28M28E29C29M29E30C30M30E31C31M31E32C32M32E33C33M33"
 	\ . "E34C34M34E35C35M35E36C36M36"
-	\ . "A37C37M37A38C38M38A39C39M39A40C40M40A41C41M41A42C42M42"
-	\ . "A43C43M43A44C44M44A45C45M45"
+	\ . "A37W37C37M37A38W38C38M38A39W39C39M39A40W40C40M40A41W41C41M41"
+	\ . "A42W42C42M42A43W43C43M43A44W44C44M44A45C45M45"
 
     if taken != expected
 	" The Xpath command does not accept 2^31 (negative); display explicitly:
@@ -7834,7 +8277,7 @@ if ExtraVim()
 	endif
     endif
 
-    unlet! var taken expected
+    unlet! v var saved_errmsg taken expected
     call delete(WA_t5)
     call delete(WA_t14)
     call delete(WA_t23)
@@ -7849,7 +8292,7 @@ Xcheck 1610087935
 
 
 "-------------------------------------------------------------------------------
-" Test 75:  Errors, interupts, :throw in name{brace-expression}		    {{{1
+" Test 77:  Errors, interrupts, :throw in name{brace-expression}	    {{{1
 "
 "	    When a function call made during evaluation of an expression in
 "	    braces as part of a function name after ":function" is aborted due
@@ -7860,8 +8303,6 @@ Xcheck 1610087935
 "	    evaluation continues and the function gets defined, and can be
 "	    called and deleted.
 "-------------------------------------------------------------------------------
-
-" Get this right:
 
 XpathINIT
 
@@ -7979,7 +8420,7 @@ Xcheck 1388671
 
 
 "-------------------------------------------------------------------------------
-" Test 76:  Messages on parsing errors in expression evaluation		    {{{1
+" Test 78:  Messages on parsing errors in expression evaluation		    {{{1
 "
 "	    When an expression evaluation detects a parsing error, an error
 "	    message is given and converted to an exception, and the expression
@@ -8010,6 +8451,7 @@ if ExtraVim()
 	    else
 		let v:errmsg = escape(v:errmsg, '"')
 		Xout "Expr" a:n.": Unexpected message:" v:errmsg
+		Xout "Expected: " . a:enr . ': ' . a:emsg
 		let g:taken = g:taken . "X"
 	    endif
 	endif
@@ -8022,14 +8464,6 @@ if ExtraVim()
     let v:errmsg = ""
     XloopINIT 1 2
 
-    " Vim bug: functions cannot be defined inside while loops.  Use workaround:
-    function! WA_t5()
-    endfunction
-    " Vim bug: functions using {} names cannot be defined inside functions.  Use
-    " workaround:
-    let WA_t5 = MakeScript("WA_t5")
-    exec '!echo "function F{novar + CONT(5)}()" >>' . WA_t5
-    exec '!echo "endfunction" >> ' . WA_t5
     try
 	let t = 1
 	while t <= 14
@@ -8046,9 +8480,8 @@ if ExtraVim()
 		elseif t == 4
 		    unlet v{novar + CONT(t)}
 		elseif t == 5
-		    "function F{novar + CONT(t)}()
-		    "endfunction
-		    exec "source" WA_t5
+		    function F{novar + CONT(t)}()
+		    endfunction
 		elseif t == 6
 		    function F{novar + CONT(t)}
 		elseif t == 7
@@ -8075,15 +8508,11 @@ if ExtraVim()
 		    \ '^Vim\((\a\+)\)\=:', '', "")
 		let caught = 1
 	    finally
-		if !caught	" no error exceptions ($VIMNOERRTHROW set)
-		    if t <= 8 && t != 3
-			call MSG(t, 'E475', 'Invalid argument\>')
-		    else
-			call MSG(t, 'E15', "Invalid expression")
-		    endif
+		if t <= 8 && t != 3 && t != 7
+		    call MSG(t, 'E475', 'Invalid argument\>')
 		else
-		    if t == 2 || t == 4
-			call MSG(t, 'E475', 'Invalid argument\>')
+		    if !caught	" no error exceptions ($VIMNOERRTHROW set)
+			call MSG(t, 'E15', "Invalid expression")
 		    else
 			call MSG(t, 'E121', "Undefined variable")
 		    endif
@@ -8168,7 +8597,7 @@ Xcheck 134217728
 
 
 "-------------------------------------------------------------------------------
-" Test 77:  Throwing one of several errors for the same command		    {{{1
+" Test 79:  Throwing one of several errors for the same command		    {{{1
 "
 "	    When several errors appear in a row (for instance during expression
 "	    evaluation), the first as the most specific one is used when
@@ -8220,6 +8649,7 @@ function! MATCH(expected, msg, enr, emsg)
 	    else
 		let msg = escape(msg, '"')
 		Xout "Unexpected message:" msg
+		Xout "Expected:" a:enr . ": " . a:emsg
 	    endif
 	endif
     else
@@ -8227,6 +8657,7 @@ function! MATCH(expected, msg, enr, emsg)
 	if !a:expected		" match although not expected
 	    let msg = escape(msg, '"')
 	    Xout "Unexpected message:" msg
+	    Xout "Expected none."
 	endif
     endif
     return match
@@ -8363,7 +8794,7 @@ Xcheck 70288929
 
 
 "-------------------------------------------------------------------------------
-" Test 78:  Syntax error in expression for illegal :elseif		    {{{1
+" Test 80:  Syntax error in expression for illegal :elseif		    {{{1
 "
 "	    If there is a syntax error in the expression after an illegal
 "	    :elseif, an error message is given (or an error exception thrown)
@@ -8548,7 +8979,7 @@ Xcheck 17895765
 
 
 "-------------------------------------------------------------------------------
-" Test 79:  Discarding exceptions after an error or interrupt		    {{{1
+" Test 81:  Discarding exceptions after an error or interrupt		    {{{1
 "
 "	    When an exception is thrown from inside a :try conditional without
 "	    :catch and :finally clauses and an error or interrupt occurs before
@@ -8594,7 +9025,7 @@ Xcheck 387
 
 
 "-------------------------------------------------------------------------------
-" Test 80:  Ignoring :catch clauses after an error or interrupt		    {{{1
+" Test 82:  Ignoring :catch clauses after an error or interrupt		    {{{1
 "
 "	    When an exception is thrown and an error or interrupt occurs before
 "	    the matching :catch clause is reached, the exception is discarded
@@ -8702,7 +9133,7 @@ Xcheck 8454401
 
 
 "-------------------------------------------------------------------------------
-" Test 81:  Executing :finally clauses after an error or interrupt	    {{{1
+" Test 83:  Executing :finally clauses after an error or interrupt	    {{{1
 "
 "	    When an exception is thrown and an error or interrupt occurs before
 "	    the :finally of the innermost :try is reached, the exception is
@@ -8752,7 +9183,7 @@ Xcheck 2835
 
 
 "-------------------------------------------------------------------------------
-" Test 82:  Exceptions in autocommand sequences.			    {{{1
+" Test 84:  Exceptions in autocommand sequences.			    {{{1
 "
 "	    When an exception occurs in a sequence of autocommands for
 "	    a specific event, the rest of the sequence is not executed.  The
@@ -8760,7 +9191,7 @@ Xcheck 2835
 "	    exception is propagated to the caller.
 "
 "	    For the FuncUndefined event under a function call expression or
-"	    :call command, the function is not exexecuted, even when it has
+"	    :call command, the function is not executed, even when it has
 "	    been defined by the autocommands before the exception occurred.
 "-------------------------------------------------------------------------------
 
@@ -8927,7 +9358,7 @@ Xcheck 934782101
 
 
 "-------------------------------------------------------------------------------
-" Test 83:  Error exceptions in autocommands for I/O command events	    {{{1
+" Test 85:  Error exceptions in autocommands for I/O command events	    {{{1
 "
 "	    When an I/O command is inside :try/:endtry, autocommands to be
 "	    executed after it should be skipped on an error (exception) in the
@@ -9174,7 +9605,7 @@ Xcheck 198689
 
 
 "-------------------------------------------------------------------------------
-" Test 84:  $VIMNOERRTHROW and $VIMNOINTTHROW support			    {{{1
+" Test 86:  $VIMNOERRTHROW and $VIMNOINTTHROW support			    {{{1
 "
 "	    It is possible to configure Vim for throwing exceptions on error
 "	    or interrupt, controlled by variables $VIMNOERRTHROW and

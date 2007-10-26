@@ -1,19 +1,20 @@
 .TH SLAPD-LDBM 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
+.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-ldbm.5,v 1.6.2.2 2004/01/01 18:16:27 kurt Exp $
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-ldbm.5,v 1.8.2.5 2006/01/17 19:14:24 kurt Exp $
 .SH NAME
 slapd-ldbm \- LDBM backend to slapd
 .SH SYNOPSIS
-/etc/openldap/slapd.conf
+ETCDIR/slapd.conf
 .SH DESCRIPTION
 The LDBM backend to
 .BR slapd (8)
-is the database backend which is easiest to configure.
-However, it does not offer the data durability features of the BDB
-backend.
-It uses Berkeley DB or GDBM to store data.
-It makes extensive use of indexing and caching to speed data access.
+is an easy\-to\-configure but obsolete database backend.  It does not
+offer the data durability features of the BDB and HDB backends and
+hence is considered deprecated in favor of these robust backends.
+LDBM uses lightweight non\-transactional data interfaces, such as those
+provided by GDBM or Berkeley DB, to store data.  It makes extensive
+use of indexing and caching to speed data access.
 .SH CONFIGURATION
 These
 .B slapd.conf
@@ -53,7 +54,7 @@ Flush dirty database buffers to disk every
 seconds.
 Implies
 .B dbnosync
-(ie. indvidual updates are no longer written to disk).
+(ie. individual updates are no longer written to disk).
 It attempts to avoid syncs during periods of peak activity by waiting
 .B <delayinterval>
 seconds if the server is busy, repeating this delay up to
@@ -83,7 +84,7 @@ Specify the directory where the LDBM files containing this database and
 associated indexes live.
 A separate directory must be specified for each database.
 The default is
-.BR /var/db/openldap/openldap-data .
+.BR LOCALSTATEDIR/openldap-data .
 .TP
 .B
 index {<attrlist>|default} [pres,eq,approx,sub,<special>]
@@ -93,7 +94,11 @@ Some attributes only support a subset of indexes.
 If only an <attr> is given, the indices specified for \fBdefault\fR
 are maintained.
 Note that setting a default does not imply that all attributes will be
-indexed.
+indexed. Also, for best performance, an
+.B eq
+index should always be configured for the
+.B objectClass
+attribute.
 
 A number of special index parameters may be specified.
 The index type
@@ -119,9 +124,14 @@ Note: changing index settings requires rebuilding indices, see
 Specify the file protection mode that newly created database 
 index files should have.
 The default is 0600.
+.SH ACCESS CONTROL
+The 
+.B ldbm
+backend honors access control semantics as indicated in
+.BR slapd.access (5).
 .SH FILES
 .TP
-/etc/openldap/slapd.conf
+ETCDIR/slapd.conf
 default slapd configuration file
 .SH SEE ALSO
 .BR slapd.conf (5),

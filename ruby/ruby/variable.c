@@ -2,8 +2,8 @@
 
   variable.c -
 
-  $Author: matz $
-  $Date: 2004/10/02 03:50:48 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Tue Apr 19 23:55:15 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -18,7 +18,7 @@
 #include "st.h"
 #include "util.h"
 
-static st_table *rb_global_tbl;
+st_table *rb_global_tbl;
 st_table *rb_class_tbl;
 static ID autoload, classpath, tmp_classpath;
 
@@ -196,6 +196,7 @@ rb_class_path(klass)
     }
     else {
 	char *s = "Class";
+	size_t len;
 
 	if (TYPE(klass) == T_MODULE) {
 	    if (rb_obj_class(klass) == rb_cModule) {
@@ -205,8 +206,9 @@ rb_class_path(klass)
 		s = rb_class2name(RBASIC(klass)->klass);
 	    }
 	}
-	path = rb_str_new(0, 2 + strlen(s) + 3 + 2 * SIZEOF_LONG + 1);
-	sprintf(RSTRING(path)->ptr, "#<%s:0x%lx>", s, klass);
+	len = 2 + strlen(s) + 3 + 2 * SIZEOF_LONG + 1;
+	path = rb_str_new(0, len);
+	snprintf(RSTRING(path)->ptr, len+1, "#<%s:0x%lx>", s, klass);
 	RSTRING(path)->len = strlen(RSTRING(path)->ptr);
 	rb_ivar_set(klass, tmp_classpath, path);
 
@@ -467,7 +469,9 @@ mark_global_entry(key, entry)
 void
 rb_gc_mark_global_tbl()
 {
-    st_foreach(rb_global_tbl, mark_global_entry, 0);
+    if (rb_global_tbl) {
+	st_foreach(rb_global_tbl, mark_global_entry, 0);
+    }
 }
 
 static ID
@@ -842,9 +846,10 @@ rb_generic_ivar_table(obj)
 }
 
 static VALUE
-generic_ivar_get(obj, id)
+generic_ivar_get(obj, id, warn)
     VALUE obj;
     ID id;
+    int warn;
 {
     st_table *tbl;
     VALUE val;
@@ -856,8 +861,9 @@ generic_ivar_get(obj, id)
 	}
       }
     }
-
-    rb_warning("instance variable %s not initialized", rb_id2name(id));
+    if (warn) {
+	rb_warning("instance variable %s not initialized", rb_id2name(id));
+    }
     return Qnil;
 }
 
@@ -1008,13 +1014,12 @@ ivar_get(obj, id, warn)
 	break;
       default:
 	if (FL_TEST(obj, FL_EXIVAR) || rb_special_const_p(obj))
-	    return generic_ivar_get(obj, id);
+	    return generic_ivar_get(obj, id, warn);
 	break;
     }
-    if (warn && ruby_verbose) {
+    if (warn) {
 	rb_warning("instance variable %s not initialized", rb_id2name(id));
     }
-
     return Qnil;
 }
 
@@ -1289,7 +1294,7 @@ rb_autoload(mod, id, file)
 	tbl = check_autoload_table(av);
     }
     else {
-	av = Data_Wrap_Struct(rb_cData, rb_mark_tbl, st_free_table, 0);
+	av = Data_Wrap_Struct(0 , rb_mark_tbl, st_free_table, 0);
 	st_add_direct(tbl, autoload, av);
 	DATA_PTR(av) = tbl = st_init_numtable();
     }
@@ -1326,7 +1331,7 @@ autoload_delete(mod, id)
     return (NODE *)load;
 }
 
-void
+VALUE
 rb_autoload_load(klass, id)
     VALUE klass;
     ID id;
@@ -1335,9 +1340,9 @@ rb_autoload_load(klass, id)
     NODE *load = autoload_delete(klass, id);
 
     if (!load || !(file = load->nd_lit) || rb_provided(RSTRING(file)->ptr)) {
-	const_missing(klass, id);
+	return Qfalse;
     }
-    rb_require_safe(file, load->nd_nth);
+    return rb_require_safe(file, load->nd_nth);
 }
 
 static VALUE
@@ -1355,7 +1360,7 @@ autoload_file(mod, id)
     }
     file = ((NODE *)load)->nd_lit;
     Check_Type(file, T_STRING);
-    if (!RSTRING(file)->ptr) {
+    if (!RSTRING(file)->ptr || !*RSTRING(file)->ptr) {
 	rb_raise(rb_eArgError, "empty file name");
     }
     if (!rb_provided(RSTRING(file)->ptr)) {
@@ -1403,7 +1408,7 @@ rb_const_get_0(klass, id, exclude, recurse)
     while (tmp) {
 	while (RCLASS(tmp)->iv_tbl && st_lookup(RCLASS(tmp)->iv_tbl,id,&value)) {
 	    if (value == Qundef) {
-		rb_autoload_load(tmp, id);
+		if (!RTEST(rb_autoload_load(tmp, id))) break;
 		continue;
 	    }
 	    if (exclude && tmp == rb_cObject && klass != rb_cObject) {
@@ -1665,6 +1670,10 @@ rb_const_set(klass, id, val)
     ID id;
     VALUE val;
 {
+    if (NIL_P(klass)) {
+	rb_raise(rb_eTypeError, "no class/module to define constant %s",
+		 rb_id2name(id));
+    }
     mod_av_set(klass, id, val, Qtrue);
 }
 
@@ -1677,7 +1686,7 @@ rb_define_const(klass, name, val)
     ID id = rb_intern(name);
 
     if (!rb_is_const_id(id)) {
-	rb_warn("rb_define_const: invalide name `%s' for constant", name);
+	rb_warn("rb_define_const: invalid name `%s' for constant", name);
     }
     if (klass == rb_cObject) {
 	rb_secure(4);

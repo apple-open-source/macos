@@ -1,5 +1,6 @@
 /* Utility and Unix shadow routines for GNU Emacs support programs on NT.
-   Copyright (C) 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
    Geoff Voelker (voelker@cs.washington.edu)                         10-8-94
 */
@@ -59,20 +60,20 @@ getppid(void)
   DWORD result;
 
   ppid = getenv ("EM_PARENT_PROCESS_ID");
-  if (!ppid) 
+  if (!ppid)
     {
       printf("no pid.\n");
       return 0;
-    } 
-  else 
+    }
+  else
     {
       getppid_ppid = atoi (ppid);
     }
 
-  if (!getppid_parent) 
+  if (!getppid_parent)
     {
       getppid_parent = OpenProcess (SYNCHRONIZE, FALSE, atoi(ppid));
-      if (!getppid_parent) 
+      if (!getppid_parent)
 	{
 	  printf ("Failed to open handle to parent process: %d\n",
 		 GetLastError());
@@ -81,7 +82,7 @@ getppid(void)
     }
 
   result = WaitForSingleObject (getppid_parent, 0);
-  switch (result) 
+  switch (result)
     {
     case WAIT_TIMEOUT:
       /* The parent is still alive.  */
@@ -188,7 +189,7 @@ fchown (int fd, int uid, int gid)
 }
 
 /* Place a wrapper around the MSVC version of ctime.  It returns NULL
-   on network directories, so we handle that case here.  
+   on network directories, so we handle that case here.
    (Ulrich Leodolter, 1/11/95).  */
 char *
 sys_ctime (const time_t *t)
@@ -208,3 +209,6 @@ sys_chdir (const char * path)
 {
   return _chdir (path);
 }
+
+/* arch-tag: 7b63fb83-70ee-4124-8822-54e53e5d0773
+   (do not change this comment) */

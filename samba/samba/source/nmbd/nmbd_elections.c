@@ -24,7 +24,7 @@
 #include "includes.h"
 
 /* Election parameters. */
-extern time_t NMBDStartupTime;
+extern time_t StartupTime;
 
 /****************************************************************************
   Send an election datagram packet.
@@ -53,7 +53,7 @@ static void send_election_dgram(struct subnet_record *subrec, const char *workgr
 	strupper_m(srv_name);
 	/* The following call does UNIX -> DOS charset conversion. */
 	pstrcpy_base(p, srv_name, outbuf);
-	p = skip_string(p,1);
+	p = skip_string(outbuf,sizeof(outbuf),p);
   
 	send_mailslot(False, BROWSE_MAILSLOT, outbuf, PTR_DIFF(p,outbuf),
 		global_myname(), 0,
@@ -166,13 +166,16 @@ void run_elections(time_t t)
   
 	struct subnet_record *subrec;
   
+	START_PROFILE(run_elections);
+
 	/* Send election packets once every 2 seconds - note */
-	if (lastime && (t - lastime < 2))
+	if (lastime && (t - lastime < 2)) {
+		END_PROFILE(run_elections);
 		return;
+	}
   
 	lastime = t;
   
-	START_PROFILE(run_elections);
 	for (subrec = FIRST_SUBNET; subrec; subrec = NEXT_SUBNET_EXCLUDING_UNICAST(subrec)) {
 		struct work_record *work;
 
@@ -193,7 +196,7 @@ yet registered on subnet %s\n", nmb_namestr(&nmbname), subrec->subnet_name ));
 				}
 
 				send_election_dgram(subrec, work->work_group, work->ElectionCriterion,
-						t - NMBDStartupTime, global_myname());
+						t - StartupTime, global_myname());
 	      
 				if (work->ElectionCount++ >= 4) {
 					/* Won election (4 packets were sent out uncontested. */
@@ -217,7 +220,7 @@ yet registered on subnet %s\n", nmb_namestr(&nmbname), subrec->subnet_name ));
 static BOOL win_election(struct work_record *work, int version,
                          uint32 criterion, int timeup, const char *server_name)
 {  
-	int mytimeup = time(NULL) - NMBDStartupTime;
+	int mytimeup = time(NULL) - StartupTime;
 	uint32 mycriterion = work->ElectionCriterion;
 
 	/* If local master is false then never win in election broadcasts. */
@@ -267,10 +270,11 @@ void process_election(struct subnet_record *subrec, struct packet_struct *p, cha
 	struct work_record *work;
 	unstring workgroup_name;
 
+	START_PROFILE(election);
+
 	pull_ascii_nstring(server_name, sizeof(server_name), buf+13);
 	pull_ascii_nstring(workgroup_name, sizeof(workgroup_name), dgram->dest_name.name);
 
-	START_PROFILE(election);
 	server_name[15] = 0;  
 
 	DEBUG(3,("process_election: Election request from %s at IP %s on subnet %s for workgroup %s.\n",
@@ -374,7 +378,8 @@ yet registered on subnet %s\n", nmb_namestr(&nmbname), subrec->subnet_name ));
  Process a internal Samba message forcing an election.
 ***************************************************************************/
 
-void nmbd_message_election(int msg_type, pid_t src, void *buf, size_t len)
+void nmbd_message_election(int msg_type, struct process_id src,
+			   void *buf, size_t len, void *private_data)
 {
 	struct subnet_record *subrec;
 

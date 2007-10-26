@@ -5,9 +5,10 @@ Other-links:
 
 <h3>Mailman Features</h3>
 
-Here's a brief description of the new features in Mailman 2.1
-The <a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/mailman/mailman/NEWS?rev=HEAD&content-type=text/vnd.viewcvs-markup"
->NEWS</a> file contains a detailed summary of all new features.
+Here's a brief description of the features in Mailman 2.1
+The
+<a href="http://cvs.sourceforge.net/viewcvs.py/mailman/mailman/NEWS?only_with_tag=Release_2_1-maint">NEWS</a>
+file contains a detailed summary of all new features.
 
 <ul>
 <li>Through-the-web list creation and removal (with automatic

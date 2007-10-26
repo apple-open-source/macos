@@ -54,28 +54,40 @@ enum {
 };
 
 /*!
-    @abstract Create an SecPassword object used to query and set a password used in the client.
-            Keychain item attributes and class are optional, pass NULL if the password shouldn't be searched
-            for or stored in the keychain.  Use CFRelease on 
-    @param itemClass (in/opt) class of item to search for or store password as.
-	@param attrList (in/opt) the list of attributes of the item to search or create.
-    @param passwordRef (out) On return, a pointer to a password reference.  Release this by calling CFRelease function. 
+    @function SecGenericPasswordCreate
+    @abstract Create an SecPassword object be used with SecPasswordAction to query and/or set a password used in the client.
+			The keychain list is searched for a generic password with the supplied attributes.  If
+			the item is not found, SecPasswordAction will create a new password in the default keychain.
+			Otherwise, the existing item is updated.
+			searchAttrList and itemAttrList are optional - pass NULL for both of them if you only wish to query the user for a password.
+            Use CFRelease on the returned SecPasswordRef when it is no longer needed.
+    @param searchAttrList (in/opt) The list of search attributes for the item.
+	@param itemAttrList (in/opt) A list of attributes which will be used for item creation.
+    @param itemRef (out) On return, a pointer to a password reference.  Release this by calling the CFRelease function. 
  */
 OSStatus SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList, SecPasswordRef *itemRef);
 
 /*!
+    @function SecPasswordAction
     @abstract Get the password for a SecPassword, either from the user or the keychain and return it.
     Use SecKeychainItemFreeContent to free the data.
  
+	@param itemRef An itemRef previously obtained from SecGenericPasswordCreate.
     @param message Message to display to the user as a CFString or nil for a default message.
         (future extension accepts CFDictionary for other hints, icon, secaccess)
-    @param flags (in) The mode of operation.  See 
+    @param flags (in) The mode of operation.  See the flags documentation above.
     @param length (out) The length of the buffer pointed to by data.
 	@param data A pointer to a buffer containing the data to store.
  
  */
 OSStatus SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt32 *length, const void **data);
-   
+
+/*!
+    @function SecPasswordSetInitialAccess
+    @abstract Set the initial access ref.  Only used when a password is first added to the keychain.  
+ */
+OSStatus SecPasswordSetInitialAccess(SecPasswordRef itemRef, SecAccessRef accessRef);
+
 #if defined(__cplusplus)
 }
 #endif

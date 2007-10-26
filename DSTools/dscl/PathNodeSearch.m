@@ -124,7 +124,7 @@
 
 - (tDirStatus) deleteItem
 {
-    return eDSPermissionError;
+    return eDSReadOnly;
 }
 
 - (tDirStatus) deleteKey:(NSString*)inKey withValues:(NSArray*)inValues
@@ -158,7 +158,7 @@
 
 - (tDirStatus) modify:(tAttrCAM)inAction withKey:(NSString*)inKey withValues:(NSArray*)inValues
 {
-    tDirStatus		nError				= eDSPermissionError;
+    tDirStatus		nError				= eDSReadOnly;
 	tDirStatus		firstError			= eDSNoErr;
 	unsigned int	index				= NSNotFound;
 	NSEnumerator	*objEnum			= nil;
@@ -180,7 +180,7 @@
 	}
 	else
 	{
-		return eDSPermissionError;
+		return eDSReadOnly;
 	}
 
     NS_DURING
@@ -252,7 +252,7 @@
 					index = [oldValues indexOfObject:[inValues objectAtIndex:0]];
 					newValue = [inValues objectAtIndex:1];
 					if (index == 0) {
-						nError = eDSPermissionError;
+						nError = eDSReadOnly;
 					} else if (index == NSNotFound) {
 						nError = eDSAttributeValueNotFound;
 					} else if ([self nodeNameIsValid:newValue]) {
@@ -299,7 +299,7 @@
 
 - (tDirStatus)setSearchPolicy:(NSString*)newPolicy
 {
-	tDirStatus status = eDSPermissionError;
+	tDirStatus status = eDSReadOnly;
 	int aCommand = 0;
 	
 	if (![newPolicy hasPrefix:@kDSStdAttrTypePrefix]) {
@@ -327,11 +327,15 @@
 
 - (tDirStatus)setCustomSearchPath:(NSArray*)nodeList
 {
-	tDirStatus status = eDSPermissionError;
+	tDirStatus status = eDSReadOnly;
+	int icnt = 0;
 	NSMutableArray* newNodeList = [[nodeList mutableCopy] autorelease];
 	
-	if ([newNodeList count] >= 1) {
-		[newNodeList removeObjectAtIndex:0];
+	NSArray *localValues = [_node getAttribute:kDSNAttrLSPSearchPath];
+	
+	if ([newNodeList count] >= [localValues count]) {
+		for (icnt=0; icnt < [localValues count]; icnt++)
+			[newNodeList removeObjectAtIndex:0];
 		status = [_node customCall:eDSCustomCallSearchSetCustomNodeList 
 			sendPropertyList:newNodeList withAuthorization:&_authExternalForm];
 	}
@@ -341,17 +345,26 @@
 
 - (BOOL)nodeNameIsValid:(NSString*)nodeName
 {
-	NSAutoreleasePool* pool = [NSAutoreleasePool new];
-	BOOL result = NO;
+	UInt32		ulCount		= 0;
+	BOOL			result		= NO;
+    tDirStatus	nError		= eDSReadOnly;
+	DSoBuffer	   *bufNodeList	= nil;
+	DSoDataList *dlPattern		= nil;
 	
 	NS_DURING
-	DSoNode* node = [[_node directory] findNode:nodeName];
-	if (node != nil)
-		result = YES;
+		//do we even care if this node is registered?
+		//we certainly do not care if it is not reachable at this time since search node takes care of
+		//node reachability ie. achieving and maintaining reachability
+		bufNodeList	= [[DSoBuffer alloc] initWithDir:[_node directory] bufferSize:strlen([nodeName UTF8String]) + 128];
+		dlPattern		= [[DSoDataList alloc] initWithDir:[_node directory] separator:'/' pattern:nodeName];
+		nError		= dsFindDirNodes([[_node directory] dsDirRef], [bufNodeList dsDataBuffer], [dlPattern dsDataList], eDSExact, &ulCount, NULL) ;
+		[dlPattern release];
+		[bufNodeList release];
+		if ( ( nError == eDSNoErr ) && ( ulCount > 0 ) )
+			result = YES;
 	NS_HANDLER
 	NS_ENDHANDLER
 	
-	[pool release];
 	return result;
 }
 

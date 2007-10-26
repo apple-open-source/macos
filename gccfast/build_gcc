@@ -780,6 +780,7 @@ build_compiler()
 					    else echo cc -arch $target -no-cpp-precomp; fi; \
 					else echo ./xgcc -B./ -no-cpp-precomp; fi`" \
 		       BISON=bison \
+		       BISON=/usr/local/bin/bison-1.28 \
 		       CFLAGS="$no_boot_opt_flag $OPT_OVERRIDE $CFLAGS" \
 		       GCC_CFLAGS="-no-cpp-precomp $CFLAGS" \
 		       BOOT_CFLAGS="${OPT_OVERRIDE:--O2} $CFLAGS -no-cpp-precomp -mdynamic-no-pic" \
@@ -1519,6 +1520,10 @@ install_fat()
 	for file in $LIBRARIES; do
 	    thin_files=
 	    for target in $TARGETS; do
+	        # libstdc++ should only be installed for ppc
+	        if echo "$file" | fgrep -q ++; then
+	            if [ $target != "ppc" ]; then continue; fi
+	        fi
 		if [ "$file" = "$LIBSTDCPP_DYLIB" ]; then
 		    # Keep a "clean" (non-nmedited) copy of libstdc++.a.
 		    thin_files="$thin_files $sym/$host/lib/$target/libstdc++.clean.a"

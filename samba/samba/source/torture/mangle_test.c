@@ -20,6 +20,8 @@
 
 #include "includes.h"
 
+extern int torture_numops;
+
 static TDB_CONTEXT *tdb;
 
 #define NAME_LENGTH 20
@@ -96,7 +98,7 @@ static BOOL test_one(struct cli_state *cli, const char *name)
 	} else {
 		TDB_DATA namedata;
 		/* store it for later */
-		namedata.dptr = name;
+		namedata.dptr = CONST_DISCARD(char *, name);
 		namedata.dsize = strlen(name)+1;
 		tdb_store_bystring(tdb, shortname, namedata, TDB_REPLACE);
 	}
@@ -159,14 +161,13 @@ static void gen_name(char *name)
 
 BOOL torture_mangle(int dummy)
 {
-	extern int torture_numops;
 	static struct cli_state *cli;
 	int i;
 	BOOL ret = True;
 
 	printf("starting mangle test\n");
 
-	if (!torture_open_connection(&cli)) {
+	if (!torture_open_connection(&cli, 0)) {
 		return False;
 	}
 

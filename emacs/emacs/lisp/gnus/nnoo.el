@@ -1,7 +1,7 @@
 ;;; nnoo.el --- OO Gnus Backends
 
-;; Copyright (C) 1996, 1997, 1998, 1999, 2000
-;;	Free Software Foundation, Inc.
+;; Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news
@@ -20,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -38,7 +38,7 @@
   "The same as `defvar', only takes list of variables to MAP to."
   `(prog1
        ,(if doc
-	    `(defvar ,var ,init ,doc)
+	    `(defvar ,var ,init ,(concat doc "\n\nThis is a Gnus server variable.  See Info node `(gnus)Select Methods'."))
 	  `(defvar ,var ,init))
      (nnoo-define ',var ',map)))
 (put 'defvoo 'lisp-indent-function 2)
@@ -61,12 +61,16 @@
 
 (defmacro nnoo-declare (backend &rest parents)
   `(eval-and-compile
-     (push (list ',backend
-		 (mapcar (lambda (p) (list p)) ',parents)
-		 nil nil)
-	   nnoo-definition-alist)
-     (push (list ',backend "*internal-non-initialized-backend*")
-	   nnoo-state-alist)))
+     (if (assq ',backend nnoo-definition-alist)
+	 (setcar (cdr (assq ',backend nnoo-definition-alist))
+		 (mapcar 'list ',parents))
+       (push (list ',backend
+		   (mapcar 'list ',parents)
+		   nil nil)
+	     nnoo-definition-alist))
+     (unless (assq ',backend nnoo-state-alist)
+       (push (list ',backend "*internal-non-initialized-backend*")
+	     nnoo-state-alist))))
 (put 'nnoo-declare 'lisp-indent-function 1)
 
 (defun nnoo-parents (backend)
@@ -201,8 +205,8 @@
 	(while (setq def (pop defs))
 	  (unless (assq (car def) bvariables)
 	    (nconc bvariables
- 		   (list (cons (car def) (and (boundp (car def))
- 					      (symbol-value (car def)))))))
+		   (list (cons (car def) (and (boundp (car def))
+					      (symbol-value (car def)))))))
 	  (if (equal server "*internal-non-initialized-backend*")
 	      (set (car def) (symbol-value (cadr def)))
 	    (set (car def) (cadr def)))))
@@ -304,6 +308,21 @@ All functions will return nil and report an error."
 		   (&rest args)
 		 (nnheader-report ',backend ,(format "%s-%s not implemented"
 						     backend function))))))))
+
+(defun nnoo-set (server &rest args)
+  (let ((parents (nnoo-parents (car server)))
+	(nnoo-parent-backend (car server)))
+    (while parents
+      (nnoo-change-server (caar parents)
+			  (cadr server)
+			  (cdar parents))
+      (pop parents)))
+  (nnoo-change-server (car server)
+		      (cadr server) (cddr server))
+  (while args
+    (set (pop args) (pop args))))
+
 (provide 'nnoo)
 
+;;; arch-tag: 0196b5ed-6f34-4778-a455-73a971f837e7
 ;;; nnoo.el ends here

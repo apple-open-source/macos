@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP GET
+-z
+</keywords>
+</info>
 #
 # Server-side
 <reply>
@@ -12,7 +20,7 @@ Content-Length: 6
 Connection: close
 Content-Type: text/html
 
-<foo>
+-foo-
 </data>
 </reply>
 
@@ -39,9 +47,9 @@ http://%HOSTIP:%HTTPPORT/77 -z "dec 12 12:00:00 1999 GMT"
 <protocol>
 GET /77 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 If-Modified-Since: Sun, 12 Dec 1999 12:00:00 GMT
 
 </protocol>
 </verify>
+</testcase>

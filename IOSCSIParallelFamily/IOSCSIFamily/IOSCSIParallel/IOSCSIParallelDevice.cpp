@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
  *
  */
 
+#include <libkern/c++/OSMetaClass.h>
 #include <IOKit/IOSyncer.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/system.h>
@@ -122,7 +123,7 @@ bool IOSCSIParallelDevice::init( IOSCSIParallelController *forController, SCSITa
         bzero( tagArray, controller->tagArraySize );
     }
 
-    deviceGate = IOCommandGate::commandGate( this, (IOCommandGate::Action) &IOSCSIParallelDevice::receiveCommand );
+    deviceGate = IOCommandGate::commandGate( this, OSMemberFunctionCast(IOCommandGate::Action, this, &IOSCSIParallelDevice::receiveCommand ) );
     if ( deviceGate == 0 )
     {
         return false;

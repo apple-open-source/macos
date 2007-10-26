@@ -358,7 +358,7 @@ void DeriveKey_PKCS12 (
 			*cp++ = uc & 0xff;
 		}
 		/* CFString tends to include a NULL at the end; add it if it's not there */
-		if(uc == NULL) {
+		if(uc == 0) {
 			if(pwd.Length < 2) {
 				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_SEED);
 			}

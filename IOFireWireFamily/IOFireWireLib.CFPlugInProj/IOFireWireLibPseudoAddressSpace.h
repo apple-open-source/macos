@@ -141,10 +141,6 @@ namespace IOFireWireLib {
 			void*							mBackingStore ;
 			void*							mRefCon ;
 			
-			io_async_ref_t					mPacketAsyncRef ;
-			io_async_ref_t					mSkippedPacketAsyncRef ;
-			io_async_ref_t					mReadPacketAsyncRef ;
-		
 			CFMutableDictionaryRef			mPendingLocks ;
 	} ;	
 }

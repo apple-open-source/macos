@@ -69,4 +69,4 @@ void dsassertion_release(dsassertion *);
 
 Logic3 dsassertion_test(dsassertion *, dsrecord *);
 
-#endif __DSASSERTION_H__
+#endif /* __DSASSERTION_H__ */

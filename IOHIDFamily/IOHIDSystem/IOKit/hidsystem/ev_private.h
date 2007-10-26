@@ -79,7 +79,7 @@
 
 /* Flags which can modify meaning of special volume/brightness keys */
 #define SPECIALKEYS_MODIFIER_MASK \
-			(NX_SHIFTMASK|NX_COMMANDMASK|NX_ALTERNATEMASK|NX_CONTROLMASK)
+			(NX_COMMANDMASK|NX_ALTERNATEMASK|NX_CONTROLMASK|NX_SHIFTMASK)
 
 /* Bits in evg->eventFlags owned by keyboard devices */
 #define KEYBOARD_FLAGSMASK \
@@ -116,7 +116,7 @@ typedef volatile struct _evScreen {
     IOGraphicsDevice * instance;/* Driver instance owning this screen. */
 //  void *shmemPtr;		/* Ptr to private shmem (if non-zero size) */
 //  int shmemSize;		/* Size of private shmem */
-    Bounds * bounds;		/* Screen's bounds in device coordinates */
+    IOGBounds * bounds; /* Screen's bounds in device coordinates */
 } EvScreen;
 
 /*

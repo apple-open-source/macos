@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_node.c,v 1.54.52.4 2005/10/21 20:38:14 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -44,7 +45,7 @@
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 
-#include <sys/md5.h>
+#include <libkern/crypto/md5.h>
 
 #include <sys/kauth.h>
 
@@ -69,19 +70,85 @@ MALLOC_DEFINE(M_SMBNODENAME, "SMBFS nname", "SMBFS node name");
 
 int smbfs_hashprint(struct mount *mp);
 
-#if 0
-extern struct linker_set sysctl_vfs_smbfs;
-#ifdef SYSCTL_DECL
-SYSCTL_DECL(_vfs_smbfs);
-#endif
-SYSCTL_PROC(_vfs_smbfs, OID_AUTO, vnprint, CTLFLAG_WR|CTLTYPE_OPAQUE,
-	    NULL, 0, smbfs_hashprint, "S,vnlist", "vnode hash");
-#endif
 
 #define	FNV_32_PRIME ((u_int32_t) 0x01000193UL)
 #define	FNV1_32_INIT ((u_int32_t) 33554467UL)
 
 #define isdigit(d) ((d) >= '0' && (d) <= '9')
+
+/*
+ * Lock a node
+ */
+PRIVSYM int smbnode_lock(struct smbnode *np, enum smbfslocktype locktype)
+{
+	if (locktype == SMBFS_SHARED_LOCK)
+		lck_rw_lock_shared(&np->n_rwlock);
+	else
+		lck_rw_lock_exclusive(&np->n_rwlock);
+
+	np->n_lockState = locktype;
+	
+	/*
+	 * Skip cnodes that no longer exist (were deleted).
+	 */
+	if ((locktype != SMBFS_RECLAIM_LOCK) && (np->n_flag & N_NOEXISTS)) {
+		smbnode_unlock(np);
+		return (ENOENT);
+	}
+#if 1	
+	/* For Debugging... */
+	if (locktype != SMBFS_SHARED_LOCK) {
+		np->n_activation = (void *) current_thread();
+	}
+#endif
+	return (0);
+}
+
+
+/*
+ * Lock a pair of smbnodes
+ *
+ * If the two nodes are not the same then lock in the order they came in. The calling routine
+ * should always put them in parent/child order.
+ */
+PRIVSYM int smbnode_lockpair(struct smbnode *np1, struct smbnode *np2, enum smbfslocktype locktype)
+{
+	int error;
+
+	/*
+	 * If smbnodes match then just lock one.
+	 */
+	if (np1 == np2) {
+		return smbnode_lock(np1, locktype);
+	}
+	if ((error = smbnode_lock(np1, locktype)))
+		return (error);
+	if ((error = smbnode_lock(np2, locktype))) {
+		smbnode_unlock(np1);
+		return (error);
+	}
+	return (0);
+}
+
+/*
+ * Unlock a cnode
+ */
+PRIVSYM void smbnode_unlock(struct smbnode *np)
+{
+	lck_rw_done(&np->n_rwlock);
+	
+	np->n_lockState = 0;
+}
+
+/*
+ * Unlock a pair of cnodes.
+ */
+PRIVSYM void smbnode_unlockpair(struct smbnode *np1, struct smbnode *np2)
+{
+	smbnode_unlock(np1);
+	if (np2 != np1)
+		smbnode_unlock(np2);
+}
 
 u_int32_t
 smbfs_hash(const u_char *name, int nmlen)
@@ -93,6 +160,30 @@ smbfs_hash(const u_char *name, int nmlen)
 		v ^= (u_int32_t)*name;
 	}
 	return v;
+}
+
+
+void smb_vhashrem(struct smbnode *np)
+{
+	smbfs_hash_lock(np->n_mount);
+	if (np->n_hash.le_prev) {
+		LIST_REMOVE(np, n_hash);
+		np->n_hash.le_prev = NULL;
+	}
+	smbfs_hash_unlock(np->n_mount);
+	return;
+}
+
+void smb_vhashadd(struct smbnode *np, u_long hashval)
+{
+	struct smbnode_hashhead	*nhpp;
+	
+	smbfs_hash_lock(np->n_mount);
+	nhpp = SMBFS_NOHASH(np->n_mount, hashval);
+	LIST_INSERT_HEAD(nhpp, np, n_hash);
+	smbfs_hash_unlock(np->n_mount);
+	return;
+	
 }
 
 u_char *
@@ -127,19 +218,18 @@ smbfs_name_free(const u_char *name)
 	cp = name;
 	cp--;
 	if (*cp != 0xfc) {
-		printf("First byte of name entry '%s' corrupted\n", name);
+		SMBDEBUG("First byte of name entry '%s' corrupted\n", name);
 		Debugger("ditto");
 	}
 	cp -= sizeof(int);
 	nmlen = *(int*)cp;
 	slen = strlen(name) + 1;
 	if (nmlen != slen) {
-		printf("Name length mismatch: was %d, now %d name '%s'\n",
-		    nmlen, slen, name);
+		SMBDEBUG("Name length mismatch: was %d, now %d name '%s'\n", nmlen, slen, name);
 		Debugger("ditto");
 	}
 	if (name[nmlen] != 0xfe) {
-		printf("Last byte of name entry '%s' corrupted\n", name);
+		SMBDEBUG("Last byte of name entry '%s' corrupted\n", name);
 		Debugger("ditto");
 	}
 	free(cp, M_SMBNODENAME);
@@ -148,21 +238,36 @@ smbfs_name_free(const u_char *name)
 #endif
 }
 
-vnode_t
-smb_hashget(struct smbmount *smp, struct smbnode *dnp, u_long hashval,
-	    const u_char *name, int nmlen)
+static vnode_t smb_hashget(struct smbmount *smp, struct smbnode *dnp, u_long hashval, const u_char *name, int nmlen, 
+						   int node_flag, const char *sname)
 {
 	vnode_t	vp;
 	struct smbnode_hashhead	*nhpp;
 	struct smbnode *np;
 	uint32_t vid;
+	int snmlen = (sname) ? strlen(sname) : 0;
 loop:
 	smbfs_hash_lock(smp);
 	nhpp = SMBFS_NOHASH(smp, hashval);
 	LIST_FOREACH(np, nhpp, n_hash) {
-		if (np->n_parent != dnp || np->n_nmlen != nmlen ||
-		    bcmp(name, np->n_name, nmlen) != 0)
+
+		/* 
+		 * If we are only looking for a stream node then skip any other nodes. If we are look for a directory or 
+		 * data node then skip any stream nodes.
+		 */
+		if ((np->n_flag & N_ISSTREAM) != node_flag)
+			continue;		
+		if ((np->n_parent != dnp) || (np->n_nmlen != nmlen) || (bcmp(name, np->n_name, nmlen) != 0))
 			continue;
+		/* If this is a stream make sure its the correct stream */
+		if (np->n_flag & N_ISSTREAM) {
+			DBG_ASSERT(sname);	/* Better be looking for a stream at this point */
+			if ((np->n_snmlen != snmlen) || (bcmp(sname, np->n_sname, snmlen) != 0)) {
+				SMBERROR("Currently we only support one stream and we found a second one? found %s looking for %s\n", 
+						 np->n_sname, sname);
+				continue;
+			}
+		}
 		if (ISSET(np->n_flag, NALLOC)) {
 			SET(np->n_flag, NWALLOC);
 			(void)msleep((caddr_t)np, smp->sm_hashlock, PINOD|PDROP, "smb_ngetalloc", 0);
@@ -178,31 +283,83 @@ loop:
 		smbfs_hash_unlock(smp);
 		if (vnode_getwithvid(vp, vid))
 			return (NULL);
+
+		/* unless the flag is set, always return the node locked */
+		if ((smbnode_lock(np, SMBFS_EXCLUSIVE_LOCK)) != 0) {
+			vnode_put(vp);
+			return (NULL);
+		}
+
+		np->n_lastvop = smb_hashget;
+#if 0
+		/*
+		 * %%%
+		 *
+		 * Would like to add support for these flags in the future.
+		 *
+		 * Skip cnodes that are not in the name space anymore
+		 * we need to check again with the cnode lock held
+		 * because we may have blocked acquiring the vnode ref
+		 * or the lock on the cnode which would allow the node
+		 * to be unlinked
+		 */
+		if (np->n_flag & (N_NOEXISTS | NMARKEDFORDLETE)) {
+			smbnode_unlock(np);			
+			vnode_put(vp);
+			return (NULL);
+		}			
+#endif			
 		return (vp);
 	}
 	smbfs_hash_unlock(smp);
 	return (NULL);
 }
 
-int
-smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
-	struct smbfattr *fap, vnode_t *vpp, u_long makeentry, enum vtype vt)
+/*
+ * We need to test to see if the vtype changed on the node. We currently only support
+ * three types of vnodes (VDIR, VLNK, and VREG). If the network transacition came
+ * from one of the new UNIX extensions then we can just test to make sure the vtype
+ * is the same. Otherwise we cannot tell the difference between a symbolic link and
+ * a regular file at this point. So we just make sure it didn't change from a file
+ * to a directory or vise versa. 
+ */
+static int node_vtype_changed(vnode_t vp, enum vtype node_vtype, struct smbfattr *fap)
+{
+	if (vnode_isnamedstream(vp))	/* Streams have no type so ignore them */
+		return FALSE;
+	/* UNIX extension call trust it */
+	if (fap->fa_unix)
+		return (fap->fa_vtype != node_vtype);
+	else if ((node_vtype == VDIR) && (fap->fa_vtype == VDIR)) 
+		return FALSE;
+	else if ((node_vtype != VDIR) && (fap->fa_vtype != VDIR))
+		return FALSE;
+	return TRUE;
+}
+
+/* 
+ * smbfs_nget
+ *
+ * When calling this routine remember if you get a vpp back and no error then
+ * the smbnode is locked and you will need to unlock it.
+ */
+int smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen, struct smbfattr *fap, vnode_t *vpp, 
+			   u_long cnflags, vfs_context_t vfsctx)
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
-	struct smbnode_hashhead *nhpp;
 	struct smbnode *np, *dnp;
 	vnode_t vp;
 	int error = 0, cerror;
-	char *namep = NULL;
 	u_long	hashval;
 	struct vnode_fsparam vfsp;
-	struct componentname cn;
-
+	int locked = 0;
+	struct smb_cred scred;
+	struct componentname cnp;
+	
 	*vpp = NULL;
 	if ((vfs_isforce(smp->sm_mp)))
 		return ENXIO;
-	if (smp->sm_root != NULL && dvp == NULL) {
-		SMBERROR("do not allocate root vnode twice!\n");
+	if (smp->sm_rvp != NULL && dvp == NULL) {
 		return EINVAL;
 	}
 	if (nmlen == 2 && bcmp(name, "..", 2) == 0) {
@@ -210,34 +367,57 @@ smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
 			return EINVAL;
 		vp = VTOSMB(dvp)->n_parent->n_vnode;
 		error = vnode_get(vp);
-		if (error == 0)
-			*vpp = vp;
+		if (error == 0) {
+			error = smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK);
+			if (error)
+				vnode_put(vp);
+			else
+				*vpp = vp;
+		}
 		return (error);
 	} else if (nmlen == 1 && name[0] == '.') {
-		SMBERROR("do not call me with dot!\n");
+		SMBDEBUG("do not call me with dot!\n");
 		return (EINVAL);
 	}
 	dnp = dvp ? VTOSMB(dvp) : NULL;
 	if (dnp == NULL && dvp != NULL) {
-		SMBERROR("dead parent vnode\n");
+		SMBDEBUG("dead parent vnode\n");
 		return (EINVAL);
 	}
-	if (makeentry) {
-		bzero(&cn, sizeof(cn));
-		cn.cn_nameptr = (char *)name;
-		cn.cn_namelen = nmlen;
-	}
+	/* If we are going to add it to the name cache, then make sure its the name on the server that gets used */
+	bzero(&cnp, sizeof(cnp));
+	cnp.cn_nameptr = (char *)name;
+	cnp.cn_namelen = nmlen;
+	cnp.cn_flags = cnflags;
+	
 	MALLOC(np, struct smbnode *, sizeof *np, M_SMBNODE, M_WAITOK);
 	hashval = smbfs_hash((u_char *)name, nmlen);
-	if ((*vpp = smb_hashget(smp, dnp, hashval, (u_char *)name, nmlen)) != NULL) {
-		FREE(np, M_SMBNODE);
-		vp = *vpp;
-		/* update the attr_cache info if the file is clean */
-		if (fap && !(VTOSMB(vp)->n_flag & NFLUSHWIRE))
-			smbfs_attr_cacheenter(vp, fap);
-		if (dvp && makeentry)
-			cache_enter(dvp, vp, &cn);
-		return (0);
+	if ((*vpp = smb_hashget(smp, dnp, hashval, (u_char *)name, nmlen, 0, NULL)) != NULL) {
+		DBG_ASSERT(!vnode_isnamedstream(*vpp));
+		if (fap && node_vtype_changed(*vpp, vnode_vtype(*vpp), fap)) {
+			/* 
+			 * The node we found has the wrong vtype. We need to remove this one and create the
+			 * new entry. Purge the old node from the name cache, remove it from our hash table, 
+			 * and clear its cache timer. 
+			 */
+			SMBWARNING("%s was %d now its %d\n", VTOSMB(*vpp)->n_name, vnode_vtype(*vpp), fap->fa_vtype);
+			cache_purge(*vpp);
+			smb_vhashrem(VTOSMB(*vpp));
+			VTOSMB(*vpp)->attribute_cache_timer = 0;
+			smbnode_unlock(VTOSMB(*vpp));	/* Release the smbnode lock */
+			vnode_put(*vpp);
+			/* Now fall through and create the node with the correct vtype */
+			*vpp = NULL;
+		} else {
+			FREE(np, M_SMBNODE);
+			/* update the attr_cache info, this is never a stream node */
+			if (fap)
+				smbfs_attr_cacheenter(*vpp, fap, FALSE);
+			if (dvp && (cnp.cn_flags & MAKEENTRY))
+				cache_enter(dvp, *vpp, &cnp);
+			return (0);
+			
+		}
 	}
 	/*
 	 * If we don't have node attributes, then it is an explicit lookup
@@ -248,59 +428,80 @@ smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
 		return (ENOENT);
 	}
 	bzero(np, sizeof(*np));
+	lck_rw_init(&np->n_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
+	(void) smbnode_lock(np, SMBFS_EXCLUSIVE_LOCK);
+	/* if we error out, don't forget to unlock this */
+	locked = 1;
+	np->n_lastvop = smbfs_nget;
+
 	np->n_vnode = NULL;	/* redundant, but emphatic! */
 	np->n_mount = smp;
 	np->n_size = fap->fa_size;
+	np->n_data_alloc = fap->fa_data_alloc;
 	np->n_ino = fap->fa_ino;
-	namep = (char *)smbfs_name_alloc((u_char *)name, nmlen);
-	np->n_name = (u_char *)namep;
+	np->n_name = smbfs_name_alloc((u_char *)name, nmlen);
 	np->n_nmlen = nmlen;
 	np->n_uid = KAUTH_UID_NONE;
 	np->n_gid = KAUTH_GID_NONE;
 	SET(np->n_flag, NALLOC);
-	smbfs_hash_lock(smp);
-	nhpp = SMBFS_NOHASH(smp, hashval);
-	LIST_INSERT_HEAD(nhpp, np, n_hash);
-	smbfs_hash_unlock(smp);
+	smb_vhashadd(np, hashval);
 	if (dvp) {
 		np->n_parent = dnp;
 		if (!vnode_isvroot(dvp)) {
-			vnode_get(dvp);
-			vnode_ref(dvp);
-			vnode_put(dvp);
-			np->n_flag |= NREFPARENT;
+			/* Make sure we can get the vnode, we could have an unmount about to happen */
+			if (vnode_get(dvp) == 0) {
+				if (vnode_ref(dvp) == 0)	/* If we can get a refcnt then mark the child */
+					np->n_flag |= NREFPARENT;
+				vnode_put(dvp);				
+			}
 		}
 	}
 
 	vfsp.vnfs_mp = mp;
-	vfsp.vnfs_vtype = vt ? vt : ((fap->fa_attr & SMB_FA_DIR) ? VDIR : VREG);
+	/*
+	 * We now keep the type of node in fa_vtype. We fill this in ourself depending on information we obtain from
+	 * the network or we determine from one of the create routines. In the future the UNIX extensions will 
+	 * return this information and we can support all vtype if we want to, but for now we only support VDIR, VREG, 
+	 * and VLNK.
+	 */
+	vfsp.vnfs_vtype = fap->fa_vtype;
 	vfsp.vnfs_str = "smbfs";
 	vfsp.vnfs_dvp = dvp;
 	vfsp.vnfs_fsnode = np;
-	vfsp.vnfs_cnp = makeentry ? &cn : NULL;
+	vfsp.vnfs_cnp = (dvp && (cnp.cn_flags & MAKEENTRY)) ? &cnp : NULL;
 	vfsp.vnfs_vops = smbfs_vnodeop_p;
 	vfsp.vnfs_rdev = 0;	/* no VBLK or VCHR support */
-	vfsp.vnfs_flags = makeentry ? 0 : VNFS_NOCACHE;
-        vfsp.vnfs_markroot = (np->n_ino == 2);
-        vfsp.vnfs_marksystem = 0;
-
-	if (vfsp.vnfs_vtype == VREG && np->n_size == SMB_SYMLEN) {
+	vfsp.vnfs_flags = (dvp && (cnp.cn_flags & MAKEENTRY)) ? 0 : VNFS_NOCACHE;
+	vfsp.vnfs_markroot = (np->n_ino == 2);
+	vfsp.vnfs_marksystem = 0;
+	
+	smb_scred_init(&scred, vfsctx);
+	/*
+	 * We are now safe to do lookups with the node. We need to be careful with the n_vnode field and we 
+	 * should always check to make sure its not null before access that field. The current code always
+	 * makes that check.
+	 * 
+	 * So if this is the root vnode then we need to make sure we can access it across network without any errors.
+	 * We keep a reference on the root vnode so this only happens once at mount time.
+	 *
+	 * If this is a regular file then we need to see if its one of our special symlink files.
+	 */
+	if ((vfsp.vnfs_vtype == VDIR) && (dvp == NULL) && (smp->sm_rvp == NULL) && (np->n_ino == 2)) {
+		error = smbfs_smb_lookup(np, NULL, NULL, fap, &scred);
+		if (error)
+			goto errout;			
+	} else  if ((vfsp.vnfs_vtype == VREG) && (np->n_size == SMB_SYMLEN)) {
 		uio_t uio;
-		struct smb_cred scred;
 		struct smb_share *ssp = smp->sm_share;
 		MD5_CTX md5;
-		char m5b[SMB_SYMMD5LEN-1];
+		char m5b[SMB_SYMMD5LEN];
 		u_int32_t state[4];
 		int len = 0;
 		unsigned char *sb, *cp;
-		vfs_context_t vfsctx;
 		u_int16_t	fid = 0;
 
-		vfsctx = vfs_context_create((vfs_context_t)0);
-
-		smb_scred_init(&scred, vfsctx);
-		error = smbfs_smb_tmpopen(np, SA_RIGHT_FILE_READ_DATA, &scred,
-					  &fid);
+		DBG_ASSERT(dvp);
+		error = smbfs_smb_tmpopen(np, SA_RIGHT_FILE_READ_DATA, &scred, &fid);
 		if (!error) {
 			MALLOC(sb, void *, np->n_size, M_TEMP, M_WAITOK);
 			uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
@@ -309,48 +510,57 @@ smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
 			uio_free(uio);
 			cerror = smbfs_smb_tmpclose(np, fid, &scred);
 			if (cerror)
-				SMBERROR("error %d closing fid %d file %.*s\n",
-					 cerror, fid, np->n_nmlen, np->n_name);
-			if (!error &&
-			    !bcmp(sb, smb_symmagic, SMB_SYMMAGICLEN)) {
-				for (cp = &sb[SMB_SYMMAGICLEN];
-				     cp < &sb[SMB_SYMMAGICLEN+SMB_SYMLENLEN-1];
-				     cp++) {
+				SMBERROR("error %d closing fid %d file %.*s\n", cerror, fid, np->n_nmlen, np->n_name);
+			if (!error && !bcmp(sb, smb_symmagic, SMB_SYMMAGICLEN)) {
+				for (cp = &sb[SMB_SYMMAGICLEN]; cp < &sb[SMB_SYMMAGICLEN+SMB_SYMLENLEN-1]; cp++) {
 					if (!isdigit(*cp))
 						break;
 					len *= 10;
 					len += *cp - '0';
 				}
 				cp++; /* skip newline */
-				if (cp != &sb[SMB_SYMMAGICLEN+SMB_SYMLENLEN] ||
-				    len > np->n_size - SMB_SYMHDRLEN) {
+				if ((cp != &sb[SMB_SYMMAGICLEN+SMB_SYMLENLEN]) || (len > (np->n_size - SMB_SYMHDRLEN))) {
 					SMBERROR("bad symlink length\n");
 				} else {
 					MD5Init(&md5);
-					MD5Update(&md5, &sb[SMB_SYMHDRLEN],
-						  len);
-					MD5Final((u_char *)state, &md5);
-					(void)sprintf(m5b, "%08x%08x%08x%08x",
+					MD5Update(&md5, &sb[SMB_SYMHDRLEN], len);
+					MD5Final((u_char *)state, &md5); 
+					(void)snprintf(m5b, sizeof(m5b), "%08x%08x%08x%08x",
 						      htobel(state[0]), htobel(state[1]), htobel(state[2]), htobel(state[3]));
 					if (bcmp(cp, m5b, SMB_SYMMD5LEN-1)) {
 						SMBERROR("bad symlink md5\n");
 					} else {
 						vfsp.vnfs_vtype = VLNK;
+						fap->fa_vtype = VLNK;
 						np->n_size = len;
+						np->n_flag |= NWINDOWSYMLNK;
 					}
 				}
 			}
 			FREE(sb, M_TEMP);
 		}
-		vfs_context_rele(vfsctx);
 	}
 	vfsp.vnfs_filesize = np->n_size;
 	error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &vp);
 	if (error)
 		goto errout;
 	np->n_vnode = vp;
+	/* Initialize the lock used for the open state, open deny list and resource size/timer */
+	if (!vnode_isdir(vp)) {
+		lck_mtx_init(&np->f_openStateLock, smbfs_mutex_group, smbfs_lock_attr);
+		lck_mtx_init(&np->rfrkMetaLock, smbfs_mutex_group, smbfs_lock_attr);
+		lck_mtx_init(&np->f_openDenyListLock, smbfs_mutex_group, smbfs_lock_attr);
+	}
 
-	smbfs_attr_cacheenter(vp, fap);	/* update the attr_cache info */
+	/*
+	 * When the root vnode gets create there is no cahce information yet.
+	 * We are creating the root vnode ourself and we have not done a 
+	 * lookup yet. This fixes Radar 4369143. Once the mount call is done the
+	 * system will do a lookup of the root vnode and the cache information
+	 * will get updated.
+	 */
+	 if (!vnode_isvroot(vp))
+		smbfs_attr_cacheenter(vp, fap, FALSE);	/* update the attr_cache info, this is never a stream node */
 
 	*vpp = vp;
 	CLR(np->n_flag, NALLOC);
@@ -359,108 +569,273 @@ smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen,
 	return 0;
 errout:
 	if (np->n_flag & NREFPARENT) {
-		vnode_get(dvp);
-		vnode_rele(dvp);
-		vnode_put(dvp);
+		if (vnode_get(dvp) == 0) {
+			vnode_rele(dvp);
+			vnode_put(dvp);			
+		}
+		np->n_flag &= ~NREFPARENT;
 	}
+	
 	smb_vhashrem(np);
-        if (ISSET(np->n_flag, NWALLOC))
-                wakeup(np);
-	if (namep)
-		smbfs_name_free((u_char *)namep);
+	
+	if (locked == 1)
+		smbnode_unlock(np);	/* Release the smbnode lock */
+
+	if (ISSET(np->n_flag, NWALLOC))
+		wakeup(np);
+		
+	if (np->n_name)
+		smbfs_name_free(np->n_name);
+
 	FREE(np, M_SMBNODE);
 	return error;
 }
 
-/* freebsd bug: smb_vhashrem is so we cant nget unlinked nodes */
-void
-smb_vhashrem(struct smbnode *np)
+/* 
+* smbfs_find_vgetstrm
+ *
+ * When calling this routine remember if you get a vpp back and no error then
+ * the smbnode is locked and you will need to unlock it.
+ */
+PRIVSYM vnode_t smbfs_find_vgetstrm(struct smbmount *smp, struct smbnode *np, const char *sname)
 {
-	smbfs_hash_lock(np->n_mount);
-	if (np->n_hash.le_prev) {
-		LIST_REMOVE(np, n_hash);
-		np->n_hash.le_prev = NULL;
-	}
-	smbfs_hash_unlock(np->n_mount);
-	return;
+	u_long	hashval;
+	
+	hashval = smbfs_hash(np->n_name, np->n_nmlen);
+	return(smb_hashget(smp, np->n_parent, hashval, np->n_name, np->n_nmlen, N_ISSTREAM, sname));
 }
 
+/* 
+* smbfs_vgetstrm
+ *
+ * When calling this routine remember if you get a vpp back and no error then
+ * the smbnode is locked and you will need to unlock it.
+ */
+PRIVSYM int smbfs_vgetstrm(struct smbmount *smp, vnode_t vp, vnode_t *svpp, struct smbfattr *fap, const char *sname)
+{
+	struct smbnode *np, *snp;
+	int error = 0;
+	u_long	hashval;
+	struct vnode_fsparam vfsp;
+	int locked = 0;
+	
+	/* Better have a root vnode at this point */
+	DBG_ASSERT(smp->sm_rvp);
+	/* Better have a parent vnode at this point */
+	DBG_ASSERT(vp);
+	/* Parent vnode better not be a directory */
+	DBG_ASSERT((!vnode_isdir(vp)));
+	/* Parent vnode better not be a stream */
+	DBG_ASSERT(!vnode_isnamedstream(vp));
+	np = VTOSMB(vp);
+	*svpp = NULL;
+	
+	if (vfs_isforce(smp->sm_mp))
+		return ENXIO;
+	
+	MALLOC(snp, struct smbnode *, sizeof *snp, M_SMBNODE, M_WAITOK);
+	hashval = smbfs_hash(np->n_name, np->n_nmlen);
+	if ((*svpp = smb_hashget(smp, np->n_parent, hashval, np->n_name, np->n_nmlen, N_ISSTREAM, sname)) != NULL) {
+		FREE(snp, M_SMBNODE);
+		/* 
+		 * If this is the resource stream then the parents resource fork size has already been update. The calling routine
+		 * aleady updated it. Remember that the parent is currently locked. smbfs_attr_cacheenter can lock the parent if we
+		 * tell it to update the parent, so never tell it to update the parent in this routine. 
+		 */
+		smbfs_attr_cacheenter(*svpp, fap, FALSE);
+		return (0);
+	}
+	bzero(snp, sizeof(*snp));
+	lck_rw_init(&snp->n_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
+	(void) smbnode_lock(snp, SMBFS_EXCLUSIVE_LOCK);	
+	locked = 1;
+	snp->n_lastvop = smbfs_vgetstrm;
+	
+	snp->n_mount = smp;
+	snp->n_size =  fap->fa_size;
+	snp->n_data_alloc = fap->fa_data_alloc;
+	snp->n_ino = np->n_ino;
+	snp->n_name = smbfs_name_alloc(np->n_name, np->n_nmlen);
+	snp->n_nmlen = np->n_nmlen;
+	snp->n_uid = np->n_uid;
+	snp->n_gid = np->n_gid;
+	snp->n_parent = np->n_parent;
+	/* Only a stream node can have a stream name */
+	snp->n_snmlen = strlen(sname);
+	snp->n_sname = smbfs_name_alloc((u_char *)sname, snp->n_snmlen);
+	
+	SET(snp->n_flag, N_ISSTREAM);
+	/* Special case that I would like to remove some day */
+	if (bcmp(sname, SFM_RESOURCEFORK_NAME, sizeof(SFM_RESOURCEFORK_NAME)) == 0)
+		SET(snp->n_flag, N_ISRSRCFRK);
+	SET(snp->n_flag, NALLOC);
+	smb_vhashadd(snp, hashval);
+	vfsp.vnfs_mp = smp->sm_mp;
+	vfsp.vnfs_vtype = VREG;
+	vfsp.vnfs_str = "smbfs";
+	vfsp.vnfs_dvp = NULL;
+	vfsp.vnfs_fsnode = snp;
+	vfsp.vnfs_cnp = NULL;
+	vfsp.vnfs_vops = smbfs_vnodeop_p;
+	vfsp.vnfs_rdev = 0;	/* no VBLK or VCHR support */
+	vfsp.vnfs_flags = VNFS_NOCACHE;
+	vfsp.vnfs_markroot = 0;
+	vfsp.vnfs_marksystem = 0;
+	vfsp.vnfs_filesize = fap->fa_size;
+	
+	error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, svpp);
+	if (error)
+		goto errout;
+	snp->n_vnode = *svpp;
+	lck_mtx_init(&np->f_openStateLock, smbfs_mutex_group, smbfs_lock_attr);
+	lck_mtx_init(&np->f_openDenyListLock, smbfs_mutex_group, smbfs_lock_attr);
+	/* 
+	 * If this is the resource stream then the parents resource fork size has already been update. The calling routine
+	 * aleady updated it. Remember that the parent is currently locked. smbfs_attr_cacheenter can lock the parent if we
+	 * tell it to update the parent, so never tell it to update the parent in this routine. 
+	 */
+	smbfs_attr_cacheenter(*svpp, fap, FALSE);
+	
+	CLR(snp->n_flag, NALLOC);
+	if (ISSET(snp->n_flag, NWALLOC))
+		wakeup(snp);
+	return 0;
+	
+errout:;	
+	smb_vhashrem(snp);
+	
+	if (locked == 1)
+		smbnode_unlock(snp);	/* Release the smbnode lock */
+	
+	if (ISSET(snp->n_flag, NWALLOC))
+		wakeup(snp);
+	
+	if (snp->n_name)
+		smbfs_name_free(snp->n_name);
+	if (snp->n_sname)
+		smbfs_name_free(snp->n_sname);
+	
+	FREE(snp, M_SMBNODE);
+	return error;
+}
+
+/* 
+ * Update the nodes resource fork size if needed. 
+ * NOTE: Remmeber the parent can lock the child while hold its lock, but the child cannot lock the parent unless
+ * the child is not holding its lock. So this routine is safe, because the parent is locking the child.
+ */
+int smb_get_rsrcfrk_size(vnode_t vp, struct smb_cred *scredp)
+{
+	struct smbnode *np = VTOSMB(vp);
+	u_int64_t strmsize = 0;
+	time_t attrtimeo;
+	struct timespec ts;
+	int error = 0;
+	time_t rfrk_cache_timer;
+
+	SMB_CACHE_TIME(ts, np, attrtimeo);
+	lck_mtx_lock(&np->rfrkMetaLock);
+	rfrk_cache_timer = ts.tv_sec - np->rfrk_cache_timer;
+	lck_mtx_unlock(&np->rfrkMetaLock);
+	/* Cache has expired go get the resource fork size. */
+	if (rfrk_cache_timer > attrtimeo) {
+		error = smbfs_smb_qstreaminfo(np, scredp, NULL, NULL, SFM_RESOURCEFORK_NAME, &strmsize);
+		/* 
+		 * We got the resource stream size from the server, now update the resource stream
+		 * if we have one. Search our hash table and see if we have a stream, if we find one
+		 * then smbfs_find_vgetstrm will return it with  a vnode_get and a smb node lock on it.
+		 */
+		if (error == 0) {
+			struct smbmount *smp = VTOSMBFS(vp);
+			vnode_t svpp = smbfs_find_vgetstrm(smp, np, SFM_RESOURCEFORK_NAME);
+			
+			if (svpp) {
+				VTOSMB(svpp)->n_size = strmsize;	/* Update the stream's size */
+				/* Remember the only attribute for a stream is its size */
+				nanotime(&ts);
+				VTOSMB(svpp)->attribute_cache_timer = ts.tv_sec;
+				smbnode_unlock(VTOSMB(svpp));
+				vnode_put(svpp);
+			}
+		} else {
+			/* 
+			 * Remeber that smbfs_smb_qstreaminfo will update the resource forks cache and size if it finds 
+			 * the resource fork. We are handling the negative cache timer here. If we get an error then there
+			 * is no resource fork so update the cache.
+			 */
+			lck_mtx_lock(&np->rfrkMetaLock);
+			np->rfrk_size = 0;
+			nanotime(&ts);
+			np->rfrk_cache_timer = ts.tv_sec;
+			lck_mtx_unlock(&np->rfrkMetaLock);
+		}
+	}		
+	return(error);
+}
 
 /*
- * Free smbnode, and give vnode back to system
+ * Anytime the stream is updated we need to update the parent's meta data. In the resource fork case this
+ * means updating the resource size and the resource size cache timer. For other streams it just means clearing the
+ * meta data cache timer. We can update the parent's resource stream size and resource cache timer here because we
+ * don't need the parent locked in this case. We use a different lock when updating the parents resource size and
+ * resource cache timer. Since we cannot lock the parent node here just return the parent vnode so the calling process
+ * can handle clearing the meta data cache timer.
+ *
+ * NOTE:	smbfs_vnop_pageout calls this routine wihout the node locked. It is not setting the size so this
+ *			should be safe. If anyone edits this routine they need to keep in mind that it can be entered 
+ *			without a lock.
  */
-int
-smbfs_reclaim(ap)
-	struct vnop_reclaim_args /* {
-		struct vnodeop_desc *a_desc;
-		vnode_t a_vp;
-		vfs_context_t a_context;
-	} */ *ap;
+vnode_t smb_update_rsrc_and_getparent(vnode_t vp, int setsize)
 {
-	vnode_t vp = ap->a_vp;
-	vnode_t dvp;
 	struct smbnode *np = VTOSMB(vp);
-	struct smbmount *smp = VTOSMBFS(vp);
+	vnode_t parent_vp = vnode_getparent(vp);
+	struct timespec ts;
+
+	/* If this is a resource stream then update the parents resource fork size and resource cache timer */
+	if ((parent_vp) && (np->n_flag & N_ISRSRCFRK)) {
+		lck_mtx_lock(&VTOSMB(parent_vp)->rfrkMetaLock);
+		
+		/* They want us to update the size */
+		if (setsize) {
+			VTOSMB(parent_vp)->rfrk_size = np->n_size;
+			nanotime(&ts);
+			VTOSMB(parent_vp)->rfrk_cache_timer = ts.tv_sec;					
+		} else if (VTOSMB(parent_vp)->rfrk_size != np->n_size)	/* Something changed just reset the cache timer */
+			VTOSMB(parent_vp)->rfrk_cache_timer = 0;
 	
-	SET(np->n_flag, NTRANSIT);
-
-	dvp = (np->n_parent && (np->n_flag & NREFPARENT)) ?
-	    np->n_parent->n_vnode : NULL;
-
-	smb_vhashrem(np);
-
-	cache_purge(vp);
-	if (smp->sm_root == np) {
-		SMBVDEBUG("root vnode\n");
-		smp->sm_root = NULL;
+		lck_mtx_unlock(&VTOSMB(parent_vp)->rfrkMetaLock);
 	}
-	vnode_clearfsnode(vp);
-	if (np->n_name)
-		smbfs_name_free(np->n_name);
-        CLR(np->n_flag, (NALLOC|NTRANSIT));
-        if (ISSET(np->n_flag, NWALLOC) || ISSET(np->n_flag, NWTRANSIT)) {
-        	CLR(np->n_flag, (NWALLOC|NWTRANSIT));
-                wakeup(np);
-	}
-	FREE(np, M_SMBNODE);
-	if (dvp) {
-		vnode_get(dvp);
-		vnode_rele(dvp);
-		vnode_put(dvp);
-	}
-	return 0;
+	return(parent_vp);	
 }
 
-
-int
-smbfs_inactive(ap)
-	struct vnop_inactive_args /* {
-		struct vnodeop_desc *a_desc;
-		vnode_t a_vp;
-		vfs_context_t a_context;
-	} */ *ap;
+/* 
+ * Given a parent vnode lock the node , clear the meta cache timer, unlock it and then release the vnode. The
+ * child node must not be locked while this routine is being call. Remmeber the parent can lock the child while holds
+ * its own lock, but the child cannot lock the parent unless the child is not holding its own lock. So this routine is 
+ * safe, because the child has already release it lock before calling this routine.
+ */
+void smb_clear_parent_cache_timer(vnode_t parent_vp)
 {
-	vnode_t vp = ap->a_vp;
-	struct smbnode *np = VTOSMB(vp);
-	struct smb_cred scred;
-	int error;
+	if (parent_vp) {
+		if (smbnode_lock(VTOSMB(parent_vp), SMBFS_EXCLUSIVE_LOCK) == 0) {
+			VTOSMB(parent_vp)->attribute_cache_timer = 0;
+			smbnode_unlock(VTOSMB(parent_vp));			
+		}
+		vnode_put(parent_vp);		
+	}	
+}
 
-	if (np->n_fidrefs) {
-		if (np->n_fidrefs != 1)
-			SMBERROR("opencount %d fid %d file %.*s\n",
-				 np->n_fidrefs, np->n_fid,
-				 np->n_nmlen, np->n_name);
-		error = smbfs_vinvalbuf(vp, V_SAVE, ap->a_context, 1);
-		smb_scred_init(&scred, ap->a_context);
-		np->n_fidrefs = 0;
-		error = smbfs_smb_close(np->n_mount->sm_share, np->n_fid, 
-					NULL, &scred);
-		if (error)
-			SMBERROR("error %d closing fid %d file %.*s\n", error,
-				 np->n_fid, np->n_nmlen, np->n_name);
-		np->n_fid = 0;
-	}
-	return (0);
+static int smb_gid_match(struct smbmount *smp, u_int64_t node_gid)
+{
+    int ii;
+
+	if (node_gid == smp->ntwrk_gid)
+		return TRUE;
+	
+	for (ii=0; ii < smp->ntwrk_cnt_gid; ii++)
+		if (node_gid == smp->ntwrk_gids[ii])
+			return TRUE;
+	return FALSE;
 }
 
 /*
@@ -474,15 +849,28 @@ smbfs_inactive(ap)
  * behaviour.
  */
 void
-smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap)
+smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap, int UpdateResourceParent)
 {
+	struct smbmount *smp = VTOSMBFS(vp);
+	struct smb_share *ssp = smp->sm_share;
 	struct smbnode *np = VTOSMB(vp);
-	int vtype;
+	enum vtype node_vtype;
 	struct timespec ts;
 
-	vtype = vnode_vtype(vp);
+	node_vtype = vnode_vtype(vp);
+	/* 
+	 * The vtype of node has changed, so remove it from the name cache and our hash table.
+	 * We set the cache timer to zero this will cause cache lookup routine to return ENOENT  
+	 */
+	if (node_vtype_changed(vp, node_vtype, fap)) {
+		SMBWARNING("%s was %d now its %d\n", np->n_name, node_vtype, fap->fa_vtype);
+		np->attribute_cache_timer = 0;
+		cache_purge(vp);
+		smb_vhashrem(np);
+		return;
+	}
 
-	if (vtype == VREG) {
+	if (node_vtype == VREG) {
 		if (np->n_size != fap->fa_size) {
 			off_t old, newround;
 			if (timespeccmp(&fap->fa_reqtime, &np->n_sizetime, <))
@@ -490,27 +878,106 @@ smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap)
 			old = (off_t)np->n_size;
 			newround = round_page_64((off_t)fap->fa_size);
 			if (old > newround) {
-				if (!ubc_sync_range(vp, newround, old,
-						    UBC_INVALIDATE))
-					SMBERROR("ubc_sync_range failed");
+				int error = ubc_msync(vp, newround, old, NULL, UBC_INVALIDATE);
+				if (error)
+					SMBERROR("ubc_msync failed! %d\n", error);
 			}
 			smbfs_setsize(vp, fap->fa_size);
 		}
-	} else if (vtype == VDIR) {
+	} else if (node_vtype == VDIR) {
 		np->n_size = 16384; 	/* should be a better way ... */
+		/* See if we need to clear the negative name cache */
+		if ((np->n_flag & NNEGNCENTRIES) && 
+			((ssp->ss_fstype == SMB_FS_FAT) || (timespeccmp(&fap->fa_mtime, &np->n_mtime, >)))) {
+			np->n_flag &= ~NNEGNCENTRIES;
+			cache_purge_negatives(vp);			
+		}
 		/*
 		 * Don't allow mtime to go backwards.
 		 * Yes this has its flaws.  Better ideas are welcome!
 		 */
 		if (timespeccmp(&fap->fa_mtime, &np->n_mtime, <))
 			fap->fa_mtime = np->n_mtime;
-	} else if (vtype != VLNK)
+	} else if (node_vtype != VLNK)
 		return;
+	
+	/* The server told us the allocation size return what they told us */
+	np->n_data_alloc = fap->fa_data_alloc;
+
+	if (fap->fa_unix) {
+		np->n_flags_mask = fap->fa_flags_mask;
+		np->n_nlinks = fap->fa_nlinks;
+		np->n_flag |= NGOTIDS;
+		np->n_mode &= ~ACCESSPERMS;
+		/* local user matches network user assume they are in the same directory name space */
+		if ((smp->sm_args.uid == (uid_t)(smp->ntwrk_uid & 0xffff)) &&
+			(smp->sm_args.gid == (gid_t)(smp->ntwrk_gid & 0xffff))) {
+			np->n_uid = (uid_t)(fap->fa_uid & 0xffff);
+			np->n_gid = (gid_t)(fap->fa_gid & 0xffff);
+			np->n_mode |= (mode_t)(fap->fa_permissions & ACCESSPERMS);
+		} else {
+			int uid_match = (fap->fa_uid == smp->ntwrk_uid);
+			int gid_match = smb_gid_match(smp, fap->fa_gid);
+			
+			np->n_uid = smp->sm_args.uid;
+			np->n_gid = smp->sm_args.gid;
+			if (!uid_match && !gid_match) {
+				/* Use other perms */
+				np->n_mode |= (mode_t)(fap->fa_permissions & S_IRWXO);
+				/* use other for group */
+				np->n_mode |= (mode_t)((fap->fa_permissions & S_IRWXO) << 3);			
+				/* use other for owner */
+				np->n_mode |= (mode_t)((fap->fa_permissions & S_IRWXO) << 6);			
+			} else if (!uid_match && gid_match) {
+				/* Use group and other perms  */
+				np->n_mode |= (mode_t)(fap->fa_permissions & (S_IRWXG | S_IRWXO));			
+				/* use group for owner */
+				np->n_mode |= (mode_t)((fap->fa_permissions & S_IRWXG) <<  3);			
+			} else if (uid_match && !gid_match) {
+				/* Use owner and other perms */
+				np->n_mode |= (mode_t)(fap->fa_permissions & (S_IRWXU | S_IRWXO));			
+				/* use other for group */
+				np->n_mode |= (mode_t)((fap->fa_permissions & S_IRWXO) << 3);			
+			} else {
+				/* Use owner, group and other perms */
+				np->n_mode |= (mode_t)(fap->fa_permissions & ACCESSPERMS);
+			}
+		}
+	} else if ((UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP) && (np->n_flags_mask & EXT_IMMUTABLE)) {
+		/* 
+		 * We are doing unix extensions yet this fap didn't come from the unix info2 call. The
+		 * fa_attr could be wrong. We cannot trust the read only bit in this case so leave it set
+		 * the the value we got from the last unix info2 call. This happens in NtCreateAndX.
+		 */
+		fap->fa_attr &= ~SMB_FA_RDONLY;	/* Can't trust the one we just got in */
+		fap->fa_attr |= (np->n_dosattr & SMB_FA_RDONLY);	/* Leave it set to what it was before */
+	}
+
+	/*
+	 * Not sure if this is still a problem. In the old days the finder did
+	 * not like it when the create time of the root or directory was after
+	 * the modify time. This can and will happen on FAT file systems. For
+	 * now lets leave it alone and see what happens.
+	 */
+	np->n_crtime = fap->fa_crtime;
+	np->n_chtime = fap->fa_chtime;
+	np->n_atime = fap->fa_atime;
 	np->n_mtime = fap->fa_mtime;
 	np->n_dosattr = fap->fa_attr;
 	np->n_flag &= ~NATTRCHANGED;
 	nanotime(&ts);
-	np->n_attrage = ts.tv_sec;
+	np->attribute_cache_timer = ts.tv_sec;
+	/*
+	 * UpdateResourceParent says it is ok to update the parent if this is a resource stream. So if this is a stream
+	 * and its the resource stream then update the parents resource fork size and cache timer. If we can't get the 
+	 * parent then just get out, when the timer goes off the parent will just have to make the wire call.
+	 */
+	if (UpdateResourceParent && (vnode_isnamedstream(vp)) && (np->n_flag & N_ISRSRCFRK)) {
+		vnode_t parent_vp = smb_update_rsrc_and_getparent(vp, fap->fa_size);
+		/* We no longer need the parent so release it. */
+		if (parent_vp)  
+			vnode_put(parent_vp);
+	}
 	return;
 }
 
@@ -520,24 +987,32 @@ smbfs_attr_cachelookup(vnode_t vp, struct vnode_attr *va,
 {
 	struct smbnode *np = VTOSMB(vp);
 	struct smbmount *smp = VTOSMBFS(vp);
+	struct smb_share *ssp = smp->sm_share;
 	time_t attrtimeo;
 	struct timespec ts;
 	mode_t	type;
 
-	/*
-	 * Determine attrtimeo. It will be something between SMB_MINATTRTIMO and
-	 * SMB_MAXATTRTIMO where recently modified files have a short timeout
-	 * and files that haven't been modified in a long time have a long
-	 * timeout. This is the same algorithm used by NFS.
-	 */
-	nanotime(&ts);
-	attrtimeo = (ts.tv_sec - np->n_mtime.tv_sec) / 10;
-	if (attrtimeo < SMB_MINATTRTIMO) {
-		attrtimeo = SMB_MINATTRTIMO;
-	} else if (attrtimeo > SMB_MAXATTRTIMO)
-		attrtimeo = SMB_MAXATTRTIMO;
-	/* has too much time passed? */
-	if ((ts.tv_sec - np->n_attrage) > attrtimeo)
+	SMB_CACHE_TIME(ts, np, attrtimeo);
+
+	if ((ssp->ss_flags & SMBS_RECONNECTING) && ((smp->sm_args.altflags & SMBFS_MNT_SOFT) != SMBFS_MNT_SOFT)) {
+		/* 
+		 * We are in reconnect mode and this is not a soft mount, 
+		 * then use cached data for now.  See Radar 5092244 for more details
+		 */
+	}
+	else if (np->n_flag & NMARKEDFORDLETE) {
+		/*
+		 * The file is marked for deletion on close. We can no longer 
+		 * gain access using the path. All access must be done using
+		 * the fid. So just pretend that the cache will never expire 
+		 * for this item. 
+		 *
+		 * NOTE: Since it is marked for deletion no one else can access
+		 *       it, so the cache data should stay good through the life
+		 *       of the open file.
+		 */
+	}
+	else if ((ts.tv_sec - np->attribute_cache_timer) > attrtimeo)
 		return (ENOENT);
 
 	if (!va)
@@ -557,13 +1032,47 @@ smbfs_attr_cachelookup(vnode_t vp, struct vnode_attr *va,
 		SMBERROR("vnode_vtype %d\n", vnode_vtype(vp));
 		return (EINVAL);
 	}
+	
+	VATTR_RETURN(va, va_rdev, 0);
+	if (UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP)
+		VATTR_RETURN(va, va_nlink, np->n_nlinks);
+	else
+		VATTR_RETURN(va, va_nlink, 1);
+	
+	/* 
+	 * Looks like we need to handle total size in the streams case. The VFS layer always fill this in with the 
+	 * data fork size. Still not sure of this, but for now lets go ahead and handle if ask.
+	 */
+	if ((ssp->ss_attributes & FILE_NAMED_STREAMS) && (VATTR_IS_ACTIVE(va, va_total_size))) {
+		if (vnode_isdir(vp)) {
+			VATTR_RETURN(va, va_total_size, np->n_size);
+			lck_mtx_lock(&np->n_mount->sm_statfslock);
+			if (np->n_mount->sm_statfsbuf.f_bsize)	/* Just to be safe */
+				VATTR_RETURN(va, va_total_alloc, roundup(va->va_total_size, np->n_mount->sm_statfsbuf.f_bsize));
+			lck_mtx_unlock(&np->n_mount->sm_statfslock);
+		}
+		else if (!vnode_isnamedstream(vp)) {
+			(void)smb_get_rsrcfrk_size(vp, scredp);
+			lck_mtx_lock(&np->rfrkMetaLock);
+			VATTR_RETURN(va, va_total_size, np->n_size + np->rfrk_size);
+			lck_mtx_unlock(&np->rfrkMetaLock);
+			lck_mtx_lock(&np->n_mount->sm_statfslock);
+			if (np->n_mount->sm_statfsbuf.f_bsize)	/* Just to be safe */
+				VATTR_RETURN(va, va_total_alloc, roundup(va->va_total_size, np->n_mount->sm_statfsbuf.f_bsize));
+			lck_mtx_unlock(&np->n_mount->sm_statfslock);
+		}
+	}
+	
 	VATTR_RETURN(va, va_data_size, np->n_size);
-	VATTR_RETURN(va, va_nlink, 1);
+	VATTR_RETURN(va, va_data_alloc, np->n_data_alloc);
+
+	VATTR_RETURN(va, va_iosize, SSTOVC(smp->sm_share)->vc_txmax);
+	
 	if (VATTR_IS_ACTIVE(va, va_uid) || VATTR_IS_ACTIVE(va, va_gid) ||
 	    VATTR_IS_ACTIVE(va, va_mode)) {
 		if (!(np->n_flag & NGOTIDS)) {
 			np->n_mode = type;
-			if (smp->sm_flags & FILE_PERSISTENT_ACLS) {
+			if (ssp->ss_attributes & FILE_PERSISTENT_ACLS) {
 				if (!smbfs_getids(np, scredp)) {
 					np->n_flag |= NGOTIDS;
 					np->n_mode |= ACCESSPERMS; /* 0777 */
@@ -583,12 +1092,90 @@ smbfs_attr_cachelookup(vnode_t vp, struct vnode_attr *va,
 		VATTR_RETURN(va, va_uid, np->n_uid);
 		VATTR_RETURN(va, va_gid, np->n_gid);
 	}
-	VATTR_RETURN(va, va_fsid, vfs_statfs(vnode_mount(vp))->f_fsid.val[0]);
-	VATTR_RETURN(va, va_fileid, np->n_ino ? np->n_ino : 2);
-	VATTR_RETURN(va, va_iosize, SSTOVC(smp->sm_share)->vc_txmax);
+	if (VATTR_IS_ACTIVE(va, va_flags)) {
+		va->va_flags = 0;
+		/*
+		 * Remember that SMB_FA_ARCHIVE means the items needs to be 
+		 * archive and SF_ARCHIVED means the item has been archive.
+		 *
+		 * NOTE: Windows does not set ATTR_ARCHIVE bit for directories.
+		 */
+		if (!vnode_isdir(vp) && !(np->n_dosattr & SMB_FA_ARCHIVE))
+			va->va_flags |= SF_ARCHIVED;
+		/*
+		 * SMB_FA_RDONLY ~ UF_IMMUTABLE
+		 *
+		 * We treat the SMB_FA_RDONLY as the immutable flag. This allows
+		 * us to support the finder lock bit and makes us follow the 
+		 * MSDOS code model. See msdosfs project.
+		 *
+		 * NOTE: The ready-only flags does not exactly follow the lock/immutable bit
+		 * also note the for directories its advisory only.
+		 */
+ 		if (np->n_dosattr & SMB_FA_RDONLY)
+			va->va_flags |= UF_IMMUTABLE;
+		/* The server has it marked as hidden set the new UF_HIDDEN bit. */
+ 		if (np->n_dosattr & SMB_FA_HIDDEN)
+			va->va_flags |= UF_HIDDEN;
+		
+		VATTR_SET_SUPPORTED(va, va_flags);
+	}
+	
+	/* va_acl are done in smbfs_getattr */
+	
+	VATTR_RETURN(va, va_create_time, np->n_crtime);
 	VATTR_RETURN(va, va_modify_time, np->n_mtime);
+	/* FAT only supports the date not the time? */
 	VATTR_RETURN(va, va_access_time, np->n_atime);
-	/* XXX we could provide create_time here */
+	/* 
+	 * FAT does not support change time, so just return the modify time. 
+	 * Copied from the msdos code. SMB has no backup time so skip the
+	 * va_backup_time.
+	 */
+	if (ssp->ss_fstype == SMB_FS_FAT)
+		np->n_chtime.tv_sec = np->n_mtime.tv_sec;
+	VATTR_RETURN(va, va_change_time, np->n_chtime);
+	
+	/*
+	 * Exporting file IDs from HFS Plus:
+	 *
+	 * For "normal" files the c_fileid is the same value as the
+	 * c_cnid.  But for hard link files, they are different - the
+	 * c_cnid belongs to the active directory entry (ie the link)
+	 * and the c_fileid is for the actual inode (ie the data file).
+	 *
+	 * The stat call (getattr) uses va_fileid and the Carbon APIs,
+	 * which are hardlink-ignorant, will ask for va_linkid.
+	 */
+	VATTR_RETURN(va, va_fileid, np->n_ino ? np->n_ino : 2);
+	VATTR_RETURN(va, va_linkid, np->n_ino ? np->n_ino : 2);
+	/* 
+	 * This would require a lot more work so let the VFS layer handle it.  
+	 * VATTR_RETURN(va, va_parentid, np->n_parentid);
+	 */
+
+	VATTR_RETURN(va, va_fsid, vfs_statfs(vnode_mount(vp))->f_fsid.val[0]);
+	VATTR_RETURN(va, va_filerev, 0);	
+	VATTR_RETURN(va, va_gen, 0);
+	
+	/* 
+	 * We currently have no way to know the va_encoding. The VFS layer fills it
+	 * in with kTextEncodingMacUnicode = 0x7E. Lets leave it to the VFS layer
+	 * to handle for now.
+	 * VATTR_RETURN(va, va_encoding, 0x7E);
+	 */
+	
+	/* 
+	 * If this is the root, let VFS find out the mount name, which may be 
+	 * different from the real name 
+	 */
+	if (VATTR_IS_ACTIVE(va, va_name) && !vnode_isvroot(vp)) {
+		strlcpy ((char*) va->va_name, (char*)np->n_name, MAXPATHLEN);
+		VATTR_SET_SUPPORTED(va, va_name);
+	}
+	/* va_uuuid is done in smbfs_getattr */
+	/* va_guuid is done in smbfs_getattr */
+	/* We have no  way to get va_nchildren. Let VFS layer handle it. */
 	return (0);
 }
 
@@ -650,7 +1237,7 @@ smbfs_attr_touchdir(struct smbnode *dnp)
 	 * to check that the server doesn't have a better
 	 * timestamp next time we care.
 	 */
-	smbfs_attr_cacheremove(dnp);
+	dnp->attribute_cache_timer = 0;
 }
 
 
@@ -660,7 +1247,7 @@ smbfs_setsize(vnode_t vp, off_t size)
 	struct smbnode *np = VTOSMB(vp);
 
 	/*
-	 * n_size is used by smbfs_pageout so it must be
+	 * n_size is used by smbfs_vnop_pageout so it must be
 	 * changed before we call setsize
 	 */
 	np->n_size = size;
@@ -671,3 +1258,448 @@ smbfs_setsize(vnode_t vp, off_t size)
 	 */
 	nanotime(&np->n_sizetime);
 }
+
+/*
+ * smbfs_AddRemoveLockEntry
+ *
+ * Add .
+ * 
+ * Return Values
+ *	none
+ */
+PRIVSYM void smbfs_AddRemoveLockEntry (struct fileRefEntry *fndEntry, int64_t offset, int64_t length, int8_t unLock, u_int32_t lck_pid)
+{
+	struct ByteRangeLockEntry *curr = NULL;
+	struct ByteRangeLockEntry *prev = NULL;
+	struct ByteRangeLockEntry *new = NULL;
+	int32_t foundIt = 0;
+
+	if (unLock == 0) {	/* Locking, so add a new ByteRangeLockEntry */
+		MALLOC (new, struct ByteRangeLockEntry *, sizeof (struct ByteRangeLockEntry), M_TEMP, M_WAITOK);
+		new->offset = offset;
+		new->length = length;
+		new->lck_pid = lck_pid;
+		new->next = NULL;
+
+		curr = fndEntry->lockList;
+		if (curr == NULL) {
+			/* first entry is empty so use it */
+			fndEntry->lockList = new;
+		}
+		else { /* find the last entry and add the new entry to the end of list */
+			while (curr->next != NULL)
+				curr = curr->next;
+			curr->next = new;
+		}
+	}
+	else {	/* Unlocking, so remove a ByteRangeLockEntry */
+		curr = fndEntry->lockList;
+		if (curr == NULL) {
+		    SMBWARNING("smbfs_AddRemoveLockEntry:  no entries found\n");
+		    return;
+		}
+		
+		if ((curr->offset == offset) && (curr->length == length)) {
+			/* first entry is it, so remove it from the head */
+			fndEntry->lockList = curr->next;
+			FREE(curr, M_TEMP);
+		}
+		else {
+			/* Not the first entry, so search the rest of them */
+			prev = curr;
+			curr = curr->next;
+			while (curr != NULL) {
+				if ((curr->offset == offset) && (curr->length == length)) {
+					foundIt = 1;
+					/* found it so remove it */
+					prev->next = curr->next;
+					FREE(curr, M_TEMP);
+					break;
+				}
+				prev = curr;
+				curr = curr->next;
+			}
+
+			if (foundIt == 0)
+				SMBWARNING ("offset 0x%llx/0x%llx not found in fndEntry %p\n", offset, length, (void *)fndEntry);
+		}
+	}
+}
+
+/*
+ * smbfs_addFileRef
+ *
+ * Create a new open deny file list entry.
+ * 
+ * Return Values
+ *	fndEntry is not NULL then return the entry.
+ */
+PRIVSYM void 
+smbfs_addFileRef(vnode_t vp, struct proc *p, u_int16_t accessMode, u_int32_t rights, 
+		u_int16_t fid, struct fileRefEntry **fndEntry)
+{
+	struct smbnode	*np = VTOSMB(vp);
+	struct fileRefEntry *entry = NULL;
+	struct fileRefEntry *current = NULL;
+        
+	/* Create a new fileRefEntry and insert it into the hp list */
+	MALLOC(entry, struct fileRefEntry *, sizeof (struct fileRefEntry), M_TEMP, M_WAITOK);
+	entry->refcnt = 0;
+	entry->proc = p;
+	entry->p_pid = proc_pid(p);
+	entry->accessMode = accessMode;
+	entry->rights = rights;
+	entry->fid = fid;
+	entry->lockList = NULL;
+	entry->next = NULL;
+	if (fndEntry) *fndEntry = entry;
+
+	lck_mtx_lock(&np->f_openDenyListLock);
+	if (np->f_openDenyList == NULL) /* No other entries, so we are the first */
+		np->f_openDenyList = entry;
+	else { /* look for last entry in the list */
+		current = np->f_openDenyList;
+		while (current->next != NULL) {
+		current = current->next;
+        }
+        /* put it at the end of the list */
+        current->next = entry;
+    }
+	lck_mtx_unlock(&np->f_openDenyListLock);
+}
+
+
+/*
+ * smbfs_findFileEntryByFID
+ *
+ * Find an entry in the open deny file list entry. Use the fid to locate the
+ * entry.
+ * 
+ * Return Values
+ *	-1	No matching entry found
+ *	0	Found a match 
+ */
+PRIVSYM int32_t 
+smbfs_findFileEntryByFID(vnode_t vp, u_int16_t fid, struct fileRefEntry **fndEntry)
+{
+	struct fileRefEntry *entry = NULL;
+	struct smbnode	*np;
+	
+#ifdef SMB_DEBUG
+	if (fndEntry)
+		DBG_ASSERT(*fndEntry == NULL);
+#endif // SMB_DEBUG
+	
+	/* If we have not vnode then we are done. */
+	if (!vp)
+		return (-1);
+
+	np = VTOSMB(vp);
+	lck_mtx_lock(&np->f_openDenyListLock);
+	/* Now search the list until we find a match */
+	for (entry = np->f_openDenyList; entry; entry = entry->next) {
+		if (entry->fid == fid) {
+			if (fndEntry) 
+				*fndEntry = entry;
+			lck_mtx_unlock(&np->f_openDenyListLock);
+			return(0);
+		}
+	}
+	lck_mtx_unlock(&np->f_openDenyListLock);
+	return(-1);	/* No match found */
+}
+
+/*
+ * smbfs_findMappedFileRef
+ *
+ * Search the open deny file list entry looking for a mapped entry. If they requested
+ * the entry return it, if they requested the fid return it also. 
+ * 
+ * Return Values
+ *	FALSE	No matching entry found
+ *	TRUE	Found a match
+ */
+PRIVSYM int32_t 
+smbfs_findMappedFileRef(vnode_t vp, struct fileRefEntry **fndEntry, u_int16_t *fid)
+{
+	struct fileRefEntry *entry = NULL;
+	int32_t foundIt = FALSE;
+	struct smbnode	*np;
+	
+	/* If we have no vnode then we are done. */
+	if (!vp)
+		return (foundIt);
+	
+	np = VTOSMB(vp);
+	lck_mtx_lock(&np->f_openDenyListLock);
+	for (entry = np->f_openDenyList; entry; entry = entry->next) {
+		if (entry->mmapped) {
+			if (fid)
+			    *fid = entry->fid;
+			if (fndEntry)
+			    *fndEntry = entry;
+			foundIt = TRUE;
+			break;
+		}
+	}
+	lck_mtx_unlock(&np->f_openDenyListLock);
+	return (foundIt);
+}
+
+/*
+ * smbfs_findFileRef
+ *
+ * Find an entry in the open deny file list entry. Use accessMode and flags to 
+ * locate the entry.
+ * 
+ * Return Values
+ *	-1	No matching entry found
+ *	0	Found a match
+ *			if fndEntry is not NULL it will point to that entry.
+ *			fid now holds file reference id for that entry.
+ */
+PRIVSYM int32_t 
+smbfs_findFileRef(vnode_t vp, pid_t pid, u_int16_t accessMode, int32_t flags,  int64_t offset, 
+			int64_t length,  struct fileRefEntry **fndEntry, u_int16_t *fid)
+{
+	struct fileRefEntry *entry = NULL;
+	struct fileRefEntry *tempEntry = NULL;
+	struct ByteRangeLockEntry *currBRL = NULL;
+	int32_t foundIt = 0;
+	struct smbnode	*np;
+	
+#ifdef SMB_DEBUG
+	if (fndEntry)
+		DBG_ASSERT(*fndEntry == NULL);
+#endif // SMB_DEBUG
+	/* If we have no vnode then we are done. */
+	if (!vp)
+		return (-1);
+
+	np = VTOSMB(vp);
+	lck_mtx_lock(&np->f_openDenyListLock);
+	for (entry = np->f_openDenyList; entry; entry = entry->next) {
+		/* No match continue looking */
+		if (entry->p_pid != pid)
+			continue;
+		
+		switch (flags) {
+		case kAnyMatch:
+			/* 
+			 * if any fork will do, make sure at least have accessMode 
+			 * set. This is for the old ByteRangeLocks and other misc 
+			 * functions looking for a file ref 
+			 */
+			if (entry->accessMode & accessMode)
+				foundIt = 1;
+			break;
+		case kCheckDenyOrLocks:
+			/* 
+			 * This was originally written for Classic support, but after looking at it some we
+			 * decide it could happen in Carbon.
+			 *
+			 * Where I have the same PID on two different file,  some BRL taken, and a read/write occuring.
+			 * I have to determine which file will successfully read/write on due to any possible
+			 * byte range locks already taken out.  Note that Classic keeps track of BRLs itself 
+			 * and will not block any read/writes that would fail due to a BRL.  I just have to 
+			 * find the correct fork so that the read/write will succeed.
+			 * Example:  open1 rw/DW, open2 r, lock1 0-5, read1 0-5 should occur on fork1 and not fork2
+			*/
+			/* make sure we have correct access */
+			if (entry->accessMode & accessMode) {
+				/* 
+				 * save this entry in case we find no entry with a matching BRL.
+				 * saves me from having to search all over again for an OpenDeny match 
+				 */
+				if (tempEntry == NULL)
+					tempEntry = entry;
+
+				/* check the BRLs to see if the offset/length fall inside one of them */
+				currBRL = entry->lockList;
+				while (currBRL != NULL) {
+					/* is start of read/write inside of the BRL? */
+					if ( (offset >= currBRL->offset) && (offset <= (currBRL->offset + currBRL->length)) ) {
+						foundIt = 1;
+						break;
+					}
+					/* is end of read/write inside of the BRL? */
+					if ( ((offset + length) >= currBRL->offset) &&  
+						((offset + length) <= (currBRL->offset + currBRL->length)) ) {
+						foundIt = 1;
+						break;
+					}
+					currBRL = currBRL->next;
+				}
+			}
+			break;
+			
+		case kExactMatch:
+		default:
+			/* 
+			 * If we want an exact match, then check access mode too
+			 * This is for ByteRangeLocks and closing files 
+			 */
+			if (accessMode == entry->accessMode)
+				foundIt = 1;
+			break;
+		}
+        
+		if (foundIt == 1) {
+			*fid = entry->fid;
+			if (fndEntry) *fndEntry = entry;
+			break;
+		}
+	}
+	lck_mtx_unlock(&np->f_openDenyListLock);
+
+	/* Will only happen after we add byte range locking support */
+	if (foundIt == 0) {
+		if ( (flags == kCheckDenyOrLocks) && (tempEntry != NULL) ) {
+			/* Did not find any BRL that matched, see if there was a match with an OpenDeny */
+			*fid = tempEntry->fid;
+			if (fndEntry) *fndEntry = entry;
+			return (0);
+		}
+		return (-1);    /* fork not found */
+	}
+	else
+		return (0);
+}
+
+/*
+ * smbfs_removeFileRef
+ *
+ * Remove the entry that was passed in from the list and free it. If no entry is 
+ * passed in then remove all entries.
+ * 
+ * Return Values
+ *	none
+ */
+PRIVSYM void 
+smbfs_removeFileRef(vnode_t vp, struct fileRefEntry *inEntry)
+{
+	struct smbnode	*np = VTOSMB(vp);
+	struct fileRefEntry *curr = NULL;
+	struct fileRefEntry *prev = NULL;
+	struct fileRefEntry *entry = NULL;
+	struct ByteRangeLockEntry *currBRL = NULL;
+	struct ByteRangeLockEntry *nextBRL = NULL;
+	int32_t foundIt = 0;
+
+	lck_mtx_lock(&np->f_openDenyListLock);
+	if (inEntry == NULL) {	/* Means remove all */
+		entry = np->f_openDenyList;
+		while (entry != NULL) {
+			/* wipe out the ByteRangeLockEntries first */
+			currBRL = entry->lockList;
+			while (currBRL != NULL) {
+				nextBRL = currBRL->next; /* save next in list */
+				FREE (currBRL, M_TEMP);	 /* free current entry */
+				currBRL = nextBRL;	 /* and on to the next */
+			}
+			entry->lockList = NULL;
+			/* now wipe out the file refs */
+			curr = entry;
+			entry = entry->next;
+			DBG_ASSERT(curr->refcnt == 0);
+			FREE(curr, M_TEMP);
+		}
+		np->f_openDenyList = NULL;
+		goto out;
+	}
+	DBG_ASSERT(inEntry->refcnt == 0);
+
+	/* wipe out the ByteRangeLockEntries first */
+	currBRL = inEntry->lockList;
+	while (currBRL != NULL) {
+		nextBRL = currBRL->next;	/* save next in list */
+		FREE(currBRL, M_TEMP);		/* free current entry */
+		currBRL = nextBRL;		/* and on to the next */
+	}
+	inEntry->lockList = NULL;
+
+	/* Remove the fileRefEntry */
+	curr = np->f_openDenyList;
+	if (curr == NULL)
+		goto out;
+	/* 
+	 * if its the first entry in the list, then just set the first 
+	 * entry to be entry->next
+	 */
+	if (inEntry == curr) {
+		np->f_openDenyList = inEntry->next;
+		foundIt = 1;
+		FREE(curr, M_TEMP);
+		curr = NULL;
+	}
+	else {
+		// its not the first, so search the rest
+		prev = np->f_openDenyList;
+		curr = prev->next;
+		while (curr != NULL) {
+			if (inEntry == curr) {
+				prev->next = curr->next;
+				foundIt = 1;
+				FREE(curr, M_TEMP);
+				curr = NULL;
+				break;
+			}
+			prev = curr;
+			curr = curr->next;
+		}
+	}
+	if (foundIt == 0)
+		SMBWARNING ("inEntry %p not found in vp %p\n", (void *)inEntry, (void *)vp);
+out:
+	lck_mtx_unlock(&np->f_openDenyListLock);
+}
+
+/*
+ * Search the hash table looking for any open files. Remember we have a hash table
+ * for every mount point. Not sure why but it makes this part easier. Currently we
+ * do not support reopens, we just mark the file to be revoked.
+ */
+PRIVSYM void smbfs_reconnect(struct smbmount *smp)
+{
+	struct smbnode *np;
+	int ii;
+	
+	smbfs_hash_lock(smp);
+	
+	/* We have a hash table for each mount point */
+	for (ii = 0; ii < (smp->sm_hashlen + 1); ii++) {
+		if ((&smp->sm_hash[ii])->lh_first == NULL)
+			continue;
+		
+		for (np = (&smp->sm_hash[ii])->lh_first; np; np = np->n_hash.le_next) {
+			if (ISSET(np->n_flag, NALLOC))
+				continue;
+
+			if (ISSET(np->n_flag, NTRANSIT))
+				continue;
+			/* We do not care about directories */
+			if (np->n_dosattr & SMB_FA_DIR)
+				continue;
+			/* We only care about open files */			
+			if (np->f_refcnt == 0)
+				continue;
+			/*
+			 * We have an open file mark it to be reopen.
+			 *
+			 * 1. Plain old POSIX open with no locks. Only revoke if reopen fails.
+			 * 2. POSIX open with a flock. Revoke if reopen fails. Revoke if the modify time or size is different. 
+			 *		Otherwise reestablish the lock. If the lock fails then mark it to be revoked.
+			 * 3. POSIX open with POSIX locks. NOT SUPPORTED CURRENTY! %%% (We do not support posix locks)
+			 * 4. Carbon Open (OpenDeny) with no locks. Revoke if reopen fails. Revoke if the modify time or size is different.
+			 * 5. Carbon Open with Carbon Locks. Revoke if reopen fails. Revoke if the modify time or size is different. 
+			 *		Otherwise reestablish the lock. If the lock fails then mark it to be revoked.
+			 */
+			lck_mtx_lock(&np->f_openStateLock);
+			if (np->f_openState != kNeedRevoke)	/* Once it has been revoked it stays revoked */
+				np->f_openState = kNeedReopen;
+			lck_mtx_unlock(&np->f_openStateLock);
+		}
+	}
+	smbfs_hash_unlock(smp);
+}
+

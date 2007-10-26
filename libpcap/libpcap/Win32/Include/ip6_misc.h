@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/root/libpcap/libpcap/Win32/Include/ip6_misc.h,v 1.1.1.1 2004/02/05 19:22:28 rbraun Exp $ (LBL)
+ * @(#) $Header: /tcpdump/master/libpcap/Win32/Include/ip6_misc.h,v 1.4.2.1 2006/01/22 18:13:47 gianluca Exp $ (LBL)
  */
 
 /*
@@ -31,9 +31,11 @@
 #include <ws2tcpip.h>
 #endif /* __MINGW32__ */
 
+#ifndef __MINGW32__
 #define	IN_MULTICAST(a)		IN_CLASSD(a)
+#endif
 
-#define	IN_EXPERIMENTAL(a)	((((u_int32_t) (a)) & 0xe0000000) == 0xe0000000)
+#define	IN_EXPERIMENTAL(a)	((((u_int32_t) (a)) & 0xf0000000) == 0xf0000000)
 
 #define	IN_LOOPBACKNET		127
 
@@ -58,8 +60,12 @@ struct in6_addr
 #endif /* __MINGW32__ */
 
 
-#ifdef __MINGW32__
+#if (defined WIN32) || (defined __MINGW32__)
 typedef unsigned short	sa_family_t;
+#endif
+
+
+#ifdef __MINGW32__
 
 #define	__SOCKADDR_COMMON(sa_prefix) \
   sa_family_t sa_prefix##family

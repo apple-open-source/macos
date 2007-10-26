@@ -1,0 +1,321 @@
+Index: samba/source/include/fake_file.h
+===================================================================
+--- samba/source/include/fake_file.h.orig
++++ samba/source/include/fake_file.h
+@@ -39,12 +39,4 @@ typedef struct _FAKE_FILE_HANDLE {
+ 	void (*free_pd)(void **pd); /* free private_data */
+ } FAKE_FILE_HANDLE;
+ 
+-typedef struct _FAKE_FILE {
+-	const char *name;
+-	enum FAKE_FILE_TYPE type;
+-	void *(*init_pd)(TALLOC_CTX *men_ctx);
+-	void (*free_pd)(void **pd);
+-} FAKE_FILE;
+-
+-
+ #endif /* _FAKE_FILE_H */
+Index: samba/source/smbd/fake_file.c
+===================================================================
+--- samba/source/smbd/fake_file.c.orig
++++ samba/source/smbd/fake_file.c
+@@ -22,11 +22,33 @@
+ 
+ extern struct current_user current_user;
+ 
+-static FAKE_FILE fake_files[] = {
+-#ifdef WITH_QUOTAS
+-	{FAKE_FILE_NAME_QUOTA_UNIX,	FAKE_FILE_TYPE_QUOTA,	init_quota_handle,	destroy_quota_handle},
+-#endif /* WITH_QUOTAS */
+-	{NULL,				FAKE_FILE_TYPE_NONE,	NULL,			NULL }
++typedef struct _FAKE_FILE {
++	const char *name;
++	const char **streams;
++	enum FAKE_FILE_TYPE type;
++	void *(*init_pd)(TALLOC_CTX *men_ctx);
++	void (*free_pd)(void **pd);
++} FAKE_FILE;
++
++#ifdef WITH_SYS_QUOTAS
++static const char * fake_quota_streams = {
++	":$Q:$INDEX_ALLOCATION",
++	NULL
++};
++#endif /* WITH_SYS_QUOTAS */
++
++static const FAKE_FILE fake_files[] = {
++#ifdef WITH_SYS_QUOTAS
++	{
++	    FAKE_FILE_NAME_QUOTA_UNIX,
++	    fake_quota_streams,
++	    FAKE_FILE_TYPE_QUOTA,
++	    init_quota_handle,
++	    destroy_quota_handle
++	},
++#endif /* WITH_SYS_QUOTAS */
++
++	{NULL,	NULL, FAKE_FILE_TYPE_NONE, NULL, NULL }
+ };
+ 
+ /****************************************************************************
+@@ -74,24 +96,43 @@ static struct _FAKE_FILE_HANDLE *init_fa
+  Does this name match a fake filename ?
+ ****************************************************************************/
+ 
+-enum FAKE_FILE_TYPE is_fake_file(const char *fname)
++static BOOL match_stream_name(const FAKE_FILE * fake_file, const char *stream)
++{
++	if (!stream) {
++		return True;
++	}
++
++	if (fake_file->streams) {
++		const char ** s;
++
++		for (s = fake_files->streams; *s; ++s) {
++			if (strcmp(stream, *s) == 0) {
++				return True;
++			}
++		}
++	}
++
++	return False;
++}
++
++enum FAKE_FILE_TYPE is_fake_file(const char *fname, const char *stream)
+ {
+-#ifdef HAVE_SYS_QUOTAS
+ 	int i;
+-#endif
+ 
+ 	if (!fname) {
+ 		return FAKE_FILE_TYPE_NONE;
+ 	}
+ 
+-#ifdef HAVE_SYS_QUOTAS
+ 	for (i=0;fake_files[i].name!=NULL;i++) {
+-		if (strncmp(fname,fake_files[i].name,strlen(fake_files[i].name))==0) {
++		if (strcmp(fname, fake_files[i].name) != 0) {
++			continue;
++		}
++
++		if (match_stream_name(&fake_files[i], stream)) {
+ 			DEBUG(5,("is_fake_file: [%s] is a fake file\n",fname));
+ 			return fake_files[i].type;
+ 		}
+ 	}
+-#endif
+ 
+ 	return FAKE_FILE_TYPE_NONE;
+ }
+Index: samba/source/smbd/nttrans.c
+===================================================================
+--- samba/source/smbd/nttrans.c.orig
++++ samba/source/smbd/nttrans.c
+@@ -259,6 +259,9 @@ int send_nt_replies(char *outbuf, int bu
+ 
+ /****************************************************************************
+  Is it an NTFS stream name ?
++ An NTFS file name is <path>.<extention>:<stream name>:<stream type>
++ $DATA can be used as both a stream name and a stream type. A missing stream
++ name or type implies $DATA.
+ ****************************************************************************/
+ 
+ BOOL is_ntfs_stream_name(const char *fname)
+@@ -269,6 +272,63 @@ BOOL is_ntfs_stream_name(const char *fna
+ 	return (strchr_m(fname, ':') != NULL) ? True : False;
+ }
+ 
++/* Split a path name into filename and stream name components. Canonicalise
++ * such that an implicit $DATA token is always explicit. If the stream name
++ * resolved to the data stream, then that's the same as not specifying a stream
++ * name.
++ *
++ *  F		    => fname=F sname=
++ *  F:		    => fname=F sname=
++ *  F::		    => fname=F sname=
++ *  F:S		    => fname=F sname=:S:$DATA
++ *  F:$DATA	    => fname=F sname=
++ *  F:S:	    => fname=F sname=:S:$DATA
++ *  F:S:$DATA	    => fname=F sname=:S:$DATA
++ *  F:$DATA:	    => fname=F sname=
++ *  F::T	    => fname=F sname=:$DATA:T
++ *  F::$DATA	    => fname=F sname=
++ *  F:S:T	    => fname=F sname=:S:T
++ *  F:$DATA:T	    => fname=F sname=:$DATA:T
++ *  F:$DATA:$DATA   => fname=F sname=
++ *
++ */
++NTSTATUS split_ntfs_stream_name(pstring fname, pstring stream)
++{
++	char *sname; /* stream name */
++	char *stype; /* stream type */
++
++	stream[0] = '\0';
++
++	if (lp_posix_pathnames()) {
++		return NT_STATUS_OK;
++	}
++
++	sname = strchr_m(fname, ':');
++	if (!sname) {
++		/* Not a stream. */
++		return NT_STATUS_OK;
++	}
++
++	/* Truncate fname at the stream name separator. */
++	*sname++ = '\0';
++
++	stype = strchr_m(sname, ':');
++	if (stype) {
++		/* Truncate sname at the stream type separator. */
++		*stype++ = '\0';
++	}
++
++	pstr_sprintf(stream, ":%s:%s",
++		(sname && *sname) ? sname : "$DATA",
++		(stype && *stype) ? stype : "$DATA");
++
++	if (StrCaseCmp(stream, ":$DATA:$DATA") == 0) {
++		*stream = '\0';
++	}
++	return NT_STATUS_OK;
++
++}
++
+ /****************************************************************************
+  Save case statics.
+ ****************************************************************************/
+@@ -611,9 +671,20 @@ int reply_ntcreate_and_X(connection_stru
+ 		 * Check to see if this is a mac fork of some kind.
+ 		 */
+ 
+-		if( is_ntfs_stream_name(fname)) {
+-			enum FAKE_FILE_TYPE fake_file_type = is_fake_file(fname);
+-			if (fake_file_type!=FAKE_FILE_TYPE_NONE) {
++		if (is_ntfs_stream_name(fname)) {
++			pstring path;
++			pstring stream;
++			enum FAKE_FILE_TYPE fake_file_type;
++
++			pstrcpy(path, fname);
++			status = split_ntfs_stream_name(path, stream);
++			if (!NT_STATUS_IS_OK(status)) {
++				END_PROFILE(SMBntcreateX);
++				return ERROR_NT(status);
++			}
++
++			fake_file_type = is_fake_file(path, stream);
++			if (fake_file_type == FAKE_FILE_TYPE_QUOTA) {
+ 				/*
+ 				 * Here we go! support for changing the disk quotas --metze
+ 				 *
+@@ -627,7 +698,10 @@ int reply_ntcreate_and_X(connection_stru
+ 								fake_file_type, fname);
+ 				END_PROFILE(SMBntcreateX);
+ 				return result;
+-			} else {
++			}
++
++			if (!lp_stream_support(SNUM(conn)) ||
++			    !(conn->fs_capabilities & FILE_NAMED_STREAMS)) {
+ 				END_PROFILE(SMBntcreateX);
+ 				return ERROR_NT(NT_STATUS_OBJECT_PATH_NOT_FOUND);
+ 			}
+Index: samba/source/smbd/reply.c
+===================================================================
+--- samba/source/smbd/reply.c.orig
++++ samba/source/smbd/reply.c
+@@ -56,6 +56,7 @@ NTSTATUS check_path_syntax_internal(pstr
+ 	const char *s = srcname;
+ 	NTSTATUS ret = NT_STATUS_OK;
+ 	BOOL start_of_name_component = True;
++	BOOL stream_component = False;;
+ 
+ 	*p_last_component_contains_wcard = False;
+ 
+@@ -122,10 +123,13 @@ NTSTATUS check_path_syntax_internal(pstr
+ 
+ 		if (!(*s & 0x80)) {
+ 			if (!posix_path) {
+-				if (*s <= 0x1f) {
++				if (!stream_component && *s <= 0x1f) {
+ 					return NT_STATUS_OBJECT_NAME_INVALID;
+ 				}
+ 				switch (*s) {
++					case ':':
++						stream_component = True;
++						break;
+ 					case '*':
+ 					case '?':
+ 					case '<':
+@@ -1300,6 +1304,11 @@ int reply_open(connection_struct *conn, 
+ 		return ERROR_NT(status);
+ 	}
+ 
++	if( is_ntfs_stream_name(fname)) {
++		END_PROFILE(SMBopen);
++		return ERROR_NT(NT_STATUS_OBJECT_PATH_NOT_FOUND);
++	}
++
+ 	if (!map_open_params_to_ntcreate(fname, deny_mode, OPENX_FILE_EXISTS_OPEN,
+ 			&access_mask, &share_mode, &create_disposition, &create_options)) {
+ 		END_PROFILE(SMBopen);
+@@ -1431,6 +1440,11 @@ int reply_open_and_X(connection_struct *
+ 		return ERROR_NT(status);
+ 	}
+ 
++	if (is_ntfs_stream_name(fname)) {
++		END_PROFILE(SMBopenX);
++		return ERROR_NT(NT_STATUS_OBJECT_PATH_NOT_FOUND);
++	}
++
+ 	if (!map_open_params_to_ntcreate(fname, deny_mode, smb_ofun,
+ 				&access_mask,
+ 				&share_mode,
+Index: samba/source/smbd/statvfs.c
+===================================================================
+--- samba/source/smbd/statvfs.c.orig
++++ samba/source/smbd/statvfs.c
+@@ -100,6 +100,11 @@ static int darwin_fs_capabilities(const 
+ 		caps |= FILE_PERSISTENT_ACLS;
+ 	}
+ 
++	if (INTERFACE_CAP(vcaps, VOL_CAP_INT_NAMEDSTREAMS) &&
++	    INTERFACE_CAP(vcaps, VOL_CAP_INT_EXTENDED_ATTR)) {
++		caps |= FILE_NAMED_STREAMS;
++	}
++
+ 	return caps;
+ }
+ 
+@@ -140,12 +145,8 @@ int sys_statvfs(const char *path, vfs_st
+ #elif defined(DARWINOS)
+ 	return darwin_statvfs(path, statbuf);
+ #else
+-	/* BB change this to return invalid level */
+-#ifdef EOPNOTSUPP
+-	return EOPNOTSUPP;
+-#else
++	errno = ENOSYS;
+ 	return -1;
+-#endif /* EOPNOTSUPP */
+ #endif /* LINUX */
+ 
+ }
+Index: samba/source/smbd/trans2.c
+===================================================================
+--- samba/source/smbd/trans2.c.orig
++++ samba/source/smbd/trans2.c
+@@ -2553,10 +2553,8 @@ cBytesSector=%u, cUnitTotal=%u, cUnitAva
+ 				SBIG_UINT(pdata,40,svfs.FreeFileNodes);
+ 				SBIG_UINT(pdata,48,svfs.FsIdentifier);
+ 				DEBUG(5,("call_trans2qfsinfo : SMB_QUERY_POSIX_FS_INFO succsessful\n"));
+-#ifdef EOPNOTSUPP
+-			} else if (rc == EOPNOTSUPP) {
++			} else if (rc == -1 && errno == ENOSYS) {
+ 				return ERROR_NT(NT_STATUS_INVALID_LEVEL);
+-#endif /* EOPNOTSUPP */
+ 			} else {
+ 				DEBUG(0,("vfs_statvfs() failed for service [%s]\n",lp_servicename(SNUM(conn))));
+ 				return ERROR_DOS(ERRSRV,ERRerror);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,7 @@
 #include <vector>           // @@@  4003540 workaround
 #include <security_agent_client/agentclient.h>
 #include <security_cdsa_utilities/acl_any.h>	// for default owner ACLs
+#include <security_cdsa_utilities/cssmendian.h>
 #include <security_cdsa_client/wrapkey.h>
 #include <security_cdsa_client/genkey.h>
 #include <security_cdsa_client/signclient.h>
@@ -54,6 +55,7 @@
 #include <securityd_client/dictionary.h>
 #include <security_utilities/endian.h>
 
+void unflattenKey(const CssmData &flatKey, CssmKey &rawKey);	//>> make static method on KeychainDatabase
 
 //
 // Create a Database object from initial parameters (create operation)
@@ -127,13 +129,13 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DbBlob *blob,
 		parent(*dbcom);
 		//@@@ arbitrate sequence number here, perhaps update common().mParams
 		secdebug("KCdb",
-			"open database %s(%p) version %lx at known common %p",
+			"open database %s(%p) version %x at known common %p",
 			common().dbName(), this, blob->version(), &common());
 	} else {
 		// DbCommon not present; make a new one
 		parent(*new KeychainDbCommon(proc.session(), ident));
 		common().mParams = blob->params;
-		secdebug("KCdb", "open database %s(%p) version %lx with new common %p",
+		secdebug("KCdb", "open database %s(%p) version %x with new common %p",
 			common().dbName(), this, blob->version(), &common());
 		// this DbCommon is locked; no timer or reference setting
 	}
@@ -336,7 +338,7 @@ void KeychainDatabase::encode()
 	Allocator::standard().free(mBlob);
 	mBlob = blob;
 	version = common().version;
-	secdebug("KCdb", "encoded database %p common %p(%s) version %ld params=(%ld,%d)",
+	secdebug("KCdb", "encoded database %p common %p(%s) version %u params=(%u,%u)",
 		this, &common(), dbName(), version,
 		common().mParams.idleTimeout, common().mParams.lockOnSleep);
 }
@@ -464,7 +466,8 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred)
         assert(mBlob || (mValidData && common().hasMaster()));
 		establishOldSecrets(cred);
 		common().setUnlocked(); // mark unlocked
-	} else if (!mValidData)	{	// need to decode to get our ACLs, master secret available
+	}
+	if (!mValidData) {	// need to decode to get our ACLs, master secret available
 		secdebug("KCdb", "%p(%p) is unlocked; decoding for makeUnlocked()", this, &common());
 		if (!decode())
 			CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
@@ -568,15 +571,8 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 			switch (sample.type()) {
 			// interactively prompt the user - no additional data
 			case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
-			{
-				secdebug("KCdb", "%p attempting interactive unlock", this);
-				QueryUnlock query(*this);
-				// Holding DB common lock during UI will deadlock securityd
-				StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
-				query.inferHints(Server::process());
-				if (query() == SecurityAgent::noReason)
+				if (interactiveUnlock())
 					return;
-			}
 				break;
 			// try to use an explicitly given passphrase - Data:passphrase
 			case CSSM_SAMPLE_TYPE_PASSWORD:
@@ -587,7 +583,8 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 					return;
 				break;
 			// try to open with a given master key - Data:CSP or KeyHandle, Data:CssmKey
-			case CSSM_WORDID_SYMMETRIC_KEY:
+			case CSSM_SAMPLE_TYPE_SYMMETRIC_KEY:
+			case CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY:
 				assert(mBlob);
 				secdebug("KCdb", "%p attempting explicit key unlock", this);
 				common().setup(mBlob, keyFromCreds(sample, 4));
@@ -605,7 +602,7 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 				// But instead we try to be tolerant and continue on.
 				// This DOES however count as an explicit attempt at specifying unlock,
 				// so we will no longer try the default case below...
-				secdebug("KCdb", "%p unknown sub-sample unlock (%ld) ignored", this, sample.type());
+				secdebug("KCdb", "%p unknown sub-sample unlock (%d) ignored", this, sample.type());
 				break;
 			}
 		}
@@ -622,16 +619,29 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 				return;
 		}
 		
-		QueryUnlock query(*this);
-		// attempt interactive unlock
-		StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
-		query.inferHints(Server::process());
-		if (query() == SecurityAgent::noReason)
+		if (interactiveUnlock())
 			return;
 	}
 	
 	// out of options - no secret obtained
 	CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+}
+
+bool KeychainDatabase::interactiveUnlock()
+{
+	secdebug("KCdb", "%p attempting interactive unlock", this);
+	QueryUnlock query(*this);
+	// take UI interlock and release DbCommon lock (to avoid deadlocks)
+	StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
+	
+	// now that we have the UI lock, interact unless another thread unlocked us first
+	if (isLocked()) {
+		query.inferHints(Server::process());
+		return query() == SecurityAgent::noReason;
+	} else {
+		secdebug("KCdb", "%p was unlocked during uiLock delay", this);
+		return true;
+	}
 }
 
 
@@ -669,6 +679,7 @@ void KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 				return;
 			// try to open with a given master key
 			case CSSM_WORDID_SYMMETRIC_KEY:
+			case CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY:
 				secdebug("KCdb", "%p specified explicit master key", this);
 				common().setup(NULL, keyFromCreds(sample, 3));
 				return;
@@ -683,7 +694,7 @@ void KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 				// But instead we try to be tolerant and continue on.
 				// This DOES however count as an explicit attempt at specifying unlock,
 				// so we will no longer try the default case below...
-				secdebug("KCdb", "%p unknown sub-sample acquisition (%ld) ignored",
+				secdebug("KCdb", "%p unknown sub-sample acquisition (%d) ignored",
 					this, sample.type());
 				break;
 			}
@@ -712,7 +723,7 @@ void KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 CssmClient::Key KeychainDatabase::keyFromCreds(const TypedList &sample, unsigned int requiredLength)
 {
 	// decode TypedList structure (sample type; Data:CSPHandle; Data:CSSM_KEY)
-	assert(sample.type() == CSSM_WORDID_SYMMETRIC_KEY);
+	assert(sample.type() == CSSM_SAMPLE_TYPE_SYMMETRIC_KEY || sample.type() == CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY);
 	if (sample.length() != requiredLength
 		|| sample[1].type() != CSSM_LIST_ELEMENT_DATUM
 		|| sample[2].type() != CSSM_LIST_ELEMENT_DATUM
@@ -724,7 +735,74 @@ CssmClient::Key KeychainDatabase::keyFromCreds(const TypedList &sample, unsigned
 	if (key.header().cspGuid() == gGuidAppleCSPDL) {
 		// handleOrKey is a SecurityServer KeyHandle; ignore key argument
 		return safer_cast<LocalKey &>(*Server::key(handle));
-	} else {
+	} else 
+	if (sample.type() == CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY) {
+		/*
+			Contents (see DefaultCredentials::unlockKey in libsecurity_keychain/defaultcreds.cpp)
+			
+			sample[0]	sample type
+			sample[1]	csp handle for master or wrapping key; is really a keyhandle
+			sample[2]	masterKey [not used since securityd cannot interpret; use sample[1] handle instead]
+			sample[3]	UnlockReferralRecord data, in this case the flattened symmetric key
+		*/
+
+		// RefPointer<Key> Server::key(KeyHandle key)
+		KeyHandle keyhandle = *sample[1].data().interpretedAs<KeyHandle>(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
+		CssmData &flattenedKey = sample[3].data();
+		RefPointer<Key> unwrappingKey = Server::key(keyhandle);
+		Database &db=unwrappingKey->database();
+		
+		CssmKey rawWrappedKey;
+		unflattenKey(flattenedKey, rawWrappedKey);
+
+		RefPointer<Key> masterKey;
+		CssmData emptyDescriptiveData;
+		const AccessCredentials *cred = NULL;
+		const AclEntryPrototype *owner = NULL;
+		CSSM_KEYUSE usage = CSSM_KEYUSE_ANY;
+		CSSM_KEYATTR_FLAGS attrs = CSSM_KEYATTR_EXTRACTABLE;	//CSSM_KEYATTR_RETURN_REF | 
+
+		// Get default credentials for unwrappingKey (the one on the token)
+		// Copied from Statics::Statics() in libsecurity_keychain/aclclient.cpp
+		// Following KeyItem::getCredentials, one sees that the "operation" parameter
+		// e.g. "CSSM_ACL_AUTHORIZATION_DECRYPT" is ignored
+		Allocator &alloc = Allocator::standard();
+		AutoCredentials promptCred(alloc, 3);// enable interactive prompting
+	
+		// promptCred: a credential permitting user prompt confirmations
+		// contains:
+		//  a KEYCHAIN_PROMPT sample, both by itself and in a THRESHOLD
+		//  a PROMPTED_PASSWORD sample
+		promptCred.sample(0) = TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT);
+		promptCred.sample(1) = TypedList(alloc, CSSM_SAMPLE_TYPE_THRESHOLD,
+			new(alloc) ListElement(TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT)));
+		promptCred.sample(2) = TypedList(alloc, CSSM_SAMPLE_TYPE_PROMPTED_PASSWORD,
+			new(alloc) ListElement(alloc, CssmData()));
+
+		// This unwrap object is here just to provide a context
+		CssmClient::UnwrapKey unwrap(Server::csp(), CSSM_ALGID_NONE);	//ok to lie about csp here
+		unwrap.mode(CSSM_ALGMODE_NONE);
+		unwrap.padding(CSSM_PADDING_PKCS1);
+		unwrap.cred(promptCred);
+		unwrap.add(CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT, uint32(CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7));
+		Security::Context *tmpContext;
+		CSSM_CC_HANDLE CCHandle = unwrap.handle();
+		/*CSSM_RETURN rx = */ CSSM_GetContext (CCHandle, (CSSM_CONTEXT_PTR *)&tmpContext);
+		
+		// OK, this is skanky but necessary. We overwrite fields in the context struct
+
+		tmpContext->ContextType = CSSM_ALGCLASS_ASYMMETRIC;
+		tmpContext->AlgorithmType = CSSM_ALGID_RSA;
+		
+		db.unwrapKey(*tmpContext, cred, owner, unwrappingKey, NULL, usage, attrs,
+			rawWrappedKey, masterKey, emptyDescriptiveData);
+
+	    Allocator::standard().free(rawWrappedKey.KeyData.Data);
+
+		return safer_cast<LocalKey &>(*masterKey).key();
+	}
+	else
+	{
 		// not a KeyHandle reference; use key as a raw key
 		if (key.header().blobType() != CSSM_KEYBLOB_RAW)
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
@@ -732,6 +810,22 @@ CssmClient::Key KeychainDatabase::keyFromCreds(const TypedList &sample, unsigned
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 		return CssmClient::Key(Server::csp(), key, true);
 	}
+}
+
+void unflattenKey(const CssmData &flatKey, CssmKey &rawKey)
+{
+	// unflatten the raw input key naively: key header then key data
+	// We also convert it back to host byte order
+	// A CSSM_KEY is a CSSM_KEYHEADER followed by a CSSM_DATA
+
+	// Now copy: header, then key struct, then key data
+	memcpy(&rawKey.KeyHeader, flatKey.Data, sizeof(CSSM_KEYHEADER));
+	memcpy(&rawKey.KeyData, flatKey.Data + sizeof(CSSM_KEYHEADER), sizeof(CSSM_DATA));
+	const uint32 keyDataLength = flatKey.length() - sizeof(CSSM_KEY);
+	rawKey.KeyData.Data = Allocator::standard().malloc<uint8>(keyDataLength);
+	rawKey.KeyData.Length = keyDataLength;
+	memcpy(rawKey.KeyData.Data, flatKey.Data + sizeof(CSSM_KEY), keyDataLength);
+	Security::n2hi(rawKey.KeyHeader);	// convert it to host byte order
 }
 
 
@@ -774,10 +868,18 @@ void KeychainDatabase::lockDb()
 //
 KeyBlob *KeychainDatabase::encodeKey(const CssmKey &key, const CssmData &pubAcl, const CssmData &privAcl)
 {
-    unlockDb();
-    
+	bool inTheClear = false;
+	
+	if((key.keyClass() == CSSM_KEYCLASS_PUBLIC_KEY) &&
+	   !(key.attribute(CSSM_KEYATTR_PUBLIC_KEY_ENCRYPT))) {
+		inTheClear = true;
+	}
+	if(!inTheClear) {
+		unlockDb();
+    }
+	
     // tell the cryptocore to form the key blob
-    return common().encodeKeyCore(key, pubAcl, privAcl);
+    return common().encodeKeyCore(key, pubAcl, privAcl, inTheClear);
 }
 
 
@@ -787,8 +889,10 @@ KeyBlob *KeychainDatabase::encodeKey(const CssmKey &key, const CssmData &pubAcl,
 //
 void KeychainDatabase::decodeKey(KeyBlob *blob, CssmKey &key, void * &pubAcl, void * &privAcl)
 {
-    unlockDb();							// we need our keys
-
+	if(!blob->isClearText()) {
+		unlockDb();							// we need our keys
+	}
+	
     common().decodeKeyCore(blob, key, pubAcl, privAcl);
     // memory protocol: pubAcl points into blob; privAcl was allocated
 	
@@ -808,7 +912,17 @@ KeyBlob *KeychainDatabase::recodeKey(KeychainKey &oldKey)
 	CssmData publicAcl, privateAcl;
 	oldKey.exportBlob(publicAcl, privateAcl);
 	// NB: blob's memory belongs to caller, not the common
-	KeyBlob *blob = common().encodeKeyCore(oldKey.cssmKey(), publicAcl, privateAcl);
+
+	/* 
+	 * Make sure the new key is in the same cleartext/encrypted state.
+	 */
+	bool inTheClear = false;
+	assert(oldKey.blob());
+	if(oldKey.blob() && oldKey.blob()->isClearText()) {
+		/* careful....*/
+		inTheClear = true;
+	}
+	KeyBlob *blob = common().encodeKeyCore(oldKey.cssmKey(), publicAcl, privateAcl, inTheClear);
 	oldKey.acl().allocator.free(publicAcl);
 	oldKey.acl().allocator.free(privateAcl);
 	return blob;
@@ -825,7 +939,7 @@ void KeychainDatabase::setParameters(const DBParameters &params)
 	common().mParams = params;
     common().invalidateBlob();		// invalidate old blobs
     activity();				// (also resets the timeout timer)
-	secdebug("KCdb", "%p common %p(%s) set params=(%ld,%d)",
+	secdebug("KCdb", "%p common %p(%s) set params=(%u,%u)",
 		this, &common(), dbName(), params.idleTimeout, params.lockOnSleep);
 }
 
@@ -878,10 +992,10 @@ void KeychainDatabase::validateBlob(const DbBlob *blob)
 	blob->validate(CSSMERR_APPLEDL_INVALID_DATABASE_BLOB);
 	switch (blob->version()) {
 #if defined(COMPAT_OSX_10_0)
-		case blob->version_MacOS_10_0:
+		case DbBlob::version_MacOS_10_0:
 			break;
 #endif
-		case blob->version_MacOS_10_1:
+		case DbBlob::version_MacOS_10_1:
 			break;
 		default:
 			CssmError::throwMe(CSSMERR_APPLEDL_INCOMPATIBLE_DATABASE_BLOB);
@@ -898,7 +1012,7 @@ void KeychainDbCommon::dumpNode()
 {
 	PerSession::dumpNode();
 	uint32 sig; memcpy(&sig, &mIdentifier.signature(), sizeof(sig));
-	Debug::dump(" %s[%8.8lx]", mIdentifier.dbName(), sig);
+	Debug::dump(" %s[%8.8x]", mIdentifier.dbName(), sig);
 	if (isLocked()) {
 		Debug::dump(" locked");
 	} else {
@@ -906,17 +1020,17 @@ void KeychainDbCommon::dumpNode()
 		Debug::dump(" unlocked(%24.24s/%.2g)", ctime(&whenTime),
 			(when() - Time::now()).seconds());
 	}
-	Debug::dump(" params=(%ld,%d)", mParams.idleTimeout, mParams.lockOnSleep);
+	Debug::dump(" params=(%u,%u)", mParams.idleTimeout, mParams.lockOnSleep);
 }
 
 void KeychainDatabase::dumpNode()
 {
 	PerProcess::dumpNode();
-	Debug::dump(" %s vers=%ld",
+	Debug::dump(" %s vers=%u",
 		mValidData ? " data" : " nodata", version);
 	if (mBlob) {
 		uint32 sig; memcpy(&sig, &mBlob->randomSignature, sizeof(sig));
-		Debug::dump(" blob=%p[%8.8lx]", mBlob, sig);
+		Debug::dump(" blob=%p[%8.8x]", mBlob, sig);
 	} else {
 		Debug::dump(" noblob");
 	}
@@ -963,6 +1077,14 @@ KeychainDbGlobal &KeychainDbCommon::global() const
 }
 
 
+void KeychainDbCommon::select()
+{ this->ref(); }
+
+void KeychainDbCommon::unselect()
+{ this->unref(); }
+
+
+
 void KeychainDbCommon::makeNewSecrets()
 {
 	// we already have a master key (right?)
@@ -1004,10 +1126,14 @@ bool KeychainDbCommon::unlockDb(DbBlob *blob, void **privateAclBlob)
 		mValidParams = true;	// sticky
 	}
 
+	bool isLocked = mIsLocked;
+	
 	setUnlocked();		// mark unlocked
 	
-	// broadcast unlock notification
-	notify(kNotificationEventUnlocked);
+	if (isLocked) {
+		// broadcast unlock notification, but only if we were previously locked
+		notify(kNotificationEventUnlocked);
+	}
     return true;
 }
 
@@ -1058,25 +1184,6 @@ DbBlob *KeychainDbCommon::encode(KeychainDatabase &db)
     db.acl().allocator.free(pubAcl);
     db.acl().allocator.free(privAcl);
 	return blob;
-}
-
-
-//
-// Send a keychain-related notification event about this keychain
-//
-void KeychainDbCommon::notify(NotificationEvent event)
-{
-	// form the data (encoded DLDbIdentifier)
-    NameValueDictionary nvd;
-    NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier(identifier(), nvd);
-    CssmData data;
-    nvd.Export(data);
-
-	// inject notification into Security event system
-    Listener::notify(kNotificationDomainDatabase, event, data);
-	
-	// clean up
-    free (data.data());
 }
 
 

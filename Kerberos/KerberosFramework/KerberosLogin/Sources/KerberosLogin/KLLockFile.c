@@ -26,7 +26,8 @@
  * or implied warranty.
  */
 
-#define	kCCacheLockFileDirPrefix 	"/tmp/.KerberosLogin-"
+#define	kCCacheLockFileFallbackTmp 	"/tmp"
+#define	kCCacheLockFileDirPrefix 	"/.KerberosLogin-"
 #define	kCCacheLockFileSuffix    	"/KLLCCache.lock"
 #define	kLockFileDirPerms		(S_IRUSR | S_IWUSR | S_IXUSR)
 #define	kLockFilePerms			(S_IRUSR | S_IWUSR)
@@ -151,7 +152,7 @@ KLStatus __KLUnlockCCache (void)
 static KLStatus __KLGetLockFile (char **outLockFileDirectory, char **outLockFile, uid_t *outUID)
 {
     KLStatus err = klNoErr;
-    uid_t uid = 0; 
+    char tmpDir[MAXPATHLEN];
     char uidString[64];
     char *fileName = NULL;
     char *directoryName = NULL;
@@ -160,13 +161,24 @@ static KLStatus __KLGetLockFile (char **outLockFileDirectory, char **outLockFile
     if (outLockFile          == NULL) { err = KLError_ (klParameterErr); }
     if (outUID               == NULL) { err = KLError_ (klParameterErr); }
     
-    // Get the uid the file will be created as if we create it
     if (err == klNoErr) {
-        uid = geteuid ();  
+        size_t size = 0;
+        
+#ifdef _CS_DARWIN_USER_TEMP_DIR
+        size = confstr (_CS_DARWIN_USER_TEMP_DIR, tmpDir, sizeof (tmpDir));
+#else
+#warning _CS_DARWIN_USER_TEMP_DIR not defined
+#endif
+        
+        if (size < 1 || size >= sizeof (tmpDir)) { 
+            /* no temporary directory defined */
+            strlcpy (tmpDir, kCCacheLockFileFallbackTmp, sizeof (tmpDir));
+        }
     }
     
     if (err == klNoErr) {
-        int count = snprintf (uidString, sizeof (uidString), "%d", uid);
+        uid_t uid = kipc_session_get_session_uid ();
+        unsigned int count = snprintf (uidString, sizeof (uidString), "%d", uid);
         if (count > sizeof (uidString)) {
             dprintf ("__KLGetLockFile: WARNING! UID %d needs %d bytes and buffer is %ld bytes",
                      uid, count, sizeof (uidString));
@@ -177,7 +189,11 @@ static KLStatus __KLGetLockFile (char **outLockFileDirectory, char **outLockFile
     // Create the lock file directory path
     
     if (err == klNoErr) {
-        err = __KLCreateString (kCCacheLockFileDirPrefix, &directoryName);
+        err = __KLCreateString (tmpDir, &directoryName);
+    }
+    
+    if (err == klNoErr) {
+        err = __KLAppendToString (kCCacheLockFileDirPrefix, &directoryName);
     }
     
     if (err == klNoErr) {
@@ -189,7 +205,7 @@ static KLStatus __KLGetLockFile (char **outLockFileDirectory, char **outLockFile
     }
     
     if (err == klNoErr) {
-        err = __KLAppendToString (LoginSessionGetSecuritySessionName (), &directoryName);
+        err = __KLAppendToString (kipc_get_session_id_string (), &directoryName);
     }
     
     // Create the lock file path

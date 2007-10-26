@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: resource.c,v 1.11.206.1 2004/03/06 08:15:01 marka Exp $ */
+/* $Id: resource.c,v 1.12 2004/03/05 05:11:46 marka Exp $ */
 
 #include <config.h>
 
@@ -100,15 +100,25 @@ isc_resource_setlimit(isc_resource_t resource, isc_resourcevalue_t value) {
 	int unixresult;
 	int unixresource;
 	isc_result_t result;
+	isc_resourcevalue_t rlim_max;
+	isc_boolean_t rlim_t_is_signed;
 
 	result = resource2rlim(resource, &unixresource);
 	if (result != ISC_R_SUCCESS)
 		return (result);
 
-	if (value == ISC_RESOURCE_UNLIMITED)
-		rlim_value = RLIM_INFINITY;
+	rlim_t_is_signed = ISC_TF(((double)(ISC_PLATFORM_RLIMITTYPE)-1) < 0);
 
-	else {
+	rlim_max = (ISC_PLATFORM_RLIMITTYPE)-1;
+	if (rlim_t_is_signed) rlim_max = ~((ISC_PLATFORM_RLIMITTYPE)1 << (sizeof(ISC_PLATFORM_RLIMITTYPE) * 8 - 1));
+
+	if ((unixresource == RLIMIT_NOFILE) && (value == ISC_RESOURCE_UNLIMITED))
+	{
+		rlim_value = rlim_max;
+		if (OPEN_MAX < rlim_max) rlim_value = OPEN_MAX;
+	}
+	else
+	{
 		/*
 		 * isc_resourcevalue_t was chosen as an unsigned 64 bit
 		 * integer so that it could contain the maximum range of
@@ -116,19 +126,7 @@ isc_resource_setlimit(isc_resource_t resource, isc_resourcevalue_t value) {
 		 * range on Unix systems.  Ensure the range of
 		 * ISC_PLATFORM_RLIMITTYPE is not overflowed.
 		 */
-		isc_resourcevalue_t rlim_max;
-		isc_boolean_t rlim_t_is_signed =
-			ISC_TF(((double)(ISC_PLATFORM_RLIMITTYPE)-1) < 0);
-
-		if (rlim_t_is_signed)
-			rlim_max = ~((ISC_PLATFORM_RLIMITTYPE)1 <<
-				     (sizeof(ISC_PLATFORM_RLIMITTYPE) * 8 - 1));
-		else
-			rlim_max = (ISC_PLATFORM_RLIMITTYPE)-1;
-
-		if (value > rlim_max)
-			value = rlim_max;
-
+		if (value > rlim_max) value = rlim_max;
 		rlim_value = value;
 	}
 

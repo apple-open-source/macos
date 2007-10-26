@@ -1,4 +1,4 @@
-*usr_90.txt*	For Vim version 6.2.  Last change: 2002 Jul 14
+*usr_90.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -92,12 +92,12 @@ it like this: >
 
 	bzip2 -d -c path/vim-6.1.tar.bz2 | tar xf -
 
-Change "path" to where you have downloaded the file.
+Change "path" to where you have downloaded the file. >
 
-	gzip -d path/vim-6.1-src1.tar.gz | tar xf -
-	gzip -d path/vim-6.1-src2.tar.gz | tar xf -
-	gzip -d path/vim-6.1-rt1.tar.gz | tar xf -
-	gzip -d path/vim-6.1-rt2.tar.gz | tar xf -
+	gzip -d -c path/vim-6.1-src1.tar.gz | tar xf -
+	gzip -d -c path/vim-6.1-src2.tar.gz | tar xf -
+	gzip -d -c path/vim-6.1-rt1.tar.gz | tar xf -
+	gzip -d -c path/vim-6.1-rt2.tar.gz | tar xf -
 
 If you are satisfied with getting the default features, and your environment
 is setup properly, you should be able to compile Vim with just this: >

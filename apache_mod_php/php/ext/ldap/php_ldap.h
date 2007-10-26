@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ldap.h,v 1.25.8.2.2.2 2007/01/01 09:46:44 sebastian Exp $ */
+/* $Id: php_ldap.h,v 1.32.2.1.2.2 2007/07/13 01:24:16 jani Exp $ */
 
 #ifndef PHP_LDAP_H
 #define PHP_LDAP_H
@@ -38,6 +38,9 @@ PHP_MINFO_FUNCTION(ldap);
 
 PHP_FUNCTION(ldap_connect);
 PHP_FUNCTION(ldap_bind);
+#ifdef HAVE_LDAP_SASL
+PHP_FUNCTION(ldap_sasl_bind);
+#endif
 PHP_FUNCTION(ldap_unbind);
 PHP_FUNCTION(ldap_read);
 PHP_FUNCTION(ldap_list);
@@ -52,7 +55,6 @@ PHP_FUNCTION(ldap_next_attribute);
 PHP_FUNCTION(ldap_get_attributes);
 PHP_FUNCTION(ldap_get_values);
 PHP_FUNCTION(ldap_get_values_len);
-PHP_FUNCTION(ber_free);
 PHP_FUNCTION(ldap_get_dn);
 PHP_FUNCTION(ldap_explode_dn);
 PHP_FUNCTION(ldap_dn2ufn);

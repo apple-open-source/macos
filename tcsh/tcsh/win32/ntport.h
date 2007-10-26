@@ -1,3 +1,4 @@
+/*$Header: /src/pub/tcsh/win32/ntport.h,v 1.7 2005/03/25 18:46:42 kim Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -63,8 +64,6 @@
 
 #pragma warning(disable:4018)  //signed-unsigned mismatch
 #define HAVENOLIMIT
-#define FUNCPROTO
-#define _SIZE_T
 
 /* os-dependent stuff. belongs in tc.os.h, but I never said this would be
 pretty */
@@ -211,11 +210,7 @@ mode Value	Checks File For
 #define ALT_KEY_OFFSET             (34*2)
 #define SHIFT_KEY_OFFSET           (34*3)
 
-typedef int uid_t;
-typedef int gid_t;
 typedef int pid_t;
-typedef int mode_t;
-typedef void sigret_t;
 typedef int speed_t;
 typedef unsigned char u_char;
 typedef size_t caddr_t;
@@ -247,6 +242,10 @@ struct rusage {
 	 long ru_nvcsw;      /* voluntary context switches */
 	 long ru_nivcsw;          /* involuntary context switches */
 };
+typedef int uid_t;
+typedef int gid_t;
+typedef long ssize_t;
+
 struct passwd {
 	  char    *pw_name;       /* user name */
 	  char    *pw_passwd;     /* user password */
@@ -303,7 +302,7 @@ extern int quoteProtect(char *, char *,unsigned long) ;
 extern char* fix_path_for_child(void) ;
 extern void restore_path(char *) ;
 extern int copy_quote_and_fix_slashes(char *,char *, int * );
-extern void concat_args_and_quote(char **,char **,unsigned int *, char **, 
+extern char* concat_args_and_quote(char **,char**,char **,unsigned int *, char **, 
 	unsigned int *) ;
 
 
@@ -323,7 +322,7 @@ void nt_cleanup(void);
 /* stdio.c */
 extern int  nt_creat(char*,int);
 extern int  nt_close(int);
-extern int  nt_open(char*,int ,...);
+extern int  nt_open(const char*,int ,...);
 extern int  nt_pipe(int*);
 extern void restore_fds(void ) ;
 extern void copy_fds(void);
@@ -429,7 +428,7 @@ extern void doprintresource(short **, struct command * ) ;
 #ifdef NTDBG
 extern void dodebugbreak(short **, struct command * ) ;
 #endif NTDBG
-extern void nt_set_env(short *, short*);
+extern void nt_set_env(const short *, const short*);
 extern char *hb_subst(char *) ;
 extern void init_hb_subst() ;
 extern void init_shell_dll(void) ;

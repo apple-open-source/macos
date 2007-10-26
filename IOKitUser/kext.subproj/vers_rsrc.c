@@ -1,3 +1,5 @@
+#if !__LP64__
+
 #ifndef KERNEL
 #include <libc.h>
 #include "vers_rsrc.h"
@@ -348,6 +350,7 @@ finish:
 PRIV_EXT
 int VERS_string(char * buffer, UInt32 length, VERS_version vers) {
     int cpos = 0;
+    size_t bufferSize = 0;
     VERS_version vers_major = 0;
     VERS_version vers_minor = 0;
     VERS_version vers_revision = 0;
@@ -362,10 +365,11 @@ int VERS_string(char * buffer, UInt32 length, VERS_version vers) {
         return 0;
     }
 
-    bzero(buffer, length * sizeof(char));
+    bufferSize = length * sizeof(char);
+    bzero(buffer, bufferSize);
 
     if (vers < 0) {
-        strcpy(buffer, "(invalid)");
+        strlcpy(buffer, "(invalid)", bufferSize);
         return 1;
     }
 
@@ -387,31 +391,32 @@ int VERS_string(char * buffer, UInt32 length, VERS_version vers) {
         ( (vers_major * VERS_MAJOR_MULT) + (vers_minor * VERS_MINOR_MULT) +
           (vers_revision * VERS_REVISION_MULT) + (vers_stage * VERS_STAGE_MULT));
 
-    cpos = sprintf(buffer, "%lu", (UInt32)vers_major);
+    cpos = snprintf(buffer, bufferSize, "%u", (uint32_t) vers_major);
 
    /* Always include the minor version; it just looks weird without.
     */
     buffer[cpos] = '.';
     cpos++;
-    cpos += sprintf(buffer+cpos, "%lu", (UInt32)vers_minor);
+    cpos += snprintf(buffer+cpos, bufferSize-cpos, "%u", (uint32_t) vers_minor);
 
    /* The revision is displayed only if nonzero.
     */
     if (vers_revision) {
         buffer[cpos] = '.';
         cpos++;
-        cpos += sprintf(buffer+cpos, "%lu", (UInt32)vers_revision);
+        cpos += snprintf(buffer+cpos, bufferSize-cpos, "%u", (uint32_t) vers_revision);
     }
 
     stage_string = __VERS_string_for_stage(vers_stage);
     if (stage_string && stage_string[0]) {
-        strcat(buffer, stage_string);
+        strlcat(buffer, stage_string, bufferSize);
         cpos += strlen(stage_string);
     }
 
     if (vers_stage < VERS_release) {
-        sprintf(buffer+cpos, "%lu", (UInt32)vers_stage_level);
+        snprintf(buffer+cpos, bufferSize-cpos, "%u", (uint32_t) vers_stage_level);
     }
 
     return 1;
 }
+#endif // !__LP64__

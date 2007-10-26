@@ -48,7 +48,7 @@ libcharset-1.1/INSTALL.generic                   libcharset-1.1/INSTALL.generic
 libcharset-1.1/README                            libcharset-1.1/README
 libcharset-1.1/Makefile.devel                    libcharset-1.1/Makefile.devel
 libcharset-1.1/Makefile.in                       libcharset-1.1/Makefile.in
-libcharset-1.1/configure.in                      libcharset-1.1/configure.in
+libcharset-1.1/configure.ac                      libcharset-1.1/configure.ac
 libcharset-1.1/configure                         libcharset-1.1/configure
 libcharset-1.1/INTEGRATE                         libcharset-1.1/INTEGRATE
 libcharset-1.1/include/localcharset.h.in         libcharset-1.1/include/localcharset.h.in

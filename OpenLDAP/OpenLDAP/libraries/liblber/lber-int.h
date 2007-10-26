@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/lber-int.h,v 1.62.2.2 2004/01/01 18:16:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/lber-int.h,v 1.65.2.3 2006/01/03 22:16:07 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,29 +38,21 @@ typedef void (*BER_LOG_FN)(FILE *file,
 
 LBER_V (BER_ERRNO_FN) ber_int_errno_fn;
 
+#ifdef LDAP_MEMORY_TRACE
+# ifndef LDAP_MEMORY_DEBUG
+#  define LDAP_MEMORY_DEBUG 1
+# endif
+#endif
+
+#ifdef LDAP_MEMORY_DEBUG
+LBER_V (long)	ber_int_meminuse;
+#endif
+
 struct lber_options {
 	short lbo_valid;
 	unsigned short		lbo_options;
 	int			lbo_debug;
-	long		lbo_meminuse;
 };
-
-#ifdef NEW_LOGGING
-/*
-#    ifdef LDAP_DEBUG
-#        ifdef LDAP_LOG
-#            undef LDAP_LOG
-#        endif
-#        define LDAP_LOG(a) ber_pvt_log_output a
- */
-#        define BER_DUMP(a) ber_output_dump a
-/*
-#    else
-#        define LDAP_LOG(a)
-#        define BER_DUMP(a)
-#    endif
- */
-#endif
 
 LBER_F( int ) ber_pvt_log_output(
 	const char *subsystem,
@@ -141,15 +133,6 @@ LBER_F (void) ber_rewind LDAP_P(( BerElement * ));
  * bprint.c
  */
 #define ber_log_printf ber_pvt_log_printf
-
-#ifdef NEW_LOGGING
-LBER_F( int )
-ber_output_dump LDAP_P((
-	const char *subsys,
-	int level,
-	BerElement *ber,
-	int inout ));
-#endif
 
 LBER_F( int )
 ber_log_bprint LDAP_P((

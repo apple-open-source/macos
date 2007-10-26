@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-tester.c,v 1.22.2.4 2004/01/01 18:16:43 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-tester.c,v 1.27.2.8 2006/01/03 22:16:28 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,20 +33,24 @@
 
 
 #include "ldap_defaults.h"
+#include "lutil.h"
 
 
 #define SEARCHCMD		"slapd-search"
 #define READCMD			"slapd-read"
 #define ADDCMD			"slapd-addel"
 #define MODRDNCMD		"slapd-modrdn"
-#define MAXARGS      	100
-#define MAXREQS			20
+#define MODIFYCMD		"slapd-modify"
+#define MAXARGS      		100
+#define MAXREQS			5000
 #define LOOPS			"100"
+#define RETRIES			"0"
 
 #define TSEARCHFILE		"do_search.0"
 #define TREADFILE		"do_read.0"
 #define TADDFILE		"do_add."
 #define TMODRDNFILE		"do_modrdn.0"
+#define TMODIFYFILE		"do_modify.0"
 
 static char *get_file_name( char *dirname, char *filename );
 static int  get_search_filters( char *filename, char *filters[], char *bases[] );
@@ -68,7 +72,19 @@ static char argbuf[BUFSIZ];
 static void
 usage( char *name )
 {
-	fprintf( stderr, "usage: %s -H <uri> | ([-h <host>] -p <port>) -D <manager> -w <passwd> -d <datadir> [-j <maxchild>] [-l <loops>] -P <progdir>\n", name );
+	fprintf( stderr,
+		"usage: %s "
+		"-H <uri> | ([-h <host>] -p <port>) "
+		"-D <manager> "
+		"-w <passwd> "
+		"-d <datadir> "
+		"[-j <maxchild>] "
+		"[-l <loops>] "
+		"-P <progdir> "
+		"[-r <maxretries>] "
+		"[-t <delay>] "
+		"[-F]\n",
+		name );
 	exit( EXIT_FAILURE );
 }
 
@@ -84,6 +100,8 @@ main( int argc, char **argv )
 	char		*dirname = NULL;
 	char		*progdir = NULL;
 	char		*loops = LOOPS;
+	char		*retries = RETRIES;
+	char		*delay = "0";
 	DIR			*datadir;
 	struct dirent	*file;
 	char		*sfile = NULL;
@@ -110,48 +128,70 @@ main( int argc, char **argv )
 	char		*margs[MAXARGS];
 	int		manum;
 	char		mcmd[MAXPATHLEN];
+	char		*modargs[MAXARGS];
+	int		modanum;
+	char		modcmd[MAXPATHLEN];
+	char		*modfile = NULL;
+	char		*modreqs[MAXREQS];
+	char		*moddn[MAXREQS];
+	int		modnum = 0;
+	int		friendly = 0;
 
-	while ( (i = getopt( argc, argv, "H:h:p:D:w:b:d:j:l:P:" )) != EOF ) {
+	while ( (i = getopt( argc, argv, "D:d:FH:h:j:l:P:p:r:t:w:" )) != EOF ) {
 		switch( i ) {
-			case 'H':		/* slapd uri */
-				uri = strdup( optarg );
-			break;
-				
-			case 'h':		/* slapd host */
-				host = strdup( optarg );
+		case 'D':		/* slapd manager */
+			manager = ArgDup( optarg );
 			break;
 
-			case 'p':		/* the servers port number */
-				port = strdup( optarg );
-				break;
-
-			case 'D':		/* slapd manager */
-				manager = ArgDup( optarg );
+		case 'd':		/* data directory */
+			dirname = strdup( optarg );
 			break;
 
-			case 'w':		/* the managers passwd */
-				passwd = ArgDup( optarg );
-				break;
-
-			case 'd':		/* data directory */
-				dirname = strdup( optarg );
+		case 'F':
+			friendly++;
 			break;
 
-			case 'P':		/* prog directory */
-				progdir = strdup( optarg );
+		case 'H':		/* slapd uri */
+			uri = strdup( optarg );
 			break;
 
-			case 'j':		/* the number of parallel clients */
-				maxkids = atoi( optarg );
-				break;
+		case 'h':		/* slapd host */
+			host = strdup( optarg );
+			break;
 
-			case 'l':		/* the number of loops per client */
-				loops = strdup( optarg );
-				break;
-
-			default:
+		case 'j':		/* the number of parallel clients */
+			if ( lutil_atoi( &maxkids, optarg ) != 0 ) {
 				usage( argv[0] );
-				break;
+			}
+			break;
+
+		case 'l':		/* the number of loops per client */
+			loops = strdup( optarg );
+			break;
+
+		case 'P':		/* prog directory */
+			progdir = strdup( optarg );
+			break;
+
+		case 'p':		/* the servers port number */
+			port = strdup( optarg );
+			break;
+
+		case 'r':		/* the number of retries in case of error */
+			retries = strdup( optarg );
+			break;
+
+		case 't':		/* the delay in seconds between each retry */
+			delay = strdup( optarg );
+			break;
+
+		case 'w':		/* the managers passwd */
+			passwd = ArgDup( optarg );
+			break;
+
+		default:
+			usage( argv[0] );
+			break;
 		}
 	}
 
@@ -183,6 +223,9 @@ main( int argc, char **argv )
 		} else if ( !strcasecmp( file->d_name, TMODRDNFILE )) {
 			mfile = get_file_name( dirname, file->d_name );
 			continue;
+		} else if ( !strcasecmp( file->d_name, TMODIFYFILE )) {
+			modfile = get_file_name( dirname, file->d_name );
+			continue;
 		} else if ( !strncasecmp( file->d_name, TADDFILE, strlen( TADDFILE ))
 			&& ( anum < MAXREQS )) {
 			afiles[anum++] = get_file_name( dirname, file->d_name );
@@ -206,6 +249,10 @@ main( int argc, char **argv )
 	if ( mfile ) {
 		mnum = get_read_entries( mfile, mreqs );
 	}
+	/* look for modify requests */
+	if ( modfile ) {
+		modnum = get_search_filters( modfile, modreqs, moddn );
+	}
 
 	/*
 	 * generate the search clients
@@ -224,8 +271,16 @@ main( int argc, char **argv )
 		sargs[sanum++] = "-p";
 		sargs[sanum++] = port;
 	}
+	sargs[sanum++] = "-D";
+	sargs[sanum++] = manager;
+	sargs[sanum++] = "-w";
+	sargs[sanum++] = passwd;
 	sargs[sanum++] = "-l";
 	sargs[sanum++] = loops;
+	sargs[sanum++] = "-r";
+	sargs[sanum++] = retries;
+	sargs[sanum++] = "-t";
+	sargs[sanum++] = delay;
 	sargs[sanum++] = "-b";
 	sargs[sanum++] = NULL;		/* will hold the search base */
 	sargs[sanum++] = "-f";
@@ -251,6 +306,10 @@ main( int argc, char **argv )
 	}
 	rargs[ranum++] = "-l";
 	rargs[ranum++] = loops;
+	rargs[ranum++] = "-r";
+	rargs[ranum++] = retries;
+	rargs[ranum++] = "-t";
+	rargs[ranum++] = delay;
 	rargs[ranum++] = "-e";
 	rargs[ranum++] = NULL;		/* will hold the read entry */
 	rargs[ranum++] = NULL;
@@ -278,9 +337,52 @@ main( int argc, char **argv )
 	margs[manum++] = passwd;
 	margs[manum++] = "-l";
 	margs[manum++] = loops;
+	margs[manum++] = "-r";
+	margs[manum++] = retries;
+	margs[manum++] = "-t";
+	margs[manum++] = delay;
+	if ( friendly ) {
+		margs[manum++] = "-F";
+	}
 	margs[manum++] = "-e";
 	margs[manum++] = NULL;		/* will hold the modrdn entry */
 	margs[manum++] = NULL;
+	
+	/*
+	 * generate the modify clients
+	 */
+
+	modanum = 0;
+	snprintf( modcmd, sizeof modcmd, "%s" LDAP_DIRSEP MODIFYCMD,
+		progdir );
+	modargs[modanum++] = modcmd;
+	if ( uri ) {
+		modargs[modanum++] = "-H";
+		modargs[modanum++] = uri;
+	} else {
+		modargs[modanum++] = "-h";
+		modargs[modanum++] = host;
+		modargs[modanum++] = "-p";
+		modargs[modanum++] = port;
+	}
+	modargs[modanum++] = "-D";
+	modargs[modanum++] = manager;
+	modargs[modanum++] = "-w";
+	modargs[modanum++] = passwd;
+	modargs[modanum++] = "-l";
+	modargs[modanum++] = loops;
+	modargs[modanum++] = "-r";
+	modargs[modanum++] = retries;
+	modargs[modanum++] = "-t";
+	modargs[modanum++] = delay;
+	if ( friendly ) {
+		modargs[modanum++] = "-F";
+	}
+	modargs[modanum++] = "-e";
+	modargs[modanum++] = NULL;		/* will hold the modify entry */
+	modargs[modanum++] = "-a";;
+	modargs[modanum++] = NULL;		/* will hold the ava */
+	modargs[modanum++] = NULL;
 
 	/*
 	 * generate the add/delete clients
@@ -305,6 +407,13 @@ main( int argc, char **argv )
 	aargs[aanum++] = passwd;
 	aargs[aanum++] = "-l";
 	aargs[aanum++] = loops;
+	aargs[aanum++] = "-r";
+	aargs[aanum++] = retries;
+	aargs[aanum++] = "-t";
+	aargs[aanum++] = delay;
+	if ( friendly ) {
+		aargs[aanum++] = "-F";
+	}
 	aargs[aanum++] = "-f";
 	aargs[aanum++] = NULL;		/* will hold the add data file */
 	aargs[aanum++] = NULL;
@@ -330,6 +439,13 @@ main( int argc, char **argv )
 
 			margs[manum - 2] = mreqs[j];
 			fork_child( mcmd, margs );
+
+		}
+		if ( j < modnum ) {
+
+			modargs[modanum - 4] = moddn[j];
+			modargs[modanum - 2] = modreqs[j];
+			fork_child( modcmd, modargs );
 
 		}
 

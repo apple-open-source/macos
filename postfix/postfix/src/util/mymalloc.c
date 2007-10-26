@@ -7,11 +7,11 @@
 /*	#include <mymalloc.h>
 /*
 /*	char	*mymalloc(len)
-/*	int	len;
+/*	ssize_t	len;
 /*
 /*	char	*myrealloc(ptr, len)
 /*	char	*ptr;
-/*	int	len;
+/*	ssize_t	len;
 /*
 /*	void	myfree(ptr)
 /*	char	*ptr;
@@ -21,15 +21,21 @@
 /*
 /*	char	*mystrndup(str, len)
 /*	const char *str;
-/*	int	len;
+/*	ssize_t	len;
 /*
 /*	char	*mymemdup(ptr, len)
 /*	const char *ptr;
-/*	int	len;
+/*	ssize_t	len;
 /* DESCRIPTION
 /*	This module performs low-level memory management with error
 /*	handling. A call of these functions either succeeds or it does
 /*	not return at all.
+/*
+/*	To save memory, zero-length strings are shared and read-only.
+/*	The caller must not attempt to modify the null terminator.
+/*	This code is enabled unless NO_SHARED_EMPTY_STRINGS is
+/*	defined at compile time (for example, you have an sscanf()
+/*	routine that pushes characters back into its input).
 /*
 /*	mymalloc() allocates the requested amount of memory. The memory
 /*	is not set to zero.
@@ -89,11 +95,11 @@
   */
 typedef struct MBLOCK {
     int     signature;			/* set when block is active */
-    int     length;			/* user requested length */
+    ssize_t length;			/* user requested length */
     union {
 	ALIGN_TYPE align;
 	char    payload[1];		/* actually a bunch of bytes */
-    } u;
+    }       u;
 } MBLOCK;
 
 #define SIGNATURE	0xdead
@@ -118,15 +124,36 @@ typedef struct MBLOCK {
 
 #define SPACE_FOR(len)	(offsetof(MBLOCK, u.payload[0]) + len)
 
+ /*
+  * Optimization for short strings. We share one copy with multiple callers.
+  * This differs from normal heap memory in two ways, because the memory is
+  * shared:
+  * 
+  * -  It must be read-only to avoid horrible bugs. This is OK because there is
+  * no legitimate reason to modify the null terminator.
+  * 
+  * - myfree() cannot overwrite the memory with a filler pattern like it can do
+  * with heap memory. Therefore, some dangling pointer bugs will be masked.
+  */
+#ifndef NO_SHARED_EMPTY_STRINGS
+static const char empty_string[] = "";
+
+#endif
+
 /* mymalloc - allocate memory or bust */
 
-char   *mymalloc(int len)
+char   *mymalloc(ssize_t len)
 {
     char   *ptr;
     MBLOCK *real_ptr;
 
+    /*
+     * Note: for safety reasons the request length is a signed type. This
+     * allows us to catch integer overflow problems that weren't already
+     * caught up-stream.
+     */
     if (len < 1)
-	msg_panic("mymalloc: requested length %d", len);
+	msg_panic("mymalloc: requested length %ld", (long) len);
     if ((real_ptr = (MBLOCK *) malloc(SPACE_FOR(len))) == 0)
 	msg_fatal("mymalloc: insufficient memory: %m");
     CHECK_OUT_PTR(ptr, real_ptr, len);
@@ -136,13 +163,23 @@ char   *mymalloc(int len)
 
 /* myrealloc - reallocate memory or bust */
 
-char   *myrealloc(char *ptr, int len)
+char   *myrealloc(char *ptr, ssize_t len)
 {
     MBLOCK *real_ptr;
-    int     old_len;
+    ssize_t old_len;
 
+#ifndef NO_SHARED_EMPTY_STRINGS
+    if (ptr == empty_string)
+	return (mymalloc(len));
+#endif
+
+    /*
+     * Note: for safety reasons the request length is a signed type. This
+     * allows us to catch integer overflow problems that weren't already
+     * caught up-stream.
+     */
     if (len < 1)
-	msg_panic("myrealloc: requested length %d", len);
+	msg_panic("myrealloc: requested length %ld", (long) len);
     CHECK_IN_PTR(ptr, real_ptr, old_len, "myrealloc");
     if ((real_ptr = (MBLOCK *) realloc((char *) real_ptr, SPACE_FOR(len))) == 0)
 	msg_fatal("myrealloc: insufficient memory: %m");
@@ -157,11 +194,17 @@ char   *myrealloc(char *ptr, int len)
 void    myfree(char *ptr)
 {
     MBLOCK *real_ptr;
-    int     len;
+    ssize_t len;
 
-    CHECK_IN_PTR(ptr, real_ptr, len, "myfree");
-    memset((char *) real_ptr, FILLER, SPACE_FOR(len));
-    free((char *) real_ptr);
+#ifndef NO_SHARED_EMPTY_STRINGS
+    if (ptr != empty_string) {
+#endif
+	CHECK_IN_PTR(ptr, real_ptr, len, "myfree");
+	memset((char *) real_ptr, FILLER, SPACE_FOR(len));
+	free((char *) real_ptr);
+#ifndef NO_SHARED_EMPTY_STRINGS
+    }
+#endif
 }
 
 /* mystrdup - save string to heap */
@@ -170,18 +213,28 @@ char   *mystrdup(const char *str)
 {
     if (str == 0)
 	msg_panic("mystrdup: null pointer argument");
+#ifndef NO_SHARED_EMPTY_STRINGS
+    if (*str == 0)
+	return ((char *) empty_string);
+#endif
     return (strcpy(mymalloc(strlen(str) + 1), str));
 }
 
 /* mystrndup - save substring to heap */
 
-char   *mystrndup(const char *str, int len)
+char   *mystrndup(const char *str, ssize_t len)
 {
     char   *result;
     char   *cp;
 
     if (str == 0)
 	msg_panic("mystrndup: null pointer argument");
+    if (len < 0)
+	msg_panic("mystrndup: requested length %ld", (long) len);
+#ifndef NO_SHARED_EMPTY_STRINGS
+    if (*str == 0)
+	return ((char *) empty_string);
+#endif
     if ((cp = memchr(str, 0, len)) != 0)
 	len = cp - str;
     result = memcpy(mymalloc(len + 1), str, len);
@@ -191,7 +244,7 @@ char   *mystrndup(const char *str, int len)
 
 /* mymemdup - copy memory */
 
-char   *mymemdup(const char *ptr, int len)
+char   *mymemdup(const char *ptr, ssize_t len)
 {
     if (ptr == 0)
 	msg_panic("mymemdup: null pointer argument");

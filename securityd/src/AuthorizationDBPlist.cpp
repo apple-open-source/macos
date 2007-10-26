@@ -28,62 +28,65 @@
 #include "AuthorizationDBPlist.h"
 #include <security_utilities/logging.h>
 
+// mLock is held when the database is changed
+// mReadWriteLock is held when the file on disk is changed
+// during load(), save() and parseConfig() mLock is assumed
 
-namespace Authorization
-{
+namespace Authorization {
 
-AuthorizationDBPlist::AuthorizationDBPlist(const char *configFile) : mFileName(configFile), mLastChecked(DBL_MIN)
+AuthorizationDBPlist::AuthorizationDBPlist(const char *configFile) : 
+    mFileName(configFile), mLastChecked(DBL_MIN)
 {
 	memset(&mRulesFileMtimespec, 0, sizeof(mRulesFileMtimespec));
 }
 
 void AuthorizationDBPlist::sync(CFAbsoluteTime now)
 {
-	if (mRules.empty())
-		load(now);
-	else
-	{
+	if (mRules.empty()) {
+		StLock<Mutex> _(mLock);
+		load();
+	} else {
 		// Don't do anything if we checked the timestamp less than 5 seconds ago
-		if (mLastChecked > now - 5.0)
+		if (mLastChecked > now - 5.0) {
+			secdebug("authdb", "no sync: last reload %.0f + 5 > %.0f", 
+				mLastChecked, now);
 			return;
-	
-		struct stat st;
-		if (stat(mFileName.c_str(), &st))
-		{
-			Syslog::error("Stating rules file \"%s\": %s", mFileName.c_str(), strerror(errno));
-			/* @@@ No rules file found, use defaults: admin group for everything. */
-			//UnixError::throwMe(errno);
 		}
-		else
+		
 		{
-			// @@@ Make sure this is the right way to compare 2 struct timespec thingies
-			// Technically we should check st_dev and st_ino as well since if either of those change
-			// we are looking at a different file too.
-			if (memcmp(&st.st_mtimespec, &mRulesFileMtimespec, sizeof(mRulesFileMtimespec)))
-				load(now);
+			struct stat st;
+			{
+				StLock<Mutex> _(mReadWriteLock);
+				if (stat(mFileName.c_str(), &st)) {
+					Syslog::error("Stating rules file \"%s\": %s", mFileName.c_str(), 
+						strerror(errno));
+					return;
+				}
+			}
+
+			if (memcmp(&st.st_mtimespec, &mRulesFileMtimespec, sizeof(mRulesFileMtimespec))) {
+				StLock<Mutex> _(mLock);
+				load();
+			}
 		}
 	}
-
-	mLastChecked = now;
 }
 
-void AuthorizationDBPlist::save() const
+void AuthorizationDBPlist::save()
 {
 	if (!mConfig)
 		return;
 
 	StLock<Mutex> _(mReadWriteLock);
-	
+
+    secdebug("authdb", "policy db changed, saving to disk.");
 	int fd = -1;
 	string tempFile = mFileName + ",";
 	
-	for (;;)
-	{
+	for (;;) {
 		fd = open(tempFile.c_str(), O_WRONLY|O_CREAT|O_EXCL, 0644);
-		if (fd == -1)
-		{
-			if (errno == EEXIST)
-			{
+		if (fd == -1) {
+			if (errno == EEXIST) {
 				unlink(tempFile.c_str());
 				continue;
 			}
@@ -91,35 +94,32 @@ void AuthorizationDBPlist::save() const
 				continue;
 			else
 				break;
-		}
-		else
+		} else
 			break;
 	}
 			
-	if (fd == -1)
-	{
-		Syslog::error("Saving rules file \"%s\": %s", tempFile.c_str(), strerror(errno));
+	if (fd == -1) {
+		Syslog::error("Saving rules file \"%s\": %s", tempFile.c_str(), 
+                strerror(errno));
 		return;
 	}
 
-	// convert config to plist
 	CFDataRef configXML = CFPropertyListCreateXMLData(NULL, mConfig);
-	
 	if (!configXML)
 		return;
 
-	// write out data
-	SInt32 configSize = CFDataGetLength(configXML);
+	CFIndex configSize = CFDataGetLength(configXML);
 	size_t bytesWritten = write(fd, CFDataGetBytePtr(configXML), configSize);
 	CFRelease(configXML);
 	
-	if (bytesWritten != uint32_t(configSize))
-	{
+	if (bytesWritten != configSize) {
 		if (bytesWritten == static_cast<size_t>(-1))
-			Syslog::error("Writing rules file \"%s\": %s", tempFile.c_str(), strerror(errno));
+			Syslog::error("Problem writing rules file \"%s\": (errno=%s)", 
+                    tempFile.c_str(), strerror(errno));
 		else
-			Syslog::error("Could only write %lu out of %ld bytes from rules file \"%s\"",
-						bytesWritten, configSize, tempFile.c_str());
+			Syslog::error("Problem writing rules file \"%s\": "
+                "only wrote %lu out of %ld bytes",
+				tempFile.c_str(), bytesWritten, configSize);
 
 		close(fd);
 		unlink(tempFile.c_str());
@@ -129,49 +129,46 @@ void AuthorizationDBPlist::save() const
 		close(fd);
 		if (rename(tempFile.c_str(), mFileName.c_str()))
 			unlink(tempFile.c_str());
+		else
+			mLastChecked = CFAbsoluteTimeGetCurrent(); // we have the copy that's on disk now, so don't go loading it right away
 	}
-	return;
 }
 
-void AuthorizationDBPlist::load(CFTimeInterval now)
+void AuthorizationDBPlist::load()
 {
 	StLock<Mutex> _(mReadWriteLock);
-	
+
+    secdebug("authdb", "(re)loading policy db from disk.");    
 	int fd = open(mFileName.c_str(), O_RDONLY, 0);
-	if (fd == -1)
-	{
-		Syslog::error("Opening rules file \"%s\": %s", mFileName.c_str(), strerror(errno));
+	if (fd == -1) {
+		Syslog::error("Problem opening rules file \"%s\": %s", 
+                mFileName.c_str(), strerror(errno));
 		return;
 	}
 
 	struct stat st;
-	if (fstat(fd, &st))
-	{
+	if (fstat(fd, &st)) {
 		int error = errno;
 		close(fd);
 		UnixError::throwMe(error);
 	}
-		
 
 	mRulesFileMtimespec = st.st_mtimespec;
-
 	off_t fileSize = st.st_size;
-
 	CFMutableDataRef xmlData = CFDataCreateMutable(NULL, fileSize);
 	CFDataSetLength(xmlData, fileSize);
 	void *buffer = CFDataGetMutableBytePtr(xmlData);
 	size_t bytesRead = read(fd, buffer, fileSize);
-	if (bytesRead != fileSize)
-	{
-		if (bytesRead == static_cast<size_t>(-1))
-		{
-			Syslog::error("Reading rules file \"%s\": %s", mFileName.c_str(), strerror(errno));
+	if (bytesRead != fileSize) {
+		if (bytesRead == static_cast<size_t>(-1)) {
+			Syslog::error("Problem reading rules file \"%s\": %s", 
+                    mFileName.c_str(), strerror(errno));
 			CFRelease(xmlData);
 			return;
 		}
-
-		Syslog::error("Could only read %ul out of %ul bytes from rules file \"%s\"",
-						bytesRead, fileSize, mFileName.c_str());
+		Syslog::error("Problem reading rules file \"%s\": "
+                "only read %ul out of %ul bytes",
+				bytesRead, fileSize, mFileName.c_str());
 		CFRelease(xmlData);
 		return;
 	}
@@ -179,17 +176,18 @@ void AuthorizationDBPlist::load(CFTimeInterval now)
 	CFStringRef errorString;
 	CFDictionaryRef configPlist = reinterpret_cast<CFDictionaryRef>(CFPropertyListCreateFromXMLData(NULL, xmlData, kCFPropertyListMutableContainersAndLeaves, &errorString));
 	
-	if (!configPlist)
-	{
+	if (!configPlist) {
 		char buffer[512];
-		const char *error = CFStringGetCStringPtr(errorString, kCFStringEncodingUTF8);
-		if (error == NULL)
-		{
-			if (CFStringGetCString(errorString, buffer, 512, kCFStringEncodingUTF8))
+		const char *error = CFStringGetCStringPtr(errorString, 
+                kCFStringEncodingUTF8);
+		if (error == NULL) {
+			if (CFStringGetCString(errorString, buffer, 512, 
+                        kCFStringEncodingUTF8))
 				error = buffer;
 		}
 
-		Syslog::error("Parsing rules file \"%s\": %s", mFileName.c_str(), error);
+		Syslog::error("Parsing rules file \"%s\": %s", 
+                mFileName.c_str(), error);
 		if (errorString)
 			CFRelease(errorString);
 		
@@ -197,70 +195,58 @@ void AuthorizationDBPlist::load(CFTimeInterval now)
 		return;
 	}
 
-	if (CFGetTypeID(configPlist) != CFDictionaryGetTypeID())
-	{
+	if (CFGetTypeID(configPlist) != CFDictionaryGetTypeID()) {
 
-		Syslog::error("Rules file \"%s\": is not a dictionary", mFileName.c_str());
+		Syslog::error("Rules file \"%s\": is not a dictionary", 
+                mFileName.c_str());
 
 		CFRelease(xmlData);
 		CFRelease(configPlist);
 		return;
 	}
 
-	{
-		StLock<Mutex> _(mLock);
-		parseConfig(configPlist);
-		mLastChecked = now;
-	}
+	parseConfig(configPlist);
+
 	CFRelease(xmlData);
 	CFRelease(configPlist);
 
 	close(fd);
+
+	// If all went well, we have the copy that's on disk now, so don't go loading it right away
+	mLastChecked = CFAbsoluteTimeGetCurrent();
 }
 
-
-
-void
-AuthorizationDBPlist::parseConfig(CFDictionaryRef config)
+void AuthorizationDBPlist::parseConfig(CFDictionaryRef config)
 {
-	// grab items from top-level dictionary that we care about
 	CFStringRef rightsKey = CFSTR("rights");
 	CFStringRef rulesKey = CFSTR("rules");
 	CFMutableDictionaryRef newRights = NULL;
 	CFMutableDictionaryRef newRules = NULL;
 
 	if (!config)
-		MacOSError::throwMe(errAuthorizationInternal); // XXX/cs invalid rule file
+		MacOSError::throwMe(errAuthorizationInternal); 
 
 	if (CFDictionaryContainsKey(config, rulesKey))
-	{
 		newRules = reinterpret_cast<CFMutableDictionaryRef>(const_cast<void*>(CFDictionaryGetValue(config, rulesKey)));
-	}
 
 	if (CFDictionaryContainsKey(config, rightsKey))
-	{
 		newRights = reinterpret_cast<CFMutableDictionaryRef>(const_cast<void*>(CFDictionaryGetValue(config, rightsKey)));
-	}
 	
-	if (newRules 
-		&& newRights 
+	if (newRules && newRights 
 		&& (CFDictionaryGetTypeID() == CFGetTypeID(newRules)) 
-		&& (CFDictionaryGetTypeID() == CFGetTypeID(newRights)))
-	{
-		mConfig = config;
-		mConfigRights = static_cast<CFMutableDictionaryRef>(newRights);
-		mConfigRules = static_cast<CFMutableDictionaryRef>(newRules);
+		&& (CFDictionaryGetTypeID() == CFGetTypeID(newRights))) 
+    {
+        mConfigRights = static_cast<CFMutableDictionaryRef>(newRights);
+        mConfigRules = static_cast<CFMutableDictionaryRef>(newRules);
 		mRules.clear();
-		try
-		{
+		try {
 			CFDictionaryApplyFunction(newRights, parseRule, this);
-		}
-		catch (...)
-		{
+		} catch (...) {
 			MacOSError::throwMe(errAuthorizationInternal); // XXX/cs invalid rule file
 		}
+		mConfig = config;
 	}
-	else
+	else 
 		MacOSError::throwMe(errAuthorizationInternal); // XXX/cs invalid rule file
 }
 
@@ -282,10 +268,9 @@ AuthorizationDBPlist::validateRule(string inRightName, CFDictionaryRef inRightDe
 		Rule newRule(inRightName, inRightDefinition, mConfigRules);
 		if (newRule->name() == inRightName)
 			return true;
-	} 
-	catch (...)
-	{
-		secdebug("authrule", "invalid definition for rule %s.\n", inRightName.c_str());
+	} catch (...) {
+		secdebug("authrule", "invalid definition for rule %s.\n", 
+                inRightName.c_str());
 	}
 	return false;
 }
@@ -295,14 +280,11 @@ AuthorizationDBPlist::getRuleDefinition(string &key)
 {
 	CFStringRef cfKey = makeCFString(key);
     StLock<Mutex> _(mLock);
-	if (CFDictionaryContainsKey(mConfigRights, cfKey))
-	{
+	if (CFDictionaryContainsKey(mConfigRights, cfKey)) {
 		CFDictionaryRef definition = reinterpret_cast<CFMutableDictionaryRef>(const_cast<void*>(CFDictionaryGetValue(mConfigRights, cfKey)));
 		CFRelease(cfKey);
 		return CFDictionaryCreateCopy(NULL, definition);
-	}
-	else
-	{
+	} else {
 		CFRelease(cfKey);
 		return NULL;
 	}
@@ -328,11 +310,11 @@ AuthorizationDBPlist::getRule(const AuthItemRef &inRight) const
     // Lock the rulemap
     StLock<Mutex> _(mLock);
 	
+    secdebug("authdb", "looking up rule %s.", inRight->name());
 	if (mRules.empty())
 		return Rule();
 
-	for (;;)
-	{
+	for (;;) {
 		map<string,Rule>::const_iterator rule = mRules.find(key);
 		
 		if (rule != mRules.end())
@@ -355,39 +337,42 @@ AuthorizationDBPlist::getRule(const AuthItemRef &inRight) const
 void
 AuthorizationDBPlist::setRule(const char *inRightName, CFDictionaryRef inRuleDefinition)
 {
+	// if mConfig is now a reasonable guard
 	if (!inRuleDefinition || !mConfigRights)
 		MacOSError::throwMe(errAuthorizationDenied); // errInvalidRule
 
-	CFRef<CFStringRef> keyRef(CFStringCreateWithCString(NULL, inRightName, kCFStringEncodingASCII));
+	CFRef<CFStringRef> keyRef(CFStringCreateWithCString(NULL, inRightName, 
+                kCFStringEncodingASCII));
 	if (!keyRef)
 		return;
 		
-	StLock<Mutex> _(mLock);
-
-	CFDictionarySetValue(mConfigRights, keyRef, inRuleDefinition);
-	// release modification lock here already?
-	save();
-	mLastChecked = 0.0;
+	{
+		StLock<Mutex> _(mLock);
+		secdebug("authdb", "setting up rule %s.", inRightName);
+		CFDictionarySetValue(mConfigRights, keyRef, inRuleDefinition);
+		save();
+		parseConfig(mConfig);
+	}
 }
 
 void
 AuthorizationDBPlist::removeRule(const char *inRightName)
 {
+	// if mConfig is now a reasonable guard
 	if (!mConfigRights)
 		MacOSError::throwMe(errAuthorizationDenied);
 			
-	CFRef<CFStringRef> keyRef(CFStringCreateWithCString(NULL, inRightName, kCFStringEncodingASCII));
+	CFRef<CFStringRef> keyRef(CFStringCreateWithCString(NULL, inRightName, 
+                kCFStringEncodingASCII));
 	if (!keyRef)
 		return;
 
-	StLock<Mutex> _(mLock);
-
-	if (CFDictionaryContainsKey(mConfigRights, keyRef))
 	{
+		StLock<Mutex> _(mLock);
+		secdebug("authdb", "removing rule %s.", inRightName);
 		CFDictionaryRemoveValue(mConfigRights, keyRef);
-		// release modification lock here already?
 		save();
-		mLastChecked = 0.0;
+		parseConfig(mConfig);
 	}
 }
 

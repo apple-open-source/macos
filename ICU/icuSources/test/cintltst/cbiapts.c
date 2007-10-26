@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -28,10 +28,11 @@
 #include "unicode/ubrk.h"
 #include "unicode/ustring.h"
 #include "unicode/ucnv.h"
+#include "unicode/utext.h"
 #include "cintltst.h"
 #include "cbiapts.h"
 
-#define TEST_ASSET_SUCCESS(status) {if (U_FAILURE(status)) { \
+#define TEST_ASSERT_SUCCESS(status) {if (U_FAILURE(status)) { \
 log_err("Failure at file %s, line %d, error = %s\n", __FILE__, __LINE__, u_errorName(status));}}
 
 #define TEST_ASSERT(expr) {if ((expr)==FALSE) { \
@@ -41,6 +42,7 @@ static void TestBreakIteratorSafeClone(void);
 static void TestBreakIteratorRules(void);
 static void TestBreakIteratorRuleError(void);
 static void TestBreakIteratorStatusVec(void);
+static void TestBreakIteratorUText(void);
 
 void addBrkIterAPITest(TestNode** root);
 
@@ -51,6 +53,7 @@ void addBrkIterAPITest(TestNode** root)
     addTest(root, &TestBreakIteratorRules, "tstxtbd/cbiapts/TestBreakIteratorRules");
     addTest(root, &TestBreakIteratorRuleError, "tstxtbd/cbiapts/TestBreakIteratorRuleError");
     addTest(root, &TestBreakIteratorStatusVec, "tstxtbd/cbiapts/TestBreakIteratorStatusVec");
+    addTest(root, &TestBreakIteratorUText, "tstxtbd/cbiapts/TestBreakIteratorUText");
 }
 
 #define CLONETEST_ITERATOR_COUNT 2
@@ -187,11 +190,11 @@ static void TestBreakIteratorCAPI()
     /*trying to open an illegal iterator*/
     bogus     = ubrk_open((UBreakIteratorType)5, "en_US", text, u_strlen(text), &status);
     if(U_SUCCESS(status)){
-        log_err("FAIL: Error in ubrk_open() for BOGUS breakiterator. Expected U_MEMORY_ALLOCATION_ERROR\n");
+        log_err("FAIL: Error in ubrk_open() for BOGUS breakiterator. Expected U_ILLEGAL_ARGUMENT_ERROR\n");
     }
     if(U_FAILURE(status)){
-        if(status != U_MEMORY_ALLOCATION_ERROR){
-            log_err("FAIL: Error in ubrk_open() for BOGUS breakiterator. Expected U_MEMORY_ALLOCATION_ERROR\n Got %s\n", myErrorName(status));
+        if(status != U_ILLEGAL_ARGUMENT_ERROR){
+            log_err("FAIL: Error in ubrk_open() for BOGUS breakiterator. Expected U_ILLEGAL_ARGUMENT_ERROR\n Got %s\n", myErrorName(status));
         }
     }
     status=U_ZERO_ERROR;
@@ -302,13 +305,40 @@ static void TestBreakIteratorCAPI()
     
  
     /*---- */
-/*Testing ubrk_open and ubrk_close()*/
+    /*Testing ubrk_open and ubrk_close()*/
    log_verbose("\nTesting open and close for us locale\n");
     b = ubrk_open(UBRK_WORD, "fr_FR", text, u_strlen(text), &status);
     if (U_FAILURE(status)) {
         log_err("ubrk_open for word returned NULL: %s\n", myErrorName(status));
     }
     ubrk_close(b);
+
+    /* Test setText and setUText */
+    {
+        UChar s1[] = {0x41, 0x42, 0x20, 0};
+        UChar s2[] = {0x41, 0x42, 0x43, 0x44, 0x45, 0};
+        UText *ut = NULL;
+        UBreakIterator *bb;
+        int j;
+
+        log_verbose("\nTesting ubrk_setText() and ubrk_setUText()\n");
+        status = U_ZERO_ERROR;
+        bb = ubrk_open(UBRK_WORD, "en_US", NULL, 0, &status);
+        TEST_ASSERT_SUCCESS(status);
+        ubrk_setText(bb, s1, -1, &status);
+        TEST_ASSERT_SUCCESS(status);
+        ubrk_first(bb);
+        j = ubrk_next(bb);
+        TEST_ASSERT(j == 2);
+        ut = utext_openUChars(ut, s2, -1, &status);
+        ubrk_setUText(bb, ut, &status);
+        TEST_ASSERT_SUCCESS(status);
+        j = ubrk_next(bb);
+        TEST_ASSERT(j == 5);
+
+        ubrk_close(bb);
+        utext_close(ut);
+    }
 
     ubrk_close(word);
     ubrk_close(sentence);
@@ -601,26 +631,78 @@ static void TestBreakIteratorStatusVec() {
 
 
     bi = ubrk_openRules(rules, -1, testString, -1, NULL, &status);
-    TEST_ASSET_SUCCESS(status);
+    TEST_ASSERT_SUCCESS(status);
     TEST_ASSERT(bi != NULL);
 
-    pos = ubrk_next(bi);
-    TEST_ASSERT(pos == 1);
+    /* The TEST_ASSERT above should change too... */
+    if (bi != NULL) {
+        pos = ubrk_next(bi);
+        TEST_ASSERT(pos == 1);
 
-    memset(vals, -1, sizeof(vals));
-    numVals = ubrk_getRuleStatusVec(bi, vals, 10, &status);
-    TEST_ASSET_SUCCESS(status);
-    TEST_ASSERT(numVals == 2);
-    TEST_ASSERT(vals[0] == 100);
-    TEST_ASSERT(vals[1] == 300);
-    TEST_ASSERT(vals[2] == -1);
+        memset(vals, -1, sizeof(vals));
+        numVals = ubrk_getRuleStatusVec(bi, vals, 10, &status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(numVals == 2);
+        TEST_ASSERT(vals[0] == 100);
+        TEST_ASSERT(vals[1] == 300);
+        TEST_ASSERT(vals[2] == -1);
 
-    numVals = ubrk_getRuleStatusVec(bi, vals, 0, &status);
-    TEST_ASSERT(status == U_BUFFER_OVERFLOW_ERROR);
-    TEST_ASSERT(numVals == 2);
+        numVals = ubrk_getRuleStatusVec(bi, vals, 0, &status);
+        TEST_ASSERT(status == U_BUFFER_OVERFLOW_ERROR);
+        TEST_ASSERT(numVals == 2);
+    }
 
     ubrk_close(bi);
 }
+
+
+/*
+ *  static void TestBreakIteratorUText(void);
+ *
+ *         Test that ubrk_setUText() is present and works for a simple case.
+ */
+static void TestBreakIteratorUText(void) {
+    const char *UTF8Str = "\x41\xc3\x85\x5A\x20\x41\x52\x69\x6E\x67";  /* c3 85 is utf-8 for A with a ring on top */
+                      /*   0  1   2 34567890  */
+
+    UErrorCode      status = U_ZERO_ERROR;
+    UBreakIterator *bi     = NULL;
+    int32_t         pos    = 0;
+
+
+    UText *ut = utext_openUTF8(NULL, UTF8Str, -1, &status);
+    TEST_ASSERT_SUCCESS(status);
+
+    bi = ubrk_open(UBRK_WORD, "en_US", NULL, 0, &status);
+    if (U_FAILURE(status)) {
+        log_err("Failure at file %s, line %d, error = %s\n", __FILE__, __LINE__, u_errorName(status));
+        return;
+    }
+
+    ubrk_setUText(bi, ut, &status);
+    if (U_FAILURE(status)) {
+        log_err("Failure at file %s, line %d, error = %s\n", __FILE__, __LINE__, u_errorName(status));
+        return;
+    }
+
+    pos = ubrk_first(bi);
+    TEST_ASSERT(pos == 0);
+
+    pos = ubrk_next(bi);
+    TEST_ASSERT(pos == 4);
+
+    pos = ubrk_next(bi);
+    TEST_ASSERT(pos == 5);
+
+    pos = ubrk_next(bi);
+    TEST_ASSERT(pos == 10);
+
+    pos = ubrk_next(bi);
+    TEST_ASSERT(pos == UBRK_DONE);
+    ubrk_close(bi);
+    utext_close(ut);
+}
+
 
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */

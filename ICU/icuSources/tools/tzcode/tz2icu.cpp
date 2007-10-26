@@ -1,3 +1,4 @@
+
 /*
 **********************************************************************
 * Copyright (c) 2003-2006, International Business Machines
@@ -478,7 +479,7 @@ void handleFile(string path, string id) {
         ostringstream os;
         os << (-eofPos) << " unprocessed bytes at end";
         throw invalid_argument(os.str());
-    }
+      }
     }
 
     ZONEINFO[id] = info;
@@ -1451,12 +1452,14 @@ int main(int argc, char *argv[]) {
              << "// Build date: " << asctime(now) /* << endl -- asctime emits CR */
              << "// Olson source: ftp://elsie.nci.nih.gov/pub/" << endl
              << "// Olson version: " << version << endl
+             << "// ICU version: " << U_ICU_VERSION << endl
              << "//---------------------------------------------------------" << endl
              << "// >> !!! >>   THIS IS A MACHINE-GENERATED FILE   << !!! <<" << endl
              << "// >> !!! >>>            DO NOT EDIT             <<< !!! <<" << endl
              << "//---------------------------------------------------------" << endl
              << endl
-             << ICU_TZ_RESOURCE " {" << endl
+             << ICU_TZ_RESOURCE ":table(nofallback) {" << endl
+             << " TZVersion { \"" << version << "\" }" << endl
              << " Zones:array { " << endl
              << ZONEINFO // Zones (the actual data)
              << " }" << endl;

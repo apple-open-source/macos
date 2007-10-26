@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,33 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen on 2/7/05.
- *  Copyright 2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2005-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLDeviceNeedsBooter.c,v 1.7 2005/11/09 22:42:06 ssen Exp $
- *
- *  $Log: BLDeviceNeedsBooter.c,v $
- *  Revision 1.7  2005/11/09 22:42:06  ssen
- *  fix annoying diagnostic message on GPT maps
- *
- *  Revision 1.6  2005/08/22 20:49:25  ssen
- *  Change functions to take "char *foo" instead of "char foo[]".
- *  It should be semantically identical, and be more consistent with
- *  other system APIs
- *
- *  Revision 1.4  2005/06/24 16:39:51  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.3  2005/06/24 06:40:04  ssen
- *  include sys/param.h
- *
- *  Revision 1.2  2005/06/08 16:03:33  ssen
- *  Merge
- *  <rdar://problem/4045837> [bless] bless has issues with GPT maps
- *
- *  Revision 1.1  2005/02/07 21:22:38  ssen
- *  Refact lookupServiceForName and code for BLDeviceNeedsBooter
+ *  $Id: BLDeviceNeedsBooter.c,v 1.8 2006/02/20 22:49:57 ssen Exp $
  *
  */
 

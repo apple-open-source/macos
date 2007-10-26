@@ -1,0 +1,33 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>python</string>
+        <key>OpenSourceVersion</key>
+        <string>2.5.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.python.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://www.python.org/ftp/python/2.5.1/Python-2.5.1.tar.bz2</string>
+        <key>OpenSourceMD5</key>
+        <string>70084ffa561660f07de466c2c8c4842d</string>
+        <key>OpenSourceImportDate</key>
+        <string>2007-04-23</string>
+        <key>OpenSourceLicense</key>
+        <string>PSFL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>changes to build under XBS</string>
+		<string>changes to build simultaneously with multiple architectures</string>
+		<string>endian fixes Mac-specific files</string>
+		<string>builds with _XOPEN_SOURCE and _DARWIN_C_SOURCE</string>
+		<string>uses dlfcn.h routines instead of NS* routines</string>
+		<string>/Library/Python/2.x/site-packages is now native</string>
+		<string>man page explains readline modules use of libedit</string>
+		<string>initial dtrace probe support</string>
+	</array>	
+</dict>
+</array>
+</plist>

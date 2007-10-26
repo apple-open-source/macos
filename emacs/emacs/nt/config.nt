@@ -1,5 +1,6 @@
 /* GNU Emacs site configuration template file.  -*- C -*-
-   Copyright (C) 1988, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1993, 1994, 2001, 2002, 2003, 2004,
+      2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,12 +16,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* No code in Emacs #includes config.h twice, but some of the code
-   intended to work with other packages as well (like gmalloc.c) 
+   intended to work with other packages as well (like gmalloc.c)
    think they can include it as many times as they like.  */
 #ifndef EMACS_CONFIG_H
 #define EMACS_CONFIG_H
@@ -139,6 +140,7 @@ Boston, MA 02111-1307, USA.  */
 #undef HAVE_TERMIOS_H
 #undef HAVE_LIMITS_H
 #undef HAVE_STRING_H
+#undef HAVE_PWD_H
 #undef STDC_HEADERS
 #undef TIME_WITH_SYS_TIME
 
@@ -231,6 +233,7 @@ Boston, MA 02111-1307, USA.  */
 #undef HAVE_MKTIME
 #undef HAVE_EUIDACCESS
 #undef HAVE_GETPAGESIZE
+#undef HAVE_GET_CURRENT_DIR_NAME
 #undef HAVE_TZSET
 #undef HAVE_SETLOCALE
 #undef HAVE_UTIMES
@@ -239,6 +242,18 @@ Boston, MA 02111-1307, USA.  */
 #undef HAVE_GETCWD
 #undef HAVE_SHUTDOWN
 #undef HAVE_STRFTIME
+/* Standard Windows strftime does not support POSIX.2 extensions.  */
+#define STRFTIME_NO_POSIX2 1
+
+#define HAVE_SENDTO 1
+#define HAVE_RECVFROM 1
+#define HAVE_GETSOCKOPT 1
+#define HAVE_SETSOCKOPT 1
+#define HAVE_GETSOCKNAME 1
+#define HAVE_GETPEERNAME 1
+#define HAVE_LANGINFO_CODESET 1
+/* Local (unix) sockets are not supported.  */
+#undef HAVE_SYS_UN_H
 
 #define LOCALTIME_CACHE
 #undef HAVE_INET_SOCKETS
@@ -257,6 +272,12 @@ Boston, MA 02111-1307, USA.  */
 
 /* Define if `struct timeval' is declared by <sys/time.h>.  */
 #undef HAVE_TIMEVAL
+
+/* Define to 1 if you have the <getopt.h> header file. */
+#undef HAVE_GETOPT_H
+
+/* Define to 1 if you have the `getopt_long_only' function. */
+#undef HAVE_GETOPT_LONG_ONLY
 
 /* If using GNU, then support inline function declarations. */
 #ifdef __GNUC__
@@ -277,7 +298,7 @@ Boston, MA 02111-1307, USA.  */
    configuration names to use for them.
 
    See s/template.h for documentation on writing s/SYSTEM.h files.  */
-#undef config_opsysfile 
+#undef config_opsysfile
 #include "s/ms-w32.h"
 
 /* The configuration script defines machfile to be the name of the
@@ -370,6 +391,8 @@ Boston, MA 02111-1307, USA.  */
 #define mktime emacs_mktime
 #endif
 
+#define my_strftime nstrftime   /* for strftime.c */
+
 /* The rest of the code currently tests the CPP symbol BSTRING.
    Override any claims made by the system-description files.
    Note that on some SCO version it is possible to have bcopy and not bcmp.  */
@@ -455,3 +478,6 @@ extern char *getenv ();
 #define NO_RETURN	/* nothing */
 #endif
 #endif
+
+/* arch-tag: df720992-aa5a-499a-882d-958dc5eeb5e9
+   (do not change this comment) */

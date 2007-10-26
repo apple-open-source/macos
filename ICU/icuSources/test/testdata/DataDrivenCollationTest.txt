@@ -1,6 +1,6 @@
-﻿// Copyright (c) 2001-2004 International Business Machines
+﻿// Copyright (c) 2001-2005 International Business Machines
 // Corporation and others. All Rights Reserved.
-DataDrivenCollationTest {
+DataDrivenCollationTest:table(nofallback) {
     Info {
         Headers { "sequence" }
         Description { "These are the data driven tests" }
@@ -18,6 +18,19 @@ DataDrivenCollationTest {
                      }
     }
     TestData {
+		TestMorePinyin {
+			Info {
+				Description { "Testing the primary strength." }
+			}
+			Settings {
+				{
+					TestLocale { "zh" }
+					Arguments { "[strength 1]" }
+				}
+			}
+			Cases { "lā = lĀ = Lā = LĀ < lān = lĀn < lē = lĒ = Lē = LĒ < lēn = lĒn" }
+			
+		}
         TestLithuanian {
             Info {
                 Description { "Lithuanian sort order." }
@@ -210,7 +223,8 @@ DataDrivenCollationTest {
                 "a<x\ud800\udc00b"
             }
         }
-                
+/*
+	UCA 4.1 removes skipping of ignorable code points in contractions!
         TestCIgnorableContraction {
             Info {
                 Description { "Checks whether completely ignorable code points are "
@@ -235,7 +249,9 @@ DataDrivenCollationTest {
             }
         }
                 
-
+*/
+/*
+	UCA 4.1 removes skipping of ignorable code points in contractions!
         TestCIgnorablePrefix {
             Info {
                 Description { "Checks whether completely ignorable code points are "
@@ -259,7 +275,8 @@ DataDrivenCollationTest {
                "= \u30A1\u0000\u059a\u30FC"
                "= \u30A1\u30FC"
             }
-        }  
+        }
+*/
         da_TestPrimary {
             Info {
                 Description { "This test goes through primary strength cases" }

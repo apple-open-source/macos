@@ -1,10 +1,11 @@
 ;;; eudc-vars.el --- Emacs Unified Directory Client
 
-;; Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Oscar Figueiredo <oscar@xemacs.org>
-;; Maintainer: Oscar Figueiredo <oscar@xemacs.org>
-;; Keywords: help
+;; Author: Oscar Figueiredo <oscar@cpe.fr>
+;; Maintainer: Pavel Janík <Pavel@Janik.cz>
+;; Keywords: comm
 
 ;; This file is part of GNU Emacs.
 
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -164,7 +165,7 @@ must be set in a protocol/server-local fashion, see `eudc-server-set' and
   :group 'eudc)
 
 (defcustom eudc-expansion-overwrites-query t
-  "*If non nil, expanding a query overwrites the query string."
+  "*If non-nil, expanding a query overwrites the query string."
   :type  'boolean
   :group 'eudc)
 
@@ -281,8 +282,7 @@ attribute values for display."
 		       (symbol :tag "Display Function")))
   :group 'eudc)
 
-(defcustom eudc-external-viewers '(("XV" "xv" "-")
-				   ("ImageMagick" "display" "-")
+(defcustom eudc-external-viewers '(("ImageMagick" "display" "-")
 				   ("ShowAudio" "showaudio"))
   "*A list of viewer program specifications.
 Viewers are programs which can be piped a directory attribute value for
@@ -392,7 +392,7 @@ BBDB fields.  SPECs are sexps which are evaluated:
 (defcustom eudc-bbdb-use-locations-as-attribute-names t
   "If non-nil, BBDB address and phone locations are used as attribute names.
 This has no effect on queries (you can't search for a specific location)
-but influences the way records are displayed"
+but influences the way records are displayed."
   :type 'boolean
   :group 'eudc-bbdb)
 
@@ -407,4 +407,5 @@ Otherwise records must match queries exactly."
 
 (provide 'eudc-vars)
 
+;;; arch-tag: 80050575-b838-4246-8ebc-b2d7c5a2e482
 ;;; eudc-vars.el ends here

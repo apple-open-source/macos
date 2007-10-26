@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+FTP
+EPSV
+RETR
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -31,3 +39,4 @@ RETR 136
 QUIT
 </protocol>
 </verify>
+</testcase>

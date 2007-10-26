@@ -1,0 +1,81 @@
+Index: samba/source/include/vfs_macros.h
+===================================================================
+--- samba/source/include/vfs_macros.h.orig
++++ samba/source/include/vfs_macros.h
+@@ -70,6 +70,7 @@
+ #define SMB_VFS_GETWD(conn, buf) ((conn)->vfs.ops.getwd((conn)->vfs.handles.getwd, (buf)))
+ #define SMB_VFS_NTIMES(conn, path, ts) ((conn)->vfs.ops.ntimes((conn)->vfs.handles.ntimes, (path), (ts)))
+ #define SMB_VFS_SET_CREATE_TIME(conn, path, createtime) ((conn)->vfs.ops.set_create_time((conn)->vfs.handles.set_create_time, (path), (createtime)))
++#define SMB_VFS_GET_PRESERVED_NAME(conn, path, name) ((conn)->vfs.ops.get_preserved_name((conn)->vfs.handles.get_preserved_name, (path), (name)))
+ #define SMB_VFS_FTRUNCATE(fsp, fd, offset) ((fsp)->conn->vfs.ops.ftruncate((fsp)->conn->vfs.handles.ftruncate, (fsp), (fd), (offset)))
+ #define SMB_VFS_LOCK(fsp, fd, op, offset, count, type) ((fsp)->conn->vfs.ops.lock((fsp)->conn->vfs.handles.lock, (fsp), (fd) ,(op), (offset), (count), (type)))
+ #define SMB_VFS_KERNEL_FLOCK(fsp, fd, share_mode) ((fsp)->conn->vfs.ops.kernel_flock((fsp)->conn->vfs.handles.kernel_flock, (fsp), (fd), (share_mode)))
+@@ -189,6 +190,7 @@
+ #define SMB_VFS_OPAQUE_GETWD(conn, buf) ((conn)->vfs_opaque.ops.getwd((conn)->vfs_opaque.handles.getwd, (buf)))
+ #define SMB_VFS_OPAQUE_NTIMES(conn, path, ts) ((conn)->vfs_opaque.ops.ntimes((conn)->vfs_opaque.handles.ntimes, (path), (ts)))
+ #define SMB_VFS_OPAQUE_SET_CREATE_TIME(conn, path, createtime) ((conn)->vfs_opaque.ops.set_create_time((conn)->vfs_opaque.handles.set_create_time, (path), (createtime)))
++#define SMB_VFS_OPAQUE_GET_PRESERVED_NAME(conn, path, name) ((conn)->vfs_opaque.ops.get_preserved_name((conn)->vfs_opaque.handles.get_preserved_name, (path), (name)))
+ #define SMB_VFS_OPAQUE_FTRUNCATE(fsp, fd, offset) ((fsp)->conn->vfs_opaque.ops.ftruncate((fsp)->conn->vfs_opaque.handles.ftruncate, (fsp), (fd), (offset)))
+ #define SMB_VFS_OPAQUE_LOCK(fsp, fd, op, offset, count, type) ((fsp)->conn->vfs_opaque.ops.lock((fsp)->conn->vfs_opaque.handles.lock, (fsp), (fd) ,(op), (offset), (count), (type)))
+ #define SMB_VFS_OPAQUE_FLOCK(fsp, fd, share_mode) ((fsp)->conn->vfs_opaque.ops.lock((fsp)->conn->vfs_opaque.handles.kernel_flock, (fsp), (fd), (share_mode)))
+@@ -309,6 +311,7 @@
+ #define SMB_VFS_NEXT_GETWD(handle, buf) ((handle)->vfs_next.ops.getwd((handle)->vfs_next.handles.getwd, (buf)))
+ #define SMB_VFS_NEXT_NTIMES(handle, path, ts) ((handle)->vfs_next.ops.ntimes((handle)->vfs_next.handles.ntimes, (path), (ts)))
+ #define SMB_VFS_NEXT_SET_CREATE_TIME(conn, path, createtime) ((conn)->vfs_next.ops.set_create_time((conn)->vfs_next.handles.set_create_time, (path), (createtime)))
++#define SMB_VFS_NEXT_GET_PRESERVED_NAME(conn, path, name) ((conn)->vfs_next.ops.get_preserved_name((conn)->vfs_next.handles.get_preserved_name, (path), (name)))
+ #define SMB_VFS_NEXT_FTRUNCATE(handle, fsp, fd, offset) ((handle)->vfs_next.ops.ftruncate((handle)->vfs_next.handles.ftruncate, (fsp), (fd), (offset)))
+ #define SMB_VFS_NEXT_LOCK(handle, fsp, fd, op, offset, count, type) ((handle)->vfs_next.ops.lock((handle)->vfs_next.handles.lock, (fsp), (fd) ,(op), (offset), (count), (type)))
+ #define SMB_VFS_NEXT_KERNEL_FLOCK(handle, fsp, fd, share_mode)((handle)->vfs_next.ops.kernel_flock((handle)->vfs_next.handles.kernel_flock, (fsp), (fd), (share_mode)))
+Index: samba/source/modules/vfs_default.c
+===================================================================
+--- samba/source/modules/vfs_default.c.orig
++++ samba/source/modules/vfs_default.c
+@@ -661,6 +661,11 @@ static int vfswrap_set_create_time(vfs_h
+ 	return -1;
+ }
+ 
++static BOOL vfswrap_get_preserved_name(vfs_handle_struct *handle,  const char *path, char * name)
++{
++	return False;
++}
++
+ /*********************************************************************
+  A version of ftruncate that will write the space on disk if strict
+  allocate is set.
+@@ -1300,6 +1305,8 @@ static vfs_op_tuple vfs_default_ops[] = 
+ 	 SMB_VFS_LAYER_OPAQUE},
+ 	{SMB_VFS_OP(vfswrap_set_create_time),	SMB_VFS_OP_SET_CREATE_TIME,
+ 	 SMB_VFS_LAYER_OPAQUE},
++	{SMB_VFS_OP(vfswrap_get_preserved_name),	SMB_VFS_OP_GET_PRESERVED_NAME,
++	 SMB_VFS_LAYER_OPAQUE},
+ 	{SMB_VFS_OP(vfswrap_ftruncate),	SMB_VFS_OP_FTRUNCATE,
+ 	 SMB_VFS_LAYER_OPAQUE},
+ 	{SMB_VFS_OP(vfswrap_lock),	SMB_VFS_OP_LOCK,
+Index: samba/source/include/vfs.h
+===================================================================
+--- samba/source/include/vfs.h.orig
++++ samba/source/include/vfs.h
+@@ -152,6 +152,7 @@ typedef enum _vfs_op_type {
+ 	SMB_VFS_OP_GETWD,
+ 	SMB_VFS_OP_NTIMES,
+ 	SMB_VFS_OP_SET_CREATE_TIME,
++	SMB_VFS_OP_GET_PRESERVED_NAME,
+ 	SMB_VFS_OP_FTRUNCATE,
+ 	SMB_VFS_OP_LOCK,
+ 	SMB_VFS_OP_KERNEL_FLOCK,
+@@ -281,6 +282,7 @@ struct vfs_ops {
+ 		char *(*getwd)(struct vfs_handle_struct *handle, char *buf);
+ 		int (*ntimes)(struct vfs_handle_struct *handle, const char *path, const struct timespec ts[2]);
+ 		int (*set_create_time)(struct vfs_handle_struct *handle, const char *path, time_t times);
++		BOOL (*get_preserved_name)(struct vfs_handle_struct *handle, const char *path, char * name);
+ 		int (*ftruncate)(struct vfs_handle_struct *handle, struct files_struct *fsp, int fd, SMB_OFF_T offset);
+ 		BOOL (*lock)(struct vfs_handle_struct *handle, struct files_struct *fsp, int fd, int op, SMB_OFF_T offset, SMB_OFF_T count, int type);
+ 		int (*kernel_flock)(struct vfs_handle_struct *handle, struct files_struct *fsp, int fd, uint32 share_mode);
+@@ -409,6 +411,7 @@ struct vfs_ops {
+ 		struct vfs_handle_struct *getwd;
+ 		struct vfs_handle_struct *ntimes;
+ 		struct vfs_handle_struct *set_create_time;
++		struct vfs_handle_struct *get_preserved_name;
+ 		struct vfs_handle_struct *ftruncate;
+ 		struct vfs_handle_struct *lock;
+ 		struct vfs_handle_struct *kernel_flock;

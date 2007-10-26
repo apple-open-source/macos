@@ -1,5 +1,6 @@
 /* Machine-dependent configuration for GNU Emacs for Tadpole 68k machines
-   Copyright (C) 1986 Free Software Foundation, Inc.
+   Copyright (C) 1986, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="usg5-3"  */
 
@@ -75,17 +76,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* #define VIRT_ADDR_VARIES */  /* Karl Kleinpaste says this isn't needed.  */
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
 /* SysV has alloca in the PW library */
 
 #define LIB_STANDARD -lPW -lc
-#define HAVE_ALLOCA
 
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
@@ -117,3 +110,6 @@ Boston, MA 02111-1307, USA.  */
 #define HAVE_PTYS			/* we do have PTYs if we have TCP */
 #define HAVE_SOCKETS			/* we do have sockets if we have TCP */
 #define LIBS_SYSTEM -lsocket		/* get TCP networking functions */
+
+/* arch-tag: e0c09754-b0f2-48da-a8a5-aee3c94838f4
+   (do not change this comment) */

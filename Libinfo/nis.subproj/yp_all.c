@@ -89,12 +89,12 @@ u_long *objp;
 	memset(&out, 0, sizeof out);
 	while(1) {
 		if( !xdr_ypresp_all(xdrs, &out)) {
-			xdr_free(xdr_ypresp_all, (char *)&out);
+			xdr_free((xdrproc_t)xdr_ypresp_all, (char *)&out);
 			*objp = (u_long)YP_YPERR;
 			return FALSE;
 		}
 		if(out.more == 0) {
-			xdr_free(xdr_ypresp_all, (char *)&out);
+			xdr_free((xdrproc_t)xdr_ypresp_all, (char *)&out);
 			return FALSE;
 		}
 		status = out.ypresp_all_u.val.stat;
@@ -118,7 +118,7 @@ u_long *objp;
 				free(key);
 				key = NULL;
 			}
-			xdr_free(xdr_ypresp_all, (char *)&out);
+			xdr_free((xdrproc_t)xdr_ypresp_all, (char *)&out);
 
 			if (key == NULL || val == NULL)
 				return FALSE;
@@ -133,10 +133,10 @@ u_long *objp;
 				return TRUE;
 			break;
 		case YP_NOMORE:
-			xdr_free(xdr_ypresp_all, (char *)&out);
+			xdr_free((xdrproc_t)xdr_ypresp_all, (char *)&out);
 			return TRUE;
 		default:
-			xdr_free(xdr_ypresp_all, (char *)&out);
+			xdr_free((xdrproc_t)xdr_ypresp_all, (char *)&out);
 			*objp = status;
 			return TRUE;
 		}
@@ -183,7 +183,7 @@ yp_all(indomain, inmap, incallback)
 	ypresp_data = (void *) incallback->data;
 
 	(void) clnt_call(clnt, YPPROC_ALL,
-	    xdr_ypreq_nokey, &yprnk, xdr_ypresp_all_seq, &status, tv);
+	    (xdrproc_t)xdr_ypreq_nokey, &yprnk, (xdrproc_t)xdr_ypresp_all_seq, &status, tv);
 	clnt_destroy(clnt);
 	if(status != YP_FALSE)
 		r = ypprot_err(status);

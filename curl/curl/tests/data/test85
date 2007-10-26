@@ -1,3 +1,12 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP GET
+HTTP Basic auth
+HTTP proxy Basic auth
+</keywords>
+</info>
 #
 # Server-side
 <reply>
@@ -7,6 +16,7 @@ Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake swsclose
 Content-Type: text/html
 Funny-head: yesyes
+Content-Length: 9
 
 contents
 </data>
@@ -40,6 +50,8 @@ User-Agent: curl/7.10.7-pre2 (i686-pc-linux-gnu) libcurl/7.10.7-pre2 OpenSSL/0.9
 Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 </protocol>
 </verify>
+</testcase>

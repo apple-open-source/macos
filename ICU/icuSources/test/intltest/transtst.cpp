@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -183,11 +183,14 @@ TransliteratorTest::runIndexedTest(int32_t index, UBool exec,
         TESTCASE(75,TestAllCodepoints);
         TESTCASE(76,TestBoilerplate);
         TESTCASE(77,TestAlternateSyntax);
+        TESTCASE(78,TestBeginEnd);
+        TESTCASE(79,TestBeginEndToRules);
+        TESTCASE(80,TestRegisterAlias);
         default: name = ""; break;
     }
 }
 
-static const UVersionInfo ICU_31 = {3,1,0,0};
+static const UVersionInfo ICU_37 = {3,7,0,0};
 /**
  * Make sure every system transliterator can be instantiated.
  * 
@@ -222,7 +225,8 @@ void TransliteratorTest::TestInstantiation() {
                   i + ") != getAvailableIDs().snext()");
             continue;
         }
-        if(id2.indexOf("Thai")>-1 && isICUVersionAtLeast(ICU_31)){
+        if(id2.indexOf("Thai")>-1 && !isICUVersionAtLeast(ICU_37)){
+            /* The Thai-Latin transliterator doesn't exist in ICU4C yet */
             continue;
         }
         UParseError parseError;
@@ -666,6 +670,14 @@ void TransliteratorTest::TestFiltering(void) {
         logln(UnicodeString("Ok:   \"") + exp + "\"");
     } else {
         logln(UnicodeString("FAIL: \"") + s + "\", wanted \"" + exp + "\"");
+    }
+    
+    // ICU4C ONLY. Do not find Transliterator.orphanFilter() in ICU4J.
+    UnicodeFilter *f = hex->orphanFilter();
+    if (f == NULL){
+        errln("FAIL: orphanFilter() should get a UnicodeFilter");
+    } else {
+        delete f;
     }
     delete hex;
 }
@@ -1606,7 +1618,14 @@ void TransliteratorTest::TestRemove(void) {
     }
     
     expect(*t, "Able bodied baker's cats", "Ale odied ker's ts");
+    
+    // extra test for RemoveTransliterator::clone(), which at one point wasn't
+    // duplicating the filter
+    Transliterator* t2 = t->clone();
+    expect(*t2, "Able bodied baker's cats", "Ale odied ker's ts");
+    
     delete t;
+    delete t2;
 }
 
 void TransliteratorTest::TestToRules(void) {
@@ -3478,7 +3497,8 @@ void TransliteratorTest::TestIncrementalProgress(void) {
                 Transliterator::getAvailableVariant(k, source, target, variant);
                 UnicodeString id = source + "-" + target + "/" + variant;
                 
-                if(id.indexOf("Thai")>-1 && isICUVersionAtLeast(ICU_31)){
+                if(id.indexOf("Thai")>-1 && !isICUVersionAtLeast(ICU_37)){
+                    /* The Thai-Latin transliterator doesn't exist in ICU4C yet */
                     continue;
                 }    
                 Transliterator *t = Transliterator::createInstance(id, UTRANS_FORWARD, err, status);
@@ -3972,6 +3992,408 @@ void TransliteratorTest::TestAlternateSyntax() {
            "<=\\N{LEFTWARDS ARROW}; >=\\N{RIGHTWARDS ARROW}; <>=\\N{LEFT RIGHT ARROW}; &=\\N{INCREMENT}");
 }
 
+static const char* BEGIN_END_RULES[] = {
+    // [0]
+    "abc > xy;"
+    "aba > z;",
+
+    // [1]
+/*
+    "::BEGIN;"
+    "abc > xy;"
+    "::END;"
+    "::BEGIN;"
+    "aba > z;"
+    "::END;",
+*/
+    "", // test case commented out below, this is here to keep from messing up the indexes
+
+    // [2]
+/*
+    "abc > xy;"
+    "::BEGIN;"
+    "aba > z;"
+    "::END;",
+*/
+    "", // test case commented out below, this is here to keep from messing up the indexes
+
+    // [3]
+/*
+    "::BEGIN;"
+    "abc > xy;"
+    "::END;"
+    "aba > z;",
+*/
+    "", // test case commented out below, this is here to keep from messing up the indexes
+
+    // [4]
+    "abc > xy;"
+    "::Null;"
+    "aba > z;",
+
+    // [5]
+    "::Upper;"
+    "ABC > xy;"
+    "AB > x;"
+    "C > z;"
+    "::Upper;"
+    "XYZ > p;"
+    "XY > q;"
+    "Z > r;"
+    "::Upper;",
+
+    // [6]
+    "$ws = [[:Separator:][\\u0009-\\u000C]$];"
+    "$delim = [\\-$ws];"
+    "$ws $delim* > ' ';"
+    "'-' $delim* > '-';",
+
+    // [7]
+    "::Null;"
+    "$ws = [[:Separator:][\\u0009-\\u000C]$];"
+    "$delim = [\\-$ws];"
+    "$ws $delim* > ' ';"
+    "'-' $delim* > '-';",
+
+    // [8]
+    "$ws = [[:Separator:][\\u0009-\\u000C]$];"
+    "$delim = [\\-$ws];"
+    "$ws $delim* > ' ';"
+    "'-' $delim* > '-';"
+    "::Null;",
+
+    // [9]
+    "$ws = [[:Separator:][\\u0009-\\u000C]$];"
+    "$delim = [\\-$ws];"
+    "::Null;"
+    "$ws $delim* > ' ';"
+    "'-' $delim* > '-';",
+
+    // [10]
+/*
+    "::BEGIN;"
+    "$ws = [[:Separator:][\\u0009-\\u000C]$];"
+    "$delim = [\\-$ws];"
+    "::END;"
+    "$ws $delim* > ' ';"
+    "'-' $delim* > '-';",
+*/
+    "", // test case commented out below, this is here to keep from messing up the indexes
+
+    // [11]
+/*
+    "$ws = [[:Separator:][\\u0009-\\u000C]$];"
+    "$delim = [\\-$ws];"
+    "::BEGIN;"
+    "$ws $delim* > ' ';"
+    "'-' $delim* > '-';"
+    "::END;",
+*/
+    "", // test case commented out below, this is here to keep from messing up the indexes
+
+    // [12]
+/*
+    "$ws = [[:Separator:][\\u0009-\\u000C]$];"
+    "$delim = [\\-$ws];"
+    "$ab = [ab];"
+    "::BEGIN;"
+    "$ws $delim* > ' ';"
+    "'-' $delim* > '-';"
+    "::END;"
+    "::BEGIN;"
+    "$ab { ' ' } $ab > '-';"
+    "c { ' ' > ;"
+    "::END;"
+    "::BEGIN;"
+    "'a-a' > a\\%|a;"
+    "::END;",
+*/
+    "", // test case commented out below, this is here to keep from messing up the indexes
+
+    // [13]
+    "$ws = [[:Separator:][\\u0009-\\u000C]$];"
+    "$delim = [\\-$ws];"
+    "$ab = [ab];"
+    "::Null;"
+    "$ws $delim* > ' ';"
+    "'-' $delim* > '-';"
+    "::Null;"
+    "$ab { ' ' } $ab > '-';"
+    "c { ' ' > ;"
+    "::Null;"
+    "'a-a' > a\\%|a;",
+
+    // [14]
+/*
+    "::[abc];"
+    "::BEGIN;"
+    "abc > xy;"
+    "::END;"
+    "::BEGIN;"
+    "aba > yz;"
+    "::END;"
+    "::Upper;",
+*/
+    "", // test case commented out below, this is here to keep from messing up the indexes
+
+    // [15]
+    "::[abc];"
+    "abc > xy;"
+    "::Null;"
+    "aba > yz;"
+    "::Upper;",
+
+    // [16]
+/*
+    "::[abc];"
+    "::BEGIN;"
+    "abc <> xy;"
+    "::END;"
+    "::BEGIN;"
+    "aba <> yz;"
+    "::END;"
+    "::Upper(Lower);"
+    "::([XYZ]);"
+*/
+    "", // test case commented out below, this is here to keep from messing up the indexes
+
+    // [17]
+    "::[abc];"
+    "abc <> xy;"
+    "::Null;"
+    "aba <> yz;"
+    "::Upper(Lower);"
+    "::([XYZ]);"
+};
+static const int32_t BEGIN_END_RULES_length = (int32_t)(sizeof(BEGIN_END_RULES) / sizeof(BEGIN_END_RULES[0]));
+
+/*
+(This entire test is commented out below and will need some heavy revision when we re-add
+the ::BEGIN/::END stuff)
+static const char* BOGUS_BEGIN_END_RULES[] = {
+    // [7]
+    "::BEGIN;"
+    "abc > xy;"
+    "::BEGIN;"
+    "aba > z;"
+    "::END;"
+    "::END;",
+
+    // [8]
+    "abc > xy;"
+    " aba > z;"
+    "::END;",
+
+    // [9]
+    "::BEGIN;"
+    "::Upper;"
+    "::END;"
+};
+static const int32_t BOGUS_BEGIN_END_RULES_length = (int32_t)(sizeof(BOGUS_BEGIN_END_RULES) / sizeof(BOGUS_BEGIN_END_RULES[0]));
+*/
+
+static const char* BEGIN_END_TEST_CASES[] = {
+    // rules             input                   expected output
+    BEGIN_END_RULES[0],  "abc ababc aba",        "xy zbc z",
+//    BEGIN_END_RULES[1],  "abc ababc aba",        "xy abxy z",
+//    BEGIN_END_RULES[2],  "abc ababc aba",        "xy abxy z",
+//    BEGIN_END_RULES[3],  "abc ababc aba",        "xy abxy z",
+    BEGIN_END_RULES[4],  "abc ababc aba",        "xy abxy z",
+    BEGIN_END_RULES[5],  "abccabaacababcbc",     "PXAARXQBR",
+
+    BEGIN_END_RULES[6],  "e   e - e---e-  e",    "e e e-e-e",
+    BEGIN_END_RULES[7],  "e   e - e---e-  e",    "e e e-e-e",
+    BEGIN_END_RULES[8],  "e   e - e---e-  e",    "e e e-e-e",
+    BEGIN_END_RULES[9],  "e   e - e---e-  e",    "e e e-e-e",
+//    BEGIN_END_RULES[10],  "e   e - e---e-  e",    "e e e-e-e",
+//    BEGIN_END_RULES[11], "e   e - e---e-  e",    "e e e-e-e",
+//    BEGIN_END_RULES[12], "e   e - e---e-  e",    "e e e-e-e",
+//    BEGIN_END_RULES[12], "a    a    a    a",     "a%a%a%a",
+//    BEGIN_END_RULES[12], "a a-b c b a",          "a%a-b cb-a",
+    BEGIN_END_RULES[13], "e   e - e---e-  e",    "e e e-e-e",
+    BEGIN_END_RULES[13], "a    a    a    a",     "a%a%a%a",
+    BEGIN_END_RULES[13], "a a-b c b a",          "a%a-b cb-a",
+
+//    BEGIN_END_RULES[14], "abc xy ababc xyz aba", "XY xy ABXY xyz YZ",
+    BEGIN_END_RULES[15], "abc xy ababc xyz aba", "XY xy ABXY xyz YZ",
+//    BEGIN_END_RULES[16], "abc xy ababc xyz aba", "XY xy ABXY xyz YZ",
+    BEGIN_END_RULES[17], "abc xy ababc xyz aba", "XY xy ABXY xyz YZ"
+};
+static const int32_t BEGIN_END_TEST_CASES_length = (int32_t)(sizeof(BEGIN_END_TEST_CASES) / sizeof(BEGIN_END_TEST_CASES[0]));
+
+void TransliteratorTest::TestBeginEnd() {
+    // run through the list of test cases above
+    int32_t i = 0;
+    for (i = 0; i < BEGIN_END_TEST_CASES_length; i += 3) {
+        expect((UnicodeString)"Test case #" + (i / 3),
+               UnicodeString(BEGIN_END_TEST_CASES[i]),
+               UnicodeString(BEGIN_END_TEST_CASES[i + 1]),
+               UnicodeString(BEGIN_END_TEST_CASES[i + 2]));
+    }
+
+    // instantiate the one reversible rule set in the reverse direction and make sure it does the right thing
+    UParseError parseError;
+    UErrorCode status = U_ZERO_ERROR;
+    Transliterator* reversed  = Transliterator::createFromRules("Reversed", UnicodeString(BEGIN_END_RULES[17]),
+            UTRANS_REVERSE, parseError, status);
+    if (reversed == 0 || U_FAILURE(status)) {
+        reportParseError(UnicodeString("FAIL: Couldn't create reversed transliterator"), parseError, status);
+    } else {
+        expect(*reversed, UnicodeString("xy XY XYZ yz YZ"), UnicodeString("xy abc xaba yz aba"));
+    }
+    delete reversed;
+
+    // finally, run through the list of syntactically-ill-formed rule sets above and make sure
+    // that all of them cause errors
+/*
+(commented out until we have the real ::BEGIN/::END stuff in place
+    for (i = 0; i < BOGUS_BEGIN_END_RULES_length; i++) {
+        UParseError parseError;
+        UErrorCode status = U_ZERO_ERROR;
+        Transliterator* t = Transliterator::createFromRules("foo", UnicodeString(BOGUS_BEGIN_END_RULES[i]),
+                UTRANS_FORWARD, parseError, status);
+        if (!U_FAILURE(status)) {
+            delete t;
+            errln((UnicodeString)"Should have gotten syntax error from " + BOGUS_BEGIN_END_RULES[i]);
+        }
+    }
+*/
+}
+
+void TransliteratorTest::TestBeginEndToRules() {
+    // run through the same list of test cases we used above, but this time, instead of just
+    // instantiating a Transliterator from the rules and running the test against it, we instantiate
+    // a Transliterator from the rules, do toRules() on it, instantiate a Transliterator from
+    // the resulting set of rules, and make sure that the generated rule set is semantically equivalent
+    // to (i.e., does the same thing as) the original rule set
+    for (int32_t i = 0; i < BEGIN_END_TEST_CASES_length; i += 3) {
+        UParseError parseError;
+        UErrorCode status = U_ZERO_ERROR;
+        Transliterator* t = Transliterator::createFromRules("--", UnicodeString(BEGIN_END_TEST_CASES[i]),
+                UTRANS_FORWARD, parseError, status);
+        if (U_FAILURE(status)) {
+            reportParseError(UnicodeString("FAIL: Couldn't create transliterator"), parseError, status);
+        } else {
+            UnicodeString rules;
+            t->toRules(rules, TRUE);
+            Transliterator* t2 = Transliterator::createFromRules((UnicodeString)"Test case #" + (i / 3), rules,
+                    UTRANS_FORWARD, parseError, status);
+            if (U_FAILURE(status)) {
+                reportParseError(UnicodeString("FAIL: Couldn't create transliterator from generated rules"),
+                        parseError, status);
+                delete t;
+            } else {
+                expect(*t2,
+                       UnicodeString(BEGIN_END_TEST_CASES[i + 1]),
+                       UnicodeString(BEGIN_END_TEST_CASES[i + 2]));
+                delete t;
+                delete t2;
+            }
+        }
+    }
+
+    // do the same thing for the reversible test case
+    UParseError parseError;
+    UErrorCode status = U_ZERO_ERROR;
+    Transliterator* reversed = Transliterator::createFromRules("Reversed", UnicodeString(BEGIN_END_RULES[17]),
+            UTRANS_REVERSE, parseError, status);
+    if (U_FAILURE(status)) {
+        reportParseError(UnicodeString("FAIL: Couldn't create reversed transliterator"), parseError, status);
+    } else {
+        UnicodeString rules;
+        reversed->toRules(rules, FALSE);
+        Transliterator* reversed2 = Transliterator::createFromRules("Reversed", rules, UTRANS_FORWARD,
+                parseError, status);
+        if (U_FAILURE(status)) {
+            reportParseError(UnicodeString("FAIL: Couldn't create reversed transliterator from generated rules"),
+                    parseError, status);
+            delete reversed;
+        } else {
+            expect(*reversed2,
+                   UnicodeString("xy XY XYZ yz YZ"),
+                   UnicodeString("xy abc xaba yz aba"));
+            delete reversed;
+            delete reversed2;
+        }
+    }
+}
+
+void TransliteratorTest::TestRegisterAlias() {
+    UnicodeString longID("Lower;[aeiou]Upper");
+    UnicodeString shortID("Any-CapVowels");
+    UnicodeString reallyShortID("CapVowels");
+
+    Transliterator::registerAlias(shortID, longID);
+
+    UErrorCode err = U_ZERO_ERROR;
+    Transliterator* t1 = Transliterator::createInstance(longID, UTRANS_FORWARD, err);
+    if (U_FAILURE(err)) {
+        errln("Failed to instantiate transliterator with long ID");
+        Transliterator::unregister(shortID);
+        return;
+    }
+    Transliterator* t2 = Transliterator::createInstance(reallyShortID, UTRANS_FORWARD, err);
+    if (U_FAILURE(err)) {
+        errln("Failed to instantiate transliterator with short ID");
+        delete t1;
+        Transliterator::unregister(shortID);
+        return;
+    }
+
+    if (t1->getID() != longID)
+        errln("Transliterator instantiated with long ID doesn't have long ID");
+    if (t2->getID() != reallyShortID)
+        errln("Transliterator instantiated with short ID doesn't have short ID");
+
+    UnicodeString rules1;
+    UnicodeString rules2;
+
+    t1->toRules(rules1, TRUE);
+    t2->toRules(rules2, TRUE);
+    if (rules1 != rules2)
+        errln("Alias transliterators aren't the same");
+
+    delete t1;
+    delete t2;
+    Transliterator::unregister(shortID);
+
+    t1 = Transliterator::createInstance(shortID, UTRANS_FORWARD, err);
+    if (U_SUCCESS(err)) {
+        errln("Instantiation with short ID succeeded after short ID was unregistered");
+        delete t1;
+    }
+
+    // try the same thing again, but this time with something other than
+    // an instance of CompoundTransliterator
+    UnicodeString realID("Latin-Greek");
+    UnicodeString fakeID("Latin-dlgkjdflkjdl");
+    Transliterator::registerAlias(fakeID, realID);
+
+    err = U_ZERO_ERROR;
+    t1 = Transliterator::createInstance(realID, UTRANS_FORWARD, err);
+    if (U_FAILURE(err)) {
+        errln("Failed to instantiate transliterator with real ID");
+        Transliterator::unregister(realID);
+        return;
+    }
+    t2 = Transliterator::createInstance(fakeID, UTRANS_FORWARD, err);
+    if (U_FAILURE(err)) {
+        errln("Failed to instantiate transliterator with fake ID");
+        delete t1;
+        Transliterator::unregister(realID);
+        return;
+    }
+
+    t1->toRules(rules1, TRUE);
+    t2->toRules(rules2, TRUE);
+    if (rules1 != rules2)
+        errln("Alias transliterators aren't the same");
+
+    delete t1;
+    delete t2;
+    Transliterator::unregister(fakeID);
+}
+
 //======================================================================
 // Support methods
 //======================================================================
@@ -3990,14 +4412,35 @@ void TransliteratorTest::expectT(const UnicodeString& id,
     delete t;
 }
 
+void TransliteratorTest::reportParseError(const UnicodeString& message,
+                                          const UParseError& parseError,
+                                          const UErrorCode& status) {
+    errln(message +
+          /*", parse error " + parseError.code +*/
+          ", line " + parseError.line +
+          ", offset " + parseError.offset +
+          ", pre-context " + prettify(parseError.preContext, TRUE) +
+          ", post-context " + prettify(parseError.postContext,TRUE) +
+          ", Error: " + u_errorName(status));
+}
+
 void TransliteratorTest::expect(const UnicodeString& rules,
                                 const UnicodeString& source,
                                 const UnicodeString& expectedResult,
                                 UTransPosition *pos) {
+    expect("<ID>", rules, source, expectedResult, pos);
+}
+
+void TransliteratorTest::expect(const UnicodeString& id,
+                                const UnicodeString& rules,
+                                const UnicodeString& source,
+                                const UnicodeString& expectedResult,
+                                UTransPosition *pos) {
     UErrorCode status = U_ZERO_ERROR;
-    Transliterator *t = new RuleBasedTransliterator("<ID>", rules, status);
+    UParseError parseError;
+    Transliterator* t = Transliterator::createFromRules(id, rules, UTRANS_FORWARD, parseError, status);
     if (U_FAILURE(status)) {
-        errln("FAIL: Transliterator constructor failed");
+        reportParseError(UnicodeString("Couldn't create transliterator from ") + rules, parseError, status);
     } else {
         expect(*t, source, expectedResult, pos);
     }
@@ -4021,7 +4464,6 @@ void TransliteratorTest::expect(const Transliterator& t,
         t.transliterate(result);
         expectAux(t.getID() + ":String", source, result, expectedResult);
     }
-
     UTransPosition index={0, 0, 0, 0};
     if (pos != 0) {
         index = *pos;

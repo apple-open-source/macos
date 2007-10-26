@@ -1,0 +1,38 @@
+# Copyright (C) 2003, 2004 Simon Josefsson.
+#
+# This file is part of GNU Libidn.
+#
+# GNU Libidn is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as
+# published by the Free Software Foundation; either version 2.1 of
+# the License, or (at your option) any later version.
+#
+# GNU Libidn is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with GNU Libidn; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
+
+purpose "Command line interface to the internationalized domain name library.
+
+All strings are expected to be encoded in the preferred charset used
+by your locale.  Use `--debug' to find out what this charset is.  You
+can override the charset used by setting environment variable CHARSET.
+
+To process a string that starts with `-', for example `-foo', use `--'
+to signal the end of parameters, as in `idn --quiet -a -- -foo'."
+
+option "stringprep" s "Prepare string according to nameprep profile" no
+option "punycode-decode" d "Decode Punycode" no
+option "punycode-encode" e "Encode Punycode" no
+option "idna-to-ascii"   a "Convert to ACE according to IDNA (default)" no
+option "idna-to-unicode" u "Convert from ACE according to IDNA" no
+option "allow-unassigned" - "Toggle IDNA AllowUnassigned flag" flag off
+option "usestd3asciirules" - "Toggle IDNA UseSTD3ASCIIRules flag" flag off
+option "tld" t "Check string for TLD specific rules\nOnly for --idna-to-ascii and --idna-to-unicode" flag on
+option "profile" p "Use specified stringprep profile instead\nValid stringprep profiles are `Nameprep', `iSCSI', `Nodeprep', `Resourceprep', `trace', and `SASLprep'." string no
+option "debug" - "Print debugging information" flag off
+option "quiet" - "Silent operation" flag off

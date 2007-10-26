@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * command [-pvVx] name [arg...]
@@ -44,6 +40,7 @@
 #define A_FLAG	4
 #define F_FLAG	010
 #define X_FLAG	020
+#define Q_FLAG	040
 
 static int whence(Shell_t *,char**, int);
 
@@ -115,6 +112,10 @@ int	b_whence(int argc,char *argv[],void *extra)
 		break;
 	    case 'p':
 		flags |= P_FLAG;
+		flags &= ~V_FLAG;
+		break;
+	    case 'q':
+		flags |= Q_FLAG;
 		break;
 	    case ':':
 		errormsg(SH_DICT,2, "%s", opt_info.arg);
@@ -136,6 +137,7 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 	register const char *cp;
 	register int aflag,r=0;
 	register const char *msg;
+	int	tofree;
 	Dt_t *root;
 	Namval_t *nq;
 	char *notused;
@@ -143,8 +145,11 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 	Pathcomp_t *pp;
 #endif
 	int notrack = 1;
+	if(flags&Q_FLAG)
+		flags &= ~A_FLAG;
 	while(name= *argv++)
 	{
+		tofree=0;
 		aflag = ((flags&A_FLAG)!=0);
 		cp = 0;
 		np = 0;
@@ -153,6 +158,8 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 #endif
 		if(flags&P_FLAG)
 			goto search;
+		if(flags&Q_FLAG)
+			goto bltins;
 		/* reserved words first */
 		if(sh_lookup(name,shtab_reserved))
 		{
@@ -181,6 +188,7 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 			aflag++;
 		}
 		/* built-ins and functions next */
+	bltins:
 		root = (flags&F_FLAG)?shp->bltin_tree:shp->fun_tree;
 		if(np= nv_bfsearch(name, root, &nq, &notused))
 		{
@@ -196,6 +204,8 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 				else
 					cp = sh_translate(is_function);
 			}
+			if(flags&Q_FLAG)
+				continue;
 			sfprintf(sfstdout,"%s%s\n",name,cp);
 			if(!aflag)
 				continue;
@@ -216,6 +226,11 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 			cp = stakptr(PATH_OFFSET);
 			if(*cp==0)
 				cp = 0;
+			else if(*cp!='/')
+			{
+				cp = path_fullname(cp);
+				tofree=1;
+			}
 		}
 #else
 		if(path_search(name,cp,2))
@@ -224,7 +239,9 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 			cp = shp->lastpath;
 		shp->lastpath = 0;
 #endif
-		if(cp)
+		if(flags&Q_FLAG)
+			r |= !cp;
+		else if(cp)
 		{
 			if(flags&V_FLAG)
 			{
@@ -252,6 +269,8 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 				sfputr(sfstdout,msg,' ');
 			}
 			sfputr(sfstdout,sh_fmtq(cp),'\n');
+			if(tofree)
+				free((char*)cp);
 		}
 		else if(aflag<=1) 
 		{

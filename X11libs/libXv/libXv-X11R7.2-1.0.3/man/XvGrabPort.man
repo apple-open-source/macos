@@ -1,0 +1,64 @@
+.TH XvGrabPort __libmansuffix__ __vendorversion__
+.\" $XFree86: xc/doc/man/Xv/XvGrabPort.man,v 1.4 1999/03/02 11:49:14 dawes Exp $
+.SH Name
+XvGrabPort \- lock port for exclusive use by client
+.\"
+.SH Syntax
+.B #include <X11/extensions/Xvlib.h>
+.sp 1l
+.B XvGrabPort(\fIdpy, port, time)\fR
+.sp 1l
+.B Display \fI*dpy;\fR
+.br
+.B XvPortID 
+.I port;
+.br
+.B Time 
+.I time;
+.\"
+.SH Arguments
+.\"
+.IP \fIdpy\fR 8 
+Specifies the connection to the X server.
+.IP \fIport\fR 8
+Defines the port to be grabbed.
+.IP \fItime\fR 8
+Specifies the request timestamp.
+.\"
+.SH Description
+.\"
+XvGrabPort(__libmansuffix__) grabs a port.  Once a client grabs a port, 
+only that client can make video requests
+to that port.  
+.PP
+If the time is before the current port time, the XvGrabPort request is
+ignored and XvInvalidTime is returned.  If the port is already grabbed by
+another client, XvAlreadyGrabbed is returned. Otherwise it returns a
+status of \fISuccess\fR.  The port time is updated when the following
+requests are processed: XvGrabPort(__libmansuffix__), XvUngrabPort(__libmansuffix__),
+XvPutVideo(__libmansuffix__), XvPutStill(__libmansuffix__), XvGetVideo(__libmansuffix__), XvGetStill(__libmansuffix__).
+.PP
+If the port is actively processing video for another client, the
+video is preempted, and an XvVideoNotify event with detail XvPreempted
+is generated for its drawable.
+.\"
+.SH Returned Values
+.IP [Success] 8
+Returned if XvGrabPort(__libmansuffix__) completed successfully.
+.IP [XvInvalidTime] 8
+Returned if requested time is older than the current port time.
+.IP [XvAlreadyGrabbed] 8
+Returned if the port is already grabbed by another client.
+.IP [XvBadExtension] 8
+Returned if the Xv extension is unavailable.
+.IP [XvBadAlloc] 8
+Returned if XvGrabPort(__libmansuffix__) failed to allocate memory to process
+the request.
+.SH Diagnostics
+.IP [XvBadPort] 15
+Generated if the requested port does not exist.
+.\"
+.SH See Also
+.\"
+XvUngrabPort(__libmansuffix__) XvVideoNotify(__libmansuffix__)
+.br

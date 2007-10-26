@@ -1494,6 +1494,17 @@ initialize_uninitialized_subregs (void)
   find_regno_partial_param param;
   edge_iterator ei;
 
+  /* APPLE LOCAL begin 4727273 */
+  /* This is needed for ia64, since a subreg operation does not guarantee
+     that the NaT bit will be cleared.  A discussion of this can be found
+     here: http://gcc.gnu.org/ml/gcc-patches/2001-11/msg00429.html
+     For the architectures we support, this code isn't needed and can
+     generate superfluous code.  */
+#ifndef TARGET_MUST_INIT_SUBREG
+  return 0;
+#endif
+  /* APPLE LOCAL end 4727273 */
+
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       basic_block bb = e->dest;
@@ -4332,7 +4343,15 @@ recompute_reg_usage (void)
   /* distribute_notes in combiner fails to convert some of the REG_UNUSED notes
    to REG_DEAD notes.  This causes CHECK_DEAD_NOTES in sched1 to abort.  To 
    solve this update the DEATH_NOTES here.  */
-  update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
+  /* APPLE LOCAL begin ARM rerun cse after combine */
+  /* Existing death notes are not trustworthy, and can cause bad codegen if
+     they say a register dies too early.  We will recompute them correctly.  */
+  if (flag_rerun_cse_after_combine)
+    count_or_remove_death_notes (NULL, 1);
+  update_life_info (NULL,
+		    flag_rerun_cse_after_combine ? UPDATE_LIFE_GLOBAL : UPDATE_LIFE_LOCAL,
+		    PROP_REG_INFO | PROP_DEATH_NOTES);
+  /* APPLE LOCAL end ARM rerun cse after combine */
 }
 
 /* Optionally removes all the REG_DEAD and REG_UNUSED notes from a set of

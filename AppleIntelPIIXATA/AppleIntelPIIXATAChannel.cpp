@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -322,4 +322,26 @@ UInt32 AppleIntelPIIXATAChannel::getSerialATAPortForDrive( UInt32 unit ) const
         return gChannelModeTable[_channelMode].driveUnitToSATAPort[unit];
     else
         return kSerialATAPortX;
+}
+
+void AppleIntelPIIXATAChannel::setSerialATAPortEnableForDrive(
+                                UInt32 unit, bool enable )
+{
+    AppleIntelPIIXATARoot * root = (AppleIntelPIIXATARoot *) _provider;
+    int     port = getSerialATAPortForDrive( unit );
+
+    if (root)
+        root->setSerialATAPortEnable( port, enable );
+}
+
+bool AppleIntelPIIXATAChannel::getSerialATAPortPresentStatusForDrive( UInt32 unit )
+{
+    AppleIntelPIIXATARoot * root = (AppleIntelPIIXATARoot *) _provider;
+    int     port = getSerialATAPortForDrive( unit );
+    bool    present = false;
+
+    if (root)
+        present = root->getSerialATAPortPresentStatus( port );
+
+    return present;
 }

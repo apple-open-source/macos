@@ -1,37 +1,34 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1982-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#                David Korn <dgk@research.att.com>                 #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                  David Korn <dgk@research.att.com>                   #
+#                                                                      #
+########################################################################
 function err_exit
 {
 	print -u2 -n "\t"
-	print -u2 -r $Command[$1]: "${@:2}"
+	print -u2 -r ${Command}[$1]: "${@:2}"
 	let Errors+=1
 }
 alias err_exit='err_exit $LINENO'
 
 # test shell builtin commands
-Command=$0
+Command=${0##*/}
 integer Errors=0
+builtin getconf
 : ${foo=bar} || err_exit ": failed"
 [[ $foo = bar ]] || err_exit ": side effects failed"
 set -- - foobar
@@ -45,6 +42,30 @@ getopts :r:s var -r
 if	[[ $var != : || $OPTARG != r ]]
 then	err_exit "'getopts :r:s var -r' not working"
 fi
+OPTIND=1
+getopts :d#u var -d 100
+if	[[ $var != d || $OPTARG != 100 ]]
+then	err_exit "'getopts :d#u var -d 100' not working var=$var"
+fi
+OPTIND=1
+while getopts 'ab' option -a -b
+do	[[ $OPTIND == $((OPTIND)) ]] || err_exit "OPTIND optimization bug"
+done
+
+USAGE=$'[-][S:server?Operate on the specified \asubservice\a:]:[subservice:=pmserver]
+    {
+        [p:pmserver]
+        [r:repserver]
+        [11:notifyd]
+    }'
+set pmser p rep r notifyd -11
+while	(( $# > 1 ))
+do	OPTIND=1
+	getopts "$USAGE" OPT -S $1
+	[[ $OPT == S && $OPTARG == $2 ]] || err_exit "OPT=$OPT OPTARG=$OPTARG -- expected OPT=S OPTARG=$2"
+	shift 2
+done
+
 false ${foo=bar} &&  err_exit "false failed"
 read <<!
 hello world
@@ -154,6 +175,7 @@ if	[[ $var != "" ]]
 then	err_exit "read -r of blank line not working"
 fi
 mkdir -p /tmp/ksh$$/a/b/c 2>/dev/null || err_exit  "mkdir -p failed"
+$SHELL -c "cd /tmp/ksh$$/a/b; cd c" 2>/dev/null || err_exit "initial script relative cd fails"
 rm -r /tmp/ksh$$ || err_exit "rm -r /tmp/ksh$$ failed"
 trap 'print HUP' HUP
 if	[[ $(trap) != "trap -- 'print HUP' HUP" ]]
@@ -218,10 +240,10 @@ x2=.000000001
 if	[[ $(printf "%g\n" x2 2>/dev/null) != 1e-09 ]]
 then	err_exit 'printf "%g" not working correctly'
 fi
-($SHELL read -s foobar <<\!
-testing
-!
-) 2> /dev/null || err_exit ksh read -s var fails
+#FIXME#($SHELL read -s foobar <<\!
+#FIXME#testing
+#FIXME#!
+#FIXME#) 2> /dev/null || err_exit ksh read -s var fails
 if	[[ $(printf +3 2>/dev/null) !=   +3 ]]
 then	err_exit 'printf is not processing formats beginning with + correctly'
 fi
@@ -261,6 +283,11 @@ fi
 if	[[ $(printf '%..*s\n' : abc def) != abc:def ]]
 then	err_exit	"printf '%..*s' not working"
 fi
+[[ $(printf '%q\n') == '' ]] || err_exit 'printf "%q" with missing arguments'
+# we won't get hit by the one second boundary twice, right?
+[[ $(printf '%T\n' now) == "$(date)" ]] ||
+[[ $(printf '%T\n' now) == "$(date)" ]] ||
+err_exit 'printf "%T" now'
 behead()
 {
 	read line
@@ -299,7 +326,20 @@ wait $pid1
 (( $? == 1 )) || err_exit "wait not saving exit value"
 wait $pid2
 (( $? == 127 )) || err_exit "subshell job known to parent"
-if	[[ $(foo=bar;foo=$foo exec -c $SHELL -c 'print $foo') != bar ]]
+set --noglob
+ifs=$IFS
+IFS=,
+set -- $(getconf LIBPATH)
+IFS=$ifs
+env=
+for v
+do	IFS=:
+	set -- $v
+	IFS=$ifs
+	eval [[ \$$2 ]] && env="$env $2=\"\$$2\""
+done
+set --glob
+if	[[ $(foo=bar; eval foo=\$foo $env exec -c \$SHELL -c \'print \$foo\') != bar ]]
 then	err_exit '"name=value exec -c ..." not working'
 fi
 $SHELL -c 'OPTIND=-1000000; getopts a opt -a' 2> /dev/null
@@ -309,6 +349,22 @@ getopts 'n#num' opt  -n 3
 if	[[ $($SHELL -c $'printf \'%2$s %1$s\n\' world hello') != 'hello world' ]]
 then	err_exit 'printf %2$s %1$s not working'
 fi
+((n=0))
+((n++)); ARGC[$n]=1 ARGV[$n]=""
+((n++)); ARGC[$n]=2 ARGV[$n]="-a"
+((n++)); ARGC[$n]=4 ARGV[$n]="-a -v 2"
+((n++)); ARGC[$n]=4 ARGV[$n]="-a -v 2 x"
+((n++)); ARGC[$n]=4 ARGV[$n]="-a -v 2 x y"
+for ((i=1; i<=n; i++))
+do	set -- ${ARGV[$i]}
+	OPTIND=0
+	while	getopts -a tst "av:" OPT
+	do	:
+	done
+	if	[[ $OPTIND != ${ARGC[$i]} ]]
+	then	err_exit "\$OPTIND after getopts loop incorrect -- got $OPTIND, expected ${ARGC[$i]}"
+	fi
+done
 unset a
 { read -N3 a; read -N1 b;}  <<!
 abcdefg
@@ -357,7 +413,7 @@ then	for i in $(command command -x ${SHELL:-ksh} -c 'print $#;[[ $1 != argument0
 	do	((sum += $i))
 	done
 	(( sum == n )) || err_exit "command -x processed only $sum arguments"
-	command -p command -x ${SHELL:-ksh} -c 'print $#;[[ $1 != argument0 ]]' count $(longline $n) > /dev/null  2>&1
+	command -p command -x ${SHELL:-ksh} -c 'print $#;[[ $1 == argument0 ]]' count $(longline $n) > /dev/null  2>&1
 	[[ $? != 1 ]] && err_exit 'incorrect exit status for command -x'
 fi
 # test command -x option with extra arguments
@@ -369,7 +425,7 @@ then    for i in $(command command -x ${SHELL:-ksh} -c 'print $#;[[ $1 != argume
 	(( sum  > n )) || err_exit "command -x processed only $sum arguments"
 	(( (sum-n)%3==0 )) || err_exit "command -x processed only $sum arguments"
 	(( sum == n+3)) && err_exit "command -x processed only $sum arguments"
-	command -p command -x ${SHELL:-ksh} -c 'print $#;[[ $1 != argument0 ]]' count $(longline $n) > /dev/null  2>&1
+	command -p command -x ${SHELL:-ksh} -c 'print $#;[[ $1 == argument0 ]]' count $(longline $n) > /dev/null  2>&1
 	[[ $? != 1 ]] && err_exit 'incorrect exit status for command -x'
 fi
 # test for debug trap
@@ -377,5 +433,19 @@ fi
 	trap 'print $i' DEBUG
 	while (( i <2))
 	do	(( i++))
-	done) == $'0\n0\n1\n1\n2' ]]  || print -r "DEBUG trap not working"
+	done) == $'0\n0\n1\n1\n2' ]]  || err_exit  "DEBUG trap not working"
+getconf UNIVERSE - ucb
+[[ $($SHELL -c 'echo -3') == -3 ]] || err_exit "echo -3 not working in ucb universe"
+typeset -F3 start_x=SECONDS total_t delay=0.02
+typeset reps=50 leeway=5
+sleep $(( 2 * leeway * reps * delay )) |
+for (( i=0 ; i < reps ; i++ )) 
+do	read -N1 -t $delay
+done
+(( total_t = SECONDS - start_x ))
+if	(( total_t > leeway * reps * delay ))
+then	err_exit "read -t in pipe taking $total_t secs - $(( reps * delay )) minimum - too long" 
+elif	(( total_t < reps * delay ))
+then	err_exit "read -t in pipe taking $total_t secs - $(( reps * delay )) minimum - too fast" 
+fi
 exit $((Errors))

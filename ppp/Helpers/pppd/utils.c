@@ -55,7 +55,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: utils.c,v 1.7 2004/03/04 01:36:32 lindak Exp $"
+#define RCSID	"$Id: utils.c,v 1.8 2005/12/13 06:30:15 lindak Exp $"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -532,8 +532,15 @@ format_packet(p, len, printer, arg)
 		if (proto == (protp->protocol & ~0x8000))
 		    break;
 	    if (protp != 0 && protp->data_name != 0) {
-		printer(arg, "[%s data]\n", protp->data_name);
 #ifdef __APPLE__
+				printer(arg, "[%s data", protp->data_name);
+				if (protp->printdatapkt) {
+					n = (*protp->printdatapkt)(p, len, printer, arg);
+					p += n;
+					len -= n;
+				}
+				printer(arg, "]\n");
+				
                 while (len > 0) {
                     int lcount = (len > 16) ? 16 : len;
             
@@ -556,6 +563,7 @@ format_packet(p, len, printer, arg)
                     p += 16;
                 }
 #else
+		printer(arg, "[%s data]\n", protp->data_name);
 		if (len > 8)
 		    printer(arg, "%.8B ...", p);
 		else
@@ -710,7 +718,11 @@ logit(level, fmt, args)
     va_list args;
 {
     int n;
+#ifdef __APPLE__
+    char buf[4096];
+#else
     char buf[1024];
+#endif
 
     n = vslprintf(buf, sizeof(buf), fmt, args);
     log_write(level, buf);

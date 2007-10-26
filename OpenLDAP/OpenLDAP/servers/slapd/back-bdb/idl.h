@@ -1,8 +1,8 @@
 /* idl.h - ldap bdb back-end ID list header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/idl.h,v 1.13.2.3 2004/07/25 22:40:08 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/idl.h,v 1.16.2.3 2006/01/03 22:16:17 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -20,8 +20,9 @@
 /* IDL sizes - likely should be even bigger
  *   limiting factors: sizeof(ID), thread stack size
  */
-#define BDB_IDL_DB_SIZE		(1<<16) /* 64K IDL on disk */
-#define BDB_IDL_UM_SIZE		(1<<17) /* 128K IDL in memory */
+#define	BDB_IDL_LOGN	16	/* DB_SIZE is 2^16, UM_SIZE is 2^17 */
+#define BDB_IDL_DB_SIZE		(1<<BDB_IDL_LOGN)
+#define BDB_IDL_UM_SIZE		(1<<(BDB_IDL_LOGN+1))
 #define BDB_IDL_UM_SIZEOF	(BDB_IDL_UM_SIZE * sizeof(ID))
 
 #define BDB_IDL_DB_MAX		(BDB_IDL_DB_SIZE-1)

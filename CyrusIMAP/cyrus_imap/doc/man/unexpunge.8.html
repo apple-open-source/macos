@@ -1,0 +1,173 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Wed Feb  7 14:01:47 2007 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>UNEXPUNGE</title>
+</head>
+<body>
+
+<h1 align=center>UNEXPUNGE</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>unexpunge &minus; restore expunged (but yet unremoved)
+messages</p>
+</td>
+</table>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>unexpunge</b> [ <b>&minus;C</b> <i>config-file</i> ]
+<b>&minus;l</b> <i>mailbox</i><b><br>
+unexpunge</b> [ <b>&minus;C</b> <i>config-file</i> ]
+<b>&minus;a</b> [ <b>&minus;d</b> ] [ <b>&minus;v</b> ]
+<i>mailbox</i><b><br>
+unexpunge</b> [ <b>&minus;C</b> <i>config-file</i> ]
+<b>&minus;u</b> [ <b>&minus;d</b> ] [ <b>&minus;v</b> ]
+<i>mailbox uid</i>...</p>
+</td>
+</table>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>Unexpunge</i> is used to restore expunged messages
+which have yet to be removed from the Cyrus mailspool. This
+utility is only useful when the server is configured to use
+<b>delayed</b> expunge.</p>
+<!-- INDENTATION -->
+<p><i>Unexpunge</i> reads its configuration options out of
+the <i>imapd.conf</i>(5) file unless specified otherwise by
+<b>-C</b>.</p>
+</td>
+</table>
+<a name="OPTIONS"></a>
+<h2>OPTIONS</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;C</b> <i>config-file</i></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Read configuration options from <i>config-file</i>.</p>
+</td>
+</table>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;l</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>List the expunged messages in the specified mailbox
+which are available for restoration.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;a</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Restore <b>all</b> of the expunged messages in the
+specified mailbox.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;u</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Restore only those messages having the specified UIDs in
+the specified mailbox.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;d</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Unset the <i>\Deleted</i> flag on any restored
+messages.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;v</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Enable verbose output/logging.</p>
+</td>
+</table>
+<a name="FILES"></a>
+<h2>FILES</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>/etc/imapd.conf</b></p></td>
+</table>
+<a name="SEE ALSO"></a>
+<h2>SEE ALSO</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imapd.conf(5)</b></p>
+</td>
+</table>
+<hr>
+</body>
+</html>

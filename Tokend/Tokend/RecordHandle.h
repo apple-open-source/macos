@@ -66,5 +66,4 @@ private:
 
 #endif /* !_TOKEND_RECORDHANDLE_H_ */
 
-/* arch-tag: 3A2EEFFE-F7B9-11D8-BB62-000A9595DEEE */
 

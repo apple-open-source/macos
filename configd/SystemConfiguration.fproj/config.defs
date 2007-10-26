@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,7 +68,8 @@ routine configopen	(	server		: mach_port_t;
 				name		: xmlData;
 				options		: xmlData;
 			 out	session		: mach_port_move_send_t;
-			 out	status		: int);
+			 out	status		: int;
+	    ServerAuditToken	audit_token	: audit_token_t);
 
 routine configclose	(	server		: mach_port_t;
 			 out	status		: int);

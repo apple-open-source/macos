@@ -36,5 +36,29 @@ module REXML
 		def parent?
 			false;
 		end
+
+
+		# Visit all subnodes of +self+ recursively
+		def each_recursive(&block) # :yields: node
+			self.elements.each {|node|
+				block.call(node)
+				node.each_recursive(&block)
+			}
+		end
+
+		# Find (and return) first subnode (recursively) for which the block 
+    # evaluates to true. Returns +nil+ if none was found.
+		def find_first_recursive(&block) # :yields: node
+      each_recursive {|node|
+        return node if block.call(node)
+      }
+      return nil
+    end
+
+    # Returns the position that +self+ holds in its parent's array, indexed
+    # from 1.
+    def index_in_parent
+      parent.index(self)+1
+    end
 	end
 end

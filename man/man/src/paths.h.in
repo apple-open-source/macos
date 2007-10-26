@@ -27,6 +27,8 @@ static struct paths {
     { "VGRIND",	"@vgrind@" },
     { "GRAP",	"@grap@" },
     { "PAGER",	"@pager@" },
+    { "BROWSER","@browser@" },
+    { "HTMLPAGER", "@htmlpager@" },
     { "CMP",	"@cmp@" },
     { "CAT",	"@cat@" },
     { "COMPRESS",	"@compress@" },

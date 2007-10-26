@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/librewrite/xmap.c,v 1.2.2.4 2004/03/17 20:14:49 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/librewrite/xmap.c,v 1.6.2.6 2006/04/03 19:49:55 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -214,7 +214,8 @@ rewrite_xmap_parse(
 	
 	/* Unhandled map */
 	}
-	
+
+	free( map );
 	return NULL;
 }
 
@@ -259,11 +260,11 @@ rewrite_xmap_apply(
 			ldap_pvt_thread_mutex_unlock( &xpasswd_mutex );
 #endif /* USE_REWRITE_LDAP_PVT_THREADS */
 
-			rc = REWRITE_NO_SUCH_OBJECT;
+			rc = LDAP_NO_SUCH_OBJECT;
 			break;
 		}
 
-#ifdef HAVE_PW_GECOS
+#ifdef HAVE_STRUCT_PASSWD_PW_GECOS
 		if ( pwd->pw_gecos != NULL && pwd->pw_gecos[0] != '\0' ) {
 			int l = strlen( pwd->pw_gecos );
 			
@@ -279,7 +280,7 @@ rewrite_xmap_apply(
 			}
 			val->bv_len = l;
 		} else
-#endif /* HAVE_PW_GECOS */
+#endif /* HAVE_STRUCT_PASSWD_PW_GECOS */
 		{
 			val->bv_val = strdup( key->bv_val );
 			val->bv_len = key->bv_len;
@@ -437,8 +438,8 @@ rewrite_xmap_destroy(
 {
 	struct rewrite_map *map;
 
-	assert( pmap );
-	assert( *pmap );
+	assert( pmap != NULL );
+	assert( *pmap != NULL );
 
 	map = *pmap;
 

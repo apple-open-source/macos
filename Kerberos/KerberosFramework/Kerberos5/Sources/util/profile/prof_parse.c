@@ -84,10 +84,10 @@ static errcode_t parse_std_line(char *line, struct parse_state *state)
 	
 	if (*line == 0)
 		return 0;
-	if (line[0] == ';' || line[0] == '#')
-		return 0;
-	strip_line(line);
 	cp = skip_over_blanks(line);
+	if (cp[0] == ';' || cp[0] == '#')
+		return 0;
+	strip_line(cp);
 	ch = *cp;
 	if (ch == 0)
 		return 0;
@@ -306,8 +306,10 @@ errcode_t profile_parse_file(FILE *f, struct profile_node **root)
  */
 static int need_double_quotes(char *str)
 {
-	if (!str || !*str)
-		return 0;
+	if (!str)
+                return 0;
+        if (*str)
+		return 1;
 	if (isspace((int) (*str)) ||isspace((int) (*(str + strlen(str) - 1))))
 		return 1;
 	if (strchr(str, '\n') || strchr(str, '\t') || strchr(str, '\b'))

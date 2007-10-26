@@ -1,0 +1,85 @@
+#! /bin/bash
+# Copyright (c) 2007 Apple Inc. All rights reserved.
+
+# jpeach_smb -  This is a test driver (like SambaServerTest) for running
+# the Samba test suite from BigBrother. The difference is that this script
+# will pull a development version of Samba from a well-known build host
+# and test that version.
+#
+# The canonical version of this file is:
+# $HeadURL$
+# $Id$
+
+# Set up the test machine.
+RequireScript InventoryTracker
+RequireScript PrepTestSys
+RequireScript TestSuiteNetFS
+
+# SAMBA_BUILDHOST is the machine to pull the source from
+SAMBA_BUILDHOST=${SAMBA_BUILDHOST:-jpeach.apple.com}
+
+# SAMBA_BUILDPATH is the directory where SAMBA_BUILD lives
+SAMBA_BUILDPATH=${SAMBA_BUILDPATH:-/Volumes/work}
+
+# SAMBA_BUILD is the name of the directory containing the Samba svn tree
+SAMBA_BUILD=${SAMBA_BUILD:-"samba-trunk"}
+
+echo synching $SAMBA_BUILD from $SAMBA_BUILDHOST
+
+# Set up a "well-known" ssh key that will let me log back into
+# jpeach.apple.com as user "local"
+
+mkdir -p ~/.ssh
+
+cat > ~/.ssh/id_rsa <<EOF
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEAxQyWG07T9JMYuyWsBLmVJJwJ0PoQbHVNmFQIklUZWpvH+PcD
+EMUSg1TDamlpqAfbgycoQqjr5aWZAcQxwy2YzwVYarhyL3tO7bLfUPc4v46L63t6
+4Aqg6PszS9L5pBWHEQ8oM5XwdSJg3m7B36122iuGgGO/evSkjoEV1gy88MLWH4Wx
+rvjHvd05k8knXT7eFGf7x/hidLWfwSH58tBrZBmpq3DS6dKD4i9wpCqYYfsuxBFQ
+sr9G5OhJQ0N8McUN6L2N+KF3XJzKq00i8h4EA35Jx9uEWFB/KI/VZnEW6xH6GOue
+peSLHKJihK2TL5mJu7VyIlV43hi/WKxmKeAaTwIBIwKCAQAFoUYeCZEG/ONzD7R1
+Kd+wlr5zr1+OEfrnGFgELlEueXq9+G3NR3WOuUdpcLngOr0hAR5oTfgcgRMADOt6
+mucb25TP2WJZIMe9pgZhZiYxW9gcq8GuoTfMJG8uDVeW+U0AfMaiY16kQs+RU58j
+pd7TCI7Qd+DmQYELYsYcDv4VgdvspeXBr9M64zfr5A3vaEQZpivczNVlXpjhjhL0
+dvwa+l+HO4p5TJavEUshQBmHxex3jImsrK4TnDHBm9DkYVZhrJ79qcJJkmTSEjQK
+smDSdyyjNbDDD8N37LzLvc7nFRqIaVQX7RU5qIp955BDlveh6kp/v8mAOE5jGNli
+QhMbAoGBAP7DTDWZDwiT5pR54kcbIiOaDI1b2n9upqdscC0pWdh9e43owE9q6zBm
+tyryS3Ue4zXlY4KbTraIswM1KTPB7TwZDshxab2f1G5WmvzF4hKwVo3qgbUIo7fY
+JTDSzQc1/KK/D1Sz/EDrpglLilmG5NyTnkP7O8oBBhWMTuYYSJWXAoGBAMYBixKa
+394c5f/ZuPiG22r4o288HLYqIBF+RTVdMhs2YwxFjJTpbrmMGwAmG6WzCKSGdvt7
+1MOt2niVzLk2iQJ1FQjZAimtxJOcNQi12LSM3KGNAqSkhQ3rDNS4sMYdMrazdcqs
+fmNO8WoCeoBrENIFDv6v4SJVX/I/98eijugJAoGBAIMFWmS1Hayj1atx4hXwsni1
+oA4vPSuX/e+0HG7/Uscb9mY9L7PQljYmMlCZ3anyoLyh22e9ljH9KN0UBo+lj/MF
+kpL4f4YXrxQsijjazAmchEj8QrTf3ytZN7K1jgO1XVsDLHS0Vdg+rSlaDKMSLI6y
+UWTKWUNQ+9CRTSXgmluPAoGBALqw/3fxHDfSGq9m4ZnePJgPAH7SRvTl47i44isA
+GUzbgfWgqR6wNTKaCtRBMAKhfS1o1pVXf3arO7OF7OkkylLGKcaDdxFasgeEpwg2
+bTyE0AYInBeTzeiNKVraBcIbh5ZRbw+Msa4XO2PztVSCNG4/SKb9mcFJLpPzK3MV
+nK7jAoGBAK7P09AFQiM69ikBSy1EK+fTbCMtvzx6WX/TV6BN+hHfCLqGjSDqJ5ye
+BlMyy5ZZhszvjp+rdiX0COmsCCk009eXplimvcmJdi8wHAV0UZIcEco02B2KqCjv
+K1MEAz1na3ejMhi+GLT00tsf/C0Gs908eSVvgu9hCw0R8cyGPRhb
+-----END RSA PRIVATE KEY-----
+EOF
+
+# Copy this to local@jpeach.apple.com:~/.ssh/authorized_keys to
+# get rid of the ssh password prompt that will halt the test script.
+cat > ~/.ssh/id_rsa.pub <<EOF
+ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAxQyWG07T9JMYuyWsBLmVJJwJ0PoQbHVNmFQIklUZWpvH+PcDEMUSg1TDamlpqAfbgycoQqjr5aWZAcQxwy2YzwVYarhyL3tO7bLfUPc4v46L63t64Aqg6PszS9L5pBWHEQ8oM5XwdSJg3m7B36122iuGgGO/evSkjoEV1gy88MLWH4WxrvjHvd05k8knXT7eFGf7x/hidLWfwSH58tBrZBmpq3DS6dKD4i9wpCqYYfsuxBFQsr9G5OhJQ0N8McUN6L2N+KF3XJzKq00i8h4EA35Jx9uEWFB/KI/VZnEW6xH6GOuepeSLHKJihK2TL5mJu7VyIlV43hi/WKxmKeAaTw== local@jpeach-mini
+EOF
+
+cat > ~/.ssh/config <<EOF
+Host *
+    CheckHostIP no
+    VerifyHostKeyDNS no
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+EOF
+
+chmod 600 ~/.ssh/id_rsa
+chmod 644 ~/.ssh/id_rsa.pub
+
+rsync --archive local@$SAMBA_BUILDHOST:$SAMBA_BUILDPATH/$SAMBA_BUILD .
+
+# Pull the actual test implementation in from the SVN source tree.
+exec $SAMBA_BUILD/scripts/bb-scripts/CurrentSambaServerTest
+

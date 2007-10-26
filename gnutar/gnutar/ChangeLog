@@ -1,3 +1,619 @@
+2004-12-21  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* configure.ac: Raise version number to 1.15.1
+	Check for locale.h
+	* NEWS: Entry for 1.15.1
+	* src/buffer.c: Bugfix. Changes introduced 2004-11-26
+	broke extraction from stdin.
+	* src/list.c (from_header, tar_checksum): Changed declaration.
+	All callers updated.
+	* src/common.h: Likewise
+	* src/tar.c (main): Protect invocation of setlocale by
+	ifdef.
+
+	* tests/comprec.at: New test
+	* tests/pipe.at: New test
+	* tests/Makefile.am (comprec.at,pipe.at): New tests
+	* tests/testsuite.at: Likewise
+	* tests/gzip.at: Use AT_GZIP_PREREQ
+	* tests/star/pax-big-10g.at: Likewise 
+	* tests/star/ustar-big-2g.at: Likewise
+	* tests/star/ustar-big-8g.at: Likewise
+	
+	* tests/extrac04.at: Discard stderr from sort, on some
+	systems it spits out lots of irrelevant info.
+	* tests/listed02.at: Likewise
+	
+	* doc/index.html.in: Rewritten in xhtml to follow recent
+	GNU site standards.
+	* THANKS: Updated
+	
+2004-12-20  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	Released version 1.15. Sources up to this point are
+	tagged release_1_15.
+
+	* configure.ac: Raised version number to 1.15
+	* NEWS: Likewise
+	* directory: Updated
+	* bootstrap (update_po): Give -r to wget. Always remove index.html
+	Ignore alloca-opt module (it duplicates alloca)
+	
+	* tests/Makefile.am: Distribute star/quicktest.sh
+	* tests/star/README: Document quicktest.sh
+	* tests/star/qucktest.sh: Removed.
+	* tests/star/quicktest.sh: New file. 
+	
+2004-12-18  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* NEWS: Updated
+	* doc/tar.texi: Document auto-detection of compressed archive
+	formats.
+	* src/tar.c (decode_options): Ignore --seek if used with --delete.
+	Delete.c is based on the assumption that the archive is being
+	actually read, not lseeked.
+	
+	* tests/delete05.at: New file
+	* tests/extrac02.at: Fixed typo in AT_SETUP
+	* tests/Makefile.am: Added delete05.at
+	* tests/testsuite.at: Likewise.
+
+2004-12-17  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* src/delete.c (delete_archive_members): Bugfix: when
+	attempting to delete an unexisting member, the last
+	blocking_factor blocks were zeroed.
+
+2004-12-14  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* TODO: Mention sub-second resolution, lutimes, lchmod.
+
+2004-11-27  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Adjust to recent gnulib changes.
+	* doc/getdate.texi: Remove, since bootstrap gets it from gnulib now.
+	* .cvsignore: Add rmt, rmt/*, rmt/*/*.
+	* lib/.cvsignore: Add allocsa.c, allocsa.h, allocsa.valgrind,
+	charset.alias, config.charset, getcwd.c, getcwd.h, localcharset.c,
+	localcharset.h, ref-add.sed, ref-add.sin, ref-del.sed,
+	ref-del.sin, setenv.c, setenv.h, unsetenv.c.  Remove pathmax.h,
+	xstrdup.c.
+	* m4/.cvsignore: Add allocsa.m4, eealloc.m4, getcwd-path-max.m4,
+	localcharset.m4, realloc.m4, setenv.m4.  Remove malloc.m4,
+	pathmax.m4, realloc.m4.
+
+2004-11-26  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* configure.ac: Raised version number to 1.14.91
+	* scripts/tarcat: New file
+	* scripts/Makefile.am: Added tarcat
+	* src/buffer.c (hit_eof): Changed type to boolean
+	(read_full_records,reading_from_pipe): New variables
+	(check_compressed_archive,open_compressed_archive): New functions
+	(open_archive): Autodetect compressed archives and act accodingly.
+	Set reading_from_pipe. This fixes contraversial set of changes
+	introduced 2004-05-11,2004-03-22.
+	* src/list.c (tar_checksum): New function
+	(read_header): Use tar_checksum().
+	* src/common.h (tar_checksum): New function
+
+	* tests/star/README: Updated
+	* NEWS: Updated
+	* PORTS: Updated
+
+2004-11-16  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* src/tar.c (decode_options): Fixed -o semantics. Thanks
+	Jean Delvare <khali@linux-fr.org>
+
+2004-10-25  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* bootstrap: Add localcharset
+	* lib/Makefile.tmpl: Initialize SUFFIXES and CLEANFILES since the
+	makefile snippet from localcharset uses '+=' on them.
+	* src/Makefile.am (LDADD): Add LIBICONV
+	* src/list.c (decode_header): Set uname/gname to NULL if their
+	header counterparts are empty
+	* src/tar.c (options): Use OPTION_NO_TRANS
+	* src/utf8.c: Use locale_charset() from gnulib
+
+	* tests/star/README: Updated
+
+	* NEWS: Updated
+	* TODO: Minor fix
+
+2004-10-04  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* THANKS: Added Bryan Ford
+	* doc/Makefile.am (.text): Fixed rule
+	* po/POTFILES.in: Added argp-help.c
+
+2004-10-04  Bryan Ford  <baford@mit.edu>
+
+	* src/tar.c: New option --exclude-caches, to exclude
+	cache directories automatically on archive creation.
+	Cache directories are directories containing a
+	standardized tag file, as specified at:
+		http://www.brynosaurus.com/cachedir/spec.html
+	* src/common.h: New variable exclude_caches_option.
+	* src/create.c: New function check_cache_directory(),
+	called from dump_dir0() if exclude_caches_option is set,
+	to check for a cache directory tag and exclude the directory
+	if such a tag is found.
+	* doc/tar.texi: Updated accordingly.
+
+2004-09-16  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* doc/tar.texi: Minor fix
+	* src/tar.c (options): Minor fix
+
+2004-09-12  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* TODO: Updated
+	* lib/Makefile.tmpl: Added 'rtapelib.o: localedir.h' dependency
+	* src/common.h: Comment WANT_DIRECTORY_REMOVE_OPTION.
+	* src/extract.c: Normalized use of remove_any_file().
+	* src/misc.c: Likewise.
+	* src/tar.c (parse_opt): Emit warning if -l option is used.
+	(show_default_settings): REMOTE_SHELL may be undefined
+
+2004-09-07  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	Test suite rewritten in autotest.
+
+	* configure.ac: Updated for autotest
+	* src/tar.c (argp_program_version): Modified.
+	* tests/Makefile.am: Rewritten for autotest.
+
+	* tests/.cvsignore: Updated
+	* tests/append.at: New file
+	* tests/atlocal.in: New file
+	* tests/delete01.at: New file
+	* tests/delete02.at: New file
+	* tests/delete03.at: New file
+	* tests/delete04.at: New file
+	* tests/extrac01.at: New file
+	* tests/extrac02.at: New file
+	* tests/extrac03.at: New file
+	* tests/extrac04.at: New file
+	* tests/extrac05.at: New file
+	* tests/gzip.at: New file
+	* tests/ignfail.at: New file
+	* tests/incremental.at: New file
+	* tests/link01.at: New file
+	* tests/listed01.at: New file
+	* tests/listed02.at: New file
+	* tests/longv7.at: New file
+	* tests/multiv01.at: New file
+	* tests/multiv02.at: New file
+	* tests/multiv03.at: New file
+	* tests/old.at: New file
+	* tests/options.at: New file
+	* tests/recurse.at: New file
+	* tests/same-order01.at: New file
+	* tests/same-order02.at: New file
+	* tests/sparse01.at: New file
+	* tests/testsuite.at: New file
+	* tests/version.at: New file
+	* tests/volume.at: New file
+	* tests/star/gtarfail.at: New file
+	* tests/star/gtarfail2.at: New file
+	* tests/star/multi-fail.at: New file
+	* tests/star/pax-big-10g.at: New file
+	* tests/star/ustar-big-2g.at: New file
+	* tests/star/ustar-big-8g.at: New file
+
+	* tests/preset.in: Removed
+	* tests/before: Removed
+	* tests/after: Removed
+	* tests/version.sh: Removed.
+	* tests/append.sh: Removed.
+	* tests/delete01.sh: Removed.
+	* tests/delete02.sh: Removed.
+	* tests/delete03.sh: Removed.
+	* tests/delete04.sh: Removed.
+	* tests/extrac01.sh: Removed.
+	* tests/extrac02.sh: Removed.
+	* tests/extrac03.sh: Removed.
+	* tests/extrac04.sh: Removed.
+	* tests/extrac05.sh: Removed.
+	* tests/gzip.sh: Removed.
+	* tests/incremen.sh: Removed.
+	* tests/ignfail.sh: Removed.
+	* tests/link01.sh: Removed.
+	* tests/listed01.sh: Removed.
+	* tests/listed02.sh: Removed.
+	* tests/longv7.sh: Removed.
+	* tests/multiv01.sh: Removed.
+	* tests/multiv02.sh: Removed.
+	* tests/multiv03.sh: Removed.
+	* tests/old.sh: Removed.
+	* tests/options.sh: Removed.
+	* tests/same-order01.sh: Removed.
+	* tests/same-order02.sh: Removed.
+	* tests/volume.sh: Removed.
+	* tests/recurse.sh: Removed.
+	* tests/sparse01.sh: Removed.
+	* tests/star/gtarfail.sh: Removed.
+	* tests/star/gtarfail2.sh: Removed.
+	* tests/star/multi-fail.sh: Removed.
+	* tests/star/ustar-big-2g.sh: Removed.
+	* tests/star/ustar-big-8g.sh: Removed.
+	* tests/star/pax-big-10g.sh: Removed.
+
+2004-09-07  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* bootstrap: Install genfile.c from paxutils
+	* tests/genfile.c: Removed. Integrated into
+	paxutils.
+	* tests/mksparse.c: Removed. Integrated into
+	(paxutils) genfile.c
+	* tests/Makefile.am: Removed mksparse
+	* tests/sparse01.sh: Use genfile instead of mksparse
+
+2004-09-06  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	Started merging with cpio into paxutils. Sources before
+	this point are tagged alpha-1_14_90
+
+	* Makefile.am: Updated for use with paxutils
+	* README-alpha: Likewise
+	* bootstrap: Likewise
+	* configure.ac: Likewise
+	* lib/Makefile.tmpl: Likewise
+	* po/POTFILES.in: Likewise
+	* src/Makefile.am: Likewise
+	* src/buffer.c: Likewise
+	* src/common.h: Likewise
+	* src/compare.c: Likewise
+	* src/create.c: Likewise
+	* src/delete.c: Likewise
+	* src/extract.c: Likewise
+	* src/incremen.c: Likewise
+	* src/list.c: Likewise
+	* src/mangle.c: Likewise
+	* src/misc.c: Likewise
+	* src/names.c: Likewise
+	* src/sparse.c: Likewise
+	* src/system.c: Likewise
+	* src/tar.c: Likewise
+	* src/update.c: Likewise
+	* src/utf8.c: Likewise
+	* src/xheader.c: Likewise
+
+	* src/system.h: Removed
+	* src/rmt.c: Removed
+	* src/rmt.h: Removed
+	* src/rtapelib.c: Removed
+
+2004-09-03  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* tests/listed02.sh: Do not depend on any particular ordering
+	of output.
+
+2004-09-02  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* doc/tar.texi: Document the use of -C option in
+	file lists. Document --seek option.
+	* configure.ac: New option --with-rmt. New configuration variable
+	DEFAULT_RMT_DIR. Removed DEFAULT_RMT_COMMAND.
+	* src/Makefile.am: Install rmt into rmtdir
+	* src/tar.c (usage): Minor fix.
+	* NEWS: Updated.
+	* README: Updated.
+
+2004-09-01  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* configure.ac: Raised version number to 1.14.90
+	* src/common.h (is_individual_file): New prototype
+	* src/create.c (dump_file0): Fix bug introduced
+	2004-02-21.
+	* src/names.c (register_individual_file)
+	(is_individual_file): New functions.
+	* tests/listed01.sh: Use genfile instead of dd.
+	* tests/listed02.sh: New file.
+	* tests/Makefile.am: Added listed02.sh
+
+	* NEWS: Updated
+
+2004-08-31  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* src/sparse.c (sparse_add_map): Fixed improper initializations
+	of sparse_map_size. We assume that whatever number it contains
+	describes adequately the current size of sparse_map. The only
+	number we need to reset is sparse_map_avail.
+	* src/compare.c (verify_volume): Call set_next_block_after
+	if read_header returns HEADER_FAILURE
+	Destroy and reinitialize content of current_stat_info and
+	extended_header after each iteration (bug reported by
+	John L. Males <jlmales@yahoo.com>).
+	Issue a warning if the created archive contains some members
+	whose file names were stripped off their leading prefixes.
+	This is a temporary fix of the issue reported by Bdale Garbee
+	<bdale@gag.com> (Refs: Debian bug 230064, Message-Id
+	<87n07kyzhi.fsf@rover.gag.com>, Sun, 15 Feb 2004 11:22:17 -0700)
+
+	* src/names.c (removed_prefixes_p): New function.
+
+	* src/buffer.c: When computing write rate do not take
+	into account the time needed to verify the archive(s).
+	The bug reported by John L. Males <jlmales@yahoo.com>
+	(set_start_time,compute_duration): New functions.
+	(print_total_written): Use the result of compute_duration().
+	(close_archive): Call compute_duration.
+	* src/common.h (set_start_time, removed_prefixes_p): New prototypes.
+	* src/list.c (decode_header): Fixed initialization
+	of stat_info->is_sparse
+	* src/tar.c (main): Call set_start_time().
+
+	* src/misc.c (unquote_string): Unquote '\a' and '\v'.
+	Reported by Helmut Waitzmann <helmut.waitzmann@web.de>.
+
+	* NEWS: Updated
+	* THANKS: Updated
+
+2004-08-30  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* src/tar.c: Fix copy-n-paste errors in the license
+
+2004-08-19  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* scripts/backup.in: Renamed LIBPATH to LIBDIR.
+	Use ROOT_FS with -C option. Do not send mail
+	if ADMINISTRATOR is set to NONE.
+	* scripts/backup.sh.in (test_root): Append / to
+	ROOT_FS if it does not already end in it.
+	* scripts/restore.in: Renamed LIBPATH to LIBDIR.
+	New option -a (--all). Do not start restore unless
+	-a or patterns are given.
+	(restore_fs,restore_files): Fixed use of --listed option.
+	* doc/tar.texi: Updated
+	* NEWS: Updated
+
+2004-08-17  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* src/tar.c (find_argp_option): Fixed typo
+
+2004-08-12  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Merge argp, getopt, xalloc changes from gnulib.
+	* bootstrap (gnulib_modules): Add xalloc-die.
+	Remove code to test for patches; we don't have patches now.
+	Set LC_ALL=C so that file names sort consistently.
+	Prefer the gnulib copies of gettext.m4, glibc21.m4,
+	lib-ld.m4, lib-prefix.m4, po.m4 too.
+
+	* patches/getopt.diff: Remove; gnulib now works unpatched.
+	* configure.ac (_getopt_long_only_r): Remove check.
+	gl_ARGP now does this for us.
+	* lib/.cvsignore: Add fnmatch.h, getopt_.h, sysexit.h,
+	xalloc-die.c.
+	* src/extract.c: Adjust to changes to gnulib xalloc module.
+	(extr_init): Remove assignment to xalloc_fail_func; no longer needed.
+	(xalloc_die): New function.
+
+2004-08-10  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* NEWS: Updated
+
+	* src/buffer.c (flush_write): Limit filenames
+	of the members that straddle multivolume archive
+	boundary to 100 characters.
+	(flush_read): Use strncmp when comparing multivolume member
+	names.
+	* tests/multiv03.sh: New file
+	* tests/Makefile.am: Added multiv03.sh
+
+2004-08-09  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* src/list.c (read_and): Call decode_header before
+	calling skip_member()
+	(skip_member): Use is_sparse field to determine if the
+	member is a sparse file.
+
+	* tests/Makefile.am: Added extrac05.sh
+	* tests/extrac05.sh: New file
+	* tests/append.sh: Rearranged leading comments. Added explicit
+	references to report messages wherever available.
+	* tests/delete01.sh: Likewise
+	* tests/delete02.sh: Likewise
+	* tests/delete03.sh: Likewise
+	* tests/delete04.sh: Likewise
+	* tests/extrac01.sh: Likewise
+	* tests/extrac02.sh: Likewise
+	* tests/extrac03.sh: Likewise
+	* tests/extrac04.sh: Likewise
+	* tests/gzip.sh: Likewise
+	* tests/ignfail.sh: Likewise
+	* tests/incremen.sh: Likewise
+	* tests/link01.sh: Likewise
+	* tests/listed01.sh: Likewise
+	* tests/longv7.sh: Likewise
+	* tests/multiv01.sh: Likewise
+	* tests/multiv02.sh: Likewise
+	* tests/old.sh: Likewise
+	* tests/options.sh: Likewise
+	* tests/recurse.sh: Likewise
+	* tests/same-order01.sh: Likewise
+	* tests/same-order02.sh: Likewise
+	* tests/sparse01.sh: Likewise
+	* tests/version.sh: Likewise
+	* tests/volume.sh: Likewise
+
+2004-08-08  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* bootstrap: Extended --update-po option to take an
+	optional argument specifying the po file to update.
+	* src/create.c: Improved compatibility with 1.13.25
+	* tests/link01.sh: New file.
+	* tests/Makefile.am: Added link01.sh
+
+2004-08-06  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Merge from gnulib.
+
+	* patches/argp.diff: Remove; no longer needed.
+
+	* lib/.cvsignore: Add stat-macros.h.
+	Remove addext.c, malloc.c, realloc.c.
+
+	* src/extract.c: Include <getcwd.h>.
+	(extract_archive): Rewrite with new macro IS_ABSOLUTE_FILE_NAME.
+	* src/extract.c (make_directories):
+	FILESYSTEM_PREFIX_LEN -> FILE_SYSTEM_PREFIX_LEN.
+	* src/misc.c (must_be_dot_or_slash): Likewise.
+	* src/names.c (excluded_name, safer_name_suffix, stripped_prefix_len):
+	Likewise.
+	* src/tar.c (parse_opt): Likewise.
+	* src/incremen.c (purge_directory): Fix format buffer typos in warning
+	strings.
+	* src/tar.c (options): Add missing initializers to pacify gcc.
+	(decode_options): Remove unused var.
+
+2004-08-02  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* bootstrap (gnulib_modules): Add getpagesize.
+	* configure.ac (valloc): Remove check; valloc no longer used.
+	* lib/.cvsignore: Add getpagesize.h.
+	* m4/.cvsignore: Add getpagesize.m4.
+	* src/buffer.c (record_buffer): New var.
+	(open_archive): Don't use valloc; on older or buggy hosts, you can't
+	free the result.  Use page_aligned_alloc instead.
+	* src/compare.c (diff_init): Likewise.
+	* src/buffer.c (open_archive): Record the pointer to be freed
+	into record_buffer.
+	(close_archive): Free record_buffer.
+	* src/common.h (page_aligned_alloc): New decl.
+	* src/misc.c (quote_n, quote): Remove these redundant functions.
+	(ptr_align): New function, from coreutils/src/system.h.
+	(page_aligned_alloc): New function.
+	* src/system.h (valloc): Remove.
+
+2004-07-09  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* src/extract.c (extract_archive): Do not report an error
+	when hard-linking X to X when X exists.  Problem reported by
+	Toby Peterson.
+	* lib/.cvsignore: Add fchown-stub.c.
+
+2004-06-29  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* NEWS: Updated
+	* src/common.h (root_device): New global.
+	(gnu_restore): Renamed to purge_directory().
+	* src/extract.c (extr_init): Save the device number
+	of the root device.
+	(extract_archive): Renamed gnu_restore() to purge_directory().
+	* src/incremen.c (gnu_restore): Renamed to purge_directory().
+	Do not attempt to purge the directory if it is on a different
+	device and one_file_system_option is set.
+
+2004-06-25  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* doc/tar.texi: The actual default for exclude patterns
+	is --no-anchored. Fixed.
+	* src/tar.c (options): Likewise.
+	Thanks "Felix Natter" <felix.natter@ldc.de> for noticing.
+
+2004-06-22  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* doc/tar.texi: Fixed several inconsistencies.
+	* src/tar.c: Fixed docstring for --checkpoint option.
+
+2004-05-19  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* src/buffer.c (seek_archive): New function
+	* src/common.h (seek_archive): New function
+	(seekable_archive): New global.
+	* src/list.c (skip_file): Use seek_archive() if
+	possible.
+	* src/tar.c (struct fmttab): Accept 'pax' as alias
+	for 'posix'
+	(options): New option -n (--seek).
+	* src/update.c: Determine type of the archive before
+	appending to it.
+
+	* TODO: Updated.
+
+2004-05-19  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* bootstrap: New option --update-po
+	* src/tar.c: New option -H (short alias to --format)
+	* doc/tar.texi: Document -H option
+ 	* src/names.c (safer_name_suffix): Fixed bug introduced
+	2004-05-11.
+
+2004-05-16  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* bootstrap: Apply patches from patch subdirectory
+	* patches: New dir
+	* patches/argp.diff: New file
+	* patches/getopt.diff: New file
+	* configure.ac: Check for _getopt_long_only_r and
+	force using included version of getopt if the function
+	is not available.
+	* src/tar.c: Use argp for command line parsing.
+	* src/system.h: Minor formatting fix
+	* m4/.cvsignore: Updated
+	* lib/.cvsignore: Updated
+	* doc/tar.texi: Minor fix.
+	* src/extract.c: Fix improper use of 'path' term
+	* src/incremen.c: Likewise
+	* src/list.c: Likewise
+	* src/misc.c: Likewise
+	* src/names.c: Likewise
+	* src/rmt.h: Likewise
+	* src/rtapelib.c: Likewise
+	* src/update.c: Likewise
+	* src/xheader.c: Likewise
+	* tests/star/README: Minor fix
+
+2004-05-13  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* configure.ac: Raised version number to 1.14.1
+	* src/tar.c: Renamed --strip-path to --strip-components
+	Changed improper use of _() to ngettext().
+	* src/extract.c: Renamed strip_path_option to strip_components_option
+	* src/common.h: Likewise.
+	* NEWS: Updated.
+	* doc/tar.texi: Updated
+
+2004-05-11  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* src/system.c (sys_child_open_for_uncompress): Do not
+	set read_full_records_option: the compressed archive is
+	likely not to contain integer number of records. Should
+	the user wish to use reblocking, he may always give tar
+	-B option. This is a minor improvement over the change
+	dated 2004-03-22.
+	* src/buffer.c (open_archive): Removed assignment to
+	read_full_records_option.
+
+	* src/names.c (safer_name_suffix): (safer_name_suffix): Use "%s"
+	as the format argument, rather than a possibly-translated variable
+	string. Patch provided by Jim Meyering  <jim@meyering.net>
+	* src/tar.c (decode_options): Fixed typo in the comment.
+	* tests/star/README: Minor correction
+
+2004-05-11  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* directory: New file. GNU directory entry for tar.
+	* doc/Makefile.am: Rewritten. Added rules for generating
+	documentation for the project's website.
+	* doc/.cvsignore: Updated
+	* doc/index.html.in: New file.
+
+2004-05-11  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
+
+	* configure.ac: Raised version number to 1.14
+	* NEWS: Updated.
+	* tests/after: Added copyleft statement
+	* tests/before: Added copyleft statemente
+	* tests/preset.in: Added copyleft statement
+
+	Tar 1.14 is released. Sources up to this point are tagged
+	release_1_14
+
 2004-05-10  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
 
 	* configure.ac: Fixed prerequisite headers for sys/buf.h
@@ -28,7 +644,7 @@
 	* src/list.c (read_and): Print block number before
 	issuing 'Skipping to next header' diagnostics, if
 	requested by block_number_option.
-	* src/rtapelib.c: Use rmt_command_option instead of 
+	* src/rtapelib.c: Use rmt_command_option instead of
 	hardcoded "/etc/rmt".
 	* src/tar.c: New option --rmt-command.
 	(decode_options): Handle --rmt-command. Initialize
@@ -86,7 +702,7 @@
 	* tests/star/ustar-big-8g.sh: Likewise
 
 	* doc/.cvsignore: Updated
-	
+
 2004-05-06  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
 
 	* configure.ac: Check whether date accepts +format argument
@@ -101,7 +717,7 @@
 	* scripts/backup-specs: Updated
 	* scripts/Makefile.am: Updated for new directory contents.
 	* scripts/.cvsignore: Updated
-	
+
 2004-05-05  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
 
 	* TODO: Updated
@@ -123,7 +739,7 @@
 	* lib/.cvsignore: Updated
 	* m4/.cvsignore: Updated
 	* src/xheader.c: Include stpcpy.h
-	
+
 	* src/create.c: Produce an error, not warning, if the
 	filename is too long.
 	* tests/longv7.sh: Synchronized with the recent changes.
@@ -131,7 +747,7 @@
 2004-04-20  Sergey Poznyakoff  <gray@Mirddin.farlep.net>
 
 	* configure.ac: Fixed test for iconv_t
-	* src/rmt.h: Bugfix by Jürgen Weigert 
+	* src/rmt.h: Bugfix by Jürgen Weigert
 	* THANKS: Add Jürgen Weigert
 	* tests/star/README: Fixed typo
 
@@ -5188,7 +5804,7 @@
 See ChangeLog.1 for earlier changes.
 
 
-
+
 Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004 Free Software
 Foundation, Inc.
 
@@ -5208,3 +5824,8 @@ You should have received a copy of the GNU General Public License
 along with GNU tar; see the file COPYING.  If not, write to
 the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
+
+Local Variables:
+mode: change-log
+version-control: never
+End:

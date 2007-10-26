@@ -93,4 +93,10 @@ INSN_NOTE (BASIC_BLOCK)
    this a bit on the basic block structure.  */
 INSN_NOTE (UNLIKELY_EXECUTED_CODE)
 
+/* APPLE LOCAL begin ARM 5051776 */
+/* Record that we have just executed an alloca() -- used for
+   implementation of sjlj exception handling.  */
+INSN_NOTE (ALLOCA)
+/* APPLE LOCAL end ARM 5051776 */
+
 #undef INSN_NOTE

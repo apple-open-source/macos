@@ -41,20 +41,28 @@
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 .\"
-.TH SASLDBLISTUSERS 8 "March 8, 2000" "CMU SASL"
+.TH SASLDBLISTUSERS2 8 "March 7, 2005" "CMU SASL"
 .SH NAME
-sasldblistusers \- list users in sasldb
+sasldblistusers2 \- list users in sasldb
 .SH SYNOPSIS
-.B sasldblistusers
+.B sasldblistusers2
+.RB [ -f\ file ]
+.RB [ -v ]
 .SH DESCRIPTION
-.I sasldblistusers
+.I sasldblistusers2
 is used to list the users in the SASL password database (usually
-/etc/sasldb). This will NOT list all the users in /etc/passwd, shadow,
-PAM, etc. only those created by SASL (via saslpasswd).
+/etc/sasldb2). This will NOT list all the users in /etc/passwd, shadow,
+PAM, etc. only those created by SASL (via \fIsaslpasswd2\fR).
 .SH OPTIONS
 .TP
-.SH KNOWN BUGS
-This only works for sasldb files that use the gdbm library.
+.B -f file
+use
+.B file
+for sasldb
 .TP
+.B -v
+Print libsasl2 version number and exit.
 .SH SEE ALSO
+saslpasswd2(8)
+.TP
 rfc2222 \- Simple Authentication and Security Layer (SASL)

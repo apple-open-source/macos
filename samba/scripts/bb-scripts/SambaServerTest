@@ -1,0 +1,29 @@
+#! /bin/bash
+# Copyright (c) 2007 Apple Inc. All rights reserved.
+
+# SambaServerTest - primary test driver for testing the Samba server. This
+# script is a very simple vector from the BigBrother test harness into the
+# actual test suite implementation that lives in the svn source tree.
+#
+# The canonical version of this file is:
+# $HeadURL: svn+ssh://src.apple.com/svn/fs/samba/tags/samba-187/scripts/bb-scripts/SambaServerTest $
+# $Id: SambaServerTest 30931 2007-04-16 17:44:14Z jpeach $
+
+# Set up the test machine.
+RequireScript InventoryTracker
+RequireScript PrepTestSys
+RequireScript TestSuiteNetFS
+RequireScript FetchCurrentSamba
+
+SAMBA_BUILD=$(~rc/bin/getvers samba)
+
+if [ ! -d $SAMBA_BUILD ]; then
+    cat <<EOF
+The Samba source tree is not in the $SAMBA_BUILD directory. Maybe
+the FetchCurrentSamba task failed?
+EOF
+    exit 2
+fi
+
+# Pull the actual test implementation in from the SVN source tree.
+exec $SAMBA_BUILD/scripts/bb-scripts/CurrentSambaServerTest

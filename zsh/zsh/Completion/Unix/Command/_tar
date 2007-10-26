@@ -21,6 +21,15 @@ local _tar_cmd tf tmp tmpb del index
 # from some of the possible long options, and from the second word if
 # that does not start with a hyphen.
 
+if _pick_variant gnu=GNU unix --version; then
+  case "$($service --version)" in
+    (tar \(GNU tar\) (#b)([0-9.-]##)*)
+    autoload is-at-least
+    is-at-least 1.14.91 "$match[1]" || _cmd_variant[$service]="gnu-old"
+    ;;
+  esac
+fi
+
 tmp=("${(@M)words:#-[^-]*}")
 _tar_cmd="${(j::)tmp#-}"
 
@@ -145,6 +154,8 @@ elif [[ ( "$_tar_cmd" = *[xt]* || -n $del ) && -n "$tf" ]]; then
 
   _wanted files expl 'file from archive' _multi_parts / _tar_cache_list
 elif (( CURRENT == 2 )); then
+  # ignore leading - since we complete option letters anyway
+  compset -P -
   _values -s '' 'tar function' \
     '(c t u x)A[append to an archive]' \
     '(A t u x)c[create a new archive]' \

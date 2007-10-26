@@ -23,21 +23,20 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
-#include <sys/syscall.h>
 
 /*
  * Stub function to account for the differences in standard compliance
  * while maintaining binary backward compatibility.
+ *
+ * This is only the legacy behavior.
  */
+extern int __munmap(void *, size_t);
+
 int
 munmap(void *addr, size_t len)
 {
-#if __DARWIN_UNIX03
-	return syscall(SYS_munmap, addr, len);
-#else	/* !__DARWIN_UNIX03 */
 	int	page_mask;
 	size_t	offset;
-	int	rv;
 
 	if (len == 0) {
 		/*
@@ -56,7 +55,5 @@ munmap(void *addr, size_t len)
 	offset = ((uintptr_t) addr) & page_mask;
 	addr = (void *) (((uintptr_t) addr) & ~page_mask);
 	len += offset;
-	rv = syscall(SYS_munmap, addr, len);
-	return rv;
-#endif	/* !__DARWIN_UNIX03 */
+	return __munmap(addr, len);
 }

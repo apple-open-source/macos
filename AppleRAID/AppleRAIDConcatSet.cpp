@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,8 +22,6 @@
 
 #include "AppleRAID.h"
 
-const OSSymbol * gAppleRAIDConcatName;
-
 #define super AppleRAIDSet
 OSDefineMetaClassAndStructors(AppleRAIDConcatSet, AppleRAIDSet);
 
@@ -33,8 +31,6 @@ AppleRAIDSet * AppleRAIDConcatSet::createRAIDSet(AppleRAIDMember * firstMember)
 
     IOLog1("AppleRAIDConcatSet::createRAIDSet(%p) called, new set = %p  *********\n", firstMember, raidSet);
 
-    if (!gAppleRAIDConcatName) gAppleRAIDConcatName = OSSymbol::withCString(kAppleRAIDLevelNameConcat);  // XXX free
-            
     while (raidSet){
 
 	if (!raidSet->init()) break;
@@ -115,9 +111,14 @@ bool AppleRAIDConcatSet::removeMember(AppleRAIDMember * member, IOOptionBits opt
     // remove this member's blocks from the total block count
     arSetBlockCount -= memberBlockCount;
     arSetMediaSize = arSetBlockCount * arSetBlockSize;
+    arMemberBlockCounts[memberIndex] = 0;
 
     return super::removeMember(member, options);
 }
+
+#ifndef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#endif
 
 bool AppleRAIDConcatSet::resizeSet(UInt32 newMemberCount)
 {
@@ -128,7 +129,7 @@ bool AppleRAIDConcatSet::resizeSet(UInt32 newMemberCount)
     bzero(arMemberBlockCounts, sizeof(UInt64) * newMemberCount);
 
     if (oldBlockCounts) {
-	bcopy(oldBlockCounts, arMemberBlockCounts, sizeof(UInt64) * oldMemberCount);
+	bcopy(oldBlockCounts, arMemberBlockCounts, sizeof(UInt64) * MIN(newMemberCount, oldMemberCount));
 	IODelete(oldBlockCounts, sizeof(UInt64), oldMemberCount);
     }
 
@@ -265,10 +266,20 @@ bool AppleRAIDConcatMemoryDescriptor::configureForMemoryDescriptor(IOMemoryDescr
 
 IOPhysicalAddress AppleRAIDConcatMemoryDescriptor::getPhysicalSegment(IOByteCount offset, IOByteCount *length)
 {
-    IOByteCount		raidOffset = offset + mdMemberOffset;
+    IOByteCount		setOffset = offset + mdMemberOffset;
     IOPhysicalAddress	physAddress;
     
-    physAddress = mdMemoryDescriptor->getPhysicalSegment(raidOffset, length);
+    physAddress = mdMemoryDescriptor->getPhysicalSegment(setOffset, length);
+    
+    return physAddress;
+}
+
+addr64_t AppleRAIDConcatMemoryDescriptor::getPhysicalSegment64(IOByteCount offset, IOByteCount *length)
+{
+    IOByteCount		setOffset = offset + mdMemberOffset;
+    addr64_t		physAddress;
+    
+    physAddress = mdMemoryDescriptor->getPhysicalSegment64(setOffset, length);
     
     return physAddress;
 }

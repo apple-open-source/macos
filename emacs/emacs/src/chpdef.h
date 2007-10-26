@@ -1,3 +1,8 @@
+/*
+ * The code here is forced by the interface, and is not subject to
+ * copyright, constituting the only possible expression of the
+ * algorithm in this format.
+ */
 #define	CHP$_END	0
 #define	CHP$_ACCESS	1
 #define	CHP$_FLAGS	2
@@ -36,3 +41,6 @@
 #define	CHP$V_READ	0
 #define	CHP$V_WRITE	1
 #define	CHP$V_USEREADALL	2
+
+/* arch-tag: a7117984-e927-4f8e-932e-35d5fd524f12
+   (do not change this comment) */

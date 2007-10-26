@@ -1,0 +1,101 @@
+--- bstring.3	2003-05-20 15:23:54.000000000 -0700
++++ bstring.3.edit	2006-07-12 10:55:13.000000000 -0700
+@@ -51,33 +51,76 @@
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+-.In string.h
++.In strings.h
+ .Ft int
+-.Fn bcmp "const void *b1" "const void *b2" "size_t len"
++.Fo bcmp
++.Fa "const void *s1"
++.Fa "const void *s2"
++.Fa "size_t n"
++.Fc
+ .Ft void
+-.Fn bcopy "const void *src" "void *dst" "size_t len"
++.Fo bcopy
++.Fa "const void *s1"
++.Fa "void *s2"
++.Fa "size_t n"
++.Fc
+ .Ft void
+-.Fn bzero "void *b" "size_t len"
++.Fo bzero
++.Fa "void *s"
++.Fa "size_t n"
++.Fc
++.In string.h
+ .Ft void *
+-.Fn memchr "const void *b" "int c" "size_t len"
+-.Ft int
+-.Fn memcmp "const void *b1" "const void *b2" "size_t len"
++.Fo memccpy
++.Fa "void *restrict s1"
++.Fa "const void *restrict s2"
++.Fa "int c"
++.Fa "size_t n"
++.Fc
+ .Ft void *
+-.Fn memccpy "void *dst" "const void *src" "int c" "size_t len"
++.Fo memchr
++.Fa "const void *s"
++.Fa "int c"
++.Fa "size_t n"
++.Fc
++.Ft int
++.Fo memcmp
++.Fa "const void *s1"
++.Fa "const void *s2"
++.Fa "size_t n"
++.Fc
+ .Ft void *
+-.Fn memcpy "void *dst" "const void *src" "size_t len"
++.Fo memcpy
++.Fa "void *restrict s1"
++.Fa "const void *restrict s2"
++.Fa "size_t n"
++.Fc
+ .Ft void *
+-.Fn memmove "void *dst" "const void *src" "size_t len"
++.Fo memmove
++.Fa "void *s1"
++.Fa "const void *s2"
++.Fa "size_t n"
++.Fc
+ .Ft void *
+-.Fn memset "void *b" "int c" "size_t len"
++.Fo memset
++.Fa "void *s"
++.Fa "int c"
++.Fa "size_t n"
++.Fc
+ .Sh DESCRIPTION
+ These functions operate on variable length strings of bytes.
+-They do not check for terminating null bytes as the routines
++They do not check for terminating null bytes, as the routines
+ listed in
+ .Xr string 3
+ do.
+ .Pp
+ See the specific manual pages for more information.
++.Sh LEGACY SYNOPSIS
++.Fd #include <string.h>
++.Pp
++The include file
++.In string.h
++is necessary and sufficient for all functions.
+ .Sh SEE ALSO
+ .Xr bcmp 3 ,
+ .Xr bcopy 3 ,
+@@ -87,7 +130,8 @@
+ .Xr memcmp 3 ,
+ .Xr memcpy 3 ,
+ .Xr memmove 3 ,
+-.Xr memset 3
++.Xr memset 3 ,
++.Xr compat 5
+ .Sh STANDARDS
+ The functions
+ .Fn memchr ,

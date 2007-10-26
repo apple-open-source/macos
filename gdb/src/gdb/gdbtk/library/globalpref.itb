@@ -1,5 +1,5 @@
 # Global preference class implementation for Insight.
-# Copyright 1997, 1998, 1999, 2002, 2003 Red Hat
+# Copyright 1997, 1998, 1999, 2002, 2003, 2004 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -44,7 +44,7 @@ itcl::body GlobalPref::_init {} {
 #  METHOD:  init_var - initialize preference variables
 # ------------------------------------------------------------------
 itcl::body GlobalPref::_init_var {} {
-  set vlist {gdb/ImageDir gdb/console/wrap gdb/mode gdb/use_icons gdb/compat}
+  set vlist {gdb/ImageDir gdb/console/wrap gdb/mode gdb/use_icons gdb/compat gdb/use_color_schemes}
 
   foreach var $vlist {
     set _saved($var) [pref get $var]
@@ -209,8 +209,12 @@ itcl::body GlobalPref::_build_win {} {
   }
 
   # console wrap
-  checkbutton $f.consolewrap -text "wrap text in console window" \
+  checkbutton $f.consolewrap -text "Wrap text in console window" \
     -variable [scope _new(gdb/console/wrap)]
+
+  # colored backgrounds
+  checkbutton $f.use_cs -text "Enable Color Schemes" \
+    -variable [scope _new(gdb/use_color_schemes)]
 
   grid $f.tracing -sticky w -padx 5 -pady 5
 
@@ -218,6 +222,7 @@ itcl::body GlobalPref::_build_win {} {
     grid $f.use_icons -sticky w -padx 5 -pady 5
   }
   grid $f.consolewrap -sticky w -padx 5 -pady 5
+  grid $f.use_cs -sticky w -padx 5 -pady 5
 
   if {$tcl_platform(platform) == "unix"} {
     # Compatibility frame

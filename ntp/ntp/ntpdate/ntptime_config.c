@@ -135,6 +135,7 @@ static	int getnetnum	P((const char *num, struct sockaddr_in *addr,
 			   int complain));
 
 
+extern void	addserver	P((char *));
 /*
  * loadservers - load list of NTP servers from configuration file
  */
@@ -236,7 +237,9 @@ M
 					tokens[0]);
 				break;
 			}
-			
+#ifdef __APPLE__
+			addserver(tokens[1]);
+#else			
 			if (!getnetnum(tokens[1], &peeraddr, 1)) {
 				/* Resolve now, or lose! */
 				break;
@@ -368,7 +371,7 @@ M
 				srvcnt++;
 			}
 			break;
-			
+#endif			
 			case CONFIG_KEYS:
 			if (ntokens >= 2) {
 				key_file = (char *) emalloc(strlen(tokens[1]) + 1);
@@ -380,6 +383,7 @@ M
 	(void) fclose(fp);
 
 	/* build final list */
+#ifndef __APPLE__
 	sys_numservers = srvcnt;
 	sys_servers = (struct server **) 
 	    emalloc(sys_numservers * sizeof(struct server *));
@@ -388,6 +392,7 @@ M
 		sys_servers[i]->event_time = i+1;
 		srvlist = srvlist->next_server;
 	}
+#endif
 }
 
 

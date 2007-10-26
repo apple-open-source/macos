@@ -31,6 +31,7 @@
 #include <CoreFoundation/CFBundle.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFNumber.h>
+#include <CoreFoundation/CFPriv.h>
 #include <libkern/OSAtomic.h> 	// for OSSpinLock
 #include <sys/mount.h> 			// for struct statfs
 #include <unistd.h>
@@ -75,7 +76,7 @@ enum {
 
 /* Internal function */
 CFStringRef FSCopyFormatNameForFSType(CFStringRef fsType, int16_t fsSubtype, bool localized);
-void getfstype(char *devnode, char *fsname, int *fssubtype);
+bool getfstype(char *devnode, char *fsname, int *fssubtype);
 bool is_hfs(char *devnode, int *fssubtype);
 bool is_msdos(char *devnode, int *fssubtype);
 static int getblk(int fd, unsigned long blk, int blksize, char* buf);

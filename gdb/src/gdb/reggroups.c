@@ -109,7 +109,7 @@ reggroup_add (struct gdbarch *gdbarch, struct reggroup *group)
       /* ULGH, called during architecture initialization.  Patch
          things up.  */
       groups = reggroups_init (gdbarch);
-      set_gdbarch_data (gdbarch, reggroups_data, groups);
+      deprecated_set_gdbarch_data (gdbarch, reggroups_data, groups);
     }
   add_group (groups, group,
 	     GDBARCH_OBSTACK_ZALLOC (gdbarch, struct reggroup_el));
@@ -215,7 +215,7 @@ reggroups_dump (struct gdbarch *gdbarch, struct ui_file *file)
 		type = "internal";
 		break;
 	      default:
-		internal_error (__FILE__, __LINE__, "bad switch");
+		internal_error (__FILE__, __LINE__, _("bad switch"));
 	      }
 	  }
 	fprintf_unfiltered (file, " %-10s", type);
@@ -240,7 +240,7 @@ maintenance_print_reggroups (char *args, int from_tty)
     {
       struct ui_file *file = gdb_fopen (args, "w");
       if (file == NULL)
-	perror_with_name ("maintenance print reggroups");
+	perror_with_name (_("maintenance print reggroups"));
       reggroups_dump (current_gdbarch, file);    
       ui_file_delete (file);
     }
@@ -268,7 +268,7 @@ extern initialize_file_ftype _initialize_reggroup; /* -Wmissing-prototypes */
 void
 _initialize_reggroup (void)
 {
-  reggroups_data = register_gdbarch_data (reggroups_init);
+  reggroups_data = gdbarch_data_register_post_init (reggroups_init);
 
   /* The pre-defined list of groups.  */
   add_group (&default_groups, general_reggroup, XMALLOC (struct reggroup_el));
@@ -280,9 +280,9 @@ _initialize_reggroup (void)
   add_group (&default_groups, restore_reggroup, XMALLOC (struct reggroup_el));
 
   add_cmd ("reggroups", class_maintenance,
-	   maintenance_print_reggroups, "\
+	   maintenance_print_reggroups, _("\
 Print the internal register group names.\n\
-Takes an optional file parameter.",
+Takes an optional file parameter."),
 	   &maintenanceprintlist);
 
 }

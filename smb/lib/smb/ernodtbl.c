@@ -3,6 +3,9 @@
  * (c) Copyright 1993 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1993 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1993 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -650,7 +653,7 @@ have to be done now).
 /*
  * Define HASH_STATS to monitor hash table efficiency.
  * Define UNIT_TEST_ERNODTBL to build stand-alone for unit testing.
- * Define DEBUG to create a file containing most significant pointer alias events.
+ * Define DEBUG_DCE_RPC to create a file containing most significant pointer alias events.
  */
 #ifdef UNIT_TEST_ERNODTBL
 #   define  RAISE(x)                puts("Error")
@@ -669,7 +672,7 @@ have to be done now).
 #   include <lsysdep.h>
 #endif
 
-#if defined UNIT_TEST_ERNODTBL || defined DEBUG
+#if defined UNIT_TEST_ERNODTBL || defined DEBUG_DCE_RPC
 #   include <stdio.h>
 #endif
 
@@ -677,7 +680,7 @@ have to be done now).
 #include <dce/idl_log.h>
 #endif
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
     static  ALIAS_DEBUG = idl_false;
 #   define  DTOPEN          if (ALIAS_DEBUG && !trace_fid) trace_fid = fopen("alias_trace.dmp", "w")
 #   define  DTRACE(ARGS)    if (!trace_fid); else fprintf ARGS

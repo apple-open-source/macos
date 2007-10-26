@@ -1,13 +1,13 @@
 ;;; delim-col.el --- prettify all columns in a region or rectangle
 
-;; Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Vinicius Jose Latorre <vinicius@cpqd.com.br>
-;; Maintainer: Vinicius Jose Latorre <vinicius@cpqd.com.br>
-;; Time-stamp: <2001-07-15 11:12:35 pavel>
+;; Author: Vinicius Jose Latorre <viniciusjl@ig.com.br>
+;; Maintainer: Vinicius Jose Latorre <viniciusjl@ig.com.br>
 ;; Version: 2.1
 ;; Keywords: internal
-;; X-URL: http://www.cpqd.com.br/~vinicius/emacs/
+;; X-URL: http://www.emacswiki.org/cgi-bin/wiki/ViniciusJoseLatorre
 
 ;; This file is part of GNU Emacs.
 
@@ -23,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -125,7 +125,7 @@
 ;; User Options:
 
 (defgroup columns nil
-  "Prettify columns"
+  "Prettify columns."
   :link '(emacs-library-link :tag "Source Lisp File" "delim-col.el")
   :prefix "delimit-columns-"
   :group 'internal)
@@ -362,7 +362,7 @@ START and END delimits the corners of text rectangle."
 (defvar delimit-columns-limit nil)
 
 
-(defun delimit-columns-rectangle-max (startpos &optional ignore ignore)
+(defun delimit-columns-rectangle-max (startpos &optional ignore1 ignore2)
   (set-marker delimit-columns-limit (point))
   (goto-char startpos)
   (let ((ncol 1)
@@ -395,7 +395,7 @@ START and END delimits the corners of text rectangle."
       (setq values (cdr values)))))
 
 
-(defun delimit-columns-rectangle-line (startpos &optional ignore ignore)
+(defun delimit-columns-rectangle-line (startpos &optional ignore1 ignore2)
   (let ((len  (length delimit-columns-max))
 	(ncol 0)
 	origin)
@@ -424,13 +424,13 @@ START and END delimits the corners of text rectangle."
        (and delimit-columns-format
 	    (make-string (- (aref delimit-columns-max ncol)
 			    (- (current-column) origin))
-			 ?\ )))
+			 ?\s)))
       (setq ncol (1+ ncol)))
     ;; Prepare last column spaces
     (let ((spaces (and delimit-columns-format
 		       (make-string (- (aref delimit-columns-max ncol)
 				       (- (current-column) origin))
-				    ?\ ))))
+				    ?\s))))
       ;; Adjust extra columns, if needed
       (and delimit-columns-extra
 	   (while (and (< (setq ncol (1+ ncol)) len)
@@ -438,7 +438,7 @@ START and END delimits the corners of text rectangle."
 	     (delimit-columns-format spaces)
 	     (setq spaces (and delimit-columns-format
 			       (make-string (aref delimit-columns-max ncol)
-					    ?\ )))))
+					    ?\s)))))
       ;; insert last formating
       (cond ((null delimit-columns-format)
 	     (insert delimit-columns-after delimit-columns-str-after))
@@ -479,4 +479,5 @@ START and END delimits the corners of text rectangle."
 (provide 'delim-col)
 
 
+;;; arch-tag: 1cc0c5c5-1b2a-43e4-9ba5-bf9441cfd1a9
 ;;; delim-col.el ends here

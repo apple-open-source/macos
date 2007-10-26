@@ -1,30 +1,28 @@
 /* GNU m4 -- A simple macro processor
-   Copyright (C) 1991, 1992, 1993, 1994, 2004 Free Software Foundation, Inc.
-  
+
+   Copyright (C) 1991, 1992, 1993, 1994, 2004, 2006 Free Software
+   Foundation, Inc.
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-  
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-  
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301  USA
 */
 
 #include "m4.h"
 
-#include <sys/stat.h>
-
-#ifdef __STDC__
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
+#include <sys/stat.h>
 
 /* File for debugging output.  */
 FILE *debug = NULL;
@@ -34,7 +32,7 @@ static struct obstack trace;
 
 extern int expansion_level;
 
-static void debug_set_file _((FILE *));
+static void debug_set_file (FILE *);
 
 /*----------------------------------.
 | Initialise the debugging module.  |
@@ -134,8 +132,12 @@ debug_set_file (FILE *fp)
 {
   struct stat stdout_stat, debug_stat;
 
-  if (debug != NULL && debug != stderr && debug != stdout)
-    fclose (debug);
+  if (debug != NULL && debug != stderr && debug != stdout
+      && close_stream (debug) != 0)
+    {
+      M4ERROR ((warning_status, errno, "error writing to debug stream"));
+      retcode = EXIT_FAILURE;
+    }
   debug = fp;
 
   if (debug != NULL && debug != stdout)
@@ -145,11 +147,18 @@ debug_set_file (FILE *fp)
       if (fstat (fileno (debug), &debug_stat) < 0)
 	return;
 
+      /* mingw has a bug where fstat on a regular file reports st_ino
+	 of 0.  On normal system, st_ino should never be 0.  */
       if (stdout_stat.st_ino == debug_stat.st_ino
-	  && stdout_stat.st_dev == debug_stat.st_dev)
+	  && stdout_stat.st_dev == debug_stat.st_dev
+	  && stdout_stat.st_ino != 0)
 	{
-	  if (debug != stderr)
-	    fclose (debug);
+	  if (debug != stderr && close_stream (debug) != 0)
+	    {
+	      M4ERROR ((warning_status, errno,
+			"error writing to debug stream"));
+	      retcode = EXIT_FAILURE;
+	    }
 	  debug = stdout;
 	}
     }
@@ -189,6 +198,9 @@ debug_set_output (const char *name)
       if (fp == NULL)
 	return FALSE;
 
+      if (set_cloexec_flag (fileno (fp), true) != 0)
+	M4ERROR ((warning_status, errno,
+		  "Warning: cannot protect debug file across forks"));
       debug_set_file (fp);
     }
   return TRUE;
@@ -201,11 +213,15 @@ debug_set_output (const char *name)
 void
 debug_message_prefix (void)
 {
-  fprintf (debug, "m4 debug: ");
-  if (debug_level & DEBUG_TRACE_FILE)
-    fprintf (debug, "%s: ", current_file);
-  if (debug_level & DEBUG_TRACE_LINE)
-    fprintf (debug, "%d: ", current_line);
+  fprintf (debug, "m4debug:");
+  if (current_line)
+  {
+    if (debug_level & DEBUG_TRACE_FILE)
+      fprintf (debug, "%s:", current_file);
+    if (debug_level & DEBUG_TRACE_LINE)
+      fprintf (debug, "%d:", current_line);
+  }
+  putc (' ', debug);
 }
 
 /* The rest of this file contains the functions for macro tracing output.
@@ -220,17 +236,9 @@ debug_message_prefix (void)
 | left quote) and %r (optional right quote).			       |
 `---------------------------------------------------------------------*/
 
-#ifdef __STDC__
 static void
 trace_format (const char *fmt, ...)
-#else
-static void
-trace_format (...)
-#endif
 {
-#ifndef __STDC__
-  const char *fmt;
-#endif
   va_list args;
   char ch;
 
@@ -240,12 +248,7 @@ trace_format (...)
   int slen;
   int maxlen;
 
-#ifdef __STDC__
   va_start (args, fmt);
-#else
-  va_start (args);
-  fmt = va_arg (args, const char *);
-#endif
 
   while (TRUE)
     {
@@ -306,10 +309,13 @@ static void
 trace_header (int id)
 {
   trace_format ("m4trace:");
-  if (debug_level & DEBUG_TRACE_FILE)
-    trace_format ("%s:", current_file);
-  if (debug_level & DEBUG_TRACE_LINE)
-    trace_format ("%d:", current_line);
+  if (current_line)
+    {
+      if (debug_level & DEBUG_TRACE_FILE)
+	trace_format ("%s:", current_file);
+      if (debug_level & DEBUG_TRACE_LINE)
+	trace_format ("%d:", current_line);
+    }
   trace_format (" -%d- ", expansion_level);
   if (debug_level & DEBUG_TRACE_CALLID)
     trace_format ("id %d: ", id);
@@ -377,7 +383,7 @@ trace_pre (const char *name, int id, int argc, token_data **argv)
 	      if (bp == NULL)
 		{
 		  M4ERROR ((warning_status, 0, "\
-INTERNAL ERROR: Builtin not found in builtin table! (trace_pre ())"));
+INTERNAL ERROR: builtin not found in builtin table! (trace_pre ())"));
 		  abort ();
 		}
 	      trace_format ("<%s>", bp->name);
@@ -385,7 +391,7 @@ INTERNAL ERROR: Builtin not found in builtin table! (trace_pre ())"));
 
 	    default:
 	      M4ERROR ((warning_status, 0,
-			"INTERNAL ERROR: Bad token data type (trace_pre ())"));
+			"INTERNAL ERROR: bad token data type (trace_pre ())"));
 	      abort ();
 	    }
 

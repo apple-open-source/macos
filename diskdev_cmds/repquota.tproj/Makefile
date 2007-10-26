@@ -28,6 +28,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+NEXTSTEP_PB_CFLAGS = -Wall -Werror
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

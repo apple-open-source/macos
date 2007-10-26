@@ -1,4 +1,5 @@
-/* PR 5878. 
+/* APPLE LOCAL file mainline */
+/* PR 5878.
 
    We ICEd in verify_local_live_at_start because we incorrectly forced
    the PIC register live between BAR and BAZ.  We did this because the
@@ -120,7 +121,7 @@ main()
      save and restore global registers.  Not possible when the PIC
      register is in a register window, of course.  On Darwin, you can't
      call library routines from non-PIC code.  */
-#if !defined (__sparc__) && !(defined(__MACH__) && defined(__POWERPC__))
+#if !defined (__sparc__) && !defined(__MACH__)
   if (reg)
     abort ();
 #endif

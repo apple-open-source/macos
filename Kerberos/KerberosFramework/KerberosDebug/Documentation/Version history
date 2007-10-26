@@ -1,10 +1,22 @@
 ========================================================================
 KerberosDebug Version History
 ========================================================================
-Current version: 1.6.1fc1
-Date:            October 6, 2005
+Current version: 1.6.2fc1
+Date:            October 9, 2007
 Author:          meeroh@mit.edu, lxs@mit.edu
 ========================================================================
+
+KerberosDebug 1.6.2
+Released with KfM 6.0
+
+========================================================================
+
+	KerberosDebug 1.6.2fc1
+	October 9, 2007
+
+	[RT 5576] remove dprintbootstrap because bootstrap_info has been removed.
+
+	========================================================================
 
 KerberosDebug 1.6.1
 Released with KfM 5.5.2

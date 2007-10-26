@@ -304,7 +304,7 @@ void run_epd_testsuite(void)
       
       printf("Move ordering : %f%%\n", (((float)FHF*100)/(float)FH+1));
       
-      printf("Material score: %d   Eval : %d\n", Material, eval());
+      printf("Material score: %d   Eval : %ld\n", Material, eval());
       printf("\n");
      
       if (!forcedwin)

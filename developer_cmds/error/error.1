@@ -45,8 +45,8 @@
 .Op Fl s
 .Op Fl q
 .Op Fl v
-.Op Fl t Ar suffixlist
-.Op Fl I Ar ignorefile
+.Op Fl t Ar suffix_list
+.Op Fl I Ar ignore_file
 .Op name
 .Sh DESCRIPTION
 .Nm
@@ -59,6 +59,11 @@ without machinations of multiple windows in a screen editor.
 .Pp
 Options are:
 .Bl -tag -width Ds
+.It Fl I Ar ignore_file
+List of functions to ignore.
+See
+.Em nullify ,
+below.
 .It Fl n
 Do
 .Em not
@@ -74,6 +79,22 @@ Absence of the
 option implies that all referenced files
 (except those referring to discarded error messages)
 are to be touched.
+.It Fl s
+Print out
+.Em statistics
+regarding the error categorization.
+Not too useful.
+.It Fl t Ar suffix_list
+Take the following argument as a suffix list.
+Files whose suffixes do not appear in the suffix list are not touched.
+The suffix list is dot separated, and ``*'' wildcards work.
+Thus the suffix list:
+.Pp
+.Dl ".c.y.foo*.h"
+.Pp
+allows
+.Nm
+to touch files ending with ``.c'', ``.y'', ``.foo*'' and ``.h''.
 .It Fl v
 After all files have been touched,
 overlay the visual editor
@@ -87,22 +108,6 @@ can't be found, try
 or
 .Xr \&ed 1
 from standard places.
-.It Fl t
-Take the following argument as a suffix list.
-Files whose suffixes do not appear in the suffix list are not touched.
-The suffix list is dot separated, and ``*'' wildcards work.
-Thus the suffix list:
-.Pp
-.Dl ".c.y.foo*.h"
-.Pp
-allows
-.Nm
-to touch files ending with ``.c'', ``.y'', ``.foo*'' and ``.h''.
-.It Fl s
-Print out
-.Em statistics
-regarding the error categorization.
-Not too useful.
 .El
 .Pp
 .Nm
@@ -171,7 +176,7 @@ all of the places referenced.
 .Pp
 .Nm
 will do one of six things with error messages.
-.Bl -tag -width Em synchronize
+.Bl -tag -width synchronize
 .It Em synchronize
 Some language processors produce short errors describing
 which file it is processing.
@@ -233,6 +238,7 @@ or are written to the standard output.
 .Nm
 inserts the error messages into the source file on the line
 preceding the line the language processor found in error.
+.Pp
 Each error message is turned into a one line comment for the
 language,
 and is internally flagged
@@ -243,6 +249,7 @@ This makes pattern searching for errors easier with an editor,
 and allows the messages to be easily removed.
 In addition, each error message contains the source line number
 for the line the message refers to.
+.Pp
 A reasonably formatted source program can be recompiled
 with the error messages still in it,
 without having the error messages themselves cause future errors.
@@ -258,6 +265,13 @@ so that language statements appear before comments.
 catches interrupt and terminate signals,
 and if in the insertion phase,
 will orderly terminate what it is doing.
+.Sh SEE ALSO
+.Xr as 1 ,
+.Xr cc 1 ,
+.Xr ccom 1 ,
+.Xr cpp 1 ,
+.Xr lint 1 ,
+.Xr make 1
 .Sh FILES
 .Bl -tag -width ~/.errorrc -compact
 .It Pa ~/.errorrc

@@ -1,6 +1,7 @@
 ;;; gnus-nocem.el --- NoCeM pseudo-cancellation treatment
 
-;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -35,7 +36,7 @@
 (require 'gnus-range)
 
 (defgroup gnus-nocem nil
-  "NoCeM pseudo-cancellation treatment"
+  "NoCeM pseudo-cancellation treatment."
   :group 'gnus-score)
 
 (defcustom gnus-nocem-groups
@@ -58,6 +59,7 @@ This can also be a list of `(ISSUER CONDITION ...)' elements.
 See <URL:http://www.xs4all.nl/~rosalind/nocemreg/nocemreg.html> for an
 issuer registry."
   :group 'gnus-nocem
+  :link '(url-link "http://www.xs4all.nl/~rosalind/nocemreg/nocemreg.html")
   :type '(repeat (choice string sexp)))
 
 (defcustom gnus-nocem-directory
@@ -71,18 +73,19 @@ issuer registry."
   :group 'gnus-nocem
   :type 'integer)
 
-(defcustom gnus-nocem-verifyer 'mc-verify
+(defcustom gnus-nocem-verifyer 'pgg-verify
   "*Function called to verify that the NoCeM message is valid.
-One likely value is `mc-verify'.  If the function in this variable
+One likely value is `pgg-verify'.  If the function in this variable
 isn't bound, the message will be used unconditionally."
   :group 'gnus-nocem
-  :type '(radio (function-item mc-verify)
+  :type '(radio (function-item pgg-verify)
+		(function-item mc-verify)
 		(function :tag "other")))
 
 (defcustom gnus-nocem-liberal-fetch nil
   "*If t try to fetch all messages which have @@NCM in the subject.
 Otherwise don't fetch messages which have references or whose message-id
-matches an previously scanned and verified nocem message."
+matches a previously scanned and verified nocem message."
   :group 'gnus-nocem
   :type 'boolean)
 
@@ -133,6 +136,7 @@ valid issuer, which is much faster if you are selective about the issuers."
 	    (gnus-sethash group t gnus-nocem-real-group-hashtb))
 	  gnus-newsrc-alist))
 
+;;;###autoload
 (defun gnus-nocem-scan-groups ()
   "Scan all NoCeM groups for new NoCeM messages."
   (interactive)
@@ -203,10 +207,10 @@ valid issuer, which is much faster if you are selective about the issuers."
 				(not (member (mail-header-message-id header)
 					     gnus-nocem-seen-message-ids))))
 		       (push header check-headers)))
-		(let* ((i 0)
-		       (check-headers
-			(last check-headers gnus-nocem-check-article-limit))
-		       (len (length check-headers)))
+		(setq check-headers (last (nreverse check-headers)
+					  gnus-nocem-check-article-limit))
+		(let ((i 0)
+		      (len (length check-headers)))
 		  (dolist (h check-headers)
 		    (gnus-message
 		     7 "Checking article %d in %s for NoCeM (%d of %d)..."
@@ -232,9 +236,13 @@ valid issuer, which is much faster if you are selective about the issuers."
 	       (days-to-time gnus-nocem-expiry-wait)))
       (gnus-request-article-this-buffer (mail-header-number header) group)
       (goto-char (point-min))
-      (when (re-search-forward "-----BEGIN PGP MESSAGE-----" nil t)
+      (when (re-search-forward
+	     "-----BEGIN PGP\\( SIGNED\\)? MESSAGE-----"
+	     nil t)
 	(delete-region (point-min) (match-beginning 0)))
-      (when (re-search-forward "-----END PGP MESSAGE-----\n?" nil t)
+      (when (re-search-forward
+	     "-----END PGP \\(MESSAGE\\|SIGNATURE\\)-----\n?"
+	     nil t)
 	(delete-region (match-end 0) (point-max)))
       (goto-char (point-min))
       ;; The article has to have proper NoCeM headers.
@@ -243,7 +251,7 @@ valid issuer, which is much faster if you are selective about the issuers."
 	;; We get the name of the issuer.
 	(narrow-to-region b e)
 	(setq issuer (mail-fetch-field "issuer")
-	      type (mail-fetch-field "issuer"))
+	      type (mail-fetch-field "type"))
 	(widen)
 	(if (not (gnus-nocem-message-wanted-p issuer type))
 	    (message "invalid NoCeM issuer: %s" issuer)
@@ -264,18 +272,20 @@ valid issuer, which is much faster if you are selective about the issuers."
       (while (setq condition (pop conditions))
 	(cond
 	 ((stringp condition)
-	  (setq wanted (string-match condition type)))
+	  (when (string-match condition type)
+	    (setq wanted t)))
 	 ((and (consp condition)
 	       (eq (car condition) 'not)
 	       (stringp (cadr condition)))
-	  (setq wanted (not (string-match (cadr condition) type))))
+	  (when (string-match (cadr condition) type)
+	    (setq wanted nil)))
 	 (t
 	  (error "Invalid NoCeM condition: %S" condition))))
       wanted))))
 
 (defun gnus-nocem-verify-issuer (person)
   "Verify using PGP that the canceler is who she says she is."
-  (if (fboundp gnus-nocem-verifyer)
+  (if (functionp gnus-nocem-verifyer)
       (ignore-errors
 	(funcall gnus-nocem-verifyer))
     ;; If we don't have Mailcrypt, then we use the message anyway.
@@ -294,7 +304,8 @@ valid issuer, which is much faster if you are selective about the issuers."
       (while (search-forward "\t" nil t)
 	(cond
 	 ((not (ignore-errors
-		 (setq group (let ((obarray gnus-active-hashtb)) (read buf)))))
+		 (setq group (let ((obarray gnus-nocem-real-group-hashtb))
+			       (read buf)))))
 	  ;; An error.
 	  )
 	 ((not (symbolp group))
@@ -311,7 +322,10 @@ valid issuer, which is much faster if you are selective about the issuers."
 	    (while (eq (char-after) ?\t)
 	      (forward-line -1))
 	    (setq id (buffer-substring (point) (1- (search-forward "\t"))))
-	    (unless (gnus-gethash id gnus-nocem-hashtb)
+	    (unless (if gnus-nocem-hashtb
+			(gnus-gethash id gnus-nocem-hashtb)
+		      (setq gnus-nocem-hashtb (gnus-make-hashtable))
+		      nil)
 	      ;; only store if not already present
 	      (gnus-sethash id t gnus-nocem-hashtb)
 	      (push id ncm))
@@ -325,6 +339,7 @@ valid issuer, which is much faster if you are selective about the issuers."
 	      gnus-nocem-alist))
       t)))
 
+;;;###autoload
 (defun gnus-nocem-load-cache ()
   "Load the NoCeM cache."
   (interactive)
@@ -386,4 +401,5 @@ valid issuer, which is much faster if you are selective about the issuers."
 
 (provide 'gnus-nocem)
 
+;;; arch-tag: 0e0c74ea-2f8e-4f3e-8fff-09f767c1adef
 ;;; gnus-nocem.el ends here

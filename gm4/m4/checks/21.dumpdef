@@ -1,9 +1,0 @@
-dnl ../doc/m4.texinfo:1562: Origin of test
-define(`foo', `Hello world.')
-dnl @result{}
-dumpdef(`foo')
-dnl @error{}foo:	`Hello world.'
-dnl @result{}
-dumpdef(`define')
-dnl @error{}define:	<define>
-dnl @result{}

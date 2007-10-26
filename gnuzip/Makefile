@@ -7,8 +7,8 @@ Project           = gzip
 UserType          = Administration
 ToolType          = Commands
 Extra_Configure_Flags = DEFS=NO_ASM
-Extra_CC_Flags    = -mdynamic-no-pic -I/System/Library/Frameworks/System.framework/PrivateHeaders
-GnuAfterInstall   = gnu_after_install install-plist install-html
+Extra_CC_Flags    = -mdynamic-no-pic
+GnuAfterInstall   = gnu_after_install install-plist
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -28,21 +28,15 @@ install-plist:
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/gnuzip.txt
 
-install-html:
-	$(MKDIR) $(RC_Install_HTML)
-	cd $(RC_Install_HTML) && $(TEXI2HTML) -subdir . -split_chapter $(Sources)/gzip.texi
-
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.3.5
+AEP_Version    = 1.3.10
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = patch-Makefile.in patch-gzip.1 patch-gzip.c \
-                 patch-zgrep.in version.diff \
-                 PR4406518.diff \
-                 suse_patch2_gzip.diff
+AEP_Patches    = patch-Makefile.in patch-doc__Makefile.in \
+                 patch-gzip.1 patch-gzip.c
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -57,6 +51,6 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 endif

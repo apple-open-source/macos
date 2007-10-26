@@ -1,31 +1,39 @@
+#if !__LP64__
+
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*
  * History:
  *  2001-05-30 	gvdl	Initial implementation of the vtable patcher.
  */
 // 45678901234567890123456789012345678901234567890123456789012345678901234567890
+
+#include <sys/cdefs.h>
 
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
@@ -85,9 +93,6 @@ __private_extern__ char *strstr(const char *in, const char *str);
 #include <mach-o/arch.h>
 
 #include <CoreFoundation/CoreFoundation.h>
-
-#define PAGE_SIZE vm_page_size
-#define PAGE_MASK (PAGE_SIZE - 1)
 
 #endif /* KERNEL */
 
@@ -221,6 +226,7 @@ struct fileRecord {
     unsigned int fNSects;
     int fNLocal;
     Boolean fIsKernel, fIsReloc, fIsIncrLink, fNoKernelExecutable, fIsKmem;
+    Boolean fIsMapped;
     Boolean fImageDirty, fSymbolsDirty;
     Boolean fRemangled, fFoundOSObject;
     Boolean fIgnoreFile;
@@ -443,7 +449,7 @@ addFile(struct fileRecord *file, const char *path)
     }
 
     bcopy(file, newFile, sizeof(struct fileRecord) - 1);
-    strcpy((char *) newFile->fPath, path);
+    strlcpy((char *) newFile->fPath, path, strlen(path) + 1);
 
     return newFile;
 }
@@ -481,17 +487,21 @@ static void unmapFile(struct fileRecord *file)
 	if (file->fIsKmem)
 	    kmem_free(kernel_map, (vm_address_t) file->fMap, file->fMapSize);
 #else /* !KERNEL */
-	if (file->fPadEnd) {
-	    vm_address_t padVM;
-	    vm_size_t padSize;
+        if (file->fIsMapped) {
+            if (file->fPadEnd) {
+                vm_address_t padVM;
+                vm_size_t padSize;
 
-	    padVM = round_page((vm_address_t) file->fMap + file->fMapSize);
-	    padSize  = (vm_size_t) ((vm_address_t) file->fPadEnd - padVM);
-	    (void) vm_deallocate(mach_task_self(), padVM, padSize);
-	    file->fPadEnd = 0;
-	}
+                padVM = round_page((vm_address_t) file->fMap + file->fMapSize);
+                padSize  = (vm_size_t) ((vm_address_t) file->fPadEnd - padVM);
+                (void) vm_deallocate(mach_task_self(), padVM, padSize);
+                file->fPadEnd = 0;
+            }
 
-	(void) munmap((caddr_t) file->fMap, file->fMapSize);
+            (void) munmap((caddr_t) file->fMap, file->fMapSize);
+        } else if (file->fMap) {
+            vm_deallocate(mach_task_self(), (vm_address_t)file->fMap, file->fMapSize);
+        }
 #endif /* !KERNEL */
 	file->fMap = 0;
     }
@@ -499,10 +509,59 @@ static void unmapFile(struct fileRecord *file)
 
 static void removeFile(struct fileRecord *file)
 {
+    int i, count;
+
     if (file->fClassList) {
-	DataRelease(file->fClassList);
+        struct metaClassRecord ** fileClasses =
+            (struct metaClassRecord **)DataGetPtr(file->fClassList);
+        
+        count = DataGetLength(file->fClassList) / sizeof(struct metaClassRecord *);
+
+        for (i = 0; i < count; i++) {
+            struct metaClassRecord * thisClass = fileClasses[i];
+
+            if (thisClass->fSuperName) {
+                free(thisClass->fSuperName);
+            }
+            if (thisClass->fPatchedVTable) {
+                free(thisClass->fPatchedVTable);
+            }
+
+            free(thisClass);
+        }
+        
+ 	DataRelease(file->fClassList);
 	file->fClassList = 0;
     }
+
+    // unmapFile() releases file->fSectData
+
+    if (file->fNewSymbols) {
+        struct nlist ** syms =
+            (struct nlist **)DataGetPtr(file->fNewSymbols);
+
+        count = DataGetLength(file->fNewSymbols) / sizeof(struct nlist *);
+
+        for (i = 0; i < count; i++) {
+            free(syms[i]);
+        }
+        DataRelease(file->fNewSymbols);
+        file->fNewSymbols = 0;
+    }
+
+    if (file->fNewStringBlocks) {
+        DataRef * stringBlocks = (DataRef *)DataGetPtr(file->fNewStringBlocks);
+        count = DataGetLength(file->fNewStringBlocks) / sizeof(DataRef);
+
+        for (i = 0; i < count; i++) {
+            DataRelease(stringBlocks[i]);
+        }
+
+        DataRelease(file->fNewStringBlocks);
+        file->fNewStringBlocks = 0;
+    }
+
+    // unmapFile() releases file->fSym2Strings
 
     unmapFile(file);
 
@@ -599,6 +658,7 @@ mapObjectFile(struct fileRecord *file, const char *pathName)
 	    ("Unable to map memory %s\n", file->fPath));
 
 	sFileMapBaseAddr = file->fPadEnd;
+        file->fIsMapped = true;
 	result = true;
     } while(0);
 
@@ -617,7 +677,7 @@ kld_macho_swap(struct mach_header * mh)
 {
     struct segment_command * seg;
     struct section *	     section;
-    CFIndex     	     ncmds, cmd, sect;
+    CFIndex     	     ncmds, cmd;
     enum NXByteOrder	     hostOrder = NXHostByteOrder();
 
     if (MH_CIGAM != mh->magic)
@@ -645,7 +705,7 @@ kld_macho_swap(struct mach_header * mh)
 	swap_section((struct section *) (seg + 1), seg->nsects, hostOrder);
 
 	section = (struct section *) (seg + 1);
-	for (sect = 0; sect < seg->nsects; sect++, section++) {
+	for (unsigned sect = 0; sect < seg->nsects; sect++, section++) {
 	    if (section->nreloc)
 		swap_relocation_info((struct relocation_info *) (((vm_offset_t) mh) + section->reloff),
 				      section->nreloc, hostOrder);
@@ -665,7 +725,7 @@ kld_macho_unswap(struct mach_header * mh, Boolean didSwap, int symbols)
     struct segment_command * seg;
     struct section *	     section;
     unsigned long	     cmdsize;
-    CFIndex     	     ncmds, cmd, sect;
+    CFIndex     	     ncmds, cmd;
     enum NXByteOrder	     hostOrder = (NXHostByteOrder() == NX_LittleEndian)
 					? NX_BigEndian : NX_LittleEndian;
     if (!didSwap)
@@ -695,7 +755,7 @@ kld_macho_unswap(struct mach_header * mh, Boolean didSwap, int symbols)
 	}
 
 	section = (struct section *) (seg + 1);
-	for (sect = 0; sect < seg->nsects; sect++, section++) {
+	for (unsigned sect = 0; sect < seg->nsects; sect++, section++) {
 	    if (section->nreloc)
 		swap_relocation_info((struct relocation_info *) (((vm_offset_t) mh) + section->reloff),
 				      section->nreloc, hostOrder);
@@ -871,7 +931,7 @@ tryRemangleAgain:
         }
 
         len = DataRemaining(strings);
-        newname = DataGetEndPtr(strings);
+        newname = (char *) DataGetEndPtr(strings);
         ret = rem3_remangle_name(newname, &len, symname);
         switch (ret) {
         case kR3InternalNotRemangled:
@@ -1136,7 +1196,7 @@ findSymbolByAddress(const struct fileRecord *file, void *entry)
 }
 
 static const struct nlist *
-findSymbolByAddressInAllFiles(const struct fileRecord * fromFile, 
+findSymbolByAddressInAllFiles(const struct fileRecord * fromFile __unused, 
 			    void *entry, const struct fileRecord **resultFile)
 {
     int i, nfiles = 0;
@@ -1376,8 +1436,9 @@ addClass(struct fileRecord *file,
 
 	// Copy the meta Class structure and string name into newClass and
         // insert object at end of the file->fClassList and sMergeMetaClasses 
-	*newClass = *inClass;
-	strcpy(newClass->fClassName, cname);
+	bcopy(inClass, newClass, sizeof(*inClass));
+    // metaClassRecord declares fClassName[1]
+	strlcpy(newClass->fClassName, cname, strlen(cname) + sizeof(newClass->fClassName));
 	fileClasses[-1] = newClass;
 
 	return true;
@@ -1386,9 +1447,9 @@ addClass(struct fileRecord *file,
     if (fileClasses)
 	DataAddLength(file->fClassList, -sizeof(struct metaClassRecord *));
 
-    if (newClass)
+    if (newClass) {
 	free(newClass);
-
+    }
     return result;
 }
 
@@ -1496,8 +1557,9 @@ recordClass(struct fileRecord *file, const char *cname, const struct nlist *sym)
     } while (0);
 
 finish:
-    if (supername)
+    if (supername) {
 	free(supername);
+    }
 
     return result;
 }
@@ -1609,6 +1671,8 @@ static Boolean mergeOSObjectsForFile(const struct fileRecord *file)
 		    errprintf("duplicate class %s in %s & %s\n",
 			      list1[i]->fClassName,
 			      file->fPath, list2[j]->fFile->fPath);
+
+                    foundDuplicates = true;
 		}
 	    }
 	}
@@ -1769,7 +1833,7 @@ static const char *addNewString(struct fileRecord *file,
         DataRef *blockTable = (DataRef *) DataGetPtr(file->fNewStringBlocks);
         int index = DataGetLength(file->fNewStringBlocks) / sizeof(DataRef*);
         strings = blockTable[index - 1];
-        if (DataRemaining(strings) < namelen)
+        if ((int) DataRemaining(strings) < namelen)
             strings = 0;
     }
     else
@@ -1791,7 +1855,7 @@ static const char *addNewString(struct fileRecord *file,
             false, ("Unable to allocate string table for %s\n", file->fPath));
     }
 
-    newStr = DataGetEndPtr(strings);
+    newStr = (char *) DataGetEndPtr(strings);
     DataAppendBytes(strings, strname, namelen);
     return newStr;
 }
@@ -1882,7 +1946,7 @@ static struct nlist *
 fixOldSymbol(struct fileRecord *file,
 	     const struct relocRecord *reloc, const char *supername)
 {
-    unsigned int namelen;
+    unsigned int namelen, oldnamelen;
     struct nlist *sym = (struct nlist *) reloc->fSymbol;
     const char *oldname = symbolname(file, sym);
 
@@ -1891,10 +1955,12 @@ fixOldSymbol(struct fileRecord *file,
     namelen = strlen(supername);
 
     sym->n_un.n_strx = -sym->n_un.n_strx;
-    if (oldname && namelen < strlen(oldname))
+    if (oldname && namelen < (oldnamelen = strlen(oldname)))
     {
-	// Overwrite old string in string table
-	strcpy((char *) oldname, supername);
+        // Overwrite old string in string table
+        // using size=oldnamelen + 1 because the conditional states
+        // that the src length, namelen, is less than oldnamelen
+        strlcpy((char *) oldname, supername, oldnamelen + 1);
         file->fSymbolsDirty = true; 
         return sym;
     }
@@ -2084,8 +2150,9 @@ static Boolean patchVTable(struct metaClassRecord *metaClass)
     } while(0);
 
 abortPatch:
-    if (patchedVTable)
+    if (patchedVTable) {
 	free(patchedVTable);
+    }
 
     return false;
 }
@@ -2094,7 +2161,11 @@ static Boolean growImage(struct fileRecord *file, vm_size_t delta)
 {
 #if !KERNEL
     file->fMachOSize += delta;
-    return (file->fMachO + file->fMachOSize <= file->fPadEnd);
+    if (file->fIsMapped) {
+        return (file->fMachO + file->fMachOSize <= file->fPadEnd);
+    } else {
+        return (file->fMachO + file->fMachOSize <= file->fMap + file->fMapSize);
+    }
 #else /* KERNEL */
     vm_address_t startMachO, endMachO, endMap;
     vm_offset_t newMachO;
@@ -2432,7 +2503,9 @@ kld_file_map(const char *pathName,
 	     size_t mapSize,
 	     Boolean isKmem)
 #else
-kld_file_map(const char *pathName)
+_kld_file_map_internal(const char *pathName,
+    const void * file_data,
+    unsigned int file_size)
 #endif /* KERNEL */
 {
     struct fileRecord file, *fp = 0;
@@ -2449,8 +2522,25 @@ kld_file_map(const char *pathName)
     file.fMapSize = mapSize;
     file.fIsKmem = isKmem;
 #else
-    if (!mapObjectFile(&file, pathName))
-	return false;
+    file.fIsMapped = false;
+
+    if (!file_data) {
+        if (!mapObjectFile(&file, pathName))
+            return false;
+    } else {
+        kern_return_t kern_result;
+
+       /* Reserve double the file size to grow vtables etc.,
+        * as mapObjectFile() does.
+        */
+        file.fMapSize = 2 * file_size;
+        kern_result = vm_allocate(mach_task_self(), (vm_address_t *)&file.fMap,
+            file.fMapSize, VM_FLAGS_ANYWHERE);
+        if (kern_result != KERN_SUCCESS) {
+            return false;
+        }
+        memcpy(file.fMap, file_data, file_size);
+    }
 #endif /* KERNEL */
 
     do {
@@ -2460,7 +2550,6 @@ kld_file_map(const char *pathName)
 	} *machO;
 	const struct load_command *cmd;
 	boolean_t lookVMRange;
-        int i;
 
 	if (!findBestArch(&file, pathName))
 	    break;
@@ -2473,6 +2562,7 @@ kld_file_map(const char *pathName)
 	// as all Kernel extensions must be of type MH_OBJECT
         file.fIsKernel = (MH_EXECUTE == machO->h.filetype);
 
+	unsigned i;
 	for (i = 0, cmd = &machO->c[0], lookVMRange = true; i < machO->h.ncmds; i++) {
             if (cmd->cmd == LC_SYMTAB)
 		file.fSymtab = (struct symtab_command *) cmd;
@@ -2583,6 +2673,20 @@ kld_file_map(const char *pathName)
 
     return false;
 }
+
+#if !KERNEL
+Boolean kld_file_map(const char *pathName)
+{
+    return _kld_file_map_internal(pathName, NULL, 0);
+}
+
+Boolean kld_file_map_from_memory(const char * pathName,
+    const void * file_data,
+    unsigned int file_size)
+{
+    return _kld_file_map_internal(pathName, file_data, file_size);	
+}
+#endif /* !KERNEL */
 
 void *kld_file_getaddr(const char *pathName, long *size)
 {
@@ -2810,4 +2914,4 @@ Boolean kld_file_debug_dump(const char *pathName, const char *outName)
 }
 
 #endif /* !KERNEL */
-
+#endif // !__LP64__

@@ -12,11 +12,12 @@ NAME = membership
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = membership.h membershipPriv.h memberd_defines.h ntsid.h
+HFILES = membership.h membershipPriv.h ntsid.h
 
 CFILES = membership.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble memberd.defs
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble DSmemberdMIG.defs \
+	mbr_check_membership.3 mbr_uid_to_uuid.3 mbr_uid_to_uuid_so.3
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

@@ -54,15 +54,15 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
+/******
 static char copyright[] =
 "@(#) Copyright (c) 1990, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
+******/
 
-#ifndef lint
+/******
 static char sccsid[] = "@(#)dev_mkdb.c	8.1 (Berkeley) 6/6/93";
-#endif /* not lint */
+******/
 
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -71,7 +71,6 @@ static char sccsid[] = "@(#)dev_mkdb.c	8.1 (Berkeley) 6/6/93";
 #undef DIRBLKSIZ
 #include <dirent.h>
 #include <nlist.h>
-#include <kvm.h>
 #include <db.h>
 #include <errno.h>
 #include <unistd.h>
@@ -135,7 +134,7 @@ main(argc, argv)
 	key.data = &bkey;
 	key.size = sizeof(bkey);
 	data.data = buf;
-	while (dp = readdir(dirp)) {
+	while ((dp = readdir(dirp))) {
 		if (lstat(dp->d_name, &sb)) {
 			(void)fprintf(stderr,
 			    "dev_mkdb: %s: %s\n", dp->d_name, strerror(errno));

@@ -208,7 +208,7 @@ rmtopen(tape, mode)
 {
 	char buf[256];
 
-	(void)sprintf(buf, "O%s\n%d\n", tape, mode);
+	(void)snprintf(buf, sizeof(buf), "O%s\n%d\n", tape, mode);
 	rmtstate = TS_OPEN;
 	return (rmtcall(tape, buf));
 }

@@ -15,7 +15,7 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: named-bootconf.sh,v 1.7.206.3 2006/10/11 02:33:28 marka Exp $
+# $Id: named-bootconf.sh,v 1.8.18.2 2006/10/11 02:33:29 marka Exp $
 
 # $NetBSD: named-bootconf.sh,v 1.5 1998/12/15 01:00:53 tron Exp $
 #

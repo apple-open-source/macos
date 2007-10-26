@@ -10,12 +10,24 @@
 #ifndef _GSS_MECHGLUEP_H
 #define _GSS_MECHGLUEP_H
 
+#include "autoconf.h"
 #include "mechglue.h"
+#include "gssapiP_generic.h"
+
+#define	g_OID_copy(o1, o2)					\
+do {								\
+	memcpy((o1)->elements, (o2)->elements, (o2)->length);	\
+	(o1)->length = (o2)->length;				\
+} while (0)
+
+#define	GSS_EMPTY_BUFFER(buf)	((buf) == NULL ||\
+	(buf)->value == NULL || (buf)->length == 0)
 
 /*
  * Array of context IDs typed by mechanism OID
  */
-typedef struct gss_union_ctx_id_t {
+typedef struct gss_ctx_id_struct {
+	struct gss_ctx_id_struct *loopback;
 	gss_OID			mech_type;
 	gss_ctx_id_t		internal_ctx_id;
 } gss_union_ctx_id_desc, *gss_union_ctx_id_t;
@@ -24,7 +36,8 @@ typedef struct gss_union_ctx_id_t {
  * Generic GSSAPI names.  A name can either be a generic name, or a
  * mechanism specific name....
  */
-typedef struct gss_union_name_t {
+typedef struct gss_name_struct {
+	struct gss_name_struct *loopback;
 	gss_OID			name_type;
 	gss_buffer_t		external_name;
 	/*
@@ -50,7 +63,7 @@ typedef struct gss_mech_spec_name_t {
 typedef struct gss_union_cred_auxinfo {
 	gss_buffer_desc		name;
 	gss_OID			name_type;
-	time_t			creation_time;
+	OM_uint32		creation_time;
 	OM_uint32		time_rec;
 	int			cred_usage;
 } gss_union_cred_auxinfo;
@@ -58,13 +71,23 @@ typedef struct gss_union_cred_auxinfo {
 /*
  * Set of Credentials typed on mechanism OID
  */
-typedef struct gss_union_cred_t {
+typedef struct gss_cred_id_struct {
+	struct gss_cred_id_struct *loopback;
 	int			count;
 	gss_OID			mechs_array;
-	gss_cred_id_t *		cred_array;
+	gss_cred_id_t		*cred_array;
 	gss_union_cred_auxinfo	auxinfo;
 } gss_union_cred_desc, *gss_union_cred_t;
  
+/*
+ * Rudimentary pointer validation macro to check whether the
+ * "loopback" field of an opaque struct points back to itself.  This
+ * field also catches some programming errors where an opaque pointer
+ * is passed to a function expecting the address of the opaque
+ * pointer.
+ */
+#define GSSINT_CHK_LOOP(p) (!((p) != NULL && (p)->loopback == (p)))
+
 /********************************************************/
 /* The Mechanism Dispatch Table -- a mechanism needs to */
 /* define one of these and provide a function to return */
@@ -82,6 +105,8 @@ typedef struct gss_union_cred_t {
  */
  
 typedef struct gss_config {
+    OM_uint32	    priority;
+    char *	    mechNameStr;
     gss_OID_desc    mech_type;
     void *	    context;
     OM_uint32       (*gss_acquire_cred)
@@ -326,80 +351,85 @@ typedef struct gss_config {
 		    OM_uint32,		/* req_output_size */
 		    OM_uint32 *		/* max_input_size */
 	 );
-    int		     (*pname_to_uid)
+	OM_uint32		(*gss_export_name)
 	(
-		    void *,		/* context */
-		    char *,		/* pname */
-		    gss_OID,		/* name type */
-		    gss_OID,		/* mech type */
-		    uid_t *		/* uid */
-		    );
-
+		void *,			/* context */
+		OM_uint32 *,		/* minor_status */
+		const gss_name_t,	/* input_name */
+		gss_buffer_t		/* exported_name */
+	/* */);
+	OM_uint32	(*gss_store_cred)
+	(
+		void *,			/* context */
+		OM_uint32 *,		/* minor_status */
+		const gss_cred_id_t,	/* input_cred */
+		gss_cred_usage_t,	/* cred_usage */
+		const gss_OID,		/* desired_mech */
+		OM_uint32,		/* overwrite_cred */
+		OM_uint32,		/* default_cred */
+		gss_OID_set *,		/* elements_stored */
+		gss_cred_usage_t *	/* cred_usage_stored */
+	/* */);
 } *gss_mechanism;
+
+/*
+ * In the user space we use a wrapper structure to encompass the
+ * mechanism entry points.  The wrapper contain the mechanism
+ * entry points and other data which is only relevant to the gss-api
+ * layer.  In the kernel we use only the gss_config strucutre because
+ * the kernal does not cantain any of the extra gss-api specific data.
+ */
+typedef struct gss_mech_config {
+	char *kmodName;			/* kernel module name */
+	char *uLibName;			/* user library name */
+	char *mechNameStr;		/* mechanism string name */
+	char *optionStr;		/* optional mech parameters */
+	void *dl_handle;		/* RTLD object handle for the mech */
+	gss_OID mech_type;		/* mechanism oid */
+	gss_mechanism mech;		/* mechanism initialization struct */
+	struct gss_mech_config *next;	/* next element in the list */
+} *gss_mech_info;
 
 /********************************************************/
 /* Internal mechglue routines */
 
-gss_mechanism __gss_get_mechanism (gss_OID);
-OM_uint32 __gss_get_mech_type (gss_OID, gss_buffer_t);
-OM_uint32 __gss_import_internal_name (OM_uint32 *, gss_OID, gss_union_name_t,
-				      gss_name_t *);
-OM_uint32 __gss_display_internal_name (OM_uint32 *, gss_OID, gss_name_t,
-				       gss_buffer_t, gss_OID *);
-OM_uint32 __gss_release_internal_name (OM_uint32 *, gss_OID, gss_name_t *);
+int gssint_mechglue_init(void);
+void gssint_mechglue_fini(void);
 
-OM_uint32 __gss_convert_name_to_union_name
+gss_mechanism gssint_get_mechanism (gss_OID);
+OM_uint32 gssint_get_mech_type (gss_OID, gss_buffer_t);
+char *gssint_get_kmodName(const gss_OID);
+char *gssint_get_modOptions(const gss_OID);
+OM_uint32 gssint_import_internal_name (OM_uint32 *, gss_OID, gss_union_name_t,
+				      gss_name_t *);
+OM_uint32 gssint_export_internal_name(OM_uint32 *, const gss_OID,
+	const gss_name_t, gss_buffer_t);
+OM_uint32 gssint_display_internal_name (OM_uint32 *, gss_OID, gss_name_t,
+				       gss_buffer_t, gss_OID *);
+OM_uint32 gssint_release_internal_name (OM_uint32 *, gss_OID, gss_name_t *);
+
+OM_uint32 gssint_convert_name_to_union_name
 	  (OM_uint32 *,		/* minor_status */
 	   gss_mechanism,	/* mech */
 	   gss_name_t,		/* internal_name */
 	   gss_name_t *		/* external_name */
 	   );
-gss_cred_id_t __gss_get_mechanism_cred
+gss_cred_id_t gssint_get_mechanism_cred
 	  (gss_union_cred_t,	/* union_cred */
 	   gss_OID		/* mech_type */
 	   );
 
-OM_uint32 generic_gss_release_oid
-	   (OM_uint32 *,	/* minor_status */
-	    gss_OID *		/* oid */
-	   );
+OM_uint32 gssint_create_copy_buffer(
+	const gss_buffer_t,	/* src buffer */
+	gss_buffer_t *,		/* destination buffer */
+	int			/* NULL terminate buffer ? */
+);
 
-OM_uint32 generic_gss_copy_oid
-	   (OM_uint32 *,	/* minor_status */
-	    gss_OID,		/* oid */
-	    gss_OID *		/* new_oid */
-	    );
-
-OM_uint32 generic_gss_create_empty_oid_set
-	   (OM_uint32 *,	/* minor_status */
-	    gss_OID_set *	/* oid_set */
-	   );
-
-OM_uint32 generic_gss_add_oid_set_member
-	   (OM_uint32 *,	/* minor_status */
-	    gss_OID,		/* member_oid */
-	    gss_OID_set *	/* oid_set */
-	   );
-
-OM_uint32 generic_gss_test_oid_set_member
-	   (OM_uint32 *,	/* minor_status */
-	    gss_OID,		/* member */
-	    gss_OID_set,	/* set */
-	    int *		/* present */
-	   );
-
-OM_uint32 generic_gss_oid_to_str
- (OM_uint32 *,	/* minor_status */
-	    gss_OID,		/* oid */
-	    gss_buffer_t	/* oid_str */
-	   );
-
-OM_uint32 generic_gss_str_to_oid
-	   (OM_uint32 *,	/* minor_status */
-	    gss_buffer_t,	/* oid_str */
-	    gss_OID *		/* oid */
-	   );
-
+OM_uint32 gssint_copy_oid_set(
+	OM_uint32 *,			/* minor_status */
+	const gss_OID_set_desc *,	/* oid set */
+	gss_OID_set *			/* new oid set */
+);
 
 gss_OID gss_find_mechanism_from_name_type (gss_OID); /* name_type */
 
@@ -408,5 +438,55 @@ OM_uint32 gss_add_mech_name_type
 	    gss_OID,		/* name_type */
 	    gss_OID		/* mech */
 	       );
+
+/*
+ * Sun extensions to GSS-API v2
+ */
+
+OM_uint32
+gssint_mech_to_oid(
+	const char *mech,		/* mechanism string name */
+	gss_OID *oid			/* mechanism oid */
+);
+
+const char *
+gssint_oid_to_mech(
+	const gss_OID oid		/* mechanism oid */
+);
+
+OM_uint32
+gssint_get_mechanisms(
+	char *mechArray[],		/* array to populate with mechs */
+	int arrayLen			/* length of passed in array */
+);
+
+OM_uint32
+gss_store_cred(
+	OM_uint32 *,		/* minor_status */
+	const gss_cred_id_t,	/* input_cred_handle */
+	gss_cred_usage_t,	/* cred_usage */
+	const gss_OID,		/* desired_mech */
+	OM_uint32,		/* overwrite_cred */
+	OM_uint32,		/* default_cred */
+	gss_OID_set *,		/* elements_stored */
+	gss_cred_usage_t *	/* cred_usage_stored */
+);
+
+int
+gssint_get_der_length(
+	unsigned char **,	/* buf */
+	unsigned int,		/* buf_len */
+	unsigned int *		/* bytes */
+);
+
+unsigned int
+gssint_der_length_size(unsigned int /* len */);
+
+int
+gssint_put_der_length(
+	unsigned int,		/* length */
+	unsigned char **,	/* buf */
+	unsigned int		/* max_len */
+);
 
 #endif /* _GSS_MECHGLUEP_H */

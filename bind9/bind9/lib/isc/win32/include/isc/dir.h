@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: dir.h,v 1.11.12.3 2004/03/08 09:05:02 marka Exp $ */
+/* $Id: dir.h,v 1.13 2004/03/05 05:12:05 marka Exp $ */
 
 /* Principal Authors: DCL */
 

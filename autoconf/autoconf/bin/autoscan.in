@@ -1,7 +1,9 @@
 #! @PERL@ -w
 # -*- perl -*-
+# @configure_input@
+
 # autoscan - Create configure.scan (a preliminary configure.ac) for a package.
-# Copyright (C) 1994, 1999, 2000, 2001, 2002, 2003
+# Copyright (C) 1994, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 #  Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -16,8 +18,8 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 # Written by David MacKenzie <djm@gnu.ai.mit.edu>.
 
@@ -45,7 +47,7 @@ use File::Basename;
 use File::Find;
 use strict;
 
-use vars qw(@cfiles @makefiles @shfiles %printed);
+use vars qw(@cfiles @makefiles @shfiles @subdirs %printed);
 
 # The kind of the words we are looking for.
 my @kinds = qw (function header identifier program
@@ -89,7 +91,7 @@ my %needed_macros =
   );
 
 my $configure_scan = 'configure.scan';
-my $log = new Autom4te::XFile ">$me.log";
+my $log;
 
 # Autoconf and lib files.
 my $autom4te = $ENV{'AUTOM4TE'} || '@bindir@/@autom4te-name@';
@@ -121,11 +123,13 @@ Report bugs to <bug-autoconf\@gnu.org>.\n";
 # $version
 # --------
 $version = "autoscan (@PACKAGE_NAME@) @VERSION@
-Written by David J. MacKenzie and Akim Demaille.
+Copyright (C) 2006 Free Software Foundation, Inc.
+This is free software.  You may redistribute copies of it under the terms of
+the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.
+There is NO WARRANTY, to the extent permitted by law.
 
-Copyright (C) 2003 Free Software Foundation, Inc.
-This is free software; see the source for copying conditions.  There is NO
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n";
+Written by David J. MacKenzie and Akim Demaille.
+";
 
 
 
@@ -229,17 +233,17 @@ sub used ($$;$)
 ## ----------------------- ##
 
 
-# scan_c_file ($FILENAME)
-# -----------------------
+# scan_c_file ($FILE-NAME)
+# ------------------------
 sub scan_c_file ($)
 {
-  my ($filename) = @_;
+  my ($file_name) = @_;
   push @cfiles, $File::Find::name;
 
   # Nonzero if in a multiline comment.
   my $in_comment = 0;
 
-  my $file = new Autom4te::XFile "<$filename";
+  my $file = new Autom4te::XFile "<$file_name";
 
   while ($_ = $file->getline)
     {
@@ -302,10 +306,10 @@ sub scan_c_file ($)
 # -----------------------------
 sub scan_makefile ($)
 {
-  my ($filename) = @_;
+  my ($file_name) = @_;
   push @makefiles, $File::Find::name;
 
-  my $file = new Autom4te::XFile "<$filename";
+  my $file = new Autom4te::XFile "<$file_name";
 
   while ($_ = $file->getline)
     {
@@ -344,10 +348,10 @@ sub scan_makefile ($)
 # --------------------------------
 sub scan_sh_file ($)
 {
-  my ($filename) = @_;
+  my ($file_name) = @_;
   push @shfiles, $File::Find::name;
 
-  my $file = new Autom4te::XFile "<$filename";
+  my $file = new Autom4te::XFile "<$file_name";
 
   while ($_ = $file->getline)
     {
@@ -369,7 +373,7 @@ sub scan_sh_file ($)
 
 # scan_file ()
 # ------------
-# Called by &find on each file.  $_ contains the current filename with
+# Called by &find on each file.  $_ contains the current file name with
 # the current directory of the walk through.
 sub scan_file ()
 {
@@ -383,6 +387,15 @@ sub scan_file ()
   # Strip a useless leading `./'.
   $File::Find::name =~ s,^\./,,;
 
+  if ($_ ne '.' and -d $_ and
+      -f "$_/configure.in"  ||
+      -f "$_/configure.ac"  ||
+      -f "$_/configure.gnu" ||
+      -f "$_/configure")
+    {
+      $File::Find::prune = 1;
+      push @subdirs, $File::Find::name;
+    }
   if (/\.[chlym](\.in)?$/)
     {
       used 'program', 'cc', $File::Find::name;
@@ -528,6 +541,7 @@ sub output ($)
   output_kind ($file, 'identifier');
   output_kind ($file, 'function');
 
+  print $file "\n";
   if (@makefiles)
     {
       # Change DIR/Makefile.in to DIR/Makefile.
@@ -536,9 +550,15 @@ sub output ($)
 	  $m =~ s/\.(?:in|am)$//;
 	  $unique_makefiles{$m}++;
 	}
-      print $file ("\nAC_CONFIG_FILES([",
+      print $file ("AC_CONFIG_FILES([",
 		   join ("\n                 ",
 			 sort keys %unique_makefiles), "])\n");
+    }
+  if (@subdirs)
+    {
+      print $file ("AC_CONFIG_SUBDIRS([",
+		   join ("\n                   ",
+			 sort @subdirs), "])\n");
     }
   print $file "AC_OUTPUT\n";
 
@@ -618,6 +638,8 @@ sub check_configure_ac ($)
 ## -------------- ##
 
 parse_args;
+$log = new Autom4te::XFile ">$me.log";
+
 $autoconf .= " --debug" if $debug;
 $autoconf .= " --verbose" if $verbose;
 $autoconf .= join (' --include=', '', @include);
@@ -627,7 +649,7 @@ my $configure_ac = find_configure_ac;
 init_tables;
 scan_files;
 output ('configure.scan');
-if ($configure_ac)
+if (-f $configure_ac)
   {
     check_configure_ac ($configure_ac);
   }

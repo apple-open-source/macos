@@ -22,7 +22,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include "stuff/target_arch.h"
 #include <mach-o/i860/reloc.h>
 
 #include "i860-opcode.h"

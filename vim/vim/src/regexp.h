@@ -64,6 +64,7 @@ typedef struct
     lpos_T		startpos[NSUBEXP];
     lpos_T		endpos[NSUBEXP];
     int			rmm_ic;
+    colnr_T		rmm_maxcol;	/* when not zero: maximum column */
 } regmmatch_T;
 
 /*

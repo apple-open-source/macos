@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: lsof.h,v 1.58 2006/03/27 23:04:25 abe Exp $
+ * $Id: lsof.h,v 1.59 2007/04/24 16:16:59 abe Exp $
  */
 
 
@@ -237,6 +237,11 @@ extern int optind;
 					 * macro */
 # endif	/* !defined(GET_MIN_DEV) */
 
+# if	defined(HASSELINUX)
+#define	HASHCNTX	128		/* security context hash bucket count
+					 * -- MUST BE A POWER OF 2!!! */
+# endif	/* defined(HASSELINUX) */
+
 # if	defined(HASZONES)
 #define	HASHZONE	128		/* zone hash bucket count -- MUST BE
 					 * A POWER OF 2!!! */
@@ -334,6 +339,7 @@ static struct utmp dummy_utmp;		/* to get login name length */
 #define	N_UFS		47		/* UNIX file system node */
 #define	N_VXFS		48		/* Veritas file system node */
 #define	N_XFS		49		/* XFS node */
+#define	N_ZFS		50		/* ZFS node */
 
 # if	!defined(OFFDECDIG)
 #define	OFFDECDIG	8		/* maximum number of digits in the
@@ -388,6 +394,8 @@ static struct utmp dummy_utmp;		/* to get login name length */
 
 #define	CMDTTL		"COMMAND"
 extern int CmdColW;
+#define	CNTXTTL		"SECURITY-CONTEXT"
+extern int CntxColW;
 #define DEVTTL		"DEVICE"
 extern int DevColW;
 #define	FCTTL		"FCT"
@@ -433,20 +441,21 @@ extern int ZoneColW;
 					 * by PID or UID */
 #define	PS_SEC		2		/* secondary process selection -- e.g.,
 					 * by directory or file */
-#define	SELCMD		0x001		/* select process by command name */
-#define	SELFD		0x002		/* select file by descriptor name */
-#define	SELNA		0x004		/* select socket by address (-i@...) */
-#define	SELNET		0x008		/* select Internet socket files (-i) */
-#define	SELNFS		0x010		/* select NFS files (-N) */
-#define	SELNLINK	0x020		/* select based on link count */
-#define	SELNM		0x040		/* select by name */
-#define	SELPGID		0x080		/* select process group IDs (-g) */
-#define	SELPID		0x100		/* select PIDs (-p) */
-#define	SELUID		0x200		/* select UIDs (-u) */
-#define	SELUNX		0x400		/* select UNIX socket (-U) */
-#define	SELZONE		0x800		/* select zone (-z) */
-#define	SELALL		(SELCMD|SELFD|SELNA|SELNET|SELNM|SELNFS|SELPID|SELUID|SELUNX|SELZONE)
-#define	SELPROC		(SELCMD|SELPGID|SELPID|SELUID|SELZONE)
+#define	SELCMD		0x0001		/* select process by command name */
+#define	SELCNTX		0x0002		/* select security context (-Z) */
+#define	SELFD		0x0004		/* select file by descriptor name */
+#define	SELNA		0x0008		/* select socket by address (-i@...) */
+#define	SELNET		0x0010		/* select Internet socket files (-i) */
+#define	SELNFS		0x0020		/* select NFS files (-N) */
+#define	SELNLINK	0x0040		/* select based on link count */
+#define	SELNM		0x0080		/* select by name */
+#define	SELPGID		0x0100		/* select process group IDs (-g) */
+#define	SELPID		0x0200		/* select PIDs (-p) */
+#define	SELUID		0x0400		/* select UIDs (-u) */
+#define	SELUNX		0x0800		/* select UNIX socket (-U) */
+#define	SELZONE		0x1000		/* select zone (-z) */
+#define	SELALL		(SELCMD|SELCNTX|SELFD|SELNA|SELNET|SELNM|SELNFS|SELPID|SELUID|SELUNX|SELZONE)
+#define	SELPROC		(SELCMD|SELCNTX|SELPGID|SELPID|SELUID|SELZONE)
 					/* process selecters */
 #define	SELFILE		(SELFD|SELNFS|SELNLINK|SELNM)	/* file selecters */
 #define	SELNW		(SELNA|SELNET|SELUNX)		/* network selecters */
@@ -532,6 +541,15 @@ struct str_lst {
 };
 extern struct str_lst *Cmdl;
 extern int CmdLim;
+ 
+# if	defined(HASSELINUX)
+typedef struct cntxlist {
+	char *cntx;			/* zone name */
+	int f;				/* "find" flag (used only in CntxArg) */
+	struct cntxlist *next;		/* next zone hash entry */
+} cntxlist_t;
+extern cntxlist_t *CntxArg;
+# endif	/* defined(HASSELINUX) */
 
 # if	defined(HASDCACHE)
 extern unsigned DCcksum;
@@ -555,6 +573,7 @@ extern int ErrStat;
 extern uid_t Euid;
 extern int Fand;
 extern int Fblock;
+extern int Fcntx;
 extern int Ffield;
 extern int Ffilesys;
 extern int Fhelp;
@@ -772,6 +791,11 @@ extern struct lfile *Lf, *Plf;
 
 struct lproc {
 	char *cmd;			/* command name */
+ 
+# if	defined(HASSELINUX)
+	char *cntx;			/* security context */
+# endif	/* defined(HASSELINUX) */
+
 	short sf;			/* select flags -- SEL* symbols */
 	short pss;			/* state: 0 = not selected
 				 	 *	  1 = wholly selected

@@ -1,4 +1,0 @@
-/^CCFLAGS = *$/c
-CCFLAGS = XXXCCFLAGSXXX
-.
-w

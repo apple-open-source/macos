@@ -2,6 +2,7 @@
    Unix SMB/CIFS implementation.
    RPC pipe client
    Copyright (C) Gerald Carter                        2002,
+   Copyright (C) Jeremy Allison				2005.
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -26,8 +27,9 @@
  Get information about the server and directory services
 ********************************************************************/
 
-NTSTATUS cli_ds_getprimarydominfo(struct cli_state *cli, TALLOC_CTX *mem_ctx, 
-				  uint16 level, DS_DOMINFO_CTR *ctr)
+NTSTATUS rpccli_ds_getprimarydominfo(struct rpc_pipe_client *cli,
+				     TALLOC_CTX *mem_ctx, 
+				     uint16 level, DS_DOMINFO_CTR *ctr)
 {
 	prs_struct qbuf, rbuf;
 	DS_Q_GETPRIMDOMINFO q;
@@ -37,30 +39,14 @@ NTSTATUS cli_ds_getprimarydominfo(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	ZERO_STRUCT(q);
 	ZERO_STRUCT(r);
 
-	/* Initialise parse structures */
-
-	if (!prs_init(&qbuf, MAX_PDU_FRAG_LEN, mem_ctx, MARSHALL)) {
-		return NT_STATUS_NO_MEMORY;
-	}
-	if (!prs_init(&rbuf, 0, mem_ctx, UNMARSHALL)) {
-		prs_mem_free(&qbuf);
-		return NT_STATUS_NO_MEMORY;
-	}
-	
 	q.level = level;
 	
-	if (!ds_io_q_getprimdominfo("", &qbuf, 0, &q) 
-	    || !rpc_api_pipe_req(cli, DS_GETPRIMDOMINFO, &qbuf, &rbuf)) {
-		result = NT_STATUS_UNSUCCESSFUL;
-		goto done;
-	}
-
-	/* Unmarshall response */
-
-	if (!ds_io_r_getprimdominfo("", &rbuf, 0, &r)) {
-		result = NT_STATUS_UNSUCCESSFUL;
-		goto done;
-	}
+	CLI_DO_RPC( cli, mem_ctx, PI_LSARPC_DS, DS_GETPRIMDOMINFO,
+		q, r,
+		qbuf, rbuf,
+		ds_io_q_getprimdominfo,
+		ds_io_r_getprimdominfo,
+		NT_STATUS_UNSUCCESSFUL);
 	
 	/* Return basic info - if we are requesting at info != 1 then
 	   there could be trouble. */ 
@@ -75,8 +61,6 @@ NTSTATUS cli_ds_getprimarydominfo(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	}
 	
 done:
-	prs_mem_free(&qbuf);
-	prs_mem_free(&rbuf);
 
 	return result;
 }
@@ -85,9 +69,11 @@ done:
  Enumerate trusted domains in an AD forest
 ********************************************************************/
 
-NTSTATUS cli_ds_enum_domain_trusts(struct cli_state *cli, TALLOC_CTX *mem_ctx, 
-				  const char *server, uint32 flags, 
-				  struct ds_domain_trust **trusts, uint32 *num_domains)
+NTSTATUS rpccli_ds_enum_domain_trusts(struct rpc_pipe_client *cli,
+				      TALLOC_CTX *mem_ctx, 
+				      const char *server, uint32 flags, 
+				      struct ds_domain_trust **trusts,
+				      uint32 *num_domains)
 {
 	prs_struct qbuf, rbuf;
 	DS_Q_ENUM_DOM_TRUSTS q;
@@ -97,30 +83,14 @@ NTSTATUS cli_ds_enum_domain_trusts(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 	ZERO_STRUCT(q);
 	ZERO_STRUCT(r);
 
-	/* Initialise parse structures */
-
-	if (!prs_init(&qbuf, MAX_PDU_FRAG_LEN, mem_ctx, MARSHALL)) {
-		return NT_STATUS_NO_MEMORY;;
-	}
-	if (!prs_init(&rbuf, 0, mem_ctx, UNMARSHALL)) {
-		prs_mem_free(&qbuf);
-		return NT_STATUS_NO_MEMORY;
-	}
-
 	init_q_ds_enum_domain_trusts( &q, server, flags );
 		
-	if (!ds_io_q_enum_domain_trusts("", &qbuf, 0, &q) 
-	    || !rpc_api_pipe_req(cli, DS_ENUM_DOM_TRUSTS, &qbuf, &rbuf)) {
-		result = NT_STATUS_UNSUCCESSFUL;
-		goto done;
-	}
-
-	/* Unmarshall response */
-
-	if (!ds_io_r_enum_domain_trusts("", &rbuf, 0, &r)) {
-		result = NT_STATUS_UNSUCCESSFUL;
-		goto done;
-	}
+	CLI_DO_RPC( cli, mem_ctx, PI_NETLOGON, DS_ENUM_DOM_TRUSTS,
+		q, r,
+		qbuf, rbuf,
+		ds_io_q_enum_domain_trusts,
+		ds_io_r_enum_domain_trusts,
+		NT_STATUS_UNSUCCESSFUL);
 	
 	result = r.status;
 	
@@ -128,7 +98,15 @@ NTSTATUS cli_ds_enum_domain_trusts(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 		int i;
 	
 		*num_domains = r.num_domains;
-		*trusts = TALLOC_ARRAY(mem_ctx, struct ds_domain_trust, r.num_domains);
+		if (r.num_domains) {
+			*trusts = TALLOC_ARRAY(mem_ctx, struct ds_domain_trust, r.num_domains);
+
+			if (*trusts == NULL) {
+				return NT_STATUS_NO_MEMORY;
+			}
+		} else {
+			*trusts = NULL;
+		}
 
 		for ( i=0; i< *num_domains; i++ ) {
 			(*trusts)[i].flags = r.domains.trusts[i].flags;
@@ -157,11 +135,5 @@ NTSTATUS cli_ds_enum_domain_trusts(struct cli_state *cli, TALLOC_CTX *mem_ctx,
 		}
 	}
 	
-done:
-	prs_mem_free(&qbuf);
-	prs_mem_free(&rbuf);
-
 	return result;
 }
-
-

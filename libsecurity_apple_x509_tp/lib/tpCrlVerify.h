@@ -68,7 +68,11 @@ public:
 		TPRevocationPolicy	_policy,
 		CSSM_APPLE_TP_ACTION_FLAGS	_actionFlags,
 		CSSM_APPLE_TP_CRL_OPTIONS	*_crlOpts,
-		CSSM_APPLE_TP_OCSP_OPTIONS	*_ocspOpts)
+		CSSM_APPLE_TP_OCSP_OPTIONS	*_ocspOpts,
+		const CSSM_OID		*_policyOid,
+		const char			*_policyStr,
+		uint32				_policyStrLen,
+		CSSM_KEYUSE			_keyUse)
 			: alloc(_alloc),
 				clHand(_clHand),
 				cspHand(_cspHand),
@@ -82,7 +86,11 @@ public:
 				policy(_policy),
 				actionFlags(_actionFlags),
 				crlOpts(_crlOpts),
-				ocspOpts(_ocspOpts)
+				ocspOpts(_ocspOpts),
+				policyOid(_policyOid),
+				policyStr(_policyStr),
+				policyStrLen(_policyStrLen),
+				keyUse(_keyUse)
 					{ }
 	
 	~TPVerifyContext() { }
@@ -135,6 +143,12 @@ public:
 	/* one of these valid, depends on policy */
 	const CSSM_APPLE_TP_CRL_OPTIONS	*crlOpts;
 	const CSSM_APPLE_TP_OCSP_OPTIONS *ocspOpts;
+	
+	/* optional user trust parameters */
+	const CSSM_OID					*policyOid;
+	const char						*policyStr;
+	uint32							policyStrLen;
+	CSSM_KEYUSE						keyUse;
 };
 
 extern "C" {

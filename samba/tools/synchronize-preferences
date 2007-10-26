@@ -1,0 +1,1287 @@
+#! /usr/bin/env -i /usr/bin/ruby
+
+##
+# Copyright (C) 2007 Apple Inc. All rights reserved.
+# 
+# @APPLE_LICENSE_HEADER_START@
+# 
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+
+ENV.clear
+ENV['__CF_USER_TEXT_ENCODING'] = "0x#{Process::Sys::getuid()}:0:0"
+
+require 'osx/foundation'
+require 'optparse'
+require 'open3'
+require 'ipaddr'
+
+# NOTE Remember that this script is generally being called by either launchd or
+# some admin tool. This means that we must implement a best-effort service
+# model and never fail to do as much as possible. There will be no error output
+# unless the --verbose flag is specified.
+
+$VERBOSE = false    # Print trace messages
+$LINGER = 0	    # Wait for more preferences updates
+$RESTART = false    # Force service restart
+$DEBUG = false	    # Print extra debugging statements
+
+$ID = '$Id: synchronize-preferences 32597 2007-07-22 20:51:18Z jpeach $'
+
+# Take an exclusive lock on ourselves. This is a mutex to serialise
+# simultaneous invocations.
+mutex = File.open($0, 'r')
+mutex.flock(File::LOCK_EX)
+
+$0 = File.basename($0)
+
+OSX.require_framework 'SystemConfiguration'
+
+# Wrapper class to access SCPreferences API.
+class Preferences
+    def initialize(appid)
+	# Unlike the CFPreferences API, SCPreferences requires the actual
+	# plist filename, which always end in '.plist'.
+	appid = "#{appid}.plist" unless appid =~ /\.plist$/
+
+	@prefs = OSX::SCPreferencesCreate(nil, $0, appid)
+	@keys = Preferences.to_native(OSX::SCPreferencesCopyKeyList(@prefs))
+	@keys.push('PreferencesSignature')
+
+	$stderr.print \
+	    "SCPreferences (appid=#{appid}) keys: #{@keys.join(",")}\n" \
+	    if $DEBUG
+
+    end
+
+    def each
+	keys.each { | key |
+	    yield key, self[key]
+	}
+    end
+
+    def signature
+	sig = OSX::SCPreferencesGetSignature(@prefs)
+
+	# Converting CFData to a string ends up with something that looks like
+	# this: <0500000e 4a5e0f00 e8e24046 00000000 f8000000 00000000>
+	# We strip the angle brackets and spaces to give a plain hex string.
+	return sig.to_s.gsub(/[ <>]/, '')
+    end
+
+    def has_key?(key)
+	return @keys.include?(key)
+    end
+
+    def [](key)
+	case key
+	when 'PreferencesSignature'
+	    return self.signature
+	else
+	    val = OSX::SCPreferencesGetValue(@prefs, key)
+
+	    # Need to convert to a native Ruby type because we merge these
+	    # values with our default set, which are native types.
+	    return (Preferences.to_native(val) rescue nil)
+	end
+    end
+
+    # Load a preferences hash from a plist.
+    def Preferences.load_plist(path)
+	print "#{$0}: loading #{path}\n" if $VERBOSE
+	data = OSX::NSData.dataWithContentsOfFile(path)
+	return nil unless data
+
+	plist, format, err = OSX::NSPropertyListSerialization.propertyListFromData_mutabilityOption_format_errorDescription(data,
+		OSX::NSPropertyListImmutable)
+
+	if (plist == nil or !plist.kind_of? OSX::NSCFDictionary)
+	    return nil
+	end
+
+	return Preferences.to_native(plist)
+    end
+
+    # Convert a CFPropertyListRef to a native Ruby type.
+    def Preferences.to_native(val)
+
+	return nil if val == nil
+
+	$stderr.print "converting (#{val.class})\n" if $DEBUG
+
+	if val.kind_of? OSX::NSCFBoolean
+	    return (val == OSX::KCFBooleanTrue ? true : false)
+	end
+
+	if val.kind_of? OSX::NSCFString
+	    return val.to_s
+	end
+
+	if val.kind_of? OSX::NSCFNumber
+	    return val.to_i
+	end
+
+	if val.kind_of? OSX::NSCFArray
+	    array = []
+	    val.each { |element| array += [ Preferences.to_native(element) ] }
+
+	    return array
+	end
+
+	if val.kind_of? OSX::NSCFDictionary
+	    hash = {}
+	    val.allKeys().each { | key |
+		# Note: we need to convert both the key and the data, 
+		# otherwise we will end up indexed by OSX::NSCFString and
+		# won't be able to index by Ruby Strings.
+		new_key = Preferences.to_native(key)
+		new_val = Preferences.to_native(val[key])
+		hash[new_key] = new_val
+	    }
+	    return hash
+	end
+
+	# NOTE: We don't convert CFData or CFDate because we
+	# don't need them for the preferences we have.
+
+	$stderr.print \
+	    "#{$0}: preferences type #{val.class} is not supported\n" \
+	    if $VERBOSE
+
+	return nil
+    end
+end
+
+# This class lets us run commands without invoking the shell. We are not to
+# concerned with trapping the error status, since we are implementing a
+# best-effort service model. It's nice to keep stdout and stderr separate
+# though.
+class ShellCommand
+    LAUNCHCTL = '/bin/launchctl'
+    SW_VERS = '/usr/bin/sw_vers'
+
+    def ShellCommand.run(*cmd)
+	# This ends up in Kernel.exec, which invokes the shell when passed a
+	# single argument.
+	return false unless cmd.length > 1
+	# A final layer of paranoia.
+        return false unless (cmd[0] == LAUNCHCTL || cmd[0] == SW_VERS)
+
+	print "#{$0}: running command: '#{cmd.join("' '")}'\n" if $VERBOSE;
+
+        io = Open3.popen3(*cmd) { | stdin, stdout, stderr |
+            stdin.close # we are not going to provide any input
+
+            loop do
+		read_array = [stdout, stderr].reject { |fd| fd.eof? }
+                break if read_array.empty?
+
+                ready = Kernel.select(read_array, nil, nil, 0.1)
+		next if ready == nil
+
+                ready.flatten.each { | fd |
+		    line = (fd.readline rescue nil)
+		    next if line == nil
+
+                    if (fd == stderr)
+                        $stderr.print "#{$0} (#{cmd[0]}): #{line}" \
+			    if $VERBOSE
+                    else
+                        if block_given?
+                            yield line
+                        else
+                            $stdout.print line \
+				if $VERBOSE
+                        end
+                    end
+		}
+	    end
+	}
+    end
+end
+
+class NotificationCenter
+    def initialize
+        @center = OSX::NSDistributedNotificationCenter.defaultCenter()
+    end
+
+    def post(notification, info)
+        @center.postNotificationName_object_userInfo_options(
+	    notification, # notification name
+	    nil, # notification sender,
+	    info, # user info dictionary
+	    OSX::NSNotificationPostToAllSessions);
+    end
+end
+
+class LaunchControl
+    SMBD = {
+	'service' => 'org.samba.smbd',
+	'plist' => '/System/Library/LaunchDaemons/smbd.plist',
+	'enabled' => false,
+	'required' => false
+    }
+
+    WINBINDD = {
+	'service' => 'org.samba.winbindd',
+	'plist' => '/System/Library/LaunchDaemons/org.samba.winbindd.plist',
+	'enabled' => false,
+	'required' => true # We always want winbindd running
+    }
+
+    NMBD = {
+	'service' => 'org.samba.nmbd',
+	'plist' => '/System/Library/LaunchDaemons/nmbd.plist',
+	'enabled' => false,
+	'required' => false
+    }
+
+    @@force_restart = false # True is we should forcibly bounce all services
+    @@force_disable = false # True if we should always disable all services
+    @@config_change = true  # False if the preferences didn't actually change
+
+    def LaunchControl.force_restart
+	@@force_restart = true
+    end
+
+    def LaunchControl.force_disable
+	@@force_disable = true
+    end
+
+    # Mark this configuration as unchanged. Unless we are forcing something,
+    # we can assume that there's no need to restart any services
+    def LaunchControl.no_config_change
+	@@config_change = false
+    end
+
+    def LaunchControl.init
+	ShellCommand.run(ShellCommand::LAUNCHCTL, 'list') { |line|
+	    # List format is 3 fields: PID Status Label
+	    fields = line.split(/\s+/)
+	    next if fields.length != 3
+
+	    case fields[2]
+	    when SMBD['service']
+		SMBD['enabled'] = true
+	    when WINBINDD['service']
+		WINBINDD['enabled'] = true
+	    when NMBD['service']
+		NMBD['enabled'] = true
+	    end
+	}
+    end
+
+    def LaunchControl.require(service)
+	print "#{$0}: requiring service #{service['service']}\n" \
+	    if $VERBOSE
+
+	case service
+	when SMBD
+	    SMBD['required'] = true
+	when WINBINDD
+	    WINBINDD['required'] = true
+	when NMBD
+	    NMBD['required'] = true
+	end
+    end
+
+    # XXX if the netbios name changed, we should always restart nmbd.
+    # Actually, it is always safe to restart nmbd, it's only winbindd and smbd
+    # that we need to worry about.
+    def LaunchControl.sync
+
+	print "#{$0}: syncing, config_change=#{@@config_change}, " +
+	    "force_restart=#{@@force_restart}, " +
+	    "force_disable=#{@@force_disable}\n" \
+	    if $VERBOSE
+
+	# Now we are going to restart all the necessary services. It's really
+	# too difficult to figure out all the parameters could be changed
+	# without requiring a restart. We should not spuriously end up here
+	# too often because we know when the preferences changed, which
+	# protects us from being called multiple times to update the same info.
+	[SMBD, WINBINDD, NMBD].each { |service|
+
+	    if $VERBOSE
+		    print "#{$0}: service #{service['service']} "
+		    print "required=#{service['required']} "
+		    print "enabled=#{service['enabled']}\n"
+	    end
+
+	    # We need to leave all the services disabled.
+	    if @@force_disable
+		launchd_disable(service['plist'])
+		next
+	    end
+
+	    if service['required']
+
+		if service['enabled']
+		    # Service already enabled. Restart it if necessary.
+		    if @@config_change || @@force_restart
+			print "#{$0}: restarting #{service['service']}\n" \
+			    if $VERBOSE
+			launchd_stop(service['service'])
+		    end
+		else
+		    launchd_enable(service['plist'])
+		end
+	    else
+		if service['enabled']
+		    launchd_disable(service['plist'])
+		end
+	    end
+	}
+
+	notify = NotificationCenter.new()
+	notify.post('com.apple.ServiceConfigurationChangedNotification',
+	    {
+		'ServiceName' => 'smb',
+		'State' => (SMBD['enabled'] ? 'RUNNING' : 'STOPPED') 
+	    })
+    end
+
+private
+
+    def LaunchControl.launchd_stop(service)
+	ShellCommand.run(ShellCommand::LAUNCHCTL, 'stop', service)
+    end
+
+    def LaunchControl.launchd_enable(plist)
+	ShellCommand.run(ShellCommand::LAUNCHCTL, 'load', '-w', plist)
+    end
+
+    def LaunchControl.launchd_disable(plist)
+	ShellCommand.run(ShellCommand::LAUNCHCTL, 'unload', '-w', plist)
+    end
+
+end
+
+# Handle options which we can't or don't want to implement.
+class NullOption
+    def initialize(name)
+	@name = name
+    end
+
+    def emit(prefs, config)
+	print "#{$0}: ignoring unimplemented option '#{@name}'\n" if $VERBOSE
+    end
+
+    def to_s
+	return @name
+    end
+end
+
+class SuspendOption
+    def initialize(name)
+	@name = name
+    end
+
+    def emit(prefs, config)
+	if prefs[@name]
+	    LaunchControl.force_disable
+	end
+    end
+end
+
+# Handle options that have a simple 1-1 mapping to smb.conf options.
+class SimpleOption < NullOption
+    def initialize(name, text)
+	@name = name
+	@text = text
+    end
+
+    def emit(prefs, config)
+	# It's possible (in principle) that setting a value to empty might
+	# be different to not setting it at all. I don't know of any such
+	# cases, so let's avoid this for now -- jpeach.
+	return unless self.has_value?(prefs)
+
+	if (prefs[@name].class == TrueClass || prefs[@name].class == FalseClass)
+	    val = prefs[@name] ? 'yes' : 'no'
+	elsif prefs[@name].class == String
+	    val = prefs[@name]
+	elsif prefs[@name].class == Fixnum
+	    val = "#{prefs[@name]}"
+	else
+	    # SimpleOption is only for simple options!
+	    $stderr.print \
+		"#{$0}: the #{@name} preference is an invalid type (#{prefs[@name].class})\n" \
+		if $VERBOSE
+	    return
+	end
+
+	config.append(@text, val)
+    end
+
+    def has_value?(prefs)
+	val = prefs[@name]
+
+	return false if val == nil
+	return false if val.kind_of?(String) && val == ""
+	return false if val.kind_of?(Array) && val.length == 0
+
+	return true
+    end
+
+end
+
+# Handle setting the Kerberos realm (both the managed and local).
+class KerberosRealmOption < NullOption
+    def initialize(realm_tag, local_realm_tag)
+	@name = realm_tag
+	@mrealm_tag = realm_tag
+	@lrealm_tag = local_realm_tag
+    end
+
+    def emit(prefs, config)
+	mrealm = SimpleOption.new(@mrealm_tag, 'realm')
+	lrealm = SimpleOption.new(@lrealm_tag, 'com.apple: lkdc realm')
+
+	# Just bail immediately if neither the managed nor local realm is
+	# configured.
+	return unless (mrealm.has_value?(prefs) || lrealm.has_value?(prefs))
+
+	mrealm.emit(prefs, config)
+	lrealm.emit(prefs, config)
+	config.append('use kerberos keytab', 'yes')
+
+	# If we have a local realm, but no managed realm, set both to the
+	# local realm.
+	if lrealm.has_value?(prefs) && !mrealm.has_value?(prefs)
+	    SimpleOption.new(@lrealm_tag, 'realm').emit(prefs, config)
+	end
+
+    end
+end
+
+# Handle the case where we want to register our name with a WINS server. We
+# take a bool that indicates whether we want to register and a list of IP
+# addresses for the servers we will register with.
+class WinsRegisterOption < NullOption
+    def initialize(register_tag, addrlist_tag)
+	@name = register_tag
+	@addrlist = addrlist_tag
+    end
+
+    def emit(prefs, config)
+	return unless prefs[@name]
+
+	# We know we want to register, so check for WINS server addresses. The
+	# order of operations here matters, because we can throw an exception.
+	list = IPAddressOption.new(@addrlist, 'wins server')
+	list.emit(prefs, config)
+
+	LaunchControl.require(LaunchControl::NMBD)
+    end
+end
+
+# Configure whether guest access is allowed globally. If this is enabled, the
+# per-share guest settings will be respected. If this is disabled, then no
+# guest for you, even if it is enabled on a share.
+class GuestAccessOption < NullOption
+    def initialize(pref)
+	@name = pref
+    end
+
+    def emit(prefs, config)
+	if self.enabled(prefs)
+	    config.append('map to guest', 'Bad User')
+	else
+	    config.append('map to guest', 'Never')
+	end
+
+	config.append_section(SmbConfigFile::STATUS,
+	    'Guest access', self.enabled(prefs) ? 'per-share' : 'never')
+    end
+
+    def enabled(prefs)
+	return prefs[@name] ? true : false
+    end
+end
+
+class ServicesOption < NullOption
+    WINS = 'wins'
+    DISK = 'disk'
+    PRINT = 'print'
+
+    def initialize(pref)
+	@name = pref
+    end
+
+    def emit(prefs, config)
+
+	disk = false
+	print = false
+	wins = false
+	prefs[@name] = [] unless prefs[@name] != nil
+
+	begin
+	    # If the preferences file is messed up, prefs[@name] might not
+	    # be an array or it might be missing, hence the exception handler
+	    prefs[@name].each { |service|
+		case
+		when service.casecmp(WINS) == 0
+		    wins = true
+		    LaunchControl.require(LaunchControl::NMBD)
+		when service.casecmp(DISK) == 0
+		    disk = true
+		    LaunchControl.require(LaunchControl::NMBD)
+		    LaunchControl.require(LaunchControl::SMBD)
+		when service.casecmp(PRINT) == 0
+		    print = true
+		    LaunchControl.require(LaunchControl::NMBD)
+		    LaunchControl.require(LaunchControl::SMBD)
+		end
+	    }
+
+	rescue StandardError => err
+	    if $VERBOSE
+		$stderr.print "#{$0}: #{err}\n"
+		$stderr.print \
+		    "#{$0}: the #{@name} preference is missing or invalid\n"
+	    end
+	end
+
+	# Tell nmbd to act as a WINS server.
+	config.append('wins support', wins ? 'yes' : 'no')
+
+	config.append('enable disk services', disk ? 'yes' : 'no')
+	config.append('enable print services', print ? 'yes' : 'no')
+    end
+end
+
+# Handle automatic shares. The two cases we care about are where the logged-in
+# user is shown their own home directory and where members of the "admin" group
+# are shown all local volumes.
+class AutoSharesOption < NullOption
+    def initialize(homes_tag, admin_tag)
+	super("#{homes_tag} or #{admin_tag}")
+	@homes = homes_tag
+	@admin = admin_tag
+    end
+
+    def emit(prefs, config)
+	# XXX This is dubious. We should have a way to enable virtual admin
+	# shares without also enabling virtual home shares.
+	need_homes = (prefs[@homes] || prefs[@admin])
+
+	if need_homes
+	    config.append_section(SmbConfigFile::HOMES,
+		    'comment', 'User Home Directories')
+	    config.append_section(SmbConfigFile::HOMES,
+		    'browseable', 'no')
+	    config.append_section(SmbConfigFile::HOMES,
+		    'read only', 'no')
+	    config.append_section(SmbConfigFile::HOMES,
+		    'create mode', '0750')
+	    config.append_section(SmbConfigFile::HOMES,
+		    'guest ok', 'no')
+	end
+
+	if prefs[@admin]
+	    config.append_section(SmbConfigFile::HOMES,
+		    'com.apple: show admin all volumes', prefs[@admin])
+	end
+
+    end
+end
+
+class IPAddressOption < NullOption
+    def initialize(name, text)
+	@name = name
+	@text = text
+    end
+
+    def emit(prefs, config)
+	return unless prefs[@name]
+
+	addresses = []
+
+	# Convert the strings to IP addresses just to validate the syntax
+	prefs[@name].each { | addr |
+	    ip = (IPAddr.new(addr, Socket::AF_INET) rescue nil)
+
+	    unless ip
+		$stderr.print \
+		    "#{$0} (#{@name}): #{addr} is not a valid IPv4 address\n" \
+		    if $VERBOSE
+		next
+	    end
+
+	    addresses += [ addr ]
+	}
+
+	config.append(@text, addresses.join(' ')) if addresses.length > 0
+    end
+end
+
+# Handle the NetBIOS browse master configuration. Depending on the server role,
+# we will attempt to become with a domain or a master browser.
+class MasterBrowserOption < NullOption
+
+    LocalMaster = 'local'
+    DomainMaster = 'domain'
+
+    def initialize(name, role)
+	@name = name
+	@smbrole = role
+    end
+
+    def emit(prefs, config)
+	val = prefs[@name] ? prefs[@name] : 'none'
+
+	case @smbrole.role(prefs)
+	when ServerRoleOption::PDC
+	    # If we are a PDC, we really have to be a master browser.
+	    val = DomainMaster
+	when ServerRoleOption::BDC
+	    # If we are a BDC, we really have to be a local browser.
+	    val = LocalMaster
+	end
+
+	case 
+	when val.casecmp(DomainMaster) == 0
+	    config.append('domain master', 'yes')
+	    config.append('preferred master', 'yes')
+	    config.append('os level', '65')
+	    config.append_section(SmbConfigFile::STATUS,
+		'NetBIOS browsing', 'domain master browser')
+	
+	when val.casecmp(LocalMaster) == 0
+	    config.append('domain master', 'no')
+	    config.append('local master', 'yes')
+	    config.append('preferred master', 'yes')
+	    config.append('os level', '65')
+	    config.append_section(SmbConfigFile::STATUS,
+		'NetBIOS browsing', 'local master browser')
+	else
+	    config.append('domain master', 'no')
+	    config.append('local master', 'no')
+	    config.append('preferred master', 'no')
+	    config.append_section(SmbConfigFile::STATUS,
+		'NetBIOS browsing', 'not a master browser')
+	    return
+	end
+
+	# Yes, to be a master browser, we need to be running both smbdand
+	# and nmbd.
+	LaunchControl.require(LaunchControl::NMBD)
+	LaunchControl.require(LaunchControl::SMBD)
+    end
+end
+
+class ServerRoleOption < NullOption
+    STANDALONE = 'Standalone'
+    ADS = 'ActiveDirectoryMember'
+    PDC = 'PrimaryDomainController'
+    BDC = 'BackupDomainController'
+    DOMAIN = 'DomainMember'
+
+    MACHINE_SCRIPT = '/usr/bin/opendirectorypdbconfig ' +
+		'-c create_computer_account -r %u -n "/LDAPv3/127.0.0.1"'
+    USER_SCRIPT = '/usr/bin/opendirectorypdbconfig ' +
+		'-c create_user_account -r %u -n "/LDAPv3/127.0.0.1"'
+
+    def initialize(name, guest)
+	@name = name
+	@guestopt = guest
+    end
+
+    # Return the configured role. STANDALONE is the default in the case of an
+    # invalid or missing role.
+    def role(prefs)
+	current_role = prefs[@name]
+	return STANDALONE unless current_role
+
+	case
+	when current_role.casecmp(DOMAIN) == 0
+	    return DOMAIN
+	when current_role.casecmp(ADS) == 0
+	    return ADS
+	when current_role.casecmp(PDC) == 0
+	    return PDC
+	when current_role.casecmp(BDC) == 0
+	    return BDC
+	else
+	    return STANDALONE
+	end
+    end
+
+    def emit(prefs, config)
+	auth = @guestopt.enabled(prefs) ? "guest odsam" : "odsam";
+
+	case self.role(prefs)
+	# STANDALONE and ADS are the same except for the security mode.
+	when STANDALONE
+	    config.append('security', 'USER')
+	    config.append('use spnego', 'yes')
+
+	# Member of an AD domain.
+	when ADS
+	    config.append('security', 'ADS')
+	    config.append('use spnego', 'yes')
+
+	# Member of an NT4 domain.
+	when DOMAIN
+	    config.append('security', 'DOMAIN')
+	    config.append('domain logons', 'no')
+	    auth = @guestopt.enabled(prefs) ? "guest ntdomain odsam" \
+					    : "ntdomain odsam"
+
+	# PDC of an NT4 domain.
+	when PDC
+	    config.append('security', 'USER')
+	    config.append('add machine script', MACHINE_SCRIPT)
+	    config.append('add user script', USER_SCRIPT)
+	    add_domain_logon(config)
+
+	# BDC of an NT4 domain.
+	when BDC
+	    config.append('security', 'USER')
+	    add_domain_logon(config)
+	end
+
+	config.append('auth methods', auth)
+	config.append_section(SmbConfigFile::STATUS,
+		'Server role', self.role(prefs))
+
+    end
+
+    # Add the parameters we need to for domain logons.
+    def add_domain_logon(config)
+	config.append('domain logons', 'yes')
+
+	# If we are doing user logons, autocreate a home directory.
+	config.append_section(SmbConfigFile::HOMES, 
+		    'root preexec', '/usr/sbin/inituser %U')
+	config.append('logon drive', 'H:')
+	config.append('logon path', '\\%N\profiles%u')
+
+	# Add a [netlogon] share.
+	config.append_section(SmbConfigFile::NETLOGON, 'path', '/etc/netlogon')
+	config.append_section(SmbConfigFile::NETLOGON, 'browseable', 'no')
+	config.append_section(SmbConfigFile::NETLOGON, 'write list', '@admin')
+	config.append_section(SmbConfigFile::NETLOGON, 'oplocks', 'yes')
+	config.append_section(SmbConfigFile::NETLOGON, 'strict locking', 'no')
+
+	# Add a [profiles] share.
+	config.append_section(SmbConfigFile::PROFILES,
+		'path', '/Users/Profiles')
+	config.append_section(SmbConfigFile::NETLOGON, 'browseable', 'no')
+	config.append_section(SmbConfigFile::NETLOGON, 'read only', 'no')
+	config.append_section(SmbConfigFile::NETLOGON, 'oplocks', 'yes')
+	config.append_section(SmbConfigFile::NETLOGON, 'strict locking', 'no')
+    end
+end
+
+# Determine whether the preferences have changed since the last time we
+# synchronized.
+class PrefsChangedOption < NullOption
+    @@force_change = false
+
+    def PrefsChangedOption.force_change
+	@@force_change = true
+    end
+
+    def initialize(name, path)
+	@name = name
+	@path = path
+	@prev_sig, @prev_gen = get_config_signatures(@path)
+    end
+
+    def emit(prefs, config)
+	LaunchControl.no_config_change unless self.changed(prefs)
+
+	if prefs[@name]
+	    config.append_section(SmbConfigFile::STATUS, 
+		'Preferences signature',  prefs[@name])
+	end
+
+	# Stash the svn Id keyword so we can tell which script version
+	# generated this configuration.
+	config.append_section(SmbConfigFile::STATUS, 
+		'Preferences generator',  $ID)
+    end
+
+    # Return true if the preferences have changed (ie. we need to regenerate
+    # the SMB configuration).
+    def changed(prefs)
+	curr_sig = prefs[@name]
+
+	if @@force_change
+	    return true
+	end
+
+	if curr_sig == nil || curr_sig != @prev_sig
+	    # Preference signature didn't match, don't bother checking the Id.
+	    return true
+	end
+
+	if @prev_gen == nil || @prev_gen != $ID
+	    # This config was generated by a different version of this script.
+	    # We should be regenerating it because the configuration rules
+	    # might have changed.
+	    return true
+	end
+
+	return false
+    end
+
+
+private
+    def get_config_signatures(path)
+	signature = nil
+	generator = nil
+	begin
+	    File.open(path, 'r') { | fd |
+		fd.each_line { | line |
+		    if line.match(/Preferences signature: ([abcdef0-9]+)/)
+			signature = $1
+		    end
+
+		    if line.match(/Preferences generator: (\$Id*\$)/)
+			generator = $1
+		    end
+
+		    if (signature && generator)
+			return [signature, generator]
+		    end
+		}
+
+	    }
+
+	    return [signature, generator]
+	rescue Exception => err
+	    if $VERBOSE
+		$stderr.print "#{$0}: unable to read signatures from #{path}\n"
+		$stderr.print "#{$0}: #{err}\n"
+	    end
+	end
+
+	return [nil, nil]
+    end
+
+end
+
+class SmbConfigFile
+    SmbConfigPath = '/etc/smb.conf'
+    SmbRunConfigPath = '/var/run/smb.conf'
+
+    GLOBAL = 'global'
+    PRINTERS = 'printers'
+    HOMES = 'homes'
+    NETLOGON = 'netlogon'
+    PROFILES = 'profiles'
+    STATUS = '_internal_only_'
+
+    def initialize()
+	# @config is a hash where the keys are section labels and the 
+	# values are a list of the key/value pairs in that section.
+	@config = {
+	    GLOBAL => {},
+	    HOMES => {},
+	    NETLOGON => {},
+	    PROFILES => {},
+	    PRINTERS => {},
+	    STATUS => {}
+	}
+    end
+
+    def sections
+	return @config.keys
+    end
+
+    def lines(section)
+	unless @config.has_key? section
+	    raise ArgumentError, "invalid config section #{section}", caller
+	end
+
+	@config[section].keys.sort.each { | key |
+	    yield key, @config[section][key]
+	}
+    end
+
+    def has_section?(section)
+	unless @config.has_key? section
+	    raise ArgumentError, "invalid config section #{section}", caller
+	end
+
+	return @config[section].length > 0 ? true : false
+    end
+
+    def append(key, value)
+	append_section(GLOBAL, key, value)
+    end
+
+    def append_section(section, key, value)
+	unless @config.has_key? section
+	    raise ArgumentError, "invalid config section #{section}", caller
+	end
+
+	@config[section][key.downcase] = value
+    end
+end
+
+class SmbPreferences
+    SERVER = 1
+    DESKTOP = 2
+    AppID = 'com.apple.smb.server'
+    DefaultPrefsPath = \
+	'/System/Library/CoreServices/SmbFileServer.bundle/Resources'
+
+    ServerDefaultPrefs = "#{DefaultPrefsPath}/ServerDefaults.plist"
+    DesktopDefaultPrefs = "#{DefaultPrefsPath}/DesktopDefaults.plist"
+
+    # Builtin preferences to be used when neither the Server nor the Desktop
+    # defaults can be found.
+    BUILTIN = 
+    {
+	'NetBIOSName' => nil,
+	'NetBIOSNodeType' => nil,
+	'NetBIOSScope' => nil,
+	'WINSServerAddressList' => [],
+	'Workgroup' => 'WORKGROUP',
+	'KerberosRealm' => nil,
+	'LocalKerberosRealm' => nil,
+	'SuspendServices' => false,
+	'EnabledServices' => [],
+	'ServerRole' => ServerRoleOption::STANDALONE,
+	'ServerDescription' => 'Mac OS X',
+	'AllowGuestAccess' => false,
+	'MaxClients' => 10 ,
+	'AllowKerberosAuth' => true,
+	'AllowNTLMAuth'	=> true,
+	'AllowLanManAuth' => false,
+	'LoggingLevel' => 1,
+	'DOSCodePage' => '437',
+	'MasterBrowser'	=> false,
+	'RegisterWINSName' => false,
+	'VirtualHomeShares' => true,
+	'VirtualAdminShares' => true,
+	'PasswordServer' => nil,
+	'PreferencesSignature' => nil,
+    }
+
+    def SmbPreferences.system_type
+	is_server = false
+	ShellCommand.run(ShellCommand::SW_VERS, '-productName') { |line|
+	    is_server = true if line =~ /Server/
+	}
+
+	return (is_server ? SERVER : DESKTOP)
+    end
+
+    def SmbPreferences.defaults
+	prefs = {}
+
+	case system_type()
+	when SERVER
+	    prefs = Preferences.load_plist(ServerDefaultPrefs)
+	when DESKTOP
+	    prefs = Preferences.load_plist(DesktopDefaultPrefs)
+	end
+
+	unless prefs
+	    $stderr.print \
+		"#{$0}: failed to load default preferences\n"
+	    return {}
+	end
+
+	return prefs
+    end
+
+    def initialize
+	# Start with the BUILTIN preferences set and merge in the defaults
+	# from the static plists. This protects us if they ever go AWOL.
+	@current = BUILTIN
+	self.merge_prefs(SmbPreferences.defaults)
+    end
+
+    # Merge the given set of Preferences with the current set.
+    def merge_prefs(prefs)
+	keys = @current.keys
+	keys.each { | key |
+	    # Only override the preference if we know there is a key for it.
+	    # This prevents us acceidentally overriding with nil by
+	    # referencing a key that's not present, but allows us to override
+	    # with nil when it's actually specified.
+	    next unless prefs.has_key?(key)
+
+	    val = prefs[key]
+	    $stderr.print \
+		"updating #{key} from '#{@current[key]}' to '#{val}'\n" \
+		if $DEBUG
+
+	    @current[key] = val
+	}
+    end
+
+    def each
+	@current.each do |key, value|
+	    yield key, value
+	end
+    end
+
+    def [](key)
+	return @current[key]
+    end
+
+    # Write the generated config to the config file.
+    def sync_config(optionlist)
+	File.open(SmbConfigFile::SmbRunConfigPath, "w") { | fd |
+	    config_lines(optionlist) { | line | 
+		fd.write(line)
+	    }
+
+	    fd.fsync
+	}
+    end
+
+    # Print the generated config to stdout.
+    def print_config(optionlist)
+	config_lines(optionlist) { | line | $stdout.print line }
+    end
+
+private
+
+    def config_lines(optionlist)
+	config = SmbConfigFile.new()
+	optionlist.each do |option|
+	    begin
+		option.emit(@current, config)
+	    rescue Exception => err
+		if $VERBOSE
+		    $stderr.print "#{$0}: failed to handle option #{option}\n"
+		    $stderr.print "#{$0}: #{err}\n"
+		end
+	    end
+	end
+
+	yield <<EOF
+#
+# Configuration options for smbd(8), nmbd(8) and winbindd(8).
+#
+# This file is automatically generated, DO NOT EDIT!
+#
+EOF
+
+	config.lines(SmbConfigFile::STATUS) { | key, value |
+	    yield "# #{key.capitalize}: #{value}\n"
+	}
+
+	yield "#\n\n"
+
+	config.sections.each { |section| 
+	    # We already emitted the status section
+	    next if section == SmbConfigFile::STATUS
+
+	    if config.has_section? section
+		yield "\n[#{section}]\n"
+		config.lines(section) { | key, value |
+		    yield "    #{key} = #{value}\n"
+		}
+	    end
+	}
+    end
+
+end
+
+class Command
+
+    OPTIONS = [
+	SimpleOption.new('NetBIOSName', 'netbios name'),
+	NullOption.new('NetBIOSNodeType'),
+	SimpleOption.new('NetBIOSScope', 'netbios scope'),
+
+	SimpleOption.new('Workgroup', 'workgroup'),
+
+	NullOption.new('AllowKerberosAuth'),
+	NullOption.new('AllowNTLM2Auth'),
+	SimpleOption.new('AllowNTLMAuth', 'ntlm auth'),
+	SimpleOption.new('AllowLanManAuth', 'lanman auth'),
+
+	SimpleOption.new('ServerDescription', 'server string'),
+	SimpleOption.new('MaxClients', 'max smbd processes'),
+	SimpleOption.new('LoggingLevel', 'log level'),
+	SimpleOption.new('DOSCodePage', 'dos charset'),
+
+	KerberosRealmOption.new('KerberosRealm', 'LocalKerberosRealm'),
+
+	GuestAccessOption.new('AllowGuestAccess'),
+
+	MasterBrowserOption.new('MasterBrowser',
+			    ServerRoleOption.new('ServerRole', nil)),
+
+	PrefsChangedOption.new('PreferencesSignature',
+			    SmbConfigFile::SmbRunConfigPath),
+
+	WinsRegisterOption.new('RegisterWINSName', 'WINSServerAddressList'),
+
+	# Password server can be a hostname, IP address or something more
+	# complex. We really only want to support the first two, but since a
+	# hostname can be pretty much anything, let's just allow the
+	# flexibility.
+	SimpleOption.new('PasswordServer', 'password server'),
+
+	ServicesOption.new('EnabledServices'),
+	SuspendOption.new('SuspendServices'),
+	AutoSharesOption.new('VirtualHomeShares', 'VirtualAdminShares'),
+
+	ServerRoleOption.new('ServerRole',
+			    GuestAccessOption.new('AllowGuestAccess'))
+    ]
+
+    def Command.SyncPrefs
+	begin
+	    smbopts = SmbPreferences.new()
+	    smbopts.merge_prefs(Preferences.new(SmbPreferences::AppID))
+	    smbopts.sync_config(OPTIONS)
+	rescue StandardError => err
+	    $stderr.print "#{$0}: #{err}\n" if $VERBOSE
+	    return 1
+	end
+
+	LaunchControl.init
+	LaunchControl.sync
+	return 0
+    end
+
+    def Command.ListPending
+	smbopts = SmbPreferences.new()
+	smbopts.merge_prefs(Preferences.new(SmbPreferences::AppID))
+	smbopts.print_config(OPTIONS)
+	return 0
+    end
+
+    def Command.ListDefaults
+	smbopts = SmbPreferences.new()
+	smbopts.print_config(OPTIONS)
+	return 0
+    end
+
+    def Command.ChangesPending
+	if Command.need_pref_sync
+	    print "#{$0}: configuration is out of date\n" if $VERBOSE
+	    return 0
+	else
+	    print "#{$0}: configuration is current\n" if $VERBOSE
+	    return 2
+	end
+    end
+
+private
+
+    def Command.need_pref_sync
+	prefs = Preferences.new(SmbPreferences::AppID)
+	check = PrefsChangedOption.new('PreferencesSignature',
+			    SmbConfigFile::SmbRunConfigPath)
+
+	return check.changed(prefs)
+    end
+
+end
+
+opts = OptionParser.new
+opts.on('--verbose',
+'print extra debugging messages') {
+    $VERBOSE = true
+}
+
+opts.on('--linger=ARG', Integer,
+'stick around and sync updates until ARG', 'seconds of inactivity') { |val|
+    $LINGER = val.to_i
+}
+
+opts.on('--force-sync',
+'force synchronization even if it is', 'unnecessary') {
+    PrefsChangedOption.force_change
+}
+
+opts.on('--restart-services',
+'restart any services that are', 'already running') {
+    LaunchControl.force_restart
+}
+
+# Disable all the services. This is for apps that are going to mess with the
+# Samba state in more detail. They should set the preferences, then synchronize
+# and suspend. Once they have done the rest of the configuration, they can
+# synchronize again and the services will be started.
+opts.on('--suspend-services',
+"leave all services disabled") {
+	LaunchControl.force_disable
+}
+
+opts.on('--changes-pending',
+'exit with 0 status if there are', 'unsynchronized changes') {
+    exit Command.ChangesPending
+}
+
+opts.on('--list-pending',
+'print the pending configuration, but do', 'not synchronize') {
+    exit Command.ListPending
+}
+
+opts.on('--list-defaults',
+"print the default configuration and exit") {
+    exit Command.ListDefaults
+}
+
+begin
+    opts.parse!(ARGV) # Remove args as they are parsed.
+    if (ARGV.length != 0)
+	raise OptionParser::InvalidOption, ARGV[0], caller
+    end
+rescue OptionParser::ParseError => err
+    $stderr.print "#{$0}: #{err}\n"
+    $stderr.print opts.help()
+    exit 1
+end
+
+if $LINGER <= 0
+    exit Command.SyncPrefs
+else
+
+    # Do an initial sync to handle the change that we started up for.
+    Command.SyncPrefs
+
+    print "#{$0}: lingering for #{$LINGER}s\n" if $VERBOSE
+
+    stop = Time.now() + $LINGER
+    path = \
+	"/Library/Preferences/SystemConfiguration/#{SmbPreferences::AppID}.plist"
+    last = File.mtime(path)
+
+    # NB. We should be using SCPreferencesSetCallback and a runloop to figure
+    # out when the changes happen, but System Prefs writes the plist directly,
+    # so we have to resort to checking the mtime.
+    while Time.now() < stop
+	sleep 0.2
+	current = File.mtime(path)
+	if last != current
+	    last = current
+	    Command.SyncPrefs
+	    # Push out the stop time since there was some activity. 
+	    stop = Time.now() + $LINGER
+	end
+    end
+
+    exit 0
+end
+
+# vim: filetype=ruby ai ts=8 sts=4 sw=4 tw=79

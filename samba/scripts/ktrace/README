@@ -1,0 +1,9 @@
+These files are useful for updating the tracepoints for kdebug tracing.
+
+ktrace.names: This is the full (ordered) list of trace points generated from
+smbprofile.h, you can regenerate this by filtering out the list of PR_VALUE_*
+constants and doing a quick name transform.
+
+smb-kdebug.pl: This takes ktrace.names as input an generates a mapping from
+trace point codes to (arguably) human-readable names. This mapping can be
+appended to trace.codes.

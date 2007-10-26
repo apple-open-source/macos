@@ -29,17 +29,24 @@
 .Sh SYNOPSIS
 .Fd #include <semaphore.h>
 .Ft sem_t *
-.Fn sem_open "const char *name" "int flags"
-.Ft sem_t *
-.Fn sem_open "const char *name" "int flags" "mode_t mode" "unsigned int value"
+.Fo sem_open
+.Fa "const char *name"
+.Fa "int oflag"
+.Fa "..."
+.Fc
+.Pp
+The parameters "mode_t mode" and "unsigned int value"
+are optional.
 .Sh DESCRIPTION
 The named semaphore named
 .Fa name
 is initialized and opened as specified by the argument
-.Fa flags
+.Fa oflag
 and a semaphore descriptor is returned to the calling process.
 .Pp
-The flags specified are formed by
+The value of
+.Fa oflag
+is formed by
 .Em or Ns 'ing
 the following values:
 .Pp
@@ -49,8 +56,8 @@ O_EXCL		error if create and semaphore exists
 .Ed
 .Pp
 If
-.Dv O_CREATE
-if specified,
+.Dv O_CREAT
+is specified,
 .Fn sem_open
 requires an additional two arguments.
 .Fa mode
@@ -77,7 +84,7 @@ and
 set.
 .Pp
 When a new semaphore is created, it is given the user ID and group ID
-which coorespond to the effective user and group IDs of the calling
+which correspond to the effective user and group IDs of the calling
 process. There is no visible entry in the file system for the created
 object in this implementation.
 .Pp
@@ -148,14 +155,14 @@ is specified, the file does not exist, and there is insufficient
 space available to create the semaphore.
 .El
 .Sh SEE ALSO
-.Xr semctl 2 ,
-.Xr semget 2 ,
-.Xr semop 2 ,
 .Xr sem_close 2 ,
 .Xr sem_post 2 ,
 .Xr sem_trywait 2 ,
 .Xr sem_unlink 2 ,
 .Xr sem_wait 2 ,
+.Xr semctl 2 ,
+.Xr semget 2 ,
+.Xr semop 2 ,
 .Xr umask 2
 .Sh HISTORY
 .Fn sem_open

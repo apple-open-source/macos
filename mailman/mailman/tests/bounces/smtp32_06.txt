@@ -1,0 +1,41 @@
+Date:     Fri, 18 Nov 2005 21:22:05 -0700
+Message-Id: <10511182122.AA10923782@mail.value.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+From:     "Postmaster" <postmaster@mail.value.net>
+Sender:   <postmaster@mail.value.net>
+To:       <msapiro@value.net>
+Subject:  Undeliverable Mail
+X-Mailer: <SMTP32 v8.15>
+X-RCPT-TO: <msapiro@value.net>
+Status: U
+X-UIDL: 430582473
+
+Unknown user: Absolute_garbage_addr@pacbell.net
+
+RCPT TO generated following response:
+553 5.3.0 <Absolute_garbage_addr@pacbell.net>... Addressee unknown, relay=[205.208.202.10]
+
+
+
+Original message follows.
+
+Received: from msapiro [209.182.169.133] by mail.value.net with ESMTP
+  (SMTPD32-8.15) id A86C394C00A6; Fri, 18 Nov 2005 21:22:04 -0700
+Message-ID: <PC1740200511182022000562294774d2@msapiro>
+X-Mailer: Ultrafunk Popcorn 1.74 (11-May-2005)
+X-Priority: 3
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=iso-8859-1
+Date: Fri, 18 Nov 2005 20:22:00 -0800
+From: Mark Sapiro <msapiro@value.net>
+To: Absolute_garbage_addr@pacbell.net
+Subject: Bounce test
+Organization: Not Very Much
+
+
+-- 
+Mark Sapiro <msapiro@value.net>       The highway is for gamblers,
+San Francisco Bay Area, California    better use your sense - B. Dylan
+

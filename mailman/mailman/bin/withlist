@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 """General framework for interacting with a mailing list object.
 
@@ -49,12 +49,12 @@ Options:
     --run [module.]callable
     -r [module.]callable
         This can be used to run a script with the opened MailList object.
-        This works by attempting to import `module' (which must already be
-        accessible on your sys.path), and then calling `callable' from the
-        module.  callable can be a class or function; it is called with the
-        MailList object as the first argument.  If additional args are given
-        on the command line, they are passed as subsequent positional args to
-        the callable.
+        This works by attempting to import `module' (which must be in the
+        directory containing withlist, or already be accessible on your
+        sys.path), and then calling `callable' from the module.  callable can
+        be a class or function; it is called with the MailList object as the
+        first argument.  If additional args are given on the command line,
+        they are passed as subsequent positional args to the callable.
 
         Note that `module.' is optional; if it is omitted then a module with
         the name `callable' will be imported.
@@ -115,24 +115,36 @@ def changepw(mlist, addr, newpasswd):
         print 'No address matched:', addr
 
 and run this from the command line:
-%% bin/withlist -l -r changepw mylist somebody@somewhere.org foobar
+ %% bin/withlist -l -r changepw mylist somebody@somewhere.org foobar
 """
 
+import os
 import sys
-import getopt
 import code
+import getopt
 
 import paths
-from Mailman import Utils
-from Mailman import MailList
 from Mailman import Errors
+from Mailman import MailList
+from Mailman import Utils
 from Mailman.i18n import _
+
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
 
 # `m' will be the MailList object and `r' will be the results of the callable
 m = None
 r = None
-VERBOSE = 1
-LOCK = 0
+VERBOSE = True
+LOCK = False
+
+
+# Put the bin directory on sys.path -- last
+sys.path.append(os.path.dirname(sys.argv[0]))
 
 
 
@@ -204,23 +216,30 @@ def main():
 
     run = None
     interact = None
-    all = 0
+    all = False
+    dolist = True
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage(0)
         elif opt in ('-l', '--lock'):
-            LOCK = 1
+            LOCK = True
         elif opt in ('-r', '--run'):
             run = arg
         elif opt in ('-q', '--quiet'):
-            VERBOSE = 0
+            VERBOSE = False
         elif opt in ('-i', '--interactive'):
-            interact = 1
+            interact = True
         elif opt in ('-a', '--all'):
-            all = 1
+            all = True
 
     if len(args) < 1 and not all:
-        usage(1, _('No list name supplied.'))
+        warning = _('No list name supplied.')
+        if interact:
+            # Let them keep going
+            print warning
+            dolist = False
+        else:
+            usage(1, warning)
 
     if all and not run:
         usage(1, _('--all requires --run'))
@@ -228,9 +247,9 @@ def main():
     # The default for interact is 1 unless -r was given
     if interact is None:
         if run is None:
-            interact = 1
+            interact = True
         else:
-            interact = 0
+            interact = False
 
     # try to import the module for the callable
     func = None
@@ -251,7 +270,7 @@ def main():
 
     if all:
         r = [do_list(listname, args, func) for listname in Utils.list_names()]
-    else:
+    elif dolist:
         listname = args.pop(0).lower().strip()
         r = do_list(listname, args, func)
 
@@ -266,8 +285,11 @@ def main():
             pass
         namespace = globals().copy()
         namespace.update(locals())
-        code.InteractiveConsole(namespace).interact(
-            _("The variable `m' is the %(listname)s MailList instance"))
+        if dolist:
+            ban = _("The variable `m' is the %(listname)s MailList instance")
+        else:
+            ban = None
+        code.InteractiveConsole(namespace).interact(ban)
 
 
 

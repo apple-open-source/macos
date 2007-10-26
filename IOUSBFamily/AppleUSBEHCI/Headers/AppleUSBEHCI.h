@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2006 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -28,10 +28,12 @@
 #include <libkern/c++/OSData.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOFilterInterruptEventSource.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IODMACommand.h>
 #include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/pci/IOPCIDevice.h>
 
-#include <IOKit/usb/IOUSBControllerV2.h>
+#include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBControllerListElement.h>
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/USBHub.h>
@@ -42,35 +44,15 @@
 #define MICROSECOND		(1)
 #define MILLISECOND		(1000)
 
-/* Convert USBLog to use kprintf debugging */
+// Convert USBLog to use kprintf debugging
+// The switch is here, but the work is done in the individual source files because this header is included by the companion controllers
 #define EHCI_USE_KPRINTF 0
-
-#if EHCI_USE_KPRINTF
-#undef USBLog
-#undef USBError
-void kprintf(const char *format, ...)
-__attribute__((format(printf, 1, 2)));
-#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 3) { kprintf( FORMAT "\n", ## ARGS ) ; }
-#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
-#endif
 
 #ifdef __ppc__
 #define IOSync eieio
 #else
 #define IOSync() __asm__ __volatile__ ( "mfence" : : : "memory" )
 #endif
-
-extern "C" {
-    extern int	kvtophys(vm_offset_t);
-    extern void delay(int);
-};
-
-struct InterruptTransaction {
-    IOMemoryDescriptor *		buf;
-    UInt32						bufLen;
-    IOUSBCompletion				completion;
-};
-#define kMaxOutstandingTrans 4
 
 class IONaturalMemoryCursor;
 class AppleEHCIedMemoryBlock;
@@ -106,6 +88,15 @@ struct EHCIGeneralTransferDescriptor
 	
 };
 
+struct EHCIDoneQueueParams 
+{ 
+	EHCIGeneralTransferDescriptorPtr		pHCDoneTD; 
+	OSStatus								forceErr;  
+	IOUSBCompletionAction					safeAction; 
+	EHCIGeneralTransferDescriptorPtr		stopAt; 
+};
+
+
 
 enum{
 	kEHCIElementTypeBad = 0,
@@ -133,35 +124,47 @@ enum{
 };
 
 
-class AppleUSBEHCI : public IOUSBControllerV2
+// stuff to manage "extra" USB power on some machines
+typedef struct AppleEHCIExtraPower
+{
+	UInt32			version;				// version of this structure
+	UInt32			perPort;				// the amount availeable per port above and beyond the 500ma in the spec (in milliamps) [AAPL,current-extra]
+	UInt32			aggregate;				// the total amount available on the controller or machine, to be allocated amoung all ports (in milliamps) [AAPL,current-available]
+	UInt32			inSleep;				// total amount of current available on the port when the machine is in sleep (in milliamps) [AAPL,current-extra]
+} AppleEHCIExtraPower;
+
+enum {
+	kAppleEHCIExtraPowerVersion = 0x100
+};
+
+#define kAppleExtraPowerAggregate		"AAPL,current-available"				// this one also has another name on legacy systems
+#define kAppleExtraPowerPerPort			"AAPL,current-extra"
+
+class AppleUSBEHCI : public IOUSBControllerV3
 {
     OSDeclareDefaultStructors(AppleUSBEHCI)
 private:
-    virtual void		initForPM (IOPCIDevice *provider);
-    unsigned long		maxCapabilityForDomainState ( IOPMPowerFlags domainState );
-    unsigned long		initialPowerStateForDomainState ( IOPMPowerFlags domainState );
-    virtual IOReturn	setPowerState( unsigned long, IOService* );
-    static IOReturn 	PowerDownHandler(void *target, void *refCon, UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize);
-    
+ 	UInt32							ExpressCardPort( IOService * provider );
+   
 	
-    void							showRegisters(char *s);
+    void							showRegisters(UInt32 level, const char *s);
     void							printTD(EHCIGeneralTransferDescriptorPtr pTD, int level);
-    void							printAsyncQueue(int level);
+    void							printAsyncQueue(int level, const char *str);
     
     void							AddIsocFramesToSchedule(AppleEHCIIsochEndpoint*);
     IOReturn						AbortIsochEP(AppleEHCIIsochEndpoint*);
     IOReturn						DeleteIsochEP(AppleEHCIIsochEndpoint*);
 	UInt8							LastScheduledSSMicroFrame(AppleEHCIIsochEndpoint* pEP);
 	UInt8							FirstScheduledSSMicroFrame(AppleEHCIIsochEndpoint* pEP);
+	
+	static AppleEHCIExtraPower		_extraPower;						// this is static as currently it is share by all machines
     
 protected:
-	IOPCIDevice *							_device;
     IOMemoryMap *							_deviceBase;
     UInt16									_vendorID;
     UInt16									_deviceID;
     UInt16									_revisionID;
     UInt32									_errataBits;						// various bits for chip erratas
-    UInt32									_pageSize;							// OS Logical page size
     EHCICapRegistersPtr						_pEHCICapRegisters;					// Capabilities registers
     EHCIRegistersPtr						_pEHCIRegisters;					// Pointer to base address of EHCI registers.
     UInt32									_dataAllocationSize;				// # of bytes allocated in for TD's
@@ -174,15 +177,14 @@ protected:
     AppleEHCIIsochTransferDescriptor		*_pLastFreeITD;						// last of availabble Trasfer Descriptors
     AppleEHCISplitIsochTransferDescriptor	*_pLastFreeSITD;					// last of availabble Trasfer Descriptors
     AppleEHCIQueueHead						*_pLastFreeQH;						// last of available Endpoint Descriptors
+	IOBufferMemoryDescriptor				*_periodicListBuffer;				// IOBMD for the periodic list
     IOPhysicalAddress						*_periodicList;						// Physical interrrupt heads
     IOUSBControllerListElement				**_logicalPeriodicList;				// logical interrupt heads
     UInt16									_periodicBandwidth[kEHCIMaxPoll];	// bandwidth remaining per frame
     AppleUSBEHCIHubInfo						*_hsHubs;							// high speed hubs
     IOFilterInterruptEventSource *			_filterInterruptSource;
     UInt32									_filterInterruptCount;
-    UInt8									_ehciBusState;
 	UInt8									_istKeepAwayFrames;					// the isochronous schedule threshold keepaway
-    IOLock *								_intLock;
     volatile IOUSBControllerIsochListElement *_savedDoneQueueHead;				// saved by the Filter Interrupt routine
     volatile UInt32							_producerCount;						// Counter used to synchronize reading of the done queue between filter (producer) and action (consumer)
     volatile UInt32							_consumerCount;						// Counter used to synchronize reading of the done queue between filter (producer) and action (consumer)
@@ -191,30 +193,23 @@ protected:
     IOSimpleLock *							_isochScheduleLock;
     UInt32									_asyncAdvanceInterrupt;
     UInt32									_hostErrorInterrupt;
+    UInt32									_frameRolloverInterrupt;
     UInt32									_portChangeInterrupt;
     UInt32									_errorInterrupt;
     UInt32									_completeInterrupt;
 	UInt32									_controlBulkTransactionsOut;
-    const OSSymbol							*usb_remote_wakeup;
-    bool									_unloadUIMAcrossSleep;
-    bool									_onCardBus;
-    bool									_remote_wakeup_occurred;
-    bool									_idleSuspend;
     bool									_uimInitialized;
     bool									_testModeEnabled;
     bool									_sleepRegistersSaved;
     bool									_hasPCIPwrMgmt;
-    bool									_ehciAvailable;
 	bool									_is64bit;
 	bool									_inAbortIsochEP;
-	bool									_wakingFromHibernation;
 	UInt8									_asynchScheduleUnsynchCount;
 	UInt8									_periodicScheduleUnsynchCount;
     UInt32									_isochBandwidthAvail;					// amount of available bandwidth for Isochronous transfers
     UInt32									_periodicEDsInSchedule;					// interrupt endpoints
-    volatile UInt64							_frameNumber;							// the current frame number
+    volatile UInt64							_frameNumber;							// the current frame number (high bits only)
     UInt16									_rootHubFuncAddress;					// Function Address for the root hub
-    struct InterruptTransaction				_outstandingTrans[kMaxOutstandingTrans];
     struct  {
         volatile UInt32	hostSystemError;				// updated by the interrupt handler
         volatile UInt32	unrecoverableError;				// updated by the interrupt handler
@@ -231,7 +226,7 @@ protected:
     AbsoluteTime							_lastRootHubStatusChanged;				// Last time we had activity on the root hub
     UInt32									_savedUSBIntr;							// to save during sleep
     UInt32									_savedUSBCMD;							// to save during suspend/resume
-    UInt32									_savedPeriodicListBase;					// to save during sleep/wake on PC[I] Cards
+    UInt32									_physPeriodicListBase;					// to save during sleep/wake on PC[I] Cards
     UInt32									_savedAsyncListAddr;					// to save during sleep/wake on PC[I] Cards
 	UInt32									_savedSuspendedPortBitmap;				// to save the ports that were suspended prior to sleep
     UInt16									_outSlot;
@@ -239,40 +234,46 @@ protected:
     AbsoluteTime							_lastCheckedTime;						// Last time we checked the Root Hub for inactivity
 	UInt32									_rhPrevStatus[kMaxPorts];				// Previous status of the root hub SC registers
 	UInt32									_rhChangeBits[kMaxPorts];				// Change bits of the root hub
+	bool									_rhPortBeingResumed[kMaxPorts];			// while we are outside the WL resuming a root hub port
+	thread_call_t							_rhResumePortTimerThread[kMaxPorts];	// thread off the WL gate to resume a RH port
+	UInt32									_ExpressCardPort;						// port number (1-based) where we have an ExpressCard connector
     IONotifier *                            _powerDownNotifier;
-	bool									_needToCreateRootHub;					// True if we need to create the root hub post wake
 	bool									_gangedOvercurrent;						// True if our root hubs reports overcurrent on all ports
-	thread_call_t							_portDetectInterruptThread;
+	bool									_badExpressCardAttached;				// True if a driver has identified a bad ExpressCard
 	
-    // methods
+	// variables to get the anchor frame
+	AbsoluteTime							_tempAnchorTime;
+	AbsoluteTime							_anchorTime;
+	UInt64									_tempAnchorFrame;
+	UInt64									_anchorFrame;
+
+	// dealing with doneQueue reentrancy
+	UInt32									_nextDoneQueue;
+	struct EHCIDoneQueueParams				_doneQueueParams[20];
+	
+	// disabled queue heads from hubs which have gone to sleep
+	AppleEHCIQueueHead *					_disabledQHList;
+	
+	// methods
     
     static void 				InterruptHandler(OSObject *owner, IOInterruptEventSource * source, int count);
     static bool 				PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
-	static void 				PortDetectInterruptThreadEntry(OSObject *target);
-	void						PortDetectInterruptThread();
 	
     bool						FilterInterrupt(int index);
 	
-    void UIMRootHubStatusChange(void);
-    void UIMRootHubStatusChange( bool abort );
-	
-    void SimulateRootHubInt(
-							UInt8					endpoint,
-							IOMemoryDescriptor * 			buf,
-							UInt32 					bufLen,
-							IOUSBCompletion				completion);
+    virtual void			UIMRootHubStatusChange(void);
+	virtual void			UIMRootHubStatusChange( bool abort );
 	
     void	SetVendorInfo(void);
-    AppleEHCIQueueHead *MakeEmptyEndPoint(
-										  UInt8 					functionAddress,
+    AppleEHCIQueueHead *MakeEmptyEndPoint(UInt8 				functionAddress,
 										  UInt8					endpointNumber,
-										  UInt16					maxPacketSize,
+										  UInt16				maxPacketSize,
 										  UInt8					speed,
-										  USBDeviceAddress				highSpeedHub,
-										  int						highSpeedPort,
+										  USBDeviceAddress		highSpeedHub,
+										  int					highSpeedPort,
 										  UInt8					direction);
-    AppleEHCIQueueHead *MakeEmptyIntEndPoint(
-											 UInt8 					functionAddress,
+	
+    AppleEHCIQueueHead *MakeEmptyIntEndPoint(UInt8 					functionAddress,
 											 UInt8					endpointNumber,
 											 UInt16					maxPacketSize,
 											 UInt8					speed,
@@ -282,7 +283,7 @@ protected:
 	
 	void linkInterruptEndpoint(AppleEHCIQueueHead *pEHCIEndpointDescriptor);
 	void linkAsyncEndpoint(AppleEHCIQueueHead *CBED, AppleEHCIQueueHead *pEDHead);
-	void returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDescriptor *untilThisOne, IOReturn error);
+	void returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDescriptor *untilThisOne, IOReturn error, bool clearToggle);
 	
     AppleEHCIQueueHead *AddEmptyCBEndPoint(
 										   UInt8 					functionAddress,
@@ -293,8 +294,8 @@ protected:
 										   int						highSpeedPort,
 										   UInt8					direction,
 										   AppleEHCIQueueHead				*pED);
-    AppleEHCIQueueHead *FindInterruptEndpoint(
-											  short 					functionNumber,
+	
+    AppleEHCIQueueHead *FindInterruptEndpoint(short							functionNumber,
 											  short					endpointNumber,
 											  short					direction,
 											  IOUSBControllerListElement			**pLEBack);
@@ -302,18 +303,19 @@ protected:
     EHCIGeneralTransferDescriptorPtr AllocateTD(void);
     AppleEHCIIsochTransferDescriptor *AllocateITD(void);
     AppleEHCISplitIsochTransferDescriptor *AllocateSITD(void);
-    IOReturn  allocateTDs(
-						  AppleEHCIQueueHead			*pEDQueue,
+	
+    IOReturn  allocateTDs(AppleEHCIQueueHead		*pEDQueue,
 						  IOUSBCommand*			command,
 						  IOMemoryDescriptor *		CBP,
 						  UInt32				bufferSize,
 						  UInt16				direction,
 						  Boolean				controlTransaction);
-    AppleEHCIQueueHead *FindControlBulkEndpoint (
-												 short 						functionNumber, 
+	
+    AppleEHCIQueueHead *FindControlBulkEndpoint (short 						functionNumber, 
 												 short						endpointNumber, 
 												 AppleEHCIQueueHead   				**pEDBack,
 												 short direction);
+	
     void scavengeCompletedTransactions(IOUSBCompletionAction safeAction);
 	IOReturn scavengeIsocTransactions(IOUSBCompletionAction safeAction, bool reQueueTransactions);
 	IOReturn scavengeAnIsocTD(IOUSBControllerIsochListElement *pTD, IOUSBCompletionAction safeAction);
@@ -322,9 +324,11 @@ protected:
     IOReturn EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCDoneTD, OSStatus forceErr, IOUSBCompletionAction safeAction, EHCIGeneralTransferDescriptorPtr stopAt);
     IOReturn DeallocateTD (EHCIGeneralTransferDescriptorPtr pTD);
     IOReturn DeallocateED (AppleEHCIQueueHead *pED);
+	
     void doCallback(EHCIGeneralTransferDescriptorPtr	nextTD,
                     UInt32				transferStatus,
                     UInt32  				bufferSizeRemaining);
+	
 	IOReturn AsyncInitialize (void);
     IOReturn InterruptInitialize (void);
     void unlinkIntEndpoint(AppleEHCIQueueHead *pED);
@@ -345,45 +349,32 @@ protected:
 	
     IOReturn			AcquireOSOwnership(void);
 
-    IOReturn 		CreateHSIsochTransfer(	AppleEHCIIsochEndpoint				*pEP,
-											IOUSBIsocCompletion					completion,
-											UInt64								frameNumberStart,
-											IOMemoryDescriptor					*pBuffer,
-											UInt32								frameCount,
-											IOUSBLowLatencyIsocFrame			*pFrames,
-											UInt32								updateFrequency = 0,
-											bool								lowLatency = false,
-											bool								requestFromRosettaClient = false);
+    IOReturn			CreateHSIsochTransfer(AppleEHCIIsochEndpoint *pEP, IOUSBIsocCommand *command);
 
-    IOReturn 		CreateSplitIsochTransfer(AppleEHCIIsochEndpoint				*pEP,
-											 IOUSBIsocCompletion				completion,
-											 UInt64								frameNumberStart,
-											 IOMemoryDescriptor					*pBuffer,
-											 UInt32								frameCount,
-											 IOUSBIsocFrame						*pFrames,				// could be IOUSBLowLatencyIsocFrame*
-											 UInt32								updateFrequency = 0,
-											 bool								lowLatency = false,
-											 bool								requestFromRosettaClient = false);
+    IOReturn			CreateSplitIsochTransfer(AppleEHCIIsochEndpoint *pEP, IOUSBIsocCommand *command);
 	
-	void  ReturnOneTransaction(EHCIGeneralTransferDescriptor 	*transaction,
+	void				ReturnOneTransaction(EHCIGeneralTransferDescriptor 	*transaction,
 							   AppleEHCIQueueHead				*pED,
 							   AppleEHCIQueueHead				*pEDBack,
 							   IOReturn							err);
-    UInt32 findBufferRemaining(AppleEHCIQueueHead *pED);
-	void UIMCheckForTimeouts(void);
+	
+    UInt32				findBufferRemaining(AppleEHCIQueueHead *pED);
+	void				UIMCheckForTimeouts(void);
 #if 0
 	void printED(AppleEHCIQueueHead * pED);
 #endif
 	
 public:
-	virtual bool 	init(OSDictionary * propTable);
-    virtual bool 	start( IOService * provider );
-    virtual void 	free();
+	virtual bool		init(OSDictionary * propTable);
+    virtual bool		start( IOService * provider );
+    virtual void		free();
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
+	virtual IOReturn	powerStateDidChangeTo ( IOPMPowerFlags, unsigned long, IOService* );
+	virtual void		powerChangeDone ( unsigned long fromState );
+	
+	
     IOReturn UIMInitialize(IOService * provider);
     IOReturn UIMFinalize();
-    IOReturn UIMFinalizeForPowerDown();
-    IOReturn UIMInitializeForPowerUp();
 	
     IOReturn DeallocateITD (AppleEHCIIsochTransferDescriptor *pTD);
     IOReturn DeallocateSITD (AppleEHCISplitIsochTransferDescriptor *pTD);
@@ -515,6 +506,7 @@ public:
 											int					highSpeedPort,
 											UInt8				interval);
 	
+	// obsolete method
     virtual IOReturn UIMCreateIsochTransfer(short					functionAddress,
 											short					endpointNumber,
 											IOUSBIsocCompletion		completion,
@@ -556,12 +548,7 @@ public:
     virtual UInt32 GetFrameNumber32();
     virtual UInt64 GetMicroFrameNumber();
 	
-    virtual void PollInterrupts(IOUSBCompletionAction safeAction=0);
-    virtual IOReturn callPlatformFunction(const OSSymbol *functionName,
-										  bool waitForFunction,
-										  void *param1, void *param2,
-										  void *param3, void *param4);
-	
+    virtual void PollInterrupts(IOUSBCompletionAction safeAction=0);	
 	
     IOReturn EHCIRootHubPower(bool on);
     IOReturn EHCIRootHubResetChangeConnection(UInt16 port);
@@ -574,12 +561,12 @@ public:
     IOReturn EHCIRootHubPortSuspend(UInt16 port, bool on);
     IOReturn EHCIRootHubPortPower(UInt16 port, bool on);
     IOReturn SimulateEDDelete (short endpointNumber, short direction);
-	
-    IOReturn SimulateEDAbort (short endpointNumber, short direction);
-	
+	IOReturn SimulateEDAbort (short endpointNumber, short direction);
+
     IOReturn GetRootHubStringDescriptor(UInt8	index, OSData *desc);
     AbsoluteTime	LastRootHubPortStatusChanged( bool reset );
 	
+	// obsolete method
     virtual IOReturn 		UIMCreateIsochTransfer(short					functionAddress,
 												   short					endpointNumber,
 												   IOUSBIsocCompletion		completion,
@@ -590,6 +577,8 @@ public:
 												   IOUSBLowLatencyIsocFrame *pFrames,
 												   UInt32					updateFrequency);
 	
+	// new method
+	virtual IOReturn		UIMCreateIsochTransfer(IOUSBIsocCommand *command);
 	
     virtual IOReturn 		UIMHubMaintenance(USBDeviceAddress highSpeedHub, UInt32 highSpeedPort, UInt32 command, UInt32 flags);
     virtual IOReturn		UIMSetTestMode(UInt32 mode, UInt32 port);
@@ -600,29 +589,43 @@ public:
     IOReturn		DisablePeriodicSchedule(bool waitForOFF);
 	
     void 			CheckEDListForTimeouts(AppleEHCIQueueHead *head);
-    bool			RootHubAreAllPortsDisconnectedOrSuspended( void );
     void			GetNumberOfPorts(UInt8 *numPorts);
-	
+
 	virtual IOUSBControllerIsochEndpoint*			AllocateIsochEP();
     virtual void									ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint*);
+
+    virtual IOReturn								GetLowLatencyOptionsAndPhysicalMask(IOOptionBits *optionBits, mach_vm_address_t *physicalMask);
+	virtual IODMACommand							*GetNewDMACommand();
+	
+	// this call is not gated, so we need to gate it ourselves
+	virtual IOReturn								GetFrameNumberWithTime(UInt64* frameNumber, AbsoluteTime *theTime);
+	// here is the gated version
+	static IOReturn									GatedGetFrameNumberWithTime(OSObject *owner, void* arg0, void* arg1, void* arg2, void* arg3);
 	
 
-};
-
-
-// Constants that define the different power states in the setPowerState call
-enum
-{
-    kEHCISetPowerLevelSuspend		= 0,
-    kEHCISetPowerLevelRunning		= 1,
-    kEHCISetPowerLevelIdleSuspend	= 2
-};
-
-enum
-{
-    kEHCIBusStateOff		= 0,
-    kEHCIBusStateSuspended	= 1,
-    kEHCIBusStateRunning	= 2
+	// these are for handling a root hub resume without hanging out in the WL for 20 ms
+	static void			RHResumePortTimerEntry(OSObject *target, thread_call_param_t port);
+	void				RHResumePortTimer(UInt32 port);
+	static IOReturn		RHResumePortCompletionEntry(OSObject *target, void *param1, void *param2, void *param3, void *param4);
+	IOReturn			RHResumePortCompletion(UInt32 port);
+	
+	
+	// separated this from initForPM
+	void											CheckSleepCapability(void);
+	
+	// in the new IOUSBControllerV3 class
+	virtual	IOReturn				ResetControllerState(void);
+	virtual IOReturn				RestartControllerFromReset(void);
+	virtual	IOReturn				SaveControllerStateForSleep(void);
+	virtual	IOReturn				RestoreControllerStateFromSleep(void);
+	virtual IOReturn				DozeController(void);
+	virtual IOReturn				WakeControllerFromDoze(void);
+	virtual IOReturn				UIMEnableAddressEndpoints(USBDeviceAddress address, bool enable);
+	virtual IOReturn				UIMEnableAllEndpoints(bool enable);
+	virtual IOReturn				EnableInterruptsFromController(bool enable);
+	virtual	UInt32					AllocateExtraRootHubPortPower(UInt32 extraPowerRequested);
+	virtual	void					ReturnExtraRootHubPortPower(UInt32 extraPowerReturned);
+	
 };
 
 

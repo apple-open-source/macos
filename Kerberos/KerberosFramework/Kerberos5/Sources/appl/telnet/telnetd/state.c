@@ -53,7 +53,7 @@ static int envvarok (char *);
  * Buffer for sub-options, and macros
  * for suboptions buffer manipulations
  */
-unsigned char subbuffer[4096], *subpointer= subbuffer, *subend= subbuffer;
+unsigned char subbuffer[TELNET_BUFSIZE], *subpointer= subbuffer, *subend= subbuffer;
 
 #define	SB_CLEAR()	subpointer = subbuffer
 #define	SB_TERM()	{ subend = subpointer; SB_CLEAR(); }
@@ -1665,7 +1665,8 @@ static int envvarok(varp)
 	    strcmp(varp, "RESOLV_HOST_CONF") && /* linux */
 	    strcmp(varp, "NLSPATH") && /* locale stuff */
 	    strncmp(varp, "LC_", strlen("LC_")) && /* locale stuff */
-	    strcmp(varp, "IFS")) {
+	    strcmp(varp, "IFS") &&
+	    (varp[0] != '-')) {
 		return 1;
 	} else {
 		syslog(LOG_INFO, "Rejected the attempt to modify the environment variable \"%s\"", varp);

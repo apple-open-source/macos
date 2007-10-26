@@ -360,7 +360,7 @@ static KLStatus __KLGetPromptMechanism (KLPromptMechanism *outPromptMechanism)
 KLPromptMechanism __KLPromptMechanism (void)
 {
     KLStatus err = klNoErr;
-    LoginSessionAttributes attributes = LoginSessionGetSessionAttributes ();
+    kipc_session_attributes_t attributes = kipc_session_get_attributes ();
     KLPromptMechanism promptMechanism = klPromptMechanism_Autodetect;
     
     if (err == klNoErr) {
@@ -369,11 +369,11 @@ KLPromptMechanism __KLPromptMechanism (void)
     
     if (err == klNoErr) {
         if (promptMechanism == klPromptMechanism_Autodetect) {
-            if (attributes & loginSessionCallerUsesGUI) {
+            if (attributes & kkipc_session_caller_uses_gui) {
                 promptMechanism = klPromptMechanism_GUI;  // caller is a GUI app
-            } else if (attributes & loginSessionHasTerminalAccess) {
+            } else if (attributes & kkipc_session_has_cli_access) {
                 promptMechanism = klPromptMechanism_CLI;  // caller has a controlling terminal
-            } else if (attributes & loginSessionHasGraphicsAccess) {
+            } else if (attributes & kkipc_session_has_gui_access) {
                 promptMechanism = klPromptMechanism_GUI;  // we can talk to the window server
             } else {
                 dprintf ("__KLPromptMechanism(): no way to talk to the user.");
@@ -381,12 +381,12 @@ KLPromptMechanism __KLPromptMechanism (void)
             }
         }
         
-        if ((promptMechanism == klPromptMechanism_GUI) && !(attributes & loginSessionHasGraphicsAccess)) {
+        if ((promptMechanism == klPromptMechanism_GUI) && !(attributes & kkipc_session_has_gui_access)) {
             dprintf ("__KLPromptMechanism(): caller asked for GUI prompt but we have no window server.");
             promptMechanism = klPromptMechanism_None;
         }
         
-        if ((promptMechanism == klPromptMechanism_CLI) && !(attributes & loginSessionHasTerminalAccess)) {
+        if ((promptMechanism == klPromptMechanism_CLI) && !(attributes & kkipc_session_has_cli_access)) {
             dprintf ("__KLPromptMechanism(): caller asked for CLI prompt but we have no terminal.");
             promptMechanism = klPromptMechanism_None;
         }
@@ -464,7 +464,7 @@ KLBoolean __KLAllowAutomaticPrompting (void)
     }
     
     if (err == klNoErr) {
-        if (!(LoginSessionGetSessionAttributes () & loginSessionCallerUsesGUI) && (promptMechanism == klPromptMechanism_Autodetect)) {
+        if (!(kipc_session_get_attributes () & kkipc_session_caller_uses_gui) && (promptMechanism == klPromptMechanism_Autodetect)) {
             dprintf ("__KLAllowAutomaticPrompting(): Prompt mechanism is autodetect and caller is not using a GUI.");
             allowAutomaticPrompting = false;
         }
@@ -492,17 +492,12 @@ KLBoolean __KLAllowAutomaticPrompting (void)
                 hasKerberosConfig = true;
             }
         }
-        
-        // Krb4 traditional config files
-        if (!hasKerberosConfig) {
-            hasKerberosConfig = (krb__get_cnffile () != NULL);
-        }
-        
+
         if (!hasKerberosConfig) {
             dprintf ("__KLAllowAutomaticPrompting (): no valid config file.");
             allowAutomaticPrompting = false;
         }
-    
+        
         if (profile != NULL) { profile_abandon (profile); }
         if (files   != NULL) { krb5_free_config_files (files); }
     }

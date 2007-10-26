@@ -36,7 +36,7 @@ enum
 	cOriginateLabel		= 3,
 	cAnswerLabel		= 4,
 	cHangUpLabel		= 5,
-	cLabel			= 6,
+	cScriptLabel			= 6,
 	cAsk			= 7,
 	cChrDelay		= 8,
 	cCommunicatingAt	= 9,
@@ -77,6 +77,7 @@ enum
 /* ccl varStrings	*/
 enum				// for varIndex
 {
+	vsRangeStart		= 1,
 	vsDialString		= 1,		// full dial string
 	vsModemSpeaker		= 2,		// modem speaker flag
 	vsTonePulse		= 3,		// tone/pulse dialing
@@ -89,10 +90,28 @@ enum				// for varIndex
 	vsAsk			= 10,		// string returned from above
 	vsUserName		= 11,		// username for chat script
 	vsPassWord		= 12,		// password for chat script
-	
-	vsMax			= 12		// total number of var strings
-};
 
+	//Extended varString range (^2 doesn't appear in existing dial strings)
+	vsConnectSpeed		= 20,		// for solving flakiness
+	vsInit			= 21,		// initialization AT command
+
+	//GPRS arguments
+	vsAPN	    		= 22,		// Access Point Name
+	vsCID   		= 23,		// Connection ID
+	
+	//Reserved (Custom Reset? Hangup? Dial?)
+	vsReserved1		= 24,
+	vsReserved2		= 25,
+	vsReserved3		= 26,
+	
+	//undefined arguments passed from plist to script
+	vsString27		= 27,
+	vsString28		= 28,
+	vsString29		= 29,
+	vsString30		= 30,
+		
+	vsMax			= 30		// total number of var strings
+};
 /* parameter counts	*/
 enum
 {
@@ -105,7 +124,9 @@ enum
 /* miscellaneous constants	*/
 
 #define MAXLABELS		128
-#define maxMatch		48		// was 16 in 1.0
+// big maxMatch values slow matching when there are no matches
+// some memory is also allocated, but not a Str255 ;)
+#define maxMatch		96		// was 16 in 1.0 (MacOS 6?)
 #define	cclNestingLimit		16
 
 #define SHORTBREAK		0x000001F4	// 0.5 secs = 500 msecs = 0x000001F4

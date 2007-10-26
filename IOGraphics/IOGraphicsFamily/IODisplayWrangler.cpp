@@ -28,6 +28,7 @@
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/graphics/IOGraphicsPrivate.h>
+#include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 
 #include "IODisplayWrangler.h"
 
@@ -217,6 +218,18 @@ IODisplayWrangler::annoyance_event_t * IODisplayWrangler::getNthAnnoyance( int i
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+bool IODisplayWrangler::serverStart(void)
+{
+    mach_timespec_t timeout = { 120, 0 };
+
+    if (gIODisplayWrangler)
+	return (true);
+
+    waitForService(serviceMatching("IODisplayWrangler"), &timeout);
+
+    return (gIODisplayWrangler != 0);
+}
+
 bool IODisplayWrangler::start( IOService * provider )
 {
     AbsoluteTime        current_time;
@@ -227,8 +240,6 @@ bool IODisplayWrangler::start( IOService * provider )
         return (false);
 
     assert( gIODisplayWrangler == 0 );
-    gIODisplayWrangler = this;
-
 
     setProperty(kIOUserClientClassKey, "IOAccelerationUserClient");
 
@@ -269,6 +280,8 @@ bool IODisplayWrangler::start( IOService * provider )
                               serviceMatching("IODisplayConnect"), _displayConnectHandler,
                               this, 0, 50000 );
     assert( notify );
+
+    gIODisplayWrangler = this;
 
     // initialize power managment
     gIODisplayWrangler->initForPM();
@@ -531,7 +544,7 @@ void IODisplayWrangler::initForPM(void )
     PMinit();
 
     // attach into the power management hierarchy
-    pm_vars->thePlatform->PMRegisterDevice( 0, this );
+    joinPMtree( this );
 
     // register ourselves with policy-maker (us)
     registerPowerDriver( this, ourPowerStates, kIODisplayWranglerNumPowerStates );
@@ -585,33 +598,17 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
         if (newLevel == 0)
         {
             // pm turned off while idle?
-            if (pm_vars->myCurrentState < kIODisplayWranglerMaxPowerState)
+            if (getPowerState() < kIODisplayWranglerMaxPowerState)
             {
                 // yes, bring displays up again
                 activityTickle(0,0);
                 changePowerStateToPriv( kIODisplayWranglerMaxPowerState );
             }
         }
-        // no, currently in emergency level?
-        if (pm_vars->aggressiveness < kIOPowerEmergencyLevel)
-        {
-            // no, set new timeout
-            setIdleTimerPeriod( newLevel*60 / 2);
-        }
-	break;
 
-      case kPMGeneralAggressiveness:
-        // general factor received
-        // emergency level?
-        if (newLevel >= kIOPowerEmergencyLevel)
-        {
-            // yes
-            setIdleTimerPeriod( 5 );
-        }
-        else if ((pm_vars->aggressiveness >= kIOPowerEmergencyLevel) && !fDimCaptured)
-        {
-           setIdleTimerPeriod( fMinutesToDim * 60 / 2 );
-        }
+        // Set new timeout        
+        setIdleTimerPeriod( newLevel*60 / 2);
+
 	break;
 
       default:
@@ -638,17 +635,17 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
         changePowerStateToPriv(0);
         return (IOPMNoErr);
     }
-    if (powerStateOrdinal < pm_vars->myCurrentState)
+    if (!gIOGraphicsSystemPower)
+	return (IOPMNoErr);
+    else if (powerStateOrdinal < getPowerState())
     {
-        // HI is idle, drop power
-        idleDisplays();
-        return (IOPMNoErr);
+	// HI is idle, drop power
+	idleDisplays();
     }
-    if (powerStateOrdinal == kIODisplayWranglerMaxPowerState)
+    else if (powerStateOrdinal == kIODisplayWranglerMaxPowerState)
     {
         // there is activity, raise power
         makeDisplaysUsable();
-        return (IOPMNoErr);
     }
     return (IOPMNoErr);
 }
@@ -691,7 +688,7 @@ void IODisplayWrangler::idleDisplays ( void )
     UInt64              current_time_ns;
     UInt64              current_time_secs;
 
-    if ( kIODisplayWranglerMaxPowerState == pm_vars->myCurrentState )
+    if ( kIODisplayWranglerMaxPowerState == getPowerState() )
     {
         // Log time of initial dimming
         AbsoluteTime current_time_absolute;
@@ -746,7 +743,7 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
     absolutetime_to_nanoseconds(lastActivity, &lastActivity_ns);
     lastActivity_secs = lastActivity_ns / NSEC_PER_SEC;
 
-    switch(pm_vars->myCurrentState) {
+    switch( getPowerState() ) {
         case 4:
             // System displays are ON, not dimmed or asleep.
             // Calculate adaptive time-to-dim
@@ -867,6 +864,16 @@ UInt32 IODisplayWrangler::calculate_idle_timer_period(int powerState)
 
 bool IODisplayWrangler::activityTickle( unsigned long x, unsigned long y )
 {
+    AbsoluteTime current_time_absolute;
+
+    clock_get_uptime(&current_time_absolute);
+    if (AbsoluteTime_to_scalar(&fIdleUntil))
+    {
+	if (CMP_ABSOLUTETIME(&current_time_absolute, &fIdleUntil) < 0)
+	    return (true);
+	AbsoluteTime_to_scalar(&fIdleUntil) = 0;
+    }
+
     if (super::activityTickle(kIOPMSuperclassPolicy1,
                 kIODisplayWranglerMaxPowerState) )
     {
@@ -874,8 +881,6 @@ bool IODisplayWrangler::activityTickle( unsigned long x, unsigned long y )
     }
 
     // Get uptime in nanoseconds
-    AbsoluteTime current_time_absolute;
-    clock_get_uptime(&current_time_absolute);
     UInt64 current_time_ns;
     absolutetime_to_nanoseconds(current_time_absolute, &current_time_ns);
     UInt64 current_time_secs = current_time_ns / NSEC_PER_SEC;
@@ -1024,15 +1029,44 @@ OSObject * IODisplayWrangler::copyProperty( const char * aKey ) const
 
 IOReturn IODisplayWrangler::setProperties( OSObject * properties )
 {
-    OSDictionary *	dict;
+    OSDictionary * dict;
+    OSDictionary * prefs;
+    OSObject *     obj;
+    OSNumber *     num;
+    uint32_t       idleFor = 0;
+    enum { kIODisplayRequestDefaultIdleFor = 1000,
+	    kIODisplayRequestMaxIdleFor    = 15000 };
 
     if (!(dict = OSDynamicCast(OSDictionary, properties)))
         return (kIOReturnBadArgument);
 
-    if ((dict = OSDynamicCast(OSDictionary,
+    if ((prefs = OSDynamicCast(OSDictionary,
                               dict->getObject(kIOGraphicsPrefsKey))))
     {
-        return (IOFramebuffer::setPreferences(this, dict));
+        return (IOFramebuffer::setPreferences(this, prefs));
+    }
+
+    obj = dict->getObject(kIORequestIdleKey);
+    if (kOSBooleanTrue == obj)
+    {
+	idleFor = kIODisplayRequestDefaultIdleFor;
+    }
+    else if ((num = OSDynamicCast(OSNumber, obj)))
+    {
+	idleFor = num->unsigned32BitValue();
+	if (idleFor > kIODisplayRequestMaxIdleFor)
+	    idleFor = kIODisplayRequestMaxIdleFor;
+    }
+
+    if (idleFor)
+    {
+	clock_interval_to_deadline(idleFor, kMillisecondScale, &fIdleUntil);
+
+	if (getPowerState() > 3)
+	    changePowerStateToPriv(3);
+	if (getPowerState() > 1)
+	    changePowerStateToPriv(1);
+	return (kIOReturnSuccess);
     }
 
     OSObject * value;

@@ -396,7 +396,7 @@ expand(name)
 	}
 	(void)snprintf(cmdbuf, sizeof(cmdbuf), "echo %s", name);
 	if ((sh = value("SHELL")) == NULL)
-		sh = _PATH_CSHELL;
+		sh = _PATH_BSHELL;
 	pid = start_command(sh, 0, -1, pivec[1], "-c", cmdbuf, NULL);
 	if (pid < 0) {
 		(void)close(pivec[0]);

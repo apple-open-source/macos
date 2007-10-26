@@ -56,7 +56,7 @@ type task_move_send_t = MACH_MSG_TYPE_MOVE_SEND
 */
 
 /* 
- * routines called by SCNetworkConntection API
+ * routines called by SCNetworkConnection API
  */
 routine pppcontroller_attach (	server		: mach_port_t;
 					name_data	: xmlData;
@@ -111,16 +111,15 @@ skip;
  * private routines for the PPPController or pppd 
  */
 routine pppcontroller_bootstrap (	server		: mach_port_t;
-					task		: task_t;
 				 out	bootstrap	: bootstrap_t;
-				 out	result		: int);
+				 out	result		: int;
+				 AuditToken audit_token: audit_token_t);
 
 routine pppcontroller_copyprivoptions (	session		: mach_port_t;
-					task		: task_t;
 					options_type	: int;
 				 out	options_data	: xmlDataOut, dealloc;
-				 out	result		: int);
-
+				 out	result		: int;
+				 AuditToken audit_token: audit_token_t);
 routine pppcontroller_iscontrolled (	session		: mach_port_t;
 				 out	result		: int;
 				 AuditToken audit_token: audit_token_t);

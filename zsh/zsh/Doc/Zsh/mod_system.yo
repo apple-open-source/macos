@@ -2,7 +2,7 @@ COMMENT(!MOD!zsh/system
 A builtin interface to various low-level system features.
 !MOD!)
 The tt(zsh/system) module makes available three builtin commands and
-a parameter.
+two parameters.
 
 sect(Builtins)
 
@@ -22,10 +22,10 @@ message, with no intervening space.
 If var(errvar) is supplied, the entire message, without a newline, is
 assigned to the parameter names var(errvar) and nothing is output.
 
-A return value of 0 indicates the message was successfully printed
+A return status of 0 indicates the message was successfully printed
 (although it may not be useful if the error number was out of the
-system's range), a return value of 1 indicates an error in the
-parameters, and a return value of 2 indicates the error name was
+system's range), a return status of 1 indicates an error in the
+parameters, and a return status of 2 indicates the error name was
 not recognised (no message is printed for this).
 )
 findex(sysread)
@@ -59,7 +59,7 @@ The error tt(EINTR) (interrupted system call) is handled internally so
 that shell interrupts are transparent to the caller.  Any other error
 causes a return.
 
-The possible return values are
+The possible return statuses are
 startitem()
 item(0)(
 At least one byte of data was successfully read and, if appropriate,
@@ -114,6 +114,7 @@ enditem()
 sect(Parameters)
 
 startitem()
+vindex(errnos)
 item(tt(errnos))(
 A readonly array of the names of errors defined on the system.  These
 are typically macros defined in C by including the system header file
@@ -124,5 +125,20 @@ tt(E)var(num) in the array.
 
 Note that aliases for errors are not handled; only the canonical name is
 used.
+)
+vindex(sysparams)
+item(tt(sysparams))(
+A readonly associative array.  The keys are:
+startitem()
+item(tt(pid))(
+Returns the process ID of the current process, even in subshells.  Compare
+tt($$), which returns the process ID of the main shell process.
+)
+item(tt(ppid))(
+Returns the process ID of the parent of the current process, even in
+subshells.  Compare tt($PPID), which returns the process ID of the parent
+of the main shell process.
+)
+enditem()
 )
 enditem()

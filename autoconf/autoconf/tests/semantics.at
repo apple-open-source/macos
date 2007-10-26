@@ -2,7 +2,8 @@
 
 AT_BANNER([Semantics.])
 
-# Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006 Free Software
+# Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,8 +17,8 @@ AT_BANNER([Semantics.])
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 
 ## -------------------------------- ##
@@ -83,7 +84,13 @@ AC_SEARCH_LIBS(cos, oser m ust,,
 case "$ac_cv_search_cos" in
   -loser|-lust) AC_MSG_ERROR([jeez, $ac_cv_search_cos must be a cool library!]) ;;
 esac
+])
 
+
+# AC_SEARCH_LIBS (none needed)
+# ----------------------------
+AT_CHECK_MACRO([AC_SEARCH_LIBS (none needed)],
+[
 AC_SEARCH_LIBS(printf, oser c ust,,
 	     [AC_MSG_ERROR([cannot find `printf'])])
 
@@ -91,19 +98,27 @@ case "$ac_cv_search_printf" in
   -loser|-lust) AC_MSG_ERROR([jeez, $ac_cv_search_printf must be a cool library!]) ;;
   -lc) AC_MSG_ERROR([huh, you need to give -lc?])
 esac
-
 ])
 
 
 # AC_CHECK_DECLS
 # --------------
 # Check that it performs the correct actions:
-# Must define NEED_NO_DECL, but not NEED_YES_DECL.
 AT_CHECK_MACRO([AC_CHECK_DECLS],
-[[AC_CHECK_DECLS([yes, no],,,
-		 [int yes = 1;])]],
+[[AC_CHECK_DECLS([yes, no, myenum, mystruct, myfunc, mymacro1, mymacro2],,,
+		 [[int yes = 1;
+		   enum { myenum };
+		   struct { int x[20]; } mystruct;
+		   extern int myfunc();
+		   #define mymacro1(arg) arg
+		   #define mymacro2]])]],
 [AT_CHECK_DEFINES(
-[#define HAVE_DECL_NO 0
+[#define HAVE_DECL_MYENUM 1
+#define HAVE_DECL_MYFUNC 1
+#define HAVE_DECL_MYMACRO1 1
+#define HAVE_DECL_MYMACRO2 1
+#define HAVE_DECL_MYSTRUCT 1
+#define HAVE_DECL_NO 0
 #define HAVE_DECL_YES 1
 ])])
 
@@ -145,7 +160,7 @@ AT_CHECK_DEFINES(
 ])
 
 AT_CHECK([sed 's/  */ /g;s/^ //;s/ $//' config.libobjs], [],
-	 [autoconf_ftnirp$U.o
+	 [${LIBOBJDIR}autoconf_ftnirp$U.o
 ])
 
 AT_CLEANUP([config.libobjs])
@@ -177,13 +192,11 @@ AT_DATA([header2.h],
 [typedef foo bar;
 ])
 
-AT_CONFIGURE_AC(
-[CPPFLAGS="$CPPFLAGS -I."
-AC_CHECK_HEADERS(header2.h, [], [], -)])
+AT_CONFIGURE_AC([AC_CHECK_HEADERS(header2.h, [], [], -)])
 
 AT_CHECK_AUTOCONF([-W obsolete])
 AT_CHECK_AUTOHEADER
-AT_CHECK_CONFIGURE
+AT_CHECK_CONFIGURE([CPPFLAGS=-I.])
 AT_CHECK_ENV
 AT_CHECK_DEFINES(
 [#define HAVE_HEADER2_H 1
@@ -211,12 +224,11 @@ AT_DATA([header3.h],
 ])
 
 AT_CONFIGURE_AC(
-[CPPFLAGS="$CPPFLAGS -I."
-AC_CHECK_HEADERS(header2.h header3.h, [], [], [[@%:@include "header1.h"]])])
+[AC_CHECK_HEADERS(header2.h header3.h, [], [], [[@%:@include "header1.h"]])])
 
 AT_CHECK_AUTOCONF([-W obsolete])
 AT_CHECK_AUTOHEADER
-AT_CHECK_CONFIGURE
+AT_CHECK_CONFIGURE([CPPFLAGS=-I.])
 AT_CHECK_ENV
 AT_CHECK_DEFINES(
 [#define HAVE_HEADER2_H 1
@@ -231,18 +243,48 @@ AT_CLEANUP([header1.h header2.h header3.h])
 # Check that it performs the correct actions.
 # Must define HAVE_STRUCT_YES_S_YES, but not HAVE_STRUCT_YES_S_NO.
 AT_CHECK_MACRO([AC_CHECK_MEMBERS],
-[[AC_CHECK_MEMBERS([struct yes_s.yes, struct yes_s.no],,,
-		   [struct yes_s { int yes ;} ;])]],
+[[AC_CHECK_MEMBERS([struct yes_s.yes, struct yes_s.no, struct yes_s.substruct],,,
+		   [struct sub { int x; };
+		    struct yes_s { int yes; struct sub substruct; };])]],
 [AT_CHECK_DEFINES(
 [/* #undef HAVE_STRUCT_YES_S_NO */
+#define HAVE_STRUCT_YES_S_SUBSTRUCT 1
 #define HAVE_STRUCT_YES_S_YES 1
 ])])
 
 
+# AC_CHECK_ALIGNOF
+# ----------------
+AT_CHECK_MACRO_CROSS([AC_CHECK_ALIGNOF],
+[[AC_CHECK_ALIGNOF(char)
+AC_CHECK_ALIGNOF(charchar,
+[[#include <stddef.h>
+#include <stdio.h>
+typedef char charchar[2];]])
+AC_CHECK_ALIGNOF(charcharchar)
+]],
+[AT_CHECK_DEFINES(
+[#define ALIGNOF_CHAR 1
+#define ALIGNOF_CHARCHAR 1
+#define ALIGNOF_CHARCHARCHAR 0
+])])
+
+
+# AC_CHECK_ALIGNOF struct
+# -----------------------
+AT_CHECK_MACRO_CROSS([AC_CHECK_ALIGNOF struct],
+[[AC_CHECK_ALIGNOF([struct { char c; }])
+AC_CHECK_ALIGNOF([struct nosuchstruct])
+]],
+[AT_CHECK([[grep "#define ALIGNOF_STRUCT___CHAR_C___ [^0]" config.h]],
+	 0, ignore)
+AT_CHECK([[grep "#define ALIGNOF_STRUCT_NOSUCHSTRUCT 0" config.h]],
+	 0, ignore)
+])
+
 # AC_CHECK_SIZEOF
 # ---------------
-# Not cross-compiling.
-AT_CHECK_MACRO([AC_CHECK_SIZEOF],
+AT_CHECK_MACRO_CROSS([AC_CHECK_SIZEOF],
 [[AC_CHECK_SIZEOF(char)
 AC_CHECK_SIZEOF(charchar,,
 [[#include <stdio.h>
@@ -256,22 +298,21 @@ AC_CHECK_SIZEOF(charcharchar)
 ])])
 
 
-# AC_CHECK_SIZEOF
-# ---------------
-AT_CHECK_MACRO([AC_CHECK_SIZEOF],
-[[# Exercise the code used when cross-compiling
-cross_compiling=yes
-AC_CHECK_SIZEOF(char)
-AC_CHECK_SIZEOF(charchar,,
-[[#include <stdio.h>
-typedef char charchar[2];]])
-AC_CHECK_SIZEOF(charcharchar)
+# AC_CHECK_SIZEOF struct
+# ----------------------
+AT_CHECK_MACRO_CROSS([AC_CHECK_SIZEOF struct],
+[[AC_C_CONST
+AC_CHECK_SIZEOF([struct { char c; int x; }])
+AC_CHECK_SIZEOF([const struct { const char *p; int x; }])
+AC_CHECK_SIZEOF([struct nosuchstruct])
 ]],
-[AT_CHECK_DEFINES(
-[#define SIZEOF_CHAR 1
-#define SIZEOF_CHARCHAR 2
-#define SIZEOF_CHARCHARCHAR 0
-])])
+[AT_CHECK([[grep "#define SIZEOF_STRUCT___CHAR_C__INT_X___ [^0]" config.h]],
+	 0, ignore)
+AT_CHECK([[grep "#define SIZEOF_CONST_STRUCT___CONST_CHAR_PP__INT_X___ [^0]" config.h]],
+	 0, ignore)
+AT_CHECK([[grep "#define SIZEOF_STRUCT_NOSUCHSTRUCT 0" config.h]],
+	 0, ignore)
+])
 
 
 # AC_CHECK_TYPES
@@ -303,7 +344,7 @@ define([_AC_CHECK_TYPE_OLD], [OLD])
 #(cut-from-here
 AC_CHECK_TYPE(ptrdiff_t)
 AC_CHECK_TYPE(ptrdiff_t, int)
-AC_CHECK_TYPE(quad, long long)
+AC_CHECK_TYPE(quad, long long int)
 AC_CHECK_TYPE(table_42, [int[42]])
 # Nice machine!
 AC_CHECK_TYPE(uint8_t, uint65536_t)
@@ -392,7 +433,7 @@ AC_CHECK_PROG(TOOL2, tool,, not-found, $path)
 test "$TOOL2" = not-found || fail=:
 
 AC_CHECK_PROG(TOOL3, tool, tool, not-found, $path, $pwd/path/1/tool)
-test "$TOOL3" = $pwd/path/2/tool || fail=:
+test "$TOOL3" = "$pwd/path/2/tool" || fail=:
 
 AC_CHECK_PROG(TOOL4, better, better, not-found, $path, $pwd/path/1/tool)
 test "$TOOL4" = better || fail=:
@@ -422,20 +463,22 @@ AT_CLEANUP(path)
 ## AC_C_BIGENDIAN.  ##
 ## ---------------- ##
 
-AT_SETUP([[AC_C_BIGENDIAN]])
+AT_SETUP([AC_C_BIGENDIAN])
 AT_KEYWORDS([cross])
 
 # Make sure that AC_C_BIGENDIAN behave the same whether we are
 # cross-compiling or not.
 
 _AT_CHECK_AC_MACRO(
-  [AC_C_BIGENDIAN([ac_endian=big],[ac_endian=little],[ac_endian=unknown])
+  [[AC_C_BIGENDIAN([ac_endian=big],[ac_endian=little],[ac_endian=unknown])
    echo $ac_endian > at-endian
-])
+]])
 
 rm -f config.hin  # So that next run of autoheader is quiet.
 _AT_CHECK_AC_MACRO(
-  [cross_compiling=yes
+  [[# Force cross compiling.
+   cross_compiling=yes
+   ac_tool_warned=yes
    AC_C_BIGENDIAN([ac_endian=big],[ac_endian=little],[ac_endian=unknown])
    ac_prevendian=`cat at-endian`
    # Check that we have found the same result as in the previous run
@@ -445,11 +488,12 @@ _AT_CHECK_AC_MACRO(
    if test $ac_endian != $ac_prevendian && test $ac_endian != unknown; then
      AC_MSG_ERROR([unexpected endianness: first run found '$ac_prevendian' but second run found '$ac_endian'])
    fi
-])
+]])
 
 # Make sure AC_C_BIGENDIAN with no argument will define WORDS_BIGENDIAN
-AT_CONFIGURE_AC([AC_C_BIGENDIAN])
-AT_CHECK_AUTOHEADER
+AT_CONFIGURE_AC([[AC_C_BIGENDIAN]])
+# --force is necessary, the computer might be too fast.
+AT_CHECK_AUTOHEADER([--force])
 AT_CHECK([grep WORDS_BIGENDIAN config.hin], [], [ignore])
 
 AT_CLEANUP(at-endian)
@@ -459,7 +503,7 @@ AT_CLEANUP(at-endian)
 # AC_PATH_PROG & AC_PATH_PROGS.  #
 # ------------------------------ #
 
-AT_SETUP([[AC_PATH_PROG & AC_PATH_PROGS]])
+AT_SETUP([AC_PATH_PROG & AC_PATH_PROGS])
 
 AT_CHECK_PROGS_PREPARE
 
@@ -471,10 +515,10 @@ path=`echo $p | sed -e 's,\([[0-9]]\),'"$pwd"'/path/\1,g'`
 fail=false
 
 AC_PATH_PROG(TOOL1, tool, not-found, $path)
-test "$TOOL1" = $pwd/path/1/tool || fail=:
+test "$TOOL1" = "$pwd/path/1/tool" || fail=:
 
 AC_PATH_PROG(TOOL2, better, not-found, $path)
-test "$TOOL2" = $pwd/path/6/better || fail=:
+test "$TOOL2" = "$pwd/path/6/better" || fail=:
 
 # When a tool is not found, and no value is given for not-found,
 # the variable is left empty.
@@ -482,7 +526,7 @@ AC_PATH_PROGS(TOOL3, missing,, $path)
 test -z "$TOOL3" || fail=:
 
 AC_PATH_PROGS(TOOL4, missing tool better,, $path)
-test "$TOOL4" = $pwd/path/1/tool || fail=:
+test "$TOOL4" = "$pwd/path/1/tool" || fail=:
 
 # No AC-OUTPUT, we don't need config.status.
 $fail &&

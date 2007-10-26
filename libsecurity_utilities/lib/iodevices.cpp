@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2007 Apple, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -94,8 +94,9 @@ CFTypeRef Device::property(const char *name) const
 //
 DeviceIterator::~DeviceIterator()
 {
-	while (!mAtEnd)
-		(*this)();
+	// drain the iterator to avoid port leakage
+	while (Device dev = (*this)())
+		;
 }
 
 
@@ -194,12 +195,56 @@ void NotificationPort::add(DeviceMatch match, Receiver &receiver, const char *ty
 	receiver.ioChange(it);
 }
 
+void NotificationPort::addInterestNotification(Receiver &receiver, io_service_t service, 
+	const io_name_t interestType)
+{
+	io_iterator_t iterator;
+	mach_port_t pp = NotificationPort::port();
+	secdebug("iokit", "NotificationPort::addInterest - type: %s [port: %p (0x%08X), service: 0x%08X]",
+		interestType, mPortRef, pp, service);
+
+	// We cannot throw if we get an error here since we will receive notifications
+	// from each plane, and not all planes have the necessary information to be
+	// able to add an interest notification
+	kern_return_t kr = ::IOServiceAddInterestNotification(mPortRef,
+		service, interestType, ioDeviceNotification, &receiver, &iterator);
+	const char *msgstr = mach_error_string(kr);
+	const char *msgtyp = mach_error_type(kr);
+	if (msgstr && msgtyp)
+		secdebug("iokit", " msg: %s, typ: %s", msgstr, msgtyp);
+}
+
 void NotificationPort::ioNotify(void *refCon, io_iterator_t iterator)
 {
 	secdebug("iokit", "dispatching new device match iterator %d", iterator);
 	DeviceIterator it(iterator);
-	reinterpret_cast<Receiver *>(refCon)->ioChange(it);
+	try {
+		reinterpret_cast<Receiver *>(refCon)->ioChange(it);
+	} catch (...) {
+		secdebug("iokit", "ioChange callback threw an exception (ignored)");
+	}
 }
+
+void NotificationPort::ioDeviceNotification(void *refCon, io_service_t service,
+	natural_t messageType, void *messageArgument)
+{
+	secdebug("iokit", "dispatching NEW device notification iterator, service 0x%08X, msg: 0x%04X, arg: %p", 
+		service, messageType, messageArgument);
+
+	const char *msgstr = mach_error_string(messageType);
+	const char *msgtyp = mach_error_type(messageType);
+	if (msgstr && msgtyp)
+		secdebug("iokit", " msg: %s, typ: %s", msgstr, msgtyp);
+	
+	if (service!=io_service_t(-1))
+		reinterpret_cast<Receiver *>(refCon)->ioServiceChange(refCon, service, messageType, messageArgument);
+}
+
+//
+// Abstract NotificationPort::Receivers
+//
+NotificationPort::Receiver::~Receiver()
+{ /* virtual */ }
 
 
 //

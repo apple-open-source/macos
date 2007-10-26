@@ -68,7 +68,7 @@ extern "C" {
 /*! @defined kRuleAuthenticateAsSessionUser
 	canned rule value for use with rule delegation definitions: require user to authenticate as the session owner (logged-in user).
 */
-#define kAuthorizationRuleAuthenticateAsSessionUser	"authenticate-session-user"
+#define kAuthorizationRuleAuthenticateAsSessionUser	"authenticate-session-owner"
 
 /*! @defined kRuleAuthenticateAsAdmin
 	Canned rule value for use with rule delegation definitions: require user to authenticate as admin.

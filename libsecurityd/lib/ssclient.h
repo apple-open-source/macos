@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,34 +31,40 @@
 #ifndef _H_SSCLIENT
 #define _H_SSCLIENT
 
-
-#include <security_utilities/osxcode.h>
+#include "sscommon.h"
 #include <Security/Authorization.h>
 #include <Security/AuthSession.h>
+#include <Security/SecCodeHost.h>
+
+#ifdef __cplusplus
+
+#include <security_utilities/osxcode.h>
 #include <security_utilities/unix++.h>
 #include <security_utilities/globalizer.h>
-#include "sscommon.h"
 #include "ssnotify.h"
 
 
 namespace Security {
 namespace SecurityServer {
 
+#endif //__cplusplus
+
 
 //
 // Unique-identifier blobs for key objects
 //
-struct KeyUID {
+typedef struct KeyUID {
     uint8 signature[20];
-};
+} KeyUID;
 
 
 //
 // Authorization blobs
 //
-struct AuthorizationBlob {
+typedef struct AuthorizationBlob {
     uint32 data[2];
 	
+#ifdef __cplusplus
 	bool operator < (const AuthorizationBlob &other) const
 	{ return memcmp(data, other.data, sizeof(data)) < 0; }
 	
@@ -68,27 +74,31 @@ struct AuthorizationBlob {
     size_t hash() const {	//@@@ revisit this hash
         return data[0] ^ data[1] << 3;
     }
-};
+#endif
+} AuthorizationBlob;
 
 
 //
 // Initial-setup data for versioning etc.
 //
-struct ClientSetupInfo {
-	uint32 order;
-	uint32 version;
-};
-#define SSPROTOVERSION 10005
+typedef struct {
+	uint32_t order;
+	uint32_t version;
+} ClientSetupInfo;
+
+#define SSPROTOVERSION 20000
 
 
 //
 // Database parameter structure
 //
-class DBParameters {
-public:
-	uint32 idleTimeout;				// seconds idle timout lock
-	uint8 lockOnSleep;				// lock keychain when system sleeps
-};
+typedef struct {
+	uint32_t idleTimeout;				// seconds idle timout lock
+	uint8_t lockOnSleep;				// lock keychain when system sleeps
+} DBParameters;
+
+
+#ifdef __cplusplus
 
 
 //
@@ -327,28 +337,12 @@ public:
     
 public:
     // Notification core support
-    void requestNotification(Port receiver, NotificationDomain domain, NotificationMask events);
-    void stopNotification(Port receiver);
     void postNotification(NotificationDomain domain, NotificationEvent event, const CssmData &data);
     
 	// low-level callback (C form)
     typedef OSStatus ConsumeNotification(NotificationDomain domain, NotificationEvent event,
         const void *data, size_t dataLength, void *context);
 	
-	// high-level callback (C++ object form)
-	class NotificationConsumer {
-	public:
-		virtual ~NotificationConsumer();
-		virtual void consume(NotificationDomain domain, NotificationEvent event,
-			const CssmData &data) = 0;
-	};
-
-	// notification dispatch (got message, want it handled)
-    OSStatus dispatchNotification(const mach_msg_header_t *message,
-        ConsumeNotification *consumer, void *context) throw();
-	OSStatus dispatchNotification(const mach_msg_header_t *message,
-		NotificationConsumer *consumer) throw();
-
 public:
 	// AuthorizationDB API
 	void authorizationdbGet(const AuthorizationString rightname, CssmData &rightDefinition, Allocator &alloc);
@@ -371,6 +365,19 @@ public:
 	typedef void DidChangeKeyAclCallback(void *context, ClientSession &clientSession,
 		KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag);
 	void registerForAclEdits(DidChangeKeyAclCallback *callback, void *context);
+	
+public:
+	// Code Signing hosting interface
+	void registerHosting(mach_port_t hostingPort, SecCSFlags flags);
+	mach_port_t hostingPort(pid_t pid);
+	
+	SecGuestRef createGuest(SecGuestRef host,
+		uint32_t status, const char *path, const CssmData &attributes, SecCSFlags flags);
+	void setGuestStatus(SecGuestRef guest, uint32 status, const CssmData &attributes);
+	void removeGuest(SecGuestRef host, SecGuestRef guest);
+	
+	void selectGuest(SecGuestRef guest);
+	SecGuestRef selectedGuest() const; 
 
 private:
 	static Port findSecurityd();
@@ -386,7 +393,7 @@ private:
 	static OSStatus consumerDispatch(NotificationDomain domain, NotificationEvent event,
 		const void *data, size_t dataLength, void *context);
 
-	void addApplicationAclSubject(KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag);
+	void notifyAclChange(KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag);
 
 	void returnAttrsAndData(CssmDbRecordAttributeData *inOutAttributes,
 		CssmDbRecordAttributeData *attrs, CssmDbRecordAttributeData *attrsBase, mach_msg_type_number_t attrsLength,
@@ -398,11 +405,16 @@ private:
 	static UnixPlusPlus::StaticForkMonitor mHasForked;	// global fork indicator
 
 	struct Thread {
-		Thread() : registered(false) { }
+		Thread() : registered(false), notifySeq(0),
+			currentGuest(kSecNoGuest), lastGuest(kSecNoGuest) { }
 		operator bool() const { return registered; }
 		
 		ReceivePort replyPort;	// dedicated reply port (send right held by SecurityServer)
         bool registered;		// has been registered with SecurityServer
+		uint32 notifySeq; // notification sequence number
+		
+		SecGuestRef currentGuest;	// last set guest path
+		SecGuestRef lastGuest;		// last transmitted guest path
 	};
 
 	struct Global {
@@ -415,11 +427,14 @@ private:
 	static ModuleNexus<Global> mGlobal;
 	static bool mSetupSession;
 	static const char *mContactName;
+	static SecGuestRef mDedicatedGuest;
 };
 
 
 } // end namespace SecurityServer
 } // end namespace Security
+
+#endif //__cplusplus
 
 
 #endif //_H_SSCLIENT

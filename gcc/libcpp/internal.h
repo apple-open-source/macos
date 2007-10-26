@@ -374,6 +374,12 @@ struct cpp_reader
   cpp_token *cur_token;
   tokenrun base_run, *cur_run;
   unsigned int lookaheads;
+  /* APPLE LOCAL begin 4137741 */
+  /* Buffer of pending CPP_EINCL tokens.  */
+  cpp_token *beg_eincl, *end_eincl;
+  tokenrun base_eincl, *cur_eincl;
+  bool have_eincl;
+  /* APPLE LOCAL end 4137741 */
 
   /* Nonzero prevents the lexer from re-using the token runs.  */
   unsigned int keep_tokens;
@@ -546,6 +552,8 @@ extern const cpp_token *_cpp_lex_token (cpp_reader *);
 extern cpp_token *_cpp_lex_direct (cpp_reader *);
 extern int _cpp_equiv_tokens (const cpp_token *, const cpp_token *);
 extern void _cpp_init_tokenrun (tokenrun *, unsigned int);
+/* APPLE LOCAL 4137741 */
+extern tokenrun *_cpp_next_tokenrun (tokenrun *);
 
 /* In init.c.  */
 extern void _cpp_maybe_push_include_file (cpp_reader *);

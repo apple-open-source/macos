@@ -152,6 +152,7 @@ public:
 private:
 	NSS_P12_CertBagType		mCertType;
 	CSSM_DATA				mCertData;
+	SecCertificateRef		mCertRef;	/* created lazily */
 };
 
 class P12CrlBag : public P12SafeBag {

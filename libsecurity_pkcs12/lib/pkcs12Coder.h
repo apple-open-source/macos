@@ -110,6 +110,14 @@ public:
 	
 	CSSM_CSP_HANDLE	cspHand()				{ return mCspHand; }
 
+	/* private key import attributes */
+	void setAccess(
+		SecAccessRef			access);
+	void setKeyUsage(
+		CSSM_KEYUSE				keyUsage)	{ mKeyUsage = keyUsage; }
+	void setKeyAttrs(
+		CSSM_KEYATTR_FLAGS		keyAttrs);
+		
 	/* High-level import/export */
 	void importFlags(
 		SecPkcs12ImportFlags flags)			{ mImportFlags = flags; }
@@ -392,6 +400,14 @@ private:
 	 */
 	CSSM_CSP_HANDLE				mRawCspHand;
 	CSSM_CL_HANDLE				mClHand;
+	
+	/* 
+	 * Imported private key attributes
+	 */
+	SecAccessRef				mAccess;
+	bool						mNoAcl;		/* true when NULL passed to setAccess() */
+	CSSM_KEYUSE					mKeyUsage;
+	CSSM_KEYATTR_FLAGS			mKeyAttrs;
 	
 	/*
 	 * The source of most (all?) of our privately allocated data

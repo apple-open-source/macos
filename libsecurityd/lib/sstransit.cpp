@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,13 +28,15 @@
 #include "sstransit.h"
 #include <security_cdsa_client/cspclient.h>
 #include <security_utilities/ktracecodes.h>
+#include <security_utilities/mach++.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 namespace Security {
-namespace SecurityServer {
 
 using MachPlusPlus::check;
 using MachPlusPlus::VMGuard;
+
+namespace SecurityServer {
 
 
 //
@@ -60,48 +62,6 @@ DataOutput::~DataOutput()
 
 
 //
-// Create a packaged-up Context for IPC transmission.
-// In addition to collecting the context into a contiguous blob for transmission,
-// we also evaluate CssmCryptoData callbacks at this time.
-//
-SendContext::SendContext(const Security::Context &ctx) : context(ctx)
-{
-	CssmCryptoData cryptoDataValue;	// holding area for CssmCryptoData element
-	IFDEBUG(uint32 cryptoDataUsed = 0);
-	Context::Builder builder(Allocator::standard());
-	for (unsigned n = 0; n < ctx.attributesInUse(); n++) {
-		switch (ctx[n].baseType()) {
-		case CSSM_ATTRIBUTE_DATA_CRYPTO_DATA: {
-			CssmCryptoData &data = ctx[n];	// extract CssmCryptoData value
-			cryptoDataValue = data();		// evaluate callback (if any)
-			builder.setup(&cryptoDataValue); // use evaluted value
-			IFDEBUG(cryptoDataUsed++);
-			break;
-		}
-		default:
-			builder.setup(ctx[n]);
-			break;
-		}
-	}
-	attributeSize = builder.make();
-	for (unsigned n = 0; n < ctx.attributesInUse(); n++) {
-		const Context::Attr &attr = ctx[n];
-		switch (attr.baseType()) {
-		case CSSM_ATTRIBUTE_DATA_CRYPTO_DATA:
-			builder.put(attr.type(), &cryptoDataValue);
-			break;
-		default:
-			builder.put(attr);
-			break;
-		}
-	}
-	uint32 count;	// not needed
-	builder.done(attributes, count);
-	assert(cryptoDataUsed <= 1);	// no more than one slot converted
-}
-
-
-//
 // Copy an AccessCredentials for shipment.
 // In addition, scan the samples for "special" database locking samples
 // and translate certain items for safe shipment. Note that this overwrites
@@ -117,9 +77,10 @@ DatabaseAccessCredentials::DatabaseAccessCredentials(const AccessCredentials *cr
 			sample.checkProper();
 			switch (sample.type()) {
 			case CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK:
-				sample.snip();	// skip sample type
+				sample.snip();			// skip sample type (snip() advances to next)
 				sample.checkProper();
-				if (sample.type() == CSSM_WORDID_SYMMETRIC_KEY) {
+				if (sample.type() == CSSM_SAMPLE_TYPE_SYMMETRIC_KEY || 
+					sample.type() == CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY) {
 					secdebug("SSclient", "key sample encountered");
 					// proper form is sample[1] = DATA:CSPHandle, sample[2] = DATA:CSSM_KEY,
 					// sample[3] = auxiliary data (not changed)
@@ -136,7 +97,8 @@ DatabaseAccessCredentials::DatabaseAccessCredentials(const AccessCredentials *cr
 			case CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK:
 				sample.snip();	// skip sample type
 				sample.checkProper();
-				if (sample.type() == CSSM_WORDID_SYMMETRIC_KEY) {
+				if (sample.type() == CSSM_SAMPLE_TYPE_SYMMETRIC_KEY || 
+					sample.type() == CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY) {
 					secdebug("SSclient", "key sample encountered");
 					// proper form is sample[1] = DATA:CSPHandle, sample[2] = DATA:CSSM_KEY
 					if (sample.length() != 3

@@ -32,13 +32,13 @@ static NTSTATUS get_info3_from_ndr(TALLOC_CTX *mem_ctx, struct winbindd_response
 	size_t len = response->length - sizeof(struct winbindd_response);
 	prs_struct ps;
 	if (len > 0) {
-		info3_ndr = response->extra_data;
+		info3_ndr = (uint8 *)response->extra_data.data;
 		if (!prs_init(&ps, len, mem_ctx, UNMARSHALL)) {
 			return NT_STATUS_NO_MEMORY;
 		}
 		prs_copy_data_in(&ps, (char *)info3_ndr, len);
 		prs_set_offset(&ps,0);
-		if (!net_io_user_info3("", info3, &ps, 1, 3)) {
+		if (!net_io_user_info3("", info3, &ps, 1, 3, False)) {
 			DEBUG(2, ("get_info3_from_ndr: could not parse info3 struct!\n"));
 			return NT_STATUS_UNSUCCESSFUL;
 		}
@@ -71,13 +71,13 @@ static NTSTATUS check_winbind_security(const struct auth_context *auth_context,
 
 	if (!auth_context) {
 		DEBUG(3,("Password for user %s cannot be checked because we have no auth_info to get the challenge from.\n", 
-			 user_info->internal_username.str));		
+			 user_info->internal_username));
 		return NT_STATUS_INVALID_PARAMETER;
 	}		
 
-	if (strequal(user_info->domain.str, get_global_sam_name())) {
+	if (strequal(user_info->domain, get_global_sam_name())) {
 		DEBUG(3,("check_winbind_security: Not using winbind, requested domain [%s] was for this SAM.\n",
-			user_info->domain.str));
+			user_info->domain));
 		return NT_STATUS_NOT_IMPLEMENTED;
 	}
 
@@ -88,12 +88,11 @@ static NTSTATUS check_winbind_security(const struct auth_context *auth_context,
 
 	request.flags = WBFLAG_PAM_INFO3_NDR;
 
-	push_utf8_fstring(request.data.auth_crap.user, 
-			  user_info->smb_name.str);
-	push_utf8_fstring(request.data.auth_crap.domain, 
-			  user_info->domain.str);
-	push_utf8_fstring(request.data.auth_crap.workstation, 
-			  user_info->wksta_name.str);
+	request.data.auth_crap.logon_parameters = user_info->logon_parameters;
+
+	fstrcpy(request.data.auth_crap.user, user_info->smb_name);
+	fstrcpy(request.data.auth_crap.domain, user_info->domain);
+	fstrcpy(request.data.auth_crap.workstation, user_info->wksta_name);
 
 	memcpy(request.data.auth_crap.chal, auth_context->challenge.data, sizeof(request.data.auth_crap.chal));
 	
@@ -109,11 +108,13 @@ static NTSTATUS check_winbind_security(const struct auth_context *auth_context,
 
 	/* we are contacting the privileged pipe */
 	become_root();
-	result = winbindd_request(WINBINDD_PAM_AUTH_CRAP, &request, &response);
+	result = winbindd_priv_request_response(WINBINDD_PAM_AUTH_CRAP,
+						&request, &response);
 	unbecome_root();
 
 	if ( result == NSS_STATUS_UNAVAIL )  {
-		struct auth_methods *auth_method = my_private_data;
+		struct auth_methods *auth_method =
+			(struct auth_methods *)my_private_data;
 
 		if ( auth_method )
 			return auth_method->auth(auth_context, auth_method->private_data, 
@@ -125,21 +126,23 @@ static NTSTATUS check_winbind_security(const struct auth_context *auth_context,
 
 	nt_status = NT_STATUS(response.data.auth.nt_status);
 
-	if (result == NSS_STATUS_SUCCESS && response.extra_data) {
+	if (result == NSS_STATUS_SUCCESS && response.extra_data.data) {
 		if (NT_STATUS_IS_OK(nt_status)) {
 			if (NT_STATUS_IS_OK(nt_status = get_info3_from_ndr(mem_ctx, &response, &info3))) { 
 				nt_status = make_server_info_info3(mem_ctx, 
-					user_info->internal_username.str, 
-					user_info->smb_name.str, user_info->domain.str, 
+					user_info->smb_name, user_info->domain, 
 					server_info, &info3); 
 			}
 			
+			if (NT_STATUS_IS_OK(nt_status)) {
+				(*server_info)->was_mapped |= user_info->was_mapped;
+			}
 		}
 	} else if (NT_STATUS_IS_OK(nt_status)) {
 		nt_status = NT_STATUS_NO_LOGON_SERVERS;
 	}
 
-	SAFE_FREE(response.extra_data);
+	SAFE_FREE(response.extra_data.data);
         return nt_status;
 }
 
@@ -156,10 +159,11 @@ static NTSTATUS auth_init_winbind(struct auth_context *auth_context, const char 
 	if (param && *param) {
 		/* we load the 'fallback' module - if winbind isn't here, call this
 		   module */
-		if (!load_auth_module(auth_context, param, (auth_methods **)&(*auth_method)->private_data)) {
+		auth_methods *priv;
+		if (!load_auth_module(auth_context, param, &priv)) {
 			return NT_STATUS_UNSUCCESSFUL;
 		}
-		
+		(*auth_method)->private_data = (void *)priv;
 	}
 	return NT_STATUS_OK;
 }

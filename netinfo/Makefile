@@ -12,11 +12,7 @@ NAME = netinfo
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-SUBPROJECTS = agents servers tools
-
 FRAMEWORK_SUBPROJECTS = common
-
-LIBRARIES = resolver
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble NetInfo.strings
 
@@ -26,9 +22,6 @@ MAKEFILE = aggregate.make
 LIBS = 
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
-
-
-
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc

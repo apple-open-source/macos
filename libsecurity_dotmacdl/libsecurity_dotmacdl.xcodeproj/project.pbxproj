@@ -1,0 +1,361 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05F30BD00A77E4C60059D5B0 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05F30BCF0A77E4C60059D5B0 /* SystemConfiguration.framework */; };
+		D617C192069E144600F4C2C6 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D617C191069E144600F4C2C6 /* CoreServices.framework */; };
+		D6296050069CB56C005E10D0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D629604F069CB56C005E10D0 /* CoreFoundation.framework */; };
+		D6439F0F06A5BC830054F1AC /* dotmac_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = D6439F0E06A5BC830054F1AC /* dotmac_primary.mdsinfo */; };
+		D653D56A069340D20022AAF3 /* DotMacRelation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D653D568069340D20022AAF3 /* DotMacRelation.cpp */; };
+		D6587D0706951356008388D9 /* dotmac_common.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = D6587D0606951356008388D9 /* dotmac_common.mdsinfo */; };
+		D67DA98E0693419100324D25 /* DocMacDLModule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D67DA98C0693419100324D25 /* DocMacDLModule.cpp */; };
+		D6BCC754069345A600D6F2BF /* DotMacDLModule.h in Sources */ = {isa = PBXBuildFile; fileRef = D67DA98D0693419100324D25 /* DotMacDLModule.h */; };
+		D6D29E1A06933E1E0000CE60 /* PartialRelation.h in Sources */ = {isa = PBXBuildFile; fileRef = D6EFB0AC066528F800E68C0C /* PartialRelation.h */; };
+		D6D29E1B06933E1E0000CE60 /* PartialRelation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6EFB0AD066528F800E68C0C /* PartialRelation.cpp */; };
+		D6D29E1E06933E1E0000CE60 /* Relation.h in Sources */ = {isa = PBXBuildFile; fileRef = D6FE2B2206469C1500DA234F /* Relation.h */; };
+		D6D29E1F06933E1E0000CE60 /* Relation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6FE2B2306469C1500DA234F /* Relation.cpp */; };
+		D6D29E2006933E1E0000CE60 /* TableRelation.h in Sources */ = {isa = PBXBuildFile; fileRef = D661C5A60648673400A1CFFF /* TableRelation.h */; };
+		D6D29E2106933E1E0000CE60 /* TableRelation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D661C5A70648673400A1CFFF /* TableRelation.cpp */; };
+		D6D29E2206933E1E0000CE60 /* Bridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218A8064A89DE00ABB3AE /* Bridge.cpp */; };
+		D6D29E2506933E1E0000CE60 /* CSSMStubs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218BB064A94E200ABB3AE /* CSSMStubs.cpp */; };
+		D6D29E2606933E1E0000CE60 /* DataStorageLibrary.h in Sources */ = {isa = PBXBuildFile; fileRef = D64218B4064A8EF200ABB3AE /* DataStorageLibrary.h */; };
+		D6D29E2706933E1E0000CE60 /* CommonCode.h in Sources */ = {isa = PBXBuildFile; fileRef = D67BE6B6065931A400E26A3B /* CommonCode.h */; };
+		D6D29E2806933E1E0000CE60 /* CommonCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D67BE6B7065931A400E26A3B /* CommonCode.cpp */; };
+		D6D29E2906933E1E0000CE60 /* DataStorageLibrary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218B5064A8EF200ABB3AE /* DataStorageLibrary.cpp */; };
+		D6D29E2A06933E1E0000CE60 /* AttachedInstance.h in Sources */ = {isa = PBXBuildFile; fileRef = D64218D1064A9E2800ABB3AE /* AttachedInstance.h */; };
+		D6D29E2B06933E1E0000CE60 /* AttachedInstance.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218D2064A9E2800ABB3AE /* AttachedInstance.cpp */; };
+		D6D29E2C06933E1E0000CE60 /* Mutex.h in Sources */ = {isa = PBXBuildFile; fileRef = D687EAE3064BF83800DF1A47 /* Mutex.h */; };
+		D6D29E2D06933E1E0000CE60 /* Mutex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D687EAE4064BF83800DF1A47 /* Mutex.cpp */; };
+		D6D29E2E06933E1E0000CE60 /* Database.h in Sources */ = {isa = PBXBuildFile; fileRef = D687EB46064C06B500DF1A47 /* Database.h */; };
+		D6D29E2F06933E1E0000CE60 /* Database.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D687EB47064C06B500DF1A47 /* Database.cpp */; };
+		D6D29E3406933E610000CE60 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D66B17040639E5E200E30944 /* Security.framework */; };
+		D6FBE86406AEE00100CE8BBB /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6FBE86306AEE00100CE8BBB /* security_utilities.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		05F30BCF0A77E4C60059D5B0 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
+		D617C191069E144600F4C2C6 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
+		D629604F069CB56C005E10D0 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		D64218A8064A89DE00ABB3AE /* Bridge.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Bridge.cpp; sourceTree = "<group>"; };
+		D64218B4064A8EF200ABB3AE /* DataStorageLibrary.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataStorageLibrary.h; sourceTree = "<group>"; };
+		D64218B5064A8EF200ABB3AE /* DataStorageLibrary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DataStorageLibrary.cpp; sourceTree = "<group>"; };
+		D64218BB064A94E200ABB3AE /* CSSMStubs.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CSSMStubs.cpp; sourceTree = "<group>"; };
+		D64218D1064A9E2800ABB3AE /* AttachedInstance.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AttachedInstance.h; sourceTree = "<group>"; };
+		D64218D2064A9E2800ABB3AE /* AttachedInstance.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AttachedInstance.cpp; sourceTree = "<group>"; };
+		D6439F0E06A5BC830054F1AC /* dotmac_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = dotmac_primary.mdsinfo; sourceTree = "<group>"; };
+		D653D568069340D20022AAF3 /* DotMacRelation.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DotMacRelation.cpp; sourceTree = "<group>"; };
+		D653D569069340D20022AAF3 /* DotMacRelation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DotMacRelation.h; sourceTree = "<group>"; };
+		D6587D0606951356008388D9 /* dotmac_common.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = dotmac_common.mdsinfo; sourceTree = "<group>"; };
+		D661C5A60648673400A1CFFF /* TableRelation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TableRelation.h; sourceTree = "<group>"; };
+		D661C5A70648673400A1CFFF /* TableRelation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TableRelation.cpp; sourceTree = "<group>"; };
+		D66B17040639E5E200E30944 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		D67BE6B6065931A400E26A3B /* CommonCode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonCode.h; sourceTree = "<group>"; };
+		D67BE6B7065931A400E26A3B /* CommonCode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CommonCode.cpp; sourceTree = "<group>"; };
+		D67DA98C0693419100324D25 /* DocMacDLModule.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DocMacDLModule.cpp; sourceTree = "<group>"; };
+		D67DA98D0693419100324D25 /* DotMacDLModule.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DotMacDLModule.h; sourceTree = "<group>"; };
+		D687EAE3064BF83800DF1A47 /* Mutex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Mutex.h; sourceTree = "<group>"; };
+		D687EAE4064BF83800DF1A47 /* Mutex.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Mutex.cpp; sourceTree = "<group>"; };
+		D687EB46064C06B500DF1A47 /* Database.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Database.h; sourceTree = "<group>"; };
+		D687EB47064C06B500DF1A47 /* Database.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Database.cpp; sourceTree = "<group>"; };
+		D6C5CCA20680F2DE002E2C08 /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = /System/Library/Frameworks/DirectoryService.framework; sourceTree = "<absolute>"; };
+		D6D29E1606933DDA0000CE60 /* dotmacdl.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = dotmacdl.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6EFB0AC066528F800E68C0C /* PartialRelation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PartialRelation.h; sourceTree = "<group>"; };
+		D6EFB0AD066528F800E68C0C /* PartialRelation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PartialRelation.cpp; sourceTree = "<group>"; };
+		D6FBE86306AEE00100CE8BBB /* security_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_utilities.framework; path = /usr/local/SecurityPieces/Frameworks/security_utilities.framework; sourceTree = "<absolute>"; };
+		D6FE2B2206469C1500DA234F /* Relation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Relation.h; sourceTree = "<group>"; };
+		D6FE2B2306469C1500DA234F /* Relation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Relation.cpp; sourceTree = "<group>"; };
+		D6FEBACA06518908003810E8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D6D29E1406933DDA0000CE60 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6D29E3406933E610000CE60 /* Security.framework in Frameworks */,
+				D6296050069CB56C005E10D0 /* CoreFoundation.framework in Frameworks */,
+				D617C192069E144600F4C2C6 /* CoreServices.framework in Frameworks */,
+				D6FBE86406AEE00100CE8BBB /* security_utilities.framework in Frameworks */,
+				05F30BD00A77E4C60059D5B0 /* SystemConfiguration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4094B098057EA68B00B44BCC /* mds */ = {
+			isa = PBXGroup;
+			children = (
+				D6439F0E06A5BC830054F1AC /* dotmac_primary.mdsinfo */,
+				D6587D0606951356008388D9 /* dotmac_common.mdsinfo */,
+			);
+			path = mds;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				D66B17010639E5B500E30944 /* Frameworks */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+				C28436DB0534880F000AE0FC /* lib */,
+				4094B098057EA68B00B44BCC /* mds */,
+				D6FEBACA06518908003810E8 /* Info.plist */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D6D29E1606933DDA0000CE60 /* dotmacdl.bundle */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C28436DB0534880F000AE0FC /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				D67DA98C0693419100324D25 /* DocMacDLModule.cpp */,
+				D67DA98D0693419100324D25 /* DotMacDLModule.h */,
+				D653D568069340D20022AAF3 /* DotMacRelation.cpp */,
+				D653D569069340D20022AAF3 /* DotMacRelation.h */,
+				D6EFB0AC066528F800E68C0C /* PartialRelation.h */,
+				D6EFB0AD066528F800E68C0C /* PartialRelation.cpp */,
+				D6FE2B2206469C1500DA234F /* Relation.h */,
+				D6FE2B2306469C1500DA234F /* Relation.cpp */,
+				D661C5A60648673400A1CFFF /* TableRelation.h */,
+				D661C5A70648673400A1CFFF /* TableRelation.cpp */,
+				D64218A8064A89DE00ABB3AE /* Bridge.cpp */,
+				D64218BB064A94E200ABB3AE /* CSSMStubs.cpp */,
+				D64218B4064A8EF200ABB3AE /* DataStorageLibrary.h */,
+				D67BE6B6065931A400E26A3B /* CommonCode.h */,
+				D67BE6B7065931A400E26A3B /* CommonCode.cpp */,
+				D64218B5064A8EF200ABB3AE /* DataStorageLibrary.cpp */,
+				D64218D1064A9E2800ABB3AE /* AttachedInstance.h */,
+				D64218D2064A9E2800ABB3AE /* AttachedInstance.cpp */,
+				D687EAE3064BF83800DF1A47 /* Mutex.h */,
+				D687EAE4064BF83800DF1A47 /* Mutex.cpp */,
+				D687EB46064C06B500DF1A47 /* Database.h */,
+				D687EB47064C06B500DF1A47 /* Database.cpp */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		D66B17010639E5B500E30944 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				05F30BCF0A77E4C60059D5B0 /* SystemConfiguration.framework */,
+				D6FBE86306AEE00100CE8BBB /* security_utilities.framework */,
+				D617C191069E144600F4C2C6 /* CoreServices.framework */,
+				D629604F069CB56C005E10D0 /* CoreFoundation.framework */,
+				D6C5CCA20680F2DE002E2C08 /* DirectoryService.framework */,
+				D66B17040639E5E200E30944 /* Security.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D6D29E1506933DDA0000CE60 /* dotmacdl.bundle */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD34E0987FCDE001272E0 /* Build configuration list for PBXNativeTarget "dotmacdl.bundle" */;
+			buildPhases = (
+				D6D29E1206933DDA0000CE60 /* Resources */,
+				D6D29E1306933DDA0000CE60 /* Sources */,
+				D6D29E1406933DDA0000CE60 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = dotmacdl.bundle;
+			productName = dotmacdl.bundle;
+			productReference = D6D29E1606933DDA0000CE60 /* dotmacdl.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD3520987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_dotmacdl" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
+			targets = (
+				D6D29E1506933DDA0000CE60 /* dotmacdl.bundle */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D6D29E1206933DDA0000CE60 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6587D0706951356008388D9 /* dotmac_common.mdsinfo in Resources */,
+				D6439F0F06A5BC830054F1AC /* dotmac_primary.mdsinfo in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D6D29E1306933DDA0000CE60 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6BCC754069345A600D6F2BF /* DotMacDLModule.h in Sources */,
+				D67DA98E0693419100324D25 /* DocMacDLModule.cpp in Sources */,
+				D6D29E1A06933E1E0000CE60 /* PartialRelation.h in Sources */,
+				D6D29E1B06933E1E0000CE60 /* PartialRelation.cpp in Sources */,
+				D6D29E1E06933E1E0000CE60 /* Relation.h in Sources */,
+				D6D29E1F06933E1E0000CE60 /* Relation.cpp in Sources */,
+				D6D29E2006933E1E0000CE60 /* TableRelation.h in Sources */,
+				D6D29E2106933E1E0000CE60 /* TableRelation.cpp in Sources */,
+				D6D29E2206933E1E0000CE60 /* Bridge.cpp in Sources */,
+				D6D29E2506933E1E0000CE60 /* CSSMStubs.cpp in Sources */,
+				D6D29E2606933E1E0000CE60 /* DataStorageLibrary.h in Sources */,
+				D6D29E2706933E1E0000CE60 /* CommonCode.h in Sources */,
+				D6D29E2806933E1E0000CE60 /* CommonCode.cpp in Sources */,
+				D6D29E2906933E1E0000CE60 /* DataStorageLibrary.cpp in Sources */,
+				D6D29E2A06933E1E0000CE60 /* AttachedInstance.h in Sources */,
+				D6D29E2B06933E1E0000CE60 /* AttachedInstance.cpp in Sources */,
+				D6D29E2C06933E1E0000CE60 /* Mutex.h in Sources */,
+				D6D29E2D06933E1E0000CE60 /* Mutex.cpp in Sources */,
+				D6D29E2E06933E1E0000CE60 /* Database.h in Sources */,
+				D6D29E2F06933E1E0000CE60 /* Database.cpp in Sources */,
+				D653D56A069340D20022AAF3 /* DotMacRelation.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD34F0987FCDE001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 29745;
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = dotmacdl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		C27AD3500987FCDE001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 29745;
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = dotmacdl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD3510987FCDE001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 29745;
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = dotmacdl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD3530987FCDE001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD3540987FCDE001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD3550987FCDE001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD34E0987FCDE001272E0 /* Build configuration list for PBXNativeTarget "dotmacdl.bundle" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD34F0987FCDE001272E0 /* Development */,
+				C27AD3500987FCDE001272E0 /* Deployment */,
+				C27AD3510987FCDE001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD3520987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_dotmacdl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3530987FCDE001272E0 /* Development */,
+				C27AD3540987FCDE001272E0 /* Deployment */,
+				C27AD3550987FCDE001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

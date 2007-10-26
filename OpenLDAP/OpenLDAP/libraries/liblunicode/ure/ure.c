@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ure/ure.c,v 1.13.2.2 2004/01/01 18:16:31 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ure/ure.c,v 1.15.2.2 2006/01/03 22:16:10 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,7 @@
  * OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $Id: ure.c,v 1.4 2004/03/30 01:32:51 jtownsen Exp $" */
+/* $Id: ure.c,v 1.2 1999/09/21 15:47:43 mleisher Exp $" */
 
 #include "portable.h"
 

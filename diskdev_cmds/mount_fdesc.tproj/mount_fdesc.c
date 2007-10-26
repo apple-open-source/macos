@@ -68,7 +68,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "mntopts.h"
+#include <mntopts.h>
 
 struct mntopt mopts[] = {
 	MOPT_STDOPTS,

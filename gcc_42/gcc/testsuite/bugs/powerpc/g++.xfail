@@ -1,0 +1,64 @@
+# APPLE LOCAL file testsuite
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be an
+### analyzed non-fail. You should then comment out the test in this
+### file and make sure the Radar is closed.
+###
+###------------------------------------------------------------------
+3222046: g++.dg/warn/weak1.C (test for excess errors)
+3223598: g++.dg/special/conpr-3.C execution test
+4531667: g++.dg/bitreverse-23.C execution test
+4869885: g++.dg/align-test-1.C (test for excess errors)
+4869885: g++.dg/align-test-1.C execution test
+4869813: g++.dg/altivec-3.C (test for excess errors)
+4869813: g++.dg/altivec-4.C (test for excess errors)
+4869813: g++.dg/altivec-7.C (test for excess errors)
+4869813: g++.dg/altivec-8.C (test for excess errors)
+4869813: g++.dg/apple-altivec-2.C (test for excess errors)
+4872028: g++.dg/other/unused1.C scan-assembler (string|ascii?)z?\t"class2("|\\\\000)
+4872028: g++.dg/other/unused1.C scan-assembler (string|ascii?)z?\t"printer("|\\\\000)
+5281849: g++.apple/visibility-1.C scan-hidden private_extern[ \t_]*_?__ZTI1T
+5317196: g++.old-deja/g++.pt/const2.C (test for excess errors)
+#
+# The following tests fail only when the c++ suite is run through Obj-C++.
+#
+# The following tests fail only when the c++ suite is run with -m64
+#
+# The following tests fail only when the c++ suite is run on ppc with -m64
+5103220: tmpdir-g++.dg-struct-layout-1/t003 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+5103220: tmpdir-g++.dg-struct-layout-1/t006 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+5103220: tmpdir-g++.dg-struct-layout-1/t007 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+5103220: tmpdir-g++.dg-struct-layout-1/t008 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+5103220: tmpdir-g++.dg-struct-layout-1/t010 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+5103220: tmpdir-g++.dg-struct-layout-1/t011 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+5103220: tmpdir-g++.dg-struct-layout-1/t015 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+5103220: tmpdir-g++.dg-struct-layout-1/t020 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+5103220: tmpdir-g++.dg-struct-layout-1/t024 cp_compat_x_tst.o compile,  (internal compiler error)
+5103220: tmpdir-g++.dg-struct-layout-1/t026 cp_compat_x_tst.o compile,  (internal compiler error)
+5103220: tmpdir-g++.dg-struct-layout-1/t027 cp_compat_x_tst.o compile,  (internal compiler error)
+5103220: tmpdir-g++.dg-struct-layout-1/t028 cp_compat_x_tst.o compile,  (internal compiler error)
+5103220: tmpdir-g++.dg-struct-layout-1/t029 cp_compat_x_tst.o compile,  (internal compiler error)
+5103220: tmpdir-g++.dg-struct-layout-1/t030 cp_compat_x_tst.o compile,  (internal compiler error)
+#
+# The following tests fail only when the c++ suite is run on x86
+5087173: g++.old-deja/g++.other/crash41.C  (test for errors, line 10)
+5087173: g++.old-deja/g++.other/crash41.C  (test for errors, line 12)
+5087173: g++.old-deja/g++.other/crash41.C  (test for errors, line 13)
+5103201: tmpdir-g++.dg-struct-layout-1/t026 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+#
+# The following tests fail only when the c++ suite is run on G5 with -m64
+4856477: g++.apple/asm-function-6.C execution test
+#
+# The following tests fail only when the c++ suite is run on x86 with -m64
+5032020: g++.dg/ext/visibility/class1.C scan-assembler InitEv@PLT|indirect_symbol.*InitEv
+5066259: g++.dg/tree-ssa/pr29902.C (test for excess errors)
+#
+# The following tests fail only when the c++ suite is run with -fasm-blocks
+4856477: g++.old-deja/g++.other/crash41.C  (test for errors, line 10)
+4856477: g++.old-deja/g++.other/crash41.C  (test for errors, line 12)
+4856477: g++.old-deja/g++.other/crash41.C  (test for errors, line 13)

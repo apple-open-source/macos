@@ -7,6 +7,7 @@ session.use_cookies=0
 session.cache_limiter=
 register_globals=1
 session.serialize_handler=php
+session.save_handler=files
 --FILE--
 <?php
 error_reporting(E_ALL);
@@ -15,11 +16,11 @@ session_id("abtest");
 session_start();
 
 class a {
-    var $test = "hallo";
+    public $test = "hallo";
 }
  
 class b {
-    var $a;
+    public $a;
     function b(&$a) {
         $this->a = &$a;
     }
@@ -43,27 +44,27 @@ session_start();
 echo "values after session:\n";
 var_dump($a,$b);
 ?>
---EXPECT--
+--EXPECTF--
 original values:
-object(a)(1) {
+object(a)#%d (1) {
   ["test"]=>
   string(5) "hallo"
 }
-object(b)(1) {
+object(b)#%d (1) {
   ["a"]=>
-  &object(a)(1) {
+  &object(a)#%d (1) {
     ["test"]=>
     string(5) "hallo"
   }
 }
 values after session:
-object(a)(1) {
+object(a)#%d (1) {
   ["test"]=>
   string(5) "hallo"
 }
-object(b)(1) {
+object(b)#%d (1) {
   ["a"]=>
-  &object(a)(1) {
+  &object(a)#%d (1) {
     ["test"]=>
     string(5) "hallo"
   }

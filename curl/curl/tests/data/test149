@@ -1,3 +1,4 @@
+<testcase>
 # Server-side
 <reply>
 </reply>
@@ -28,7 +29,7 @@ send away this contents
 </strip>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 CWD dir1
 EPSV
@@ -37,7 +38,6 @@ STOR 148
 CWD /nowhere/anywhere
 CWD dir2
 EPSV
-TYPE I
 STOR 148
 QUIT
 </protocol>
@@ -45,3 +45,4 @@ QUIT
 send away this contents
 </file>
 </verify>
+</testcase>

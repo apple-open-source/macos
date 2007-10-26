@@ -31,26 +31,29 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.3 (Berkeley) 4/16/94
- *	$FreeBSD: src/usr.bin/find/extern.h,v 1.9.2.4 2001/05/06 09:53:22 phk Exp $
+ *	$FreeBSD: src/usr.bin/find/extern.h,v 1.23 2006/05/14 20:23:00 krion Exp $
  */
 
 #include <sys/cdefs.h>
 
-void	 brace_subst __P((char *, char **, char *, int));
-void	*emalloc __P((unsigned int));
-PLAN	*find_create __P((char ***));
-int	 find_execute __P((PLAN *, char **));
-PLAN	*find_formplan __P((char **));
-PLAN	*not_squish __P((PLAN *));
-PLAN	*or_squish __P((PLAN *));
-PLAN	*paren_squish __P((PLAN *));
+void	 brace_subst(char *, char **, char *, int);
+PLAN	*find_create(char ***);
+int	 find_execute(PLAN *, char **);
+PLAN	*find_formplan(char **);
+PLAN	*not_squish(PLAN *);
+PLAN	*or_squish(PLAN *);
+PLAN	*paren_squish(PLAN *);
+struct timeb;
+time_t	 get_date(char *, struct timeb *);
 struct stat;
-void	 printlong __P((char *, char *, struct stat *));
-int	 queryuser __P((char **));
-OPTION	*option __P((char *));
+void	 printlong(char *, char *, struct stat *);
+int	 queryuser(char **);
+OPTION	*lookup_option(const char *);
+void	 finish_execplus(void);
 
 creat_f	c_Xmin;
 creat_f	c_Xtime;
+creat_f	c_acl;
 creat_f	c_and;
 creat_f	c_delete;
 creat_f	c_depth;
@@ -58,9 +61,7 @@ creat_f	c_empty;
 creat_f	c_exec;
 creat_f	c_flags;
 creat_f	c_follow;
-#if !defined(__NetBSD__)
 creat_f	c_fstype;
-#endif
 creat_f	c_group;
 creat_f	c_inum;
 creat_f	c_links;
@@ -81,9 +82,11 @@ creat_f	c_xdev;
 
 exec_f	f_Xmin;
 exec_f	f_Xtime;
+exec_f	f_acl;
 exec_f	f_always_true;
 exec_f	f_closeparen;
 exec_f	f_delete;
+exec_f	f_depth;
 exec_f	f_empty;
 exec_f	f_exec;
 exec_f	f_expr;
@@ -113,3 +116,6 @@ exec_f	f_user;
 extern int ftsoptions, isdeprecated, isdepth, isoutput, issort, isxargs;
 extern int mindepth, maxdepth;
 extern int regexp_flags;
+extern time_t now;
+extern int dotfd;
+extern FTS *tree;

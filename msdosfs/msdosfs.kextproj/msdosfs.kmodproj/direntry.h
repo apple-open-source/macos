@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -172,6 +172,7 @@ u_int8_t winChksum __P((u_int8_t *name));
 int winSlotCnt __P((const u_int16_t *un, int unlen));
 void mac2sfmfn __P((u_int16_t *un, size_t unlen));
 void sfm2macfn __P((u_int16_t *un, u_int16_t unlen));
+u_char unicode2dos(u_int16_t uc);
 int msdosfs_fsync_internal(vnode_t vp, int sync, int do_dirs, vfs_context_t context);
 
 #endif	/* KERNEL */

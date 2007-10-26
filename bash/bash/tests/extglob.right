@@ -67,6 +67,7 @@ ok 38
 ok 39
 ok 40
 ok 41
+ok 42
 a b a,b a-b a.b a:b a;b a_b
 a b a,b a-b a.b a:b a;b a_b
 a b a,b a-b a.b a:b a;b a_b
@@ -76,3 +77,13 @@ a b a,b a-b a:b a;b a_b
 a b a,b a-b a.b a:b a;b a_b
 a b a,b a-b a.b a:b a;b a_b
 a b a,b a-b a.b a:b a;b a_b
+argv[1] = <ef>
+a.c
+a.c
+a.c
+a.c
+a.c
+a.c
+ok 1
+ok 2
+ok 3

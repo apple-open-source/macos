@@ -38,7 +38,7 @@
 
 fixpt_t	ccpu;				/* kernel _ccpu variable */
 int	nlistread=0;			/* if nlist already read. */
-int	mempages=0;			/* number of pages of phys. memory */
+uint64_t	mempages;		/* number of pages of phys. memory */
 int	fscale=0;				/* kernel _fscale variable */
 
 int
@@ -49,7 +49,7 @@ donlist()
 
 	oldlen = sizeof(mempages);
 	mib[0] = CTL_HW;
-	mib[1] = HW_PHYSMEM;
+	mib[1] = HW_MEMSIZE;
 
     if (sysctl(mib, 2, &mempages, &oldlen, NULL, 0) < 0) {
         return 1;

@@ -1,3 +1,4 @@
+<!-- $Revision: 7198 $ -->
 <html>
 <head>
     <link rel="SHORTCUT ICON" href="<mm-favicon>">
@@ -15,8 +16,8 @@
 <p>
 <table width="100%" border="0" cellspacing="5" cellpadding="5">
     <tr><td>
-        <b><MM-Presentable-User></b>'s status de inscrição,
-        senha e opções para a lista de discussão <MM-List-Name>.
+        Status de inscrição de <b><MM-Presentable-User></b>'s 
+        senha e opções na lista de discussão <MM-List-Name>.
         </td><td><MM-Form-Start><mm-logout-button><MM-Form-End></td>
     </tr><tr>
         <td colspan="2">
@@ -34,22 +35,22 @@
 <TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
     <TR><TD WIDTH="100%" BGCOLOR="#FFF0D0" colspan="2">
         <FONT COLOR="#000000">
-        <B>Modificação seus detalhes na <MM-List-Name></B>
+        <B>Modificação de seus detalhes na <MM-List-Name></B>
         </FONT></TD></TR>
     <tr><td colspan="2">Você pode mudar o endereço que está 
         inscrito na lista de discussão entrando com o novo endereço
 	nos campos abaixo. Note que o email de confirmação será 
-	enviado para o novo endereço, e a modificação deverá ser 
+	enviado para o novo endereço e a modificação deverá ser 
 	confirmada antes de ser feita.
 
         <p>Tempo de confirmação após <mm-pending-days>.
 
-        <p>Você também pode ajustar ou modificar seu nome real
+        <p>Você também poderá definir ou modificar seu nome real
         (i.e. <em>John Smith</em>).
 
         <p>Se deseja fazer modificações nos membros em todas as 
-	listas que está inscritos em <mm-host>, ligue 
-	a caixa de diálogo <em>Modificar globalmente</em>.
+	listas que está inscritos em <mm-host>, ative
+	a caixa de checagem <em>Modificar globalmente</em>.
 
         </td></tr>
     <tr><td><center>
@@ -57,7 +58,7 @@
         <tr><td bgcolor="#dddddd"><div align="right">Novo Endereço:</div></td>
             <td><mm-new-address-box></td>
             </tr>
-        <tr><td bgcolor="#dddddd"><div align="right">De novo para 
+        <tr><td bgcolor="#dddddd"><div align="right">Novamente para 
             confirmação:</div></td> 
             <td><mm-confirm-address-box></td>
             </tr>
@@ -73,7 +74,7 @@
         </td>
         </tr>
     <tr><td colspan="2"><center><mm-change-address-button>
-        <p><mm-global-change-of-address>Modificar Globalmente</center></td>
+        <p><mm-global-change-of-address>Alterar Globalmente</center></td>
     </tr>
 </table>
 
@@ -83,7 +84,7 @@
         <B>Descadastrando-se da <MM-List-Name></B></td>
 
         <TD WIDTH="50%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
-        <B>Suas outras inscrições na <MM-Host></B>
+        <B>Suas outras inscrições em <MM-Host></B>
         </FONT></TD></TR>
 
     <tr><td>
@@ -95,7 +96,7 @@
     <td>
 	Você poderá visualizar uma lista de todas as listas de
 	discussão em <mm-host> no qual é membro. Use isto se deseja
-	fazer as mesmas modificações nas opções de membros a estas 
+	fazer as mesmas modificações nas opções de membros nestas 
 	outras inscrições. 
 
         <p>
@@ -131,7 +132,7 @@
                 <TD><MM-New-Pass-Box></TD>
                 </TR>
             <TR>
-                <TD BGCOLOR="#dddddd"><div align="right">Confirmação:</div></TD>
+                <TD BGCOLOR="#dddddd"><div align="right">Confirmação da senha:</div></TD>
                 <TD><MM-Confirm-Pass-Box></TD>
             </TR>
         </table>
@@ -164,8 +165,8 @@ outras listas de discussão que está inscrito.
 	Ajuste esta opção para <em>Ativar</em> o recebimento de 
 	mensagens postadas a esta lista de discussão. Selecione
 	<em>Desativado</em> se deseja permanecer inscrito, mas não 
-	quer mensagens enviadas a você por algum tempo (e.g. você 
-	está entrando de férias, por exemplo). Se desativar a 
+	quer receber mensagens por algum tempo (e.g. você 
+	está entrando de férias, por exemplo). Caso desative a 
 	entrega de mensagens, não se esqueça de reativa-la quando
 	voltar; ela não será automaticamente reativada. 
         </td><td bgcolor="#cccccc">
@@ -190,7 +191,7 @@ outras listas de discussão que está inscrito.
     <tr><TD BGCOLOR="#cccccc">
         <strong>Receber digests em MIME ou Texto Plano?</strong><p>
 	Seu leitor de email pode ou não suportar digests MIME. Em geral
-	os digests MIME sã preferidos, mas se tiver um problema durante 
+	os digests MIME são preferidos, mas se tiver um problema durante 
 	sua leitura, selecione digests em texto plano.
         </td><td bgcolor="#cccccc">
         <MM-Mime-Digests-Button>MIME<br>
@@ -201,7 +202,7 @@ outras listas de discussão que está inscrito.
     <tr><TD BGCOLOR="#cccccc">
         <strong>Receber suas próprias postagens a esta lista?</strong><p>
 	Ordinariamente, você receberá uma cópia de cada mensagem que 
-	postar a lista. Se não desejar receber esta cópia, mude esta 
+	postar na lista. Se não desejar receber a cópia, mude esta 
 	opção para <em>Não</em>.
         </td><td bgcolor="#cccccc">
         <mm-dont-receive-own-mail-button>Não<br>
@@ -274,9 +275,9 @@ outras listas de discussão que está inscrito.
 		regra de entrega padrão para mensagens que não conferem
 		com qualquer filtro de tópico. Selecionando <em>Não</em>
 		significa que se a mensagem não conferir com qualquer 
-		filtro de tópico, então você não receberá a mensagem, 
+		filtro de tópico, então você NÃO receberá a mensagem, 
 		enquanto selecionando <em>Sim</em> diz para entregar
-		mensagens que não conferem para você.
+		mensagens que não conferem com o filtro.
 
                 <p>Caso nenhum tópico de interesse seja selecionado acima,
 		você receberá cada mensagem enviada para a lista de 

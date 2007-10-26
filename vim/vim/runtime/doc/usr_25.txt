@@ -1,4 +1,4 @@
-*usr_25.txt*	For Vim version 6.2.  Last change: 2002 Oct 12
+*usr_25.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -96,6 +96,9 @@ the "gq" operator.  The result is:
 	Fort Worth police, because my ~
 	homework was too hard. True ~
 	story. ~
+
+Note: there is a way to do automatic formatting for specific types of text
+layouts, see |auto-format|.
 
 Since "gq" is an operator, you can use one of the three ways to select the
 text it works on: With Visual mode, with a movement and with a text object.
@@ -195,7 +198,7 @@ command: >
 
 	:runtime macros/justify.vim
 
-This Vim script file defines a new visual command "_j". To justify a block of
+This Vim script file defines a new visual command "_j".  To justify a block of
 text, highlight the text in Visual mode and then execute "_j".
    Look in the file for more explanations.  To go there, do "gf" on this name:
 $VIMRUNTIME/macros/justify.vim.
@@ -319,7 +322,7 @@ currently visible.  The "window"s below the text indicate the text that is
 visible after the command left of it.
 
 			      |<-- current window -->|
-		some long text, part of which is visible in the window~
+		some long text, part of which is visible in the window ~
 	ze	  |<--	   window     -->|
 	zH	   |<--     window     -->|
 	4zh		  |<--	   window     -->|

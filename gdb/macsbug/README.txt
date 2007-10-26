@@ -1,11 +1,11 @@
                            MacsBug Interface for GDB
-                                    7/25/05
+                                    8/21/06
 
 1. Introduction
 
-   The "MacsBug" supported here is gdb extended to support a subset of the Mac
-   Classic MacsBug commands and a MacsBug-like screen UI. Thus it basically is
-   a variant of MacsBug with source-level debugging!
+   The "MacsBug" supported here is an extension to gdb to support a subset of
+   the Mac Classic MacsBug commands and a MacsBug-like screen UI. Thus it
+   basically is a variant of Classic MacsBug with source-level debugging!
 
    Along with this README there are three other files in this directory:
 
@@ -253,7 +253,38 @@
    the proper display.
 
 
-7. Changes in MacsBug 1.5
+7. Changes in MacsBug 1.6
+
+   * Fixed the MacsBug SET and SHOW commands (broken by incompatibilities with
+     gdb-477).
+   
+   * Fixed the MacsBug screen display errors (same reason).
+   
+   * Fixed a infinite loop handing nested '<'s in function names (e.g., C++
+     templates) during disassemblies to the MacsBug screen.
+     
+   * Fixed a bug where the MacsBug screen input (command) line was being erased
+     when backspacing over the first character (if the line was beyond a
+     minimum length).
+   
+   * Some 64-bit and other internal bug fixes.
+   
+   * New SET mb-objc-selectors [ON|OFF|NOW|SHOW] command to display the selector
+     of a Objective C message dispatch call in disassemblies if the call is at
+     the current PC.  Default is "on".
+     
+   * If SET print demangle, SET print asm-demangle, or SET [mb-]unmangle is ON
+     then MacsBug attempts to demangle symbols if present in the comment field
+     of disassmbled lines if they are not already demangled.  For exmaple,
+     C++ calls to symbols prefixed with "dyld_stub_" are not shown demangled
+     in gdb.
+     
+   * SET mb-wrap now controls the wrapping of disassembled lines when the MacsBug
+     screen of off in addition to its already existing control of the MacsBug
+     screen history area lines.
+
+
+8. Changes in MacsBug 1.5
 
    * Fixed crashing bug when attempting to use the MacsBug screen (MB command)
      that occurred with XCode 1.2.
@@ -308,7 +339,7 @@
      range, and, depending on type, either the load address or pathname).
 
 
-8. Changes in MacsBug 1.4
+9. Changes in MacsBug 1.4
    
    * Fixed bugs in TF and TV.
    
@@ -316,15 +347,15 @@
      stepping speed.
 
 
-9. Changes in MacsBug 1.3
+10. Changes in MacsBug 1.3
    
-   * Fixed typeo in the FB help info in the reference to FUTURE-BREAK.
+    * Fixed typeo in the FB help info in the reference to FUTURE-BREAK.
 
-   * Fixed memory write commands (e.g., SB, SW, etc.) to detect when the
-     memory is inaccessible.
+    * Fixed memory write commands (e.g., SB, SW, etc.) to detect when the
+      memory is inaccessible.
 
 
-10. Changes in MacsBug 1.2
+11. Changes in MacsBug 1.2
    
    * Fixed all commands that potentially bcak up over gdb prompt to produce
      a contiguous display to ensure the line is cleared before writing.
@@ -345,7 +376,7 @@
      the width was fixed at 16 in groups of 2.
 
 
-11. Changes in MacsBug 1.1
+12. Changes in MacsBug 1.1
 
    * Removed all references to the install-MacsBug script which was documented
      but never installed in 1.0.

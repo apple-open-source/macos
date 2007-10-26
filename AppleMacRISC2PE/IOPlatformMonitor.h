@@ -44,10 +44,10 @@
 
 #ifdef IOPFMDEBUG
  #define DLOG(fmt, args...)  kprintf(fmt, ## args)
- #define debug_msg( msg ) IOLog(msg)
+ #define debug_msg(fmt, args...) IOLog(fmt, ## args)
 #else
  #define DLOG(fmt, args...)
- #define debug_msg( msg )
+ #define debug_msg(fmt, args...)
 #endif
 
 #define kIOPMonTypeKey 				"sensor-type"

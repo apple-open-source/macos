@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/ldif.h,v 1.21.2.2 2004/01/01 18:16:28 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ldif.h,v 1.23.2.6 2006/01/03 22:16:06 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,6 +60,16 @@ ldif_parse_line LDAP_P((
 	ber_len_t *vlen ));
 
 LDAP_LDIF_F( int )
+ldif_parse_line2 LDAP_P((
+	char *line,
+	struct berval *type,
+	struct berval *value,
+	int *freeval ));
+
+LDAP_LDIF_F( FILE * )
+ldif_open_url LDAP_P(( LDAP_CONST char *urlstr ));
+
+LDAP_LDIF_F( int )
 ldif_fetch_url LDAP_P((
 	LDAP_CONST char *line,
 	char **value,
@@ -69,12 +79,36 @@ LDAP_LDIF_F( char * )
 ldif_getline LDAP_P(( char **next ));
 
 LDAP_LDIF_F( int )
+ldif_countlines LDAP_P(( LDAP_CONST char *line ));
+
+/* ldif_ropen, rclose, read_record - just for reading LDIF files,
+ * no special open/close needed to write LDIF files.
+ */
+typedef struct LDIFFP {
+	FILE *fp;
+	struct LDIFFP *prev;
+} LDIFFP;
+
+LDAP_LDIF_F( LDIFFP * )
+ldif_open LDAP_P(( LDAP_CONST char *file, LDAP_CONST char *mode ));
+
+LDAP_LDIF_F( void )
+ldif_close LDAP_P(( LDIFFP * ));
+
+LDAP_LDIF_F( int )
 ldif_read_record LDAP_P((
-	FILE *fp,
+	LDIFFP *fp,
 	int *lineno,
 	char **bufp,
 	int *buflen ));
 
+LDAP_LDIF_F( int )
+ldif_must_b64_encode_register LDAP_P((
+	LDAP_CONST char *name,
+	LDAP_CONST char *oid ));
+
+LDAP_LDIF_F( void )
+ldif_must_b64_encode_release LDAP_P(( void ));
 
 #define LDIF_PUT_NOVALUE	0x0000	/* no value */
 #define LDIF_PUT_VALUE		0x0001	/* value w/ auto detection */

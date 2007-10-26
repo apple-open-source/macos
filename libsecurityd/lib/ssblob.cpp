@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,23 @@ void CommonBlob::validate(CSSM_RETURN failureCode) const
         CssmError::throwMe(failureCode);
 }
 
+/*
+ * This string is placed in KeyBlob.blobSignature to indicate a cleartext
+ * public key.
+ */
+static const char clearPubKeySig[] = "Cleartext public key";
+
+bool KeyBlob::isClearText()
+{
+	return (memcmp(blobSignature, clearPubKeySig, 
+		sizeof(blobSignature)) == 0);
+}
+
+void KeyBlob::setClearTextSignature()
+{
+	memmove(blobSignature, clearPubKeySig, sizeof(blobSignature));
+}
+	
 
 
 } // end namespace SecurityServer

@@ -636,7 +636,7 @@ WriteMetadata(const char *dev, CFDictionaryRef dict) {
 
 	cksum = ChecksumData(dict, mSize);
 
-	lbl->al_checksum = OSSwapHostToBigInt32(cksum);
+	lbl->al_checksum = cksum;
 	if (setDeviceLabel(dev, lbl) == -1) {
 		warnx("unable to update label for device %s", dev);
 		goto done;

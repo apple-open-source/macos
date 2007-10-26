@@ -16,6 +16,7 @@ CFILES = split.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble split.1
 
+OTHER_CFLAGS = -D__FBSDID=__RCSID -DOFF_MAX=LLONG_MAX
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

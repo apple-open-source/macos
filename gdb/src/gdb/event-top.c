@@ -1,5 +1,8 @@
 /* Top level stuff for GDB, the GNU debugger.
-   Copyright 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
+
+   Copyright 1999, 2000, 2001, 2002, 2004, 2005 Free Software
+   Foundation, Inc.
+
    Written by Elena Zannoni <ezannoni@cygnus.com> of Cygnus Solutions.
 
    This file is part of GDB.
@@ -28,6 +31,7 @@
 #include "event-top.h"
 #include "interps.h"
 #include <signal.h>
+#include "exceptions.h"
 
 /* For dont_repeat() */
 #include "gdbcmd.h"
@@ -51,7 +55,9 @@ static void async_stop_sig (gdb_client_data arg);
 static void async_float_handler (gdb_client_data arg);
 
 /* Signal handlers. */
+#ifdef SIGQUIT
 static void handle_sigquit (int sig);
+#endif
 static void handle_sighup (int sig);
 static void handle_sigfpe (int sig);
 #if defined(SIGWINCH) && defined(SIGWINCH_HANDLER)
@@ -129,7 +135,9 @@ void *sigint_token;
 #ifdef SIGHUP
 void *sighup_token;
 #endif
+#ifdef SIGQUIT
 void *sigquit_token;
+#endif
 void *sigfpe_token;
 #if defined(SIGWINCH) && defined(SIGWINCH_HANDLER)
 void *sigwinch_token;
@@ -338,7 +346,7 @@ change_annotation_level (void)
     {
       /* The prompt stack has not been initialized to "", we are
          using gdb w/o the --async switch */
-      warning ("Command has same effect as set annotate");
+      warning (_("Command has same effect as set annotate"));
       return;
     }
 
@@ -423,7 +431,7 @@ stdin_event_handler (int error, gdb_client_data client_data)
 {
   if (error)
     {
-      printf_unfiltered ("error detected on stdin\n");
+      printf_unfiltered (_("error detected on stdin\n"));
       delete_file_handler (input_fd);
       discard_all_continuations ();
       /* If stdin died, we may as well kill gdb. */
@@ -573,7 +581,7 @@ command_handler (char *command)
 	{
 	  long cmd_time = get_run_time () - time_at_cmd_start;
 
-	  printf_unfiltered ("Command execution time: %ld.%06ld\n",
+	  printf_unfiltered (_("Command execution time: %ld.%06ld\n"),
 			     cmd_time / 1000000, cmd_time % 1000000);
 	}
 
@@ -584,7 +592,7 @@ command_handler (char *command)
 	  long space_now = lim - lim_at_start;
 	  long space_diff = space_now - space_at_cmd_start;
 
-	  printf_unfiltered ("Space used: %ld (%c%ld for this command)\n",
+	  printf_unfiltered (_("Space used: %ld (%c%ld for this command)\n"),
 			     space_now,
 			     (space_diff >= 0 ? '+' : '-'),
 			     space_diff);
@@ -612,7 +620,7 @@ command_line_handler_continuation (struct continuation_arg *arg)
     {
       long cmd_time = get_run_time () - time_at_cmd_start;
 
-      printf_unfiltered ("Command execution time: %ld.%06ld\n",
+      printf_unfiltered (_("Command execution time: %ld.%06ld\n"),
 			 cmd_time / 1000000, cmd_time % 1000000);
     }
   if (display_space)
@@ -622,7 +630,7 @@ command_line_handler_continuation (struct continuation_arg *arg)
       long space_now = lim - lim_at_start;
       long space_diff = space_now - space_at_cmd_start;
 
-      printf_unfiltered ("Space used: %ld (%c%ld for this command)\n",
+      printf_unfiltered (_("Space used: %ld (%c%ld for this command)\n"),
 			 space_now,
 			 (space_diff >= 0 ? '+' : '-'),
 			 space_diff);
@@ -655,9 +663,9 @@ command_line_handler (char *rl)
 
   if (annotation_level > 1 && instream == stdin)
     {
-      printf_unfiltered ("\n\032\032post-");
+      printf_unfiltered (("\n\032\032post-"));
       puts_unfiltered (async_annotation_suffix);
-      printf_unfiltered ("\n");
+      printf_unfiltered (("\n"));
     }
 
   if (linebuffer == 0)
@@ -689,15 +697,7 @@ command_line_handler (char *rl)
   gdb_flush (gdb_stderr);
 
   if (source_file_name != NULL)
-    {
-      ++source_line_number;
-      sprintf (source_error,
-	       "%s%s:%d: Error in sourced command file:\n",
-	       source_pre_error,
-	       source_file_name,
-	       source_line_number);
-      error_pre_print = source_error;
-    }
+    ++source_line_number;
 
   /* If we are in this case, then command_handler will call quit 
      and exit from gdb. */
@@ -899,15 +899,11 @@ gdb_readline2 (gdb_client_data client_data)
 	}
 
       if (c == '\n')
-#ifndef CRLF_SOURCE_FILES
-	break;
-#else
 	{
 	  if (input_index > 0 && result[input_index - 1] == '\r')
 	    input_index--;
 	  break;
 	}
-#endif
 
       result[input_index++] = c;
       while (input_index >= result_size)
@@ -947,6 +943,7 @@ async_init_signals (void)
   signal (SIGTRAP, SIG_DFL);
 #endif
 
+#ifdef SIGQUIT
   /* If we initialize SIGQUIT to SIG_IGN, then the SIG_IGN will get
      passed to the inferior, which we don't want.  It would be
      possible to do a "signal (SIGQUIT, SIG_DFL)" after we fork, but
@@ -958,6 +955,7 @@ async_init_signals (void)
   signal (SIGQUIT, handle_sigquit);
   sigquit_token =
     create_async_signal_handler (async_do_nothing, NULL);
+#endif
 #ifdef SIGHUP
   if (signal (SIGHUP, handle_sighup) != SIG_IGN)
     sighup_token =
@@ -1041,6 +1039,7 @@ async_request_quit (gdb_client_data arg)
   quit ();
 }
 
+#ifdef SIGQUIT
 /* Tell the event loop what to do if SIGQUIT is received. 
    See event-signal.c. */
 static void
@@ -1049,6 +1048,7 @@ handle_sigquit (int sig)
   mark_async_signal_handler_wrapper (sigquit_token);
   signal (sig, handle_sigquit);
 }
+#endif
 
 /* Called by the event loop in response to a SIGQUIT. */
 static void
@@ -1131,7 +1131,7 @@ async_float_handler (gdb_client_data arg)
 {
   /* This message is based on ANSI C, section 4.7. Note that integer
      divide by zero causes this, so "float" is a misnomer. */
-  error ("Erroneous arithmetic operation.");
+  error (_("Erroneous arithmetic operation."));
 }
 
 /* Tell the event loop what to do if SIGWINCH is received. 
@@ -1173,63 +1173,64 @@ set_async_prompt (char *args, int from_tty, struct cmd_list_element *c)
 void
 gdb_setup_readline (void)
 {
-  /* This function is a noop for the sync case.  The assumption is that
-     the sync setup is ALL done in gdb_init, and we would only mess it up
-     here.  The sync stuff should really go away over time. */
+  /* This function is a noop for the sync case.  The assumption is
+     that the sync setup is ALL done in gdb_init, and we would only
+     mess it up here.  The sync stuff should really go away over
+     time.  */
 
+  /* APPLE LOCAL begin async */
   /* Note also that if instream == NULL, then we don't want to setup
      readline even IF event_loop_p is true, because we don't have an
      input source for events yet.  This usually only happens if a
      command is run in the .gdbinit file. */
+  if (instream == NULL)
+    return;
+  /* APPLE LOCAL end async */
 
-  if (instream != NULL && event_loop_p)
+  gdb_stdout = stdio_fileopen (stdout);
+  gdb_stderr = stdio_fileopen (stderr);
+  gdb_stdlog = gdb_stderr;  /* for moment */
+  gdb_stdtarg = gdb_stderr; /* for moment */
+
+  /* If the input stream is connected to a terminal, turn on
+     editing.  */
+  if (ISATTY (instream))
     {
-      gdb_stdout = stdio_fileopen (stdout);
-      gdb_stderr = stdio_fileopen (stderr);
-      gdb_stdlog = gdb_stderr;  /* for moment */
-      gdb_stdtarg = gdb_stderr; /* for moment */
-
-      /* If the input stream is connected to a terminal, turn on
-         editing.  */
-      if (ISATTY (instream))
-	{
-	  /* Tell gdb that we will be using the readline library. This
-	     could be overwritten by a command in .gdbinit like 'set
-	     editing on' or 'off'. */
-	  async_command_editing_p = 1;
+      /* Tell gdb that we will be using the readline library. This
+	 could be overwritten by a command in .gdbinit like 'set
+	 editing on' or 'off'.  */
+      async_command_editing_p = 1;
 	  
-	  /* When a character is detected on instream by select or
-	     poll, readline will be invoked via this callback
-	     function. */
-	  call_readline = rl_callback_read_char_wrapper;
-	}
-      else
-	{
-	  async_command_editing_p = 0;
-	  call_readline = gdb_readline2;
-	}
-
-      /* When readline has read an end-of-line character, it passes
-         the complete line to gdb for processing. command_line_handler
-         is the function that does this. */
-      input_handler = command_line_handler;
-
-      /* Tell readline to use the same input stream that gdb uses. */
-      rl_instream = instream;
-
-      /* Get a file descriptor for the input stream, so that we can
-         register it with the event loop. */
-      input_fd = fileno (instream);
-
-      /* Now we need to create the event sources for the input file
-         descriptor. */
-      /* At this point in time, this is the only event source that we
-         register with the even loop. Another source is going to be
-         the target program (inferior), but that must be registered
-         only when it actually exists (I.e. after we say 'run' or
-         after we connect to a remote target. */
-      add_file_handler (input_fd, stdin_event_handler, 0);
+      /* When a character is detected on instream by select or poll,
+	 readline will be invoked via this callback function.  */
+      call_readline = rl_callback_read_char_wrapper;
     }
+  else
+    {
+      async_command_editing_p = 0;
+      call_readline = gdb_readline2;
+    }
+  
+  /* When readline has read an end-of-line character, it passes the
+     complete line to gdb for processing. command_line_handler is the
+     function that does this.  */
+  input_handler = command_line_handler;
+      
+  /* Tell readline to use the same input stream that gdb uses. */
+  rl_instream = instream;
+
+  /* Get a file descriptor for the input stream, so that we can
+     register it with the event loop.  */
+  input_fd = fileno (instream);
+
+  /* Now we need to create the event sources for the input file
+     descriptor.  */
+  /* At this point in time, this is the only event source that we
+     register with the even loop. Another source is going to be the
+     target program (inferior), but that must be registered only when
+     it actually exists (I.e. after we say 'run' or after we connect
+     to a remote target.  */
+  add_file_handler (input_fd, stdin_event_handler, 0);
 }
 
 /* Disable command input through the standard CLI channels.  Used in
@@ -1238,24 +1239,20 @@ gdb_setup_readline (void)
 void
 gdb_disable_readline (void)
 {
-  if (event_loop_p)
-    {
-      /* FIXME - It is too heavyweight to delete and remake these
-	 every time you run an interpreter that needs readline.
-	 It is probably better to have the interpreters cache these,
-	 which in turn means that this needs to be moved into interpreter
-	 specific code. */
- 
+  /* FIXME - It is too heavyweight to delete and remake these every
+     time you run an interpreter that needs readline.  It is probably
+     better to have the interpreters cache these, which in turn means
+     that this needs to be moved into interpreter specific code.  */
+
 #if 0
-      ui_file_delete (gdb_stdout);
-      ui_file_delete (gdb_stderr);
-      gdb_stdlog = NULL;
-      gdb_stdtarg = NULL;
+  ui_file_delete (gdb_stdout);
+  ui_file_delete (gdb_stderr);
+  gdb_stdlog = NULL;
+  gdb_stdtarg = NULL;
 #endif
 
-      rl_callback_handler_remove ();
-      delete_file_handler (input_fd);
-    }
+  rl_callback_handler_remove ();
+  delete_file_handler (input_fd);
 }
 
 /* Don't set up readline now, this is better done in the interpreter's
@@ -1267,6 +1264,6 @@ _initialize_event_loop (void)
 {
   /* Tell gdb to use the cli_command_loop as the main loop. */
 
-  if (event_loop_p && command_loop_hook == NULL)
-    command_loop_hook = cli_command_loop;
+  if (deprecated_command_loop_hook == NULL)
+    deprecated_command_loop_hook = cli_command_loop;
 }

@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * rev [-l] [file ...]
@@ -35,7 +31,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: rev (AT&T Labs Research) 1999-04-10 $\n]"
+"[-?\n@(#)$Id: rev (AT&T Research) 1999-04-10 $\n]"
 USAGE_LICENSE
 "[+NAME?rev - reverse the characters or lines of one or more files]"
 "[+DESCRIPTION?\brev\b copies one or more files to standard output "
@@ -55,7 +51,8 @@ USAGE_LICENSE
 "[+SEE ALSO?\bcat\b(1), \btail\b(1)]"
 ;
 
-#include	<cmdlib.h>
+#include	<cmd.h>
+#include	<rev.h>
 
 /*
  * reverse the characters within a line
@@ -88,8 +85,7 @@ b_rev(int argc, register char** argv, void* context)
 	register int n, line=0;
 	NOT_USED(argc);
 
-	NoP(argc);
-	cmdinit(argv, context, ERROR_CATALOG, 0);
+	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
 	while (n = optget(argv, usage)) switch (n)
 	{
 	    case 'l':

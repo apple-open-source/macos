@@ -25,6 +25,11 @@ TkPackage.require('datefield')
 module Tk
   module Tcllib
     class Datefield < TkEntry
+      PACKAGE_NAME = 'datefield'.freeze
+      def self.package_name
+        PACKAGE_NAME
+      end
+
       def self.package_version
         begin
           TkPackage.require('datefield')
@@ -42,10 +47,10 @@ class Tk::Tcllib::Datefield
 
   def create_self(keys)
     if keys and keys != None
-      tk_call_without_enc('::datefield::datefield', @path, 
+      tk_call_without_enc(self.class::TkCommandNames[0], @path, 
                           *hash_kv(keys, true))
     else
-      tk_call_without_enc('::datefield::datefield', @path)
+      tk_call_without_enc(self.class::TkCommandNames[0], @path)
     end
   end
   private :create_self

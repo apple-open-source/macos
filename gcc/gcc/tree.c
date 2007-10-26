@@ -5030,9 +5030,12 @@ find_var_from_fn (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* APPLE LOCAL begin mainline 2006-06-19 4336222 */
 /* Returns true if T is, contains, or refers to a type with variable
-   size.  If FN is nonzero, only return true if a modifier of the type
-   or position of FN is a variable or parameter inside FN.
+   size.  For METHOD_TYPEs and FUNCTION_TYPEs we exclude the
+   arguments, but not the return type.  If FN is nonzero, only return
+   true if a modifier of the type or position of FN is a variable or
+   parameter inside FN.
 
    This concept is more general than that of C99 'variably modified types':
    in C99, a struct type is never variably modified because a VLA may not
@@ -5041,6 +5044,7 @@ find_var_from_fn (tree *tp, int *walk_subtrees, void *data)
      struct S { int i[f()]; };
 
    is valid, and other languages may define similar constructs.  */
+/* APPLE LOCAL end mainline 2006-06-19 4336222 */
 
 bool
 variably_modified_type_p (tree type, tree fn)
@@ -5058,11 +5062,8 @@ variably_modified_type_p (tree type, tree fn)
   if (type == error_mark_node)
     return false;
 
-  /* If TYPE itself has variable size, it is variably modified.
-
-     We do not yet have a representation of the C99 '[*]' syntax.
-     When a representation is chosen, this function should be modified
-     to test for that case as well.  */
+  /* APPLE LOCAL mainline 2006-05-18 4336222 */
+  /* If TYPE itself has variable size, it is variably modified.  */
   RETURN_TRUE_IF_VAR (TYPE_SIZE (type));
   RETURN_TRUE_IF_VAR (TYPE_SIZE_UNIT(type));
 
@@ -5078,16 +5079,12 @@ variably_modified_type_p (tree type, tree fn)
 
     case FUNCTION_TYPE:
     case METHOD_TYPE:
-      /* If TYPE is a function type, it is variably modified if any of the
-         parameters or the return type are variably modified.  */
+      /* APPLE LOCAL begin mainline 2006-06-19 4336222 */
+      /* If TYPE is a function type, it is variably modified if the
+	 return type is variably modified.  */
       if (variably_modified_type_p (TREE_TYPE (type), fn))
 	  return true;
-
-      for (t = TYPE_ARG_TYPES (type);
-	   t && t != void_list_node;
-	   t = TREE_CHAIN (t))
-	if (variably_modified_type_p (TREE_VALUE (t), fn))
-	  return true;
+      /* APPLE LOCAL end mainline 2006-06-19 4336222 */
       break;
 
     case INTEGER_TYPE:
@@ -5104,7 +5101,8 @@ variably_modified_type_p (tree type, tree fn)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      /* We can't see if any of the field are variably-modified by the
+      /* APPLE LOCAL mainline 2006-05-18 4336222 */
+      /* We can't see if any of the fields are variably-modified by the
 	 definition we normally use, since that would produce infinite
 	 recursion via pointers.  */
       /* This is variably modified if some field's type is.  */

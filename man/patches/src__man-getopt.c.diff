@@ -4,12 +4,12 @@
       exit(1);
  }
  
--static char short_opts[] = "C:M:P:S:acdDfFhkKm:p:s:tvVwW?";
-+static char short_opts[] = "C:M:P:S:acdDfFhkKm:p:s:tvVwW?Lq";
+-static char short_opts[] = "B:C:H:xM:P:S:acdfFhkKm:p:s:tvVwW?";
++static char short_opts[] = "B:C:H:xM:P:S:acdfFhkKm:p:s:tvVwW?Lq";
  
  #ifndef NOGETOPT
- #define _GNU_SOURCE
-@@ -162,6 +162,11 @@
+ #undef _GNU_SOURCE
+@@ -167,6 +167,11 @@
  		    fatal (INCOMPAT, "-w", "-t");
  	       print_where++;
  	       break;

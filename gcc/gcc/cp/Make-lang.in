@@ -107,8 +107,8 @@ cc1plus-dummy$(exeext): $(CXX_OBJS) dummy-checksum.o $(BACKEND) $(LIBDEPS)
 	      $(CXX_OBJS) dummy-checksum.o $(BACKEND) $(LIBS) \
 	      $(CC1PLUS_ORDER_FLAGS)
 
-cc1plus-checksum.c : cc1plus-dummy$(exeext) build/genchecksum$(exeext)
-	build/genchecksum$(exeext) cc1plus-dummy$(exeext) > $@
+cc1plus-checksum.c : cc1plus-dummy$(exeext) build/genchecksum$(build_exeext)
+	build/genchecksum$(build_exeext) cc1plus-dummy$(exeext) > $@
 
 cc1plus-checksum.o : cc1plus-checksum.c
 
@@ -287,7 +287,10 @@ cp/tree.o: cp/tree.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H) \
   insn-config.h integrate.h tree-inline.h real.h gt-cp-tree.h $(TARGET_H) debug.h
 # APPLE LOCAL end mainline
 cp/ptree.o: cp/ptree.c $(CXX_TREE_H) $(TM_H)
-cp/rtti.o: cp/rtti.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h convert.h
+ # APPLE LOCAL begin mainline 4.3 2006-01-10 4871915
+cp/rtti.o: cp/rtti.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h convert.h \
+  $(TARGET_H)
+ # APPLE LOCAL end mainline 4.3 2006-01-10 4871915
 cp/except.o: cp/except.c $(CXX_TREE_H) $(TM_H) flags.h $(RTL_H) except.h toplev.h \
   cp/cfns.h $(EXPR_H) libfuncs.h tree-inline.h
 cp/expr.o: cp/expr.c $(CXX_TREE_H) $(TM_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \

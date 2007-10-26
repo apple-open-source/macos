@@ -575,6 +575,7 @@ nss_cms_choose_content_template(void *src_or_dest, Boolean encoding, const char 
 	theTemplate = SEC_ASN1_GET(kSecAsn1PointerToAnyTemplate);
 	break;
     case SEC_OID_PKCS7_DATA:
+    case SEC_OID_OTHER:
 	theTemplate = SEC_ASN1_GET(kSecAsn1PointerToOctetStringTemplate);
 	break;
     case SEC_OID_PKCS7_SIGNED_DATA:

@@ -18,10 +18,20 @@ module TkMenuEntryConfig
   end
   private :__item_config_cmd
 
+  def __item_strval_optkeys(id)
+    super(id) << 'selectcolor'
+  end
+  private :__item_strval_optkeys
+
   def __item_listval_optkeys(id)
     []
   end
   private :__item_listval_optkeys
+
+  def __item_val2ruby_optkeys(id)  # { key=>proc, ... }
+    super(id).update('menu'=>proc{|i, v| window(v)})
+  end
+  private :__item_val2ruby_optkeys
 
   alias entrycget itemcget
   alias entryconfigure itemconfigure
@@ -33,6 +43,7 @@ module TkMenuEntryConfig
 end
 
 class TkMenu<TkWindow
+  include Wm
   include TkMenuEntryConfig
   extend TkMenuSpec
 
@@ -48,6 +59,16 @@ class TkMenu<TkWindow
   #  end
   #end
   #private :create_self
+
+  def __strval_optkeys
+    super() << 'selectcolor' << 'title'
+  end
+  private :__strval_optkeys
+
+  def __boolval_optkeys
+    super() << 'tearoff'
+  end
+  private :__boolval_optkeys
 
   def self.new_menuspec(menu_spec, parent = nil, tearoff = false, keys = nil)
     if parent.kind_of?(Hash)
@@ -95,8 +116,38 @@ class TkMenu<TkWindow
   def add_separator(keys=nil)
     add('separator', keys)
   end
-  def index(index)
-    ret = tk_send_without_enc('index', _get_eval_enc_str(index))
+
+  def clone_menu(*args)
+    if args[0].kind_of?(TkWindow)
+      parent = args.shift
+    else
+      parent = self
+    end
+
+    if args[0].kind_of?(String) || args[0].kind_of?(Symbol) # menu type
+      type = args.shift
+    else
+      type = None # 'normal'
+    end
+
+    if args[0].kind_of?(Hash)
+      keys = _symbolkey2str(args.shift)
+    else
+      keys = {}
+    end
+
+    parent = keys.delete('parent') if keys.has_key?('parent')
+    type = keys.delete('type') if keys.has_key?('type')
+
+    if keys.empty?
+      TkMenuClone.new(self, parent, type)
+    else
+      TkMenuClone.new(self, parent, type, keys)
+    end
+  end
+
+  def index(idx)
+    ret = tk_send_without_enc('index', _get_eval_enc_str(idx))
     (ret == 'none')? nil: number(ret)
   end
   def invoke(index)
@@ -332,6 +383,7 @@ end
 
 
 class TkMenuClone<TkMenu
+=begin
   def initialize(parent, type=None)
     widgetname = nil
     if parent.kind_of? Hash
@@ -347,8 +399,44 @@ class TkMenuClone<TkMenu
     install_win(@parent.path, widgetname)
     tk_call_without_enc(@parent.path, 'clone', @path, type)
   end
-end
+=end
+  def initialize(src_menu, *args)
+    widgetname = nil
 
+    if args[0].kind_of?(TkWindow)  # parent window
+      parent = args.shift
+    else
+      parent = src_menu
+    end
+
+    if args[0].kind_of?(String) || args[0].kind_of?(Symbol)  # menu type
+      type = args.shift
+    else
+      type = None  # 'normal'
+    end
+
+    if args[0].kind_of?(Hash)
+      keys = _symbolkey2str(args.shift)
+      parent = keys.delete('parent') if keys.has_key?('parent')
+      widgetname = keys.delete('widgetname')
+      type = keys.delete('type') if keys.has_key?('type')
+    else
+      keys = nil
+    end
+
+    @src_menu = src_menu
+    @parent = parent
+    @type = type
+    install_win(@parent.path, widgetname)
+    tk_call_without_enc(@src_menu.path, 'clone', @path, @type)
+    configure(keys) if keys && !keys.empty?
+  end
+
+  def source_menu
+    @src_menu
+  end
+end
+TkCloneMenu = TkMenuClone
 
 module TkSystemMenu
   def initialize(parent, keys=nil)
@@ -402,12 +490,21 @@ class TkMenubutton<TkLabel
   WidgetClassNames[WidgetClassName] = self
   def create_self(keys)
     if keys and keys != None
-      tk_call_without_enc('menubutton', @path, *hash_kv(keys, true))
+      # tk_call_without_enc('menubutton', @path, *hash_kv(keys, true))
+      tk_call_without_enc(self.class::TkCommandNames[0], @path, 
+                          *hash_kv(keys, true))
     else
-      tk_call_without_enc('menubutton', @path)
+      # tk_call_without_enc('menubutton', @path)
+      tk_call_without_enc(self.class::TkCommandNames[0], @path)
     end
   end
   private :create_self
+
+  def __boolval_optkeys
+    super() << 'indicatoron'
+  end
+  private :__boolval_optkeys
+
 end
 TkMenuButton = TkMenubutton
 
@@ -438,6 +535,7 @@ class TkOptionMenubutton<TkMenubutton
 
     parent = nil
     if args[0].kind_of?(TkWindow) || args[0] == nil
+      keys.delete('parent') # ignore
       parent = args.shift 
     else
       parent = keys.delete('parent')
@@ -445,6 +543,7 @@ class TkOptionMenubutton<TkMenubutton
 
     @variable = nil
     if args[0].kind_of?(TkVariable) || args[0] == nil
+      keys.delete('variable') # ignore
       @variable = args.shift 
     else
       @variable = keys.delete('variable')

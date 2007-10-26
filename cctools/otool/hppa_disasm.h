@@ -34,7 +34,7 @@ extern unsigned long hppa_disassemble(
     enum byte_sex object_byte_sex,
     struct relocation_info *sorted_relocs,
     unsigned long nsorted_relocs,
-    nlist_t *symbols,
+    struct nlist *symbols,
     unsigned long nsymbols,
     struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,

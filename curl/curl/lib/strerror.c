@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 2004 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,9 +18,16 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
+ * $Id: strerror.c,v 1.44 2007-05-08 11:34:31 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
+
+#ifdef HAVE_STRERROR_R
+#if !defined(HAVE_POSIX_STRERROR_R) && !defined(HAVE_GLIBC_STRERROR_R)
+#error "you MUST have either POSIX or glibc strerror_r if strerror_r is found"
+#endif /* !POSIX && !glibc */
+#endif /* HAVE_STRERROR_R */
 
 #include <curl/curl.h>
 #include <stdlib.h>
@@ -36,7 +43,7 @@
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
 
-#ifdef HAVE_NO_STRERROR_R_DECL
+#if defined(HAVE_STRERROR_R) && defined(HAVE_NO_STRERROR_R_DECL)
 #ifdef HAVE_POSIX_STRERROR_R
 /* seen on AIX 5100-02 gcc 2.9 */
 extern int strerror_r(int errnum, char *strerrbuf, size_t buflen);
@@ -63,10 +70,10 @@ curl_easy_strerror(CURLcode error)
     return "URL using bad/illegal format or missing URL";
 
   case CURLE_COULDNT_RESOLVE_PROXY:
-    return "couldnt resolve proxy name";
+    return "couldn't resolve proxy name";
 
   case CURLE_COULDNT_RESOLVE_HOST:
-    return "couldnt resolve host name";
+    return "couldn't resolve host name";
 
   case CURLE_COULDNT_CONNECT:
     return "couldn't connect to server";
@@ -76,9 +83,6 @@ curl_easy_strerror(CURLcode error)
 
   case CURLE_FTP_ACCESS_DENIED:
     return "FTP: access denied";
-
-  case CURLE_FTP_USER_PASSWORD_INCORRECT:
-    return "FTP: user and/or password incorrect";
 
   case CURLE_FTP_WEIRD_PASS_REPLY:
     return "FTP: unknown PASS reply";
@@ -119,14 +123,18 @@ curl_easy_strerror(CURLcode error)
   case CURLE_WRITE_ERROR:
     return "failed writing received data to disk/application";
 
-  case CURLE_FTP_COULDNT_STOR_FILE:
-    return "failed FTP upload (the STOR command)";
+  case CURLE_UPLOAD_FAILED:
+    return "upload failed (at start/before it took off)";
 
   case CURLE_READ_ERROR:
     return "failed to open/read local data from file/application";
 
   case CURLE_OUT_OF_MEMORY:
+#ifdef CURL_DOES_CONVERSIONS
+    return "conversion failed -or- out of memory";
+#else
     return "out of memory";
+#endif /* CURL_DOES_CONVERSIONS */
 
   case CURLE_OPERATION_TIMEOUTED:
     return "a timeout was reached";
@@ -219,6 +227,9 @@ curl_easy_strerror(CURLcode error)
     return "couldn't use specified SSL cipher";
 
   case CURLE_SSL_CACERT:
+    return "peer certificate cannot be authenticated with known CA certificates";
+
+  case CURLE_SSL_CACERT_BADFILE:
     return "problem with the SSL CA cert (path? access rights?)";
 
   case CURLE_BAD_CONTENT_ENCODING:
@@ -233,17 +244,55 @@ curl_easy_strerror(CURLcode error)
   case CURLE_FTP_SSL_FAILED:
     return "Requested FTP SSL level failed";
 
+  case CURLE_SSL_SHUTDOWN_FAILED:
+    return "Failed to shut down the SSL connection";
+
   case CURLE_SEND_FAIL_REWIND:
     return "Send failed since rewinding of the data stream failed";
 
   case CURLE_LOGIN_DENIED:
-    return "FTP: login denied";;
+    return "FTP: login denied";
 
-  case CURLE_URL_MALFORMAT_USER: /* not used by current libcurl */
-  case CURLE_MALFORMAT_USER:     /* not used by current libcurl */
-  case CURLE_BAD_CALLING_ORDER:  /* not used by current libcurl */
-  case CURLE_BAD_PASSWORD_ENTERED:/* not used by current libcurl */
-  case CURLE_OBSOLETE:           /* not used by current libcurl */
+  case CURLE_TFTP_NOTFOUND:
+    return "TFTP: File Not Found";
+
+  case CURLE_TFTP_PERM:
+    return "TFTP: Access Violation";
+
+  case CURLE_TFTP_DISKFULL:
+    return "TFTP: Disk full or allocation exceeded";
+
+  case CURLE_TFTP_ILLEGAL:
+    return "TFTP: Illegal operation";
+
+  case CURLE_TFTP_UNKNOWNID:
+    return "TFTP: Unknown transfer ID";
+
+  case CURLE_TFTP_EXISTS:
+    return "TFTP: File already exists";
+
+  case CURLE_TFTP_NOSUCHUSER:
+    return "TFTP: No such user";
+
+  case CURLE_CONV_FAILED:
+    return "conversion failed";
+
+  case CURLE_CONV_REQD:
+    return "caller must register CURLOPT_CONV_ callback options";
+
+  case CURLE_REMOTE_FILE_NOT_FOUND:
+    return "Remote file not found";
+
+  case CURLE_SSH:
+    return "Error in the SSH layer";
+
+    /* error codes not used by current libcurl */
+  case CURLE_URL_MALFORMAT_USER:
+  case CURLE_FTP_USER_PASSWORD_INCORRECT:
+  case CURLE_MALFORMAT_USER:
+  case CURLE_BAD_CALLING_ORDER:
+  case CURLE_BAD_PASSWORD_ENTERED:
+  case CURLE_OBSOLETE:
   case CURL_LAST:
     break;
   }
@@ -293,6 +342,12 @@ curl_multi_strerror(CURLMcode error)
   case CURLM_INTERNAL_ERROR:
     return "internal error";
 
+  case CURLM_BAD_SOCKET:
+    return "invalid socket argument";
+
+  case CURLM_UNKNOWN_OPTION:
+    return "unknown option";
+
   case CURLM_LAST:
     break;
   }
@@ -339,14 +394,14 @@ curl_share_strerror(CURLSHcode error)
 #endif
 }
 
-#if defined(WIN32) && !defined(__CYGWIN__)
+#ifdef USE_WINSOCK
 
 /* This function handles most / all (?) Winsock errors cURL is able to produce.
  */
 static const char *
 get_winsock_error (int err, char *buf, size_t len)
 {
-  char *p;
+  const char *p;
 
 #ifndef CURL_DISABLE_VERBOSE_STRINGS
   switch (err) {
@@ -477,16 +532,17 @@ get_winsock_error (int err, char *buf, size_t len)
   case WSAEREMOTE:
     p = "Remote error";
     break;
+#ifdef WSAEDISCON  /* missing in SalfordC! */
   case WSAEDISCON:
     p = "Disconnected";
     break;
-
+#endif
     /* Extended Winsock errors */
   case WSASYSNOTREADY:
     p = "Winsock library is not ready";
     break;
   case WSANOTINITIALISED:
-    p = "Winsock library not initalised";
+    p = "Winsock library not initialised";
     break;
   case WSAVERNOTSUPPORTED:
     p = "Winsock version not supported.";
@@ -517,7 +573,7 @@ get_winsock_error (int err, char *buf, size_t len)
     return NULL;
   }
 #else
-  if (error == CURLE_OK)
+  if (err == CURLE_OK)
     return NULL;
   else
     p = "error";
@@ -526,7 +582,7 @@ get_winsock_error (int err, char *buf, size_t len)
   buf [len-1] = '\0';
   return buf;
 }
-#endif   /* WIN32 && !__CYGWIN__ */
+#endif   /* USE_WINSOCK */
 
 /*
  * Our thread-safe and smart strerror() replacement.
@@ -544,16 +600,16 @@ const char *Curl_strerror(struct connectdata *conn, int err)
   char *buf, *p;
   size_t max;
 
-  curlassert(conn);
-  curlassert(err >= 0);
+  DEBUGASSERT(conn);
+  DEBUGASSERT(err >= 0);
 
   buf = conn->syserr_buf;
   max = sizeof(conn->syserr_buf)-1;
   *buf = '\0';
 
-#if defined(WIN32) && !defined(__CYGWIN__)
+#ifdef USE_WINSOCK
 
-#if _WIN32_WCE
+#ifdef _WIN32_WCE
   buf[0]=0;
   {
     wchar_t wbuf[256];
@@ -571,11 +627,11 @@ const char *Curl_strerror(struct connectdata *conn, int err)
   else {
     if (!get_winsock_error(err, buf, max) &&
         !FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, err,
-                       LANG_NEUTRAL, buf, max, NULL))
+                       LANG_NEUTRAL, buf, (DWORD)max, NULL))
       snprintf(buf, max, "Unknown error %d (%#x)", err, err);
   }
 #endif
-#else /* not native Windows coming up */
+#else /* not USE_WINSOCK coming up */
 
   /* These should be atomic and hopefully thread-safe */
 #ifdef HAVE_STRERROR_R
@@ -593,14 +649,17 @@ const char *Curl_strerror(struct connectdata *conn, int err)
     char *msg = strerror_r(err, buffer, sizeof(buffer));
     /* this version of strerror_r() only *might* use the buffer we pass to
        the function, but it always returns the error message as a pointer,
-       so we must copy that string unconditionally */
-    strncpy(buf, msg, max);
+       so we must copy that string unconditionally (if non-NULL) */
+    if(msg)
+      strncpy(buf, msg, max);
+    else
+      snprintf(buf, max, "Unknown error %d", err);
   }
 #endif /* end of HAVE_GLIBC_STRERROR_R */
 #else /* HAVE_STRERROR_R */
   strncpy(buf, strerror(err), max);
 #endif /* end of HAVE_STRERROR_R */
-#endif /* end of ! Windows */
+#endif /* end of ! USE_WINSOCK */
 
   buf[max] = '\0'; /* make sure the string is zero terminated */
 
@@ -626,7 +685,7 @@ const char *Curl_idn_strerror (struct connectdata *conn, int err)
   char *buf;
   size_t max;
 
-  curlassert(conn);
+  DEBUGASSERT(conn);
 
   buf = conn->syserr_buf;
   max = sizeof(conn->syserr_buf)-1;

@@ -1,0 +1,26 @@
+#!/bin/sh
+SRCDIR=$1
+shift
+HEAD=fcalias.h
+TAIL=fcaliastail.h
+rm -f $HEAD $TAIL
+echo "#if HAVE_GNUC_ATTRIBUTE" >> $TAIL
+cat "$@" | grep '^Fc[^ ]* *(' | sed -e 's/ *(.*$//' |
+while read name; do
+	case $name in
+	FcCacheDir|FcCacheSubdir)
+		;;
+	*)
+		alias="IA__$name"
+		hattr='__attribute((visibility("hidden")))'
+		echo "extern __typeof ($name) $alias $hattr;" >> $HEAD
+		echo "#define $name $alias" >> $HEAD
+		grep -l -w '^'$name "$SRCDIR"/*.c | sed -e 's/^.*\/\([^.]*\)\.c/#ifdef __\1__/' >> $TAIL
+		echo "#undef $name" >> $TAIL
+		cattr='__attribute((alias("'$alias'"), visibility("default")))'
+		echo "extern __typeof ($name) $name $cattr;" >> $TAIL
+		echo "#endif" >> $TAIL
+		;;
+	esac
+done
+echo "#endif" >> $TAIL

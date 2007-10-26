@@ -281,7 +281,8 @@ static void CFStringShow(CFStringRef object)
         printf(c);
     else
     {
-        CFIndex bufferSize = CFStringGetLength(object) + 1;
+        CFIndex bufferSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(object),
+		kCFStringEncodingMacRoman) + sizeof('\0');
         char *  buffer     = (char *) malloc(bufferSize);
 
         if (buffer)

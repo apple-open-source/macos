@@ -1,6 +1,7 @@
 /* Top level stuff for GDB, the GNU debugger.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1996,
-   1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
+   1996, 1997, 1998, 1999, 2000, 2005 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -30,12 +31,14 @@ extern char gdb_dirbuf[1024];
 extern int inhibit_gdbinit;
 extern int epoch_interface;
 extern char gdbinit[];
+/* APPLE LOCAL global gdbinit */
 extern char gdbinit_global[];
 
 extern void print_gdb_version (struct ui_file *);
 
 extern void source_command (char *, int);
-extern void source_file (char *, int); /* APPLE LOCAL cf cli/cli-cmds.c */
+/* APPLE LOCAL cf cli/cli-cmds.c */
+extern void source_file (char *, int);
 
 extern void cd_command (char *, int);
 extern void read_command_file (FILE *);
@@ -68,8 +71,6 @@ extern void gdb_init (char *);
 /* Variables from top.c. */
 extern int source_line_number;
 extern char *source_file_name;
-extern char *source_error;
-extern char *source_pre_error;
 extern int history_expansion_p;
 extern int server_command;
 extern char *lim_at_start;

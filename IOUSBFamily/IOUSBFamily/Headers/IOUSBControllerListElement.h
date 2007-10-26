@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2006 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -30,7 +30,6 @@
 
 #include <IOKit/IOTypes.h>
 
-// #include <IOKit/usb/IOUSBControllerV2.h>
 #include <IOKit/usb/USB.h>
 
 
@@ -113,7 +112,7 @@ public:
     short								functionAddress;
     short								endpointNumber;
     IOReturn							accumulatedStatus;
-	UInt8								interval;					// this is the processed interval value for HS endpoints
+	UInt32								interval;					// this is the decoded interval value for HS endpoints and is 1 for FS endpoints
     UInt8								direction;
 	bool								aborting;
 };

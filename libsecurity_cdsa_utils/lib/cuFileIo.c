@@ -40,7 +40,7 @@ int writeFile(
 	int 	fd;
 	
 	fd = open(fileName, O_RDWR | O_CREAT | O_TRUNC, 0600);
-	if(fd <= 0) {
+	if(fd < 0) {
 		return errno;
 	}
 	rtn = lseek(fd, 0, SEEK_SET);
@@ -71,14 +71,14 @@ int readFile(
 {
 	int rtn;
 	int fd;
-	char *buf;
+	unsigned char *buf;
 	struct stat	sb;
 	unsigned size;
 	
 	*numBytes = 0;
 	*bytes = NULL;
 	fd = open(fileName, O_RDONLY, 0);
-	if(fd <= 0) {
+	if(fd < 0) {
 		return errno;
 	}
 	rtn = fstat(fd, &sb);

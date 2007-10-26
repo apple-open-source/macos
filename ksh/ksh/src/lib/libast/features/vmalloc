@@ -6,6 +6,8 @@
 # repeating them here allows for single standalone and AST sources.
 #
 
+ref	-D_def_map_ast=1
+
 lib	atexit,getpagesize,mallinfo,mallopt,memalign,mstats
 lib	onexit,pvalloc,strdup,valloc,vmalloc
 lib	_malloc,__malloc,__libc_malloc
@@ -19,32 +21,32 @@ tst	mem_sbrk note{ brk()/sbrk() work as expected }end execute{
 	#include        <unistd.h>
 	#undef	uchar
 	#define	uchar	unsigned char
-	main()
+	int main()
 	{	uchar	*brk0, *brk1;
 
 		/* allocate a big chunk */
 		if(!(brk0 = (uchar*)sbrk(0)) || brk0 == (uchar*)(-1))
-			exit(1);
+			return 1;
 		brk0 += 256*1024;
 		if(brk(brk0) != 0)
-			exit(1);
+			return 1;
 		if((brk1 = (uchar*)sbrk(0)) != brk0)
-			exit(1);
+			return 1;
 
 		/* now return half of it */
 		brk1 -= 128*1024;
 		if(brk(brk1) != 0 )
-			exit(1);
+			return 1;
 		if((brk0 = (uchar*)sbrk(0)) != brk1)
-			exit(1);
+			return 1;
 
-		exit(0);
+		return 0;
 	}
 }end
 
 tst	map_malloc note{ map malloc to _ast_malloc }end noexecute{
 	#if __CYGWIN__
-	main() { return 1; }
+	int main() { return 1; }
 	#else
 	static int user = 0;
 	_BEGIN_EXTERNS_
@@ -84,13 +86,13 @@ tst	map_malloc note{ map malloc to _ast_malloc }end noexecute{
 	extern void* __libc_malloc(n) unsigned int n; { MALLOC(n); }
 	#endif
 	_END_EXTERNS_
-	main() { user = 1; return !INTERCEPTED(LOCAL()); }
+	int main() { user = 1; return !INTERCEPTED(LOCAL()); }
 	#endif
 }end
 
 tst	map_malloc note{ map malloc to _ast_malloc -- wimp-o mach? }end noexecute{
 	#if _map_malloc
-	main() { return 0; }
+	int main() { return 0; }
 	#else
 	_BEGIN_EXTERNS_
 	#if _STD_
@@ -99,7 +101,7 @@ tst	map_malloc note{ map malloc to _ast_malloc -- wimp-o mach? }end noexecute{
 	void* calloc(n, m) unsigned n, m; { exit(1); }
 	#endif
 	_END_EXTERNS_
-	main() { return 0; }
+	int main() { return 0; }
 	#endif
 }end
 
@@ -107,6 +109,7 @@ lib	alloca note{ alloca exists }end link{
 	#if _hdr_alloca
 	#include	<alloca.h>
 	#endif
+	int
 	main()
 	{	alloca(10);
 	}
@@ -124,7 +127,7 @@ tst	mal_alloca note{ alloca is based on malloc() }end execute{
 	{	exit(0);
 		return 0;
 	}
-	main()
+	int main()
 	{	alloca(10);
 		return 1;
 	}
@@ -142,7 +145,7 @@ tst	stk_down note{ stack grows downward }end execute{
 			return 0;
 		else	return 1;	
 	}
-	main() { return growdown() ? 0 : 1; }
+	int main() { return growdown() ? 0 : 1; }
 }end
 
 cat{

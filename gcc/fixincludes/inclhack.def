@@ -1205,6 +1205,24 @@ fix = {
 /* APPLE LOCAL end deployment target */
 
 
+/* APPLE LOCAL begin for-fsf-4_4 5133297 */
+/*
+ *  On darwin8 and earlier, mach-o/swap.h isn't properly guarded
+ *  by 'extern "C"'.
+ */
+fix = {
+  hackname  = darwin_macho_swaph_externc;
+  mach      = "*-*-darwin*";
+  files     = mach-o/swap.h;
+  bypass    = "extern \"C\"";
+  c_fix     = wrap;
+  c_fix_arg = "#if __cplusplus\nextern \"C\" {\n#endif\n";
+  c_fix_arg = "#if __cplusplus\n}\n#endif\n";
+  test_text = "extern void swap_fat_header();\n";
+};
+/* APPLE LOCAL end for-fsf-4_4 5133297 */
+
+
 /*
  *  __private_extern__ doesn't exist in FSF GCC.  Even if it did,
  *  why would you ever put it in a system header file?

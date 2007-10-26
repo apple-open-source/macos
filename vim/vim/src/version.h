@@ -13,15 +13,15 @@
  * This doesn't use string contatenation, some compilers don't support it.
  */
 
-#define VIM_VERSION_MAJOR		 6
-#define VIM_VERSION_MAJOR_STR		"6"
-#define VIM_VERSION_MINOR		 2
-#define VIM_VERSION_MINOR_STR		"2"
+#define VIM_VERSION_MAJOR		 7
+#define VIM_VERSION_MAJOR_STR		"7"
+#define VIM_VERSION_MINOR		 0
+#define VIM_VERSION_MINOR_STR		"0"
 #define VIM_VERSION_100	    (VIM_VERSION_MAJOR * 100 + VIM_VERSION_MINOR)
 
-#define VIM_VERSION_BUILD		 160
-#define VIM_VERSION_BUILD_BCD		0x3C
-#define VIM_VERSION_BUILD_STR		"160"
+#define VIM_VERSION_BUILD		 262
+#define VIM_VERSION_BUILD_BCD		0x106
+#define VIM_VERSION_BUILD_STR		"262"
 #define VIM_VERSION_PATCHLEVEL		 0
 #define VIM_VERSION_PATCHLEVEL_STR	"0"
 /* Used by MacOS port should be one of: development, alpha, beta, final */
@@ -33,8 +33,8 @@
  * VIM_VERSION_MEDIUM is used for the startup-screen.
  * VIM_VERSION_LONG is used for the ":version" command and "Vim -h".
  */
-#define VIM_VERSION_NODOT	"vim62"
-#define VIM_VERSION_SHORT	"6.2"
-#define VIM_VERSION_MEDIUM	"6.2"
-#define VIM_VERSION_LONG	"VIM - Vi IMproved 6.2 (2003 Jun 1)"
-#define VIM_VERSION_LONG_DATE	"VIM - Vi IMproved 6.2 (2003 Jun 1, compiled "
+#define VIM_VERSION_NODOT	"vim70"
+#define VIM_VERSION_SHORT	"7.0"
+#define VIM_VERSION_MEDIUM	"7.0"
+#define VIM_VERSION_LONG	"VIM - Vi IMproved 7.0 (2006 May 7)"
+#define VIM_VERSION_LONG_DATE	"VIM - Vi IMproved 7.0 (2006 May 7, compiled "

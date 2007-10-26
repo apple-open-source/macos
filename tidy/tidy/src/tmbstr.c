@@ -1,26 +1,27 @@
 /* tmbstr.c -- Tidy string utility functions
 
-  (c) 1998-2004 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
 
   CVS Info :
 
-    $Author: swilkin $ 
-    $Date: 2004/08/16 23:45:24 $ 
-    $Revision: 1.1.1.2 $ 
+    $Author: iccir $ 
+    $Date: 2007/01/30 23:46:52 $ 
+    $Revision: 1.3 $ 
 
 */
 
+#include "forward.h"
 #include "tmbstr.h"
 #include "lexer.h"
 
 /* like strdup but using MemAlloc */
-tmbstr tmbstrdup( ctmbstr str )
+tmbstr TY_(tmbstrdup)( ctmbstr str )
 {
     tmbstr s = NULL;
     if ( str )
     {
-        uint len = tmbstrlen( str );
+        uint len = TY_(tmbstrlen)( str );
         tmbstr cp = s = (tmbstr) MemAlloc( 1+len );
         while ( 0 != (*cp++ = *str++) )
             /**/;
@@ -29,7 +30,7 @@ tmbstr tmbstrdup( ctmbstr str )
 }
 
 /* like strndup but using MemAlloc */
-tmbstr tmbstrndup( ctmbstr str, uint len )
+tmbstr TY_(tmbstrndup)( ctmbstr str, uint len )
 {
     tmbstr s = NULL;
     if ( str && len > 0 )
@@ -43,7 +44,7 @@ tmbstr tmbstrndup( ctmbstr str, uint len )
 }
 
 /* exactly same as strncpy */
-uint tmbstrncpy( tmbstr s1, ctmbstr s2, uint size )
+uint TY_(tmbstrncpy)( tmbstr s1, ctmbstr s2, uint size )
 {
     if ( s1 != NULL && s2 != NULL )
     {
@@ -57,7 +58,7 @@ uint tmbstrncpy( tmbstr s1, ctmbstr s2, uint size )
 
 /* Allows expressions like:  cp += tmbstrcpy( cp, "joebob" );
 */
-uint tmbstrcpy( tmbstr s1, ctmbstr s2 )
+uint TY_(tmbstrcpy)( tmbstr s1, ctmbstr s2 )
 {
     uint ncpy = 0;
     while (0 != (*s1++ = *s2++) )
@@ -67,7 +68,7 @@ uint tmbstrcpy( tmbstr s1, ctmbstr s2 )
 
 /* Allows expressions like:  cp += tmbstrcat( cp, "joebob" );
 */
-uint tmbstrcat( tmbstr s1, ctmbstr s2 )
+uint TY_(tmbstrcat)( tmbstr s1, ctmbstr s2 )
 {
     uint ncpy = 0;
     while ( *s1 )
@@ -79,7 +80,7 @@ uint tmbstrcat( tmbstr s1, ctmbstr s2 )
 }
 
 /* exactly same as strcmp */
-int tmbstrcmp( ctmbstr s1, ctmbstr s2 )
+int TY_(tmbstrcmp)( ctmbstr s1, ctmbstr s2 )
 {
     int c;
     while ((c = *s1) == *s2)
@@ -95,7 +96,7 @@ int tmbstrcmp( ctmbstr s1, ctmbstr s2 )
 }
 
 /* returns byte count, not char count */
-uint tmbstrlen( ctmbstr str )
+uint TY_(tmbstrlen)( ctmbstr str )
 {
     uint len = 0;
     if ( str ) 
@@ -113,11 +114,11 @@ uint tmbstrlen( ctmbstr str )
 
  Neither does ToLower()!
 */
-int tmbstrcasecmp( ctmbstr s1, ctmbstr s2 )
+int TY_(tmbstrcasecmp)( ctmbstr s1, ctmbstr s2 )
 {
     uint c;
 
-    while (c = (uint)(*s1), ToLower(c) == ToLower((uint)(*s2)))
+    while (c = (uint)(*s1), TY_(ToLower)(c) == TY_(ToLower)((uint)(*s2)))
     {
         if (c == '\0')
             return 0;
@@ -129,7 +130,7 @@ int tmbstrcasecmp( ctmbstr s1, ctmbstr s2 )
     return (*s1 > *s2 ? 1 : -1);
 }
 
-int tmbstrncmp( ctmbstr s1, ctmbstr s2, uint n )
+int TY_(tmbstrncmp)( ctmbstr s1, ctmbstr s2, uint n )
 {
     uint c;
 
@@ -152,11 +153,11 @@ int tmbstrncmp( ctmbstr s1, ctmbstr s2, uint n )
     return (*s1 > *s2 ? 1 : -1);
 }
 
-int tmbstrncasecmp( ctmbstr s1, ctmbstr s2, uint n )
+int TY_(tmbstrncasecmp)( ctmbstr s1, ctmbstr s2, uint n )
 {
     uint c;
 
-    while (c = (uint)(*s1), ToLower(c) == ToLower((uint)(*s2)))
+    while (c = (uint)(*s1), TY_(ToLower)(c) == TY_(ToLower)((uint)(*s2)))
     {
         if (c == '\0')
             return 0;
@@ -175,10 +176,11 @@ int tmbstrncasecmp( ctmbstr s1, ctmbstr s2, uint n )
     return (*s1 > *s2 ? 1 : -1);
 }
 
+#if 0
 /* return offset of cc from beginning of s1,
 ** -1 if not found.
 */
-int tmbstrnchr( ctmbstr s1, uint maxlen, tmbchar cc )
+int TY_(tmbstrnchr)( ctmbstr s1, uint maxlen, tmbchar cc )
 {
     int i;
     ctmbstr cp = s1;
@@ -191,76 +193,81 @@ int tmbstrnchr( ctmbstr s1, uint maxlen, tmbchar cc )
 
     return -1;
 }
+#endif
 
-ctmbstr tmbsubstrn( ctmbstr s1, uint len1, ctmbstr s2 )
+ctmbstr TY_(tmbsubstrn)( ctmbstr s1, uint len1, ctmbstr s2 )
 {
-    uint len2 = tmbstrlen(s2);
+    uint len2 = TY_(tmbstrlen)(s2);
     int ix, diff = len1 - len2;
 
     for ( ix = 0; ix <= diff; ++ix )
     {
-        if ( tmbstrncmp(s1+ix, s2, len2) == 0 )
+        if ( TY_(tmbstrncmp)(s1+ix, s2, len2) == 0 )
             return (ctmbstr) s1+ix;
     }
     return NULL;
 }
 
-ctmbstr tmbsubstrncase( ctmbstr s1, uint len1, ctmbstr s2 )
+#if 0
+ctmbstr TY_(tmbsubstrncase)( ctmbstr s1, uint len1, ctmbstr s2 )
 {
-    uint len2 = tmbstrlen(s2);
+    uint len2 = TY_(tmbstrlen)(s2);
     int ix, diff = len1 - len2;
 
     for ( ix = 0; ix <= diff; ++ix )
     {
-        if ( tmbstrncasecmp(s1+ix, s2, len2) == 0 )
+        if ( TY_(tmbstrncasecmp)(s1+ix, s2, len2) == 0 )
             return (ctmbstr) s1+ix;
     }
     return NULL;
 }
+#endif
 
-ctmbstr tmbsubstr( ctmbstr s1, ctmbstr s2 )
+ctmbstr TY_(tmbsubstr)( ctmbstr s1, ctmbstr s2 )
 {
-    uint len1 = tmbstrlen(s1), len2 = tmbstrlen(s2);
+    uint len1 = TY_(tmbstrlen)(s1), len2 = TY_(tmbstrlen)(s2);
     int ix, diff = len1 - len2;
 
     for ( ix = 0; ix <= diff; ++ix )
     {
-        if ( tmbstrncasecmp(s1+ix, s2, len2) == 0 )
+        if ( TY_(tmbstrncasecmp)(s1+ix, s2, len2) == 0 )
             return (ctmbstr) s1+ix;
     }
     return NULL;
 }
 
 /* Transform ASCII chars in string to lower case */
-tmbstr tmbstrtolower( tmbstr s )
+tmbstr TY_(tmbstrtolower)( tmbstr s )
 {
     tmbstr cp;
     for ( cp=s; *cp; ++cp )
-        *cp = (tmbchar) ToLower( *cp );
+        *cp = (tmbchar) TY_(ToLower)( *cp );
     return s;
 }
 
 /* Transform ASCII chars in string to upper case */
-tmbstr tmbstrtoupper(tmbstr s)
+tmbstr TY_(tmbstrtoupper)(tmbstr s)
 {
     tmbstr cp;
 
     for (cp = s; *cp; ++cp)
-        *cp = (tmbchar)ToUpper(*cp);
+        *cp = (tmbchar)TY_(ToUpper)(*cp);
 
     return s;
 }
 
-Bool tmbsamefile( ctmbstr filename1, ctmbstr filename2 )
+#if 0
+Bool TY_(tmbsamefile)( ctmbstr filename1, ctmbstr filename2 )
 {
 #if FILENAMES_CASE_SENSITIVE
-    return ( tmbstrcmp( filename1, filename2 ) == 0 );
+    return ( TY_(tmbstrcmp)( filename1, filename2 ) == 0 );
 #else
-    return ( tmbstrcasecmp( filename1, filename2 ) == 0 );
+    return ( TY_(tmbstrcasecmp)( filename1, filename2 ) == 0 );
 #endif
 }
+#endif
 
-int tmbvsnprintf(tmbstr buffer, size_t count, ctmbstr format, va_list args)
+int TY_(tmbvsnprintf)(tmbstr buffer, size_t count, ctmbstr format, va_list args)
 {
     int retval;
 #if HAS_VSNPRINTF
@@ -273,7 +280,7 @@ int tmbvsnprintf(tmbstr buffer, size_t count, ctmbstr format, va_list args)
     return retval;
 }
 
-int tmbsnprintf(tmbstr buffer, size_t count, ctmbstr format, ...)
+int TY_(tmbsnprintf)(tmbstr buffer, size_t count, ctmbstr format, ...)
 {
     int retval;
     va_list args;
@@ -288,3 +295,12 @@ int tmbsnprintf(tmbstr buffer, size_t count, ctmbstr format, ...)
     va_end(args);
     return retval;
 }
+
+/*
+ * local variables:
+ * mode: c
+ * indent-tabs-mode: nil
+ * c-basic-offset: 4
+ * eval: (c-set-offset 'substatement-open 0)
+ * end:
+ */

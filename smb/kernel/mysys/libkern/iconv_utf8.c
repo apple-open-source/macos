@@ -1,7 +1,24 @@
 /*
- * Copyright (c) 2001 Apple Computer
- * All rights reserved.
+ * Copyright (c) 2001 - 2007 Apple Inc. All rights reserved.
  *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
 #include <sys/param.h>
 #include <sys/kernel.h>
@@ -16,10 +33,6 @@
 /*
  * UTF-8 converter
  */
-
-#ifdef MODULE_DEPEND
-MODULE_DEPEND(iconv_utf8, libiconv, 1, 1, 1);
-#endif
 
 /*
  * UTF-8 converter instance
@@ -44,10 +57,10 @@ iconv_utf8_open(struct iconv_converter_class *dcp,
 	struct iconv_utf8 *dp;
 
 	dp = (struct iconv_utf8 *)kobj_create((struct kobj_class*)dcp, M_ICONV);
-	if (strcmp(csp->cp_to, "utf-8") == 0) {
+	if (strncmp(csp->cp_to, "utf-8", ICONV_CSNMAXLEN) == 0) {
 		dp->d_type = UTF8_ENCODE;
 		dp->d_flags = UTF_DECOMPOSED | UTF_NO_NULL_TERM;
-	} else if (strcmp(csp->cp_from, "utf-8") == 0) {
+	} else if (strncmp(csp->cp_from, "utf-8", ICONV_CSNMAXLEN) == 0) {
 		dp->d_type = UTF8_DECODE;
 		dp->d_flags = UTF_PRECOMPOSED;
 	}
@@ -71,8 +84,8 @@ iconv_utf8_close(void *data)
 }
 
 static int
-iconv_utf8_conv(void *d2p, const char **inbuf,
-	size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+iconv_utf8_conv(void *d2p, const char **inbuf, size_t *inbytesleft, char **outbuf, 
+		size_t *outbytesleft, int flags)
 {
 	struct iconv_utf8 *dp = (struct iconv_utf8*)d2p;
 	size_t inlen;
@@ -82,13 +95,14 @@ iconv_utf8_conv(void *d2p, const char **inbuf,
 	if (inbuf == NULL || *inbuf == NULL || outbuf == NULL || *outbuf == NULL)
 		return 0;
 
+	flags |= dp->d_flags;	/* Include the default flags that are not passed in */
 	inlen = *inbytesleft;
 	outlen = 0;
 	
 	if (dp->d_type == UTF8_ENCODE)
-		error = utf8_encodestr((u_int16_t *)*inbuf, inlen, (u_int8_t *)*outbuf, &outlen, *outbytesleft, 0, dp->d_flags);
+		error = utf8_encodestr((u_int16_t *)*inbuf, inlen, (u_int8_t *)*outbuf, &outlen, *outbytesleft, 0, flags);
 	else if (dp->d_type == UTF8_DECODE)
-		error = utf8_decodestr((u_int8_t *)*inbuf, inlen, (u_int16_t *)*outbuf, &outlen, *outbytesleft, 0, dp->d_flags);
+		error = utf8_decodestr((u_int8_t *)*inbuf, inlen, (u_int16_t *)*outbuf, &outlen, *outbytesleft, 0, flags);
 	else
 		return (-1);
 

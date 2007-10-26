@@ -48,8 +48,15 @@ extern Cache_t	fscache;
 
 
 char	       *blockcheck __P((char *name));
+void            cleanup_fs_fd __P((void));
 void		catch __P((int));
 void		ckfini __P((int markclean));
 void		pfatal __P((const char *fmt, ...));
 void		pwarn __P((const char *fmt, ...));
+void            plog(const char *fmt, ...);
+void            vplog(const char *fmt, va_list ap);
+void            fplog(FILE *stream, const char *fmt, ...);
+#define printf  plog      // just in case someone tries to use printf/fprint
+#define fprintf fplog
+
 int		reply __P((char *question));

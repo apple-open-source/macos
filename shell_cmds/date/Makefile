@@ -12,12 +12,13 @@ NAME = date
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = extern.h
+HFILES = extern.h vary.h
 
-CFILES = date.c netdate.c
+CFILES = date.c netdate.c vary.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble date.1
 
+OTHER_CFLAGS = -D__FBSDID=__RCSID
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -27,21 +27,21 @@
 
 #include "unicode/utypes.h"
 
+/**
+ * \file 
+ * \brief C++ API: Calendar object
+ */
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/uobject.h"
 #include "unicode/locid.h"
 #include "unicode/timezone.h"
 #include "unicode/ucal.h"
+#include "unicode/umisc.h"
 
 U_NAMESPACE_BEGIN
 
 class ICUServiceFactory;
-
-/**
- * @internal
- */
-typedef const void* URegistryKey;
 
 /**
  * @internal
@@ -1587,7 +1587,7 @@ protected:
      * computed.  This occurs only in setTimeInMillis().  A calendar set
      * to this state will compute all fields from the time if it becomes
      * necessary, but otherwise will delay such computation.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     UBool fAreFieldsVirtuallySet;
 
@@ -1796,7 +1796,7 @@ protected:
      *              {@link #getMinimalDaysInFirstWeek getMinimalDaysInFirstWeek}
      *              is more than one.
      *
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     int32_t weekNumber(int32_t desiredDay, int32_t dayOfPeriod, int32_t dayOfWeek);
 
@@ -1895,17 +1895,6 @@ private:
      *                leniency, this will be set to an error status.
      */
     void updateTime(UErrorCode& status);
-
-    /**
-     * The resource tag for the resource where the week-count data is stored.
-     */
-    static const char kDateTimeElements[];
-
-    /**
-     * The resource tag where the default calendar is stored.
-     */
-    static const char kDefaultCalendar[];
-
 
     /**
      * The Gregorian year, as computed by computeGregorianFields() and
@@ -2098,7 +2087,7 @@ private:
      *  @param type type of the locale we're looking for (valid or actual)
      *  @param status error code for the operation
      *  @return the locale
-     *  @draft ICU 2.8 likely to change in ICU 3.0, based on feedback
+     *  @stable ICU 2.8
      */
     Locale getLocale(ULocDataLocaleType type, UErrorCode &status) const;
 

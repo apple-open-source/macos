@@ -1,0 +1,8 @@
+--- #YAML:1.0
+name: SQL-Abstract-Limit
+version: 0.12
+author:
+  - David Baird <cpan@riverside-cms.co.uk>
+abstract: portable LIMIT emulation
+license: perl
+generated_by: Module::Build version 0.2611, without YAML.pm

@@ -24,17 +24,19 @@
         <string>5.5</string>
         <key>CFBundleGetInfoString</key>
         <string>5.5 Copyright MIT</string>
+        <key>KfMDisplayName</key>
+        <string>Kerberos for Macintosh</string>
         <key>KfMDisplayVersion</key>
-        <string>5.5 Copyright MIT</string>
+        <string>5.5</string>
         <key>KfMDisplayCopyright</key>
-        <string>Copyright MIT</string>
+        <string>Copyright © 2005 MIT</string>
         <key>NSHumanReadableCopyright</key>
         <string>5.5 Copyright MIT</string>
 	<key>NSMainNibFile</key>
 	<string>KerberosAgent</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
-	<key>NSUIElement</key>
-	<string>1</string>
+    <key>LSUIElement</key>
+    <string>1</string>
 </dict>
 </plist>

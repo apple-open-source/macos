@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@ __SCDynamicStoreTouchValue(SCDynamicStoreRef store, CFStringRef key)
 	int				sc_status;
 	CFDataRef			value;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -131,7 +131,7 @@ _configtouch(mach_port_t 		server,
 		goto done;
 	}
 
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		goto done;
 	}

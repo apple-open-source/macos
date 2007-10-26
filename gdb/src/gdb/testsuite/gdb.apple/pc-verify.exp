@@ -96,7 +96,7 @@ gdb_expect {
 
 send_gdb "info fr\n"
 gdb_expect {
-  -re ".*Stack level 0, frame at ($hex):.*(pc|eip) = ($hex) in main.*$gdb_prompt $" {
+  -re ".*Stack level 0, frame at ($hex):.*(pc|eip|rip) = ($hex) in main.*$gdb_prompt $" {
     set main_current_fp_from_info_frame $expect_out(1,string)
     set main_current_pc_from_info_frame $expect_out(3,string)
     pass "info frame in main #1."
@@ -158,7 +158,7 @@ if { $main_calling_pc_from_backtrace < $main_info_line_start || \
 
 send_gdb "info fr\n"
 gdb_expect {
-  -re "Stack level 0, frame at ($hex).*(pc|eip) = ($hex) in factorial.*saved (pc|eip) ($hex).*$gdb_prompt $" {
+  -re "Stack level 0, frame at ($hex).*(pc|eip|rip) = ($hex) in factorial.*saved (pc|eip|rip) ($hex).*$gdb_prompt $" {
     set factorial_info_frame_fp $expect_out(1,string)
     set factorial_info_frame_pc $expect_out(3,string)
     set factorial_info_frame_saved_pc $expect_out(5,string)

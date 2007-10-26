@@ -63,4 +63,3 @@ void MscPIN::list(MSCUShort16& mask)
 		MscError::throwMe(rv);
 }
 
-/* arch-tag: 9536C3B8-BE68-11D8-A08D-000A95C4302E */

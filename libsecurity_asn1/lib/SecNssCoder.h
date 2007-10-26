@@ -62,7 +62,7 @@ public:
 	 */
 	PRErrorCode	decode(
 		const void				*src,		// BER-encoded source
-		unsigned long			len,
+		size_t				len,
 		const SecAsn1Template 	*templ,	
 		void					*dest);
 		

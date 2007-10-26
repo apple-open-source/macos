@@ -1,0 +1,240 @@
+commit 0945a24c0470860f5d9cbc87cb28defd44144710
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Dec 16 01:22:56 2006 +0200
+
+    bump to 1.0.4
+
+commit b834a33035b0192b4213ff1d6198045b74ab65fe
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Dec 6 18:54:24 2006 +0200
+
+    Makefile.am: make ChangeLog hook safer
+    Make ChangeLog hook as safe as possible
+
+commit dbf918f5a95b73bd9652d520bb36eedee772c940
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Fri Oct 13 16:14:25 2006 -0400
+
+    Bump to 1.0.3
+
+commit 49c76e1a9ff5fceb8ee33b6a0334942da643e286
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Thu Oct 12 18:51:35 2006 -0400
+
+    Fix the ChangeLog hook to distcheck.
+
+commit 43d696f4404a7595e9bb84909df85675058bdca5
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sat Jul 29 20:31:08 2006 +0200
+
+    Remove ChangeLog. Add a Makefile rule to generate it using git-log
+
+commit 895c6e6f83201636d705f9d3c98701a528ab31b5
+Author: Federico G. Schwindt <fgsch@openbsd.org>
+Date:   Sat Jul 29 20:27:30 2006 +0200
+
+    Correct header path.
+
+commit 37ffff200fe4b3bd973f5bade4a217768029146f
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jul 13 14:58:57 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit eb191bbc716620c067bf6286469f8e5d90224577
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu Apr 27 00:12:33 2006 +0000
+
+    Bump to 1.0.2
+
+commit 4fd0f2d9d43fd84c2f27e28545708d08ac7d83e0
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Feb 12 18:19:21 2006 +0000
+
+    Bug #5628 <https://bugs.freedesktop.org/show_bug.cgi?id=5628> Shadow pages
+        not created correctly when MANDIR & MANSUFFIX don't match.
+
+commit c1b89988246ab0a10076034a2e2a13fa48d852e6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:30:05 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 4a67e4901ce462b98214d276c96b3bece7cd4bcc
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:28:27 2005 +0000
+
+    Stub COPYING files
+
+commit d683612fd75ae6ed905cc98fe0a94fe5c28c0613
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:29 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 86c4c88a09fa328af9fc06123986ece8448b17c7
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:43 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 556af948c779751d377762d262ac5e02795c20d3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:44 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 6e86b1afe88ad387f97abb937b9b792fb0ebc0c8
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 04:41:49 2005 +0000
+
+    Add check and cflags for malloc(0) returning NULL.
+
+commit 3a802cf242352b033906f75ae07b0d4e7a34e3eb
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:03:05 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 0f4fd60816fa79831174bdf81f46e5b53351a2dd
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 23:17:40 2005 +0000
+
+    Add/improve libs .cvsignores.
+
+commit 6ce2df31e5c80a524c2190ffca12bada12db21d2
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:41 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit 68d5758a4c265ed7fc87c8299af277fd7db7de87
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Nov 13 01:32:07 2005 +0000
+
+    Use sed to substitute variables in man pages. Install shadow man pages for
+        pages that document multiple functions.
+
+commit 2681f785ac11d4264d7b443f457effe4766a3d91
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:10 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 6422064781eaa59d0ccc73246ed3b6384ca83d5b
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Aug 3 03:28:01 2005 +0000
+
+    Do PKG_CHECK_MODULES on a unique token instead of on "DEP", so builds with
+        a global configure cache don't get confused.
+
+commit 1f7d7e3e9b7ef6cf24c156e799c25d846f8fdd29
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:51 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 15325304bf7ae576bfe3f6236f7a983b68010f1c
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Jul 16 07:08:31 2005 +0000
+
+    Set soversion to 1.0.0 using -version-number.
+
+commit 16a2a64e9283d8f9f70d7f9b52db2c0018385342
+Author: Keith Packard <keithp@keithp.com>
+Date:   Wed Jul 13 07:26:39 2005 +0000
+
+    Make EXTRA_DIST match defined man_MANS variable
+
+commit 5c5b7c82715b5c20581dde01dffbf3ee351480ac
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Jul 9 06:39:15 2005 +0000
+
+    Add .cvsignore files
+
+commit 65fbc3d7e8f8b22c23cfc6b54726f40d23bbea92
+Author: Alexander Gottwald <alexander.gottwald@s1999.tu-chemnitz.de>
+Date:   Tue Jun 21 15:41:36 2005 +0000
+
+    lib/XScrnSaver/configure.ac
+    lib/XScrnSaver/src/Makefile.am
+    lib/Xfontcache/configure.ac
+    lib/Xfontcache/src/Makefile.am
+    lib/Xinerama/configure.ac
+    lib/Xinerama/src/Makefile.am
+    lib/Xtst/configure.ac
+    lib/Xv/configure.ac
+    lib/XvMC/configure.ac
+    lib/dmx/configure.ac Add missing xext.pc and xextproto.pc Add DEP_CFLAGS to
+        src/Makefile.am
+
+commit afcd83ff1cecd94a6066f6f22f0d633062e831f9
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jun 10 19:22:53 2005 +0000
+
+    Check in build system for Xfontcache
+
+commit ee99568cca84a7e1762c7aab09c9d5ddf381406c
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:41 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 6f18e086dd998720a80e8d7d9807683dfd29fad0
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:32:07 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 1f4360dcfb2a7804c0d40cfa6246a198da542063
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:11:28 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 03c67189ab4356d55ab5278097979d7da0178efc
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:33 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit c0876298fcadd7acdb0e0650e58733bf6783013d
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:42 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 666771f69bc7d624cad1e975c8b742f7e427a869
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:09 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit c3550c03194bfed8e67c941718e0afb007cf0c05
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:09 2003 +0000
+
+    Initial revision
+
+commit 1336fc90eb351c19451b3e786e1bf124f1a857f5
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:48 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit cb47cbfacef1e9f2d515406ba267be874e0e8844
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:48 2003 +0000
+
+    Initial revision

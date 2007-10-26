@@ -13,7 +13,8 @@ for extended locale support.
 It can be used alone or with the POSIX locale API in
 .Aq locale.h .
 .Pp
-The extended locale, or "xlocale" API consists of five basic routines, which are documented separately:
+The extended locale, or "xlocale" API consists of five basic routines,
+which are documented separately:
 .Xr duplocale 3 ,
 .Xr freelocale 3 ,
 .Xr newlocale 3 ,
@@ -34,22 +35,25 @@ LC_GLOBAL_LOCALE - A special
 .Vt locale_t
 value that corresponds to the global, process-wide locale.
 .It
-MB_CUR_MAX - This macro is traditionally defined as an integer containing the value of the
-longest multi-byte string that a single-wide character in the global locale
+MB_CUR_MAX - This macro is traditionally defined as an integer
+containing the value of the longest multi-byte string
+that a single-wide character in the global locale can translate into.
+With extended locales, this macro is replaced with a function
+that returns the value of the longest multi-byte string
+that a single-wide character in the current locale (per-thread or global)
 can translate into.
-With extended locales, this macro is replaced with a function that returns the
-value of the longest multi-byte string that a single-wide character in the current
-locale (per-thread or global) can translate into.
 .It
-MB_CUR_MAX_L(loc) - This macro is equivalent to MB_CUR_MAX, except that it may be passed
-a specific locale directly.
+MB_CUR_MAX_L(loc) - This macro is equivalent to MB_CUR_MAX,
+except that it may be passed a specific locale directly.
 .El
 .Sh CAVEATS
 The POSIX
 .Xr setlocale 3
-function only affects the global locale, so using it when a per-thread locale
-is in effect will not change locale behavior for that thread. However, it will
-change behavior for threads with no per-thread locale in effect.
+function only affects the global locale,
+so using it when a per-thread locale is in effect
+will not change locale behavior for that thread.
+However, it will change behavior for threads
+with no per-thread locale in effect.
 .Pp
 The routines defined in
 .Aq rune.h
@@ -64,23 +68,28 @@ and sub-structures may be shared by multiple locales,
 has been modified to make a copy of the sub-structure.
 This prevents it from affecting other locales.
 .Sh SEE ALSO
-.Xr localeconv 3 ,
 .Xr duplocale 3 ,
 .Xr freelocale 3 ,
+.Xr localeconv 3 ,
 .Xr newlocale 3 ,
 .Xr querylocale 3 ,
 .Xr uselocale 3
 .Sh CONVENIENCE FUNCTIONS
-The xlocale API also includes "convenience functions"; functions that can be
-executed using a given locale, rather than the current locale. These functions all take one extra
+The xlocale API also includes "convenience functions":
+functions that can be executed using a given locale,
+rather than the current locale.
+These functions all take one extra
 .Vt locale_t
-argument at the end of the traditional argument list, except in the case of variable-argument functions, in which case the extra argument comes before the format string.
+argument at the end of the traditional argument list,
+except in the case of variable-argument functions,
+in which case the extra argument comes before the format string.
 If a NULL
 .Vt locale_t
 is passed, the C locale will be used.
 .Pp
 For completeness,
-the convenience functions are listed here (organized by the header file that contains the original function).
+the convenience functions are listed here
+(organized by the header file that contains the original function).
 .Pp
 .Bl -tag -width monetary.h
 .It Aq _wctype.h

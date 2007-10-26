@@ -1,14 +1,14 @@
 /*
  *  herr.ci
  *
- *  $Id: herr.ci,v 1.3 2004/11/11 01:52:37 luesang Exp $
+ *  $Id: herr.ci,v 1.12 2006/07/10 13:49:29 source Exp $
  *
  *  Error messages
  *
  *  The iODBC driver manager.
  *  
  *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
@@ -16,6 +16,10 @@
  *
  *      - GNU Library General Public License (see LICENSE.LGPL) 
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -71,6 +75,7 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 static sqlerrmsg_t sqlerrmsg_tab[] =
 {
   { en_00000, "00000", ""},
@@ -83,6 +88,7 @@ static sqlerrmsg_t sqlerrmsg_tab[] =
   { en_01S02, "01S02", "Optional value changed" },
   { en_01S03, "01S03", "No rows updated or deleted" },
   { en_01S04, "01S04", "More than one row updated or deleted" },
+  { en_01S08, "01S08", "Error saving file DSN" },
   { en_07001, "07001", "Wrong number of parameters" },
   { en_07006, "07006", "Restricted data type attribute violation" },
   { en_08001, "08001", "Unable to connect to data source" },
@@ -116,6 +122,7 @@ static sqlerrmsg_t sqlerrmsg_tab[] =
   { en_HY024, "HY024", "Invalid attribute value" },
   { en_HY091, "HY091", "Invalid descriptor field identifier" },
   { en_HY092, "HY092", "Invalid attribute/option identifier" },
+  { en_HY110, "HY110", "Invalid driver completion" },
   { en_HYC00, "HYC00", "Optional feature not implemented" },
   { en_IM001, "IM001", "Driver does not support this function" },
   { en_IM002, "IM002", "Data source name not found and no default "

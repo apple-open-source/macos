@@ -117,13 +117,13 @@ typedef struct {
 	unsigned		fw_count;
 
 	/* Code size of frameworks. */
-	vm_size_t		fw_code;
+	unsigned long long	fw_code;
 
 	/* Data size of frameworks. */
-	vm_size_t		fw_data;
+	unsigned long long	fw_data;
 
 	/* Linkedit size of frameworks. */
-	vm_size_t		fw_linkedit;
+	unsigned long long	fw_linkedit;
 
 #define LIBTOP_STATE_MAX	7
 #define LIBTOP_NSTATES		(LIBTOP_STATE_MAX + 1)
@@ -181,18 +181,21 @@ struct libtop_psamp_s {
 	gid_t			pgrp;
 
 	/* Memory statistics. */
-	vm_size_t		rsize;
-	vm_size_t		vsize;
-	vm_size_t		rprvt;
-	vm_size_t		vprvt;
-	vm_size_t		rshrd;
+	unsigned long long	rsize;
+	unsigned long long	vsize;
+	unsigned long long	rprvt;
+	unsigned long long	vprvt;
+	unsigned long long	rshrd;
+	unsigned long long	fw_private;
+	unsigned long long	empty;
 	unsigned		reg;
 
-	vm_size_t		p_rsize;
-	vm_size_t		p_vprvt;
-	vm_size_t		p_vsize;
-	vm_size_t		p_rprvt;
-	vm_size_t		p_rshrd;
+	unsigned long long	p_rsize;
+	unsigned long long	p_vprvt;
+	unsigned long long	p_vsize;
+	unsigned long long	p_rprvt;
+	unsigned long long	p_rshrd;
+	unsigned long long	p_empty;
 
 	/* Number of threads. */
 	unsigned		th;
@@ -225,6 +228,11 @@ struct libtop_psamp_s {
 	 * existed for the current sample (p_seq == 0).
 	 */
 	unsigned		p_seq;
+
+	/* time process was started */
+	struct timeval		started;
+       /* process cpu type */
+        cpu_type_t              cputype;
 };
 
 /*
@@ -305,6 +313,16 @@ libtop_piterate(void);
  */
 boolean_t
 libtop_preg(pid_t a_pid, libtop_preg_t a_preg);
+
+/*
+ * Set the interval between framework updates.
+ *
+ * FALSE : Success.
+ * TRUE : Error.
+ */
+boolean_t
+libtop_set_interval(unsigned ival);
+#define LIBTOP_MAX_INTERVAL 100
 
 /*
  * Return a pointer to a username string (truncated to the first 8 characters),

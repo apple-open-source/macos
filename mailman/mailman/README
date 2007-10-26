@@ -1,6 +1,6 @@
 Mailman - The GNU Mailing List Management System
 Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 INTRODUCTION
 
@@ -112,60 +112,6 @@ REQUIREMENTS
     about any mail reader or web browser, although a mail reader that is MIME
     aware will be a big help.  You do not need Java, JavaScript, or any other
     fancy plugins.
-
-
-CREATE YOUR FIRST LIST
-
-    These instructions assume that you've installed and configured Mailman
-    according to the instructions in the INSTALL file.  To create and test
-    your first list, try the following:
-
-    - First, initialize the site administrator's password by cd'ing to the
-      install directory (by default /usr/local/mailman) and typing
-
-      % bin/mmsitepass
-      New site password: [yourpassword]
-      Again to confirm password: [yourpassword]
-      Password changed.
-
-    - Visit the url:
-
-        http://my.dom.ain/mailman/create
-
-      Fill out the form as described in the on-screen instructions, and in the
-      "List creator's password" field, type the password you entered above.
-      Type your own email address for the "Initial list owner address", and
-      select "Yes" to notify the list administrator.
-
-    - Hit "Create List"
-
-    - Check your email for a message from Mailman informing you that your new
-      mailing list was created.
-
-    - NOTE: You should consult the README for the specific MTA you are using.
-      Most can be set up to provide through-the-web creation of mailing lists,
-      but each configuration is different.
-
-    - Now visit the list's admin page (either by following the link on the web
-      page or entering the link from the email Mailman just sent you).
-      Typically the url will be something like
-
-        http://my.dom.ain/mailman/admin/mysitelist
-
-      Type in the list's password and click on "Let me in..."
-
-    - Click on "Membership Management" and then on "Mass Subscription".
-
-    - Enter your email address in the big text field, and click on "Submit
-      Your Changes"
-
-    - Now go to your email and send a message to yourlist@my.dom.ain.  Within
-      a minute or two you should see your message reflected back to you via
-      Mailman.
-
-    Congratulations!  You've just set up and tested your first Mailman mailing
-    list.  If you had any problems along the way, please see the section below
-    on FOR MORE INFORMATION.
 
 
 FOR MORE INFORMATION

@@ -61,7 +61,7 @@
                 };
             };
         };
-        Cache = {
+        KerberosCache = {
             Name = "cache";
             PluralName = "caches"; 
             Description = "A Kerberos ticket cache"; 
@@ -70,7 +70,7 @@
                     Name = "cache name";
                     Description = "The name of the ticket cache";
                 };
-                stringValueForTimeRemainingScriptCommand = {
+                longTimeRemainingString = {
                     Name = "time remaining";
                     Description = "Number of seconds of ticket lifetime remaining on the ticket cache";
                 };

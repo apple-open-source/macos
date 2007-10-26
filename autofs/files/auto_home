@@ -1,0 +1,4 @@
+#
+# Automounter map for /home
+#
++auto_home	# Use directory service

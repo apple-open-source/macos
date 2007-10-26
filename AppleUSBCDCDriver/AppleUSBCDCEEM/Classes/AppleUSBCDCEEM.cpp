@@ -58,10 +58,6 @@ extern "C"
 #include "AppleUSBCDCEEM.h"
 
 #define MIN_BAUD (50 << 1)
-
-#if USE_ELG
-    com_apple_iokit_XTrace	*gXTrace = 0;
-#endif
     
 static struct MediumTable
 {
@@ -82,73 +78,6 @@ mediumTable[] =
 #define super IOEthernetController
 
 OSDefineMetaClassAndStructors(AppleUSBCDCEEM, IOEthernetController);
-
-#if USE_ELG
-/****************************************************************************************************/
-//
-//		Function:	findKernelLoggerEED
-//
-//		Inputs:		
-//
-//		Outputs:	
-//
-//		Desc:		Just like the name says
-//
-/****************************************************************************************************/
-
-IOReturn findKernelLoggerEED()
-{
-    OSIterator		*iterator = NULL;
-    OSDictionary	*matchingDictionary = NULL;
-    IOReturn		error = 0;
-	
-	// Get matching dictionary
-	
-    matchingDictionary = IOService::serviceMatching("com_apple_iokit_XTrace");
-    if (!matchingDictionary)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerEED] Couldn't create a matching dictionary.\n");
-        goto exit;
-    }
-	
-	// Get an iterator
-	
-    iterator = IOService::getMatchingServices(matchingDictionary);
-    if (!iterator)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerEED] No XTrace logger found.\n");
-        goto exit;
-    }
-	
-	// User iterator to find each com_apple_iokit_XTrace instance. There should be only one, so we
-	// won't iterate
-	
-    gXTrace = (com_apple_iokit_XTrace*)iterator->getNextObject();
-    if (gXTrace)
-    {
-        IOLog(DEBUG_NAME "[findKernelLoggerEED] Found XTrace logger at %p.\n", gXTrace);
-    }
-	
-exit:
-	
-    if (error != kIOReturnSuccess)
-    {
-        gXTrace = NULL;
-        IOLog(DEBUG_NAME "[findKernelLoggerEED] Could not find a logger instance. Error = %X.\n", error);
-    }
-	
-    if (matchingDictionary)
-        matchingDictionary->release();
-            
-    if (iterator)
-        iterator->release();
-		
-    return error;
-    
-}/* end findKernelLoggerEED */
-#endif
 
 /****************************************************************************************************/
 //
@@ -260,42 +189,25 @@ IOReturn findCDCDriverEED(IOUSBDevice *myDevice, void *dataAddr, UInt8 dataInter
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCEEM::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
+void AppleUSBCDCEEM::USBLogData(UInt8 Dir, SInt32 Count, char *buf)
 {    
     SInt32	wlen;
     UInt8	tDir = Dir;
-#if USE_ELG
-    UInt8 	*b;
-    UInt8 	w[8];
-#else
-    UInt32	llen, rlen;
-    UInt16	i, Aspnt, Hxpnt;
+    SInt32	llen, rlen;
+    SInt16	i, Aspnt, Hxpnt;
     UInt8	wchr;
     char	LocBuf[buflen+1];
-#endif
     
     switch (tDir)
     {
         case kDataIn:
-#if USE_ELG
-            XTRACE2(this, buf, Count, "USBLogData - Read Complete, address, size");
-#else
-            IOLog("AppleUSBCDCEEM: USBLogData - Read Complete, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count);
-#endif
+            Log("AppleUSBCDCEEM: USBLogData - Read Complete, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count);
             break;
         case kDataOut:
-#if USE_ELG
-            XTRACE2(this, buf, Count, "USBLogData - Write, address, size");
-#else
-            IOLog("AppleUSBCDCEEM: USBLogData - Write, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count);
-#endif
+            Log("AppleUSBCDCEEM: USBLogData - Write, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count);
             break;
         case kDataOther:
-#if USE_ELG
-            XTRACE2(this, buf, Count, "USBLogData - Other, address, size");
-#else
-            IOLog("AppleUSBCDCEEM: USBLogData - Other, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count);
-#endif
+            Log("AppleUSBCDCEEM: USBLogData - Other, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count);
             break;
         case kDataNone:
             tDir = kDataOther;
@@ -315,45 +227,14 @@ void AppleUSBCDCEEM::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
 
     if (wlen == 0)
     {
-#if USE_ELG
-        XTRACE2(this, 0, Count, "USBLogData - No data, Count=0");
-#else
-        IOLog("AppleUSBCDCEEM: USBLogData - No data, Count=0\n");
-#endif
+        Log("AppleUSBCDCEEM: USBLogData - No data, Count=0\n");
         return;
     }
 
-#if (USE_ELG)
-    b = (UInt8 *)buf;
-    while (wlen > 0)							// loop over the buffer
-    {
-        bzero(w, sizeof(w));						// zero it
-        bcopy(b, w, min(wlen, 8));					// copy bytes over
-    
-        switch (tDir)
-        {
-            case kDataIn:
-                XTRACE2(this, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Rx buffer dump");
-                break;
-            case kDataOut:
-                XTRACE2(this, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Tx buffer dump");
-                break;
-            case kDataOther:
-                XTRACE2(this, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Misc buffer dump");
-                break;
-        }
-        wlen -= 8;							// adjust by 8 bytes for next time (if have more)
-        b += 8;
-    }
-#else
     rlen = 0;
     do
     {
-        for (i=0; i<=buflen; i++)
-        {
-            LocBuf[i] = 0x20;
-        }
-        LocBuf[i] = 0x00;
+        memset(LocBuf, 0x20, buflen);
         
         if (wlen > dumplen)
         {
@@ -378,14 +259,15 @@ void AppleUSBCDCEEM::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
             }
         }
         LocBuf[(llen + Asciistart) + 1] = 0x00;
-        IOLog("%s", LocBuf);
-        IOLog("\n");
+		
+		Log("%s\n", LocBuf);
+#if USE_IOL
         IOSleep(Sleep_Time);					// Try and keep the log from overflowing
+#endif
        
         rlen += llen;
         buf = &buf[rlen];
-    } while (wlen != 0);
-#endif 
+    } while (wlen != 0); 
 
 }/* end USBLogData */
 
@@ -402,11 +284,11 @@ void AppleUSBCDCEEM::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCEEM::dumpData(char *buf, UInt32 size)
+void AppleUSBCDCEEM::dumpData(char *buf, SInt32 size)
 {
     SInt32	curr, len, dlen;
 
-    IOLog("AppleUSBCDCEEM: dumpData - Address = %8x, size = %8d\n", (UInt)buf, (UInt)size);
+    Log("AppleUSBCDCEEM: dumpData - Address = %8x, size = %8d\n", (UInt)buf, (UInt)size);
 
     dlen = 0;
     len = size;
@@ -419,7 +301,7 @@ void AppleUSBCDCEEM::dumpData(char *buf, UInt32 size)
         } else {
             dlen = len;
         }
-        IOLog("%8x ", (UInt)&buf[curr]);
+        Log("%8x ", (UInt)&buf[curr]);
         USBLogData(kDataNone, dlen, &buf[curr]);
         len -= dlen;
     }
@@ -647,21 +529,6 @@ IOService* AppleUSBCDCEEM::probe( IOService *provider, SInt32 *score )
 bool AppleUSBCDCEEM::init(OSDictionary *properties)
 {
     UInt32	i;
-        
-#if USE_ELG
-    XTraceLogInfo	*logInfo;
-    
-    findKernelLoggerEED();
-    if (gXTrace)
-    {
-        gXTrace->retain();		// don't let it unload ...
-        XTRACE(this, 0, 0xbeefbeef, "Hello from start");
-        logInfo = gXTrace->LogGetInfo();
-        IOLog("AppleUSBCDCEEM: init - Log is at %x\n", (unsigned int)logInfo);
-    } else {
-        return false;
-    }
-#endif
 
     XTRACE(this, 0, 0, "init");
     
@@ -716,6 +583,8 @@ bool AppleUSBCDCEEM::start(IOService *provider)
     UInt16		bufValue = 0;
 
     XTRACE(this, 0, provider, "start");
+	
+	return false;				// Don't load for EEM hardware at this time
     
     if(!super::start(provider))
     {
@@ -862,7 +731,7 @@ bool AppleUSBCDCEEM::start(IOService *provider)
     fNetworkInterface->registerService();
         
     XTRACE(this, 0, 0, "start - successful");
-	IOLog(DEBUG_NAME ": Version number - %s, Input buffers %d, Output buffers %d\n", VersionNumber, fInBufPool, fOutBufPool);
+	Log(DEBUG_NAME ": Version number - %s, Input buffers %d, Output buffers %d\n", VersionNumber, fInBufPool, fOutBufPool);
     
     return true;
     	

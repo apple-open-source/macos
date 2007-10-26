@@ -6,6 +6,9 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * $Log: prefix.h,v $
+ * Revision 1.4  2007/02/07 06:35:21  collin
+ * *** empty log message ***
+ *
  * Revision 1.3  2004/03/03 19:53:37  niels
  * fix prefix header for native target building
  *
@@ -30,7 +33,6 @@
 #import <IOKit/IOTimerEventSource.h>
 #import <IOKit/IOMessage.h>
 #import <IOKit/IODeviceTreeSupport.h>
-#import <IOKit/IOSyncer.h>
 #import <IOKit/IOWorkLoop.h>
 #import <IOKit/IOCommand.h>
 #import <IOKit/IOLib.h>

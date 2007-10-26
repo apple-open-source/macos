@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.own.mk,v 1.41 2004/02/05 20:48:44 ru Exp $
+# $FreeBSD: src/share/mk/bsd.own.mk,v 1.43 2005/04/11 07:13:29 harti Exp $
 #
 # The include file <bsd.own.mk> set common variables for owner,
 # group, mode, and directories. Defaults are in brackets.
@@ -11,7 +11,7 @@
 # DISTDIR	Change the tree where the file for a distribution
 # 		gets installed (see /usr/src/release/Makefile). [not set]
 #
-# COMPRESS_CMD	Program to compress documents. 
+# COMPRESS_CMD	Program to compress documents.
 #		Output is to stdout. [gzip -cn]
 #
 # COMPRESS_EXT	File name extension of ${COMPRESS_CMD} command. [.gz]
@@ -165,4 +165,4 @@ STRIP?=		-s
 COMPRESS_CMD?=	gzip -cn
 COMPRESS_EXT?=	.gz
 
-.endif !target(__<bsd.own.mk>__)
+.endif	# !target(__<bsd.own.mk>__)

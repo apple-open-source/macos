@@ -1,6 +1,7 @@
 /* Disassemble support for GDB.
 
-   Copyright 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -47,10 +48,10 @@ struct dis_line_entry
 
 /* Like target_read_memory, but slightly different parameters.  */
 static int
-dis_asm_read_memory (bfd_vma memaddr, bfd_byte *myaddr, unsigned int len,
+dis_asm_read_memory (bfd_vma memaddr, gdb_byte *myaddr, unsigned int len,
 		     struct disassemble_info *info)
 {
-  return target_read_memory (memaddr, (char *) myaddr, len);
+  return target_read_memory (memaddr, myaddr, len);
 }
 
 /* Like memory_error with slightly different parameters.  */
@@ -314,7 +315,7 @@ do_assembly_only (struct ui_out *uiout, struct disassemble_info * di,
 /* Initialize the disassemble info struct ready for the specified
    stream.  */
 
-static int
+static int ATTR_FORMAT (printf, 2, 3)
 fprintf_disasm (void *stream, const char *format, ...)
 {
   va_list args;
@@ -345,6 +346,7 @@ gdb_disassemble_info (struct gdbarch *gdbarch, struct ui_file *file)
   di.arch = gdbarch_bfd_arch_info (gdbarch)->arch;
   di.mach = gdbarch_bfd_arch_info (gdbarch)->mach;
   di.endian = gdbarch_byte_order (gdbarch);
+  disassemble_init_for_target (&di);
   return di;
 }
 
@@ -355,7 +357,8 @@ gdb_disassemble_info (struct gdbarch *gdbarch, struct ui_file *file)
 static struct disassemble_info
 gdb_disassemble_info_null (struct gdbarch *gdbarch)
 {
-  return gdb_disassemble_info (gdbarch, gdb_null);
+  struct disassemble_info ret = gdb_disassemble_info (gdbarch, gdb_null);
+  return ret;
 }
 
 void
@@ -443,7 +446,8 @@ int gdbarch_instruction_length (struct gdbarch *gdbarch)
 */
 
 int
-find_pc_offset (CORE_ADDR start, CORE_ADDR *result, int offset, int funclimit, int peeklimit)
+find_pc_offset (CORE_ADDR start, CORE_ADDR *result, int offset, int funclimit, 
+                int peeklimit)
 {
   CORE_ADDR low = INVALID_ADDRESS;
   CORE_ADDR high = INVALID_ADDRESS;
@@ -543,7 +547,7 @@ find_pc_offset (CORE_ADDR start, CORE_ADDR *result, int offset, int funclimit, i
      higher than we need, set it to the number of bytes from the start
      of the function. */
 
-  if ((peeklimit < 0) || (peeklimit > (start - low)))
+  if (peeklimit < 0 || peeklimit > (start - low))
     peeklimit = start - low;
   
   /* If PEEKLIMIT is less than (start - low), we can still attempt the
@@ -585,8 +589,9 @@ find_pc_offset (CORE_ADDR start, CORE_ADDR *result, int offset, int funclimit, i
 
       if (index < -offset)
 	{
-	  /* We weren't able to go far enough back.  */
-	  *result = start;
+	  /* We weren't able to go far enough back; return the earliest
+             instruction of the function.  */
+	  *result = low;
 	  do_cleanups (cleanup);
 	  return 1;
 	} 

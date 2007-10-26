@@ -3914,6 +3914,16 @@ lookup_name (tree name, int prefer_type)
 			   0, LOOKUP_COMPLAIN);
 }
 
+/* APPLE LOCAL begin mainline lookup_name 4125055 */
+/* Similar to `lookup_name' for the benefit of common code.  */
+
+tree
+lookup_name_two (tree name, int prefer_type)
+{
+  return lookup_name (name, prefer_type);
+}
+/* APPLE LOCAL end mainline lookup_name 4125055 */
+
 /* Look up NAME for type used in elaborated name specifier in
    the scopes given by SCOPE.  SCOPE can be either TS_CURRENT or
    TS_WITHIN_ENCLOSING_NON_CLASS.  Although not implied by the

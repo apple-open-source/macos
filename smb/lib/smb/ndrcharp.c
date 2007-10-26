@@ -3,6 +3,9 @@
  * (c) Copyright 1993 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1993 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1993 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -54,8 +57,8 @@
 globaldef {"NDR_G_ASCII_TO_EBCDIC"} rpc_trans_tab_p_t ndr_g_ascii_to_ebcdic;
 globaldef {"NDR_G_EBCDIC_TO_ASCII"} rpc_trans_tab_p_t ndr_g_ebcdic_to_ascii;
 #else
-globaldef rpc_trans_tab_p_t ndr_g_ascii_to_ebcdic;
-globaldef rpc_trans_tab_p_t ndr_g_ebcdic_to_ascii;
+globaldef rpc_trans_tab_p_t ndr_g_ascii_to_ebcdic = NULL;
+globaldef rpc_trans_tab_p_t ndr_g_ebcdic_to_ascii = NULL;
 #endif
 
 /* 

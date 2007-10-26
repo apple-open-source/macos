@@ -29,34 +29,46 @@
 #include "floatformat.h"
 #include "symtab.h"
 #include "regcache.h"
+#include "libbfd.h"
+#include "objfiles.h"
+
 #include "i387-tdep.h"
 #include "i386-tdep.h"
+#include "amd64-tdep.h"
 #include "osabi.h"
-
-#include "i386-macosx-thread-status.h"
+#include "ui-out.h"
+#include "symtab.h"
+#include "frame.h"
+#include "gdb_assert.h"
 
 #include <mach/thread_status.h>
+#include <sys/sysctl.h>
 
 #include "i386-macosx-tdep.h"
 
-/* Unused on the x86 side of things -- this is only needed to
-   help distinguish between ppc32 and ppc64 binaries on the PPC side. */
-
-enum gdb_osabi osabi_seen_in_attached_dyld = GDB_OSABI_UNKNOWN;
-
-
 #define supply_unsigned_int(regnum, val)\
 store_unsigned_integer (buf, 4, val); \
-supply_register(regnum, buf);
+regcache_raw_supply (current_regcache, regnum, buf);
 
 #define collect_unsigned_int(regnum, addr)\
-regcache_collect (regnum, buf); \
+regcache_raw_collect (current_regcache, regnum, buf); \
 (* (addr)) = extract_unsigned_integer (buf, 4);
+
+#define supply_unsigned_int64(regnum, val)\
+store_unsigned_integer (buf, 8, val); \
+regcache_raw_supply (current_regcache, regnum, buf);
+
+#define collect_unsigned_int64(regnum, addr)\
+regcache_raw_collect (current_regcache, regnum, buf); \
+(* (addr)) = extract_unsigned_integer (buf, 8);
+
+static int x86_64_macosx_get_longjmp_target (CORE_ADDR *pc);
+static int i386_macosx_get_longjmp_target (CORE_ADDR *pc);
 
 void
 i386_macosx_fetch_gp_registers (gdb_i386_thread_state_t *sp_regs)
 {
-  char buf[4];
+  gdb_byte buf[4];
   supply_unsigned_int (0, sp_regs->eax);
   supply_unsigned_int (1, sp_regs->ecx);
   supply_unsigned_int (2, sp_regs->edx);
@@ -66,13 +78,34 @@ i386_macosx_fetch_gp_registers (gdb_i386_thread_state_t *sp_regs)
   supply_unsigned_int (6, sp_regs->esi);
   supply_unsigned_int (7, sp_regs->edi);
   supply_unsigned_int (8, sp_regs->eip);
-  supply_unsigned_int (9, sp_regs->efl);
+  supply_unsigned_int (9, sp_regs->eflags);
   supply_unsigned_int (10, sp_regs->cs);
   supply_unsigned_int (11, sp_regs->ss);
   supply_unsigned_int (12, sp_regs->ds);
   supply_unsigned_int (13, sp_regs->es);
   supply_unsigned_int (14, sp_regs->fs);
   supply_unsigned_int (15, sp_regs->gs);
+}
+
+void
+i386_macosx_fetch_gp_registers_raw (gdb_i386_thread_state_t *sp_regs)
+{
+  regcache_raw_supply (current_regcache, 0, &sp_regs->eax);
+  regcache_raw_supply (current_regcache, 1, &sp_regs->ecx);
+  regcache_raw_supply (current_regcache, 2, &sp_regs->edx);
+  regcache_raw_supply (current_regcache, 3, &sp_regs->ebx);
+  regcache_raw_supply (current_regcache, 4, &sp_regs->esp);
+  regcache_raw_supply (current_regcache, 5, &sp_regs->ebp);
+  regcache_raw_supply (current_regcache, 6, &sp_regs->esi);
+  regcache_raw_supply (current_regcache, 7, &sp_regs->edi);
+  regcache_raw_supply (current_regcache, 8, &sp_regs->eip);
+  regcache_raw_supply (current_regcache, 9, &sp_regs->eflags);
+  regcache_raw_supply (current_regcache, 10, &sp_regs->cs);
+  regcache_raw_supply (current_regcache, 11, &sp_regs->ss);
+  regcache_raw_supply (current_regcache, 12, &sp_regs->ds);
+  regcache_raw_supply (current_regcache, 13, &sp_regs->es);
+  regcache_raw_supply (current_regcache, 14, &sp_regs->fs);
+  regcache_raw_supply (current_regcache, 15, &sp_regs->gs);
 }
 
 void
@@ -88,7 +121,7 @@ i386_macosx_store_gp_registers (gdb_i386_thread_state_t *sp_regs)
   collect_unsigned_int (6, &sp_regs->esi);
   collect_unsigned_int (7, &sp_regs->edi);
   collect_unsigned_int (8, &sp_regs->eip);
-  collect_unsigned_int (9, &sp_regs->efl);
+  collect_unsigned_int (9, &sp_regs->eflags);
   collect_unsigned_int (10, &sp_regs->cs);
   collect_unsigned_int (11, &sp_regs->ss);
   collect_unsigned_int (12, &sp_regs->ds);
@@ -97,17 +130,163 @@ i386_macosx_store_gp_registers (gdb_i386_thread_state_t *sp_regs)
   collect_unsigned_int (15, &sp_regs->gs);
 }
 
+void
+i386_macosx_store_gp_registers_raw (gdb_i386_thread_state_t *sp_regs)
+{
+  regcache_raw_collect (current_regcache, 0, &sp_regs->eax);
+  regcache_raw_collect (current_regcache, 1, &sp_regs->ecx);
+  regcache_raw_collect (current_regcache, 2, &sp_regs->edx);
+  regcache_raw_collect (current_regcache, 3, &sp_regs->ebx);
+  regcache_raw_collect (current_regcache, 4, &sp_regs->esp);
+  regcache_raw_collect (current_regcache, 5, &sp_regs->ebp);
+  regcache_raw_collect (current_regcache, 6, &sp_regs->esi);
+  regcache_raw_collect (current_regcache, 7, &sp_regs->edi);
+  regcache_raw_collect (current_regcache, 8, &sp_regs->eip);
+  regcache_raw_collect (current_regcache, 9, &sp_regs->eflags);
+  regcache_raw_collect (current_regcache, 10, &sp_regs->cs);
+  regcache_raw_collect (current_regcache, 11, &sp_regs->ss);
+  regcache_raw_collect (current_regcache, 12, &sp_regs->ds);
+  regcache_raw_collect (current_regcache, 13, &sp_regs->es);
+  regcache_raw_collect (current_regcache, 14, &sp_regs->fs);
+  regcache_raw_collect (current_regcache, 15, &sp_regs->gs);
+}
+
+void
+x86_64_macosx_fetch_gp_registers (gdb_x86_thread_state64_t *sp_regs)
+{
+  unsigned char buf[8];
+  supply_unsigned_int64 (AMD64_RAX_REGNUM, sp_regs->rax);
+  supply_unsigned_int64 (AMD64_RBX_REGNUM, sp_regs->rbx);
+  supply_unsigned_int64 (AMD64_RCX_REGNUM, sp_regs->rcx);
+  supply_unsigned_int64 (AMD64_RDX_REGNUM, sp_regs->rdx);
+  supply_unsigned_int64 (AMD64_RDI_REGNUM, sp_regs->rdi);
+  supply_unsigned_int64 (AMD64_RSI_REGNUM, sp_regs->rsi);
+  supply_unsigned_int64 (AMD64_RBP_REGNUM, sp_regs->rbp);
+  supply_unsigned_int64 (AMD64_RSP_REGNUM, sp_regs->rsp);
+  supply_unsigned_int64 (AMD64_R8_REGNUM, sp_regs->r8);
+  supply_unsigned_int64 (AMD64_R8_REGNUM + 1, sp_regs->r9);
+  supply_unsigned_int64 (AMD64_R8_REGNUM + 2, sp_regs->r10);
+  supply_unsigned_int64 (AMD64_R8_REGNUM + 3, sp_regs->r11);
+  supply_unsigned_int64 (AMD64_R8_REGNUM + 4, sp_regs->r12);
+  supply_unsigned_int64 (AMD64_R8_REGNUM + 5, sp_regs->r13);
+  supply_unsigned_int64 (AMD64_R8_REGNUM + 6, sp_regs->r14);
+  supply_unsigned_int64 (AMD64_R8_REGNUM + 7, sp_regs->r15);
+  supply_unsigned_int64 (AMD64_RIP_REGNUM, sp_regs->rip);
+  supply_unsigned_int64 (AMD64_EFLAGS_REGNUM, sp_regs->rflags);
+  supply_unsigned_int64 (AMD64_CS_REGNUM, sp_regs->cs);
+  supply_unsigned_int64 (AMD64_FS_REGNUM, sp_regs->fs);
+  supply_unsigned_int64 (AMD64_GS_REGNUM, sp_regs->gs);
+}
+
+void
+x86_64_macosx_fetch_gp_registers_raw (gdb_x86_thread_state64_t *sp_regs)
+{
+  regcache_raw_supply (current_regcache, AMD64_RAX_REGNUM, &sp_regs->rax);
+  regcache_raw_supply (current_regcache, AMD64_RBX_REGNUM, &sp_regs->rbx);
+  regcache_raw_supply (current_regcache, AMD64_RCX_REGNUM, &sp_regs->rcx);
+  regcache_raw_supply (current_regcache, AMD64_RDX_REGNUM, &sp_regs->rdx);
+  regcache_raw_supply (current_regcache, AMD64_RDI_REGNUM, &sp_regs->rdi);
+  regcache_raw_supply (current_regcache, AMD64_RSI_REGNUM, &sp_regs->rsi);
+  regcache_raw_supply (current_regcache, AMD64_RBP_REGNUM, &sp_regs->rbp);
+  regcache_raw_supply (current_regcache, AMD64_RSP_REGNUM, &sp_regs->rsp);
+  regcache_raw_supply (current_regcache, AMD64_R8_REGNUM, &sp_regs->r8);
+  regcache_raw_supply (current_regcache, AMD64_R8_REGNUM + 1, &sp_regs->r9);
+  regcache_raw_supply (current_regcache, AMD64_R8_REGNUM + 2, &sp_regs->r10);
+  regcache_raw_supply (current_regcache, AMD64_R8_REGNUM + 3, &sp_regs->r11);
+  regcache_raw_supply (current_regcache, AMD64_R8_REGNUM + 4, &sp_regs->r12);
+  regcache_raw_supply (current_regcache, AMD64_R8_REGNUM + 5, &sp_regs->r13);
+  regcache_raw_supply (current_regcache, AMD64_R8_REGNUM + 6, &sp_regs->r14);
+  regcache_raw_supply (current_regcache, AMD64_R8_REGNUM + 7, &sp_regs->r15);
+  regcache_raw_supply (current_regcache, AMD64_RIP_REGNUM, &sp_regs->rip);
+  regcache_raw_supply (current_regcache, AMD64_EFLAGS_REGNUM, &sp_regs->rflags);
+  regcache_raw_supply (current_regcache, AMD64_CS_REGNUM, &sp_regs->cs);
+  regcache_raw_supply (current_regcache, AMD64_FS_REGNUM, &sp_regs->fs);
+  regcache_raw_supply (current_regcache, AMD64_GS_REGNUM, &sp_regs->gs);
+}
+
+void
+x86_64_macosx_store_gp_registers (gdb_x86_thread_state64_t *sp_regs)
+{
+  unsigned char buf[8];
+  collect_unsigned_int64 (AMD64_RAX_REGNUM, &sp_regs->rax);
+  collect_unsigned_int64 (AMD64_RBX_REGNUM, &sp_regs->rbx);
+  collect_unsigned_int64 (AMD64_RCX_REGNUM, &sp_regs->rcx);
+  collect_unsigned_int64 (AMD64_RDX_REGNUM, &sp_regs->rdx);
+  collect_unsigned_int64 (AMD64_RDI_REGNUM, &sp_regs->rdi);
+  collect_unsigned_int64 (AMD64_RSI_REGNUM, &sp_regs->rsi);
+  collect_unsigned_int64 (AMD64_RBP_REGNUM, &sp_regs->rbp);
+  collect_unsigned_int64 (AMD64_RSP_REGNUM, &sp_regs->rsp);
+  collect_unsigned_int64 (AMD64_R8_REGNUM, &sp_regs->r8);
+  collect_unsigned_int64 (AMD64_R8_REGNUM + 1, &sp_regs->r9);
+  collect_unsigned_int64 (AMD64_R8_REGNUM + 2, &sp_regs->r10);
+  collect_unsigned_int64 (AMD64_R8_REGNUM + 3, &sp_regs->r11);
+  collect_unsigned_int64 (AMD64_R8_REGNUM + 4, &sp_regs->r12);
+  collect_unsigned_int64 (AMD64_R8_REGNUM + 5, &sp_regs->r13);
+  collect_unsigned_int64 (AMD64_R8_REGNUM + 6, &sp_regs->r14);
+  collect_unsigned_int64 (AMD64_R8_REGNUM + 7, &sp_regs->r15);
+  collect_unsigned_int64 (AMD64_RIP_REGNUM, &sp_regs->rip);
+  collect_unsigned_int64 (AMD64_EFLAGS_REGNUM, &sp_regs->rflags);
+  collect_unsigned_int64 (AMD64_CS_REGNUM, &sp_regs->cs);
+  collect_unsigned_int64 (AMD64_FS_REGNUM, &sp_regs->fs);
+  collect_unsigned_int64 (AMD64_GS_REGNUM, &sp_regs->gs);
+}
+
+void
+x86_64_macosx_store_gp_registers_raw (gdb_x86_thread_state64_t *sp_regs)
+{
+  regcache_raw_collect (current_regcache, AMD64_RAX_REGNUM, &sp_regs->rax);
+  regcache_raw_collect (current_regcache, AMD64_RBX_REGNUM, &sp_regs->rbx);
+  regcache_raw_collect (current_regcache, AMD64_RCX_REGNUM, &sp_regs->rcx);
+  regcache_raw_collect (current_regcache, AMD64_RDX_REGNUM, &sp_regs->rdx);
+  regcache_raw_collect (current_regcache, AMD64_RDI_REGNUM, &sp_regs->rdi);
+  regcache_raw_collect (current_regcache, AMD64_RSI_REGNUM, &sp_regs->rsi);
+  regcache_raw_collect (current_regcache, AMD64_RBP_REGNUM, &sp_regs->rbp);
+  regcache_raw_collect (current_regcache, AMD64_RSP_REGNUM, &sp_regs->rsp);
+  regcache_raw_collect (current_regcache, AMD64_R8_REGNUM, &sp_regs->r8);
+  regcache_raw_collect (current_regcache, AMD64_R8_REGNUM + 1, &sp_regs->r9);
+  regcache_raw_collect (current_regcache, AMD64_R8_REGNUM + 2, &sp_regs->r10);
+  regcache_raw_collect (current_regcache, AMD64_R8_REGNUM + 3, &sp_regs->r11);
+  regcache_raw_collect (current_regcache, AMD64_R8_REGNUM + 4, &sp_regs->r12);
+  regcache_raw_collect (current_regcache, AMD64_R8_REGNUM + 5, &sp_regs->r13);
+  regcache_raw_collect (current_regcache, AMD64_R8_REGNUM + 6, &sp_regs->r14);
+  regcache_raw_collect (current_regcache, AMD64_R8_REGNUM + 7, &sp_regs->r15);
+  regcache_raw_collect (current_regcache, AMD64_RIP_REGNUM, &sp_regs->rip);
+  regcache_raw_collect (current_regcache, AMD64_EFLAGS_REGNUM, &sp_regs->rflags);
+  regcache_raw_collect (current_regcache, AMD64_CS_REGNUM, &sp_regs->cs);
+  regcache_raw_collect (current_regcache, AMD64_FS_REGNUM, &sp_regs->fs);
+  regcache_raw_collect (current_regcache, AMD64_GS_REGNUM, &sp_regs->gs);
+}
+
 /* Fetching the the registers from the inferior into our reg cache.
    FP_REGS is a structure that mirrors the Mach structure
-   struct i386_float_state.  The "hw_fu_state" buffer inside that
-   structure mirrors the Mach struct i386_fx_save, which is identical
+   struct i386_float_state.  The "fpu_fcw" field inside that
+   structure is the start of a block which is identical
    to the FXSAVE/FXRSTOR instructions' format.  */
 
 void
-i386_macosx_fetch_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
+i386_macosx_fetch_fp_registers (gdb_i386_float_state_t *fp_regs)
 {
-  i387_swap_fxsave (current_regcache, &fp_regs->hw_fu_state);
-  i387_supply_fxsave (current_regcache, -1, &fp_regs->hw_fu_state);
+  i387_swap_fxsave (current_regcache, &fp_regs->fpu_fcw);
+  i387_supply_fxsave (current_regcache, -1, &fp_regs->fpu_fcw);
+}
+
+void
+i386_macosx_fetch_fp_registers_raw (gdb_i386_float_state_t *fp_regs)
+{
+  i387_supply_fxsave (current_regcache, -1, &fp_regs->fpu_fcw);
+}
+
+void
+x86_64_macosx_fetch_fp_registers (gdb_x86_float_state64_t *fp_regs)
+{
+  i387_swap_fxsave (current_regcache, &fp_regs->fpu_fcw);
+  i387_supply_fxsave (current_regcache, -1, &fp_regs->fpu_fcw);
+}
+
+void
+x86_64_macosx_fetch_fp_registers_raw (gdb_x86_float_state64_t *fp_regs)
+{
+  i387_supply_fxsave (current_regcache, -1, &fp_regs->fpu_fcw);
 }
 
 /* Get the floating point registers from our local register cache
@@ -118,41 +297,88 @@ i386_macosx_fetch_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
    inferior -- this function returns 0.  */
 
 int
-i386_macosx_store_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
+i386_macosx_store_fp_registers (gdb_i386_float_state_t *fp_regs)
 {
-  memset (fp_regs, 0, sizeof (gdb_i386_thread_fpstate_t));
-  fp_regs->fpkind = GDB_i386_FP_SSE2; /* Corresponds to Mach's FP_FXSR */
-  fp_regs->initialized = 1;
-  fp_regs->exc_status = 0;
-  i387_fill_fxsave ((unsigned char *) &fp_regs->hw_fu_state, -1);
-  i387_swap_fxsave (current_regcache, &fp_regs->hw_fu_state);
+  memset (fp_regs, 0, sizeof (gdb_i386_float_state_t));
+  i387_fill_fxsave ((unsigned char *) &fp_regs->fpu_fcw, -1);
+  i387_swap_fxsave (current_regcache, &fp_regs->fpu_fcw);
 
   return 1;
 }
 
-/* The sigcontext (struct sigcontext) is put on the stack by the kernel
-   and then _sigtramp() is called with an ESP below the sigcontext.
-   This function exists to tell gdb how to find the start of the sigcontext
-   when the PC is somewhere in the middle of _sigtramp(). 
-   Because it's on the stack, its exact offset is different depending on
-   whether you're before, in-the-middle-of, or after the _sigtramp 
-   prologue frame-setting-up instructions. */
+int
+i386_macosx_store_fp_registers_raw (gdb_i386_float_state_t *fp_regs)
+{
+  memset (fp_regs, 0, sizeof (gdb_i386_float_state_t));
+  i387_fill_fxsave ((unsigned char *) &fp_regs->fpu_fcw, -1);
+
+  return 1;
+}
+
+
+int
+x86_64_macosx_store_fp_registers (gdb_x86_float_state64_t *fp_regs)
+{
+  memset (fp_regs, 0, sizeof (gdb_x86_float_state64_t));
+  i387_fill_fxsave ((unsigned char *) &fp_regs->fpu_fcw, -1);
+  i387_swap_fxsave (current_regcache, &fp_regs->fpu_fcw);
+
+  return 1;
+}
+
+int
+x86_64_macosx_store_fp_registers_raw (gdb_x86_float_state64_t *fp_regs)
+{
+  memset (fp_regs, 0, sizeof (gdb_x86_float_state64_t));
+  i387_fill_fxsave ((unsigned char *) &fp_regs->fpu_fcw, -1);
+
+  return 1;
+}
 
 static CORE_ADDR
-i386_macosx_sigcontext_addr (struct frame_info *frame)
+i386_macosx_thread_state_addr_1 (CORE_ADDR start_of_func, CORE_ADDR pc,
+                                 CORE_ADDR ebp, CORE_ADDR esp);
+
+/* On entry to _sigtramp, the ESP points to the start of a
+   'struct sigframe' (cf xnu's bsd/dev/i386/unix_signal.c).
+   The 6th word in the struct sigframe is a 'struct ucontext *'.
+
+   struct ucontext (cf sys/_types.h)'s 7th word is a 
+   __darwin_size_t uc_mcsize to indicate the size of the
+   saved machine context, and the 8th word is a struct mcontext *
+   pointing to the saved context structure.
+
+   struct mcontext (cf i386/ucontext.h) has three structures in it,
+     i386_exception_state_t
+     i386_thread_state_t
+     i386_float_state_t
+   this function has to return the address of the struct i386_thread_state
+   (defined in <mach/i386/thread_status.h>) inside the struct mcontext.  */
+
+static CORE_ADDR
+i386_macosx_thread_state_addr (struct frame_info *frame)
 {
-  CORE_ADDR start_of_func = get_frame_func (frame);
+  gdb_byte buf[4];
+  CORE_ADDR esp, ebp;
+  frame_unwind_register (frame, I386_ESP_REGNUM, buf);
+  esp = extract_unsigned_integer (buf, 4);
+  frame_unwind_register (frame, I386_EBP_REGNUM, buf);
+  ebp = extract_unsigned_integer (buf, 4);
+  return i386_macosx_thread_state_addr_1 (get_frame_func (frame), 
+                                          get_frame_pc (frame), ebp, esp);
+}
+
+static CORE_ADDR
+i386_macosx_thread_state_addr_1 (CORE_ADDR start_of_func, CORE_ADDR pc,
+                                 CORE_ADDR ebp, CORE_ADDR esp)
+{
   int offset = 0;
   CORE_ADDR push_ebp_addr = 0;
   CORE_ADDR mov_esp_ebp_addr = 0;
-  CORE_ADDR esp, ebp, pc;
-  CORE_ADDR address_of_pointer_to_struct_ucontext;
+  CORE_ADDR address_of_struct_sigframe;
   CORE_ADDR address_of_struct_ucontext;
-  CORE_ADDR address_of_struct_sigcontext;
-  char buf[4];
+  CORE_ADDR address_of_struct_mcontext;
   int limit;
-
-  pc = get_frame_pc (frame);
 
   /* We begin our function with a fun little hand-rolled prologue parser.
      These sorts of things NEVER come back to bite us years down the road,
@@ -196,67 +422,90 @@ i386_macosx_sigcontext_addr (struct frame_info *frame)
   if (!push_ebp_addr || !mov_esp_ebp_addr)
     error ("Unable to analyze the prologue of _sigtramp(), giving up.");
 
-  frame_unwind_register (frame, I386_ESP_REGNUM, buf);
-  esp = extract_unsigned_integer (buf, 4);
-  frame_unwind_register (frame, I386_EBP_REGNUM, buf);
-  ebp = extract_unsigned_integer (buf, 4);
-
-  /* I'm not sure how to make the nomenclature clear here.
-     address_of_pointer_to_struct_ucontext is like a "struct ucontext **";
-     address_of_struct ucontext is like a "struct ucontext *";
-     address_of_struct_sigcontext is like a "struct sigcontext *".  */
-
   if (pc <= push_ebp_addr)
-    address_of_pointer_to_struct_ucontext = esp + 20;
+    address_of_struct_sigframe = esp + 0;
 
   if (pc > push_ebp_addr && pc <= mov_esp_ebp_addr)
-    address_of_pointer_to_struct_ucontext = esp + 24;
+    address_of_struct_sigframe = esp + 4;
 
   if (pc > mov_esp_ebp_addr)
-    address_of_pointer_to_struct_ucontext = ebp + 24;
+    address_of_struct_sigframe = ebp + 4;
 
   address_of_struct_ucontext = read_memory_unsigned_integer 
-                                (address_of_pointer_to_struct_ucontext, 4);
+                                (address_of_struct_sigframe + 20, 4);
 
   /* the element 'uc_mcontext' -- the pointer to the struct sigcontext -- 
      is 28 bytes into the 'struct ucontext' */
-  address_of_struct_sigcontext = read_memory_unsigned_integer 
+  address_of_struct_mcontext = read_memory_unsigned_integer 
                                 (address_of_struct_ucontext + 28, 4); 
 
-  return address_of_struct_sigcontext;
+  return address_of_struct_mcontext + 12;
 }
 
-/* Offsets into the struct sigcontext where we'll find the saved regs.  */
-/* From /usr/include/i386/signal.h and i386-tdep.h */
-static int i386_macosx_sc_reg_offset[] =
+/* Offsets into the struct i386_thread_state where we'll find the saved regs. */
+/* From <mach/i386/thread_status.h and i386-tdep.h */
+static int i386_macosx_thread_state_reg_offset[] =
 {
-   2 * 4,   /* EAX */
-   4 * 4,   /* ECX */
-   5 * 4,   /* EDX */
-   3 * 4,   /* EBX */
-   9 * 4,   /* ESP */
-   8 * 4,   /* EBP */
-   7 * 4,   /* ESI */
-   6 * 4,   /* EDI */
-  12 * 4,   /* EIP */
-  11 * 4,   /* EFLAGS */
-  13 * 4,   /* CS */
-  -1,       /* SS */
-  14 * 4,   /* DS */
-  15 * 4,   /* ES */
-  16 * 4,   /* FS */
-  17 * 4    /* GS */
+   0 * 4,   /* EAX */
+   2 * 4,   /* ECX */
+   3 * 4,   /* EDX */
+   1 * 4,   /* EBX */
+   7 * 4,   /* ESP */
+   6 * 4,   /* EBP */
+   5 * 4,   /* ESI */
+   4 * 4,   /* EDI */
+  10 * 4,   /* EIP */
+   9 * 4,   /* EFLAGS */
+  11 * 4,   /* CS */
+   8,       /* SS */
+  12 * 4,   /* DS */
+  13 * 4,   /* ES */
+  14 * 4,   /* FS */
+  15 * 4    /* GS */
 };
 
-static CORE_ADDR
-i386_integer_to_address (struct type *type, void *buf)
+/* Offsets into the struct x86_thread_state64 where we'll find the saved regs. */
+/* From <mach/i386/thread_status.h and amd64-tdep.h */
+static int x86_64_macosx_thread_state_reg_offset[] =
 {
-  char *tmp = alloca (TYPE_LENGTH (builtin_type_void_data_ptr));
+  0 * 8,			/* %rax */
+  1 * 8,			/* %rbx */
+  2 * 8,			/* %rcx */
+  3 * 8,			/* %rdx */
+  5 * 8,			/* %rsi */
+  4 * 8,			/* %rdi */
+  6 * 8,			/* %rbp */
+  7 * 8,			/* %rsp */
+  8 * 8,			/* %r8 ... */
+  9 * 8,
+  10 * 8,
+  11 * 8,
+  12 * 8,
+  13 * 8,
+  14 * 8,
+  15 * 8,			/* ... %r15 */
+  16 * 8,			/* %rip */
+  17 * 8,			/* %rflags */
+  18 * 8,			/* %cs */
+  -1,				/* %ss */
+  -1,				/* %ds */
+  -1,				/* %es */
+  19 * 8,			/* %fs */
+  20 * 8			/* %gs */
+};
+
+
+static CORE_ADDR
+i386_integer_to_address (struct gdbarch *gdbarch, struct type *type, 
+                         const gdb_byte *buf)
+{
+  gdb_byte *tmp = alloca (TYPE_LENGTH (builtin_type_void_data_ptr));
   LONGEST val = unpack_long (type, buf);
   store_unsigned_integer (tmp, TYPE_LENGTH (builtin_type_void_data_ptr), val);
   return extract_unsigned_integer (tmp,
                                    TYPE_LENGTH (builtin_type_void_data_ptr));
 }
+
 
 static void
 i386_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
@@ -268,32 +517,233 @@ i386_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   set_gdbarch_num_regs (gdbarch, I386_SSE_NUM_REGS);
 
   set_gdbarch_skip_trampoline_code (gdbarch, macosx_skip_trampoline_code);
+  set_gdbarch_get_longjmp_target (gdbarch, i386_macosx_get_longjmp_target);
 
-  set_gdbarch_in_solib_call_trampoline (gdbarch,
-                                        macosx_in_solib_call_trampoline);
   set_gdbarch_in_solib_return_trampoline (gdbarch,
                                           macosx_in_solib_return_trampoline);
 
   tdep->struct_return = reg_struct_return;
 
-  tdep->sigcontext_addr = i386_macosx_sigcontext_addr;
-  tdep->sc_reg_offset = i386_macosx_sc_reg_offset;
+  tdep->sigcontext_addr = i386_macosx_thread_state_addr;
+  tdep->sc_reg_offset = i386_macosx_thread_state_reg_offset;
   tdep->sc_num_regs = 16;
 
   tdep->jb_pc_offset = 20;
   set_gdbarch_integer_to_address (gdbarch, i386_integer_to_address);
 }
 
+static void
+x86_macosx_init_abi_64 (struct gdbarch_info info, struct gdbarch *gdbarch)
+{
+  struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
+
+  tdep->wordsize = 8;
+
+  amd64_init_abi (info, gdbarch);
+
+  set_gdbarch_skip_trampoline_code (gdbarch, macosx_skip_trampoline_code);
+  set_gdbarch_get_longjmp_target (gdbarch, x86_64_macosx_get_longjmp_target);
+
+  set_gdbarch_in_solib_return_trampoline (gdbarch,
+                                          macosx_in_solib_return_trampoline);
+
+  tdep->struct_return = reg_struct_return;
+
+  /* We don't do signals yet. */
+  tdep->sigcontext_addr = NULL;
+  tdep->sc_reg_offset = x86_64_macosx_thread_state_reg_offset;
+  tdep->sc_num_regs = ARRAY_SIZE (x86_64_macosx_thread_state_reg_offset);
+
+  tdep->jb_pc_offset = 148;
+  set_gdbarch_integer_to_address (gdbarch, i386_integer_to_address);
+}
+
+static int
+i386_mach_o_query_64bit ()
+{
+  int result;
+  int supports64bit;
+  size_t sz;
+  
+  sz = sizeof(supports64bit);
+  result = sysctlbyname("hw.optional.x86_64", &supports64bit, &sz, NULL, 0);
+  return (result == 0 &&
+          sz == sizeof(supports64bit) &&
+          supports64bit);
+}
+
 static enum gdb_osabi
 i386_mach_o_osabi_sniffer (bfd *abfd)
 {
-  if (strcmp (bfd_get_target (abfd), "mach-o-le") == 0
-      || strcmp (bfd_get_target (abfd), "mach-o-fat") == 0)
-    return GDB_OSABI_DARWIN;
-
-  return GDB_OSABI_UNKNOWN;
+  return generic_mach_o_osabi_sniffer (abfd, bfd_arch_i386,
+				       bfd_mach_i386_i386, bfd_mach_x86_64,
+				       i386_mach_o_query_64bit);
 }
 
+/*
+ * This is set to the FAST_COUNT_STACK macro for i386.  The return value
+ * is 1 if no errors were encountered traversing the stack, and 0 otherwise.
+ * It sets COUNT to the stack depth.  If PRINT_FUN is non-null, then 
+ * it will be passed the pc & fp for each frame as it is encountered.
+ */
+
+/*
+ * COUNT_LIMIT parameter sets a limit on the number of frames that
+ * will be counted by this function.  -1 means unlimited.
+ *
+ * PRINT_LIMIT parameter sets a limit on the number of frames for
+ * which the full information is printed.  -1 means unlimited.
+ *
+ */
+
+int
+i386_fast_show_stack (unsigned int count_limit, unsigned int print_limit,
+                     unsigned int *count,
+                     void (print_fun) (struct ui_out * uiout, int frame_num,
+                                       CORE_ADDR pc, CORE_ADDR fp))
+{
+  CORE_ADDR fp, prev_fp;
+  static CORE_ADDR sigtramp_start = 0;
+  static CORE_ADDR sigtramp_end = 0;
+  unsigned int i = 0;
+  int more_frames;
+  int err = 0;
+  struct frame_info *fi;
+  ULONGEST next_fp = 0;
+  ULONGEST pc = 0;
+  int wordsize = gdbarch_tdep (current_gdbarch)->wordsize;
+
+  more_frames = fast_show_stack_trace_prologue (count_limit, print_limit, wordsize,
+						&sigtramp_start, &sigtramp_end, 
+						&i, &fi, print_fun);
+
+  if (more_frames < 0)
+    {
+      err = 1;
+      goto i386_count_finish;
+    }
+
+  if (i >= count_limit || !more_frames)
+    goto i386_count_finish;
+
+  /* gdb's idea of a stack frame is 8 bytes off from the actual
+     values of EBP (gdb probably includes the saved esp and saved
+     eip as part of the frame).  So pull off 8 bytes from the 
+     "fp" to get an actual EBP value for walking the stack.  */
+
+  fp = get_frame_base (fi);
+  fp = fp - 2 * wordsize;
+  prev_fp = prev_fp - 2 * wordsize;
+  while (1)
+    {
+      if ((sigtramp_start <= pc) && (pc <= sigtramp_end))
+        {
+          CORE_ADDR thread_state_at = 
+                    i386_macosx_thread_state_addr_1 (sigtramp_start, pc, 
+                                                     fp, prev_fp + 2 * wordsize);
+          prev_fp = fp;
+          if (!safe_read_memory_unsigned_integer (thread_state_at + 
+                          i386_macosx_thread_state_reg_offset[I386_EBP_REGNUM], 
+                           wordsize, &fp))
+            goto i386_count_finish;
+          if (!safe_read_memory_unsigned_integer (thread_state_at + 
+                          i386_macosx_thread_state_reg_offset[I386_EIP_REGNUM], 
+                           wordsize, &pc))
+            goto i386_count_finish;
+        }
+      else
+        {
+          if (!safe_read_memory_unsigned_integer (fp, wordsize, &next_fp))
+            goto i386_count_finish;
+          if (next_fp == 0)
+            goto i386_count_finish;
+	  else if (fp == next_fp)
+	    {
+	      /* This shouldn't ever happen, but if it does we will
+		 loop forever here, so protect against that.  */
+	      warning ("Frame pointer point back at the previous frame");
+	      err = 1;
+	      goto i386_count_finish;
+	    }
+          if (!safe_read_memory_unsigned_integer (fp + wordsize, wordsize, &pc))
+            goto i386_count_finish;
+          if (pc == 0x0)
+            goto i386_count_finish;
+          prev_fp = fp;
+          fp = next_fp;
+        }
+
+      /* Add 8 to the EBP to show the frame pointer as gdb likes
+         to show it.  */
+
+      /* Let's raise the load level here.  That will mean that if we are 
+	 going to print the names, they will be accurate.  Also, it means
+	 if the main executable has it's load-state lowered, we'll detect
+	 main correctly.  */
+      
+      pc_set_load_state (pc, OBJF_SYM_ALL, 0);
+
+      if (print_fun && (i < print_limit))
+        print_fun (uiout, i, pc, fp + 2 * wordsize);
+      i++;
+
+      if (!backtrace_past_main && addr_inside_main_func (pc))
+        goto i386_count_finish;
+
+      if (i >= count_limit)
+        goto i386_count_finish;
+    }
+
+i386_count_finish:
+  if (print_fun)
+    ui_out_end (uiout, ui_out_type_list);
+
+  *count = i;
+  return (!err);
+}
+
+static int
+i386_macosx_get_longjmp_target_helper (int offset, CORE_ADDR *pc)
+{
+  CORE_ADDR jmp_buf;
+  ULONGEST long_addr = 0;
+
+  /* The first argument to longjmp is the pointer to the jump buf.
+     The saved eip/rip there is offset by OFFSET as given above.  */
+
+  jmp_buf = FETCH_POINTER_ARGUMENT (get_current_frame (), 0, 
+                                    builtin_type_void_func_ptr);
+
+  if (safe_read_memory_unsigned_integer
+      (jmp_buf + offset, TARGET_PTR_BIT / 8, &long_addr))
+    {
+      *pc = long_addr;
+      return 1;
+    }
+  else
+    return 0;
+}
+
+
+/* These hard coded offsets determined by looking at what setjmp actually
+   sticks in the setjmp/longjmp jmp_buf structure.  */
+
+#define X86_64_JMPBUF_SAVED_RIP_OFFSET 56
+#define I386_JMPBUF_SAVED_EIP_OFFSET 48
+
+static int
+x86_64_macosx_get_longjmp_target (CORE_ADDR *pc)
+{
+  return i386_macosx_get_longjmp_target_helper (X86_64_JMPBUF_SAVED_RIP_OFFSET,
+                                                pc);
+}
+
+static int
+i386_macosx_get_longjmp_target (CORE_ADDR *pc)
+{
+  return i386_macosx_get_longjmp_target_helper (I386_JMPBUF_SAVED_EIP_OFFSET,
+                                                pc);
+}
 
 void
 _initialize_i386_macosx_tdep (void)
@@ -304,4 +754,6 @@ _initialize_i386_macosx_tdep (void)
   gdbarch_register_osabi (bfd_arch_i386, 0, GDB_OSABI_DARWIN,
                           i386_macosx_init_abi);
 
+  gdbarch_register_osabi (bfd_arch_i386, bfd_mach_x86_64,
+                          GDB_OSABI_DARWIN64, x86_macosx_init_abi_64);
 }

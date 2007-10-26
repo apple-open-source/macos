@@ -9,10 +9,15 @@
 
 #include "vim.h"
 
+#ifdef AMIGA
+# include <time.h>	/* for time() */
+#endif
+
 /*
  * Vim originated from Stevie version 3.6 (Fish disk 217) by GRWalter (Fred)
  * It has been changed beyond recognition since then.
  *
+ * Differences between version 6.x and 7.x can be found with ":help version7".
  * Differences between version 5.x and 6.x can be found with ":help version6".
  * Differences between version 4.x and 5.x can be found with ":help version5".
  * Differences between version 3.0 and 4.x can be found with ":help version4".
@@ -22,8 +27,8 @@
 
 #include "version.h"
 
-char	*Version = VIM_VERSION_SHORT;
-char	*mediumVersion = VIM_VERSION_MEDIUM;
+char		*Version = VIM_VERSION_SHORT;
+static char	*mediumVersion = VIM_VERSION_MEDIUM;
 
 #if defined(HAVE_DATE_TIME) || defined(PROTO)
 # if (defined(VMS) && defined(VAXC)) || defined(PROTO)
@@ -138,6 +143,11 @@ static char *(features[]) =
 	"+cscope",
 #else
 	"-cscope",
+#endif
+#ifdef CURSOR_SHAPE
+	"+cursorshape",
+#else
+	"-cursorshape",
 #endif
 #if defined(FEAT_CON_DIALOG) && defined(FEAT_GUI_DIALOG)
 	"+dialog_con_gui",
@@ -366,6 +376,15 @@ static char *(features[]) =
 #else
 	"-multi_lang",
 #endif
+#ifdef FEAT_MZSCHEME
+# ifdef DYNAMIC_MZSCHEME
+	"+mzscheme/dyn",
+# else
+	"+mzscheme",
+# endif
+#else
+	"-mzscheme",
+#endif
 #ifdef FEAT_NETBEANS_INTG
 	"+netbeans_intg",
 #else
@@ -407,6 +426,11 @@ static char *(features[]) =
 #else
 	"-printer",
 #endif
+#ifdef FEAT_PROFILE
+	"+profile",
+#else
+	"-profile",
+#endif
 #ifdef FEAT_PYTHON
 # ifdef DYNAMIC_PYTHON
 	"+python/dyn",
@@ -420,6 +444,11 @@ static char *(features[]) =
 	"+quickfix",
 #else
 	"-quickfix",
+#endif
+#ifdef FEAT_RELTIME
+	"+reltime",
+#else
+	"-reltime",
 #endif
 #ifdef FEAT_RIGHTLEFT
 	"+rightleft",
@@ -625,11 +654,20 @@ static char *(features[]) =
 #else
 	"-xterm_save",
 #endif
+#ifdef WIN3264
+# ifdef FEAT_XPM_W32
+	"+xpm_w32",
+# else
+	"-xpm_w32",
+# endif
+#endif
 	NULL
 };
 
 static int included_patches[] =
 {   /* Add new patch number below this line */
+/**/
+    234,
 /**/
     0
 };
@@ -831,9 +869,6 @@ list_version()
     MSG_PUTS(_("with X11-Athena GUI."));
 #    endif
 #   else
-#    ifdef FEAT_GUI_BEOS
-    MSG_PUTS(_("with BeOS GUI."));
-#    else
 #     ifdef FEAT_GUI_PHOTON
     MSG_PUTS(_("with Photon GUI."));
 #     else
@@ -852,7 +887,6 @@ list_version()
 #	 endif
 #	endif
 #      endif
-#     endif
 #    endif
 #   endif
 #  endif
@@ -990,6 +1024,7 @@ intro_message(colon)
     int		i;
     int		row;
     int		blanklines;
+    int		sponsor;
     char	*p;
     static char	*(lines[]) =
     {
@@ -1007,7 +1042,7 @@ intro_message(colon)
 	"",
 	N_("type  :q<Enter>               to exit         "),
 	N_("type  :help<Enter>  or  <F1>  for on-line help"),
-	N_("type  :help version6<Enter>   for version info"),
+	N_("type  :help version7<Enter>   for version info"),
 	NULL,
 	"",
 	N_("Running in Vi compatible mode"),
@@ -1057,6 +1092,11 @@ intro_message(colon)
     if (blanklines < 0)
 	blanklines = 0;
 
+    /* Show the sponsor and register message one out of four times, the Uganda
+     * message two out of four times. */
+    sponsor = (int)time(NULL);
+    sponsor = ((sponsor & 2) == 0) - ((sponsor & 4) == 0);
+
     /* start displaying the message lines after half of the blank lines */
     row = blanklines / 2;
     if ((row >= 2 && Columns >= 50) || colon)
@@ -1073,6 +1113,19 @@ intro_message(colon)
 		if (!p_cp)
 		    break;
 		continue;
+	    }
+	    if (sponsor != 0)
+	    {
+		if (strstr(p, "children") != NULL)
+		    p = sponsor < 0
+			? N_("Sponsor Vim development!")
+			: N_("Become a registered Vim user!");
+		else if (strstr(p, "iccf") != NULL)
+		    p = sponsor < 0
+			? N_("type  :help sponsor<Enter>    for information ")
+			: N_("type  :help register<Enter>   for information ");
+		else if (strstr(p, "Orphans") != NULL)
+		    p = N_("menu  Help->Sponsor/Register  for information    ");
 	    }
 	    if (*p != NUL)
 		do_intro_line(row, (char_u *)_(p), i == 2, 0);
@@ -1114,11 +1167,9 @@ do_intro_line(row, mesg, add_version, attr)
 
     if (*mesg == ' ')
     {
-	STRNCPY(modby, _("Modified by "), MODBY_LEN);
-	modby[MODBY_LEN - 1] = NUL;
+	vim_strncpy(modby, _("Modified by "), MODBY_LEN - 1);
 	l = STRLEN(modby);
-	STRNCPY(modby + l, MODIFIED_BY, MODBY_LEN - l);
-	modby[MODBY_LEN - 1] = NUL;
+	vim_strncpy(modby + l, MODIFIED_BY, MODBY_LEN - l - 1);
 	mesg = modby;
     }
 #endif
@@ -1160,7 +1211,7 @@ do_intro_line(row, mesg, add_version, attr)
 	    if (has_mbyte)
 	    {
 		clen += ptr2cells(p + l);
-		l += (*mb_ptr2len_check)(p + l) - 1;
+		l += (*mb_ptr2len)(p + l) - 1;
 	    }
 	    else
 #endif

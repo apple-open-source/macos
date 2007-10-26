@@ -41,21 +41,24 @@
 .Nm passwd
 .Op Fl i Ar infosystem
 .Op Fl l Ar location
+.Op Fl u Ar authname
 .Op Ar name
 .Sh DESCRIPTION
 .Nm Passwd
-changes the user's password.  First, the user is prompted for their
-current password.
-If the current password is correctly typed, a new password is
-requested.
-The new password must be entered twice to avoid typing errors.
+changes the user's password.
+First, the user is prompted for their current password.
+If the current password is correctly typed,
+a new password is requested.
+The new password must be entered twice,
+to detect (and avoid accepting) typing errors.
 .Pp
-The new password should be at least six characters long and not
-purely alphabetic.
+The new password should be at least six characters long
+and not purely alphabetic.
 Its total length should be less than
 .Dv _PASSWORD_LEN
-(currently 128 characters) although some infosystems allow longer passwords.
-Numbers, upper case letters and meta characters
+(currently 128 characters),
+although some infosystems allow longer passwords.
+Numbers, upper-case letters, and meta characters
 are encouraged.
 .Pp
 Once the password has been verified,
@@ -65,28 +68,22 @@ the authenticating host.
 .Bl -tag -width flag
 .It Fl i Ar infosystem
 This option specifies where the password update should be applied.
-Under Mac OS X 10.3, supported infosystems are:
+Under Mac OS X 10.5, supported infosystems are:
 .Bl -tag -width flag
 .It Ar opendirectory
 (default)
-A system conforming to opendirectory APIs and supporting updates (including LDAP, netinfo, etc).
+A system conforming to opendirectory APIs and supporting updates
+(including LDAP, etc).
 If no -l option is specified, the search node is used.
-.It Ar netinfo
-The netinfo database containing the user's password.
-If no -l option is specified, the local netinfo database is assumed.
 .It Ar file
 The local flat-files (included for legacy configurations).
 .It Ar nis
 A remote NIS server containing the user's password.
 .El
 .It Fl l Ar location
-This option causes the password to be updated in the given location of the choosen infosystem.
-When changing only the local password,
-.Xr pwd_mkdb  8
-is used to update the password databases.
+This option causes the password to be updated in the given location
+of the chosen infosystem.
 .Bl -tag -width flag
-.It for netinfo,
-location may be a domain name or server/tag
 .It for file,
 location may be a file name (/etc/master.passwd is the default)
 .It for nis,
@@ -94,9 +91,13 @@ location may be a NIS domainname
 .It for opendirectory,
 location may be a directory node name
 .El
+.It Fl u Ar authname
+This option specifies the username to use when authenticating to
+the directory node.
 .El
 .Pp
-The super-user privilages are not required change a user's current password
+The super-user privileges are not required
+to change a user's current password,
 if only the local password is modified.
 .Sh FILES
 .Bl -tag -width /etc/master.passwd -compact
@@ -110,10 +111,10 @@ Temporary copy of the password file
 .Sh SEE ALSO
 .Xr chpass 1 ,
 .Xr login 1 ,
+.Xr dscl 1 ,
 .Xr passwd 5 ,
 .Xr pwd_mkdb 8 ,
-.Xr vipw 8 ,
-.Xr nicl 1
+.Xr vipw 8
 .Rs
 .%A Robert Morris
 .%A Ken Thompson

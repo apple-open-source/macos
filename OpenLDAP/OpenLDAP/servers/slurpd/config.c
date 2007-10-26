@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/config.c,v 1.30.2.8 2004/03/25 22:57:56 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/config.c,v 1.39.2.5 2006/01/03 22:16:26 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * Portions Copyright 2003 Mark Benson.
  * Portions Copyright 2002 John Morrissey.
  * All rights reserved.
@@ -58,7 +58,7 @@
 static void	add_replica LDAP_P(( char **, int ));
 static int	parse_replica_line LDAP_P(( char **, int, Ri *));
 static void	parse_line LDAP_P(( char * ));
-static char	*getline LDAP_P(( FILE * ));
+static char	*slurpd_getline LDAP_P(( FILE * ));
 static char	*strtok_quote LDAP_P(( char *, char * ));
 
 int	cargc = 0, cargv_size = 0;
@@ -87,14 +87,8 @@ slurpd_read_config(
 	cargv_size = ARGS_STEP + 1;
 	}
 
-#ifdef NEW_LOGGING
-    LDAP_LOG ( CONFIG, ARGS, 
-		"slurpd_read_config: Config: opening config file \"%s\"\n", 
-		fname, 0, 0 );
-#else
     Debug( LDAP_DEBUG_CONFIG, "Config: opening config file \"%s\"\n",
 	    fname, 0, 0 );
-#endif
 
     if ( (fp = fopen( fname, "r" )) == NULL ) {
 	perror( fname );
@@ -102,18 +96,13 @@ slurpd_read_config(
     }
 
     lineno = 0;
-    while ( (line = getline( fp )) != NULL ) {
+    while ( (line = slurpd_getline( fp )) != NULL ) {
 	/* skip comments and blank lines */
 	if ( line[0] == '#' || line[0] == '\0' ) {
 	    continue;
 	}
 
-#ifdef NEW_LOGGING
-    LDAP_LOG ( CONFIG, DETAIL1, 
-		"slurpd_read_config: Config: (%s)\n", line, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_CONFIG, "Config: (%s)\n", line, 0, 0 );
-#endif
 
 	parse_line( line );
 
@@ -154,15 +143,9 @@ slurpd_read_config(
 	    int savelineno;
 
             if ( cargc < 2 ) {
-#ifdef NEW_LOGGING
-                LDAP_LOG( CONFIG, CRIT,
-                        "%s: line %d: missing filename in \"include "
-                        "<filename>\" line.\n", fname, lineno , 0 );
-#else
                 Debug( LDAP_DEBUG_ANY,
         "%s: line %d: missing filename in \"include <filename>\" line\n",
                         fname, lineno, 0 );
-#endif
 		
                 return( 1 );
             }
@@ -179,15 +162,9 @@ slurpd_read_config(
 
 	} else if ( strcasecmp( cargv[0], "replica-pidfile" ) == 0 ) {
 		if ( cargc < 2 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( CONFIG, CRIT, 
-				"%s: line %d missing file name in \"replica-pidfile <file>\" "
-				"line.\n", fname, lineno, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 	    "%s: line %d: missing file name in \"replica-pidfile <file>\" line\n",
 				fname, lineno, 0 );
-#endif
 
 			return( 1 );
 		}
@@ -197,16 +174,9 @@ slurpd_read_config(
 
 	} else if ( strcasecmp( cargv[0], "replica-argsfile" ) == 0 ) {
 		if ( cargc < 2 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( CONFIG, CRIT, 
-				   "%s: %d: missing file name in "
-				   "\"argsfile <file>\" line.\n",
-				   fname, lineno, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 	    "%s: line %d: missing file name in \"argsfile <file>\" line\n",
 			    fname, lineno, 0 );
-#endif
 
 			return( 1 );
 		}
@@ -217,46 +187,27 @@ slurpd_read_config(
 		} else if ( strcasecmp( cargv[0], "replicationinterval" ) == 0 ) {
 			int c;
 			if ( cargc < 2 ) {
-#ifdef NEW_LOGGING
-				LDAP_LOG( CONFIG, CRIT, "%s: %d: missing interval in "
-					"\"replicationinterval <seconds>\" line.\n",
-					fname, lineno, 0 );
-#else
 				Debug( LDAP_DEBUG_ANY, "%s: line %d: missing interval in "
 					"\"replicationinterval <seconds>\" line\n",
 					fname, lineno, 0 );
-#endif
 				return( 1 );
 			}
 
-			c = atoi( cargv[1] );
-			if( c < 1 ) {
-#ifdef NEW_LOGGING
-				LDAP_LOG( CONFIG, CRIT, "%s: line %d: invalid interval "
-					"(%d) in \"replicationinterval <seconds>\" line\n",
-					fname, lineno, c );
-#else
+			if ( lutil_atoi( &c, cargv[1] ) != 0 || c < 1 ) {
 				Debug( LDAP_DEBUG_ANY, "%s: line %d: invalid interval "
 					"(%d) in \"replicationinterval <seconds>\" line\n",
 					fname, lineno, c );
-#endif
 
 				return( 1 );
 			}
 
 			sglob->no_work_interval = c;
 		}
-	}
+    }
     fclose( fp );
-#ifdef NEW_LOGGING
-    LDAP_LOG ( CONFIG, RESULTS, 
-		"slurpd_read_config: Config: "
-		"** configuration file successfully read and parsed\n", 0, 0, 0 );
-#else
     Debug( LDAP_DEBUG_CONFIG,
 	    "Config: ** configuration file successfully read and parsed\n",
 	    0, 0, 0 );
-#endif
     return 0;
 }
 
@@ -369,7 +320,7 @@ strtok_quote(
  * Get a line of input.
  */
 static char *
-getline(
+slurpd_getline(
     FILE *fp
 )
 {
@@ -436,19 +387,11 @@ add_replica(
 	sglob->replicas[ nr - 1] = NULL;
 	sglob->num_replicas--;
     } else {
-#ifdef NEW_LOGGING
-    LDAP_LOG ( CONFIG, RESULTS, 
-		"add_replica: Config: ** successfully added replica \"%s%d\"\n", 
-		sglob->replicas[ nr - 1 ]->ri_hostname == NULL ?
-		"(null)" : sglob->replicas[ nr - 1 ]->ri_hostname,
-		sglob->replicas[ nr - 1 ]->ri_port, 0 );
-#else
 	Debug( LDAP_DEBUG_CONFIG,
 		"Config: ** successfully added replica \"%s:%d\"\n",
 		sglob->replicas[ nr - 1 ]->ri_hostname == NULL ?
 		"(null)" : sglob->replicas[ nr - 1 ]->ri_hostname,
 		sglob->replicas[ nr - 1 ]->ri_port, 0 );
-#endif
 	sglob->replicas[ nr - 1]->ri_stel =
 		sglob->st->st_add( sglob->st,
 		sglob->replicas[ nr - 1 ] );
@@ -512,10 +455,14 @@ parse_replica_line(
 	    if (( hp = strchr( val, ':' )) != NULL ) {
 		*hp = '\0';
 		hp++;
-		ri->ri_port = atoi( hp );
+		if ( lutil_atoi( &ri->ri_port, hp ) != 0 ) {
+		    fprintf( stderr, "unable to parse port \"%s\", line %d\n",
+			    hp, lineno );
+		    return -1;
+		}
 	    }
 	    if ( ri->ri_port <= 0 ) {
-		ri->ri_port = 0;
+		ri->ri_port = LDAP_PORT;
 	    }
 	    ri->ri_hostname = strdup( val );
 	    gots |= GOT_HOST;

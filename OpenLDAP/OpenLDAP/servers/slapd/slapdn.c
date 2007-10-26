@@ -1,6 +1,6 @@
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2004 The OpenLDAP Foundation.
+ * Copyright 2004-2006 The OpenLDAP Foundation.
  * Portions Copyright 2004 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -37,12 +37,9 @@
 int
 slapdn( int argc, char **argv )
 {
-	int			rc = EXIT_SUCCESS;
+	int			rc = 0;
 	const char		*progname = "slapdn";
 
-#ifdef NEW_LOGGING
-	lutil_log_initialize( argc, argv );
-#endif
 	slap_tool_init( progname, SLAPDN, argc, argv );
 
 	argv = &argv[ optind ];
@@ -51,8 +48,7 @@ slapdn( int argc, char **argv )
 	for ( ; argc--; argv++ ) {
 		struct berval	dn, pdn, ndn;
 
-		dn.bv_val = argv[ 0 ];
-		dn.bv_len = strlen( argv[ 0 ] );
+		ber_str2bv( argv[ 0 ], 0, 0, &dn );
 
 		rc = dnPrettyNormal( NULL, &dn,
 					&pdn, &ndn, NULL );
@@ -60,17 +56,32 @@ slapdn( int argc, char **argv )
 			fprintf( stderr, "DN: <%s> check failed %d (%s)\n",
 					dn.bv_val, rc,
 					ldap_err2string( rc ) );
-			rc = 1;
+			if ( !continuemode ) {
+				rc = -1;
+				break;
+			}
 			
 		} else {
-			fprintf( stderr, "DN: <%s> check succeeded\n"
-					"normalized: <%s>\n"
-					"pretty:     <%s>\n",
-					dn.bv_val,
-					ndn.bv_val, pdn.bv_val );
+			switch ( dn_mode ) {
+			case SLAP_TOOL_LDAPDN_PRETTY:
+				printf( "%s\n", pdn.bv_val );
+				break;
+
+			case SLAP_TOOL_LDAPDN_NORMAL:
+				printf( "%s\n", ndn.bv_val );
+				break;
+
+			default:
+				printf( "DN: <%s> check succeeded\n"
+						"normalized: <%s>\n"
+						"pretty:     <%s>\n",
+						dn.bv_val,
+						ndn.bv_val, pdn.bv_val );
+				break;
+			}
+
 			ch_free( ndn.bv_val );
 			ch_free( pdn.bv_val );
-			rc = 0;
 		}
 	}
 	

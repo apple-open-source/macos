@@ -90,9 +90,7 @@ typedef struct {
     int			wait_secs;
     timer_callout_t *	timer;
     rtadv_client_t	client;
-    struct in6_addr	our_ip;
-    int			our_prefixLen;
-    short		addr_flags;
+    short			llocal_flags;
     struct in6_addr	our_router;
 } Service_rtadv_t;
 
@@ -582,7 +580,7 @@ rtadv_inactive(Service_t * service_p)
     
     rtadv_cancel_pending_events(service_p);
     rtadv_client_cleanup(client);
-    service_remove_address(service_p);
+    service_remove_addresses(service_p);
     service_publish_failure(service_p, ip6config_status_media_inactive_e,
 			    NULL);
     return;
@@ -645,7 +643,7 @@ rtadv_failed(Service_t * service_p, ip6config_status_t status, char * msg)
 {
     rtadv_cancel_pending_events(service_p);
 
-    service_remove_address(service_p);
+    service_remove_addresses(service_p);
     service_publish_failure(service_p, status, msg);
     return;
 }
@@ -778,7 +776,7 @@ rtadv_start(Service_t * service_p, IFEventID_t event_id, void * event_data)
                 /* this means the interface is ready, and now we're just checking
                  * to make sure the retry stuff is set properly
                  */
-                if (rtadv->addr_flags & IN6_IFF_NOTREADY) {
+                if (rtadv->llocal_flags & IN6_IFF_NOTREADY) {
                     /* this means it was not ready before and has become ready now */
                     rtadv->retries = 0;
                 }
@@ -787,7 +785,7 @@ rtadv_start(Service_t * service_p, IFEventID_t event_id, void * event_data)
                 rtsol_sendpacket(service_p);
             }
 
-            rtadv->addr_flags = curr_flags;
+            rtadv->llocal_flags = curr_flags;
             rtadv->retries++;
 
             /* set timer values and wait for responses */
@@ -891,8 +889,8 @@ rtadv_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
                 if_name(if_p));
             }
 
-            /* remove IP6 address */
-            service_remove_address(service_p);
+            /* remove IP6 addresses */
+            service_remove_addresses(service_p);
 
             /* clean-up resources */
             if (rtadv->timer) {
@@ -910,8 +908,9 @@ rtadv_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
             break;
         }
         case IFEventID_state_change_e: {
-            int	i;
+            int	i, count = 0;
             ip6_addrinfo_list_t *	ip6_addrs = ((ip6_addrinfo_list_t *)event_data);
+            ip6_addrinfo_t		tmp_addrs[ip6_addrs->n_addrs];
 
             if (rtadv == NULL) {
                 my_log(LOG_DEBUG, "RTADV %s: private data is NULL",
@@ -938,50 +937,47 @@ rtadv_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
                 break;
             }
                         
-            /* go through the address list; if addr is autoconf then
-             * deal with it
-             */
-
+            /* only copy autoconf addresses */
             for (i = 0; i < ip6_addrs->n_addrs; i++) {
-                ip6_addrinfo_t	new_addr = ip6_addrs->addr_list[i];
+			ip6_addrinfo_t	*new_addr = ip6_addrs->addr_list + i;
+                
+			if (new_addr->flags & IN6_IFF_AUTOCONF) {
+				memcpy(&tmp_addrs[count].addr, &new_addr->addr, sizeof(struct in6_addr));
+				tmp_addrs[count].prefixlen = new_addr->prefixlen;
+				tmp_addrs[count].flags = new_addr->flags;
+				prefixLen2mask(&tmp_addrs[count].prefixmask, 
+							   &tmp_addrs[count].prefixlen);
+				count++;
+			}
+		}
 
-                if (new_addr.flags & IN6_IFF_AUTOCONF) {
-                    if (new_addr.flags & IN6_IFF_DEPRECATED) {
-                        /* remove deprecated address */
-                        if (IN6_ARE_ADDR_EQUAL(&service_p->info.addr, &new_addr.addr)) {
-                            service_remove_address(service_p);
-                        }
-                        continue;
-                    }
-
-                    /* first copy the info into service_p */
-                    memcpy(&service_p->info.addr, &new_addr.addr, 
-                            sizeof(struct in6_addr));
-                    service_p->info.prefixlen = new_addr.prefixlen;
-                    service_p->info.addr_flags = new_addr.flags;
-
-                    /* fill in new prefix and netaddr */
-                    prefixLen2mask(&service_p->info.prefixmask, 
-                                    service_p->info.prefixlen);
-                    network_addr(&service_p->info.addr, 
-                                    &service_p->info.prefixmask,
-                                    &service_p->info.netaddr);
-
-                    /* now update private data */
-                    memcpy(&rtadv->our_ip, &service_p->info.addr, 
-                            sizeof(struct in6_addr));
-                    rtadv->our_prefixLen = service_p->info.prefixlen;
-                    rtadv->addr_flags = service_p->info.addr_flags;
-
-                    /* copy the saved router info */
-                    memcpy(&service_p->info.router, &rtadv->our_router, sizeof(struct in6_addr));
-
-                    /* this only publishes the first autoconf addr found */
-                    service_publish_success(service_p);
-                    break;
-                }
-            }
-
+		if (!count) {
+			my_log(LOG_DEBUG, "RTADV: no rtadv addresses found for interface %s",
+				   if_name(if_p));
+			break;  // this is a strange failure, but not catastrophic
+		}
+		
+		if (service_p->info.addrs.addr_list) {
+			free(service_p->info.addrs.addr_list);
+			service_p->info.addrs.addr_list = NULL;
+			service_publish_clear(service_p);
+		}
+		
+		service_p->info.addrs.addr_list = malloc(count * sizeof(ip6_addrinfo_t));
+		if (service_p->info.addrs.addr_list == NULL) {
+			my_log(LOG_ERR, "RTADV: error allocating memory for addresses on interface %s",
+				   if_name(if_p));
+			status = ip6config_status_allocation_failed_e;
+			break;
+		}
+		service_p->info.addrs.n_addrs = count;
+		memcpy(service_p->info.addrs.addr_list, &tmp_addrs, count * sizeof(ip6_addrinfo_t));
+			
+		/* copy the saved router info */
+		memcpy(&service_p->info.router, &rtadv->our_router, sizeof(struct in6_addr));
+		
+		service_publish_success(service_p);
+		
             break;
         }
         case IFEventID_media_e: {
@@ -990,7 +986,7 @@ rtadv_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 
             if (service_link_status(service_p)->valid == TRUE) {
                 if (service_link_status(service_p)->active == TRUE) {
-                    service_remove_address(service_p);
+                    service_remove_addresses(service_p);
                     rtadv_start(service_p, IFEventID_start_e, NULL);
                 }
                 else {

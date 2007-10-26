@@ -108,8 +108,8 @@ private:
     
            // CDC Driver instance Methods
 	
-    void			USBLogData(UInt8 Dir, UInt32 Count, char *buf);
-    void			dumpData(char *buf, UInt32 size);
+    void			USBLogData(UInt8 Dir, SInt32 Count, char *buf);
+    void			dumpData(char *buf, SInt32 size);
     bool			configureData(void);
     bool			wakeUp(void);
     void			putToSleep(void);

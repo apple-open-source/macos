@@ -1,0 +1,408 @@
+#!/usr/bin/tclsh
+
+###
+# Microversion (uvn)
+# Kevin Van Vechten <kvv@apple.com>
+# 9/28/2006
+###
+
+proc DEBUG {args} {
+	global DEBUGGING
+	global env
+	if {![info exists DEBUGGING]} {
+		set DEBUGGING [info exists env(UVNDEBUG)]
+	}
+	if {$DEBUGGING} {
+		puts stderr "DEBUG: $args"
+	}
+}
+
+proc PRINT {args} {
+	puts stdout "$args"
+}
+
+proc ldelete {l v} {
+	upvar $l ul
+	while {[set i [lsearch -exact $ul $v]] != -1} {
+		set ul [lreplace $ul $i $i]
+	}
+}
+
+namespace eval uvn {
+	variable srcroot
+	variable objroot
+	variable var
+	variable state
+	variable patchlevel 1
+
+	proc init {} {
+		global env
+		variable srcroot
+		variable objroot
+		variable var
+		variable patchlevel
+
+		if {[info exists env(UVNPATCHLEVEL)]} {
+			set patchlevel $env(UVNPATCHLEVEL)
+		}
+
+		if {[info exists env(RC_XBS)] &&
+			$env(RC_XBS) == "YES" &&
+			[info exists env(SRCROOT)] &&
+			[file isdirectory $env(SRCROOT)] &&
+			[info exists env(OBJROOT)] &&
+			[file isdirectory $env(OBJROOT)]} {
+
+			DEBUG XBS mode (using SRCROOT and OBJROOT)
+			
+			set srcroot $env(SRCROOT)
+			set objroot $env(OBJROOT)
+			
+		} else {
+			set dir [pwd]
+			set origdir $dir
+
+			while {![file isdirectory .uvn] && $dir != "/"} {
+				set dir [file dirname $dir]
+				cd $dir
+			}
+
+			### check for archive/patches/something
+			if {$dir == "/"} {
+				set dir $origdir
+				cd $dir
+			}
+
+			set srcroot $dir
+			set objroot $dir
+		}
+		set var $objroot/.uvn
+	}
+}
+
+namespace eval uvn::util {
+	proc cat {path} {
+		set fd [open $path r]
+		puts -nonewline [read $fd]
+		close $fd
+	}
+}
+
+namespace eval uvn::state {
+	proc save {data} {
+		if {[file isfile $uvn::var/state] || [llength $data] > 0} {
+			file mkdir $uvn::var
+			set fd [open $uvn::var/.tmp.state w]
+			puts $fd $data
+			close $fd
+			file rename -force $uvn::var/.tmp.state $uvn::var/state
+		}
+	}
+
+	proc load {} {
+		if {[file exists $uvn::var/state]} {
+			set fd [open $uvn::var/state r]
+			set data [read -nonewline $fd]
+			close $fd
+		} else {
+			set data [list]
+		}
+		return $data
+	}
+}
+
+
+proc find_distfile {} {
+	set sources {}
+	foreach suffix {.tar .tar.Z .tar.gz .tar.bz2 .tgz .tbz2} {
+		set files [glob -nocomplain -type f *$suffix]
+		if {[llength $files] > 0} {
+			lappend sources $files
+		}
+	}
+	
+	set c [llength $sources]
+	if {$c == 0} {
+		return -code error "no source archive"
+	} elseif {$c > 1} {
+		return -code error "too many source archives; please specify one"
+	} else {
+		return [file join [pwd] [lindex $sources 0]]
+	}
+}
+
+proc extract_sources {path {suffix ""}} {
+	set precmd {}
+	set cmd {tar xf -}
+	switch -glob -- $path {
+		*.tar {}
+		*.tar.Z { set precmd {uncompress - |} }
+		*.tar.gz -
+		*.tgz { set precmd {gzip -cd - |} }
+		*.tar.bz2 -
+		*.tbz2 { set precmd {bzip2 -cd - |} }
+		default { return -code error "unsupported archive format: $path" }
+	}
+
+	### Validate temp ###
+
+	file mkdir $uvn::var/extract
+	eval DEBUG $precmd $cmd -C $uvn::var/extract < $path
+	eval exec -- $precmd $cmd -C $uvn::var/extract < $path
+	set files [glob $uvn::var/extract/*]
+	if {[llength $files] == 0} {
+		return -code error "archive is empty: $path"
+	} elseif {[llength $files] > 1} {
+		return -code error "archive does not have root directory: $path"
+	}
+	set dir [lindex $files 0]
+	if {![file isdirectory $dir]} {
+		return -code error "archive does not contain a directory: $path"
+	}
+
+	### Make temp visible (with optional suffix appended) ###
+
+	set dst [file join $uvn::objroot [file tail $dir]$suffix]
+	if {![file exists $dst]} {
+		file rename $dir $dst
+	}
+	return $dst
+}
+
+##### main #####
+
+proc extract {} {
+	if {![info exists uvn::state(distfile)]} {
+		set uvn::state(distfile) [find_distfile]
+	}
+	if {![info exists uvn::state(workdir)] ||
+		![file exists $uvn::state(workdir)]} {
+		PRINT Extracting: [file tail $uvn::state(distfile)]
+		set uvn::state(workdir) [extract_sources $uvn::state(distfile)]
+	}
+}
+
+proc clean {} {
+	PRINT Cleaning
+	foreach dir {workdir origdir} {
+		DEBUG cleaning $dir
+		if {[info exists uvn::state($dir)] &&
+			[file isdirectory $uvn::state($dir)]} {
+			DEBUG deleting $uvn::state($dir)
+			file delete -force $uvn::state($dir)
+		}
+	}
+	if {[file isfile $uvn::var/state]} {
+		DEBUG deleting $uvn::var/state
+		file delete -force $uvn::var/state
+	}
+	array unset uvn::state
+}
+
+proc diff {{outfile -}} {
+	if {![info exists uvn::state(origdir)]} {
+		PRINT Extracting orig: [file tail $uvn::state(distfile)]
+		set uvn::state(origdir) [extract_sources $uvn::state(distfile) .orig]
+	}
+
+	if {[info exists uvn::state(workdir)]} {
+		file mkdir $uvn::var
+		cd $uvn::objroot
+		### diff exits 1 if files differ ###
+		DEBUG diff -r -u -N --exclude=*.orig [file tail $uvn::state(origdir)] [file tail $uvn::state(workdir)]
+		catch {exec diff -r -u -N --exclude=*.orig [file tail $uvn::state(origdir)] [file tail $uvn::state(workdir)] > $uvn::var/diff}
+
+		if {$outfile == "-" } {
+			uvn::util::cat $uvn::var/diff
+		} else {
+			file rename -force $uvn::var/diff $outfile
+		}
+	}
+}
+
+namespace eval uvn::patch {
+
+	proc create {patch {outfile patches/$patch}} {
+		if {![info exists uvn::state(origdir)]} {
+			set uvn::state(origdir) [extract_sources $uvn::state(distfile) .orig]
+		}
+
+		file mkdir patches
+		
+		set patches {}
+		
+		### unapply orthogonal patches ###
+		if {[info exists uvn::state(patches_applied)]} {
+			set patches $uvn::state(patches_applied)
+			foreach p $patches {
+				if {$p != $patch} {
+					uvn::patch::unapply $p
+				}
+			}
+		}
+		
+		### store diff in patchfile ###
+		diff $outfile
+		
+		if {![info exists uvn::state(patches_applied)] ||
+			[lsearch -exact $uvn::state(patches_applied) $patch] == -1} {
+			lappend uvn::state(patches_applied) $patch
+		}
+		
+		### reapply previously applied patches ###
+		foreach p $patches {
+			uvn::patch::apply $p
+		}
+	}
+
+	proc apply {patch} {
+		if {![info exists uvn::state(patches_applied)] ||
+			[lsearch -exact $uvn::state(patches_applied) $patch] == -1} {
+			PRINT Applying patch: $patch
+			cd $uvn::objroot
+			cd $uvn::state(workdir)
+			exec patch -N -u -p$uvn::patchlevel -r $uvn::var/rejects < $uvn::srcroot/patches/$patch
+			lappend uvn::state(patches_applied) $patch
+		} else {
+			DEBUG patch already applied: $patch
+		}
+	}
+
+
+	proc unapply {patch} {
+		if {[info exists uvn::state(patches_applied)] &&
+			[lsearch -exact $uvn::state(patches_applied) $patch] != -1} {
+			DEBUG unapplying patch: $patch
+			cd $uvn::objroot
+			cd $uvn::state(workdir)
+			exec patch -R -u -p$uvn::patchlevel -r $uvn::var/rejects < $uvn::srcroot/patches/$patch
+			ldelete uvn::state(patches_applied) $patch
+		} else {
+			DEBUG patch not applied: $patch
+		}
+	}
+
+	proc all {} {
+		set patches {}
+		foreach p [glob -nocomplain patches/*.diff patches/*.patch] {
+			lappend patches [file tail $p]
+		}
+		return $patches
+	}
+
+	proc list {} {
+		set applied {}
+		if {[info exists uvn::state(patches_applied)]} {
+			set applied $uvn::state(patches_applied)
+		}
+		foreach p [uvn::patch::all] {
+			if {[lsearch -exact $applied $p] != -1} {
+				puts -nonewline "* "
+			} else {
+				puts -nonewline "  "
+			}
+			puts $p
+		}
+	}
+	
+	proc show {patch} {
+		cd $uvn::srcroot
+		DEBUG exec diffstat patches/$patch
+		exec diffstat -o $uvn::var/diffstat patches/$patch
+		PRINT
+		PRINT $patch:
+		uvn::util::cat $uvn::var/diffstat
+	}
+
+	proc isvalid {patch} {
+		if {![regexp -- {[[:alnum:]_-]+(.diff|.patch)} $patch]} {
+			return -code error "invalid patch name: $patch"
+		}
+		return $patch
+	}
+	
+	proc defuzz {} {
+		foreach p [uvn::patch::all] {
+			uvn::patch::apply $p
+			uvn::patch::create $p $uvn::srcroot/patches/.tmp.$p
+			uvn::patch::unapply $p
+			file rename -force $uvn::srcroot/patches/.tmp.$p $uvn::srcroot/patches/$p
+		}
+	}
+}
+
+proc patch {argv} {
+	if {![info exists uvn::state(workdir)]} {
+		extract
+	}
+	switch -exact -- [lindex $argv 1] {
+		--apply {
+			uvn::patch::apply [uvn::patch::isvalid [lindex $argv 2]]
+		}
+		--create {
+			uvn::patch::create [uvn::patch::isvalid [lindex $argv 2]]
+		}
+		--defuzz {
+			uvn::patch::defuzz
+		}
+		--list {
+			uvn::patch::list
+		}
+		--show {
+			if {[lindex $argv 2] != ""} {
+			uvn::patch::show [uvn::patch::isvalid [lindex $argv 2]]
+			} else {
+				foreach patch [uvn::patch::all] {
+					uvn::patch::show $patch
+				}
+			}
+		}
+		--unapply {
+			uvn::patch::unapply [uvn::patch::isvalid [lindex $argv 2]]
+		}
+		{} {
+			foreach p [uvn::patch::all] {
+				uvn::patch::apply $p
+			}
+		}
+		default {
+			puts stderr "usage: uvn patch"
+			puts stderr "       uvn patch --apply name"
+			puts stderr "       uvn patch --create name"
+			puts stderr {       uvn patch --defuzz [name]}
+			puts stderr "       uvn patch --list"
+			puts stderr {       uvn patch --show [name]}
+			puts stderr "       uvn patch --unapply name"
+			exit 1
+		}
+	}			
+}
+
+proc main {argv} {
+	switch -exact -- [lindex $argv 0] {
+		clean { clean }
+		extract { extract }
+		diff { diff }
+		patch { patch $argv }
+		default {
+			puts stderr {usage: uvn <subcommand> [options] [args]}
+			puts stderr ""
+			puts stderr "Available subcommands:"
+			puts stderr "   clean"
+			puts stderr "   extract"
+			puts stderr "   diff"
+			puts stderr "   patch"
+			exit 1
+		}
+	}
+}
+
+##### start #####
+
+uvn::init
+array set uvn::state [uvn::state::load]
+DEBUG state = [array get uvn::state]
+if {[catch {main $argv} res]} {
+	puts stderr $res
+}
+uvn::state::save [array get uvn::state]

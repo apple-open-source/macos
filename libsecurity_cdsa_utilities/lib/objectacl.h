@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -161,7 +161,7 @@ public:
 		AclAuthorizationSet authorizations;		// set of authorizations
         bool authorizesAnything;				// has the _ANY authorization tag
         //@@@ time range not yet implemented
-        uint32 handle;							// entry handle
+        CSSM_ACL_HANDLE handle;					// entry handle
         
 		AclEntry() { }							// invalid AclEntry
         AclEntry(const AclSubjectPointer &subject);
@@ -234,7 +234,7 @@ private:
 private:
     EntryMap mEntries;				// ACL entries indexed by tag
     OwnerEntry mOwner;				// ACL owner entry
-    uint32 mNextHandle;				// next unused entry handle value
+    CSSM_ACL_HANDLE mNextHandle;	// next unused entry handle value
 
 private:
     typedef map<CSSM_ACL_SUBJECT_TYPE, AclSubject::Maker *> MakerMap;

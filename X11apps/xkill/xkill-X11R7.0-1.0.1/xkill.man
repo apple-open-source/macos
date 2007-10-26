@@ -1,0 +1,90 @@
+.\" $Xorg: xkill.man,v 1.4 2001/02/09 02:05:54 xorgcvs Exp $
+.\" Copyright 1988, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\"
+.\" $XFree86: xkill.man,v 1.8 2001/12/14 20:02:06 dawes Exp $
+.\"
+.TH XKILL 1 __xorgversion__
+.SH NAME
+xkill - kill a client by its X resource
+.SH SYNOPSIS
+.B "xkill"
+[\-display \fIdisplayname\fP] [\-id \fIresource\fP] [\-button number] [\-frame] [\-all] 
+.SH DESCRIPTION
+.PP
+.I Xkill
+is a utility for forcing the X server to close connections to clients.  This
+program is very dangerous, but is useful for aborting programs that have 
+displayed undesired windows on a user's screen.  If no resource identifier
+is given with \fI-id\fP, \fIxkill\fP will display a special cursor
+as a prompt for the user to select a window to be killed.  If a pointer button
+is pressed over a non-root window, the server will close its connection to
+the client that created the window.
+.SH OPTIONS
+.TP 8
+.B \-display \fIdisplayname\fP
+This option specifies the name of the X server to contact.
+.TP 8
+.B \-id \fIresource\fP
+This option specifies the X identifier for the resource whose creator is
+to be aborted.  If no resource is specified, \fIxkill\fP will display a 
+special cursor with which you should select a window to be kill.
+.TP 8
+.B \-button \fInumber\fP
+This option specifies the number of pointer button
+that should be used in selecting a window to kill.  
+If the word "any" is specified, any button on the pointer may be used.  By
+default, the first button in the pointer map (which is usually the leftmost
+button) is used.
+.TP 8
+.B \-all
+This option indicates that all clients with top-level windows on the screen
+should be killed.  \fIXkill\fP will ask you to select the root window with 
+each of the currently defined buttons to give you several chances to abort.
+Use of this option is highly discouraged.
+.TP 8
+.B \-frame
+This option indicates that xkill should ignore the standard conventions for
+finding top-level client windows (which are typically nested inside a window
+manager window), and simply believe that you want to kill direct children of
+the root.
+.SH CAVEATS
+This command does not provide any warranty that the application whose
+connection to the X server is closed will abort nicely, or even abort
+at all. All this command does is to close the connection to the X
+server. Many existing applications do indeed abort when their
+connection to the X server is closed, but some can choose to
+continue.
+.SH XDEFAULTS
+.TP 8
+.B Button
+Specifies a specific pointer button number or the word "any" to use when 
+selecting windows.
+.SH "SEE ALSO"
+X(__miscmansuffix__), xwininfo(1), XKillClient and XGetPointerMapping in the Xlib Programmers 
+Manual, KillClient in the X Protocol Specification
+.SH AUTHOR
+Jim Fulton, MIT X Consortium
+.br
+Dana Chee, Bellcore

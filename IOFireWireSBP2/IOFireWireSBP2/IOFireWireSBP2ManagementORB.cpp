@@ -178,9 +178,11 @@ IOReturn IOFireWireSBP2ManagementORB::allocateResources( void )
     // allocate and register an address space for the management ORB
     //
 
+	FWAddress host_address(0,0);
+		
     if( status == kIOReturnSuccess )
     {
-        fManagementORBAddressSpace = IOFWPseudoAddressSpace::simpleRead( fControl, &fManagementORBAddress,
+        fManagementORBAddressSpace = IOFWPseudoAddressSpace::simpleRead( fControl, &host_address,
                                                                          sizeof(FWSBP2TaskManagementORB), & fManagementORB );
     	if ( fManagementORBAddressSpace == NULL )
         	status = kIOReturnNoMemory;
@@ -188,6 +190,10 @@ IOReturn IOFireWireSBP2ManagementORB::allocateResources( void )
 
     if( status == kIOReturnSuccess )
     {
+		fManagementORBAddress.nodeID = OSSwapHostToBigInt16(host_address.nodeID);
+		fManagementORBAddress.addressHi = OSSwapHostToBigInt16(host_address.addressHi);
+		fManagementORBAddress.addressLo = OSSwapHostToBigInt32(host_address.addressLo);
+		
         status = fManagementORBAddressSpace->activate();
     }
     
@@ -231,8 +237,8 @@ IOReturn IOFireWireSBP2ManagementORB::allocateResources( void )
 
     if( status == kIOReturnSuccess )
     {
-        fManagementORB.statusFIFOAddressHi = (fStatusBlockAddress.nodeID << 16) | fStatusBlockAddress.addressHi;
-        fManagementORB.statusFIFOAddressLo = fStatusBlockAddress.addressLo;
+        fManagementORB.statusFIFOAddressHi = OSSwapHostToBigInt32((fStatusBlockAddress.nodeID << 16) | fStatusBlockAddress.addressHi);
+        fManagementORB.statusFIFOAddressLo = OSSwapHostToBigInt32(fStatusBlockAddress.addressLo);
     }
 	
 	if( status == kIOReturnSuccess )
@@ -345,8 +351,8 @@ IOReturn IOFireWireSBP2ManagementORB::setCommandFunction( UInt32 function )
     {
         fFunction = function;
 
-        fManagementORB.options &= 0xfff0;
-        fManagementORB.options |= (function | 0x8000);  // new and notify
+        fManagementORB.options &= OSSwapHostToBigInt16(0xfff0);
+        fManagementORB.options |= OSSwapHostToBigInt16(function | 0x8000);  // new and notify
     }
 
     return kIOReturnSuccess;
@@ -525,7 +531,7 @@ IOReturn IOFireWireSBP2ManagementORB::execute( void )
     // set login ID for all transactions except query logins
     if( status == kIOReturnSuccess && fFunction != kFWSBP2QueryLogins )
     {
-        fManagementORB.loginID = login->getLoginID();
+        fManagementORB.loginID = OSSwapHostToBigInt16(login->getLoginID());
     }
 
     if( status == kIOReturnSuccess && fFunction == kFWSBP2AbortTask )
@@ -533,8 +539,8 @@ IOReturn IOFireWireSBP2ManagementORB::execute( void )
         // set orb address
         FWAddress address;
         orb->getORBAddress( &address );
-        fManagementORB.orbOffsetHi = 0x0000ffff & address.addressHi;
-        fManagementORB.orbOffsetLo = 0xfffffffc & address.addressLo;
+        fManagementORB.orbOffsetHi = OSSwapHostToBigInt32(0x0000ffff & address.addressHi);
+        fManagementORB.orbOffsetLo = OSSwapHostToBigInt32(0xfffffffc & address.addressLo);
 
         // abort orb
 		setORBToDummy( orb );
@@ -544,10 +550,10 @@ IOReturn IOFireWireSBP2ManagementORB::execute( void )
     {
         FWSBP2QueryLoginsORB * queryLoginsORB = (FWSBP2QueryLoginsORB *)&fManagementORB;
 
-        queryLoginsORB->lun = fLUN->getLUNumber();
-        queryLoginsORB->queryResponseAddressHi = 0x0000ffff & fResponseAddress.addressHi;
-        queryLoginsORB->queryResponseAddressLo = fResponseAddress.addressLo;
-        queryLoginsORB->queryResponseLength = fResponseLen;
+        queryLoginsORB->lun = OSSwapHostToBigInt16(fLUN->getLUNumber());
+        queryLoginsORB->queryResponseAddressHi = OSSwapHostToBigInt32(0x0000ffff & fResponseAddress.addressHi);
+        queryLoginsORB->queryResponseAddressLo = OSSwapHostToBigInt32(fResponseAddress.addressLo);
+        queryLoginsORB->queryResponseLength = OSSwapHostToBigInt16(fResponseLen);
     }
 			
     if( status == kIOReturnSuccess )
@@ -709,12 +715,12 @@ IOReturn IOFireWireSBP2ManagementORB::complete( IOReturn state )
 
 void IOFireWireSBP2ManagementORB::setAsyncCallbackReference( void * asyncRef )
 {
-     bcopy( asyncRef, fCallbackAsyncRef, sizeof(OSAsyncReference) );
+     bcopy( asyncRef, fCallbackAsyncRef, sizeof(OSAsyncReference64) );
 }
 
 void IOFireWireSBP2ManagementORB::getAsyncCallbackReference( void * asyncRef )
 {
-    bcopy( fCallbackAsyncRef, asyncRef, sizeof(OSAsyncReference) );
+    bcopy( fCallbackAsyncRef, asyncRef, sizeof(OSAsyncReference64) );
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

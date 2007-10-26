@@ -98,7 +98,7 @@ bool IOFireWireIRM::initWithController(IOFireWireController * control)
     // create BROADCAST_CHANNEL register
 	//
 	
-	fBroadcastChannelBuffer = kBroadcastChannelInitialValues;
+	fBroadcastChannelBuffer = OSSwapHostToBigInt32( kBroadcastChannelInitialValues );
     fBroadcastChannelAddressSpace = IOFWPseudoAddressSpace::simpleRWFixed( fControl, FWAddress(kCSRRegisterSpaceBaseAddressHi, kCSRBroadcastChannel), 
 																			 sizeof(fBroadcastChannelBuffer), &fBroadcastChannelBuffer );
 	FWPANICASSERT( fBroadcastChannelAddressSpace != NULL );
@@ -209,14 +209,14 @@ void IOFireWireIRM::processBusReset( UInt16 ourNodeID, UInt16 irmNodeID, UInt32 
 		
 		// initialize fOldChannelsAvailable31_0 and fLockRetries
 		fLockRetries = 8;
-		fOldChannelsAvailable31_0 = 0xffffffff;
+		fOldChannelsAvailable31_0 = OSSwapHostToBigInt32( 0xffffffff );  // don't really need to swap of course
 
 		allocateBroadcastChannel();
 	}
 	else
 	{
 		FWLOCALKLOG(( "IOFireWireIRM::processBusReset() - clear valid bit in BROADCAST_CHANNEL register\n" ));
-		fBroadcastChannelBuffer = kBroadcastChannelInitialValues;
+		fBroadcastChannelBuffer = OSSwapHostToBigInt32(kBroadcastChannelInitialValues);
 	}
 	
 }
@@ -234,7 +234,9 @@ void IOFireWireIRM::allocateBroadcastChannel( void )
 	FWAddress address( kCSRRegisterSpaceBaseAddressHi, kCSRChannelsAvailable31_0 );
 	address.nodeID = fIRMNodeID;
 
-	fNewChannelsAvailable31_0 = fOldChannelsAvailable31_0 & ~kChannel31Mask;
+	UInt32 host_channels_available = OSSwapBigToHostInt32( fOldChannelsAvailable31_0 );
+	host_channels_available &= ~kChannel31Mask;
+	fNewChannelsAvailable31_0 = OSSwapHostToBigInt32( host_channels_available );
 	
 	fLockCmd->reinit( fGeneration, address, &fOldChannelsAvailable31_0, &fNewChannelsAvailable31_0, 1, IOFireWireIRM::lockCompleteStatic, this );
 	
@@ -300,7 +302,363 @@ void IOFireWireIRM::lockComplete( IOReturn status )
 		{
 			FWLOCALKLOG(( "IOFireWireIRM::lockComplete() - set valid bit in BROADCAST_CHANNEL register\n" ));
 			
-			fBroadcastChannelBuffer = kBroadcastChannelInitialValues | kBroadcastChannelValidMask;
+			fBroadcastChannelBuffer = OSSwapHostToBigInt32( kBroadcastChannelInitialValues | kBroadcastChannelValidMask );
 		}
 	}
+}
+
+#pragma mark -
+
+OSDefineMetaClassAndStructors( IOFireWireIRMAllocation, OSObject );
+OSMetaClassDefineReservedUnused(IOFireWireIRMAllocation, 0);
+OSMetaClassDefineReservedUnused(IOFireWireIRMAllocation, 1);
+OSMetaClassDefineReservedUnused(IOFireWireIRMAllocation, 2);
+OSMetaClassDefineReservedUnused(IOFireWireIRMAllocation, 3);
+OSMetaClassDefineReservedUnused(IOFireWireIRMAllocation, 4);
+OSMetaClassDefineReservedUnused(IOFireWireIRMAllocation, 5);
+OSMetaClassDefineReservedUnused(IOFireWireIRMAllocation, 6);
+OSMetaClassDefineReservedUnused(IOFireWireIRMAllocation, 7);
+
+// IRMAllocationThreadInfo
+//
+// A little struct for keeping track of our this pointer and generation
+// when transitioning to a second thread during bandwidth reallocation.
+
+struct IRMAllocationThreadInfo
+{
+    IOFireWireIRMAllocation * fIRMAllocation;
+    UInt32 fGeneration;
+	IOFireWireController * fControl;
+	IORecursiveLock * fLock;
+	UInt8 fIsochChannel;
+	UInt32 fBandwidthUnits;
+};
+
+// IOFireWireIRMAllocation::init
+//
+//
+bool IOFireWireIRMAllocation::init( IOFireWireController * control,
+									Boolean releaseIRMResourcesOnFree, 
+									AllocationLostNotificationProc allocationLostProc,
+									void *pLostProcRefCon)
+{
+	if (!OSObject::init())
+		return false ;
+	
+	// Allocate a lock
+	fLock = IORecursiveLockAlloc () ;
+	if ( ! fLock )
+		return false ;
+	
+	// Initialize some class members
+	fControl = control;
+	fAllocationGeneration = 0xFFFFFFFF;
+	fAllocationLostProc = allocationLostProc;
+	fLostProcRefCon = pLostProcRefCon;
+	fReleaseIRMResourcesOnFree = releaseIRMResourcesOnFree;
+	fBandwidthUnits = 0;
+	fIsochChannel = 64;
+	
+	isAllocated = false;
+	return true;
+}
+
+// IOFireWireIRMAllocation::release
+//
+//
+void IOFireWireIRMAllocation::release() const
+{
+	DebugLog( "IOFireWireIRMAllocation::release, retain count before release = %d\n",getRetainCount() ) ;
+
+	// Take the lock
+	IORecursiveLockLock(fLock);
+
+	int retainCnt = getRetainCount();
+	
+	if ((retainCnt == 2) && (isAllocated == true))
+	{
+		// The controller has an extra retain on the IOFireWireIRMAllocation object
+		// because it's in the array used to restore allocations after a bus-reset.
+		// We now need to remove it from the controller's array, so it's no longer
+		// auto-restored after bus-reset!
+		fControl->removeIRMAllocation((IOFireWireIRMAllocation*)this);
+	}
+	
+	OSObject::release();
+
+	// Bypass unlock if we just did the last release!
+	if (retainCnt != 1)
+		IORecursiveLockUnlock(fLock);
+}
+
+// IOFireWireIRMAllocation::free
+//
+//
+void IOFireWireIRMAllocation::free( void )
+{
+	DebugLog( "IOFireWireIRMAllocation::free\n") ;
+
+	// Take the lock
+	IORecursiveLockLock(fLock);
+
+	// If we need to release the isoch resources, do so now!
+	if (isAllocated)
+	{
+		if (fReleaseIRMResourcesOnFree)
+		{
+			if (fBandwidthUnits > 0)
+				fControl->releaseIRMBandwidthInGeneration(fBandwidthUnits,fAllocationGeneration);
+			if (fIsochChannel < 64)
+				fControl->releaseIRMChannelInGeneration(fIsochChannel,fAllocationGeneration);
+		}
+		// Note: we already removed this allocation from the controller's array! Don't need to do it here!
+	}
+	
+	// Free the lock
+	if ( fLock )
+		IORecursiveLockFree( fLock ) ;
+
+	OSObject::free();
+}
+
+// IOFireWireIRMAllocation::allocateIsochResources
+//
+//
+IOReturn IOFireWireIRMAllocation::allocateIsochResources(UInt8 isochChannel, UInt32 bandwidthUnits)
+{
+	IOReturn res = kIOReturnError;
+	UInt32 irmGeneration;
+	UInt16 irmNodeID;
+	
+	// Take the lock
+	IORecursiveLockLock(fLock);
+	
+	if (!isAllocated)
+	{
+		// Initialize some class members
+		fAllocationGeneration = 0xFFFFFFFF;
+		
+		// Get the current generation
+		fControl->getIRMNodeID(irmGeneration, irmNodeID);
+		
+		res = kIOReturnSuccess;
+		
+		if (isochChannel < 64)
+		{
+			// Attempt to allocate isoch channel
+			res = fControl->allocateIRMChannelInGeneration(isochChannel,irmGeneration);
+		}
+		
+		if ((res == kIOReturnSuccess) && (bandwidthUnits > 0))
+		{
+			// Attempt to allocate isoch bandwidth
+			res = fControl->allocateIRMBandwidthInGeneration(bandwidthUnits,irmGeneration);
+			if (res != kIOReturnSuccess) 
+			{
+				// Need to free the isoch channel (note: will fail if generation has changed)
+				fControl->releaseIRMChannelInGeneration(isochChannel,irmGeneration);
+			}
+		}
+		
+		if (res == kIOReturnSuccess)
+		{
+			fIsochChannel = isochChannel;
+			fBandwidthUnits = bandwidthUnits;
+			fAllocationGeneration = irmGeneration;
+			isAllocated = true;
+			
+			// Register this object with the controller
+			fControl->addIRMAllocation(this);
+		}
+	}
+	
+	// Unlock the lock
+	IORecursiveLockUnlock(fLock);
+	
+	return res;
+}
+
+// IOFireWireIRMAllocation::deallocateIsochResources
+//
+//
+IOReturn IOFireWireIRMAllocation::deallocateIsochResources(void)
+{
+	IOReturn res = kIOReturnError;
+
+	// Take the lock
+	IORecursiveLockLock(fLock);
+
+	if (isAllocated)
+	{
+		if (fBandwidthUnits > 0)
+			fControl->releaseIRMBandwidthInGeneration(fBandwidthUnits,fAllocationGeneration);
+		if (fIsochChannel < 64)
+			fControl->releaseIRMChannelInGeneration(fIsochChannel,fAllocationGeneration);
+	
+		// Unregister this object with the controller
+		fControl->removeIRMAllocation(this);
+		
+		isAllocated = false;
+		fBandwidthUnits = 0;
+		fIsochChannel = 64;
+		fAllocationGeneration = 0xFFFFFFFF;
+	}
+	
+	// Unlock the lock
+	IORecursiveLockUnlock(fLock);
+
+	return res;
+}
+
+// IOFireWireIRMAllocation::areIsochResourcesAllocated
+//
+//
+Boolean IOFireWireIRMAllocation::areIsochResourcesAllocated(UInt8 *pAllocatedIsochChannel, UInt32 *pAllocatedBandwidthUnits)
+{
+
+	*pAllocatedIsochChannel = fIsochChannel;
+	*pAllocatedBandwidthUnits = fBandwidthUnits;
+	return isAllocated;
+}
+
+// IOFireWireIRMAllocation::GetRefCon
+//
+//
+void * IOFireWireIRMAllocation::GetRefCon(void)
+{
+	return fLostProcRefCon;
+}
+
+// IOFireWireIRMAllocation::SetRefCon
+//
+//
+void IOFireWireIRMAllocation::SetRefCon(void* refCon) 
+{
+	fLostProcRefCon = refCon;
+}
+
+// IOFireWireIRMAllocation::handleBusReset
+//
+//
+void IOFireWireIRMAllocation::handleBusReset(UInt32 generation)
+{
+	// Take the lock
+	IORecursiveLockLock(fLock);
+
+	if (!isAllocated)
+	{
+		IORecursiveLockUnlock(fLock);
+		return;
+	}
+	
+	if (fAllocationGeneration == generation)
+	{
+		IORecursiveLockUnlock(fLock);
+		return;
+	}
+	
+	// Spawn a thread to do the reallocation
+	IRMAllocationThreadInfo * threadInfo = (IRMAllocationThreadInfo *)IOMalloc( sizeof(IRMAllocationThreadInfo) );
+	if( threadInfo ) 
+	{
+		threadInfo->fGeneration = generation;
+		threadInfo->fIRMAllocation = this;
+		threadInfo->fControl = fControl;
+		threadInfo->fLock = fLock;
+		threadInfo->fIsochChannel = fIsochChannel; 
+		threadInfo->fBandwidthUnits = fBandwidthUnits;
+
+		retain();	// retain ourself for the thread to use
+		
+		IOCreateThread( threadFunc, threadInfo );
+	}
+	
+	// Unlock the lock
+	IORecursiveLockUnlock(fLock);
+}
+
+// IOFireWireIRMAllocation::setReleaseIRMResourcesOnFree
+//
+//
+void IOFireWireIRMAllocation::setReleaseIRMResourcesOnFree(Boolean doRelease)
+{
+	fReleaseIRMResourcesOnFree = doRelease;
+}
+
+// IOFireWireIRMAllocation::getAllocationGeneration
+//
+//
+UInt32 IOFireWireIRMAllocation::getAllocationGeneration(void)
+{
+	return fAllocationGeneration;
+}
+
+// IOFireWireIRMAllocation::failedToRealloc
+//
+//
+void IOFireWireIRMAllocation::failedToRealloc(void)
+{
+	// Notify client, and mark as to not reallocate in the future!
+
+	if (fAllocationLostProc)
+		fAllocationLostProc(fLostProcRefCon,this);
+
+	// Unregister this object with the controller
+	fControl->removeIRMAllocation(this);
+
+	isAllocated = false;
+	fAllocationGeneration = 0xFFFFFFFF;
+}
+
+// IOFireWireIRMAllocation::threadFunc
+//
+//
+void IOFireWireIRMAllocation::threadFunc( void * arg )
+{
+	IOReturn res = kIOReturnSuccess;
+    IRMAllocationThreadInfo * threadInfo = (IRMAllocationThreadInfo *)arg;
+    IOFireWireIRMAllocation *pIRMAllocation = threadInfo->fIRMAllocation;
+	IORecursiveLock * fLock = threadInfo->fLock;
+	UInt32 generation = threadInfo->fGeneration;
+	UInt32 irmGeneration;
+	UInt16 irmNodeID;
+	
+	// Take the lock
+	IORecursiveLockLock(fLock);
+
+	// Get the current generation
+	threadInfo->fControl->getIRMNodeID(irmGeneration, irmNodeID);
+	
+	if ((irmGeneration == generation) && (pIRMAllocation->getAllocationGeneration() != 0xFFFFFFFF))
+	{
+		if (threadInfo->fIsochChannel < 64)
+		{
+			// Attempt to reallocate isoch channel
+			res = threadInfo->fControl->allocateIRMChannelInGeneration(threadInfo->fIsochChannel,generation);
+		}
+		
+		if ((res == kIOReturnSuccess) && (threadInfo->fBandwidthUnits > 0))
+		{
+			// Attempt to reallocate isoch bandwidth
+			res = threadInfo->fControl->allocateIRMBandwidthInGeneration(threadInfo->fBandwidthUnits,generation);
+			if (res != kIOReturnSuccess) 
+			{
+				// Need to free the isoch channel (note: will fail if generation has changed)
+				threadInfo->fControl->releaseIRMChannelInGeneration(threadInfo->fIsochChannel,generation);
+			}
+		}
+
+		if ((res != kIOReturnSuccess) && (res != kIOFireWireBusReset))
+		{
+			// We failed to reallocate (and not due to a bus-reset).
+			pIRMAllocation->failedToRealloc();
+		}
+	}
+	
+	// Unlock the lock
+	IORecursiveLockUnlock(fLock);
+	
+	// clean up thread info
+	IOFree( threadInfo, sizeof(threadInfo) );
+    pIRMAllocation->release();		// retain occurred in handleBusReset
 }

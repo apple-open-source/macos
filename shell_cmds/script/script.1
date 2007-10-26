@@ -1,5 +1,3 @@
-.\"	$NetBSD: script.1,v 1.4 1997/10/19 22:57:47 lukem Exp $
-.\"
 .\" Copyright (c) 1980, 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -32,22 +30,25 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)script.1	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD: src/usr.bin/script/script.1,v 1.21 2004/07/03 00:24:43 ru Exp $
 .\"
-.Dd June 6, 1993
+.Dd January 22, 2004
 .Dt SCRIPT 1
-.Os BSD 4
+.Os
 .Sh NAME
 .Nm script
 .Nd make typescript of terminal session
 .Sh SYNOPSIS
 .Nm
-.Op Fl a
-.Op Ar file
+.Op Fl akq
+.Op Fl t Ar time
+.Op Ar file Op Ar command ...
 .Sh DESCRIPTION
+The
 .Nm
-makes a typescript of everything printed on your terminal.
+utility makes a typescript of everything printed on your terminal.
 It is useful for students who need a hardcopy record of an interactive
-session as proof of an assignment, as the typescript file 
+session as proof of an assignment, as the typescript file
 can be printed out later with
 .Xr lpr 1 .
 .Pp
@@ -58,28 +59,47 @@ is given,
 saves all dialogue in
 .Ar file .
 If no file name is given, the typescript is saved in the file
-.Pa typescript  .
+.Pa typescript .
 .Pp
-Option:
-.Bl -tag -width Ds
+If the argument
+.Ar command
+is given,
+.Nm
+will run the specified command with an optional argument vector
+instead of an interactive shell.
+.Pp
+The following options are available:
+.Bl -tag -width indent
 .It Fl a
 Append the output to
 .Ar file
 or
 .Pa typescript ,
 retaining the prior contents.
+.It Fl k
+Log keys sent to program as well as output.
+.It Fl q
+Run in quiet mode, omit the start and stop status messages.
+.It Fl t Ar time
+Specify time interval between flushing script output file.
+A value of 0
+causes
+.Nm
+to flush for every character I/O event.
+The default interval is
+30 seconds.
 .El
 .Pp
-The script ends when the forked shell exits (a
+The script ends when the forked shell (or command) exits (a
 .Em control-D
 to exit
 the Bourne shell
 .Pf ( Xr sh 1 ) ,
 and
-.Em exit , 
+.Em exit ,
 .Em logout
 or
-.Em control-d
+.Em control-D
 (if
 .Em ignoreeof
 is not set) for the
@@ -89,24 +109,25 @@ C-shell,
 Certain interactive commands, such as
 .Xr vi 1 ,
 create garbage in the typescript file.
+The
 .Nm
-works best with commands that do not manipulate the
-screen, the results are meant to emulate a hardcopy
-terminal.
+utility works best with commands that do not manipulate the screen.
+The results are meant to emulate a hardcopy terminal, not an addressable one.
 .Sh ENVIRONMENT
 The following environment variable is utilized by
-.Nm
-:
+.Nm :
 .Bl -tag -width SHELL
 .It Ev SHELL
 If the variable
 .Ev SHELL
 exists, the shell forked by
 .Nm
-will be that shell. If
+will be that shell.
+If
 .Ev SHELL
 is not set, the Bourne shell
-is assumed. (Most shells set this variable automatically).
+is assumed.
+(Most shells set this variable automatically).
 .El
 .Sh SEE ALSO
 .Xr csh 1
@@ -119,8 +140,20 @@ The
 command appeared in
 .Bx 3.0 .
 .Sh BUGS
+The
 .Nm
-places
+utility places
 .Sy everything
 in the log file, including linefeeds and backspaces.
 This is not what the naive user expects.
+.Pp
+It is not possible to specify a command without also naming the script file
+because of argument parsing compatibility issues.
+.Pp
+When running in
+.Fl k
+mode, echo cancelling is far from ideal.
+The slave terminal mode is checked
+for ECHO mode to check when to avoid manual echo logging.
+This does not
+work when in a raw mode where the program being run is doing manual echo.

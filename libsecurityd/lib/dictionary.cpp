@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -247,22 +247,29 @@ void NameValueDictionary::Export (CssmData &outData)
 void NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier (const DLDbIdentifier &identifier, NameValueDictionary &nvd)
 {
 	// get the subserviceID
+	DLDbIdentifier d = identifier;
+	
 	const CssmSubserviceUid &ssuid = identifier.ssuid ();
-	const CSSM_SUBSERVICE_UID* baseID = &ssuid;
-	nvd.Insert (new NameValuePair (SSUID_KEY, CssmData ((void*) (baseID), sizeof (CSSM_SUBSERVICE_UID))));
+	CSSM_SUBSERVICE_UID baseID = ssuid;
+	baseID.Version.Major = h2n (baseID.Version.Major);
+	baseID.Version.Minor = h2n (baseID.Version.Minor);
+	baseID.SubserviceId = h2n (baseID.SubserviceId);
+	baseID.SubserviceType = h2n (baseID.SubserviceType);
+	
+	nvd.Insert (new NameValuePair (SSUID_KEY, CssmData::wrap(baseID)));
 	
 	// get the name
 	const char* dbName = identifier.dbName ();
 	if (dbName != NULL)
 	{
-		nvd.Insert (new NameValuePair (DB_NAME, CssmData ((void*) (dbName), strlen (dbName) + 1)));
+		nvd.Insert (new NameValuePair (DB_NAME, CssmData::wrap (dbName, strlen (dbName) + 1)));
 	}
-
+	
 	// get the net address
 	const CSSM_NET_ADDRESS* add = identifier.dbLocation ();
 	if (add != NULL)
 	{
-		nvd.Insert (new NameValuePair (DB_LOCATION, CssmData ((void*) add, sizeof (CSSM_NET_ADDRESS))));
+		nvd.Insert (new NameValuePair (DB_LOCATION, CssmData::wrap (add)));
 	}
 }
 
@@ -271,12 +278,24 @@ void NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier (const DLDbI
 DLDbIdentifier NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary (const NameValueDictionary &nvd)
 {
 	CSSM_SUBSERVICE_UID* uid = (CSSM_SUBSERVICE_UID*) nvd.FindByName (SSUID_KEY)->Value ().data ();
+	if (uid == NULL)
+	{
+		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+	}
+	
+	CSSM_SUBSERVICE_UID baseID = *uid;
+	
+	baseID.Version.Major = n2h (baseID.Version.Major);
+	baseID.Version.Minor = n2h (baseID.Version.Minor);
+	baseID.SubserviceId = n2h (baseID.SubserviceId);
+	baseID.SubserviceType = n2h (baseID.SubserviceType);
+	
 	char* name = (char*) nvd.FindByName (DB_NAME)->Value ().data ();
 	
 	const NameValuePair* nvp = nvd.FindByName (DB_LOCATION);
 	CSSM_NET_ADDRESS* address = nvp ? (CSSM_NET_ADDRESS*) nvp->Value ().data () : NULL;
 	
-	return DLDbIdentifier (*uid, name, address);
+	return DLDbIdentifier (baseID, name, address);
 }
 
 }; // end Security namespace

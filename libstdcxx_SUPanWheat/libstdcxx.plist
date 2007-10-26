@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<date>2005-06-01T07:00:00Z</date>
+		<key>OpenSourceLicense</key>
+		<string>GPL+exception</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>libstdcxx.txt</string>
+		<key>OpenSourceMD5</key>
+		<string>55ee7df1b29f719138ec063c57b89db6</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Reduce emergency buffer size.</string>
+			<string>Support keymgr.</string>
+			<string>Allow tildes in build directory name.</string>
+			<string>Fix libtool bug for Jaguar.</string>
+			<string>Support for testing after installation.</string>
+			<string>Handle 'semun' definition on Jaguar.</string>
+			<string>Don't export libm functions on Jaguar.</string>
+			<string>Limited support for -malign-natural.</string>
+			<string>Export control (from FSF 4.1).</string>
+			<string>Do export __eprintf.</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>gcc</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://gcc.gnu.org/pub/gcc/releases/gcc-4.0.0/gcc-4.0.0.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>4.0.0</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://gcc.gnu.org/</string>
+	</dict>
+</array>
+</plist>

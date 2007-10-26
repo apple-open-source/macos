@@ -1,11 +1,12 @@
---- isatty.c.orig	Thu Jan 31 16:57:29 2002
-+++ isatty.c	Sun May 18 00:50:20 2003
-@@ -39,14 +39,19 @@
+--- isatty.c.orig	2003-05-20 15:21:02.000000000 -0700
++++ isatty.c	2005-06-02 13:46:32.000000000 -0700
+@@ -39,14 +39,21 @@
  
  #include <termios.h>
  #include <unistd.h>
 +#include <sys/filio.h>
 +#include <sys/conf.h>
++#include <errno.h>
  
  int
  isatty(fd)
@@ -16,9 +17,10 @@
  	struct termios t;
  
 -	retval = (tcgetattr(fd, &t) != -1);
-+	if(ioctl(fd, FIODTYPE, &type) != -1)
-+	    retval = (type == D_TTY);
-+	else
++	if(ioctl(fd, FIODTYPE, &type) != -1) {
++	    if((retval = (type == D_TTY)) == 0)
++		errno = ENOTTY;
++	} else
 +	    retval = (tcgetattr(fd, &t) != -1);
  	return(retval);
  }

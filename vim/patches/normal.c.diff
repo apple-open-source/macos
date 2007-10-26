@@ -1,0 +1,36 @@
+--- src/normal.c.orig	2005-05-24 17:22:04.000000000 -0700
++++ src/normal.c	2005-05-24 17:29:00.000000000 -0700
+@@ -6336,6 +6336,7 @@ nv_brackets(cap)
+      */
+     else if (cap->nchar == '[' || cap->nchar == ']')
+     {
++	int both;
+ 	if (cap->nchar == cap->cmdchar)		    /* "]]" or "[[" */
+ 	    flag = '{';
+ 	else
+@@ -6346,9 +6347,14 @@
+ 	 * Imitate strange Vi behaviour: When using "]]" with an operator
+ 	 * we also stop at '}'.
+ 	 */
+-	if (!findpar(&cap->oap->inclusive, cap->arg, cap->count1, flag,
+-	      (cap->oap->op_type != OP_NOP
+-				      && cap->arg == FORWARD && flag == '{')))
++	if (curbuf->b_p_lisp) {
++	    flag = '(';
++	    both = FALSE;
++	} else {
++	    both = (cap->oap->op_type != OP_NOP
++		      && cap->arg == FORWARD && flag == '{');
++	}
++	if (!findpar(&cap->oap->inclusive, cap->arg, cap->count1, flag, both))
+ 	    clearopbeep(cap->oap);
+ 	else
+ 	{
+@@ -8079,6 +8080,7 @@
+ 		    0, 0))
+ 	{
+ 	    /* When '#' is in 'cpoptions' ignore the count. */
++	  if (!Unix2003_compat)		/* vi_02.ex test 139 */
+ 	    if (vim_strchr(p_cpo, CPO_HASH) != NULL)
+ 		cap->count1 = 1;
+ 	    invoke_edit(cap, FALSE, cap->cmdchar, TRUE);

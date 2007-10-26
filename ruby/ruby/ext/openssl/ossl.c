@@ -1,5 +1,5 @@
 /*
- * $Id: ossl.c,v 1.11.2.3 2004/12/16 09:39:54 gotoyuzo Exp $
+ * $Id: ossl.c 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -278,9 +278,14 @@ ossl_raise(VALUE exc, const char *fmt, ...)
     va_list args;
     char buf[BUFSIZ];
     const char *msg;
-    long e = ERR_get_error();
+    long e;
     int len = 0;
 
+#ifdef HAVE_ERR_PEEK_LAST_ERROR
+    e = ERR_peek_last_error();
+#else
+    e = ERR_peek_error();
+#endif
     if (fmt) {
 	va_start(args, fmt);
 	len = vsnprintf(buf, BUFSIZ, fmt, args);
@@ -291,13 +296,32 @@ ossl_raise(VALUE exc, const char *fmt, ...)
 	    msg = ERR_error_string(e, NULL);
 	else
 	    msg = ERR_reason_error_string(e);
-	ERR_clear_error();
 	fmt = len ? ": %s" : "%s";
 	len += snprintf(buf+len, BUFSIZ-len, fmt, msg);
     }
+    if (dOSSL == Qtrue){ /* show all errors on the stack */
+	while ((e = ERR_get_error()) != 0){
+	    rb_warn("error on stack: %s", ERR_error_string(e, NULL));
+	}
+    }
+    ERR_clear_error();
 
     if(len > BUFSIZ) len = strlen(buf);
     rb_exc_raise(rb_exc_new(exc, buf, len));
+}
+
+VALUE
+ossl_get_errors()
+{
+    VALUE ary;
+    long e;
+
+    ary = rb_ary_new();
+    while ((e = ERR_get_error()) != 0){
+        rb_ary_push(ary, rb_str_new2(ERR_error_string(e, NULL)));
+    }
+
+    return ary;
 }
 
 /*
@@ -363,6 +387,7 @@ Init_openssl()
      */
     /* CRYPTO_malloc_init(); */
     /* ENGINE_load_builtin_engines(); */
+    OpenSSL_add_ssl_algorithms();
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
     SSL_load_error_strings();
@@ -411,6 +436,7 @@ Init_openssl()
     dOSSL = Qfalse;
     rb_define_module_function(mOSSL, "debug", ossl_debug_get, 0);
     rb_define_module_function(mOSSL, "debug=", ossl_debug_set, 1);
+    rb_define_module_function(mOSSL, "errors", ossl_get_errors, 0);
 
     /*
      * Get ID of to_der

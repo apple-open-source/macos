@@ -224,7 +224,7 @@ bool IOPlatformFunction::initWithPlatformDoFunction(OSSymbol *functionName, OSDa
 		while (*funcNamePtr)			// Copy rest of string
 			*(tmpNamePtr++) = *(funcNamePtr++);
 		
-		sprintf (tmpNamePtr, "-%08lx", pHandle);		// Append pHandle
+		snprintf (tmpNamePtr, sizeof(tmpFunctionName), "-%08lx", pHandle);		// Append pHandle
         platformFunctionSymbol = OSSymbol::withCString(tmpFunctionName);
 		DLOG ("IOPF::initWithPlatformDoFunction(%lx) - creating platformFunctionSymbol '%s'\n", mypfobject, tmpFunctionName);
 	} else
@@ -520,7 +520,7 @@ IOPlatformFunctionIterator::
 					UInt32 *param9, UInt32 *param10, UInt32 *result)
 {
 	SInt32		fixedLen, *cmdDescPtr, paramDesc, descIndex;
-	UInt32		*cmdBase, cmdLongLen, paramsUsed, tmpLen, *paramPtr;
+	UInt32		*cmdBase, cmdLongLen, paramsUsed = 0, tmpLen, *paramPtr = NULL;
 	
 	*result = kIOPFNoError;
 	cmdBase = cmdPtr;

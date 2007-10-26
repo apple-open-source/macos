@@ -53,6 +53,7 @@
 #define kCDDAFSUtilBundlePath	"/System/Library/Filesystems/cddafs.fs"
 #define kArtistString			"Artist"
 #define kTitleString			"Title"
+#define kAudioCDString			"Audio CD"
 #define kTrackNameString		"Audio Track"
 #define kSeparatorString		"Separator"
 
@@ -74,7 +75,7 @@ CDDATrackName::CDDATrackName ( void ) :
 	
 	PRINT ( ( "CDDATrackName constructor called\n" ) );
 	
-	urlRef = CFURLCreateWithFileSystemPath ( kCFAllocatorDefault,
+	urlRef = ::CFURLCreateWithFileSystemPath ( kCFAllocatorDefault,
 											 CFSTR ( kCDDAFSUtilBundlePath ),
 											 kCFURLPOSIXPathStyle,
 											 true );
@@ -83,11 +84,11 @@ CDDATrackName::CDDATrackName ( void ) :
 	{
 		
 		#if DEBUG
-		CFShow ( urlRef );
+		::CFShow ( urlRef );
 		#endif
 		
-		bundleRef = CFBundleCreate ( kCFAllocatorDefault, urlRef );
-		CFRelease ( urlRef );
+		bundleRef = ::CFBundleCreate ( kCFAllocatorDefault, urlRef );
+		::CFRelease ( urlRef );
 		urlRef = 0;
 		
 	}
@@ -96,7 +97,7 @@ CDDATrackName::CDDATrackName ( void ) :
 	{
 		
 		#if DEBUG
-		CFShow ( bundleRef );
+		::CFShow ( bundleRef );
 		#endif
 		
 		fBundle = new TBundle ( bundleRef );
@@ -108,7 +109,7 @@ CDDATrackName::CDDATrackName ( void ) :
 	
 		fAlbumStringRef = fBundle->CopyLocalizedStringForKey (
 									CFSTR ( kTitleString ),
-									CFSTR ( kTitleString ),
+									CFSTR ( kAudioCDString ),
 									NULL ); // defaults to Localizable.strings
 		
 		fTrackNameStringRef = fBundle->CopyLocalizedStringForKey (
@@ -121,7 +122,7 @@ CDDATrackName::CDDATrackName ( void ) :
 									CFSTR ( kSeparatorString ),
 									NULL ); // defaults to Localizable.strings
 		
-		CFRelease ( bundleRef );
+		::CFRelease ( bundleRef );
 		bundleRef = NULL;
 		
 	}
@@ -140,17 +141,17 @@ CDDATrackName::~CDDATrackName ( void )
 	
 	#if DEBUG
 
-	CFShow ( fArtistStringRef );
-	CFShow ( fAlbumStringRef );
-	CFShow ( fTrackNameStringRef );
-	CFShow ( fSeparatorStringRef );
+	::CFShow ( fArtistStringRef );
+	::CFShow ( fAlbumStringRef );
+	::CFShow ( fTrackNameStringRef );
+	::CFShow ( fSeparatorStringRef );
 
 	#endif
 	
-	CFRelease ( fArtistStringRef );
-	CFRelease ( fAlbumStringRef );
-	CFRelease ( fTrackNameStringRef );
-	CFRelease ( fSeparatorStringRef );
+	::CFRelease ( fArtistStringRef );
+	::CFRelease ( fAlbumStringRef );
+	::CFRelease ( fTrackNameStringRef );
+	::CFRelease ( fSeparatorStringRef );
 	
 	fArtistStringRef 	= 0;
 	fAlbumStringRef		= 0;
@@ -186,7 +187,7 @@ CDDATrackName::Init ( const char * bsdDevNode, const void * TOCData )
 CFStringRef
 CDDATrackName::GetArtistName ( void )
 {
-	CFRetain ( fArtistStringRef );
+	::CFRetain ( fArtistStringRef );
 	return fArtistStringRef;
 }
 
@@ -198,7 +199,7 @@ CDDATrackName::GetArtistName ( void )
 CFStringRef
 CDDATrackName::GetAlbumName ( void )
 {
-	CFRetain ( fAlbumStringRef );
+	::CFRetain ( fAlbumStringRef );
 	return fAlbumStringRef;
 }
 
@@ -210,7 +211,7 @@ CDDATrackName::GetAlbumName ( void )
 CFStringRef
 CDDATrackName::GetTrackName ( UInt8 trackNumber )
 {
-	CFRetain ( fTrackNameStringRef );
+	::CFRetain ( fTrackNameStringRef );
 	return fTrackNameStringRef;
 }
 
@@ -222,7 +223,7 @@ CDDATrackName::GetTrackName ( UInt8 trackNumber )
 CFStringRef
 CDDATrackName::GetSeparatorString ( void )
 {
-	CFRetain ( fSeparatorStringRef );
+	::CFRetain ( fSeparatorStringRef );
 	return fSeparatorStringRef;
 }
 

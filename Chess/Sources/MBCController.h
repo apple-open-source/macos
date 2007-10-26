@@ -2,7 +2,7 @@
 	File:		MBCController.h
 	Contains:	Managing the entire user interface
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,15 @@
 	Change History (most recent first):
 
 		$Log: MBCController.h,v $
+		Revision 1.23.2.1  2007/03/31 03:47:35  neerache
+		Make document/save system work without UI changes <rdar://problem/4186113>
+		
+		Revision 1.23  2007/03/02 07:40:45  neerache
+		Revise document handling & saving <rdar://problems/3776337&4186113>
+		
+		Revision 1.22  2007/03/01 23:51:26  neerache
+		Offer option to speak human moves <rdar://problem/4038206>
+		
 		Revision 1.21  2004/08/16 07:49:23  neerache
 		Support flexible voices, weaker levels, accessibility
 		
@@ -98,6 +107,7 @@
     IBOutlet id 	fPlayers;
 	IBOutlet id		fPlayersSimple;
     IBOutlet id 	fSpeakMoves;
+	IBOutlet id		fSpeakHumanMoves;
     IBOutlet id 	fListenForMoves;
 	IBOutlet id		fSearchTime;
 	IBOutlet id		fBoardStyle;
@@ -124,7 +134,6 @@
 	NSString *				fWhiteType;
 	NSString *				fBlackType;
 	NSDictionary *			fLastLoad;
-	NSString *				fLastSaved;
 	NSMutableDictionary * 	fStyleLocMap;
 	NSSpeechSynthesizer *	fDefaultSynth;
 	NSSpeechSynthesizer *	fAlternateSynth;
@@ -166,19 +175,25 @@
 - (void) logFromEngine:(NSString *)text;
 
 - (BOOL)	speakMoves;
+- (BOOL)	speakHumanMoves;
 - (BOOL)	listenForMoves;
 
 - (BOOL) loadGame:(NSString *)fileName fromDict:(NSDictionary *)dict;
 - (NSDictionary *) saveGameToDict;
 - (BOOL) saveMovesTo:(NSString *)fileName;
 
-- (NSWindowController *) windowController;
-
 - (NSString *) localizedStyleName:(NSString *)name;
 
 - (NSSpeechSynthesizer *) defaultSynth;
 - (NSSpeechSynthesizer *) alternateSynth;
 - (void)loadVoiceMenu:(id)menu withSelectedVoice:(NSString *)voiceIdentifierToSelect;
+
+@end
+
+@interface MBCDocumentController : NSDocumentController {
+}
+
+- (void) addDocument:(NSDocument *)doc;
 
 @end
 

@@ -82,7 +82,8 @@ yp_order(indomain, inmap, outorder)
 	struct ypresp_order ypro;
 	struct ypreq_nokey yprnk;
 	struct timeval  tv;
-	int             r = 0;
+	int tries = 0, r = 0;
+	static int proto = YP_BIND_UDP;
 
 	if (indomain == NULL || *indomain == '\0' ||
 	    strlen(indomain) > YPMAXDOMAIN || inmap == NULL ||
@@ -102,7 +103,7 @@ again:
 	(void)memset(&ypro, 0, sizeof ypro);
 
 	r = clnt_call(ysd->dom_client, YPPROC_ORDER,
-	    xdr_ypreq_nokey, &yprnk, xdr_ypresp_order, &ypro, tv);
+	    (xdrproc_t)xdr_ypreq_nokey, &yprnk, (xdrproc_t)xdr_ypresp_order, &ypro, tv);
 	/*
 	 * XXX
 	 * NIS+ YP emulation package does not impliment YPPROC_ORDER
@@ -111,13 +112,21 @@ again:
 		r = YPERR_YPERR;
 		goto bail;
 	}
-	if (r != RPC_SUCCESS) {
-		clnt_perror(ysd->dom_client, "yp_order: clnt_call");
-		ysd->dom_vers = -1;
+
+	if (r != RPC_SUCCESS)
+	{
+		/* call failed - switch protocols and try again */
+		if (tries++) clnt_perror(ysd->dom_client, "yp_order: clnt_call");
+
+		if (proto == YP_BIND_UDP) proto = YP_BIND_TCP;
+		else proto = YP_BIND_UDP;
+		ysd->dom_vers = proto;
+
 		goto again;
 	}
+
 	*outorder = ypro.ordernum;
-	xdr_free(xdr_ypresp_order, (char *) &ypro);
+	xdr_free((xdrproc_t)xdr_ypresp_order, (char *) &ypro);
 	r = ypprot_err(ypro.stat);
 bail:
 	_yp_unbind(ysd);

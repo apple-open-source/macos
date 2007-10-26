@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/tcpdump/tcpdump/ospf6.h,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $ (LBL) */
+/* @(#) $Header: /tcpdump/master/tcpdump/ospf6.h,v 1.6 2002/12/11 07:13:56 guy Exp $ (LBL) */
 /*
  * Copyright (c) 1991, 1993, 1994, 1995, 1996, 1997
  *	The Regents of the University of California.  All rights reserved.

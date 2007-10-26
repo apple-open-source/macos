@@ -1,7 +1,7 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/DelPane.c,v 1.1.1.4 2002/09/10 23:34:42 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -24,7 +24,7 @@ XMenuDeletePane(display, menu, p_num)
     register XMPane *p_ptr;	/* Pointer to pane being deleted. */
     register XMSelect *s_ptr;	/* Pointer to selections being deleted. */
     register XMSelect *s_next;  /* Pointer to next selection to be deleted. */
-        
+
     /*
      * Find the right pane.
      */
@@ -48,7 +48,7 @@ XMenuDeletePane(display, menu, p_num)
      * association table and free their XMSelect structures.
      */
     for (
-	s_ptr = p_ptr->s_list->next; 
+	s_ptr = p_ptr->s_list->next;
 	s_ptr != p_ptr->s_list;
 	s_ptr = s_next
     ) {
@@ -63,13 +63,13 @@ XMenuDeletePane(display, menu, p_num)
 	 * Destroy the selection transparencies.
 	 */
 	XDestroySubwindows(display, p_ptr->window);
-    
+
 	/*
 	 * Destroy the pane window.
 	 */
 	XDestroyWindow(display, p_ptr->window);
     }
-    
+
     /*
      * Free the pane's XMPane structure.
      */
@@ -86,3 +86,6 @@ XMenuDeletePane(display, menu, p_num)
     _XMErrorCode = XME_NO_ERROR;
     return(p_num);
 }
+
+/* arch-tag: 32a5bfd4-4bac-4090-bb53-844110f4908e
+   (do not change this comment) */

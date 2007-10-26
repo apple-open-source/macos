@@ -3,9 +3,9 @@
 # Copyright (c) 2004 Liviu Daia <Liviu.Daia@imar.ro>
 # All rights reserved.
 #
-# $Revision: 1.1 $
-# $Id: get_anchors.pl,v 1.1 2004/12/01 02:46:42 dasenbro Exp $
-# $Source: /cvs/repository/iservers/Servers/postfix/postfix/mantools/get_anchors.pl,v $
+# $Revision$
+# $Id$
+# $Source$
 #
 
 use HTML::Parser;

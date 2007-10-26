@@ -42,16 +42,16 @@ get_toc_byte_sex(
 char *addr,
 unsigned long size)
 {
-     unsigned long magic, ar_name_size;
+     uint32_t magic;
+     unsigned long ar_name_size;
      struct ar_hdr *ar_hdr;
      char *p;
 
 	ar_hdr = (struct ar_hdr *)(addr + SARMAG);
 
-
 	p = addr + SARMAG + sizeof(struct ar_hdr) +
 	    round(strtoul(ar_hdr->ar_size, NULL, 10), sizeof(short));
-	while(p + sizeof(struct ar_hdr) + sizeof(unsigned long) < addr + size){
+	while(p + sizeof(struct ar_hdr) + sizeof(uint32_t) < addr + size){
 	    ar_hdr = (struct ar_hdr *)p;
 	    if(strncmp(ar_hdr->ar_name, AR_EFMT1, sizeof(AR_EFMT1) - 1) == 0)
 		ar_name_size = strtoul(ar_hdr->ar_name + sizeof(AR_EFMT1) - 1,
@@ -59,10 +59,11 @@ unsigned long size)
 	    else
 		ar_name_size = 0;
 	    p += sizeof(struct ar_hdr);
-	    memcpy(&magic, p + ar_name_size, sizeof(unsigned long));
-	    if(magic == MH_MAGIC_VALUE)
+	    memcpy(&magic, p + ar_name_size, sizeof(uint32_t));
+	    if(magic == MH_MAGIC || magic == MH_MAGIC_64)
 		return(get_host_byte_sex());
-	    else if(magic == SWAP_LONG(MH_MAGIC_VALUE))
+	    else if(magic == SWAP_INT(MH_MAGIC) ||
+		    magic == SWAP_INT(MH_MAGIC_64))
 		return(get_host_byte_sex() == BIG_ENDIAN_BYTE_SEX ?
 		       LITTLE_ENDIAN_BYTE_SEX : BIG_ENDIAN_BYTE_SEX);
 	    p += round(strtoul(ar_hdr->ar_size, NULL, 10), sizeof(short));

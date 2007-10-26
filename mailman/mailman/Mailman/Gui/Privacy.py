@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,10 +12,10 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software 
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
-"""MailList mixin class managing the privacy options.
-"""
+"""MailList mixin class managing the privacy options."""
 
 import re
 
@@ -306,6 +306,12 @@ class Privacy(GUIBase):
              _("""Should messages from non-members, which are automatically
              discarded, be forwarded to the list moderator?""")),
 
+            ('nonmember_rejection_notice', mm_cfg.Text, (10, WIDTH), 1,
+             _("""Text to include in any rejection notice to be sent to
+             non-members who post to this list. This notice can include
+             the list's owner address by %%(listowner)s and replaces the
+             internally crafted default message.""")),
+
             ]
 
         recip_rtn = [
@@ -384,7 +390,13 @@ class Privacy(GUIBase):
 
              You can have more than one filter rule for your list.  In that
              case, each rule is matched in turn, with processing stopped after
-             the first match.""")),
+             the first match.
+
+             Note that headers are collected from all the attachments 
+             (except for the mailman administrivia message) and
+             matched against the regular expressions. With this feature,
+             you can effectively sort out messages with dangerous file
+             types or file name extensions.""")),
 
             _('Legacy anti-spam filters'),
 
@@ -429,7 +441,12 @@ class Privacy(GUIBase):
     # everything else can be done by the base class's handleForm() method.
     # However, to do this we need an awful hack.  _setValue() and
     # _getValidValue() will essentially ignore any hdrfilter_* form variables.
-    def handleForm(self, mlist, category, subcat, cgidata, doc):
+    # TK: we should call this function only in subcat == 'spam'
+    def _handleForm(self, mlist, category, subcat, cgidata, doc):
+        # TK: If there is no hdrfilter_* in cgidata, we should not touch
+        # the header filter rules.
+        if not cgidata.has_key('hdrfilter_rebox_01'):
+            return
         # First deal with
         rules = []
         # We start i at 1 and keep going until we no longer find items keyed
@@ -462,6 +479,9 @@ class Privacy(GUIBase):
                 break
             if cgidata.has_key(newtag) and not pattern:
                 # This new entry is incomplete.
+                if i == 2:
+                    # OK it is the first.
+                    continue
                 doc.addError(_("""Header filter rules require a pattern.
                 Incomplete filter rules will be ignored."""))
                 continue
@@ -506,5 +526,9 @@ class Privacy(GUIBase):
             del rules[downi]
             rules.insert(downi+1, rule)
         mlist.header_filter_rules = rules
+
+    def handleForm(self, mlist, category, subcat, cgidata, doc):
+        if subcat == 'spam':
+            self._handleForm(mlist, category, subcat, cgidata, doc)
         # Everything else is dealt with by the base handler
         GUIBase.handleForm(self, mlist, category, subcat, cgidata, doc)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -172,6 +172,12 @@ bool AppleGPIO::start(IOService *provider)
 						fAmRegisteredLock = IOLockAlloc();
 						fAmEnabledLock = IOSimpleLockAlloc();
 					}
+					
+					// This is a bit of overkill.  Strictly speaking the lock needs to protect
+					// individual platformFunc array entries so that only one thread is executing
+					// that function at a time.  The way we're using it here is only one of *any*
+					// of the platform functions can be executing at a time.
+					if (!fPFLock) fPFLock = IOLockAlloc();	// Use for both On-Demand and IntGen functions
 
 					// On-Demand and IntGen functions need to have a resource published
 					func->publishPlatformFunction(this);
@@ -247,8 +253,9 @@ bool AppleGPIO::start(IOService *provider)
 					funcName = functionSym->getCStringNoCopy() + strlen(kFunctionRequiredPrefix);
 			
 				// register string list
-				strcpy(funcNameWithPrefix, kFunctionRegisterPrefix);
-				strcat(funcNameWithPrefix, funcName);
+				strncpy(funcNameWithPrefix, kFunctionRegisterPrefix, strlen (kFunctionRegisterPrefix)+1);
+				strncat(funcNameWithPrefix, funcName, sizeof (funcNameWithPrefix) - strlen (funcNameWithPrefix) - 1);
+				funcNameWithPrefix[sizeof (funcNameWithPrefix) - 1] = '\0';
 
 				if ((aKey = OSSymbol::withCString(funcNameWithPrefix)) == 0)
 					continue;
@@ -256,8 +263,9 @@ bool AppleGPIO::start(IOService *provider)
 				ADD_OBJ_TO_SET(aKey, fRegisterStrings);
 
 				// unregister string list
-				strcpy(funcNameWithPrefix, kFunctionUnregisterPrefix);
-				strcat(funcNameWithPrefix, funcName);
+				strncpy(funcNameWithPrefix, kFunctionUnregisterPrefix, strlen (kFunctionUnregisterPrefix)+1);
+				strncat(funcNameWithPrefix, funcName, sizeof (funcNameWithPrefix) - strlen (funcNameWithPrefix) - 1);
+				funcNameWithPrefix[sizeof (funcNameWithPrefix) - 1] = '\0';
 				
 				if ((aKey = OSSymbol::withCString(funcNameWithPrefix)) == 0)
 					continue;
@@ -265,8 +273,9 @@ bool AppleGPIO::start(IOService *provider)
 				ADD_OBJ_TO_SET(aKey, fUnregisterStrings);
 
 				// register string list
-				strcpy(funcNameWithPrefix, kFunctionEvtEnablePrefix);
-				strcat(funcNameWithPrefix, funcName);
+				strncpy(funcNameWithPrefix, kFunctionEvtEnablePrefix, strlen (kFunctionEvtEnablePrefix)+1);
+				strncat(funcNameWithPrefix, funcName, sizeof (funcNameWithPrefix) - strlen (funcNameWithPrefix) - 1);
+				funcNameWithPrefix[sizeof (funcNameWithPrefix) - 1] = '\0';
 
 				if ((aKey = OSSymbol::withCString(funcNameWithPrefix)) == 0)
 					continue;
@@ -274,8 +283,9 @@ bool AppleGPIO::start(IOService *provider)
 				ADD_OBJ_TO_SET(aKey, fEnableStrings);
 
 				// register string list
-				strcpy(funcNameWithPrefix, kFunctionEvtDisablePrefix);
-				strcat(funcNameWithPrefix, funcName);
+				strncpy(funcNameWithPrefix, kFunctionEvtDisablePrefix, strlen (kFunctionEvtDisablePrefix)+1);
+				strncat(funcNameWithPrefix, funcName, sizeof (funcNameWithPrefix) - strlen (funcNameWithPrefix) - 1);
+				funcNameWithPrefix[sizeof (funcNameWithPrefix) - 1] = '\0';
 
 				if ((aKey = OSSymbol::withCString(funcNameWithPrefix)) == 0)
 					continue;
@@ -330,6 +340,8 @@ void AppleGPIO::stop(IOService *provider)
 		unregisterWithParent();
 		fIntGen = false;
 	}
+	
+	if (fPFLock) { IOLockFree (fPFLock); fPFLock = NULL; }
 	
 	IOSimpleLockLock(fClientsLock);
 	
@@ -489,13 +501,21 @@ bool AppleGPIO::performFunction(IOPlatformFunction *func, void *pfParam1 = 0,
 	if (!func)
 		return false;
 	
-	if (!(iter = func->getCommandIterator()))
+	if (fPFLock)
+		IOLockLock (fPFLock);
+		
+	if (!(iter = func->getCommandIterator())) {
+		if (fPFLock)
+			IOLockUnlock (fPFLock);
 		return false;
+	}
 	
 	while (iter->getNextCommand (&cmd, &cmdLen, &param1, &param2, &param3, &param4, 
 		&param5, &param6, &param7, &param8, &param9, &param10, &result)) {
 		if (result != kIOPFNoError) {
 			iter->release();
+			if (fPFLock)
+				IOLockUnlock (fPFLock);
 			return false;
 		}
 		DLOG ("AppleGPIO::performFunction - 1)0x%lx, 2)0x%lx, 3)0x%lx, 4)0x%lx, 5)0x%lx,"
@@ -515,6 +535,8 @@ bool AppleGPIO::performFunction(IOPlatformFunction *func, void *pfParam1 = 0,
 					false, (void *)fGPIOID, (void *)param1, (void *)param2, 0)) != kIOReturnSuccess)
 				{
 					iter->release();
+					if (fPFLock)
+						IOLockUnlock (fPFLock);
 					return false;
 				}
 				break;
@@ -522,14 +544,21 @@ bool AppleGPIO::performFunction(IOPlatformFunction *func, void *pfParam1 = 0,
 			case kCommandReadGPIO:
 	
 				// Is there a place to put the result?
-				if ((pfParam1 == 0) || (pfParam1 == (void *)1)) return(false);
-	
+				if ((pfParam1 == 0) || (pfParam1 == (void *)1)) {
+					if (fPFLock)
+						IOLockUnlock (fPFLock);
+
+					return(false);
+				}
+				
 				// get the current register state
 				if ((ret = fParent->callPlatformFunction(fSymGPIOParentReadGPIO,
 						false, (void *)fGPIOID, (void *)&data, 0, 0))
 						!= kIOReturnSuccess)
 				{
 					iter->release();
+					if (fPFLock)
+						IOLockUnlock (fPFLock);
 					return false;
 				}
 	
@@ -547,12 +576,17 @@ bool AppleGPIO::performFunction(IOPlatformFunction *func, void *pfParam1 = 0,
 			default:
 				DLOG ("AppleGPIO::performFunction - bad command %ld\n", cmd);
 				iter->release();
+				if (fPFLock)
+					IOLockUnlock (fPFLock);
 				return false;		        	    
 		}
 	}
 
 	iter->release();
 
+	if (fPFLock)
+		IOLockUnlock (fPFLock);
+		
 	DLOG ("AppleGPIO::performFunction - done\n");
 	return true;
 }

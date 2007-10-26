@@ -46,7 +46,7 @@ define(`attributeBody',
 `    {
 ifelse(index(`$1',`s'),-1,
 `        CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER,
-        {(char *)$3},',
+        {(char *)((uint64_t)$3<<32|$3)},',
 `        CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
         {$4},')
         CSSM_DB_ATTRIBUTE_FORMAT_$7
@@ -143,7 +143,7 @@ define(`newAttributeBody',
 `{
 ifelse(index(`$1',`s'),-1,
 `    CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER,
-    {(char *)$3},',
+     {(char *)((uint64_t)$3<<32|$3)},',
 `    CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
     {$4},')
     CSSM_DB_ATTRIBUTE_FORMAT_$7
@@ -213,7 +213,7 @@ attribute(`  i', Creator, kSecCreatorItemAttr, "Creator", 0, NULL, UINT32)
 attribute(`  i', Type, kSecTypeItemAttr, "Type", 0, NULL, UINT32)
 attribute(`  i', ScriptCode, kSecScriptCodeItemAttr, "ScriptCode", 0, NULL, SINT32)
 attribute(`  s', PrintName, kSecLabelItemAttr, "PrintName", 0, NULL, BLOB)
-attribute(`  s', Alias, kSecAliasItemAttr, "Alias", 0, NULL, BLOB)
+attribute(`  s', Alias, kSecAlias, "Alias", 0, NULL, BLOB)
 attribute(`  i', Invisible, kSecInvisibleItemAttr, "Invisible", 0, NULL, SINT32)
 attribute(`  i', Negative, kSecNegativeItemAttr, "Negative", 0, NULL, SINT32)
 attribute(`  i', CustomIcon, kSecCustomIconItemAttr, "CustomIcon", 0, NULL, SINT32)
@@ -232,7 +232,7 @@ attribute(`  i', Creator, kSecCreatorItemAttr, "Creator", 0, NULL, UINT32)
 attribute(`  i', Type, kSecTypeItemAttr, "Type", 0, NULL, UINT32)
 attribute(`  i', ScriptCode, kSecScriptCodeItemAttr, "ScriptCode", 0, NULL, SINT32)
 attribute(`  s', PrintName, kSecLabelItemAttr, "PrintName", 0, NULL, BLOB)
-attribute(`  s', Alias, kSecAliasItemAttr, "Alias", 0, NULL, BLOB)
+attribute(`  s', Alias, kSecAlias, "Alias", 0, NULL, BLOB)
 attribute(`  i', Invisible, kSecInvisibleItemAttr, "Invisible", 0, NULL, SINT32)
 attribute(`  i', Negative, kSecNegativeItemAttr, "Negative", 0, NULL, SINT32)
 attribute(`  i', CustomIcon, kSecCustomIconItemAttr, "CustomIcon", 0, NULL, SINT32)
@@ -254,7 +254,7 @@ attribute(`  i', Creator, kSecCreatorItemAttr, "Creator", 0, NULL, UINT32)
 attribute(`  i', Type, kSecTypeItemAttr, "Type", 0, NULL, UINT32)
 attribute(`  i', ScriptCode, kSecScriptCodeItemAttr, "ScriptCode", 0, NULL, SINT32)
 attribute(`  s', PrintName, kSecLabelItemAttr, "PrintName", 0, NULL, BLOB)
-attribute(`  s', Alias, kSecAliasItemAttr, "Alias", 0, NULL, BLOB)
+attribute(`  s', Alias, kSecAlias, "Alias", 0, NULL, BLOB)
 attribute(`  i', Invisible, kSecInvisibleItemAttr, "Invisible", 0, NULL, SINT32)
 attribute(`  i', Negative, kSecNegativeItemAttr, "Negative", 0, NULL, SINT32)
 attribute(`  i', CustomIcon, kSecCustomIconItemAttr, "CustomIcon", 0, NULL, SINT32)
@@ -272,7 +272,7 @@ startNewClass(X509Certificate)
 newAttribute(`UISs', CertType, kSecCertTypeItemAttr, "CertType", 0, NULL, UINT32)
 newAttribute(`  Ss', CertEncoding, kSecCertEncodingItemAttr, "CertEncoding", 0, NULL, UINT32)
 newAttribute(`  Ss', PrintName, kSecLabelItemAttr, "PrintName", 0, NULL, BLOB)
-newAttribute(` ISs', Alias, kSecAliasItemAttr, "Alias", 0, NULL, BLOB)
+newAttribute(` ISs', Alias, kSecAlias, "Alias", 0, NULL, BLOB)
 newAttribute(` ISs', Subject, kSecSubjectItemAttr, "Subject", 0, NULL, BLOB)
 newAttribute(`UISs', Issuer, kSecIssuerItemAttr, "Issuer", 0, NULL, BLOB)
 newAttribute(`UISs', SerialNumber, kSecSerialNumberItemAttr, "SerialNumber", 0, NULL, BLOB)
@@ -281,10 +281,10 @@ newAttribute(` ISs', PublicKeyHash, kSecPublicKeyHashItemAttr, "PublicKeyHash", 
 endNewClass()
 
 startNewClass(X509Crl)
-newAttribute(`UISs', CrlType, kSecCrlTypeItemAttr, "CrlType", 0, NULL, UINT32)
+newAttribute(`UISs', CrlType, kSecCrlType, "CrlType", 0, NULL, UINT32)
 newAttribute(`  Ss', CrlEncoding, kSecCrlEncodingItemAttr, "CrlEncoding", 0, NULL, UINT32)
 newAttribute(`  Ss', PrintName, kSecLabelItemAttr, "PrintName", 0, NULL, BLOB)
-newAttribute(`  Ss', Alias, kSecAliasItemAttr, "Alias", 0, NULL, BLOB)
+newAttribute(`  Ss', Alias, kSecAlias, "Alias", 0, NULL, BLOB)
 newAttribute(`UISs', Issuer, kSecIssuerItemAttr, "Issuer", 0, NULL, BLOB)
 newAttribute(`UISs', ThisUpdate, kSecThisUpdateItemAttr, "ThisUpdate", 0, NULL, BLOB)
 newAttribute(`UISs', NextUpdate, kSecNextUpdateItemAttr, "NextUpdate", 0, NULL, BLOB)
@@ -309,9 +309,17 @@ newAttribute(`UISs', DbSSType, kSecReferralDbSSTypeAttr, "DbSSType", 0, NULL, UI
 newAttribute(` ISs', KeyLabel, kSecReferralKeyLabelAttr, "KeyLabel", 0, NULL, BLOB)
 newAttribute(` ISs', KeyAppTag, kSecReferralKeyAppTagAttr, "KeyAppTag", 0, NULL, BLOB)
 newAttribute(`  Ss', PrintName, kSecLabelItemAttr, "PrintName", 0, NULL, BLOB)
-newAttribute(`  Ss', Alias, kSecAliasItemAttr, "Alias", 0, NULL, BLOB)
+newAttribute(`  Ss', Alias, kSecAlias, "Alias", 0, NULL, BLOB)
 endNewClass()
 
+// Extended Attribute 
+startNewClass(ExtendedAttribute)
+newAttribute(`UISs', RecordType, kExtendedAttrRecordTypeAttr, "RecordType", 0, NULL, UINT32)
+newAttribute(`UISs', ItemID, kExtendedAttrItemIDAttr, "ItemID", 0, NULL, BLOB)
+newAttribute(`UISs', AttributeName, kExtendedAttrAttributeNameAttr, "AttributeName", 0, NULL, BLOB)
+newAttribute(`  Ss', ModDate, kSecModDateItemAttr, "ModDate", 0, NULL, TIME_DATE)
+newAttribute(`  Ss', AttributeValue, kExtendedAttrAttributeValueAttr, "AttributeValue", 0, NULL, BLOB)
+endNewClass()
 
 divert(3)
 static const CSSM_DB_RECORD_ATTRIBUTE_INFO Attributes[] =
@@ -389,7 +397,7 @@ attributeInfo(SecKeychainAttrType attrType)
     case kSecTypeItemAttr: return kGenericType;
     case kSecScriptCodeItemAttr: return kGenericScriptCode;
     case kSecLabelItemAttr: return kGenericPrintName;
-    case kSecAliasItemAttr: return kGenericAlias;
+    case kSecAlias: return kGenericAlias;
     case kSecInvisibleItemAttr: return kGenericInvisible;
     case kSecNegativeItemAttr: return kGenericNegative;
     case kSecCustomIconItemAttr: return kGenericCustomIcon;
@@ -429,7 +437,11 @@ attributeInfo(SecKeychainAttrType attrType)
 	case kSecReferralDbNetnameAttr: return kUnlockReferralDbNetname;
 	case kSecReferralKeyLabelAttr: return kUnlockReferralKeyLabel;
 	case kSecReferralKeyAppTagAttr: return kUnlockReferralKeyAppTag;
-
+	/* Unique ExtendedAttribute attributes */
+	case kExtendedAttrRecordTypeAttr: return kExtendedAttributeRecordType;
+	case kExtendedAttrItemIDAttr: return kExtendedAttributeItemID;
+	case kExtendedAttrAttributeNameAttr: return kExtendedAttributeAttributeName;
+	case kExtendedAttrAttributeValueAttr: return kExtendedAttributeAttributeValue;
 	/* ??? */
 	case kSecProtectedDataItemAttr:  return kGenericProtected;
     default:

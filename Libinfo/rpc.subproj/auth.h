@@ -91,7 +91,12 @@ enum auth_stat {
 	AUTH_FAILED=7			/* some unknown reason */
 };
 
-typedef unsigned long u_int32;	/* 32-bit unsigned integers */
+/* 32-bit unsigned integers */
+#ifdef __LP64__
+typedef unsigned int u_int32;
+#else
+typedef unsigned long u_int32;
+#endif
 
 union des_block {
 	struct {

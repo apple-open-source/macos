@@ -1,5 +1,5 @@
 .\"*****************************************************************************
-.\" Copyright 1994-2002,2003 by Thomas E. Dickey                               *
+.\" Copyright 1994-2004,2005 by Thomas E. Dickey                               *
 .\" All Rights Reserved.                                                       *
 .\"                                                                            *
 .\" Permission to use, copy, modify, and distribute this software and its      *
@@ -18,31 +18,20 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR *
 .\" IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.                *
 .\"*****************************************************************************
-.\" $Id: diffstat.1,v 1.15 2003/02/15 01:05:12 tom Exp $
-.de DS
-.RS
-.nf
-.sp
-..
-.de DE
-.fi
-.RE
-.sp .5
-..
+.\" $Id: diffstat.1,v 1.18 2005/08/15 23:55:59 tom Exp $
 .TH DIFFSTAT 1
 .SH NAME
 \fBdiffstat\fP \- make histogram from diff-output
-.SH USAGE
-\fBdiffstat\fP\fI [options] [file-specifications]\fP
 .SH SYNOPSIS
+\fBdiffstat\fP\fI [options] [file-specifications]\fP
+.SH DESCRIPTION
 This program reads the output of \fBdiff\fP and displays a histogram
 of the insertions, deletions, and modifications per-file.
-.SH DESCRIPTION
 Diffstat is a program that is useful for reviewing large, complex patch files.
 It reads from one or more input files which contain output from \fBdiff\fP,
 producing a histogram of the total lines changed for each file referenced.
 If the input filename ends with .bz2, .Z or .gz, diffstat will read the
-uncompressed data via a pipe.
+uncompressed data via a pipe from the corresponding program.
 .PP
 Diffstat recognizes the most popular types of output from diff:
 .RS
@@ -67,49 +56,97 @@ If no filename is given on the command line,
 \fBdiffstat\fP reads the differences from the standard input.
 .SH OPTIONS
 .TP
-.B \-c
+.B -c
 prefix each line of output with "#", making it a comment-line for shell
 scripts.
 .TP
-.BI \-e " file"
+.BI -e " file"
 redirect standard error to \fIfile\fR.
 .TP
-.BI \-f " format"
-specify 0 for concise, 1 for normal output.
+.BI -f " format"
+specify the format of the histogram.
+.RS
+.TP 3
+0
+for concise, which shows only the value and a single histogram code for each of
+insert (+),
+delete (-) or
+modify (!)
+.TP 3
+1
+for normal output,
+.TP 3
+2
+to fill in the histogram with dots,
+.TP 3
+4
+to print each value with the histogram.
+.RE
+.IP
+Any nonzero value gives a histogram.
+The dots and individual values can be combined,
+e.g., \fB-f6\fP gives both.
 .TP
-.B \-h
+.B -h
 prints the usage message and exits.
 .TP
-.B \-k
+.B -k
 suppress the merging of filenames in the report.
 .TP
-.BI \-n " number"
+.B -l
+lists only the filenames.
+No histogram is generated.
+.TP
+.BI -n " number"
 specify the minimum width used for filenames.
 If you don't specify this, \fBdiffstat\fP uses the length of the longest
 filename, after stripping common prefixes.
 .TP
-.BI \-o " file"
+.BI -o " file"
 redirect standard output to \fIfile\fR.
 .TP
-.BI \-p " number"
+.BI -p " number"
 override the logic that strips common pathnames, simulating the \fBpatch\fP
 "-p" option.
 .TP
-.B \-u
+.B -r " code"
+provides optional rounding of the data shown in histogram,
+rather than truncating with error adjustments.
+.RS
+.TP 3
+0
+is the default.
+No rounding is performed,
+but accumulated errors are added to following columns.
+.TP 3
+1
+rounds the data
+.TP 3
+2
+rounds the data and adjusts the histogram to ensure that
+it displays something if there are any differences even if
+those would normally be rounded to zero.
+.RE
+.TP
+.B -t
+overrides the histogram,
+generates output of comma separated values.
+.TP
+.B -u
 suppress the sorting of filenames in the report.
 .TP
-.B \-v
+.B -v
 show progress,
 e.g., if the output is redirected to a file,
 write progress messages to the standard error.
 .TP
-.B \-V
+.B -V
 prints the current version number and exits.
 .TP
-.BI \-w " number"
+.BI -w " number"
 specify the maximum width of the histogram.
-The plot will never be shorter than 10 columns, just in case
-the filenames get too large.
+The histogram will never be shorter than 10 columns,
+just in case the filenames get too large.
 .SH ENVIRONMENT
 .PP
 \fBDiffstat\fP runs in a portable UNIX\*R environment.
@@ -119,6 +156,11 @@ the filenames get too large.
 .SH BUGS
 .PP
 \fBDiffstat\fP makes a lot of assumptions about the format of a \fBdiff\fP file.
+.PP
+There is no way to obtain a filename from the standard diff between
+two files with no options.
+Context diffs work,
+as well as unified diffs.
 .PP
 There's no easy way to determine the degree of overlap between the
 "before" and "after" displays of modified lines.

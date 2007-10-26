@@ -23,30 +23,23 @@
  */
 
 #define LDEBUG		0			// for debugging
-#define USE_ELG		0			// to Event LoG (via XTrace) - LDEBUG must also be set
+#define USE_ELG		0			// to Event LoG (via kprintf and Firewire) - LDEBUG must also be set
 #define USE_IOL		0			// to IOLog - LDEBUG must also be set
 
 #define Sleep_Time	20
 
+#define Log IOLog
+#if USE_ELG
+	#undef Log
+	#define Log	kprintf
+#endif
+
 #if LDEBUG
     #if USE_ELG
-        #include "XTrace.h"
-        #define XTRACE(id, x, y, msg)                    								\
-        do														\
-        {														\
-            if (gXTrace)												\
-            {														\
-                static char *__xtrace = 0;              								\
-                if (__xtrace)												\
-                    gXTrace->LogAdd((UInt32)id, (UInt32)(x), (UInt32)(y), __xtrace);    				\
-                else													\
-                    __xtrace = gXTrace->LogAdd((UInt32)id, (UInt32)(x), (UInt32)(y), "AppleUSBCDC: " msg, false);	\
-            }														\
-        } while(0)
-        #define XTRACE2(id, x, y, msg) XTRACE_HELPER(gXTrace, (UInt32)id, x, y, "AppleUSBCDC: "  msg)
+		#define XTRACE(ID,A,B,STRING) {Log("%8x %8x %8x %8x AppleUSBCDC: " STRING "\n",(unsigned int)(ID),(unsigned int)(A),(unsigned int)(B), (unsigned int)IOThreadSelf());}
     #else /* not USE_ELG */
         #if USE_IOL
-            #define XTRACE(ID,A,B,STRING) {IOLog("%8x %8x %8x %8x AppleUSBCDC: " STRING "\n",(unsigned int)(ID),(unsigned int)(A),(unsigned int)(B), (unsigned int)IOThreadSelf()); IOSleep(Sleep_Time);}
+            #define XTRACE(ID,A,B,STRING) {Log("%8x %8x %8x %8x AppleUSBCDC: " STRING "\n",(unsigned int)(ID),(unsigned int)(A),(unsigned int)(B), (unsigned int)IOThreadSelf()); IOSleep(Sleep_Time);}
         #else
             #define XTRACE(id, x, y, msg)
         #endif /* USE_IOL */
@@ -57,4 +50,4 @@
     #undef USE_IOL
 #endif /* LDEBUG */
 
-#define ALERT(A,B,STRING)	IOLog("%8x %8x AppleUSBCDC: " STRING "\n", (unsigned int)(A), (unsigned int)(B))
+#define ALERT(A,B,STRING)	Log("%8x %8x AppleUSBCDC: " STRING "\n", (unsigned int)(A), (unsigned int)(B))

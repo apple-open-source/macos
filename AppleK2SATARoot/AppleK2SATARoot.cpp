@@ -634,8 +634,10 @@ AppleK2SATAIC::getInterruptType(IOService *nub, int source,
 IOInterruptAction 
 AppleK2SATAIC::getInterruptHandlerAddress(void)
 {
-
-	return  (IOInterruptAction) &AppleK2SATAIC::handleInterrupt ;
+	// change for gcc 4
+//	return  (IOInterruptAction) &AppleK2SATAIC::handleInterrupt ;
+	return  OSMemberFunctionCast(IOInterruptAction, this, &AppleK2SATAIC::handleInterrupt) ;
+	
 
 }
 

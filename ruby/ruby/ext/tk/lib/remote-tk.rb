@@ -60,17 +60,20 @@ class << RemoteTkIp
 end
 
 class RemoteTkIp
-  include TkUtil
-
   def initialize(remote_ip, displayof=nil, timeout=5)
     if $SAFE >= 4
       fail SecurityError, "cannot access another interpreter at level #{$SAFE}"
     end
 
     @interp = MultiTkIp.__getip
+    if @interp.safe?
+      fail SecurityError, "safe-IP cannot create RemoteTkIp"
+    end
+
+
     @interp.allow_ruby_exit = false
     @appname = @interp._invoke('tk', 'appname')
-    @remote = remote_ip.dup.freeze
+    @remote = remote_ip.to_s.dup.freeze
     if displayof.kind_of?(TkWindow)
       @displayof = displayof.path.dup.freeze
     else
@@ -96,7 +99,7 @@ class RemoteTkIp
 
     @safe_level = [$SAFE]
 
-    @wait_on_mainloop = [true, false]
+    @wait_on_mainloop = [true, 0]
 
     @cmd_queue = Queue.new
 
@@ -129,11 +132,26 @@ class RemoteTkIp
     self.freeze  # defend against modification
   end
 
+  def manipulable?
+    return true if (Thread.current.group == ThreadGroup::Default)
+    MultiTkIp.__getip == @interp && ! @interp.safe?
+  end
+  def self.manipulable?
+    true
+  end
+
+  def _is_master_of?(tcltkip_obj)
+    tcltkip_obj == @interp
+  end
+  protected :_is_master_of?
+
   def _ip_id_
     @ip_id
   end
 
   def _available_check(timeout = 5)
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
+
     return nil if timeout < 1
     @ret_val.value = ''
     @interp._invoke('send', '-async', @remote, 
@@ -152,6 +170,8 @@ class RemoteTkIp
   private :_available_check
 
   def _create_connection
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
+
     ip_id = '_' + @interp._invoke('send', @remote, <<-'EOS') + '_'
       if {[catch {set _rubytk_control_ip_id_} ret] != 0} {
         set _rubytk_control_ip_id_ 0
@@ -172,6 +192,8 @@ class RemoteTkIp
   private :_create_connection
 
   def _appsend(enc_mode, async, *cmds)
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
+
     p ['_appsend', [@remote, @displayof], enc_mode, async, cmds] if $DEBUG
     if $SAFE >= 4
       fail SecurityError, "cannot send commands at level 4"
@@ -179,7 +201,7 @@ class RemoteTkIp
       fail SecurityError, "cannot send tainted commands at level #{$SAFE}"
     end
 
-    cmds = @interp._merge_tklist(*_conv_args([], enc_mode, *cmds))
+    cmds = @interp._merge_tklist(*TkUtil::_conv_args([], enc_mode, *cmds))
     if @displayof
       if async
         @interp.__invoke('send', '-async', '-displayof', @displayof, 
@@ -212,6 +234,8 @@ class RemoteTkIp
   end
 
   def appsend(async, *args)
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
+
     if async != true && async != false && async != nil
       args.unshift(async)
       async = false
@@ -224,6 +248,8 @@ class RemoteTkIp
   end
 
   def rb_appsend(async, *args)
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
+
     if async != true && async != false && async != nil
       args.unshift(async)
       async = false
@@ -269,17 +295,39 @@ class RemoteTkIp
   end
 
   def deleted?
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
+
     if @displayof
       lst = @interp._invoke_without_enc('winfo', 'interps', 
                                         '-displayof', @displayof)
     else
       lst = @interp._invoke_without_enc('winfo', 'interps')
     end
-    unless @interp._split_tklist(lst).index(@remote)
+    # unless @interp._split_tklist(lst).index(@remote)
+    unless @interp._split_tklist(lst).index(_toUTF8(@remote))
       true
     else
       false
     end
+  end
+
+  def has_mainwindow?
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
+
+    begin
+      inf = @interp._invoke_without_enc('info', 'command', '.')
+    rescue Exception
+      return nil
+    end
+    if !inf.kind_of?(String) || inf != '.'
+      false
+    else
+      true
+    end
+  end
+
+  def invalid_namespace?
+    false
   end
 
   def restart
@@ -316,11 +364,13 @@ class RemoteTkIp
     _appsend(true, false, *args)
   end
 
-  def _toUTF8(str, encoding)
+  def _toUTF8(str, encoding=nil)
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
     @interp._toUTF8(str, encoding)
   end
 
-  def _fromUTF8(str, encoding)
+  def _fromUTF8(str, encoding=nil)
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
     @interp._fromUTF8(str, encoding)
   end
 
@@ -333,30 +383,31 @@ class RemoteTkIp
   end
 
   def _return_value
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
     @interp._return_value
   end
 
   def _get_variable(var_name, flag)
     # ignore flag
-    _appsend(false, 'set', _get_eval_string(var_name))
+    _appsend(false, 'set', TkComm::_get_eval_string(var_name))
   end
   def _get_variable2(var_name, index_name, flag)
     # ignore flag
-    _appsend(false, 'set', "#{_get_eval_string(var_name)}(#{_get_eval_string(index_name)})")
+    _appsend(false, 'set', "#{TkComm::_get_eval_string(var_name)}(#{TkComm::_get_eval_string(index_name)})")
   end
 
   def _set_variable(var_name, value, flag)
     # ignore flag
-    _appsend(false, 'set', _get_eval_string(var_name), _get_eval_string(value))
+    _appsend(false, 'set', TkComm::_get_eval_string(var_name), TkComm::_get_eval_string(value))
   end
   def _set_variable2(var_name, index_name, value, flag)
     # ignore flag
-    _appsend(false, 'set', "#{_get_eval_string(var_name)}(#{_get_eval_string(index_name)})", _get_eval_string(value))
+    _appsend(false, 'set', "#{TkComm::_get_eval_string(var_name)}(#{TkComm::_get_eval_string(index_name)})", TkComm::_get_eval_string(value))
   end
 
   def _unset_variable(var_name, flag)
     # ignore flag
-    _appsend(false, 'unset', _get_eval_string(var_name))
+    _appsend(false, 'unset', TkComm::_get_eval_string(var_name))
   end
   def _unset_variable2(var_name, index_name, flag)
     # ignore flag
@@ -364,36 +415,43 @@ class RemoteTkIp
   end
 
   def _get_global_var(var_name)
-    _appsend(false, 'set', _get_eval_string(var_name))
+    _appsend(false, 'set', TkComm::_get_eval_string(var_name))
   end
   def _get_global_var2(var_name, index_name)
-    _appsend(false, 'set', "#{_get_eval_string(var_name)}(#{_get_eval_string(index_name)})")
+    _appsend(false, 'set', "#{TkComm::_get_eval_string(var_name)}(#{TkComm::_get_eval_string(index_name)})")
   end
 
   def _set_global_var(var_name, value)
-    _appsend(false, 'set', _get_eval_string(var_name), _get_eval_string(value))
+    _appsend(false, 'set', TkComm::_get_eval_string(var_name), TkComm::_get_eval_string(value))
   end
   def _set_global_var2(var_name, index_name, value)
-    _appsend(false, 'set', "#{_get_eval_string(var_name)}(#{_get_eval_string(index_name)})", _get_eval_string(value))
+    _appsend(false, 'set', "#{TkComm::_get_eval_string(var_name)}(#{TkComm::_get_eval_string(index_name)})", TkComm::_get_eval_string(value))
   end
 
   def _unset_global_var(var_name)
-    _appsend(false, 'unset', _get_eval_string(var_name))
+    _appsend(false, 'unset', TkComm::_get_eval_string(var_name))
   end
   def _unset_global_var2(var_name, index_name)
     _appsend(false, 'unset', "#{var_name}(#{index_name})")
   end
 
   def _split_tklist(str)
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
     @interp._split_tklist(str)
   end
 
   def _merge_tklist(*args)
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
     @interp._merge_tklist(*args)
   end
 
   def _conv_listelement(str)
+    raise SecurityError, "no permission to manipulate" unless self.manipulable?
     @interp._conv_listelement(str)
+  end
+
+  def _create_console
+    fail RuntimeError, 'not support "_create_console" on the remote interpreter'
   end
 
   def mainloop

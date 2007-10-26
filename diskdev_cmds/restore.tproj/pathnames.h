@@ -62,5 +62,3 @@
  */
 
 #include <paths.h>
-
-#define	_PATH_DEFTAPE	"/dev/rmt8"

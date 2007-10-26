@@ -24,24 +24,24 @@
 
 #include "includes.h"
 
+extern struct current_user current_user;
+
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_VFS
 
-static int fake_perms_stat(vfs_handle_struct *handle, connection_struct *conn, const char *fname, SMB_STRUCT_STAT *sbuf)
+static int fake_perms_stat(vfs_handle_struct *handle, const char *fname, SMB_STRUCT_STAT *sbuf)
 {
 	int ret = -1;
 
-	ret = SMB_VFS_NEXT_STAT(handle, conn, fname, sbuf);
+	ret = SMB_VFS_NEXT_STAT(handle, fname, sbuf);
 	if (ret == 0) {
-		extern struct current_user current_user;
-		
 		if (S_ISDIR(sbuf->st_mode)) {
 			sbuf->st_mode = S_IFDIR | S_IRWXU;
 		} else {
 			sbuf->st_mode = S_IRWXU;
 		}
-		sbuf->st_uid = current_user.uid;
-		sbuf->st_gid = current_user.gid;
+		sbuf->st_uid = current_user.ut.uid;
+		sbuf->st_gid = current_user.ut.gid;
 	}
 
 	return ret;
@@ -53,15 +53,13 @@ static int fake_perms_fstat(vfs_handle_struct *handle, files_struct *fsp, int fd
 
 	ret = SMB_VFS_NEXT_FSTAT(handle, fsp, fd, sbuf);
 	if (ret == 0) {
-		extern struct current_user current_user;
-		
 		if (S_ISDIR(sbuf->st_mode)) {
 			sbuf->st_mode = S_IFDIR | S_IRWXU;
 		} else {
 			sbuf->st_mode = S_IRWXU;
 		}
-		sbuf->st_uid = current_user.uid;
-		sbuf->st_gid = current_user.gid;
+		sbuf->st_uid = current_user.ut.uid;
+		sbuf->st_gid = current_user.ut.gid;
 	}
 	return ret;
 }
@@ -75,6 +73,7 @@ static vfs_op_tuple fake_perms_ops[] = {
 	{SMB_VFS_OP(NULL),		SMB_VFS_OP_NOOP,	SMB_VFS_LAYER_NOOP}
 };
 
+NTSTATUS vfs_fake_perms_init(void);
 NTSTATUS vfs_fake_perms_init(void)
 {
 	return smb_register_vfs(SMB_VFS_INTERFACE_VERSION, "fake_perms", fake_perms_ops);

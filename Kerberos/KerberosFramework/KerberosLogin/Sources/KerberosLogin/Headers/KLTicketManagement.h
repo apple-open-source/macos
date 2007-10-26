@@ -31,10 +31,6 @@ KLStatus __KLAcquireInitialTicketsForCache (const char          *inCacheName,
                                             KLPrincipal         *outPrincipal,
                                             char               **outCacheName);;
 
-KLStatus __KLAcquireNewKerberos4TicketsFromKerberos5Tickets (KLPrincipal    inPrincipal,
-                                                             KLPrincipal   *outPrincipal,
-                                                             char         **outCredCacheName);
-
 KLStatus __KLVerifyInitialTickets (KLPrincipal   inPrincipal,
                                    KLBoolean     inFailIfNoHostKey,
                                    KLPrincipal  *outPrincipal,

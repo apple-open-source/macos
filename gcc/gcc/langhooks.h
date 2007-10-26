@@ -434,11 +434,6 @@ struct lang_hooks
 			    enum built_in_class bt_class,
 			    const char *library_name, tree attrs);
 
-  /* APPLE LOCAL begin 4133801 */
-  void (*start_source_file) (int n, const char *s);
-  void (*end_source_file) (int n, const char *s);
-  /* APPLE LOCAL end 4133801 */
-
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */
 };

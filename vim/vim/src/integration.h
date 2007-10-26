@@ -418,10 +418,6 @@ void workshop_minimize_shell(Widget shell);
 /* Maximize (deiconify) the given shell */
 void workshop_maximize_shell(Widget shell);
 
-/* Get the size of a window shell; useful to compute the information
- * needed by workshop_frame_moved */
-void shellRectangle(Widget shell, XRectangle *r);
-
 /* Called by frame.cc -- editor shouldn't call this directly.
  * Perhaps we need an integrationP.h file ? */
 void workshop_perform_verb(char *verb, void *clientData);

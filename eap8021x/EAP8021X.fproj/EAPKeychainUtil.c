@@ -33,8 +33,7 @@
 #include <Security/SecKeychainItem.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFUUID.h>
-#include <EAP8021X/EAPSecurity.h>
-
+#include "EAPSecurity.h"
 #include "EAPKeychainUtil.h"
 
 OSStatus
@@ -60,15 +59,15 @@ EAPSecKeychainPasswordItemRemove(SecKeychainRef keychain,
 					 &item);
     CFRelease(unique_id);
     if (status != noErr) {
-	fprintf(stderr, "SecKeychainFindGenericPassword failed: %s (%ld)\n", 
-		EAPSecurityErrorString(status), status);
+	fprintf(stderr, "SecKeychainFindGenericPassword failed: %s (%d)\n", 
+		EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
     status = SecKeychainItemDelete(item);
     CFRelease(item);
     if (status != noErr) {
-	fprintf(stderr, "SecKeychainItemDelete() failed: %s (%ld)\n",
-		EAPSecurityErrorString(status), status);
+	fprintf(stderr, "SecKeychainItemDelete() failed: %s (%d)\n",
+		EAPSecurityErrorString(status), (int)status);
 
     }
  done:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,11 @@
 //
 // transition - securityd IPC-to-class-methods transition layer
 //
+// This file contains all server-side MIG implementations for the main
+// securityd protocol ("ucsp"). It dispatches them into the vast object
+// conspiracy that is securityd, anchored in the Server object.
+//
+#include <securityd_client/ss_types.h>
 #include <securityd_client/ucsp.h>
 #include "server.h"
 #include "session.h"
@@ -32,25 +37,25 @@
 #include "kcdatabase.h"
 #include "tokendatabase.h"
 #include "kckey.h"
-#include "transwalkers.h"
 #include "child.h"
 #include <mach/mach_error.h>
+#include <securityd_client/xdr_cssm.h>
+#include <securityd_client/xdr_auth.h>
+#include <securityd_client/xdr_dldb.h>
 
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFPropertyList.h>
 
-
 //
 // Bracket Macros
 //
-#define UCSP_ARGS	mach_port_t servicePort, mach_port_t replyPort, audit_token_t auditToken, \
-                    CSSM_RETURN *rcode
-#define CONTEXT_ARGS Context context, Pointer contextBase, Context::Attr *attributes, mach_msg_type_number_t attrSize
+#define UCSP_ARGS	mach_port_t servicePort, mach_port_t replyPort, \
+	audit_token_t auditToken, CSSM_RETURN *rcode
 
 #define BEGIN_IPCN	*rcode = CSSM_OK; try {
 #define BEGIN_IPC	BEGIN_IPCN RefPointer<Connection> connRef(&Server::connection(replyPort)); \
-Connection &connection __attribute__((unused)) = *connRef;
-#define END_IPC(base)	END_IPCN(base) Server::requestComplete(); return KERN_SUCCESS;
+		Connection &connection __attribute__((unused)) = *connRef;
+#define END_IPC(base)	END_IPCN(base) Server::requestComplete(*rcode); return KERN_SUCCESS;
 #define END_IPCN(base) 	} \
 	catch (const CommonError &err) { *rcode = CssmError::cssmError(err, CSSM_ ## base ## _BASE_ERROR); } \
 	catch (const std::bad_alloc &) { *rcode = CssmError::merge(CSSM_ERRCODE_MEMORY_ERROR, CSSM_ ## base ## _BASE_ERROR); } \
@@ -64,18 +69,144 @@ Connection &connection __attribute__((unused)) = *connRef;
 #define DATA_IN(base)	void *base, mach_msg_type_number_t base##Length
 #define DATA_OUT(base)	void **base, mach_msg_type_number_t *base##Length
 #define DATA(base)		CssmData(base, base##Length)
-#define OPTDATA(base)	(base ? &CssmData(base, base##Length) : NULL)
 
 #define SSBLOB(Type, name) makeBlob<Type>(DATA(name))
-
-#define COPY_IN(type,name)	type *name, mach_msg_type_number_t name##Length, type *name##Base
-#define COPY_OUT(type,name)	\
-	type **name, mach_msg_type_number_t *name##Length, type **name##Base
-	
 
 using LowLevelMemoryUtilities::increment;
 using LowLevelMemoryUtilities::difference;
 
+class CopyOutAccessCredentials : public CopyOut {
+public:
+	CopyOutAccessCredentials(void *copy, size_t size) : CopyOut(copy, size + sizeof(CSSM_ACCESS_CREDENTIALS), reinterpret_cast<xdrproc_t>(xdr_CSSM_ACCESS_CREDENTIALS_PTR)) { }
+	operator AccessCredentials *() { return static_cast<AccessCredentials *>(reinterpret_cast<CSSM_ACCESS_CREDENTIALS_PTR>(data())); }
+};
+
+
+class CopyOutEntryAcl : public CopyOut {
+public:
+	CopyOutEntryAcl(void *copy, size_t size) : CopyOut(copy, size + sizeof(CSSM_ACL_ENTRY_PROTOTYPE), reinterpret_cast<xdrproc_t>(xdr_CSSM_ACL_ENTRY_PROTOTYPE_PTR)) { }
+	operator AclEntryPrototype *() { return static_cast<AclEntryPrototype *>(reinterpret_cast<CSSM_ACL_ENTRY_PROTOTYPE_PTR>(data())); }
+};
+
+class CopyOutOwnerAcl : public CopyOut {
+public:
+	CopyOutOwnerAcl(void *copy, size_t size) : CopyOut(copy, size + sizeof(CSSM_ACL_OWNER_PROTOTYPE), reinterpret_cast<xdrproc_t>(xdr_CSSM_ACL_OWNER_PROTOTYPE_PTR)) { }
+	operator AclOwnerPrototype *() { return static_cast<AclOwnerPrototype *>(reinterpret_cast<CSSM_ACL_OWNER_PROTOTYPE_PTR>(data())); }
+};
+
+class CopyOutAclEntryInput : public CopyOut {
+public:
+	CopyOutAclEntryInput(void *copy, size_t size) : CopyOut(copy, size + sizeof(CSSM_ACL_ENTRY_INPUT), reinterpret_cast<xdrproc_t>(xdr_CSSM_ACL_ENTRY_INPUT_PTR)) { }
+	operator AclEntryInput *() { return static_cast<AclEntryInput *>(reinterpret_cast<CSSM_ACL_ENTRY_INPUT_PTR>(data())); }
+};
+
+
+class CopyOutDeriveData : public CopyOut {
+public:
+	CopyOutDeriveData(void *copy, size_t size) : CopyOut(copy, size + sizeof(CSSM_DERIVE_DATA), reinterpret_cast<xdrproc_t>(xdr_CSSM_DERIVE_DATA_PTR)) { }
+	CSSM_DERIVE_DATA * derive_data() { return reinterpret_cast<CSSM_DERIVE_DATA *>(data()); }
+	CSSM_DATA &cssm_data() { return derive_data()->baseData; }
+	CSSM_ALGORITHMS algorithm() { return derive_data()->algorithm; }
+};
+
+
+class CopyOutContext : public CopyOut {
+public:
+	CopyOutContext(void *copy, size_t size) : CopyOut(copy, size + sizeof(CSSM_CONTEXT), reinterpret_cast<xdrproc_t>(xdr_CSSM_CONTEXT_PTR)) { }
+	operator Context *() { return static_cast<Context *>(reinterpret_cast<CSSM_CONTEXT_PTR>(data())); }
+	Context &context() { return *static_cast<Context *>(reinterpret_cast<CSSM_CONTEXT_PTR>(data())); }
+};
+
+class CopyOutKey : public CopyOut {
+public:
+	CopyOutKey(void *copy, size_t size) : CopyOut(copy, size + sizeof(CSSM_KEY), reinterpret_cast<xdrproc_t>(xdr_CSSM_KEY_PTR)) { }
+	operator CssmKey *() { return static_cast<CssmKey *>(reinterpret_cast<CSSM_KEY_PTR>(data())); }
+	CssmKey &key() { return *static_cast<CssmKey *>(reinterpret_cast<CSSM_KEY_PTR>(data())); }
+};
+
+class CopyOutDbRecordAttributes : public CopyOut {
+public:
+	CopyOutDbRecordAttributes(void *copy, size_t size) : CopyOut(copy, size + sizeof(CSSM_DB_RECORD_ATTRIBUTE_DATA), reinterpret_cast<xdrproc_t>(xdr_CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR)) { }
+	CssmDbRecordAttributeData *attribute_data() { return static_cast<CssmDbRecordAttributeData *>(reinterpret_cast<CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR>(data())); }
+};
+
+class CopyOutQuery : public CopyOut {
+public:
+	CopyOutQuery(void *copy, size_t size) : CopyOut(copy, size, reinterpret_cast<xdrproc_t>(xdr_CSSM_QUERY_PTR)) { }
+	operator CssmQuery *() { return static_cast<CssmQuery *>(reinterpret_cast<CSSM_QUERY_PTR>(data())); }
+};
+
+//
+// Take a DATA type RPC argument purportedly representing a Blob of some kind,
+// turn it into a Blob, and fail properly if it's not kosher.
+//
+template <class BlobType>
+const BlobType *makeBlob(const CssmData &blobData, CSSM_RETURN error = CSSM_ERRCODE_INVALID_DATA)
+{
+	if (!blobData.data() || blobData.length() < sizeof(BlobType))
+		CssmError::throwMe(error);
+	const BlobType *blob = static_cast<const BlobType *>(blobData.data());
+	if (blob->totalLength != blobData.length())
+		CssmError::throwMe(error);
+	return blob;
+}
+
+//
+// An OutputData object will take memory allocated within securityd,
+// hand it to the MIG return-output parameters, and schedule it to be released
+// after the MIG reply has been sent. It will also get rid of it in case of
+// error.
+//
+class OutputData : public CssmData {
+public:
+	OutputData(void **outP, mach_msg_type_number_t *outLength)
+		: mData(*outP), mLength(*outLength) { }
+	~OutputData()
+	{ mData = data(); mLength = length(); Server::releaseWhenDone(mData); }
+    
+    void operator = (const CssmData &source)
+    { CssmData::operator = (source); }
+	
+private:
+	void * &mData;
+	mach_msg_type_number_t &mLength;
+};
+
+//
+// Choose a Database from a choice of two sources, giving preference
+// to persistent stores and to earlier sources.
+//
+Database *pickDb(Database *db1, Database *db2);
+
+static inline Database *dbOf(Key *key)	{ return key ? &key->database() : NULL; }
+
+inline Database *pickDb(Key *k1, Key *k2) { return pickDb(dbOf(k1), dbOf(k2)); }
+inline Database *pickDb(Database *db1, Key *k2) { return pickDb(db1, dbOf(k2)); }
+inline Database *pickDb(Key *k1, Database *db2) { return pickDb(dbOf(k1), db2); }
+
+//
+// Choose a Database from a choice of two sources, giving preference
+// to persistent stores and to earlier sources.
+//
+Database *pickDb(Database *db1, Database *db2)
+{
+	// persistent db1 always wins
+	if (db1 && !db1->transient())
+		return db1;
+	
+	// persistent db2 is next choice
+	if (db2 && !db2->transient())
+		return db2;
+	
+	// pick any existing transient database
+	if (db1)
+		return db1;
+	if (db2)
+		return db2;
+	
+	// none at all. use the canonical transient store
+	return Server::optionalDatabase(noDb);
+}
 
 //
 // Setup/Teardown functions.
@@ -133,18 +264,18 @@ kern_return_t ucsp_server_teardown(UCSP_ARGS)
 //
 // Common database operations
 //
-kern_return_t ucsp_server_authenticateDb(UCSP_ARGS, DbHandle db,
-	CSSM_DB_ACCESS_TYPE accessType, COPY_IN(AccessCredentials, cred))
+kern_return_t ucsp_server_authenticateDb(UCSP_ARGS, IPCDbHandle db,
+	CSSM_DB_ACCESS_TYPE accessType, DATA_IN(cred))
 {
 	BEGIN_IPC
     secdebug("dl", "authenticateDb");
-    relocate(cred, credBase, credLength);
+	CopyOutAccessCredentials creds(cred, credLength);
 	// ignoring accessType
-    Server::database(db)->authenticate(accessType, cred);
+    Server::database(db)->authenticate(accessType, creds);
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_releaseDb(UCSP_ARGS, DbHandle db)
+kern_return_t ucsp_server_releaseDb(UCSP_ARGS, IPCDbHandle db)
 {
 	BEGIN_IPC
 	connection.process().kill(*Server::database(db));
@@ -152,7 +283,7 @@ kern_return_t ucsp_server_releaseDb(UCSP_ARGS, DbHandle db)
 }
 
 
-kern_return_t ucsp_server_getDbName(UCSP_ARGS, DbHandle db, char name[PATH_MAX])
+kern_return_t ucsp_server_getDbName(UCSP_ARGS, IPCDbHandle db, char name[PATH_MAX])
 {
 	BEGIN_IPC
 	string result = Server::database(db)->dbName();
@@ -161,7 +292,7 @@ kern_return_t ucsp_server_getDbName(UCSP_ARGS, DbHandle db, char name[PATH_MAX])
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_setDbName(UCSP_ARGS, DbHandle db, const char *name)
+kern_return_t ucsp_server_setDbName(UCSP_ARGS, IPCDbHandle db, const char *name)
 {
 	BEGIN_IPC
 	Server::database(db)->dbName(name);
@@ -173,31 +304,30 @@ kern_return_t ucsp_server_setDbName(UCSP_ARGS, DbHandle db, const char *name)
 // External database interface
 //
 kern_return_t ucsp_server_openToken(UCSP_ARGS, uint32 ssid, FilePath name,
-	COPY_IN(AccessCredentials, accessCredentials), DbHandle *db)
+	DATA_IN(accessCredentials), IPCDbHandle *db)
 {
 	BEGIN_IPC
-	relocate(accessCredentials, accessCredentialsBase, accessCredentialsLength);
-	*db = (new TokenDatabase(ssid, connection.process(), name, accessCredentials))->handle();
+	CopyOutAccessCredentials creds(accessCredentials, accessCredentialsLength);
+	*db = (new TokenDatabase(ssid, connection.process(), name, creds))->handle();
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_findFirst(UCSP_ARGS, DbHandle db,
-	COPY_IN(CssmQuery, query),
-	COPY_IN(CssmDbRecordAttributeData, inAttributes),
-	COPY_OUT(CssmDbRecordAttributeData, outAttributes),
-	boolean_t getData,
-	DATA_OUT(data), KeyHandle *hKey, SearchHandle *hSearch, RecordHandle *hRecord)
+kern_return_t ucsp_server_findFirst(UCSP_ARGS, IPCDbHandle db,
+	DATA_IN(inQuery), DATA_IN(inAttributes), DATA_OUT(outAttributes),
+	boolean_t getData, DATA_OUT(data), 
+    IPCKeyHandle *hKey, IPCSearchHandle *hSearch, IPCRecordHandle *hRecord)
 {
 	BEGIN_IPC
-	relocate(query, queryBase, queryLength);
-	relocate(inAttributes, inAttributesBase, inAttributesLength);
+	CopyOutQuery query(inQuery, inQueryLength);
+	CopyOutDbRecordAttributes attrs(inAttributes, inAttributesLength);
 
 	RefPointer<Database::Search> search;
 	RefPointer<Database::Record> record;
 	RefPointer<Key> key;
-	CssmData outData; //OutputData outData(data, dataLength);
-	CssmDbRecordAttributeData *outAttrs; mach_msg_type_number_t outAttrsLength;
-	Server::database(db)->findFirst(*query, inAttributes, inAttributesLength,
+	CssmData outData;
+	CssmDbRecordAttributeData *outAttrs = NULL; mach_msg_type_number_t outAttrsLength;
+	Server::database(db)->findFirst(*query, 
+        attrs.attribute_data(), attrs.length(),
 		getData ? &outData : NULL, key, search, record, outAttrs, outAttrsLength);
 	
 	// handle nothing-found case without exceptions
@@ -211,34 +341,43 @@ kern_return_t ucsp_server_findFirst(UCSP_ARGS, DbHandle db,
 		*hSearch = search->handle();
 		*hKey = key ? key->handle() : noKey;
 
-		// return attributes (assumes relocated flat blob)
-		flips(outAttrs, outAttributes, outAttributesBase);
-		*outAttributesLength = outAttrsLength;
-
+        if (outAttrsLength && outAttrs) {
+            Server::releaseWhenDone(outAttrs); // exception proof it against next line
+            if (!copyin(outAttrs, reinterpret_cast<xdrproc_t> (xdr_CSSM_DB_RECORD_ATTRIBUTE_DATA), outAttributes, outAttributesLength))
+                CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+            Server::releaseWhenDone(*outAttributes);
+        }
+        
 		// return data (temporary fix)
 		if (getData) {
-			*data = outData.data();
-			*dataLength = outData.length();
+			Server::releaseWhenDone(outData.data());
+            xdrproc_t encode_proc = reinterpret_cast<xdrproc_t>(xdr_CSSM_NO_KEY_IN_DATA);
+            if (key)
+                encode_proc = reinterpret_cast<xdrproc_t>(xdr_CSSM_KEY_IN_DATA);
+			if (!copyin(&outData, encode_proc, data, dataLength))
+				CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+			Server::releaseWhenDone(*data);
 		}
 	}
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_findNext(UCSP_ARGS, SearchHandle hSearch,
-	COPY_IN(CssmDbRecordAttributeData, inAttributes),
-	COPY_OUT(CssmDbRecordAttributeData, outAttributes),
-	boolean_t getData, DATA_OUT(data), KeyHandle *hKey,
-	RecordHandle *hRecord)
+
+kern_return_t ucsp_server_findNext(UCSP_ARGS, IPCSearchHandle hSearch,
+	DATA_IN(inAttributes),
+	DATA_OUT(outAttributes),
+	boolean_t getData, DATA_OUT(data), IPCKeyHandle *hKey,
+	IPCRecordHandle *hRecord)
 {
 	BEGIN_IPC
-	relocate(inAttributes, inAttributesBase, inAttributesLength);
+	CopyOutDbRecordAttributes attrs(inAttributes, inAttributesLength);
 	RefPointer<Database::Search> search =
 		Server::find<Database::Search>(hSearch, CSSMERR_DL_INVALID_RESULTS_HANDLE);
 	RefPointer<Database::Record> record;
 	RefPointer<Key> key;
-	CssmData outData; //OutputData outData(data, dataLength);
-	CssmDbRecordAttributeData *outAttrs; mach_msg_type_number_t outAttrsLength;
-	search->database().findNext(search, inAttributes, inAttributesLength,
+	CssmData outData;
+	CssmDbRecordAttributeData *outAttrs = NULL; mach_msg_type_number_t outAttrsLength;
+	search->database().findNext(search, attrs.attribute_data(), attrs.length(),
 		getData ? &outData : NULL, key, record, outAttrs, outAttrsLength);
 	
 	// handle nothing-found case without exceptions
@@ -250,76 +389,95 @@ kern_return_t ucsp_server_findNext(UCSP_ARGS, SearchHandle hSearch,
 		*hRecord = record->handle();
 		*hKey = key ? key->handle() : noKey;
 
-		// return attributes (assumes relocated flat blob)
-		flips(outAttrs, outAttributes, outAttributesBase);
-		*outAttributesLength = outAttrsLength;
-
+        if (outAttrsLength && outAttrs) {
+			secdebug("attrmem", "Found attrs: %p of length: %d", outAttrs, outAttrsLength);
+            Server::releaseWhenDone(outAttrs); // exception proof it against next line
+            if (!copyin(outAttrs, reinterpret_cast<xdrproc_t> (xdr_CSSM_DB_RECORD_ATTRIBUTE_DATA), outAttributes, outAttributesLength))
+                CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+			secdebug("attrmem", "Copied attrs: %p of length: %d", *outAttributes, *outAttributesLength);
+            Server::releaseWhenDone(*outAttributes);
+        }
+        
 		// return data (temporary fix)
 		if (getData) {
-			*data = outData.data();
-			*dataLength = outData.length();
+			Server::releaseWhenDone(outData.data());
+            xdrproc_t encode_proc = reinterpret_cast<xdrproc_t>(xdr_CSSM_NO_KEY_IN_DATA);
+            if (key)
+                encode_proc = reinterpret_cast<xdrproc_t>(xdr_CSSM_KEY_IN_DATA);
+            if (!copyin(&outData, encode_proc, data, dataLength))
+                CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+			Server::releaseWhenDone(*data);
 		}
 	}
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_findRecordHandle(UCSP_ARGS, RecordHandle hRecord,
-	COPY_IN(CssmDbRecordAttributeData, inAttributes),
-	COPY_OUT(CssmDbRecordAttributeData, outAttributes),
-	boolean_t getData, DATA_OUT(data), KeyHandle *hKey)
+kern_return_t ucsp_server_findRecordHandle(UCSP_ARGS, IPCRecordHandle hRecord,
+	DATA_IN(inAttributes), DATA_OUT(outAttributes),
+	boolean_t getData, DATA_OUT(data), IPCKeyHandle *hKey)
 {
 	BEGIN_IPC
-	relocate(inAttributes, inAttributesBase, inAttributesLength);
+	CopyOutDbRecordAttributes attrs(inAttributes, inAttributesLength);
 	RefPointer<Database::Record> record =
 		Server::find<Database::Record>(hRecord, CSSMERR_DL_INVALID_RECORD_UID);
 	RefPointer<Key> key;
-	CssmData outData; //OutputData outData(data, dataLength);
+	CssmData outData;
 	CssmDbRecordAttributeData *outAttrs; mach_msg_type_number_t outAttrsLength;
-	record->database().findRecordHandle(record, inAttributes, inAttributesLength,
+	record->database().findRecordHandle(record, attrs.attribute_data(), attrs.length(),
 		getData ? &outData : NULL, key, outAttrs, outAttrsLength);
 	
 	// return handles
 	*hKey = key ? key->handle() : noKey;
 
-	// return attributes (assumes relocated flat blob)
-	flips(outAttrs, outAttributes, outAttributesBase);
-	*outAttributesLength = outAttrsLength;
-
+    if (outAttrsLength && outAttrs) {
+        Server::releaseWhenDone(outAttrs); // exception proof it against next line
+        if (!copyin(outAttrs, reinterpret_cast<xdrproc_t> (xdr_CSSM_DB_RECORD_ATTRIBUTE_DATA), outAttributes, outAttributesLength))
+            CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+        Server::releaseWhenDone(*outAttributes);
+    }
+    
 	// return data (temporary fix)
 	if (getData) {
-		*data = outData.data();
-		*dataLength = outData.length();
+		Server::releaseWhenDone(outData.data());
+        xdrproc_t encode_proc = reinterpret_cast<xdrproc_t>(xdr_CSSM_NO_KEY_IN_DATA);
+        if (key)
+            encode_proc = reinterpret_cast<xdrproc_t>(xdr_CSSM_KEY_IN_DATA);
+        if (!copyin(&outData, encode_proc, data, dataLength))
+            CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+        Server::releaseWhenDone(*data);
 	}
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_insertRecord(UCSP_ARGS, DbHandle db, CSSM_DB_RECORDTYPE recordType,
-	COPY_IN(CssmDbRecordAttributeData, attributes), DATA_IN(data), RecordHandle *record)
+kern_return_t ucsp_server_insertRecord(UCSP_ARGS, IPCDbHandle db, CSSM_DB_RECORDTYPE recordType,
+	DATA_IN(inAttributes), DATA_IN(data), IPCRecordHandle *record)
 {
 	BEGIN_IPC
-	relocate(attributes, attributesBase, attributesLength);
-	Server::database(db)->insertRecord(recordType, attributes, attributesLength,
-		DATA(data), *record);
+	RecordHandle recordHandle;
+	CopyOutDbRecordAttributes attrs(inAttributes, inAttributesLength);
+	Server::database(db)->insertRecord(recordType, attrs.attribute_data(), attrs.length(),
+		DATA(data), recordHandle);
+	*record = recordHandle;
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_modifyRecord(UCSP_ARGS, DbHandle db, RecordHandle *hRecord,
-	CSSM_DB_RECORDTYPE recordType, COPY_IN(CssmDbRecordAttributeData, attributes),
+kern_return_t ucsp_server_modifyRecord(UCSP_ARGS, IPCDbHandle db, IPCRecordHandle *hRecord,
+	CSSM_DB_RECORDTYPE recordType, DATA_IN(attributes),
 	boolean_t setData, DATA_IN(data), CSSM_DB_MODIFY_MODE modifyMode)
 {
 	BEGIN_IPC
-	relocate(attributes, attributesBase, attributesLength);
+	CopyOutDbRecordAttributes attrs(attributes, attributesLength);
 	CssmData newData(DATA(data));
 	RefPointer<Database::Record> record =
 		Server::find<Database::Record>(*hRecord, CSSMERR_DL_INVALID_RECORD_UID);
-	Server::database(db)->modifyRecord(recordType, record, attributes, attributesLength,
+	Server::database(db)->modifyRecord(recordType, record, attrs.attribute_data(), attrs.length(),
 		setData ? &newData : NULL, modifyMode);
 	// note that the record handle presented to the client never changes here
 	// (we could, but have no reason to - our record handles are just always up to date)
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_deleteRecord(UCSP_ARGS, DbHandle db, RecordHandle hRecord)
+kern_return_t ucsp_server_deleteRecord(UCSP_ARGS, IPCDbHandle db, IPCRecordHandle hRecord)
 {
 	BEGIN_IPC
 	Server::database(db)->deleteRecord(
@@ -327,7 +485,7 @@ kern_return_t ucsp_server_deleteRecord(UCSP_ARGS, DbHandle db, RecordHandle hRec
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_releaseSearch(UCSP_ARGS, SearchHandle hSearch)
+kern_return_t ucsp_server_releaseSearch(UCSP_ARGS, IPCSearchHandle hSearch)
 {
 	BEGIN_IPC
 	RefPointer<Database::Search> search = Server::find<Database::Search>(hSearch, 0);
@@ -335,7 +493,7 @@ kern_return_t ucsp_server_releaseSearch(UCSP_ARGS, SearchHandle hSearch)
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_releaseRecord(UCSP_ARGS, RecordHandle hRecord)
+kern_return_t ucsp_server_releaseRecord(UCSP_ARGS, IPCRecordHandle hRecord)
 {
 	BEGIN_IPC
 	RefPointer<Database::Record> record = Server::find<Database::Record>(hRecord, 0);
@@ -343,33 +501,19 @@ kern_return_t ucsp_server_releaseRecord(UCSP_ARGS, RecordHandle hRecord)
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_getRecordFromHandle(UCSP_ARGS, RecordHandle record,
-	COPY_IN(CssmDbRecordAttributeData, inAttributes),
-	COPY_OUT(CssmDbRecordAttributeData, outAttributes),
-	boolean_t getData,
-	DATA_OUT(data))
-{
-	BEGIN_IPC
-    secdebug("dl", "getRecordFromHandle");
-	relocate(inAttributes, inAttributesBase, inAttributesLength);
-	// @@@
-	END_IPC(DL)
-}
-
 
 //
 // Internal database management
 //
-kern_return_t ucsp_server_createDb(UCSP_ARGS, DbHandle *db,
-	COPY_IN(DLDbFlatIdentifier, ident),
-    COPY_IN(AccessCredentials, cred), COPY_IN(AclEntryPrototype, owner),
+kern_return_t ucsp_server_createDb(UCSP_ARGS, IPCDbHandle *db,
+	DATA_IN(ident), DATA_IN(cred), DATA_IN(owner),
     DBParameters params)
 {
 	BEGIN_IPC
-	relocate(cred, credBase, credLength);
-	relocate(owner, ownerBase, ownerLength);
-    relocate(ident, identBase, identLength);
-	*db = (new KeychainDatabase(*ident, params, connection.process(), cred, owner))->handle();
+	CopyOutAccessCredentials creds(cred, credLength);
+	CopyOutEntryAcl owneracl(owner, ownerLength);
+	CopyOut flatident(ident, identLength, reinterpret_cast<xdrproc_t>(xdr_DLDbFlatIdentifierRef));
+	*db = (new KeychainDatabase(*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data()), params, connection.process(), creds, owneracl))->handle();
 	END_IPC(DL)
 }
 
@@ -377,7 +521,7 @@ kern_return_t ucsp_server_createDb(UCSP_ARGS, DbHandle *db,
 // @@@  caller should be required to call decodeDb() to get a DbHandle
 //      instead of passing the blob itself
 kern_return_t ucsp_server_cloneDbForSync(UCSP_ARGS, DATA_IN(blob), 
-	DbHandle srcDb, DATA_IN(agentData), DbHandle *newDb)
+	IPCDbHandle srcDb, DATA_IN(agentData), IPCDbHandle *newDb)
 {
 	BEGIN_IPC
 	RefPointer<KeychainDatabase> srcKC = Server::keychain(srcDb);
@@ -386,8 +530,8 @@ kern_return_t ucsp_server_cloneDbForSync(UCSP_ARGS, DATA_IN(blob),
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_commitDbForSync(UCSP_ARGS, DbHandle srcDb,
-    DbHandle cloneDb, DATA_OUT(blob))
+kern_return_t ucsp_server_commitDbForSync(UCSP_ARGS, IPCDbHandle srcDb,
+    IPCDbHandle cloneDb, DATA_OUT(blob))
 {
 	BEGIN_IPC
     RefPointer<KeychainDatabase> srcKC = Server::keychain(srcDb);
@@ -405,18 +549,18 @@ kern_return_t ucsp_server_commitDbForSync(UCSP_ARGS, DbHandle srcDb,
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_decodeDb(UCSP_ARGS, DbHandle *db,
-    COPY_IN(DLDbFlatIdentifier, ident), COPY_IN(AccessCredentials, cred), DATA_IN(blob))
+kern_return_t ucsp_server_decodeDb(UCSP_ARGS, IPCDbHandle *db,
+    DATA_IN(ident), DATA_IN(cred), DATA_IN(blob))
 {
 	BEGIN_IPC
-	relocate(cred, credBase, credLength);
-    relocate(ident, identBase, identLength);
-	*db = (new KeychainDatabase(*ident, SSBLOB(DbBlob, blob),
-        connection.process(), cred))->handle();
+	CopyOutAccessCredentials creds(cred, credLength);
+	CopyOut flatident(ident, identLength, reinterpret_cast<xdrproc_t>(xdr_DLDbFlatIdentifierRef));
+	*db = (new KeychainDatabase(*reinterpret_cast<DLDbFlatIdentifier*>(flatident.data()), SSBLOB(DbBlob, blob),
+        connection.process(), creds))->handle();
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_encodeDb(UCSP_ARGS, DbHandle db, DATA_OUT(blob))
+kern_return_t ucsp_server_encodeDb(UCSP_ARGS, IPCDbHandle db, DATA_OUT(blob))
 {
 	BEGIN_IPC
     DbBlob *dbBlob = Server::keychain(db)->blob();	// memory owned by database
@@ -425,26 +569,26 @@ kern_return_t ucsp_server_encodeDb(UCSP_ARGS, DbHandle db, DATA_OUT(blob))
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_setDbParameters(UCSP_ARGS, DbHandle db, DBParameters params)
+kern_return_t ucsp_server_setDbParameters(UCSP_ARGS, IPCDbHandle db, DBParameters params)
 {
 	BEGIN_IPC
 	Server::keychain(db)->setParameters(params);
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_getDbParameters(UCSP_ARGS, DbHandle db, DBParameters *params)
+kern_return_t ucsp_server_getDbParameters(UCSP_ARGS, IPCDbHandle db, DBParameters *params)
 {
 	BEGIN_IPC
 	Server::keychain(db)->getParameters(*params);
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_changePassphrase(UCSP_ARGS, DbHandle db,
-    COPY_IN(AccessCredentials, cred))
+kern_return_t ucsp_server_changePassphrase(UCSP_ARGS, IPCDbHandle db,
+    DATA_IN(cred))
 {
 	BEGIN_IPC
-    relocate(cred, credBase, credLength);
-	Server::keychain(db)->changePassphrase(cred);
+	CopyOutAccessCredentials creds(cred, credLength);
+	Server::keychain(db)->changePassphrase(creds);
 	END_IPC(DL)
 }
 
@@ -455,21 +599,21 @@ kern_return_t ucsp_server_lockAll (UCSP_ARGS, boolean_t)
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_unlockDb(UCSP_ARGS, DbHandle db)
+kern_return_t ucsp_server_unlockDb(UCSP_ARGS, IPCDbHandle db)
 {
 	BEGIN_IPC
 	Server::keychain(db)->unlockDb();
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_unlockDbWithPassphrase(UCSP_ARGS, DbHandle db, DATA_IN(passphrase))
+kern_return_t ucsp_server_unlockDbWithPassphrase(UCSP_ARGS, IPCDbHandle db, DATA_IN(passphrase))
 {
 	BEGIN_IPC
 	Server::keychain(db)->unlockDb(DATA(passphrase));
 	END_IPC(DL)
 }
 
-kern_return_t ucsp_server_isLocked(UCSP_ARGS, DbHandle db, boolean_t *locked)
+kern_return_t ucsp_server_isLocked(UCSP_ARGS, IPCDbHandle db, boolean_t *locked)
 {
     BEGIN_IPC
     *locked = Server::database(db)->isLocked();
@@ -480,7 +624,7 @@ kern_return_t ucsp_server_isLocked(UCSP_ARGS, DbHandle db, boolean_t *locked)
 //
 // Key management
 //
-kern_return_t ucsp_server_encodeKey(UCSP_ARGS, KeyHandle keyh, DATA_OUT(blob),
+kern_return_t ucsp_server_encodeKey(UCSP_ARGS, IPCKeyHandle keyh, DATA_OUT(blob),
     boolean_t wantUid, DATA_OUT(uid))
 {
 	BEGIN_IPC
@@ -500,19 +644,24 @@ kern_return_t ucsp_server_encodeKey(UCSP_ARGS, KeyHandle keyh, DATA_OUT(blob),
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_decodeKey(UCSP_ARGS, KeyHandle *keyh, CssmKey::Header *header,
-	DbHandle db, DATA_IN(blob))
+kern_return_t ucsp_server_decodeKey(UCSP_ARGS, IPCKeyHandle *keyh, DATA_OUT(keyHeader),
+	IPCDbHandle db, DATA_IN(blob))
 {
 	BEGIN_IPC
     RefPointer<Key> key = new KeychainKey(*Server::keychain(db), SSBLOB(KeyBlob, blob));
-    key->returnKey(*keyh, *header);
-	flip(*header);
+	CssmKey::Header header;
+	KeyHandle keyHandle;
+    key->returnKey(keyHandle, header);
+	*keyh = keyHandle;
+	if (!copyin(&header, reinterpret_cast<xdrproc_t> (xdr_CSSM_KEYHEADER), keyHeader, keyHeaderLength))
+		CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+	Server::releaseWhenDone(*keyHeader);
 	END_IPC(CSP)
 }
 
 // keychain synchronization
-kern_return_t ucsp_server_recodeKey(UCSP_ARGS, DbHandle oldDb, KeyHandle keyh, 
-	DbHandle newDb, DATA_OUT(newBlob))
+kern_return_t ucsp_server_recodeKey(UCSP_ARGS, IPCDbHandle oldDb, IPCKeyHandle keyh, 
+	IPCDbHandle newDb, DATA_OUT(newBlob))
 {
 	BEGIN_IPC
 	// If the old key is passed in as DATA_IN(oldBlob):
@@ -530,7 +679,7 @@ kern_return_t ucsp_server_recodeKey(UCSP_ARGS, DbHandle oldDb, KeyHandle keyh,
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_releaseKey(UCSP_ARGS, KeyHandle keyh)
+kern_return_t ucsp_server_releaseKey(UCSP_ARGS, IPCKeyHandle keyh)
 {
 	BEGIN_IPC
 	RefPointer<Key> key = Server::key(keyh);
@@ -538,7 +687,7 @@ kern_return_t ucsp_server_releaseKey(UCSP_ARGS, KeyHandle keyh)
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_queryKeySizeInBits(UCSP_ARGS, KeyHandle keyh, CSSM_KEY_SIZE *length)
+kern_return_t ucsp_server_queryKeySizeInBits(UCSP_ARGS, IPCKeyHandle keyh, CSSM_KEY_SIZE *length)
 {
 	BEGIN_IPC
 	RefPointer<Key> key = Server::key(keyh);
@@ -546,17 +695,17 @@ kern_return_t ucsp_server_queryKeySizeInBits(UCSP_ARGS, KeyHandle keyh, CSSM_KEY
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_getOutputSize(UCSP_ARGS, CONTEXT_ARGS, KeyHandle keyh,
+kern_return_t ucsp_server_getOutputSize(UCSP_ARGS, DATA_IN(context), IPCKeyHandle keyh,
     uint32 inputSize, boolean_t encrypt, uint32 *outputSize)
 {
     BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
+	CopyOutContext ctx(context, contextLength);
 	RefPointer<Key> key = Server::key(keyh);
-    key->database().getOutputSize(context, *key, inputSize, encrypt, *outputSize);
+    key->database().getOutputSize(*ctx, *key, inputSize, encrypt, *outputSize);
     END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_getKeyDigest(UCSP_ARGS, KeyHandle key, DATA_OUT(digest))
+kern_return_t ucsp_server_getKeyDigest(UCSP_ARGS, IPCKeyHandle key, DATA_OUT(digest))
 {
 	BEGIN_IPC
 	CssmData digestData = Server::key(key)->canonicalDigest();
@@ -569,47 +718,47 @@ kern_return_t ucsp_server_getKeyDigest(UCSP_ARGS, KeyHandle key, DATA_OUT(digest
 //
 // Signatures and MACs
 //
-kern_return_t ucsp_server_generateSignature(UCSP_ARGS, CONTEXT_ARGS, KeyHandle keyh,
+kern_return_t ucsp_server_generateSignature(UCSP_ARGS, DATA_IN(context), IPCKeyHandle keyh,
         CSSM_ALGORITHMS signOnlyAlgorithm, DATA_IN(data), DATA_OUT(signature))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
+	CopyOutContext ctx(context, contextLength);
 	RefPointer<Key> key = Server::key(keyh);
 	OutputData sigData(signature, signatureLength);
-	key->database().generateSignature(context, *key, signOnlyAlgorithm,
+	key->database().generateSignature(*ctx, *key, signOnlyAlgorithm,
 		DATA(data), sigData);
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_verifySignature(UCSP_ARGS, CONTEXT_ARGS, KeyHandle keyh,
+kern_return_t ucsp_server_verifySignature(UCSP_ARGS, DATA_IN(context), IPCKeyHandle keyh,
 		CSSM_ALGORITHMS verifyOnlyAlgorithm, DATA_IN(data), DATA_IN(signature))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
+	CopyOutContext ctx(context, contextLength);
 	RefPointer<Key> key = Server::key(keyh);
-	key->database().verifySignature(context, *key, verifyOnlyAlgorithm,
+	key->database().verifySignature(*ctx, *key, verifyOnlyAlgorithm,
 		DATA(data), DATA(signature));
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_generateMac(UCSP_ARGS, CONTEXT_ARGS, KeyHandle keyh,
+kern_return_t ucsp_server_generateMac(UCSP_ARGS, DATA_IN(context), IPCKeyHandle keyh,
 		DATA_IN(data), DATA_OUT(mac))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
+	CopyOutContext ctx(context, contextLength);
 	RefPointer<Key> key = Server::key(keyh);
 	OutputData macData(mac, macLength);
-	key->database().generateMac(context, *key, DATA(data), macData);
+	key->database().generateMac(*ctx, *key, DATA(data), macData);
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_verifyMac(UCSP_ARGS, CONTEXT_ARGS, KeyHandle keyh,
+kern_return_t ucsp_server_verifyMac(UCSP_ARGS, DATA_IN(context), IPCKeyHandle keyh,
 		DATA_IN(data), DATA_IN(mac))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
+	CopyOutContext ctx(context, contextLength);
 	RefPointer<Key> key = Server::key(keyh);
-	key->database().verifyMac(context, *key, DATA(data), DATA(mac));
+	key->database().verifyMac(*ctx, *key, DATA(data), DATA(mac));
 	END_IPC(CSP)
 }
 
@@ -617,25 +766,25 @@ kern_return_t ucsp_server_verifyMac(UCSP_ARGS, CONTEXT_ARGS, KeyHandle keyh,
 //
 // Encryption/Decryption
 //
-kern_return_t ucsp_server_encrypt(UCSP_ARGS, CONTEXT_ARGS, KeyHandle keyh,
+kern_return_t ucsp_server_encrypt(UCSP_ARGS, DATA_IN(context), IPCKeyHandle keyh,
 	DATA_IN(clear), DATA_OUT(cipher))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
+	CopyOutContext ctx(context, contextLength);
 	RefPointer<Key> key = Server::key(keyh);
 	OutputData cipherOut(cipher, cipherLength);
-	key->database().encrypt(context, *key, DATA(clear), cipherOut);
+	key->database().encrypt(*ctx, *key, DATA(clear), cipherOut);
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_decrypt(UCSP_ARGS, CONTEXT_ARGS, KeyHandle keyh,
+kern_return_t ucsp_server_decrypt(UCSP_ARGS, DATA_IN(context), IPCKeyHandle keyh,
 	DATA_IN(cipher), DATA_OUT(clear))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
+	CopyOutContext ctx(context, contextLength);
 	RefPointer<Key> key = Server::key(keyh);
 	OutputData clearOut(clear, clearLength);
-	key->database().decrypt(context, *key, DATA(cipher), clearOut);
+	key->database().decrypt(*ctx, *key, DATA(cipher), clearOut);
 	END_IPC(CSP)
 }
 
@@ -643,42 +792,60 @@ kern_return_t ucsp_server_decrypt(UCSP_ARGS, CONTEXT_ARGS, KeyHandle keyh,
 //
 // Key generation
 //
-kern_return_t ucsp_server_generateKey(UCSP_ARGS, DbHandle db, CONTEXT_ARGS,
-	COPY_IN(AccessCredentials, cred), COPY_IN(AclEntryPrototype, owner),
-	uint32 usage, uint32 attrs, KeyHandle *newKey, CssmKey::Header *newHeader)
+kern_return_t ucsp_server_generateKey(UCSP_ARGS, IPCDbHandle db, DATA_IN(context),
+	DATA_IN(cred), DATA_IN(owner),
+	uint32 usage, uint32 attrs, IPCKeyHandle *newKey, DATA_OUT(keyHeader))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
-    relocate(cred, credBase, credLength);
-	relocate(owner, ownerBase, ownerLength);
+	CopyOutContext ctx(context, contextLength);
+	CopyOutAccessCredentials creds(cred, credLength);
+
+	CopyOutEntryAcl owneracl(owner, ownerLength);
 	//@@@ preliminary interpretation - will get "type handle"
 	RefPointer<Database> database =
 		Server::optionalDatabase(db, attrs & CSSM_KEYATTR_PERMANENT);
 	RefPointer<Key> key;
-	database->generateKey(context, cred, owner, usage, attrs, key);
-    key->returnKey(*newKey, *newHeader);
-	flip(*newHeader);
+	database->generateKey(*ctx, creds, owneracl, usage, attrs, key);
+	CssmKey::Header newHeader;
+	KeyHandle keyHandle;
+    key->returnKey(keyHandle, newHeader);
+	*newKey = keyHandle;
+
+	if (!copyin(&newHeader, reinterpret_cast<xdrproc_t> (xdr_CSSM_KEYHEADER), keyHeader, keyHeaderLength))
+		CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+	Server::releaseWhenDone(*keyHeader);
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_generateKeyPair(UCSP_ARGS, DbHandle db, CONTEXT_ARGS,
-	COPY_IN(AccessCredentials, cred), COPY_IN(AclEntryPrototype, owner),
+kern_return_t ucsp_server_generateKeyPair(UCSP_ARGS, IPCDbHandle db, DATA_IN(context),
+	DATA_IN(cred), DATA_IN(owner),
 	uint32 pubUsage, uint32 pubAttrs, uint32 privUsage, uint32 privAttrs,
-	KeyHandle *pubKey, CssmKey::Header *pubHeader, KeyHandle *privKey, CssmKey::Header *privHeader)
+	IPCKeyHandle *pubKey, DATA_OUT(pubHeader), IPCKeyHandle *privKey, DATA_OUT(privHeader))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
-    relocate(cred, credBase, credLength);
-	relocate(owner, ownerBase, ownerLength);
+	CopyOutContext ctx(context, contextLength);
+	CopyOutAccessCredentials creds(cred, credLength);
+	CopyOutEntryAcl owneracl(owner, ownerLength);
 	RefPointer<Database> database =
 		Server::optionalDatabase(db, (privAttrs | pubAttrs) & CSSM_KEYATTR_PERMANENT);
 	RefPointer<Key> pub, priv;
-	database->generateKey(context, cred, owner,
+	database->generateKey(*ctx, creds, owneracl,
 		pubUsage, pubAttrs, privUsage, privAttrs, pub, priv);
-    pub->returnKey(*pubKey, *pubHeader);
-	flip(*pubHeader);
-    priv->returnKey(*privKey, *privHeader);
-	flip(*privHeader);
+	CssmKey::Header tmpPubHeader, tmpPrivHeader;
+	KeyHandle pubKeyHandle, privKeyHandle;
+	
+    pub->returnKey(pubKeyHandle, tmpPubHeader);
+	*pubKey = pubKeyHandle;
+	if (!copyin(&tmpPubHeader, reinterpret_cast<xdrproc_t> (xdr_CSSM_KEYHEADER), pubHeader, pubHeaderLength))
+		CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+	Server::releaseWhenDone(*pubHeader);
+
+    priv->returnKey(privKeyHandle, tmpPrivHeader);
+	*privKey = privKeyHandle;
+	if (!copyin(&tmpPrivHeader, reinterpret_cast<xdrproc_t> (xdr_CSSM_KEYHEADER), privHeader, privHeaderLength))
+		CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+	Server::releaseWhenDone(*privHeader);
+
 	END_IPC(CSP)
 }
 
@@ -686,47 +853,55 @@ kern_return_t ucsp_server_generateKeyPair(UCSP_ARGS, DbHandle db, CONTEXT_ARGS,
 //
 // Key wrapping and unwrapping
 //
-kern_return_t ucsp_server_wrapKey(UCSP_ARGS, CONTEXT_ARGS, KeyHandle hWrappingKey,
-	COPY_IN(AccessCredentials, cred), KeyHandle hKeyToBeWrapped,
-	DATA_IN(descriptiveData), CssmKey *wrappedKey, DATA_OUT(keyData))
+kern_return_t ucsp_server_wrapKey(UCSP_ARGS, DATA_IN(context), IPCKeyHandle hWrappingKey,
+	DATA_IN(cred), IPCKeyHandle hKeyToBeWrapped,
+	DATA_IN(descriptiveData), DATA_OUT(wrappedKeyData))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
-    relocate(cred, credBase, credLength);
+	CssmKey wrappedKey;
+	CopyOutContext ctx(context, contextLength);
+	CopyOutAccessCredentials creds(cred, credLength);
 	RefPointer<Key> subjectKey = Server::key(hKeyToBeWrapped);
 	RefPointer<Key> wrappingKey = Server::optionalKey(hWrappingKey);
-	if ((context.algorithm() == CSSM_ALGID_NONE && subjectKey->attribute(CSSM_KEYATTR_SENSITIVE))
+	if ((ctx.context().algorithm() == CSSM_ALGID_NONE && subjectKey->attribute(CSSM_KEYATTR_SENSITIVE))
 		|| !subjectKey->attribute(CSSM_KEYATTR_EXTRACTABLE))
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
-	pickDb(subjectKey, wrappingKey)->wrapKey(context, cred, wrappingKey, *subjectKey, DATA(descriptiveData), *wrappedKey);
+	pickDb(subjectKey, wrappingKey)->wrapKey(*ctx, creds, wrappingKey, *subjectKey, DATA(descriptiveData), wrappedKey);
+	Server::releaseWhenDone(wrappedKey.keyData().data());
 
-    // transmit key data back as a separate blob
-	OutputData keyDatas(keyData, keyDataLength);
-	keyDatas = wrappedKey->keyData();
-	flip(*wrappedKey);
+	if (!copyin(&wrappedKey, reinterpret_cast<xdrproc_t> (xdr_CSSM_KEY), wrappedKeyData, wrappedKeyDataLength))
+		CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+        
+	Server::releaseWhenDone(*wrappedKeyData);
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_unwrapKey(UCSP_ARGS, DbHandle db, CONTEXT_ARGS,
-	KeyHandle hWrappingKey, COPY_IN(AccessCredentials, cred), COPY_IN(AclEntryPrototype, owner),
-	KeyHandle hPublicKey, CssmKey wrappedKey, DATA_IN(wrappedKeyData),
+kern_return_t ucsp_server_unwrapKey(UCSP_ARGS, IPCDbHandle db, DATA_IN(context),
+	IPCKeyHandle hWrappingKey, DATA_IN(cred), DATA_IN(owner),
+	IPCKeyHandle hPublicKey, DATA_IN(wrappedKeyData),
 	CSSM_KEYUSE usage, CSSM_KEYATTR_FLAGS attrs, DATA_OUT(descriptiveData),
-    KeyHandle *newKey, CssmKey::Header *newHeader)
+    IPCKeyHandle *newKey, DATA_OUT(keyHeader)/*CssmKey::Header *newHeader*/)
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
-	flip(wrappedKey);
-	wrappedKey.keyData() = DATA(wrappedKeyData);
-    relocate(cred, credBase, credLength);
-	relocate(owner, ownerBase, ownerLength);
+	CopyOutContext ctx(context, contextLength);
+	CopyOutKey wrappedKey(wrappedKeyData, wrappedKeyDataLength);
+	CopyOutAccessCredentials creds(cred, credLength);
+	CopyOutEntryAcl owneracl(owner, ownerLength);
 	OutputData descriptiveDatas(descriptiveData, descriptiveDataLength);
 	RefPointer<Key> wrappingKey = Server::optionalKey(hWrappingKey);
     RefPointer<Key> unwrappedKey;
-	pickDb(Server::optionalDatabase(db), wrappingKey)->unwrapKey(context, cred, owner,
+	pickDb(Server::optionalDatabase(db), wrappingKey)->unwrapKey(*ctx, creds, owneracl,
 		wrappingKey, Server::optionalKey(hPublicKey),
-		usage, attrs, wrappedKey, unwrappedKey, descriptiveDatas);
-	unwrappedKey->returnKey(*newKey, *newHeader);
-	flip(*newHeader);
+		usage, attrs, wrappedKey.key(), unwrappedKey, descriptiveDatas);
+		
+	CssmKey::Header newHeader;
+	KeyHandle keyHandle;
+	unwrappedKey->returnKey(keyHandle, newHeader);
+	*newKey = keyHandle;
+	if (!copyin(&newHeader, reinterpret_cast<xdrproc_t> (xdr_CSSM_KEYHEADER), keyHeader, keyHeaderLength))
+		CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+	Server::releaseWhenDone(*keyHeader);
+
 	END_IPC(CSP)
 }
 
@@ -738,34 +913,40 @@ kern_return_t ucsp_server_unwrapKey(UCSP_ARGS, DbHandle db, CONTEXT_ARGS,
 // (artificial) POD CssmDeriveData handles those that are known; if you add
 // an algorithm with structured param, you need to add a case there.
 //
-kern_return_t ucsp_server_deriveKey(UCSP_ARGS, DbHandle db, CONTEXT_ARGS, KeyHandle hKey,
-	COPY_IN(AccessCredentials, cred), COPY_IN(AclEntryPrototype, owner),
-    COPY_IN(CssmDeriveData, paramInput), DATA_OUT(paramOutput),
-	uint32 usage, uint32 attrs, KeyHandle *newKey, CssmKey::Header *newHeader)
+kern_return_t ucsp_server_deriveKey(UCSP_ARGS, IPCDbHandle db, DATA_IN(context), IPCKeyHandle hKey,
+	DATA_IN(cred), DATA_IN(owner),
+    DATA_IN(paramInput), DATA_OUT(paramOutput),
+	uint32 usage, uint32 attrs, IPCKeyHandle *newKey, DATA_OUT(keyHeader))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
-    relocate(cred, credBase, credLength);
-	relocate(owner, ownerBase, ownerLength);
-	relocate(paramInput, paramInputBase, paramInputLength);
-	if (!paramInput || paramInput->algorithm != context.algorithm())
+	CopyOutContext ctx(context, contextLength);
+	CopyOutAccessCredentials creds(cred, credLength);
+	CopyOutEntryAcl owneracl(owner, ownerLength);
+	CopyOutDeriveData deriveParam(paramInput, paramInputLength);
+	if (deriveParam.algorithm() != ctx.context().algorithm())
 		CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);	// client layer fault
     
 	RefPointer<Database> database =
 		Server::optionalDatabase(db, attrs & CSSM_KEYATTR_PERMANENT);
 	RefPointer<Key> key = Server::optionalKey(hKey);
-	CssmData *param = paramInput ? &paramInput->baseData : NULL;
-    RefPointer<Key> derivedKey;
+	CSSM_DATA param = deriveParam.cssm_data();
+	RefPointer<Key> derivedKey;
 	pickDb(Server::optionalDatabase(db, attrs & CSSM_KEYATTR_PERMANENT),
-		key)->deriveKey(context, key, cred, owner, param, usage, attrs, derivedKey);
-	derivedKey->returnKey(*newKey, *newHeader);
-	flip(*newHeader);
-	if (param && param->length()) {
-        if (!param->data())	// CSP screwed up
+		key)->deriveKey(*ctx, key, creds, owneracl, static_cast<CssmData*>(&param), usage, attrs, derivedKey);
+		
+	CssmKey::Header newHeader;
+	KeyHandle keyHandle;
+	derivedKey->returnKey(keyHandle, newHeader);
+	*newKey = keyHandle;
+	
+	if (!copyin(&newHeader, reinterpret_cast<xdrproc_t> (xdr_CSSM_KEYHEADER), keyHeader, keyHeaderLength))
+		CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+	Server::releaseWhenDone(*keyHeader);
+		
+	if (param.Length) {
+        if (!param.Data)	// CSP screwed up
             CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
-        if (paramInputLength)		// using incoming buffer; make a copy
-            *param = CssmAutoData(Server::csp().allocator(), *param).release();
-        OutputData(paramOutput, paramOutputLength) = *param;	// return the data
+		OutputData(paramOutput, paramOutputLength) = CssmAutoData(Server::csp().allocator(), param).release();
     }
 	END_IPC(CSP)
 }
@@ -774,16 +955,16 @@ kern_return_t ucsp_server_deriveKey(UCSP_ARGS, DbHandle db, CONTEXT_ARGS, KeyHan
 //
 // Random generation
 //
-kern_return_t ucsp_server_generateRandom(UCSP_ARGS, uint32 ssid, CONTEXT_ARGS, DATA_OUT(data))
+kern_return_t ucsp_server_generateRandom(UCSP_ARGS, uint32 ssid, DATA_IN(context), DATA_OUT(data))
 {
 	BEGIN_IPC
-	relocate(context, contextBase, attributes, attrSize);
+	CopyOutContext ctx(context, contextLength);
 	if (ssid)
 		CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 	
 	// default version (use /dev/random)
 	Allocator &allocator = Allocator::standard(Allocator::sensitive);
-	if (size_t bytes = context.getInt(CSSM_ATTRIBUTE_OUTPUT_SIZE)) {
+	if (size_t bytes = ctx.context().getInt(CSSM_ATTRIBUTE_OUTPUT_SIZE)) {
 		void *buffer = allocator.malloc(bytes);
 		Server::active().random(buffer, bytes);
 		*data = buffer;
@@ -798,72 +979,73 @@ kern_return_t ucsp_server_generateRandom(UCSP_ARGS, uint32 ssid, CONTEXT_ARGS, D
 // ACL management.
 // Watch out for the memory-management tap-dance.
 //
-kern_return_t ucsp_server_getOwner(UCSP_ARGS, AclKind kind, KeyHandle key,
-	COPY_OUT(AclOwnerPrototype, ownerOut))
+kern_return_t ucsp_server_getOwner(UCSP_ARGS, AclKind kind, IPCKeyHandle key,
+	DATA_OUT(ownerOut))
 {
 	BEGIN_IPC
 	AclOwnerPrototype owner;
 	Server::aclBearer(kind, key).getOwner(owner);	// allocates memory in owner
-	Copier<AclOwnerPrototype> owners(&owner, Allocator::standard()); // make flat copy
+	void *owners_data; u_int owners_length;
+	if (!::copyin(&owner, reinterpret_cast<xdrproc_t>(xdr_CSSM_ACL_OWNER_PROTOTYPE), &owners_data, &owners_length))
+			CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR); 	
+
 	{ ChunkFreeWalker free; walk(free, owner); } // release chunked original
-	*ownerOutLength = owners.length();
-	flips(owners.value(), ownerOut, ownerOutBase);
-	Server::releaseWhenDone(owners.keep()); // throw flat copy out when done
+	Server::releaseWhenDone(owners_data); // throw flat copy out when done
+	*ownerOut = owners_data;
+	*ownerOutLength = owners_length;
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_setOwner(UCSP_ARGS, AclKind kind, KeyHandle key,
-	COPY_IN(AccessCredentials, cred), COPY_IN(AclOwnerPrototype, owner))
+kern_return_t ucsp_server_setOwner(UCSP_ARGS, AclKind kind, IPCKeyHandle key,
+	DATA_IN(cred), DATA_IN(owner))
 {
 	BEGIN_IPC
-    relocate(cred, credBase, credLength);
-	relocate(owner, ownerBase, ownerLength);
-	Server::aclBearer(kind, key).changeOwner(*owner, cred);
+	CopyOutAccessCredentials creds(cred, credLength);
+	CopyOutOwnerAcl owneracl(owner, ownerLength);
+	Server::aclBearer(kind, key).changeOwner(*owneracl, creds);
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_getAcl(UCSP_ARGS, AclKind kind, KeyHandle key,
+kern_return_t ucsp_server_getAcl(UCSP_ARGS, AclKind kind, IPCKeyHandle key,
 	boolean_t haveTag, const char *tag,
-	uint32 *countp, COPY_OUT(AclEntryInfo, acls))
+	uint32 *countp, DATA_OUT(acls))
 {
 	BEGIN_IPC
 	uint32 count;
 	AclEntryInfo *aclList;
 	Server::aclBearer(kind, key).getAcl(haveTag ? tag : NULL, count, aclList);
-	*countp = count;
-	Copier<AclEntryInfo> aclsOut(aclList, count); // make flat copy
 
-	{	// release the chunked memory originals
-		ChunkFreeWalker free;
-		for (uint32 n = 0; n < count; n++)
-			walk(free, aclList[n]);
-		
-		// release the memory allocated for the list itself when we are done
-		Allocator::standard().free (aclList);
+	CSSM_ACL_ENTRY_INFO_ARRAY aclsArray = { count, aclList };
+	void *acls_data; u_int acls_length;
+	if (!::copyin(&aclsArray, reinterpret_cast<xdrproc_t>(xdr_CSSM_ACL_ENTRY_INFO_ARRAY), &acls_data, &acls_length))
+			CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR); 	
+	
+	{       // release the chunked memory originals
+			ChunkFreeWalker free;
+			for (uint32 n = 0; n < count; n++)
+					walk(free, aclList[n]);
+			
+			// release the memory allocated for the list itself when we are done
+			Allocator::standard().free (aclList);
 	}
 	
-	// set result (note: this is *almost* flips(), but on an array)
-	*aclsLength = aclsOut.length();
-	*acls = *aclsBase = aclsOut;
-	if (flipClient()) {
-		FlipWalker w;
-		for (uint32 n = 0; n < count; n++)
-			walk(w, (*acls)[n]);
-		w.doFlips();
-		Flippers::flip(*aclsBase);
-	}
-	Server::releaseWhenDone(aclsOut.keep());
+	
+	*countp = count; // XXX/cs count becomes part of the blob
+	*aclsLength = acls_length;
+	*acls = acls_data;
+	Server::releaseWhenDone(acls_data);
 	END_IPC(CSP)
 }
 
-kern_return_t ucsp_server_changeAcl(UCSP_ARGS, AclKind kind, KeyHandle key,
-	COPY_IN(AccessCredentials, cred), CSSM_ACL_EDIT_MODE mode, CSSM_ACL_HANDLE handle,
-	COPY_IN(AclEntryInput, acl))
+kern_return_t ucsp_server_changeAcl(UCSP_ARGS, AclKind kind, IPCKeyHandle key,
+	DATA_IN(cred), CSSM_ACL_EDIT_MODE mode, IPCGenericHandle handle,
+	DATA_IN(acl))
 {
 	BEGIN_IPC
-    relocate(cred, credBase, credLength);
-	relocate(acl, aclBase, aclLength);
-	Server::aclBearer(kind, key).changeAcl(AclEdit(mode, handle, acl), cred);
+	CopyOutAccessCredentials creds(cred, credLength);
+	CopyOutAclEntryInput entryacl(acl, aclLength);
+
+	Server::aclBearer(kind, key).changeAcl(AclEdit(mode, handle, entryacl), creds);
 	END_IPC(CSP)
 }
 
@@ -871,10 +1053,10 @@ kern_return_t ucsp_server_changeAcl(UCSP_ARGS, AclKind kind, KeyHandle key,
 //
 // Login/Logout
 //
-kern_return_t ucsp_server_login(UCSP_ARGS, COPY_IN(AccessCredentials, cred), DATA_IN(name))
+kern_return_t ucsp_server_login(UCSP_ARGS, DATA_IN(cred), DATA_IN(name))
 {
 	BEGIN_IPC
-	relocate(cred, credBase, credLength);
+	CopyOutAccessCredentials creds(cred, credLength);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 	END_IPC(CSP)
 }
@@ -890,7 +1072,7 @@ kern_return_t ucsp_server_logout(UCSP_ARGS)
 //
 // Miscellaneous CSP-related calls
 //
-kern_return_t ucsp_server_getStatistics(UCSP_ARGS, uint32 ssid, CSPOperationalStatistics *statistics)
+kern_return_t ucsp_server_getStatistics(UCSP_ARGS, uint32 ssid, CSSM_CSP_OPERATIONAL_STATISTICS *statistics)
 {
 	BEGIN_IPC
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
@@ -922,8 +1104,8 @@ kern_return_t ucsp_server_selfVerify(UCSP_ARGS, uint32 ssid)
 //
 // Passthrough calls (separate for CSP and DL passthroughs)
 //
-kern_return_t ucsp_server_cspPassThrough(UCSP_ARGS, uint32 ssid, uint32 id, CONTEXT_ARGS,
-	KeyHandle hKey, DATA_IN(inData), DATA_OUT(outData))
+kern_return_t ucsp_server_cspPassThrough(UCSP_ARGS, uint32 ssid, uint32 id, DATA_IN(context),
+	IPCKeyHandle hKey, DATA_IN(inData), DATA_OUT(outData))
 {
 	BEGIN_IPC
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
@@ -944,20 +1126,25 @@ kern_return_t ucsp_server_dlPassThrough(UCSP_ARGS, uint32 ssid, uint32 id,
 // ExtractMasterKey looks vaguely like a key derivation operation, and is in fact
 // presented by the CSPDL's CSSM layer as such.
 //
-kern_return_t ucsp_server_extractMasterKey(UCSP_ARGS, DbHandle db, CONTEXT_ARGS, DbHandle sourceDb,
-	COPY_IN(AccessCredentials, cred), COPY_IN(AclEntryPrototype, owner),
-	uint32 usage, uint32 attrs, KeyHandle *newKey, CssmKey::Header *newHeader)
+kern_return_t ucsp_server_extractMasterKey(UCSP_ARGS, IPCDbHandle db, DATA_IN(context), IPCDbHandle sourceDb,
+	DATA_IN(cred), DATA_IN(owner),
+	uint32 usage, uint32 attrs, IPCKeyHandle *newKey, DATA_OUT(keyHeader))
 {
 	BEGIN_IPC
-	context.postIPC(contextBase, attributes);
-    relocate(cred, credBase, credLength);
-	relocate(owner, ownerBase, ownerLength);
+	CopyOutAccessCredentials creds(cred, credLength);
+	CopyOutEntryAcl owneracl(owner, ownerLength);
+	CopyOutContext ctx(context, contextLength);
 	RefPointer<KeychainDatabase> keychain = Server::keychain(sourceDb);
 	RefPointer<Key> masterKey = keychain->extractMasterKey(
 		*Server::optionalDatabase(db, attrs & CSSM_KEYATTR_PERMANENT),
-		cred, owner, usage, attrs);
-	masterKey->returnKey(*newKey, *newHeader);
-	flip(*newHeader);
+		creds, owneracl, usage, attrs);
+	KeyHandle keyHandle;
+	CssmKey::Header header;
+	masterKey->returnKey(keyHandle, header);
+	*newKey = keyHandle;
+	if (!copyin(&header, reinterpret_cast<xdrproc_t> (xdr_CSSM_KEYHEADER), keyHeader, keyHeaderLength))
+		CssmError::throwMe(CSSMERR_CSSM_MEMORY_ERROR);
+	Server::releaseWhenDone(*keyHeader);
 	END_IPC(CSP)
 }
 
@@ -966,18 +1153,36 @@ kern_return_t ucsp_server_extractMasterKey(UCSP_ARGS, DbHandle db, CONTEXT_ARGS,
 // Authorization subsystem support
 //
 kern_return_t ucsp_server_authorizationCreate(UCSP_ARGS,
-	COPY_IN(AuthorizationItemSet, inRights),
+	void *inRights, mach_msg_type_number_t inRightsLength,
 	uint32 flags,
-	COPY_IN(AuthorizationItemSet, inEnvironment),
+	void *inEnvironment, mach_msg_type_number_t inEnvironmentLength,
 	AuthorizationBlob *authorization)
 {
 	BEGIN_IPC
-	relocate(inRights, inRightsBase, inRightsLength);
-	relocate(inEnvironment, inEnvironmentBase, inEnvironmentLength);
-	Authorization::AuthItemSet rights(inRights), environment(inEnvironment);
+	AuthorizationItemSet *authrights = NULL, *authenvironment = NULL;
+
+	if (inRights && !copyout_AuthorizationItemSet(inRights, inRightsLength, &authrights))
+		CssmError::throwMe(errAuthorizationInternal); // allocation error probably
+
+	if (inEnvironment && !copyout_AuthorizationItemSet(inEnvironment, inEnvironmentLength, &authenvironment))
+	{
+		free(authrights);
+		CssmError::throwMe(errAuthorizationInternal); // allocation error probably
+	}
+
+	Authorization::AuthItemSet rights(authrights), environment(authenvironment);
 
 	*rcode = connection.process().session().authCreate(rights, environment, 
 		flags, *authorization, auditToken);
+
+	// @@@ safe-guard against code throw()ing in here
+
+	if (authrights)
+		free(authrights);
+
+	if (authenvironment)
+		free(authenvironment);
+	
 	END_IPC(CSSM)
 }
 
@@ -991,24 +1196,43 @@ kern_return_t ucsp_server_authorizationRelease(UCSP_ARGS,
 
 kern_return_t ucsp_server_authorizationCopyRights(UCSP_ARGS,
 	AuthorizationBlob authorization,
-	COPY_IN(AuthorizationItemSet, inRights),
+	void *inRights, mach_msg_type_number_t inRightsLength,
 	uint32 flags,
-	COPY_IN(AuthorizationItemSet, inEnvironment),
-	COPY_OUT(AuthorizationItemSet, result))
+	void *inEnvironment, mach_msg_type_number_t inEnvironmentLength,
+	void **result, mach_msg_type_number_t *resultLength)
 {
 	BEGIN_IPC
-	relocate(inRights, inRightsBase, inRightsLength);
-	relocate(inEnvironment, inEnvironmentBase, inEnvironmentLength);
-	Authorization::AuthItemSet rights(inRights), environment(inEnvironment), grantedRights;
-	*rcode = connection.process().session().authGetRights(authorization,
-		rights, environment, flags, grantedRights);
+	AuthorizationItemSet *authrights = NULL, *authenvironment = NULL;
+
+	if (inRights && !copyout_AuthorizationItemSet(inRights, inRightsLength, &authrights))
+		CssmError::throwMe(errAuthorizationInternal); // allocation error probably
+
+	if (inEnvironment && !copyout_AuthorizationItemSet(inEnvironment, inEnvironmentLength, &authenvironment))
+	{
+		free(authrights);
+		CssmError::throwMe(errAuthorizationInternal); // allocation error probably
+	}
+
+	Authorization::AuthItemSet rights(authrights), environment(authenvironment), grantedRights;
+	*rcode = Session::authGetRights(authorization, rights, environment, flags, grantedRights);
+
+	// @@@ safe-guard against code throw()ing in here
+
+	if (authrights)
+		free(authrights);
+
+	if (authenvironment)
+		free(authenvironment);
+	
 	if (result && resultLength)
 	{
-		size_t resultSize;
-		grantedRights.copy(*result, resultSize);
-		*resultLength = resultSize;
-		*resultBase = *result;
-		flips(*result, result, resultBase);
+		AuthorizationItemSet *copyout = grantedRights.copy();
+		if (!copyin_AuthorizationItemSet(copyout, result, resultLength))
+		{
+			free(copyout);
+			CssmError::throwMe(errAuthorizationInternal);
+		}
+		free(copyout);
 		Server::releaseWhenDone(*result);
 	}
 	END_IPC(CSSM)
@@ -1017,20 +1241,23 @@ kern_return_t ucsp_server_authorizationCopyRights(UCSP_ARGS,
 kern_return_t ucsp_server_authorizationCopyInfo(UCSP_ARGS,
 	AuthorizationBlob authorization,
 	AuthorizationString tag,
-	COPY_OUT(AuthorizationItemSet, info))
+	void **info, mach_msg_type_number_t *infoLength)
 {
 	BEGIN_IPC
     Authorization::AuthItemSet infoSet;
-    *info = *infoBase = NULL;
+    *info = NULL;
     *infoLength = 0;
     *rcode = connection.process().session().authGetInfo(authorization,
         tag[0] ? tag : NULL, infoSet);
-    if (*rcode == noErr) {
-		size_t infoSize;
-		infoSet.copy(*info, infoSize);
-		*infoLength = infoSize;
-		*infoBase = *info;
-		flips(*info, info, infoBase);
+    if (*rcode == noErr)
+	{
+		AuthorizationItemSet *copyout = infoSet.copy();
+		if (!copyin_AuthorizationItemSet(copyout, info, infoLength))
+		{
+			free(copyout);
+			CssmError::throwMe(errAuthorizationInternal);
+		}
+		free(copyout);
         Server::releaseWhenDone(*info);
     }
     END_IPC(CSSM)
@@ -1112,25 +1339,13 @@ kern_return_t ucsp_server_setSessionUserPrefs(UCSP_ARGS, SecuritySessionId sessi
 //
 // Notification core subsystem
 //
-kern_return_t ucsp_server_requestNotification(UCSP_ARGS, mach_port_t receiver, uint32 domain, uint32 events)
-{
-    BEGIN_IPC
-    connection.process().requestNotifications(receiver, domain, events);
-    END_IPC(CSSM)
-}
 
-kern_return_t ucsp_server_stopNotification(UCSP_ARGS, mach_port_t receiver)
+kern_return_t ucsp_server_postNotification(UCSP_ARGS, uint32 domain, uint32 event,
+	DATA_IN(data), uint32 sequence)
 {
-    BEGIN_IPC
-    connection.process().stopNotifications(receiver);
-    END_IPC(CSSM)
-}
-
-kern_return_t ucsp_server_postNotification(mach_port_t serverPort, uint32 domain, uint32 event, DATA_IN(data))
-{
-	BEGIN_IPCS
-		Listener::notify(domain, event, DATA(data));
-	END_IPCS()
+	BEGIN_IPC
+		Listener::notify(domain, event, sequence, DATA(data));
+	END_IPC(CSSM)
 }
 
 
@@ -1230,4 +1445,60 @@ kern_return_t ucsp_server_childCheckIn(mach_port_t serverPort,
 	BEGIN_IPCS
 		ServerChild::checkIn(servicePort, TaskPort(taskPort).pid());
 	END_IPCS(mach_port_deallocate(mach_task_self(), taskPort))
+}
+
+
+//
+// Code Signing Hosting registration.
+// Note that the Code Signing Proxy facility (implementing the "cshosting"
+// IPC protocol) is elsewhere.
+//
+kern_return_t ucsp_server_registerHosting(UCSP_ARGS, mach_port_t hostingPort, uint32 flags)
+{
+	BEGIN_IPC
+	connection.process().registerCodeSigning(hostingPort, flags);
+	END_IPC(CSSM)
+}
+
+kern_return_t ucsp_server_hostingPort(UCSP_ARGS, pid_t hostPid, mach_port_t *hostingPort)
+{
+	BEGIN_IPC
+	if (RefPointer<Process> process = Server::active().findPid(hostPid))
+		*hostingPort = process->hostingPort();
+	else
+		*hostingPort = MACH_PORT_NULL;
+	secdebug("hosting", "hosting port for for pid=%d is port %d", hostPid, *hostingPort);
+	END_IPC(CSSM)
+}
+
+
+kern_return_t ucsp_server_setGuest(UCSP_ARGS, SecGuestRef guest, SecCSFlags flags)
+{
+	BEGIN_IPC
+	connection.guestRef(guest, flags);
+	END_IPC(CSSM)
+}
+
+
+kern_return_t ucsp_server_createGuest(UCSP_ARGS, SecGuestRef host,
+	uint32_t status, const char *path, DATA_IN(attributes), SecCSFlags flags, SecGuestRef *newGuest)
+{
+	BEGIN_IPC
+	*newGuest = connection.process().createGuest(host, status, path, DATA(attributes), flags);
+	END_IPC(CSSM)
+}
+
+kern_return_t ucsp_server_setGuestStatus(UCSP_ARGS, SecGuestRef guest,
+	uint32_t status, DATA_IN(attributes))
+{
+	BEGIN_IPC
+	connection.process().setGuestStatus(guest, status, DATA(attributes));
+	END_IPC(CSSM)
+}
+
+kern_return_t ucsp_server_removeGuest(UCSP_ARGS, SecGuestRef host, SecGuestRef guest)
+{
+	BEGIN_IPC
+	connection.process().removeGuest(host, guest);
+	END_IPC(CSSM)
 }

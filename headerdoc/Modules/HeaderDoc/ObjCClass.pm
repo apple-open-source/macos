@@ -6,7 +6,7 @@
 # Initial modifications: SKoT McDonald <skot@tomandandy.com> Aug 2001
 #
 # Based on CPPClass by Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/10/04 23:11:25 $
+# Last Updated: $Date: 2006/03/13 19:27:37 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -45,7 +45,7 @@ use HeaderDoc::ObjCContainer;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.2.2.4.2.11 $';
+$VERSION = '$Revision: 1.2.2.4.2.12 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -91,8 +91,7 @@ sub getMethodType {
 		my $filename = $self->filename();
 		my $linenum = $self->linenum();
 		if (!$HeaderDoc::ignore_apiuid_errors) {
-			print "$filename:$linenum:Unable to determine whether declaration is for an instance or class method[class].\n";
-			print "$filename:$linenum:     '$declaration'\n";
+			print "$filename:$linenum: warning: Unable to determine whether declaration is for an instance or class method[class]. '$declaration'\n";
 		}
 	}
 	return $methodType;

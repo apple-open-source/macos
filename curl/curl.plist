@@ -3,20 +3,21 @@
 	<key>OpenSourceProject</key>
 	<string>curl</string>
 	<key>OpenSourceVersion</key>
-	<string>7.13.1</string>
+	<string>7.16.3</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://curl.haxx.se/</string>
 	<key>OpenSourceURL</key>
-	<string>http://curl.haxx.se/download/curl-7.13.1.tar.bz2</string>
-	<key>OpenSourceMD5</key>
-	<string>d673f68dbab2553acdbfb5435bd1cd48</string>
+	<string>http://curl.haxx.se/download/curl-7.16.3.tar.bz2</string>
+	<key>OpenSourceSHA1</key>
+	<string>7aeda5a74da2a68df49669217859101e9d0553f6</string>
 	<key>OpenSourceImportDate</key>
-	<string>2005-03-04</string>
+	<string>2007-06-27</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>Modified configure script to allow ppc/i386 building.</string>
+		<string>Modified configure script to allow universal building.</string>
 		<string>Strip -arch flags from curl-config output.</string>
-		<string>4043204</string>
+		<string>Remove references to netrc(4) and wget(1) from manpage.</string>
+		<string>Build with the -mdynamic-no-pic flag.</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>

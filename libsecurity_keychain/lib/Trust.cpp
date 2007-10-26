@@ -25,6 +25,7 @@
 // Trust.cpp
 //
 #include <security_keychain/Trust.h>
+#include <security_keychain/TrustSettingsSchema.h>
 #include <security_cdsa_utilities/cssmdates.h>
 #include <security_utilities/cfutilities.h>
 #include <CoreFoundation/CFData.h>
@@ -39,7 +40,32 @@ using namespace KeychainCore;
 //
 ModuleNexus<TrustStore> Trust::gStore;
         
-        
+/*
+ * Singleton maintaining open references to standard system keychains,
+ * to avoid having them be opened anew every time SecTrust is used. 
+ */
+class TrustKeychains 
+{
+public:
+	TrustKeychains();
+	~TrustKeychains()	{}
+	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStore->database()->handle(); }
+	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem->database()->handle(); }
+	Keychain			&rootStore()		{ return mRootStore; }
+	Keychain			&systemKc()			{ return mSystem; }
+private:
+	Keychain	mRootStore;
+	Keychain	mSystem;
+};
+
+TrustKeychains::TrustKeychains()
+	: mRootStore(globals().storageManager.make(SYSTEM_ROOT_STORE_PATH, false)),
+	  mSystem(globals().storageManager.make(ADMIN_CERT_STORE_PATH, false))
+{
+}
+
+static ModuleNexus<TrustKeychains> trustKeychains;
+
 //      
 // Translate CFDataRef to CssmData. The output shares the input's buffer.//
 //
@@ -57,7 +83,7 @@ static inline CssmData cfData(CFDataRef data)
 Trust::Trust(CFTypeRef certificates, CFTypeRef policies)
     : mTP(gGuidAppleX509TP), mAction(CSSM_TP_ACTION_DEFAULT),
       mCerts(cfArrayize(certificates)), mPolicies(cfArrayize(policies)),
-      mResult(kSecTrustResultInvalid)
+      mResult(kSecTrustResultInvalid), mUsingTrustSettings(false)
 {
 	// set default search list from user's default
 	globals().storageManager.getSearchList(mSearchLibs);
@@ -127,8 +153,23 @@ void Trust::evaluate()
     
     // build a TP_VERIFY_CONTEXT, a veritable nightmare of a data structure
     TPBuildVerifyContext context(mAction);
-    if (mActionData)
+
+	/* 
+	 * Guarantee *some* action data... 
+	 * NOTE this only works with the local X509 TP. When this module can deal with other TPs
+	 * this must be revisited.
+	 */
+	CSSM_APPLE_TP_ACTION_DATA localActionData;
+	memset(&localActionData, 0, sizeof(localActionData));
+	CssmData localActionCData((uint8 *)&localActionData, sizeof(localActionData));
+	CSSM_APPLE_TP_ACTION_DATA *actionDataP = &localActionData;
+    if (mActionData) {
         context.actionData() = cfData(mActionData);
+		actionDataP = (CSSM_APPLE_TP_ACTION_DATA *)context.actionData().data();
+	}
+	else {
+		context.actionData() = localActionCData;
+	}
     
     /*
 	 * Policies (one at least, please).
@@ -159,12 +200,19 @@ void Trust::evaluate()
         MacOSError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
     context.setPolicies(policies, policies);
 
-    // anchor certificates
+    // anchor certificates - only use if caller provides them,
+	// else use UserTrust
     CFCopyRef<CFArrayRef> anchors(mAnchors);
-    if (!anchors)
-        anchors = gStore().copyRootCertificates();	// retains
-    CFToVector<CssmData, SecCertificateRef, cfCertificateData> roots(anchors);
-    context.anchors(roots, roots);
+	CFToVector<CssmData, SecCertificateRef, cfCertificateData> roots(anchors);
+    if (!anchors) {
+		mUsingTrustSettings = true;
+		secdebug("userTrust", "Trust::evaluate() using UserTrust");
+	}
+	else {
+		mUsingTrustSettings = false;
+		secdebug("userTrust", "Trust::evaluate() !UserTrust; using caller anchors");
+		context.anchors(roots, roots);
+    }
     
 	// dlDbList (keychain list)
 	vector<CSSM_DL_DB_HANDLE> dlDbList;
@@ -177,6 +225,22 @@ void Trust::evaluate()
 		}
 		catch (...)
 		{
+		}
+	}
+	if(mUsingTrustSettings) {
+		/* Append system anchors for use with Trust Settings */
+		try {
+			dlDbList.push_back(trustKeychains().rootStoreHandle());
+			actionDataP->ActionFlags |= CSSM_TP_ACTION_TRUST_SETTINGS;
+		} catch (...) {
+			// no root store or system keychain; don't use trust settings but continue
+			mUsingTrustSettings = false;
+		}
+		try {
+			dlDbList.push_back(trustKeychains().systemKcHandle());		
+		}
+		catch(...) {
+			/* Oh well, at least we got the root store DB */
 		}
 	}
 	context.setDlDbList(dlDbList.size(), &dlDbList[0]);
@@ -225,6 +289,42 @@ void Trust::evaluate()
 	}
 }
 
+// CSSM_RETURN values that map to kSecTrustResultRecoverableTrustFailure.
+static const CSSM_RETURN recoverableErrors[] = 
+{
+	CSSMERR_TP_INVALID_ANCHOR_CERT,
+	CSSMERR_TP_NOT_TRUSTED,
+	CSSMERR_TP_VERIFICATION_FAILURE,
+	CSSMERR_TP_VERIFY_ACTION_FAILED,
+	CSSMERR_TP_INVALID_CERTIFICATE,
+	CSSMERR_TP_INVALID_REQUEST_INPUTS,
+	CSSMERR_TP_CERT_EXPIRED,
+	CSSMERR_TP_CERT_NOT_VALID_YET,
+	CSSMERR_TP_CERTIFICATE_CANT_OPERATE,
+	CSSMERR_TP_INVALID_CERT_AUTHORITY,
+	CSSMERR_APPLETP_INCOMPLETE_REVOCATION_CHECK,
+	CSSMERR_APPLETP_HOSTNAME_MISMATCH,
+	CSSMERR_TP_VERIFY_ACTION_FAILED,
+	CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND,
+	CSSMERR_APPLETP_SMIME_NO_EMAIL_ADDRS,
+	CSSMERR_APPLETP_SMIME_BAD_EXT_KEY_USE,
+	CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH,
+	CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS,
+	CSSMERR_APPLETP_CS_BAD_PATH_LENGTH,
+	CSSMERR_APPLETP_CS_NO_EXTENDED_KEY_USAGE,
+	CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE,
+	CSSMERR_APPLETP_CODE_SIGN_DEVELOPMENT,
+	CSSMERR_APPLETP_RS_BAD_CERT_CHAIN_LENGTH,
+	CSSMERR_APPLETP_UNKNOWN_CRITICAL_EXTEN,
+	CSSMERR_APPLETP_CRL_NOT_FOUND,
+	CSSMERR_APPLETP_CRL_SERVER_DOWN,
+	CSSMERR_APPLETP_CRL_NOT_VALID_YET,
+	CSSMERR_APPLETP_OCSP_UNAVAILABLE,
+	CSSMERR_APPLETP_INCOMPLETE_REVOCATION_CHECK,
+	CSSMERR_APPLETP_NETWORK_FAILURE,
+	CSSMERR_APPLETP_OCSP_RESP_TRY_LATER,
+};
+#define NUM_RECOVERABLE_ERRORS	(sizeof(recoverableErrors) / sizeof(CSSM_RETURN))
 
 //
 // Classify the TP outcome in terms of a SecTrustResultType
@@ -233,19 +333,49 @@ SecTrustResultType Trust::diagnoseOutcome()
 {
     switch (mTpReturn) {
     case noErr:									// peachy
-        return kSecTrustResultUnspecified;
-    case CSSMERR_TP_CERT_EXPIRED:				// expired cert
-    case CSSMERR_TP_CERT_NOT_VALID_YET:			// mis-expired cert
-    case CSSMERR_TP_NOT_TRUSTED:				// no root, no anchor
-    case CSSMERR_TP_VERIFICATION_FAILURE:		// root does not self-verify
-    case CSSMERR_TP_INVALID_ANCHOR_CERT:		// valid is not an anchor
-    case CSSMERR_TP_VERIFY_ACTION_FAILED:		// policy action failed
-        return kSecTrustResultRecoverableTrustFailure;
+		if (mUsingTrustSettings)
+		{
+			uint32 chainLength = 0;
+			if (mTpResult.count() == 3 &&
+				mTpResult[1].form() == CSSM_EVIDENCE_FORM_APPLE_CERTGROUP &&
+				mTpResult[2].form() == CSSM_EVIDENCE_FORM_APPLE_CERT_INFO)
+			{
+				const CertGroup &chain = *mTpResult[1].as<CertGroup>();
+				chainLength = chain.count();
+			}
+            
+			if (chainLength)
+			{
+				const CSSM_TP_APPLE_EVIDENCE_INFO *infoList = mTpResult[2].as<CSSM_TP_APPLE_EVIDENCE_INFO>();
+				const TPEvidenceInfo &info = TPEvidenceInfo::overlay(infoList[chainLength-1]);
+				const CSSM_TP_APPLE_CERT_STATUS resultCertStatus = info.status();
+				bool hasUserDomainTrust = ((resultCertStatus & CSSM_CERT_STATUS_TRUST_SETTINGS_TRUST) &&
+						(resultCertStatus & CSSM_CERT_STATUS_TRUST_SETTINGS_FOUND_USER));
+				bool hasAdminDomainTrust = ((resultCertStatus & CSSM_CERT_STATUS_TRUST_SETTINGS_TRUST) &&
+						(resultCertStatus & CSSM_CERT_STATUS_TRUST_SETTINGS_FOUND_ADMIN));
+				if (hasUserDomainTrust || hasAdminDomainTrust)
+				{
+					return kSecTrustResultProceed;		// explicitly allowed
+				}
+			}
+		}
+		return kSecTrustResultUnspecified;		// cert evaluates OK
     case CSSMERR_TP_INVALID_CERTIFICATE:		// bad certificate
         return kSecTrustResultFatalTrustFailure;
+	case CSSMERR_APPLETP_TRUST_SETTING_DENY:	// authoritative denial
+		return kSecTrustResultDeny;
     default:
-        return kSecTrustResultOtherError;		// unknown
+		break;
     }
+	
+	// a known list of returns maps to kSecTrustResultRecoverableTrustFailure
+	const CSSM_RETURN *errp=recoverableErrors;
+	for(unsigned dex=0; dex<NUM_RECOVERABLE_ERRORS; dex++, errp++) {
+		if(*errp == mTpReturn) {
+			return kSecTrustResultRecoverableTrustFailure;
+		}
+	}
+	return kSecTrustResultOtherError;			// unknown
 }
 
 
@@ -263,25 +393,25 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
         if (info.recordId()) {
 			Keychain keychain = keychainByDLDb(info.DlDbHandle);
 			DbUniqueRecord uniqueId(keychain->database()->newDbUniqueRecord());
-			secdebug("trusteval", "evidence #%ld from keychain \"%s\"", n, keychain->name());
+			secdebug("trusteval", "evidence #%lu from keychain \"%s\"", (unsigned long)n, keychain->name());
 			*static_cast<CSSM_DB_UNIQUE_RECORD_PTR *>(uniqueId) = info.UniqueRecord;
 			uniqueId->activate(); // transfers ownership
 			mCertChain[n] = safe_cast<Certificate *>(keychain->item(CSSM_DL_DB_RECORD_X509_CERTIFICATE, uniqueId).get());
         } else if (info.status(CSSM_CERT_STATUS_IS_IN_INPUT_CERTS)) {
-            secdebug("trusteval", "evidence %ld from input cert %ld", n, info.index());
+            secdebug("trusteval", "evidence %lu from input cert %lu", (unsigned long)n, (unsigned long)info.index());
             assert(info.index() < uint32(CFArrayGetCount(mCerts)));
             SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(mCerts,
                 info.index()));
             mCertChain[n] = Certificate::required(cert);
         } else if (info.status(CSSM_CERT_STATUS_IS_IN_ANCHORS)) {
-            secdebug("trusteval", "evidence %ld from anchor cert %ld", n, info.index());
+            secdebug("trusteval", "evidence %lu from anchor cert %lu", (unsigned long)n, (unsigned long)info.index());
             assert(info.index() < uint32(CFArrayGetCount(anchors)));
             SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(anchors,
                 info.index()));
             mCertChain[n] = Certificate::required(cert);
         } else {
             // unknown source; make a new Certificate for it
-            secdebug("trusteval", "evidence %ld from unknown source", n);
+            secdebug("trusteval", "evidence %lu from unknown source", (unsigned long)n);
             mCertChain[n] =
                 new Certificate(chain.blobCerts()[n],
 					CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER);
@@ -289,19 +419,19 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
     }
     
     // now walk the chain, leaf-to-root, checking for user settings
-    TrustStore &store = gStore();
-    SecPointer<Policy> policy =
-        Policy::required(SecPolicyRef(CFArrayGetValueAtIndex(mPolicies, 0)));
-    for (mResultIndex = 0;
-            mResult == kSecTrustResultUnspecified && mResultIndex < mCertChain.size();
-            mResultIndex++)
-    {
+	TrustStore &store = gStore();
+	SecPointer<Policy> policy =
+		Policy::required(SecPolicyRef(CFArrayGetValueAtIndex(mPolicies, 0)));
+	for (mResultIndex = 0;
+			mResult == kSecTrustResultUnspecified && mResultIndex < mCertChain.size();
+			mResultIndex++)
+	{
 		if (!mCertChain[mResultIndex])
 		{
-        	assert(false);
-            continue;
-        }
-	    mResult = store.find(mCertChain[mResultIndex], policy);
+			assert(false);
+			continue;
+		}
+		mResult = store.find(mCertChain[mResultIndex], policy, mSearchLibs);
 	}
 }
 
@@ -403,6 +533,19 @@ Keychain Trust::keychainByDLDb(const CSSM_DL_DB_HANDLE &handle) const
 		}
 		catch (...)
 		{
+		}
+	}
+	if(mUsingTrustSettings) {
+		try {
+			if(trustKeychains().rootStoreHandle() == handle) {
+				return trustKeychains().rootStore();
+			}
+			if(trustKeychains().systemKcHandle() == handle) {
+				return trustKeychains().systemKc();
+			}
+		}
+		catch(...) {
+			/* one of those is missing; proceed */
 		}
 	}
 

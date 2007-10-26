@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 1997-2004, International Business Machines
+ *   Copyright (C) 1997-2006, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
 *
@@ -160,7 +160,7 @@ void locale_set_default_internal(const char *id)
     umtx_unlock(NULL);
     if (hashTableNeedsInit) {
         status = U_ZERO_ERROR;
-        UHashtable *tHashTable = uhash_open(uhash_hashChars, uhash_compareChars, &status);
+        UHashtable *tHashTable = uhash_open(uhash_hashChars, uhash_compareChars, NULL, &status);
         if (U_FAILURE(status)) {
             return;
         }
@@ -357,7 +357,7 @@ Locale::Locale( const   char * newLanguage,
 
         /*if the whole string is longer than our internal limit, we need
         to go to the heap for temporary buffers*/
-        if (size > ULOC_FULLNAME_CAPACITY)
+        if (size >= ULOC_FULLNAME_CAPACITY)
         {
             togo_heap = (char *)uprv_malloc(sizeof(char)*(size+1));
             togo = togo_heap;
@@ -553,7 +553,7 @@ Locale& Locale::init(const char* localeID, UBool canonicalize)
         fieldIdx = 1;
         while ((separator = uprv_strchr(field[fieldIdx-1], SEP_CHAR)) && fieldIdx < (int32_t)(sizeof(field)/sizeof(field[0]))-1) {
             field[fieldIdx] = separator + 1;
-            fieldLen[fieldIdx-1] = separator - field[fieldIdx-1];
+            fieldLen[fieldIdx-1] = (int32_t)(separator - field[fieldIdx-1]);
             fieldIdx++;
         }
         // variant may contain @foo or .foo POSIX cruft; remove it
@@ -563,7 +563,7 @@ Locale& Locale::init(const char* localeID, UBool canonicalize)
             if (separator==NULL || (sep2!=NULL && separator > sep2)) {
                 separator = sep2;
             }
-            fieldLen[fieldIdx-1] = separator - field[fieldIdx-1];
+            fieldLen[fieldIdx-1] = (int32_t)(separator - field[fieldIdx-1]);
         } else {
             fieldLen[fieldIdx-1] = length - (int32_t)(field[fieldIdx-1] - fullName);
         }
@@ -604,7 +604,7 @@ Locale& Locale::init(const char* localeID, UBool canonicalize)
 
         // successful end of init()
         return *this;
-    } while(0);
+    } while(0); /*loop doesn't iterate*/
 
     // when an error occurs, then set this object to "bogus" (there is no UErrorCode here)
     setToBogus();
@@ -745,7 +745,7 @@ Locale::getDisplayLanguage(const Locale &displayLocale,
     length=uloc_getDisplayLanguage(fullName, displayLocale.fullName,
                                    buffer, result.getCapacity(),
                                    &errorCode);
-    result.releaseBuffer(length);
+    result.releaseBuffer(U_SUCCESS(errorCode) ? length : 0);
 
     if(errorCode==U_BUFFER_OVERFLOW_ERROR) {
         buffer=result.getBuffer(length);
@@ -757,11 +757,7 @@ Locale::getDisplayLanguage(const Locale &displayLocale,
         length=uloc_getDisplayLanguage(fullName, displayLocale.fullName,
                                        buffer, result.getCapacity(),
                                        &errorCode);
-        result.releaseBuffer(length);
-    }
-
-    if(U_FAILURE(errorCode)) {
-        result.truncate(0);
+        result.releaseBuffer(U_SUCCESS(errorCode) ? length : 0);
     }
 
     return result;
@@ -789,7 +785,7 @@ Locale::getDisplayScript(const Locale &displayLocale,
     length=uloc_getDisplayScript(fullName, displayLocale.fullName,
                                   buffer, result.getCapacity(),
                                   &errorCode);
-    result.releaseBuffer(length);
+    result.releaseBuffer(U_SUCCESS(errorCode) ? length : 0);
 
     if(errorCode==U_BUFFER_OVERFLOW_ERROR) {
         buffer=result.getBuffer(length);
@@ -801,11 +797,7 @@ Locale::getDisplayScript(const Locale &displayLocale,
         length=uloc_getDisplayScript(fullName, displayLocale.fullName,
                                       buffer, result.getCapacity(),
                                       &errorCode);
-        result.releaseBuffer(length);
-    }
-
-    if(U_FAILURE(errorCode)) {
-        result.truncate(0);
+        result.releaseBuffer(U_SUCCESS(errorCode) ? length : 0);
     }
 
     return result;
@@ -833,7 +825,7 @@ Locale::getDisplayCountry(const Locale &displayLocale,
     length=uloc_getDisplayCountry(fullName, displayLocale.fullName,
                                   buffer, result.getCapacity(),
                                   &errorCode);
-    result.releaseBuffer(length);
+    result.releaseBuffer(U_SUCCESS(errorCode) ? length : 0);
 
     if(errorCode==U_BUFFER_OVERFLOW_ERROR) {
         buffer=result.getBuffer(length);
@@ -845,11 +837,7 @@ Locale::getDisplayCountry(const Locale &displayLocale,
         length=uloc_getDisplayCountry(fullName, displayLocale.fullName,
                                       buffer, result.getCapacity(),
                                       &errorCode);
-        result.releaseBuffer(length);
-    }
-
-    if(U_FAILURE(errorCode)) {
-        result.truncate(0);
+        result.releaseBuffer(U_SUCCESS(errorCode) ? length : 0);
     }
 
     return result;
@@ -877,7 +865,7 @@ Locale::getDisplayVariant(const Locale &displayLocale,
     length=uloc_getDisplayVariant(fullName, displayLocale.fullName,
                                   buffer, result.getCapacity(),
                                   &errorCode);
-    result.releaseBuffer(length);
+    result.releaseBuffer(U_SUCCESS(errorCode) ? length : 0);
 
     if(errorCode==U_BUFFER_OVERFLOW_ERROR) {
         buffer=result.getBuffer(length);
@@ -889,11 +877,7 @@ Locale::getDisplayVariant(const Locale &displayLocale,
         length=uloc_getDisplayVariant(fullName, displayLocale.fullName,
                                       buffer, result.getCapacity(),
                                       &errorCode);
-        result.releaseBuffer(length);
-    }
-
-    if(U_FAILURE(errorCode)) {
-        result.truncate(0);
+        result.releaseBuffer(U_SUCCESS(errorCode) ? length : 0);
     }
 
     return result;
@@ -921,7 +905,7 @@ Locale::getDisplayName(const Locale &displayLocale,
     length=uloc_getDisplayName(fullName, displayLocale.fullName,
                                buffer, result.getCapacity(),
                                &errorCode);
-    result.releaseBuffer(length);
+    result.releaseBuffer(U_SUCCESS(errorCode) ? length : 0);
 
     if(errorCode==U_BUFFER_OVERFLOW_ERROR) {
         buffer=result.getBuffer(length);
@@ -933,11 +917,7 @@ Locale::getDisplayName(const Locale &displayLocale,
         length=uloc_getDisplayName(fullName, displayLocale.fullName,
                                    buffer, result.getCapacity(),
                                    &errorCode);
-        result.releaseBuffer(length);
-    }
-
-    if(U_FAILURE(errorCode)) {
-        result.truncate(0);
+        result.releaseBuffer(U_SUCCESS(errorCode) ? length : 0);
     }
 
     return result;
@@ -957,6 +937,7 @@ Locale::getAvailableLocales(int32_t& count)
            newLocaleList = new Locale[locCount];
         }
         if (newLocaleList == NULL) {
+            count = 0;
             return NULL;
         }
 
@@ -1127,13 +1108,13 @@ const Locale &
 Locale::getLocale(int locid)
 {
     Locale *localeCache = getLocaleCache();
-    U_ASSERT(locid < eMAX_LOCALES);
+    U_ASSERT((locid < eMAX_LOCALES)&&(locid>=0));
     if (localeCache == NULL) {
         // Failure allocating the locale cache.
         //   The best we can do is return a NULL reference.
         locid = 0;
     }
-    return localeCache[locid];
+    return localeCache[locid]; /*operating on NULL*/
 }
 
 /*
@@ -1242,7 +1223,7 @@ public:
         int32_t len;
         if(U_SUCCESS(status) && *current != 0) {
             result = current;
-            len = uprv_strlen(current);
+            len = (int32_t)uprv_strlen(current);
             current += len+1;
             if(resultLength != NULL) {
                 *resultLength = len;

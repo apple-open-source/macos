@@ -1,10 +1,8 @@
 ##
-# Files
-# Wilfredo Sanchez | wsanchez@apple.com
-# Copyright 1999 Apple Computer, Inc.
+# Mac OS X file system hierarchy
+# Copyright 1999-2007 Apple Inc.
 ##
 
-# Project info
 export Project = files
 
 Destination = $(DSTROOT)
@@ -12,21 +10,36 @@ Destination = $(DSTROOT)
 # Common Makefile
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-# Subdirectories with their own makefiles
-SubDirs = Library Network Users private usr
+##
+# Read the hierarchy file and create the directories.
+# If the corresponding directory exists in the SRCROOT
+# and contains a Makefile, execute that makefile.
+##
+Product=$(shell tconf --product)
+ifeq "$(Product)" "iPhone"
+	SRC_HIERARCHY=hierarchy hierarchy.iPhone
+else
+	SRC_HIERARCHY="hierarchy"
+endif
 
 install::
-	$(_v) for subdir in $(SubDirs); do						\
-		(cd "$$subdir" && $(MAKE) $@ Destination="$(Destination)/$$subdir");	\
-	      done
+	@echo "Installing for $(Product)"
+	$(_v) install -d -m 1775 -o root -g admin "$(Destination)"
+	$(_v) cat $(SRC_HIERARCHY) | \
+	awk -F '\t'  ' \
+	{	print sprintf("install -d -m %s -o %s -g %s \"$(Destination)/%s\";", $$1, $$2, $$3, $$4); \
+		print sprintf("[ ! -f \"%s/Makefile\" ] || make -C \"%s\" Destination=\"$(Destination)/%s\" $@ ;", $$4, $$4, $$4); \
+	}' | sh -x -e
 
 install::
-	@echo "Installing $(Destination)"
-	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
-	$(_v) $(INSTALL_DIRECTORY) -m 1775 -g admin "$(Destination)/cores"
-	$(_v) $(INSTALL_DIRECTORY) "$(Destination)/dev"
-	$(_v) $(INSTALL_DIRECTORY) "$(Destination)/System"
-	$(_v) $(LN) -fs private/etc      "$(Destination)/etc"
-	$(_v) $(LN) -fs mach_kernel      "$(Destination)/mach"
-	$(_v) $(LN) -fs private/tmp      "$(Destination)/tmp"
-	$(_v) $(LN) -fs private/var      "$(Destination)/var"
+	$(_v) $(LN) -fs private/etc "$(Destination)/etc"
+	$(_v) $(CHOWN) -h root:wheel "$(Destination)/etc"
+ifeq "$(shell tconf --test TARGET_OS_EMBEDDED)" "YES"
+	$(_v) $(LN) -fs private/var/tmp "$(Destination)/tmp"
+else
+	$(_v) $(LN) -fs private/tmp "$(Destination)/tmp"
+endif
+	$(_v) $(CHOWN) -h root:wheel "$(Destination)/tmp"
+	$(_v) $(LN) -fs private/var "$(Destination)/var"
+	$(_v) $(CHOWN) -h root:wheel "$(Destination)/var"
+	$(_v) $(COMPRESSMANPAGES) /usr/share/man

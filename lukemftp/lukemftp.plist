@@ -1,0 +1,29 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>lukemftp</string>
+        <key>OpenSourceVersion</key>
+        <string>20050625</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.NetBSD.org/</string>
+        <key>OpenSourceURL</key>
+        <string>ftp://ftp.netbsd.org/pub/NetBSD/misc/lukemftp/tnftp-20050625.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+        <string>1dd0996775755000686b59f5c2fbdb0ecaadfff7</string>
+        <key>OpenSourceImportDate</key>
+        <string>2006-11-15</string>
+        <key>OpenSourceLicense</key>
+        <string>BSD</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>lukemftp.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Makefile.in.patch</string>
+		<string>PR-4305547.fetch.c.patch</string>
+		<string>PR-4074918.ftp.c.patch</string>
+		<string>PR-4856624.CID.patch</string>
+	</array>
+</dict>
+</array>
+</plist>

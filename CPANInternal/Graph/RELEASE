@@ -1,0 +1,67 @@
+0.50
+
+	* THIS IS NOT COMPATIBLE with the old 0.2xxx series of the Graph
+	module. Your scripts are likely to break.  I did try to fashion a
+	nice compatibility mode but there was no way to do that cleanly
+	and to cover all the old oddities.  You can try the compatibility
+	mode but I suggest changing your code instead because the compat
+	mode is not going to be carried over to the next releases of the
+	module.
+
+	* The main reason for introducing the incompatibilities was that
+	the new Graph supports graphs of 'higher dimensions', and the
+	assumptions made by the old module (most importantly that edges
+	could only span two vertices) in effect made it impossible to
+	extend the interfaces.
+
+	* The most serious incompatibility is edges(): with the old
+	way in list context it returned the vertices of the edges as a
+	flat list. Now it returns a list of anonymous arrays that contain
+	the vertices for each edge.
+
+	* vertices() now returns the vertices in an undefined order.
+
+	* This release does not worry much about speed (some inlining
+	of the "hot paths" has been done, however), but instead
+	about correctness and documentation.  Everything is probably
+	slower than 0.2xx by a factor of two to five, or worse.
+
+	* The average size of an empty graph is about 1160 bytes.
+	* The average size per vertex is about 110 bytes.
+	* The average size per edge is about 390 bytes.
+	* These figures are for a 32-bit Perl.
+
+	* If you want speed (or especially if you want small memory
+	footprint), you shouldn't be using pure Perl.  Consider using
+	things like PDL (pdl.perl.org), XS interfaces to LEDA or Boost Graph
+	libraries (no, I don't know of such interfaces), or build your own
+	algorithms on top of Bit::Vector, or resort non-Perl solutions
+	like MATLAB or Mathematica, or again LEDA or Boost.
+
+	* The current implementation of Graph objects is decidedly
+	non-trivial (see DESIGN), which means that you cannot extend
+	it in trivial ways (e.g. access vertices of a graph as keys
+	in a hash).  But you shouldn't be doing things like that anyway,
+	peeking and poking at objects' innards, right?
+
+	* The next version of Graph (most likely 0.90) is going to aim
+	for speed.  The backward compatibility for the 0.2xxx series
+	will be dropped (because that, too, slows down this release).
+
+	* No DAG SSSP has been implemented for this release.
+	Dijkstra and Bellman-Ford SSSPs are available, though.
+
+	* No flow network algorithms (like Ford-Fulkerson) have been
+	implemented for this release.  This omission will no doubt bring
+	out from the woodwork all the myriad users of flow networks.
+
+	* This release depends on the List::Util module, part of Perl
+	releases since Perl 5.8.0, or available from the CPAN.  (Also the
+	Heap module is required, as it was already with Graph 0.2xxx.)
+	
+	* This release requires at least Perl 5.005, a step up from
+	5.004_04 as required by 0.2xx.  (I just don't have 5.004
+	installed any more, so I simply wasn't able to test this
+	release with 5.004.)
+
+-- 

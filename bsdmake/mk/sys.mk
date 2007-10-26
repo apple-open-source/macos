@@ -1,5 +1,5 @@
 #	from: @(#)sys.mk	8.2 (Berkeley) 3/21/94
-# $FreeBSD: src/share/mk/sys.mk,v 1.80 2004/08/09 10:54:05 harti Exp $
+# $FreeBSD: src/share/mk/sys.mk,v 1.87 2005/09/28 08:17:30 ru Exp $
 
 unix		?=	We run Darwin, not UNIX.
 .FreeBSD	?=	false
@@ -37,7 +37,7 @@ CC		?=	c89
 CFLAGS		?=	-O
 .else
 CC		?=	cc
-CFLAGS		?=	-O -pipe ${ARCH_FLAGS}
+CFLAGS		?=	-Os -pipe ${ARCH_FLAGS}
 .endif
 
 CXX		?=	c++
@@ -106,13 +106,6 @@ YFLAGS		?=
 .else
 YFLAGS		?=	-d
 .endif
-
-# FreeBSD/i386 has traditionally been built with a version of make
-# which knows MACHINE, but not MACHINE_ARCH. When building on other
-# architectures, assume that the version of make being used has an
-# explicit MACHINE_ARCH setting and treat a missing MACHINE_ARCH
-# as an i386 architecture.
-MACHINE_ARCH	?=	i386
 
 .if defined(%POSIX)
 
@@ -267,8 +260,12 @@ __MAKE_CONF?=/etc/make.conf
 
 # Default executable format
 # XXX hint for bsd.port.mk
-OBJFORMAT?=	mach-o
+OBJFORMAT?=	elf
+
+# Toggle on warnings
+.WARN: dirsyntax
 
 .endif
 
+.include <bsd.compat.mk>
 .include <bsd.cpu.mk>

@@ -4,26 +4,28 @@
 <meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
 <title> Postfix manual - postcat(1) </title>
 </head> <body> <pre>
-POSTCAT(1)                                             POSTCAT(1)
+POSTCAT(1)                                                          POSTCAT(1)
 
 <b>NAME</b>
        postcat - show Postfix queue file contents
 
 <b>SYNOPSIS</b>
-       <b>postcat</b> [<b>-vq</b>] [<b>-c</b> <i>config</i><b>_</b><i>dir</i>] [<i>files</i>...]
+       <b>postcat</b> [<b>-oqv</b>] [<b>-c</b> <i>config</i><b>_</b><i>dir</i>] [<i>files</i>...]
 
 <b>DESCRIPTION</b>
-       The <b>postcat</b> command prints the contents of the named <i>files</i>
-       in human-readable form. The files are expected  to  be  in
-       Postfix  queue  file  format. If no <i>files</i> are specified on
+       The  <a href="postcat.1.html"><b>postcat</b>(1)</a>  command  prints the contents of the named
+       <i>files</i> in human-readable form. The files are expected to be
+       in Postfix queue file format. If no <i>files</i> are specified on
        the command line, the program reads from standard input.
 
        Options:
 
        <b>-c</b> <i>config</i><b>_</b><i>dir</i>
-              The <b>main.cf</b> configuration  file  is  in  the  named
+              The <a href="postconf.5.html"><b>main.cf</b></a> configuration  file  is  in  the  named
               directory  instead  of  the  default  configuration
               directory.
+
+       <b>-o</b>     Print the queue file offset of each record.
 
        <b>-q</b>     Search  the  Postfix  queue  for  the  named  <i>files</i>
               instead of taking the names literally.
@@ -42,15 +44,15 @@ POSTCAT(1)                                             POSTCAT(1)
               Directory with Postfix configuration files.
 
 <b>CONFIGURATION PARAMETERS</b>
-       The  following  <b>main.cf</b> parameters are especially relevant
+       The  following  <a href="postconf.5.html"><b>main.cf</b></a> parameters are especially relevant
        to this program.
 
        The text below provides  only  a  parameter  summary.  See
-       <a href="postconf.5.html">postconf(5)</a> for more details including examples.
+       <a href="postconf.5.html"><b>postconf</b>(5)</a> for more details including examples.
 
        <b><a href="postconf.5.html#config_directory">config_directory</a> (see 'postconf -d' output)</b>
-              The  default  location  of  the Postfix main.cf and
-              master.cf configuration files.
+              The  default  location  of  the Postfix <a href="postconf.5.html">main.cf</a> and
+              <a href="master.5.html">master.cf</a> configuration files.
 
        <b><a href="postconf.5.html#queue_directory">queue_directory</a> (see 'postconf -d' output)</b>
               The location of the Postfix top-level queue  direc-
@@ -72,5 +74,5 @@ POSTCAT(1)                                             POSTCAT(1)
        P.O. Box 704
        Yorktown Heights, NY 10598, USA
 
-                                                       POSTCAT(1)
+                                                                    POSTCAT(1)
 </pre> </body> </html>

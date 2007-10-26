@@ -31,7 +31,7 @@ krb5_gss_release_cred(minor_status, cred_handle)
    krb5_gss_cred_id_t cred;
    krb5_error_code code1, code2, code3;
 
-   code1 = krb5_init_context(&context);
+   code1 = krb5_gss_init_context(&context);
    if (code1) {
        *minor_status = code1;
        return GSS_S_FAILURE;
@@ -49,7 +49,7 @@ krb5_gss_release_cred(minor_status, cred_handle)
       return(GSS_S_CALL_BAD_STRUCTURE|GSS_S_NO_CRED);
    }
 
-   cred = *cred_handle;
+   cred = (krb5_gss_cred_id_t)*cred_handle;
 
    k5_mutex_destroy(&cred->lock);
    /* ignore error destroying mutex */
@@ -70,6 +70,10 @@ krb5_gss_release_cred(minor_status, cred_handle)
       code3 = 0;
    if (cred->princ)
       krb5_free_principal(context, cred->princ);
+
+   if (cred->req_enctypes)
+       free(cred->req_enctypes);
+
    xfree(cred);
    krb5_free_context(context);
 

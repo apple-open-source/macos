@@ -118,7 +118,7 @@
     [thisDevice addProperty:"Attributes:" withValue:str atDepth:CONFIGURATION_DESCRIPTOR_LEVEL];
     
     cstr1 = GetStringFromNumber(cfg->MaxPower, sizeof(cfg->MaxPower), kIntegerOutputStyle);
-    sprintf(str, "%d ma", [[NSString stringWithCString:cstr1] intValue]*2);
+    sprintf(str, "%d ma", [[NSString stringWithCString:cstr1 encoding:NSUTF8StringEncoding] intValue]*2);
     [thisDevice addProperty:"MaxPower:" withValue:str atDepth:CONFIGURATION_DESCRIPTOR_LEVEL];
     FreeString(cstr1);
     

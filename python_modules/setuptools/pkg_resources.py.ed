@@ -1,0 +1,7 @@
+/sw_vers/a
+.
+.,/raise ValueError/c
+        # don't call sw_vers because that causes a SIGTRAP in gdb
+        _cache = [['XXXMAJORXXX', 'XXXMINORXXX']]
+.
+w

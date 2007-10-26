@@ -93,7 +93,7 @@ environment variable that finds all the standard utilities.
 .Sh RETURN VALUES
 If the call to
 .Fn confstr
-is not successful, \-1 is returned and
+is not successful, 0 is returned and
 .Va errno
 is set appropriately.
 Otherwise, if the variable does not have a configuration defined value,
@@ -124,6 +124,12 @@ The value of the
 .Fa name
 argument is invalid.
 .El
+.Sh LEGACY ERRORS
+If the call to
+.Fn confstr
+is not successful, \-1 (rather than 0) is returned and
+.Va errno
+is set appropriately.
 .Sh SEE ALSO
 .Xr getconf 1 ,
 .Xr pathconf 2 ,

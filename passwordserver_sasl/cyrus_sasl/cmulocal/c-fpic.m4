@@ -1,5 +1,5 @@
 dnl
-dnl $Id: c-fpic.m4,v 1.1 2004/12/02 21:50:36 snsimon Exp $
+dnl $Id: c-fpic.m4,v 1.2 2006/01/20 20:21:08 snsimon Exp $
 dnl
 
 dnl

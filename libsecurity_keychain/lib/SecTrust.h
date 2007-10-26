@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,7 @@
 #include <Security/cssmtype.h>
 #include <Security/cssmapple.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <AvailabilityMacros.h>
 
 
 #if defined(__cplusplus)
@@ -85,12 +86,20 @@ CFTypeID SecTrustGetTypeID(void);
 	@function SecTrustCreateWithCertificates
 	@abstract Creates a trust based on the given certificates and policies.
     @param certificates The group of certificates to verify.
-    @param policies An array of one or more policies. You may pass a SecPolicyRef
-		to represent a single policy.
+    @param policies An array of one or more policies. You may pass a SecPolicyRef to represent a single policy.
 	@param trustRef On return, a pointer to the trust management reference.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustCreateWithCertificates(CFArrayRef certificates, CFTypeRef policies, SecTrustRef *trustRef);
+
+/*!
+    @function SecTrustSetPolicies
+    @abstract Set (replace) the set of policies to evaluate.
+    @param trust The reference to the trust to change.
+    @param policies An array of one or more policies. A single SecPolicyRef may also be passed, representing an array of one policy.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/    
+OSStatus SecTrustSetPolicies(SecTrustRef trust, CFTypeRef policies);
 
 /*!
 	@function SecTrustSetParameters
@@ -98,7 +107,7 @@ OSStatus SecTrustCreateWithCertificates(CFArrayRef certificates, CFTypeRef polic
 	@param trustRef The reference to the trust to change.
 	@param action A CSSM trust action.
 	@param actionData A reference to action data.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@result A result code. See "Security Error Codes" (SecBase.h).
  */
 OSStatus SecTrustSetParameters(SecTrustRef trustRef, CSSM_TP_ACTION action, CFDataRef actionData);
 
@@ -107,7 +116,7 @@ OSStatus SecTrustSetParameters(SecTrustRef trustRef, CSSM_TP_ACTION action, CFDa
 	@abstract Sets the anchor certificates for a given trust.
 	@param trust A reference to a trust.
 	@param anchorCertificates An array of anchor certificates.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustSetAnchorCertificates(SecTrustRef trust, CFArrayRef anchorCertificates);
 
@@ -115,17 +124,17 @@ OSStatus SecTrustSetAnchorCertificates(SecTrustRef trust, CFArrayRef anchorCerti
 	@function SecTrustSetKeychains
 	@abstract Sets the keychains for a given trust.
 	@param trust A reference to a trust.
-    @param keychainOrArray An reference to an array of keychains to search, a single keychain or NULL to search the user's default keychain search list.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+    @param keychainOrArray A reference to an array of keychains to search, a single keychain or NULL to search the user's default keychain search list.
+	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef keychainOrArray);
 
 /*!
 	@function SecTrustSetVerifyDate
-	@abstract Verifies the date of a given trust.
+	@abstract Specifies the date for verification of a given trust.
 	@param trust A reference to the trust to verify.
 	@param verifyDate The date to verify.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustSetVerifyDate(SecTrustRef trust, CFDateRef verifyDate);
 
@@ -134,7 +143,7 @@ OSStatus SecTrustSetVerifyDate(SecTrustRef trust, CFDateRef verifyDate);
 	@abstract Evaluates a trust.
 	@param trust A reference to the trust to evaluate.
 	@param result A pointer to a result type.
-	@result A result code.  See "Security Error Codes" (SecBase.h).	
+	@result A result code. See "Security Error Codes" (SecBase.h).	
 */
 OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result);
 
@@ -143,9 +152,9 @@ OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result);
 	@abstract Returns detail information on the outcome of a call to SecTrustEvaluate.
 	@param trustRef A reference to a trust.
 	@param result A pointer to the result from the call to SecTrustEvaluate.
-	@param certChain On return, a pointer to the certificate chain used to validate the input certificate.
-	@param statusChain On return, a pointer to the status of the certificate chain.  Do not attempt to free this pointer; it remains valid until the trust is destroyed or the next call to SecTrustEvaluate.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@param certChain On return, a pointer to the certificate chain used to validate the input certificate. Call the CFRelease function to release this pointer.
+	@param statusChain On return, a pointer to the status of the certificate chain. Do not attempt to free this pointer; it remains valid until the trust is destroyed or the next call to SecTrustEvaluate.
+	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustGetResult(SecTrustRef trustRef, SecTrustResultType *result, CFArrayRef *certChain, CSSM_TP_APPLE_EVIDENCE_INFO **statusChain);
 
@@ -154,35 +163,65 @@ OSStatus SecTrustGetResult(SecTrustRef trustRef, SecTrustResultType *result, CFA
 	@abstract Gets the CSSM trust result.
 	@param trust A reference to a trust.
 	@param result On return, a pointer to the CSSM trust result.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustGetCssmResult(SecTrustRef trust, CSSM_TP_VERIFY_CONTEXT_RESULT_PTR *result);
+
+/*!
+	@function SecTrustGetCssmResultCode
+	@abstract Gets the result code from the most recent call to SecTrustEvaluate for the specified trust.
+	@param trust A reference to a trust.
+	@param resultCode On return, the result code produced by the most recent evaluation of the given trust (cssmerr.h). The value of resultCode is undefined if SecTrustEvaluate has not been called.
+	@result A result code. See "Security Error Codes" (SecBase.h). Returns errSecTrustNotAvailable if SecTrustEvaluate has not been called for the specified trust.
+*/
+OSStatus SecTrustGetCssmResultCode(SecTrustRef trust, OSStatus *resultCode);
 
 /*!
 	@function SecTrustGetTPHandle
 	@abstract Gets the CSSM trust handle
 	@param trust A reference to a trust.
-	@param handle On return, a pointer to a CSSM trust handle.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@param handle On return, a CSSM trust handle.
+	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecTrustGetTPHandle(SecTrustRef trust, CSSM_TP_HANDLE *handle);
 
 /*!
-	@function SecTrustCopyAnchorCertificates
-	@abstract Returns the anchor (root) certificates.
-    @param anchors On return, a pointer to the anchors (roots).  This may be used with the function SecCertificateGroupVerify.  Call the CFRelease function to release this pointer.
-    @result A result code.  See "Security Error Codes" (SecBase.h).
+    @function SecTrustCopyPolicies
+    @abstract Returns an array of policies used by a given trust.
+    @param trust  A reference to a trust.
+    @param policies On return, an array of policies used by this trust. Call the CFRelease function to release this reference.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/    
+OSStatus SecTrustCopyPolicies(SecTrustRef trust, CFArrayRef *policies);
+
+/*!
+    @function SecTrustCopyCustomAnchorCertificates
+    @abstract Returns an array of custom anchor certificates used by a given trust, as set by a prior call to SecTrustSetAnchorCertificates, or NULL if no custom anchors have been specified.
+    @param trust  A reference to a trust.
+    @param anchors On return, an array of custom anchor certificates (roots) used by this trust, or NULL if no custom anchors have been specified. Call the CFRelease function to release this reference.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+	@availability Mac OS X version 10.5.
+*/    
+OSStatus SecTrustCopyCustomAnchorCertificates(SecTrustRef trust, CFArrayRef *anchors);
+
+/*!
+    @function SecTrustCopyAnchorCertificates
+    @abstract Returns an array of default anchor (root) certificates used by the system.
+    @param anchors On return, an array containing the system's default anchors (roots). Call the CFRelease function to release this pointer.
+    @result A result code. See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecTrustCopyAnchorCertificates(CFArrayRef* anchors);
+OSStatus SecTrustCopyAnchorCertificates(CFArrayRef *anchors);
 
 /*!
 	@function SecTrustGetCSSMAnchorCertificates
 	@abstract Retrieves the CSSM anchor certificates.
 	@param cssmAnchors A pointer to an array of anchor certificates.
 	@param cssmAnchorCount A pointer to the number of certificates in anchors.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@availability Mac OS X version 10.4. Deprecated in Mac OS X version 10.5.
 */
-OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors, uint32 *cssmAnchorCount);
+OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors, uint32 *cssmAnchorCount)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
 	@function SecTrustGetUserTrust
@@ -190,9 +229,11 @@ OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors, uint32
 	@param certificate A reference to a certificate.
 	@param policy A reference to a policy.
 	@param trustSetting On return, a pointer to the user specified trust settings.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@availability Mac OS X version 10.4. Deprecated in Mac OS X version 10.5.
 */
-OSStatus SecTrustGetUserTrust(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting *trustSetting);
+OSStatus SecTrustGetUserTrust(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting *trustSetting)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
 	@function SecTrustSetUserTrust
@@ -200,9 +241,13 @@ OSStatus SecTrustGetUserTrust(SecCertificateRef certificate, SecPolicyRef policy
 	@param certificate A reference to a certificate.
 	@param policy A reference to a policy.
 	@param trustSetting The user-specified trust settings.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@availability Mac OS X version 10.4. Deprecated in Mac OS X version 10.5.
+	@discussion as of Mac OS version 10.5, this will result in a call to 
+	 SecTrustSettingsSetTrustSettings(). 
 */
-OSStatus SecTrustSetUserTrust(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting trustSetting);
+OSStatus SecTrustSetUserTrust(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting trustSetting)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 
 #if defined(__cplusplus)

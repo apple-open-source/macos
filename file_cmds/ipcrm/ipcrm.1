@@ -21,7 +21,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\" 
-.\" $Id: ipcrm.1,v 1.2.32.1 2005/02/26 03:36:38 nicolai Exp $
+.\" $Id: ipcrm.1,v 1.3 2005/04/12 23:51:24 nicolai Exp $
 .\""
 .Dd August 8, 1994
 .Dt ipcrm 1
@@ -31,13 +31,13 @@
 .Nd remove the specified message queues, semaphore sets, and shared memory
 segments
 .Sh SYNOPSIS
-.Nm
-.Op Fl q Ar msqid
-.Op Fl m Ar shmid
-.Op Fl s Ar semid
-.Op Fl Q Ar msgkey
+.Nm ipcrm
 .Op Fl M Ar shmkey
+.Op Fl m Ar shmid
+.Op Fl Q Ar msgkey
+.Op Fl q Ar msqid
 .Op Fl S Ar semkey
+.Op Fl s Ar semid
 .Ar ...
 .Sh DESCRIPTION
 .Nm Ipcrm
@@ -45,33 +45,34 @@ removes the specified message queues, semaphores and shared memory
 segments.  These System V IPC objects can be specified by their
 creation id or any associated key.
 .Pp
-The following options are used to specify which IPC objects will be removed.  Any number and combination of these options can be used:
+The following options are used to specify which IPC objects will be removed.
+Any number and combination of these options can be used:
 .Bl -tag -width indent
-.It Fl q Ar msqid
-Remove the message queue associated with the id
-.Nm msqid
-from the system.
-.It Fl m Ar shmid
-Mark the shared memory segment associated with id 
-.Nm shmid
-for removal.
-This marked segment will be destroyed after the last detach.
-.It Fl s Ar semid
-Removes the semaphore set associated with id
-.Nm semid
-from the system.
-.It Fl Q Ar msgkey
-Remove the message queue associated with key 
-.Nm msgkey
-from the system.
 .It Fl M Ar shmkey
 Mark the shared memory segment associated with key 
 .Nm shmkey
 for removal.
 This marked segment will be destroyed after the last detach.
+.It Fl m Ar shmid
+Mark the shared memory segment associated with id 
+.Nm shmid
+for removal.
+This marked segment will be destroyed after the last detach.
+.It Fl Q Ar msgkey
+Remove the message queue associated with key 
+.Nm msgkey
+from the system.
+.It Fl q Ar msqid
+Remove the message queue associated with the id
+.Nm msqid
+from the system.
 .It Fl S Ar semkey
 Remove the semaphore set associated with key
 .Nm semkey
+from the system.
+.It Fl s Ar semid
+Removes the semaphore set associated with id
+.Nm semid
 from the system.
 .El
 .Pp

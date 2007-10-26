@@ -1,4 +1,4 @@
-.TH "ZSHCOMPCTL" "1" "January 13, 2005" "zsh 4\&.2\&.3"
+.TH "ZSHCOMPCTL" "1" "April 19, 2006" "zsh 4\&.3\&.4"
 .SH "NAME"
 zshcompctl \- zsh programmable completion
 .\" Yodl file: Zsh/compctl.yo
@@ -13,7 +13,7 @@ described in \fIzshcompwid\fP(1)\&.  This manual entry describes the older
 .TP
 \fBcompctl\fP [ \fB\-CDT\fP ] \fIoptions\fP [ \fIcommand\fP \&.\&.\&. ]
 .TP
-\fBcompctl\fP [ \fB\-CDT\fP ] \fIoptions\fP [ \fB\-x\fP \fIpattern\fP \fIoptions\fP \fB\-\fP \&.\&.\&. \fB\-\-\fP ] [ \fB+\fP \fIoptions\fP [ \fB\-x\fP \&.\&.\&. \fB\-\-\fP ] \&.\&.\&. [\fB+\fP] ] [ \fIcommand\fP \&.\&.\&. ]
+\fBcompctl\fP [ \fB\-CDT\fP ] \fIoptions\fP [ \fB\-x\fP \fIpattern\fP \fIoptions\fP \fB\-\fP \&.\&.\&. \fB\-\fP\fB\-\fP ] [ \fB+\fP \fIoptions\fP [ \fB\-x\fP \&.\&.\&. \fB\-\fP\fB\-\fP ] \&.\&.\&. [\fB+\fP] ] [ \fIcommand\fP \&.\&.\&. ]
 .TP
 \fBcompctl\fP \fB\-M\fP \fImatch\-specs\fP \&.\&.\&.
 .TP
@@ -22,7 +22,7 @@ described in \fIzshcompwid\fP(1)\&.  This manual entry describes the older
 \fBcompctl\fP \fB+\fP \fIcommand\fP \&.\&.\&.
 .PD
 .PP
-Control the editor's completion behavior according to the supplied set
+Control the editor\&'s completion behavior according to the supplied set
 of \fIoptions\fP\&.  Various editing commands, notably
 \fBexpand\-or\-complete\-word\fP, usually bound to tab, will
 attempt to complete a word typed by the user, while others, notably
@@ -38,7 +38,7 @@ command or may use the default\&.  The behavior when completing the
 command word itself may also be separately specified\&.  These
 correspond to the following flags and arguments, all of which (except
 for \fB\-L\fP) may be combined with any combination of the
-\fIoptions\fP described subsequently in the section `Option Flags':
+\fIoptions\fP described subsequently in the section `Option Flags\&':
 .PP
 .PD 0
 .TP
@@ -53,7 +53,7 @@ with a \fB=\fP, completion is tried with the pathname of the command\&.
 .PP
 Any of the \fIcommand\fP strings may be patterns of the form normally
 used for filename generation\&.  These should be be quoted to protect them
-from immediate expansion; for example the command string \fB'foo*'\fP
+from immediate expansion; for example the command string \fB\&'foo*'\fP
 arranges for completion of the words of any command beginning with
 \fBfoo\fP\&.  When completion is attempted, all pattern completions are
 tried in the reverse order of their definition until one matches\&.  By
@@ -83,21 +83,21 @@ been issued, filenames are completed\&.
 supplies completion flags to be used before any other processing is
 done, even before processing for \fBcompctl\fPs defined for specific
 commands\&.  This is especially useful when combined with extended
-completion (the \fB\-x\fP flag, see the section `Extended Completion' below)\&.
+completion (the \fB\-x\fP flag, see the section `Extended Completion\&' below)\&.
 Using this flag you can define default behavior
 which will apply to all commands without exception, or you can alter
 the standard behavior for all commands\&.  For example, if your access
 to the user database is too slow and/or it contains too many users (so
-that completion after `\fB~\fP' is too slow to be usable), you can use
+that completion after `\fB~\fP\&' is too slow to be usable), you can use
 .RS
 .PP
 .RS
 .nf
-\fBcompctl \-T \-x 's[~] C[0,[^/]#]' \-k friends \-S/ \-tn\fP
+\fBcompctl \-T \-x \&'s[~] C[0,[^/]#]' \-k friends \-S/ \-tn\fP
 .fi
 .RE
 .PP
-to complete the strings in the array \fBfriends\fP after a `\fB~\fP'\&.
+to complete the strings in the array \fBfriends\fP after a `\fB~\fP\&'\&.
 The \fBC[\&.\&.\&.]\fP argument is necessary so that this form of ~\-completion is
 not tried after the directory name is finished\&.
 .RE
@@ -128,7 +128,7 @@ generates at least one match\&. E\&.g\&.:
 .PP
 .RS
 .nf
-\fBcompctl \-M '' 'm:{a\-zA\-Z}={A\-Za\-z}'\fP
+\fBcompctl \-M \&'' 'm:{a\-zA\-Z}={A\-Za\-z}'\fP
 .fi
 .RE
 .PP
@@ -247,7 +247,7 @@ Named directories\&.
 Key binding names\&.
 .TP
 \fB\-j\fP
-Job names:  the first word of the job leader's command line\&.  This is useful
+Job names:  the first word of the job leader\&'s command line\&.  This is useful
 with the \fBkill\fP builtin\&.
 .TP
 \fB\-r\fP
@@ -267,7 +267,7 @@ completions is to be made up:
 .TP
 .PD
 \fB\-k\fP \fIarray\fP
-Names taken from the elements of \fB$\fP\fIarray\fP (note that the `\fB$\fP'
+Names taken from the elements of \fB$\fP\fIarray\fP (note that the `\fB$\fP\&'
 does not appear on the command line)\&.
 Alternatively, the argument \fIarray\fP itself may be a set
 of space\- or comma\-separated values in parentheses, in which any
@@ -286,11 +286,11 @@ should be quoted\&.  For example,
 \fB\-g\fP \fIglobstring\fP
 The \fIglobstring\fP is expanded using filename globbing; it should be
 quoted to protect it from immediate expansion\&. The resulting
-filenames are taken as the possible completions\&.  Use `\fB*(/)\fP' instead of
-`\fB*/\fP' for directories\&.  The \fBfignore\fP special parameter is not
+filenames are taken as the possible completions\&.  Use `\fB*(/)\fP\&' instead of
+`\fB*/\fP\&' for directories\&.  The \fBfignore\fP special parameter is not
 applied to the resulting files\&.  More than one pattern may be given
 separated by blanks\&. (Note that brace expansion is \fInot\fP part of
-globbing\&.  Use the syntax `\fB(either|or)\fP' to match alternatives\&.)
+globbing\&.  Use the syntax `\fB(either|or)\fP\&' to match alternatives\&.)
 .TP
 \fB\-s\fP \fIsubststring\fP
 The \fIsubststring\fP is split into words and these words are than
@@ -321,21 +321,21 @@ compctl \-K whoson talk\fP
 .fi
 .RE
 .PP
-completes only logged\-on users after `\fBtalk\fP'\&.  Note that `\fBwhoson\fP' must
-return an array, so `\fBreply=`users`\fP' would be incorrect\&.
+completes only logged\-on users after `\fBtalk\fP\&'\&.  Note that `\fBwhoson\fP' must
+return an array, so `\fBreply=`users`\fP\&' would be incorrect\&.
 .RE
 .TP
 \fB\-H\fP \fInum pattern\fP
 The possible completions are taken from the last \fInum\fP history
 lines\&.  Only words matching \fIpattern\fP are taken\&.  If \fInum\fP is
 zero or negative the whole history is searched and if \fIpattern\fP is
-the empty string all words are taken (as with `\fB*\fP')\&.  A typical
+the empty string all words are taken (as with `\fB*\fP\&')\&.  A typical
 use is
 .RS
 .PP
 .RS
 .nf
-\fBcompctl \-D \-f + \-H 0 ''\fP
+\fBcompctl \-D \-f + \-H 0 \&''\fP
 .fi
 .RE
 .PP
@@ -373,7 +373,7 @@ ignored for completion purposes\&.  For example,
 .fi
 .RE
 .PP
-inserts a `%' after the kill command and then completes job names\&.
+inserts a `%\&' after the kill command and then completes job names\&.
 .RE
 .TP
 \fB\-S\fP \fIsuffix\fP
@@ -413,8 +413,8 @@ separators (comma, colon, etc\&.)\&.
 \fB\-l\fP \fIcmd\fP
 This option restricts the range
 of command line words that are considered to be arguments\&.  If
-combined with one of the extended completion patterns `\fBp[\fP\&.\&.\&.\fB]\fP',
-`\fBr[\fP\&.\&.\&.\fB]\fP', or `\fBR[\fP\&.\&.\&.\fB]\fP'  (see the section `Extended Completion'
+combined with one of the extended completion patterns `\fBp[\fP\&.\&.\&.\fB]\fP\&',
+`\fBr[\fP\&.\&.\&.\fB]\fP\&', or `\fBR[\fP\&.\&.\&.\fB]\fP'  (see the section `Extended Completion'
 below) the range is restricted to the range of arguments
 specified in the brackets\&.  Completion is then performed as if these
 had been given as arguments to the \fIcmd\fP supplied with the
@@ -425,11 +425,11 @@ performed on the first word in the range\&.  For example,
 .PP
 .RS
 .nf
-\fBcompctl \-x 'r[\-exec,;]' \-l '' \-\- find\fP
+\fBcompctl \-x \&'r[\-exec,;]' \-l '' \-\- find\fP
 .fi
 .RE
 .PP
-completes arguments between `\fB\-exec\fP' and the following `\fB;\fP' (or the end
+completes arguments between `\fB\-exec\fP\&' and the following `\fB;\fP' (or the end
 of the command line if there is no such string) as if they were
 a separate command line\&.
 .RE
@@ -448,7 +448,7 @@ Use the whole list of possible completions, whether or not they
 actually match the word on the command line\&.  The word typed so far
 will be deleted\&.  This is most useful with a function (given by the
 \fB\-K\fP option) which can examine the word components passed to it
-(or via the \fBread\fP builtin's \fB\-c\fP and \fB\-l\fP flags) and
+(or via the \fBread\fP builtin\&'s \fB\-c\fP and \fB\-l\fP flags) and
 use its own criteria to decide what matches\&.  If there is no
 completion, the original word is retained\&.  Since the produced 
 possible completions seldom have interesting common prefixes
@@ -479,7 +479,7 @@ printed literally and if they appear output in columns is suppressed\&.
 .TP
 \fB\-X\fP \fIexplanation\fP
 Print \fIexplanation\fP when trying completion on the current set of
-options\&. A `\fB%n\fP' in this string is replaced by the number of
+options\&. A `\fB%n\fP\&' in this string is replaced by the number of
 matches that were added for this explanation string\&.
 The explanation only appears if completion was tried and there was
 no unique match, or when listing completions\&. Explanation strings 
@@ -487,7 +487,7 @@ will be listed together with the matches of the group specified
 together with the \fB\-X\fP option (using the \fB\-J\fP or \fB\-V\fP
 option)\&. If the same explanation string is given to multiple \fB\-X\fP
 options, the string appears only once (for each group) and the number
-of matches shown for the `\fB%n\fP' is the total number of all matches
+of matches shown for the `\fB%n\fP\&' is the total number of all matches
 for each of these uses\&. In any case, the explanation string will only
 be shown if there was at least one match added for the explanation
 string\&.
@@ -511,19 +511,19 @@ of completion flags should be used next\&.  It is useful:
 .PP
 (i) With \fB\-T\fP, or when trying a list of pattern completions, when
 \fBcompctl\fP would usually continue with ordinary processing after
-finding matches; this can be suppressed with `\fB\-tn\fP'\&.
+finding matches; this can be suppressed with `\fB\-tn\fP\&'\&.
 .PP
 (ii) With a list of alternatives separated by \fB+\fP, when \fBcompctl\fP
 would normally stop when one of the alternatives generates matches\&.  It
-can be forced to consider the next set of completions by adding `\fB\-t+\fP'
-to the flags of the alternative before the `\fB+\fP'\&.
+can be forced to consider the next set of completions by adding `\fB\-t+\fP\&'
+to the flags of the alternative before the `\fB+\fP\&'\&.
 .PP
 (iii) In an extended completion list (see below), when \fBcompctl\fP would
 normally continue until a set of conditions succeeded, then use only
-the immediately following flags\&.  With `\fB\-t\-\fP', \fBcompctl\fP will
-continue trying extended completions after the next `\fB\-\fP'; with
-`\fB\-tx\fP' it will attempt completion with the default flags, in other
-words those before the `\fB\-x\fP'\&.
+the immediately following flags\&.  With `\fB\-t\-\fP\&', \fBcompctl\fP will
+continue trying extended completions after the next `\fB\-\fP\&'; with
+`\fB\-tx\fP\&' it will attempt completion with the default flags, in other
+words those before the `\fB\-x\fP\&'\&.
 .RE
 .TP
 \fB\-J\fP \fIname\fP
@@ -579,33 +579,35 @@ zshcompwid\&.
 \fBcompctl\fP [ \fB\-CDT\fP ] \fIoptions\fP \fB+\fP \fIoptions\fP [ \fB+\fP \&.\&.\&. ] [ \fB+\fP ] \fIcommand\fP \&.\&.\&.
 .PD
 .PP
-The form with `\fB+\fP' specifies alternative options\&. Completion is
-tried with the options before the first `\fB+\fP'\&. If this produces no
-matches completion is tried with the flags after the `\fB+\fP' and so on\&. If
-there are no flags after the last `\fB+\fP' and a match has not been found
+The form with `\fB+\fP\&' specifies alternative options\&. Completion is
+tried with the options before the first `\fB+\fP\&'\&. If this produces no
+matches completion is tried with the flags after the `\fB+\fP\&' and so on\&. If
+there are no flags after the last `\fB+\fP\&' and a match has not been found
 up to that point, default completion is tried\&.
 If the list of flags contains a \fB\-t\fP with a \fB+\fP character, the next
 list of flags is used even if the current list produced matches\&.
 .PP
+.PP
+Additional options are available that restrict completion to some part
+of the command line; this is referred to as `extended completion\&'\&.
+.PP
 .SH "EXTENDED COMPLETION"
 .PD 0
 .TP
-.nf
-\fBcompctl\fP [ \fB\-CDT\fP ] \fIoptions\fP \fB\-x\fP \fIpattern\fP \fIoptions\fP \fB\-\fP \&.\&.\&. \fB\-\-\fP
-  [ \fIcommand\fP \&.\&.\&. ]
-.fi
+\fBcompctl\fP [ \fB\-CDT\fP ] \fIoptions\fP \fB\-x\fP \fIpattern\fP \fIoptions\fP \fB\-\fP \&.\&.\&. \fB\-\fP\fB\-\fP
 .TP
-.nf
-\fBcompctl\fP [ \fB\-CDT\fP ] \fIoptions\fP [ \fB\-x\fP \fIpattern\fP \fIoptions\fP \fB\-\fP \&.\&.\&. \fB\-\-\fP ]
-  [ \fB+\fP \fIoptions\fP [ \fB\-x\fP \&.\&.\&. \fB\-\-\fP ] \&.\&.\&. [\fB+\fP] ] [ \fIcommand\fP \&.\&.\&. ]
-.fi
+         [ \fIcommand\fP \&.\&.\&. ]
+.TP
+\fBcompctl\fP [ \fB\-CDT\fP ] \fIoptions\fP [ \fB\-x\fP \fIpattern\fP \fIoptions\fP \fB\-\fP \&.\&.\&. \fB\-\fP\fB\-\fP ]
+.TP
+         [ \fB+\fP \fIoptions\fP [ \fB\-x\fP \&.\&.\&. \fB\-\fP\fB\-\fP ] \&.\&.\&. [\fB+\fP] ] [ \fIcommand\fP \&.\&.\&. ]
 .PD
 .PP
-The form with `\fB\-x\fP' specifies extended completion for the
+The form with `\fB\-x\fP\&' specifies extended completion for the
 commands given; as shown, it may be combined with alternative
-completion using `\fB+\fP'\&.  Each \fIpattern\fP is examined in turn; when a
+completion using `\fB+\fP\&'\&.  Each \fIpattern\fP is examined in turn; when a
 match is found, the corresponding \fIoptions\fP, as described in
-the section `Option Flags' above, are used to generate possible
+the section `Option Flags\&' above, are used to generate possible
 completions\&.  If no \fIpattern\fP matches, the \fIoptions\fP given
 before the \fB\-x\fP are used\&.
 .PP
@@ -615,12 +617,12 @@ shell\&.
 .PP
 A \fIpattern\fP is built of sub\-patterns separated by commas; it
 matches if at least one of these sub\-patterns matches (they are
-`or'ed)\&. These sub\-patterns are in turn composed of other
+`or\&'ed)\&. These sub\-patterns are in turn composed of other
 sub\-patterns separated by white spaces which match if all of the
-sub\-patterns match (they are `and'ed)\&.  An element of the
-sub\-patterns is of the form `\fIc\fP\fB[\fP\&.\&.\&.\fB][\fP\&.\&.\&.\fB]\fP', where the pairs of
+sub\-patterns match (they are `and\&'ed)\&.  An element of the
+sub\-patterns is of the form `\fIc\fP\fB[\fP\&.\&.\&.\fB][\fP\&.\&.\&.\fB]\fP\&', where the pairs of
 brackets may be repeated as often as necessary, and matches if any of
-the sets of brackets match (an `or')\&.  The example below makes this
+the sets of brackets match (an `or\&')\&.  The example below makes this
 clearer\&.
 .PP
 The elements may be any of the following:
@@ -641,7 +643,7 @@ completion\&.
 Matches if the number of the current word is between one of
 the \fIfrom\fP and \fIto\fP pairs inclusive\&. The comma and \fIto\fP
 are optional; \fIto\fP defaults to the same value as \fIfrom\fP\&.  The
-numbers may be negative: \fB\-\fP\fIn\fP refers to the \fIn\fP'th last word
+numbers may be negative: \fB\-\fP\fIn\fP refers to the \fIn\fP\&'th last word
 on the line\&.
 .TP
 \fBc[\fP\fIoffset\fP\fB,\fP\fIstring\fP\fB]\fP\&.\&.\&.
@@ -670,7 +672,7 @@ be negative to count from the end: in most cases, \fIindex\fP will be
 .PP
 .RS
 .nf
-\fBcompctl \-s '`users`' \-x 'n[1,@]' \-k hosts \-\- talk\fP
+\fBcompctl \-s \&'`users`' \-x 'n[1,@]' \-k hosts \-\- talk\fP
 .fi
 .RE
 .PP
@@ -702,16 +704,16 @@ Like \fBr\fP but using pattern matching instead\&.
 .TP
 \fBq[\fP\fIstr\fP\fB]\fP\&.\&.\&.
 Matches the word currently being completed is in single quotes and the 
-\fIstr\fP begins with the letter `s', or if completion is done in
-double quotes and \fIstr\fP starts with the letter `d', or if
-completion is done in backticks and \fIstr\fP starts with a `b'\&.
+\fIstr\fP begins with the letter `s\&', or if completion is done in
+double quotes and \fIstr\fP starts with the letter `d\&', or if
+completion is done in backticks and \fIstr\fP starts with a `b\&'\&.
 .PP
 .SH "EXAMPLE"
 .PP
 .RS
 .nf
-\fBcompctl \-u \-x 's[\fB+\fP] c[\-1,\-f],s[\-f+]' \e 
-  \-g '~/Mail/*(:t)' \- 's[\-f],c[\-1,\-f]' \-f \-\- mail\fP
+\fBcompctl \-u \-x \&'s[\fB+\fP] c[\-1,\-f],s[\-f+]' \e 
+  \-g \&'~/Mail/*(:t)' \- 's[\-f],c[\-1,\-f]' \-f \-\- mail\fP
 .fi
 .RE
 .PP
@@ -721,10 +723,10 @@ If the current command is \fBmail\fP, then
 .PP
 .RS
 .nf
-.PP
+
 if ((the current word begins with \fB+\fP and the previous word is \fB\-f\fP)
 or (the current word begins with \fB\-f+\fP)), then complete the
-non\-directory part (the `\fB:t\fP' glob modifier) of files in the directory
+non\-directory part (the `\fB:t\fP\&' glob modifier) of files in the directory
 \fB~/Mail\fP; else
 .PP
 if the current word begins with \fB\-f\fP or the previous word was \fB\-f\fP, then

@@ -92,18 +92,20 @@ IFState_service_with_ID(IFState_t * ifstate, CFStringRef serviceID)
 __private_extern__ Service_t *
 IFState_service_with_ip(IFState_t * ifstate, struct in6_addr * iaddr)
 {
-    int	count;
-    int	j;
+	int	count;
+	int	i, j;
 
-    count = dynarray_count(&ifstate->services);
-    for (j = 0; j < count; j++) {
-        Service_t *	service_p = dynarray_element(&ifstate->services, j);
+	count = dynarray_count(&ifstate->services);
+	for (i = 0; i < count; i++) {
+		Service_t *	service_p = dynarray_element(&ifstate->services, i);
 
-        if (IN6_ARE_ADDR_EQUAL(&service_p->info.addr, iaddr)) {
-            return (service_p);
-        }
-    }
-    return (NULL);
+		for (j = 0; j < service_p->info.addrs.n_addrs; j++) {
+			if (IN6_ARE_ADDR_EQUAL(&service_p->info.addrs.addr_list[j].addr, iaddr)) {
+				return (service_p);
+			}
+		}
+	}
+	return (NULL);
 }
 
 __private_extern__ void

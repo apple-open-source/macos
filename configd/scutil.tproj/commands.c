@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,6 +43,7 @@
 #include "notifications.h"
 #include "tests.h"
 #include "net.h"
+#include "prefs.h"
 
 #include "SCDynamicStoreInternal.h"
 
@@ -82,7 +83,7 @@ const cmdInfo commands_store[] = {
 	{ "d.remove",	1,	1,	do_dictRemoveKey,	1,	0,
 		" d.remove key                  : remove key from dictionary"			},
 
-	/* data store manipulation commands */
+	/* dynamic store manipulation commands */
 
 	{ "open",	0,	1,	do_open,		2,	1,
 		" open [\"temporary\"]            : open a session with \"configd\""		},
@@ -91,10 +92,10 @@ const cmdInfo commands_store[] = {
 		" close                         : close current \"configd\" session"		},
 
 	{ "lock",	0,	0,	do_lock,		3,	1,
-		" lock                          : secures write access to data store"		},
+		" lock                          : locks write access to data store"		},
 
 	{ "unlock",	0,	0,	do_unlock,		3,	1,
-		" unlock                        : secures write access to data store"		},
+		" unlock                        : unlocks write access to data store"		},
 
 	{ "list",	0,	2,	do_list,		4,	0,
 		" list [pattern]                : list keys in data store"			},
@@ -106,7 +107,7 @@ const cmdInfo commands_store[] = {
 		" get key                       : get dict from data store w/key"		},
 
 	{ "set",	1,	1,	do_set,			4,	0,
-		" set key                         : set key in data store w/current dict"	},
+		" set key                       : set key in data store w/current dict"		},
 
 	{ "show",	1,	2,	do_show,		4,	0,
 		" show key [\"pattern\"]          : show values in data store w/key"		},
@@ -158,7 +159,7 @@ const int nCommands_store = (sizeof(commands_store)/sizeof(cmdInfo));
 
 
 __private_extern__
-const cmdInfo commands_prefs[] = {
+const cmdInfo commands_net[] = {
 	/* cmd		minArgs	maxArgs	func			group	ctype			*/
 	/* 	usage										*/
 
@@ -197,11 +198,11 @@ const cmdInfo commands_prefs[] = {
 		" create service [ <interfaceName> | <interface#> [ <serviceName> ]]\n"
 		" create set [setName]"								},
 
-	{ "disable",	1,	2,	do_net_disable,		5,	0,
+	{ "disable",	1,	2,	do_net_disable,		4,	0,
 		" disable protocol [ <protocolType> ]\n"
 		" disable service  [ <serviceName> | <service#> ]"				},
 
-	{ "enable",	1,	2,	do_net_enable,		4,	0,
+	{ "enable",	1,	2,	do_net_enable,		5,	0,
 		" enable protocol  [ <protocolType> ]\n"
 		" enable service   [ <serviceName> | <service#> ]"				},
 
@@ -232,9 +233,84 @@ const cmdInfo commands_prefs[] = {
 		" show sets\n\n"
 		" show set       [ <setName> | <set#> ]"					},
 
+	{ "update",	0,	1,	do_net_update,		10,	0,
+		" update                        : update the network configuration"		},
+
 	{ "snapshot",	0,	0,	do_net_snapshot,	99,	2,
 		" snapshot"									}
 
+};
+__private_extern__
+const int nCommands_net = (sizeof(commands_net)/sizeof(cmdInfo));
+
+
+__private_extern__
+const cmdInfo commands_prefs[] = {
+	/* cmd		minArgs	maxArgs	func			group	ctype			*/
+	/* 	usage										*/
+
+	{ "help",	0,	0,	do_help,		0,	0,
+		" help                          : list available commands"			},
+
+	{ "f.read",	1,	1,	do_readFile,		0,	0,
+		" f.read file                   : process commands from file"			},
+
+	{ "quit",	0,	1,	do_prefs_quit,		0,	0,
+		" quit [!]                      : quit"						},
+
+	{ "q",		0,	1,	do_prefs_quit,		0,	-1,
+		NULL										},
+
+	{ "exit",	0,	1,	do_prefs_quit,		0,	-1,
+		NULL										},
+
+	/* local dictionary manipulation commands */
+
+	{ "d.init",	0,	0,	do_dictInit,		1,	0,
+		" d.init                        : initialize (empty) dictionary"		},
+
+	{ "d.show",	0,	0,	do_dictShow,		1,	0,
+		" d.show                        : show dictionary contents"			},
+
+	{ "d.add",	2,	101,	do_dictSetKey,		1,	0,
+		" d.add key [*#?] val [v2 ...]  : add information to dictionary\n"
+		"       (*=array, #=number, ?=boolean)"				                },
+
+	{ "d.remove",	1,	1,	do_dictRemoveKey,	1,	0,
+		" d.remove key                  : remove key from dictionary"			},
+
+	/* data store manipulation commands */
+
+	{ "open",	0,	1,	do_prefs_open,		2,	1,
+		" open [\"prefsID\"]            : open a \"preferences\" session"			},
+
+	{ "lock",	0,	1,	do_prefs_lock,		3,	1,
+		" lock [wait]                   : locks write access to preferences"		},
+
+	{ "commit",	0,	0,	do_prefs_commit,	2,	0,
+		" commit                        : commit any changes"				},
+
+	{ "apply",	0,	0,	do_prefs_apply,		2,	0,
+		" apply                         : apply any changes"				},
+
+	{ "unlock",	0,	0,	do_prefs_unlock,	3,	1,
+		" unlock                        : unlocks write access to preferences"		},
+
+	{ "close",	0,	1,	do_prefs_close,		2,	1,
+		" close [!]                     : close current \"preference\" session"		},
+
+	{ "list",	0,	1,	do_prefs_list,		4,	0,
+		" list [path]                   : list preference paths"			},
+
+	{ "get",	1,	1,	do_prefs_get,		4,	0,
+		" get path                      : get dict from preferences w/path"		},
+
+	{ "set",	1,	2,	do_prefs_set,		4,	0,
+		" set path                      : set path in preferences w/current dict\n"
+		" set path link                 : set path in preferences w/link"		},
+
+	{ "remove",	1,	1,	do_prefs_remove,	4,	0,
+		" remove path                   : remove path from preferences"			}
 };
 __private_extern__
 const int nCommands_prefs = (sizeof(commands_prefs)/sizeof(cmdInfo));

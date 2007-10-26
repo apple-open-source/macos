@@ -1,9 +1,0 @@
-/* code converter: GB2312 */
-
-#define ModuleName GB2312
-SRCS = GB2312toUCS2.c main.c
-OBJS = GB2312toUCS2.o main.o
-
-#include <xttMod.tmpl>
-
-/* end of file */

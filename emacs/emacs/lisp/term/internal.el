@@ -1,6 +1,7 @@
-;;; internal.el --- support for PC internal terminal -*- coding: raw-text; -*-
+;;; internal.el --- support for PC internal terminal -*- coding: raw-text; no-byte-compile: t -*-
 
-;; Copyright (C) 1993, 1994, 1998, 1999, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1998, 1999, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Morten Welinder <terra@diku.dk>
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -183,7 +184,7 @@
 	"*x" "<<" "~" "--" "(R)" "'-" "^o" "+-" "^2" "^3"
 	"'" "u" ".P" "^." "'," "^1" "-:" ">>" "1/4" "1/2"
 	"3/4" nil ":'" "v:" "-:" "-':" ".'" ".." "v'" "-'"
-	"-," "`." nil "\\." "(.)" "|'" "`-" nil "||" nil
+	"-," "`." nil "\\." "(.)" "|'" "`-" "`=" "||" nil
 	nil "::" nil nil nil nil nil nil nil "LRO"
 	"RLO" "PDF" nil "=2" "A+" "B+" "G+" "D+" "H+" "W+"
 	"Z+" "X+" "Tj" "J+" "K%" "K+" "L+" "M%" "M+" "N%"
@@ -607,6 +608,9 @@ display tables, and the language environment options as appropriate."
      (setq default-terminal-coding-system (intern (concat cp
 							  "-unix"))))
     (IT-display-table-setup cp)
+    ;; It's time: too many input methods in leim/quail produce
+    ;; Unicode characters.  Let the user see them.
+    (IT-setup-unicode-display)
     (prefer-coding-system (intern (concat cp "-dos")))
     (if default-enable-multibyte-characters
 	;; We want this in multibyte version only, since unibyte version
@@ -623,7 +627,7 @@ display tables, and the language environment options as appropriate."
       ;; which are supported on all platforms.)
       (let* ((i 128)
 	     (modify (function
-		      (lambda (ch sy) 
+		      (lambda (ch sy)
 			(modify-syntax-entry ch sy text-mode-syntax-table)
 			(if (boundp 'tex-mode-syntax-table)
 			    (modify-syntax-entry ch sy tex-mode-syntax-table))
@@ -705,6 +709,9 @@ list.  You can (and should) also run it whenever the value of
       ;; Assume they support non-ASCII Latin characters like the IBM
       ;; codepage 437 does.
       (IT-display-table-setup "cp437")
+      ;; It's time: too many input methods in leim/quail produce
+      ;; Unicode characters.  Let the user see them.
+      (IT-setup-unicode-display)
       (prefer-coding-system coding-dos)
       (if default-enable-multibyte-characters
 	  (setq unibyte-display-via-language-environment t))
@@ -722,4 +729,5 @@ list.  You can (and should) also run it whenever the value of
 ;; characters to arrive at our display code verbatim.
 (standard-display-8bit 127 255)
 
+;;; arch-tag: eea04c06-7311-4b5a-b531-3c1be1b070af
 ;;; internal.el ends here

@@ -1,0 +1,30 @@
+--- killpg.c.orig	2005-01-26 12:24:56.000000000 -0800
++++ killpg.c	2005-01-26 12:23:37.000000000 -0800
+@@ -41,6 +41,16 @@
+ #include <signal.h>
+ #include <errno.h>
+ 
++int __kill(pid_t pid, int sig, int posix);
++
++#if __DARWIN_UNIX03
++#define	_PID1ERR	EPERM
++#define	_POSIXKILL	1
++#else	/* !__DARWIN_UNIX03 */
++#define	_PID1ERR	ESRCH
++#define	_POSIXKILL	0
++#endif	/* !__DARWIN_UNIX03 */
++
+ /*
+  * Backwards-compatible killpg().
+  */
+@@ -48,8 +58,8 @@
+ killpg(pid_t pgid, int sig)
+ {
+ 	if (pgid == 1) {
+-		errno = ESRCH;
++		errno = _PID1ERR;
+ 		return (-1);
+ 	}
+-	return (kill(-pgid, sig));
++	return (__kill(-pgid, sig, _POSIXKILL));
+ }

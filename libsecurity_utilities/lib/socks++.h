@@ -105,6 +105,8 @@ public:
     static void defaultServer(SocksServer *server) { global().server(server); }
 
 protected:
+	virtual ~SocksServer();
+	
     virtual void connect(SocksClientSocket &me, const IPSockAddress &peer) = 0;
     virtual void connect(SocksClientSocket &me, const Host &host, IPPort port) = 0;
     virtual void bind(SocksServerSocket &me, const IPAddress &peer, IPPort port) = 0;

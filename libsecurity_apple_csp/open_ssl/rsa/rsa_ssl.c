@@ -148,11 +148,16 @@ int RSA_padding_check_SSLv23(unsigned char *to, int tlen, unsigned char *from,
 		RSAerr(RSA_F_RSA_PADDING_CHECK_SSLV23,RSA_R_NULL_BEFORE_BLOCK_MISSING);
 		return(-1);
 		}
-	for (k= -8; k<0; k++)
-		{
+	/* 
+	 * Detect 8 0x03 bytes, indicating that the peer (client) is SSLv3/TLSv2
+	 * capable, but thought it had negotiated down to SSLv2 against our (the
+	 * server's) wishes.
+	 */
+	for (k= -9; k<-1; k++)
+	{
 		if (p[k] !=  0x03) break;
 		}
-	if (k == 0)
+	if (k == -1)
 		{
 		RSAerr(RSA_F_RSA_PADDING_CHECK_SSLV23,RSA_R_SSLV3_ROLLBACK_ATTACK);
 		return(-1);

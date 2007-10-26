@@ -70,6 +70,20 @@
     return self;
 }
 
+// Open a connection to the local machine.
+- (id)initWithLocalPath:(NSString*)filePath
+{
+    @try {
+        [self init];
+        [self openLocalOnlyWithLocalPath:filePath];
+    } @catch( NSException *exception ) {
+        [self release];
+        @throw;
+    }
+    return self;
+}
+
+
 // Open a conection to a remote machine using DS Proxy.
 - (id)initWithHost:(NSString*)hostName user:(NSString*)inUser password:(NSString*)inPassword
 {
@@ -138,24 +152,24 @@
 - (unsigned long)	nodeCount
 {
     DSRef			refTemp		= [self verifiedDirRef];
-    unsigned long	ulCount		= 0;
+    UInt32			ulCount		= 0;
     tDirStatus		nError		= dsGetDirNodeCount(refTemp, &ulCount);
     
     if (nError)
         [DSoException raiseWithStatus:nError];
         
-    return ulCount;
+    return (unsigned long)ulCount;
 }
 
 - (NSArray*) findNodeNames:(NSString*)inPattern matchType:(tDirPatternMatch)inType
 {
     tDirStatus			nError			= eDSNoErr;
 	tDataListPtr		dlpNodeName		= nil;
-    tContextData		continueData	= NULL;
+    tContextData		continueData	= 0;
     DSRef				refTemp			= 0;
     DSoBuffer		   *bufNodeList		= nil;
     unsigned long		i				= 0;
-	unsigned long		ulCount			= 0;
+	UInt32				ulCount			= 0;
     char			   *szpTemp			= nil;
     NSString		   *sNodeName		= nil;
     NSMutableArray	   *resultList		= nil;
@@ -211,9 +225,9 @@
 			free (dlpNodeName) ;
         }
 		
-    } while (continueData != NULL || nError == eDSBufferTooSmall);
+    } while (continueData != 0 || nError == eDSBufferTooSmall);
 
-    if (continueData != NULL)
+    if (continueData != 0)
         dsReleaseContinueData(refTemp, continueData);
     
     [bufNodeList release];
@@ -248,7 +262,7 @@
 	tDataListPtr		dlpNodeName = nil;
     DSRef				refTemp		= 0;
     DSoBuffer		   *bufNodeList = nil;
-    unsigned long		ulCount		= 0;
+    UInt32				ulCount		= 0;
     char			   *szpTemp		= nil;
     NSString		   *sNodeName   = nil;
     DSoNode			   *opTemp		= nil;
@@ -361,11 +375,11 @@
 {
     tDirStatus			nError			= eDSNoErr;
 	tDataListPtr		dlpNodeName		= nil;
-    tContextData		continueData	= NULL;
+    tContextData		continueData	= 0;
     DSRef				refTemp			= 0;
     DSoBuffer		   *bufNodeList		= nil;
     unsigned long		i				= 0;
-	unsigned long		ulCount			= 0;
+	UInt32				ulCount			= 0;
     char			   *szpTemp			= nil;
     NSString		   *sNodeName		= nil;
     NSMutableArray	   *resultList		= nil;
@@ -412,9 +426,9 @@
 			free (dlpNodeName) ;
         }
 		
-    } while (continueData != NULL || nError == eDSBufferTooSmall);
+    } while (continueData != 0 || nError == eDSBufferTooSmall);
 
-    if (continueData != NULL)
+    if (continueData != 0)
         dsReleaseContinueData(refTemp, continueData);
     
     [bufNodeList release];
@@ -509,7 +523,7 @@
     tDataListPtr		dlpName		= 0;
     tDirNodeReference	refNode		= 0;
     tDirStatus			nError		= eDSNoErr;
-    unsigned long		ulCount		= 0 ;
+    UInt32				ulCount		= 0 ;
     char			   *szpTemp		= nil;
     NSString		   *sNodeName   = nil;
     unsigned long		ulTries		= 10;
@@ -585,6 +599,20 @@
     if (nError)
         [DSoException raiseWithStatus:nError];
 }
+
+- (void)openLocalOnlyWithLocalPath:(NSString *)filePath
+{
+    tDirStatus nError = eDSNoErr;
+
+    [mDirRefLock lock];
+    if (!mDirRef)
+        nError = dsOpenDirServiceLocal(&mDirRef, [filePath UTF8String]);
+    [mDirRefLock unlock];
+    if (nError)
+        [DSoException raiseWithStatus:nError];
+}
+
+
 - (void)openHost:(NSString*)hostName user:(NSString*)inUser password:(NSString*)inPassword
 {
     DSoBuffer      *step			= nil;

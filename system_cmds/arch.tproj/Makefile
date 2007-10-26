@@ -12,9 +12,10 @@ NAME = arch
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = arch.c
+MFILES = arch.m
+FRAMEWORKS = -framework Foundation
 
-OTHERSRCS = Makefile PB.project Makefile.postamble arch.1 machine.1
+OTHERSRCS = Makefile PB.project Makefile.postamble arch.1 machine.1 arch_helper.pl
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

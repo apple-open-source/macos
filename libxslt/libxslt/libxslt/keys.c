@@ -630,9 +630,9 @@ xsltInitCtxtKey(xsltTransformContextPtr ctxt, xsltDocumentPtr doc,
 
 	    list = xsltEvalXPathKeys(ctxt, keyd->usecomp, keyd);
 	    if (list != NULL) {
-		int index = 0;
+		int ix = 0;
 
-		str = list[index++];
+		str = list[ix++];
 		while (str != NULL) {
 #ifdef WITH_XSLT_DEBUG_KEYS
 		    XSLT_TRACE(ctxt,XSLT_TRACE_KEYS,xsltGenericDebug(xsltGenericDebugContext,
@@ -671,7 +671,7 @@ xsltInitCtxtKey(xsltTransformContextPtr ctxt, xsltDocumentPtr doc,
 			    break;
 		    }
 		    xmlFree(str);
-		    str = list[index++];
+		    str = list[ix++];
 		}
 		xmlFree(list);
 #ifdef WITH_XSLT_DEBUG_KEYS

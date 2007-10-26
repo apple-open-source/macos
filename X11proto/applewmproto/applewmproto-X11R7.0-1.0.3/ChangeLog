@@ -1,0 +1,9 @@
+2005-12-20  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version for X11R7 release.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.

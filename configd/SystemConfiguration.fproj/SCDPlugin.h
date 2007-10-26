@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,12 @@
 	@defined kSCBundleRequiresKey
  */
 #define kSCBundleRequiresKey		CFSTR("Requires")
+
+
+/*
+	@defined kSCBundleEnabledKey
+ */
+#define kSCBundleEnabledKey		CFSTR("Enabled")
 
 
 /*
@@ -89,7 +95,7 @@ typedef void	(*SCDynamicStoreBundleStartFunction)	(const char	*bundleName,
 		be used to initialize any configuration information and/or state
 		in the store.
  */
-typedef void	(*SCDynamicStoreBundlePrimeFunction)	();
+typedef void	(*SCDynamicStoreBundlePrimeFunction)	(void);
 
 
 /*!

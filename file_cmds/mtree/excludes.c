@@ -12,7 +12,7 @@
  * no representations about the suitability of this software for any
  * purpose.  It is provided "as is" without express or implied
  * warranty.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY M.I.T. ``AS IS''.  M.I.T. DISCLAIMS
  * ALL EXPRESS OR IMPLIED WARRANTIES WITH REGARD TO THIS SOFTWARE,
  * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
@@ -27,8 +27,8 @@
  * SUCH DAMAGE.
  */
 
-static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/mtree/excludes.c,v 1.1.2.4 2001/01/12 19:17:18 phk Exp $";
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.sbin/mtree/excludes.c,v 1.8 2003/10/21 08:27:05 phk Exp $");
 
 #include <sys/types.h>
 #include <sys/time.h>		/* XXX for mtree.h */
@@ -38,13 +38,14 @@ static const char rcsid[] =
 #include <fnmatch.h>
 #include <fts.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "mtree.h"		/* XXX for extern.h */
 #include "extern.h"
 
 /*
- * We're assuming that there won't be a whole lot of excludes, 
+ * We're assuming that there won't be a whole lot of excludes,
  * so it's OK to use a stupid algorithm.
  */
 struct exclude {
@@ -103,7 +104,7 @@ check_excludes(const char *fname, const char *path)
 #define MATCH(g, n) (fnmatch((g), (n), FNM_PATHNAME) == 0)
 
 	LIST_FOREACH(e, &excludes, link) {
-		if (e->pathname && MATCH(e->glob, path) 
+		if ((e->pathname && MATCH(e->glob, path))
 		    || MATCH(e->glob, fname))
 			return 1;
 	}

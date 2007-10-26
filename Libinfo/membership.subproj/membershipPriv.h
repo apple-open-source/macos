@@ -26,18 +26,26 @@
 #include <uuid/uuid.h>
 #include <ntsid.h>
 
-int mbr_reset_cache();
-int mbr_user_name_to_uuid(const char* name, uuid_t uu);
-int mbr_group_name_to_uuid(const char* name, uuid_t uu);
-int mbr_check_membership_by_id(uuid_t user, gid_t group, int* ismember);
-int mbr_check_service_membership(const uuid_t user, const char* servicename, int* ismember);
-
 #define MBR_UU_STRING_SIZE 37
 #define MBR_MAX_SID_STRING_SIZE 200
 
-int mbr_uuid_to_string(const uuid_t uu, char* string);
-int mbr_string_to_uuid(const char* string, uuid_t uu);
-int mbr_sid_to_string(const nt_sid_t* sid, char* string);
-int mbr_string_to_sid(const char* string, nt_sid_t* sid);
+#define SID_TYPE_USER 0
+#define SID_TYPE_GROUP 1
+
+__BEGIN_DECLS
+
+int mbr_reset_cache();
+int mbr_user_name_to_uuid(const char *name, uuid_t uu);
+int mbr_group_name_to_uuid(const char *name, uuid_t uu);
+int mbr_check_membership_by_id(uuid_t user, gid_t group, int *ismember);
+int mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember);
+int mbr_check_membership_refresh(const uuid_t user, uuid_t group, int *ismember);
+int mbr_uuid_to_string(const uuid_t uu, char *string);
+int mbr_string_to_uuid(const char *string, uuid_t uu);
+int mbr_sid_to_string(const nt_sid_t *sid, char *string);
+int mbr_string_to_sid(const char *string, nt_sid_t *sid);
+int mbr_uuid_to_sid_type(const uuid_t uu, nt_sid_t *sid, int *id_type);
+
+__END_DECLS
 
 #endif /* !_MEMBERSHIPPRIV_H_ */

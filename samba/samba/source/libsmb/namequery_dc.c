@@ -25,34 +25,102 @@
 
 #include "includes.h"
 
-/**************************************************************************
- Find the name and IP address for a server in he realm/domain
- *************************************************************************/
- 
-static BOOL ads_dc_name(const char *domain, const char *realm, struct in_addr *dc_ip, fstring srv_name)
+/**********************************************************************
+ Is this our primary domain ?
+**********************************************************************/
+
+#ifdef HAVE_KRB5
+static BOOL is_our_primary_domain(const char *domain)
 {
-	ADS_STRUCT *ads;
+	int role = lp_server_role();
 
-	if (!realm && strequal(domain, lp_workgroup()))
-		realm = lp_realm();
-
-	ads = ads_init(realm, domain, NULL);
-	if (!ads)
-		return False;
-
-	DEBUG(4,("ads_dc_name: domain=%s\n", domain));
-
-#ifdef HAVE_ADS
-	/* we don't need to bind, just connect */
-	ads->auth.flags |= ADS_AUTH_NO_BIND;
-
-	ads_connect(ads);
+	if ((role == ROLE_DOMAIN_MEMBER) && strequal(lp_workgroup(), domain)) {
+		return True;
+	} else if (strequal(get_global_sam_name(), domain)) {
+		return True;
+	}
+	return False;
+}
 #endif
 
-	if (!ads->config.realm) {
-		ads_destroy(&ads);
+/**************************************************************************
+ Find the name and IP address for a server in the realm/domain
+ *************************************************************************/
+ 
+static BOOL ads_dc_name(const char *domain,
+			const char *realm,
+			struct in_addr *dc_ip,
+			fstring srv_name)
+{
+	ADS_STRUCT *ads;
+	char *sitename;
+	int i;
+
+	if (!realm && strequal(domain, lp_workgroup())) {
+		realm = lp_realm();
+	}
+
+	sitename = sitename_fetch(realm);
+
+	/* Try this 3 times then give up. */
+	for( i =0 ; i < 3; i++) {
+		ads = ads_init(realm, domain, NULL);
+		if (!ads) {
+			SAFE_FREE(sitename);
+			return False;
+		}
+
+		DEBUG(4,("ads_dc_name: domain=%s\n", domain));
+
+#ifdef HAVE_ADS
+		/* we don't need to bind, just connect */
+		ads->auth.flags |= ADS_AUTH_NO_BIND;
+		ads_connect(ads);
+#endif
+
+		if (!ads->config.realm) {
+			SAFE_FREE(sitename);
+			ads_destroy(&ads);
+			return False;
+		}
+
+		/* Now we've found a server, see if our sitename
+		   has changed. If so, we need to re-do the DNS query
+		   to ensure we only find servers in our site. */
+
+		if (stored_sitename_changed(realm, sitename)) {
+			SAFE_FREE(sitename);
+			sitename = sitename_fetch(realm);
+			ads_destroy(&ads);
+			/* Ensure we don't cache the DC we just connected to. */
+			namecache_delete(realm, 0x1C);
+			namecache_delete(domain, 0x1C);
+			continue;
+		}
+
+#ifdef HAVE_KRB5
+		if (is_our_primary_domain(domain) && (ads->config.flags & ADS_KDC) && ads_closest_dc(ads)) {
+			/* We're going to use this KDC for this realm/domain.
+			   If we are using sites, then force the krb5 libs
+			   to use this KDC. */
+
+			create_local_private_krb5_conf_for_domain(realm,
+								domain,
+								sitename,
+								ads->ldap_ip);
+		}
+#endif
+		break;
+	}
+
+	if (i == 3) {
+		DEBUG(1,("ads_dc_name: sitename (now \"%s\") keeps changing ???\n",
+			sitename ? sitename : ""));
+		SAFE_FREE(sitename);
 		return False;
 	}
+
+	SAFE_FREE(sitename);
 
 	fstrcpy(srv_name, ads->config.ldap_server_name);
 	strupper_m(srv_name);
@@ -75,46 +143,19 @@ static BOOL rpc_dc_name(const char *domain, fstring srv_name, struct in_addr *ip
 	struct ip_service *ip_list = NULL;
 	struct in_addr dc_ip, exclude_ip;
 	int count, i;
-	BOOL use_pdc_only;
 	NTSTATUS result;
 	
 	zero_ip(&exclude_ip);
 
-	use_pdc_only = must_use_pdc(domain);
-	
-	/* Lookup domain controller name */
-	   
-	if ( use_pdc_only && get_pdc_ip(domain, &dc_ip) ) 
-	{
-		DEBUG(10,("rpc_dc_name: Atempting to lookup PDC to avoid sam sync delays\n"));
-		
-		/* check the connection cache and perform the node status 
-		   lookup only if the IP is not found to be bad */
-
-		if (name_status_find(domain, 0x1b, 0x20, dc_ip, srv_name) ) {
-			result = check_negative_conn_cache( domain, srv_name );
-			if ( NT_STATUS_IS_OK(result) )
-				goto done;
-		}
-		/* Didn't get name, remember not to talk to this DC. */
-		exclude_ip = dc_ip;
-	}
-
 	/* get a list of all domain controllers */
 	
-	if ( !get_sorted_dc_list(domain, &ip_list, &count, False) ) {
+	if (!NT_STATUS_IS_OK(get_sorted_dc_list(domain, NULL, &ip_list, &count,
+						False))) {
 		DEBUG(3, ("Could not look up dc's for domain %s\n", domain));
 		return False;
 	}
 
 	/* Remove the entry we've already failed with (should be the PDC). */
-
-	if ( use_pdc_only ) {
-		for (i = 0; i < count; i++) {	
-			if (ip_equal( exclude_ip, ip_list[i].ip))
-				zero_ip(&ip_list[i].ip);
-		}
-	}
 
 	for (i = 0; i < count; i++) {
 		if (is_zero_ip(ip_list[i].ip))
@@ -174,6 +215,11 @@ BOOL get_dc_name(const char *domain, const char *realm, fstring srv_name, struct
 	if ( (our_domain && lp_security()==SEC_ADS) || realm ) {
 		ret = ads_dc_name(domain, realm, &dc_ip, srv_name);
 	}
+
+	if (!domain) {
+		/* if we have only the realm we can't do anything else */
+		return False;
+	}
 	
 	if (!ret) {
 		/* fall back on rpc methods if the ADS methods fail */
@@ -184,4 +230,3 @@ BOOL get_dc_name(const char *domain, const char *realm, fstring srv_name, struct
 
 	return ret;
 }
-

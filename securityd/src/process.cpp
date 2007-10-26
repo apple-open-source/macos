@@ -30,7 +30,9 @@
 #include "session.h"
 #include "tempdatabase.h"
 #include "authority.h"
-#include "flippers.h"
+
+#include <security_utilities/logging.h>	//@@@ debug only
+#include "agentquery.h"
 
 
 //
@@ -51,8 +53,9 @@ Process::Process(Port servicePort, TaskPort taskPort,
 		CssmError::throwMe(CSSMERR_CSSM_ADDIN_AUTHENTICATE_FAILED);	// you lied!
 	}
 
-	setup(info, identity);
-	
+	setup(info);
+	ClientIdentification::setup(this->pid());
+
 	secdebug("SS", "New process %p(%d) uid=%d gid=%d session=%p TP=%d %sfor %s",
 		this, mPid, mUid, mGid, &session(),
         mTaskPort.port(),
@@ -63,8 +66,9 @@ Process::Process(Port servicePort, TaskPort taskPort,
 
 //
 // Screen a process setup request for an existing process.
-// This usually means the client has called exec(2) and forgotten all about itself.
-// Though it could be a nefarious attempt to fool us...
+// This means the client has requested intialization even though we remember having
+// talked to it in the past. This could either be an exec(2), or the client could just
+// have forgotten all about its securityd client state. Or it could be an attack...
 //
 void Process::reset(Port servicePort, TaskPort taskPort,
 	const ClientSetupInfo *info, const char *identity, const CommonCriteria::AuditToken &audit)
@@ -73,10 +77,24 @@ void Process::reset(Port servicePort, TaskPort taskPort,
 		secdebug("SS", "Process %p(%d) reset mismatch (sp %d-%d, tp %d-%d) for %s",
 			this, pid(), servicePort.port(), session().servicePort().port(), taskPort.port(), mTaskPort.port(),
 			(identity && identity[0]) ? identity : "(unknown)");
-		CssmError::throwMe(CSSMERR_CSSM_ADDIN_AUTHENTICATE_FAILED);		// liar
+		Session &newSession = Session::find(servicePort);
+		Syslog::alert("Process reset %p(%d) session %d(0x%x:0x%x)->%d(0x%x:0x%x) for %s",
+			this, pid(),
+			session().servicePort().port(), &session(), session().attributes(),
+			newSession.servicePort().port(), &newSession, newSession.attributes(),
+			(identity && identity[0]) ? identity : "(unknown)");
+		//CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);		// liar
 	}
-
-	setup(info, identity);
+	
+	string oldPath = codePath(processCode());
+	setup(info);
+	ClientIdentification::setup(this->pid());
+	if (codePath(processCode()) == oldPath) {
+		secdebug("SS", "process %p(%d) path unchanged; assuming client-side reset", this, mPid);
+	} else {
+		secdebug("SS", "process %p(%d) path changed; assuming exec with full reset", this, mPid);
+		CodeSigningHost::reset();
+	}
 	
 	secdebug("SS", "process %p(%d) has reset; now %sfor %s",
 		this, mPid, mByteFlipped ? "FLIP " : "",
@@ -87,13 +105,14 @@ void Process::reset(Port servicePort, TaskPort taskPort,
 //
 // Common set processing
 //
-void Process::setup(const ClientSetupInfo *info, const char *identity)
+void Process::setup(const ClientSetupInfo *info)
 {
 	// process setup info
 	assert(info);
 	uint32 pversion;
 	if (info->order == 0x1234) {	// right side up
 		pversion = info->version;
+		mByteFlipped = false;
 	} else if (info->order == 0x34120000) { // flip side up
 		pversion = ntohl(info->version);
 		mByteFlipped = true;
@@ -103,17 +122,6 @@ void Process::setup(const ClientSetupInfo *info, const char *identity)
 	// check wire protocol version
 	if (pversion != SSPROTOVERSION)
 		CssmError::throwMe(CSSM_ERRCODE_INCOMPATIBLE_VERSION);
-
-	// process identity (if given)
-	try {
-		mClientCode = OSXCode::decode(identity);
-		mClientIdent = deferred;	// will calculate code identity when needed
-	} catch (...) {
-		secdebug("SS", "process %p(%d) identity decode threw exception", this, pid());
-		mClientCode = NULL;
-		mClientIdent = unknown;		// no chance to squeeze a code identity from this
-		secdebug("SS", "process %p(%d) no clientCode - marked anonymous", this, pid());
-	}
 }
 
 
@@ -189,43 +197,6 @@ void Process::changeSession(Port servicePort)
 
 
 //
-// CodeSignatures implementation of Identity.
-// The caller must make sure we have a valid (not necessarily hash-able) clientCode().
-//
-string Process::getPath() const
-{
-	assert(mClientCode);
-	return mClientCode->canonicalPath();
-}
-
-const CssmData Process::getHash(CodeSigning::OSXSigner &signer) const
-{
-	switch (mClientIdent) {
-	case deferred:
-		try {
-			// try to calculate our signature hash (first time use)
-			mCachedSignature.reset(mClientCode->sign(signer));
-			assert(mCachedSignature.get());
-			mClientIdent = known;
-			secdebug("SS", "process %p(%d) code signature computed", this, pid());
-			break;
-		} catch (...) {
-			// couldn't get client signature (unreadable, gone, hack attack, ...)
-			mClientIdent = unknown;
-			secdebug("SS", "process %p(%d) no code signature - anonymous", this, pid());
-			CssmError::throwMe(CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION);
-		}
-	case known:
-		assert(mCachedSignature.get());
-		break;
-	case unknown:
-		CssmError::throwMe(CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION);
-	}
-	return CssmData(*mCachedSignature);
-}
-
-
-//
 // Authorization set maintainance
 //
 void Process::addAuthorization(AuthorizationToken *auth)
@@ -268,21 +239,6 @@ bool Process::removeAuthorization(AuthorizationToken *auth)
 
 
 //
-// Notification client maintainance
-//
-void Process::requestNotifications(Port port, SecurityServer::NotificationDomain domain, SecurityServer::NotificationMask events)
-{
-    new ProcessListener(*this, port, domain, events);
-}
-
-void Process::stopNotifications(Port port)
-{
-    if (!Listener::remove(port))
-        CssmError::throwMe(CSSMERR_CSSM_INVALID_HANDLE_USAGE);	//@@@ bad name (should be "no such callback")
-}
-
-
-//
 // Debug dump support
 //
 #if defined(DEBUGDUMP)
@@ -294,21 +250,8 @@ void Process::dumpNode()
 		Debug::dump(" FLIPPED");
 	Debug::dump(" task=%d pid=%d uid/gid=%d/%d",
 		mTaskPort.port(), mPid, mUid, mGid);
-	if (mClientCode) {
-		Debug::dump(" client=%s", mClientCode->canonicalPath().c_str());
-		switch (mClientIdent) {
-		case deferred:
-			break;
-		case known:
-			Debug::dump("[OK]");
-			break;
-		case unknown:
-			Debug::dump("[UNKNOWN]");
-			break;
-		}
-	} else {
-		Debug::dump(" NO CLIENT ID");
-	}
+	CodeSigningHost::dump();
+	ClientIdentification::dump();
 }
 
 #endif //DEBUGDUMP

@@ -83,7 +83,7 @@ typedef __darwin_uid_t		uid_t;
 #define _UID_T
 #endif
 
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	_PATH_PWD		"/etc"
 #define	_PATH_PASSWD		"/etc/passwd"
 #define	_PASSWD			"passwd"
@@ -137,11 +137,11 @@ struct passwd	*getpwnam(const char *);
 int		 getpwuid_r(uid_t, struct passwd *, char *, size_t, struct passwd **);
 int		 getpwnam_r(const char *, struct passwd *, char *, size_t, struct passwd **);
 struct passwd	*getpwent(void);
-#if !defined(_POSIX_C_SOURCE) && !defined(_XOPEN_SOURCE)
+#if (!defined(_POSIX_C_SOURCE) && !defined(_XOPEN_SOURCE)) || defined(_DARWIN_C_SOURCE)
 int		 setpassent(int);
 char 		*user_from_uid(uid_t, int);
 #endif
-int		 setpwent(void);
+void		 setpwent(void);
 void		 endpwent(void);
 __END_DECLS
 

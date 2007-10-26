@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509store.c,v 1.2.2.2 2004/12/19 08:28:32 gotoyuzo Exp $
+ * $Id: ossl_x509store.c 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -137,6 +137,7 @@ ossl_x509store_initialize(int argc, VALUE *argv, VALUE self)
     rb_iv_set(self, "@error", Qnil);
     rb_iv_set(self, "@error_string", Qnil);
     rb_iv_set(self, "@chain", Qnil);
+    rb_iv_set(self, "@time", Qnil);
 
     return self;
 }
@@ -239,6 +240,19 @@ ossl_x509store_add_path(VALUE self, VALUE dir)
 }
 
 static VALUE
+ossl_x509store_set_default_paths(VALUE self)
+{
+    X509_STORE *store;
+
+    GetX509Store(self, store);
+    if (X509_STORE_set_default_paths(store) != 1){
+        ossl_raise(eX509StoreError, NULL);
+    }
+
+    return Qnil;
+}
+
+static VALUE
 ossl_x509store_add_cert(VALUE self, VALUE arg)
 {
     X509_STORE *store;
@@ -246,7 +260,9 @@ ossl_x509store_add_cert(VALUE self, VALUE arg)
 
     cert = GetX509CertPtr(arg); /* NO NEED TO DUP */
     GetX509Store(self, store);
-    X509_STORE_add_cert(store, cert);
+    if (X509_STORE_add_cert(store, cert) != 1){
+        ossl_raise(eX509StoreError, NULL);
+    }
 
     return self;
 }
@@ -259,7 +275,9 @@ ossl_x509store_add_crl(VALUE self, VALUE arg)
 
     crl = GetX509CRLPtr(arg); /* NO NEED TO DUP */
     GetX509Store(self, store);
-    X509_STORE_add_crl(store, crl);
+    if (X509_STORE_add_crl(store, crl) != 1){
+        ossl_raise(eX509StoreError, NULL);
+    }
 
     return self;
 }
@@ -347,7 +365,7 @@ static VALUE ossl_x509stctx_set_time(VALUE, VALUE);
 static VALUE
 ossl_x509stctx_initialize(int argc, VALUE *argv, VALUE self)
 {
-    VALUE store, cert, chain;
+    VALUE store, cert, chain, t;
     X509_STORE_CTX *ctx;
     X509_STORE *x509st;
     X509 *x509 = NULL;
@@ -369,7 +387,8 @@ ossl_x509stctx_initialize(int argc, VALUE *argv, VALUE self)
     ossl_x509stctx_set_purpose(self, rb_iv_get(store, "@purpose"));
     ossl_x509stctx_set_trust(self, rb_iv_get(store, "@trust"));
 #endif
-    ossl_x509stctx_set_time(self, rb_iv_get(store, "@time"));
+    if (!NIL_P(t = rb_iv_get(store, "@time")))
+	ossl_x509stctx_set_time(self, t);
     rb_iv_set(self, "@verify_callback", rb_iv_get(store, "@verify_callback"));
     rb_iv_set(self, "@cert", cert);
 
@@ -535,17 +554,11 @@ static VALUE
 ossl_x509stctx_set_time(VALUE self, VALUE time)
 {
     X509_STORE_CTX *store;
+    long t;
 
-    if(NIL_P(time)) {
-	GetX509StCtx(self, store);
-	store->flags &= ~X509_V_FLAG_USE_CHECK_TIME;
-    }
-    else {
-	long t = NUM2LONG(rb_Integer(time));
-
-	GetX509StCtx(self, store);
-	X509_STORE_CTX_set_time(store, 0, t);
-    }
+    t = NUM2LONG(rb_Integer(time));
+    GetX509StCtx(self, store);
+    X509_STORE_CTX_set_time(store, 0, t);
 
     return time;
 }
@@ -574,6 +587,7 @@ Init_ossl_x509store()
     rb_define_method(cX509Store, "time=",        ossl_x509store_set_time, 1);
     rb_define_method(cX509Store, "add_path",     ossl_x509store_add_path, 1);
     rb_define_method(cX509Store, "add_file",     ossl_x509store_add_file, 1);
+    rb_define_method(cX509Store, "set_default_paths", ossl_x509store_set_default_paths, 0);
     rb_define_method(cX509Store, "add_cert",     ossl_x509store_add_cert, 1);
     rb_define_method(cX509Store, "add_crl",      ossl_x509store_add_crl, 1);
     rb_define_method(cX509Store, "verify",       ossl_x509store_verify, -1);

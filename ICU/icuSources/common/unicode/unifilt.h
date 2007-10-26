@@ -1,5 +1,6 @@
 /*
-* Copyright (C) 1999-2004, International Business Machines Corporation and others.
+**********************************************************************
+* Copyright (C) 1999-2006, International Business Machines Corporation and others.
 * All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -12,6 +13,11 @@
 #include "unicode/unifunct.h"
 #include "unicode/unimatch.h"
 
+/**
+ * \file 
+ * \brief C++ API: Unicode Filter
+ */
+
 U_NAMESPACE_BEGIN
 
 /**
@@ -20,11 +26,12 @@ U_NAMESPACE_BEGIN
  * characters outside the range contextStart..contextLimit-1.  This
  * allows explicit matching by rules and UnicodeSets of text outside a
  * defined range.
- * @draft ICU 3.0
+ * @stable ICU 3.0
  */
 #define U_ETHER ((UChar)0xFFFF)
 
 /**
+ *
  * <code>UnicodeFilter</code> defines a protocol for selecting a
  * subset of the full range (U+0000 to U+10FFFF) of Unicode characters.
  * Currently, filters are used in conjunction with classes like {@link

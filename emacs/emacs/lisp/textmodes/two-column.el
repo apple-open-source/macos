@@ -1,6 +1,7 @@
 ;;; two-column.el --- minor mode for editing of two-column text
 
-;; Copyright (C) 1992, 1993, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1993, 1994, 1995, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Daniel Pfeiffer <occitan@esperanto.org>
 ;; Adapted-By: ESR, Daniel Pfeiffer
@@ -33,8 +34,8 @@
 ;; GNU Emacs; vidu la dosieron COPYING.	 with GNU Emacs; see the file
 ;; Alikaze skribu al la			 COPYING.  If not, write to the
 
-;; Free Software Foundation, 59 Temple Place - Suite 330
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, 51 Franklin Street, Fifth Floor
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -200,7 +201,7 @@
 ;;;;; variable declarations ;;;;;
 
 (defgroup two-column nil
-  "Minor mode for editing of two-column text"
+  "Minor mode for editing of two-column text."
   :prefix "2C-"
   :group 'frames)
 
@@ -223,7 +224,7 @@
 (defcustom 2C-mode-line-format
 	'("-%*- %15b --"  (-3 . "%p")  "--%[("  mode-name
 	  minor-mode-alist  "%n"  mode-line-process  ")%]%-")
-  "*Value of mode-line-format for a buffer in two-column minor mode."
+  "*Value of `mode-line-format' for a buffer in two-column minor mode."
   :type 'sexp
   :group 'two-column)
 
@@ -327,7 +328,6 @@ These keybindings can be customized in your ~/.emacs by `2C-mode-map',
 The appearance of the screen can be customized by the variables
 `2C-window-width', `2C-beyond-fill-column', `2C-mode-line-format' and
 `truncate-partial-width-windows'."
-  (make-local-hook 'post-command-hook)
   (add-hook 'post-command-hook '2C-autoscroll nil t)
   (setq fill-column (- 2C-window-width
 		       2C-beyond-fill-column)
@@ -340,9 +340,9 @@ The appearance of the screen can be customized by the variables
 ;;;###autoload
 (defun 2C-two-columns (&optional buffer)
   "Split current window vertically for two-column editing.
-When called the first time, associates a buffer with the current
-buffer in two-column minor mode (see  \\[describe-mode] ).
-Runs `2C-other-buffer-hook' in the new buffer.
+\\<global-map>When called the first time, associates a buffer with the current
+buffer in two-column minor mode (use \\[describe-mode] once in the mode,
+for details.).  It runs `2C-other-buffer-hook' in the new buffer.
 When called again, restores the screen layout with the current buffer
 first and the associated buffer to its right."
   (interactive "P")
@@ -640,4 +640,5 @@ When autoscrolling is turned on, this also realigns the two buffers."
 
 (provide 'two-column)
 
+;;; arch-tag: 2021b5ab-d3a4-4a8c-a21c-1936b0f9e6b1
 ;;; two-column.el ends here

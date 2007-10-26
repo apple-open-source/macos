@@ -1,3 +1,147 @@
+2006-06-27  Bruno Haible  <bruno@clisp.org>
+
+	* Makefile.devel (AUTOCONF, AUTOHEADER): Use autoconf-2.60.
+	* Makefile.in (datarootdir): New variable.
+	* configure.ac (mandir): Remove customization.
+
+2006-03-28  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* m4/libtool.m4 (_LT_SYS_DYNAMIC_LINKER) [ linux ]: Avoid warning when
+	"parsing" /etc/ld.so.conf and empty /etc/ld.so.conf.d.
+
+2006-05-15  Bruno Haible  <bruno@clisp.org>
+
+	* m4/relocatable.m4: Update from GNU gettext.
+
+2006-05-14  Bruno Haible  <bruno@clisp.org>,
+            Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* m4/libtool.m4 [ linux ] (AC_LIBTOOL_LANG_CXX_CONFIG)
+	(AC_LIBTOOL_POSTDEP_PREDEP, AC_LIBTOOL_PROG_COMPILER_PIC)
+	(AC_LIBTOOL_PROG_LD_SHLIBS): Add support for Sun C 5.9,
+	Sun C++ 5.9, and Sun Fortran 8.3 on Linux.
+
+2006-05-06  Charles Wilson  <cygwin@cwilson.fastmail.fm>
+
+	* m4/libtool.m4: On Cygwin, like on mingw, define DLL_EXPORT when
+	compiling a shared library object.
+
+2006-03-31  Juan Manuel Guerrero <juan.guerrero@gmx.de>
+
+	* djgpp/*: Update.
+
+2005-12-29  Bruno Haible  <bruno@clisp.org>
+
+	* configure.ac: Renamed from configure.in.
+	* Makefile.devel (configure, config.h.in): Update.
+	* djgpp/Makefile.maint (fnchange.lst, README): Update.
+
+2005-12-29  Bruno Haible  <bruno@clisp.org>
+
+	* build-aux/config.guess: Update to GNU version 2005-12-23.
+	* build-aux/config.sub: Likewise.
+	* build-aux/config.libpath: Update from GNU gettext.
+
+2005-12-29  Bruno Haible  <bruno@clisp.org>
+
+	* m4/codeset.m4: Update from GNU gettext.
+	* m4/glibc21.m4: Update from GNU gettext.
+	* m4/relocatable.m4: Update from GNU gettext.
+	* configure: Invoke gl_GLIBC21 instead of jm_GLIBC21.
+
+2005-12-29  Bruno Haible  <bruno@clisp.org>
+
+	* m4/libtool.m4: Update, based on libtool-1.5.22.
+	* build-aux/ltmain.sh: Update, based on libtool-1.5.22.
+
+2005-09-18  Bruno Haible  <bruno@clisp.org>
+
+	* m4/libtool.m4: Update, based on libtool-1.5.20.
+	* build-aux/ltmain.sh: Update, based on libtool-1.5.20.
+
+2005-07-24  Bruno Haible  <bruno@clisp.org>
+
+	Tidy up exported symbols.
+	* m4/visibility.m4: New file.
+	* include/export.h: New file.
+	* configure.in Invoke gl_VISIBILITY. Use AC_CONFIG_FILES. Arrange to
+	create also include/localcharset.h.inst.
+	(VERSION): Bump to 1.4.
+	* Makefile.devel (all): Depend on include/localcharset.h.build.in.
+	(include/localcharset.h.build.in): New rule.
+	* Makefile.in (all): Remove dependency on include/localcharset.h.
+	(include/localcharset.h): Remove rule.
+	(install-lib, install): Install include/localcharset.h.inst,
+	not the include/localcharset.h that was used for building.
+	(distclean, maintainer-clean): Remove also include/localcharset.h.inst.
+
+2005-07-08  Bruno Haible  <bruno@clisp.org>
+
+	* m4/libtool.m4 (postinstall_cmds) [cygwin,mingw,pw32]: Make DLL
+	executable after installing it.
+
+2005-07-07  Bruno Haible  <bruno@clisp.org>
+
+	* configure.in: Bump version number.
+	* windows/charset.rc: Likewise.
+
+2005-07-05  Bruno Haible  <bruno@clisp.org>
+
+	* m4/relocatable.m4 (AC_RELOCATABLE): On mingw, simply set
+	SET_RELOCATABLE to a trivial value.
+
+2005-07-05  Bruno Haible  <bruno@clisp.org>
+
+	* Makefile.devel (AUTOHEADER, ACLOCAL): New variables.
+	(autoconf/aclocal.m4, config.h.in): Use them.
+
+2005-03-22  Bruno Haible  <bruno@clisp.org>
+
+	* build-aux: New directory, renamed from autoconf.
+	* configure.in (AC_CONFIG_AUX_DIR): Use build-aux.
+	* Makefile.in (mkinstalldirs): Update.
+
+2005-01-05  Bruno Haible  <bruno@clisp.org>
+
+	* m4/libtool.m4: Update from GNU gettext, based on libtool-1.5.10.
+	* autoconf/ltmain.sh: Update from GNU gettext, based on libtool-1.5.10.
+
+2004-09-21  Juan Manuel Guerrero  <st001906@hrz1.hrz.tu-darmstadt.de>
+
+	* djgpp/config.bat: Update.
+	* djgpp/config.sed: Update.
+	* djgpp/config.site: Update.
+	* djgpp/fnchange.in: Update.
+	* djgpp/README.in: Update.
+
+2004-08-25  Bruno Haible  <bruno@clisp.org>
+
+	* m4/libtool.m4: Update from GNU gettext, based on libtool-1.5.6.
+	* autoconf/ltmain.sh: Update from GNU gettext, based on libtool-1.5.6.
+
+2004-01-20  Bruno Haible  <bruno@clisp.org>
+
+	Upgrade from gettext-0.14.
+
+	2003-08-24  Bruno Haible  <bruno@clisp.org>
+	* m4/relocatable.m4 (AC_RELOCATABLE): Use $(host) instead of @host@,
+	since the substitution of @host@ may occur before the substitution of
+	@SET_RELOCATABLE@.
+
+2004-01-20  Bruno Haible  <bruno@clisp.org>
+
+	Assume automake-1.8.
+	* Makefile.devel (AUTOCONF): Assume autoconf-2.59.
+
+2003-06-18  Bruno Haible  <bruno@clisp.org>
+
+	* config/install-sh: Update from automake-1.7.5.
+
+2003-06-07  Bruno Haible  <bruno@clisp.org>
+
+	* Makefile.devel (config.h_vms): Remove INSTALLPREFIX.
+	Reported by Jouk Jansen <joukj@hrem.stm.tudelft.nl>.
+
 2003-05-19  Bruno Haible  <bruno@clisp.org>
 
 	* windows/charset.rc: Include <winver.h>.
@@ -30,6 +174,7 @@
 2003-04-05  Bruno Haible  <bruno@clisp.org>
 
 	Support for relocatable installation.
+	* m4/relocatable.m4: New file, from GNU gettext.
 	* autoconf/config.libpath: New file, from GNU gettext.
 	* configure.in: Invoke AC_RELOCATABLE_LIBRARY.
 	* include/libcharset.h.in: New file.
@@ -69,6 +214,8 @@
 		Fix the 2002-09-16 fix.
 		* ltmain.sh (install): If "ln -s -f" fails (this is the case
 		with /usr/bin/ln on Solaris 2.7), fall back to "rm && ln -s".
+	* m4/codeset.m4: Update from GNU gettext-0.10.40.
+	* m4/glibc21.m4: Update from GNU gettext-0.10.40.
 
 2003-03-17  Bruno Haible  <bruno@clisp.org>
 
@@ -132,7 +279,12 @@
 
 2002-11-07  Bruno Haible  <bruno@clisp.org>
 
+	* m4/libtool.m4: Upgrade to libtool-1.4.3.
 	* autoconf/ltmain.sh: Upgrade to libtool-1.4.3.
+
+2002-07-14  Bruno Haible  <bruno@clisp.org>
+
+	* m4/libtool.m4 (_LT_AC_LTCONFIG_HACK): Add support for GNU/FreeBSD.
 
 2002-06-12  Bruno Haible  <bruno@clisp.org>
 

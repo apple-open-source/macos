@@ -54,7 +54,7 @@ env_execute_cli_command (const char *cmd, const char *args)
       struct cleanup *old_cleanups;
       char *run;
       if (args != NULL)
-	xasprintf (&run, "%s %s", cmd, args);
+	run = xstrprintf ("%s %s", cmd, args);
       else
 	run = xstrdup (cmd);
       old_cleanups = make_cleanup (xfree, run);
@@ -70,7 +70,7 @@ enum mi_cmd_result
 mi_cmd_env_pwd (char *command, char **argv, int argc)
 {
   if (argc > 0)
-    error ("mi_cmd_env_pwd: No arguments required");
+    error (_("mi_cmd_env_pwd: No arguments required"));
           
   if (mi_version (uiout) < 2)
     {
@@ -91,7 +91,7 @@ enum mi_cmd_result
 mi_cmd_env_cd (char *command, char **argv, int argc)
 {
   if (argc == 0 || argc > 1)
-    error ("mi_cmd_env_cd: Usage DIRECTORY");
+    error (_("mi_cmd_env_cd: Usage DIRECTORY"));
           
   env_execute_cli_command ("cd", argv[0]);
 
@@ -240,6 +240,30 @@ mi_cmd_env_dir (char *command, char **argv, int argc)
 
   ui_out_field_string (uiout, "source-path", source_path);
   forget_cached_source_info ();
+
+  return MI_CMD_DONE;
+}
+
+/* Set the inferior terminal device name.  */
+enum mi_cmd_result
+mi_cmd_inferior_tty_set (char *command, char **argv, int argc)
+{
+  set_inferior_io_terminal (argv[0]);
+
+  return MI_CMD_DONE;
+}
+
+/* Print the inferior terminal device name  */
+enum mi_cmd_result
+mi_cmd_inferior_tty_show (char *command, char **argv, int argc)
+{
+  const char *inferior_io_terminal = get_inferior_io_terminal ();
+  
+  if ( !mi_valid_noargs ("mi_cmd_inferior_tty_show", argc, argv))
+    error (_("mi_cmd_inferior_tty_show: Usage: No args"));
+
+  if (inferior_io_terminal)
+    ui_out_field_string (uiout, "inferior_tty_terminal", inferior_io_terminal);
 
   return MI_CMD_DONE;
 }

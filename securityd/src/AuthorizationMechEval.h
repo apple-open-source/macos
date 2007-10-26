@@ -63,6 +63,7 @@ private:
     
     AuthItemSet mHints;
     AuthItemSet mContext;
+    AuthItemSet mStickyContext;
 };
 
 } /* namespace Authorization */

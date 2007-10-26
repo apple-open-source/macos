@@ -1,9 +1,12 @@
+ref	-D_def_map_ast=1
+
 cmd	universe
 
-hdr	dirent,direntry,filio,fmtmsg,fnmatch,jioctl,libgen,locale
-hdr	ndir,nl_types,process,spawn,syslog,utime,vfork,wctype
+hdr	dirent,direntry,filio,fmtmsg,fnmatch,jioctl,libgen,limits
+hdr	locale,ndir,nl_types,process,spawn,syslog,utime,vfork,wctype
 hdr	wchar note{ <wchar.h> and isw*() really work }end execute{
 	#include <wchar.h>
+	int
 	main()
 	{
 		wchar_t	w = 'a';
@@ -20,6 +23,7 @@ lib	execlp,execve,execvp,execvpe
 lib	fchmod,fcntl,fmtmsg,fnmatch,fork,fsync
 lib	getconf,getdents,getdirentries,getdtablesize,getdate
 lib	getgroups,gethostname,getlogin,getpagesize,getrlimit,getuniverse
+lib	getopt,getsubopt,getopt_long,getopt_long_only
 lib	glob,index,iswblank,iswctype,killpg,link,localeconv,madvise
 lib	mbtowc,mbrtowc,memalign,memchr,memcpy,memdup,memmove,memset
 lib	mkdir,mkfifo,mktemp,mktime
@@ -29,13 +33,14 @@ lib	setpgid,setpgrp,setpgrp2,setreuid,setsid,setuid,sigaction
 lib	sigprocmask,sigsetmask,sigunblock,sigvec,socketpair
 lib	spawn,spawnve,spawnveg
 lib	strchr,strcoll,strdup,strerror,strcasecmp,strncasecmp,strrchr,strstr
-lib	strtod,strtold,strtol,strtoll,strtoul,strtoull
-lib	strxfrm,strftime,swab,symlink,sysconf,sysinfo,syslog
+lib	strmode,strxfrm,strftime,swab,symlink,sysconf,sysinfo,syslog
 lib	telldir,tmpnam,tzset,universe,unlink,utime,wctype
 lib	ftruncate,truncate
 lib	creat64,fstat64,fstatvfs64,ftruncate64 -D_LARGEFILE64_SOURCE
 lib	lseek64,lstat64 -D_LARGEFILE64_SOURCE
 lib	open64,readdir64,stat64,statvfs64,truncate64 -D_LARGEFILE64_SOURCE
+
+lib,npt	strtod,strtold,strtol,strtoll,strtoul,strtoull stdlib.h
 
 mem	direct.d_reclen sys/types.h sys/dir.h
 mem	dirent.d_fileno,dirent.d_ino,dirent.d_namlen,dirent.d_off,dirent.d_reclen,dirent.d_type sys/types.h dirent.h
@@ -51,11 +56,18 @@ typ	struct.dirent64 -D_LARGEFILE64_SOURCE dirent.h
 
 tst	tst_errno note{ errno can be assigned }end link{
 	_BEGIN_EXTERNS_
+	#define error		______error
+	#define strerror	______strerror
+	#include <errno.h>
+	#undef	error
+	#undef	strerror
+	#ifndef errno
 	extern int errno;
+	#endif
 	error() { }
 	strerror() { }
 	_END_EXTERNS_
-	main() { errno = 0; error(); strerror(); }
+	int main() { errno = 0; error(); strerror(); return 0; }
 }end
 
 tst	lib_poll_fd_1 note{ fd is first arg to poll() }end execute{
@@ -63,6 +75,7 @@ tst	lib_poll_fd_1 note{ fd is first arg to poll() }end execute{
 	_BEGIN_EXTERNS_
 	extern int	pipe _ARG_((int*));
 	_END_EXTERNS_
+	int
 	main()
 	{	int		rw[2];
 		struct pollfd	fd;
@@ -82,6 +95,7 @@ tst	lib_poll_fd_2 note{ fd is second arg to poll() }end execute{
 	_BEGIN_EXTERNS_
 	extern int	pipe _ARG_((int*));
 	_END_EXTERNS_
+	int
 	main()
 	{	int		rw[2];
 		struct pollfd	fd;
@@ -106,6 +120,7 @@ tst	lib_poll_notimer note{ poll with no fds ignores timeout }end execute{
 	extern time_t	time _ARG_((time_t*));
 	_END_EXTERNS_
 	#define TIMEOUT		4
+	int
 	main()
 	{
 		unsigned long	start;
@@ -123,6 +138,7 @@ tst	lib_select note{ select() has standard 5 arg interface }end link{
 	#include <sys/types.h>
 	#include <sys/time.h>
 	#include <sys/socket.h>
+	int
 	main()
 	{	struct timeval	tmb;
 		fd_set		rd;
@@ -142,6 +158,7 @@ tst	pipe_rw note{ full duplex pipes }end execute{
 	extern int	strcmp _ARG_((const char*, const char*));
 	extern int	write _ARG_((int, void*, int));
 	_END_EXTERNS_
+	int
 	main()
 	{
 	#if defined(__sgi) || defined(_sgi) || defined(sgi)
@@ -165,6 +182,7 @@ tst	pipe_rw note{ full duplex pipes }end execute{
 
 tst	lib_vfork unistd.h stdlib.h vfork.h note{ vfork exists and it works }end execute{
 	#include <signal.h>
+	int
 	main(argc, argv)
 	int	argc;
 	char**	argv;
@@ -196,6 +214,7 @@ tst	real_vfork note{ vfork child shares data with parent }end execute{
 	extern int	vfork _ARG_((void));
 	_END_EXTERNS_
 	int		code;
+	int
 	main()
 	{
 		code = 1;
@@ -205,14 +224,20 @@ tst	real_vfork note{ vfork child shares data with parent }end execute{
 	}
 }end
 
-tst	lib_posix_spawn unistd.h stdlib.h spawn.h note{ posix_spawn exists and it works and its worth using }end execute{
+tst	lib_posix_spawn unistd.h stdlib.h spawn.h -Dfork=______fork note{ posix_spawn exists and it works and its worth using }end status{
+	#include <sys/types.h>
+	#include <sys/stat.h>
+	#include <sys/wait.h>
 	#include <spawn.h>
 	#include <signal.h>
-	#include <stdio.h>
+	#include <fcntl.h>
+	#include <string.h>
+	#undef fork
 	/* if it uses fork() why bother? */
-	int fork() { return -1; }
-	int _fork() { return -1; }
-	int __fork() { return -1; }
+	pid_t fork _ARG_((void)) { return -1; }
+	pid_t _fork _ARG_((void)) { return -1; }
+	pid_t __fork _ARG_((void)) { return -1; }
+	int
 	main(argc, argv)
 	int	argc;
 	char**	argv;
@@ -228,36 +253,42 @@ tst	lib_posix_spawn unistd.h stdlib.h spawn.h note{ posix_spawn exists and it wo
 			_exit(signal(SIGHUP, SIG_DFL) != SIG_IGN);
 		signal(SIGHUP, SIG_IGN);
 		if (posix_spawnattr_init(&attr))
-			_exit(1);
+			_exit(0);
 		if (posix_spawnattr_setpgroup(&attr, 0))
-			_exit(1);
+			_exit(0);
+		if (posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP))
+			_exit(0);
 		/* first try an a.out and verify that SIGHUP is ignored */
 		cmd[0] = argv[0];
 		cmd[1] = "test";
 		cmd[2] = 0;
 		if (posix_spawn(&pid, cmd[0], 0, &attr, cmd, 0))
-			_exit(1);
+			_exit(0);
 		status = 1;
 		if (wait(&status) < 0 || status != 0)
-			_exit(1);
+			_exit(0);
 		/* passing ENOEXEC to the shell is bogus */
 		n = strlen(cmd[0]);
 		if (n >= (sizeof(tmp) - 3))
-			_exit(1);
+			_exit(0);
 		strcpy(tmp, cmd[0]);
 		tmp[n] = '.';
 		tmp[n+1] = 's';
 		tmp[n+2] = 'h';
 		tmp[n+3] = 0;
-		if (close(creat(tmp, 0777)) < 0 || chmod(tmp, 0777) < 0)
-			_exit(1);
+		if (close(open(tmp, O_CREAT, S_IRWXU|S_IRWXG|S_IRWXO)) < 0 || chmod(tmp, S_IRWXU|S_IRWXG|S_IRWXO) < 0)
+			_exit(0);
 		cmd[0] = tmp;
-		if (!posix_spawn(&pid, cmd[0], 0, &attr, cmd, 0))
+		n = 0;
+		pid = -1;
+		if (posix_spawn(&pid, cmd[0], 0, &attr, cmd, 0))
+			n = 2;
+		else
 		{
+			n = pid != -1 && waitpid(pid, &status, WNOHANG|WNOWAIT) == pid && ((status>>8)&0x7f) == 127;
 			wait(&status);
-			_exit(1);
 		}
-		_exit(0);
+		_exit(n);
  	}
 }end
 
@@ -267,6 +298,7 @@ tst	lib_spawn_mode unistd.h stdlib.h note{ first spawn arg is mode and it works 
 	#ifndef P_NOWAIT
 	#define P_NOWAIT _P_NOWAIT
 	#endif
+	int
 	main(argc, argv)
 	int	argc;
 	char**	argv;
@@ -289,6 +321,7 @@ tst	lib_spawn_mode unistd.h stdlib.h note{ first spawn arg is mode and it works 
 tst	stream_peek note{ ioctl(I_PEEK) works }end link{
 	#include <sys/types.h>
 	#include <stropts.h>
+	int
 	main()
 	{	struct strpeek	pbuf;
 		pbuf.flags = 0;
@@ -301,14 +334,17 @@ tst	stream_peek note{ ioctl(I_PEEK) works }end link{
 }end
 
 tst	socket_peek note{ recv(MSG_PEEK) works }end execute{
+	#include <poll.h>
 	#include <unistd.h>
 	#include <sys/types.h>
 	#include <sys/socket.h>
+	int
 	main()
 	{	
 		int		i;
 		int		fds[2];
 		char		buf[128];
+		struct	pollfd pfd;
 
 		static char	msg[] = "abcd";
 
@@ -326,6 +362,18 @@ tst	socket_peek note{ recv(MSG_PEEK) works }end execute{
 		for (i = 0; i < sizeof(msg); i++)
 			if (buf[i] != msg[i])
 				return 1;
+
+		if (pipe(fds) < 0)
+			return 1;
+		if (write(fds[1], msg, sizeof(msg)) != sizeof(msg))
+				return 1;
+		if (recv(fds[0], buf, sizeof(buf), MSG_PEEK) != sizeof(msg))
+			return 1;
+		pfd.fd = fds[0];
+		pfd.events = POLLIN;
+		if (poll(&pfd, 1, 0) != 1 || pfd.revents != POLLIN)
+			return 1;
+
 		return 0;
 	}
 }end
@@ -335,6 +383,7 @@ tst	lib_memcmp string.h note{ standard memcmp interface that works }end execute{
 	#define L	8
 	char		a[L] = { '0' };
 	char		b[L] = { '1' };
+	int
 	main()
 	{
 		return memcmp(a, b, L) >= 0;
@@ -350,7 +399,64 @@ tst	lib_memccpy string.h unistd.h stdlib.h fcntl.h signal.h sys/types.h sys/stat
 	{
 		exit(1);
 	}
+	#ifdef MAP_PRIVATE
+	static const char x[] = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxN";
+	#if _STD_
+	static int indict_sgi_ia64_4Q_2004(int n)
+	#else
+	static int indict_sgi_ia64_4Q_2004(n) int n;
+	#endif
+	{
+		char*		b;
+		char*		s;
+		char*		e;
+		char*		t;
+		long		m;
+		int		d;
+		char		u[1024];
 
+		static char	p[32] = {'/','t','m','p','/','m','m'};
+
+		for (d = 7; d < 13; d++)
+			p[d] = 'X';
+		p[d] = 0;
+		if ((d = mkstemp(p)) < 0)
+			return 1;
+		remove(p);
+		for (m = 0; m < n; m++)
+			if (write(d, x, sizeof(x)-1) != sizeof(x)-1)
+			{
+				close(d);
+				return 1;
+			}
+		if (lseek(d, (off_t)0, SEEK_SET))
+		{
+			close(d);
+			return 1;
+		}
+		m = n * (sizeof(x)-1);
+		if (!(b = mmap((void*)0, m, PROT_READ|PROT_WRITE, MAP_PRIVATE, d, (off_t)0)))
+		{
+			close(d);
+			return 1;
+		}
+		for (e = (s = b) + m; s < e && (t = memccpy(u, s, 'N', (e-s) > sizeof(u) ? sizeof(u) : (e-s))); s += (t-u))
+			if ((t-u) != (sizeof(x)-1) || memcmp(u, s, t-u))
+			{
+				close(d);
+				return 1;
+			}
+		if (s < e)
+		{
+			close(d);
+			return 1;
+		}
+		close(d);
+		return 0;
+	}
+	#endif
+
+	int
 	main ()
 	{
 		char	buf[1024];
@@ -360,7 +466,6 @@ tst	lib_memccpy string.h unistd.h stdlib.h fcntl.h signal.h sys/types.h sys/stat
 		int	fd;
 		size_t	siz;
 		int	i;
-		char	c = 1;
 	#endif
 	
 		/*
@@ -394,6 +499,10 @@ tst	lib_memccpy string.h unistd.h stdlib.h fcntl.h signal.h sys/types.h sys/stat
 		alarm(0);
 		if (strcmp(srcbuf, dstbuf))
 			return 1;
+		if (indict_sgi_ia64_4Q_2004(1))
+			return 1;
+		if (indict_sgi_ia64_4Q_2004(257))
+			return 1;
 	#endif
 		return 0;
 	}
@@ -404,13 +513,14 @@ tst	lib_utime_now note{ utime works with 0 time vector }end execute{
 	_BEGIN_EXTERNS_
 	extern int	utime _ARG_((const char*, void*));
 	_END_EXTERNS_
+	int
 	main()
 	{
 		return utime(".", (void*)0) == -1;
 	}
 }end
 
-tst	run{
+tst	cross{
 	u=att
 	case `/bin/cat -s /dev/null/foo 2>&1` in
 	'')	;;
@@ -429,7 +539,7 @@ std	cleanup note{ stuck with standard _cleanup }end noexecute{
 	extern void _cleanup();
 	void _cleanup() { _exit(0); }
 	_END_EXTERNS_
-	main() { printf("cleanup\n"); exit(1); }
+	int main() { printf("cleanup\n"); exit(1); }
 }end
 
 std	remove note{ stuck with standard remove() }end nostatic{
@@ -441,7 +551,7 @@ std	remove note{ stuck with standard remove() }end nostatic{
 	#else
 	int remove(path) char* path; { return 0; }
 	#endif
-	main() { return unlink("foo"); }
+	int main() { return unlink("foo"); }
 }end
 
 std	signal note{ stuck with standard signal }end nolink{
@@ -449,12 +559,13 @@ std	signal note{ stuck with standard signal }end nolink{
 	extern int abort();
 	int signal() { return 0; }
 	_END_EXTERNS_
-	main() { signal(); abort(); return 0; }
+	int main() { signal(); abort(); return 0; }
 }end
 
 std	strcoll note{ standard strcoll works }end execute{
 	#include <string.h>
 	#define S	"hello world"
+	int
 	main()
 	{
 		char	s[] = S;
@@ -463,7 +574,7 @@ std	strcoll note{ standard strcoll works }end execute{
 	}
 }end
 
-std	strtod note{ stuck with standard strtod }end nostatic{
+std	strtod stdlib.h note{ stuck with standard strtod }end nostatic{
 	_BEGIN_EXTERNS_
 	#if _STD_
 	double strtod(const char* s, char** e) { return 0.0; }
@@ -471,10 +582,35 @@ std	strtod note{ stuck with standard strtod }end nostatic{
 	double strtod(s, e) char* s; char** e; { return 0.0; }
 	#endif
 	_END_EXTERNS_
-	main() { printf(""); return strtod("1",0) != 0; }
+	int main() { printf(""); return strtod("1",0) != 0; }
+}end
+
+std	strtold stdlib.h note{ stuck with standard strtold }end nostatic{
+	_BEGIN_EXTERNS_
+	#if _STD_
+	long double strtold(const char* s, char** e) { return 0.0; }
+	#else
+	long double strtold(s, e) char* s; char** e; { return 0.0; }
+	#endif
+	_END_EXTERNS_
+	int main() { printf(""); return strtold("1",0) != 0; }
+}end
+
+std	strtol note{ stuck with standard strtol }end nostatic{
+	_BEGIN_EXTERNS_
+	#if _STD_
+	extern long atol(const char*);
+	long strtol(const char* s, char** e, int b) { return 0; }
+	#else
+	extern long atol();
+	long strtol(s, e, b) char* s; char** e; int b; { return 0; }
+	#endif
+	_END_EXTERNS_
+	int main() { printf(""); return (atol("1") + strtol("1",(char**)0,0)) != 0; }
 }end
 
 tst	- output{
+	int
 	main()
 	{
 	#if _UWIN
@@ -502,10 +638,10 @@ tst	- output{
 
 }end
 
-tst	no64 note{ largefile 64 broken }end execute{
-	#define _LARGEFILE64_SOURCE 1
+tst	no64 -D_LARGEFILE64_SOURCE note{ largefile 64 broken }end execute{
 	#include <sys/types.h>
 	#include <sys/stat.h>
+	int
 	main()
 	{
 		struct stat64	st;

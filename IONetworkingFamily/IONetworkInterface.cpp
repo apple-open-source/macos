@@ -302,7 +302,6 @@ void IONetworkInterface::free()
 
 bool IONetworkInterface::isPrimaryInterface() const
 {
-#if defined(__ppc__)
     IOService * provider  = getController();
     bool        isPrimary = false;
 
@@ -316,9 +315,6 @@ bool IONetworkInterface::isPrimaryInterface() const
     }
 
     return isPrimary;
-#else
-    return false;
-#endif
 }
 
 //---------------------------------------------------------------------------
@@ -383,6 +379,9 @@ static UInt32 getIfnetHardwareAssistValue( IONetworkController * ctr )
 	if( ctr->getFeatures() & kIONetworkFeatureSoftwareVlan)
 		hwassist |= IFNET_VLAN_MTU;
 	
+	if( ctr->getFeatures() & kIONetworkFeatureMultiPages)
+		hwassist |= IFNET_MULTIPAGES;
+
     return hwassist;
 }
 

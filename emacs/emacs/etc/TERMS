@@ -1,3 +1,7 @@
+Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+Free Software Foundation, Inc.
+See the end of the file for copying permissions.
+
 This file describes what you must or might want to do to termcap entries
 to make terminals work properly and efficiently with Emacs.  Information
 on likely problems with specific types of terminals appears at the end
@@ -54,7 +58,7 @@ is `cS', which I invented.
 	to use this even though the Unix termcap does not accept it
 	because programs other than Emacs probably won't look for `rp'
 	anyway.
-	
+
 `cs'    set scroll region.  Takes two parameters, the vertical
 	positions of the first line to include in the scroll region
 	and the last line to include in the scroll region.
@@ -196,12 +200,12 @@ AT386-M|at386-m|386AT-M|386at-m|at/386 console,
 	sgr0=\E[0;10m, smacs=\E[12m, smso=\E[7m, smul=\E[4m,
 
 #
-# AT&T 386 color console 
+# AT&T 386 color console
 #
 AT386|at386|386AT|386at|at/386 console,
 	colors#8, ncv#3, pairs#64,
 	is2=\E[0;10;39m,
-	op=\E[0m, 
+	op=\E[0m,
 	setb=\E[%?%p1%{0}%=%t40m
                 %e%p1%{1}%=%t44m
                 %e%p1%{2}%=%t42m
@@ -227,3 +231,20 @@ AT386|at386|386AT|386at|at/386 console,
 AT386-UL|at386-ul|386AT-UL|386at-ul|at/386 console,
 	is2=\E[0;10;38m,
 	use=at386,
+
+
+COPYING PERMISSIONS:
+
+    This document is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA

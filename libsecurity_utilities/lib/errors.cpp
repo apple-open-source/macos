@@ -70,12 +70,15 @@ CommonError::~CommonError() throw ()
 }
 
 // default debugDiagnose gets what it can (virtually)
+extern "C" const char *cssmErrorString(OSStatus status);
+
 void CommonError::debugDiagnose(const void *id) const
 {
 #if !defined(NDEBUG)
-	secdebug("exception", "%p %s 0x%lx osstatus %ld",
+	putenv("CFBundleDisableStringsSharing=yes");
+	secdebug("exception", "%p %s %s (OSStatus=0x%lx)",
 		id, Debug::typeName(*this).c_str(),
-		osStatus(), osStatus());
+		cssmErrorString(osStatus()), osStatus());
 #endif //NDEBUG
 }
 

@@ -4,14 +4,14 @@
 /* access.h -- carry out accessibility checks
 
   Copyright University of Toronto
-  Portions (c) 1998-2003 (W3C) MIT, ERCIM, Keio University
+  Portions (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
   
   CVS Info :
 
-    $Author: rbraun $ 
-    $Date: 2004/05/04 20:05:14 $ 
-    $Revision: 1.1.1.1 $ 
+    $Author: iccir $ 
+    $Date: 2007/01/30 23:46:51 $ 
+    $Revision: 1.3 $ 
 
 */
 
@@ -58,6 +58,7 @@ typedef struct AreaLinks
 */
 
 #define TEXTBUF_SIZE    128
+
 
 struct _TidyAccessImpl;
 typedef struct _TidyAccessImpl TidyAccessImpl;
@@ -259,8 +260,8 @@ enum accessErrorCodes
 };
 
 
-void AccessibilityHelloMessage( TidyDocImpl* doc );
-void DisplayHTMLTableAlgorithm( TidyDocImpl* doc );
+void TY_(AccessibilityHelloMessage)( TidyDocImpl* doc );
+void TY_(DisplayHTMLTableAlgorithm)( TidyDocImpl* doc );
 
 /************************************************************
 * AccessibilityChecks
@@ -270,7 +271,7 @@ void DisplayHTMLTableAlgorithm( TidyDocImpl* doc );
 * after the tree structure has been formed.
 ************************************************************/
 
-void AccessibilityChecks( TidyDocImpl* doc );
+void TY_(AccessibilityChecks)( TidyDocImpl* doc );
 
 
 #endif /* SUPPORT_ACCESSIBILITY_CHECKS */

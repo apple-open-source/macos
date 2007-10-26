@@ -1,4 +1,4 @@
-# Copyright (c) 2002-2004 IBM, Inc. and others
+# Copyright (c) 2002-2005 IBM, Inc. and others
 # Sample code makefile definitions 
 
 CLEANFILES=*~ $(TARGET).out
@@ -14,7 +14,7 @@ LDFLAGS =$(shell icu-config --ldflags)
 LDFLAGS_USTDIO =$(shell icu-config --ldflags-icuio)
 INVOKE=$(shell icu-config --invoke)
 GENRB=$(shell icu-config --invoke=genrb)
-GENRBOPT=--package-name $(RESNAME)
+GENRBOPT=
 PKGDATA=$(shell icu-config --invoke=pkgdata)
 SO=$(shell icu-config --so)
 PKGDATAOPTS=-v -d .

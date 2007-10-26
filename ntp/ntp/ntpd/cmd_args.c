@@ -9,17 +9,39 @@
 #include "ntp_stdlib.h"
 #include "ntp_cmdargs.h"
 
+#ifdef SIM
+#include "ntpsim.h"
+#endif /* SIM */
+
 /*
  * Definitions of things either imported from or exported to outside
  */
 extern char const *progname;
-int	listen_to_virtual_ips = 0;
+extern int default_ai_family;
+int	listen_to_virtual_ips = 1;
+char 	*specific_interface = NULL;        /* interface name or IP address to bind to */
 
-static const char *ntp_options = "aAbc:dD:f:gk:l:LmnN:p:P:qr:s:t:v:V:x";
+static const char *ntp_options = "46aAbB:c:C:dD:f:gHi:k:l:L:nNO:p:P:qr:s:S:t:T:W:u:v:V:xY:Z:-:";
 
 #ifdef HAVE_NETINFO
 extern int	check_netinfo;
 #endif
+
+
+void ntpd_usage( void )
+{
+		(void) fprintf(stderr, "usage: %s [ -46abdgnqx ] [ -c config_file ]\n", progname);
+		(void) fprintf(stderr, "\t\t[ -f drift_file ] [ -k key_file ] [ -l log_file ]\n");
+		(void) fprintf(stderr, "\t\t[ -p pid_file ] [ -r broadcast_delay ] [ -s stats_dir ]\n");
+		(void) fprintf(stderr, "\t\t[ -t trusted_key ] [ -v sys_var ] [ -V default_sysvar ]\n");
+		(void) fprintf(stderr, "\t\t[ -L [ interface ] ]\n");
+#if defined(HAVE_SCHED_SETSCHEDULER)
+		(void) fprintf(stderr, "\t\t[ -P fixed_process_priority ]\n");
+#endif
+#ifdef HAVE_DROPROOT
+		(void) fprintf(stderr, "\t\t[ -u user[:group] ] [ -i jaildir ]\n");
+#endif
+}  /* ntpd_usage */
 
 
 /*
@@ -72,18 +94,25 @@ getstartup(
 		case 'd':
 		case 'D':
 		    msyslog(LOG_ERR, "ntpd not compiled with -DDEBUG option - no DEBUG support");
-		    fprintf(stderr, "ntpd not compiled with -DDEBUG option - no DEBUG support");
+		    fprintf(stderr, "ntpd not compiled with -DDEBUG option - no DEBUG support\n");
 		    ++errflg;
 		    break;
 #endif
 		case 'L':
-		    listen_to_virtual_ips = 1;
+		    listen_to_virtual_ips = 0;
+		    if(ntp_optarg)
+			specific_interface = ntp_optarg; 
 		    break;
 		case 'l':
 			{
 				FILE *new_file;
 
-				new_file = fopen(ntp_optarg, "a");
+				if(strcmp(ntp_optarg, "stderr") == 0)
+					new_file = stderr;
+				else if(strcmp(ntp_optarg, "stdout") == 0)
+					new_file = stdout;
+				else
+					new_file = fopen(ntp_optarg, "a");
 				if (new_file != NULL) {
 					NLOG(NLOG_SYSINFO)
 						msyslog(LOG_NOTICE, "logging to file %s", ntp_optarg);
@@ -105,27 +134,39 @@ getstartup(
 		case 'q':
 		    ++nofork;
 		    break;
-
+ 
 		case 'N':
-		    priority_done = strcmp(ntp_optarg, "high");
+		    priority_done = 0;
 		    break;
 			
 		case '?':
 		    ++errflg;
 		    break;
 
+		case '-':
+			if ( ! strcmp(ntp_optarg, "version") ) {
+				printf("%.80s: %.80s\n", progname, Version);
+				exit(0);
+			} else if ( ! strcmp(ntp_optarg, "help") ) {
+				ntpd_usage();
+				exit(0);
+			} else if ( ! strcmp(ntp_optarg, "copyright") ) {
+				printf("unknown\n");
+				exit(0);
+			} else {
+				fprintf(stderr, "%.80s: Error unknown argument '--%.80s'\n",
+					progname,
+					ntp_optarg);
+				exit(12);
+			}
+			break;
+
 		default:
 			break;
-		}
+	    }
 
 	if (errflg || ntp_optind != argc) {
-		(void) fprintf(stderr, "usage: %s [ -abdgmnqx ] [ -c config_file ] [ -e e_delay ]\n", progname);
-		(void) fprintf(stderr, "\t\t[ -f freq_file ] [ -k key_file ] [ -l log_file ]\n");
-		(void) fprintf(stderr, "\t\t[ -p pid_file ] [ -r broad_delay ] [ -s statdir ]\n");
-		(void) fprintf(stderr, "\t\t[ -t trust_key ] [ -v sys_var ] [ -V default_sysvar ]\n");
-#if defined(HAVE_SCHED_SETSCHEDULER)
-		(void) fprintf(stderr, "\t\t[ -P fixed_process_priority ]\n");
-#endif
+		ntpd_usage();
 		exit(2);
 	}
 	ntp_optind = 0;	/* reset ntp_optind to restart ntp_getopt */
@@ -170,16 +211,22 @@ getCmdOpts(
 	 */
 	while ((c = ntp_getopt(argc, argv, ntp_options)) != EOF) {
 		switch (c) {
+		    case '4':
+			default_ai_family = AF_INET;
+			break;
+		    case '6':
+			default_ai_family = AF_INET6;
+			break;
 		    case 'a':
-			proto_config(PROTO_AUTHENTICATE, 1, 0.);
+			proto_config(PROTO_AUTHENTICATE, 1, 0., NULL);
 			break;
 
 		    case 'A':
-			proto_config(PROTO_AUTHENTICATE, 0, 0.);
+			proto_config(PROTO_AUTHENTICATE, 0, 0., NULL);
 			break;
 
 		    case 'b':
-			proto_config(PROTO_BROADCLIENT, 1, 0.);
+			proto_config(PROTO_BROADCLIENT, 1, 0., NULL);
 			break;
 
 		    case 'c':
@@ -214,17 +261,23 @@ getCmdOpts(
 			allow_panic = TRUE;
 			break;
 
+		    case 'i':
+#ifdef HAVE_DROPROOT
+			droproot = 1;
+			if (!ntp_optarg)
+				errflg++;
+			else
+				chrootdir = ntp_optarg;
+			break;
+#else
+			errflg++;
+#endif
 		    case 'k':
 			getauthkeys(ntp_optarg);
 			break;
 
 		    case 'L':   /* already done at pre-scan */
 		    case 'l':   /* already done at pre-scan */
-			break;
-
-		    case 'm':
-			proto_config(PROTO_MULTICAST_ADD, htonl(INADDR_NTP), 0.);
-			sys_bclient = 1;
 			break;
 
 		    case 'n':	/* already done at pre-scan */
@@ -259,11 +312,31 @@ getCmdOpts(
 						"command line broadcast delay value %s undecodable",
 						ntp_optarg);
 				} else {
-					proto_config(PROTO_BROADDELAY, 0, tmp);
+					proto_config(PROTO_BROADDELAY, 0, tmp, NULL);
 				}
 			} while (0);
 			break;
 			
+		    case 'u':
+#ifdef HAVE_DROPROOT
+			droproot = 1;
+			if( ! ntp_optarg ) {
+				errflg++;
+			} else {
+				user = malloc(strlen(ntp_optarg) + 1);
+				if (user == NULL) {
+					errflg++;
+				} else {
+					(void)strncpy(user, ntp_optarg, strlen(ntp_optarg) + 1);
+					group = rindex(user, ':');
+					if (group)
+						*group++ = '\0'; /* get rid of the ':' */
+				}
+			}
+#else
+			errflg++;
+#endif
+			break;
 		    case 's':
 			stats_config(STATS_STATSDIR, ntp_optarg);
 			break;
@@ -286,13 +359,50 @@ getCmdOpts(
 		    case 'v':
 		    case 'V':
 			set_sys_var(ntp_optarg, strlen(ntp_optarg)+1,
-			    RW | ((c == 'V') ? DEF : 0));
+			    (u_short) (RW | ((c == 'V') ? DEF : 0)));
 			break;
 
 		    case 'x':
-			allow_step = FALSE;
+			clock_max = 600;
 			break;
+#ifdef SIM
+		case 'B':
+			sscanf(ntp_optarg, "%lf", &ntp_node.bdly);
+                        break;
 
+		case 'C':
+			sscanf(ntp_optarg, "%lf", &ntp_node.snse);
+                        break;
+
+		case 'H':
+			sscanf(ntp_optarg, "%lf", &ntp_node.slew);
+                        break;
+
+		case 'O':
+			sscanf(ntp_optarg, "%lf", &ntp_node.clk_time);
+                        break;
+
+		case 'S':
+			sscanf(ntp_optarg, "%lf", &ntp_node.sim_time);
+                        break;
+
+		case 'T':
+			sscanf(ntp_optarg, "%lf", &ntp_node.ferr);
+                        break;
+
+		case 'W':
+			sscanf(ntp_optarg, "%lf", &ntp_node.fnse);
+                        break;
+
+		case 'Y':
+			sscanf(ntp_optarg, "%lf", &ntp_node.ndly);
+                        break;
+
+		case 'Z': 
+			sscanf(ntp_optarg, "%lf", &ntp_node.pdly);
+                        break;
+
+#endif /* SIM */
 		    default:
 			errflg++;
 			break;
@@ -300,13 +410,7 @@ getCmdOpts(
 	}
 
 	if (errflg || ntp_optind != argc) {
-		(void) fprintf(stderr, "usage: %s [ -abdgmnx ] [ -c config_file ] [ -e e_delay ]\n", progname);
-		(void) fprintf(stderr, "\t\t[ -f freq_file ] [ -k key_file ] [ -l log_file ]\n");
-		(void) fprintf(stderr, "\t\t[ -p pid_file ] [ -r broad_delay ] [ -s statdir ]\n");
-		(void) fprintf(stderr, "\t\t[ -t trust_key ] [ -v sys_var ] [ -V default_sysvar ]\n");
-#if defined(HAVE_SCHED_SETSCHEDULER)
-		(void) fprintf(stderr, "\t\t[ -P fixed_process_priority ]\n");
-#endif
+		ntpd_usage();
 		exit(2);
 	}
 	return;

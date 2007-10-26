@@ -81,6 +81,12 @@ int network_finish_download(
 	struct node_entry *node,	/* -> node to download to */
 	struct ReadStreamRec *readStreamRecPtr); /* -> the ReadStreamRec */
 
+/*
+ * Sends an "OPTIONS" request to the server after 'delay' seconds
+ * Returns 0 on success. 
+ */
+int network_server_ping(u_int32_t delay);
+
 int network_open(
 	uid_t uid,					/* -> uid of the user making the request */
 	struct node_entry *node,	/* -> node to open */

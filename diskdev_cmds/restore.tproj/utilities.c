@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -134,7 +134,7 @@ gentempname(ep)
 		i++;
 	if (np == NULL)
 		badentry(ep, "not on ino list");
-	(void) sprintf(name, "%s%d%d", TMPHDR, i, ep->e_ino);
+	(void) sprintf(name, "%s%ld%u", TMPHDR, i, ep->e_ino);
 	return (name);
 }
 
@@ -349,7 +349,7 @@ badentry(ep, msg)
 		    "next hashchain name: %s\n", myname(ep->e_next));
 	fprintf(stderr, "entry type: %s\n",
 		ep->e_type == NODE ? "NODE" : "LEAF");
-	fprintf(stderr, "inode number: %ld\n", ep->e_ino);
+	fprintf(stderr, "inode number: %u\n", ep->e_ino);
 	panic("flags: %s\n", flagvalues(ep));
 }
 

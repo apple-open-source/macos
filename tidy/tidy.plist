@@ -3,15 +3,15 @@
 	<key>OpenSourceProject</key>
 	<string>tidy</string>
 	<key>OpenSourceVersion</key>
-	<string>2004.12.14</string>
+	<string>2006.11.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://tidy.sourceforge.net/</string>
 	<key>OpenSourceURL</key>
 	<string>http://tidy.sourceforge.net/src/tidy_src.tgz</string>
 	<key>OpenSourceMD5</key>
-	<string>dc87c8acba1e71690c5104911aee6ed7</string>
+	<string>1e39fafd6808978871346658c8da1454</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-12-14</string>
+	<string>2005-11-1</string>
 	<key>OpenSourceLicense</key>
 	<string>W3C</string>
 	<key>OpenSourceLicenseFile</key>

@@ -130,22 +130,22 @@ EXTERN int n_this_object_header_files;
 
 EXTERN int n_allocated_this_object_header_files;
 
+/* APPLE LOCAL: More work to handle types defined after they are used.  */
 extern void cleanup_undefined_types (void);
 
-/* APPLE LOCAL: More work to handle types defined after they are used.  */
-extern void cleanup_undefined_fields (void);
-
+/* APPLE LOCAL make globally visible */
 extern struct type **dbx_lookup_type (int[2], struct objfile *objfile);
 
 extern long read_number (char **, int);
 
+/* APPLE LOCAL symbol prefixes */
 extern struct symbol *define_symbol (CORE_ADDR, char *, const char *, int, int,
 				     struct objfile *);
 
-/* APPLE LOCAL: This is added to read stabs in .o files for code that gets elided
-   from the final linked image.  */
+/* APPLE LOCAL: This is added to read stabs in .o files for code that gets
+   elided from the final linked image.  */
 void process_symbol_types_only (char *string, const char *prefix,
-			   int desc, int type, struct objfile *objfile);
+                          int desc, int type, struct objfile *objfile);
 
 extern void stabsread_init (void);
 
@@ -183,6 +183,7 @@ extern struct partial_symtab *end_psymtab (struct partial_symtab *pst,
 					   int textlow_not_set);
 
 extern void
+/* APPLE LOCAL symbol prefixes */
 process_one_symbol (int, int, CORE_ADDR, char *, const char *,
 		    struct section_offsets *, struct objfile *);
 
@@ -215,6 +216,7 @@ extern void free_header_files (void);
 
 extern void init_header_files (void);
 
+/* APPLE LOCAL make globally visible */
 extern char *find_name_end (char *name);
 
 #undef EXTERN

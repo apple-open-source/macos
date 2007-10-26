@@ -1,7 +1,7 @@
-## Process this file with automake to create Makefile.in. -*-Makefile-*-
+## Make Autoconf tests.
 
-## Makefile for Autoconf testsuite.
-## Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+## Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+## Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -15,8 +15,8 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
 # We don't actually distribute the testsuite, since one only
 # needs m4 to build it, m4 being required anyway to install Autoconf.
@@ -24,9 +24,9 @@ EXTRA_DIST = $(TESTSUITE_AT) local.at mktests.sh \
 	     atlocal.in package.m4 wrapper.as
 
 # Running the uninstalled scripts.
-check_SCRIPTS = autoconf autoheader autoreconf autom4te autoscan autoupdate ifnames
-
-DISTCLEANFILES = atconfig atlocal $(TESTSUITE) $(check_SCRIPTS)
+check_SCRIPTS = $(wrappers)
+DISTCLEANFILES = atconfig atlocal $(TESTSUITE)
+MAINTAINERCLEANFILES = Makefile.in
 
 # Import the dependencies on Autotest and M4sh.
 include ../lib/freeze.mk
@@ -39,11 +39,11 @@ include ../lib/freeze.mk
 $(srcdir)/package.m4: $(top_srcdir)/configure.ac
 	{					\
 	  echo '# Signature of the current package.'; \
-	  echo 'm4_define([AT_PACKAGE_NAME],      [@PACKAGE_NAME@])'; \
-	  echo 'm4_define([AT_PACKAGE_TARNAME],   [@PACKAGE_TARNAME@])'; \
-	  echo 'm4_define([AT_PACKAGE_VERSION],   [@PACKAGE_VERSION@])'; \
-	  echo 'm4_define([AT_PACKAGE_STRING],    [@PACKAGE_STRING@])'; \
-	  echo 'm4_define([AT_PACKAGE_BUGREPORT], [@PACKAGE_BUGREPORT@])'; \
+	  echo 'm4_define([AT_PACKAGE_NAME],      [$(PACKAGE_NAME)])'; \
+	  echo 'm4_define([AT_PACKAGE_TARNAME],   [$(PACKAGE_TARNAME)])'; \
+	  echo 'm4_define([AT_PACKAGE_VERSION],   [$(PACKAGE_VERSION)])'; \
+	  echo 'm4_define([AT_PACKAGE_STRING],    [$(PACKAGE_STRING)])'; \
+	  echo 'm4_define([AT_PACKAGE_BUGREPORT], [$(PACKAGE_BUGREPORT)])'; \
 	} >$(srcdir)/package.m4
 
 
@@ -52,8 +52,25 @@ $(srcdir)/package.m4: $(top_srcdir)/configure.ac
 ## Wrappers.  ##
 ## ---------- ##
 
-$(srcdir)/wrapper.in: $(srcdir)/wrapper.as
-	./autom4te --language=M4sh $(srcdir)/wrapper.as -o $@
+wrappers = autoconf autoheader autom4te autoreconf autoscan autoupdate ifnames
+CLEANFILES = wrapper.in $(wrappers)
+
+wrapper.in: $(srcdir)/wrapper.as $(m4sh_m4f_dependencies)
+	$(MY_AUTOM4TE) --language=M4sh $(srcdir)/wrapper.as -o $@
+
+edit = sed \
+	-e 's|@wrap_program[@]|$@|g' \
+	-e 's|@abs_top_srcdir[@]|@abs_top_srcdir@|g' \
+	-e 's|@abs_top_builddir[@]|@abs_top_builddir@|g' \
+	-e "s|@configure_input[@]|Generated from $$input.|g"
+
+$(wrappers): wrapper.in
+	rm -f $@ $@.tmp
+	input=wrapper.in; \
+	$(edit) wrapper.in >$@.tmp
+	chmod +x $@.tmp
+	chmod a-w $@.tmp
+	mv -f $@.tmp $@
 
 
 
@@ -62,18 +79,27 @@ $(srcdir)/wrapper.in: $(srcdir)/wrapper.as
 ## ------------ ##
 
 TESTSUITE_GENERATED_AT = \
-	aclang.at acc.at acfortran.at \
-	acgeneral.at acstatus.at \
-	acautoheader.at acautoupdate.at \
-	acspecific.at acfunctions.at acheaders.at actypes.at \
-	aclibs.at acprograms.at
+	$(srcdir)/aclang.at \
+	$(srcdir)/acc.at \
+	$(srcdir)/acfortran.at \
+	$(srcdir)/acgeneral.at \
+	$(srcdir)/acstatus.at \
+	$(srcdir)/acautoheader.at \
+	$(srcdir)/acautoupdate.at \
+	$(srcdir)/acspecific.at \
+	$(srcdir)/acfunctions.at \
+	$(srcdir)/acheaders.at \
+	$(srcdir)/actypes.at \
+	$(srcdir)/aclibs.at \
+	$(srcdir)/acprograms.at
 
 TESTSUITE_HAND_AT = \
 	suite.at \
-	m4sugar.at m4sh.at \
+	m4sugar.at m4sh.at autotest.at \
 	base.at tools.at torture.at \
 	compile.at c.at fortran.at \
 	semantics.at \
+	autoscan.at \
 	foreign.at
 
 TESTSUITE_AT = $(TESTSUITE_GENERATED_AT) $(TESTSUITE_HAND_AT)
@@ -82,11 +108,12 @@ TESTSUITE = ./testsuite
 # Run the non installed autom4te.
 # Don't use AUTOM4TE since `make alpha' makes it unavailable although
 # we are allowed to use it (since we ship it).
-AUTOTEST = ./autom4te --language=autotest
+AUTOTEST = $(MY_AUTOM4TE) --language=autotest
 $(TESTSUITE): $(srcdir)/package.m4 \
 	      local.at \
 	      $(TESTSUITE_AT) \
 	      $(autotest_m4f_dependencies)
+	cd $(top_builddir)/lib/autotest && $(MAKE) $(AM_MAKEFLAGS) autotest.m4f
 	$(AUTOTEST) -I $(srcdir) suite.at -o $@.tmp
 	mv $@.tmp $@
 
@@ -96,14 +123,14 @@ atconfig: $(top_builddir)/config.status
 clean-local:
 	test ! -f $(TESTSUITE) || $(SHELL) $(TESTSUITE) --clean
 	rm -f *.tmp
-	rm -rf autom4te.cache
+	rm -f -r autom4te.cache
 
 check-local: atconfig atlocal $(TESTSUITE)
-	$(SHELL) $(TESTSUITE)
+	$(SHELL) $(TESTSUITE) $(TESTSUITEFLAGS)
 
 # Run the test suite on the *installed* tree.
-installcheck-local:
-	$(SHELL) $(TESTSUITE) AUTOTEST_PATH=$(exec_prefix)/bin
+installcheck-local: atconfig atlocal $(TESTSUITE)
+	$(SHELL) $(TESTSUITE) AUTOTEST_PATH="$(bindir)" $(TESTSUITEFLAGS)
 
 
 
@@ -111,13 +138,13 @@ installcheck-local:
 ## Maintainer rules.  ##
 ## ------------------ ##
 
-MAINTAINERCLEANFILES = Makefile.in $(TESTSUITE_GENERATED_AT)
+MAINTAINERCLEANFILES += $(TESTSUITE_GENERATED_AT)
 
 ## Producing the test files.
 
-# The files which contains macro we check for syntax.  Don't use $(top_srcdir)
-# here since below we explicitly `cd' to $srcdir.  As for the dependencies,
-# thanks God for VPATH.  Hm...
+# The files which contain macros we check for syntax.  Use $(top_srcdir)
+# for the benefit of non-GNU make.  Fix the names in the rule below
+# where we `cd' to $srcdir.
 autoconfdir = $(top_srcdir)/lib/autoconf
 AUTOCONF_FILES = $(autoconfdir)/general.m4 \
 		 $(autoconfdir)/status.m4 \
@@ -130,11 +157,12 @@ AUTOCONF_FILES = $(autoconfdir)/general.m4 \
 		 $(autoconfdir)/fortran.m4 \
 		 $(autoconfdir)/headers.m4 \
 		 $(autoconfdir)/libs.m4 \
-		 $(autoconfdir)/types.m4	\
+		 $(autoconfdir)/types.m4 \
 		 $(autoconfdir)/programs.m4
 
 $(TESTSUITE_GENERATED_AT): mktests.sh $(AUTOCONF_FILES)
-	cd $(srcdir) && ./mktests.sh $(AUTOCONF_FILES)
+	cd $(srcdir) && ./mktests.sh \
+	  `echo " "$(AUTOCONF_FILES) | sed 's, [^ ]*/, ../lib/autoconf/,g'`
 
 
 ## maintainer-check ##
@@ -142,10 +170,10 @@ $(TESTSUITE_GENERATED_AT): mktests.sh $(AUTOCONF_FILES)
 maintainer-check: maintainer-check-posix maintainer-check-c++
 
 # The hairy heredoc is more robust than using echo.
-CLEANFILES = expr
+CLEANFILES += expr
 expr:
 	echo '#! $(SHELL)'            >expr
-	echo 'result=`@EXPR@ "$$@"`' >>expr
+	echo 'result=`$(EXPR) "$$@"`'>>expr
 	echo 'estatus=$$?'           >>expr
 	echo 'cat <<EOF'             >>expr
 	echo '$${result:-0}'         >>expr
@@ -155,7 +183,7 @@ expr:
 
 # Try the test suite with more severe environments.
 maintainer-check-posix: expr
-	POSIXLY_CORRECTLY=yes make check
+	POSIXLY_CORRECT=yes make check
 	rm expr
 
 # Try using G++ as a C compiler.

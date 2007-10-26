@@ -1,5 +1,5 @@
-## Cygwin-specific setup
-## Copyright (c) 2001-2004, International Business Machines Corporation and
+## Cygwin with Microsoft Visual C++ compiler specific setup
+## Copyright (c) 2001-2006, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 # We install sbin tools into the same bin directory because
@@ -16,7 +16,7 @@ GEN_DEPS.cc=	:
 ## Flags to create/use a static library
 ifneq ($(ENABLE_SHARED),YES)
 ## Make sure that the static libraries can be built and used
-CPPFLAGS += -DU_STATIC_IMPLEMENTATION
+CPPFLAGS += -DU_STATIC_IMPLEMENTATION#M#
 else
 ## Make sure that the static libraries can be built
 STATICCPPFLAGS = -DU_STATIC_IMPLEMENTATION
@@ -30,30 +30,22 @@ SHAREDLIBCPPFLAGS =
 ## Additional flags when building libraries and with threads
 LIBCPPFLAGS = 
 
-ifeq ($(ENABLE_DEBUG),1)
-# /MDd means 'compiles and links a debugable multithreaded program with DLL'
-THREADSCFLAGS += /MDd
-THREADSCXXFLAGS += /MDd
-# The debug flags are defined here because configure can't handle them.
-CFLAGS+=/Zi
-CXXFLAGS+=/Zi
-LDFLAGS+=/DEBUG
-else
-# /MD means 'compiles and links a multithreaded program with DLL'
-THREADSCFLAGS += /MD
-THREADSCXXFLAGS += /MD
-endif
-
 ifeq ($(ENABLE_RELEASE),1)
 # Make sure that assertions are disabled
 CPPFLAGS+=-DU_RELEASE=1
 endif
 
+ifeq ($(ENABLE_DEBUG),1)
+# Pass debugging flag through
+CPPFLAGS+=-D_DEBUG=1
+ICULIBSUFFIX:=$(ICULIBSUFFIX)d
+endif
+
 # /GF pools strings and places them into read-only memory
-# /GX enables exception handling
-CFLAGS += /GF
-CXXFLAGS += /GF /GX
-CPPFLAGS+=/nologo
+# /EHsc enables exception handling
+# /Zc:wchar_t makes wchar_t a native type. Required for C++ ABI compatibility.
+CFLAGS+=/GF /nologo
+CXXFLAGS+=/GF /nologo /EHsc /Zc:wchar_t
 DEFS+=-DWIN32
 LDFLAGS+=/nologo
 
@@ -110,7 +102,7 @@ LIBCTESTFW=	$(top_builddir)/tools/ctestfw/$(LIBICU)$(CTESTFW_STUBNAME)$(ICULIBSU
 LIBICUTOOLUTIL=	$(LIBDIR)/$(LIBICU)$(TOOLUTIL_STUBNAME)$(ICULIBSUFFIX).lib
 
 ## These are the library specific LDFLAGS
-LDFLAGSICUDT=# Unused for now.
+LDFLAGSICUDT=	/base:"0x4ad00000" /NOENTRY# The NOENTRY option is required for creating a resource-only DLL.
 LDFLAGSICUUC=	/base:"0x4a800000"# in-uc = 1MB
 LDFLAGSICUI18N=	/base:"0x4a900000"# io-in = 2MB
 LDFLAGSICUIO=	/base:"0x4ab00000"# le-io = 1MB
@@ -121,9 +113,9 @@ LDFLAGSICUTOOLUTIL=	/base:"0x4ac00000"# Same as layout. Layout and tools probabl
 
 # The #M# is used to delete lines for icu-config
 # Current full path directory.
-CURR_FULL_DIR=$(shell cygpath -dma .)#M#
+CURR_FULL_DIR=$(subst \,/,$(shell cygpath -da .))#M# -m isn't used because it doesn't work on Win98
 # Current full path directory for use in source code in a -D compiler option.
-CURR_SRCCODE_FULL_DIR=$(subst \,\\\\,$(shell cygpath -da .))#M#
+CURR_SRCCODE_FULL_DIR=$(subst \,\\,$(shell cygpath -da .))#M#
 
 ifeq ($(srcdir),.)
 SOURCE_FILE=$<
@@ -171,7 +163,7 @@ endif
 
 ## Compile a Windows resource file
 %.res : $(srcdir)/%.rc
-	rc.exe /fo$@ $(SOURCE_FILE)
+	rc.exe /fo$@ $(CPPFLAGS) $(SOURCE_FILE)
 
 ## Versioned target for a shared library.
 FINAL_SO_TARGET= $(basename $(SO_TARGET))$(SO_TARGET_VERSION_MAJOR).$(SO)
@@ -184,9 +176,12 @@ ICUPKGDATA_INSTALL_LIBDIR = $(shell cygpath -dma $(DESTDIR)$(libdir))#M#
 
 ## Versioned import library names. The library names are versioned,
 ## but the import libraries do not need versioning.
-IMPORT_LIB = $(basename $(SO_TARGET))$(IMPORT_LIB_EXT)
-MIDDLE_IMPORT_LIB = $(IMPORT_LIB)
-FINAL_IMPORT_LIB = $(MIDDLE_IMPORT_LIB)
+IMPORT_LIB = $(basename $(SO_TARGET))$(IMPORT_LIB_EXT)#M#
+MIDDLE_IMPORT_LIB = $(IMPORT_LIB)#M#
+FINAL_IMPORT_LIB = $(MIDDLE_IMPORT_LIB)#M#
+
+# The following is for Makefile.inc's use.
+ICULIBSUFFIX_VERSION = $(LIB_VERSION_MAJOR)
 
 ## Versioned libraries rules
 #%$(SO_TARGET_VERSION_MAJOR).$(SO): %$(SO_TARGET_VERSION).$(SO)

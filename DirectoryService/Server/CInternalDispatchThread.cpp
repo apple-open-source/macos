@@ -32,7 +32,7 @@
 //
 //--------------------------------------------------------------------------------------------------
 
-CInternalDispatchThread::CInternalDispatchThread ( const OSType inThreadSig ) : DSCThread(inThreadSig)
+CInternalDispatchThread::CInternalDispatchThread ( const UInt32 inThreadSig ) : DSCThread(inThreadSig)
 {
 	fInternalDispatchStackHeight = -1;
 	//normally internal dispatch is only one deep
@@ -48,6 +48,7 @@ CInternalDispatchThread::CInternalDispatchThread ( const OSType inThreadSig ) : 
 	for (int idx = 1; idx < kMaxInternalDispatchRecursion; idx++)
 	{
 		fInternalMsgDataList[idx] = nil;
+		bInternalLockCalledList[idx] = false;
 	}
 } // CInternalDispatchThread
 
@@ -63,6 +64,15 @@ CInternalDispatchThread::~CInternalDispatchThread()
 		free(fHandlerInternalMsgData);
 		fHandlerInternalMsgData = nil;
 	}
+	
+	for (int idx = 1; idx < kMaxInternalDispatchRecursion; idx++)
+	{
+		if (bInternalLockCalledList[idx])
+		{
+			DbgLog( kLogHandler, "CPH::Destructor: final Unlock was not called for level <%d>", idx );
+			bInternalLockCalledList[idx] = false;
+		}
+	}
 } // ~CInternalDispatchThread
 
 //--------------------------------------------------------------------------------------------------
@@ -72,7 +82,7 @@ CInternalDispatchThread::~CInternalDispatchThread()
 
 void CInternalDispatchThread::UpdateHandlerInternalMsgData( sComData* inOldMsgData, sComData* inNewMsgData )
 {
-	//DBGLOG1( kLogHandler, "CPH::UpdateHandlerInternalMsgData:: called with fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
+	//DbgLog( kLogHandler, "CPH::UpdateHandlerInternalMsgData:: called with fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
 	if ( (fInternalDispatchStackHeight >= 0) && (fInternalDispatchStackHeight < kMaxInternalDispatchRecursion) )
 	{
 		if ( (inOldMsgData != nil) && (inNewMsgData != nil) )
@@ -84,7 +94,7 @@ void CInternalDispatchThread::UpdateHandlerInternalMsgData( sComData* inOldMsgDa
 				{
 					fHandlerInternalMsgData = inNewMsgData;
 				}
-				//DBGLOG1( kLogHandler, "CPH::UpdateHandlerInternalMsgData:: switched fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
+				//DbgLog( kLogHandler, "CPH::UpdateHandlerInternalMsgData:: switched fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
 			}
 		}
 	}
@@ -97,12 +107,12 @@ void CInternalDispatchThread::UpdateHandlerInternalMsgData( sComData* inOldMsgDa
 
 sComData* CInternalDispatchThread::GetHandlerInternalMsgData( void )
 {
-	//DBGLOG1( kLogHandler, "CPH::GetHandlerInternalMsgData:: asked for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
+	//DbgLog( kLogHandler, "CPH::GetHandlerInternalMsgData:: asked for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
 	if ( (fInternalDispatchStackHeight >= 0) && (fInternalDispatchStackHeight < kMaxInternalDispatchRecursion) )
 	{
 		if ( fInternalMsgDataList[fInternalDispatchStackHeight] != nil )
 		{
-			//DBGLOG1( kLogHandler, "CPH::GetHandlerInternalMsgData:: returned for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
+			//DbgLog( kLogHandler, "CPH::GetHandlerInternalMsgData:: returned for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
 			return(fInternalMsgDataList[fInternalDispatchStackHeight]);
 		}
 	}
@@ -116,20 +126,47 @@ sComData* CInternalDispatchThread::GetHandlerInternalMsgData( void )
 
 void CInternalDispatchThread::ResetHandlerInternalMsgData( void )
 {
-	//DBGLOG1( kLogHandler, "CPH::ResetHandlerInternalMsgData:: request for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
+	//DbgLog( kLogHandler, "CPH::ResetHandlerInternalMsgData:: request for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
+	//DbgLog( kLogHandler, "CPH::ResetHandlerInternalMsgData:: called with bInternalLockCalled = %s", bInternalLockCalledList[fInternalDispatchStackHeight] ? "true" : "false" );
 	if ( (fInternalDispatchStackHeight > 0) && (fInternalDispatchStackHeight < kMaxInternalDispatchRecursion) )
 	{
-		if ( fInternalMsgDataList[fInternalDispatchStackHeight] != nil )
+		if ( bInternalLockCalledList[fInternalDispatchStackHeight] && ( fInternalMsgDataList[fInternalDispatchStackHeight] != nil ) )
 		{
+			bInternalLockCalledList[fInternalDispatchStackHeight] = false;
 			free(fInternalMsgDataList[fInternalDispatchStackHeight]);
 			fInternalMsgDataList[fInternalDispatchStackHeight] = nil;
-			//DBGLOG1( kLogHandler, "CPH::ResetHandlerInternalMsgData:: done for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
+			//DbgLog( kLogHandler, "CPH::ResetHandlerInternalMsgData:: done for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
 		}
 	}
-	fInternalDispatchStackHeight--;
-	if (fInternalDispatchStackHeight == -1)
+	
+	if ( fInternalDispatchStackHeight > -1 )
+		fInternalDispatchStackHeight--;
+	
+	if ( fInternalDispatchStackHeight == -1 )
 	{
 		bInternalDispatchActive = false;
+		
+		// if we have no active requests, let's clean up any internal blocks and reset to the default
+		if ( fHandlerInternalMsgData != NULL && fHandlerInternalMsgData->fDataSize > kMsgBlockSize )
+		{
+			// log excessive size buffers
+			if ( fHandlerInternalMsgData->fDataSize > 128 * 1024 )
+			{
+				DbgLog( kLogHandler, "CInternalDispatchThread::ResetHandlerInternalMsgData buffer was excessive size %d",
+					    fHandlerInternalMsgData->fDataSize );
+			}
+
+			free( fHandlerInternalMsgData );
+			
+			fHandlerInternalMsgData = (sComData *)::calloc( 1, sizeof( sComData ) + kMsgBlockSize );
+			if ( fHandlerInternalMsgData != nil )
+			{
+				fHandlerInternalMsgData->fDataSize      = kMsgBlockSize;
+				fHandlerInternalMsgData->fDataLength    = 0;
+			}
+		}
+		
+		fInternalMsgDataList[0] = fHandlerInternalMsgData;
 	}
 } // ResetHandlerInternalMsgData
 
@@ -140,8 +177,10 @@ void CInternalDispatchThread::ResetHandlerInternalMsgData( void )
 
 void CInternalDispatchThread::SetHandlerInternalMsgData( void )
 {
+	//DBGLOG1( kLogHandler, "CPH::SetHandlerInternalMsgData:: called with bInternalLockCalled = %s", bInternalLockCalledList[fInternalDispatchStackHeight] ? "true" : "false" );
 	fInternalDispatchStackHeight++;
 	//DBGLOG1( kLogHandler, "CPH::SetHandlerInternalMsgData:: request for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
+	bInternalLockCalledList[fInternalDispatchStackHeight] = true;
 	if ( (fInternalDispatchStackHeight > 0) && (fInternalDispatchStackHeight < kMaxInternalDispatchRecursion) )
 	{
 		fInternalMsgDataList[fInternalDispatchStackHeight] = (sComData *)::calloc( 1, sizeof( sComData ) + kMsgBlockSize );
@@ -149,7 +188,7 @@ void CInternalDispatchThread::SetHandlerInternalMsgData( void )
 		{
 			fInternalMsgDataList[fInternalDispatchStackHeight]->fDataSize		= kMsgBlockSize;
 			fInternalMsgDataList[fInternalDispatchStackHeight]->fDataLength    = 0;
-			//DBGLOG1( kLogHandler, "CPH::SetHandlerInternalMsgData:: done for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
+			//DbgLog( kLogHandler, "CPH::SetHandlerInternalMsgData:: done for fInternalDispatchStackHeight = %d", fInternalDispatchStackHeight );
 		}
 	}
 	if ( (fInternalDispatchStackHeight >= 0) && (fInternalDispatchStackHeight < kMaxInternalDispatchRecursion) )

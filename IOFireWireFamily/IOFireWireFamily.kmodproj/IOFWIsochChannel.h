@@ -115,6 +115,8 @@ protected:
 	// called by both user and kernel isoch channels
 	IOReturn					releaseChannelComplete() ;
 
+	IOReturn	checkMemoryInRange( IOMemoryDescriptor * memory );
+
 private:
     OSMetaClassDeclareReservedUnused(IOFWIsochChannel, 0);
     OSMetaClassDeclareReservedUnused(IOFWIsochChannel, 1);

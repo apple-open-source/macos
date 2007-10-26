@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2007-07-20</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>openmpi.txt</string>
+		<key>OpenSourceProject</key>
+		<string>openmpi</string>
+		<key>OpenSourceSHA1</key>
+		<string>b42988c11956116ebba085f8b4972a7873554264</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.open-mpi.org/software/ompi/v1.2/downloads/openmpi-1.2.3.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.2.3</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.open-mpi.org</string>
+	</dict>
+</array>
+</plist>

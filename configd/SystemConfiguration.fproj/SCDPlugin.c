@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
 
 #include <fcntl.h>
 #include <paths.h>
+#include <pwd.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <sysexits.h>
@@ -42,6 +43,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDPlugin.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 
 
@@ -108,10 +110,6 @@ unblockSignal()
 static void
 reaper(int sigraised)
 {
-	mach_msg_empty_send_t	msg;
-	mach_msg_option_t	options;
-	kern_return_t		status;
-
 	/*
 	 * block additional SIGCHLD's until current children have
 	 * been reaped.
@@ -122,22 +120,7 @@ reaper(int sigraised)
 	 * send message to indicate that at least one child is ready
 	 * to be reaped.
 	 */
-	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
-	msg.header.msgh_size = sizeof(msg);
-	msg.header.msgh_remote_port = CFMachPortGetPort(childReaped);
-	msg.header.msgh_local_port = MACH_PORT_NULL;
-	msg.header.msgh_id = 0;
-	options = MACH_SEND_TIMEOUT;
-	status = mach_msg(&msg.header,			/* msg */
-			  MACH_SEND_MSG|options,	/* options */
-			  msg.header.msgh_size,		/* send_size */
-			  0,				/* rcv_size */
-			  MACH_PORT_NULL,		/* rcv_name */
-			  0,				/* timeout */
-			  MACH_PORT_NULL);		/* notify */
-	if (status == MACH_SEND_TIMED_OUT) {
-		mach_msg_destroy(&msg.header);
-	}
+	_SC_sendMachMessage(CFMachPortGetPort(childReaped), 0);
 
 	return;
 }
@@ -228,14 +211,28 @@ childrenReaped(CFMachPortRef port, void *msg, CFIndex size, void *info)
 }
 
 
+static CFStringRef
+childReapedMPCopyDescription(const void *info)
+{
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SIGCHLD MP>"));
+}
+
+
 void
 _SCDPluginExecInit()
 {
 	struct sigaction	act;
+	CFMachPortContext	context	= { 0
+					  , (void *)1
+					  , NULL
+					  , NULL
+					  , childReapedMPCopyDescription
+					  };
+
 	CFRunLoopSourceRef	rls;
 
 	// create the "a child has been reaped" notification port
-	childReaped = CFMachPortCreate(NULL, childrenReaped, NULL, NULL);
+	childReaped = CFMachPortCreate(NULL, childrenReaped, &context, NULL);
 
 	// set queue limit
 	{
@@ -286,6 +283,11 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 	// grab the activeChildren mutex
 	pthread_mutex_lock(&lock);
 
+	// if needed, initialize
+	if (childReaped == NULL) {
+		_SCDPluginExecInit();
+	}
+
 	pid = fork();
 
 	switch (pid) {
@@ -301,10 +303,12 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 
 		case 0 : {	/* if child */
 
+			gid_t	egid;
+			uid_t	euid;
 			int	i;
 			int	status;
 
-			if (setup) {
+			if (setup != NULL) {
 				(setup)(pid, setupContext);
 			} else {
 				/* close any open FDs */
@@ -314,11 +318,25 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 				dup(0);
 			}
 
-			if (gid != getegid()) {
+			egid = getegid();
+			euid = geteuid();
+
+			if (egid != gid) {
 				(void) setgid(gid);
 			}
 
-			if (uid != geteuid()) {
+			if ((euid != uid) || (egid != gid)) {
+				char		buf[1024];
+				struct passwd	pwd;
+				struct passwd	*result	= NULL;
+
+				if ((getpwuid_r(uid, &pwd, buf, sizeof(buf), &result) == 0) &&
+				    (result != NULL)) {
+					initgroups(result->pw_name, gid);
+				}
+			}
+
+			if (euid != uid) {
 				(void) setuid(uid);
 			}
 
@@ -337,11 +355,11 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 		}
 
 		default : {	/* if parent */
-			if (setup) {
+			if (setup != NULL) {
 				(setup)(pid, setupContext);
 			}
 
-			if (callout) {
+			if (callout != NULL) {
 				childInfoRef	child;
 
 				// create child process info

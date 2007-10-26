@@ -23,7 +23,7 @@
 #define _MAC_CONTEXT_H_
 
 #include <AppleCSPContext.h>
-#include <HMACSHA1.h>
+#include <CommonCrypto/CommonHMAC.h>
 
 /* 
  * TLS Export Ciphers require HMAC calculation with a secret key
@@ -41,7 +41,6 @@ public:
 		AppleCSPSession &session,
 		CSSM_ALGORITHMS alg) : 
 			AppleCSPContext(session), 
-			mHmac(NULL),
 			mAlg(alg),
 			mDigestSize(0) { }
 	~MacContext();
@@ -60,9 +59,9 @@ public:
 	size_t outputSize(bool final, size_t inSize);
 
 private:
-	hmacContextRef	mHmac;
+	CCHmacContext	hmacCtx;
 	CSSM_ALGORITHMS	mAlg;
-	UInt32			mDigestSize;
+	uint32			mDigestSize;
 };
 
 #ifdef	CRYPTKIT_CSP_ENABLE

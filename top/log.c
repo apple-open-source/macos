@@ -22,6 +22,11 @@
 
 #include "top.h"
 
+#define DEFAULT_WIDTH 80
+
+extern int disp_bufsize;
+extern char *disp_lbuf;
+
 static boolean_t
 log_p_skipl(void);
 static boolean_t
@@ -37,6 +42,16 @@ log_run(void)
 {
 	boolean_t	retval;
 	unsigned	i, remain;
+
+	/* Allocate lbuf. */
+	disp_lbuf = (char *)malloc(DEFAULT_WIDTH + 1);
+	if (disp_lbuf == NULL) {
+		retval = TRUE;
+		goto RETURN;
+	}
+
+	disp_lbuf[0]='\0';
+	disp_bufsize = DEFAULT_WIDTH + 1;
 
 	if (samp_init(log_p_skipl, log_p_printl, log_p_println, log_p_vprintln,
 	    log_p_vprintln)) {

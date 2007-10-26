@@ -1,20 +1,24 @@
 /*
  *  main.c
  *
- *  $Id: main.c,v 1.3 2004/09/01 19:50:17 luesang Exp $
+ *  $Id: main.c,v 1.8 2006/01/26 00:45:09 source Exp $
  *
  *  Main program
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,13 +74,15 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
 #include <isql.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
 #include <unistd.h>
 #include <stdlib.h>
 
 #include "gui.h"
+
 
 int
 gtk_gui (int *argc, char **argv[])
@@ -116,23 +122,23 @@ display_help (void)
 
 
 #if !defined(HAVE_SETENV)
-static int 
+static int
 setenv (const char *name, const char *value, int overwrite)
 {
   int rc;
   char *entry;
-  
+
   /*
    *  Allocate some space for new environment variable
    */
   if ((entry = (char *) malloc (strlen (name) + strlen (value) + 2)) == NULL)
-      return -1;
+    return -1;
   strcpy (entry, name);
   strcat (entry, "=");
   strcat (entry, value);
 
   /*
-   *  Check if variable already exists in current environment and whether 
+   *  Check if variable already exists in current environment and whether
    *  we want to overwrite it with a new value if it exists.
    */
   if (getenv (name) != NULL && !overwrite)
@@ -161,7 +167,7 @@ main (int argc, char *argv[])
 
   printf ("iODBC Administrator (GTK)\n");
   printf ("%s\n", PACKAGE_STRING);
-  printf ("Copyright (C) 2000-2003 OpenLink Software\n");
+  printf ("Copyright (C) 2000-2006 OpenLink Software\n");
   printf ("Please report all bugs to <%s>\n\n", PACKAGE_BUGREPORT);
 
   /* Check options commands */
@@ -223,8 +229,7 @@ main (int argc, char *argv[])
   if (!getenv ("ODBCINI") && getenv ("HOME"))
     {
       STRCPY (path, getenv ("HOME"));
-	// RDLS changed to force lookup in ~/Library/ODBC
-      STRCAT (path, "/Library/ODBC/odbc.ini");
+      STRCAT (path, "/.odbc.ini");
       setenv ("ODBCINI", path, TRUE);
     }
 

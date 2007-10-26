@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Copyright (C) 2002  Free Software Foundation.
    by Hans-Peter Nilsson  <hp@axis.com>
 
@@ -10,7 +11,7 @@
 
 /* { dg-do compile { target alpha-*-* cris-*-* i?86-*-* mmix-*-* powerpc-*-* rs6000-*-* x86_64-*-* } } */
 /* { dg-options "-O2" } */
-
+/* { dg-skip-if "" { *-*-darwin* } { "*" } { "" } } */
 /* Constructed examples; input/output (same register), output, input, and
    input and output (different registers).  */
 

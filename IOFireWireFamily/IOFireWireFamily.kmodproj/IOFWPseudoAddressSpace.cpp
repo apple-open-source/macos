@@ -147,6 +147,34 @@ void IOFWPseudoAddressSpaceAux::setARxReqIntCompleteHandler( void * refcon, IOFW
 	fMembers->fARxReqIntCompleteHandlerRefcon = refcon;
 }
 
+// intersects
+//
+//
+
+bool IOFWPseudoAddressSpaceAux::intersects( IOFWAddressSpace * space )
+{
+	bool intersects = false;
+	
+	IOFWPseudoAddressSpace * pseudo_space = OSDynamicCast( IOFWPseudoAddressSpace, space );
+	
+	if( pseudo_space )
+	{
+		// do we contain the start of the other space?
+		FWAddress address = pseudo_space->fBase;
+		intersects = (fPrimary->contains( address ) > 0);
+		
+		// do we contain the end of the other space?
+		// because of how we allocate address spaces we can ignore the roll over into addressHi
+		if( pseudo_space->fLen > 0 )
+		{	
+			address.addressLo += pseudo_space->fLen - 1;		
+		}
+		intersects |= (fPrimary->contains( address ) > 0);
+	}
+	
+	return intersects;
+}
+
 #pragma mark -
 	
 /*

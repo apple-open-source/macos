@@ -28,13 +28,10 @@
 #ifndef __CMsgQueue_h__
 #define __CMsgQueue_h__ 1
 
-#include "DSMutexSemaphore.h"
+#include <DirectoryServiceCore/DSSemaphore.h>
 
 class	CMsgQueue;
-extern	CMsgQueue	*gTCPMsgQueue;		
 extern	CMsgQueue	*gMsgQueue;		
-extern	CMsgQueue	*gInternalMsgQueue;		
-extern	CMsgQueue	*gCheckpwMsgQueue;		
 
 typedef struct sQueueItem sQueueItem;
 
@@ -48,29 +45,33 @@ typedef struct sQueueItem
 class CMsgQueue
 {
 public:
-
-enum {
-	kMemoryErr		= -128,
-	kNoMessages
-} eObjErrors;
-
 					CMsgQueue			( void );
 	virtual		   ~CMsgQueue			( void );
 
-	sInt32			QueueMessage			( void *inMsgData );
-	sInt32			DequeueMessage			( void **outMsgData );
+    // returns false if no handlers for the queue
+	bool			QueueMessage			( void *inMsgData );
+    
+    // returns true if message available
+	bool			DequeueMessage			( void **outMsgData );
 
-	uInt32			GetMsgCount();
+	UInt32			GetMsgCount();
+
+    // returns false if times out, expecting that it will remove itself
+    bool            WaitOnMessage           ( UInt32 inMilliSecs );
+	void			ClearMsgQueue			( void );
 
 private:
-	void			ResetMsgCount			( void );
 
 	sQueueItem		   *fListTail;
 
-	uInt32				fMsgCount;
-	uInt32				fTotalMsgCnt;
+    pthread_mutex_t		fMutex;
+    pthread_cond_t		fCondition;
+    
+    DSSemaphore         fQueueLock;
 
-	DSMutexSemaphore		fMutex;
+    UInt32              fHandlersAvailable;
+	UInt32				fMsgCount;
+	UInt32				fTotalMsgCnt;
 };
 
 #endif

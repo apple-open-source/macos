@@ -102,7 +102,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Sign)
         /* Intentionally blank */;
     else if (session->sign_mech.mechanism == CKM_RSA_PKCS)
     {
-        CK_ULONG  ulValue, lenValue;
+        MSCULong32  ulValue, lenValue;
 
         if (MSC_ERROR(msc_GetCapabilities(&st.slots[session->session.slotID - 1].conn,
                         MSC_TAG_CAPABLE_RSA,
@@ -128,14 +128,19 @@ CK_DEFINE_FUNCTION(CK_RV, C_Sign)
         else if (!RSA_padding_add_PKCS1_type_1(to, tlen, pData, ulDataLen))
             rv = CKR_FUNCTION_FAILED;
 
-            else if (MSC_ERROR(msc_ComputeCrypt(
+            else
+			{
+				MSCULong32 outputDataSize = *pulSignatureLen;
+				if (MSC_ERROR(msc_ComputeCrypt(
                             &st.slots[session->session.slotID - 1].conn,
                                            &cryptInit,
                                            to,
                                            tlen,
                                            pSignature,
-                                           pulSignatureLen)))
-            rv = CKR_FUNCTION_FAILED;
+                                           &outputDataSize)))
+					rv = CKR_FUNCTION_FAILED;
+				*pulSignatureLen = outputDataSize;
+			}
         }
         else if (ulValue & MSC_CAPABLE_RSA_PKCS1)
         {
@@ -148,14 +153,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_Sign)
             log_Log(LOG_LOW, "Sign object keyNum: %lu DataLen: %lu", 
                     key->msc_key->keyNum, ulDataLen);
 
-            if (MSC_ERROR(msc_ComputeCrypt(
+			MSCULong32 outputDataSize = *pulSignatureLen;
+			if (MSC_ERROR(msc_ComputeCrypt(
                             &st.slots[session->session.slotID - 1].conn,
                             &cryptInit,
                             pData,
                             ulDataLen,
                             pSignature,
-                            pulSignatureLen)))
+                            &outputDataSize)))
                 rv = CKR_FUNCTION_FAILED;
+			*pulSignatureLen = outputDataSize;
         }
         else
             rv = CKR_MECHANISM_PARAM_INVALID;

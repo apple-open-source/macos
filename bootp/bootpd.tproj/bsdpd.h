@@ -40,6 +40,7 @@
 #include "bsdp.h"
 #include "nbsp.h"
 #include "bootpd.h"
+#include <CoreFoundation/CFDictionary.h>
 
 #define ROOT_UID		0
 
@@ -48,7 +49,7 @@
 #define OLD_NETBOOT_SYSID		"/NetBoot1"
 
 boolean_t
-bsdp_init();
+bsdp_init(CFDictionaryRef plist);
 
 boolean_t
 is_bsdp_packet(dhcpol_t * rq_options, char * arch, char * sysid,
@@ -69,10 +70,10 @@ bsdp_dhcp_request(request_t * request, dhcp_msgtype_t dhcpmsg);
 /**
  ** Globals
  **/
-extern u_int32_t	G_age_time_seconds;
+extern uint32_t		G_age_time_seconds;
 extern gid_t		G_admin_gid;
 extern boolean_t	G_disk_space_warned; 
-extern u_long		G_shadow_size_meg;
+extern uint32_t		G_shadow_size_meg;
 extern NBSPListRef	G_client_sharepoints;
 
 #endif _S_BSDPD_H

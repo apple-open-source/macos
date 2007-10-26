@@ -4,7 +4,7 @@
 #pragma once
 
 #include <Kerberos/KerberosLogin.h>
-#include <Kerberos/mach_client_utilities.h>
+#include <Kerberos/kipc_client.h>
 
 #define kKerberosAgentBundleID "edu.mit.Kerberos.KerberosAgent"
 #define kKerberosAgentPath "/System/Library/CoreServices/KerberosAgent.app/Contents/MacOS/KerberosAgent"
@@ -36,14 +36,14 @@
             applicationPathLength = strlen (applicationPath) + 1;                                                   \
         }                                                                                                           \
                                                                                                                     \
-        ipcErr = mach_client_lookup_and_launch_server (kKerberosAgentBundleID, kKerberosAgentPath, &machPort);      \
+        ipcErr = kipc_client_lookup_server (kKerberosAgentBundleID, kKerberosAgentPath, 1 /* launch */, &machPort); \
                                                                                                                     \
         if (ipcErr == BOOTSTRAP_SUCCESS) {                                                                          \
             do {                                                                                                    \
                 ipcErr = KLIPCGetServerPID (machPort, &gServerPID);                                                 \
                 if (ipcErr == KERN_SUCCESS) {                                                                       
                     
-    #define SafeIPCCallEnd_(ipcErr, result)                                                                         \
+#define SafeIPCCallEnd_(ipcErr, result)                                                                             \
                 }                                                                                                   \
                 retriesLeft--;                                                                                      \
             } while ((ipcErr != KERN_SUCCESS) && (retriesLeft > 0) && !gServerKilled);                              \

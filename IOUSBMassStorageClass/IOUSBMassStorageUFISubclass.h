@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,7 +26,7 @@
 
 // This class' header file
 #include <IOKit/usb/IOUSBMassStorageClass.h>
-#include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
+#include <IOKit/scsi/IOSCSIPrimaryCommandsDevice.h>
 
 #pragma mark -
 #pragma mark IOUSBMassStorageUFIDevice declaration

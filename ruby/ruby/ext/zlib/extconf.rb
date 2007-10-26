@@ -1,7 +1,7 @@
 #
 # extconf.rb
 #
-# $Id: extconf.rb,v 1.2 2003/04/22 23:39:32 nobu Exp $
+# $Id: extconf.rb 11708 2007-02-12 23:01:19Z shyouhei $
 #
 
 require 'mkmf'
@@ -10,7 +10,7 @@ require 'rbconfig'
 dir_config 'zlib'
 
 
-if %w'z libz zlib'.find {|z| have_library(z, 'deflateReset')} and
+if %w'z libz zlib zdll'.find {|z| have_library(z, 'deflateReset')} and
     have_header('zlib.h') then
 
   defines = []
@@ -54,9 +54,7 @@ if %w'z libz zlib'.find {|z| have_library(z, 'deflateReset')} and
   message "#{OS_NAMES[os_code]}\n"
   defines << "OS_CODE=#{os_code}"
 
-  defines = defines.collect{|d|' -D'+d}.join
-  $CFLAGS += defines
-  $CPPFLAGS += defines
+  $defs.concat(defines.collect{|d|' -D'+d})
 
   create_makefile('zlib')
 

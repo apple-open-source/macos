@@ -160,7 +160,7 @@ typedef struct cssm_spi_csp_funcs {
          uint32 ClearBufCount,
          CSSM_DATA_PTR CipherBufs,
          uint32 CipherBufCount,
-         uint32 *bytesEncrypted,
+         CSSM_SIZE *bytesEncrypted,
          CSSM_DATA_PTR RemData,
          CSSM_PRIVILEGE Privilege);
     CSSM_RETURN (CSSMCSPI *EncryptDataInit)
@@ -175,7 +175,7 @@ typedef struct cssm_spi_csp_funcs {
          uint32 ClearBufCount,
          CSSM_DATA_PTR CipherBufs,
          uint32 CipherBufCount,
-         uint32 *bytesEncrypted);
+         CSSM_SIZE *bytesEncrypted);
     CSSM_RETURN (CSSMCSPI *EncryptDataFinal)
         (CSSM_CSP_HANDLE CSPHandle,
          CSSM_CC_HANDLE CCHandle,
@@ -188,7 +188,7 @@ typedef struct cssm_spi_csp_funcs {
          uint32 CipherBufCount,
          CSSM_DATA_PTR ClearBufs,
          uint32 ClearBufCount,
-         uint32 *bytesDecrypted,
+         CSSM_SIZE *bytesDecrypted,
          CSSM_DATA_PTR RemData,
          CSSM_PRIVILEGE Privilege);
     CSSM_RETURN (CSSMCSPI *DecryptDataInit)
@@ -203,7 +203,7 @@ typedef struct cssm_spi_csp_funcs {
          uint32 CipherBufCount,
          CSSM_DATA_PTR ClearBufs,
          uint32 ClearBufCount,
-         uint32 *bytesDecrypted);
+         CSSM_SIZE *bytesDecrypted);
     CSSM_RETURN (CSSMCSPI *DecryptDataFinal)
         (CSSM_CSP_HANDLE CSPHandle,
          CSSM_CC_HANDLE CCHandle,

@@ -18,6 +18,11 @@ module Tk
   class ICONS < TkImage
     extend Tk
 
+    PACKAGE_NAME = 'icons'.freeze
+    def self.package_name
+      PACKAGE_NAME
+    end
+
     def self.package_version
       begin
         TkPackage.require('icons')
@@ -70,9 +75,25 @@ module Tk
 
     ##########################################
 
-    def self.new(name, keys=nil)
-      Tk_IMGTBL["::icon::#{name}"] || super
+    class << self
+      alias _new new
+
+      def new(name, keys=nil)
+        if obj = Tk_IMGTBL["::icon::#{name}"]
+          if keys
+            keys = _symbolkey2str(keys)
+            unless keys.delete('without_creating')
+              tk_call('::icons::icons', 'create', *(hash_kv(keys) << obj.name))
+            end
+          end
+        else
+          obj = _new(name, keys)
+        end
+        obj
+      end
     end
+
+    ##########################################
 
     def initialize(name, keys=nil)
       if name.kind_of?(String) && name =~ /^::icon::(.+)$/

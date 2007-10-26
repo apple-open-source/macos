@@ -47,11 +47,11 @@ typedef struct _dirdesc
   struct _dircontents *dd_cp;	/* pointer to current position */
 } DIR;
 
-extern void seekdir (DIR *, long);
-extern long telldir (DIR *);
-extern DIR *opendir (const char *);
-extern void closedir (DIR *);
-extern struct direct *readdir (DIR *);
+void seekdir (DIR *, long);
+long telldir (DIR *);
+DIR *opendir (const char *);
+void closedir (DIR *);
+struct direct *readdir (DIR *);
 
 /* 
  * Local Variables:

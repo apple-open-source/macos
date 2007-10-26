@@ -428,6 +428,11 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed,
     return;
   dest = SET_DEST (set);
 
+  /* APPLE LOCAL begin 4299173 mainline candidate */
+  if (GET_CODE (dest) == SUBREG)
+    dest = SUBREG_REG (dest);
+  /* APPLE LOCAL end 4299173 mainline candidate */
+  
   if (GET_CODE (dest) != REG
       || HARD_REGISTER_P (dest))
     simple = false;

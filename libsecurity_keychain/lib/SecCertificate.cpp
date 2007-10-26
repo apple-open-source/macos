@@ -35,6 +35,13 @@
 
 #include "SecBridge.h"
 
+// %%% used by SecCertificate{Copy,Set}Preference
+#include <Security/SecKeychainItemPriv.h>
+#include <Security/SecIdentityPriv.h>
+#include <security_keychain/KCCursor.h>
+#include <security_cdsa_utilities/Schema.h>
+#include <sys/param.h>
+
 using namespace CssmClient;
 
 CFTypeID
@@ -56,7 +63,7 @@ SecCertificateCreateFromData(const CSSM_DATA *data, CSSM_CERT_TYPE type, CSSM_CE
 	SecPointer<Certificate> certificatePtr(new Certificate(Required(data), type, encoding));
 	Required(certificate) = certificatePtr->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecCertificateCreateFromData")
 }
 
 
@@ -68,7 +75,7 @@ SecCertificateAddToKeychain(SecCertificateRef certificate, SecKeychainRef keycha
 	Item item(Certificate::required(certificate));
 	Keychain::optional(keychain)->add(item);
 
-	END_SECAPI
+	END_SECAPI2("SecCertificateAddToKeychain")
 }
 
 OSStatus
@@ -78,7 +85,7 @@ SecCertificateGetData(SecCertificateRef certificate, CSSM_DATA_PTR data)
 
 	Required(data) = Certificate::required(certificate)->data();
 
-	END_SECAPI
+	END_SECAPI2("SecCertificateGetData")
 }
 
 
@@ -89,29 +96,29 @@ SecCertificateGetType(SecCertificateRef certificate, CSSM_CERT_TYPE *certificate
 
 	Required(certificateType) = Certificate::required(certificate)->type();
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateGetType")
 }
 
 
 OSStatus
-SecCertificateGetSubject(SecCertificateRef certificate, CSSM_X509_NAME* subject)
+SecCertificateGetSubject(SecCertificateRef certificate, const CSSM_X509_NAME **subject)
 {
     BEGIN_SECAPI
 
-	Certificate::required(certificate)->getSubject(Required(subject));
+    Required(subject) = Certificate::required(certificate)->subjectName();
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateGetSubject")
 }
 
 
 OSStatus
-SecCertificateGetIssuer(SecCertificateRef certificate, CSSM_X509_NAME* issuer)
+SecCertificateGetIssuer(SecCertificateRef certificate, const CSSM_X509_NAME **issuer)
 {
     BEGIN_SECAPI
 
-	Certificate::required(certificate)->getIssuer(Required(issuer));
+	Required(issuer) = Certificate::required(certificate)->issuerName();
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateGetIssuer")
 }
 
 
@@ -122,7 +129,7 @@ SecCertificateGetCLHandle(SecCertificateRef certificate, CSSM_CL_HANDLE *clHandl
 
 	Required(clHandle) = Certificate::required(certificate)->clHandle();
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateGetCLHandle")
 }
 
 /*
@@ -137,7 +144,7 @@ SecCertificateInferLabel(SecCertificateRef certificate, CFStringRef *label)
 	Certificate::required(certificate)->inferLabel(false,
 		&Required(label));
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateInferLabel")
 }
 
 OSStatus
@@ -147,7 +154,7 @@ SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef *key)
 
 	Required(key) = Certificate::required(certificate)->publicKey()->handle();
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateCopyPublicKey")
 }
 
 OSStatus
@@ -157,17 +164,34 @@ SecCertificateGetAlgorithmID(SecCertificateRef certificate, const CSSM_X509_ALGO
 
 	Required(algid) = Certificate::required(certificate)->algorithmID();
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateGetAlgorithmID")
 }
 
 OSStatus
-SecCertificateGetCommonName(SecCertificateRef certificate, CFStringRef *commonName)
+SecCertificateCopyCommonName(SecCertificateRef certificate, CFStringRef *commonName)
 {
     BEGIN_SECAPI
 
 	Required(commonName) = Certificate::required(certificate)->commonName();
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateCopyCommonName")
+}
+
+OSStatus
+SecCertificateCopySubjectComponent(SecCertificateRef certificate, const CSSM_OID *component, CFStringRef *result)
+{
+    BEGIN_SECAPI
+
+	Required(result) = Certificate::required(certificate)->distinguishedName(&CSSMOID_X509V1SubjectNameCStruct, component);
+
+    END_SECAPI2("SecCertificateCopySubjectComponent")
+}
+
+OSStatus
+SecCertificateGetCommonName(SecCertificateRef certificate, CFStringRef *commonName)
+{
+    // deprecated SPI signature; replaced by SecCertificateCopyCommonName
+    return SecCertificateCopyCommonName(certificate, commonName);
 }
 
 OSStatus
@@ -177,7 +201,7 @@ SecCertificateGetEmailAddress(SecCertificateRef certificate, CFStringRef *emailA
 
 	Required(emailAddress) = Certificate::required(certificate)->copyFirstEmailAddress();
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateGetEmailAddress")
 }
 
 OSStatus
@@ -187,7 +211,7 @@ SecCertificateCopyEmailAddresses(SecCertificateRef certificate, CFArrayRef *emai
 
 	Required(emailAddresses) = Certificate::required(certificate)->copyEmailAddresses();
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateCopyEmailAddresses")
 }
 
 OSStatus
@@ -198,7 +222,7 @@ SecCertificateCopyFieldValues(SecCertificateRef certificate, const CSSM_OID *fie
 
 	Required(fieldValues) = Certificate::required(certificate)->copyFieldValues(Required(field));
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateCopyFieldValues")
 }
 
 OSStatus
@@ -208,7 +232,7 @@ SecCertificateReleaseFieldValues(SecCertificateRef certificate, const CSSM_OID *
 
 	Certificate::required(certificate)->releaseFieldValues(Required(field), fieldValues);
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateReleaseFieldValues")
 }
 
 OSStatus
@@ -218,7 +242,7 @@ SecCertificateCopyFirstFieldValue(SecCertificateRef certificate, const CSSM_OID 
 
 	Required(fieldValue) = Certificate::required(certificate)->copyFirstFieldValue(Required(field));
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateCopyFirstFieldValue")
 }
 
 OSStatus
@@ -228,7 +252,7 @@ SecCertificateReleaseFirstFieldValue(SecCertificateRef certificate, const CSSM_O
 
 	Certificate::required(certificate)->releaseFieldValue(Required(field), fieldValue);
 
-    END_SECAPI
+    END_SECAPI2("SecCertificateReleaseFirstFieldValue")
 }
 
 OSStatus
@@ -241,7 +265,7 @@ SecCertificateFindByIssuerAndSN(CFTypeRef keychainOrArray,const CSSM_DATA *issue
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
 	Required(certificate) = Certificate::findByIssuerAndSN(keychains, CssmData::required(issuer), CssmData::required(serialNumber))->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecCertificateFindByIssuerAndSN")
 }
 
 OSStatus
@@ -254,7 +278,7 @@ SecCertificateFindBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *sub
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
 	Required(certificate) = Certificate::findBySubjectKeyID(keychains, CssmData::required(subjectKeyID))->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecCertificateFindBySubjectKeyID")
 }
 
 OSStatus
@@ -266,7 +290,7 @@ SecCertificateFindByEmail(CFTypeRef keychainOrArray, const char *emailAddress, S
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
 	Required(certificate) = Certificate::findByEmail(keychains, emailAddress)->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecCertificateFindByEmail")
 }
 
 OSStatus
@@ -284,7 +308,7 @@ SecKeychainSearchCreateForCertificateByIssuerAndSN(CFTypeRef keychainOrArray, co
 	KCCursor cursor(Certificate::cursorForIssuerAndSN(keychains, CssmData::required(issuer), CssmData::required(serialNumber)));
 	*searchRef = cursor->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecKeychainSearchCreateForCertificateByIssuerAndSN")
 }
 
 OSStatus
@@ -302,7 +326,7 @@ SecKeychainSearchCreateForCertificateBySubjectKeyID(CFTypeRef keychainOrArray, c
 	KCCursor cursor(Certificate::cursorForSubjectKeyID(keychains, CssmData::required(subjectKeyID)));
 	*searchRef = cursor->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecKeychainSearchCreateForCertificateBySubjectKeyID")
 }
 
 OSStatus
@@ -320,7 +344,7 @@ SecKeychainSearchCreateForCertificateByEmail(CFTypeRef keychainOrArray, const ch
 	KCCursor cursor(Certificate::cursorForEmail(keychains, emailAddress));
 	*searchRef = cursor->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecKeychainSearchCreateForCertificateByEmail")
 }
 
 /* NOT EXPORTED YET; copied from SecurityInterface but could be useful in the future.
@@ -359,5 +383,152 @@ SecDigestGetData (CSSM_ALGORITHMS alg, CSSM_DATA* digest, const CSSM_DATA* data)
 
 	return CSSM_OK;
 	END_SECAPI1(1);
+}
+
+/* determine whether a cert is self-signed */
+OSStatus SecCertificateIsSelfSigned(
+	SecCertificateRef certificate,
+	Boolean *isSelfSigned)		/* RETURNED */
+{
+    BEGIN_SECAPI
+
+	*isSelfSigned = Certificate::required(certificate)->isSelfSigned();
+
+	END_SECAPI2("SecCertificateIsSelfSigned")
+}
+
+OSStatus SecCertificateCopyPreference(
+    CFStringRef name,
+    CSSM_KEYUSE keyUsage,
+    SecCertificateRef *certificate)
+{
+    BEGIN_SECAPI
+
+	Required(name);
+	Required(certificate);
+	StorageManager::KeychainList keychains;
+	globals().storageManager.getSearchList(keychains);
+	KCCursor cursor(keychains, kSecGenericPasswordItemClass, NULL);
+
+	char idUTF8[MAXPATHLEN];
+    if (!CFStringGetCString(name, idUTF8, sizeof(idUTF8)-1, kCFStringEncodingUTF8))
+        idUTF8[0] = (char)'\0';
+    CssmData service(const_cast<char *>(idUTF8), strlen(idUTF8));
+    FourCharCode itemType = 'cprf';
+    cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecServiceItemAttr), service);
+	cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecTypeItemAttr), itemType);
+    if (keyUsage)
+        cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
+
+	Item prefItem;
+	if (!cursor->next(prefItem))
+		MacOSError::throwMe(errSecItemNotFound);
+
+	// get persistent certificate reference
+	SecKeychainAttribute itemAttrs[] = { { kSecGenericItemAttr, 0, NULL } };
+	SecKeychainAttributeList itemAttrList = { sizeof(itemAttrs) / sizeof(itemAttrs[0]), itemAttrs };
+	prefItem->getContent(NULL, &itemAttrList, NULL, NULL);
+
+	// find certificate, given persistent reference data
+	CFDataRef pItemRef = CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)itemAttrs[0].data, itemAttrs[0].length, kCFAllocatorNull);
+	SecKeychainItemRef certItemRef = nil;
+	OSStatus status = SecKeychainItemCopyFromPersistentReference(pItemRef, &certItemRef); //%%% need to make this a method of ItemImpl
+	prefItem->freeContent(&itemAttrList, NULL);
+	if (pItemRef)
+		CFRelease(pItemRef);
+	if (status)
+		return status;
+
+	*certificate = (SecCertificateRef)certItemRef;
+
+    END_SECAPI2("SecCertificateCopyPreference")
+}
+
+OSStatus SecCertificateSetPreference(
+    SecCertificateRef certificate,
+    CFStringRef name,
+    CSSM_KEYUSE keyUsage,
+    CFDateRef date)
+{
+    BEGIN_SECAPI
+
+	if (!certificate || !name)
+		MacOSError::throwMe(paramErr);
+
+    // first look for existing preference, in case this is an update
+	StorageManager::KeychainList keychains;
+	globals().storageManager.getSearchList(keychains);
+	KCCursor cursor(keychains, kSecGenericPasswordItemClass, NULL);
+
+	char idUTF8[MAXPATHLEN];
+    if (!CFStringGetCString(name, idUTF8, sizeof(idUTF8)-1, kCFStringEncodingUTF8))
+        idUTF8[0] = (char)'\0';
+    CssmData service(const_cast<char *>(idUTF8), strlen(idUTF8));
+    FourCharCode itemType = 'cprf';
+    cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecServiceItemAttr), service);
+	cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecTypeItemAttr), itemType);
+    if (keyUsage)
+        cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
+    if (date)
+        ; // %%%TBI
+
+	Item item(kSecGenericPasswordItemClass, 'aapl', 0, NULL, false);
+    bool add = (!cursor->next(item));
+
+    // service (use provided string)
+    item->setAttribute(Schema::attributeInfo(kSecServiceItemAttr), service);
+
+    // label (use service string as default label)
+    item->setAttribute(Schema::attributeInfo(kSecLabelItemAttr), service);
+
+    // type
+    item->setAttribute(Schema::attributeInfo(kSecTypeItemAttr), itemType);
+
+    // account (use label of certificate)
+    CFStringRef labelString = nil;
+    OSStatus status = SecCertificateInferLabel(certificate, &labelString);
+    if (!labelString || !CFStringGetCString(labelString, idUTF8, sizeof(idUTF8)-1, kCFStringEncodingUTF8))
+        MacOSError::throwMe(errSecDataTooLarge);
+    CssmData account(const_cast<void *>(reinterpret_cast<const void *>(idUTF8)), strlen(idUTF8));
+    item->setAttribute(Schema::attributeInfo(kSecAccountItemAttr), account);
+    CFRelease(labelString);
+
+    // key usage (overload script code)
+    if (keyUsage)
+        item->setAttribute(Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
+    
+    // date
+    if (date)
+        ; // %%%TBI
+
+	// generic attribute (store persistent certificate reference)
+	CFDataRef pItemRef = nil;
+	status = SecKeychainItemCreatePersistentReference((SecKeychainItemRef)certificate, &pItemRef);
+	if (!pItemRef)
+		status = errSecInvalidItemRef;
+	if (status)
+		MacOSError::throwMe(status);
+	const UInt8 *dataPtr = CFDataGetBytePtr(pItemRef);
+	CFIndex dataLen = CFDataGetLength(pItemRef);
+	CssmData pref(const_cast<void *>(reinterpret_cast<const void *>(dataPtr)), dataLen);
+	item->setAttribute(Schema::attributeInfo(kSecGenericItemAttr), pref);
+	CFRelease(pItemRef);
+
+    if (add) {
+        Keychain keychain = nil;
+        try {
+            keychain = globals().storageManager.defaultKeychain();
+            if (!keychain->exists())
+                MacOSError::throwMe(errSecNoSuchKeychain);	// Might be deleted or not available at this time.
+        }
+        catch(...) {
+            keychain = globals().storageManager.defaultKeychainUI(item);
+        }
+
+        keychain->add(item);
+    }
+	item->update();
+
+    END_SECAPI2("SecCertificateSetPreference")
 }
 

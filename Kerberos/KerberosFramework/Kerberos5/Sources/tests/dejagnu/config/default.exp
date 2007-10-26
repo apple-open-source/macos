@@ -54,6 +54,46 @@ if 0 {
     }
 }
 
+if { [string length $VALGRIND] } {
+    rename spawn valgrind_aux_spawn
+    proc spawn { args } {
+	global VALGRIND
+	upvar 1 spawn_id spawn_id
+	set newargs {}
+	set inflags 1
+	set eatnext 0
+	foreach arg $args {
+	    if { $arg == "-ignore" \
+		     || $arg == "-open" \
+		     || $arg == "-leaveopen" } {
+		lappend newargs $arg
+		set eatnext 1
+		continue
+	    }
+	    if [string match "-*" $arg] {
+		lappend newargs $arg
+		continue
+	    }
+	    if { $eatnext } {
+		set eatnext 0
+		lappend newargs $arg
+		continue
+	    }
+	    if { $inflags } {
+		set inflags 0
+		# Only run valgrind for local programs, not
+		# system ones.
+		if [string match "/" [string index $arg 0]]&&![string match "/bin/sh" $arg]&&![string match "/bin/ls" $arg]&&![regexp {/kshd$} $arg] {
+		    set newargs [concat $newargs $VALGRIND]
+		}
+	    }
+	    lappend newargs $arg
+	}
+	set pid [eval valgrind_aux_spawn $newargs]
+	return $pid
+    }
+}
+
 # Hack around Solaris 9 kernel race condition that causes last output
 # from a pty to get dropped.
 if { $PRIOCNTL_HACK } {
@@ -809,7 +849,7 @@ proc setup_kerberos_files { } {
 	puts $conffile ""
 	puts $conffile "\[realms\]"
 	puts $conffile "	$REALMNAME = \{"
-	puts $conffile "		database_name = $tmppwd/db"
+#	puts $conffile "		database_name = $tmppwd/db"
 	puts $conffile "		admin_database_name = $tmppwd/adb"
 	puts $conffile "		admin_database_lockfile = $tmppwd/adb.lock"
 	puts $conffile "		key_stash_file = $tmppwd/stash"
@@ -883,6 +923,7 @@ proc setup_krb5_conf { {type client} } {
     global permitted_enctypes
     global mode
     global portbase
+    global KRB5_DB_MODULE_DIR
 
     # Create a krb5.conf file.
     if { ![file exists $tmppwd/krb5.$type.conf] \
@@ -912,13 +953,20 @@ proc setup_krb5_conf { {type client} } {
 	puts $conffile ""
 	puts $conffile "\[realms\]"
 	puts $conffile "	$REALMNAME = \{"
-	# I hope nothing's listening on 15294...
-	puts $conffile "		kdc = $hostname:[expr 6 + $portbase]"
+	# There's probably nothing listening here.  It would be a good
+	# test for the handling of a non-responsive KDC address.  However,
+	# on some systems, like Tru64, we often wind up with the client's
+	# socket bound to this address, causing our request to appear in
+	# our incoming queue as if it were a response, which causes test
+	# failures.  If we were running the client and KDC on different
+	# hosts, this would be okay....
+	#puts $conffile "		kdc = $hostname:[expr 6 + $portbase]"
 	puts $conffile "		kdc = $hostname:[expr 1 + $portbase]"
 	puts $conffile "		admin_server = $hostname:[expr 4 + $portbase]"
 	puts $conffile "		kpasswd_server = $hostname:[expr 5 + $portbase]"
 	puts $conffile "		default_domain = $domain"
 	puts $conffile "                krb524_server = $hostname:[expr 7 + $portbase]"
+	puts $conffile "		database_module = foo_db2"
 	puts $conffile "	\}"
 	puts $conffile ""
 	puts $conffile "\[domain_realm\]"
@@ -929,6 +977,13 @@ proc setup_krb5_conf { {type client} } {
 	puts $conffile "	admin_server = FILE:$tmppwd/kadmind5.log"
 	puts $conffile "	kdc = FILE:$tmppwd/kdc.log"
 	puts $conffile "	default = FILE:$tmppwd/others.log"
+	puts $conffile ""
+	puts $conffile "\[dbmodules\]"
+	puts $conffile "	db_module_dir = $tmppwd/../../../util/fakedest$KRB5_DB_MODULE_DIR"
+	puts $conffile "	foo_db2 = {"
+	puts $conffile "		db_library = db2"
+	puts $conffile "		database_name = $tmppwd/db"
+	puts $conffile "	}"
 	close $conffile
     }
 }
@@ -1336,6 +1391,69 @@ proc setup_kerberos_db { standalone } {
     return 1
 }
 
+proc start_tail { fname spawnid_var pid_var which standalone } {
+    upvar $spawnid_var spawnid
+    upvar $pid_var pid
+    global timeout
+
+    set f [open $fname a]
+
+    spawn tail -f $fname
+    set spawnid $spawn_id
+    set pid [exp_pid]
+
+    set markstr "===MARK $pid [clock format [clock seconds]] ==="
+    puts $f $markstr
+    flush $f
+
+    set p 0
+    set otimeout $timeout
+    set timeout 1
+    set ok 0
+    while { $ok == 0 && $p < 3 } {
+	expect {
+	    -i $spawn_id
+	    -ex "$markstr\r\n" { set ok 1 }
+	    -re "\[^\r\n\]*\r\n" { exp_continue }
+	    timeout {
+		# Some versions of GNU tail had a race condition where
+		# the first batch of data would be read from the end
+		# of the file, and then there was a brief window
+		# before calling stat and recording the size of the
+		# file.  If the marker is written during that window,
+		# then yet another file modification is needed to get
+		# the first one noticed.
+		if { $p < 3 } {
+		    verbose -log "no tail output yet, prodding with a blank line"
+		    incr p
+		    puts $f ""
+		    flush $f
+		    exp_continue
+		} else {
+		    close $f
+		    verbose -log "tail $fname output:"
+		    verbose -log [exec tail $fname]
+		    if {$standalone} {
+			verbose -log "tail -f timed out ($timeout sec) looking for mark in $which log"
+			fail "$which"
+		    } else {
+			perror "$which tail -f timed out ($timeout sec) looking for mark in $which log"
+		    }
+		    stop_kerberos_daemons
+		    exec kill $pid
+		    expect -i $spawn_id eof
+		    wait -i $spawn_id
+		    set timeout $otimeout
+		    return 0
+		}
+	    }
+	}
+    }
+    close $f
+    set timeout $otimeout
+    return 1
+}
+
 # start_kerberos_daemons
 # A procedure to build a Kerberos database and start up the kerberos
 # and kadmind daemons.  This sets the global variables kdc_pid,
@@ -1379,39 +1497,8 @@ proc start_kerberos_daemons { standalone } {
     set kdc_lfile $tmppwd/kdc.log
     set kadmind_lfile $tmppwd/kadmind5.log
 
-    if ![file exists $kdc_lfile] then {
-	catch [touch $kdc_lfile]
-    }
-
-    spawn tail -f $kdc_lfile
-    set tailf_spawn_id $spawn_id
-    set tailf_pid [exp_pid]
-
-    set markstr "===MARK $tailf_pid [exec date] ==="
-    sleep 2
-    set f [open $kdc_lfile a]
-    puts $f $markstr
-    close $f
-
-    expect {
-	-i $tailf_spawn_id
-	-ex "$markstr\r\n" { }
-	-re "\[^\r\n\]*\r\n" { exp_continue }
-	timeout {
-	    verbose -log "tail $kdc_lfile output:"
-	    verbose -log [exec tail $kdc_lfile]
-	    if {$standalone} {
-		verbose -log "tail -f timed out ($timeout sec) looking for mark in kdc log"
-		fail "krb5kdc"
-	    } else {
-		perror "krbkdc tail -f timed out ($timeout sec) looking for mark in kdc log"
-	    }
-	    stop_kerberos_daemons
-	    exec kill $tailf_pid
-	    expect -i $tailf_spawn_id eof
-	    wait -i $tailf_spawn_id
-	    return 0
-	}
+    if ![start_tail $kdc_lfile tailf_spawn_id tailf_pid krb5kdc $standalone] {
+	return 0
     }
 
     envstack_push
@@ -1476,37 +1563,8 @@ proc start_kerberos_daemons { standalone } {
     }
     catch "unset env(KRB5_KTNAME)"
 
-    if ![file exists $kadmind_lfile] then {
-	catch [touch $kadmind_lfile]
-    }
-
-    spawn tail -f $kadmind_lfile
-    set tailf_spawn_id $spawn_id
-    set tailf_pid [exp_pid]
-
-    set markstr "===MARK $tailf_pid [exec date] ==="
-    sleep 2
-    set f [open $kadmind_lfile a]
-    puts $f $markstr
-    close $f
-
-    expect {
-	-i $tailf_spawn_id
-	-ex "$markstr\r\n" { }
-	-re "\[^\r\n\]*\r\n" { exp_continue }
-	timeout {
-	    if {$standalone} {
-		verbose -log "tail -f timed out ($timeout sec) looking for mark in kadmind log"
-		fail "kadmind"
-	    } else {
-		perror "kadmind tail -f timed out ($timeout sec) looking for mark in kadmind log"
-	    }
-	    stop_kerberos_daemons
-	    exec kill $tailf_pid
-	    expect -i $tailf_spawn_id eof
-	    wait -i $tailf_spawn_id
-	    return 0
-	}
+    if ![start_tail $kadmind_lfile tailf_spawn_id tailf_pid kadmind $standalone] {
+	return 0
     }
 
     # Start up the kadmind daemon
@@ -2295,6 +2353,8 @@ proc v4klist_none { testname } {
 # Kerberos must already be installed on this machine.  It's a pain,
 # but I can't think of a better approach.
 
+if ![info exists can_get_root] { set can_get_root yes }
+
 proc setup_root_shell { testname } {
     global BINSH
     global ROOT_PROMPT
@@ -2307,8 +2367,15 @@ proc setup_root_shell { testname } {
     global tmppwd
     global env
     global krb5_init_vars
+    global can_get_root
 
     global timeout
+
+    if [string match $can_get_root no] {
+	note "$testname test requires ability to log in as root"
+	unsupported $testname
+	return 0
+    }
 
     # Make sure we are using the original values of the environment
     # variables.  This means that the caller must call
@@ -2325,6 +2392,7 @@ proc setup_root_shell { testname } {
     }
 
     if ![get_hostname] {
+	set can_get_root no
 	return 0
     }
 
@@ -2357,6 +2425,7 @@ proc setup_root_shell { testname } {
 	    unsupported "$testname"
 	    set timeout $old_timeout
 	    stop_root_shell
+	    set can_get_root no
 	    return 0
 	}
 	"Cannot assign requested address" {
@@ -2364,6 +2433,7 @@ proc setup_root_shell { testname } {
 	    unsupported "$testname"
 	    set timeout $old_timeout
 	    stop_root_shell
+	    set can_get_root no
 	    return 0
 	}
 	-re "usage: rlogin|illegal option -- x|invalid option -- x" {
@@ -2371,6 +2441,7 @@ proc setup_root_shell { testname } {
 	    unsupported "$testname"
 	    set timeout $old_timeout
 	    stop_root_shell
+	    set can_get_root no
 	    return 0
 	}
 	-re "$ROOT_PROMPT" { }
@@ -2380,6 +2451,7 @@ proc setup_root_shell { testname } {
 	    perror "try running with ROOT_PROMPT=\"regexp\""
 	    set timeout $old_timeout
 	    stop_root_shell
+	    set can_get_root no
 	    return 0
 	}
 	eof {
@@ -2397,6 +2469,7 @@ proc setup_root_shell { testname } {
 	    stop_root_shell
 	    set timeout $old_timeout
 	    catch "expect_after"
+	    set can_get_root no
 	    return 0
 	}
     }
@@ -2407,6 +2480,7 @@ proc setup_root_shell { testname } {
 	    stop_root_shell
 	    set timeout $old_timeout
 	    catch "expect_after"
+	    set can_get_root no
 	    return 0
 	}
 	eof {
@@ -2414,6 +2488,7 @@ proc setup_root_shell { testname } {
 	    stop_root_shell
 	    set timeout $old_timeout
 	    catch "expect_after"
+	    set can_get_root no
 	    return 0
 	}
     }
@@ -2466,6 +2541,7 @@ proc setup_root_shell { testname } {
 	    perror "root shell can not cd to $dir"
 	    set timeout $old_timeout
 	    stop_root_shell
+	    set can_get_root no
 	    return 0
 	}
     }

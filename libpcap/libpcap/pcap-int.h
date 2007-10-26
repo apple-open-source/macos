@@ -30,7 +30,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * @(#) $Header: /cvs/root/libpcap/libpcap/pcap-int.h,v 1.1.1.3 2004/02/05 19:22:28 rbraun Exp $ (LBL)
+ * @(#) $Header: /tcpdump/master/libpcap/pcap-int.h,v 1.68.2.9 2006/02/22 17:09:54 gianluca Exp $ (LBL)
  */
 
 #ifndef pcap_int_h
@@ -43,8 +43,13 @@ extern "C" {
 #include <pcap.h>
 
 #ifdef WIN32
-#include <packet32.h>
+#include <Packet32.h>
 #endif /* WIN32 */
+
+#ifdef MSDOS
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 /*
  * Savefile
@@ -74,24 +79,43 @@ struct pcap_md {
 	u_long	TotDrops;	/* count of dropped packets */
 	long	TotMissed;	/* missed by i/f during this run */
 	long	OrigMissed;	/* missed by i/f before this run */
+	char	*device;	/* device name */
 #ifdef linux
 	int	sock_packet;	/* using Linux 2.0 compatible interface */
 	int	timeout;	/* timeout specified to pcap_open_live */
 	int	clear_promisc;	/* must clear promiscuous mode when we close */
 	int	cooked;		/* using SOCK_DGRAM rather than SOCK_RAW */
+	int	ifindex;	/* interface index of device we're bound to */
 	int	lo_ifindex;	/* interface index of the loopback device */
-	char	*device;	/* device name */
 	struct pcap *next;	/* list of open promiscuous sock_packet pcaps */
+	u_int	packets_read;	/* count of packets read with recvfrom() */
 #endif
 
 #ifdef HAVE_DAG_API
+#ifdef HAVE_DAG_STREAMS_API
+	u_char	*dag_mem_bottom;	/* DAG card current memory bottom pointer */
+	u_char	*dag_mem_top;	/* DAG card current memory top pointer */
+#else
 	void	*dag_mem_base;	/* DAG card memory base address */
-	u_int	dag_mem_bottom;	/* DAG card current memory bottom pointer */
-	u_int	dag_mem_top;	/* DAG card current memory top pointer */
+	u_int	dag_mem_bottom;	/* DAG card current memory bottom offset */
+	u_int	dag_mem_top;	/* DAG card current memory top offset */
+#endif /* HAVE_DAG_STREAMS_API */
 	int	dag_fcs_bits;	/* Number of checksum bits from link layer */
-	int dag_offset_flags; /* Flags to pass to dag_offset(). */
-#endif
+	int	dag_offset_flags; /* Flags to pass to dag_offset(). */
+	int	dag_stream;	/* DAG stream number */
+	int	dag_timeout;	/* timeout specified to pcap_open_live.
+				 * Same as in linux above, introduce
+				 * generally? */
+#endif /* HAVE_DAG_API */
 };
+
+/*
+ * Ultrix, DEC OSF/1^H^H^H^H^H^H^H^H^HDigital UNIX^H^H^H^H^H^H^H^H^H^H^H^H
+ * Tru64 UNIX, and NetBSD pad to make everything line up on a nice boundary.
+ */
+#if defined(ultrix) || defined(__osf__) || (defined(__NetBSD__) && __NetBSD_Version__ > 106000000)
+#define       PCAP_FDDIPAD 3
+#endif
 
 struct pcap {
 #ifdef WIN32
@@ -102,6 +126,7 @@ struct pcap {
 #else
 	int fd;
 	int selectable_fd;
+	int send_fd;
 #endif /* WIN32 */
 	int snapshot;
 	int linktype;
@@ -109,6 +134,15 @@ struct pcap {
 	int offset;		/* offset for proper alignment */
 
 	int break_loop;		/* flag set to force break from packet-reading loop */
+
+#ifdef PCAP_FDDIPAD
+	int fddipad;
+#endif
+
+#ifdef MSDOS
+        int inter_packet_wait;   /* offline: wait between packets */
+        void (*wait_proc)(void); /*          call proc while waiting */
+#endif
 
 	struct pcap_sf sf;
 	struct pcap_md md;
@@ -126,11 +160,16 @@ struct pcap {
 	 */
 	u_char *pkt;
 
+	/* We're accepting only packets in this direction/these directions. */
+	pcap_direction_t direction;
+
 	/*
 	 * Methods.
 	 */
 	int	(*read_op)(pcap_t *, int cnt, pcap_handler, u_char *);
+	int	(*inject_op)(pcap_t *, const void *, size_t);
 	int	(*setfilter_op)(pcap_t *, struct bpf_program *);
+	int	(*setdirection_op)(pcap_t *, pcap_direction_t);
 	int	(*set_datalink_op)(pcap_t *, int);
 	int	(*getnonblock_op)(pcap_t *, char *);
 	int	(*setnonblock_op)(pcap_t *, int, char *);
@@ -144,15 +183,19 @@ struct pcap {
 
 	char errbuf[PCAP_ERRBUF_SIZE + 1];
 	int dlt_count;
-	int *dlt_list;
+	u_int *dlt_list;
 
 	struct pcap_pkthdr pcap_header;	/* This is needed for the pcap_next_ex() to work */
 };
 
 /*
- * This is a timeval as stored in disk in a dumpfile.
+ * This is a timeval as stored in a savefile.
  * It has to use the same types everywhere, independent of the actual
- * `struct timeval'
+ * `struct timeval'; `struct timeval' has 32-bit tv_sec values on some
+ * platforms and 64-bit tv_sec values on other platforms, and writing
+ * out native `struct timeval' values would mean files could only be
+ * read on systems with the same tv_sec size as the system on which
+ * the file was written.
  */
 
 struct pcap_timeval {
@@ -161,7 +204,7 @@ struct pcap_timeval {
 };
 
 /*
- * How a `pcap_pkthdr' is actually stored in the dumpfile.
+ * This is a `pcap_pkthdr' as actually stored in a savefile.
  *
  * Do not change the format of this structure, in any way (this includes
  * changes that only affect the length of fields in this structure),
@@ -193,7 +236,7 @@ struct pcap_sf_pkthdr {
 };
 
 /*
- * How a `pcap_pkthdr' is actually stored in dumpfiles written
+ * How a `pcap_pkthdr' is actually stored in savefiles written
  * by some patched versions of libpcap (e.g. the ones in Red
  * Hat Linux 6.1 and 6.2).
  *
@@ -221,15 +264,6 @@ int	yylex(void);
 int	pcap_offline_read(pcap_t *, int, pcap_handler, u_char *);
 int	pcap_read(pcap_t *, int cnt, pcap_handler, u_char *);
 
-
-/*
- * Ultrix, DEC OSF/1^H^H^H^H^H^H^H^H^HDigital UNIX^H^H^H^H^H^H^H^H^H^H^H^H
- * Tru64 UNIX, and NetBSD pad to make everything line up on a nice boundary.
- */
-#if defined(ultrix) || defined(__osf__) || defined(__NetBSD__)
-#define       PCAP_FDDIPAD 3
-#endif
-
 #ifndef HAVE_STRLCPY
 #define strlcpy(x, y, z) \
 	(strncpy((x), (y), (z)), \
@@ -252,10 +286,12 @@ extern int vsnprintf (char *, size_t, const char *, va_list ap);
 /*
  * Routines that most pcap implementations can use for non-blocking mode.
  */
-#ifndef WIN32
+#if !defined(WIN32) && !defined(MSDOS)
 int	pcap_getnonblock_fd(pcap_t *, char *);
 int	pcap_setnonblock_fd(pcap_t *p, int, char *);
 #endif
+
+void	pcap_close_common(pcap_t *);
 
 /*
  * Internal interfaces for "pcap_findalldevs()".
@@ -267,10 +303,10 @@ int	pcap_setnonblock_fd(pcap_t *p, int, char *);
  * "pcap_add_if()" adds an interface to the list of interfaces.
  */
 int	pcap_platform_finddevs(pcap_if_t **, char *);
-int	add_addr_to_iflist(pcap_if_t **, char *, u_int, struct sockaddr *,
+int	add_addr_to_iflist(pcap_if_t **, const char *, u_int, struct sockaddr *,
 	    size_t, struct sockaddr *, size_t, struct sockaddr *, size_t,
 	    struct sockaddr *, size_t, char *);
-int	pcap_add_if(pcap_if_t **, char *, u_int, const char *, char *);
+int	pcap_add_if(pcap_if_t **, const char *, u_int, const char *, char *);
 struct sockaddr *dup_sockaddr(struct sockaddr *, size_t);
 int	add_or_find_if(pcap_if_t **, pcap_if_t **, const char *, u_int,
 	    const char *, char *);
@@ -278,9 +314,6 @@ int	add_or_find_if(pcap_if_t **, pcap_if_t **, const char *, u_int,
 #ifdef WIN32
 char	*pcap_win32strerror(void);
 #endif
-
-/* XXX */
-extern	int pcap_fddipad;
 
 int	install_bpf_program(pcap_t *, struct bpf_program *);
 

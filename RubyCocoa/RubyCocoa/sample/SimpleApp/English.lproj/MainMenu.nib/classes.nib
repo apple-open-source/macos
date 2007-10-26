@@ -1,0 +1,27 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {
+                aboutApp = id; 
+                colorBtnClicked = id; 
+                colorWellChanged = id; 
+                sliderChanged = id; 
+                threadStart = id; 
+            }; 
+            CLASS = AppController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                colorWell = id; 
+                imageView = id; 
+                myView = id; 
+                slider = id; 
+                threadBtn = id; 
+                window = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {CLASS = MyView; LANGUAGE = ObjC; SUPERCLASS = NSView; }
+    ); 
+    IBVersion = 1; 
+}

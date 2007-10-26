@@ -120,14 +120,18 @@
 /* #define ASM_SPEC "-u %(asm_cpu)" */
 
 /* Default location of syscalls.exp under AIX */
-#ifndef CROSS_COMPILE
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #define LINK_SYSCALLS_SPEC "-bI:/lib/syscalls.exp"
 #else
 #define LINK_SYSCALLS_SPEC ""
 #endif
 
 /* Default location of libg.exp under AIX */
-#ifndef CROSS_COMPILE
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #define LINK_LIBG_SPEC "-bexport:/usr/lib/libg.exp"
 #else
 #define LINK_LIBG_SPEC ""

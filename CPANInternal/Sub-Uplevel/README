@@ -1,0 +1,103 @@
+NAME
+    Sub::Uplevel - apparently run a function in a higher stack frame
+
+SYNOPSIS
+      use Sub::Uplevel;
+
+      sub foo {
+          print join " - ", caller;
+      }
+
+      sub bar {
+          uplevel 1, \&foo;
+      }
+
+      #line 11
+      bar();    # main - foo.plx - 11
+
+DESCRIPTION
+    Like Tcl's uplevel() function, but not quite so dangerous. The idea is
+    just to fool caller(). All the really naughty bits of Tcl's uplevel()
+    are avoided.
+
+    THIS IS NOT THE SORT OF THING YOU WANT TO DO EVERYDAY
+
+    uplevel
+          uplevel $num_frames, \&func, @args;
+
+        Makes the given function think it's being executed $num_frames
+        higher than the current stack level. So when they use
+        caller($frames) it will actually give caller($frames + $num_frames)
+        for them.
+
+        "uplevel(1, \&some_func, @_)" is effectively "goto &some_func" but
+        you don't immediately exit the current subroutine. So while you
+        can't do this:
+
+            sub wrapper {
+                print "Before\n";
+                goto &some_func;
+                print "After\n";
+            }
+
+        you can do this:
+
+            sub wrapper {
+                print "Before\n";
+                my @out = uplevel 1, &some_func;
+                print "After\n";
+                return @out;
+            }
+
+EXAMPLE
+    The main reason I wrote this module is so I could write wrappers around
+    functions and they wouldn't be aware they've been wrapped.
+
+        use Sub::Uplevel;
+
+        my $original_foo = \&foo;
+
+        *foo = sub {
+            my @output = uplevel 1, $original_foo;
+            print "foo() returned:  @output";
+            return @output;
+        };
+
+    If this code frightens you you should not use this module.
+
+BUGS and CAVEATS
+    Sub::Uplevel must be used as early as possible in your program's
+    compilation.
+
+    Well, the bad news is uplevel() is about 5 times slower than a normal
+    function call. XS implementation anyone?
+
+    Blows over any CORE::GLOBAL::caller you might have (and if you do,
+    you're just sick).
+
+HISTORY
+    Those who do not learn from HISTORY are doomed to repeat it.
+
+    The lesson here is simple: Don't sit next to a Tcl programmer at the
+    dinner table.
+
+THANKS
+    Thanks to Brent Welch, Damian Conway and Robin Houston.
+
+AUTHORS
+    David A Golden <dagolden@cpan.org> (current maintainer)
+
+    Michael G Schwern <schwern@pobox.com> (original author)
+
+LICENSE
+    Copyright by Michael G Schwern, David A Golden
+
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
+    See http://www.perl.com/perl/misc/Artistic.html
+
+SEE ALSO
+    PadWalker (for the similar idea with lexicals), Hook::LexWrap, Tcl's
+    uplevel() at http://www.scriptics.com/man/tcl8.4/TclCmd/uplevel.htm
+

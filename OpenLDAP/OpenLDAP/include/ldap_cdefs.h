@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_cdefs.h,v 1.23.2.3 2004/03/17 20:15:31 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ldap_cdefs.h,v 1.26.2.3 2006/01/03 22:16:06 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  * 
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -205,6 +205,24 @@
 #else
 #	define LDAP_SLAPD_F(type)	extern type
 #	define LDAP_SLAPD_V(type)	extern type
+#endif
+
+/* SLAPD (as a dynamic library exporting symbols) */
+#if defined(_WIN32) && defined(SLAPD_IMPORT)
+#	define LDAP_SLAPI_F(type)	extern __declspec(dllimport) type
+#	define LDAP_SLAPI_V(type)	extern __declspec(dllimport) type
+#else
+#	define LDAP_SLAPI_F(type)	extern type
+#	define LDAP_SLAPI_V(type)	extern type
+#endif
+
+/* SLAPD (as a dynamic library exporting symbols) */
+#if defined(_WIN32) && defined(SLAPD_IMPORT)
+#	define SLAPI_F(type)		extern __declspec(dllimport) type
+#	define SLAPI_V(type)		extern __declspec(dllimport) type
+#else
+#	define SLAPI_F(type)		extern type
+#	define SLAPI_V(type)		extern type
 #endif
 
 /*

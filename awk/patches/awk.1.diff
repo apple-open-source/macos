@@ -1,0 +1,15 @@
+--- awk.1.orig 2006-04-12 18:06:25.000000000 -0700
++++ awk.1      2006-04-12 18:07:30.000000000 -0700
+@@ -351,10 +351,8 @@
+ .BR "! || &&" )
+ of regular expressions and
+ relational expressions.
+-Regular expressions are as in
+-.IR egrep ; 
+-see
+-.IR grep (1).
++Regular expressions are as defined in
++.IR re_format (7).
+ Isolated regular expressions
+ in a pattern apply to the entire line.
+ Regular expressions may also occur in

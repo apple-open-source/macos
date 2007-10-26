@@ -22,13 +22,13 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				ImproveFloatingPointConsistency="TRUE"
-				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="..\..\..\include,..\..\tools\ctestfw,..\..\common,..\..\i18n,..\..\tools\toolutil"
+				AdditionalIncludeDirectories="..\..\..\include;..\..\tools\ctestfw;..\..\common;..\..\i18n;..\..\tools\toolutil"
 				PreprocessorDefinitions="WIN32,_DEBUG,_CONSOLE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
 				BufferSecurityCheck="TRUE"
 				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Debug/cintltst.pch"
 				AssemblerListingLocation=".\Debug/"
 				ObjectFile=".\Debug/"
@@ -83,16 +83,15 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="3"
-				InlineFunctionExpansion="2"
 				ImproveFloatingPointConsistency="TRUE"
-				AdditionalIncludeDirectories="..\..\..\include,..\..\tools\ctestfw,..\..\common,..\..\i18n,..\..\tools\toolutil"
+				AdditionalIncludeDirectories="..\..\..\include;..\..\tools\ctestfw;..\..\common;..\..\i18n;..\..\tools\toolutil"
 				PreprocessorDefinitions="WIN32,NDEBUG,_CONSOLE"
 				StringPooling="TRUE"
 				RuntimeLibrary="0"
 				BufferSecurityCheck="TRUE"
 				EnableFunctionLevelLinking="TRUE"
 				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Release/cintltst.pch"
 				AssemblerListingLocation=".\Release/"
 				ObjectFile=".\Release/"
@@ -163,12 +162,6 @@
 			<File
 				RelativePath=".\cbkittst.c">
 			</File>
-			<File
-				RelativePath=".\cregrtst.c">
-			</File>
-			<File
-				RelativePath=".\cregrtst.h">
-			</File>
 		</Filter>
 		<Filter
 			Name="collation"
@@ -196,12 +189,6 @@
 			</File>
 			<File
 				RelativePath=".\ccurrtst.h">
-			</File>
-			<File
-				RelativePath=".\cdantst.c">
-			</File>
-			<File
-				RelativePath=".\cdantst.h">
 			</File>
 			<File
 				RelativePath=".\cdetst.c">
@@ -283,9 +270,6 @@
 				RelativePath=".\trietest.c">
 			</File>
 			<File
-				RelativePath=".\ucmptst.c">
-			</File>
-			<File
 				RelativePath=".\uenumtst.c">
 			</File>
 		</Filter>
@@ -334,6 +318,9 @@
 			<File
 				RelativePath=".\stdnmtst.c">
 			</File>
+			<File
+				RelativePath=".\ucsdetst.c">
+			</File>
 		</Filter>
 		<Filter
 			Name="data &amp; memory"
@@ -357,9 +344,6 @@
 		<Filter
 			Name="formatting"
 			Filter="">
-			<File
-				RelativePath=".\calltest.c">
-			</File>
 			<File
 				RelativePath=".\ccaltst.c">
 			</File>
@@ -409,6 +393,9 @@
 				RelativePath=".\cnumtst.h">
 			</File>
 			<File
+				RelativePath=".\currtest.c">
+			</File>
+			<File
 				RelativePath=".\utmstest.c">
 			</File>
 		</Filter>
@@ -443,6 +430,9 @@
 		<Filter
 			Name="misc"
 			Filter="">
+			<File
+				RelativePath=".\calltest.c">
+			</File>
 			<File
 				RelativePath=".\cintltst.c">
 			</File>
@@ -488,9 +478,6 @@
 				RelativePath=".\cucdtst.c">
 			</File>
 			<File
-				RelativePath=".\cucdtst.h">
-			</File>
-			<File
 				RelativePath=".\usettest.c">
 			</File>
 		</Filter>
@@ -508,6 +495,9 @@
 			</File>
 			<File
 				RelativePath=".\custrtst.c">
+			</File>
+			<File
+				RelativePath=".\utexttst.c">
 			</File>
 			<File
 				RelativePath=".\utf16tst.c">

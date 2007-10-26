@@ -1,21 +1,23 @@
 /* GNU m4 -- A simple macro processor
 
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2004 Free Software
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2004, 2006 Free Software
    Foundation, Inc.
-  
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-  
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-  
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301  USA
+*/
 
 /* Handling of path search of included files via the builtins "include"
    and "sinclude".  */
@@ -98,52 +100,82 @@ add_include_directory (const char *dir)
 #endif
 }
 
+/* Search for FILE, first in `.', then according to -I options.  If
+   successful, return the open file, and if RESULT is not NULL, set
+   *RESULT to a malloc'd string that represents the file found with
+   respect to the current working directory.  */
+
 FILE *
-path_search (const char *dir)
+path_search (const char *file, const char **result)
 {
   FILE *fp;
   includes *incl;
   char *name;			/* buffer for constructed name */
   int e;
 
+  if (result)
+    *result = NULL;
+
+  /* Reject empty file.  */
+  if (!*file)
+    {
+      errno = ENOENT;
+      return NULL;
+    }
+
   /* Look in current working directory first.  */
-  fp = fopen (dir, "r");
+  fp = fopen (file, "r");
   if (fp != NULL)
-    return fp;
+    {
+      if (set_cloexec_flag (fileno (fp), true) != 0)
+	M4ERROR ((warning_status, errno,
+		  "Warning: cannot protect input file across forks"));
+      if (result)
+	*result = xstrdup (file);
+      return fp;
+    }
 
   /* If file not found, and filename absolute, fail.  */
-  if (*dir == '/' || no_gnu_extensions)
+  if (*file == '/' || no_gnu_extensions)
     return NULL;
   e = errno;
 
-  name = (char *) xmalloc (dir_max_length + 1 + strlen (dir) + 1);
+  name = (char *) xmalloc (dir_max_length + 1 + strlen (file) + 1);
 
   for (incl = dir_list; incl != NULL; incl = incl->next)
     {
       strncpy (name, incl->dir, incl->len);
       name[incl->len] = '/';
-      strcpy (name + incl->len + 1, dir);
+      strcpy (name + incl->len + 1, file);
 
 #ifdef DEBUG_INCL
-      fprintf (stderr, "path_search (%s) -- trying %s\n", dir, name);
+      fprintf (stderr, "path_search (%s) -- trying %s\n", file, name);
 #endif
 
       fp = fopen (name, "r");
       if (fp != NULL)
 	{
 	  if (debug_level & DEBUG_TRACE_PATH)
-	    DEBUG_MESSAGE (("path search for `%s' found `%s'", dir, name));
-	  break;
+	    DEBUG_MESSAGE2 ("path search for `%s' found `%s'", file, name);
+	  if (set_cloexec_flag (fileno (fp), true) != 0)
+	    M4ERROR ((warning_status, errno,
+		      "Warning: cannot protect input file across forks"));
+	  if (result)
+	    *result = name;
+	  else
+	    free (name);
+	  errno = e;
+	  return fp;
 	}
     }
-  xfree (name);
+  free (name);
   errno = e;
   return fp;
 }
 
 #ifdef DEBUG_INCL
 
-static int
+static void M4_GNUC_UNUSED
 include_dump (void)
 {
   includes *incl;

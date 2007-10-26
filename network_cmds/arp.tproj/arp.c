@@ -510,9 +510,7 @@ print_entry(struct sockaddr_dl *sdl,
 {
 	const char *host;
 	struct hostent *hp;
-	struct iso88025_sockaddr_dl_data *trld;
 	char ifname[IF_NAMESIZE];
-	int seg;
 
 	if (nflag == 0)
 		hp = gethostbyaddr((caddr_t)&(addr->sin_addr),

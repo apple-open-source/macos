@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>06-19-2007</string>
+	<key>OpenSourceLicense</key>
+	<string>Apache License Version 2.0</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>SpamAssassin.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>none</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>SpamAssassin</string>
+	<key>OpenSourceSHA1</key>
+	<string></string>
+	<key>OpenSourceURL</key>
+	<string>http://apache.tradebit.com/pub/spamassassin/source/Mail-SpamAssassin-3.2.1.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>SpamAssassin-3.2.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://spamassassin.apache.org/index.html</string>
+</dict>
+</plist>

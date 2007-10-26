@@ -8,7 +8,11 @@ UserType              = Administrator
 ToolType              = Commands
 GnuAfterInstall       = install-strip install-plist
 Extra_Configure_Flags = --with-sys-screenrc=$(ETCDIR)/screenrc
+Extra_CC_Flags        = -mdynamic-no-pic -DRUN_LOGIN
 Extra_Install_Flags   = DSTROOT="$(DSTROOT)"
+
+# 5280670
+Extra_CC_Flags += -fno-altivec
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -18,11 +22,11 @@ Install_Target        = install
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 4.0.2
+AEP_Version    = 4.0.3
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = Makefile.in.diff screen-4.0.3.patch
+AEP_Patches    = Makefile.in.diff config.h.in.diff configure.diff pty.c.diff window.c.diff screen.c.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

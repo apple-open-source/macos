@@ -1,0 +1,182 @@
+# Vietnamese Translation for libidn-0.5.16.
+# Copyright (C) 2005 Free Software Foundation, Inc.
+# Clytie Siddall <clytie@riverland.net.au>, 2005.
+# 
+msgid ""
+msgstr ""
+"Project-Id-Version: libidn 0.5.16\n"
+"Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
+"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"PO-Revision-Date: 2005-05-13 14:37+0930\n"
+"Last-Translator: Clytie Siddall <clytie@riverland.net.au>\n"
+"Language-Team: Vietnamese <gnomevi-list@lists.sourceforge.net> \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0\n"
+
+msgid "Success"
+msgstr "Thành công"
+
+msgid "String preparation failed"
+msgstr "Không chuẩn bị chuỗi được"
+
+msgid "Punycode failed"
+msgstr "Không thi hành punycode (mã yếu đuối) được"
+
+msgid "Non-digit/letter/hyphen in input"
+msgstr "Có ký tự không là số/chữ/dấu gạch nối trong dữ liệu nhập"
+
+msgid "Forbidden leading or trailing minus sign (`-')"
+msgstr "Không cho phép dấu gạch nối (`-') đi trước hay theo sau"
+
+msgid "Output would be too large or too small"
+msgstr "Dữ liệu xuất sẽ quá lớn hay quá nhỏ"
+
+msgid "Input does not start with ACE prefix (`xn--')"
+msgstr "Dữ liệu nhập không bắt đầu bằng tiền tố ACE (`xn--')"
+
+msgid "String not idempotent under ToASCII"
+msgstr "Chuỗi không tránh nhân lên trong ToASCII"
+
+msgid "Input already contain ACE prefix (`xn--')"
+msgstr "Dữ liệu chứa tiền tố ACE (`xn--') rồi"
+
+msgid "System iconv failed"
+msgstr "Hệ thống không thi hành iconv được"
+
+msgid "Cannot allocate memory"
+msgstr "Không phân định bộ nhớ được"
+
+msgid "System dlopen failed"
+msgstr "Hệ thống không thi hành dlopen được"
+
+msgid "Unknown error"
+msgstr "Lỗi chưa biết"
+
+msgid "String not idempotent under Unicode NFKC normalization"
+msgstr "Chuỗi không tránh nhân lên trong sự tiêu chuẩn hoá NFKC Unicode"
+
+msgid "Invalid input"
+msgstr "Dữ liệu nhập không hợp lệ"
+
+msgid "Output would exceed the buffer space provided"
+msgstr "Dữ liệu xuất sẽ vượt quá sức chứa đệm được cung cấp"
+
+msgid "String size limit exceeded"
+msgstr "Giới hạn cỡ chuỗi bị vượt quá"
+
+msgid "Forbidden unassigned code points in input"
+msgstr "Không cho phép điểm mã không được gán trong dữ liệu nhập"
+
+msgid "Prohibited code points in input"
+msgstr "Dữ liệu nhập chứa điểm mã cấm"
+
+msgid "Conflicting bidirectional properties in input"
+msgstr "Dữ liệu nhập chứa đặc tính thuộc hai hướng xung đột"
+
+msgid "Malformed bidirectional string"
+msgstr "Chuỗi thuộc hai hướng dạng sai"
+
+msgid "Prohibited bidirectional code points in input"
+msgstr "Dữ liệu nhập chứa điểm mã thuộc hai hướng cấm"
+
+msgid "Error in stringprep profile definition"
+msgstr "Lỗi trong lời định nghĩa hiện trạng stringprep (chuẩn bị chuỗi)"
+
+msgid "Flag conflict with profile"
+msgstr "Cờ xung dột với hiện trạng"
+
+msgid "Unknown profile"
+msgstr "Hiện trạng chưa biết"
+
+msgid "Unicode normalization failed (internal error)"
+msgstr "Không thi hành được sự tiêu chuẩn hoá Unicode (lỗi nội bộ)"
+
+msgid "Code points prohibited by top-level domain"
+msgstr "Miền mức đầu cấm điểm mã"
+
+msgid "Missing input"
+msgstr "Thiếu dữ liệu nhập"
+
+msgid "No top-level domain found in input"
+msgstr "Không tìm được miền mức đầu trong dữ liệu nhập"
+
+msgid "Only one of -s, -e, -d, -a or -u can be specified."
+msgstr "Chỉ có thể ghi rõ một của những đối số -s, -e, -d, -a hay -u."
+
+#, c-format
+msgid "Charset `%s'.\n"
+msgstr "Bộ ký tự `%s'.\n"
+
+#, c-format
+msgid ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+msgstr ""
+"Gõ mỗi chuỗi nhập trên một đường riêng, giới hạn bằng ký tự dòng mới.\n"
+
+msgid "Input error"
+msgstr "Lỗi gõ"
+
+#, c-format
+msgid "Could not convert from %s to UTF-8."
+msgstr "Không chuyển đôi được từ %s đến UTF-8."
+
+msgid "Could not convert from UTF-8 to UCS-4."
+msgstr "Không chuyển đôi được từ UTF-8 đến UCS-4."
+
+#, c-format
+msgid "input[%d] = U+%04x\n"
+msgstr "input[%d] = U+%04x (gõ)\n"
+
+#, c-format
+msgid "stringprep_profile: %s"
+msgstr "stringprep_profile: %s (chuẩn bị hiện trạng)"
+
+#, c-format
+msgid "output[%d] = U+%04x\n"
+msgstr "output[%d] = U+%04x (xuất)\n"
+
+#, c-format
+msgid "Could not convert from UTF-8 to %s."
+msgstr "Không chuyển đôi được từ UTF-8 đến %s."
+
+#, c-format
+msgid "punycode_encode: %s"
+msgstr "punycode_encode: %s (mã hóa bằng mã yếu đuối)"
+
+msgid "malloc"
+msgstr "malloc (phân định bộ nhớ)"
+
+#, c-format
+msgid "punycode_decode: %s"
+msgstr "punycode_decode: %s (giải mã bằng mã yếu đuối)"
+
+msgid "Could not convert from UCS-4 to UTF-8."
+msgstr "Không chuyển được từ UCS-4 đến UTF-8."
+
+#, c-format
+msgid "idna_to_ascii_4z: %s"
+msgstr "idna_to_ascii_4z: %s (từ IDNA đến ASCII)"
+
+#, c-format
+msgid "idna_to_unicode_8z4z (TLD): %s"
+msgstr "idna_to_unicode_8z4z (TLD): %s (từ IDNA đến Unicode)"
+
+# Variable: do not translate/ biến: đừng dịch
+#, c-format
+msgid "tld[%d] = U+%04x\n"
+msgstr "tld[%d] = U+%04x\n"
+
+#, c-format
+msgid "tld_check_4z (position %d): %s"
+msgstr "tld_check_4z (position %d): %s (kiểm tra, vị trí)"
+
+#, c-format
+msgid "tld_check_4z: %s"
+msgstr "tld_check_4z: %s (kiểm tra)"
+
+#, c-format
+msgid "idna_to_unicode_8z4z: %s"
+msgstr "idna_to_unicode_8z4z: %s (từ IDNA đến Unicode)"

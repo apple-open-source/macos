@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,7 +33,9 @@
 
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+#include <servers/bootstrap.h>
 #include <pthread.h>
+#include <sys/time.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -64,7 +66,7 @@ static const struct sc_errmsg {
 	{ kSCStatusNoPrefsSession,	"Preference session not active" },
 	{ kSCStatusNotifierActive,	"Notifier is currently active" },
 	{ kSCStatusOK,			"Success!" },
-	{ kSCStatusPrefsBusy,		"Configuration daemon busy" },
+	{ kSCStatusPrefsBusy,		"Preferences update currently in progress" },
 	{ kSCStatusReachabilityUnknown,	"Network reachability cannot be determined" },
 	{ kSCStatusStale,		"Write attempted on stale version of object" },
 };
@@ -344,8 +346,8 @@ __SCLog(int level, CFStringRef formatString, va_list formatArguments)
 
 			line = CFStringCreateExternalRepresentation(NULL,
 								    CFArrayGetValueAtIndex(lines, i),
-								    kCFStringEncodingMacRoman,
-								    '?');
+								    kCFStringEncodingUTF8,
+								    (UInt8)'?');
 			if (line) {
 				syslog (level, "%.*s", (int)CFDataGetLength(line), CFDataGetBytePtr(line));
 				CFRelease(line);
@@ -380,8 +382,8 @@ __SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boole
 
 	line = CFStringCreateExternalRepresentation(NULL,
 						    str,
-						    kCFStringEncodingMacRoman,
-						    '?');
+						    kCFStringEncodingUTF8,
+						    (UInt8)'?');
 	CFRelease(str);
 	if (!line) {
 		return;
@@ -389,18 +391,17 @@ __SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boole
 
 	pthread_mutex_lock(&lock);
 	if (trace) {
-		time_t		now	= time(NULL);
-		struct tm	tm;
+		struct tm	tm_now;
+		struct timeval	tv_now;
 
-		(void)localtime_r(&now, &tm);
-		fprintf(stream, "%2d:%02d:%02d %.*s%s",
-			tm.tm_hour, tm.tm_min, tm.tm_sec,
-			(int)CFDataGetLength(line), CFDataGetBytePtr(line),
-			addNL ? "\n" : "");
-	} else {
-		fprintf(stream, "%.*s%s",
-			(int)CFDataGetLength(line), CFDataGetBytePtr(line),
-			addNL ? "\n" : "");
+		(void)gettimeofday(&tv_now, NULL);
+		(void)localtime_r(&tv_now.tv_sec, &tm_now);
+		(void)fprintf(stream, "%2d:%02d:%02d.%03d ",
+			      tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec, tv_now.tv_usec / 1000);
+	}
+	(void)fwrite((const void *)CFDataGetBytePtr(line), (size_t)CFDataGetLength(line), 1, stream);
+	if (addNL) {
+		(void)fputc('\n', stream);
 	}
 	fflush (stream);
 	pthread_mutex_unlock(&lock);
@@ -420,13 +421,14 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 	}
 
 	va_start(formatArguments, formatString);
-	if (_sc_log) {
+	if (_sc_log > 0) {
 		__SCLog(level, formatString, formatArguments);
-	} else {
+	}
+	if (_sc_log != 1) {
 		__SCPrint((LOG_PRI(level) > LOG_NOTICE) ? stderr : stdout,
 			  formatString,
 			  formatArguments,
-			  FALSE,		// trace
+			  (_sc_log > 0),	// trace
 			  TRUE);		// add newline
 	}
 	va_end(formatArguments);
@@ -498,6 +500,9 @@ __SCThreadSpecificKeyInitialize()
 }
 
 
+const CFStringRef kCFErrorDomainSystemConfiguration	= CFSTR("com.apple.SystemConfiguration");
+
+
 void
 _SCErrorSet(int error)
 {
@@ -517,8 +522,56 @@ _SCErrorSet(int error)
 }
 
 
+CFErrorRef
+SCCopyLastError(void)
+{
+	CFStringRef			domain;
+	CFErrorRef			error;
+	int				i;
+	int				code;
+	__SCThreadSpecificDataRef	tsd;
+	CFMutableDictionaryRef		userInfo	= NULL;
+
+	pthread_once(&tsKeyInitialized, __SCThreadSpecificKeyInitialize);
+
+	tsd = pthread_getspecific(tsDataKey);
+	code = tsd ? tsd->_sc_error : kSCStatusOK;
+
+	for (i = 0; i < (int)nSC_ERRMSGS; i++) {
+		if (sc_errmsgs[i].status == code) {
+			CFStringRef	str;
+
+			domain = kCFErrorDomainSystemConfiguration;
+			userInfo = CFDictionaryCreateMutable(NULL,
+							     0,
+							     &kCFCopyStringDictionaryKeyCallBacks,
+							     &kCFTypeDictionaryValueCallBacks);
+			str = CFStringCreateWithCString(NULL,
+							sc_errmsgs[i].message,
+							kCFStringEncodingASCII);
+			CFDictionarySetValue(userInfo, kCFErrorDescriptionKey, str);
+			CFRelease(str);
+			goto done;
+		}
+	}
+
+	if ((code > 0) && (code <= ELAST)) {
+		domain = kCFErrorDomainPOSIX;
+		goto done;
+	}
+
+	domain = kCFErrorDomainMach;
+
+    done :
+    
+	error = CFErrorCreate(NULL, domain, code, userInfo);
+	if (userInfo != NULL) CFRelease(userInfo);
+	return error;
+}
+
+
 int
-SCError()
+SCError(void)
 {
 	__SCThreadSpecificDataRef	tsd;
 
@@ -542,6 +595,10 @@ SCErrorString(int status)
 
 	if ((status > 0) && (status <= ELAST)) {
 		return strerror(status);
+	}
+
+	if ((status >= BOOTSTRAP_SUCCESS) && (status <= BOOTSTRAP_NO_MEMORY)) {
+		return bootstrap_strerror(status);
 	}
 
 	return mach_error_string(status);

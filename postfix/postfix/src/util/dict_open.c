@@ -26,7 +26,7 @@
 /*	DICT	*dict;
 /*	const char *key;
 /*
-/*	char	*dict_del(dict, key)
+/*	int	dict_del(dict, key)
 /*	DICT	*dict;
 /*	const char *key;
 /*
@@ -42,6 +42,8 @@
 /*	dict_open_register(type, open)
 /*	char	*type;
 /*	DICT	*(*open) (const char *, int, int);
+/*
+/*	ARGV	*dict_mapnames()
 /* DESCRIPTION
 /*	This module implements a low-level interface to multiple
 /*	physical dictionary types.
@@ -78,17 +80,33 @@
 /* .IP DICT_FLAG_LOCK
 /*	With maps where this is appropriate, acquire an exclusive lock
 /*	before writing, and acquire a shared lock before reading.
+/* .IP DICT_FLAG_FOLD_FIX
+/*	With databases whose lookup fields are fixed-case strings,
+/*	fold the search key to lower case before accessing the
+/*	database.  This includes hash:, cdb:, dbm:. nis:, ldap:,
+/*	*sql.
+/* .IP DICT_FLAG_FOLD_MUL
+/*	With databases where one lookup field can match both upper
+/*	and lower case, fold the search key to lower case before
+/*	accessing the database. This includes regexp: and pcre:
+/* .IP DICT_FLAG_FOLD_ANY
+/*	Short-hand for (DICT_FLAG_FOLD_FIX | DICT_FLAG_FOLD_MUL).
 /* .IP DICT_FLAG_SYNC_UPDATE
 /*	With file-based maps, flush I/O buffers to file after each update.
 /*	Thus feature is not supported with some file-based dictionaries.
 /* .IP DICT_FLAG_NO_REGSUB
-/*      Disallow regular expression substitution from left-hand side data 
+/*      Disallow regular expression substitution from left-hand side data
 /*	into the right-hand side.
 /* .IP DICT_FLAG_NO_PROXY
 /*	Disallow access through the \fBproxymap\fR service.
+/* .IP DICT_FLAG_NO_UNAUTH
+/*	Disallow network lookup mechanisms that lack any form of
+/*	authentication (example: tcp_table; even NIS can be secured
+/*	to some extent by requiring that the server binds to a
+/*	privileged port).
 /* .IP DICT_FLAG_PARANOID
-/*	A combination of all the paranoia flags: DICT_FLAG_NO_REGSUB
-/*	and DICT_FLAG_NO_PROXY.
+/*	A combination of all the paranoia flags: DICT_FLAG_NO_REGSUB,
+/*	DICT_FLAG_NO_PROXY and DICT_FLAG_NO_UNAUTH.
 /* .PP
 /*	Specify DICT_FLAG_NONE for no special processing.
 /*
@@ -124,7 +142,7 @@
 /*	dictionary.
 /*
 /*	dict_del() removes a dictionary entry, and returns non-zero
-/*	in case of problems.
+/*	in case of success.
 /*
 /*	dict_seq() iterates over all members in the named dictionary.
 /*	func is define DICT_SEQ_FUN_FIRST (select first member) or
@@ -135,6 +153,9 @@
 /*	associated data structures.
 /*
 /*	dict_open_register() adds support for a new dictionary type.
+/*
+/*	dict_mapnames() returns a sorted list with the names of all available
+/*	dictionary types.
 /* DIAGNOSTICS
 /*	Fatal error: open error, unsupported dictionary type, attempt to
 /*	update non-writable dictionary.
@@ -153,6 +174,7 @@
 
 #include <sys_defs.h>
 #include <string.h>
+#include <stdlib.h>
 
 #ifdef STRCASECMP_IN_STRINGS_H
 #include <strings.h>
@@ -164,6 +186,7 @@
 #include <mymalloc.h>
 #include <msg.h>
 #include <dict.h>
+#include <dict_cdb.h>
 #include <dict_env.h>
 #include <dict_unix.h>
 #include <dict_tcp.h>
@@ -190,12 +213,17 @@ typedef struct {
 } DICT_OPEN_INFO;
 
 static DICT_OPEN_INFO dict_open_info[] = {
+#ifdef HAS_CDB
+    DICT_TYPE_CDB, dict_cdb_open,
+#endif
     DICT_TYPE_ENVIRON, dict_env_open,
     DICT_TYPE_UNIX, dict_unix_open,
 #ifdef SNAPSHOT
     DICT_TYPE_TCP, dict_tcp_open,
 #endif
+#ifdef HAS_SDBM
     DICT_TYPE_SDBM, dict_sdbm_open,
+#endif
 #ifdef HAS_DBM
     DICT_TYPE_DBM, dict_dbm_open,
 #endif
@@ -229,7 +257,7 @@ static HTABLE *dict_open_hash;
 
 static void dict_open_init(void)
 {
-    char   *myname = "dict_open_init";
+    const char *myname = "dict_open_init";
     DICT_OPEN_INFO *dp;
 
     if (dict_open_hash != 0)
@@ -249,7 +277,7 @@ DICT   *dict_open(const char *dict_spec, int open_flags, int dict_flags)
     DICT   *dict;
 
     if ((dict_name = split_at(saved_dict_spec, ':')) == 0)
-	msg_fatal("open dictionary: need \"type:name\" form instead of: \"%s\"",
+	msg_fatal("open dictionary: expecting \"type:name\" form instead of \"%s\"",
 		  dict_spec);
 
     dict = dict_open3(saved_dict_spec, dict_name, open_flags, dict_flags);
@@ -263,10 +291,13 @@ DICT   *dict_open(const char *dict_spec, int open_flags, int dict_flags)
 DICT   *dict_open3(const char *dict_type, const char *dict_name,
 		           int open_flags, int dict_flags)
 {
-    char   *myname = "dict_open";
+    const char *myname = "dict_open";
     DICT_OPEN_INFO *dp;
     DICT   *dict;
 
+    if (*dict_type == 0 || *dict_name == 0)
+	msg_fatal("open dictionary: expecting \"type:name\" form instead of \"%s:%s\"",
+		  dict_type, dict_name);
     if (dict_open_hash == 0)
 	dict_open_init();
     if ((dp = (DICT_OPEN_INFO *) htable_find(dict_open_hash, dict_type)) == 0)
@@ -283,7 +314,7 @@ DICT   *dict_open3(const char *dict_type, const char *dict_name,
 void    dict_open_register(const char *type,
 			           DICT *(*open) (const char *, int, int))
 {
-    char   *myname = "dict_open_register";
+    const char *myname = "dict_open_register";
     DICT_OPEN_INFO *dp;
 
     if (dict_open_hash == 0)
@@ -294,6 +325,13 @@ void    dict_open_register(const char *type,
     dp->type = mystrdup(type);
     dp->open = open;
     htable_enter(dict_open_hash, dp->type, (char *) dp);
+}
+
+/* dict_sort_alpha_cpp - qsort() callback */
+
+static int dict_sort_alpha_cpp(const void *a, const void *b)
+{
+    return (strcmp(((char **) a)[0], ((char **) b)[0]));
 }
 
 /* dict_mapnames - return an ARGV of available map_names */
@@ -312,6 +350,8 @@ ARGV   *dict_mapnames()
 	dp = (DICT_OPEN_INFO *) ht[0]->value;
 	argv_add(mapnames, dp->type, ARGV_END);
     }
+    qsort((void *) mapnames->argv, mapnames->argc, sizeof(mapnames->argv[0]),
+	  dict_sort_alpha_cpp);
     myfree((char *) ht_info);
     argv_terminate(mapnames);
     return mapnames;
@@ -342,7 +382,7 @@ ARGV   *dict_mapnames()
 
 static NORETURN usage(char *myname)
 {
-    msg_fatal("usage: %s type:file read|write|create", myname);
+    msg_fatal("usage: %s type:file read|write|create [fold]", myname);
 }
 
 int     main(int argc, char **argv)
@@ -354,9 +394,10 @@ int     main(int argc, char **argv)
     int     open_flags;
     char   *bufp;
     char   *cmd;
-    char   *key;
+    const char *key;
     const char *value;
     int     ch;
+    int     dict_flags = DICT_FLAG_LOCK | DICT_FLAG_DUP_REPLACE;
 
     signal(SIGPIPE, SIG_IGN);
 
@@ -371,7 +412,7 @@ int     main(int argc, char **argv)
 	}
     }
     optind = OPTIND;
-    if (argc - optind != 2)
+    if (argc - optind < 2 || argc - optind > 3)
 	usage(argv[0]);
     if (strcasecmp(argv[optind + 1], "create") == 0)
 	open_flags = O_CREAT | O_RDWR | O_TRUNC;
@@ -381,19 +422,27 @@ int     main(int argc, char **argv)
 	open_flags = O_RDONLY;
     else
 	msg_fatal("unknown access mode: %s", argv[2]);
+    if (argv[optind + 2] && strcasecmp(argv[optind + 2], "fold") == 0)
+	dict_flags |= DICT_FLAG_FOLD_ANY;
     dict_name = argv[optind];
-    dict = dict_open(dict_name, open_flags, DICT_FLAG_LOCK);
+    dict = dict_open(dict_name, open_flags, dict_flags);
     dict_register(dict_name, dict);
     while (vstring_fgets_nonl(inbuf, VSTREAM_IN)) {
 	bufp = vstring_str(inbuf);
-	if ((cmd = mystrtok(&bufp, " ")) == 0 || *bufp == 0) {
-	    vstream_printf("usage: del key|get key|put key=value\n");
+	if (!isatty(0)) {
+	    vstream_printf("> %s\n", bufp);
+	    vstream_fflush(VSTREAM_OUT);
+	}
+	if (*bufp == '#')
+	    continue;
+	if ((cmd = mystrtok(&bufp, " ")) == 0) {
+	    vstream_printf("usage: del key|get key|put key=value|first|next\n");
 	    vstream_fflush(VSTREAM_OUT);
 	    continue;
 	}
 	if (dict_changed_name())
 	    msg_warn("dictionary has changed");
-	key = vstring_str(unescape(keybuf, mystrtok(&bufp, " =")));
+	key = *bufp ? vstring_str(unescape(keybuf, mystrtok(&bufp, " ="))) : 0;
 	value = mystrtok(&bufp, " =");
 	if (strcmp(cmd, "del") == 0 && key && !value) {
 	    if (dict_del(dict, key))
@@ -411,8 +460,22 @@ int     main(int argc, char **argv)
 	} else if (strcmp(cmd, "put") == 0 && key && value) {
 	    dict_put(dict, key, value);
 	    vstream_printf("%s=%s\n", key, value);
+	} else if (strcmp(cmd, "first") == 0 && !key && !value) {
+	    if (dict_seq(dict, DICT_SEQ_FUN_FIRST, &key, &value) == 0)
+		vstream_printf("%s=%s\n", key, value);
+	    else
+		vstream_printf("%s\n",
+			       dict_errno == DICT_ERR_RETRY ?
+			       "soft error" : "not found");
+	} else if (strcmp(cmd, "next") == 0 && !key && !value) {
+	    if (dict_seq(dict, DICT_SEQ_FUN_NEXT, &key, &value) == 0)
+		vstream_printf("%s=%s\n", key, value);
+	    else
+		vstream_printf("%s\n",
+			       dict_errno == DICT_ERR_RETRY ?
+			       "soft error" : "not found");
 	} else {
-	    vstream_printf("usage: del key|get key|put key=value\n");
+	    vstream_printf("usage: del key|get key|put key=value|first|next\n");
 	}
 	vstream_fflush(VSTREAM_OUT);
     }

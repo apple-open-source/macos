@@ -84,6 +84,7 @@ INSTALL_DATA = copy
 SHELL = /bin/sh
 
 OBJECTS = \
+  allocsa.obj \
   error.obj \
   progname.obj progreloc.obj \
   xmalloc.obj xstrdup.obj \
@@ -92,6 +93,9 @@ OBJECTS = \
   setenv.obj unsetenv.obj
 
 all : icrt.lib
+
+allocsa.obj : allocsa.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c allocsa.c
 
 error.obj : error.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c error.c

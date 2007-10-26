@@ -48,6 +48,7 @@ struct ppp_if {
     u_int8_t			nbclients;	/* nb clients attached */
 	u_int8_t			state;		/* state of the interface */
 	lck_mtx_t			*mtx;		/* interface mutex */
+	u_short				unit;		/* unit number (same as in ifnet_t) */
 	
     /* ppp data */
     u_int16_t			mru;		/* max receive unit */

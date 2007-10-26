@@ -1,6 +1,6 @@
 /*
  ******************************************************************************
- *   Copyright (C) 1997-2004, International Business Machines
+ *   Copyright (C) 1997-2005, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  ******************************************************************************
  */
@@ -29,6 +29,11 @@
 
 #include "unicode/utypes.h"
 
+/**
+ * \file 
+ * \brief C++ API: Collation Element Iterator.
+ */
+ 
 #if !UCONFIG_NO_COLLATION
 
 #include "unicode/uobject.h"
@@ -52,18 +57,11 @@ U_NAMESPACE_BEGIN
 * the given collation object.
 * For example, consider the following in Spanish:
 * <pre>
-* \code
 *        "ca" -> the first key is key('c') and second key is key('a').
-*        "cha" -> the first key is key('ch') and second key is key('a').
-* \endcode
-* </pre>
+*        "cha" -> the first key is key('ch') and second key is key('a').</pre>
 * And in German,
-* <pre>
-* \code
-*        "æb"-> the first key is key('a'), the second key is key('e'), and
-*        the third key is key('b').
-* \endcode
-* </pre>
+* <pre> \htmlonly       "&#x00E6;b"-> the first key is key('a'), the second key is key('e'), and
+*        the third key is key('b'). \endhtmlonly </pre>
 * The key of a character, is an integer composed of primary order(short),
 * secondary order(char), and tertiary order(char). Java strictly defines the 
 * size and signedness of its primitive data types. Therefore, the static
@@ -123,11 +121,13 @@ public:
 
     // CollationElementIterator public data member ------------------------------
 
-    /**
-    * NULLORDER indicates that an error has occured while processing
-    * @stable ICU 2.0
-    */
-    static int32_t const NULLORDER;
+    enum {
+        /**
+         * NULLORDER indicates that an error has occured while processing
+         * @stable ICU 2.0
+         */
+        NULLORDER = (int32_t)0xffffffff
+    };
 
     // CollationElementIterator public constructor/destructor -------------------
 

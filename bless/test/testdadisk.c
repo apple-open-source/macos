@@ -22,6 +22,7 @@
  */
 #include <libc.h>
 #include <DiskArbitration/DiskArbitration.h>
+#include <DiskArbitration/DiskArbitrationPrivate.h>
 #include <err.h>
 #include "UtilitiesCFPrettyPrint.h"
 
@@ -47,7 +48,18 @@ int main(int argc, char *argv[]) {
   if(session == NULL)
     errx(1, "DASessionCreate");
 
-  disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, dev);
+  if (1) {
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault,
+							   dev,
+							   strlen(dev),
+							   false);
+    disk = DADiskCreateFromVolumePath(kCFAllocatorDefault, session, url);
+
+    CFRelease(url);
+  } else {
+
+    disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, dev);
+  }
   if(disk == NULL) {
     CFRelease(session);
     errx(1, "DADiskCreateFromBSDName");
@@ -62,6 +74,8 @@ int main(int argc, char *argv[]) {
 
   TAOCFPrettyPrint(disk);
   TAOCFPrettyPrint(props);
+
+  printf("Options: %lu\n", DADiskGetOptions(disk));
 
   CFRelease(session);
   CFRelease(disk);

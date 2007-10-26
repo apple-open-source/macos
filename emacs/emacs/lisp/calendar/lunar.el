@@ -1,8 +1,10 @@
 ;;; lunar.el --- calendar functions for phases of the moon
 
-;; Copyright (C) 1992, 1993, 1995, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1993, 1995, 1997, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007  Free Software Foundation, Inc.
 
 ;; Author: Edward M. Reingold <reingold@cs.uiuc.edu>
+;; Maintainer: Glenn Morris <rgm@gnu.org>
 ;; Keywords: calendar
 ;; Human-Keywords: moon, lunar phases, calendar, diary
 
@@ -20,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -38,16 +40,14 @@
 ;; person rewrite the code for the lunar calculations in this file!
 
 ;; Technical details of all the calendrical calculations can be found in
-;; ``Calendrical Calculations'' by Nachum Dershowitz and Edward M. Reingold,
-;; Cambridge University Press (1997).
-
-;; Comments, corrections, and improvements should be sent to
-;;  Edward M. Reingold               Department of Computer Science
-;;  (217) 333-6733                   University of Illinois at Urbana-Champaign
-;;  reingold@cs.uiuc.edu             1304 West Springfield Avenue
-;;                                   Urbana, Illinois 61801
+;; ``Calendrical Calculations: The Millennium Edition'' by Edward M. Reingold
+;; and Nachum Dershowitz, Cambridge University Press (2001).
 
 ;;; Code:
+
+(defvar date)
+(defvar displayed-month)
+(defvar displayed-year)
 
 (if (fboundp 'atan)
     (require 'lisp-float-type)
@@ -64,7 +64,7 @@
     (increment-calendar-month end-month end-year 3)
     (increment-calendar-month start-month start-year -1)
     (let* ((end-date (list (list end-month 1 end-year)))
-           (start-date (list (list start-month 
+           (start-date (list (list start-month
                                    (calendar-last-day-of-month
                                     start-month start-year)
                                    start-year)))
@@ -236,8 +236,11 @@ This function is suitable for execution in a .emacs file."
            (displayed-year (extract-calendar-year date)))
       (calendar-phases-of-moon))))
 
-(defun diary-phases-of-moon ()
-  "Moon phases diary entry."
+(defun diary-phases-of-moon (&optional mark)
+"Moon phases diary entry.
+
+An optional parameter MARK specifies a face or single-character string to
+use when highlighting the day in the calendar."
   (let* ((index (* 4
                    (truncate
                     (* 12.3685
@@ -250,8 +253,8 @@ This function is suitable for execution in a .emacs file."
       (setq index (1+ index))
       (setq phase (lunar-phase index)))
     (if (calendar-date-equal (car phase) date)
-        (concat (lunar-phase-name (car (cdr (cdr phase)))) " "
-                (car (cdr phase))))))
+        (cons mark (concat (lunar-phase-name (car (cdr (cdr phase)))) " "
+                (car (cdr phase)))))))
 
 
 ;;  For the Chinese calendar the calculations for the new moon need to be more
@@ -368,7 +371,7 @@ This function is suitable for execution in a .emacs file."
   "Astronomical (Julian) day number of first new moon on or after astronomical
 \(Julian) day number d.  The fractional part is the time of day.
 
-The date and time are local time, including any daylight savings rules,
+The date and time are local time, including any daylight saving rules,
 as governed by the values of calendar-daylight-savings-starts,
 calendar-daylight-savings-starts-time, calendar-daylight-savings-ends,
 calendar-daylight-savings-ends-time, calendar-daylight-time-offset, and
@@ -392,4 +395,5 @@ calendar-time-zone."
 
 (provide 'lunar)
 
+;;; arch-tag: 72f0b8a4-7bcc-4a1b-b67a-ff53c4a1d222
 ;;; lunar.el ends here

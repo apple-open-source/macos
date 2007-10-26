@@ -27,6 +27,35 @@
 
 /*------------------------------------------------------------------------------*/
 /*																				*/
+/* HID Main Item Header Bit Definitions											*/
+/*																				*/
+/*------------------------------------------------------------------------------*/
+enum {
+	kHIDDataBufferedBytes		= 0x0100,
+	kHIDDataVolatileBit			= 0x80,
+	kHIDDataVolatile			= 0x80,
+	kHIDDataNullStateBit		= 0x40,
+	kHIDDataNullState			= 0x40,
+	kHIDDataNoPreferredBit		= 0x20,
+	kHIDDataNoPreferred			= 0x20,
+	kHIDDataNonlinearBit		= 0x10,
+	kHIDDataNonlinear			= 0x10,
+	kHIDDataWrapBit				= 0x08,
+	kHIDDataWrap				= 0x08,
+	kHIDDataRelativeBit			= 0x04,
+	kHIDDataRelative			= 0x04,
+	kHIDDataAbsolute			= 0x00,
+	kHIDDataVariableBit			= 0x02,
+	kHIDDataVariable			= 0x02,
+	kHIDDataArrayBit			= 0x02,
+	kHIDDataArray				= 0x00,
+	kHIDDataConstantBit			= 0x01,
+	kHIDDataConstant			= 0x01
+};
+
+#if KERNEL
+/*------------------------------------------------------------------------------*/
+/*																				*/
 /* HID Header																	*/
 /*																				*/
 /* ---------------------------------------------------------					*/
@@ -104,34 +133,6 @@ enum {
 	kHIDTagStringMinimum		= 8,
 	kHIDTagStringMaximum		= 9,
 	kHIDTagSetDelimiter			= 0x0A
-};
-
-/*------------------------------------------------------------------------------*/
-/*																				*/
-/* HID Main Item Header Bit Definitions											*/
-/*																				*/
-/*------------------------------------------------------------------------------*/
-enum {
-	kHIDDataBufferedBytes		= 0x0100,
-	kHIDDataVolatileBit			= 0x80,
-	kHIDDataVolatile			= 0x80,
-	kHIDDataNullStateBit		= 0x40,
-	kHIDDataNullState			= 0x40,
-	kHIDDataNoPreferredBit		= 0x20,
-	kHIDDataNoPreferred			= 0x20,
-	kHIDDataNonlinearBit		= 0x10,
-	kHIDDataNonlinear			= 0x10,
-	kHIDDataWrapBit				= 0x08,
-	kHIDDataWrap				= 0x08,
-	kHIDDataRelativeBit			= 0x04,
-	kHIDDataRelative			= 0x04,
-	kHIDDataAbsolute			= 0x00,
-	kHIDDataVariableBit			= 0x02,
-	kHIDDataVariable			= 0x02,
-	kHIDDataArrayBit			= 0x02,
-	kHIDDataArray				= 0x00,
-	kHIDDataConstantBit			= 0x01,
-	kHIDDataConstant			= 0x01
 };
 
 /*------------------------------------------------------------------------------*/
@@ -298,5 +299,6 @@ HIDGetCollectionExtendedNodes ( HIDCollectionExtendedNodePtr	collectionNodes,
 #endif
 
 
+#endif
 
 #endif /* !_IOKIT_HID_IOHIDPARSERPRIV_H */

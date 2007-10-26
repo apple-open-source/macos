@@ -30,7 +30,7 @@
 
 static void DeviceAdded(void *refCon, io_iterator_t iterator)
 {
-    io_service_t ioDeviceObj=nil;
+    io_service_t ioDeviceObj = IO_OBJECT_NULL;
     
     while( ioDeviceObj = IOIteratorNext( iterator) )
     {
@@ -41,7 +41,7 @@ static void DeviceAdded(void *refCon, io_iterator_t iterator)
 
 static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 {
-    io_service_t ioDeviceObj=nil;
+    io_service_t ioDeviceObj = IO_OBJECT_NULL;
     
     while( (ioDeviceObj = IOIteratorNext( iterator)))
     {
@@ -129,9 +129,9 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     [_devicesArray removeAllObjects];
      
     CFDictionaryRef matchingDict = NULL;
-    mach_port_t         mMasterDevicePort = nil;
-    io_iterator_t       devIter = nil;
-    io_service_t        ioDeviceObj	= nil;
+    mach_port_t         mMasterDevicePort = MACH_PORT_NULL;
+    io_iterator_t       devIter = IO_OBJECT_NULL;
+    io_service_t        ioDeviceObj	= IO_OBJECT_NULL;
     IOReturn            kr;
     int                 deviceNumber = 0; //used to iterate through devices
     
@@ -185,7 +185,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 			IOReturn  status;
 			status = IORegistryEntryGetNameInPlane(ioDeviceObj, kIOServicePlane, class);
 			if ( status == kIOReturnSuccess )
-				prodName = [[NSString alloc] initWithCString:class];
+				prodName = [[NSString alloc] initWithCString:class encoding:NSUTF8StringEncoding];
 			else
 				prodName = [[NSString alloc] initWithFormat:@"Unknown Device"];
 		}

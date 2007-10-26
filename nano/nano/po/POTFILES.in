@@ -1,17 +1,14 @@
-# $Id: POTFILES.in,v 1.5 2001/05/24 13:10:06 oskuro Exp $
+# $Id: POTFILES.in,v 1.11 2005/11/09 00:34:52 dolorous Exp $
 # List of source files containing translatable strings.
 
-# Package source files
-cut.c
-files.c
-global.c
-move.c
-nano.c
-rcfile.c
-search.c
-utils.c
-winio.c
-
-# Package header files
-nano.h
-proto.h
+src/browser.c
+src/files.c
+src/global.c
+src/help.c
+src/nano.c
+src/prompt.c
+src/rcfile.c
+src/search.c
+src/text.c
+src/utils.c
+src/winio.c

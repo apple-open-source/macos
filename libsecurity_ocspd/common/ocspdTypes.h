@@ -24,6 +24,11 @@
 #define _OCSPD_TYPES_H_
 
 #include <mach/mach_types.h>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+
+/* Explicitly enable MIG type checking per Radar 4735696 */
+#undef __MigTypeCheck
+#define __MigTypeCheck 1
 
 typedef void *Data;
 

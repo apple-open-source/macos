@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_tokenizer.h,v 1.4.2.2.4.2 2007/01/01 09:46:49 sebastian Exp $ */
+/* $Id: php_tokenizer.h,v 1.9.2.1.2.4 2007/07/31 23:24:11 johannes Exp $ */
 
 #ifndef PHP_TOKENIZER_H
 #define PHP_TOKENIZER_H
@@ -34,13 +34,13 @@ extern zend_module_entry tokenizer_module_entry;
 #include "TSRM.h"
 #endif
 
+void tokenizer_register_constants(INIT_FUNC_ARGS);
+char *get_token_type_name(int token_type);
+
+
 PHP_MINIT_FUNCTION(tokenizer);
-PHP_MSHUTDOWN_FUNCTION(tokenizer);
-PHP_RINIT_FUNCTION(tokenizer);
-PHP_RSHUTDOWN_FUNCTION(tokenizer);
 PHP_MINFO_FUNCTION(tokenizer);
 
-PHP_FUNCTION(confirm_tokenizer_compiled);	/* For testing, remove later. */
 PHP_FUNCTION(token_get_all);
 PHP_FUNCTION(token_name);
 

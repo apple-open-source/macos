@@ -201,7 +201,8 @@ static void printCFString(CFStringRef string)
     CFIndex	len;
     char *	buffer;
 
-    len = CFStringGetLength(string) + 1;
+    len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(string),
+	    CFStringGetSystemEncoding()) + sizeof('\0');
     buffer = malloc(len);
     if (buffer && CFStringGetCString(string, buffer, len,
                                   CFStringGetSystemEncoding()) )

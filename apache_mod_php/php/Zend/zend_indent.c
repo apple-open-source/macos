@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_indent.c,v 1.24.2.1.2.1 2007/01/01 09:35:46 sebastian Exp $ */
 
 /* This indenter doesn't really work, it's here for no particular reason. */
 
@@ -80,7 +81,7 @@ ZEND_API void zend_indent()
 			default:
 				if (token.type==0) {
 					/* keyword */
-					switch(token_type) {
+					switch (token_type) {
 						case ',':
 							ZEND_PUTS(", ");
 							goto dflt_printout;
@@ -145,3 +146,11 @@ dflt_printout:
 		token.type = 0;
 	}
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

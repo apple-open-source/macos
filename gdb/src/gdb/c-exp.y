@@ -52,11 +52,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "charset.h"
 #include "block.h"
 #include "cp-support.h"
-#include "completer.h"
+/* APPLE LOCAL ObjC */
 #include "objc-lang.h" /* For ObjC language constructs. */
-
-/* Flag indicating we're dealing with HP-compiled objects */ 
-extern int hp_som_som_object_present;
 
 /* Remap normal yacc parser interface names (yyparse, yylex, yyerror, etc),
    as well as gratuitiously global symbol names, so we can have multiple
@@ -144,6 +141,7 @@ void yyerror (char *);
     struct block *bval;
     enum exp_opcode opcode;
     struct internalvar *ivar;
+    /* APPLE LOCAL ObjC */
     struct objc_class_str class;
 
     struct type **tvec;
@@ -178,9 +176,11 @@ static int parse_number (char *, int, int, YYSTYPE *);
    nonterminal "name", which matches either NAME or TYPENAME.  */
 
 %token <sval> STRING
+/* APPLE LOCAL begin ObjC */
 %token <sval> OBJC_NSSTRING /* ObjC Foundation "NSString" literal */ 
 %token <sval> OBJC_SELECTOR /* ObjC "@selector" pseudo-operator   */ 
 %token <class> OBJC_CLASSNAME /* ObjC Class name */ 
+/* APPLE LOCAL end ObjC */
 %token <ssym> NAME /* BLOCKNAME defined below to give it higher precedence. */
 %token <tsym> TYPENAME
 %type <sval> name
@@ -265,6 +265,10 @@ exp	:	'-' exp    %prec UNARY
 			{ write_exp_elt_opcode (UNOP_NEG); }
 	;
 
+exp	:	'+' exp    %prec UNARY
+			{ write_exp_elt_opcode (UNOP_PLUS); }
+	;
+
 exp	:	'!' exp    %prec UNARY
 			{ write_exp_elt_opcode (UNOP_LOGICAL_NOT); }
 	;
@@ -333,6 +337,7 @@ exp	:	exp '[' exp1 ']'
 			{ write_exp_elt_opcode (BINOP_SUBSCRIPT); }
 	;
 
+/* APPLE LOCAL begin ObjC */
 /* The rules below parse ObjC message calls of the form:
    '[' target selector {':' argument}* ']' */
 
@@ -345,7 +350,7 @@ exp	: 	'[' TYPENAME
 			    error ("%s is not an ObjC Class", 
 				   copy_name ($2.stoken));
 			  write_exp_elt_opcode (OP_LONG);
-			  write_exp_elt_type (builtin_type_int);
+			  write_exp_elt_type (builtin_type_void_data_ptr);
 			  write_exp_elt_longcst ((LONGEST) class);
 			  write_exp_elt_opcode (OP_LONG);
 			  start_msglist();
@@ -360,7 +365,7 @@ exp	: 	'[' TYPENAME
 exp	:	'[' OBJC_CLASSNAME
 			{
 			  write_exp_elt_opcode (OP_LONG);
-			  write_exp_elt_type (builtin_type_int);
+			  write_exp_elt_type (builtin_type_void_data_ptr);
 			  write_exp_elt_longcst ((LONGEST) $2.class);
 			  write_exp_elt_opcode (OP_LONG);
 			  start_msglist();
@@ -397,6 +402,7 @@ msgarg	:	name ':' exp
 	|	',' exp	/* Variable number of arguments. */
 			{ add_msglist(0, 0);   }
 	;
+/* APPLE LOCAL end ObjC */
  
 exp	:	exp '(' 
 			/* This is to save the value of arglist_len
@@ -573,16 +579,18 @@ exp	:	VARIABLE
 			/* Already written by write_dollar_variable. */
 	;
 
+/* APPLE LOCAL begin ObjC */
 exp	:	OBJC_SELECTOR 
 			{
 			  write_exp_elt_opcode (OP_OBJC_SELECTOR);
 			  write_exp_string ($1);
 			  write_exp_elt_opcode (OP_OBJC_SELECTOR); }
 	;
+/* APPLE LOCAL end ObjC */
 
 exp	:	SIZEOF '(' type ')'	%prec UNARY
 			{ write_exp_elt_opcode (OP_LONG);
-			  write_exp_elt_type (builtin_type_int);
+			  write_exp_elt_type (builtin_type (current_gdbarch)->builtin_int);
 			  CHECK_TYPEDEF ($3);
 			  write_exp_elt_longcst ((LONGEST) TYPE_LENGTH ($3));
 			  write_exp_elt_opcode (OP_LONG); }
@@ -598,12 +606,12 @@ exp	:	STRING
 			  while (count-- > 0)
 			    {
 			      write_exp_elt_opcode (OP_LONG);
-			      write_exp_elt_type (builtin_type_char);
+			      write_exp_elt_type (builtin_type (current_gdbarch)->builtin_char);
 			      write_exp_elt_longcst ((LONGEST)(*sp++));
 			      write_exp_elt_opcode (OP_LONG);
 			    }
 			  write_exp_elt_opcode (OP_LONG);
-			  write_exp_elt_type (builtin_type_char);
+			  write_exp_elt_type (builtin_type (current_gdbarch)->builtin_char);
 			  write_exp_elt_longcst ((LONGEST)'\0');
 			  write_exp_elt_opcode (OP_LONG);
 			  write_exp_elt_opcode (OP_ARRAY);
@@ -623,14 +631,14 @@ exp     :	OBJC_NSSTRING	/* ObjC NextStep NSString constant
 /* C++.  */
 exp     :       TRUEKEYWORD    
                         { write_exp_elt_opcode (OP_LONG);
-                          write_exp_elt_type (builtin_type_bool);
+                          write_exp_elt_type (builtin_type (current_gdbarch)->builtin_bool);
                           write_exp_elt_longcst ((LONGEST) 1);
                           write_exp_elt_opcode (OP_LONG); }
 	;
 
 exp     :       FALSEKEYWORD   
                         { write_exp_elt_opcode (OP_LONG);
-                          write_exp_elt_type (builtin_type_bool);
+                          write_exp_elt_type (builtin_type (current_gdbarch)->builtin_bool);
                           write_exp_elt_longcst ((LONGEST) 0);
                           write_exp_elt_opcode (OP_LONG); }
 	;
@@ -741,8 +749,8 @@ variable:	qualified_name
 			  if (msymbol != NULL)
 			    {
 			      write_exp_msymbol (msymbol,
-						 lookup_function_type (builtin_type_int),
-						 builtin_type_int);
+						 lookup_function_type (builtin_type (current_gdbarch)->builtin_int),
+						 builtin_type (current_gdbarch)->builtin_int);
 			    }
 			  else
 			    if (!have_full_symbols () && !have_partial_symbols ())
@@ -806,8 +814,8 @@ variable:	name_not_typename
 			      if (msymbol != NULL)
 				{
 				  write_exp_msymbol (msymbol,
-						     lookup_function_type (builtin_type_int),
-						     builtin_type_int);
+						     lookup_function_type (builtin_type (current_gdbarch)->builtin_int),
+						     builtin_type (current_gdbarch)->builtin_int);
 				}
 			      else if (!have_full_symbols () && !have_partial_symbols ())
 				error ("No symbol table is loaded.  Use the \"file\" command.");
@@ -893,7 +901,7 @@ func_mod:	'(' ')'
 
 type	:	ptype
 	|	typebase COLONCOLON '*'
-			{ $$ = lookup_member_type (builtin_type_int, $1); }
+			{ $$ = lookup_member_type (builtin_type (current_gdbarch)->builtin_int, $1); }
 	;
 
 typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
@@ -908,61 +916,61 @@ typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
 			    $$ = $1.type;
 			}
 	|	INT_KEYWORD
-			{ $$ = builtin_type_int; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_int; }
 	|	LONG
-			{ $$ = builtin_type_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long; }
 	|	SHORT
-			{ $$ = builtin_type_short; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_short; }
 	|	LONG INT_KEYWORD
-			{ $$ = builtin_type_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long; }
 	|	LONG SIGNED_KEYWORD INT_KEYWORD
-			{ $$ = builtin_type_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long; }
 	|	LONG SIGNED_KEYWORD
-			{ $$ = builtin_type_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long; }
 	|	SIGNED_KEYWORD LONG INT_KEYWORD
-			{ $$ = builtin_type_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long; }
 	|	UNSIGNED LONG INT_KEYWORD
-			{ $$ = builtin_type_unsigned_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_long; }
 	|	LONG UNSIGNED INT_KEYWORD
-			{ $$ = builtin_type_unsigned_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_long; }
 	|	LONG UNSIGNED
-			{ $$ = builtin_type_unsigned_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_long; }
 	|	LONG LONG
-			{ $$ = builtin_type_long_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long_long; }
 	|	LONG LONG INT_KEYWORD
-			{ $$ = builtin_type_long_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long_long; }
 	|	LONG LONG SIGNED_KEYWORD INT_KEYWORD
-			{ $$ = builtin_type_long_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long_long; }
 	|	LONG LONG SIGNED_KEYWORD
-			{ $$ = builtin_type_long_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long_long; }
 	|	SIGNED_KEYWORD LONG LONG
-			{ $$ = builtin_type_long_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long_long; }
 	|	SIGNED_KEYWORD LONG LONG INT_KEYWORD
-			{ $$ = builtin_type_long_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long_long; }
 	|	UNSIGNED LONG LONG
-			{ $$ = builtin_type_unsigned_long_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_long_long; }
 	|	UNSIGNED LONG LONG INT_KEYWORD
-			{ $$ = builtin_type_unsigned_long_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_long_long; }
 	|	LONG LONG UNSIGNED
-			{ $$ = builtin_type_unsigned_long_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_long_long; }
 	|	LONG LONG UNSIGNED INT_KEYWORD
-			{ $$ = builtin_type_unsigned_long_long; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_long_long; }
 	|	SHORT INT_KEYWORD
-			{ $$ = builtin_type_short; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_short; }
 	|	SHORT SIGNED_KEYWORD INT_KEYWORD
-			{ $$ = builtin_type_short; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_short; }
 	|	SHORT SIGNED_KEYWORD
-			{ $$ = builtin_type_short; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_short; }
 	|	UNSIGNED SHORT INT_KEYWORD
-			{ $$ = builtin_type_unsigned_short; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_short; }
 	|	SHORT UNSIGNED 
-			{ $$ = builtin_type_unsigned_short; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_short; }
 	|	SHORT UNSIGNED INT_KEYWORD
-			{ $$ = builtin_type_unsigned_short; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_short; }
 	|	DOUBLE_KEYWORD
-			{ $$ = builtin_type_double; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_double; }
 	|	LONG DOUBLE_KEYWORD
-			{ $$ = builtin_type_long_double; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_long_double; }
 	|	STRUCT name
 			{ $$ = lookup_struct (copy_name ($2),
 					      expression_context_block); }
@@ -978,11 +986,11 @@ typebase  /* Implements (approximately): (type-qualifier)* type-specifier */
 	|	UNSIGNED typename
 			{ $$ = lookup_unsigned_typename (TYPE_NAME($2.type)); }
 	|	UNSIGNED
-			{ $$ = builtin_type_unsigned_int; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_unsigned_int; }
 	|	SIGNED_KEYWORD typename
 			{ $$ = lookup_signed_typename (TYPE_NAME($2.type)); }
 	|	SIGNED_KEYWORD
-			{ $$ = builtin_type_int; }
+			{ $$ = builtin_type (current_gdbarch)->builtin_int; }
                 /* It appears that this rule for templates is never
                    reduced; template recognition happens by lookahead
                    in the token processing code in yylex. */         
@@ -1072,19 +1080,19 @@ typename:	TYPENAME
 		{
 		  $$.stoken.ptr = "int";
 		  $$.stoken.length = 3;
-		  $$.type = builtin_type_int;
+		  $$.type = builtin_type (current_gdbarch)->builtin_int;
 		}
 	|	LONG
 		{
 		  $$.stoken.ptr = "long";
 		  $$.stoken.length = 4;
-		  $$.type = builtin_type_long;
+		  $$.type = builtin_type (current_gdbarch)->builtin_long;
 		}
 	|	SHORT
 		{
 		  $$.stoken.ptr = "short";
 		  $$.stoken.length = 5;
-		  $$.type = builtin_type_short;
+		  $$.type = builtin_type (current_gdbarch)->builtin_short;
 		}
 	;
 
@@ -1200,18 +1208,30 @@ parse_number (p, len, parsed_float, putithere)
 #endif
 	}
       p[len] = saved_char;	/* restore the input stream */
-      if (num != 1) 		/* check scanf found ONLY a float ... */
-	return ERROR;
-      /* See if it has `f' or `l' suffix (float or long double).  */
+      if (num == 1) 		/* check scanf found ONLY a float ... */
+        putithere->typed_val_float.type =
+          builtin_type (current_gdbarch)->builtin_double;
+      else if (num == 2)
+	{
+	  /* See if it has `f' or `l' suffix (float or long double).  */
+	  
+	  c = tolower (c);
+	  /* There's no way to tell, using sscanf, whether we actually
+	     did ingest all the input.  But this check will catch things
+	     like: 123fghi.jklmn, though of course it will be fooled by
+	     123fghi.jklmf.  I'm not really all that worried about this,
+	     however.  */
 
-      c = tolower (p[len - 1]);
+	  if (c != p[len-1])
+	    return ERROR;
 
-      if (c == 'f')
-	putithere->typed_val_float.type = builtin_type_float;
-      else if (c == 'l')
-	putithere->typed_val_float.type = builtin_type_long_double;
-      else if (isdigit (c) || c == '.')
-	putithere->typed_val_float.type = builtin_type_double;
+	  if (c == 'f')
+	    putithere->typed_val_float.type = builtin_type (current_gdbarch)->builtin_float;
+	  else if (c == 'l')
+	    putithere->typed_val_float.type = builtin_type (current_gdbarch)->builtin_long_double;
+	  else
+	    return ERROR;
+	}
       else
 	return ERROR;
 
@@ -1327,15 +1347,15 @@ parse_number (p, len, parsed_float, putithere)
 	 int.  This probably should be fixed.  GCC gives a warning on
 	 such constants.  */
 
-      unsigned_type = builtin_type_unsigned_int;
-      signed_type = builtin_type_int;
+      unsigned_type = builtin_type (current_gdbarch)->builtin_unsigned_int;
+      signed_type = builtin_type (current_gdbarch)->builtin_int;
     }
   else if (long_p <= 1
 	   && (un >> (TARGET_LONG_BIT - 2)) == 0)
     {
       high_bit = ((ULONGEST)1) << (TARGET_LONG_BIT-1);
-      unsigned_type = builtin_type_unsigned_long;
-      signed_type = builtin_type_long;
+      unsigned_type = builtin_type (current_gdbarch)->builtin_unsigned_long;
+      signed_type = builtin_type (current_gdbarch)->builtin_long;
     }
   else
     {
@@ -1346,8 +1366,8 @@ parse_number (p, len, parsed_float, putithere)
       else
 	shift = (TARGET_LONG_LONG_BIT - 1);
       high_bit = (ULONGEST) 1 << shift;
-      unsigned_type = builtin_type_unsigned_long_long;
-      signed_type = builtin_type_long_long;
+      unsigned_type = builtin_type (current_gdbarch)->builtin_unsigned_long_long;
+      signed_type = builtin_type (current_gdbarch)->builtin_long_long;
     }
 
    putithere->typed_val_int.val = n;
@@ -1500,7 +1520,7 @@ yylex ()
         }
 
       yylval.typed_val_int.val = c;
-      yylval.typed_val_int.type = builtin_type_char;
+      yylval.typed_val_int.type = builtin_type (current_gdbarch)->builtin_char;
 
       c = *lexptr++;
       if (c != '\'')
@@ -1920,10 +1940,18 @@ yylex ()
 	  yylval.tsym.type = SYMBOL_TYPE (sym);
 	  return TYPENAME;
         }
-    if ((yylval.tsym.type = lookup_primitive_typename (tmp)) != 0)
+    yylval.tsym.type
+      = language_lookup_primitive_type_by_name (current_language,
+						current_gdbarch, tmp);
+    if (yylval.tsym.type != NULL)
       return TYPENAME;
 
-    /* See if it's an ObjC classname. */
+    /* APPLE LOCAL: See if it's an ObjC classname.  This was previously inside 
+       the "if lookup_struct_typedef" block, but then we wouldn't recognize
+       ObjC classes that had no debug info, so it got hoisted out.  This
+       results in unfortunate side-effect that gdb is calling into the
+       ObjC runtime a lot to see if various no-debug-info symbols are
+       classes.  */
     if (!sym && should_lookup_objc_class ())  
       {
 	extern struct symbol *lookup_struct_typedef ();

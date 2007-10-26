@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 2002-2004, International Business Machines Corporation and
+ * Copyright (c) 2002-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -18,9 +18,9 @@
 #include "unicode/ucnv.h"
 #include "regextst.h"
 #include "uvector.h"
-#include "charstr.h"
 #include "util.h"
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 
 
@@ -31,12 +31,12 @@
 //---------------------------------------------------------------------------
 RegexTest::RegexTest()
 {
-};
+}
 
 
 RegexTest::~RegexTest()
 {
-};
+}
 
 
 
@@ -362,9 +362,8 @@ void RegexTest::regex_find(const UnicodeString &pattern,
 
 cleanupAndReturn:
     if (failed) {
-        errln("\"%s\"  %s  \"%s\"", (const char *)CharString(pattern, 0),
-                                    (const char *)CharString(flags, 0),
-                                    (const char *)CharString(inputString, 0));
+        errln((UnicodeString)"\""+pattern+(UnicodeString)"\"  "
+            +flags+(UnicodeString)"  \""+inputString+(UnicodeString)"\"");
         // callerPattern->dump();
     }
     delete parseMatcher;
@@ -569,7 +568,7 @@ void RegexTest::Basic() {
     REGEX_TESTLM("\\\\\\|\\(\\)\\[\\{\\~\\$\\*\\+\\?\\.", "\\\\|()[{~$*+?.", TRUE, TRUE);
 
 
-};
+}
 
 
 //---------------------------------------------------------------------------
@@ -1490,7 +1489,11 @@ void RegexTest::Extended() {
     UnicodeString   testFlags;     // the flags   for a test.
     UnicodeString   matchString;   // The marked up string to be used as input
 
-
+    if (U_FAILURE(status)){
+        dataerrln("Construct RegexMatcher() error.");
+        delete [] testData;
+        return;
+    }
 
     //
     //  Loop over the test data file, once per line.
@@ -1813,6 +1816,10 @@ void RegexTest::PerlTests() {
     //     One line per match, capture group one is the desired data.
     //
     RegexPattern* linePat = RegexPattern::compile("(.+?)[\\r\\n]+", 0, pe, status);
+    if (U_FAILURE(status)) {
+        dataerrln("RegexPattern::compile() error");
+        return;
+    }
     RegexMatcher* lineMat = linePat->matcher(testDataString, status);
 
     //
@@ -2080,9 +2087,8 @@ void RegexTest::PerlTests() {
 
 
         if (expectedS.compare(resultString) != 0) {
-            errln("Line %d: Incorrect perl expression results.  Expected \"%s\"; got \"%s\"",
-                lineNum, (const char *)CharString(expectedS, 0),
-                (const char *)CharString(resultString, 0));
+            err("Line %d: Incorrect perl expression results.", lineNum);
+            errln((UnicodeString)"Expected \""+expectedS+(UnicodeString)"\"; got \""+resultString+(UnicodeString)"\"");
         }
 
         delete testMat;

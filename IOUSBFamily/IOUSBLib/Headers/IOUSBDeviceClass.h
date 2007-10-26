@@ -24,6 +24,7 @@
 #define _IOKIT_IOUSBDeviceClass_H
 
 #include <IOKit/usb/IOUSBLib.h>
+#include <asl.h>
 
 #include "IOUSBIUnknown.h"
 
@@ -43,12 +44,12 @@ protected:
     };
 
     static IOCFPlugInInterface			sIOCFPlugInInterfaceV1;
-    static IOUSBDeviceInterface197  	sUSBDeviceInterfaceV197;
+    static IOUSBDeviceInterface300  	sUSBDeviceInterfaceV300;
 
     struct InterfaceMap					fUSBDevice;
     io_service_t						fService;
     io_connect_t						fConnection;
-    mach_port_t							fAsyncPort;
+    IONotificationPortRef				fAsyncPort;
     CFRunLoopSourceRef					fCFSource;
     bool								fIsOpen;
     UInt8								fClass;
@@ -67,8 +68,9 @@ protected:
     UInt32								fLocationID;
     IOUSBConfigurationDescriptorPtr		*fConfigurations;
     bool								fConfigDescCacheValid;
-	bool								fDeviceIsAttached;
-    
+	aslclient							fASLClient;
+    bool								fDeviceIsAttached;
+	
 public:
     static IOCFPlugInInterface		**alloc();
 
@@ -114,6 +116,8 @@ public:
     // ----- new with 1.9.7
     virtual IOReturn				GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *atTime);
     virtual IOReturn				GetIOUSBLibVersion(NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
+    // ----- new with 3.0.0
+    virtual IOReturn				GetBusFrameNumberWithTime(UInt64 *frame, AbsoluteTime *atTime);
 /*
  * Routing gumf for CFPlugIn interfaces
  */
@@ -167,6 +171,8 @@ protected:
     // -----added in 1.9.7
     static IOReturn				deviceGetBusMicroFrameNumber(void *self, UInt64 *microFrame, AbsoluteTime *atTime);
     static IOReturn				deviceGetIOUSBLibVersion( void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
+    // -----added in 3.0.0
+    static IOReturn				deviceGetBusFrameNumberWithTime(void *self, UInt64 *frame, AbsoluteTime *atTime);
 };
 
 #endif /* !_IOKIT_IOUSBDeviceClass_H */

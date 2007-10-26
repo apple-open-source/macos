@@ -22,12 +22,13 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				ImproveFloatingPointConsistency="TRUE"
-				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="..\..\include,..\common"
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;U_LAYOUT_IMPLEMENTATION"
+				AdditionalIncludeDirectories="..\..\include;..\common"
+				PreprocessorDefinitions="WIN32;_DEBUG;U_LAYOUT_IMPLEMENTATION"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				BufferSecurityCheck="TRUE"
 				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Debug/layout.pch"
 				AssemblerListingLocation=".\Debug/"
 				ObjectFile=".\Debug/"
@@ -41,11 +42,11 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="..\..\bin\icule32d.dll"
+				OutputFile="..\..\bin\icule36d.dll"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
 				GenerateDebugInformation="TRUE"
-				ProgramDatabaseFile=".\..\..\lib\icule32d.pdb"
+				ProgramDatabaseFile=".\..\..\lib\icule36d.pdb"
 				BaseAddress="0x4ac00000"
 				ImportLibrary="..\..\lib\iculed.lib"/>
 			<Tool
@@ -87,14 +88,14 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				InlineFunctionExpansion="2"
 				ImproveFloatingPointConsistency="TRUE"
-				AdditionalIncludeDirectories="..\..\include,..\common"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;U_LAYOUT_IMPLEMENTATION"
+				AdditionalIncludeDirectories="..\..\include;..\common"
+				PreprocessorDefinitions="WIN32;NDEBUG;U_LAYOUT_IMPLEMENTATION"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
 				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Release/layout.pch"
 				AssemblerListingLocation=".\Release/"
 				ObjectFile=".\Release/"
@@ -106,10 +107,11 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="..\..\bin\icule32.dll"
+				OutputFile="..\..\bin\icule36.dll"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
-				ProgramDatabaseFile=".\..\..\lib\icule32.pdb"
+				ProgramDatabaseFile=".\..\..\lib\icule36.pdb"
+				EnableCOMDATFolding="2"
 				BaseAddress="0x4ac00000"
 				ImportLibrary="..\..\lib\icule.lib"/>
 			<Tool
@@ -164,6 +166,9 @@
 				RelativePath=".\CanonData.cpp">
 			</File>
 			<File
+				RelativePath=".\CanonShaping.cpp">
+			</File>
+			<File
 				RelativePath=".\ClassDefinitionTables.cpp">
 			</File>
 			<File
@@ -200,6 +205,9 @@
 				RelativePath="GlyphLookupTables.cpp">
 			</File>
 			<File
+				RelativePath=".\GlyphPositionAdjustments.cpp">
+			</File>
+			<File
 				RelativePath=".\GlyphPositioningTables.cpp">
 			</File>
 			<File
@@ -215,6 +223,9 @@
 				RelativePath=".\GXLayoutEngine.cpp">
 			</File>
 			<File
+				RelativePath=".\HangulLayoutEngine.cpp">
+			</File>
+			<File
 				RelativePath=".\HanLayoutEngine.cpp">
 			</File>
 			<File
@@ -228,6 +239,15 @@
 			</File>
 			<File
 				RelativePath=".\IndicReordering.cpp">
+			</File>
+			<File
+				RelativePath=".\KernTable.cpp">
+			</File>
+			<File
+				RelativePath=".\KhmerLayoutEngine.cpp">
+			</File>
+			<File
+				RelativePath=".\KhmerReordering.cpp">
 			</File>
 			<File
 				RelativePath=".\LayoutEngine.cpp">
@@ -246,9 +266,6 @@
 			</File>
 			<File
 				RelativePath=".\LigatureSubstSubtables.cpp">
-			</File>
-			<File
-				RelativePath=".\loengine.cpp">
 			</File>
 			<File
 				RelativePath=".\LookupProcessor.cpp">
@@ -270,6 +287,9 @@
 			</File>
 			<File
 				RelativePath=".\MarkToMarkPosnSubtables.cpp">
+			</File>
+			<File
+				RelativePath=".\MirroredCharData.cpp">
 			</File>
 			<File
 				RelativePath=".\MorphTables.cpp">
@@ -305,6 +325,9 @@
 				RelativePath=".\SegmentSingleProcessor.cpp">
 			</File>
 			<File
+				RelativePath=".\ShapingTypeData.cpp">
+			</File>
+			<File
 				RelativePath=".\SimpleArrayProcessor.cpp">
 			</File>
 			<File
@@ -333,6 +356,12 @@
 			</File>
 			<File
 				RelativePath=".\ThaiStateTables.cpp">
+			</File>
+			<File
+				RelativePath=".\TibetanLayoutEngine.cpp">
+			</File>
+			<File
+				RelativePath=".\TibetanReordering.cpp">
 			</File>
 			<File
 				RelativePath=".\TrimmedArrayProcessor.cpp">
@@ -429,10 +458,10 @@
 				RelativePath=".\GXLayoutEngine.h">
 			</File>
 			<File
-				RelativePath=".\HanLayoutEngine.h">
+				RelativePath=".\HangulLayoutEngine.h">
 			</File>
 			<File
-				RelativePath=".\HindiFeatureTags.h">
+				RelativePath=".\HanLayoutEngine.h">
 			</File>
 			<File
 				RelativePath=".\IndicLayoutEngine.h">
@@ -445,6 +474,15 @@
 			</File>
 			<File
 				RelativePath=".\IndicReordering.h">
+			</File>
+			<File
+				RelativePath=".\KernTable.h">
+			</File>
+			<File
+				RelativePath=".\KhmerLayoutEngine.h">
+			</File>
+			<File
+				RelativePath=".\KhmerReordering.h">
 			</File>
 			<File
 				RelativePath=".\LayoutEngine.h">
@@ -630,25 +668,6 @@
 				RelativePath=".\LigatureSubstSubtables.h">
 			</File>
 			<File
-				RelativePath=".\unicode\loengine.h">
-				<FileConfiguration
-					Name="Debug|Win32">
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="copy &quot;$(InputPath)&quot; ..\..\include\unicode
-"
-						Outputs="..\..\include\unicode\$(InputFileName)"/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32">
-					<Tool
-						Name="VCCustomBuildTool"
-						CommandLine="copy &quot;$(InputPath)&quot; ..\..\include\unicode
-"
-						Outputs="..\..\include\unicode\$(InputFileName)"/>
-				</FileConfiguration>
-			</File>
-			<File
 				RelativePath=".\LookupProcessor.h">
 			</File>
 			<File
@@ -740,6 +759,12 @@
 			</File>
 			<File
 				RelativePath=".\ThaiShaping.h">
+			</File>
+			<File
+				RelativePath=".\TibetanLayoutEngine.h">
+			</File>
+			<File
+				RelativePath=".\TibetanReordering.h">
 			</File>
 			<File
 				RelativePath=".\TrimmedArrayProcessor.h">

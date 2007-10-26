@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -281,6 +281,7 @@ main(argc, argv)
 	}
 	done(0);
 	/* NOTREACHED */
+	return (0);
 }
 
 static void
@@ -359,7 +360,7 @@ obsolete(argcp, argvp)
 	}
 
 	/* Copy remaining arguments. */
-	while (*nargv++ = *argv++);
+	while ((*nargv++ = *argv++));
 
 	/* Update argument count. */
 	*argcp = nargv - *argvp - 1;

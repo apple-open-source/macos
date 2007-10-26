@@ -1,5 +1,10 @@
 /*
- * Copyright (c) 1995, Cyclic Software, Bloomington, IN, USA
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (c) 1995, Cyclic Software, Bloomington, IN, USA
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with CVS.
@@ -10,8 +15,6 @@
 #include "cvs.h"
 #include "getline.h"
 
-#ifdef AUTH_CLIENT_SUPPORT   /* This covers the rest of the file. */
-
 /* There seems to be very little agreement on which system header
    getpass is declared in.  With a lot of fancy autoconfiscation,
    we could perhaps detect this, but for now we'll just rely on
@@ -19,6 +22,10 @@
    declaration won't work (some Crays declare the 2#$@% thing as
    varadic, believe it or not).  On Cray, getpass will be declared
    in either stdlib.h or unistd.h.  */
+#include "getpass.h"
+
+#ifdef AUTH_CLIENT_SUPPORT   /* This covers the rest of the file. */
+
 
 #ifndef CVS_PASSWORD_FILE 
 #define CVS_PASSWORD_FILE ".cvspass"
@@ -27,11 +34,11 @@
 /* If non-NULL, get_cvs_password() will just return this. */
 static char *cvs_password = NULL;
 
-static char *construct_cvspass_filename PROTO ((void));
+static char *construct_cvspass_filename (void);
 
 /* The return value will need to be freed. */
 static char *
-construct_cvspass_filename ()
+construct_cvspass_filename (void)
 {
     char *homedir;
     char *passfile;
@@ -53,7 +60,7 @@ construct_cvspass_filename ()
 	   right thing for a GUI is to just store the password in
 	   memory only)...  */
 	error (1, 0, "could not find out home directory");
-	return (char *) NULL;
+	return NULL;
     }
 
     passfile = strcat_filename_onto_homedir (homedir, CVS_PASSWORD_FILE);
@@ -96,11 +103,9 @@ construct_cvspass_filename ()
  *	called on the same linebuf
  */
 static char *
-password_entry_parseline (cvsroot_canonical, warn, linenumber, linebuf)
-    const char *cvsroot_canonical;
-    const unsigned char warn;
-    const int linenumber;
-    char *linebuf;
+password_entry_parseline (const char *cvsroot_canonical,
+			  const unsigned char warn, const int linenumber,
+			  char *linebuf)
 {
     char *password = NULL;
     char *p;
@@ -108,22 +113,22 @@ password_entry_parseline (cvsroot_canonical, warn, linenumber, linebuf)
     /* look for '^/' */
     if (*linebuf == '/')
     {
-	/* Yes: slurp '^/\d+\D' and parse the rest of the line according to version number */
+	/* Yes: slurp '^/\d+\D' and parse the rest of the line according to
+	 * version number
+	 */
 	char *q;
-	unsigned long int entry_version;
+	unsigned long int entry_version = 0 /* Placate -Wall.  */;
 
 	if (isspace(*(linebuf + 1)))
 	    /* special case since strtoul ignores leading white space */
-	    entry_version = 0;
+	    q = linebuf + 1;
 	else
 	    entry_version = strtoul (linebuf + 1, &q, 10);
 
-	if (q == linebuf + 1)
-	    /* no valid digits found by strtoul */
-	    entry_version = 0;
-	else
+	if (q != linebuf + 1)
 	    /* assume a delimiting seperator */
 	    q++;
+	/* else, no valid digits found by strtoul */
 
 	switch (entry_version)
 	{
@@ -200,7 +205,6 @@ password_entry_parseline (cvsroot_canonical, warn, linenumber, linebuf)
 	    password = p + 1;
 
 	free (tmp_root_canonical);
-	free_cvsroot_t (tmp_root);
     }
 
     return password;
@@ -274,10 +278,7 @@ typedef enum password_entry_operation_e {
 } password_entry_operation_t;
 
 static char *
-password_entry_operation (operation, root, newpassword)
-    password_entry_operation_t operation;
-    cvsroot_t *root;
-    char *newpassword;
+password_entry_operation (password_entry_operation_t operation, cvsroot_t *root, char *newpassword)
 {
     char *passfile;
     FILE *fp;
@@ -313,7 +314,7 @@ internal error: can only call password_entry_operation with pserver method");
     }
 
     /* Check each line to see if we have this entry already. */
-    line = 0;
+    line = 0L;
     while ((line_length = getline (&linebuf, &linebuf_len, fp)) >= 0)
     {
 	line++;
@@ -384,7 +385,7 @@ process:
 	if ((tmp_fp = cvs_temp_file (&tmp_name)) == NULL)
 	    error (1, errno, "unable to open temp file %s", tmp_name);
 
-	line = 0;
+	line = 0L;
 	while ((line_length = getline (&linebuf, &linebuf_len, fp)) >= 0)
 	{
 	    line++;
@@ -455,7 +456,7 @@ process:
 	if (fprintf (fp, "/1 %s %s\n", cvsroot_canonical, newpassword) == EOF)
 	    error (1, errno, "cannot write %s", passfile);
 	if (fclose (fp) < 0)
-	    error (0, errno, "cannot close %s", passfile);
+	    error (1, errno, "cannot close %s", passfile);
     }
 
     /* Utter, total, raving paranoia, I know. */
@@ -511,9 +512,7 @@ static const char *const login_usage[] =
 };
 
 int
-login (argc, argv)
-    int argc;
-    char **argv;
+login (int argc, char **argv)
 {
     char *typed_password;
     char *cvsroot_canonical;
@@ -576,7 +575,7 @@ login (argc, argv)
    before hashing and comparing.  If password file not found, or
    password not found in the file, just return NULL. */
 char *
-get_cvs_password ()
+get_cvs_password (void)
 {
     if (current_parsed_root->password)
 	return scramble (current_parsed_root->password);
@@ -622,9 +621,7 @@ static const char *const logout_usage[] =
 
 /* Remove any entry for the CVSRoot repository found in .cvspass. */
 int
-logout (argc, argv)
-    int argc;
-    char **argv;
+logout (int argc, char **argv)
 {
     char *cvsroot_canonical;
 

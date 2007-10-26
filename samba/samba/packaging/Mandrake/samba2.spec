@@ -29,7 +29,7 @@
 %define libname %mklibname smbclient %libsmbmajor
 
 # Version and release replaced by samba-team at release from samba cvs
-%define pversion 3.0.10
+%define pversion 3.0.13
 %define prelease 1
 
 #Check to see if p(version|release) has been replaced (1 if replaced)

@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Determine whether this message should be held for approval.
 
@@ -25,7 +26,6 @@ we do nothing.  If the message must be held for approval, then the hold
 database is updated and any administrator notification messages are sent.
 Finally an exception is raised to let the pipeline machinery know that further
 message handling should stop.
-
 """
 
 import email
@@ -176,6 +176,11 @@ def process(mlist, msg, msgdata):
         bodylen = 0
         for line in email.Iterators.body_line_iterator(msg):
             bodylen += len(line)
+        for part in msg.walk():
+            if part.preamble:
+                bodylen += len(part.preamble)
+            if part.epilogue:
+                bodylen += len(part.epilogue)
         if bodylen/1024.0 > mlist.max_message_size:
             hold_for_approval(mlist, msg, msgdata,
                               MessageTooBig(bodylen, mlist.max_message_size))
@@ -192,7 +197,12 @@ def hold_for_approval(mlist, msg, msgdata, exc):
     # BAW: This should really be tied into the email confirmation system so
     # that the message can be approved or denied via email as well as the
     # web.
-    if type(exc) is ClassType:
+    #
+    # XXX We use the weird type(type) construct below because in Python 2.1,
+    # type is a function not a type and so can't be used as the second
+    # argument in isinstance().  However, in Python 2.5, exceptions are
+    # new-style classes and so are not of ClassType.
+    if isinstance(exc, ClassType) or isinstance(exc, type(type)):
         # Go ahead and instantiate it now.
         exc = exc()
     listname = mlist.real_name
@@ -232,7 +242,7 @@ def hold_for_approval(mlist, msg, msgdata, exc):
     # bounce processing that might be needed.
     cookie = mlist.pend_new(Pending.HELD_MESSAGE, id)
     if not fromusenet and ackp(msg) and mlist.respond_to_post_requests and \
-           mlist.autorespondToSender(sender):
+           mlist.autorespondToSender(sender, mlist.getMemberLanguage(sender)):
         # Get a confirmation cookie
         d['confirmurl'] = '%s/%s' % (mlist.GetScriptURL('confirm', absolute=1),
                                      cookie)

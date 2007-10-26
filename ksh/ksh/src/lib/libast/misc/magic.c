@@ -1,39 +1,35 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
- * AT&T Labs Research
+ * AT&T Research
  *
  * library interface to file
  *
  * the sum of the hacks {s5,v10,planix} is _____ than the parts
  */
 
-static const char id[] = "\n@(#)$Id: magic library (AT&T Labs Research) 2003-11-21 $\0\n";
+static const char id[] = "\n@(#)$Id: magic library (AT&T Research) 2007-01-08 $\0\n";
 
 static const char lib[] = "libast:magic";
 
@@ -45,7 +41,6 @@ static const char lib[] = "libast:magic";
 #include <error.h>
 #include <regex.h>
 #include <swap.h>
-#include <sfstr.h>
 
 #define T(m)		(*m?ERROR_translate(NiL,NiL,lib,m):m)
 
@@ -101,7 +96,7 @@ typedef struct Entry			/* magic file entry		*/
 	char		swap;		/* forced swap order		*/
 } Entry_t;
 
-#define CC_BIT		4
+#define CC_BIT		5
 
 #if (CC_MAPS*CC_BIT) <= (CHAR_BIT*2)
 typedef unsigned short Cctype_t;
@@ -109,10 +104,11 @@ typedef unsigned short Cctype_t;
 typedef unsigned long Cctype_t;
 #endif
 
-#define CC_text		0x1
-#define CC_control	0x2
-#define CC_latin	0x4
-#define CC_binary	0x8
+#define CC_text		0x01
+#define CC_control	0x02
+#define CC_latin	0x04
+#define CC_binary	0x08
+#define CC_utf_8	0x10
 
 #define CC_notext	CC_text		/* CC_text is flipped before checking */
 
@@ -393,6 +389,48 @@ regmessage(Magic_t* mp, regex_t* re, int code)
 }
 
 /*
+ * decompose vcodex(3) method composition
+ */
+
+static char*
+vcdecomp(char* b, char* e, unsigned char* m, unsigned char* x)
+{
+	unsigned char*	map;
+	int		c;
+	int		n;
+	int		i;
+
+	map = CCMAP(CC_ASCII, CC_NATIVE);
+	i = 1;
+	for (;;)
+	{
+		if (i)
+			i = 0;
+		else
+			*b++ = '^';
+		while (b < e && m < x && (c = *m++))
+		{
+			if (map)
+				c = map[c];
+			*b++ = c;
+		}
+		if (b >= e)
+			break;
+		n = 0;
+		while (m < x)
+		{
+			n = (n<<7) | (*m & 0x7f);
+			if (!(*m++ & 0x80))
+				break;
+		}
+		if (n >= (x - m))
+			break;
+		m += n;
+	}
+	return b;
+}
+
+/*
  * check for magic table match in buf
  */
 
@@ -658,6 +696,7 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 			num &= mask;
 		switch (ep->op)
 		{
+
 		case '=':
 		case '@':
 			if (num == ep->value.num)
@@ -745,6 +784,7 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 				*b = ' ';
 			b += strlen(b);
 			break;
+
 		case 'r':
 #if _UWIN
 		{
@@ -755,8 +795,7 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 			if (!(t = strrchr(file, '.')))
 				goto next;
 			sfprintf(mp->tmp, "/reg/classes_root/%s", t);
-			t = sfstruse(mp->tmp);
-			if (!(rp = sfopen(NiL, t, "r")))
+			if (!(t = sfstruse(mp->tmp)) || !(rp = sfopen(NiL, t, "r")))
 				goto next;
 			*ep->desc = 0;
 			*ep->mime = 0;
@@ -773,8 +812,7 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 				else
 				{
 					sfprintf(mp->tmp, "/reg/classes_root/%s", t);
-					e = sfstruse(mp->tmp);
-					if (gp = sfopen(NiL, e, "r"))
+					if ((e = sfstruse(mp->tmp)) && (gp = sfopen(NiL, e, "r")))
 					{
 						ep->desc = vmnewof(mp->vm, ep->desc, char, strlen(t), 1);
 						strcpy(ep->desc, t);
@@ -824,6 +862,26 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 				mp->keep[level] = 1;
 			goto next;
 #endif
+
+		case 'v':
+			if (!(p = getdata(mp, num, 4)))
+				goto next;
+			c = 0;
+			do
+			{
+				num++;
+				c = (c<<7) | (*p & 0x7f);
+			} while (*p++ & 0x80);
+			if (!(p = getdata(mp, num, c)))
+				goto next;
+			if (mp->keep[level]++ && b > buf && *(b - 1) != ' ')
+			{
+				*b++ = ',';
+				*b++ = ' ';
+			}
+			b = vcdecomp(b, buf + PATH_MAX, (unsigned char*)p, (unsigned char*)p + c);
+			goto checknest;
+
 		}
 	swapped:
 		q = T(ep->desc);
@@ -960,7 +1018,7 @@ cklang(register Magic_t* mp, const char* file, char* buf, struct stat* st)
 			for (s = (char*)b; b < e && isprint(*b); b++);
 			c = *b;
 			*b = 0;
-			if ((st->st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)) || match(s, "/*bin*/*") || !access(s, 0))
+			if ((st->st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)) || match(s, "/*bin*/*") || !access(s, F_OK))
 			{
 				if (t = strrchr(s, '/'))
 					s = t + 1;
@@ -1309,6 +1367,47 @@ cklang(register Magic_t* mp, const char* file, char* buf, struct stat* st)
 	}
 	if (flags & (CC_binary|CC_notext))
 	{
+		b = (unsigned char*)mp->fbuf;
+		e = b + mp->fbsz;
+		n = 0;
+		for (;;)
+		{
+			c = *b++;
+			q = 0;
+			while (c & 0x80)
+			{
+				c <<= 1;
+				q++;
+			}
+			switch (q)
+			{
+			case 4:
+				if (b < e && (*b++ & 0xc0) != 0x80)
+					break;
+			case 3:
+				if (b < e && (*b++ & 0xc0) != 0x80)
+					break;
+			case 2:
+				if (b < e && (*b++ & 0xc0) != 0x80)
+					break;
+				n = 1;
+			case 0:
+				if (b >= e)
+				{
+					if (n)
+					{
+						flags &= ~(CC_binary|CC_notext);
+						flags |= CC_utf_8;
+					}
+					break;
+				}
+				continue;
+			}
+			break;
+		}
+	}
+	if (flags & (CC_binary|CC_notext))
+	{
 		unsigned long	d = 0;
 
 		if ((q = mp->fbsz / UCHAR_MAX) >= 2)
@@ -1341,7 +1440,9 @@ cklang(register Magic_t* mp, const char* file, char* buf, struct stat* st)
 		return s;
 	}
 	mp->mime = "text/plain";
-	if (flags & CC_latin)
+	if (flags & CC_utf_8)
+		s = (flags & CC_control) ? T("utf-8 text with control characters") : T("utf-8 text");
+	else if (flags & CC_latin)
 		s = (flags & CC_control) ? T("latin text with control characters") : T("latin text");
 	else
 		s = (flags & CC_control) ? T("text with control characters") : T("text");
@@ -1910,7 +2011,8 @@ load(register Magic_t* mp, char* file, register Sfio_t* fp)
 			else if (ep->type == 's')
 			{
 				ep->mask = stresc(p);
-				ep->value.str = vmstrdup(mp->vm, p);
+				ep->value.str = vmnewof(mp->vm, 0, char, ep->mask, 0);
+				memcpy(ep->value.str, p, ep->mask);
 			}
 			else if (*p == '\'')
 			{
@@ -1953,6 +2055,8 @@ load(register Magic_t* mp, char* file, register Sfio_t* fp)
 				case 'r':
 					ep->desc = vmnewof(mp->vm, 0, char, 32, 0);
 					ep->mime = vmnewof(mp->vm, 0, char, 32, 0);
+					break;
+				case 'v':
 					break;
 				default:
 					if ((mp->flags & MAGIC_VERBOSE) && mp->disc->errorf)
@@ -2079,7 +2183,8 @@ magicload(register Magic_t* mp, const char* file, unsigned long flags)
 				s += n - 1;
 			}
 			sfwrite(mp->tmp, s, e - s);
-			s = sfstruse(mp->tmp);
+			if (!(s = sfstruse(mp->tmp)))
+				goto nospace;
 		}
 		if (!*s || streq(s, "-"))
 			s = MAGIC_FILE;
@@ -2091,7 +2196,8 @@ magicload(register Magic_t* mp, const char* file, unsigned long flags)
 				{
 					strcpy(mp->fbuf, s);
 					sfprintf(mp->tmp, "%s/%s", MAGIC_DIR, mp->fbuf);
-					s = sfstruse(mp->tmp);
+					if (!(s = sfstruse(mp->tmp)))
+						goto nospace;
 					if (!(t = pathpath(mp->fbuf, s, "", PATH_REGULAR|PATH_READ)))
 						goto next;
 				}
@@ -2125,6 +2231,10 @@ magicload(register Magic_t* mp, const char* file, unsigned long flags)
 		return -1;
 	}
 	return 0;
+ nospace:
+	if (mp->disc->errorf)
+		(*mp->disc->errorf)(mp, mp->disc, 3, "out of space");
+	return -1;
 }
 
 /*
@@ -2234,7 +2344,8 @@ magictype(register Magic_t* mp, Sfio_t* fp, const char* file, register struct st
 				sfprintf(mp->tmp, ", setgid=%s", fmtgid(st->st_gid));
 			if (st->st_mode & S_ISVTX)
 				sfprintf(mp->tmp, ", sticky");
-			s = sfstruse(mp->tmp);
+			if (!(s = sfstruse(mp->tmp)))
+				s = T("out of space");
 		}
 	}
 	if (mp->flags & MAGIC_MIME)
@@ -2264,10 +2375,30 @@ magiclist(register Magic_t* mp, register Sfio_t* sp)
 		else
 			sfprintf(sp, "%ld", ep->offset);
 		sfprintf(sp, "\t%s%c\t%c\t%lo\t", ep->swap == (char)~3 ? "L" : ep->swap == (char)~0 ? "B" : "", ep->type, ep->op, ep->mask);
-		if (ep->type != 'm' && ep->type != 's')
-			sfprintf(sp, "%lo", ep->value.num);
-		else
+		switch (ep->type)
+		{
+		case 'm':
+		case 's':
 			sfputr(sp, fmtesc(ep->value.str), -1);
+			break;
+		case 'V':
+			switch (ep->op)
+			{
+			case 'l':
+				sfprintf(sp, "loop(%d,%d,%d,%d)", ep->value.loop->start, ep->value.loop->size, ep->value.loop->count, ep->value.loop->offset);
+				break;
+			case 'v':
+				sfprintf(sp, "vcodex()");
+				break;
+			default:
+				sfprintf(sp, "%p", ep->value.str);
+				break;
+			}
+			break;
+		default:
+			sfprintf(sp, "%lo", ep->value.num);
+			break;
+		}
 		sfprintf(sp, "\t%s\t%s\n", ep->mime ? ep->mime : "", fmtesc(ep->desc));
 		if (ep->cont == '$' && !ep->value.lab->mask)
 		{

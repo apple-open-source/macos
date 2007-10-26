@@ -217,7 +217,7 @@ cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
 
     range = CFRangeMake(0, CFStringGetLength(cfstr));
     n = CFStringGetBytes(cfstr, range, kCFStringEncodingUTF8,
-			 '?', TRUE, str, len, &l);
+			 '?', TRUE, (UInt8 *)str, len, &l);
     str[l] = '\0';
     return (l);
 }
@@ -531,7 +531,7 @@ initialize(const char * ifname, u_int16_t * attrs, int n_attrs)
 }
 
 void
-usage(u_char * progname)
+usage(const char * progname)
 {
     fprintf(stderr, "usage: %s <options>\n"
 	    "<options> are:\n"

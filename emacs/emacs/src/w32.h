@@ -2,7 +2,8 @@
 #define EMACS_W32_H
 
 /* Support routines for the NT version of Emacs.
-   Copyright (C) 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -18,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* File descriptor set emulation.  */
@@ -92,12 +93,14 @@ extern filedesc fd_info [ MAXDESC ];
 /* fd_info flag definitions */
 #define FILE_READ               0x0001
 #define FILE_WRITE              0x0002
+#define FILE_LISTEN		0x0004
 #define FILE_BINARY             0x0010
 #define FILE_LAST_CR            0x0020
 #define FILE_AT_EOF             0x0040
 #define FILE_SEND_SIGCHLD       0x0080
 #define FILE_PIPE               0x0100
 #define FILE_SOCKET             0x0200
+#define FILE_NDELAY             0x0400
 
 extern child_process * new_child (void);
 extern void delete_child (child_process *cp);
@@ -107,21 +110,40 @@ extern void delete_child (child_process *cp);
 /* Equivalent of strerror for W32 error codes.  */
 extern char * w32_strerror (int error_no);
 
+/* Validate a pointer.  */
+extern int w32_valid_pointer_p (void *, int);
+
 /* Get long (aka "true") form of file name, if it exists.  */
 extern BOOL w32_get_long_filename (char * name, char * buf, int size);
 
 /* Prepare our standard handles for proper inheritance by child processes.  */
-extern void prepare_standard_handles (int in, int out, 
+extern void prepare_standard_handles (int in, int out,
 				      int err, HANDLE handles[4]);
 
 /* Reset our standard handles to their original state.  */
-extern void reset_standard_handles (int in, int out, 
+extern void reset_standard_handles (int in, int out,
 				    int err, HANDLE handles[4]);
 
 /* Return the string resource associated with KEY of type TYPE.  */
 extern LPBYTE w32_get_resource (char * key, LPDWORD type);
 
-extern void init_ntproc ();
-extern void term_ntproc ();
+extern void init_ntproc (void);
+extern void term_ntproc (void);
+extern void globals_of_w32 (void);
+extern void syms_of_w32term (void);
+extern void syms_of_w32fns (void);
+extern void globals_of_w32fns (void);
+extern void syms_of_w32select (void);
+extern void globals_of_w32select (void);
+extern void term_w32select (void);
+extern void syms_of_w32menu (void);
+extern void globals_of_w32menu (void);
+extern void syms_of_fontset (void);
+
+extern int _sys_read_ahead (int fd);
+extern int _sys_wait_accept (int fd);
 
 #endif /* EMACS_W32_H */
+
+/* arch-tag: 02c36b00-312b-4c4d-a1d9-f905c5e968f0
+   (do not change this comment) */

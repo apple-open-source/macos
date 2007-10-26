@@ -1,38 +1,6 @@
-.\" Copyright (c) 1985, 1991 The Regents of the University of California.
-.\" All rights reserved.
+.\" Copyright (c) 2006 Apple Computer
 .\"
-.\" Redistribution and use in source and binary forms, with or without
-.\" modification, are permitted provided that the following conditions
-.\" are met:
-.\" 1. Redistributions of source code must retain the above copyright
-.\"    notice, this list of conditions and the following disclaimer.
-.\" 2. Redistributions in binary form must reproduce the above copyright
-.\"    notice, this list of conditions and the following disclaimer in the
-.\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
-.\"    may be used to endorse or promote products derived from this software
-.\"    without specific prior written permission.
-.\"
-.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
-.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-.\" SUCH DAMAGE.
-.\"
-.\"     from: @(#)floor.3	6.5 (Berkeley) 4/19/91
-.\"	$Id: complex.3,v 1.5 2004/12/20 21:35:44 scp Exp $
-.\"
-.Dd August 15, 2003
+.Dd October 10, 2006
 .Dt COMPLEX 3
 .Os
 .Sh NAME
@@ -41,146 +9,209 @@
 .Sh SYNOPSIS
 .Fd #include <complex.h>
 .Sh DESCRIPTION
-The following functions operate on complex floating-point values, as arguments and return values.
-Some use single-precision complex values,
-some use double-precision complex values, 
-and some use long double-precision complex values, as
-indicated. The functions conform to the ISO/IEC 9899:1999(E) standard. The function
-prototypes can be found in the header file complex.h.
+The header file complex.h provides function prototypes and macros for working with C99 complex
+floating-point values.  The functions conform to the ISO/IEC 9899:1999(E) standard.  In particular,
+arguments with infinite real or imaginary parts are regarded as infinities, even if the other
+part is a NaN.
 .Pp
-These are the functions that use single-precision complex values:
+complex.h defines the macro
+.Fa complex
+for use as a type specifier, and the macro 
+.Fa I
+to be the imaginary unit, which can be used to construct complex
+floating-point numbers from two real floating-point numbers.  For example:
+.Bd -literal -offset indent
+#include <complex.h>
+double complex z = 1.0 + 1.0 * I;  // z = 1 + i
+.Ed
 .Pp
-.Fn cabsf
+Each of the functions that use complex floating-point values are provided in single, double,
+and extended precision; the double precision prototypes are listed here.  The man pages for the
+individual functions provide more details on their use, special cases, and prototypes for their
+single and extended precision versions.
 .Pp
-.Fn cacosf
+The double-precision functions defined in complex.h are:
+.Pp 
+.Ft double
+.Fn creal "double complex z"
 .Pp
-.Fn cacoshf
-.Pp
-.Fn cargf
-.Pp
-.Fn casinf
-.Pp
-.Fn casinhf
-.Pp
-.Fn catanf
-.Pp
-.Fn catanhf
-.Pp
-.Fn ccosf
-.Pp
-.Fn ccoshf
-.Pp
-.Fn cexpf
-.Pp
-.Fn cimagf
-.Pp
-.Fn clogf
-.Pp
-.Fn conjf
-.Pp
-.Fn cpowf
-.Pp
-.Fn cprojf
-.Pp
-.Fn crealf
-.Pp
-.Fn csinf
-.Pp
-.Fn csinhf
-.Pp
-.Fn csqrtf
-.Pp
-.Fn ctanf
-.Pp
-.Fn ctanhf
-.Pp
-These are the functions that use double-precision complex values:
-.Pp
-.Fn cabs
-.Pp
-.Fn cacos
-.Pp
-.Fn cacosh
-.Pp
-.Fn carg
-.Pp
-.Fn casin
-.Pp
-.Fn casinh
-.Pp
-.Fn catan
-.Pp
-.Fn catanh
-.Pp
-.Fn ccos
-.Pp
-.Fn ccosh
-.Pp
-.Fn cexp
-.Pp
-.Fn cimag
-.Pp
-.Fn clog
-.Pp
-.Fn conj
-.Pp
-.Fn cpow
-.Pp
-.Fn cproj
+.Ft double
+.Fn cimag "double complex z"
 .Pp
 .Fn creal
+and
+.Fn cimag
+take a complex floating-point number and return its real and imaginary part,
+respectively, as real floating-point numbers.
 .Pp
-.Fn csin
+.Ft double
+.Fn cabs "double complex z"
 .Pp
-.Fn csinh
+.Ft double
+.Fn carg "double complex z"
+.Pp
+.Fn cabs
+and
+.Fn carg
+take a complex floating-point number and return its norm and argument (phase angle),
+respectively, as real floating-point numbers.  They are used to convert between
+rectangular and polar coordinates, and are fully specified in terms of real functions:
+.Bd -literal -offset indent
+cabs(x + iy) = hypot(x,y)
+.br
+carg(x + iy) = atan2(y,x)
+.Ed
+.Pp
+.Ft double complex
+.Fn conj "double complex z"
+.Pp
+.Fn conj
+takes a complex floating-point number and returns its complex conjugate.
+.Pp
+.Ft double complex
+.Fn cproj "double complex z"
+.Pp
+.Fn cproj
+takes a complex floating-point number and returns its projection onto the
+Riemann sphere, as defined in C99.  For non-infinite inputs, the return value is
+equal to the input value.
+.Pp
+.Ft double complex
+.Fn csqrt "double complex z"
 .Pp
 .Fn csqrt
+takes a complex floating-point number and returns its square root, with a branch cut on
+the negative real axis.
 .Pp
+.Ft double complex
+.Fn cexp "double complex z"
+.Pp
+.Ft double complex
+.Fn clog "double complex z"
+.Pp
+.Fn cexp
+and
+.Fn clog
+take a complex floating-point number and return its base-e exponential and logarithm,
+respectively.
+.Fn clog
+has a branch cut on the negative real axis.
+.Pp
+.Ft double complex
+.Fn cpow "double complex z" "double complex w"
+.Pp
+.Fn cpow
+takes two complex floating-point numbers, and returns the first raised to the power of the second,
+with a branch cut for the first parameter along the negative real axis.
+.Pp
+.Ft double complex
+.Fn csin "double complex z"
+.Pp
+.Ft double complex
+.Fn ccos "double complex z"
+.Pp
+.Ft double complex
+.Fn ctan "double complex z"
+.Pp
+.Fn csin ,
+.Fn ccos ,
+and
 .Fn ctan
+take a complex floating-point number and return its sine, cosine, and tangent, respectively.
 .Pp
+.Ft double complex
+.Fn casin "double complex z"
+.Pp
+.Ft double complex
+.Fn cacos "double complex z"
+.Pp
+.Ft double complex
+.Fn catan "double complex z"
+.Pp
+.Fn casin ,
+.Fn cacos ,
+and
+.Fn catan
+take a complex floating-point number and return its inverse sine, cosine, and tangent, respectively.
+.Pp
+.Fn casin
+and
+.Fn cacos
+have branch cuts outside the interval
+.Bq -1, 1
+on the real axis,
+and
+.Fn catan
+has a branch cut outside the interval
+.Bq -i, i
+on the imaginary axis.
+.Pp
+.Ft double complex
+.Fn csinh "double complex z"
+.Pp
+.Ft double complex
+.Fn ccosh "double complex z"
+.Pp
+.Ft double complex
+.Fn ctanh "double complex z"
+.Pp
+.Fn csinh ,
+.Fn ccosh ,
+and
 .Fn ctanh
-These are the functions that use long double-precision complex values:
+take a complex floating-point number and return its hyperbolic sine, cosine, and tangent, respectively.
 .Pp
-.Fn cabsl
+.Ft double complex
+.Fn casinh "double complex z"
 .Pp
-.Fn cacosl
+.Ft double complex
+.Fn cacosh "double complex z"
 .Pp
-.Fn cacoshl
+.Ft double complex
+.Fn catanh "double complex z"
 .Pp
-.Fn cargl
+.Fn casinh ,
+.Fn cacosh ,
+and
+.Fn catanh
+take a complex floating-point number and return its inverse hyperbolic sine, cosine, and tangent, respectively.
 .Pp
-.Fn casinl
-.Pp
-.Fn casinhl
-.Pp
-.Fn catanl
-.Pp
-.Fn catanhl
-.Pp
-.Fn ccosl
-.Pp
-.Fn ccoshl
-.Pp
-.Fn cexpl
-.Pp
-.Fn cimagl
-.Pp
-.Fn clogl
-.Pp
-.Fn conjl
-.Pp
-.Fn cpowl
-.Pp
-.Fn cprojl
-.Pp
-.Fn creall
-.Pp
-.Fn csinl
-.Pp
-.Fn csinhl
-.Pp
-.Fn csqrtl
-.Pp
-.Fn ctanl
-.Pp
-.Fn ctanhl
+.Fn casinh
+has a branch cut outside the interval
+.Bq -i, i
+on the imaginary axis.
+.Fn cacosh
+has a branch cut at values less than 1 on the real axis.
+.Fn catanh
+has a branch cut outside the interval
+.Bq -1, 1
+on the real axis.
+.Sh NOTE
+Note that the complex math functions are not, in general, equivalent to their real counterparts for inputs on the
+real axis.  For example, csqrt(-1 + 0i) is 0 + i, whereas sqrt(-1) is NaN.
+.Sh SEE ALSO
+.Xr cabs 3 ,
+.Xr cacos 3 ,
+.Xr cacosh 3 ,
+.Xr carg 3 ,
+.Xr casin 3 ,
+.Xr casinh 3 ,
+.Xr catan 3 ,
+.Xr catanh 3 ,
+.Xr ccos 3 ,
+.Xr ccosh 3 ,
+.Xr cexp 3 ,
+.Xr cimag 3 ,
+.Xr clog 3 ,
+.Xr conj 3 ,
+.Xr cpow 3 ,
+.Xr cproj 3 ,
+.Xr creal 3 ,
+.Xr csin 3 ,
+.Xr csinh 3 ,
+.Xr csqrt 3 ,
+.Xr ctan 3 ,
+.Xr ctanh 3 ,
+.Xr math 3
+.Sh STANDARDS
+The <complex.h> functions conform to ISO/IEC 9899:1999(E).

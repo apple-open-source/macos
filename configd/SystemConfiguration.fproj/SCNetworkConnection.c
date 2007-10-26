@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,8 +31,6 @@
  * - initial revision
  */
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
@@ -61,16 +59,18 @@
 #include "pppcontroller.h"
 #include <ppp/pppcontroller_types.h>
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
+
 
 typedef struct {
 
 	/* base CFType information */
 	CFRuntimeBase			cfBase;
 
-	/* service ID */
-	CFStringRef			serviceID;
+	/* lock */
+	pthread_mutex_t			lock;
+
+	/* service */
+	SCNetworkServiceRef		service;
 
 	/* ref to PPP controller for control messages */
 	mach_port_t			session_port;
@@ -89,8 +89,6 @@ typedef struct {
 
 } SCNetworkConnectionPrivate, *SCNetworkConnectionPrivateRef;
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 static __inline__ CFTypeRef
 isA_SCNetworkConnection(CFTypeRef obj)
@@ -98,8 +96,6 @@ isA_SCNetworkConnection(CFTypeRef obj)
 	return (isA_CFType(obj, SCNetworkConnectionGetTypeID()));
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 static CFStringRef
 __SCNetworkConnectionCopyDescription(CFTypeRef cf)
@@ -109,15 +105,16 @@ __SCNetworkConnectionCopyDescription(CFTypeRef cf)
 	CFMutableStringRef		result;
 
 	result = CFStringCreateMutable(allocator, 0);
-	CFStringAppendFormat(result, NULL, CFSTR("<SCNetworkConnection, %p [%p]> {\n"), cf, allocator);
-	CFStringAppendFormat(result, NULL, CFSTR("   serviceID = %@ \n"), connectionPrivate->serviceID);
+	CFStringAppendFormat(result, NULL, CFSTR("<SCNetworkConnection, %p [%p]> {"), cf, allocator);
+	CFStringAppendFormat(result, NULL, CFSTR("service = %p"), connectionPrivate->service);
+	if (connectionPrivate->session_port != MACH_PORT_NULL) {
+		CFStringAppendFormat(result, NULL, CFSTR(", server port = %p"), connectionPrivate->session_port);
+	}
 	CFStringAppendFormat(result, NULL, CFSTR("}"));
 
 	return result;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 static void
 __SCNetworkConnectionDeallocate(CFTypeRef cf)
@@ -129,6 +126,8 @@ __SCNetworkConnectionDeallocate(CFTypeRef cf)
 	}
 
 	/* release resources */
+	pthread_mutex_destroy(&connectionPrivate->lock);
+
 	if (connectionPrivate->rlList != NULL) {
 		CFRunLoopSourceInvalidate(connectionPrivate->rls);
 		CFRelease(connectionPrivate->rls);
@@ -146,14 +145,11 @@ __SCNetworkConnectionDeallocate(CFTypeRef cf)
 	if (connectionPrivate->rlsContext.release != NULL)
 		(*connectionPrivate->rlsContext.release)(connectionPrivate->rlsContext.info);
 
-	if (connectionPrivate->serviceID)
-		CFRelease(connectionPrivate->serviceID);
+	CFRelease(connectionPrivate->service);
 
 	return;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 static pthread_once_t initialized		= PTHREAD_ONCE_INIT;
 
@@ -171,8 +167,6 @@ static const CFRuntimeClass __SCNetworkConnectionClass = {
 	__SCNetworkConnectionCopyDescription	// copyDebugDesc
 };
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 static void
 __SCNetworkConnectionInitialize(void)
@@ -181,11 +175,9 @@ __SCNetworkConnectionInitialize(void)
 	return;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 static SCNetworkConnectionStatus
-__SCNetworkConnectionConvertStatus (int state)
+__SCNetworkConnectionConvertStatus(int state)
 {
 	SCNetworkConnectionStatus	status = kSCNetworkConnectionDisconnected;
 
@@ -216,8 +208,6 @@ __SCNetworkConnectionConvertStatus (int state)
 	return status;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 static void
 __SCNetworkConnectionCallBack(CFMachPortRef port, void * msg, CFIndex size, void * info)
@@ -267,37 +257,38 @@ __SCNetworkConnectionCallBack(CFMachPortRef port, void * msg, CFIndex size, void
 	return;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
+
+#pragma mark -
+#pragma mark SCNetworkConnection APIs
+
+
+static CFStringRef
+pppMPCopyDescription(const void *info)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)info;
+
+	return CFStringCreateWithFormat(NULL,
+					NULL,
+					CFSTR("<SCNetworkConnection MP %p> {service = %@, callout = %p}"),
+					connectionPrivate,
+					connectionPrivate->service,
+					connectionPrivate->rlsFunction);
+}
+
+
 static SCNetworkConnectionPrivateRef
 __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
-				   CFStringRef			serviceID,
+				   SCNetworkServiceRef		service,
 				   SCNetworkConnectionCallBack	callout,
 				   SCNetworkConnectionContext	*context)
 {
-	boolean_t			active;
 	SCNetworkConnectionPrivateRef	connectionPrivate	= NULL;
-	void				*data;
-	CFIndex				dataLen;
-	CFDataRef			dataRef			= NULL;
 	char				*envdebug;
-	int				error			= kSCStatusFailed;
-	CFMachPortContext		mach_context		= {0, NULL, NULL, NULL, NULL};
-	mach_port_t			notify_port		= MACH_PORT_NULL;
-	mach_port_t			port_old;
-	mach_port_t			server;
 	uint32_t			size;
-	kern_return_t			status;
-	mach_port_t			unpriv_bootstrap_port;
+
 
 	/* initialize runtime */
 	pthread_once(&initialized, __SCNetworkConnectionInitialize);
-
-	if ((bootstrap_status (bootstrap_port, PPPCONTROLLER_SERVER, &active) != BOOTSTRAP_SUCCESS) ||
-	    (bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER, &server) != BOOTSTRAP_SUCCESS)) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("PPP Controller server not found"));
-		goto fail;
-	}
 
 	/* allocate NetworkConnection */
 	size = sizeof(SCNetworkConnectionPrivate) - sizeof(CFRuntimeBase);
@@ -309,8 +300,10 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 	/* zero the data structure */
 	bzero(((u_char*)connectionPrivate)+sizeof(CFRuntimeBase), size);
 
-	/* save the serviceID */
-	connectionPrivate->serviceID = CFStringCreateCopy(NULL, serviceID);
+	pthread_mutex_init(&connectionPrivate->lock, NULL);
+
+	/* save the service */
+	connectionPrivate->service = CFRetain(service);
 
 	/* get the debug environment variable */
 	envdebug = getenv("PPPDebug");
@@ -319,23 +312,7 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 			connectionPrivate->debug = 1; /* PPPDebug value is invalid, set debug to 1 */
 	}
 
-	if (callout != NULL) {
-		connectionPrivate->rlsFunction = callout;
-
-		mach_context.info = (void*)connectionPrivate;
-		connectionPrivate->notify_port = CFMachPortCreate(NULL, __SCNetworkConnectionCallBack, &mach_context, NULL);
-		if (connectionPrivate->notify_port == NULL) {
-			goto fail;
-		}
-
-		notify_port = CFMachPortGetPort(connectionPrivate->notify_port);
-		status = mach_port_request_notification(mach_task_self(),
-							notify_port, MACH_NOTIFY_NO_SENDERS, 1,
-							notify_port, MACH_MSG_TYPE_MAKE_SEND_ONCE, &port_old);
-		if (status != KERN_SUCCESS) {
-			goto fail;
-		}
-	}
+	connectionPrivate->rlsFunction = callout;
 
 	if (context) {
 		bcopy(context, &connectionPrivate->rlsContext, sizeof(SCNetworkConnectionContext));
@@ -344,32 +321,8 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 		}
 	}
 
-	if (!_SCSerializeString(serviceID, &dataRef, &data, &dataLen)) {
-		goto fail;
-	}
-
-	status = bootstrap_unprivileged(bootstrap_port, &unpriv_bootstrap_port);
-	if (status != BOOTSTRAP_SUCCESS) {
-		goto fail;
-	}
-
-	status = pppcontroller_attach(server, data, dataLen, unpriv_bootstrap_port, notify_port,
-				      &connectionPrivate->session_port, &error);
-
-	mach_port_deallocate(mach_task_self(), unpriv_bootstrap_port);
-	CFRelease(dataRef);
-	dataRef = NULL;
-
-	if (status != KERN_SUCCESS) {
-		goto fail;
-	}
-
-	if (error != kSCStatusOK) {
-		goto fail;
-	}
-
 	if (connectionPrivate->debug) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionCreate (0x%x) succeeded for service ID: %@"), connectionPrivate, serviceID);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionCreate (0x%x) succeeded for service : %@"), connectionPrivate, service);
 	}
 
 	/* success, return the connection reference */
@@ -377,21 +330,109 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 
     fail:
 
+	if (connectionPrivate->debug)
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionCreate (0x%x) failed for service : %@"), connectionPrivate, service);
 
 	/* failure, clean up and leave */
 	if (connectionPrivate != NULL) {
-		if (connectionPrivate->debug)
-			SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionCreate (0x%x) failed for service ID: %@"), connectionPrivate, serviceID);
 		CFRelease(connectionPrivate);
 	}
 
-	if (dataRef)		CFRelease(dataRef);
-	_SCErrorSet(error);
+	_SCErrorSet(kSCStatusFailed);
 	return NULL;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
+
+static mach_port_t
+__SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate)
+{
+	void		*data;
+	CFIndex		dataLen;
+	CFDataRef	dataRef			= NULL;
+	int		error			= kSCStatusFailed;
+	mach_port_t	notify_port		= MACH_PORT_NULL;
+	mach_port_t	port_old		= MACH_PORT_NULL;
+	mach_port_t	server			= MACH_PORT_NULL;
+	kern_return_t	status;
+	mach_port_t	unpriv_bootstrap_port	= MACH_PORT_NULL;
+
+	if (connectionPrivate->session_port != MACH_PORT_NULL) {
+		return connectionPrivate->session_port;
+	}
+
+	pthread_mutex_lock(&connectionPrivate->lock);
+
+	if (bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER, &server) != BOOTSTRAP_SUCCESS) {
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("PPP Controller server not found"));
+		goto done;
+	}
+
+	if (!_SCSerializeString(SCNetworkServiceGetServiceID(connectionPrivate->service), &dataRef, &data, &dataLen)) {
+		goto done;
+	}
+
+	status = bootstrap_unprivileged(bootstrap_port, &unpriv_bootstrap_port);
+	if (status != BOOTSTRAP_SUCCESS) {
+		goto done;
+	}
+
+	if (connectionPrivate->rlsFunction != NULL) {
+		CFMachPortContext	context	= { 0
+			, (void *)connectionPrivate
+			, NULL
+			, NULL
+			, pppMPCopyDescription
+		};
+
+		/* allocate port (for server response) */
+		connectionPrivate->notify_port = CFMachPortCreate(NULL, __SCNetworkConnectionCallBack, &context, NULL);
+
+		/* request a notification when/if the server dies */
+		notify_port = CFMachPortGetPort(connectionPrivate->notify_port);
+		status = mach_port_request_notification(mach_task_self(),
+							notify_port,
+							MACH_NOTIFY_NO_SENDERS,
+							1,
+							notify_port,
+							MACH_MSG_TYPE_MAKE_SEND_ONCE,
+							&port_old);
+		if (status != KERN_SUCCESS) {
+			goto done;
+		}
+	}
+
+	status = pppcontroller_attach(server, data, dataLen, unpriv_bootstrap_port, notify_port,
+				      &connectionPrivate->session_port, &error);
+	if (status != KERN_SUCCESS) {
+		error = kSCStatusFailed;
+	}
+
+    done :
+
+	if (dataRef != NULL)	CFRelease(dataRef);
+
+	if (unpriv_bootstrap_port != MACH_PORT_NULL) {
+		mach_port_deallocate(mach_task_self(), unpriv_bootstrap_port);
+	}
+
+	if (error != kSCStatusOK) {
+		if (connectionPrivate->session_port != MACH_PORT_NULL) {
+			mach_port_destroy(mach_task_self(), connectionPrivate->session_port);
+			connectionPrivate->session_port = MACH_PORT_NULL;
+		}
+		if (connectionPrivate->notify_port != NULL) {
+			CFMachPortInvalidate(connectionPrivate->notify_port);
+			CFRelease(connectionPrivate->notify_port);
+			connectionPrivate->notify_port = NULL;
+		}
+		_SCErrorSet(error);
+	}
+
+	pthread_mutex_unlock(&connectionPrivate->lock);
+
+	return connectionPrivate->session_port;
+}
+
 
 CFTypeID
 SCNetworkConnectionGetTypeID(void) {
@@ -399,8 +440,72 @@ SCNetworkConnectionGetTypeID(void) {
 	return __kSCNetworkConnectionTypeID;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
+
+CFArrayRef /* of SCNetworkServiceRef's */
+SCNetworkConnectionCopyAvailableServices(SCNetworkSetRef set)
+{
+	CFMutableArrayRef	available;
+	Boolean			tempSet	= FALSE;
+
+	if (set == NULL) {
+		SCPreferencesRef	prefs;
+
+		prefs = SCPreferencesCreate(NULL, CFSTR("SCNetworkConnectionCopyAvailableServices"), NULL);
+		set   = SCNetworkSetCopyCurrent(prefs);
+		CFRelease(prefs);
+		tempSet = TRUE;
+	}
+
+	available = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	if (set != NULL) {
+		CFArrayRef	services;
+
+		services = SCNetworkSetCopyServices(set);
+		if (services != NULL) {
+			CFIndex		i;
+			CFIndex		n;
+
+			n = CFArrayGetCount(services);
+			for (i = 0; i < n; i++) {
+				SCNetworkInterfaceRef	interface;
+				CFStringRef		interfaceType;
+				SCNetworkServiceRef	service;
+
+				service       = CFArrayGetValueAtIndex(services, i);
+				interface     = SCNetworkServiceGetInterface(service);
+				interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+				if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPP)) {
+					CFArrayAppendValue(available, service);
+				}
+			}
+
+			CFRelease(services);
+		}
+	}
+
+	if (tempSet)	CFRelease(set);
+	return available;
+}
+
+
+SCNetworkConnectionRef
+SCNetworkConnectionCreateWithService(CFAllocatorRef			allocator,
+				     SCNetworkServiceRef		service,
+				     SCNetworkConnectionCallBack	callout,
+				     SCNetworkConnectionContext		*context)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate;
+
+	if (!isA_SCNetworkService(service)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	connectionPrivate = __SCNetworkConnectionCreatePrivate(allocator, service, callout, context);
+	return (SCNetworkConnectionRef)connectionPrivate;
+}
+
 
 SCNetworkConnectionRef
 SCNetworkConnectionCreateWithServiceID(CFAllocatorRef			allocator,
@@ -408,34 +513,48 @@ SCNetworkConnectionCreateWithServiceID(CFAllocatorRef			allocator,
 				       SCNetworkConnectionCallBack	callout,
 				       SCNetworkConnectionContext	*context)
 {
-	SCNetworkConnectionPrivateRef	connectionPrivate;
+	SCNetworkConnectionRef	connection;
+	SCPreferencesRef	prefs;
+	SCNetworkServiceRef	service;
 
 	if (!isA_CFString(serviceID)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
 
-	connectionPrivate = __SCNetworkConnectionCreatePrivate(allocator, serviceID, callout, context);
+	prefs = SCPreferencesCreate(NULL, CFSTR("SCNetworkConnectionCreateWithServiceID"), NULL);
+	if (prefs == NULL) {
+		return NULL;
+	}
 
-	return (SCNetworkConnectionRef)connectionPrivate;
+	service = SCNetworkServiceCopy(prefs, serviceID);
+	CFRelease(prefs);
+	if (service == NULL) {
+		return NULL;
+	}
+
+	connection = SCNetworkConnectionCreateWithService(allocator, service, callout, context);
+	CFRelease(service);
+
+	return connection;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 CFStringRef
 SCNetworkConnectionCopyServiceID(SCNetworkConnectionRef connection)
 {
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+	CFStringRef			serviceID;
+
 	if (!isA_SCNetworkConnection(connection)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return NULL;
 	}
 
-	return CFRetain(((SCNetworkConnectionPrivateRef)connection)->serviceID);
+	serviceID = SCNetworkServiceGetServiceID(connectionPrivate->service);
+	return CFRetain(serviceID);
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 CFDictionaryRef
 SCNetworkConnectionCopyStatistics(SCNetworkConnectionRef connection)
@@ -444,6 +563,7 @@ SCNetworkConnectionCopyStatistics(SCNetworkConnectionRef connection)
 	xmlDataOut_t			data			= NULL;
 	mach_msg_type_number_t		datalen;
 	int				error			= kSCStatusFailed;
+	mach_port_t			session_port;
 	CFPropertyListRef		statistics		= NULL;
 	kern_return_t			status;
 
@@ -452,7 +572,13 @@ SCNetworkConnectionCopyStatistics(SCNetworkConnectionRef connection)
 		return NULL;
 	}
 
-	status = pppcontroller_copystatistics(connectionPrivate->session_port, &data, &datalen, &error);
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	status = pppcontroller_copystatistics(session_port, &data, &datalen, &error);
 	if (status != KERN_SUCCESS) {
 		goto fail;
 	}
@@ -476,8 +602,20 @@ SCNetworkConnectionCopyStatistics(SCNetworkConnectionRef connection)
 	return NULL;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
+
+SCNetworkServiceRef
+SCNetworkConnectionGetService(SCNetworkConnectionRef connection)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+
+	if (!isA_SCNetworkConnection(connection)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	return connectionPrivate->service;
+}
+
 
 SCNetworkConnectionStatus
 SCNetworkConnectionGetStatus(SCNetworkConnectionRef connection)
@@ -486,6 +624,7 @@ SCNetworkConnectionGetStatus(SCNetworkConnectionRef connection)
 	int				error			= kSCStatusFailed;
 	int				phase;
 	SCNetworkConnectionStatus	scstatus;
+	mach_port_t			session_port;
 	kern_return_t			status;
 
 	if (!isA_SCNetworkConnection(connection)) {
@@ -493,7 +632,13 @@ SCNetworkConnectionGetStatus(SCNetworkConnectionRef connection)
 		return kSCNetworkConnectionInvalid;
 	}
 
-	status = pppcontroller_getstatus(connectionPrivate->session_port, &phase, &error);
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return kSCNetworkConnectionInvalid;
+	}
+
+	status = pppcontroller_getstatus(session_port, &phase, &error);
 	if ((status != KERN_SUCCESS) || (error != kSCStatusOK)) {
 		return kSCNetworkConnectionDisconnected;
 	}
@@ -502,8 +647,6 @@ SCNetworkConnectionGetStatus(SCNetworkConnectionRef connection)
 	return scstatus;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 CFDictionaryRef
 SCNetworkConnectionCopyExtendedStatus(SCNetworkConnectionRef connection)
@@ -513,6 +656,7 @@ SCNetworkConnectionCopyExtendedStatus(SCNetworkConnectionRef connection)
 	mach_msg_type_number_t		datalen;
 	int				error			= kSCStatusFailed;
 	CFPropertyListRef		extstatus		= NULL;
+	mach_port_t			session_port;
 	kern_return_t			status;
 
 	if (!isA_SCNetworkConnection(connection)) {
@@ -520,7 +664,13 @@ SCNetworkConnectionCopyExtendedStatus(SCNetworkConnectionRef connection)
 		return NULL;
 	}
 
-	status = pppcontroller_copyextendedstatus(connectionPrivate->session_port, &data, &datalen, &error);
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	status = pppcontroller_copyextendedstatus(session_port, &data, &datalen, &error);
 	if (status != KERN_SUCCESS) {
 		goto fail;
 	}
@@ -544,8 +694,6 @@ SCNetworkConnectionCopyExtendedStatus(SCNetworkConnectionRef connection)
 	return NULL;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 Boolean
 SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
@@ -557,6 +705,7 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 	void				*data			= NULL;
 	CFIndex				datalen			= 0;
 	int				error			= kSCStatusFailed;
+	mach_port_t			session_port;
 	kern_return_t			status;
 
 	if (!isA_SCNetworkConnection(connection)) {
@@ -564,58 +713,76 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 		return FALSE;
 	}
 
+	if ((userOptions != NULL) && !isA_CFDictionary(userOptions)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	if (connectionPrivate->debug) {
-		CFMutableDictionaryRef	mdict = NULL, mdict1;
-		CFDictionaryRef	dict;
+		CFMutableDictionaryRef	mdict = NULL;
 
 		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionStart (0x%x)"), connectionPrivate);
 
-		if (userOptions) {
+		if (userOptions != NULL) {
+			CFDictionaryRef		dict;
+			CFStringRef		encryption;
+			CFMutableDictionaryRef	new_dict;
+
 			/* special code to remove secret information */
-			mdict = CFDictionaryCreateMutableCopy(0, 0, userOptions);
-			if (mdict) {
-				dict = CFDictionaryGetValue(mdict, kSCEntNetPPP);
-				if (isA_CFDictionary(dict)) {
-					mdict1 = CFDictionaryCreateMutableCopy(0, 0, dict);
-					if (mdict1) {
-						CFDictionaryReplaceValue(mdict1, kSCPropNetPPPAuthPassword, CFSTR("******"));
-						CFDictionarySetValue(mdict, kSCEntNetPPP, mdict1);
-						CFRelease(mdict1);
-					}
-				}
+			mdict = CFDictionaryCreateMutableCopy(NULL, 0, userOptions);
 
-				dict = CFDictionaryGetValue(mdict, kSCEntNetL2TP);
-				if (isA_CFDictionary(dict)) {
-					mdict1 = CFDictionaryCreateMutableCopy(0, 0, dict);
-					if (mdict1) {
-						CFDictionaryReplaceValue(mdict1, kSCPropNetL2TPIPSecSharedSecret, CFSTR("******"));
-						CFDictionarySetValue(mdict, kSCEntNetL2TP, mdict1);
-						CFRelease(mdict1);
-					}
+			dict = CFDictionaryGetValue(mdict, kSCEntNetPPP);
+			if (isA_CFDictionary(dict)) {
+				encryption = CFDictionaryGetValue(dict, kSCPropNetPPPAuthPasswordEncryption);
+				if (!isA_CFString(encryption) ||
+				    !CFEqual(encryption, kSCValNetPPPAuthPasswordEncryptionKeychain)) {
+					new_dict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+					CFDictionaryReplaceValue(new_dict, kSCPropNetPPPAuthPassword, CFSTR("******"));
+					CFDictionarySetValue(mdict, kSCEntNetPPP, new_dict);
+					CFRelease(new_dict);
 				}
+			}
 
-				dict = CFDictionaryGetValue(mdict, kSCEntNetIPSec);
-				if (isA_CFDictionary(dict)) {
-					mdict1 = CFDictionaryCreateMutableCopy(0, 0, dict);
-					if (mdict1) {
-						CFDictionaryReplaceValue(mdict1, kSCPropNetIPSecSharedSecret, CFSTR("******"));
-						CFDictionarySetValue(mdict, kSCEntNetIPSec, mdict1);
-						CFRelease(mdict1);
-					}
+			dict = CFDictionaryGetValue(mdict, kSCEntNetL2TP);
+			if (isA_CFDictionary(dict)) {
+				encryption = CFDictionaryGetValue(dict, kSCPropNetL2TPIPSecSharedSecretEncryption);
+				if (!isA_CFString(encryption) ||
+				    !CFEqual(encryption, kSCValNetL2TPIPSecSharedSecretEncryptionKeychain)) {
+					new_dict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+					CFDictionaryReplaceValue(new_dict, kSCPropNetL2TPIPSecSharedSecret, CFSTR("******"));
+					CFDictionarySetValue(mdict, kSCEntNetL2TP, new_dict);
+					CFRelease(new_dict);
+				}
+			}
+
+			dict = CFDictionaryGetValue(mdict, kSCEntNetIPSec);
+			if (isA_CFDictionary(dict)) {
+				encryption = CFDictionaryGetValue(dict, kSCPropNetIPSecSharedSecretEncryption);
+				if (!isA_CFString(encryption) ||
+				    !CFEqual(encryption, kSCValNetIPSecSharedSecretEncryptionKeychain)) {
+					new_dict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+					CFDictionaryReplaceValue(new_dict, kSCPropNetIPSecSharedSecret, CFSTR("******"));
+					CFDictionarySetValue(mdict, kSCEntNetIPSec, new_dict);
+					CFRelease(new_dict);
 				}
 			}
 		}
 
 		SCLog(TRUE, LOG_DEBUG, CFSTR("User options: %@"), mdict);
-		if (mdict)
-			CFRelease(mdict);
+		if (mdict != NULL) CFRelease(mdict);
 	}
 
 	if (userOptions && !_SCSerialize(userOptions, &dataref, &data, &datalen)) {
 		goto fail;
 	}
 
-	status = pppcontroller_start(connectionPrivate->session_port, data, datalen, linger, &error);
+	status = pppcontroller_start(session_port, data, datalen, linger, &error);
 	if (status != KERN_SUCCESS) {
 		goto fail;
 	}
@@ -642,8 +809,6 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 	return FALSE;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 Boolean
 SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
@@ -651,6 +816,7 @@ SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
 	int				error			= kSCStatusFailed;
+	mach_port_t			session_port;
 	kern_return_t			status;
 
 	if (!isA_SCNetworkConnection(connection)) {
@@ -658,10 +824,16 @@ SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
 		return FALSE;
 	}
 
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	if (connectionPrivate->debug)
 		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionStop (0x%x)"), connectionPrivate);
 
-	status = pppcontroller_stop(connectionPrivate->session_port, forceDisconnect, &error);
+	status = pppcontroller_stop(session_port, forceDisconnect, &error);
 	if (status != KERN_SUCCESS) {
 		goto fail;
 	}
@@ -682,14 +854,13 @@ SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
 	return FALSE;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 Boolean
 SCNetworkConnectionSuspend(SCNetworkConnectionRef connection)
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
 	int				error			= kSCStatusFailed;
+	mach_port_t			session_port;
 	kern_return_t			status;
 
 	if (!isA_SCNetworkConnection(connection)) {
@@ -697,10 +868,16 @@ SCNetworkConnectionSuspend(SCNetworkConnectionRef connection)
 		return FALSE;
 	}
 
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	if (connectionPrivate->debug)
 		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionSuspend (0x%x)"), connectionPrivate);
 
-	status = pppcontroller_suspend(connectionPrivate->session_port, &error);
+	status = pppcontroller_suspend(session_port, &error);
 	if (status != KERN_SUCCESS) {
 		goto fail;
 	}
@@ -721,14 +898,13 @@ SCNetworkConnectionSuspend(SCNetworkConnectionRef connection)
 	return FALSE;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 Boolean
 SCNetworkConnectionResume(SCNetworkConnectionRef connection)
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
 	int				error			= kSCStatusFailed;
+	mach_port_t			session_port;
 	kern_return_t			status;
 
 	if (!isA_SCNetworkConnection(connection)) {
@@ -736,10 +912,16 @@ SCNetworkConnectionResume(SCNetworkConnectionRef connection)
 		return FALSE;
 	}
 
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	if (connectionPrivate->debug)
 		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionResume (0x%x)"), connectionPrivate);
 
-	status = pppcontroller_resume(connectionPrivate->session_port, &error);
+	status = pppcontroller_resume(session_port, &error);
 	if (status != KERN_SUCCESS) {
 		goto fail;
 	}
@@ -760,8 +942,6 @@ SCNetworkConnectionResume(SCNetworkConnectionRef connection)
 	return FALSE;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 CFDictionaryRef
 SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
@@ -770,6 +950,7 @@ SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
 	xmlDataOut_t			data			= NULL;
 	mach_msg_type_number_t		datalen;
 	int				error			= kSCStatusFailed;
+	mach_port_t			session_port;
 	kern_return_t			status;
 	CFPropertyListRef 		userOptions		= NULL;
 
@@ -778,7 +959,13 @@ SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
 		return NULL;
 	}
 
-	status = pppcontroller_copyuseroptions(connectionPrivate->session_port, &data, &datalen, &error);
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	status = pppcontroller_copyuseroptions(session_port, &data, &datalen, &error);
 	if (status != KERN_SUCCESS) {
 		goto fail;
 	}
@@ -812,8 +999,6 @@ SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
 	return NULL;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 Boolean
 SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
@@ -822,6 +1007,7 @@ SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
 	int				error			= kSCStatusFailed;
+	mach_port_t			session_port;
 	kern_return_t			status;
 
 	if (!isA_SCNetworkConnection(connection) || runLoop == NULL || runLoopMode == NULL) {
@@ -841,8 +1027,14 @@ SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 		return FALSE;
 	}
 
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	if (connectionPrivate->rlList == NULL) {
-		status = pppcontroller_notification(connectionPrivate->session_port, 1, &error);
+		status = pppcontroller_notification(session_port, 1, &error);
 		if ((status != KERN_SUCCESS) || (error != kSCStatusOK)) {
 			_SCErrorSet(error);
 			return FALSE;
@@ -858,8 +1050,6 @@ SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 	return TRUE;
 }
 
-/* -------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------- */
 
 Boolean
 SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef		connection,
@@ -868,6 +1058,7 @@ SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef		connection,
 {
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
 	int				error			= kSCStatusFailed;
+	mach_port_t			session_port;
 	kern_return_t			status;
 
 	if (!isA_SCNetworkConnection(connection) || runLoop == NULL || runLoopMode == NULL) {
@@ -882,6 +1073,12 @@ SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef		connection,
 		return FALSE;
 	}
 
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	CFRunLoopRemoveSource(runLoop, connectionPrivate->rls, runLoopMode);
 
 	if (CFArrayGetCount(connectionPrivate->rlList) == 0) {
@@ -890,7 +1087,7 @@ SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef		connection,
 		CFRelease(connectionPrivate->rlList);
 		connectionPrivate->rlList = NULL;
 
-		status = pppcontroller_notification(connectionPrivate->session_port, 0, &error);
+		status = pppcontroller_notification(session_port, 0, &error);
 		if ((status != KERN_SUCCESS) || (error != kSCStatusOK)) {
 			_SCErrorSet(error);
 			return FALSE;
@@ -901,7 +1098,8 @@ SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef		connection,
 }
 
 
-//************************* USER LEVEL DIAL API **********************************
+#pragma mark -
+#pragma mark User level "dial" API
 
 
 #define k_NetworkConnect_Notification	"com.apple.networkConnect"
@@ -983,6 +1181,7 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 	Boolean			success		= FALSE;
 	int			status;
 
+
 	envdebug = getenv("PPPDebug");
 	if (envdebug) {
 		if (sscanf(envdebug, "%d", &debug) != 1)
@@ -1003,8 +1202,6 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 		notify_check(notify_userprefs_token, &prefsChanged);
 
 
-	// NOTE:  we are currently ignoring selectionOptions
-
 	*serviceID = NULL;
 	*userOptions = NULL;
 
@@ -1014,7 +1211,7 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 		return FALSE;
 	}
 
-	if (selectionOptions) {
+	if (selectionOptions != NULL) {
 		Boolean		catchAllFound	= FALSE;
 		CFIndex		catchAllService	= 0;
 		CFIndex		catchAllConfig	= 0;
@@ -1209,6 +1406,7 @@ SCNetworkConnectionPrivateCopyDefaultServiceIDForDial(SCDynamicStoreRef session,
 {
 	Boolean			foundService		= FALSE;
 	CFPropertyListRef	lastServiceSelectedInIC = NULL;
+
 
 
 	// we found the service the user last had open in IC
@@ -1433,7 +1631,8 @@ addPasswordFromKeychain(SCDynamicStoreRef session, CFStringRef serviceID, CFDict
 
 
 			/* set the PPP password */
-			CFDictionarySetValue(newEntity, kSCPropNetPPPAuthPassword, password);
+			CFDictionarySetValue(newEntity, kSCPropNetPPPAuthPassword, uniqueID);
+			CFDictionarySetValue(newEntity, kSCPropNetPPPAuthPasswordEncryption, kSCValNetPPPAuthPasswordEncryptionKeychain);
 			CFRelease(password);
 
 			/* update the PPP entity */
@@ -1504,7 +1703,9 @@ copyPasswordFromKeychain(CFStringRef uniqueID)
 						    (void *)&data);	// outData
 		if ((result == noErr) && (data != NULL) && (dataLen > 0)) {
 			password = CFStringCreateWithBytes(NULL, data, dataLen, kCFStringEncodingUTF8, TRUE);
+			(void) SecKeychainItemFreeContent(NULL, data);
 		}
+
 	}
 
 	CFRelease(enumerator);

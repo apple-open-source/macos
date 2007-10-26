@@ -229,7 +229,9 @@ EAPIPAGES = EXSLT/APIconstructors.html EXSLT/APIfiles.html \
 EXTRA_DIST = \
 	api.xsl			\
 	apibuild.py		\
-	EXSLT/exslt.html	\
+	EXSLT/*.html		\
+	EXSLT/html/*.html	\
+	EXSLT/html/*.png	\
 	EXSLT/libexslt-api.xml	\
 	EXSLT/libexslt-refs.xml	\
 	libxslt-api.xml		\
@@ -338,7 +340,7 @@ CTAGS:
 
 
 distdir: $(DISTFILES)
-	$(mkdir_p) $(distdir)/EXSLT
+	$(mkdir_p) $(distdir)/EXSLT $(distdir)/EXSLT/html
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \

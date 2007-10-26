@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: type.c,v 1.20.4.2.4.3 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: type.c,v 1.30.2.2.2.3 2007/02/24 02:17:27 helly Exp $ */
 
 #include "php.h"
 #include "php_incomplete_class.h"
@@ -25,7 +25,7 @@
    Returns the type of the variable */
 PHP_FUNCTION(gettype)
 {
-	pval **arg;
+	zval **arg;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -42,10 +42,6 @@ PHP_FUNCTION(gettype)
 
 		case IS_LONG:
 			RETVAL_STRING("integer", 1);
-			break;
-
-		case IS_RESOURCE:
-			RETVAL_STRING("resource", 1);
 			break;
 
 		case IS_DOUBLE:
@@ -68,12 +64,21 @@ PHP_FUNCTION(gettype)
 		   int res_len;
 
 		   res_len = sizeof("object of type ")-1 + Z_OBJCE_P(arg)->name_length;
-		   result = (char *) emalloc(res_len+1);
-		   sprintf(result, "object of type %s", Z_OBJCE_P(arg)->name);
+		   spprintf(&result, 0, "object of type %s", Z_OBJCE_P(arg)->name);
 		   RETVAL_STRINGL(result, res_len, 0);
 		   }
 		 */
 			break;
+
+		case IS_RESOURCE:
+			{
+				char *type_name;
+				type_name = zend_rsrc_list_get_rsrc_type(Z_LVAL_PP(arg) TSRMLS_CC);
+				if (type_name) {
+					RETVAL_STRING("resource", 1);
+					break;
+				}
+			}
 
 		default:
 			RETVAL_STRING("unknown type", 1);
@@ -85,7 +90,7 @@ PHP_FUNCTION(gettype)
    Set the type of the variable */
 PHP_FUNCTION(settype)
 {
-	pval **var, **type;
+	zval **var, **type;
 	char *new_type;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &var, &type) == FAILURE) {
@@ -130,7 +135,7 @@ PHP_FUNCTION(settype)
    Get the integer value of a variable using the optional base for the conversion */
 PHP_FUNCTION(intval)
 {
-	pval **num, **arg_base;
+	zval **num, **arg_base;
 	int base;
 
 	switch (ZEND_NUM_ARGS()) {
@@ -153,8 +158,7 @@ PHP_FUNCTION(intval)
 			WRONG_PARAM_COUNT;
 	}
 
-	*return_value = **num;
-	zval_copy_ctor(return_value);
+	RETVAL_ZVAL(*num, 1, 0);
 	convert_to_long_base(return_value, base);
 }
 /* }}} */
@@ -163,14 +167,13 @@ PHP_FUNCTION(intval)
    Get the float value of a variable */
 PHP_FUNCTION(floatval)
 {
-	pval **num;
+	zval **num;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &num) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
-	*return_value = **num;
-	zval_copy_ctor(return_value);
+	RETVAL_ZVAL(*num, 1, 0);
 	convert_to_double(return_value);
 }
 /* }}} */
@@ -179,7 +182,7 @@ PHP_FUNCTION(floatval)
    Get the string value of a variable */
 PHP_FUNCTION(strval)
 {
-	pval **num;
+	zval **num, *tmp;
 	zval expr_copy;
 	int use_copy;
 
@@ -187,23 +190,19 @@ PHP_FUNCTION(strval)
 		WRONG_PARAM_COUNT;
 	}
 
-	*return_value = **num;
-
-	zend_make_printable_zval(return_value, &expr_copy, &use_copy);
+	zend_make_printable_zval(*num, &expr_copy, &use_copy);
 	if (use_copy) {
-		*return_value = expr_copy;
-		INIT_PZVAL(return_value);
-		zval_copy_ctor(return_value);
-		zval_dtor(&expr_copy);
+		tmp = &expr_copy;
+		RETVAL_ZVAL(tmp, 0, 0);
 	} else {
-		zval_copy_ctor(return_value);
+		RETVAL_ZVAL(*num, 1, 0);
 	}
 }
 /* }}} */
 
 static void php_is_type(INTERNAL_FUNCTION_PARAMETERS, int type)
 {
-	pval **arg;
+	zval **arg;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Only one argument expected");
@@ -213,6 +212,10 @@ static void php_is_type(INTERNAL_FUNCTION_PARAMETERS, int type)
 	if (Z_TYPE_PP(arg) == type) {
 		if (type == IS_OBJECT) {
 			zend_class_entry *ce;
+			if(Z_OBJ_HT_PP(arg)->get_class_entry == NULL) {
+			/* if there's no get_class_entry it's not a PHP object, so it can't be INCOMPLETE_CLASS */
+				RETURN_TRUE;
+			}
 			ce = Z_OBJCE_PP(arg);
 			if (!strcmp(ce->name, INCOMPLETE_CLASS)) {
 				RETURN_FALSE;
@@ -301,7 +304,6 @@ PHP_FUNCTION(is_object)
 PHP_FUNCTION(is_numeric)
 {
 	zval **arg;
-	int result;
 
 	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -314,8 +316,7 @@ PHP_FUNCTION(is_numeric)
 			break;
 
 		case IS_STRING:
-			result = is_numeric_string(Z_STRVAL_PP(arg), Z_STRLEN_PP(arg), NULL, NULL, 0);
-			if (result == IS_LONG || result == IS_DOUBLE) {
+			if (is_numeric_string(Z_STRVAL_PP(arg), Z_STRLEN_PP(arg), NULL, NULL, 0)) {
 				RETURN_TRUE;
 			} else {
 				RETURN_FALSE;

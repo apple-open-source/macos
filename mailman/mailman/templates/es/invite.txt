@@ -7,15 +7,15 @@ También puede visitar la página web:
 
     %(confirmurl)s
 
-O puede incluir la línea siguiente -- y solo la línea siguiente -- en un
+O puede incluir la línea siguiente -- y sólo la línea siguiente -- en un
 mensaje dirigido a %(requestaddr)s:
 
     confirm %(cookie)s
 
-Observe que dándole a la opción de responder debería de funcionar en la
+Observe que la opción de responder debería de funcionar en la
 mayoría de los programas de correo.
 
-Si quiere declinar la invitación, solo tiene que ignorar este mensaje.  Si
+Si quiere declinar la invitación, basta con ignorar este mensaje.  Si
 tiene alguna pregunta que formular, por favor, envíela a
 
 %(listowner)s.

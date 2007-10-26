@@ -6,6 +6,7 @@ _SSLGetAllowsExpiredCerts
 _SSLGetAllowsExpiredRoots
 _SSLGetBufferedReadSize
 _SSLGetClientCertificateState
+_SSLGetClientSideAuthenticate
 _SSLGetConnection
 _SSLGetDiffieHellmanParams
 _SSLGetEnableCertVerify
@@ -15,6 +16,7 @@ _SSLGetNegotiatedProtocolVersion
 _SSLGetNumberEnabledCiphers
 _SSLGetNumberSupportedCiphers
 _SSLGetPeerCertificates
+_SSLCopyPeerCertificates
 _SSLGetPeerDomainName
 _SSLGetPeerDomainNameLength
 _SSLGetPeerID
@@ -26,6 +28,9 @@ _SSLGetRsaBlinding
 _SSLGetSessionState
 _SSLGetSupportedCiphers
 _SSLGetTrustedRoots
+_SSLCopyTrustedRoots
+_SSLSetTrustedLeafCertificates
+_SSLCopyTrustedLeafCertificates
 _SSLHandshake
 _SSLInternalClientRandom
 _SSLInternalMasterSecret
@@ -57,3 +62,8 @@ _SSLWrite
 _SSLSetSessionCacheTimeout
 _SSLInternalSetMasterSecretFunction
 _SSLInternalSetSessionTicket
+_SSLSetAllowAnonymousCiphers
+_SSLGetAllowAnonymousCiphers
+_SSLCopyDistinguishedNames
+_SSLSetCertificateAuthorities
+_SSLCopyCertificateAuthorities

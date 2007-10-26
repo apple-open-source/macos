@@ -1,7 +1,7 @@
 #
 ## B & I Makefile for gcc_select
 #
-# Copyright Apple Computer, Inc. 2002, 2003
+# Copyright Apple Inc. 2002, 2003, 2007
 
 #---------------------------------------------------------------------#
 
@@ -9,50 +9,68 @@
 # Note, you can set V from the buildit command line by specifying V=2
 # or V=3[.x] after the pathname to the gcc_select source folder.
 
-V = 3.3
+V = 4.0
 
 #---------------------------------------------------------------------#
 
 SRCROOT = .
 SRC = `cd $(SRCROOT) && pwd | sed s,/private,,`
 
-.PHONY: all install installhdrs installsrc installdoc clean
+PROGS=gcc g++ gcov c++
+
+.PHONY: all install installhdrs installsrc installdoc clean mklinks installsym
 
 all: install
 
-# This install step does NOT switch the system compilers.  Instead it
-# just sets up the desired sym links in $(DSTROOT)/usr.  It does, of
-# course install gcc_select into /usr/sbin.  We depend on B & I to
-# install the sym links from our $(DSTROOT)/usr into the system at
-# the "proper" time.  Likewise, install the crufty cpp script into
-# $(DSTROOT)/usr/bin.
+$(OBJROOT)/c89.o : $(SRCROOT)/c89.c
+	$(CC) -c $^ -Wall -Os -g $(RC_CFLAGS) -o $@
 
-install: installdoc
-	$(SRCROOT)/gcc_select $(V) --dstroot $(DSTROOT)/usr
-	mkdir -p $(DSTROOT)/usr/sbin && \
-	install -c -m 555 $(SRCROOT)/gcc_select $(DSTROOT)/usr/sbin/gcc_select && \
-	install -c -m 555 $(SRCROOT)/cpp $(DSTROOT)/usr/bin/cpp && \
-	$(CC) $(SRCROOT)/c99.c -Wall -Werror -Os $(RC_CFLAGS) -o $(OBJROOT)/c99 && \
-	strip $(OBJROOT)/c99 && \
-	install -c -m 555 $(OBJROOT)/c99 $(DSTROOT)/usr/bin/c99 && \
-	$(CC) $(SRCROOT)/c89.c -Os $(RC_CFLAGS) -o $(OBJROOT)/c89 && \
-	strip $(OBJROOT)/c89 && \
-	install -c -m 555 $(OBJROOT)/c89 $(DSTROOT)/usr/bin/c89
+$(OBJROOT)/c99.o : $(SRCROOT)/c99.c
+	$(CC) -c $^ -Wall -Werror -Os -g $(RC_CFLAGS) -o $@
+
+% : %.o
+	$(CC) $^ -g $(RC_CFLAGS) -o $@
+
+%.dSYM : %
+	dsymutil $^
+
+install: installhdrs
+
+install: installdoc mklinks $(OBJROOT)/c99 $(OBJROOT)/c89 installsym
+	mkdir -p $(DSTROOT)/usr/bin
+	install -s -c -m 555 $(OBJROOT)/c99 $(DSTROOT)/usr/bin/c99
+	install -s -c -m 555 $(OBJROOT)/c89 $(DSTROOT)/usr/bin/c89
+	install -c -m 555 $(SRCROOT)/cpp $(DSTROOT)/usr/bin/cpp
+
+installsym: $(OBJROOT)/c99.dSYM $(OBJROOT)/c89.dSYM
+	cp -rp $^ $(SYMROOT)
+
+mklinks:
+	mkdir -p $(DSTROOT)/usr/bin
+	for prog in $(PROGS) ; do \
+	  ln -s $${prog}-$V $(DSTROOT)/usr/bin/$${prog} || exit 1 ; \
+	done
+	ln -s gcc-$V $(DSTROOT)/usr/bin/cc
 
 installsrc:
 	if [ $(SRCROOT) != . ]; then  \
-	    cp Makefile gcc_select cpp c99.c c89.c c99.1 c89.1 gcc_select.pod $(SRCROOT); \
+	    cp Makefile cpp c99.c c89.c c99.1 c89.1 $(SRCROOT); \
 	fi
 
-installdoc: gcc_select.pod
+installdoc:
 	mkdir -p $(DSTROOT)/usr/share/man/man1
-	mkdir -p $(DSTROOT)/usr/share/man/man8
 	install -c -m 444 $(SRCROOT)/c99.1 $(DSTROOT)/usr/share/man/man1/c99.1
 	install -c -m 444 $(SRCROOT)/c89.1 $(DSTROOT)/usr/share/man/man1/c89.1
-	pod2man --section=8 --center="MacOS X" \
-	  --release=`$(SRCROOT)/gcc_select --version | awk '{print $$2}'` \
-	  $^ $(DSTROOT)/usr/share/man/man8/gcc_select.8
+	for prog in $(PROGS) cpp ; do \
+	  ln -s $${prog}-$(V).1 $(DSTROOT)/usr/share/man/man1/$${prog}.1 || \
+	    exit 1 ; \
+	done
+	ln -s gcc.1 $(DSTROOT)/usr/share/man/man1/cc.1
 
 installhdrs:
+	mkdir -p $(DSTROOT)/usr/include/gcc/darwin
+	ln -s $V $(DSTROOT)/usr/include/gcc/darwin/default
+	ln -s gcc/darwin/default/stdint.h $(DSTROOT)/usr/include/stdint.h
+
 clean:
-	rm -f gcc_select.8
+	rm -rf $(OBJROOT)/c[89]9{,.dSYM}

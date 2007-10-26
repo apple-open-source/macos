@@ -1,10 +1,10 @@
 ;;; edt.el --- enhanced EDT keypad mode emulation for GNU Emacs 19
 
-;; Copyright (C) 1986, 1992, 1993, 1994, 1995, 2000, 2001
-;;   Free Software Foundation, Inc.
+;; Copyright (C) 1986, 1992, 1993, 1994, 1995, 2000, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Kevin Gallagher <kevingal@onramp.net>
-;; Maintainer: Kevin Gallagher <kevingal@onramp.net>
+;; Author: Kevin Gallagher <Kevin.Gallagher@boeing.com>
+;; Maintainer: Kevin Gallagher <Kevin.Gallagher@boeing.com>
 ;; Keywords: emulations
 
 ;; This file is part of GNU Emacs.
@@ -21,13 +21,13 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 
 
 ;;; Commentary:
-;; 
+;;
 
 ;; This is Version 4.0 of the EDT Emulation for Emacs 19 and above.
 ;; It comes with special functions which replicate nearly all of EDT's
@@ -41,10 +41,10 @@
 
 ;; Getting Started:
 
-;; To start the EDT Emulation, first start Emacs and then enter 
+;; To start the EDT Emulation, first start Emacs and then enter
 ;;
 ;;    M-x edt-emulation-on
-;;    
+;;
 ;; to begin the emulation.  After initialization is complete, the
 ;; following message will appear below the status line informing you
 ;; that the emulation has been enabled: "Default EDT keymap active".
@@ -59,13 +59,13 @@
 ;; Emacs "etc" directory.  It contains very helpful user information.
 
 ;; The EDT emulation consists of the following files:
-;; 
+;;
 ;; edt-user.doc     - User Instructions and Sample Customization File
 ;; edt.el           - EDT Emulation Functions and Default Configuration
 ;; edt-lk201.el     - Built-in support for DEC LK-201 Keyboards
 ;; edt-vt100.el     - Built-in support for DEC VT-100 (and above) terminals
 ;; edt-pc.el        - Built-in support for PC 101 Keyboards under MS-DOS
-;; edt-mapper.el    - Create an EDT LK-201 Map File for Keyboards Without 
+;; edt-mapper.el    - Create an EDT LK-201 Map File for Keyboards Without
 ;;                      Built-in Support
 
 ;; Enhancements:
@@ -81,7 +81,7 @@
 ;;      following line
 ;;
 ;;           (edt-set-scroll-margins "20%" "25%")
-;;      
+;;
 ;;      sets the top margin to 20% of the window and the bottom margin
 ;;      to 25% of the window.  To disable this feature, set each
 ;;      margin to 0%.  You can also invoke edt-set-scroll-margins
@@ -91,13 +91,13 @@
 ;;      NOTE: Another way to set the scroll margins is to use the
 ;;      Emacs customization feature (not available in Emacs 19) to set
 ;;      the following two variables directly:
-;;      
+;;
 ;;           edt-top-scroll-margin and edt-bottom-scroll-margin
 ;;
 ;;      Enter the Emacs `customize' command.  First select the Editing
 ;;      group and then select the Emulations group.  Finally, select
 ;;      the Edt group and follow the directions.
-;;      
+;;
 ;;  2.  The SUBS command is now supported and bound to GOLD-Enter by
 ;;      default.  (This design was copied from tpu-edt.el.)  Note, in
 ;;      earlier versions of EDT Emulation, GOLD-Enter was assigned to
@@ -149,9 +149,9 @@
 
 
 ;;; History:
-;; 
+;;
 ;;  Version 4.0    2000    Added New Features and Fixed a Few Bugs
-;;  
+;;
 
 
 ;;; Code:
@@ -166,13 +166,28 @@
 ;;;; VARIABLES and CONSTANTS
 ;;;;
 
-;; For backward compatibility to Emacs 19, skip this if defgroup is
-;; not defined.
-(if (fboundp 'defgroup)
-    (defgroup edt nil
-      "Emacs emulating EDT."
-      :prefix "edt-"
-      :group 'emulations))
+;; For backward compatibility to Emacs 19.
+(or (fboundp 'defgroup)
+    (defmacro defgroup (&rest rest)))
+
+(defgroup edt nil
+  "Emacs emulating EDT."
+  :prefix "edt-"
+  :group 'emulations)
+
+;; To silence the byte-compiler
+(eval-when-compile
+  (defvar *EDT-keys*)
+  (defvar edt-default-global-map)
+  (defvar edt-last-copied-word)
+  (defvar edt-learn-macro-count)
+  (defvar edt-orig-page-delimiter)
+  (defvar edt-orig-transient-mark-mode)
+  (defvar edt-rect-start-point)
+  (defvar edt-user-global-map)
+  (defvar rect-start-point)
+  (defvar time-string)
+  (defvar zmacs-region-stays))
 
 ;;;
 ;;;  Version Information
@@ -183,31 +198,32 @@
 ;;;  User Configurable Variables
 ;;;
 
-;; For backward compatibility to Emacs 19, use defvar if defcustom is
-;; not defined.
-(if (fboundp 'defcustom)
-    (progn
-      (defcustom edt-keep-current-page-delimiter nil
-	"*Emacs MUST be restarted for a change in value to take effect!
+;; For backward compatibility to Emacs 19.
+(or (fboundp 'defcustom)
+    (defmacro defcustom (var value doc &rest ignore)
+      `(defvar ,var ,value ,doc)))
+
+(defcustom edt-keep-current-page-delimiter nil
+  "*Emacs MUST be restarted for a change in value to take effect!
 Non-nil leaves Emacs value of `page-delimiter' unchanged within EDT
 Emulation.  If set to nil (the default), the `page-delimiter' variable
 is set to \"\\f\" when edt-emulation-on is first invoked.  This
 setting replicates EDT's page delimiter behavior.  The original value
 is restored when edt-emulation-off is called."
-	:type 'boolean
-	:group 'edt)
-      
-      (defcustom edt-use-EDT-control-key-bindings nil
-	"*Emacs MUST be restarted for a change in value to take effect!
+  :type 'boolean
+  :group 'edt)
+
+(defcustom edt-use-EDT-control-key-bindings nil
+  "*Emacs MUST be restarted for a change in value to take effect!
 Non-nil causes the control key bindings to be replaced with EDT
 bindings.  If set to nil (the default), EDT control key bindings are
 not used and the current Emacs control key bindings are retained for
 use within the EDT emulation."
-	:type 'boolean
-	:group 'edt)
+  :type 'boolean
+  :group 'edt)
 
-      (defcustom edt-word-entities '(?\t)
-	"*Specifies the list of EDT word entity characters.  
+(defcustom edt-word-entities '(?\t)
+  "*Specifies the list of EDT word entity characters.
 The default list, (\?\\t), contains just the TAB character, which
 emulates EDT.  Characters are specified in the list using their
 decimal ASCII values.  A question mark, followed by the actual
@@ -228,68 +244,22 @@ representations, which you can also use:
 
 In EDT Emulation movement-by-word commands, each character in the list
 will be treated as if it were a separate word."
-	:type '(repeat integer)
-	:group 'edt)
+  :type '(repeat integer)
+  :group 'edt)
 
-      (defcustom edt-top-scroll-margin 10
-	"*Scroll margin at the top of the screen.  
+(defcustom edt-top-scroll-margin 10
+  "*Scroll margin at the top of the screen.
 Interpreted as a percent of the current window size with a default
 setting of 10%.  If set to 0, top scroll margin is disabled."
-	:type 'integer
-	:group 'edt)
+  :type 'integer
+  :group 'edt)
 
-      (defcustom edt-bottom-scroll-margin 15
-	"*Scroll margin at the bottom of the screen.
+(defcustom edt-bottom-scroll-margin 15
+  "*Scroll margin at the bottom of the screen.
 Interpreted as a percent of the current window size with a default
 setting of 15%.  If set to 0, bottom scroll margin is disabled."
-	:type 'integer
-	:group 'edt))
-  (progn
-    (defvar edt-keep-current-page-delimiter nil
-      "*Non-nil leaves Emacs value of `page-delimiter' unchanged within EDT
-Emulation.  If set to nil (the default), the `page-delimiter' variable
-is set to \"\\f\" when edt-emulation-on is first invoked.  This
-setting replicates EDT's page delimiter behavior.  The original value
-is restored when edt-emulation-off is called.")
-
-    (defvar edt-use-EDT-control-key-bindings nil
-      "*Non-nil causes the control key bindings to be replaced with EDT
-bindings.  If set to nil (the default), EDT control key bindings are
-not used and the current Emacs control key bindings are retained for
-use within the EDT emulation.")
-
-    (defvar edt-word-entities '(?\t)
-      "*Specifies the list of EDT word entity characters.  
-The default list, (\?\\t), contains just the TAB character, which
-emulates EDT.  Characters are specified in the list using their
-decimal ASCII values.  A question mark, followed by the actual
-character, can be used to indicate the numerical value of the
-character, instead of the actual decimal value.  So, ?A means the
-numerical value for the letter A, \?/ means the numerical value for /,
-etc.  Several unprintable and special characters have special
-representations, which you can also use:
-
-            \?\\b  specifies  BS, C-h
-            \?\\t  specifies  TAB, C-i
-            \?\\n  specifies  LFD, C-j
-            \?\\v  specifies  VTAB, C-k
-            \?\\f  specifies  FF, C-l
-            \?\\r  specifies  CR, C-m
-            \?\\e  specifies  ESC, C-[
-            \?\\\\  specifies  \\
-
-In EDT Emulation movement-by-word commands, each character in the list
-will be treated as if it were a separate word.")
-
-    (defvar edt-top-scroll-margin 10
-      "*Scroll margin at the top of the screen.
-Interpreted as a percent of the current window size with a default
-setting of 10%.  If set to 0, top scroll margin is disabled.")
-
-    (defvar edt-bottom-scroll-margin 15
-      "*Scroll margin at the bottom of the screen.
-Interpreted as a percent of the current window size with a default
-setting of 15%.  If set to 0, bottom scroll margin is disabled.")))
+  :type 'integer
+  :group 'edt)
 
 ;;;
 ;;; Internal Variables
@@ -337,7 +307,7 @@ When select mode is inactive, it is set to an empty string.")
 
 (defvar edt-default-map-active nil
   "Non-nil indicates that default EDT emulation key bindings are active.
-Nil means user-defined custom bindings are active.")
+nil means user-defined custom bindings are active.")
 
 (defvar edt-user-map-configured nil
   "Non-nil indicates that user custom EDT key bindings are configured.
@@ -369,13 +339,22 @@ This means that an edt-user.el file was found in the user's `load-path'.")
 
 (defconst edt-xserver (if (eq edt-window-system 'x)
 			  (if edt-x-emacs19-p
-			      (replace-in-string (x-server-vendor) "[ _]" "-")
-			    (subst-char-in-string ?  ?- (x-server-vendor)))
+			      ;; The Cygwin window manager has a `/' in its
+			      ;; name, which breaks the generated file name of
+			      ;; the custom key map file.  Replace `/' with a
+			      ;; `-' to work around that.
+			      (replace-in-string (x-server-vendor) "[ /]" "-")
+			    (subst-char-in-string ?/ ?- (subst-char-in-string ?  ?- (x-server-vendor))))
 			nil)
   "Indicates X server vendor name, if applicable.")
 
 (defvar edt-keys-file nil
   "User's custom keypad and function keys mappings to emulate LK-201 keyboard.")
+
+(defvar edt-last-copied-word nil
+  "Last word that the user copied.")
+
+(defvar zmacs-region-stays)
 
 ;;;;
 ;;;; EDT Emulation Commands
@@ -446,7 +425,7 @@ Argument NUM is the number of page delimiters to move."
 ;;; EDT defaults a section size to be 16 lines of its one and only
 ;;; 24-line window.  That's two-thirds of the window at a time.  The
 ;;; EDT SECT commands moves the cursor, not the window.
-;;; 
+;;;
 ;;; This emulation of EDT's SECT moves the cursor approximately
 ;;; two-thirds of the current window at a time.
 
@@ -535,7 +514,7 @@ Argument NUM is the number of EOL marks to move."
 ;;; This one is a tad messy.  To emulate EDT's behavior everywhere in
 ;;; the file (beginning of file, end of file, beginning of line, end
 ;;; of line, etc.) it takes a bit of special handling.
-;;; 
+;;;
 ;;; The variable edt-word-entities contains a list of characters which
 ;;; are to be viewed as distinct words where ever they appear in the
 ;;; buffer.  This emulates the EDT line mode command SET ENTITY WORD.
@@ -773,7 +752,7 @@ Optional argument FIND is t if this function is called from `edt-find'."
   (if (equal edt-direction-string edt-forward-string)
       (edt-find-forward t)
       (edt-find-backward t)))
-  
+
 
 ;;;
 ;;; FNDNXT
@@ -842,7 +821,7 @@ Optional argument FIND is t if this function is called from `edt-find'."
   (if (equal edt-direction-string edt-forward-string)
       (edt-find-next-forward)
     (edt-find-next-backward)))
-  
+
 ;;;
 ;;; APPEND
 ;;;
@@ -1052,9 +1031,9 @@ Argument NUM is the number of characters to delete."
 (defun edt-substitute (num)
   "Replace the selected region with the contents of the CUT buffer and.
 Repeat the most recent FIND command.  (The Emacs kill ring is used as
-the CUT buffer.)  
+the CUT buffer.)
 Argument NUM is the repeat count.  A positive value indicates the of times
-to repeat the substitution.  A negative argument means replace all occurances
+to repeat the substitution.  A negative argument means replace all occurrences
 of the search text."
   (interactive "p")
   (cond ((or edt-select-mode (edt-check-match))
@@ -1131,7 +1110,7 @@ Also, execute command specified if in Minibuffer."
       (exit-minibuffer))
   (if edt-x-emacs19-p (setq zmacs-region-stays t)))
 
-  
+
 ;;;
 ;;; BACKUP
 ;;;
@@ -1233,7 +1212,7 @@ Argument NUM is the number of form feeds to insert."
 
 (defun edt-tab-insert (num)
   "Insert tab character at cursor position.
-Argument NUM is the the number of tabs to insert."
+Argument NUM is the number of tabs to insert."
   (interactive "*p")
   (edt-check-prefix num)
   (while (> num 0)
@@ -1249,7 +1228,7 @@ Argument NUM is the the number of tabs to insert."
 Argument NUM is the prefix value tested."
   (if (<= num 0)
       (error "Prefix must be positive")))
-      
+
 ;;;
 ;;; Check Selection
 ;;;
@@ -1300,16 +1279,16 @@ Argument BOTTOM is the bottom margin in number of lines or percent of window."
   ;; set top scroll margin
   (or (string= top "")
       (if (string= "%" (substring top -1))
-	  (setq edt-top-scroll-margin (string-to-int top))
+	  (setq edt-top-scroll-margin (string-to-number top))
 	(setq edt-top-scroll-margin
-	      (/ (1- (+ (* (string-to-int top) 100) (window-height)))
+	      (/ (1- (+ (* (string-to-number top) 100) (window-height)))
 		 (window-height)))))
   ;; set bottom scroll margin
   (or (string= bottom "")
       (if (string= "%" (substring bottom -1))
-	  (setq edt-bottom-scroll-margin (string-to-int bottom))
+	  (setq edt-bottom-scroll-margin (string-to-number bottom))
 	(setq edt-bottom-scroll-margin
-	      (/ (1- (+ (* (string-to-int bottom) 100) (window-height)))
+	      (/ (1- (+ (* (string-to-number bottom) 100) (window-height)))
 		 (window-height)))))
   ;; report scroll margin settings if running interactively
   (and (interactive-p)
@@ -1321,7 +1300,7 @@ Argument BOTTOM is the bottom margin in number of lines or percent of window."
 ;;;; ENHANCEMENTS AND ADDITIONS FOR EDT KEYPAD MODE
 ;;;;
 
-;;; 
+;;;
 ;;; Several enhancements and additions to EDT keypad mode commands are
 ;;; provided here.  Some of these have been motivated by similar
 ;;; TPU/EVE and EVE-Plus commands.  Others are new.
@@ -1665,9 +1644,8 @@ Argument NUM is the percentage into the buffer to move."
 
 (defun edt-mark-section-wisely ()
   "Mark the section in a manner consistent with the `major-mode'.
-Uses `mark-defun' for emacs-lisp and Lisp,
-mark-c-function for C,
-mark-fortran-subsystem for fortran,
+Uses `mark-defun' for Emacs-Lisp and Lisp, and for Fortran,
+`c-mark-function' for C,
 and `mark-paragraph' for other modes."
   (interactive)
   (if edt-select-mode
@@ -1675,15 +1653,13 @@ and `mark-paragraph' for other modes."
         (edt-reset))
     (progn
       (cond  ((or (eq major-mode 'emacs-lisp-mode)
+		  (eq major-mode 'fortran-mode)
 		  (eq major-mode 'lisp-mode))
 	      (mark-defun)
 	      (message "Lisp defun selected"))
 	     ((eq major-mode 'c-mode)
-	      (mark-c-function)
+	      (c-mark-function)
 	      (message "C function selected"))
-	     ((eq major-mode 'fortran-mode)
-	      (mark-fortran-subprogram)
-	      (message "Fortran subprogram selected"))
 	     (t (mark-paragraph)
 		(message "Paragraph selected"))))))
 
@@ -1810,8 +1786,7 @@ Argument NUM is the number of times to duplicate the line."
   "Display the current time."
   (interactive)
   (if edt-x-emacs19-p (setq zmacs-region-stays t))
-  (set 'time-string (current-time-string))
-  (message "%s" time-string))
+  (message "%s" (current-time-string)))
 
 ;;;
 ;;; LEARN
@@ -1862,7 +1837,7 @@ Argument NUM is the number of times to duplicate the line."
   (save-buffer)
   (save-buffers-kill-emacs))
 
-;;; 
+;;;
 ;;; QUIT
 ;;;
 
@@ -1880,9 +1855,9 @@ Warn user that modifications will be lost."
 		(kill-emacs)
 	      (setq working nil)))
 	(setq list (cdr list))))
-    (if working (kill-emacs)))) 
+    (if working (kill-emacs))))
 
-;;; 
+;;;
 ;;; SPLIT WINDOW
 ;;;
 
@@ -2068,7 +2043,7 @@ Optional argument NOT-YES changes the default to negative."
 ;;;  Function used to load LK-201 key mapping file generated by edt-mapper.el.
 ;;;
 (defun edt-load-keys (file)
-  "Load the LK-201 key mapping FILE generated by edt-mapper.el.  
+  "Load the LK-201 key mapping FILE generated by edt-mapper.el.
 If FILE is nil, which is the normal case, try to load a default file.
 The default file names are based upon the window system, terminal
 type, and version of Emacs in use: GNU Emacs or XEmacs (aka Lucid
@@ -2086,7 +2061,7 @@ created."
 		 "~/.edt-" edt-emacs-variant
 		 (if edt-term (concat "-" edt-term))
 		 (if edt-xserver (concat "-" edt-xserver))
-		 (if edt-window-system 
+		 (if edt-window-system
 		     (concat "-" (upcase (symbol-name edt-window-system))))
 		 "-keys")))))
   (cond ((file-readable-p file)
@@ -2097,7 +2072,7 @@ created."
 	 (insert "
 
      Ack!!  You're running the Enhanced EDT Emulation without loading an
-     EDT key mapping file.  To create an EDT key mapping file, run the 
+     EDT key mapping file.  To create an EDT key mapping file, run the
      edt-mapper.el program.  It is safest to run it from an Emacs loaded
      without any of your own customizations found in your .emacs file, etc.
      The reason for this is that some user customizations confuse edt-mapper.
@@ -2105,7 +2080,7 @@ created."
      follows:
 
           emacs -q -l edt-mapper.el
-     
+
      [NOTE:  If you do nothing out of the ordinary in your .emacs file, and
      the search for edt-mapper.el is successful, you can try running it now.]
 
@@ -2456,7 +2431,7 @@ Argument GOLD-BINDING is the Emacs function to be bound to GOLD <KEY>."
        'edt-key-not-assigned 'edt-key-not-assigned)
 
   ;; Control key bindings:  Regular and GOLD
-  ;; 
+  ;;
   ;; Standard EDT control key bindings conflict with standard Emacs
   ;; control key bindings.  Normally, the standard Emacs control key
   ;; bindings are left unchanged in the default EDT mode.  However, if
@@ -2622,7 +2597,7 @@ Argument GOLD-BINDING is the Emacs function to be bound to GOLD <KEY>."
  G-F9: Paste Rect Insert          +----------+----------+----------+----------+
   F10: Cut Rectangle
 G-F10: Paste Rectangle
-  F11: ESC                       
+  F11: ESC
   F12: Begining of Line           +----------+----------+----------+----------+
 G-F12: Delete Other Windows       |   GOLD   |   HELP   |  FNDNXT  |  DEL L   |
   F13: Delete to Begin of Word    |   (PF1)  |   (PF2)  |   (PF3)  |  (PF4)   |
@@ -2644,7 +2619,7 @@ G-C-k: Restore Key                |   WORD   |    EOL   |   CHAR   |   Next   |
   C-t: Display the Time           |         (0)         |    (.)   |   SUBS   |
   C-u: Delete to Begin of Line    |      Open Line      |   RESET  |          |
   C-v: Redraw Display             +---------------------+----------+----------+
-  C-w: Set Screen Width 132       
+  C-w: Set Screen Width 132
   C-z: Suspend Emacs                    +----------+----------+----------+
 G-C-\\: Split Window                     |  FNDNXT  |   Yank   |   CUT    |
                                         |  (FIND)  | (INSERT) | (REMOVE) |
@@ -2654,26 +2629,26 @@ G-C-\\: Split Window                     |  FNDNXT  |   Yank   |   CUT    |
   G-e: Exit                             | (SELECT) |(PREVIOUS)|  (NEXT)  |
   G-f: Find File                        |          |          |          |
   G-g: Find File Other Window           +----------+----------+----------+
-  G-h: Keypad Help             
-  G-i: Insert File                
-  G-k: Toggle Capitalization Word 
-  G-l: Downcase Region             
-  G-m: Save Some Buffers           
-  G-n: Next Error                  
+  G-h: Keypad Help
+  G-i: Insert File
+  G-k: Toggle Capitalization Word
+  G-l: Downcase Region
+  G-m: Save Some Buffers
+  G-n: Next Error
   G-o: Switch to Next Window
-  G-q: Quit                                                           
-  G-r: Revert File                                                    
-  G-s: Save Buffer                                                    
-  G-u: Upcase Region                                                  
-  G-v: Find File Other Window                                        
-  G-w: Write file                                                  
-  G-y: EDT Emulation OFF          
+  G-q: Quit
+  G-r: Revert File
+  G-s: Save Buffer
+  G-u: Upcase Region
+  G-v: Find File Other Window
+  G-w: Write file
+  G-y: EDT Emulation OFF
   G-z: Switch to User EDT Key Bindings
-  G-1: Delete Other Windows       
-  G-2: Split Window               
-  G-%: Go to Percentage           
-  G- : Undo  (GOLD Spacebar)      
-  G-=: Go to Line                 
+  G-1: Delete Other Windows
+  G-2: Split Window
+  G-%: Go to Percentage
+  G- : Undo  (GOLD Spacebar)
+  G-=: Go to Line
   G-`: What line
   G-/: Query-Replace"
 
@@ -2745,4 +2720,5 @@ G-C-\\: Split Window                     |  FNDNXT  |   Yank   |   CUT    |
 
 (provide 'edt)
 
+;;; arch-tag: 18d1c54f-6900-4078-8bbc-7c2292f48941
 ;;; edt.el ends here

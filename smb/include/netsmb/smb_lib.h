@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_lib.h,v 1.21.82.4 2005/09/13 05:40:13 lindak Exp $
  */
 #ifndef _NETSMB_SMB_LIB_H_
 #define _NETSMB_SMB_LIB_H_
@@ -38,27 +39,27 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <pthread.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_dev.h>
+#include <asl.h>
 
-#define	SMB_CFG_FILE	"/etc/nsmb.conf"
-#define	OLD_SMB_CFG_FILE	"/usr/local/etc/nsmb.conf"
+#define	SMB_CFG_FILE		"/etc/nsmb.conf"
+#define SMB_CFG_LOCAL_FILE	"/Library/Preferences/nsmb.conf"
+#define	SMB_GCFG_FILE		"/var/run/smb.conf"
 
-#define	STDPARAM_ARGS	'A':case 'B':case 'C':case 'E':case 'I': \
-		   case 'L':case 'M': \
-		   case 'N':case 'U':case 'R':case 'S':case 'T': \
-		   case 'W':case 'O':case 'P'
+/* Used by mount_smbfs to pass mount option into the smb_mount call */
+#define kStreamstMountKey	CFSTR("SMBStreamsMount")
+#define kdirModeKey			CFSTR("SMBDirModes")
+#define kfileModeKey		CFSTR("SMBFileModes")
 
-#define STDPARAM_OPT	"A:BCE:I:L:M:NO:P:U:R:S:T:W:"
+/* %%% This really needs to be in URLMount post Leopard */
+#define kForcePrivateSessionKey		CFSTR("ForcePrivateSession")
 
-/*
- * bits to indicate the source of error
- */
-#define	SMB_ERRTYPE_MASK	0xf0000
-#define	SMB_SYS_ERROR		0x00000
-#define SMB_RAP_ERROR		0x10000
-#define SMB_NB_ERROR		0x20000
+
+#define SMB_PASSWORD_KEY "Password"
 
 #ifndef min
 #define	min(a,b)	(((a)<(b)) ? (a) : (b))
@@ -95,70 +96,84 @@
 
 #endif	/* (BYTE_ORDER == LITTLE_ENDIAN) */
 
+/* Constants for smb port behavior  */
+#define TRY_BOTH_PORTS		1	/* Try port 445 -- if unsuccessful try NetBIOS */
+#define USE_THIS_PORT_ONLY	2	/* Try supplied port -- if unsuccessful quit ( Could be 139, 445, or other) */
+
+/*
+ * nb environment
+ */
+struct nb_ctx {
+	int					nb_timo;
+	char *				nb_scope;	/* NetBIOS scope */
+	char *				nb_nsname;	/* name server */
+	struct sockaddr_in	nb_ns;	/* ip addr of name server */
+	struct sockaddr_in	nb_lastns;
+};
+
 /*
  * SMB work context. Used to store all values which are necessary
  * to establish connection to an SMB server.
  */
 struct smb_ctx {
-	int		ct_flags;	/* SMBCF_ */
-	int		ct_fd;		/* handle of connection */
-	int		ct_parsedlevel;
-	int		ct_minlevel;
-	int		ct_maxlevel;
-	char *		ct_fullserver; /* original server name from cmd line - not utf8 */
-	char *		ct_utf8_servname; /* utf8 server name from cmd line */
-	char *		ct_srvaddr;	/* hostname or IP address of server */
-	struct sockaddr_in ct_srvinaddr;/* IP address of server */
-	char		ct_locname[SMB_MAXUSERNAMELEN + 1];
-	struct nb_ctx *	ct_nb;
+	CFStringRef scheme;		/* Must always be the first entry, required by the NetFS calls */
+	pthread_mutex_t ctx_mutex;
+	CFURLRef	ct_url;
+	UInt32		ct_flags;	/* SMBCF_ */
+	int			ct_fd;		/* handle of connection */
+	int			ct_level;
+	UInt32   	ct_port_behavior; 
+	UInt16		ct_port;
+	CFStringRef	serverDisplayName; /* Server name from URL or Bonjour Service Name*/
+	char *		ct_fullserver; /* Server name from URL */
+	char *		ct_srvaddr;	/* hostname or IP address of server taken from config file */
+	struct nb_ctx ct_nb;
 	struct smbioc_ossn	ct_ssn;
 	struct smbioc_oshare	ct_sh;
-        char *		ct_origshare;
-	/* temporary automount hack */
-	char	**ct_xxx;
-	int	ct_maxxxx;	/* max # to mount (-x arg) */
-	size_t *	ct_secblob;
+	char *		ct_origshare;
+	char *		ct_path;
+	char *		ct_kerbPrincipalName;
+	int32_t		ct_kerbPrincipalName_len;
+	int			debug_level;
+	int			altflags;
+	u_int32_t	ct_vc_caps;		/* Obtained from the negotiate message */
+	u_int32_t	ct_vc_flags;	/* Obtained from the negotiate message */
+	u_int32_t	ct_vc_shared;	/* Obtained from the negotiate message, currently only tells if the vc is shared */
+	char		LocalNetBIOSName[SMB_MAXUSERNAMELEN + 1];	/* Local NetBIOS Name or host name used for port 139 only */
 };
 
-#define	SMBCF_NOPWD		0x0001	/* don't ask for a password */
-#define	SMBCF_SRIGHTS		0x0002	/* share access rights was supplied */
-#define	SMBCF_LOCALE		0x0004	/* use current locale */
-#define	SMBCF_RESOLVED		0x8000	/* structure has been verified */
-#define	SMBCF_KCBAD		0x00080000 /* keychain password failed */
-#define	SMBCF_KCFOUND		0x00100000 /* password is from keychain */
-#define	SMBCF_BROWSEOK		0x00200000 /* browser dialogue may be used */
-#define	SMBCF_AUTHREQ		0x00400000 /* authentication dialog requested */
-#define	SMBCF_KCSAVE		0x00800000 /* add to keychain requested */
-#define	SMBCF_XXX		0x01000000 /* mount-all, a very bad thing */
-#define SMBCF_SSNACTIVE		0x02000000 /* session setup succeeded */
-#define SMBCF_WGFROMUSR		0x04000000 /* user defined workgroup */
-#define SMBCF_NONEGDOM		0x08000000 /* Don't use domain field in negprot respose */
-#define SMBCF_EXPLICITPWD	0x10000000
+#define	SMBCF_RESOLVED		0x00000001	/* We have reolved the address and name */
+#define	SMBCF_CONNECTED		0x00000002	/* The negoticate message was succesful */
+#define	SMBCF_AUTHORIZED	0x00000004	/* We have completed the security phase */
+#define	SMBCF_SHARE_CONN	0x00000008	/* We have a tree connection */
+#define	SMBCF_READ_PREFS	0x00000010	/* We already read the preference */
+#define SMBCF_MOUNTSMBFS	0x00000020	/* Called from the mount_smbfs command */
+#define SMBCF_EXPLICITPWD	0x00010000	/* The password set by the url */
 
+#define SMBCF_CONNECT_STATE	SMBCF_CONNECTED | SMBCF_AUTHORIZED | SMBCF_SHARE_CONN
 /*
  * request handling structures
  */
-struct mbuf {
-	int		m_len;
-	int		m_maxlen;
-	char *		m_data;
-	struct mbuf *	m_next;
+struct smb_lib_mbuf {
+	int					m_len;
+	int					m_maxlen;
+	char				*m_data;
+	struct smb_lib_mbuf *m_next;
 };
 
 struct mbdata {
-	struct mbuf *	mb_top;
-	struct mbuf * 	mb_cur;
-	char *		mb_pos;
-	int		mb_count;
+	struct smb_lib_mbuf *mb_top;
+	struct smb_lib_mbuf *mb_cur;
+	char				*mb_pos;
+	int					mb_count;
 };
 
-#define	M_ALIGNFACTOR	(sizeof(long))
-#define M_ALIGN(len)	(((len) + M_ALIGNFACTOR - 1) & ~(M_ALIGNFACTOR - 1))
-#define	M_BASESIZE	(sizeof(struct mbuf))
-#define	M_MINSIZE	(256 - M_BASESIZE)
-#define M_TOP(m)	((char*)(m) + M_BASESIZE)
-#define mtod(m,t)	((t)(m)->m_data)
-#define M_TRAILINGSPACE(m) ((m)->m_maxlen - (m)->m_len)
+#define SMB_LIB_M_ALIGN(len)	(((len) + (sizeof(long)) - 1) & ~((sizeof(long)) - 1))
+#define	SMB_LIB_M_BASESIZE	(sizeof(struct smb_lib_mbuf))
+#define	SMB_LIB_M_MINSIZE	(256 - SMB_LIB_M_BASESIZE)
+#define SMB_LIB_M_TOP(m)	((char*)(m) + SMB_LIB_M_BASESIZE)
+#define SMB_LIB_MTODATA(m,t)	((t)(m)->m_data)
+#define SMB_LIB_M_TRAILINGSPACE(m) ((m)->m_maxlen - (m)->m_len)
 
 struct smb_rq {
 	u_char		rq_cmd;
@@ -174,48 +189,41 @@ struct smb_bitname {
 	char	*bn_name;
 };
 
-extern struct rcfile *smb_rc;
-
 __BEGIN_DECLS
 
 struct sockaddr;
 
-int  smb_lib_init(void);
-int  smb_open_rcfile(void);
-void smb_error(const char *, int,...);
-char *smb_printb(char *, int, const struct smb_bitname *);
+int smb_load_library(char *codepage);
+struct rcfile * smb_open_rcfile(int NoUserPreferences);
+void smb_log_info(const char *, int, int,...);
 
 /*
  * Context management
  */
-int  smb_ctx_init(struct smb_ctx *, int, char *[], int, int, int);
-void smb_ctx_done(struct smb_ctx *);
-int  smb_ctx_parseunc(struct smb_ctx *, const char *, int, const char **);
-int  smb_ctx_setcharset(struct smb_ctx *, const char *);
-int  smb_ctx_setfullserver(struct smb_ctx *, const char *);
-void  smb_ctx_setserver(struct smb_ctx *, const char *);
+void *smb_create_ctx();
+int  smb_ctx_init(struct smb_ctx **out_ctx, const char *url, int level, int sharetype, int NoUserPreferences);
+void smb_ctx_cancel_connection(struct smb_ctx *ctx);
+void smb_ctx_done(void *);
+
+int smb_get_server_info(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOptions, CFDictionaryRef *ServerParams);
+int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOptions, CFDictionaryRef *sessionInfo);
+int smb_enumerate_shares(struct smb_ctx *ctx, CFDictionaryRef *shares);
+int smb_mount(struct smb_ctx *in_ctx, CFStringRef mpoint, CFDictionaryRef mOptions, CFDictionaryRef *mInfo);
+
+int smb_connect(struct smb_ctx *ctx);
+int smb_session_security(struct smb_ctx *ctx, char *clientpn, char *servicepn);
+int smb_share_connect(struct smb_ctx *ctx);
+
+void smb_ctx_setserver(struct smb_ctx *ctx, const char *name);
 int  smb_ctx_setuser(struct smb_ctx *, const char *);
 int  smb_ctx_setshare(struct smb_ctx *, const char *, int);
-int  smb_ctx_setscope(struct smb_ctx *, const char *);
-/* Defines for wgfromuser argument below */
-#define SETWG_NOT_FROMUSER 0
-#define SETWG_FROMUSER     1
-int  smb_ctx_setworkgroup(struct smb_ctx *, const char *, u_int32_t wgfromuser);
+int  smb_ctx_setdomain(struct smb_ctx *, const char *);
 int  smb_ctx_setpassword(struct smb_ctx *, const char *);
-int  smb_ctx_setsrvaddr(struct smb_ctx *, const char *);
-int  smb_ctx_opt(struct smb_ctx *, int, const char *);
-int  smb_ctx_negotiate(struct smb_ctx *, int, int, char *);
-int smb_ctx_tdis(struct smb_ctx *ctx);
-int  smb_ctx_lookup(struct smb_ctx *, int, int);
-int  smb_ctx_login(struct smb_ctx *);
-int  smb_ctx_readrc(struct smb_ctx *);
-int  smb_ctx_resolve(struct smb_ctx *);
-int  smb_ctx_setflags(struct smb_ctx *, int, int, int);
-u_int16_t smb_ctx_flags2(struct smb_ctx *);
 
+u_int16_t smb_ctx_flags2(struct smb_ctx *);
+u_int16_t smb_ctx_connstate(struct smb_ctx *ctx);
 int  smb_smb_open_print_file(struct smb_ctx *, int, int, const char *, smbfh*);
 int  smb_smb_close_print_file(struct smb_ctx *, smbfh);
-
 int  smb_read(struct smb_ctx *, smbfh, off_t, size_t, char *);
 int  smb_write(struct smb_ctx *, smbfh, off_t, size_t, const char *);
 
@@ -235,10 +243,10 @@ int  smb_t2_request(struct smb_ctx *, int, u_int16_t *, const char *,
 void smb_simplecrypt(char *dst, const char *src);
 int  smb_simpledecrypt(char *dst, const char *src);
 
-int  m_getm(struct mbuf *, size_t, struct mbuf **);
-int  m_lineup(struct mbuf *, struct mbuf **);
+int  smb_lib_mbuf_getm(struct smb_lib_mbuf *, size_t, struct smb_lib_mbuf **);
+int  smb_lib_m_lineup(struct smb_lib_mbuf *, struct smb_lib_mbuf **);
 int  mb_init(struct mbdata *, size_t);
-int  mb_initm(struct mbdata *, struct mbuf *);
+int  mb_initm(struct mbdata *, struct smb_lib_mbuf *);
 int  mb_done(struct mbdata *);
 int  mb_fit(struct mbdata *mbp, size_t size, char **pp);
 int  mb_put_uint8(struct mbdata *, u_int8_t);
@@ -250,7 +258,7 @@ int  mb_put_uint64be(struct mbdata *, u_int64_t);
 int  mb_put_uint64le(struct mbdata *, u_int64_t);
 int  mb_put_mem(struct mbdata *, const char *, size_t);
 int  mb_put_pstring(struct mbdata *mbp, const char *s);
-int  mb_put_mbuf(struct mbdata *, struct mbuf *);
+int  mb_put_mbuf(struct mbdata *, struct smb_lib_mbuf *);
 
 int  mb_get_uint8(struct mbdata *, u_int8_t *);
 int  mb_get_uint16(struct mbdata *, u_int16_t *);
@@ -263,23 +271,6 @@ int  mb_get_uint64(struct mbdata *, u_int64_t *);
 int  mb_get_uint64be(struct mbdata *, u_int64_t *);
 int  mb_get_uint64le(struct mbdata *, u_int64_t *);
 int  mb_get_mem(struct mbdata *, char *, size_t);
-
-extern u_char nls_lower[256], nls_upper[256];
-
-int   nls_setrecode(const char *, const char *);
-int   nls_setlocale(const char *);
-char* nls_str_toext(char *, const char *);
-char* nls_str_toloc(char *, const char *);
-void* nls_mem_toext(void *, const void *, int);
-void* nls_mem_toloc(void *, const void *, int);
-char* nls_str_upper(char *, const char *);
-char* nls_str_lower(char *, const char *);
-
-int smb_get_authentication(char *, size_t, char *, size_t, char *, size_t,
-			   const char *, struct smb_ctx *);
-int smb_browse(struct smb_ctx *, int);
-void smb_save2keychain(struct smb_ctx *);
-#define smb_autherr(e) ((e) == EAUTH || (e) == EACCES || (e) == EPERM)
 
 __END_DECLS
 

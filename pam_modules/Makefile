@@ -45,5 +45,7 @@ SUBDIR+=	pam_ssh
 SUBDIR+=	pam_tacplus
 SUBDIR+=	pam_unix
 SUBDIR+=	pam_wheel
+SUBDIR+=	pam_serialnumber
+SUBDIR+=	pam_sacl
 
 .include <bsd.subdir.mk>

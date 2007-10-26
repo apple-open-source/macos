@@ -3,9 +3,9 @@
  *  Project         ___| | | |  _ \| |
  *                 / __| | | | |_) | |
  *                | (__| |_| |  _ <| |___
- *                \___|\___/|_| \_\_____|
+ *                 \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: ldap.c,v 1.48 2005/02/09 14:28:35 giva Exp $
+ * $Id: ldap.c,v 1.69 2007-03-12 05:09:25 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -30,17 +30,12 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <ctype.h>
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_STAT_H
-#include <sys/stat.h>
+#ifdef NEED_MALLOC_H
+#include <malloc.h>
 #endif
 #include <errno.h>
 
 #if defined(WIN32)
-# include <windows.h>
-# include <malloc.h>
 # include <winldap.h>
 #endif
 
@@ -61,6 +56,7 @@
 #include "strtok.h"
 #include "ldap.h"
 #include "memory.h"
+#include "base64.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -77,6 +73,15 @@
 
 #ifndef LDAP_SIZELIMIT_EXCEEDED
 #define LDAP_SIZELIMIT_EXCEEDED 4
+#endif
+#ifndef LDAP_VERSION2
+#define LDAP_VERSION2 2
+#endif
+#ifndef LDAP_VERSION3
+#define LDAP_VERSION3 3
+#endif
+#ifndef LDAP_OPT_PROTOCOL_VERSION
+#define LDAP_OPT_PROTOCOL_VERSION 0x0011
 #endif
 
 #define DLOPEN_MODE   RTLD_LAZY  /*! assume all dlopen() implementations have
@@ -104,46 +109,60 @@
 #undef HAVE_LIBDL
 #endif
 
+/*
+ * We use this ZERO_NULL to avoid picky compiler warnings,
+ * when assigning a NULL pointer to a function pointer var.
+ */
+
+#define ZERO_NULL 0
+
 typedef void * (*dynafunc)(void *input);
 
 /***********************************************************************
  */
 #if defined(HAVE_DLOPEN) || defined(HAVE_LIBDL) || defined(WIN32)
 static void *libldap = NULL;
-#ifndef WIN32
+#if defined(DL_LBER_FILE)
 static void *liblber = NULL;
 #endif
 #endif
+
+struct bv {
+  unsigned long bv_len;
+  char  *bv_val;
+};
 
 static int DynaOpen(const char **mod_name)
 {
 #if defined(HAVE_DLOPEN) || defined(HAVE_LIBDL)
   if (libldap == NULL) {
     /*
-     * libldap.so should be able to resolve its dependency on
-     * liblber.so automatically, but since it does not we will
+     * libldap.so can normally resolve its dependency on liblber.so
+     * automatically, but in broken installation it does not so
      * handle it here by opening liblber.so as global.
      */
-    *mod_name = "liblber.so";
+#ifdef DL_LBER_FILE
+    *mod_name = DL_LBER_FILE;
     liblber = dlopen(*mod_name, DLOPEN_MODE);
+    if (!liblber)
+      return 0;
+#endif
 
     /* Assume loading libldap.so will fail if loading of liblber.so failed
      */
-    if (liblber)  {
-      *mod_name = "libldap.so";
-      libldap = dlopen(*mod_name, RTLD_LAZY);
-    }
+    *mod_name = DL_LDAP_FILE;
+    libldap = dlopen(*mod_name, RTLD_LAZY);
   }
-  return (libldap != NULL && liblber != NULL);
+  return (libldap != NULL);
 
 #elif defined(WIN32)
-  *mod_name = "wldap32.dll";
+  *mod_name = DL_LDAP_FILE;
   if (!libldap)
     libldap = (void*)LoadLibrary(*mod_name);
   return (libldap != NULL);
 
 #else
-  (void) mod_name;
+  *mod_name = "";
   return (0);
 #endif
 }
@@ -155,10 +174,12 @@ static void DynaClose(void)
     dlclose(libldap);
     libldap=NULL;
   }
+#ifdef DL_LBER_FILE
   if (liblber) {
     dlclose(liblber);
     liblber=NULL;
   }
+#endif
 #elif defined(WIN32)
   if (libldap) {
     FreeLibrary ((HMODULE)libldap);
@@ -169,7 +190,7 @@ static void DynaClose(void)
 
 static dynafunc DynaGetFunction(const char *name)
 {
-  dynafunc func = (dynafunc)NULL;
+  dynafunc func = (dynafunc)ZERO_NULL;
 
 #if defined(HAVE_DLOPEN) || defined(HAVE_LIBDL)
   if (libldap) {
@@ -179,6 +200,11 @@ static dynafunc DynaGetFunction(const char *name)
      * compilers! */
     *(void**) (&func) = dlsym(libldap, name);
   }
+#ifdef DL_LBER_FILE
+  if (!func && liblber) {
+    *(void**) (&func) = dlsym(liblber, name);
+  }
+#endif
 #elif defined(WIN32)
   if (libldap) {
     func = (dynafunc)GetProcAddress((HINSTANCE)libldap, name);
@@ -243,10 +269,11 @@ CURLcode Curl_ldap(struct connectdata *conn, bool *done)
   char  *(__cdecl *ldap_get_dn)(void *, void *);
   char  *(__cdecl *ldap_first_attribute)(void *, void *, void **);
   char  *(__cdecl *ldap_next_attribute)(void *, void *, void *);
-  char **(__cdecl *ldap_get_values)(void *, void *, const char *);
-  void   (__cdecl *ldap_value_free)(char **);
+  void **(__cdecl *ldap_get_values_len)(void *, void *, const char *);
+  void   (__cdecl *ldap_value_free_len)(void **);
   void   (__cdecl *ldap_memfree)(void *);
   void   (__cdecl *ber_free)(void *, int);
+  int    (__cdecl *ldap_set_option)(void *, int, void *);
 
   void *server;
   LDAPURLDesc *ludp = NULL;
@@ -255,6 +282,9 @@ CURLcode Curl_ldap(struct connectdata *conn, bool *done)
   void *entryIterator;     /*! type should be 'LDAPMessage *' */
   int num = 0;
   struct SessionHandle *data=conn->data;
+  int ldap_proto;
+  char *val_b64;
+  size_t val_b64_sz;
 
   *done = TRUE; /* unconditionally */
   infof(data, "LDAP local: %s\n", data->change.url);
@@ -268,24 +298,29 @@ CURLcode Curl_ldap(struct connectdata *conn, bool *done)
    * pointer-to-object (data) and pointer-to-function.
    */
   DYNA_GET_FUNCTION(void *(__cdecl *)(char *, int), ldap_init);
-  DYNA_GET_FUNCTION(int (__cdecl *)(void *, char *, char *), ldap_simple_bind_s);
+  DYNA_GET_FUNCTION(int (__cdecl *)(void *, char *, char *),
+                    ldap_simple_bind_s);
   DYNA_GET_FUNCTION(int (__cdecl *)(void *), ldap_unbind_s);
 #ifndef WIN32
   DYNA_GET_FUNCTION(int (*)(char *, LDAPURLDesc **), ldap_url_parse);
   DYNA_GET_FUNCTION(void (*)(void *), ldap_free_urldesc);
 #endif
   DYNA_GET_FUNCTION(int (__cdecl *)(void *, char *, int, char *, char **, int,
-                            void **), ldap_search_s);
+                                    void **), ldap_search_s);
   DYNA_GET_FUNCTION(void *(__cdecl *)(void *, void *), ldap_first_entry);
   DYNA_GET_FUNCTION(void *(__cdecl *)(void *, void *), ldap_next_entry);
   DYNA_GET_FUNCTION(char *(__cdecl *)(int), ldap_err2string);
   DYNA_GET_FUNCTION(char *(__cdecl *)(void *, void *), ldap_get_dn);
-  DYNA_GET_FUNCTION(char *(__cdecl *)(void *, void *, void **), ldap_first_attribute);
-  DYNA_GET_FUNCTION(char *(__cdecl *)(void *, void *, void *), ldap_next_attribute);
-  DYNA_GET_FUNCTION(char **(__cdecl *)(void *, void *, const char *), ldap_get_values);
-  DYNA_GET_FUNCTION(void (__cdecl *)(char **), ldap_value_free);
+  DYNA_GET_FUNCTION(char *(__cdecl *)(void *, void *, void **),
+                    ldap_first_attribute);
+  DYNA_GET_FUNCTION(char *(__cdecl *)(void *, void *, void *),
+                    ldap_next_attribute);
+  DYNA_GET_FUNCTION(void **(__cdecl *)(void *, void *, const char *),
+                    ldap_get_values_len);
+  DYNA_GET_FUNCTION(void (__cdecl *)(void **), ldap_value_free_len);
   DYNA_GET_FUNCTION(void (__cdecl *)(void *), ldap_memfree);
   DYNA_GET_FUNCTION(void (__cdecl *)(void *, int), ber_free);
+  DYNA_GET_FUNCTION(int (__cdecl *)(void *, int, void *), ldap_set_option);
 
   server = (*ldap_init)(conn->host.name, (int)conn->port);
   if (server == NULL) {
@@ -295,9 +330,18 @@ CURLcode Curl_ldap(struct connectdata *conn, bool *done)
     goto quit;
   }
 
+  ldap_proto = LDAP_VERSION3;
+  (*ldap_set_option)(server, LDAP_OPT_PROTOCOL_VERSION, &ldap_proto);
   rc = (*ldap_simple_bind_s)(server,
                              conn->bits.user_passwd ? conn->user : NULL,
                              conn->bits.user_passwd ? conn->passwd : NULL);
+  if (rc != 0) {
+    ldap_proto = LDAP_VERSION2;
+    (*ldap_set_option)(server, LDAP_OPT_PROTOCOL_VERSION, &ldap_proto);
+    rc = (*ldap_simple_bind_s)(server,
+                               conn->bits.user_passwd ? conn->user : NULL,
+                               conn->bits.user_passwd ? conn->passwd : NULL);
+  }
   if (rc != 0) {
      failf(data, "LDAP local: %s", (*ldap_err2string)(rc));
      status = CURLE_LDAP_CANNOT_BIND;
@@ -334,31 +378,47 @@ CURLcode Curl_ldap(struct connectdata *conn, bool *done)
     char  *dn = (*ldap_get_dn)(server, entryIterator);
     int i;
 
-    Curl_client_write(data, CLIENTWRITE_BODY, (char *)"DN: ", 4);
-    Curl_client_write(data, CLIENTWRITE_BODY, (char *)dn, 0);
-    Curl_client_write(data, CLIENTWRITE_BODY, (char *)"\n", 1);
+    Curl_client_write(conn, CLIENTWRITE_BODY, (char *)"DN: ", 4);
+    Curl_client_write(conn, CLIENTWRITE_BODY, (char *)dn, 0);
+    Curl_client_write(conn, CLIENTWRITE_BODY, (char *)"\n", 1);
 
     for (attribute = (*ldap_first_attribute)(server, entryIterator, &ber);
          attribute;
          attribute = (*ldap_next_attribute)(server, entryIterator, ber))
     {
-      char **vals = (*ldap_get_values)(server, entryIterator, attribute);
+      struct bv **vals = (struct bv **)
+        (*ldap_get_values_len)(server, entryIterator, attribute);
 
       if (vals != NULL)
       {
         for (i = 0; (vals[i] != NULL); i++)
         {
-          Curl_client_write(data, CLIENTWRITE_BODY, (char *)"\t", 1);
-          Curl_client_write(data, CLIENTWRITE_BODY, (char*) attribute, 0);
-          Curl_client_write(data, CLIENTWRITE_BODY, (char *)": ", 2);
-          Curl_client_write(data, CLIENTWRITE_BODY, vals[i], 0);
-          Curl_client_write(data, CLIENTWRITE_BODY, (char *)"\n", 0);
+          Curl_client_write(conn, CLIENTWRITE_BODY, (char *)"\t", 1);
+          Curl_client_write(conn, CLIENTWRITE_BODY, (char *) attribute, 0);
+          Curl_client_write(conn, CLIENTWRITE_BODY, (char *)": ", 2);
+          if ((strlen(attribute) > 7) &&
+              (strcmp(";binary",
+                      (char *)attribute +
+                      (strlen((char *)attribute) - 7)) == 0)) {
+            /* Binary attribute, encode to base64. */
+            val_b64_sz = Curl_base64_encode(conn->data,
+                                            vals[i]->bv_val,
+                                            vals[i]->bv_len,
+                                            &val_b64);
+            if (val_b64_sz > 0) {
+              Curl_client_write(conn, CLIENTWRITE_BODY, val_b64, val_b64_sz);
+              free(val_b64);
+            }
+          } else
+            Curl_client_write(conn, CLIENTWRITE_BODY, vals[i]->bv_val,
+                              vals[i]->bv_len);
+          Curl_client_write(conn, CLIENTWRITE_BODY, (char *)"\n", 0);
         }
 
         /* Free memory used to store values */
-        (*ldap_value_free)(vals);
+        (*ldap_value_free_len)((void **)vals);
       }
-      Curl_client_write(data, CLIENTWRITE_BODY, (char *)"\n", 1);
+      Curl_client_write(conn, CLIENTWRITE_BODY, (char *)"\n", 1);
 
       (*ldap_memfree)(attribute);
     }
@@ -379,7 +439,7 @@ quit:
   DynaClose();
 
   /* no data to transfer */
-  Curl_Transfer(conn, -1, -1, FALSE, NULL, -1, NULL);
+  Curl_setup_transfer(conn, -1, -1, FALSE, NULL, -1, NULL);
   conn->bits.close = TRUE;
 
   return status;
@@ -448,31 +508,31 @@ static char **split_str (char *str)
 /*
  * Unescape the LDAP-URL components
  */
-static bool unescape_elements (LDAPURLDesc *ludp)
+static bool unescape_elements (void *data, LDAPURLDesc *ludp)
 {
   int i;
 
   if (ludp->lud_filter) {
-    ludp->lud_filter = curl_unescape(ludp->lud_filter, 0);
+    ludp->lud_filter = curl_easy_unescape(data, ludp->lud_filter, 0, NULL);
     if (!ludp->lud_filter)
        return (FALSE);
   }
 
   for (i = 0; ludp->lud_attrs && ludp->lud_attrs[i]; i++) {
-    ludp->lud_attrs[i] = curl_unescape(ludp->lud_attrs[i], 0);
+    ludp->lud_attrs[i] = curl_easy_unescape(data, ludp->lud_attrs[i], 0, NULL);
     if (!ludp->lud_attrs[i])
        return (FALSE);
   }
 
   for (i = 0; ludp->lud_exts && ludp->lud_exts[i]; i++) {
-    ludp->lud_exts[i] = curl_unescape(ludp->lud_exts[i], 0);
+    ludp->lud_exts[i] = curl_easy_unescape(data, ludp->lud_exts[i], 0, NULL);
     if (!ludp->lud_exts[i])
        return (FALSE);
   }
 
   if (ludp->lud_dn) {
     char *dn = ludp->lud_dn;
-    char *new_dn = curl_unescape(dn, 0);
+    char *new_dn = curl_easy_unescape(data, dn, 0, NULL);
 
     free(dn);
     ludp->lud_dn = new_dn;
@@ -489,8 +549,10 @@ static bool unescape_elements (LDAPURLDesc *ludp)
  *
  * <hostname> already known from 'conn->host.name'.
  * <port>     already known from 'conn->remote_port'.
- * extract the rest from 'conn->path+1'. All fields are optional. e.g.
- *   ldap://<hostname>:<port>/?<attributes>?<scope>?<filter> yields ludp->lud_dn = "".
+ * extract the rest from 'conn->data->reqdata.path+1'. All fields are optional.
+ * e.g.
+ *   ldap://<hostname>:<port>/?<attributes>?<scope>?<filter>
+ * yields ludp->lud_dn = "".
  *
  * Ref. http://developer.netscape.com/docs/manuals/dirsdk/csdk30/url.htm#2831915
  */
@@ -499,7 +561,9 @@ static int _ldap_url_parse2 (const struct connectdata *conn, LDAPURLDesc *ludp)
   char *p, *q;
   int i;
 
-  if (!conn->path || conn->path[0] != '/' ||
+  if (!conn->data ||
+      !conn->data->reqdata.path ||
+       conn->data->reqdata.path[0] != '/' ||
       !checkprefix(conn->protostr, conn->data->change.url))
      return LDAP_INVALID_SYNTAX;
 
@@ -509,13 +573,13 @@ static int _ldap_url_parse2 (const struct connectdata *conn, LDAPURLDesc *ludp)
 
   /* parse DN (Distinguished Name).
    */
-  ludp->lud_dn = strdup(conn->path+1);
+  ludp->lud_dn = strdup(conn->data->reqdata.path+1);
   if (!ludp->lud_dn)
      return LDAP_NO_MEMORY;
 
   p = strchr(ludp->lud_dn, '?');
-  LDAP_TRACE (("DN '%.*s'\n", p ? (size_t)(p-ludp->lud_dn) : strlen(ludp->lud_dn),
-               ludp->lud_dn));
+  LDAP_TRACE (("DN '%.*s'\n", p ? (size_t)(p-ludp->lud_dn) :
+               strlen(ludp->lud_dn), ludp->lud_dn));
 
   if (!p)
      goto success;
@@ -583,7 +647,7 @@ static int _ldap_url_parse2 (const struct connectdata *conn, LDAPURLDesc *ludp)
       LDAP_TRACE (("exts[%d] '%s'\n", i, ludp->lud_exts[i]));
 
 success:
-  if (!unescape_elements(ludp))
+  if (!unescape_elements(conn->data, ludp))
      return LDAP_NO_MEMORY;
   return LDAP_SUCCESS;
 }

@@ -32,7 +32,6 @@
 
     #define CacheCollectionDidChangeNotification @"CacheCollectionDidChange"
     #define PreferencesDidChangeNotification     @"PreferencesDidChange"
-    #define WakeFromSleepNotification            @"SystemDidWakeFromSleep"
     #define CacheSelectionDidChangeNotification  @"CacheSelectionDidChange"
     #define TicketListDidChangeNotification      @"TicketListDidChange"
     #define TicketSelectionDidChangeNotification @"TicketSelectionDidChange"

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.bsd.dirhelper</string>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.bsd.dirhelper</key>
+		<true/>
+	</dict>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/dirhelper</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>TimeOut</key>
+	<integer>30</integer>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>3</integer>
+		<key>Minute</key>
+		<integer>35</integer>
+	</dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>CLEAN_FILES_OLDER_THAN_DAYS</key>
+		<string>3</string>
+	</dict>
+</dict>
+</plist>

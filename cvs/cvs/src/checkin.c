@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -15,31 +20,17 @@
  * Returns non-zero on error.
  */
 
-#include <assert.h>
 #include "cvs.h"
 #include "fileattr.h"
 #include "edit.h"
 
 int
-Checkin (type, finfo, rev, tag, options, message)
-    int type;
-    struct file_info *finfo;
-    char *rev;
-    char *tag;
-    char *options;
-    char *message;
+Checkin (int type, struct file_info *finfo, char *rev, char *tag,
+	 char *options, char *message)
 {
     Vers_TS *vers;
     int set_time;
     char *tocvsPath = NULL;
-
-    /* Hmm.  This message goes to stdout and the "foo,v  <--  foo"
-       message from "ci" goes to stderr.  This doesn't make a whole
-       lot of sense, but making everything go to stdout can only be
-       gracefully achieved once RCS_checkin is librarified.  */
-    cvs_output ("Checking in ", 0);
-    cvs_output (finfo->fullname, 0);
-    cvs_output (";\n", 0);
 
     tocvsPath = wrap_tocvs_process_file (finfo->file);
     if (!noexec)
@@ -60,8 +51,8 @@ Checkin (type, finfo, rev, tag, options, message)
      */
     assert (finfo->rcs != NULL);
 
-    switch (RCS_checkin (finfo->rcs, finfo->file, message, rev, 0,
-                         RCS_FLAGS_KEEPFILE))
+    switch (RCS_checkin (finfo->rcs, finfo->update_dir, finfo->file, message,
+			 rev, 0, RCS_FLAGS_KEEPFILE))
     {
 	case 0:			/* everything normal */
 
@@ -83,12 +74,14 @@ Checkin (type, finfo, rev, tag, options, message)
                call RCS_checkout here, compare the resulting files
                using xcmp, and rename if necessary.  I think this
                should be fixed in RCS_cmp_file.  */
-	    if( ( ! preserve_perms
-		  && options != NULL
-		  && ( strcmp( options, "-ko" ) == 0
-		       || strcmp( options, "-kb" ) == 0 ) )
-		|| RCS_cmp_file( finfo->rcs, rev, (char **)NULL, (char *)NULL,
-	                         options, finfo->file ) == 0 )
+	    if ((1
+#ifdef PRESERVE_PERMISSIONS_SUPPORT
+		 !config->preserve_perms
+#endif /* PRESERVE_PERMISSIONS_SUPPORT */
+		 && options
+		 && (!strcmp (options, "-ko") || !strcmp (options, "-kb")))
+		|| !RCS_cmp_file (finfo->rcs, rev, NULL, NULL,
+	                          options, finfo->file))
 	    {
 		/* The existing file is correct.  We don't have to do
                    anything.  */
@@ -98,9 +91,8 @@ Checkin (type, finfo, rev, tag, options, message)
 	    {
 		/* The existing file is incorrect.  We need to check
                    out the correct file contents.  */
-		if (RCS_checkout (finfo->rcs, finfo->file, rev, (char *) NULL,
-				  options, RUN_TTY, (RCSCHECKOUTPROC) NULL,
-				  (void *) NULL) != 0)
+		if (RCS_checkout (finfo->rcs, finfo->file, rev, NULL,
+				  options, RUN_TTY, NULL, NULL) != 0)
 		    error (1, 0, "failed when checking out new copy of %s",
 			   finfo->fullname);
 		xchmod (finfo->file, 1);
@@ -121,7 +113,7 @@ Checkin (type, finfo, rev, tag, options, message)
 	    if (strcmp (vers->options, "-V4") == 0)
 		vers->options[0] = '\0';
 	    Register (finfo->entries, finfo->file, vers->vn_rcs, vers->ts_user,
-		      vers->options, vers->tag, vers->date, (char *) 0);
+		      vers->options, vers->tag, vers->date, NULL);
 	    history_write (type, NULL, vers->vn_rcs,
 			   finfo->file, finfo->repository);
 
@@ -172,10 +164,10 @@ Checkin (type, finfo, rev, tag, options, message)
 	if (set_time)
 	    /* Need to update the checked out file on the client side.  */
 	    server_updated (finfo, vers, SERVER_UPDATED,
-			    (mode_t) -1, (unsigned char *) NULL,
-			    (struct buffer *) NULL);
+			    (mode_t) -1, NULL, NULL);
 	else
-	    server_checked_in (finfo->file, finfo->update_dir, finfo->repository);
+	    server_checked_in (finfo->file, finfo->update_dir,
+			       finfo->repository);
     }
     else
 #endif

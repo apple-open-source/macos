@@ -28,7 +28,7 @@
 
 #import "RealmsEditorController.h"
 #import "Utilities.h"
-#import "ErrorAlert.h"
+#import "KerberosErrorAlert.h"
 
 
 @implementation RealmsEditorController
@@ -43,7 +43,7 @@
         realmsConfiguration = NULL;
         
         realmsConfiguration = [[RealmsConfiguration alloc] init];
-        if (realmsConfiguration == NULL) {
+        if (!realmsConfiguration) {
             [self release];
             return NULL;
         }
@@ -58,9 +58,9 @@
 {
     [[NSNotificationCenter defaultCenter] removeObserver: self];
 
-    if (errorMessageString     != NULL) { [errorMessageString release]; }
-    if (errorDescriptionString != NULL) { [errorDescriptionString release]; }
-    if (realmsConfiguration    != NULL) { [realmsConfiguration release]; }
+    if (errorMessageString    ) { [errorMessageString release]; }
+    if (errorDescriptionString) { [errorDescriptionString release]; }
+    if (realmsConfiguration   ) { [realmsConfiguration release]; }
 
     [super dealloc];
 }
@@ -123,6 +123,7 @@
     if ((newRealm != NULL) && [self stopEditing]) {
         [realmsConfiguration addRealm: newRealm];
         [realmsTableView reloadData];
+        [realmTabView selectTabViewItem: settingsTabViewItem];
         [self selectRealm: newRealm edit: YES];
     }
 }
@@ -132,11 +133,11 @@
 - (IBAction) removeRealm: (id) sender
 {
     KerberosRealm *selectedRealm = [self selectedRealm];
-    if (selectedRealm != NULL) {
+    if (selectedRealm) {
         NSString *format = NSLocalizedString (@"KAppStringAskRemoveRealm", NULL);
         if (([[self currentRealmString] length] == 0) ||
-            [ErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [self currentRealmString]]
-                            modalForWindow: [self window]]) {
+            [KerberosErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [self currentRealmString]]
+                                    modalForWindow: [self window]]) {
             [realmsConfiguration removeRealm: selectedRealm];
         }
     }
@@ -148,7 +149,7 @@
 - (IBAction) makeDefaultRealm: (id) sender
 {
     KerberosRealm *selectedRealm = [self selectedRealm];
-    if (selectedRealm != NULL) {
+    if (selectedRealm) {
         [realmsConfiguration setDefaultRealm: [selectedRealm name]];
     }
     [realmsTableView reloadData];
@@ -159,7 +160,7 @@
 - (IBAction) displayRealmInDialogPopupCheckboxWasHit: (id) sender
 {
     KerberosRealm *selectedRealm = [self selectedRealm];
-    if (selectedRealm != NULL) {
+    if (selectedRealm) {
         [selectedRealm setDisplayInDialogPopup: ([displayInDialogPopupCheckbox state] == NSOnState)];
     }
 }
@@ -176,7 +177,7 @@
 - (IBAction) addServer: (id) sender
 {
     KerberosRealm *selectedRealm = [self selectedRealm];
-    if (selectedRealm != NULL) {
+    if (selectedRealm) {
         KerberosServer *newServer = [KerberosServer emptyServer];
         if ((newServer != NULL) && [self stopEditing]) {
             [selectedRealm addServer: newServer];
@@ -195,8 +196,8 @@
     if ((selectedRealm != NULL) && (selectedServer != NULL)) {
         NSString *format = NSLocalizedString (@"KAppStringAskRemoveServer", NULL);
         if (([[self currentServerString] length] == 0) ||
-            [ErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [self currentServerString]]
-                            modalForWindow: [self window]]) {
+            [KerberosErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [self currentServerString]]
+                                    modalForWindow: [self window]]) {
             [selectedRealm removeServer: selectedServer];
         }
     }
@@ -208,7 +209,7 @@
 - (IBAction) addDomain: (id) sender
 {
     KerberosRealm *selectedRealm = [self selectedRealm];
-    if (selectedRealm != NULL) {
+    if (selectedRealm) {
         KerberosDomain *newDomain = [KerberosDomain emptyDomain];
         if (newDomain != NULL && [self stopEditing]) {
             [selectedRealm addDomain: newDomain];
@@ -227,8 +228,8 @@
     if ((selectedRealm != NULL) && (selectedDomain != NULL)) {
         NSString *format = NSLocalizedString (@"KAppStringAskRemoveDomain", NULL);
         if (([[self currentDomainString] length] == 0) ||
-            [ErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [self currentDomainString]]
-                            modalForWindow: [self window]]) {
+            [KerberosErrorAlert alertForYNQuestion: [NSString stringWithFormat: format, [self currentDomainString]]
+                                    modalForWindow: [self window]]) {
             [selectedRealm removeDomain: selectedDomain];
         }
     }
@@ -271,41 +272,6 @@
     [self close];
 }
 
-// ---------------------------------------------------------------------------
-
-- (IBAction) versionRadioButtonWasHit: (id) sender
-{
-}
-
-// ---------------------------------------------------------------------------
-
-- (IBAction) typeRadioButtonWasHit: (id) sender
-{
-}
-
-// ---------------------------------------------------------------------------
-
-- (IBAction) portRadioButtonWasHit: (id) sender
-{
-}
-
-// ---------------------------------------------------------------------------
-
-- (IBAction) addServerCancel: (id) sender
-{
-    [NSApp endSheet: addServerWindow returnCode: userCanceledErr];
-}
-
-// ---------------------------------------------------------------------------
-
-- (IBAction) addServerOK: (id) sender
-{
-    [NSApp endSheet: addServerWindow returnCode: noErr];
-}
-
-// ---------------------------------------------------------------------------
-
-
 #pragma mark --- Data Source Methods --
 
 // ---------------------------------------------------------------------------
@@ -334,22 +300,22 @@
 {
     if (tableView == realmsTableView) {
         KerberosRealm *realm = [realmsConfiguration realmAtIndex: rowIndex];
-        if (realm != NULL) {
+        if (realm) {
             BOOL isDefault = ([[realm name] compare: [realmsConfiguration defaultRealm]] == NSOrderedSame);
-            NSDictionary *attributes = [Utilities attributesForTicketColumnCellOfControlSize: NSRegularControlSize 
-                                                                                        bold: isDefault
-                                                                                      italic: NO];
-            return [[[NSAttributedString alloc] initWithString: [realm name] attributes: attributes] autorelease];
+            return [Utilities attributedStringForControlType: kUtilitiesTableCellControlType
+                                                      string: [realm name]
+                                                   alignment: kUtilitiesLeftStringAlignment
+                                                        bold: isDefault
+                                                      italic: NO
+                                                         red: NO];
         }
     } else {
         KerberosRealm *realm = [self selectedRealm];
-        if (realm != NULL) {
+        if (realm) {
             if (tableView == serversTableView) {
                 KerberosServer *server = [realm serverAtIndex: rowIndex];
-                if (server != NULL) {
-                    if (tableColumn == serverVersionColumn) {
-                        return [NSNumber numberWithInt: [server version] - 1];
-                    } else if (tableColumn == serverTypeColumn) {
+                if (server) {
+                    if (tableColumn == serverTypeColumn) {
                         return [NSNumber numberWithInt: [server typeMenuIndex]];
                     } else if (tableColumn == serverColumn) {
                         return [server host];
@@ -359,14 +325,14 @@
                 }
             } else if (tableView == domainsTableView) {
                 KerberosDomain *domain = [realm domainAtIndex: rowIndex];
-                if (domain != NULL) {
+                if (domain) {
                     BOOL isDefault = ([[domain name] compare: [realm defaultDomain]] == NSOrderedSame);
-                    NSDictionary *attributes = [Utilities attributesForTicketColumnCellOfControlSize: NSSmallControlSize 
-                                                                                                bold: isDefault
-                                                                                              italic: NO];
-                    if (tableColumn == domainColumn) {
-                        return [[[NSAttributedString alloc] initWithString: [domain name] attributes: attributes] autorelease];
-                    }
+                    return [Utilities attributedStringForControlType: kUtilitiesSmallTableCellControlType
+                                                              string: [domain name]
+                                                           alignment: kUtilitiesLeftStringAlignment
+                                                                bold: isDefault
+                                                              italic: NO
+                                                                 red: NO];
                 }
             }
         }
@@ -383,13 +349,11 @@
         [[realmsConfiguration realmAtIndex: rowIndex] setName: value];
     } else {
         KerberosRealm *realm = [self selectedRealm];
-        if (realm != NULL) {
+        if (realm) {
             if (tableView == serversTableView) {
                 KerberosServer *server = [realm serverAtIndex: rowIndex];
-                if (server != NULL) {
-                    if (tableColumn == serverVersionColumn) {
-                        [server setVersion: [value intValue] + 1];
-                    } else if (tableColumn == serverTypeColumn) {
+                if (server) {
+                    if (tableColumn == serverTypeColumn) {
                         [server setTypeMenuIndex: [value intValue]];
                     } else if (tableColumn == serverColumn) {
                         [server setHost: value];
@@ -399,7 +363,7 @@
                 }
             } else if (tableView == domainsTableView) {
                 KerberosDomain *domain = [realm domainAtIndex: rowIndex];
-                if (domain != NULL) {
+                if (domain) {
                     if (tableColumn == domainColumn) {
                         [domain setName: value];
                     }
@@ -450,18 +414,9 @@
 
 - (void) controlTextDidChange: (NSNotification *) notification
 {
-    if ([notification object] == alternateV4RealmTextField) {
+    if ([notification object] == realmTextField) {
         KerberosRealm *realm = [self selectedRealm];
-        if (realm != NULL) {
-            if ([[alternateV4RealmTextField stringValue] length] > 0) {
-                [realm setV4Name: [alternateV4RealmTextField stringValue]];
-            } else {
-                [realm setV4Name: NULL];
-            }
-        }
-    } else if ([notification object] == realmTextField) {
-        KerberosRealm *realm = [self selectedRealm];
-        if (realm != NULL) {
+        if (realm) {
             if ([[realmTextField stringValue] length] > 0) {
                 [realm setName: [realmTextField stringValue]];
             } else {
@@ -476,9 +431,9 @@
 
 - (void) realmConfigurationErrorNeedsDisplay: (NSNotification *) notification
 {
-    [ErrorAlert alertForMessage: [self errorMessage]
-                    description: [self errorDescription]
-                 modalForWindow: [self window]];
+    [KerberosErrorAlert alertForMessage: [self errorMessage]
+                            description: [self errorDescription]
+                         modalForWindow: [self window]];
 }
 
 // ---------------------------------------------------------------------------
@@ -492,7 +447,6 @@
     // Set control enabledness:
     [displayInDialogPopupCheckbox setEnabled: realmIsSelected];
     [realmTextField               setEnabled: realmIsSelected];
-    [alternateV4RealmTextField    setEnabled: realmIsSelected];
     [removeRealmButton            setEnabled: realmIsSelected];
     
     [serversTableView   setEnabled: realmIsSelected];
@@ -507,18 +461,14 @@
     // Gray out text if necessary:
     NSColor *color = realmIsSelected ? [NSColor blackColor] : [NSColor grayColor];
     [realmHeaderTextField            setTextColor: color];
-    [alternateV4RealmHeaderTextField setTextColor: color];
-    [notCommonTextField              setTextColor: color];
     [mappingDescriptionTextField     setTextColor: color];
     
     if ([notification object] == realmsTableView) {
         // If we changed realms, load the realm configuration
         KerberosRealm *realm = [self selectedRealm];        
-        if (realm != NULL) {
+        if (realm) {
             [displayInDialogPopupCheckbox setState: [realm displayInDialogPopup] ? NSOnState : NSOffState];
-            
-            [realmTextField            setObjectValue: [realm name]];        
-            [alternateV4RealmTextField setObjectValue: [realm hasV4Name] ? [realm v4Name] : @""];
+            [realmTextField setObjectValue: [realm name]];        
         }
         
         [serversTableView reloadData];
@@ -564,8 +514,8 @@
     NSText *editor = [realmTextField currentEditor];
     NSString *string = NULL;
     
-    if ((string == NULL) && (editor != NULL)) { string = [editor string]; }
-    if ((string == NULL) && (realm  != NULL)) { string = [realm name]; }
+    if (!string && editor) { string = [editor string]; }
+    if (!string && realm ) { string = [realm name]; }
     
     return string;
 }
@@ -578,8 +528,8 @@
     NSText *editor = [serversTableView currentEditor];
     NSString *string = NULL;
     
-    if ((string == NULL) && (editor != NULL)) { string = [editor string]; }
-    if ((string == NULL) && (server != NULL)) { string = [server host]; }
+    if (!string && editor) { string = [editor string]; }
+    if (!string && server) { string = [server host]; }
     
     return string;
 }
@@ -592,8 +542,8 @@
     NSText *editor = [domainsTableView currentEditor];
     NSString *string = NULL;
     
-    if ((string == NULL) && (editor != NULL)) { string = [editor string]; }
-    if ((string == NULL) && (domain != NULL)) { string = [domain name]; }
+    if (!string && editor) { string = [editor string]; }
+    if (!string && domain) { string = [domain name]; }
     
     return string;
 }
@@ -608,18 +558,18 @@
         NSString *string = [self currentRealmString];
         NSText *editor = [realmTextField currentEditor];
         
-        if (string != NULL) {
+        if (string) {
             //NSLog (@"Realm text field editor exists and contains '%@'", string);
             if ([string length] <= 0) {
                 [self displayErrorMessage: NSLocalizedString (@"KAppStringRealmsConfigurationError", NULL)
                               description: NSLocalizedString (@"KAppStringEmptyRealm", NULL)];                
                 allow = NO;
             } else {
-                if (editor != NULL) { [[realmTextField selectedCell] endEditing: editor]; }
+                if (editor) { [[realmTextField selectedCell] endEditing: editor]; }
             }
         }
         
-        if (!allow && (editor == NULL)) { 
+        if (!allow && !editor) { 
             [[self window] makeFirstResponder: realmTextField];  // edit again
         }
     }
@@ -628,7 +578,7 @@
         NSString *string = [self currentServerString];
         NSText *editor = [serversTableView currentEditor];
         
-        if (string != NULL) {
+        if (string) {
             //NSLog (@"Server table ditor exists and contains '%@'", string);
             if ([string length] <= 0) {
                 [self displayErrorMessage: NSLocalizedString (@"KAppStringRealmsConfigurationError", NULL)
@@ -636,10 +586,10 @@
                 allow = NO;
                 
             } else {
-                if (editor != NULL) { [[serversTableView selectedCell] endEditing: editor]; }
+                if (editor) { [[serversTableView selectedCell] endEditing: editor]; }
             }
 
-            if (!allow && (editor == NULL)) { 
+            if (!allow && !editor) { 
                 [serversTableView editColumn: [[serversTableView tableColumns] indexOfObject: serverColumn]
                                          row: [serversTableView selectedRow]
                                    withEvent: NULL
@@ -652,7 +602,7 @@
         NSString *string = [self currentDomainString];
         NSText *editor = [domainsTableView currentEditor];
         
-        if (string != NULL) {
+        if (string) {
             KerberosRealm *selectedRealm = [self selectedRealm];
             KerberosRealm *mappedRealm = NULL;
             
@@ -671,10 +621,10 @@
                 allow = NO;
                 
             } else {
-                if (editor != NULL) { [[domainsTableView selectedCell] endEditing: editor]; }
+                if (editor) { [[domainsTableView selectedCell] endEditing: editor]; }
             }            
 
-            if (!allow && (editor == NULL)) { 
+            if (!allow && !editor) { 
                 [domainsTableView editColumn: [[domainsTableView tableColumns] indexOfObject: domainColumn]
                                          row: [domainsTableView selectedRow]
                                    withEvent: NULL
@@ -767,7 +717,7 @@
 - (void) selectServer: (KerberosServer *) server edit: (BOOL) edit
 {
     KerberosRealm *selectedRealm = [self selectedRealm];
-    if (selectedRealm != NULL) {
+    if (selectedRealm) {
         unsigned int serverIndex = [selectedRealm indexOfServer: server];
         if (serverIndex != NSNotFound) {
             NSIndexSet *indexes = [NSIndexSet indexSetWithIndex: serverIndex];
@@ -786,7 +736,7 @@
 - (void) selectDomain: (KerberosDomain *) domain edit: (BOOL) edit
 {
     KerberosRealm *selectedRealm = [self selectedRealm];
-    if (selectedRealm != NULL) {
+    if (selectedRealm) {
         unsigned int domainIndex = [selectedRealm indexOfDomain: domain];
         if (domainIndex != NSNotFound) {
             NSIndexSet *indexes = [NSIndexSet indexSetWithIndex: domainIndex];
@@ -818,10 +768,10 @@
 
 - (void) setErrorMessage: (NSString *) newErrorMessage description: (NSString *) newErrorDescription
 {
-    if (errorMessageString != NULL) { [errorMessageString release]; }
+    if (errorMessageString) { [errorMessageString release]; }
     errorMessageString = [newErrorMessage retain];
     
-    if (errorDescriptionString != NULL) { [errorDescriptionString release]; }
+    if (errorDescriptionString) { [errorDescriptionString release]; }
     errorDescriptionString = [newErrorDescription retain];
 }
 

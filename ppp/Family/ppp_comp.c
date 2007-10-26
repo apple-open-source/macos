@@ -77,6 +77,7 @@
 #include <sys/mbuf.h>
 #include <sys/socket.h>
 #include <net/if.h>
+#include <sys/vm.h>
 #if 0
 #include <net/netisr.h>
 #endif
@@ -263,13 +264,25 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
 {
     int 			error = 0, nb;
     struct ppp_comp 		*cp;
+	struct ppp_option_data64 *odp64 = (struct ppp_option_data64 *)odp;
     u_char 			ccp_option[CCP_MAX_OPTION_LENGTH];
+	user_addr_t		ptr;
+	int				transmit;
 
-    nb = odp->length;
+	if (proc_is64bit(current_proc())) {
+		nb = odp64->length;
+		ptr = odp64->ptr;
+		transmit = odp64->transmit;
+	}
+	else {
+		nb = odp->length;
+		ptr = CAST_USER_ADDR_T(odp->ptr);
+		transmit = odp->transmit;
+	}
     if (nb > sizeof(ccp_option))
         nb = sizeof(ccp_option);
 
-    if (error = copyin(CAST_USER_ADDR_T(odp->ptr), ccp_option, nb))
+    if (error = copyin(ptr, ccp_option, nb))
         return (error);
 
     if (ccp_option[1] < 2)	/* preliminary check on the length byte */
@@ -284,7 +297,7 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
         return EINVAL;	/* no handler found */
     }
 
-    if (odp->transmit) {
+    if (transmit) {
         if (wan->xc_state)
             (*wan->xcomp->comp_free)(wan->xc_state);
         wan->xcomp = cp;

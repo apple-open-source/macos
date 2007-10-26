@@ -1,5 +1,5 @@
 " Vim Keymap file for hebrew
-" Maintainer  : Ron Aaron <ronaharon@yahoo.com>
+" Maintainer  : Ron Aaron <ron@ronware.org>
 " Last Updated: Thu 08 Mar 2001 13:49:01
 " This is my version of a phonetic Hebrew
 

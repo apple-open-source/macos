@@ -843,8 +843,7 @@ sym_read_contained_variables (struct objfile *objfile,
                   SYMBOL_VALUE_ADDRESS (lsym) =
                     cventry.entry.address.scstruct.sca_offset;
                   SYMBOL_VALUE_ADDRESS (lsym) +=
-                    ANOFFSET (objfile->section_offsets,
-                              SECT_OFF_DATA (obfjile));
+		    		objfile_data_section_offset (objfile);
 #endif
 
                   break;
@@ -919,6 +918,7 @@ sym_read_functions (struct objfile *objfile,
   unsigned long maxfuncs;
   unsigned long i, j;
   int ret;
+  CORE_ADDR text_section_offset = 0;
 
   CHECK_FATAL (objfile != NULL);
   abfd = objfile->obfd;
@@ -934,6 +934,7 @@ sym_read_functions (struct objfile *objfile,
     obstack_alloc (&objfile->objfile_obstack,
                    maxfuncs * sizeof (struct symbol *));
 
+  text_section_offset = objfile_text_section_offset (objfile);
   for (i = 1; i < maxfuncs; i++)
     {
 
@@ -1009,10 +1010,8 @@ sym_read_functions (struct objfile *objfile,
       BLOCK_SUPERBLOCK (fblock) = NULL;
       BLOCK_GCC_COMPILED (fblock) = 0;
 
-      BLOCK_START (fblock) +=
-        ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
-      BLOCK_END (fblock) +=
-        ANOFFSET (objfile->section_offsets, SECT_OFF_TEXT (objfile));
+      BLOCK_START (fblock) += text_section_offset;
+      BLOCK_END (fblock) += text_section_offset;
 
       BLOCK_DICT (fblock) = dict_create_hashed_expandable ();
       for (i = 0; i < nlocals; j++)
@@ -1056,15 +1055,15 @@ sym_read_functions (struct objfile *objfile,
 static void
 sym_symfile_init (struct objfile *objfile)
 {
-  objfile->sym_stab_info =
+  objfile->deprecated_sym_stab_info =
     xmmalloc (objfile->md, sizeof (struct dbx_symfile_info));
 
-  memset ((PTR) objfile->sym_stab_info, 0, sizeof (struct dbx_symfile_info));
+  memset ((PTR) objfile->deprecated_sym_stab_info, 0, sizeof (struct dbx_symfile_info));
 
-  objfile->sym_private =
+  objfile->deprecated_sym_private =
     xmmalloc (objfile->md, sizeof (struct sym_symfile_info));
 
-  memset (objfile->sym_private, 0, sizeof (struct sym_symfile_info));
+  memset (objfile->deprecated_sym_private, 0, sizeof (struct sym_symfile_info));
 
   objfile->flags |= OBJF_REORDERED;
   init_entry_point_info (objfile);
@@ -1134,6 +1133,7 @@ sym_symfile_read (struct objfile *objfile, int mainline)
   unsigned long maxtypes;
 
   unsigned long i;
+  CORE_ADDR text_section_offset = 0;
 
   CHECK_FATAL (objfile != NULL);
   abfd = objfile->obfd;
@@ -1153,6 +1153,7 @@ sym_symfile_read (struct objfile *objfile, int mainline)
   sblock = allocate_block (&objfile->objfile_obstack);
   BLOCK_SUPERBLOCK (sblock) = gblock;
   BLOCK_DICT (sblock) = dict_create_hashed_expandable ();
+  text_section_offset = objfile_text_section_offset (objfile);
 
   for (i = 0; i < maxtypes; i++)
     {
@@ -1195,14 +1196,26 @@ sym_symfile_read (struct objfile *objfile, int mainline)
 
     for (i = 0; i < nfuncs; i++)
       {
-        if (BLOCK_START (BLOCKVECTOR_BLOCK (bv, i + 2)) < minaddr)
+	/* APPLE LOCAL begin address ranges  */
+        if (BLOCK_LOWEST_PC (BLOCKVECTOR_BLOCK (bv, i + 2)) < minaddr)
           {
-            minaddr = BLOCK_START (BLOCKVECTOR_BLOCK (bv, i + 2));
+            minaddr = BLOCK_LOWEST_PC (BLOCKVECTOR_BLOCK (bv, i + 2));
           }
-        if (BLOCK_END (BLOCKVECTOR_BLOCK (bv, i + 2)) > maxaddr)
+        if(!BLOCK_RANGES (BLOCKVECTOR_BLOCK (bv, i + 2))
+	   && BLOCK_END (BLOCKVECTOR_BLOCK (bv, i + 2)) > maxaddr)
           {
             maxaddr = BLOCK_END (BLOCKVECTOR_BLOCK (bv, i + 2));
           }
+	else if (BLOCK_RANGES (BLOCKVECTOR_BLOCK (bv, i + 2)))
+	  {
+	    int j;
+
+	    for (j = 0; j < BLOCK_RANGES (BLOCKVECTOR_BLOCK (bv, i + 2))->nelts;
+		 j++)
+	      if (BLOCK_RANGE_END (BLOCKVECTOR_BLOCK (bv, i + 2), j) > maxaddr)
+		maxaddr = BLOCK_RANGE_END (BLOCKVECTOR_BLOCK (bv, i + 2), j);
+	  }
+	/* APPLE LOCAL end address ranges  */
       }
 
     BLOCK_START (BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK)) = minaddr;
@@ -1253,9 +1266,7 @@ sym_symfile_read (struct objfile *objfile, int mainline)
                   linetable->item[curitem].line = -1;
                   linetable->item[curitem].pc =
                     mtentry.mte_res_offset + mtentry.mte_size;
-                  linetable->item[curitem].pc +=
-                    ANOFFSET (objfile->section_offsets,
-                              SECT_OFF_TEXT (objfile));
+                  linetable->item[curitem].pc += text_section_offset;
                   curitem++;
                   linetable->nitems = curitem;
                 }
@@ -1351,9 +1362,7 @@ sym_symfile_read (struct objfile *objfile, int mainline)
                     {
                       linetable->item[curitem].line = curpos;
                       linetable->item[curitem].pc = mtentry.mte_res_offset;
-                      linetable->item[curitem].pc +=
-                        ANOFFSET (objfile->section_offsets,
-                                  SECT_OFF_TEXT (objfile));
+                      linetable->item[curitem].pc += text_section_offset;
                       curitem++;
                       linetable->nitems = curitem;
                     }
@@ -1361,9 +1370,7 @@ sym_symfile_read (struct objfile *objfile, int mainline)
                   linetable->item[curitem].line = curpos;
                   linetable->item[curitem].pc =
                     mtentry.mte_res_offset + entry.entry.mte_offset;
-                  linetable->item[curitem].pc +=
-                    ANOFFSET (objfile->section_offsets,
-                              SECT_OFF_TEXT (objfile));
+                  linetable->item[curitem].pc += text_section_offset;
                   curitem++;
                   linetable->nitems = curitem;
                 }
@@ -1400,13 +1407,11 @@ sym_symfile_offsets (struct objfile *objfile, struct section_addr_info *addrs)
 
   if (addrs->other[0].addr != 0)
     {
-      objfile_delete_from_ordered_sections (objfile);
       for (i = 0; i < objfile->sections_end - objfile->sections; i++)
         {
           objfile->sections[i].addr += addrs->other[0].addr;
           objfile->sections[i].endaddr += addrs->other[0].addr;
         }
-      objfile_add_to_ordered_sections (objfile);
     }
 
   for (i = 0; i < objfile->num_sections; i++)

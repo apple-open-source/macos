@@ -68,6 +68,7 @@
  * use of broadcasting use it, otherwise address
  * the output to the known router.
  */
+void
 toall(f, rtstate, skipif)
 	int (*f)();
 	int rtstate;
@@ -93,6 +94,7 @@ toall(f, rtstate, skipif)
  * Output a preformed packet.
  */
 /*ARGSUSED*/
+void
 sndmsg(dst, flags, ifp, rtstate)
 	struct sockaddr *dst;
 	int flags;
@@ -109,6 +111,7 @@ sndmsg(dst, flags, ifp, rtstate)
  * Supply dst with the contents of the routing tables.
  * If this won't fit in one packet, chop it up into several.
  */
+void
 supply(dst, flags, ifp, rtstate)
 	struct sockaddr *dst;
 	int flags;
@@ -171,13 +174,6 @@ again:
 			npackets++;
 		}
 		n->rip_dst = rt->rt_dst;
-#if BSD < 198810
-		if (sizeof(n->rip_dst.sa_family) > 1)	/* XXX */
-		n->rip_dst.sa_family = htons(n->rip_dst.sa_family);
-#else
-#define osa(x) ((struct osockaddr *)(&(x)))
-		osa(n->rip_dst)->sa_family = htons(n->rip_dst.sa_family);
-#endif
 		n->rip_metric = htonl(rt->rt_metric);
 		n++;
 	}

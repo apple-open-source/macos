@@ -1,5 +1,6 @@
 dnl
 dnl Additional macros for configure.in packaged up for easier theft.
+dnl $Id: cyrus.m4,v 1.4 2006/01/20 20:21:08 snsimon Exp $
 dnl tjs@andrew.cmu.edu 6-may-1998
 dnl
 
@@ -8,7 +9,7 @@ dnl already there and not redundantly add it if it is.
 
 dnl add -L(arg), and possibly (runpath switch)(arg), to LDFLAGS
 dnl (so the runpath for shared libraries is set).
-AC_DEFUN(CMU_ADD_LIBPATH, [
+AC_DEFUN([CMU_ADD_LIBPATH], [
   # this is CMU ADD LIBPATH
   if test "$andrew_runpath_switch" = "none" ; then
 	LDFLAGS="-L$1 ${LDFLAGS}"
@@ -19,7 +20,7 @@ AC_DEFUN(CMU_ADD_LIBPATH, [
 
 dnl add -L(1st arg), and possibly (runpath switch)(1st arg), to (2nd arg)
 dnl (so the runpath for shared libraries is set).
-AC_DEFUN(CMU_ADD_LIBPATH_TO, [
+AC_DEFUN([CMU_ADD_LIBPATH_TO], [
   # this is CMU ADD LIBPATH TO
   if test "$andrew_runpath_switch" = "none" ; then
 	$2="-L$1 ${$2}"
@@ -29,7 +30,7 @@ AC_DEFUN(CMU_ADD_LIBPATH_TO, [
 ])
 
 dnl runpath initialization
-AC_DEFUN(CMU_GUESS_RUNPATH_SWITCH, [
+AC_DEFUN([CMU_GUESS_RUNPATH_SWITCH], [
    # CMU GUESS RUNPATH SWITCH
   AC_CACHE_CHECK(for runpath switch, andrew_runpath_switch, [
     # first, try -R

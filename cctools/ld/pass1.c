@@ -2113,10 +2113,11 @@ void)
 
 	/*
 	 * For dynamic libraries on the dynamic library search list that are
-	 * from LC_LOAD_DYLIB or LC_LOAD_WEAK_DYLIB references convert them into
-	 * using a dylib file so it can be searched.  Or remove them from the
-	 * search list if it can't be converted.  Then add all the dependent
-	 * libraries for that library to the search list.
+	 * from LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB or LC_REEXPORT_DYLIB
+	 * references convert them into using a dylib file so it can be
+	 * searched.  Or remove them from the search list if it can't be
+	 * converted.  Then add all the dependent libraries for that library to 
+	 * the search list.
 	 */
 	indirect_dylib = TRUE;
 	prev = NULL;
@@ -2124,13 +2125,14 @@ void)
 	    removed = FALSE;
 	    /*
 	     * If this element on the dynamic library list comes from a
-	     * LC_LOAD_DYLIB or LC_LOAD_WEAK_DYLIB reference try to convert them
-	     * into using a dylib file so it can be searched.  If not take it
-	     * off the list.
+	     * LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB or LC_REEXPORT_DYLIB reference
+	     * try to convert them into using a dylib file so it can be
+	     * searched.  If not take it off the list.
 	     */
 	    if(p->type == DYLIB &&
 	       (p->dl->cmd == LC_LOAD_DYLIB ||
-		p->dl->cmd == LC_LOAD_WEAK_DYLIB)){
+		p->dl->cmd == LC_LOAD_WEAK_DYLIB ||
+		p->dl->cmd == LC_REEXPORT_DYLIB)){
 		if(open_dylib(p) == FALSE){
 		    if(prebinding == TRUE){
 			warning("prebinding disabled because dependent "
@@ -2183,7 +2185,8 @@ void)
 			 sizeof(struct mach_header));
 		for(i = 0; i < mh->ncmds; i++){
 		    if(lc->cmd == LC_LOAD_DYLIB ||
-		       lc->cmd == LC_LOAD_WEAK_DYLIB){
+		       lc->cmd == LC_LOAD_WEAK_DYLIB ||
+		       lc->cmd == LC_REEXPORT_DYLIB){
 			dl = (struct dylib_command *)lc;
 			dep = add_dynamic_lib(DYLIB, dl, p->definition_obj);
 			p->dependent_images[p->ndependent_images++] = dep;
@@ -2554,11 +2557,13 @@ void)
 		q = p;
 		/*
 		 * This could be a dylib that was missing so its dynamic_library
-		 * struct will be just an LC_LOAD_DYLIB or LC_LOAD_WEAK_DYLIB
-		 * command and a name with no strings, symbols, sub_images, etc.
+		 * struct will be just an LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB,
+		 * LC_REEXPORT_DYLIB command and a name with no strings,
+		 * symbols, sub_images, etc.
 	 	 */
 		if(p->dl->cmd == LC_LOAD_DYLIB ||
-		   p->dl->cmd == LC_LOAD_WEAK_DYLIB)
+		   p->dl->cmd == LC_LOAD_WEAK_DYLIB ||
+		   p->dl->cmd == LC_REEXPORT_DYLIB)
 		    goto undefined_twolevel_reference;
 		bsearch_strings = q->strings;
 		bsearch_symbols = q->symbols;
@@ -2571,7 +2576,8 @@ void)
 		    for(i = 0; toc == NULL && i < p->nsub_images; i++){
 			q = p->sub_images[i];
 			if(q->dl->cmd == LC_LOAD_DYLIB ||
-			   q->dl->cmd == LC_LOAD_WEAK_DYLIB)
+			   q->dl->cmd == LC_LOAD_WEAK_DYLIB ||
+			   q->dl->cmd == LC_REEXPORT_DYLIB)
 			    break;
 			bsearch_strings = q->strings;
 			bsearch_symbols = q->symbols;
@@ -2681,12 +2687,13 @@ undefined_twolevel_reference:
 			break;
 		    /*
 		     * This could be a dylib that was missing so its
-		     * dynamic_library struct will be just an LC_LOAD_DYLIB or
-		     * LC_LOAD_WEAK_DYLIB command and a name with no strings,
-		     * symbols, sub_images, etc.
+		     * dynamic_library struct will be just an LC_LOAD_DYLIB,
+		     * LC_LOAD_WEAK_DYLIB or LC_REEXPORT_DYLIB command and a
+		     * name with no strings, symbols, sub_images, etc.
 		     */
 		    if(p->dl->cmd == LC_LOAD_DYLIB ||
-		       p->dl->cmd == LC_LOAD_WEAK_DYLIB)
+		       p->dl->cmd == LC_LOAD_WEAK_DYLIB ||
+		       p->dl->cmd == LC_REEXPORT_DYLIB)
 			break;
 		    q = p;
 		    bsearch_strings = q->strings;
@@ -2702,7 +2709,8 @@ undefined_twolevel_reference:
 			    q = p->sub_images[i];
 			    q->twolevel_searched = TRUE;
 			    if(q->dl->cmd == LC_LOAD_DYLIB ||
-			       q->dl->cmd == LC_LOAD_WEAK_DYLIB)
+			       q->dl->cmd == LC_LOAD_WEAK_DYLIB ||
+			       q->dl->cmd == LC_REEXPORT_DYLIB)
 				break;
 			    /*
 			     * Don't search images that cannot be two level
@@ -3004,7 +3012,8 @@ undefined_twolevel_reference:
 				break;
 			    q = p;
 			    if(q->dl->cmd == LC_LOAD_DYLIB ||
-			       q->dl->cmd == LC_LOAD_WEAK_DYLIB)
+			       q->dl->cmd == LC_LOAD_WEAK_DYLIB ||
+			       q->dl->cmd == LC_REEXPORT_DYLIB)
 				break;
 			    bsearch_strings = q->strings;
 			    bsearch_symbols = q->symbols;
@@ -3021,7 +3030,8 @@ undefined_twolevel_reference:
 				    q = p->sub_images[j];
 				    q->twolevel_searched = TRUE;
 				    if(q->dl->cmd == LC_LOAD_DYLIB ||
-				       q->dl->cmd == LC_LOAD_WEAK_DYLIB)
+				       q->dl->cmd == LC_LOAD_WEAK_DYLIB ||
+				       q->dl->cmd == LC_REEXPORT_DYLIB)
 					break;
 				    bsearch_strings = q->strings;
 				    bsearch_symbols = q->symbols;
@@ -3925,9 +3935,9 @@ struct object_file *definition_obj)
 			/*
 			 * If the new one is also a LC_ID_DYLIB use the one
 			 * with the highest compatiblity number.  Else if the
-			 * new one is just an LC_LOAD_DYLIB or
-			 * LC_LOAD_WEAK_DYLIB ignore it and use the one that is
-			 * on the list which is a LC_ID_DYLIB.
+			 * new one is just an LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB
+			 * or LC_REEXPORT_DYLIB ignore it and use the one that
+			 * is on the list which is a LC_ID_DYLIB.
 			 */
 			if(dl->cmd == LC_ID_DYLIB){
 			   if(dl->dylib.compatibility_version >
@@ -4150,8 +4160,8 @@ merge_return:
  * allocates the section_map structures and fills them in too), the fvmlib_
  * stuff field is set if any SG_FVMLIB segments or LC_LOADFVMLIB commands are
  * seen and the dylib_stuff field is set if the file is a MH_DYLIB or
- * MH_DYLIB_STUB type and has a LC_ID_DYLIB command or a LC_LOAD_DYLIB or
- * LC_LOAD_WEAK_DLIB command is seen.
+ * MH_DYLIB_STUB type and has a LC_ID_DYLIB command or a LC_LOAD_DYLIB,
+ * LC_LOAD_WEAK_DLIB or LC_REEXPORT_DYLIB command is seen.
  */
 static
 void
@@ -4185,7 +4195,7 @@ enum bool bundle_loader)
     cpu_subtype_t new_cpusubtype;
     const char *new_arch, *prev_arch;
     const struct arch_flag *family_arch_flag;
-    unsigned long *indirect_symtab;
+    uint32_t *indirect_symtab;
     struct dylib_table_of_contents *tocs;
     struct dylib_module *mods;
     struct dylib_reference *refs;
@@ -4197,6 +4207,9 @@ enum bool bundle_loader)
     static const struct symtab_command empty_symtab = { 0 };
     static const struct dysymtab_command empty_dysymtab = { 0 };
 
+#ifdef KLD
+	memset(&output_uuid_info, '\0', sizeof(struct uuid_info));
+#endif
 	/* check to see the mach_header is valid */
 	if(sizeof(struct mach_header) > cur_obj->obj_size){
 	    error_with_cur_obj("truncated or malformed object (mach header "
@@ -4453,11 +4466,10 @@ enum bool bundle_loader)
 			family_arch_flag->name);
 #if !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__))
 		/*
-		 * Pick up the Mac OS X deployment target.
+		 * Pick up the Mac OS X deployment target if not done already.
 		 */
-		get_macosx_deployment_target(&macosx_deployment_target,
-					     &macosx_deployment_target_name,
-					     arch_flag.cputype);
+		if(macosx_deployment_target.major == 0)
+		    get_macosx_deployment_target(&macosx_deployment_target);
 #endif /* !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__)) */
 	    }
 	}
@@ -4767,6 +4779,11 @@ enum bool bundle_loader)
 				  dyst->tocoff, sizeof(long),
 				"ntoc * sizeof(struct dylib_table_of_contents)",
 				"tocoff", i);
+		if(dyst->ntoc == 0 && cur_obj->dylib == TRUE &&
+		   dyst->nextdefsym != 0)
+		    warning_with_cur_obj("shared library has no table of "
+					 "contents entries (can't resolve "
+				         "symbols from it)");
 		if(errors)
 		    return;
 		check_size_offset(dyst->nmodtab * sizeof(struct dylib_module),
@@ -4933,6 +4950,7 @@ enum bool bundle_loader)
 
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
+	    case LC_REEXPORT_DYLIB:
 		if(filetype == MH_FVMLIB ||
 		   filetype == MH_DYLINKER){
 		    error_with_cur_obj("%s load command in object "
@@ -5264,20 +5282,41 @@ enum bool bundle_loader)
 		}
 		if(errors)
 		    return;
+#ifndef KLD
 		/*
 		 * If we see an input file with an LC_UUID load command then
 		 * set up to emit one in the output.
 		 */
 		output_uuid_info.emit = TRUE;
+#else
+		/*
+		 * For kernel extensions preserve the existing UUID in the
+		 * output.
+		 */
+		output_uuid_info.uuid_command.cmd = LC_UUID;
+		output_uuid_info.uuid_command.cmdsize =
+						sizeof(struct uuid_command);
+		memcpy(&(output_uuid_info.uuid_command.uuid[0]), uuid->uuid,
+		       sizeof(uuid->uuid));
+#endif
+
 		break;
 
-	    /* all of these are not looked at so they are also not swapped */
+	    /*
+	     * All of these are not looked at so the whole command is not
+	     * swapped.  But we need to swap just the first part in memory in
+	     * case they are in a dylib so other code can step over them.
+	     */
 	    case LC_UNIXTHREAD:
 	    case LC_THREAD:
 	    case LC_IDENT:
 	    case LC_FVMFILE:
 	    case LC_PREPAGE:
 	    case LC_PREBOUND_DYLIB:
+	    case LC_CODE_SIGNATURE:
+	    case LC_SEGMENT_SPLIT_INFO:
+		if(cur_obj->swapped)
+		    swap_load_command(lc, host_byte_sex);
 		break;
 
 	    default:
@@ -5420,7 +5459,7 @@ enum bool bundle_loader)
 		}
 
 		if(dyst->nindirectsyms != 0){
-		    indirect_symtab = (unsigned long *)(cur_obj->obj_addr +
+		    indirect_symtab = (uint32_t *)(cur_obj->obj_addr +
 					    dyst->indirectsymoff);
 		    if(cur_obj->swapped)
 			swap_indirect_symbols(indirect_symtab,
@@ -5725,6 +5764,7 @@ unsigned long strsize)
 	    case LC_ID_DYLIB:
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
+	    case LC_REEXPORT_DYLIB:
 	    case LC_ID_DYLINKER:
 	    case LC_LOAD_DYLINKER:
 	    case LC_UNIXTHREAD:

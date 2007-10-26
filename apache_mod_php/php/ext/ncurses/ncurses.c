@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
+   | Author: Hartmut Holzgraefe <hholzgra@php.net>                        |
    +----------------------------------------------------------------------+
  */
 
@@ -59,8 +59,8 @@ zend_module_entry ncurses_module_entry = {
 	ncurses_functions,
 	PHP_MINIT(ncurses),
 	PHP_MSHUTDOWN(ncurses),
-	PHP_RINIT(ncurses),     /* Replace with NULL if there's nothing to do at request start */
-	PHP_RSHUTDOWN(ncurses), /* Replace with NULL if there's nothing to do at request end */
+	NULL,
+	NULL,
 	PHP_MINFO(ncurses),
 	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
@@ -70,16 +70,6 @@ zend_module_entry ncurses_module_entry = {
 #ifdef COMPILE_DL_NCURSES
 ZEND_GET_MODULE(ncurses)
 #endif
-
-/* {{{ PHP_INI
- */
-/* Remove comments and fill if you need to have entries in php.ini
-PHP_INI_BEGIN()
-	STD_PHP_INI_ENTRY("ncurses.value",      "42", PHP_INI_ALL, OnUpdateInt, global_value, zend_ncurses_globals, ncurses_globals)
-	STD_PHP_INI_ENTRY("ncurses.string", "foobar", PHP_INI_ALL, OnUpdateString, global_string, zend_ncurses_globals, ncurses_globals)
-PHP_INI_END()
-*/
-/* }}} */
 
 #define PHP_NCURSES_CONST(x)  REGISTER_LONG_CONSTANT("NCURSES_"#x, x, CONST_CS | CONST_PERSISTENT)
 #define PHP_NCURSES_FKEY_CONST(x)  REGISTER_LONG_CONSTANT("NCURSES_KEY_F"#x, KEY_F0 + x, CONST_CS | CONST_PERSISTENT)
@@ -108,10 +98,11 @@ PHP_MINIT_FUNCTION(ncurses)
 	PHP_NCURSES_CONST(KEY_UP);
 	PHP_NCURSES_CONST(KEY_LEFT);
 	PHP_NCURSES_CONST(KEY_RIGHT);
+	PHP_NCURSES_CONST(KEY_HOME);
+	PHP_NCURSES_CONST(KEY_END);
 	PHP_NCURSES_CONST(KEY_BACKSPACE);
 	PHP_NCURSES_CONST(KEY_MOUSE);
 	PHP_NCURSES_CONST(KEY_F0);
-
 
 	/* TODO:this macro sux, we have 65 function key,
 	   so we need a little loop */
@@ -160,7 +151,6 @@ PHP_MINIT_FUNCTION(ncurses)
 	PHP_NCURSES_CONST(KEY_COMMAND);
 	PHP_NCURSES_CONST(KEY_COPY);
 	PHP_NCURSES_CONST(KEY_CREATE);
-	PHP_NCURSES_CONST(KEY_END);
 	PHP_NCURSES_CONST(KEY_EXIT);
 	PHP_NCURSES_CONST(KEY_FIND);
 	PHP_NCURSES_CONST(KEY_HELP);
@@ -269,24 +259,7 @@ PHP_MSHUTDOWN_FUNCTION(ncurses)
 	if (NCURSES_G(registered_constants)) {
 		endwin();
 	}
-	return SUCCESS;
-}
-/* }}} */
 
-/* Remove if there's nothing to do at request start */
-/* {{{ PHP_RINIT_FUNCTION
- */
-PHP_RINIT_FUNCTION(ncurses)
-{
-	return SUCCESS;
-}
-/* }}} */
-
-/* Remove if there's nothing to do at request end */
-/* {{{ PHP_RSHUTDOWN_FUNCTION
- */
-PHP_RSHUTDOWN_FUNCTION(ncurses)
-{
 	return SUCCESS;
 }
 /* }}} */
@@ -304,10 +277,6 @@ PHP_MINFO_FUNCTION(ncurses)
 		php_info_print_table_row(2, "color support", "no");
 #endif
 	php_info_print_table_end();
-
-	/* Remove comments if you have entries in php.ini
-	DISPLAY_INI_ENTRIES();
-	*/
 }
 /* }}} */
 

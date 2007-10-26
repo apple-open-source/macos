@@ -1,17 +1,10 @@
-Index: ttyname.c
-===================================================================
-RCS file: /cvs/root/Libc/gen/FreeBSD/ttyname.c,v
-retrieving revision 1.3
-diff -u -d -b -w -p -u -r1.3 ttyname.c
---- ttyname.c	2004/11/25 19:38:02	1.3
-+++ ttyname.c	2004/12/12 03:51:44
-@@ -48,10 +48,14 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/tty
+--- ttyname.c.orig	2007-02-05 14:38:48.000000000 -0800
++++ ttyname.c	2007-02-05 14:40:13.000000000 -0800
+@@ -48,10 +48,12 @@
  #include <string.h>
  #include <paths.h>
  #include <pthread.h>
-+#if __DARWIN_UNIX03
 +#include <errno.h>
-+#endif /* __DARWIN_UNIX03 */
  #include "un-namespace.h"
  
  #include "libc_private.h"
@@ -20,7 +13,15 @@ diff -u -d -b -w -p -u -r1.3 ttyname.c
  static char buf[sizeof(_PATH_DEV) + MAXNAMLEN];
  static char *ttyname_threaded(int fd);
  static char *ttyname_unthreaded(int fd);
-@@ -71,31 +75,54 @@ ttyname(int fd)
+@@ -59,6 +61,7 @@
+ static pthread_mutex_t	ttyname_lock = PTHREAD_MUTEX_INITIALIZER;
+ static pthread_key_t	ttyname_key;
+ static int		ttyname_init = 0;
++extern int __pthread_tsd_first;
+ 
+ char *
+ ttyname(int fd)
+@@ -71,31 +74,63 @@
  		ret = ttyname_threaded(fd);
  	return (ret);
  }
@@ -36,9 +37,9 @@ diff -u -d -b -w -p -u -r1.3 ttyname.c
  {
  	struct stat	sb;
 -	char		*rval;
- 
--	rval = NULL;
 -
+-	rval = NULL;
+ 
 +#if __DARWIN_UNIX03
 +	if (_fstat(fd, &sb) < 0)
 +		return (EBADF);
@@ -47,23 +48,30 @@ diff -u -d -b -w -p -u -r1.3 ttyname.c
 -		return (rval);
 +		return (ENOTTY);
  	/* Must be a character device. */
+-	if (_fstat(fd, &sb) || !S_ISCHR(sb.st_mode))
+-		return (rval);
 +	if (!S_ISCHR(sb.st_mode))
 +		return (ENOTTY);
-+	/* Must have enough room */
-+	if (len <= sizeof(_PATH_DEV))
+ 	/* Must have enough room */
+ 	if (len <= sizeof(_PATH_DEV))
+-		return (rval);
 +		return (ERANGE);
 +#else /* !__DARWIN_UNIX03 */
 +	/* Must be a terminal. */
 +	if (!isatty(fd))
 +		return (NULL);
 +	/* Must be a character device. */
- 	if (_fstat(fd, &sb) || !S_ISCHR(sb.st_mode))
--		return (rval);
++	if (_fstat(fd, &sb))
 +		return (NULL);
- 	/* Must have enough room */
- 	if (len <= sizeof(_PATH_DEV))
--		return (rval);
++	if (!S_ISCHR(sb.st_mode)) {
++		errno = ENOTTY;
 +		return (NULL);
++	}
++	/* Must have enough room */
++	if (len <= sizeof(_PATH_DEV)) {
++		errno = ERANGE;
++		return (NULL);
++	}
 +#endif /* __DARWIN_UNIX03 */
  
 -	strcpy(buf, _PATH_DEV);
@@ -77,7 +85,10 @@ diff -u -d -b -w -p -u -r1.3 ttyname.c
 +		return (ERANGE);
 +	return (0);
 +#else /* !__DARWIN_UNIX03 */
++	{
++		errno = ERANGE;
 +		return (NULL);
++	}
 +	return (thrbuf);
 +#endif /* __DARWIN_UNIX03 */
  }
@@ -86,7 +97,30 @@ diff -u -d -b -w -p -u -r1.3 ttyname.c
  static char *
  ttyname_threaded(int fd)
  {
-@@ -124,7 +151,11 @@ ttyname_threaded(int fd)
+@@ -104,8 +139,12 @@
+ 	if (ttyname_init == 0) {
+ 		_pthread_mutex_lock(&ttyname_lock);
+ 		if (ttyname_init == 0) {
+-			if (_pthread_key_create(&ttyname_key, free)) {
++			/* __PTK_LIBC_TTYNAME_KEY */
++			ttyname_key = __pthread_tsd_first+1;
++			if (pthread_key_init_np(ttyname_key, free)) {
++				int save = errno;
+ 				_pthread_mutex_unlock(&ttyname_lock);
++				errno = save;
+ 				return (NULL);
+ 			}
+ 			ttyname_init = 1;
+@@ -117,14 +156,20 @@
+ 	if ((buf = _pthread_getspecific(ttyname_key)) == NULL) {
+ 		if ((buf = malloc(sizeof(_PATH_DEV) + MAXNAMLEN)) != NULL) {
+ 			if (_pthread_setspecific(ttyname_key, buf) != 0) {
++				int save = errno;
+ 				free(buf);
++				errno = save;
+ 				return (NULL);
+ 			}
+ 		} else {
  			return (NULL);
  		}
  	}
@@ -98,15 +132,26 @@ diff -u -d -b -w -p -u -r1.3 ttyname.c
  }
  
  static char *
-@@ -141,7 +172,9 @@ ttyname_unthreaded(int fd)
+@@ -137,11 +182,19 @@
+ 	if (tcgetattr(fd, &ttyb) < 0)
  		return (NULL);
+ 	/* Must be a character device. */
+-	if (_fstat(fd, &sb) || !S_ISCHR(sb.st_mode))
++	if (_fstat(fd, &sb))
+ 		return (NULL);
++	if (!S_ISCHR(sb.st_mode)) {
++		errno = ENOTTY;
++		return (NULL);
++	}
  
  	strcpy(buf, _PATH_DEV);
 -	devname_r(sb.st_rdev, S_IFCHR,
 -	    buf + strlen(buf), sizeof(buf) - strlen(buf));
 +	if (devname_r(sb.st_rdev, S_IFCHR,
-+	    buf + strlen(buf), sizeof(buf) - strlen(buf)) == NULL)
++	    buf + strlen(buf), sizeof(buf) - strlen(buf)) == NULL) {
++		errno = ERANGE;
 +		return (NULL);
++	}
  	return (buf);
  }
 +#endif /* !BUILDING_VARIANT */

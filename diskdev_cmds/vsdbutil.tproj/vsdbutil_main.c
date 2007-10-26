@@ -53,7 +53,13 @@
 
 #include <sys/attr.h>
 
-#include <openssl/sha.h>
+/*
+ * CommonCrypto is meant to be a more stable API than OpenSSL.
+ * Defining COMMON_DIGEST_FOR_OPENSSL gives API-compatibility
+ * with OpenSSL, so we don't have to change the code.
+ */
+#define COMMON_DIGEST_FOR_OPENSSL
+#include <CommonCrypto/CommonDigest.h>
 #include <architecture/byte_order.h>
 
 struct FinderAttrBuf {
@@ -211,7 +217,7 @@ int main (int argc, const char *argv[])
 
 
 static void check_uid(void) {
-	if (getuid() != 0) {
+	if (geteuid() != 0) {
 		fprintf(stderr, "###\n");
 		fprintf(stderr, "### You must be root to perform this operation.\n");
 		fprintf(stderr, "###\n");

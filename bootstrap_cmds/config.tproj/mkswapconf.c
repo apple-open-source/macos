@@ -56,12 +56,16 @@ static char sccsid[] = "@(#)mkswapconf.c	5.6 (Berkeley) 6/18/88";
 #include "config.h"
 
 #include <stdio.h>
+#include <unistd.h>	/* for unlink */
 #include <ctype.h>
 
-swapconf()
+struct file_list *do_swap(struct file_list *fl);
+void initdevtable(void);
+
+void
+swapconf(void)
 {
 	register struct file_list *fl;
-	struct file_list *do_swap();
 
 	fl = conf_list;
 	while (fl) {
@@ -74,11 +78,10 @@ swapconf()
 }
 
 struct file_list *
-do_swap(fl)
-	register struct file_list *fl;
+do_swap(struct file_list *fl)
 {
 	FILE *fp;
-	char  swapname[80], *cp;
+	char  swapname[80];
 	register struct file_list *swap;
 	dev_t dev;
 
@@ -153,10 +156,7 @@ static	struct devdescription {
  * terms of major/minor instead of string names.
  */
 dev_t
-nametodev(name, defunit, defpartition)
-	char *name;
-	int defunit;
-	char defpartition;
+nametodev(char *name, int defunit, char defpartition)
 {
 	char *cp, partition;
 	int unit;
@@ -199,8 +199,7 @@ nametodev(name, defunit, defpartition)
 }
 
 char *
-devtoname(dev)
-	dev_t dev;
+devtoname(dev_t dev)
 {
 	char buf[80]; 
 	register struct devdescription *dp;
@@ -217,7 +216,8 @@ devtoname(dev)
 	return (ns(buf));
 }
 
-initdevtable()
+void
+initdevtable(void)
 {
 	char buf[BUFSIZ];
 	char line[BUFSIZ];

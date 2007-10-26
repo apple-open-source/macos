@@ -1,0 +1,221 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use Getopt::Long;
+use Pod::Usage;
+use JSON qw( jsonToObj );
+
+$JSON::BareKey = 1;
+$JSON::QuotApos = 1;
+
+GetOptions(
+    'schema=s'  => \my $schema_class,
+    'class=s'   => \my $resultset_class,
+    'connect=s' => \my $connect,
+    'op=s'      => \my $op,
+    'set=s'     => \my $set,
+    'where=s'   => \my $where,
+    'attrs=s'   => \my $attrs,
+    'format=s'  => \my $format,
+    'force'     => \my $force,
+    'trace'     => \my $trace,
+    'quiet'     => \my $quiet,
+    'help'      => \my $help,
+    'tlibs'      => \my $t_libs,
+);
+
+if ($t_libs) {
+    unshift( @INC, 't/lib', 'lib' );
+}
+
+pod2usage(1) if ($help);
+$ENV{DBIX_CLASS_STORAGE_DBI_DEBUG} = 1 if ($trace);
+
+die('No op specified') if(!$op);
+die('Invalid op') if ($op!~/^insert|update|delete|select$/s);
+my $csv_class;
+if ($op eq 'select') {
+    $format ||= 'tsv';
+    die('Invalid format') if ($format!~/^tsv|csv$/s);
+    $csv_class = 'Text::CSV_XS';
+    eval{ require Text::CSV_XS };
+    if ($@) {
+        $csv_class = 'Text::CSV_PP';
+        eval{ require Text::CSV_PP };
+        die('The select op requires either the Text::CSV_XS or the Text::CSV_PP module') if ($@);
+    }
+}
+
+die('No schema specified') if(!$schema_class);
+eval("require $schema_class");
+die('Unable to load schema') if ($@);
+$connect = jsonToObj( $connect ) if ($connect);
+my $schema = $schema_class->connect(
+    ( $connect ? @$connect : () )
+);
+
+die('No class specified') if(!$resultset_class);
+my $resultset = eval{ $schema->resultset($resultset_class) };
+die('Unable to load the class with the schema') if ($@);
+
+$set = jsonToObj( $set ) if ($set);
+$where = jsonToObj( $where ) if ($where);
+$attrs = jsonToObj( $attrs ) if ($attrs);
+
+if ($op eq 'insert') {
+    die('Do not use the where option with the insert op') if ($where);
+    die('Do not use the attrs option with the insert op') if ($attrs);
+    my $obj = $resultset->create( $set );
+    print ''.ref($resultset).' ID: '.join(',',$obj->id())."\n";
+}
+elsif ($op eq 'update') {
+    $resultset = $resultset->search( ($where||{}) );
+    my $count = $resultset->count();
+    print "This action will modify $count ".ref($resultset)." records.\n" if (!$quiet);
+    if ( $force || confirm() ) {
+        $resultset->update_all( $set );
+    }
+}
+elsif ($op eq 'delete') {
+    die('Do not use the set option with the delete op') if ($set);
+    $resultset = $resultset->search( ($where||{}), ($attrs||()) );
+    my $count = $resultset->count();
+    print "This action will delete $count ".ref($resultset)." records.\n" if (!$quiet);
+    if ( $force || confirm() ) {
+        $resultset->delete_all();
+    }
+}
+elsif ($op eq 'select') {
+    die('Do not use the set option with the select op') if ($set);
+    my $csv = $csv_class->new({
+        sep_char => ( $format eq 'tsv' ? "\t" : ',' ),
+    });
+    $resultset = $resultset->search( ($where||{}), ($attrs||()) );
+    my @columns = $resultset->result_source->columns();
+    $csv->combine( @columns );
+    print $csv->string()."\n";
+    while (my $row = $resultset->next()) {
+        my @fields;
+        foreach my $column (@columns) {
+            push( @fields, $row->get_column($column) );
+        }
+        $csv->combine( @fields );
+        print $csv->string()."\n";
+    }
+}
+
+sub confirm {
+    print "Are you sure you want to do this? (type YES to confirm) ";
+    my $response = <STDIN>;
+    return 1 if ($response=~/^YES/);
+    return;
+}
+
+__END__
+
+=head1 NAME
+
+dbicadmin - Execute operations upon DBIx::Class objects.
+
+=head1 SYNOPSIS
+
+  dbicadmin --op=insert --schema=My::Schema --class=Class --set=JSON
+  dbicadmin --op=update --schema=My::Schema --class=Class --set=JSON --where=JSON
+  dbicadmin --op=delete --schema=My::Schema --class=Class --where=JSON
+  dbicadmin --op=select --schema=My::Schema --class=Class --where=JSON --format=tsv
+
+=head1 DESCRIPTION
+
+This utility provides the ability to run INSERTs, UPDATEs, 
+DELETEs, and SELECTs on any DBIx::Class object.
+
+=head1 OPTIONS
+
+=head2 op
+
+The type of operation.  Valid values are insert, update, delete, 
+and select.
+
+=head2 schema
+
+The name of your schema class.
+
+=head2 class
+
+The name of the class, within your schema, that you want to run 
+the operation on.
+
+=head2 connect
+
+A JSON array to be passed to your schema class upon connecting.  
+The array will need to be compatible with whatever the DBIC 
+->connect() method requires.
+
+=head2 set
+
+This option must be valid JSON data string and is passed in to 
+the DBIC update() method.  Use this option with the update 
+and insert ops.
+
+=head2 where
+
+This option must be valid JSON data string and is passed in as 
+the first argument to the DBIC search() method.  Use this 
+option with the update, delete, and select ops.
+
+=head2 attrs
+
+This option must be valid JSON data string and is passed in as 
+the second argument to the DBIC search() method.  Use this 
+option with the update, delete, and select ops.
+
+=head2 help
+
+Display this help page.
+
+=head2 force
+
+Suppresses the confirmation dialogues that are usually displayed 
+when someone runs a DELETE or UPDATE action.
+
+=head2 quiet
+
+Do not display status messages.
+
+=head2 trace
+
+Turns on tracing on the DBI storage, thus printing SQL as it is 
+executed.
+
+=head2 tlibs
+
+This option is purely for testing during the DBIC installation.  Do 
+not use it.
+
+=head1 JSON
+
+JSON is a lightweight data-interchange format.  It allows you 
+to express complex data structures for use in the where and 
+set options.
+
+This module turns on L<JSON>'s BareKey and QuotApos options so 
+that your data can look a bit more readable.
+
+  --where={"this":"that"} # generic JSON
+  --where={this:'that'}   # with BareKey and QuoteApos
+
+Consider wrapping your JSON in outer quotes so that you don't 
+have to escape your inner quotes.
+
+  --where={this:\"that\"} # no outer quote
+  --where='{this:"that"}' # outer quoted
+
+=head1 AUTHOR
+
+Aran Deltac <bluefeet@cpan.org>
+
+=head1 LICENSE
+
+You may distribute this code under the same terms as Perl itself.
+

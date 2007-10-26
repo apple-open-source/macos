@@ -14,10 +14,14 @@ PROJECT_TYPE = Tool
 
 HFILES = extern.h find.h
 
-CFILES = find.c function.c ls.c main.c misc.c operator.c option.c y.tab.c
+CFILES = find.c function.c ls.c main.c misc.c operator.c option.c
+
+OTHERLINKED = getdate.y
+OTHERLINKEDOFILES = getdate.o
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble find.1
 
+OTHER_CFLAGS = -D__FBSDID=__RCSID -D_DARWIN_USE_64_BIT_INODE
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

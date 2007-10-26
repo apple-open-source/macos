@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,15 +57,21 @@ static char sccsid[] = "@(#)mkheaders.c	5.5 (Berkeley) 6/18/88";
  */
 
 #include <stdio.h>
+#include <unistd.h>	/* unlink */
 #include <ctype.h>
 #include "config.h"
 #include "y.tab.h"
 
-char	*toheader();	/* forward */
+static void	do_count(const char *dev, const char *hname, int search);
+static void	do_header(const char *dev, const char *hname, int count);
+static int	file_needed(const char *name);
+static char 	*toheader(const char *dev);
+static char	*tomacro(const char *dev);
 
-headers()
+void
+headers(void)
 {
-	register struct file_list *fl;
+	struct file_list *fl;
 
 	for (fl = ftab; fl != 0; fl = fl->f_next)
 		if (fl->f_needs != 0)
@@ -76,12 +82,11 @@ headers()
  * count all the devices of a certain type and recurse to count
  * whatever the device is connected to
  */
-do_count(dev, hname, search)
-	register char *dev, *hname;
-	int search;
+void
+do_count(const char *dev, const char *hname, int search)
 {
-	register struct device *dp, *mp;
-	register int count;
+	struct device *dp, *mp;
+	int count;
 
 	for (count = 0,dp = dtab; dp != 0; dp = dp->d_next)
 		if (dp->d_unit != -1 && eq(dp->d_name, dev)) {
@@ -137,10 +142,10 @@ do_count(dev, hname, search)
 /*
  * Scan the file list to see if name is needed to bring in a file.
  */
-file_needed(name)
-	char *name;
+static int
+file_needed(const char *name)
 {
-	register struct file_list *fl;
+	struct file_list *fl;
 
 	for (fl = ftab; fl != 0; fl = fl->f_next) {
 		if (fl->f_needs && strcmp(fl->f_needs, name) == 0)
@@ -149,12 +154,13 @@ file_needed(name)
 	return (0);
 }
 
-do_header(dev, hname, count)
-	char *dev, *hname;
-	int count;
+static void
+do_header(const char *dev, const char *hname, int count)
 {
-	char *file, *name, *inw, *toheader(), *tomacro();
-	struct file_list *fl, *fl_head, *fl_prev;
+	char *file, *name;
+	const char *inw;
+	struct file_list *fl = NULL;	/* may exit for(;;) uninitted */
+	struct file_list *fl_head, *fl_prev;
 	FILE *inf, *outf;
 	int inc, oldcount;
 
@@ -163,9 +169,7 @@ do_header(dev, hname, count)
 	inf = fopen(file, "r");
 	oldcount = -1;
 	if (inf == 0) {
-#if	NeXT
 		(void) unlink(file);
-#endif	NeXT
 		outf = fopen(file, "w");
 		if (outf == 0) {
 			perror(file);
@@ -185,7 +189,7 @@ do_header(dev, hname, count)
 	}
 	fl_head = 0;
 	for (;;) {
-		char *cp;
+		const char *cp;
 		if ((inw = get_word(inf)) == 0 || inw == (char *)EOF)
 			break;
 		if ((inw = get_word(inf)) == 0 || inw == (char *)EOF)
@@ -241,25 +245,23 @@ do_header(dev, hname, count)
 /*
  * convert a dev name to a .h file name
  */
-char *
-toheader(dev)
-	char *dev;
+static char *
+toheader(const char *dev)
 {
-	static char hbuf[1024];
-
-	(void) strcpy(hbuf, path(dev));
-	(void) strcat(hbuf, ".h");
+	static char hbuf[MAXPATHLEN];
+	(void) snprintf(hbuf, sizeof hbuf, "%s.h", path(dev));
+	hbuf[MAXPATHLEN-1] = '\0';
 	return (hbuf);
 }
 
 /*
  * convert a dev name to a macro name
  */
-char *tomacro(dev)
-	register char *dev;
+static char *
+tomacro(const char *dev)
 {
-	static char mbuf[20];
-	register char *cp;
+	static char mbuf[FILENAME_MAX];
+	char *cp;
 
 	cp = mbuf;
 	*cp++ = 'N';

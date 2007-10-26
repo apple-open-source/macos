@@ -118,4 +118,3 @@ void MuscleCardSchema::create()
 	mr_gen.attributeCoder(kSecLabelItemAttr, &mObjectIDCoder);
 }
 
-/* arch-tag: C14ADF88-F620-11D8-AD07-000A9595DEEE */

@@ -51,6 +51,8 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 #define _publishNotify				_reserved->publishNotify
 #define _performTickle				_reserved->performTickle
 #define _interfaceNub				_reserved->interfaceNub
+#define _rollOverElement            _reserved->rollOverElement
+#define _hierarchElements           _reserved->hierarchElements
 
 #define kIOHIDEventThreshold	10
 
@@ -133,14 +135,9 @@ bool IOHIDDevice::init( OSDictionary * dict )
 
     if (!_reserved)
         return false;
-        
-	_interfaceNub = 0;
-    _seizedClient = 0;
-    _publishNotify = 0;
-    _inputInterruptElementArray = 0;
-    AbsoluteTime_to_scalar(&_eventDeadline) = 0;
-	_performTickle = false;
-    
+		
+	bzero(_reserved, sizeof(ExpansionData));
+            
     // Create an OSSet to store client objects. Initial capacity
     // (which can grow) is set at 2 clients.
 
@@ -169,6 +166,13 @@ void IOHIDDevice::free()
         _elementArray->release();
         _elementArray = 0;
     }
+    
+    if ( _hierarchElements ) 
+    {
+        _hierarchElements->release();
+        _hierarchElements = 0;
+    }
+
     
     if ( _elementValuesDescriptor )
     {
@@ -201,13 +205,13 @@ void IOHIDDevice::free()
         _inputInterruptElementArray->release();
         _inputInterruptElementArray = 0;
     }
-    
+
     if (_interfaceNub)
     {
         _interfaceNub->release();
         _interfaceNub = 0;
     }
-    
+        
     if ( _reserved )
     {        
         IODelete( _reserved, ExpansionData, 1 );
@@ -304,15 +308,15 @@ bool IOHIDDevice::start( IOService * provider )
     if ( ret != kIOReturnSuccess )
         return false;
 
-    OSArray * hierarchElements = CreateHierarchticalElementList((IOHIDElement *)_elementArray->getObject( 0 ));
+    _hierarchElements = CreateHierarchticalElementList((IOHIDElement *)_elementArray->getObject( 0 ));
     
-	_interfaceNub = IOHIDInterface::withElements( hierarchElements );
+    if ( _hierarchElements == NULL )
+        return false;
     
-    if ( hierarchElements ) hierarchElements->release();
-	
+	_interfaceNub = IOHIDInterface::withElements( _hierarchElements );
+    	
 	if ( _interfaceNub == NULL )
 		return false;
-		
 
     // Once the report descriptors have been parsed, we are ready
     // to handle reports from the device.
@@ -458,6 +462,7 @@ bool IOHIDDevice::publishProperties(IOService * provider)
     SET_PROP( newSerialNumberString,     kIOHIDSerialNumberKey );
     SET_PROP( newPrimaryUsageNumber,     kIOHIDPrimaryUsageKey );
     SET_PROP( newPrimaryUsagePageNumber, kIOHIDPrimaryUsagePageKey );
+    SET_PROP( newReportIntervalNumber,   kIOHIDReportIntervalKey );
 	SET_PROP( newDeviceUsagePairs,       kIOHIDDeviceUsagePairsKey );
     
     if ( getProvider() ) 
@@ -743,24 +748,23 @@ IOReturn IOHIDDevice::setReport( IOMemoryDescriptor * report,
 IOReturn IOHIDDevice::parseReportDescriptor( IOMemoryDescriptor * report,
                                              IOOptionBits         options )
 {
-    OSStatus             status;
+    OSStatus             status = kIOReturnError;
     HIDPreparsedDataRef  parseData;
     void *               reportData;
     IOByteCount          reportLength;
-    IOByteCount          segmentSize;
     IOReturn             ret;
 
-    reportData   = report->getVirtualSegment(0, &segmentSize);
     reportLength = report->getLength();
-
-    if ( segmentSize != reportLength )
-    {
-        reportData = IOMalloc( reportLength );
-        if ( reportData == 0 )
-            return kIOReturnNoMemory;
-
-        report->readBytes( 0, reportData, reportLength );
-    }
+    
+    if ( !reportLength )
+        return kIOReturnBadArgument;
+        
+    reportData = IOMalloc(reportLength);
+    
+    if ( !reportData )
+        return kIOReturnNoMemory;
+        
+    report->readBytes( 0, reportData, reportLength );
 
     // Parse the report descriptor.
 
@@ -770,10 +774,8 @@ IOReturn IOHIDDevice::parseReportDescriptor( IOMemoryDescriptor * report,
                 &parseData,      /* pre-parse data */
                 0 );             /* flags */
 
-    if ( segmentSize != reportLength )
-    {
-        IOFree( reportData, reportLength );
-    }
+    // Release the buffer
+    IOFree( reportData, reportLength );
 
     if ( status != kHIDSuccess )
     {
@@ -1312,7 +1314,7 @@ bool IOHIDDevice::createReportHandlerElements( HIDPreparsedDataRef parseData)
 //---------------------------------------------------------------------------
 // Called by an IOHIDElementPrivate to register itself.
 
-bool IOHIDDevice::registerElement( IOHIDElementPrivate *       element,
+bool IOHIDDevice::registerElement( IOHIDElementPrivate * element,
                                    IOHIDElementCookie * cookie )
 {
     IOHIDReportType reportType;
@@ -1341,6 +1343,17 @@ bool IOHIDDevice::registerElement( IOHIDElementPrivate *       element,
             element->setNextReportHandler( reportHandler->head[reportType] );
         }
         reportHandler->head[reportType] = element;
+        
+        if ( element->getUsagePage() == kHIDPage_KeyboardOrKeypad )
+        {
+            UInt32 usage = element->getUsage();
+            
+            if ( usage == kHIDUsage_KeyboardErrorRollOver)
+                _rollOverElement = element;
+         
+            if ( usage >= kHIDUsage_KeyboardLeftControl && usage <= kHIDUsage_KeyboardRightGUI )
+                element->setRollOverElementPtr(&(_rollOverElement));
+        }
     }
 
     // The cookie returned is simply an index to the element in the
@@ -1566,11 +1579,10 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
             continue;
 
         reportID = element->getReportID();
-        
 
         // calling down into our subclass, so lets unlock
         ELEMENT_UNLOCK;
-
+        
         ret = getReport(report, reportType, reportID);
 
         ELEMENT_LOCK;
@@ -1624,7 +1636,7 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
     // Allocate a buffer mem descriptor with the maxReportLength.
     // This way, we only have to allocate one mem buffer.
     report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionNone);
-
+    
     if ( report == NULL )
         return kIOReturnNoMemory;
 
@@ -1633,10 +1645,10 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
     // Set the transaction state on the specified cookies
     SetCookiesTransactionState(cookieElement, cookies, 
             cookieCount, kIOHIDTransactionStatePending, index, 0);
-        
+            
     // Obtain the buffer
     reportData = (UInt8 *)report->getBytesNoCopy();
-        
+ 
     // Iterate though all the elements in the 
     // transaction.  Generate reports if needed. 
     for (index = 0; index < cookieCount; index ++) {
@@ -1654,7 +1666,7 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
             
         if ( !cookieElement->getReportType(&reportType) )
             continue;
-
+                
         reportID = cookieElement->getReportID();
 
         // Start at the head element and iterate through
@@ -1694,9 +1706,9 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
             cookieCount, kIOHIDTransactionStateIdle, index, 0);
     
     ELEMENT_UNLOCK;
-
+    
     if ( report )
-        report->release();    
+        report->release();
     
     return ret;
 }
@@ -1780,7 +1792,6 @@ IOReturn IOHIDDevice::handleReportWithTime(
 {
     void *         reportData;
     IOByteCount    reportLength;
-    IOByteCount    segmentSize;
     IOReturn       ret = kIOReturnNotReady;
     bool           changed = false;
     bool           shouldTickle = false;
@@ -1792,24 +1803,20 @@ IOReturn IOHIDDevice::handleReportWithTime(
     //    return kIOReturnUnsupported;
 
     // Get a pointer to the data in the descriptor.
-
-    reportData   = report->getVirtualSegment(0, &segmentSize);
-    reportLength = report->getLength();
-
-    if ( reportLength == 0 )
+    if ( !report )
         return kIOReturnBadArgument;
-
-    // Are there multiple segments in the descriptor? If so,
-    // allocate a buffer and copy the data from the descriptor.
-
-    if ( segmentSize != reportLength )
-    {
-        reportData = IOMalloc( reportLength );
-        if ( reportData == 0 )
-            return kIOReturnNoMemory;
-
-        report->readBytes( 0, reportData, reportLength );
-    }
+        
+    reportLength = report->getLength();
+    
+    if ( !reportLength )
+        return kIOReturnBadArgument;
+        
+    reportData = IOMalloc(reportLength);
+    
+    if ( !reportData )
+        return kIOReturnNoMemory;
+        
+    report->readBytes( 0, reportData, reportLength );
 
     ELEMENT_LOCK;
 
@@ -1849,12 +1856,8 @@ IOReturn IOHIDDevice::handleReportWithTime(
 
     ELEMENT_UNLOCK;
 
-    // Free memory if we allocated a buffer above.
-
-    if ( segmentSize != reportLength )
-    {
-        IOFree( reportData, reportLength );
-    }
+	// Release the buffer
+    IOFree(reportData, reportLength);
 
 #if 0 // XXX - debugging
 {
@@ -1892,7 +1895,16 @@ IOReturn IOHIDDevice::handleReportWithTime(
     return ret;
 }
 
-OSMetaClassDefineReservedUnused(IOHIDDevice, 9);
+//---------------------------------------------------------------------------
+// Return the country code
+
+OSMetaClassDefineReservedUsed(IOHIDDevice, 9);
+OSNumber * IOHIDDevice::newReportIntervalNumber() const
+{
+    // default to 8 milliseconds
+    return OSNumber::withNumber(8000, 32);
+}
+
 OSMetaClassDefineReservedUnused(IOHIDDevice, 10);
 OSMetaClassDefineReservedUnused(IOHIDDevice, 11);
 OSMetaClassDefineReservedUnused(IOHIDDevice, 12);

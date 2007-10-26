@@ -461,11 +461,12 @@ main(argc, argv)
 #if 0
 	    int efd;
 #endif
+	    int fdlimit = getdtablesize();
 	    
             /* This is the child */
 	    /* Close all file descriptors except the one we need */
 	    
-	    for (i=0; i <= KERN_MAXFILESPERPROC; i++) {
+	    for (i=0; i < fdlimit; i++) {
 		if ((i != fd[0]) && (i != fd[1]))
 		    (void)close(i);
 	    }
@@ -1120,6 +1121,14 @@ print_cpu_sample(timebufptr)
       += cur_cpuload.cpu_ticks[CPU_STATE_USER];
 	
     time += cur_cpuload.cpu_ticks[CPU_STATE_USER];
+
+    cur_cpuload.cpu_ticks[CPU_STATE_NICE]
+      -= prev_cpuload.cpu_ticks[CPU_STATE_NICE];
+    
+    prev_cpuload.cpu_ticks[CPU_STATE_NICE]
+      += cur_cpuload.cpu_ticks[CPU_STATE_NICE];
+	
+    time += cur_cpuload.cpu_ticks[CPU_STATE_NICE];
 	
     cur_cpuload.cpu_ticks[CPU_STATE_SYSTEM]
       -= prev_cpuload.cpu_ticks[CPU_STATE_SYSTEM];
@@ -1140,6 +1149,9 @@ print_cpu_sample(timebufptr)
     avg_cpuload.cpu_ticks[CPU_STATE_USER] += rint(100. * cur_cpuload.cpu_ticks[CPU_STATE_USER]
       / (time ? time : 1));
 
+    avg_cpuload.cpu_ticks[CPU_STATE_NICE] += rint(100. * cur_cpuload.cpu_ticks[CPU_STATE_NICE]
+      / (time ? time : 1));
+
     avg_cpuload.cpu_ticks[CPU_STATE_SYSTEM] += rint(100. * cur_cpuload.cpu_ticks[CPU_STATE_SYSTEM]
       / (time ? time : 1));
     
@@ -1153,6 +1165,10 @@ print_cpu_sample(timebufptr)
       rint(100. * cur_cpuload.cpu_ticks[CPU_STATE_USER]
       / (time ? time : 1)));
 	
+    fprintf(stdout, "%4.0f   ",
+      rint(100. * cur_cpuload.cpu_ticks[CPU_STATE_NICE]
+      / (time ? time : 1)));
+
     fprintf(stdout, "%4.0f   ",
       rint(100. * cur_cpuload.cpu_ticks[CPU_STATE_SYSTEM]
       / (time ? time : 1)));
@@ -1564,6 +1580,10 @@ exit_average()
     
         fprintf(stdout, "Average:  %5d   ",
 	   (int)avg_cpuload.cpu_ticks[CPU_STATE_USER]
+	  / (avg_counter ? avg_counter : 1));
+
+	fprintf(stdout, "%4d   ", 
+	   (int)avg_cpuload.cpu_ticks[CPU_STATE_NICE]
 	  / (avg_counter ? avg_counter : 1));
 
 	fprintf(stdout, "%4d   ", 
@@ -2289,7 +2309,7 @@ print_column_heading(int type, char *timebufptr, int mode)
     switch (type)
     {
     case SAR_CPU:
-	fprintf (stdout, "\n%s  %%usr   %%sys   %%idle\n", p);
+    	fprintf (stdout, "\n%s  %%usr  %%nice   %%sys   %%idle\n", p);
 	break;
 	
     case SAR_VMSTAT:

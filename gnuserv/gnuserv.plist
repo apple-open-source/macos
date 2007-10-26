@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2002-08-26</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>gnuserv.txt</string>
+		<key>OpenSourceProject</key>
+		<string>gnuserv</string>
+		<key>OpenSourceSHA1</key>
+		<string></string>
+		<key>OpenSourceURL</key>
+		<string>http://meltin.net/hacks/emacs/src/gnuserv-3.12.4.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>3.12.4</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://meltin.net/hacks/emacs/</string>
+	</dict>
+</array>
+</plist>

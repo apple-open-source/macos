@@ -26,11 +26,11 @@
 #include <netinet/in.h>
 #include <net/if_arp.h>
 
-#define FIREWIREMCAST_V4_LEN		3
-#define FIREWIREMCAST_V6_LEN		2
+#define FIREWIREMCAST_V4_LEN		4
+#define FIREWIREMCAST_V6_LEN		1
 
-const u_char ipv4multicast[FIREWIREMCAST_V4_LEN]	= {0x01, 0x00, 0x5e};
-const u_char ipv6multicast[FIREWIREMCAST_V6_LEN]	= {0x33, 0x33};
+const u_char ipv4multicast[FIREWIREMCAST_V4_LEN]	= {0x01, 0x00, 0x5e, 0x00};
+const u_char ipv6multicast[FIREWIREMCAST_V6_LEN]	= {0xFF};
 const u_char fwbroadcastaddr[FIREWIRE_ADDR_LEN]		= {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 /*
@@ -45,23 +45,24 @@ const u_char fwbroadcastaddr[FIREWIRE_ADDR_LEN]		= {0xff, 0xff, 0xff, 0xff, 0xff
 	(enaddr)[0] = ipv4multicast[0]; \
 	(enaddr)[1] = ipv4multicast[1]; \
 	(enaddr)[2] = ipv4multicast[2]; \
-	(enaddr)[3] = ((u_char *)ipaddr)[0]; \
-	(enaddr)[4] = ((u_char *)ipaddr)[1] & 0x7f; \
-	(enaddr)[5] = ((u_char *)ipaddr)[2]; \
-	(enaddr)[6] = ((u_char *)ipaddr)[3]; \
+	(enaddr)[3] = ipv4multicast[3]; \
+	(enaddr)[4] = ((u_char *)ipaddr)[0]; \
+	(enaddr)[5] = ((u_char *)ipaddr)[1] & 0x7f; \
+	(enaddr)[6] = ((u_char *)ipaddr)[2]; \
+	(enaddr)[7] = ((u_char *)ipaddr)[3]; \
 }
 
 /*
- * Macro to map an IP6 multicast address to an FIREWIRE multicast address.
+ * Macro to map an IPv6 multicast address to an FIREWIRE multicast address.
  * The high-order 16 bits of the FIREWIRE address are statically assigned,
- * and the low-order 32 bits are taken from the low end of the IP6 address.
+ * and the low-order 48 bits are taken from the low end of the IPv6 address.
  */
 #define FIREWIRE_MAP_IPV6_MULTICAST(ip6addr, enaddr)	\
 /* struct	in6_addr *ip6addr; */						\
 /* u_char	enaddr[FIREWIRE_ADDR_LEN]; */				\
 {                                                       \
-	(enaddr)[0] = ipv6multicast[0];									\
-	(enaddr)[1] = ipv6multicast[1];									\
+	(enaddr)[0] = ((u_char *)ip6addr)[0];									\
+	(enaddr)[1] = ((u_char *)ip6addr)[1];									\
 	(enaddr)[2] = ((u_char *)ip6addr)[10];				\
 	(enaddr)[3] = ((u_char *)ip6addr)[11];				\
 	(enaddr)[4] = ((u_char *)ip6addr)[12];				\

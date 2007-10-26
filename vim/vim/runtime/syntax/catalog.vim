@@ -1,10 +1,9 @@
 " Vim syntax file
 " Language:	sgml catalog file
 " Maintainer:	Johannes Zellner <johannes@zellner.org>
-" Last Change:	Son, 26 Nov 2000 01:32:50 +0100
+" Last Change:	Fr, 04 Nov 2005 12:46:45 CET
 " Filenames:	/etc/sgml.catalog
-" URL:		http://www.zellner.org/vim/syntax/catalog.vim
-" $Id$
+" $Id: catalog.vim,v 1.2 2005/11/23 21:11:10 vimboss Exp $
 
 " Quit when a syntax file was already loaded
 if exists("b:current_syntax")
@@ -18,8 +17,8 @@ syn region  catalogString start=+"+ skip=+\\\\\|\\"+ end=+"+ keepend
 syn region  catalogString start=+'+ skip=+\\\\\|\\'+ end=+'+ keepend
 
 syn region  catalogComment      start=+--+   end=+--+ contains=catalogTodo
-syn keyword catalogTodo		TODO FIXME XXX contained display
-syn keyword catalogKeyword	DOCTYPE OVERRIDE PUBLIC DTDDECL ENTITY display
+syn keyword catalogTodo		TODO FIXME XXX NOTE contained
+syn keyword catalogKeyword	DOCTYPE OVERRIDE PUBLIC DTDDECL ENTITY CATALOG
 
 
 " The default highlighting.

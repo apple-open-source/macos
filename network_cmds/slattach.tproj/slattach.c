@@ -66,15 +66,23 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <paths.h>
 
 #define DEFAULT_BAUD	9600
 int	slipdisc = SLIPDISC;
 
 __private_extern__
-char	devname[32] = { '\0' };
+char	dev_name[32] = { '\0' };
 char	hostname[MAXHOSTNAMELEN];
 
+int findspeed(int);
+
+int
 main(argc, argv)
 	int argc;
 	char *argv[];
@@ -94,9 +102,9 @@ main(argc, argv)
 		exit(1);
 	}
 	if (strncmp(_PATH_DEV, dev, sizeof(_PATH_DEV) - 1)) {
-		(void)snprintf(devname, sizeof(devname),
+		(void)snprintf(dev_name, sizeof(dev_name),
 		    "%s%s", _PATH_DEV, dev);
-		dev = devname;
+		dev = dev_name;
 	}
 	if ((fd = open(dev, O_RDWR | O_NDELAY)) < 0) {
 		perror(dev);
@@ -117,6 +125,8 @@ main(argc, argv)
 		exit(0);
 	for (;;)
 		sigpause(0L);
+	/* NOTREACHED */
+	return 0;
 }
 
 struct sg_spds {
@@ -176,6 +186,7 @@ struct sg_spds {
 	{ 0, 0 }
 };
 
+int
 findspeed(speed)
 	register int speed;
 {

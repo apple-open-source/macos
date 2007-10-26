@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 2002 Marcel Moolenaar
  * All rights reserved.
  *
@@ -25,10 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/sbin/gpt/migrate.c,v 1.12 2004/11/12 04:34:46 marcel Exp $");
-#endif
+__FBSDID("$FreeBSD: src/sbin/gpt/migrate.c,v 1.13.2.1 2005/09/06 23:59:01 marcel Exp $");
 
 #include <sys/types.h>
 #include <sys/disklabel.h>
@@ -54,6 +51,7 @@ __FBSDID("$FreeBSD: src/sbin/gpt/migrate.c,v 1.12 2004/11/12 04:34:46 marcel Exp
 #define	LABELSECTOR	1
 #endif
 
+static int force;
 static int slice;
 
 static void
@@ -61,7 +59,7 @@ usage_migrate(void)
 {
 
 	fprintf(stderr,
-	    "usage: %s [-s] device\n", getprogname());
+	    "usage: %s [-fs] device ...\n", getprogname());
 	exit(1);
 }
 
@@ -100,36 +98,24 @@ migrate_disklabel(int fd, off_t start, struct gpt_ent *ent)
 		case FS_UNUSED:
 			continue;
 		case FS_SWAP: {
-#ifdef __APPLE__
-			le_uuid_enc(ent->ent_type, GPT_ENT_TYPE_FREEBSD_SWAP);
-#else
 			uuid_t swap = GPT_ENT_TYPE_FREEBSD_SWAP;
 			le_uuid_enc(&ent->ent_type, &swap);
-#endif
-			unicode16(ent->ent_name,
-			    L"FreeBSD swap partition", 36);
+			utf8_to_utf16("FreeBSD swap partition",
+			    ent->ent_name, 36);
 			break;
 		}
 		case FS_BSDFFS: {
-#ifdef __APPLE__
-			le_uuid_enc(ent->ent_type, GPT_ENT_TYPE_FREEBSD_UFS);
-#else
 			uuid_t ufs = GPT_ENT_TYPE_FREEBSD_UFS;
 			le_uuid_enc(&ent->ent_type, &ufs);
-#endif
-			unicode16(ent->ent_name,
-			    L"FreeBSD UFS partition", 36);
+			utf8_to_utf16("FreeBSD UFS partition",
+			    ent->ent_name, 36);
 			break;
 		}
 		case FS_VINUM: {
-#ifdef __APPLE__
-			le_uuid_enc(ent->ent_type, GPT_ENT_TYPE_FREEBSD_VINUM);
-#else
 			uuid_t vinum = GPT_ENT_TYPE_FREEBSD_VINUM;
 			le_uuid_enc(&ent->ent_type, &vinum);
-#endif
-			unicode16(ent->ent_name,
-			    L"FreeBSD vinum partition", 36);
+			utf8_to_utf16("FreeBSD vinum partition",
+			    ent->ent_name, 36);
 			break;
 		}
 		default:
@@ -239,13 +225,8 @@ migrate(int fd)
 	hdr->hdr_lba_alt = htole64(tpg->map_start);
 	hdr->hdr_lba_start = htole64(tbl->map_start + blocks);
 	hdr->hdr_lba_end = htole64(lbt->map_start - 1LL);
-#ifdef __APPLE__
-	uuid_generate(uuid);
-	le_uuid_enc(hdr->hdr_uuid, uuid);
-#else
 	uuid_create(&uuid, NULL);
 	le_uuid_enc(&hdr->hdr_uuid, &uuid);
-#endif
 	hdr->hdr_lba_table = htole64(tbl->map_start);
 	hdr->hdr_entries = htole32((blocks * secsz) / sizeof(struct gpt_ent));
 	if (le32toh(hdr->hdr_entries) > parts)
@@ -254,13 +235,8 @@ migrate(int fd)
 
 	ent = tbl->map_data;
 	for (i = 0; i < le32toh(hdr->hdr_entries); i++) {
-#ifdef __APPLE__
-		uuid_generate(uuid);
-		le_uuid_enc(ent[i].ent_uuid, uuid);
-#else
 		uuid_create(&uuid, NULL);
 		le_uuid_enc(&ent[i].ent_uuid, &uuid);
-#endif
 	}
 
 	/* Mirror partitions. */
@@ -275,38 +251,33 @@ migrate(int fd)
 			continue;
 		case 165: {	/* FreeBSD */
 			if (slice) {
-#ifdef __APPLE__
-				le_uuid_enc(ent->ent_type, GPT_ENT_TYPE_FREEBSD);
-#else
 				uuid_t freebsd = GPT_ENT_TYPE_FREEBSD;
 				le_uuid_enc(&ent->ent_type, &freebsd);
-#endif
 				ent->ent_lba_start = htole64((uint64_t)start);
 				ent->ent_lba_end = htole64(start + size - 1LL);
-				unicode16(ent->ent_name,
-				    L"FreeBSD disklabel partition", 36);
+				utf8_to_utf16("FreeBSD disklabel partition",
+				    ent->ent_name, 36);
 				ent++;
 			} else
 				ent = migrate_disklabel(fd, start, ent);
 			break;
 		}
 		case 239: {	/* EFI */
-#ifdef __APPLE__
-			le_uuid_enc(ent->ent_type, GPT_ENT_TYPE_EFI);
-#else
 			uuid_t efi_slice = GPT_ENT_TYPE_EFI;
 			le_uuid_enc(&ent->ent_type, &efi_slice);
-#endif
 			ent->ent_lba_start = htole64((uint64_t)start);
 			ent->ent_lba_end = htole64(start + size - 1LL);
-			unicode16(ent->ent_name, L"EFI system partition", 36);
+			utf8_to_utf16("EFI system partition",
+			    ent->ent_name, 36);
 			ent++;
 			break;
 		}
 		default:
-			warnx("%s: error: unknown partition type (%d)",
-			    device_name, mbr->mbr_part[i].part_typ);
-			return;
+			if (!force) {
+				warnx("%s: error: unknown partition type (%d)",
+				    device_name, mbr->mbr_part[i].part_typ);
+				return;
+			}
 		}
 	}
 	ent = tbl->map_data;
@@ -362,8 +333,11 @@ cmd_migrate(int argc, char *argv[])
 	int ch, fd;
 
 	/* Get the migrate options */
-	while ((ch = getopt(argc, argv, "s")) != -1) {
+	while ((ch = getopt(argc, argv, "fs")) != -1) {
 		switch(ch) {
+		case 'f':
+			force = 1;
+			break;
 		case 's':
 			slice = 1;
 			break;

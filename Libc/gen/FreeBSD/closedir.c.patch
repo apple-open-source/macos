@@ -1,0 +1,12 @@
+--- closedir.c.orig	2007-01-24 14:10:41.000000000 -0800
++++ closedir.c	2007-01-25 00:17:23.000000000 -0800
+@@ -59,7 +59,9 @@
+ 
+ 	if (__isthreaded)
+ 		_pthread_mutex_lock((pthread_mutex_t *)&dirp->dd_lock);
++#if !__DARWIN_UNIX03
+ 	_seekdir(dirp, dirp->dd_rewind);	/* free seekdir storage */
++#endif /* __DARWIN_UNIX03 */
+ 	fd = dirp->dd_fd;
+ 	dirp->dd_fd = -1;
+ 	dirp->dd_loc = 0;

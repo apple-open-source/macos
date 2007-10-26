@@ -1,8 +1,8 @@
 /* Find a variable's value in memory, for GDB, the GNU debugger.
 
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
-   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004 Free Software
-   Foundation, Inc.
+   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005 Free
+   Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -49,7 +49,16 @@ you lose
 #endif
 
 LONGEST
-extract_signed_integer_with_byte_order (const void *addr, int len, int byte_order)
+extract_signed_integer (const gdb_byte *addr, int len)
+{
+  /* APPLE LOCAL explicit byte order */
+  return extract_signed_integer_with_byte_order (addr, len, BFD_ENDIAN_UNKNOWN);
+}
+
+/* APPLE LOCAL explicit byte order */
+LONGEST
+extract_signed_integer_with_byte_order (const gdb_byte *addr, int len,
+					int byte_order)
 {
   LONGEST retval;
   const unsigned char *p;
@@ -57,8 +66,8 @@ extract_signed_integer_with_byte_order (const void *addr, int len, int byte_orde
   const unsigned char *endaddr = startaddr + len;
 
   if (len > (int) sizeof (LONGEST))
-    error ("\
-That operation is not available on integers of more than %d bytes.",
+    error (_("\
+That operation is not available on integers of more than %d bytes."),
 	   (int) sizeof (LONGEST));
 
   /* Start at the most significant end of the integer, and work towards
@@ -85,7 +94,16 @@ That operation is not available on integers of more than %d bytes.",
 }
 
 ULONGEST
-extract_unsigned_integer_with_byte_order (const void *addr, int len, int byte_order)
+extract_unsigned_integer (const gdb_byte *addr, int len)
+{
+  /* APPLE LOCAL explicit byte order */
+  return extract_unsigned_integer_with_byte_order (addr, len, BFD_ENDIAN_UNKNOWN);
+}
+
+/* APPLE LOCAL explicit byte order */
+ULONGEST
+extract_unsigned_integer_with_byte_order (const gdb_byte *addr, int len,
+					  int byte_order)
 {
   ULONGEST retval;
   const unsigned char *p;
@@ -93,8 +111,8 @@ extract_unsigned_integer_with_byte_order (const void *addr, int len, int byte_or
   const unsigned char *endaddr = startaddr + len;
 
   if (len > (int) sizeof (ULONGEST))
-    error ("\
-That operation is not available on integers of more than %d bytes.",
+    error (_("\
+That operation is not available on integers of more than %d bytes."),
 	   (int) sizeof (ULONGEST));
 
   /* Start at the most significant end of the integer, and work towards
@@ -121,9 +139,19 @@ That operation is not available on integers of more than %d bytes.",
    function returns 1 and sets *PVAL.  Otherwise it returns 0.  */
 
 int
-extract_long_unsigned_integer_with_byte_order (const void *addr, int orig_len, LONGEST *pval, int byte_order)
+extract_long_unsigned_integer (const gdb_byte *addr, int orig_len, LONGEST *pval)
 {
-  char *p, *first_addr;
+  /* APPLE LOCAL explicit byte order */
+  return extract_long_unsigned_integer_with_byte_order (addr, orig_len, pval, BFD_ENDIAN_UNKNOWN);
+}
+
+/* APPLE LOCAL explicit byte order */
+int
+extract_long_unsigned_integer_with_byte_order (const gdb_byte *addr, int orig_len, LONGEST *pval,
+					       int byte_order)
+{
+  const gdb_byte *p;
+  const gdb_byte *first_addr;
   int len;
 
   len = orig_len;
@@ -131,8 +159,8 @@ extract_long_unsigned_integer_with_byte_order (const void *addr, int orig_len, L
     byte_order = TARGET_BYTE_ORDER;
   if (byte_order == BFD_ENDIAN_BIG)
     {
-      for (p = (char *) addr;
-	   len > (int) sizeof (LONGEST) && p < (char *) addr + orig_len;
+      for (p = addr;
+	   len > (int) sizeof (LONGEST) && p < addr + orig_len;
 	   p++)
 	{
 	  if (*p == 0)
@@ -144,9 +172,9 @@ extract_long_unsigned_integer_with_byte_order (const void *addr, int orig_len, L
     }
   else
     {
-      first_addr = (char *) addr;
-      for (p = (char *) addr + orig_len - 1;
-	   len > (int) sizeof (LONGEST) && p >= (char *) addr;
+      first_addr = addr;
+      for (p = addr + orig_len - 1;
+	   len > (int) sizeof (LONGEST) && p >= addr;
 	   p--)
 	{
 	  if (*p == 0)
@@ -166,115 +194,102 @@ extract_long_unsigned_integer_with_byte_order (const void *addr, int orig_len, L
   return 0;
 }
 
-
-extern LONGEST extract_signed_integer (const void *addr, int len)
-{
-  return extract_signed_integer_with_byte_order (addr, len, BFD_ENDIAN_UNKNOWN);
-}
-
-extern ULONGEST extract_unsigned_integer (const void *addr, int len)
-{
-  return extract_unsigned_integer_with_byte_order (addr, len, BFD_ENDIAN_UNKNOWN);
-}
-
-extern int extract_long_unsigned_integer (const void *addr, int orig_len, LONGEST *pval)
-{
-  return extract_long_unsigned_integer_with_byte_order (addr, orig_len, pval, BFD_ENDIAN_UNKNOWN);
-}
-
 /* Treat the bytes at BUF as a pointer of type TYPE, and return the
    address it represents.  */
 CORE_ADDR
-extract_typed_address (const void *buf, struct type *type)
+extract_typed_address (const gdb_byte *buf, struct type *type)
 {
   if (TYPE_CODE (type) != TYPE_CODE_PTR
       && TYPE_CODE (type) != TYPE_CODE_REF)
     internal_error (__FILE__, __LINE__,
-		    "extract_typed_address: "
-		    "type is not a pointer or reference");
+		    _("extract_typed_address: "
+		    "type is not a pointer or reference"));
 
   return POINTER_TO_ADDRESS (type, buf);
 }
 
-
-void
-store_signed_integer_with_byte_order (void *addr, int len, LONGEST val, int byte_order)
+extern void store_signed_integer (gdb_byte *addr, int len, LONGEST val)
 {
-  unsigned char *p;
-  unsigned char *startaddr = (unsigned char *) addr;
-  unsigned char *endaddr = startaddr + len;
-
-  /* Start at the least significant end of the integer, and work towards
-     the most significant.  */
-  if (byte_order == BFD_ENDIAN_UNKNOWN)
-    byte_order = TARGET_BYTE_ORDER;
-  if (byte_order == BFD_ENDIAN_BIG)
-    {
-      for (p = endaddr - 1; p >= startaddr; --p)
-	{
-	  *p = val & 0xff;
-	  val >>= 8;
-	}
-    }
-  else
-    {
-      for (p = startaddr; p < endaddr; ++p)
-	{
-	  *p = val & 0xff;
-	  val >>= 8;
-	}
-    }
-}
-
-void
-store_unsigned_integer_with_byte_order (void *addr, int len, ULONGEST val, int byte_order)
-{
-  unsigned char *p;
-  unsigned char *startaddr = (unsigned char *) addr;
-  unsigned char *endaddr = startaddr + len;
-
-  /* Start at the least significant end of the integer, and work towards
-     the most significant.  */
-  if (byte_order == BFD_ENDIAN_UNKNOWN)
-    byte_order = TARGET_BYTE_ORDER;
-  if (byte_order == BFD_ENDIAN_BIG)
-    {
-      for (p = endaddr - 1; p >= startaddr; --p)
-	{
-	  *p = val & 0xff;
-	  val >>= 8;
-	}
-    }
-  else
-    {
-      for (p = startaddr; p < endaddr; ++p)
-	{
-	  *p = val & 0xff;
-	  val >>= 8;
-	}
-    }
-}
-
-extern void store_signed_integer (void *addr, int len, LONGEST val)
-{
+  /* APPLE LOCAL explicit byte order */
   store_signed_integer_with_byte_order (addr, len, val, BFD_ENDIAN_UNKNOWN);
 }
 
-extern void store_unsigned_integer (void *addr, int len, ULONGEST val)
+void
+store_signed_integer_with_byte_order (gdb_byte *addr, int len, LONGEST val, int byte_order)
 {
+  gdb_byte *p;
+  gdb_byte *startaddr = addr;
+  gdb_byte *endaddr = startaddr + len;
+
+  /* Start at the least significant end of the integer, and work towards
+     the most significant.  */
+  if (byte_order == BFD_ENDIAN_UNKNOWN)
+    byte_order = TARGET_BYTE_ORDER;
+  if (byte_order == BFD_ENDIAN_BIG)
+    {
+      for (p = endaddr - 1; p >= startaddr; --p)
+	{
+	  *p = val & 0xff;
+	  val >>= 8;
+	}
+    }
+  else
+    {
+      for (p = startaddr; p < endaddr; ++p)
+	{
+	  *p = val & 0xff;
+	  val >>= 8;
+	}
+    }
+}
+
+void
+store_unsigned_integer (gdb_byte *addr, int len, ULONGEST val)
+{
+  /* APPLE LOCAL explicit byte order */
   store_unsigned_integer_with_byte_order (addr, len, val, BFD_ENDIAN_UNKNOWN);
+}
+
+void
+store_unsigned_integer_with_byte_order (gdb_byte *addr, int len, ULONGEST val,
+					int byte_order)
+{
+  unsigned char *p;
+  unsigned char *startaddr = (unsigned char *) addr;
+  unsigned char *endaddr = startaddr + len;
+
+  /* Start at the least significant end of the integer, and work towards
+     the most significant.  */
+  if (byte_order == BFD_ENDIAN_UNKNOWN)
+    byte_order = TARGET_BYTE_ORDER;
+  if (byte_order == BFD_ENDIAN_BIG)
+    {
+      for (p = endaddr - 1; p >= startaddr; --p)
+	{
+	  *p = val & 0xff;
+	  val >>= 8;
+	}
+    }
+  else
+    {
+      for (p = startaddr; p < endaddr; ++p)
+	{
+	  *p = val & 0xff;
+	  val >>= 8;
+	}
+    }
 }
 
 /* Store the address ADDR as a pointer of type TYPE at BUF, in target
    form.  */
 void
-store_typed_address (void *buf, struct type *type, CORE_ADDR addr)
+store_typed_address (gdb_byte *buf, struct type *type, CORE_ADDR addr)
 {
   if (TYPE_CODE (type) != TYPE_CODE_PTR
       && TYPE_CODE (type) != TYPE_CODE_REF)
     internal_error (__FILE__, __LINE__,
-		    "store_typed_address: "
-		    "type is not a pointer or reference");
+		    _("store_typed_address: "
+		    "type is not a pointer or reference"));
 
   ADDRESS_TO_POINTER (type, buf, addr);
 }
@@ -292,10 +307,11 @@ struct value *
 value_of_register (int regnum, struct frame_info *frame)
 {
   CORE_ADDR addr;
-  int optim;
+  /* APPLE LOCAL variable opt states.  */
+  enum opt_state optim;
   struct value *reg_val;
   int realnum;
-  char raw_buffer[MAX_REGISTER_SIZE];
+  gdb_byte raw_buffer[MAX_REGISTER_SIZE];
   enum lval_type lval;
 
   /* User registers lie completely outside of the range of normal
@@ -317,41 +333,26 @@ value_of_register (int regnum, struct frame_info *frame)
 
   reg_val = allocate_value (register_type (current_gdbarch, regnum));
 
-  /* Convert raw data to virtual format if necessary.  */
-
-  if (DEPRECATED_REGISTER_CONVERTIBLE_P ()
-      && DEPRECATED_REGISTER_CONVERTIBLE (regnum))
-    {
-      DEPRECATED_REGISTER_CONVERT_TO_VIRTUAL (regnum, register_type (current_gdbarch, regnum),
-					      raw_buffer, VALUE_CONTENTS_RAW (reg_val));
-    }
-  else if (DEPRECATED_REGISTER_RAW_SIZE (regnum) == DEPRECATED_REGISTER_VIRTUAL_SIZE (regnum))
-    memcpy (VALUE_CONTENTS_RAW (reg_val), raw_buffer,
-	    DEPRECATED_REGISTER_RAW_SIZE (regnum));
-  else
-    internal_error (__FILE__, __LINE__,
-		    "Register \"%s\" (%d) has conflicting raw (%d) and virtual (%d) size",
-		    REGISTER_NAME (regnum),
-		    regnum,
-		    DEPRECATED_REGISTER_RAW_SIZE (regnum),
-		    DEPRECATED_REGISTER_VIRTUAL_SIZE (regnum));
+  memcpy (value_contents_raw (reg_val), raw_buffer,
+	  register_size (current_gdbarch, regnum));
   VALUE_LVAL (reg_val) = lval;
   VALUE_ADDRESS (reg_val) = addr;
-  VALUE_REGNO (reg_val) = regnum;
-  VALUE_OPTIMIZED_OUT (reg_val) = optim;
+  VALUE_REGNUM (reg_val) = regnum;
+  set_value_optimized_out (reg_val, optim);
+  VALUE_FRAME_ID (reg_val) = get_frame_id (frame);
   return reg_val;
 }
 
 /* Given a pointer of type TYPE in target form in BUF, return the
    address it represents.  */
 CORE_ADDR
-unsigned_pointer_to_address (struct type *type, const void *buf)
+unsigned_pointer_to_address (struct type *type, const gdb_byte *buf)
 {
   return extract_unsigned_integer (buf, TYPE_LENGTH (type));
 }
 
 CORE_ADDR
-signed_pointer_to_address (struct type *type, const void *buf)
+signed_pointer_to_address (struct type *type, const gdb_byte *buf)
 {
   return extract_signed_integer (buf, TYPE_LENGTH (type));
 }
@@ -359,13 +360,14 @@ signed_pointer_to_address (struct type *type, const void *buf)
 /* Given an address, store it as a pointer of type TYPE in target
    format in BUF.  */
 void
-unsigned_address_to_pointer (struct type *type, void *buf, CORE_ADDR addr)
+unsigned_address_to_pointer (struct type *type, gdb_byte *buf,
+			     CORE_ADDR addr)
 {
   store_unsigned_integer (buf, TYPE_LENGTH (type), addr);
 }
 
 void
-address_to_signed_pointer (struct type *type, void *buf, CORE_ADDR addr)
+address_to_signed_pointer (struct type *type, gdb_byte *buf, CORE_ADDR addr)
 {
   store_signed_integer (buf, TYPE_LENGTH (type), addr);
 }
@@ -435,12 +437,19 @@ read_var_value (struct symbol *var, struct frame_info *frame)
   CORE_ADDR addr;
   int len;
 
-  v = allocate_value (type);
-  VALUE_LVAL (v) = lval_memory;	/* The most likely possibility.  */
-  VALUE_BFD_SECTION (v) = SYMBOL_BFD_SECTION (var);
+  if (SYMBOL_CLASS (var) == LOC_COMPUTED
+      || SYMBOL_CLASS (var) == LOC_COMPUTED_ARG
+      || SYMBOL_CLASS (var) == LOC_REGISTER
+      || SYMBOL_CLASS (var) == LOC_REGPARM)
+    /* These cases do not use V.  */
+    v = NULL;
+  else
+    {
+      v = allocate_value (type);
+      VALUE_LVAL (v) = lval_memory;	/* The most likely possibility.  */
+    }
 
   len = TYPE_LENGTH (type);
-
 
   /* FIXME drow/2003-09-06: this call to the selected frame should be
      pushed upwards to the callers.  */
@@ -451,7 +460,7 @@ read_var_value (struct symbol *var, struct frame_info *frame)
     {
     case LOC_CONST:
       /* Put the constant back in target format.  */
-      store_signed_integer (VALUE_CONTENTS_RAW (v), len,
+      store_signed_integer (value_contents_raw (v), len,
 			    (LONGEST) SYMBOL_VALUE (var));
       VALUE_LVAL (v) = not_lval;
       return v;
@@ -463,10 +472,10 @@ read_var_value (struct symbol *var, struct frame_info *frame)
 	  CORE_ADDR addr
 	    = symbol_overlayed_address (SYMBOL_VALUE_ADDRESS (var),
 					SYMBOL_BFD_SECTION (var));
-	  store_typed_address (VALUE_CONTENTS_RAW (v), type, addr);
+	  store_typed_address (value_contents_raw (v), type, addr);
 	}
       else
-	store_typed_address (VALUE_CONTENTS_RAW (v), type,
+	store_typed_address (value_contents_raw (v), type,
 			      SYMBOL_VALUE_ADDRESS (var));
       VALUE_LVAL (v) = not_lval;
       return v;
@@ -475,7 +484,7 @@ read_var_value (struct symbol *var, struct frame_info *frame)
       {
 	char *bytes_addr;
 	bytes_addr = SYMBOL_VALUE_BYTES (var);
-	memcpy (VALUE_CONTENTS_RAW (v), bytes_addr, len);
+	memcpy (value_contents_raw (v), bytes_addr, len);
 	VALUE_LVAL (v) = not_lval;
 	return v;
       }
@@ -496,13 +505,14 @@ read_var_value (struct symbol *var, struct frame_info *frame)
 	CORE_ADDR locaddr;
 	struct value *loc;
 	if (!target_has_execution)
-	  error ("\
+	  error (_("\
 Attempt to access variable defined in different shared object or load module when\n\
-addresses have not been bound by the dynamic loader. Try again when executable is running.");
+addresses have not been bound by the dynamic loader. Try again when executable is running."));
 
 	locaddr = SYMBOL_VALUE_ADDRESS (var);
-	loc = value_at (lookup_pointer_type (type), locaddr, NULL);
+	loc = value_at (lookup_pointer_type (type), locaddr);
 	addr = value_as_address (loc);
+	break;
       }
 
     case LOC_ARG:
@@ -524,7 +534,7 @@ addresses have not been bound by the dynamic loader. Try again when executable i
 	if (!argref)
 	  return 0;
 	argref += SYMBOL_VALUE (var);
-	ref = value_at (lookup_pointer_type (type), argref, NULL);
+	ref = value_at (lookup_pointer_type (type), argref);
 	addr = value_as_address (ref);
 	break;
       }
@@ -546,23 +556,25 @@ addresses have not been bound by the dynamic loader. Try again when executable i
 	regval = value_from_register (lookup_pointer_type (type),
 				      SYMBOL_BASEREG (var), frame);
 	if (regval == NULL)
-	  error ("Value of base register not available.");
+	  error (_("Value of base register not available."));
 	addr = value_as_address (regval);
 	addr += SYMBOL_VALUE (var);
 	break;
       }
 
     case LOC_TYPEDEF:
-      error ("Cannot look up value of a typedef");
+      error (_("Cannot look up value of a typedef"));
       break;
 
     case LOC_BLOCK:
+      /* APPLE LOCAL begin address ranges  */
       if (overlay_debugging)
 	VALUE_ADDRESS (v) = symbol_overlayed_address
-	  (BLOCK_START (SYMBOL_BLOCK_VALUE (var)), SYMBOL_BFD_SECTION (var));
+	  (BLOCK_LOWEST_PC (SYMBOL_BLOCK_VALUE (var)), SYMBOL_BFD_SECTION (var));
       else
-	VALUE_ADDRESS (v) = BLOCK_START (SYMBOL_BLOCK_VALUE (var));
+	VALUE_ADDRESS (v) = BLOCK_LOWEST_PC (SYMBOL_BLOCK_VALUE (var));
       return v;
+      /* APPLE LOCAL end address ranges  */
 
     case LOC_REGISTER:
     case LOC_REGPARM:
@@ -583,7 +595,7 @@ addresses have not been bound by the dynamic loader. Try again when executable i
 					  frame);
 
 	    if (regval == NULL)
-	      error ("Value of register variable not available.");
+	      error (_("Value of register variable not available."));
 
 	    addr = value_as_address (regval);
 	    VALUE_LVAL (v) = lval_memory;
@@ -593,7 +605,7 @@ addresses have not been bound by the dynamic loader. Try again when executable i
 	    regval = value_from_register (type, regno, frame);
 
 	    if (regval == NULL)
-	      error ("Value of register variable not available.");
+	      error (_("Value of register variable not available."));
 	    return regval;
 	  }
       }
@@ -627,16 +639,17 @@ addresses have not been bound by the dynamic loader. Try again when executable i
 
     case LOC_OPTIMIZED_OUT:
       VALUE_LVAL (v) = not_lval;
-      VALUE_OPTIMIZED_OUT (v) = 1;
+      /* APPLE LOCAL variable opt states.  */
+      set_value_optimized_out (v, opt_away);
       return v;
 
     default:
-      error ("Cannot look up value of a botched symbol.");
+      error (_("Cannot look up value of a botched symbol."));
       break;
     }
 
   VALUE_ADDRESS (v) = addr;
-  VALUE_LAZY (v) = 1;
+  set_value_lazy (v, 1);
   return v;
 }
 
@@ -674,7 +687,7 @@ value_from_register (struct type *type, int regnum, struct frame_info *frame)
          We'll just attribute the value to the original register.  */
       VALUE_LVAL (v) = lval_register;
       VALUE_ADDRESS (v) = regnum;
-      VALUE_REGNO (v) = regnum;
+      VALUE_REGNUM (v) = regnum;
     }
   else if (CONVERT_REGISTER_P (regnum, type))
     {
@@ -685,10 +698,10 @@ value_from_register (struct type *type, int regnum, struct frame_info *frame)
          the corresponding [integer] type (see Alpha).  The assumption
          is that REGISTER_TO_VALUE populates the entire value
          including the location.  */
-      REGISTER_TO_VALUE (frame, regnum, type, VALUE_CONTENTS_RAW (v));
-      VALUE_LVAL (v) = lval_reg_frame_relative;
+      REGISTER_TO_VALUE (frame, regnum, type, value_contents_raw (v));
+      VALUE_LVAL (v) = lval_register;
       VALUE_FRAME_ID (v) = get_frame_id (frame);
-      VALUE_FRAME_REGNUM (v) = regnum;
+      VALUE_REGNUM (v) = regnum;
     }
   else
     {
@@ -701,12 +714,12 @@ value_from_register (struct type *type, int regnum, struct frame_info *frame)
       int len = TYPE_LENGTH (type);
       int value_bytes_copied;
       int optimized = 0;
-      char *value_bytes = (char *) alloca (len + MAX_REGISTER_SIZE);
+      gdb_byte *value_bytes = alloca (len + MAX_REGISTER_SIZE);
 
       /* Copy all of the data out, whereever it may be.  */
       for (local_regnum = regnum, value_bytes_copied = 0;
 	   value_bytes_copied < len;
-	   (value_bytes_copied += DEPRECATED_REGISTER_RAW_SIZE (local_regnum),
+	   (value_bytes_copied += register_size (current_gdbarch, local_regnum),
 	    ++local_regnum))
 	{
 	  int realnum;
@@ -730,6 +743,9 @@ value_from_register (struct type *type, int regnum, struct frame_info *frame)
 	    {
 	      mem_stor++;
 	      
+	      /* FIXME: cagney/2004-11-12: I think this is trying to
+		 check that the stored registers are adjacent in
+		 memory.  It isn't doing a good job?  */
 	      mem_tracking = (mem_tracking
 			      && (regnum == local_regnum
 				  || addr == last_addr));
@@ -737,47 +753,31 @@ value_from_register (struct type *type, int regnum, struct frame_info *frame)
 	  last_addr = addr;
 	}
       
-      /* FIXME: cagney/2003-06-04: Shouldn't this always use
-         lval_reg_frame_relative?  If it doesn't and the register's
-         location changes (say after a resume) then this value is
-         going to have wrong information.  */
-      if ((reg_stor && mem_stor)
-	  || (mem_stor && !mem_tracking))
-	/* Mixed storage; all of the hassle we just went through was
-	   for some good purpose.  */
-	{
-	  VALUE_LVAL (v) = lval_reg_frame_relative;
-	  VALUE_FRAME_ID (v) = get_frame_id (frame);
-	  VALUE_FRAME_REGNUM (v) = regnum;
-	}
-      else if (mem_stor)
+      if (mem_tracking && mem_stor && !reg_stor)
 	{
 	  VALUE_LVAL (v) = lval_memory;
 	  VALUE_ADDRESS (v) = first_addr;
 	}
-      else if (reg_stor)
+      else
 	{
 	  VALUE_LVAL (v) = lval_register;
-	  VALUE_ADDRESS (v) = first_addr;
-	  VALUE_REGNO (v) = first_realnum;
+	  VALUE_FRAME_ID (v) = get_frame_id (frame);
+	  VALUE_REGNUM (v) = regnum;
 	}
-      else
-	internal_error (__FILE__, __LINE__,
-			"value_from_register: Value not stored anywhere!");
       
-      VALUE_OPTIMIZED_OUT (v) = optimized;
+      set_value_optimized_out (v, optimized);
       
       /* Any structure stored in more than one register will always be
          an integral number of registers.  Otherwise, you need to do
          some fiddling with the last register copied here for little
          endian machines.  */
       if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG
-	  && len < DEPRECATED_REGISTER_RAW_SIZE (regnum))
+	  && len < register_size (current_gdbarch, regnum))
 	/* Big-endian, and we want less than full size.  */
-	VALUE_OFFSET (v) = DEPRECATED_REGISTER_RAW_SIZE (regnum) - len;
+	set_value_offset (v, register_size (current_gdbarch, regnum) - len);
       else
-	VALUE_OFFSET (v) = 0;
-      memcpy (VALUE_CONTENTS_RAW (v), value_bytes + VALUE_OFFSET (v), len);
+	set_value_offset (v, 0);
+      memcpy (value_contents_raw (v), value_bytes + value_offset (v), len);
     }
   return v;
 }
@@ -800,16 +800,15 @@ locate_var_value (struct symbol *var, struct frame_info *frame)
 
   lazy_value = read_var_value (var, frame);
   if (lazy_value == 0)
-    error ("Address of \"%s\" is unknown.", SYMBOL_PRINT_NAME (var));
+    error (_("Address of \"%s\" is unknown."), SYMBOL_PRINT_NAME (var));
 
-  if (VALUE_LAZY (lazy_value)
+  if (value_lazy (lazy_value)
       || TYPE_CODE (type) == TYPE_CODE_FUNC)
     {
       struct value *val;
 
       addr = VALUE_ADDRESS (lazy_value);
       val = value_from_pointer (lookup_pointer_type (type), addr);
-      VALUE_BFD_SECTION (val) = VALUE_BFD_SECTION (lazy_value);
       return val;
     }
 
@@ -817,25 +816,16 @@ locate_var_value (struct symbol *var, struct frame_info *frame)
   switch (VALUE_LVAL (lazy_value))
     {
     case lval_register:
-	gdb_assert (REGISTER_NAME (VALUE_REGNO (lazy_value)) != NULL
-	            && *REGISTER_NAME (VALUE_REGNO (lazy_value)) != '\0');
-      error("Address requested for identifier "
-	    "\"%s\" which is in register $%s",
+      gdb_assert (REGISTER_NAME (VALUE_REGNUM (lazy_value)) != NULL
+		  && *REGISTER_NAME (VALUE_REGNUM (lazy_value)) != '\0');
+      error (_("Address requested for identifier "
+	       "\"%s\" which is in register $%s"),
             SYMBOL_PRINT_NAME (var), 
-	    REGISTER_NAME (VALUE_REGNO (lazy_value)));
-      break;
-
-    case lval_reg_frame_relative:
-	gdb_assert (REGISTER_NAME (VALUE_FRAME_REGNUM (lazy_value)) != NULL
-	            && *REGISTER_NAME (VALUE_FRAME_REGNUM (lazy_value)) != '\0');
-      error("Address requested for identifier "
-	    "\"%s\" which is in frame register $%s",
-            SYMBOL_PRINT_NAME (var), 
-	    REGISTER_NAME (VALUE_FRAME_REGNUM (lazy_value)));
+	    REGISTER_NAME (VALUE_REGNUM (lazy_value)));
       break;
 
     default:
-      error ("Can't take address of \"%s\" which isn't an lvalue.",
+      error (_("Can't take address of \"%s\" which isn't an lvalue."),
 	     SYMBOL_PRINT_NAME (var));
       break;
     }

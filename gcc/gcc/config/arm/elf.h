@@ -96,7 +96,10 @@
    Otherwise, the readonly data section is used.  */
 /* We put ARM jump tables in the text section, because it makes the code
    more efficient, but for Thumb it's better to put them out of band.  */
-#define JUMP_TABLES_IN_TEXT_SECTION (TARGET_ARM)
+/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+/* The above is no longer true. */
+#define JUMP_TABLES_IN_TEXT_SECTION (TARGET_EITHER)
+/* APPLE LOCAL end ARM 4790140 compact switch tables */
 
 #ifndef LINK_SPEC
 #define LINK_SPEC "%{mbig-endian:-EB} %{mlittle-endian:-EL} -X"

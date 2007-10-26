@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IODeviceTreeSupport.h>
+
 #include "AppleIntelPIIXATARoot.h"
 #include "AppleIntelPIIXATAChannel.h"
 #include "AppleIntelPIIXATAKeys.h"
@@ -72,6 +73,38 @@ static const UInt8 gICH6ChannelModeMap[4 /*map value*/][2 /*channel*/] =
  * ICH6-M (does not implement SATA ports 1 and 3)
  */
 static const UInt8 gICH6MChannelModeMap[4 /*map value*/][2 /*channel*/] =
+{
+    /* Non-combined SATA only modes */
+    { kChannelModeSATAPort02, kChannelModeDisabled   },  /* 00 */
+
+    /* Combined SATA/PATA modes */
+    { kChannelModePATA,       kChannelModeDisabled   },  /* 01 */
+    { kChannelModeSATAPort02, kChannelModePATA       },  /* 10 */
+
+    /* Reserved mode */
+    { kChannelModeDisabled,   kChannelModeDisabled   }   /* 11 */
+};
+
+/*
+ * ICH7 / ICH7-R
+ */
+static const UInt8 gICH7ChannelModeMap[4 /*map value*/][2 /*channel*/] =
+{
+    /* Non-combined SATA only modes */
+    { kChannelModeSATAPort02, kChannelModeSATAPort13 },  /* 00 */
+
+    /* Combined SATA/PATA modes */
+    { kChannelModePATA,       kChannelModeSATAPort13 },  /* 01 */
+    { kChannelModeSATAPort02, kChannelModePATA       },  /* 10 */
+
+    /* Reserved mode */
+    { kChannelModeDisabled,   kChannelModeDisabled   }   /* 11 */
+};
+
+/*
+ * ICH7-M (does not implement SATA ports 1 and 3)
+ */
+static const UInt8 gICH7MChannelModeMap[4 /*map value*/][2 /*channel*/] =
 {
     /* Non-combined SATA only modes */
     { kChannelModeSATAPort02, kChannelModeDisabled   },  /* 00 */
@@ -268,7 +301,13 @@ OSSet * AppleIntelPIIXATARoot::createATAChannelNubs( void )
 
             if (hwName)
             {
-                if (hwName->isEqualTo("ICH6 SATA"))
+                if (hwName->isEqualTo("ICH7-M SATA"))
+                {
+                    mapValue &= 0x3;
+                    priChannelMode = gICH7MChannelModeMap[mapValue][0];
+                    secChannelMode = gICH7MChannelModeMap[mapValue][1];
+                }
+                else if (hwName->isEqualTo("ICH6 SATA") || hwName->isEqualTo("ESB2 SATA"))
                 {
                     mapValue &= 0x3;
                     priChannelMode = gICH6ChannelModeMap[mapValue][0];
@@ -285,6 +324,12 @@ OSSet * AppleIntelPIIXATARoot::createATAChannelNubs( void )
                     mapValue &= 0x7;
                     priChannelMode = gICH5ChannelModeMap[mapValue][0];
                     secChannelMode = gICH5ChannelModeMap[mapValue][1];
+                }
+                else /* if (hwName->isEqualTo("ICH7 SATA")) */
+                {
+                    mapValue &= 0x3;
+                    priChannelMode = gICH7ChannelModeMap[mapValue][0];
+                    secChannelMode = gICH7ChannelModeMap[mapValue][1];
                 }
             }
         }
@@ -627,7 +672,7 @@ bool AppleIntelPIIXATARoot::serializeProperties( OSSerialize * s ) const
     if ( _provider )
     {
         // Dump the timing registers for debugging.
-        sprintf( timingString, "0x40=%08lx 0x44=%08lx 0x48=%08lx 0x54=%04x",
+        snprintf( timingString, sizeof ( timingString ), "0x40=%08lx 0x44=%08lx 0x48=%08lx 0x54=%04x",
                  _provider->configRead32( 0x40 ),
                  _provider->configRead32( 0x44 ),
                  _provider->configRead32( 0x48 ),
@@ -638,4 +683,87 @@ bool AppleIntelPIIXATARoot::serializeProperties( OSSerialize * s ) const
     }
 
     return super::serializeProperties(s);
+}
+
+//---------------------------------------------------------------------------
+
+struct PCSPortMap
+{
+    UInt8 enableOffset;
+    UInt8 enableMask;
+    UInt8 presenceOffset;
+    UInt8 presenceMask;
+};
+
+static const PCSPortMap gDefaultPortMap[4] =
+{
+    { kPIIX_PCI_PCS, kPIIX_PCI_PCS_P0E, kPIIX_PCI_PCS, kPIIX_PCI_PCS_P0P },
+    { kPIIX_PCI_PCS, kPIIX_PCI_PCS_P1E, kPIIX_PCI_PCS, kPIIX_PCI_PCS_P1P },
+    { kPIIX_PCI_PCS, kPIIX_PCI_PCS_P2E, kPIIX_PCI_PCS, kPIIX_PCI_PCS_P2P },
+    { kPIIX_PCI_PCS, kPIIX_PCI_PCS_P3E, kPIIX_PCI_PCS, kPIIX_PCI_PCS_P3P }
+};
+
+static bool
+getPCSPortMapping(
+    IORegistryEntry * root,
+    UInt32     portNum,
+    UInt8 *    enableOffset,
+    UInt8 *    enableMask,
+    UInt8 *    presenceOffset,
+    UInt8 *    presenceMask )
+{
+    OSObject *  prop;
+    OSData *    data;
+
+    const PCSPortMap * portMap = gDefaultPortMap;
+
+    if (!root || (portNum > kSerialATAPort3) ||
+        root->getProperty( kSerialATAKey ) != kOSBooleanTrue)
+        return false;
+
+    prop = root->copyProperty( kPCSPortMapKey );
+    data = OSDynamicCast(OSData, prop);
+
+    if (data && (data->getLength() == sizeof(gDefaultPortMap)))
+    {
+        portMap = (const PCSPortMap *) data->getBytesNoCopy();
+    }
+
+    if (enableOffset)
+        *enableOffset = portMap[portNum].enableOffset;
+    if (enableMask)
+        *enableMask = portMap[portNum].enableMask;
+    if (presenceOffset)
+        *presenceOffset = portMap[portNum].presenceOffset;
+    if (presenceMask)
+        *presenceMask = portMap[portNum].presenceMask;
+
+    if (prop) prop->release();
+
+    return true;
+}
+
+void AppleIntelPIIXATARoot::setSerialATAPortEnable( UInt32 port, bool enable )
+{
+    UInt8    offset;
+    UInt8    mask;
+
+    if (getPCSPortMapping( this, port, &offset, &mask, NULL, NULL ))
+    {
+        pciConfigWrite8( offset, enable ? mask : 0, mask );
+    }
+}
+
+bool AppleIntelPIIXATARoot::getSerialATAPortPresentStatus( UInt32 port )
+{
+    UInt8    offset;
+    UInt8    mask = 0;
+    UInt8    pcs  = 0;
+
+    if (getPCSPortMapping( this, port, NULL, NULL, &offset, &mask ))
+    {
+        pcs = _provider->configRead8( offset );
+    }
+
+    return ( pcs & mask );
 }

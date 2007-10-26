@@ -130,7 +130,7 @@ if test "\$PHP_$EXTNAME" != "no"; then
   dnl # --with-$extname -> check with-path
   dnl SEARCH_PATH="/usr/local /usr"     # you might want to change this
   dnl SEARCH_FOR="/include/$extname.h"  # you most likely want to change this
-  dnl if test -r \$PHP_$EXTNAME/$SEARCH_FOR; then # path given as parameter
+  dnl if test -r \$PHP_$EXTNAME/\$SEARCH_FOR; then # path given as parameter
   dnl   ${EXTNAME}_DIR=\$PHP_$EXTNAME
   dnl else # search default path list
   dnl   AC_MSG_CHECKING([for $extname files in default path])
@@ -170,6 +170,22 @@ if test "\$PHP_$EXTNAME" != "no"; then
 fi
 eof
 
+$ECHO_N " config.w32$ECHO_C"
+cat >config.w32 <<eof
+// \$Id\$
+// vim:ft=javascript
+
+// If your extension references something external, use ARG_WITH
+// ARG_WITH("$extname", "for $extname support", "no");
+
+// Otherwise, use ARG_ENABLE
+// ARG_ENABLE("$extname", "enable $extname support", "no");
+
+if (PHP_$EXTNAME != "no") {
+	EXTENSION("$extname", "$extname.c");
+}
+
+eof
 
 $ECHO_N " .cvsignore$ECHO_C"
 cat >.cvsignore <<eof

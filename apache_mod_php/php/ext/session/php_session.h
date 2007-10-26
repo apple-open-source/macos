@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_session.h,v 1.84.2.8.2.2 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: php_session.h,v 1.101.2.2.2.5 2007/02/06 00:01:18 iliaa Exp $ */
 
 #ifndef PHP_SESSION_H
 #define PHP_SESSION_H
@@ -34,7 +34,7 @@
 #define PS_CREATE_SID_ARGS void **mod_data, int *newlen TSRMLS_DC
 
 /* default create id function */
-char *php_session_create_id(PS_CREATE_SID_ARGS);
+PHPAPI char *php_session_create_id(PS_CREATE_SID_ARGS);
 
 typedef struct ps_module_struct {
 	const char *s_name;
@@ -103,6 +103,7 @@ typedef struct _php_ps_globals {
 	char *cookie_path;
 	char *cookie_domain;
 	zend_bool  cookie_secure;
+	zend_bool  cookie_httponly;
 	ps_module *mod;
 	void *mod_data;
 	php_session_status session_status;
@@ -120,8 +121,12 @@ typedef struct _php_ps_globals {
 	zend_bool use_only_cookies;
 	zend_bool use_trans_sid;	/* contains the INI value of whether to use trans-sid */
 	zend_bool apply_trans_sid;	/* whether or not to enable trans-sid for the current request */
+
+	long hash_func;
+	long hash_bits_per_character;
 	int send_cookie;
 	int define_sid;
+	zend_bool invalid_session_id;	/* allows the driver to report about an invalid session id and request id regeneration */
 } php_ps_globals;
 
 typedef php_ps_globals zend_ps_globals;
@@ -181,9 +186,9 @@ typedef struct ps_serializer_struct {
 
 PHPAPI void session_adapt_url(const char *, size_t, char **, size_t * TSRMLS_DC);
 
-void php_add_session_var(char *name, size_t namelen TSRMLS_DC);
-void php_set_session_var(char *name, size_t namelen, zval *state_val, php_unserialize_data_t *var_hash TSRMLS_DC);
-int php_get_session_var(char *name, size_t namelen, zval ***state_var TSRMLS_DC);
+PHPAPI void php_add_session_var(char *name, size_t namelen TSRMLS_DC);
+PHPAPI void php_set_session_var(char *name, size_t namelen, zval *state_val, php_unserialize_data_t *var_hash TSRMLS_DC);
+PHPAPI int php_get_session_var(char *name, size_t namelen, zval ***state_var TSRMLS_DC);
 
 PHPAPI int php_session_register_module(ps_module *);
 
@@ -193,6 +198,9 @@ PHPAPI int php_session_register_serializer(const char *name,
 
 PHPAPI void php_session_set_id(char *id TSRMLS_DC);
 PHPAPI void php_session_start(TSRMLS_D);
+
+PHPAPI ps_module *_php_find_ps_module(char *name TSRMLS_DC);
+PHPAPI const ps_serializer *_php_find_ps_serializer(char *name TSRMLS_DC);
 
 #define PS_ADD_VARL(name,namelen) do {										\
 	php_add_session_var(name, namelen TSRMLS_CC);							\
@@ -213,13 +221,18 @@ PHPAPI void php_session_start(TSRMLS_D);
 	ulong num_key;												\
 	zval **struc;
 
-#define PS_ENCODE_LOOP(code) do {										\
+#define PS_ENCODE_LOOP(code) do {									\
 		HashTable *_ht = Z_ARRVAL_P(PS(http_session_vars)); \
+		int key_type;						\
 																	\
 		for (zend_hash_internal_pointer_reset(_ht);			\
-				zend_hash_get_current_key_ex(_ht, &key, &key_length, &num_key, 0, NULL) == HASH_KEY_IS_STRING; \
+				(key_type = zend_hash_get_current_key_ex(_ht, &key, &key_length, &num_key, 0, NULL)) != HASH_KEY_NON_EXISTANT; \
 				zend_hash_move_forward(_ht)) {				\
-				key_length--;										\
+			if (key_type == HASH_KEY_IS_LONG) {                                             \
+				php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Skipping numeric key %ld.", num_key); \
+				continue;                                                               \
+			}										\
+			key_length--;										\
 			if (php_get_session_var(key, key_length, &struc TSRMLS_CC) == SUCCESS) { \
 				code;		 										\
 			} 														\

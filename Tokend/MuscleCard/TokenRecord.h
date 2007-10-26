@@ -47,5 +47,4 @@ private:
 
 #endif /* !_TOKENRECORD_H_ */
 
-/* arch-tag: 570841DA-E707-11D8-8782-000A95C4302E */
 

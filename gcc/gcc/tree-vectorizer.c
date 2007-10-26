@@ -143,6 +143,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "input.h"
+/* APPLE LOCAL opt diary */
+#include "debug.h"
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
 
@@ -1150,8 +1152,16 @@ vect_print_dump_info (enum verbosity_levels vl, LOC loc ATTRIBUTE_UNUSED)
     return false;
 
   /* APPLE LOCAL begin AV dump */
-  fprintf (vect_dump, "\n%s:%d: note: ", LOC_FILE (vect_loop_location), 
-	   LOC_LINE (vect_loop_location));
+  if (!vect_dump)
+    return false;
+
+   if (vect_loop_location == UNKNOWN_LOC)
+     fprintf (vect_dump, "\n%s:%d: note: ",
+	      DECL_SOURCE_FILE (current_function_decl),
+	      DECL_SOURCE_LINE (current_function_decl));
+   else
+     fprintf (vect_dump, "\n%s:%d: note: ", LOC_FILE (vect_loop_location), 
+	      LOC_LINE (vect_loop_location));
   /* APPLE LOCAL end AV dump */
 
   return true;
@@ -1615,6 +1625,11 @@ vectorize_loops (struct loops *loops)
       /* Now this function uses vectors.  */
       DECL_STRUCT_FUNCTION (current_function_decl)->uses_vector = 1;
       /* APPLE LOCAL end 4095567 */
+      /* APPLE LOCAL begin opt diary */
+      if (flag_opt_diary && debug_hooks->opt_diary_entry)
+      (*debug_hooks->opt_diary_entry) (OD_msg_loop_vectorized,
+				       *vect_loop_location);
+      /* APPLE LOCAL end opt diary */
       num_vectorized_loops++;
     }
 

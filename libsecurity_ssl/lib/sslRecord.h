@@ -54,12 +54,12 @@ typedef struct
 #define DEFAULT_BUFFER_SIZE 4096
 
 OSStatus SSLReadRecord(
-	SSLRecord 	&rec, 
+	SSLRecord 	*rec, 
 	SSLContext 	*ctx);
 
 OSStatus SSLVerifyMac(
 	UInt8 		type, 
-	SSLBuffer 	&data, 
+	SSLBuffer 	*data, 
 	UInt8 		*compareMAC, 
 	SSLContext 	*ctx);
 

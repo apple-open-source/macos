@@ -65,6 +65,7 @@ class IOHIDEventService: public IOService
     friend class IOHIDPointing;
     friend class IOHIDKeyboard;
     friend class IOHIDConsumer;
+    friend class AppleEmbeddedKeyboard;
 
 private:
     IOHIDKeyboard *         _keyboardNub;
@@ -187,7 +188,7 @@ protected:
                                 AbsoluteTime                timeStamp,
                                 SInt32                      x,
                                 SInt32                      y,
-                                Bounds *                    bounds,
+                                IOGBounds *                 bounds,
                                 UInt32                      buttonState,
                                 bool                        inRange,
                                 SInt32                      tipPressure,
@@ -208,7 +209,7 @@ protected:
                                 SInt32                      x,
                                 SInt32                      y,
                                 SInt32                      z,
-                                Bounds *                    bounds,
+                                IOGBounds *                 bounds,
                                 UInt32                      buttonState,
                                 SInt32                      tipPressure,
                                 SInt32                      tipPressureMin,

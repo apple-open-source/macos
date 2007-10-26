@@ -1,0 +1,23 @@
+# -- SOAP::Lite -- soaplite.com -- Copyright (C) 2001 Paul Kulchenko --
+
+# put this file into mod_soap directory (for tests) or anywhere you want
+
+SetHandler perl-script
+PerlHandler Apache::SOAP
+
+# you may specify almost ANY method of SOAP::Transport::HTTP::Apache here
+# see documentation for more information
+
+# if more than one, parameters should be quoted and can be separated with commas 
+PerlSetVar dispatch_to "/Your/Path/To/Deployed/Modules, \
+                        Module::Name, Module::method"
+
+# or with spaces
+PerlSetVar objects_by_reference "My::PersistentIterator My::SessionIterator My::Chat"
+
+# if you want to use module from BOTH mod_perl and mod_soap 
+# you should use either static or mixed dispatching
+# PerlSetVar dispatch_to "My::Examples My::Parameters My::PersistentIterator My::SessionIterator My::PingPong"
+
+# for methods that accept hashes, specify parameters as "key1 => value1, key2 => value2"
+PerlSetVar options "compress_threshold => 10000"

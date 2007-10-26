@@ -1,15 +1,15 @@
-Din forespørsel til %(requestaddr)s:
+Din anmodning til %(requestaddr)s:
 
     %(cmd)s
 
 er videresendt til personen  der er ansvarlig for listen.
 
-Det er sikkert fordi du prøver at tilmelde dig til en 'lukket' liste.
+Det skyldes sikkert, at du prøver at tilmelde dig en 'lukket' liste.
 
-Du vil få en e-mail med afgørelsen så snart forespørgselen er
+Du vil få en e-mail med afgørelsen, så snart din anmodning er
 behandlet.
 
-Spørsmål om hvilke krav der stilles for at blive medlem på listen 
+Spørgsmål om hvilke krav der stilles for at blive medlem af listen
 kan rettes til:
 
     %(adminaddr)s

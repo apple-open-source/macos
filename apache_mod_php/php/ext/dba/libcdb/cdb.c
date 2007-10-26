@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cdb.c,v 1.3.2.3.8.2 2007/01/01 09:46:41 sebastian Exp $ */
+/* $Id: cdb.c,v 1.10.2.1.2.3 2007/04/14 11:15:13 helly Exp $ */
 
 /* incorporated from D.J.Bernstein's cdb-0.75 (http://cr.yp.to/cdb.html)*/
 
@@ -64,23 +64,15 @@ static int cdb_match(struct cdb *c, char *key, unsigned int len, uint32 pos TSRM
 }
 /* }}} */
 
-/* {{{ cdb_hashadd */
-static uint32 cdb_hashadd(uint32 h, unsigned char c)
-{
-	h += (h << 5);
-	return h ^ c;
-}
-/* }}} */
-
 /* {{{ cdb_hash */
 uint32 cdb_hash(char *buf, unsigned int len)
 {
 	uint32 h;
+	const unsigned char * b = (unsigned char *)buf;
 
 	h = CDB_HASHSTART;
-	while (len) {
-		h = cdb_hashadd(h, *buf++);
-		--len;
+	while (len--) {
+		h = ( h + (h << 5)) ^ (*b++);
 	}
 	return h;
 }
@@ -197,6 +189,6 @@ int cdb_find(struct cdb *c, char *key, unsigned int len TSRMLS_DC)
 /* {{{ cdb_version */
 char *cdb_version() 
 {
-	return "0.75, $Revision: 1.3.2.3.8.2 $";
+	return "0.75, $Revision: 1.10.2.1.2.3 $";
 }
 /* }}} */

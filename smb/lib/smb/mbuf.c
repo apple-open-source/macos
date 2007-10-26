@@ -2,6 +2,8 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2004 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: mbuf.c,v 1.3.166.1 2005/07/20 05:27:02 lindak Exp $
+ * $Id: mbuf.c,v 1.4.218.1 2006/04/14 23:49:37 gcolley Exp $
  */
 
 #include <sys/types.h>
@@ -39,52 +41,47 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <asl.h>
 
 #include <netsmb/smb_lib.h>
 
-#define MBERROR(format, args...) printf("%s(%d): "format, __FUNCTION__ , \
-				    __LINE__ ,## args)
+#define MBERROR(format, args...) asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s(%d): "format, __FUNCTION__ , __LINE__ ,## args)
 
+/* Acts like the kernel call, but only in user space. */
 static int
-m_get(size_t len, struct mbuf **mpp)
+mbuf_get(size_t len, struct smb_lib_mbuf **mpp)
 {
-	struct mbuf *m;
+	struct smb_lib_mbuf *m;
 
-	len = M_ALIGN(len);
-	if (len < M_MINSIZE)
-		len = M_MINSIZE;
-	m = malloc(M_BASESIZE + len);
+	len = SMB_LIB_M_ALIGN(len);
+	if (len < SMB_LIB_M_MINSIZE)
+		len = SMB_LIB_M_MINSIZE;
+	m = malloc(SMB_LIB_M_BASESIZE + len);
 	if (m == NULL)
 		return ENOMEM;
-	bzero(m, M_BASESIZE + len);
+	bzero(m, SMB_LIB_M_BASESIZE + len);
 	m->m_maxlen = len;
-	m->m_data = M_TOP(m);
+	m->m_data = SMB_LIB_M_TOP(m);
 	*mpp = m;
 	return 0;
 }
 
 static void
-m_free(struct mbuf *m)
+free_all(struct smb_lib_mbuf *m0)
 {
-	free(m);
-}
-
-static void
-m_freem(struct mbuf *m0)
-{
-	struct mbuf *m;
+	struct smb_lib_mbuf *m;
 
 	while (m0) {
 		m = m0->m_next;
-		m_free(m0);
+		free(m0);
 		m0 = m;
 	}
 }
 
 static size_t
-m_totlen(struct mbuf *m0)
+m_totlen(struct smb_lib_mbuf *m0)
 {
-	struct mbuf *m = m0;
+	struct smb_lib_mbuf *m = m0;
 	int len = 0;
 
 	while (m) {
@@ -95,9 +92,9 @@ m_totlen(struct mbuf *m0)
 }
 
 int
-m_lineup(struct mbuf *m0, struct mbuf **mpp)
+smb_lib_m_lineup(struct smb_lib_mbuf *m0, struct smb_lib_mbuf **mpp)
 {
-	struct mbuf *nm, *m;
+	struct smb_lib_mbuf *nm, *m;
 	char *dp;
 	size_t len;
 	int error;
@@ -106,15 +103,15 @@ m_lineup(struct mbuf *m0, struct mbuf **mpp)
 		*mpp = m0;
 		return 0;
 	}
-	if ((error = m_get(m_totlen(m0), &nm)) != 0)
+	if ((error = mbuf_get(m_totlen(m0), &nm)) != 0)
 		return error;
-	dp = mtod(nm, char *);
+	dp = SMB_LIB_MTODATA(nm, char *);
 	while (m0) {
 		len = m0->m_len;
 		bcopy(m0->m_data, dp, len);
 		dp += len;
 		m = m0->m_next;
-		m_free(m0);
+		free(m0);
 		m0 = m;
 	}
 	*mpp = nm;
@@ -124,20 +121,20 @@ m_lineup(struct mbuf *m0, struct mbuf **mpp)
 int
 mb_init(struct mbdata *mbp, size_t size)
 {
-	struct mbuf *m;
+	struct smb_lib_mbuf *m;
 	int error;
 
-	if ((error = m_get(size, &m)) != 0)
+	if ((error = mbuf_get(size, &m)) != 0)
 		return error;
 	return mb_initm(mbp, m);
 }
 
 int
-mb_initm(struct mbdata *mbp, struct mbuf *m)
+mb_initm(struct mbdata *mbp, struct smb_lib_mbuf *m)
 {
 	bzero(mbp, sizeof(*mbp));
 	mbp->mb_top = mbp->mb_cur = m;
-	mbp->mb_pos = mtod(m, char *);
+	mbp->mb_pos = SMB_LIB_MTODATA(m, char *);
 	return 0;
 }
 
@@ -145,41 +142,26 @@ int
 mb_done(struct mbdata *mbp)
 {
 	if (mbp->mb_top) {
-		m_freem(mbp->mb_top);
+		free_all(mbp->mb_top);
 		mbp->mb_top = NULL;
 	}
 	return 0;
 }
 
-/*
 int
-mb_fixhdr(struct mbdata *mbp)
+smb_lib_mbuf_getm(struct smb_lib_mbuf *top, size_t len, struct smb_lib_mbuf **mpp)
 {
-	struct mbuf *m = mbp->mb_top;
-	int len = 0;
-
-	while (m) {
-		len += m->m_len;
-		m = m->m_next;
-	}
-	mbp->mb_top->m_pkthdr.len = len;
-	return len;
-}
-*/
-int
-m_getm(struct mbuf *top, size_t len, struct mbuf **mpp)
-{
-	struct mbuf *m, *mp;
+	struct smb_lib_mbuf *m, *mp;
 	int error;
 	
 	for (mp = top; ; mp = mp->m_next) {
-		len -= M_TRAILINGSPACE(mp);
+		len -= SMB_LIB_M_TRAILINGSPACE(mp);
 		if (mp->m_next == NULL)
 			break;
 		
 	}
 	if (len > 0) {
-		if ((error = m_get(len, &m)) != 0)
+		if ((error = mbuf_get(len, &m)) != 0)
 			return error;
 		mp->m_next = m;
 	}
@@ -202,14 +184,14 @@ m_getm(struct mbuf *top, size_t len, struct mbuf **mpp)
 int
 mb_fit(struct mbdata *mbp, size_t size, char **pp)
 {
-	struct mbuf *m, *mn;
+	struct smb_lib_mbuf *m, *mn;
 	int error;
 
 	m = mbp->mb_cur;
-	if (M_TRAILINGSPACE(m) < (int)size) {
-		if ((error = m_get(size, &mn)) != 0)
+	if (SMB_LIB_M_TRAILINGSPACE(m) < (int)size) {
+		if ((error = mbuf_get(size, &mn)) != 0)
 			return error;
-		mbp->mb_pos = mtod(mn, char *);
+		mbp->mb_pos = SMB_LIB_MTODATA(mn, char *);
 		mbp->mb_cur = m->m_next = mn;
 		m = mn;
 	}
@@ -279,7 +261,7 @@ mb_put_uint64le(struct mbdata *mbp, u_int64_t x)
 int
 mb_put_mem(struct mbdata *mbp, const char *source, size_t size)
 {
-	struct mbuf *m;
+	struct smb_lib_mbuf *m;
 	char * dst;
 	size_t cplen;
 	int error;
@@ -287,17 +269,17 @@ mb_put_mem(struct mbdata *mbp, const char *source, size_t size)
 	if (size == 0)
 		return 0;
 	m = mbp->mb_cur;
-	if ((error = m_getm(m, size, &m)) != 0)
+	if ((error = smb_lib_mbuf_getm(m, size, &m)) != 0)
 		return error;
 	while (size > 0) {
-		cplen = M_TRAILINGSPACE(m);
+		cplen = SMB_LIB_M_TRAILINGSPACE(m);
 		if (cplen == 0) {
 			m = m->m_next;
 			continue;
 		}
 		if (cplen > size)
 			cplen = size;
-		dst = mtod(m, char *) + m->m_len;
+		dst = SMB_LIB_MTODATA(m, char *) + m->m_len;
 		if (source) {
 			bcopy(source, dst, cplen);
 			source += cplen;
@@ -307,13 +289,13 @@ mb_put_mem(struct mbdata *mbp, const char *source, size_t size)
 		m->m_len += cplen;
 		mbp->mb_count += cplen;
 	}
-	mbp->mb_pos = mtod(m, char *) + m->m_len;
+	mbp->mb_pos = SMB_LIB_MTODATA(m, char *) + m->m_len;
 	mbp->mb_cur = m;
 	return 0;
 }
 
 int
-mb_put_mbuf(struct mbdata *mbp, struct mbuf *m)
+mb_put_mbuf(struct mbdata *mbp, struct smb_lib_mbuf *m)
 {
 	mbp->mb_cur->m_next = m;
 	while (m) {
@@ -322,7 +304,7 @@ mb_put_mbuf(struct mbdata *mbp, struct mbuf *m)
 			break;
 		m = m->m_next;
 	}
-	mbp->mb_pos = mtod(m, char *) + m->m_len;
+	mbp->mb_pos = SMB_LIB_MTODATA(m, char *) + m->m_len;
 	mbp->mb_cur = m;
 	return 0;
 }
@@ -343,7 +325,7 @@ mb_put_pstring(struct mbdata *mbp, const char *s)
 /*
  * Routines for fetching data from an mbuf chain
  */
-#define mb_left(m,p)	(mtod(m, char *) + (m)->m_len - (p))
+#define mb_left(m,p)	(SMB_LIB_MTODATA(m, char *) + (m)->m_len - (p))
 
 int
 mb_get_uint8(struct mbdata *mbp, u_int8_t *x)
@@ -441,7 +423,7 @@ mb_get_uint64le(struct mbdata *mbp, u_int64_t *x)
 int
 mb_get_mem(struct mbdata *mbp, char * target, size_t size)
 {
-	struct mbuf *m = mbp->mb_cur;
+	struct smb_lib_mbuf *m = mbp->mb_cur;
 	u_int count;
 	
 	while (size > 0) {
@@ -453,7 +435,7 @@ mb_get_mem(struct mbdata *mbp, char * target, size_t size)
 		if (count == 0) {
 			mbp->mb_cur = m = m->m_next;
 			if (m)
-				mbp->mb_pos = mtod(m, char *);
+				mbp->mb_pos = SMB_LIB_MTODATA(m, char *);
 			continue;
 		}
 		if (count > size)

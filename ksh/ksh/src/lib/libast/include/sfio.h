@@ -1,32 +1,28 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #ifndef _SFIO_H
 #define _SFIO_H	1
 
-#define SFIO_VERSION	20040101L
+#define SFIO_VERSION	20050202L
 
 /*	Public header file for the sfio library
 **
@@ -43,9 +39,9 @@ typedef struct _sfdisc_s	Sfdisc_t;
 #endif /* _PACKAGE_ast */
 
 /* Sfoff_t should be large enough for largest file address */
-#define Sfoff_t		_ast_intmax_t
-#define Sflong_t	_ast_intmax_t
-#define Sfulong_t	unsigned _ast_intmax_t
+#define Sfoff_t		intmax_t
+#define Sflong_t	intmax_t
+#define Sfulong_t	uintmax_t
 #define Sfdouble_t	_ast_fltmax_t
 
 typedef ssize_t		(*Sfread_f)_ARG_((Sfio_t*, Void_t*, size_t, Sfdisc_t*));
@@ -74,7 +70,7 @@ struct _sffmt_s
 	Sffmtevent_f	eventf;	/* process events			*/
 
 	char*		form;	/* format string to stack		*/
-	_ast_va_list	args;	/* corresponding arg list		*/
+	va_list	args;	/* corresponding arg list		*/
 
 	int		fmt;	/* format character			*/
 	ssize_t		size;	/* object size				*/
@@ -91,28 +87,29 @@ struct _sffmt_s
 	Void_t*		none;	/* unused for now			*/
 };
 #define sffmtversion(fe,type) \
-		(type ? ((fe)->version = SFIO_VERSION) : (fe)->version)
+		((type) ? ((fe)->version = SFIO_VERSION) : (fe)->version)
 
-#define SFFMT_SSHORT	00000010 /* 'hh' flag, char			*/
-#define SFFMT_TFLAG	00000020 /* 't' flag, ptrdiff_t			*/
-#define SFFMT_ZFLAG	00000040 /* 'z' flag, size_t			*/
+#define SFFMT_SSHORT	000000010 /* 'hh' flag, char			*/
+#define SFFMT_TFLAG	000000020 /* 't' flag, ptrdiff_t			*/
+#define SFFMT_ZFLAG	000000040 /* 'z' flag, size_t			*/
 
-#define SFFMT_LEFT	00000100 /* left-justification			*/
-#define SFFMT_SIGN	00000200 /* must have a sign			*/
-#define SFFMT_BLANK	00000400 /* if not signed, prepend a blank	*/
-#define SFFMT_ZERO	00001000 /* zero-padding on the left		*/
-#define SFFMT_ALTER	00002000 /* alternate formatting		*/
-#define SFFMT_THOUSAND	00004000 /* thousand grouping			*/
-#define SFFMT_SKIP	00010000 /* skip assignment in scanf()		*/
-#define SFFMT_SHORT	00020000 /* 'h' flag				*/
-#define SFFMT_LONG	00040000 /* 'l' flag				*/
-#define SFFMT_LLONG	00100000 /* 'll' flag				*/
-#define SFFMT_LDOUBLE	00200000 /* 'L' flag				*/
-#define SFFMT_VALUE	00400000 /* value is returned			*/
-#define SFFMT_ARGPOS	01000000 /* getting arg for $ patterns		*/
-#define SFFMT_IFLAG	02000000 /* 'I' flag				*/
-#define SFFMT_JFLAG	04000000 /* 'j' flag, intmax_t			*/
-#define SFFMT_SET	07777770 /* flags settable on calling extf	*/
+#define SFFMT_LEFT	000000100 /* left-justification			*/
+#define SFFMT_SIGN	000000200 /* must have a sign			*/
+#define SFFMT_BLANK	000000400 /* if not signed, prepend a blank	*/
+#define SFFMT_ZERO	000001000 /* zero-padding on the left		*/
+#define SFFMT_ALTER	000002000 /* alternate formatting		*/
+#define SFFMT_THOUSAND	000004000 /* thousand grouping			*/
+#define SFFMT_SKIP	000010000 /* skip assignment in scanf()		*/
+#define SFFMT_SHORT	000020000 /* 'h' flag				*/
+#define SFFMT_LONG	000040000 /* 'l' flag				*/
+#define SFFMT_LLONG	000100000 /* 'll' flag				*/
+#define SFFMT_LDOUBLE	000200000 /* 'L' flag				*/
+#define SFFMT_VALUE	000400000 /* value is returned			*/
+#define SFFMT_ARGPOS	001000000 /* getting arg for $ patterns		*/
+#define SFFMT_IFLAG	002000000 /* 'I' flag				*/
+#define SFFMT_JFLAG	004000000 /* 'j' flag, intmax_t			*/
+#define SFFMT_CENTER	010000000 /* '=' flag, center justification	*/
+#define SFFMT_SET	017777770 /* flags settable on calling extf	*/
 
 /* for sfmutex() call */
 #define SFMTX_LOCK	0	/* up mutex count			*/
@@ -149,9 +146,10 @@ struct _sffmt_s
 #define SF_MTSAFE	0010000	/* need thread safety			*/
 #define SF_WHOLE	0020000	/* preserve wholeness of sfwrite/sfputr */
 #define SF_IOINTR	0040000	/* return on interrupts			*/
+#define SF_WCWIDTH	0100000	/* wcwidth display stream		*/
 
-#define SF_FLAGS	0077177	/* PUBLIC FLAGS PASSABLE TO SFNEW()	*/
-#define SF_SETS		0077163	/* flags passable to sfset()		*/
+#define SF_FLAGS	0177177	/* PUBLIC FLAGS PASSABLE TO SFNEW()	*/
+#define SF_SETS		0177163	/* flags passable to sfset()		*/
 
 #ifndef _SF_NO_OBSOLETE
 #define SF_BUFCONST	0400000 /* unused flag - for compatibility only	*/
@@ -197,8 +195,6 @@ struct _sffmt_s
 
 _BEGIN_EXTERNS_
 
-extern ssize_t		_Sfi;
-
 /* standard in/out/err streams */
 
 #if _BLD_sfio && defined(__EXPORT__)
@@ -207,6 +203,9 @@ extern ssize_t		_Sfi;
 #if !_BLD_sfio && defined(__IMPORT__)
 #define extern		extern __IMPORT__
 #endif
+
+extern ssize_t		_Sfi;
+extern ssize_t		_Sfmaxr;
 
 extern Sfio_t*		sfstdin;
 extern Sfio_t*		sfstdout;
@@ -258,12 +257,12 @@ extern int		sfungetc _ARG_((Sfio_t*, int));
 extern int		sfprintf _ARG_((Sfio_t*, const char*, ...));
 extern char*		sfprints _ARG_((const char*, ...));
 extern ssize_t		sfsprintf _ARG_((char*, size_t, const char*, ...));
-extern ssize_t		sfvsprintf _ARG_((char*, size_t, const char*, _ast_va_list));
-extern int		sfvprintf _ARG_((Sfio_t*, const char*, _ast_va_list));
+extern ssize_t		sfvsprintf _ARG_((char*, size_t, const char*, va_list));
+extern int		sfvprintf _ARG_((Sfio_t*, const char*, va_list));
 extern int		sfscanf _ARG_((Sfio_t*, const char*, ...));
 extern int		sfsscanf _ARG_((const char*, const char*, ...));
-extern int		sfvsscanf _ARG_((const char*, const char*, _ast_va_list));
-extern int		sfvscanf _ARG_((Sfio_t*, const char*, _ast_va_list));
+extern int		sfvsscanf _ARG_((const char*, const char*, va_list));
+extern int		sfvscanf _ARG_((Sfio_t*, const char*, va_list));
 
 /* mutex locking for thread-safety */
 extern int		sfmutex _ARG_((Sfio_t*, int));
@@ -312,6 +311,7 @@ extern int		sffileno _ARG_((Sfio_t*));
 extern int		sfstacked _ARG_((Sfio_t*));
 extern ssize_t		sfvalue _ARG_((Sfio_t*));
 extern ssize_t		sfslen _ARG_((void));
+extern ssize_t		sfmaxr _ARG_((ssize_t, int));
 
 #undef extern
 _END_EXTERNS_
@@ -357,6 +357,7 @@ _END_EXTERNS_
 #define __sf_stacked(f)	(_SF_(f)->_push != (Sfio_t*)0)
 #define __sf_value(f)	(_SF_(f)->_val)
 #define __sf_slen()	(_Sfi)
+#define __sf_maxr(n,s)	((s)?((_Sfi=_Sfmaxr),(_Sfmaxr=(n)),_Sfi):_Sfmaxr)
 
 #if defined(__INLINE__) && !_BLD_sfio
 
@@ -379,6 +380,8 @@ __INLINE__ int sferror(Sfio_t* f)		{ return __sf_error(f); }
 __INLINE__ int sfclrerr(Sfio_t* f)		{ return __sf_clrerr(f); }
 __INLINE__ int sfstacked(Sfio_t* f)		{ return __sf_stacked(f); }
 __INLINE__ ssize_t sfvalue(Sfio_t* f)		{ return __sf_value(f); }
+__INLINE__ ssize_t sfslen()			{ return __sf_slen(); }
+__INLINE__ ssize_t sfmaxr(ssize_t n, int s)	{ return __sf_maxr(n,s); }
 
 #else
 
@@ -401,7 +404,49 @@ __INLINE__ ssize_t sfvalue(Sfio_t* f)		{ return __sf_value(f); }
 #define sfstacked(f)				( __sf_stacked(f) )
 #define sfvalue(f)				( __sf_value(f) )
 #define sfslen()				( __sf_slen() )
+#define sfmaxr(n,s)				( __sf_maxr(n,s) )
 
 #endif /*__INLINE__*/
+
+#ifndef _SFSTR_H /* GSF's string manipulation stuff */
+#define _SFSTR_H		1
+
+#define sfstropen()		sfnew(0, 0, -1, -1, SF_READ|SF_WRITE|SF_STRING)
+#define sfstrclose(f)		sfclose(f)
+
+#define sfstrseek(f,p,m) \
+	( (m) == SEEK_SET ? \
+	 	(((p) < 0 || (p) > (f)->_size) ? (char*)0 : \
+		 (char*)((f)->_next = (f)->_data+(p)) ) \
+	: (m) == SEEK_CUR ? \
+		((f)->_next += (p), \
+		 (((f)->_next < (f)->_data || (f)->_next > (f)->_data+(f)->_size) ? \
+			((f)->_next -= (p), (char*)0) : (char*)(f)->_next ) ) \
+	: (m) == SEEK_END ? \
+		( ((p) > 0 || (f)->_size+(p) < 0) ? (char*)0 : \
+			(char*)((f)->_next = (f)->_data+(f)->_size+(p)) ) \
+	: (char*)0 \
+	)
+
+#define sfstrsize(f)		((f)->_size)
+#define sfstrtell(f)		((f)->_next - (f)->_data)
+#define sfstrpend(f)		((f)->_size - sfstrtell())
+#define sfstrbase(f)		((char*)(f)->_data)
+
+#define sfstruse(f) \
+	(sfputc((f),0) < 0 ? (char*)0 : (char*)((f)->_next = (f)->_data) \
+	)
+
+#define sfstrrsrv(f,n) \
+	(sfreserve((f),(n),SF_WRITE|SF_LOCKR), sfwrite((f),(f)->_next,0), \
+	 ((f)->_next+(n) <= (f)->_data+(f)->_size ? (char*)(f)->_next : (char*)0) \
+	)
+
+#define sfstrbuf(f,b,n,m) \
+	(sfsetbuf((f),(b),(n)), ((f)->_flags |= (m) ? SF_MALLOC : 0), \
+	 ((f)->_data == (unsigned char*)(b) ? 0 : -1) \
+	)
+
+#endif /* _SFSTR_H */
 
 #endif /* _SFIO_H */

@@ -36,7 +36,7 @@
 #include "CServerPlugin.h"
 
 typedef struct {
-	uInt32 offset;
+	UInt32 offset;
 	SCPreferencesRef session;
 	uid_t fUID;
 	uid_t fEffectiveUID;
@@ -53,38 +53,38 @@ public:
 	static	void	ContinueDeallocProc		( void* inContinueData );
 	static	void	ContextDeallocProc		( void* inContextData );
 
-	virtual sInt32	Validate				( const char *inVersionStr, const uInt32 inSignature );
-	virtual sInt32	Initialize				( void );
-	//virtual sInt32	Configure				( void );
-	virtual sInt32	SetPluginState			( const uInt32 inState );
-	virtual sInt32	PeriodicTask			( void );
-	virtual sInt32	ProcessRequest			( void *inData );
-	//virtual sInt32	Shutdown				( void );
+	virtual SInt32	Validate				( const char *inVersionStr, const UInt32 inSignature );
+	virtual SInt32	Initialize				( void );
+	//virtual SInt32	Configure				( void );
+	virtual SInt32	SetPluginState			( const UInt32 inState );
+	virtual SInt32	PeriodicTask			( void );
+	virtual SInt32	ProcessRequest			( void *inData );
+	//virtual SInt32	Shutdown				( void );
 
 protected:
-	sInt32			HandleRequest			( void *inData );
+	SInt32			HandleRequest			( void *inData );
 	void			WaitForInit				( void );
 
 private:
-	sInt32			OpenDirNode				( sOpenDirNode *inData );
-	sInt32			CloseDirNode			( sCloseDirNode *inData );
-	sInt32			GetDirNodeInfo			( sGetDirNodeInfo *inData );
-	sInt32			GetRecordList			( sGetRecordList *inData );
-	sInt32			GetRecordEntry			( sGetRecordEntry *inData );
-	sInt32			GetAttributeEntry		( sGetAttributeEntry *inData );
-	sInt32			GetAttributeValue		( sGetAttributeValue *inData );
-	sInt32			CloseAttributeList		( sCloseAttributeList *inData );
-	sInt32			CloseAttributeValueList	( sCloseAttributeValueList *inData );
+	SInt32			OpenDirNode				( sOpenDirNode *inData );
+	SInt32			CloseDirNode			( sCloseDirNode *inData );
+	SInt32			GetDirNodeInfo			( sGetDirNodeInfo *inData );
+	SInt32			GetRecordList			( sGetRecordList *inData );
+	SInt32			GetRecordEntry			( sGetRecordEntry *inData );
+	SInt32			GetAttributeEntry		( sGetAttributeEntry *inData );
+	SInt32			GetAttributeValue		( sGetAttributeValue *inData );
+	SInt32			CloseAttributeList		( sCloseAttributeList *inData );
+	SInt32			CloseAttributeValueList	( sCloseAttributeValueList *inData );
 
-	sInt32			ReleaseContinueData		( sReleaseContinueData *inData );
+	SInt32			ReleaseContinueData		( sReleaseContinueData *inData );
     sConfigContextData   *MakeContextData			( void );
-    sInt32			DoPlugInCustomCall		( sDoPlugInCustomCall *inData );
-    sInt32          DoDirNodeAuth           ( sDoDirNodeAuth *inData );
+    SInt32			DoPlugInCustomCall		( sDoPlugInCustomCall *inData );
+    SInt32          DoDirNodeAuth           ( sDoDirNodeAuth *inData );
 
 	tDataList	   *fConfigNodeName;
-	uInt32			fNodeCount;
+	UInt32			fNodeCount;
 	char		   *fConfigPath;
-	uInt32			fState;
+	UInt32			fState;
 };
 
 #endif	// __CConfigurePlugin_H__

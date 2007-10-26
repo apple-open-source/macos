@@ -1,31 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
-	<key>CFBundleName</key>
-	<string>msdos</string>
-	<key>FSPersonalities</key>
-	<dict>
-		<key>MS-DOS</key>
-		<dict> 
-			<key>FSName</key>
-			<string>MS-DOS File System</string>
-		</dict>
-		<key>MS-DOS FAT12</key>
-		<dict>
-			<key>FSName</key>
-			<string>MS-DOS File System (FAT12)</string>
-		</dict>
-		<key>MS-DOS FAT16</key>
-		<dict>
-			<key>FSName</key>
-			<string>MS-DOS File System (FAT16)</string>
-		</dict>
-		<key>MS-DOS FAT32</key>
-		<dict>
-			<key>FSName</key>
-			<string>MS-DOS File System (FAT32)</string>
-		</dict>
+    <key>FSPersonalities</key>
+    <dict>
+	<key>MS-DOS</key>
+	<dict> 
+	    <key>FSName</key>
+	    <string>MS-DOS (FAT)</string>
 	</dict>
+	<key>MS-DOS FAT12</key>
+	<dict>
+	    <key>FSName</key>
+	    <string>MS-DOS (FAT12)</string>
+	</dict>
+	<key>MS-DOS FAT16</key>
+	<dict>
+	    <key>FSName</key>
+	    <string>MS-DOS (FAT16)</string>
+	</dict>
+	<key>MS-DOS FAT32</key>
+	<dict>
+	    <key>FSName</key>
+	    <string>MS-DOS (FAT32)</string>
+	</dict>
+    </dict>
 </dict>
 </plist>

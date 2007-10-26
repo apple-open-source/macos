@@ -147,7 +147,7 @@ key_fingerprint(Key *k)
 {
 	static char retval[(EVP_MAX_MD_SIZE+1)*3];
 	unsigned char *blob = NULL;
-	int len = 0;
+	unsigned int len = 0;
 	int nlen, elen;
 
 	switch (k->type) {
@@ -290,7 +290,7 @@ pwsf_key_read(Key *ret, char **cpp)
 			error("pwsf_key_read: uudecode %s failed", cp);
 			return 0;
 		}
-		k = dsa_key_from_blob(blob, n);
+		k = dsa_key_from_blob((char *)blob, n);
 		if (k == NULL) {
 			error("pwsf_key_read: dsa_key_from_blob %s failed", cp);
 			return 0;
@@ -333,8 +333,10 @@ key_write(Key *key, FILE *f)
 			error("key_write: failed for RSA key");
 		}
 	} else if (key->type == KEY_DSA && key->dsa != NULL) {
-		int len, n;
-		unsigned char *blob, *uu;
+		unsigned int len;
+		int n;
+		unsigned char *blob;
+		char *uu;
 		dsa_make_key_blob(key, &blob, &len);
 		uu = xmalloc(2*len);
 		n = uuencode(blob, len, uu, 2*len);

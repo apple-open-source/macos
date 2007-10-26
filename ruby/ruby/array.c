@@ -2,8 +2,8 @@
 
   array.c -
 
-  $Author: matz $
-  $Date: 2004/11/18 03:47:14 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Fri Aug  6 09:46:12 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -188,6 +188,8 @@ rb_ary_new4(n, elts)
     if (n > 0 && elts) {
 	MEMCPY(RARRAY(ary)->ptr, elts, VALUE, n);
     }
+
+    /* This assignment to len will be moved to the above "if" block in Ruby 1.9 */
     RARRAY(ary)->len = n;
 
     return ary;
@@ -334,9 +336,6 @@ rb_ary_s_create(argc, argv, klass)
 {
     VALUE ary = ary_alloc(klass);
 
-    if (argc < 0) {
-	rb_raise(rb_eArgError, "negative number of arguments");
-    }
     if (argc > 0) {
 	RARRAY(ary)->ptr = ALLOC_N(VALUE, argc);
 	MEMCPY(RARRAY(ary)->ptr, argv, VALUE, argc);
@@ -502,8 +501,16 @@ rb_ary_shift(ary)
     rb_ary_modify_check(ary);
     if (RARRAY(ary)->len == 0) return Qnil;
     top = RARRAY(ary)->ptr[0];
-    ary_make_shared(ary);
-    RARRAY(ary)->ptr++;		/* shift ptr */
+    if (RARRAY_LEN(ary) < ARY_DEFAULT_SIZE && !FL_TEST(ary, ELTS_SHARED)) {
+	MEMMOVE(RARRAY_PTR(ary), RARRAY_PTR(ary)+1, VALUE, RARRAY_LEN(ary)-1);
+    }
+    else {
+	if (!FL_TEST(ary, ELTS_SHARED)) {
+	    RARRAY(ary)->ptr[0] = Qnil;
+	}
+	ary_make_shared(ary);
+	RARRAY(ary)->ptr++;		/* shift ptr */
+    }
     RARRAY(ary)->len--;
 
     return top;
@@ -552,9 +559,6 @@ rb_ary_unshift_m(argc, argv, ary)
 {
     long len = RARRAY(ary)->len;
 
-    if (argc < 0) {
-	rb_raise(rb_eArgError, "negative number of arguments");
-    }
     if (argc == 0) return ary;
 
     /* make rooms by setting the last item */
@@ -721,12 +725,16 @@ rb_ary_at(ary, pos)
 /*
  *  call-seq:
  *     array.first   ->   obj or nil
- *  
- *  Returns the first element of the array. If the array is empty,
- *  returns <code>nil</code>.
- *     
+ *     array.first(n) -> an_array
+ *
+ *  Returns the first element, or the first +n+ elements, of the array.
+ *  If the array is empty, the first form returns <code>nil</code>, and the
+ *  second form returns an empty array.
+ *
  *     a = [ "q", "r", "s", "t" ]
- *     a.first   #=> "q"
+ *     a.first    #=> "q"
+ *     a.first(1) #=> ["q"]
+ *     a.first(3) #=> ["q", "r", "s"]
  */
 
 static VALUE
@@ -903,7 +911,7 @@ rb_ary_rindex(ary, val)
  *     array.indexes( i1, i2, ... iN )   -> an_array
  *     array.indices( i1, i2, ... iN )   -> an_array
  *  
- *  Deprecated; use <code>Array#select</code>.
+ *  Deprecated; use <code>Array#values_at</code>.
  */
 
 static VALUE
@@ -1090,6 +1098,7 @@ rb_ary_insert(argc, argv, ary)
 {
     long pos;
 
+    if (argc == 1) return ary;
     if (argc < 1) {
 	rb_raise(rb_eArgError, "wrong number of arguments (at least 1)");
     }
@@ -1097,11 +1106,9 @@ rb_ary_insert(argc, argv, ary)
     if (pos == -1) {
 	pos = RARRAY(ary)->len;
     }
-    else if (pos < 0) {
+    if (pos < 0) {
 	pos++;
     }
-
-    if (argc == 1) return ary;
     rb_ary_splice(ary, pos, 0, rb_ary_new4(argc - 1, argv + 1));
     return ary;
 }
@@ -1590,8 +1597,8 @@ sort_2(ap, bp, data)
 	if ((long)a < (long)b) return -1;
 	return 0;
     }
-    if (TYPE(a) == T_STRING && TYPE(b) == T_STRING) {
-	return rb_str_cmp(a, b);
+    if (TYPE(a) == T_STRING) {
+	if (TYPE(b) == T_STRING) return rb_str_cmp(a, b);
     }
 
     retval = rb_funcall(a, id_cmp, 1, b);
@@ -1805,17 +1812,12 @@ rb_ary_values_at(argc, argv, ary)
  */
 
 static VALUE
-rb_ary_select(argc, argv, ary)
-    int argc;
-    VALUE *argv;
+rb_ary_select(ary)
     VALUE ary;
 {
     VALUE result;
     long i;
 
-    if (argc > 0) {
-	rb_raise(rb_eArgError, "wrong number of arguments (%d for 0)", argc);
-    }
     result = rb_ary_new2(RARRAY(ary)->len);
     for (i = 0; i < RARRAY(ary)->len; i++) {
 	if (RTEST(rb_yield(RARRAY(ary)->ptr[i]))) {
@@ -2135,7 +2137,7 @@ rb_ary_transpose(ary)
 	    }
 	}
 	else if (elen != RARRAY(tmp)->len) {
-	    rb_raise(rb_eIndexError, "element size differ (%d should be %d)",
+	    rb_raise(rb_eIndexError, "element size differs (%d should be %d)",
 		     RARRAY(tmp)->len, elen);
 	}
 	for (j=0; j<elen; j++) {
@@ -2231,7 +2233,7 @@ rb_ary_fill(argc, argv, ary)
     VALUE ary;
 {
     VALUE item, arg1, arg2;
-    long beg, end, len;
+    long beg = 0, end = 0, len = 0;
     VALUE *p, *pend;
     int block_p = Qfalse;
 
@@ -2269,9 +2271,7 @@ rb_ary_fill(argc, argv, ary)
 	    REALLOC_N(RARRAY(ary)->ptr, VALUE, end);
 	    RARRAY(ary)->aux.capa = end;
 	}
-	if (beg > RARRAY(ary)->len) {
-	    rb_mem_clear(RARRAY(ary)->ptr + RARRAY(ary)->len, end - RARRAY(ary)->len);
-	}
+	rb_mem_clear(RARRAY(ary)->ptr + RARRAY(ary)->len, end - RARRAY(ary)->len);
 	RARRAY(ary)->len = end;
     }
 
@@ -2648,7 +2648,8 @@ static VALUE
 rb_ary_diff(ary1, ary2)
     VALUE ary1, ary2;
 {
-    VALUE ary3, hash;
+    VALUE ary3;
+    volatile VALUE hash;
     long i;
 
     hash = ary_make_hash(to_ary(ary2), 0);
@@ -3023,7 +3024,7 @@ Init_Array()
     rb_define_method(rb_cArray, "collect!", rb_ary_collect_bang, 0);
     rb_define_method(rb_cArray, "map", rb_ary_collect, 0);
     rb_define_method(rb_cArray, "map!", rb_ary_collect_bang, 0);
-    rb_define_method(rb_cArray, "select", rb_ary_select, -1);
+    rb_define_method(rb_cArray, "select", rb_ary_select, 0);
     rb_define_method(rb_cArray, "values_at", rb_ary_values_at, -1);
     rb_define_method(rb_cArray, "delete", rb_ary_delete, 1);
     rb_define_method(rb_cArray, "delete_at", rb_ary_delete_at_m, 1);

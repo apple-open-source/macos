@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,11 +33,13 @@
 
 #include <sys/cdefs.h>
 
+extern CFRunLoopRef	plugin_runLoop;
+
 __BEGIN_DECLS
 
-void	plugin_init	();
-void	plugin_exec	(void	*arg);
-Boolean	plugin_term	(int	*status);
+void	plugin_init	(void);
+void	plugin_exec	(void		*arg);
+Boolean	plugin_term	(int		*status);
 
 __END_DECLS
 

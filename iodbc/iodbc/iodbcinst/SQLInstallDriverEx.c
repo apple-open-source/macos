@@ -1,20 +1,24 @@
 /*
  *  SQLInstallDriverEx.c
  *
- *  $Id: SQLInstallDriverEx.c,v 1.3 2004/11/11 01:52:40 luesang Exp $
+ *  $Id: SQLInstallDriverEx.c,v 1.11 2006/01/20 15:58:35 source Exp $
  *
  *  These functions intentionally left blank
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,8 +74,10 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
+#include <unicode.h>
 
 #include "misc.h"
 #include "inifile.h"
@@ -89,12 +95,12 @@
 # define UNIX_PWD
 #endif
 
-extern BOOL InstallDriverPath ( LPSTR lpszPath,WORD cbPathMax,
-    WORD * pcbPathOut,LPSTR envname);
+extern BOOL InstallDriverPath (LPSTR lpszPath, WORD cbPathMax,
+    WORD * pcbPathOut, LPSTR envname);
 
 
 BOOL
-InstallDriverPathLength (WORD *pcbPathOut, LPSTR envname)
+InstallDriverPathLength (WORD * pcbPathOut, LPSTR envname)
 {
 #ifdef _MAC
   OSErr result;
@@ -123,7 +129,7 @@ InstallDriverPathLength (WORD *pcbPathOut, LPSTR envname)
   goto done;
 #else
   /*
-     *  On Windows, there is only one place to look
+   *  On Windows, there is only one place to look
    */
   len = GetWindowsDirectory (path, sizeof (path));
   goto done;
@@ -215,7 +221,8 @@ quit:
 
 BOOL INSTAPI
 SQLInstallDriverEx (LPCSTR lpszDriver, LPCSTR lpszPathIn, LPSTR lpszPathOut,
-    WORD cbPathOutMax, WORD *pcbPathOut, WORD fRequest, LPDWORD lpdwUsageCount)
+    WORD cbPathOutMax, WORD * pcbPathOut, WORD fRequest,
+    LPDWORD lpdwUsageCount)
 {
   PCONFIG pCfg = NULL, pOdbcCfg = NULL;
   BOOL retcode = FALSE;
@@ -247,7 +254,7 @@ SQLInstallDriverEx (LPCSTR lpszDriver, LPCSTR lpszPathIn, LPSTR lpszPathOut,
     default:
       PUSH_ERROR (ODBC_ERROR_INVALID_REQUEST_TYPE);
       goto quit;
-    };
+    }
 
   /* Check input parameters */
   if (!lpszDriver || !STRLEN (lpszDriver))
@@ -278,7 +285,7 @@ SQLInstallDriverEx (LPCSTR lpszDriver, LPCSTR lpszPathIn, LPSTR lpszPathOut,
     case ODBC_SYSTEM_DSN:
       wSystemDSN = SYSTEMDSN_ONLY;
       break;
-    };
+    }
 
   if (_iodbcdm_cfg_search_init (&pCfg, "odbcinst.ini", TRUE))
     {
@@ -315,6 +322,77 @@ done:
 quit:
   wSystemDSN = USERDSN_ONLY;
   configMode = ODBC_BOTH_DSN;
+
+  return retcode;
+}
+
+BOOL INSTAPI
+SQLInstallDriverExW (LPCWSTR lpszDriver, LPCWSTR lpszPathIn,
+    LPWSTR lpszPathOut, WORD cbPathOutMax, WORD * pcbPathOut, WORD fRequest,
+    LPDWORD lpdwUsageCount)
+{
+  char *_driver_u8 = NULL;
+  char *_pathin_u8 = NULL;
+  char *_pathout_u8 = NULL;
+  BOOL retcode = FALSE;
+  int length;
+  SQLWCHAR *ptr;
+  char *ptr_u8;
+
+  for (length = 0, ptr = (SQLWCHAR *) lpszDriver; *ptr;
+      length += WCSLEN (ptr) + 1, ptr += WCSLEN (ptr) + 1);
+
+  if (length > 0)
+    {
+      if ((_driver_u8 = malloc (length * UTF8_MAX_CHAR_LEN + 1)) != NULL)
+	{
+	  for (ptr = (SQLWCHAR *) lpszDriver, ptr_u8 = _driver_u8; *ptr;
+	      ptr += WCSLEN (ptr) + 1, ptr_u8 += STRLEN (ptr_u8) + 1)
+	    dm_StrCopyOut2_W2A (ptr, ptr_u8, WCSLEN (ptr) * UTF8_MAX_CHAR_LEN,
+		NULL);
+	  *ptr_u8 = '\0';
+	}
+    }
+  else
+    _driver_u8 = (char *) dm_SQL_WtoU8 ((SQLWCHAR *) lpszDriver, SQL_NTS);
+
+  if (_driver_u8 == NULL && lpszDriver)
+    {
+      PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+      goto done;
+    }
+
+  _pathin_u8 = (char *) dm_SQL_WtoU8 ((SQLWCHAR *) lpszPathIn, SQL_NTS);
+  if (_pathin_u8 == NULL && lpszPathIn)
+    {
+      PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+      goto done;
+    }
+
+  if (cbPathOutMax > 0)
+    {
+      if ((_pathout_u8 =
+	      malloc (cbPathOutMax * UTF8_MAX_CHAR_LEN + 1)) == NULL)
+	{
+	  PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+	  goto done;
+	}
+    }
+
+  retcode =
+      SQLInstallDriverEx (_driver_u8, _pathin_u8, _pathout_u8,
+      cbPathOutMax * UTF8_MAX_CHAR_LEN, pcbPathOut, fRequest, lpdwUsageCount);
+
+  if (retcode == TRUE)
+    {
+      dm_StrCopyOut2_U8toW (_pathout_u8, lpszPathOut, cbPathOutMax,
+	  pcbPathOut);
+    }
+
+done:
+  MEM_FREE (_driver_u8);
+  MEM_FREE (_pathin_u8);
+  MEM_FREE (_pathout_u8);
 
   return retcode;
 }

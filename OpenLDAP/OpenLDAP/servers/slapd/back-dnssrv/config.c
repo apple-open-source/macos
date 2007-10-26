@@ -1,8 +1,8 @@
 /* config.c - DNS SRV backend configuration file routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/config.c,v 1.8.2.4 2004/04/06 18:16:01 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/config.c,v 1.13.2.4 2006/01/03 22:16:17 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * Portions Copyright 2000-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *
@@ -27,7 +27,7 @@
 #include <ac/socket.h>
 
 #include "slap.h"
-#include "external.h"
+#include "proto-dnssrv.h"
 
 int
 dnssrv_back_db_config(
@@ -37,6 +37,7 @@ dnssrv_back_db_config(
     int		argc,
     char	**argv )
 {
+#if 0
 	struct ldapinfo	*li = (struct ldapinfo *) be->be_private;
 
 	if ( li == NULL ) {
@@ -44,6 +45,7 @@ dnssrv_back_db_config(
 		    fname, lineno );
 		return( 1 );
 	}
+#endif
 
 	/* no configuration options (yet) */
 	return SLAP_CONF_UNKNOWN;

@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_image.h,v 1.19.4.4.4.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: php_image.h,v 1.29.2.1.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
 #ifndef PHP_IMAGE_H
 #define PHP_IMAGE_H
@@ -25,6 +25,7 @@
 PHP_FUNCTION(getimagesize);
 
 PHP_FUNCTION(image_type_to_mime_type);
+PHP_FUNCTION(image_type_to_extension);
 
 /* {{{ enum image_filetype
    This enum is used to have ext/standard/image.c and ext/exif/exif.c use

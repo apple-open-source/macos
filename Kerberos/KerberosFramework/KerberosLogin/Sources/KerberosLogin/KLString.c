@@ -75,7 +75,11 @@ KLStatus __KerberosLoginError (KLStatus inError, const char *function, const cha
         case ccErrNeverDefault:
             err = klParameterErr;
             break;
-	}
+            
+        case KRB5_LIBOS_PWDINTR:
+            err = klUserCanceledErr;
+            break;
+    }
 
     if (err && (ddebuglevel () > 0)) {
         dprintf ("%s() remapped %d to %d ('%s') at %s: %d", 
@@ -200,14 +204,17 @@ KLStatus __KLAddPrefixToString (const char *inPrefix, char **ioString)
     }
 
     if (err == klNoErr)  {
+        char *oldString = *ioString;
         KLIndex prefixLength = strlen (inPrefix);
 
         memcpy (string, inPrefix, prefixLength * sizeof (char));
-        strcpy (string + prefixLength, *ioString);
+        strcpy (string + prefixLength, oldString);
 
-        free (*ioString);
         *ioString = string;
+        string = oldString;
     }
+    
+    free (string);
 
     return KLError_ (err);
 }

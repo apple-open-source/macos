@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Configure a list from a text file description.
 
@@ -72,9 +73,12 @@ from Mailman import mm_cfg
 from Mailman import MailList
 from Mailman import Utils
 from Mailman import Errors
-from Mailman.i18n import _
+from Mailman import i18n
+
+_ = i18n._
 
 NL = '\n'
+nonasciipat = re.compile(r'[\x80-\xff]')
 
 
 
@@ -103,14 +107,21 @@ def do_output(listname, outfile):
             mlist = MailList.MailList(listname, lock=0)
         except Errors.MMListError:
             usage(1, _('No such list: %(listname)s'))
-        # get all the list config info.  all this stuff is accessible via the
-        # web interface
+        # Preamble for the config info. PEP263 charset and capture time.
+        language = mlist.preferred_language
+        charset = Utils.GetCharSet(language)
+        i18n.set_language(language)
+        if not charset:
+            charset = 'us-ascii'
         when = time.ctime(time.time())
         print >> outfp, _('''\
-## "%(listname)s" mailing list configuration settings -*- python -*-
+# -*- python -*-
+# -*- coding: %(charset)s -*-
+## "%(listname)s" mailing list configuration settings
 ## captured on %(when)s
 ''')
-
+        # get all the list config info.  all this stuff is accessible via the
+        # web interface
         for k in mm_cfg.ADMIN_CATEGORIES:
             subcats = mlist.GetConfigSubCategories(k)
             if subcats is None:
@@ -128,6 +139,7 @@ def do_list_categories(mlist, k, subcat, outfp):
     label, gui = mlist.GetConfigCategories()[k]
     if info is None:
         return
+    charset = Utils.GetCharSet(mlist.preferred_language)
     print >> outfp, '##', k.capitalize(), _('options')
     print >> outfp, '#'
     # First, massage the descripton text, which could have obnoxious
@@ -166,23 +178,25 @@ def do_list_categories(mlist, k, subcat, outfp):
             value = gui.getValue(mlist, vtype, varname, data[2])
         if value is None and not varname.startswith('_'):
             value = getattr(mlist, varname)
-        if vtype in (mm_cfg.Text, mm_cfg.FileUpload):
+        if vtype in (mm_cfg.String, mm_cfg.Text, mm_cfg.FileUpload):
             print >> outfp, varname, '=',
             lines = value.splitlines()
             if not lines:
                 print >> outfp, "''"
             elif len(lines) == 1:
-                print >> outfp, repr(lines[0])
+                if charset <> 'us-ascii' and nonasciipat.search(lines[0]):
+                    # This is more readable for non-english list.
+                    print >> outfp, '"' + lines[0].replace('"', '\\"') + '"'
+                else:
+                    print >> outfp, repr(lines[0])
             else:
-                first = 1
-                outfp.write(' """')
-                for line in lines:
-                    if first:
-                        first = 0
-                    else:
-                        print >> outfp
-                    outfp.write(line.replace('"', '\\"'))
-                print >> outfp, '"""'
+                if charset == 'us-ascii' and nonasciipat.search(value):
+                    # Normally, an english list should not have non-ascii char.
+                    print >> outfp, repr(NL.join(lines))
+                else:
+                    outfp.write(' """')
+                    outfp.write(NL.join(lines).replace('"', '\\"'))
+                    outfp.write('"""\n')
         elif vtype in (mm_cfg.Radio, mm_cfg.Toggle):
             print >> outfp, '#'
             print >> outfp, '#', _('legal values are:')

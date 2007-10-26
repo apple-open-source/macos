@@ -1,13 +1,13 @@
-diff -ur src/dfa.c ../../../new/grep/grep/src/dfa.c
---- src/dfa.c	2004-12-08 19:06:42.000000000 -0800
-+++ ../../../new/grep/grep/src/dfa.c	2004-12-10 15:07:47.000000000 -0800
-@@ -707,6 +707,38 @@
+--- src/dfa.c.orig	2005-05-11 09:24:42.000000000 -0700
++++ src/dfa.c	2005-05-11 09:35:53.000000000 -0700
+@@ -707,6 +707,34 @@
    return strncmp(s, lexptr, len) == 0;
  }
  
-+extern int __collate_load_error;
-+extern char *__collate_substitute(char *);
-+
++/*
++ * there are currently no public APIs to access collating symbols or
++ * equivalence classes.
++ */
 +char *try_collating_thing(char const *ct, int ct_len, int *chars_used) {
 +    char *term;
 +    if (*ct == '.') {
@@ -28,28 +28,14 @@ diff -ur src/dfa.c ../../../new/grep/grep/src/dfa.c
 +	return NULL;
 +    }
 +    strlcpy(t, ct, slen);
-+    if (__collate_load_error) {
-+	return t;
-+    }
-+    char *r = __collate_substitute(t);
-+    free(t);
-+    return r;
++    return t;
 +}
 +
 +
  static token
  lex (void)
  {
-@@ -991,7 +1023,7 @@
- 	  if (MB_CUR_MAX > 1)
- 	    {
- 	      /* In multibyte environment a bracket expression may contain
--		 multibyte characters, which must be treated as characters
-+	         multibyte characters, which must be treated as characters
- 		 (not bytes).  So we parse it by parse_bracket_exp_mb().  */
- 	      parse_bracket_exp_mb();
- 	      return lasttok = MBCSET;
-@@ -1014,20 +1046,39 @@
+@@ -1014,20 +1042,39 @@
  		 characters.  We can do this because we assume
  		 regex has checked for syntax errors before
  		 dfa is ever called. */

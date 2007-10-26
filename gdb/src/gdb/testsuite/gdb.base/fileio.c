@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <sys/wait.h>
-#include <unistd.h> /* APPLE LOCAL */
+#include <unistd.h>
 /* TESTS :
  * - open(const char *pathname, int flags, mode_t mode);
 1) Attempt to create file that already exists - EEXIST
@@ -56,7 +56,6 @@ Not applicable.
 
 system (const char * string);
 1) Invalid string/command. -  returns 127.  */
-
 static const char *strerrno (int err);
 
 #define FILENAME    "foo.fileio.test"
@@ -66,6 +65,7 @@ static const char *strerrno (int err);
 #define TESTDIR1     "dir1.fileio.test"
 #define TESTDIR2     "dir2.fileio.test"
 #define TESTSUBDIR   "dir1.fileio.test/subdir.fileio.test"
+
 #define STRING      "Hello World"
 
 int

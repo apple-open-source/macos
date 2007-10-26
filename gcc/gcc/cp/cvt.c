@@ -592,6 +592,31 @@ cp_convert (tree type, tree expr)
   return ocp_convert (type, expr, CONV_OLD_CONVERT, LOOKUP_NORMAL);
 }
 
+/* APPLE LOCAL begin mainline */
+/* C++ equivalent of convert_and_check but using cp_convert as the
+   conversion function.
+
+   Convert EXPR to TYPE, warning about conversion problems with constants.
+   Invoke this function on every expression that is converted implicitly,
+   i.e. because of language rules and not because of an explicit cast.  */
+
+tree
+cp_convert_and_check (tree type, tree expr)
+{
+  tree result;
+
+  if (TREE_TYPE (expr) == type)
+    return expr;
+
+  result = cp_convert (type, expr);
+
+  if (!skip_evaluation && !TREE_OVERFLOW_P (expr) && result != error_mark_node)
+    warnings_for_convert_and_check (type, expr, result);
+
+  return result;
+}
+
+/* APPLE LOCAL end mainline */
 /* Conversion...
 
    FLAGS indicates how we should behave.  */
@@ -878,6 +903,27 @@ convert_to_void (tree expr, const char *implicit)
         break;
       }
 
+    /* APPLE LOCAL begin mainline 2006-09-08 4658012 */
+    case TARGET_EXPR:
+      /* Don't bother with the temporary object returned from a function if
+	 we don't use it and don't need to destroy it.  We'll still
+	 allocate space for it in expand_call or declare_return_variable,
+	 but we don't need to track it through all the tree phases.  */
+      if (TARGET_EXPR_IMPLICIT_P (expr)
+	  && TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (expr)))
+	{
+	  tree init = TARGET_EXPR_INITIAL (expr);
+	  if (TREE_CODE (init) == AGGR_INIT_EXPR
+	      && !AGGR_INIT_VIA_CTOR_P (init))
+	    {
+	      tree fn = TREE_OPERAND (init, 0);
+	      expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
+			     fn, TREE_OPERAND (init, 1), NULL_TREE);
+	    }
+	}
+      break;
+    /* APPLE LOCAL end mainline 2006-09-08 4658012 */
+
     default:;
     }
   {
@@ -1043,11 +1089,14 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   tree conv = NULL_TREE;
   tree winner = NULL_TREE;
 
+  /* APPLE LOCAL begin mainline */
   if (expr == null_node 
       && (desires & WANT_INT) 
-      && !(desires & WANT_NULL))
+      && !(desires & WANT_NULL)
+      && warn_conversion)
     warning ("converting NULL to non-pointer type");
     
+  /* APPLE LOCAL end mainline */
   basetype = TREE_TYPE (expr);
 
   if (basetype == error_mark_node)
@@ -1061,6 +1110,8 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 	  return expr;
 	/* else fall through...  */
 
+      /* APPLE LOCAL mainline 4.0 5207358 */
+      case VECTOR_TYPE:
       case BOOLEAN_TYPE:
 	return (desires & WANT_INT) ? expr : NULL_TREE;
       case ENUMERAL_TYPE:

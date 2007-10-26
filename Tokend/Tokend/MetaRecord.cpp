@@ -249,4 +249,3 @@ MetaRecord::get(TokenContext *tokenContext, Record &record,
 
 
 } // end namespace Tokend
-/* arch-tag: E9605B3A-DF80-11D8-B3F2-000A95C4302E */

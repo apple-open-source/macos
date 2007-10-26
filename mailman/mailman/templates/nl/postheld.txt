@@ -1,15 +1,15 @@
-Uw e-mail naar '%(listname)s' met als onderwerp/subject
+Uw mail naar '%(listname)s' met het onderwerp
 
     %(subject)s
 
-Wordt tegengehouden totdat de lijst moderator deze kan bekijken.
+wordt vastgehouden voor goedkeuring door de lijstbeheerder.
 
-De reden waarom het is tegengehouden:
+De reden waarom het wordt vastgehouden:
 
     %(reason)s
 
-Of het bericht wordt naar de lijst gestuurd, of u ontvangt een bericht
-over de beslissing van de moderator. Als u dit bericht wilt annuleren,
-bezoek dan de volgende pagina:
+Het bericht zal of naar de lijst worden gestuurd, of u ontvangt een
+bericht over de beslissing van de beheerder. Mocht u het bericht
+willen annuleren, bezoek dan de volgende pagina:
 
     %(confirmurl)s

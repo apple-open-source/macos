@@ -28,16 +28,17 @@ static BOOL setup_write_cache(files_struct *, SMB_OFF_T);
  Read from write cache if we can.
 ****************************************************************************/
 
-
 static BOOL read_from_write_cache(files_struct *fsp,char *data,SMB_OFF_T pos,size_t n)
 {
 	write_cache *wcp = fsp->wcp;
 
-	if(!wcp)
+	if(!wcp) {
 		return False;
+	}
 
-	if(n > wcp->data_size || pos < wcp->offset || pos + n > wcp->offset + wcp->data_size)
+	if( n > wcp->data_size || pos < wcp->offset || pos + n > wcp->offset + wcp->data_size) {
 		return False;
+	}
 
 	memcpy(data, wcp->data + (pos - wcp->offset), n);
 
@@ -55,28 +56,29 @@ ssize_t read_file(files_struct *fsp,char *data,SMB_OFF_T pos,size_t n)
 	ssize_t ret=0,readret;
 
 	/* you can't read from print files */
-	if (fsp->print_file)
+	if (fsp->print_file) {
 		return -1;
+	}
 
 	/*
 	 * Serve from write cache if we can.
 	 */
 
 	if(read_from_write_cache(fsp, data, pos, n)) {
-		fsp->pos = pos + n;
-		fsp->position_information = fsp->pos;
+		fsp->fh->pos = pos + n;
+		fsp->fh->position_information = fsp->fh->pos;
 		return n;
 	}
 
 	flush_write_cache(fsp, READ_FLUSH);
 
-	fsp->pos = pos;
+	fsp->fh->pos = pos;
 
 	if (n > 0) {
 #ifdef DMF_FIX
 		int numretries = 3;
 tryagain:
-		readret = SMB_VFS_PREAD(fsp,fsp->fd,data,n,pos);
+		readret = SMB_VFS_PREAD(fsp,fsp->fh->fd,data,n,pos);
 
 		if (readret == -1) {
 			if ((errno == EAGAIN) && numretries) {
@@ -88,20 +90,22 @@ tryagain:
 			return -1;
 		}
 #else /* NO DMF fix. */
-		readret = SMB_VFS_PREAD(fsp,fsp->fd,data,n,pos);
+		readret = SMB_VFS_PREAD(fsp,fsp->fh->fd,data,n,pos);
 
-		if (readret == -1)
+		if (readret == -1) {
 			return -1;
+		}
 #endif
-		if (readret > 0)
+		if (readret > 0) {
 			ret += readret;
+		}
 	}
 
 	DEBUG(10,("read_file (%s): pos = %.0f, size = %lu, returned %lu\n",
 		fsp->fsp_name, (double)pos, (unsigned long)n, (long)ret ));
 
-	fsp->pos += ret;
-	fsp->position_information = fsp->pos;
+	fsp->fh->pos += ret;
+	fsp->fh->position_information = fsp->fh->pos;
 
 	return(ret);
 }
@@ -113,14 +117,19 @@ static unsigned int allocated_write_caches;
  *Really* write to a file.
 ****************************************************************************/
 
-static ssize_t real_write_file(files_struct *fsp,char *data,SMB_OFF_T pos, size_t n)
+static ssize_t real_write_file(files_struct *fsp,const char *data, SMB_OFF_T pos, size_t n)
 {
 	ssize_t ret;
 
-        if (pos == -1)
+        if (pos == -1) {
                 ret = vfs_write_data(fsp, data, n);
-        else {
-		fsp->pos = pos;
+        } else {
+		fsp->fh->pos = pos;
+		if (pos && lp_strict_allocate(SNUM(fsp->conn))) {
+			if (vfs_fill_sparse(fsp, pos) == -1) {
+				return -1;
+			}
+		}
                 ret = vfs_pwrite_data(fsp, data, n, pos);
 	}
 
@@ -128,7 +137,27 @@ static ssize_t real_write_file(files_struct *fsp,char *data,SMB_OFF_T pos, size_
 		fsp->fsp_name, (double)pos, (unsigned long)n, (long)ret ));
 
 	if (ret != -1) {
-		fsp->pos += ret;
+		fsp->fh->pos += ret;
+
+		/*
+		 * It turns out that setting the last write time from a Windows
+		 * client stops any subsequent writes from updating the write time.
+		 * Doing this after the write gives a race condition here where
+		 * a stat may see the changed write time before we reset it here,
+		 * but it's cheaper than having to store the write time in shared
+		 * memory and look it up using dev/inode across all running smbd's.
+		 * The 99% solution will hopefully be good enough in this case. JRA.
+		 */
+
+		if (!null_timespec(fsp->pending_modtime)) {
+			set_filetime(fsp->conn, fsp->fsp_name, fsp->pending_modtime);
+
+			/* If we didn't get the "set modtime" call ourselves, we must
+			   store the last write time to restore on close. JRA. */
+			if (!fsp->pending_modtime_owner) {
+				fsp->last_write_time = timespec_current();
+			}
+		}
 
 /* Yes - this is correct - writes don't update this. JRA. */
 /* Found by Samba4 tests. */
@@ -141,10 +170,29 @@ static ssize_t real_write_file(files_struct *fsp,char *data,SMB_OFF_T pos, size_
 }
 
 /****************************************************************************
-write to a file
+ File size cache change.
+ Updates size on disk but doesn't flush the cache.
 ****************************************************************************/
 
-ssize_t write_file(files_struct *fsp, char *data, SMB_OFF_T pos, size_t n)
+static int wcp_file_size_change(files_struct *fsp)
+{
+	int ret;
+	write_cache *wcp = fsp->wcp;
+
+	wcp->file_size = wcp->offset + wcp->data_size;
+	ret = SMB_VFS_FTRUNCATE(fsp, fsp->fh->fd, wcp->file_size);
+	if (ret == -1) {
+		DEBUG(0,("wcp_file_size_change (%s): ftruncate of size %.0f error %s\n",
+			fsp->fsp_name, (double)wcp->file_size, strerror(errno) ));
+	}
+	return ret;
+}
+
+/****************************************************************************
+ Write to a file.
+****************************************************************************/
+
+ssize_t write_file(files_struct *fsp, const char *data, SMB_OFF_T pos, size_t n)
 {
 	write_cache *wcp = fsp->wcp;
 	ssize_t total_written = 0;
@@ -161,23 +209,22 @@ ssize_t write_file(files_struct *fsp, char *data, SMB_OFF_T pos, size_t n)
 			return -1;
 		}
 
-		return print_job_write(SNUM(fsp->conn), jobid, data, n);
+		return print_job_write(SNUM(fsp->conn), jobid, data, pos, n);
 	}
 
 	if (!fsp->can_write) {
 		errno = EPERM;
-		return(0);
+		return -1;
 	}
 
 	if (!fsp->modified) {
 		SMB_STRUCT_STAT st;
 		fsp->modified = True;
 
-		if (SMB_VFS_FSTAT(fsp,fsp->fd,&st) == 0) {
+		if (SMB_VFS_FSTAT(fsp,fsp->fh->fd,&st) == 0) {
 			int dosmode = dos_mode(fsp->conn,fsp->fsp_name,&st);
-			fsp->size = (SMB_BIG_UINT)st.st_size;
 			if ((lp_store_dos_attributes(SNUM(fsp->conn)) || MAP_ARCHIVE(fsp->conn)) && !IS_DOS_ARCHIVE(dosmode)) {
-				file_set_dosmode(fsp->conn,fsp->fsp_name,dosmode | aARCH,&st);
+				file_set_dosmode(fsp->conn,fsp->fsp_name,dosmode | aARCH,&st, False);
 			}
 
 			/*
@@ -237,15 +284,13 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 	if(!wcp) {
 		DO_PROFILE_INC(writecache_direct_writes);
 		total_written = real_write_file(fsp, data, pos, n);
-		if ((total_written != -1) && (pos + total_written > (SMB_OFF_T)fsp->size)) 
-			fsp->size = (SMB_BIG_UINT)(pos + total_written);
 		return total_written;
 	}
 
 	DEBUG(9,("write_file (%s)(fd=%d pos=%.0f size=%u) wcp->offset=%.0f wcp->data_size=%u\n",
-		fsp->fsp_name, fsp->fd, (double)pos, (unsigned int)n, (double)wcp->offset, (unsigned int)wcp->data_size));
+		fsp->fsp_name, fsp->fh->fd, (double)pos, (unsigned int)n, (double)wcp->offset, (unsigned int)wcp->data_size));
 
-	fsp->pos = pos + n;
+	fsp->fh->pos = pos + n;
 
 	/* 
 	 * If we have active cache and it isn't contiguous then we flush.
@@ -253,7 +298,6 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 	 */
 
 	if (wcp->data_size) {
-
 		BOOL cache_flush_needed = False;
 
 		if ((pos >= wcp->offset) && (pos <= wcp->offset + wcp->data_size)) {
@@ -282,16 +326,18 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 			 * Update the current buffer size with the new data.
 			 */
 
-			if(pos + data_used > wcp->offset + wcp->data_size)
+			if(pos + data_used > wcp->offset + wcp->data_size) {
 				wcp->data_size = pos + data_used - wcp->offset;
+			}
 
 			/*
 			 * Update the file size if changed.
 			 */
 
 			if (wcp->offset + wcp->data_size > wcp->file_size) {
-				wcp->file_size = wcp->offset + wcp->data_size;
-				fsp->size = (SMB_BIG_UINT)wcp->file_size;
+				if (wcp_file_size_change(fsp) == -1) {
+					return -1;
+				}
 			}
 
 			/*
@@ -299,11 +345,11 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 			 * return here.
 			 */
 
-			if(n == data_used)
+			if(n == data_used) {
 				return n;
-			else
+			} else {
 				cache_flush_needed = True;
-
+			}
 			/*
 			 * Move the start of data forward by the amount used,
 			 * cut down the amount left by the same amount.
@@ -345,16 +391,18 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 			 * Update the current buffer size with the new data.
 			 */
 
-			if(pos + n > wcp->offset + wcp->data_size)
+			if(pos + n > wcp->offset + wcp->data_size) {
 				wcp->data_size = pos + n - wcp->offset;
+			}
 
 			/*
 			 * Update the file size if changed.
 			 */
 
 			if (wcp->offset + wcp->data_size > wcp->file_size) {
-				wcp->file_size = wcp->offset + wcp->data_size;
-				fsp->size = (SMB_BIG_UINT)wcp->file_size;
+				if (wcp_file_size_change(fsp) == -1) {
+					return -1;
+				}
 			}
 
 			/*
@@ -403,10 +451,11 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 
 			size_t data_used;
 
-			if(pos + n <= wcp->offset + wcp->alloc_size)
+			if(pos + n <= wcp->offset + wcp->alloc_size) {
 				data_used = n;
-			else
+			} else {
 				data_used = wcp->offset + wcp->alloc_size - pos;
+			}
 
 			/*
 			 * Fill in the non-continuous area with zeros.
@@ -421,16 +470,18 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 			 * Update the current buffer size with the new data.
 			 */
 
-			if(pos + data_used > wcp->offset + wcp->data_size)
+			if(pos + data_used > wcp->offset + wcp->data_size) {
 				wcp->data_size = pos + data_used - wcp->offset;
+			}
 
 			/*
 			 * Update the file size if changed.
 			 */
 
 			if (wcp->offset + wcp->data_size > wcp->file_size) {
-				wcp->file_size = wcp->offset + wcp->data_size;
-				fsp->size = (SMB_BIG_UINT)wcp->file_size;
+				if (wcp_file_size_change(fsp) == -1) {
+					return -1;
+				}
 			}
 
 			/*
@@ -438,10 +489,11 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 			 * return here.
 			 */
 
-			if(n == data_used)
+			if(n == data_used) {
 				return n;
-			else
+			} else {
 				cache_flush_needed = True;
+			}
 
 			/*
 			 * Move the start of data forward by the amount used,
@@ -456,6 +508,44 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 			total_written = data_used;
 
 			write_path = 3;
+
+                } else if ( (pos >= wcp->file_size) && 
+			    (n == 1) &&
+			    (pos < wcp->offset + 2*wcp->alloc_size) &&
+			    (wcp->file_size == wcp->offset + wcp->data_size)) {
+
+                        /*
+                        +---------------+
+                        | Cached data   |
+                        +---------------+
+
+                                                         +--------+
+                                                         | 1 Byte |
+                                                         +--------+
+
+			MS-Office seems to do this a lot to determine if there's enough
+			space on the filesystem to write a new file.
+                        */
+
+			SMB_BIG_UINT new_start = wcp->offset + wcp->data_size;
+
+			flush_write_cache(fsp, WRITE_FLUSH);
+			wcp->offset = new_start;
+			wcp->data_size = pos - new_start + 1;
+			memset(wcp->data, '\0', wcp->data_size);
+			memcpy(wcp->data + wcp->data_size-1, data, 1);
+
+			/*
+			 * Update the file size if changed.
+			 */
+
+			if (wcp->offset + wcp->data_size > wcp->file_size) {
+				if (wcp_file_size_change(fsp) == -1) {
+					return -1;
+				}
+			}
+
+			return n;
 
 		} else {
 
@@ -499,16 +589,7 @@ nonop=%u allocated=%u active=%u direct=%u perfect=%u readhits=%u\n",
 			 */
 
 			DEBUG(9,("write_file: non cacheable write : fd = %d, pos = %.0f, len = %u, current cache pos = %.0f \
-len = %u\n",fsp->fd, (double)pos, (unsigned int)n, (double)wcp->offset, (unsigned int)wcp->data_size ));
-
-			/*
-			 * Update the file size if needed.
-			 */
-
-			if(pos + n > wcp->file_size) {
-				wcp->file_size = pos + n;
-				fsp->size = (SMB_BIG_UINT)wcp->file_size;
-			}
+len = %u\n",fsp->fh->fd, (double)pos, (unsigned int)n, (double)wcp->offset, (unsigned int)wcp->data_size ));
 
 			/*
 			 * If write would fit in the cache, and is larger than
@@ -531,17 +612,17 @@ len = %u\n",fsp->fd, (double)pos, (unsigned int)n, (double)wcp->offset, (unsigne
 				if ((pos <= wcp->offset) &&
 						(pos + n >= wcp->offset + wcp->data_size) ) {
 					DEBUG(9,("write_file: discarding overwritten write \
-cache: fd = %d, off=%.0f, size=%u\n", fsp->fd, (double)wcp->offset, (unsigned int)wcp->data_size ));
+cache: fd = %d, off=%.0f, size=%u\n", fsp->fh->fd, (double)wcp->offset, (unsigned int)wcp->data_size ));
 					wcp->data_size = 0;
 				}
 
 				DO_PROFILE_INC(writecache_direct_writes);
-				if (ret == -1)
+				if (ret == -1) {
 					return ret;
+				}
 
 				if (pos + ret > wcp->file_size) {
 					wcp->file_size = pos + ret;
-					fsp->size = (SMB_BIG_UINT)wcp->file_size;
 				}
 
 				return ret;
@@ -551,15 +632,10 @@ cache: fd = %d, off=%.0f, size=%u\n", fsp->fd, (double)wcp->offset, (unsigned in
 
 		}
 
-		if(wcp->data_size > wcp->file_size) {
-			wcp->file_size = wcp->data_size;
-			fsp->size = (SMB_BIG_UINT)wcp->file_size;
-		}
-
 		if (cache_flush_needed) {
 			DEBUG(3,("WRITE_FLUSH:%d: due to noncontinuous write: fd = %d, size = %.0f, pos = %.0f, \
 n = %u, wcp->offset=%.0f, wcp->data_size=%u\n",
-				write_path, fsp->fd, (double)wcp->file_size, (double)pos, (unsigned int)n,
+				write_path, fsp->fh->fd, (double)wcp->file_size, (double)pos, (unsigned int)n,
 				(double)wcp->offset, (unsigned int)wcp->data_size ));
 
 			flush_write_cache(fsp, WRITE_FLUSH);
@@ -573,12 +649,12 @@ n = %u, wcp->offset=%.0f, wcp->data_size=%u\n",
 
 	if (n > wcp->alloc_size ) {
 		ssize_t ret = real_write_file(fsp, data, pos, n);
-		if (ret == -1)
+		if (ret == -1) {
 			return -1;
+		}
 
 		if (pos + ret > wcp->file_size) {
 			wcp->file_size = pos + n;
-			fsp->size = (SMB_BIG_UINT)wcp->file_size;
 		}
 
 		DO_PROFILE_INC(writecache_direct_writes);
@@ -609,8 +685,9 @@ n = %u, wcp->offset=%.0f, wcp->data_size=%u\n",
 		 */
 
 		if (wcp->offset + wcp->data_size > wcp->file_size) {
-			wcp->file_size = wcp->offset + wcp->data_size;
-			fsp->size = (SMB_BIG_UINT)wcp->file_size;
+			if (wcp_file_size_change(fsp) == -1) {
+				return -1;
+			}
 		}
 		DEBUG(9,("wcp->offset = %.0f wcp->data_size = %u cache return %u\n",
 			(double)wcp->offset, (unsigned int)wcp->data_size, (unsigned int)n));
@@ -630,11 +707,13 @@ void delete_write_cache(files_struct *fsp)
 {
 	write_cache *wcp;
 
-	if(!fsp)
+	if(!fsp) {
 		return;
+	}
 
-	if(!(wcp = fsp->wcp))
+	if(!(wcp = fsp->wcp)) {
 		return;
+	}
 
 	DO_PROFILE_DEC(writecache_allocated_write_caches);
 	allocated_write_caches--;
@@ -656,11 +735,13 @@ static BOOL setup_write_cache(files_struct *fsp, SMB_OFF_T file_size)
 	ssize_t alloc_size = lp_write_cache_size(SNUM(fsp->conn));
 	write_cache *wcp;
 
-	if (allocated_write_caches >= MAX_WRITE_CACHES) 
+	if (allocated_write_caches >= MAX_WRITE_CACHES) {
 		return False;
+	}
 
-	if(alloc_size == 0 || fsp->wcp)
+	if(alloc_size == 0 || fsp->wcp) {
 		return False;
+	}
 
 	if((wcp = SMB_MALLOC_P(write_cache)) == NULL) {
 		DEBUG(0,("setup_write_cache: malloc fail.\n"));
@@ -671,7 +752,7 @@ static BOOL setup_write_cache(files_struct *fsp, SMB_OFF_T file_size)
 	wcp->offset = 0;
 	wcp->alloc_size = alloc_size;
 	wcp->data_size = 0;
-	if((wcp->data = SMB_MALLOC(wcp->alloc_size)) == NULL) {
+	if((wcp->data = (char *)SMB_MALLOC(wcp->alloc_size)) == NULL) {
 		DEBUG(0,("setup_write_cache: malloc fail for buffer size %u.\n",
 			(unsigned int)wcp->alloc_size ));
 		SAFE_FREE(wcp);
@@ -696,7 +777,6 @@ static BOOL setup_write_cache(files_struct *fsp, SMB_OFF_T file_size)
 
 void set_filelen_write_cache(files_struct *fsp, SMB_OFF_T file_size)
 {
-	fsp->size = (SMB_BIG_UINT)file_size;
 	if(fsp->wcp) {
 		/* The cache *must* have been flushed before we do this. */
 		if (fsp->wcp->data_size != 0) {
@@ -719,8 +799,9 @@ ssize_t flush_write_cache(files_struct *fsp, enum flush_reason_enum reason)
 	size_t data_size;
 	ssize_t ret;
 
-	if(!wcp || !wcp->data_size)
+	if(!wcp || !wcp->data_size) {
 		return 0;
+	}
 
 	data_size = wcp->data_size;
 	wcp->data_size = 0;
@@ -728,11 +809,12 @@ ssize_t flush_write_cache(files_struct *fsp, enum flush_reason_enum reason)
 	DO_PROFILE_DEC_INC(writecache_num_write_caches,writecache_flushed_writes[reason]);
 
 	DEBUG(9,("flushing write cache: fd = %d, off=%.0f, size=%u\n",
-		fsp->fd, (double)wcp->offset, (unsigned int)data_size));
+		fsp->fh->fd, (double)wcp->offset, (unsigned int)data_size));
 
 #ifdef WITH_PROFILE
-	if(data_size == wcp->alloc_size)
+	if(data_size == wcp->alloc_size) {
 		DO_PROFILE_INC(writecache_num_perfect_writes);
+	}
 #endif
 
 	ret = real_write_file(fsp, wcp->data, wcp->offset, data_size);
@@ -741,8 +823,9 @@ ssize_t flush_write_cache(files_struct *fsp, enum flush_reason_enum reason)
 	 * Ensure file size if kept up to date if write extends file.
 	 */
 
-	if ((ret != -1) && (wcp->offset + ret > wcp->file_size))
+	if ((ret != -1) && (wcp->offset + ret > wcp->file_size)) {
 		wcp->file_size = wcp->offset + ret;
+	}
 
 	return ret;
 }
@@ -751,14 +834,24 @@ ssize_t flush_write_cache(files_struct *fsp, enum flush_reason_enum reason)
 sync a file
 ********************************************************************/
 
-void sync_file(connection_struct *conn, files_struct *fsp)
+NTSTATUS sync_file(connection_struct *conn, files_struct *fsp, BOOL write_through)
 {
-	if(lp_strict_sync(SNUM(conn)) && fsp->fd != -1) {
-		flush_write_cache(fsp, SYNC_FLUSH);
-		SMB_VFS_FSYNC(fsp,fsp->fd);
-	}
-}
+       	if (fsp->fh->fd == -1)
+		return NT_STATUS_INVALID_HANDLE;
 
+	if (lp_strict_sync(SNUM(conn)) &&
+	    (lp_syncalways(SNUM(conn)) || write_through)) {
+		int ret = flush_write_cache(fsp, SYNC_FLUSH);
+		if (ret == -1) {
+			return map_nt_error_from_unix(errno);
+		}
+		ret = SMB_VFS_FSYNC(fsp,fsp->fh->fd);
+		if (ret == -1) {
+			return map_nt_error_from_unix(errno);
+		}
+	}
+	return NT_STATUS_OK;
+}
 
 /************************************************************
  Perform a stat whether a valid fd or not.
@@ -766,8 +859,9 @@ void sync_file(connection_struct *conn, files_struct *fsp)
 
 int fsp_stat(files_struct *fsp, SMB_STRUCT_STAT *pst)
 {
-	if (fsp->fd == -1)
+	if (fsp->fh->fd == -1) {
 		return SMB_VFS_STAT(fsp->conn, fsp->fsp_name, pst);
-	else
-		return SMB_VFS_FSTAT(fsp,fsp->fd, pst);
+	} else {
+		return SMB_VFS_FSTAT(fsp,fsp->fh->fd, pst);
+	}
 }

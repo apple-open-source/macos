@@ -34,59 +34,9 @@
 #include <DirectoryServiceCore/PrivateTypes.h>
 #include <DirectoryServiceCore/CString.h>
 #include <DirectoryServiceCore/CFile.h>
+#include <DirectoryServiceCore/SharedConsts.h>
 
 class DSMutexSemaphore;
-
-//-----------------------------------------------------------------------------
-//	* Logging Flags
-//
-//		The user may turn logging on or off, and select from the type of logging
-//		desired. Certain types of logging information are NOOPs if the
-//		compile-time symbol DEBUG is not defined.
-//
-//-----------------------------------------------------------------------------
-
-enum eLogFlags {
-	kLogNone		= 0x00000000,			// Log no information
-	kLogMeta		= 0x00000001,			// Info about the log itself
-	kLogApplication	= 0x00000002,			// Application info
-
-	// Listener
-	kLogListener	= 0x00000010,
-
-	// Handler
-	kLogHandler		= 0x00000100,
-	kLogMsgQueue	= 0x00000200,
-
-	// Threads
-	kLogThreads		= 0x00001000,			// Information about Threads
-
-	// Endpoint
-	kLogEndpoint	= 0x00002000,
-
-	// Plugin
-	kLogPlugin		= 0x00004000,
-
-	// Proxy
-	kLogConnection	= 0x00008000,
-
-	// Transactions
-	kLogMsgTrans	= 0x00010000,
-
-	// TCP Endpoint
-	kLogTCPEndpoint	= 0x00020000,
-
-	// Performance Stats
-	kLogPerformanceStats = 0x00040000,
-
-	// Assert
-	kLogAssert		= 0xF0000000,
-
-	// Everything
-	kLogEverything	= 0x7FFFFFFF
-};
-
-// log types
 
 typedef enum {
 	keServerLog		= 1,
@@ -115,7 +65,8 @@ public:
 		kComments		= 0x2,
 		kRollLog		= 0x4,
 		kTimeDateStamp	= 0x20,
-		kThreadInfo		= 0x80
+		kThreadInfo		= 0x80,
+		kDebugHdr		= 0x100
 	};
 
 	enum {
@@ -132,17 +83,19 @@ public:
 
 public:
 	// Static methods
-	static sInt32	Initialize			(	OptionBits	srvrFlags		= kLogEverything,
+	static SInt32	Initialize			(	OptionBits	srvrFlags		= kLogEverything,
 											OptionBits	errFlags		= kLogEverything,
 											OptionBits	debugFlags		= kLogMeta,
 											OptionBits	infoFlags		= kLogMeta,
 											bool		inOpenDbgLog	= false,
-											bool		inOpenInfoLog	= false );
+											bool		inOpenInfoLog	= false,
+											bool		inLocalOnlyMode	= false );
 	static void		Deinitialize		( void );
-	static void		StartLogging		( eLogType inWhichLog, uInt32 inFlag );
-	static void		StopLogging			( eLogType inWhichLog, uInt32 inFlag );
-	static void		ToggleLogging		( eLogType inWhichLog, uInt32 inFlag );
-	static bool		IsLogging			( eLogType inWhichLog, uInt32 inFlag );
+	static void		StartLogging		( eLogType inWhichLog, UInt32 inFlag );
+	static void		StopLogging			( eLogType inWhichLog, UInt32 inFlag );
+	static void		SetLoggingPriority	( eLogType inWhichLog, UInt32 inPriority );
+	static void		ToggleLogging		( eLogType inWhichLog, UInt32 inFlag );
+	static bool		IsLogging			( eLogType inWhichLog, UInt32 inFlag );
 	static void		StartDebugLog		( void );
 	static void		StopDebugLog		( void );
 	static void		StartErrorLog		( void );
@@ -156,24 +109,24 @@ public:
 
 public:
 				CLog (	const char		*file,
-						uInt32			maxLength	= kLengthUnlimited,
+						UInt32			maxLength	= kLengthUnlimited,
 						OptionBits		flags		= kThreadInfo,
-						OSType			type		= kTypeDefault,
-						OSType			creator		= kCreatorSimpleText );
+						UInt32			type		= kTypeDefault,
+						UInt32			creator		= kCreatorSimpleText );
 	virtual		~CLog ( void );
 
 	// New methods.
 	virtual void	GetInfo		(	CFileSpec	&fileSpec,
-									uInt32		&startOffset,
-									uInt32		&dataLength,
+									UInt32		&startOffset,
+									UInt32		&dataLength,
 									bool		&hasWrapped );
 
-	virtual void	SetMaxLength	( uInt32	maxLength );
-	virtual OSErr	Append			( const CString &line );
-	virtual OSErr	ClearLog		( void );
+	virtual void	SetMaxLength	( UInt32	maxLength );
+	virtual SInt16	Append			( const CString &line );
+	virtual SInt16	ClearLog		( void );
 	virtual void	AddHook			( AppendHook newHook );
 
-	virtual long			Lock	( void );
+	virtual void			Lock	( void );
 	virtual void			UnLock	( void );
 
 
@@ -195,10 +148,10 @@ protected:
 	// Instance data
 	CFileSpec			fFileSpec;		// Necessary for file moves after resequencing
 	CFile			   *fFile;
-	uInt32				fFlags;
-	uInt32				fMaxLength;
-	uInt32				fOffset;
-	uInt32				fLength;
+	OptionBits			fFlags;
+	UInt32				fMaxLength;
+	UInt32				fOffset;
+	UInt32				fLength;
 	AppendHook			fHooks[ 8 ];
 
 	DSMutexSemaphore	   *fLock;
@@ -230,73 +183,14 @@ protected:
 #endif	// (defined(APP_DEBUG) || defined(DEBUG))
 
 
-inline void SrvrLog ( long lType, const char *szpPattern, ... )
-{
-	if ( CLog::GetServerLog() != nil )
-	{
-		va_list	args;
-		va_start( args, szpPattern );
-		if ( CLog::IsLogging( keServerLog, lType ) )
-		{
-			CLog::GetServerLog()->Append( CString( szpPattern, args ) );
-		}
-	}
-} // SrvrLog
+__BEGIN_DECLS
+void SrvrLog ( SInt32 lType, const char *szpPattern, ... );
+void ErrLog ( SInt32 lType, const char *szpPattern, ... );
+void DbgLog ( SInt32 lType, const char *szpPattern, ... );
+void InfoLog ( SInt32 lType, const char *szpPattern, ... );
+__END_DECLS
 
-
-inline void ErrLog ( long lType, const char *szpPattern, ... )
-{
-	if ( CLog::GetErrorLog() == nil )
-	{
-		CLog::StartErrorLog(); //create error log on demand
-	}
-	if ( CLog::GetErrorLog() != nil )
-	{
-		va_list	args;
-		va_start( args, szpPattern );
-		if ( CLog::IsLogging( keErrorLog, lType ) )
-		{
-			CLog::GetErrorLog()->Append( CString( szpPattern, args ) );
-		}
-	}
-} // ErrLog
-
-
-inline void DbgLog ( long lType, const char *szpPattern, ... )
-{
-	if ( CLog::GetDebugLog() != nil )
-	{
-		// Just in case it was deleted while I was waiting for it
-		if ( CLog::GetDebugLog() != nil )
-		{
-			va_list	args;
-			va_start( args, szpPattern );
-			if ( CLog::IsLogging( keDebugLog, lType ) )
-			{
-				CLog::GetDebugLog()->Append( CString( szpPattern, args ) );
-			}
-		}
-	}
-} // DbgLog
-
-
-inline void InfoLog ( long lType, const char *szpPattern, ... )
-{
-	if ( CLog::GetInfoLog() != nil )
-	{
-		// Just in case it was deleted while I was waiting for it
-		if ( CLog::GetInfoLog() != nil )
-		{
-			va_list	args;
-			va_start( args, szpPattern );
-			if ( CLog::IsLogging( keInfoLog, lType ) )
-			{
-				CLog::GetInfoLog()->Append( CString( szpPattern, args ) );
-			}
-		}
-	}
-} // GetInfoLog
-
+#define LoggingEnabled(a)		CLog::IsLogging(keDebugLog,a)
 
 // Server log
 #define SRVRLOG( flg, p0 )	::SrvrLog( flg, p0 );
@@ -359,7 +253,7 @@ inline void InfoLog ( long lType, const char *szpPattern, ... )
 	do {																	\
 		if ( !(test) )														\
 		{																	\
-			DBGLOG2( kLogAssert, "Assert in %s at %d", __FILE__, __LINE__ );	\
+			DbgLog( kLogAssert, "Assert in %s at %d", __FILE__, __LINE__ );	\
 		}																	\
 	} while (false)
 
@@ -367,7 +261,7 @@ inline void InfoLog ( long lType, const char *szpPattern, ... )
 	do {																						\
 		if ( !(test) )																			\
 		{																						\
-			DBGLOG3( kLogAssert, "Assert in %s at %d with error = %d.", __FILE__, __LINE__, err );	\
+			DbgLog( kLogAssert, "Assert in %s at %d with error = %d.", __FILE__, __LINE__, err );	\
 		}																						\
 	} while (false)
 

@@ -204,13 +204,13 @@ public:
                                       FWClientCommandID commandID, UInt32 packetLen,
                                       void* packet, UInt16 srcNodeID,		// nodeID of sender
                                       UInt32 destAddressHi, UInt32 destAddressLo,
-                                      UInt32 refCon );
+                                      void* refCon );
                                       
     static UInt32 packetReadHandler( IOFireWireLibPseudoAddressSpaceRef	addressSpace, 
                                      FWClientCommandID commandID, UInt32 packetLen,
                                      UInt32 packetOffset, UInt16 nodeID,	// nodeID of requester
                                      UInt32 destAddressHi, UInt32 destAddressLo,
-                                     UInt32 refcon);
+                                     void* refcon);
                                      
     static void skippedPacketHandler( IOFireWireLibPseudoAddressSpaceRef addressSpace,
                                       FWClientCommandID commandID, UInt32 skippedPacketCount);

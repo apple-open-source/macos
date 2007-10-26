@@ -18,10 +18,11 @@
 #ifndef _H_SA_TYPES
 #define _H_SA_TYPES
 
+#define __MigTypeCheck 1
+
 #include <sys/types.h>
 #include <Security/Authorization.h>
 #include <Security/AuthorizationPlugin.h>
-#include <security_agent_client/agentclient.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,6 +30,8 @@ extern "C" {
 
 #include <mach/mach.h>
 
+// force unmangled name
+boolean_t secagentreply_server(mach_msg_header_t *, mach_msg_header_t *);
 
 typedef u_int32_t SessionId;
 typedef uint32_t MigBoolean;

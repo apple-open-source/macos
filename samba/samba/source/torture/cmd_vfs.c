@@ -54,7 +54,7 @@ static NTSTATUS cmd_populate(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int arg
 	}
 	c = argv[1][0];
 	size = atoi(argv[2]);
-	vfs->data = (char *)talloc(mem_ctx, size);
+	vfs->data = TALLOC_ARRAY(mem_ctx, char, size);
 	if (vfs->data == NULL) {
 		printf("populate: error=-1 (not enough memory)");
 		return NT_STATUS_UNSUCCESSFUL;
@@ -94,7 +94,7 @@ static NTSTATUS cmd_show_data(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int ar
 
 static NTSTATUS cmd_connect(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int argc, const char **argv)
 {
-	SMB_VFS_CONNECT(vfs->conn, lp_servicename(vfs->conn->service), "vfstest");
+	SMB_VFS_CONNECT(vfs->conn, lp_servicename(SNUM(vfs->conn)), "vfstest");
 	return NT_STATUS_OK;
 }
 
@@ -129,7 +129,7 @@ static NTSTATUS cmd_opendir(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int argc
 		return NT_STATUS_OK;
 	}
 
-	vfs->currentdir = SMB_VFS_OPENDIR(vfs->conn, argv[1]);
+	vfs->currentdir = SMB_VFS_OPENDIR(vfs->conn, argv[1], NULL, 0);
 	if (vfs->currentdir == NULL) {
 		printf("opendir error=%d (%s)\n", errno, strerror(errno));
 		return NT_STATUS_UNSUCCESSFUL;
@@ -142,7 +142,7 @@ static NTSTATUS cmd_opendir(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int argc
 
 static NTSTATUS cmd_readdir(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int argc, const char **argv)
 {
-	struct dirent *dent;
+	SMB_STRUCT_DIRENT *dent;
 
 	if (vfs->currentdir == NULL) {
 		printf("readdir: error=-1 (no open directory)\n");
@@ -200,9 +200,10 @@ static NTSTATUS cmd_closedir(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int arg
 
 static NTSTATUS cmd_open(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int argc, const char **argv)
 {
-	int flags, fd;
+	int flags;
 	mode_t mode;
 	const char *flagstr;
+	files_struct *fsp;
 
 	mode = 00400;
 
@@ -278,17 +279,21 @@ static NTSTATUS cmd_open(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int argc, c
 		}
 	}
 
-	fd = SMB_VFS_OPEN(vfs->conn, argv[1], flags, mode);
-	if (fd == -1) {
+	fsp = SMB_MALLOC_P(struct files_struct);
+	fsp->fsp_name = SMB_STRDUP(argv[1]);
+	fsp->fh = SMB_MALLOC_P(struct fd_handle);
+	fsp->conn = vfs->conn;
+
+	fsp->fh->fd = SMB_VFS_OPEN(vfs->conn, argv[1], fsp, flags, mode);
+	if (fsp->fh->fd == -1) {
 		printf("open: error=%d (%s)\n", errno, strerror(errno));
+		SAFE_FREE(fsp->fh);
+		SAFE_FREE(fsp);
 		return NT_STATUS_UNSUCCESSFUL;
 	}
 
-	vfs->files[fd] = (struct files_struct *)malloc(sizeof(struct files_struct));
-	vfs->files[fd]->fsp_name = strdup(argv[1]);
-	vfs->files[fd]->fd = fd;
-	vfs->files[fd]->conn = vfs->conn;
-	printf("open: fd=%d\n", fd);
+	vfs->files[fsp->fh->fd] = fsp;
+	printf("open: fd=%d\n", fsp->fh->fd);
 	return NT_STATUS_OK;
 }
 
@@ -345,6 +350,7 @@ static NTSTATUS cmd_close(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int argc, 
 		printf("close: ok\n");
 
 	SAFE_FREE(vfs->files[fd]->fsp_name);
+	SAFE_FREE(vfs->files[fd]->fh);
 	SAFE_FREE(vfs->files[fd]);
 	vfs->files[fd] = NULL;
 	return NT_STATUS_OK;
@@ -364,7 +370,7 @@ static NTSTATUS cmd_read(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int argc, c
 	/* do some error checking on these */
 	fd = atoi(argv[1]);
 	size = atoi(argv[2]);
-	vfs->data = (char *)talloc(mem_ctx, size);
+	vfs->data = TALLOC_ARRAY(mem_ctx, char, size);
 	if (vfs->data == NULL) {
 		printf("read: error=-1 (not enough memory)");
 		return NT_STATUS_UNSUCCESSFUL;
@@ -777,14 +783,14 @@ static NTSTATUS cmd_getwd(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int argc, 
 
 static NTSTATUS cmd_utime(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int argc, const char **argv)
 {
-	struct utimbuf times;
+	struct timespec ts[2];
 	if (argc != 4) {
 		printf("Usage: utime <path> <access> <modify>\n");
 		return NT_STATUS_OK;
 	}
-	times.actime = atoi(argv[2]);
-	times.modtime = atoi(argv[3]);
-	if (SMB_VFS_UTIME(vfs->conn, argv[1], &times) != 0) {
+	ts[0] = convert_time_t_to_timespec(atoi(argv[2]));
+	ts[1] = convert_time_t_to_timespec(atoi(argv[3]));
+	if (SMB_VFS_NTIMES(vfs->conn, argv[1], ts) != 0) {
 		printf("utime: error=%d (%s)\n", errno, strerror(errno));
 		return NT_STATUS_UNSUCCESSFUL;
 	}

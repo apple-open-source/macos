@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.h,v 1.21.2.2.4.2 2007/01/01 09:46:42 sebastian Exp $ */
+/* $Id: php_ftp.h,v 1.29.2.1.2.1 2007/01/01 09:36:01 sebastian Exp $ */
 
 #ifndef	_INCLUDED_FTP_H
 #define	_INCLUDED_FTP_H
@@ -43,8 +43,11 @@ PHP_FUNCTION(ftp_pwd);
 PHP_FUNCTION(ftp_cdup);
 PHP_FUNCTION(ftp_chdir);
 PHP_FUNCTION(ftp_exec);
+PHP_FUNCTION(ftp_raw);
 PHP_FUNCTION(ftp_mkdir);
 PHP_FUNCTION(ftp_rmdir);
+PHP_FUNCTION(ftp_chmod);
+PHP_FUNCTION(ftp_alloc);
 PHP_FUNCTION(ftp_nlist);
 PHP_FUNCTION(ftp_rawlist);
 PHP_FUNCTION(ftp_systype);

@@ -46,7 +46,7 @@ enum {
 //--------------------------------------------------------------------------------------------------
 
 CFile::CFile ( void ) throw()
-	:	fLock( 0 ),
+:		fLock("CFile::fLock"),
 		fFilePath( nil ),
 		fFileRef( kBadFileRef ),
 		fRollLog( false ),
@@ -64,8 +64,8 @@ CFile::CFile ( void ) throw()
 //
 //--------------------------------------------------------------------------------------------------
 
-CFile::CFile (	const char *inFilePath, const Boolean inCreate, const Boolean inRoll ) throw( OSErr )
-	:	fLock ( 0 ),
+CFile::CFile (	const char *inFilePath, const Boolean inCreate, const Boolean inRoll ) throw( SInt16 )
+	:	fLock("CFile::fLock"),
 		fFilePath( nil ),
 		fFileRef( kBadFileRef ),
 		fRollLog( inRoll ),
@@ -100,7 +100,7 @@ CFile::~CFile ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-void CFile::open ( const char *inFilePath, const Boolean inCreate )	throw ( OSErr )
+void CFile::open ( const char *inFilePath, const Boolean inCreate )	throw ( SInt16 )
 {
 	register FILE	   *aFileRef		= kBadFileRef;
 	char			   *pTmpFilePath	= nil;
@@ -155,7 +155,7 @@ void CFile::open ( const char *inFilePath, const Boolean inCreate )	throw ( OSEr
 		}
 		else
 		{
-			throw( (OSErr)eMemoryAllocError );
+			throw( (SInt16)eMemoryAllocError );
 		}
 	}
 
@@ -181,26 +181,26 @@ void CFile::open ( const char *inFilePath, const Boolean inCreate )	throw ( OSEr
 //
 //--------------------------------------------------------------------------------------------------
 
-CFile& CFile::seteof ( sInt64 lEOF ) throw ( OSErr )
+CFile& CFile::seteof ( sInt64 lEOF ) throw ( SInt16 )
 {
-	OSErr		nError;
+	SInt16		nError;
 
 	if ( fFileRef == kBadFileRef )
 	{
-		throw( (OSErr) ds_fnOpnErr );
+		throw( (SInt16) ds_fnOpnErr );
 	}
 
-	fLock.Wait();
+	fLock.WaitLock();
 
 	nError = ::ftruncate( fileno( fFileRef ), lEOF );
 	fReadPosOK	= false;
 	fWritePosOK	= false;
 
-	fLock.Signal();
+	fLock.SignalLock();
 	if ( nError )
 	{
 		// ********* Put a proper error code here!
-		throw( (OSErr) ds_fnOpnErr );
+		throw( (SInt16) ds_fnOpnErr );
 	}
 
 	return( *this );
@@ -213,7 +213,7 @@ CFile& CFile::seteof ( sInt64 lEOF ) throw ( OSErr )
 //
 //--------------------------------------------------------------------------------------------------
 
-void CFile::close ( void ) throw ( OSErr )
+void CFile::close ( void ) throw ( SInt16 )
 {
 	if ( fFileRef == kBadFileRef )
 	{
@@ -241,13 +241,13 @@ void CFile::close ( void ) throw ( OSErr )
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt64 CFile::freespace ( void ) const throw ( OSErr )
+sInt64 CFile::freespace ( void ) const throw ( SInt16 )
 {
 	struct statfs	ssStats;
 
 	if ( fFileRef == kBadFileRef )
 	{
-		throw( (OSErr)ds_fnOpnErr );
+		throw( (SInt16)ds_fnOpnErr );
 	}
 
 	::fstatfs( fileno(fFileRef), &ssStats );
@@ -263,14 +263,14 @@ sInt64 CFile::freespace ( void ) const throw ( OSErr )
 //		block read that returns some useful info like the number of bytes read
 //--------------------------------------------------------------------------------------------------
 
-ssize_t CFile::ReadBlock ( void *pData, streamsize nBytes ) throw ( OSErr )
+ssize_t CFile::ReadBlock ( void *pData, streamsize nBytes ) throw ( SInt16 )
 {
 	register ssize_t	lRead	= 0;
 			 off_t		offset	= 0;
 
 	if ( fFileRef == kBadFileRef )
 	{
-		throw( (OSErr)ds_fnOpnErr );
+		throw( (SInt16)ds_fnOpnErr );
 	}
 
 	if ( !fReadPosOK )
@@ -278,14 +278,14 @@ ssize_t CFile::ReadBlock ( void *pData, streamsize nBytes ) throw ( OSErr )
 		offset = ::lseek( fileno( fFileRef ), fReadPos, SEEK_SET );
 		if ( -1 == offset )
 		{
-			throw( (OSErr) ds_gfpErr );
+			throw( (SInt16) ds_gfpErr );
 		}
 	}
 
 	lRead = ::read( fileno( fFileRef ), pData, nBytes );
 	if ( -1 == lRead )
 	{
-		throw( (OSErr) ds_readErr );
+		throw( (SInt16) ds_readErr );
 	}
 
 	// Update the position marker.
@@ -304,14 +304,14 @@ ssize_t CFile::ReadBlock ( void *pData, streamsize nBytes ) throw ( OSErr )
 //		block io
 //--------------------------------------------------------------------------------------------------
 
-CFile& CFile::Read ( void *pData, streamsize nBytes ) throw ( OSErr )
+CFile& CFile::Read ( void *pData, streamsize nBytes ) throw ( SInt16 )
 {
 	register ssize_t	lRead;
 			 off_t		offset;
 
 	if ( fFileRef == kBadFileRef )
 	{
-		throw( (OSErr)ds_fnOpnErr );
+		throw( (SInt16)ds_fnOpnErr );
 	}
 
 	if ( !fReadPosOK )
@@ -319,14 +319,14 @@ CFile& CFile::Read ( void *pData, streamsize nBytes ) throw ( OSErr )
 		offset = ::lseek( fileno( fFileRef ), fReadPos, SEEK_SET );
 		if ( -1 == offset )
 		{
-			throw( (OSErr)ds_gfpErr );
+			throw( (SInt16)ds_gfpErr );
 		}
 	}
 
 	lRead = ::read( fileno( fFileRef ), pData, nBytes );
 	if ( -1 == lRead )
 	{
-		throw( (OSErr)ds_readErr );
+		throw( (SInt16)ds_readErr );
 	}
 
 	// Update the position marker.
@@ -344,9 +344,9 @@ CFile& CFile::Read ( void *pData, streamsize nBytes ) throw ( OSErr )
 //
 //--------------------------------------------------------------------------------------------------
 
-CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
+CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( SInt16 )
 {
-	sInt32				i			= 0;
+	SInt32				i			= 0;
 	register ssize_t	lWrite		= 0;
 	register struct tm *tmPtr		= nil;
 	char			   *pBuff_1 	= nil;
@@ -358,27 +358,27 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 	bool				bRollLog	= false;
 	char				dateStr	[ 256 ];
 
-	fLock.Wait();
+	fLock.WaitLock();
 
 	try
 	{
 		if ( fFileRef == kBadFileRef )
 		{
-			throw( (OSErr)ds_fnOpnErr );
+			throw( (SInt16)ds_fnOpnErr );
 		}
 
 		if ( !fWritePosOK )
 		{
 			if ( -1 == ::lseek( fileno( fFileRef ), fWritePos, SEEK_SET) )
 			{
-				throw( (OSErr)ds_gfpErr );
+				throw( (SInt16)ds_gfpErr );
 			}
 		}
 		::fflush( fFileRef );
 
 		if ( -1 == (lWrite = ::fwrite( pData, sizeof( char ), nBytes, fFileRef )) )
 		{
-			throw( (OSErr) ds_writErr );
+			throw( (SInt16) ds_writErr );
 		}
 		fWroteData = true;
 		::fflush( fFileRef );
@@ -407,13 +407,13 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 				pBuff_1 = (char *)::calloc( buffSize, sizeof( char ) );
 				if ( pBuff_1 == nil )
 				{
-					throw( (OSErr)eMemoryAllocError );
+					throw( (SInt16)eMemoryAllocError );
 				}
 
 				pBuff_2 = (char *)::calloc( buffSize, sizeof( char ) );
 				if ( pBuff_2 == nil )
 				{
-					throw( (OSErr)eMemoryAllocError );
+					throw( (SInt16)eMemoryAllocError );
 				}
 
 				// Remove the oldest
@@ -450,14 +450,14 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 						{
 							free( pBuff_1 );
 							free( pBuff_2 );
-							throw( (OSErr)ds_writErr );
+							throw( (SInt16)ds_writErr );
 						}
 						fWroteData = true;
 						::fflush( fFileRef );
 
 						free( pBuff_1 );
 						free( pBuff_2 );
-						throw( (OSErr) ds_permErr );
+						throw( (SInt16) ds_permErr );
 					}
 
 					// Only tag the current log file
@@ -475,7 +475,7 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 						{
 							free( pBuff_1 );
 							free( pBuff_2 );
-							throw( (OSErr)ds_writErr );
+							throw( (SInt16)ds_writErr );
 						}
 						fWroteData = true;
 						::fflush( fFileRef );
@@ -495,7 +495,7 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 				{
 					free( pBuff_1 );
 					free( pBuff_2 );
-					throw( (OSErr)ds_writErr );
+					throw( (SInt16)ds_writErr );
 				}
 				fWroteData = true;
 				::fflush( fFileRef );
@@ -514,19 +514,19 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 		fReadPosOK	 = false;
 	}
 
-	catch ( OSErr err )
+	catch ( SInt16 err )
 	{
-		fLock.Signal();
+		fLock.SignalLock();
 		throw( err );
 	}
 
 	catch ( ... )
 	{
-		fLock.Signal();
+		fLock.SignalLock();
 		throw( kiIOAbort );
 	}
 
-	fLock.Signal();
+	fLock.SignalLock();
 
 	return( *this );
 
@@ -539,18 +539,18 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 //		positioning
 //--------------------------------------------------------------------------------------------------
 
-sInt64 CFile::FileSize ( void ) throw ( OSErr )
+sInt64 CFile::FileSize ( void ) throw ( SInt16 )
 {
 	struct stat		ssFile;
 
 	if ( fFileRef == kBadFileRef )
 	{
-		throw( (OSErr)ds_fnOpnErr );
+		throw( (SInt16)ds_fnOpnErr );
 	}
 
 	if ( -1 == ::fstat( fileno( fFileRef ), &ssFile ) )
 	{
-		throw( (OSErr)ds_gfpErr );
+		throw( (SInt16)ds_gfpErr );
 	}
 
 	return( ssFile.st_size );
@@ -574,13 +574,13 @@ void CFile::ModDate( struct	timespec *outModTime )
 //
 //--------------------------------------------------------------------------------------------------
 
-CFile& CFile::seekg ( sInt64 lOffset, ios::seekdir inMark ) throw ( OSErr )
+CFile& CFile::seekg ( sInt64 lOffset, ios::seekdir inMark ) throw ( SInt16 )
 {
 	register sInt64	lEOF;
 
 	if ( fFileRef == kBadFileRef )
 	{
-		throw( (OSErr)ds_fnOpnErr );
+		throw( (SInt16)ds_fnOpnErr );
 	}
 
 	lEOF = FileSize();
@@ -649,13 +649,13 @@ CFile& CFile::seekg ( sInt64 lOffset, ios::seekdir inMark ) throw ( OSErr )
 //
 //--------------------------------------------------------------------------------------------------
 
-CFile& CFile::seekp ( sInt64 lOffset, ios::seekdir inMark ) throw ( OSErr )
+CFile& CFile::seekp ( sInt64 lOffset, ios::seekdir inMark ) throw ( SInt16 )
 {
 	register sInt64	lEOF;
 
 	if ( fFileRef == kBadFileRef )
 	{
-		throw( (OSErr)ds_fnOpnErr );
+		throw( (SInt16)ds_fnOpnErr );
 	}
 
 	switch ( inMark )

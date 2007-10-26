@@ -157,10 +157,10 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: ipv6cp.c,v 1.10 2004/03/04 01:36:32 lindak Exp $ 
+ * $Id: ipv6cp.c,v 1.11 2005/12/13 06:30:15 lindak Exp $ 
  */
 
-#define RCSID	"$Id: ipv6cp.c,v 1.10 2004/03/04 01:36:32 lindak Exp $"
+#define RCSID	"$Id: ipv6cp.c,v 1.11 2005/12/13 06:30:15 lindak Exp $"
 
 /*
  * TODO: 
@@ -330,7 +330,8 @@ struct protent ipv6cp_protent = {
 #ifdef __APPLE__
     NULL,
     NULL,
-    ipv6cp_state
+    ipv6cp_state,
+    NULL
 #endif
 };
 

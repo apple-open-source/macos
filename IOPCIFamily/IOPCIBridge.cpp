@@ -25,6 +25,8 @@
 #include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/pci/IOPCIPrivate.h>
 #include <IOKit/pci/IOAGPDevice.h>
+#include <IOKit/pci/IOPCIConfigurator.h>
+
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IORangeAllocator.h>
 #include <IOKit/IOPlatformExpert.h>
@@ -33,6 +35,9 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/assert.h>
 #include <IOKit/IOCatalogue.h>
+#include <IOKit/IOFilterInterruptEventSource.h>
+
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
 
 #include <libkern/c++/OSContainers.h>
 
@@ -41,9 +46,498 @@ extern "C"
 #include <machine/machine_routines.h>
 };
 
-#define DEBUG_PCI_PWR_MGMT 0
+#if 0
+
+#define LOG(fmt, args...)  	\
+    do {     kprintf(fmt, ## args); IOLog(fmt, ## args);	} while (false);
+
+#else
+#define LOG(fmt, args...)
+#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+const IORegistryPlane * gIOPCIACPIPlane;
+
+static IOPCIMessagedInterruptController  * gIOPCIMessagedInterruptController;
+
+enum
+{
+    kMSIX       = 0x01
+};
+
+enum
+{
+    kIOPCIClassBridge = 0x06
+};
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#ifndef kBaseVectorNumberKey
+#define kBaseVectorNumberKey          "Base Vector Number"
+#endif
+
+#ifndef kInterruptControllerNameKey
+#define kVectorCountKey		      "Vector Count"
+#endif
+
+#ifndef kInterruptControllerNameKey
+#define kInterruptControllerNameKey   "InterruptControllerName"
+#endif
+
+class IOPCIMessagedInterruptController : public IOInterruptController
+{
+    OSDeclareDefaultStructors( IOPCIMessagedInterruptController )
+
+protected:
+
+    // The base global system interrupt number.
+
+    SInt32                  _vectorBase;
+    UInt32                  _vectorCount;
+
+    IORangeAllocator *      _messagedInterruptsAllocator;
+
+    // A cache of entries in the vector table. Makes restoring
+    // hardware context following system sleep easier, and also
+    // avoids a register read on vector updates.
+
+    // The APIC ID of the CPU that will handle the interrupt.
+    // in physical mode.
+
+    long                  _destinationAddress;
+
+    virtual void     free( void );
+
+public:
+    bool init( UInt32 numVectors );
+
+    virtual IOReturn getInterruptType( IOService * nub,
+                                       int   source,
+                                       int * interruptType );
+
+    virtual IOReturn registerInterrupt( IOService *        nub,
+                                        int                source,
+                                        void *             target,
+                                        IOInterruptHandler handler,
+                                        void *             refCon );
+
+    virtual IOReturn unregisterInterrupt( IOService *	   nub,
+					int                source);
+
+    virtual void     initVector( long vectorNumber,
+                                 IOInterruptVector * vector );
+
+    virtual int      getVectorType(long vectorNumber, IOInterruptVector *vector);
+
+    virtual bool     vectorCanBeShared( long vectorNumber,
+                                        IOInterruptVector * vector );
+
+    virtual void     enableVector( long vectorNumber,
+                                   IOInterruptVector * vector );
+
+    virtual void     disableVectorHard( long vectorNumber,
+                                        IOInterruptVector * vector );
+
+    virtual IOReturn handleInterrupt( void * savedState,
+                                      IOService * nub,
+                                      int source );
+
+    virtual IOInterruptAction getInterruptHandlerAddress( void );
+
+//
+    bool addDeviceInterruptProperties(
+				    IORegistryEntry * device,
+				    UInt32            controllerIndex,
+				    UInt32            interruptFlags,
+				    SInt32 *          deviceIndex);
+
+    IOReturn allocateDeviceInterrupts( IOPCIBridge * bridge,
+		    IOPCIDevice * device, UInt32 numVectors);
+    IOReturn deallocateDeviceInterrupts(
+		    IOPCIBridge * bridge, IOPCIDevice * device);
+
+};
+
+#undef  super
+#define super IOInterruptController
+
+OSDefineMetaClassAndStructors( IOPCIMessagedInterruptController, 
+                               IOInterruptController )
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+bool IOPCIMessagedInterruptController::init( UInt32 numVectors )
+{
+    OSNumber * num;
+
+    if (!super::init())
+	return (false);
+
+    _vectorCount = numVectors;
+    setProperty(kVectorCountKey, _vectorCount, 32);
+
+    // Allocate the memory for the vectors shared with the superclass.
+
+    vectors = IONew( IOInterruptVector, _vectorCount );
+    if ( 0 == vectors )
+        goto fail;
+
+    bzero( vectors, sizeof(IOInterruptVector) * _vectorCount );
+
+    // Allocate locks for the vectors.
+
+    for (uint32_t i = 0; i < _vectorCount; i++)
+    {
+        vectors[i].interruptLock = IOLockAlloc();
+        if ( vectors[i].interruptLock == 0 )
+            goto fail;
+    }
+
+    attach(getPlatform());
+    const OSSymbol * sym = copyName();
+    setProperty(kInterruptControllerNameKey, (OSObject *) sym);
+    getPlatform()->registerInterruptController( (OSSymbol *) sym, this );
+    sym->release();
+
+    num = OSDynamicCast( OSNumber,
+                         getProperty( kBaseVectorNumberKey ) );
+    if ( num ) _vectorBase = num->unsigned32BitValue();
+
+    _messagedInterruptsAllocator = IORangeAllocator::withRange(0, 0, IORangeAllocator::kLocking);
+    _messagedInterruptsAllocator->deallocate(_vectorBase, _vectorCount);
+
+    registerService();
+
+    LOG("%s: start success\n", getName());
+    return (true);
+
+fail:
+    return false;
+}
+
+bool IOPCIMessagedInterruptController::addDeviceInterruptProperties(
+				IORegistryEntry * device,
+                                UInt32            controllerIndex,
+                                UInt32            interruptFlags,
+                                SInt32 *          deviceIndex)
+{
+    OSArray *        controllers;
+    OSArray *        specifiers;
+    OSArray *        liveCtrls;
+    OSArray *        liveSpecs;
+    const OSSymbol * symName;
+    OSData *         specData;
+    bool             success = false;
+
+    if (!device)
+        return false;
+
+    liveCtrls = OSDynamicCast(OSArray,
+        device->getProperty(gIOInterruptControllersKey));
+
+    liveSpecs = OSDynamicCast(OSArray,
+        device->getProperty(gIOInterruptSpecifiersKey));
+
+    if (liveCtrls && liveSpecs)
+    {
+        // reserve space for new interrupt vector
+        controllers = OSArray::withArray(liveCtrls, liveCtrls->getCount() + 1);
+        specifiers  = OSArray::withArray(liveSpecs, liveSpecs->getCount() + 1);
+    }
+    else
+    {
+        controllers = OSArray::withCapacity(1);
+        specifiers  = OSArray::withCapacity(1);
+    }
+
+    specData = OSData::withCapacity(2 * sizeof(UInt32));
+    symName = copyName();
+
+    if (!controllers || !specifiers || !specData || !symName)
+	return (false);
+
+    // Specifier data will be 64-bits long, containing:
+    //    data[0] = interrupt number
+    //    data[1] = interrupt flags
+    // This must agree with interrupt controller drivers.
+    //
+    // << Warning >>
+    // IOInterruptController::registerInterrupt() assumes that
+    // the vectorNumber is the first long in the specifier.
+
+    specData->appendBytes(&controllerIndex, sizeof(controllerIndex));
+    specData->appendBytes(&interruptFlags,  sizeof(interruptFlags));
+
+    if (deviceIndex)
+	*deviceIndex = specifiers->getCount() - 1;
+
+    success = specifiers->setObject(specData)
+		&& controllers->setObject(symName);
+
+    if (success)
+    {
+	device->setProperty(gIOInterruptControllersKey, controllers);
+	device->setProperty(gIOInterruptSpecifiersKey, specifiers);
+    }
+
+    specifiers->release();
+    controllers->release();
+    symName->release();
+    specData->release();
+
+    return success;
+}
+
+IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
+		IOPCIBridge * bridge, IOPCIDevice * device, UInt32 numVectors)
+{
+    IOReturn      ret;
+    IOByteCount   msi = device->reserved->msiConfig;
+    IOByteCount   msiBlockSize;
+    uint32_t      vector, firstVector = 0;
+    uint16_t      control = device->configRead16(msi + 2);
+    IORangeScalar rangeStart;
+    uint32_t      message[3];
+
+    if (!_messagedInterruptsAllocator->allocate(numVectors, &rangeStart, numVectors))
+	return (kIOReturnNoSpace);
+
+    firstVector = rangeStart;
+
+    ret = bridge->callPlatformFunction( "GetMessagedInterruptAddress",
+		  /* waitForFunction */ false,
+		  /* nub             */ device, 
+		  /* options         */ (void *) 0,
+		  /* vector          */ (void *) firstVector,
+		  /* message         */ (void *) &message[0]);
+
+    if (kIOReturnSuccess == ret)
+    {
+	for (vector = firstVector; vector < (firstVector + numVectors); vector++)
+	{
+	    addDeviceInterruptProperties(device, 
+			vector - _vectorBase, 
+			kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged, NULL);
+	}
+
+	if (kMSIX & device->reserved->msiMode)
+	{
+	    IOByteCount msiTable;
+	    UInt8 bar;
+	    IODeviceMemory * memory;
+	    IOPhysicalAddress phys;
+
+	    control &= ~(1 << 15);	    // disabled
+
+	    msiBlockSize = 1;   // words
+
+	    msiTable = device->configRead32(msi + 4);
+	    bar = kIOPCIConfigBaseAddress0 + ((msiTable & 7) << 2);
+	    msiTable &= ~7;
+
+	    memory = device->getDeviceMemoryWithRegister(bar);
+	    if (memory && (phys = memory->getPhysicalAddress()))
+	    {
+		control = device->configRead16(kIOPCIConfigCommand);
+		device->configWrite16(kIOPCIConfigCommand, control | 4);
+
+		for (vector = 0; vector < numVectors; vector++)
+		{
+		    IOMappedWrite32(phys + msiTable + vector * 16 + 0, message[0]);
+		    IOMappedWrite32(phys + msiTable + vector * 16 + 4, message[1]);
+		    IOMappedWrite32(phys + msiTable + vector * 16 + 8, message[2]);
+		    IOMappedWrite32(phys + msiTable + vector * 16 + 0, 0);
+		}
+		device->configWrite16(kIOPCIConfigCommand, control);
+	    }
+	}
+	else
+	{
+	    control &= ~1;	    // disabled
+	    numVectors = (31 - __builtin_clz(numVectors)); // log2
+	    control |= (numVectors << 4);
+
+	    msiBlockSize = 3;   // words
+	    if (0x0080 & control)
+	    {
+		// 64b
+		device->configWrite32(msi + 4,  message[0]);
+		device->configWrite32(msi + 8,  message[1]);
+		device->configWrite16(msi + 12, message[2]);
+		device->configWrite16(msi + 2,  control);
+		msiBlockSize += 1;
+	    }
+	    else
+	    {
+		device->configWrite32(msi + 4,  message[0]);
+		device->configWrite16(msi + 8,  message[2]);
+		device->configWrite16(msi + 2,  control);
+	    }
+	    if (0x0100 & control)
+		msiBlockSize += 2;
+	}
+
+	device->reserved->msiBlockSize = msiBlockSize;
+    }
+
+    return (ret);
+}
+
+IOReturn IOPCIMessagedInterruptController::deallocateDeviceInterrupts(
+		IOPCIBridge * bridge, IOPCIDevice * device)
+{
+    const OSSymbol * myName;
+    OSArray *        controllers;
+    OSObject *       controller;
+    OSArray *        specs;
+    OSData *         spec;
+    uint32_t         index = 0;
+
+    myName = copyName();
+
+    controllers = OSDynamicCast(OSArray,
+        device->getProperty(gIOInterruptControllersKey));
+
+    specs = OSDynamicCast(OSArray,
+        device->getProperty(gIOInterruptSpecifiersKey));
+
+    if (!myName || !controllers || !specs)
+	return (kIOReturnBadArgument);
+
+    while( (spec = OSDynamicCast(OSData, specs->getObject(index)))
+	&& (controller = controllers->getObject(index)))
+    {
+	if (controller->isEqualTo(myName))
+	{
+	    IORangeScalar rangeStart = _vectorBase + *((uint32_t *) spec->getBytesNoCopy());
+	    _messagedInterruptsAllocator->deallocate(rangeStart, 1);
+	}
+	index++;
+    }
+    myName->release();
+
+    return (kIOReturnSuccess);
+}
+
+IOReturn IOPCIMessagedInterruptController::registerInterrupt( 
+					IOService *	   nub,
+					int                source,
+					void *             target,
+					IOInterruptHandler handler,
+					void *             refCon )
+{
+    IOReturn      ret;
+    IOPCIDevice * device = OSDynamicCast(IOPCIDevice, nub);
+
+    ret = super::registerInterrupt(nub, source, target, handler, refCon);
+
+    if ((kIOReturnSuccess == ret) && device)
+    {
+	if (!device->reserved->msiEnable)
+	{
+	    IOByteCount msi = device->reserved->msiConfig;
+	    uint16_t control;
+
+	    control = device->configRead16(msi + 2);
+
+	    if (kMSIX & device->reserved->msiMode)
+	    {
+		control |= (1 << 15);
+	    }
+	    else
+	    {
+		control |= 1;
+	    }
+
+	    device->configWrite16(msi + 2, control);
+	    control = device->configRead16(kIOPCIConfigCommand);
+	    control |= (1 << 10) | (1 << 2);
+	    device->configWrite16(kIOPCIConfigCommand, control);
+	    device->setProperty("IOPCIMSIMode", kOSBooleanTrue);
+	}
+	device->reserved->msiEnable++;
+    }
+
+    return (ret);
+}
+
+IOReturn IOPCIMessagedInterruptController::unregisterInterrupt( 
+					IOService *	   nub,
+					int                source)
+{
+    IOReturn      ret;
+    IOPCIDevice * device = OSDynamicCast(IOPCIDevice, nub);
+
+    ret = super::unregisterInterrupt(nub, source);
+
+    if (device && device->reserved->msiEnable && !(--device->reserved->msiEnable))
+    {
+	IOByteCount msi = device->reserved->msiConfig;
+	uint16_t control;
+
+	control = device->configRead16(msi + 2);
+	control &= ~((1 << 15) | (7 << 4) | 1);
+	device->configWrite16(msi + 2, control);
+	device->removeProperty("IOPCIMSIMode");
+    }
+
+    return (ret);
+}
+
+IOReturn
+IOPCIMessagedInterruptController::handleInterrupt( void *      state,
+                                                   IOService * nub,
+                                                   int         source)
+{
+    IOInterruptVector * vector;
+
+    source -= _vectorBase;
+    if ((source < 0) || (source > (int) _vectorCount))
+	return kIOReturnSuccess;
+    
+    vector = &vectors[source];
+
+    if (!vector->interruptRegistered)
+	return kIOReturnInvalid;
+
+    vector->handler(vector->target, vector->refCon,
+		    vector->nub, vector->source);
+
+    return kIOReturnSuccess;
+}
+
+bool IOPCIMessagedInterruptController::vectorCanBeShared(long vectorNumber,
+				       IOInterruptVector * vector)
+{
+    return (false);
+}
+
+void IOPCIMessagedInterruptController::initVector(long vectorNumber,
+				       IOInterruptVector * vector)
+{
+}
+
+int IOPCIMessagedInterruptController::getVectorType(long vectorNumber,
+				       IOInterruptVector * vector)
+{
+    return (kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged);
+}
+
+void IOPCIMessagedInterruptController::disableVectorHard(long vectorNumber,
+				       IOInterruptVector * vector)
+{
+}
+
+void IOPCIMessagedInterruptController::enableVector(long vectorNumber,
+				       IOInterruptVector * vector)
+{
+}
+
+#undef super
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define super IOService
 OSDefineMetaClassAndAbstractStructorsWithInit( IOPCIBridge, IOService, IOPCIBridge::initialize() )
@@ -94,9 +588,9 @@ extern void mp_rendezvous_no_intrs(
                void *arg);
 __END_DECLS
 
-static void resolvePCIInterrupt( IOService * provider, IOPCIDevice * nub );
 #endif
 
+#if 0
 /* Definitions of PCI2PCI Config Registers */
 enum {
     kPCI2PCIPrimaryBus		= 0x18,		// 8 bit
@@ -107,20 +601,36 @@ enum {
     kPCI2PCIPrefetchMemoryRange	= 0x24,
     kPCI2PCIUpperIORange	= 0x30
 };
-
-enum { kIOPCIMaxPCI2PCIBridges = 32 };
-
-static IOPCI2PCIBridge * gIOAllPCI2PCIBridges[kIOPCIMaxPCI2PCIBridges];
-IOSimpleLock *  	 gIOAllPCI2PCIBridgesLock;
-UInt32			 gIOAllPCI2PCIBridgeState;
-const OSSymbol *	 gIOPlatformDeviceMessageKey;
-
-/* Expansion data fields */
-#define cardBusMemoryRanges	  reserved->cardBusMemoryRanges
-
+#endif
 #ifndef kIOPlatformDeviceMessageKey
 #define kIOPlatformDeviceMessageKey     "IOPlatformDeviceMessage"
 #endif
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+static IOSimpleLock *  	 gIOAllPCI2PCIBridgesLock;
+UInt32			 gIOAllPCI2PCIBridgeState;
+
+static queue_head_t	 gIOAllPCIDeviceRestoreQ;
+
+static IOLock *		 gIOPCIMessagedInterruptControllerLock;
+const OSSymbol *	 gIOPlatformDeviceMessageKey;
+static IOWorkLoop *	 gCommonWorkLoop;
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* Expansion data fields */
+
+#define fXpressCapability		reserved->xpressCapability
+#define fBridgeInterruptSource		reserved->bridgeInterruptSource
+#define fWorkLoop			reserved->workLoop
+#define fHotplugCount			reserved->hotplugCount
+#define fPresence			reserved->presence
+#define fWaitingLinkEnable		reserved->waitingLinkEnable
+//#define fHotplugFirstBus		reserved->hotplugFirstBus
+//#define fHotplugLastBus		reserved->hotplugLastBus
+#define fBridgeInterruptEnablePending	reserved->interruptEnablePending
+#define fLinkChangeOnly			reserved->linkChangeOnly
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // stub driver has two power states, off and on
@@ -132,18 +642,27 @@ enum { kIOPCIBridgePowerStateCount = 3 };
 void IOPCIBridge::initialize(void)
 {
     if (!gIOAllPCI2PCIBridgesLock)
+    {
 	gIOAllPCI2PCIBridgesLock = IOSimpleLockAlloc();
-
-    gIOPlatformDeviceMessageKey = OSSymbol::withCStringNoCopy(kIOPlatformDeviceMessageKey);
+	gIOPCIMessagedInterruptControllerLock = IOLockAlloc();
+	queue_init(&gIOAllPCIDeviceRestoreQ);
+	gIOPlatformDeviceMessageKey = OSSymbol::withCStringNoCopy(kIOPlatformDeviceMessageKey);
+    }
 }
 
 bool IOPCIBridge::start( IOService * provider )
 {
     static const IOPMPowerState powerStates[ kIOPCIBridgePowerStateCount ] = {
-                { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+ 	// version,
+	// capabilityFlags, outputPowerCharacter, inputPowerRequirement,
+               { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
                 { 1, 0, IOPMSoftSleep, IOPMSoftSleep, 0, 0, 0, 0, 0, 0, 0, 0 },
                 { 1, IOPMPowerOn, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
             };
+
+
+    if (!gIOPCIACPIPlane)
+	gIOPCIACPIPlane = IORegistryEntry::getPlane("IOACPIPlane");
 
     if (!super::start(provider))
         return (false);
@@ -164,11 +683,6 @@ bool IOPCIBridge::start( IOService * provider )
     assert( bridgeIORanges );
     setProperty( "Bridge IO Ranges", bridgeIORanges );
 
-#ifdef __i386__
-    cardBusMemoryRanges = IORangeAllocator::withRange( 0, 1, 8,
-                          IORangeAllocator::kLocking );
-#endif
-
     if (!configure(provider))
         return (false);
 
@@ -183,8 +697,16 @@ bool IOPCIBridge::start( IOService * provider )
     temporaryPowerClampOn();
 
     probeBus( provider, firstBusNum() );
+    
+    registerService();
 
     return (true);
+}
+
+void IOPCIBridge::stop( IOService * provider )
+{
+    PMstop();
+    super::stop( provider);
 }
 
 void IOPCIBridge::free( void )
@@ -203,11 +725,20 @@ void IOPCIBridge::free( void )
 
     if (reserved)
     {
-        if (cardBusMemoryRanges)
-        {
-            cardBusMemoryRanges->release();
-            cardBusMemoryRanges = 0;
-        }
+	IOPCIRange * range;
+	IOPCIRange * nextRange;
+	uint32_t     resourceType;
+	for (resourceType = 0; resourceType < kIOPCIResourceTypeCount; resourceType++)
+	{
+	    range = reserved->rangeLists[resourceType];
+	    while (range)
+	    {
+		nextRange = range->next;
+		IODelete(range, IOPCIRange, 1);
+		range = nextRange;
+	    }
+	}
+
         IODelete(reserved, ExpansionData, 1);
     }
 
@@ -220,12 +751,9 @@ IOReturn IOPCIBridge::setDevicePowerState( IOPCIDevice * device,
     if ((kSaveDeviceState == whatToDo) || (kRestoreDeviceState == whatToDo))
     {
 	IOReturn ret = kIOReturnSuccess;
-	void * p3    = (kSaveDeviceState == whatToDo) ? (void *) 0 : (void *) 3;
 
-	device->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
-	    (void *) kIOMessageDeviceWillPowerOff, device, p3, (void *) 0);
-
-        if (kOSBooleanFalse != device->getProperty(kIOPMPCIConfigSpaceVolatileKey))
+	if ((device->savedConfig && configShadow(device)->bridge)
+	|| (kOSBooleanFalse != device->getProperty(kIOPMPCIConfigSpaceVolatileKey)))
 	{
 	    if (kRestoreDeviceState == whatToDo)
 		ret = restoreDeviceState(device);
@@ -233,32 +761,33 @@ IOReturn IOPCIBridge::setDevicePowerState( IOPCIDevice * device,
 		ret = saveDeviceState(device);
 	}
 
-	device->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
-	    (void *) kIOMessageDeviceHasPoweredOn, device, p3, (void *) 0);
-
 	return (ret);
     }
 
-    // Special for pci/pci-bridge devices - 2 to save immediately, 3 to restore immediately
-
-    IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
-
-    if (gIOAllPCI2PCIBridgeState != whatToDo)
+#if 0
+    if (16 == whatToDo)
     {
-	for (UInt32 i = 0; i < kIOPCIMaxPCI2PCIBridges; i++)
+	OSIterator * iter = getClientIterator();
+	if (iter)
 	{
-	    if (gIOAllPCI2PCIBridges[i])
+	    OSObject * child;
+	    while ((child = iter->getNextObject()))
 	    {
-		if (kSaveBridgeState == whatToDo)
-		    gIOAllPCI2PCIBridges[i]->saveBridgeState();
-		else
-		    gIOAllPCI2PCIBridges[i]->restoreBridgeState();
+		IOPCIDevice * pciDevice;
+		if ((pciDevice = OSDynamicCast(IOPCIDevice, child)))
+		    pciDevice->setBusMasterEnable(false);
 	    }
+	    iter->release();
 	}
-	gIOAllPCI2PCIBridgeState = whatToDo;
     }
+#endif
 
-    IOSimpleLockUnlock(gIOAllPCI2PCIBridgesLock);
+    // Special for pci/pci-bridge devices - 
+    // kSaveBridgeState(2) to save immediately, kRestoreBridgeState(3) to restore immediately
+
+    if (kRestoreBridgeState == whatToDo)
+	restoreMachineState(0);
+    gIOAllPCI2PCIBridgeState = whatToDo;
 
     return (kIOReturnSuccess);
 }
@@ -267,50 +796,202 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
                                        IOOptionBits options )
 {
     UInt32 flags;
+    void * p3 = (void *) 3;
     int i;
 
     if (!device->savedConfig)
         return (kIOReturnNotReady);
 
-    flags = device->savedConfig[kIOPCIConfigShadowFlags];
-    if ((kIOPCIConfigShadowValid | kIOPCIConfigShadowBridge) & flags)
-        return (kIOReturnSuccess);
-    flags |= kIOPCIConfigShadowValid;
-    device->savedConfig[kIOPCIConfigShadowFlags] = flags;
+    flags = configShadow(device)->flags;
 
-    for (i = 0; i < kIOPCIConfigShadowRegs; i++)
-        if (kIOPCIVolatileRegsMask & (1 << i))
-            device->savedConfig[i] = device->configRead32( i * 4 );
+    if (kIOPCIConfigShadowValid & flags)
+        return (kIOReturnSuccess);
+
+    flags |= kIOPCIConfigShadowValid;
+    configShadow(device)->flags = flags;
+
+    device->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
+	(void *) kIOMessageDeviceWillPowerOff, device, p3, (void *) 0);
+
+    if (kIOPCIConfigShadowBridge & flags)
+    {
+	if (configShadow(device)->bridge)
+	    configShadow(device)->bridge->saveBridgeState();
+    }
+    else
+    {
+	for (i = 0; i < kIOPCIConfigShadowRegs; i++)
+	{
+	    if (kIOPCIVolatileRegsMask & (1 << i))
+		device->savedConfig[i] = device->configRead32( i * 4 );
+	}
+    }
+
+    if (device->reserved->expressConfig)
+    {
+	device->savedConfig[kIOPCIConfigShadowXPress + 0]   // device control
+	    = device->configRead16( device->reserved->expressConfig + 0x08 );
+	device->savedConfig[kIOPCIConfigShadowXPress + 1]   // link control
+	    = device->configRead16( device->reserved->expressConfig + 0x10 );
+	if (0x100 & device->reserved->expressCapabilities)
+	{						    // slot control
+	    device->savedConfig[kIOPCIConfigShadowXPress + 2]
+		= device->configRead16( device->reserved->expressConfig + 0x18 );
+	}
+    }
+    for (i = 0; i < device->reserved->msiBlockSize; i++)
+	device->savedConfig[kIOPCIConfigShadowMSI + i] 
+	    = device->configRead32( device->reserved->msiConfig + i * 4 );
+
+    device->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
+	(void *) kIOMessageDeviceHasPoweredOn, device, p3, (void *) 0);
+
+    IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
+
+    queue_enter_first( &gIOAllPCIDeviceRestoreQ,
+		 configShadow(device),
+		 IOPCIConfigShadow *,
+		 link );
+
+    IOSimpleLockUnlock(gIOAllPCI2PCIBridgesLock);
 
     return (kIOReturnSuccess);
 }
 
-IOReturn IOPCIBridge::restoreDeviceState( IOPCIDevice * device,
+IOReturn IOPCIBridge::_restoreDeviceState( IOPCIDevice * device,
         IOOptionBits options )
 {
     UInt32 flags;
+    void * p3 = (void *) 0;
     int i;
 
-    if (!device->savedConfig)
-        return (kIOReturnNotReady);
+    flags = configShadow(device)->flags;
 
-    flags = device->savedConfig[kIOPCIConfigShadowFlags];
-    if (kIOPCIConfigShadowBridge & flags)
-        return (kIOReturnSuccess);
     if (!(kIOPCIConfigShadowValid & flags))
-        return (kIOReturnNotReady);
+	return (kIOReturnNotReady);
     flags &= ~kIOPCIConfigShadowValid;
-    device->savedConfig[kIOPCIConfigShadowFlags] = flags;
+    configShadow(device)->flags = flags;
 
-    for (i = (kIOPCIConfigRevisionID >> 2); i < kIOPCIConfigShadowRegs; i++)
-        if (kIOPCIVolatileRegsMask & (1 << i))
-            device->configWrite32( i * 4, device->savedConfig[ i ]);
+//    device->configWrite32(kIOPCIConfigCommand, 0);
 
-    device->configWrite32( kIOPCIConfigCommand, device->savedConfig[1]);
+    device->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
+	(void *) kIOMessageDeviceWillPowerOff, device, p3, (void *) 0);
+
+    if (kIOPCIConfigShadowBridge & flags)
+    {
+	if (configShadow(device)->bridge)
+	    configShadow(device)->bridge->restoreBridgeState();
+    }
+    else
+    {
+	for (i = (kIOPCIConfigRevisionID >> 2); i < kIOPCIConfigShadowRegs; i++)
+	{
+	    if (kIOPCIVolatileRegsMask & (1 << i))
+		device->configWrite32( i * 4, device->savedConfig[ i ]);
+	}
+	device->configWrite32(kIOPCIConfigCommand, device->savedConfig[1]);
+    }
+
+    if (device->reserved->expressConfig)
+    {
+	device->configWrite16( device->reserved->expressConfig + 0x08,   // device control
+				device->savedConfig[kIOPCIConfigShadowXPress + 0]);
+	device->configWrite16( device->reserved->expressConfig + 0x10,    // link control
+				device->savedConfig[kIOPCIConfigShadowXPress + 1] );
+	if (0x100 & device->reserved->expressCapabilities)
+	{								  // slot control
+	    device->configWrite16( device->reserved->expressConfig + 0x18, 
+				    device->savedConfig[kIOPCIConfigShadowXPress + 2] );
+	}
+    }
+
+    for (i = 0; i < device->reserved->msiBlockSize; i++)
+	device->configWrite32( device->reserved->msiConfig + i * 4,  
+				device->savedConfig[kIOPCIConfigShadowMSI + i]);
+
+    device->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
+	(void *) kIOMessageDeviceHasPoweredOn, device, p3, (void *) 0);
 
     return (kIOReturnSuccess);
 }
 
+IOReturn IOPCIBridge::restoreMachineState( IOOptionBits options )
+{
+    IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
+
+    if (kSaveBridgeState != gIOAllPCI2PCIBridgeState)
+    {
+	IOSimpleLockUnlock(gIOAllPCI2PCIBridgesLock);
+	return (kIOReturnNotFound);
+    }
+
+    gIOAllPCI2PCIBridgeState = kRestoreBridgeState;
+
+    IOPCIConfigShadow * shadow;
+    IOPCIConfigShadow * next;
+    UInt32              bridgesOnly = true;
+
+    do
+    {
+	next = (IOPCIConfigShadow *) queue_first(&gIOAllPCIDeviceRestoreQ);
+	while (!queue_end(&gIOAllPCIDeviceRestoreQ, (queue_entry_t) next))
+	{
+	    shadow = next;
+	    next   = (IOPCIConfigShadow *) queue_next(&shadow->link);
+
+	    if (bridgesOnly && !(kIOPCIConfigShadowBridge & shadow->flags))
+		continue;
+
+	    queue_remove( &gIOAllPCIDeviceRestoreQ,
+			  shadow,
+			  IOPCIConfigShadow *,
+			  link );
+	    shadow->link.next = shadow->link.prev = NULL;
+
+	    IOSimpleLockUnlock(gIOAllPCI2PCIBridgesLock);
+	    _restoreDeviceState(shadow->device, false);
+	    IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
+	}
+    }
+#ifndef __ppc__
+    while (bridgesOnly--);
+#else
+    while (false);
+#endif
+
+    IOSimpleLockUnlock(gIOAllPCI2PCIBridgesLock);
+
+    return (kIOReturnSuccess);
+}
+
+IOReturn IOPCIBridge::restoreDeviceState( IOPCIDevice * device, IOOptionBits options )
+{
+    IOReturn ret;
+
+    if (!device->savedConfig)
+        return (kIOReturnNotReady);
+
+#ifndef __ppc__
+    ret = restoreMachineState(0);
+
+    if (kIOReturnSuccess != ret)
+#endif
+    {
+	if (configShadow(device)->link.next)
+	{
+	    IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
+	    queue_remove( &gIOAllPCIDeviceRestoreQ,
+			  configShadow(device),
+			  IOPCIConfigShadow *,
+			  link );
+	    configShadow(device)->link.next = configShadow(device)->link.prev = NULL;
+	    IOSimpleLockUnlock(gIOAllPCI2PCIBridgesLock);
+	}
+	ret = _restoreDeviceState(device, true);
+    }
+    // callers expect success
+    return (kIOReturnSuccess);
+}
 
 bool IOPCIBridge::configure( IOService * provider )
 {
@@ -354,13 +1035,6 @@ void IOPCIBridge::spaceFromProperties( OSDictionary * propTable,
     {
         inSpace = (IOPCIAddressSpace *) regProp->getBytesNoCopy();
         space->s.busNum = inSpace->s.busNum;
-        space->s.deviceNum = inSpace->s.deviceNum;
-        space->s.functionNum = inSpace->s.functionNum;
-    }
-    else if ((regProp = (OSData *) propTable->getObject("acpi-reg")))
-    {
-        inSpace = (IOPCIAddressSpace *) regProp->getBytesNoCopy();
-        space->s.busNum = firstBusNum();
         space->s.deviceNum = inSpace->s.deviceNum;
         space->s.functionNum = inSpace->s.functionNum;
     }
@@ -444,9 +1118,11 @@ bool IOPCIBridge::checkProperties( IOPCIDevice * entry )
     offset = 0;
     if (entry->extendedFindPCICapability(kIOPCIPCIExpressCapability, &offset))
     {
-	UInt16 linkStatus = entry->configRead16(offset + 0x12);
-
-	entry->setProperty(kIOPCIExpressLinkStatusKey, linkStatus, 32);
+	UInt32
+	value = entry->configRead16(offset + 0x12);
+	entry->setProperty(kIOPCIExpressLinkStatusKey, value, 32);
+	value = entry->configRead32(offset + 0x0c);
+	entry->setProperty(kIOPCIExpressLinkCapabilitiesKey, value, 32);
     }
 
     return (true);
@@ -605,6 +1281,27 @@ bool IOPCIBridge::initializeNub( IOPCIDevice * nub,
     return (true);
 }
 
+void IOPCIBridge::removeDevice( IOPCIDevice * device, IOOptionBits options )
+{
+    IOReturn ret = kIOReturnSuccess;
+
+    if (device->reserved->msiConfig && gIOPCIMessagedInterruptController)
+	ret = gIOPCIMessagedInterruptController->deallocateDeviceInterrupts(this, device);
+
+    IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
+
+    if (configShadow(device)->link.next)
+    {
+	queue_remove( &gIOAllPCIDeviceRestoreQ,
+		      configShadow(device),
+		      IOPCIConfigShadow *,
+		      link );
+	configShadow(device)->link.next = configShadow(device)->link.prev = NULL;
+    }
+
+    IOSimpleLockUnlock(gIOAllPCI2PCIBridgesLock);
+}
+
 bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 {
     char			location[ 24 ];
@@ -627,16 +1324,21 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 
 	// set up config space shadow
 
-	nub->savedConfig = IONew( UInt32, kIOPCIConfigShadowSize );
-	if (nub->savedConfig)
+	IOPCIConfigShadow * shadow = IONew(IOPCIConfigShadow, 1);
+	if (shadow)
 	{
-	    nub->savedConfig[kIOPCIConfigShadowFlags] = 0;
+	    bzero(shadow, sizeof(IOPCIConfigShadow));
+	    shadow->device = nub;
+	    nub->savedConfig = &shadow->savedConfig[0];
 	    for (int i = 0; i < kIOPCIConfigShadowRegs; i++)
 		if (!(kIOPCIVolatileRegsMask & (1 << i)))
 		    nub->savedConfig[i] = nub->configRead32( i << 2 );
 	}
 
 	checkProperties( nub );
+
+	if (shadow && (kIOPCIClassBridge == nub->savedConfig[kIOPCIConfigRevisionID >> 2] >> 24))
+	    shadow->flags |= kIOPCIConfigShadowBridge;
 
         // look for a "driver-reg,AAPL,MacOSX,PowerPC" property.
 
@@ -676,8 +1378,17 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
         }
 
         ok = nub->attach( this );
+
         if (ok)
+	{
+	    nub->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
+		    (void *) kIOMessageDeviceWillPowerOff, nub, (void *) 0, (void *) 0);
+
+	    nub->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
+		    (void *) kIOMessageDeviceHasPoweredOn, nub, (void *) 0, (void *) 0);
+
             nub->registerService();
+	}
     }
     else
         ok = false;
@@ -695,309 +1406,41 @@ UInt8 IOPCIBridge::lastBusNum( void )
     return (255);
 }
 
-bool IOPCIBridge::checkCardBusNumbering(OSArray * children)
-{
-    IOPCIDevice * child;
-    int childIndex;
-    UInt8 parentSecBus, parentSubBus;
-    UInt8 priBus, secBus, subBus;
-    UInt8 theBusIDs[256];
-
-    OSArray * yentas = OSArray::withCapacity(0x10);
-    OSArray * pciBridges = OSArray::withCapacity(0x10);
-    if (!yentas || !pciBridges) goto error;
-
-    // clear out the bus id we will be checking
-    parentSecBus = firstBusNum();
-    parentSubBus = lastBusNum();
-    for (int i = parentSecBus; i <= parentSubBus; theBusIDs[i] = 0, i++);
-
-    childIndex = 0;
-    while (child = OSDynamicCast(IOPCIDevice, children->getObject(childIndex++))) {
-
-    	UInt8 headerType = child->configRead8(kIOPCIConfigHeaderType);
-
-	// we only care about bridge chips
-	if ( ((headerType & 0x7) != 0x1) && ((headerType & 0x7) != 0x2) ) {
-	    continue;
-	}
-
-	// is there room for an subordinate pci bridge? we only need to
-	// check for this if we find a child bridge
-	if (parentSecBus == parentSubBus) {
-	    IOLog("%s: bad bridge bus numbering, no room to fix, bailing out!\n", getName());
-	    goto error;
-	}
-		
-	priBus = child->configRead8(kPCI2PCIPrimaryBus);
-	secBus = child->configRead8(kPCI2PCISecondaryBus);
-	subBus = child->configRead8(kPCI2PCISubordinateBus);
-
-	UInt8 device = child->getDeviceNumber();
-	UInt8 function = child->getFunctionNumber();
-	if (4 & gIOPCIDebug) {
-	    IOLog("DEBUG name = %s, hdr = 0x%x, parent [%d - %d], device(%d, %d) pri %d [%d - %d]\n", 
-		  child->getName(), headerType, parentSecBus, parentSubBus,
-		  device, function, priBus, secBus, subBus);
-	}
-
-	if ((headerType & 0x7) == 0x2) {	// we only tweek the yenta bridges
-
-	    // keep track the yenta bridges for later
-	    yentas->setObject(child);
-
-	    // check cardbus settings,  parentSec = pri < sec <= sub <= parentSub
-		    
-	    if (priBus != parentSecBus) {
-		if (4 & gIOPCIDebug)
-		    IOLog("DEBUG fixing bad primary bus setting on %s device(%d, %d) - was %d now %d\n",
-			  child->getName(), device, function, priBus, parentSecBus);
-		priBus = parentSecBus;
-		child->configWrite8(kPCI2PCIPrimaryBus, priBus);
-	    }
-	    if (subBus > parentSubBus) {
-		if (4 & gIOPCIDebug)
-		    IOLog("DEBUG bad subordinate bus setting (subBus > parentSubBus) - was %d now %d\n",
-			  subBus, parentSubBus);
-
-		// try to squeeze it in
-		subBus = parentSubBus;
-		child->configWrite8(kPCI2PCISubordinateBus, subBus);
-	    }
-	    if (subBus <= parentSecBus) {
-		if (4 & gIOPCIDebug)
-		    IOLog("DEBUG bad subordinate bus setting (subBus <= parentSecBus) - was %d now %d\n",
-			  subBus, parentSecBus + 1);
-
-		// try to squeeze it in
-		subBus = parentSecBus + 1;
-		child->configWrite8(kPCI2PCISubordinateBus, subBus);
-	    }
-
-	    // at this point we should have reasonable pri and sub settings
-	    // although range may be too small to contain what is attached
-		    
-	    if (secBus <= priBus) {
-		if (4 & gIOPCIDebug)
-		    IOLog("DEBUG bad secondary bus setting (secBus <= priBus) - was %d now %d\n",
-			  secBus, priBus + 1);
-
-		// try to bump it up one
-		secBus = priBus +1;
-		child->configWrite8(kPCI2PCISecondaryBus, secBus);
-	    }
-	    if (secBus > subBus) {
-		if (4 & gIOPCIDebug)
-		    IOLog("DEBUG bad secondary bus setting (secBus > subBus) - was %d now %d\n",
-			  secBus, subBus);
-
-		// try to set its sub
-		secBus = subBus;
-		child->configWrite8(kPCI2PCISecondaryBus, secBus);
-	    }
-
-	} else {	// not a yenta bridge
-        
-        pciBridges->setObject(child);
-
-	    for (int i = secBus; i <= subBus; i++) {
-
-		// check for overlaps with other bridge ranges on the same bus
-		// on the first pass skipping yenta bridges since they may also be
-		// claiming to be using bus ids that also belong to other bridges.
-
-		if (theBusIDs[i]) {
-
-		    IOLog("%s: bogus pci bridge config, bus id %d is being used twice, hdr type = 0x%x\n",
-			  getName(), i, headerType);
-		    goto error;
-
-		} else {
-		    
-		    theBusIDs[i] = 1;
-		}
-	    }
-	}
-    }
-
-#ifdef __i386__
-    // Fill the void between PCI-PCI bridges by expanding their 
-    // subordinate bus number. This attempts to propagate a larger
-    // bus number range to the cardbus controllers.
-
-    if ( yentas->getCount() == 0 && pciBridges->getCount() )
-    {
-        childIndex = 0;
-        while (child = (IOPCIDevice *)pciBridges->getObject(childIndex++))
-        {
-            UInt8 newSubBus = subBus = child->configRead8( kPCI2PCISubordinateBus );
-
-            for (int j = subBus + 1; j <= parentSubBus && theBusIDs[j] == 0; j++)
-            {
-                newSubBus = j;
-                theBusIDs[j] = 1;
-            }
-
-            if ( newSubBus != subBus )
-                child->configWrite8( kPCI2PCISubordinateBus, newSubBus );
-        }
-    }
-#endif
-
-    // on the second pass, we know what what has been claimed by the
-    // the other busses, if what is set fits then just use it, else
-    // try to give a range of one bus to use.
-
-    childIndex = 0;
-    while (child = (IOPCIDevice *)yentas->getObject(childIndex++)) {
-	
-	secBus = child->configRead8(kPCI2PCISecondaryBus);
-	subBus = child->configRead8(kPCI2PCISubordinateBus);
-    
-	for (int j = secBus; j <= subBus; j++) {
-
-	    if (theBusIDs[j]) {
-		if (4 & gIOPCIDebug)
-		    IOLog("DEBUG yenta bus id %d is being used twice\n", j);
-
-		// back out bad bus ids, except this one
-		for (int k = secBus; k < j; k++) theBusIDs[k] = 0;
-
-		// find a free bus id
-		int free = 0;
-		for (int k = parentSecBus + 1; k <= parentSubBus; k++) {
-		    if (theBusIDs[k] == 0) {
-			free = k;
-			break;
-		    }
-		}
-			    
-		if (free) {
-		    if (4 & gIOPCIDebug)
-			IOLog("DEBUG found free bus range at %d\n", free);
-
-		    // set it up
-		    child->configWrite8(kPCI2PCISecondaryBus, free);
-		    child->configWrite8(kPCI2PCISubordinateBus, free);
-				
-		    // take it out of the array
-		    theBusIDs[free] = 1;
-		} else {
-		    // it looks like we have already given too much
-		    // another yenta bridge?
-
-		    // we could zero out all yentas, and recurse on ourselves?
-		    
-		    // bail out for now on this bridge (for now)
-		    child->configWrite8(kPCI2PCISecondaryBus, 0);
-		    child->configWrite8(kPCI2PCISubordinateBus, 0);
-		}
-
-		break;
-
-	    } else {
-
-		theBusIDs[j] = 1;
-	    }
-	}
-    }
-
-    if (yentas) yentas->release();
-    if (pciBridges) pciBridges->release();
-    return false;
-    
- error:
-    if (yentas) yentas->release();
-    if (pciBridges) pciBridges->release();
-    return true;
-}
-
-void IOPCIBridge::checkCardBusResources( const OSArray * nubs,
-                                         UInt32 * yentaIndices, UInt32 yentaCount )
-{
-    IOPCIDevice * yenta;
-    UInt32        index;
-    UInt32        socketBase;
-
-    if (!yentaCount || !cardBusMemoryRanges) return;
-
-    // Allocate 4K bytes for socket registers on each cardbus bridge
-    if (cardBusMemoryRanges->allocate(4096 * yentaCount, &socketBase, 4096) == false)
-    {
-        IOLog("%s: cardbus memory allocation failed\n", getName());
-        return;
-    }
-
-    // Create "ranges" property
-    OSData * ranges = OSData::withCapacity( 5 * sizeof(UInt32) * 2 );
-    if (ranges)
-    {
-        IOPCIAddressSpace space;
-        IOPhysicalAddress start;
-
-        for ( IOByteCount size = 8192 * 1024; size >= 4096; size >>= 1 )
-        {
-            if (cardBusMemoryRanges->allocate( size, &start, 4096 ))
-            {
-                space.s.space = kIOPCI32BitMemorySpace;
-                ranges->appendBytes( &space, sizeof(space) );
-                ranges->appendBytes( &start, sizeof(start) );
-                ranges->appendBytes( &space, sizeof(space) );
-                ranges->appendBytes( &start, sizeof(start) );
-                ranges->appendBytes( &size,  sizeof(size)  );
-                if (1 & gIOPCIDebug)
-                    IOLog("%s: cardbus memory range %ld bytes @ 0x%08lx\n",
-                          getName(), size, start);
-                break;
-            }
-        }
-
-        for ( IOByteCount size = 8 * 1024; size >= 32; size >>= 1 )
-        {
-            if (bridgeIORanges->allocate( size, &start, 0 ))
-            {
-                space.s.space = kIOPCIIOSpace;
-                ranges->appendBytes( &space, sizeof(space) );
-                ranges->appendBytes( &start, sizeof(start) );
-                ranges->appendBytes( &space, sizeof(space) );
-                ranges->appendBytes( &start, sizeof(start) );
-                ranges->appendBytes( &size,  sizeof(size)  );
-                if (1 & gIOPCIDebug)
-                    IOLog("%s: cardbus I/O range %ld bytes at 0x%08lx\n",
-                          getName(), size, start);
-                break;
-            }
-        }
-    }
-
-    for ( UInt32 i = 0; i < yentaCount; i++ )
-    {
-        index = yentaIndices[i];  // 1-based index
-        yenta = (IOPCIDevice *) nubs->getObject(index - 1);
-        assert(yenta);
-
-        yenta->setMemoryEnable( false );
-        yenta->configWrite32( kIOPCIConfigBaseAddress0, socketBase );
-        socketBase += 4096;
-
-        if (ranges && 0==i) yenta->setProperty( "ranges", ranges );
-        publishNub( yenta, index );
-    }
-}
-
 void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 {
-    IORegistryEntry *	found;
-    OSDictionary *	propTable;
-    IOPCIDevice *	nub = 0;
-    IOPCIAddressSpace	space;
-    UInt32		vendor;
-    UInt8		scanDevice, scanFunction, lastFunction;
-    OSIterator *	kidsIter;
-    UInt32		index = 0;
-    UInt32		yentaIndices[8];
-    UInt32		yentaCount = 0;
-    UInt32		i = 0;
+    IORegistryEntry *  found;
+    IOService *	       service;
+    OSDictionary *     propTable;
+    IOPCIDevice *      nub = 0;
+    OSIterator *       kidsIter;
+    UInt32             index = 0;
+    UInt32             idx = 0;
+    bool	       hotplugBus;
+
+    hotplugBus = (0 != getProperty(kIOPCIHotPlugKey));
+    if (hotplugBus && !provider->getProperty(kIOPCIOnlineKey))
+    {
+	LOG("offline\n");    
+	return;
+    }
+
+#if __i386__
+    bool configured;
+    configured = (0 != provider->getProperty(kIOPCIConfiguredKey));
+    if (!configured)
+    {
+//	IOSleep(5000);	LOG("hotp IOPCIConfigurator\n");
+
+	IOPCIConfigurator * pciConfig = new IOPCIConfigurator;
+	if (pciConfig && pciConfig->init())
+	{
+	    pciConfig->attach(this);
+	    pciConfig->start(this);
+	    pciConfig->detach(this);
+	    pciConfig->release();
+	}
+    }
+#endif
 
     IODTSetResolving(provider, &compareAddressCell, &nvLocation);
 
@@ -1006,7 +1449,7 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
     else
         kidsIter = provider->getChildIterator( gIODTPlane );
 
-    // find and copy over any devices from the OF device tree
+    // find and copy over any devices from the device tree
     OSArray * nubs = OSArray::withCapacity(0x10);
     assert(nubs);
 
@@ -1014,120 +1457,101 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 	kidsIter->reset();
 	while ((found = (IORegistryEntry *) kidsIter->getNextObject()))
 	{
+	    if (!found->getProperty("vendor-id"))
+		continue;
+	    if ((service = OSDynamicCast(IOService, found)) && service->isInactive())
+		continue;
+
 	    propTable = found->getPropertyTable();
 	    nub = createNub( propTable );
-	    if ( nub && initializeNub(nub, propTable) &&
-             nub->init(found, gIODTPlane) )
-        {
-#ifdef __i386__
-            spaceFromProperties( propTable, &space );
-            if ((propTable = constructProperties(space)))
-            {
-                OSCollectionIterator * propIter =
-                    OSCollectionIterator::withCollection(propTable);
-                if (propIter)
-                {
-                    const OSSymbol * propKey;
-                    while ((propKey = (const OSSymbol *)propIter->getNextObject()))
-                    {
-                        if ( 0 == nub->getProperty(propKey))
-                            nub->setProperty(propKey, propTable->getObject(propKey));
-                    }
-                    propIter->release();
-                }
-            	propTable->release();
-            }
-#endif
+	    if ( nub 
+		&& initializeNub(nub, propTable)
+		&& nub->init(found, gIODTPlane) )
+	    {
+		IOByteCount capa;
 
-            nubs->setObject(index++, nub);
-        }
+		nubs->setObject(index++, nub);
+
+		capa = 0;
+		if (nub->extendedFindPCICapability(kIOPCIPCIExpressCapability, &capa))
+		{
+		    nub->reserved->expressConfig       = capa;
+		    nub->reserved->expressCapabilities = nub->configRead16(capa + 0x02);
+		}
+		capa = 0;
+#if 0
+		if (nub->extendedFindPCICapability(kIOPCIMSIXCapability, &capa))
+		{
+		    nub->reserved->msiConfig = capa;
+		    nub->reserved->msiMode   |= kMSIX;
+		}
+		else 
+#endif
+		if (nub->extendedFindPCICapability(kIOPCIMSICapability, &capa))
+		    nub->reserved->msiConfig = capa;
+
+	    }
+	    if (nub)
+		nub->release();
 	}
     }
 
-    // scan the pci bus for "additional" devices
-    space.bits = 0;
-    space.s.busNum = busNum;
-
-    for (scanDevice = 0; scanDevice <= 31; scanDevice++)
+    idx = 0;
+    while (nub = (IOPCIDevice *)nubs->getObject(idx++))
     {
-        lastFunction = 0;
-        for (scanFunction = 0; scanFunction <= lastFunction; scanFunction++)
-        {
-            space.s.deviceNum = scanDevice;
-            space.s.functionNum = scanFunction;
-            
-            if (findMatching(kidsIter, space) == 0)
-            {
-                /* probe - should guard exceptions */
-#ifdef __ppc__
-                // DEC bridge really needs safe probe
-                continue;
-#endif
-                vendor = configRead32( space, kIOPCIConfigVendorID );
-                vendor &= 0x0000ffff;
-                if ((0 == vendor) || (0xffff == vendor))
-                    continue;
+	if (hotplugBus || provider->getProperty(kIOPCIEjectableKey))
+	    nub->setProperty(kIOPCIEjectableKey, kOSBooleanTrue);
 
-                propTable = constructProperties( space );
+        publishNub(nub , idx);
 
-                if (propTable)
-                {
-                    if ((nub = createNub(propTable))
-                    && (initializeNub(nub, propTable))
-                    && (nub->init(propTable)))
-                    {
-                        nubs->setObject(index++, nub);
-                    }
-                    propTable->release();
-                }
-            }
-
-            // look in function 0 for multi function flag
-            if ((0 == scanFunction)
-                    && (0x00800000 & configRead32(space,
-                                                  kIOPCIConfigCacheLineSize)))
-                lastFunction = 7;
-        }
-    }
-
-    checkCardBusNumbering(nubs);
-
-#ifdef __i386__
-    // probe all device BAR's before publishing nubs
-    i = 0;
-    while (nub = (IOPCIDevice *)nubs->getObject(i++)) {
-        resolvePCIInterrupt( provider, nub );
-        if ((nub->configRead8(kIOPCIConfigHeaderType) & 0x7) == 0x2)
-        {
-            if (yentaCount < 8) yentaIndices[yentaCount++] = i;
-                continue;  // skip cardbus bridges
-        }
-        getNubResources( nub );
-    }
-#endif
-
-    i = 0;
-    while (nub = (IOPCIDevice *)nubs->getObject(i++)) {
-        publishNub(nub , i);
         if (1 & gIOPCIDebug)
             IOLog("%08lx = 0:%08lx 4:%08lx  ", nub->space.bits,
                 nub->configRead32(kIOPCIConfigVendorID),
                 nub->configRead32(kIOPCIConfigCommand) );
     }
 
-    checkCardBusResources( nubs, yentaIndices, yentaCount );
-
     nubs->release();
-    if (kidsIter) kidsIter->release();
+    if (kidsIter)
+	kidsIter->release();
 }
 
 bool IOPCIBridge::addBridgeMemoryRange( IOPhysicalAddress start,
                                         IOPhysicalLength length, bool host )
 {
-    if (cardBusMemoryRanges)
-        cardBusMemoryRanges->deallocate( start, length );
+    IORangeAllocator *	platformRanges;
+    bool		ok = true;
 
-    return addBridgePrefetchableMemoryRange( start, length, host );
+    if (host)
+    {
+        platformRanges = getPlatform()->getPhysicalRangeAllocator();
+        assert( platformRanges );
+
+        // out of the platform
+        ok = platformRanges->allocateRange( start, length );
+        if (!ok)
+            kprintf("%s: didn't get host range (%08lx:%08lx)\n", getName(),
+                    start, length);
+    }
+
+    // and into the bridge
+    bridgeMemoryRanges->deallocate( start, length );
+
+    IOPCIRange * newRange = IONew(IOPCIRange, 1);
+    if (newRange)
+    {
+	bzero(newRange, sizeof(IOPCIRange));
+	newRange->start = start;
+	newRange->size = length;
+	newRange->alignment = 0;
+	newRange->type = kIOPCIResourceTypeMemory;
+	newRange->flags = 0;
+
+	newRange->next = reserved->rangeLists[kIOPCIResourceTypeMemory];
+	reserved->rangeLists[kIOPCIResourceTypeMemory] = newRange;
+    }
+
+    return (ok);
+
 }
 
 bool IOPCIBridge::addBridgePrefetchableMemoryRange( IOPhysicalAddress start,
@@ -1152,6 +1576,20 @@ bool IOPCIBridge::addBridgePrefetchableMemoryRange( IOPhysicalAddress start,
     // and into the bridge
     bridgeMemoryRanges->deallocate( start, length );
 
+    IOPCIRange * newRange = IONew(IOPCIRange, 1);
+    if (newRange)
+    {
+	bzero(newRange, sizeof(IOPCIRange));
+	newRange->start     = start;
+	newRange->size      = length;
+	newRange->alignment = 0;
+	newRange->type      = kIOPCIResourceTypePrefetchMemory;
+	newRange->flags     = 0;
+
+	newRange->next = reserved->rangeLists[kIOPCIResourceTypePrefetchMemory];
+	reserved->rangeLists[kIOPCIResourceTypePrefetchMemory] = newRange;
+    }
+
     return (ok);
 }
 
@@ -1161,6 +1599,20 @@ bool IOPCIBridge::addBridgeIORange( IOByteCount start, IOByteCount length )
 
     // into the bridge
     bridgeIORanges->deallocate( start, length );
+
+    IOPCIRange * newRange = IONew(IOPCIRange, 1);
+    if (newRange)
+    {
+	bzero(newRange, sizeof(IOPCIRange));
+	newRange->start     = start;
+	newRange->size      = length;
+	newRange->alignment = 0;
+	newRange->type      = kIOPCIResourceTypeIO;
+	newRange->flags     = 0;
+
+	newRange->next = reserved->rangeLists[kIOPCIResourceTypeIO];
+	reserved->rangeLists[kIOPCIResourceTypeIO] = newRange;
+    }
 
     return (ok);
 }
@@ -1207,9 +1659,6 @@ bool IOPCIBridge::constructRange( IOPCIAddressSpace * flags,
             IOLog("%s: bad range %d(%08lx:%08lx)\n", getName(), flags->s.space,
                   phys, len);
 #endif
-
-        if (cardBusMemoryRanges && (bridgeRanges == bridgeMemoryRanges))
-            cardBusMemoryRanges->allocateRange( phys, len );
 
         range->setTag( flags->bits );
         ok = array->setObject( range );
@@ -1350,7 +1799,7 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
         if ( (2 == headerType) && (regNum > 0x10) )
             break;
 
-		// begin scary
+	// begin scary
         probeParam.nub = nub;
         probeParam.regNum = regNum;
 #ifdef __i386__
@@ -1443,15 +1892,41 @@ IOReturn IOPCIBridge::getNubResources( IOService * service )
     IOPCIDevice *	nub = (IOPCIDevice *) service;
     IOReturn		err;
 
-    if (service->getDeviceMemory())
+    if (service->getProperty(kIOPCIResourcedKey))
         return (kIOReturnSuccess);
+    service->setProperty(kIOPCIResourcedKey, kOSBooleanTrue);
 
-#ifdef __ppc__
+#ifdef __i386__
+    err = getDTNubAddressing( nub );
+#else
     if (isDTNub(nub))
         err = getDTNubAddressing( nub );
     else
-#endif
         err = getNubAddressing( nub );
+#endif
+
+
+    bool 
+    msiDefault = (false
+#if 0
+		    || (0 == strcmp("display", nub->getName()))
+		    || (0 == strcmp("GFX0", nub->getName()))
+		    || (0 == strcmp("PXS1", nub->getName()))	    // yukon
+		    || (0 == strcmp("HDEF", nub->getName()))
+		    || (0 == strcmp("SATA", nub->getName()))
+		    || (0 == strcmp("LAN0", nub->getName()))
+		    || (0 == strcmp("LAN1", nub->getName()))
+		    || (0 == strcmp("PXS2", nub->getName()))	    // airport
+		    || (0 == strcmp("PXS3", nub->getName()))	    // express
+#endif
+    );
+
+    IOService * provider = getProvider();
+    if (msiDefault)
+	resolveMSIInterrupts( provider, nub );
+    resolveLegacyInterrupts( provider, nub );
+    if (!msiDefault)
+	resolveMSIInterrupts( provider, nub );
 
     return (err);
 }
@@ -1731,11 +2206,219 @@ IOService * IOPCI2PCIBridge::probe( IOService * 	provider,
     return (this);
 }
 
+bool IOPCI2PCIBridge::serializeProperties( OSSerialize * serialize ) const
+{
+    return (super::serializeProperties(serialize));
+}
+
+bool IOPCI2PCIBridge::filterInterrupt( IOFilterInterruptEventSource * source)
+{
+    enum { kNeedMask = ((1 << 8) | (1 << 3)) };
+
+    uint16_t slotStatus = bridgeDevice->configRead16( fXpressCapability + 0x1a );
+    if (kNeedMask & slotStatus)
+	bridgeDevice->configWrite16( fXpressCapability + 0x1a, slotStatus );
+
+    return (0 != (kNeedMask & slotStatus));
+}
+
+void IOPCI2PCIBridge::handleInterrupt( IOInterruptEventSource * source,
+				     int                      count )
+{
+    bool present;
+
+    fHotplugCount++;
+
+    uint16_t slotStatus  = bridgeDevice->configRead16( fXpressCapability + 0x1a );
+    uint16_t linkStatus  = bridgeDevice->configRead16( fXpressCapability + 0x12 );
+    uint16_t linkControl = bridgeDevice->configRead16( fXpressCapability + 0x10 );
+
+    LOG("hotpInt (%d), slotStatus %x, linkStatus %x, linkControl %x\n",
+	    fHotplugCount, slotStatus, linkStatus, linkControl);
+
+    present = (0 != ((1 << 6) & slotStatus));
+    if (present && ((1 << 4) & linkControl))
+    {
+	LOG("enabling link\n");
+	linkControl &= ~(1 << 4);
+	bridgeDevice->configWrite16( fXpressCapability + 0x10, linkControl );
+	fWaitingLinkEnable = true;
+	present = false;
+    }
+    else if (!present && !((1 << 4) & linkControl))
+    {
+	if (fWaitingLinkEnable)
+	    fWaitingLinkEnable = false;
+	else
+	{
+	    LOG("disabling link\n");
+	    bridgeDevice->configWrite16( fXpressCapability + 0x10, linkControl | (1 << 4) );
+	}
+    }
+
+    if (fLinkChangeOnly)
+	return;
+
+    present &= (0 != ((1 << 13) & linkStatus));
+
+    if (fPresence == present)
+    {
+	if (present)
+	{
+	    IOService * dev = OSDynamicCast(IOService, bridgeDevice->getChildEntry(gIODTPlane));
+	    if (dev && kOSBooleanFalse == dev->getProperty(kIOPCIOnlineKey))
+	    {
+		LOG("eject-terminate %p\n", dev);    
+		dev->terminate();
+		LOG("did terminate %p\n", dev);    
+	    }
+	}
+	return;
+    }
+
+    bridgeDevice->removeProperty(kIOPCIConfiguredKey);
+
+    fPresence = present;
+    if (!present)
+    {
+	// not present
+	bridgeDevice->removeProperty(kIOPCIOnlineKey);
+	IOService * dev = OSDynamicCast(IOService, bridgeDevice->getChildEntry(gIODTPlane));
+	if (dev)
+	{
+	    LOG("hotp-terminate %p\n", dev);    
+	    dev->terminate();
+	    LOG("did terminate %p\n", dev);    
+	}
+    }
+    else
+    {
+	// present
+	bridgeDevice->setProperty(kIOPCIOnlineKey, true);
+
+#if 0
+	// /bus pad
+	if (fHotplugLastBus <= fHotplugFirstBus)
+	{
+	    fHotplugFirstBus = 36;
+	    fHotplugLastBus  = 40;
+
+	    uint32_t reg32 = bridgeDevice->configRead32(kPCI2PCIPrimaryBus);
+	    reg32 &= ~0x00ffff00;
+	    bridgeDevice->configWrite32(kPCI2PCIPrimaryBus, reg32 | (0xff << 8) | (0x00 << 16));
+	    reg32 |= (fHotplugFirstBus << 8) | (fHotplugLastBus << 16);
+	    bridgeDevice->configWrite32(kPCI2PCIPrimaryBus, reg32);
+
+	    fHotplugFirstBus = bridgeDevice->configRead8( kPCI2PCISecondaryBus );
+	    fHotplugLastBus  = bridgeDevice->configRead8( kPCI2PCISubordinateBus );
+	    LOG("making first bus %d, last bus %d\n", fHotplugFirstBus, fHotplugLastBus);    
+	}
+	// bus pad/
+#endif
+	IOSleep(1* 1000);
+	LOG("probeBus()\n");
+    	setProperty(kIOPCIResetKey, kOSBooleanTrue);
+	probeBus( bridgeDevice, firstBusNum() );
+    }
+}
+
+
+bool IOPCI2PCIBridge::start( IOService * provider )
+{
+    bool ok;
+
+    reserved = IONew(ExpansionData, 1);
+    if (reserved == 0) return (false);
+
+    bzero(reserved, sizeof(ExpansionData));
+
+    ok = super::start(provider);
+
+    if (ok && fBridgeInterruptSource)
+	changePowerStateTo(2);
+
+    return (ok);
+}
+
 bool IOPCI2PCIBridge::configure( IOService * provider )
 {
     UInt32	end;
     UInt32	start;
     bool 	ok;
+
+    IOByteCount offset = 0;
+
+    if (bridgeDevice->extendedFindPCICapability(kIOPCIPCIExpressCapability, &offset))
+	fXpressCapability = offset;
+
+    if (fXpressCapability)
+    do
+    {
+	IOReturn ret;
+
+	if (bridgeDevice->getProperty(kIOPCIHotPlugKey))
+	    setProperty(kIOPCIHotPlugKey, kOSBooleanTrue);
+	else if (bridgeDevice->getProperty(kIOPCILinkChangeKey))
+	{
+	    setProperty(kIOPCILinkChangeKey, kOSBooleanTrue);
+	    fLinkChangeOnly = true;
+	}
+	else
+	    break;
+
+	if (!gCommonWorkLoop)
+	    gCommonWorkLoop = IOWorkLoop::workLoop();
+	fWorkLoop = gCommonWorkLoop;
+	    
+	fBridgeInterruptSource = IOFilterInterruptEventSource::filterInterruptEventSource(
+                      this,
+		      OSMemberFunctionCast(IOInterruptEventSource::Action,
+					    this, &IOPCI2PCIBridge::handleInterrupt),
+		      OSMemberFunctionCast(IOFilterInterruptEventSource::Filter,
+					    this, &IOPCI2PCIBridge::filterInterrupt),
+                      provider, 0);
+	if (!fBridgeInterruptSource)
+	    break;
+
+        ret = fWorkLoop->addEventSource( fBridgeInterruptSource );
+	if (kIOReturnSuccess != ret)
+	    break;
+
+	uint16_t slotStatus  = bridgeDevice->configRead16( fXpressCapability + 0x1a );
+	uint16_t linkStatus  = bridgeDevice->configRead16( fXpressCapability + 0x12 );
+	uint16_t linkControl = bridgeDevice->configRead16( fXpressCapability + 0x10 );
+
+	LOG("hotp configure slotStatus %x, linkStatus %x, linkControl %x\n",
+	    slotStatus, linkStatus, linkControl);
+
+	fPresence = (0 != ((1 << 13) & linkStatus));
+	fPresence &= (0 != ((1 << 6) & slotStatus));
+	if (fPresence)
+	{
+	    if (!fLinkChangeOnly)
+		bridgeDevice->setProperty(kIOPCIOnlineKey, kOSBooleanTrue);
+	}
+	else if (!((1 << 4) & linkControl))
+	{
+	    LOG("disable link\n");
+	    linkControl |= (1 << 4);
+	    bridgeDevice->configWrite16( fXpressCapability + 0x10, linkControl );
+	}
+
+//	fHotplugFirstBus = bridgeDevice->configRead8( kPCI2PCISecondaryBus );
+//	fHotplugLastBus  = bridgeDevice->configRead8( kPCI2PCISubordinateBus );
+//	LOG("first bus %d, last bus %d\n", fHotplugFirstBus, fHotplugLastBus);    
+
+	fBridgeInterruptEnablePending = true;
+    }
+    while(false);
+
+    uint8_t secBus = bridgeDevice->configRead8( kPCI2PCISecondaryBus );
+    if (!secBus)
+    {
+	LOG("Bridge has secBus 0\n");
+	return (false);
+    }
 
     end = bridgeDevice->configRead32( kPCI2PCIMemoryRange );
     if (end)
@@ -1763,37 +2446,74 @@ bool IOPCI2PCIBridge::configure( IOService * provider )
 
     saveBridgeState();
     if (bridgeDevice->savedConfig)
-        bridgeDevice->savedConfig[kIOPCIConfigShadowFlags] |= kIOPCIConfigShadowBridge;
-
-    IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
-
-    UInt32 i;
-    for (i = 0;
-	 gIOAllPCI2PCIBridges[i] && (i < kIOPCIMaxPCI2PCIBridges);
-	 i++)	{}
-
-    if (i < kIOPCIMaxPCI2PCIBridges)
-	gIOAllPCI2PCIBridges[i] = this;
-
-    IOSimpleLockUnlock(gIOAllPCI2PCIBridgesLock);
+    {
+        configShadow(bridgeDevice)->flags |= kIOPCIConfigShadowBridge;
+        configShadow(bridgeDevice)->bridge = this;
+    }
 
     return (super::configure(provider));
 }
 
+void IOPCI2PCIBridge::probeBus( IOService * provider, UInt8 busNum )
+{
+    super::probeBus(provider, busNum);
+    
+    if (fBridgeInterruptEnablePending)
+    {
+	// enable hotp ints
+	uint16_t slotControl = bridgeDevice->configRead16( fXpressCapability + 0x18 );
+	bridgeDevice->configWrite16( fXpressCapability + 0x1a, 1 << 3 );
+	slotControl |= (1 << 12) | (1 << 5) | (1 << 3);
+	bridgeDevice->configWrite16( fXpressCapability + 0x18, slotControl );
+	fBridgeInterruptSource->enable();
+	fBridgeInterruptEnablePending = false;
+    }
+}
+
+IOReturn IOPCI2PCIBridge::requestProbe( IOOptionBits options )
+{
+    if (kIOPCIProbeOptionEject != options)
+	return (super::requestProbe(options));
+
+    if (!fBridgeInterruptSource || fBridgeInterruptEnablePending)
+	return (kIOReturnNotReady);
+
+    fBridgeInterruptSource->signalInterrupt();
+
+    return (kIOReturnSuccess);
+}
+
+IOReturn IOPCI2PCIBridge::setPowerState( unsigned long powerState,
+					    IOService * whatDevice )
+{
+
+    if (powerState && reserved && fBridgeInterruptSource && !fBridgeInterruptEnablePending)
+    {
+	fBridgeInterruptSource->signalInterrupt();
+    }
+
+    return (super::setPowerState(powerState, whatDevice));
+}
+
+void IOPCI2PCIBridge::stop( IOService * provider )
+{
+    if (reserved && fBridgeInterruptSource)
+    {
+       fBridgeInterruptSource->disable();
+
+       IOWorkLoop * tempWL = fBridgeInterruptSource->getWorkLoop();
+       if (tempWL)
+	   tempWL->removeEventSource(fBridgeInterruptSource);
+
+       fBridgeInterruptSource->release();
+       fBridgeInterruptSource = 0;
+    }
+
+    super::stop( provider);
+}
+
 void IOPCI2PCIBridge::free()
 {
-    IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
-
-    UInt32 i;
-    for (i = 0;
-	 (this != gIOAllPCI2PCIBridges[i]) && (i < kIOPCIMaxPCI2PCIBridges);
-	 i++)	{}
-
-    if (i < kIOPCIMaxPCI2PCIBridges)
-	gIOAllPCI2PCIBridges[i] = 0;
-
-    IOSimpleLockUnlock(gIOAllPCI2PCIBridgesLock);
-
     super::free();
 }
 
@@ -1895,28 +2615,81 @@ bool IOPCI2PCIBridge::publishNub( IOPCIDevice * nub, UInt32 index )
     return (super::publishNub(nub, index));
 }
 
+
+IOReturn IOPCIBridge::resolveMSIInterrupts( IOService * provider, IOPCIDevice * nub )
+{
+    IOReturn ret = kIOReturnUnsupported;
+
 #ifdef __i386__
 
-static void resolvePCIInterrupt( IOService * provider, IOPCIDevice * nub )
+    IOByteCount msi = nub->reserved->msiConfig;
+
+    if (msi) do
+    {
+	uint16_t control = nub->configRead16(msi + 2);
+	uint32_t numMessages;
+
+	if (kMSIX & nub->reserved->msiMode)
+	    numMessages = 1 + (0x7ff & control);
+	else
+	    numMessages = 1 << (0x7 & (control >> 1));
+
+	IOLockLock(gIOPCIMessagedInterruptControllerLock);
+
+	if (!gIOPCIMessagedInterruptController)
+	{
+	    enum {
+		// LAPIC_DEFAULT_INTERRUPT_BASE (mp.h)
+		kNumMessagedInterruptVectors = 0xD0 - 0x90
+	    };
+
+	    IOPCIMessagedInterruptController *
+	    ic = new IOPCIMessagedInterruptController;
+	    if (ic 
+		&& !ic->init(kNumMessagedInterruptVectors))
+	    {
+		ic->release();
+		ic = 0;
+	    }
+	    gIOPCIMessagedInterruptController = ic;
+	}
+
+	IOLockUnlock(gIOPCIMessagedInterruptControllerLock);
+
+	if (!gIOPCIMessagedInterruptController)
+	    continue;
+
+	ret = gIOPCIMessagedInterruptController->allocateDeviceInterrupts(this, nub, numMessages);
+    }
+    while (false);
+
+#endif /* __i386__ */
+
+    return (ret);
+}
+
+IOReturn IOPCIBridge::resolveLegacyInterrupts( IOService * provider, IOPCIDevice * nub )
 {
+#ifdef __i386__
+
     UInt32 pin;
     UInt32 irq = 0;
 
     pin = (UInt8)(nub->configRead32( kIOPCIConfigInterruptLine ) >> 8);
     if ( pin == 0 || pin > 4 )
-        return;  // assume no interrupt usage
+        return (kIOReturnUnsupported);  // assume no interrupt usage
 
     pin--;  // make pin zero based, INTA=0, INTB=1, INTC=2, INTD=3
 
     // Ask the platform driver to resolve the PCI interrupt route,
     // and return its corresponding system interrupt vector.
 
-    if ( provider->callPlatformFunction( "ResolvePCIInterrupt",
+    if ( kIOReturnSuccess == provider->callPlatformFunction( "ResolvePCIInterrupt",
                    /* waitForFunction */ false,
                    /* provider nub    */ provider,
                    /* device number   */ (void *) nub->space.s.deviceNum,
                    /* interrupt pin   */ (void *) pin,
-                   /* resolved IRQ    */ &irq ) == kIOReturnSuccess )
+                   /* resolved IRQ    */ &irq ))
     {
         if (1 & gIOPCIDebug)
             IOLog("%s: Resolved interrupt %ld (%d) for %s\n",
@@ -1929,7 +2702,7 @@ static void resolvePCIInterrupt( IOService * provider, IOPCIDevice * nub )
     else
     {
         irq = nub->configRead8( kIOPCIConfigInterruptLine );
-        if ( 0 == irq || 0xff == irq ) return;
+        if ( 0 == irq || 0xff == irq ) return (kIOReturnUnsupported);
         irq &= 0xf;  // what about IO-APIC and irq > 15?
     }
 
@@ -1939,6 +2712,10 @@ static void resolvePCIInterrupt( IOService * provider, IOPCIDevice * nub )
               /* vectors         */ (void *) &irq,
               /* vectorCount     */ (void *) 1,
               /* exclusive       */ (void *) false );
-}
 
 #endif /* __i386__ */
+
+    return (kIOReturnSuccess);
+}
+
+

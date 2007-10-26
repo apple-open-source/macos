@@ -125,4 +125,4 @@ int dsreference_equal(dsreference *, dsreference *);
  */
 dsreference *dsrecord_to_dsreference(dsrecord *);
 
-#endif __DSREFERENCE_H__
+#endif /* __DSREFERENCE_H__ */

@@ -115,15 +115,15 @@ int pptp_send(int fd, u_int16_t msg, void *req, u_int16_t reqlen, char *text)
     }
 
     bzero(hdr, sizeof(*hdr));
-    hdr->len = sizeof(*hdr) + reqlen;
-    hdr->pptp_msgtype = PPTP_CONTROL_MSG;
-    hdr->magic_cookie = PPTP_MAGIC_COOKIE;
-    hdr->ctrl_msgtype = msg;
+    hdr->len = htons(sizeof(*hdr) + reqlen);
+    hdr->pptp_msgtype = htons(PPTP_CONTROL_MSG);
+    hdr->magic_cookie = htonl(PPTP_MAGIC_COOKIE);
+    hdr->ctrl_msgtype = htons(msg);
 
     bcopy(req, buf + sizeof(*hdr), reqlen);
 
     sent = 0;
-    while ((n = write(fd, buf + sent, hdr->len - sent)) != (hdr->len - sent)) {
+    while ((n = write(fd, buf + sent, ntohs(hdr->len) - sent)) != (ntohs(hdr->len) - sent)) {
 	if (n == -1 && errno != EINTR) {
             error("PPTP error when sending %s : %m\n", text);
             return -1;
@@ -177,7 +177,7 @@ int pptp_recv(int fd, u_int16_t msg, void *rep, u_int16_t replen, char *text)
             error("PPTP error when reading header for %s : %m\n", text);
         return -1;
     }
-    if (hdr.ctrl_msgtype != msg) {
+    if (ntohs(hdr.ctrl_msgtype) != msg) {
         error("PPTP didn't get %s (got message : %d)\n", text, hdr.ctrl_msgtype);
         return -3;
     }
@@ -206,9 +206,9 @@ int pptp_outgoing_call(int fd,
         
     /* send the start request */
     bzero(&ctl_req, sizeof(ctl_req));
-    ctl_req.proto_vers = PPTP_VERSION;
-    ctl_req.framing_caps = PPTP_ASYNC_FRAMING;
-    ctl_req.bearer_caps = PPTP_ANALOG_ACCESS;
+    ctl_req.proto_vers = htons(PPTP_VERSION);
+    ctl_req.framing_caps = htonl(PPTP_ASYNC_FRAMING);
+    ctl_req.bearer_caps = htonl(PPTP_ANALOG_ACCESS);
     if (err = pptp_send(fd, PPTP_START_CONTROL_CONNECTION_REQUEST, &ctl_req, sizeof(ctl_req), "start_control_connection_request")) {
         if (err == -2)
             return -2;
@@ -224,20 +224,20 @@ int pptp_outgoing_call(int fd,
             return EXIT_PPTP_PROTOCOLERROR;
         return -1;
     }
-    if (ctl_reply.result_code != PPTP_RESULT_SUCCESS) {
+    if (ctl_reply.result_code != PPTP_RESULT_SUCCESS && ctl_reply.result_code != 0 /* radar 4395192 */) {
         error("PPTP start_connection_control request failed, got result = %d, error = %d\n", ctl_reply.result_code, ctl_reply.error_code);
-        return EXIT_PPTP_STARTFAILED;
+        return EXIT_PPTP_PROTOCOLERROR;
     }
 
     /* send the outgoing call request */
     bzero(&out_req, sizeof(out_req));
-    out_req.call_id = ourcallid;
-    out_req.min_bps = 0x12c;	// ???
-    out_req.max_bps = 0x5f5e100;	// ???
-    out_req.bearer_type = PPTP_ANALOG_ACCESS + PPTP_DIGITAL_ACCESS;
-    out_req.framing_type = PPTP_ASYNC_FRAMING + PPTP_SYNC_FRAMING;
-    out_req.recv_window = ourwindow;
-    out_req.processing_delay = ourppd;
+    out_req.call_id = htons(ourcallid);
+    out_req.min_bps = htonl(0x12c);	// ???
+    out_req.max_bps = htonl(0x5f5e100);	// ???
+    out_req.bearer_type = htonl(PPTP_ANALOG_ACCESS + PPTP_DIGITAL_ACCESS);
+    out_req.framing_type = htonl(PPTP_ASYNC_FRAMING + PPTP_SYNC_FRAMING);
+    out_req.recv_window = htons(ourwindow);
+    out_req.processing_delay = htons(ourppd);
     if (err = pptp_send(fd, PPTP_OUTGOING_CALL_REQUEST, &out_req, sizeof(out_req), "outgoing_call_request")) {
         if (err == -2)
             return -2;
@@ -255,19 +255,19 @@ int pptp_outgoing_call(int fd,
     }
     if (out_reply.result_code != PPTP_OUTGOING_CALL_RESULT_CONNECTED) {
         error("PPTP outgoing_call request failed, got result = %d, error = %d\n", out_reply.result_code, out_reply.error_code);
-        return EXIT_PPTP_STARTFAILED;
+        return EXIT_PPTP_PROTOCOLERROR;
     }
 
     /* call succedeed ! */
-    *peercallid = out_reply.call_id;
-    *peerwindow = out_reply.recv_window;
-    *peerppd = out_reply.processing_delay;
+    *peercallid = ntohs(out_reply.call_id);
+    *peerwindow = ntohs(out_reply.recv_window);
+    *peerppd = ntohs(out_reply.processing_delay);
     
     /* send set_link_info */
     bzero(&link_info, sizeof(link_info));
-    link_info.peer_call_id = *peercallid;
-    link_info.send_accm = 0xFFFFFFFF;
-    link_info.recv_accm = 0xFFFFFFFF;
+    link_info.peer_call_id = htons(*peercallid);
+    link_info.send_accm = htonl(0xFFFFFFFF);
+    link_info.recv_accm = htonl(0xFFFFFFFF);
     if (err = pptp_send(fd, PPTP_SET_LINK_INFO, &link_info, sizeof(link_info), "set_link_info_request")) {
         if (err == -2)
             return -2;
@@ -296,12 +296,12 @@ int pptp_incoming_call(int fd,
     
     /* send the start control reply */
     bzero(&ctl_reply, sizeof(ctl_reply));
-    ctl_reply.proto_vers = PPTP_VERSION;
+    ctl_reply.proto_vers = htons(PPTP_VERSION);
     ctl_reply.result_code = PPTP_RESULT_SUCCESS;
-    ctl_reply.framing_caps = PPTP_ASYNC_FRAMING | PPTP_SYNC_FRAMING;
-    ctl_reply.bearer_caps = PPTP_ANALOG_ACCESS | PPTP_DIGITAL_ACCESS;
-    ctl_reply.max_channels = 1;
-    ctl_reply.firmware_rev = 1;
+    ctl_reply.framing_caps = htonl(PPTP_ASYNC_FRAMING | PPTP_SYNC_FRAMING);
+    ctl_reply.bearer_caps = htonl(PPTP_ANALOG_ACCESS | PPTP_DIGITAL_ACCESS);
+    ctl_reply.max_channels = htons(1);
+    ctl_reply.firmware_rev = htons(1);
     gethostname(ctl_reply.hostname, 64);
     strcpy(ctl_reply.vendor, PPTP_VENDOR);
     if (pptp_send(fd, PPTP_START_CONTROL_CONNECTION_REPLY, &ctl_reply, sizeof(ctl_reply), "start_control_connection_reply"))
@@ -313,18 +313,19 @@ int pptp_incoming_call(int fd,
         return -1;
     }
 
-    *peercallid = out_req.call_id;
-    *peerwindow = out_req.recv_window;
-    *peerppd = out_req.processing_delay;
+    *peercallid = ntohs(out_req.call_id);
+    *peerwindow = ntohs(out_req.recv_window);
+    *peerppd = ntohs(out_req.processing_delay);
 
     /* send the outgoing call reply */
     bzero(&out_reply, sizeof(out_reply));
-    out_reply.call_id = ourcallid;
-    out_reply.peer_call_id = *peercallid;
+    out_reply.call_id = htons(ourcallid);
+    out_reply.peer_call_id = htons(*peercallid);
     out_reply.result_code = PPTP_OUTGOING_CALL_RESULT_CONNECTED;
+	// Already in network byte order
     out_reply.connect_speed = out_req.max_bps; // ???
-    out_reply.recv_window = ourwindow;
-    out_reply.processing_delay = ourppd;
+    out_reply.recv_window = htons(ourwindow);
+    out_reply.processing_delay = htons(ourppd);
     if (pptp_send(fd, PPTP_OUTGOING_CALL_REPLY, &out_reply, sizeof(out_reply), "outgoing_call_reply")) {
         return -1;
     }
@@ -340,7 +341,7 @@ int pptp_echo(int fd, u_int32_t identifier)
     int 				err;
         
     /* send the echo request */
-    echo_req.identifier = identifier;
+    echo_req.identifier = htonl(identifier);
     if (err = pptp_send(fd, PPTP_ECHO_REQUEST, &echo_req, sizeof(echo_req), "echo_request")) {
         if (err == -2)
             return -2;
@@ -364,7 +365,7 @@ int pptp_data_in(int fd)
         return -1;
     }
         
-    switch (header.ctrl_msgtype) {
+    switch (ntohs(header.ctrl_msgtype)) {
         case PPTP_ECHO_REQUEST:
             // read the identifier
             if ((err = read(fd, &echo_req, sizeof(echo_req))) != sizeof(echo_req)) {
@@ -373,6 +374,7 @@ int pptp_data_in(int fd)
                 return -1;
             }
             bzero(&echo_reply, sizeof(echo_reply));
+			// Already in network byte order
             echo_reply.identifier = echo_req.identifier;
             echo_reply.result_code = PPTP_RESULT_SUCCESS;
             if (pptp_send(fd, PPTP_ECHO_REPLY, &echo_reply, sizeof(echo_reply), "echo_reply")) {
@@ -387,7 +389,7 @@ int pptp_data_in(int fd)
                     error("PPTP error when reading echo echo_reply : %m\n");
                 return -1;
             }
-            pptp_received_echo_reply(echo_reply.identifier, echo_reply.result_code, echo_reply.error_code);
+            pptp_received_echo_reply(ntohl(echo_reply.identifier), echo_reply.result_code, echo_reply.error_code);
             break;
             
         case PPTP_SET_LINK_INFO:
@@ -411,12 +413,12 @@ int pptp_data_in(int fd)
         case PPTP_CALL_CLEAR_REQUEST:
         case PPTP_CALL_DISCONNECT_NOTIFY:
         case PPTP_WAN_ERROR_NOTIFY:
-            dbglog("PPTP received %s message\n", control_msgs[header.ctrl_msgtype]);
+            dbglog("PPTP received %s message\n", control_msgs[ntohs(header.ctrl_msgtype)]);
             break;
 
         default:
 	    if (header.ctrl_msgtype)
-	        error("PPTP received unexpected message type = %d\n", header.ctrl_msgtype);
+	        error("PPTP received unexpected message type = %d\n", ntohs(header.ctrl_msgtype));
             //return -1; // do we disconnect ???
     }
     

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,6 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -34,13 +33,13 @@
 
 #define ACL_MIN_SIZE_HEURISTIC (sizeof(struct kauth_filesec) + 16 * sizeof(struct kauth_ace))
 
-static int	statx_syscall(void *obj, struct stat *sb, void *fsacl, size_t *fsacl_size);
-static int	fstatx_syscall(void *obj, struct stat *sb, void *fsacl, size_t *fsacl_size);
-static int	lstatx_syscall(void *obj, struct stat *sb, void *fsacl, size_t *fsacl_size);
+static int	statx_syscall(void *obj, void  *sbptr, void *fsacl, size_t *fsacl_size);
+static int	fstatx_syscall(void *obj, void  *sbptr, void *fsacl, size_t *fsacl_size);
+static int	lstatx_syscall(void *obj, void  *sbptr, void *fsacl, size_t *fsacl_size);
 
 static int	statx1(void *obj,
-		       int (* stat_syscall)(void *obj, struct stat *sb, void *fsacl, size_t *fsacl_size),
-		       struct stat *sb, filesec_t fsec);
+		       int (* stat_syscall)(void *obj, void *sbptr, void *fsacl, size_t *fsacl_size),
+		       void *sbptr, filesec_t fsec);
 
 /*
  * Stat interfaces.
@@ -50,7 +49,7 @@ statx_np(const char *path, struct stat *sb, filesec_t fsec)
 {
 	if (fsec == NULL)
 		return(stat(path, sb));
-	return(statx1((void *)&path, statx_syscall, sb, fsec));
+	return(statx1((void *)&path, statx_syscall, (void *)sb, fsec));
 }
 
 int
@@ -58,7 +57,7 @@ fstatx_np(int fd, struct stat *sb, filesec_t fsec)
 {
 	if (fsec == NULL)
 		return(fstat(fd, sb));
-	return(statx1((void *)&fd, fstatx_syscall, sb, fsec));
+	return(statx1((void *)&fd, fstatx_syscall, (void *)sb, fsec));
 }
 
 int
@@ -66,32 +65,74 @@ lstatx_np(const char *path, struct stat *sb, filesec_t fsec)
 {
 	if (fsec == NULL)
 		return(lstat(path, sb));
-	return(statx1((void *)&path, lstatx_syscall, sb, fsec));
+	return(statx1((void *)&path, lstatx_syscall, (void *)sb, fsec));
 }
+
+
+#if __DARWIN_64_BIT_INO_T
+int
+statx64_np(const char *path, struct stat64 *sb, filesec_t fsec)
+{
+	return(statx_np(path, (struct stat *)sb, fsec));
+}
+
+int
+fstatx64_np(int fd, struct stat64 *sb, filesec_t fsec)
+{
+	return(fstatx_np(fd, (struct stat *)sb, fsec));
+}
+
+int
+lstatx64_np(const char *path, struct stat64 *sb, filesec_t fsec)
+{
+	return(lstatx_np(path, (struct stat *)sb, fsec));
+}
+#endif /* __DARWIN_64_BIT_INO_T */
 
 /*
  * Stat syscalls
  */
+#if __DARWIN_64_BIT_INO_T
+extern int __fstat64_extended(int, struct stat *, void *, size_t *);
+extern int __lstat64_extended(const char *, struct stat *, void *, size_t *);
+extern int __stat64_extended(const char *, struct stat *, void *, size_t *);
+#else /* !__DARWIN_64_BIT_INO_T */
+extern int __fstat_extended(int, struct stat *, void *, size_t *);
+extern int __lstat_extended(const char *, struct stat *, void *, size_t *);
+extern int __stat_extended(const char *, struct stat *, void *, size_t *);
+#endif /* __DARWIN_64_BIT_INO_T */
+
 static int
-statx_syscall(void *obj, struct stat *sb, void *fsacl, size_t *fsacl_size)
+statx_syscall(void *obj, void  *sb, void *fsacl, size_t *fsacl_size)
 {
 	const char *path = *(const char **)obj;
-
-	return(syscall(SYS_stat_extended, path, sb, fsacl, fsacl_size));
+#if __DARWIN_64_BIT_INO_T
+	return(__stat64_extended(path, (struct stat *)sb, fsacl, fsacl_size));
+#else /* !__DARWIN_64_BIT_INO_T */
+	return(__stat_extended(path, (struct stat *)sb, fsacl, fsacl_size));
+#endif /* __DARWIN_64_BIT_INO_T */
 }
 
 static int
-fstatx_syscall(void *obj, struct stat *sb, void *fsacl, size_t *fsacl_size)
+fstatx_syscall(void *obj, void  *sb, void *fsacl, size_t *fsacl_size)
 {
 	int fd = *(int *)obj;
-	return(syscall(SYS_fstat_extended, fd, sb, fsacl, fsacl_size));
+#if __DARWIN_64_BIT_INO_T
+	return(__fstat64_extended(fd, (struct stat *)sb, fsacl, fsacl_size));
+#else /* !__DARWIN_64_BIT_INO_T */
+	return(__fstat_extended(fd, (struct stat *)sb, fsacl, fsacl_size));
+#endif /* __DARWIN_64_BIT_INO_T */
 }
 
 static int
-lstatx_syscall(void *obj, struct stat *sb, void *fsacl, size_t *fsacl_size)
+lstatx_syscall(void *obj, void  *sb, void *fsacl, size_t *fsacl_size)
 {
 	const char *path = *(const char **)obj;
-	return(syscall(SYS_lstat_extended, path, sb, fsacl, fsacl_size));
+#if __DARWIN_64_BIT_INO_T
+	return(__lstat64_extended(path, (struct stat *)sb, fsacl, fsacl_size));
+#else /* !__DARWIN_64_BIT_INO_T */
+	return(__lstat_extended(path, (struct stat *)sb, fsacl, fsacl_size));
+#endif /* __DARWIN_64_BIT_INO_T */
 }
 
 /*
@@ -99,16 +140,19 @@ lstatx_syscall(void *obj, struct stat *sb, void *fsacl, size_t *fsacl_size)
  */
 static int
 statx1(void *obj,
-    int (* stat_syscall)(void *obj, struct stat *sb, void *fsacl, size_t *fsacl_size),
-    struct stat *sb, filesec_t fsec)
+    int (* stat_syscall)(void *obj, void *sbptr, void *fsacl, size_t *fsacl_size),
+    void  *sbptr, filesec_t fsec)
 {
 	struct kauth_filesec *fsacl, *ofsacl;
 	size_t fsacl_size, buffer_size;
 	int error;
+	struct stat * sb = (struct stat *)0;
 
 	fsacl = NULL;
 	error = 0;
 	
+	sb = (struct stat *)sbptr;
+		
 	/*
 	 * Allocate an initial buffer.
 	 */
@@ -123,7 +167,8 @@ statx1(void *obj,
 	 */
 	for (;;) {
 		fsacl_size = buffer_size;
-		if ((error = stat_syscall(obj, sb, fsacl, &fsacl_size)) != 0)
+
+		if ((error = stat_syscall(obj, sbptr, fsacl, &fsacl_size)) != 0)
 			goto out;
 
 		/*

@@ -7,6 +7,7 @@ tst	dll_DYNAMIC link{
 	#include <sys/types.h>
 	#include <link.h>
 	extern struct link_dynamic _DYNAMIC;
+	int
 	main()
 	{
 		return _DYNAMIC.ld_version;
@@ -80,6 +81,7 @@ tst	- output{
 	#if _hdr_rld_interface
 	#include <rld_interface.h>
 	#endif
+	int
 	main()
 	{
 		int		i;

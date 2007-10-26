@@ -1,0 +1,28 @@
+/^BUILDEXE/c
+BUILDEXE = .exe
+.
+/^OTHER_LIBTOOL_OPT/c
+OTHER_LIBTOOL_OPT =
+.
+/setup\.py -q/s//setup.py/
+s/$(CC)/& $(RC_CFLAGS)/
+g/builddir=\. DESTDIR=$(DESTDIR)$/s//& prefix=$(prefix)/
+/^frameworkinstallapps:$/c
+# Temporarily replace EasyDialogs.py with an empty file, so that it won't talk
+# to the Window Server (and fail if CoreGraphics versions don't match)
+frameworkinstallapps:
+	@for i in $(DESTDIR)$(LIBP)/plat-mac/EasyDialogs.py*; do \
+		echo mv $$i $$i.bak; \
+		mv -f $$i $$i.bak; \
+	done
+	touch $(DESTDIR)$(LIBP)/plat-mac/EasyDialogs.py
+.
+/BUILDPYTHON=\./s//PYTHONHOME=$(DESTDIR)$(prefix) &/
+/^$/i
+	@for i in $(DESTDIR)$(LIBP)/plat-mac/EasyDialogs.py*.bak; do \
+		j=`echo $$i | sed 's/\.bak$$//'`; \
+		echo mv $$i $$j; \
+		mv -f $$i $$j; \
+	done
+.
+w

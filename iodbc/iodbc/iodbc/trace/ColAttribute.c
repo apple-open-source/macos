@@ -1,20 +1,24 @@
 /*
  *  ColAttribute.c
  *
- *  $Id: ColAttribute.c,v 1.2 2004/11/11 01:52:38 luesang Exp $
+ *  $Id: ColAttribute.c,v 1.7 2006/01/20 15:58:35 source Exp $
  *
  *  SQLColAttribute trace functions
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1996-2003 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -69,6 +73,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "trace.h"
 
 
@@ -104,6 +109,7 @@ _trace_colattr2_type (SQLUSMALLINT type)
 }
 
 
+#if ODBCVER >= 0x0300
 void
 _trace_colattr3_type (SQLUSMALLINT type)
 {
@@ -143,7 +149,10 @@ _trace_colattr3_type (SQLUSMALLINT type)
 
   trace_emit ("\t\t%-15.15s   %d (%s)\n", "SQLUSMALLINT ", (int) type, ptr);
 }
+#endif
 
+
+#if ODBCVER >= 0x0300
 static void
 _trace_colattr3_data (
   SQLUSMALLINT		  FieldIdentifier,
@@ -312,8 +321,10 @@ _trace_colattr3_data (
 
   return;
 }
+#endif
 
 
+#if ODBCVER >= 0x0300
 void
 trace_SQLColAttribute (int trace_leave, int retcode,
   SQLHSTMT		  StatementHandle,
@@ -336,8 +347,10 @@ trace_SQLColAttribute (int trace_leave, int retcode,
   _trace_colattr3_data (FieldIdentifier, CharacterAttributePtr, BufferLength,
       StringLengthPtr, NumericAttributePtr, 0, TRACE_OUTPUT_SUCCESS);
 }
+#endif
 
 
+#if ODBCVER >= 0x0300
 void
 trace_SQLColAttributeW (int trace_leave, int retcode,
   SQLHSTMT		  StatementHandle,
@@ -360,6 +373,7 @@ trace_SQLColAttributeW (int trace_leave, int retcode,
   _trace_colattr3_data (FieldIdentifier, CharacterAttributePtr, BufferLength,
       StringLengthPtr, NumericAttributePtr, 1, TRACE_OUTPUT_SUCCESS);
 }
+#endif
 
 
 void
@@ -373,7 +387,7 @@ trace_SQLColAttributes (int trace_leave, int retcode,
   SQLLEN		* pfDesc)
 {
   /* Trace function */
-  _trace_print_function (en_ColAttribute, trace_leave, retcode);
+  _trace_print_function (en_ColAttributes, trace_leave, retcode);
 
   /* Trace Arguments */
   _trace_handle (SQL_HANDLE_STMT, StatementHandle);
@@ -386,6 +400,7 @@ trace_SQLColAttributes (int trace_leave, int retcode,
 }
 
 
+#if ODBCVER >= 0x0300
 void
 trace_SQLColAttributesW (int trace_leave, int retcode,
   SQLHSTMT		  StatementHandle,
@@ -408,3 +423,4 @@ trace_SQLColAttributesW (int trace_leave, int retcode,
   _trace_smallint_p (pcbDesc, TRACE_OUTPUT_SUCCESS);
   _trace_len_p (pfDesc, TRACE_OUTPUT_SUCCESS);
 }
+#endif

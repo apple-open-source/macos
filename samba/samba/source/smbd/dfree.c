@@ -21,8 +21,9 @@
 #include "includes.h"
 
 /****************************************************************************
-normalise for DOS usage 
+ Normalise for DOS usage.
 ****************************************************************************/
+
 static void disk_norm(BOOL small_query, SMB_BIG_UINT *bsize,SMB_BIG_UINT *dfree,SMB_BIG_UINT *dsize)
 {
 	/* check if the disk is beyond the max disk size */
@@ -36,11 +37,11 @@ static void disk_norm(BOOL small_query, SMB_BIG_UINT *bsize,SMB_BIG_UINT *dfree,
 		   errors */
 	}  
 
-	while (*dfree > WORDMAX || *dsize > WORDMAX || *bsize < 512) {
-		*dfree /= 2;
-		*dsize /= 2;
-		*bsize *= 2;
-		if(small_query) {	
+	if(small_query) {	
+		while (*dfree > WORDMAX || *dsize > WORDMAX || *bsize < 512) {
+			*dfree /= 2;
+			*dsize /= 2;
+			*bsize *= 2;
 			/*
 			 * Force max to fit in 16 bit fields.
 			 */
@@ -59,17 +60,17 @@ static void disk_norm(BOOL small_query, SMB_BIG_UINT *bsize,SMB_BIG_UINT *dfree,
 
 
 /****************************************************************************
-  return number of 1K blocks available on a path and total number 
+ Return number of 1K blocks available on a path and total number.
 ****************************************************************************/
 
-static SMB_BIG_UINT disk_free(const char *path, BOOL small_query, 
+SMB_BIG_UINT sys_disk_free(connection_struct *conn, const char *path, BOOL small_query, 
                               SMB_BIG_UINT *bsize,SMB_BIG_UINT *dfree,SMB_BIG_UINT *dsize)
 {
-	int dfree_retval;
+	SMB_BIG_UINT dfree_retval;
 	SMB_BIG_UINT dfree_q = 0;
 	SMB_BIG_UINT bsize_q = 0;
 	SMB_BIG_UINT dsize_q = 0;
-	char *dfree_command;
+	const char *dfree_command;
 
 	(*dfree) = (*dsize) = 0;
 	(*bsize) = 512;
@@ -78,7 +79,7 @@ static SMB_BIG_UINT disk_free(const char *path, BOOL small_query,
 	 * If external disk calculation specified, use it.
 	 */
 
-	dfree_command = lp_dfree_command();
+	dfree_command = lp_dfree_command(SNUM(conn));
 	if (dfree_command && *dfree_command) {
 		const char *p;
 		char **lines;
@@ -115,10 +116,19 @@ static SMB_BIG_UINT disk_free(const char *path, BOOL small_query,
 		} else {
 			DEBUG (0, ("disk_free: sys_popen() failed for command %s. Error was : %s\n",
 				syscmd, strerror(errno) ));
-			sys_fsusage(path, dfree, dsize);
+			if (sys_fsusage(path, dfree, dsize) != 0) {
+				DEBUG (0, ("disk_free: sys_fsusage() failed. Error was : %s\n",
+					strerror(errno) ));
+				return (SMB_BIG_UINT)-1;
+			}
 		}
-	} else
-		sys_fsusage(path, dfree, dsize);
+	} else {
+		if (sys_fsusage(path, dfree, dsize) != 0) {
+			DEBUG (0, ("disk_free: sys_fsusage() failed. Error was : %s\n",
+				strerror(errno) ));
+			return (SMB_BIG_UINT)-1;
+		}
+	}
 
 	if (disk_quotas(path, &bsize_q, &dfree_q, &dsize_q)) {
 		(*bsize) = bsize_q;
@@ -153,12 +163,54 @@ static SMB_BIG_UINT disk_free(const char *path, BOOL small_query,
 	return(dfree_retval);
 }
 
-
 /****************************************************************************
-wrap it to get filenames right
+ Potentially returned cached dfree info.
 ****************************************************************************/
-SMB_BIG_UINT sys_disk_free(const char *path, BOOL small_query, 
-                           SMB_BIG_UINT *bsize,SMB_BIG_UINT *dfree,SMB_BIG_UINT *dsize)
+
+SMB_BIG_UINT get_dfree_info(connection_struct *conn,
+			const char *path,
+			BOOL small_query,
+			SMB_BIG_UINT *bsize,
+			SMB_BIG_UINT *dfree,
+			SMB_BIG_UINT *dsize)
 {
-	return disk_free(path,small_query, bsize,dfree,dsize);
+	int dfree_cache_time = lp_dfree_cache_time(SNUM(conn));
+	struct dfree_cached_info *dfc = conn->dfree_info;
+	SMB_BIG_UINT dfree_ret;
+
+	if (!dfree_cache_time) {
+		return SMB_VFS_DISK_FREE(conn,path,small_query,bsize,dfree,dsize);
+	}
+
+	if (dfc && (conn->lastused - dfc->last_dfree_time < dfree_cache_time)) {
+		/* Return cached info. */
+		*bsize = dfc->bsize;
+		*dfree = dfc->dfree;
+		*dsize = dfc->dsize;
+		return dfc->dfree_ret;
+	}
+
+	dfree_ret = SMB_VFS_DISK_FREE(conn,path,small_query,bsize,dfree,dsize);
+
+	if (dfree_ret == (SMB_BIG_UINT)-1) {
+		/* Don't cache bad data. */
+		return dfree_ret;
+	}
+
+	/* No cached info or time to refresh. */
+	if (!dfc) {
+		dfc = TALLOC_P(conn->mem_ctx, struct dfree_cached_info);
+		if (!dfc) {
+			return dfree_ret;
+		}
+		conn->dfree_info = dfc;
+	}
+
+	dfc->bsize = *bsize;
+	dfc->dfree = *dfree;
+	dfc->dsize = *dsize;
+	dfc->dfree_ret = dfree_ret;
+	dfc->last_dfree_time = conn->lastused;
+
+	return dfree_ret;
 }

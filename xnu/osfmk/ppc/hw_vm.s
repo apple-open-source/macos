@@ -1,23 +1,29 @@
 /*
  * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 #include <assym.s>
 #include <debug.h>
@@ -264,9 +270,16 @@ hamGotX:	mr		r3,r28						; Get the pmap to insert into
 			lhz		r8,mpSpace(r31)				; Get the address space
 			lwz		r11,lgpPcfg(r11)			; Get the page config
 			mfsdr1	r7							; Get the hash table base/bounds
+
 			lwz		r4,pmapResidentCnt(r28)		; Get the mapped page count 
+			lwz	r12,pmapResidentMax(r28)		; r12 = pmap->stats.resident_max
+			addi	r4,r4,1						; Bump up the mapped page count
+			stw		r4,pmapResidentCnt(r28)		; Set the mapped page count
+			cmplw	r12,r4					; if pmap->stats.resident_max >= pmap->stats.resident_count
+			bge+	hamSkipMax				;	goto hamSkipResMax
+			stw	r4,pmapResidentMax(r28)			; pmap->stats.resident_max = pmap->stats.resident_count
 			
-			andi.	r0,r24,mpType				; Is this a normal mapping?
+hamSkipMax:		andi.	r0,r24,mpType				; Is this a normal mapping?
 
 			rlwimi	r8,r8,14,4,17				; Double address space
 			rlwinm	r9,r30,0,4,31				; Clear segment
@@ -274,10 +287,9 @@ hamGotX:	mr		r3,r28						; Get the pmap to insert into
 			rlwimi	r8,r8,28,0,3				; Get the last nybble of the hash
 			rlwimi	r10,r29,18,0,13				; Shift EA[18:31] down to VSID (31-bit math works because of max hash table size)			
 			rlwinm	r7,r7,0,16,31				; Isolate length mask (or count)
-			addi	r4,r4,1						; Bump up the mapped page count
 			srw		r9,r9,r11					; Isolate just the page index
 			xor		r10,r10,r8					; Calculate the low 32 bits of the VSID
-			stw		r4,pmapResidentCnt(r28)		; Set the mapped page count 
+
 			xor		r9,r9,r10					; Get the hash to the PTEG
 			
 			bne--	hamDoneNP					; Not a normal mapping, therefore, no physent...
@@ -2868,17 +2880,19 @@ hwpSPrtPhy: cmplw	r0,r0						; Make sure we return CR0_EQ
 
 ;			Function 2 - Set protection in mapping
 
+;			NOTE: Changes to no-execute permission are ignored
+
 			.set	.,hwpOpBase+(2*128)			; Generate error if previous function too long
 
 hwpSPrtMap:	lwz		r9,mpFlags(r31)				; Get the mapping flags
 			lwz		r8,mpVAddr+4(r31)			; Get the protection part of mapping
 			rlwinm.	r9,r9,0,mpPermb,mpPermb		; Is the mapping permanent?
-			li		r0,lo16(mpN|mpPP)			; Get no-execute and protection bits
+			li		r0,lo16(mpPP)				; Get protection bits
 			crnot	cr0_eq,cr0_eq				; Change CR0_EQ to true if mapping is permanent
-			rlwinm	r2,r25,0,mpNb-32,mpPPe-32	; Isolate new no-execute and protection bits 
+			rlwinm	r2,r25,0,mpPP				; Isolate new protection bits 
 			beqlr--								; Leave if permanent mapping (before we trash R5)...
-			andc	r5,r5,r0					; Clear the old no-execute and prot bits
-			or		r5,r5,r2					; Move in the new no-execute and prot bits
+			andc	r5,r5,r0					; Clear the old prot bits
+			or		r5,r5,r2					; Move in the new prot bits
 			rlwimi	r8,r5,0,20,31				; Copy into the mapping copy
 			cmpw	r0,r0						; Make sure we return CR0_EQ
 			stw		r8,mpVAddr+4(r31)			; Set the flag part of mapping
@@ -5456,7 +5470,7 @@ isInv1:		lwz		r4,pmapCCtl(r3)				; Get the segment cache control
 ;				We are in the exception vectors
 ;				pf64Bitb is set up
 ;				R3 contains the MSR we going to
-;				We can not use R4, R13, R20, R21, R29
+;				We can not use R4, R13, R20, R21, R25, R26, R29
 ;				R13 is the savearea
 ;				R29 has the per_proc
 ;

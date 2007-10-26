@@ -301,8 +301,8 @@ long int qsearch (int alpha, int beta, int depth) {
 	      oldtime = time_for_move;
 	      time_for_move += allocate_time();
 	      printf("Extended from %d to %d, time left %d\n", oldtime,
-		     time_for_move, 
-		     time_left);
+		     (int)time_for_move, 
+		     (int)time_left);
 	    }
 	  else
 	    {
@@ -512,8 +512,8 @@ long int search (int alpha, int beta, int depth, int is_null) {
 	    oldtime = time_for_move;
 	    time_for_move += allocate_time();
 	    printf("Extended from %d to %d, time left %d\n", oldtime,
-		   time_for_move, 
-		   time_left);
+		   (int)time_for_move, 
+		   (int)time_left);
 	  }
 	else
 	  {
@@ -1626,12 +1626,13 @@ restart:
      }
    else
      {
-       time_for_move = 999999;
+	/* Pondering is pretty audible on newer macs and has limited benefits, so limit to level time */
+       time_for_move = fixed_time ? fixed_time : 999999;
      };
 
    if (pn_restart) time_for_move = (float)time_for_move * (float)2/((float)pn_restart+1.0);
    
-   printf("Time for move : %d\n", time_for_move);
+   printf("Time for move : %d\n", (int)time_for_move);
    
    if (time_for_move > 50)
      LoadLearn();
@@ -1882,7 +1883,7 @@ restart:
   }
   elapsed = rdifftime (rtime (), start_time);
   
-  printf("Used time : %d\n", elapsed);
+  printf("Used time : %d\n", (int)elapsed);
   
   /* update our elapsed time_cushion: */
   if (moves_to_tc && !is_pondering) {
@@ -1942,7 +1943,7 @@ restart:
 		 ((float)FHF*100)/((float)(FH+1)),
 //		 ((float)PVS*100)/((float)FULL+1),
 //		 ((float)PVSF*100)/((float)PVS+1),
-		 ext_check, ext_recap, ext_onerep, EGTBHits,
+		 (int)ext_check, (int)ext_recap, (int)ext_onerep, EGTBHits,
 		 ((float)elapsed/100.), 
 		 (long)((float) nodes/(float) (et)));
 	}

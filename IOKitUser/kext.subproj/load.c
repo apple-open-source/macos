@@ -1,12 +1,41 @@
+/*
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 2000-2007 Apple Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+#if !__LP64__
+
 /***************
 * HEADERS
 ***************/
+#include <sys/cdefs.h>
+
 #ifndef KERNEL
 
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <libc.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,6 +59,8 @@
 #include <libkern/OSByteOrder.h>
 
 #include "vers_rsrc.h"
+#include "bootfiles.h"
+#include "kernel_check.h"
 
 #else
 
@@ -68,6 +99,11 @@
 
 #endif /* not KERNEL */
 
+
+#ifndef KERNEL
+extern int errno;
+#endif
+
 /***************
 * FUNCTION PROTOS
 ***************/
@@ -100,8 +136,13 @@ extern void invalidate_icache(vm_offset_t addr, unsigned cnt, int phys);
 static dgraph_entry_t * G_current_load_entry = NULL;
 
 #ifndef KERNEL
-static mach_port_t G_kernel_port = PORT_NULL;
-static mach_port_t G_kernel_priv_port = PORT_NULL;
+/* Used by kextd to optimize boot time I/O patterns.
+ */
+struct mach_header * _kload_optimized_kern_sym_data = NULL;
+uint32_t _kload_optimized_kern_sym_length = 0;
+
+static mach_port_t G_kernel_port = MACH_PORT_NULL;
+static mach_port_t G_kernel_priv_port = MACH_PORT_NULL;
 static int G_syms_only;
 
 static kload_error
@@ -220,6 +261,7 @@ kload_error kload_load_dgraph(dgraph_t * dgraph
     int one_has_address = 0;
     int one_lacks_address = 0;
     unsigned int i;
+    char * kernel_file_to_use = NULL; // must free
 #ifndef KERNEL
     int syms_only;
 
@@ -271,6 +313,16 @@ kload_error kload_load_dgraph(dgraph_t * dgraph
     }
 #endif /* not KERNEL */
 
+   /*****
+    * Get the kernel link symbols.
+    */
+    kernel_file_to_use = kload_map_kernel_symbols(kernel_file, do_load);
+    if (!kernel_file_to_use) {
+        kload_log_error("can't get/map kernel symbols");
+        result = kload_error_link_load;
+        goto finish;
+    }
+
     if (one_has_address && one_lacks_address) {
         kload_log_error(
             "either all modules must have addresses set to nonzero values or "
@@ -282,7 +334,7 @@ kload_error kload_load_dgraph(dgraph_t * dgraph
 #ifndef KERNEL
    /* we need the priv port to check/load modules in the kernel.
     */
-    if (PORT_NULL == G_kernel_priv_port) {
+    if (MACH_PORT_NULL == G_kernel_priv_port) {
         G_kernel_priv_port = mach_host_self();  /* if we are privileged */
     }
 #endif /* not KERNEL */
@@ -300,11 +352,12 @@ kload_error kload_load_dgraph(dgraph_t * dgraph
             kload_log_message("getting module addresses from kernel" KNL);
         }
 #ifndef KERNEL
-        result = kload_set_load_addresses_from_kernel(dgraph, kernel_file,
+        result = kload_set_load_addresses_from_kernel(dgraph, kernel_file_to_use,
             do_load);
 #else
         result = kload_set_load_addresses_from_kernel(dgraph);
 #endif /* not KERNEL */
+
         if (result == kload_error_already_loaded) {
 
 #ifndef KERNEL
@@ -315,6 +368,10 @@ kload_error kload_load_dgraph(dgraph_t * dgraph
             goto finish;
 #endif /* not KERNEL */
 
+        } else if (result == kload_error_loaded_version_differs ||
+                   result == kload_error_dependency_loaded_version_differs) {
+
+            goto finish;
         } else if (result != kload_error_none) {
             kload_log_error("can't check load addresses of modules" KNL);
             goto finish;
@@ -371,7 +428,7 @@ kload_error kload_load_dgraph(dgraph_t * dgraph
 
 	if (!G_prelink_data) {
             kload_log_error(
-                "can't get load address for prelink %s" KNL, kernel_file);
+                "can't get load address for prelink with %s" KNL, kernel_file_to_use);
             result = kload_error_link_load;
             goto finish;
 	}
@@ -384,7 +441,7 @@ kload_error kload_load_dgraph(dgraph_t * dgraph
 
 #ifndef KERNEL
 
-    result = __kload_load_modules(dgraph, kernel_file,
+    result = __kload_load_modules(dgraph, kernel_file_to_use,
         patch_file, patch_dir, symbol_file, symbol_dir,
         do_load, do_start_kmod, do_prelink, interactive_level,
         ask_overwrite_symbols, overwrite_symbols);
@@ -399,9 +456,9 @@ finish:
     * leaks. We don't care about the kern_return_t value of this
     * call for now as there's nothing we can do if it fails.
     */
-    if (PORT_NULL != G_kernel_priv_port) {
+    if (MACH_PORT_NULL != G_kernel_priv_port) {
         mach_port_deallocate(mach_task_self(), G_kernel_priv_port);
-        G_kernel_priv_port = PORT_NULL;
+        G_kernel_priv_port = MACH_PORT_NULL;
     }
 #endif /* not KERNEL */
 
@@ -436,6 +493,9 @@ finish:
     }
 #endif /* not KERNEL */
 
+    if (kernel_file_to_use) free(kernel_file_to_use);
+    kld_file_cleanup_all_resources();
+
     return result;
 }
 
@@ -455,6 +515,14 @@ kload_error __kload_keep_symbols(dgraph_entry_t * entry)
 
     if (entry->symbols)
 	return kload_error_none;
+
+   /* Adding check for lack of linked_image per PR 4580790.
+    * This condition should probably be caught earlier.
+    */
+    if (!entry->linked_image) {
+        kload_log_error("warning: no linked image file for %s" KNL, entry->name);
+        return kload_error_none;
+    }
 
     hdr   = entry->linked_image;
     ncmds = hdr->ncmds;
@@ -507,7 +575,7 @@ kload_error __kload_keep_symbols(dgraph_entry_t * entry)
 
     cmd->seg.cmd 	= LC_SEGMENT;
     cmd->seg.cmdsize 	= sizeof(struct segment_command);
-    strcpy(cmd->seg.segname, SEG_LINKEDIT);
+    strlcpy(cmd->seg.segname, SEG_LINKEDIT, sizeof(cmd->seg.segname));
     cmd->seg.vmaddr 	= 0;
     cmd->seg.vmsize 	= 0;
     cmd->seg.fileoff 	= cmd->symcmd.symoff;
@@ -555,7 +623,7 @@ kload_error __kload_make_opaque_basefile(dgraph_t * dgraph, struct mach_header *
     struct segment_command * 	data_seg;
     struct segment_command * 	text_seg;
     struct section *         	sec;
-    int			     	j;
+    unsigned		     	j;
     vm_offset_t		     	offset;
     unsigned long		idx, ncmds;
     vm_size_t	  		size;
@@ -712,7 +780,7 @@ kload_error __kload_load_modules(dgraph_t * dgraph
         goto finish;
     }
 
-    if (do_load && PORT_NULL == G_kernel_port) {
+    if (do_load && MACH_PORT_NULL == G_kernel_port) {
         mach_result = task_for_pid(mach_task_self(), 0, &G_kernel_port);
         if (mach_result != KERN_SUCCESS) {
             kload_log_error("unable to get kernel task port: %s" KNL,
@@ -739,7 +807,7 @@ kload_error __kload_load_modules(dgraph_t * dgraph
     }
 #else /* KERNEL */
 
-    const char * kernel_file = "(kernel)";
+    const char * kernel_file = "(running kernel)";
     extern struct mach_header _mh_execute_header;
     kernel_base_addr = (char *) &_mh_execute_header;
 
@@ -982,9 +1050,9 @@ finish:
     * leaks. We don't care about the kern_return_t value of this
     * call for now as there's nothing we can do if it fails.
     */
-    if (PORT_NULL != G_kernel_port) {
+    if (MACH_PORT_NULL != G_kernel_port) {
         mach_port_deallocate(mach_task_self(), G_kernel_port);
-        G_kernel_port = PORT_NULL;
+        G_kernel_port = MACH_PORT_NULL;
     }
 #endif /* not KERNEL */
 
@@ -1009,14 +1077,13 @@ kload_error __kload_load_module(dgraph_t * dgraph,
     dgraph_entry_t * entry,
     int is_root
 #ifndef KERNEL
-    ,
-    const char * symbol_file,
-    const char * symbol_dir,
+  , const char * symbol_file __unused,
+    const char * symbol_dir __unused,
     int do_load,
     int interactive_level,
     int ask_overwrite_symbols,
     int overwrite_symbols
-    #endif /* not KERNEL */
+#endif /* not KERNEL */
     )
 {
     kload_error result = kload_error_none;
@@ -1059,7 +1126,7 @@ kload_error __kload_load_module(dgraph_t * dgraph,
 
 #ifndef KERNEL
     if (entry->link_output_file != entry->name) {
-	symbol_filename = entry->link_output_file;
+        symbol_filename = entry->link_output_file;
     }
 
     if (symbol_filename) {
@@ -1119,7 +1186,7 @@ kload_error __kload_load_module(dgraph_t * dgraph,
     }
 #endif /* not KERNEL */
 
-    entry->object = kld_file_getaddr(entry->name, &entry->object_length);
+    entry->object = kld_file_getaddr(entry->name, (long *) &entry->object_length);
     if (!entry->object) {
         kload_log_error("kld_file_getaddr() failed for module %s" KNL,
             entry->name);
@@ -1144,9 +1211,12 @@ kload_error __kload_load_module(dgraph_t * dgraph,
 	    symbol_filename = 0;
 	    if (G_prelink && (entry->name != entry->link_output_file))
 	    {
+// Removing completely per PR 4636445; this log message seems unnecessary.
+#if 0
 		kload_log_error("prelink %s %s %s" KNL,
 		    entry->name, entry->link_output_file, entry->expected_kmod_name);
-		register_prelink(entry, NULL, NULL);
+#endif /* 0 */
+		register_prelink(entry, NULL, 0);
 	    }
 	}
 #endif /* not KERNEL */
@@ -1245,10 +1315,10 @@ kload_error __kload_load_module(dgraph_t * dgraph,
     * resident inside the kmod.
     */
     bzero(local_kmod_info->name, sizeof(local_kmod_info->name));
-    strcpy(local_kmod_info->name, entry->expected_kmod_name);
+    strlcpy(local_kmod_info->name, entry->expected_kmod_name, sizeof(local_kmod_info->name));
 
     bzero(local_kmod_info->version, sizeof(local_kmod_info->version));
-    strcpy(local_kmod_info->version, entry->expected_kmod_vers);
+    strlcpy(local_kmod_info->version, entry->expected_kmod_vers, sizeof(local_kmod_info->version));
 
     if (log_level >= kload_log_level_details) {
         kload_log_message("kmod name: %s" KNL, local_kmod_info->name);
@@ -1397,7 +1467,8 @@ static kload_error
 register_prelink(dgraph_entry_t * entry, 
 		    kmod_info_t * local_kmod_info, vm_offset_t kernel_kmod_info)
 {
-    CFIndex i, j, depoffset;
+    unsigned i;
+    CFIndex j, depoffset;
     Boolean exists;
     kmod_info_t desc;
 
@@ -1416,7 +1487,7 @@ register_prelink(dgraph_entry_t * entry,
 	if (!exists)
 	{
 	    bzero(&desc, sizeof(desc));
-	    strcpy(desc.name, entry->dependencies[i]->expected_kmod_name);
+	    strlcpy(desc.name, entry->dependencies[i]->expected_kmod_name, sizeof(desc.name));
 
 	    if (log_level >= kload_log_level_basic) {
 		kload_log_message("[%d] (dep)\n    %s" KNL, 
@@ -1453,15 +1524,176 @@ register_prelink(dgraph_entry_t * entry,
     * resident inside the kmod.
     */
     bzero(desc.name, sizeof(local_kmod_info->name));
-    strcpy(desc.name, entry->expected_kmod_name);
+    strlcpy(desc.name, entry->expected_kmod_name, sizeof(desc.name));
     bzero(desc.version, sizeof(local_kmod_info->version));
-    strcpy(desc.version, entry->expected_kmod_vers);
+    strlcpy(desc.version, entry->expected_kmod_vers, sizeof(desc.version));
 
     G_prelink->modules[0].id++;
     CFDataAppendBytes(G_prelink_data, (UInt8 *) &desc, sizeof(desc));
     G_prelink = (struct PrelinkState *) CFDataGetMutableBytePtr(G_prelink_data);
 
     return kload_error_none;
+}
+
+/*******************************************************************************
+* kload_get_kernel_symbol_files() simply maps the given kernel_file if we are not
+* trying to use the running kernel (that is, if we aren't actually loading).
+*
+* If we are loading, we want to make sure we are using the running kernel, so
+* we first:
+*
+* 1. Ask the running kernel for its symbols in memory. If kextd has written
+*    them successfully to disk (or verified that the next two files can be used)
+*    this will return a specific non-success value (not that we care).
+* 2. We then try /var/run/mach.sym and make sure its UUID matches that of the
+*    running kernel.
+* 3. Failing that, we use /mach_kernel, again checking the UUID.
+*******************************************************************************/
+char * kload_map_kernel_symbols(const char * kernel_file,
+    int use_running_kernel)
+{
+    char * result = NULL;
+    mach_port_t host_port = MACH_PORT_NULL;
+    char * running_uuid = NULL;  // must free
+    unsigned int running_uuid_size;
+    char * data_uuid = NULL;  // must free
+    unsigned int data_uuid_size = 0;
+
+   /* If we have persistent symfile data held in memory, use that if
+    * its UUID matches that of the running kernel.
+    */
+    if (!kernel_file && _kload_optimized_kern_sym_data &&
+        _kload_optimized_kern_sym_length) {
+        
+
+        host_port = mach_host_self(); /* must be privileged to work */
+        if (!MACH_PORT_VALID(host_port)) {
+            kload_log_error("can't get host port to check kernel UUID" KNL);
+        } else {
+            copyKextUUID(host_port, NULL /* no file */,
+                NULL /* no bundle id; the kernel itself */,
+                &running_uuid, &running_uuid_size);
+        }
+
+        copyMachoUUIDFromMemory(_kload_optimized_kern_sym_data,
+            (void *)_kload_optimized_kern_sym_data + _kload_optimized_kern_sym_length,
+            &data_uuid, &data_uuid_size);
+
+       /* If we have matching UUIDs, we're good to go.
+        */
+        if (running_uuid && data_uuid && running_uuid_size &&
+            (running_uuid_size == data_uuid_size) &&
+            (0 == memcmp(running_uuid, data_uuid, running_uuid_size))) {
+
+            if (!kernel_file) {
+                kernel_file = "(running kernel)";
+            }
+            if (kld_file_map_from_memory(kernel_file,
+                _kload_optimized_kern_sym_data, _kload_optimized_kern_sym_length)) {
+
+                if (log_level >= kload_log_level_load_details) {
+                    kload_log_message("using running kernel for symbols" KNL);
+                }
+                result = strdup(kernel_file);
+            }
+            goto finish;
+        }
+    }
+
+   /* If we aren't using the running kernel, and a kernel file has been given,
+    * just map it and return a copy of its name.
+    */
+    if (!use_running_kernel && kernel_file) {
+        if (kld_file_map(kernel_file)) {
+            result = strdup(kernel_file);
+        }
+        goto finish;
+
+    } else {
+
+       /* Else try the sequence outlined above.
+        */
+        kern_return_t kern_result;
+        char * kern_symfile = 0;
+        unsigned int kern_symfile_size = 0;
+
+        if (log_level >= kload_log_level_load_details) {
+            kload_log_message("checking running kernel for symbols" KNL);
+        }
+
+        host_port = mach_host_self(); /* must be privileged to work */
+        if (!MACH_PORT_VALID(host_port)) {
+            kload_log_error("can't get host port to retrieve kernel symbols" KNL);
+        }
+
+       /* Direct from the kernel if available. This should always exist before
+        * and during generation of the symbol file by kextd so there should
+        * be no risk of reading a partial symbol file in the next fallback
+        * stage.
+        */
+        kern_result = kmod_control(host_port, 0, KMOD_CNTL_GET_KERNEL_SYMBOLS,
+            (kmod_args_t *)&kern_symfile, &kern_symfile_size);
+        if (kern_result == KERN_SUCCESS) {
+            const char * fake_file = "(running kernel)";
+            if (kld_file_map_from_memory(fake_file,
+                kern_symfile, kern_symfile_size)) {
+
+                if (log_level >= kload_log_level_load_details) {
+                    kload_log_message("using running kernel for symbols" KNL);
+                }
+                result = strdup(fake_file);
+            }
+            vm_deallocate(mach_task_self(),
+                (vm_address_t)kern_symfile, kern_symfile_size);
+        }
+        
+        if (!result) {
+            const char * local_kernel_file;
+
+            if (log_level >= kload_log_level_load_details) {
+                kload_log_message("checking on-disk kernels for symbols" KNL);
+            }
+            if (1 == copyKextUUID(host_port, NULL /* no file */,
+                NULL /* no bundle id; the kernel itself */,
+                &running_uuid, &running_uuid_size)) {
+
+                local_kernel_file = kKernelSymfile;
+                if (1 != machoFileMatchesUUID(local_kernel_file, running_uuid,
+                    running_uuid_size)) {
+                    
+                    local_kernel_file = kDefaultKernel;
+                    if (1 != machoFileMatchesUUID(local_kernel_file,
+                        running_uuid, running_uuid_size)) {
+
+                        goto finish;
+                    }
+                }
+                if (log_level >= kload_log_level_load_details) {
+                    kload_log_message("using %s for kernel symbols" KNL,
+                        local_kernel_file);
+                }
+                if (kld_file_map(local_kernel_file)) {
+                    result = strdup(local_kernel_file);
+                } else {
+                    kload_log_error("can't map kernel symbols from %s" KNL,
+                        local_kernel_file);
+                }
+            }
+        }
+    }
+    
+finish:
+   /* Dispose of the host port to prevent security breaches and port
+    * leaks. We don't care about the kern_return_t value of this
+    * call for now as there's nothing we can do if it fails.
+    */
+    if (MACH_PORT_NULL != host_port) {
+        mach_port_deallocate(mach_task_self(), host_port);
+    }
+    if (running_uuid) free(running_uuid);
+    if (data_uuid)    free(data_uuid);
+    
+    return result;
 }
 
 #endif
@@ -1480,7 +1712,7 @@ kload_error kload_map_dgraph(
 #endif /* not KERNEL */
 {
     kload_error result = kload_error_none;
-    int i;
+    unsigned i;
 
     if (log_level >= kload_log_level_load_details) {
 #ifndef KERNEL
@@ -1492,6 +1724,7 @@ kload_error kload_map_dgraph(
 
 #ifndef KERNEL
     if (!kld_file_map(kernel_file)) {
+        kload_log_error("can't map kernel symbols from %s" KNL, kernel_file);
         result = kload_error_link_load;
         goto finish;
     }
@@ -1590,23 +1823,13 @@ finish:
 *
 *******************************************************************************/
 kload_error kload_request_load_addresses(
-    dgraph_t * dgraph,
-    const char * kernel_file)
+    dgraph_t * dgraph)
 {
     kload_error result = kload_error_none;
-    int i;
-    const char * user_response = NULL;  // must free
-    int scan_result;
-    unsigned int address;
-
-   /* We have to map all object files to get their CFBundleIdentifier
-    * names.
-    */
-    result = kload_map_dgraph(dgraph, kernel_file);
-    if (result != kload_error_none) {
-        kload_log_error("error mapping object files" KNL);
-        goto finish;
-    }
+    unsigned i;
+    char * user_response = NULL;  // must free
+    char * scan_pointer = NULL;   // do not free
+    unsigned long address;
 
     // fixme: this shouldn't be printf, should it?
     printf("enter the hexadecimal load addresses for these modules:\n");
@@ -1622,27 +1845,38 @@ kload_error kload_request_load_addresses(
         if (entry->is_kernel_component) {
             continue;
         }
-
-        if (!entry->is_mapped) {
-            result = kload_error_unspecified;
-            goto finish;
-        }
-
-        user_response = __kload_input_func("%s:",
+        user_response = (char *)__kload_input_func("%s:",
             entry->expected_kmod_name);
         if (!user_response) {
             result = kload_error_unspecified;
             goto finish;
         }
-        scan_result = sscanf(user_response, "%x", &address);
-        if (scan_result < 1 || scan_result == EOF) {
+
+        errno = 0;
+        address = strtoul(user_response, &scan_pointer, 16);
+
+        if (address == ULONG_MAX && errno == ERANGE) {
+            kload_log_error("input '%s' too large" KNL, user_response);
+            result = kload_error_unspecified;
+            goto finish;
+        } else if (address == 0 && errno == EINVAL) {
+            kload_log_error("no address found in input '%s'" KNL,
+                user_response);
+            result = kload_error_unspecified;
+            goto finish;
+        } else if (*scan_pointer != '\0') {
+            kload_log_error(
+                "input '%s' not a plain hexadecimal address" KNL,
+                user_response);
             result = kload_error_unspecified;
             goto finish;
         }
+
         entry->loaded_address = address;
     }
 
 finish:
+    if (user_response) free(user_response);
     return result;
 
 }
@@ -1652,21 +1886,10 @@ finish:
 *******************************************************************************/
 kload_error kload_set_load_addresses_from_args(
     dgraph_t * dgraph,
-    const char * kernel_file,
     char ** addresses)
 {
     kload_error result = kload_error_none;
-    int i, j;
-
-
-   /* We have to map all object files to get their CFBundleIdentifier
-    * names.
-    */
-    result = kload_map_dgraph(dgraph, kernel_file);
-    if (result != kload_error_none) {
-        kload_log_error("error mapping object files" KNL);
-        goto finish;
-    }
+    unsigned i, j;
 
    /*****
     * Run through and assign all addresses to their relevant module
@@ -1682,11 +1905,6 @@ kload_error kload_set_load_addresses_from_args(
 
         if (entry->is_kernel_component) {
             continue;
-        }
-
-        if (!entry->is_mapped) {
-            result = kload_error_unspecified;
-            goto finish;
         }
 
         for (j = 0; addresses[j]; j++) {
@@ -1752,9 +1970,8 @@ kload_error kload_set_load_addresses_from_kernel(
     kload_error result = kload_error_none;
     int mach_result;
     kmod_info_t * loaded_modules = NULL;
-    int           loaded_bytecount = 0;
+    mach_msg_type_number_t loaded_bytecount = 0;
     unsigned int i;
-
 
    /*****
     * We have to map the dgraph's modules before checking whether they've
@@ -1765,7 +1982,6 @@ kload_error kload_set_load_addresses_from_kernel(
         kload_log_error("can't map module files" KNL);
         goto finish;
     }
-
 
    /* First clear all the load addresses.
     */
@@ -1797,6 +2013,8 @@ kload_error kload_set_load_addresses_from_kernel(
             loaded_modules, do_load);
         if ( ! (cresult == kload_error_none ||
                 cresult == kload_error_already_loaded) ) {
+
+            result = cresult;
             goto finish;
         }
         if (current_entry == dgraph->root &&
@@ -1936,6 +2154,13 @@ kload_error __kload_check_module_loaded(
 
     VERS_version entry_vers;
     VERS_version loaded_vers;
+    int uuids_differ = 0;
+#ifndef KERNEL
+    char * loaded_uuid = NULL;  // must free
+    char * module_uuid = NULL;  // must free
+    unsigned int loaded_uuid_size;
+    unsigned int module_uuid_size;
+#endif
 
     if (false && entry->is_kernel_component) {
         kmod_name = entry->name;
@@ -1992,21 +2217,48 @@ kload_error __kload_check_module_loaded(
         goto finish;
     }
 
+   /* If the loaded and module versions differ, we know we can't proceed.
+    * If they're the same, remain vigilant and compare the UUIDs (if available).
+    * If neither module has a UUID, we punt and assume they're the same.
+    */
     if (loaded_vers != entry_vers) {
-        kload_log_error(
-            "loaded version %s of module %s differs from "
-            "requested version %s" KNL,
-            current_kmod->version,
-            current_kmod->name,
-            entry->expected_kmod_name);
-        if (entry == dgraph->root) {
-            result = kload_error_loaded_version_differs;
-        } else {
-            result = kload_error_dependency_loaded_version_differs;
-        }
-        goto finish;
+        goto different;
     } else {
+#ifndef KERNEL
+        int loaded_uuid_ok;
+        int module_uuid_ok;
 
+        loaded_uuid_ok = copyKextUUID(G_kernel_priv_port,
+            NULL, entry->expected_kmod_name,
+            &loaded_uuid, &loaded_uuid_size);
+        module_uuid_ok = copyKextUUID(G_kernel_priv_port,
+            entry->name, NULL,
+            &module_uuid, &module_uuid_size);
+        if ((loaded_uuid_ok == -1) || (module_uuid_ok == -1)) {
+            kload_log_error(
+                "error retrieving UUID for %s" KNL,
+                current_kmod->name);
+            result = kload_error_unspecified;
+            goto finish;
+        }
+        
+        if ((loaded_uuid && !module_uuid) || (!loaded_uuid && module_uuid)) {
+            uuids_differ = 1;
+            goto different;
+        } else if (loaded_uuid && module_uuid) {
+            if ((loaded_uuid_size != module_uuid_size) ||
+                memcmp(loaded_uuid, module_uuid, loaded_uuid_size)) {
+
+                uuids_differ = 1;
+                goto different;
+            }
+        }
+
+       /* If we get here, then both have the same UUID,
+        * or neither have a UUID at all, so as far as we can tell
+        * they are the same.
+        */
+#endif
         if (log_if_already && log_level >=
                 kload_log_level_load_basic) {
 
@@ -2018,7 +2270,24 @@ kload_error __kload_check_module_loaded(
         goto finish;
     }
 
+different:
+
+    kload_log_error(
+        "loaded version %s of module %s differs from "
+        "requested version %s%s" KNL,
+        current_kmod->version,
+        current_kmod->name,
+        entry->expected_kmod_vers,
+        uuids_differ ? " (UUIDs differ)" : "");
+    if (entry == dgraph->root) {
+        result = kload_error_loaded_version_differs;
+    } else {
+        result = kload_error_dependency_loaded_version_differs;
+    }
+
 finish:
+    if (loaded_uuid) free(loaded_uuid);
+    if (module_uuid) free(module_uuid);
 #ifdef KERNEL
     // Do this ONLY if in the kernel!
     if (current_kmod) {
@@ -2158,10 +2427,10 @@ kload_error __kload_output_patches(
             }
 
             patch_filename = allocated_filename;
-            strcpy(patch_filename, patch_dir);
-            strcat(patch_filename, "/");
-            strcat(patch_filename, entry->expected_kmod_name);
-            strcat(patch_filename, __KLOAD_PATCH_EXTENSION);
+            strlcpy(patch_filename, patch_dir, length);
+            strlcat(patch_filename, "/", length);
+            strlcat(patch_filename, entry->expected_kmod_name, length);
+            strlcat(patch_filename, __KLOAD_PATCH_EXTENSION, length);
 
             output_patch = 1;
             file_check = kload_file_exists(patch_filename);
@@ -2248,7 +2517,7 @@ kload_error __kload_set_module_dependencies(dgraph_entry_t * entry) {
     int mach_result;
 #ifndef KERNEL
     void * kmod_control_args = 0;
-    int num_args = 0;
+    mach_msg_type_number_t num_args = 0;
 #endif /* not KERNEL */
     kmod_t packed_id;
     unsigned int i;
@@ -2310,7 +2579,7 @@ kload_error __kload_start_module(dgraph_entry_t * entry) {
     int mach_result;
 #ifndef KERNEL
     void * kmod_control_args = 0;
-    int num_args = 0;
+    mach_msg_type_number_t num_args = 0;
 #endif /* not KERNEL */
 
     if (!entry->do_load) {
@@ -2624,30 +2893,26 @@ PRIV_EXT
 void kload_log_message(const char * format, ...)
 {
     va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
+    char * output_string = NULL;
 
     if (log_level <= kload_log_level_silent) {
         return;
     }
 
     va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
+    vasprintf(&output_string, format, ap);
     va_end(ap);
 
-    output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        return;
+        goto finish;
     }
 
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
+    __kload_log_func("%s", output_string);
 
-    __kload_log_func(output_string);
-    free(output_string);
-
+finish:
+    if (output_string) {
+        free(output_string);
+    }
     return;
 }
 
@@ -2658,36 +2923,32 @@ PRIV_EXT
 void kload_log_error(const char * format, ...)
 {
     va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
+    char * output_string = NULL;
 
     if (log_level <= kload_log_level_silent) {
         return;
     }
 
     va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
+    vasprintf(&output_string, format, ap);
     va_end(ap);
 
-    output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        return;
+        goto finish;
     }
 
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
+    __kload_err_log_func("%s", output_string);
 
-    __kload_err_log_func(output_string);
-    free(output_string);
-
+finish:
+    if (output_string) {
+        free(output_string);
+    }
     return;
 }
 /*******************************************************************************
 *
 *******************************************************************************/
-void __kload_null_log(const char * format, ...)
+void __kload_null_log(const char * format __unused, ...)
 {
     return;
 }
@@ -2695,7 +2956,7 @@ void __kload_null_log(const char * format, ...)
 /*******************************************************************************
 *
 *******************************************************************************/
-void __kload_null_err_log(const char * format, ...)
+void __kload_null_err_log(const char * format __unused, ...)
 {
     return;
 }
@@ -2703,7 +2964,7 @@ void __kload_null_err_log(const char * format, ...)
 /*******************************************************************************
 *
 *******************************************************************************/
-int __kload_null_approve(int default_answer, const char * format, ...)
+int __kload_null_approve(int default_answer __unused, const char * format __unused, ...)
 {
     return 0;
 }
@@ -2711,7 +2972,7 @@ int __kload_null_approve(int default_answer, const char * format, ...)
 /*******************************************************************************
 *
 *******************************************************************************/
-int __kload_null_veto(int default_answer, const char * format, ...)
+int __kload_null_veto(int default_answer __unused, const char * format __unused, ...)
 {
     return 1;
 }
@@ -2719,7 +2980,7 @@ int __kload_null_veto(int default_answer, const char * format, ...)
 /*******************************************************************************
 *
 *******************************************************************************/
-const char * __kload_null_input(const char * format, ...)
+const char * __kload_null_input(const char * format __unused, ...)
 {
     return NULL;
 }
@@ -2735,3 +2996,4 @@ void kld_error_vprintf(const char * format, va_list ap) {
 }
 
 #endif /* not KERNEL */
+#endif // !__LP64__

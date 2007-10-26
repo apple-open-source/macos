@@ -34,12 +34,8 @@
 
 /*****************************************************************************/
 
-/* define authcache_head structure */
-LIST_HEAD(authcache_head, authcache_entry);
-
 struct authcache_entry
 {
-	LIST_ENTRY(authcache_entry) entries;
 	uid_t uid;
 	CFHTTPAuthenticationRef auth;
 	CFStringRef username;
@@ -77,12 +73,35 @@ enum
 /*****************************************************************************/
 
 static pthread_mutex_t authcache_lock;					/* lock for authcache */
-static struct authcache_head authcache_list;			/* the list of authcache_entry for the server */
-static u_int32_t authcache_generation = 1;				/* generation count of authcache_list (never zero)*/
+static u_int32_t authcache_generation = 1;				/* generation count of authcache (never zero)*/
+static struct authcache_entry *authcache_server_entry = NULL;	/* the authcache_entry for the http server */
 static struct authcache_entry *authcache_proxy_entry = NULL;	/* the authcache_entry for the proxy server, or NULL */
 static CFStringRef mount_username = NULL;
 static CFStringRef mount_password = NULL;
 static CFStringRef mount_domain = NULL;
+
+/* Authentication states of a mount */
+enum AuthCache_State
+{
+	UNDEFINED_GUEST = 0,	/* (initial) authcache_server_entry is NULL */
+	TRY_MOUNT_CRED = 1,		/* (transient) authenticating with webdav_mount credentials ("-a" option) */
+	TRY_KEYCHAIN_CRED = 2,	/* (transient) authenticating with credentials found in the keychain */
+	TRY_UI_CRED = 3,		/* (transient) authenticating with credentials from User Notification (auth dialog) */
+	AUTHENTICATED_USER = 4,	/* (final) Authenticated mount */
+	GUEST_USER = 5			/* (final) Guest mount.  Authentication was cancelled by user action (from auth dialog) */
+};
+
+/* Current authentication state of the mount */
+static enum AuthCache_State authcache_state = UNDEFINED_GUEST;
+
+/* Once the mount is authenticated, how many times to retry */
+/* a request that is being returned by the server with */
+/* 401 status.  The request will be retried to handle cases */
+/* such a stale nonce with no "stale" directive.  It's also */
+/* possible that the user doesn't have the right permissions. */
+/* Either case, this controls how many times a request will */
+/* be retried AFTER the mount has been successfully authenticated */
+enum {MAX_AUTHENTICATED_USER_RETRIES = 4};
 
 /*****************************************************************************/
 
@@ -92,6 +111,12 @@ OSStatus KeychainItemCopyAccountPassword(
 	CFStringRef *username,
 	CFStringRef *password,
 	CFStringRef *domain);
+
+static
+char *CopyCFStringToCString(CFStringRef theString);
+
+static
+void ReleaseCredentials(struct authcache_entry *entry_ptr);
 
 /*****************************************************************************/
 
@@ -146,6 +171,12 @@ CFDictionaryCreateMutable:
 
 /*****************************************************************************/
 
+/* Return Values
+ *	0			Success, credentials were obtained successfully
+ *	ECANCELED	User cancelled the notification.
+ *	EACCES		Notification timed out.
+ *	ENOMEM		Something unexpected happened.
+ */
 static
 int CopyCredentialsFromUserNotification(
 	CFHTTPAuthenticationRef auth,	/* -> the authentication to get credentials for */
@@ -155,12 +186,12 @@ int CopyCredentialsFromUserNotification(
 	CFStringRef *username,			/* <-> input: the previous username entered, or NULL; output: the username */
 	CFStringRef *password,			/* <-> input: the previous password entered, or NULL; output: the password */
 	CFStringRef *domain,			/* <-> input: the previous domain entered, or NULL; output: the domain, or NULL if authentication doesn't use domains */
-	int *addtokeychain)				/* <- TRUE if the user wants these credentials added to their keychain */
+	int *addtokeychain,				/* <- TRUE if the user wants these credentials added to their keychain */
+	int *secureAuth)				/* <- TRUE if auth is sent securely */
 /* IMPORTANT: if username, password, or domain values are passed in, webdav_get_authentication() releases them */
 {
 	int result;
     CFStringRef method;
-	int secure;
 	int useDomain;
 	int index;
     CFTypeRef a[3];
@@ -176,6 +207,7 @@ int CopyCredentialsFromUserNotification(
 	CFUserNotificationRef userNotification;
 	
 	result = ENOMEM;	/* returned if something unexpected happens */
+	*secureAuth = FALSE;
 	
 	/* are we asking again because the name and password didn't work? */
 	if ( badlogin )
@@ -188,7 +220,7 @@ int CopyCredentialsFromUserNotification(
 	if ( gSecureConnection )
 	{
 		/* the connection is secure so the authentication is secure */
-		secure = TRUE;
+		*secureAuth = TRUE;
 	}
 	else
 	{
@@ -196,12 +228,12 @@ int CopyCredentialsFromUserNotification(
 		method = CFHTTPAuthenticationCopyMethod(auth);
 		if ( method != NULL )
 		{
-			secure = (CFStringCompare(method, CFSTR("Basic"), kCFCompareCaseInsensitive) != kCFCompareEqualTo);
+			*secureAuth = !CFEqual(method, CFSTR("Basic"));
 			CFRelease(method);
 		}
 		else
 		{
-			secure = FALSE;
+			*secureAuth = FALSE;
 		}
 	}
 	
@@ -242,6 +274,9 @@ int CopyCredentialsFromUserNotification(
 		
 		urlString = CFURLGetString(url);
 		require(urlString != NULL, CFURLGetString);
+		
+		/* make sure we aren't using Basic over an unsecure connnection if gSecureServerAuth is TRUE */
+		require_action_quiet(!gSecureServerAuth || (*secureAuth), SecureServerAuthRequired, result = EACCES);
 	}
 
 	realmString = CFHTTPAuthenticationCopyRealm(auth);
@@ -273,7 +308,7 @@ int CopyCredentialsFromUserNotification(
 	
     a[0] = urlString;
 	a[1] = (realmString != NULL) ? realmString : CFSTR("");
-	a[2] = secure ? CFSTR("WEBDAV_AUTH_MSG_SECURE_PARAMETER_KEY") : CFSTR("WEBDAV_AUTH_MSG_INSECURE_PARAMETER_KEY");
+	a[2] = *secureAuth ? CFSTR("WEBDAV_AUTH_MSG_SECURE_PARAMETER_KEY") : CFSTR("WEBDAV_AUTH_MSG_INSECURE_PARAMETER_KEY");
     array = CFArrayCreate(NULL, a, 3, &kCFTypeArrayCallBacks);
     require(array != NULL, CFArrayCreate_AlertMessageParameter);
     
@@ -318,24 +353,41 @@ int CopyCredentialsFromUserNotification(
 		kCFUserNotificationPlainAlertLevel | CFUserNotificationSecureTextField(useDomain ? 2 : 1), &error, dictionary);
 	require(userNotification != NULL, CFUserNotificationCreate);
 
-	/* if the UNC notification did not time out and the user clicked OK (default), then get their response */
-	if ( (CFUserNotificationReceiveResponse(userNotification, WEBDAV_AUTHENTICATION_TIMEOUT, &responseFlags) == 0) &&
-		((responseFlags & 3) == kCFUserNotificationDefaultResponse) )
+	/* if the UNC notification did not time out */
+	if ( CFUserNotificationReceiveResponse(userNotification, WEBDAV_AUTHENTICATION_TIMEOUT, &responseFlags) == 0) 
 	{
-		/* get the user's input */
-		index = 0;
-		if ( useDomain )
+		/* and the user clicked OK (default), get the user's response */
+		if ( (responseFlags & 3) == kCFUserNotificationDefaultResponse)
 		{
-			*domain = CFRetain(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++));
+			/* get the user's input */
+			index = 0;
+			if ( useDomain )
+			{
+				*domain = CFRetain(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++));
+			}
+			*username = CFRetain(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++));
+			*password = CFRetain(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++));
+			*addtokeychain = ((responseFlags & CFUserNotificationCheckBoxChecked(0)) != 0);
+			result = 0;
 		}
-		*username = CFRetain(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++));
-		*password = CFRetain(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++));
-		*addtokeychain = ((responseFlags & CFUserNotificationCheckBoxChecked(0)) != 0);
-		result = 0;
+		else if ( (responseFlags & 3) == kCFUserNotificationAlternateResponse)
+		{
+			/* the user hit the Cancel button */
+			result = ECANCELED;
+			syslog(LOG_DEBUG, "User auth notification cancelled by user");
+		}
+		else
+		{
+			/* Timedout, no button pressed */
+			result = EACCES;
+			syslog(LOG_DEBUG, "User auth notification timed out");
+		}
 	}
 	else
 	{
+		/* timed out, no button pressed */
         result = EACCES;
+		syslog(LOG_DEBUG, "User auth notification timed out");
 	}
 
 	/*
@@ -356,6 +408,7 @@ CFDictionaryCreateMutable:
 	{
 		CFRelease(realmString);
 	}
+SecureServerAuthRequired:
 CFURLGetString:
 	if ( url != NULL )
 	{
@@ -373,10 +426,10 @@ network_get_proxy_settings:
 static
 void RemoveAuthentication(struct authcache_entry *entry_ptr)
 {
-	/* all but the authcache_proxy_entry are in the authcache_list */
+	/* only valid authcache_proxy_entry are in the authcache_list */
 	if ( entry_ptr != authcache_proxy_entry )
 	{
-		LIST_REMOVE(entry_ptr, entries);
+		authcache_server_entry = NULL;
 	}
 	else
 	{
@@ -391,22 +444,10 @@ void RemoveAuthentication(struct authcache_entry *entry_ptr)
 	if ( entry_ptr->auth != NULL )
 	{
 		CFRelease(entry_ptr->auth);
+		entry_ptr->auth = NULL;
 	}
 	
-	if ( entry_ptr->username != NULL )
-	{
-		CFRelease(entry_ptr->username);
-	}
-	
-	if ( entry_ptr->password != NULL )
-	{
-		CFRelease(entry_ptr->password);
-	}
-	
-	if ( entry_ptr->domain != NULL )
-	{
-		CFRelease(entry_ptr->domain);
-	}
+	ReleaseCredentials(entry_ptr);
 	
 	free(entry_ptr);
 }
@@ -508,10 +549,39 @@ OSStatus KeychainItemCopyAccountPassword(
 
 static
 int CopyMountCredentials(
+	CFHTTPAuthenticationRef auth,
 	CFStringRef *username,
 	CFStringRef *password,
-	CFStringRef *domain)
+	CFStringRef *domain,
+	int *secureAuth)				/* <- TRUE if auth is sent securely */
 {
+	int result;
+    CFStringRef method;
+	
+	/* determine if this authentication is secure */
+	if ( gSecureConnection )
+	{
+		/* the connection is secure so the authentication is secure */
+		*secureAuth = TRUE;
+	}
+	else
+	{
+		/* the connection is not secure, so secure means "not Basic authentication" */
+		method = CFHTTPAuthenticationCopyMethod(auth);
+		if ( method != NULL )
+		{
+			*secureAuth = !CFEqual(method, CFSTR("Basic"));
+			CFRelease(method);
+		}
+		else
+		{
+			*secureAuth = FALSE;
+		}
+	}
+
+	/* make sure we aren't using Basic over an unsecure connnection if gSecureServerAuth is TRUE */
+	require_action_quiet(!gSecureServerAuth || (*secureAuth), SecureServerAuthRequired, result = EACCES);
+	
 	if ( mount_username != NULL )
 	{
 		CFRetain(mount_username);
@@ -529,12 +599,16 @@ int CopyMountCredentials(
 		}
 		*domain = mount_domain;
 		
-		return ( 0 );
+		result = 0;
 	}
 	else
 	{
-		return ( 1 );
+		result = 1;
 	}
+
+SecureServerAuthRequired:
+	
+	return ( result );
 }
 
 /*****************************************************************************/
@@ -595,7 +669,8 @@ int CopyCredentialsFromKeychain(
 	CFStringRef *username,
 	CFStringRef *password,
 	CFStringRef *domain,
-	int isProxy)
+	int isProxy,
+	int *secureAuth)				/* <- TRUE if auth is sent securely */
 {
 	OSStatus result;
 	CFURLRef messageURL;
@@ -668,6 +743,10 @@ int CopyCredentialsFromKeychain(
 	}
 	CFRelease(theString);
 	
+	*secureAuth = (protocol == kSecProtocolTypeHTTPSProxy) ||
+					(protocol == kSecProtocolTypeHTTPS) ||
+					(authenticationType != kSecAuthenticationTypeHTTPBasic);
+	
 	if ( isProxy )
 	{
 		/* Proxy: Get the serverName and portNumber */
@@ -709,6 +788,9 @@ int CopyCredentialsFromKeychain(
 	{
 		/* Server: Get the path, serverName, portNumber, and realmStr */
 		
+		/* make sure we aren't using Basic over an unsecure connnection if gSecureServerAuth is TRUE */
+		require_action_quiet(!gSecureServerAuth || (*secureAuth), SecureServerAuthRequired, result = EACCES);
+			
 		/* get the path of the base URL (used because it needs to be unique for a mount point) */
 		path = CopyComponentPathToCString(gBaseURL);
 		
@@ -762,6 +844,7 @@ int CopyCredentialsFromKeychain(
 network_get_proxy_settings:
 CopyCFStringToCString:
 CFURLCopyHostName:
+SecureServerAuthRequired:
 unknown_protocol:
 CFHTTPMessageCopyRequestURL:
 
@@ -1068,104 +1151,161 @@ CFHTTPMessageCopyRequestURL:
 /*****************************************************************************/
 
 static
-int AddServerCredentials(
-	struct authcache_entry *entry_ptr,
-	CFHTTPMessageRef request)
+int AddServerCredentials(CFHTTPMessageRef request)
 {
 	int result;
 	/* locals for getting new values */
 	CFStringRef username;
 	CFStringRef password;
 	CFStringRef domain;
+	int secureAuth;
 	
-	if ( CFHTTPAuthenticationRequiresUserNameAndPassword(entry_ptr->auth) )
+	username = password = domain = NULL;
+	result = EACCES;
+
+	if ( authcache_state == UNDEFINED_GUEST )
 	{
-		username = password = domain = NULL;
-		result = EACCES;
-		
-		/* invalidate credential sources already tried */
-		if (entry_ptr->authflags & kCredentialsFromMount)
+		/* Try mount credentials (credentials passed to mount_webdav via the "-a" option) */
+		if ( CopyMountCredentials(authcache_server_entry->auth, &username, &password, &domain, &secureAuth) == 0 )
 		{
-			entry_ptr->authflags |= kNoMountCredentials;
-		}
-		else if (entry_ptr->authflags & kCredentialsFromKeychain)
-		{
-			entry_ptr->authflags |= kNoKeychainCredentials;
-		}
-		
-		/* if we haven't tried the mount credentials, try them now */
-		if ( (entry_ptr->authflags & kNoMountCredentials) == 0 )
-		{
-			if ( CopyMountCredentials(&username, &password, &domain) == 0 )
+			syslog(LOG_DEBUG, "AddServerCred:UNDEFINED_GUEST: -> TRY_MOUNT_CRED, req %p", request);
+				
+			SetCredentials(authcache_server_entry, username, password, domain);
+			authcache_state = TRY_MOUNT_CRED;
+			++authcache_generation;
+			if ( authcache_generation == 0 )
 			{
-				ReleaseCredentials(entry_ptr);
-				SetCredentials(entry_ptr, username, password, domain);
-				entry_ptr->authflags &= ~kAuthHasCredentials;
-				entry_ptr->authflags |= kCredentialsFromMount;
-				result = 0;
+				++authcache_generation;
 			}
-			else
-			{
-				/* there are no mount credentials */
-				entry_ptr->authflags |= kNoMountCredentials;
-				result = EACCES;
-			}
+			result = 0;
 		}
-		
-		/* if we don't have credentials and haven't tried the keychain credentials, try them now */
-		if ( ( result != 0) && ((entry_ptr->authflags & kNoKeychainCredentials) == 0) )
+		else
 		{
-			if ( CopyCredentialsFromKeychain(entry_ptr->auth, request, &username, &password, &domain, FALSE) == 0 )
-			{
-				ReleaseCredentials(entry_ptr);
-				SetCredentials(entry_ptr, username, password, domain);
-				entry_ptr->authflags &= ~kAuthHasCredentials;
-				entry_ptr->authflags |= kCredentialsFromKeychain;
-				result = 0;
-			}
-			else
-			{
-				/* there are no keychain credentials */
-				entry_ptr->authflags |= kNoKeychainCredentials;
-				result = EACCES;
-			}
+			syslog(LOG_DEBUG, "AddServerCred:UNDEFINED_GUEST: no mount creds, req %p", request);
 		}
-		
-		/* if we don't have credentials, try asking the user for them */
-		if ( result != 0 )
-		{
-			int addtokeychain;
+	}
 			
-			/* put the last username, password, and domain used into the dialog */
-			username = entry_ptr->username;
-			password = entry_ptr->password;
-			domain = entry_ptr->domain;
-			if ( CopyCredentialsFromUserNotification(entry_ptr->auth, request,
-				((entry_ptr->authflags & kCredentialsFromUI) != 0), FALSE,
-				&username, &password, &domain, &addtokeychain) == 0 )
+	if ( (result != 0) && ( (authcache_state == UNDEFINED_GUEST) || (authcache_state == TRY_MOUNT_CRED)) )
+	{
+		/* try the keychain in theses states */
+		if ( CopyCredentialsFromKeychain(authcache_server_entry->auth, request, &username, &password, &domain, FALSE, &secureAuth) == 0 )
+		{
+			syslog(LOG_DEBUG, "AddServerCred: state %d -> TRY_KEYCHAIN_CRED, req %p", authcache_state, request);
+			ReleaseCredentials(authcache_server_entry);
+			SetCredentials(authcache_server_entry, username, password, domain);
+			authcache_state = TRY_KEYCHAIN_CRED;
+			++authcache_generation;
+			if ( authcache_generation == 0 )
 			{
-				ReleaseCredentials(entry_ptr);
-				SetCredentials(entry_ptr, username, password, domain);
-				entry_ptr->authflags &= ~kAuthHasCredentials;
-				entry_ptr->authflags |= kCredentialsFromUI;
-				if ( addtokeychain )
-				{
-					entry_ptr->authflags |= kAddCredentialsToKeychain;
-				}
-				result = 0;
+				++authcache_generation;
+			}
+			result = 0;
+		}
+		else
+		{
+			syslog(LOG_DEBUG, "AddServerCred: state %d, no keychain creds, req %p", authcache_state, request);
+		}
+	}
+	
+	/* try asking the user for credentials */
+	if (result != 0)
+	{
+		int addtokeychain;
+			
+		/* put the last username, password, and domain used into the dialog */
+		username = authcache_server_entry->username;
+		password = authcache_server_entry->password;
+		domain = authcache_server_entry->domain;
+		
+		if (authcache_state != TRY_UI_CRED)
+		{
+			syslog(LOG_DEBUG, "AddServerCred: state %d -> TRY_UI_CRED, req %p", authcache_state, request);
+		}
+		else
+		{
+			syslog(LOG_DEBUG, "AddServerCred:TRY_UI_CRED: prompting user for creds, req %p", request);
+		}
+
+		result = CopyCredentialsFromUserNotification(authcache_server_entry->auth, request,
+					(authcache_state == TRY_UI_CRED), FALSE,
+					&username, &password, &domain, &addtokeychain, &secureAuth);
+			
+		authcache_state = TRY_UI_CRED;
+		++authcache_generation;
+		if ( authcache_generation == 0 )
+		{
+			++authcache_generation;
+		}
+			
+		if (result == 0)
+		{
+			syslog(LOG_DEBUG, "AddServerCred:TRY_UI_CRED: Got creds, retrying req %p", request);
+			ReleaseCredentials(authcache_server_entry);
+			SetCredentials(authcache_server_entry, username, password, domain);
+			if ( addtokeychain )
+			{
+				authcache_server_entry->authflags |= kAddCredentialsToKeychain;
+			}			
+		}
+		else if (result == ECANCELED)
+		{
+			/* The user hit the "Cancel" button.  The webDAV mount now becomes a GUEST USER mount */
+			syslog(LOG_NOTICE, "Athentication cancelled by user action, mounting as guest user");
+			authcache_state = GUEST_USER;
+			++authcache_generation;
+			if ( authcache_generation == 0 )
+			{
+				++authcache_generation;
+			}
+		
+			ReleaseCredentials(authcache_server_entry);
+			
+			/* Free up the authcache_server_entry, we don't need it anymore */
+			CFRelease(authcache_server_entry->auth);
+			free (authcache_server_entry);
+			authcache_server_entry = NULL;
+			result = EACCES;
+		}
+		else
+		{
+			/* auth dialog timed out or an allocation failed */
+			syslog(LOG_DEBUG, "AddServerCred:TRY_UI_CRED: UI timed out, returning EACCES, req %p", request);
+			ReleaseCredentials(authcache_server_entry);
+			result = EACCES;
+		}
+	}
+
+	if ( (result == 0) && !(secureAuth) )
+	{
+		CFURLRef url;
+		CFStringRef urlString;
+		char *urlStr;
+			
+		urlStr = NULL;
+			
+		url = CFHTTPMessageCopyRequestURL(request);
+		if ( url != NULL )
+		{
+			urlString = CFURLGetString(url);
+			if ( urlString != NULL )
+			{
+				urlStr = CopyCFStringToCString(urlString);
 			}
 			else
 			{
-				ReleaseCredentials(entry_ptr);
-				result = EACCES;
+				urlStr = NULL;
 			}
+			CFRelease(url);
+		}
+			
+		syslog(LOG_ERR | LOG_AUTHPRIV, "WebDAV FS authentication credentials are being sent insecurely to: %s", (urlStr ? urlStr : ""));
+			
+		if ( urlStr != NULL )
+		{
+			free(urlStr);
 		}
 	}
-	else
-	{
-		result = 0;
-	}
-	
+
 	return ( result );
 }
 
@@ -1181,6 +1321,7 @@ int AddProxyCredentials(
 	CFStringRef username;
 	CFStringRef password;
 	CFStringRef domain;
+	int secureAuth;
 	
 	if ( CFHTTPAuthenticationRequiresUserNameAndPassword(entry_ptr->auth) )
 	{
@@ -1196,7 +1337,7 @@ int AddProxyCredentials(
 		/* if we haven't tried the keychain credentials, try them now */
 		if ( (entry_ptr->authflags & kNoKeychainCredentials) == 0 )
 		{
-			if ( CopyCredentialsFromKeychain(entry_ptr->auth, request, &username, &password, &domain, TRUE) == 0 ) 
+			if ( CopyCredentialsFromKeychain(entry_ptr->auth, request, &username, &password, &domain, TRUE, &secureAuth) == 0 ) 
 			{
 				ReleaseCredentials(entry_ptr);
 				SetCredentials(entry_ptr, username, password, domain);
@@ -1223,7 +1364,7 @@ int AddProxyCredentials(
 			domain = entry_ptr->domain;
 			if ( CopyCredentialsFromUserNotification(entry_ptr->auth, request,
 				((entry_ptr->authflags & kCredentialsFromUI) != 0), TRUE,
-				&username, &password, &domain, &addtokeychain) == 0 )
+				&username, &password, &domain, &addtokeychain, &secureAuth) == 0 )
 			{
 				ReleaseCredentials(entry_ptr);
 				SetCredentials(entry_ptr, username, password, domain);
@@ -1253,11 +1394,10 @@ int AddProxyCredentials(
 /*****************************************************************************/
 
 static
-struct authcache_entry *CreateAuthenticationFromResponse(
+struct authcache_entry *CreateProxyAuthenticationFromResponse(
 	uid_t uid,							/* -> uid of the user making the request */
 	CFHTTPMessageRef request,			/* -> the request message to apply authentication to */
-	CFHTTPMessageRef response,			/* -> the response message  */
-	int isProxy)						/* -> if TRUE, create authcache_proxy_entry */
+	CFHTTPMessageRef response)			/* -> the response message  */
 {
 	struct authcache_entry *entry_ptr;
 	int result;
@@ -1271,35 +1411,19 @@ struct authcache_entry *CreateAuthenticationFromResponse(
 	
 	require(CFHTTPAuthenticationIsValid(entry_ptr->auth, NULL), CFHTTPAuthenticationIsValid);
 	
-	if ( !isProxy )
-	{
-		result = AddServerCredentials(entry_ptr, request);
-		require_noerr_quiet(result, AddServerCredentials);
+	result = AddProxyCredentials(entry_ptr, request);
+	require_noerr_quiet(result, AddProxyCredentials);
 		
-		LIST_INSERT_HEAD(&authcache_list, entry_ptr, entries);
-		++authcache_generation;
-		if ( authcache_generation == 0 )
-		{
-			++authcache_generation;
-		}
-	}
-	else
+	authcache_proxy_entry = entry_ptr;
+	++authcache_generation;
+	if ( authcache_generation == 0 )
 	{
-		result = AddProxyCredentials(entry_ptr, request);
-		require_noerr_quiet(result, AddProxyCredentials);
-		
-		authcache_proxy_entry = entry_ptr;
 		++authcache_generation;
-		if ( authcache_generation == 0 )
-		{
-			++authcache_generation;
-		}
 	}
 	
 	return ( entry_ptr );
 
 AddProxyCredentials:
-AddServerCredentials:
 CFHTTPAuthenticationIsValid:
 
 	CFRelease(entry_ptr->auth);
@@ -1315,62 +1439,36 @@ calloc:
 
 /*****************************************************************************/
 
-static
-struct authcache_entry *FindAuthenticationForRequest(
-	uid_t uid,							/* -> uid of the user making the request */
-	CFHTTPMessageRef request)			/* -> the request message to apply authentication to */
-{
-	struct authcache_entry *entry_ptr;
-	
-	/* see if we have an authentication we can use */
-	LIST_FOREACH(entry_ptr, &authcache_list, entries)
-	{
-		/*
-		 * If this authentication is for the current user or root user,
-		 * and it applies to this request, then break.
-		 */
-		if ( (entry_ptr->uid == uid) || (0 == uid) )
-		{
-			if ( CFHTTPAuthenticationAppliesToRequest(entry_ptr->auth, request) )
-			{
-				break;
-			}
-		}
-	}
-	return ( entry_ptr );
-}
-
-/*****************************************************************************/
-
-static
-int ApplyCredentialsToRequest(
-	struct authcache_entry *entry_ptr,
-	CFHTTPMessageRef request)
+static int ApplyCredentialsToRequest(struct authcache_entry *entry_ptr, CFHTTPMessageRef request)
 {
 	int result;
-	CFMutableDictionaryRef dict;
-	
-	dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 3, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	require_action(dict != NULL, CFDictionaryCreateMutable, result = FALSE);
-	
-	if ( entry_ptr->username != NULL )
-	{
-		CFDictionaryAddValue(dict, kCFHTTPAuthenticationUsername, entry_ptr->username);
+
+	if ( entry_ptr->domain != NULL ) {
+		CFMutableDictionaryRef dict;
+		
+		dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 3, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		require_action(dict != NULL, CFDictionaryCreateMutable, result = FALSE);
+		
+		if ( entry_ptr->username != NULL ) {
+			CFDictionaryAddValue(dict, kCFHTTPAuthenticationUsername, entry_ptr->username);
+		}
+		
+		if ( entry_ptr->password != NULL ) {
+			CFDictionaryAddValue(dict, kCFHTTPAuthenticationPassword, entry_ptr->password);
+		}
+		
+		if ( entry_ptr->domain != NULL ) {
+			CFDictionaryAddValue(dict, kCFHTTPAuthenticationAccountDomain, entry_ptr->domain);
+		}
+		
+		result = CFHTTPMessageApplyCredentialDictionary(request, entry_ptr->auth, dict, NULL);
+		
+		CFRelease(dict);
+
 	}
-	
-	if ( entry_ptr->password != NULL )
-	{
-		CFDictionaryAddValue(dict, kCFHTTPAuthenticationPassword, entry_ptr->password);
+	else {
+		result = CFHTTPMessageApplyCredentials(request, entry_ptr->auth, entry_ptr->username, entry_ptr->password,  NULL);
 	}
-	
-	if ( entry_ptr->domain != NULL )
-	{
-		CFDictionaryAddValue(dict, kCFHTTPAuthenticationAccountDomain, entry_ptr->domain);
-	}
-	
-	result = CFHTTPMessageApplyCredentialDictionary(request, entry_ptr->auth, dict, NULL);
-	
-	CFRelease(dict);
 
 CFDictionaryCreateMutable:
 	
@@ -1381,34 +1479,43 @@ CFDictionaryCreateMutable:
 
 static
 int AddExistingAuthentications(
-	uid_t uid,							/* -> uid of the user making the request */
-	CFHTTPMessageRef request)			/* -> the request message to apply authentication to */
+	CFHTTPMessageRef request)	/* -> the request message to apply authentication to */
 {
-	struct authcache_entry *entry_ptr;
-
-	entry_ptr = FindAuthenticationForRequest(uid, request);
-	if ( entry_ptr != NULL )
+	switch (authcache_state)
 	{
-		/* try to apply valid entry to the request */
-		if ( CFHTTPAuthenticationIsValid(entry_ptr->auth, NULL) )
-		{
-			if ( !ApplyCredentialsToRequest(entry_ptr, request) )
+		case UNDEFINED_GUEST:
+			/* Check for a valid auth object (server could be negotiating an auth method) */
+			if (authcache_server_entry != NULL)
 			{
-				/*
-				 * Remove the unusable entry and do nothing -- we'll get a 401 when this request goes to the server
-				 * which should allow us to create a new entry.
-				 */
-				RemoveAuthentication(entry_ptr);
+				if (CFHTTPAuthenticationIsValid(authcache_server_entry->auth, NULL))
+				{
+					syslog(LOG_DEBUG, "AddExistingAuth:UNDEFINED_GUEST: applying creds, req %p", request);
+					ApplyCredentialsToRequest(authcache_server_entry, request);
+				}
+				else
+				{
+					syslog(LOG_DEBUG, "AddExistingAuth:UNDEFINED_GUEST: auth obj not valid, req %p", request);
+				}
 			}
-		}
-		else
-		{
-			/*
-			 * Remove the unusable entry and do nothing -- we'll get a 401 when this request goes to the server
-			 * which should allow us to create a new entry.
-			 */
-			RemoveAuthentication(entry_ptr);
-		}
+			break;
+		
+		case TRY_MOUNT_CRED:
+		case TRY_KEYCHAIN_CRED:
+		case TRY_UI_CRED:
+		case AUTHENTICATED_USER:
+				if (CFHTTPAuthenticationIsValid(authcache_server_entry->auth, NULL))
+				{
+					ApplyCredentialsToRequest(authcache_server_entry, request);
+				}
+				else
+				{
+					syslog(LOG_DEBUG, "AddExistingAuth: state %d,  auth obj not valid, req %p", authcache_state, request);
+				}
+			break;
+			
+		case GUEST_USER:
+			/* not an authenticated mount, no auth to apply */
+			break;
 	}
 	
 	if ( authcache_proxy_entry != NULL )
@@ -1430,75 +1537,250 @@ int AddExistingAuthentications(
 /*****************************************************************************/
 
 /*
- * AddServerAuthentication
+ * DoServerAuthentication
  *
- * Add a new authcache_entry, or update an exiting authcache_entry for a server.
+ * Handles authentication challenge (401) from the server
  */
-static
-int AddServerAuthentication(
+ static
+int DoServerAuthentication(
 	uid_t uid,							/* -> uid of the user making the request */
 	CFHTTPMessageRef request,			/* -> the request message to apply authentication to */
-	CFHTTPMessageRef response)			/* -> the response containing the challenge, or NULL if no challenge */
+	CFHTTPMessageRef response,			/* -> the response containing the challenge, or NULL if no challenge */
+	AuthRequestContext *ctx)			/* <- the auth context for this request */
 {
-	int result;
-	struct authcache_entry *entry_ptr;
-
-	/* see if we already have a authcache_entry */
-	entry_ptr = FindAuthenticationForRequest(uid, request);
+	CFHTTPAuthenticationRef auth;
+	int result = 0;
 	
-	/* if we have one, we need to try to update it and use it */
-	if ( entry_ptr != NULL )
-	{
-		entry_ptr->authflags &= ~kCredentialsValid;
-
-		/* ensure the CFHTTPAuthenticationRef is valid */
-		if ( CFHTTPAuthenticationIsValid(entry_ptr->auth, NULL) )
-		{
-			result = 0;
-		}
-		else
-		{
-			/* It's invalid so release the old and try to create a new one */
-			CFRelease(entry_ptr->auth);
-			entry_ptr->auth = CFHTTPAuthenticationCreateFromResponse(kCFAllocatorDefault, response);
-			if ( entry_ptr->auth != NULL )
+	switch (authcache_state) {
+	
+		case UNDEFINED_GUEST:
+			/* Create the authcache_server_entry if not already done */
+			if ( authcache_server_entry == NULL)
 			{
-				if ( CFHTTPAuthenticationIsValid(entry_ptr->auth, NULL) )
-				{
-					result = AddServerCredentials(entry_ptr, request);
-				}
-				else
-				{
-					result = EACCES;
-				}
+				syslog(LOG_DEBUG, "doServerAuth:UNDEFINED_GUEST: creating authcache_server_entry, req %p", request);
+				
+				/* Allocate */
+				authcache_server_entry = calloc(sizeof(struct authcache_entry), 1);
+				require(authcache_server_entry != NULL, calloc_entry);
+			
+				/* Initialize it */
+				authcache_server_entry->uid = uid;
+				authcache_server_entry->auth = CFHTTPAuthenticationCreateFromResponse(kCFAllocatorDefault, response);
+				require(authcache_server_entry->auth != NULL, CFHTTPAuthenticationCreateFromResponse);
+				require(CFHTTPAuthenticationIsValid(authcache_server_entry->auth, NULL), CFHTTPAuthenticationIsValid);
+				
+				/* Bump the generation since authcache_server_entry state changed */
+				++authcache_generation;
+				if ( authcache_generation == 0 )
+					++authcache_generation;
+					
+				syslog(LOG_DEBUG, "doServerAuth:UNDEFINED_GUEST: authcache_server_entry created, req %p", request);
 			}
 			else
 			{
+				/* Check if response is stale */
+				if (ctx->generation != authcache_generation)
+				{
+					/* stale response */
+					syslog(LOG_DEBUG, "doServerAuth:UNDEFINED_GUEST: stale generation, req %p", request);
+					result = 0;
+					goto done;
+				}
+				
+				/* Check if our auth object applies to this request. */
+				if ( !CFHTTPAuthenticationAppliesToRequest(authcache_server_entry->auth, request) )
+				{
+					syslog(LOG_DEBUG, "doServerAuth:UNDEFINED_GUEST: auth doesn't apply to req %p", request);
+					result = EACCES;
+					goto done;
+				}
+			
+				/* Make sure our auth object is still valid */
+				if ( !CFHTTPAuthenticationIsValid(authcache_server_entry->auth, NULL) )
+				{
+					syslog(LOG_DEBUG, "doServerAuth:UNDEFINED_GUEST: authcache_server_entry not valid, req %p", request);
+					
+					/* Try and create a new auth object */
+					auth = CFHTTPAuthenticationCreateFromResponse(kCFAllocatorDefault, response);
+					if (auth == NULL) {
+						syslog(LOG_DEBUG, "doServerAuth:UNDEFINED_GUEST: failed to create auth obj from response, req %p", request);
+						result = EACCES;
+						goto done;
+					}
+				
+					if ( !CFHTTPAuthenticationIsValid(auth, NULL) )
+					{
+						syslog(LOG_DEBUG, "doServerAuth:UNDEFINED_GUEST: new auth obj not valid, req %p", request);
+						CFRelease(auth);
+						result = EACCES;
+						goto done;
+					}
+			
+					CFRelease(authcache_server_entry->auth);
+					authcache_server_entry->auth = auth;
+					
+					/* bump the generation since the auth object just changed */
+					++authcache_generation;
+					if ( authcache_generation == 0 )
+						++authcache_generation;
+				}
+			}
+				
+			/* Get credentials if needed */
+			if ( CFHTTPAuthenticationRequiresUserNameAndPassword(authcache_server_entry->auth) )
+			{
+				syslog(LOG_DEBUG, "doServerAuth:UNDEFINED_GUEST: Adding Server Credentials, req %p", request);
+				result = AddServerCredentials(request);
+			}
+			else
+			{
+				/* Credentials are not needed at this point, the server probably wants */
+				/* to negotiate an auth method first */
+				
+				syslog(LOG_DEBUG, "doServerAuth:UNDEFINED_GUEST: Crendentials not needed, req %p", request);
+				result = 0;
+			}
+			break;
+				
+		case TRY_MOUNT_CRED:
+		case TRY_KEYCHAIN_CRED:
+		case TRY_UI_CRED:
+			/* Check if response is stale */
+			if (ctx->generation != authcache_generation)
+			{
+				/* stale response */
+				syslog(LOG_DEBUG, "webdav_fsagent:doServerAuth: state %d, stale generation, req %p", authcache_state, request);
+				result = 0;
+				goto done;
+			}
+			
+			/* Check if our auth object applies to this request. */
+			if ( !CFHTTPAuthenticationAppliesToRequest(authcache_server_entry->auth, request) )
+			{
+				syslog(LOG_DEBUG, "doServerAuth: state %d, auth doesn't apply to req %p", authcache_state, request);
+				result = EACCES;
+				goto done;
+			}
+			
+			/* Make sure our auth object is still valid */
+			if ( !CFHTTPAuthenticationIsValid(authcache_server_entry->auth, NULL) )
+			{
+				syslog(LOG_DEBUG, "doServerAuth: state %d, auth not valid, req %p", authcache_state, request);
+				
+				/* Try and create a new auth object */
+				auth = CFHTTPAuthenticationCreateFromResponse(kCFAllocatorDefault, response);
+				if (auth == NULL) {
+					syslog(LOG_DEBUG, "doServerAuth: state %d, failed to create auth obj from response, req %p",
+							authcache_state, request);
+					result = EACCES;
+					goto done;
+				}
+				
+				if ( !CFHTTPAuthenticationIsValid(auth, NULL) )
+				{
+					syslog(LOG_DEBUG, "doServerAuth: state %d, new auth obj not valid, req %p", authcache_state, request);
+					CFRelease(auth);
+					result = EACCES;
+					goto done;
+				}
+			
+				CFRelease(authcache_server_entry->auth);
+				authcache_server_entry->auth = auth;
+			
+				/* Bump generation since auth object changed */
+				++authcache_generation;
+				if ( authcache_generation == 0 )
+					++authcache_generation;					
+			}
+			
+			result = AddServerCredentials(request);
+			break;
+		case AUTHENTICATED_USER:
+			/* Check if response is stale */
+			if (ctx->generation != authcache_generation)
+			{
+				/* stale response */
+				syslog(LOG_DEBUG, "doServerAuth:AUTHENTICATED_USER: stale generation, req %p", request);
+				result = 0;
+				goto done;
+			}
+			
+			/* Check if our auth object applies to this request. */
+			if ( !CFHTTPAuthenticationAppliesToRequest(authcache_server_entry->auth, request) )
+			{
+				syslog(LOG_DEBUG, "doServerAuth:AUTHENTICATED_USER: auth doesn't apply to req %p", request);
+				result = EACCES;
+				goto done;
+			}
+			
+			/* Make sure our auth object is still valid */
+			if ( !CFHTTPAuthenticationIsValid(authcache_server_entry->auth, NULL) )
+			{
+				syslog(LOG_DEBUG, "doServerAuth:AUTHENTICATED_USER: authcache_server_entry not valid, req %p", request);
+				
+				/* We don't have permission to access the resource.  Or there could be other reasons for the 401,  */
+				/* such as a stale nonce and the server doesn't support the 'stale' directive. */
+				/* Need to update our auth object in any case. */
+				auth = CFHTTPAuthenticationCreateFromResponse(kCFAllocatorDefault, response);
+				if (auth == NULL) {
+					syslog(LOG_DEBUG, "doServerAuth:AUTHENTICATED_USER: failed to create auth obj from response, req %p", request);
+					/* can only try again on the next request */
+					result = EACCES;
+					goto done;
+				}
+				
+				if ( !CFHTTPAuthenticationIsValid(auth, NULL) )
+				{
+					syslog(LOG_DEBUG, "webdavfs_agent:doServerAuth:AUTHENTICATED_USER: new auth obj not valid, req %p", request);
+					CFRelease(auth);
+					result = EACCES;
+					goto done;
+				}
+			
+				CFRelease(authcache_server_entry->auth);
+				authcache_server_entry->auth = auth;
+			
+				/* Bump generation since auth object changed */
+				++authcache_generation;
+				if ( authcache_generation == 0 )
+					++authcache_generation;
+			}
+			
+			if (ctx->count < MAX_AUTHENTICATED_USER_RETRIES)
+			{
+				/* can retry the request */
+				ctx->count++;
+				result = 0;
+			}
+			else
+			{
+				syslog(LOG_DEBUG, "doServerAuth:AUTHENTICATED_USER: to many auth retries for req %p", request);
 				result = EACCES;
 			}
-		}
-		if ( result != 0 )
-		{
-			RemoveAuthentication(entry_ptr);
-		}
-	}
-	else
-	{
-		/* create a new authcache_entry */
-		entry_ptr = CreateAuthenticationFromResponse(uid, request, response, FALSE);
-		if ( entry_ptr != NULL )
-		{
-			result = 0;
-		}
-		else
-		{
-			result = EACCES;
-		}
-	}
-	
-	return ( result );
-}
+			break;
 
+		case GUEST_USER:
+				/* Guest user is not authorized */
+				syslog(LOG_DEBUG, "doServerAuth:GUEST: not authorized, req %p", request);
+			result = EACCES;
+			break;
+	}
+
+done:
+	return (result);
+	
+CFHTTPAuthenticationIsValid:
+	CFRelease(authcache_server_entry->auth);
+	
+CFHTTPAuthenticationCreateFromResponse:
+	free (authcache_server_entry);
+	authcache_server_entry = NULL;
+	
+calloc_entry:
+	result = EACCES;
+	return (result);
+}
+ 
 /*****************************************************************************/
 
 /*
@@ -1553,7 +1835,7 @@ int AddProxyAuthentication(
 	else
 	{
 		/* create a new authcache_entry for the proxy */
-		authcache_proxy_entry = CreateAuthenticationFromResponse(uid, request, response, TRUE);
+		authcache_proxy_entry = CreateProxyAuthenticationFromResponse(uid, request, response);
 		if ( authcache_proxy_entry != NULL )
 		{
 			result = 0;
@@ -1574,7 +1856,7 @@ int authcache_apply(
 	CFHTTPMessageRef request,			/* -> the request message to apply authentication to */
 	UInt32 statusCode,					/* -> the status code (401, 407), or 0 if no challenge */
 	CFHTTPMessageRef response,			/* -> the response containing the challenge, or NULL if no challenge */
-	UInt32 *generation)					/* <- the generation count of the cache entry */
+	AuthRequestContext *ctx)			/* <- the auth context for this request */
 {
 	int result, result2;
 		
@@ -1595,7 +1877,7 @@ int authcache_apply(
 		/* only add server authentication if the uid is the mount's user or root user */
 		if ( (gProcessUID == uid) || (0 == uid) )
 		{
-			result = AddServerAuthentication(uid, request, response);
+			result = DoServerAuthentication(uid, request, response, ctx);
 		}
 		else
 		{
@@ -1626,11 +1908,11 @@ int authcache_apply(
 	/* only apply existing authentications if the uid is the mount's user or root user */
 	if ( (result == 0) && ((gProcessUID == uid) || (0 == uid)) )
 	{
-		result = AddExistingAuthentications(uid, request);
+		result = AddExistingAuthentications(request);
 	}
 	
 	/* return the current authcache_generation */
-	*generation = authcache_generation;
+	ctx->generation = authcache_generation;
 
 	/* unlock the Authcache */
 	result2 = pthread_mutex_unlock(&authcache_lock);
@@ -1647,7 +1929,7 @@ pthread_mutex_lock:
 int authcache_valid(
 	uid_t uid,							/* -> uid of the user making the request */
 	CFHTTPMessageRef request,			/* -> the message of the successful request */
-	UInt32 generation)					/* -> the generation count of the cache entry */
+	AuthRequestContext *ctx)			/* -> the auth context for this request */
 {
 	int result, result2;
 	
@@ -1658,24 +1940,40 @@ int authcache_valid(
 	result = pthread_mutex_lock(&authcache_lock);
 	require_noerr_action(result, pthread_mutex_lock, webdav_kill(-1));
 
-	if ( generation == authcache_generation )
+	if ( ctx->generation == authcache_generation )
 	{
-		struct authcache_entry *entry_ptr;
-
-		/* see if we have a authcache_entry */
-		entry_ptr = FindAuthenticationForRequest(uid, request);
-		if ( entry_ptr != NULL )
+		switch (authcache_state)
 		{
-			/* mark this authentication valid */
-			entry_ptr->authflags |= kCredentialsValid;
+			case UNDEFINED_GUEST:
+			case AUTHENTICATED_USER:
+			case GUEST_USER:
+				/* nothing to do */
+				break;
+				
+			case TRY_MOUNT_CRED:
+			case TRY_KEYCHAIN_CRED:
+			case TRY_UI_CRED:
+				/* This mount is now authenticated  */
+				syslog(LOG_NOTICE, "mounting as authenticated user");
+
+				authcache_state = AUTHENTICATED_USER;
 			
-			if ( entry_ptr->authflags & kAddCredentialsToKeychain )
-			{
-				entry_ptr->authflags &= ~kAddCredentialsToKeychain;
-				result = SaveCredentialsToKeychain(entry_ptr, request, FALSE);
-			}
+				/* bump generation since the state is changing */
+				++authcache_generation;
+				if ( authcache_generation == 0 )
+				{
+					++authcache_generation;
+				}
+			
+				/* update keychain if needed */
+				if ( authcache_server_entry->authflags & kAddCredentialsToKeychain )
+				{
+					authcache_server_entry->authflags &= ~kAddCredentialsToKeychain;
+					result = SaveCredentialsToKeychain(authcache_server_entry, request, FALSE);
+				}
+				break;
 		}
-		
+	
 		if ( authcache_proxy_entry != NULL )
 		{
 			/* mark this authentication valid */
@@ -1743,7 +2041,6 @@ int authcache_init(
 	result = pthread_mutex_init(&authcache_lock, &mutexattr);
 	require_noerr(result, pthread_mutex_init);
 	
-	LIST_INIT(&authcache_list);
 	authcache_generation = 1;
 	
 	result = 0;

@@ -92,7 +92,7 @@ void SendDSEvent( tPluginCustomCallRequestCode event )
 	tDataBuffer				   *customBuff1			= NULL;
 	tDataBuffer				   *emptyBuff			= NULL;
 	tDirReference				dsRef				= 0;
-	long						status				= eDSNoErr;
+	SInt32						status				= eDSNoErr;
 
     status = dsOpenDirService(&dsRef);
 
@@ -120,7 +120,7 @@ void SendDSEvent( tPluginCustomCallRequestCode event )
 			status = dsDoPlugInCustomCall( nodeRef, event, emptyBuff, customBuff1 );
 			if ( status == eDSBufferTooSmall )
 			{
-				unsigned long buffSize = customBuff1->fBufferSize;
+				UInt32 buffSize = customBuff1->fBufferSize;
 				dsDataBufferDeAllocate( dsRef, customBuff1 );
 				customBuff1 = dsDataBufferAllocate( dsRef, buffSize*2 );
 			}

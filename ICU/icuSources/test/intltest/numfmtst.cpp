@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /* Modification History:
@@ -24,6 +24,7 @@
 #include "tokiter.h"
 #include "charstr.h"
 #include "putilimp.h"
+#include "winnmtst.h"
 #include <float.h>
 #include <string.h>
 
@@ -76,7 +77,12 @@ void NumberFormatTest::runIndexedTest( int32_t index, UBool exec, const char* &n
         CASE(27,TestCases);
 
         CASE(28,TestCurrencyNames);
-
+        CASE(29,TestCurrencyAmount);
+        CASE(30,TestCurrencyUnit);
+        CASE(31,TestCoverage);
+        CASE(32,TestJB3832);
+        CASE(33,TestHost);
+        CASE(34,TestCurrencyFormat);
         default: name = ""; break;
     }
 }
@@ -110,8 +116,54 @@ NumberFormatTest::TestAPI(void)
       status = U_ZERO_ERROR;
     }
 
+    result.remove();
+    int64_t ll = 12;
+    test->format(ll, result);
+    if (result != "12.00"){
+        errln("format int64_t error");
+    }
+
     delete test;  
   }
+}
+
+class StubNumberForamt :public NumberFormat{
+public:
+    StubNumberForamt(){};
+    virtual UnicodeString& format(double ,UnicodeString& appendTo,FieldPosition& ) const {
+        return appendTo;
+    }
+    virtual UnicodeString& format(int32_t ,UnicodeString& appendTo,FieldPosition& ) const {
+        return appendTo.append((UChar)0x0033);
+    }
+    virtual UnicodeString& format(int64_t number,UnicodeString& appendTo,FieldPosition& pos) const {
+        return NumberFormat::format(number, appendTo, pos);
+    }
+    virtual UnicodeString& format(const Formattable& , UnicodeString& appendTo, FieldPosition& , UErrorCode& ) const {
+        return appendTo;
+    }
+    virtual void parse(const UnicodeString& ,
+                    Formattable& ,
+                    ParsePosition& ) const {}
+    virtual void parse( const UnicodeString& ,
+                        Formattable& ,
+                        UErrorCode& ) const {}
+    virtual UClassID getDynamicClassID(void) const {
+        static char classID = 0;
+        return (UClassID)&classID; 
+    }
+    virtual Format* clone() const {return NULL;}
+};
+
+void 
+NumberFormatTest::TestCoverage(void){
+    StubNumberForamt stub;
+    UnicodeString agent("agent");
+    FieldPosition pos;
+    int64_t num = 4;
+    if (stub.format(num, agent, pos) != UnicodeString("agent3")){
+        errln("NumberFormat::format(int64, UnicodString&, FieldPosition&) should delegate to (int32, ,)");
+    };
 }
 
 // Test various patterns
@@ -595,7 +647,8 @@ static const char* testCases[][2]= {
     {"eu_ES_PREEURO", "\\u20A7 1.150" }, 
     {"gl_ES_PREEURO", "\\u20A7 1.150" },
     {"it_IT_PREEURO", "\\u20A4 1.150" },
-    {"pt_PT_PREEURO", "1,150$50 Esc."}
+    {"pt_PT_PREEURO", "1,150$50 Esc."},
+    {"en_US@currency=JPY", "\\u00A51,150"}
 };
 /**
  * Test localized currency patterns.
@@ -605,6 +658,11 @@ NumberFormatTest::TestCurrency(void)
 {
     UErrorCode status = U_ZERO_ERROR;
     NumberFormat* currencyFmt = NumberFormat::createCurrencyInstance(Locale::getCanadaFrench(), status);
+    if (U_FAILURE(status)) {
+        dataerrln("Error calling NumberFormat::createCurrencyInstance()");
+        return;
+    }
+
     UnicodeString s; currencyFmt->format(1.50, s);
     logln((UnicodeString)"Un pauvre ici a..........." + s);
     if (!(s=="1,50 $"))
@@ -748,6 +806,11 @@ NumberFormatTest::TestRounding487(void)
 {
     UErrorCode status = U_ZERO_ERROR;
     NumberFormat *nf = NumberFormat::createInstance(status);
+    if (U_FAILURE(status)) {
+        dataerrln("Error calling NumberFormat::createInstance()");
+        return;
+    }
+
     roundingTest(*nf, 0.00159999, 4, "0.0016");
     roundingTest(*nf, 0.00995, 4, "0.01");
 
@@ -1419,6 +1482,8 @@ void NumberFormatTest::TestCurrencyNames(void) {
     // USD { "US$", "US Dollar"            } // 04/04/1792-
     UErrorCode ec = U_ZERO_ERROR;
     static const UChar USD[] = {85, 83, 68, 0}; /*USD*/
+    static const UChar CAD[] = {0x43, 0x41, 0x44, 0}; /*CAD*/
+    static const UChar ITL[] = {0x49, 0x54, 0x4C, 0}; /*ITL*/
     UBool isChoiceFormat;
     int32_t len;
     // Warning: HARD-CODED LOCALE DATA in this test.  If it fails, CHECK
@@ -1435,7 +1500,67 @@ void NumberFormatTest::TestCurrencyNames(void) {
                                              &isChoiceFormat, &len, &ec)));
     assertSuccess("ucurr_getName", ec);
     
+    // Test that a default or fallback warning is being returned. JB 4239.
+    (void) ucurr_getName(CAD, "en_US", UCURR_LONG_NAME, &isChoiceFormat,
+                            &len, &ec);
+    assertTrue("ucurr_getName (fallback)",
+                    U_USING_FALLBACK_WARNING == ec, TRUE);
+    (void) ucurr_getName(CAD, "vi", UCURR_LONG_NAME, &isChoiceFormat,
+                            &len, &ec);
+    assertTrue("ucurr_getName (default)",
+                    U_USING_DEFAULT_WARNING == ec, TRUE);
+    
+    // Test that a default warning is being returned when falling back to root. JB 4536.
+    (void) ucurr_getName(ITL, "cy", UCURR_LONG_NAME, &isChoiceFormat,
+                            &len, &ec);
+    assertTrue("ucurr_getName (default to root)",
+                    U_USING_DEFAULT_WARNING == ec, TRUE);
+    
     // TODO add more tests later
+}
+
+void NumberFormatTest::TestCurrencyUnit(void){
+    UErrorCode ec = U_ZERO_ERROR;
+    static const UChar USD[] = {85, 83, 68, 0}; /*USD*/
+    CurrencyUnit cu(USD, ec);
+    assertSuccess("CurrencyUnit", ec);
+
+    const UChar * r = cu.getISOCurrency(); // who is the buffer owner ?
+    assertEquals("getISOCurrency()", USD, r);
+
+    CurrencyUnit cu2(cu);
+    if (!(cu2 == cu)){
+        errln("CurrencyUnit copy constructed object should be same");
+    }
+
+    CurrencyUnit * cu3 = (CurrencyUnit *)cu.clone();
+    if (!(*cu3 == cu)){
+        errln("CurrencyUnit cloned object should be same");
+    }
+    delete cu3;
+}
+
+void NumberFormatTest::TestCurrencyAmount(void){
+    UErrorCode ec = U_ZERO_ERROR;
+    static const UChar USD[] = {85, 83, 68, 0}; /*USD*/
+    CurrencyAmount ca(9, USD, ec);
+    assertSuccess("CurrencyAmount", ec);
+
+    CurrencyAmount ca2(ca);
+    if (!(ca2 == ca)){
+        errln("CurrencyAmount copy constructed object should be same");
+    }
+
+    ca2=ca;
+    if (!(ca2 == ca)){
+        errln("CurrencyAmount assigned object should be same");
+    }
+    
+    CurrencyAmount *ca3 = (CurrencyAmount *)ca.clone();
+    if (!(*ca3 == ca)){
+        errln("CurrencyAmount cloned object should be same");
+    }
+    delete ca3;
 }
 
 void NumberFormatTest::TestSymbolsWithBadLocale(void) {
@@ -1462,7 +1587,8 @@ void NumberFormatTest::TestSymbolsWithBadLocale(void) {
             + prettify(mySymbols.getSymbol((DecimalFormatSymbols::ENumberFormatSymbol)symbolEnum)));
 
         if (mySymbols.getSymbol((DecimalFormatSymbols::ENumberFormatSymbol)symbolEnum).length() == 0
-            && symbolEnum != (int)DecimalFormatSymbols::kGroupingSeparatorSymbol)
+            && symbolEnum != (int)DecimalFormatSymbols::kGroupingSeparatorSymbol
+            && symbolEnum != (int)DecimalFormatSymbols::kMonetaryGroupingSeparatorSymbol)
         {
             errln("DecimalFormatSymbols has an empty string at index %d.", symbolEnum);
         }
@@ -1672,6 +1798,10 @@ void NumberFormatTest::TestCases() {
             delete ref;
             ref = new DecimalFormat(tok,
                       new DecimalFormatSymbols(Locale::getUS(), ec), ec);
+            if (U_FAILURE(ec)) {
+                dataerrln("Error constructing DecimalFormat");
+                goto error;
+            }
             break;
         case 1:
             // loc= <locale>
@@ -1972,6 +2102,7 @@ void NumberFormatTest::expectCurrency(NumberFormat& nf, const Locale& locale,
         assertSuccess("ucurr_forLocale", ec);
         fmt.setCurrency(curr, ec);
         assertSuccess("DecimalFormat::setCurrency", ec);
+        fmt.setCurrency(curr); //Deprecated variant, for coverage only
     }
     UnicodeString s;
     fmt.format(value, s);
@@ -2044,6 +2175,86 @@ void NumberFormatTest::expectPad(DecimalFormat& fmt, const UnicodeString& pat,
               " width=" + awidth + " pad=" + apadStr +
               ", expected " + pos + " " + width + " " + pad);
     }
+}
+void NumberFormatTest::TestJB3832(){
+    const char* localeID = "pt_PT@currency=PTE";
+    Locale loc(localeID);
+    UErrorCode status = U_ZERO_ERROR;
+    UnicodeString expected("1,150$50 Esc.");
+    UnicodeString s;
+    NumberFormat* currencyFmt = NumberFormat::createCurrencyInstance(loc, status);
+    if(U_FAILURE(status)){
+        errln("Could not create currency formatter for locale %s", localeID);
+        return;
+    }
+    currencyFmt->format(1150.50, s);
+    if(s!=expected){
+        errln(UnicodeString("FAIL: Expected: ")+expected 
+                + UnicodeString(" Got: ") + s 
+                + UnicodeString( " for locale: ")+ UnicodeString(localeID) );
+    }
+    if (U_FAILURE(status)){
+        errln("FAIL: Status %s", u_errorName(status));
+    }
+    delete currencyFmt;
+}
+
+void NumberFormatTest::TestHost()
+{
+#ifdef U_WINDOWS
+    Win32NumberTest::testLocales(this);
+#endif
+}
+
+void NumberFormatTest::TestCurrencyFormat()
+{
+    // This test is here to increase code coverage.
+    UErrorCode status = U_ZERO_ERROR;
+    MeasureFormat *cloneObj;
+    UnicodeString str;
+    Formattable toFormat, result;
+    static const UChar ISO_CODE[4] = {0x0047, 0x0042, 0x0050, 0};
+
+    Locale  saveDefaultLocale = Locale::getDefault();
+    Locale::setDefault( Locale::getUK(), status );
+    if (U_FAILURE(status)) {
+        errln("couldn't set default Locale!");
+        return;
+    }
+
+    MeasureFormat *measureObj = MeasureFormat::createCurrencyFormat(status);
+    Locale::setDefault( saveDefaultLocale, status );
+    if (U_FAILURE(status)){
+        errln("FAIL: Status %s", u_errorName(status));
+        return;
+    }
+    cloneObj = (MeasureFormat *)measureObj->clone();
+    if (cloneObj == NULL) {
+        errln("Clone doesn't work");
+        return;
+    }
+    toFormat.adoptObject(new CurrencyAmount(1234.56, ISO_CODE, status));
+    measureObj->format(toFormat, str, status);
+    measureObj->parseObject(str, result, status);
+    if (U_FAILURE(status)){
+        errln("FAIL: Status %s", u_errorName(status));
+    }
+    if (result != toFormat) {
+        errln("measureObj does not round trip. Formatted string was \"" + str + "\" Got: " + toString(result) + " Expected: " + toString(toFormat));
+    }
+    status = U_ZERO_ERROR;
+    str.truncate(0);
+    cloneObj->format(toFormat, str, status);
+    cloneObj->parseObject(str, result, status);
+    if (U_FAILURE(status)){
+        errln("FAIL: Status %s", u_errorName(status));
+    }
+    if (result != toFormat) {
+        errln("Clone does not round trip. Formatted string was \"" + str + "\" Got: " + toString(result) + " Expected: " + toString(toFormat));
+    }
+    delete measureObj;
+    delete cloneObj;
+
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

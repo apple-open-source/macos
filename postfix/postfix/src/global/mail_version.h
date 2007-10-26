@@ -13,22 +13,31 @@
 
  /*
   * Version of this program. Official versions are called a.b.c, and
-  * snapshots are called a.b-yyyymmdd, where a=major release number,
-  * b=minor release number, c=patchlevel, and yyyymmdd is the release date:
+  * snapshots are called a.b-yyyymmdd, where a=major release number, b=minor
+  * release number, c=patchlevel, and yyyymmdd is the release date:
   * yyyy=year, mm=month, dd=day.
-  * 
-  * Patches change the patchlevel and the release date. Snapshots change the
-  * release date only.
+  *
+  * Patches change both the patchlevel and the release date. Snapshots have no
+  * patchlevel; they change the release date only.
   */
-#define MAIL_RELEASE_DATE	"20040915"
-#define MAIL_VERSION_NUMBER	"2.1.5"
+#define MAIL_RELEASE_DATE	"20070531"
+#define MAIL_VERSION_NUMBER	"2.4.3"
+
+#ifdef SNAPSHOT
+# define MAIL_VERSION_DATE	"-" MAIL_RELEASE_DATE
+#else
+# define MAIL_VERSION_DATE	""
+#endif
+
+#ifdef NONPROD
+# define MAIL_VERSION_PROD	"-nonprod"
+#else
+# define MAIL_VERSION_PROD	""
+#endif
 
 #define VAR_MAIL_VERSION	"mail_version"
-#ifdef SNAPSHOT
-#define DEF_MAIL_VERSION	MAIL_VERSION_NUMBER "-" MAIL_RELEASE_DATE
-#else
-#define DEF_MAIL_VERSION	MAIL_VERSION_NUMBER
-#endif
+#define DEF_MAIL_VERSION	MAIL_VERSION_NUMBER MAIL_VERSION_DATE MAIL_VERSION_PROD
+
 extern char *var_mail_version;
 
  /*
@@ -37,6 +46,24 @@ extern char *var_mail_version;
 #define VAR_MAIL_RELEASE	"mail_release_date"
 #define DEF_MAIL_RELEASE	MAIL_RELEASE_DATE
 extern char *var_mail_release;
+
+ /*
+  * The following macros stamp executable files as well as core dumps. This
+  * information helps to answer the following questions:
+  * 
+  * - What Postfix versions(s) are installed on this machine?
+  * 
+  * - Is this installation mixing multiple Postfix versions?
+  * 
+  * - What Postfix version generated this core dump?
+  */
+#include <string.h>
+
+#define MAIL_VERSION_STAMP_DECLARE \
+    char *mail_version_stamp
+
+#define MAIL_VERSION_STAMP_ALLOCATE \
+    mail_version_stamp = strdup(VAR_MAIL_VERSION "=" DEF_MAIL_VERSION)
 
 /* LICENSE
 /* .ad

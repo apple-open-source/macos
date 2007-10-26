@@ -1,5 +1,6 @@
 /* machine description file for Celerity.
-   Copyright (C) 1985, 1986 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="bsd4-2"  */
 
@@ -52,9 +53,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define LD_SWITCH_MACHINE -k100000
 
-/* alloca is provided by the system.  */
-
-#define HAVE_ALLOCA
-
 /* (short) negative-int doesn't sign-extend correctly */
 #define SHORT_CAST_BUG
+
+/* arch-tag: b4df1828-fab6-48f8-97bc-b8998c200eea
+   (do not change this comment) */

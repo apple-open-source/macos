@@ -1,4 +1,2 @@
 include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
 
-INSTALL_AS_GROUP    = operator
-INSTALL_PERMISSIONS = 2555

@@ -151,6 +151,9 @@ private:
     // Only add if not there yet.  Writes out CFPref and broadcasts KCPrefListChanged notification
 	void addAndNotify(const Keychain& keychainToAdd);
 
+	// remove a keychain from the sync list
+	void removeKeychainFromSyncList (const DLDbIdentifier &id);
+
 	// mKeychains is protected by globals().apiLock
     typedef map<DLDbIdentifier, KeychainImpl *> KeychainMap;
 	// Weak reference map of all keychains we know about that aren't deleted

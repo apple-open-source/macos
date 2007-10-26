@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Bounce queue runner."""
 
@@ -88,7 +89,11 @@ class BounceMixin:
     def _queue_bounces(self, listname, addrs, msg):
         today = time.localtime()[:3]
         if self._bounce_events_fp is None:
-            self._bounce_events_fp = open(self._bounce_events_file, 'a+b')
+            omask = os.umask(006)
+            try:
+                self._bounce_events_fp = open(self._bounce_events_file, 'a+b')
+            finally:
+                os.umask(omask)
         for addr in addrs:
             cPickle.dump((listname, addr, today, msg),
                          self._bounce_events_fp, 1)
@@ -192,7 +197,11 @@ class BounceRunner(Runner, BounceMixin):
             return
         # Try VERP detection first, since it's quick and easy
         addrs = verp_bounce(mlist, msg)
-        if not addrs:
+        if addrs:
+            # We have an address, but check if the message is non-fatal.
+            if BouncerAPI.ScanMessages(mlist, msg) is BouncerAPI.Stop:
+                return
+        else:
             # See if this was a probe message.
             token = verp_probe(mlist, msg)
             if token:
@@ -201,6 +210,9 @@ class BounceRunner(Runner, BounceMixin):
             # That didn't give us anything useful, so try the old fashion
             # bounce matching modules.
             addrs = BouncerAPI.ScanMessages(mlist, msg)
+            if addrs is BouncerAPI.Stop:
+                # This is a recognized, non-fatal notice. Ignore it.
+                return
         # If that still didn't return us any useful addresses, then send it on
         # or discard it.
         if not addrs:

@@ -21,6 +21,9 @@
 
 #include "includes.h"
 
+extern struct in_addr lastip;
+extern int lastport;
+
 int num_good_sends = 0;
 int num_good_receives = 0;
 
@@ -262,7 +265,7 @@ static int parse_nmb_name(char *inbuf,int ofs,int length, struct nmb_name *name)
  [15 bytes name + padding][1 byte name type].
 ****************************************************************************/
 
-static void put_name(char *dest, const char *name, int pad, unsigned int name_type)
+void put_name(char *dest, const char *name, int pad, unsigned int name_type)
 {
 	size_t len = strlen(name);
 
@@ -328,7 +331,7 @@ static int put_nmb_name(char *buf,int offset,struct nmb_name *name)
  Useful for debugging messages.
 ******************************************************************/
 
-char *nmb_namestr(struct nmb_name *n)
+char *nmb_namestr(const struct nmb_name *n)
 {
 	static int i=0;
 	static fstring ret[4];
@@ -692,8 +695,6 @@ void free_packet(struct packet_struct *packet)
 struct packet_struct *parse_packet(char *buf,int length,
 				   enum packet_type packet_type)
 {
-	extern struct in_addr lastip;
-	extern int lastport;
 	struct packet_struct *p;
 	BOOL ok=False;
 

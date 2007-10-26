@@ -88,6 +88,10 @@ struct cmd_list_element
        Entire string should also end with a period, not a newline.  */
     char *doc;
 
+    /* For set/show commands.  A method for printing the output to the
+       specified stream.  */
+    show_value_ftype *show_value_func;
+
     /* flags : a bitfield 
        
        bit 0: (LSB) CMD_DEPRECATED, when 1 indicated that this command
@@ -110,7 +114,7 @@ struct cmd_list_element
      */
     int flags;
 
-    /* if this command is deprecated, this is the replacement name */
+    /* If this command is deprecated, this is the replacement name.  */
     char *replacement;
 
     /* If this command represents a show command, then this function
@@ -123,8 +127,8 @@ struct cmd_list_element
     /* Hook for another command to be executed after this command.  */
     struct cmd_list_element *hook_post;
 
-    /* Flag that specifies if this command is already running it's hook. */
-    /* Prevents the possibility of hook recursion. */
+    /* Flag that specifies if this command is already running it's hook.  */
+    /* Prevents the possibility of hook recursion.  */
     int hook_in;
 
     /* Nonzero identifies a prefix command.  For them, the address
@@ -281,23 +285,6 @@ extern void delete_cmd (char *, struct cmd_list_element **);
 
 extern void help_cmd_list (struct cmd_list_element *, enum command_class,
 			   char *, int, struct ui_file *);
-
-extern struct cmd_list_element *add_set_cmd (char *name, enum
-					     command_class class,
-					     var_types var_type, void *var,
-					     char *doc,
-					     struct cmd_list_element **list);
-
-extern struct cmd_list_element *add_set_enum_cmd (char *name,
-						  enum command_class class,
-						  const char *enumlist[],
-						  const char **var,
-						  char *doc,
-						  struct cmd_list_element **list);
-
-extern struct cmd_list_element *add_show_from_set (struct cmd_list_element *,
-						   struct cmd_list_element
-						   **);
 
 /* Functions that implement commands about CLI commands. */
 

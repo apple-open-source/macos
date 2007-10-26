@@ -300,6 +300,17 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	     && TREE_CODE (use) == PHI_NODE
 	     && bitmap_bit_p (dse_gd->stores, get_stmt_uid (use)))
 	{
+	  /* APPLE LOCAL begin mainline 4425360 */
+          /* A PHI node can both define and use the same SSA_NAME if
+	     the PHI is at the top of a loop and the PHI_RESULT is
+	     a loop invariant and copies have not been fully propagated.
+
+	     The safe thing to do is exit assuming no optimization is
+	     possible.  */
+	  if (SSA_NAME_DEF_STMT (PHI_RESULT (use)) == use)
+	    return;
+	  /* APPLE LOCAL end mainline 4425360 */
+
 	  /* Record the first PHI we skip so that we can fix its
 	     uses if we find that STMT is a dead store.  */
 	  if (!skipped_phi)

@@ -49,12 +49,12 @@ typedef const void *ISL_VERIFIED_MODULE_PTR;
 typedef void (*ISL_FUNCTION_PTR)(void);
 
 typedef struct isl_data {
-    uint32 Length; /* in bytes */
+    CSSM_SIZE Length; /* in bytes */
     uint8 *Data;
 } ISL_DATA, *ISL_DATA_PTR;
 
 typedef struct isl_const_data {
-    uint32 Length; /* in bytes */
+    CSSM_SIZE Length; /* in bytes */
     const uint8 *Data;
 } ISL_CONST_DATA, *ISL_CONST_DATA_PTR;
 

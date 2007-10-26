@@ -1044,22 +1044,25 @@ sink(int argc, char **argv)
 #if HAVE_COPYFILE
 		if (copy_xattr && !strncmp(basename(curfile), "._", 2))
 		{
+			int mdfd;
 			if (targisdir)
 			{
-			    snprintf(md_src, sizeof md_src, "%s.XXX", np);
+			    snprintf(md_src, sizeof md_src, "%s.XXXXXX", np);
 			    snprintf(md_dst, sizeof md_dst, "%s/%s",
 				    dirname(np), basename(np) + 2);
-			    if(mkstemp(md_src) < 0)
+			    if((mdfd = mkstemp(md_src)) < 0)
 				continue;
 			}
 			else
 			{
-			    snprintf(md_src, sizeof md_src, "%s/._%s.XXX",
+			    snprintf(md_src, sizeof md_src, "%s/._%s.XXXXXX",
 				    dirname(np), basename(np));
 			    snprintf(md_dst, sizeof md_dst, "%s", np);
-			    if(mkstemp(md_src) < 0)
+			    if((mdfd = mkstemp(md_src)) < 0)
 				continue;
 			}
+			if (mdfd >= 0)
+				close(mdfd);
 			np = md_src;
 		}
 #endif

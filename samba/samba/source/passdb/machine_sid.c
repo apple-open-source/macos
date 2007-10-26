@@ -35,13 +35,14 @@ static DOM_SID *global_sam_sid=NULL;
  Read a SID from a file. This is for compatibility with the old MACHINE.SID
  style of SID storage
 ****************************************************************************/
+
 static BOOL read_sid_from_file(const char *fname, DOM_SID *sid)
 {
 	char **lines;
 	int numlines;
 	BOOL ret;
 
-	lines = file_lines_load(fname, &numlines);
+	lines = file_lines_load(fname, &numlines,0);
 	
 	if (!lines || numlines < 1) {
 		if (lines) file_lines_free(lines);
@@ -80,25 +81,12 @@ static DOM_SID *pdb_generate_sam_sid(void)
 {
 	DOM_SID domain_sid;
 	char *fname = NULL;
-	BOOL is_dc = False;
 	DOM_SID *sam_sid;
 	
 	if(!(sam_sid=SMB_MALLOC_P(DOM_SID)))
 		return NULL;
-			
-	generate_wellknown_sids();
 
-	switch (lp_server_role()) {
-	case ROLE_DOMAIN_PDC:
-	case ROLE_DOMAIN_BDC:
-		is_dc = True;
-		break;
-	default:
-		is_dc = False;
-		break;
-	}
-
-	if (is_dc) {
+	if ( IS_DC ) {
 		if (secrets_fetch_domain_sid(lp_workgroup(), &domain_sid)) {
 			sid_copy(sam_sid, &domain_sid);
 			return sam_sid;
@@ -108,7 +96,7 @@ static DOM_SID *pdb_generate_sam_sid(void)
 	if (secrets_fetch_domain_sid(global_myname(), sam_sid)) {
 
 		/* We got our sid. If not a pdc/bdc, we're done. */
-		if (!is_dc)
+		if ( !IS_DC )
 			return sam_sid;
 
 		if (!secrets_fetch_domain_sid(lp_workgroup(), &domain_sid)) {
@@ -152,7 +140,7 @@ static DOM_SID *pdb_generate_sam_sid(void)
 			return NULL;
 		}
 		unlink(fname);
-		if (is_dc) {
+		if ( !IS_DC ) {
 			if (!secrets_store_domain_sid(lp_workgroup(), sam_sid)) {
 				DEBUG(0,("pdb_generate_sam_sid: Failed to store domain SID from file.\n"));
 				SAFE_FREE(fname);
@@ -177,7 +165,7 @@ static DOM_SID *pdb_generate_sam_sid(void)
 		SAFE_FREE(sam_sid);
 		return NULL;
 	}
-	if (is_dc) {
+	if ( IS_DC ) {
 		if (!secrets_store_domain_sid(lp_workgroup(), sam_sid)) {
 			DEBUG(0,("pdb_generate_sam_sid: Failed to store generated domain SID.\n"));
 			SAFE_FREE(sam_sid);
@@ -210,4 +198,32 @@ DOM_SID *get_global_sam_sid(void)
 void reset_global_sam_sid(void) 
 {
 	SAFE_FREE(global_sam_sid);
+}
+
+/*****************************************************************
+ Check if the SID is our domain SID (S-1-5-21-x-y-z).
+*****************************************************************/  
+
+BOOL sid_check_is_domain(const DOM_SID *sid)
+{
+	DOM_SID apple_wellknown =
+	    { 1, 1, {0,0,0,0,0,5}, {21,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+
+	return sid_equal(sid, get_global_sam_sid()) ||
+		sid_equal(sid, &apple_wellknown);
+}
+
+/*****************************************************************
+ Check if the SID is our domain SID (S-1-5-21-x-y-z).
+*****************************************************************/  
+
+BOOL sid_check_is_in_our_domain(const DOM_SID *sid)
+{
+	DOM_SID dom_sid;
+	uint32 rid;
+
+	sid_copy(&dom_sid, sid);
+	sid_split_rid(&dom_sid, &rid);
+	
+	return sid_check_is_domain(&dom_sid);
 }

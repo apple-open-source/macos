@@ -1,7 +1,10 @@
 ;;; tibetan.el --- support for Tibetan language -*- coding: iso-2022-7bit; -*-
 
-;; Copyright (C) 1997 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
+;; Copyright (C) 1997, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Keywords: multilingual, Tibetan
 
@@ -19,15 +22,15 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; Author: Toru TOMABECHI, <Toru.Tomabechi@orient.unil.ch>
 
 ;; Created: Feb. 17. 1997
 
 ;; History:
-;; 1997.03.13 Modification for special signs and punctuations. 
+;; 1997.03.13 Modification for special signs and punctuations.
 
 ;;; Commentary:
 
@@ -55,7 +58,7 @@
 ;;;2260 $(7"`(B $(7"a(B $(7"b(B $(7"c(B $(7"d(B $(7"e(B $(7"f(B $(7"g(B $(7"h(B $(7"i(B $(7"j(B $(7"k(B $(7"l(B $(7"m(B $(7"n(B $(7"o(B ; Long vowels and
 ;;;2270 $(7"p(B $(7"q(B $(7"r(B $(7"s(B $(7"t(B $(7"u(B $(7"v(B $(7"w(B $(7"x(B $(7"y(B $(7"z(B $(7"{(B $(7"|(B $(7"}(B $(7"~(B // ; vocalic r, l ARE
 ;;;                                                     ; atomically
-;;;                                                     ; encoded. 
+;;;                                                     ; encoded.
 ;;;     00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
 ;;;2320 // $(7#!(B $(7#"(B $(7##(B $(7#$(B $(7#%(B $(7#&(B $(7#'(B $(7#((B $(7#)(B $(7#*(B $(7#+(B $(7#,(B $(7#-(B $(7#.(B $(7#/(B ; Subjoined consonants
 ;;;2330 $(7#0(B $(7#1(B $(7#2(B $(7#3(B $(7#4(B $(7#5(B $(7#6(B $(7#7(B $(7#8(B $(7#9(B $(7#:(B $(7#;(B $(7#<(B $(7#=(B $(7#>(B $(7#?(B ;
@@ -69,7 +72,7 @@
 ;;;2430 $(7$0(B $(7$1(B $(7$2(B $(7$3(B $(7$4(B $(7$5(B $(7$6(B $(7$7(B $(7$8(B $(7$9(B $(7$:(B $(7$;(B $(7$<(B $(7$=(B $(7$>(B $(7$?(B ; consonants for
 ;;;2440 $(7$@(B $(7$A(B $(7$B(B $(7$C(B $(7$D(B $(7$E(B $(7$F(B $(7$G(B $(7$H(B $(7$I(B $(7$J(B $(7$K(B $(7$L(B $(7$M(B $(7$N(B $(7$O(B ; ordinary Tibetan.
 ;;;2450 $(7$P(B $(7$Q(B $(7$R(B $(7$S(B $(7$T(B $(7$U(B $(7$V(B $(7$W(B $(7$X(B $(7$Y(B $(7$Z(B $(7$[(B $(7$\(B $(7$](B $(7$^(B $(7$_(B ; They are decomposed
-;;;2460 $(7$`(B $(7$a(B $(7$b(B $(7$c(B $(7$d(B $(7$e(B $(7$f(B $(7$g(B $(7$h(B $(7$i(B $(7$j(B $(7$k(B $(7$l(B $(7$m(B $(7$n(B $(7$o(B ; into base and 
+;;;2460 $(7$`(B $(7$a(B $(7$b(B $(7$c(B $(7$d(B $(7$e(B $(7$f(B $(7$g(B $(7$h(B $(7$i(B $(7$j(B $(7$k(B $(7$l(B $(7$m(B $(7$n(B $(7$o(B ; into base and
 ;;;2470 $(7$p(B $(7$q(B $(7$r(B $(7$s(B $(7$t(B $(7$u(B $(7$v(B $(7$w(B $(7$x(B $(7$y(B $(7$z(B $(7${(B $(7$|(B $(7$}(B $(7$~(B // ; subjoined consonants
 ;;;                                                     ; when written on a
 ;;;     00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F ; file in Tibetan
@@ -84,7 +87,7 @@
 
 (make-coding-system
  'tibetan-iso-8bit 2 ?Q
- "8-bit encoding for ASCII (MSB=0) and TIBETAN (MSB=1)"
+ "8-bit encoding for ASCII (MSB=0) and TIBETAN (MSB=1)."
  '(ascii tibetan nil nil
    nil nil)
  '((safe-charsets ascii tibetan)
@@ -100,7 +103,7 @@
 	     (input-method . "tibetan-wylie")
 	     (features tibet-util)
 	     (documentation . t)
-	     (sample-text 
+	     (sample-text
 	      . (tibetan-compose-string
 		 (copy-sequence
 "Tibetan (4$(7"7r'"]0"7"]14"20"21!;4%P0"G#!"Q14"20"21!;(B) $(7!4!5!5!>4"70"714$P0"!#C"Q1!;4"Er'"S0"E"S14"G0"G1!;4"70"714"2r'"[0"2"[1!;4"Dr'"[0"D"[14"#0"#14"G0"G1!>4"Ir'"]r'"_0"I"]"_1!;4"90"9"Q1!;4"/r'"S0"/"S1!;4"50"5"Q14#2x!#9r'"[0"2#9"[1!;4"Hx!"Rx!"Ur'"c0"H"A"U"c1!>(B")))))
@@ -555,23 +558,6 @@
     ("$(7"G#7(B" . "$(7%X(B")
     ("$(7"G#9(B" . "$(7%Y(B")))
 
-(defconst tibetan-obsolete-glyphs
-  `(("$(7!=(B" . "$(8!=(B")			; 2 col <-> 1 col
-    ("$(7!?(B" . "$(8!?(B")
-    ("$(7!@(B" . "$(8!@(B")
-    ("$(7!A(B" . "$(8!A(B")
-    ("$(7"`(B" . "$(8"`(B")
-    ("$(7!;(B" . "$(8!;(B")
-    ("$(7!D(B" . "$(8!D(B")
-    ;; Yes these are dirty. But ...
-    ("$(7!>(B $(7!>(B" . ,(compose-string "$(7!>(B $(7!>(B" 0 3 [?$(7!>(B (Br . Bl) ?  (Br . Bl) ?$(7!>(B]))
-    ("$(7!4!5!5(B" . ,(compose-string
-		  "$(7#R#S#S#S(B" 0 4
-		  [?$(7#R(B (Br . Bl) ?$(7#S(B (Br . Bl) ?$(7#S(B (Br . Bl) ?$(7#S(B]))
-    ("$(7!4!5(B" . ,(compose-string "$(7#R#S#S(B" 0 3 [?$(7#R(B (Br . Bl) ?$(7#S(B (Br . Bl) ?$(7#S(B]))
-    ("$(7!6(B" . ,(compose-string "$(7#R#S!I(B" 0 3 [?$(7#R(B (Br . Bl) ?$(7#S(B (br . tr) ?$(7!I(B]))
-    ("$(7!4(B"   . ,(compose-string "$(7#R#S(B" 0 2 [?$(7#R(B (Br . Bl) ?$(7#S(B]))))
-
 (defconst tibetan-regexp
   (let ((l (list tibetan-precomposed-transcription-alist
 		 tibetan-consonant-transcription-alist
@@ -627,4 +613,5 @@ This also matches some punctuation characters which need conversion.")
 
 (provide 'tibetan)
 
+;;; arch-tag: 8d37c8d7-f95d-450f-9ec2-819e61fc79a7
 ;;; tibetan.el ends here

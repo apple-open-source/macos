@@ -10,12 +10,12 @@ dnl libexslt is an extension
 dnl
 LIBXSLT_MAJOR_VERSION=1
 LIBXSLT_MINOR_VERSION=1
-LIBXSLT_MICRO_VERSION=11
+LIBXSLT_MICRO_VERSION=12
 PACKAGE=libxslt
 LIBEXSLT_MAJOR_VERSION=0
 LIBEXSLT_MINOR_VERSION=8
-LIBEXSLT_MICRO_VERSION=9
-LIBXML_REQUIRED_VERSION=2.6.8
+LIBEXSLT_MICRO_VERSION=10
+LIBXML_REQUIRED_VERSION=2.6.15 # needs new API xmlNewDocPI
 
 
 LIBXSLT_VERSION=$LIBXSLT_MAJOR_VERSION.$LIBXSLT_MINOR_VERSION.$LIBXSLT_MICRO_VERSION
@@ -118,11 +118,12 @@ AC_CHECK_FUNC(floor, , AC_CHECK_LIB(m, floor,
 AC_CHECK_FUNC(fabs, , AC_CHECK_LIB(m, fabs,
   [M_LIBS="-lm"; AC_DEFINE(HAVE_FABS)]))
 AC_CHECK_FUNCS(gettimeofday)
-AC_CHECK_FUNCS(mktime localtime localtime_r asctime time gmtime ftime)
+AC_CHECK_FUNCS(mktime localtime localtime_r asctime time gmtime_r ftime)
 
 dnl Checking the standard string functions availability
 AC_CHECK_FUNCS(printf sprintf fprintf snprintf vfprintf vsprintf vsnprintf sscanf,,
                NEED_TRIO=1)
+
 dnl
 dnl Check for trio string functions
 dnl

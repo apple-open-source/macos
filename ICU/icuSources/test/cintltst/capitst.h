@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -21,6 +21,7 @@
 #if !UCONFIG_NO_COLLATION
 
 #include "cintltst.h"
+#include "callcoll.h"
 #define MAX_TOKEN_LEN 16
 
 
@@ -72,6 +73,11 @@
     void TestSafeClone(void);
 
     /**
+     * Test ucol_cloneBinary(), ucol_openBinary()
+     **/
+    void TestCloneBinary(void);
+
+    /**
      * Test getting bounds for a sortkey
      */
     void TestBounds(void);
@@ -115,7 +121,10 @@
      */
     static void TestGetContractionsAndUnsafes(void);
 
-
+    /**
+     * Test funny stuff with open binary
+     */
+    static void TestOpenBinary(void);
 #endif /* #if !UCONFIG_NO_COLLATION */
 
 #endif

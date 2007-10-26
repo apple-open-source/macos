@@ -24,55 +24,80 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_MACHO
 #define TARGET_MACHO 1
 
+/* APPLE LOCAL begin mainline */
+#undef  TARGET_64BIT
+#define TARGET_64BIT (target_flags & MASK_64BIT)
+
 #define TARGET_VERSION fprintf (stderr, " (i686 Darwin)");
+/* APPLE LOCAL end mainline */
 
 /* APPLE LOCAL begin mainline 2005-04-11 4010614 */
 #undef TARGET_FPMATH_DEFAULT
 #define TARGET_FPMATH_DEFAULT (TARGET_SSE ? FPMATH_SSE : FPMATH_387)
 /* APPLE LOCAL end mainline 2005-04-11 4010614 */
 
+/* APPLE LOCAL begin mainline */
+#undef PTRDIFF_TYPE
+#define PTRDIFF_TYPE (TARGET_64BIT ? "long int" : "int")
+
+#undef MAX_BITS_PER_WORD
+#define MAX_BITS_PER_WORD 64
+
 #define TARGET_OS_CPP_BUILTINS()                \
   do                                            \
     {                                           \
-      builtin_define ("__i386__");              \
+      if (TARGET_64BIT)				\
+	builtin_define ("__x86_64__");		\
+      else					\
+	builtin_define ("__i386__");		\
       builtin_define ("__LITTLE_ENDIAN__");     \
-/* APPLE LOCAL mainline 2005-09-01 3449986 */	\
       darwin_cpp_builtins (pfile);		\
     }                                           \
   while (0)
+/* APPLE LOCAL end mainline */
 
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
 #undef CC1_SPEC
-/* APPLE LOCAL begin dynamic-no-pic */
-#define CC1_SPEC "\
-%{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
-"/* APPLE LOCAL ignore -mcpu=G4 -mcpu=G5 */"\
-%{!static:%{!mdynamic-no-pic:-fPIC}} %<faltivec %<mno-fused-madd %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5"
-/* APPLE LOCAL end dynamic-no-pic */
+/* APPLE LOCAL mainline */
+#define CC1_SPEC "%{!mkernel:%{!static:%{!mdynamic-no-pic:-fPIC}}} \
+  "/* APPLE LOCAL ARM ignore -mthumb and -mno-thumb */"\
+  %<mthumb %<mno-thumb \
+  "/* APPLE LOCAL mainline 2007-02-20 5005743 */"\
+  %{!mmacosx-version-min=*:-mmacosx-version-min=%(darwin_minversion)} \
+  "/* APPLE LOCAL ignore -mcpu=G4 -mcpu=G5 */"\
+  %<faltivec %<mno-fused-madd %<mlong-branch %<mlongcall %<mcpu=G4 %<mcpu=G5 \
+  %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }}"
 
 /* APPLE LOCAL AltiVec */
 #define CPP_ALTIVEC_SPEC "%<faltivec"
 
+/* APPLE LOCAL begin mainline */
 #undef ASM_SPEC
-/* APPLE LOCAL mainline 2005-04-11 */
-#define ASM_SPEC "-arch i386 -force_cpusubtype_ALL"
+#define ASM_SPEC "-arch %(darwin_arch) -force_cpusubtype_ALL"
 
+#define DARWIN_ARCH_SPEC "%{m64:x86_64;:i386}"
+#define DARWIN_SUBARCH_SPEC "					\
+  %{m64: x86_64}						\
+  %{!m64: i386}"
+
+/* APPLE LOCAL begin mainline 2007-03-13 5005743 5040758 */ \
+/* Determine a minimum version based on compiler options.  */
+#define DARWIN_MINVERSION_SPEC				\
+ "%{!m64|fgnu-runtime:10.4;				\
+    ,objective-c|,objc-cpp-output:10.5;			\
+    ,objective-c++|,objective-c++-cpp-output:10.5;	\
+    :10.4}"
+
+/* APPLE LOCAL end mainline 2007-03-13 5005743 5040758 */ \
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS					\
-  /* APPLE LOCAL begin mainline 2005-04-11 */			\
-  { "darwin_arch", "i386" },					\
-  { "darwin_subarch", "i386" },
-  /* APPLE LOCAL end mainline 2005-04-11 */
-
-/* APPLE LOCAL begin 4078600 */
-/* Support for configure-time defaults of some command line options.  */
-#undef OPTION_DEFAULT_SPECS
-#define OPTION_DEFAULT_SPECS \
-  {"arch", "%{!march=*:-march=%(VALUE)}"}, \
-  {"tune", "%{!mtune=*:-mtune=%(VALUE)}"}
-/* APPLE LOCAL end 4078600 */
+  DARWIN_EXTRA_SPECS						\
+  { "darwin_arch", DARWIN_ARCH_SPEC },				\
+  { "darwin_crt2", "" },					\
+  { "darwin_subarch", DARWIN_SUBARCH_SPEC },
+/* APPLE LOCAL end mainline */
 
 /* Use the following macro for any Darwin/x86-specific command-line option
    translation.  */
@@ -115,7 +140,10 @@ extern void darwin_x86_file_end (void);
 
 #define TARGET_DYNAMIC_NO_PIC	(target_flags & MASK_MACHO_DYNAMIC_NO_PIC)
 /* APPLE LOCAL end dynamic-no-pic */
-
+/* APPLE LOCAL begin mainline */
+#undef GOT_SYMBOL_NAME
+#define GOT_SYMBOL_NAME (machopic_function_base_name ())
+/* APPLE LOCAL end mainline */
 /* Define the syntax of pseudo-ops, labels and comments.  */
 
 #define LPREFIX "L"
@@ -130,7 +158,8 @@ extern void darwin_x86_file_end (void);
 #define ASM_BYTE_OP "\t.byte\t"
 #define ASM_SHORT "\t.word\t"
 #define ASM_LONG "\t.long\t"
-/* Darwin as doesn't do ".quad".  */
+/* APPLE LOCAL x86_64 support */
+#define ASM_QUAD "\t.quad\t"
 
 #undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG)	\
@@ -142,23 +171,9 @@ extern void darwin_x86_file_end (void);
             fprintf (FILE, "\t%s %d\n", ALIGN_ASM_OP, (LOG)); \
         }				\
     } while (0)
-
-/* This says how to output an assembler line
-   to define a global common symbol.  */
-
-#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)  \
-( fputs (".comm ", (FILE)),			\
-  assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ",%lu\n", (unsigned long)(ROUNDED)))
-
-/* This says how to output an assembler line
-   to define a local common symbol.  */
-
-#define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
-( fputs (".lcomm ", (FILE)),			\
-  assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", (ROUNDED)))
-
+/* APPLE LOCAL begin mainline */
+/* Removed ASM_OUTPUT_COMMON and ASM_OUTPUT_LOCAL */
+/* APPLE LOCAL end mainline */
 
 /* APPLE LOCAL begin Macintosh alignment 2002-2-19 --ff */
 #define MASK_ALIGN_NATURAL	0x40000000
@@ -166,8 +181,6 @@ extern void darwin_x86_file_end (void);
 #define rs6000_alignment_flags target_flags
 #define MASK_ALIGN_MAC68K	0x20000000
 #define TARGET_ALIGN_MAC68K	(target_flags & MASK_ALIGN_MAC68K)
-
-#define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
 
 #define ROUND_TYPE_ALIGN(TYPE, COMPUTED, SPECIFIED) \
   (((TREE_CODE (TYPE) == RECORD_TYPE \
@@ -191,10 +204,11 @@ extern void darwin_x86_file_end (void);
 /* APPLE LOCAL end Macintosh alignment 2002-2-19 --ff */
 
 /* Darwin profiling -- call mcount.  */
+/* APPLE LOCAL begin x86_64 support 2006-03-18 */
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO)				\
     do {								\
-      if (MACHOPIC_INDIRECT)						\
+      if (MACHOPIC_INDIRECT && ! TARGET_64BIT)						\
 	{								\
 	  const char *name = machopic_mcount_stub_name ();		\
 	  fprintf (FILE, "\tcall %s\n", name+1);  /*  skip '&'  */	\
@@ -202,13 +216,10 @@ extern void darwin_x86_file_end (void);
 	}								\
       else fprintf (FILE, "\tcall mcount\n");				\
     } while (0)
-
-/* APPLE LOCAL begin SSE stack alignment */
-#define BASIC_STACK_BOUNDARY (128)
-/* APPLE LOCAL end SSE stack alignment */
+/* APPLE LOCAL end x86_64 support 2006-03-18 */
 
 /* APPLE LOCAL CW asm blocks */
-extern int flag_cw_asm_blocks;
+extern int flag_iasm_blocks;
 /* APPLE LOCAL begin fix-and-continue x86 */
 #undef SUBTARGET_OVERRIDE_OPTIONS
 #define SUBTARGET_OVERRIDE_OPTIONS				\
@@ -236,10 +247,21 @@ extern int flag_cw_asm_blocks;
       }								\
     /* APPLE LOCAL end AT&T-style stub 4164563 */		\
     /* APPLE LOCAL begin CW asm blocks */			\
-    if (flag_cw_asm_blocks)					\
+    if (flag_iasm_blocks)					\
       flag_ms_asms = 1;						\
     /* APPLE LOCAL end CW asm blocks */				\
+    if (TARGET_64BIT)						\
+      {								\
+	if (MACHO_DYNAMIC_NO_PIC_P)				\
+	  target_flags &= ~MASK_MACHO_DYNAMIC_NO_PIC;		\
+      }								\
   } while (0)
+
+/* APPLE LOCAL begin kexts */
+#define C_COMMON_OVERRIDE_OPTIONS do {		\
+  SUBTARGET_C_COMMON_OVERRIDE_OPTIONS;		\
+  } while (0)
+/* APPLE LOCAL end kexts */
 
 /* True, iff we're generating fast turn around debugging code.  When
    true, we arrange for function prologues to start with 6 nops so
@@ -250,6 +272,76 @@ extern int flag_cw_asm_blocks;
 #define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)
 /* APPLE LOCAL end fix-and-continue x86 */
 
+/* APPLE LOCAL begin mainline 2006-02-21 4439051 */
+/* Darwin uses the standard DWARF register numbers but the default
+   register numbers for STABS.  Fortunately for 64-bit code the
+   default and the standard are the same.  */
+#undef DBX_REGISTER_NUMBER
+#define DBX_REGISTER_NUMBER(n) 					\
+  (TARGET_64BIT ? dbx64_register_map[n]				\
+   : write_symbols == DWARF2_DEBUG ? svr4_dbx_register_map[n]	\
+   : dbx_register_map[n])
+
+/* Unfortunately, the 32-bit EH information also doesn't use the standard
+   DWARF register numbers.  */
+#define DWARF2_FRAME_REG_OUT(n, for_eh)					\
+  (! (for_eh) || write_symbols != DWARF2_DEBUG || TARGET_64BIT ? (n)	\
+   : (n) == 5 ? 4							\
+   : (n) == 4 ? 5							\
+   : (n) >= 11 && (n) <= 18 ? (n) + 1					\
+   : (n))
+/* APPLE LOCAL end mainline 2006-02-21 4439051 */
+
+/* APPLE LOCAL begin 4457939 stack alignment mishandled */
+/* <rdar://problem/4471596> stack alignment is not handled properly
+
+   Please remove this entire a**le local when addressing this
+   Radar.  */
+extern void ix86_darwin_init_expanders (void);
+#define INIT_EXPANDERS (ix86_darwin_init_expanders ())
+/* APPLE LOCAL end 4457939 stack alignment mishandled */
+
+/* APPLE LOCAL begin x86_64 */
+/* For 64-bit, we need to add 4 because @GOTPCREL is relative to the
+   end of the instruction, but without the 4 we'd only have the right
+   address for the start of the instruction. */
+#define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(FILE, ENCODING, SIZE, ADDR, DONE)	\
+  if (TARGET_64BIT)													\
+    {																\
+      if ((SIZE) == 4 && ((ENCODING) & 0x70) == DW_EH_PE_pcrel)		\
+        {															\
+          fputs (ASM_LONG, FILE);									\
+          assemble_name (FILE, XSTR (ADDR, 0));						\
+          fputs ("+4@GOTPCREL", FILE);								\
+          goto DONE;												\
+        }															\
+    }																\
+  else																\
+    {																\
+      if (ENCODING == ASM_PREFERRED_EH_DATA_FORMAT (2, 1))			\
+        {															\
+          darwin_non_lazy_pcrel (FILE, ADDR);						\
+          goto DONE;												\
+        }															\
+    }
+/* APPLE LOCAL end x86_64 */
+
+/* APPLE LOCAL begin mainline */
+#undef REGISTER_TARGET_PRAGMAS
+#define REGISTER_TARGET_PRAGMAS() DARWIN_REGISTER_TARGET_PRAGMAS()
+
+#undef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
+#define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES darwin_set_default_type_attributes
+/* APPLE LOCAL end mainline */
 /* APPLE LOCAL begin CW asm blocks */
-#define CW_ASM_REGISTER_NAME(STR, BUF) i386_cw_asm_register_name (STR, BUF)
-/* APPLE LOCAL end CW asm blocks */
+#define IASM_VALID_PIC(DECL, E)						\
+  do {									\
+    if (E->as_immediate && ! TARGET_DYNAMIC_NO_PIC && flag_pic)		\
+      warning ("non-pic addressing form not suitible for pic code");	\
+  } while (0)
+/* APPLE LOCAL end cw asm blocks */
+
+/* APPLE LOCAL begin 4106131 */
+#undef TARGET_DEEP_BRANCH_PREDICTION
+#define TARGET_DEEP_BRANCH_PREDICTION ((m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4) & TUNEMASK)
+/* APPLE LOCAL end 4106131 */

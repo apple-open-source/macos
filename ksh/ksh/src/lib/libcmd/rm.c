@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -31,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: rm (AT&T Labs Research) 2003-09-11 $\n]"
+"[-?\n@(#)$Id: rm (AT&T Research) 2006-11-21 $\n]"
 USAGE_LICENSE
 "[+NAME?rm - remove files]"
 "[+DESCRIPTION?\brm\b removes the named \afile\a arguments. By default it"
@@ -70,193 +66,200 @@ USAGE_LICENSE
 "[+SEE ALSO?\bmv\b(1), \brmdir\b(2), \bunlink\b(2), \bremove\b(3)]"
 ;
 
-#include <cmdlib.h>
+#include <cmd.h>
 #include <ls.h>
-#include <ftwalk.h>
+#include <fts.h>
 #include <fs3d.h>
 
 #define RM_ENTRY	1
 
-#define beenhere(f)	(((f)->local.number>>1)==(f)->statb.st_nlink)
-#define isempty(f)	(!((f)->local.number&RM_ENTRY))
-#define nonempty(f)	((f)->parent->local.number|=RM_ENTRY)
+#define beenhere(f)	(((f)->fts_number>>1)==(f)->fts_statp->st_nlink)
+#define isempty(f)	(!((f)->fts_number&RM_ENTRY))
+#define nonempty(f)	((f)->fts_parent->fts_number|=RM_ENTRY)
 #define pathchunk(n)	roundof(n,1024)
-#define retry(f)	((f)->local.number=((f)->statb.st_nlink<<1))
+#define retry(f)	((f)->fts_number=((f)->fts_statp->st_nlink<<1))
 
-static struct				/* program state		*/
+typedef struct State_s			/* program state		*/
 {
 	int		clobber;	/* clear out file data first	*/
 	int		directory;	/* remove(dir) not rmdir(dir)	*/
 	int		force;		/* force actions		*/
 	int		fs3d;		/* 3d enabled			*/
 	int		interactive;	/* prompt for approval		*/
-	int		interrupt;	/* interrupt -- unwind		*/
 	int		recursive;	/* remove subtrees too		*/
 	int		terminal;	/* attached to terminal		*/
 	int		uid;		/* caller uid			*/
 	int		unconditional;	/* enable dir rwx on preorder	*/
 	int		verbose;	/* display each file		*/
-} state;
+#if _lib_fsync
+	char		buf[SF_BUFSIZE];/* clobber buffer		*/
+#endif
+} State_t;
 
 /*
  * remove a single file
  */
 
 static int
-rm(register Ftw_t* ftw)
+rm(State_t* state, register FTSENT* ent)
 {
 	register char*	path;
 	register int	n;
 	int		v;
 	struct stat	st;
 
-	if (state.interrupt)
-		return -1;
-	if (ftw->info == FTW_NS)
+	if (ent->fts_info == FTS_NS || ent->fts_info == FTS_ERR || ent->fts_info == FTS_SLNONE)
 	{
-		if (!state.force)
-			error(2, "%s: not found", ftw->path);
+		if (!state->force)
+			error(2, "%s: not found", ent->fts_path);
 	}
-	else if (state.fs3d && iview(&ftw->statb))
-		ftw->status = FTW_SKIP;
-	else switch (ftw->info)
+	else if (state->fs3d && iview(ent->fts_statp))
+		fts_set(NiL, ent, FTS_SKIP);
+	else switch (ent->fts_info)
 	{
-	case FTW_DNR:
-	case FTW_DNX:
-		if (state.unconditional)
+	case FTS_DNR:
+	case FTS_DNX:
+		if (state->unconditional)
 		{
-			if (!chmod(ftw->name, (ftw->statb.st_mode & S_IPERM)|S_IRWXU))
+			if (!chmod(ent->fts_name, (ent->fts_statp->st_mode & S_IPERM)|S_IRWXU))
 			{
-				ftw->status = FTW_AGAIN;
+				fts_set(NiL, ent, FTS_AGAIN);
 				break;
 			}
 			error_info.errors++;
 		}
-		else if (!state.force)
-			error(2, "%s: cannot %s directory", ftw->path, (ftw->info & FTW_NR) ? "read" : "search");
+		else if (!state->force)
+			error(2, "%s: cannot %s directory", ent->fts_path, (ent->fts_info & FTS_NR) ? "read" : "search");
 		else
 			error_info.errors++;
-		ftw->status = FTW_SKIP;
-		nonempty(ftw);
+		fts_set(NiL, ent, FTS_SKIP);
+		nonempty(ent);
 		break;
-	case FTW_D:
-	case FTW_DC:
-		path = ftw->name;
-		if (path[0] == '.' && (!path[1] || path[1] == '.' && !path[2]) && (ftw->level > 0 || path[1]))
+	case FTS_D:
+	case FTS_DC:
+		path = ent->fts_name;
+		if (path[0] == '.' && (!path[1] || path[1] == '.' && !path[2]) && (ent->fts_level > 0 || path[1]))
 		{
-			ftw->status = FTW_SKIP;
-			if (!state.force)
-				error(2, "%s: cannot remove", ftw->path);
+			fts_set(NiL, ent, FTS_SKIP);
+			if (!state->force)
+				error(2, "%s: cannot remove", ent->fts_path);
 			else
 				error_info.errors++;
 			break;
 		}
-		if (!state.recursive)
+		if (!state->recursive)
 		{
-			ftw->status = FTW_SKIP;
-			error(2, "%s: directory", ftw->path);
+			fts_set(NiL, ent, FTS_SKIP);
+			error(2, "%s: directory", ent->fts_path);
 			break;
 		}
-		if (!beenhere(ftw))
+		if (!beenhere(ent))
 		{
-			if (state.unconditional && (ftw->statb.st_mode ^ S_IRWXU))
-				chmod(path, (ftw->statb.st_mode & S_IPERM)|S_IRWXU);
-			if (ftw->level > 0)
+			if (state->unconditional && (ent->fts_statp->st_mode ^ S_IRWXU))
+				chmod(path, (ent->fts_statp->st_mode & S_IPERM)|S_IRWXU);
+			if (ent->fts_level > 0)
 			{
 				char*	s;
 
-				if (ftw->status == FTW_NAME || !(s = strrchr(ftw->path, '/')))
+				if (ent->fts_accpath == ent->fts_name || !(s = strrchr(ent->fts_accpath, '/')))
 					v = !stat(".", &st);
 				else
 				{
-					path = ftw->path;
+					path = ent->fts_accpath;
 					*s = 0;
 					v = !stat(path, &st);
 					*s = '/';
 				}
 				if (v)
-					v = st.st_nlink <= 2 || st.st_ino == ftw->parent->statb.st_ino && st.st_dev == ftw->parent->statb.st_dev || strchr(astconf("PATH_ATTRIBUTES", path, NiL), 'l');
+					v = st.st_nlink <= 2 || st.st_ino == ent->fts_parent->fts_statp->st_ino && st.st_dev == ent->fts_parent->fts_statp->st_dev || strchr(astconf("PATH_ATTRIBUTES", path, NiL), 'l');
 			}
 			else
 				v = 1;
 			if (v)
 			{
-				if (state.interactive && astquery(2, "remove directory %s? ", ftw->path) > 0)
+				if (state->interactive)
 				{
-					ftw->status = FTW_SKIP;
-					nonempty(ftw);
+					if ((v = astquery(-1, "remove directory %s? ", ent->fts_path)) < 0)
+						return -1;
+					if (v > 0)
+					{
+						fts_set(NiL, ent, FTS_SKIP);
+						nonempty(ent);
+					}
 				}
-				if (ftw->info == FTW_D)
+				if (ent->fts_info == FTS_D)
 					break;
 			}
 			else
 			{
-				ftw->info = FTW_DC;
-				error(1, "%s: hard link to directory", ftw->path);
+				ent->fts_info = FTS_DC;
+				error(1, "%s: hard link to directory", ent->fts_path);
 			}
 		}
-		else if (ftw->info == FTW_D)
+		else if (ent->fts_info == FTS_D)
 			break;
 		/*FALLTHROUGH*/
-	case FTW_DP:
-		if (isempty(ftw) || state.directory)
+	case FTS_DP:
+		if (isempty(ent) || state->directory)
 		{
-			path = ftw->name;
+			path = ent->fts_name;
 			if (path[0] != '.' || path[1])
 			{
-				if (ftw->status != FTW_NAME)
-					path = ftw->path;
-				if (state.verbose)
-					sfputr(sfstdout, ftw->path, '\n');
-				if ((ftw->info == FTW_DC || state.directory) ? remove(path) : rmdir(path)) switch (errno)
-				{
-				case EEXIST:
-#if defined(ENOTEMPTY) && (ENOTEMPTY) != (EEXIST)
-				case ENOTEMPTY:
-#endif
-					if (ftw->info == FTW_DP && !beenhere(ftw))
+				path = ent->fts_accpath;
+				if (state->verbose)
+					sfputr(sfstdout, ent->fts_path, '\n');
+				if ((ent->fts_info == FTS_DC || state->directory) ? remove(path) : rmdir(path))
+					switch (errno)
 					{
-						retry(ftw);
-						ftw->status = FTW_AGAIN;
+					case EEXIST:
+#if defined(ENOTEMPTY) && (ENOTEMPTY) != (EEXIST)
+					case ENOTEMPTY:
+#endif
+						if (ent->fts_info == FTS_DP && !beenhere(ent))
+						{
+							retry(ent);
+							fts_set(NiL, ent, FTS_AGAIN);
+							break;
+						}
+						/*FALLTHROUGH*/
+					default:
+						nonempty(ent);
+						if (!state->force)
+							error(ERROR_SYSTEM|2, "%s: directory not removed", ent->fts_path);
+						else
+							error_info.errors++;
 						break;
 					}
-					/*FALLTHROUGH*/
-				default:
-					nonempty(ftw);
-					if (!state.force)
-						error(ERROR_SYSTEM|2, "%s: directory not removed", ftw->path);
-					else
-						error_info.errors++;
-					break;
-				}
 			}
-			else if (!state.force)
-				error(2, "%s: cannot remove", ftw->path);
+			else if (!state->force)
+				error(2, "%s: cannot remove", ent->fts_path);
 			else
 				error_info.errors++;
 		}
 		else
 		{
-			nonempty(ftw);
-			if (!state.force)
-				error(2, "%s: directory not removed", ftw->path);
+			nonempty(ent);
+			if (!state->force)
+				error(2, "%s: directory not removed", ent->fts_path);
 			else
 				error_info.errors++;
 		}
 		break;
 	default:
-		path = ftw->status == FTW_NAME ? ftw->name : ftw->path;
-		if (state.verbose)
-			sfputr(sfstdout, ftw->path, '\n');
-		if (state.interactive)
+		path = ent->fts_accpath;
+		if (state->verbose)
+			sfputr(sfstdout, ent->fts_path, '\n');
+		if (state->interactive)
 		{
-			if (astquery(2, "remove %s? ", ftw->path) > 0)
+			if ((v = astquery(-1, "remove %s? ", ent->fts_path)) < 0)
+				return -1;
+			if (v > 0)
 			{
-				nonempty(ftw);
+				nonempty(ent);
 				break;
 			}
 		}
-		else if (!state.force && state.terminal && S_ISREG(ftw->statb.st_mode))
+		else if (!state->force && state->terminal && S_ISREG(ent->fts_statp->st_mode))
 		{
 			if ((n = open(path, O_RDWR)) < 0)
 			{
@@ -267,14 +270,16 @@ rm(register Ftw_t* ftw)
 #ifdef EROFS
 					errno != EROFS &&
 #endif
-					astquery(2, "override protection %s for %s? ",
+					(v = astquery(-1, "override protection %s for %s? ",
 #ifdef ETXTBSY
 					errno == ETXTBSY ? "``running program''" : 
 #endif
-					ftw->statb.st_uid != state.uid ? "``not owner''" :
-					fmtmode(ftw->statb.st_mode & S_IPERM, 0) + 1, ftw->path) > 0)
+					ent->fts_statp->st_uid != state->uid ? "``not owner''" :
+					fmtmode(ent->fts_statp->st_mode & S_IPERM, 0) + 1, ent->fts_path)) < 0)
+						return -1;
+					if (v > 0)
 					{
-						nonempty(ftw);
+						nonempty(ent);
 						break;
 					}
 			}
@@ -282,26 +287,24 @@ rm(register Ftw_t* ftw)
 				close(n);
 		}
 #if _lib_fsync
-		if (state.clobber && S_ISREG(ftw->statb.st_mode) && ftw->statb.st_size > 0)
+		if (state->clobber && S_ISREG(ent->fts_statp->st_mode) && ent->fts_statp->st_size > 0)
 		{
 			if ((n = open(path, O_WRONLY)) < 0)
-				error(ERROR_SYSTEM|2, "%s: cannot clear data", ftw->path);
+				error(ERROR_SYSTEM|2, "%s: cannot clear data", ent->fts_path);
 			else
 			{
-				off_t		c = ftw->statb.st_size;
-
-				static char	buf[SF_BUFSIZE];
+				off_t		c = ent->fts_statp->st_size;
 
 				for (;;)
 				{
-					if (write(n, buf, sizeof(buf)) != sizeof(buf))
+					if (write(n, state->buf, sizeof(state->buf)) != sizeof(state->buf))
 					{
-						error(ERROR_SYSTEM|2, "%s: data clear error", ftw->path);
+						error(ERROR_SYSTEM|2, "%s: data clear error", ent->fts_path);
 						break;
 					}
-					if (c <= sizeof(buf))
+					if (c <= sizeof(state->buf))
 						break;
-					c -= sizeof(buf);
+					c -= sizeof(state->buf);
 				}
 				fsync(n);
 				close(n);
@@ -310,9 +313,9 @@ rm(register Ftw_t* ftw)
 #endif
 		if (remove(path))
 		{
-			nonempty(ftw);
-			if (!state.force || state.interactive)
-				error(ERROR_SYSTEM|2, "%s: not removed", ftw->path);
+			nonempty(ent);
+			if (!state->force || state->interactive)
+				error(ERROR_SYSTEM|2, "%s: not removed", ent->fts_path);
 			else
 				error_info.errors++;
 		}
@@ -324,13 +327,13 @@ rm(register Ftw_t* ftw)
 int
 b_rm(int argc, register char** argv, void* context)
 {
-	if (argc < 0)
-	{
-		state.interrupt = 1;
-		return -1;
-	}
+	State_t		state;
+	FTS*		fts;
+	FTSENT*		ent;
+	int		set3d;
+
+	cmdinit(argc, argv, context, ERROR_CATALOG, ERROR_NOTIFY);
 	memset(&state, 0, sizeof(state));
-	cmdinit(argv, context, ERROR_CATALOG, ERROR_NOTIFY);
 	state.fs3d = fs3d(FS3D_TEST);
 	state.terminal = isatty(0);
 	for (;;)
@@ -351,11 +354,6 @@ b_rm(int argc, register char** argv, void* context)
 		case 'r':
 		case 'R':
 			state.recursive = 1;
-			if (state.fs3d)
-			{
-				state.fs3d = 0;
-				fs3d(0);
-			}
 			continue;
 		case 'F':
 #if _lib_fsync
@@ -393,6 +391,22 @@ b_rm(int argc, register char** argv, void* context)
 		state.verbose = 0;
 	state.uid = geteuid();
 	state.unconditional = state.unconditional && state.recursive && state.force;
-	ftwalk((char*)argv, rm, FTW_MULTIPLE|FTW_PHYSICAL|FTW_TWICE, NiL);
+	if (state.recursive && state.fs3d)
+	{
+		set3d = state.fs3d;
+		state.fs3d = 0;
+		fs3d(0);
+	}
+	else
+		set3d = 0;
+	if (fts = fts_open(argv, FTS_PHYSICAL, NiL))
+	{
+		while (!sh_checksig(context) && (ent = fts_read(fts)) && !rm(&state, ent));
+		fts_close(fts);
+	}
+	else if (!state.force)
+		error(ERROR_SYSTEM|2, "%s: cannot remove", argv[0]);
+	if (set3d)
+		fs3d(set3d);
 	return error_info.errors != 0;
 }

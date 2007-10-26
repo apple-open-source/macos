@@ -36,39 +36,28 @@ set testfile "ostream-defined"
 set srcfile ${testfile}.cc
 set binfile ${objdir}/${subdir}/${testfile}
     
-proc do_tests {c_flags} {
-    global srcdir objdir subdir gdb_prompt srcfile testfile binfile hex
+global srcdir objdir subdir gdb_prompt srcfile testfile binfile hex
     
-    set additional_flags additional_flags=$c_flags
-    
-    if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable [list $additional_flags c++] ] != "" } {
-	gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
-    }
-    
-    # Start with a fresh gdb
-    gdb_exit
-    gdb_start
-    gdb_reinitialize_dir $srcdir/$subdir
-    gdb_file_cmd "${binfile}"
-    
-    send_gdb "set width 0\n"
-    gdb_expect -re "$gdb_prompt $"
-    
-    gdb_test "break [gdb_get_line_number "good place to put a breakpoint"]" "Breakpoint 1 at $hex: file.*, line.*\\." \
-	"Set breakpoint on line  'good stopping point in main' - $c_flags"
-    
-    gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 1, main.*" \
-	"run to breakpoint in main() - $c_flags"
-    
-    gdb_test "print outStream" "basic_ostream.*" "Able to print outStream - $c_flags"
-    
-
-    gdb_exit
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug c++} ] != "" } {
+  gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
+    
+# Start with a fresh gdb
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_file_cmd "${binfile}"
+    
+send_gdb "set width 0\n"
+gdb_expect -re "$gdb_prompt $"
+    
+gdb_test "break [gdb_get_line_number "good place to put a breakpoint"]" "Breakpoint 1 at $hex: file.*, line.*\\." \
+  "Set breakpoint on line  'good stopping point in main'"
+    
+gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 1, main.*" \
+  "run to breakpoint in main()"
+    
+gdb_test "print outStream" "basic_ostream.*" "Able to print outStream"
+    
 
-do_tests -gfull
-do_tests -gused
-do_tests "-x objective-c++ -gfull"
-do_tests "-x objective-c++ -gused"
-
-return 0
+gdb_exit

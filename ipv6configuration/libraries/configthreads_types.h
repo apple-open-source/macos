@@ -136,14 +136,16 @@ typedef struct {
 } ip6config_method_data_t;
 
 typedef struct {
-    struct in6_addr	addr;
-    int				prefixlen;
-    int				flags;
+	struct in6_addr	addr;
+	struct in6_addr	prefixmask;
+	int			prefixlen;
+	
+	int			flags;
 } ip6_addrinfo_t;
 
 typedef struct {
-    int					n_addrs;
-    ip6_addrinfo_t *	addr_list;
+    int			n_addrs;
+    ip6_addrinfo_t	*addr_list;
 } ip6_addrinfo_list_t;
 
 #endif _CONFIGTHREADS_TYPES_H

@@ -1,26 +1,22 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1982-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#                David Korn <dgk@research.att.com>                 #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                  David Korn <dgk@research.att.com>                   #
+#                                                                      #
+########################################################################
 # test the behavior of co-processes
 function err_exit
 {
@@ -30,8 +26,13 @@ function err_exit
 }
 alias err_exit='err_exit $LINENO'
 
-Command=$0
+Command=${0##*/}
 integer Errors=0
+
+if	[[ -d /cygdrive ]]
+then	err_exit cygwin detected - coprocess tests disabled - enable at the risk of wedging your system
+	exit $((Errors))
+fi
 
 function ping # id
 {
@@ -41,6 +42,16 @@ function ping # id
 		print -r "$1 $REPLY"
 	done
 }
+
+cat |&
+print -p "hello"
+read -p line
+[[ $line == hello ]] || err_exit 'coprocessing fails' 
+exec 5>&p 6<&p
+print -u5 'hello again' || err_exit 'write on u5 fails'
+read -u6 line
+[[ $line == 'hello again' ]] || err_exit 'coprocess after moving fds fails' 
+exec 5<&- 6<&-
 
 ping three |&
 exec 3>&p
@@ -108,7 +119,7 @@ done
 if	(( SECONDS > 8 ))
 then	err_exit 'read -p hanging'
 fi
-( sleep 3 |& sleep 1 && kill $!; sleep 3 |& sleep 1 && kill $! ) || 
+( sleep 3 |& sleep 1 && kill $!; sleep 1; sleep 3 |& sleep 1 && kill $! ) || 
 	err_exit "coprocess cleanup not working correctly"
 unset line
 (
@@ -161,4 +172,47 @@ do	if	( trap - $sig ) 2> /dev/null
 		break
 	fi
 done
+
+trap 'sleep_pid=; kill $pid; err_exit "coprocess 1 hung"' TERM
+{ sleep 5; kill $$; } &
+sleep_pid=$!
+builtin cat
+cat |&
+pid=$!
+exec 5<&p 6>&p
+print -u6 hi; read -u5
+[[ $REPLY == hi ]] || err_exit 'REPLY is $REPLY not hi'
+exec 6>&-
+wait $pid
+trap - TERM
+[[ $sleep_pid ]] && kill $sleep_pid
+
+trap 'sleep_pid=; kill $pid; err_exit "coprocess 2 hung"' TERM
+{ sleep 5; kill $$; } &
+sleep_pid=$!
+cat |& 
+pid=$!
+print foo >&p 2> /dev/null || err_exit 'first write of foo to coprocess failed'
+print foo >&p 2> /dev/null || err_exit 'second write of foo to coprocess failed'
+kill $pid
+wait $pid 2> /dev/null
+trap - TERM
+[[ $sleep_pid ]] && kill $sleep_pid
+
+trap 'sleep_pid=; kill $pid; err_exit "coprocess 3 hung"' TERM
+{ sleep 5; kill $$; } &
+sleep_pid=$!
+cat |& 
+pid=$!
+print -p foo
+print -p bar
+read <&p || err_exit 'first read from coprocess failed'
+[[ $REPLY == foo ]] || err_exit "first REPLY is $REPLY not foo"
+read <&p || err_exit 'second read from coprocess failed'
+[[ $REPLY == bar ]] || err_exit "second REPLY is $REPLY not bar"
+kill $pid
+wait $pid 2> /dev/null
+trap - TERM
+[[ $sleep_pid ]] && kill $sleep_pid
+
 exit $((Errors))

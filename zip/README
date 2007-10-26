@@ -1,41 +1,19 @@
 This is the "zip" project, which comprises both zip(1) and unzip(1),
 and associated tools. The canonical home page for these tools are:
 
-Zip: <http://www.info-zip.org/pub/infozip/Zip.html>
-UnZip: <http://www.info-zip.org/pub/infozip/UnZip.html>
+Zip: <http://www.info-zip.org/Zip.html>
+UnZip: <http://www.info-zip.org/UnZip.html>
 
 Currently, this project tracks:
-Zip 2.3 (released 4 December 1999)
-UnZip 5.51 (released 22 May 2004)
+Zip 2.32 (released 20 June 2005)
+UnZip 5.52 (released 27 February 2005)
 
-Imports should be done on the vendor branch "InfoZip", and use
-XBS-style "~" notation. For example, vendor "InfoZip", release "Zip-2~3".
-Also, use -ko to prevent keyword changes. For example:
+Imports should commit the new tarball, and change the makefiles
+as appropriate.
 
-cd ./zip/zip
-cvs import -ko zip/zip/zip InfoZip Zip-2~3
-cd ../../unzip/unzip
-cvs import -ko zip/unzip/unzip InfoZip UnZip-5~50
+Local modifications should be implemented as patches applied during build.
 
-Local modifications should be marked with the text "APPLE_LOCAL", or
-implemented as patches applied during build.
-
-
-UPDATES
-=======
-cd unzip-5.51
-cvs import -m "Vendor import of UnZip 5.51" -ko zip/unzip/unzip InfoZip UnZip-5~51
-cvs checkout -j UnZip-5~50 -j UnZip-5~51 -d unzip zip/unzip/unzip
-(commit if necessary)
-
-VERIFYING
-=========
-cvs checkout -d unzip-cvs zip/unzip/unzip
-cd unzip-cvs
-find . -type d -name CVS | xargs rm -rf
-cd ..
-diff -ur unzip-5.51 unzip-cvs
 
 Shantonu Sen
 ssen@apple.com
-February 25, 2005
+October 5, 2006

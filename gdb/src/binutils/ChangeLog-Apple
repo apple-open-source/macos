@@ -1,3 +1,16 @@
+2007-01-24  Jason Molenda  (jmolenda@apple.com)
+
+	* aclocal.m4: Regenerated with automake 1.9.6.
+	* config.in: Regenerated with autoconf 2.61.
+	* configure: Ditto.
+
+2006-01-31  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile.am: Don't descend into the doc directory - it is
+	building info files in srcdir and causing the buildit machinery
+	problems.
+	* Makefile.in: Updated.
+
 2002-04-24  Klee Dienes  <kdienes@apple.com>
 
 	* configure: Regenerate.

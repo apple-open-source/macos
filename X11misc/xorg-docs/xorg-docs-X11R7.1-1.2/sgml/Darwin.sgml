@@ -1,0 +1,256 @@
+<!DOCTYPE linuxdoc PUBLIC "-//Xorg//DTD linuxdoc//EN" [
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+]>
+
+<article>
+<title>X.Org X on Darwin and Mac OS X
+<author>Torrey T. Lyons
+<date>15 December 2003
+
+<ident>
+$XdotOrg: doc/xorg-docs/sgml/Darwin.sgml,v 1.3 2005/12/19 08:26:18 alanc Exp $
+</ident>
+
+<toc>
+
+<sect>Introduction
+<p>
+<htmlurl url="http://www.freedesktop.org/Software/xorg" name="Xorg">, a freely
+redistributable open-source implementation of the 
+<htmlurl url="http://www.x.org/" name="X Window System">, 
+has been ported to <htmlurl
+url="http://www.opensource.apple.com/projects/darwin/" name="Darwin">
+and <htmlurl url="http://www.apple.com/macosx/" name="Mac OS X">. This
+document is a collection of information for anyone
+running Xorg's X server on Apple's next generation operating system.
+
+<p>
+Most of the current work on X for Darwin and Mac OS&nbsp;X is centered
+around the <htmlurl url="http://sourceforge.net/projects/xonx/"
+name="XonX project"> at <htmlurl url="http://sourceforge.net"
+name="SourceForge">. If you are interested in up-to-date status, want to
+report a bug, or are interested in working on Xorg for Darwin, stop by the
+<htmlurl url="http://sourceforge.net/projects/xonx/" name="XonX project">.
+
+<sect>Hardware Support and Configuration
+<p>
+The X window server for Darwin and Mac OS&nbsp;X provided by the <htmlurl
+url="http://www.X.Org/" name="X.Org Foundation."> is called
+XDarwin. XDarwin can run in three different modes. On Mac OS&nbsp;X,
+XDarwin runs in parallel with Aqua in full screen or rootless modes.
+These modes are called Quartz modes, named after the Quartz 2D compositing
+engine used by Aqua. XDarwin can also be run from the Darwin console in
+IOKit mode.
+
+<p>
+In full screen Quartz mode, when the X Window System is active, it takes
+over the entire screen. You can switch back to the Mac OS&nbsp;X desktop
+by holding down Command-Option-A. This key combination can be changed in
+the user preferences. From the Mac OS&nbsp;X desktop, click on the XDarwin
+icon in the Dock to switch back to the X window system. (You can change
+this behavior in the user preferences so that you must click the XDarwin
+icon in the floating switch window instead.)
+
+<p>In rootless mode, the X window system and Aqua share your display.
+The root window of the X11 display is the size of the screen and contains
+all the other windows. The X11 root window is not displayed in rootless
+mode as Aqua handles the desktop background.
+
+<p>
+From the console, the Darwin port of X11R&relvers; uses the IOKit for device
+driver loading and discovery, rather than the X11R&relvers; module loader.
+Because of this, the X11R&relvers; configuration file is not used on Darwin
+or Mac OS&nbsp;X systems. The descriptions found elsewhere of devices
+supported by X11R&relvers; for other operating systems also do not apply.
+
+<p>
+X11R&relvers; for Darwin or Mac OS&nbsp;X will work with any video card that
+you have an IOKit driver for. If you are running Mac OS&nbsp;X, this
+typically means any card that has been shipped by Apple. If a card works
+for you with the Mac OS&nbsp;X GUI, it will work on the same machine with
+X11R&relvers;. If you have a pure Darwin installation, you may need to download
+additional third-party drivers from
+<htmlurl url="http://developer.apple.com/darwin/"
+name="Apple's Darwin site">. IOKit drivers are typically installed in
+<tt>/System/Library/Extensions/</tt> or <tt>/Library/Extensions/</tt>.
+
+<p>
+Multi-button and scroll wheel mouse support works well with all
+USB mice that I have tested. I have done no testing with ADB
+mice, but without a special driver, only a single mouse button
+will work on an ADB mouse.
+
+<sect>Getting Started
+<p>
+Following are instructions for building and running your own copy of
+X11R&relvers;. The procedure for getting your X server up and running on
+Darwin and Mac OS&nbsp;X are very similar. Where there are differences
+I have noted them below. Note that to build X11R&relvers; for yourself on
+Mac OS&nbsp;X, you need to install the Developers' Tools.
+
+<tt>/Applications</tt>.
+
+<p>
+If you get the precompiled binaries you can skip ahead to the section
+on <ref id="running" name="running the X Window System"> On the other hand,
+if you want to build things yourself from scratch, follow the directions
+below.
+
+<sect1> Get the Code 
+
+<p>
+The first thing you need to do is to get the source code from the
+X.Org Foundation project.
+
+<itemize>
+<item> Setup CVS: Both Darwin and Mac OS&nbsp;X include CVS (Concurrent
+Versions System), which is an easy way to download and keep up to date
+with open source code released by the X.Org Foundation and others. You do have to
+setup CVS properly, however, to tell it where to look. Follow the
+<htmlurl url="http://x.org/" name="X.Org CVS instructions"> on
+how to do this either via ssh or via the cvs pserver.
+
+<item> Now make a directory in some convenient place which will serve
+as your top level directory for you open source development efforts. I
+am going to call this directory <tt>sandbox/</tt> in the following discussions
+and you could put this directory, for example, in <tt>~/sandbox/</tt>.
+
+<item>From the command line type:
+<tscreen><verb>
+cd sandbox
+cvs checkout xc
+</verb></tscreen>
+Wait for all the files to complete downloading. 
+
+</itemize>
+
+<sect1> Build X11R&relvers;
+<p>
+Once you have everything ready it is easy to build and install
+X11R&relvers;. From the command line: 
+
+<tscreen><verb>
+cd sandbox/xc
+make World >& world.log
+
+(wait for several hours)
+
+sudo make install >& install.log
+sudo make install.man >& man.log
+</verb></tscreen>
+
+<sect>Run the X Window System<label id="running">
+
+<sect1>Setting Your Path
+<p>
+You need to add the X Window System executables to your path. Your path
+is the list of directories to be searched for executable commands. 
+The X11 commands are located in <tt>/usr/X11R6/bin</tt>, which needs to be
+added to your path. In Quartz mode, the XDarwin application does this for
+you automatically. It can also be configured to add additional directories
+where you have installed command line applications. When running from the
+Darwin console, you will need to set the path correctly for your shell as
+XDarwin will not do this for you.
+
+<p>
+More experienced users will have already set their path correctly using the
+initialization files for their shell. In this case, you can inform XDarwin
+not to modify your path in the preferences. XDarwin launches the initial
+X11 clients in the user's default login shell. (An alternate shell can also
+be specified in the preferences.) The way to set the path depends on the
+shell you are using. This is described in the man page documentation for
+the shell.
+
+<p>
+In addition you may also want to add the man pages from X11R&relvers; to the list
+of pages to be searched when you are looking for documentation. The X11 man
+pages are located in <tt>/usr/X11R6/man</tt> and the <tt>MANPATH</tt>
+environment variable contains the list of directories to search.
+
+<sect1>Starting the X Server
+<p>
+On Mac OS&nbsp;X, you can run X11R&relvers; from the Darwin
+text console or in parallel with Aqua. To get to the text
+console in Mac OS&nbsp;X you need to logout and type ``&gt;console'' as
+the user name. This will shutdown Core Graphics and
+bring up the console login prompt. Login again as your user.
+From the text console you can start the X Window System by typing
+``exec startx''.
+
+<p>
+When you are ready to quit X11R&relvers; type ``exit'' in the main
+terminal window or quit with the window manager if you have one
+running. Unfortunately in IOKit mode, the X server does not shutdown
+correctly and if you did not start with ``exec startx'', you 
+will get an apparently frozen screen with only a spinning beachball
+cursor on it. Nothing you type shows up on the screen, but in fact
+your keystrokes are being received by the console. Type
+``logout'' to return to normalcy after a brief delay. With
+Darwin, this should put you back at the text console login prompt. With
+Mac OS&nbsp;X, Core Graphics will restart and you should be given a login
+window.
+
+<p>
+To start X11R&relvers; in Quartz mode you can launch the XDarwin application
+in the <tt>/Applications</tt> folder, or from the command line type
+``startx -- -quartz''. By default this will give you a mode picker to
+choose between full screen or rootless mode. You can change the default
+to always use a particular mode in the preferences, or you can specify
+the ``-fullscreen'' or ``-rootless'' options on the command line instead
+of ``-quartz''.
+
+<sect1>Double-clickable X11 Executables
+<p>
+Mac OS&nbsp;X 10.3 can be configured to automatically launch XDarwin when
+you double-click an X11 executable in the Finder. When an executable file
+is double-clicked Launch Services checks to see if it is linked against
+the X11 libraries. If it is, Launch Services opens the default X server.
+To set the default X server, do the following:
+
+<itemize>
+<item>Create a simple file which ends in ''.x11app''.
+<item>Open the file with Get Info in the Finder.
+<item>Under ''Open with:'' select the XDarwin application.
+<item>Select ''Change All...'' to set XDarwin as the default.
+</itemize>
+
+<p>
+On Mac OS&nbsp;X 10.3 the default X server is started when an X11
+executable is double-clicked, whether or not its extension is
+''.x11app''. On previous versions of Mac OS&nbsp;X, an X11 executable must
+have a ''.x11app'' extension for this to work.
+
+<sect1>Customize the X Window System
+<p>
+The X Window System is very customizable and you will certainly want to
+change some things. There is a lot you can do to control how your windows
+look, how the windows are moved, resized, etc. You will likely want to
+get a fancier window manager than twm, which is included with
+X11R&relvers;. The <tt>.xinitrc</tt> file in your home directory controls what
+programs are run when you start the X Window System. You can find a sample
+<tt>.xinitrc</tt> file in <tt>/etc/X11/xinit/xinitrc</tt>.  
+
+<p>
+There are many window managers that have been ported to Darwin. The
+following pages contain collections of window managers and other X
+window system clients:
+
+<itemize>
+<item> <htmlurl url="http://darwinports.opendarwin.org/"
+name="DarwinPorts">: An easy way to install various open-source software
+products on Darwin and Mac OS&nbsp;X.
+
+<item> <htmlurl url="http://fink.sourceforge.net/" name="Fink">: A
+package manager that will easily download, compile, and install lots
+of open source software from the Internet.
+
+<item> <htmlurl url="http://gnu-darwin.sourceforge.net/" name="GNU-Darwin">:
+A source for tons of software ported to Darwin.
+
+</itemize>
+
+<p>
+Good luck!
+
+</article>
+

@@ -1,0 +1,18 @@
+;; Copyright (c) 2007 Apple Inc.  All Rights reserved.
+;;
+;; WARNING: The sandbox rules in this file currently constitute 
+;; Apple System Private Interface and are subject to change at any time and
+;; without notice. The contents of this file are also auto-generated and not
+;; user editable; it may be overwritten at any time.
+;;
+(version 1)
+(debug deny)
+(allow process-exec (regex #"^/usr/sbin/update$"))
+(allow sysctl-read)
+(allow file-read-data file-read-metadata
+  (regex #"^/usr/lib/.*\.dylib$"
+         #"^/var"
+         #"^/private/var/db/dyld/"
+         #"^/dev/urandom$"
+	 #"^/dev/dtracehelper$"))
+(deny default)

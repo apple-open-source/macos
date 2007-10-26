@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -80,7 +80,7 @@
 #include <err.h>
 
 #ifdef __APPLE__
-#include <architecture/byte_order.h>
+#include <libkern/OSByteOrder.h>
 #endif /* __APPLE__ */
 
 #include "quotacheck.h"
@@ -121,6 +121,8 @@ int	oneof(char *, char*[], int);
 int	qfinsert(FILE *, struct dqblk *, int, int);
 int	qfmaxentries(char *, int);
 void	usage(void);
+void	dqbuftohost(struct dqblk *dqbp);
+
 #else
 struct fileusage *
 	 addid __P((u_long, int, char *));
@@ -414,7 +416,7 @@ update(fsname, quotafile, type)
 		return (1);
 	}
 	if (quotactl(fsname, QCMD(Q_SYNC, type), (u_long)0, (caddr_t)0) < 0 &&
-		errno == EOPNOTSUPP && !warned && vflag) {
+		errno == ENOTSUP && !warned && vflag) {
 		warned++;
 		fprintf(stdout, "*** Warning: %s\n",
 		    "Quotas are not compiled into this kernel");
@@ -423,19 +425,19 @@ update(fsname, quotafile, type)
 	/* Read in the quota file header. */
 	if (fread((char *)&dqhdr, sizeof(struct dqfilehdr), 1, qfi) > 0) {
 		/* Check for reverse endian file. */
-		if (dqhdr.dqh_magic != quotamagic[type] &&
-		    NXSwapLong(dqhdr.dqh_magic) == quotamagic[type]) {
+		if (OSSwapBigToHostInt32(dqhdr.dqh_magic) != quotamagic[type] &&
+		    OSSwapInt32(dqhdr.dqh_magic) == quotamagic[type]) {
 			fprintf(stderr,
-			    "quotacheck: %s: not in machine native byte order\n",
+			    "quotacheck: %s: not in big endian byte order\n",
 			    quotafile);
 			(void) fclose(qfo);
 			(void) fclose(qfi);
 			return (1);
 		}
 		/* Sanity check the quota file header. */
-		if ((dqhdr.dqh_magic != quotamagic[type]) ||
-		    (dqhdr.dqh_version > QF_VERSION) ||
-		    (!powerof2(dqhdr.dqh_maxentries))) {
+		if ((OSSwapBigToHostInt32(dqhdr.dqh_magic) != quotamagic[type]) ||
+		    (OSSwapBigToHostInt32(dqhdr.dqh_version) > QF_VERSION) ||
+		    (!powerof2(OSSwapBigToHostInt32(dqhdr.dqh_maxentries)))) {
 			fprintf(stderr,
 			    "quotacheck: %s: not a valid quota file\n",
 			    quotafile);
@@ -443,7 +445,7 @@ update(fsname, quotafile, type)
 			(void) fclose(qfi);
 			return (1);
 		}
-		m = dqhdr.dqh_maxentries;
+		m = OSSwapBigToHostInt32(dqhdr.dqh_maxentries);
 	} else /* empty file */ {
 		if (maxentries)
 			m = maxentries;
@@ -452,11 +454,12 @@ update(fsname, quotafile, type)
 
 		ftruncate(fileno(qfo), (off_t)((m + 1) * sizeof(struct dqblk)));
 
-		dqhdr.dqh_magic = quotamagic[type];
-		dqhdr.dqh_version = QF_VERSION;
-		dqhdr.dqh_maxentries = m;
-		dqhdr.dqh_btime = MAX_DQ_TIME;
-		dqhdr.dqh_itime = MAX_IQ_TIME;
+		/* Initialize file header in big endian. */
+		dqhdr.dqh_magic = OSSwapHostToBigInt32(quotamagic[type]);
+		dqhdr.dqh_version = OSSwapHostToBigConstInt32(QF_VERSION);
+		dqhdr.dqh_maxentries = OSSwapHostToBigInt32(m);
+		dqhdr.dqh_btime = OSSwapHostToBigConstInt32(MAX_DQ_TIME);
+		dqhdr.dqh_itime = OSSwapHostToBigConstInt32(MAX_IQ_TIME);
 		memmove(dqhdr.dqh_string, QF_STRING_TAG, strlen(QF_STRING_TAG));
 		goto orphans;  /* just insert all new records */
 	}
@@ -472,13 +475,13 @@ update(fsname, quotafile, type)
 			continue;
 		
 		++idcnt;
-		if ((fup = lookup(dqbuf.dqb_id, type)) == 0)
+		if ((fup = lookup(OSSwapBigToHostInt32(dqbuf.dqb_id), type)) == 0)
 			fup = &zerofileusage;
 		else
 			fup->fu_checked = 1;
 
-		if (dqbuf.dqb_curinodes == fup->fu_curinodes &&
-		    dqbuf.dqb_curbytes == fup->fu_curbytes) {
+		if (OSSwapBigToHostInt32(dqbuf.dqb_curinodes) == fup->fu_curinodes &&
+		    OSSwapBigToHostInt64(dqbuf.dqb_curbytes) == fup->fu_curbytes) {
 			fup->fu_curinodes = 0;
 			fup->fu_curbytes = 0;
 			continue;
@@ -487,33 +490,34 @@ update(fsname, quotafile, type)
 			if (aflag)
 				fprintf(stdout, "%s: ", fsname);
 			fprintf(stdout, "%-12s fixed:", fup->fu_name);
-			if (dqbuf.dqb_curinodes != fup->fu_curinodes)
+			if (OSSwapBigToHostInt32(dqbuf.dqb_curinodes) != fup->fu_curinodes)
 				fprintf(stdout, "\tinodes %u -> %u",
-				    dqbuf.dqb_curinodes, fup->fu_curinodes);
-			if (dqbuf.dqb_curbytes != fup->fu_curbytes)
+				    OSSwapBigToHostInt32(dqbuf.dqb_curinodes), fup->fu_curinodes);
+			if (OSSwapBigToHostInt64(dqbuf.dqb_curbytes) != fup->fu_curbytes)
 				fprintf(stdout, "\t1K blocks %qd -> %qd",
-				    (dqbuf.dqb_curbytes/1024), (fup->fu_curbytes/1024));
+				    (OSSwapBigToHostInt64(dqbuf.dqb_curbytes)/1024), (fup->fu_curbytes/1024));
 			fprintf(stdout, "\n");
 		}
 		/*
 		 * Reset time limit if have a soft limit and were
 		 * previously under it, but are now over it.
 		 */
-		if (dqbuf.dqb_bsoftlimit &&
-		    dqbuf.dqb_curbytes < dqbuf.dqb_bsoftlimit &&
-		    fup->fu_curbytes >= dqbuf.dqb_bsoftlimit)
+		if (dqbuf.dqb_bsoftlimit != 0 &&
+		    OSSwapBigToHostInt64(dqbuf.dqb_curbytes) < OSSwapBigToHostInt64(dqbuf.dqb_bsoftlimit) &&
+		    fup->fu_curbytes >= OSSwapBigToHostInt64(dqbuf.dqb_bsoftlimit))
 			dqbuf.dqb_btime = 0;
-		if (dqbuf.dqb_isoftlimit &&
-		    dqbuf.dqb_curinodes < dqbuf.dqb_isoftlimit &&
-		    fup->fu_curinodes >= dqbuf.dqb_isoftlimit)
+		if (dqbuf.dqb_isoftlimit != 0 &&
+		    OSSwapBigToHostInt32(dqbuf.dqb_curinodes) < OSSwapBigToHostInt32(dqbuf.dqb_isoftlimit) &&
+		    fup->fu_curinodes >= OSSwapBigToHostInt32(dqbuf.dqb_isoftlimit))
 			dqbuf.dqb_itime = 0;
-		dqbuf.dqb_curinodes = fup->fu_curinodes;
-		dqbuf.dqb_curbytes = fup->fu_curbytes;
+		dqbuf.dqb_curinodes = OSSwapHostToBigInt32(fup->fu_curinodes);
+		dqbuf.dqb_curbytes = OSSwapHostToBigInt64(fup->fu_curbytes);
 
+		/* Write dqblk in big endian. */
 		fseek(qfo, dqoffset(i), SEEK_SET);
 		fwrite((char *)&dqbuf, sizeof(struct dqblk), 1, qfo);
-		
 
+		dqbuftohost(&dqbuf);
 		(void) quotactl(fsname, QCMD(Q_SETUSE, type), dqbuf.dqb_id,
 		    (caddr_t)&dqbuf);
 		fup->fu_curinodes = 0;
@@ -535,15 +539,18 @@ orphans:
 				    fup->fu_name, fup->fu_curinodes,
 				    (fup->fu_curbytes/1024));
 			}
+			/* Initialize dqbuf in big endian. */
 			dqbuf = zerodqbuf;
-			dqbuf.dqb_id = fup->fu_id;
-			dqbuf.dqb_curinodes = fup->fu_curinodes;
-			dqbuf.dqb_curbytes = fup->fu_curbytes;
+			dqbuf.dqb_id = OSSwapHostToBigInt32(fup->fu_id);
+			dqbuf.dqb_curinodes = OSSwapHostToBigInt32(fup->fu_curinodes);
+			dqbuf.dqb_curbytes = OSSwapHostToBigInt64(fup->fu_curbytes);
 			/* insert this dqb */
 			if (qfinsert(qfo, &dqbuf, m, shift)) {
 				i = FUHASH;
 				break;
 			}
+
+			dqbuftohost(&dqbuf);
 			(void) quotactl(fsname, QCMD(Q_SETUSE, type),
 				dqbuf.dqb_id, (caddr_t)&dqbuf);
 			++idcnt;
@@ -551,7 +558,7 @@ orphans:
 	}
 
 	/* Write the quota file header */
-	dqhdr.dqh_entrycnt = idcnt;
+	dqhdr.dqh_entrycnt = OSSwapHostToBigInt32(idcnt);
 	fseek(qfo, (long)0, SEEK_SET);
 	fwrite((char *)&dqhdr, sizeof(struct dqfilehdr), 1, qfo);
 
@@ -560,6 +567,22 @@ orphans:
 	fclose(qfo);
 	return (0);
 }
+
+/* Convert a dqblk to host native byte order. */
+void
+dqbuftohost(struct dqblk *dqbp)
+{
+	dqbp->dqb_bhardlimit = OSSwapBigToHostInt64(dqbp->dqb_bhardlimit);
+	dqbp->dqb_bsoftlimit = OSSwapBigToHostInt64(dqbp->dqb_bsoftlimit);
+	dqbp->dqb_curbytes   = OSSwapBigToHostInt64(dqbp->dqb_curbytes);
+	dqbp->dqb_ihardlimit = OSSwapBigToHostInt32(dqbp->dqb_ihardlimit);
+	dqbp->dqb_isoftlimit = OSSwapBigToHostInt32(dqbp->dqb_isoftlimit);
+	dqbp->dqb_curinodes  = OSSwapBigToHostInt32(dqbp->dqb_curinodes);
+	dqbp->dqb_btime      = OSSwapBigToHostInt32(dqbp->dqb_btime);
+	dqbp->dqb_itime      = OSSwapBigToHostInt32(dqbp->dqb_itime);
+	dqbp->dqb_id         = OSSwapBigToHostInt32(dqbp->dqb_id);
+}
+
 #else
 int
 update(fsname, quotafile, type)
@@ -596,7 +619,7 @@ update(fsname, quotafile, type)
 		return (1);
 	}
 	if (quotactl(fsname, QCMD(Q_SYNC, type), (u_long)0, (caddr_t)0) < 0 &&
-	    errno == EOPNOTSUPP && !warned && vflag) {
+	    errno == ENOTSUP && !warned && vflag) {
 		warned++;
 		(void)printf("*** Warning: %s\n",
 		    "Quotas are not compiled into this kernel");
@@ -657,6 +680,8 @@ update(fsname, quotafile, type)
 #ifdef __APPLE__
 /*
  * Insert an entry into a quota file.
+ * 
+ * The dqblk pointed to by dqbp is in big endian.
  */
 int
 qfinsert(file, dqbp, maxentries, shift)
@@ -670,7 +695,7 @@ qfinsert(file, dqbp, maxentries, shift)
 	u_long id;
 	u_long offset;
 
-	id = dqbp->dqb_id;
+	id = OSSwapBigToHostInt32(dqbp->dqb_id);
 	if (id == 0)
 		return (0);
 	mask = maxentries - 1;
@@ -690,7 +715,7 @@ qfinsert(file, dqbp, maxentries, shift)
 		 * Stop when an empty entry is found
 		 * or we encounter a matching id.
 		 */
-		if (dqbuf.dqb_id == 0 || dqbuf.dqb_id == id) {
+		if (dqbuf.dqb_id == 0 || dqbuf.dqb_id == dqbp->dqb_id) {
 			dqbuf = *dqbp;
 			fseek(file, (long)offset, SEEK_SET);
 			fwrite((char *)&dqbuf, sizeof(struct dqblk), 1, file);
@@ -777,7 +802,7 @@ getquotagid()
 {
 	struct group *gr;
 
-	if (gr = getgrnam(quotagroup))
+	if ((gr = getgrnam(quotagroup)))
 		return (gr->gr_gid);
 	return (-1);
 }
@@ -896,7 +921,7 @@ addid(id, type)
 	char *name;
 	int len;
 
-	if (fup = lookup(id, type))
+	if ((fup = lookup(id, type)))
 		return (fup);
 
 	name = NULL;

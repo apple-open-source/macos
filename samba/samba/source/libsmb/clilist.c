@@ -18,9 +18,9 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define NO_SYSLOG
-
 #include "includes.h"
+
+extern file_info def_finfo;
 
 /****************************************************************************
  Interpret a long filename structure - this is mostly guesses at the moment.
@@ -29,25 +29,30 @@
  by NT and 2 is used by OS/2
 ****************************************************************************/
 
-static int interpret_long_filename(struct cli_state *cli,
-				   int level,char *p,file_info *finfo)
+static size_t interpret_long_filename(struct cli_state *cli, int level,char *p,file_info *finfo,
+					uint32 *p_resume_key, DATA_BLOB *p_last_name_raw, uint32 *p_last_name_raw_len)
 {
-	extern file_info def_finfo;
 	file_info finfo2;
 	int len;
 	char *base = p;
 
-	if (!finfo) finfo = &finfo2;
+	if (!finfo) {
+		finfo = &finfo2;
+	}
 
+	if (p_resume_key) {
+		*p_resume_key = 0;
+	}
 	memcpy(finfo,&def_finfo,sizeof(*finfo));
+	finfo->cli = cli;
 
 	switch (level) {
 		case 1: /* OS/2 understands this */
 			/* these dates are converted to GMT by
                            make_unix_date */
-			finfo->ctime = make_unix_date2(p+4);
-			finfo->atime = make_unix_date2(p+8);
-			finfo->mtime = make_unix_date2(p+12);
+			finfo->ctime_ts = convert_time_t_to_timespec(cli_make_unix_date2(cli, p+4));
+			finfo->atime_ts = convert_time_t_to_timespec(cli_make_unix_date2(cli, p+8));
+			finfo->mtime_ts = convert_time_t_to_timespec(cli_make_unix_date2(cli, p+12));
 			finfo->size = IVAL(p,16);
 			finfo->mode = CVAL(p,24);
 			len = CVAL(p, 26);
@@ -66,9 +71,9 @@ static int interpret_long_filename(struct cli_state *cli,
 		case 2: /* this is what OS/2 uses mostly */
 			/* these dates are converted to GMT by
                            make_unix_date */
-			finfo->ctime = make_unix_date2(p+4);
-			finfo->atime = make_unix_date2(p+8);
-			finfo->mtime = make_unix_date2(p+12);
+			finfo->ctime_ts = convert_time_t_to_timespec(cli_make_unix_date2(cli, p+4));
+			finfo->atime_ts = convert_time_t_to_timespec(cli_make_unix_date2(cli, p+8));
+			finfo->mtime_ts = convert_time_t_to_timespec(cli_make_unix_date2(cli, p+12));
 			finfo->size = IVAL(p,16);
 			finfo->mode = CVAL(p,24);
 			len = CVAL(p, 30);
@@ -84,29 +89,19 @@ static int interpret_long_filename(struct cli_state *cli,
 		{
 			size_t namelen, slen;
 			p += 4; /* next entry offset */
+
+			if (p_resume_key) {
+				*p_resume_key = IVAL(p,0);
+			}
 			p += 4; /* fileindex */
 				
-			/* these dates appear to arrive in a
-			   weird way. It seems to be localtime
-			   plus the serverzone given in the
-			   initial connect. This is GMT when
-			   DST is not in effect and one hour
-			   from GMT otherwise. Can this really
-			   be right??
-			   
-			   I suppose this could be called
-			   kludge-GMT. Is is the GMT you get
-			   by using the current DST setting on
-			   a different localtime. It will be
-			   cheap to calculate, I suppose, as
-			   no DST tables will be needed */
-			
-			finfo->ctime = interpret_long_date(p);
+			/* Offset zero is "create time", not "change time". */
 			p += 8;
-			finfo->atime = interpret_long_date(p);
+			finfo->atime_ts = interpret_long_date(p);
 			p += 8;
-			finfo->mtime = interpret_long_date(p);
+			finfo->mtime_ts = interpret_long_date(p);
 			p += 8;
+			finfo->ctime_ts = interpret_long_date(p);
 			p += 8;
 			finfo->size = IVAL2_TO_SMB_BIG_UINT(p,0);
 			p += 8;
@@ -130,12 +125,28 @@ static int interpret_long_filename(struct cli_state *cli,
 			clistr_pull(cli, finfo->name, p,
 				    sizeof(finfo->name),
 				    namelen, 0);
-			return SVAL(base, 0);
+
+			/* To be robust in the face of unicode conversion failures
+			   we need to copy the raw bytes of the last name seen here.
+			   Namelen doesn't include the terminating unicode null, so
+			   copy it here. */
+
+			if (p_last_name_raw && p_last_name_raw_len) {
+				if (namelen + 2 > p_last_name_raw->length) {
+					memset(p_last_name_raw->data, '\0', sizeof(p_last_name_raw->length));
+					*p_last_name_raw_len = 0;
+				} else {
+					memcpy(p_last_name_raw->data, p, namelen);
+					SSVAL(p_last_name_raw->data, namelen, 0);
+					*p_last_name_raw_len = namelen + 2;
+				}
+			}
+			return (size_t)IVAL(base, 0);
 		}
 	}
 	
 	DEBUG(1,("Unknown long filename format %d\n",level));
-	return(SVAL(p,0));
+	return (size_t)IVAL(base,0);
 }
 
 /****************************************************************************
@@ -143,9 +154,9 @@ static int interpret_long_filename(struct cli_state *cli,
 ****************************************************************************/
 
 int cli_list_new(struct cli_state *cli,const char *Mask,uint16 attribute, 
-		 void (*fn)(file_info *, const char *, void *), void *state)
+		 void (*fn)(const char *, file_info *, const char *, void *), void *state)
 {
-#if 0
+#if 1
 	int max_matches = 1366; /* Match W2k - was 512. */
 #else
 	int max_matches = 512;
@@ -155,23 +166,26 @@ int cli_list_new(struct cli_state *cli,const char *Mask,uint16 attribute,
 	pstring mask;
 	file_info finfo;
 	int i;
-	char *tdl, *dirlist = NULL;
+	char *dirlist = NULL;
 	int dirlist_len = 0;
 	int total_received = -1;
 	BOOL First = True;
 	int ff_searchcount=0;
 	int ff_eos=0;
-	int ff_lastname=0;
 	int ff_dir_handle=0;
 	int loop_count = 0;
 	char *rparam=NULL, *rdata=NULL;
 	unsigned int param_len, data_len;	
 	uint16 setup;
 	pstring param;
+	const char *mnt;
+	uint32 resume_key = 0;
+	uint32 last_name_raw_len = 0;
+	DATA_BLOB last_name_raw = data_blob(NULL, 2*sizeof(pstring));
 
 	/* NT uses 260, OS/2 uses 2. Both accept 1. */
 	info_level = (cli->capabilities&CAP_NT_SMBS)?260:1;
-
+	
 	pstrcpy(mask,Mask);
 	
 	while (ff_eos == 0) {
@@ -185,7 +199,7 @@ int cli_list_new(struct cli_state *cli,const char *Mask,uint16 attribute,
 			setup = TRANSACT2_FINDFIRST;
 			SSVAL(param,0,attribute); /* attribute */
 			SSVAL(param,2,max_matches); /* max count */
-			SSVAL(param,4,4+2);	/* resume required + close on end */
+			SSVAL(param,4,(FLAG_TRANS2_FIND_REQUIRE_RESUME|FLAG_TRANS2_FIND_CLOSE_IF_END));	/* resume required + close on end */
 			SSVAL(param,6,info_level); 
 			SIVAL(param,8,0);
 			p = param+12;
@@ -196,11 +210,19 @@ int cli_list_new(struct cli_state *cli,const char *Mask,uint16 attribute,
 			SSVAL(param,0,ff_dir_handle);
 			SSVAL(param,2,max_matches); /* max count */
 			SSVAL(param,4,info_level); 
-			SIVAL(param,6,0); /* ff_resume_key */
-			SSVAL(param,10,8+4+2);	/* continue + resume required + close on end */
+			/* For W2K servers serving out FAT filesystems we *must* set the
+			   resume key. If it's not FAT then it's returned as zero. */
+			SIVAL(param,6,resume_key); /* ff_resume_key */
+			/* NB. *DON'T* use continue here. If you do it seems that W2K and bretheren
+			   can miss filenames. Use last filename continue instead. JRA */
+			SSVAL(param,10,(FLAG_TRANS2_FIND_REQUIRE_RESUME|FLAG_TRANS2_FIND_CLOSE_IF_END));	/* resume required + close on end */
 			p = param+12;
-			p += clistr_push(cli, param+12, mask, sizeof(param)-12, 
-					 STR_TERMINATE);
+			if (last_name_raw_len && (last_name_raw_len < (sizeof(param)-12))) {
+				memcpy(p, last_name_raw.data, last_name_raw_len);
+				p += last_name_raw_len;
+			} else {
+				p += clistr_push(cli, param+12, mask, sizeof(param)-12, STR_TERMINATE);
+			}
 		}
 
 		param_len = PTR_DIFF(p, param);
@@ -229,6 +251,10 @@ int cli_list_new(struct cli_state *cli,const char *Mask,uint16 attribute,
 			   it gives ERRSRV/ERRerror temprarily */
 			uint8 eclass;
 			uint32 ecode;
+
+			SAFE_FREE(rdata);
+			SAFE_FREE(rparam);
+
 			cli_dos_error(cli, &eclass, &ecode);
 			if (eclass != ERRSRV || ecode != ERRerror)
 				break;
@@ -236,8 +262,11 @@ int cli_list_new(struct cli_state *cli,const char *Mask,uint16 attribute,
 			continue;
 		}
 
-                if (cli_is_error(cli) || !rdata || !rparam) 
+                if (cli_is_error(cli) || !rdata || !rparam) {
+			SAFE_FREE(rdata);
+			SAFE_FREE(rparam);
 			break;
+		}
 
 		if (total_received == -1)
 			total_received = 0;
@@ -248,56 +277,54 @@ int cli_list_new(struct cli_state *cli,const char *Mask,uint16 attribute,
 			ff_dir_handle = SVAL(p,0);
 			ff_searchcount = SVAL(p,2);
 			ff_eos = SVAL(p,4);
-			ff_lastname = SVAL(p,8);
 		} else {
 			ff_searchcount = SVAL(p,0);
 			ff_eos = SVAL(p,2);
-			ff_lastname = SVAL(p,6);
 		}
 
-		if (ff_searchcount == 0) 
+		if (ff_searchcount == 0) {
+			SAFE_FREE(rdata);
+			SAFE_FREE(rparam);
 			break;
+		}
 
 		/* point to the data bytes */
 		p = rdata;
 
 		/* we might need the lastname for continuations */
-		if (ff_lastname > 0) {
-			switch(info_level) {
-				case 260:
-					clistr_pull(cli, mask, p+ff_lastname,
-						    sizeof(mask), 
-						    data_len-ff_lastname,
-						    STR_TERMINATE);
-					break;
-				case 1:
-					clistr_pull(cli, mask, p+ff_lastname+1,
-						    sizeof(mask), 
-						    -1,
-						    STR_TERMINATE);
-					break;
-				}
+		for (p2=p,i=0;i<ff_searchcount;i++) {
+			if ((info_level == 260) && (i == ff_searchcount-1)) {
+				/* Last entry - fixup the last offset length. */
+				SIVAL(p2,0,PTR_DIFF((rdata + data_len),p2));
+			}
+			p2 += interpret_long_filename(cli,info_level,p2,&finfo,
+							&resume_key,&last_name_raw,&last_name_raw_len);
+
+			if (!First && *mask && strcsequal(finfo.name, mask)) {
+				DEBUG(0,("Error: Looping in FIND_NEXT as name %s has already been seen?\n",
+					finfo.name));
+				ff_eos = 1;
+				break;
+			}
+		}
+
+		if (ff_searchcount > 0) {
+			pstrcpy(mask, finfo.name);
 		} else {
 			pstrcpy(mask,"");
 		}
- 
-		/* and add them to the dirlist pool */
-		tdl = SMB_REALLOC(dirlist,dirlist_len + data_len);
-
-		if (!tdl) {
-			DEBUG(0,("cli_list_new: Failed to expand dirlist\n"));
-			break;
-		} else {
-			dirlist = tdl;
-		}
-
-		/* put in a length for the last entry, to ensure we can chain entries 
-		   into the next packet */
-		for (p2=p,i=0;i<(ff_searchcount-1);i++)
-			p2 += interpret_long_filename(cli,info_level,p2,NULL);
-		SSVAL(p2,0,data_len - PTR_DIFF(p2,p));
 
 		/* grab the data for later use */
+		/* and add them to the dirlist pool */
+		dirlist = (char *)SMB_REALLOC(dirlist,dirlist_len + data_len);
+
+		if (!dirlist) {
+			DEBUG(0,("cli_list_new: Failed to expand dirlist\n"));
+			SAFE_FREE(rdata);
+			SAFE_FREE(rparam);
+			break;
+		}
+
 		memcpy(dirlist+dirlist_len,p,data_len);
 		dirlist_len += data_len;
 
@@ -315,13 +342,23 @@ int cli_list_new(struct cli_state *cli,const char *Mask,uint16 attribute,
 		First = False;
 	}
 
-	for (p=dirlist,i=0;i<total_received;i++) {
-		p += interpret_long_filename(cli,info_level,p,&finfo);
-		fn(&finfo, Mask, state);
-	}
+	mnt = cli_cm_get_mntpoint( cli );
 
-	/* free up the dirlist buffer */
+        /* see if the server disconnected or the connection otherwise failed */
+        if (cli_is_error(cli)) {
+                total_received = -1;
+        } else {
+                /* no connection problem.  let user function add each entry */
+                for (p=dirlist,i=0;i<total_received;i++) {
+                        p += interpret_long_filename(cli, info_level, p,
+                                                     &finfo,NULL,NULL,NULL);
+                        fn( mnt,&finfo, Mask, state );
+                }
+        }
+
+	/* free up the dirlist buffer and last name raw blob */
 	SAFE_FREE(dirlist);
+	data_blob_free(&last_name_raw);
 	return(total_received);
 }
 
@@ -332,15 +369,17 @@ int cli_list_new(struct cli_state *cli,const char *Mask,uint16 attribute,
 
 static int interpret_short_filename(struct cli_state *cli, char *p,file_info *finfo)
 {
-	extern file_info def_finfo;
 
 	*finfo = def_finfo;
 
+	finfo->cli = cli;
 	finfo->mode = CVAL(p,21);
 	
 	/* this date is converted to GMT by make_unix_date */
-	finfo->ctime = make_unix_date(p+22);
-	finfo->mtime = finfo->atime = finfo->ctime;
+	finfo->ctime_ts.tv_sec = cli_make_unix_date(cli, p+22);
+	finfo->ctime_ts.tv_nsec = 0;
+	finfo->mtime_ts.tv_sec = finfo->atime_ts.tv_sec = finfo->ctime_ts.tv_sec;
+	finfo->mtime_ts.tv_nsec = finfo->atime_ts.tv_nsec = 0;
 	finfo->size = IVAL(p,26);
 	clistr_pull(cli, finfo->name, p+30, sizeof(finfo->name), 12, STR_ASCII);
 	if (strcmp(finfo->name, "..") && strcmp(finfo->name, ".")) {
@@ -359,7 +398,7 @@ static int interpret_short_filename(struct cli_state *cli, char *p,file_info *fi
 ****************************************************************************/
 
 int cli_list_old(struct cli_state *cli,const char *Mask,uint16 attribute, 
-		 void (*fn)(file_info *, const char *, void *), void *state)
+		 void (*fn)(const char *, file_info *, const char *, void *), void *state)
 {
 	char *p;
 	int received = 0;
@@ -368,7 +407,7 @@ int cli_list_old(struct cli_state *cli,const char *Mask,uint16 attribute,
 	int num_asked = (cli->max_xmit - 100)/DIR_STRUCT_SIZE;
 	int num_received = 0;
 	int i;
-	char *tdl, *dirlist = NULL;
+	char *dirlist = NULL;
 	pstring mask;
 	
 	ZERO_ARRAY(status);
@@ -413,14 +452,12 @@ int cli_list_old(struct cli_state *cli,const char *Mask,uint16 attribute,
 
 		first = False;
 
-		tdl = SMB_REALLOC(dirlist,(num_received + received)*DIR_STRUCT_SIZE);
-
-		if (!tdl) {
+		dirlist = (char *)SMB_REALLOC(
+			dirlist,(num_received + received)*DIR_STRUCT_SIZE);
+		if (!dirlist) {
 			DEBUG(0,("cli_list_old: failed to expand dirlist"));
-			SAFE_FREE(dirlist);
 			return 0;
 		}
-		else dirlist = tdl;
 
 		p = smb_buf(cli->inbuf) + 3;
 
@@ -466,7 +503,7 @@ int cli_list_old(struct cli_state *cli,const char *Mask,uint16 attribute,
 	for (p=dirlist,i=0;i<num_received;i++) {
 		file_info finfo;
 		p += interpret_short_filename(cli, p,&finfo);
-		fn(&finfo, Mask, state);
+		fn("\\", &finfo, Mask, state);
 	}
 
 	SAFE_FREE(dirlist);
@@ -479,7 +516,7 @@ int cli_list_old(struct cli_state *cli,const char *Mask,uint16 attribute,
 ****************************************************************************/
 
 int cli_list(struct cli_state *cli,const char *Mask,uint16 attribute, 
-	     void (*fn)(file_info *, const char *, void *), void *state)
+	     void (*fn)(const char *, file_info *, const char *, void *), void *state)
 {
 	if (cli->protocol <= PROTOCOL_LANMAN1)
 		return cli_list_old(cli, Mask, attribute, fn, state);

@@ -44,12 +44,14 @@ int	 statcmp(const FTSENT *, const FTSENT *);
 int	 revstatcmp(const FTSENT *, const FTSENT *);
 int	 sizecmp (const FTSENT *, const FTSENT *);
 int	 revsizecmp (const FTSENT *, const FTSENT *);
+int      humanize_number(char *, size_t, int64_t, const char *, int, int);
 
 void	 printcol(DISPLAY *);
 void	 printlong(DISPLAY *);
 void	 printscol(DISPLAY *);
 void	 printstream(DISPLAY *);
 void	 usage(void);
+int      prn_normal(const char *);
 size_t	 len_octal(const char *, int);
 int	 prn_octal(const char *);
 int	 prn_printable(const char *);

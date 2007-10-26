@@ -89,6 +89,9 @@
 /* Define if you have the <fcntl.h> header file. */
 #define HAVE_FCNTL_H
 
+/* Define if you have the `ftruncate' function. */
+#define HAVE_FTRUNCATE
+
 /* Define if getaddrinfo exists and works */
 #define HAVE_GETADDRINFO
 
@@ -121,6 +124,9 @@
 
 /* Define if you have the `gettimeofday' function. */
 #define HAVE_GETTIMEOFDAY
+
+/* Define if you have the `timeval' struct. */
+#define HAVE_STRUCT_TIMEVAL
 
 /* Define if you have the `inet_addr' function. */
 #undef HAVE_INET_ADDR
@@ -172,6 +178,9 @@
 
 /* Define if you have the <malloc.h> header file. */
 #define HAVE_MALLOC_H
+
+/* Define to 1 if you need the malloc.h header file even with stdlib.h */
+/* #define NEED_MALLOC_H 1 */
 
 /* Define if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H

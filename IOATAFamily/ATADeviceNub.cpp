@@ -105,8 +105,10 @@ ATADeviceNub::ataDeviceNub( IOATAController* provider, ataUnitID unit, ataDevice
 		return 0L;
 	
 	if( !nub->init( provider, unit, devType) )
-		return 0L;
-		
+	{
+			nub->release();
+			return 0L;
+	}	
 	return nub;
 
 }
@@ -193,7 +195,7 @@ IOATACommand*
 ATADeviceNub::allocCommand( void )
 {
 
-	IOATABusCommand* cmd = IOATABusCommand::allocateCmd();
+	IOATABusCommand64* cmd = IOATABusCommand64::allocateCmd32();
 	
 	return (IOATACommand*) cmd;
 
@@ -330,11 +332,13 @@ ATADeviceNub::getDeviceID( void )
 	DLOG("Sending ID command to bus controller\n");	
 	IOReturn err =	executeCommand( cmd);	
 	DLOG("Command returned error = %ld\n",(long int)err );
-
-	completion->sync->wait();
+	if(!err)
+	{
+		completion->sync->wait();
+	}
 	
 	desc->complete( kIODirectionIn );
-	
+		
 	IOFree( completion, sizeof(completionInfo));
 
 	if( cmd->getResult() )
@@ -528,7 +532,12 @@ ATADeviceNub::publishVendorProperties(void)
 	if( IOATADevConfig::sDriveSupports48BitLBA( ( const UInt16*) buffer ) )
 	{
 		UInt32 upperLBA, lowerLBA;
-		OSNumber* extendedCapacity = OSNumber::withNumber( IOATADevConfig::sDriveExtendedLBASize(   &upperLBA, &lowerLBA, ( const UInt16*) buffer ), 32 );
+		IOATADevConfig::sDriveExtendedLBASize(   &upperLBA, &lowerLBA, ( const UInt16*) buffer );
+		UInt64 largeLBASize = 0;
+		
+		largeLBASize = ( ((UInt64) upperLBA) << 32) | ((UInt64) lowerLBA );
+		
+		OSNumber* extendedCapacity = OSNumber::withNumber( largeLBASize, 64 );
 		setProperty( "extended LBA capacity", (OSObject *) extendedCapacity);
 		extendedCapacity->release();
 	

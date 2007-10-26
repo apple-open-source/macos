@@ -34,16 +34,18 @@ static struct name_record *add_dns_result(struct nmb_name *question, struct in_a
 	if (!addr.s_addr) {
 		/* add the fail to WINS cache of names. give it 1 hour in the cache */
 		DEBUG(3,("add_dns_result: Negative DNS answer for %s\n", qname));
-		(void)add_name_to_subnet( wins_server_subnet, qname, name_type,
+		add_name_to_subnet( wins_server_subnet, qname, name_type,
 				NB_ACTIVE, 60*60, DNSFAIL_NAME, 1, &addr );
-		return( NULL );
+		return NULL;
 	}
 
 	/* add it to our WINS cache of names. give it 2 hours in the cache */
 	DEBUG(3,("add_dns_result: DNS gave answer for %s of %s\n", qname, inet_ntoa(addr)));
 
-	return( add_name_to_subnet( wins_server_subnet, qname, name_type,
-                              NB_ACTIVE, 2*60*60, DNS_NAME, 1, &addr ) );
+	add_name_to_subnet( wins_server_subnet, qname, name_type,
+                              NB_ACTIVE, 2*60*60, DNS_NAME, 1, &addr);
+
+	return find_name_on_subnet(wins_server_subnet, question, FIND_ANY_NAME);
 }
 
 #ifndef SYNC_DNS
@@ -83,7 +85,7 @@ static void asyncdns_process(void)
 	struct query_record r;
 	unstring qname;
 
-	SAMBA_DEBUGLEVEL = -1;
+	DEBUGLEVEL = -1;
 
 	while (1) {
 		if (read_data(fd_in, (char *)&r, sizeof(r)) != sizeof(r)) 
@@ -201,8 +203,9 @@ void run_dns_queue(void)
         /* Allow SIGTERM to kill us. */
         BlockSignals(False, SIGTERM);
 
-	if (!process_exists(child_pid)) {
+	if (!process_exists_by_pid(child_pid)) {
 		close(fd_in);
+		close(fd_out);
 		start_async_dns();
 	}
 
@@ -283,8 +286,7 @@ void run_dns_queue(void)
 queue a DNS query
   ****************************************************************************/
 
-BOOL queue_dns_query(struct packet_struct *p,struct nmb_name *question,
-		     struct name_record **n)
+BOOL queue_dns_query(struct packet_struct *p,struct nmb_name *question)
 {
 	if (in_dns || fd_in == -1)
 		return False;
@@ -316,13 +318,13 @@ BOOL queue_dns_query(struct packet_struct *p,struct nmb_name *question,
   we use this when we can't do async DNS lookups
   ****************************************************************************/
 
-BOOL queue_dns_query(struct packet_struct *p,struct nmb_name *question,
-		     struct name_record **n)
+BOOL queue_dns_query(struct packet_struct *p,struct nmb_name *question)
 {
+	struct name_record *namerec = NULL;
 	struct in_addr dns_ip;
 	unstring qname;
 
-	pull_ascii_nstring(qname, question->name);
+	pull_ascii_nstring(qname, sizeof(qname), question->name);
 
 	DEBUG(3,("DNS search for %s - ", nmb_namestr(question)));
 
@@ -334,11 +336,12 @@ BOOL queue_dns_query(struct packet_struct *p,struct nmb_name *question,
         /* Re-block TERM signal. */
         BlockSignals(True, SIGTERM);
 
-	*n = add_dns_result(question, dns_ip);
-	if(*n == NULL)
+	namerec = add_dns_result(question, dns_ip);
+	if(namerec == NULL) {
 		send_wins_name_query_response(NAM_ERR, p, NULL);
-	else
-		send_wins_name_query_response(0, p, *n);
+	} else {
+		send_wins_name_query_response(0, p, namerec);
+	}
 	return False;
 }
 

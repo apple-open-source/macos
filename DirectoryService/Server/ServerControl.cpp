@@ -47,28 +47,26 @@
 #include "CFile.h"
 #include "CAuditUtils.h"
 #include "DSMachEndian.h"
+#include "WorkstationService.h"
+#include "Mbrd_MembershipResolver.h"
+#include "DSLDAPUtils.h"
+#include "CDSPluginUtils.h"
 
 #include <mach/mach.h>
-#include <mach/mach_error.h>
 #include <mach/notify.h>
 #include <sys/stat.h>							//used for mkdir and stat
-#include <servers/bootstrap.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>				//required for power management handling
 #include <syslog.h>								// for syslog()
 #include <time.h>								// for time
 #include <bsm/libbsm.h>
+#include <uuid/uuid.h>
 
 // This is for MIG
 extern "C" {
 	#include "DirectoryServiceMIGServer.h"
+	#include "DSlibinfoMIGServer.h"
+	#include "DSmemberdMIGServer.h"
 }
-
-//#include <membershipPriv.h>		// can't use this header in C++
-extern "C" int mbr_reset_cache();	// for memberd flush cache call
-extern "C" int _lookupd_port(int);	// for lookupd flush cache calls
-extern "C" int _lookup_link(mach_port_t, char *, int *);
-extern "C" int _lookup_one(mach_port_t, int, char *, int, char **, int *);
-extern "C" int _lu_running();
 
 extern void LoggingTimerCallBack( CFRunLoopTimerRef timer, void *info );
 
@@ -79,60 +77,153 @@ extern io_connect_t		gPMKernelPort;
 
 //network change
 extern void NetworkChangeCallBack(SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *callback_argument);
-extern CFRunLoopRef		gServerRunLoop;
+extern CFRunLoopRef		gPluginRunLoop;
 
 extern CFAbsoluteTime	gSunsetTime;
 extern dsBool			gLogAPICalls;
 extern dsBool			gDebugLogging;
 extern dsBool			gDSFWCSBPDebugLogging;
+extern dsBool			gIgnoreSunsetTime;
 
 extern	bool			gServerOS;
-extern mach_port_t		gServerMachPort;
+extern dsBool			gDSDebugMode;
+extern CCachePlugin	   *gCacheNode;
+extern dsBool			gDSLocalOnlyMode;
+extern dsBool			gDSInstallDaemonMode;
+extern DSEventSemaphore gKickCacheRequests;
+extern mach_port_t		gMachMIGSet;
 
 // ---------------------------------------------------------------------------
 //	* Globals
 //
 // ---------------------------------------------------------------------------
 
-CFRunLoopTimerRef	ServerControl::fNSPCTimerRef = NULL;
-CFRunLoopTimerRef	ServerControl::fLDFCTimerRef = NULL;
-CFRunLoopTimerRef	ServerControl::fMDFCTimerRef = NULL;
-CFRunLoopTimerRef	ServerControl::fNIASTimerRef = NULL;
+CFRunLoopTimerRef	ServerControl::fNSPCTimerRef = NULL; //Node Search Policy Changed
+CFRunLoopTimerRef	ServerControl::fSPCNTimerRef = NULL; //Search Policy Changed Notify
 
-uInt32					gAPICallCount		= 0;
+UInt32					gAPICallCount		= 0;
+UInt32					gLookupAPICallCount	= 0;
 ServerControl		   *gSrvrCntl			= nil;
 CRefTable			   *gRefTable			= nil;
 CPlugInList			   *gPlugins			= nil;
-CMsgQueue			   *gTCPMsgQueue		= nil;
+CMsgQueue              *gLibinfoQueue       = nil;
 CPluginConfig		   *gPluginConfig		= nil;
 CNodeList			   *gNodeList			= nil;
 CPluginHandler		   *gPluginHandler		= nil;
+char				   *gDSLocalFilePath	= nil;
+UInt32					gLocalSessionCount	= 0;
 
-DSMutexSemaphore	   *gTCPHandlerLock			= new DSMutexSemaphore();	//mutex on create and destroy of CHandler threads
-DSMutexSemaphore	   *gPerformanceLoggingLock = new DSMutexSemaphore();	//mutex on manipulating performance logging matrix
-DSMutexSemaphore	   *gLazyPluginLoadingLock	= new DSMutexSemaphore();	//mutex on loading plugins lazily
-DSMutexSemaphore	   *gHashAuthFailedMapLock  = new DSMutexSemaphore();   //mutex on failed shadow hash login table
-DSMutexSemaphore	   *gMachThreadLock			= new DSMutexSemaphore();	//mutex on count of mig handler threads
-DSMutexSemaphore	   *gTimerMutex				= new DSMutexSemaphore();	//mutex for creating/deleting timers
+DSMutexSemaphore	   *gTCPHandlerLock			= new DSMutexSemaphore("::gTCPHandlerLock");	//mutex on create and destroy of CHandler threads
+DSMutexSemaphore	   *gPerformanceLoggingLock = new DSMutexSemaphore("::gPerformanceLoggingLock");	//mutex on manipulating performance logging matrix
+DSMutexSemaphore	   *gLazyPluginLoadingLock	= new DSMutexSemaphore("::gLazyPluginLoadingLock");	//mutex on loading plugins lazily
+DSMutexSemaphore	   *gHashAuthFailedMapLock  = new DSMutexSemaphore("::gHashAuthFailedMapLock");	//mutex on failed shadow hash login table
+DSMutexSemaphore	   *gHashAuthFailedLocalMapLock = gHashAuthFailedMapLock; //same mutex but different name
+DSMutexSemaphore	   *gMachThreadLock			= new DSMutexSemaphore("::gMachThreadLock");	//mutex on count of mig handler threads
+DSMutexSemaphore	   *gTimerMutex				= new DSMutexSemaphore("::gTimerMutex");		//mutex for creating/deleting timers
+DSMutexSemaphore	   *gLibinfoQueueLock		= new DSMutexSemaphore("::gLibinfoQueueLock");	//mutex for creating Libinfo queues
 
-
-uInt32					gDaemonPID;
-uInt32					gDaemonIPAddress;
-uInt32					gRefCountWarningLimit						= 500;
-uInt32					gDelayFailedLocalAuthReturnsDeltaInSeconds  = 1;
-uInt32					gMaxHandlerThreadCount						= kMaxHandlerThreads;
+UInt32					gDaemonPID;
+UInt32					gDaemonIPAddress;
+UInt32					gRefCountWarningLimit						= 500;
+UInt32					gDelayFailedLocalAuthReturnsDeltaInSeconds  = 1;
+UInt32					gMaxHandlerThreadCount						= kMaxHandlerThreads;
 dsBool					gToggleDebugging							= false;
-mach_port_t				gMachAPISet									= 0;
 map<mach_port_t, pid_t>	gPIDMachMap;
 char				   *gNIHierarchyTagString   = nil;
-uInt32					gActiveMachThreads							= 0;
-uInt32					gActiveLongRequests							= 0;
+UInt32					gActiveMachThreads							= 0;
+UInt32					gActiveLongRequests							= 0;
 bool					gFirstNetworkUpAtBoot						= false;
+bool					gNetInfoPluginIsLoaded						= false;
 
-//PFIXdsBool					gLocalNodeNotAvailable	= true;
+//eDSLookupProcedureNumber MUST be SYNC'ed with lookupProcedures
+const char *lookupProcedures[] =
+{
+    "firstprocnum",
+    
+    // Users
+    "getpwnam",
+    "getpwuuid",
+    "getpwuid",
+    "getpwent",
+    
+    // Groups
+    "getgrnam",
+    "getgruuid",
+    "getgrgid",
+    "getgrent",
+    
+    // Services
+    "getservbyname",
+    "getservbyport",
+    "getservent",
+    
+    // Protocols
+    "getprotobyname",
+    "getprotobynumber",
+    "getprotoent",
+    
+    // RPCs
+    "getrpcbyname",
+    "getrpcbynumber",
+    "getrpcent",
+    
+    // Mounts
+    "getfsbyname",
+    "getfsent",
+    
+    // Printers -- deprecated
+//    "prdb_getbyname",
+//    "prdb_get",
+    
+    // bootparams -- deprecated
+//    "bootparams_getbyname",
+//    "bootparams_getent",
+    
+    // Aliases
+    "alias_getbyname",
+    "alias_getent",
+    
+    // Networks
+    "getnetent",
+    "getnetbyname",
+    "getnetbyaddr",
+    
+    // Bootp -- deprecated
+//    "bootp_getbyip",
+//    "bootp_getbyether",
+    
+    // NetGroups
+    "innetgr",
+    "getnetgrent",
+    
+    // DNS calls
+    "getaddrinfo",
+    "getnameinfo",
+    "gethostbyname",
+    "gethostbyaddr",
+    "gethostent",
+    "getmacbyname",
+    "gethostbymac",
+	
+	"getbootpbyhw",
+	"getbootpbyaddr",
 
-static void DoSearchPolicyChange(CFRunLoopTimerRef timer, void *info);
-void DoSearchPolicyChange(CFRunLoopTimerRef timer, void *info)
+	// other calls
+    "dns_proxy",
+    "_flushcache",
+    "_flushentry",
+	
+    "lastprocnum",
+    NULL				// safety in case we get out of sync
+};
+
+__BEGIN_DECLS
+extern int ShouldRegisterWorkstation(void);
+__END_DECLS
+
+void DoPeriodicTask(CFRunLoopTimerRef timer, void *info);
+
+static void NodeSearchPolicyChangeCallback(CFRunLoopTimerRef timer, void *info)
 {
 	if ( info != nil )
 	{
@@ -140,76 +231,42 @@ void DoSearchPolicyChange(CFRunLoopTimerRef timer, void *info)
 	}
 }// DoSearchPolicyChange
 
-static void DoLookupDaemonFlushCache(CFRunLoopTimerRef timer, void *info);
-void DoLookupDaemonFlushCache(CFRunLoopTimerRef timer, void *info)
+static void SearchPolicyChangedNotifyCallback( CFRunLoopTimerRef timer, void *info )
 {
 	if ( info != nil )
 	{
-		((ServerControl *)info)->FlushLookupDaemonCache();
+		((ServerControl *)info)->DoSearchPolicyChangedNotify();
 	}
-}// DoLookupDaemonFlushCache
+}
 
-static void DoMemberDaemonFlushCache(CFRunLoopTimerRef timer, void *info);
-void DoMemberDaemonFlushCache(CFRunLoopTimerRef timer, void *info)
-{
-	if ( info != nil )
-	{
-		((ServerControl *)info)->FlushMemberDaemonCache();
-	}
-}// DoMemberDaemonFlushCache
-
-static void DoNIAutoSwitchNetworkChange(CFRunLoopTimerRef timer, void *info);
-void DoNIAutoSwitchNetworkChange(CFRunLoopTimerRef timer, void *info)
-{
-	if ( info != nil )
-	{
-		((ServerControl *)info)->NIAutoSwitchCheck();
-	}
-}// DoNIAutoSwitchNetworkChange
-
-
-CFStringRef SearchPolicyChangeCopyStringCallback( const void *item );
-CFStringRef SearchPolicyChangeCopyStringCallback( const void *item )
+static CFStringRef SearchPolicyChangeCopyStringCallback( const void *item )
 {
 	return CFSTR("SearchPolicyChange");
 }
 
-CFStringRef LookupDaemonFlushCacheCopyStringCallback( const void *item );
-CFStringRef LookupDaemonFlushCacheCopyStringCallback( const void *item )
+static CFStringRef NotifySearchPolicyChangeCopyStringCallback( const void *item )
 {
-	return CFSTR("LookupDaemonFlushCache");
+	return CFSTR("NotifySearchPolicyChange");
 }
 
-CFStringRef MemberDaemonFlushCacheCopyStringCallback( const void *item );
-CFStringRef MemberDaemonFlushCacheCopyStringCallback( const void *item )
-{
-	return CFSTR("MemberDaemonFlushCache");
-}
-
-CFStringRef NetworkChangeNIAutoSwitchCopyStringCallback( const void *item );
-CFStringRef NetworkChangeNIAutoSwitchCopyStringCallback( const void *item )
-{
-	return CFSTR("NetworkChangeNIAutoSwitchCheck");
-}
-
-void DoPeriodicTask(CFRunLoopTimerRef timer, void *info);
-
-CFStringRef PeriodicTaskCopyStringCallback( const void *item );
-CFStringRef PeriodicTaskCopyStringCallback( const void *item )
+static CFStringRef PeriodicTaskCopyStringCallback( const void *item )
 {
 	return CFSTR("PeriodicTask");
 }
 
 #pragma mark -
-#pragma mark MIG Support Routines
+#pragma mark MIG Support Routines - separate DS, Lookup, and memberd servers
+#pragma mark -
 
 void mig_spawnonceifnecessary( void )
 {
 	// need to lock while checking cause we could get a race condition
-	gMachThreadLock->Wait();
+	gMachThreadLock->WaitLock();
+
 	// see if we've reached our limit and if we don't have enought threads to handle requests
 	bool bSpawnThread = ( gActiveMachThreads < gMaxHandlerThreadCount && gActiveLongRequests > gActiveMachThreads );
-	gMachThreadLock->Signal();
+
+	gMachThreadLock->SignalLock();
 
 	if( bSpawnThread )
 	{
@@ -221,7 +278,8 @@ void mig_spawnonceifnecessary( void )
 }
 
 #pragma mark -
-#pragma mark MIG Call Handler Routines
+#pragma mark MIG Call Handler Routines - separate DS, Lookup, and memberd servers
+#pragma mark -
 
 kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 												 sStringPtr username,
@@ -232,9 +290,9 @@ kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 	CRequestHandler handler;
 	char *debugDataTag = NULL;
 	
-	gMachThreadLock->Wait();
+	gMachThreadLock->WaitLock();
 	gActiveLongRequests++;
-	gMachThreadLock->Signal();
+	gMachThreadLock->SignalLock();
 
 	// we should spawn the thread after we've incremented the number of requests active, otherwise thread will spawn and exit too soon
 	mig_spawnonceifnecessary();
@@ -245,7 +303,7 @@ kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 		audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 
 		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "checkpw()", "Server" );
-		DBGLOG2( kLogHandler, "%s : dsmig DAC : Username = %s", debugDataTag, username );
+		DbgLog( kLogHandler, "%s : dsmig DAC : Username = %s", debugDataTag, username );
 	}
 
 #if USE_BSM_AUDIT
@@ -259,7 +317,7 @@ kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 	au_tid_t		tidp;
 	audit_token_to_au32( atoken, &auidp, &euidp, &egidp, &ruidp, &rgidp, &pidp, &asidp, &tidp );
 	char *textStr = nil;
-	uInt32 bsmEventCode = AuditForThisEvent( kCheckUserNameAndPassword, username, &textStr );
+	UInt32 bsmEventCode = AuditForThisEvent( kCheckUserNameAndPassword, username, &textStr );
 #endif
 		
 	*result = handler.DoCheckUserNameAndPassword( username, password, eDSExact, NULL, NULL );
@@ -301,13 +359,13 @@ kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 
 	if ( debugDataTag )
 	{
-		DBGLOG3( kLogHandler, "%s : dsmig DAR : Username %s : Result code = %d", debugDataTag, username, *result );
+		DbgLog( kLogHandler, "%s : dsmig DAR : Username %s : Result code = %d", debugDataTag, username, *result );
 		free( debugDataTag );
 	}
 
-	gMachThreadLock->Wait();
+	gMachThreadLock->WaitLock();
 	gActiveLongRequests--;
-	gMachThreadLock->Signal();
+	gMachThreadLock->SignalLock();
 	
 	return KERN_SUCCESS;
 }
@@ -317,7 +375,7 @@ kern_return_t dsmig_do_create_api_session( mach_port_t server, mach_port_t *newS
 	mach_port_t		oldTargetOfNotification	= MACH_PORT_NULL;
 	
 	(void) mach_port_allocate( mach_task_self(), MACH_PORT_RIGHT_RECEIVE, newServer );
-	(void) mach_port_move_member( mach_task_self(), *newServer, gMachAPISet );
+	(void) mach_port_move_member( mach_task_self(), *newServer, gMachMIGSet );
 	
 	// Request no-senders notification so we can tell when server dies
 	(void) mach_port_request_notification( mach_task_self(), *newServer, MACH_NOTIFY_NO_SENDERS, 1, *newServer, MACH_MSG_TYPE_MAKE_SEND_ONCE, &oldTargetOfNotification );
@@ -326,9 +384,9 @@ kern_return_t dsmig_do_create_api_session( mach_port_t server, mach_port_t *newS
 	pid_t	aPID;
 	audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 
-	gMachThreadLock->Wait();
+	gMachThreadLock->WaitLock();
 	gPIDMachMap[*newServer] = aPID;
-	gMachThreadLock->Signal();
+	gMachThreadLock->SignalLock();
 
 	return KERN_SUCCESS;
 }
@@ -347,9 +405,9 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 {
 	kern_return_t	kr			= KERN_FAILURE;
 	sComDataPtr		pComData	= NULL;
-	uInt32			uiLength	= 0;
-	uInt32			dataLength	= 0;
-	uInt32			dataSize	= 0;
+	UInt32			uiLength	= 0;
+	UInt32			dataLength	= 0;
+	UInt32			dataSize	= 0;
 	
 	if( msg_dataCnt )
 	{
@@ -388,13 +446,18 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 			// we need to copy because we will allocate/deallocate it in the handler
 			//   but based on the size it thinks it is
 			sComData *pRequest = (sComData *) calloc( sizeof(sComData) + dataSize, 1 );
+			if ( pRequest == NULL )
+				return KERN_MEMORY_ERROR;
+			
 			CRequestHandler handler;
+			double reqStartTime = 0;
+			double reqEndTime = 0;
 			
 			bcopy( (void *)pComData, pRequest, uiLength );
 			
-			gMachThreadLock->Wait();
+			gMachThreadLock->WaitLock();
 			gActiveLongRequests ++;
-			gMachThreadLock->Signal();
+			gMachThreadLock->SignalLock();
 			
 			// spawn a thread request
 			mig_spawnonceifnecessary();
@@ -410,16 +473,38 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 			// let's get the audit data and add it to the sComData
 			audit_token_to_au32( atoken, NULL, (uid_t *)&pRequest->fEffectiveUID, NULL, (uid_t *)&pRequest->fUID, NULL, (pid_t *)&pRequest->fPID, NULL, NULL );
 			
+			if ( (gDebugLogging) || (gLogAPICalls) )
+			{
+				reqStartTime = dsTimestamp();
+			}
+			
 			handler.HandleRequest( &pRequest );
+			
+			if ( (gDebugLogging) || (gLogAPICalls) )
+			{
+				pid_t	aPID;
+				audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
 
-			gMachThreadLock->Wait();
+				reqEndTime = dsTimestamp();
+
+				// if the request took more than 2 seconds, log a message
+				double totalTime = (reqEndTime - reqStartTime) / USEC_PER_SEC;
+				if (totalTime > 2.0)
+				{
+					char *debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "API", "Server" );
+					DbgLog( kLogHandler, "%s : dsmig DAR : Excessive request time %f seconds", debugDataTag, totalTime );
+					free( debugDataTag );
+				}
+			}
+			
+			gMachThreadLock->WaitLock();
 			gActiveLongRequests --;
-			gMachThreadLock->Signal();
+			gMachThreadLock->SignalLock();
 			
 			// set the PID in the return to our PID for RefTable purposes
 			pRequest->fPID = gDaemonPID;
 			
-			uInt32 dataLen = pRequest->fDataLength;
+			UInt32 dataLen = pRequest->fDataLength;
 			
 #ifdef __LITTLE_ENDIAN__
 			if (pRequest->type.msgt_translate == 1) //need to swap since mach msg being sent back to BIG_ENDIAN translator
@@ -448,9 +533,9 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 			
 			gAPICallCount++;
 			
-			if ( (gAPICallCount % 1023) == 1023 ) // every 1023 calls so we can do bit-wise check
+			if (gLogAPICalls)
 			{
-				if (gLogAPICalls)
+				if ( (gAPICallCount % 1023) == 1023 ) // every 1023 calls so we can do bit-wise check
 				{
 					syslog(LOG_CRIT,"API clients have called APIs %d times", gAPICallCount);
 				}
@@ -476,8 +561,537 @@ kern_return_t dsmig_do_api_call( mach_port_t server,
 	return kr;
 }
 
+kern_return_t libinfoDSmig_do_GetProcedureNumber
+										(	mach_port_t server,
+											char* indata,
+											int *procnumber,
+											audit_token_t atoken )
+{
+	kern_return_t	kr				= KERN_FAILURE;
+	char			*debugDataTag	= NULL;
+
+	// NOTE:  All MIG calls are Endian swapped automatically, nothing required on the client/server side
+	
+	// We won't spawn a thread, but we will increase our count while we do work so that existing thread won't exit
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests ++;
+	gMachThreadLock->SignalLock();
+	
+	if ( (gDebugLogging) || (gLogAPICalls) )
+	{
+		pid_t			aPID;
+		CRequestHandler handler;
+		
+		audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+		
+		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+		DbgLog( kLogHandler, "%s : libinfomig DAC : Procedure Request = %s", debugDataTag, indata );
+	}
+	
+	*procnumber = 0;
+	if (indata != NULL)
+	{
+		for (int idx = 1; idx < (int)kDSLUlastprocnum && lookupProcedures[idx] != NULL; idx++)
+		{
+			if ( 0 == strcmp(indata, lookupProcedures[idx]) )
+			{
+				*procnumber = idx;
+				kr = KERN_SUCCESS;
+				break;
+			}
+		}
+	}
+
+	if ( debugDataTag )
+	{
+		DbgLog( kLogHandler, "%s : libinfomig DAR : Procedure = %s (%d) : Result code = %d", debugDataTag, indata,
+				*procnumber, kr );
+		
+		free( debugDataTag );
+	}
+	
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests --;
+	gMachThreadLock->SignalLock();
+				
+	return kr;
+}
+
+kern_return_t libinfoDSmig_do_Query(	mach_port_t server,
+										int32_t procnumber,
+										inline_data_t request,
+										mach_msg_type_number_t requestCnt,
+										inline_data_t reply,
+										mach_msg_type_number_t *replyCnt,
+										vm_offset_t *ooreply,
+										mach_msg_type_number_t *ooreplyCnt,
+										audit_token_t atoken )
+{
+	kern_return_t	kr				= KERN_FAILURE;
+	kvbuf_t		   *returnedBuf		= NULL;
+	Boolean			bValidProcedure	= ( (procnumber > 0) && (procnumber < (int)kDSLUlastprocnum) ? TRUE : FALSE);
+	char			*debugDataTag	= NULL;
+    pid_t			aPID;
+	
+	// Note: MIG deals with all byte swapping automatically no need to swap int32_t or any other standard integer type
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests ++;
+	gMachThreadLock->SignalLock();
+	
+	// spawn a thread request
+	mig_spawnonceifnecessary();
+
+    audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+    
+	if ( (gDebugLogging) || (gLogAPICalls) )
+	{
+		CRequestHandler handler;
+
+		if ( bValidProcedure )
+		{
+			debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+			DbgLog( kLogHandler, "%s : libinfomig DAC : Procedure = %s (%d)", debugDataTag, lookupProcedures[procnumber], procnumber );
+            
+            if( aPID == (SInt32)gDaemonPID )
+            {
+                DbgLog( kLogHandler, "%s : libinfomig DAC : Dispatching from/to ourself", debugDataTag, lookupProcedures[procnumber],
+                        procnumber );
+            }
+		}
+		else
+		{
+			debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+			DbgLog( kLogHandler, "%s : libinfomig DAC : Invalid Procedure = %d", debugDataTag, procnumber );
+		}
+	}
+    
+    // if the cache node is NULL and (pid != DS or DNS lookup) wait for cache node
+    if( gCacheNode == NULL && (aPID != (SInt32)gDaemonPID || (procnumber >= kDSLUgetaddrinfo && procnumber <= kDSLUdns_proxy )) )
+    {
+        gKickCacheRequests.WaitForEvent(); // wait until cache node is ready
+    }
+	
+	//pass the data directly into the Cache plugin and only if the SearchNode is initialized
+    // or the search node is not initialized and we aren't dispatching to ourselves
+	if ( gCacheNode != NULL && bValidProcedure )
+	{
+        returnedBuf = gCacheNode->ProcessLookupRequest(procnumber, request, requestCnt, aPID);
+        if ( (returnedBuf != NULL) && (returnedBuf->databuf != NULL) )
+        {
+            // if it will fit in the fixed buffer, use it otherwise use OOL
+            if( returnedBuf->datalen <= *replyCnt )
+            {
+                *replyCnt = returnedBuf->datalen;
+                bcopy( returnedBuf->databuf, reply, returnedBuf->datalen );
+                *ooreplyCnt = 0; // inline set OOL to 0
+            }
+            else
+            {
+                vm_read( mach_task_self(), (vm_address_t)(returnedBuf->databuf), returnedBuf->datalen, ooreply, 
+                         ooreplyCnt );
+                *replyCnt = 0; // ool, set the other to 0
+            }
+        }
+        else
+        {
+            *replyCnt = 0;
+            *ooreplyCnt = 0;
+        }
+        
+		kr = KERN_SUCCESS;
+		
+        kvbuf_free(returnedBuf);
+	}
+
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests --;
+	gMachThreadLock->SignalLock();
+	
+	if ( debugDataTag )
+	{
+		if ( bValidProcedure )
+		{
+			DbgLog( kLogHandler, "%s : libinfomig DAR : Procedure = %s (%d) : Result code = %d", debugDataTag, 
+					lookupProcedures[procnumber], procnumber, kr );
+		}
+		else
+		{
+			DbgLog( kLogHandler, "%s : libinfomig DAR : Invalid Procedure = %d", debugDataTag, procnumber );
+		}
+
+		free( debugDataTag );
+	}
+
+	return kr;
+}
+
+kern_return_t libinfoDSmig_do_Query_async(	mach_port_t server,
+                                            mach_port_t replyToPort,
+                                            int32_t procnumber,
+                                            inline_data_t request,
+                                            mach_msg_type_number_t requestCnt,
+                                            mach_vm_address_t callbackAddr,
+                                            audit_token_t atoken )
+{
+    Boolean			bValidProcedure	= ( (procnumber > 0) && (procnumber < (int)kDSLUlastprocnum) ? TRUE : FALSE);
+    char			*debugDataTag	= NULL;
+    sLibinfoRequest		*pLibinfoRequest = NULL;
+    
+    if ( (gDebugLogging) || (gLogAPICalls) )
+    {
+        pid_t			aPID;
+        CRequestHandler handler;
+        
+        audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+        
+        if ( bValidProcedure )
+        {
+            debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+            DbgLog( kLogHandler, "%s : libinfomig DAC : Async Procedure = %s (%d)", debugDataTag, lookupProcedures[procnumber], procnumber );
+            
+            if( aPID == (pid_t)gDaemonPID )
+            {
+                DbgLog( kLogHandler, "%s : libinfomig DAC : Dispatching from/to ourself", debugDataTag, lookupProcedures[procnumber],
+                        procnumber );
+            }
+        }
+        else
+        {
+            debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+            DbgLog( kLogHandler, "%s : libinfomig DAC : Invalid Async Procedure = %d", debugDataTag, procnumber );
+        }
+    }
+    
+    if( bValidProcedure )
+    {
+        pLibinfoRequest = new sLibinfoRequest;
+        
+        pLibinfoRequest->fBuffer = (char *) calloc( requestCnt, sizeof(char) );
+        if( pLibinfoRequest->fBuffer != NULL )
+        {
+            pLibinfoRequest->fReplyPort = replyToPort;
+            pLibinfoRequest->fProcedure = procnumber;
+            pLibinfoRequest->fToken = atoken;
+            pLibinfoRequest->fCallbackAddr = callbackAddr;
+            
+            bcopy( request, pLibinfoRequest->fBuffer, requestCnt );
+            pLibinfoRequest->fBufferLen = requestCnt;
+            
+            if( gLibinfoQueue->QueueMessage( pLibinfoRequest ) == false )
+            {
+                // use our lookup mutex here as well
+                gLibinfoQueueLock->WaitLock();
+                gSrvrCntl->StartAHandler( DSCThread::kTSLibinfoQueueThread );
+                gLibinfoQueueLock->SignalLock();
+            }
+        }
+        else
+        {
+            // need to dispose of rights if we aren't going to queue the message
+            mach_port_mod_refs( mach_task_self(), replyToPort, MACH_PORT_RIGHT_SEND_ONCE, -1 );
+        }
+    }
+    
+    if ( debugDataTag )
+    {
+        if ( bValidProcedure )
+        {
+            if( pLibinfoRequest != NULL )
+            {
+                DbgLog( kLogHandler, "%s : libinfomig DAR : Async Procedure = %s (%d) : Request %X queued", debugDataTag, 
+                        lookupProcedures[procnumber], procnumber, pLibinfoRequest );
+            }
+            else
+            {
+                DbgLog( kLogHandler, "%s : libinfomig DAR : Async Procedure = %s (%d) : Request not queued", debugDataTag, 
+                        lookupProcedures[procnumber], procnumber );
+            }
+        }
+        else
+        {
+            DbgLog( kLogHandler, "%s : libinfomig DAR : Invalid Procedure = %d", debugDataTag, procnumber );
+        }
+        
+        free( debugDataTag );
+    }
+    
+    return KERN_SUCCESS;
+}
+
+kern_return_t memberdDSmig_do_MembershipCall( mach_port_t server, kauth_identity_extlookup *request, audit_token_t *atoken )
+{
+	char			*debugDataTag	= NULL;
+	
+	// mig calls all use seqno as a byte order field, so check if we need to swap
+	int needsSwap = (request->el_seqno != 1) && (request->el_seqno == ntohl(1));
+	
+	// Note: MIG deals with all byte swapping automatically no need to swap int32_t or any other standard integer type
+	// if defined that way BUT request is uint_8 array
+	if (needsSwap)
+		Mbrd_SwapRequest(request);
+
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests ++;
+	gMachThreadLock->SignalLock();
+	
+	// spawn a thread request
+	mig_spawnonceifnecessary();
+    
+	if ( (gDebugLogging) || (gLogAPICalls) )
+	{
+		CRequestHandler handler;
+		pid_t			aPID;
+		
+		audit_token_to_au32( *atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+		
+		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "MembershipCall", "Server" );
+		DbgLog( kLogHandler, "%s : mbrmig DAC %s", debugDataTag, (needsSwap ? " : Via Rosetta" : "") );
+		
+		if( aPID == (SInt32)gDaemonPID )
+		{
+			DbgLog( kLogHandler, "%s : mbrmig DAC : Dispatching from/to ourself", debugDataTag );
+		}
+	}
+	
+	Mbrd_ProcessLookup( request );
+
+	if (needsSwap)
+		Mbrd_SwapRequest(request);
+
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests --;
+	gMachThreadLock->SignalLock();
+	
+	if ( debugDataTag )
+	{
+		DbgLog( kLogHandler, "%s : mbrmig DAR", debugDataTag );
+		free( debugDataTag );
+	}
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t memberdDSmig_do_GetStats(mach_port_t server, StatBlock *stats)
+{
+	Mbrd_ProcessGetStats( stats );
+	
+	return KERN_SUCCESS;
+}
+
+kern_return_t memberdDSmig_do_ClearStats(mach_port_t server, audit_token_t atoken)
+{
+	char *debugDataTag = NULL;
+
+	if ( (gDebugLogging) || (gLogAPICalls) )
+	{
+		CRequestHandler handler;
+		pid_t			aPID;
+		
+		audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+		
+		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "ClearStats", "Server" );
+		DbgLog( kLogHandler, "%s : mbrmig DAC", debugDataTag );
+	}
+	
+	Mbrd_ProcessResetStats();
+	
+	if ( debugDataTag )
+	{
+		DbgLog( kLogHandler, "%s : mbrmig DAR", debugDataTag );
+		free( debugDataTag );
+	}
+	
+	return KERN_SUCCESS;
+}
+
+kern_return_t memberdDSmig_do_MapName(mach_port_t server, uint8_t isUser, mstring name, guid_t *guid, audit_token_t *atoken)
+{
+	kern_return_t	result;
+	char			*debugDataTag	= NULL;
+	
+	if ( (gDebugLogging) || (gLogAPICalls) )
+	{
+		CRequestHandler handler;
+		pid_t			aPID;
+		
+		audit_token_to_au32( *atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+		
+		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "MapName", "Server" );
+		DbgLog( kLogHandler, "%s : mbrmig DAC : Name = %s : isUser = %d", debugDataTag, name, (int) isUser );
+	}
+	
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests ++;
+	gMachThreadLock->SignalLock();
+	
+	// spawn a thread request
+	mig_spawnonceifnecessary();
+    
+	result = Mbrd_ProcessMapName(isUser, name, guid);
+
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests --;
+	gMachThreadLock->SignalLock();
+	
+	if ( debugDataTag )
+	{
+		if (result == KERN_SUCCESS)
+		{
+			char	uuid_string[37] = { 0, };
+			
+			uuid_unparse_upper( guid->g_guid, uuid_string );
+			DbgLog( kLogHandler, "%s : mbrmig DAR : Name = %s : GUID = %s", debugDataTag, name, uuid_string );
+		}
+		else
+		{
+			DbgLog( kLogHandler, "%s : mbrmig DAR : Name = %s : Not found", debugDataTag, name );
+		}
+		
+		free( debugDataTag );
+	}	
+	
+	return result;
+}
+
+kern_return_t memberdDSmig_do_GetGroups(mach_port_t server, uint32_t uid, uint32_t* numGroups, GIDArray gids, audit_token_t *atoken)
+{
+	int		result;
+	char	*debugDataTag = NULL;
+
+	if ( (gDebugLogging) || (gLogAPICalls) )
+	{
+		CRequestHandler handler;
+		pid_t			aPID;
+		
+		audit_token_to_au32( *atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+		
+		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "GetGroups", "Server" );
+		DbgLog( kLogHandler, "%s : mbrmig DAC : uid = %u", debugDataTag, uid );
+	}
+
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests ++;
+	gMachThreadLock->SignalLock();
+	
+	// spawn a thread request
+	mig_spawnonceifnecessary();
+    
+	result = Mbrd_ProcessGetGroups(uid, numGroups, gids);
+
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests --;
+	gMachThreadLock->SignalLock();
+	
+	if ( debugDataTag )
+	{
+		DbgLog( kLogHandler, "%s : mbrmig DAR : Total groups = %u", debugDataTag, (*numGroups) );
+		free( debugDataTag );
+	}	
+	
+	return (kern_return_t)result;
+}
+
+kern_return_t memberdDSmig_do_GetAllGroups(mach_port_t server, uint32_t uid, uint32_t* numGroups, GIDList *gids, mach_msg_type_number_t *gidsCnt, 
+										   audit_token_t *atoken)
+{
+	int		result;
+	char	*debugDataTag = NULL;
+	
+	if ( (gDebugLogging) || (gLogAPICalls) )
+	{
+		CRequestHandler handler;
+		pid_t			aPID;
+		
+		audit_token_to_au32( *atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+		
+		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "GetAllGroups", "Server" );
+		DbgLog( kLogHandler, "%s : mbrmig DAC : uid = %u", debugDataTag, uid );
+	}
+	
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests ++;
+	gMachThreadLock->SignalLock();
+	
+	// spawn a thread request
+	mig_spawnonceifnecessary();
+	
+	GIDList tempList = NULL;
+    
+	result = Mbrd_ProcessGetAllGroups(uid, numGroups, &tempList);
+	if ( (*numGroups) > 0 && tempList != NULL )
+	{
+		vm_read( mach_task_self(), (vm_address_t) tempList, ((*numGroups) * sizeof(gid_t)), (vm_offset_t *) gids, gidsCnt );
+		DSFree( tempList );
+	}
+	
+	gMachThreadLock->WaitLock();
+	gActiveLongRequests --;
+	gMachThreadLock->SignalLock();
+	
+	if ( debugDataTag )
+	{
+		DbgLog( kLogHandler, "%s : mbrmig DAR : Total groups = %u", debugDataTag, (*numGroups) );
+		free( debugDataTag );
+	}	
+	
+	return (kern_return_t)result;
+}
+
+kern_return_t memberdDSmig_do_ClearCache(mach_port_t server, audit_token_t atoken)
+{
+	char	*debugDataTag = NULL;
+	
+	if ( (gDebugLogging) || (gLogAPICalls) )
+	{
+		CRequestHandler handler;
+		pid_t			aPID;
+		
+		audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+		
+		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "ClearCache", "Server" );
+		DbgLog( kLogHandler, "%s : mbrmig DAC", debugDataTag );
+	}
+
+	Mbrd_ProcessResetCache();
+	
+	if ( debugDataTag )
+	{
+		DbgLog( kLogHandler, "%s : mbrmig DAR", debugDataTag );
+		free( debugDataTag );
+	}		
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t memberdDSmig_do_DumpState(mach_port_t server, audit_token_t atoken)
+{
+	char	*debugDataTag = NULL;
+	
+	if ( (gDebugLogging) || (gLogAPICalls) )
+	{
+		CRequestHandler handler;
+		pid_t			aPID;
+		
+		audit_token_to_au32( atoken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+		
+		debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "DumpState", "Server" );
+		DbgLog( kLogHandler, "%s : mbrmig DAC", debugDataTag );
+	}
+    
+	Mbrd_ProcessDumpState();
+
+	if ( debugDataTag )
+	{
+		DbgLog( kLogHandler, "%s : mbrmig DAR", debugDataTag );
+		free( debugDataTag );
+	}		
+	
+	return KERN_SUCCESS;
+}
+
 #pragma mark -
 #pragma mark ServerControl Routines
+#pragma mark -
 
 // ---------------------------------------------------------------------------
 //	* ServerControl()
@@ -492,11 +1106,10 @@ ServerControl::ServerControl ( void )
 
 	fTCPListener				= nil;
 	fTCPHandlerThreadsCnt		= 0;
+	fLibinfoHandlerThreadCnt    = 0;
 	fSCDStore					= 0;	
 	fPerformanceStatGatheringActive	= false; //default
-	fLookupDaemonFlushCacheRequestCount = 0;
 	fMemberDaemonFlushCacheRequestCount	= 0;
-	fHoldStore					= NULL;
 	fTCPHandlers				= nil;
 	
 #ifdef BUILD_IN_PERFORMANCE
@@ -511,9 +1124,18 @@ ServerControl::ServerControl ( void )
 #endif
 #endif
 
-	fTCPHandlerSemaphore		= new DSSemaphore( fTCPHandlerThreadsCnt );
-	
-	fServiceNameString = CFStringCreateWithCString( NULL, kDSStdMachPortName, kCFStringEncodingUTF8 );
+	if (gDSDebugMode)
+	{
+		fServiceNameString = CFStringCreateWithCString( NULL, kDSStdMachDebugPortName, kCFStringEncodingUTF8 );
+	}
+	else if (gDSLocalOnlyMode)
+	{
+		fServiceNameString = CFStringCreateWithCString( NULL, kDSStdMachLocalPortName, kCFStringEncodingUTF8 );
+	}
+	else
+	{
+		fServiceNameString = CFStringCreateWithCString( NULL, kDSStdMachPortName, kCFStringEncodingUTF8 );
+	}
 	
 	if (gDaemonPID > 100) //assumption here is that we crashed and restarted so say netowrk is already running ie. we are usually less than 50
 	{
@@ -530,12 +1152,6 @@ ServerControl::ServerControl ( void )
 
 ServerControl::~ServerControl ( void )
 {
-	if ( fTCPHandlerSemaphore != nil )
-	{
-		delete( fTCPHandlerSemaphore );
-		fTCPHandlerSemaphore = nil;
-	}
-
 } // ~ServerControl
 
 
@@ -544,45 +1160,52 @@ ServerControl::~ServerControl ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::StartUpServer ( void )
+SInt32 ServerControl::StartUpServer ( void )
 {
-	sInt32				result		= eDSNoErr;
+	SInt32				result		= eDSNoErr;
 	struct stat			statResult;
 	try
 	{
 		if ( gNodeList == nil )
 		{
 			gNodeList = new CNodeList();
-			if ( gNodeList == nil ) throw((sInt32)eMemoryAllocError);
+			if ( gNodeList == nil ) throw((SInt32)eMemoryAllocError);
 		}
 
 		if ( gRefTable == nil )
 		{
 			gRefTable = new CRefTable( CHandlerThread::RefDeallocProc );
-			if ( gRefTable == nil ) throw( (sInt32)eMemoryAllocError );
+			if ( gRefTable == nil ) throw( (SInt32)eMemoryAllocError );
 		}
+		
+		// Let's initialize membership globals just in case we get called
+		Mbrd_InitializeGlobals();
 
 		if ( gPluginConfig == nil )
 		{
 			gPluginConfig = new CPluginConfig();
-			if ( gPluginConfig == nil ) throw( (sInt32)eMemoryAllocError );
+			if ( gPluginConfig == nil ) throw( (SInt32)eMemoryAllocError );
 			gPluginConfig->Initialize();
 		}
 		
 		//gMaxHandlerThreadCount may be discovered in the DS plist config file read by gPluginConfig above
 		fTCPHandlers = (CHandlerThread **)calloc(gMaxHandlerThreadCount, sizeof(CHandlerThread *));
-
+		fLibinfoHandlers = (CHandlerThread **)calloc(gMaxHandlerThreadCount, sizeof(CHandlerThread *));
+		
 		if ( gPlugins == nil )
 		{
 			gPlugins = new CPlugInList();
-			if ( gPlugins == nil ) throw( (sInt32)eMemoryAllocError );
+			if ( gPlugins == nil ) throw( (SInt32)eMemoryAllocError );
+			gPlugins->ReadRecordTypeRestrictions();
 		}
 
-		if ( gTCPMsgQueue == nil )
+		if ( gLibinfoQueue == nil )
 		{
-			gTCPMsgQueue = new CMsgQueue();
-			if ( gTCPMsgQueue == nil ) throw((sInt32)eMemoryAllocError);
+			gLibinfoQueue = new CMsgQueue();
+			if ( gLibinfoQueue == nil ) throw((SInt32)eMemoryAllocError);
 		}
+		
+		CreateDebugPrefFileIfNecessary();
 
 		if (::stat( "/Library/Preferences/DirectoryService/.DSLogAPIAtStart", &statResult ) == eDSNoErr)
 		{
@@ -595,55 +1218,75 @@ sInt32 ServerControl::StartUpServer ( void )
 															LoggingTimerCallBack,
 															NULL );
 			
-			CFRunLoopAddTimer( gServerRunLoop, timer, kCFRunLoopDefaultMode );
+			// this call this callback does not block the main runloop
+			CFRunLoopAddTimer( CFRunLoopGetMain(), timer, kCFRunLoopDefaultMode );
 			CFRelease( timer );
 			timer = NULL;
-
+			
 			gLogAPICalls	= true;
 			syslog(LOG_ALERT,"Logging of API Calls turned ON at Startup of DS Daemon.");
-			gDebugLogging	= true;
-			CLog::StartDebugLog();
-			syslog(LOG_ALERT,"Debug Logging turned ON at Startup of DS Daemon.");
+			if (!gDebugLogging)
+			{
+				gDebugLogging	= true;
+				gSrvrCntl->ResetDebugging(); //ignore return status
+				syslog(LOG_ALERT,"Debug Logging turned ON at Startup of DS Daemon.");
+			}
 		}
 
 		// let's start the MIG listener
-		fMigListener = new CMigHandlerThread();
-		if ( fMigListener == nil ) throw((sInt32)eMemoryAllocError);
-		fMigListener->StartThread();
+		CMigHandlerThread *migListener = new CMigHandlerThread( DSCThread::kTSMigHandlerThread, false );
+		if ( migListener == nil ) throw((SInt32)eMemoryAllocError);
+		migListener->StartThread();
 		
-		// see if we need TCP too
-		if ( 	(	(::stat( "/Library/Preferences/DirectoryService/.DSTCPListening", &statResult ) == eDSNoErr) ||
-					(gServerOS) ) &&
-					(::stat( "/Library/Preferences/DirectoryService/.DSTCPNotListening", &statResult ) != eDSNoErr) )
+		if (!gDSLocalOnlyMode && !gDSInstallDaemonMode)
 		{
-			// Start the TCP listener thread
-			result = StartTCPListener(kDSDefaultListenPort);
-			if ( result != eDSNoErr ) throw( result );
+			// see if we need TCP too
+			if ( 	(	(::stat( "/Library/Preferences/DirectoryService/.DSTCPListening", &statResult ) == eDSNoErr) ||
+						(gServerOS) ) &&
+						(::stat( "/Library/Preferences/DirectoryService/.DSTCPNotListening", &statResult ) != eDSNoErr) )
+			{
+				// Start the TCP listener thread
+				result = StartTCPListener(kDSDefaultListenPort);
+				if ( result != eDSNoErr ) throw( result );
+			}
 		}
 
 		if ( gPluginHandler == nil )
 		{
 			gPluginHandler = new CPluginHandler();
-			if ( gPluginHandler == nil ) throw((sInt32)eMemoryAllocError);
+			if ( gPluginHandler == nil ) throw((SInt32)eMemoryAllocError);
 
 			//this call could throw
 			gPluginHandler->StartThread();
 		}
 
+		// now it's time to put up our kernel listener thread
+		if (!gDSLocalOnlyMode)
+		{
+			kern_return_t kresult = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_REGISTER, 0 );
+			if (kresult == 0)
+			{
+				// start the memberd kernel listener
+				CMemberdKernelHandlerThread *aThread = new CMemberdKernelHandlerThread( DSCThread::kTSMemberdKernelHndlrThread );
+				aThread->StartThread();
+			}
+			else
+			{
+				syslog(LOG_CRIT, "Got error %d trying to register with kernel\n", kresult);
+			}
+		}
+
 		result = RegisterForSystemPower();
 		if ( result != eDSNoErr ) throw( result );
 
-		result = (sInt32)RegisterForNetworkChange();
+		result = (SInt32)RegisterForNetworkChange();
 		if ( result != eDSNoErr ) throw( result );
 		
 		result = SetUpPeriodicTask();
 		if ( result != eDSNoErr ) throw( result );
-
-		//at boot we wait the same as a network transition for the NI auto switch check
-		HandleMultipleNetworkTransitionsForNIAutoSwitch();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		result = err;
 	}
@@ -658,105 +1301,43 @@ sInt32 ServerControl::StartUpServer ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::ShutDownServer ( void )
+SInt32 ServerControl::ShutDownServer ( void )
 {
-	sInt32				result		= eDSNoErr;
-	uInt32				i			= 0;
-	uInt32				uiStopCnt	= 0;
-	struct stat			statResult;
+	SInt32				result		= eDSNoErr;
+	UInt32				i			= 0;
 
 	try
 	{
 
-		result = (sInt32)UnRegisterForNetworkChange();
+		result = (SInt32)UnRegisterForNetworkChange();
 		if ( result != eDSNoErr ) throw( result );
 
 //		result = UnRegisterForSystemPower();
 //		if ( result != eDSNoErr ) throw( result );
 
-		//fMigListener is stopped by destroying the port set
-		mach_port_destroy( mach_task_self(), gMachAPISet );
-		gMachAPISet = MACH_PORT_NULL;
+		// MigListener is stopped by destroying the port set
+		mach_port_destroy( mach_task_self(), gMachMIGSet );
+		gMachMIGSet = MACH_PORT_NULL;
 		
-		if (::stat( "/Library/Preferences/DirectoryService/.DSTCPListening", &statResult ) == eDSNoErr)
-		{
-			//need to stop the TCP listener before anything else
-			//assume that the listener itself will close all of its connections
-			if (fTCPListener != nil)
-			{
-				fTCPListener->StopThread();
-			
-				gTCPHandlerLock->Wait();
-				// Stop the handler threads
-				for ( i = 0; i < gMaxHandlerThreadCount; i++ )
-				{
-					if ( fTCPHandlers[ i ] != nil )
-					{
-						uiStopCnt += 1;
-		
-						fTCPHandlers[ i ]->StopThread();
-		
-						fTCPHandlers[ i ] = nil;
-					}
-				}
-				gTCPHandlerLock->Signal();
-		
-				while (uiStopCnt > 0)
-				{
-					WakeAHandler(DSCThread::kTSTCPHandlerThread);
-					uiStopCnt--;
-				}
-		
-				uiStopCnt	= 0;
-			}
-		}
+        gLibinfoQueueLock->WaitLock();
+        for (i = 0; i < gMaxHandlerThreadCount; i++)
+        {
+            if (fLibinfoHandlers[ i ] != nil)
+            {
+                fLibinfoHandlers[ i ]->StopThread();
+                fLibinfoHandlers[ i ] = nil;
+            }
+        }
+        
+        // this will broadcast to all, and since we stopped the threads, they will all close down
+        gLibinfoQueue->ClearMsgQueue();
+
+        gLibinfoQueueLock->SignalLock();
 
 		//no need to delete the global objects as this process is going away and
 		//we don't want to create a race condition on the threads dying that
 		//could lead to a crash
-/*
-		if ( gNodeList != nil )
-		{
-			delete( gNodeList );
-			gNodeList = nil;
-		}
 
-		if ( gRefTable != nil )
-		{
-			delete( gRefTable );
-			gRefTable = nil;
-		}
-
-		if ( gPlugins != nil )
-		{
-			delete( gPlugins );
-			gPlugins = nil;
-		}
-
-		if ( gTCPMsgQueue != nil )
-		{
-			delete( gTCPMsgQueue );
-			gTCPMsgQueue = nil;
-		}
-
-		if ( gMsgQueue != nil )
-		{
-			delete( gMsgQueue );
-			gMsgQueue = nil;
-		}
-
-		if ( gInternalMsgQueue != nil )
-		{
-			delete( gInternalMsgQueue );
-			gInternalMsgQueue = nil;
-		}
-
-		if ( gCheckpwMsgQueue != nil )
-		{
-			delete( gCheckpwMsgQueue );
-			gCheckpwMsgQueue = nil;
-		}
-*/
 		//no need to delete the global mutexes as this process is going away and
 		//we don't want to create a reace condition on the threads dying that
 		//could lead to a crash
@@ -769,7 +1350,7 @@ sInt32 ServerControl::ShutDownServer ( void )
 		CLog::Deinitialize();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		result = err;
 	}
@@ -784,24 +1365,24 @@ sInt32 ServerControl::ShutDownServer ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::StartTCPListener ( uInt32 inPort )
+SInt32 ServerControl::StartTCPListener ( UInt32 inPort )
 {
-	sInt32	result	= eDSNoErr;
+	SInt32	result	= eDSNoErr;
 
 	try
 	{
 		fTCPListener = new DSTCPListener(inPort);
-		if ( fTCPListener == nil ) throw((sInt32)eMemoryAllocError);
+		if ( fTCPListener == nil ) throw((SInt32)eMemoryAllocError);
 
 		//this call could throw
 		fTCPListener->StartThread();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		result = err;
-		DBGLOG2( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
-		DBGLOG1( kLogApplication, "  Caught exception = %d.", err );
+		DbgLog( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
+		DbgLog( kLogApplication, "  Caught exception = %d.", err );
 	}
 
 	return( result );
@@ -814,23 +1395,23 @@ sInt32 ServerControl::StartTCPListener ( uInt32 inPort )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::StopTCPListener ( void )
+SInt32 ServerControl::StopTCPListener ( void )
 {
-	sInt32	result	= eDSNoErr;
+	SInt32	result	= eDSNoErr;
 
 	try
 	{
-		if ( fTCPListener == nil ) throw((sInt32)eMemoryAllocError);
+		if ( fTCPListener == nil ) throw((SInt32)eMemoryAllocError);
 
 		//this call could throw
 		fTCPListener->StopThread();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		result = err;
-		DBGLOG2( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
-		DBGLOG1( kLogApplication, "  Caught exception = %d.", err );
+		DbgLog( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
+		DbgLog( kLogApplication, "  Caught exception = %d.", err );
 	}
 
 	return( result );
@@ -843,53 +1424,40 @@ sInt32 ServerControl::StopTCPListener ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl:: StartAHandler ( const FourCharCode inThreadSignature )
+SInt32 ServerControl:: StartAHandler ( const FourCharCode inThreadSignature )
 {
-	volatile	uInt32		iThread;
-				sInt32		result	= eDSNoErr;
+	volatile	UInt32		iThread;
+				SInt32		result	= eDSNoErr;
 
 	try
 	{
 		// If we have less than the max handlers then we add one
 		//decide from which set of handlers to start one
 
-		if (inThreadSignature == DSCThread::kTSTCPHandlerThread)
+		if (inThreadSignature == DSCThread::kTSLibinfoQueueThread)
 		{
-			if ( (fTCPHandlerThreadsCnt >= 0) && (fTCPHandlerThreadsCnt < gMaxHandlerThreadCount) )
+			if ( (fLibinfoHandlerThreadCnt >= 0) && (fLibinfoHandlerThreadCnt < gMaxHandlerThreadCount) )
 			{
-				for (iThread =0; iThread < gMaxHandlerThreadCount; iThread++)
+				for (iThread = 0; iThread < gMaxHandlerThreadCount; iThread++)
 				{
-					if (fTCPHandlers[ iThread ] == nil)
+					if (fLibinfoHandlers[ iThread ] == nil)
 					{
 						// Start a handler thread
-						fTCPHandlers[ iThread ] = new CHandlerThread(DSCThread::kTSTCPHandlerThread, iThread);
-						if ( fTCPHandlers[ iThread ] == nil ) throw((sInt32)eMemoryAllocError);
-
-						fTCPHandlerThreadsCnt++;
-
+						fLibinfoHandlers[ iThread ] = new CHandlerThread(DSCThread::kTSLibinfoQueueThread, iThread);
+						if ( fLibinfoHandlers[ iThread ] == nil ) throw((SInt32)eMemoryAllocError);
+                        
+						fLibinfoHandlerThreadCnt++;
+                        
 						//this call could throw
-						fTCPHandlers[ iThread ]->StartThread();
-						break;
-					}
-					else if ( fTCPHandlers[iThread]->GetOurThreadRunState() == DSCThread::kThreadStop)
-					{
-						// Start a handler thread
-						fTCPHandlers[ iThread ] = new CHandlerThread(DSCThread::kTSTCPHandlerThread, iThread);
-						if ( fTCPHandlers[ iThread ] == nil ) throw((sInt32)eMemoryAllocError);
-
-						//fTCPHandlerThreadsCnt++; //no need since replacing
-
-						//this call could throw
-						fTCPHandlers[ iThread ]->StartThread();
+						fLibinfoHandlers[ iThread ]->StartThread();
 						break;
 					}
 				}
 			}
 		}
-
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		result = err;
 	}
@@ -906,10 +1474,6 @@ sInt32 ServerControl:: StartAHandler ( const FourCharCode inThreadSignature )
 
 void ServerControl:: WakeAHandler ( const FourCharCode inThreadSignature )
 {
-	if (inThreadSignature == DSCThread::kTSTCPHandlerThread)
-	{
-		fTCPHandlerSemaphore->Signal();
-	}
 } // WakeAHandler
 
 
@@ -918,30 +1482,30 @@ void ServerControl:: WakeAHandler ( const FourCharCode inThreadSignature )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl:: StopAHandler ( const FourCharCode inThreadSignature, uInt32 iThread, CHandlerThread *inThread )
+SInt32 ServerControl:: StopAHandler ( const FourCharCode inThreadSignature, UInt32 iThread, CHandlerThread *inThread )
 {
-	sInt32			result		= eDSNoErr;
+	SInt32			result		= eDSNoErr;
 
 	try
 	{
-//		DBGLOG2( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
-//		DBGLOG2( kLogApplication, "StopAHandler: sig = %d and index = %d", inThreadSignature, iThread );
-		if (inThreadSignature == DSCThread::kTSTCPHandlerThread)
+//		DbgLog( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
+//		DbgLog( kLogApplication, "StopAHandler: sig = %d and index = %d", inThreadSignature, iThread );
+		if (inThreadSignature == DSCThread::kTSLibinfoQueueThread)
 		{
 			if ( (iThread >= 0) && (iThread < gMaxHandlerThreadCount) )
 			{
-				if (fTCPHandlers[ iThread ] == inThread)
+				if (fLibinfoHandlers[ iThread ] == inThread)
 				{
 					// Remove a handler thread from the list
-					fTCPHandlers[ iThread ] = nil;
-
-					fTCPHandlerThreadsCnt--;
+					fLibinfoHandlers[ iThread ] = nil;
+                    
+					fLibinfoHandlerThreadCnt--;
 				}
 			}
-		}
+		}        
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		result = err;
 	}
@@ -952,16 +1516,12 @@ sInt32 ServerControl:: StopAHandler ( const FourCharCode inThreadSignature, uInt
 
 
 //--------------------------------------------------------------------------------------------------
-//	* SleepAHandler(const FourCharCode inThreadSignature, uInt32 waitTime)
+//	* SleepAHandler(const FourCharCode inThreadSignature, UInt32 waitTime)
 //
 //--------------------------------------------------------------------------------------------------
 
-void ServerControl:: SleepAHandler ( const FourCharCode inThreadSignature, uInt32 waitTime )
+void ServerControl:: SleepAHandler ( const FourCharCode inThreadSignature, UInt32 waitTime )
 {
-	if (inThreadSignature == DSCThread::kTSTCPHandlerThread)
-	{
-		fTCPHandlerSemaphore->Wait( waitTime );
-	}
 } // SleepAHandler
 
 
@@ -970,12 +1530,13 @@ void ServerControl:: SleepAHandler ( const FourCharCode inThreadSignature, uInt3
 //
 //--------------------------------------------------------------------------------------------------
 
-uInt32 ServerControl::GetHandlerCount ( const FourCharCode inThreadSignature )
+UInt32 ServerControl::GetHandlerCount ( const FourCharCode inThreadSignature )
 {
-	if (inThreadSignature == DSCThread::kTSTCPHandlerThread)
+	if (inThreadSignature == DSCThread::kTSLibinfoQueueThread)
 	{
-		return fTCPHandlerThreadsCnt;
+		return fLibinfoHandlerThreadCnt;
 	}
+
 	return 0;
 } // GetHandlerCount
 
@@ -985,20 +1546,16 @@ uInt32 ServerControl::GetHandlerCount ( const FourCharCode inThreadSignature )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl:: RegisterForNetworkChange ( void )
+SInt32 ServerControl:: RegisterForNetworkChange ( void )
 {
-	sInt32				scdStatus			= eDSNoErr;
+	SInt32				scdStatus			= eDSNoErr;
 	CFStringRef			ipKey				= 0;	//ip changes key
-	CFStringRef			dhcpKey				= 0;	//DHCP changes key
-	CFStringRef			niKey				= 0;	//NetInfo changes key
 	CFMutableArrayRef	notifyKeys			= 0;
 	CFMutableArrayRef	notifyPatterns		= 0;
-	Boolean				setStatus			= FALSE;
-	CFStringRef			aPIDString			= NULL;
 	SCDynamicStoreRef	store				= NULL;
     CFRunLoopSourceRef	rls					= NULL;
 	
-	DBGLOG( kLogApplication, "RegisterForNetworkChange(): " );
+	DbgLog( kLogApplication, "RegisterForNetworkChange(): " );
 
 	notifyKeys		= CFArrayCreateMutable(	kCFAllocatorDefault,
 											0,
@@ -1007,27 +1564,21 @@ sInt32 ServerControl:: RegisterForNetworkChange ( void )
 											0,
 											&kCFTypeArrayCallBacks);
 											
-	// ip changes
-	/* watch for IPv4 configuration changes (e.g. new default route) */
+	// watch for IPv4 configuration changes
 	ipKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
 	CFArrayAppendValue(notifyKeys, ipKey);
 	CFRelease(ipKey);
-
-	/* watch for IPv4 interface configuration changes */
+	
+	// watch for IPv4 interface configuration changes
 	ipKey = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv4);
 	CFArrayAppendValue(notifyPatterns, ipKey);
 	CFRelease(ipKey);
 
-	//DHCP changes
-	dhcpKey = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetDHCP);
-	CFArrayAppendValue(notifyPatterns, dhcpKey);
-	CFRelease(dhcpKey);
-		
-	// NetInfo changes
-	niKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetNetInfo);
-	CFArrayAppendValue(notifyKeys, niKey);
-	CFRelease(niKey);
-			
+	// watch for IPv6 interface configuration changes
+	ipKey = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv6);
+	CFArrayAppendValue(notifyPatterns, ipKey);
+	CFRelease(ipKey);
+	
 	//not checking bool return
 	store = SCDynamicStoreCreate(NULL, fServiceNameString, NetworkChangeCallBack, NULL);
 	if (store != NULL && notifyKeys != NULL && notifyPatterns != NULL)
@@ -1036,7 +1587,8 @@ sInt32 ServerControl:: RegisterForNetworkChange ( void )
 		rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
 		if (rls != NULL)
 		{
-			CFRunLoopAddSource(gServerRunLoop, rls, kCFRunLoopDefaultMode);
+			// we watch for network changes on our plugin loop so they can't block other notifications
+			CFRunLoopAddSource(gPluginRunLoop, rls, kCFRunLoopDefaultMode);
 			CFRelease(rls);
 			rls = NULL;
 		}
@@ -1044,50 +1596,16 @@ sInt32 ServerControl:: RegisterForNetworkChange ( void )
 		{
 			syslog(LOG_ALERT,"Unable to add source to RunLoop for SystemConfiguration registration for Network Notification");
 		}
-		CFRelease(notifyKeys);
-		notifyKeys = NULL;
-		CFRelease(notifyPatterns);
-		notifyPatterns = NULL;
-		CFRelease(store);
-		store = NULL;
 	}
 	else
 	{
 		syslog(LOG_ALERT,"Unable to create DirectoryService store for SystemConfiguration registration for Network Notification");
 	}
+
+	DSCFRelease(notifyKeys);
+	DSCFRelease(notifyPatterns);
+	DSCFRelease(store);
 	
-	if (fHoldStore == NULL)
-	{
-		fHoldStore = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
-	}
-
-	if (fHoldStore != NULL)
-	{
-		//this is update code for things like NetInfo and DHCP issues
-		//ie. calls to the search node that verify or re-establish the default NI and LDAPv3(from DHCP) nodes
-		
-		//send SIGHUP on a network transition
-		//setStatus = SCDynamicStoreNotifySignal( fHoldStore, getpid(), SIGHUP);
-		
-		aPIDString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), (uInt32)getpid());
-		if (aPIDString != NULL)
-		{
-			setStatus = SCDynamicStoreAddTemporaryValue( fHoldStore, CFSTR("DirectoryService:PID"), aPIDString );
-			CFRelease(aPIDString);
-		}
-		else
-		{
-			syslog(LOG_ALERT,"Unable to create DirectoryService:PID string for SystemConfiguration registration - DSAgent will be disabled in lookupd");
-		}
-		//DO NOT release the store here since we use SCDynamicStoreAddTemporaryValue above
-		//CFRelease(fHoldStore);
-		//fHoldStore = NULL;
-	}
-	else
-	{
-		syslog(LOG_ALERT,"Unable to create DirectoryService store for SystemConfiguration registration of DirectoryService:PID string - DSAgent will be disabled in lookupd");
-	}
-
 	return scdStatus;
 	
 } // RegisterForNetworkChange
@@ -1097,11 +1615,11 @@ sInt32 ServerControl:: RegisterForNetworkChange ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl:: UnRegisterForNetworkChange ( void )
+SInt32 ServerControl:: UnRegisterForNetworkChange ( void )
 {
-	sInt32		scdStatus = eDSNoErr;
+	SInt32		scdStatus = eDSNoErr;
 
-	DBGLOG( kLogApplication, "UnRegisterForNetworkChange(): " );
+	DbgLog( kLogApplication, "UnRegisterForNetworkChange(): " );
 
 	return scdStatus;
 
@@ -1113,17 +1631,17 @@ sInt32 ServerControl:: UnRegisterForNetworkChange ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::RegisterForSystemPower ( void )
+SInt32 ServerControl::RegisterForSystemPower ( void )
 {
 	IONotificationPortRef	pmNotificationPortRef;
 	CFRunLoopSourceRef		pmNotificationRunLoopSource;
 	
-	DBGLOG( kLogApplication, "RegisterForSystemPower(): " );
+	DbgLog( kLogApplication, "RegisterForSystemPower(): " );
 
 	gPMKernelPort = IORegisterForSystemPower(this, &pmNotificationPortRef, dsPMNotificationHandler, &gPMDeregisterNotifier);
-	if (gPMKernelPort == nil || pmNotificationPortRef == nil)
+	if (gPMKernelPort == 0 || pmNotificationPortRef == nil)
 	{
-		ERRORLOG( kLogApplication, "RegisterForSystemPower(): IORegisterForSystemPower failed" );
+		ErrLog( kLogApplication, "RegisterForSystemPower(): IORegisterForSystemPower failed" );
 	}
 	else
 	{
@@ -1131,16 +1649,17 @@ sInt32 ServerControl::RegisterForSystemPower ( void )
 		
 		if (pmNotificationRunLoopSource == nil)
 		{
-			ERRORLOG( kLogApplication, "RegisterForSystemPower(): IONotificationPortGetRunLoopSource failed" );
+			ErrLog( kLogApplication, "RegisterForSystemPower(): IONotificationPortGetRunLoopSource failed" );
 			gPMKernelPort = nil;
 		}
 		else
 		{
-			CFRunLoopAddSource(gServerRunLoop, pmNotificationRunLoopSource, kCFRunLoopCommonModes);
+			// TODO: should this be on Plugin loop due to potential blockage? or is that ok?
+			CFRunLoopAddSource( CFRunLoopGetMain(), pmNotificationRunLoopSource, kCFRunLoopCommonModes );
 		}
 	}
 	
-	return (gPMKernelPort != nil) ? eDSNoErr : -1;
+	return (gPMKernelPort != 0) ? eDSNoErr : -1;
 } // RegisterForSystemPower
 
 // ---------------------------------------------------------------------------
@@ -1148,18 +1667,18 @@ sInt32 ServerControl::RegisterForSystemPower ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::UnRegisterForSystemPower ( void )
+SInt32 ServerControl::UnRegisterForSystemPower ( void )
 {
-	sInt32 ioResult = eDSNoErr;
+	SInt32 ioResult = eDSNoErr;
 
-	DBGLOG( kLogApplication, "UnRegisterForSystemPower(): " );
+	DbgLog( kLogApplication, "UnRegisterForSystemPower(): " );
 
-	if (gPMKernelPort != nil) {
-		gPMKernelPort = nil;
-        ioResult = (sInt32)IODeregisterForSystemPower(&gPMDeregisterNotifier);
+	if (gPMKernelPort != 0) {
+		gPMKernelPort = 0;
+        ioResult = (SInt32)IODeregisterForSystemPower(&gPMDeregisterNotifier);
 		if (ioResult != eDSNoErr)
 		{
-			DBGLOG1( kLogApplication, "UnRegisterForSystemPower(): IODeregisterForSystemPower failed, error= %d", ioResult );
+			DbgLog( kLogApplication, "UnRegisterForSystemPower(): IODeregisterForSystemPower failed, error= %d", ioResult );
 		}
     }
    return ioResult;
@@ -1171,15 +1690,15 @@ sInt32 ServerControl::UnRegisterForSystemPower ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::HandleSystemWillSleep ( void )
+SInt32 ServerControl::HandleSystemWillSleep ( void )
 {
-	sInt32						siResult		= eDSNoErr;
-	uInt32						iterator		= 0;
+	SInt32						siResult		= eDSNoErr;
+	UInt32						iterator		= 0;
 	CServerPlugin			   *pPlugin			= nil;
 	sHeader						aHeader;
 	CPlugInList::sTableData	   *pPIInfo			= nil;
 	
-	SRVRLOG( kLogApplication, "Sleep Notification occurred.");
+	SrvrLog( kLogApplication, "Sleep Notification occurred.");
 	
 	aHeader.fType			= kHandleSystemWillSleep;
 	aHeader.fResult			= eDSNoErr;
@@ -1199,11 +1718,11 @@ sInt32 ServerControl::HandleSystemWillSleep ( void )
 				{
 					if (pPIInfo != nil)
 					{
-						ERRORLOG2( kLogApplication, "SystemWillSleep Notification in %s plugin returned error %d", pPIInfo->fName, siResult );
+						ErrLog( kLogApplication, "SystemWillSleep Notification in %s plugin returned error %d", pPIInfo->fName, siResult );
 					}
 					else
 					{
-						ERRORLOG1( kLogApplication, "SystemWillSleep Notification of unnamed plugin returned error %d", siResult );
+						ErrLog( kLogApplication, "SystemWillSleep Notification of unnamed plugin returned error %d", siResult );
 					}
 				}
 			}
@@ -1219,15 +1738,15 @@ sInt32 ServerControl::HandleSystemWillSleep ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::HandleSystemWillPowerOn ( void )
+SInt32 ServerControl::HandleSystemWillPowerOn ( void )
 {
-	sInt32						siResult		= eDSNoErr;
-	uInt32						iterator		= 0;
+	SInt32						siResult		= eDSNoErr;
+	UInt32						iterator		= 0;
 	CServerPlugin			   *pPlugin			= nil;
 	sHeader						aHeader;
 	CPlugInList::sTableData	   *pPIInfo			= nil;
 	
-	SRVRLOG( kLogApplication, "Will Power On (Wake) Notification occurred.");
+	SrvrLog( kLogApplication, "Will Power On (Wake) Notification occurred.");
 	
 	aHeader.fType			= kHandleSystemWillPowerOn;
 	aHeader.fResult			= eDSNoErr;
@@ -1247,11 +1766,11 @@ sInt32 ServerControl::HandleSystemWillPowerOn ( void )
 				{
 					if (pPIInfo != nil)
 					{
-						ERRORLOG2( kLogApplication, "WillPowerOn Notification in %s plugin returned error %d", pPIInfo->fName, siResult );
+						ErrLog( kLogApplication, "WillPowerOn Notification in %s plugin returned error %d", pPIInfo->fName, siResult );
 					}
 					else
 					{
-						ERRORLOG1( kLogApplication, "WillPowerOn Notification of unnamed plugin returned error %d", siResult );
+						ErrLog( kLogApplication, "WillPowerOn Notification of unnamed plugin returned error %d", siResult );
 					}
 				}
 			}
@@ -1267,21 +1786,21 @@ sInt32 ServerControl::HandleSystemWillPowerOn ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::HandleNetworkTransition ( void )
+SInt32 ServerControl::HandleNetworkTransition ( void )
 {
-	sInt32						siResult		= eDSNoErr;
-	uInt32						iterator		= 0;
+	SInt32						siResult		= eDSNoErr;
+	UInt32						iterator		= 0;
 	CServerPlugin			   *pPlugin			= nil;
 	sHeader						aHeader;
 	CPlugInList::sTableData	   *pPIInfo			= nil;
 	CServerPlugin			   *searchPlugin	= nil;
-	uInt32						searchIterator	= 0;
+	UInt32						searchIterator	= 0;
 	
 	aHeader.fType			= kHandleNetworkTransition;
 	aHeader.fResult			= eDSNoErr;
 	aHeader.fContextData	= nil;
 
-	SRVRLOG( kLogApplication, "Network transition occurred." );
+	SrvrLog( kLogApplication, "Network transition occurred." );
 	gFirstNetworkUpAtBoot = true;
 	//call thru to each plugin
 	if ( gPlugins != nil )
@@ -1300,11 +1819,11 @@ sInt32 ServerControl::HandleNetworkTransition ( void )
 					{
 						if (pPIInfo != nil)
 						{
-							ERRORLOG2( kLogApplication, "Network transition in %s plugin returned error %d", pPIInfo->fName, siResult );
+							ErrLog( kLogApplication, "Network transition in %s plugin returned error %d", pPIInfo->fName, siResult );
 						}
 						else
 						{
-							ERRORLOG1( kLogApplication, "Network transition of unnamed plugin returned error %d", siResult );
+							ErrLog( kLogApplication, "Network transition of unnamed plugin returned error %d", siResult );
 						}
 					}
 				}
@@ -1318,7 +1837,7 @@ sInt32 ServerControl::HandleNetworkTransition ( void )
 		}
 	}
 	
-	//handle the search plugin transition last to ensure at least NetInfo and LDAPv3 have gone first
+	//handle the search plugin transition last to ensure at least Local and LDAPv3 have gone first
 	if (searchPlugin != nil)
 	{
 		siResult = eDSNoErr;
@@ -1327,13 +1846,10 @@ sInt32 ServerControl::HandleNetworkTransition ( void )
 		siResult = searchPlugin->ProcessRequest( (void*)&aHeader );
 		if (siResult != eDSNoErr)
 		{
-			ERRORLOG1( kLogApplication, "Network transition in Search returned error %d", siResult );
+			ErrLog( kLogApplication, "Network transition in Search returned error %d", siResult );
 		}
 	}
 	
-	//NIAutoSwitch checking
-	HandleMultipleNetworkTransitionsForNIAutoSwitch();
-				
 	return siResult;
 } // HandleNetworkTransition
 
@@ -1343,65 +1859,93 @@ sInt32 ServerControl::HandleNetworkTransition ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::SetUpPeriodicTask ( void )
+SInt32 ServerControl::SetUpPeriodicTask ( void )
 {
-	sInt32		siResult	= eDSNoErr;
+	SInt32		siResult	= eDSNoErr;
 	void	   *ptInfo		= nil;
 	
 	CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, PeriodicTaskCopyStringCallback};
 	
 	CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
-													CFAbsoluteTimeGetCurrent() + 120,
+													CFAbsoluteTimeGetCurrent() + 30,
 													30,
 													0,
 													0,
 													DoPeriodicTask,
 													(CFRunLoopTimerContext*)&c);
 		
-	CFRunLoopAddTimer(gServerRunLoop, timer, kCFRunLoopDefaultMode);
+	CFRunLoopAddTimer(gPluginRunLoop, timer, kCFRunLoopDefaultMode);
 	if (timer) CFRelease(timer);
 					
 	return siResult;
 } // SetUpPeriodicTask
 
+// this is used when only a notify is needed
+void ServerControl::SearchPolicyChangedNotify( void )
+{
+	gTimerMutex->WaitLock();
+	if (gPluginRunLoop != nil)
+	{
+		if( fSPCNTimerRef != NULL )
+		{
+			DbgLog( kLogPlugin, "ServerControl::SearchPolicyChangedNotify invalidating previous timer" );
+			
+			CFRunLoopTimerInvalidate( fSPCNTimerRef );
+			CFRelease( fSPCNTimerRef );
+			fSPCNTimerRef = NULL;
+		}
+		
+		CFRunLoopTimerContext c = {0, (void*)this, NULL, NULL, NotifySearchPolicyChangeCopyStringCallback};
+		
+		fSPCNTimerRef = CFRunLoopTimerCreate(	NULL,
+												CFAbsoluteTimeGetCurrent() + 2,
+												0,
+												0,
+												0,
+												SearchPolicyChangedNotifyCallback,
+												(CFRunLoopTimerContext*)&c);
+		
+		CFRunLoopAddTimer(gPluginRunLoop, fSPCNTimerRef, kCFRunLoopDefaultMode);
+	}
+	gTimerMutex->SignalLock();
+}
+
+// this does more stuff because things get flushed, etc.
 void ServerControl::NodeSearchPolicyChanged( void )
 {
-	void	   *ptInfo		= nil;
-	
-	gTimerMutex->Wait();
-	if (gServerRunLoop != nil)
+	gTimerMutex->WaitLock();
+	if (gPluginRunLoop != nil)
 	{
 		if( fNSPCTimerRef != NULL )
 		{
-			DBGLOG1( kLogPlugin, "T[%X] ServerControl::NodeSearchPolicyChanged invalidating previous timer", pthread_self() );
+			DbgLog( kLogPlugin, "ServerControl::NodeSearchPolicyChanged invalidating previous timer" );
 
 			CFRunLoopTimerInvalidate( fNSPCTimerRef );
 			CFRelease( fNSPCTimerRef );
 			fNSPCTimerRef = NULL;
 		}
 		
-		ptInfo = (void *)this;
-		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, SearchPolicyChangeCopyStringCallback};
+		CFRunLoopTimerContext c = {0, (void*)this, NULL, NULL, SearchPolicyChangeCopyStringCallback};
 	
 		fNSPCTimerRef = CFRunLoopTimerCreate(	NULL,
-														CFAbsoluteTimeGetCurrent() + 2,
-														0,
-														0,
-														0,
-														DoSearchPolicyChange,
-														(CFRunLoopTimerContext*)&c);
+												CFAbsoluteTimeGetCurrent() + 2,
+												0,
+												0,
+												0,
+												NodeSearchPolicyChangeCallback,
+												(CFRunLoopTimerContext*)&c);
 	
-		CFRunLoopAddTimer(gServerRunLoop, fNSPCTimerRef, kCFRunLoopDefaultMode);
+		CFRunLoopAddTimer(gPluginRunLoop, fNSPCTimerRef, kCFRunLoopDefaultMode);
 	}
-	gTimerMutex->Signal();
+	gTimerMutex->SignalLock();
 }
 
-void ServerControl::DoNodeSearchPolicyChange( void )
+void ServerControl::DoSearchPolicyChangedNotify( void )
 {
 	SCDynamicStoreRef	store		= NULL;
 	
-	DBGLOG( kLogApplication, "DoNodeSearchPolicyChange" );
-
+	DbgLog( kLogApplication, "DoNodeSearchPolicyChange" );
+	
 	store = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
 	if (store != NULL)
 	{
@@ -1416,29 +1960,26 @@ void ServerControl::DoNodeSearchPolicyChange( void )
 	{
 		ERRORLOG( kLogApplication, "ServerControl::DoNodeSearchPolicyChange SCDynamicStoreCreate not yet available from System Configuration" );
 	}
-	LaunchKerberosAutoConfigTool();
-}// DoNodeSearchPolicyChange
-
-void ServerControl::NotifySearchPolicyFoundNIParent( void )
-{
-	SCDynamicStoreRef	store		= NULL;
 	
-	DBGLOG( kLogApplication, "NotifySearchPolicyFoundNIParent" );
+	switch( ShouldRegisterWorkstation() )
+	{
+		case -1:
+			WorkstationServiceUnregister();
+			break;
+		case 1:
+			WorkstationServiceRegister();
+			break;
+	}
+}
 
-	store = SCDynamicStoreCreate(NULL, fServiceNameString, NULL, NULL);
-	if (store != NULL)
-	{
-		if ( !SCDynamicStoreSetValue( store, CFSTR(kDSStdNotifySearchPolicyFoundNIParent), CFSTR("") ) )
-		{
-			ERRORLOG( kLogApplication, "Could not set the DirectoryService:NotifySearchPolicyFoundNIParent in System Configuration" );
-		}
-		CFRelease(store);
-		store = NULL;
-	}
-	else
-	{
-		ERRORLOG( kLogApplication, "ServerControl::NotifySearchPolicyFoundNIParent SCDynamicStoreCreate not yet available from System Configuration" );
-	}
+void ServerControl::DoNodeSearchPolicyChange( void )
+{
+	// flush memberd as well because privs could have changed
+	// notify anyone listening
+	// update kerberos configuration
+	gSrvrCntl->FlushMemberDaemonCache();
+	DoSearchPolicyChangedNotify();
+	LaunchKerberosAutoConfigTool();
 }
 
 void ServerControl::NotifyDirNodeAdded( const char* newNode )
@@ -1451,7 +1992,7 @@ void ServerControl::NotifyDirNodeAdded( const char* newNode )
 		
 		if ( newNodeRef == NULL )
 		{
-			ERRORLOG1( kLogApplication, "Could not notify that dir node: (%s) was added due to an encoding problem", newNode );
+			ErrLog( kLogApplication, "Could not notify that dir node: (%s) was added due to an encoding problem", newNode );
 		}
 		else
 		{
@@ -1460,14 +2001,14 @@ void ServerControl::NotifyDirNodeAdded( const char* newNode )
 			{
 				if ( !SCDynamicStoreSetValue( store, CFSTR(kDSStdNotifyDirectoryNodeAdded), newNodeRef ) )
 				{
-					ERRORLOG( kLogApplication, "Could not set the DirectoryService:NotifyDirNodeAdded in System Configuration" );
+					ErrLog( kLogApplication, "Could not set the DirectoryService:NotifyDirNodeAdded in System Configuration" );
 				}
 				CFRelease(store);
 				store = NULL;
 			}
 			else
 			{
-				ERRORLOG( kLogApplication, "ServerControl::NotifyDirNodeAdded SCDynamicStoreCreate not yet available from System Configuration" );
+				ErrLog( kLogApplication, "ServerControl::NotifyDirNodeAdded SCDynamicStoreCreate not yet available from System Configuration" );
 			}
 			CFRelease( newNodeRef );
 			newNodeRef = NULL;
@@ -1485,7 +2026,7 @@ void ServerControl::NotifyDirNodeDeleted( char* oldNode )
 		
 		if ( oldNodeRef == NULL )
 		{
-			ERRORLOG1( kLogApplication, "Could not notify that dir node: (%s) was deleted due to an encoding problem", oldNode );
+			ErrLog( kLogApplication, "Could not notify that dir node: (%s) was deleted due to an encoding problem", oldNode );
 		}
 		else
 		{
@@ -1494,14 +2035,14 @@ void ServerControl::NotifyDirNodeDeleted( char* oldNode )
 			{
 				if ( !SCDynamicStoreSetValue( store, CFSTR(kDSStdNotifyDirectoryNodeDeleted), oldNodeRef ) )
 				{
-					ERRORLOG( kLogApplication, "Could not set the DirectoryService:NotifyDirNodeDeleted in System Configuration" );
+					ErrLog( kLogApplication, "Could not set the DirectoryService:NotifyDirNodeDeleted in System Configuration" );
 				}
 				CFRelease(store);
 				store = NULL;
 			}
 			else
 			{
-				ERRORLOG( kLogApplication, "ServerControl::NotifyDirNodeDeleted SCDynamicStoreCreate not yet available from System Configuration" );
+				ErrLog( kLogApplication, "ServerControl::NotifyDirNodeDeleted SCDynamicStoreCreate not yet available from System Configuration" );
 			}
 			CFRelease( oldNodeRef );
 			oldNodeRef = NULL;
@@ -1513,14 +2054,14 @@ void ServerControl::NotifyDirNodeDeleted( char* oldNode )
 void ServerControl::DeletePerfStatTable( void )
 {
 	PluginPerformanceStats**	table = fPerfTable;
-	uInt32						pluginCount = fPerfTableNumPlugins;
+	UInt32						pluginCount = fPerfTableNumPlugins;
 
 	fPerfTable = NULL;
 	fPerfTableNumPlugins = 0;
 	
 	if ( table )
 	{
-		for ( uInt32 i=0; i<pluginCount+1; i++ )
+		for ( UInt32 i=0; i<pluginCount+1; i++ )
 		{
 			if ( table[i] )
 			{
@@ -1535,10 +2076,10 @@ void ServerControl::DeletePerfStatTable( void )
 
 PluginPerformanceStats** ServerControl::CreatePerfStatTable( void )
 {
-DBGLOG( kLogPerformanceStats, "ServerControl::CreatePerfStatTable called\n" );
+DbgLog( kLogPerformanceStats, "ServerControl::CreatePerfStatTable called\n" );
 
 	PluginPerformanceStats**	table = NULL;
-	uInt32						pluginCount = gPlugins->GetPlugInCount();
+	UInt32						pluginCount = gPlugins->GetPlugInCount();
 	
 	if ( fPerfTable )
 		DeletePerfStatTable();
@@ -1546,7 +2087,7 @@ DBGLOG( kLogPerformanceStats, "ServerControl::CreatePerfStatTable called\n" );
 	// how many plugins?
 	table = (PluginPerformanceStats**)calloc( sizeof(PluginPerformanceStats*), pluginCount+1 );	// create table for #plugins + 1 for server
 
-	for ( uInt32 i=0; i<pluginCount; i++ )
+	for ( UInt32 i=0; i<pluginCount; i++ )
 	{
 		table[i] = (PluginPerformanceStats*)calloc( sizeof(PluginPerformanceStats), 1 );
 		table[i]->pluginSignature = gPlugins->GetPlugInInfo(i)->fKey;
@@ -1565,12 +2106,12 @@ DBGLOG( kLogPerformanceStats, "ServerControl::CreatePerfStatTable called\n" );
 
 double gLastDump =0;
 #define	kNumSecsBetweenDumps	60*2
-void ServerControl::HandlePerformanceStats( uInt32 msgType, FourCharCode pluginSig, sInt32 siResult, sInt32 clientPID, double inTime, double outTime )
+void ServerControl::HandlePerformanceStats( UInt32 msgType, FourCharCode pluginSig, SInt32 siResult, SInt32 clientPID, double inTime, double outTime )
 {
 	// Since the number of plugins is so small, just doing an O(n)/2 search is probably fine...
-	gPerformanceLoggingLock->Wait();
+	gPerformanceLoggingLock->WaitLock();
 	PluginPerformanceStats*		curPluginStats = NULL;
-	uInt32						pluginCount = gPlugins->GetPlugInCount();
+	UInt32						pluginCount = gPlugins->GetPlugInCount();
 
 	if ( !fPerfTable || fPerfTableNumPlugins != pluginCount )
 	{
@@ -1584,7 +2125,7 @@ void ServerControl::HandlePerformanceStats( uInt32 msgType, FourCharCode pluginS
 	if ( fPerfTable[fLastPluginCalled]->pluginSignature == pluginSig )
 		curPluginStats = fPerfTable[fLastPluginCalled];
 		
-	for ( uInt32 i=0; !curPluginStats && i<pluginCount; i++ )
+	for ( UInt32 i=0; !curPluginStats && i<pluginCount; i++ )
 	{
 		if ( pluginSig == fPerfTable[i]->pluginSignature )
 		{
@@ -1621,7 +2162,7 @@ void ServerControl::HandlePerformanceStats( uInt32 msgType, FourCharCode pluginS
 		curAPI->totTime += duration;
 	}
 	
-	gPerformanceLoggingLock->Signal();
+	gPerformanceLoggingLock->SignalLock();
 }
 
 #define USEC_PER_HOUR	(double)60*60*USEC_PER_SEC	/* microseconds per hour */
@@ -1630,23 +2171,23 @@ void ServerControl::HandlePerformanceStats( uInt32 msgType, FourCharCode pluginS
 void ServerControl::LogStats( void )
 {
 	PluginPerformanceStats*		curPluginStats = NULL;
-	uInt32						pluginCount = fPerfTableNumPlugins;
+	UInt32						pluginCount = fPerfTableNumPlugins;
 	char						logBuf[1024];
 	char						totTimeStr[256];
 	
-	gPerformanceLoggingLock->Wait();
+	gPerformanceLoggingLock->WaitLock();
 
 	syslog( LOG_CRIT, "**Usage Stats**\n");
 	syslog( LOG_CRIT, "\tPlugin\tAPI\tMsgCnt\tErrCnt\tminTime (usec)\tmaxTime (usec)\taverageTime (usec)\ttotTime (usec|secs|hours|days)\tLast PID\tLast Error\tPrev PIDs/Errors\n" );
 	
-	for ( uInt32 i=0; i<pluginCount+1; i++ )	// server is at the end
+	for ( UInt32 i=0; i<pluginCount+1; i++ )	// server is at the end
 	{
 		if ( !fPerfTable[i] )
 			continue;
 			
 		curPluginStats = fPerfTable[i];
 				
-		for ( uInt32 j=0; j<kDSPlugInCallsEnd; j++ )
+		for ( UInt32 j=0; j<kDSPlugInCallsEnd; j++ )
 		{
 			if ( curPluginStats->apiStats[j].msgCnt > 0 )
 			{
@@ -1693,7 +2234,7 @@ void ServerControl::LogStats( void )
 		}
 	}
 	
-	gPerformanceLoggingLock->Signal();
+	gPerformanceLoggingLock->SignalLock();
 }
 #endif
 
@@ -1704,11 +2245,19 @@ void ServerControl::LogStats( void )
 
 void DoPeriodicTask(CFRunLoopTimerRef timer, void *info)
 {
-	sInt32						siResult		= eDSNoErr;
-	uInt32						iterator		= 0;
+	SInt32						siResult		= eDSNoErr;
+	UInt32						iterator		= 0;
 	CServerPlugin			   *pPlugin			= nil;
 	CPlugInList::sTableData	   *pPIInfo			= nil;
 	
+	
+	if ( gDSLocalOnlyMode && (gLocalSessionCount == 0) )
+	{
+		//no need to keep this daemon going anymore as it launches on demand
+		SrvrLog( kLogApplication, "Shutting down DirectoryService..." );
+		gSrvrCntl->ShutDownServer();
+		exit(0);
+	}
 	//call thru to each plugin
 	if ( gPlugins != nil )
 	{
@@ -1723,11 +2272,11 @@ void DoPeriodicTask(CFRunLoopTimerRef timer, void *info)
 				{
 					if (pPIInfo != nil)
 					{
-							DBGLOG2( kLogApplication, "Periodic Task in %s plugin returned error %d", pPIInfo->fName, siResult );
+							DbgLog( kLogApplication, "Periodic Task in %s plugin returned error %d", pPIInfo->fName, siResult );
 					}
 					else
 					{
-							DBGLOG1( kLogApplication, "Periodic Task of unnamed plugin returned error %d", siResult );
+							DbgLog( kLogApplication, "Periodic Task of unnamed plugin returned error %d", siResult );
 					}
 				}
 			}
@@ -1739,398 +2288,84 @@ void DoPeriodicTask(CFRunLoopTimerRef timer, void *info)
 } // DoPeriodicTask
 
 // ---------------------------------------------------------------------------
-//	* FlushLookupDaemonCache ()
-//
-// ---------------------------------------------------------------------------
-
-sInt32 ServerControl::FlushLookupDaemonCache ( void )
-{
-	sInt32		siResult	= eDSNoErr;
-	int			i			= 0;
-	int			proc		= 0;
-	char		str[32];
-	mach_port_t	port		= MACH_PORT_NULL;
-
-	DBGLOG( kLogApplication, "Sending lookupd flushcache" );
-	_lu_running();
-	port = _lookupd_port(0);
-
-	if( port != MACH_PORT_NULL )
-	{
-		_lookup_link(port, "_invalidatecache", &proc);
-		_lookup_one(port, proc, NULL, 0, (char **)&str, &i);
-	}
-	
-	return(siResult);
-}// FlushLookupDaemonCache
-
-
-// ---------------------------------------------------------------------------
 //	* FlushMemberDaemonCache ()
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::FlushMemberDaemonCache ( void )
+SInt32 ServerControl::FlushMemberDaemonCache ( void )
 {
-	sInt32 siResult = eDSNoErr;
+	SInt32 siResult = eDSNoErr;
 	
 	//routine created for potential other additions
-	DBGLOG( kLogApplication, "Sending memberd flushcache" );
-	mbr_reset_cache();
+	DbgLog( kLogApplication, "Flushing membership cache" );
+	Mbrd_ProcessResetCache();
 	
 	return(siResult);
 }// FlushMemberDaemonCache
 
-// ---------------------------------------------------------------------------
-//	* NIAutoSwitchCheck ()
-//
-// ---------------------------------------------------------------------------
 
-sInt32 ServerControl::NIAutoSwitchCheck ( void )
+void ServerControl::CreateDebugPrefFileIfNecessary( bool bForceCreate )
 {
-	sInt32						siResult		= eDSNoErr;
-	uInt32						iterator		= 0;
-	CServerPlugin			   *pPlugin			= nil;
-	sHeader						aHeader;
-	CPlugInList::sTableData	   *pPIInfo			= nil;
+	UInt32					uiDataSize	= 0;
+	CFile				   *pFile		= nil;
+	struct stat				statbuf;
+	CFDataRef				dataRef		= nil;
+
+	if ( bForceCreate )
+		unlink( kDSDebugConfigFilePath );
 	
-	aHeader.fType			= kCheckNIAutoSwitch;
-	aHeader.fResult			= eDSNoErr;
-	aHeader.fContextData	= nil;
-
-	//should be assured that the search plugin is online already at boot
-	//but regardless since the plugin will block the request for up
-	//to two minutes allowing the plugin to initialize
-	//TODO KW looks  like the plugin ptr is not there yet always when this is called at boot
-
-	// we know we need the search node, so let's wait until it is available.
-	gNodeList->WaitForAuthenticationSearchNode();
-		
-	//call thru to only the search policy plugin
-	if ( gPlugins != nil )
+	if ( lstat(kDSDebugConfigFilePath, &statbuf) != 0 )
 	{
-		pPlugin = gPlugins->Next( &iterator );
-		while (pPlugin != nil)
+		//write a default file and setup debugging
+		SInt32 result = eDSNoErr;
+		gDebugLogging = true;
+		CLog::SetLoggingPriority(keDebugLog, 5);
+		uiDataSize = ::strlen( kDefaultDebugConfig );
+		dataRef = ::CFDataCreate( nil, (const UInt8 *)kDefaultDebugConfig, uiDataSize );
+		if ( dataRef != nil )
 		{
-			pPIInfo = gPlugins->GetPlugInInfo( iterator-1 );
-			if ( ( strcmp(pPIInfo->fName,"Search") == 0) && (pPIInfo->fState & kActive) )
-			{
-				siResult = pPlugin->ProcessRequest( (void*)&aHeader );
-				if (siResult == eDSContinue)
-				{
-					//here we need to turn off netinfo bindings
-					sInt32 unbindResult = UnbindToNetInfo();
-					if (unbindResult == eDSNoErr)
-					{
-						DBGLOG( kLogApplication, "NIAutoSwitchCheck(): NIAutoSwitch record found in NetInfo parent has directed addition of LDAP directory to the search policy" );
-						//if success then NIBindings turn off will generate a network transition itself
-					}
-					else
-					{
-						DBGLOG( kLogApplication, "NIAutoSwitchCheck(): NIAutoSwitch record found in NetInfo parent has directed addition of LDAP directory to the search policy but NetInfo Unbind failed" );
-					}
-				}
-				break;
-			}
-			pPlugin = gPlugins->Next( &iterator );
-		}
-	}
-
-	return(siResult);
-} // NIAutoSwitchCheck
-
-
-// ---------------------------------------------------------------------------
-//	* UnbindToNetInfo ()
-//
-// ---------------------------------------------------------------------------
-
-sInt32 ServerControl::UnbindToNetInfo ( void )
-{
-	sInt32					siResult			= eUnknownServerError;
-	SCPreferencesRef		scpRef				= NULL;
-	bool					scpStatus			= false;
-	CFTypeRef				cfTypeRef			= NULL;
-	char				   *pCurrSet			= nil;
-	char					charArray[ 1024 ];
-	const char			   *NetInfoPath			= "%s/Network/Global/NetInfo";
-	CFStringRef				cfNetInfoKey		= NULL;
-	const char			   *InactiveTag			= 
-"<dict>\
-	<key>__INACTIVE__</key>\
-	<integer>1</integer>\
-</dict>";
-	unsigned long			uiDataLen			= 0;
-	CFDataRef				dataRef				= NULL;
-	CFPropertyListRef		plistRef			= NULL;
-	CFDictionaryRef			dictRef				= NULL;
-	CFMutableDictionaryRef	dictMutableRef		= NULL;
-
-	scpRef = SCPreferencesCreate( NULL, CFSTR("NIAutoSwitch"), 0 );
-	if ( scpRef == NULL )
-	{
-		return(siResult);
-	}
-
-	//	Get the current set
-	cfTypeRef = SCPreferencesGetValue( scpRef, CFSTR( "CurrentSet" ) );
-	if ( cfTypeRef != NULL )
-	{
-		pCurrSet = (char *)CFStringGetCStringPtr( (CFStringRef)cfTypeRef, kCFStringEncodingMacRoman );
-		if ( pCurrSet != nil )
-		{
-			sprintf( charArray, NetInfoPath, pCurrSet );
-		}
-	}
-	else
-	{
-		// Modify the system config file
-		sprintf( charArray, NetInfoPath, "/Sets/0" );
-	}
+			result = dsCreatePrefsDirectory();
 			
-	cfNetInfoKey = CFStringCreateWithCString( kCFAllocatorDefault, charArray, kCFStringEncodingMacRoman );
-	
-	if (cfNetInfoKey != NULL)
-	{
-		dictRef = SCPreferencesPathGetValue( scpRef, cfNetInfoKey);
-		if (dictRef != NULL)
-		{
-			dictMutableRef = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dictRef);
-			if ( dictMutableRef	!= NULL)
+			CFIndex dataLen = CFDataGetLength( dataRef );
+			const UInt8 *pUData = CFDataGetBytePtr( dataRef );
+			if ( pUData != NULL && dataLen > 0 )
 			{
-				int intValue = 1;
-				CFNumberRef cfNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &intValue);
-				// add the INACTIVE key/value with the old binding methods still present
-				CFDictionarySetValue( dictMutableRef, CFSTR( "__INACTIVE__"), cfNumber );
-			}
-			//CFRelease(dictRef); //retrieved with Get so don't release
-		}
-		else
-		{
-			uiDataLen = strlen( InactiveTag );
-			dataRef = CFDataCreate( kCFAllocatorDefault, (const UInt8 *)InactiveTag, uiDataLen );
-			if ( dataRef != nil )
-			{
-				plistRef = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, dataRef, kCFPropertyListMutableContainers, nil );
-				if ( plistRef != nil )
+				try
 				{
-					dictMutableRef = (CFMutableDictionaryRef)plistRef;
+					pFile = new CFile( kDSDebugConfigFilePath, true );
+					if ( pFile != nil )
+					{
+						if ( pFile->is_open() )
+						{
+							pFile->seteof( 0 );
+							pFile->write( pUData, dataLen );
+							chmod( kDSDebugConfigFilePath, 0600 );
+						}
+						
+						delete( pFile );
+						pFile = nil;
+					}
 				}
-				CFRelease( dataRef );
+				catch ( ... )
+				{
+				}
 			}
-		}
-		if (dictMutableRef != NULL) //either of two ways to get the dict better have succeeded
-		{
-			//update the local copy with the dict entry
-			scpStatus = SCPreferencesPathSetValue( scpRef, cfNetInfoKey, dictMutableRef );
-			CFRelease( dictMutableRef );
-		}
-		CFRelease( cfNetInfoKey );
-	}
-
-	if (scpStatus)
-	{
-		scpStatus = SCPreferencesCommitChanges( scpRef );
-		if (scpStatus)
-		{
-			scpStatus = SCPreferencesApplyChanges( scpRef );
+			
+			CFRelease( dataRef );
+			dataRef = nil;
 		}
 	}
-	CFRelease( scpRef );
-
-	if (scpStatus) siResult = eDSNoErr;
-	
-	return(siResult);
-} // UnbindToNetInfo
-
-
-//------------------------------------------------------------------------------------
-//	* HandleLookupDaemonFlushCache
-//------------------------------------------------------------------------------------
-
-void ServerControl::HandleLookupDaemonFlushCache ( void )
-{
-	void	   *ptInfo		= nil;
-	uInt32		timeOffset	= 2;
-	
-	gTimerMutex->Wait();
-	//wait one second to fire off the timer
-	//consolidate multiple requests that come in faster than one second
-	fLookupDaemonFlushCacheRequestCount++;
-	
-	if (gServerRunLoop != nil)
-	{
-		if( fLDFCTimerRef != NULL )
-		{
-			DBGLOG1( kLogPlugin, "T[%X] ServerControl::HandleLookupDaemonFlushCache invalidating previous timer", pthread_self() );
-
-			CFRunLoopTimerInvalidate( fLDFCTimerRef );
-			CFRelease( fLDFCTimerRef );
-			fLDFCTimerRef = NULL;
-		}
-		
-		ptInfo = (void *)this;
-		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, LookupDaemonFlushCacheCopyStringCallback};
-	
-		if (fLookupDaemonFlushCacheRequestCount > kDSActOnThisNumberOfFlushRequests)
-		{
-			fLookupDaemonFlushCacheRequestCount = 0;
-			timeOffset = 0; //do it now
-		}
-		fLDFCTimerRef = CFRunLoopTimerCreate(	NULL,
-														CFAbsoluteTimeGetCurrent() + timeOffset,
-														0,
-														0,
-														0,
-														DoLookupDaemonFlushCache,
-														(CFRunLoopTimerContext*)&c);
-	
-		CFRunLoopAddTimer(gServerRunLoop, fLDFCTimerRef, kCFRunLoopDefaultMode);
-	}
-	gTimerMutex->Signal();
-} // HandleLookupDaemonFlushCache
-
-//------------------------------------------------------------------------------------
-//	* HandleMemberDaemonFlushCache
-//------------------------------------------------------------------------------------
-
-void ServerControl::HandleMemberDaemonFlushCache ( void )
-{
-	void	   *ptInfo		= nil;
-	uInt32		timeOffset	= 2;
-	
-	gTimerMutex->Wait();
-	//wait one second to fire off the timer
-	//consolidate multiple requests that come in faster than one second
-	fMemberDaemonFlushCacheRequestCount++;
-	
-	if (gServerRunLoop != nil)
-	{
-		if( fMDFCTimerRef != NULL )
-		{
-			DBGLOG1( kLogPlugin, "T[%X] ServerControl::HandleLookupDaemonFlushCache invalidating previous timer", pthread_self() );
-
-			CFRunLoopTimerInvalidate( fMDFCTimerRef );
-			CFRelease( fMDFCTimerRef );
-			fMDFCTimerRef = NULL;
-		}
-		
-		ptInfo = (void *)this;
-		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, MemberDaemonFlushCacheCopyStringCallback};
-	
-		if (fMemberDaemonFlushCacheRequestCount > kDSActOnThisNumberOfFlushRequests)
-		{
-			fMemberDaemonFlushCacheRequestCount = 0;
-			timeOffset = 0; //do it now
-		}
-		fMDFCTimerRef = CFRunLoopTimerCreate(	NULL,
-														CFAbsoluteTimeGetCurrent() + timeOffset,
-														0,
-														0,
-														0,
-														DoMemberDaemonFlushCache,
-														(CFRunLoopTimerContext*)&c);
-	
-		CFRunLoopAddTimer(gServerRunLoop, fMDFCTimerRef, kCFRunLoopDefaultMode);
-	}
-	gTimerMutex->Signal();
-} // HandleMemberDaemonFlushCache
-
-//------------------------------------------------------------------------------------
-//	* HandleMultipleNetworkTransitionsForNIAutoSwitch
-//------------------------------------------------------------------------------------
-
-void ServerControl::HandleMultipleNetworkTransitionsForNIAutoSwitch ( void )
-{
-	void	   *ptInfo		= nil;
-	
-	gTimerMutex->Wait();
-	//let us be smart about doing the check
-	//we would like to wait a short period for the Network transitions to subside
-	//since we don't want to re-init multiple times during this wait period
-	//however we do go ahead and fire off timers each time
-	//each call in here we update the delay time by 11 seconds
-	//Need to ensure that this does not conflict with NetInfo connection
-	//re-establishment after a network transition
-
-	if (gServerRunLoop != nil)
-	{
-		if( fNIASTimerRef != NULL )
-		{
-			DBGLOG1( kLogPlugin, "T[%X] ServerControl::HandleLookupDaemonFlushCache invalidating previous timer", pthread_self() );
-
-			CFRunLoopTimerInvalidate( fNIASTimerRef );
-			CFRelease( fNIASTimerRef );
-			fNIASTimerRef = NULL;
-		}
-		
-		ptInfo = (void *)this;
-		CFRunLoopTimerContext c = {0, (void*)ptInfo, NULL, NULL, NetworkChangeNIAutoSwitchCopyStringCallback};
-	
-		fNIASTimerRef = CFRunLoopTimerCreate(	NULL,
-														CFAbsoluteTimeGetCurrent() + 11,
-														0,
-														0,
-														0,
-														DoNIAutoSwitchNetworkChange,
-														(CFRunLoopTimerContext*)&c);
-	
-		CFRunLoopAddTimer(gServerRunLoop, fNIASTimerRef, kCFRunLoopDefaultMode);
-	}
-	gTimerMutex->Signal();
-} // HandleMultipleNetworkTransitionsForNIAutoSwitch
-
-//------------------------------------------------------------------------------
-//	* LaunchKerberosAutoConfigTool
-//
-//------------------------------------------------------------------------------
-
-void ServerControl:: LaunchKerberosAutoConfigTool ( void )
-{
-	sInt32			result			= eDSNoErr;
-	mach_port_t		mach_init_port	= MACH_PORT_NULL;
-
-	//lookup mach init port to launch Kerberos AutoConfig Tool on demand
-	result = bootstrap_look_up( bootstrap_port, "com.apple.KerberosAutoConfig", &mach_init_port );
-	if ( result != eDSNoErr )
-	{
-		syslog( LOG_ALERT, "Error with bootstrap_look_up for com.apple.KerberosAutoConfig on mach_init port: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
-	}
-	else
-	{
-		sIPCMsg aMsg;
-		
-		aMsg.fHeader.msgh_bits			= MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, MACH_MSG_TYPE_MAKE_SEND );
-		aMsg.fHeader.msgh_size			= sizeof(sIPCMsg) - sizeof( mach_msg_audit_trailer_t );
-		aMsg.fHeader.msgh_id			= 0;
-		aMsg.fHeader.msgh_remote_port	= mach_init_port;
-		aMsg.fHeader.msgh_local_port	= MACH_PORT_NULL;
-	
-		aMsg.fMsgType	= 0;
-		aMsg.fCount		= 1;
-		aMsg.fPort		= MACH_PORT_NULL;
-		aMsg.fPID		= 0;
-		aMsg.fMsgID		= 0;
-		aMsg.fOf		= 1;
-		//tickle the mach init port - should this really be required to start the daemon
-		mach_msg((mach_msg_header_t *)&aMsg, MACH_SEND_MSG | MACH_SEND_TIMEOUT, aMsg.fHeader.msgh_size, 0, MACH_PORT_NULL, 1, MACH_PORT_NULL);
-		//don't retain the mach init port since only using it to launch the Kerberos AutoConfig tool
-		mach_port_destroy(mach_task_self(), mach_init_port);
-		mach_init_port = MACH_PORT_NULL;
-	}
-
-} // CheckForServer
-
+}
 
 // ---------------------------------------------------------------------------
 //	* ResetDebugging ()
 //
 // ---------------------------------------------------------------------------
 
-sInt32 ServerControl::ResetDebugging ( void )
+SInt32 ServerControl::ResetDebugging ( void )
 {
-	sInt32					siResult	= eDSNoErr;
-	uInt32					uiDataSize	= 0;
+	SInt32					siResult	= eDSNoErr;
+	UInt32					uiDataSize	= 0;
 	char				   *pData		= nil;
 	CFile				   *pFile		= nil;
 	struct stat				statbuf;
@@ -2173,7 +2408,7 @@ sInt32 ServerControl::ResetDebugging ( void )
 					{
 						// Read from the config file
 						uiDataSize = pFile->ReadBlock( pData, pFile->FileSize() );
-						dataRef = ::CFDataCreate( nil, (const uInt8 *)pData, uiDataSize );
+						dataRef = ::CFDataCreate( nil, (const UInt8 *)pData, uiDataSize );
 						if ( dataRef != nil )
 						{
 							CFPropertyListRef   aPlistRef   = 0;
@@ -2192,6 +2427,16 @@ sInt32 ServerControl::ResetDebugging ( void )
 									
 									//now set up the debugging according to the plist settings
 									
+									if ( CFDictionaryContainsKey( aDictRef, CFSTR( kXMLDSIgnoreSunsetTimeKey ) ) )
+									{
+										cfBool= (CFBooleanRef)CFDictionaryGetValue( aDictRef, CFSTR( kXMLDSIgnoreSunsetTimeKey ) );
+										if (cfBool != nil)
+										{
+											gIgnoreSunsetTime = CFBooleanGetValue( cfBool );
+											//CFRelease( cfBool ); // no since pointer only from Get
+										}
+									}
+
 									//debug logging boolean
 									if ( CFDictionaryContainsKey( aDictRef, CFSTR( kXMLDSDebugLoggingKey ) ) )
 									{
@@ -2206,11 +2451,31 @@ sInt32 ServerControl::ResetDebugging ( void )
 												gDebugLogging = false;
 												syslog(LOG_ALERT,"Debug Logging turned OFF after receiving USR1 signal.");
 											}
-											else if (!gDebugLogging && bDebugging)
+											else if (bDebugging)
 											{
-												gDebugLogging = true;
+												if ( CFDictionaryContainsKey( aDictRef, CFSTR( kXMLDSDebugLoggingPriority ) ) )
+												{
+													CFNumberRef logPriority	= (CFNumberRef)CFDictionaryGetValue( aDictRef, CFSTR(kXMLDSDebugLoggingPriority) );
+													UInt32 priorityValue = 0;
+													CFNumberGetValue(logPriority, kCFNumberIntType, &priorityValue);
+													if (priorityValue > 0 && priorityValue < 9) //1-5 is tiered and 6-8 are specific
+													{
+														CLog::SetLoggingPriority(keDebugLog, priorityValue);
+														syslog(LOG_ALERT,"Debug Logging priority %u set.", priorityValue);
+													}
+												}
+												else
+												{
+													CLog::SetLoggingPriority(keDebugLog, 5);
+													syslog(LOG_ALERT,"Debug Logging default priority 5 set.");
+												}
+
 												CLog::StartDebugLog();
-												syslog(LOG_ALERT,"Debug Logging turned ON after receiving USR1 signal.");
+												if (!gDebugLogging)
+												{
+													syslog(LOG_ALERT,"Debug Logging turned ON after receiving USR1 signal.");
+													gDebugLogging = true;
+												}
 											}
 										}
 									}
@@ -2254,73 +2519,7 @@ sInt32 ServerControl::ResetDebugging ( void )
 		}
 		
 		if (!bFileUsed)
-		{
-			//write a default file and setup debugging
-			sInt32 result = eDSNoErr;
-			gDebugLogging = true;
-			CLog::StartDebugLog();
-			syslog(LOG_ALERT,"Debug Logging turned ON after receiving USR1 signal.");
-			uiDataSize = ::strlen( kDefaultDebugConfig );
-			dataRef = ::CFDataCreate( nil, (const uInt8 *)kDefaultDebugConfig, uiDataSize );
-			if ( dataRef != nil )
-			{
-				//see if the file exists
-				//if not then make sure the directories exist or create them
-				//then create a new file if necessary
-				result = ::stat( kDSDebugConfigFilePath, &statbuf );
-				//if file does not exist
-				if (result != eDSNoErr)
-				{
-					//move down the path from the system defined local directory and check if it exists
-					//if not create it
-					result = ::stat( "/Library/Preferences", &statbuf );
-					//if first sub directory does not exist
-					if (result != eDSNoErr)
-					{
-						::mkdir( "/Library/Preferences", 0775 );
-						::chmod( "/Library/Preferences", 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
-					}
-					result = ::stat( "/Library/Preferences/DirectoryService", &statbuf );
-					//if second sub directory does not exist
-					if (result != eDSNoErr)
-					{
-						::mkdir( "/Library/Preferences/DirectoryService", 0775 );
-						::chmod( "/Library/Preferences/DirectoryService", 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
-					}
-				}
-
-				UInt8 *pData = (UInt8*)::calloc( CFDataGetLength(dataRef), 1 );
-				CFDataGetBytes(	dataRef, CFRangeMake(0,CFDataGetLength(dataRef)), pData );
-				if ( (pData != nil) && (pData[0] != 0) )
-				{
-					try
-					{
-						CFile *pFile = new CFile( kDSDebugConfigFilePath, true );
-						if ( pFile != nil )
-						{
-							if ( pFile->is_open() )
-							{
-								pFile->seteof( 0 );
-			
-								pFile->write( pData, CFDataGetLength(dataRef) );
-			
-								::chmod( kDSDebugConfigFilePath, 0600 );
-							}
-							
-							delete( pFile );
-							pFile = nil;
-						}
-					}
-					catch ( ... )
-					{
-					}
-					free(pData);
-				}
-
-				CFRelease( dataRef );
-				dataRef = nil;
-			}
-		}
+			CreateDebugPrefFileIfNecessary( true );
 	}
 	
 	return(siResult);

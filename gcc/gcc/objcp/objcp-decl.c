@@ -75,6 +75,12 @@ objcp_finish_struct (tree t, tree fieldlist, tree attributes)
     finish_member_declaration (field);
   }
   t = finish_struct (t, attributes);
+  /* APPLE LOCAL begin radar 4291785 */
+  /* Check for duplicate ivars. */
+  field = fieldlist;
+  if (fieldlist && (fieldlist = objc_get_interface_ivars (fieldlist)) != field)
+    objc_detect_field_duplicates (fieldlist);
+  /* APPLE LOCAL end radar 4291785 */
   pop_lang_context ();
 
   return t;

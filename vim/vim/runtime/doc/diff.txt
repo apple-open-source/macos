@@ -1,4 +1,4 @@
-*diff.txt*      For Vim version 6.2.  Last change: 2002 Nov 10
+*diff.txt*      For Vim version 7.0.  Last change: 2006 Apr 14
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -31,7 +31,7 @@ This is equivalent to: >
 
 	vim -d file1 file2 [file3 [file4]]
 
-You may also use "gvimdiff" or "vim -g".  The GUI is started then.
+You may also use "gvimdiff" or "vim -d -g".  The GUI is started then.
 You may also use "viewdiff" or "gviewdiff".  Vim starts in readonly mode then.
 "r" may be prepended for restricted mode (see |-Z|).
 
@@ -41,11 +41,17 @@ the file.
 
 This only works when a standard "diff" command is available.  See 'diffexpr'.
 
+Diffs are local to the current tab page |tab-page|.  You can't see diffs with
+a window in another tab page.  This does make it possible to have several
+diffs at the same time, each in their own tab page.
+
 What happens is that Vim opens a window for each of the files.  This is like
 using the |-O| argument.  This uses vertical splits.  If you prefer horizontal
 splits add the |-o| argument: >
 
 	vimdiff -o file1 file2 [file3]
+
+If you always prefer horizontal splits include "horizontal" in 'diffopt'.
 
 In each of the edited files these options are set:
 
@@ -54,10 +60,10 @@ In each of the edited files these options are set:
 	'scrollopt'	includes "hor"
 	'wrap'		off
 	'foldmethod'	"diff"
-	'foldcolumn'	2
+	'foldcolumn'	value from 'diffopt', default is 2
 
-These options are set local to the window.  Thus when splitting the window or
-editing another file they are reset to the global value.
+These options are set local to the window.  When editing another file they are
+reset to the global value.
 
 The differences shown are actually the differences in the buffer.  Thus if you
 make changes after loading a file, these will be included in the displayed
@@ -83,7 +89,7 @@ While already in Vim you can start diff mode in three ways.
 
 							*:difft* *:diffthis*
 :diffthis	Make the current window part of the diff windows.  This sets
-		the option like for "vimdiff".
+		the options like for "vimdiff".
 
 :diffpatch {patchfile}					*:diffp* *:diffpatch*
 		Use the current buffer, patch it with the diff found in
@@ -103,17 +109,30 @@ To make these commands use a vertical split, prepend |:vertical|.  Examples: >
 
 	:vert diffsplit main.c~
 	:vert diffpatch /tmp/diff
-<
+
+If you always prefer a vertical split include "vertical" in 'diffopt'.
+
 							*E96*
 There can be up to four buffers with 'diff' set.
 
 Since the option values are remembered with the buffer, you can edit another
 file for a moment and come back to the same file and be in diff mode again.
-If you don't want diff mode, reset the 'diff' option.  And you probably want
-to get rid of the fold column: >
 
-	:set nodiff
-	:set foldcolumn=0
+							*:diffo* *:diffoff*
+:diffoff	Switch off diff mode for the current window.
+
+:diffoff!	Switch off diff mode for all windows in the current tab page.
+
+The ":diffoff" command resets the relevant options to their default value.
+This may be different from what the values were before diff mode was started,
+the old values are not remembered.
+
+	'diff'		off
+	'scrollbind'	off
+	'scrollopt'	without "hor"
+	'wrap'		on
+	'foldmethod'	"manual"
+	'foldcolumn'	0
 
 ==============================================================================
 2. Viewing diffs						*view-diffs*
@@ -139,17 +158,19 @@ edited in a window first for this to be possible.
 Since 'diff' is a window-local option, it's possible to view the same buffer
 in diff mode in one window and "normal" in another window.  It is also
 possible to view the changes you have made to a buffer, but since Vim doesn't
-allow having two buffers for the same file, you need to make a copy the
+allow having two buffers for the same file, you need to make a copy of the
 original file and diff with that.  For example: >
 	:!cp % tempfile
 	:diffsplit tempfile
 
 A buffer that is unloaded cannot be used for the diff.  But it does work for
 hidden buffers.  You can use ":hide" to close a window without unloading the
-buffer.
-
+buffer.  If you don't want a buffer to remain used for the diff do ":set
+nodiff" before hiding it.
 
 							*:diffu* *:diffupdate*
+:diffu[pdate]			Update the diff highlighting and folds.
+
 Vim attempts to keep the differences updated when you make changes to the
 text.  This mostly takes care of inserted and deleted lines.  Changes within a
 line and more complicated changes do not cause the differences to be updated.
@@ -185,7 +206,8 @@ The diffs are highlighted with these groups:
 				(searching from the end of the line).  The
 				text in between is highlighted.  This means
 				that parts in the middle that are still the
-				same are highlighted anyway.
+				same are highlighted anyway.  Only "iwhite" of
+				'diffopt' is used here.
 |hl-DiffDelete| DiffDelete	Deleted lines.  Also called filler lines,
 				because they don't really exist in this
 				buffer.
@@ -205,7 +227,7 @@ It is an error if there is no change for the cursor to move to.
 
 ==============================================================================
 4. Diff copying			*copy-diffs* *E99* *E100* *E101* *E102* *E103*
-
+								*merge*
 There are two commands to copy text from one buffer to another.  The result is
 that the buffers will be equal within the specified range.
 
@@ -222,11 +244,14 @@ that the buffers will be equal within the specified range.
 		Modify another buffer to undo difference with the current
 		buffer.  Just like ":diffget" but the other buffer is modified
 		instead of the current one.
+		When [bufspec] is omitted and there is more than one other
+		buffer in diff mode where 'modifiable' is set this fails.
 		See below for [range].
 
 							*do*
 do		Same as ":diffget" without argument or range.  The "o" stands
-		for "obtain" ("dg" can't be used for this!).
+		for "obtain" ("dg" can't be used, it could be the start of
+		"dgg"!).
 
 							*dp*
 dp		Same as ":diffput" without argument or range.
@@ -235,6 +260,24 @@ When no [range] is given, the diff at the cursor position or just above it is
 affected.  When [range] is used, Vim tries to only put or get the specified
 lines.  When there are deleted lines, this may not always be possible.
 
+There can be deleted lines below the last line of the buffer.  When the cursor
+is on the last line in the buffer and there is no diff above this line, the
+":diffget" and "do" commands will obtain lines from the other buffer.
+
+To be able to get those lines from another buffer in a [range] it's allowed to
+use the last line number plus one.  This command gets all diffs from the other
+buffer: >
+
+	:1,$+1diffget
+
+Note that deleted lines are displayed, but not counted as text lines.  You
+can't move the cursor into them.  To fill the deleted lines with the lines
+from another buffer use ":diffget" on the line below them.
+								*E787*
+When the buffer that is about to be modified is read-only and the autocommand
+that is triggered by |FileChangedRO| changes buffers the command will fail.
+The autocommand must not change buffers.
+
 The [bufspec] argument above can be a buffer number, a pattern for a buffer
 name or a part of a buffer name.  Examples:
 
@@ -242,16 +285,6 @@ name or a part of a buffer name.  Examples:
 	:diffget 3		Use buffer 3
 	:diffget v2		Use the buffer which matches "v2" and is in
 				diff mode (e.g., "file.c.v2")
-
-Note that deleted lines are displayed, but not counted as text lines.  You
-can't move the cursor into them.  To fill the deleted lines with the lines
-from another buffer use ":diffget" on the line below them.
-
-There can be deleted lines below the last line of the buffer.  To be able to
-get those lines from another buffer it's allowed to use the last line number
-plus one.  This command gets all diffs from the other buffer: >
-
-	:1,$+1diffget
 
 ==============================================================================
 5. Diff options						*diff-options*
@@ -298,8 +331,7 @@ Additionally, 'diffexpr' should take care of "icase" and "iwhite" in the
 'diffopt' option.  'diffexpr' cannot change the value of 'lines' and
 'columns'.
 
-Example (this does the same as 'diffexpr' being empty, but adds the "-a"
-flag to force comparing them as text): >
+Example (this does almost the same as 'diffexpr' being empty): >
 
 	set diffexpr=MyDiff()
 	function MyDiff()
@@ -310,10 +342,14 @@ flag to force comparing them as text): >
 	   if &diffopt =~ "iwhite"
 	     let opt = opt . "-b "
 	   endif
-	   silent execute "!diff -a " . opt . v:fname_in . " " . v:fname_new .
+	   silent execute "!diff -a --binary " . opt . v:fname_in . " " . v:fname_new .
 		\  " > " . v:fname_out
 	endfunction
-<
+
+The "-a" argument is used to force comparing the files as text, comparing as
+binaries isn't useful.  The "--binary" argument makes the files read in binary
+mode, so that a CTRL-Z doesn't end the text on DOS.
+
 						*E97*
 Vim will do a test if the diff output looks alright.  If it doesn't, you will
 get an error message.  Possible causes:
@@ -322,6 +358,12 @@ get an error message.  Possible causes:
 -  The 'shell' and associated options are not set correctly.  Try if filtering
    works with a command like ":!sort".
 -  You are using 'diffexpr' and it doesn't work.
+If it's not clear what the problem is set the 'verbose' option to one or more
+to see more messages.
+
+The self-installing Vim includes a diff program.  If you don't have it you
+might want to download a diff.exe.  For example from
+http://jlb.twu.net/code/unixkit.php.
 
 
 USING PATCHES					*diff-patchexpr*
@@ -345,8 +387,8 @@ will have the same effect.  These variables are set to the file names used:
 
 Example (this does the same as 'patchexpr' being empty): >
 
-	let patchexpr=MyPatch
-	function MyPatch
+	set patchexpr=MyPatch()
+	function MyPatch()
 	   :call system("patch -o " . v:fname_out . " " . v:fname_in .
 	   \  " < " . v:fname_diff)
 	endfunction

@@ -1,4 +1,4 @@
-$ $Id: set15,v 1.1.1.2 2001/06/28 23:11:16 bbraun Exp $
+$ $Id: set15,v 1.1 1998/09/03 22:03:18 christos Exp $
 $ sh.func.c
 $set 15 
 1 %s: %s: non si può %s il limite%s\n

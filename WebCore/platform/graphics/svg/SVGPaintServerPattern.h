@@ -32,8 +32,6 @@
 #include "FloatRect.h"
 #include "SVGPaintServer.h"
 
-#include <memory>
-
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {

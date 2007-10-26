@@ -1,14 +1,14 @@
 /*
- * ntpdc_ops.c - subroutines which are called to perform operations by ntpdc
+ * ntpq_ops.c - subroutines which are called to perform operations by ntpq
  */
 
 #include <stdio.h>
+#include <ctype.h>
+#include <sys/types.h>
+#include <sys/time.h>
 
 #include "ntpq.h"
 #include "ntp_stdlib.h"
-
-#include <ctype.h>
-#include <netdb.h>
 
 extern char *	chosts[];
 extern char currenthost[];
@@ -55,12 +55,12 @@ static	void	radiostatus P((struct parse *, FILE *));
 static	void	pstatus 	P((struct parse *, FILE *));
 static	long	when		P((l_fp *, l_fp *, l_fp *));
 static	char *	prettyinterval	P((char *, long));
-static	int doprintpeers	P((struct varlist *, int, int, int, char *, FILE *));
-static	int dogetpeers	P((struct varlist *, int, FILE *));
-static	void	dopeers 	P((int, FILE *));
+static	int doprintpeers	P((struct varlist *, int, int, int, char *, FILE *, int));
+static	int dogetpeers	P((struct varlist *, int, FILE *, int));
+static	void	dopeers 	P((int, FILE *, int));
 static	void	peers		P((struct parse *, FILE *));
 static	void	lpeers		P((struct parse *, FILE *));
-static	void	doopeers	P((int, FILE *));
+static	void	doopeers	P((int, FILE *, int));
 static	void	opeers		P((struct parse *, FILE *));
 static	void	lopeers 	P((struct parse *, FILE *));
 
@@ -81,10 +81,10 @@ struct xcmd opcmds[] = {
 	{ "lpassociations", lpassociations, {  NO, NO, NO, NO },
 	  { "", "", "", "" },
 	  "print last obtained list of associations, including client information" },
-	{ "addvars",    addvars,    { STR, NO, NO, NO },
+	{ "addvars",    addvars,    { NTP_STR, NO, NO, NO },
 	  { "name[=value][,...]", "", "", "" },
 	  "add variables to the variable list or change their values" },
-	{ "rmvars", rmvars,     { STR, NO, NO, NO },
+	{ "rmvars", rmvars,     { NTP_STR, NO, NO, NO },
 	  { "name[,...]", "", "", "" },
 	  "remove variables from the variable list" },
 	{ "clearvars",  clearvars,  { NO, NO, NO, NO },
@@ -93,65 +93,65 @@ struct xcmd opcmds[] = {
 	{ "showvars",   showvars,   { NO, NO, NO, NO },
 	  { "", "", "", "" },
 	  "print variables on the variable list" },
-	{ "readlist",   readlist,   { OPT|UINT, NO, NO, NO },
+	{ "readlist",   readlist,   { OPT|NTP_UINT, NO, NO, NO },
 	  { "assocID", "", "", "" },
 	  "read the system or peer variables included in the variable list" },
-	{ "rl",     readlist,   { OPT|UINT, NO, NO, NO },
+	{ "rl",     readlist,   { OPT|NTP_UINT, NO, NO, NO },
 	  { "assocID", "", "", "" },
 	  "read the system or peer variables included in the variable list" },
-	{ "writelist",  writelist,  { OPT|UINT, NO, NO, NO },
+	{ "writelist",  writelist,  { OPT|NTP_UINT, NO, NO, NO },
 	  { "assocID", "", "", "" },
 	  "write the system or peer variables included in the variable list" },
-	{ "readvar",    readvar,    { OPT|UINT, OPT|STR, NO, NO },
+	{ "readvar",    readvar,    { OPT|NTP_UINT, OPT|NTP_STR, NO, NO },
 	  { "assocID", "name=value[,...]", "", "" },
 	  "read system or peer variables" },
-	{ "rv",     readvar,    { OPT|UINT, OPT|STR, NO, NO },
+	{ "rv",     readvar,    { OPT|NTP_UINT, OPT|NTP_STR, NO, NO },
 	  { "assocID", "name=value[,...]", "", "" },
 	  "read system or peer variables" },
-	{ "writevar",   writevar,   { UINT, STR, NO, NO },
+	{ "writevar",   writevar,   { NTP_UINT, NTP_STR, NO, NO },
 	  { "assocID", "name=value,[...]", "", "" },
 	  "write system or peer variables" },
-	{ "mreadlist",  mreadlist,  { UINT, UINT, NO, NO },
+	{ "mreadlist",  mreadlist,  { NTP_UINT, NTP_UINT, NO, NO },
 	  { "assocID", "assocID", "", "" },
 	  "read the peer variables in the variable list for multiple peers" },
-	{ "mrl",    mreadlist,  { UINT, UINT, NO, NO },
+	{ "mrl",    mreadlist,  { NTP_UINT, NTP_UINT, NO, NO },
 	  { "assocID", "assocID", "", "" },
 	  "read the peer variables in the variable list for multiple peers" },
-	{ "mreadvar",   mreadvar,   { UINT, UINT, OPT|STR, NO },
+	{ "mreadvar",   mreadvar,   { NTP_UINT, NTP_UINT, OPT|NTP_STR, NO },
 	  { "assocID", "assocID", "name=value[,...]", "" },
 	  "read peer variables from multiple peers" },
-	{ "mrv",    mreadvar,   { UINT, UINT, OPT|STR, NO },
+	{ "mrv",    mreadvar,   { NTP_UINT, NTP_UINT, OPT|NTP_STR, NO },
 	  { "assocID", "assocID", "name=value[,...]", "" },
 	  "read peer variables from multiple peers" },
-	{ "clocklist",  clocklist,  { OPT|UINT, NO, NO, NO },
+	{ "clocklist",  clocklist,  { OPT|NTP_UINT, NO, NO, NO },
 	  { "assocID", "", "", "" },
 	  "read the clock variables included in the variable list" },
-	{ "cl",     clocklist,  { OPT|UINT, NO, NO, NO },
+	{ "cl",     clocklist,  { OPT|NTP_UINT, NO, NO, NO },
 	  { "assocID", "", "", "" },
 	  "read the clock variables included in the variable list" },
-	{ "clockvar",   clockvar,   { OPT|UINT, OPT|STR, NO, NO },
+	{ "clockvar",   clockvar,   { OPT|NTP_UINT, OPT|NTP_STR, NO, NO },
 	  { "assocID", "name=value[,...]", "", "" },
 	  "read clock variables" },
-	{ "cv",     clockvar,   { OPT|UINT, OPT|STR, NO, NO },
+	{ "cv",     clockvar,   { OPT|NTP_UINT, OPT|NTP_STR, NO, NO },
 	  { "assocID", "name=value[,...]", "", "" },
 	  "read clock variables" },
-	{ "pstatus",    pstatus,    { UINT, NO, NO, NO },
+	{ "pstatus",    pstatus,    { NTP_UINT, NO, NO, NO },
 	  { "assocID", "", "", "" },
 	  "print status information returned for a peer" },
-	{ "peers",  peers,      { NO, NO, NO, NO },
-	  { "", "", "", "" },
-	  "obtain and print a list of the server's peers" },
-	{ "lpeers", lpeers,     { NO, NO, NO, NO },
-	  { "", "", "", "" },
-	  "obtain and print a list of all peers and clients" },
-	{ "opeers", opeers,     { NO, NO, NO, NO },
-	  { "", "", "", "" },
-	  "print peer list the old way, with dstadr shown rather than refid" },
-	{ "lopeers",    lopeers,    { NO, NO, NO, NO },
-	  { "", "", "", "" },
-	  "obtain and print a list of all peers and clients showing dstadr" },
+	{ "peers",  peers,      { OPT|IP_VERSION, NO, NO, NO },
+	  { "-4|-6", "", "", "" },
+	  "obtain and print a list of the server's peers [IP version]" },
+	{ "lpeers", lpeers,     { OPT|IP_VERSION, NO, NO, NO },
+	  { "-4|-6", "", "", "" },
+	  "obtain and print a list of all peers and clients [IP version]" },
+	{ "opeers", opeers,     { OPT|IP_VERSION, NO, NO, NO },
+	  { "-4|-6", "", "", "" },
+	  "print peer list the old way, with dstadr shown rather than refid [IP version]" },
+	{ "lopeers", lopeers,   { OPT|IP_VERSION, NO, NO, NO },
+	  { "-4|-6", "", "", "" },
+	  "obtain and print a list of all peers and clients showing dstadr [IP version]" },
 	{ 0,		0,		{ NO, NO, NO, NO },
-	  { "", "", "", "" }, "" }
+	  { "-4|-6", "", "", "" }, "" }
 };
 
 
@@ -521,6 +521,8 @@ dolist(
 	if (res != 0)
 		return 0;
 
+	if (numhosts > 1)
+		(void) fprintf(fp, "server=%s ", currenthost);
 	if (dsize == 0) {
 		if (associd == 0)
 			(void) fprintf(fp, "No system%s variables returned\n",
@@ -532,6 +534,7 @@ dolist(
 		return 1;
 	}
 
+	(void) fprintf(fp,"assID=%d ",associd);
 	printvars(dsize, datap, (int)rstatus, type, fp);
 	return 1;
 }
@@ -594,11 +597,15 @@ writelist(
 	if (res != 0)
 		return;
 
+	if (numhosts > 1)
+		(void) fprintf(fp, "server=%s ", currenthost);
 	if (dsize == 0)
 		(void) fprintf(fp, "done! (no data returned)\n");
-	else
+	else {
+		(void) fprintf(fp,"assID=%d ",associd);
 		printvars(dsize, datap, (int)rstatus,
 			  (associd != 0) ? TYPE_PEER : TYPE_SYS, fp);
+	}
 	return;
 }
 
@@ -665,11 +672,15 @@ writevar(
 	if (res != 0)
 		return;
 
+	if (numhosts > 1)
+		(void) fprintf(fp, "server=%s ", currenthost);
 	if (dsize == 0)
 		(void) fprintf(fp, "done! (no data returned)\n");
-	else
+	else {
+		(void) fprintf(fp,"assID=%d ",associd);
 		printvars(dsize, datap, (int)rstatus,
 			  (associd != 0) ? TYPE_PEER : TYPE_SYS, fp);
+	}
 	return;
 }
 
@@ -870,11 +881,15 @@ dogetassoc(
 		return 0;
 
 	if (dsize == 0) {
+		if (numhosts > 1)
+			(void) fprintf(fp, "server=%s ", currenthost);
 		(void) fprintf(fp, "No association ID's returned\n");
 		return 0;
 	}
 
 	if (dsize & 0x3) {
+		if (numhosts > 1)
+			(void) fprintf(stderr, "server=%s ", currenthost);
 		(void) fprintf(stderr,
 				   "***Server returned %d octets, should be multiple of 4\n",
 				   dsize);
@@ -927,11 +942,11 @@ printassoc(
 	 * Output a header
 	 */
 	(void) fprintf(fp,
-			   "ind assID status  conf reach auth condition  last_event cnt\n");
+			   "\nind assID status  conf reach auth condition  last_event cnt\n");
 	(void) fprintf(fp,
 			   "===========================================================\n");
 	for (i = 0; i < numassoc; i++) {
-		statval = CTL_PEER_STATVAL(assoc_cache[i].status);
+		statval = (u_char) CTL_PEER_STATVAL(assoc_cache[i].status);
 		if (!showall && !(statval & (CTL_PST_CONFIG|CTL_PST_REACH)))
 			continue;
 		event = CTL_PEER_EVENT(assoc_cache[i].status);
@@ -1126,6 +1141,8 @@ radiostatus(
 	if (res != 0)
 		return;
 
+	if (numhosts > 1)
+		(void) fprintf(fp, "server=%s ", currenthost);
 	if (dsize == 0) {
 		(void) fprintf(fp, "No radio status string returned\n");
 		return;
@@ -1160,6 +1177,8 @@ pstatus(
 	if (res != 0)
 		return;
 
+	if (numhosts > 1)
+		(void) fprintf(fp, "server=%s ", currenthost);
 	if (dsize == 0) {
 		(void) fprintf(fp,
 				   "No information returned for association %u\n",
@@ -1167,6 +1186,7 @@ pstatus(
 		return;
 	}
 
+	(void) fprintf(fp,"assID=%d ",associd);
 	printvars(dsize, datap, (int)rstatus, TYPE_PEER, fp);
 }
 
@@ -1231,6 +1251,38 @@ prettyinterval(
 	return buf;
 }
 
+static char
+decodeaddrtype(
+	struct sockaddr_storage *sock
+	)
+{
+	char ch = '-';
+	u_int32 dummy;
+	struct sockaddr_in6 *sin6;
+
+	switch(sock->ss_family) {
+	case AF_INET:
+		dummy = ((struct sockaddr_in *)sock)->sin_addr.s_addr;
+		dummy = ntohl(dummy);
+		ch = (char)(((dummy&0xf0000000)==0xe0000000) ? 'm' :
+			((dummy&0x000000ff)==0x000000ff) ? 'b' :
+			((dummy&0xffffffff)==0x7f000001) ? 'l' :
+			((dummy&0xffffffe0)==0x00000000) ? '-' :
+			'u');
+		break;
+	case AF_INET6:
+		sin6 = (struct sockaddr_in6 *)sock;
+		if (IN6_IS_ADDR_MULTICAST(&sin6->sin6_addr))
+			ch = 'm';
+		else
+			ch = 'u';
+		break;
+	default:
+		ch = '-';
+		break;
+	}
+	return ch;
+}
 
 /*
  * A list of variables required by the peers command
@@ -1295,22 +1347,23 @@ doprintpeers(
 	int rstatus,
 	int datalen,
 	char *data,
-	FILE *fp
+	FILE *fp,
+	int af
 	)
 {
 	char *name;
-	char *value;
+	char *value = NULL;
 	int i;
 	int c;
 
-	u_int32 srcadr;
-	u_int32 dstadr;
-	u_long srcport;
-	const char *dstadr_refid = "0.0.0.0";
-	u_long stratum;
-	long ppoll;
-	long hpoll;
-	u_long reach;
+	struct sockaddr_storage srcadr;
+	struct sockaddr_storage dstadr;
+	u_long srcport = 0;
+	char *dstadr_refid = "0.0.0.0";
+	u_long stratum = 0;
+	long ppoll = 0;
+	long hpoll = 0;
+	u_long reach = 0;
 	l_fp estoffset;
 	l_fp estdelay;
 	l_fp estjitter;
@@ -1323,14 +1376,24 @@ doprintpeers(
 	char type = '?';
 	char refid_string[10];
 	char whenbuf[8], pollbuf[8];
+	char clock_name[LENHOSTNAME];
 
 	memset((char *)havevar, 0, sizeof(havevar));
 	get_systime(&ts);
+	
+	memset((char *)&srcadr, 0, sizeof(struct sockaddr_storage));
+	memset((char *)&dstadr, 0, sizeof(struct sockaddr_storage));
+
+	/* Initialize by zeroing out estimate variables */
+	memset((char *)&estoffset, 0, sizeof(l_fp));
+	memset((char *)&estdelay, 0, sizeof(l_fp));
+	memset((char *)&estjitter, 0, sizeof(l_fp));
+	memset((char *)&estdisp, 0, sizeof(l_fp));
 
 	while (nextvar(&datalen, &data, &name, &value)) {
-		u_int32 dummy;
+		struct sockaddr_storage dum_store;
 
-		i = findvar(name, peer_var);
+		i = findvar(name, peer_var, 1);
 		if (i == 0)
 			continue;	/* don't know this one */
 		switch (i) {
@@ -1339,18 +1402,12 @@ doprintpeers(
 				havevar[HAVE_SRCADR] = 1;
 			break;
 			case CP_DSTADR:
-			if (decodenetnum(value, &dummy)) {
-				dummy = ntohl(dummy);
-				type = ((dummy&0xf0000000)==0xe0000000) ? 'm' :
-					((dummy&0x000000ff)==0x000000ff) ? 'b' :
-					((dummy&0xffffffff)==0x7f000001) ? 'l' :
-					((dummy&0xffffffe0)==0x00000000) ? '-' :
-					'u';
-			}
+			if (decodenetnum(value, &dum_store))
+				type = decodeaddrtype(&dum_store);
 			if (pvl == opeervarlist) {
 				if (decodenetnum(value, &dstadr)) {
 					havevar[HAVE_DSTADR] = 1;
-					dstadr_refid = numtoa(dstadr);
+					dstadr_refid = stoa(&dstadr);
 				}
 			}
 			break;
@@ -1360,10 +1417,15 @@ doprintpeers(
 				if (*value == '\0') {
 					dstadr_refid = "0.0.0.0";
 				} else if (decodenetnum(value, &dstadr)) {
-					if (dstadr == 0)
+					if (SOCKNUL(&dstadr))
 						dstadr_refid = "0.0.0.0";
+					else if ((dstadr.ss_family == AF_INET)
+					    && ISREFCLOCKADR(&dstadr))
+    						dstadr_refid =
+						    refnumtoa(&dstadr);
 					else
-						dstadr_refid = nntohost(dstadr);
+						dstadr_refid =
+						    stoa(&dstadr);
 				} else if ((int)strlen(value) <= 4) {
 					refid_string[0] = '.';
 					(void) strcpy(&refid_string[1], value);
@@ -1449,15 +1511,21 @@ doprintpeers(
 		c = flash2[CTL_PEER_STATVAL(rstatus) & 0x3];
 	if (numhosts > 1)
 		(void) fprintf(fp, "%-*s ", maxhostlen, currenthost);
-	(void) fprintf(fp,
-		"%c%-15.15s %-15.15s %2ld %c %4.4s %4.4s  %3lo  %7.7s %8.7s %7.7s\n",
-		c, nntohost(srcadr), dstadr_refid, stratum, type,
-		prettyinterval(whenbuf, when(&ts, &rec, &reftime)),
-		prettyinterval(pollbuf, (int)poll_sec), reach,
-		lfptoms(&estdelay, 3), lfptoms(&estoffset, 3),
-		havevar[HAVE_JITTER] ? lfptoms(&estjitter, 3) :
-		lfptoms(&estdisp, 3));
-	return (1);
+	if (af == 0 || srcadr.ss_family == af){
+		strcpy(clock_name, nntohost(&srcadr));
+		
+		(void) fprintf(fp,
+			"%c%-15.15s %-15.15s %2ld %c %4.4s %4.4s  %3lo  %7.7s %8.7s %7.7s\n",
+			c, clock_name, dstadr_refid, stratum, type,
+			prettyinterval(whenbuf, when(&ts, &rec, &reftime)),
+			prettyinterval(pollbuf, (int)poll_sec), reach,
+			lfptoms(&estdelay, 3), lfptoms(&estoffset, 3),
+			havevar[HAVE_JITTER] ? lfptoms(&estjitter, 3) :
+			lfptoms(&estdisp, 3));
+		return (1);
+	}
+	else
+		return(1);
 }
 
 #undef	HAVE_SRCADR
@@ -1485,7 +1553,8 @@ static int
 dogetpeers(
 	struct varlist *pvl,
 	int associd,
-	FILE *fp
+	FILE *fp,
+	int af
 	)
 {
 	char *datap;
@@ -1508,14 +1577,15 @@ dogetpeers(
 		return 0;
 
 	if (dsize == 0) {
+		if (numhosts > 1)
+			(void) fprintf(stderr, "server=%s ", currenthost);
 		(void) fprintf(stderr,
 				   "***No information returned for association %d\n",
 				   associd);
 		return 0;
 	}
 
-
-	return doprintpeers(pvl, associd, (int)rstatus, dsize, datap, fp);
+	return doprintpeers(pvl, associd, (int)rstatus, dsize, datap, fp, af);
 }
 
 
@@ -1525,27 +1595,26 @@ dogetpeers(
 static void
 dopeers(
 	int showall,
-	FILE *fp
+	FILE *fp,
+	int af
 	)
 {
 	register int i;
 	char fullname[LENHOSTNAME];
-	u_int32 netnum;
+	struct sockaddr_storage netnum;
 
 	if (!dogetassoc(fp))
 		return;
 
-	maxhostlen = 0;
-	if (numhosts > 1) {
-		for (i = 0; i < numhosts; ++i)
-		{ if(getnetnum(chosts[i],&netnum,fullname))
+	for (i = 0; i < numhosts; ++i) {
+		if (getnetnum(chosts[i], &netnum, fullname, af))
 			if ((int)strlen(fullname) > maxhostlen)
-			maxhostlen = strlen(fullname);
-		}
-		(void) fprintf(fp, "%-*.*s ", maxhostlen, maxhostlen, "host");
+				maxhostlen = strlen(fullname);
 	}
-	fprintf(fp,
-	   "     remote           refid      st t when poll reach   delay   offset  jitter\n");
+	if (numhosts > 1)
+		(void) fprintf(fp, "%-*.*s ", maxhostlen, maxhostlen, "server");
+	(void) fprintf(fp,
+			   "     remote           refid      st t when poll reach   delay   offset  jitter\n");
 	if (numhosts > 1)
 		for (i = 0; i <= maxhostlen; ++i)
 		(void) fprintf(fp, "=");
@@ -1557,7 +1626,7 @@ dopeers(
 			!(CTL_PEER_STATVAL(assoc_cache[i].status)
 			  & (CTL_PST_CONFIG|CTL_PST_REACH)))
 			continue;
-		if (!dogetpeers(peervarlist, (int)assoc_cache[i].assid, fp)) {
+		if (!dogetpeers(peervarlist, (int)assoc_cache[i].assid, fp, af)) {
 			return;
 		}
 	}
@@ -1575,7 +1644,15 @@ peers(
 	FILE *fp
 	)
 {
-	dopeers(0, fp);
+	int af = 0;
+
+	if (pcmd->nargs == 1) {
+		if (pcmd->argval->ival == 6)
+			af = AF_INET6;
+		else
+			af = AF_INET;
+	}
+	dopeers(0, fp, af);
 }
 
 
@@ -1589,7 +1666,15 @@ lpeers(
 	FILE *fp
 	)
 {
-	dopeers(1, fp);
+	int af = 0;
+
+	if (pcmd->nargs == 1) {
+		if (pcmd->argval->ival == 6)
+			af = AF_INET6;
+		else
+			af = AF_INET;
+	}
+	dopeers(1, fp, af);
 }
 
 
@@ -1599,18 +1684,29 @@ lpeers(
 static void
 doopeers(
 	int showall,
-	FILE *fp
+	FILE *fp,
+	int af
 	)
 {
 	register int i;
+	char fullname[LENHOSTNAME];
+	struct sockaddr_storage netnum;
 
 	if (!dogetassoc(fp))
 		return;
 
+	for (i = 0; i < numhosts; ++i) {
+		if (getnetnum(chosts[i], &netnum, fullname, af))
+			if ((int)strlen(fullname) > maxhostlen)
+				maxhostlen = strlen(fullname);
+	}
+	if (numhosts > 1)
+		(void) fprintf(fp, "%-*.*s ", maxhostlen, maxhostlen, "server");
 	(void) fprintf(fp,
 			   "     remote           local      st t when poll reach   delay   offset    disp\n");
-	(void) fprintf(fp,
-			   "                                      (s)  (s)          (ms)     (ms)     (ms)\n");
+	if (numhosts > 1)
+		for (i = 0; i <= maxhostlen; ++i)
+		(void) fprintf(fp, "=");
 	(void) fprintf(fp,
 			   "==============================================================================\n");
 
@@ -1619,7 +1715,7 @@ doopeers(
 			!(CTL_PEER_STATVAL(assoc_cache[i].status)
 			  & (CTL_PST_CONFIG|CTL_PST_REACH)))
 			continue;
-		if (!dogetpeers(opeervarlist, (int)assoc_cache[i].assid, fp)) {
+		if (!dogetpeers(opeervarlist, (int)assoc_cache[i].assid, fp, af)) {
 			return;
 		}
 	}
@@ -1637,7 +1733,15 @@ opeers(
 	FILE *fp
 	)
 {
-	doopeers(0, fp);
+	int af = 0;
+
+	if (pcmd->nargs == 1) {
+		if (pcmd->argval->ival == 6)
+			af = AF_INET6;
+		else
+			af = AF_INET;
+	}
+	doopeers(0, fp, af);
 }
 
 
@@ -1651,5 +1755,13 @@ lopeers(
 	FILE *fp
 	)
 {
-	doopeers(1, fp);
+	int af = 0;
+
+	if (pcmd->nargs == 1) {
+		if (pcmd->argval->ival == 6)
+			af = AF_INET6;
+		else
+			af = AF_INET;
+	}
+	doopeers(1, fp, af);
 }

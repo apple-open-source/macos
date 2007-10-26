@@ -40,9 +40,9 @@
     [thisDevice addNumberProperty:"Descriptor Version Number:" value: devQualDescriptor.bcdUSB size:sizeof(devQualDescriptor.bcdUSB) atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL usingStyle:kHexOutputStyle];
     
     deviceClass = GetDeviceClassAndSubClass(&devQualDescriptor.bDeviceClass);
-    [thisDevice addProperty:"Device Class" withValue:(char *)[[deviceClass classDescription] cString] atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL];
-    [thisDevice addProperty:"Device Subclass" withValue:(char *)[[deviceClass subclassDescription] cString] atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL];
-    [thisDevice addProperty:"Device Protocol" withValue:(char *)[[deviceClass protocolDescription] cString] atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL];
+    [thisDevice addProperty:"Device Class" withValue:(char *)[[deviceClass classDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL];
+    [thisDevice addProperty:"Device Subclass" withValue:(char *)[[deviceClass subclassDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL];
+    [thisDevice addProperty:"Device Protocol" withValue:(char *)[[deviceClass protocolDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL];
     
  //   [thisDevice addNumberProperty:"Device Protocol" value: devQualDescriptor.bDeviceProtocol size:sizeof(devQualDescriptor.bDeviceProtocol) atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL usingStyle:kIntegerOutputStyle];
     [thisDevice addNumberProperty:"Device MaxPacketSize:" value: devQualDescriptor.bMaxPacketSize0 size:sizeof(devQualDescriptor.bMaxPacketSize0) atDepth:DEVICE_QUAL_DESCRIPTOR_LEVEL usingStyle:kIntegerOutputStyle];

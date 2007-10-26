@@ -1,5 +1,5 @@
 /* Common definitions for remote server for GDB.
-   Copyright 1993, 1995, 1997, 1998, 1999, 2000, 2002
+   Copyright 1993, 1995, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -34,7 +34,7 @@
 #include <string.h>
 #endif
 
-#ifdef NEED_DECLARATION_STRERROR
+#if !HAVE_DECL_STRERROR
 #ifndef strerror
 extern char *strerror (int);	/* X3.159-1989  4.11.6.2 */
 #endif
@@ -69,7 +69,7 @@ struct inferior_list
 };
 struct inferior_list_entry
 {
-  int id;
+  unsigned long id;
   struct inferior_list_entry *next;
 };
 
@@ -97,7 +97,10 @@ extern struct thread_info *current_inferior;
 void remove_inferior (struct inferior_list *list,
 		      struct inferior_list_entry *entry);
 void remove_thread (struct thread_info *thread);
-void add_thread (int thread_id, void *target_data);
+void add_thread (unsigned long thread_id, void *target_data, unsigned int);
+unsigned int thread_id_to_gdb_id (unsigned long);
+unsigned int thread_to_gdb_id (struct thread_info *);
+unsigned long gdb_id_to_thread_id (unsigned int);
 void clear_inferiors (void);
 struct inferior_list_entry *find_inferior
      (struct inferior_list *,
@@ -105,21 +108,21 @@ struct inferior_list_entry *find_inferior
 		   void *),
       void *arg);
 struct inferior_list_entry *find_inferior_id (struct inferior_list *list,
-					      int id);
+					      unsigned long id);
 void *inferior_target_data (struct thread_info *);
 void set_inferior_target_data (struct thread_info *, void *);
 void *inferior_regcache_data (struct thread_info *);
 void set_inferior_regcache_data (struct thread_info *, void *);
 void change_inferior_id (struct inferior_list *list,
-			 int new_id);
+			 unsigned long new_id);
 
 /* Public variables in server.c */
 
-extern int cont_thread;
-extern int general_thread;
-extern int step_thread;
-extern int thread_from_wait;
-extern int old_thread_from_wait;
+extern unsigned long cont_thread;
+extern unsigned long general_thread;
+extern unsigned long step_thread;
+extern unsigned long thread_from_wait;
+extern unsigned long old_thread_from_wait;
 extern int server_waiting;
 
 extern jmp_buf toplevel;
@@ -136,8 +139,8 @@ void enable_async_io (void);
 void disable_async_io (void);
 void unblock_async_io (void);
 void block_async_io (void);
-void convert_ascii_to_int (char *from, char *to, int n);
-void convert_int_to_ascii (char *from, char *to, int n);
+void convert_ascii_to_int (char *from, unsigned char *to, int n);
+void convert_int_to_ascii (unsigned char *from, char *to, int n);
 void new_thread_notify (int id);
 void dead_thread_notify (int id);
 void prepare_resume_reply (char *buf, char status, unsigned char sig);
@@ -145,7 +148,7 @@ void prepare_resume_reply (char *buf, char status, unsigned char sig);
 void decode_m_packet (char *from, CORE_ADDR * mem_addr_ptr,
 		      unsigned int *len_ptr);
 void decode_M_packet (char *from, CORE_ADDR * mem_addr_ptr,
-		      unsigned int *len_ptr, char *to);
+		      unsigned int *len_ptr, unsigned char *to);
 
 int unhexify (char *bin, const char *hex, int count);
 int hexify (char *hex, const char *bin, int count);
@@ -160,9 +163,9 @@ int target_signal_to_host (enum target_signal oursig);
 /* Functions from utils.c */
 
 void perror_with_name (char *string);
-void error (const char *string,...) ATTR_NORETURN;
-void fatal (const char *string,...) ATTR_NORETURN;
-void warning (const char *string,...);
+void error (const char *string,...) ATTR_NORETURN ATTR_FORMAT (printf, 1, 2);
+void fatal (const char *string,...) ATTR_NORETURN ATTR_FORMAT (printf, 1, 2);
+void warning (const char *string,...) ATTR_FORMAT (printf, 1, 2);
 
 /* Functions from the register cache definition.  */
 

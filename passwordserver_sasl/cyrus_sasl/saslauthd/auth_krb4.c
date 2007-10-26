@@ -28,12 +28,15 @@
  * END COPYRIGHT */
 
 #ifdef __GNUC__
-#ident "$Id: auth_krb4.c,v 1.5 2005/01/10 19:01:35 snsimon Exp $"
+#ident "$Id: auth_krb4.c,v 1.9 2006/01/24 00:16:03 snsimon Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */
 #include <unistd.h>
 #include "mechanisms.h"
+#include "globals.h"
+#include "cfile.h"
+#include "krbtf.h"
 
 #ifdef AUTH_KRB4
 
@@ -64,14 +67,15 @@ extern int swap_bytes;			/* from libkrb.a   */
 
 /* PRIVATE DEPENDENCIES */
 #ifdef AUTH_KRB4
-static char *tf_dir;			/* Ticket directory pathname    */
 static char default_realm[REALM_SZ];
+static cfile config = 0;
+static char myhostname[BUFSIZ];    /* Is BUFSIZ right here? */
+static char *srvtabname = "";      /* "" means "system default srvtab" */
+static char *verify_principal = "rcmd"; /* A principal in the default srvtab */
 #endif /* AUTH_KRB4 */
 /* END PRIVATE DEPENDENCIES */
 
 #define TF_NAME_LEN 128
-#define TF_DIR "/.tf"			/* Private tickets directory,   */
-					/* relative to mux directory    */
 
 /* Kerberos for Macintosh doesn't define this, so we will. (Thanks Fink!) */
 #ifndef KRB_TICKET_GRANTING_TICKET
@@ -103,50 +107,34 @@ auth_krb4_init (
 #ifdef AUTH_KRB4
     /* VARIABLES */
     int rc;				/* return code holder */
-    struct stat sb;			/* stat() work area */
+    char *configname = 0;
     /* END VARIABLES */
 
-    /* Allocate memory arena for the directory pathname. */
-    tf_dir = malloc(strlen(PATH_SASLAUTHD_RUNDIR) + strlen(TF_DIR)
-		    + ANAME_SZ + 2);
-    if (tf_dir == NULL) {
-	syslog(LOG_ERR, "auth_krb4_init malloc(tf_dir) failed");
-	return -1;
-    }
-    strcpy(tf_dir, PATH_SASLAUTHD_RUNDIR);
-    strcat(tf_dir, TF_DIR);
+    if (mech_option)
+      configname = mech_option;
+    else if (access(SASLAUTHD_CONF_FILE_DEFAULT, F_OK) == 0)
+      configname = SASLAUTHD_CONF_FILE_DEFAULT;
 
-    /* Check for an existing directory. */
-    rc = lstat(tf_dir, &sb);
-    if (rc == -1) {
-	if (errno == ENOENT) {
-	    /* Create the ticket file directory */
-	    rc = mkdir(tf_dir, 0700);
-	    if (rc == -1) {
-		syslog(LOG_ERR, "auth_krb4_init mkdir(%s): %m",
-		       tf_dir);
-		free(tf_dir);
-		tf_dir = NULL;
-		return -1;
-	    }
-	} else {
-	    rc = errno;
-	    syslog(LOG_ERR, "auth_krb4_init: %s: %m", tf_dir);
-	    free(tf_dir);
-	    tf_dir = NULL;
-	    return -1;
-	}
+    if (configname) {
+      char complaint[1024];
+
+      config = cfile_read(configname, complaint, sizeof(complaint));
+      if (!config) {
+	syslog(LOG_ERR, "auth_krb4_init %s", complaint);
+	return -1;
+      }
     }
 
-    /* Make sure it's not a symlink. */
-    if (S_ISLNK(sb.st_mode)) {
-        syslog(LOG_ERR, "auth_krb4_init: %s: is a symbolic link", tf_dir);
-	free(tf_dir);
-	tf_dir = NULL;
-	return -1;
+    if (config) {
+      srvtabname = cfile_getstring(config, "krb4_srvtab", srvtabname);
+      verify_principal = cfile_getstring(config, "krb4_verify_principal",
+					 verify_principal);
     }
     
-    strcat(tf_dir, "/");
+    if (krbtf_init() == -1) {
+      syslog(LOG_ERR, "auth_krb4_init krbtf_init failed");
+      return -1;
+    }
 
     rc = krb_get_lrealm(default_realm, 1);
     if (rc) {
@@ -154,6 +142,12 @@ auth_krb4_init (
 	       krb_get_err_text(rc));
 	return -1;
     }
+
+    if (gethostname(myhostname, sizeof(myhostname)) < 0) {
+      syslog(LOG_ERR, "auth_krb4: gethoanem(): %m");
+      return -1;
+    }
+    myhostname[sizeof(myhostname) - 1] = '\0';
 
     return 0;
 #else /* ! AUTH_KRB4 */
@@ -176,7 +170,7 @@ auth_krb4 (
   /* PARAMETERS */
   const char *login,			/* I: plaintext authenticator */
   const char *password,			/* I: plaintext password */
-  const char *service __attribute__((unused)),
+  const char *service,
   const char *realm_in
   /* END PARAMETERS */
   )
@@ -184,10 +178,11 @@ auth_krb4 (
     /* VARIABLES */
     char aname[ANAME_SZ];		/* Kerberos principal */
     const char *realm;		        /* Kerberos realm to authenticate in */
-    static char pidstr[128];
-    static unsigned int baselen = 0, loginlen = 0;
     int rc;				/* return code */
     char tf_name[TF_NAME_LEN];		/* Ticket file name */
+    char *instance, *user_specified;
+    KTEXT_ST ticket;
+    AUTH_DAT kdata;
     /* END VARIABLES */
 
     /*
@@ -199,32 +194,42 @@ auth_krb4 (
 	syslog(LOG_ERR, "auth_krb4: NULL password?");
 	return strdup("NO saslauthd internal error");
     }
-    /*
-     * Use our own private ticket directory. Name the ticket
-     * files after the login name.
-     *
-     * NOTE: these ticket files are not used by us. The are created
-     * as a side-effect of calling krb_get_pw_in_tkt.
-     */
-    /* avoid calling getpid() every time. */
-    if (baselen == 0) {
-      snprintf(pidstr, sizeof(pidstr), "%d", getpid());
-      baselen = strlen(pidstr) + strlen(tf_dir) + 2;
-    }
-    loginlen = strlen(login);
-    if (((loginlen + baselen) > TF_NAME_LEN)
-	|| (loginlen > ANAME_SZ)) {
-      syslog(LOG_ERR, "auth_krb4: login name (%s) too long", login);
+
+    if (krbtf_name(tf_name, sizeof(tf_name)) != 0) {
+      syslog(LOG_ERR, "auth_krb4: could not generate ticket file name");
       return strdup("NO saslauthd internal error");
     }
-
-    strcpy(tf_name, tf_dir);
-    strcat(tf_name, login);
-    strcat(tf_name, pidstr);
     krb_set_tkt_string(tf_name);
-    
+
     strncpy(aname, login, ANAME_SZ-1);
     aname[ANAME_SZ-1] = '\0';
+
+    instance = "";
+
+    if (config) {
+      char keyname[1024];
+
+      snprintf(keyname, sizeof(keyname), "krb4_%s_instance", service);
+      instance = cfile_getstring(config, keyname, "");
+    }
+
+    user_specified = strchr(aname, '.');
+    if (user_specified) {
+      if (instance && instance[0]) {
+	/* sysadmin specified a (mandatory) instance */
+	if (strcmp(user_specified + 1, instance)) {
+	  return strdup("NO saslauthd principal name error");
+	}
+	/* nuke instance from "aname"-- matches what's already in "instance" */
+	*user_specified = '\0';
+      } else {
+	/* sysadmin has no preference, so we shift
+	 * instance name from "aname" to "instance"
+	 */
+	*user_specified = '\0';
+	instance = user_specified + 1;
+      }
+    }
 
     if(realm_in && *realm_in != '\0') {
 	realm = realm_in;
@@ -232,25 +237,42 @@ auth_krb4 (
 	realm = default_realm;
     }
 
-    /* FIXME: Should probabally handle instances better than "" */
-
-    rc = krb_get_pw_in_tkt(aname, "", realm,
+    rc = krb_get_pw_in_tkt(aname, instance, realm,
 			   KRB_TICKET_GRANTING_TICKET,
 			   realm, 1, password);
-    unlink(tf_name);
-
-    if (rc == 0) {
-	return strdup("OK");
-    }
 
     if (rc == INTK_BADPW || rc == KDC_PR_UNKNOWN) {
 	return strdup("NO");
+    } else if (rc != KSUCCESS) {
+      syslog(LOG_ERR, "ERROR: auth_krb4: krb_get_pw_in_tkt: %s",
+	     krb_get_err_text(rc));
+
+      return strdup("NO saslauthd internal error");
     }
 
-    syslog(LOG_ERR, "ERROR: auth_krb4: krb_get_pw_in_tkt: %s",
-	   krb_get_err_text(rc));
+    /* if the TGT wasn't spoofed, it should entitle us to an rcmd ticket... */
+    rc = krb_mk_req(&ticket, verify_principal, myhostname, default_realm, 0);
 
-    return strdup("NO saslauthd internal error");
+    if (rc != KSUCCESS) {
+      syslog(LOG_ERR, "ERROR: auth_krb4: krb_get_pw_in_tkt: %s",
+	     krb_get_err_text(rc));
+      dest_tkt();
+      return strdup("NO saslauthd internal error");
+    }
+
+    /* .. and that ticket should match our secret host key */
+    rc = krb_rd_req(&ticket, verify_principal, myhostname, 0, &kdata, srvtabname);
+
+    if (rc != RD_AP_OK) {
+      syslog(LOG_ERR, "ERROR: auth_krb4: krb_rd_req:%s",
+	     krb_get_err_text(rc));
+      dest_tkt();
+      return strdup("NO saslauthd internal error");
+    }
+
+    dest_tkt();
+
+    return strdup("OK");
 }
 
 #else /* ! AUTH_KRB4 */

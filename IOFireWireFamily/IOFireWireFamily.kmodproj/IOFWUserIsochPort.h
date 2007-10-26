@@ -54,12 +54,12 @@ class IOFWUserLocalIsochPort : public IOFWLocalIsochPort
 	protected:
 		
 		IORecursiveLock*			fLock ;
-		void*						fUserObj ;
+		mach_vm_address_t			fUserObj ;
 		IOFireWireUserClient *		fUserClient ;
 
 		unsigned					fProgramCount ;
 		DCLCommand **				fDCLTable ;		// lookup table
-		OSAsyncReference			fStopTokenAsyncRef ;
+		OSAsyncReference64			fStopTokenAsyncRef ;
 
 		UInt8*						fProgramBuffer ; // for old style programs
 		IOFWDCLPool *				fDCLPool ;		// for new style programs
@@ -88,12 +88,12 @@ class IOFWUserLocalIsochPort : public IOFWLocalIsochPort
 		IOReturn					importUserProgram (
 											IOMemoryDescriptor *	userExportDesc,
 											unsigned 				bufferRangeCount, 
-											IOVirtualRange			userBufferRanges [],
+											IOAddressRange			userBufferRanges [],
 											IOMemoryMap *			bufferMap ) ;
 		static	void				s_dclCallProcHandler (
 											DCLCallProc * 			dcl ) ;
 		IOReturn					setAsyncRef_DCLCallProc ( 
-											OSAsyncReference 		asyncRef ) ;
+											OSAsyncReference64 		asyncRef ) ;
 		IOReturn					modifyJumpDCL ( 
 											UInt32 					jumpCompilerData, 
 											UInt32 					labelCompilerData ) ;
@@ -104,11 +104,11 @@ class IOFWUserLocalIsochPort : public IOFWLocalIsochPort
 		inline void					lock ()				{ IORecursiveLockLock ( fLock ) ; }
 		inline void					unlock ()			{ IORecursiveLockUnlock ( fLock ) ; }
 
-		IOReturn					convertToKernelDCL ( DCLUpdateDCLList * dcl ) ;
-		IOReturn					convertToKernelDCL ( DCLJump * dcl ) ;
-		IOReturn					convertToKernelDCL ( DCLCallProc * dcl ) ;
+		IOReturn					convertToKernelDCL ( UserExportDCLUpdateDCLList *pUserExportDCL, DCLUpdateDCLList * dcl ) ;
+		IOReturn					convertToKernelDCL ( UserExportDCLJump *pUserExportDCL, DCLJump * dcl ) ;
+		IOReturn					convertToKernelDCL ( UserExportDCLCallProc *pUserExportDCL, DCLCallProc * dcl ) ;
 
-		void						exporterCleanup () ;
+		static void					exporterCleanup( const OSObject * self );
 		static void					s_nuDCLCallout( void * refcon ) ;
 		IOReturn 					userNotify (
 											UInt32			notificationType,

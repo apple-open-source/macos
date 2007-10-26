@@ -1,5 +1,5 @@
---- strptime.3.orig	Fri Mar 11 07:33:44 2005
-+++ strptime.3	Fri Mar 11 07:40:29 2005
+--- strptime.3.orig	2007-04-03 12:19:24.000000000 -0700
++++ strptime.3	2007-04-03 12:54:12.000000000 -0700
 @@ -29,7 +29,8 @@
  .Dt STRPTIME 3
  .Os
@@ -10,23 +10,55 @@
  .Nd parse date and time string
  .Sh LIBRARY
  .Lb libc
-@@ -41,6 +42,14 @@
- .Fa "const char * restrict format"
- .Fa "struct tm * restrict timeptr"
- .Fc
+@@ -37,19 +38,28 @@
+ .In time.h
+ .Ft char *
+ .Fo strptime
+-.Fa "const char * restrict buf"
+-.Fa "const char * restrict format"
+-.Fa "struct tm * restrict timeptr"
++.Fa "const char *restrict buf"
++.Fa "const char *restrict format"
++.Fa "struct tm *restrict tm"
++.Fc
++.In time.h
 +.In xlocale.h
 +.Ft char *
 +.Fo strptime_l
-+.Fa "const char * restrict buf"
-+.Fa "const char * restrict format"
-+.Fa "struct tm * restrict timeptr"
++.Fa "const char *restrict buf"
++.Fa "const char *restrict format"
++.Fa "struct tm *restrict tm"
 +.Fa "locale_t loc"
-+.Fc
+ .Fc
  .Sh DESCRIPTION
  The
  .Fn strptime
-@@ -94,6 +103,14 @@
- .Fa timeptr
+ function parses the string in the buffer
+-.Fa buf
++.Fa buf ,
+ according to the string pointed to by
+ .Fa format ,
+ and fills in the elements of the structure pointed to by
+-.Fa timeptr .
++.Fa tm .
+ The resulting values will be relative to the local time zone.
+ Thus, it can be considered the reverse operation of
+ .Xr strftime 3 .
+@@ -78,7 +88,7 @@
+ specify the resulting
+ .Vt struct tm ,
+ the unspecified members of
+-.Va timeptr
++.Va tm
+ are left untouched.
+ For example, if
+ .Fa format
+@@ -91,9 +101,17 @@
+ .Va tm_min
+ will be modified.
+ If time relative to today is desired, initialize the
+-.Fa timeptr
++.Fa tm
  structure with today's date before passing it to
  .Fn strptime .
 +.Pp
@@ -40,7 +72,15 @@
  .Sh RETURN VALUES
  Upon successful completion,
  .Fn strptime
-@@ -107,7 +124,8 @@
+@@ -104,10 +122,16 @@
+ It returns
+ .Dv NULL
+ if one of the conversions failed.
++.Sh LEGACY DESCRIPTION
++In legacy mode, the
++.Fa %Y
++format specifier expects exactly 4 digits (leaving any trailing digits for the
++next specifier).
  .Sh SEE ALSO
  .Xr date 1 ,
  .Xr scanf 3 ,

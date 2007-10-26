@@ -1,4 +1,4 @@
-/* $Header: /cvs/root/tcsh/tcsh/sh.init.c,v 1.1.1.3 2003/01/17 03:41:14 nicolai Exp $ */
+/* $Header: /src/pub/tcsh/sh.init.c,v 3.55 2005/01/18 20:43:31 christos Exp $ */
 /*
  * sh.init.c: Function and signal tables
  */
@@ -32,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.init.c,v 1.1.1.3 2003/01/17 03:41:14 nicolai Exp $")
+RCSID("$Id: sh.init.c,v 3.55 2005/01/18 20:43:31 christos Exp $")
 
 #include "ed.h"
 #include "tw.h"
@@ -61,6 +61,9 @@ struct	biltins bfunc[] = {
     { "bindkey",	dobindkey,	0,	8	},
     { "break",		dobreak,	0,	0	},
     { "breaksw",	doswbrk,	0,	0	},
+#ifdef _OSD_POSIX
+    { "bs2cmd",		dobs2cmd,	1,	INF	},
+#endif /* OBSOLETE */
     { "builtins",	dobuiltins,	0,	0	},
 #ifdef KAI
     { "bye",		goodbye,	0,	0	},
@@ -118,7 +121,7 @@ struct	biltins bfunc[] = {
     { "migrate",	domigrate,	1,	INF	},
 #endif /* TCF */
 #ifdef NEWGRP
-    { "newgrp",		donewgrp,	1,	2	},
+    { "newgrp",		donewgrp,	0,	2	},
 #endif /* NEWGRP */
     { "nice",		donice,		0,	INF	},
     { "nohup",		donohup,	0,	INF	},
@@ -152,6 +155,9 @@ struct	biltins bfunc[] = {
     { "suspend",	dosuspend,	0,	0	},
     { "switch",		doswitch,	1,	INF	},
     { "telltc",		dotelltc,	0,	INF	},
+#ifndef WINNT_NATIVE
+    { "termname",	dotermname,	0,  	1       },
+#endif
     { "time",		dotime,		0,	INF	},
 #if defined(_CX_UX)
     { "ucb",		doucb,		0,	INF	},
@@ -214,7 +220,7 @@ int nsrchn = sizeof srchn / sizeof *srchn;
  */
 
 /* We define NUMSIG to avoid changing NSIG or MAXSIG */
-#ifdef POSIX
+#if defined(POSIX) && !defined(__CYGWIN__)
 # define NUMSIG 65
 #else /* !POSIX */
 # define NUMSIG 33
@@ -222,7 +228,7 @@ int nsrchn = sizeof srchn / sizeof *srchn;
 
 int	nsig = NUMSIG - 1;	/* This should be the number of real signals */
 				/* not counting signal 0 */
-struct	mesg mesg[NUMSIG];	/* Arrays start at [0] so we initialize from */
+struct mesg mesg[NUMSIG];	/* Arrays start at [0] so we initialize from */
 				/* 0 to 32 or 64, the max real signal number */
 
 void

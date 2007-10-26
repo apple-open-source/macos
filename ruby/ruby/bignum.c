@@ -2,8 +2,8 @@
 
   bignum.c -
 
-  $Author: gotoyuzo $
-  $Date: 2004/11/16 19:43:24 $
+  $Author: shyouhei $
+  $Date: 2007-05-23 05:37:49 +0900 (Wed, 23 May 2007) $
   created at: Fri Jun 10 00:48:55 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -42,11 +42,11 @@ static VALUE
 bignew_1(klass, len, sign)
     VALUE klass;
     long len;
-    char sign;
+    int sign;
 {
     NEWOBJ(big, struct RBignum);
     OBJSETUP(big, klass, T_BIGNUM);
-    big->sign = sign;
+    big->sign = sign?1:0;
     big->len = len;
     big->digits = ALLOC_N(BDIGIT, len);
 
@@ -65,10 +65,10 @@ rb_big_clone(x)
     return z;
 }
 
+/* modify a bignum by 2's complement */
 static void
-get2comp(x, carry)		/* get 2's complement */
+get2comp(x)
     VALUE x;
-    int carry;
 {
     long i = RBIGNUM(x)->len;
     BDIGIT *ds = BDIGITS(x);
@@ -81,11 +81,10 @@ get2comp(x, carry)		/* get 2's complement */
 	ds[i++] = BIGLO(num);
 	num = BIGDN(num);
     } while (i < RBIGNUM(x)->len);
-    if (!carry) return;
-    if ((ds[RBIGNUM(x)->len-1] & (1<<(BITSPERDIG-1))) == 0) {
+    if (num != 0) {
 	REALLOC_N(RBIGNUM(x)->digits, BDIGIT, ++RBIGNUM(x)->len);
 	ds = BDIGITS(x);
-	ds[RBIGNUM(x)->len-1] = ~0;
+	ds[RBIGNUM(x)->len-1] = RBIGNUM(x)->sign ? ~0 : 1;
     }
 }
 
@@ -93,32 +92,49 @@ void
 rb_big_2comp(x)			/* get 2's complement */
     VALUE x;
 {
-    get2comp(x, Qtrue);
+    get2comp(x);
 }
 
 static VALUE
-bignorm(x)
+bigtrunc(x)
     VALUE x;
 {
-    if (!FIXNUM_P(x)) {
-	long len = RBIGNUM(x)->len;
-	BDIGIT *ds = BDIGITS(x);
+    long len = RBIGNUM(x)->len;
+    BDIGIT *ds = BDIGITS(x);
 
-	while (len-- && !ds[len]) ;
-	RBIGNUM(x)->len = ++len;
+    while (len-- && !ds[len]);
+    RBIGNUM(x)->len = ++len;
+    return x;
+}
 
-	if (len*SIZEOF_BDIGITS <= sizeof(VALUE)) {
-	    long num = 0;
-	    while (len--) {
-		num = BIGUP(num) + ds[len];
+static VALUE
+bigfixize(VALUE x)
+{
+    long len = RBIGNUM(x)->len;
+    BDIGIT *ds = BDIGITS(x);
+
+    if (len*SIZEOF_BDIGITS <= sizeof(VALUE)) {
+	long num = 0;
+	while (len--) {
+	    num = BIGUP(num) + ds[len];
+	}
+	if (num >= 0) {
+	    if (RBIGNUM(x)->sign) {
+		if (POSFIXABLE(num)) return LONG2FIX(num);
 	    }
-	    if (num >= 0) {
-		if (RBIGNUM(x)->sign) {
-		    if (POSFIXABLE(num)) return LONG2FIX(num);
-		}
-		else if (NEGFIXABLE(-(long)num)) return LONG2FIX(-(long)num);
+	    else {
+		if (NEGFIXABLE(-(long)num)) return LONG2FIX(-(long)num);
 	    }
 	}
+    }
+    return x;
+}
+
+static VALUE
+bignorm(VALUE x)
+{
+    if (!FIXNUM_P(x) && TYPE(x) == T_BIGNUM) {
+	x = bigfixize(bigtrunc(x));
     }
     return x;
 }
@@ -615,15 +631,16 @@ rb_str2inum(str, base)
 
 const char ruby_digitmap[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 VALUE
-rb_big2str(x, base)
+rb_big2str0(x, base, trim)
     VALUE x;
     int base;
+    int trim;
 {
     volatile VALUE t;
     BDIGIT *ds;
     long i, j, hbase;
     VALUE ss;
-    char *s, c;
+    char *s;
 
     if (FIXNUM_P(x)) {
 	return rb_fix2str(x, base);
@@ -636,30 +653,30 @@ rb_big2str(x, base)
     switch (base) {
       case 2: break;
       case 3:
-	j = j * 647L / 1024;
+	j = j * 53L / 84 + 1;
 	break;
       case 4: case 5: case 6: case 7:
-	j /= 2;
+	j = (j + 1) / 2;
 	break;
       case 8: case 9:
-	j /= 3;
+	j = (j + 2) / 3;
 	break;
       case 10: case 11: case 12: case 13: case 14: case 15:
-	j = j * 241L / 800;
+	j = j * 28L / 93 + 1;
 	break;
       case 16: case 17: case 18: case 19: case 20: case 21:
       case 22: case 23: case 24: case 25: case 26: case 27:
       case 28: case 29: case 30: case 31:
-	j /= 4;
+	j = (j + 3) / 4;
 	break;
       case 32: case 33: case 34: case 35: case 36:
-	j /= 5;
+	j = (j + 4) / 5;
 	break;
       default:
 	rb_raise(rb_eArgError, "illegal radix %d", base);
 	break;
     }
-    j += 2;
+    j++;			/* space for sign */
 
     hbase = base * base;
 #if SIZEOF_BDIGITS > 2
@@ -668,11 +685,11 @@ rb_big2str(x, base)
 
     t = rb_big_clone(x);
     ds = BDIGITS(t);
-    ss = rb_str_new(0, j);
+    ss = rb_str_new(0, j+1);
     s = RSTRING(ss)->ptr;
 
     s[0] = RBIGNUM(x)->sign ? '+' : '-';
-    while (i && j) {
+    while (i && j > 1) {
 	long k = i;
 	BDIGIT_DBL num = 0;
 
@@ -681,21 +698,34 @@ rb_big2str(x, base)
 	    ds[k] = (BDIGIT)(num / hbase);
 	    num %= hbase;
 	}
-	if (ds[i-1] == 0) i--;
+	if (trim && ds[i-1] == 0) i--;
 	k = SIZEOF_BDIGITS;
 	while (k--) {
-	    c = (char)(num % base);
-	    s[--j] = ruby_digitmap[(int)c];
+	    s[--j] = ruby_digitmap[num % base];
 	    num /= base;
-	    if (i == 0 && num == 0) break;
+	    if (!trim && j < 1) break;
+	    if (trim && i == 0 && num == 0) break;
 	}
     }
-    while (s[j] == '0') j++;
-    RSTRING(ss)->len -= RBIGNUM(x)->sign?j:j-1;
-    memmove(RBIGNUM(x)->sign?s:s+1, s+j, RSTRING(ss)->len);
+    if (trim) {while (s[j] == '0') j++;}
+    i = RSTRING(ss)->len - j;
+    if (RBIGNUM(x)->sign) {
+	memmove(s, s+j, i);
+	RSTRING(ss)->len = i-1;
+    }
+    else {
+	memmove(s+1, s+j, i);
+	RSTRING(ss)->len = i;
+    }
     s[RSTRING(ss)->len] = '\0';
 
     return ss;
+}
+
+VALUE
+rb_big2str(VALUE x, int base)
+{
+    return rb_big2str0(x, base, Qtrue);
 }
 
 /*
@@ -751,7 +781,7 @@ unsigned long
 rb_big2ulong_pack(x)   
     VALUE x;  
 {   
-    unsigned long num = big2ulong(x, "unsigned long", Qfalse);
+    unsigned long num = big2ulong(x, "unsigned long");
     if (!RBIGNUM(x)->sign) {
 	return -num;
     }
@@ -980,8 +1010,8 @@ rb_big_eq(x, y)
 	    volatile double a, b;
 
 	    a = RFLOAT(y)->value;
+	    if (isnan(a)) return Qfalse;
 	    b = rb_big2dbl(x);
-	    if (isnan(a) || isnan(b)) return Qfalse;
 	    return (a == b)?Qtrue:Qfalse;
 	}
       default:
@@ -1050,13 +1080,15 @@ rb_big_neg(x)
     VALUE x;
 {
     VALUE z = rb_big_clone(x);
-    long i = RBIGNUM(x)->len;
-    BDIGIT *ds = BDIGITS(z);
+    long i;
+    BDIGIT *ds;
 
-    if (!RBIGNUM(x)->sign) get2comp(z, Qtrue);
+    if (!RBIGNUM(x)->sign) get2comp(z);
+    ds = BDIGITS(z);
+    i = RBIGNUM(x)->len;
     while (i--) ds[i] = ~ds[i];
-    if (RBIGNUM(x)->sign) get2comp(z, Qfalse);
     RBIGNUM(z)->sign = !RBIGNUM(z)->sign;
+    if (RBIGNUM(x)->sign) get2comp(z);
 
     return bignorm(z);
 }
@@ -1087,7 +1119,7 @@ bigsub(x, y)
 	}
     }
 
-    z = bignew(RBIGNUM(x)->len, (z == 0)?1:0);
+    z = bignew(RBIGNUM(x)->len, z==0);
     zds = BDIGITS(z);
 
     for (i = 0, num = 0; i < RBIGNUM(y)->len; i++) { 
@@ -1111,7 +1143,7 @@ bigsub(x, y)
 static VALUE
 bigadd(x, y, sign)
     VALUE x, y;
-    char sign;
+    int sign;
 {
     VALUE z;
     BDIGIT_DBL num;
@@ -1205,15 +1237,8 @@ rb_big_minus(x, y)
     }
 }
 
-/*
- *  call-seq:
- *     big * other  => Numeric
- *
- *  Multiplies big and other, returning the result.
- */
-
 VALUE
-rb_big_mul(x, y)
+rb_big_mul0(x, y)
     VALUE x, y;
 {
     long i, j;
@@ -1256,7 +1281,21 @@ rb_big_mul(x, y)
 	}
     }
 
-    return bignorm(z);
+    return z;
+}
+
+/*
+ *  call-seq:
+ *     big * other  => Numeric
+ *
+ *  Multiplies big and other, returning the result.
+ */
+
+VALUE
+rb_big_mul(x, y)
+    VALUE x, y;
+{
+    return bignorm(rb_big_mul0(x, y));
 }
 
 static void
@@ -1605,14 +1644,21 @@ rb_big_pow(x, y)
 	if (yy > 0) {
 	    VALUE z = x;
 
+	    if (RBIGNUM(x)->len * SIZEOF_BDIGITS * yy > 1024*1024) {
+		rb_warn("in a**b, b may be too big");
+		d = (double)yy;
+		break;
+	    }
 	    for (;;) {
 		yy -= 1;
 		if (yy == 0) break;
 		while (yy % 2 == 0) {
 		    yy /= 2;
-		    x = rb_big_mul(x, x);
+		    x = rb_big_mul0(x, x);
+		    bigtrunc(x);
 		}
-		z = rb_big_mul(z, x);
+		z = rb_big_mul0(z, x);
+		bigtrunc(z);
 	    }
 	    return bignorm(z);
 	}
@@ -1648,11 +1694,11 @@ rb_big_and(xx, yy)
     }
     if (!RBIGNUM(y)->sign) {
 	y = rb_big_clone(y);
-	get2comp(y, Qtrue);
+	get2comp(y);
     }
     if (!RBIGNUM(x)->sign) {
 	x = rb_big_clone(x);
-	get2comp(x, Qtrue);
+	get2comp(x);
     }
     if (RBIGNUM(x)->len > RBIGNUM(y)->len) {
 	l1 = RBIGNUM(y)->len;
@@ -1677,7 +1723,7 @@ rb_big_and(xx, yy)
     for (; i<l2; i++) {
 	zds[i] = sign?0:ds2[i];
     }
-    if (!RBIGNUM(z)->sign) get2comp(z, Qfalse);
+    if (!RBIGNUM(z)->sign) get2comp(z);
     return bignorm(z);
 }
 
@@ -1702,14 +1748,13 @@ rb_big_or(xx, yy)
     if (FIXNUM_P(y)) {
 	y = rb_int2big(FIX2LONG(y));
     }
-
     if (!RBIGNUM(y)->sign) {
 	y = rb_big_clone(y);
-	get2comp(y, Qtrue);
+	get2comp(y);
     }
     if (!RBIGNUM(x)->sign) {
 	x = rb_big_clone(x);
-	get2comp(x, Qtrue);
+	get2comp(x);
     }
     if (RBIGNUM(x)->len > RBIGNUM(y)->len) {
 	l1 = RBIGNUM(y)->len;
@@ -1734,7 +1779,7 @@ rb_big_or(xx, yy)
     for (; i<l2; i++) {
 	zds[i] = sign?ds2[i]:(BIGRAD-1);
     }
-    if (!RBIGNUM(z)->sign) get2comp(z, Qfalse);
+    if (!RBIGNUM(z)->sign) get2comp(z);
 
     return bignorm(z);
 }
@@ -1761,14 +1806,13 @@ rb_big_xor(xx, yy)
     if (FIXNUM_P(y)) {
 	y = rb_int2big(FIX2LONG(y));
     }
-
     if (!RBIGNUM(y)->sign) {
 	y = rb_big_clone(y);
-	get2comp(y, Qtrue);
+	get2comp(y);
     }
     if (!RBIGNUM(x)->sign) {
 	x = rb_big_clone(x);
-	get2comp(x, Qtrue);
+	get2comp(x);
     }
     if (RBIGNUM(x)->len > RBIGNUM(y)->len) {
 	l1 = RBIGNUM(y)->len;
@@ -1795,7 +1839,7 @@ rb_big_xor(xx, yy)
     for (; i<l2; i++) {
 	zds[i] = sign?ds2[i]:~ds2[i];
     }
-    if (!RBIGNUM(z)->sign) get2comp(z, Qfalse);
+    if (!RBIGNUM(z)->sign) get2comp(z);
 
     return bignorm(z);
 }
@@ -1856,6 +1900,7 @@ rb_big_rshift(x, y)
     VALUE z;
     BDIGIT_DBL num = 0;
     long i, j;
+    volatile VALUE save_x;
 
     if (shift < 0) return rb_big_lshift(x, INT2FIX(-shift));
 
@@ -1866,11 +1911,15 @@ rb_big_rshift(x, y)
 	    return INT2FIX(-1);
     }
     if (!RBIGNUM(x)->sign) {
-	x = rb_big_clone(x);
-	get2comp(x, Qtrue);
+	save_x = x = rb_big_clone(x);
+	get2comp(x);
     }
     xds = BDIGITS(x);
     i = RBIGNUM(x)->len; j = i - s1;
+    if (j == 0) {
+	if (RBIGNUM(x)->sign) return INT2FIX(0);
+	else return INT2FIX(-1);
+    }
     z = bignew(j, RBIGNUM(x)->sign);
     if (!RBIGNUM(x)->sign) {
 	num = ((BDIGIT_DBL)~0) << BITSPERDIG;
@@ -1882,7 +1931,7 @@ rb_big_rshift(x, y)
 	num = BIGUP(xds[i]);
     }
     if (!RBIGNUM(x)->sign) {
-	get2comp(z, Qfalse);
+	get2comp(z);
     }
     return bignorm(z);
 }
@@ -1927,7 +1976,7 @@ rb_big_aref(x, y)
     if (!RBIGNUM(x)->sign) {
 	if (s1 >= RBIGNUM(x)->len) return INT2FIX(1);
 	x = rb_big_clone(x);
-	get2comp(x, Qtrue);
+	get2comp(x);
     }
     else {
 	if (s1 >= RBIGNUM(x)->len) return INT2FIX(0);
@@ -1970,8 +2019,11 @@ rb_big_coerce(x, y)
     if (FIXNUM_P(y)) {
 	return rb_assoc_new(rb_int2big(FIX2LONG(y)), x);
     }
+    else if (TYPE(y) == T_BIGNUM) {
+       return rb_assoc_new(y, x);
+    }
     else {
-	rb_raise(rb_eTypeError, "Can't coerce %s to Bignum",
+	rb_raise(rb_eTypeError, "can't coerce %s to Bignum",
 		 rb_obj_classname(y));
     }
     /* not reached */
@@ -2010,11 +2062,13 @@ rb_big_rand(max, rand_buf)
 	return rb_float_new(rand_buf[0]);
     }
     v = bignew(len,1);
+    len--;
+    BDIGITS(v)[len] = BDIGITS(max)[len] * rand_buf[len];    
     while (len--) {
 	BDIGITS(v)[len] = ((BDIGIT)~0) * rand_buf[len];
     }
 
-    return rb_big_modulo((VALUE)v, max);
+    return v;
 }
 
 /*

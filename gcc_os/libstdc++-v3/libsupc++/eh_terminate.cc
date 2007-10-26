@@ -42,6 +42,13 @@
 
 using namespace __cxxabiv1;
 
+/* APPLE LOCAL begin 4832917 */
+#ifdef __i386__
+#define _keymgr_get_per_thread_data(K) (NULL)
+#define _keymgr_set_per_thread_data(K, D) (0)
+#endif
+/* APPLE LOCAL end 4832917 */
+
 /* The current installed user handlers.  */
 std::terminate_handler __cxxabiv1::__terminate_handler = std::abort;
 std::unexpected_handler __cxxabiv1::__unexpected_handler = std::terminate;

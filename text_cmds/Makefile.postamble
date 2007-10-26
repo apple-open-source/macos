@@ -1,1 +1,8 @@
 include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+OSV = /usr/local/OpenSourceVersions
+OSL = /usr/local/OpenSourceLicenses
+
+after_install:
+	$(MKDIR) $(DSTROOT)$(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/text_cmds.plist $(DSTROOT)$(OSV)

@@ -1,3 +1,4 @@
+/*$Header: /src/pub/tcsh/win32/clip.c,v 1.7 2005/03/25 18:46:42 kim Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -155,7 +156,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
    return (0);
 }
 
-CCRETVAL e_copy_to_clipboard(int c) {
+CCRETVAL e_copy_to_clipboard(Char c) {
 	unsigned char *cbp;
 	Char *kp;
 	int err,len;
@@ -213,7 +214,7 @@ error:
 	CloseClipboard();
 	return (CC_ERROR);
 }
-CCRETVAL e_paste_from_clipboard(int c) {
+CCRETVAL e_paste_from_clipboard(Char c) {
 	HANDLE hclip;
 	unsigned char *cbp;
 	Char *cp;
@@ -461,10 +462,11 @@ HANDLE create_clip_reader_thread(void) {
 
 CCRETVAL
 e_dosify_next(c)
-    int c;
+    Char c;
 {
 	register Char *cp, *buf, *bp;
 	int len;
+    BOOL bDone = FALSE;
 
 
 	USE(c);
@@ -479,9 +481,9 @@ e_dosify_next(c)
 	len = 0;
 
 	while(  cp < LastChar) {
-		if ( (*cp & CHAR == ' ') && (cp[-1] & CHAR != '\\') )
-			break;
-		if ( ( *cp & CHAR ) == '/')  {
+		if ( ((*cp & CHAR) == ' ') && ((cp[-1] & CHAR) != '\\') )
+			bDone = TRUE;
+		if (!bDone &&  (*cp & CHAR) == '/')  {
 			*bp++ = '\\'  | (*cp & ~(*cp & CHAR) );
 			*bp++ = '\\'  | (*cp & ~(*cp & CHAR) );
 
@@ -507,14 +509,17 @@ e_dosify_next(c)
 
 	heap_free(buf);
 
-	Cursor = LastChar = cp;
+	Cursor =  cp;
+
+    if(LastChar < Cursor + len)
+        LastChar = Cursor + len;
 
 	return (CC_REFRESH);
 }
 /*ARGSUSED*/
 CCRETVAL
 e_dosify_prev(c)
-    int c;
+    Char c;
 {
 	register Char *cp;
 
@@ -533,13 +538,17 @@ e_dosify_prev(c)
 			break;
 		cp--;
 	}
-	Cursor = cp;
+	if(cp != InputBuf)
+	  Cursor = cp + 1;
+	else
+	  Cursor = cp;
+	
 	return e_dosify_next(0);
 }
 extern BOOL ConsolePageUpOrDown(BOOL);
 CCRETVAL
 e_page_up(c) //blukas@broadcom.com
-    int c;
+    Char c;
 {
     USE(c);
 	ConsolePageUpOrDown(TRUE);
@@ -547,7 +556,7 @@ e_page_up(c) //blukas@broadcom.com
 }
 CCRETVAL
 e_page_down(c)
-    int c;
+    Char c;
 {
     USE(c);
 	ConsolePageUpOrDown(FALSE);

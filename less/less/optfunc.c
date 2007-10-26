@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2002  Mark Nudelman
+ * Copyright (C) 1984-2005  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -37,6 +37,7 @@ extern int sc_height;
 extern int secure;
 extern int dohelp;
 extern int any_display;
+extern int less_is_more;
 extern char openquote;
 extern char closequote;
 extern char *prproto[];
@@ -45,6 +46,7 @@ extern char *hproto;
 extern char *wproto;
 extern IFILE curr_ifile;
 extern char version[];
+extern char *dashp_commands;
 #if LOGFILE
 extern char *namelogfile;
 extern int force_logfile;
@@ -201,10 +203,13 @@ opt_t(type, s)
 		}
 		findtag(skipsp(s));
 		save_ifile = save_curr_ifile();
-		if (edit_tagfile())
-			break;
-		if ((pos = tagsearch()) == NULL_POSITION)
+		/*
+		 * Try to open the file containing the tag
+		 * and search for the tag in that file.
+		 */
+		if (edit_tagfile() || (pos = tagsearch()) == NULL_POSITION)
 		{
+			/* Failed: reopen the old file. */
 			reedit_ifile(save_ifile);
 			break;
 		}
@@ -259,7 +264,12 @@ opt_p(type, s)
 		 */
 		plusoption = TRUE;
 		ungetsc(s);
-		ungetsc("/");
+		/*
+		 * In "more" mode, the -p argument is a command,
+		 * not a search string, so we don't need a slash.
+		 */
+		if (!less_is_more);
+			ungetsc("/");
 		break;
 	}
 }
@@ -367,7 +377,7 @@ opt__V(type, s)
 		any_display = 1;
 		putstr("less ");
 		putstr(version);
-		putstr("\nCopyright (C) 2002 Mark Nudelman\n\n");
+		putstr("\nCopyright (C) 1984-2005 Mark Nudelman\n\n");
 		putstr("less comes with NO WARRANTY, to the extent permitted by law.\n");
 		putstr("For information about the terms of redistribution,\n");
 		putstr("see the file named README in the less distribution.\n");
@@ -450,8 +460,8 @@ opt_D(type, s)
 		}
 		if (type == TOGGLE)
 		{
-			so_enter();
-			so_exit();
+			at_enter(AT_STANDOUT);
+			at_exit();
 		}
 		break;
 	case QUERY:
@@ -589,5 +599,15 @@ get_swindow()
 	if (swindow > 0)
 		return (swindow);
 	return (sc_height + swindow);
+}
+
+/* Following handler function is used in Unix 2003 override of -p option.  */
+
+	public void
+opt_dashp(type,s)
+	int type;
+	char *s;
+{
+	dashp_commands = s;
 }
 

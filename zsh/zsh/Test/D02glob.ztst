@@ -6,7 +6,9 @@
   mkdir glob.tmp/dir3/subdir
   : >glob.tmp/{,{dir1,dir2}/}{a,b,c}
 
-  globtest () { $ZTST_testdir/../Src/zsh -f $ZTST_srcdir/../Misc/$1 }
+  globtest () {
+    $ZTST_testdir/../Src/zsh -f $ZTST_srcdir/../Misc/$1
+  }
 
   regress_absolute_path_and_core_dump() {
     local absolute_dir=$(cd glob.tmp && pwd -P)
@@ -175,7 +177,6 @@
 >1:  [[ path/testy = *((#s)|/)test((#e)|/)* ]]
 >1:  [[ path/testy/ohyes = *((#s)|/)test((#e)|/)* ]]
 >1:  [[ path/atest/ohyes = *((#s)|/)test((#e)|/)* ]]
->0:  [[ björn = *[åäöÅÄÖ]* ]]
 >0 tests failed.
 
   globtest globtests.ksh
@@ -263,6 +264,10 @@
 >0:  [[ Modules = (#i)*m* ]]
 >0 tests failed.
 
+ (unsetopt multibyte
+ [[ björn = *[åäöÅÄÖ]* ]])
+0:single byte match with top bit set
+
   ( regress_absolute_path_and_core_dump )
 0:exclusions regression test
 >
@@ -279,6 +284,10 @@
  print glob.tmp/*(.e^'reply=( glob.tmp/*/${REPLY:t} )'^:t)
 0:Globbing used recursively (inside e glob qualifier)
 >a a b b c c
+
+ print glob.tmp/*/*(e:'reply=( glob.tmp/**/*([1]) )'::t)
+0:Recursive globbing used recursively (inside e glob qualifier)
+>a a a a a a a
 
  print glob.tmp/**/(:h) 
 0:Head modifier
@@ -317,3 +326,34 @@
  print ${foo%% #:*}
 0:Must-match arguments in complex patterns
 >this string has a
+
+ mkdir glob.tmp/ra=1.0_et=3.5
+ touch glob.tmp/ra=1.0_et=3.5/foo
+ print glob.tmp/ra=1.0_et=3.5/???
+0:Bug with intermediate paths with plain strings but tokenized characters
+>glob.tmp/ra=1.0_et=3.5/foo
+
+ doesmatch() {
+   setopt localoptions extendedglob
+   print -n $1 $2\ 
+   if [[ $1 = $~2 ]]; then print yes; else print no; fi;
+ }
+ doesmatch MY_IDENTIFIER '[[:IDENT:]]##'
+ doesmatch YOUR:IDENTIFIER '[[:IDENT:]]##'
+ IFS=$'\n' doesmatch $'\n' '[[:IFS:]]'
+ IFS=' ' doesmatch $'\n' '[[:IFS:]]'
+ IFS=':' doesmatch : '[[:IFSSPACE:]]'
+ IFS=' ' doesmatch ' ' '[[:IFSSPACE:]]'
+ WORDCHARS="" doesmatch / '[[:WORD:]]'
+ WORDCHARS="/" doesmatch / '[[:WORD:]]'
+0:Named character sets handled internally
+>MY_IDENTIFIER [[:IDENT:]]## yes
+>YOUR:IDENTIFIER [[:IDENT:]]## no
+>
+> [[:IFS:]] yes
+>
+> [[:IFS:]] no
+>: [[:IFSSPACE:]] no
+>  [[:IFSSPACE:]] yes
+>/ [[:WORD:]] no
+>/ [[:WORD:]] yes

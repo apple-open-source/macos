@@ -148,6 +148,10 @@ SOURCE=.\src\error.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\exithandle.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\expand_path.c
 # End Source File
 # Begin Source File
@@ -188,6 +192,10 @@ SOURCE=.\src\lock.c
 # End Source File
 # Begin Source File
 
+SOURCE=".\src\log-buffer.c"
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\log.c
 # End Source File
 # Begin Source File
@@ -197,6 +205,10 @@ SOURCE=.\src\login.c
 # Begin Source File
 
 SOURCE=.\src\logmsg.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\ls.c
 # End Source File
 # Begin Source File
 
@@ -272,6 +284,10 @@ SOURCE=.\src\root.c
 # End Source File
 # Begin Source File
 
+SOURCE=".\src\rsh-client.c"
+# End Source File
+# Begin Source File
+
 SOURCE=".\windows-NT\run.c"
 # End Source File
 # Begin Source File
@@ -285,6 +301,10 @@ SOURCE=.\src\server.c
 # Begin Source File
 
 SOURCE=".\windows-NT\sockerror.c"
+# End Source File
+# Begin Source File
+
+SOURCE=".\src\socket-client.c"
 # End Source File
 # Begin Source File
 
@@ -305,6 +325,10 @@ SOURCE=.\src\subr.c
 # Begin Source File
 
 SOURCE=.\src\tag.c
+# End Source File
+# Begin Source File
+
+SOURCE=".\windows-NT\unistd.c"
 # End Source File
 # Begin Source File
 
@@ -344,11 +368,27 @@ SOURCE=.\src\zlib.c
 # PROP Default_Filter "h;hpp;hxx;hm;inl;fi;fd"
 # Begin Source File
 
+SOURCE=.\lib\alloca.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\buffer.h
 # End Source File
 # Begin Source File
 
+SOURCE=".\lib\canon-host.h"
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\canonicalize.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\client.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\closeout.h
 # End Source File
 # Begin Source File
 
@@ -368,7 +408,19 @@ SOURCE=.\diff\diffrun.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\lib\dirname.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\edit.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\exit.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\exitfail.h
 # End Source File
 # Begin Source File
 
@@ -380,11 +432,43 @@ SOURCE=.\lib\fnmatch.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\lib\getdate.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\getdelim.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\lib\getline.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\lib\getnline.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\lib\getopt.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\getpagesize.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\getpass.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\gettext.h
+# End Source File
+# Begin Source File
+
+SOURCE=".\lib\glob-libc.h"
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\glob.h
 # End Source File
 # Begin Source File
 
@@ -424,7 +508,19 @@ SOURCE=".\windows-NT\JmgStat.h"
 # End Source File
 # Begin Source File
 
+SOURCE=".\src\log-buffer.h"
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\lstat.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\lib\md5.h
+# End Source File
+# Begin Source File
+
+SOURCE=".\src\ms-buffer.h"
 # End Source File
 # Begin Source File
 
@@ -436,7 +532,31 @@ SOURCE=".\windows-NT\ndir.h"
 # End Source File
 # Begin Source File
 
+SOURCE=.\lib\pagealign_alloc.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\parseinfo.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\pathmax.h
+# End Source File
+# Begin Source File
+
+SOURCE=".\lib\printf-args.h"
+# End Source File
+# Begin Source File
+
+SOURCE=".\lib\printf-parse.h"
+# End Source File
+# Begin Source File
+
 SOURCE=".\windows-NT\pwd.h"
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\quotearg.h
 # End Source File
 # Begin Source File
 
@@ -456,6 +576,14 @@ SOURCE=.\src\root.h
 # End Source File
 # Begin Source File
 
+SOURCE=".\src\rsh-client.h"
+# End Source File
+# Begin Source File
+
+SOURCE=".\lib\save-cwd.h"
+# End Source File
+# Begin Source File
+
 SOURCE=.\lib\savecwd.h
 # End Source File
 # Begin Source File
@@ -464,7 +592,39 @@ SOURCE=.\src\server.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\lib\setenv.h
+# End Source File
+# Begin Source File
+
+SOURCE=".\src\socket-client.h"
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\stack.h
+# End Source File
+# Begin Source File
+
+SOURCE=".\lib\stat-macros.h"
+# End Source File
+# Begin Source File
+
+SOURCE=".\windows-NT\stdbool.h"
+# End Source File
+# Begin Source File
+
+SOURCE=".\windows-NT\stdint.h"
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\strcase.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\strftime.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\subr.h
 # End Source File
 # Begin Source File
 
@@ -472,7 +632,27 @@ SOURCE=.\lib\system.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\lib\timespec.h
+# End Source File
+# Begin Source File
+
+SOURCE=".\windows-NT\unistd.h"
+# End Source File
+# Begin Source File
+
+SOURCE=".\lib\unlocked-io.h"
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\update.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\vasnprintf.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\vasprintf.h
 # End Source File
 # Begin Source File
 
@@ -484,11 +664,35 @@ SOURCE=.\src\watch.h
 # End Source File
 # Begin Source File
 
+SOURCE=".\windows-NT\woe32.h"
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\xalloc.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\xgetcwd.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\xgethostname.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\xreadlink.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\lib\xsize.h
 # End Source File
 # Begin Source File
 
 SOURCE=.\lib\xtime.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\yesno.h
 # End Source File
 # Begin Source File
 

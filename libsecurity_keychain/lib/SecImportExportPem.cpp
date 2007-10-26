@@ -210,7 +210,8 @@ static OSStatus impExpImportSinglePEM(
 			itemType = ph->itemType;
 			keyAlg   = ph->keyAlg;
 			SecImpInferDbg("impExpImportSinglePEM inferred form %s type %s alg %lu",
-				impExpExtFormatStr(format), impExpExtItemTypeStr(itemType), keyAlg);
+				impExpExtFormatStr(format), impExpExtItemTypeStr(itemType), 
+				(unsigned long)keyAlg);
 			break;
 		}
 		

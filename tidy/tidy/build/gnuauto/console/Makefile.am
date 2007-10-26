@@ -2,9 +2,9 @@
 #
 #  CVS Info :
 #
-#     $Author: rbraun $ 
-#     $Date: 2004/05/04 20:05:14 $ 
-#     $Revision: 1.1.1.1 $ 
+#     $Author: iccir $ 
+#     $Date: 2007/01/30 23:46:50 $ 
+#     $Revision: 1.3 $ 
 #
 #  Copyright (c) 1998-2003 World Wide Web Consortium
 #  (Massachusetts Institute of Technology, European Research 

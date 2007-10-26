@@ -15,7 +15,8 @@
 /*
 /*	match_parent_style() looks up "name" in the
 /*      parent_domain_matches_subdomain configuration parameter
-/*	and returns either MATCH_FLAG_PARENT or MATCH_PARENT_NONE.
+/*	and returns either MATCH_FLAG_PARENT (parent domain matches
+/*	subdomains) or MATCH_FLAG_NONE.
 /* DIAGNOSTICS
 /*	Fatal error: out of memory, name listed under both parent wild card
 /*	matching policies.
@@ -57,7 +58,7 @@ int     match_parent_style(const char *name)
     /*
      * Initialize on the fly.
      */
-    if (match_par_dom_list == 0) 
+    if (match_par_dom_list == 0)
 	match_par_dom_list =
 	    string_list_init(MATCH_FLAG_NONE, var_par_dom_match);
 

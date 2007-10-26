@@ -3,7 +3,7 @@
 # Class name: 	IncludeHash
 # Synopsis: 	Used by gatherHeaderDoc.pl to hold include info
 # Author: David Gatwood(dgatwood@apple.com)
-# Last Updated: $Date: 2004/10/07 17:29:41 $
+# Last Updated: $Date: 2007/04/24 23:34:16 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -31,10 +31,9 @@ package HeaderDoc::IncludeHash;
 
 use strict;
 use vars qw($VERSION @ISA);
-use HeaderDoc::Utilities qw(isKeyword parseTokens quote stringToFields);
-use HeaderDoc::BlockParse qw(blockParse nspaces);
+use HeaderDoc::Utilities qw(isKeyword quote stringToFields);
 
-$VERSION = '$Revision: 1.1.2.1 $';
+$VERSION = '$Revision: 1.1.2.3 $';
 ################ General Constants ###################################
 my $debugging = 0;
 

@@ -30,12 +30,12 @@
 extern void print_title(char *fmt, ...);
 #endif
 
-struct var {
+struct cgi_var {
 	char *name;
 	char *value;
 };
 
-static struct var variables[MAX_VARIABLES];
+static struct cgi_var variables[MAX_VARIABLES];
 static int num_variables;
 static int content_length;
 static int request_post;
@@ -59,7 +59,7 @@ static char *grab_line(FILE *f, int *cl)
 			char *ret2;
 			if (len == 0) len = 1024;
 			else len *= 2;
-			ret2 = (char *)SMB_REALLOC(ret, len);
+			ret2 = (char *)SMB_REALLOC_KEEP_OLD_ON_ERROR(ret, len);
 			if (!ret2) return ret;
 			ret = ret2;
 		}
@@ -80,8 +80,9 @@ static char *grab_line(FILE *f, int *cl)
 
 	}
 	
-
-	ret[i] = 0;
+	if (ret) {
+		ret[i] = 0;
+	}
 	return ret;
 }
 
@@ -223,6 +224,7 @@ void cgi_load_variables(void)
   browser. Also doesn't allow for variables[] containing multiple variables
   with the same name and the same or different values.
   ***************************************************************************/
+
 const char *cgi_variable(const char *name)
 {
 	int i;
@@ -231,6 +233,20 @@ const char *cgi_variable(const char *name)
 		if (strcmp(variables[i].name, name) == 0)
 			return variables[i].value;
 	return NULL;
+}
+
+/***************************************************************************
+ Version of the above that can't return a NULL pointer.
+***************************************************************************/
+
+const char *cgi_variable_nonull(const char *name)
+{
+	const char *var = cgi_variable(name);
+	if (var) {
+		return var;
+	} else {
+		return "";
+	}
 }
 
 /***************************************************************************
@@ -293,7 +309,7 @@ static void cgi_web_auth(void)
 		exit(0);
 	}
 
-	pwd = getpwnam_alloc(user);
+	pwd = getpwnam_alloc(NULL, user);
 	if (!pwd) {
 		printf("%sCannot find user %s<br>%s\n", head, user, tail);
 		exit(0);
@@ -306,7 +322,7 @@ static void cgi_web_auth(void)
 		       head, user, (int)geteuid(), (int)getuid(), tail);
 		exit(0);
 	}
-	passwd_free(&pwd);
+	TALLOC_FREE(pwd);
 }
 
 
@@ -346,7 +362,7 @@ static BOOL cgi_handle_authorization(char *line)
 	 * Try and get the user from the UNIX password file.
 	 */
 	
-	pass = getpwnam_alloc(user);
+	pass = getpwnam_alloc(NULL, user);
 	
 	/*
 	 * Validate the password they have given.
@@ -367,7 +383,7 @@ static BOOL cgi_handle_authorization(char *line)
 			
 			/* Save the users name */
 			C_user = SMB_STRDUP(user);
-			passwd_free(&pass);
+			TALLOC_FREE(pass);
 			return True;
 		}
 	}
@@ -377,7 +393,7 @@ err:
 			"WWW-Authenticate: Basic realm=\"SWAT\"\r\n",
 			"username or password incorrect");
 
-	passwd_free(&pass);
+	TALLOC_FREE(pass);
 	return False;
 }
 
@@ -457,6 +473,10 @@ static void cgi_download(char *file)
 			printf("Content-Type: image/gif\r\n");
 		} else if (strcmp(p,".jpg")==0) {
 			printf("Content-Type: image/jpeg\r\n");
+		} else if (strcmp(p,".png")==0) {
+			printf("Content-Type: image/png\r\n");
+		} else if (strcmp(p,".css")==0) {
+			printf("Content-Type: text/css\r\n");
 		} else if (strcmp(p,".txt")==0) {
 			printf("Content-Type: text/plain\r\n");
 		} else {

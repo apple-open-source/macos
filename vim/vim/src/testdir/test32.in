@@ -9,8 +9,8 @@ Test for insert expansion
 * i-add-expands and switches to local
 * add-expands lines (it would end in an empty line if it didn't ignored it self)
 :se cpt=kXtestfile
-* checks k-expansion, and file expansion; rename test11.out to avoid matching
-* it (on PC it may be upper case and matched first).
+* checks k-expansion, and file expansion (use Xtest11 instead of test11,
+* because TEST11.OUT may match first on DOS)
 :se cpt=w
 * checks make_cyclic in other window
 :se cpt=u nohid
@@ -22,7 +22,8 @@ Test for insert expansion
 
 STARTTEST
 :so small.vim
-:se nocp viminfo+=nviminfo cpt=.,w|$-2,$w!Xtestfile
+:se nocp viminfo+=nviminfo cpt=.,w ff=unix | $-2,$w!Xtestfile | set ff&
+:se cot=
 nO#include "Xtestfile"
 ru
 O
@@ -32,11 +33,9 @@ O
 kOM
 
 :se cpt=kXtestfile
-:!ren test11.out tt
-:!move test11.out tt
-O
-:!ren tt test11.out
-:!move tt test11.out
+:w Xtest11.one
+:w Xtest11.two
+OIXA
 :se cpt=w
 OST
 :se cpt=u nohid

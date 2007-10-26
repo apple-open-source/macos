@@ -1,6 +1,12 @@
 " Vim script to work like "less"
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2002 Aug 15
+" Last Change:	2006 May 07
+
+" Avoid loading this file twice, allow the user to define his own script.
+if exists("loaded_less")
+  finish
+endif
+let loaded_less = 1
 
 " If not reading from stdin, skip files that can't be read.
 " Exit if there is no file at all.
@@ -38,14 +44,17 @@ nohlsearch
 " Don't remember file names and positions
 set viminfo=
 set nows
+" Inhibit screen updates while searching
+let s:lz = &lz
+set lz
 
 " Used after each command: put cursor at end and display position
 if &wrap
-  noremap <SID>L L0:file<CR>
-  au VimEnter * normal L0
+  noremap <SID>L L0:redraw<CR>:file<CR>
+  au VimEnter * normal! L0
 else
-  noremap <SID>L Lg0:file<CR>
-  au VimEnter * normal Lg0
+  noremap <SID>L Lg0:redraw<CR>:file<CR>
+  au VimEnter * normal! Lg0
 endif
 
 " When reading from stdin don't consider the file modified.
@@ -64,7 +73,7 @@ fun! s:Help()
   echo "G         End of file               g         Start of file"
   echo "N%        percentage in file"
   echo "\n"
-  echo "/pattern  Search for pattern"
+  echo "/pattern  Search for pattern        ?pattern  Search backward for pattern"
   echo "n         next pattern match        N         Previous pattern match"
   echo "\n"
   echo ":n<Enter> Next file                 :p<Enter> Previous file"
@@ -143,17 +152,48 @@ map <Esc>> G
 noremap <script> % %<SID>L
 map p %
 
-" Next pattern
-noremap <script> n H$nzt<SID>L
-noremap <script> N HNzt<SID>L
+" Search
+noremap <script> / H$:call <SID>Forward()<CR>/
+if &wrap
+  noremap <script> ? H0:call <SID>Backward()<CR>?
+else
+  noremap <script> ? Hg0:call <SID>Backward()<CR>?
+endif
+
+fun! s:Forward()
+  " Searching forward
+  noremap <script> n H$nzt<SID>L
+  if &wrap
+    noremap <script> N H0Nzt<SID>L
+  else
+    noremap <script> N Hg0Nzt<SID>L
+  endif
+  cnoremap <script> <CR> <CR>:cunmap <lt>CR><CR>zt<SID>L
+endfun
+
+fun! s:Backward()
+  " Searching backward
+  if &wrap
+    noremap <script> n H0nzt<SID>L
+  else
+    noremap <script> n Hg0nzt<SID>L
+  endif
+  noremap <script> N H$Nzt<SID>L
+  cnoremap <script> <CR> <CR>:cunmap <lt>CR><CR>zt<SID>L
+endfun
+
+call s:Forward()
 
 " Quitting
 noremap q :q<CR>
 
 " Switch to editing (switch off less mode)
-map v :call <SID>End()<CR>
+map v :silent call <SID>End()<CR>
 fun! s:End()
   set ma
+  if exists('s:lz')
+    let &lz = s:lz
+  endif
   unmap h
   unmap H
   unmap <Space>
@@ -197,4 +237,8 @@ fun! s:End()
   unmap N
   unmap q
   unmap v
+  unmap /
+  unmap ?
 endfun
+
+" vim: sw=2

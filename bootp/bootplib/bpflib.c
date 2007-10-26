@@ -49,7 +49,7 @@ bpf_set_timeout(int fd, struct timeval * tv_p)
 }
 
 int 
-bpf_get_blen(int fd, u_int * blen)
+bpf_get_blen(int fd, int * blen)
 {
     return(ioctl(fd, BIOCGBLEN, blen));
 }
@@ -83,7 +83,7 @@ bpf_new()
 }
 
 int
-bpf_setif(int fd, char * en_name)
+bpf_setif(int fd, const char * en_name)
 {
     struct ifreq ifr;
 
@@ -107,7 +107,7 @@ bpf_filter_receive_none(int fd)
 
     prog.bf_len = sizeof(insns) / sizeof(struct bpf_insn);
     prog.bf_insns = insns;
-    return ioctl(fd, BIOCSETF, (u_int)&prog);
+    return ioctl(fd, BIOCSETF, &prog);
 }
 
 int
@@ -123,7 +123,7 @@ bpf_arp_filter(int fd, int type_offset, int type, int pkt_size)
 
     prog.bf_len = sizeof(insns) / sizeof(struct bpf_insn);
     prog.bf_insns = insns;
-    return ioctl(fd, BIOCSETF, (u_int)&prog);
+    return ioctl(fd, BIOCSETF, &prog);
 }
 
 int

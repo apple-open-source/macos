@@ -1,0 +1,210 @@
+Revision history for Perl extension DBD::SQLite.
+
+1.12
+	- Brought up to date with SQLite 3.3.5
+
+1.11
+    - Make blobs work transparently (without SQLBLOB binding)
+
+1.10
+    - Fix Unicode support (DOMQ)
+    - Support usleep on all Linux (inc. debian) (DOMQ)
+    - Upgrade to sqlite 3.2.7
+    - Document how to use BLOBS
+
+1.09
+    - Support external SQLite library (rjray)
+    - Don't convert things that look like numbers to numbers unless
+      specifically requested.
+    - Upgrade to sqlite 3.2.2
+
+1.08
+    - Support 64 bit integers (uses floating point numbers when perl is not 
+        compiled with 64 bit int support). This also fixes issues with using
+        sqlite timestamps.
+    - Upgrade to sqlite 3.1.3
+    - Fix issues of not finding rows when providing a number that perl sees as
+        a string.
+    - Fixes for most current bugs in RT (see http://rt.cpan.org/ to check if your
+      favourite bug got fixed).
+    
+1.07
+    - Fix for a memory leak (spotted by Joel Noble)
+    - Update to sqlite 3.0.8 (fixes bug on Solaris-sparc)
+
+1.06
+    - Resolve symbol conflicts on mac os x.
+    - Fix define in WriteMakefile lacking space.
+    - Fix DBI prereq in Makefile.PL
+    - Update to sqlite 3.0.7
+
+1.05
+    - Enabled HAVE_USLEEP where available which should massively
+      improve concurrent usage of DBD::SQLite
+    - Update to sqlite 3.0.6
+
+1.04
+    - Patched to make it compile on Windows (Steve Hay)
+    - Fetch next row at end of DBI's fetch() so that one-row
+      selects don't need to call ->finish(). This restores DBD::SQLite
+      0.31's behaviour (and should make popfile work again)
+    - last_insert_id will only work on DBI 1.43, so enforce that
+    - Use snprintf from sqlite library to improve portability
+
+1.03
+    - Update to sqlite 3.0.4
+    - More bug fixes
+    - Don't hang forever when db is BUSY
+    - Make trace macro work where vararg macros don't
+
+1.02
+    - Cleanup docs
+    - More bug fixes
+
+1.01
+    - Bug fixes
+    - Implement get_info
+
+1.00
+    - Port to sqlite3 API
+    - Support bind types SQL_BLOB, SQL_NUMBER, SQL_TEXT etc
+    - Support $dbh->last_insert_id()
+    - Added timeout API
+
+0.31
+    - Fixed a free() bug on Win32
+    - Silence warnings in test suite
+    - Updated to sqlite 2.8.12
+
+0.30
+    - Updated to sqlite 2.8.11
+    - A few minor bugs fixed
+
+0.29
+    - Updated to sqlite 2.8.7
+    - A number of bugs fixed
+
+0.28
+    - Perl 5.8.0 removed long deprecated SvOK_off()
+    - Aliases for perl_call_*
+    - Updated to sqlite 2.8.6
+    - use sqlite_freemem everywhere
+
+0.27
+    - Changed API to use sqlite streaming API. This makes things slightly
+      slower for large result sets, at the benefit of being more "sane"
+      internally.
+
+0.26
+    - Update to sqlite 2.8.5
+    - Automatic binary encoding added (via a flag)
+    - Better getsqlite.pl - now deals with new files
+    - Extension functions and aggregates can be created in
+      perl space now.
+
+0.25
+    - Fixed Makefile.PL to no longer try creating a .c file to determine
+      the OS ptrsize - use Config.pm directly in the DEFINE
+    - Major updates from Tim Bunce to bring DBD::SQLite in line with
+      the DBI spec and other drivers, including:
+      - Support for table_info_all() and primary_key_info()
+      - $sth->{NAME} updates
+      - execute() returns number of rows updated
+      - $dbh->{sqlite_version} returns the SQLite version in use
+      - $dbh->{sqlite_encoding} returns the SQLite encoding in use
+      - Improved trace debugging
+      - Improved error handling
+      (many MANY thanks to Tim for all these patches!)
+    - Updated to sqlite 2.8.0
+
+0.24
+    - Fixed major crash bug affecting Mac OS X
+    - Removed test.pl from distribution
+    - Upgraded to sqlite 2.7.6
+
+0.23
+    - Fixed unicode tests
+
+0.22
+    - Merge with sqlite 2.7.4
+
+0.21
+    - Ooops - forgot new opcodes files from MANIFEST
+
+0.20
+    - Port to SQLite 2.7.2
+    - Fixed bug in not freeing memory if you re-execute a $sth
+
+0.19
+    - Upgrade to SQLite 2.6.3 - this now allows databases to work across
+      different endian architectures.
+
+0.18
+    - Upgraded to SQLite 2.5.6 - All users are advised to upgrade
+      due to a corruption bug in SQLite 2.4.0 - 2.5.6
+
+0.17
+    - Upgraded to SQLite 2.5.3
+    - Fixed getsqlite.pl
+    
+0.16
+    - Upgraded to SQLite 2.5.0
+
+0.15
+    - Upgraded to SQLite 2.4.5
+
+0.14
+    - Added NoUTF8Flag option, so that returned strings don't get flagged
+      with SvUTF8_on() - needed when you're storing non-unicode in the database
+
+0.13
+    - Upgraded to SQLite 2.4.3
+    - Added script to download sqlite core library when it's upgraded
+
+0.12
+    - Upgraded to SQLite 2.4.2
+
+0.11
+    - Upgraded to SQLite 2.4.0, which adds views, subqueries, new builtin
+      functions, performance, and even sheds some weight
+    - Changed transaction support to only BEGIN TRAN when you execute some
+      SQL, which should improve locking problems.
+
+0.10
+    - Fixed missing SQLiteXS.h from 0.09
+
+0.09
+    - Updated to SQLite 2.3.3, and some file cleanups to make that easier
+      next time.
+
+0.08
+    - Last of the mem leaks fixed
+    - Doc fix on last_insert_rowid
+
+0.07
+    - Memory leak fixes (though still leaks some, beware)
+    - Some API cleanups and test cleanups
+    - Added last_insert_rowid() method and docs
+
+0.06
+    - Win32 and 5.00404 build fixes
+    - Added some more performance tests to test.pl
+    - Make sure to set $sth->{Active} only on selects
+
+0.05
+    - Added all DBD::CSV tests (ported, of course)
+    - Fixed bugs that the above revealed.
+
+0.04
+    - Fix multiple placeholders bug
+
+0.03
+    - Fixed multiple execute on single $sth
+
+0.02
+    - Fixed transactions
+
+0.01  Sat Feb 16 16:10:42 2002
+    - original version; created by h2xs 1.20 with options
+        -A -X -n DBD::SQLite
+

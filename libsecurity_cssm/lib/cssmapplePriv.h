@@ -32,10 +32,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+ 
 /* 
  * Options for X509TP's CSSM_TP_CertGroupVerify for policy 
- * CSSMAPPLE_TP_REVOCATION_OCSP. A pointer to, and length of, one 
+ * CSSMOID_APPLE_TP_REVOCATION_OCSP. A pointer to, and length of, one 
  * of these is optionally placed in 
  * CSSM_TP_VERIFY_CONTEXT.Cred->Policy.PolicyIds[n].FieldValue.
  */
@@ -63,6 +63,13 @@ enum {
 	CSSM_TP_OCSP_REQUIRE_RESP_NONCE					= 0x00000080
 };
 
+typedef struct {
+	uint32							Version;	
+	CSSM_APPLE_TP_OCSP_OPT_FLAGS	Flags;
+	CSSM_DATA_PTR					LocalResponder;		/* URI */
+	CSSM_DATA_PTR					LocalResponderCert;	/* X509 DER encoded cert */
+} CSSM_APPLE_TP_OCSP_OPTIONS;
+
 enum
 {
 	/* Given a "master" and dependent keychain, make the dependent "syncable" to the master's secrets */
@@ -87,15 +94,9 @@ enum
 	CSSM_APPLECSPDL_DB_CONVERT_RECORD_IDENTIFIER = CSSM_APPLE_PRIVATE_CSPDL_CODE_14,
 	
 	// create the default records in a "blank" database
-	CSSM_APPLECSPDL_DB_CREATE_WITH_BLOB = CSSM_APPLE_PRIVATE_CSPDL_CODE_15,
-};
+	CSSM_APPLECSPDL_DB_CREATE_WITH_BLOB = CSSM_APPLE_PRIVATE_CSPDL_CODE_15
 
-typedef struct {
-	uint32							Version;	
-	CSSM_APPLE_TP_OCSP_OPT_FLAGS	Flags;
-	CSSM_DATA_PTR					LocalResponder;		/* URI */
-	CSSM_DATA_PTR					LocalResponderCert;	/* X509 DER encoded cert */
-} CSSM_APPLE_TP_OCSP_OPTIONS;
+};
 
 /* AppleCSPDL passthrough parameters */
 typedef struct cssm_applecspdl_db_recode_parameters
@@ -141,18 +142,6 @@ typedef struct cssm_applecspdl_db_create_with_blob_parameters
 	const void *openParameters;
 	const CSSM_DATA *blob;
 } CSSM_APPLE_CSPDL_DB_CREATE_WITH_BLOB_PARAMETERS;
-
-// extra information for resource signing
-extern const CSSM_OID CSSMOID_APPLE_TP_RESOURCE_SIGN;
-extern const CSSM_OID CSSMOID_APPLE_EKU_RESOURCE_SIGNING;
-
-enum
-{
-	/* Illegal cert chain length for Resource Signing */
-	CSSMERR_APPLETP_RS_BAD_CERT_CHAIN_LENGTH = CSSM_TP_PRIVATE_ERROR + 52,
-	/* bad extended key usage for Resource Signing */
-	CSSMERR_APPLETP_RS_BAD_EXTENDED_KEY_USAGE = CSSM_TP_PRIVATE_ERROR + 53
-};
 
 #ifdef __cplusplus
 }

@@ -40,31 +40,31 @@ extern "C" {
 /* 
  * General purpose allocators
  */
-void *sslMalloc(UInt32 length);
+void *sslMalloc(size_t length);
 void sslFree(void *p);
-void *sslRealloc(void *oldPtr, UInt32 oldLen, UInt32 newLen);
+void *sslRealloc(void *oldPtr, size_t oldLen, size_t newLen);
 
 /*
  * SSLBuffer-oriented allocators
  */
-OSStatus SSLAllocBuffer(SSLBuffer &buf, UInt32 length, const SSLContext *ctx);
-OSStatus SSLFreeBuffer(SSLBuffer &buf, const SSLContext *ctx);
-OSStatus SSLReallocBuffer(SSLBuffer &buf, UInt32 newSize, const SSLContext *ctx);
+OSStatus SSLAllocBuffer(SSLBuffer *buf, size_t length, const SSLContext *ctx);
+OSStatus SSLFreeBuffer(SSLBuffer *buf, const SSLContext *ctx);
+OSStatus SSLReallocBuffer(SSLBuffer *buf, size_t newSize, const SSLContext *ctx);
 
 /*
  * Convenience routines
  */
-UInt8 *sslAllocCopy(const UInt8 *src, UInt32 len);
+UInt8 *sslAllocCopy(const UInt8 *src, size_t len);
 OSStatus SSLAllocCopyBuffer(
-	const SSLBuffer &src, 
+	const SSLBuffer *src, 
 	SSLBuffer **dst);		// buffer itself and data mallocd and returned 
 OSStatus SSLCopyBufferFromData(
 	const void *src,
-	UInt32 len,
-	SSLBuffer &dst);		// data mallocd and returned 
+	size_t len,
+	SSLBuffer *dst);		// data mallocd and returned 
 OSStatus SSLCopyBuffer(
-	const SSLBuffer &src, 
-	SSLBuffer &dst);		// data mallocd and returned 
+	const SSLBuffer *src, 
+	SSLBuffer *dst);		// data mallocd and returned 
 
 #ifdef __cplusplus
 }

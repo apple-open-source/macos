@@ -1,7 +1,7 @@
 /* Definitions for values of C expressions, for GDB.
 
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
-   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -25,6 +25,22 @@
 #define VALUE_H 1
 
 #include "doublest.h"
+
+/* APPLE LOCAL: For check_safe_call.  */
+#include "gdb_regex.h"
+
+/* APPLE LOCAL begin variable opt states.  */
+/* These are the various states of a variable whose value may be currently
+   unavailable.  */
+enum opt_state 
+{
+  opt_okay = 0, /* Variable's value is currently available.                    */
+  opt_away,     /* Variable was completely optimized away by the compiler.     */
+  opt_evicted,  /* Variable is TEMPORARILY unavailable (probably overwritten). */
+  opt_other     /* Variable's value is not available; not sure why.            */
+};
+/* APPLE LOCAL end variable opt states.  */
+
 #include "frame.h"		/* For struct frame_id.  */
 
 struct block;
@@ -39,206 +55,197 @@ struct ui_file;
    inferior (i.e. to be put into the history list or an internal
    variable).  */
 
-struct value
-{
-  /* Type of value; either not an lval, or one of the various
-     different possible kinds of lval.  */
-  enum lval_type lval;
+struct value;
+/* APPLE LOCAL value caching */
+struct cached_value;
 
-  /* Is it modifiable?  Only relevant if lval != not_lval.  */
-  int modifiable;
+/* APPLE LOCAL: This is the function that clears out the cached strings
+   in the target.  */
+void value_clear_inferior_string_pool (void);
 
-  /* Location of value (if lval).  */
-  union
-  {
-    /* If lval == lval_memory, this is the address in the inferior.
-       If lval == lval_register, this is the byte offset into the
-       registers structure.  */
-    CORE_ADDR address;
+/* Values are stored in a chain, so that they can be deleted easily
+   over calls to the inferior.  Values assigned to internal variables
+   or put into the value history are taken off this list.  */
 
-    /* Pointer to internal variable.  */
-    struct internalvar *internalvar;
+struct value *value_next (struct value *);
 
-    /* Number of register.  Only used with lval_reg_frame_relative.  */
-    int regnum;
-  } location;
+/* Type of the value.  */
 
-  /* Describes offset of a value within lval of a structure in bytes.
-     If lval == lval_memory, this is an offset to the address.
-     If lval == lval_register, this is a further offset from
-     location.address within the registers structure.  
-     Note also the member embedded_offset below.  */
-  int offset;
+extern struct type *value_type (struct value *);
 
-  /* Only used for bitfields; number of bits contained in them.  */
-  int bitsize;
+/* This is being used to change the type of an existing value, that
+   code should instead be creating a new value with the changed type
+   (but possibly shared content).  */
 
-  /* Only used for bitfields; position of start of field.
-     For BITS_BIG_ENDIAN=0 targets, it is the position of the LSB.
-     For BITS_BIG_ENDIAN=1 targets, it is the position of the MSB. */
-    int bitpos;
+extern void deprecated_set_value_type (struct value *value,
+				       struct type *type);
 
-  /* Frame value is relative to.  In practice, this ID is only used if
-     the value is stored in several registers in other than the
-     current frame, and these registers have not all been saved at the
-     same place in memory.  This will be described in the lval enum
-     above as "lval_reg_frame_relative".  */
-  struct frame_id frame_id;
+/* Only used for bitfields; number of bits contained in them.  */
 
-  /* Type of the value.  */
-  struct type *type;
+extern int value_bitsize (struct value *);
+extern void set_value_bitsize (struct value *, int bit);
 
-  /* If a value represents a C++ object, then the `type' field gives
-     the object's compile-time type.  If the object actually belongs
-     to some class derived from `type', perhaps with other base
-     classes and additional members, then `type' is just a subobject
-     of the real thing, and the full object is probably larger than
-     `type' would suggest.
+/* Only used for bitfields; position of start of field.  For
+   BITS_BIG_ENDIAN=0 targets, it is the position of the LSB.  For
+   BITS_BIG_ENDIAN=1 targets, it is the position of the MSB.  */
 
-     If `type' is a dynamic class (i.e. one with a vtable), then GDB
-     can actually determine the object's run-time type by looking at
-     the run-time type information in the vtable.  When this
-     information is available, we may elect to read in the entire
-     object, for several reasons:
+extern int value_bitpos (struct value *);
+extern void set_value_bitpos (struct value *, int bit);
 
-     - When printing the value, the user would probably rather see the
-       full object, not just the limited portion apparent from the
-       compile-time type.
+/* Describes offset of a value within lval of a structure in bytes.
+   If lval == lval_memory, this is an offset to the address.  If lval
+   == lval_register, this is a further offset from location.address
+   within the registers structure.  Note also the member
+   embedded_offset below.  */
 
-     - If `type' has virtual base classes, then even printing `type'
-       alone may require reaching outside the `type' portion of the
-       object to wherever the virtual base class has been stored.
+extern int value_offset (struct value *);
+extern void set_value_offset (struct value *, int offset);
 
-     When we store the entire object, `enclosing_type' is the run-time
-     type -- the complete object -- and `embedded_offset' is the
-     offset of `type' within that larger type, in bytes.  The
-     VALUE_CONTENTS macro takes `embedded_offset' into account, so
-     most GDB code continues to see the `type' portion of the value,
-     just as the inferior would.
+/* The comment from "struct value" reads: ``Is it modifiable?  Only
+   relevant if lval != not_lval.''.  Shouldn't the value instead be
+   not_lval and be done with it?  */
 
-     If `type' is a pointer to an object, then `enclosing_type' is a
-     pointer to the object's run-time type, and `pointed_to_offset' is
-     the offset in bytes from the full object to the pointed-to object
-     -- that is, the value `embedded_offset' would have if we
-     followed the pointer and fetched the complete object.  (I don't
-     really see the point.  Why not just determine the run-time type
-     when you indirect, and avoid the special case?  The contents
-     don't matter until you indirect anyway.)
+extern int deprecated_value_modifiable (struct value *value);
+extern void deprecated_set_value_modifiable (struct value *value,
+					     int modifiable);
 
-     If we're not doing anything fancy, `enclosing_type' is equal to
-     `type', and `embedded_offset' is zero, so everything works
-     normally.  */
-    struct type *enclosing_type;
-    int embedded_offset;
-    int pointed_to_offset;
+/* If a value represents a C++ object, then the `type' field gives the
+   object's compile-time type.  If the object actually belongs to some
+   class derived from `type', perhaps with other base classes and
+   additional members, then `type' is just a subobject of the real
+   thing, and the full object is probably larger than `type' would
+   suggest.
 
-    /* Values are stored in a chain, so that they can be deleted
-       easily over calls to the inferior.  Values assigned to internal
-       variables or put into the value history are taken off this
-       list.  */
-    struct value *next;
+   If `type' is a dynamic class (i.e. one with a vtable), then GDB can
+   actually determine the object's run-time type by looking at the
+   run-time type information in the vtable.  When this information is
+   available, we may elect to read in the entire object, for several
+   reasons:
 
-    /* Register number if the value is from a register.  */
-    short regno;
+   - When printing the value, the user would probably rather see the
+     full object, not just the limited portion apparent from the
+     compile-time type.
 
-    /* If zero, contents of this value are in the contents field.  If
-       nonzero, contents are in inferior memory at address in the
-       location.address field plus the offset field (and the lval
-       field should be lval_memory).
+   - If `type' has virtual base classes, then even printing `type'
+     alone may require reaching outside the `type' portion of the
+     object to wherever the virtual base class has been stored.
 
-       WARNING: This field is used by the code which handles
-       watchpoints (see breakpoint.c) to decide whether a particular
-       value can be watched by hardware watchpoints.  If the lazy flag
-       is set for some member of a value chain, it is assumed that
-       this member of the chain doesn't need to be watched as part of
-       watching the value itself.  This is how GDB avoids watching the
-       entire struct or array when the user wants to watch a single
-       struct member or array element.  If you ever change the way
-       lazy flag is set and reset, be sure to consider this use as
-       well!  */
-    char lazy;
+   When we store the entire object, `enclosing_type' is the run-time
+   type -- the complete object -- and `embedded_offset' is the offset
+   of `type' within that larger type, in bytes.  The value_contents()
+   macro takes `embedded_offset' into account, so most GDB code
+   continues to see the `type' portion of the value, just as the
+   inferior would.
 
-    /* If nonzero, this is the value of a variable which does not
-       actually exist in the program.  */
-    char optimized_out;
+   If `type' is a pointer to an object, then `enclosing_type' is a
+   pointer to the object's run-time type, and `pointed_to_offset' is
+   the offset in bytes from the full object to the pointed-to object
+   -- that is, the value `embedded_offset' would have if we followed
+   the pointer and fetched the complete object.  (I don't really see
+   the point.  Why not just determine the run-time type when you
+   indirect, and avoid the special case?  The contents don't matter
+   until you indirect anyway.)
 
-    /* The BFD section associated with this value.  */
-    asection *bfd_section;
+   If we're not doing anything fancy, `enclosing_type' is equal to
+   `type', and `embedded_offset' is zero, so everything works
+   normally.  */
 
-    /* Actual contents of the value.  For use of this value; setting
-       it uses the stuff above.  Not valid if lazy is nonzero.
-       Target byte-order.  We force it to be aligned properly for any
-       possible value.  Note that a value therefore extends beyond
-       what is declared here.  */
-    union
-    {
-      long contents[1];
-      DOUBLEST force_doublest_align;
-      LONGEST force_longest_align;
-      CORE_ADDR force_core_addr_align;
-      void *force_pointer_align;
-    } aligner;
-    /* Do not add any new members here -- contents above will trash them.  */
-};
+extern struct type *value_enclosing_type (struct value *);
+extern struct value *value_change_enclosing_type (struct value *val,
+						  struct type *new_type);
+extern int value_pointed_to_offset (struct value *value);
+extern void set_value_pointed_to_offset (struct value *value, int val);
+extern int value_embedded_offset (struct value *value);
+extern void set_value_embedded_offset (struct value *value, int val);
 
-#define VALUE_TYPE(val) (val)->type
-#define VALUE_ENCLOSING_TYPE(val) (val)->enclosing_type
-#define VALUE_LAZY(val) (val)->lazy
+/* If zero, contents of this value are in the contents field.  If
+   nonzero, contents are in inferior memory at address in the
+   location.address field plus the offset field (and the lval field
+   should be lval_memory).
 
-/* VALUE_CONTENTS and VALUE_CONTENTS_RAW both return the address of
-   the gdb buffer used to hold a copy of the contents of the lval.
-   VALUE_CONTENTS is used when the contents of the buffer are needed
+   WARNING: This field is used by the code which handles watchpoints
+   (see breakpoint.c) to decide whether a particular value can be
+   watched by hardware watchpoints.  If the lazy flag is set for some
+   member of a value chain, it is assumed that this member of the
+   chain doesn't need to be watched as part of watching the value
+   itself.  This is how GDB avoids watching the entire struct or array
+   when the user wants to watch a single struct member or array
+   element.  If you ever change the way lazy flag is set and reset, be
+   sure to consider this use as well!  */
+
+extern int value_lazy (struct value *);
+extern void set_value_lazy (struct value *value, int val);
+
+/* value_contents() and value_contents_raw() both return the address
+   of the gdb buffer used to hold a copy of the contents of the lval.
+   value_contents() is used when the contents of the buffer are needed
    -- it uses value_fetch_lazy() to load the buffer from the process
-   being debugged if it hasn't already been loaded.
-   VALUE_CONTENTS_RAW is used when data is being stored into the
-   buffer, or when it is certain that the contents of the buffer are
-   valid.
+   being debugged if it hasn't already been loaded
+   (value_contents_writeable() is used when a writeable but fetched
+   buffer is required)..  value_contents_raw() is used when data is
+   being stored into the buffer, or when it is certain that the
+   contents of the buffer are valid.
 
    Note: The contents pointer is adjusted by the offset required to
    get to the real subobject, if the value happens to represent
    something embedded in a larger run-time object.  */
 
-#define VALUE_CONTENTS_RAW(val) \
- ((char *) (val)->aligner.contents + (val)->embedded_offset)
-#define VALUE_CONTENTS(val) \
- ((void)(VALUE_LAZY(val) && value_fetch_lazy(val)), VALUE_CONTENTS_RAW(val))
+extern gdb_byte *value_contents_raw (struct value *);
+
+/* Actual contents of the value.  For use of this value; setting it
+   uses the stuff above.  Not valid if lazy is nonzero.  Target
+   byte-order.  We force it to be aligned properly for any possible
+   value.  Note that a value therefore extends beyond what is
+   declared here.  */
+
+extern const gdb_byte *value_contents (struct value *);
+extern gdb_byte *value_contents_writeable (struct value *);
 
 /* The ALL variants of the above two macros do not adjust the returned
    pointer by the embedded_offset value.  */
 
-#define VALUE_CONTENTS_ALL_RAW(val) ((char *) (val)->aligner.contents)
-#define VALUE_CONTENTS_ALL(val) \
-  ((void) (VALUE_LAZY(val) && value_fetch_lazy(val)), \
-   VALUE_CONTENTS_ALL_RAW(val))
+extern gdb_byte *value_contents_all_raw (struct value *);
+extern const gdb_byte *value_contents_all (struct value *);
 
 extern int value_fetch_lazy (struct value *val);
+extern int value_contents_equal (struct value *val1, struct value *val2);
 
-#define VALUE_LVAL(val) (val)->lval
-#define VALUE_ADDRESS(val) (val)->location.address
-#define VALUE_INTERNALVAR(val) (val)->location.internalvar
-#define VALUE_FRAME_REGNUM(val) ((val)->location.regnum)
-#define VALUE_FRAME_ID(val) ((val)->frame_id)
-#define VALUE_OFFSET(val) (val)->offset
-#define VALUE_BITSIZE(val) (val)->bitsize
-#define VALUE_BITPOS(val) (val)->bitpos
-#define VALUE_NEXT(val) (val)->next
-#define VALUE_REGNO(val) (val)->regno
-#define VALUE_OPTIMIZED_OUT(val) ((val)->optimized_out)
-#define VALUE_EMBEDDED_OFFSET(val) ((val)->embedded_offset)
-#define VALUE_POINTED_TO_OFFSET(val) ((val)->pointed_to_offset)
-#define VALUE_BFD_SECTION(val) ((val)->bfd_section)
+/* APPLE LOCAL begin variable opt states.  */
+/* Get & set the opt-state for a variable whose value may not be available.  */
+extern enum opt_state value_optimized_out (struct value *value);
+extern void set_value_optimized_out (struct value *value, enum opt_state val);
+/* APPLE LOCAL end varaiable opt states.  */
+
+/* While the following fields are per- VALUE .CONTENT .PIECE (i.e., a
+   single value might have multiple LVALs), this hacked interface is
+   limited to just the first PIECE.  Expect further change.  */
+/* Type of value; either not an lval, or one of the various different
+   possible kinds of lval.  */
+extern enum lval_type *deprecated_value_lval_hack (struct value *);
+#define VALUE_LVAL(val) (*deprecated_value_lval_hack (val))
+
+/* If lval == lval_memory, this is the address in the inferior.  If
+   lval == lval_register, this is the byte offset into the registers
+   structure.  */
+extern CORE_ADDR *deprecated_value_address_hack (struct value *);
+#define VALUE_ADDRESS(val) (*deprecated_value_address_hack (val))
+
+/* Pointer to internal variable.  */
+extern struct internalvar **deprecated_value_internalvar_hack (struct value *);
+#define VALUE_INTERNALVAR(val) (*deprecated_value_internalvar_hack (val))
+
+/* Frame register value is relative to.  This will be described in the
+   lval enum above as "lval_register".  */
+extern struct frame_id *deprecated_value_frame_id_hack (struct value *);
+#define VALUE_FRAME_ID(val) (*deprecated_value_frame_id_hack (val))
+
+/* Register number if the value is from a register.  */
+extern short *deprecated_value_regnum_hack (struct value *);
+#define VALUE_REGNUM(val) (*deprecated_value_regnum_hack (val))
 
 /* Convert a REF to the object referenced.  */
 
-#define COERCE_REF(arg) \
-  do {									\
-    struct type *value_type_arg_tmp = check_typedef (VALUE_TYPE (arg));	\
-    if (TYPE_CODE (value_type_arg_tmp) == TYPE_CODE_REF)		\
-      arg = value_at_lazy (TYPE_TARGET_TYPE (value_type_arg_tmp),	\
-                           unpack_pointer (VALUE_TYPE (arg),		\
-                                           VALUE_CONTENTS (arg)),	\
-			                   VALUE_BFD_SECTION (arg));	\
-  } while (0)
+extern struct value *coerce_ref (struct value *value);
 
 /* If ARG is an array, convert it to a pointer.
    If ARG is an enum, convert it to an integer.
@@ -246,30 +253,12 @@ extern int value_fetch_lazy (struct value *val);
 
    References are dereferenced.  */
 
-#define COERCE_ARRAY(arg) \
-  do {									\
-    COERCE_REF(arg);							\
-    if (current_language->c_style_arrays				\
-        && TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_ARRAY)		\
-      arg = value_coerce_array (arg);					\
-    if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_FUNC)			\
-      arg = value_coerce_function (arg);				\
-  } while (0)
-
-#define COERCE_NUMBER(arg) \
-  do { COERCE_ARRAY(arg); COERCE_ENUM(arg); } while (0)
-
-/* NOTE: cagney/2002-12-17: This macro was handling a chill language
-   problem but that language has gone away.  */
-#define COERCE_VARYING_ARRAY(arg, real_arg_type)
+extern struct value *coerce_array (struct value *value);
+extern struct value *coerce_number (struct value *value);
 
 /* If ARG is an enum, convert it to an integer.  */
 
-#define COERCE_ENUM(arg) \
-  do {									\
-    if (TYPE_CODE (check_typedef (VALUE_TYPE (arg))) == TYPE_CODE_ENUM)	\
-      arg = value_cast (builtin_type_unsigned_int, arg);		\
-  } while (0)
+extern struct value *coerce_enum (struct value *value);
 
 /* Internal variables (variables for convenience of use of debugger)
    are recorded as a chain of these structures.  */
@@ -309,11 +298,12 @@ extern LONGEST value_as_long (struct value *val);
 extern DOUBLEST value_as_double (struct value *val);
 extern CORE_ADDR value_as_address (struct value *val);
 
-extern LONGEST unpack_long (struct type *type, const char *valaddr);
-extern DOUBLEST unpack_double (struct type *type, const char *valaddr,
+extern LONGEST unpack_long (struct type *type, const gdb_byte *valaddr);
+extern DOUBLEST unpack_double (struct type *type, const gdb_byte *valaddr,
 			       int *invp);
-extern CORE_ADDR unpack_pointer (struct type *type, const char *valaddr);
-extern LONGEST unpack_field_as_long (struct type *type, const char *valaddr,
+extern CORE_ADDR unpack_pointer (struct type *type, const gdb_byte *valaddr);
+extern LONGEST unpack_field_as_long (struct type *type,
+				     const gdb_byte *valaddr,
 				     int fieldno);
 
 extern struct value *value_from_longest (struct type *type, LONGEST num);
@@ -321,18 +311,15 @@ extern struct value *value_from_pointer (struct type *type, CORE_ADDR addr);
 extern struct value *value_from_double (struct type *type, DOUBLEST num);
 extern struct value *value_from_string (char *string);
 
-extern struct value *value_at (struct type *type, CORE_ADDR addr,
-			       asection * sect);
-extern struct value *value_at_lazy (struct type *type, CORE_ADDR addr,
-				    asection * sect);
+extern struct value *value_at (struct type *type, CORE_ADDR addr);
+extern struct value *value_at_lazy (struct type *type, CORE_ADDR addr);
 
 extern struct value *value_from_register (struct type *type, int regnum,
 					  struct frame_info *frame);
 
 extern struct value *value_of_variable (struct symbol *var, struct block *b);
 
-extern struct value *value_of_register (int regnum,
-					struct frame_info *frame);
+extern struct value *value_of_register (int regnum, struct frame_info *frame);
 
 extern int symbol_read_needs_frame (struct symbol *);
 
@@ -346,9 +333,6 @@ extern struct value *allocate_value (struct type *type);
 
 extern struct value *allocate_repeat_value (struct type *type, int count);
 
-extern struct value *value_change_enclosing_type (struct value *val,
-						  struct type *new_type);
-
 extern struct value *value_mark (void);
 
 extern void value_free_to_mark (struct value *mark);
@@ -357,7 +341,7 @@ extern struct value *value_string (char *ptr, int len);
 extern struct value *value_bitstring (char *ptr, int len);
 
 extern struct value *value_array (int lowbound, int highbound,
-				  struct value ** elemvec);
+				  struct value **elemvec);
 
 extern struct value *value_concat (struct value *arg1, struct value *arg2);
 
@@ -376,7 +360,10 @@ extern struct value *value_ind (struct value *arg1);
 
 extern struct value *value_addr (struct value *arg1);
 
-extern struct value *value_assign (struct value *toval, struct value *fromval);
+extern struct value *value_assign (struct value *toval,
+				   struct value *fromval);
+
+extern struct value *value_pos (struct value *arg1);
 
 extern struct value *value_neg (struct value *arg1);
 
@@ -388,8 +375,7 @@ extern struct value *value_struct_elt (struct value **argp,
 				       char *err);
 
 extern struct value *value_aggregate_elt (struct type *curtype,
-					  char *name,
-					  enum noside noside);
+					  char *name, enum noside noside);
 
 extern struct value *value_static_field (struct type *type, int fieldno);
 
@@ -429,7 +415,8 @@ extern struct value *register_value_being_returned (struct type *valtype,
 
 extern struct value *value_in (struct value *element, struct value *set);
 
-extern int value_bit_index (struct type *type, char *addr, int index);
+extern int value_bit_index (struct type *type, const gdb_byte *addr,
+			    int index);
 
 extern int using_struct_return (struct type *value_type, int gcc_p);
 
@@ -483,7 +470,7 @@ extern struct value *value_x_binop (struct value *arg1, struct value *arg2,
 extern struct value *value_x_unop (struct value *arg1, enum exp_opcode op,
 				   enum noside noside);
 
-extern struct value *value_fn_field (struct value ** arg1p, struct fn_field *f,
+extern struct value *value_fn_field (struct value **arg1p, struct fn_field *f,
 				     int j, struct type *type, int offset);
 
 extern int binop_user_defined_p (enum exp_opcode op, struct value *arg1,
@@ -501,22 +488,24 @@ extern void release_value (struct value *val);
 
 extern int record_latest_value (struct value *val);
 
-extern void modify_field (char *addr, LONGEST fieldval, int bitpos,
+extern void modify_field (gdb_byte *addr, LONGEST fieldval, int bitpos,
 			  int bitsize);
 
-extern void type_print (struct type * type, char *varstring,
-			struct ui_file * stream, int show);
+extern void type_print (struct type *type, char *varstring,
+			struct ui_file *stream, int show);
+
 
 extern char *type_sprint (struct type *type, char *varstring, int show);
 
-extern char *baseclass_addr (struct type *type, int index, char *valaddr,
-			     struct value **valuep, int *errp);
+extern gdb_byte *baseclass_addr (struct type *type, int index,
+				 gdb_byte *valaddr,
+				 struct value **valuep, int *errp);
 
-extern void print_longest (struct ui_file * stream, int format,
+extern void print_longest (struct ui_file *stream, int format,
 			   int use_local, LONGEST val);
 
-extern void print_floating (char *valaddr, struct type * type,
-			    struct ui_file * stream);
+extern void print_floating (const gdb_byte *valaddr, struct type *type,
+			    struct ui_file *stream);
 
 extern int value_print (struct value *val, struct ui_file *stream, int format,
 			enum val_prettyprint pretty);
@@ -527,16 +516,22 @@ extern void value_print_array_elements (struct value *val,
 
 extern struct value *value_release_to_mark (struct value *mark);
 
-extern int val_print (struct type * type, char *valaddr,
+extern int val_print (struct type *type, const gdb_byte *valaddr,
 		      int embedded_offset, CORE_ADDR address,
-		      struct ui_file * stream, int format,
+		      struct ui_file *stream, int format,
 		      int deref_ref, int recurse,
 		      enum val_prettyprint pretty);
 
-extern int val_print_string (CORE_ADDR addr, int len, int width, struct ui_file *stream);
+extern int common_val_print (struct value *val,
+			     struct ui_file *stream, int format,
+			     int deref_ref, int recurse,
+			     enum val_prettyprint pretty);
 
-extern void print_variable_value (struct symbol * var,
-				  struct frame_info * frame,
+extern int val_print_string (CORE_ADDR addr, int len, int width,
+			     struct ui_file *stream);
+
+extern void print_variable_value (struct symbol *var,
+				  struct frame_info *frame,
 				  struct ui_file *stream);
 extern void
 print_variable_value (struct symbol *var, struct frame_info *frame,
@@ -544,8 +539,8 @@ print_variable_value (struct symbol *var, struct frame_info *frame,
 
 extern int check_field (struct value *, const char *);
 
-extern void typedef_print (struct type * type, struct symbol * news,
-			     struct ui_file * stream);
+extern void typedef_print (struct type *type, struct symbol *news,
+			   struct ui_file *stream);
 
 extern char *internalvar_name (struct internalvar *var);
 
@@ -574,8 +569,8 @@ call_function_by_hand_expecting_type (struct value *,
 extern struct value *value_literal_complex (struct value *, struct value *,
 					    struct type *);
 
-extern void find_rt_vbase_offset (struct type *, struct type *, char *, int,
-				  int *, int *);
+extern void find_rt_vbase_offset (struct type *, struct type *,
+				  const gdb_byte *, int, int *, int *);
 
 extern CORE_ADDR find_function_addr (struct value *, struct type **);
 
@@ -593,21 +588,31 @@ extern CORE_ADDR legacy_push_arguments (int nargs, struct value ** args,
 					CORE_ADDR sp, int struct_return,
 					CORE_ADDR struct_addr);
 
-struct cached_value
-{
-  char *name;
-  struct type *type;
-  struct value val;
-  int bound;
-  unsigned int generation;
-};
-
 extern struct cached_value *create_cached_function (char *, struct type *);
 
 extern struct value *lookup_cached_function (struct cached_value *cval);
 
 extern struct value *value_of_local (const char *name, int complain);
 
+/* APPLE LOCAL begin variable initialized status  */
+extern void set_var_status (struct value *, int);
+
+extern int value_var_status (struct value *);
+/* APPLE LOCAL end variable initialized status  */
+
+/* APPLE LOCAL begin check safe call  */
+enum check_which_threads
+  {
+    CHECK_CURRENT_THREAD,
+    CHECK_SCHEDULER_VALUE,
+    CHECK_ALL_THREADS
+  };
+
+extern int check_safe_call (regex_t unsafe[], 
+			    int npatterns,
+			    int stack_depth,
+			    enum check_which_threads which_thread);
+/* APPLE LOCAL end check safe call  */
 int set_unwind_on_signal (int new_val);
 
 #endif /* !defined (VALUE_H) */

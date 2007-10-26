@@ -19,7 +19,7 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
+#include <system.h>
 
 #include <signal.h>
 
@@ -28,7 +28,7 @@
 #include <quotearg.h>
 
 #include "common.h"
-#include "rmt.h"
+#include <rmt.h>
 
 /* Number of retries before giving up on read.  */
 #define	READ_ERROR_MAX 10
@@ -40,6 +40,7 @@
 
 static tarlong prev_written;	/* bytes written on previous volumes */
 static tarlong bytes_written;	/* bytes written on this volume */
+static void *record_buffer;	/* allocated memory */
 
 /* FIXME: The following variables should ideally be static to this
    module.  However, this cannot be done yet.  The cleanup continues!  */
@@ -66,10 +67,13 @@ static pid_t child_pid;
 static int read_error_count;
 
 /* Have we hit EOF yet?  */
-static int hit_eof;
+static bool hit_eof;
 
 /* Checkpointing counter */
 static int checkpoint;
+
+static bool read_full_records = false;
+static bool reading_from_pipe = false;
 
 /* We're reading, but we just read the last block and it's time to update.
    Declared in update.c
@@ -114,6 +118,135 @@ clear_read_error_count (void)
   read_error_count = 0;
 }
 
+
+/* Time-related functions */
+
+double duration;
+
+void
+set_start_time ()
+{
+#if HAVE_CLOCK_GETTIME
+  if (clock_gettime (CLOCK_REALTIME, &start_timespec) != 0)
+#endif
+    start_time = time (0);
+}
+
+void
+compute_duration ()
+{
+#if HAVE_CLOCK_GETTIME
+  struct timespec now;
+  if (clock_gettime (CLOCK_REALTIME, &now) == 0)
+    duration += ((now.tv_sec - start_timespec.tv_sec)
+		 + (now.tv_nsec - start_timespec.tv_nsec) / 1e9);
+  else
+#endif
+    duration += time (NULL) - start_time;
+  set_start_time ();
+}
+
+
+/* Compression detection */
+
+enum compress_type {
+  ct_none,
+  ct_compress,
+  ct_gzip,
+  ct_bzip2
+};
+
+struct zip_magic
+{
+  enum compress_type type;
+  unsigned char *magic;
+  size_t length;
+  char *program;
+  char *option;
+};
+
+static struct zip_magic magic[] = {
+  { ct_none, },
+  { ct_compress, "\037\235", 2, "compress", "-Z" },
+  { ct_gzip,     "\037\213", 2, "gzip", "-z"  },
+  { ct_bzip2,    "BZh",      3, "bzip2", "-j" },
+};
+
+#define NMAGIC (sizeof(magic)/sizeof(magic[0]))
+
+#define compress_option(t) magic[t].option
+#define compress_program(t) magic[t].program
+
+/* Check if the file ARCHIVE is a compressed archive. */
+enum compress_type 
+check_compressed_archive ()
+{
+  struct zip_magic *p;
+  size_t status;
+  bool sfr, srp;
+
+  /* Prepare global data needed for find_next_block: */
+  record_end = record_start; /* set up for 1st record = # 0 */
+  sfr = read_full_records;
+  read_full_records = true; /* Suppress fatal error on reading a partial
+			       record */
+  srp = reading_from_pipe;
+  reading_from_pipe = true; /* Suppress warning message on reading a partial
+			       record */
+  find_next_block ();
+
+  /* Restore global values */
+  read_full_records = sfr;
+  reading_from_pipe = srp;
+
+  if (tar_checksum (record_start, true) == HEADER_SUCCESS)
+    /* Probably a valid header */
+    return ct_none;
+
+  for (p = magic + 1; p < magic + NMAGIC; p++)
+    if (memcmp (record_start->buffer, p->magic, p->length) == 0)
+      return p->type;
+  
+  return ct_none;
+}
+
+/* Open an archive named archive_name_array[0]. Detect if it is
+   a compressed archive of known type and use corresponding decompression
+   program if so */
+int
+open_compressed_archive ()
+{
+  archive = rmtopen (archive_name_array[0], O_RDONLY | O_BINARY,
+		     MODE_RW, rsh_command_option);
+  if (archive == -1)
+    return archive;
+
+  if (!multi_volume_option) 
+    {
+      enum compress_type type = check_compressed_archive ();
+  
+      if (type == ct_none)
+	return archive;
+
+      /* FD is not needed any more */
+      rmtclose (archive);
+
+      hit_eof = false; /* It might have been set by find_next_block in
+			  check_compressed_archive */
+
+      /* Open compressed archive */
+      use_compress_program_option = compress_program (type);
+      child_pid = sys_child_open_for_uncompress ();
+      read_full_records = reading_from_pipe = true;
+    }
+  
+  records_read = 0;
+  record_end = record_start; /* set up for 1st record = # 0 */
+  
+  return archive;
+}
+
+
 void
 print_total_written (void)
 {
@@ -121,25 +254,16 @@ print_total_written (void)
   char bytes[sizeof (tarlong) * CHAR_BIT];
   char abbr[LONGEST_HUMAN_READABLE + 1];
   char rate[LONGEST_HUMAN_READABLE + 1];
-  double seconds;
+  
   int human_opts = human_autoscale | human_base_1024 | human_SI | human_B;
-
-#if HAVE_CLOCK_GETTIME
-  struct timespec now;
-  if (clock_gettime (CLOCK_REALTIME, &now) == 0)
-    seconds = ((now.tv_sec - start_timespec.tv_sec)
-	       + (now.tv_nsec - start_timespec.tv_nsec) / 1e9);
-  else
-#endif
-    seconds = time (0) - start_time;
 
   sprintf (bytes, TARLONG_FORMAT, written);
 
   /* Amanda 2.4.1p1 looks for "Total bytes written: [0-9][0-9]*".  */
   fprintf (stderr, _("Total bytes written: %s (%s, %s/s)\n"), bytes,
 	   human_readable (written, abbr, human_opts, 1, 1),
-	   (0 < seconds && written / seconds < (uintmax_t) -1
-	    ? human_readable (written / seconds, rate, human_opts, 1, 1)
+	   (0 < duration && written / duration < (uintmax_t) -1
+	    ? human_readable (written / duration, rate, human_opts, 1, 1)
 	    : "?"));
 }
 
@@ -156,7 +280,7 @@ reset_eof (void)
 {
   if (hit_eof)
     {
-      hit_eof = 0;
+      hit_eof = false;
       current_block = record_start;
       record_end = record_start + blocking_factor;
       access_mode = ACCESS_WRITE;
@@ -176,7 +300,7 @@ find_next_block (void)
       flush_archive ();
       if (current_block == record_end)
 	{
-	  hit_eof = 1;
+	  hit_eof = true;
 	  return 0;
 	}
     }
@@ -244,6 +368,36 @@ check_label_pattern (union block *label)
   return result;
 }
 
+void
+init_qtn(const char *file_name)
+{
+	int fd;
+
+	if (strcmp(file_name, "-") == 0)
+		return;
+
+	if ((fd = open(file_name, O_RDONLY)) < 0)
+		return;
+
+	if ((archive_qtn_file = qtn_file_alloc()) != NULL) {
+		if (qtn_file_init_with_fd(archive_qtn_file, fd) != 0) {
+			qtn_file_free(archive_qtn_file);
+			archive_qtn_file = NULL;
+		}
+	}
+
+	close(fd);
+}
+
+void
+finish_qtn(void)
+{
+	if (archive_qtn_file != NULL) {
+		qtn_file_free(archive_qtn_file);
+		archive_qtn_file = NULL;
+	}
+}
+
 /* Open an archive file.  The argument specifies whether we are
    reading or writing, or both.  */
 void
@@ -270,30 +424,31 @@ open_archive (enum access_mode wanted_access)
   save_name = 0;
   real_s_name = 0;
 
+  record_start =
+    page_aligned_alloc (&record_buffer,
+			(record_size
+			 + (multi_volume_option ? 2 * BLOCKSIZE : 0)));
   if (multi_volume_option)
-    {
-      record_start = valloc (record_size + (2 * BLOCKSIZE));
-      if (record_start)
-	record_start += 2;
-    }
-  else
-    record_start = valloc (record_size);
-  if (!record_start)
-    FATAL_ERROR ((0, 0, _("Cannot allocate memory for blocking factor %d"),
-		  blocking_factor));
+    record_start += 2;
 
   current_block = record_start;
   record_end = record_start + blocking_factor;
   /* When updating the archive, we start with reading.  */
   access_mode = wanted_access == ACCESS_UPDATE ? ACCESS_READ : wanted_access;
 
+  read_full_records = read_full_records_option;
+  reading_from_pipe = false;
+  
+  records_read = 0;
+  
   if (use_compress_program_option)
     {
       switch (wanted_access)
 	{
 	case ACCESS_READ:
 	  child_pid = sys_child_open_for_uncompress ();
-	  read_full_records_option = false;
+	  read_full_records = reading_from_pipe = true;
+	  record_end = record_start; /* set up for 1st record = # 0 */
 	  break;
 
 	case ACCESS_WRITE:
@@ -311,14 +466,24 @@ open_archive (enum access_mode wanted_access)
     }
   else if (strcmp (archive_name_array[0], "-") == 0)
     {
-      read_full_records_option = true; /* could be a pipe, be safe */
+      read_full_records = true; /* could be a pipe, be safe */
       if (verify_option)
 	FATAL_ERROR ((0, 0, _("Cannot verify stdin/stdout archive")));
 
       switch (wanted_access)
 	{
 	case ACCESS_READ:
-	  archive = STDIN_FILENO;
+	  {
+	    enum compress_type type;
+	    
+	    archive = STDIN_FILENO;
+
+	    type = check_compressed_archive (archive);
+	    if (type != ct_none)
+	      FATAL_ERROR ((0, 0,
+			    _("Archive is compressed. Use %s option"),
+			    compress_option (type)));
+	  }
 	  break;
 
 	case ACCESS_WRITE:
@@ -340,8 +505,7 @@ open_archive (enum access_mode wanted_access)
     switch (wanted_access)
       {
       case ACCESS_READ:
-	archive = rmtopen (archive_name_array[0], O_RDONLY | O_BINARY,
-			   MODE_RW, rsh_command_option);
+	archive = open_compressed_archive ();
 	break;
 
       case ACCESS_WRITE:
@@ -374,14 +538,15 @@ open_archive (enum access_mode wanted_access)
   sys_detect_dev_null_output ();
   sys_save_archive_dev_ino ();
   SET_BINARY_MODE (archive);
+  init_qtn(archive_name_array[0]);
 
   switch (wanted_access)
     {
     case ACCESS_UPDATE:
       records_written = 0;
-    case ACCESS_READ:
-      records_read = 0;
       record_end = record_start; /* set up for 1st record = # 0 */
+
+    case ACCESS_READ:
       find_next_block ();	/* read it in, check for EOF */
 
       if (volume_label_option)
@@ -515,17 +680,24 @@ flush_write (void)
       if (volume_label_option)
 	record_start++;
 
+      if (strlen (real_s_name) > NAME_FIELD_SIZE)
+	FATAL_ERROR ((0, 0,
+		      _("%s: file name too long to be stored in a GNU multivolume header"),
+		      quotearg_colon (real_s_name)));
+      
       memset (record_start, 0, BLOCKSIZE);
 
       /* FIXME: Michael P Urban writes: [a long name file] is being written
 	 when a new volume rolls around [...]  Looks like the wrong value is
 	 being preserved in real_s_name, though.  */
 
-      strcpy (record_start->header.name, real_s_name);
+      strncpy (record_start->header.name, real_s_name, NAME_FIELD_SIZE);
       record_start->header.typeflag = GNUTYPE_MULTIVOL;
+
       OFF_TO_CHARS (real_s_sizeleft, record_start->header.size);
       OFF_TO_CHARS (real_s_totsize - real_s_sizeleft,
 		    record_start->oldgnu_header.offset);
+      
       tmp = verbose_option;
       verbose_option = 0;
       finish_header (&current_stat_info, record_start, -1);
@@ -609,7 +781,7 @@ short_read (size_t status)
   left = record_size - status;
 
   while (left % BLOCKSIZE != 0
-	 || (left && status && read_full_records_option))
+	 || (left && status && read_full_records))
     {
       if (status)
 	while ((status = rmtread (archive, more, left)) == SAFE_READ_ERROR)
@@ -617,15 +789,18 @@ short_read (size_t status)
 
       if (status == 0)
 	{
-	  char buf[UINTMAX_STRSIZE_BOUND];
+	  if (!reading_from_pipe)
+	    {
+	      char buf[UINTMAX_STRSIZE_BOUND];
 
-	  WARN((0, 0, _("Read %s bytes from %s"),
-		STRINGIFY_BIGINT (record_size - left, buf),
-		*archive_name_cursor));
+	      WARN((0, 0, _("Read %s bytes from %s"),
+		    STRINGIFY_BIGINT (record_size - left, buf),
+		    *archive_name_cursor));
+	    }
 	  break;
 	}
 
-      if (! read_full_records_option)
+      if (! read_full_records)
 	{
 	  unsigned long rest = record_size - left;
 
@@ -645,7 +820,7 @@ short_read (size_t status)
   /* FIXME: for size=0, multi-volume support.  On the first record, warn
      about the problem.  */
 
-  if (!read_full_records_option && verbose_option > 1
+  if (!read_full_records && verbose_option > 1
       && record_start_block == 0 && status != 0)
     {
       unsigned long rsize = (record_size - left) / BLOCKSIZE;
@@ -707,7 +882,7 @@ flush_read (void)
     }
 
   /* The condition below used to include
-	      || (status > 0 && !read_full_records_option)
+	      || (status > 0 && !read_full_records)
      This is incorrect since even if new_volume() succeeds, the
      subsequent call to rmtread will overwrite the chunk of data
      already read in the buffer, so the processing will fail */
@@ -768,7 +943,7 @@ flush_read (void)
 	{
 	  uintmax_t s1, s2;
 	  if (cursor->header.typeflag != GNUTYPE_MULTIVOL
-	      || strcmp (cursor->header.name, real_s_name))
+	      || strncmp (cursor->header.name, real_s_name, NAME_FIELD_SIZE))
 	    {
 	      WARN ((0, 0, _("%s is not continued on this volume"),
 		     quote (real_s_name)));
@@ -889,6 +1064,42 @@ backspace_output (void)
   }
 }
 
+off_t
+seek_archive (off_t size)
+{
+  off_t start = current_block_ordinal ();
+  off_t offset;
+  off_t nrec, nblk;
+  off_t skipped = (blocking_factor - (current_block - record_start));
+  
+  size -= skipped * BLOCKSIZE;
+  
+  if (size < record_size)
+    return 0;
+  /* FIXME: flush? */
+  
+  /* Compute number of records to skip */
+  nrec = size / record_size;
+  offset = rmtlseek (archive, nrec * record_size, SEEK_CUR);
+  if (offset < 0)
+    return offset;
+
+  if (offset % record_size)
+    FATAL_ERROR ((0, 0, _("rmtlseek not stopped at a record boundary")));
+
+  /* Convert to number of records */
+  offset /= BLOCKSIZE;
+  /* Compute number of skipped blocks */
+  nblk = offset - start;
+
+  /* Update buffering info */
+  records_read += nblk / blocking_factor;
+  record_start_block = offset - blocking_factor;
+  current_block = record_end;
+ 
+  return nblk;
+}
+
 /* Close the archive file.  */
 void
 close_archive (void)
@@ -898,7 +1109,8 @@ close_archive (void)
 
   sys_drain_input_pipe ();
 
-  if (verify_option)
+  compute_duration ();
+  if (verify_option) 
     verify_volume ();
 
   if (rmtclose (archive) != 0)
@@ -911,7 +1123,9 @@ close_archive (void)
     free (save_name);
   if (real_s_name)
     free (real_s_name);
-  free (multi_volume_option ? record_start - 2 : record_start);
+  free (record_buffer);
+
+  finish_qtn();
 }
 
 /* Called to initialize the global volume number.  */
@@ -1079,7 +1293,7 @@ new_volume (enum access_mode mode)
 
   if (strcmp (archive_name_cursor[0], "-") == 0)
     {
-      read_full_records_option = true;
+      read_full_records = true;
       archive = STDIN_FILENO;
     }
   else if (verify_option)

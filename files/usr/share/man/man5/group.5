@@ -1,4 +1,4 @@
-.\" Portions Copyright (c) 2001 Apple Computer, Inc. All Rights Reserved.
+.\" Portions Copyright (c) 2001, 2006 Apple Computer, Inc. All Rights Reserved.
 .\"	$NetBSD: group.5,v 1.4 1995/07/28 06:41:39 phil Exp $
 .\"
 .\" Copyright (c) 1980, 1991, 1993
@@ -37,15 +37,11 @@
 .\"
 .Dd July 18, 1995
 .Dt GROUP 5
-.Os Darwin
+.Os "Mac OS X"
 .Sh NAME
 .Nm group
 .Nd format of the group permissions file
 .Sh DESCRIPTION
-.Nm Note:
-This information may be superseded by the NetInfo system. See 
-.Xr lookupd 8
-for more information.
 .Pp
 The file
 .Aq Pa /etc/group
@@ -109,27 +105,15 @@ entry and does not need to be added to that group in the
 .\"	char    **gr_mem;        /* group members */
 .\" };
 .\" .Ed
-.Sh YP SUPPORT
-If YP is active, the
-.Nm
-file may also contain lines of the format
-.Pp
-.Bl -tag -offset indent -compact
-+name:*::
-.El
-.Pp
-which causes the specified group to be included from the
-.Pa group.byname
-YP map.
-.Pp
-If no group name is specified, or the ``+'' (plus sign) appears alone
-on line, all groups are included from the YP map.
-.Pp
-YP references may appear anywhere in the file, but the single ``+'' form
-should be on the last line, for historical reasons.
-Only the first group with a specific name encountered, whether in the
-.Nm
-file itself, or included via YP, will be used.
+.Sh INTERACTION WITH DIRECTORY SERVICES
+Processes generally find group records using one of the
+.Xr getgrent 3
+family of functions.
+On Mac OS X, these functions interact with the
+.Xr DirectoryService 8
+daemon,
+which reads the /etc/group file as well as searching other directory information services
+to determine groups and group membership.
 .Sh FILES
 .Bl -tag -width /etc/group -compact
 .It Pa /etc/group
@@ -138,10 +122,10 @@ file itself, or included via YP, will be used.
 .Xr passwd 1 ,
 .Xr setgroups 2 ,
 .Xr crypt 3 ,
+.Xr getgrent 3 ,
 .Xr initgroups 3 ,
 .Xr passwd 5 ,
-.Xr lookupd 8 ,
-.Xr yp 8
+.Xr DirectoryService 8
 .Sh BUGS
 The
 .Xr passwd 1
@@ -153,5 +137,3 @@ A
 .Nm
 file format appeared in
 .At v6 .
-.Pp
-YP file format first appeared in SunOS.

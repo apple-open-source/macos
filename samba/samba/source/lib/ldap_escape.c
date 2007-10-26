@@ -36,11 +36,14 @@
 char *escape_ldap_string_alloc(const char *s)
 {
 	size_t len = strlen(s)+1;
-	char *output = SMB_MALLOC(len);
-	char *output_tmp;
+	char *output = (char *)SMB_MALLOC(len);
 	const char *sub;
 	int i = 0;
 	char *p = output;
+
+	if (output == NULL) {
+		return NULL;
+	}
 	
 	while (*s)
 	{
@@ -65,12 +68,10 @@ char *escape_ldap_string_alloc(const char *s)
 		
 		if (sub) {
 			len = len + 3;
-			output_tmp = SMB_REALLOC(output, len);
-			if (!output_tmp) { 
-				SAFE_FREE(output);
+			output = (char *)SMB_REALLOC(output, len);
+			if (!output) { 
 				return NULL;
 			}
-			output = output_tmp;
 			
 			p = &output[i];
 			strncpy (p, sub, 3);
@@ -86,5 +87,49 @@ char *escape_ldap_string_alloc(const char *s)
 	}
 	
 	*p = '\0';
+	return output;
+}
+
+char *escape_rdn_val_string_alloc(const char *s)
+{
+	char *output, *p;
+
+	/* The maximum size of the escaped string can be twice the actual size */
+	output = (char *)SMB_MALLOC(2*strlen(s) + 1);
+
+	if (output == NULL) {
+		return NULL;
+	}
+
+	p = output;
+	
+	while (*s)
+	{
+		switch (*s)
+		{
+		case ',':
+		case '=':
+		case '+':
+		case '<':
+		case '>':
+		case '#':
+		case ';':
+		case '\\':
+		case '\"':
+			*p++ = '\\';
+			*p++ = *s;
+			break;
+		default:
+			*p = *s;
+			p++;
+		}
+		
+		s++;
+	}
+	
+	*p = '\0';
+
+	/* resize the string to the actual final size */
+	output = (char *)SMB_REALLOC(output, strlen(output) + 1);
 	return output;
 }

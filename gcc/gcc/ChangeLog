@@ -1,3 +1,793 @@
+2007-05-21  Mike Stump  <mrs@apple.com>
+
+	* config/darwin.h (LINK_COMMAND_SPEC): Add .cxx/.cp for dsymutil
+	handling as well.
+
+2005-07-12  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.c (struct infile): Update comment for language.
+	(main): Rewrite input file resetting code.
+
+2007-05-16  Eric Christopher  <echristo@apple.com>
+
+	Radar 5188943
+	* c-common.c: Add missed #undefs from __builtin_object_size
+	patch.
+
+2007-05-16  Eric Christopher  <echristo@apple.com>
+
+	Radar 4663646
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Move altivec register
+	saving after stack push. Set sp_offset whenever we push.
+	(rs6000_emit_epilogue): Move altivec register restore before stack push.
+
+2007-04-09  Jan Hubicka  <jh@suse.cz>
+
+	Radar 5097839
+        PR target/27869
+        * config/i386/sse.md
+        (sse_vmaddv4sf3, sse_vmmulv4sf3): Remove '%' modifier.
+        (sse_vmsmaxv4sf3_finite, sse_vmsminv4sf3_finite): Remove.
+        (sse2_vmaddv2df3, sse2_vmmulv2df3): Remove '%' modifier.
+        (sse2_vmsmaxv2df3_finite, sse2_vmsminv2df3_finite): Remove.
+
+2007-03-28  Mike Stump  <mrs@apple.com>
+
+	Radar 5077358
+	* config/darwin9.h (ASM_OUTPUT_ALIGNED_COMMON): Add.
+	* config/darwin.h (MAX_OFILE_ALIGNMENT): Fix.
+	* config/rs6000/darwin.h (ASM_OUTPUT_ALIGNED_COMMON): Removed #undef.
+
+2006-12-13  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4697325
+	* doc/invoke.texi (Darwin Options): Update documentation for
+	-mmacosx-version-min.
+	* config.gcc (*-*-darwin*): Set extra_gcc_objs.
+	* config/darwin-driver.c: New file.
+	* config/darwin.h (GCC_DRIVER_HOST_INITIALIZATION): New.
+	* config/t-darwin (darwin-driver.o): New rule.
+
+2006-12-12  Geoffrey Keating  <geoffk@apple.com>
+
+	* mips-tdump.c: Replace CROSS_COMPILE with
+	CROSS_DIRECTORY_STRUCTURE.
+	* mips-tfile.c: Likewise.
+	* gcc.c: Likewise.
+	* configure.ac: Likewise.
+	* cppdefault.c: Likewise.
+	* Makefile.in: Likewise.
+	* config/alpha/osf.h: Likewise.
+	* config/i386/cygwin.h: Likewise.
+	* config/i386/beos-elf.h: Likewise.
+	* config/i386/nto.h: Likewise.
+	* config/fr30/fr30.h: Likewise.
+	* config/svr4.h: Likewise.
+	* config/rs6000/aix.h: Likewise.
+	* config/rs6000/sysv4.h: Likewise.
+	* config/pa/pa64-hpux.h: Likewise.
+	* config/pa/pa-hpux10.h: Likewise.
+	* config/pa/pa-hpux11.h: Likewise.
+	* collect2.c: Likewise.
+	* configure: Regenerate.
+
+2007-03-13  Geoffrey Keating  <geoffk@apple.com>
+
+	* doc/invoke.texi (Spec Files): Update for '%{,' spec.
+
+2007-03-10  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* config/i386/darwin.h (DARWIN_MINVERSION_SPEC): Add missing
+	quotation mark.
+
+2007-03-09  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 5040758
+	* gcc.c: Document %{, in big comment at top.
+	(input_suffix_matches): Remove special handling for .s and
+	.S.
+	(input_spec_matches): New.
+	(handle_braces): Handle %{,.
+	(validate_switches): ',' indicates a value which is not a switch.
+	* config/alpha/osf.h (ASM_FINAL_SPEC): Use %{, rather than %{.
+	to detect assembler input.
+	* config/i386/sol2.h (CPP_SPEC): Likewise.
+	* config/rs6000/sysv4.h (ASM_SPEC): Likewise.
+	* config/rs6000/vxworks.h (ASM_SPEC): Likewise.
+	* config/rs6000/lynx.h (ASM_SPEC): Likewise.
+	* config/rs6000/linux64.h (ASM_SPEC_COMMON): Likewise.
+	* config/i386/darwin.h (DARWIN_MINVERSION_SPEC): Objective-C plus
+	-m64 causes deployment target to default to 10.5.
+	* config/rs6000/darwin.h (DARWIN_MINVERSION_SPEC): Likewise.
+
+2007-02-20  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 5005743, 4226546
+	* config/darwin.h (LINK_SPEC): Default -mmacosx-version-min only
+	if user didn't pass it.
+	* config/i386/darwin.h (CC1_SPEC): Likewise.
+	* config/rs6000/darwin.h (CC1_SPEC): Likewise.
+	(DARWIN_MINVERSION_SPEC): Don't depend on user's setting of
+	-mmacosx-version-min.
+
+	* config/darwin.h (LINK_SPEC): Always pass -macosx_version_min
+	to linker.
+	(DARWIN_EXTRA_SPECS): Add %(darwin_minversion).
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Just call
+	darwin_rs6000_override_options.
+	(C_COMMON_OVERRIDE_OPTIONS): Expect
+	darwin_macosx_version_min to be non-NULL always.
+	(TARGET_C99_FUNCTIONS): Likewise.
+	(CC1_SPEC): Always pass -mmacosx-version-min to cc1*.
+	(DARWIN_MINVERSION_SPEC): New.
+	* config/rs6000/rs6000.c (darwin_rs6000_override_options): New.
+	* config/i386/darwin.h (CC1_SPEC): Always pass -mmacosx-version-min
+	to cc1*.
+	(DARWIN_MINVERSION_SPEC): New.
+	* config/darwin.opt (mmacosx-version-min): Initialize to non-NULL
+	value.
+	* config/darwin-c.c (darwin_cpp_builtins): Expect
+	darwin_macosx_version_min to be non-NULL always.
+
+2007-01-04  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4871915
+	* target.h (struct gcc_target): New field library_rtti_comdat.
+	* target-def.h (TARGET_CXX_LIBRARY_RTTI_COMDAT): New.
+	(TARGET_CXX): Add TARGET_CXX_LIBRARY_RTTI_COMDAT.
+	* doc/tm.texi (C++ ABI): Document TARGET_CXX_LIBRARY_RTTI_COMDAT.
+	* config/darwin.h (TARGET_CXX_LIBRARY_RTTI_COMDAT): Define.
+
+2006-12-18  Roger Sayle  <roger@eyesopen.com>
+            Eric Christopher  <echristo@apple.com>
+
+	Radar 4820385
+        PR target/29302
+        * real.c (real_maxval): Correctly handle IBM extended double format.
+
+2006-12-22  Mike Stump  <mrs@apple.com>
+
+	* config/rs6000/t-darwin (DARWIN_EXTRA_CRT_BUILD_CFLAGS): Add
+	-mmacosx-version-min=10.4.
+	(crt2.o): Add $(DARWIN_EXTRA_CRT_BUILD_CFLAGS).
+
+2006-12-18  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4869554
+	* doc/invoke.texi (Debugging Options): Document -g0.
+	* config/darwin.h (LINK_COMMAND_SPEC): Replace -gnone with -g0.
+
+2006-12-13  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4697325
+	* doc/invoke.texi (Darwin Options): Update documentation for
+	-mmacosx-version-min.
+	* config.gcc (*-*-darwin*): Set extra_gcc_objs.
+	* config/darwin-driver.c: New file.
+	* config/darwin.h (GCC_DRIVER_HOST_INITIALIZATION): New.
+	* config/t-darwin (darwin-driver.o): New rule.
+
+2006-12-12  Geoffrey Keating  <geoffk@apple.com>
+
+	* mips-tdump.c: Replace CROSS_COMPILE with
+	CROSS_DIRECTORY_STRUCTURE.
+	* mips-tfile.c: Likewise.
+	* gcc.c: Likewise.
+	* configure.ac: Likewise.
+	* cppdefault.c: Likewise.
+	* Makefile.in: Likewise.
+	* config/alpha/osf.h: Likewise.
+	* config/i386/cygwin.h: Likewise.
+	* config/i386/beos-elf.h: Likewise.
+	* config/i386/nto.h: Likewise.
+	* config/fr30/fr30.h: Likewise.
+	* config/svr4.h: Likewise.
+	* config/rs6000/aix.h: Likewise.
+	* config/rs6000/sysv4.h: Likewise.
+	* config/pa/pa64-hpux.h: Likewise.
+	* config/pa/pa-hpux10.h: Likewise.
+	* config/pa/pa-hpux11.h: Likewise.
+	* collect2.c: Likewise.
+	* configure: Regenerate.
+
+2006-12-08  Mike Stump  <mrs@apple.com>
+
+	* config/rs6000/t-darwin (TARGET_LIBGCC2_CFLAGS): Build
+	libgcc with -mmacosx-version-min=10.4.
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Default to
+	G4 for 10.5+ unless doing kernel builds.
+
+2005-09-19  Steven Bosscher  <steven@gcc.gnu.org>
+
+	Radar 4842086
+	PR rtl-optimization/23943
+	* cse.c (find_best_addr): Never propagate an EXPR_LIST rtx.
+
+2006-12-04  Eric Christopher  <echristo@apple.com>
+
+	Radar 4521370
+	* config/darwin.h (DARWIN_EXTRA_SPECS): New.
+	(STARTFILE_SPEC): Use.
+	(DARWIN_DYLIB1_SPEC): New.
+	(DARWIN_CRT1_SPEC): New.
+	* config/i386/darwin64.h (SUBTARGET_EXTRA_SPECS): Use
+	DARWIN_EXTRA_SPECS.
+	* config/i386/darwin.h: Ditto.
+	* config/rs6000/darwin.h: Ditto.
+
+2005-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* target-def.h (TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_VISIBILITY): New macro.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	(TARGET_CXX): Adjust accordingly.
+	* target.h (struct gcc_target): Remove epxort_class_data.  Add
+	determine_class_data_visibility and class_data_always_comdat.
+	* doc/tm.texi (TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY): Document.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	* config/arm/arm.c (arm_cxx_export_class_data): Remove.
+	(arm_cxx_determine_class_data_visibility): New.
+	(arm_cxx_class_data_always_comdat): Likewise.
+	(TARGET_CXX_EXPORT_CLASS_DATA): Remove.
+	(TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY): Define.
+	(TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): Likewise.
+	* config/arm/arm.h (TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P): Define.
+	* config/arm/symbian.h (TARGET_ARM_DYNAMIC_VAGUE_LINKAGE_P):
+	Define.
+
+2006-11-09  Eric Christopher  <echristo@apple.com>
+
+	PR bootstrap/26892
+	PR bootstrap/27814
+	PR other/28994
+	* configure: Regenerate.
+	* configure.ac: Match powerpc*-*-darwin* for powerpc darwin checks.
+	* config.gcc (powerpc64-*-darwin*): New target.
+	* config.host: Ditto.
+	* config/rs6000/darwin64.h: New file.
+	* config/rs6000/x-darwin64: Ditto.
+	* config/rs6000/host-ppc64-darwin.c: Ditto.
+
+2006-11-06  Eric Christopher  <echristo@apple.com>
+
+	* config.gcc: Add x86_64-darwin host support.
+	* config.host: Ditto.
+	* config/i386/darwin64.h: New file.
+	* config/i386/t-darwin64: Ditto.
+
+2006-10-27  Mike Stump  <mrs@apple.com>
+
+	* config/darwin-c.c (darwin_cpp_builtins): Move __STATIC__ and
+	__DYNAMIC__ from here back to ...
+	* config/darwin.h (CPP_SPEC): ... here.
+
+2006-10-16  Mike Stump  <mrs@apple.com>
+
+	* doc/invoke.texi (Darwin Options): Document -mkernel.
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Add
+	-mkernel support.
+	(C_COMMON_OVERRIDE_OPTIONS): Add -mkernel support.  Add
+	SUBTARGET_C_COMMON_OVERRIDE_OPTIONS callout.
+	(CC1_SPEC): Don't turn on -fPIC when -mkernel is given.
+	(OS_MISSING_ALTIVEC): Add.
+	* config/i386/i386.c (override_options): Add
+	SUBSUBTARGET_OVERRIDE_OPTIONS callout.
+	* config/i386/darwin.h (CC1_SPEC): Don't turn on -fPIC when
+	-mkernel, -static or -mdynamic-no-pic is given.
+	(C_COMMON_OVERRIDE_OPTIONS): Add.
+	* config/darwin.opt (fapple-kext): Add.
+	(mkernel): Add.
+	* config/darwin.h (TARGET_OPTION_TRANSLATE_TABLE): Add
+	-fapple-kext, -findirect-virtual-calls, -fterminated-vtables and
+	-mkernel support.
+	(SUBSUBTARGET_OVERRIDE_OPTIONS): Add.
+	(SUBTARGET_C_COMMON_OVERRIDE_OPTIONS): Add.
+	(CPP_SPEC): Move defines for __DYNAMIC__ and __STATIC__ from here...
+	(SUBTARGET_ATTRIBUTE_TABLE): Add apple_kext_compatibility.
+	(TARGET_CXX_CDTOR_RETURNS_THIS): Add.
+	(flag_mkernel): Add.
+	(flag_apple_kext): Add.
+	(TARGET_KEXTABI): Add.
+	* config/darwin.c (darwin_handle_kext_attribute): Add.
+	(DARWIN_VTABLE_P): Add.
+	(darwin_binds_local_p): Add partial support for rebinding vtables
+	in kexts.
+	(darwin_kextabi_p): Add.
+	(darwin_override_options): Add.
+	* config/darwin-protos.h (darwin_handle_kext_attribute): Add.
+	(darwin_kextabi_p): Add.
+	(darwin_override_options): Add.
+	* config/darwin-c.c (darwin_cpp_builtins): ... move defines for
+	__DYNAMIC__ and __STATIC__ here.
+
+2006-09-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h (PREFERRED_DEBUGGING_TYPE): Set to DWARF2_DEBUG.
+
+2006-09-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h (LINK_COMMAND_SPEC): Don't do weird things with -@.
+	Call dsymutil when compiling and linking one or more source files
+	in one step.
+
+2006-09-20  Eric Christopher  <echristo@apple.com>
+
+	Radar 4632262
+	* config/i386/i386.c (x86_fisttp): Remove.
+	* config/i386/i386.h (x86_fisttp): Ditto.
+        (TARGET_FISTTP): Ditto.
+
+2005-06-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* Makefile.in (cc1-checksum.c): Use
+	build/genchecksum$(build_exeext), not build/genchecksum$(exeext).
+
+2006-08-16  Mike Stump  <mrs@apple.com>
+
+	* doc/invoke.texi (-Wno-deprecated-declarations): Fixup use of pxref.
+	* doc/cppopts.texi (-MD): Likewise.
+
+2005-10-31  Jan Hubicka  <jh@suse.cz>
+
+	Radar 4651177
+	PR target/20928
+	* i386.c (legitimize_pic_address): Deal with large immediates.
+
+2006-07-20  Eric Christopher  <echristo@apple.com>
+
+        PR target/26877
+	Radar 4639953
+	* config/i386/i386.h (OPTION_DEFAULT_SPECS): Reorder.
+
+2006-07-05  Mike Stump  <mrs@apple.com>
+
+	* doc/invoke.texi (Invoking G++): Clarify prose for g++.
+
+2006-06-02  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4508814
+	* config/rs6000/host-darwin.c (sigaltstack): Protect prototype with
+	HAVE_DECL_SIGALTSTACK.
+	(MC_FLD): New.
+	(segv_handler): Use MC_FLD.
+	* configure.ac: Check for a sigaltstack declaration.
+	Compute HAS_MCONTEXT_T_UNDERSCORES on Darwin.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2005-04-20  Michael Pogue  <michael.pogue@sun.com>
+	    Joseph S. Myers  <joseph@codesourcery.com>
+
+	Radar 2883585
+	* c.opt (Wint-to-pointer-cast, Wpointer-to-int-cast): New options.
+	* c-typeck.c (build_c_cast): Check these options.
+	* doc/invoke.texi: Document these options.
+
+2006-05-16  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4550526
+	* c-decl.c (grokdeclarator): Don't set DECL_EXTERNAL on
+	inline static functions in c99 mode.
+
+2006-05-09  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4134307
+	PR 16622
+	* doc/extend.texi (Inline): Update.
+	* c-tree.h (struct language_function): Remove field 'extern_inline'.
+	* c-decl.c (current_extern_inline): Delete.
+	(pop_scope): Adjust test for an undefined nested function.
+	Add warning about undeclared inline function.
+	(diagnose_mismatched_decls): Update comments.  Disallow overriding
+	of inline functions in a translation unit in C99.  Allow inline
+	declarations in C99 at any time.
+	(merge_decls): Boolize variables.  Handle C99 'extern inline'
+	semantics.
+	(grokdeclarator): Set DECL_EXTERNAL here for functions.  Handle
+	C99 inline semantics.
+	(start_function): Don't clear current_extern_inline.  Don't set
+	DECL_EXTERNAL.
+	(c_push_function_context): Don't push current_extern_inline.
+	(c_pop_function_context): Don't restore current_extern_inline.
+
+2006-05-04  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4134307
+	PR 11377
+	* c-typeck.c (build_external_ref): Warn about static variables
+	used in extern inline functions.
+	* c-decl.c (start_decl): Warn about static variables declared
+	in extern inline functions.
+
+2006-05-18  Mike Stump  <mrs@apple.com>
+
+	Radar 4336222
+	Fix up vla, vm and [*] sematics.
+
+	PR c/18740
+	PR c/7948
+	PR c/25802
+	PR c/27673
+	* c-tree.h (struct c_arg_info): Add had_vla_unspec.
+	(c_vla_unspec_p): Add.
+	(c_vla_type_p): Add.
+	* c-decl.c (struct c_scope): Add had_vla_unspec.
+	(build_array_declarator): Add support for [*].
+	(grokdeclarator): Likewise.
+	(grokparms): Likewise.
+	(get_parm_info): Likewise.
+	* c-objc-common.c (c_vla_unspec_p): Likewise.
+	* c-objc-common.h (LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P): Likewise.
+	* c-parser.c (c_parser_typeof_specifier): Evaluate arguments to
+	typeof when argument is a variably modified type not inside sizeof or alignof.
+	(c_parser_direct_declarator_inner): Propagate errors.
+	(c_parser_sizeof_expression): Add support for [*].
+	(c_parser_parms_declarator): Initialize had_vla_unspec.
+	(c_parser_parms_list_declarator): Likewise.
+	* c-typeck.c (c_vla_type_p): Add.
+	(composite_type): Add support for vla compositing.
+	(comptypes_internal): Add support for vla compatibility.
+	(c_expr_sizeof_expr): Evaluate vla arguments.
+	* tree.c (variably_modified_type_p): Update comment for [*].
+
+2005-12-01  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4096183
+	* config/t-slibgcc-darwin (SHLIB_LINK): Use -single_module rather
+	than -flat_namespace.
+
+2006-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	Radar 4484060
+	PR c++/24302
+	* toplev.c (check_global_declarations): Check anonymous
+	decl name.
+
+2006-06-11  Eric Christopher  <echristo@apple.com>
+
+	Radar 4581948
+	PR middle-end/27948
+	* stor-layout.c (place_field): Remove check for
+	remaining_in_alignment when aligning at the end of a run.
+
+2006-05-08  Eric Christopher  <echristo@apple.com>
+
+	Radar 4537881
+	* unwind-dw2-fde-darwin.c (examine_objects): Only check data
+	section for ppc.
+
+2006-04-25  Eric Christopher  <echristo@apple.com>
+
+	Radar 4529978
+	* target-def.h (TARGET_SET_DEFAULT_TYPE_ATTRIBUTES): Bracket
+	with #ifndef/#endif.
+	* config/darwin-c.c (darwin_ms_struct): New.
+	(darwin_pragma_ms_struct): Ditto.
+	(darwin_set_default_type_attributes): Ditto.
+	* config/darwin-protos.h (darwin_pragma_ms_struct): Declare.
+	* config/darwin.h (DARWIN_REGISTER_TARGET_PRAGMAS):
+	Register ms_struct pragma.
+	* config/i386/darwin.h (REGISTER_TARGET_PRAGMAS): Declare.
+	(TARGET_SET_DEFAULT_TYPE_ATTRIBUTES): Ditto.
+	* config/rs6000/rs6000.c (rs6000_set_default_type_attributes): Call
+	darwin_set_default_type_attributes if TARGET_MACHO.
+
+2006-04-25  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (size_of_locs): Don't fill dw_loc_addr if there
+	are no branches.
+
+	Radar 4498201
+	* dwarf2asm.c (dw2_asm_output_data): Don't generate RTL just
+	to print an integer.
+
+2006-04-24  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (verify_marks_clear): New.
+	(prune_unused_types): Call verify_marks_clear initially, not
+	prune_unmark_dies.
+
+2006-04-21  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (struct die_struct): Document that die_sib makes
+	a circular linked list.
+	(FOR_EACH_CHILD): New.
+	(reverse_die_lists): Delete.
+	(reverse_all_dies): Delete.
+	(add_dwarf_attr): Correct documentation.
+	(remove_child_with_prev): New.
+	(remove_child_TAG): Update for change to die_struct, use
+	remove_child_with_prev.
+	(add_child_die): Update for change to die_struct.
+	(splice_child_die): Use remove_child_with_prev and add_child_die.
+	(print_die): Use FOR_EACH_CHILD.
+	(die_checksum): Likewise.
+	(assign_symbol_names): Likewise.
+	(output_location_lists): Likewise.
+	(build_abbrev_table): Likewise.
+	(calc_die_sizes): Likewise.
+	(mark_dies): Likewise.
+	(unmark_dies): Likewise.
+	(unmark_all_dies): Likewise.
+	(output_die): Likewise.
+	(prune_unused_types_mark): Likewise.
+	(prune_unused_types_walk): Likewise.
+	(same_die_p): Update for change to die_struct.
+	(break_out_includes): Likewise.
+	(prune_unused_types_prune): Likewise.
+	(add_sibling_attributes): Use FOR_EACH_CHILD, simplify logic.
+	(prune_unmark_dies): Use FOR_EACH_CHILD, don't clear die_mark if
+	it's already clear.
+	(dwarf2out_finish): Don't call reverse_all_dies.
+
+2006-04-04  Eric Christopher  <echristo@apple.com>
+
+	Radar 4525014
+	* config/rs6000/rs6000.c (TARGET_MS_BITFIELD_LAYOUT_P): Define.
+	(TARGET_USE_MS_BITFIELD_LAYOUT): Ditto.
+	(rs6000_handle_struct_attribute): New.
+	(rs6000_ms_bitfield_layout_p): Ditto.
+
+2006-04-17  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (free_AT): Delete.
+	(remove_AT): Update string ref counts.
+	(remove_child_TAG): Don't call free_die.
+	(free_die): Delete.
+	(break_out_includes): Don't call free_die on DW_TAG_GNU_BINCL
+	or DW_TAG_GNU_EINCL.
+	(prune_unused_types_walk_attribs): Reset string refcounts.
+	(prune_unused_types_update_strings): New.
+	(prune_unused_types_prune): Don't make unnecessary stores.  Don't
+	call free_die.  Do call prune_unused_types_update_strings.
+	(prune_unused_types): Empty debug_str_hash.
+
+2006-04-10  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (struct dw_attr_struct): Remove dw_attr_next.
+	Declare VECs of this type.
+	(struct die_struct): Make field die_attr a VEC of dw_attr_struct.
+	(remove_children): Delete.
+	(add_dwarf_attr): Use VEC routines.
+	(add_AT_flag): Update for changes to add_dwarf_attr.
+	(add_AT_int): Likewise.
+	(add_AT_unsigned): Likewise.
+	(add_AT_long_long): Likewise.
+	(add_AT_vec): Likewise.
+	(add_AT_string): Likewise.
+	(add_AT_die_ref): Likewise.
+	(add_AT_fde_ref): Likewise.
+	(add_AT_loc): Likewise.
+	(add_AT_loc_list): Likewise.
+	(add_AT_addr): Likewise.
+	(add_AT_lbl_id): Likewise.
+	(add_AT_lineptr): Likewise.
+	(add_AT_macptr): Likewise.
+	(add_AT_offset): Likewise.
+	(add_AT_range_list): Likewise.
+	(get_AT): Use VEC_iterate.
+	(remove_AT): Use VEC_ordered_remove.
+	(free_die): Fold remove_children into here; have it use VEC_iterate.
+	(print_die): Use VEC_iterate on attrs.
+	(reverse_die_lists): Don't reverse attr lists.
+	(die_checksum): Use VEC_iterate on attrs.
+	(same_die_p): Likewise.
+	(output_location_lists): Likewise.
+	(build_abbrev_table): Likewise.
+	(size_of_die): Likewise.
+	(unmark_all_dies): Likewise.
+	(output_abbrev_section): Likewise.
+	(output_die): Likewise.
+	(prune_unused_types_walk_attribs): Likewise.
+
+2006-04-04  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4502209
+	* config/darwin-crt3.c (atexit): Pass &__dso_handle rather than
+	NULL for dso parameter to atexit_common.
+
+	Radar 4383613
+	* doc/extend.texi (Function Attributes): Rewrite visibility
+	attribute documentation.
+	* doc/invoke.texi (C++ Dialect Options): Rewrite
+	-fvisibility-inlines-hidden documentation to describe something
+	entirely different, although in practise compatible.
+	(Code Gen Options): Warn about system headers in -fvisibility=
+	documentation.
+
+2006-03-22  Eric Christopher  <echristo@apple.com>
+
+	Radar 4419200
+	2006-01-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/emmintrin.h (_mm_cvtsd_f64): Add missing Intel
+	intrinsic.
+	(_mm_cvtsi128_si64): Likewise.
+	(_mm_cvtsd_si64): Likewise.
+	(_mm_cvttsd_si64): Likewise.
+	(_mm_cvtsi64_sd): Likewise.
+	(_mm_cvtsi64_si128): Likewise.
+	* config/i386/mmintrin.h (_m_from_int64): Likewise.
+	(_mm_cvtsi64_m64): Likewise.
+	(_m_to_int64): Likewise.
+	(_mm_cvtm64_si64): Likewise.
+	* config/i386/xmmintrin.h (_mm_cvtss_si64): Likewise.
+	(_mm_cvttss_si64): Likewise.
+	(_mm_cvtsi64_ss): Likewise.
+	(_mm_cvtss_f32): Likewise.
+
+2006-03-30  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4495520
+	* config/darwin.h (LINK_COMMAND_SPEC): Don't try to protect %S with
+	!Zdynamiclib.
+
+2006-03-24  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4485597
+	* dwarf2out.c (is_c_family): Understand new DWARF3 language types.
+	(is_cxx): Likewise.
+	(gen_compile_unit_die): Use new language types for Objective-C and
+	Objective-C++.
+	(dwarf2out_decl): Use is_cxx rather than testing explicitly against
+	DW_LANG_C_plus_plus.
+
+2006-03-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2.h (DW_TAG_condition, DW_TAG_shared_type): New constants
+	from DWARF 3.
+	(DW_AT_description, DW_AT_binary_scale, DW_AT_decimal_scale,
+	DW_AT_small, DW_AT_decimal_sign, DW_AT_digit_count,
+	DW_AT_picture_string, DW_AT_mutable, DW_AT_threads_scaled,
+	DW_AT_explicit, DW_AT_object_pointer, DW_AT_endianity,
+	DW_AT_elemental, DW_AT_pure, DW_AT_recursive): New.
+	(DW_OP_form_tls_address, DW_OP_call_frame_cfa, DW_OP_bit_piece): New.
+	(DW_ATE_packed_decimal, DW_ATE_numeric_string, DW_ATE_edited,
+	DW_ATE_signed_fixed, DW_ATE_unsigned_fixed): New.
+	(DW_DS_unsigned, DW_DS_leading_overpunch, DW_DS_trailing_overpunch,
+	DW_DS_leading_separate, DW_DS_trailing_separate): New.
+	(DW_END_default, DW_END_big, DW_END_little): New.
+	(DW_END_lo_user, DW_END_hi_user): Define.
+	(DW_LNE_lo_user, DW_LNE_hi_user): Define.
+	(DW_CFA_val_offset, DW_CFA_val_offset_sf, DW_CFA_val_expression): New.
+	(DW_LANG_PLI, DW_LANG_ObjC, DW_LANG_ObjC_plus_plus, DW_LANG_UPC,
+	DW_LANG_D): New.
+
+2006-03-15  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3992198
+	* config.gcc (*-*-darwin*): Don't build crt2.o for all Darwin ports.
+	Do switch on default_use_cxa_atexit.
+	(powerpc*-*-darwin*): Build crt2.o on powerpc.
+	* config/darwin-crt3.o: New.
+	* config/darwin.h (LINK_SPEC): If -shared-libgcc, make linker default
+	to 10.3.  Pass '-multiply_defined suppress' if crt3.o is in use.
+	(STARTFILE_SPEC): Add crt3.o when -shared-libgcc and appropriate
+	OS version.
+	* config/rs6000/t-darwin: Move crt2.o building to here.
+	* config/rs6000/darwin.h (C_COMMON_OVERRIDE_OPTIONS): Update
+	Mac OS version for using __cxa_get_exception_ptr.  Don't test versions
+	of __cxa_atexit.
+
+2006-03-07  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4466819
+	* dwarf2out.c (DWARF2_FRAME_REG_OUT): Move up in file.
+	(expand_builtin_dwarf_sp_column): Call DWARF2_FRAME_REG_OUT.
+	(expand_builtin_init_dwarf_reg_sizes): Likewise.
+
+	Radar 4446590
+	* config/i386/i386.c (ix86_delegitimize_address): Handle Darwin
+	addresses with offsets; reorganize.
+
+2006-03-02  Eric Christopher  <echristo@apple.com>
+
+	* config/i386/i386.c (machopic_output_stub): Add indirection to
+	jump.
+
+2006-02-24  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4086777
+	* doc/tm.texi (Run-time Target): Document C_COMMON_OVERRIDE_OPTIONS.
+	* doc/invoke.texi (C++ Dialect Options): Document
+	-fno-use-cxa-get-exception-ptr.
+	* configure.ac: Define DEFAULT_USE_CXA_ATEXIT to 2 not 1.
+	* configure: Regenerate.
+	* c.opt (fuse-cxa-get-exception-ptr): New.
+	* c-opts.c (c_common_handle_option): Handle
+	OPT_fuse_cxa_get_exception_ptr.
+	* c-common.c (flag_use_cxa_atexit): Update documentation.
+	(flag_use_cxa_get_exception_ptr): New.
+	* c-common.h (flag_use_cxa_get_exception_ptr): New.
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Improve
+	documentation.
+	(C_COMMON_OVERRIDE_OPTIONS): New.
+
+2006-02-21  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4439051
+	* config/i386/darwin.h (DWARF2_FRAME_REG_OUT): New.
+
+2006-02-13  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4433453
+	* dwarf2out.c (base_type_die): Don't add AT_name here.
+	(subrange_type_die): Don't add AT_name here.
+	(modified_type_die): Rearrange code flow.  Do add AT_name here.
+
+2006-02-10  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4439051
+	* config/i386/darwin.h (DBX_REGISTER_NUMBER): Define.
+
+2006-02-07  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4430041
+	* config/i386/i386.c (ix86_delegitimize_address): Support Darwin
+	PIC addresses.
+
+2006-01-06  Eric Christopher  <echristo@apple.com>
+
+        * doc/tm.texi (TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL): Document.
+        (TARGET_UNWIND_EMIT): Fix spelling.
+        * target.h (gcc_target): Add except_table_label.
+        * except.c (output_function_exception_table): Use.
+        * varasm.c (default_emit_except_table_label): New.
+        * target-def.h (TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL): New default
+        define.
+        (asm_out): Add here.
+        * output.h (default_emit_except_table_label): Prototype.
+        * config/darwin-protos.h (darwin_emit_except_table_label): Ditto.
+        * config/darwin.c (darwin_emit_except_table_label): Define.
+        * config/darwin.h (TARGET_ASM_EMIT_EXCEPT_TABLE): Ditto.
+
+2006-01-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* dwarf2out.c (have_switched_text_section): Delete.
+	(have_multiple_function_sections): New.
+	(have_location_lists): Make 'bool'.
+	(add_AT_loc_list): Use 'true' not '1'.
+	(dwarf2out_switch_text_section): Set have_multiple_function_sections.
+	(output_loc_list): Use have_multiple_function_sections.
+	(output_ranges): Likewise.
+	(dwarf2out_begin_function): Set have_multiple_function_sections if
+	necessary.
+	(dwarf2out_source_line): Don't fake separate_line_info_table_in_use.
+	Check function_section rather than DECL_SECTION_NAME.
+	(dwarf2out_finish): Use have_multiple_function_sections.
+	Don't clear have_location_lists.
+
+2005-12-06  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h (TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): New.
+
+2005-12-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.c (machopic_select_section): It's not defined
+	as weak if it's only marked as weak_import.
+
+	* config/rs6000/host-darwin.c (segv_handler): Unblock SEGV so
+	we don't go into an infinite loop.
+
+2005-11-15  Mike Stump  <mrs@apple.com>
+
+	* c-decl.c (lookup_name_two): Add.
+	* c-tree.h (lookup_name_two): Likewise.
+	* c-common.c (handle_cleanup_attribute): Use lookup_name_two instead.
+	* config/darwin-c.c (darwin_pragma_unused): Likewise.
+
+2005-11-14  Mike Stump  <mrs@apple.com>
+
+	* config/i386/i386.c (override_options): -masm=intel isn't
+	supported on darwin.
+	* doc/invoke.texi (i386 and x86-64 Options): Likewise.
+
 2005-10-06  Geoffrey Keating  <geoffk@apple.com>
 
 	* config/t-slibgcc-darwin (SHLIB_MAPFILES): Use '+='.
@@ -48,7 +838,7 @@
 	* config/rs6000/t-darwin (SHLIB_VERPFX): Define.
 
 2005-09-01  Richard Henderson  <rth@redhat.com>
-       
+
         PR 23668
 	Radar 4232562
         * config/i386/i386.c (ix86_expand_vector_init_one_var): Restore
@@ -113,8 +903,8 @@
 
 2005-08-31  Fariborz Jahanian <fjahanian@apple.com>
 
-        * expr.c (expand_expr_real_1): Compare size of address 
-        mode to target's address mode size in deciding expansion of 
+        * expr.c (expand_expr_real_1): Compare size of address
+        mode to target's address mode size in deciding expansion of
         the constant address.
 
 2005-07-19  Richard Henderson  <rth@redhat.com>
@@ -359,6 +1149,13 @@
 	PR c/21879
 	* c-decl.c (start_function): Restore label_context_stack_se and
 	label_context_stack_vm  if returning with an error.
+
+2005-06-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* configure.ac: Check declaration for asprintf, needed by
+	libiberty.h.
+	* configure: Regenerate.
+	* config.in: Likewise.
 
 2005-06-03  Andrew Pinski  <pinskia@physics.uc.edu>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,15 +46,17 @@
 
 
 static CFMutableDictionaryRef	baseSettings	= NULL;
+static CFStringRef		interfacesKey	= NULL;
 static SCDynamicStoreRef	store		= NULL;
 static CFRunLoopSourceRef	rls		= NULL;
+static CFMutableDictionaryRef	wantSettings	= NULL;
 
 static Boolean			_verbose	= FALSE;
 
 
 /* in SystemConfiguration/LinkConfiguration.c */
 int
-__createMediaOptions(CFStringRef interface, CFDictionaryRef media_options);
+__createMediaOptions(CFStringRef interfaceName, CFDictionaryRef media_options);
 
 
 static CFDictionaryRef
@@ -94,21 +96,30 @@ __copyMediaOptions(CFDictionaryRef options)
 
 __private_extern__
 Boolean
-_NetworkInterfaceSetMediaOptions(CFStringRef		interface,
-				 CFDictionaryRef	options)
+_SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
+				   CFDictionaryRef		options)
 {
 	CFArrayRef		available	= NULL;
 	CFDictionaryRef		current		= NULL;
 	struct ifmediareq	ifm;
 	struct ifreq		ifr;
+	CFStringRef		interfaceName;
 	Boolean			ok		= FALSE;
 	int			newOptions;
 	CFDictionaryRef		requested;
 	int			sock		= -1;
 
+	interfaceName = SCNetworkInterfaceGetBSDName(interface);
+	if (interfaceName == NULL) {
+		/* if no BSD interface name */
+		SCLog(_verbose, LOG_INFO, CFSTR("no BSD interface name for %@"), interface);
+		return FALSE;
+	}
+
 	/* get current & available options */
-	if (!NetworkInterfaceCopyMediaOptions(interface, &current, NULL, &available, FALSE)) {
+	if (!SCNetworkInterfaceCopyMediaOptions(interface, &current, NULL, &available, FALSE)) {
 		/* could not get current media options */
+		SCLog(_verbose, LOG_INFO, CFSTR("no media options for %@"), interfaceName);
 		return FALSE;
 	}
 
@@ -118,7 +129,7 @@ _NetworkInterfaceSetMediaOptions(CFStringRef		interface,
 		CFDictionaryRef	baseOptions;
 
 		/* get base options */
-		baseOptions = CFDictionaryGetValue(baseSettings, interface);
+		baseOptions = CFDictionaryGetValue(baseSettings, interfaceName);
 		requested = __copyMediaOptions(baseOptions);
 	}
 	if (requested == NULL) {
@@ -138,26 +149,26 @@ _NetworkInterfaceSetMediaOptions(CFStringRef		interface,
 
 	if (!CFArrayContainsValue(available, CFRangeMake(0, CFArrayGetCount(available)), requested)) {
 		/* if requested settings not currently available */
-		SCLog(TRUE, LOG_DEBUG, CFSTR("requested media settings unavailable"));
+		SCLog(_verbose, LOG_INFO, CFSTR("requested media settings unavailable for %@"), interfaceName);
 		goto done;
 	}
 
-	newOptions = __createMediaOptions(interface, requested);
+	newOptions = __createMediaOptions(interfaceName, requested);
 	if (newOptions == -1) {
 		/* since we have just validated, this should never happen */
 		goto done;
 	}
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock < 0) {
+	if (sock == -1) {
 		SCLog(TRUE, LOG_ERR, CFSTR("socket() failed: %s"), strerror(errno));
 		goto done;
 	}
 
 	bzero((char *)&ifm, sizeof(ifm));
-	(void)_SC_cfstring_to_cstring(interface, ifm.ifm_name, sizeof(ifm.ifm_name), kCFStringEncodingASCII);
+	(void)_SC_cfstring_to_cstring(interfaceName, ifm.ifm_name, sizeof(ifm.ifm_name), kCFStringEncodingASCII);
 
-	if (ioctl(sock, SIOCGIFMEDIA, (caddr_t)&ifm) < 0) {
+	if (ioctl(sock, SIOCGIFMEDIA, (caddr_t)&ifm) == -1) {
 		SCLog(TRUE, LOG_DEBUG, CFSTR("ioctl(SIOCGIFMEDIA) failed: %s"), strerror(errno));
 		goto done;
 	}
@@ -167,11 +178,11 @@ _NetworkInterfaceSetMediaOptions(CFStringRef		interface,
 	ifr.ifr_media =  ifm.ifm_current & ~(IFM_NMASK|IFM_TMASK|IFM_OMASK|IFM_GMASK);
 	ifr.ifr_media |= newOptions;
 
-//SCLog(TRUE, LOG_INFO, CFSTR("old media settings: 0x%8.8x (0x%8.8x)"), ifm.ifm_current, ifm.ifm_active);
-//SCLog(TRUE, LOG_INFO, CFSTR("new media settings: 0x%8.8x"), ifr.ifr_media);
+	SCLog(_verbose, LOG_INFO, CFSTR("old media settings: 0x%8.8x (0x%8.8x)"), ifm.ifm_current, ifm.ifm_active);
+	SCLog(_verbose, LOG_INFO, CFSTR("new media settings: 0x%8.8x"), ifr.ifr_media);
 
-	if (ioctl(sock, SIOCSIFMEDIA, (caddr_t)&ifr) < 0) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("ioctl(SIOCSIFMEDIA) failed: %s"), strerror(errno));
+	if (ioctl(sock, SIOCSIFMEDIA, (caddr_t)&ifr) == -1) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("%@: ioctl(SIOCSIFMEDIA) failed: %s"), interfaceName, strerror(errno));
 		goto done;
 	}
 
@@ -179,10 +190,10 @@ _NetworkInterfaceSetMediaOptions(CFStringRef		interface,
 
     done :
 
-	if (available)	CFRelease(available);
-	if (current)	CFRelease(current);
-	if (requested)	CFRelease(requested);
-	if (sock >= 0)	(void)close(sock);
+	if (available != NULL)	CFRelease(available);
+	if (current != NULL)	CFRelease(current);
+	if (requested != NULL)	CFRelease(requested);
+	if (sock != -1)	(void)close(sock);
 
 	return ok;
 }
@@ -221,16 +232,23 @@ ifconfig_exit(pid_t pid, int status, struct rusage *rusage, void *context)
 
 __private_extern__
 Boolean
-_NetworkInterfaceSetMTU(CFStringRef	interface,
-			CFDictionaryRef	options)
+_SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
+			  CFDictionaryRef	options)
 {
+	CFStringRef	interfaceName;
 	int		mtu_cur		= -1;
 	int		mtu_max		= -1;
 	int		mtu_min		= -1;
 	int		requested;
 	CFNumberRef	val;
 
-	if (!NetworkInterfaceCopyMTU(interface, &mtu_cur, &mtu_min, &mtu_max)) {
+	interfaceName = SCNetworkInterfaceGetBSDName(interface);
+	if (interfaceName == NULL) {
+		/* if no BSD interface name */
+		return FALSE;
+	}
+
+	if (!SCNetworkInterfaceCopyMTU(interface, &mtu_cur, &mtu_min, &mtu_max)) {
 		/* could not get current MTU */
 		return FALSE;
 	}
@@ -244,7 +262,7 @@ _NetworkInterfaceSetMTU(CFStringRef	interface,
 		CFDictionaryRef	baseOptions;
 
 		/* get base MTU */
-		baseOptions = CFDictionaryGetValue(baseSettings, interface);
+		baseOptions = CFDictionaryGetValue(baseSettings, interfaceName);
 		if (baseOptions != NULL) {
 			val = CFDictionaryGetValue(baseOptions, kSCPropNetEthernetMTU);
 		}
@@ -273,11 +291,11 @@ _NetworkInterfaceSetMTU(CFStringRef	interface,
 	int		sock;
 
 	bzero((char *)&ifr, sizeof(ifr));
-	(void)_SC_cfstring_to_cstring(interface, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII);
+	(void)_SC_cfstring_to_cstring(interfaceName, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII);
 	ifr.ifr_mtu = requested;
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock < 0) {
+	if (sock == -1) {
 		SCLog(TRUE, LOG_ERR, CFSTR("socket() failed: %s"), strerror(errno));
 		return FALSE;
 	}
@@ -294,7 +312,7 @@ _NetworkInterfaceSetMTU(CFStringRef	interface,
 	char	*ifconfig_argv[] = { "ifconfig", NULL, "mtu", NULL, NULL };
 	pid_t	pid;
 
-	ifconfig_argv[1] = _SC_cfstring_to_cstring(interface, NULL, 0, kCFStringEncodingASCII);
+	ifconfig_argv[1] = _SC_cfstring_to_cstring(interfaceName, NULL, 0, kCFStringEncodingASCII);
 	(void)asprintf(&ifconfig_argv[3], "%d", requested);
 
 	pid = _SCDPluginExecCommand(ifconfig_exit,	// callout,
@@ -352,33 +370,69 @@ parse_component(CFStringRef key, CFStringRef prefix)
 }
 
 
+static void updateLink(CFStringRef interfaceName, CFDictionaryRef options);
+
+
 static void
-updateLink(CFStringRef ifKey, CFDictionaryRef options)
+updateInterfaces(CFArrayRef newInterfaces)
 {
-	CFStringRef		interface	= NULL;
-	static CFStringRef	prefix		= NULL;
+	CFIndex			i;
+	CFIndex			n_old;
+	CFIndex			n_new;
+	static CFArrayRef	oldInterfaces	= NULL;
 
-	if (!prefix) {
-		prefix = SCDynamicStoreKeyCreate(NULL,
-						 CFSTR("%@/%@/%@/"),
-						 kSCDynamicStoreDomainSetup,
-						 kSCCompNetwork,
-						 kSCCompInterface);
+	n_old = (oldInterfaces != NULL) ? CFArrayGetCount(oldInterfaces) : 0;
+	n_new = CFArrayGetCount(newInterfaces);
+
+	for (i = 0; i < n_new; i++) {
+		CFStringRef	interfaceName;
+
+		interfaceName = CFArrayGetValueAtIndex(newInterfaces, i);
+
+		if ((n_old == 0) ||
+		    !CFArrayContainsValue(oldInterfaces,
+					  CFRangeMake(0, n_old),
+					  interfaceName)) {
+			CFDictionaryRef	options;
+
+			// if new interface
+			options = CFDictionaryGetValue(wantSettings, interfaceName);
+			updateLink(interfaceName, options);
+		}
 	}
 
-	interface = parse_component(ifKey, prefix);
-	if (!interface) {
-		goto done;
+	if (oldInterfaces != NULL) CFRelease(oldInterfaces);
+	oldInterfaces = CFRetain(newInterfaces);
+}
+
+
+static void
+updateLink(CFStringRef interfaceName, CFDictionaryRef options)
+{
+	SCNetworkInterfaceRef	interface;
+
+	/* retain requested configuration */
+	if (options != NULL) {
+		CFDictionarySetValue(wantSettings, interfaceName, options);
+	} else {
+		CFDictionaryRemoveValue(wantSettings, interfaceName);
 	}
 
-	if (options) {
-		if (!CFDictionaryContainsKey(baseSettings, interface)) {
+	/* apply requested configuration */
+	interface = _SCNetworkInterfaceCreateWithBSDName(NULL, interfaceName,
+							 kIncludeAllVirtualInterfaces);
+	if (interface == NULL) {
+		return;
+	}
+
+	if (options != NULL) {
+		if (!CFDictionaryContainsKey(baseSettings, interfaceName)) {
 			CFDictionaryRef		cur_media	= NULL;
 			CFMutableDictionaryRef	new_media	= NULL;
 			int			cur_mtu		= -1;
 
 			/* preserve current media options */
-			if (NetworkInterfaceCopyMediaOptions(interface, &cur_media, NULL, NULL, FALSE)) {
+			if (SCNetworkInterfaceCopyMediaOptions(interface, &cur_media, NULL, NULL, FALSE)) {
 				if (cur_media != NULL) {
 					new_media = CFDictionaryCreateMutableCopy(NULL, 0, cur_media);
 					CFRelease(cur_media);
@@ -386,7 +440,7 @@ updateLink(CFStringRef ifKey, CFDictionaryRef options)
 			}
 
 			/* preserve current MTU */
-			if (NetworkInterfaceCopyMTU(interface, &cur_mtu, NULL, NULL)) {
+			if (SCNetworkInterfaceCopyMTU(interface, &cur_mtu, NULL, NULL)) {
 				if (cur_mtu != -1) {
 					CFNumberRef	num;
 
@@ -404,28 +458,26 @@ updateLink(CFStringRef ifKey, CFDictionaryRef options)
 			}
 
 			if (new_media != NULL) {
-				CFDictionarySetValue(baseSettings, interface, new_media);
+				CFDictionarySetValue(baseSettings, interfaceName, new_media);
 				CFRelease(new_media);
 			}
 		}
 
 		/* establish new settings */
-		(void)_NetworkInterfaceSetMediaOptions(interface, options);
-		(void)_NetworkInterfaceSetMTU         (interface, options);
+		(void)_SCNetworkInterfaceSetMediaOptions(interface, options);
+		(void)_SCNetworkInterfaceSetMTU         (interface, options);
 	} else {
 		/* no requested settings */
-		options = CFDictionaryGetValue(baseSettings, interface);
-		if (options) {
+		options = CFDictionaryGetValue(baseSettings, interfaceName);
+		if (options != NULL) {
 			/* restore original settings */
-			(void)_NetworkInterfaceSetMediaOptions(interface, options);
-			(void)_NetworkInterfaceSetMTU         (interface, options);
-			CFDictionaryRemoveValue(baseSettings, interface);
+			(void)_SCNetworkInterfaceSetMediaOptions(interface, options);
+			(void)_SCNetworkInterfaceSetMTU         (interface, options);
+			CFDictionaryRemoveValue(baseSettings, interfaceName);
 		}
 	}
 
-    done :
-
-	if (interface)	CFRelease(interface);
+	CFRelease(interface);
 	return;
 }
 
@@ -433,23 +485,48 @@ updateLink(CFStringRef ifKey, CFDictionaryRef options)
 static void
 linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 {
+	CFDictionaryRef		changes;
 	CFIndex			i;
 	CFIndex			n;
-	CFDictionaryRef		linkInfo;
+	static CFStringRef	prefix		= NULL;
 
-	linkInfo = SCDynamicStoreCopyMultiple(store, changedKeys, NULL);
+	if (prefix == NULL) {
+		prefix = SCDynamicStoreKeyCreate(NULL,
+						 CFSTR("%@/%@/%@/"),
+						 kSCDynamicStoreDomainSetup,
+						 kSCCompNetwork,
+						 kSCCompInterface);
+	}
+
+	changes = SCDynamicStoreCopyMultiple(store, changedKeys, NULL);
 
 	n = CFArrayGetCount(changedKeys);
 	for (i = 0; i < n; i++) {
 		CFStringRef	key;
-		CFDictionaryRef	link;
+		CFDictionaryRef	info;
 
 		key  = CFArrayGetValueAtIndex(changedKeys, i);
-		link = CFDictionaryGetValue(linkInfo, key);
-		updateLink(key, link);
+		info = CFDictionaryGetValue(changes, key);
+
+		if (CFEqual(key, interfacesKey)) {
+			CFArrayRef	interfaces;
+
+			interfaces = CFDictionaryGetValue(info, kSCPropNetInterfaces);
+			if (isA_CFArray(interfaces)) {
+				updateInterfaces(interfaces);
+			}
+		} else {
+			CFStringRef	interfaceName;
+
+			interfaceName = parse_component(key, prefix);
+			if (interfaceName != NULL) {
+				updateLink(interfaceName, info);
+				CFRelease(interfaceName);
+			}
+		}
 	}
 
-	CFRelease(linkInfo);
+	CFRelease(changes);
 
 	return;
 }
@@ -460,6 +537,8 @@ void
 load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 {
 	CFStringRef		key;
+	CFMutableArrayRef	keys		= NULL;
+	Boolean			ok;
 	CFMutableArrayRef	patterns	= NULL;
 
 	if (bundleVerbose) {
@@ -475,20 +554,29 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 						 0,
 						 &kCFTypeDictionaryKeyCallBacks,
 						 &kCFTypeDictionaryValueCallBacks);
+	wantSettings = CFDictionaryCreateMutable(NULL,
+						 0,
+						 &kCFTypeDictionaryKeyCallBacks,
+						 &kCFTypeDictionaryValueCallBacks);
 
 	/* open a "configd" store to allow cache updates */
 	store = SCDynamicStoreCreate(NULL,
 				     CFSTR("Link Configuraton plug-in"),
 				     linkConfigChangedCallback,
 				     NULL);
-	if (!store) {
+	if (store == NULL) {
 		SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCreate() failed: %s"), SCErrorString(SCError()));
 		goto error;
 	}
 
 	/* establish notification keys and patterns */
-
+	keys     = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	/* ...watch for a change in the list of network interfaces */
+	interfacesKey = SCDynamicStoreKeyCreateNetworkInterface(NULL,
+								kSCDynamicStoreDomainState);
+	CFArrayAppendValue(keys, interfacesKey);
 
 	/* ...watch for (per-interface) AirPort configuration changes */
 	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
@@ -515,7 +603,10 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 	CFRelease(key);
 
 	/* register the keys/patterns */
-	if (!SCDynamicStoreSetNotificationKeys(store, NULL, patterns)) {
+	ok = SCDynamicStoreSetNotificationKeys(store, keys, patterns);
+	CFRelease(keys);
+	CFRelease(patterns);
+	if (!ok) {
 		SCLog(TRUE, LOG_ERR,
 		      CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s"),
 		      SCErrorString(SCError()));
@@ -523,7 +614,7 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 	}
 
 	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-	if (!rls) {
+	if (rls == NULL) {
 		SCLog(TRUE, LOG_ERR,
 		      CFSTR("SCDynamicStoreCreateRunLoopSource() failed: %s"),
 		      SCErrorString(SCError()));
@@ -531,15 +622,13 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 	}
 
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-
-	CFRelease(patterns);
 	return;
 
     error :
 
-	if (baseSettings)	CFRelease(baseSettings);
-	if (store) 		CFRelease(store);
-	if (patterns)		CFRelease(patterns);
+	if (baseSettings != NULL)	CFRelease(baseSettings);
+	if (wantSettings != NULL)	CFRelease(wantSettings);
+	if (store != NULL) 		CFRelease(store);
 	return;
 }
 

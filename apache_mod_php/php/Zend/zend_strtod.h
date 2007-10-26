@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2004 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_strtod.h,v 1.1.2.2 2004/11/04 02:33:29 edink Exp $ */
+/* $Id: zend_strtod.h,v 1.3.2.1.2.4 2007/04/22 21:33:10 tony2001 Exp $ */
 
 /* This is a header file for the strtod implementation by David M. Gay which
  * can be found in zend_strtod.c */
@@ -25,7 +25,13 @@
 #include <zend.h>
 
 BEGIN_EXTERN_C()
+ZEND_API void zend_freedtoa(char *s);
+ZEND_API char * zend_dtoa(double _d, int mode, int ndigits, int *decpt, int *sign, char **rve);
 ZEND_API double zend_strtod(const char *s00, char **se);
+ZEND_API double zend_hex_strtod(const char *str, char **endptr);
+ZEND_API double zend_oct_strtod(const char *str, char **endptr);
+ZEND_API int zend_startup_strtod(void);
+ZEND_API int zend_shutdown_strtod(void);
 END_EXTERN_C()
 
 #endif

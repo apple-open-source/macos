@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# Configure cyrus mail access server
+#
+echo "Configuring POP and IMAP server..."
+_log_file=/var/log/mailaccess.log
+if [ ! -e ${_log_file} ]; then
+	touch ${_log_file}
+	chmod 640 ${_log_file}
+	chown root:admin ${_log_file}
+fi
+#_config_file=/etc/imapd.conf
+#if [ -e ${_config_file} ]; then
+#	echo "lmtp_downcase_rcpt: 1" >> ${_config_file}
+#fi
+_imap_dir=/var/imap
+if [ ! -d ${_imap_dir} ]; then
+	mkdir ${_imap_dir}
+fi
+_imap_spool_dir=/var/spool/imap
+if [ ! -d ${_imap_spool_dir} ]; then
+	mkdir ${_imap_spool_dir}
+fi
+chown -R _cyrus:mail ${_imap_dir} >> /dev/null
+chown -R _cyrus:mail ${_imap_spool_dir} >> /dev/null
+sudo -u _cyrus /usr/bin/cyrus/tools/mkimap >> /dev/null
+/usr/sbin/serveradmin settings mail:imap:imap_auth_cram_md5 = yes
+/usr/sbin/serveradmin settings mail:imap:pop_auth_apop = yes
+echo "done."

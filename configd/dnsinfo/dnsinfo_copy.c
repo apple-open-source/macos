@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -123,7 +123,7 @@ expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, void **padding, uint32
 	if (!add_list(padding,
 		      n_padding,
 		      resolver->n_nameserver,
-		      sizeof(struct sockaddr *),
+		      sizeof(DNS_PTR(struct sockaddr *, x)),
 		      (void **)&resolver->nameserver)) {
 		goto error;
 	}
@@ -138,7 +138,7 @@ expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, void **padding, uint32
 	if (!add_list(padding,
 		      n_padding,
 		      resolver->n_search,
-		      sizeof(char *),
+		      sizeof(DNS_PTR(char *, x)),
 		      (void **)&resolver->search)) {
 		goto error;
 	}
@@ -149,7 +149,7 @@ expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, void **padding, uint32
 	if (!add_list(padding,
 		      n_padding,
 		      resolver->n_sortaddr,
-		      sizeof(dns_sortaddr_t *),
+		      sizeof(DNS_PTR(dns_sortaddr_t *, x)),
 		      (void **)&resolver->sortaddr)) {
 		goto error;
 	}
@@ -241,7 +241,7 @@ expand_config(_dns_config_buf_t *buf)
 	if (!add_list(&padding,
 		      &n_padding,
 		      config->n_resolver,
-		      sizeof(dns_resolver_t *),
+		      sizeof(DNS_PTR(dns_resolver_t *, x)),
 		      (void **)&config->resolver)) {
 		goto error;
 	}

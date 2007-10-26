@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2007-06-12</string>
+	<key>OpenSourceLicense</key>
+	<string>GNU GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>clamav.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>set config to not use NetInfo</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>clamav</string>
+	<key>OpenSourceSHA1</key>
+	<string></string>
+	<key>OpenSourceURL</key>
+	<string>http://freshmeat.net/redir/clamav/29355/url_tgz/clamav-0.90.3.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>clamav 0.90.3</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.clamav.net/</string>
+</dict>
+</plist>

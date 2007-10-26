@@ -85,7 +85,7 @@ int zip_getzonesfrombridge(
 		/* TRUE for local zones, FALSE for all zones */
 )
 {
-	int start = *context;
+	u_int16_t start = (u_int16_t)(*context);
 	int fd;
 	int userdata;
 	at_if_cfg_t cfg;
@@ -141,7 +141,7 @@ int zip_getzonesfrombridge(
 	dest.socket = ZIP_SOCKET;
 	puserdata[0] = (local)? ZIP_GETLOCALZONES: ZIP_GETZONELIST;
 	puserdata[1] = 0;
-	*(short *)(&puserdata[2]) = start;
+	*(u_int16_t *)(&puserdata[2]) = htons(start);
 	resp.bitmap = 0x01;
 	resp.resp[0].iov_base = zones;
 	resp.resp[0].iov_len = ATP_DATA_SIZE;
@@ -164,7 +164,7 @@ int zip_getzonesfrombridge(
 			abridge.node = 0;
 			abridge.net = 0;		
 		} else {
-			*context = (start + *(short *)(&puserdata[2]));
+			*context = (start + ntohs(*(u_int16_t *)(&puserdata[2])));
 		}
 /*
 		printf("%s returned %d entries\n", 
@@ -172,7 +172,7 @@ int zip_getzonesfrombridge(
 		       *(short *)(&puserdata[2]));
 */
 		atp_close(fd);
-		return(*(short *)(&puserdata[2]));
+		return ntohs((*(short *)(&puserdata[2])));
 	} 
 	atp_close(fd);
 	return(-1);

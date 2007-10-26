@@ -78,8 +78,8 @@ public:
 	char *operator () (const char *s)
 	{ return (char *)(*this)(s, strlen(s) + 1); }
 	
-	void countedData(const void *data, UInt32 length)
-	{ Endian<UInt32> temp = length; (*this)(temp); (*this)(data, length); }
+	void countedData(const void *data, size_t length)
+	{ Endian<size_t> temp = length; (*this)(temp); (*this)(data, length); }
 	
 	template <class Data>
 	void countedData(const Data &data)
@@ -103,8 +103,8 @@ public:
 	size_t insert(size_t size) { align(); return totalSoFar += size; }
 	size_t operator () (const char *s) { align(); return totalSoFar += strlen(s) + 1; }
 	
-	void countedData(const void *, UInt32 length)
-	{ insert(sizeof(UInt32)); insert(length); }
+	void countedData(const void *, size_t length)
+	{ insert(sizeof(length)); insert(length); }
 	
 	template <class Data>
 	void countedData(const Data &data)
@@ -143,8 +143,8 @@ public:
     const T *get(size_t size)
 	{ return reinterpret_cast<const T *>(advance(size)); }
 	
-	void countedData(const void * &data, UInt32 &length)
-	{ Endian<UInt32> temp; (*this)(temp); length = temp; data = advance(length); }
+	void countedData(const void * &data, size_t &length)
+	{ Endian<size_t> temp; (*this)(temp); length = temp; data = advance(length); }
 
 private:
 	// Explicitly forbid some invocations that are likely to be wrong.

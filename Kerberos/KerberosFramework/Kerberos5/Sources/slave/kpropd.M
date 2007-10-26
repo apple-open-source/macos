@@ -69,7 +69,7 @@ Normally, kpropd is invoked out of
 This is done by adding a line to the inetd.conf file which looks like
 this:
 
-kprop	stream	tcp	nowait	root	/usr/local/sbin/kpropd	kpropd
+kprop	stream	tcp	nowait	root	/usr/sbin/kpropd	kpropd
 
 However, kpropd can also run as a standalone deamon, if the
 .B \-S
@@ -87,13 +87,13 @@ is used.
 \fB\-f\fP \fIfile\fP
 specifies the filename where the dumped principal database file is to be
 stored; by default the dumped database file is KPROPD_DEFAULT_FILE
-(normally /usr/local/var/krb5kdc/from_master).
+(normally /var/db/krb5kdc/from_master).
 .TP
 .B \-p
 allows the user to specify the pathname to the
 .IR kdb5_util (8)
 program; by default the pathname used is KPROPD_DEFAULT_KDB5_UTIL
-(normally /usr/local/sbin/kdb5_util).
+(normally /usr/sbin/kdb5_util).
 .TP
 .B \-S
 turn on standalone mode.  Normally, kpropd is invoked out of
@@ -119,11 +119,19 @@ allow for an alternate port number for
 .I kpropd
 to listen on. This is only useful if the program is run in standalone
 mode.
+.TP
+.B \-a
+allows the user to specify the path to the
+.KR kpropd.acl
+file; by default the path used is KPROPD_ACL_FILE
+(normally /var/db/krb5kdc/kpropd.acl).
 .SH FILES
 .TP "\w'kpropd.acl\ \ 'u"
 kpropd.acl
 Access file for
-.BR kpropd .
+.BR kpropd ;
+the default location is KPROPD_ACL_FILE (normally
+/var/db/krb5kdc/kpropd.acl).
 Each entry is a line containing the principal of a host from which the
 local machine will allow Kerberos database propagation via kprop.
 .SH SEE ALSO

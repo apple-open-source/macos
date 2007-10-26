@@ -1,22 +1,3 @@
-2007-10-11  Mark Rowe  <mrowe@apple.com>
-
-        Reviewed by Tim Hatcher.
-
-        Fix for <rdar://problem/5488678>.  Disable debugging symbols in production builds for 10.4
-        PowerPC to prevent a huge STABS section from being generated.
-
-        * Configurations/Base.xcconfig:
-
-2007-10-04  Mark Rowe  <mrowe@apple.com>
-
-        Reviewed by Oliver.
-
-        Switch to default level of debugging symbols to resolve <rdar://problem/5488678>.
-        The "full" level appears to offer no observable benefits even though the documentation
-        suggests it be used for dead code stripping.  This should also decrease link times.
-
-        * Configurations/Base.xcconfig:
-
 2007-09-03  Mark Rowe  <mrowe@apple.com>
 
         Reviewed by Tim Hatcher.

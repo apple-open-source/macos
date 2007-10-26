@@ -16,7 +16,7 @@
 
 # Makefile.am for SASL documentation
 # Rob Earhart
-# $Id: Makefile.in,v 1.4 2005/01/10 19:13:36 snsimon Exp $
+# $Id: Makefile.in,v 1.6 2006/01/20 20:15:07 snsimon Exp $
 #
 ################################################################
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
@@ -92,6 +92,7 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+CMU_LIB_SUBDIR = @CMU_LIB_SUBDIR@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -127,9 +128,12 @@ LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIB_CRYPT = @LIB_CRYPT@
 LIB_DES = @LIB_DES@
+LIB_DOOR = @LIB_DOOR@
+LIB_LDAP = @LIB_LDAP@
 LIB_MYSQL = @LIB_MYSQL@
 LIB_PGSQL = @LIB_PGSQL@
 LIB_SOCKET = @LIB_SOCKET@
+LIB_SQLITE = @LIB_SQLITE@
 LN_S = @LN_S@
 LTGETADDRINFOOBJS = @LTGETADDRINFOOBJS@
 LTGETNAMEINFOOBJS = @LTGETNAMEINFOOBJS@
@@ -150,6 +154,7 @@ PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
+PASSDSS_LIBS = @PASSDSS_LIBS@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PLAIN_LIBS = @PLAIN_LIBS@
 PURECOV = @PURECOV@
@@ -173,6 +178,7 @@ SASL_KRB_LIB = @SASL_KRB_LIB@
 SASL_MECHS = @SASL_MECHS@
 SASL_STATIC_LIBS = @SASL_STATIC_LIBS@
 SASL_STATIC_OBJS = @SASL_STATIC_OBJS@
+SASL_STATIC_SRCS = @SASL_STATIC_SRCS@
 SASL_UTIL_HEADERS_EXTRA = @SASL_UTIL_HEADERS_EXTRA@
 SASL_UTIL_LIBS_EXTRA = @SASL_UTIL_LIBS_EXTRA@
 SET_MAKE = @SET_MAKE@
@@ -240,16 +246,17 @@ EXTRA_DIST = rfc1321.txt \
 		rfc3174.txt \
 		testing.txt \
 		server-plugin-flow.fig \
-		draft-burdis-cat-srp-sasl-08.txt \
-		draft-ietf-sasl-anon-02.txt \
-		draft-ietf-sasl-crammd5-01.txt \
-		draft-ietf-sasl-gssapi-00.txt \
-		draft-ietf-sasl-plain-03.txt \
-		draft-ietf-sasl-rfc2222bis-03.txt \
-		draft-ietf-sasl-rfc2831bis-02.txt \
-		draft-ietf-sasl-saslprep-04.txt \
-		draft-murchison-sasl-login-00.txt \
-		draft-newman-sasl-c-api-01.txt \
+		draft-burdis-cat-srp-sasl-xx.txt \
+		draft-ietf-sasl-anon-xx.txt \
+		draft-ietf-sasl-crammd5-xx.txt \
+		draft-ietf-sasl-gssapi-xx.txt \
+		draft-ietf-sasl-plain-xx.txt \
+		draft-ietf-sasl-rfc2222bis-xx.txt \
+		draft-ietf-sasl-rfc2831bis-xx.txt \
+		draft-ietf-sasl-saslprep-xx.txt \
+		draft-murchison-sasl-login-xx.txt \
+		draft-newman-sasl-c-api-xx.txt \
+		draft-newman-sasl-passdss-xx.txt \
 		programming.html \
 		sysadmin.html \
 		gssapi.html \

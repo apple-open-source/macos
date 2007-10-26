@@ -1,358 +1,0 @@
-! ----------------------------------------------------------------------!
-!    Modem Script for NTT DoCoMo Paldio 633S!
-!    Tested with:
-!       Paldio 633S via Bluetooth
-!
-!    Supported connections:
-!       1) 64000 bps connection with automatic fallback to 32000 bps.
-!       2) Analog/ISDN connection via PTE.
-!
-!    How to establish a PTE connection:
-!       1) Set "Dialing" to "Pulse"
-!       2) Set "Telephone Number" to "XXXXXXXXXX*YYYYYYYYYY"
-!          (XXXXXXXXXX = PTE access point, YYYYYYYYYY = dialup number)
-!
-!    4/26/2002
-!
-!    Copyright 2002 Apple Computer, Inc. All Rights Reserved.!
-! ----------------------------------------------------------------------
-
-@ORIGINATE
-@ANSWER
-
-!
-!  Initial setup
-!
-
-serreset 115200, 0, 8, 1
-hsreset 0 0 0 0 0 0
-settries 0
-
-!
-!  Get the modem's attention
-!
-
-matchclr
-matchstr 1 3 "OK\13\10"
-write "AT\13"
-matchread 30
-jump 101
-
-!!  Setup the modem for the following:
-!    Reset to factory defaults (&F)!    Echo off (E0)!    Return result codes (Q0)!    Verbose responses (V1)
-!    Display connection speed (\W1)!    Display carrier speed (\Y1)!    Turn off answering (S0=0)!
-
-@LABEL 3
-matchclr
-matchstr 1 13  "OK\13\10"
-matchstr 2 101 "ERROR\13\10"
-write "AT&FE0Q0V1\\W1\\Y1S0=0\13"
-pause 5
-matchread 90
-inctries
-iftries 3 101
-
-!
-!  Reset the Modem on setup failure
-!
-
-DTRClear
-pause 5
-DTRSet
-flush
-pause 90
-jump 3
-
-!!  Originating a call.!
-
-@LABEL 13
-ifANSWER 32
-
-!
-!  Dial
-!
-@LABEL 19
-! Display the full dialstring contained in Varstring 1note "Dialing ^1" 3!! Varstrings 7, 8 and 9, contain dialstring fragments!    Long phone numbers may need to be split into smaller groups!    for the modem to use!! Varstring 8 == blank (dialstring in varstring 7)! Varstring 9 == blank (dialstring in varstrings 7 & 8)! Otherwise (dialstring in varstrings 7, 8 & 9)
-
-flush
-ifstr 8 21 " "
-ifstr 9 20 " "
-
-!
-!  Write dialstring in varstrings 7, 8 & 9
-!
-
-write "ATD^3^7^8^9\13"
-jump 32
-
-!
-!  Write dialstring in varstrings 7 & 8
-!
-
-@LABEL 20
-write "ATD^3^7^8\13"
-jump 32
-
-!
-!
-!  Write dialstring in varstring 7
-!
-
-@LABEL 21
-write "ATD^3^7\13"
-
-!
-!  Parse the modem's response.!
-
-@LABEL 32
-matchclr
-matchstr 1  33 "CONNECT "matchstr 2  80 "CONNECT\13\10"matchstr 3  88 "RING\13\10"matchstr 4 105 "NO CARRIER"matchstr 5 105 "ERROR\13\10"matchstr 6 107 "BUSY\13\10"matchstr 7 109 "NO ANSWER\13\10"matchstr 8 107 "HAND SET IN USE\13\10"matchread 700
-ifANSWER 32
-jump 101
-
-!
-!  Determine the connection rate.
-
-@LABEL 33
-matchclr
-matchstr 3 36 "32000/CARRIER "
-matchstr 4 36 "64000/CARRIER "
-matchstr 7 34 "32000\13\10"
-matchstr 8 35 "64000\13\10"
-matchread 30
-jump 80
-!
-@LABEL 34
-note "Communicating at 32000 bps." 2
-CommunicatingAt 32000
-jump 81
-!
-@LABEL 35
-note "Communicating at 64000 bps." 2
-CommunicatingAt 64000
-jump 81
-!
-@LABEL 36
-matchclr
-matchstr  1 37 "1200\13\10"
-matchstr  2 38 "2400\13\10"
-matchstr  3 39 "4800"
-matchstr  4 40 "7200"
-matchstr  5 41 "9600"
-matchstr  6 42 "12000"
-matchstr  7 43 "14400"
-matchstr  8 44 "16800"
-matchstr  9 45 "19200"
-matchstr 10 46 "21600"
-matchstr 11 47 "24000"
-matchstr 12 48 "26400"
-matchstr 13 49 "28800"
-matchstr 14 50 "31200"
-matchstr 15 51 "33600"
-matchread 30
-jump 80
-!
-@LABEL 37
-note "Carrier speed 1200 bps." 2
-CommunicatingAt 1200
-jump 81
-!
-@LABEL 38
-note "Carrier speed 2400 bps." 2
-CommunicatingAt 2400
-jump 81
-!
-@LABEL 39
-note "Carrier speed 4800 bps." 2
-CommunicatingAt 4800
-jump 81
-!
-@LABEL 40
-note "Carrier speed 7200 bps." 2
-CommunicatingAt 7200
-jump 81
-!
-@LABEL 41
-note "Carrier speed 9600 bps." 2
-CommunicatingAt 9600
-jump 81
-!
-@LABEL 42
-note "Carrier speed 12000 bps." 2
-CommunicatingAt 12000
-jump 81
-!
-@LABEL 43
-note "Carrier speed 14400 bps." 2
-CommunicatingAt 14400
-jump 81
-!
-@LABEL 44
-note "Carrier speed 16800 bps." 2
-CommunicatingAt 16800
-jump 81
-!
-@LABEL 45
-note "Carrier speed 19200 bps." 2
-CommunicatingAt 19200
-jump 81
-!
-@LABEL 46
-note "Carrier speed 21600 bps." 2
-CommunicatingAt 21600
-jump 81
-!
-@LABEL 47
-note "Carrier speed 24000 bps." 2
-CommunicatingAt 24000
-jump 81
-!
-@LABEL 48
-note "Carrier speed 26400 bps." 2
-CommunicatingAt 26400
-jump 81
-!
-@LABEL 49
-note "Carrier speed 28800 bps." 2
-CommunicatingAt 28800
-jump 81
-!
-@LABEL 50
-note "Carrier speed 31200 bps." 2
-CommunicatingAt 31200
-jump 81
-!
-@LABEL 51
-note "Carrier speed 33600 bps." 2
-CommunicatingAt 33600
-jump 81
-!
-@LABEL 80
-note "Communicating at an unknown rate." 2
-jump 81
-! -- Normal exit after "CONNECT" --!!  This modem has been setup to do CTS handshaking,!  and we assume that a CTS handshaking cable is being used.
-@LABEL 81
-! Turn on CTS handshaking.
-HSReset 0 1 0 0 0 0
-
-ifANSWER 87
-pause 30
-@LABEL 87
-exit 0
-! ----------------------------------------------------------------------!
-!  Answer calls
-!
-!  A RING result from the modem when in ANSWER mode claims the
-!  serial port and answers the phone.!
-@LABEL 88
-ifORIGINATE 32
-userhook 1
-note "Answering phone..." 2
-write "ATA\13"
-jump 32
-
-! ----------------------------------------------------------------------!!  Hang up and reset modem!
-@HANGUP 
-@LABEL 90 
-settries 0
-HSReset 0 0 0 0 0 0
-
-!!  Escape from data to command mode
-!
-
-@LABEL 92
-flush
-pause 1
-write "+++"
-pause 1 
-matchclr
-matchstr 1 96 "OK\13\10"
-matchread 30
-
-!
-!  Force a hangup
-!
-@LABEL 94
-flush
-matchclr
-matchstr 1 98 "NO CARRIER\13\10"
-matchstr 2 98 "OK\13\10"
-matchstr 3 98 "ERROR\13\10"
-matchstr 4 98 "0\13\10"
-write "ATH0\13"
-matchread 150
-
-! 
-!  Try to get control of the modem by toggling DTR
-!
-
-DTRClear
-pause 5
-DTRSet
-flush
-
-!!  Try the hangup sequence three times otherwise declare and error
-!
-
-inctries
-iftries 3 101
-jump 92
-
-!!  Pause between data and command mode!
-
-@LABEL 96
-pause 50
-jump 94
-!!  Recall the factory settings
-!
-@LABEL 98
-pause 15
-matchclr
-matchstr 1 99 "OK\13\10"
-write "AT&F\13"
-matchread 30
-jump 101
-
-@LABEL 99
-exit 0
-
-! ----------------------------------------------------------------------!
-!  Error messages!
-
-!
-!  Modem Not Responding!
-
-@LABEL 101
-write "AT&F\13"
-pause 10
-exit -6019
-
-!!  No Carrier or Error!
-
-@LABEL 105
-matchstr 1 106 "OK\13\10"
-write "AT&F\13"
-matchread 30
-@LABEL 106
-exit -6021
-
-!
-!  Busy or Delayed!
-
-@LABEL 107
-matchstr 1 108 "OK\13\10"
-write "AT&F\13"
-matchread 30
-@LABEL 108
-exit -6022
-
-!
-!  No Answer
-!
-
-@LABEL 109
-matchstr 1 110 "OK\13\10"
-write "AT&F\13"
-matchread 30
-@LABEL 110
-exit -6023

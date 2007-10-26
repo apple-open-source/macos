@@ -167,7 +167,7 @@ smime_mapi_by_cipher(unsigned long cipher)
  * NSS_SMIME_EnableCipher - this function locally records the user's preference
  */
 OSStatus 
-SecSMIMEEnableCipher(unsigned long which, Boolean on)
+SecSMIMEEnableCipher(uint32 which, Boolean on)
 {
     unsigned long mask;
     int mapi;
@@ -201,7 +201,7 @@ SecSMIMEEnableCipher(unsigned long which, Boolean on)
  * this function locally records the export policy
  */
 OSStatus 
-SecSMIMEAllowCipher(unsigned long which, Boolean on)
+SecSMIMEAllowCipher(uint32 which, Boolean on)
 {
     unsigned long mask;
     int mapi;
@@ -751,7 +751,7 @@ SecSMIMEGetCertFromEncryptionKeyPreference(SecKeychainRef keychainOrArray, CSSM_
     /* find cert */
     switch (ekp.selector) {
     case NSSSMIMEEncryptionKeyPref_IssuerSN:
-	cert = CERT_FindCertByIssuerAndSN(keychainOrArray, ekp.id.issuerAndSN);
+	cert = CERT_FindCertByIssuerAndSN(keychainOrArray, NULL, NULL, ekp.id.issuerAndSN);
 	break;
     case NSSSMIMEEncryptionKeyPref_RKeyID:
     case NSSSMIMEEncryptionKeyPref_SubjectKeyID:

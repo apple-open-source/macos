@@ -28,6 +28,7 @@
 #include "tpdebugging.h"
 #include "tpTime.h"
 #include <Security/oidsalg.h>
+#include <Security/oidsattr.h>
 #include <Security/oidscert.h>
 #include <Security/cssmapple.h>
 #include <security_utilities/debugging.h>
@@ -64,8 +65,37 @@ CSSM_X509_NAME * AppleTPSession::buildX509Name(
 			malloc(sizeof(CSSM_X509_TYPE_VALUE_PAIR));
 		CSSM_X509_TYPE_VALUE_PAIR_PTR atvp = rdn->AttributeTypeAndValue;
 		tpCopyCssmData(*this, nameOid->oid, &atvp->type);
-		atvp->valueType = BER_TAG_PKIX_UTF8_STRING;
 		atvp->value.Length = strlen(nameOid->string);
+		if(tpCompareOids(&CSSMOID_CountryName, nameOid->oid)) {
+			/* 
+			 * Country handled differently per RFC 3280 - must be printable,
+			 * max of two characters in length
+			 */
+			if(atvp->value.Length > 2) {
+				CssmError::throwMe(CSSMERR_TP_INVALID_DATA);
+			}
+			for(unsigned dex=0; dex<atvp->value.Length; dex++) {
+				int c = nameOid->string[dex];
+				if(!isprint(c) || (c == EOF)) {
+					CssmError::throwMe(CSSMERR_TP_INVALID_DATA);
+				}
+			}
+			atvp->valueType = BER_TAG_PRINTABLE_STRING;
+		}
+		/* other special cases per RFC 3280 */
+		else if(tpCompareOids(&CSSMOID_DNQualifier, nameOid->oid)) {
+			atvp->valueType = BER_TAG_PRINTABLE_STRING;
+		}
+		else if(tpCompareOids(&CSSMOID_SerialNumber, nameOid->oid)) {
+			atvp->valueType = BER_TAG_PRINTABLE_STRING;
+		}
+		else if(tpCompareOids(&CSSMOID_EmailAddress, nameOid->oid)) {
+			atvp->valueType = BER_TAG_IA5_STRING;
+		}
+		else {
+			/* Default type */
+			atvp->valueType = BER_TAG_PKIX_UTF8_STRING;
+		}
 		atvp->value.Data = (uint8 *)malloc(atvp->value.Length);
 		memmove(atvp->value.Data, nameOid->string, atvp->value.Length);
 	}
@@ -145,7 +175,7 @@ void AppleTPSession::freeX509Time(
  * bytes, big-endian).
  */
 static void intToDER(
-	uint32 theInt,
+	CSSM_INTPTR theInt,
 	CSSM_DATA &DER_Data,
 	Allocator &alloc)
 {
@@ -153,7 +183,7 @@ static void intToDER(
  	 * Calculate length in bytes of encoded integer, minimum length of 1. 
 	 */
 	DER_Data.Length = 1;
-	uint32 unsignedInt = theInt;
+	uintptr_t unsignedInt = (uintptr_t)theInt;
 	while(unsignedInt > 0xff) {
 		DER_Data.Length++;
 		unsignedInt >>= 8;
@@ -171,7 +201,7 @@ static void intToDER(
 	
 	DER_Data.Data = (uint8 *)alloc.malloc(DER_Data.Length);
 	uint8 *dst = DER_Data.Data + DER_Data.Length - 1;
-	unsignedInt = theInt;
+	unsignedInt = (uintptr_t)theInt;
 	for(unsigned dex=0; dex<DER_Data.Length; dex++) {
 		*dst-- = unsignedInt & 0xff;
 		/* this shifts off to zero if we're adding a zero at the top */
@@ -180,10 +210,10 @@ static void intToDER(
 }
 
 /* The reverse of the above. */
-static uint32 DERToInt(
+static CSSM_INTPTR DERToInt(
 	const CSSM_DATA &DER_Data)
 {
-	uint32 rtn = 0;
+	CSSM_INTPTR rtn = 0;
 	uint8 *bp = DER_Data.Data;
 	for(unsigned dex=0; dex<DER_Data.Length; dex++) {
 		rtn <<= 8;
@@ -374,7 +404,7 @@ void AppleTPSession::makeCertTemplate(
 		certTemp,
 		rawCert);
 	if(crtn) {
-		tpCredDebug("CSSM_CL_CertCreateTemplate returned %ld", crtn);
+		tpCredDebug("CSSM_CL_CertCreateTemplate returned %ld", (long)crtn);
 		free(rawCert->Data);
 		free(rawCert);
 		rawCert = NULL;
@@ -491,7 +521,7 @@ void AppleTPSession::SubmitCsrRequest(
 			certReq->issuerPrivateKey,
 			&sigHand);
 	if(crtn) {
-		tpCredDebug("CSSM_CSP_CreateSignatureContext returned %ld", crtn);
+		tpCredDebug("CSSM_CSP_CreateSignatureContext returned %ld", (long)crtn);
 		goto abort;
 	}
 	
@@ -502,7 +532,7 @@ void AppleTPSession::SubmitCsrRequest(
 		&csrReq,
 		(void **)&csrPtr);
 	if(crtn) {
-		tpCredDebug("CSSM_CL_PassThrough returned %ld", crtn);
+		tpCredDebug("CSSM_CL_PassThrough returned %ld", (long)crtn);
 		goto abort;
 	}
 
@@ -709,7 +739,7 @@ void AppleTPSession::SubmitCredRequest(
 				certReq->issuerPrivateKey,
 				&sigContext);
 		if(ourRtn) {
-			tpCredDebug("CSSM_CSP_CreateSignatureContext returned %ld", ourRtn);
+			tpCredDebug("CSSM_CSP_CreateSignatureContext returned %ld", (long)ourRtn);
 			CssmError::throwMe(ourRtn);
 		}
 		
@@ -723,7 +753,7 @@ void AppleTPSession::SubmitCredRequest(
 			0,					// ScopeSize,
 			signedCert);
 		if(ourRtn) {
-			tpCredDebug("CSSM_CL_CertSign returned %ld", ourRtn);
+			tpCredDebug("CSSM_CL_CertSign returned %ld", (long)ourRtn);
 			CssmError::throwMe(ourRtn);
 		}
 		
@@ -732,7 +762,7 @@ void AppleTPSession::SubmitCredRequest(
 		EstimatedTime = 0;
 	}
 	catch (const CssmError &cerr) {
-		tpCredDebug("SubmitCredRequest: CSSM error %ld", cerr.error);
+		tpCredDebug("SubmitCredRequest: CSSM error %ld", (long)cerr.error);
 		ourRtn = cerr.error;
 	}
 	catch(...) {
@@ -767,7 +797,7 @@ void AppleTPSession::RetrieveCredResult(
 	CSSM_BOOL &ConfirmationRequired,
 	CSSM_TP_RESULT_SET_PTR &RetrieveOutput)
 {
-	const CSSM_DATA *cert = getCertFromMap(&ReferenceIdentifier);
+	CSSM_DATA *cert = getCertFromMap(&ReferenceIdentifier);
 	
 	if(cert == NULL) {
 		tpCredDebug("RetrieveCredResult: refId not found");
@@ -784,6 +814,8 @@ void AppleTPSession::RetrieveCredResult(
 	 *   CSSM_TP_RESULT_SET_PTR RetrieveOutput
 	 *   RetrieveOutput->Results (CSSM_ENCODED_CERT *encCert)
 	 *   encCert->CertBlob.Data (the actual cert)
+	 * We free:
+	 * 	 cert 					-- mallocd in SubmitCredRequest
 	 */
 	encCert->CertBlob = *cert;
 	RetrieveOutput = (CSSM_TP_RESULT_SET_PTR)malloc(
@@ -791,5 +823,6 @@ void AppleTPSession::RetrieveCredResult(
 	RetrieveOutput->Results = encCert;
 	RetrieveOutput->NumberOfResults = 1;
 	ConfirmationRequired = CSSM_FALSE;
+	free(cert);	
 	EstimatedTime = 0;
 }

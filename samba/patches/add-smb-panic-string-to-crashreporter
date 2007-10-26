@@ -1,0 +1,39 @@
+Index: samba/source/lib/util.c
+===================================================================
+--- samba/source/lib/util.c.orig
++++ samba/source/lib/util.c
+@@ -1616,6 +1616,20 @@ BOOL nametogid(const char *name, gid_t *
+  Something really nasty happened - panic !
+ ********************************************************************/
+ 
++/*
++ * The following symbol is reference by Crash Reporter symbolicly
++ * (instead of through undefined references. To get strip(1) to know
++ * this symbol is not to be stripped it needs to have the
++ * REFERENCED_DYNAMICALLY bit (0x10) set.  This would have been done
++ * automaticly by ld(1) if this symbol were referenced through undefined
++ * symbols.
++ *
++ * NOTE: this is an unsupported interface and the CrashReporter team reserve
++ * the right to change it at any time.
++ */
++char *__crashreporter_info__ = NULL;
++asm(".desc ___crashreporter_info__, 0x10");
++
+ void smb_panic(const char *const why)
+ {
+ 	char *cmd;
+@@ -1649,6 +1663,13 @@ void smb_panic(const char *const why)
+ 					  WEXITSTATUS(result)));
+ 	}
+ 
++	/* Get CrashReporter to stash the panic reason in the crash log. Note
++	 * that this is really a very broad hint, since some of the frameworks
++	 * may clobber this and we can crash in ways that don't go through
++	 * smb_panic.
++	 */
++	__crashreporter_info__ = why;
++
+ 	dump_core();
+ }
+ 

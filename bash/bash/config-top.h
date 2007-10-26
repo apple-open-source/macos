@@ -47,19 +47,19 @@
 
 /* Define DONT_REPORT_SIGPIPE if you don't want to see `Broken pipe' messages
    when a job like `cat jobs.c | exit 1' is executed. */
-/* #define DONT_REPORT_SIGPIPE */
+#define DONT_REPORT_SIGPIPE
 
 /* The default value of the PATH variable. */
 #ifndef DEFAULT_PATH_VALUE
 #define DEFAULT_PATH_VALUE \
-  "/usr/gnu/bin:/usr/local/bin:/usr/ucb:/bin:/usr/bin:."
+  "/usr/gnu/bin:/usr/local/bin:/bin:/usr/bin:."
 #endif
 
 /* The value for PATH when invoking `command -p'.  This is only used when
    the Posix.2 confstr () function, or CS_PATH define are not present. */
 #ifndef STANDARD_UTILS_PATH
 #define STANDARD_UTILS_PATH \
-  "/bin:/usr/bin:/usr/ucb:/sbin:/usr/sbin:/etc:/usr/etc"
+  "/bin:/usr/bin:/sbin:/usr/sbin:/etc:/usr/etc"
 #endif
 
 /* Default primary and secondary prompt strings. */
@@ -73,7 +73,7 @@
 #define KSH_COMPATIBLE_SELECT
 
 /* System-wide .bashrc file for interactive shells. */
-#define SYS_BASHRC "/etc/bashrc"
+/* #define SYS_BASHRC "/etc/bash.bashrc" */
 
 /* System-wide .bash_logout for login shells. */
 /* #define SYS_BASH_LOGOUT "/etc/bash.bash_logout" */

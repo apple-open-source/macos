@@ -1,4 +1,4 @@
-Copyright (c) 2002, International Business Machines Corporation and others. All Rights Reserved.
+Copyright (c) 2002-2005, International Business Machines Corporation and others. All Rights Reserved.
 strsrch: a sample program which finds the occurrences of a pattern string in a source string, using user-defined collation rules.
 
 This sample demonstrates
@@ -6,13 +6,13 @@ This sample demonstrates
          Finding all occurrences of a pattern string in a given source string.
          
 Files:
-    strsrch.c                      Main source file
-    strsrch.dsw                   Windows MSVC workspace.  Double-click this to get started.
-    strsrch.dsp                    Windows MSVC project file
+    strsrch.c                     Main source file
+    strsrch.sln                   Windows MSVC workspace.  Double-click this to get started.
+    strsrch.vcproj                Windows MSVC project file
 
 To Build strsrch on Windows
     1.  Install and build ICU
-    2.  In MSVC, open the workspace file icu\samples\strsrch\strsrch.dsw
+    2.  In MSVC, open the workspace file icu\samples\strsrch\strsrch.sln
     3.  Choose a Debug or Release build.
     4.  Build.
 	

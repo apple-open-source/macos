@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 """Posting moderation filter.
 """
@@ -135,7 +135,11 @@ def matches_p(sender, nonmembers):
 
 def do_reject(mlist):
     listowner = mlist.GetOwnerEmail()
-    raise Errors.RejectMessage, Utils.wrap(_("""\
+    if mlist.nonmember_rejection_notice:
+        raise Errors.RejectMessage, \
+              Utils.wrap(_(mlist.nonmember_rejection_notice))
+    else:
+        raise Errors.RejectMessage, Utils.wrap(_("""\
 You are not allowed to post to this mailing list, and your message has been
 automatically rejected.  If you think that your messages are being rejected in
 error, contact the mailing list owner at %(listowner)s."""))

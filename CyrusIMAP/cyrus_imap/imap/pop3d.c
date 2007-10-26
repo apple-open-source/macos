@@ -40,7 +40,7 @@
  */
 
 /*
- * $Id: pop3d.c,v 1.12 2005/08/24 23:22:04 dasenbro Exp $
+ * $Id: pop3d.c,v 1.171 2007/02/05 18:41:48 jeaton Exp $
  */
 #include <config.h>
 
@@ -79,12 +79,42 @@
 #include "mailbox.h"
 #include "version.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 #include "mboxlist.h"
 #include "idle.h"
 #include "telemetry.h"
 #include "backend.h"
+#include "proxy.h"
 
+#include "sync_log.h"
+
+#ifdef APPLE_OS_X_SERVER
 #include "AppleOD.h"
+
+enum {
+    STATUS_FD = 3,
+    LISTEN_FD = 4
+};
+
+enum {
+    MASTER_SERVICE_AVAILABLE = 0x01,
+    MASTER_SERVICE_UNAVAILABLE = 0x02,
+    MASTER_SERVICE_CONNECTION = 0x03,
+    MASTER_SERVICE_CONNECTION_MULTI = 0x04,
+    MASTER_SERVICE_STATUS_ADD_USER = 0x05,
+    MASTER_SERVICE_STATUS_REMOVE_USER = 0x06
+};
+
+struct notify_message {
+    int message;
+    pid_t service_pid;
+	time_t	p_start_time;
+	char p_user_buf[64+1];
+	char p_host_buf[64+1];
+};
+
+#endif
 
 #ifdef HAVE_KRB
 /* kerberos des is purported to conflict with OpenSSL DES */
@@ -109,7 +139,7 @@ static SSL *tls_conn;
 
 sasl_conn_t *popd_saslconn; /* the sasl connection context */
 
-char *popd_userid = 0;
+char *popd_userid = 0, *popd_subfolder = 0;
 struct mailbox *popd_mailbox = 0;
 struct auth_state *popd_authstate = 0;
 int config_popuseacl;
@@ -127,6 +157,7 @@ struct msg {
     int deleted;
 } *popd_msg = NULL;
 
+static sasl_ssf_t extprops_ssf = 0;
 static int pop3s = 0;
 int popd_starttls_done = 0;
 
@@ -145,9 +176,10 @@ const int config_need_data = CONFIG_NEED_PARTITION_DATA;
 /* current namespace */
 static struct namespace popd_namespace;
 
+#ifdef APPLE_OS_X_SERVER
 /* current user mail options */
 static struct od_user_opts	*gUserOpts = NULL;
-static int gBadLoginSleep	= 2;
+#endif
 
 /* PROXY stuff */
 struct backend *backend = NULL;
@@ -194,10 +226,106 @@ static struct
     char *authid;
 } saslprops = {NULL,NULL,0,NULL};
 
+static int popd_canon_user(sasl_conn_t *conn, void *context,
+			   const char *user, unsigned ulen,
+			   unsigned flags, const char *user_realm,
+			   char *out, unsigned out_max, unsigned *out_ulen)
+{
+    char userbuf[MAX_MAILBOX_NAME+1], *p;
+    size_t n;
+    int r;
+
+    if (!ulen) ulen = strlen(user);
+
+    if (config_getswitch(IMAPOPT_POPSUBFOLDERS)) {
+	/* make a working copy of the auth[z]id */
+	if (ulen > MAX_MAILBOX_NAME) {
+	    sasl_seterror(conn, 0, "buffer overflow while canonicalizing");
+	    return SASL_BUFOVER;
+	}
+	memcpy(userbuf, user, ulen);
+	userbuf[ulen] = '\0';
+	user = userbuf;
+
+	/* See if we're trying to access a subfolder */
+	if ((p = strchr(userbuf, '+'))) {
+	    n = config_virtdomains ? strcspn(p, "@") : strlen(p);
+
+	    if (flags & SASL_CU_AUTHZID) {
+		/* make a copy of the subfolder */
+		if (popd_subfolder) free(popd_subfolder);
+		popd_subfolder = xstrndup(p, n);
+	    }
+
+	    /* strip the subfolder from the auth[z]id */
+	    memmove(p, p+n, strlen(p+n)+1);
+	    ulen -= n;
+	}
+    }
+
+    r = mysasl_canon_user(conn, context, user, ulen, flags, user_realm,
+			  out, out_max, out_ulen);
+
+    if (!r && popd_subfolder && flags == SASL_CU_AUTHZID) {
+	/* If we're only doing the authzid, put back the subfolder
+	   in case its used in the challenge/response calculation */
+	n = strlen(popd_subfolder);
+	if (*out_ulen + n > out_max) {
+	    sasl_seterror(conn, 0, "buffer overflow while canonicalizing");
+	    r = SASL_BUFOVER;
+	}
+	else {
+	    p = (config_virtdomains && (p = strchr(out, '@'))) ?
+		p : out + *out_ulen;
+	    memmove(p+n, p, strlen(p)+1);
+	    memcpy(p, popd_subfolder, n);
+	    *out_ulen += n;
+	}
+    }
+
+    return r;
+}
+
+static int popd_proxy_policy(sasl_conn_t *conn,
+			     void *context,
+			     const char *requested_user, unsigned rlen,
+			     const char *auth_identity, unsigned alen,
+			     const char *def_realm,
+			     unsigned urlen,
+			     struct propctx *propctx)
+{
+    if (config_getswitch(IMAPOPT_POPSUBFOLDERS)) {
+	char userbuf[MAX_MAILBOX_NAME+1], *p;
+	size_t n;
+
+	/* make a working copy of the authzid */
+	if (!rlen) rlen = strlen(requested_user);
+	if (rlen > MAX_MAILBOX_NAME) {
+	    sasl_seterror(conn, 0, "buffer overflow while proxying");
+	    return SASL_BUFOVER;
+	}
+	memcpy(userbuf, requested_user, rlen);
+	userbuf[rlen] = '\0';
+	requested_user = userbuf;
+
+	/* See if we're trying to access a subfolder */
+	if ((p = strchr(userbuf, '+'))) {
+	    n = config_virtdomains ? strcspn(p, "@") : strlen(p);
+
+	    /* strip the subfolder from the authzid */
+	    memmove(p, p+n, strlen(p+n)+1);
+	    rlen -= n;
+	}
+    }
+
+    return mysasl_proxy_policy(conn, context, requested_user, rlen,
+			       auth_identity, alen, def_realm, urlen, propctx);
+}
+
 static struct sasl_callback mysasl_cb[] = {
     { SASL_CB_GETOPT, &mysasl_config, NULL },
-    { SASL_CB_PROXY_POLICY, &mysasl_proxy_policy, (void*) &popd_proxyctx },
-    { SASL_CB_CANON_USER, &mysasl_canon_user, NULL },
+    { SASL_CB_PROXY_POLICY, &popd_proxy_policy, (void*) &popd_proxyctx },
+    { SASL_CB_CANON_USER, &popd_canon_user, NULL },
     { SASL_CB_LIST_END, NULL, NULL }
 };
 
@@ -213,7 +341,7 @@ static void popd_reset(void)
 
     /* close backend connection */
     if (backend) {
-	backend_disconnect(backend, &protocol[PROTOCOL_POP3]);
+	backend_disconnect(backend);
 	free(backend);
 	backend = NULL;
     }
@@ -239,7 +367,7 @@ static void popd_reset(void)
     }
 #endif
 
-    cyrus_reset_stdio(); 
+    cyrus_reset_stdio();
 
     strcpy(popd_clienthost, "[local]");
     if (popd_logfd != -1) {
@@ -249,6 +377,10 @@ static void popd_reset(void)
     if (popd_userid != NULL) {
 	free(popd_userid);
 	popd_userid = NULL;
+    }
+    if (popd_subfolder != NULL) {
+	free(popd_subfolder);
+	popd_subfolder = NULL;
     }
     if (popd_authstate) {
 	auth_freestate(popd_authstate);
@@ -310,12 +442,12 @@ int service_init(int argc __attribute__((unused)),
     idle_enabled();
 
     /* Set namespace */
-    if ((r = mboxname_init_namespace(&popd_namespace, 0)) != 0) {
+    if ((r = mboxname_init_namespace(&popd_namespace, 1)) != 0) {
 	syslog(LOG_ERR, error_message(r));
 	fatal(error_message(r), EC_CONFIG);
     }
 
-    while ((opt = getopt(argc, argv, "sk")) != EOF) {
+    while ((opt = getopt(argc, argv, "skp:")) != EOF) {
 	switch(opt) {
 	case 's': /* pop3s (do starttls right away) */
 	    pop3s = 1;
@@ -329,6 +461,11 @@ int service_init(int argc __attribute__((unused)),
 	case 'k':
 	    kflag++;
 	    break;
+
+	case 'p': /* external protection */
+	    extprops_ssf = atoi(optarg);
+	    break;
+
 	default:
 	    usage();
 	}
@@ -353,12 +490,16 @@ int service_main(int argc __attribute__((unused)),
 
     signals_poll();
 
+    sync_log_init();
+
     popd_in = prot_new(0, 0);
     popd_out = prot_new(1, 1);
 
-	if ( gUserOpts == NULL ) {
-	gUserOpts = xzmalloc( sizeof(struct od_user_opts) );
+#ifdef APPLE_OS_X_SERVER
+	if (gUserOpts == NULL){
+	gUserOpts = xzmalloc(sizeof(struct od_user_opts));
 	}
+#endif
 
     /* Find out name of client host */
     salen = sizeof(popd_remoteaddr);
@@ -397,6 +538,7 @@ int service_main(int argc __attribute__((unused)),
     /* will always return something valid */
     secprops = mysasl_secprops(SASL_SEC_NOPLAINTEXT);
     sasl_setprop(popd_saslconn, SASL_SEC_PROPS, secprops);
+    sasl_setprop(popd_saslconn, SASL_SSF_EXTERNAL, &extprops_ssf);
     
     if(iptostring((struct sockaddr *)&popd_localaddr,
 		  salen, localip, 60) == 0) {
@@ -480,15 +622,17 @@ void shut_down(int code)
 
     /* close backend connection */
     if (backend) {
-	backend_disconnect(backend, &protocol[PROTOCOL_POP3]);
+	backend_disconnect(backend);
 	free(backend);
     }
 
+#ifdef APPLE_OS_X_SERVER
 	if (gUserOpts) {
 	odFreeUserOpts(gUserOpts, 1);
 	free(gUserOpts);
 	gUserOpts = NULL;
 	}
+#endif
 
     mboxlist_close();
     mboxlist_done();
@@ -702,7 +846,18 @@ static void cmdloop(void)
 	    if (!arg) {
 		if (popd_mailbox) {
 		    if (!mailbox_lock_index(popd_mailbox)) {
-			popd_mailbox->pop3_last_login = popd_login_time;
+		        int pollpadding =config_getint(IMAPOPT_POPPOLLPADDING);
+			int minpollsec = config_getint(IMAPOPT_POPMINPOLL)*60;
+		        if ((minpollsec > 0) && (pollpadding > 1)) { 
+			    int mintime = popd_login_time - (minpollsec*(pollpadding));
+			    if (popd_mailbox->pop3_last_login < mintime) {
+			        popd_mailbox->pop3_last_login = mintime + minpollsec; 
+			    } else {
+			        popd_mailbox->pop3_last_login += minpollsec;
+			    }
+		        } else { 
+			    popd_mailbox->pop3_last_login = popd_login_time;
+		        }
 			mailbox_write_index_header(popd_mailbox);
 			mailbox_unlock_index(popd_mailbox);
 		    }
@@ -712,10 +867,24 @@ static void cmdloop(void)
 		    }
 
 		    if (msg <= popd_exists) {
-			(void) mailbox_expunge(popd_mailbox, 1, expungedeleted, 0);
+			(void) mailbox_expunge(popd_mailbox, expungedeleted,
+					       0, 0);
+			sync_log_mailbox(popd_mailbox->name);
 		    }
 		}
+#ifdef APPLE_OS_X_SERVER
 		odFreeUserOpts( gUserOpts, 0 );
+
+		struct notify_message notifymsg;
+
+		notifymsg.message = MASTER_SERVICE_STATUS_REMOVE_USER;
+		notifymsg.service_pid = getpid();
+
+		if ( write(STATUS_FD, &notifymsg, sizeof(notifymsg)) != sizeof(notifymsg ) )
+		{
+			syslog(LOG_ERR, "unable to tell master %x: %m", MASTER_SERVICE_STATUS_ADD_USER);
+		}
+#endif
 		prot_printf(popd_out, "+OK\r\n");
 		return;
 	    }
@@ -817,7 +986,7 @@ static void cmdloop(void)
 	}
 	else if (!strcmp(inputbuf, "dele")) {
 	    if (!arg) prot_printf(popd_out, "-ERR Missing argument\r\n");
-	    else if (config_popuseacl && !(mboxstruct.myrights & ACL_REMOVE)) {
+	    else if (config_popuseacl && !(mboxstruct.myrights & ACL_DELETEMSG)) {
 		prot_printf(popd_out, "-ERR [SYS/PERM] %s\r\n",
 			    error_message(IMAP_PERMISSION_DENIED));
 	    }
@@ -887,7 +1056,7 @@ static void cmdloop(void)
 			 popd_msg[msg].deleted) {
 		    prot_printf(popd_out, "-ERR No such message\r\n");
 		}
-		else if (mboxstruct.pop3_new_uidl) {
+		else if (mboxstruct.options & OPT_POP3_NEW_UIDL) {
 			    prot_printf(popd_out, "+OK %u %lu.%u\r\n", msg, 
 					mboxstruct.uidvalidity,
 					popd_msg[msg].uid);
@@ -902,7 +1071,7 @@ static void cmdloop(void)
 		prot_printf(popd_out, "+OK unique-id listing follows\r\n");
 		for (msg = 1; msg <= popd_exists; msg++) {
 		    if (!popd_msg[msg].deleted) {
-			if (mboxstruct.pop3_new_uidl) {
+			if (mboxstruct.options & OPT_POP3_NEW_UIDL) {
 			    prot_printf(popd_out, "%u %lu.%u\r\n", msg, 
 					mboxstruct.uidvalidity,
 					popd_msg[msg].uid);
@@ -1024,6 +1193,7 @@ static void cmd_apop(char *response)
 	return;
     }
 
+#ifdef APPLE_OS_X_SERVER
 	if(!config_getswitch(IMAPOPT_POP_AUTH_APOP)){
 	prot_printf(popd_out,"-ERR [AUTH] APOP not enabled\r\n");return;}
 
@@ -1073,21 +1243,21 @@ static void cmd_apop(char *response)
 		{
 			if ( gUserOpts->fAccountState & eACLNotMember )
 			{
-				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
+				syslog( LOG_NOTICE, "badlogin from: %s. APOP user: %s. service ACL is not enabled for this user",
 						popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 				prot_printf( popd_out, "-ERR [SYS/PERM] mail service ACL is not enabled for this user\r\n" );
 			}
 			else if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
 			{
-				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
+				syslog( LOG_NOTICE, "badlogin from: %s. APOP user: %s. auto-forwarding is enabled for this user",
 						popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 				prot_printf( popd_out, "-ERR [SYS/PERM] mail auto-forwarding is enabled for this user\r\n" );
 			}
 			else
 			{
-				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. mail is not enabled for this user",
+				syslog( LOG_NOTICE, "badlogin from: %s. APOP user: %s. mail is not enabled for this user",
 						popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 				prot_printf( popd_out, "-ERR [SYS/PERM] mail account is not enabled for this user\r\n" );
@@ -1098,7 +1268,7 @@ static void cmd_apop(char *response)
 
 		if ( !(gUserOpts->fAccountState & ePOPEnabled) )
 		{
-			syslog( LOG_NOTICE, "badlogin: %s plaintext user \"%s\" POP3 access is not enabled for this user",
+			syslog( LOG_NOTICE, "badlogin: %s APOP user \"%s\" POP3 access is not enabled for this user",
 					popd_clienthost, beautify_string( gUserOpts->fRecNamePtr ) );
 
 			prot_printf( popd_out, "-ERR [SYS/PERM] NO POP3 access is not enabled for this user\r\n" );
@@ -1111,26 +1281,61 @@ static void cmd_apop(char *response)
 
 		popd_userid = xstrdup(canon_user);
 	}
-
+#else
+    sasl_result = sasl_checkapop(popd_saslconn,
+				 popd_apop_chal,
+				 strlen(popd_apop_chal),
+				 response,
+				 strlen(response));
+#endif
+    
     /* failed authentication */
     if (sasl_result != SASL_OK)
     {
-	sleep(3);      
-		
-	prot_printf(popd_out, "-ERR [AUTH] authenticating: %s\r\n",
-		    sasl_errstring(sasl_result, NULL, NULL));
-
 	syslog(LOG_NOTICE, "badlogin: %s APOP (%s) %s",
 	       popd_clienthost, popd_apop_chal,
 	       sasl_errdetail(popd_saslconn));
 	
+	sleep(3);      
+
+	/* Don't allow user probing */
+	if (sasl_result == SASL_NOUSER) sasl_result = SASL_BADAUTH;
+		
+	prot_printf(popd_out, "-ERR [AUTH] authenticating: %s\r\n",
+		    sasl_errstring(sasl_result, NULL, NULL));
+
+	if (popd_subfolder) {
+	    free(popd_subfolder);
+	    popd_subfolder = 0;
+	}
 	return;
     }
 
     /* successful authentication */
 
-    syslog(LOG_NOTICE, "login: %s %s APOP%s %s", popd_clienthost,
-	   popd_userid, popd_starttls_done ? "+TLS" : "", "User logged in");
+#ifndef APPLE_OS_X_SERVER
+    /*
+     * get the userid from SASL --- already canonicalized from
+     * mysasl_proxy_policy()
+     */
+    sasl_result = sasl_getprop(popd_saslconn, SASL_USERNAME,
+			       (const void **) &canon_user);
+    popd_userid = xstrdup(canon_user);
+    if (sasl_result != SASL_OK) {
+	prot_printf(popd_out, 
+		    "-ERR [AUTH] weird SASL error %d getting SASL_USERNAME\r\n", 
+		    sasl_result);
+	if (popd_subfolder) {
+	    free(popd_subfolder);
+	    popd_subfolder = 0;
+	}
+	return;
+    }
+#endif
+    
+    syslog(LOG_NOTICE, "login: %s %s%s APOP%s %s", popd_clienthost,
+	   popd_userid, popd_subfolder ? popd_subfolder : "",
+	   popd_starttls_done ? "+TLS" : "", "User logged in");
 
     popd_authstate = auth_newstate(popd_userid);
 
@@ -1139,7 +1344,8 @@ static void cmd_apop(char *response)
 
 void cmd_user(char *user)
 {
-    char *p, *dot, *domain;
+    char userbuf[MAX_MAILBOX_NAME+1], *dot, *domain;
+    unsigned userlen;
 
     /* possibly disallow USER */
     if (!(kflag || popd_starttls_done ||
@@ -1154,6 +1360,7 @@ void cmd_user(char *user)
 	return;
     }
 
+#ifdef APPLE_OS_X_SERVER
 	/* alloc global user opts struct if not already */
 	if ( config_getswitch( IMAPOPT_POP_AUTH_CLEAR ) == 0 )
 	{
@@ -1165,31 +1372,45 @@ void cmd_user(char *user)
 	prot_printf(popd_out, "-ERR [AUTH] Must give PASS command\r\n");
 	return;
     }
-
-	/* set global user options */
-	odGetUserOpts( user, gUserOpts );
-
-    if (!(p = canonify_userid(gUserOpts->fRecNamePtr, NULL, NULL)) ||
+#endif
+    if (popd_canon_user(popd_saslconn, NULL, user, 0,
+			SASL_CU_AUTHID | SASL_CU_AUTHZID,
+			NULL, userbuf, sizeof(userbuf), &userlen) ||
 	     /* '.' isn't allowed if '.' is the hierarchy separator */
-	     (popd_namespace.hier_sep == '.' && (dot = strchr(p, '.')) &&
+	     (popd_namespace.hier_sep == '.' && (dot = strchr(userbuf, '.')) &&
 	      !(config_virtdomains &&  /* allow '.' in dom.ain */
-		(domain = strchr(p, '@')) && (dot > domain))) ||
-	     strlen(p) + 6 > MAX_MAILBOX_PATH) {
+		(domain = strchr(userbuf, '@')) && (dot > domain))) ||
+	     strlen(userbuf) + 6 > MAX_MAILBOX_NAME) {
 	prot_printf(popd_out, "-ERR [AUTH] Invalid user\r\n");
 	syslog(LOG_NOTICE,
 	       "badlogin: %s plaintext %s invalid user",
 	       popd_clienthost, beautify_string(user));
     }
     else {
-	popd_userid = xstrdup(p);
+	popd_userid = xstrdup(userbuf);
 	prot_printf(popd_out, "+OK Name is a valid mailbox\r\n");
+#ifdef APPLE_OS_X_SERVER
+	struct notify_message notifymsg;
+
+	notifymsg.message = MASTER_SERVICE_STATUS_ADD_USER;
+	notifymsg.service_pid = getpid();
+	notifymsg.p_start_time = time( NULL );
+	strlcpy( notifymsg.p_user_buf, popd_userid, sizeof( notifymsg.p_user_buf ) );
+	strlcpy( notifymsg.p_host_buf, popd_clienthost, sizeof( notifymsg.p_host_buf ) );
+	if ( write(STATUS_FD, &notifymsg, sizeof(notifymsg)) != sizeof(notifymsg ) )
+	{
+		syslog(LOG_ERR, "unable to tell master %x: %m", MASTER_SERVICE_STATUS_ADD_USER);
+	}
 	proc_register("pop3d", popd_clienthost, popd_userid, (char *)0 );
+#endif
     }
 }
 
 void cmd_pass(char *pass)
 {
+#ifdef APPLE_OS_X_SERVER
     int bad_login	= 0;
+#endif
     int plaintextloginpause;
 
     if (!popd_userid) {
@@ -1197,8 +1418,13 @@ void cmd_pass(char *pass)
 	return;
     }
 
+#ifdef APPLE_OS_X_SERVER
 	if(!config_getswitch(IMAPOPT_POP_AUTH_CLEAR)){
 	prot_printf(popd_out,"-ERR [AUTH] pass not enabled\r\n"); return;}
+
+	/* set global user options */
+	odGetUserOpts( popd_userid, gUserOpts );
+#endif
 
 #ifdef HAVE_KRB
     if (kflag) {
@@ -1232,28 +1458,42 @@ void cmd_pass(char *pass)
 	    syslog(LOG_NOTICE, "badlogin: %s anonymous login refused",
 		   popd_clienthost);
 	    prot_printf(popd_out, "-ERR [AUTH] Invalid login\r\n");
+#ifdef APPLE_OS_X_SERVER
 		odFreeUserOpts(gUserOpts, 0);
-		free(popd_userid);
-		popd_userid = 0;
+#endif
 	    return;
 	}
     }
+#ifdef APPLE_OS_X_SERVER
     else if ( (config_getswitch(IMAPOPT_APPLE_AUTH) == 0) &&
 			  (sasl_checkpass(popd_saslconn,
 			    popd_userid,
 			    strlen(popd_userid),
 			    pass,
 			    strlen(pass))!=SASL_OK) ) { 
+#else
+    else if (sasl_checkpass(popd_saslconn,
+			    popd_userid,
+			    strlen(popd_userid),
+			    pass,
+			    strlen(pass))!=SASL_OK) { 
+#endif
 	syslog(LOG_NOTICE, "badlogin: %s plaintext %s %s",
 	       popd_clienthost, popd_userid, sasl_errdetail(popd_saslconn));
 	sleep(3);
 	prot_printf(popd_out, "-ERR [AUTH] Invalid login\r\n");
+#ifdef APPLE_OS_X_SERVER
 	odFreeUserOpts(gUserOpts, 0);
+#endif
 	free(popd_userid);
 	popd_userid = 0;
-
+	if (popd_subfolder) {
+	    free(popd_subfolder);
+	    popd_subfolder = 0;
+	}
 	return;
     }
+#ifdef APPLE_OS_X_SERVER
 	else if ( (config_getswitch( IMAPOPT_APPLE_AUTH )) &&
 			  (odCheckPass( pass, gUserOpts )) != 0)
 	{ 
@@ -1316,6 +1556,18 @@ void cmd_pass(char *pass)
 			sleep(plaintextloginpause);
 		}
     }
+#else
+    else {
+	syslog(LOG_NOTICE, "login: %s %s%s plaintext%s %s", popd_clienthost,
+	       popd_userid, popd_subfolder ? popd_subfolder : "",
+	       popd_starttls_done ? "+TLS" : "", "User logged in");
+
+	if ((plaintextloginpause = config_getint(IMAPOPT_PLAINTEXTLOGINPAUSE))
+	     != 0) {
+	    sleep(plaintextloginpause);
+	}
+    }
+#endif
 
     popd_authstate = auth_newstate(popd_userid);
 
@@ -1328,11 +1580,12 @@ void cmd_capa()
 {
     int minpoll = config_getint(IMAPOPT_POPMINPOLL) * 60;
     int expire = config_getint(IMAPOPT_POPEXPIRETIME);
-    unsigned mechcount;
+    int mechcount;
     const char *mechlist;
 
     prot_printf(popd_out, "+OK List of capabilities follows\r\n");
 
+#ifdef APPLE_OS_X_SERVER
 	if ( !config_getswitch( IMAPOPT_APPLE_AUTH ) )
 	{
 		/* SASL special case: print SASL, then a list of supported capabilities */
@@ -1361,6 +1614,17 @@ void cmd_capa()
 			prot_printf(popd_out, "\r\n");
 		}
 	}
+#else
+    /* SASL special case: print SASL, then a list of supported capabilities */
+    if (!popd_mailbox && !backend &&
+	sasl_listmech(popd_saslconn,
+		      NULL, /* should be id string */
+		      "SASL ", " ", "\r\n",
+		      &mechlist,
+		      NULL, &mechcount) == SASL_OK && mechcount > 0) {
+	prot_write(popd_out, mechlist, strlen(mechlist));
+    }
+#endif
 
     if (tls_enabled() && !popd_starttls_done && !popd_mailbox && !backend) {
 	prot_printf(popd_out, "STLS\r\n");
@@ -1407,34 +1671,18 @@ void cmd_auth(char *arg)
      */
     if (!arg) {
 	const char *sasllist;
-	unsigned int mechnum;
+	int mechnum;
 
 	prot_printf(popd_out, "+OK List of supported mechanisms follows\r\n");
       
 	/* CRLF separated, dot terminated */
-	if ( !config_getswitch( IMAPOPT_APPLE_AUTH ) )
-	{
-		/* CRLF separated, dot terminated */
-		if (sasl_listmech(popd_saslconn, NULL,
-				  "", "\r\n", "\r\n",
-				  &sasllist,
-				  NULL, &mechnum) == SASL_OK) {
-			if (mechnum>0) {
-			prot_printf(popd_out,"%s",sasllist);
-			}
-		}
-	}
-	else
-	{
-		/* CRLF seperated, dot terminated */
-		if ( config_getswitch( IMAPOPT_POP_AUTH_APOP ) )
-		{
-			prot_printf(popd_out, "APOP\r\n");
-		}
-		if ( config_getswitch( IMAPOPT_POP_AUTH_GSSAPI ) )
-		{
-			prot_printf(popd_out, "GSSAPI\r\n");
-		}
+	if (sasl_listmech(popd_saslconn, NULL,
+			  "", "\r\n", "\r\n",
+			  &sasllist,
+			  NULL, &mechnum) == SASL_OK) {
+	    if (mechnum>0) {
+		prot_printf(popd_out,"%s",sasllist);
+	    }
 	}
       
 	prot_printf(popd_out, ".\r\n");
@@ -1458,201 +1706,88 @@ void cmd_auth(char *arg)
 	arg = NULL;
     }
 
-	if ( !config_getswitch( IMAPOPT_APPLE_AUTH ) ||
-		 (strcasecmp( authtype, "GSSAPI" ) == 0) )
-	{
-		r = saslserver(popd_saslconn, authtype, arg, "", "+ ", "",
-			   popd_in, popd_out, &sasl_result, NULL);
+    r = saslserver(popd_saslconn, authtype, arg, "", "+ ", "",
+		   popd_in, popd_out, &sasl_result, NULL);
 
-		if (r) {
-		const char *errorstring = NULL;
+    if (r) {
+	const char *errorstring = NULL;
 
-		switch (r) {
-		case IMAP_SASL_CANCEL:
-			prot_printf(popd_out,
-				"-ERR [AUTH] Client canceled authentication\r\n");
-			break;
-		case IMAP_SASL_PROTERR:
-			errorstring = prot_error(popd_in);
+	switch (r) {
+	case IMAP_SASL_CANCEL:
+	    prot_printf(popd_out,
+			"-ERR [AUTH] Client canceled authentication\r\n");
+	    break;
+	case IMAP_SASL_PROTERR:
+	    errorstring = prot_error(popd_in);
 
-			prot_printf(popd_out,
-				"-ERR [AUTH] Error reading client response: %s\r\n",
-				errorstring ? errorstring : "");
-			break;
-		default:
-			/* failed authentication */
-			sleep(3);
-			
-			prot_printf(popd_out, "-ERR [AUTH] authenticating: %s\r\n",
-				sasl_errstring(sasl_result, NULL, NULL));
+	    prot_printf(popd_out,
+			"-ERR [AUTH] Error reading client response: %s\r\n",
+			errorstring ? errorstring : "");
+	    break;
+	default:
+	    /* failed authentication */
+	    if (authtype) {
+		syslog(LOG_NOTICE, "badlogin: %s %s %s",
+		       popd_clienthost, authtype,
+		       sasl_errstring(sasl_result, NULL, NULL));
+	    } else {
+		syslog(LOG_NOTICE, "badlogin: %s %s",
+		       popd_clienthost, authtype);
+	    }
 
-			if (authtype) {
-			syslog(LOG_NOTICE, "badlogin: %s %s %s",
-				   popd_clienthost, authtype,
-				   sasl_errstring(sasl_result, NULL, NULL));
-			} else {
-			syslog(LOG_NOTICE, "badlogin: %s %s",
-				   popd_clienthost, authtype);
-			}
-		}
+	    sleep(3);
+
+	    /* Don't allow user probing */
+	    if (sasl_result == SASL_NOUSER) sasl_result = SASL_BADAUTH;
 		
-		reset_saslconn(&popd_saslconn);
-		return;
-		}
-
-		/* successful authentication */
-
-		/* get the userid from SASL --- already canonicalized from
-		 * mysasl_proxy_policy()
-		 */
-		sasl_result = sasl_getprop(popd_saslconn, SASL_USERNAME,
-					   (const void **) &canon_user);
-		if (sasl_result != SASL_OK) {
-		prot_printf(popd_out, 
-				"-ERR [AUTH] weird SASL error %d getting SASL_USERNAME\r\n", 
-				sasl_result);
-		return;
-		}
-
-		if ( (config_getswitch( IMAPOPT_APPLE_AUTH ) != 0) &&
-			 (strcasecmp( authtype, "GSSAPI" ) == 0) )
-		{
-			/* get user options */
-			odGetUserOpts( canon_user, gUserOpts );
-
-			/* do we know this user */
-			if ( gUserOpts->fRecNamePtr == NULL )
-			{
-				syslog( LOG_NOTICE, "badlogin from: %s plaintext user: %s. unknown user",
-						popd_clienthost, canon_user );
-
-				prot_printf( popd_out, "-ERR [AUTH] unknown user or bad password\r\n" );
-				odFreeUserOpts( gUserOpts, 0 );
-				return;
-			}
-
-			if ( !(gUserOpts->fAccountState & eAccountEnabled) )
-			{
-				if ( gUserOpts->fAccountState & eACLNotMember )
-				{
-					syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
-							popd_clienthost, gUserOpts->fRecNamePtr );
-
-					prot_printf( popd_out, "-ERR [SYS/PERM] mail service ACL is not enabled for this user\r\n" );
-				}
-				else if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
-				{
-					syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
-							popd_clienthost, gUserOpts->fRecNamePtr );
-
-					prot_printf( popd_out, "-ERR [SYS/PERM] mail auto-forwarding is enabled for this user\r\n" );
-				}
-				else
-				{
-					syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. mail is not enabled for this user",
-							popd_clienthost, gUserOpts->fRecNamePtr );
-
-					prot_printf( popd_out, "-ERR [SYS/PERM] mail account is not enabled for this user\r\n" );
-				}
-				odFreeUserOpts( gUserOpts, 0 );
-				return;
-			}
-
-			if ( !(gUserOpts->fAccountState & ePOPEnabled) )
-			{
-				syslog( LOG_NOTICE, "badlogin: %s plaintext user \"%s\" POP3 access is not enabled for this user",
-						popd_clienthost, gUserOpts->fRecNamePtr );
-
-				prot_printf( popd_out, "-ERR [SYS/PERM] NO POP3 access is not enabled for this user\r\n" );
-				odFreeUserOpts( gUserOpts, 0 );
-				return;
-			}
-		}
-		popd_userid = xstrdup(canon_user);
+	    prot_printf(popd_out, "-ERR [AUTH] authenticating: %s\r\n",
+			sasl_errstring(sasl_result, NULL, NULL));
 	}
-	else
-	{
-		r = odDoAuthenticate( authtype, NULL, "+ ", kXMLPOP3_Principal, popd_in, popd_out, gUserOpts );
-		if ( r )
-		{
-			switch ( r )
-			{
-				case eAODAuthCanceled:
-					prot_printf( popd_out, "-ERR [AUTH] Client canceled authentication\r\n" );
-					break;
+	
+	if (popd_subfolder) {
+	    free(popd_subfolder);
+	    popd_subfolder = 0;
+	}
+	reset_saslconn(&popd_saslconn);
+	return;
+    }
 
-				case eAODProtocolError:
-					prot_printf( popd_out, "-ERR [AUTH] Error reading client response\r\n" );
-					break;
+    /* successful authentication */
 
-				default:
-					sleep( 3 );
+    /* get the userid from SASL --- already canonicalized from
+     * mysasl_proxy_policy()
+     */
+    sasl_result = sasl_getprop(popd_saslconn, SASL_USERNAME,
+			       (const void **) &canon_user);
+    if (sasl_result != SASL_OK) {
+	prot_printf(popd_out, 
+		    "-ERR [AUTH] weird SASL error %d getting SASL_USERNAME\r\n", 
+		    sasl_result);
+	return;
+    }
 
-					if ( authtype )
-					{
-						syslog( LOG_NOTICE, "badlogin: %s %s", popd_clienthost, authtype );
-					}
-					else
-					{
-						syslog( LOG_NOTICE, "badlogin: %s %s", popd_clienthost );
-					}
+    /* If we're proxying, the authzid may contain a subfolder,
+       so re-canonify it */
+    if (config_getswitch(IMAPOPT_POPSUBFOLDERS) && strchr(canon_user, '+')) {
+	char userbuf[MAX_MAILBOX_NAME+1];
+	unsigned userlen;
 
-					prot_printf( popd_out, "-ERR [AUTH] authenticating\r\n" );
-			}
-			odFreeUserOpts( gUserOpts, 0 );
-			return;
-		}
-
-		if ( !(gUserOpts->fAccountState & eAccountEnabled) )
-		{
-			if ( gUserOpts->fAccountState & eACLNotMember )
-			{
-				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. service ACL is not enabled for this user",
-						popd_clienthost, gUserOpts->fRecNamePtr );
-
-				prot_printf( popd_out, "-ERR [SYS/PERM] mail service ACL is not enabled for this user\r\n" );
-			}
-			else if ( gUserOpts->fAccountState & eAutoForwardedEnabled )
-			{
-				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. auto-forwarding is enabled for this user",
-						popd_clienthost, gUserOpts->fRecNamePtr );
-
-				prot_printf( popd_out, "-ERR [SYS/PERM] mail auto-forwarding is enabled for this user\r\n" );
-			}
-			else
-			{
-				syslog( LOG_NOTICE, "badlogin from: %s. plaintext user: %s. mail is not enabled for this user",
-						popd_clienthost, gUserOpts->fRecNamePtr );
-
-				prot_printf( popd_out, "-ERR [SYS/PERM] mail account is not enabled for this user\r\n" );
-			}
-			odFreeUserOpts( gUserOpts, 0 );
-			return;
-		}
-
-		if ( !(gUserOpts->fAccountState & ePOPEnabled) )
-		{
-			syslog( LOG_NOTICE, "badlogin: %s plaintext user \"%s\" POP3 access is not enabled for this user",
-					popd_clienthost, gUserOpts->fRecNamePtr );
-
-			prot_printf( popd_out, "-ERR [SYS/PERM] NO POP3 access is not enabled for this user\r\n" );
-			odFreeUserOpts( gUserOpts, 0 );
-			return;
-		}
-
-		/* successful authentication */
-		canon_user = auth_canonifyid( gUserOpts->fRecNamePtr, 0 );
-		if ( canon_user == NULL )
-		{
-			prot_printf( popd_out, "-ERR [AUTH] Error reading client response\r\n" );
-			odFreeUserOpts( gUserOpts, 0 );
-			return;
-		}
-
-		popd_userid = xstrdup(canon_user);
+	sasl_result = popd_canon_user(popd_saslconn, NULL, canon_user, 0,
+				      SASL_CU_AUTHID | SASL_CU_AUTHZID,
+				      NULL, userbuf, sizeof(userbuf), &userlen);
+	if (sasl_result != SASL_OK) {
+	    prot_printf(popd_out, 
+			"-ERR [AUTH] SASL canonification error %d\r\n", 
+			sasl_result);
+	    return;
 	}
 
-    syslog(LOG_NOTICE, "login: %s %s %s%s %s", popd_clienthost, popd_userid,
+	popd_userid = xstrdup(userbuf);
+    } else {
+	popd_userid = xstrdup(canon_user);
+    }
+    syslog(LOG_NOTICE, "login: %s %s%s %s%s %s", popd_clienthost,
+	   popd_userid, popd_subfolder ? popd_subfolder : "",
 	   authtype, popd_starttls_done ? "+TLS" : "", "User logged in");
 
     if (!openinbox()) {
@@ -1670,6 +1805,7 @@ void cmd_auth(char *arg)
 int openinbox(void)
 {
     char userid[MAX_MAILBOX_NAME+1], inboxname[MAX_MAILBOX_PATH+1];
+    char extname[MAX_MAILBOX_NAME+1] = "INBOX";
     int type, myrights = 0;
     char *server = NULL, *acl;
     int r, log_level = LOG_ERR;
@@ -1682,21 +1818,27 @@ int openinbox(void)
 				config_virtdomains ?
 				strcspn(userid, "@") : 0);
 
-    r = (*popd_namespace.mboxname_tointernal)(&popd_namespace, "INBOX",
+    /* Create the mailbox that we're trying to access */
+    if (popd_subfolder && popd_subfolder[1]) {
+	snprintf(extname+5, sizeof(extname)-5, "%c%s",
+		 popd_namespace.hier_sep, popd_subfolder+1);
+    }
+    r = (*popd_namespace.mboxname_tointernal)(&popd_namespace, extname,
 					      userid, inboxname);
 
+#ifdef APPLE_OS_X_SERVER
 	/* create inbox */
-	if ( !r )
-	{
-		char *partition	= NULL;
-		if ( (gUserOpts != NULL) && gUserOpts->fAltDataLocPtr != NULL )
-		{
-			partition = gUserOpts->fAltDataLocPtr;
-		}
-		mboxlist_createmailbox( inboxname, MAILBOX_FORMAT_NORMAL, partition, 1, popd_userid, NULL, 0, 0, 0 );
+	if ( !r ) {
+	char *partition	= NULL;
+	if ( (gUserOpts != NULL) && gUserOpts->fAltDataLocPtr != NULL ) {
+		partition = gUserOpts->fAltDataLocPtr;
 	}
+	mboxlist_createmailbox( inboxname, MAILBOX_FORMAT_NORMAL, partition, 1, popd_userid, NULL, 0, 0, 0 );
+	}
+#endif
 
-    if (!r) r = mboxlist_detail(inboxname, &type, NULL, &server, &acl, NULL);
+    if (!r) r = mboxlist_detail(inboxname, &type, NULL, NULL,
+				&server, &acl, NULL);
     if (!r && (config_popuseacl = config_getswitch(IMAPOPT_POPUSEACL)) &&
 	(!acl ||
 	 !((myrights = cyrus_acl_myrights(popd_authstate, acl)) & ACL_READ))) {
@@ -1706,8 +1848,8 @@ int openinbox(void)
     }
     if (r) {
 	sleep(3);
-	syslog(log_level, "Unable to locate maildrop for %s: %s",
-	       popd_userid, error_message(r));
+	syslog(log_level, "Unable to locate maildrop %s: %s",
+	       inboxname, error_message(r));
 	prot_printf(popd_out,
 		    "-ERR [SYS/PERM] Unable to locate maildrop: %s\r\n",
 		    error_message(r));
@@ -1724,8 +1866,20 @@ int openinbox(void)
 	    if(c) *c = '\0';
 	}
 
+	/* Make a working copy of userid in case we need to alter it */
+	strlcpy(userid, popd_userid, sizeof(userid));
+
+	if (popd_subfolder) {
+	    /* Add the subfolder back to the userid for proxying */
+	    size_t n = strlen(popd_subfolder);
+	    char *p = (config_virtdomains && (p = strchr(userid, '@'))) ?
+		p : userid + strlen(userid);
+	    memmove(p+n, p, strlen(p)+1);
+	    memcpy(p, popd_subfolder, n);
+	}
+
 	backend = backend_connect(NULL, server, &protocol[PROTOCOL_POP3],
-				  popd_userid, &statusline);
+				  userid, NULL, &statusline);
 
 	if (!backend) {
 	    syslog(LOG_ERR, "couldn't authenticate to backend server");
@@ -1757,8 +1911,8 @@ int openinbox(void)
 	}
 	if (r) {
 	    sleep(3);
-	    syslog(log_level, "Unable to open maildrop for %s: %s",
-		   popd_userid, error_message(r));
+	    syslog(log_level, "Unable to open maildrop %s: %s",
+		   inboxname, error_message(r));
 	    prot_printf(popd_out,
 			"-ERR [SYS/PERM] Unable to open maildrop: %s\r\n",
 			error_message(r));
@@ -1770,8 +1924,8 @@ int openinbox(void)
 	if (!r) r = mailbox_lock_pop(&mboxstruct);
 	if (r) {
 	    mailbox_close(&mboxstruct);
-	    syslog(LOG_ERR, "Unable to lock maildrop for %s: %s",
-		   popd_userid, error_message(r));
+	    syslog(LOG_ERR, "Unable to lock maildrop %s: %s",
+		   inboxname, error_message(r));
 	    prot_printf(popd_out,
 			"-ERR [IN-USE] Unable to lock maildrop: %s\r\n",
 			error_message(r));
@@ -1783,19 +1937,10 @@ int openinbox(void)
 	    prot_printf(popd_out,
 			"-ERR [LOGIN-DELAY] Logins must be at least %d minute%s apart\r\n",
 			minpoll, minpoll > 1 ? "s" : "");
-	    if (!mailbox_lock_index(&mboxstruct)) {
-		mboxstruct.pop3_last_login = popd_login_time;
-		mailbox_write_index_header(&mboxstruct);
-	    }
 	    mailbox_close(&mboxstruct);
 	    goto fail;
 	}
 
-	if (chdir(mboxstruct.path)) {
-	    syslog(LOG_ERR, "IOERROR: changing directory to %s: %m",
-		   mboxstruct.path);
-	    r = IMAP_IOERROR;
-	}
 	if (!r) {
 	    popd_exists = mboxstruct.exists;
 	    popd_msg = (struct msg *) xrealloc(popd_msg, (popd_exists+1) *
@@ -1811,12 +1956,25 @@ int openinbox(void)
 	if (r) {
 	    mailbox_close(&mboxstruct);
 	    popd_exists = 0;
-	    syslog(LOG_ERR, "Unable to read maildrop for %s", popd_userid);
+	    syslog(LOG_ERR, "Unable to read maildrop %s", inboxname);
 	    prot_printf(popd_out,
 			"-ERR [SYS/PERM] Unable to read maildrop\r\n");
 	    goto fail;
 	}
 	popd_mailbox = &mboxstruct;
+#ifdef APPLE_OS_X_SERVER
+	struct notify_message notifymsg;
+
+	notifymsg.message = MASTER_SERVICE_STATUS_ADD_USER;
+	notifymsg.service_pid = getpid();
+	notifymsg.p_start_time = time( NULL );
+	strlcpy( notifymsg.p_user_buf, popd_userid, sizeof( notifymsg.p_user_buf ) );
+	strlcpy( notifymsg.p_host_buf, popd_clienthost, sizeof( notifymsg.p_host_buf ) );
+	if ( write(STATUS_FD, &notifymsg, sizeof(notifymsg)) != sizeof(notifymsg ) )
+	{
+		syslog(LOG_ERR, "unable to tell master %x: %m", MASTER_SERVICE_STATUS_ADD_USER);
+	}
+#endif
 	proc_register("pop3d", popd_clienthost, popd_userid,
 		      popd_mailbox->name);
     }
@@ -1830,9 +1988,15 @@ int openinbox(void)
     return 0;
 
   fail:
+#ifdef APPLE_OS_X_SERVER
 	odFreeUserOpts(gUserOpts, 0);
+#endif
     free(popd_userid);
     popd_userid = 0;
+    if (popd_subfolder) {
+	free(popd_subfolder);
+	popd_subfolder = 0;
+    }
     auth_freestate(popd_authstate);
     popd_authstate = NULL;
     return 1;
@@ -1845,8 +2009,11 @@ static void blat(int msg,int lines)
     char fnamebuf[MAILBOX_FNAME_LEN];
     int thisline = -2;
 
-    mailbox_message_get_fname(popd_mailbox, popd_msg[msg].uid, fnamebuf,
-			      sizeof(fnamebuf));
+    strlcpy(fnamebuf, popd_mailbox->path, sizeof(fnamebuf));
+    strlcat(fnamebuf, "/", sizeof(fnamebuf));
+    mailbox_message_get_fname(popd_mailbox, popd_msg[msg].uid,
+			      fnamebuf + strlen(fnamebuf),
+			      sizeof(fnamebuf) - strlen(fnamebuf));
     msgfile = fopen(fnamebuf, "r");
     if (!msgfile) {
 	prot_printf(popd_out, "-ERR [SYS/PERM] Could not read message file\r\n");
@@ -1873,6 +2040,10 @@ static void blat(int msg,int lines)
     if (buf[strlen(buf)-1] != '\n') prot_printf(popd_out, "\r\n");
 
     prot_printf(popd_out, ".\r\n");
+
+    /* Reset inactivity timer in case we spend a long time
+       pushing data to the client over a slow link. */
+    prot_resettimeout(popd_in);
 }
 
 static int parsenum(char **ptr)
@@ -1900,7 +2071,8 @@ static int parsenum(char **ptr)
 }
 
 static int expungedeleted(struct mailbox *mailbox __attribute__((unused)),
-			  void *rock __attribute__((unused)), char *index)
+			  void *rock __attribute__((unused)), char *index,
+			  int expunge_flags __attribute__((unused)))
 {
     int msg;
     int uid = ntohl(*((bit32 *)(index+OFFSET_UID)));
@@ -1942,7 +2114,9 @@ static int reset_saslconn(sasl_conn_t **conn)
 
     /* If we have TLS/SSL info, set it */
     if(saslprops.ssf) {
-       ret = sasl_setprop(*conn, SASL_SSF_EXTERNAL, &saslprops.ssf);
+	ret = sasl_setprop(*conn, SASL_SSF_EXTERNAL, &saslprops.ssf);
+    } else {
+	ret = sasl_setprop(*conn, SASL_SSF_EXTERNAL, &extprops_ssf);
     }
 
     if(ret != SASL_OK) return ret;
@@ -1961,71 +2135,28 @@ static int reset_saslconn(sasl_conn_t **conn)
 static void bitpipe(void)
 {
     struct protgroup *protin = protgroup_new(2);
-    struct protgroup *protout = NULL;
-    struct timeval timeout;
-    int n, shutdown = 0;
+    int shutdown = 0;
     char buf[4096];
 
-    /* Reset protin to all zeros (to preserve memory allocation) */
-    protgroup_reset(protin);
     protgroup_insert(protin, popd_in);
     protgroup_insert(protin, backend->in);
 
-    for (;;) {
+    do {
+	/* Flush any buffered output */
+	prot_flush(popd_out);
+	prot_flush(backend->out);
+
 	/* check for shutdown file */
 	if (shutdown_file(buf, sizeof(buf))) {
 	    shutdown = 1;
 	    goto done;
 	}
-
-	/* Clear protout if needed */
-	protgroup_free(protout);
-	protout = NULL;
-
-	timeout.tv_sec = 60;
-	timeout.tv_usec = 0;
-
-	n = prot_select(protin, PROT_NO_FD, &protout, NULL, &timeout);
-	if (n == -1) {
-	    syslog(LOG_ERR, "prot_select() failed in bitpipe(): %m");
-	    fatal("prot_select() failed in bitpipe()", EC_TEMPFAIL);
-	}
-	if (n && protout) {
-	    struct protstream *ptmp;
-
-	    for (; n; n--) {
-		ptmp = protgroup_getelement(protout, n-1);
-
-		if (ptmp == popd_in) {
-		    do {
-			int c = prot_read(popd_in, buf, sizeof(buf));
-			if (c == 0 || c < 0) goto done;
-			prot_write(backend->out, buf, c);
-		    } while (popd_in->cnt > 0);
-		    prot_flush(backend->out);
-		}
-		else if (ptmp == backend->in) {
-		    do {
-			int c = prot_read(backend->in, buf, sizeof(buf));
-			if (c == 0 || c < 0) goto done;
-			prot_write(popd_out, buf, c);
-		    } while (backend->in->cnt > 0);
-		    prot_flush(popd_out);
-		}
-		else {
-		    /* XXX shouldn't get here !!! */
-		    fatal("unknown protstream returned by prot_select in bitpipe()",
-			  EC_SOFTWARE);
-		}
-	    }
-	}
-    }
-
+    } while (!proxy_check_input(protin, popd_in, popd_out,
+				backend->in, backend->out, 0));
 
  done:
     /* ok, we're done. */
     protgroup_free(protin);
-    protgroup_free(protout);
 
     if (shutdown) {
 	char *p;

@@ -1,7 +1,48 @@
-:
 #!/bin/sh
 
+# Copyright (C) 1998, 2002, 2004 Free Software Foundation
+# Copyright (C) 1993 Jean-loup Gailly
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 PATH="BINDIR:$PATH"; export PATH
+
+version="znew (gzip) @VERSION@
+Copyright (C) 2006 Free Software Foundation, Inc.
+This is free software.  You may redistribute copies of it under the terms of
+the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by Jean-loup Gailly."
+
+usage="Usage: znew [OPTION]... [FILE]...
+Recompress files from .Z (compress) format to .gz (gzip) format.
+
+Options:
+
+  -f     Force recompression even if a .gz file already exists.
+  -t     Test the new files before deleting originals.
+  -v     Verbose; display name and statistics for each file compressed.
+  -9     Use the slowest compression method (optimal compression).
+  -P     Use pipes for the conversion to reduce disk space usage.
+  -K     Keep a .Z file when it is smaller than the .gz file.
+      --help     display this help and exit
+      --version  output version information and exit
+
+Report bugs to <bug-gzip@gnu.org>."
+
 check=0
 pipe=0
 opt=
@@ -16,23 +57,22 @@ block=1024
 warn="(does not preserve modes and timestamp)"
 tmp=/tmp/zfoo.$$
 set -C
-echo hi > $tmp.1
-echo hi > $tmp.2
-if test -z "`(${CPMOD-cpmod} $tmp.1 $tmp.2) 2>&1`"; then
+echo hi > $tmp || exit
+if test -z "`(${CPMOD-cpmod} $tmp $tmp) 2>&1`"; then
   cpmod=${CPMOD-cpmod}
   warn=""
 fi
 
-if test -z "$cpmod" && ${TOUCH-touch} -r $tmp.1 $tmp.2 2>/dev/null; then
+if test -z "$cpmod" && ${TOUCH-touch} -r $tmp $tmp 2>/dev/null; then
   cpmod="${TOUCH-touch}"
   cpmodarg="-r"
   warn="(does not preserve file modes)"
 fi
 
 # check if GZIP env. variable uses -S or --suffix
-gzip -q $tmp.1
-ext=`echo $tmp.1* | sed "s|$tmp.1||"`
-rm -f $tmp.[12]*
+gzip -q $tmp
+ext=`echo $tmp* | sed "s|$tmp||"`
+rm -f $tmp*
 if test -z "$ext"; then
   echo znew: error determining gzip extension
   exit 1
@@ -45,19 +85,15 @@ fi
 for arg
 do
   case "$arg" in
+  --help)      exec echo "$usage";;
+  --version)   exec echo "$version";;
   -*)     opt="$opt $arg"; shift;;
    *)     break;;
   esac
 done
 
 if test $# -eq 0; then
-  echo "recompress .Z files into $ext (gzip) files"
-  echo usage: `echo $0 | sed 's,^.*/,,'` "[-tv9KP]" file.Z...
-  echo "  -t tests the new files before deleting originals"
-  echo "  -v be verbose"
-  echo "  -9 use the slowest compression method (optimal compression)"
-  echo "  -K keep a .Z file when it is smaller than the $ext file"
-  echo "  -P use pipes for the conversion $warn"
+  echo "$usage"
   exit 1
 fi
 

@@ -1,47 +1,42 @@
---- samba/source/param/loadparm.c.orig	2004-08-24 17:36:36.000000000 -0700
-+++ samba/source/param/loadparm.c	2004-08-24 17:37:47.000000000 -0700
-@@ -290,6 +290,9 @@
- 	BOOL bKernelChangeNotify;
+Index: samba/source/param/loadparm.c
+===================================================================
+--- samba/source/param/loadparm.c.orig
++++ samba/source/param/loadparm.c
+@@ -302,6 +302,7 @@ typedef struct {
+ 	BOOL bDisableNetbios;
  	BOOL bUseKerberosKeytab;
  	BOOL bDeferSharingViolations;
-+#ifdef WITH_OPENDIRECTORY
-+  	BOOL bOpenDirectory;
-+#endif
- 	int restrict_anonymous;
- 	int name_cache_timeout;
- 	int client_signing;
-@@ -1181,6 +1184,9 @@
- 	{"winbind use default domain", P_BOOL, P_GLOBAL, &Globals.bWinbindUseDefaultDomain, NULL, NULL, FLAG_ADVANCED}, 
- 	{"winbind trusted domains only", P_BOOL, P_GLOBAL, &Globals.bWinbindTrustedDomainsOnly, NULL, NULL, FLAG_ADVANCED}, 
- 	{"winbind nested groups", P_BOOL, P_GLOBAL, &Globals.bWinbindNestedGroups, NULL, NULL, FLAG_ADVANCED}, 
-+#ifdef WITH_OPENDIRECTORY
-+	{"opendirectory", P_BOOL, P_GLOBAL, &Globals.bOpenDirectory, NULL, NULL, FLAG_ADVANCED}, 
-+#endif
++	BOOL bOpenDirectory;
+ 	BOOL bEnablePrivileges;
+ 	BOOL bASUSupport;
+ 	BOOL bUsershareOwnerOnly;
+@@ -1294,6 +1295,8 @@ static struct parm_struct parm_table[] =
+ 	{"winbind offline logon", P_BOOL, P_GLOBAL, &Globals.bWinbindOfflineLogon, NULL, NULL, FLAG_ADVANCED},
+ 	{"winbind normalize names", P_BOOL, P_GLOBAL, &Globals.bWinbindNormalizeNames, NULL, NULL, FLAG_ADVANCED},
  
++	{"opendirectory", P_BOOL, P_GLOBAL, &Globals.bOpenDirectory, NULL, NULL, FLAG_ADVANCED},
++
  	{NULL,  P_BOOL,  P_NONE,  NULL,  NULL,  NULL,  0}
  };
-@@ -1547,6 +1553,10 @@
  
+@@ -1656,6 +1659,8 @@ static void init_globals(BOOL first_time
  	Globals.bDeferSharingViolations = True;
  	string_set(&Globals.smb_ports, SMB_PORTS);
-+
-+#ifdef WITH_OPENDIRECTORY
-+	Globals.bOpenDirectory = True;
-+#endif
- }
  
- static TALLOC_CTX *lp_talloc;
-@@ -1929,6 +1939,9 @@
++	Globals.bOpenDirectory = True;
++
+ 	Globals.bEnablePrivileges = True;
+ 	Globals.bHostMSDfs        = True;
+ 	Globals.bASUSupport       = False;
+@@ -2153,6 +2158,7 @@ FN_GLOBAL_INTEGER(lp_algorithmic_rid_bas
  FN_GLOBAL_INTEGER(lp_name_cache_timeout, &Globals.name_cache_timeout)
  FN_GLOBAL_INTEGER(lp_client_signing, &Globals.client_signing)
  FN_GLOBAL_INTEGER(lp_server_signing, &Globals.server_signing)
-+#ifdef WITH_OPENDIRECTORY
 +FN_GLOBAL_BOOL(lp_opendirectory, &Globals.bOpenDirectory)
-+#endif
  
  /* local prototypes */
  
-@@ -4082,6 +4095,7 @@
+@@ -5570,6 +5576,7 @@ static void set_default_server_announce_
  	default_server_announce |= SV_TYPE_WORKSTATION;
  	default_server_announce |= SV_TYPE_SERVER;
  	default_server_announce |= SV_TYPE_SERVER_UNIX;

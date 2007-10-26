@@ -141,7 +141,7 @@ fts_open(argv, options, compar)
 		p->fts_level = FTS_ROOTLEVEL;
 		p->fts_parent = parent;
 		p->fts_accpath = p->fts_name;
-		p->fts_info = fts_stat(sp, p, ISSET(FTS_COMFOLLOW));
+		p->fts_info = fts_stat(sp, p, ISSET(FTS_COMFOLLOWDIR) ? -1 : ISSET(FTS_COMFOLLOW));
 
 		/* Command-line "." and ".." are real directories. */
 		if (p->fts_info == FTS_DOT)
@@ -829,11 +829,23 @@ fts_stat(sp, p, follow)
 		if (stat(p->fts_accpath, sbp)) {
 			saved_errno = errno;
 			if (!lstat(p->fts_accpath, sbp)) {
+				if (saved_errno == ELOOP)
+					p->fts_errno = ELOOP;
 				errno = 0;
 				return (FTS_SLNONE);
 			} 
 			p->fts_errno = saved_errno;
 			goto err;
+		}
+		/*
+		 * For FTS_COMFOLLOWDIR, drop back to lstat unless we have
+		 * a directory
+		 */
+		if (follow == -1 && !S_ISDIR(sbp->st_mode)) {
+			if (lstat(p->fts_accpath, sbp)) {
+				p->fts_errno = errno;
+				goto err;
+			}
 		}
 	} else if (lstat(p->fts_accpath, sbp)) {
 		p->fts_errno = errno;

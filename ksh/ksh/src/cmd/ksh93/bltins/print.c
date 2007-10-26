@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * echo [arg...]
@@ -39,7 +35,7 @@
 #include	"history.h"
 #include	"builtins.h"
 #include	"streval.h"
-#include	<tm.h>
+#include	<tmx.h>
 #include	<ctype.h>
 #include	<ccode.h>
 
@@ -91,7 +87,7 @@ static int outexceptf(Sfio_t* iop, int mode, void* data, Sfdisc_t* dp)
 {
 	if(mode==SF_DPOP || mode==SF_FINAL)
 		free((void*)dp);
-	else if(mode==SF_WRITE)
+	else if(mode==SF_WRITE && (errno!= EINTR || sh.trapnote))
 	{
 		int save = errno;
 		sfpurge(iop);
@@ -115,7 +111,7 @@ static int outexceptf(Sfio_t* iop, int mode, void* data, Sfdisc_t* dp)
 	if(!prdata.sh->universe)
 	{
 		register char *universe;
-		if(universe=astconf("_AST_UNIVERSE",0,0))
+		if(universe=astconf("UNIVERSE",0,0))
 			bsd_univ = (strcmp(universe,"ucb")==0);
 		prdata.sh->universe = 1;
 	}
@@ -123,9 +119,24 @@ static int outexceptf(Sfio_t* iop, int mode, void* data, Sfdisc_t* dp)
 		return(b_print(0,argv,&prdata));
 	prdata.options = sh_optecho;
 	prdata.raw = 1;
-	if(argv[1] && strcmp(argv[1],"-n")==0)
-		prdata.echon = 1;
-	return(b_print(0,argv+prdata.echon,&prdata));
+	while(argv[1] && *argv[1]=='-')
+	{
+		if(strcmp(argv[1],"-n")==0)
+			prdata.echon = 1;
+#if !SHOPT_ECHOE
+		else if(strcmp(argv[1],"-e")==0)
+			prdata.raw = 0;
+		else if(strcmp(argv[1],"-ne")==0 || strcmp(argv[1],"-en")==0)
+		{
+			prdata.raw = 0;
+			prdata.echon = 1;
+		}
+#endif /* SHOPT_ECHOE */
+		else
+			break;
+		argv++;
+	}
+	return(b_print(0,argv,&prdata));
    }
 #endif /* SHOPT_ECHOPRINT */
 
@@ -133,6 +144,7 @@ int    b_printf(int argc, char *argv[],void *extra)
 {
 	struct print prdata;
 	NOT_USED(argc);
+	memset(&prdata,0,sizeof(prdata));
 	prdata.sh = (Shell_t*)extra;
 	prdata.options = sh_optprintf;
 	return(b_print(-1,argv,&prdata));
@@ -150,7 +162,7 @@ int    b_print(int argc, char *argv[], void *extra)
 	register Shell_t *shp = (Shell_t*)extra;
 	const char *options, *msg = e_file+4;
 	char *format = 0;
-	int sflag = 0, nflag, rflag;
+	int sflag = 0, nflag=0, rflag=0;
 	if(argc>0)
 	{
 		options = sh_optprint;
@@ -202,7 +214,8 @@ int    b_print(int argc, char *argv[], void *extra)
 				fd = -1;
 			else if(fd<0 || fd >= shp->lim.open_max)
 				fd = -1;
-			else if(sh_inuse(fd) || (shp->hist_ptr && fd==sffileno(shp->hist_ptr->histfp)))
+			else if(!(sh.inuse_bits&(1<<fd)) && (sh_inuse(fd) || (shp->hist_ptr && fd==sffileno(shp->hist_ptr->histfp))))
+
 				fd = -1;
 			break;
 		case ':':
@@ -284,10 +297,8 @@ skip2:
 		/* printf style print */
 		Sfio_t *pool;
 		struct printf pdata;
-		pdata.sh = shp;
-		pdata.err = 0;
-		pdata.cescape = 0;
 		memset(&pdata, 0, sizeof(pdata));
+		pdata.sh = shp;
 		pdata.hdr.version = SFIO_VERSION;
 		pdata.hdr.extf = extend;
 		pdata.nextarg = argv;
@@ -372,6 +383,14 @@ static char strformat(char *s)
 			if(*s==0)
 				break;
                         c = chresc(s - 1, &p);
+                        s = p;
+#if SHOPT_MULTIBYTE
+			if(c>UCHAR_MAX && mbwide())
+			{
+				t += wctomb(t, c);
+				continue;
+			}
+#endif /* SHOPT_MULTIBYTE */
 			if(c=='%')
 				*t++ = '%';
 			else if(c==0)
@@ -379,7 +398,6 @@ static char strformat(char *s)
 				*t++ = '%';
 				c = 'Z';
 			}
-                        s = p;
                         break;
                     case 0:
                         *t = 0;
@@ -505,10 +523,11 @@ static int extend(Sfio_t* sp, void* v, Sffmt_t* fe)
 	char*		lastchar = "";
 	register int	neg = 0;
 	Sfdouble_t	d;
-	Sfdouble_t	longmin = LDBL_LONGLONG_MIN;
-	Sfdouble_t	longmax = LDBL_LONGLONG_MAX;
+	Sfdouble_t	longmin = LDBL_LLONG_MIN;
+	Sfdouble_t	longmax = LDBL_LLONG_MAX;
 	int		format = fe->fmt;
 	int		n;
+	int		fold = fe->base;
 	union types_t*	value = (union types_t*)v;
 	struct printf*	pp = (struct printf*)fe;
 	register char*	argp = *pp->nextarg;
@@ -522,8 +541,10 @@ static int extend(Sfio_t* sp, void* v, Sffmt_t* fe)
 			value->c = 0;
 			fe->flags &= ~SFFMT_LONG;
 			break;
-		case 's':
 		case 'q':
+			format = 's';
+			/* FALL THROUGH */
+		case 's':
 		case 'H':
 		case 'B':
 		case 'P':
@@ -540,12 +561,14 @@ static int extend(Sfio_t* sp, void* v, Sffmt_t* fe)
 		case 'e':
 		case 'f':
 		case 'g':
-			value->f = 0.;
-			break;
 		case 'A':
 		case 'E':
+		case 'F':
 		case 'G':
-			value->ld = 0.;
+                        if(SFFMT_LDOUBLE)
+				value->ld = 0.;
+			else
+				value->d = 0.;
 			break;
 		case 'n':
 			value->ip = &pp->intvar;
@@ -555,12 +578,13 @@ static int extend(Sfio_t* sp, void* v, Sffmt_t* fe)
 			break;
 		case 'T':
 			fe->fmt = 'd';
-			value->ll = time(NIL(time_t*));
+			value->ll = tmxgettime();
 			break;
 		default:
+			if(!strchr("DdXxoUu",format))
+				errormsg(SH_DICT,ERROR_exit(1),e_formspec,format);
 			fe->fmt = 'd';
 			value->ll = 0;
-			errormsg(SH_DICT,ERROR_exit(1),e_formspec,format);
 			break;
 		}
 	}
@@ -569,22 +593,22 @@ static int extend(Sfio_t* sp, void* v, Sffmt_t* fe)
 		switch(format)
 		{
 		case 'p':
-			value->p = (char**)strtoll(argp,&lastchar,10);
+			value->p = (char**)strtol(argp,&lastchar,10);
 			break;
 		case 'n':
 		{
 			Namval_t *np;
-			np = nv_open(argp,sh.var_tree,NV_VARNAME|NV_NOASSIGN|NV_ARRAY);
+			np = nv_open(argp,sh.var_tree,NV_VARNAME|NV_NOASSIGN|NV_NOARRAY);
 			nv_unset(np);
 			nv_onattr(np,NV_INTEGER);
-			if (np->nvalue.lp = new_of(long,0))
+			if (np->nvalue.lp = new_of(int32_t,0))
 				*np->nvalue.lp = 0;
 			nv_setsize(np,10);
-			if(sizeof(int)==sizeof(long))
+			if(sizeof(int)==sizeof(int32_t))
 				value->ip = (int*)np->nvalue.lp;
 			else
 			{
-				long sl = 1;
+				int32_t sl = 1;
 				value->ip = (int*)(((char*)np->nvalue.lp) + (*((char*)&sl) ? 0 : sizeof(int)));
 			}
 			nv_close(np);
@@ -623,7 +647,7 @@ static int extend(Sfio_t* sp, void* v, Sffmt_t* fe)
 		case 'X':
 		case 'u':
 		case 'U':
-			longmax = LDBL_ULONGLONG_MAX;
+			longmax = LDBL_ULLONG_MAX;
 		case '.':
 			if(fe->size==2 && strchr("bcsqHPRQTZ",*fe->form))
 			{
@@ -671,15 +695,25 @@ static int extend(Sfio_t* sp, void* v, Sffmt_t* fe)
 		case 'g':
 		case 'A':
 		case 'E':
+		case 'F':
 		case 'G':
-			value->d = sh_strnum(*pp->nextarg,&lastchar,0);
-			fe->size = sizeof(value->d);
+			d = sh_strnum(*pp->nextarg,&lastchar,0);
+                        if(SFFMT_LDOUBLE)
+			{
+				value->ld = d;
+				fe->size = sizeof(value->ld);
+			}
+			else
+			{
+				value->d = d;
+				fe->size = sizeof(value->d);
+			}
 			break;
 		case 'Q':
 			value->ll = (Sflong_t)strelapsed(*pp->nextarg,&lastchar,1);
 			break;
 		case 'T':
-			value->ll = (Sflong_t)tmdate(*pp->nextarg,&lastchar,NIL(time_t*));
+			value->ll = (Sflong_t)tmxdate(*pp->nextarg,&lastchar,TMX_NOW);
 			break;
 		default:
 			value->ll = 0;
@@ -717,18 +751,22 @@ static int extend(Sfio_t* sp, void* v, Sffmt_t* fe)
 		break;
 	case 'B':
 		value->s = (char*)fmtbase64(value->s, &fe->size);
+		fe->flags |= SFFMT_SHORT;
 		break;
 	case 'H':
 		value->s = fmthtml(value->s);
 		break;
 	case 'q':
-		value->s = sh_fmtq(value->s);
+		value->s = sh_fmtqf(value->s, !!(fe->flags & SFFMT_ALTER), fold);
 		break;
 	case 'P':
-		value->s = fmtmatch(value->s);
-		if(*value->s==0)
+	{
+		char *s = fmtmatch(value->s);
+		if(!s || *s==0)
 			errormsg(SH_DICT,ERROR_exit(1),e_badregexp,value->s);
+		value->s = s;
 		break;
+	}
 	case 'R':
 		value->s = fmtre(value->s);
 		if(*value->s==0)
@@ -752,10 +790,10 @@ static int extend(Sfio_t* sp, void* v, Sffmt_t* fe)
 		{
 			n = fe->t_str[fe->n_str];
 			fe->t_str[fe->n_str] = 0;
-			value->s = fmttime(fe->t_str, value->ll);
+			value->s = fmttmx(fe->t_str, value->ll);
 			fe->t_str[fe->n_str] = n;
 		}
-		else value->s = fmttime(NIL(char*), value->ll);
+		else value->s = fmttmx(NIL(char*), value->ll);
 		fe->fmt = 's';
 		fe->size = -1;
 		break;

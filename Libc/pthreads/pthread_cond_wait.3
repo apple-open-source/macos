@@ -37,7 +37,10 @@
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_cond_wait "pthread_cond_t *cond" "pthread_mutex_t *mutex"
+.Fo pthread_cond_wait
+.Fa "pthread_cond_t *restrict cond"
+.Fa "pthread_mutex_t *restrict mutex"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_cond_wait
@@ -50,8 +53,7 @@ argument.
 If successful, the
 .Fn pthread_cond_wait
 function will return zero.
-Otherwise an error number will be returned to
-indicate the error.
+Otherwise, an error number will be returned to indicate the error.
 .Sh ERRORS
 .Fn pthread_cond_wait
 will fail if:

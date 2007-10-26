@@ -100,7 +100,6 @@ We need to include the necessary libraries:
   #include <stdio.h>
   #include <string.h>
   #include <stdlib.h>
-  #include <malloc.h>
   
   #include <libxslt/transform.h>
   #include <libxslt/xsltutils.h>
@@ -382,28 +381,52 @@ is easy, as the required libraries are almost certain to be already in
 place (remember that libxml and libxslt are used by the GNOME project,
 so they are present in most installations). The program can be
 dynamically linked so that its footprint is minimized, or statically
-linked, so that it stands by itself, carrying all required code. For
-dynamic linking the following one liner will do:</para>
+linked, so that it stands by itself, carrying all required code.</para>
+
+<para>For dynamic linking the following one liner will do:</para>
 
 <para>
-<userinput>gcc -o libxslt_pipes -Wall -I/usr/include/libxml2 -lxslt -lxml2 -L/usr/lib
-libxslt_pipes.c</userinput>
+<userinput>gcc -o libxslt_pipes -Wall -I/usr/include/libxml2 -lxslt
+-lxml2 -L/usr/lib libxslt_pipes.c</userinput>
 </para>
 
 <para>We assume that the necessary header files are in <filename
 class="directory">/usr/include/libxml2</filename> and that the
 required libraries (<filename>libxslt.so</filename>,
-<filename>libxsml2.so</filename>) are in <filename
+<filename>libxml2.so</filename>) are in <filename
 class="directory">/usr/lib</filename>.</para>
 
-<para>For static linking we must list more libraries in the command
-line, as the libraries on which the libxsl and libxslt libraries
-depend are also needed. Still, an one-liner will do:</para>
+<para>In general, a program may need to link to additional libraries,
+depending on the processing it actually performs. A good way to start
+is to use the <command>xslt-config</command> script. The
+<option>--help</option> option displays usage
+information. Running</para>
+
+<para>
+  <userinput>
+    xslt-config --cflags
+  </userinput>
+</para>
+
+<para>we get compile flags, while running</para>
+
+<para>
+  <userinput>
+    xslt-config --libs
+  </userinput>
+</para>
+
+<para>we get the library settings for the linker.</para>
+
+<para>For static linking we must list more libraries than we did for
+dynamic linking, as the libraries on which the libxsl and libxslt
+libraries depend are also needed. Using <command>xslt-config</command>
+on a particular installation we create the following one-liner:</para>
 
 <para>
 <userinput>
 gcc -o libxslt_pipes -Wall -I/usr/include/libxml2 libxslt_pipes.c
--static -lxslt -lxml2 -lpthread -lz -lm
+-static -L/usr/lib -lxslt -lxml2 -lz -lpthread -lm
 </userinput>
 </para>
 
@@ -423,7 +446,8 @@ using uClibc might be a good idea anyway).
 
 </sect1>
 
-<sect1><title>MS-Windows Compiling and Linking</title>
+<sect1 id="windows-build"><title>MS-Windows Compiling and
+Linking</title>
 
 <para>Compiling and linking in MS-Windows requires
 some attention. First, the MS-Windows ports must be
@@ -473,7 +497,7 @@ with a compiler whose version is greater than 6, your program is
 likely to crash unexpectedly. Alternatively, you may wish to compile
 all iconv, zlib, libxml and libxslt yourself, using the new runtime
 library. This is not a tall order, and some details are given
-<link linkend="windows-build">below</link>.</para>
+<link linkend="windows-ports-build">below</link>.</para>
 
 <para>There are three kinds of libraries in MS-Windows. Dynamically
 Linked Libraries (DLLs), like <filename>msvcrt.dll</filename> we met
@@ -536,7 +560,7 @@ like <filename>msvcrt71.dll</filename>, and we then need that DLL.  In
 contrast to <filename>msvcrt.dll</filename> it may not be present on
 the target computer, so we may have to copy it along.</para>
 
-<sect2 id="windows-build"><title>Building the Ports in
+<sect2 id="windows-ports-build"><title>Building the Ports in
 MS-Windows</title>
 
 <para>The source code of the ports is readily available on the web,
@@ -574,6 +598,47 @@ headers and libraries can be found by the compiler and the
 linker when building libxml and libxslt.</para>
 
 </sect2>
+
+</sect1>
+
+<sect1><title>zlib, iconv and All That</title>
+
+<para>We saw that libxml and libxslt depend on various other
+libraries, for instance zlib, iconv, and so forth. Taking a look into
+them gives us clues on the capabilities of libxml and libxslt.</para>
+
+<para><ulink url="http://www.zlib.org">zlib</ulink> is a free general
+purpose lossless data compression library. It is a venerable
+workhorse; more than <ulink
+url="http://www.gzip.org/zlib/apps.html">500 applications</ulink>
+(both commercial and open source) seem to use the library. libxml uses
+zlib so that it can read from or write to compressed files
+directly. The <function>xmlParseFile</function> function can
+transparently parse a compressed document to produce an
+<structname>xmlDoc</structname>. If we want to create a compressed
+document with libxml we can use an
+<structname>xmlTextWriterPtr</structname> (obtained through
+<function>xmlNewTextWriterDoc</function>), or another related
+structure from <filename>libxml/xmlwriter.h</filename>, with
+compression enabled.</para>
+
+<para>XML allows documents to use a variety of different character
+encodings. <ulink
+url="http://www.gnu.org/software/libiconv">iconv</ulink> is a free
+library for converting between different character encodings.  libxml
+provides a set of default converters for some encodings: UTF-8, UTF-16
+(little endian and big endian), ISO-8859-1, ASCII, and HTML (a
+specific handler for the conversion of UTF-8 to ASCII with HTML
+predefined entities like &amp;copy; for the copyright sign). However,
+when compiled with iconv support, libxml and libxslt can handle the
+full range of encodings provided by iconv; these should cover most
+needs.</para>
+
+<para>libxml and libxslt can be used in multi-threaded
+applications. In MS-Windows they are linked against
+<filename>MSVCRT.DLL</filename> (or one of its descendants, as we saw
+<link linkend="windows-build">above</link>). In *NIX the pthreads
+(POSIX threads) library is used.</para>
 
 </sect1>
 

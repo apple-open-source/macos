@@ -1,12 +1,17 @@
-#ifndef __KEXTMANAGER_H__
-#define __KEXTMANAGER_H__
+#if !__LP64__
+
+#ifndef __KEXTMANAGERPRIV_H__
+#define __KEXTMANAGERPRIV_H__
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Authorization.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
+kern_return_t _KextManagerRecordPathForBundleID(CFStringRef kextBundleID,
+    CFStringRef kextPath);
 
 CFArrayRef _KextManagerCreatePropertyValueArray(
     CFAllocatorRef allocator,
@@ -20,8 +25,7 @@ uid_t _KextManagerGetLoggedInUserid(void);
 void _KextManagerRecordNonsecureKextload(const char * load_data,
     size_t data_length);
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif __KEXTMANAGER_H__
+#endif __KEXTMANAGERPRIV_H__
+#endif // !__LP64__

@@ -1,3 +1,7 @@
+(NOTE: you may also want to take a look at the pear package
+	     PECL_Gen, a PHP-only alternative for this script that
+			 supports way more extension writing tasks and is 
+			 supposed to replace ext_skel completely in the long run ...)
 
 WHAT IT IS
 
@@ -17,7 +21,8 @@ HOW TO USE IT
 
   [ Note that GNU awk is likely required for this script to work.  Debian 
     systems seem to default to using mawk, so you may need to change the 
-    #! line in skeleton/create_stubs to use gawk explicitly. ]
+    #! line in skeleton/create_stubs and the cat $proto | awk line in
+    ext_skel to use gawk explicitly. ]
 
   If you don't need to test the existence of any external header files, 
   libraries or functions in them, the module is already almost ready to be 

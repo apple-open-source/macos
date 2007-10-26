@@ -1,0 +1,19 @@
+- isa/can validation in XS allows this:
+
+ { a => { isa => \%hash } }
+
+and tries to see if a->isa("HASH(0x1581)").  Instead, we should die if
+given a non-array reference.  Same for can, etc.  See how this is
+handled in callbacks for example.
+
+
+- make it possible to explicitly not use the XS version in a non-hacky
+way.
+
+
+- is there something better than "N/A" that could be used when
+validation is being done outside a sub?
+
+
+- add an excludes param to the spec as the opposite of depends,
+suggested by Diab Jerius (see rt.cpan.org).

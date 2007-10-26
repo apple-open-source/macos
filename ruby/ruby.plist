@@ -1,22 +1,33 @@
 <plist version="1.0">
 <array>
 <dict>
-        <key>OpenSourceProject</key>
-        <string>ruby</string>
-        <key>OpenSourceVersion</key>
-        <string>1.8.2</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://www.ruby-lang.org/</string>
-        <key>OpenSourceURL</key>
-        <string>ftp://ftp.ruby-lang.org/pub/ruby/ruby-1.8.2.tar.gz</string>
-        <key>OpenSourceMD5</key>
-        <string>8ffc79d96f336b80f2690a17601dea9b</string>
-        <key>OpenSourceImportDate</key>
-        <string>2004-12-25</string>
-        <key>OpenSourceLicense</key>
-        <string>Other</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>ruby.txt</string>
+    <key>OpenSourceProject</key>
+    <string>ruby</string>
+    <key>OpenSourceVersion</key>
+    <string>1.8.5-p2</string>
+    <key>OpenSourceWebsiteURL</key>
+    <string>http://www.ruby-lang.org/</string>
+    <key>OpenSourceURL</key>
+    <string>http://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.5-p2.tar.gz</string>
+    <key>OpenSourceSHA1</key>
+    <string>f614bba73f447ddf35f8a4beb71ccc3df87831a5</string>
+    <key>OpenSourceImportDate</key>
+    <string>2007-01-31</string>
+    <key>OpenSourceLicense</key>
+    <string>Other</string>
+    <key>OpenSourceLicenseFile</key>
+    <string>ruby.txt</string>
+    <key>OpenSourceModifications</key>
+    <array>
+        <string>remove -lobjc link</string>
+        <string>use dlsym</string>
+        <string>ruby configure test for endianness fails</string>
+        <string>disable -static in rbconfig</string>
+        <string>make [md5|sha1].bundle using CommonCrypto instead of OpenSSL</string>
+        <string>all libraries are compiled 4-way fat (i386, ppc, x86_64 and ppc64) but the tk extension, and the ruby command line binary is kept 2-way fat (i386 and ppc) for compatibility purposes</string>
+        <string>emit DTrace static probes when entering/leaving a Ruby method</string>
+        <string>replace the fastthread library with its 1.0 version</string>
+    </array>
 </dict>
 </array>
 </plist>

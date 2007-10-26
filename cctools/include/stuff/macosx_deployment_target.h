@@ -22,19 +22,14 @@
  */
 #include <mach/mach.h>
 
-/* The currently known Mac OS X deployment targets */
-enum macosx_deployment_target_value {
-    MACOSX_DEPLOYMENT_TARGET_10_1,
-    MACOSX_DEPLOYMENT_TARGET_10_2,
-    MACOSX_DEPLOYMENT_TARGET_10_3,
-    MACOSX_DEPLOYMENT_TARGET_10_4,
-    MACOSX_DEPLOYMENT_TARGET_10_5
+struct macosx_deployment_target {
+    unsigned long major;	/* major version */
+    unsigned long minor;	/* minor version (if any or zero) */
+    char *name;			/* name for printing */
 };
 
 __private_extern__ void get_macosx_deployment_target(
-    enum macosx_deployment_target_value *value,
-    const char **name,
-    cpu_type_t cputype);
+    struct macosx_deployment_target *value);
 
 __private_extern__ void put_macosx_deployment_target(
     char *target);

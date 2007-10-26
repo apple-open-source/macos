@@ -41,11 +41,6 @@
 #define	FIREWIRE_TYPE_LEN		2
 
 /*
- * The number of bytes in the trailing CRC field.
- */
-#define	FIREWIRE_CRC_LEN		4
-
-/*
  * The length of the combined header.
  */
 #define	FIREWIRE_HDR_LEN		(FIREWIRE_ADDR_LEN*2+FIREWIRE_TYPE_LEN)
@@ -81,8 +76,8 @@ struct	firewire_header {
 
 #define	FIREWIREMTU	(FIREWIRE_MAX_LEN-FIREWIRE_HDR_LEN)
 
-int firewire_attach_inet(ifnet_t ifp, u_long protocol_family);
-int firewire_attach_inet6(ifnet_t ifp, __unused u_long protocol_family);
+int firewire_attach_inet(ifnet_t ifp, protocol_family_t protocol_family);
+int firewire_attach_inet6(ifnet_t ifp, __unused protocol_family_t protocol_family);
 
 int firewire_ifattach(register ifnet_t ifp);
 void firewire_ifdetach(register ifnet_t ifp);

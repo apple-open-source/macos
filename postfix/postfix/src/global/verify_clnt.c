@@ -11,19 +11,13 @@
 /*	int	*status;
 /*	VSTRING	*why;
 /*
-/*	int	verify_clnt_update(addr, status, format, ...)
+/*	int	verify_clnt_update(addr, status, why)
 /*	const char *addr;
 /*	int	status;
-/*	const char *format;
-/*
-/*	int	verify_clnt_vupdate(addr, status, format, ap)
-/*	const char *addr;
-/*	int	status;
-/*	const char *format;
-/*	va_list	ap;
+/*	const char *why;
 /* DESCRIPTION
 /*	verify_clnt_query() requests information about the given address.
-/*	The result value is one of the valud status values (see
+/*	The result value is one of the valid status values (see
 /*	status description below).
 /*	In all cases the \fBwhy\fR argument provides additional
 /*	information.
@@ -31,9 +25,6 @@
 /*	verify_clnt_update() requests that the status of the specified
 /*	address be updated. The result status is DEL_REQ_RCPT_STAT_OK upon
 /*	success, DEL_REQ_RCPT_STAT_DEFER upon failure.
-/*
-/*	verify_clnt_vupdate() presents the function of verify_clnt_update()
-/*	with a different user interface.
 /*
 /*	Arguments
 /* .IP addr
@@ -105,6 +96,7 @@ int     verify_clnt_query(const char *addr, int *addr_status, VSTRING *why)
 {
     VSTREAM *stream;
     int     request_status;
+    int     count = 0;
 
     /*
      * Do client-server plumbing.
@@ -118,17 +110,18 @@ int     verify_clnt_query(const char *addr, int *addr_status, VSTRING *why)
     for (;;) {
 	stream = clnt_stream_access(vrfy_clnt);
 	errno = 0;
+	count += 1;
 	if (attr_print(stream, ATTR_FLAG_NONE,
 		       ATTR_TYPE_STR, MAIL_ATTR_REQ, VRFY_REQ_QUERY,
 		       ATTR_TYPE_STR, MAIL_ATTR_ADDR, addr,
 		       ATTR_TYPE_END) != 0
 	    || vstream_fflush(stream)
 	    || attr_scan(stream, ATTR_FLAG_MISSING,
-			 ATTR_TYPE_NUM, MAIL_ATTR_STATUS, &request_status,
-			 ATTR_TYPE_NUM, MAIL_ATTR_ADDR_STATUS, addr_status,
+			 ATTR_TYPE_INT, MAIL_ATTR_STATUS, &request_status,
+			 ATTR_TYPE_INT, MAIL_ATTR_ADDR_STATUS, addr_status,
 			 ATTR_TYPE_STR, MAIL_ATTR_WHY, why,
 			 ATTR_TYPE_END) != 3) {
-	    if (msg_verbose || (errno != EPIPE && errno != ENOENT))
+	    if (msg_verbose || count > 1 || (errno && errno != EPIPE && errno != ENOENT))
 		msg_warn("problem talking to service %s: %m",
 			 var_verify_service);
 	} else {
@@ -142,24 +135,8 @@ int     verify_clnt_query(const char *addr, int *addr_status, VSTRING *why)
 
 /* verify_clnt_update - request address status update */
 
-int     verify_clnt_update(const char *addr, int addr_status,
-			           const char *format,...)
+int     verify_clnt_update(const char *addr, int addr_status, const char *why)
 {
-    va_list ap;
-    int     status;
-
-    va_start(ap, format);
-    status = verify_clnt_vupdate(addr, addr_status, format, ap);
-    va_end(ap);
-    return (status);
-}
-
-/* verify_clnt_update - request address status update */
-
-int     verify_clnt_vupdate(const char *addr, int addr_status,
-			            const char *format, va_list ap)
-{
-    VSTRING *text;
     VSTREAM *stream;
     int     request_status;
 
@@ -173,19 +150,17 @@ int     verify_clnt_vupdate(const char *addr, int addr_status,
      * Send status for this address. Supply a default status if the address
      * verification service is unavailable.
      */
-    text = vstring_alloc(100);
-    vstring_vsprintf(text, format, ap);
     for (;;) {
 	stream = clnt_stream_access(vrfy_clnt);
 	errno = 0;
 	if (attr_print(stream, ATTR_FLAG_NONE,
 		       ATTR_TYPE_STR, MAIL_ATTR_REQ, VRFY_REQ_UPDATE,
 		       ATTR_TYPE_STR, MAIL_ATTR_ADDR, addr,
-		       ATTR_TYPE_NUM, MAIL_ATTR_ADDR_STATUS, addr_status,
-		       ATTR_TYPE_STR, MAIL_ATTR_WHY, vstring_str(text),
+		       ATTR_TYPE_INT, MAIL_ATTR_ADDR_STATUS, addr_status,
+		       ATTR_TYPE_STR, MAIL_ATTR_WHY, why,
 		       ATTR_TYPE_END) != 0
 	    || attr_scan(stream, ATTR_FLAG_MISSING,
-			 ATTR_TYPE_NUM, MAIL_ATTR_STATUS, &request_status,
+			 ATTR_TYPE_INT, MAIL_ATTR_STATUS, &request_status,
 			 ATTR_TYPE_END) != 1) {
 	    if (msg_verbose || (errno != EPIPE && errno != ENOENT))
 		msg_warn("problem talking to service %s: %m",
@@ -196,7 +171,6 @@ int     verify_clnt_vupdate(const char *addr, int addr_status,
 	sleep(1);
 	clnt_stream_recover(vrfy_clnt);
     }
-    vstring_free(text);
     return (request_status);
 }
 
@@ -312,6 +286,7 @@ int     main(int argc, char **argv)
 	    msg_warn("unrecognized command: %s", command);
     }
     vstring_free(buffer);
+    return (0);
 }
 
 #endif

@@ -31,6 +31,8 @@
 
 #define rsaSigDebug(args...) 	secdebug("rsaSig", ## args)
 
+static ModuleNexus<Mutex> gMutex;
+
 RSASigner::~RSASigner()
 {
 	if(mWeMallocdRsaKey) {
@@ -46,6 +48,8 @@ void RSASigner::signerInit(
 	const Context 	&context,
 	bool			isSigning)
 {
+	StLock<Mutex> _(gMutex());
+
 	setIsSigning(isSigning);
 	keyFromContext(context);
 	
@@ -88,6 +92,8 @@ void RSASigner::sign(
 	void			*sig,	
 	size_t			*sigLen)	/* IN/OUT */
 {
+	StLock<Mutex> _(gMutex());
+
 	if(mRsaKey == NULL) {
 		CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);
 	}
@@ -127,6 +133,8 @@ void RSASigner::verify(
 	const void		*sig,			
 	size_t			sigLen)
 {
+	StLock<Mutex> _(gMutex());
+
 	const char *op = NULL;
 	bool throwSigVerify = false;
 	
@@ -184,6 +192,7 @@ abort:
 		alloc().free(decryptSig);
 	}	
 	if(throwSigVerify) {
+		clearOpensslErrors();
 		CssmError::throwMe(CSSMERR_CSP_VERIFY_FAILED);
 	}
 }
@@ -221,11 +230,15 @@ void RSASigner::keyFromContext(
 		keyUse   = CSSM_KEYUSE_VERIFY;
 	}
 	if(mRsaKey == NULL) {
+		CSSM_DATA label = {0, NULL};
 		mRsaKey = contextToRsaKey(context,
 			mSession,
 			keyClass,
 			keyUse,
-			mWeMallocdRsaKey);
+			mWeMallocdRsaKey,
+			label);
+		/* cannot have label param for signing */
+		assert(label.Data == NULL);
 	}
 }
 
@@ -319,6 +332,7 @@ abort:
 		DSA_SIG_free(dsaSig);
 	}	
 	if(throwSigVerify) {
+		clearOpensslErrors();
 		CssmError::throwMe(CSSMERR_CSP_VERIFY_FAILED);
 	}
 	else if(crtn) {

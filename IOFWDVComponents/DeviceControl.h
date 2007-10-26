@@ -2,28 +2,9 @@
      File:       DVComponentGlue/DeviceControl.h
  
      Contains:   Component API for doing AVC transactions.
- 
-     Version:    xxx put version here xxx
- 
-     DRI:        Jed (George) Wilson
- 
-     Copyright:  © 1999-2001 by Apple Computer, Inc., all rights reserved.
- 
-     Warning:    *** APPLE INTERNAL USE ONLY ***
-                 This file may contain unreleased API's
- 
-     BuildInfo:  Built by:            wgulland
-                 On:                  Tue Mar 12 16:49:01 2002
-                 With Interfacer:     3.0d35   (Mac OS X for PowerPC)
-                 From:                DeviceControl.i
-                     Revision:        3
-                     Dated:           6/16/99
-                     Last change by:  GDW
-                     Last comment:    Changed AVC struct name to DVC for people that include
- 
-     Bugs:       Report bugs to Radar component "System Interfaces", "Latest"
-                 List the version information (from above) in the Problem Description.
- 
+
+     Copyright:  © 1997-2006 by Apple Computer, Inc., all rights reserved.
+
 */
 #ifndef __DEVICECONTROL__
 #define __DEVICECONTROL__

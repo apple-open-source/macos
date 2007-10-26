@@ -17,7 +17,7 @@
 #import <libkern/c++/OSCollectionIterator.h>
 
 #if FIRELOG
-#import "IOFireLog.h"
+#import <IOKit/firewire/FireLog.h>
 #define FIRELOG_MSG(x) FireLog x
 #else
 #define FIRELOG_MSG(x) do {} while (0)
@@ -28,7 +28,7 @@ using namespace IOFireWireLib ;
 OSDefineMetaClassAndAbstractStructors( IOFWDCL, OSObject )
 
 bool
-IOFWDCL :: initWithRanges ( 
+IOFWDCL::initWithRanges ( 
 	OSSet * 				updateSet, 
 	unsigned 				rangesCount, 
 	IOVirtualRange 			ranges [] )
@@ -50,74 +50,74 @@ IOFWDCL :: initWithRanges (
 }
 
 void
-IOFWDCL :: setBranch( IOFWDCL* branch )
+IOFWDCL::setBranch( IOFWDCL* branch )
 { 
 	fLoLevel->lastBranch = fBranch ;
 	fBranch = branch ;
 }
 
 IOFWDCL *
-IOFWDCL :: getBranch() const
+IOFWDCL::getBranch() const
 {
 	return fBranch ;
 }
 
 void
-IOFWDCL :: setTimeStampPtr ( UInt32* timeStampPtr )
+IOFWDCL::setTimeStampPtr ( UInt32* timeStampPtr )
 {
 	fTimeStampPtr = timeStampPtr ;
 }
 
 UInt32 *
-IOFWDCL :: getTimeStampPtr () const
+IOFWDCL::getTimeStampPtr () const
 {
 	return (UInt32*)fTimeStampPtr ;
 }
 
 void
-IOFWDCL :: setCallback( Callback callback )
+IOFWDCL::setCallback( Callback callback )
 {
 	fCallback = callback ; 
 }
 
 IOFWDCL::Callback
-IOFWDCL :: getCallback() const
+IOFWDCL::getCallback() const
 {
 	return fCallback ; 
 }
 
 void
-IOFWDCL :: setStatusPtr( UInt32* statusPtr )
+IOFWDCL::setStatusPtr( UInt32* statusPtr )
 {
 	fUserStatusPtr = statusPtr ; 
 }
 
 UInt32*
-IOFWDCL :: getStatusPtr() const
+IOFWDCL::getStatusPtr() const
 {
 	return (UInt32*) fUserStatusPtr ; 
 }
 
 void
-IOFWDCL :: setRefcon( void * refcon )
+IOFWDCL::setRefcon( void * refcon )
 {
 	fRefcon = refcon ; 
 }
 
 void *
-IOFWDCL :: getRefcon() const
+IOFWDCL::getRefcon() const
 {
 	return fRefcon ; 
 }
 
 const OSSet *
-IOFWDCL :: getUpdateList() const
+IOFWDCL::getUpdateList() const
 {
 	return fUpdateList ;
 }
 
 IOReturn
-IOFWDCL :: addRange ( IOVirtualRange & range )
+IOFWDCL::addRange ( IOVirtualRange & range )
 {	
 	IOVirtualRange * newRanges = new IOVirtualRange[ fRangeCount + 1 ] ;
 	if ( !newRanges )
@@ -136,7 +136,7 @@ IOFWDCL :: addRange ( IOVirtualRange & range )
 }
 
 IOReturn
-IOFWDCL :: setRanges ( UInt32 numRanges, IOVirtualRange ranges[] )
+IOFWDCL::setRanges ( UInt32 numRanges, IOVirtualRange ranges[] )
 {
 	delete[] fRanges ;
 
@@ -154,9 +154,9 @@ IOFWDCL :: setRanges ( UInt32 numRanges, IOVirtualRange ranges[] )
 }
 
 UInt32
-IOFWDCL :: getRanges( UInt32 maxRanges, IOVirtualRange ranges[] ) const
+IOFWDCL::getRanges( UInt32 maxRanges, IOVirtualRange ranges[] ) const
 {
-	unsigned count = maxRanges <? fRangeCount ;
+	unsigned count = min( maxRanges, fRangeCount ) ;
 	for( unsigned index=0; index < count; ++index )
 	{
 		ranges[ index ] = fRanges[ index ] ;
@@ -166,13 +166,13 @@ IOFWDCL :: getRanges( UInt32 maxRanges, IOVirtualRange ranges[] ) const
 }
 
 UInt32
-IOFWDCL :: countRanges()
+IOFWDCL::countRanges()
 {
 	return fRangeCount ; 
 }
 
 IOReturn
-IOFWDCL :: getSpan( IOVirtualRange& result ) const
+IOFWDCL::getSpan( IOVirtualRange& result ) const
 {
 	if ( fRangeCount == 0 )
 	{
@@ -186,8 +186,8 @@ IOFWDCL :: getSpan( IOVirtualRange& result ) const
 
 	for( unsigned index=1; index < fRangeCount; ++index )
 	{
-		lowAddress = (fRanges[index].address) <? lowAddress ;
-		highAddress = (lowAddress + fRanges[ index ].length) >? highAddress ;
+		lowAddress = min( fRanges[index].address, lowAddress ) ;
+		highAddress = min( lowAddress + fRanges[ index ].length, highAddress ) ;
 	}
 	
 	result.address = lowAddress ;
@@ -197,7 +197,7 @@ IOFWDCL :: getSpan( IOVirtualRange& result ) const
 }
 
 IOByteCount
-IOFWDCL :: getSize() const
+IOFWDCL::getSize() const
 {
 	IOByteCount size = 0 ;
 	for( unsigned index=0; index < fRangeCount; ++index )
@@ -207,7 +207,7 @@ IOFWDCL :: getSize() const
 }
 
 IOReturn
-IOFWDCL :: setUpdateList( OSSet* updateList )
+IOFWDCL::setUpdateList( OSSet* updateList )
 {
 	if ( updateList )
 	{
@@ -236,19 +236,19 @@ IOFWDCL :: setUpdateList( OSSet* updateList )
 }
 
 void
-IOFWDCL :: setFlags( UInt32 flags )
+IOFWDCL::setFlags( UInt32 flags )
 {
 	fFlags = flags ; 
 }
 
 UInt32
-IOFWDCL :: getFlags() const
+IOFWDCL::getFlags() const
 {
 	return fFlags ; 
 }
 
 void
-IOFWDCL :: debug()
+IOFWDCL::debug()
 {
 	if ( fBranch )
 	{
@@ -257,7 +257,17 @@ IOFWDCL :: debug()
 	
 	if ( fCallback )
 	{
-		FIRELOG_MSG(( "    callback %p\n", fCallback )) ;
+		if ( fCallback == IOFWUserLocalIsochPort::s_nuDCLCallout )
+		{
+			#if FIRELOG
+				uint64_t * asyncRef = (uint64_t*)getRefcon() ;
+				FIRELOG_MSG(( "    callback (USER) callback=%p refcon=%p\n", asyncRef[ kIOAsyncCalloutFuncIndex ], asyncRef[ kIOAsyncCalloutRefconIndex ] )) ;
+			#endif
+		}
+		else
+		{
+			FIRELOG_MSG(( "    callback %p\n", fCallback )) ;
+		}
 	}
 	
 	if ( fTimeStampPtr )
@@ -315,7 +325,7 @@ IOFWDCL :: debug()
 }
 
 void
-IOFWDCL :: free ()
+IOFWDCL::free ()
 {
 	if ( fUpdateList )
 	{
@@ -328,7 +338,7 @@ IOFWDCL :: free ()
 	
 	if ( fCallback == IOFWUserLocalIsochPort::s_nuDCLCallout )
 	{
-		delete [] (natural_t*)fRefcon ;
+		delete [] (uint64_t*)fRefcon ;
 	}
 	
 	delete[] fRanges ;
@@ -339,7 +349,7 @@ IOFWDCL :: free ()
 }
 
 void
-IOFWDCL :: finalize ( IODCLProgram & )
+IOFWDCL::finalize ( IODCLProgram & )
 {
 	if ( fUpdateList )
 	{
@@ -355,15 +365,15 @@ IOFWDCL :: finalize ( IODCLProgram & )
 }
 
 IOReturn
-IOFWDCL :: importUserDCL (
+IOFWDCL::importUserDCL (
 	UInt8 *					data,
 	IOByteCount &			dataSize,
 	IOMemoryMap *			bufferMap,
 	const OSArray *			dcls )
 {
 	IOVirtualAddress		kernBaseAddress = bufferMap->getVirtualAddress() ;
-	NuDCLSharedData * 		sharedData = ( NuDCLSharedData * )data ;
-	dataSize = ( sizeof( *sharedData ) + 4 ) & ~(size_t)0x3 ;
+	NuDCLExportData * 		sharedData = ( NuDCLExportData * )data ;
+	dataSize = sizeof( NuDCLExportData ) ;
 	data += dataSize ;
 
 	IOReturn error = kIOReturnSuccess ;
@@ -372,14 +382,14 @@ IOFWDCL :: importUserDCL (
 		IOVirtualRange kernRanges[ sharedData->rangeCount ] ;
 		for( unsigned index=0; index < sharedData->rangeCount; ++index )
 		{
-			kernRanges[ index ].address = kernBaseAddress + (IOByteCount)sharedData->ranges[ index ].address ;
+			kernRanges[ index ].address = kernBaseAddress + sharedData->ranges[ index ].address ;
 			kernRanges[ index ].length = sharedData->ranges[ index ].length ;
 		}
 
 		error = setRanges( sharedData->rangeCount, kernRanges ) ;
 	}
 
-	if ( sharedData->update.count )
+	if ( sharedData->updateCount )
 	{
 		// In the shared data struct for this DCL, the updateList field has
 		// been filled in with the updateList length, if any, replacing
@@ -387,10 +397,10 @@ IOFWDCL :: importUserDCL (
 		// The update list data follows the dcl shared data struct
 		// in the export data block.
 
-		UInt32 * userUpdateList = ( UInt32 * )data ;
-		dataSize += sharedData->update.count * sizeof( UInt32* ) ;
+		uint64_t * userUpdateList = ( uint64_t * )data ;
+		dataSize += sharedData->updateCount * sizeof( uint64_t ) ;
 
-		OSSet * updateSet = OSSet::withCapacity( (unsigned)sharedData->update.count ) ;
+		OSSet * updateSet = OSSet::withCapacity( (unsigned)sharedData->updateCount ) ;
 
 		if ( __builtin_expect( !updateSet, false ) )
 		{
@@ -398,7 +408,7 @@ IOFWDCL :: importUserDCL (
 		}
 		else
 		{
-			for( unsigned index=0; index < (unsigned)sharedData->update.count; ++index )
+			for( unsigned index=0; index < (unsigned)sharedData->updateCount; ++index )
 			{
 				updateSet->setObject( dcls->getObject( userUpdateList[ index ] - 1 ) ) ;
 			}
@@ -419,11 +429,11 @@ IOFWDCL :: importUserDCL (
 		{
 			setCallback( sharedData->callback ? IOFWUserLocalIsochPort::s_nuDCLCallout : NULL ) ;
 
-			natural_t * asyncRef = (natural_t *) getRefcon() ;
+			uint64_t * asyncRef = (uint64_t *) getRefcon() ;
 
 			if ( !asyncRef )
 			{
-				asyncRef = new natural_t[ kOSAsyncRefCount ] ;
+				asyncRef = new uint64_t[ kOSAsyncRef64Count ] ;
 			}
 
 			if ( !asyncRef )
@@ -432,8 +442,8 @@ IOFWDCL :: importUserDCL (
 			}
 			else
 			{
-				asyncRef[ kIOAsyncCalloutFuncIndex ] = (natural_t)sharedData->callback ;
-				asyncRef[ kIOAsyncCalloutRefconIndex ] = (natural_t)sharedData->refcon ;
+				asyncRef[ kIOAsyncCalloutFuncIndex ] = (uint64_t)sharedData->callback ;
+				asyncRef[ kIOAsyncCalloutRefconIndex ] = (uint64_t)sharedData->refcon ;
 
 				setRefcon( asyncRef ) ;
 			}
@@ -442,7 +452,7 @@ IOFWDCL :: importUserDCL (
 		{
 			if ( getCallback() == IOFWUserLocalIsochPort::s_nuDCLCallout )
 			{
-				delete [] (natural_t*)getRefcon() ;
+				delete [] (uint64_t*)getRefcon() ;
 			}
 
 			setCallback( NULL ) ;
@@ -452,15 +462,15 @@ IOFWDCL :: importUserDCL (
 
 	if ( !error )
 	{
-		setTimeStampPtr( sharedData->timeStamp.offset ? (UInt32*)( kernBaseAddress + sharedData->timeStamp.offset - 1 ) : NULL ) ;
-		setStatusPtr( sharedData->status.offset ? (UInt32*)( kernBaseAddress + sharedData->status.offset - 1 ) : NULL ) ;
+		setTimeStampPtr( sharedData->timeStampOffset ? (UInt32*)( kernBaseAddress + sharedData->timeStampOffset - 1 ) : NULL ) ;
+		setStatusPtr( sharedData->statusOffset ? (UInt32*)( kernBaseAddress + sharedData->statusOffset - 1 ) : NULL ) ;
 	}
 
 	if ( !error )
 	{
-		if ( sharedData->branch.index )
+		if ( sharedData->branchIndex )
 		{
-			unsigned branchIndex = sharedData->branch.index - 1 ;
+			unsigned branchIndex = sharedData->branchIndex - 1 ;
 			if ( branchIndex >= dcls->getCount() )
 			{
 				DebugLog("branch index out of range\n") ;
@@ -511,14 +521,14 @@ IOFWReceiveDCL:: initWithParams(
 
 
 IOReturn
-IOFWReceiveDCL :: setWaitControl( bool wait )
+IOFWReceiveDCL::setWaitControl( bool wait )
 {
 	fWait = wait ; 
 	return kIOReturnSuccess ; 
 }
 
 void
-IOFWReceiveDCL :: debug ()
+IOFWReceiveDCL::debug ()
 {
 	FIRELOG_MSG(("%p: RECEIVE\n", this )) ;
 	FIRELOG_MSG(("    wait: %s, headerBytes: %d\n", fWait ? "YES" : "NO", fHeaderBytes )) ;
@@ -527,7 +537,7 @@ IOFWReceiveDCL :: debug ()
 }
 
 IOReturn
-IOFWReceiveDCL :: importUserDCL (
+IOFWReceiveDCL::importUserDCL (
 	UInt8 *					data,
 	IOByteCount &			dataSize,
 	IOMemoryMap *			bufferMap,
@@ -537,8 +547,8 @@ IOFWReceiveDCL :: importUserDCL (
 
 	if ( !error )
 	{
-		ReceiveNuDCLSharedData * rcvData = (ReceiveNuDCLSharedData*)( data + dataSize ) ;
-		dataSize += ( sizeof( *rcvData ) + 4 ) & ~(size_t)0x3 ;
+		ReceiveNuDCLExportData * rcvData = (ReceiveNuDCLExportData*)( data + dataSize ) ;
+		dataSize += sizeof( ReceiveNuDCLExportData ) ;
 	
 		error = setWaitControl( rcvData->wait ) ;
 	}
@@ -555,14 +565,14 @@ IOFWSendDCL::free()
 {
 	if ( fSkipCallback == IOFWUserLocalIsochPort::s_nuDCLCallout )
 	{
-		delete[] (natural_t*)fSkipRefcon ;
+		delete[] (uint64_t*)fSkipRefcon ;
 	}
 
 	IOFWDCL::free() ;
 }
 
 bool
-IOFWSendDCL :: initWithParams (
+IOFWSendDCL::initWithParams (
 	OSSet * 				updateSet, 
 	unsigned 				rangesCount,
 	IOVirtualRange 			ranges[],
@@ -579,7 +589,7 @@ IOFWSendDCL :: initWithParams (
 }
 
 IOReturn
-IOFWSendDCL :: addRange ( IOVirtualRange & range )
+IOFWSendDCL::addRange ( IOVirtualRange & range )
 {
 	if ( fRangeCount >= 5 )
 		return kIOReturnError ;
@@ -588,86 +598,86 @@ IOFWSendDCL :: addRange ( IOVirtualRange & range )
 }
 
 void
-IOFWSendDCL :: setUserHeaderPtr( UInt32* userHeaderPtr, UInt32 * maskPtr )
+IOFWSendDCL::setUserHeaderPtr( UInt32* userHeaderPtr, UInt32 * maskPtr )
 { 
 	fUserHeaderPtr = userHeaderPtr ; 
 	fUserHeaderMaskPtr = maskPtr ; 
 }
 
 UInt32 *
-IOFWSendDCL :: getUserHeaderPtr()
+IOFWSendDCL::getUserHeaderPtr()
 {
 	return fUserHeaderPtr ; 
 }
 
 UInt32 *
-IOFWSendDCL :: getUserHeaderMask()
+IOFWSendDCL::getUserHeaderMask()
 {
 	return fUserHeaderMaskPtr ; 
 }
 
 void
-IOFWSendDCL :: setSkipBranch( IOFWDCL * skipBranchDCL )
+IOFWSendDCL::setSkipBranch( IOFWDCL * skipBranchDCL )
 {
 	fSkipBranchDCL = skipBranchDCL ; 
 }
 
 IOFWDCL *
-IOFWSendDCL :: getSkipBranch() const
+IOFWSendDCL::getSkipBranch() const
 {
 	return fSkipBranchDCL ; 
 }
 
 void
-IOFWSendDCL :: setSkipCallback( Callback callback )
+IOFWSendDCL::setSkipCallback( Callback callback )
 {
 	fSkipCallback = callback ; 
 }
 
 void
-IOFWSendDCL :: setSkipRefcon( void * refcon )
+IOFWSendDCL::setSkipRefcon( void * refcon )
 {
-	fSkipRefcon = 0 ; 
+	fSkipRefcon = refcon ; 
 }
 
 IOFWDCL::Callback
-IOFWSendDCL :: getSkipCallback() const
+IOFWSendDCL::getSkipCallback() const
 {
 	return fSkipCallback ;
 }
 
 void *
-IOFWSendDCL :: getSkipRefcon() const
+IOFWSendDCL::getSkipRefcon() const
 {
 	return fSkipRefcon ; 
 }
 
 void
-IOFWSendDCL :: setSync( UInt8 sync )
+IOFWSendDCL::setSync( UInt8 sync )
 {
 	fSync = sync ; 
 }
 
 UInt8
-IOFWSendDCL :: getSync() const
+IOFWSendDCL::getSync() const
 {
 	return fSync ; 
 }
 
 void
-IOFWSendDCL :: setTag( UInt8 tag )
+IOFWSendDCL::setTag( UInt8 tag )
 {
 	fTag = tag ; 
 }
 
 UInt8
-IOFWSendDCL :: getTag() const
+IOFWSendDCL::getTag() const
 {
 	return fTag ; 
 }
 
 IOReturn
-IOFWSendDCL :: setRanges ( UInt32 numRanges, IOVirtualRange ranges[] )
+IOFWSendDCL::setRanges ( UInt32 numRanges, IOVirtualRange ranges[] )
 {
 	if ( numRanges > 5 )
 	{
@@ -679,13 +689,35 @@ IOFWSendDCL :: setRanges ( UInt32 numRanges, IOVirtualRange ranges[] )
 }
 
 void
-IOFWSendDCL :: debug ()
+IOFWSendDCL::debug ()
 {
 	FIRELOG_MSG(("%p: SEND\n", this )) ;
+	if ( fUserHeaderPtr )
+	{
+		FIRELOG_MSG(("    user hdr: %p, user hdr mask --> %p\n", fUserHeaderPtr, fUserHeaderMaskPtr )) ;
+	}
+
 	if ( fSkipBranchDCL )
 	{
 		FIRELOG_MSG(("    skip --> %p\n", fSkipBranchDCL )) ;
-		if ( fSkipCallback )
+	}
+	
+	if ( fSkipCallback )
+	{
+		if ( fSkipCallback == IOFWUserLocalIsochPort::s_nuDCLCallout )
+		{
+			FIRELOG_MSG(("        skip callback: (USER) " )) ;
+			
+			if ( fSkipRefcon )
+			{
+				FIRELOG_MSG(("callback:%p refcon:0x%lx\n", ((uint64_t*)fSkipRefcon)[ kIOAsyncCalloutFuncIndex ], ((uint64_t*)fSkipRefcon)[ kIOAsyncCalloutRefconIndex ] )) ;
+			}
+			else
+			{
+				FIRELOG_MSG(("NULL\n")) ;
+			}
+		}
+		else
 		{
 			FIRELOG_MSG(("        skip callback: %p\n", fSkipCallback )) ;
 			FIRELOG_MSG(("        skip refcon: 0x%lx\n", fSkipRefcon )) ;
@@ -696,7 +728,7 @@ IOFWSendDCL :: debug ()
 }
 
 IOReturn
-IOFWSendDCL :: importUserDCL (
+IOFWSendDCL::importUserDCL (
 	UInt8 *					data,
 	IOByteCount &			dataSize,
 	IOMemoryMap *			bufferMap,
@@ -708,8 +740,8 @@ IOFWSendDCL :: importUserDCL (
 		return error ;
 	}
 
-	SendNuDCLSharedData * sendData = (SendNuDCLSharedData*) ( data + dataSize ) ;
-	dataSize += ( sizeof( *sendData ) + 4 ) & ~(size_t)0x3 ;
+	SendNuDCLExportData * sendData = (SendNuDCLExportData*) ( data + dataSize ) ;
+	dataSize += sizeof( SendNuDCLExportData ) ;
 
 	{
 		setSync( sendData->syncBits ) ;
@@ -720,20 +752,20 @@ IOFWSendDCL :: importUserDCL (
 		UInt32 * userHeaderPtr = NULL ;
 		UInt32 * userHeaderMaskPtr = NULL ;
 
-		if ( sendData->userHeader.offset && sendData->userHeaderMask.offset )
+		if ( sendData->userHeaderOffset && sendData->userHeaderMaskOffset )
 		{
 			IOVirtualAddress		kernBaseAddress = bufferMap->getVirtualAddress() ;
 
-			userHeaderPtr = (UInt32*)( kernBaseAddress + sendData->userHeader.offset - 1 ) ;
-			userHeaderMaskPtr = (UInt32*)( kernBaseAddress + sendData->userHeaderMask.offset - 1 ) ;
+			userHeaderPtr = (UInt32*)( kernBaseAddress + sendData->userHeaderOffset - 1 ) ;
+			userHeaderMaskPtr = (UInt32*)( kernBaseAddress + sendData->userHeaderMaskOffset - 1 ) ;
 		}
 
 		setUserHeaderPtr( userHeaderPtr, userHeaderMaskPtr ) ;
 	}
 
-	if ( sendData->skipBranch.index )
+	if ( sendData->skipBranchIndex )
 	{
-		unsigned branchIndex = sendData->skipBranch.index - 1 ;
+		unsigned branchIndex = sendData->skipBranchIndex - 1 ;
 		if ( branchIndex >= dcls->getCount() )
 		{
 			DebugLog("skip branch index out of range\n") ;
@@ -754,11 +786,11 @@ IOFWSendDCL :: importUserDCL (
 		{
 			setSkipCallback( sendData->skipCallback ? IOFWUserLocalIsochPort::s_nuDCLCallout : NULL ) ;
 
-			natural_t * asyncRef = (natural_t *) getSkipRefcon() ;
+			uint64_t * asyncRef = (uint64_t *) getSkipRefcon() ;
 
 			if ( !asyncRef )
 			{
-				asyncRef = new natural_t[ kOSAsyncRefCount ] ;
+				asyncRef = new uint64_t[ kOSAsyncRef64Count ] ;
 			}
 
 			if ( !asyncRef )
@@ -767,8 +799,8 @@ IOFWSendDCL :: importUserDCL (
 			}
 			else
 			{
-				asyncRef[ kIOAsyncCalloutFuncIndex ] = (natural_t)sendData->skipCallback ;
-				asyncRef[ kIOAsyncCalloutRefconIndex ] = (natural_t)sendData->skipRefcon ;
+				asyncRef[ kIOAsyncCalloutFuncIndex ] = (uint64_t)sendData->skipCallback ;
+				asyncRef[ kIOAsyncCalloutRefconIndex ] = (uint64_t)sendData->skipRefcon ;
 
 				setSkipRefcon( asyncRef ) ;
 			}
@@ -777,7 +809,7 @@ IOFWSendDCL :: importUserDCL (
 		{
 			if ( getSkipCallback() == IOFWUserLocalIsochPort::s_nuDCLCallout )
 			{
-				delete [] (natural_t*)getSkipRefcon() ;
+				delete [] (uint64_t*)getSkipRefcon() ;
 			}
 
 			setSkipCallback( NULL ) ;
@@ -794,7 +826,7 @@ IOFWSendDCL :: importUserDCL (
 OSDefineMetaClassAndAbstractStructors( IOFWSkipCycleDCL, IOFWDCL )
 
 bool
-IOFWSkipCycleDCL :: init ()
+IOFWSkipCycleDCL::init ()
 {
 	bool result = IOFWDCL::initWithRanges( NULL, 0, NULL ) ;
 	
@@ -808,7 +840,7 @@ IOFWSkipCycleDCL::addRange ( IOVirtualRange& range )
 }
 
 IOReturn
-IOFWSkipCycleDCL :: setRanges ( UInt32 numRanges, IOVirtualRange ranges[] )		
+IOFWSkipCycleDCL::setRanges ( UInt32 numRanges, IOVirtualRange ranges[] )		
 {
 	if ( numRanges == 0 )
 	{
@@ -821,13 +853,13 @@ IOFWSkipCycleDCL :: setRanges ( UInt32 numRanges, IOVirtualRange ranges[] )
 }
 
 IOReturn
-IOFWSkipCycleDCL :: getSpan ( IOVirtualRange& result )
+IOFWSkipCycleDCL::getSpan ( IOVirtualRange& result )
 {
 	return kIOReturnUnsupported ;
 }
 
 void
-IOFWSkipCycleDCL :: debug ()
+IOFWSkipCycleDCL::debug ()
 {
 	FIRELOG_MSG(("%p: SKIP CYCLE\n", this )) ;
 	IOFWDCL::debug() ;

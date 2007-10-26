@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,7 @@
 #include <IOKit/usb/USB.h>
 
 // Headers for SCSI Protocol support definitions
-#include <IOKit/scsi-commands/IOSCSIProtocolServices.h>
+#include <IOKit/scsi/IOSCSIProtocolServices.h>
 
 // Flag to turn debugging for the USB Mass Storage class on and off
 #define USB_MASS_STORAGE_DEBUG	0
@@ -51,7 +51,9 @@
 #define kIOUSBMassStoragePreferredProtocol		"Preferred Protocol"
 #define kIOUSBMassStorageResetOnResume			"Reset On Resume"
 #define kIOUSBMassStorageUseStandardUSBReset    "Use Standard USB Reset"
+#define kIOUSBKnownCSWTagIssues                 "Known CSW Tag Issues"
 #define kIOUSBMassStorageMaxLogicalUnitNumber	"Max Logical Unit Number"
+#define kIOPropertyIOUnitKey                    "IOUnit"
 
 #pragma mark -
 #pragma mark CBI Protocol Strutures
@@ -146,6 +148,8 @@ private:
  	UInt32 						fBulkOnlyCommandTag;
 
 	bool						fBulkOnlyCommandStructInUse; 
+    
+    // Dedicated CBW and CSW IOMemoryDescriptors are listed in the ExpansionData struct.
 		
  	// The Request block that contains all the necessary data for 
  	// transporting a Bulk Only request across the USB.
@@ -155,12 +159,18 @@ protected:
     // Reserve space for future expansion.
     struct ExpansionData
 	{
-		bool		fResetInProgress;
-		OSSet *		fClients;
-		IOUSBPipe * fPotentiallyStalledPipe;
-		bool        fUseUSBResetNotBOReset;
-		bool		fAbortCurrentSCSITaskInProgress;
-        bool        fDeviceAttached;
+		bool					fResetInProgress;
+		OSSet *					fClients;
+		IOUSBPipe *				fPotentiallyStalledPipe;
+		bool					fUseUSBResetNotBOReset;
+		bool					fAbortCurrentSCSITaskInProgress;
+		IOMemoryDescriptor *	fCBIMemoryDescriptor;
+		IOMemoryDescriptor *	fBulkOnlyCBWMemoryDescriptor;
+		IOMemoryDescriptor *	fBulkOnlyCSWMemoryDescriptor;
+        bool                    fDeviceAttached;
+		bool                    fWaitingForReconfigurationMessage;
+		bool					fTerminating;
+        bool                    fKnownCSWTagMismatchIssues;
 	};
     ExpansionData *				reserved;
 	
@@ -169,7 +179,13 @@ protected:
 	#define fPotentiallyStalledPipe				reserved->fPotentiallyStalledPipe
     #define fUseUSBResetNotBOReset				reserved->fUseUSBResetNotBOReset
 	#define fAbortCurrentSCSITaskInProgress		reserved->fAbortCurrentSCSITaskInProgress
+	#define fCBIMemoryDescriptor                reserved->fCBIMemoryDescriptor
+	#define	fBulkOnlyCBWMemoryDescriptor		reserved->fBulkOnlyCBWMemoryDescriptor
+	#define	fBulkOnlyCSWMemoryDescriptor		reserved->fBulkOnlyCSWMemoryDescriptor
     #define fDeviceAttached                     reserved->fDeviceAttached
+	#define fWaitingForReconfigurationMessage	reserved->fWaitingForReconfigurationMessage
+	#define fTerminating						reserved->fTerminating
+    #define fKnownCSWTagMismatchIssues          reserved->fKnownCSWTagMismatchIssues
 	
 	// Enumerated constants used to control various aspects of this
 	// driver.
@@ -383,9 +399,13 @@ public:
     virtual void 		stop( IOService * 		provider );
 	virtual void		free( void );
 	virtual	IOReturn	message( UInt32 type, IOService * provider, void * argument = 0 );
-    
+	
 	virtual bool        willTerminate(  IOService *     provider, 
                                         IOOptionBits    options );
+										
+	virtual bool        didTerminate(	IOService *     provider, 
+                                        IOOptionBits    options, 
+										bool *			defer );
                                         
 	virtual bool		handleOpen( IOService *		client,
 									IOOptionBits	options,
@@ -421,7 +441,7 @@ protected:
 		                	IOReturn		status,
 		                	UInt32			bufferSizeRemaining );
 
-    void                ResetDeviceNow( void );
+    void                ResetDeviceNow( bool waitForReset );
 	void                AbortCurrentSCSITask( void );
 	 
 	// Space reserved for future expansion.

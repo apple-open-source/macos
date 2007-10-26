@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -36,9 +32,7 @@
 
 #include <ast.h>
 
-#define OPT_VERSION	20000401L
-
-#define opt_info	_opt_info_
+#define OPT_VERSION	20070319L
 
 #define OPT_USER	(1L<<16)	/* first user flag bit		*/
 
@@ -74,7 +68,7 @@ typedef struct Opt_s
 	char		option[8];	/* current flag {-,+} + option  */
 	char		name[64];	/* current long name or flag	*/
 	Optdisc_t*	disc;		/* user discipline		*/
-	_ast_intmax_t	number;		/* # numeric argument		*/
+	intmax_t	number;		/* # numeric argument		*/
 	unsigned char	assignment;	/* option arg assigment op	*/
 	unsigned char	pads[sizeof(void*)-1];
 	_OPT_PRIVATE_
@@ -87,7 +81,9 @@ typedef struct Opt_s
 #define extern		extern __IMPORT__
 #endif
 
-extern Opt_t		opt_info;
+extern Opt_t*		_opt_infop_;
+
+#define opt_info	(*_opt_infop_)
 
 #undef	extern
 
@@ -102,7 +98,8 @@ extern int		optjoin(char**, ...);
 extern char*		opthelp(const char*, const char*);
 extern char*		optusage(const char*);
 extern int		optstr(const char*, const char*);
-extern int		optesc(Sfio_t*, const char*);
+extern int		optesc(Sfio_t*, const char*, int);
+extern Opt_t*		optctx(Opt_t*, Opt_t*);
 
 #undef	extern
 

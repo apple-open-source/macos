@@ -1,8 +1,0 @@
-/-o miniperl/a
-.
-.,.+1c
-	$(CC) $(CLDFLAGS) -o miniperl \
-	    miniperlmain$(OBJ_EXT) opmini$(OBJ_EXT) perl$(OBJ_EXT) \
-	    $(filter-out op$(OBJ_EXT),$(obj)) $(libs)
-.
-w

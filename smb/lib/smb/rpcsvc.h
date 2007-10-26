@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -93,11 +96,11 @@
 #define rpc_e_dbg_threads rpc_es_dbg_threads
 #define rpc_e_dbg_last_switch rpc_es_dbg_last_switch
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_DBG2(switch, level) \
          (rpc_g_dbg_switches[(int) (switch)] >= (level))
 
-#endif /* DEBUG */
+#endif /* DEBUG_DCE_RPC */
 
 #else /* ! PD_BUILD */
 
@@ -139,7 +142,7 @@
  */
 #define	RPC__SVC_MSG_SZ	300
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 
 /*
  * Map "old" RPC debug levels to new serviceability
@@ -166,7 +169,7 @@
  *
  * I.e. the third parameter is the argument list to "printf" and must be
  * enclosed in parens.  The macro is designed this way to allow us to 
- * eliminate all debug code when DEBUG is not defined.
+ * eliminate all debug code when DEBUG_DCE_RPC is not defined.
  *
  */
 
@@ -194,7 +197,7 @@
         free(__mptr);									\
     }
 
-#endif	/* DEBUG */
+#endif	/* DEBUG_DCE_RPC */
 
 /*
  * R P C _ _ S V C _ E P R I N T F
@@ -211,7 +214,7 @@ int rpc__svc_eprintf (
 	...
     );
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 /*
  * R P C _ _ S V C _ F M T _ D B G _ MSG
  */
@@ -227,18 +230,18 @@ char * rpc__svc_fmt_dbg_msg (
 	...
     );
 
-#endif	/* DEBUG */
+#endif	/* DEBUG_DCE_RPC */
 
 #endif	/* DCE_RPC_SVC */
 #endif /* ! PD_BUILD */
 #ifndef DCE_RPC_SVC
 
-#ifndef DEBUG
+#ifndef DEBUG_DCE_RPC
 
 #define RPC_DBG_PRINTF2(switch, level, pargs)	(0)
 #define RPC_DBG2(switch, level) 		(0)
 
-#endif /* DEBUG */
+#endif /* DEBUG_DCE_RPC */
 
 /*
  * Handle name defined in rpc.sams ...

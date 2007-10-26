@@ -105,6 +105,8 @@ SRC_ROOT = $(SRCROOT)
 #
 MIGFLAGS = -no-cpp-precomp -R  -untyped -DNO_DIRECT_RPC
 MIG = $(NEXT_ROOT)/usr/bin/mig 
+
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
         
 default_pager_alerts_server.c : backing_store_alerts.c \
 	backing_store_triggers_server.c \
@@ -128,3 +130,15 @@ backing_store_triggers_server.c: \
 install-man-page:
 	install -d $(DSTROOT)/usr/share/man/man8
 	install -c -m 444 dynamic_pager.8 $(DSTROOT)/usr/share/man/man8/dynamic_pager.8
+
+LAUNCHD_PLIST_DIR = $(DSTROOT)/System/Library/LaunchDaemons
+LAUNCHD_PLIST = com.apple.dynamic_pager.plist
+
+install-launchd-plist:
+	install -d $(LAUNCHD_PLIST_DIR)
+	install -c -m 644 $(LAUNCHD_PLIST) $(LAUNCHD_PLIST_DIR)/$(LAUNCHD_PLIST)
+ifeq "$(Embedded)" "YES"
+	/usr/libexec/PlistBuddy -x \
+		-c "Add :Disabled bool true" \
+		"$(LAUNCHD_PLIST_DIR)/$(LAUNCHD_PLIST)"
+endif

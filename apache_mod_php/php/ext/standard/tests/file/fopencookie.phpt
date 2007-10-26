@@ -18,8 +18,8 @@ fopencookie detected and working (or cast mechanism works)
  */
 
 class userstream {
-	var $position = 0;
-	var $data = "If you can read this, it worked";
+	public $position = 0;
+	public $data = "If you can read this, it worked";
 	
 	function stream_open($path, $mode, $options, &$opened_path)
 	{
@@ -74,52 +74,10 @@ class userstream {
 				return false;
 		}
 	}
-	
-	function stream_write($data)
-	{
-	    return false;
-	}
-	
-	function stream_close()
-	{
-	}
-	
-	function stream_flush()
-	{
-	    return false;
-	}
-	
-	function stream_stat()
-	{
-	    return NULL;
-	}
-
-	function url_stat($url)
-	{
-	    return NULL;
-	}
-
-	function dir_opendir($url, $options)
-	{
-	    return false;
-	}
-
-	function dir_readdir()
-	{
-	    return NULL;
-	}
-
-	function dir_closedir()
-	{
-	}
-
-	function dir_rewinddir()
-	{
-	}
 
 }
 
-stream_register_wrapper("cookietest", "userstream");
+stream_wrapper_register("cookietest", "userstream");
 
 include("cookietest://foo");
 

@@ -148,12 +148,19 @@ _##trap_name:						@\
 _##pseudo:                      @\
 	SYSCALL_NONAME(name, nargs)
 
+#define	PSEUDO_ERR(pseudo, name, nargs, error_ret)		\
+    .globl  _##pseudo           @\
+	.globl	error_ret			@\
+    .text                       @\
+    .align  2                   @\
+_##pseudo:                      @\
+	kernel_trap_args_##nargs    @\
+	li	r0,SYS_##name			@\
+	sc                          @\
+	b	1f                      @\
+	blr                         @\
+1:	MI_BRANCH_EXTERNAL(error_ret)
+
 
 #undef END
 #import	<mach/ppc/syscall_sw.h>
- 
-#if !defined(SYS___pthread_canceled)
-#define SYS___pthread_markcancel	332
-#define SYS___pthread_canceled		333
-#define SYS___semwait_signal		334
-#endif

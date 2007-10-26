@@ -490,7 +490,7 @@ void DecodedExtensions::convertToCdsa(
 	Allocator				&alloc) const
 {
 	memset(&cssmExtens, 0, sizeof(cssmExtens));
-	if(mNumExtensions == NULL) {
+	if(mNumExtensions == 0) {
 		return;
 	}
 	cssmExtens.extensions = (CSSM_X509_EXTENSION_PTR)alloc.malloc(

@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #ifndef _VMHDR_H
 #define _VMHDR_H	1
 #ifndef _BLD_vmalloc
@@ -75,13 +71,11 @@
 #define _npt_sbrk		1
 #endif
 
-#undef free
-#undef malloc
-#undef realloc
-
 #endif /*_PACKAGE_ast*/
 
 #include	"FEATURE/vmalloc"
+
+#include	<setjmp.h>
 
 /* the below macros decide which combinations of sbrk() or mmap() to used */
 #if defined(_WIN32)
@@ -132,13 +126,16 @@ typedef int		ssize_t;
 /* compute a value that is a common multiple of x and y */
 #define MULTIPLE(x,y)	((x)%(y) == 0 ? (x) : (y)%(x) == 0 ? (y) : (y)*(x))
 
-/* _Vmcheck flags */
-#define _VM_init	0x1
-#define _VM_check	0x2
-#define _VM_assert	0x4
-#define _VM_warn	0x8
+#define VM_check	0x0001	/* enable detailed checks		*/
+#define VM_abort	0x0002	/* abort() on assertion failure		*/
+#define VM_primary	0x0004	/* enable primary native allocation	*/
+#define VM_region	0x0008	/* enable region segment checks		*/
+#define VM_secondary	0x0010	/* enable secondary native allocation	*/
+#define VM_init		0x8000	/* VMCHECK env var checked		*/
 
-extern int		_Vmcheck;
+#if _UWIN
+#include <ast_windows.h>
+#endif
 
 #ifndef DEBUG
 #ifdef _BLD_DEBUG
@@ -146,17 +143,25 @@ extern int		_Vmcheck;
 #endif /*_BLD_DEBUG*/
 #endif /*DEBUG*/
 #if DEBUG
-extern void		_Vmessage _ARG_((const char*, long, const char*, long));
-#define MESSAGE(s)	_Vmessage(__FILE__,__LINE__,s,0)
-#define ASSERT(p)	((!(_Vmcheck & (_VM_assert|_VM_check)) || (p)) ? 0 : (MESSAGE("assertion failed"), (_Vmcheck & _VM_warn) ? 0 : (abort(),1)))
+extern void		_vmmessage _ARG_((const char*, long, const char*, long));
+#define ABORT()		(_Vmassert & VM_abort)
+#define CHECK()		(_Vmassert & VM_check)
+#define ASSERT(p)	((p) ? 0 : (MESSAGE("Assertion failed"), ABORT() ? (abort(),0) : 0))
 #define COUNT(n)	((n) += 1)
+#define MESSAGE(s)	_vmmessage(__FILE__,__LINE__,s,0)
 #else
+#define ABORT()		(0)
 #define ASSERT(p)
+#define CHECK()		(0)
 #define COUNT(n)
-#define MESSAGE(s)	0
+#define MESSAGE(s)	(0)
 #endif /*DEBUG*/
 
 #define VMPAGESIZE	8192
+#if _AST_PAGESIZE > VMPAGESIZE
+#undef	VMPAGESIZE
+#define VMPAGESIZE	_AST_PAGESIZE
+#endif
 #if _lib_getpagesize
 #define GETPAGESIZE(x)	((x) ? (x) : \
 			 (((x)=getpagesize()) < VMPAGESIZE ? ((x)=VMPAGESIZE) : (x)) )
@@ -240,6 +245,7 @@ union _align_u
 	Block_t*	block;
 	Vmuchar_t	a[ALIGNB];
 	_ast_fltmax_t	ld, *ldp;
+	jmp_buf		jmp;
 };
 struct _a_s
 {	char		c;
@@ -475,6 +481,7 @@ typedef struct _vmextern_
 	void		(*vm_trace)_ARG_((Vmalloc_t*,
 					  Vmuchar_t*, Vmuchar_t*, size_t, size_t));
 	void		(*vm_pfclose)_ARG_((Vmalloc_t*));
+	int		vm_assert;
 } Vmextern_t;
 
 #define _Vmextend	(_Vmextern.vm_extend)
@@ -484,6 +491,7 @@ typedef struct _vmextern_
 #define _Vmitoa		(_Vmextern.vm_itoa)
 #define _Vmtrace	(_Vmextern.vm_trace)
 #define _Vmpfclose	(_Vmextern.vm_pfclose)
+#define _Vmassert	(_Vmextern.vm_assert)
 
 extern int		_vmbestcheck _ARG_((Vmdata_t*, Block_t*));
 
@@ -533,5 +541,9 @@ extern void		_cleanup _ARG_(( void ));
 #endif /*_PACKAGE_ast*/
 
 _END_EXTERNS_
+
+#if _UWIN
+#define abort()		(DebugBreak(),abort())
+#endif
 
 #endif /* _VMHDR_H */

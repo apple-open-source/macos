@@ -133,16 +133,26 @@
 )
 
 
-;; DImode moves
+;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
+
+;; DImode move
 
 (define_insn "*arm_movdi_vfp"
   [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r, r,m,w,r,w,w, Uv")
 	(match_operand:DI 1 "di_operand"              "rIK,mi,r,r,w,w,Uvi,w"))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP
+   && (   register_operand (operands[0], DImode)
+       || register_operand (operands[1], DImode))"
   "*
   switch (which_alternative)
     {
-    case 0: case 1: case 2:
+    case 0: 
+      return \"#\";
+    case 1:
+    case 2:
       return (output_move_double (operands));
     case 3:
       return \"fmdrr%?\\t%P0, %1\\t%@ int\";
@@ -163,6 +173,7 @@
    (set_attr "pool_range"     "*,1020,*,*,*,*,1020,*")
    (set_attr "neg_pool_range" "*,1008,*,*,*,*,1008,*")]
 )
+;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 
 
 ;; SFmode moves
@@ -189,12 +200,19 @@
 )
 
 
-;; DFmode moves
+;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
+
+;; DFmode move
 
 (define_insn "*movdf_vfp"
   [(set (match_operand:DF 0 "nonimmediate_soft_df_operand" "=w,r,r, m,w  ,Uv,w,r")
 	(match_operand:DF 1 "soft_df_operand"		   " r,w,mF,r,UvF,w, w,r"))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP"
+  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP
+   && (   register_operand (operands[0], DFmode)
+       || register_operand (operands[1], DFmode))"
   "*
   {
     switch (which_alternative)
@@ -203,7 +221,7 @@
 	return \"fmdrr%?\\t%P0, %Q1, %R1\";
       case 1:
 	return \"fmrrd%?\\t%Q0, %R0, %P1\";
-      case 2: case 3: case 7:
+      case 2: case 3:
 	return output_move_double (operands);
       case 4:
 	return \"fldd%?\\t%P0, %1\";
@@ -211,6 +229,8 @@
 	return \"fstd%?\\t%P1, %0\";
       case 6:
 	return \"fcpyd%?\\t%P0, %P1\";
+      case 7:
+        return \"#\";
       default:
 	abort ();
       }
@@ -221,7 +241,7 @@
    (set_attr "pool_range" "*,*,1020,*,1020,*,*,*")
    (set_attr "neg_pool_range" "*,*,1008,*,1008,*,*,*")]
 )
-
+;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 
 ;; Conditional move patterns
 

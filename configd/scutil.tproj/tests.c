@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,7 +72,7 @@ do_checkReachability(int argc, char **argv)
 
 			p = strchr(argv[0], '%');
 			if (p != NULL) {
-				sin6.sin6_scope_id = if_nametoindex(p+1);
+				sin6.sin6_scope_id = if_nametoindex(p + 1);
 			}
 
 			target = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&sin6);
@@ -316,7 +316,7 @@ do_wait(char *waitKey, int timeout)
 		signal(SIGALRM, waitTimeout);
 		bzero(&itv, sizeof(itv));
 		itv.it_value.tv_sec = timeout;
-		if (setitimer(ITIMER_REAL, &itv, NULL) < 0) {
+		if (setitimer(ITIMER_REAL, &itv, NULL) == -1) {
 			SCPrint(TRUE, stderr,
 				CFSTR("setitimer() failed: %s\n"), strerror(errno));
 			exit(1);
@@ -325,3 +325,18 @@ do_wait(char *waitKey, int timeout)
 
 	CFRunLoopRun();
 }
+
+#ifdef	TEST_DNS_CONFIGURATION_COPY
+
+CFRunLoopSourceRef	notifyRls	= NULL;
+SCDynamicStoreRef	store		= NULL;
+CFPropertyListRef	value		= NULL;
+	
+int
+main(int argc, char **argv)
+{
+	do_showDNSConfiguration(argc, argv);
+	exit(0);
+}
+
+#endif	// TEST_DNS_CONFIGURATION_COPY

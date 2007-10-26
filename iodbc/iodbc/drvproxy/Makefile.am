@@ -1,18 +1,20 @@
 #
 #  Makefile.am
 #
-#  $Id: Makefile.am,v 1.2 2004/08/10 22:20:21 luesang Exp $
-#
 #  The iODBC driver manager.
-#  
-#  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+#
+#  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
 #  All Rights Reserved.
 #
 #  This software is released under the terms of either of the following
 #  licenses:
 #
-#      - GNU Library General Public License (see LICENSE.LGPL) 
+#      - GNU Library General Public License (see LICENSE.LGPL)
 #      - The BSD License (see LICENSE.BSD).
+#
+#  Note that the only valid version of the LGPL license as far as this
+#  project is concerned is the original GNU Library General Public License
+#  Version 2, dated June 1991.
 #
 #  While not mandated by the BSD license, any patches you make to the
 #  iODBC source code may be contributed back into the iODBC project
@@ -26,8 +28,8 @@
 #  ============================================
 #  This library is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU Library General Public
-#  License as published by the Free Software Foundation; either
-#  version 2 of the License, or (at your option) any later version.
+#  License as published by the Free Software Foundation; only
+#  Version 2 of the License dated June 1991.
 #
 #  This library is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,7 +38,7 @@
 #
 #  You should have received a copy of the GNU Library General Public
 #  License along with this library; if not, write to the Free
-#  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 #
 #  The BSD License
@@ -66,6 +68,7 @@
 #  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
 
 if GUI
 SUBDIRS			= gtk
@@ -78,12 +81,14 @@ INCLUDES		= \
 	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/iodbc \
 	-I$(top_srcdir)/iodbcinst \
+	-I$(top_srcdir)/iodbcadm \
 	@GTK_CFLAGS@ -D__GTK__
 else
 INCLUDES		= \
 	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/iodbc \
-	-I$(top_srcdir)/iodbcinst
+	-I$(top_srcdir)/iodbcinst\
+	-I$(top_srcdir)/iodbcadm 
 endif
 
 libdrvproxy_la_LDFLAGS	= -version-info @lib_version@ \
@@ -92,19 +97,17 @@ libdrvproxy_la_LDFLAGS	= -version-info @lib_version@ \
 if GTK
 libdrvproxy_la_LIBADD	= \
 	$(LIBADD_DL) \
-	../iodbc/dlf.lo \
-	../drvproxy/gtk/confirm.lo \
-	../drvproxy/gtk/gensetup.lo \
-	../drvproxy/gtk/loginbox.lo \
-	-L../iodbcinst -liodbcinst \
-	-L../iodbcadm -liodbcadm \
+	../iodbcadm/libiodbcadm.la \
+	../drvproxy/gtk/libdrvproxy-gtk.la \
+	../iodbcinst/libiodbc_common.la \
+	../iodbcinst/libiodbcinst.la \
 	@GTK_LIBS@
 else
 libdrvproxy_la_LIBADD	= \
 	$(LIBADD_DL) \
-	../iodbc/dlf.lo \
-	-L../iodbcinst -liodbcinst \
-	-L../iodbcadm -liodbcadm
+	../iodbcadm/libiodbcadm.la \
+	../iodbcinst/libiodbc_common.la \
+	../iodbcinst/libiodbcinst.la
 endif
 
 libdrvproxy_la_SOURCES	= \

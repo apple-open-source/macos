@@ -34,6 +34,7 @@
 .Op Fl n | y | r
 .Op Fl dfgl
 .Op Fl m Ar mode
+.Op Fl c Ar size
 .Ar special ...
 .Sh DESCRIPTION
 .Pp
@@ -74,6 +75,20 @@ will always check and attempt to fix the specified file systems.
 .Pp
 The options are as follows:
 .Bl -hang -offset indent
+.It Fl c Ar size
+Specify the
+.Ar size 
+of the cache used by  
+.Nm
+internally.  Bigger 
+.Ar size 
+can result in better performance but can result in deadlock when
+used with 
+.Fl l 
+option.  Size can be specified as a decimal, octal, or 
+hexadecimal number.  If the number ends with a ``k'', ``m'', 
+or ``g'', the number is multiplied by 1024 (1K), 1048576 (1M),
+or 1073741824 (1G), respectively.  
 .It Fl d
 Display debugging information.
 This option may provide useful information when 

@@ -1514,9 +1514,12 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
 
   /* Ignore bitfields for now.  Not really something terribly complicated
      to handle.  TODO.  */
-  if (TREE_CODE (base) == COMPONENT_REF
-      && DECL_NONADDRESSABLE_P (TREE_OPERAND (base, 1)))
+  /* APPLE LOCAL begin mainline 4516827 pr 26643 */
+  if (TREE_CODE (base) == BIT_FIELD_REF
+      || (TREE_CODE (base) == COMPONENT_REF
+      && DECL_NONADDRESSABLE_P (TREE_OPERAND (base, 1))))
     goto fail;
+  /* APPLE LOCAL end mainline 4516827 pr 26643 */
 
   if (STRICT_ALIGNMENT
       && may_be_unaligned_p (base))

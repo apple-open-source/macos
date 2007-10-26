@@ -67,8 +67,8 @@ struct BC_playlist_header {
 struct BC_playlist_entry {
 	u_int64_t	pce_offset;	/* block address */
 	u_int64_t	pce_length;	/* size */
-	u_int32_t	pce_flags;
-#define PCE_PREFETCH	(1<<0)
+	u_int32_t	pce_batch;
+#define CE_BATCH_MASK	0xff
 };
 
 /* number of entries we copyin at a time */
@@ -104,6 +104,8 @@ struct BC_history_entry {
 };
 
 
+/* Number of batches we can collect statistics on */
+#define STAT_BATCHMAX	4
 /*
  * BC_OP_STATS - return statistics.
  */
@@ -116,9 +118,7 @@ struct BC_statistics {
 	u_int	ss_read_blocks;		/* number of blocks read */
 	u_int	ss_read_errors;		/* read errors encountered */
 	u_int	ss_error_discards;	/* blocks discarded due to read errors */
-	struct timeval ss_cache_start;	/* time reads & cache started */
-	struct timeval ss_pfetch_stop;	/* time prefetch stopped */
-	struct timeval ss_read_stop;	/* time reads stopped */
+	struct timeval ss_batch_time[STAT_BATCHMAX+1];	/* time prefetch stopped */
 	struct timeval ss_cache_stop;	/* time cache stopped */
 	struct timeval ss_wait_time;	/* total time spent blocked for blocks */
 
@@ -129,6 +129,7 @@ struct BC_statistics {
 	u_int	ss_strategy_bypass_active; /* strategy calls we bypassed reading */
 	u_int	ss_strategy_blocked;	/* strategy calls that blocked */
 	u_int	ss_strategy_stolen;	/* aborts due to pages stolen while blocked */
+	uint	ss_strategy_duringio;	/* filled strategy calls while IO is active */
 
 	/* extents */
 	u_int	ss_total_extents;	/* number of extents in the cache */

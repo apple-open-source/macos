@@ -32,9 +32,10 @@
 #ifndef _IOKIT_IOHIDUSERCLIENT_H
 #define _IOKIT_IOHIDUSERCLIENT_H
 
+#include <libkern/c++/OSContainers.h>
 #include <IOKit/IOUserClient.h>
 #include <IOKit/hidsystem/IOHIDSystem.h>
-
+#include "IOHIDEventServiceQueue.h"
 
 class IOHIDUserClient : public IOUserClient
 {
@@ -65,7 +66,6 @@ public:
 
     virtual bool start( IOService * provider );
     virtual IOReturn setProperties( OSObject * properties );
-
 };
 
 
@@ -91,8 +91,66 @@ public:
 
     virtual bool start( IOService * provider );
     virtual IOReturn setProperties( OSObject * properties );
+};
+
+class IOHIDStackShotUserClient : public IOUserClient
+{
+    OSDeclareDefaultStructors(IOHIDStackShotUserClient)
+
+private:
+
+    IOHIDSystem *	owner;
+    task_t          client;
+    
+public:
+    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type );
+
+    // IOUserClient methods    
+    virtual IOReturn clientClose( void );
+
+    virtual IOService * getService( void );
+
+    virtual IOReturn registerNotificationPort(
+		mach_port_t 	port,
+		UInt32		type,
+		UInt32		refCon );
+    // others
+
+    virtual bool start( IOService * provider );
 
 };
+
+class IOHIDEventSystemUserClient : public IOUserClient
+{
+    OSDeclareDefaultStructors(IOHIDEventSystemUserClient)
+
+private:
+
+    IOHIDSystem *               owner;
+    task_t                      client;
+    IOHIDEventServiceQueue *    kernelQueue;
+    OSSet *                     userQueues;
+    
+public:
+    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type );
+    void free();
+
+    // IOUserClient methods    
+    virtual IOReturn clientClose( void );
+
+    virtual IOExternalMethod * getTargetAndMethodForIndex(IOService ** targetP, UInt32 index );
+    virtual IOReturn createEventQueue(void*,void*,void*,void*,void*,void*);
+    virtual IOReturn destroyEventQueue(void*,void*,void*,void*,void*,void*);
+
+    virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon );
+    virtual IOReturn clientMemoryForType( UInt32 type, UInt32 * flags, IOMemoryDescriptor ** memory );
+
+    virtual IOService * getService( void );
+
+    virtual bool start( IOService * provider );
+
+};
+
 
 
 #endif /* ! _IOKIT_IOHIDUSERCLIENT_H */

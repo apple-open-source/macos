@@ -52,18 +52,18 @@
 
 #define BASE_16		16
 
-u_char *
-identifierToString(u_char type, const void * identifier, int len)
+char *
+identifierToString(uint8_t type, const void * identifier, int len)
 {
     return (identifierToStringWithBuffer(type, identifier, len, NULL, 0));
 }
 
-u_char *
-identifierToStringWithBuffer(u_char type, const void * identifier, int len,
-			     u_char * buf, int buf_len)
+char *
+identifierToStringWithBuffer(uint8_t type, const void * identifier, int len,
+			     char * buf, int buf_len)
 {
     int 	i;
-    u_char *	idstr = (u_char *)identifier;
+    uint8_t *	idstr = (uint8_t *)identifier;
     int 	max_encoded_len;
     
     /*
@@ -82,7 +82,7 @@ identifierToStringWithBuffer(u_char type, const void * identifier, int len,
     }
     sprintf(buf, "%x%c", type, SEPARATOR);
     for (i = 0; i < len; i++) {
-	u_char tmp[4];
+	char tmp[4];
 	sprintf(tmp, "%s%x", (i > 0) ? ":" : "", idstr[i]);
 	strcat(buf, tmp);
     }
@@ -90,20 +90,20 @@ identifierToStringWithBuffer(u_char type, const void * identifier, int len,
 }
 
 void *
-identifierFromString(const u_char * str, u_char * type, int * len)
+identifierFromString(const char * str, u_char * type, int * len)
 {
     int		buf_pos;
-    u_char * 	buf = NULL;
+    uint8_t * 	buf = NULL;
     boolean_t	done = FALSE;
     int		max_decoded_len;
-    const u_char * scan;
+    const char * scan;
     int 	slen = strlen(str);
 
     *len = 0;
 
     { /* copy the type */
-	u_char		tmp[4];
-	u_char *	sep;
+	const char *	sep;
+	char		tmp[4];
 
 	sep = strchr(str, SEPARATOR);
 	if (sep == NULL)
@@ -122,12 +122,12 @@ identifierFromString(const u_char * str, u_char * type, int * len)
      * we want strlen(str) / 2 + 1
      */
     max_decoded_len = (slen / 2) + 1;
-    buf = malloc(max_decoded_len);
+    buf = (uint8_t *)malloc(max_decoded_len);
     if (buf == NULL)
 	return (buf);
     for (buf_pos = 0; buf_pos < max_decoded_len && !done; buf_pos++) {
-	u_char		tmp[4];
-	const u_char *	colon;
+	char		tmp[4];
+	const char *	colon;
 
 	colon = strchr(scan, ':');
 	if (colon == NULL) {
@@ -151,6 +151,8 @@ identifierFromString(const u_char * str, u_char * type, int * len)
 
 #ifdef TESTING
 /* compile this using cc -o t -DTESTING host_identifier.c */
+#include <ctype.h>
+
 void
 printData(u_char * data_p, int n_bytes)
 {
@@ -182,12 +184,13 @@ printData(u_char * data_p, int n_bytes)
     }
 }
 
-main(int argc, char * argv[])
+int
+main(int argc, const char * argv[])
 {
-    u_char * str;
+    char * str;
     void * decoded;
     int    decoded_len;
-    u_char type;
+    uint8_t type;
 
     if (argc != 2) {
 	fprintf(stderr, "useage: %s identifier\n", *argv);
@@ -207,7 +210,7 @@ main(int argc, char * argv[])
 	printf("encode failed\n");
 	exit(1);
     }
-    printf("%s is encoded as %s, len %d\n", argv[1], str, strlen(str));
+    printf("%s is encoded as %s, len %d\n", argv[1], str, (int)strlen(str));
     if (strcmp(argv[1], str) == 0) {
 	printf("test passed\n");
     }

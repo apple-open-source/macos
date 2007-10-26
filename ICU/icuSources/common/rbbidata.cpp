@@ -1,6 +1,6 @@
 /*
 ***************************************************************************
-*   Copyright (C) 1999-2004 International Business Machines Corporation   *
+*   Copyright (C) 1999-2005 International Business Machines Corporation   *
 *   and others. All rights reserved.                                      *
 ***************************************************************************
 */
@@ -69,8 +69,11 @@ void RBBIDataWrapper::init(const RBBIDataHeader *data, UErrorCode &status) {
         return;
     }
     fHeader = data;
-    if (fHeader->fMagic != 0xb1a0) {
-        status = U_BRK_INTERNAL_ERROR;
+    if (fHeader->fMagic != 0xb1a0 || 
+        !(fHeader->fFormatVersion[0] == 3 ||         // ICU 3.4 
+          *(int32_t *)fHeader->fFormatVersion == 1))  // ICU 3.2 and earlier.
+    {
+        status = U_INVALID_FORMAT_ERROR;
         return;
     }
 
@@ -234,7 +237,8 @@ void  RBBIDataWrapper::printTable(const char *heading, const RBBIStateTable *tab
 #ifdef RBBI_DEBUG
 void  RBBIDataWrapper::printData() {
     RBBIDebugPrintf("RBBI Data at %p\n", (void *)fHeader);
-    RBBIDebugPrintf("   Version = %d\n", fHeader->fVersion);
+    RBBIDebugPrintf("   Version = {%d %d %d %d}\n", fHeader->fFormatVersion[0], fHeader->fFormatVersion[1],
+                                                    fHeader->fFormatVersion[2], fHeader->fFormatVersion[3]);
     RBBIDebugPrintf("   total length of data  = %d\n", fHeader->fLength);
     RBBIDebugPrintf("   number of character categories = %d\n\n", fHeader->fCatCount);
 
@@ -265,6 +269,10 @@ ubrk_swap(const UDataSwapper *ds, const void *inData, int32_t length, void *outD
            UErrorCode *status) {
 
     if (status == NULL || U_FAILURE(*status)) {
+        return 0;
+    }
+    if(ds==NULL || inData==NULL || length<-1 || (length>0 && outData==NULL)) {
+        *status=U_ILLEGAL_ARGUMENT_ERROR;
         return 0;
     }
 
@@ -298,10 +306,16 @@ ubrk_swap(const UDataSwapper *ds, const void *inData, int32_t length, void *outD
     //
     // Get the RRBI Data Header, and check that it appears to be OK.
     //
+    //    Note:  ICU 3.2 and earlier, RBBIDataHeader::fDataFormat was actually 
+    //           an int32_t with a value of 1.  Starting with ICU 3.4,
+    //           RBBI's fDataFormat matches the dataFormat field from the
+    //           UDataInfo header, four int8_t bytes.  The value is {3,1,0,0}
+    //
     const uint8_t  *inBytes =(const uint8_t *)inData+headerSize;
     RBBIDataHeader *rbbiDH = (RBBIDataHeader *)inBytes;
+    UBool           formatVersionOne = ds->readUInt32(*(int32_t *)rbbiDH->fFormatVersion) == 1;
     if (ds->readUInt32(rbbiDH->fMagic)   != 0xb1a0 ||
-        ds->readUInt32(rbbiDH->fVersion) != 1      ||
+        !(formatVersionOne || rbbiDH->fFormatVersion[0] == 3)   ||
         ds->readUInt32(rbbiDH->fLength)  <  sizeof(RBBIDataHeader)) 
     {
         udata_printError(ds, "ubrk_swap(): RBBI Data header is invalid.\n");
@@ -312,7 +326,8 @@ ubrk_swap(const UDataSwapper *ds, const void *inData, int32_t length, void *outD
     //
     // Prefight operation?  Just return the size
     //
-    int32_t totalSize = headerSize + ds->readUInt32(rbbiDH->fLength);
+    int32_t breakDataLength = ds->readUInt32(rbbiDH->fLength);
+    int32_t totalSize = headerSize + breakDataLength;
     if (length < 0) {
         return totalSize;
     }
@@ -320,15 +335,12 @@ ubrk_swap(const UDataSwapper *ds, const void *inData, int32_t length, void *outD
     //
     // Check that length passed in is consistent with length from RBBI data header.
     //
-    if (length > 0) {
-        length -= headerSize;
-        if ((uint32_t)length < ds->readUInt32(rbbiDH->fLength)) {
-            udata_printError(ds, "ubrk_swap(): too few bytes (%d after ICU Data header) for break data.\n",
-                             length);
-            *status=U_INDEX_OUTOFBOUNDS_ERROR;
-            return 0;
+    if (length < totalSize) {
+        udata_printError(ds, "ubrk_swap(): too few bytes (%d after ICU Data header) for break data.\n",
+                            breakDataLength);
+        *status=U_INDEX_OUTOFBOUNDS_ERROR;
+        return 0;
         }
-    }
 
 
     //
@@ -336,7 +348,9 @@ ubrk_swap(const UDataSwapper *ds, const void *inData, int32_t length, void *outD
     //                 we need to reference the header to locate the data, and an
     //                 inplace swap of the header leaves it unusable.
     //
-    uint8_t *outBytes = (uint8_t *)outData + headerSize;
+    uint8_t         *outBytes = (uint8_t *)outData + headerSize;
+    RBBIDataHeader  *outputDH = (RBBIDataHeader *)outBytes;
+
     int32_t   tableStartOffset;
     int32_t   tableLength;
 
@@ -346,7 +360,7 @@ ubrk_swap(const UDataSwapper *ds, const void *inData, int32_t length, void *outD
     //    when originally created.  Any unused space between items needs to be zero.
     //
     if (inBytes != outBytes) {
-       uprv_memset(outBytes, 0, length);
+        uprv_memset(outBytes, 0, breakDataLength);
     }
 
     //
@@ -412,8 +426,16 @@ ubrk_swap(const UDataSwapper *ds, const void *inData, int32_t length, void *outD
     ds->swapArray32(ds, inBytes+ds->readUInt32(rbbiDH->fStatusTable), ds->readUInt32(rbbiDH->fStatusTableLen),
                         outBytes+ds->readUInt32(rbbiDH->fStatusTable), status);
 
-    // And, last, the header.  All 32 bit values.
-    ds->swapArray32(ds, inBytes,  sizeof(RBBIDataHeader), outBytes, status);
+    // And, last, the header.
+    //   For the old version one format, the entire header consists of int32_t values.
+    //   For the newer formats, the fDataFormat field is an array of four bytes.
+    //   Swap the whole thing as int32_t, then, for the newer format, re-swap the one field.
+    //
+    ds->swapArray32(ds, inBytes, sizeof(RBBIDataHeader), outBytes, status);
+    if (formatVersionOne == FALSE) {
+        ds->swapArray32(ds, outputDH->fFormatVersion, 4, outputDH->fFormatVersion, status);
+    }
+
 
     return totalSize;
 }

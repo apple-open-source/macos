@@ -16,5 +16,7 @@ extern int do_irix;
 extern char *dohp;
 extern const char *progname;
 extern const char *pager;
+extern const char *browser;
+extern const char *htmlpager;
 extern char *colon_sep_section_list;
 extern char *roff_directive;

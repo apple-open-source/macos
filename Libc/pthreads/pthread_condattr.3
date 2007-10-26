@@ -30,15 +30,19 @@
 .Dt PTHREAD_CONDATTR 3
 .Os
 .Sh NAME
-.Nm pthread_condattr_init ,
-.Nm pthread_condattr_destroy
+.Nm pthread_condattr_destroy ,
+.Nm pthread_condattr_init
 .Nd condition attribute operations
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fn pthread_condattr_init "pthread_condattr_t *attr"
+.Fo pthread_condattr_destroy
+.Fa "pthread_condattr_t *attr"
+.Fc
 .Ft int
-.Fn pthread_condattr_destroy "pthread_condattr_t *attr"
+.Fo pthread_condattr_init
+.Fa "pthread_condattr_t *attr"
+.Fc
 .Sh DESCRIPTION
 Condition attribute objects are used to specify parameters to
 .Fn pthread_cond_init .
@@ -59,19 +63,19 @@ function destroys a condition attribute object.
 If successful, these functions return 0.
 Otherwise, an error number is returned to indicate the error.
 .Sh ERRORS
-.Fn pthread_condattr_init
-will fail if:
-.Bl -tag -width Er
-.It Bq Er ENOMEM
-Out of memory.
-.El
-.Pp
 .Fn pthread_condattr_destroy
 will fail if:
 .Bl -tag -width Er
 .It Bq Er EINVAL
 Invalid value for
 .Fa attr .
+.El
+.Pp
+.Fn pthread_condattr_init
+will fail if:
+.Bl -tag -width Er
+.It Bq Er ENOMEM
+Out of memory.
 .El
 .Sh SEE ALSO
 .Xr pthread_cond_init 3

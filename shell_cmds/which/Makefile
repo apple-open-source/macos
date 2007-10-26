@@ -12,11 +12,11 @@ NAME = which
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-OTHERLINKED = which.csh
+CFILES = which.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble which.1
 
-OTHERLINKEDOFILES = which.o
+OTHER_CFLAGS = -D__FBSDID=__RCSID
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

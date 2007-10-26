@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -91,7 +91,7 @@ ProtectedPasswordAclSubject *ProtectedPasswordAclSubject::Maker::make(Version,
 	Reader &pub, Reader &priv) const
 {
     Allocator &alloc = Allocator::standard(Allocator::sensitive);
-	const void *data; uint32 length; priv.countedData(data, length);
+	const void *data; size_t length; priv.countedData(data, length);
 	return new ProtectedPasswordAclSubject(alloc, CssmAutoData(alloc, data, length));
 }
 

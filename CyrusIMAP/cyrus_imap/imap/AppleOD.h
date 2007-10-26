@@ -128,7 +128,9 @@ struct od_user_opts
 	char			   *fAltDataLocPtr;
 	char			   *fAutoFwdPtr;
 	char			   *fUserLocPtr;
-	char			  **fAuthAuthority;
+	char			   *fClientIPString;
+	char			   *fClientPortString;
+	char			   *fHostPortString;
 };
 
 typedef enum
@@ -143,22 +145,6 @@ typedef enum
 	kUnknownErr			= -70010
 } eGSSError;
 
-#define CHAR64(c)  (((c) < 0 || (c) > 127) ? -1 : index_64[(c)])
-
-static char basis_64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????";
-
-static char index_64[ 128 ] =
-{
-    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
-    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,-1,
-    -1,-1,-1,-1, -1,-1,-1,-1, -1,-1,-1,62, -1,-1,-1,63,
-    52,53,54,55, 56,57,58,59, 60,61,-1,-1, -1,-1,-1,-1,
-    -1, 0, 1, 2,  3, 4, 5, 6,  7, 8, 9,10, 11,12,13,14,
-    15,16,17,18, 19,20,21,22, 23,24,25,-1, -1,-1,-1,-1,
-    -1,26,27,28, 29,30,31,32, 33,34,35,36, 37,38,39,40,
-    41,42,43,44, 45,46,47,48, 49,50,51,-1, -1,-1,-1,-1
-};
-
 int	 odGetUserOpts		( const char *inUserID, struct od_user_opts *inOutOpts );
 void odFreeUserOpts		( struct od_user_opts *inOutOpts, int inFreeOD );
 int  odCheckPass		( const char *inPasswd, struct od_user_opts *inOutOpts );
@@ -167,7 +153,6 @@ int  odCRAM_MD5			( const char *inChallenge, const char *inResponse, struct od_u
 int  odDoAuthenticate	( const char *inMethod, const char *inDigest, const char *inCont,
 						  const char *inProtocol, struct protstream *inStreamIn,
 						  struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
-int odIsMember			( const char *inUser, const char *inGroup );
 
 typedef struct
 {
@@ -180,3 +165,4 @@ int apple_password_callback ( char *inBuf, int inSize, int in_rwflag, void *inUs
 
 
 #endif /* aod */
+

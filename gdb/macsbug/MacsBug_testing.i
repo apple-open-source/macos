@@ -5,7 +5,7 @@
  |            Separate place to "bread board", test, and expirement with gdb            |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2005                       |
+ |                       Copyright Apple Computer, Inc. 2000-2006                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -140,6 +140,29 @@ static void testd(char *arg, int from_tty)
     gdb_set_int(arg, 1);
 }
 
+extern int string_for_ptr(GDB_ADDRESS addr, char *theString, int maxLen,
+			  int not_guessable_obj);
+
+static void teste(char *arg, int from_tty)
+{
+    char *p, env, result[1025], tmpString[1025];
+    GDB_ADDRESS addr;
+    
+    addr = gdb_get_address(arg);
+    p = (char *)gdb_teste(addr);
+    
+    #if 0 && defined(not_ready_for_prime_time_but_keep_enabled_for_private_testing)
+    if (string_for_ptr(addr, tmpString, 500, 0)) {
+	if (*p)
+	    strcat(p, " ");
+	strcpy(p + strlen(p), tmpString);
+    }
+    
+    if (*p)
+    	gdb_printf("%s\n", p);
+    #endif
+}
+
 static void testw(char *arg, int from_tty)
 {
     gdb_testw(arg);
@@ -175,6 +198,72 @@ static void savebp(char *arg, int from_tty)
 }
 #endif
 
+#define TEST_SET 0
+#if TEST_SET
+static int int_value = 0;
+static int *bool_value = 0;
+static char *str_value;
+static char *str_noesc_value;
+static char *fname;
+static char *enum_value;
+static char *enum_settings[] = {"red", "green", "blue", NULL};
+
+static init_str(char **p, char *value)
+{
+    *p = strcpy((char *)gdb_malloc(strlen(value)+1), value);
+}
+
+static void set_test_int(char *theSetting, Gdb_Set_Type type, void *value, int show, int confirm)
+{
+    gdb_printf("My int set/show function: %s = %d (show = %d, confirm = %d)\n",
+    		theSetting, *(int*)value, show, confirm);
+}
+
+static void set_test_str(char *theSetting, Gdb_Set_Type type, void *value, int show, int confirm)
+{
+    gdb_printf("My string set/show function: %s = \"%s\" (show = %d, confirm = %d)\n",
+    		theSetting, *(char**)value, show, confirm);
+}
+
+/* ------------- */
+
+static void test_bool(char *arg, int from_tty)
+{
+    gdb_define_set("test-bool", set_test_int, Set_Boolean, &bool_value, 1, "Set test-bool");
+}
+
+static void test_int(char *arg, int from_tty)
+{
+    gdb_define_set("test-int", set_test_int, Set_Int, &int_value, 1, "Set test-int");
+}
+
+static void test_str(char *arg, int from_tty)
+{
+    gdb_define_set("test-str", set_test_str, Set_String, &str_value, 1, "Set test-str");
+}
+
+static void test_str_noesc(char *arg, int from_tty)
+{
+    gdb_define_set("test-str-noesc", set_test_str, Set_String_NoEsc, &str_noesc_value, 1, "Set test-str-noesc");
+}
+
+static void test_fname(char *arg, int from_tty)
+{
+    gdb_define_set("test-fname", set_test_str, Set_Filename, &fname, 1, "Set test-fname");
+}
+
+static void test_enum(char *arg, int from_tty)
+{
+    gdb_define_set_enum("test-enum", set_test_str, enum_settings, &enum_value, 1, "Set test-enum {red | greeen | blue}");
+}
+
+static void test_only_set(char *arg, int from_tty)
+{
+    gdb_define_set("test-only-set", set_test_int, Set_Int, &int_value, 0, "Set test-int (only)");
+}                                                                /*    ^     */
+
+#endif /* TEST_SET */
+
 /*--------------------------------------------------------------------------------------*/
 
 static void add_testing_commands(void)
@@ -184,6 +273,7 @@ static void add_testing_commands(void)
     MACSBUG_TESTING_COMMAND(testb, "");
     MACSBUG_TESTING_COMMAND(testc, "");
     MACSBUG_TESTING_COMMAND(testd, "");
+    MACSBUG_TESTING_COMMAND(teste, "");
     MACSBUG_TESTING_COMMAND(testw, "");
     MACSBUG_TESTING_COMMAND(testx, "");
     MACSBUG_TESTING_COMMAND(testy, "");
@@ -192,5 +282,29 @@ static void add_testing_commands(void)
     //MACSBUG_TESTING_COMMAND(testy, testy_help);
     //MACSBUG_TESTING_COMMAND(savebp, "");
     //gdb_enable_filename_completion("savebp");
+    
+    #if TEST_SET
+    MACSBUG_TESTING_COMMAND(test_bool, "");
+    MACSBUG_TESTING_COMMAND(test_int, "");
+    MACSBUG_TESTING_COMMAND(test_str, "");
+    MACSBUG_TESTING_COMMAND(test_str_noesc, "");
+    MACSBUG_TESTING_COMMAND(test_fname, "");
+    MACSBUG_TESTING_COMMAND(test_enum, "");
+    MACSBUG_TESTING_COMMAND(test_only_set, "");
+    
+    init_str(&str_value, "init str_value");
+    init_str(&str_noesc_value, "init str__noesc_value");
+    init_str(&fname, "");
+    init_str(&enum_value, "red");
+    
+    gdb_execute_command("test_bool");
+    gdb_execute_command("test_int");
+    gdb_execute_command("test_str");
+    gdb_execute_command("test_str_noesc");
+    gdb_execute_command("test_fname");
+    gdb_execute_command("test_enum");
+    gdb_execute_command("test_only_set");
+    #endif /* TEST_SET */
+    #undef TEST_SET
 }
 

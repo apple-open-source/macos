@@ -78,7 +78,7 @@ MyCallBackFunction(void *dummy, IOReturn result, void *arg0)
 }
 
 
-void transferData(IOUSBInterfaceInterface **intf, UInt8 inPipeRef, UInt8 outPipeRef)
+void transferData(IOUSBInterfaceInterface245 **intf, UInt8 inPipeRef, UInt8 outPipeRef)
 {
     IOReturn			err;
     CFRunLoopSourceRef		cfSource;
@@ -107,7 +107,7 @@ void transferData(IOUSBInterfaceInterface **intf, UInt8 inPipeRef, UInt8 outPipe
 }
 
 
-void dealWithPipes(IOUSBInterfaceInterface **intf, UInt8 numPipes)
+void dealWithPipes(IOUSBInterfaceInterface245 **intf, UInt8 numPipes)
 {
     int					i;
     IOReturn				err;			
@@ -149,7 +149,7 @@ void dealWithInterface(io_service_t usbInterfaceRef)
 {
     IOReturn					err;
     IOCFPlugInInterface 		**iodev;		// requires <IOKit/IOCFPlugIn.h>
-    IOUSBInterfaceInterface 	**intf;
+    IOUSBInterfaceInterface245 	**intf;
     SInt32						score;
     UInt8						numPipes;
 
@@ -160,7 +160,7 @@ void dealWithInterface(io_service_t usbInterfaceRef)
 		printf("dealWithInterface: unable to create plugin. ret = %08x, iodev = %p\n", err, iodev);
 		return;
     }
-    err = (*iodev)->QueryInterface(iodev, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID), (LPVOID)&intf);
+    err = (*iodev)->QueryInterface(iodev, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID245), (LPVOID)&intf);
 	IODestroyPlugInInterface(iodev);				// done with this
 	
     if (err || !intf)
@@ -228,7 +228,7 @@ void dealWithDevice(io_service_t usbDeviceRef)
 {
     IOReturn						err;
     IOCFPlugInInterface				**iodev;		// requires <IOKit/IOCFPlugIn.h>
-    IOUSBDeviceInterface			**dev;
+    IOUSBDeviceInterface245			**dev;
     SInt32							score;
     UInt8							numConf;
     IOUSBConfigurationDescriptorPtr	confDesc;
@@ -242,7 +242,7 @@ void dealWithDevice(io_service_t usbDeviceRef)
 		printf("dealWithDevice: unable to create plugin. ret = %08x, iodev = %p\n", err, iodev);
 		return;
     }
-    err = (*iodev)->QueryInterface(iodev, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID)&dev);
+    err = (*iodev)->QueryInterface(iodev, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID245), (LPVOID)&dev);
 	IODestroyPlugInInterface(iodev);				// done with this
 
     if (err || !dev)

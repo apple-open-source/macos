@@ -66,7 +66,7 @@ child_wait (int pid, struct target_waitstatus *status,
 }
 
 int child_xfer_memory
-  (CORE_ADDR memaddr, char *myaddr, int len, int write,
+  (CORE_ADDR memaddr, gdb_byte *myaddr, int len, int write,
    struct mem_attrib *attrib, struct target_ops *target)
 {
   internal_error (__FILE__, __LINE__,

@@ -410,7 +410,7 @@ sec_asn1e_init_state_based_on_template (sec_asn1e_state *state)
 
 static void
 sec_asn1e_write_part (sec_asn1e_state *state,
-		      const char *buf, unsigned long len,
+		      const char *buf, size_t len,
 		      SEC_ASN1EncodingPart part)
 {
     SEC_ASN1EncoderContext *cx;
@@ -1466,10 +1466,10 @@ SEC_ASN1Encode (const void *src, const SecAsn1Template *theTemplate,
  * (I mean "politically correct", not anything to do with intel/win platform) 
  */
 void
-sec_asn1e_encode_item_count (void *arg, const char *buf, unsigned long len,
+sec_asn1e_encode_item_count (void *arg, const char *buf, size_t len,
 			     int depth, SEC_ASN1EncodingPart data_kind)
 {
-    unsigned long *count;
+    size_t *count;
 
     count = (unsigned long*)arg;
     PORT_Assert (count != NULL);
@@ -1480,7 +1480,7 @@ sec_asn1e_encode_item_count (void *arg, const char *buf, unsigned long len,
 
 /* XXX depth and data_kind are unused; is there a PC way to silence warnings? */
 void
-sec_asn1e_encode_item_store (void *arg, const char *buf, unsigned long len,
+sec_asn1e_encode_item_store (void *arg, const char *buf, size_t len,
 			     int depth, SEC_ASN1EncodingPart data_kind)
 {
     SECItem *dest;

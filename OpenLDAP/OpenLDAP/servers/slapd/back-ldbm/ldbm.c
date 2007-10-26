@@ -1,8 +1,8 @@
 /* ldbm.c - ldap dbm compatibility routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/ldbm.c,v 1.1.2.4 2004/11/24 04:34:14 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/ldbm.c,v 1.4.2.3 2006/01/03 22:16:19 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * Portions Copyright 1998-2001 Net Boolean Incorporated.
  * All rights reserved.
@@ -644,7 +644,7 @@ ldbm_errno( LDBM ldbm )
 
 #elif defined( HAVE_GDBM )
 
-#ifdef HAVE_ST_BLKSIZE
+#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
 #include <sys/stat.h>
 #endif
 
@@ -658,7 +658,7 @@ LDBM
 ldbm_open( DB_ENV *env, char *name, int rw, int mode, int dbcachesize )
 {
 	LDBM		db;
-#ifdef HAVE_ST_BLKSIZE
+#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
 		struct stat	st;
 #endif
 #ifdef HAVE_EBCDIC
@@ -677,7 +677,7 @@ ldbm_open( DB_ENV *env, char *name, int rw, int mode, int dbcachesize )
 		return( NULL );
 	}
 
-#ifdef HAVE_ST_BLKSIZE
+#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
 	if ( dbcachesize > 0 && stat( name, &st ) == 0 ) {
 		dbcachesize /= st.st_blksize;
 		if( dbcachesize == 0 ) dbcachesize = 1;

@@ -456,6 +456,18 @@ extern int reg_alloc_order[FIRST_PSEUDO_REGISTER];
 extern int inv_reg_alloc_order[FIRST_PSEUDO_REGISTER];
 #endif
 
+/* APPLE LOCAL begin ARM add DIMODE_REG_ALLOC_ORDER */
+#ifdef DIMODE_REG_ALLOC_ORDER
+/* Table of register numbers in the order in which to try to use them.  */
+
+extern int dimode_reg_alloc_order[FIRST_PSEUDO_REGISTER];
+
+/* The inverse of dimode_reg_alloc_order.  */
+
+extern int dimode_inv_reg_alloc_order[FIRST_PSEUDO_REGISTER];
+#endif
+/* APPLE LOCAL end ARM add DIMODE_REG_ALLOC_ORDER */
+
 /* For each reg class, a HARD_REG_SET saying which registers are in it.  */
 
 extern HARD_REG_SET reg_class_contents[N_REG_CLASSES];

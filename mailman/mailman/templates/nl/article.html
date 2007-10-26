@@ -4,27 +4,20 @@
    <TITLE> %(title)s
    </TITLE>
    <LINK REL="Index" HREF="index.html" >
-   <LINK REL="made" HREF="mailto:%(email_url)s">
+   <LINK REL="made" HREF="mailto:%(email_url)s?Subject=%(subject_url)s&In-Reply-To=%(in_reply_to_url)s">
    <META NAME="robots" CONTENT="index,nofollow">
    %(encoding)s
    %(prev)s
    %(next)s
  </HEAD>
- <BODY BGCOLOR="#ffffff"><font face="Arial" size="4">
-   <H1><font color="#0000FF"><i>Onderwerp : </i> %(subject_html)s </font>
-   </H1>
-       <span style="background-color: #FFFFCC">
-       <i>Auteur :</i>
-       <B>%(author_html)s</B></span><br>
-       <span style="background-color: #CCFFFF">
-       <i>E-mail :</i>
-       <A HREF="mailto:%(email_url)s"
+ <BODY BGCOLOR="#ffffff">
+   <H1>%(subject_html)s</H1>
+    <B>%(author_html)s</B> 
+    <A HREF="mailto:%(email_url)s?Subject=%(subject_url)s&In-Reply-To=%(in_reply_to_url)s"
        TITLE="%(subject_html)s">%(email_html)s
-       </A></span><br>
-       <span style="background-color: #FFCCFF">
-       <I>Datum :</I></td>
-       <I>%(datestr_html)s</I></td> </span>
-      </FONT><P><UL>
+       </A><BR>
+    <I>%(datestr_html)s</I>
+    <P><UL>
         %(prev_wsubj)s
         %(next_wsubj)s
          <LI> <B>Berichten gesorteerd op:</B> 
@@ -50,4 +43,8 @@
               <a href="author.html#%(sequence)s">[ auteur ]</a>
          </LI>
        </UL>
+
+<hr>
+<a href="%(listurl)s">Meer informatie over de %(listname)s
+maillijst</a><br>
 </body></html>

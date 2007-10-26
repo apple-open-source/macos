@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,298 +25,57 @@
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
-#include <IOKit/IOMessage.h>
+#include <IOKit/IORegistryEntry.h>
 #include <IOKit/IOHibernatePrivate.h>
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
+#include <libkern/libkern.h>
+
+#ifndef kACPIDevicePathKey
+#define kACPIDevicePathKey			"acpi-path"
+#endif
 
 #include "AppleUSBUHCI.h"
 
-
-#define super IOUSBController
-
-
-// ========================================================================
-#pragma mark Global variables
-// ========================================================================
-
-
-class AppleUHCIPwrMgmtGlobals
-{
-public:
-    AppleUHCIPwrMgmtGlobals(); 
-    ~AppleUHCIPwrMgmtGlobals();
-    
-    inline bool isValid( void ) const;
-};
-
-#define kUSBRemoteWakeupKey "usb_remote_wakeup"
-
-static const OSSymbol * gUSBRemoteWakeupKey;
-
-static AppleUHCIPwrMgmtGlobals gAppleUHCIPwrMgmtGlobals;
-
-AppleUHCIPwrMgmtGlobals::AppleUHCIPwrMgmtGlobals()
-{
-    gUSBRemoteWakeupKey = OSSymbol::withCStringNoCopy( kUSBRemoteWakeupKey );
-}
-
-AppleUHCIPwrMgmtGlobals::~AppleUHCIPwrMgmtGlobals()
-{
-    if (gUSBRemoteWakeupKey) gUSBRemoteWakeupKey->release();
-}
-
-bool AppleUHCIPwrMgmtGlobals::isValid( void ) const
-{
-    return (gUSBRemoteWakeupKey);
-}
-
-
+#define super IOUSBControllerV3
 
 // ========================================================================
 #pragma mark Public power management interface
 // ========================================================================
 
-
-
-#define kUHCI_NUM_POWER_STATES 2
-
-static IOPMPowerState powerStates[kUHCI_NUM_POWER_STATES] = {
-    {
-        1,  // version
-        0,  // capability flags
-        0,  // output power character
-        0,  // input power requirement
-        0,  // static power
-        0,  // unbudgeted power
-        0,  // power to attain this state
-        0,  // time to attain this state
-        0,  // settle up time
-        0,  // time to lower
-        0,  // settle down time
-        0   // power domain budget
-    },
-    {
-        1,  // version
-        IOPMDeviceUsable,  // capability flags
-        IOPMPowerOn,  // output power character
-        IOPMPowerOn,  // input power requirement
-        0,  // static power
-        0,  // unbudgeted power
-        0,  // power to attain this state
-        0,  // time to attain this state
-        0,  // settle up time
-        0,  // time to lower
-        0,  // settle down time
-        0   // power domain budget
-    }
-};
-
+#define _controllerCanSleep				_expansionData->_controllerCanSleep
 
 void
-AppleUSBUHCI::initForPM (IOPCIDevice *provider)
+AppleUSBUHCI::CheckSleepCapability(void)
 {
-    USBLog(3, "AppleUSBUHCI[%p]::initForPM %p", this, provider);
-    
-    if (provider->getProperty("built-in") && (_errataBits & kErrataICH6PowerSequencing)) 
+    if (_device->getProperty("built-in") && (_errataBits & kErrataICH6PowerSequencing)) 
 	{
 		// The ICH6 UHCI drivers on a Transition system just magically work on sleep/wake
 		// so we will just hard code those. Other systems will have to be evaluated later
         setProperty("Card Type","Built-in");
-        _unloadUIMAcrossSleep = false;
+        _controllerCanSleep = true;
     }
     else 
 	{
         // This appears to be necessary
 		setProperty("Card Type","PCI");
-		_unloadUIMAcrossSleep = true;
+		_controllerCanSleep = false;
     }
-    
-	if (_errataBits & kErrataICH6PowerSequencing)
-		_powerDownNotifier = registerPrioritySleepWakeInterest(PowerDownHandler, this, 0);
-    
-    registerPowerDriver(this, powerStates, kUHCI_NUM_POWER_STATES);
-    changePowerStateTo(kUHCIPowerLevelRunning);
-}
-
-
-
-unsigned long
-AppleUSBUHCI::maxCapabilityForDomainState ( IOPMPowerFlags domainState )
-{
-	if ( (domainState & IOPMPowerOn) || (domainState & kIOPMDoze) ) 
+	// if we have an ExpressCard attached (non-zero port), then we need to register for some special messages to allow us to override the Resume Enables 
+	// for that port (some cards disconnect when the ExpressCard power goes away and we would like to ignore these extra detach events.
+	if ((_ExpressCardPort = ExpressCardPort(_device)))
 	{
-		return kUHCIPowerLevelRunning;
-	} else 
-	{
-		return kUHCIPowerLevelSuspend;
+		_device->callPlatformFunction(
+									   /* function */ "RegisterDebugDriver",
+									   /* waitForFunction */ false,
+									   /* provider nubÊ Ê */ _device,
+									   /* unused Ê */ (void *) this,
+									   /* unused Ê */ (void *) NULL,
+									   /* unused Ê */ (void *) NULL );
 	}
-}
-
-
-
-unsigned long
-AppleUSBUHCI::initialPowerStateForDomainState ( IOPMPowerFlags domainState )
-{
-    return kUHCIPowerLevelRunning;
-}
-
-
-
-IOReturn 
-AppleUSBUHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDevice )
-{
-    IOReturn				result;
-    static uint32_t *		pHibernateState;
-    
-    USBLog(2, "AppleUSBUHCI[%p]::setPowerState(%d, %p) _saveInterrupts[%p]", this, (int)powerStateOrdinal, whatDevice, (void*)_saveInterrupts);
-    
-    if (_uhciBusState != kUHCIBusStateSuspended) 
-	{
-		USBLog(2, "AppleUSBUHCI[%p]::setPowerState  calling _workLoop->CloseGate()", this);
-        _workLoop->CloseGate();
-    } else 
-	{
-		USBLog(2, "AppleUSBUHCI[%p]::setPowerState  calling _workLoop->wake(%p)", this, _uhciBusState);
-        result = _workLoop->wake(&_uhciBusState);
-        if (result != kIOReturnSuccess) 
-		{
-            USBError(1, "AppleUSBUHCI[%p]::setPowerState - Can't wake workloop, error %p", this, (void*)result);
-        }
-    }
-    
-    switch (powerStateOrdinal) 
-	{
-		case kUHCIPowerLevelRunning:
-			USBLog(2, "AppleUSBUHCI[%p]::setPowerState RUN - changing to running state", this);
-        
-			if (_idleSuspend)
-			{
-				USBLog(2, "AppleUSBUHCI[%p]::setPowerState RUN- from idle suspend", this);
-				Run(true);
-				_uhciBusState = kUHCIBusStateRunning;
-				_idleSuspend = false;
-				break;
-			}
-			
-			if (_uimInitialized && pHibernateState && *pHibernateState && !_wakingFromHibernation)
-			{
-				USBLog(1, "AppleUSBUHCI[%p]::setPowerState RUN - pHibernateState[%d] INTR[%p] _uimInitialized[%s] _uhciAvailable[%s] _uhciBusState[%d]", this, *pHibernateState, (void*)ioRead16(kUHCI_INTR), _uimInitialized ? "true" : "false",  _uhciAvailable ? "true" : "false",  _uhciBusState);
-				_wakingFromHibernation = true;						// we will clear this when we create the root hub
-				Run(false);
-				_uhciBusState = kUHCIBusStateOff;
-				_uhciAvailable = false;					// tell the interrupt filter routine that we are off
-
-				if ( _rootHubDevice )
-				{
-					USBLog(2, "AppleUSBUHCI[%p]::setPowerState - Terminating root hub in setPowerState()",  this);
-					_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
-					_rootHubDevice->detachAll(gIOUSBPlane);
-					_rootHubDevice->release();
-					_rootHubDevice = NULL;
-					USBLog(2, "AppleUSBUHCI[%p]::setPowerState - Terminated root hub in setPowerState()",  this);
-				}
-				
-				USBLog(2,"AppleUSBUHCI[%p]::setPowerState - setting _needToCreateRootHub", this);
-				_needToCreateRootHub = true;
-				break;
-			}
-			if (_uhciBusState == kUHCIBusStateSuspended) 
-			{
-				if (!isInactive()) 
-				{
-					_idleSuspend = false;
-					if (_rootHubDevice == NULL) 
-					{
-						USBLog(2,"AppleUSBUHCI[%p]::setPowerState - setting _needToCreateRootHub", this);
-						_needToCreateRootHub = true;
-					}
-					else 
-					{
-						UIMInitializeForPowerUp();
-					}
-				}
-			}
-			
-			USBLog(2, "AppleUSBUHCI[%p]::setPowerState RUN - resuming controller", this);
-			ResumeController();
-			USBLog(2, "AppleUSBUHCI[%p]::setPowerState RUN - enabling interrupt", this);
-			EnableUSBInterrupt(true);
-
-			_remoteWakeupOccurred = true;
-			USBLog(2, "AppleUSBUHCI[%p]::setPowerState RUN - changing _uhciBusState to kUHCIBusStateRunning", this);
-			_uhciBusState = kUHCIBusStateRunning;
-			break;
-        
-		case kUHCIPowerLevelSuspend:
-			USBLog(5, "%s[%p]: changing to suspended state", getName(), this);
-
-			if (_unloadUIMAcrossSleep) 
-			{
-				USBLog(2, "AppleUSBUHCI[%p]::setPowerState SUSPEND - Unloading UIM before going to sleep", this);
-				
-				if ( _rootHubDevice )
-				{
-					_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
-					_rootHubDevice->detachAll(gIOUSBPlane);
-					_rootHubDevice->release();
-					_rootHubDevice = NULL;
-				}
-			}
-			
-					
-			USBLog(2, "AppleUSBUHCI[%p]::setPowerState SUSPEND - disabling interrupt", this);
-			EnableUSBInterrupt(false);
-			SuspendController();
-				
-			UIMFinalizeForPowerDown();
-			
-			if ( !pHibernateState )
-			{
-				OSData * data = OSDynamicCast(OSData, (IOService::getPMRootDomain())->getProperty(kIOHibernateStateKey));
-				if (data)
-				{
-					pHibernateState = (uint32_t *) data->getBytesNoCopy();
-				}
-			}
-			if (pHibernateState && *pHibernateState)
-			{
-				USBLog(2, "AppleUSBUHCI[%p]::setPowerState SUSPEND - pHibernateState[%d]", this, *pHibernateState);
-			}
-			_remoteWakeupOccurred = false;
-			USBLog(5, "AppleUSBUHCI[%p]::setPowerState SUSPEND - changing _uhciBusState to kUHCIBusStateSuspended", this);
-			_uhciBusState = kUHCIBusStateSuspended;
-	        _idleSuspend = false;
-			break;
-        
-		case kUHCIPowerLevelIdleSuspend:
-			USBLog(2, "AppleUSBUHCI[%p]::setPowerState - changing to idle suspended state (really stopped)", this);
-			Run(false);
-
-			USBLog(2, "AppleUSBUHCI[%p]::setPowerState IDLE SUSPEND- changing _uhciBusState to kUHCIBusStateOff", this);
-			_uhciBusState = kUHCIBusStateOff;
-	        _idleSuspend = true;
-			break;
-        
-		default:
-			USBLog(1, "AppleUSBUHCI[%p]::setPowerState - unknown power state %d", this, (int)powerStateOrdinal);
-			break;
-		}
-
-    if (_uhciBusState == kUHCIBusStateSuspended) 
-	{
-		USBLog(2, "AppleUSBUHCI[%p]::setPowerState  calling _workLoop->sleep(%p)", this, _uhciBusState);
-        result = _workLoop->sleep(&_uhciBusState);
-        if (result!= kIOReturnSuccess) 
-		{
-            USBError(1, "AppleUSBUHCI[%p]::setPowerState  - Can't sleep workloop, error 0x%x", this, result);
-        }
-    } else 
-	{
-		USBLog(2, "AppleUSBUHCI[%p]::setPowerState  calling _workLoop->OpenGate()", this);
-        _workLoop->OpenGate();
-    }
-    
-    USBLog(2, "AppleUSBUHCI[%p]::setPowerState(%d, %p)  DONE - _saveInterrupts[%p]", this, (int)powerStateOrdinal, whatDevice, (void*)_saveInterrupts);
-    return IOPMAckImplied;
+	_badExpressCardAttached = false;
+	
+	// Call registerService() so that the IOUSBController object is published and clients (like Prober) can find it
+	registerService();
 }
 
 
@@ -329,20 +88,27 @@ AppleUSBUHCI::callPlatformFunction(const OSSymbol *functionName,
 {
     USBLog(3, "%s[%p]::callPlatformFunction(%s)", getName(), this, functionName->getCStringNoCopy());
     
-    if (functionName == gUSBRemoteWakeupKey) 
+
+	if (!strncmp(functionName->getCStringNoCopy(), "SetDebugDriverPowerState", 24))
 	{
-		bool *wake = (bool *)param1;
-	
-	if (_remoteWakeupOccurred) 
-	{
-	    *wake = true;
-	} else 
-	{
-	    *wake = false;
+		if (param1)
+		{
+			// system woke from sleep -- do nothing
+		}
+		else
+		{
+			// system is going to sleep
+			//
+			// check if we are the controller for an expressCard port.  If so, then we need to ignore disconnects on suspend for that port  
+			// this will avoid the problem where the ExpressCard power goes away, and it looks like the device detaching -- thus waking the machine!
+			if ((_badExpressCardAttached) && (_ExpressCardPort > 0) && (_errataBits & kErrataSupportsPortResumeEnable))
+			{
+				// set PCI_RES register to enable ports to wake the computer.
+				_device->configWrite8(kUHCI_PCI_RES, 0x03 & ~(1 << (_ExpressCardPort-1)));	// clear the bit for the ExpressCardPort		
+			}
+		}
 	}
-    	return kIOReturnSuccess;
-    }
-    
+
     return super::callPlatformFunction(functionName, waitForFunction, param1, param2, param3, param4);
 }
 
@@ -357,12 +123,11 @@ AppleUSBUHCI::callPlatformFunction(const OSSymbol *functionName,
 void			
 AppleUSBUHCI::ResumeController(void)
 {
-    UInt16		cmd;
-	int			i;
+    UInt16			cmd;
+	int				i;
     
-    USBLog(5, "AppleUSBUHCI[%p]::ResumeController", this);
-    USBLog(5, "AppleUSBUHCI[%p]::ResumeController cmd state %x, status %x", this, ioRead16(kUHCI_CMD), ioRead16(kUHCI_STS));
-
+	showRegisters(7, "+ResumeController");
+	
 	cmd = ioRead16(kUHCI_CMD);
 	if (cmd & kUHCI_CMD_RS)
 	{
@@ -382,7 +147,7 @@ AppleUSBUHCI::ResumeController(void)
 		cmd |= kUHCI_CMD_FGR;
 		ioWrite16(kUHCI_CMD, cmd);
 		cmd = ioRead16(kUHCI_CMD);
-		USBLog(5, "AppleUSBUHCI[%p]::ResumeController after EGSM->FGR, state is[%p]", this, (void*)cmd);
+		USBLog(5, "AppleUSBUHCI[%p]::ResumeController after EGSM->FGR, cmd is[%p]", this, (void*)cmd);
 	}
     
 	if (cmd & kUHCI_CMD_FGR)
@@ -394,6 +159,20 @@ AppleUSBUHCI::ResumeController(void)
 		cmd &= ~kUHCI_CMD_EGSM;
 		ioWrite16(kUHCI_CMD, cmd);
 	}
+	if ((cmd & (kUHCI_CMD_MAXP | kUHCI_CMD_CF)) != (kUHCI_CMD_MAXP | kUHCI_CMD_CF))
+	{
+		USBLog(5, "AppleUSBUHCI[%p]::ResumeController marking MAXP and CF", this);
+		cmd |= (kUHCI_CMD_MAXP | kUHCI_CMD_CF);
+		ioWrite16(kUHCI_CMD, cmd);
+	}
+	
+	// restore the frame list register
+    if (_framesPaddr != NULL) 
+	{
+		USBLog(5, "AppleUSBUHCI[%p]::ResumeController setting FRBASEADDR[%p]", this, (void*)_framesPaddr);
+        ioWrite32(kUHCI_FRBASEADDR, _framesPaddr);
+	}
+	
 	USBLog(5, "AppleUSBUHCI[%p]::ResumeController starting controller", this);
 	Run(true);
 	
@@ -406,7 +185,8 @@ AppleUSBUHCI::ResumeController(void)
 		_frameList[i] &= ~HostToUSBLong(kUHCI_FRAME_T);
 	}
     
-	USBLog(5, "AppleUSBUHCI[%p]::ResumeController resume done, cmd %x, status %x ports[%p, %p]", this, ioRead16(kUHCI_CMD), ioRead16(kUHCI_STS),(void*)ReadPortStatus(0), (void*)ReadPortStatus(1));
+	USBLog(7, "AppleUSBUHCI[%p]::ResumeController resume done, cmd %x, status %x ports[%p, %p]", this, ioRead16(kUHCI_CMD), ioRead16(kUHCI_STS),(void*)ReadPortStatus(0), (void*)ReadPortStatus(1));
+	showRegisters(7, "-ResumeController");
 }
 
 
@@ -441,63 +221,286 @@ AppleUSBUHCI::SuspendController(void)
 		{
 			USBLog(5, "AppleUSBUHCI[%p]::SuspendController - port[%d] is not enabled [%p]", this, i, (void*)value);
 		}
+		
+		// only do this for controllers with overcurrent additions.
+		if ((_errataBits & kErrataUHCISupportsOvercurrent) && (value & kUHCI_PORTSC_OCI))  // Is the latched Overcurrent set?
+		{
+			// if so, clear it or we won't suspend.
+			USBLog(1, "AppleUSBUHCI[%p]::SuspendController - port[%d] had the overcurrent bit set.  Clearing it", this, i);
+			WritePortStatus(i, kUHCI_PORTSC_OCI); // clear overcurrent indicator
+		}
 	}
     // Put the controller in Global Suspend
     cmd = ioRead16(kUHCI_CMD) & ~kUHCI_CMD_FGR;
     cmd |= kUHCI_CMD_EGSM;
     ioWrite16(kUHCI_CMD, cmd);
-	_uhciBusState = kUHCIBusStateSuspended;   
+	_myBusState = kUSBBusStateSuspended;   
     IOSleep(3);
     USBLog(5, "%s[%p]: suspend done, cmd %x, status %x", getName(), this, ioRead16(kUHCI_CMD), ioRead16(kUHCI_STS));
 }
 
 
 
-IOReturn 
-AppleUSBUHCI::PowerDownHandler(void *target, void *refCon, UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize )
-{
-    AppleUSBUHCI *	me = OSDynamicCast(AppleUSBUHCI, (OSObject *)target);
-    
-    if (!me)
-        return kIOReturnUnsupported;
-    
-    USBLog(5, "AppleUSBUHCI[%p]::PowerDownHandler %p %p", me, (void*)messageType, messageArgument);
-    switch (messageType)
-    {
-        case kIOMessageSystemWillRestart:
-        case kIOMessageSystemWillPowerOff:
-            if (me->_uhciBusState == kUHCIBusStateRunning) 
-			{
-                if ( me->_rootHubDevice )
-                {
-					USBLog(3, "AppleUSBUHCI[%p]::PowerDownHandler - terminating root hub", me);
-                    me->_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
-                    me->_rootHubDevice->detachAll(gIOUSBPlane);
-                    me->_rootHubDevice->release();
-                    me->_rootHubDevice = NULL;
-                }
-				
-				// Let's not look for any timeouts anymore
-				// NOTE: This really should be done in the superclass, but there was no good way to do that in the time frame
-				// we had. The PowerDownHandler should just be moved to the controller level
-				me->_watchdogUSBTimer->cancelTimeout();
-				
-				me->EnableUSBInterrupt(false);
-                me->Run(false);
-				me->Command(kUHCI_CMD_GRESET);
-                me->_uhciBusState = kUHCIBusStateOff;
-            }
-
-            // Always disable bus mastering
-            me->UIMFinalizeForPowerDown();
-            break;
-            
-        default:
-            // We don't care about any other message that comes in here.
-            break;
-            
-    }
-    return kIOReturnSuccess;
+IOReturn				
+AppleUSBUHCI::SaveControllerStateForSleep(void)
+{	
+	
+    USBLog(5, "AppleUSBUHCI[%p]::SaveControllerStateForSleep cancelling rhTimer", this);
+	USBLog(5, "AppleUSBUHCI[%p]::SaveControllerStateForSleep SUSPEND - disabling interrupt", this);
+	// put the controller into suspend (which suspends all of the downstream ports)
+	SuspendController();
+	
+	return kIOReturnSuccess;
 }
 
 
+
+IOReturn				
+AppleUSBUHCI::RestoreControllerStateFromSleep(void)
+{
+
+	USBLog(5, "AppleUSBUHCI[%p]::RestoreControllerStateFromSleep RUN - resuming controller", this);
+	ResumeController();
+
+	return kIOReturnSuccess;
+}
+
+
+
+//
+// ResetControllerState
+// puts the controller into a known state - data structures in place, but interrupts disabled the controller halted
+//
+IOReturn
+AppleUSBUHCI::ResetControllerState(void)
+{
+	UInt32				value;
+	int					i;
+
+	USBLog(5, "AppleUSBUHCI[%p]::+ResetControllerState", this);
+
+	// reset the controller
+    Command(kUHCI_CMD_HCRESET);
+    for(i=0; (i < kUHCI_RESET_DELAY) && (ioRead16(kUHCI_CMD) & kUHCI_CMD_HCRESET); i++) 
+	{
+        IOSleep(1);
+    }
+    if (i >= kUHCI_RESET_DELAY) 
+	{
+        USBError(1, "AppleUSBUHCI[%p]::ResetControllerStatecontroller - reset failed", this);
+        return kIOReturnTimeout;
+    }
+    USBLog(5, "AppleUSBUHCI[%p]::ResetControllerStatecontroller - reset done after %d spins", this, i);
+
+	// restore the frame list register
+    if (_framesPaddr != NULL) 
+	{
+        ioWrite32(kUHCI_FRBASEADDR, _framesPaddr);
+	}
+	
+	// Use 64-byte packets, and mark controller as configured
+	Command(kUHCI_CMD_MAXP | kUHCI_CMD_CF);
+
+    USBLog(5, "AppleUSBUHCI[%p]::-ResetControllerState", this);
+	return kIOReturnSuccess;
+}
+
+
+
+IOReturn
+AppleUSBUHCI::RestartControllerFromReset(void)
+{
+	USBLog(5, "AppleUSBUHCI[%p]::RestartControllerFromReset - _myBusState(%d) CMD(%p) STS(%p) FRBASEADDR(%p) IOPCIConfigCommand(%p)", this, (int)_myBusState, (void*)ioRead16(kUHCI_CMD), (void*)ioRead16(kUHCI_STS), (void*)ioRead32(kUHCI_FRBASEADDR), (void*)_device->configRead16(kIOPCIConfigCommand));
+
+	Run(true);
+
+	// prepare the _saveInterrupts variable for later enabling
+	_saveInterrupts = kUHCI_INTR_TIE | kUHCI_INTR_RIE | kUHCI_INTR_IOCE | kUHCI_INTR_SPIE;
+	USBLog(5, "AppleUSBUHCI[%p]::RestartControllerFromReset - I set _saveInterrupts to (%p)", this, (void*)_saveInterrupts);
+			
+	return kIOReturnSuccess;
+}
+
+
+
+IOReturn
+AppleUSBUHCI::EnableInterruptsFromController(bool enable)
+{
+	if (enable)
+	{
+		USBLog(5, "AppleUSBUHCI[%p]::EnableInterruptsFromController - enabling interrupts, USBIntr(%p) _savedUSBIntr(%p)", this, (void*)ioRead16(kUHCI_INTR), (void*)_saveInterrupts);
+		ioWrite16(kUHCI_INTR, _saveInterrupts);
+		_saveInterrupts = 0;
+		EnableUSBInterrupt(true);
+	}
+	else
+	{
+		_saveInterrupts = ioRead16(kUHCI_INTR);
+		ioWrite16(kUHCI_INTR, 0);
+		EnableUSBInterrupt(false);
+		USBLog(5, "AppleUSBUHCI[%p]::EnableInterruptsFromController - interrupts disabled, _saveInterrupts(%p)", this, (void*)_saveInterrupts);
+	}
+	
+	return kIOReturnSuccess;
+}
+
+
+
+IOReturn
+AppleUSBUHCI::DozeController(void)
+{
+	showRegisters(7, "+DozeController -  stopping controller");
+	Run(false);
+
+	_myBusState = kUSBBusStateSuspended;
+	return kIOReturnSuccess;
+}
+
+
+
+IOReturn				
+AppleUSBUHCI::WakeControllerFromDoze(void)
+{
+	Run(true);
+	_myBusState = kUSBBusStateRunning;
+	showRegisters(7, "-WakeControllerFromDoze");
+	return kIOReturnSuccess;
+}
+
+
+
+IOReturn
+AppleUSBUHCI::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long newState, IOService* whichDevice)
+{
+	USBLog(5, "AppleUSBUHCI[%p]::powerStateWillChangeTo new state (%d)", this, (int)newState);
+	showRegisters(7, "powerStateWillChangeTo");
+	return super::powerStateWillChangeTo(capabilities, newState, whichDevice);
+}
+
+
+
+IOReturn
+AppleUSBUHCI::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long newState, IOService* whichDevice)
+{
+	USBLog(5, "AppleUSBUHCI[%p]::powerStateDidChangeTo new state (%d)", this, (int)newState);
+	showRegisters(7, "powerStateDidChangeTo");
+	return super::powerStateDidChangeTo(capabilities, newState, whichDevice);
+}
+
+
+
+void
+AppleUSBUHCI::powerChangeDone ( unsigned long fromState)
+{
+	unsigned long newState = getPowerState();
+	
+	USBLog((fromState == newState) ? 7 : 5, "AppleUSBUHCI[%p]::powerChangeDone from state (%d) to state (%d) _controllerAvailable(%s)", this, (int)fromState, (int)newState, _controllerAvailable ? "true" : "false");
+	if (_controllerAvailable)
+		showRegisters(7, "powerChangeDone");
+	super::powerChangeDone(fromState);
+}
+
+
+
+#pragma mark ¥¥¥¥ Utility functions ¥¥¥¥
+static IOACPIPlatformDevice * CopyACPIDevice( IORegistryEntry * device )
+{
+	IOACPIPlatformDevice *  acpiDevice = 0;
+	OSString *				acpiPath;
+
+	if (device)
+	{
+		acpiPath = (OSString *) device->copyProperty(kACPIDevicePathKey);
+		if (acpiPath && !OSDynamicCast(OSString, acpiPath))
+		{
+			acpiPath->release();
+			acpiPath = 0;
+		}
+
+		if (acpiPath)
+		{
+			IORegistryEntry * entry;
+
+			entry = IORegistryEntry::fromPath(acpiPath->getCStringNoCopy());
+			acpiPath->release();
+
+			if (entry && entry->metaCast("IOACPIPlatformDevice"))
+				acpiDevice = (IOACPIPlatformDevice *) entry;
+			else if (entry)
+				entry->release();
+		}
+	}
+
+	return (acpiDevice);
+}
+
+static bool HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum )
+{
+	const IORegistryPlane *	acpiPlane;
+	bool					match = false;
+	IORegistryIterator *	iter;
+	IORegistryEntry *		entry;
+
+	do {
+		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
+		if (!acpiPlane)
+			break;
+
+		// acpiDevice is the USB controller in ACPI plane.
+		// Recursively iterate over children of acpiDevice.
+
+		iter = IORegistryIterator::iterateOver(
+				/* start */	acpiDevice,
+				/* plane */	acpiPlane,
+				/* options */ kIORegistryIterateRecursively);
+
+		if (iter)
+		{
+			while (!match && (entry = iter->getNextObject()))
+			{
+				// USB port must be a leaf node (no child), and
+				// must be an IOACPIPlatformDevice.
+
+				if ((entry->getChildEntry(acpiPlane) == 0) &&
+					entry->metaCast("IOACPIPlatformDevice"))
+				{
+					IOACPIPlatformDevice * port;
+					port = (IOACPIPlatformDevice *) entry;
+
+					// Express card port? Is port ejectable?
+
+					if (port->validateObject( "_EJD" ) == kIOReturnSuccess)
+					{
+						// Determining the USB port number.
+						if (portnum)
+							*portnum = strtoul(port->getLocation(), NULL, 10);
+						match = true;
+					}
+				}
+			}
+
+			iter->release();
+		}
+	}
+	while (false);
+	
+	return match;
+}
+
+// Checks for ExpressCard connected to this controller, and returns the port number (1 based)
+// Will return 0 if no ExpressCard is connected to this controller.
+//
+UInt32 AppleUSBUHCI::ExpressCardPort( IOService * provider )
+{
+	IOACPIPlatformDevice *	acpiDevice;
+	UInt32					portNum = 0;
+	bool					isPCIeUSB;
+	
+	acpiDevice = CopyACPIDevice( provider );
+	if (acpiDevice)
+	{
+		isPCIeUSB = HasExpressCardUSB( acpiDevice, &portNum );	
+		acpiDevice->release();
+	}
+	return(portNum);
+}

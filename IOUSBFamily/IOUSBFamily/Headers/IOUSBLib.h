@@ -319,6 +319,40 @@ __BEGIN_DECLS
    0x97, 0x7B, 0xAD, 0x99, 0x00, 0x1E, 0xB3, 0xED)
 
 
+// 396104F7-943D-4893-90F1-69BD6CF5C2EB
+/*!
+@defined kIOUSBDeviceInterfaceID300
+ @discussion This UUID constant is used to obtain a device interface corresponding to 
+ an IOUSBDevice user client in the kernel. The type of this device interface is 
+ IOUSBDeviceInterface300. This device interface is obtained after the device interface for 
+ the service itself has been obtained.
+ 
+ <b>Note:</b> The IOUSBDeviceInterface300 is returned only by version 3.0.0 or above of the 
+ IOUSBFamily. This version of IOUSBFamily shipped with Mac OS X version 10.5. If your software 
+    is running on an earlier version of Mac OS X you will need to use UUID kIOUSBDeviceInterfaceID, 
+    kIOUSBDeviceInterfaceID182, kIOUSBDeviceInterfaceID187, kIOUSBDeviceInterfaceID197, or kIOUSBDeviceInterfaceID245 
+	and you will not have access to some functions.
+ 
+ Example:
+ <pre>
+ @textblock
+ IOCFPluginInterface		**iodev; 	// obtained earlier
+ 
+ IOUSBDeviceInterface300	**dev;		// fetching this now
+ IOReturn                    err;
+ 
+ err = (*iodev)->QueryInterface(iodev,
+                                CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID300),
+                                (LPVoid)&dev);
+ @/textblock
+ </pre>
+ */
+
+#define kIOUSBDeviceInterfaceID300 CFUUIDGetConstantUUIDWithBytes(NULL, \
+   0x39, 0x61, 0x04, 0xF7, 0x94, 0x3D, 0x48, 0x93, 			\
+   0x90, 0xF1, 0x69, 0xBD, 0x6C, 0xF5, 0xC2, 0xEB)
+
+
 // 4923AC4C-4896-11D5-9208-000A27801E86
 /*!
     @defined kIOUSBInterfaceInterfaceID182
@@ -493,8 +527,8 @@ __BEGIN_DECLS
  for the service itself has been obtained.
 
  <b>Note:</b> The IOUSBInterfaceInterface220 is returned only by version 2.2.0 or above of
- the IOUSBFamily. This version of IOUSBFamily shipped with Mac OS X version xxxx. If your software
- is running on a version of Mac OS X prior to xxxxx you will need to use the UUID kIOUSBInterfaceInterfaceID,
+ the IOUSBFamily. This version of IOUSBFamily shipped with Mac OS X version 10.4. If your software
+ is running on a version of Mac OS X prior to 10.4 you will need to use the UUID kIOUSBInterfaceInterfaceID,
  kIOUSBInterfaceInterfaceID182, kIOUSBInterfaceInterfaceID183, kIOUSBInterfaceInterfaceID190, kIOUSBInterfaceInterfaceID192,
  or kIOUSBInterfaceInterfaceID197 and you will not have access to some functions.
 
@@ -522,7 +556,7 @@ __BEGIN_DECLS
 @defined kIOUSBInterfaceInterfaceID245
  @discussion This UUID constant is used to obtain a device interface corresponding to
  an IOUSBInterface user client in the kernel. The type of this device interface is
- IOUSBInterfaceInterface25. This device interface is obtained after the device interface
+ IOUSBInterfaceInterface245. This device interface is obtained after the device interface
  for the service itself has been obtained.
  
  <b>Note:</b> The IOUSBInterfaceInterface245 is returned only by version 2.4.5 or above of
@@ -547,17 +581,51 @@ __BEGIN_DECLS
  */
 
 #define kIOUSBInterfaceInterfaceID245 CFUUIDGetConstantUUIDWithBytes(NULL, 	\
-	0x64, 0xBA, 0xBD, 0xD2, 0x0F, 0x6B, 0x4B, 0x4F, 				\
+	0x64, 0xBA, 0xBD, 0xD2, 0x0F, 0x6B, 0x4B, 0x4F,							\
 	0x8E, 0x3E, 0xDC, 0x36, 0x04, 0x69, 0x87, 0xAD)
 
 
+// BCEAADDC-884D-4F27-8340-36D69FAB90F6
 /*!
+@defined kIOUSBInterfaceInterfaceID300
+ @discussion This UUID constant is used to obtain a device interface corresponding to
+ an IOUSBInterface user client in the kernel. The type of this device interface is
+ IOUSBInterfaceInterface300. This device interface is obtained after the device interface
+ for the service itself has been obtained.
+ 
+ <b>Note:</b> The IOUSBInterfaceInterface300 is returned only by version 3.0.0 or above of
+ the IOUSBFamily. This version of IOUSBFamily shipped with Mac OS X version 10.5.  If your software
+ is running on a version of Mac OS X prior to 10.5 you will need to use the UUID kIOUSBInterfaceInterfaceID,
+ kIOUSBInterfaceInterfaceID182, kIOUSBInterfaceInterfaceID183, kIOUSBInterfaceInterfaceID190, kIOUSBInterfaceInterfaceID192,
+ kIOUSBInterfaceInterfaceID197, kIOUSBInterfaceInterfaceID220, or kIOUSBInterfaceInterfaceID245 and you will not have access to some functions.
+ 
+ Example:
+ <pre>
+ @textblock
+ IOCFPluginInterface             **iodev; 	// obtained earlier
+ 
+ IOUSBInterfaceInterface300      **intf;     // fetching this now
+ IOReturn                        err;
+ 
+ err = (*iodev)->QueryInterface(iodev,
+                                CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID300),
+                                (LPVoid)&intf);
+ @/textblock
+ </pre>
+ */
+
+#define kIOUSBInterfaceInterfaceID300 CFUUIDGetConstantUUIDWithBytes(NULL, 	\
+	0xBC, 0xEA, 0xAD, 0xDC, 0x88, 0x4D, 0x4F, 0x27,							\
+	0x83, 0x40, 0x36, 0xD6, 0x9F, 0xAB, 0x90, 0xF6)
+
+
+	/*!
     @interface IOUSBDeviceInterface
     @abstract   The object you use to access USB devices from user space, returned by all versions of the IOUSBFamily
                 currently shipping.
     @discussion The functions listed here will work with any version of the IOUSBDeviceInterface, including
                 the one shipped with Mac OS X version 10.0. 
-*/
+	*/
 
 typedef struct IOUSBDeviceStruct {
     IUNKNOWN_C_GUTS;
@@ -572,7 +640,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      source Pointer to a CFRunLoopSourceRef to return the newly created run loop event source.
     @result     Returns kIOReturnSuccess if successful or a kern_return_t if unsuccessful.
-*/
+	*/
 
     IOReturn (*CreateDeviceAsyncEventSource)(void *self, CFRunLoopSourceRef *source);
     
@@ -581,7 +649,7 @@ typedef struct IOUSBDeviceStruct {
     @abstract   Returns the CFRunLoopSourceRef for this IOService instance.
     @param      self Pointer to the IOUSBDeviceInterface.
     @result     Returns the run loop source if one has been created, 0 otherwise.
-*/
+	*/
 
     CFRunLoopSourceRef (*GetDeviceAsyncEventSource)(void *self);
     
@@ -595,7 +663,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      port Pointer to a mach_port_t to return the newly created port.
     @result     Returns kIOReturnSuccess if successful or a kern_return_t if unsuccessful.
-*/
+	*/
 
     IOReturn (*CreateDeviceAsyncPort)(void *self, mach_port_t *port); 
     
@@ -604,7 +672,7 @@ typedef struct IOUSBDeviceStruct {
     @abstract   Returns the mach_port_t port for this IOService instance.
     @param      self Pointer to the IOUSBDeviceInterface.
     @result     Returns the port if one exists, 0 otherwise.
-*/
+	*/
 
     mach_port_t (*GetDeviceAsyncPort)(void *self);
     
@@ -617,7 +685,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @result     Returns kIOReturnExclusiveAccess if some other task has the device opened already,
                 kIOReturnError if the connection with the kernel cannot be established or kIOReturnSuccess if successful.
-*/
+	*/
 
     IOReturn (*USBDeviceOpen)(void *self);
     
@@ -627,7 +695,7 @@ typedef struct IOUSBDeviceStruct {
     @discussion Releases the client's exclusive access to the IOUSBDevice.
     @param      self Pointer to the IOUSBDeviceInterface.
     @result     Returns kIOReturnSuccess if successful, some other mach error if the connection is no longer valid.
-*/
+	*/
 
     IOReturn (*USBDeviceClose)(void *self);
     
@@ -638,7 +706,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      devClass Pointer to UInt8 to hold the device Class.
     @result      Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceClass)(void *self, UInt8 *devClass);
     
@@ -649,7 +717,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      devSubClass Pointer to UInt8 to hold the device Subclass.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceSubClass)(void *self, UInt8 *devSubClass);
     
@@ -660,7 +728,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      devProtocol Pointer to UInt8 to hold the device Protocol.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceProtocol)(void *self, UInt8 *devProtocol);
     
@@ -671,7 +739,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      devVendor   Pointer to UInt16 to hold the vendorID.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceVendor)(void *self, UInt16 *devVendor);
     
@@ -682,7 +750,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      devProduct  Pointer to UInt16 to hold the ProductID.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceProduct)(void *self, UInt16 *devProduct);
     
@@ -693,7 +761,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      devRelNum   Pointer to UInt16 to hold the Device Release Number.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceReleaseNumber)(void *self, UInt16 *devRelNum);
     
@@ -704,7 +772,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      addr    Pointer to USBDeviceAddress to hold the result.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceAddress)(void *self, USBDeviceAddress *addr);
     
@@ -715,7 +783,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      powerAvailable Pointer to UInt32 to hold the power available (in 2 mA increments).
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceBusPowerAvailable)(void *self, UInt32 *powerAvailable);
     
@@ -726,7 +794,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      devSpeed Pointer to UInt8 to hold the speed (kUSBDeviceSpeedLow, kUSBDeviceSpeedFull, or kUSBDeviceSpeedHigh).
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceSpeed)(void *self, UInt8 *devSpeed);
     
@@ -737,7 +805,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      numConfig Pointer to UInt8 to hold the number of configurations.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetNumberOfConfigurations)(void *self, UInt8 *numConfig);
     
@@ -750,7 +818,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      locationID Pointer to UInt32 to hold the location ID.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetLocationID)(void *self, UInt32 *locationID);
     
@@ -762,7 +830,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      configIndex The index (zero based) of the desired config descriptor.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetConfigurationDescriptorPtr)(void *self, UInt8 configIndex, IOUSBConfigurationDescriptorPtr *desc);
     
@@ -773,7 +841,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      configNum Pointer to UInt8 to hold the configuration value.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetConfiguration)(void *self, UInt8 *configNum);
     
@@ -787,7 +855,7 @@ typedef struct IOUSBDeviceStruct {
     @param      configNum The value of the desired configuration (from IOUSBConfigurationDescriptor.bConfigurationValue).
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, 
                 or kIOReturnNotOpen if the device is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*SetConfiguration)(void *self, UInt8 configNum);
     
@@ -797,10 +865,10 @@ typedef struct IOUSBDeviceStruct {
     @discussion The device does not have to be open to use this function.
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      frame Pointer to UInt64 to hold the frame number.
-    @param      atTime Pointer to a returned AbsoluteTime, which should be within 1ms of the time when the bus 
-                frame number was attained.
+    @param      atTime Pointer to a returned AbsoluteTime, which is the system time ("wall time") when the frame number register was read. This
+				system time could be the time at the beginning, middle, or end of the given frame.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetBusFrameNumber)(void *self, UInt64 *frame, AbsoluteTime *atTime);
     
@@ -817,7 +885,7 @@ typedef struct IOUSBDeviceStruct {
     @param      self Pointer to the IOUSBDeviceInterface.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the device is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*ResetDevice)(void *self);
     
@@ -831,7 +899,7 @@ typedef struct IOUSBDeviceStruct {
     @param      req Pointer to an IOUSBDevRequest containing the request.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the device is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*DeviceRequest)(void *self, IOUSBDevRequest *req);
     
@@ -848,7 +916,7 @@ typedef struct IOUSBDeviceStruct {
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 kIOReturnNotOpen if the device is not open for exclusive access, or kIOUSBNoAsyncPortErr if no Async 
                 port has been created for this interface.
-*/
+	*/
 
     IOReturn (*DeviceRequestAsync)(void *self, IOUSBDevRequest *req, IOAsyncCallback1 callback, void *refCon);
     
@@ -860,20 +928,20 @@ typedef struct IOUSBDeviceStruct {
     @param      req Pointer an IOUSBFindInterfaceRequest structure describing the desired interfaces.
     @param      iter Pointer to a an io_iterator_t to contain the new iterator.
     @result     Returns kIOReturnSuccess if successful or kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*CreateInterfaceIterator)(void *self, IOUSBFindInterfaceRequest *req, io_iterator_t *iter);
     
 } IOUSBDeviceInterface;
 
-/*!
+	/*!
     @interface IOUSBDeviceInterface182
     @abstract   The object you use to access USB devices from user space, returned by the IOUSBFamily version
                 1.8.2 and above.
     @discussion The functions listed here include all of the functions defined for the IOUSBDeviceInterface and
                 some new functions that are available on Mac OS X version 10.0.4 and later.
     @super IOUSBDeviceInterface
-*/
+	*/
 
 typedef struct IOUSBDeviceStruct182 {
     IUNKNOWN_C_GUTS;
@@ -915,7 +983,7 @@ typedef struct IOUSBDeviceStruct182 {
     @param      self Pointer to the IOUSBDeviceInterface.
     @result     Returns kIOReturnExclusiveAccess if some other task has the device opened already and refuses
                 to close it, kIOReturnError if the connection with the kernel can not be established or kIOReturnSuccess if successful.
-*/
+	*/
 
     IOReturn (*USBDeviceOpenSeize)(void *self);
     
@@ -932,7 +1000,7 @@ typedef struct IOUSBDeviceStruct182 {
     @param      req Pointer to an IOUSBDevRequestTO containing the request.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the device is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*DeviceRequestTO)(void *self, IOUSBDevRequestTO *req);
     
@@ -953,7 +1021,7 @@ typedef struct IOUSBDeviceStruct182 {
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 kIOReturnNotOpen if the device is not open for exclusive access, orkIOUSBNoAsyncPortErr if no Async 
                 port has been created for this interface.
-*/
+	*/
 
     IOReturn (*DeviceRequestAsyncTO)(void *self, IOUSBDevRequestTO *req, IOAsyncCallback1 callback, void *refCon);
     
@@ -966,7 +1034,7 @@ typedef struct IOUSBDeviceStruct182 {
     @param      suspend TRUE to cause the port to be suspended, FALSE to cause it to be resumed.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the device is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*USBDeviceSuspend)(void *self, Boolean suspend);
     
@@ -978,7 +1046,7 @@ typedef struct IOUSBDeviceStruct182 {
     @param      self Pointer to the IOUSBDeviceInterface.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the device is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*USBDeviceAbortPipeZero)(void *self);
     
@@ -990,7 +1058,7 @@ typedef struct IOUSBDeviceStruct182 {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      msi Pointer to UInt8 to hold the string index.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*USBGetManufacturerStringIndex)(void *self, UInt8 *msi);
     
@@ -1002,7 +1070,7 @@ typedef struct IOUSBDeviceStruct182 {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      psi Pointer to UInt8 to hold the string index.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*USBGetProductStringIndex)(void *self, UInt8 *psi);
     
@@ -1014,20 +1082,20 @@ typedef struct IOUSBDeviceStruct182 {
     @param      self Pointer to the IOUSBDeviceInterface.
     @param      snsi Pointer to UInt8 to hold the string index.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*USBGetSerialNumberStringIndex)(void *self, UInt8 *snsi);
     
 } IOUSBDeviceInterface182;
 
-/*!
+	/*!
     @interface IOUSBDeviceInterface187
     @abstract   The object you use to access USB devices from user space, returned by the IOUSBFamily version
                 10.8.7 and above.
     @discussion The functions listed here include all of the functions defined for the IOUSBDeviceInterface,
                 IOUSBDeviceInterface182, and some new functions that are available on Mac OS X version 10.1.2 and later.
     @super IOUSBDeviceInterface182
-*/
+	*/
 
 
 typedef struct IOUSBDeviceStruct187 {
@@ -1079,12 +1147,12 @@ typedef struct IOUSBDeviceStruct187 {
     @param      options A UInt32 reserved for future use. Ignored in current implementation. Set to zero.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the device is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*USBDeviceReEnumerate)(void *self, UInt32 options);
 } IOUSBDeviceInterface187;
 
-/*!
+	/*!
     @interface IOUSBDeviceInterface197
     @abstract   The object you use to access USB devices from user space, returned by the IOUSBFamily version
                 1.9.7 and above.
@@ -1092,7 +1160,7 @@ typedef struct IOUSBDeviceStruct187 {
                 IOUSBDeviceInterface182, IOUSBDeviceInterface187, and some new functions that are available 
                 on Mac OS X version 10.2.3 and later.
     @super IOUSBDeviceInterface187
-*/
+	*/
 
 
 typedef struct IOUSBDeviceStruct197 {
@@ -1142,7 +1210,7 @@ typedef struct IOUSBDeviceStruct197 {
     @param      atTime Pointer to an AbsoluteTime, which should be within 1ms of the time when the bus 
                 frame number was acquired.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetBusMicroFrameNumber)(void *self, UInt64 *microFrame, AbsoluteTime *atTime);
     
@@ -1157,21 +1225,21 @@ typedef struct IOUSBDeviceStruct197 {
     @param      usbFamilyVersion Pointer to a NumVersion structure that on return will contain the version of 
                 the IOUSBFamily.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetIOUSBLibVersion)(void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
 } IOUSBDeviceInterface197;
 
 
-/*!
-@interface IOUSBDeviceInterface245
-@abstract   The object you use to access USB devices from user space, returned by the IOUSBFamily version
-2.4.5 and above.
-@discussion The functions listed here include all of the functions defined for the IOUSBDeviceInterface,
-IOUSBDeviceInterface182, IOUSBDeviceInterface187, and some new functions that are available 
-on Mac OS X version 10.2.3 and later.
-@super IOUSBDeviceInterface187
-*/
+	/*!
+	@interface IOUSBDeviceInterface245
+	@abstract   The object you use to access USB devices from user space, returned by the IOUSBFamily version
+	2.4.5 and above.
+	@discussion The functions listed here include all of the functions defined for the IOUSBDeviceInterface,
+	IOUSBDeviceInterface182, IOUSBDeviceInterface187, IOUSBDeviceInterface197, and some new functions that are available 
+	on Mac OS X version 10.2.3 and later.
+	@super IOUSBDeviceInterface197
+	*/
 
 
 typedef struct IOUSBDeviceStruct245 {
@@ -1214,13 +1282,80 @@ typedef struct IOUSBDeviceStruct245 {
     IOReturn (*GetIOUSBLibVersion)(void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
 } IOUSBDeviceInterface245;
 
-/*!
+
+
+	/*!
+	@interface IOUSBDeviceInterface300
+	@abstract   The object you use to access USB devices from user space, returned by the IOUSBFamily version 3.0.0 and above.
+	@discussion The functions listed here include all of the functions defined for the IOUSBDeviceInterface,
+	IOUSBDeviceInterface182, IOUSBDeviceInterface187, IOUSBDeviceInterface197, IOUSBDeviceInterface245, 
+	and some new functions that are available on Mac OS X version 10.5 and later.
+	@super IOUSBDeviceInterface245
+	*/
+
+
+typedef struct IOUSBDeviceStruct300 {
+    IUNKNOWN_C_GUTS;
+    IOReturn (*CreateDeviceAsyncEventSource)(void *self, CFRunLoopSourceRef *source);
+    CFRunLoopSourceRef (*GetDeviceAsyncEventSource)(void *self);
+    IOReturn (*CreateDeviceAsyncPort)(void *self, mach_port_t *port);
+    mach_port_t (*GetDeviceAsyncPort)(void *self);
+    IOReturn (*USBDeviceOpen)(void *self);
+    IOReturn (*USBDeviceClose)(void *self);
+    IOReturn (*GetDeviceClass)(void *self, UInt8 *devClass);
+    IOReturn (*GetDeviceSubClass)(void *self, UInt8 *devSubClass);
+    IOReturn (*GetDeviceProtocol)(void *self, UInt8 *devProtocol);
+    IOReturn (*GetDeviceVendor)(void *self, UInt16 *devVendor);
+    IOReturn (*GetDeviceProduct)(void *self, UInt16 *devProduct);
+    IOReturn (*GetDeviceReleaseNumber)(void *self, UInt16 *devRelNum);
+    IOReturn (*GetDeviceAddress)(void *self, USBDeviceAddress *addr);
+    IOReturn (*GetDeviceBusPowerAvailable)(void *self, UInt32 *powerAvailable);
+    IOReturn (*GetDeviceSpeed)(void *self, UInt8 *devSpeed);
+    IOReturn (*GetNumberOfConfigurations)(void *self, UInt8 *numConfig);
+    IOReturn (*GetLocationID)(void *self, UInt32 *locationID);
+    IOReturn (*GetConfigurationDescriptorPtr)(void *self, UInt8 configIndex, IOUSBConfigurationDescriptorPtr *desc);
+    IOReturn (*GetConfiguration)(void *self, UInt8 *configNum);
+    IOReturn (*SetConfiguration)(void *self, UInt8 configNum);
+    IOReturn (*GetBusFrameNumber)(void *self, UInt64 *frame, AbsoluteTime *atTime);
+    IOReturn (*ResetDevice)(void *self);
+    IOReturn (*DeviceRequest)(void *self, IOUSBDevRequest *req);
+    IOReturn (*DeviceRequestAsync)(void *self, IOUSBDevRequest *req, IOAsyncCallback1 callback, void *refCon);
+    IOReturn (*CreateInterfaceIterator)(void *self, IOUSBFindInterfaceRequest *req, io_iterator_t *iter);
+    IOReturn (*USBDeviceOpenSeize)(void *self);
+    IOReturn (*DeviceRequestTO)(void *self, IOUSBDevRequestTO *req);
+    IOReturn (*DeviceRequestAsyncTO)(void *self, IOUSBDevRequestTO *req, IOAsyncCallback1 callback, void *refCon);
+    IOReturn (*USBDeviceSuspend)(void *self, Boolean suspend);
+    IOReturn (*USBDeviceAbortPipeZero)(void *self);
+    IOReturn (*USBGetManufacturerStringIndex)(void *self, UInt8 *msi);
+    IOReturn (*USBGetProductStringIndex)(void *self, UInt8 *psi);
+    IOReturn (*USBGetSerialNumberStringIndex)(void *self, UInt8 *snsi);
+    IOReturn (*USBDeviceReEnumerate)(void *self, UInt32 options);
+    IOReturn (*GetBusMicroFrameNumber)(void *self, UInt64 *microFrame, AbsoluteTime *atTime);
+    IOReturn (*GetIOUSBLibVersion)(void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
+
+    /*!
+    @function GetBusFrameNumberWithTime
+    @abstract   Gets a recent frame number of the bus to which the device is attached, along with a system time corresponding to the start of that frame
+    @discussion The device does not have to be open to use this function.
+    @availability This function is only available with IOUSBDeviceInterface300 and above.
+    @param      self Pointer to the IOUSBDeviceInterface.
+    @param      frame Pointer to UInt64 to hold the frame number.
+    @param      atTime Pointer to a returned AbsoluteTime, which is the system time ("wall time") as close as possible to the beginning of that USB frame. The jitter on this value may be as much as 200 microseconds.
+	@result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or kIOReturnUnsupported is the bus doesn't support this function.
+	*/
+
+    IOReturn (*GetBusFrameNumberWithTime)(void *self, UInt64 *frame, AbsoluteTime *atTime);
+} IOUSBDeviceInterface300;
+
+
+
+	/*!
     @interface IOUSBInterfaceInterface
     @abstract   The object you use to access a USB device interface from user space, returned by all versions
                 of the IOUSBFamily currently shipping.
     @discussion The functions listed here will work with any version of the IOUSBInterfaceInterface, including
                 the one shipped with Mac OS X version 10.0.
-*/
+	*/
 typedef struct IOUSBInterfaceStruct {
     IUNKNOWN_C_GUTS;
     
@@ -1235,7 +1370,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      source Pointer to a CFRunLoopSourceRef to return the newly created run loop event source.
     @result     Returns kIOReturnSuccess if successful or a kern_return_t if failed.
-*/
+	*/
 
     IOReturn (*CreateInterfaceAsyncEventSource)(void *self, CFRunLoopSourceRef *source);
     
@@ -1245,7 +1380,7 @@ typedef struct IOUSBInterfaceStruct {
     @discussion (description)
     @param      self Pointer to the IOUSBInterfaceInterface.
     @result     Returns the run loop source if one has been created, 0 otherwise.
-*/
+	*/
 
     CFRunLoopSourceRef (*GetInterfaceAsyncEventSource)(void *self);
     
@@ -1258,7 +1393,7 @@ typedef struct IOUSBInterfaceStruct {
                 function for decoding the notification message.
     @param      self Pointer to the IOUSBInterfaceInterface.
     @result     Returns kIOReturnSuccess if successful or a kern_return_t if failed.
-*/
+	*/
 
     IOReturn (*CreateInterfaceAsyncPort)(void *self, mach_port_t *port);
     
@@ -1267,7 +1402,7 @@ typedef struct IOUSBInterfaceStruct {
     @abstract   Returns the mach_port_t port for this IOService instance.
     @param      self Pointer to the IOUSBInterfaceInterface.
     @result     Returns the port if one exists, 0 otherwise.
-*/
+	*/
 
     mach_port_t (*GetInterfaceAsyncPort)(void *self);
     
@@ -1287,7 +1422,7 @@ typedef struct IOUSBInterfaceStruct {
     @result     Returns kIOReturnExclusiveAccess if some other task has the device opened already,
                 kIOReturnError if the connection with the kernel cannot be established or
                 kIOReturnSuccess if successful.
-*/
+	*/
 
     IOReturn (*USBInterfaceOpen)(void *self);
     
@@ -1297,7 +1432,7 @@ typedef struct IOUSBInterfaceStruct {
     @discussion Releases the client's exclusive access to the IOUSBInterface.
     @param      self Pointer to the IOUSBInterfaceInterface.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*USBInterfaceClose)(void *self);
     
@@ -1308,7 +1443,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      intfClass Pointer to UInt8 to hold the interface Class.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetInterfaceClass)(void *self, UInt8 *intfClass);
     
@@ -1319,7 +1454,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      intfSubClass Pointer to UInt8 to hold the interface Subclass.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetInterfaceSubClass)(void *self, UInt8 *intfSubClass);
     
@@ -1330,7 +1465,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      intfProtocol Pointer to UInt8 to hold the interface Protocol.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetInterfaceProtocol)(void *self, UInt8 *intfProtocol);
     
@@ -1341,7 +1476,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      devVendor Pointer to UInt16 to hold the vendorID.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceVendor)(void *self, UInt16 *devVendor);
     
@@ -1352,7 +1487,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      devProduct Pointer to UInt16 to hold the ProductID.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceProduct)(void *self, UInt16 *devProduct);
     
@@ -1363,7 +1498,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      devRelNum Pointer to UInt16 to hold the Release Number.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDeviceReleaseNumber)(void *self, UInt16 *devRelNum);
     
@@ -1374,7 +1509,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      configVal Pointer to UInt8 to hold the configuration value.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetConfigurationValue)(void *self, UInt8 *configVal);
     
@@ -1385,7 +1520,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      intfNumber Pointer to UInt8 to hold the interface number.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetInterfaceNumber)(void *self, UInt8 *intfNumber);
     
@@ -1396,7 +1531,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      intfAltSetting Pointer to UInt8 to hold the alternate setting value.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetAlternateSetting)(void *self, UInt8 *intfAltSetting);
     
@@ -1407,7 +1542,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      intfNumEndpoints Pointer to UInt8 to hold the number of endpoints.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetNumEndpoints)(void *self, UInt8 *intfNumEndpoints);
     
@@ -1420,7 +1555,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      locationID Pointer to UInt32 to hold the location ID.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetLocationID)(void *self, UInt32 *locationID);
     
@@ -1432,7 +1567,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      device Pointer to io_service_t to hold the result.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetDevice)(void *self, io_service_t *device);
     
@@ -1444,7 +1579,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      alternateSetting The new alternate setting for the interface.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*SetAlternateInterface)(void *self, UInt8 alternateSetting);
     
@@ -1457,7 +1592,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      atTime Pointer to an AbsoluteTime, which should be within 1ms of the time when the bus frame 
                 number was attained.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetBusFrameNumber)(void *self, UInt64 *frame, AbsoluteTime *atTime);
     
@@ -1471,7 +1606,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      req Pointer to an IOUSBDevRequest containing the request.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*ControlRequest)(void *self, UInt8 pipeRef, IOUSBDevRequest *req);
     
@@ -1490,7 +1625,7 @@ typedef struct IOUSBInterfaceStruct {
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 kIOReturnNotOpen if the interface is not open for exclusive access, or kIOUSBNoAsyncPortErr if no 
                 Async port has been created for this interface.
-*/
+	*/
 
     IOReturn (*ControlRequestAsync)(void *self, UInt8 pipeRef, IOUSBDevRequest *req, IOAsyncCallback1 callback, void *refCon);
     
@@ -1509,7 +1644,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      interval Pointer to an UInt8 to get the interval for polling the pipe for data (in milliseconds).
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*GetPipeProperties)(void *self, UInt8 pipeRef, UInt8 *direction, UInt8 *number, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval);
     
@@ -1524,7 +1659,7 @@ typedef struct IOUSBInterfaceStruct {
                 Returns kIOUSBPipeStalled if the pipe is stalled. See @link //apple_ref/C/instm/IOUSBInterfaceInterface/ClearPipeStall/ ClearPipeStall @/link 
                 or @link //apple_ref/C/instm/IOUSBInterfaceInterface190/ClearPipeStallBothEnds/ ClearPipeStallBothEnds @/link for
                 more information.
-*/
+	*/
 
     IOReturn (*GetPipeStatus)(void *self, UInt8 pipeRef);
     
@@ -1532,15 +1667,15 @@ typedef struct IOUSBInterfaceStruct {
     @function AbortPipe
     @abstract   Aborts any outstanding transactions on the pipe with status kIOReturnAborted.
     @discussion If there are outstanding asynchronous transactions on the pipe, the callbacks will happen. 
-                Note that this command will also clear both the halted bit and the data toggle bit on the endpoint
-                in the controller. The data toggle may need to be resynchronized. See @link //apple_ref/C/instm/IOUSBInterfaceInterface/ClearPipeStall/ ClearPipeStall @/link or 
+                Note that this command will also clear the halted bit on the endpoint
+                in the controller, but will NOT clear the data toggle bit.  If you want to clear the data toggle bit as well, see @link //apple_ref/C/instm/IOUSBInterfaceInterface/ClearPipeStall/ ClearPipeStall @/link or 
                 @link //apple_ref/C/instm/IOUSBInterfaceInterface190/ClearPipeStallBothEnds/ ClearPipeStallBothEnds @/link for more information.  The interface must be open for the pipe to exist.
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      pipeRef Index for the desired pipe (1 - GetNumEndpoints).
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
 
-*/
+	*/
 
     IOReturn (*AbortPipe)(void *self, UInt8 pipeRef);
     
@@ -1552,7 +1687,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      pipeRef Index for the desired pipe (1 - GetNumEndpoints).
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*ResetPipe)(void *self, UInt8 pipeRef);
     
@@ -1568,7 +1703,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      pipeRef Index for the desired pipe (1 - GetNumEndpoints).
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*ClearPipeStall)(void *self, UInt8 pipeRef);
     
@@ -1583,7 +1718,7 @@ typedef struct IOUSBInterfaceStruct {
                 On exit: a pointer to the number of bytes actually read from the device.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*ReadPipe)(void *self, UInt8 pipeRef, void *buf, UInt32 *size);
     
@@ -1597,7 +1732,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      size The size of the data buffer.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*WritePipe)(void *self, UInt8 pipeRef, void *buf, UInt32 size);
     
@@ -1614,7 +1749,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*ReadPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt32 size, IOAsyncCallback1 callback, void *refcon);
     
@@ -1631,7 +1766,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*WritePipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt32 size, IOAsyncCallback1 callback, void *refcon);
     
@@ -1650,7 +1785,7 @@ typedef struct IOUSBInterfaceStruct {
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*ReadIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, IOUSBIsocFrame *frameList,
                                   IOAsyncCallback1 callback, void *refcon);
@@ -1670,20 +1805,20 @@ typedef struct IOUSBInterfaceStruct {
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService,
                 or kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*WriteIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, IOUSBIsocFrame *frameList,
                                   IOAsyncCallback1 callback, void *refcon);
 } IOUSBInterfaceInterface;
 
-/*!
+	/*!
     @interface IOUSBInterfaceInterface182
     @abstract   The object you use to access a USB device interface from user space, returned by the IOUSBFamily
                 version 1.8.2 and above.
     @discussion The functions listed here include all of the functions defined for the IOUSBInterfaceInterface and
                 some new functions that are available on Mac OS X version 10.0.4 and later.
     @super  IOUSBInterfaceInterface
-*/
+	*/
 
 typedef struct IOUSBInterfaceStruct182 {
     IUNKNOWN_C_GUTS;
@@ -1735,7 +1870,7 @@ typedef struct IOUSBInterfaceStruct182 {
     @param      req Pointer to an IOUSBDevRequestTO containing the request.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
                               
     IOReturn (*ControlRequestTO)(void *self, UInt8 pipeRef, IOUSBDevRequestTO *req);
     
@@ -1755,7 +1890,7 @@ typedef struct IOUSBInterfaceStruct182 {
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*ControlRequestAsyncTO)(void *self, UInt8 pipeRef, IOUSBDevRequestTO *req, IOAsyncCallback1 callback, void *refCon);
     
@@ -1783,7 +1918,7 @@ typedef struct IOUSBInterfaceStruct182 {
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.  Returns kIOReturnBadArgument if timeout 
                 values are specified for an interrupt pipe.
-*/
+	*/
 
     IOReturn (*ReadPipeTO)(void *self, UInt8 pipeRef, void *buf, UInt32 *size, UInt32 noDataTimeout, UInt32 completionTimeout);
     
@@ -1806,7 +1941,7 @@ typedef struct IOUSBInterfaceStruct182 {
                 the entire request is not completed in this amount of time, the request will be aborted and returned.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*WritePipeTO)(void *self, UInt8 pipeRef, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout);
     
@@ -1836,7 +1971,7 @@ typedef struct IOUSBInterfaceStruct182 {
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.  Returns kIOReturnBadArgument if timeout 
                 values are specified for an interrupt pipe.
-*/
+	*/
 
     IOReturn (*ReadPipeAsyncTO)(void *self, UInt8 pipeRef, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refcon);
     
@@ -1862,7 +1997,7 @@ typedef struct IOUSBInterfaceStruct182 {
     @param      refCon Arbitrary pointer which is passed as a parameter to the callback routine.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*WritePipeAsyncTO)(void *self, UInt8 pipeRef, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refcon);
     
@@ -1874,12 +2009,12 @@ typedef struct IOUSBInterfaceStruct182 {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      si Pointer to UInt8 to hold the string index.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*USBInterfaceGetStringIndex)(void *self, UInt8 *si);
 } IOUSBInterfaceInterface182;
 
-/*!
+	/*!
     @interface IOUSBInterfaceInterface183
     @abstract   The object you use to access a USB device interface from user space, returned by the IOUSBFamily
                 version 1.8.3 and above.
@@ -1887,7 +2022,7 @@ typedef struct IOUSBInterfaceStruct182 {
                 IOUSBInterfaceInterface182, and some new functions that are available on Mac OS X version 10.1 
                 and later.
     @super IOUSBInterfaceInterface182
-*/
+	*/
 
 typedef struct IOUSBInterfaceStruct183 {
     IUNKNOWN_C_GUTS;
@@ -1948,12 +2083,12 @@ typedef struct IOUSBInterfaceStruct183 {
     @result     Returns kIOReturnExclusiveAccess if some other task has the interface open already and refuses to 
                 close it, kIOReturnError if the connection with the kernel cannot be established or kIOReturnSuccess
                 if successful.
-*/
+	*/
 
     IOReturn (*USBInterfaceOpenSeize)(void *self);
 } IOUSBInterfaceInterface183;
 
-/*!
+	/*!
     @interface IOUSBInterfaceInterface190
     @abstract   The object you use to access a USB device interface from user space, returned by the IOUSBFamily
                 version 1.9 and above.
@@ -1961,7 +2096,7 @@ typedef struct IOUSBInterfaceStruct183 {
                 IOUSBInterfaceInterface182, IOUSBInterfaceInterface183, and some new functions that are available 
                 on Mac OS X version 10.2 and later.
     @super IOUSBInterfaceInterface183
-*/
+	*/
 
 typedef struct IOUSBInterfaceStruct190 {
     IUNKNOWN_C_GUTS;
@@ -2022,7 +2157,7 @@ typedef struct IOUSBInterfaceStruct190 {
     @param      pipeRef Index for the desired pipe (1 - GetNumEndpoints).
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.
-*/
+	*/
 
     IOReturn (*ClearPipeStallBothEnds)(void *self, UInt8 pipeRef);
     
@@ -2047,7 +2182,7 @@ typedef struct IOUSBInterfaceStruct190 {
                 kIOReturnNotOpen if the interface is not open for exclusive access.  May also return kIOReturnNoBandwidth 
                 if there is not enough bandwidth available on the bus, or kIOReturnBadArgument if the desired 
                 maxPacketSize is outside of the allowed range.
-*/
+	*/
 
     IOReturn (*SetPipePolicy)(void *self, UInt8 pipeRef, UInt16 maxPacketSize, UInt8 maxInterval);
     
@@ -2063,7 +2198,7 @@ typedef struct IOUSBInterfaceStruct190 {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      bandwidth Pointer to UInt32 to hold the amount of bandwidth available (in bytes per 1ms frame).
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetBandwidthAvailable)(void *self, UInt32 *bandwidth);
     
@@ -2084,12 +2219,12 @@ typedef struct IOUSBInterfaceStruct190 {
     @param      maxPacketSize Pointer to UInt16 to hold the maxPacketSize of the endpoint.
     @param      interval Pointer to UInt8 to hold the polling interval for interrupt endpoints.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetEndpointProperties)(void *self, UInt8 alternateSetting, UInt8 endpointNumber, UInt8 direction, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval);
 } IOUSBInterfaceInterface190;
 
-/*!
+	/*!
     @interface IOUSBInterfaceInterface192
     @abstract   The object you use to access a USB device interface from user space, returned by the IOUSBFamily
                 version 1.9.2 and above.
@@ -2097,7 +2232,7 @@ typedef struct IOUSBInterfaceStruct190 {
                 IOUSBInterfaceInterface182, IOUSBInterfaceInterface183, IOUSBInterfaceInterface190, and some new 
                 functions that are available on Mac OS X version 10.2.3 and later.
     @super IOUSBInterfaceInterface190
-*/
+	*/
 
 typedef struct IOUSBInterfaceStruct192 {
     IUNKNOWN_C_GUTS;
@@ -2215,12 +2350,12 @@ typedef struct IOUSBInterfaceStruct192 {
                 kIOReturnNotOpen if the interface is not open for exclusive access.  Will return kIOUSBLowLatencyBufferNotPreviouslyAllocated 
                 or kIOUSBLowLatencyFrameListNotPreviouslyAllocated if the buffer or the frameList were 
                 not previously allocated using LowLatencyCreateBuffer().
-*/
+	*/
 
     IOReturn (*LowLatencyReadIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList,
                                          IOAsyncCallback1 callback, void *refcon);
                                          
-/*!
+	/*!
     @function LowLatencyWriteIsochPipeAsync
     @abstract   Performs an asynchronous write on an isochronous pipe and updates the frame list at primary interrupt time.
     @discussion The LowLatencyReadIsochPipeAsync() and LowLatencyWriteIsochPipeAsync() 
@@ -2286,12 +2421,12 @@ typedef struct IOUSBInterfaceStruct192 {
                 kIOReturnNotOpen if the interface is not open for exclusive access.  Will return kIOUSBLowLatencyBufferNotPreviouslyAllocated 
                 or kIOUSBLowLatencyFrameListNotPreviouslyAllocated if the buffer or the frameList were 
                 not previously allocated using LowLatencyCreateBuffer().
-*/
+	*/
 
     IOReturn (*LowLatencyWriteIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList,
                                           IOAsyncCallback1 callback, void *refcon);
                                           
-/*!
+	/*!
     @function LowLatencyCreateBuffer
     @abstract   Allocates a buffer of type bufferType.
     @discussion This function allocates a buffer of type bufferType. The buffer can then be used with 
@@ -2320,7 +2455,7 @@ typedef struct IOUSBInterfaceStruct192 {
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.  If the buffer can't be allocated, 
                 it will return kIOReturnNoMemory.
-*/
+	*/
 
     IOReturn (*LowLatencyCreateBuffer)(void * self, void **buffer, IOByteCount size, UInt32 bufferType);
     
@@ -2334,12 +2469,12 @@ typedef struct IOUSBInterfaceStruct192 {
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.  If the buffer was not previously 
                 allocated using LowLatencyCreateBuffer() it will return kIOReturnBadArgument. 
-*/
+	*/
 
     IOReturn (*LowLatencyDestroyBuffer) (void * self, void * buffer );
 } IOUSBInterfaceInterface192;
 
-/*!
+	/*!
     @interface IOUSBInterfaceInterface197
     @abstract   The object you use to access a USB device interface from user space, returned by the IOUSBFamily
                 version 1.9.7 and above.
@@ -2347,7 +2482,7 @@ typedef struct IOUSBInterfaceStruct192 {
                 IOUSBInterfaceInterface182, IOUSBInterfaceInterface183, IOUSBInterfaceInterface190, IOUSBInterfaceInterface192, 
                 and some new functions that are available on Mac OS X version 10.2.5 and later.
     @super IOUSBInterfaceInterface192
-*/
+	*/
 
 typedef struct IOUSBInterfaceStruct197 {
     IUNKNOWN_C_GUTS;
@@ -2415,7 +2550,7 @@ typedef struct IOUSBInterfaceStruct197 {
     @param      atTime Pointer to an AbsoluteTime, which should be within 1ms of the time when the bus frame number 
                 was attained.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetBusMicroFrameNumber)(void *self, UInt64 *microFrame, AbsoluteTime *atTime);
     
@@ -2432,7 +2567,7 @@ typedef struct IOUSBInterfaceStruct197 {
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      microsecondsInFrame Pointer to UInt32 to hold the number of microseconds in each USB frame.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetFrameListTime)(void *self, UInt32 *microsecondsInFrame);
     
@@ -2447,7 +2582,7 @@ typedef struct IOUSBInterfaceStruct197 {
     @param      usbFamilyVersion Pointer to a NumVersion structure that on return will contain 
                 the version of the IOUSBFamily.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
-*/
+	*/
 
     IOReturn (*GetIOUSBLibVersion)(void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
 } IOUSBInterfaceInterface197;
@@ -2516,6 +2651,7 @@ typedef struct IOUSBInterfaceStruct220{
      @abstract   Find the next descriptor of the requested type associated with the interface.
      @discussion The interface does not have to be open to use this function.
      @availability This function is only available with IOUSBInterfaceInterface220 and above.
+     @param self Pointer to the IOUSBInterfaceInterface.
      @param currentDescriptor Descriptor to start searching from, NULL to start from beginning of list.
      @param descriptorType Descriptor type to search for, or kUSBAnyDesc to return any descriptor type.
      @result Pointer to the descriptor, or NULL if no matching descriptors found.
@@ -2528,6 +2664,7 @@ typedef struct IOUSBInterfaceStruct220{
         @function FindNextAltInterface
      @discussion return alternate interface descriptor satisfying the requirements specified in request, or NULL if there aren't any.
      discussion request is updated with the properties of the returned interface.
+     @param self Pointer to the IOUSBInterfaceInterface.
      @param current interface descriptor to start searching from, NULL to start at alternate interface 0.
      @param request specifies what properties an interface must have to match.
      @result Pointer to a matching interface descriptor, or NULL if none match.
@@ -2596,9 +2733,84 @@ typedef struct IOUSBInterfaceStruct245{
     IOReturn (*GetFrameListTime)(void *self, UInt32 *microsecondsInFrame);
     IOReturn (*GetIOUSBLibVersion)(void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
     IOUSBDescriptorHeader * (*FindNextAssociatedDescriptor)(void *self, const void *currentDescriptor, UInt8 descriptorType);
-    IOUSBDescriptorHeader * (*FindNextAltInterface)(void *self, const void *current,
-													IOUSBFindInterfaceRequest *request);
+    IOUSBDescriptorHeader * (*FindNextAltInterface)(void *self, const void *current, IOUSBFindInterfaceRequest *request);
 } IOUSBInterfaceInterface245;
+
+
+typedef struct IOUSBInterfaceStruct300{
+    IUNKNOWN_C_GUTS;
+    IOReturn (*CreateInterfaceAsyncEventSource)(void *self, CFRunLoopSourceRef *source);
+    CFRunLoopSourceRef (*GetInterfaceAsyncEventSource)(void *self);
+    IOReturn (*CreateInterfaceAsyncPort)(void *self, mach_port_t *port);
+    mach_port_t (*GetInterfaceAsyncPort)(void *self);
+    IOReturn (*USBInterfaceOpen)(void *self);
+    IOReturn (*USBInterfaceClose)(void *self);
+    IOReturn (*GetInterfaceClass)(void *self, UInt8 *intfClass);
+    IOReturn (*GetInterfaceSubClass)(void *self, UInt8 *intfSubClass);
+    IOReturn (*GetInterfaceProtocol)(void *self, UInt8 *intfProtocol);
+    IOReturn (*GetDeviceVendor)(void *self, UInt16 *devVendor);
+    IOReturn (*GetDeviceProduct)(void *self, UInt16 *devProduct);
+    IOReturn (*GetDeviceReleaseNumber)(void *self, UInt16 *devRelNum);
+    IOReturn (*GetConfigurationValue)(void *self, UInt8 *configVal);
+    IOReturn (*GetInterfaceNumber)(void *self, UInt8 *intfNumber);
+    IOReturn (*GetAlternateSetting)(void *self, UInt8 *intfAltSetting);
+    IOReturn (*GetNumEndpoints)(void *self, UInt8 *intfNumEndpoints);
+    IOReturn (*GetLocationID)(void *self, UInt32 *locationID);
+    IOReturn (*GetDevice)(void *self, io_service_t *device);
+    IOReturn (*SetAlternateInterface)(void *self, UInt8 alternateSetting);
+    IOReturn (*GetBusFrameNumber)(void *self, UInt64 *frame, AbsoluteTime *atTime);
+    IOReturn (*ControlRequest)(void *self, UInt8 pipeRef, IOUSBDevRequest *req);
+    IOReturn (*ControlRequestAsync)(void *self, UInt8 pipeRef, IOUSBDevRequest *req, IOAsyncCallback1 callback, void *refCon);
+    IOReturn (*GetPipeProperties)(void *self, UInt8 pipeRef, UInt8 *direction, UInt8 *number, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval);
+    IOReturn (*GetPipeStatus)(void *self, UInt8 pipeRef);
+    IOReturn (*AbortPipe)(void *self, UInt8 pipeRef);
+    IOReturn (*ResetPipe)(void *self, UInt8 pipeRef);
+    IOReturn (*ClearPipeStall)(void *self, UInt8 pipeRef);
+    IOReturn (*ReadPipe)(void *self, UInt8 pipeRef, void *buf, UInt32 *size);
+    IOReturn (*WritePipe)(void *self, UInt8 pipeRef, void *buf, UInt32 size);
+    IOReturn (*ReadPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt32 size, IOAsyncCallback1 callback, void *refcon);
+    IOReturn (*WritePipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt32 size, IOAsyncCallback1 callback, void *refcon);
+    IOReturn (*ReadIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, IOUSBIsocFrame *frameList,
+                                   IOAsyncCallback1 callback, void *refcon);
+    IOReturn (*WriteIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, IOUSBIsocFrame *frameList,
+                                    IOAsyncCallback1 callback, void *refcon);
+    IOReturn (*ControlRequestTO)(void *self, UInt8 pipeRef, IOUSBDevRequestTO *req);
+    IOReturn (*ControlRequestAsyncTO)(void *self, UInt8 pipeRef, IOUSBDevRequestTO *req, IOAsyncCallback1 callback, void *refCon);
+    IOReturn (*ReadPipeTO)(void *self, UInt8 pipeRef, void *buf, UInt32 *size, UInt32 noDataTimeout, UInt32 completionTimeout);
+    IOReturn (*WritePipeTO)(void *self, UInt8 pipeRef, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout);
+    IOReturn (*ReadPipeAsyncTO)(void *self, UInt8 pipeRef, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refcon);
+    IOReturn (*WritePipeAsyncTO)(void *self, UInt8 pipeRef, void *buf, UInt32 size, UInt32 noDataTimeout, UInt32 completionTimeout, IOAsyncCallback1 callback, void *refcon);
+    IOReturn (*USBInterfaceGetStringIndex)(void *self, UInt8 *si);
+    IOReturn (*USBInterfaceOpenSeize)(void *self);
+    IOReturn (*ClearPipeStallBothEnds)(void *self, UInt8 pipeRef);
+    IOReturn (*SetPipePolicy)(void *self, UInt8 pipeRef, UInt16 maxPacketSize, UInt8 maxInterval);
+    IOReturn (*GetBandwidthAvailable)(void *self, UInt32 *bandwidth);
+    IOReturn (*GetEndpointProperties)(void *self, UInt8 alternateSetting, UInt8 endpointNumber, UInt8 direction, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval);
+    IOReturn (*LowLatencyReadIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList,
+                                             IOAsyncCallback1 callback, void *refcon);
+    IOReturn (*LowLatencyWriteIsochPipeAsync)(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList,
+                                              IOAsyncCallback1 callback, void *refcon);
+    IOReturn (*LowLatencyCreateBuffer)(void * self, void **buffer, IOByteCount size, UInt32 bufferType);
+    IOReturn (*LowLatencyDestroyBuffer) (void * self, void * buffer );
+    IOReturn (*GetBusMicroFrameNumber)(void *self, UInt64 *microFrame, AbsoluteTime *atTime);
+    IOReturn (*GetFrameListTime)(void *self, UInt32 *microsecondsInFrame);
+    IOReturn (*GetIOUSBLibVersion)(void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
+    IOUSBDescriptorHeader * (*FindNextAssociatedDescriptor)(void *self, const void *currentDescriptor, UInt8 descriptorType);
+    IOUSBDescriptorHeader * (*FindNextAltInterface)(void *self, const void *current, IOUSBFindInterfaceRequest *request);
+
+    /*!
+    @function GetBusFrameNumberWithTime
+    @abstract   Gets a recent frame number of the bus to which the device is attached, along with a system time corresponding to the start of that frame
+    @discussion The device does not have to be open to use this function.
+    @availability This function is only available with IOUSBInterfaceInterface300 and above.
+    @param      self Pointer to the IOUSBInterfaceInterface.
+    @param      frame Pointer to UInt64 to hold the frame number.
+    @param      atTime Pointer to a returned AbsoluteTime, which is the system time ("wall time") as close as possible to the beginning of that USB frame. The jitter on this value may be as much as 200 microseconds.
+	@result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or kIOReturnUnsupported is the bus doesn't support this function.
+	*/
+
+    IOReturn (*GetBusFrameNumberWithTime)(void *self, UInt64 *frame, AbsoluteTime *atTime);
+} IOUSBInterfaceInterface300;
 
 
 #define kIOUSBDeviceClassName		"IOUSBDevice"

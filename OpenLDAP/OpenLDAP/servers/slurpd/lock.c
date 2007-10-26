@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/lock.c,v 1.19.2.2 2004/01/01 18:16:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/lock.c,v 1.22.2.2 2006/01/03 22:16:26 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,13 +62,8 @@ lock_fopen(
 	snprintf( buf, sizeof buf, "%s.lock", fname );
 
 	if ( (*lfp = fopen( buf, "w" )) == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( SLURPD, ERR, "lock_fopen: "
-			"Error: could not open \"%s\"\n", buf, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"Error: could not open \"%s\"\n", buf, 0, 0 );
-#endif
 		return( NULL );
 	}
 
@@ -77,13 +72,8 @@ lock_fopen(
 
 	/* open the log file */
 	if ( (fp = fopen( fname, type )) == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( SLURPD, ERR, "lock_fopen: "
-			"Error: could not open \"%s\"\n", fname, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"Error: could not open \"%s\"\n", fname, 0, 0 );
-#endif
 		ldap_unlockf( fileno(*lfp) );
 		fclose( *lfp );
 		*lfp = NULL;
@@ -101,11 +91,13 @@ lock_fclose(
     FILE	*lfp
 )
 {
+	int rc = fclose( fp );
+
 	/* unlock */
 	ldap_unlockf( fileno(lfp) );
 	fclose( lfp );
 
-	return( fclose( fp ) );
+	return( rc );
 }
 
 
@@ -121,15 +113,9 @@ acquire_lock(
 )
 {
     if (( *rfp = lock_fopen( file, "r+", lfp )) == NULL ) {
-#ifdef NEW_LOGGING
-	LDAP_LOG ( SLURPD, ERR, "acquire_lock: "
-		"Error: acquire_lock(%ld): Could not acquire lock on \"%s\"\n",
-		(long) getpid(), file, 0 );
-#else
 	Debug( LDAP_DEBUG_ANY,
 		"Error: acquire_lock(%ld): Could not acquire lock on \"%s\"\n",
 		(long) getpid(), file, 0);
-#endif
 	return( -1 );
     }
     return( 0 );
@@ -149,15 +135,9 @@ relinquish_lock(
 )
 {
     if ( lock_fclose( rfp, lfp ) == EOF ) {
-#ifdef NEW_LOGGING
-	LDAP_LOG ( SLURPD, ERR, "relinguish_lock: "
-		"Error: relinquish_lock (%ld): Error closing \"%s\"\n",
-		(long) getpid(), file, 0 );
-#else
 	Debug( LDAP_DEBUG_ANY,
 		"Error: relinquish_lock (%ld): Error closing \"%s\"\n",
 		(long) getpid(), file, 0 );
-#endif
 	return( -1 );
     }
     return( 0 );

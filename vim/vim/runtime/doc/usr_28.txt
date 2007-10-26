@@ -1,4 +1,4 @@
-*usr_28.txt*	For Vim version 6.2.  Last change: 2002 Aug 01
+*usr_28.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -350,7 +350,7 @@ You can try it out on this text:
 Explanation for the 'foldexpr' used in the example (inside out):
    getline(v:lnum)			gets the current line
    substitute(...,'\\s','','g')		removes all white space from the line
-   substitute(...,'[^>].*','',''))	removes everything after leading '>'s
+   substitute(...,'[^>].*','','')	removes everything after leading '>'s
    strlen(...)				counts the length of the string, which
 					is the number of '>'s found
 
@@ -366,6 +366,9 @@ the command-line completion: >
 
 Where <Tab> is a real Tab.  Vim will fill in the previous value, which you can
 then edit.
+
+When the expression gets more complicated you should put it in a function and
+set 'foldexpr' to call that function.
 
 More about folding by expression in the reference manual: |fold-expr|
 

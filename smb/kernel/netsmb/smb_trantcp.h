@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_trantcp.h,v 1.8 2004/08/03 23:50:01 lindak Exp $
  */
 #ifndef _NETSMB_SMB_TRANTCP_H_
 #define	_NETSMB_SMB_TRANTCP_H_
@@ -69,8 +70,8 @@ struct nbpcb {
 
 	enum nbstate	nbp_state;
 	struct timespec	nbp_timo;
-	int		nbp_sndbuf;
-	int		nbp_rcvbuf;
+	u_int32_t		nbp_sndbuf;
+	u_int32_t		nbp_rcvbuf;
 	void *		nbp_selectid;
 	void		(* nbp_upcall)(void *);
 	lck_mtx_t	nbp_lock;
@@ -98,7 +99,8 @@ extern lck_attr_t *nbp_lck_attr;
 
 extern struct smb_tran_desc smb_tran_nbtcp_desc;
 
-#define SMBSBTIMO 5 /* seconds for sockbuf timeouts */
+#define SMBSBTIMO		5 /* seconds for sockbuf timeouts */
+#define SMB_SB_RCVTIMEO 15 /* seconds before we give up on a sock_receivembuf */
 
 #endif /* _KERNEL */
 

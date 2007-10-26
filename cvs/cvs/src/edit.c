@@ -12,52 +12,49 @@
 
 #include "cvs.h"
 #include "getline.h"
+#include "yesno.h"
 #include "watch.h"
 #include "edit.h"
 #include "fileattr.h"
 
-static int watch_onoff PROTO ((int, char **));
+static int watch_onoff (int, char **);
 
+static bool check_edited = false;
 static int setting_default;
 static int turning_on;
 
-static int setting_tedit;
-static int setting_tunedit;
-static int setting_tcommit;
+static bool setting_tedit;
+static bool setting_tunedit;
+static bool setting_tcommit;
 
-static int onoff_fileproc PROTO ((void *callerdat, struct file_info *finfo));
+
 
 static int
-onoff_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+onoff_fileproc (void *callerdat, struct file_info *finfo)
 {
+    fileattr_get0 (finfo->file, "_watched");
     fileattr_set (finfo->file, "_watched", turning_on ? "" : NULL);
     return 0;
 }
 
 
 
-static int onoff_filesdoneproc PROTO ((void *, int, const char *, const char *,
-                                       List *));
-
 static int
-onoff_filesdoneproc (callerdat, err, repository, update_dir, entries)
-    void *callerdat;
-    int err;
-    const char *repository;
-    const char *update_dir;
-    List *entries;
+onoff_filesdoneproc (void *callerdat, int err, const char *repository,
+                     const char *update_dir, List *entries)
 {
     if (setting_default)
+    {
+	fileattr_get0 (NULL, "_watched");
 	fileattr_set (NULL, "_watched", turning_on ? "" : NULL);
+    }
     return err;
 }
 
+
+
 static int
-watch_onoff (argc, argv)
-    int argc;
-    char **argv;
+watch_onoff (int argc, char **argv)
 {
     int c;
     int local = 0;
@@ -102,41 +99,34 @@ watch_onoff (argc, argv)
 
     setting_default = (argc <= 0);
 
-    lock_tree_for_write (argc, argv, local, W_LOCAL, 0);
+    lock_tree_promotably (argc, argv, local, W_LOCAL, 0);
 
-    err = start_recursion (onoff_fileproc, onoff_filesdoneproc,
-			   (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-			   argc, argv, local, W_LOCAL, 0, CVS_LOCK_NONE,
-			   (char *) NULL, 0, (char *) NULL);
+    err = start_recursion (onoff_fileproc, onoff_filesdoneproc, NULL, NULL,
+			   NULL, argc, argv, local, W_LOCAL, 0, CVS_LOCK_WRITE,
+			   NULL, 0, NULL);
 
     Lock_Cleanup ();
     return err;
 }
 
 int
-watch_on (argc, argv)
-    int argc;
-    char **argv;
+watch_on (int argc, char **argv)
 {
     turning_on = 1;
     return watch_onoff (argc, argv);
 }
 
 int
-watch_off (argc, argv)
-    int argc;
-    char **argv;
+watch_off (int argc, char **argv)
 {
     turning_on = 0;
     return watch_onoff (argc, argv);
 }
-
-static int dummy_fileproc PROTO ((void *callerdat, struct file_info *finfo));
+
+
 
 static int
-dummy_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+dummy_fileproc (void *callerdat, struct file_info *finfo)
 {
     /* This is a pretty hideous hack, but the gist of it is that recurse.c
        won't call notify_check unless there is a fileproc, so we can't just
@@ -144,18 +134,15 @@ dummy_fileproc (callerdat, finfo)
     return 0;
 }
 
-static int ncheck_fileproc PROTO ((void *callerdat, struct file_info *finfo));
+
 
 /* Check for and process notifications.  Local only.  I think that doing
    this as a fileproc is the only way to catch all the
    cases (e.g. foo/bar.c), even though that means checking over and over
    for the same CVSADM_NOTIFY file which we removed the first time we
    processed the directory.  */
-
 static int
-ncheck_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+ncheck_fileproc (void *callerdat, struct file_info *finfo)
 {
     int notif_type;
     char *filename;
@@ -207,8 +194,8 @@ ncheck_fileproc (callerdat, finfo)
 	    continue;
 	*cp = '\0';
 
-	notify_do (notif_type, filename, getcaller (), val, watches,
-		   finfo->repository);
+	notify_do (notif_type, filename, finfo->update_dir, getcaller (), val,
+		   watches, finfo->repository);
     }
     free (line);
 
@@ -223,15 +210,12 @@ ncheck_fileproc (callerdat, finfo)
     return 0;
 }
 
-static int send_notifications PROTO ((int, char **, int));
+
 
 /* Look through the CVSADM_NOTIFY file and process each item there
    accordingly.  */
 static int
-send_notifications (argc, argv, local)
-    int argc;
-    char **argv;
-    int local;
+send_notifications (int argc, char **argv, int local)
 {
     int err = 0;
 
@@ -247,10 +231,8 @@ send_notifications (argc, argv, local)
 	    ign_setup ();
 	}
 
-	err += start_recursion (dummy_fileproc, (FILESDONEPROC) NULL,
-				(DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-				argc, argv, local, W_LOCAL, 0, 0, (char *)NULL,
-				0, (char *) NULL);
+	err += start_recursion (dummy_fileproc, NULL, NULL, NULL, NULL, argc,
+				argv, local, W_LOCAL, 0, 0, NULL, 0, NULL);
 
 	send_to_server ("noop\012", 0);
 	if (strcmp (cvs_cmd_name, "release") == 0)
@@ -263,51 +245,160 @@ send_notifications (argc, argv, local)
     {
 	/* Local.  */
 
-	lock_tree_for_write (argc, argv, local, W_LOCAL, 0);
-	err += start_recursion (ncheck_fileproc, (FILESDONEPROC) NULL,
-				(DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-				argc, argv, local, W_LOCAL, 0, 0, (char *)NULL,
-				0, (char *) NULL);
+	err += start_recursion (ncheck_fileproc, NULL, NULL, NULL, NULL, argc,
+				argv, local, W_LOCAL, 0, CVS_LOCK_WRITE, NULL,
+				0, NULL);
 	Lock_Cleanup ();
     }
     return err;
 }
-
-static int edit_fileproc PROTO ((void *callerdat, struct file_info *finfo));
+
+
+
+void editors_output (const char *fullname, const char *p)
+{
+    cvs_output (fullname, 0);
+
+    while (1)
+    {
+        cvs_output ("\t", 1);
+        while (*p != '>' && *p != '\0')
+            cvs_output (p++, 1);
+        if (*p == '\0')
+        {
+            /* Only happens if attribute is misformed.  */
+            cvs_output ("\n", 1);
+            break;
+        }
+        ++p;
+        cvs_output ("\t", 1);
+        while (1)
+        {
+            while (*p != '+' && *p != ',' && *p != '\0')
+                cvs_output (p++, 1);
+            if (*p == '\0')
+            {
+                cvs_output ("\n", 1);
+                return;
+            }
+            if (*p == ',')
+            {
+                ++p;
+                break;
+            }
+            ++p;
+            cvs_output ("\t", 1);
+        }
+        cvs_output ("\n", 1);
+    }
+}
+
+
+
+static int find_editors_and_output (struct file_info *finfo)
+{
+    char *them;
+
+    them = fileattr_get0 (finfo->file, "_editors");
+    if (them == NULL)
+        return 0;
+
+    editors_output (finfo->fullname, them);
+
+    return 0;
+}
+
+
+
+/* Handle the client-side details of editing a file.
+ *
+ * These args could be const but this needs to fit the call_in_directory API.
+ */
+void
+edit_file (void *data, List *ent_list, const char *short_pathname,
+	   const char *filename)
+{
+    Node *node;
+    struct file_info finfo;
+    char *basefilename;
+
+    xchmod (filename, 1);
+
+    mkdir_if_needed (CVSADM_BASE);
+    basefilename = Xasprintf ("%s/%s", CVSADM_BASE, filename);
+    copy_file (filename, basefilename);
+    free (basefilename);
+
+    node = findnode_fn (ent_list, filename);
+    if (node != NULL)
+    {
+	finfo.file = filename;
+	finfo.fullname = short_pathname;
+	finfo.update_dir = dir_name (short_pathname);
+	base_register (&finfo, ((Entnode *) node->data)->version);
+	free ((char *)finfo.update_dir);
+    }
+}
+
+
 
 static int
-edit_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+edit_fileproc (void *callerdat, struct file_info *finfo)
 {
     FILE *fp;
     time_t now;
     char *ascnow;
-    char *basefilename;
+    Vers_TS *vers;
+
+#if defined (CLIENT_SUPPORT)
+    assert (!(current_parsed_root->isremote && check_edited));
+#else /* !CLIENT_SUPPORT */
+    assert (!check_edited);
+#endif /* CLIENT_SUPPORT */
 
     if (noexec)
 	return 0;
 
-    /* This is a somewhat screwy way to check for this, because it
-       doesn't help errors other than the nonexistence of the file
-       (e.g. permissions problems).  It might be better to rearrange
-       the code so that CVSADM_NOTIFY gets written only after the
-       various actions succeed (but what if only some of them
-       succeed).  */
-    if (!isfile (finfo->file))
+    vers = Version_TS (finfo, NULL, NULL, NULL, 1, 0);
+
+    if (!vers->vn_user)
     {
 	error (0, 0, "no such file %s; ignored", finfo->fullname);
-	return 0;
+	return 1;
     }
 
-    fp = open_file (CVSADM_NOTIFY, "a");
+#ifdef CLIENT_SUPPORT
+    if (!current_parsed_root->isremote)
+#endif /* CLIENT_SUPPORT */
+    {
+        char *editors = fileattr_get0 (finfo->file, "_editors");
+        if (editors)
+        {
+	    if (check_edited)
+	    {
+		/* In the !CHECK_EDIT case, this message is printed by
+		 * server_notify.
+		 */
+		if (!quiet)
+		    editors_output (finfo->fullname, editors);
+		 /* Now warn the user if we skip the file, then return.  */
+		if (!really_quiet)
+		    error (0, 0, "Skipping file `%s' due to existing editors.",
+			   finfo->fullname);
+		return 1;
+	    }
+            free (editors);
+        }
+    }
+
+    fp = xfopen (CVSADM_NOTIFY, "a");
 
     (void) time (&now);
     ascnow = asctime (gmtime (&now));
     ascnow[24] = '\0';
     /* Fix non-standard format.  */
     if (ascnow[8] == '0') ascnow[8] = ' ';
-    fprintf (fp, "E%s\t%s GMT\t%s\t%s\t", finfo->file,
+    fprintf (fp, "E%s\t%s -0000\t%s\t%s\t", finfo->file,
 	     ascnow, hostname, CurDir);
     if (setting_tedit)
 	fprintf (fp, "E");
@@ -326,8 +417,6 @@ edit_fileproc (callerdat, finfo)
 		   CVSADM_NOTIFY);
     }
 
-    xchmod (finfo->file, 1);
-
     /* Now stash the file away in CVSADM so that unedit can revert even if
        it can't communicate with the server.  We stash away a writable
        copy so that if the user removes the working file, then restores it
@@ -336,58 +425,57 @@ edit_fileproc (callerdat, finfo)
     /* Could save a system call by only calling mkdir_if_needed if
        trying to create the output file fails.  But copy_file isn't
        set up to facilitate that.  */
-    mkdir_if_needed (CVSADM_BASE);
-    basefilename = xmalloc (10 + sizeof CVSADM_BASE + strlen (finfo->file));
-    strcpy (basefilename, CVSADM_BASE);
-    strcat (basefilename, "/");
-    strcat (basefilename, finfo->file);
-    copy_file (finfo->file, basefilename);
-    free (basefilename);
-
-    {
-	Node *node;
-
-	node = findnode_fn (finfo->entries, finfo->file);
-	if (node != NULL)
-	    base_register (finfo, ((Entnode *) node->data)->version);
-    }
+#ifdef SERVER_SUPPORT
+    if (server_active)
+	server_edit_file (finfo);
+    else
+#endif /* SERVER_SUPPORT */
+	edit_file (NULL, finfo->entries, finfo->fullname, finfo->file);
 
     return 0;
 }
 
 static const char *const edit_usage[] =
 {
-    "Usage: %s %s [-lR] [files...]\n",
-    "-l: Local directory only, not recursive\n",
-    "-R: Process directories recursively\n",
-    "-a: Specify what actions for temporary watch, one of\n",
-    "    edit,unedit,commit,all,none\n",
-    "(Specify the --help global option for a list of other help options)\n",
+    "Usage: %s %s [-lRcf] [-a <action>]... [<file>]...\n",
+    "-l\tLocal directory only, not recursive.\n",
+    "-R\tProcess directories recursively (default).\n",
+    "-a\tSpecify action to register for temporary watch, one of:\n",
+    "  \t`edit', `unedit', `commit', `all', `none' (defaults to `all').\n",
+    "-c\tCheck for <file>s edited by others and abort if found.\n",
+    "-f\tAllow edit if <file>s are edited by others (default).\n",
+    "(Specify the --help global option for a list of other help options.)\n",
     NULL
 };
 
 int
-edit (argc, argv)
-    int argc;
-    char **argv;
+edit (int argc, char **argv)
 {
     int local = 0;
     int c;
-    int err;
-    int a_omitted;
+    int err = 0;
+    bool a_omitted, a_all, a_none;
 
     if (argc == -1)
 	usage (edit_usage);
 
-    a_omitted = 1;
-    setting_tedit = 0;
-    setting_tunedit = 0;
-    setting_tcommit = 0;
+    a_omitted = true;
+    a_all = false;
+    a_none = false;
+    setting_tedit = false;
+    setting_tunedit = false;
+    setting_tcommit = false;
     optind = 0;
-    while ((c = getopt (argc, argv, "+lRa:")) != -1)
+    while ((c = getopt (argc, argv, "+cflRa:")) != -1)
     {
 	switch (c)
 	{
+            case 'c':
+                check_edited = true;
+                break;
+            case 'f':
+                check_edited = false;
+                break;
 	    case 'l':
 		local = 1;
 		break;
@@ -395,24 +483,28 @@ edit (argc, argv)
 		local = 0;
 		break;
 	    case 'a':
-		a_omitted = 0;
+		a_omitted = false;
 		if (strcmp (optarg, "edit") == 0)
-		    setting_tedit = 1;
+		    setting_tedit = true;
 		else if (strcmp (optarg, "unedit") == 0)
-		    setting_tunedit = 1;
+		    setting_tunedit = true;
 		else if (strcmp (optarg, "commit") == 0)
-		    setting_tcommit = 1;
+		    setting_tcommit = true;
 		else if (strcmp (optarg, "all") == 0)
 		{
-		    setting_tedit = 1;
-		    setting_tunedit = 1;
-		    setting_tcommit = 1;
+		    a_all = true;
+		    a_none = false;
+		    setting_tedit = true;
+		    setting_tunedit = true;
+		    setting_tcommit = true;
 		}
 		else if (strcmp (optarg, "none") == 0)
 		{
-		    setting_tedit = 0;
-		    setting_tunedit = 0;
-		    setting_tcommit = 0;
+		    a_none = true;
+		    a_all = false;
+		    setting_tedit = false;
+		    setting_tunedit = false;
+		    setting_tcommit = false;
 		}
 		else
 		    usage (edit_usage);
@@ -426,13 +518,6 @@ edit (argc, argv)
     argc -= optind;
     argv += optind;
 
-    if (a_omitted)
-    {
-	setting_tedit = 1;
-	setting_tunedit = 1;
-	setting_tcommit = 1;
-    }
-
     if (strpbrk (hostname, "+,>;=\t\n") != NULL)
 	error (1, 0,
 	       "host name (%s) contains an invalid character (+,>;=\\t\\n)",
@@ -442,37 +527,90 @@ edit (argc, argv)
 "current directory (%s) contains an invalid character (+,>;=\\t\\n)",
 	       CurDir);
 
-    /* No need to readlock since we aren't doing anything to the
-       repository.  */
-    err = start_recursion (edit_fileproc, (FILESDONEPROC) NULL,
-			   (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-			   argc, argv, local, W_LOCAL, 0, 0, (char *) NULL,
-			   0, (char *) NULL);
+#ifdef CLIENT_SUPPORT
+    if (check_edited && current_parsed_root->isremote)
+    {
+	/* When CHECK_EDITED, we might as well contact the server and let it do
+	 * the work since we don't want an edit unless we know it is safe.
+	 *
+	 * When !CHECK_EDITED, we set up notifications and then attempt to
+	 * contact the server in order to allow disconnected edits.
+	 */
+	start_server();
+
+	if (!supported_request ("edit"))
+	    error (1, 0, "Server does not support enforced advisory locks.");
+
+	ign_setup();
+
+	send_to_server ("Hostname ", 0);
+	send_to_server (hostname, 0);
+	send_to_server ("\012", 1);
+	send_to_server ("LocalDir ", 0);
+	send_to_server (CurDir, 0);
+	send_to_server ("\012", 1);
+
+	if (local)
+	    send_arg ("-l");
+	send_arg ("-c");
+	if (!a_omitted)
+	{
+	    if (a_all)
+		option_with_arg ("-a", "all");
+	    else if (a_none)
+		option_with_arg ("-a", "none");
+	    else
+	    {
+		if (setting_tedit)
+		    option_with_arg ("-a", "edit");
+		if (setting_tunedit)
+		    option_with_arg ("-a", "unedit");
+		if (setting_tcommit)
+		    option_with_arg ("-a", "commit");
+	    }
+	}
+	send_arg ("--");
+	send_files (argc, argv, local, 0, SEND_NO_CONTENTS);
+	send_file_names (argc, argv, SEND_EXPAND_WILD);
+	send_to_server ("edit\012", 0);
+	return get_responses_and_close ();
+    }
+#endif /* CLIENT_SUPPORT */
+
+    /* Now, either SERVER_ACTIVE, local mode, or !CHECK_EDITED.  */
+
+    if (a_omitted)
+    {
+	setting_tedit = true;
+	setting_tunedit = true;
+	setting_tcommit = true;
+    }
+
+    TRACE (TRACE_DATA, "edit(): EUC: %d%d%d edit-check: %d",
+	   setting_tedit, setting_tunedit, setting_tcommit, check_edited);
+
+    err = start_recursion (edit_fileproc, NULL, NULL, NULL, NULL, argc, argv,
+			   local, W_LOCAL, 0, 0, NULL, 0, NULL);
 
     err += send_notifications (argc, argv, local);
 
     return err;
 }
 
-static int unedit_fileproc PROTO ((void *callerdat, struct file_info *finfo));
+static int unedit_fileproc (void *callerdat, struct file_info *finfo);
 
 static int
-unedit_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+unedit_fileproc (void *callerdat, struct file_info *finfo)
 {
     FILE *fp;
     time_t now;
     char *ascnow;
-    char *basefilename;
+    char *basefilename = NULL;
 
     if (noexec)
 	return 0;
 
-    basefilename = xmalloc (10 + sizeof CVSADM_BASE + strlen (finfo->file));
-    strcpy (basefilename, CVSADM_BASE);
-    strcat (basefilename, "/");
-    strcat (basefilename, finfo->file);
+    basefilename = Xasprintf ("%s/%s", CVSADM_BASE, finfo->file);
     if (!isfile (basefilename))
     {
 	/* This file apparently was never cvs edit'd (e.g. we are uneditting
@@ -484,6 +622,8 @@ unedit_fileproc (callerdat, finfo)
     if (xcmp (finfo->file, basefilename) != 0)
     {
 	printf ("%s has been modified; revert changes? ", finfo->fullname);
+	fflush (stderr);
+	fflush (stdout);
 	if (!yesno ())
 	{
 	    /* "no".  */
@@ -494,14 +634,14 @@ unedit_fileproc (callerdat, finfo)
     rename_file (basefilename, finfo->file);
     free (basefilename);
 
-    fp = open_file (CVSADM_NOTIFY, "a");
+    fp = xfopen (CVSADM_NOTIFY, "a");
 
     (void) time (&now);
     ascnow = asctime (gmtime (&now));
     ascnow[24] = '\0';
     /* Fix non-standard format.  */
     if (ascnow[8] == '0') ascnow[8] = ' ';
-    fprintf (fp, "U%s\t%s GMT\t%s\t%s\t\n", finfo->file,
+    fprintf (fp, "U%s\t%s -0000\t%s\t%s\t\n", finfo->file,
 	     ascnow, hostname, CurDir);
 
     if (fclose (fp) < 0)
@@ -572,17 +712,15 @@ unedit_fileproc (callerdat, finfo)
 
 static const char *const unedit_usage[] =
 {
-    "Usage: %s %s [-lR] [files...]\n",
-    "-l: Local directory only, not recursive\n",
-    "-R: Process directories recursively\n",
-    "(Specify the --help global option for a list of other help options)\n",
+    "Usage: %s %s [-lR] [<file>]...\n",
+    "-l\tLocal directory only, not recursive.\n",
+    "-R\tProcess directories recursively (default).\n",
+    "(Specify the --help global option for a list of other help options.)\n",
     NULL
 };
 
 int
-unedit (argc, argv)
-    int argc;
-    char **argv;
+unedit (int argc, char **argv)
 {
     int local = 0;
     int c;
@@ -613,28 +751,24 @@ unedit (argc, argv)
 
     /* No need to readlock since we aren't doing anything to the
        repository.  */
-    err = start_recursion (unedit_fileproc, (FILESDONEPROC) NULL,
-			   (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-			   argc, argv, local, W_LOCAL, 0, 0, (char *)NULL,
-			   0,  (char *) NULL);
+    err = start_recursion (unedit_fileproc, NULL, NULL, NULL, NULL, argc, argv,
+			   local, W_LOCAL, 0, 0, NULL, 0, NULL);
 
     err += send_notifications (argc, argv, local);
 
     return err;
 }
 
+
+
 void
-mark_up_to_date (file)
-    const char *file;
+mark_up_to_date (const char *file)
 {
     char *base;
 
     /* The file is up to date, so we better get rid of an out of
        date file in CVSADM_BASE.  */
-    base = xmalloc (strlen (file) + 80);
-    strcpy (base, CVSADM_BASE);
-    strcat (base, "/");
-    strcat (base, file);
+    base = Xasprintf ("%s/%s", CVSADM_BASE, file);
     if (unlink_file (base) < 0 && ! existence_error (errno))
 	error (0, errno, "cannot remove %s", file);
     free (base);
@@ -643,10 +777,7 @@ mark_up_to_date (file)
 
 
 void
-editor_set (filename, editor, val)
-    const char *filename;
-    const char *editor;
-    const char *val;
+editor_set (const char *filename, const char *editor, const char *val)
 {
     char *edlist;
     char *newlist;
@@ -678,66 +809,44 @@ struct notify_proc_args {
 
 
 
-/* Pass as a static until we get around to fixing Parse_Info to pass along
-   a void * where we can stash it.  */
-static struct notify_proc_args *notify_args;
-
-
-
-static int notify_proc PROTO ((const char *repository, const char *filter));
-
 static int
-notify_proc (repository, filter)
-    const char *repository;
-    const char *filter;
+notify_proc (const char *repository, const char *filter, void *closure)
 {
+    char *cmdline;
     FILE *pipefp;
-    char *prog;
-    char *expanded_prog;
-    const char *p;
-    char *q;
-    const char *srepos;
-    struct notify_proc_args *args = notify_args;
+    const char *srepos = Short_Repository (repository);
+    struct notify_proc_args *args = closure;
 
-    srepos = Short_Repository (repository);
-    prog = xmalloc (strlen (filter) + strlen (args->notifyee) + 1);
-    /* Copy FILTER to PROG, replacing the first occurrence of %s with
-       the notifyee.  We only allocated enough memory for one %s, and I doubt
-       there is a need for more.  */
-    for (p = filter, q = prog; *p != '\0'; ++p)
+    /*
+     * Cast any NULL arguments as appropriate pointers as this is an
+     * stdarg function and we need to be certain the caller gets what
+     * is expected.
+     */
+    cmdline = format_cmdline (
+#ifdef SUPPORT_OLD_INFO_FMT_STRINGS
+			      false, srepos,
+#endif /* SUPPORT_OLD_INFO_FMT_STRINGS */
+			      filter,
+			      "c", "s", cvs_cmd_name,
+#ifdef SERVER_SUPPORT
+			      "R", "s", referrer ? referrer->original : "NONE",
+#endif /* SERVER_SUPPORT */
+			      "p", "s", srepos,
+			      "r", "s", current_parsed_root->directory,
+			      "s", "s", args->notifyee,
+			      (char *) NULL);
+    if (!cmdline || !strlen (cmdline))
     {
-	if (p[0] == '%')
-	{
-	    if (p[1] == 's')
-	    {
-		strcpy (q, args->notifyee);
-		q += strlen (q);
-		strcpy (q, p + 2);
-		q += strlen (q);
-		break;
-	    }
-	    else
-		continue;
-	}
-	*q++ = *p;
-    }
-    *q = '\0';
-
-    /* FIXME: why are we calling expand_proc?  Didn't we already
-       expand it in Parse_Info, before passing it to notify_proc?  */
-    expanded_prog = expand_path (prog, "notify", 0);
-    if (!expanded_prog)
-    {
-	free (prog);
+	if (cmdline) free (cmdline);
+	error (0, 0, "pretag proc resolved to the empty string!");
 	return 1;
     }
 
-    pipefp = run_popen (expanded_prog, "w");
+    pipefp = run_popen (cmdline, "w");
     if (pipefp == NULL)
     {
-	error (0, errno, "cannot write entry to notify filter: %s", prog);
-	free (prog);
-	free (expanded_prog);
+	error (0, errno, "cannot write entry to notify filter: %s", cmdline);
+	free (cmdline);
 	return 1;
     }
 
@@ -748,22 +857,19 @@ notify_proc (repository, filter)
     /* Lots more potentially useful information we could add here; see
        logfile_write for inspiration.  */
 
-    free (prog);
-    free (expanded_prog);
-    return (pclose (pipefp));
+    free (cmdline);
+    return pclose (pipefp);
 }
+
+
 
 /* FIXME: this function should have a way to report whether there was
    an error so that server.c can know whether to report Notified back
    to the client.  */
 void
-notify_do (type, filename, who, val, watches, repository)
-    int type;
-    const char *filename;
-    const char *who;
-    const char *val;
-    const char *watches;
-    const char *repository;
+notify_do (int type, const char *filename, const char *update_dir,
+	   const char *who, const char *val, const char *watches,
+	   const char *repository)
 {
     static struct addremove_args blank;
     struct addremove_args args;
@@ -771,6 +877,32 @@ notify_do (type, filename, who, val, watches, repository)
     char *p;
     char *endp;
     char *nextp;
+
+    /* Print out information on current editors if we were called during an
+     * edit.
+     */
+    if (type == 'E' && !check_edited && !quiet)
+    {
+	char *editors = fileattr_get0 (filename, "_editors");
+	if (editors)
+	{
+	    /* In the CHECK_EDIT case, this message is printed by
+	     * edit_check.  It needs to be done here too since files
+	     * which are found to be edited when CHECK_EDIT are not
+	     * added to the notify list.
+	     */
+	    const char *tmp;
+	    if (update_dir && *update_dir)
+		tmp  = Xasprintf ("%s/%s", update_dir, filename);
+	    else
+		tmp = filename;
+
+	    editors_output (tmp, editors);
+
+	    if (update_dir && *update_dir) free ((char *)tmp);
+	    free (editors);
+	}
+    }
 
     /* Initialize fields to 0, NULL, or 0.0.  */
     args = blank;
@@ -882,15 +1014,8 @@ notify_do (type, filename, who, val, watches, repository)
 	    size_t line_len = 0;
 
 	    args.notifyee = NULL;
-	    usersname = xmalloc (strlen (current_parsed_root->directory)
-				 + sizeof CVSROOTADM
-				 + sizeof CVSROOTADM_USERS
-				 + 20);
-	    strcpy (usersname, current_parsed_root->directory);
-	    strcat (usersname, "/");
-	    strcat (usersname, CVSROOTADM);
-	    strcat (usersname, "/");
-	    strcat (usersname, CVSROOTADM_USERS);
+	    usersname = Xasprintf ("%s/%s/%s", current_parsed_root->directory,
+				   CVSROOTADM, CVSROOTADM_USERS);
 	    fp = CVS_FOPEN (usersname, "r");
 	    if (fp == NULL && !existence_error (errno))
 		error (0, errno, "cannot read %s", usersname);
@@ -934,18 +1059,17 @@ notify_do (type, filename, who, val, watches, repository)
 		args.notifyee = tmp;
 	    }
 
-	    notify_args = &args;
 	    args.type = notif;
 	    args.who = who;
 	    args.file = filename;
 
-	    (void) Parse_Info (CVSROOTADM_NOTIFY, repository, notify_proc, 1);
-
+	    (void) Parse_Info (CVSROOTADM_NOTIFY, repository, notify_proc,
+			       PIOPT_ALL, &args);
             /* It's okay to cast out the const for the free() below since we
              * just allocated this a few lines above.  The const was for
              * everybody else.
              */
-            free ((char *)args.notifyee);
+	    free ((char *)args.notifyee);
 	}
 
 	p = nextp;
@@ -980,18 +1104,18 @@ notify_do (type, filename, who, val, watches, repository)
     }
 }
 
+
+
 #ifdef CLIENT_SUPPORT
 /* Check and send notifications.  This is only for the client.  */
 void
-notify_check (repository, update_dir)
-    const char *repository;
-    const char *update_dir;
+notify_check (const char *repository, const char *update_dir)
 {
     FILE *fp;
     char *line = NULL;
     size_t line_len = 0;
 
-    if (! server_started)
+    if (!server_started)
 	/* We are in the midst of a command which is not to talk to
 	   the server (e.g. the first phase of a cvs edit).  Just chill
 	   out, we'll catch the notifications on the flip side.  */
@@ -1041,71 +1165,25 @@ notify_check (repository, update_dir)
 
 static const char *const editors_usage[] =
 {
-    "Usage: %s %s [-lR] [files...]\n",
-    "\t-l\tProcess this directory only (not recursive).\n",
-    "\t-R\tProcess directories recursively.\n",
-    "(Specify the --help global option for a list of other help options)\n",
+    "Usage: %s %s [-lR] [<file>]...\n",
+    "-l\tProcess this directory only (not recursive).\n",
+    "-R\tProcess directories recursively (default).\n",
+    "(Specify the --help global option for a list of other help options.)\n",
     NULL
 };
 
-static int editors_fileproc PROTO ((void *callerdat, struct file_info *finfo));
+
 
 static int
-editors_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+editors_fileproc (void *callerdat, struct file_info *finfo)
 {
-    char *them;
-    char *p;
-
-    them = fileattr_get0 (finfo->file, "_editors");
-    if (them == NULL)
-	return 0;
-
-    cvs_output (finfo->fullname, 0);
-
-    p = them;
-    while (1)
-    {
-	cvs_output ("\t", 1);
-	while (*p != '>' && *p != '\0')
-	    cvs_output (p++, 1);
-	if (*p == '\0')
-	{
-	    /* Only happens if attribute is misformed.  */
-	    cvs_output ("\n", 1);
-	    break;
-	}
-	++p;
-	cvs_output ("\t", 1);
-	while (1)
-	{
-	    while (*p != '+' && *p != ',' && *p != '\0')
-		cvs_output (p++, 1);
-	    if (*p == '\0')
-	    {
-		cvs_output ("\n", 1);
-		goto out;
-	    }
-	    if (*p == ',')
-	    {
-		++p;
-		break;
-	    }
-	    ++p;
-	    cvs_output ("\t", 1);
-	}
-	cvs_output ("\n", 1);
-    }
-  out:;
-    free (them);
-    return 0;
+    return find_editors_and_output (finfo);
 }
 
+
+
 int
-editors (argc, argv)
-    int argc;
-    char **argv;
+editors (int argc, char **argv)
 {
     int local = 0;
     int c;
@@ -1149,8 +1227,7 @@ editors (argc, argv)
     }
 #endif /* CLIENT_SUPPORT */
 
-    return start_recursion (editors_fileproc, (FILESDONEPROC) NULL,
-			    (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-			    argc, argv, local, W_LOCAL, 0, 1, (char *) NULL,
-			    0,  (char *) NULL);
+    return start_recursion (editors_fileproc, NULL, NULL, NULL, NULL,
+			    argc, argv, local, W_LOCAL, 0, CVS_LOCK_READ, NULL,
+			    0, NULL);
 }

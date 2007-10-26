@@ -1,7 +1,8 @@
 # This file is part of Autoconf.                       -*- Autoconf -*-
 # Interface with autoupdate.
-# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2003
-# Free Software Foundation, Inc.
+
+# Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001,
+# 2003, 2004, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,8 +16,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 # As a special exception, the Free Software Foundation gives unlimited
 # permission to copy, distribute and modify the configure scripts that
@@ -50,39 +51,59 @@
 # Roland McGrath, Noah Friedman, david d zuhn, and many others.
 
 
-## --------------------------------- ##
-## Defining macros in autoupdate::.  ##
-## --------------------------------- ##
+## ---------------------------------- ##
+## Macros to define obsolete macros.  ##
+## ---------------------------------- ##
 
 
-# AU_DEFINE(NAME, GLUE-CODE, [MESSAGE])
-# -------------------------------------
+# AU_DEFINE(NAME, CODE)
+# ---------------------
+# Define the macro NAME so that it expand to CODE only when
+# autoupdate is running.  This is achieved with traces in
+# autoupdate itself, so this macro expands to nothing.
 #
-# Declare `autoupdate::NAME' to be `GLUE-CODE', with all the needed
-# wrapping actions required by `autoupdate'.
-# We do not define anything in `autoconf::'.
-m4_define([AU_DEFINE],
-[AC_DEFUN([$1], [$2])])
-
+m4_define([AU_DEFINE], [])
 
 # AU_DEFUN(NAME, NEW-CODE, [MESSAGE])
 # -----------------------------------
 # Declare that the macro NAME is now obsoleted, and should be replaced
-# by NEW-CODE.  Tell the user she should run autoupdate, and include
-# the additional MESSAGE.
+# by NEW-CODE.  Tell the user she should run autoupdate, and when
+# autoupdate is run, emit MESSAGE as a warning and include it in
+# the updated configure.ac file.
 #
 # Also define NAME as a macro which code is NEW-CODE.
 #
-# This allows to share the same code for both supporting obsoleted macros,
+# This allows sharing the same code for both supporting obsoleted macros,
 # and to update a configure.ac.
-# See `acobsolete.m4' for a longer description.
+# See the end of `autoupdate.in' for a longer description.
 m4_define([AU_DEFUN],
-[AU_DEFINE([$1],
-	   [AC_DIAGNOSE([obsolete], [The macro `$1' is obsolete.
+[# This is what autoupdate's m4 run will expand.  It fires
+# the warning (with _au_warn_XXX), outputs it into the
+# updated configure.ac (with AC_DIAGNOSE), and then outputs
+# the replacement expansion.
+AU_DEFINE([$1],
+[m4_ifval([$3], [_au_warn_$1([$3])AC_DIAGNOSE([obsolete], [$3])d[]nl
+])dnl
+$2])
+
+# This is an auxiliary macro that is also run when
+# autoupdate runs m4.  It simply calls m4_warning, but
+# we need a wrapper so that each warning is emitted only
+# once.  We break the quoting in m4_warning's argument in
+# order to expand this macro's arguments, not AU_DEFUN's.
+AU_DEFINE([_au_warn_$1],
+[m4_warning($][@)dnl
+m4_define([_au_warn_$1], [])])
+
+# Finally, this is the expansion that is picked up by
+# autoconf.  It tells the user to run autoupdate, and
+# then outputs the replacement expansion.  We do not care
+# about autoupdate's warning because that contains
+# information on what to do *after* running autoupdate.
+AC_DEFUN([$1],
+	 [AC_DIAGNOSE([obsolete], [The macro `$1' is obsolete.
 You should run autoupdate.])dnl
-$2],
-	   [$3])dnl
-])
+$2])])
 
 
 # AU_ALIAS(OLD-NAME, NEW-NAME)
@@ -94,5 +115,16 @@ $2],
 #
 # Do not use `defn' since then autoupdate would replace an old macro
 # call with the new macro body instead of the new macro call.
+#
+# Moreover, we have to take care that calls without parameters are
+# expanded to calls without parameters, not with one empty parameter.
+# This is not only an aesthetical improvement of autoupdate, it also
+# matters with poorly written macros which test for $# = 0.
+#
 m4_define([AU_ALIAS],
-[AU_DEFUN([$1], [$2($][@)])])
+[AU_DEFUN([$1], _AU_ALIAS_BODY([$], [$2]))])
+
+# The body for the AU_DEFUN above should look like:
+#	[m4_if($#, 0, [NEW-NAME], [NEW-NAME($@)])]
+# Thus the helper macro is:
+m4_define([_AU_ALIAS_BODY], [[m4_if($1#, 0, [$2], [$2($1@)])]])

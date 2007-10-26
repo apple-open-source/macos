@@ -71,9 +71,61 @@
 typedef struct {
     arp_client_t *		arp;
     timer_callout_t *		timer;
-    struct in_addr		our_ip;
-    struct in_addr		our_mask;
+    boolean_t			resolve_router_timed_out;
+    boolean_t			ignore_link_status;
 } Service_manual_t;
+
+static void
+manual_resolve_router_callback(Service_t * service_p, router_arp_status_t status);
+
+static void
+manual_resolve_router_retry(void * arg0, void * arg1, void * arg2)
+{
+    Service_t * 	service_p = (Service_t *)arg0;
+    Service_manual_t *	manual = (Service_manual_t *)service_p->private;
+
+    service_resolve_router(service_p, manual->arp,
+			   manual_resolve_router_callback,
+			   service_requested_ip_addr(service_p));
+    return;
+}
+
+static void
+manual_resolve_router_callback(Service_t * service_p,
+			       router_arp_status_t status)
+{
+    interface_t *	if_p = service_interface(service_p);
+    Service_manual_t *	manual = (Service_manual_t *)service_p->private;
+    struct timeval	tv;
+
+    switch (status) {
+    case router_arp_status_no_response_e:
+	/* try again in 60 seconds */
+	tv.tv_sec = 60;
+	tv.tv_usec = 0;
+	timer_set_relative(manual->timer, tv, 
+			   (timer_func_t *)manual_resolve_router_retry,
+			   service_p, NULL, NULL);
+	if (manual->resolve_router_timed_out) {
+	    break;
+	}
+	manual->resolve_router_timed_out = TRUE;
+	/* publish what we have so far */
+	service_publish_success(service_p, NULL, 0);
+	break;
+    case router_arp_status_success_e:
+	manual->resolve_router_timed_out = FALSE;
+	service_publish_success(service_p, NULL, 0);
+	break;
+    case router_arp_status_failed_e:
+	my_log(LOG_ERR, "MANUAL %s: router arp resolution failed, %s", 
+	       if_name(if_p), arp_client_errmsg(manual->arp));
+	break;
+    default:
+	break;
+    }
+    return;
+}
 
 static void
 manual_cancel_pending_events(Service_t * service_p)
@@ -86,7 +138,7 @@ manual_cancel_pending_events(Service_t * service_p)
 	timer_cancel(manual->timer);
     }
     if (manual->arp) {
-	arp_client_cancel_probe(manual->arp);
+	arp_client_cancel(manual->arp);
     }
     return;
 }
@@ -118,13 +170,16 @@ manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
       case IFEventID_start_e: {
 	  if (manual->arp == NULL) {
 	      /* if the link is up, just assign the IP */
-	      if (service_link_status(service_p)->valid == TRUE 
+	      if (manual->ignore_link_status == FALSE
+		  && service_link_status(service_p)->valid == TRUE 
 		  && service_link_status(service_p)->active == FALSE) {
 		  manual_inactive(service_p);
 		  break;
 	      }
-	      (void)service_set_address(service_p, manual->our_ip, 
-					manual->our_mask, G_ip_zeroes);
+	      (void)service_set_address(service_p,
+					service_requested_ip_addr(service_p),
+					service_requested_ip_mask(service_p),
+					G_ip_zeroes);
 	      service_publish_success(service_p, NULL, 0);
 	      break;
 	  }
@@ -132,7 +187,7 @@ manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  arp_client_probe(manual->arp, 
 			   (arp_result_func_t *)manual_start, service_p,
 			   (void *)IFEventID_arp_e, G_ip_zeroes,
-			   manual->our_ip);
+			   service_requested_ip_addr(service_p));
 	  break;
       }
       case IFEventID_arp_e: {
@@ -149,11 +204,11 @@ manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 
 		  snprintf(msg, sizeof(msg), 
 			   IP_FORMAT " in use by " EA_FORMAT,
-			   IP_LIST(&manual->our_ip), 
-			   EA_LIST(result->hwaddr));
+			   IP_LIST(service_requested_ip_addr_ptr(service_p)),
+			   EA_LIST(result->addr.target_hardware));
 		  service_report_conflict(service_p,
-					  &manual->our_ip,
-					  result->hwaddr,
+					  service_requested_ip_addr_ptr(service_p),
+					  result->addr.target_hardware,
 					  NULL);
 		  my_log(LOG_ERR, "MANUAL %s: %s", 
 			 if_name(if_p), msg);
@@ -164,16 +219,28 @@ manual_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 		  break;
 	      }
 	  }
-	  if (service_link_status(service_p)->valid == TRUE 
+	  if (manual->ignore_link_status == FALSE
+	      && service_link_status(service_p)->valid == TRUE 
 	      && service_link_status(service_p)->active == FALSE) {
 	      manual_inactive(service_p);
 	      break;
 	  }
 
 	  /* set the new address */
-	  (void)service_set_address(service_p, manual->our_ip, 
-				    manual->our_mask, G_ip_zeroes);
-	  service_publish_success(service_p, NULL, 0);
+	  (void)service_set_address(service_p,
+				    service_requested_ip_addr(service_p),
+				    service_requested_ip_mask(service_p),
+				    G_ip_zeroes);
+	  if (service_router_is_iaddr_valid(service_p)
+	      && service_resolve_router(service_p, manual->arp,
+					manual_resolve_router_callback,
+					service_requested_ip_addr(service_p))) {
+	      /* router ARP resolution started */
+	      manual->resolve_router_timed_out = FALSE;
+	  }
+	  else {
+	      service_publish_success(service_p, NULL, 0);
+	  }
 	  break;
       }
       default: {
@@ -214,14 +281,24 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  }
 	  service_p->private = manual;
 	  bzero(manual, sizeof(*manual));
-	  manual->our_ip = ipcfg->ip[0].addr;
-	  manual->our_mask = ipcfg->ip[0].mask;
+	  manual->ignore_link_status
+	      = ((ipcfg->flags & ipconfig_method_data_flags_ignore_link_status_e)
+		 != 0);
+	  service_set_requested_ip_addr(service_p, ipcfg->ip[0].addr);
+	  service_set_requested_ip_mask(service_p, ipcfg->ip[0].mask);
 	  if (if_flags(if_p) & IFF_LOOPBACK) {
 	      /* set the new address */
-	      (void)service_set_address(service_p, manual->our_ip, 
-					manual->our_mask, G_ip_zeroes);
+	      (void)service_set_address(service_p, 
+					service_requested_ip_addr(service_p),
+					service_requested_ip_mask(service_p),
+					G_ip_zeroes);
 	      service_publish_success(service_p, NULL, 0);
 	      break;
+	  }
+	  if (ipcfg->u.manual_router.s_addr != 0
+	      && ipcfg->u.manual_router.s_addr != ipcfg->ip[0].addr.s_addr) {
+	      service_router_set_iaddr(service_p, ipcfg->u.manual_router);
+	      service_router_set_iaddr_valid(service_p);
 	  }
 	  manual->timer = timer_callout_init();
 	  if (manual->timer == NULL) {
@@ -242,6 +319,7 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
       }
       stop:
       case IFEventID_stop_e: {
+	  my_log(LOG_DEBUG, "MANUAL %s: stop", if_name(if_p));
 	  if (manual == NULL) {
 	      break;
 	  }
@@ -265,6 +343,7 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
       case IFEventID_change_e: {
 	  change_event_data_t *   evdata = ((change_event_data_t *)event_data);
 	  ipconfig_method_data_t *ipcfg = evdata->config.data;
+	  boolean_t		  ignore_link_status;
 
 	  if (manual == NULL) {
 	      my_log(LOG_DEBUG, "MANUAL %s: private data is NULL", 
@@ -278,13 +357,23 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  if (status != ipconfig_status_success_e)
 	      break;
 	  evdata->needs_stop = FALSE;
-	  if (ipcfg->ip[0].addr.s_addr != manual->our_ip.s_addr) {
+	  ignore_link_status
+	      = ((ipcfg->flags & ipconfig_method_data_flags_ignore_link_status_e)
+		 != 0);
+	  if (ipcfg->ip[0].addr.s_addr
+	      != service_requested_ip_addr(service_p).s_addr
+	      || (ipcfg->u.manual_router.s_addr 
+		  != service_router_iaddr(service_p).s_addr)
+	      || (ignore_link_status != manual->ignore_link_status)) {
 	      evdata->needs_stop = TRUE;
 	  }
-	  else if (ipcfg->ip[0].mask.s_addr != manual->our_mask.s_addr) {
-	      manual->our_mask = ipcfg->ip[0].mask;
-	      (void)service_set_address(service_p, manual->our_ip, 
-					manual->our_mask, G_ip_zeroes);
+	  else if (ipcfg->ip[0].mask.s_addr
+		   != service_requested_ip_mask(service_p).s_addr) {
+	      service_set_requested_ip_mask(service_p, ipcfg->ip[0].mask);
+	      (void)service_set_address(service_p, 
+					service_requested_ip_addr(service_p),
+					service_requested_ip_mask(service_p),
+					G_ip_zeroes);
 	      /* publish new mask */
 	      service_publish_success(service_p, NULL, 0);
 	  }
@@ -299,7 +388,8 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  if (manual == NULL) {
 	      return (ipconfig_status_internal_error_e);
 	  }
-	  if (arpc->ip_addr.s_addr != manual->our_ip.s_addr) {
+	  if (arpc->ip_addr.s_addr 
+	      != service_requested_ip_addr(service_p).s_addr) {
 	      break;
 	  }
 	  snprintf(msg, sizeof(msg), 
@@ -324,6 +414,9 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
       case IFEventID_media_e: {
 	  if (manual == NULL)
 	      return (ipconfig_status_internal_error_e);
+	  if (manual->ignore_link_status) {
+	      break;
+	  }
 	  if (service_link_status(service_p)->valid == TRUE) {
 	      if (service_link_status(service_p)->active == TRUE) {
 		  manual_start(service_p, IFEventID_start_e, NULL);

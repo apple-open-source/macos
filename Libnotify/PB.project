@@ -14,7 +14,7 @@
         ); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 
-        PUBLIC_HEADERS = (notify.h); 
+        PUBLIC_HEADERS = (notify.h, notify_keys.h); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

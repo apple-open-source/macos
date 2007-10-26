@@ -1,6 +1,0 @@
-
-<MLET CODE="test.compliance.loading.support.AnotherTrivial"
-      NAME="test:name=AnotherTrivial"
-      ARCHIVE="MyMBeans.jar,MoreMBeans.jar"
->
-</MLET>

@@ -76,17 +76,21 @@
    enum yytokentype {
      TC_STRING = 258,
      TC_ENCAPSULATED_STRING = 259,
-     SECTION = 260,
-     CFG_TRUE = 261,
-     CFG_FALSE = 262
+     BRACK = 260,
+     SECTION = 261,
+     CFG_TRUE = 262,
+     CFG_FALSE = 263,
+     TC_DOLLAR_CURLY = 264
    };
 #endif
 /* Tokens.  */
 #define TC_STRING 258
 #define TC_ENCAPSULATED_STRING 259
-#define SECTION 260
-#define CFG_TRUE 261
-#define CFG_FALSE 262
+#define BRACK 260
+#define SECTION 261
+#define CFG_TRUE 262
+#define CFG_FALSE 263
+#define TC_DOLLAR_CURLY 264
 
 
 
@@ -98,7 +102,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -112,8 +116,7 @@
    +----------------------------------------------------------------------+
 */
 
-
-/* $Id: zend_ini_parser.y,v 1.18.2.8.4.1 2006/01/01 13:46:49 sniper Exp $ */
+/* $Id: zend_ini_parser.y,v 1.41.2.2.2.2 2007/07/23 16:17:10 jani Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"
@@ -122,13 +125,6 @@
 #include "zend_constants.h"
 #include "zend_ini_scanner.h"
 #include "zend_extensions.h"
-
-
-#if WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <winbase.h>
-#endif
 
 #define YYSTYPE zval
 
@@ -161,11 +157,11 @@ void zend_ini_do_op(char type, zval *result, zval *op1, zval *op2)
 	int i_op1, i_op2;
 	char str_result[MAX_LENGTH_OF_LONG];
 
-	i_op1 = atoi(op1->value.str.val);
-	free(op1->value.str.val);
+	i_op1 = atoi(Z_STRVAL_P(op1));
+	free(Z_STRVAL_P(op1));
 	if (op2) {
-		i_op2 = atoi(op2->value.str.val);
-		free(op2->value.str.val);
+		i_op2 = atoi(Z_STRVAL_P(op2));
+		free(Z_STRVAL_P(op2));
 	} else {
 		i_op2 = 0;
 	}
@@ -188,29 +184,66 @@ void zend_ini_do_op(char type, zval *result, zval *op1, zval *op2)
 			break;
 	}
 
-	result->value.str.len = zend_sprintf(str_result, "%d", i_result);
-	result->value.str.val = (char *) malloc(result->value.str.len+1);
-	memcpy(result->value.str.val, str_result, result->value.str.len);
-	result->value.str.val[result->value.str.len] = 0;
-	result->type = IS_STRING;
+	Z_STRLEN_P(result) = zend_sprintf(str_result, "%d", i_result);
+	Z_STRVAL_P(result) = (char *) malloc(Z_STRLEN_P(result)+1);
+	memcpy(Z_STRVAL_P(result), str_result, Z_STRLEN_P(result));
+	Z_STRVAL_P(result)[Z_STRLEN_P(result)] = 0;
+	Z_TYPE_P(result) = IS_STRING;
 }
 
+void zend_ini_init_string(zval *result)
+{
+	Z_STRVAL_P(result) = malloc(1);
+	Z_STRVAL_P(result)[0] = 0;
+	Z_STRLEN_P(result) = 0;
+	Z_TYPE_P(result) = IS_STRING;
+}
+
+void zend_ini_add_string(zval *result, zval *op1, zval *op2)
+{
+	int length = Z_STRLEN_P(op1) + Z_STRLEN_P(op2);
+
+	Z_STRVAL_P(result) = (char *) realloc(Z_STRVAL_P(op1), length+1);
+	memcpy(Z_STRVAL_P(result)+Z_STRLEN_P(op1), Z_STRVAL_P(op2), Z_STRLEN_P(op2));
+	Z_STRVAL_P(result)[length] = 0;
+	Z_STRLEN_P(result) = length;
+	Z_TYPE_P(result) = IS_STRING;
+}
 
 void zend_ini_get_constant(zval *result, zval *name)
 {
 	zval z_constant;
 	TSRMLS_FETCH();
 
-	if (zend_get_constant(name->value.str.val, name->value.str.len, &z_constant TSRMLS_CC)) {
+	if (!memchr(Z_STRVAL_P(name), ':', Z_STRLEN_P(name))
+		   	&& zend_get_constant(Z_STRVAL_P(name), Z_STRLEN_P(name), &z_constant TSRMLS_CC)) {
 		/* z_constant is emalloc()'d */
 		convert_to_string(&z_constant);
-		result->value.str.val = zend_strndup(z_constant.value.str.val, z_constant.value.str.len);
-		result->value.str.len = z_constant.value.str.len;
-		result->type = z_constant.type;
+		Z_STRVAL_P(result) = zend_strndup(Z_STRVAL(z_constant), Z_STRLEN(z_constant));
+		Z_STRLEN_P(result) = Z_STRLEN(z_constant);
+		Z_TYPE_P(result) = Z_TYPE(z_constant);
 		zval_dtor(&z_constant);
-		free(name->value.str.val);	
+		free(Z_STRVAL_P(name));
 	} else {
 		*result = *name;
+	}
+}
+
+void zend_ini_get_var(zval *result, zval *name)
+{
+	zval curval;
+	char *envvar;
+	TSRMLS_FETCH();
+
+	if (zend_get_configuration_directive(Z_STRVAL_P(name), Z_STRLEN_P(name)+1, &curval) == SUCCESS) {
+		Z_STRVAL_P(result) = zend_strndup(Z_STRVAL(curval), Z_STRLEN(curval));
+		Z_STRLEN_P(result) = Z_STRLEN(curval);
+	} else if ((envvar = zend_getenv(Z_STRVAL_P(name), Z_STRLEN_P(name) TSRMLS_CC)) != NULL ||
+			   (envvar = getenv(Z_STRVAL_P(name))) != NULL) {
+		Z_STRVAL_P(result) = strdup(envvar);
+		Z_STRLEN_P(result) = strlen(envvar);
+	} else {
+		zend_ini_init_string(result);
 	}
 }
 
@@ -223,10 +256,14 @@ static void ini_error(char *str)
 	TSRMLS_FETCH();
 
 	currently_parsed_filename = zend_ini_scanner_get_filename(TSRMLS_C);
-	error_buf_len = 128+strlen(currently_parsed_filename); /* should be more than enough */
-	error_buf = (char *) emalloc(error_buf_len);
+	if (currently_parsed_filename) {
+		error_buf_len = 128+strlen(currently_parsed_filename); /* should be more than enough */
+		error_buf = (char *) emalloc(error_buf_len);
 
-	sprintf(error_buf, "Error parsing %s on line %d\n", currently_parsed_filename, zend_ini_scanner_get_lineno(TSRMLS_C));
+		sprintf(error_buf, "Error parsing %s on line %d\n", currently_parsed_filename, zend_ini_scanner_get_lineno(TSRMLS_C));
+	} else {
+		error_buf = estrdup("Invalid configuration directive\n");
+	}
 
 	if (CG(ini_parser_unbuffered_errors)) {
 #ifdef PHP_WIN32
@@ -261,6 +298,29 @@ ZEND_API int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_erro
 	zend_ini_close_file(fh TSRMLS_CC);
 
 	if (retval==0) {
+		return SUCCESS;
+	} else {
+		return FAILURE;
+	}
+}
+
+
+ZEND_API int zend_parse_ini_string(char *str, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg)
+{
+	zend_ini_parser_param ini_parser_param;
+	TSRMLS_FETCH();
+
+	ini_parser_param.ini_parser_cb = ini_parser_cb;
+	ini_parser_param.arg = arg;
+
+	CG(ini_parser_param) = &ini_parser_param;
+	if (zend_ini_prepare_string_for_scanning(str TSRMLS_CC)==FAILURE) {
+		return FAILURE;
+	}
+
+	CG(ini_parser_unbuffered_errors) = unbuffered_errors;
+
+	if (ini_parse(TSRMLS_C)) {
 		return SUCCESS;
 	} else {
 		return FAILURE;
@@ -516,20 +576,20 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  2
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   32
+#define YYLAST   41
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  16
+#define YYNTOKENS  19
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  6
+#define YYNNTS  8
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  20
+#define YYNRULES  27
 /* YYNRULES -- Number of states.  */
-#define YYNSTATES  27
+#define YYNSTATES  38
 
 /* YYTRANSLATE(YYLEX) -- Bison symbol number corresponding to YYLEX.  */
 #define YYUNDEFTOK  2
-#define YYMAXUTOK   262
+#define YYMAXUTOK   264
 
 #define YYTRANSLATE(YYX)						\
   ((unsigned int) (YYX) <= YYMAXUTOK ? yytranslate[YYX] : YYUNDEFTOK)
@@ -538,18 +598,18 @@ union yyalloc
 static const yytype_uint8 yytranslate[] =
 {
        0,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-      13,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+      15,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,    11,     2,     2,     2,     2,     9,     2,
-      14,    15,     2,     2,     2,     2,     2,     2,     2,     2,
+       2,     2,     2,    13,     2,     2,     2,     2,    11,     2,
+      17,    18,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,    12,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+       2,    14,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     8,     2,    10,     2,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+       2,     2,     2,     2,    10,    16,    12,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -563,7 +623,7 @@ static const yytype_uint8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
-       5,     6,     7
+       5,     6,     7,     8,     9
 };
 
 #if YYDEBUG
@@ -571,27 +631,30 @@ static const yytype_uint8 yytranslate[] =
    YYRHS.  */
 static const yytype_uint8 yyprhs[] =
 {
-       0,     0,     3,     6,     7,    11,    13,    15,    17,    19,
-      21,    23,    25,    27,    28,    30,    34,    38,    41,    44,
-      48
+       0,     0,     3,     6,     7,    11,    16,    18,    20,    22,
+      24,    26,    28,    30,    31,    33,    35,    37,    40,    43,
+      46,    50,    52,    56,    60,    63,    66,    70
 };
 
 /* YYRHS -- A `-1'-separated list of the rules' RHS.  */
 static const yytype_int8 yyrhs[] =
 {
-      17,     0,    -1,    17,    18,    -1,    -1,     3,    12,    19,
-      -1,     3,    -1,     5,    -1,    13,    -1,    20,    -1,     4,
-      -1,     6,    -1,     7,    -1,    13,    -1,    -1,    21,    -1,
-      20,     8,    20,    -1,    20,     9,    20,    -1,    10,    20,
-      -1,    11,    20,    -1,    14,    20,    15,    -1,     3,    -1
+      20,     0,    -1,    20,    21,    -1,    -1,     3,    14,    22,
+      -1,     3,     5,    14,    22,    -1,     3,    -1,     6,    -1,
+      15,    -1,    25,    -1,     7,    -1,     8,    -1,    15,    -1,
+      -1,    24,    -1,     4,    -1,    26,    -1,    23,    24,    -1,
+      23,     4,    -1,    23,    26,    -1,     9,     3,    16,    -1,
+      23,    -1,    25,    10,    25,    -1,    25,    11,    25,    -1,
+      12,    25,    -1,    13,    25,    -1,    17,    25,    18,    -1,
+       3,    -1
 };
 
 /* YYRLINE[YYN] -- source line where rule number YYN was defined.  */
-static const yytype_uint8 yyrline[] =
+static const yytype_uint16 yyrline[] =
 {
-       0,   190,   190,   191,   195,   203,   204,   205,   210,   211,
-     212,   213,   214,   215,   219,   220,   221,   222,   223,   224,
-     228
+       0,   248,   248,   249,   253,   261,   269,   270,   271,   276,
+     277,   278,   279,   280,   285,   286,   287,   288,   289,   290,
+     294,   298,   299,   300,   301,   302,   303,   307
 };
 #endif
 
@@ -601,9 +664,10 @@ static const yytype_uint8 yyrline[] =
 static const char *const yytname[] =
 {
   "$end", "error", "$undefined", "TC_STRING", "TC_ENCAPSULATED_STRING",
-  "SECTION", "CFG_TRUE", "CFG_FALSE", "'|'", "'&'", "'~'", "'!'", "'='",
-  "'\\n'", "'('", "')'", "$accept", "statement_list", "statement",
-  "string_or_value", "expr", "constant_string", 0
+  "BRACK", "SECTION", "CFG_TRUE", "CFG_FALSE", "TC_DOLLAR_CURLY", "'|'",
+  "'&'", "'~'", "'!'", "'='", "'\\n'", "'}'", "'('", "')'", "$accept",
+  "statement_list", "statement", "string_or_value", "var_string_list",
+  "cfg_var_ref", "expr", "constant_string", 0
 };
 #endif
 
@@ -612,25 +676,25 @@ static const char *const yytname[] =
    token YYLEX-NUM.  */
 static const yytype_uint16 yytoknum[] =
 {
-       0,   256,   257,   258,   259,   260,   261,   262,   124,    38,
-     126,    33,    61,    10,    40,    41
+       0,   256,   257,   258,   259,   260,   261,   262,   263,   264,
+     124,    38,   126,    33,    61,    10,   125,    40,    41
 };
 # endif
 
 /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_uint8 yyr1[] =
 {
-       0,    16,    17,    17,    18,    18,    18,    18,    19,    19,
-      19,    19,    19,    19,    20,    20,    20,    20,    20,    20,
-      21
+       0,    19,    20,    20,    21,    21,    21,    21,    21,    22,
+      22,    22,    22,    22,    23,    23,    23,    23,    23,    23,
+      24,    25,    25,    25,    25,    25,    25,    26
 };
 
 /* YYR2[YYN] -- Number of symbols composing right hand side of rule YYN.  */
 static const yytype_uint8 yyr2[] =
 {
-       0,     2,     2,     0,     3,     1,     1,     1,     1,     1,
-       1,     1,     1,     0,     1,     3,     3,     2,     2,     3,
-       1
+       0,     2,     2,     0,     3,     4,     1,     1,     1,     1,
+       1,     1,     1,     0,     1,     1,     1,     2,     2,     2,
+       3,     1,     3,     3,     2,     2,     3,     1
 };
 
 /* YYDEFACT[STATE-NAME] -- Default rule to reduce with in state
@@ -638,31 +702,33 @@ static const yytype_uint8 yyr2[] =
    means the default is an error.  */
 static const yytype_uint8 yydefact[] =
 {
-       3,     0,     1,     5,     6,     7,     2,    13,    20,     9,
-      10,    11,     0,     0,    12,     0,     4,     8,    14,    17,
-      18,     0,     0,     0,    19,    15,    16
+       3,     0,     1,     6,     7,     8,     2,     0,    13,    13,
+      27,    15,    10,    11,     0,     0,     0,    12,     0,     4,
+      21,    14,     9,    16,     5,     0,    24,    25,     0,    18,
+      17,    19,     0,     0,    20,    26,    22,    23
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-      -1,     1,     6,    16,    17,    18
+      -1,     1,     6,    19,    20,    21,    22,    23
 };
 
 /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
    STATE-NUM.  */
-#define YYPACT_NINF -9
+#define YYPACT_NINF -16
 static const yytype_int8 yypact[] =
 {
-      -9,     0,    -9,    -8,    -9,    -9,    -9,     4,    -9,    -9,
-      -9,    -9,    13,    13,    -9,    13,    -9,    -7,    -9,    -9,
-      -9,    17,    13,    13,    -9,    -9,    -9
+     -16,     4,   -16,    -3,   -16,   -16,   -16,    -2,    17,    17,
+     -16,   -16,   -16,   -16,    13,    24,    24,   -16,    24,   -16,
+       5,   -16,    12,   -16,   -16,    -1,   -16,   -16,    -5,   -16,
+     -16,   -16,    24,    24,   -16,   -16,   -16,   -16
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-      -9,    -9,    -9,    -9,     7,    -9
+     -16,   -16,   -16,    22,   -16,    15,   -15,    18
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]].  What to do in state STATE-NUM.  If
@@ -672,27 +738,30 @@ static const yytype_int8 yypgoto[] =
 #define YYTABLE_NINF -1
 static const yytype_uint8 yytable[] =
 {
-       2,    22,    23,     3,     7,     4,     0,     8,     9,     0,
-      10,    11,     0,     5,    12,    13,     8,    14,    15,    19,
-      20,     0,    21,    12,    13,    22,    23,    15,     0,    25,
-      26,     0,    24
+      26,    27,     7,    28,     2,    32,    33,     3,    10,    29,
+       4,     8,     9,    35,    14,    34,    25,    36,    37,     5,
+      10,    11,    32,    33,    12,    13,    14,    10,    11,    15,
+      16,    24,    17,    14,    18,    30,    15,    16,    31,     0,
+       0,    18
 };
 
 static const yytype_int8 yycheck[] =
 {
-       0,     8,     9,     3,    12,     5,    -1,     3,     4,    -1,
-       6,     7,    -1,    13,    10,    11,     3,    13,    14,    12,
-      13,    -1,    15,    10,    11,     8,     9,    14,    -1,    22,
-      23,    -1,    15
+      15,    16,     5,    18,     0,    10,    11,     3,     3,     4,
+       6,    14,    14,    18,     9,    16,     3,    32,    33,    15,
+       3,     4,    10,    11,     7,     8,     9,     3,     4,    12,
+      13,     9,    15,     9,    17,    20,    12,    13,    20,    -1,
+      -1,    17
 };
 
 /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
    symbol of state STATE-NUM.  */
 static const yytype_uint8 yystos[] =
 {
-       0,    17,     0,     3,     5,    13,    18,    12,     3,     4,
-       6,     7,    10,    11,    13,    14,    19,    20,    21,    20,
-      20,    20,     8,     9,    15,    20,    20
+       0,    20,     0,     3,     6,    15,    21,     5,    14,    14,
+       3,     4,     7,     8,     9,    12,    13,    15,    17,    22,
+      23,    24,    25,    26,    22,     3,    25,    25,    25,     4,
+      24,    26,    10,    11,    16,    18,    25,    25
 };
 
 #define yyerrok		(yyerrstatus = 0)
@@ -1510,27 +1579,34 @@ yyreduce:
 
     {
 #if DEBUG_CFG_PARSER
-			printf("'%s' = '%s'\n", (yyvsp[(1) - (3)]).value.str.val, (yyvsp[(3) - (3)]).value.str.val);
+			printf("'%s' = '%s'\n", Z_STRVAL((yyvsp[(1) - (3)])), Z_STRVAL((yyvsp[(3) - (3)])));
 #endif
 			ZEND_INI_PARSER_CB(&(yyvsp[(1) - (3)]), &(yyvsp[(3) - (3)]), ZEND_INI_PARSER_ENTRY, ZEND_INI_PARSER_ARG);
-			free((yyvsp[(1) - (3)]).value.str.val);
-			free((yyvsp[(3) - (3)]).value.str.val);
+			free(Z_STRVAL((yyvsp[(1) - (3)])));
+			free(Z_STRVAL((yyvsp[(3) - (3)])));
 		}
     break;
 
   case 5:
 
-    { ZEND_INI_PARSER_CB(&(yyvsp[(1) - (1)]), NULL, ZEND_INI_PARSER_ENTRY, ZEND_INI_PARSER_ARG); free((yyvsp[(1) - (1)]).value.str.val); }
+    {
+#if DEBUG_CFG_PARSER
+			printf("'%s'[ ] = '%s'\n", Z_STRVAL((yyvsp[(1) - (4)])), Z_STRVAL((yyvsp[(4) - (4)])));
+#endif
+			ZEND_INI_PARSER_CB(&(yyvsp[(1) - (4)]), &(yyvsp[(4) - (4)]), ZEND_INI_PARSER_POP_ENTRY, ZEND_INI_PARSER_ARG);
+			free(Z_STRVAL((yyvsp[(1) - (4)])));
+			free(Z_STRVAL((yyvsp[(4) - (4)])));
+		}
     break;
 
   case 6:
 
-    { ZEND_INI_PARSER_CB(&(yyvsp[(1) - (1)]), NULL, ZEND_INI_PARSER_SECTION, ZEND_INI_PARSER_ARG); free((yyvsp[(1) - (1)]).value.str.val); }
+    { ZEND_INI_PARSER_CB(&(yyvsp[(1) - (1)]), NULL, ZEND_INI_PARSER_ENTRY, ZEND_INI_PARSER_ARG); free(Z_STRVAL((yyvsp[(1) - (1)]))); }
     break;
 
-  case 8:
+  case 7:
 
-    { (yyval) = (yyvsp[(1) - (1)]); }
+    { ZEND_INI_PARSER_CB(&(yyvsp[(1) - (1)]), NULL, ZEND_INI_PARSER_SECTION, ZEND_INI_PARSER_ARG); free(Z_STRVAL((yyvsp[(1) - (1)]))); }
     break;
 
   case 9:
@@ -1550,12 +1626,12 @@ yyreduce:
 
   case 12:
 
-    { (yyval).value.str.val = strdup(""); (yyval).value.str.len=0; (yyval).type = IS_STRING; }
+    { zend_ini_init_string(&(yyval)); }
     break;
 
   case 13:
 
-    { (yyval).value.str.val = strdup(""); (yyval).value.str.len=0; (yyval).type = IS_STRING; }
+    { zend_ini_init_string(&(yyval)); }
     break;
 
   case 14:
@@ -1565,30 +1641,65 @@ yyreduce:
 
   case 15:
 
-    { zend_ini_do_op('|', &(yyval), &(yyvsp[(1) - (3)]), &(yyvsp[(3) - (3)])); }
+    { (yyval) = (yyvsp[(1) - (1)]); }
     break;
 
   case 16:
 
-    { zend_ini_do_op('&', &(yyval), &(yyvsp[(1) - (3)]), &(yyvsp[(3) - (3)])); }
+    { (yyval) = (yyvsp[(1) - (1)]); }
     break;
 
   case 17:
 
-    { zend_ini_do_op('~', &(yyval), &(yyvsp[(2) - (2)]), NULL); }
+    { zend_ini_add_string(&(yyval), &(yyvsp[(1) - (2)]), &(yyvsp[(2) - (2)])); free((yyvsp[(2) - (2)]).value.str.val); }
     break;
 
   case 18:
 
-    { zend_ini_do_op('!', &(yyval), &(yyvsp[(2) - (2)]), NULL); }
+    { zend_ini_add_string(&(yyval), &(yyvsp[(1) - (2)]), &(yyvsp[(2) - (2)])); free(Z_STRVAL((yyvsp[(2) - (2)]))); }
     break;
 
   case 19:
 
-    { (yyval) = (yyvsp[(2) - (3)]); }
+    { zend_ini_add_string(&(yyval), &(yyvsp[(1) - (2)]), &(yyvsp[(2) - (2)])); free((yyvsp[(2) - (2)]).value.str.val); }
     break;
 
   case 20:
+
+    { zend_ini_get_var(&(yyval), &(yyvsp[(2) - (3)])); free((yyvsp[(2) - (3)]).value.str.val); }
+    break;
+
+  case 21:
+
+    { (yyval) = (yyvsp[(1) - (1)]); }
+    break;
+
+  case 22:
+
+    { zend_ini_do_op('|', &(yyval), &(yyvsp[(1) - (3)]), &(yyvsp[(3) - (3)])); }
+    break;
+
+  case 23:
+
+    { zend_ini_do_op('&', &(yyval), &(yyvsp[(1) - (3)]), &(yyvsp[(3) - (3)])); }
+    break;
+
+  case 24:
+
+    { zend_ini_do_op('~', &(yyval), &(yyvsp[(2) - (2)]), NULL); }
+    break;
+
+  case 25:
+
+    { zend_ini_do_op('!', &(yyval), &(yyvsp[(2) - (2)]), NULL); }
+    break;
+
+  case 26:
+
+    { (yyval) = (yyvsp[(2) - (3)]); }
+    break;
+
+  case 27:
 
     { zend_ini_get_constant(&(yyval), &(yyvsp[(1) - (1)])); }
     break;

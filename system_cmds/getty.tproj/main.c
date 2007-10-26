@@ -1,29 +1,7 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
+ * Portions copyright (c) 2007 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,39 +32,50 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static char copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1980, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-/*static char sccsid[] = "from: @(#)main.c	8.1 (Berkeley) 6/20/93";*/
-static char rcsid[] = "$Id: main.c,v 1.3 2004/08/26 00:32:22 lindak Exp $";
+#if 0
+static char sccsid[] = "@(#)from: main.c	8.1 (Berkeley) 6/20/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/getty/main.c,v 1.47 2005/04/06 17:42:24 stefanf Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
-#include <sys/stat.h>
-#include <sys/termios.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/ttydefaults.h>
 #include <sys/utsname.h>
-#include <signal.h>
-#include <fcntl.h>
-#include <time.h>
+
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <locale.h>
+#include <libutil.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 #include "gettytab.h"
-#include "pathnames.h"
 #include "extern.h"
+#include "pathnames.h"
 
 /*
  * Set the amount of running time that getty should accumulate
@@ -94,23 +83,37 @@ static char rcsid[] = "$Id: main.c,v 1.3 2004/08/26 00:32:22 lindak Exp $";
  */
 #define GETTY_TIMEOUT	60 /* seconds */
 
-struct termios tmode, omode;
+#undef CTRL
+#define CTRL(x)  (x&037)
+
+/* defines for auto detection of incoming PPP calls (->PAP/CHAP) */
+
+#define PPP_FRAME           0x7e  /* PPP Framing character */
+#define PPP_STATION         0xff  /* "All Station" character */
+#define PPP_ESCAPE          0x7d  /* Escape Character */
+#define PPP_CONTROL         0x03  /* PPP Control Field */
+#define PPP_CONTROL_ESCAPED 0x23  /* PPP Control Field, escaped */
+#define PPP_LCP_HI          0xc0  /* LCP protocol - high byte */
+#define PPP_LCP_LOW         0x21  /* LCP protocol - low byte */
+
+/* original mode; flags've been reset using values from <sys/ttydefaults.h> */
+struct termios omode;
+/* current mode */
+struct termios tmode;
 
 int crmod, digit, lower, upper;
 
 char	hostname[MAXHOSTNAMELEN];
-struct	utsname kerninfo;
-char	name[MAXLOGNAME+1];
+char	name[MAXLOGNAME*3];
 char	dev[] = _PATH_DEV;
 char	ttyn[32];
-char	*portselector();
-char	*ttyname();
 
 #define	OBUFSIZ		128
 #define	TABBUFSIZ	512
 
 char	defent[TABBUFSIZ];
 char	tabent[TABBUFSIZ];
+const	char *tname;
 
 char	*env[128];
 
@@ -137,68 +140,71 @@ char partab[] = {
 #define	KILL	tmode.c_cc[VKILL]
 #define	EOT	tmode.c_cc[VEOF]
 
+#define	puts	Gputs
+
+static void	defttymode(void);
+static void	dingdong(int);
+static void	dogettytab(void);
+static int	getname(void);
+static void	interrupt(int);
+static void	oflush(void);
+static void	prompt(void);
+static void	putchr(int);
+static void	putf(const char *);
+static void	putpad(const char *);
+static void	puts(const char *);
+static void	timeoverrun(int);
+static char	*getline(int);
+static void	setttymode(int);
+static int	opentty(const char *, int);
+
 jmp_buf timeout;
 
 static void
-dingdong()
+dingdong(int signo __unused)
 {
-
 	alarm(0);
-	signal(SIGALRM, SIG_DFL);
 	longjmp(timeout, 1);
 }
 
 jmp_buf	intrupt;
 
 static void
-interrupt()
+interrupt(int signo __unused)
 {
-
-	signal(SIGINT, interrupt);
 	longjmp(intrupt, 1);
 }
 
 /*
  * Action to take when getty is running too long.
  */
-void
-timeoverrun(signo)
-	int signo;
+static void
+timeoverrun(int signo __unused)
 {
 
-	syslog(LOG_ERR, "getty exiting due to excessive running time\n");
+	syslog(LOG_ERR, "getty exiting due to excessive running time");
 	exit(1);
 }
 
-static int	getname __P((void));
-static void	oflush __P((void));
-static void	prompt __P((void));
-static void	putchr __P((int));
-static void	putf __P((char *));
-static void	putpad __P((char *));
-static void	puts __P((char *));
-
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	extern char **environ;
-	char *tname;
-	long allflags;
-	int repcnt = 0;
+	extern	char **environ;
+	int first_sleep = 1, first_time = 1;
 	struct rlimit limit;
-	int ttyopenmode;
+	int rval;
+#ifdef __APPLE__
+	int ttyopenmode = O_RDWR;
+#endif
 
 	signal(SIGINT, SIG_IGN);
-/*
-	signal(SIGQUIT, SIG_DFL);
-*/
-	openlog("getty", LOG_ODELAY|LOG_CONS, LOG_AUTH);
-	gethostname(hostname, sizeof(hostname));
+	signal(SIGQUIT, SIG_IGN);
+
+	openlog("getty", LOG_ODELAY|LOG_CONS|LOG_PID, LOG_AUTH);
+	gethostname(hostname, sizeof(hostname) - 1);
+	hostname[sizeof(hostname) - 1] = '\0';
 	if (hostname[0] == '\0')
 		strcpy(hostname, "Amnesiac");
-	uname(&kerninfo);
 
 	/*
 	 * Limit running time to deal with broken or dead lines.
@@ -208,134 +214,225 @@ main(argc, argv)
 	limit.rlim_cur = GETTY_TIMEOUT;
 	(void)setrlimit(RLIMIT_CPU, &limit);
 
+	gettable("default", defent);
+	gendefaults();
+	tname = "default";
+	if (argc > 1)
+		tname = argv[1];
+
 	/*
 	 * The following is a work around for vhangup interactions
 	 * which cause great problems getting window systems started.
 	 * If the tty line is "-", we do the old style getty presuming
-	 * that the file descriptors are already set up for us. 
+	 * that the file descriptors are already set up for us.
 	 * J. Gettys - MIT Project Athena.
 	 */
 	if (argc <= 2 || strcmp(argv[2], "-") == 0)
-	    strcpy(ttyn, ttyname(0));
+#ifdef __APPLE__
+	{
+	    // <rdar://problem/5178373>
+	    char* n = ttyname(STDIN_FILENO);
+	    if (n) {
+		strlcpy(ttyn, n, sizeof(ttyn));
+	    } else {
+		syslog(LOG_ERR, "ttyname %m");
+		exit(1);
+	    }
+	}
+#else
+	    strcpy(ttyn, ttyname(STDIN_FILENO));
+#endif
 	else {
-	    int i;
-
 	    strcpy(ttyn, dev);
 	    strncat(ttyn, argv[2], sizeof(ttyn)-sizeof(dev));
 	    if (strcmp(argv[0], "+") != 0) {
 		chown(ttyn, 0, 0);
 		chmod(ttyn, 0600);
 		revoke(ttyn);
-		/*
-		 * Delay the open so DTR stays down long enough to be detected.
-		 */
-		sleep(2);
-#ifdef __APPLE__
-		ttyopenmode = ((strcmp(ttyn, _PATH_CONSOLE)==0)
-			? (O_RDWR |O_POPUP): O_RDWR);
-#else /* __APPLE __ */
-		ttyopenmode = O_RDWR;
-#endif /* __APPLE__ */
 
-		while ((i = open(ttyn, ttyopenmode)) == -1) {
-			if (repcnt % 10 == 0) {
-				syslog(LOG_ERR, "%s: %m", ttyn);
-				closelog();
-			}
-			repcnt++;
-			sleep(60);
+		/*
+		 * Do the first scan through gettytab.
+		 * Terminal mode parameters will be wrong until
+		 * defttymode() called, but they're irrelevant for
+		 * the initial setup of the terminal device.
+		 */
+		dogettytab();
+
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
+		if (strncmp(ttyn, _PATH_CONSOLE, sizeof(ttyn)) == 0)
+			ttyopenmode |= O_POPUP;
+#endif
+		/*
+		 * Init or answer modem sequence has been specified.
+		 */
+		if (IC || AC) {
+#ifdef __APPLE__
+			if (!opentty(ttyn, ttyopenmode))
+#else
+			if (!opentty(ttyn, O_RDWR|O_NONBLOCK))
+#endif
+				exit(1);
+			defttymode();
+			setttymode(1);
 		}
-		login_tty(i);
+
+		if (IC) {
+			if (getty_chat(IC, CT, DC) > 0) {
+				syslog(LOG_ERR, "modem init problem on %s", ttyn);
+				(void)tcsetattr(STDIN_FILENO, TCSANOW, &tmode);
+				exit(1);
+			}
+		}
+
+		if (AC) {
+			int i, rfds;
+			struct timeval to;
+
+        		rfds = 1 << 0;	/* FD_SET */
+        		to.tv_sec = RT;
+        		to.tv_usec = 0;
+        		i = select(32, (fd_set*)&rfds, (fd_set*)NULL,
+        			       (fd_set*)NULL, RT ? &to : NULL);
+        		if (i < 0) {
+				syslog(LOG_ERR, "select %s: %m", ttyn);
+			} else if (i == 0) {
+				syslog(LOG_NOTICE, "recycle tty %s", ttyn);
+				(void)tcsetattr(STDIN_FILENO, TCSANOW, &tmode);
+				exit(0);  /* recycle for init */
+			}
+			i = getty_chat(AC, CT, DC);
+			if (i > 0) {
+				syslog(LOG_ERR, "modem answer problem on %s", ttyn);
+				(void)tcsetattr(STDIN_FILENO, TCSANOW, &tmode);
+				exit(1);
+			}
+		} else { /* maybe blocking open */
+#ifdef __APPLE__
+			if (!opentty(ttyn, ttyopenmode | (NC ? O_NONBLOCK : 0 )))
+#else
+			if (!opentty(ttyn, O_RDWR | (NC ? O_NONBLOCK : 0 )))
+#endif
+				exit(1);
+		}
 	    }
 	}
 
-	/* Start with default tty settings */
-	if (tcgetattr(0, &tmode) < 0) {
-		syslog(LOG_ERR, "%s: %m", ttyn);
-		exit(1);
-	}
-	omode = tmode;
-
-	gettable("default", defent);
-	gendefaults();
-	tname = "default";
-	if (argc > 1)
-		tname = argv[1];
+	defttymode();
 	for (;;) {
-		int off;
 
-		gettable(tname, tabent);
-		if (OPset || EPset || APset)
-			APset++, OPset++, EPset++;
-		setdefaults();
-		off = 0;
-		ioctl(0, TIOCFLUSH, &off);	/* clear out the crap */
-		ioctl(0, FIONBIO, &off);	/* turn off non-blocking mode */
-		ioctl(0, FIOASYNC, &off);	/* ditto for async mode */
-
-		if (IS)
-			cfsetispeed(&tmode, IS);
-		else if (SP)
-			cfsetispeed(&tmode, SP);
-		if (OS)
-			cfsetospeed(&tmode, OS);
-		else if (SP)
-			cfsetospeed(&tmode, SP);
-		setflags(0);
-		setchars();
-		if (tcsetattr(0, TCSANOW, &tmode) < 0) {
-			syslog(LOG_ERR, "%s: %m", ttyn);
-			exit(1);
+		/*
+		 * if a delay was specified then sleep for that 
+		 * number of seconds before writing the initial prompt
+		 */
+		if (first_sleep && DE) {
+		    sleep(DE);
+		    /* remove any noise */
+		    (void)tcflush(STDIN_FILENO, TCIOFLUSH);
 		}
-		if (AB) {
-			extern char *autobaud();
+		first_sleep = 0;
 
+		setttymode(0);
+		if (AB) {
 			tname = autobaud();
+			dogettytab();
 			continue;
 		}
 		if (PS) {
 			tname = portselector();
+			dogettytab();
 			continue;
 		}
 		if (CL && *CL)
 			putpad(CL);
 		edithost(HE);
-		if (IM && *IM)
+
+		/* if this is the first time through this, and an
+		   issue file has been given, then send it */
+		if (first_time && IF) {
+			int fd;
+
+			if ((fd = open(IF, O_RDONLY)) != -1) {
+				char * cp;
+
+				while ((cp = getline(fd)) != NULL) {
+					  putf(cp);
+				}
+				close(fd);
+			}
+		}
+		first_time = 0;
+
+		if (IM && *IM && !(PL && PP))
 			putf(IM);
 		if (setjmp(timeout)) {
-			tmode.c_ispeed = tmode.c_ospeed = 0;
-			(void)tcsetattr(0, TCSANOW, &tmode);
+			cfsetispeed(&tmode, B0);
+			cfsetospeed(&tmode, B0);
+			(void)tcsetattr(STDIN_FILENO, TCSANOW, &tmode);
 			exit(1);
 		}
 		if (TO) {
 			signal(SIGALRM, dingdong);
 			alarm(TO);
 		}
-		if (getname()) {
-			register int i;
+
+		rval = 0;
+		if (AL) {
+			const char *p = AL;
+			char *q = name;
+
+			while (*p && q < &name[sizeof name - 1]) {
+				if (isupper(*p))
+					upper = 1;
+				else if (islower(*p))
+					lower = 1;
+				else if (isdigit(*p))
+					digit = 1;
+				*q++ = *p++;
+			}
+		} else if (!(PL && PP))
+			rval = getname();
+		if (rval == 2 || (PL && PP)) {
+			oflush();
+			alarm(0);
+			limit.rlim_max = RLIM_INFINITY;
+			limit.rlim_cur = RLIM_INFINITY;
+			(void)setrlimit(RLIMIT_CPU, &limit);
+			execle(PP, "ppplogin", ttyn, (char *) 0, env);
+			syslog(LOG_ERR, "%s: %m", PP);
+			exit(1);
+		} else if (rval || AL) {
+			int i;
 
 			oflush();
 			alarm(0);
 			signal(SIGALRM, SIG_DFL);
+			if (name[0] == '\0')
+				continue;
 			if (name[0] == '-') {
 				puts("user names may not start with '-'.");
 				continue;
 			}
-			if (!(upper || lower || digit))
-				continue;
-			setflags(2);
+			if (!(upper || lower || digit)) {
+				if (AL) {
+					syslog(LOG_ERR,
+					    "invalid auto-login name: %s", AL);
+					exit(1);
+				} else
+					continue;
+			}
+			set_flags(2);
 			if (crmod) {
 				tmode.c_iflag |= ICRNL;
 				tmode.c_oflag |= ONLCR;
 			}
-#if XXX
+#if REALLY_OLD_TTYS
 			if (upper || UC)
 				tmode.sg_flags |= LCASE;
 			if (lower || LC)
 				tmode.sg_flags &= ~LCASE;
 #endif
-			if (tcsetattr(0, TCSANOW, &tmode) < 0) {
-				syslog(LOG_ERR, "%s: %m", ttyn);
+			if (tcsetattr(STDIN_FILENO, TCSANOW, &tmode) < 0) {
+				syslog(LOG_ERR, "tcsetattr %s: %m", ttyn);
 				exit(1);
 			}
 			signal(SIGINT, SIG_DFL);
@@ -346,24 +443,120 @@ main(argc, argv)
 			limit.rlim_max = RLIM_INFINITY;
 			limit.rlim_cur = RLIM_INFINITY;
 			(void)setrlimit(RLIMIT_CPU, &limit);
-			execle(LO, "login", "-p1", name, (char *) 0, env);
+#ifdef __APPLE__
+			// <rdar://problem/3205179>
+			execle(LO, "login", AL ? "-fp1" : "-p1", name,
+#else
+			execle(LO, "login", AL ? "-fp" : "-p", name,
+#endif
+			    (char *) 0, env);
 			syslog(LOG_ERR, "%s: %m", LO);
 			exit(1);
 		}
 		alarm(0);
 		signal(SIGALRM, SIG_DFL);
 		signal(SIGINT, SIG_IGN);
-		if (NX && *NX)
+		if (NX && *NX) {
 			tname = NX;
+			dogettytab();
+		}
 	}
 }
 
 static int
-getname()
+opentty(const char *tty, int flags)
 {
-	register int c;
-	register char *np;
-	char cs;
+	int i;
+	int failopenlogged = 0;
+
+	while ((i = open(tty, flags)) == -1)
+	{
+		if (!failopenlogged) {
+			syslog(LOG_ERR, "open %s: %m", tty);
+			failopenlogged = 1;
+		}
+		sleep(60);
+	}
+	if (login_tty(i) < 0) { 
+#ifndef __APPLE__
+		if (daemon(0,0) < 0) {
+			syslog(LOG_ERR,"daemon: %m");
+			close(i);
+			return 0;
+		}
+#endif
+		if (login_tty(i) < 0) {
+			syslog(LOG_ERR, "login_tty %s: %m", tty);
+			close(i);
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static void
+defttymode()
+{
+
+	/* Start with default tty settings. */
+	if (tcgetattr(STDIN_FILENO, &tmode) < 0) {
+		syslog(LOG_ERR, "tcgetattr %s: %m", ttyn);
+		exit(1);
+	}
+	omode = tmode; /* fill c_cc for dogettytab() */
+	dogettytab();
+	/*
+	 * Don't rely on the driver too much, and initialize crucial
+	 * things according to <sys/ttydefaults.h>.  Avoid clobbering
+	 * the c_cc[] settings however, the console drivers might wish
+	 * to leave their idea of the preferred VERASE key value
+	 * there.
+	 */
+	tmode.c_iflag = TTYDEF_IFLAG;
+	tmode.c_oflag = TTYDEF_OFLAG;
+	tmode.c_lflag = TTYDEF_LFLAG;
+	tmode.c_cflag = TTYDEF_CFLAG;
+	if (NC)
+		tmode.c_cflag |= CLOCAL;
+	omode = tmode;
+}
+
+static void
+setttymode(int raw)
+{
+	int off = 0;
+
+	(void)tcflush(STDIN_FILENO, TCIOFLUSH);	/* clear out the crap */
+	ioctl(STDIN_FILENO, FIONBIO, &off);	/* turn off non-blocking mode */
+	ioctl(STDIN_FILENO, FIOASYNC, &off);	/* ditto for async mode */
+
+	if (IS)
+		cfsetispeed(&tmode, speed(IS));
+	else if (SP)
+		cfsetispeed(&tmode, speed(SP));
+	if (OS)
+		cfsetospeed(&tmode, speed(OS));
+	else if (SP)
+		cfsetospeed(&tmode, speed(SP));
+	set_flags(0);
+	setchars();
+	if (raw)
+		cfmakeraw(&tmode);
+	if (tcsetattr(STDIN_FILENO, TCSANOW, &tmode) < 0) {
+		syslog(LOG_ERR, "tcsetattr %s: %m", ttyn);
+		exit(1);
+	}
+}
+
+
+static int
+getname(void)
+{
+	int c;
+	char *np;
+	unsigned char cs;
+	int ppp_state = 0;
+	int ppp_connection = 0;
 
 	/*
 	 * Interrupt may happen if we use CBREAK mode
@@ -373,14 +566,14 @@ getname()
 		return (0);
 	}
 	signal(SIGINT, interrupt);
-	setflags(1);
+	set_flags(1);
 	prompt();
+	oflush();
 	if (PF > 0) {
-		oflush();
 		sleep(PF);
 		PF = 0;
 	}
-	if (tcsetattr(0, TCSANOW, &tmode) < 0) {
+	if (tcsetattr(STDIN_FILENO, TCSANOW, &tmode) < 0) {
 		syslog(LOG_ERR, "%s: %m", ttyn);
 		exit(1);
 	}
@@ -392,8 +585,36 @@ getname()
 			exit(0);
 		if ((c = cs&0177) == 0)
 			return (0);
-		if (c == EOT)
-			exit(1);
+
+		/* PPP detection state machine..
+		   Look for sequences:
+		   PPP_FRAME, PPP_STATION, PPP_ESCAPE, PPP_CONTROL_ESCAPED or
+		   PPP_FRAME, PPP_STATION, PPP_CONTROL (deviant from RFC)
+		   See RFC1662.
+		   Derived from code from Michael Hancock, <michaelh@cet.co.jp>
+		   and Erik 'PPP' Olson, <eriko@wrq.com>
+		 */
+
+		if (PP && (cs == PPP_FRAME)) {
+			ppp_state = 1;
+		} else if (ppp_state == 1 && cs == PPP_STATION) {
+			ppp_state = 2;
+		} else if (ppp_state == 2 && cs == PPP_ESCAPE) {
+			ppp_state = 3;
+		} else if ((ppp_state == 2 && cs == PPP_CONTROL)
+			|| (ppp_state == 3 && cs == PPP_CONTROL_ESCAPED)) {
+			ppp_state = 4;
+		} else if (ppp_state == 4 && cs == PPP_LCP_HI) {
+			ppp_state = 5;
+		} else if (ppp_state == 5 && cs == PPP_LCP_LOW) {
+			ppp_connection = 1;
+			break;
+		} else {
+			ppp_state = 0;
+		}
+
+		if (c == EOT || c == CTRL('d'))
+			exit(0);
 		if (c == '\r' || c == '\n' || np >= &name[sizeof name-1]) {
 			putf("\r\n");
 			break;
@@ -402,7 +623,7 @@ getname()
 			lower = 1;
 		else if (isupper(c))
 			upper = 1;
-		else if (c == ERASE || c == '#' || c == '\b') {
+		else if (c == ERASE || c == '\b' || c == 0177) {
 			if (np > name) {
 				np--;
 				if (cfgetospeed(&tmode) >= 1200)
@@ -411,8 +632,7 @@ getname()
 					putchr(cs);
 			}
 			continue;
-		} else if (c == KILL || c == '@') {
-			putchr(cs);
+		} else if (c == KILL || c == CTRL('u')) {
 			putchr('\r');
 			if (cfgetospeed(&tmode) < 1200)
 				putchr('\n');
@@ -420,10 +640,11 @@ getname()
 			else if (np > name)
 				puts("                                     \r");
 			prompt();
+			digit = lower = upper = 0;
 			np = name;
 			continue;
 		} else if (isdigit(c))
-			digit++;
+			digit = 1;
 		if (IG && (c <= ' ' || c > 0176))
 			continue;
 		*np++ = c;
@@ -433,18 +654,17 @@ getname()
 	*np = 0;
 	if (c == '\r')
 		crmod = 1;
-	if (upper && !lower && !LC || UC)
+	if ((upper && !lower && !LC) || UC)
 		for (np = name; *np; np++)
 			if (isupper(*np))
 				*np = tolower(*np);
-	return (1);
+	return (1 + ppp_connection);
 }
 
 static void
-putpad(s)
-	register char *s;
+putpad(const char *s)
 {
-	register pad = 0;
+	int pad = 0;
 	speed_t ospeed = cfgetospeed(&tmode);
 
 	if (isdigit(*s)) {
@@ -479,8 +699,7 @@ putpad(s)
 }
 
 static void
-puts(s)
-	register char *s;
+puts(const char *s)
 {
 	while (*s)
 		putchr(*s++);
@@ -490,8 +709,7 @@ char	outbuf[OBUFSIZ];
 int	obufcnt = 0;
 
 static void
-putchr(cc)
-	int cc;
+putchr(int cc)
 {
 	char c;
 
@@ -510,7 +728,7 @@ putchr(cc)
 }
 
 static void
-oflush()
+oflush(void)
 {
 	if (obufcnt)
 		write(STDOUT_FILENO, outbuf, obufcnt);
@@ -518,7 +736,7 @@ oflush()
 }
 
 static void
-prompt()
+prompt(void)
 {
 
 	putf(LM);
@@ -526,13 +744,42 @@ prompt()
 		putchr('\n');
 }
 
+
+static char *
+getline(int fd)
+{
+	int i = 0;
+	static char linebuf[512];
+
+	/*
+	 * This is certainly slow, but it avoids having to include
+	 * stdio.h unnecessarily. Issue files should be small anyway.
+	 */
+	while (i < (sizeof linebuf - 3) && read(fd, linebuf+i, 1)==1) {
+		if (linebuf[i] == '\n') {
+			/* Don't rely on newline mode, assume raw */
+			linebuf[i++] = '\r';
+			linebuf[i++] = '\n';
+			linebuf[i] = '\0';
+			return linebuf;
+		}
+		++i;
+	}
+	linebuf[i] = '\0';
+	return i ? linebuf : 0;
+}
+
 static void
-putf(cp)
-	register char *cp;
+putf(const char *cp)
 {
 	extern char editedhost[];
 	time_t t;
 	char *slash, db[100];
+
+	static struct utsname kerninfo;
+
+	if (!*kerninfo.sysname)
+		uname(&kerninfo);
 
 	while (*cp) {
 		if (*cp != '%') {
@@ -554,11 +801,11 @@ putf(cp)
 			break;
 
 		case 'd': {
-			static char fmt[] = "%l:% %P on %A, %d %B %Y";
-
-			fmt[4] = 'M';		/* I *hate* SCCS... */
+			t = (time_t)0;
 			(void)time(&t);
-			(void)strftime(db, sizeof(db), fmt, localtime(&t));
+			if (Lo)
+				(void)setlocale(LC_TIME, Lo);
+			(void)strftime(db, sizeof(db), DF, localtime(&t));
 			puts(db);
 			break;
 
@@ -585,4 +832,26 @@ putf(cp)
 		}
 		cp++;
 	}
+}
+
+/*
+ * Read a gettytab database entry and perform necessary quirks.
+ */
+static void
+dogettytab()
+{
+	
+	/* Read the database entry. */
+	gettable(tname, tabent);
+
+	/*
+	 * Avoid inheriting the parity values from the default entry
+	 * if any of them is set in the current entry.
+	 * Mixing different parity settings is unreasonable.
+	 */
+	if (OPset || EPset || APset || NPset)
+		OPset = EPset = APset = NPset = 1;
+
+	/* Fill in default values for unset capabilities. */
+	setdefaults();
 }

@@ -1,0 +1,564 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4C30839C053237110028A8C6 /* mdsapi.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C308389053237100028A8C6 /* mdsapi.cpp */; };
+		4C30839D053237110028A8C6 /* MDSAttrParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C30838A053237100028A8C6 /* MDSAttrParser.cpp */; };
+		4C30839E053237110028A8C6 /* MDSAttrParser.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C30838B053237100028A8C6 /* MDSAttrParser.h */; settings = {ATTRIBUTES = (); }; };
+		4C30839F053237110028A8C6 /* MDSAttrStrings.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C30838C053237100028A8C6 /* MDSAttrStrings.cpp */; };
+		4C3083A0053237110028A8C6 /* MDSAttrStrings.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C30838D053237100028A8C6 /* MDSAttrStrings.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083A1053237110028A8C6 /* MDSAttrUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C30838E053237100028A8C6 /* MDSAttrUtils.cpp */; };
+		4C3083A2053237110028A8C6 /* MDSAttrUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C30838F053237100028A8C6 /* MDSAttrUtils.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083A3053237110028A8C6 /* MDSDatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C308390053237100028A8C6 /* MDSDatabase.cpp */; };
+		4C3083A4053237110028A8C6 /* MDSDatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C308391053237100028A8C6 /* MDSDatabase.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083A5053237110028A8C6 /* MDSDictionary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C308392053237100028A8C6 /* MDSDictionary.cpp */; };
+		4C3083A6053237110028A8C6 /* MDSDictionary.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C308393053237100028A8C6 /* MDSDictionary.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083A7053237110028A8C6 /* MDSModule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C308394053237100028A8C6 /* MDSModule.cpp */; };
+		4C3083A8053237110028A8C6 /* MDSModule.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C308395053237100028A8C6 /* MDSModule.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083AB053237110028A8C6 /* MDSSchema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C308398053237100028A8C6 /* MDSSchema.cpp */; };
+		4C3083AC053237110028A8C6 /* MDSSchema.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C308399053237100028A8C6 /* MDSSchema.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083AD053237110028A8C6 /* MDSSession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C30839A053237100028A8C6 /* MDSSession.cpp */; };
+		4C3083AE053237110028A8C6 /* MDSSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C30839B053237100028A8C6 /* MDSSession.h */; settings = {ATTRIBUTES = (); }; };
+		4CCB008C05800B1400981D43 /* security_mds.exp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCB008B05800B0B00981D43 /* security_mds.exp */; };
+		4CCB008D05800B1600981D43 /* security_mds.exp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCB008B05800B0B00981D43 /* security_mds.exp */; };
+		4CCB009205800B8100981D43 /* mds.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCB009105800B7C00981D43 /* mds.h */; };
+		4CCB009305800B8100981D43 /* mds_schema.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCB009005800B7C00981D43 /* mds_schema.h */; };
+		4CF36F80058137FF00834D11 /* mds.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CCB009105800B7C00981D43 /* mds.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4CF36F81058137FF00834D11 /* mds_schema.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CCB009005800B7C00981D43 /* mds_schema.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C26C39D40683690F00ED5782 /* mdspriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2FEF71E067FB53F00AE16D6 /* mdspriv.h */; };
+		C2FEF720067FB56800AE16D6 /* mdspriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2FEF71E067FB53F00AE16D6 /* mdspriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4C7502900540C69C00056564 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C56351D0540A55300DCF0C8;
+			remoteInfo = security_mds;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4CCB00500580097400981D43 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = SecurityPieces/Exports/Security;
+			dstSubfolderSpec = 16;
+			files = (
+				4CCB008C05800B1400981D43 /* security_mds.exp in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CCB00510580097600981D43 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/SecurityPieces/Exports/Security;
+			dstSubfolderSpec = 0;
+			files = (
+				4CCB008D05800B1600981D43 /* security_mds.exp in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		4CCB00520580097800981D43 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = SecurityPieces/Headers/Security;
+			dstSubfolderSpec = 16;
+			files = (
+				4CCB009205800B8100981D43 /* mds.h in CopyFiles */,
+				4CCB009305800B8100981D43 /* mds_schema.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C26C39D3068368EC00ED5782 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = SecurityPieces/PrivateHeaders/Security;
+			dstSubfolderSpec = 16;
+			files = (
+				C26C39D40683690F00ED5782 /* mdspriv.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		4C308389053237100028A8C6 /* mdsapi.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = mdsapi.cpp; sourceTree = "<group>"; };
+		4C30838A053237100028A8C6 /* MDSAttrParser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSAttrParser.cpp; sourceTree = "<group>"; };
+		4C30838B053237100028A8C6 /* MDSAttrParser.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSAttrParser.h; sourceTree = "<group>"; };
+		4C30838C053237100028A8C6 /* MDSAttrStrings.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSAttrStrings.cpp; sourceTree = "<group>"; };
+		4C30838D053237100028A8C6 /* MDSAttrStrings.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSAttrStrings.h; sourceTree = "<group>"; };
+		4C30838E053237100028A8C6 /* MDSAttrUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSAttrUtils.cpp; sourceTree = "<group>"; };
+		4C30838F053237100028A8C6 /* MDSAttrUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSAttrUtils.h; sourceTree = "<group>"; };
+		4C308390053237100028A8C6 /* MDSDatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSDatabase.cpp; sourceTree = "<group>"; };
+		4C308391053237100028A8C6 /* MDSDatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSDatabase.h; sourceTree = "<group>"; };
+		4C308392053237100028A8C6 /* MDSDictionary.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSDictionary.cpp; sourceTree = "<group>"; };
+		4C308393053237100028A8C6 /* MDSDictionary.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSDictionary.h; sourceTree = "<group>"; };
+		4C308394053237100028A8C6 /* MDSModule.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSModule.cpp; sourceTree = "<group>"; };
+		4C308395053237100028A8C6 /* MDSModule.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSModule.h; sourceTree = "<group>"; };
+		4C308398053237100028A8C6 /* MDSSchema.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSSchema.cpp; sourceTree = "<group>"; };
+		4C308399053237100028A8C6 /* MDSSchema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSSchema.h; sourceTree = "<group>"; };
+		4C30839A053237100028A8C6 /* MDSSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSSession.cpp; sourceTree = "<group>"; };
+		4C30839B053237100028A8C6 /* MDSSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSSession.h; sourceTree = "<group>"; };
+		4C56351E0540A55300DCF0C8 /* security_mds.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_mds.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_mds */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_mds; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CCB008B05800B0B00981D43 /* security_mds.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_mds.exp; sourceTree = "<group>"; };
+		4CCB009005800B7C00981D43 /* mds_schema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mds_schema.h; sourceTree = "<group>"; };
+		4CCB009105800B7C00981D43 /* mds.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mds.h; sourceTree = "<group>"; };
+		C2FEF71E067FB53F00AE16D6 /* mdspriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mdspriv.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworkTarget section */
+		4C56351D0540A55300DCF0C8 /* security_mds */ = {
+			isa = PBXFrameworkTarget;
+			buildConfigurationList = C27AD3A00987FCDE001272E0 /* Build configuration list for PBXFrameworkTarget "security_mds" */;
+			buildPhases = (
+				4C5635180540A55300DCF0C8 /* Headers */,
+				4CCB00500580097400981D43 /* CopyFiles */,
+				4CCB00510580097600981D43 /* CopyFiles */,
+				4CCB00520580097800981D43 /* CopyFiles */,
+				C26C39D3068368EC00ED5782 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = security_mds;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_mds;
+			productReference = 4C56351E0540A55300DCF0C8 /* security_mds.framework */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict/>
+</plist>
+";
+		};
+/* End PBXFrameworkTarget section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4C308388053237100028A8C6 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				4C308389053237100028A8C6 /* mdsapi.cpp */,
+				4C30838A053237100028A8C6 /* MDSAttrParser.cpp */,
+				4C30838B053237100028A8C6 /* MDSAttrParser.h */,
+				4C30838C053237100028A8C6 /* MDSAttrStrings.cpp */,
+				4C30838D053237100028A8C6 /* MDSAttrStrings.h */,
+				4C30838E053237100028A8C6 /* MDSAttrUtils.cpp */,
+				4C30838F053237100028A8C6 /* MDSAttrUtils.h */,
+				4C308390053237100028A8C6 /* MDSDatabase.cpp */,
+				4C308391053237100028A8C6 /* MDSDatabase.h */,
+				4C308392053237100028A8C6 /* MDSDictionary.cpp */,
+				4C308393053237100028A8C6 /* MDSDictionary.h */,
+				4C308394053237100028A8C6 /* MDSModule.cpp */,
+				4C308395053237100028A8C6 /* MDSModule.h */,
+				4C308398053237100028A8C6 /* MDSSchema.cpp */,
+				4C308399053237100028A8C6 /* MDSSchema.h */,
+				4C30839A053237100028A8C6 /* MDSSession.cpp */,
+				4C30839B053237100028A8C6 /* MDSSession.h */,
+				4CCB009005800B7C00981D43 /* mds_schema.h */,
+				4CCB009105800B7C00981D43 /* mds.h */,
+				C2FEF71E067FB53F00AE16D6 /* mdspriv.h */,
+				4CCB008B05800B0B00981D43 /* security_mds.exp */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				4C308388053237100028A8C6 /* lib */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* security_mds */,
+				4C56351E0540A55300DCF0C8 /* security_mds.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4C5635180540A55300DCF0C8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB9052A3C8100F22E42 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2FEF720067FB56800AE16D6 /* mdspriv.h in Headers */,
+				4C30839E053237110028A8C6 /* MDSAttrParser.h in Headers */,
+				4C3083A0053237110028A8C6 /* MDSAttrStrings.h in Headers */,
+				4C3083A2053237110028A8C6 /* MDSAttrUtils.h in Headers */,
+				4C3083A4053237110028A8C6 /* MDSDatabase.h in Headers */,
+				4C3083A6053237110028A8C6 /* MDSDictionary.h in Headers */,
+				4C3083A8053237110028A8C6 /* MDSModule.h in Headers */,
+				4C3083AC053237110028A8C6 /* MDSSchema.h in Headers */,
+				4C3083AE053237110028A8C6 /* MDSSession.h in Headers */,
+				4CF36F80058137FF00834D11 /* mds.h in Headers */,
+				4CF36F81058137FF00834D11 /* mds_schema.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLibraryTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_mds */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = C27AD3A40987FCDE001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_mds" */;
+			buildPhases = (
+				4CA1FEB9052A3C8100F22E42 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+				4C789C16055AF56700B6FC95 /* ShellScript */,
+				4CD0D468055B0D40001715CB /* ShellScript */,
+				05545E8407CA7124002ED2ED /* ShellScript */,
+			);
+			dependencies = (
+				4C7502910540C69C00056564 /* PBXTargetDependency */,
+			);
+			name = libsecurity_mds;
+			productName = libsecurity_mds;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* security_mds */;
+		};
+/* End PBXLibraryTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD3A80987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_mds" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_mds */,
+				4C56351D0540A55300DCF0C8 /* security_mds */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		05545E8407CA7124002ED2ED /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "TMP_DIR=${INSTALL_DIR}/private/var/tmp\nMDS_DIR=${TMP_DIR}/mds\nMDS_SYS_DIR=${MDS_DIR}/system\nmkdir -p \"${MDS_SYS_DIR}\" || exit 1\nchmod 01777 \"${TMP_DIR}\" || exit 1\nchmod 01777 \"${MDS_DIR}\" || exit 1\nchmod 0755 \"${MDS_SYS_DIR}\" || exit 1\n";
+		};
+		4C789C16055AF56700B6FC95 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
+		};
+		4CD0D468055B0D40001715CB /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework/Versions/A\"\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework\"\ndone";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C30839C053237110028A8C6 /* mdsapi.cpp in Sources */,
+				4C30839D053237110028A8C6 /* MDSAttrParser.cpp in Sources */,
+				4C30839F053237110028A8C6 /* MDSAttrStrings.cpp in Sources */,
+				4C3083A1053237110028A8C6 /* MDSAttrUtils.cpp in Sources */,
+				4C3083A3053237110028A8C6 /* MDSDatabase.cpp in Sources */,
+				4C3083A5053237110028A8C6 /* MDSDictionary.cpp in Sources */,
+				4C3083A7053237110028A8C6 /* MDSModule.cpp in Sources */,
+				4C3083AB053237110028A8C6 /* MDSSchema.cpp in Sources */,
+				4C3083AD053237110028A8C6 /* MDSSession.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4C7502910540C69C00056564 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C56351D0540A55300DCF0C8 /* security_mds */;
+			targetProxy = 4C7502900540C69C00056564 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD3A10987FCDE001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
+				PRODUCT_NAME = security_mds;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD3A20987FCDE001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
+				PRODUCT_NAME = security_mds;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD3A30987FCDE001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
+				PRODUCT_NAME = security_mds;
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Default;
+		};
+		C27AD3A50987FCDE001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CURRENT_PROJECT_VERSION = 32449;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRODUCT_NAME = security_mds;
+				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD3A60987FCDE001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32449;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRODUCT_NAME = security_mds;
+				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD3A70987FCDE001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32449;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRIVATE_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/PrivateHeaders/Security";
+				PRODUCT_NAME = security_mds;
+				PUBLIC_HEADER_DIR = "$(DSTROOT)/usr/local/SecurityPieces/Headers/Security";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD3A90987FCDE001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD3AA0987FCDE001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD3AB0987FCDE001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				UNSTRIPPED_PRODUCT = YES;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD3A00987FCDE001272E0 /* Build configuration list for PBXFrameworkTarget "security_mds" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3A10987FCDE001272E0 /* Development */,
+				C27AD3A20987FCDE001272E0 /* Deployment */,
+				C27AD3A30987FCDE001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD3A40987FCDE001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_mds" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3A50987FCDE001272E0 /* Development */,
+				C27AD3A60987FCDE001272E0 /* Deployment */,
+				C27AD3A70987FCDE001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD3A80987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_mds" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3A90987FCDE001272E0 /* Development */,
+				C27AD3AA0987FCDE001272E0 /* Deployment */,
+				C27AD3AB0987FCDE001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

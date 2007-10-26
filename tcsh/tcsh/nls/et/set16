@@ -1,4 +1,4 @@
-$ $Id$
+$ $Id: set16,v 1.1 2001/01/04 18:46:03 christos Exp $
 $ sh.lex.c
 $set 16 
 1 Seadsin tty pgrp numbrilt %d numbrile %d\n

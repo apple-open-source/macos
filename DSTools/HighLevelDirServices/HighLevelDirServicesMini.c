@@ -1,10 +1,28 @@
 /*
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*
  *  HighLevelDirServicesMini.c
- *  
- *
- *  Created by Forest Hill on Mon Nov 05 2001.
- *  Copyright (c) 2001 Apple COmputer, Inc. All rights reserved.
- *
  */
 #include "HighLevelDirServicesMini.h"
 
@@ -18,12 +36,17 @@
 #include <DirectoryService/DirServicesUtils.h>
 #include <CoreFoundation/CFString.h>
 
+#define HLDS_API_IS_UNSUPPORTED(err)  (err == eNotHandledByThisNode \
+                                       || err == eNotYetImplemented \
+                                       || err == eNoLongerSupported \
+                                       || err == eUnknownAPICall)
+
 #pragma mark ••• Prototypes for Private Functions •••
 tDirStatus		_HLDSBuildDataListFromCFArray( CFArrayRef inArray, const tDirReference inDirRef, tDataListPtr* outAllocatedDataList );
 tDirStatus		_HLDSGetAttributeValuesFromRecordsByName( const tDirReference inDirRef, const tDirNodeReference inDirNodeRef, const char* inDSRecordType,
 					CFArrayRef inRecordNames, CFArrayRef inAttributesToGet, CFArrayRef* outAttributeValues, dsBool limitNumRecordsToNumNames );
 tDirStatus		_HLDSLegacySetAttributeValues( const tDirReference inDirRef, tRecordReference inRecordRef, const char* inAttributeName,
-					char createIfNecessary, const char** inAttributeValues, unsigned long inNumValues );
+					char createIfNecessary, const char** inAttributeValues, UInt32 inNumValues );
 tDirStatus		_HLDSLegacySetAttributeCFValues( const tDirReference inDirRef, tRecordReference inRecordRef, const char* inAttributeName,
 					char createIfNecessary, CFArrayRef inAttributeValues );
 
@@ -72,14 +95,14 @@ tDirStatus HLDSGetAttributeValuesFromRecordsByAttributeValue( const tDirReferenc
 	tDirStatus					dirStatus = eDSNoErr;
 	dsBool						loopAgain, attributeIsText;
 	tDataBufferPtr				dataBuff = NULL;
-	unsigned long				i;
-	unsigned long				j;
-	unsigned long				k;
+	UInt32						i;
+	UInt32						j;
+	UInt32						k;
 	tDataListPtr				recTypes = NULL;
 	tDataListPtr				attributesToGetList = NULL;
-	unsigned long				recCount = 0;
-	unsigned long				buffSize;
-	tContextData				continueData = NULL;
+	UInt32						recCount = 0;
+	UInt32						buffSize;
+	tContextData				continueData = 0;
 	CFMutableArrayRef			mutableValues = NULL;
 	CFMutableArrayRef			mutableAttributesAndValues = NULL;
 	CFMutableDictionaryRef		mutableDict = NULL;
@@ -168,14 +191,14 @@ tDirStatus HLDSGetAttributeValuesFromRecordsByAttributeValue( const tDirReferenc
 				loopAgain = true;
 				dirStatus = eDSNoErr;
 			}
-			if( continueData != NULL )
+			if( continueData != 0 )
 			{
 				dsReleaseContinueData( inDirNodeRef, continueData );
-				continueData = NULL;
+				continueData = 0;
 			}
 		}
 		
-		if( continueData != NULL )
+		if( continueData != 0 )
 			loopAgain = true;
 			
 		for( i=1; ( dirStatus == eDSNoErr ) && ( i<=recCount ); i++ )
@@ -295,10 +318,10 @@ tDirStatus HLDSGetAttributeValuesFromRecordsByAttributeValue( const tDirReferenc
 				attrListRef = 0;
 			}
 		}
-		if( ( dirStatus != eDSNoErr ) && ( continueData != NULL ) )
+		if( ( dirStatus != eDSNoErr ) && ( continueData != 0 ) )
 		{
 			dsReleaseContinueData( inDirNodeRef, continueData );
-			continueData = NULL;
+			continueData = 0;
 		}
 	}
 
@@ -355,10 +378,10 @@ tDirStatus HLDSGetAttributeValuesFromRecordsByAttributeValue( const tDirReferenc
 		dsCloseAttributeList( attrListRef );
 		attrListRef = 0;
 	}
-	if( continueData != NULL )
+	if( continueData != 0 )
 	{
 		dsReleaseContinueData( inDirNodeRef, continueData );
-		continueData = NULL;
+		continueData = 0;
 	}
 	if( dataBuff != NULL )
 	{
@@ -385,15 +408,15 @@ tDirStatus HLDSGetAttributeValuesFromRecordsByAttributeValues( const tDirReferen
 	tDirStatus					dirStatus = eDSNoErr;
 	dsBool						loopAgain, attributeIsText;
 	tDataBufferPtr				dataBuff = NULL;
-	unsigned long				i;
-	unsigned long				j;
-	unsigned long				k;
+	UInt32						i;
+	UInt32						j;
+	UInt32						k;
 	tDataListPtr				recTypes = NULL;
 	tDataListPtr				valuesToSearchFor = NULL;
 	tDataListPtr				attributeList = NULL;
-	unsigned long				recCount = 0;
-	unsigned long				buffSize;
-	tContextData				continueData = NULL;
+	UInt32						recCount = 0;
+	UInt32						buffSize;
+	tContextData				continueData = 0;
 	CFMutableArrayRef			mutableValues = NULL;
 	CFMutableArrayRef			mutableAttributesAndValues = NULL;
 	CFMutableDictionaryRef		mutableDict = NULL;
@@ -470,7 +493,7 @@ tDirStatus HLDSGetAttributeValuesFromRecordsByAttributeValues( const tDirReferen
 			}
 		}
 		
-		if( continueData != NULL )
+		if( continueData != 0 )
 			loopAgain = true;
 			
 		for( i=1; ( dirStatus == eDSNoErr ) && ( i<=recCount ); i++ )
@@ -656,10 +679,10 @@ tDirStatus HLDSGetAttributeValuesFromRecordsByAttributeValues( const tDirReferen
 		dsCloseAttributeList( attrListRef );
 		attrListRef = 0;
 	}
-	if( continueData != NULL )
+	if( continueData != 0 )
 	{
 		dsReleaseContinueData( inDirRef, continueData );
-		continueData = NULL;
+		continueData = 0;
 	}
 	if( dataBuff != NULL )
 	{
@@ -696,12 +719,12 @@ tDirStatus HLDSSetAttributeValue( const tDirReference inDirRef, tRecordReference
 }
 
 tDirStatus HLDSSetAttributeValues( const tDirReference inDirRef, tRecordReference inRecordRef, const char* inAttributeName,
-	char createIfNecessary, const char** inAttributeValues, unsigned long inNumValues )
+	char createIfNecessary, const char** inAttributeValues, UInt32 inNumValues )
 {
 	tDirStatus dirStatus = eDSNoErr;
 	tDataList attrValuesDataList={};
 	tDataNodePtr attrType = NULL;
-	unsigned long i;
+	UInt32 i;
 	dsBool nativeSetAttributeValuesAvailable = true;
 
 	// work around <rdar://problem/3825319>
@@ -721,17 +744,13 @@ tDirStatus HLDSSetAttributeValues( const tDirReference inDirRef, tRecordReferenc
 	if( dirStatus == eDSNoErr )
 	{
 		dirStatus = dsSetAttributeValues( inRecordRef, attrType, &attrValuesDataList );
-		switch( dirStatus )
+		if( HLDS_API_IS_UNSUPPORTED( dirStatus ) )
 		{
-			case eDSNoErr:
-			default:
-				break;
-			
-			case eNotHandledByThisNode:
-			case eUnknownAPICall:
-			case eUndefinedError:
-				nativeSetAttributeValuesAvailable = false;
-				break;
+			nativeSetAttributeValuesAvailable = false;
+		}
+		else
+		{
+			dsFlushRecord( inRecordRef );
 		}
 	}
 										
@@ -809,17 +828,13 @@ tDirStatus HLDSSetAttributeCFValues( const tDirReference inDirRef, tRecordRefere
 	if( dirStatus == eDSNoErr )
 	{
 		dirStatus = dsSetAttributeValues( inRecordRef, attrType, &attrValuesDataList );
-		switch( dirStatus )
+		if( HLDS_API_IS_UNSUPPORTED( dirStatus ) )
 		{
-			case eDSNoErr:
-			default:
-				break;
-			
-			case eNotHandledByThisNode:
-			case eUnknownAPICall:
-			case eUndefinedError:
-				nativeSetAttributeValuesAvailable = false;
-				break;
+            nativeSetAttributeValuesAvailable = false;
+		}
+		else
+		{
+			dsFlushRecord( inRecordRef );
 		}
 	}
 										
@@ -962,6 +977,9 @@ tDirStatus HLDSSetBinaryAttributeValues( const tDirReference inDirRef, tRecordRe
 		dsDataNodeDeAllocate( inDirRef, attrType );
 		attrType = NULL;
 	}
+	
+	dsFlushRecord( inRecordRef );
+	
 	return dirStatus;
 }
 
@@ -1056,7 +1074,7 @@ tDirStatus HLDSRemoveAttributeValue( const tDirReference inDirRef, tRecordRefere
 	tDataNodePtr				attrType = NULL;
 	tAttributeValueEntryPtr		attrValueEntry;
 	tAttributeEntryPtr			attrEntry;
-	unsigned long				i;
+	UInt32						i;
 	char						done = false;
 
 	attrType = dsDataNodeAllocateString( inDirRef, inAttributeName );
@@ -1260,15 +1278,15 @@ tDirStatus _HLDSGetAttributeValuesFromRecordsByName( const tDirReference inDirRe
 	tDirStatus					dirStatus = eDSNoErr;
 	dsBool						loopAgain, attributeIsText;
 	tDataBufferPtr				dataBuff = NULL;
-	unsigned long				i;
-	unsigned long				j;
-	unsigned long				k;
+	UInt32						i;
+	UInt32						j;
+	UInt32						k;
 	tDataListPtr				recTypes = NULL;
 	tDataListPtr				recNames = NULL;
 	tDataListPtr				attributeList = NULL;
-	unsigned long				recCount = 0;
-	unsigned long				buffSize;
-	tContextData				continueData = NULL;
+	UInt32						recCount = 0;
+	UInt32						buffSize;
+	tContextData				continueData = 0;
 	CFMutableArrayRef			mutableValues = NULL;
 	CFMutableArrayRef			mutableAttributesAndValues = NULL;
 	CFMutableDictionaryRef		mutableDict = NULL;
@@ -1336,14 +1354,14 @@ tDirStatus _HLDSGetAttributeValuesFromRecordsByName( const tDirReference inDirRe
 				loopAgain = true;
 				dirStatus = eDSNoErr;
 			}
-			if( continueData != NULL )
+			if( continueData != 0 )
 			{
 				dsReleaseContinueData( inDirNodeRef, continueData );
-				continueData = NULL;
+				continueData = 0;
 			}
 		}
 		
-		if( continueData != NULL )
+		if( continueData != 0 )
 			loopAgain = true;
 			
 		for( i=1; ( dirStatus == eDSNoErr ) && ( i<=recCount ); i++ )
@@ -1463,10 +1481,10 @@ tDirStatus _HLDSGetAttributeValuesFromRecordsByName( const tDirReference inDirRe
 				attrListRef = 0;
 			}
 		}
-		if( ( dirStatus != eDSNoErr ) && ( continueData != NULL ) )
+		if( ( dirStatus != eDSNoErr ) && ( continueData != 0 ) )
 		{
 			dsReleaseContinueData( inDirNodeRef, continueData );
-			continueData = NULL;
+			continueData = 0;
 		}
 		if( loopAgain && ( dirStatus == eDSNoErr ) && ( dataBuff->fBufferSize < ( 128 * 1024 ) ) )
 		{
@@ -1526,10 +1544,10 @@ tDirStatus _HLDSGetAttributeValuesFromRecordsByName( const tDirReference inDirRe
 		dsCloseAttributeList( attrListRef );
 		attrListRef = 0;
 	}
-	if( continueData != NULL )
+	if( continueData != 0 )
 	{
 		dsReleaseContinueData( inDirNodeRef, continueData );
-		continueData = NULL;
+		continueData = 0;
 	}
 	if( dataBuff != NULL )
 	{
@@ -1550,16 +1568,16 @@ tDirStatus _HLDSGetAttributeValuesFromRecordsByName( const tDirReference inDirRe
 }
 
 tDirStatus _HLDSLegacySetAttributeValues( const tDirReference inDirRef, tRecordReference inRecordRef, const char* inAttributeName,
-	char createIfNecessary, const char** inAttributeValues, unsigned long inNumValues )
+	char createIfNecessary, const char** inAttributeValues, UInt32 inNumValues )
 {
 	tDirStatus dirStatus = eDSNoErr;
 	tDataNodePtr attrType = NULL;
 	tDataNodePtr attrValue = NULL;
 	tAttributeValueEntryPtr newAttrValue = NULL;
 	tAttributeValueEntryPtr attrValueEntry = NULL;
-	unsigned long i;
-	unsigned long j;
-	unsigned long k;
+	UInt32 i;
+	UInt32 j;
+	UInt32 k;
 	dsBool attributeIsRecordName = false;
 	tAccessControlEntry theACLEntry;
 
@@ -1688,6 +1706,9 @@ tDirStatus _HLDSLegacySetAttributeValues( const tDirReference inDirRef, tRecordR
 		dsDataNodeDeAllocate( inDirRef, attrType );
 		attrType = NULL;
 	}
+	
+	dsFlushRecord( inRecordRef );
+	
 	return dirStatus;
 }
 
@@ -1852,5 +1873,8 @@ tDirStatus _HLDSLegacySetAttributeCFValues( const tDirReference inDirRef, tRecor
 		dsDataNodeDeAllocate( inDirRef, attrType );
 		attrType = NULL;
 	}
+	
+	dsFlushRecord( inRecordRef );
+	
 	return dirStatus;
 }

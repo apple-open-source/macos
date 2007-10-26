@@ -29,58 +29,131 @@
 #define _H_CFUTILITIES
 
 #include <security_utilities/utilities.h>
+#include <security_utilities/globalizer.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <algorithm>
+
+#undef check
 
 
 namespace Security {
 
 
 //
+// Traits of popular CF types
+//
+template <class CFType> struct CFTraits { };
+
+template <> struct CFTraits<CFTypeRef> {
+	static bool check(CFTypeRef ref) { return true; }
+};
+
+#define __SEC_CFTYPE(name) \
+	template <> struct CFTraits<name##Ref> { \
+		static CFTypeID cfid() { return name##GetTypeID(); } \
+		static bool check(CFTypeRef ref) { return CFGetTypeID(ref) == cfid(); } \
+	};
+	
+__SEC_CFTYPE(CFNull)
+__SEC_CFTYPE(CFBoolean)
+__SEC_CFTYPE(CFNumber)
+__SEC_CFTYPE(CFString)
+__SEC_CFTYPE(CFData)
+__SEC_CFTYPE(CFURL)
+__SEC_CFTYPE(CFBundle)
+__SEC_CFTYPE(CFArray)
+__SEC_CFTYPE(CFDictionary)
+__SEC_CFTYPE(CFSet)
+
+
+
+//
 // Initialize-only self-releasing CF object handler (lightweight).
-// Does not support assignment.
 //
 template <class CFType> class CFRef {
 public:
     CFRef() : mRef(NULL) { }
     CFRef(CFType ref) : mRef(ref) { }
     CFRef(const CFRef &ref) : mRef(ref) { if (ref) CFRetain(ref); }
-    ~CFRef() { if (mRef) CFRelease(mRef); }
+    ~CFRef() { this->release(); }
+	
+	CFRef(CFTypeRef ref, OSStatus err)
+		: mRef(CFType(ref))
+	{
+		if (ref && !CFTraits<CFType>::check(ref))
+			MacOSError::throwMe(err);
+	}		
 	
 	CFRef &take(CFType ref)
-	{ if (mRef) CFRelease(mRef); mRef = ref; return *this; }
+	{ this->release(); mRef = ref; return *this; }
+	
+	CFType yield()
+	{ CFType r = mRef; mRef = NULL; return r; }
 
     CFRef &operator = (CFType ref)
     { if (ref) CFRetain(ref); return take(ref); }
+	
+	CFRef &operator = (const CFRef &ref)
+	{ if (ref) CFRetain(ref); return take(ref); }
+
+	// take variant for when newly created CFType is returned
+	// via a ptr-to-CFType argument.
+	CFType *take()
+	{ if (mRef) CFRelease(mRef); mRef = NULL; return &mRef; }
 
     operator CFType () const { return mRef; }
     operator bool () const { return mRef != NULL; }
     bool operator ! () const { return mRef == NULL; }
+
+	CFType get() const { return mRef; }
+	
+	CFType &aref()
+	{ take(NULL); return mRef; }
+	
+	void retain()
+	{ if (mRef) CFRetain(mRef); }
+	
+	void release()
+	{ if (mRef) CFRelease(mRef); }
+	
+	template <class NewType>
+	bool is() const { return CFTraits<NewType>::check(mRef); }
+	
+	template <class OldType>
+	static CFType check(OldType cf, OSStatus err)
+	{
+		if (cf && !CFTraits<CFType>::check(cf))
+			MacOSError::throwMe(err);
+		return CFType(cf);
+	}
+	
+	template <class NewType>
+	NewType as() { return NewType(mRef); }
+	
+	template <class NewType>
+	NewType as(OSStatus err) { return CFRef<NewType>::check(mRef, err); }
 
 private:
     CFType mRef;
 };
 
 
-template <class CFType> class CFCopyRef {
+template <class CFType> class CFCopyRef : public CFRef<CFType> {
+	typedef CFRef<CFType> _Base;
 public:
-    CFCopyRef() : mRef(NULL) { }
-    explicit CFCopyRef(CFType ref) : mRef(ref) { if (ref) CFRetain(ref); }
-    CFCopyRef(const CFCopyRef &ref) : mRef(ref) { if (ref) CFRetain(ref); }
-    ~CFCopyRef() { if (mRef) CFRelease(mRef); }
-
+    CFCopyRef() { }
+    explicit CFCopyRef(CFType ref) : _Base(ref) { this->retain(); }
+    CFCopyRef(const CFCopyRef &ref) : _Base(ref) { this->retain(); }
+	CFCopyRef(CFTypeRef ref, OSStatus err) : _Base(ref, err) { this->retain(); }
+	
 	CFCopyRef &take(CFType ref)
-	{ if (mRef) CFRelease(mRef); mRef = ref; return *this; }
+	{ _Base::take(ref); return *this; }
 
     CFCopyRef &operator = (CFType ref)
     { if (ref) CFRetain(ref); return take(ref); }
-
-    operator CFType () const { return mRef; }
-    operator bool () const { return mRef != NULL; }
-    bool operator ! () const { return mRef == NULL; }
-
-private:
-    CFType mRef;
+	
+	CFCopyRef &operator = (const CFCopyRef &ref)
+	{ _Base::operator = (ref); return *this; }
 };
 
 
@@ -97,11 +170,25 @@ inline CFArrayRef cfArrayize(CFTypeRef arrayOrItem)
 		CFRetain(arrayOrItem);
         return CFArrayRef(arrayOrItem);		// already an array
     } else {
-        CFArrayRef array = CFArrayCreate(NULL,
+        return CFArrayCreate(NULL,
             (const void **)&arrayOrItem, 1, &kCFTypeArrayCallBacks);
-        return array;
     }
 }
+
+
+//
+// An empty CFArray.
+// Since CFArrays are type-neutral, a single immutable empty array will
+// serve for all uses. So keep it.
+//
+struct CFEmptyArray {
+	operator CFArrayRef () { return mArray; }
+	CFEmptyArray();
+private:
+	CFArrayRef mArray;
+};
+
+extern ModuleNexus<CFEmptyArray> cfEmptyArray;
 
 
 //
@@ -113,17 +200,100 @@ string cfString(CFStringRef str, bool release = false);	// extract UTF8 string
 string cfString(CFURLRef url, bool release = false);	// path of file: URL (only)
 string cfString(CFBundleRef url, bool release = false);	// path to bundle root
 
-
-//
-// Get the number out of a CFNumber
-//
-uint32_t cfNumber(CFNumberRef number);
-uint32_t cfNumber(CFNumberRef number, uint32_t defaultValue);
+string cfString(CFTypeRef url, OSStatus err);			// dynamic form; throws on bad type or NULL
 
 
 //
-// Turn a string or const char * into a CFStringRef, yield is as needed, and
-// release it soon thereafter.
+// Handle CFNumberRefs.
+// This is nasty because CFNumber does not support unsigned types, and there's really no portably-safe
+// way of working around this. So the handling of unsigned numbers is "almost correct."
+//
+template <class Number>
+class CFNumberTraits;
+
+template <> struct CFNumberTraits<char> {
+	static const CFNumberType cfnType = kCFNumberCharType;
+	typedef char ValueType;
+};
+template <> struct CFNumberTraits<short> {
+	static const CFNumberType cfnType = kCFNumberShortType;
+	typedef short ValueType;
+};
+template <> struct CFNumberTraits<int> {
+	static const CFNumberType cfnType = kCFNumberIntType;
+	typedef int ValueType;
+};
+template <> struct CFNumberTraits<long> {
+	static const CFNumberType cfnType = kCFNumberLongType;
+	typedef long ValueType;
+};
+template <> struct CFNumberTraits<long long> {
+	static const CFNumberType cfnType = kCFNumberLongLongType;
+	typedef long long ValueType;
+};
+template <> struct CFNumberTraits<float> {
+	static const CFNumberType cfnType = kCFNumberFloatType;
+	typedef float ValueType;
+};
+template <> struct CFNumberTraits<double> {
+	static const CFNumberType cfnType = kCFNumberDoubleType;
+	typedef double ValueType;
+};
+
+template <> struct CFNumberTraits<unsigned char> {
+	static const CFNumberType cfnType = kCFNumberIntType;
+	typedef int ValueType;
+};
+template <> struct CFNumberTraits<unsigned short> {
+	static const CFNumberType cfnType = kCFNumberIntType;
+	typedef int ValueType;
+};
+template <> struct CFNumberTraits<unsigned int> {
+	static const CFNumberType cfnType = kCFNumberLongLongType;
+	typedef long long ValueType;
+};
+template <> struct CFNumberTraits<unsigned long> {
+	static const CFNumberType cfnType = kCFNumberLongLongType;
+	typedef long long ValueType;
+};
+template <> struct CFNumberTraits<unsigned long long> {
+	static const CFNumberType cfnType = kCFNumberLongLongType;
+	typedef long long ValueType;
+};
+
+template <class Number>
+Number cfNumber(CFNumberRef number)
+{
+	typename CFNumberTraits<Number>::ValueType value;
+	if (CFNumberGetValue(number, CFNumberTraits<Number>::cfnType, &value))
+		return value;
+	else
+		CFError::throwMe();
+}
+
+template <class Number>
+Number cfNumber(CFNumberRef number, Number defaultValue)
+{
+	typename CFNumberTraits<Number>::ValueType value;
+	if (CFNumberGetValue(number, CFNumberTraits<Number>::cfnType, &value))
+		return value;
+	else
+		return defaultValue;
+}
+
+template <class Number>
+CFNumberRef makeCFNumber(Number value)
+{
+	typename CFNumberTraits<Number>::ValueType cfValue = value;
+	return CFNumberCreate(NULL, CFNumberTraits<Number>::cfnType, &cfValue);
+}
+
+// legacy form
+inline uint32_t cfNumber(CFNumberRef number) { return cfNumber<uint32_t>(number); }
+
+
+//
+// Make temporary CF objects.
 //
 class CFTempString : public CFRef<CFStringRef> {
 public:
@@ -134,10 +304,9 @@ public:
 class CFTempURL : public CFRef<CFURLRef> {
 public:
 	template <class Source>
-	CFTempURL(Source s, bool isDirectory = false) : CFRef<CFURLRef>(makeCFURL(s, isDirectory)) { }
+	CFTempURL(Source s, bool isDirectory = false, CFURLRef base = NULL)
+		: CFRef<CFURLRef>(makeCFURL(s, isDirectory, base)) { }
 };
-
-
 
 
 //
@@ -151,12 +320,41 @@ public:
 
 
 //
-// Translate any Data-oid source to a CFDataRef. The contents are copied.
+// A temporary CFData.
 //
+class CFTempData : public CFRef<CFDataRef> {
+public:
+	CFTempData(const void *data, size_t length)
+		: CFRef<CFDataRef>(CFDataCreate(NULL, (const UInt8 *)data, length)) { }
+	
+	template <class Dataoid>
+	CFTempData(const Dataoid &dataoid)
+		: CFRef<CFDataRef>(CFDataCreate(NULL, (const UInt8 *)dataoid.data(), dataoid.length())) { }
+};
+
+
+//
+// Create CFData objects from various sources.
+//
+inline CFDataRef makeCFData(const void *data, size_t size)
+{
+	return CFDataCreate(NULL, (const UInt8 *)data, size);
+}
+
+inline CFDataRef makeCFData(CFDictionaryRef dictionary)
+{
+	return CFPropertyListCreateXMLData(NULL, dictionary);
+}
+
 template <class Data>
 inline CFDataRef makeCFData(const Data &source)
 {
 	return CFDataCreate(NULL, reinterpret_cast<const UInt8 *>(source.data()), source.length());
+}
+
+inline CFDataRef makeCFDataMalloc(const void *data, size_t size)
+{
+	return CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)data, size, kCFAllocatorMalloc);
 }
 
 
@@ -173,21 +371,114 @@ inline CFStringRef makeCFString(const string &s)
 	return CFStringCreateWithCString(NULL, s.c_str(), kCFStringEncodingUTF8);
 }
 
-CFURLRef makeCFURL(const char *s, bool isDirectory = false);
 
-inline CFURLRef makeCFURL(const string &s, bool isDirectory = false)
+//
+// Create CFURL objects from various sources
+//
+CFURLRef makeCFURL(const char *s, bool isDirectory = false, CFURLRef base = NULL);
+CFURLRef makeCFURL(CFStringRef s, bool isDirectory = false, CFURLRef base = NULL);
+
+inline CFURLRef makeCFURL(const string &s, bool isDirectory = false, CFURLRef base = NULL)
 {
-	return makeCFURL(s.c_str(), isDirectory);
+	return makeCFURL(s.c_str(), isDirectory, base);
 }
 
 
 //
-// Translate numeric values into CFNumbers
+// Create a CFDataRef from malloc'ed data, exception-safely
 //
-inline CFNumberRef makeCFNumber(uint32_t value)
-{
-	return CFNumberCreate(NULL, kCFNumberSInt32Type, &value);
-}
+class CFMallocData {
+public:
+	CFMallocData(size_t size)
+		: mData(::malloc(size)), mSize(size)
+	{
+		if (!mData)
+			UnixError::throwMe();
+	}
+	
+	~CFMallocData()
+	{
+		if (mData)
+			::free(mData);
+	}
+	
+	template <class T>
+	operator T * ()
+	{ return static_cast<T *>(mData); }
+	
+	operator CFDataRef ();
+		
+	void *data()				{ return mData; }
+	const void *data() const	{ return mData; }
+	size_t length() const		{ return mSize; }
+	
+private:
+	void *mData;
+	size_t mSize;
+};
+
+
+//
+// Make CFDictionaries from stuff
+//
+CFDictionaryRef makeCFDictionary(unsigned count, ...);	// key/value pairs
+CFMutableDictionaryRef makeCFMutableDictionary(unsigned count, ...);
+
+CFDictionaryRef makeCFDictionaryFrom(CFDataRef data);	// interpret plist form
+CFDictionaryRef makeCFDictionaryFrom(const void *data, size_t length); // ditto
+
+
+//
+// Parsing out a CFDictionary without losing your lunch
+//
+class CFDictionary : public CFCopyRef<CFDictionaryRef> {
+	typedef CFCopyRef<CFDictionaryRef> _Base;
+public:
+	CFDictionary(CFDictionaryRef ref, OSStatus error) : _Base(ref), mDefaultError(error)
+	{ if (!ref) MacOSError::throwMe(error); }
+	CFDictionary(CFTypeRef ref, OSStatus error) : _Base(ref, error), mDefaultError(error)
+	{ if (!ref) MacOSError::throwMe(error); }
+	
+	template <class CFType>
+	CFType get(CFStringRef key, OSStatus err = noErr) const
+	{
+		CFTypeRef elem = CFDictionaryGetValue(*this, key);
+		return CFRef<CFType>::check(elem, err ? err : mDefaultError);
+	}
+	
+	template <class CFType>
+	CFType get(const char *key, OSStatus err = noErr) const
+	{ return get<CFType>(CFTempString(key), err); }
+	
+	void apply(CFDictionaryApplierFunction func, void *context)
+	{ return CFDictionaryApplyFunction(*this, func, context); }
+	
+private:
+	template <class T>
+	struct Applier {
+		T *object;
+		void (T::*func)(CFTypeRef key, CFTypeRef value);
+		static void apply(CFTypeRef key, CFTypeRef value, void *context)
+		{ Applier *me = (Applier *)context; return ((me->object)->*(me->func))(key, value); }
+	};		
+
+public:	
+	template <class T>
+	void apply(T *object, void (T::*func)(CFTypeRef key, CFTypeRef value))
+	{ Applier<T> app; app.object = object; app.func = func; return apply(app.apply, &app); }
+
+private:
+	OSStatus mDefaultError;
+};
+
+
+//
+// CFURLAccess wrappers for specific purposes
+//
+CFDataRef cfLoadFile(CFURLRef url);
+inline CFDataRef cfLoadFile(CFStringRef path) { return cfLoadFile(CFTempURL(path)); }
+inline CFDataRef cfLoadFile(const std::string &path) { return cfLoadFile(CFTempURL(path)); }
+inline CFDataRef cfLoadFile(const char *path) { return cfLoadFile(CFTempURL(path)); }
 
 
 //
@@ -247,9 +538,7 @@ CFToVector<VectorBase, CFRefType, convert>::CFToVector(CFArrayRef arrayRef)
 
 
 //
-// Generate a CFArray of CFTypeId things generated from iterators.
-// @@@ This should be cleaned up with partial specializations based
-// @@@ on iterator_traits.
+// Make CFArrays from stuff.
 //
 template <class Iterator, class Generator>
 inline CFArrayRef makeCFArray(Generator &generate, Iterator first, Iterator last)
@@ -270,6 +559,9 @@ inline CFArrayRef makeCFArray(Generator &generate, const Container &container)
 {
 	return makeCFArray(generate, container.begin(), container.end());
 }
+
+CFArrayRef makeCFArray(CFIndex count, ...);
+CFMutableArrayRef makeCFMutableArray(CFIndex count, ...);
 
 
 } // end namespace Security

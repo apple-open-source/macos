@@ -205,6 +205,7 @@ public:
     TaskPort() { mPort = self(); }
 	TaskPort(mach_port_t p) : Port(p) { }
     TaskPort(const Port &p) : Port(p) { }
+	TaskPort(pid_t pid);
     
     Bootstrap bootstrap() const
     { mach_port_t boot; check(task_get_bootstrap_port(mPort, &boot)); return boot; }
@@ -212,7 +213,6 @@ public:
     { check(task_set_bootstrap_port(mPort, boot)); }
 
     pid_t pid() const;
-    static TaskPort forPid(pid_t pid);
 };
 
 
@@ -222,7 +222,7 @@ public:
 class ReceivePort : public Port {
 public:
 	ReceivePort()	{ allocate(); }
-	ReceivePort(const char *name, const Bootstrap &bootstrap);
+	ReceivePort(const char *name, const Bootstrap &bootstrap, bool tryCheckin = true);
 	~ReceivePort()	{ destroy(); }
 };
 

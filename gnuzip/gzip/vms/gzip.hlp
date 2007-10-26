@@ -117,7 +117,7 @@ SYNOPSIS
           ten to a terminal. If the input data is not in a format
           recognized by gzip, and if the option --stdout is  also
           given,  copy the input data without change to the stan-
-          dard ouput: let zcat behave as cat. If -f is not given,
+          dard output: let zcat behave as cat. If -f is not given,
           and when not running in the background, gzip prompts to
           verify whether an existing file should be overwritten.
 

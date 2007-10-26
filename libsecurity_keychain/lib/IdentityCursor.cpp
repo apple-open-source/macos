@@ -34,6 +34,7 @@
 #include <security_cdsa_utilities/KeySchema.h>
 #include <Security/oidsalg.h>
 #include <Security/SecKeychainItemPriv.h>
+#include <security_utilities/simpleprefs.h>
 #include <sys/param.h>
 
 using namespace KeychainCore;
@@ -58,8 +59,9 @@ IdentityCursorPolicyAndID::findPreferredIdentity()
 	char idUTF8[MAXPATHLEN];
 	if (!mIDString || !CFStringGetCString(mIDString, idUTF8, sizeof(idUTF8)-1, kCFStringEncodingUTF8))
 		idUTF8[0] = (char)'\0';
+	uint32_t iprfValue = 'iprf'; // value is specified in host byte order, since kSecTypeItemAttr has type uint32 in the db schema
 	SecKeychainAttribute sAttrs[] = {
-		{ kSecTypeItemAttr, sizeof(FourCharCode), (char *)"iprf" },
+		{ kSecTypeItemAttr, sizeof(uint32_t), &iprfValue },
 		{ kSecServiceItemAttr, strlen(idUTF8), (char *)idUTF8 }
 	};
 	SecKeychainAttributeList sAttrList = { sizeof(sAttrs) / sizeof(sAttrs[0]), sAttrs };
@@ -254,6 +256,29 @@ IdentityCursor::~IdentityCursor() throw()
 {
 }
 
+CFDataRef
+IdentityCursor::pubKeyHashForSystemIdentity(CFStringRef domain)
+{
+    CFDataRef entryValue = nil;
+    auto_ptr<Dictionary> identDict;
+    try {
+        identDict.reset(new Dictionary("com.apple.security.systemidentities", Dictionary::US_System));
+        entryValue = identDict->getDataValue(domain);
+        if (entryValue == nil) {
+            /* try for default entry if we're not already looking for default */
+            if(!CFEqual(domain, kSecIdentityDomainDefault)) {
+                entryValue = identDict->getDataValue(kSecIdentityDomainDefault);
+            }
+        }
+    }
+    catch(...) {
+    }
+    if (entryValue) {
+        CFRetain(entryValue);
+    }
+    return entryValue;
+}
+
 bool
 IdentityCursor::next(SecPointer<Identity> &identity)
 {
@@ -272,9 +297,23 @@ IdentityCursor::next(SecPointer<Identity> &identity)
 			dbAttributes.add(KeySchema::Label);
 			uniqueId->get(&dbAttributes, NULL);
 			const CssmData &keyHash = dbAttributes[0];
-
+            
 			mCertificateCursor = KCCursor(mSearchList, CSSM_DL_DB_RECORD_X509_CERTIFICATE, NULL);
 			mCertificateCursor->add(CSSM_DB_EQUAL, Schema::kX509CertificatePublicKeyHash, keyHash);
+
+            // if we have entries for the system identities, exclude their public key hashes in the search
+            CFDataRef systemDefaultCertPubKeyHash = pubKeyHashForSystemIdentity(kSecIdentityDomainDefault);
+            if (systemDefaultCertPubKeyHash) {
+                CssmData pkHash((void *)CFDataGetBytePtr(systemDefaultCertPubKeyHash), CFDataGetLength(systemDefaultCertPubKeyHash));
+                mCertificateCursor->add(CSSM_DB_NOT_EQUAL, Schema::kX509CertificatePublicKeyHash, pkHash);
+                CFRelease(systemDefaultCertPubKeyHash);
+            }
+            CFDataRef kerbKDCCertPubKeyHash = pubKeyHashForSystemIdentity(kSecIdentityDomainKerberosKDC);
+            if (kerbKDCCertPubKeyHash) {
+                CssmData pkHash((void *)CFDataGetBytePtr(kerbKDCCertPubKeyHash), CFDataGetLength(kerbKDCCertPubKeyHash));
+                mCertificateCursor->add(CSSM_DB_NOT_EQUAL, Schema::kX509CertificatePublicKeyHash, pkHash);
+                CFRelease(kerbKDCCertPubKeyHash);
+            }
 		}
 	
 		Item cert;

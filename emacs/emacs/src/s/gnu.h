@@ -1,5 +1,6 @@
 /* Definitions file for GNU Emacs running on the GNU Hurd.
-   Copyright (C) 1994, 1995, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* Get most of the stuff from bsd4.3 */
@@ -60,6 +61,11 @@ Boston, MA 02111-1307, USA.  */
 #undef BSD_PGRPS
 #define GETPGRP_NO_ARG
 
+/* Use mmap directly for allocating larger buffers.  */
+#ifdef DOUG_LEA_MALLOC
+#undef REL_ALLOC
+#endif
+
 #define HAVE_WAIT_HEADER
 #define WAIT_USE_INT
 #define HAVE_UNION_WAIT
@@ -78,3 +84,15 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #define NARROWPROTO 1
+
+#ifdef emacs
+#include <stdio.h>  /* Get the definition of _IO_STDIO_H.  */
+#if defined(_IO_STDIO_H) || defined(_STDIO_USES_IOSTREAM)
+/* new C libio names */
+#define GNU_LIBRARY_PENDING_OUTPUT_COUNT(FILE) \
+  ((FILE)->_IO_write_ptr - (FILE)->_IO_write_base)
+#endif /* !_IO_STDIO_H */
+#endif /* emacs */
+
+/* arch-tag: 577983d9-87a6-4922-b8f8-ff2b563714a4
+   (do not change this comment) */

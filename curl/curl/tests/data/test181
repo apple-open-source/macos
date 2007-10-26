@@ -1,3 +1,4 @@
+<testcase>
 <reply>
 <data>
 HTTP/1.0 200 OK swsclose
@@ -31,7 +32,7 @@ the
    POST
       feature
 </file>
-</reply>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -41,7 +42,6 @@ the
 <protocol>
 POST /we/want/181 HTTP/1.0
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Content-Length: 79
 Content-Type: application/x-www-form-urlencoded
@@ -57,3 +57,4 @@ the
       feature
 </protocol>
 </verify>
+</testcase>

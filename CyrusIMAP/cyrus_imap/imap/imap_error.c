@@ -41,11 +41,13 @@ static const char * const text[] = {
 	   "Invalid annotation entry",
 	   "Invalid annotation attribute",
 	   "Invalid annotation value",
+	   "Bad URL",
 	   "Invalid server requested",
 	   "Server(s) unavailable to complete operation",
 	   "The remote Server(s) denied the operation",
 	   "Retry operation",
 	   "This mailbox hierarchy does not exist on a single backend server.",
+	   "The remote server does not support MULTIAPPEND",
 	   "Unrecognized character set",
 	   "Invalid user",
 	   "Auto-Forward user",
@@ -71,16 +73,16 @@ static const char * const text[] = {
 
 struct error_table {
     char const * const * msgs;
-    long base;
+    int base;
     int n_msgs;
 };
 struct et_list {
     struct et_list *next;
     const struct error_table * table;
 };
-struct et_list *_et_list;
+extern struct et_list *_et_list;
 
-const struct error_table et_imap_error_table = { text, -1904809472L, 56 };
+const struct error_table et_imap_error_table = { text, -1904809472, 58 };
 
 static struct et_list link = { 0, 0 };
 

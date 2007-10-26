@@ -1,0 +1,17 @@
+diff -udbNpr ../TwistedXish-0.1.0/twisted/xish/domish.py ./twisted/xish/domish.py
+--- ../TwistedXish-0.1.0/twisted/xish/domish.py	Fri Mar 18 07:27:25 2005
++++ ./twisted/xish/domish.py	Tue Mar 29 02:46:16 2005
+@@ -313,6 +313,13 @@ class Element(object):
+             if isinstance(n, types.StringTypes): return n
+         return ""
+ 
++    def __unicode__(self):
++        """ Retrieve the first CData (content) node 
++        """
++        for n in self.children:
++            if isinstance(n, types.StringTypes): return n
++        return ""
++
+     def _dqa(self, attr):
+         """ Dequalify an attribute key as needed """
+         if isinstance(attr, types.TupleType) and attr[0] == self.uri:

@@ -34,11 +34,13 @@ using namespace KeychainCore;
 using namespace CssmClient;
 
 PasswordImpl::PasswordImpl(SecItemClass itemClass, SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList) :
-    mKeychain(Keychain::optional(NULL)), mItem(itemClass, itemAttrList, 0, NULL), mFoundInKeychain(false), mRememberInKeychain(false)
+    mItem(itemClass, itemAttrList, 0, NULL), mUseKeychain(false), mFoundInKeychain(false), mRememberInKeychain(false)
 {
     if (searchAttrList && itemAttrList)
     {
         mUseKeychain = true;
+        mKeychain = Keychain::optional(NULL);
+		mRememberInKeychain = true;
 
         // initialize mFoundInKeychain to true if mItem is found
         
@@ -49,12 +51,18 @@ PasswordImpl::PasswordImpl(SecItemClass itemClass, SecKeychainAttributeList *sea
         if (cursor->next(mItem))
             mFoundInKeychain = true;
     }
-    else
-        mUseKeychain = false;
 }
 
 PasswordImpl::~PasswordImpl() throw()
 {
+}
+
+void
+PasswordImpl::setAccess(Access *access)
+{
+    // changing an existing ACL is more work than this SPI wants to do
+    if (!mFoundInKeychain)
+        mItem->setAccess(access);
 }
 
 void
@@ -69,7 +77,7 @@ PasswordImpl::setData(UInt32 length, const void *data)
 bool
 PasswordImpl::getData(UInt32 *length, const void **data)
 {
-    if (mItem->isPersistant())
+    if (mItem->isPersistent())
     {
         // try to retrieve it
         CssmDataContainer outData;

@@ -40,13 +40,13 @@ class IOFWUserPhysicalAddressSpace: public IOFWPhysicalAddressSpace
 
 	protected:
 	
-		UInt32				fSegmentCount ;
-		bool				fMemPrepared ;
+		UInt32					fSegmentCount;
+		IOMemoryDescriptor *	fDescriptor;
 
 	public:
 	
 		virtual void		free() ;
-		void				exporterCleanup () ;
+		static void			exporterCleanup( const OSObject * self );
 
 		virtual bool 		initWithDesc(
 									IOFireWireBus *			bus,

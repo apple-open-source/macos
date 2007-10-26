@@ -1,6 +1,6 @@
 /* MI Command Set for GDB, the GNU debugger.
 
-   Copyright 2000, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    Contributed by Cygnus Solutions (a Red Hat company).
 
@@ -40,10 +40,6 @@ enum mi_cmd_result
        asprintf'd into the mi_error_message buffer.  The main loop will
        display the error message and the completion prompt. */
     MI_CMD_ERROR,
-    /* An error condition was detected and caught.  The error message is
-       in the global error message buffer. The main loop will display
-       the error message and the completion prompt. */
-    MI_CMD_CAUGHT_ERROR,
     /* The MI command has already displayed its completion message.
        Main loop will not display a completion message but will display
        the completion prompt. */
@@ -57,6 +53,10 @@ enum print_values {
   PRINT_SIMPLE_VALUES,
   PRINT_MAKE_VAROBJ
 };
+
+extern const char mi_no_values[];
+extern const char mi_simple_values[];
+extern const char mi_all_values[];
 
 typedef enum mi_cmd_result (mi_cmd_argv_ftype) (char *command, char **argv, int argc);
 
@@ -94,6 +94,7 @@ extern mi_cmd_args_ftype mi_cmd_exec_step_instruction;
 extern mi_cmd_args_ftype mi_cmd_exec_metrowerks_step;
 extern mi_cmd_args_ftype mi_cmd_exec_until;
 extern mi_cmd_args_ftype mi_cmd_exec_interrupt;
+extern mi_cmd_argv_ftype mi_cmd_exec_safe_call;
 extern mi_cmd_argv_ftype mi_cmd_exec_status;
 extern mi_cmd_argv_ftype mi_cmd_file_core_file;
 extern mi_cmd_argv_ftype mi_cmd_file_fix_file;
@@ -102,14 +103,20 @@ extern mi_cmd_argv_ftype mi_cmd_file_list_exec_source_file;
 extern mi_cmd_argv_ftype mi_cmd_exec_safe_call;
 extern mi_cmd_argv_ftype mi_cmd_file_list_statics;
 extern mi_cmd_argv_ftype mi_cmd_file_list_globals;
+extern mi_cmd_argv_ftype mi_cmd_file_list_exec_source_files;
 extern mi_cmd_argv_ftype mi_cmd_gdb_exit;
+extern mi_cmd_argv_ftype mi_cmd_inferior_tty_set;
+extern mi_cmd_argv_ftype mi_cmd_inferior_tty_show;
 extern mi_cmd_argv_ftype mi_cmd_interpreter_set;
 extern mi_cmd_argv_ftype mi_cmd_interpreter_exec;
 extern mi_cmd_argv_ftype mi_cmd_interpreter_complete;
 extern mi_cmd_argv_ftype mi_cmd_mi_verify_command;
 extern mi_cmd_argv_ftype mi_cmd_mi_no_op;
 extern mi_cmd_argv_ftype mi_cmd_pid_info;
+extern mi_cmd_argv_ftype mi_cmd_show_version;
+extern mi_cmd_argv_ftype mi_cmd_stack_check_threads;
 extern mi_cmd_argv_ftype mi_cmd_stack_info_depth;
+extern mi_cmd_argv_ftype mi_cmd_stack_info_frame;
 extern mi_cmd_argv_ftype mi_cmd_stack_list_args;
 extern mi_cmd_argv_ftype mi_cmd_stack_list_frames;
 extern mi_cmd_argv_ftype mi_cmd_stack_list_frames_lite;
@@ -171,7 +178,6 @@ extern int mi_debug_p;
 extern struct ui_file *raw_stdout;
 
 extern char *mi_error_message;
-extern void mi_error_last_message (void);
 extern void mi_execute_command (char *cmd, int from_tty);
 
 #endif

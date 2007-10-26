@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/tcpdump/tcpdump/token.h,v 1.1.1.2 2003/03/17 18:42:21 rbraun Exp $ (LBL) */
+/* @(#) $Header: /tcpdump/master/tcpdump/token.h,v 1.6 2002/12/11 07:14:12 guy Exp $ (LBL) */
 /*
  * Copyright (c) 1998, Larry Lile
  * All rights reserved.

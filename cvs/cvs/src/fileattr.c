@@ -13,10 +13,9 @@
 #include "cvs.h"
 #include "getline.h"
 #include "fileattr.h"
-#include <assert.h>
 
-static void fileattr_read PROTO ((void));
-static int writeattr_proc PROTO ((Node *, void *));
+static void fileattr_read (void);
+static int writeattr_proc (Node *, void *);
 
 /* Where to look for CVSREP_FILEATTR.  */
 static char *fileattr_stored_repos;
@@ -39,11 +38,12 @@ struct unrecog {
 };
 static struct unrecog *unrecog_head;
 
+
+
 /* Note that if noone calls fileattr_get, this is very cheap.  No stat(),
    no open(), no nothing.  */
 void
-fileattr_startdir (repos)
-    const char *repos;
+fileattr_startdir (const char *repos)
 {
     assert (fileattr_stored_repos == NULL);
     fileattr_stored_repos = xstrdup (repos);
@@ -52,9 +52,10 @@ fileattr_startdir (repos)
     assert (unrecog_head == NULL);
 }
 
+
+
 static void
-fileattr_delproc (node)
-    Node *node;
+fileattr_delproc (Node *node)
 {
     assert (node->data != NULL);
     free (node->data);
@@ -63,7 +64,7 @@ fileattr_delproc (node)
 
 /* Read all the attributes for the current directory into memory.  */
 static void
-fileattr_read ()
+fileattr_read (void)
 {
     char *fname;
     FILE *fp;
@@ -79,14 +80,7 @@ fileattr_read ()
        at attributes.  */
     assert (fileattr_stored_repos != NULL);
 
-    fname = xmalloc (strlen (fileattr_stored_repos)
-		     + 1
-		     + sizeof (CVSREP_FILEATTR)
-		     + 1);
-
-    strcpy (fname, fileattr_stored_repos);
-    strcat (fname, "/");
-    strcat (fname, CVSREP_FILEATTR);
+    fname = Xasprintf ("%s/%s", fileattr_stored_repos, CVSREP_FILEATTR);
 
     attr_read_attempted = 1;
     fp = CVS_FOPEN (fname, FOPEN_BINARY_READ);
@@ -103,8 +97,13 @@ fileattr_read ()
 	nread = getline (&line, &line_len, fp);
 	if (nread < 0)
 	    break;
-	/* Remove trailing newline.  */
-	line[nread - 1] = '\0';
+	/* Remove trailing newline.
+	 * It is okay to reference line[nread - 1] here, since getline must
+	 * always return 1 character or EOF, but we need to verify that the
+	 * character we eat is the newline, since getline can return a line
+	 * w/o a newline just before returning EOF.
+	 */
+	if (line[nread - 1] == '\n') line[nread - 1] = '\0';
 	if (line[0] == 'F')
 	{
 	    char *p;
@@ -114,7 +113,7 @@ fileattr_read ()
 	    if (p == NULL)
 		error (1, 0,
 		       "file attribute database corruption: tab missing in %s",
-		       fname);
+		       primary_root_inverse_translate (fname));
 	    *p++ = '\0';
 	    newnode = getnode ();
 	    newnode->type = FILEATTR;
@@ -139,6 +138,7 @@ fileattr_read ()
 		       "file attribute database corruption: tab missing in %s",
 		       fname);
 	    ++p;
+	    if (fileattr_default_attrs) free (fileattr_default_attrs);
 	    fileattr_default_attrs = xstrdup (p);
 	}
 	else
@@ -147,7 +147,7 @@ fileattr_read ()
 	       changing it, for future expansion.  */
 	    struct unrecog *new;
 
-	    new = (struct unrecog *) xmalloc (sizeof (struct unrecog));
+	    new = xmalloc (sizeof (struct unrecog));
 	    new->line = xstrdup (line);
 	    new->next = unrecog_head;
 	    unrecog_head = new;
@@ -163,10 +163,10 @@ fileattr_read ()
     free (fname);
 }
 
+
+
 char *
-fileattr_get (filename, attrname)
-    const char *filename;
-    const char *attrname;
+fileattr_get (const char *filename, const char *attrname)
 {
     Node *node;
     size_t attrname_len = strlen (attrname);
@@ -206,10 +206,10 @@ fileattr_get (filename, attrname)
     return NULL;
 }
 
+
+
 char *
-fileattr_get0 (filename, attrname)
-    const char *filename;
-    const char *attrname;
+fileattr_get0 (const char *filename, const char *attrname)
 {
     char *cp;
     char *cpend;
@@ -227,13 +227,10 @@ fileattr_get0 (filename, attrname)
     return retval;
 }
 
+
+
 char *
-fileattr_modify (list, attrname, attrval, namevalsep, entsep)
-    char *list;
-    const char *attrname;
-    const char *attrval;
-    int namevalsep;
-    int entsep;
+fileattr_modify (char *list, const char *attrname, const char *attrval, int namevalsep, int entsep)
 {
     char *retval;
     char *rp;
@@ -325,10 +322,7 @@ fileattr_modify (list, attrname, attrval, namevalsep, entsep)
 }
 
 void
-fileattr_set (filename, attrname, attrval)
-    const char *filename;
-    const char *attrname;
-    const char *attrval;
+fileattr_set (const char *filename, const char *attrname, const char *attrval)
 {
     Node *node;
     char *p;
@@ -365,10 +359,7 @@ fileattr_set (filename, attrname, attrval)
 	node->type = FILEATTR;
 	node->delproc = fileattr_delproc;
 	node->key = xstrdup (filename);
-	node->data = xmalloc (strlen (attrname) + 1 + strlen (attrval) + 1);
-	strcpy (node->data, attrname);
-	strcat (node->data, "=");
-	strcat (node->data, attrval);
+	node->data = Xasprintf ("%s=%s", attrname, attrval);
 	addnode (attrlist, node);
     }
 
@@ -384,9 +375,10 @@ fileattr_set (filename, attrname, attrval)
     attrs_modified = 1;
 }
 
+
+
 char *
-fileattr_getall (filename)
-    const char *filename;
+fileattr_getall (const char *filename)
 {
     Node *node;
     char *p;
@@ -411,10 +403,10 @@ fileattr_getall (filename)
     return xstrdup (p);
 }
 
+
+
 void
-fileattr_setall (filename, attrs)
-    const char *filename;
-    const char *attrs;
+fileattr_setall (const char *filename, const char *attrs)
 {
     Node *node;
 
@@ -464,9 +456,10 @@ fileattr_setall (filename, attrs)
     attrs_modified = 1;
 }
 
+
+
 void
-fileattr_newfile (filename)
-    const char *filename;
+fileattr_newfile (const char *filename)
 {
     Node *node;
 
@@ -493,10 +486,10 @@ fileattr_newfile (filename)
     attrs_modified = 1;
 }
 
+
+
 static int
-writeattr_proc (node, data)
-    Node *node;
-    void *data;
+writeattr_proc (Node *node, void *data)
 {
     FILE *fp = (FILE *)data;
     fputs ("F", fp);
@@ -507,8 +500,63 @@ writeattr_proc (node, data)
     return 0;
 }
 
+
+
+/*
+ * callback proc to run a script when fileattrs are updated.
+ */
+static int
+postwatch_proc (const char *repository, const char *filter, void *closure)
+{
+    char *cmdline;
+    const char *srepos = Short_Repository (repository);
+
+    TRACE (TRACE_FUNCTION, "postwatch_proc (%s, %s)", repository, filter);
+
+    /* %c = command name
+     * %p = shortrepos
+     * %r = repository
+     */
+    /*
+     * Cast any NULL arguments as appropriate pointers as this is an
+     * stdarg function and we need to be certain the caller gets what
+     * is expected.
+     */
+    cmdline = format_cmdline (
+#ifdef SUPPORT_OLD_INFO_FMT_STRINGS
+	                      false, srepos,
+#endif /* SUPPORT_OLD_INFO_FMT_STRINGS */
+	                      filter,
+	                      "c", "s", cvs_cmd_name,
+#ifdef SERVER_SUPPORT
+	                      "R", "s", referrer ? referrer->original : "NONE",
+#endif /* SERVER_SUPPORT */
+	                      "p", "s", srepos,
+	                      "r", "s", current_parsed_root->directory,
+	                      (char *) NULL);
+
+    if (!cmdline || !strlen (cmdline))
+    {
+	if (cmdline) free (cmdline);
+	error (0, 0, "postwatch proc resolved to the empty string!");
+	return 1;
+    }
+
+    run_setup (cmdline);
+
+    free (cmdline);
+
+    /* FIXME - read the comment in verifymsg_proc() about why we use abs()
+     * below() and shouldn't.
+     */
+    return abs (run_exec (RUN_TTY, RUN_TTY, RUN_TTY,
+			  RUN_NORMAL | RUN_SIGIGNORE));
+}
+
+
+
 void
-fileattr_write ()
+fileattr_write (void)
 {
     FILE *fp;
     char *fname;
@@ -525,14 +573,7 @@ fileattr_write ()
        attributes.  */
     assert (fileattr_stored_repos != NULL);
 
-    fname = xmalloc (strlen (fileattr_stored_repos)
-		     + 1
-		     + sizeof (CVSREP_FILEATTR)
-		     + 1);
-
-    strcpy (fname, fileattr_stored_repos);
-    strcat (fname, "/");
-    strcat (fname, CVSREP_FILEATTR);
+    fname = Xasprintf ("%s/%s", fileattr_stored_repos, CVSREP_FILEATTR);
 
     if (list_isempty (attrlist)
 	&& fileattr_default_attrs == NULL
@@ -577,18 +618,13 @@ fileattr_write ()
 	    /* Maybe the CVSREP directory doesn't exist.  Try creating it.  */
 	    char *repname;
 
-	    repname = xmalloc (strlen (fileattr_stored_repos)
-			       + 1
-			       + sizeof (CVSREP)
-			       + 1);
-	    strcpy (repname, fileattr_stored_repos);
-	    strcat (repname, "/");
-	    strcat (repname, CVSREP);
+	    repname = Xasprintf ("%s/%s", fileattr_stored_repos, CVSREP);
 
 	    if (CVS_MKDIR (repname, 0777) < 0 && errno != EEXIST)
 	    {
 		error (0, errno, "cannot make directory %s", repname);
 		(void) umask (omask);
+		free (fname);
 		free (repname);
 		return;
 	    }
@@ -600,6 +636,7 @@ fileattr_write ()
 	{
 	    error (0, errno, "cannot write %s", fname);
 	    (void) umask (omask);
+	    free (fname);
 	    return;
 	}
     }
@@ -627,10 +664,15 @@ fileattr_write ()
 	error (0, errno, "cannot close %s", fname);
     attrs_modified = 0;
     free (fname);
+
+    Parse_Info (CVSROOTADM_POSTWATCH, fileattr_stored_repos, postwatch_proc,
+		PIOPT_ALL, NULL);
 }
 
+
+
 void
-fileattr_free ()
+fileattr_free (void)
 {
     /* Note that attrs_modified will ordinarily be zero, but there are
        a few cases in which fileattr_write will fail to zero it (if

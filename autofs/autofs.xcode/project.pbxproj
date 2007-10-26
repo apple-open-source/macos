@@ -3,583 +3,1745 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 39;
+	objectVersion = 42;
 	objects = {
-		C10DA65705E2C60D000E258E = {
-			children = (
-				C10DA69605E2C6FD000E258E,
-				C10DA6B905E2C766000E258E,
-				C10DA6C205E2C7AD000E258E,
-				C1CC68AB05E2CEA800D0D4A3,
-				C1CC68AD05E2CEA800D0D4A3,
-				C1CC68AE05E2CEA800D0D4A3,
+
+/* Begin PBXAggregateTarget section */
+		C1A6A8EF05E2D2230068CA07 /* autofs */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = EB0024B409776024002F9164 /* Build configuration list for PBXAggregateTarget "autofs" */;
+			buildPhases = (
 			);
+			dependencies = (
+				EBDCE6270A671EBB0058A293 /* PBXTargetDependency */,
+				EBC735EE0BC722F4002AD444 /* PBXTargetDependency */,
+				EBB3D6E309DB43C300176DBC /* PBXTargetDependency */,
+				EB275CF90A6879F30087A086 /* PBXTargetDependency */,
+				C1A6A8F105E2D22D0068CA07 /* PBXTargetDependency */,
+				C1A6A8F305E2D2420068CA07 /* PBXTargetDependency */,
+				EB28ED930BDDBDB1009EDDD8 /* PBXTargetDependency */,
+			);
+			name = autofs;
+			productName = "autofs-package";
+		};
+		EB275CF20A6879950087A086 /* files */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = EB275CF30A6879B40087A086 /* Build configuration list for PBXAggregateTarget "files" */;
+			buildPhases = (
+				EB275CF10A6879950087A086 /* CopyFiles */,
+				EB273B6C0A955DA2003ACC92 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = files;
+			productName = files;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		80B0F8D60BDEBD29005FB7AC /* auto_master.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 80B0F8D50BDEBCBE005FB7AC /* auto_master.5 */; };
+		C10DA70605E2C9FB000E258E /* auto_vnops.c in Sources */ = {isa = PBXBuildFile; fileRef = C10DA69C05E2C6FD000E258E /* auto_vnops.c */; };
+		C10DA70705E2C9FB000E258E /* auto_vfsops.c in Sources */ = {isa = PBXBuildFile; fileRef = C10DA69D05E2C6FD000E258E /* auto_vfsops.c */; };
+		C10DA70805E2C9FB000E258E /* auto_subr.c in Sources */ = {isa = PBXBuildFile; fileRef = C10DA69F05E2C6FD000E258E /* auto_subr.c */; };
+		C10DA71105E2C9FB000E258E /* mount_autofs.c in Sources */ = {isa = PBXBuildFile; fileRef = C10DA6BA05E2C766000E258E /* mount_autofs.c */; };
+		EB0024CF0977617E002F9164 /* autofs_prot.defs in Sources */ = {isa = PBXBuildFile; fileRef = EB0024CE0977617E002F9164 /* autofs_prot.defs */; };
+		EB0024E1097764A6002F9164 /* autofs_types.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0024E0097764A6002F9164 /* autofs_types.h */; };
+		EB1FAB270A30C7370012E6D3 /* automountd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB1FAB230A30C67D0012E6D3 /* automountd.8 */; };
+		EB273B660A955D85003ACC92 /* auto_master in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBF6974E0A351CA800E846A0 /* auto_master */; };
+		EB273B670A955D85003ACC92 /* autofs.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBF697500A351CB200E846A0 /* autofs.conf */; };
+		EB273B700A955DB3003ACC92 /* auto_home in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB273B640A955D2F003ACC92 /* auto_home */; };
+		EB275CF70A6879D10087A086 /* autofs.conf.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB275CEE0A6879690087A086 /* autofs.conf.5 */; };
+		EB2F19090BDDAF6900E29EAE /* mount_url.c in Sources */ = {isa = PBXBuildFile; fileRef = EB2F19080BDDAF6900E29EAE /* mount_url.c */; };
+		EB2F190E0BDDB02B00E29EAE /* mount_url.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB2F19070BDDAF6900E29EAE /* mount_url.8 */; };
+		EB439A6909EDF7830094B7DC /* mount.x in Sources */ = {isa = PBXBuildFile; fileRef = EB439A0509EDF46D0094B7DC /* mount.x */; };
+		EB5243CB09F5BFA80003D38E /* ns_files.c in Sources */ = {isa = PBXBuildFile; fileRef = EB5243C209F5BFA80003D38E /* ns_files.c */; };
+		EB5243CF09F5BFA80003D38E /* ns_generic.c in Sources */ = {isa = PBXBuildFile; fileRef = EB5243C709F5BFA80003D38E /* ns_generic.c */; };
+		EB6CDCC109D9E5C600EA0B49 /* autod_autofs.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDC9F09D9E5C500EA0B49 /* autod_autofs.c */; };
+		EB6CDCC209D9E5C600EA0B49 /* autod_lookup.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA009D9E5C500EA0B49 /* autod_lookup.c */; };
+		EB6CDCC309D9E5C600EA0B49 /* autod_main.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA109D9E5C500EA0B49 /* autod_main.c */; };
+		EB6CDCC409D9E5C600EA0B49 /* autod_mount.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA209D9E5C500EA0B49 /* autod_mount.c */; };
+		EB6CDCC509D9E5C600EA0B49 /* autod_nfs.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA309D9E5C500EA0B49 /* autod_nfs.c */; };
+		EB6CDCC609D9E5C600EA0B49 /* autod_parse.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA409D9E5C500EA0B49 /* autod_parse.c */; };
+		EB6CDCC709D9E5C600EA0B49 /* autod_readdir.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6CDCA509D9E5C500EA0B49 /* autod_readdir.c */; };
+		EB889502097C2FFE00B81AB3 /* autofs_defs.h in Headers */ = {isa = PBXBuildFile; fileRef = EB889501097C2FFE00B81AB3 /* autofs_defs.h */; };
+		EB8CA1AE0ABA3F5600CF2160 /* autofs.exp in Sources */ = {isa = PBXBuildFile; fileRef = EB8CA1AD0ABA3F5600CF2160 /* autofs.exp */; };
+		EB90EEB009DE0811000EE15D /* deflt.c in Sources */ = {isa = PBXBuildFile; fileRef = EB90EEAE09DE0811000EE15D /* deflt.c */; };
+		EB9C62F10A6729630012D63F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9C62A80A6729630012D63F /* CoreFoundation.framework */; };
+		EBB3D87C09DCDEB500176DBC /* autofs_prot.defs in Sources */ = {isa = PBXBuildFile; fileRef = EB0024CE0977617E002F9164 /* autofs_prot.defs */; };
+		EBB4C2B70BC5E58200FFAB32 /* com.apple.autofsd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBB4C2B60BC5E57000FFAB32 /* com.apple.autofsd.plist */; };
+		EBB4C2C40BC5E69300FFAB32 /* com.apple.automountd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBB4C2C10BC5E66E00FFAB32 /* com.apple.automountd.plist */; };
+		EBBBB7650BDDBE6F002F04E3 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9C62A80A6729630012D63F /* CoreFoundation.framework */; };
+		EBC735F10BC72328002AD444 /* automount.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC735F00BC72328002AD444 /* automount.c */; };
+		EBC735F70BC72348002AD444 /* automount.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBC735EF0BC72328002AD444 /* automount.8 */; };
+		EBC9AC23082836F700B4E5DF /* mount_autofs.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBC9AC1E082836D400B4E5DF /* mount_autofs.8 */; };
+		EBCF33930A676A4D00C28B21 /* autofsd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBCF33890A6769C300C28B21 /* autofsd.8 */; };
+		EBD0B48609FED46C008A1141 /* selfcheck.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD0B48509FED46C008A1141 /* selfcheck.c */; };
+		EBD0B4D809FED9EB008A1141 /* replica.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD0B4D709FED9EB008A1141 /* replica.c */; };
+		EBD0B4F309FEDA79008A1141 /* nfs_cast.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD0B4F209FEDA79008A1141 /* nfs_cast.c */; };
+		EBD0B6120A02B486008A1141 /* nfs_subr.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD0B6110A02B485008A1141 /* nfs_subr.c */; };
+		EBD297630B338F5100063B68 /* ns_fstab.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD297610B338F5100063B68 /* ns_fstab.c */; };
+		EBD485510A27C66C005F12BF /* autofs_migtypes.h in Headers */ = {isa = PBXBuildFile; fileRef = EBD485500A27C66B005F12BF /* autofs_migtypes.h */; };
+		EBD485520A27C66C005F12BF /* autofs_migtypes.h in Headers */ = {isa = PBXBuildFile; fileRef = EBD485500A27C66B005F12BF /* autofs_migtypes.h */; };
+		EBDAB3120B0D43AE00257263 /* ns_ds.c in Sources */ = {isa = PBXBuildFile; fileRef = EBDAB3100B0D438F00257263 /* ns_ds.c */; };
+		EBDAB3710B0D442300257263 /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDAB3180B0D43F300257263 /* DirectoryService.framework */; };
+		EBDB4B8D0BDDBC7F009FCE76 /* URLMount.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBA5F2A00A37DA4E0032E7C4 /* URLMount.framework */; };
+		EBDCE6280A671ED10058A293 /* autofsd.c in Sources */ = {isa = PBXBuildFile; fileRef = EBDCE6200A671E8D0058A293 /* autofsd.c */; };
+		EBDCE6530A671F3E0058A293 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDCE62F0A671F3E0058A293 /* SystemConfiguration.framework */; };
+		EBDFC4300978B2EC00096DCC /* autofs.h in Headers */ = {isa = PBXBuildFile; fileRef = EBDFC42F0978B2EC00096DCC /* autofs.h */; };
+		EBE849CE0CA9D494001FD34E /* host_is_us.c in Sources */ = {isa = PBXBuildFile; fileRef = EBE849CD0CA9D494001FD34E /* host_is_us.c */; };
+		EBE849CF0CA9D494001FD34E /* host_is_us.c in Sources */ = {isa = PBXBuildFile; fileRef = EBE849CD0CA9D494001FD34E /* host_is_us.c */; };
+		EBE849D30CA9D4B3001FD34E /* we_are_a_server.c in Sources */ = {isa = PBXBuildFile; fileRef = EBE849D20CA9D4B3001FD34E /* we_are_a_server.c */; };
+		EBE849D40CA9D4B3001FD34E /* we_are_a_server.c in Sources */ = {isa = PBXBuildFile; fileRef = EBE849D20CA9D4B3001FD34E /* we_are_a_server.c */; };
+		EBED8D050BF979E8002E732D /* auto_subr.c in Sources */ = {isa = PBXBuildFile; fileRef = EBEDAD6109FDDAB5004505E4 /* auto_subr.c */; };
+		EBED8D060BF979F3002E732D /* deflt.c in Sources */ = {isa = PBXBuildFile; fileRef = EB90EEAE09DE0811000EE15D /* deflt.c */; };
+		EBED8D070BF979FD002E732D /* ns_ds.c in Sources */ = {isa = PBXBuildFile; fileRef = EBDAB3100B0D438F00257263 /* ns_ds.c */; };
+		EBED8D080BF97A03002E732D /* ns_files.c in Sources */ = {isa = PBXBuildFile; fileRef = EB5243C209F5BFA80003D38E /* ns_files.c */; };
+		EBED8D090BF97A0B002E732D /* ns_fstab.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD297610B338F5100063B68 /* ns_fstab.c */; };
+		EBED8D0A0BF97A12002E732D /* ns_generic.c in Sources */ = {isa = PBXBuildFile; fileRef = EB5243C709F5BFA80003D38E /* ns_generic.c */; };
+		EBED8D0B0BF97A1F002E732D /* sysctl_fsid.c in Sources */ = {isa = PBXBuildFile; fileRef = EBF9E75A0A06BFA900D84B8F /* sysctl_fsid.c */; };
+		EBED8D0C0BF97A25002E732D /* umount_by_fsid.c in Sources */ = {isa = PBXBuildFile; fileRef = EBF9E7520A06BF4A00D84B8F /* umount_by_fsid.c */; };
+		EBED8D200BF97A4A002E732D /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDAB3180B0D43F300257263 /* DirectoryService.framework */; };
+		EBEDAD6209FDDAB5004505E4 /* auto_subr.c in Sources */ = {isa = PBXBuildFile; fileRef = EBEDAD6109FDDAB5004505E4 /* auto_subr.c */; };
+		EBF34C4509CA6B6B0096940B /* autofs_kern.h in Headers */ = {isa = PBXBuildFile; fileRef = EBF34C4409CA6B6B0096940B /* autofs_kern.h */; };
+		EBF9E7550A06BF4A00D84B8F /* umount_by_fsid.c in Sources */ = {isa = PBXBuildFile; fileRef = EBF9E7520A06BF4A00D84B8F /* umount_by_fsid.c */; };
+		EBF9E75B0A06BFA900D84B8F /* sysctl_fsid.c in Sources */ = {isa = PBXBuildFile; fileRef = EBF9E75A0A06BFA900D84B8F /* sysctl_fsid.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		EB439A0609EDF5010094B7DC /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.x";
+			fileType = pattern.proxy;
+			isEditable = 1;
+			outputFiles = (
+				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.h",
+				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}_xdr.c",
+			);
+			script = "rpcgen -DWANT_NFS3 -h -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.h ${INPUT_FILE_PATH}\nrpcgen -DWANT_NFS3 -c -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}_xdr.c ${INPUT_FILE_PATH}\n";
+		};
+		EBAB124C0978AD8E00AD60B2 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			fileType = sourcecode.mig;
+			isEditable = 1;
+			outputFiles = (
+				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}User.c",
+				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}User.h",
+			);
+			script = "mig -DMACH_KERNEL_PRIVATE -DKERNEL_USER=1 -Iheaders -maxonstack 1024 -user ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}User.c -header ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}User.h -server /dev/null -sheader /dev/null ${INPUT_FILE_PATH}";
+		};
+		EBB3D7F609DCCB1200176DBC /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			fileType = sourcecode.mig;
+			isEditable = 1;
+			outputFiles = (
+				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}Server.c",
+				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}Server.h",
+			);
+			script = "mig -Iheaders -user /dev/null -header /dev/null -server ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}Server.c -sheader ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}Server.h ${INPUT_FILE_PATH}";
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXContainerItemProxy section */
+		C1A6A8F005E2D22D0068CA07 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C10DA65B05E2C60D000E258E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C10DA70005E2C9FB000E258E;
+			remoteInfo = autofs;
+		};
+		C1A6A8F205E2D2420068CA07 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C10DA65B05E2C60D000E258E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C10DA70E05E2C9FB000E258E;
+			remoteInfo = mount_autofs;
+		};
+		EB275CF80A6879F30087A086 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C10DA65B05E2C60D000E258E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB275CF20A6879950087A086;
+			remoteInfo = files;
+		};
+		EB28ED920BDDBDB1009EDDD8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C10DA65B05E2C60D000E258E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB2F18CB0BDDAEAD00E29EAE;
+			remoteInfo = mount_url;
+		};
+		EBB3D6E209DB43C300176DBC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C10DA65B05E2C60D000E258E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB6CDC9609D9E59800EA0B49;
+			remoteInfo = automountd;
+		};
+		EBC735ED0BC722F4002AD444 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C10DA65B05E2C60D000E258E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBC735E80BC7229B002AD444;
+			remoteInfo = automount;
+		};
+		EBDCE6260A671EBB0058A293 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C10DA65B05E2C60D000E258E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBDCE6230A671EA80058A293;
+			remoteInfo = autofsd;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		EB1FAB240A30C6E90012E6D3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				EB1FAB270A30C7370012E6D3 /* automountd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB273B6C0A955DA2003ACC92 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc;
+			dstSubfolderSpec = 0;
+			files = (
+				EB273B700A955DB3003ACC92 /* auto_home in CopyFiles */,
+				EB273B660A955D85003ACC92 /* auto_master in CopyFiles */,
+				EB273B670A955D85003ACC92 /* autofs.conf in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB275CF10A6879950087A086 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				80B0F8D60BDEBD29005FB7AC /* auto_master.5 in CopyFiles */,
+				EB275CF70A6879D10087A086 /* autofs.conf.5 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB2F190D0BDDB01400E29EAE /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				EB2F190E0BDDB02B00E29EAE /* mount_url.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EBB4C2BD0BC5E5DB00FFAB32 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				EBB4C2B70BC5E58200FFAB32 /* com.apple.autofsd.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EBB4C2C20BC5E66F00FFAB32 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				EBB4C2C40BC5E69300FFAB32 /* com.apple.automountd.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EBC735F80BC7237A002AD444 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				EBC735F70BC72348002AD444 /* automount.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EBC9AC20082836E300B4E5DF /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/share/man/man8/;
+			dstSubfolderSpec = 0;
+			files = (
+				EBC9AC23082836F700B4E5DF /* mount_autofs.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EBCF338D0A676A1500C28B21 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				EBCF33930A676A4D00C28B21 /* autofsd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		80B0F8D50BDEBCBE005FB7AC /* auto_master.5 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; indentWidth = 8; name = auto_master.5; path = files/auto_master.5; sourceTree = "<group>"; tabWidth = 8; };
+		C10DA69C05E2C6FD000E258E /* auto_vnops.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = auto_vnops.c; sourceTree = "<group>"; tabWidth = 8; };
+		C10DA69D05E2C6FD000E258E /* auto_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = auto_vfsops.c; sourceTree = "<group>"; tabWidth = 8; };
+		C10DA69F05E2C6FD000E258E /* auto_subr.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = auto_subr.c; sourceTree = "<group>"; tabWidth = 8; };
+		C10DA6BA05E2C766000E258E /* mount_autofs.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; name = mount_autofs.c; path = mount_autofs/mount_autofs.c; sourceTree = SOURCE_ROOT; tabWidth = 8; };
+		C1CC68AD05E2CEA800D0D4A3 /* autofs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = autofs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		C1CC68AE05E2CEA800D0D4A3 /* mount_autofs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_autofs; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB0024CE0977617E002F9164 /* autofs_prot.defs */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.mig; name = autofs_prot.defs; path = mig/autofs_prot.defs; sourceTree = "<group>"; tabWidth = 8; };
+		EB0024E0097764A6002F9164 /* autofs_types.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; name = autofs_types.h; path = headers/autofs_types.h; sourceTree = "<group>"; tabWidth = 8; };
+		EB1FAB230A30C67D0012E6D3 /* automountd.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; path = automountd.8; sourceTree = "<group>"; };
+		EB1FFBC30C9A36E300CEA681 /* automount_ds.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = automount_ds.h; path = headers/automount_ds.h; sourceTree = "<group>"; };
+		EB273B640A955D2F003ACC92 /* auto_home */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = text; name = auto_home; path = files/auto_home; sourceTree = "<group>"; tabWidth = 8; };
+		EB275CEE0A6879690087A086 /* autofs.conf.5 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; indentWidth = 8; name = autofs.conf.5; path = files/autofs.conf.5; sourceTree = "<group>"; tabWidth = 8; };
+		EB2A681E0AA3C21B002DEECF /* auto_mntopts.h */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = sourcecode.c.h; name = auto_mntopts.h; path = headers/auto_mntopts.h; sourceTree = "<group>"; };
+		EB2F18CC0BDDAEAD00E29EAE /* mount_url */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_url; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB2F19070BDDAF6900E29EAE /* mount_url.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; indentWidth = 8; name = mount_url.8; path = mount_url/mount_url.8; sourceTree = "<group>"; tabWidth = 8; };
+		EB2F19080BDDAF6900E29EAE /* mount_url.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; name = mount_url.c; path = mount_url/mount_url.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB39DD470A645F7500A4B518 /* nfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nfs.h; path = headers/nfs.h; sourceTree = "<group>"; };
+		EB439A0509EDF46D0094B7DC /* mount.x */ = {isa = PBXFileReference; explicitFileType = sourcecode; fileEncoding = 4; indentWidth = 8; path = mount.x; sourceTree = "<group>"; tabWidth = 8; };
+		EB5243C209F5BFA80003D38E /* ns_files.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = ns_files.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB5243C709F5BFA80003D38E /* ns_generic.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = ns_generic.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB6CDC9709D9E59800EA0B49 /* automountd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = automountd; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB6CDC9F09D9E5C500EA0B49 /* autod_autofs.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = autod_autofs.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB6CDCA009D9E5C500EA0B49 /* autod_lookup.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = autod_lookup.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB6CDCA109D9E5C500EA0B49 /* autod_main.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = autod_main.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB6CDCA209D9E5C500EA0B49 /* autod_mount.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = autod_mount.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB6CDCA309D9E5C500EA0B49 /* autod_nfs.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = autod_nfs.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB6CDCA409D9E5C500EA0B49 /* autod_parse.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = autod_parse.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB6CDCA509D9E5C500EA0B49 /* autod_readdir.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = autod_readdir.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB889501097C2FFE00B81AB3 /* autofs_defs.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; name = autofs_defs.h; path = headers/autofs_defs.h; sourceTree = "<group>"; tabWidth = 8; };
+		EB8CA1AD0ABA3F5600CF2160 /* autofs.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = autofs.exp; sourceTree = "<group>"; };
+		EB90EEAE09DE0811000EE15D /* deflt.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = deflt.c; sourceTree = "<group>"; tabWidth = 8; };
+		EB90EEAF09DE0811000EE15D /* deflt.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; name = deflt.h; path = automountlib/deflt.h; sourceTree = "<group>"; tabWidth = 8; };
+		EB9C62A80A6729630012D63F /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		EBA5F2A00A37DA4E0032E7C4 /* URLMount.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = URLMount.framework; path = /System/Library/PrivateFrameworks/URLMount.framework; sourceTree = "<absolute>"; };
+		EBAC2EB009DE106700699A69 /* replica.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = replica.h; sourceTree = "<group>"; tabWidth = 8; };
+		EBAC2F2709DE1A0D00699A69 /* nfs_subr.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = nfs_subr.h; sourceTree = "<group>"; tabWidth = 8; };
+		EBB3D6F209DB447800176DBC /* automount.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; name = automount.h; path = headers/automount.h; sourceTree = "<group>"; tabWidth = 8; };
+		EBB4C2B60BC5E57000FFAB32 /* com.apple.autofsd.plist */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = text.plist.xml; name = com.apple.autofsd.plist; path = autofsd/com.apple.autofsd.plist; sourceTree = "<group>"; tabWidth = 8; };
+		EBB4C2C10BC5E66E00FFAB32 /* com.apple.automountd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.automountd.plist; sourceTree = "<group>"; };
+		EBC735E90BC7229B002AD444 /* automount */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = automount; sourceTree = BUILT_PRODUCTS_DIR; };
+		EBC735EF0BC72328002AD444 /* automount.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; indentWidth = 8; name = automount.8; path = automount/automount.8; sourceTree = "<group>"; tabWidth = 8; };
+		EBC735F00BC72328002AD444 /* automount.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; name = automount.c; path = automount/automount.c; sourceTree = "<group>"; tabWidth = 8; };
+		EBC9AC1E082836D400B4E5DF /* mount_autofs.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = mount_autofs.8; path = mount_autofs/mount_autofs.8; sourceTree = SOURCE_ROOT; };
+		EBCF33890A6769C300C28B21 /* autofsd.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; indentWidth = 8; name = autofsd.8; path = autofsd/autofsd.8; sourceTree = "<group>"; tabWidth = 8; };
+		EBD0B48509FED46C008A1141 /* selfcheck.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = selfcheck.c; sourceTree = "<group>"; tabWidth = 8; };
+		EBD0B4D709FED9EB008A1141 /* replica.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = replica.c; sourceTree = "<group>"; tabWidth = 8; };
+		EBD0B4F209FEDA79008A1141 /* nfs_cast.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = nfs_cast.c; sourceTree = "<group>"; tabWidth = 8; };
+		EBD0B6110A02B485008A1141 /* nfs_subr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nfs_subr.c; sourceTree = "<group>"; };
+		EBD297610B338F5100063B68 /* ns_fstab.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ns_fstab.c; sourceTree = "<group>"; };
+		EBD485500A27C66B005F12BF /* autofs_migtypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = autofs_migtypes.h; path = mig/autofs_migtypes.h; sourceTree = "<group>"; };
+		EBDAB3100B0D438F00257263 /* ns_ds.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ns_ds.c; sourceTree = "<group>"; };
+		EBDAB3180B0D43F300257263 /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = /System/Library/Frameworks/DirectoryService.framework; sourceTree = "<absolute>"; };
+		EBDCE6200A671E8D0058A293 /* autofsd.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; name = autofsd.c; path = autofsd/autofsd.c; sourceTree = "<group>"; tabWidth = 8; };
+		EBDCE6240A671EA80058A293 /* autofsd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = autofsd; sourceTree = BUILT_PRODUCTS_DIR; };
+		EBDCE62F0A671F3E0058A293 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
+		EBDFC42F0978B2EC00096DCC /* autofs.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; name = autofs.h; path = headers/autofs.h; sourceTree = "<group>"; tabWidth = 8; };
+		EBE849CD0CA9D494001FD34E /* host_is_us.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = host_is_us.c; sourceTree = "<group>"; };
+		EBE849D20CA9D4B3001FD34E /* we_are_a_server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = we_are_a_server.c; sourceTree = "<group>"; };
+		EBEDAD6109FDDAB5004505E4 /* auto_subr.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = auto_subr.c; sourceTree = "<group>"; tabWidth = 8; };
+		EBF34C4409CA6B6B0096940B /* autofs_kern.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; name = autofs_kern.h; path = kext/autofs_kern.h; sourceTree = "<group>"; tabWidth = 8; };
+		EBF6974E0A351CA800E846A0 /* auto_master */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = text; name = auto_master; path = files/auto_master; sourceTree = "<group>"; tabWidth = 8; };
+		EBF697500A351CB200E846A0 /* autofs.conf */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = text; name = autofs.conf; path = files/autofs.conf; sourceTree = "<group>"; tabWidth = 8; };
+		EBF9E7510A06BF4A00D84B8F /* umount_by_fsid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = umount_by_fsid.h; path = automountlib/umount_by_fsid.h; sourceTree = "<group>"; };
+		EBF9E7520A06BF4A00D84B8F /* umount_by_fsid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = umount_by_fsid.c; sourceTree = "<group>"; };
+		EBF9E7590A06BFA900D84B8F /* sysctl_fsid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sysctl_fsid.h; path = automountlib/sysctl_fsid.h; sourceTree = "<group>"; };
+		EBF9E75A0A06BFA900D84B8F /* sysctl_fsid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sysctl_fsid.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C10DA70B05E2C9FB000E258E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA71205E2C9FB000E258E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB2F18CA0BDDAEAD00E29EAE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBBBB7650BDDBE6F002F04E3 /* CoreFoundation.framework in Frameworks */,
+				EBDB4B8D0BDDBC7F009FCE76 /* URLMount.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB6CDC9509D9E59800EA0B49 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBDAB3710B0D442300257263 /* DirectoryService.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBC735E70BC7229B002AD444 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBED8D200BF97A4A002E732D /* DirectoryService.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBDCE6220A671EA80058A293 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBDCE6530A671F3E0058A293 /* SystemConfiguration.framework in Frameworks */,
+				EB9C62F10A6729630012D63F /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C10DA65705E2C60D000E258E = {
 			isa = PBXGroup;
-			refType = 4;
+			children = (
+				C1CC68AD05E2CEA800D0D4A3 /* autofs.kext */,
+				EBDCE6110A671D980058A293 /* autofsd */,
+				EBDCE6240A671EA80058A293 /* autofsd */,
+				EBC735E50BC72243002AD444 /* automount */,
+				EBC735E90BC7229B002AD444 /* automount */,
+				EB6CDC9909D9E5C500EA0B49 /* automountd */,
+				EB6CDC9709D9E59800EA0B49 /* automountd */,
+				EB6B574C09F5BEF100DC4BA4 /* automountlib */,
+				EB275CED0A6879360087A086 /* files */,
+				EB6382E209C22EFB007435E6 /* headers */,
+				C10DA69605E2C6FD000E258E /* kext */,
+				EB0024CA097760B3002F9164 /* mig */,
+				C10DA6B905E2C766000E258E /* mount_autofs */,
+				C1CC68AE05E2CEA800D0D4A3 /* mount_autofs */,
+				EB2F18DA0BDDAF0D00E29EAE /* mount_url */,
+				EB2F18CC0BDDAEAD00E29EAE /* mount_url */,
+				EB9C62A80A6729630012D63F /* CoreFoundation.framework */,
+				EBDAB3180B0D43F300257263 /* DirectoryService.framework */,
+				EBDCE62F0A671F3E0058A293 /* SystemConfiguration.framework */,
+				EBA5F2A00A37DA4E0032E7C4 /* URLMount.framework */,
+			);
 			sourceTree = "<group>";
 		};
-		C10DA65905E2C60D000E258E = {
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
-			};
-			isa = PBXBuildStyle;
-			name = Development;
-		};
-		C10DA65A05E2C60D000E258E = {
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-			};
-			isa = PBXBuildStyle;
-			name = Deployment;
-		};
-		C10DA65B05E2C60D000E258E = {
-			buildSettings = {
-			};
-			buildStyles = (
-				C10DA65905E2C60D000E258E,
-				C10DA65A05E2C60D000E258E,
-			);
-			hasScannedForEncodings = 1;
-			isa = PBXProject;
-			mainGroup = C10DA65705E2C60D000E258E;
-			productRefGroup = C10DA65705E2C60D000E258E;
-			projectDirPath = "";
-			targets = (
-				C1A6A8EF05E2D2230068CA07,
-				C10DA70005E2C9FB000E258E,
-				C10DA70E05E2C9FB000E258E,
-				C10DA71705E2C9FB000E258E,
-			);
-		};
-		C10DA69605E2C6FD000E258E = {
-			children = (
-				C10DA69905E2C6FD000E258E,
-				C10DA69E05E2C6FD000E258E,
-				C10DA69B05E2C6FD000E258E,
-				C10DA69C05E2C6FD000E258E,
-				C10DA69D05E2C6FD000E258E,
-				C10DA69F05E2C6FD000E258E,
-			);
+		C10DA69605E2C6FD000E258E /* kext */ = {
 			isa = PBXGroup;
-			path = kext;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
-		};
-		C10DA69905E2C6FD000E258E = {
 			children = (
-				C10DA69A05E2C6FD000E258E,
+				EB8CA1AD0ABA3F5600CF2160 /* autofs.exp */,
+				C10DA69C05E2C6FD000E258E /* auto_vnops.c */,
+				C10DA69D05E2C6FD000E258E /* auto_vfsops.c */,
+				C10DA69F05E2C6FD000E258E /* auto_subr.c */,
 			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
+			indentWidth = 8;
 			path = kext;
-			refType = 2;
 			sourceTree = SOURCE_ROOT;
+			tabWidth = 8;
 		};
-		C10DA69A05E2C6FD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = English;
-			path = kext/English.lproj/InfoPlist.strings;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
-		};
-		C10DA69B05E2C6FD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			name = autofs.c;
-			path = kext/autofs.c;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
-		};
-		C10DA69C05E2C6FD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			name = autofs_vnops.c;
-			path = kext/autofs_vnops.c;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
-		};
-		C10DA69D05E2C6FD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			name = autofs_vfsops.c;
-			path = kext/autofs_vfsops.c;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
-		};
-		C10DA69E05E2C6FD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = autofs.h;
-			path = kext/autofs.h;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
-		};
-		C10DA69F05E2C6FD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			name = autofs_util.c;
-			path = kext/autofs_util.c;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
-		};
-		C10DA6B905E2C766000E258E = {
-			children = (
-				C10DA6BA05E2C766000E258E,
-			);
+		C10DA6B905E2C766000E258E /* mount_autofs */ = {
 			isa = PBXGroup;
+			children = (
+				C10DA6BA05E2C766000E258E /* mount_autofs.c */,
+				EBC9AC1E082836D400B4E5DF /* mount_autofs.8 */,
+			);
+			indentWidth = 8;
 			path = mount_autofs;
-			refType = 2;
 			sourceTree = SOURCE_ROOT;
+			tabWidth = 8;
 		};
-		C10DA6BA05E2C766000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			name = mount_autofs.c;
-			path = mount_autofs/mount_autofs.c;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
-		};
-		C10DA6C205E2C7AD000E258E = {
-			children = (
-				C10DA6C305E2C7AD000E258E,
-				C10DA6C405E2C7AD000E258E,
-				C10DA6C505E2C7AD000E258E,
-				C10DA6C605E2C7AD000E258E,
-				C10DA6C705E2C7AD000E258E,
-			);
+		EB0024CA097760B3002F9164 /* mig */ = {
 			isa = PBXGroup;
-			path = driver;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
+			children = (
+				EBD485500A27C66B005F12BF /* autofs_migtypes.h */,
+				EB0024CE0977617E002F9164 /* autofs_prot.defs */,
+			);
+			indentWidth = 8;
+			name = mig;
+			sourceTree = "<group>";
+			tabWidth = 8;
 		};
-		C10DA6C305E2C7AD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			name = autodriver.c;
-			path = driver/autodriver.c;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
+		EB275CED0A6879360087A086 /* files */ = {
+			isa = PBXGroup;
+			children = (
+				80B0F8D50BDEBCBE005FB7AC /* auto_master.5 */,
+				EB273B640A955D2F003ACC92 /* auto_home */,
+				EBF6974E0A351CA800E846A0 /* auto_master */,
+				EBF697500A351CB200E846A0 /* autofs.conf */,
+				EB275CEE0A6879690087A086 /* autofs.conf.5 */,
+			);
+			name = files;
+			sourceTree = "<group>";
 		};
-		C10DA6C405E2C7AD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = text;
-			name = autotab;
-			path = driver/autotab;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
+		EB2F18DA0BDDAF0D00E29EAE /* mount_url */ = {
+			isa = PBXGroup;
+			children = (
+				EB2F19070BDDAF6900E29EAE /* mount_url.8 */,
+				EB2F19080BDDAF6900E29EAE /* mount_url.c */,
+			);
+			name = mount_url;
+			sourceTree = "<group>";
 		};
-		C10DA6C505E2C7AD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.make;
-			name = Makefile;
-			path = driver/Makefile;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
+		EB6382E209C22EFB007435E6 /* headers */ = {
+			isa = PBXGroup;
+			children = (
+				EB1FFBC30C9A36E300CEA681 /* automount_ds.h */,
+				EB2A681E0AA3C21B002DEECF /* auto_mntopts.h */,
+				EBDFC42F0978B2EC00096DCC /* autofs.h */,
+				EB889501097C2FFE00B81AB3 /* autofs_defs.h */,
+				EBF34C4409CA6B6B0096940B /* autofs_kern.h */,
+				EB0024E0097764A6002F9164 /* autofs_types.h */,
+				EBB3D6F209DB447800176DBC /* automount.h */,
+				EB90EEAF09DE0811000EE15D /* deflt.h */,
+				EB39DD470A645F7500A4B518 /* nfs.h */,
+				EBF9E7590A06BFA900D84B8F /* sysctl_fsid.h */,
+				EBF9E7510A06BF4A00D84B8F /* umount_by_fsid.h */,
+			);
+			indentWidth = 8;
+			name = headers;
+			sourceTree = "<group>";
+			tabWidth = 8;
 		};
-		C10DA6C605E2C7AD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			name = sysctl.c;
-			path = driver/sysctl.c;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
+		EB6B574C09F5BEF100DC4BA4 /* automountlib */ = {
+			isa = PBXGroup;
+			children = (
+				EBEDAD6109FDDAB5004505E4 /* auto_subr.c */,
+				EB90EEAE09DE0811000EE15D /* deflt.c */,
+				EBE849CD0CA9D494001FD34E /* host_is_us.c */,
+				EBDAB3100B0D438F00257263 /* ns_ds.c */,
+				EB5243C209F5BFA80003D38E /* ns_files.c */,
+				EBD297610B338F5100063B68 /* ns_fstab.c */,
+				EB5243C709F5BFA80003D38E /* ns_generic.c */,
+				EBD0B48509FED46C008A1141 /* selfcheck.c */,
+				EBF9E75A0A06BFA900D84B8F /* sysctl_fsid.c */,
+				EBF9E7520A06BF4A00D84B8F /* umount_by_fsid.c */,
+				EBE849D20CA9D4B3001FD34E /* we_are_a_server.c */,
+			);
+			indentWidth = 8;
+			path = automountlib;
+			sourceTree = "<group>";
+			tabWidth = 8;
 		};
-		C10DA6C705E2C7AD000E258E = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = sysctl.h;
-			path = driver/sysctl.h;
-			refType = 2;
-			sourceTree = SOURCE_ROOT;
+		EB6CDC9909D9E5C500EA0B49 /* automountd */ = {
+			isa = PBXGroup;
+			children = (
+				EB6CDC9F09D9E5C500EA0B49 /* autod_autofs.c */,
+				EB6CDCA009D9E5C500EA0B49 /* autod_lookup.c */,
+				EB6CDCA109D9E5C500EA0B49 /* autod_main.c */,
+				EB6CDCA209D9E5C500EA0B49 /* autod_mount.c */,
+				EB6CDCA309D9E5C500EA0B49 /* autod_nfs.c */,
+				EB6CDCA409D9E5C500EA0B49 /* autod_parse.c */,
+				EB6CDCA509D9E5C500EA0B49 /* autod_readdir.c */,
+				EB1FAB230A30C67D0012E6D3 /* automountd.8 */,
+				EBB4C2C10BC5E66E00FFAB32 /* com.apple.automountd.plist */,
+				EB439A0509EDF46D0094B7DC /* mount.x */,
+				EBD0B4F209FEDA79008A1141 /* nfs_cast.c */,
+				EBD0B6110A02B485008A1141 /* nfs_subr.c */,
+				EBAC2F2709DE1A0D00699A69 /* nfs_subr.h */,
+				EBD0B4D709FED9EB008A1141 /* replica.c */,
+				EBAC2EB009DE106700699A69 /* replica.h */,
+			);
+			indentWidth = 8;
+			path = automountd;
+			sourceTree = "<group>";
+			tabWidth = 8;
 		};
-		C10DA70005E2C9FB000E258E = {
+		EBC735E50BC72243002AD444 /* automount */ = {
+			isa = PBXGroup;
+			children = (
+				EBC735EF0BC72328002AD444 /* automount.8 */,
+				EBC735F00BC72328002AD444 /* automount.c */,
+			);
+			name = automount;
+			sourceTree = "<group>";
+		};
+		EBDCE6110A671D980058A293 /* autofsd */ = {
+			isa = PBXGroup;
+			children = (
+				EBCF33890A6769C300C28B21 /* autofsd.8 */,
+				EBDCE6200A671E8D0058A293 /* autofsd.c */,
+				EBB4C2B60BC5E57000FFAB32 /* com.apple.autofsd.plist */,
+			);
+			name = autofsd;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		C10DA70205E2C9FB000E258E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB0024E1097764A6002F9164 /* autofs_types.h in Headers */,
+				EBDFC4300978B2EC00096DCC /* autofs.h in Headers */,
+				EB889502097C2FFE00B81AB3 /* autofs_defs.h in Headers */,
+				EBF34C4509CA6B6B0096940B /* autofs_kern.h in Headers */,
+				EBD485510A27C66C005F12BF /* autofs_migtypes.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA70F05E2C9FB000E258E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBD485520A27C66C005F12BF /* autofs_migtypes.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		C10DA70005E2C9FB000E258E /* kext */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB0024A809776024002F9164 /* Build configuration list for PBXNativeTarget "kext" */;
 			buildPhases = (
-				C10DA70105E2C9FB000E258E,
-				C10DA70205E2C9FB000E258E,
-				C10DA70405E2C9FB000E258E,
-				C10DA70905E2C9FB000E258E,
-				C10DA70B05E2C9FB000E258E,
-				C10DA70C05E2C9FB000E258E,
+				C10DA70105E2C9FB000E258E /* ShellScript */,
+				C10DA70205E2C9FB000E258E /* Headers */,
+				C10DA70405E2C9FB000E258E /* Sources */,
+				C10DA70905E2C9FB000E258E /* Resources */,
+				C10DA70B05E2C9FB000E258E /* Frameworks */,
+				C10DA70C05E2C9FB000E258E /* ShellScript */,
+			);
+			buildRules = (
+				EBAB124C0978AD8E00AD60B2 /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = kext;
+			productName = kext;
+			productReference = C1CC68AD05E2CEA800D0D4A3 /* autofs.kext */;
+			productType = "com.apple.product-type.kernel-extension";
+		};
+		C10DA70E05E2C9FB000E258E /* mount_autofs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB0024AC09776024002F9164 /* Build configuration list for PBXNativeTarget "mount_autofs" */;
+			buildPhases = (
+				C10DA70F05E2C9FB000E258E /* Headers */,
+				C10DA71005E2C9FB000E258E /* Sources */,
+				C10DA71205E2C9FB000E258E /* Frameworks */,
+				C10DA71305E2C9FB000E258E /* Rez */,
+				EBC9AC20082836E300B4E5DF /* CopyFiles */,
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "autofs-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_NAME = com.apple.kernel.autofs.kext;
-				MODULE_START = autofs_start;
-				MODULE_STOP = autofs_stop;
-				MODULE_VERSION = 1.0.0d1;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = autofs;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas -Werror -Wunused";
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
-			isa = PBXNativeTarget;
-			name = kext;
-			productName = kext;
-			productReference = C1CC68AD05E2CEA800D0D4A3;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>kext</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.MySoftwareCompany.kext.kext</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.0.0d1</string>
-</dict>
-</plist>
-";
-			productType = "com.apple.product-type.kernel-extension";
+			name = mount_autofs;
+			productInstallPath = /usr/local/bin;
+			productName = mount_autofs;
+			productReference = C1CC68AE05E2CEA800D0D4A3 /* mount_autofs */;
+			productType = "com.apple.product-type.tool";
 		};
-		C10DA70105E2C9FB000E258E = {
+		EB2F18CB0BDDAEAD00E29EAE /* mount_url */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB2F18D00BDDAED800E29EAE /* Build configuration list for PBXNativeTarget "mount_url" */;
+			buildPhases = (
+				EB2F18C90BDDAEAD00E29EAE /* Sources */,
+				EB2F18CA0BDDAEAD00E29EAE /* Frameworks */,
+				EB2F190D0BDDB01400E29EAE /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = mount_url;
+			productName = mount_url;
+			productReference = EB2F18CC0BDDAEAD00E29EAE /* mount_url */;
+			productType = "com.apple.product-type.tool";
+		};
+		EB6CDC9609D9E59800EA0B49 /* automountd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB6CDCDD09D9E73800EA0B49 /* Build configuration list for PBXNativeTarget "automountd" */;
+			buildPhases = (
+				EB6CDC9409D9E59800EA0B49 /* Sources */,
+				EB6CDC9509D9E59800EA0B49 /* Frameworks */,
+				EB1FAB240A30C6E90012E6D3 /* CopyFiles */,
+				EBB4C2C20BC5E66F00FFAB32 /* CopyFiles */,
+			);
+			buildRules = (
+				EB439A0609EDF5010094B7DC /* PBXBuildRule */,
+				EBB3D7F609DCCB1200176DBC /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = automountd;
+			productName = automountd;
+			productReference = EB6CDC9709D9E59800EA0B49 /* automountd */;
+			productType = "com.apple.product-type.tool";
+		};
+		EBC735E80BC7229B002AD444 /* automount */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EBC735F20BC72328002AD444 /* Build configuration list for PBXNativeTarget "automount" */;
+			buildPhases = (
+				EBC735E60BC7229B002AD444 /* Sources */,
+				EBC735E70BC7229B002AD444 /* Frameworks */,
+				EBC735F80BC7237A002AD444 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = automount;
+			productName = automount;
+			productReference = EBC735E90BC7229B002AD444 /* automount */;
+			productType = "com.apple.product-type.tool";
+		};
+		EBDCE6230A671EA80058A293 /* autofsd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EBDCE6290A671EEF0058A293 /* Build configuration list for PBXNativeTarget "autofsd" */;
+			buildPhases = (
+				EBDCE6210A671EA80058A293 /* Sources */,
+				EBDCE6220A671EA80058A293 /* Frameworks */,
+				EBCF338D0A676A1500C28B21 /* CopyFiles */,
+				EBB4C2BD0BC5E5DB00FFAB32 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = autofsd;
+			productName = autofsd;
+			productReference = EBDCE6240A671EA80058A293 /* autofsd */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C10DA65B05E2C60D000E258E /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = EB0024B809776024002F9164 /* Build configuration list for PBXProject "autofs" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = C10DA65705E2C60D000E258E;
+			productRefGroup = C10DA65705E2C60D000E258E;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C1A6A8EF05E2D2230068CA07 /* autofs */,
+				EBDCE6230A671EA80058A293 /* autofsd */,
+				EBC735E80BC7229B002AD444 /* automount */,
+				EB6CDC9609D9E59800EA0B49 /* automountd */,
+				EB275CF20A6879950087A086 /* files */,
+				C10DA70005E2C9FB000E258E /* kext */,
+				C10DA70E05E2C9FB000E258E /* mount_autofs */,
+				EB2F18CB0BDDAEAD00E29EAE /* mount_url */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C10DA70905E2C9FB000E258E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		C10DA71305E2C9FB000E258E /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C10DA70105E2C9FB000E258E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
-			isa = PBXShellScriptBuildPhase;
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
-		C10DA70205E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-				C10DA70305E2C9FB000E258E,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA70305E2C9FB000E258E = {
-			fileRef = C10DA69E05E2C6FD000E258E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		C10DA70405E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-				C10DA70505E2C9FB000E258E,
-				C10DA70605E2C9FB000E258E,
-				C10DA70705E2C9FB000E258E,
-				C10DA70805E2C9FB000E258E,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA70505E2C9FB000E258E = {
-			fileRef = C10DA69B05E2C6FD000E258E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		C10DA70605E2C9FB000E258E = {
-			fileRef = C10DA69C05E2C6FD000E258E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		C10DA70705E2C9FB000E258E = {
-			fileRef = C10DA69D05E2C6FD000E258E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		C10DA70805E2C9FB000E258E = {
-			fileRef = C10DA69F05E2C6FD000E258E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		C10DA70905E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-				C10DA70A05E2C9FB000E258E,
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA70A05E2C9FB000E258E = {
-			fileRef = C10DA69905E2C6FD000E258E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		C10DA70B05E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA70C05E2C9FB000E258E = {
+		C10DA70C05E2C9FB000E258E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
-			isa = PBXShellScriptBuildPhase;
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
-		C10DA70E05E2C9FB000E258E = {
-			buildPhases = (
-				C10DA70F05E2C9FB000E258E,
-				C10DA71005E2C9FB000E258E,
-				C10DA71205E2C9FB000E258E,
-				C10DA71305E2C9FB000E258E,
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C10DA70405E2C9FB000E258E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB0024CF0977617E002F9164 /* autofs_prot.defs in Sources */,
+				C10DA70605E2C9FB000E258E /* auto_vnops.c in Sources */,
+				C10DA70705E2C9FB000E258E /* auto_vfsops.c in Sources */,
+				C10DA70805E2C9FB000E258E /* auto_subr.c in Sources */,
+				EB8CA1AE0ABA3F5600CF2160 /* autofs.exp in Sources */,
 			);
-			buildRules = (
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10DA71005E2C9FB000E258E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10DA71105E2C9FB000E258E /* mount_autofs.c in Sources */,
 			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB2F18C90BDDAEAD00E29EAE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB2F19090BDDAF6900E29EAE /* mount_url.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB6CDC9409D9E59800EA0B49 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB6CDCC109D9E5C600EA0B49 /* autod_autofs.c in Sources */,
+				EB6CDCC209D9E5C600EA0B49 /* autod_lookup.c in Sources */,
+				EB6CDCC309D9E5C600EA0B49 /* autod_main.c in Sources */,
+				EB6CDCC409D9E5C600EA0B49 /* autod_mount.c in Sources */,
+				EB6CDCC509D9E5C600EA0B49 /* autod_nfs.c in Sources */,
+				EB6CDCC609D9E5C600EA0B49 /* autod_parse.c in Sources */,
+				EB6CDCC709D9E5C600EA0B49 /* autod_readdir.c in Sources */,
+				EBB3D87C09DCDEB500176DBC /* autofs_prot.defs in Sources */,
+				EB90EEB009DE0811000EE15D /* deflt.c in Sources */,
+				EB439A6909EDF7830094B7DC /* mount.x in Sources */,
+				EB5243CB09F5BFA80003D38E /* ns_files.c in Sources */,
+				EB5243CF09F5BFA80003D38E /* ns_generic.c in Sources */,
+				EBEDAD6209FDDAB5004505E4 /* auto_subr.c in Sources */,
+				EBD0B48609FED46C008A1141 /* selfcheck.c in Sources */,
+				EBD0B4F309FEDA79008A1141 /* nfs_cast.c in Sources */,
+				EBD0B6120A02B486008A1141 /* nfs_subr.c in Sources */,
+				EBD0B4D809FED9EB008A1141 /* replica.c in Sources */,
+				EBF9E75B0A06BFA900D84B8F /* sysctl_fsid.c in Sources */,
+				EBF9E7550A06BF4A00D84B8F /* umount_by_fsid.c in Sources */,
+				EBDAB3120B0D43AE00257263 /* ns_ds.c in Sources */,
+				EBD297630B338F5100063B68 /* ns_fstab.c in Sources */,
+				EBE849CF0CA9D494001FD34E /* host_is_us.c in Sources */,
+				EBE849D40CA9D4B3001FD34E /* we_are_a_server.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBC735E60BC7229B002AD444 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBC735F10BC72328002AD444 /* automount.c in Sources */,
+				EBED8D050BF979E8002E732D /* auto_subr.c in Sources */,
+				EBED8D060BF979F3002E732D /* deflt.c in Sources */,
+				EBED8D070BF979FD002E732D /* ns_ds.c in Sources */,
+				EBED8D080BF97A03002E732D /* ns_files.c in Sources */,
+				EBED8D090BF97A0B002E732D /* ns_fstab.c in Sources */,
+				EBED8D0A0BF97A12002E732D /* ns_generic.c in Sources */,
+				EBED8D0B0BF97A1F002E732D /* sysctl_fsid.c in Sources */,
+				EBED8D0C0BF97A25002E732D /* umount_by_fsid.c in Sources */,
+				EBE849CE0CA9D494001FD34E /* host_is_us.c in Sources */,
+				EBE849D30CA9D4B3001FD34E /* we_are_a_server.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBDCE6210A671EA80058A293 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBDCE6280A671ED10058A293 /* autofsd.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C1A6A8F105E2D22D0068CA07 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C10DA70005E2C9FB000E258E /* kext */;
+			targetProxy = C1A6A8F005E2D22D0068CA07 /* PBXContainerItemProxy */;
+		};
+		C1A6A8F305E2D2420068CA07 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C10DA70E05E2C9FB000E258E /* mount_autofs */;
+			targetProxy = C1A6A8F205E2D2420068CA07 /* PBXContainerItemProxy */;
+		};
+		EB275CF90A6879F30087A086 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB275CF20A6879950087A086 /* files */;
+			targetProxy = EB275CF80A6879F30087A086 /* PBXContainerItemProxy */;
+		};
+		EB28ED930BDDBDB1009EDDD8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB2F18CB0BDDAEAD00E29EAE /* mount_url */;
+			targetProxy = EB28ED920BDDBDB1009EDDD8 /* PBXContainerItemProxy */;
+		};
+		EBB3D6E309DB43C300176DBC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB6CDC9609D9E59800EA0B49 /* automountd */;
+			targetProxy = EBB3D6E209DB43C300176DBC /* PBXContainerItemProxy */;
+		};
+		EBC735EE0BC722F4002AD444 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBC735E80BC7229B002AD444 /* automount */;
+			targetProxy = EBC735ED0BC722F4002AD444 /* PBXContainerItemProxy */;
+		};
+		EBDCE6270A671EBB0058A293 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBDCE6230A671EA80058A293 /* autofsd */;
+			targetProxy = EBDCE6260A671EBB0058A293 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		EB0024A909776024002F9164 /* Development */ = {
+			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_PATH = /sbin;
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = NO;
+				EXPORTED_SYMBOLS_FILE = "";
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = kext/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.kernel.autofs.kext;
+				MODULE_START = auto_module_start;
+				MODULE_STOP = auto_module_stop;
+				MODULE_VERSION = 1.0.0d1;
+				OTHER_CFLAGS = "-D__MigKernelSpecificCode";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = autofs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Werror",
+					"-Wunused",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		EB0024AA09776024002F9164 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = kext/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.kernel.autofs.kext;
+				MODULE_START = auto_module_start;
+				MODULE_STOP = auto_module_stop;
+				MODULE_VERSION = 1.0.0d1;
+				OTHER_CFLAGS = "-D__MigKernelSpecificCode";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = autofs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Werror",
+					"-Wunused",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		EB0024AB09776024002F9164 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				EXPORTED_SYMBOLS_FILE = kext/autofs.exp;
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = kext/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.kernel.autofs.kext;
+				MODULE_START = auto_module_start;
+				MODULE_STOP = auto_module_stop;
+				MODULE_VERSION = 1.0.0d1;
+				OTHER_CFLAGS = "-D__MigKernelSpecificCode";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = autofs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"-Werror",
+					"-Wunused",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		EB0024AD09776024002F9164 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = mount_autofs;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
-			dependencies = (
-			);
-			isa = PBXNativeTarget;
-			name = mount_autofs;
-			productInstallPath = /usr/local/bin;
-			productName = mount_autofs;
-			productReference = C1CC68AE05E2CEA800D0D4A3;
-			productType = "com.apple.product-type.tool";
+			name = Development;
 		};
-		C10DA70F05E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA71005E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-				C10DA71105E2C9FB000E258E,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA71105E2C9FB000E258E = {
-			fileRef = C10DA6BA05E2C766000E258E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		C10DA71205E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA71305E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA71705E2C9FB000E258E = {
-			buildPhases = (
-				C10DA71805E2C9FB000E258E,
-				C10DA71A05E2C9FB000E258E,
-				C10DA71D05E2C9FB000E258E,
-				C10DA71E05E2C9FB000E258E,
-			);
-			buildRules = (
-			);
+		EB0024AE09776024002F9164 /* Deployment */ = {
+			isa = XCBuildConfiguration;
 			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = driver;
+				PRODUCT_NAME = mount_autofs;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
-			dependencies = (
-			);
-			isa = PBXNativeTarget;
-			name = driver;
-			productInstallPath = /usr/local/bin;
-			productName = driver;
-			productReference = C1CC68AB05E2CEA800D0D4A3;
-			productType = "com.apple.product-type.tool";
+			name = Deployment;
 		};
-		C10DA71805E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-				C10DA71905E2C9FB000E258E,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA71905E2C9FB000E258E = {
-			fileRef = C10DA6C705E2C7AD000E258E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		C10DA71A05E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-				C10DA71B05E2C9FB000E258E,
-				C10DA71C05E2C9FB000E258E,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA71B05E2C9FB000E258E = {
-			fileRef = C10DA6C305E2C7AD000E258E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		C10DA71C05E2C9FB000E258E = {
-			fileRef = C10DA6C605E2C7AD000E258E;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		C10DA71D05E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C10DA71E05E2C9FB000E258E = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C1A6A8EF05E2D2230068CA07 = {
-			buildPhases = (
-			);
+		EB0024AF09776024002F9164 /* Default */ = {
+			isa = XCBuildConfiguration;
 			buildSettings = {
+				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = mount_autofs;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		EB0024B509776024002F9164 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "-D__MigTypeCheck=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "autofs-package";
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
-			dependencies = (
-				C1A6A8F105E2D22D0068CA07,
-				C1A6A8F305E2D2420068CA07,
-				C1A6A8F505E2D2460068CA07,
+			name = Development;
+		};
+		EB0024B609776024002F9164 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				OTHER_CFLAGS = "-D__MigTypeCheck=1";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "autofs-package";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		EB0024B709776024002F9164 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "-D__MigTypeCheck=1";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "autofs-package";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		EB0024B909776024002F9164 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		EB0024BA09776024002F9164 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		EB0024BB09776024002F9164 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+		EB275CF40A6879B40087A086 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = files;
+			};
+			name = Development;
+		};
+		EB275CF50A6879B40087A086 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				PRODUCT_NAME = files;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		EB275CF60A6879B40087A086 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = files;
+			};
+			name = Default;
+		};
+		EB2F18D10BDDAED800E29EAE /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G4;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_LDFLAGS = "-lutil";
+				PREBINDING = YES;
+				PRODUCT_NAME = mount_url;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		EB2F18D20BDDAED800E29EAE /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_LDFLAGS = "-lutil";
+				PREBINDING = YES;
+				PRODUCT_NAME = mount_url;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		EB2F18D30BDDAED800E29EAE /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_EFFECTIVE_CPLUSPLUS_VIOLATIONS = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_LDFLAGS = "-lutil";
+				PREBINDING = YES;
+				PRODUCT_NAME = mount_url;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		EB6CDCDE09D9E73800EA0B49 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G4;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_LDFLAGS = "-lutil";
+				PREBINDING = YES;
+				PRODUCT_NAME = automountd;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		EB6CDCDF09D9E73800EA0B49 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_LDFLAGS = "-lutil";
+				PREBINDING = YES;
+				PRODUCT_NAME = automountd;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		EB6CDCE009D9E73800EA0B49 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_LDFLAGS = "-lutil";
+				PREBINDING = YES;
+				PRODUCT_NAME = automountd;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		EBC735F30BC72328002AD444 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"/System/Library/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G4;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_LDFLAGS = "-lutil";
+				PREBINDING = YES;
+				PRODUCT_NAME = automount;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		EBC735F40BC72328002AD444 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "\"/System/Library/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_LDFLAGS = "-lutil";
+				PREBINDING = YES;
+				PRODUCT_NAME = automount;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		EBC735F50BC72328002AD444 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				FRAMEWORK_SEARCH_PATHS = "\"/System/Library/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_LDFLAGS = "-lutil";
+				PREBINDING = YES;
+				PRODUCT_NAME = automount;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		EBDCE62A0A671EEF0058A293 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G4;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_LDFLAGS = "";
+				PREBINDING = YES;
+				PRODUCT_NAME = autofsd;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		EBDCE62B0A671EEF0058A293 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_LDFLAGS = "";
+				PREBINDING = YES;
+				PRODUCT_NAME = autofsd;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		EBDCE62C0A671EEF0058A293 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G4;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_LDFLAGS = "";
+				PREBINDING = YES;
+				PRODUCT_NAME = autofsd;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		EB0024A809776024002F9164 /* Build configuration list for PBXNativeTarget "kext" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB0024A909776024002F9164 /* Development */,
+				EB0024AA09776024002F9164 /* Deployment */,
+				EB0024AB09776024002F9164 /* Default */,
 			);
-			isa = PBXAggregateTarget;
-			name = autofs;
-			productName = "autofs-package";
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
 		};
-		C1A6A8F005E2D22D0068CA07 = {
-			containerPortal = C10DA65B05E2C60D000E258E;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = C10DA70005E2C9FB000E258E;
-			remoteInfo = autofs;
+		EB0024AC09776024002F9164 /* Build configuration list for PBXNativeTarget "mount_autofs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB0024AD09776024002F9164 /* Development */,
+				EB0024AE09776024002F9164 /* Deployment */,
+				EB0024AF09776024002F9164 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
 		};
-		C1A6A8F105E2D22D0068CA07 = {
-			isa = PBXTargetDependency;
-			target = C10DA70005E2C9FB000E258E;
-			targetProxy = C1A6A8F005E2D22D0068CA07;
+		EB0024B409776024002F9164 /* Build configuration list for PBXAggregateTarget "autofs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB0024B509776024002F9164 /* Development */,
+				EB0024B609776024002F9164 /* Deployment */,
+				EB0024B709776024002F9164 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
 		};
-		C1A6A8F205E2D2420068CA07 = {
-			containerPortal = C10DA65B05E2C60D000E258E;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = C10DA70E05E2C9FB000E258E;
-			remoteInfo = mount_autofs;
+		EB0024B809776024002F9164 /* Build configuration list for PBXProject "autofs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB0024B909776024002F9164 /* Development */,
+				EB0024BA09776024002F9164 /* Deployment */,
+				EB0024BB09776024002F9164 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
 		};
-		C1A6A8F305E2D2420068CA07 = {
-			isa = PBXTargetDependency;
-			target = C10DA70E05E2C9FB000E258E;
-			targetProxy = C1A6A8F205E2D2420068CA07;
+		EB275CF30A6879B40087A086 /* Build configuration list for PBXAggregateTarget "files" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB275CF40A6879B40087A086 /* Development */,
+				EB275CF50A6879B40087A086 /* Deployment */,
+				EB275CF60A6879B40087A086 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
 		};
-		C1A6A8F405E2D2460068CA07 = {
-			containerPortal = C10DA65B05E2C60D000E258E;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = C10DA71705E2C9FB000E258E;
-			remoteInfo = driver;
+		EB2F18D00BDDAED800E29EAE /* Build configuration list for PBXNativeTarget "mount_url" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB2F18D10BDDAED800E29EAE /* Development */,
+				EB2F18D20BDDAED800E29EAE /* Deployment */,
+				EB2F18D30BDDAED800E29EAE /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
 		};
-		C1A6A8F505E2D2460068CA07 = {
-			isa = PBXTargetDependency;
-			target = C10DA71705E2C9FB000E258E;
-			targetProxy = C1A6A8F405E2D2460068CA07;
+		EB6CDCDD09D9E73800EA0B49 /* Build configuration list for PBXNativeTarget "automountd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB6CDCDE09D9E73800EA0B49 /* Development */,
+				EB6CDCDF09D9E73800EA0B49 /* Deployment */,
+				EB6CDCE009D9E73800EA0B49 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
 		};
-		C1CC68AB05E2CEA800D0D4A3 = {
-			explicitFileType = "compiled.mach-o.executable";
-			includeInIndex = 0;
-			isa = PBXFileReference;
-			path = driver;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+		EBC735F20BC72328002AD444 /* Build configuration list for PBXNativeTarget "automount" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EBC735F30BC72328002AD444 /* Development */,
+				EBC735F40BC72328002AD444 /* Deployment */,
+				EBC735F50BC72328002AD444 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
 		};
-		C1CC68AD05E2CEA800D0D4A3 = {
-			explicitFileType = wrapper.cfbundle;
-			includeInIndex = 0;
-			isa = PBXFileReference;
-			path = autofs.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
+		EBDCE6290A671EEF0058A293 /* Build configuration list for PBXNativeTarget "autofsd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EBDCE62A0A671EEF0058A293 /* Development */,
+				EBDCE62B0A671EEF0058A293 /* Deployment */,
+				EBDCE62C0A671EEF0058A293 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
 		};
-		C1CC68AE05E2CEA800D0D4A3 = {
-			explicitFileType = "compiled.mach-o.executable";
-			includeInIndex = 0;
-			isa = PBXFileReference;
-			path = mount_autofs;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
+/* End XCConfigurationList section */
 	};
-	rootObject = C10DA65B05E2C60D000E258E;
+	rootObject = C10DA65B05E2C60D000E258E /* Project object */;
 }

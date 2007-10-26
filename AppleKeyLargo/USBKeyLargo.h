@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
  *
  */
 
@@ -35,12 +35,13 @@ class USBKeyLargo : public IOService
   
 private:
 	long			  keyLargoDeviceId;
+	bool			  hasK2FCR9;
     virtual void      turnOffUSB(UInt32 busNumber);
     virtual void      turnOnUSB(UInt32 busNumber);
     
 public:
   // Inits each bus:
-  virtual bool      initForBus(UInt32 busNumber, SInt32 devID);
+  virtual bool      initForBus(UInt32 busNumber, SInt32 devID, bool isK2);
 
   // Power handling methods:
   void initForPM (IOService *provider);

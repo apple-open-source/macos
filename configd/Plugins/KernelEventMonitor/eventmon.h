@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2005, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,7 @@
 #include <SystemConfiguration/SCValidation.h>
 
 
+extern Boolean			network_changed;
 extern SCDynamicStoreRef	store;
 extern Boolean			_verbose;
 

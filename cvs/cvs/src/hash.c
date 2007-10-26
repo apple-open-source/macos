@@ -1,14 +1,18 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
- * 
+ *
  * Polk's hash list manager.  So cool.
  */
 
 #include "cvs.h"
-#include <assert.h>
 
 /* Global caches.  The idea is that we maintain a linked list of "free"d
    nodes or lists, and get new items from there.  It has been suggested
@@ -17,18 +21,17 @@
 static List *listcache = NULL;
 static Node *nodecache = NULL;
 
-static void freenode_mem PROTO((Node * p));
+static void freenode_mem (Node * p);
 
 /* hash function */
 static int
-hashp (key)
-    const char *key;
+hashp (const char *key)
 {
     unsigned int h = 0;
     unsigned int g;
 
     assert(key != NULL);
-    
+
     while (*key != 0)
     {
 	unsigned int c = *key++;
@@ -38,14 +41,16 @@ hashp (key)
 	    h = (h ^ (g >> 24)) ^ g;
     }
 
-    return (h % HASHSIZE);
+    return h % HASHSIZE;
 }
+
+
 
 /*
  * create a new list (or get an old one from the cache)
  */
 List *
-getlist ()
+getlist (void)
 {
     int i;
     List *list;
@@ -56,37 +61,44 @@ getlist ()
 	/* get a list from the cache and clear it */
 	list = listcache;
 	listcache = listcache->next;
-	list->next = (List *) NULL;
+	list->next = NULL;
 	for (i = 0; i < HASHSIZE; i++)
-	    list->hasharray[i] = (Node *) NULL;
+	    list->hasharray[i] = NULL;
     }
     else
     {
 	/* make a new list from scratch */
-	list = (List *) xmalloc (sizeof (List));
-	memset ((char *) list, 0, sizeof (List));
+	list = xmalloc (sizeof (List));
+	memset (list, 0, sizeof (List));
 	node = getnode ();
 	list->list = node;
 	node->type = HEADER;
 	node->next = node->prev = node;
     }
-    return (list);
+    return list;
 }
 
+
+
 /*
- * free up a list
+ * Free up a list.  For accessing globals which might be accessed via interrupt
+ * handlers, it can be assumed that the first action of this function will be
+ * to set the *listp to NULL.
  */
 void
-dellist (listp)
-    List **listp;
+dellist (List **listp)
 {
     int i;
     Node *p;
+    List *tmp;
 
-    if (*listp == (List *) NULL)
+    if (*listp == NULL)
 	return;
 
-    p = (*listp)->list;
+    tmp = *listp;
+    *listp = NULL;
+
+    p = tmp->list;
 
     /* free each node in the list (except header) */
     while (p->next != p)
@@ -98,7 +110,7 @@ dellist (listp)
     /* free up the header nodes for hash lists (if any) */
     for (i = 0; i < HASHSIZE; i++)
     {
-	if ((p = (*listp)->hasharray[i]) != (Node *) NULL)
+	if ((p = tmp->hasharray[i]) != NULL)
 	{
 	    /* put the nodes into the cache */
 #ifndef NOCACHE
@@ -116,24 +128,64 @@ dellist (listp)
 
     /* put it on the cache */
 #ifndef NOCACHE
-    (*listp)->next = listcache;
-    listcache = *listp;
+    tmp->next = listcache;
+    listcache = tmp;
 #else
-    free ((*listp)->list);
-    free (*listp);
+    free (tmp->list);
+    free (tmp);
 #endif
-    *listp = (List *) NULL;
 }
+
+
+
+/*
+ * remove a node from it's list (maybe hash list too)
+ */
+void
+removenode (Node *p)
+{
+    if (!p) return;
+
+    /* take it out of the list */
+    p->next->prev = p->prev;
+    p->prev->next = p->next;
+
+    /* if it was hashed, remove it from there too */
+    if (p->hashnext)
+    {
+	p->hashnext->hashprev = p->hashprev;
+	p->hashprev->hashnext = p->hashnext;
+    }
+}
+
+
+
+void
+mergelists (List *dest, List **src)
+{
+    Node *head, *p, *n;
+
+    head = (*src)->list;
+    for (p = head->next; p != head; p = n)
+    {
+	n = p->next;
+	removenode (p);
+	addnode (dest, p);
+    }
+    dellist (src);
+}
+
+
 
 /*
  * get a new list node
  */
 Node *
-getnode ()
+getnode (void)
 {
     Node *p;
 
-    if (nodecache != (Node *) NULL)
+    if (nodecache != NULL)
     {
 	/* get one from the cache */
 	p = nodecache;
@@ -142,49 +194,40 @@ getnode ()
     else
     {
 	/* make a new one */
-	p = (Node *) xmalloc (sizeof (Node));
+	p = xmalloc (sizeof (Node));
     }
 
     /* always make it clean */
-    memset ((char *) p, 0, sizeof (Node));
+    memset (p, 0, sizeof (Node));
     p->type = NT_UNKNOWN;
 
-    return (p);
+    return p;
 }
+
+
 
 /*
  * remove a node from it's list (maybe hash list too) and free it
  */
 void
-delnode (p)
-    Node *p;
+delnode (Node *p)
 {
-    if (p == (Node *) NULL)
-	return;
-
-    /* take it out of the list */
-    p->next->prev = p->prev;
-    p->prev->next = p->next;
-
-    /* if it was hashed, remove it from there too */
-    if (p->hashnext != (Node *) NULL)
-    {
-	p->hashnext->hashprev = p->hashprev;
-	p->hashprev->hashnext = p->hashnext;
-    }
-
+    if (!p) return;
+    /* remove it */
+    removenode (p);
     /* free up the storage */
     freenode (p);
 }
+
+
 
 /*
  * free up the storage associated with a node
  */
 static void
-freenode_mem (p)
-    Node *p;
+freenode_mem (Node *p)
 {
-    if (p->delproc != (void (*) ()) NULL)
+    if (p->delproc != NULL)
 	p->delproc (p);			/* call the specified delproc */
     else
     {
@@ -196,15 +239,16 @@ freenode_mem (p)
 
     /* to be safe, re-initialize these */
     p->key = p->data = NULL;
-    p->delproc = (void (*) ()) NULL;
+    p->delproc = NULL;
 }
+
+
 
 /*
  * free up the storage associated with a node and recycle it
  */
 void
-freenode (p)
-    Node *p;
+freenode (Node *p)
 {
     /* first free the memory */
     freenode_mem (p);
@@ -219,18 +263,17 @@ freenode (p)
 #endif
 }
 
+
+
 /*
  * Link item P into list LIST before item MARKER.  If P->KEY is non-NULL and
  * that key is already in the hash table, return -1 without modifying any
  * parameter.
- * 
+ *
  * return 0 on success
  */
 int
-insert_before (list, marker, p)
-    List *list;
-    Node *marker;
-    Node *p;
+insert_before (List *list, Node *marker, Node *p)
 {
     if (p->key != NULL)			/* hash it too? */
     {
@@ -250,7 +293,7 @@ insert_before (list, marker, p)
 	     q != list->hasharray[hashval]; q = q->hashnext)
 	{
 	    if (strcmp (p->key, q->key) == 0)
-		return (-1);
+		return -1;
 	}
 	q = list->hasharray[hashval];
 	p->hashprev = q->hashprev;
@@ -264,140 +307,146 @@ insert_before (list, marker, p)
     marker->prev->next = p;
     marker->prev = p;
 
-    return (0);
+    return 0;
 }
+
+
 
 /*
  * insert item p at end of list "list" (maybe hash it too) if hashing and it
  * already exists, return -1 and don't actually put it in the list
- * 
+ *
  * return 0 on success
  */
 int
-addnode (list, p)
-    List *list;
-    Node *p;
+addnode (List *list, Node *p)
 {
   return insert_before (list, list->list, p);
 }
+
+
 
 /*
  * Like addnode, but insert p at the front of `list'.  This bogosity is
  * necessary to preserve last-to-first output order for some RCS functions.
  */
 int
-addnode_at_front (list, p)
-    List *list;
-    Node *p;
+addnode_at_front (List *list, Node *p)
 {
   return insert_before (list, list->list->next, p);
 }
 
+
+
 /* Look up an entry in hash list table and return a pointer to the
-   node.  Return NULL if not found.  Abort with a fatal error for
-   errors.  */
+ * node.  Return NULL if not found or if list is NULL.  Abort with a fatal
+ * error for errors.
+ */
 Node *
-findnode (list, key)
-    List *list;
-    const char *key;
+findnode (List *list, const char *key)
 {
     Node *head, *p;
 
-    /* This probably should be "assert (list != NULL)" (or if not we
-       should document the current behavior), but only if we check all
-       the callers to see if any are relying on this behavior.  */
-    if ((list == (List *) NULL))
-	return ((Node *) NULL);
+    if ((list == NULL))
+	return NULL;
 
     assert (key != NULL);
 
     head = list->hasharray[hashp (key)];
-    if (head == (Node *) NULL)
+    if (head == NULL)
 	/* Not found.  */
-	return ((Node *) NULL);
+	return NULL;
 
     for (p = head->hashnext; p != head; p = p->hashnext)
 	if (strcmp (p->key, key) == 0)
-	    return (p);
-    return ((Node *) NULL);
+	    return p;
+    return NULL;
 }
+
+
 
 /*
  * Like findnode, but for a filename.
  */
 Node *
-findnode_fn (list, key)
-    List *list;
-    const char *key;
+findnode_fn (List *list, const char *key)
 {
     Node *head, *p;
 
     /* This probably should be "assert (list != NULL)" (or if not we
        should document the current behavior), but only if we check all
        the callers to see if any are relying on this behavior.  */
-    if (list == (List *) NULL)
-	return ((Node *) NULL);
+    if (list == NULL)
+	return NULL;
 
     assert (key != NULL);
 
     head = list->hasharray[hashp (key)];
-    if (head == (Node *) NULL)
-	return ((Node *) NULL);
+    if (head == NULL)
+	return NULL;
 
     for (p = head->hashnext; p != head; p = p->hashnext)
 	if (fncmp (p->key, key) == 0)
-	    return (p);
-    return ((Node *) NULL);
+	    return p;
+    return NULL;
 }
+
+
 
 /*
  * walk a list with a specific proc
  */
 int
-walklist (list, proc, closure)
-    List *list;
-    int (*proc) PROTO ((Node *, void *));
-    void *closure;
+walklist (List *list, int (*proc) (Node *, void *), void *closure)
 {
     Node *head, *p;
     int err = 0;
 
+#ifdef HAVE_PRINTF_PTR
+    TRACE (TRACE_FLOW, "walklist ( list=%p, proc=%p, closure=%p )",
+	   (void *)list, (void *)proc, (void *)closure);
+#else
+    TRACE (TRACE_FLOW, "walklist ( list=%lx, proc=%lx, closure=%lx )",
+	   (unsigned long)list,(unsigned long) proc,
+	   (unsigned long)closure);
+#endif
+
     if (list == NULL)
-	return (0);
+	return 0;
 
     head = list->list;
     for (p = head->next; p != head; p = p->next)
 	err += proc (p, closure);
-    return (err);
+    return err;
 }
 
+
+
 int
-list_isempty (list)
-    List *list;
+list_isempty (List *list)
 {
     return list == NULL || list->list->next == list->list;
 }
 
-static int (*client_comp) PROTO ((const Node *, const Node *));
-static int qsort_comp PROTO ((const void *, const void *));
+
+
+static int (*client_comp) (const Node *, const Node *);
 
 static int
-qsort_comp (elem1, elem2)
-    const void *elem1;
-    const void *elem2;
+qsort_comp (const void *elem1, const void *elem2)
 {
     Node **node1 = (Node **) elem1;
     Node **node2 = (Node **) elem2;
     return client_comp (*node1, *node2);
 }
 
+
+
 /*
  * sort the elements of a list (in place)
  */
 void
-sortlist (list, comp)
-    List *list;
-    int (*comp) PROTO ((const Node *, const Node *));
+sortlist (List *list, int (*comp) (const Node *, const Node *))
 {
     Node *head, *remain, *p, **array;
     int i, n;
@@ -415,7 +464,7 @@ sortlist (list, comp)
 	n++;
 
     /* allocate an array of nodes and populate it */
-    array = (Node **) xmalloc (sizeof(Node *) * n);
+    array = xnmalloc (n, sizeof (Node *));
     i = 0;
     for (p = remain; p != head; p = p->next)
 	array[i++] = p;
@@ -439,74 +488,80 @@ sortlist (list, comp)
     free (array);
 }
 
+
+
 /*
  * compare two files list node (for sort)
  */
 int
-fsortcmp (p, q)
-    const Node *p;
-    const Node *q;
+fsortcmp (const Node *p, const Node *q)
 {
-    return (strcmp (p->key, q->key));
+    return strcmp (p->key, q->key);
 }
+
+
 
 /* Debugging functions.  Quite useful to call from within gdb. */
 
-static char *nodetypestring PROTO ((Ntype));
 
 static char *
-nodetypestring (type)
-    Ntype type;
+nodetypestring (Ntype type)
 {
     switch (type) {
-    case NT_UNKNOWN:	return("UNKNOWN");
-    case HEADER:	return("HEADER");
-    case ENTRIES:	return("ENTRIES");
-    case FILES:		return("FILES");
-    case LIST:		return("LIST");
-    case RCSNODE:	return("RCSNODE");
-    case RCSVERS:	return("RCSVERS");
-    case DIRS:		return("DIRS");
-    case UPDATE:	return("UPDATE");
-    case LOCK:		return("LOCK");
-    case NDBMNODE:	return("NDBMNODE");
-    case FILEATTR:	return("FILEATTR");
-    case VARIABLE:	return("VARIABLE");
-    case RCSFIELD:	return("RCSFIELD");
-    case RCSCMPFLD:	return("RCSCMPFLD");
+    case NT_UNKNOWN:	return "UNKNOWN";
+    case HEADER:	return "HEADER";
+    case ENTRIES:	return "ENTRIES";
+    case FILES:		return "FILES";
+    case LIST:		return "LIST";
+    case RCSNODE:	return "RCSNODE";
+    case RCSVERS:	return "RCSVERS";
+    case DIRS:		return "DIRS";
+    case UPDATE:	return "UPDATE";
+    case LOCK:		return "LOCK";
+    case NDBMNODE:	return "NDBMNODE";
+    case FILEATTR:	return "FILEATTR";
+    case VARIABLE:	return "VARIABLE";
+    case RCSFIELD:	return "RCSFIELD";
+    case RCSCMPFLD:	return "RCSCMPFLD";
     }
 
-    return("<trash>");
+    return "<trash>";
 }
 
-static int printnode PROTO ((Node *, void *));
+
+
 static int
-printnode (node, closure)
-     Node *node;
-     void *closure;
+printnode (Node *node, void *closure)
 {
     if (node == NULL)
     {
 	(void) printf("NULL node.\n");
-	return(0);
+	return 0;
     }
 
+#ifdef HAVE_PRINTF_PTR
     (void) printf("Node at %p: type = %s, key = %p = \"%s\", data = %p, next = %p, prev = %p\n",
-	   (void *)node, nodetypestring(node->type),
-	   (void *)node->key, node->key, node->data,
-	   (void *)node->next, (void *)node->prev);
+	   (void *) node, nodetypestring(node->type),
+	   (void *) node->key, node->key, node->data,
+	   (void *) node->next, (void *) node->prev);
+#else
+    (void) printf("Node at 0x%lx: type = %s, key = 0x%lx = \"%s\", data = 0x%lx, next = 0x%lx, prev = 0x%lx\n",
+	   (unsigned long) node, nodetypestring(node->type),
+	   (unsigned long) node->key, node->key, (unsigned long) node->data,
+	   (unsigned long) node->next, (unsigned long) node->prev);
+#endif
 
-    return(0);
+    return 0;
 }
+
+
 
 /* This is global, not static, so that its name is unique and to avoid
    compiler warnings about it not being used.  But it is not used by CVS;
    it exists so one can call it from a debugger.  */
-void printlist PROTO ((List *));
 
 void
-printlist (list)
-    List *list;
+printlist (List *list)
 {
     if (list == NULL)
     {
@@ -514,9 +569,15 @@ printlist (list)
 	return;
     }
 
+#ifdef HAVE_PRINTF_PTR
     (void) printf("List at %p: list = %p, HASHSIZE = %d, next = %p\n",
-	   (void *)list, (void *)list->list, HASHSIZE, (void *)list->next);
-    
+	   (void *) list, (void *) list->list, HASHSIZE, (void *) list->next);
+#else
+    (void) printf("List at 0x%lx: list = 0x%lx, HASHSIZE = %d, next = 0x%lx\n",
+	   (unsigned long) list, (unsigned long) list->list, HASHSIZE,
+	   (unsigned long) list->next);
+#endif
+
     (void) walklist(list, printnode, NULL);
 
     return;

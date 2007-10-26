@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1994-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*                     Copyright (c) 1994-2007 AT&T                     *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                               by AT&T                                *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -29,7 +25,7 @@
  * coded for portability
  */
 
-static char id[] = "\n@(#)$Id: mamake (AT&T Labs Research) 2003-12-19 $\0\n";
+static char id[] = "\n@(#)$Id: mamake (AT&T Research) 2007-02-26 $\0\n";
 
 #if _PACKAGE_ast
 
@@ -37,7 +33,7 @@ static char id[] = "\n@(#)$Id: mamake (AT&T Labs Research) 2003-12-19 $\0\n";
 #include <error.h>
 
 static const char usage[] =
-"[-?\n@(#)$Id: mamake (AT&T Labs Research) 2003-12-19 $\n]"
+"[-?\n@(#)$Id: mamake (AT&T Research) 2007-02-26 $\n]"
 USAGE_LICENSE
 "[+NAME?mamake - make abstract machine make]"
 "[+DESCRIPTION?\bmamake\b reads \amake abstract machine\a target and"
@@ -83,6 +79,8 @@ USAGE_LICENSE
 "[K:?Ignored.]"
 "[N:?Like \b-n\b but recursion actions (see \b-r\b) are also disabled.]"
 "[V:?Print the program version and exit.]"
+"[G:debug-symbols?Compile and link with debugging symbol options enabled.]"
+"[S:strip-symbols?Strip link-time static symbols from executables.]"
 
 "\n"
 "\n[ target ... ] [ name=value ... ]\n"
@@ -325,7 +323,7 @@ report(int level, char* text, char* item, unsigned long stamp)
 			fprintf(stderr, "%s: ", item);
 		fprintf(stderr, "%s", text);
 		if (stamp && state.debug <= -2)
-			fprintf(stderr, " %10u", stamp);
+			fprintf(stderr, " %10lu", stamp);
 		fprintf(stderr, "\n");
 		if (level > 2)
 			exit(level - 2);
@@ -400,6 +398,30 @@ drop(Buf_t* buf)
 }
 
 /*
+ * append str length n to buffer and return the buffer base
+ */
+
+static char*
+appendn(Buf_t* buf, char* str, int n)
+{
+	int	m;
+	int	i;
+
+	if ((n + 1) >= (buf->end - buf->nxt))
+	{
+		i = buf->nxt - buf->buf;
+		m = (((buf->end - buf->buf) + n + CHUNK + 1) / CHUNK) * CHUNK;
+		if (!(buf->buf = newof(buf->buf, char, m, 0)))
+			report(3, "out of space [buffer resize]", NiL, (unsigned long)0);
+		buf->end = buf->buf + m;
+		buf->nxt = buf->buf + i;
+	}
+	memcpy(buf->nxt, str, n + 1);
+	buf->nxt += n;
+	return buf->buf;
+}
+
+/*
  * append str to buffer and return the buffer base
  * if str==0 then next pointer reset to base
  */
@@ -407,27 +429,9 @@ drop(Buf_t* buf)
 static char*
 append(Buf_t* buf, char* str)
 {
-	int	n;
-	int	m;
-	int	i;
-
-	if (!str)
-		buf->nxt = buf->buf;
-	else
-	{
-		n = strlen(str);
-		if ((n + 1) >= (buf->end - buf->nxt))
-		{
-			i = buf->nxt - buf->buf;
-			m = (((buf->end - buf->buf) + n + CHUNK + 1) / CHUNK) * CHUNK;
-			if (!(buf->buf = newof(buf->buf, char, m, 0)))
-				report(3, "out of space [buffer resize]", NiL, (unsigned long)0);
-			buf->end = buf->buf + m;
-			buf->nxt = buf->buf + i;
-		}
-		memcpy(buf->nxt, str, n + 1);
-		buf->nxt += n;
-	}
+	if (str)
+		return appendn(buf, str, strlen(str));
+	buf->nxt = buf->buf;
 	return buf->buf;
 }
 
@@ -562,7 +566,7 @@ search(register Dict_t* dict, char* name, void* value)
  */
 
 static int
-apply(Dict_t* dict, Dict_item_t* item, int (*func)(Dict_item_t*, void* handle), void* handle)
+apply(Dict_t* dict, Dict_item_t* item, int (*func)(Dict_item_t*, void*), void* handle)
 {
 	register Dict_item_t*	right;
 
@@ -582,7 +586,7 @@ apply(Dict_t* dict, Dict_item_t* item, int (*func)(Dict_item_t*, void* handle), 
  */
 
 static int
-walk(Dict_t* dict, int (*func)(Dict_item_t*, void* handle), void* handle)
+walk(Dict_t* dict, int (*func)(Dict_item_t*, void*), void* handle)
 {
 	return dict->root ? apply(dict, dict->root, func, handle) : 0;
 }
@@ -769,12 +773,13 @@ substitute(Buf_t* buf, register char* s)
 	register char*	q;
 	register int	c;
 	register int	n;
+	int		a = 0;
 
 	while (c = *s++)
 	{
 		if (c == '$' && *s == '{')
 		{
-			for (t = ++s; (c = *s) && c != '?' && c != '+' && c != '-' && c != ':' && c != '=' && c != '[' && c != '}'; s++);
+			for (n = *(t = ++s) == '-' ? 0 : '-'; (c = *s) && c != '?' && c != '+' && c != n && c != ':' && c != '=' && c != '[' && c != '}'; s++);
 			*s = 0;
 			if (c == '[')
 			{
@@ -789,6 +794,8 @@ substitute(Buf_t* buf, register char* s)
 				*s = c;
 				continue;
 			}
+			if (t[0] == 'A' && t[1] == 'R' && t[2] == 0)
+				a = 1;
 			*s = c;
 			if (c && c != '}')
 			{
@@ -850,7 +857,22 @@ substitute(Buf_t* buf, register char* s)
 			case '=':
 			case '}':
 				if (v)
-					substitute(buf, v);
+				{
+					if (a && t[0] == 'm' && t[1] == 'a' && t[2] == 'm' && t[3] == '_' && t[4] == 'l' && t[5] == 'i' && t[6] == 'b')
+					{
+						for (t = v; *t == ' '; t++);
+						for (; *t && *t != ' '; t++);
+						if (*t)
+							*t = 0;
+						else
+							t = 0;
+						substitute(buf, v);
+						if (t)
+							*t = ' ';
+					}
+					else
+						substitute(buf, v);
+				}
 				break;
 			}
 			if (*s)
@@ -1386,12 +1408,6 @@ attributes(register Rule_t* r, register char* s)
 	}
 }
 
-typedef struct Req_s
-{
-	int		hit;
-	char*		req;
-} Req_t;
-
 /*
  * define ${mam_libX} for library reference lib
  */
@@ -1486,7 +1502,7 @@ require(char* lib, int dontcare)
 		{
 			append(tmp, "set -\n");
 			append(tmp, "cd /tmp\n");
-			append(tmp, "echo 'main(){return(0);}' > x.${!-$$}.c\n");
+			append(tmp, "echo 'int main(){return 0;}' > x.${!-$$}.c\n");
 			append(tmp, "${CC} ${CCFLAGS} -o x.${!-$$}.x x.${!-$$}.c ");
 			append(tmp, r);
 			append(tmp, " >/dev/null 2>&1\n");
@@ -1522,6 +1538,7 @@ make(Rule_t* r)
 	unsigned long		z;
 	unsigned long		x;
 	Buf_t*			buf;
+	Buf_t*			cmd;
 
 	if (r->flags & RULE_active)
 		state.active++;
@@ -1534,6 +1551,7 @@ make(Rule_t* r)
 	else
 		z = 0;
 	buf = buffer();
+	cmd = 0;
 	while (s = input())
 	{
 		for (; *s == ' '; s++);
@@ -1580,8 +1598,15 @@ make(Rule_t* r)
 			q = rule(expand(buf, t));
 			if (q != r)
 				report(2, "improper done statement", t, (unsigned long)0);
-			r->flags |= RULE_made;
 			attributes(r, v);
+			if (cmd && state.active && (state.force || r->time < z || !r->time && !z))
+			{
+				substitute(buf, use(cmd));
+				x = run(r, use(buf));
+				if (z < x)
+					z = x;
+			}
+			r->flags |= RULE_made;
 			if (!(r->flags & (RULE_dontcare|RULE_error|RULE_exists|RULE_generated|RULE_implicit|RULE_virtual)))
 				dont(r, 0, state.keepgoing);
 			break;
@@ -1593,28 +1618,13 @@ make(Rule_t* r)
 				r->path = 0;
 				r->time = 0;
 			}
-			x = state.active && (state.force || r->time < z || !r->time && !z);
-			if (x)
-				substitute(buf, v);
-			while (s = input())
+			if (state.active)
 			{
-				if (strncmp(s, "exec ", 5))
-					break;
-				for (s += 5; *s == ' '; s++);
-				for (; *s && *s != ' '; s++);
-				for (; *s == ' '; s++);
-				if (x)
-				{
-					add(buf, '\n');
-					substitute(buf, s);
-				}
-			}
-			state.peek = 1;
-			if (x)
-			{
-				x = run(r, use(buf));
-				if (z < x)
-					z = x;
+				if (cmd)
+					add(cmd, '\n');
+				else
+					cmd = buffer();
+				append(cmd, v);
 			}
 			continue;
 		case KEY('m','a','k','e'):
@@ -1662,6 +1672,8 @@ make(Rule_t* r)
 		break;
 	}
 	drop(buf);
+	if (cmd)
+		drop(cmd);
 	if (*r->name)
 	{
 		report(-1, r->name, "done", z);
@@ -1791,7 +1803,7 @@ scan(Dict_item_t* item, void* handle)
 					for (t = s; (i = *s) && i != ' ' && i != '\t' && i != '"' && i != '\'' && i != '\\' && i != ':'; s++)
 						if (i == '/')
 							t = s + 1;
-						else if (i == '.' && *(s + 1) != 'c' && *(s + 1) != 'C' && t[0] == 'l' && t[1] == 'i' && t[2] == 'b')
+						else if (i == '.' && *(s + 1) != 'c' && *(s + 1) != 'C' && *(s + 1) != 'h' && *(s + 1) != 'H' && t[0] == 'l' && t[1] == 'i' && t[2] == 'b')
 							*s = 0;
 					if (*s)
 						*s++ = 0;
@@ -1865,16 +1877,48 @@ scan(Dict_item_t* item, void* handle)
 				}
 			}
 			pop();
-			for (t = 0, w = r->name; *w; w++)
+			for (s = 0, w = r->name; *w; w++)
 				if (*w == '/')
-					t = w + 1;
-			if (t && (t - r->name) > 3 && *(t - 1) == 'b' && *(t - 2) == 'i' && *(t - 3) == 'l')
+					s = w;
+			if (s)
 			{
-				*(t - 3) = 0;
-				q = (Rule_t*)search(state.leaf, r->name, NiL);
-				*(t - 3) = 'l';
-				if (q && q != r)
-					cons(r, q);
+				if ((s - r->name) > 3 && *(s - 1) == 'b' && *(s - 2) == 'i' && *(s - 3) == 'l' && *(s - 4) != '/')
+				{
+					/*
+					 * foolib : foo : libfoo
+					 */
+
+					*(s - 3) = 0;
+					q = (Rule_t*)search(state.leaf, r->name, NiL);
+					if (q && q != r)
+						cons(r, q);
+					for (t = w = r->name; *w; w++)
+						if (*w == '/')
+							t = w + 1;
+					append(buf, "lib");
+					append(buf, t);
+					q = (Rule_t*)search(state.leaf, use(buf), NiL);
+					if (q && q != r)
+						cons(r, q);
+					*(s - 3) = 'l';
+				}
+				else if (((s - r->name) != 3 || *(s - 1) != 'b' || *(s - 2) != 'i' || *(s - 3) != 'l') && (*(s + 1) != 'l' || *(s + 2) != 'i' || *(s + 3) != 'b'))
+				{
+					/*
+					 * huh/foobar : lib/libfoo
+					 */
+
+					s++;
+					t = s + strlen(s);
+					while (--t > s)
+					{
+						append(buf, "lib/lib");
+						appendn(buf, s, t - s);
+						q = (Rule_t*)search(state.leaf, use(buf), NiL);
+						if (q && q != r)
+							cons(r, q);
+					}
+				}
 			}
 			break;
 		}
@@ -1993,6 +2037,7 @@ main(int argc, char** argv)
 	register char*		s;
 	register char*		t;
 	register char*		v;
+	Buf_t*			tmp;
 	int			c;
 
 	/*
@@ -2060,6 +2105,14 @@ main(int argc, char** argv)
 			append(state.opt, opt_info.arg);
 			state.debug = -opt_info.num;
 			continue;
+		case 'G':
+			append(state.opt, " -G");
+			search(state.vars, "-debug-symbols", "1");
+			continue;
+		case 'S':
+			append(state.opt, " -S");
+			search(state.vars, "-strip-symbols", "1");
+			continue;
 		case '?':
 			error(ERROR_USAGE|4, "%s", opt_info.arg);
 			continue;
@@ -2082,6 +2135,27 @@ main(int argc, char** argv)
 				append(state.opt, " --");
 				argv++;
 				break;
+			}
+			for (t = s += 2; *t && *t != '='; t++);
+			if (!strncmp(s, "debug-symbols", t - s) && append(state.opt, " -G") || !strncmp(s, "strip-symbols", t - s) && append(state.opt, " -S"))
+			{
+				if (*t)
+				{
+					v = t + 1;
+					if (t > s && *(t - 1) == '+')
+						t--;
+					c = *t;
+					*t = 0;
+				}
+				else
+				{
+					c = 0;
+					v = "1";
+				}
+				search(state.vars, s - 1, v);
+				if (c)
+					*t = c;
+				continue;
 			}
 			usage();
 			break;
@@ -2113,7 +2187,15 @@ main(int argc, char** argv)
 				append(state.opt, " -F");
 				state.force = 1;
 				continue;
+			case 'G':
+				append(state.opt, " -G");
+				search(state.vars, "-debug-symbols", "1");
+				continue;
 			case 'K':
+				continue;
+			case 'S':
+				append(state.opt, " -S");
+				search(state.vars, "-strip-symbols", "1");
 				continue;
 			case 'V':
 				fprintf(stdout, "%s\n", id + 10);
@@ -2189,6 +2271,11 @@ main(int argc, char** argv)
 				c = *t;
 				*t = 0;
 				search(state.vars, s, v);
+				tmp = buffer();
+				append(tmp, s);
+				append(tmp, ".FORCE");
+				search(state.vars, use(tmp), v);
+				drop(tmp);
 				*t = c;
 				break;
 			}

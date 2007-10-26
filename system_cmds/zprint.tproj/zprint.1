@@ -12,13 +12,7 @@ about each zone for which \fIname\fR is a substring of the zone's
 name.
 .PP
 \fIzprint\fR interprets the following options:
-.TP 8
-.B \-w
-For each zone, \fIzprint\fR calculates how much space is allocated but
-not currently in use, the space wasted by the zone.
-.TP 8
-.B \-s
-\fIzprint\fR sorts the zones, showing the wasting the most memory first.
+.\" ==========
 .TP 8
 .B \-c
 (Default)
@@ -27,14 +21,22 @@ with '$', and spaces are replaced with '.', to allow for sorting by column.
 Pageable and collectible zones are shown with 'P' and 'C'
 on the far right. Zones with preposterously large maximum
 sizes are shown with '----' in the max size and max num elts fields.
+.\" ==========
 .TP 8
 .B \-h
 (Default)
 Shows headings for the columns printed with the -c option.
 It may be useful to override this option when sorting by column.
+.\" ==========
+.TP 8
+.B \-s
+\fIzprint\fR sorts the zones, showing the wasting the most memory first.
+.\" ==========
+.TP 8
+.B \-w
+For each zone, \fIzprint\fR calculates how much space is allocated but
+not currently in use, the space wasted by the zone.
 .PP
 Any option (including default options) can be overridden
 by specifying the option in upper-case; for example, -C overrides
 the (default) option -c.
-.SH "SEE ALSO"
-host_zone_info(2).

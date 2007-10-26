@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -33,7 +33,6 @@ extern zend_module_entry gmp_module_entry;
 #endif
 
 ZEND_MODULE_STARTUP_D(gmp);
-ZEND_MODULE_SHUTDOWN_D(gmp);
 ZEND_MODULE_DEACTIVATE_D(gmp);
 ZEND_MODULE_INFO_D(gmp);
 
@@ -75,6 +74,7 @@ ZEND_FUNCTION(gmp_scan0);
 ZEND_FUNCTION(gmp_scan1);
 ZEND_FUNCTION(gmp_popcount);
 ZEND_FUNCTION(gmp_hamdist);
+ZEND_FUNCTION(gmp_nextprime);
 
 ZEND_BEGIN_MODULE_GLOBALS(gmp)
 	zend_bool rand_initialized;

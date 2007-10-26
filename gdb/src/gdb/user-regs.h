@@ -68,4 +68,14 @@ extern void user_reg_add_builtin (const char *name,
 extern void user_reg_add (struct gdbarch *gdbarch, const char *name, 
 			  user_reg_read_ftype *read);
 
+
+/* APPLE LOCAL BEGIN: replace user registers. */
+
+/* Replace a per-architecture frame register read callback, or add it
+   if it doesn't exist. This allows architectures to override the builtin
+   user register read functions.  */
+extern void user_reg_replace (struct gdbarch *gdbarch, const char *name,
+		       user_reg_read_ftype *read);
+		       
+/* APPLE LOCAL END: replace user registers. */
 #endif

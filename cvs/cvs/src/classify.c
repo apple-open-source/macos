@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -9,27 +14,31 @@
 
 #include "cvs.h"
 
-static void sticky_ck PROTO ((struct file_info *finfo, int aflag,
-			      Vers_TS * vers));
+static void sticky_ck (struct file_info *finfo, int aflag,
+			      Vers_TS * vers);
 
 /*
- * Classify the state of a file
+ * Classify the state of a file.
+ *
+ * INPUTS
+ *   finfo		Information about the file to be classified.
+ *   tag
+ *   date
+ *   options		Keyword expansion options.  Can be either NULL or "" to
+ *			indicate none are specified here.
+ *   force_tag_match
+ *   aflag
+ *   versp
+ *   pipeout		Did the user pass the "pipeout" flag to request that
+ *			all output go to STDOUT rather than to a file or files?
+ *
+ * RETURNS
+ *   A Ctype (defined as an enum) describing the state of the file relative to
+ *   the repository.  See the definition of Ctype for more.
  */
 Ctype
-Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
-	       pipeout)
-    struct file_info *finfo;
-    char *tag;
-    char *date;
-
-    /* Keyword expansion options.  Can be either NULL or "" to
-       indicate none are specified here.  */
-    char *options;
-
-    int force_tag_match;
-    int aflag;
-    Vers_TS **versp;
-    int pipeout;
+Classify_File (struct file_info *finfo, char *tag, char *date, char *options,
+               int force_tag_match, int aflag, Vers_TS **versp, int pipeout)
 {
     Vers_TS *vers;
     Ctype ret;
@@ -54,7 +63,8 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		   is what I would expect.  */
 		if (!force_tag_match || !(vers->tag || vers->date))
 		    if (!really_quiet)
-			error (0, 0, "nothing known about %s", finfo->fullname);
+			error (0, 0, "nothing known about `%s'",
+			       finfo->fullname);
 		ret = T_UNKNOWN;
 	    }
 	    else
@@ -67,7 +77,7 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		   is what I would expect.  */
 		if (!force_tag_match || !(vers->tag || vers->date))
 		    if (!really_quiet)
-			error (0, 0, "use `%s add' to create an entry for %s",
+			error (0, 0, "use `%s add' to create an entry for `%s'",
 			       program_name, finfo->fullname);
 		ret = T_UNKNOWN;
 	    }
@@ -79,7 +89,7 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		ret = T_UPTODATE;
 	    else
 	    {
-		error (0, 0, "use `%s add' to create an entry for %s",
+		error (0, 0, "use `%s add' to create an entry for `%s'",
 		       program_name, finfo->fullname);
 		ret = T_UNKNOWN;
 	    }
@@ -88,7 +98,7 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 	{
 	    /* the files were different so it is a conflict */
 	    if (!really_quiet)
-		error (0, 0, "move away %s; it is in the way",
+		error (0, 0, "move away `%s'; it is in the way",
 		       finfo->fullname);
 	    ret = T_CONFLICT;
 	}
@@ -113,7 +123,7 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		 * entry
 		 */
 		if (!really_quiet)
-		    error (0, 0, "warning: new-born %s has disappeared",
+		    error (0, 0, "warning: new-born `%s' has disappeared",
 			   finfo->fullname);
 		ret = T_REMOVE_ENTRY;
 	    }
@@ -138,7 +148,7 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		       looking at, the file was already valid.  */
 		    if (!really_quiet)
 			error (0, 0,
-			   "conflict: %s has been added, but already exists",
+			   "conflict: `%s' has been added, but already exists",
 			       finfo->fullname);
 		}
 		else
@@ -149,7 +159,8 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		     */
 		    if (!really_quiet)
 			error (0, 0,
-			   "conflict: %s created independently by second party",
+                               "conflict: `%s' created independently by"
+			       " second party",
 			       finfo->fullname);
 		}
 		ret = T_CONFLICT;
@@ -195,7 +206,8 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		 */
 		if (!really_quiet)
 		    error (0, 0,
-			   "conflict: removed %s was modified by second party",
+			   "conflict: removed `%s' was modified by"
+			   " second party",
 			   finfo->fullname);
 		ret = T_CONFLICT;
 	    }
@@ -204,7 +216,7 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 	{
 	    /* The user file shouldn't be there */
 	    if (!really_quiet)
-		error (0, 0, "%s should be removed and is still there",
+		error (0, 0, "`%s' should be removed and is still there",
 		       finfo->fullname);
 	    ret = T_REMOVED;
 	}
@@ -220,11 +232,22 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 	    {
 		/* There is no user file, so just remove the entry */
 		if (!really_quiet)
-		    error (0, 0, "warning: %s is not (any longer) pertinent",
+		    error (0, 0, "warning: `%s' is not (any longer) pertinent",
 			   finfo->fullname);
 		ret = T_REMOVE_ENTRY;
 	    }
-	    else if (strcmp (vers->ts_user, vers->ts_rcs) == 0)
+	    else if (strcmp (vers->ts_user, vers->ts_rcs)
+		     && No_Difference (finfo, vers))
+	    {
+		/* they are different -> conflict */
+		if (!really_quiet)
+		    error (0, 0,
+                           "conflict: `%s' is modified but no longer in the"
+			   " repository",
+			   finfo->fullname);
+		ret = T_CONFLICT;
+	    }
+	    else
 	    {
 
 		/*
@@ -232,25 +255,7 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		 * the entry list
 		 */
 		if (!really_quiet)
-		    error (0, 0, "%s is no longer in the repository",
-			   finfo->fullname);
-		ret = T_REMOVE_ENTRY;
-	    }
-	    else if (No_Difference (finfo, vers))
-	    {
-		/* they are different -> conflict */
-		if (!really_quiet)
-		    error (0, 0,
-	       "conflict: %s is modified but no longer in the repository",
-			   finfo->fullname);
-		ret = T_CONFLICT;
-	    }
-	    else
-	    {
-		/* they weren't really different */
-		if (!really_quiet)
-		    error (0, 0,
-			   "warning: %s is not (any longer) pertinent",
+		    error (0, 0, "`%s' is no longer in the repository",
 			   finfo->fullname);
 		ret = T_REMOVE_ENTRY;
 	    }
@@ -276,10 +281,12 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		   for the server to distinguish those two cases.  */
 		if (strcmp (cvs_cmd_name, "update") == 0)
 		    if (!really_quiet)
-			error (0, 0, "warning: %s was lost", finfo->fullname);
+			error (0, 0, "warning: `%s' was lost", finfo->fullname);
 		ret = T_CHECKOUT;
 	    }
-	    else if (strcmp (vers->ts_user, vers->ts_rcs) == 0)
+	    else if (!strcmp (vers->ts_user,
+			      vers->ts_conflict
+			      ? vers->ts_conflict : vers->ts_rcs))
 	    {
 
 		/*
@@ -293,6 +300,8 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		if (vers->entdata->options &&
 		    strcmp (vers->entdata->options, vers->options) != 0)
 		    ret = T_CHECKOUT;
+		else if (vers->ts_conflict)
+		    ret = T_CONFLICT;
 		else
 		{
 		    sticky_ck (finfo, aflag, vers);
@@ -313,6 +322,13 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		else
 		    ret = T_NEEDS_MERGE;
 #else
+		/* Files with conflict markers and new timestamps fall through
+		 * here, but they need to.  T_CONFLICT is an error in
+		 * commit_fileproc, whereas T_MODIFIED with conflict markers
+		 * is caught but only warned about.  Similarly, update_fileproc
+		 * currently reregisters a file that was conflicted but lost
+		 * its markers.
+		 */
 		ret = T_MODIFIED;
 		sticky_ck (finfo, aflag, vers);
 #endif
@@ -346,7 +362,7 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 		   thoughts on this comparison.  */
 		if (strcmp (cvs_cmd_name, "update") == 0)
 		    if (!really_quiet)
-			error (0, 0, "warning: %s was lost", finfo->fullname);
+			error (0, 0, "warning: `%s' was lost", finfo->fullname);
 		ret = T_CHECKOUT;
 	    }
 	    else if (strcmp (vers->ts_user, vers->ts_rcs) == 0)
@@ -379,7 +395,7 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
     }
 
     /* free up the vers struct, or just return it */
-    if (versp != (Vers_TS **) NULL)
+    if (versp != NULL)
 	*versp = vers;
     else
 	freevers_ts (&vers);
@@ -389,10 +405,7 @@ Classify_File (finfo, tag, date, options, force_tag_match, aflag, versp,
 }
 
 static void
-sticky_ck (finfo, aflag, vers)
-    struct file_info *finfo;
-    int aflag;
-    Vers_TS *vers;
+sticky_ck (struct file_info *finfo, int aflag, Vers_TS *vers)
 {
     if (aflag || vers->tag || vers->date)
     {

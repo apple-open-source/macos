@@ -1,4 +1,4 @@
-*mbyte.txt*     For Vim version 6.2.  Last change: 2003 May 04
+*mbyte.txt*     For Vim version 7.0.  Last change: 2006 Apr 30
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar et al.
@@ -60,7 +60,7 @@ your system has been installed to use the language, it probably works right
 away.  If not, you can often make it work by setting the $LANG environment
 variable in your shell: >
 
-	setenv lang ja_JP.EUC
+	setenv LANG ja_JP.EUC
 
 Unfortunately, the name of the locale depends on your system.  Japanese might
 also be called "ja_JP.EUCjp" or just "ja".  To see what is currently used: >
@@ -141,7 +141,7 @@ There are several ways to enter multi-byte characters:
 - For all systems keymaps can be used.  See |mbyte-keymap|.
 
 The options 'iminsert', 'imsearch' and 'imcmdline' can be used to chose
-the different input medhods or disable them temporarily.
+the different input methods or disable them temporarily.
 
 ==============================================================================
 2.  Locale						*mbyte-locale*
@@ -244,7 +244,7 @@ variables.
 Charset is another name for encoding.  There are subtle differences, but these
 don't matter when using Vim.  "codeset" is another similar name.
 
-Each characters is encoded as one or more bytes.  When all characters are
+Each character is encoded as one or more bytes.  When all characters are
 encoded with one byte, we call this a single-byte encoding.  The most often
 used one is called "latin1".  This limits the number of characters to 256.
 Some of these are control characters, thus even fewer can be used for text.
@@ -284,7 +284,31 @@ Supported 'encoding' values are:			*encoding-values*
 1   iso-8859-n	ISO_8859 variant (n = 2 to 15)
 1   koi8-r	Russian
 1   koi8-u	Ukrainian
+1   macroman    MacRoman (Macintosh encoding)
 1   8bit-{name} any 8-bit encoding (Vim specific name)
+1   cp437	similar to iso-8859-1
+1   cp737	similar to iso-8859-7
+1   cp775	Baltic
+1   cp850	similar to iso-8859-4
+1   cp852	similar to iso-8859-1
+1   cp855	similar to iso-8859-2
+1   cp857	similar to iso-8859-5
+1   cp860	similar to iso-8859-9
+1   cp861	similar to iso-8859-1
+1   cp862	similar to iso-8859-1
+1   cp863	similar to iso-8859-8
+1   cp865	similar to iso-8859-1
+1   cp866	similar to iso-8859-5
+1   cp869	similar to iso-8859-7
+1   cp874	Thai
+1   cp1250	Czech, Polish, etc.
+1   cp1251	Cyrillic
+1   cp1253	Greek
+1   cp1254	Turkish
+1   cp1255	Hebrew
+1   cp1256	Arabic
+1   cp1257	Baltic
+1   cp1258	Vietnamese
 1   cp{number}	MS-Windows: any installed single-byte codepage
 2   cp932	Japanese (Windows only)
 2   euc-jp	Japanese (Unix only)
@@ -327,6 +351,8 @@ u   unicode	same as ucs-2
 u   ucs2be	same as ucs-2 (big endian)
 u   ucs-2be	same as ucs-2 (big endian)
 u   ucs-4be	same as ucs-4 (big endian)
+    default     stands for the default value of 'encoding', depends on the
+		environment
 
 For the UCS codes the byte order matters.  This is tricky, use UTF-8 whenever
 you can.  The default is to use big-endian (most significant byte comes
@@ -433,16 +459,16 @@ Useful utilities for converting the charset:
 	ftp://ftp.cuhk.hk/pub/chinese/ifcss/software/unix/convert/hc-30.tar.gz
 
     Korean:	    hmconv
-	Hmconv is Korean code conversion utility especially for E-mail. It can
+	Hmconv is Korean code conversion utility especially for E-mail.  It can
 	convert between EUC-KR and ISO-2022-KR.  Hmconv can be found at:
-	ftp://ftp.kaist.ac.kr/pub/hangul/code/hmconv/hmconv1.0pl3
+	ftp://ftp.kaist.ac.kr/pub/hangul/code/hmconv/
 
     Multilingual:   lv
 	Lv is a Powerful Multilingual File Viewer.  And it can be worked as
 	|charset| converter.  Supported |charset|: ISO-2022-CN, ISO-2022-JP,
 	ISO-2022-KR, EUC-CN, EUC-JP, EUC-KR, EUC-TW, UTF-7, UTF-8, ISO-8859
-	series, Shift_JIS, Big5 and HZ. Lv can be found at:
-	http://www.ff.iij4u.or.jp/~nrt/freeware/lv4493.tar.gz
+	series, Shift_JIS, Big5 and HZ.  Lv can be found at:
+	http://www.ff.iij4u.or.jp/~nrt/freeware/lv4495.tar.gz
 
 
 							*mbyte-conversion*
@@ -457,6 +483,12 @@ conversion needs to be done.  These conversions are supported:
 	Old versions of GNU iconv() may cause the conversion to fail (they
 	request a very large buffer, more than Vim is willing to provide).
 	Try getting another iconv() implementation.
+
+							*iconv-dynamic*
+On MS-Windows Vim can be compiled with the |+iconv/dyn| feature.  This means
+Vim will search for the "iconv.dll" and "libiconv.dll" libraries.  When
+neither of them can be found Vim will still work but some conversions won't be
+possible.
 
 ==============================================================================
 4. Using a terminal					*mbyte-terminal*
@@ -487,7 +519,7 @@ xterm that comes with XFree86 by Thomas Dickey (text by Markus Kuhn).
 
 Get the latest xterm version which has now UTF-8 support:
 
-	http://www.clark.net/pub/dickey/xterm/xterm.tar.gz
+	http://invisible-island.net/xterm/xterm.html
 
 Compile it with "./configure --enable-wide-chars ; make"
 
@@ -503,7 +535,7 @@ Now start xterm with >
 or, for bigger character: >
   xterm -u8 -fn -misc-fixed-medium-r-normal--15-140-75-75-c-90-iso10646-1
 
-and you will have a working UTF-8 terminal emulator. Try both >
+and you will have a working UTF-8 terminal emulator.  Try both >
 
    cat utf-8-demo.txt
    vim utf-8-demo.txt
@@ -521,7 +553,7 @@ font is a long string.  For multi-byte fonts we need several of these...
 
 Note: Most of this is no longer relevant for GTK+ 2.  Selecting a font via
 its XLFD is not supported anymore; see 'guifont' for an example of how to
-set the font.  Do yourself a favour and ignore the |XLFD| and |xfontset|
+set the font.  Do yourself a favor and ignore the |XLFD| and |xfontset|
 sections below.
 
 First of all, Vim only accepts fixed-width fonts for displaying text.  You
@@ -741,6 +773,8 @@ is suitable for complex input, such as CJK.
   Traditional and Simplified Chinese characters.  And it can accept other
   locale if you make a correct input table.  Xcin can be found at:
   http://xcin.linux.org.tw/
+  Others are scim: http://scim.freedesktop.org/ and fcitx:
+  http://www.fcitx.org/
 
 - Conversion Server
 							*conversion-server*
@@ -756,8 +790,8 @@ is suitable for complex input, such as CJK.
   number of Hira-gana characters are 76.  So, first, we pre-input text as
   pronounced in Hira-gana, second, we convert Hira-gana to Kanji or Kata-Kana,
   if needed.  There are some Kana-Kanji conversion server: jserver
-  (distributed with Wnn, see below) and canna. Canna can be found at:
-  ftp://ftp.nec.co.jp/pub/Canna/
+  (distributed with Wnn, see below) and canna.  Canna could be found at:
+  ftp://ftp.nec.co.jp/pub/Canna/ (no longer works).
 
 There is a good input system: Wnn4.2.  Wnn 4.2 contains,
     xwnmo (|IM-server|)
@@ -765,8 +799,8 @@ There is a good input system: Wnn4.2.  Wnn 4.2 contains,
     cserver (Chinese PinYin or ZhuYin to simplified HanZi conversion server)
     tserver (Chinese PinYin or ZhuYin to traditional HanZi conversion server)
     kserver (Hangul-Hanja conversion server)
-Wnn 4.2 can be found at:
-    ftp://ftp.FreeBSD.ORG/pub/FreeBSD/ports/distfiles/Wnn4.2.tar.gz
+Wnn 4.2 for several systems can be found at various places on the internet.
+Use the RPM or port for your system.
 
 
 - Input Style
@@ -796,7 +830,7 @@ Wnn 4.2 can be found at:
     Preedit Area and Status Area are performed by the client application in
     the area of application.  The client application is directed by the
     |IM-server| to display all pre-edit data at the location of text
-    insertion. The client registers callbacks invoked by the input method
+    insertion.  The client registers callbacks invoked by the input method
     during pre-editing.
 *.  over-the-spot					*OverTheSpot*
     Status Area is created in a fixed position within the area of application,
@@ -816,7 +850,7 @@ Wnn 4.2 can be found at:
 
 
 USING XIM			*multibyte-input* *E284* *E286* *E287* *E288*
-				*E285* *E291* *E292* *E290* *ez4* *E289*
+				*E285* *E291* *E292* *E290* *E289*
 
 Note that Display and Input are independent.  It is possible to see your
 language even though you have no input method for it.  But when your Display
@@ -870,7 +904,7 @@ For example, when you are using kinput2 as |IM-server| and sh, >
 	export XMODIFIERS="@im=kinput2"
 <
 
-FULLY CONTROLED XIM
+FULLY CONTROLLED XIM
 
 You can fully control XIM, like with IME of MS-Windows (see |multibyte-ime|).
 This is currently only available for the GTK GUI.
@@ -905,7 +939,7 @@ IME status to that memorized automatically.
 This works on not only insert-normal mode, but also search-command input and
 replace mode.
 The options 'iminsert', 'imsearch' and 'imcmdline' can be used to chose
-the different input medhods or disable them temporarily.
+the different input methods or disable them temporarily.
 
 WHAT IS IME
     IME is a part of East asian version Windows.  That helps you to input
@@ -921,7 +955,7 @@ WHAT IS GLOBAL IME					*global-ime*
     Windows NT 4.0.
     On Windows 2000 and XP it should work as well (without downloading).  On
     Windows 2000 Professional, Global IME is built in, and the Input Locales
-    can be added through Control Panel/Reginal Options/Input Locales.
+    can be added through Control Panel/Regional Options/Input Locales.
     Please see below URL for detail of Global IME.  You can also find various
     language version of Global IME at same place.
 
@@ -933,11 +967,11 @@ WHAT IS GLOBAL IME					*global-ime*
 
     Support Global IME is a experimental feature.
 
-NOTE: For IME to work you must make sure the input locales of your languague
+NOTE: For IME to work you must make sure the input locales of your language
 are added to your system.  The exact location of this depends on the version
 of Windows you use.  For example, on my W2P box:
 1. Control Panel
-2. Reginal Options
+2. Regional Options
 3. Input Locales Tab
 4. Add Installed input locales -> Chinese(PRC)
    The default is still English (United Stated)
@@ -951,7 +985,7 @@ Cursor color when IME or XIM is on				*CursorIM*
     This works in the same way when using XIM.
 
     You can select cursor color when status is on by using highlight group
-    CursorIM.  For example, add these lines to your _gvimrc: >
+    CursorIM.  For example, add these lines to your |gvimrc|: >
 
 	if has('multi_byte_ime')
 	    highlight Cursor guifg=NONE guibg=Green
@@ -1001,7 +1035,7 @@ use a brightly colored cursor: >
 	:highlight Cursor guifg=NONE guibg=Green
 	:highlight lCursor guifg=NONE guibg=Cyan
 <
-			*keymap-file-format* *:loadk* *:loadkeymap* *E105*
+		*keymap-file-format* *:loadk* *:loadkeymap* *E105* *E791*
 The keymap file looks something like this: >
 
 	" Maintainer:	name <email@address>
@@ -1042,6 +1076,7 @@ also add this line: >
 	''	'
 Since the mapping is defined with |:lnoremap| the resulting quote will not be
 used for the start of another character.
+The "accents" keymap uses this.				*keymap-accents*
 
 Although it's possible to have more than one character in the second column,
 this is unusual.  But you can use various ways to specify the character: >
@@ -1202,7 +1237,7 @@ Combining forms:
 
 ==============================================================================
 10. Using UTF-8				*mbyte-utf8* *UTF-8* *utf-8* *utf8*
-								*Unicode*
+							*Unicode* *unicode*
 The Unicode character set was designed to include all characters from other
 character sets.  Therefore it is possible to write text in any language using
 Unicode (with a few rarely used languages excluded).  And it's mostly possible
@@ -1223,11 +1258,16 @@ Double-width characters are supported.  This works best with 'guifontwide' or
 normal width and a space to fill the gap.  Note that the 'guifontset' option
 is no longer relevant in the GTK+ 2 GUI.
 
-Up to two combining characters can be used.  The combining character is drawn
-on top of the preceding character.  When editing text a composing character is
-mostly considered part of the preceding character.  For example "x" will
-delete a character and its following composing characters by default. If the
-'delcombine' option is on, then pressing 'x' will delete the combining
+					*mbyte-combining* *mbyte-composing*
+A composing or combining character is used to change the meaning of the
+character before it.  The combining characters are drawn on top of the
+preceding character.
+Up to two combining characters can be used by default.  This can be changed
+with the 'maxcombine' option.
+When editing text a composing character is mostly considered part of the
+preceding character.  For example "x" will delete a character and its
+following composing characters by default.
+If the 'delcombine' option is on, then pressing 'x' will delete the combining
 characters, one at a time, then the base character.  But when inserting, you
 type the first character and the following composing characters separately,
 after which they will be joined.  The "r" command will not allow you to type a
@@ -1248,7 +1288,7 @@ characters present in the selected font.
 
 Useful commands:
 - "ga" shows the decimal, hexadecimal and octal value of the character under
-  the cursor.  If there are composing characters these are shown too. (if the
+  the cursor.  If there are composing characters these are shown too.  (If the
   message is truncated, use ":messages").
 - "g8" shows the bytes used in a UTF-8 character, also the composing
   characters, as hex numbers.
@@ -1314,7 +1354,7 @@ a zero if necessary.
 COMMAND ARGUMENTS					*utf-8-char-arg*
 
 Commands like |f|, |F|, |t| and |r| take an argument of one character.  For
-UTF-8 this argument may include one or two composing characters.  These needs
+UTF-8 this argument may include one or two composing characters.  These need
 to be produced together with the base character, Vim doesn't wait for the next
 character to be typed to find out if it is a composing character or not.
 Using 'keymap' or |:lmap| is a nice way to type these characters.
@@ -1341,7 +1381,7 @@ options.txt for detailed information.
 
 'fileencodings'	List of possible encodings of a file.  When opening a file
 		these will be tried and the first one that doesn't cause an
-		error is used for 'fileencoding'
+		error is used for 'fileencoding'.
 
 'charconvert'	Expression used to convert files from one encoding to another.
 
@@ -1350,7 +1390,7 @@ options.txt for detailed information.
 		languages where a sequence of characters can be broken
 		anywhere.
 
-'guifontset'	The list of font names used for a multi-byte endoding.  When
+'guifontset'	The list of font names used for a multi-byte encoding.  When
 		this option is not empty, it replaces 'guifont'.
 
 'keymap'	Specify the name of a keyboard mapping.
@@ -1359,7 +1399,7 @@ options.txt for detailed information.
 
 Contributions specifically for the multi-byte features by:
 	Chi-Deok Hwang <hwang@mizi.co.kr>
-	Nam SungHyun <namsh@lge.com>
+	Nam SungHyun <namsh@kldp.org>
 	K.Nagano <nagano@atese.advantest.co.jp>
 	Taro Muraoka  <koron@tka.att.ne.jp>
 	Yasuhiro Matsumoto <mattn@mail.goo.ne.jp>

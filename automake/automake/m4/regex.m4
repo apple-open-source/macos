@@ -1,26 +1,14 @@
-## --------------------------------- ##              -*- Autoconf -*-
+## --------------------------------- ##                     -*- Autoconf -*-
 ## Check if --with-regex was given.  ##
 ## --------------------------------- ##
+# Copyright (C) 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+# Free Software Foundation, Inc.
+#
+# This file is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
 
-# Copyright 1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
-
-# serial 3
-AC_PREREQ(2.50)
+# serial 7
 
 # AM_WITH_REGEX
 # -------------
@@ -38,26 +26,28 @@ AC_PREREQ(2.50)
 # FIXME: This macro seems quite obsolete now since rx doesn't seem to
 # be maintained, while regex is.
 AC_DEFUN([AM_WITH_REGEX],
-[AC_LIBSOURCES([rx.h, rx.c, regex.c, regex.h])dnl
+[AC_PREREQ(2.50)dnl
+AC_LIBSOURCES([rx.h, rx.c, regex.c, regex.h])dnl
 AC_MSG_CHECKING([which of GNU rx or gawk's regex is wanted])
-AC_ARG_WITH(regex,
+AC_ARG_WITH([regex],
 [  --without-regex         use GNU rx in lieu of gawk's regex for matching],
-            [test "$withval" = yes && am_with_regex=1],
-            [am_with_regex=1])
+	    [test "$withval" = yes && am_with_regex=1],
+	    [am_with_regex=1])
 if test -n "$am_with_regex"; then
-  AC_MSG_RESULT(regex)
-  AC_DEFINE(WITH_REGEX, 1, [Define if using GNU regex])
-  AC_CACHE_CHECK([for GNU regex in libc], am_cv_gnu_regex,
+  AC_MSG_RESULT([regex])
+  AC_DEFINE([WITH_REGEX], 1, [Define if using GNU regex])
+  AC_CACHE_CHECK([for GNU regex in libc], [am_cv_gnu_regex],
     [AC_TRY_LINK([],
-                 [extern int re_max_failures; re_max_failures = 1],
+		 [extern int re_max_failures; re_max_failures = 1],
 		 [am_cv_gnu_regex=yes],
-                 [am_cv_gnu_regex=no])])
+		 [am_cv_gnu_regex=no])])
   if test $am_cv_gnu_regex = no; then
     AC_LIBOBJ([regex])
   fi
 else
-  AC_MSG_RESULT(rx)
-  AC_CHECK_FUNC(re_rx_search, , [AC_LIBOBJ([rx])])
-fi
-AC_SUBST(LIBOBJS)dnl
+  AC_MSG_RESULT([rx])
+  AC_CHECK_FUNC([re_rx_search], , [AC_LIBOBJ([rx])])
+fi[]dnl
 ])
+
+AU_DEFUN([fp_WITH_REGEX], [AM_WITH_REGEX])

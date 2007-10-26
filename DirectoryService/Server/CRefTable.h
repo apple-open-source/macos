@@ -40,74 +40,72 @@
 class CRefTable;
 class CServerPlugin;
 
-extern DSMutexSemaphore		*gTableMutex;
-extern CRefTable			*gRefTable;
-
 //#define		kMaxTableItems	4096	//KW80 - made smaller
 #define		kMaxTableItems	512
 #define		kMaxTables		0xFF
 
 typedef struct sListInfo *sListInfoPtr;
 
-//note fPID defined everywhere as sInt32 to remove warnings of comparing -1 to uInt32 since failed PID is -1
+//note fPID defined everywhere as SInt32 to remove warnings of comparing -1 to UInt32 since failed PID is -1
 
 //struct to contain reference to the actual ref entry of the child ref
 typedef struct sListInfo {
-	uInt32			fRefNum;
-	uInt32			fType;
-	sInt32			fPID;
-	uInt32			fIPAddress;
+	UInt32			fRefNum;
+	UInt32			fType;
+	SInt32			fPID;
+	UInt32			fIPAddress;
 	sListInfoPtr	fNext;
 } sListInfo;
 
 //struct to contain PID of the child client process granted access to a ref from the parent client process
 typedef struct sPIDInfo {
-	sInt32			fPID;
-	uInt32			fIPAddress;
+	SInt32			fPID;
+	UInt32			fIPAddress;
 	sPIDInfo	   *fNext;
 } sPIDInfo;
 
 //struct of the main ref entry
 typedef struct sRefEntry {
-	uInt32			fRefNum;
-	uInt32			fType;
-	uInt32			fParentID;
-	sInt32			fPID;
-	uInt32			fIPAddress;
+	UInt32			fRefNum;
+	UInt32			fType;
+	UInt32			fParentID;
+	SInt32			fPID;
+	UInt32			fIPAddress;
 	CServerPlugin  *fPlugin;
 	sListInfo	   *fChildren;
 	sPIDInfo	   *fChildPID;
+	char		   *fNodeName;	//only retained for an OpenDirNode call inside the daemon for record type restyrictions support
 } sRefEntry;
 
 //struct of a ref cleanup entry
 typedef struct sRefCleanUpEntry {
-	uInt32					fRefNum;
-	uInt32					fType;
+	UInt32					fRefNum;
+	UInt32					fType;
 	CServerPlugin		   *fPlugin;
 	sRefCleanUpEntry	   *fNext;
 } sRefCleanUpEntry;
 
-typedef sInt32 RefDeallocateProc ( uInt32 inRefNum, uInt32 inRefType, CServerPlugin *inPluginPtr );
+typedef SInt32 RefDeallocateProc ( UInt32 inRefNum, UInt32 inRefType, CServerPlugin *inPluginPtr );
 
 // -------------------------------------------
 
 typedef struct sRefTable *sRefTablePtr;
 
 typedef struct sRefTable {
-	uInt32			fTableNum;
-	uInt32			fCurRefNum;
-	uInt32			fItemCnt;
+	UInt32			fTableNum;
+	UInt32			fCurRefNum;
+	UInt32			fItemCnt;
 	sRefEntry		*fTableData[ kMaxTableItems ];
 } sRefTable;
 
 // IP -> PID -> DirRef (Set)
-typedef std::set<uInt32>					tDirRefSet;
-typedef std::map<uInt32, tDirRefSet>		tPIDDirRefMap;
-typedef std::map<uInt32, tPIDDirRefMap>		tIPPIDDirRefMap;
+typedef std::set<UInt32>					tDirRefSet;
+typedef std::map<UInt32, tDirRefSet>		tPIDDirRefMap;
+typedef std::map<UInt32, tPIDDirRefMap>		tIPPIDDirRefMap;
 
 // IP -> PID -> RefCount
-typedef std::map<uInt32, uInt32>			tPIDRefCountMap;
-typedef std::map<uInt32, tPIDRefCountMap>	tIPPIDRefCountMap;
+typedef std::map<UInt32, UInt32>			tPIDRefCountMap;
+typedef std::map<UInt32, tPIDRefCountMap>	tIPPIDRefCountMap;
 
 //------------------------------------------------------------------------------------
 //	* CRefTable
@@ -121,53 +119,73 @@ public:
 	void			Lock				( void );
 	void			Unlock				( void );
 
-	static tDirStatus	VerifyDirRef		( tDirReference inDirRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	VerifyNodeRef		( tDirNodeReference inDirNodeRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	VerifyRecordRef		( tRecordReference inRecordRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress, bool inDaemonPID_OK = false );
-	static tDirStatus	VerifyAttrListRef	( tAttributeListRef inAttributeListRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	VerifyAttrValueRef	( tAttributeValueListRef inAttributeValueListRef, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress );
+	static tDirStatus	VerifyDirRef		( tDirReference inDirRef, CServerPlugin **outPlugin, SInt32 inPID, UInt32 inIPAddress );
+	static tDirStatus	VerifyNodeRef		( tDirNodeReference inDirNodeRef, CServerPlugin **outPlugin, SInt32 inPID, UInt32 inIPAddress );
+	static char*		GetNodeRefName		( tDirNodeReference inDirNodeRef );
+	static tDirStatus	VerifyRecordRef		( tRecordReference inRecordRef, CServerPlugin **outPlugin, SInt32 inPID, UInt32 inIPAddress, bool inDaemonPID_OK = false );
+	static tDirStatus	VerifyAttrListRef	( tAttributeListRef inAttributeListRef, CServerPlugin **outPlugin, SInt32 inPID, UInt32 inIPAddress );
+	static tDirStatus	VerifyAttrValueRef	( tAttributeValueListRef inAttributeValueListRef, CServerPlugin **outPlugin, SInt32 inPID, UInt32 inIPAddress );
 
-	static tDirStatus	NewDirRef			( uInt32 *outNewRef, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	NewNodeRef			( uInt32 *outNewRef, CServerPlugin *inPlugin, uInt32 inParentID, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	NewRecordRef		( uInt32 *outNewRef, CServerPlugin *inPlugin, uInt32 inParentID, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	NewAttrListRef		( uInt32 *outNewRef, CServerPlugin *inPlugin, uInt32 inParentID, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	NewAttrValueRef		( uInt32 *outNewRef, CServerPlugin *inPlugin, uInt32 inParentID, sInt32 inPID, uInt32 inIPAddress );
+	static tDirStatus	NewDirRef			( UInt32 *outNewRef, SInt32 inPID, UInt32 inIPAddress );
+	static tDirStatus	NewNodeRef			( UInt32 *outNewRef, CServerPlugin *inPlugin, UInt32 inParentID, SInt32 inPID, UInt32 inIPAddress, const char *inNodeName );
+	static tDirStatus	NewRecordRef		( UInt32 *outNewRef, CServerPlugin *inPlugin, UInt32 inParentID, SInt32 inPID, UInt32 inIPAddress );
+	static tDirStatus	NewAttrListRef		( UInt32 *outNewRef, CServerPlugin *inPlugin, UInt32 inParentID, SInt32 inPID, UInt32 inIPAddress );
+	static tDirStatus	NewAttrValueRef		( UInt32 *outNewRef, CServerPlugin *inPlugin, UInt32 inParentID, SInt32 inPID, UInt32 inIPAddress );
 
-	static tDirStatus	RemoveDirRef		( uInt32 inDirRef, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	RemoveNodeRef		( uInt32 inNodeRef, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	RemoveRecordRef		( uInt32 inRecRef, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	RemoveAttrListRef	( uInt32 inAttrListRef, sInt32 inPID, uInt32 inIPAddress );
-	static tDirStatus	RemoveAttrValueRef	( uInt32 InAttrValueRef, sInt32 inPID, uInt32 inIPAddress );
+	static tDirStatus	RemoveDirRef		( UInt32 inDirRef, SInt32 inPID, UInt32 inIPAddress );
+	static tDirStatus	RemoveNodeRef		( UInt32 inNodeRef, SInt32 inPID, UInt32 inIPAddress );
+	static tDirStatus	RemoveRecordRef		( UInt32 inRecRef, SInt32 inPID, UInt32 inIPAddress );
+	static tDirStatus	RemoveAttrListRef	( UInt32 inAttrListRef, SInt32 inPID, UInt32 inIPAddress );
+	static tDirStatus	RemoveAttrValueRef	( UInt32 InAttrValueRef, SInt32 inPID, UInt32 inIPAddress );
 
 	static tDirStatus	SetNodePluginPtr	( tDirNodeReference inNodeRef, CServerPlugin *inPlugin );
-	static tDirStatus	AddChildPIDToRef	( uInt32 inRefNum, uInt32 inParentPID, sInt32 inChildPID, uInt32 inIPAddress );
+	static tDirStatus	AddChildPIDToRef	( UInt32 inRefNum, UInt32 inParentPID, SInt32 inChildPID, UInt32 inIPAddress );
 	
-	static void			CleanClientRefs		( uInt32 inIPAddress, uInt32 inPIDorPort );
+	static void			CleanClientRefs		( UInt32 inIPAddress, UInt32 inPIDorPort );
+	
+	void				LockClientPIDList	( void );
+	void				UnlockClientPIDList	( void );
+	char*				CreateNextClientPIDListString
+											( bool inStart, tIPPIDDirRefMap::iterator &inOutIPEntry, tPIDDirRefMap::iterator &inOutPIDEntry );
+	char*				CreateNextClientPIDListRecordName
+											( bool inStart,
+											tIPPIDDirRefMap::iterator &inOutIPEntry, tPIDDirRefMap::iterator &inOutPIDEntry,
+											char** outIPAddress, char** outPIDValue,
+											SInt32 &outIP, UInt32 &outPID,
+											UInt32 &outTotalRefCount,
+											UInt32 &outDirRefCount, char** &outDirRefs );
+	void				RetrieveRefDataPerClientPIDAndIP
+											(	SInt32 inIP, UInt32 inPID, char** inDirRefs,
+												UInt32 &outNodeRefCount, char** &outNodeRefs,
+												UInt32 &outRecRefCount, char** &outRecRefs,
+												UInt32 &outAttrListRefCount, char** &outAttrListRefs,
+												UInt32 &outAttrListValueRefCount, char** &outAttrListValueRefs  );
 
 private:
-	tDirStatus	VerifyReference		( tDirReference inDirRef, uInt32 inType, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress, bool inDaemonPID_OK = false );
-	tDirStatus	GetNewRef			( uInt32 *outRef, uInt32 inParentID, eRefTypes inType, CServerPlugin *inPlugin, sInt32 inPID, uInt32 inIPAddress );
-	tDirStatus	RemoveRef			( uInt32 inRefNum, uInt32 inType, sInt32 inPID, uInt32 inIPAddress, bool inbAtTop = false);
-	tDirStatus	SetPluginPtr		( uInt32 inRefNum, uInt32 inType, CServerPlugin *inPlugin );
+	tDirStatus	VerifyReference		( tDirReference inDirRef, UInt32 inType, CServerPlugin **outPlugin, SInt32 inPID, UInt32 inIPAddress, bool inDaemonPID_OK = false );
+	char*		GetNodeName			( tDirReference inDirRef );
+	tDirStatus	GetNewRef			( UInt32 *outRef, UInt32 inParentID, eRefTypes inType, CServerPlugin *inPlugin, SInt32 inPID, UInt32 inIPAddress, const char *inNodeName = NULL );
+	tDirStatus	RemoveRef			( UInt32 inRefNum, UInt32 inType, SInt32 inPID, UInt32 inIPAddress, bool inbAtTop = false);
+	tDirStatus	SetPluginPtr		( UInt32 inRefNum, UInt32 inType, CServerPlugin *inPlugin );
 
-	tDirStatus	GetReference		( uInt32 inRefNum, sRefEntry **outRefData );
+	tDirStatus	GetReference		( UInt32 inRefNum, sRefEntry **outRefData );
 
-	tDirStatus	LinkToParent		( uInt32 inRefNum, uInt32 inType, uInt32 inParentID, sInt32 inPID, uInt32 inIPAddress );
-	tDirStatus	UnlinkFromParent	( uInt32 inRefNum );
+	tDirStatus	LinkToParent		( UInt32 inRefNum, UInt32 inType, UInt32 inParentID, SInt32 inPID, UInt32 inIPAddress );
+	tDirStatus	UnlinkFromParent	( UInt32 inRefNum );
 
-	void		RemoveChildren		( sListInfo *inChildList, sInt32 inPID, uInt32 inIPAddress );
+	void		RemoveChildren		( sListInfo *inChildList, SInt32 inPID, UInt32 inIPAddress );
 
 	sRefTable*	GetNextTable		( sRefTable *inCurTable );
-	sRefTable*	GetThisTable		( uInt32 inTableNum );
+	sRefTable*	GetThisTable		( UInt32 inTableNum );
 
-	sRefEntry*	GetTableRef			( uInt32 inRefNum );
+	sRefEntry*	GetTableRef			( UInt32 inRefNum );
 
-	uInt32		UpdateClientPIDRefCount
-									( sInt32 inClientPID, uInt32 inIPAddress, bool inUpRefCount, uInt32 inDirRef=0 );
+	UInt32		UpdateClientPIDRefCount
+									( SInt32 inClientPID, UInt32 inIPAddress, bool inUpRefCount, UInt32 inDirRef=0 );
 
-	void		DoCleanClientRefs	( uInt32 inIPAddress, uInt32 inPIDorPort );
+	void		DoCleanClientRefs	( UInt32 inIPAddress, UInt32 inPIDorPort );
 
-	uInt32		fTableCount;
+	UInt32		fTableCount;
 	sRefTable	*fRefTables[ kMaxTables + 1 ];	//KW80 added 1 since table is 1-based and code depends upon having that last
 												//index in as kMaxTables ie. note array is 0-based
 	RefDeallocateProc *fDeallocProc;
@@ -180,6 +198,8 @@ private:
 	sRefCleanUpEntry	   *fRefCleanUpEntriesTail;
 
 };
+
+void GrowList(char** &inOutRefs, UInt32 &inOutRefListSize);
 
 #endif
 

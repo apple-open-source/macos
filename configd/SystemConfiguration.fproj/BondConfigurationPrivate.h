@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,8 +26,6 @@
 
 #include <AvailabilityMacros.h>
 #include <sys/cdefs.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/BondConfiguration.h>
 
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040
 
@@ -35,17 +33,7 @@
 	@header BONDConfigurationPrivate
  */
 
-
-#define BOND_PREFERENCES_ID	CFSTR("VirtualNetworkInterfaces.plist")
-
-
 __BEGIN_DECLS
-
-CFArrayRef
-_BondPreferencesCopyActiveInterfaces	();
-
-Boolean
-_BondPreferencesUpdateConfiguration	(BondPreferencesRef	prefs);
 
 __END_DECLS
 

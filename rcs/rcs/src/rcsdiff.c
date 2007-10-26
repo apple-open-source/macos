@@ -29,8 +29,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: rcsdiff.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:38  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:38  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:32  wsanchez
  * Import of RCS 5.7
@@ -158,7 +158,7 @@ static int exitstatus;
 static RILE *workptr;
 static struct stat workstat;
 
-mainProg(rcsdiffId, "rcsdiff", "$Id: rcsdiff.c,v 1.1.1.1 1999/04/23 01:43:38 wsanchez Exp $")
+mainProg(rcsdiffId, "rcsdiff", "$Id: rcsdiff.c,v 1.1 1999/04/23 01:43:38 wsanchez Exp $")
 {
     static char const cmdusage[] =
 	    "\nrcsdiff usage: rcsdiff -ksubst -q -rrev1 [-rrev2] -Vn -xsuff -zzone [diff options] file ...";

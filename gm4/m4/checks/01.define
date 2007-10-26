@@ -1,5 +1,0 @@
-dnl ../doc/m4.texinfo:940: Origin of test
-define(`foo', `Hello world.')
-dnl @result{}
-foo
-dnl @result{}Hello world.

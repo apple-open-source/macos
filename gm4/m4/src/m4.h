@@ -1,12 +1,12 @@
 /* GNU m4 -- A simple macro processor
 
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2004 Free
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2004, 2005, 2006 Free
    Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,91 +15,50 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301  USA
 */
 
 /* We use <config.h> instead of "config.h" so that a compilation
    using -I. -I$srcdir will use ./config.h rather than $srcdir/config.h
    (which it would do because it found this file in $srcdir).  */
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
+#include <config.h>
+
+/* Canonicalize UNIX recognition macros.  */
+#if defined unix || defined __unix || defined __unix__ \
+  || defined _POSIX_VERSION || defined _POSIX2_VERSION \
+  || defined __NetBSD__ || defined __OpenBSD__ \
+  || defined __APPLE__ || defined __APPLE_CC__
+# define UNIX 1
 #endif
 
+/* Canonicalize Windows recognition macros.  */
+#if (defined _WIN32 || defined __WIN32__) && !defined __CYGWIN__
+# define W32_NATIVE 1
+#endif
+
+/* Canonicalize OS/2 recognition macro.  */
+#ifdef __EMX__
+# define OS2 1
+#endif
+
+#include <ctype.h>
+#include <errno.h>
+#include <string.h>
 #include <sys/types.h>
 
-#ifdef __STDC__
-# define voidstar void *
-#else
-# define voidstar char *
-#endif
-
-#ifdef PROTOTYPES
-# define _(Args) Args
-#else
-# define _(Args) ()
-#endif
-
-#include <stdio.h>
-#include <ctype.h>
-
+#include "binary-io.h"
+#include "cloexec.h"
+#include "close-stream.h"
+#include "error.h"
+#include "exit.h"
 #include "obstack.h"
-
-/* An ANSI string.h and pre-ANSI memory.h might conflict.  */
-
-#if defined (HAVE_STRING_H) || defined (STDC_HEADERS)
-# include <string.h>
-# if !defined (STDC_HEADERS) && defined (HAVE_MEMORY_H)
-#  include <memory.h>
-# endif
-/* This is for obstack code -- should live in obstack.h.  */
-# ifndef bcopy
-#  define bcopy(S, D, N) memcpy ((D), (S), (N))
-# endif
-#else
-# include <strings.h>
-# ifndef memcpy
-#  define memcpy(D, S, N) bcopy((S), (D), (N))
-# endif
-# ifndef strchr
-#  define strchr(S, C) index ((S), (C))
-# endif
-# ifndef strrchr
-#  define strrchr(S, C) rindex ((S), (C))
-# endif
-# ifndef bcopy
-void bcopy ();
-# endif
-#endif
-
-#ifdef STDC_HEADERS
-# include <stdlib.h>
-#else /* not STDC_HEADERS */
-
-voidstar malloc ();
-voidstar realloc ();
-char *getenv ();
-double atof ();
-long strtol ();
-
-#endif /* STDC_HEADERS */
-
-/* Some systems do not define EXIT_*, even with STDC_HEADERS.  */
-#ifndef EXIT_SUCCESS
-# define EXIT_SUCCESS 0
-#endif
-#ifndef EXIT_FAILURE
-# define EXIT_FAILURE 1
-#endif
-
-#include <errno.h>
-#ifndef errno
-extern int errno;
-#endif
-
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
+#include "stdio--.h"
+#include "stdlib--.h"
+#include "unistd--.h"
+#include "verror.h"
+#include "xalloc.h"
 
 /* If FALSE is defined, we presume TRUE is defined too.  In this case,
    merely typedef boolean as being int.  Or else, define these all.  */
@@ -110,7 +69,12 @@ typedef enum { FALSE = 0, TRUE = 1 } boolean;
 typedef int boolean;
 #endif
 
-char *mktemp ();
+#if ! HAVE_MKSTEMP
+int mkstemp (char *);
+#endif
+
+/* Used for version mismatch, when -R detects a frozen file it can't parse.  */
+#define EXIT_MISMATCH 63
 
 /* Various declarations.  */
 
@@ -122,26 +86,31 @@ struct string
 typedef struct string STRING;
 
 /* Memory allocation.  */
-voidstar xmalloc _((unsigned int));
-voidstar xrealloc _((voidstar , unsigned int));
-void xfree _((voidstar));
-char *xstrdup _((const char *));
 #define obstack_chunk_alloc	xmalloc
-#define obstack_chunk_free	xfree
-
-/* Other library routines.  */
-void error _((int, int, const char *, ...));
+#define obstack_chunk_free	free
 
 /* Those must come first.  */
-typedef void builtin_func ();
 typedef struct token_data token_data;
+typedef void builtin_func (struct obstack *, int, token_data **);
+
+/* Take advantage of GNU C compiler source level optimization hints,
+   using portable macros.  */
+#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 6)
+#  define M4_GNUC_ATTRIBUTE(args)	__attribute__(args)
+#else
+#  define M4_GNUC_ATTRIBUTE(args)
+#endif  /* __GNUC__ */
+
+#define M4_GNUC_UNUSED		M4_GNUC_ATTRIBUTE((__unused__))
+#define M4_GNUC_PRINTF(fmt, arg)			\
+  M4_GNUC_ATTRIBUTE((__format__ (__printf__, fmt, arg)))
 
 /* File: m4.c  --- global definitions.  */
 
 /* Option flags.  */
 extern int sync_output;			/* -s */
 extern int debug_level;			/* -d */
-extern int hash_table_size;		/* -H */
+extern size_t hash_table_size;		/* -H */
 extern int no_gnu_extensions;		/* -G */
 extern int prefix_all_builtins;		/* -P */
 extern int max_debug_argument_length;	/* -l */
@@ -153,14 +122,19 @@ extern const char *user_word_regexp;	/* -W */
 #endif
 
 /* Error handling.  */
-#define M4ERROR(Arglist) \
-  (reference_error (), error Arglist)
+extern int retcode;
+extern const char *program_name;
 
-void reference_error _((void));
+void m4_error (int, int, const char *, ...) M4_GNUC_PRINTF(3, 4);
+void m4_error_at_line (int, int, const char *, int,
+                       const char *, ...) M4_GNUC_PRINTF(5, 6);
+
+#define M4ERROR(Arglist) (m4_error Arglist)
+#define M4ERROR_AT_LINE(Arglist) (m4_error_at_line Arglist)
 
 #ifdef USE_STACKOVF
-void setup_stackovf_trap _((char *const *, char *const *,
-			    void (*handler) (void)));
+void setup_stackovf_trap (char *const *, char *const *,
+                          void (*handler) (void));
 #endif
 
 /* File: debug.c  --- debugging and tracing function.  */
@@ -247,15 +221,15 @@ extern FILE *debug;
     }								\
   while (0)
 
-void debug_init _((void));
-int debug_decode _((const char *));
-void debug_flush_files _((void));
-boolean debug_set_output _((const char *));
-void debug_message_prefix _((void));
+void debug_init (void);
+int debug_decode (const char *);
+void debug_flush_files (void);
+boolean debug_set_output (const char *);
+void debug_message_prefix (void);
 
-void trace_prepre _((const char *, int));
-void trace_pre _((const char *, int, int, token_data **));
-void trace_post _((const char *, int, int, token_data **, const char *));
+void trace_prepre (const char *, int);
+void trace_pre (const char *, int, int, token_data **);
+void trace_post (const char *, int, int, token_data **, const char *);
 
 /* File: input.c  --- lexical definitions.  */
 
@@ -263,10 +237,13 @@ void trace_post _((const char *, int, int, token_data **, const char *));
 enum token_type
 {
   TOKEN_EOF,			/* end of file */
-  TOKEN_STRING,			/* a quoted string */
+  TOKEN_STRING,			/* a quoted string or comment */
   TOKEN_WORD,			/* an identifier */
-  TOKEN_SIMPLE,			/* a single character */
-  TOKEN_MACDEF			/* a macros definition (see "defn") */
+  TOKEN_OPEN,			/* ( */
+  TOKEN_COMMA,			/* , */
+  TOKEN_CLOSE,			/* ) */
+  TOKEN_SIMPLE,			/* any other single character */
+  TOKEN_MACDEF			/* a macro's definition (see "defn") */
 };
 
 /* The data for a token, a macro argument, and a macro definition.  */
@@ -290,12 +267,7 @@ struct token_data
 #endif
 	}
       u_t;
-      struct
-	{
-	  builtin_func *func;
-	  boolean traced;
-	}
-      u_f;
+      builtin_func *func;
     }
   u;
 };
@@ -305,24 +277,23 @@ struct token_data
 #ifdef ENABLE_CHANGEWORD
 # define TOKEN_DATA_ORIG_TEXT(Td)	((Td)->u.u_t.original_text)
 #endif
-#define TOKEN_DATA_FUNC(Td)		((Td)->u.u_f.func)
-#define TOKEN_DATA_FUNC_TRACED(Td) 	((Td)->u.u_f.traced)
+#define TOKEN_DATA_FUNC(Td)		((Td)->u.func)
 
 typedef enum token_type token_type;
 typedef enum token_data_type token_data_type;
 
-void input_init _((void));
-int peek_input _((void));
-token_type next_token _((token_data *));
-void skip_line _((void));
+void input_init (void);
+token_type peek_token (void);
+token_type next_token (token_data *);
+void skip_line (void);
 
 /* push back input */
-void push_file _((FILE *, const char *));
-void push_macro _((builtin_func *, boolean));
-struct obstack *push_string_init _((void));
-const char *push_string_finish _((void));
-void push_wrapup _((const char *));
-boolean pop_wrapup _((void));
+void push_file (FILE *, const char *);
+void push_macro (builtin_func *);
+struct obstack *push_string_init (void);
+const char *push_string_finish (void);
+void push_wrapup (const char *);
+boolean pop_wrapup (void);
 
 /* current input file, and line */
 extern const char *current_file;
@@ -337,22 +308,22 @@ extern STRING lquote, rquote;
 #define DEF_BCOMM "#"
 #define DEF_ECOMM "\n"
 
-void set_quotes _((const char *, const char *));
-void set_comment _((const char *, const char *));
+void set_quotes (const char *, const char *);
+void set_comment (const char *, const char *);
 #ifdef ENABLE_CHANGEWORD
-void set_word_regexp _((const char *));
+void set_word_regexp (const char *);
 #endif
 
 /* File: output.c --- output functions.  */
 extern int current_diversion;
 extern int output_current_line;
 
-void output_init _((void));
-void shipout_text _((struct obstack *, const char *, int));
-void make_diversion _((int));
-void insert_diversion _((int));
-void insert_file _((FILE *));
-void freeze_diversions _((FILE *));
+void output_init (void);
+void shipout_text (struct obstack *, const char *, int);
+void make_diversion (int);
+void insert_diversion (int);
+void insert_file (FILE *);
+void freeze_diversions (FILE *);
 
 /* File symtab.c  --- symbol table definitions.  */
 
@@ -370,10 +341,12 @@ enum symbol_lookup
 struct symbol
 {
   struct symbol *next;
-  boolean traced;
-  boolean shadowed;
-  boolean macro_args;
-  boolean blind_no_args;
+  boolean traced : 1;
+  boolean shadowed : 1;
+  boolean macro_args : 1;
+  boolean blind_no_args : 1;
+  boolean deleted : 1;
+  int pending_expansions;
 
   char *name;
   token_data data;
@@ -384,6 +357,8 @@ struct symbol
 #define SYMBOL_SHADOWED(S)	((S)->shadowed)
 #define SYMBOL_MACRO_ARGS(S)	((S)->macro_args)
 #define SYMBOL_BLIND_NO_ARGS(S)	((S)->blind_no_args)
+#define SYMBOL_DELETED(S)	((S)->deleted)
+#define SYMBOL_PENDING_EXPANSIONS(S) ((S)->pending_expansions)
 #define SYMBOL_NAME(S)		((S)->name)
 #define SYMBOL_TYPE(S)		(TOKEN_DATA_TYPE (&(S)->data))
 #define SYMBOL_TEXT(S)		(TOKEN_DATA_TEXT (&(S)->data))
@@ -397,23 +372,24 @@ typedef void hack_symbol ();
 
 extern symbol **symtab;
 
-void symtab_init _((void));
-symbol *lookup_symbol _((const char *, symbol_lookup));
-void hack_all_symbols _((hack_symbol *, const char *));
+void free_symbol (symbol *sym);
+void symtab_init (void);
+symbol *lookup_symbol (const char *, symbol_lookup);
+void hack_all_symbols (hack_symbol *, const char *);
 
 /* File: macro.c  --- macro expansion.  */
 
-void expand_input _((void));
-void call_macro _((symbol *, int, token_data **, struct obstack *));
+void expand_input (void);
+void call_macro (symbol *, int, token_data **, struct obstack *);
 
 /* File: builtin.c  --- builtins.  */
 
 struct builtin
 {
   const char *name;
-  boolean gnu_extension;
-  boolean groks_macro_args;
-  boolean blind_if_no_args;
+  boolean gnu_extension : 1;
+  boolean groks_macro_args : 1;
+  boolean blind_if_no_args : 1;
   builtin_func *func;
 };
 
@@ -427,21 +403,22 @@ struct predefined
 typedef struct builtin builtin;
 typedef struct predefined predefined;
 
-void builtin_init _((void));
-void define_builtin _((const char *, const builtin *, symbol_lookup, boolean));
-void define_user_macro _((const char *, const char *, symbol_lookup));
-void undivert_all _((void));
-void expand_user_macro _((struct obstack *, symbol *, int, token_data **));
+void builtin_init (void);
+void define_builtin (const char *, const builtin *, symbol_lookup);
+void define_user_macro (const char *, const char *, symbol_lookup);
+void undivert_all (void);
+void expand_user_macro (struct obstack *, symbol *, int, token_data **);
+void m4_placeholder (struct obstack *, int, token_data **);
 
-const builtin *find_builtin_by_addr _((builtin_func *));
-const builtin *find_builtin_by_name _((const char *));
+const builtin *find_builtin_by_addr (builtin_func *);
+const builtin *find_builtin_by_name (const char *);
 
 /* File: path.c  --- path search for include files.  */
 
-void include_init _((void));
-void include_env_init _((void));
-void add_include_directory _((const char *));
-FILE *path_search _((const char *));
+void include_init (void);
+void include_env_init (void);
+void add_include_directory (const char *);
+FILE *path_search (const char *, const char **);
 
 /* File: eval.c  --- expression evaluation.  */
 
@@ -449,16 +426,16 @@ FILE *path_search _((const char *));
 typedef int eval_t;
 typedef unsigned int unsigned_eval_t;
 
-boolean evaluate _((const char *, eval_t *));
+boolean evaluate (const char *, eval_t *);
 
 /* File: format.c  --- printf like formatting.  */
 
-void format _((struct obstack *, int, token_data **));
+void format (struct obstack *, int, token_data **);
 
 /* File: freeze.c --- frozen state files.  */
 
-void produce_frozen_state _((const char *));
-void reload_frozen_state _((const char *));
+void produce_frozen_state (const char *);
+void reload_frozen_state (const char *);
 
 /* Debugging the memory allocator.  */
 
@@ -470,8 +447,15 @@ void reload_frozen_state _((const char *));
 /* Other debug stuff.  */
 
 #ifdef DEBUG
-# define DEBUG_INPUT
-# define DEBUG_MACRO
-# define DEBUG_SYM
-# define DEBUG_INCL
+# define DEBUG_INCL   1
+# define DEBUG_INPUT  1
+# define DEBUG_MACRO  1
+# define DEBUG_OUTPUT 1
+# define DEBUG_STKOVF 1
+# define DEBUG_SYM    1
 #endif
+
+/* Convert a possibly-signed character to an unsigned character.  This is
+   a bit safer than casting to unsigned char, since it catches some type
+   errors that the cast doesn't.  */
+static inline unsigned char to_uchar (char ch) { return ch; }

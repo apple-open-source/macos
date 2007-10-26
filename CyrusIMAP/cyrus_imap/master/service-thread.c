@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: service-thread.c,v 1.5 2005/03/05 00:37:29 dasenbro Exp $ */
+/* $Id: service-thread.c,v 1.20 2006/11/30 17:11:23 murch Exp $ */
 #include <config.h>
 
 #include <stdio.h>
@@ -104,6 +104,9 @@ static int libwrap_ask(struct request_info *r, int fd)
     struct sockaddr_storage sin;
     socklen_t len = sizeof(sin);
     
+    /* XXX: old FreeBSD didn't fill sockaddr correctly against AF_UNIX */
+    sin.ss_family = AF_UNIX;
+
     /* is this a connection from the local host? */
     if (getpeername(fd, (struct sockaddr *) &sin, &len) == 0) {
 	if (((struct sockaddr *)&sin)->sa_family == AF_UNIX) {

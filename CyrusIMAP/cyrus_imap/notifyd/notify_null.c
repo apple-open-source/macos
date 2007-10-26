@@ -40,7 +40,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: notify_null.c,v 1.5 2005/03/05 00:37:30 dasenbro Exp $
+ * $Id: notify_null.c,v 1.6 2003/02/13 20:15:48 rjs3 Exp $
  */
 
 #include <config.h>

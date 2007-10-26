@@ -2,7 +2,8 @@
    Where it is, why it stopped, and how to step it.
 
    Copyright 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   1996, 1998, 1999, 2000, 2001, 2003, 2004, 2005 
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -102,9 +103,10 @@ extern void set_sigio_trap (void);
 
 extern void clear_sigio_trap (void);
 
-/* File name for default use for standard in/out in the inferior.  */
+/* Set/get file name for default use for standard in/out in the inferior.  */
 
-extern char *inferior_io_terminal;
+extern void set_inferior_io_terminal (const char *terminal_name);
+extern const char *get_inferior_io_terminal (void);
 
 /* Collected pid, tid, etc. of the debugged inferior.  When there's
    no inferior, PIDGET (inferior_ptid) will be 0. */
@@ -145,7 +147,7 @@ extern int inferior_ignoring_leading_exec_events;
 
 /* Inferior environment. */
 
-extern struct environ *inferior_environ;
+extern struct gdb_environ *inferior_environ;
 
 extern void clear_proceed_status (void);
 
@@ -176,17 +178,13 @@ extern void generic_target_write_pc (CORE_ADDR, ptid_t);
 
 extern CORE_ADDR read_sp (void);
 
-extern void deprecated_write_sp (CORE_ADDR);
-
-extern CORE_ADDR deprecated_read_fp (void);
-
-extern CORE_ADDR unsigned_pointer_to_address (struct type *type, const void *buf);
-
-extern void unsigned_address_to_pointer (struct type *type, void *buf,
+extern CORE_ADDR unsigned_pointer_to_address (struct type *type,
+					      const gdb_byte *buf);
+extern void unsigned_address_to_pointer (struct type *type, gdb_byte *buf,
 					 CORE_ADDR addr);
 extern CORE_ADDR signed_pointer_to_address (struct type *type,
-					    const void *buf);
-extern void address_to_signed_pointer (struct type *type, void *buf,
+					    const gdb_byte *buf);
+extern void address_to_signed_pointer (struct type *type, gdb_byte *buf,
 				       CORE_ADDR addr);
 
 extern void wait_for_inferior (void);
@@ -241,7 +239,7 @@ int ptrace_wait (ptid_t, int *);
 extern void child_resume (ptid_t, int, enum target_signal);
 
 #ifndef PTRACE_ARG3_TYPE
-#define PTRACE_ARG3_TYPE int	/* Correct definition for most systems. */
+#define PTRACE_ARG3_TYPE PTRACE_TYPE_ARG3
 #endif
 
 extern int call_ptrace (int, int, PTRACE_ARG3_TYPE, int);
@@ -269,7 +267,7 @@ extern char *construct_inferior_arguments (struct gdbarch *, int, char **);
 
 /* From inflow.c */
 
-extern void new_tty_prefork (char *);
+extern void new_tty_prefork (const char *);
 
 extern int gdb_has_a_terminal (void);
 
@@ -371,10 +369,6 @@ extern CORE_ADDR step_range_end;	/* Exclusive */
 
 extern struct frame_id step_frame_id;
 
-/* Our notion of the current stack pointer.  */
-
-extern CORE_ADDR step_sp;
-
 /* 1 means step over all subroutine calls.
    -1 means step over calls to undebuggable functions.  */
 
@@ -447,38 +441,6 @@ extern int attach_flag;
 #define AT_ENTRY_POINT 4
 #define AT_SYMBOL 5
 
-/* FIXME: cagney/2000-04-17: gdbarch should manage this.  The default
-   shouldn't be necessary. */
-
-#if !defined PUSH_DUMMY_FRAME
-#define PUSH_DUMMY_FRAME (internal_error (__FILE__, __LINE__, "PUSH_DUMMY_FRAME"), 0)
-#endif
-
-#if !defined STORE_STRUCT_RETURN
-#define STORE_STRUCT_RETURN(a1,a2) (internal_error (__FILE__, __LINE__, "STORE_STRUCT_RETURN"), 0)
-#endif
-
-
-/* Are we in a call dummy? */
-
-/* NOTE: cagney/2002-11-24: Targets need to both switch to generic
-   dummy frames, and use generic_pc_in_call_dummy().  The generic
-   version should be able to handle all cases since that code works by
-   saving the address of the dummy's breakpoint (where ever it is).  */
-
-extern int deprecated_pc_in_call_dummy_on_stack (CORE_ADDR pc,
-						 CORE_ADDR sp,
-						 CORE_ADDR frame_address);
-
-/* NOTE: cagney/2002-11-24: Targets need to both switch to generic
-   dummy frames, and use generic_pc_in_call_dummy().  The generic
-   version should be able to handle all cases since that code works by
-   saving the address of the dummy's breakpoint (where ever it is).  */
-
-extern int deprecated_pc_in_call_dummy_at_entry_point (CORE_ADDR pc,
-						       CORE_ADDR sp,
-						       CORE_ADDR frame_address);
-
 /* If STARTUP_WITH_SHELL is set, GDB's "run"
    will attempts to start up the debugee under a shell.
    This is in order for argument-expansion to occur. E.g.,
@@ -509,4 +471,12 @@ extern int deprecated_pc_in_call_dummy_at_entry_point (CORE_ADDR pc,
 
 extern int start_with_shell_flag;
 
+/* APPLE LOCAL begin subroutine inlining  */
+extern void insert_step_resume_breakpoint_at_sal (struct symtab_and_line,
+						  struct frame_id);
+/* APPLE LOCAL end subroutine inlining  */
+
+/* APPLE LOCAL: Used internally to stop running the hook_stop when that
+   is not appropriate.  */
+struct cleanup *make_cleanup_suppress_hook_stop ();
 #endif /* !defined (INFERIOR_H) */

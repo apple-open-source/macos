@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -76,14 +76,16 @@ typedef struct _pthread_attr_t pthread_attr_t;
 #include "pthread_machdep.h"		/* Machine-dependent definitions. */
 #include "pthread_spinlock.h"		/* spinlock definitions. */
 
-LIST_HEAD(__pthread_list, _pthread);
+TAILQ_HEAD(__pthread_list, _pthread);
 extern struct __pthread_list __pthread_head;        /* head of list of open files */
 extern pthread_lock_t _pthread_list_lock;
+extern  size_t pthreadsize;
 /*
  * Compiled-in limits
  */
-#undef _POSIX_THREAD_KEYS_MAX
-#define _POSIX_THREAD_KEYS_MAX	      128
+#define _EXTERNAL_POSIX_THREAD_KEYS_MAX 512
+#define _INTERNAL_POSIX_THREAD_KEYS_MAX 256
+#define _INTERNAL_POSIX_THREAD_KEYS_END 768
 
 /*
  * Threads
@@ -97,7 +99,12 @@ typedef struct _pthread
 	u_int32_t	detached:8,
 			inherit:8,
 			policy:8,
-			pad:8;
+			freeStackOnExit:1,
+			newstyle:1,
+			kernalloc:1,
+			schedset:1,
+			wqthread:1,
+			pad:3;
 	size_t	       guardsize;	/* size in bytes to guard stack overflow */
 #if  !defined(__LP64__)
 	int	       pad0;		/* for backwards compatibility */
@@ -115,7 +122,7 @@ typedef struct _pthread
         void	       *arg;	      /* Argment for thread start routine */
 	int	       cancel_state;  /* Whether thread can be cancelled */
 	int	       err_no;		/* thread-local errno */
-	void	       *tsd[_POSIX_THREAD_KEYS_MAX];  /* Thread specific data */
+	void	       *tsd[_EXTERNAL_POSIX_THREAD_KEYS_MAX + _INTERNAL_POSIX_THREAD_KEYS_MAX];  /* Thread specific data */
         void           *stackaddr;     /* Base of the stack (is aligned on vm_page_size boundary */
         size_t         stacksize;      /* Size of the stack (is a multiple of vm_page_size and >= PTHREAD_STACK_MIN) */
 	mach_port_t    reply_port;     /* Cached MiG reply port */
@@ -123,11 +130,22 @@ typedef struct _pthread
         int		pad2;		/* for natural alignment */
 #endif
 	void           *cthread_self;  /* cthread_self() if somebody calls cthread_set_self() */
-        boolean_t      freeStackOnExit; /* Should we free the stack when we're done? */
+	/* protected by list lock */
+	u_int32_t 	childrun:1,
+			parentcheck:1,
+			childexit:1,
+			pad3:29;
 #if defined(__LP64__)
-	int		pad3;		/* for natural alignment */
+	int		pad4;		/* for natural alignment */
 #endif
-	LIST_ENTRY(_pthread) plist;
+	TAILQ_ENTRY(_pthread) plist;
+	void *	freeaddr;
+	size_t	freesize;
+	mach_port_t	joiner_notify;
+	char	pthread_name[64];		/* including nulll the name */
+        int	max_tsd_key;
+	void *	cur_workq;
+	void * cur_workitem;
 } *pthread_t;
 
 /*
@@ -142,17 +160,20 @@ typedef char _need_to_change_PTHREAD_TSD_OFFSET[(_PTHREAD_TSD_OFFSET == offsetof
 struct _pthread_attr_t
 {
 	long	       sig;	      /* Unique signature for this structure */
-	pthread_lock_t lock;	      /* Used for internal mutex on structure */
+	pthread_lock_t lock;
 	u_int32_t	detached:8,
 			inherit:8,
 			policy:8,
-			reserved1:8;
+			freeStackOnExit:1,
+			fastpath:1,
+			schedset:1,
+			reserved1:5;
 	size_t	       guardsize;	/* size in bytes to guard stack overflow */
-	int	       reserved2;
+	int      reserved2; 	/* Should we free the stack when we exit? */
 	struct sched_param param;
         void           *stackaddr;     /* Base of the stack (is aligned on vm_page_size boundary */
         size_t         stacksize;      /* Size of the stack (is a multiple of vm_page_size and >= PTHREAD_STACK_MIN) */
-	boolean_t      freeStackOnExit;/* Should we free the stack when we exit? */
+	boolean_t	reserved3;
 };
 
 /*
@@ -165,7 +186,8 @@ typedef struct
 	int prioceiling;
 	u_int32_t protocol:2,		/* protocol attribute */
 		type:2,			/* mutex type */
-		rfu:28;
+		pshared:2,
+		rfu:26;
 } pthread_mutexattr_t;
 
 /*
@@ -177,11 +199,13 @@ typedef struct _pthread_mutex
 	long	       sig;	      /* Unique signature for this structure */
 	pthread_lock_t lock;	      /* Used for internal mutex on structure */
 	u_int32_t      waiters;       /* Count of threads waiting for this mutex */
+#define _pthread_mutex_kernid waiters
 	pthread_t      owner;	      /* Which thread has this mutex locked */
 	semaphore_t    sem;	      /* Semaphore used for waiting */
 	u_int32_t	 protocol:2,		/* protocol */
 		type:2,			/* mutex type */
-		rfu:12,
+		pshared:2,			/* mutex type */
+		rfu:10,
 		lock_count:16;
 	struct _pthread_mutex *next, *prev;  /* List of other mutexes he owns */
 	struct _pthread_cond *busy;   /* List of condition variables using this mutex */
@@ -190,6 +214,8 @@ typedef struct _pthread_mutex
 	semaphore_t	order;
 } pthread_mutex_t;
 
+
+
 /*
  * Condition variable attributes
  */
@@ -197,7 +223,8 @@ typedef struct _pthread_mutex
 typedef struct 
 {
 	long	       sig;	     /* Unique signature for this structure */
-	int unsupported;
+	u_int32_t	 pshared:2,		/* pshared */
+		unsupported:30;
 } pthread_condattr_t;
 
 /*
@@ -209,10 +236,12 @@ typedef struct _pthread_cond
 	long	       sig;	     /* Unique signature for this structure */
 	pthread_lock_t lock;	     /* Used for internal mutex on structure */
 	semaphore_t    sem;	     /* Kernel semaphore */
+#define _pthread_cond_kernid sem
 	struct _pthread_cond *next, *prev;  /* List of condition variables using mutex */
 	struct _pthread_mutex *busy; /* mutex associated with variable */
-	u_int32_t	waiters:16,	/* Number of threads waiting */
-		   sigspending:16;	/* Number of outstanding signals */
+	u_int32_t	waiters:15,	/* Number of threads waiting */
+		   sigspending:15,	/* Number of outstanding signals */
+			pshared:2;
 } pthread_cond_t;
 
 /*
@@ -235,18 +264,110 @@ typedef struct {
 #define _PTHREAD_RWLOCK_T
 typedef struct {
 	long 		sig;
-        pthread_mutex_t lock;   /* monitor lock */
+	pthread_mutex_t lock;   /* monitor lock */
 	int             state;
+#define _pthread_rwlock_kernid state
 	pthread_cond_t  read_signal;
 	pthread_cond_t  write_signal;
 	int             blocked_writers;
 	int             pshared;
-	int		rfu[3];
+	pthread_t		owner;
+	int	rfu[2];
 } pthread_rwlock_t;
+
+/* keep the size to 64bytes  for both 64 and 32 */
+#define _PTHREAD_WORKQUEUE_ATTR_T
+typedef struct {
+	u_int32_t sig;
+#if defined(__ppc64__) || defined(__x86_64__)
+	u_int32_t resv1;
+#endif
+	size_t	stacksize;
+	int	istimeshare;
+	int	importance;
+	int	affinity;
+	int 	queueprio;
+#if defined(__ppc64__) || defined(__x86_64__)
+	unsigned int resv2[8];
+#else
+	unsigned int resv2[10];
+#endif
+} pthread_workqueue_attr_t;
+
+#define _PTHREAD_WORKITEM_T
+typedef struct _pthread_workitem {
+	TAILQ_ENTRY(_pthread_workitem) item_entry;	/* pthread_workitem list in prio */
+	void	(*func)(void *);
+	void	* func_arg;
+	struct _pthread_workqueue *  workq;	
+	unsigned int	flags;
+}  * pthread_workitem_t;
+
+#define PTH_WQITEM_INKERNEL_QUEUE 	1
+#define PTH_WQITEM_RUNNING		2
+#define PTH_WQITEM_COMPLETED 		4
+#define PTH_WQITEM_REMOVED 		8
+#define PTH_WQITEM_BARRIER 		0x10
+#define PTH_WQITEM_DESTROY 		0x20
+#define PTH_WQITEM_NOTINLIST 		0x40
+#define PTH_WQITEM_APPLIED 		0x80
+#define PTH_WQITEM_KERN_COUNT 		0x100
+
+#define WORKITEM_POOL_SIZE 1000
+TAILQ_HEAD(__pthread_workitem_pool, _pthread_workitem);
+extern struct __pthread_workitem_pool __pthread_workitem_pool_head;        /* head list of workitem pool  */
+
+#define WQ_NUM_PRIO_QS	5	/* -2 to +2 */
+#define WORK_QUEUE_NORMALIZER 2	/* so all internal usages  are from 0 to 4 */
+
+#define _PTHREAD_WORKQUEUE_HEAD_T
+typedef struct  _pthread_workqueue_head {
+	TAILQ_HEAD(, _pthread_workqueue) wqhead;
+	struct _pthread_workqueue * next_workq;	
+} * pthread_workqueue_head_t;
+
+
+#define _PTHREAD_WORKQUEUE_T
+typedef struct  _pthread_workqueue {
+	unsigned int       sig;	      /* Unique signature for this structure */
+	pthread_lock_t lock;	      /* Used for internal mutex on structure */
+	TAILQ_ENTRY(_pthread_workqueue) wq_list;	/* workqueue list in prio */
+	TAILQ_HEAD(, _pthread_workitem) item_listhead;	/* pthread_workitem list in prio */
+	TAILQ_HEAD(, _pthread_workitem) item_kernhead;	/* pthread_workitem list in prio */
+	unsigned int	flags;
+	size_t		stacksize;
+	int		istimeshare;
+	int 		importance;
+	int 		affinity;
+	int		queueprio;
+	int		barrier_count;
+	int		kq_count;
+	void		(*term_callback)(struct _pthread_workqueue *,void *);
+	void  * term_callarg;
+	pthread_workqueue_head_t headp;
+	int		suspend_count;
+#if defined(__ppc64__) || defined(__x86_64__)
+	unsigned int	rev2[2];
+#else
+	unsigned int	rev2[12];
+#endif
+}  * pthread_workqueue_t;
+
+#define	 PTHREAD_WORKQ_IN_CREATION	1
+#define	 PTHREAD_WORKQ_IN_TERMINATE	2
+#define	 PTHREAD_WORKQ_BARRIER_ON	4
+#define	 PTHREAD_WORKQ_TERM_ON		8
+#define	 PTHREAD_WORKQ_DESTROYED	0x10
+#define	 PTHREAD_WORKQ_REQUEUED		0x20
+#define	 PTHREAD_WORKQ_SUSPEND		0x40
+
+#define WORKQUEUE_POOL_SIZE 100
+TAILQ_HEAD(__pthread_workqueue_pool, _pthread_workqueue);
+extern struct __pthread_workqueue_pool __pthread_workqueue_pool_head;        /* head list of workqueue pool  */
 
 #include "pthread.h"
 
-#if defined(__i386__) || defined(__ppc64__)
+#if defined(__i386__) || defined(__ppc64__) || defined(__x86_64__)
 /*
  * Inside libSystem, we can use r13 or %gs directly to get access to the
  * thread-specific data area. The current thread is in the first slot.
@@ -255,8 +376,8 @@ inline static pthread_t __attribute__((__pure__))
 _pthread_self_direct(void)
 {
        pthread_t ret;
-#if defined(__i386__)
-       asm("movl %%gs:%P1, %0" : "=r" (ret) : "i" (offsetof(struct _pthread, tsd[0])));
+#if defined(__i386__) || defined(__x86_64__)
+       asm("mov %%gs:%P1, %0" : "=r" (ret) : "i" (offsetof(struct _pthread, tsd[0])));
 #elif defined(__ppc64__)
 	register const pthread_t __pthread_self asm ("r13");
 	ret = __pthread_self;
@@ -271,6 +392,7 @@ _pthread_self_direct(void)
 #define _PTHREAD_DEFAULT_PRIOCEILING	0
 #define _PTHREAD_DEFAULT_POLICY		SCHED_OTHER
 #define _PTHREAD_DEFAULT_STACKSIZE	0x80000	  /* 512K */
+#define _PTHREAD_DEFAULT_PSHARED	PTHREAD_PROCESS_PRIVATE
 
 #define _PTHREAD_NO_SIG			0x00000000
 #define _PTHREAD_MUTEX_ATTR_SIG		0x4D545841  /* 'MTXA' */
@@ -287,8 +409,16 @@ _pthread_self_direct(void)
 #define _PTHREAD_RWLOCK_SIG		0x52574C4B  /* 'RWLK' */
 #define _PTHREAD_RWLOCK_SIG_init	0x2DA8B3B4  /* [almost] ~'RWLK' */
 
-#define _PTHREAD_CREATE_PARENT	     4
-#define _PTHREAD_EXITED		     8
+
+#define _PTHREAD_KERN_COND_SIG		0x12345678  /*  */
+#define _PTHREAD_KERN_MUTEX_SIG		0x34567812  /*  */
+#define _PTHREAD_KERN_RWLOCK_SIG	0x56781234  /*  */
+
+#define _PTHREAD_CREATE_PARENT		4
+#define _PTHREAD_EXITED			8
+// 4597450: begin
+#define _PTHREAD_WASCANCEL		0x10
+// 4597450: end
 
 #if defined(DEBUG)
 #define _PTHREAD_MUTEX_OWNER_SELF	pthread_self()
@@ -302,10 +432,6 @@ _pthread_self_direct(void)
 #define _PTHREAD_CANCEL_PENDING	     0x10  /* pthread_cancel() has been called for this thread */
 
 extern boolean_t swtch_pri(int);
-
-#ifndef ESUCCESS
-#define ESUCCESS 0
-#endif
 
 #ifndef PTHREAD_MACH_CALL
 #define	PTHREAD_MACH_CALL(expr, ret) (ret) = (expr)
@@ -323,4 +449,6 @@ extern void _pthread_tsd_cleanup(pthread_t self);
 __private_extern__ semaphore_t new_sem_from_pool(void);
 __private_extern__ void restore_sem_to_pool(semaphore_t);
 __private_extern__ void _pthread_atfork_queue_init(void);
+int _pthread_lookup_thread(pthread_t thread, mach_port_t * port, int only_joinable);
+int _pthread_join_cleanup(pthread_t thread, void ** value_ptr, int conforming);
 #endif /* _POSIX_PTHREAD_INTERNALS_H */

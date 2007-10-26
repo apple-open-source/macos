@@ -2,8 +2,8 @@
 
   env.h -
 
-  $Author: matz $
-  $Date: 2003/10/20 08:33:48 $
+  $Author: knu $
+  $Date: 2007-03-03 16:30:46 +0900 (Sat, 03 Mar 2007) $
   created at: Mon Jul 11 11:53:03 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -16,7 +16,6 @@
 extern struct FRAME {
     VALUE self;
     int argc;
-    VALUE *argv;
     ID last_func;
     ID orig_func;
     VALUE last_class;
@@ -30,8 +29,8 @@ extern struct FRAME {
 
 void rb_gc_mark_frame _((struct FRAME *));
 
-#define FRAME_ALLOCA 0
-#define FRAME_MALLOC 1
+#define FRAME_DMETH  1
+#define FRAME_FUNC   2
 
 extern struct SCOPE {
     struct RBasic super;
@@ -44,6 +43,7 @@ extern struct SCOPE {
 #define SCOPE_MALLOC  1
 #define SCOPE_NOSTACK 2
 #define SCOPE_DONT_RECYCLE 4
+#define SCOPE_CLONE   8
 
 extern int ruby_in_eval;
 

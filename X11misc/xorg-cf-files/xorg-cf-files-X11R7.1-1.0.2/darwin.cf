@@ -1,0 +1,330 @@
+XCOMM $XdotOrg: util/cf/darwin.cf,v 1.8 2005/04/01 01:22:07 torrey Exp $
+XCOMM platform:  $XFree86: xc/config/cf/darwin.cf,v 1.50 2004/01/20 23:54:50 torrey Exp $
+
+/* Darwin / Mac OS X configuration by John Carmack <johnc@idsoftware.com> */
+
+/* imake determines the default values by parsing uname */
+#ifndef OSName
+#define OSName                  DefaultOSName
+#endif
+#ifndef OSVendor
+#define OSVendor                Apple Computer, Inc.
+#endif
+#ifndef OSMajorVersion
+#define OSMajorVersion          DefaultOSMajorVersion
+#endif
+#ifndef OSMinorVersion
+#define OSMinorVersion          DefaultOSMinorVersion
+#endif
+#ifndef OSTeenyVersion
+#define OSTeenyVersion          DefaultOSTeenyVersion
+#endif
+
+XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVersion)
+
+/*
+ * Define the operating system's capabilities
+ */
+#define HasSnprintf             YES
+#define HasPutenv               YES
+#define HasBSD44Sockets         YES
+#define Malloc0ReturnsNull      NO
+#define HasShadowPasswd         NO
+#define HasUsableFileMmap       YES
+#define HasZlib                 YES
+#ifndef HasShm
+# define HasShm                 YES
+#endif
+#define HasNdbm                 YES
+#if OSMajorVersion >= 6
+# define HasNCurses             YES
+# define HasArc4Random          YES
+# define HasGetIfAddrs          YES
+# define HasStrlcat             YES
+#else
+# define HasBasename            NO
+# define HasNCurses             NO
+#endif
+#ifndef HasGroff
+# define HasGroff               YES
+#endif
+#ifndef HasGcc3
+# define HasGcc3                NO
+#endif
+#ifndef HasFreetype2
+# define HasFreetype2           NO
+#endif
+#ifndef HasExpat
+# define HasExpat               NO
+#endif
+#ifndef HasLibpng
+# define HasLibpng              NO
+#endif
+
+/* Older versions don't really support IPv6, but #define AF_INET6. */
+#if OSMajorVersion < 6
+# define BuildIPv6              NO
+#endif
+
+/* Thread support */
+#define HasPosixThreads         YES
+#define SystemMTDefines         -D_REENTRANT
+#if OSMajorVersion >= 6
+# define HasThreadSafeAPI       YES
+# define MTSafeAPIDefines       -DXUSE_MTSAFE_API -DXNO_MTSAFE_UNISTDAPI
+#else
+# define HasThreadSafeAPI       NO
+# define MTSafeAPIDefines       -DXOS_USE_MTSAFE_NETDBAPI
+#endif
+
+/* Libtool on Darwin always uses minor numbers */
+#define LibtoolMinorVersions    YES
+
+/* The most common file system, HFS+, is not case sensitive. */
+#ifndef CaseSensitiveFileSystem
+# define CaseSensitiveFileSystem NO
+#endif
+
+/*
+ * This enables some settings for developers.
+ */
+#ifndef XFree86Devel
+# define XFree86Devel           NO
+#endif
+
+/*
+ * This enables Quartz compatibility.
+ * Turn off to build on raw Darwin systems.
+ */
+#ifndef DarwinQuartzSupport
+# define DarwinQuartzSupport    YES
+#endif
+
+#if DarwinQuartzSupport
+
+# if OSMajorVersion >= 7
+   PROJ_BUILD = xcodebuild
+# else
+   PROJ_BUILD = pbxbuild
+# endif
+
+# ifndef HasXplugin
+#  if OSMajorVersion >= 7
+#   define HasXplugin           YES
+#  else
+#   define HasXplugin           NO
+#  endif
+# endif
+
+# if HasXplugin
+#  ifndef XpLibDir
+#   define XpLibDir             /usr/lib
+#  endif
+#  ifndef XpIncDir
+#   define XpIncDir             $(SERVERSRC)/hw/darwin/quartz/xpr
+#  endif
+   XPLIBDIR = XpLibDir
+   XPINCDIR = XpIncDir
+#  define XpluginLibrary        Concat(-L,$(XPLIBDIR)) -lXplugin
+# else
+#  define XpluginLibrary        /**/
+# endif
+
+# ifndef BuildAppleDRI
+#  if HasXplugin
+#   define BuildAppleDRI        YES
+#  else
+#   define BuildAppleDRI        NO
+#  endif
+# endif
+
+# if BuildAppleDRI
+#  define GlxExtraDefines -DGLX_DIRECT_RENDERING -DGLX_USE_APPLEGL GlxArchDefines
+# endif
+
+# define BuildRootless          YES
+# define BuildAppleWMLibrary    YES
+
+#endif  /* DarwinQuartzSupport */
+
+/* we don't need -lm */
+#define MathLibrary             /**/
+
+#define TermcapLibrary          -lcurses
+#define SetTtyGroup             YES             /* for xterm */
+
+/* we don't have a dbm library */
+#define DBMLibrary              /**/
+
+#define MkdirHierCmd            mkdir -p
+
+/* Use flex -l for compatibility with various versions of flex. */
+#ifndef LexCmd
+# define LexCmd                 flex -l
+#endif
+#define HasFlex                 YES
+
+/*
+ * Our cpp isn't in /lib/cpp and early versions don't like -undef.
+ * The gcc 3.3 cpp that Apple ships inserts spurious #pragmas,
+ * so we use the 3.1-based version in this case.
+ */
+#if (GccMajorVersion == 3) && (GccMinorVersion == 3)
+# define CppCmd                 /usr/bin/cpp3
+#else
+# define CppCmd                 /usr/bin/cpp
+#endif
+#if (GccMajorVersion == 3) && (GccMinorVersion == 3) || (GccMajorVersion > 3)
+# define StandardCppOptions     -traditional -D__GNUC__
+#endif
+#if HasGcc3
+# define RawCppCmd              CppCmd -undef
+#else
+# define RawCppCmd              CppCmd
+#endif
+
+/* we have a gcc compatible compiler, but its not called gcc */
+#define CcCmd                   /usr/bin/cc
+#define CplusplusCmd            /usr/bin/c++
+
+/* default flags to pass to cc */
+#ifndef DefaultCCOptions
+#if XFree86Devel
+# define DefaultCCOptions       -Wall -Wpointer-arith -Wstrict-prototypes \
+                                -Wmissing-prototypes -Wmissing-declarations \
+                                -Wredundant-decls -Wnested-externs \
+                                -no-cpp-precomp
+#else
+# define DefaultCCOptions       -Wall -Wpointer-arith -no-cpp-precomp
+#endif
+#endif
+
+/* flags to pass to cc when building libraries */
+#ifndef LibraryCCOptions
+# define LibraryCCOptions       DefaultCCOptions -fno-common
+#endif
+
+/* The cr implementation does not build with NEED_SCREEN_REGIONS,
+   so play it safe. */
+#ifndef ServerCCOptions
+# define ServerCCOptions        DefaultCCOptions -UNEED_SCREEN_REGIONS
+#endif
+
+#ifdef PpcDarwinArchitecture
+# define DarwinMachineDefines   -D__powerpc__
+# if HasGcc3
+#  define OptimizedCDebugFlags  -Os
+# else
+#  define OptimizedCDebugFlags  -O2
+# endif
+# define ByteOrder              X_BIG_ENDIAN
+#endif /* PpcDarwinArchitecture */
+
+#ifdef i386DarwinArchitecture
+# define DarwinMachineDefines   -D__i386__
+# if HasGcc3
+#  define OptimizedCDebugFlags  -Os
+# else
+#  define OptimizedCDebugFlags  -O2 -fno-strength-reduce
+# endif
+# define ByteOrder              X_LITTLE_ENDIAN
+#endif /* i386DarwinArchitecture */
+
+#if OSMajorVersion < 7
+# define DarwinLocaleDefines    -DX_LOCALE
+#else
+# define DarwinLocaleDefines    /**/
+# define XawI18nDefines         -DHAS_WCHAR_H -DHAS_WCTYPE_H -DNO_WIDEC_H
+#endif
+
+/*
+ * __DARWIN__ will be used for platform specific #ifdefs that can't
+ * be handled by existing X defines.
+ *
+ * Darwin's alloca() seg faults (rather than returning NULL) on failed
+ * allocations, so we can't use it.
+ */
+#define StandardDefines         DarwinMachineDefines -D__DARWIN__ \
+                                -DNO_ALLOCA -DCSRG_BASED DarwinLocaleDefines
+
+/*
+ * Set this to NO to just build the client libs, which should work without
+ * having to write any platform specific code.
+ */
+#ifndef BuildServer
+# define BuildServer            YES
+
+/* our custom X server */
+# define XDarwinServer          YES
+#endif
+
+/* Thanks to the IOKit, the X server does not have to be SetUID. */
+#ifndef InstallXserverSetUID
+# define InstallXserverSetUID   NO
+#endif
+
+/* Allow Xtrans to work with non-SetUID server. */
+#ifndef XtransFailSoft
+# define XtransFailSoft         YES
+#endif
+
+/* disable XKB by default as it can cause problems */
+#define DfltDisableXKB          YES
+
+/* no direct graphics extension */
+#define BuildXF86DGA            NO
+
+/* Support for tablets and other non-standard input devices */
+#ifndef BuildXInputExt
+# define BuildXInputExt         YES
+#endif
+#define BuildXInputLib          YES
+
+/* no Display Power Management extension */
+#define BuildDPMS               NO
+
+/* no XFree86-Misc extension */
+#define BuildXF86MiscExt        NO
+
+/* no XFree86-VidMode extension */
+#define BuildXF86VidModeExt     NO
+
+#ifndef BuildXterm
+# define BuildXterm             BuildClients    /* Not enabled by default */
+#endif
+
+#define BuildLibPathVar         DYLD_LIBRARY_PATH
+
+/* include rules to build shared libraries */
+#include <darwinLib.rules>
+
+/*
+ * BundleProgramTarget - Generate rules for compiling, linking and
+ * installing a bundle executable. 
+ */
+#ifndef BundleProgramTarget
+#define BundleProgramTarget(program,loader,subdirs,objs,deplib,syslib,dstdir) @@\
+                                                                        @@\
+AllTarget(program)                                                      @@\
+                                                                        @@\
+program: loader subdirs objs deplib                                     @@\
+	RemoveTargetProgram($@)                                             @@\
+	LinkRule($@,-bundle $(LDOPTIONS),objs,deplib $(LDLIBS) syslib -bundle_loader loader) @@\
+                                                                        @@\
+InstallProgram(program,dstdir/program.bundle/Contents/MacOS)            @@\
+                                                                        @@\
+clean::                                                                 @@\
+	RemoveFile(program)
+#endif /* BundleProgramTarget */
+
+/*
+ * Darwin specific Imake Config files
+ */
+#ifndef LocalConfigFiles
+#define LocalConfigFiles \
+	darwinLib.rules \
+	darwinLib.tmpl
+#endif
+
+/* include all the X.Org rules */
+#include <xorg.cf>

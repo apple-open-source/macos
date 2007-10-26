@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2002  Mark Nudelman
+ * Copyright (C) 1984-2004  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -186,7 +186,7 @@ get_scrpos(scrpos)
 	 * Find the first line on the screen which has something on it,
 	 * and return the screen line number and the file position.
 	 */
-	for (i = 0; i < sc_height;  i++)
+	for (i = 0; i < table_size;  i++)
 		if (table[i] != NULL_POSITION)
 		{
 			scrpos->ln = i+1;

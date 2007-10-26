@@ -1,24 +1,23 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004 - 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- *
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*      @(#)ui.c      *
@@ -41,6 +40,7 @@
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_netshareenum.h>
 #include <dce/exc_handling.h>
+#include <netsmb/netbios.h>
 
 #include "rap.h"
 #include "srvsvc.h"
@@ -66,20 +66,25 @@ rpc_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
 	struct share_info *entry_list, *elp;
 	static EXCEPTION rpc_x_connect_rejected;
 	static int exceptions_initialized;
-
+	struct sockaddr_in	saddr;
+	
+	if (ctx->ct_ssn.ioc_server == NULL)	/* Should never happen, but just in case */ {
+		smb_log_info("ctx->ct_ssn.ioc_server is NULL", EINVAL, ASL_LEVEL_ERR);
+		return EINVAL;
+	}
+	
 	sprintf(ctx_string, "%p", ctx);
 	rpc_string_binding_compose(NULL, (unsigned_char_p_t)"ncacn_np", 
 		(unsigned_char_p_t)ctx_string, (unsigned_char_p_t)"srvsvc", 
 		NULL, (unsigned_char_p_t *)&binding, (unsigned32 *)&binding_status);
 	if (binding_status != rpc_s_ok) {
-		smb_error("rpc_string_binding_compose failed with %d", 0,
-		    binding_status);
+		smb_log_info("rpc_string_binding_compose failed with %d", 0, ASL_LEVEL_ERR, binding_status);
 		return EINVAL;
 	}
 	rpc_binding_from_string_binding(binding, &binding_h, &status);
+	rpc_string_free(&binding, (unsigned32 *)&free_status);
 	if (binding_status != rpc_s_ok) {
-		smb_error("rpc_binding_from_string_binding failed with %d", 0,
-		    binding_status);
+		smb_log_info("rpc_binding_from_string_binding failed with %d", 0, ASL_LEVEL_ERR, binding_status);
 		return EINVAL;
 	}
 	level = 1;
@@ -93,11 +98,13 @@ rpc_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
 	 * that avoids problems with NetBIOS names containing
 	 * non-ASCII characters.
 	 */
-	addrstr = inet_ntoa(ctx->ct_srvinaddr.sin_addr);
+	
+	saddr = GET_IP_ADDRESS_FROM_NB((ctx->ct_ssn.ioc_server));
+	addrstr = inet_ntoa(saddr.sin_addr);
 	srvnamestr = malloc(strlen(addrstr) + 3);
 	if (srvnamestr == NULL) {
 		status = errno;
-		smb_error("can't allocate string for server address", status);
+		smb_log_info("can't allocate string for server address", status, ASL_LEVEL_ERR);
 		rpc_binding_free(&binding_h, &free_status);
 		return status;
 	}
@@ -105,8 +112,9 @@ rpc_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
 	strcat(srvnamestr, addrstr);
 	usrvnamestr = convert_utf8_to_leunicode(srvnamestr);
 	if (usrvnamestr == NULL) {
-		smb_error("can't convert string for server address to Unicode", 0);
+		smb_log_info("can't convert string for server address to Unicode", 0, ASL_LEVEL_ERR);
 		rpc_binding_free(&binding_h, &free_status);
+		free(srvnamestr);
 		return EINVAL;
 	}
 	if (!exceptions_initialized) {
@@ -115,11 +123,9 @@ rpc_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
 		exceptions_initialized = 1;
 	}
 	TRY
-		status = NetrShareEnum(binding_h, usrvnamestr, &level,
-		    &share_info, 4294967295U, &total_entries, NULL);
+		status = NetrShareEnum(binding_h, usrvnamestr, &level, &share_info, 4294967295U, &total_entries, NULL);
 		if (status != 0)
-			smb_error("error from NetrShareEnum call: status = 0x%08x",
-			    0, status);
+			smb_log_info("error from NetrShareEnum call: status = 0x%08x", 0, ASL_LEVEL_ERR, status);
 	CATCH (rpc_x_connect_rejected)
 		/*
 		 * This is what we get if we can't open the pipe.
@@ -131,12 +137,9 @@ rpc_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
 		status = ENOTSUP;
 	CATCH_ALL
 		/*
-		 * XXX - should we handle some exceptions differently,
-		 * returning different errors, and try RAP only for
-		 * ENOTSUP?
+		 * Looks like samba 3.0.14a doesn't support this dce rpc call. If we get an error
+		 * always try the old RAP call.
 		 */
-		smb_error("error from NetrShareEnum call: exception = %u",
-		    0, THIS_CATCH->match.value);
 		status = ENOTSUP;
 	ENDTRY
 	rpc_binding_free(&binding_h, &free_status);
@@ -224,7 +227,6 @@ rap_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
 	int error, bufsize, i, entries, total, nreturned;
 	struct smb_share_info_1 *rpbuf, *ep;
 	struct share_info *entry_list, *elp;
-	char *cp;
 
 	bufsize = 0xffe0;	/* samba notes win2k bug for 65535 */
 	rpbuf = malloc(bufsize);
@@ -232,8 +234,8 @@ rap_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
 		return errno;
 
 	error = smb_rap_NetShareEnum(ctx, 1, rpbuf, bufsize, &entries, &total);
-	if (error &&
-	    error != (SMB_ERROR_MORE_DATA | SMB_RAP_ERROR)) {
+	/* SMB_ERROR_MORE_DATA always get translated to no error */
+	if (error) {
 	    	free(rpbuf);
 	    	return error;
 	}
@@ -251,8 +253,8 @@ rap_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
 		if (elp->netname == NULL)
 			continue;	/* punt on this entry */
 		if (ep->shi1_remark != 0) {
-			cp = (char *)rpbuf + ep->shi1_remark;
-			elp->remark = nls_str_toloc(cp, cp);
+			/* We never use this, but if we ever decide to we should convert it to the correct code page? */
+			elp->remark = (char *)rpbuf + ep->shi1_remark;
 		} else
 			elp->remark = NULL;
 		elp++;

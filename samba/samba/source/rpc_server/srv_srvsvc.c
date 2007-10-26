@@ -6,6 +6,7 @@
  *  Copyright (C) Paul Ashton                       1997,
  *  Copyright (C) Jeremy Allison                    2001,
  *  Copyright (C) Jim McDonough <jmcd@us.ibm.com>   2003.
+ *  Copyright (C) Gera;d (Jerry) Carter             2006.
  *  
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -160,6 +161,34 @@ static BOOL api_srv_net_sess_enum(pipes_struct *p)
 
 	/* store the response in the SMB stream */
 	if (!srv_io_r_net_sess_enum("", &r_u, rdata, 0))
+		return False;
+
+	return True;
+}
+
+/*******************************************************************
+ Delete session.
+********************************************************************/
+
+static BOOL api_srv_net_sess_del(pipes_struct *p)
+{
+	SRV_Q_NET_SESS_DEL q_u;
+	SRV_R_NET_SESS_DEL r_u;
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	/* grab the net server get enum */
+	if (!srv_io_q_net_sess_del("", &q_u, data, 0))
+		return False;
+
+	/* construct reply.  always indicate success */
+	r_u.status = _srv_net_sess_del(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if (!srv_io_r_net_sess_del("", &r_u, rdata, 0))
 		return False;
 
 	return True;
@@ -523,6 +552,35 @@ static BOOL api_srv_net_file_set_secdesc(pipes_struct *p)
 }
 
 /*******************************************************************
+*******************************************************************/
+
+static BOOL api_srv_net_file_close(pipes_struct *p)
+{
+	SRV_Q_NET_FILE_CLOSE q_u;
+	SRV_R_NET_FILE_CLOSE r_u;
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	/* Unmarshall the net file set info from Win9x */
+	if(!srv_io_q_net_file_close("", &q_u, data, 0)) {
+		DEBUG(0,("api_srv_net_file_close: Failed to unmarshall SRV_Q_NET_FILE_SET_SECDESC.\n"));
+		return False;
+	}
+
+	r_u.status = _srv_net_file_close(p, &q_u, &r_u);
+
+	if(!srv_io_r_net_file_close("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_srv_net_file_close: Failed to marshall SRV_R_NET_FILE_SET_SECDESC.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/*******************************************************************
 \PIPE\srvsvc commands
 ********************************************************************/
 
@@ -530,6 +588,7 @@ static struct api_struct api_srv_cmds[] =
 {
       { "SRV_NET_CONN_ENUM"         , SRV_NET_CONN_ENUM         , api_srv_net_conn_enum          },
       { "SRV_NET_SESS_ENUM"         , SRV_NET_SESS_ENUM         , api_srv_net_sess_enum          },
+      { "SRV_NET_SESS_DEL"          , SRV_NET_SESS_DEL          , api_srv_net_sess_del           },
       { "SRV_NET_SHARE_ENUM_ALL"    , SRV_NET_SHARE_ENUM_ALL    , api_srv_net_share_enum_all     },
       { "SRV_NET_SHARE_ENUM"        , SRV_NET_SHARE_ENUM        , api_srv_net_share_enum         },
       { "SRV_NET_SHARE_ADD"         , SRV_NET_SHARE_ADD         , api_srv_net_share_add          },
@@ -544,7 +603,8 @@ static struct api_struct api_srv_cmds[] =
       { "SRV_NET_DISK_ENUM"         , SRV_NET_DISK_ENUM         , api_srv_net_disk_enum          },
       { "SRV_NET_NAME_VALIDATE"     , SRV_NET_NAME_VALIDATE     , api_srv_net_name_validate      },
       { "SRV_NET_FILE_QUERY_SECDESC", SRV_NET_FILE_QUERY_SECDESC, api_srv_net_file_query_secdesc },
-      { "SRV_NET_FILE_SET_SECDESC"  , SRV_NET_FILE_SET_SECDESC  , api_srv_net_file_set_secdesc   }
+      { "SRV_NET_FILE_SET_SECDESC"  , SRV_NET_FILE_SET_SECDESC  , api_srv_net_file_set_secdesc   },
+      { "SRV_NET_FILE_CLOSE"        , SRV_NET_FILE_CLOSE        , api_srv_net_file_close         }
 };
 
 void srvsvc_get_pipe_fns( struct api_struct **fns, int *n_fns )

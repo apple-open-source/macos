@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2002  Mark Nudelman
+ * Copyright (C) 1984-2004  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -22,6 +22,7 @@ static int curseq;
 
 extern int linenums;
 extern int sigs;
+extern int unix2003_compat;
 
 enum tag_result {
 	TAG_FOUND,
@@ -400,6 +401,7 @@ ctagsearch()
 	LINENUM linenum;
 	int len;
 	char *line;
+	int found_string_match;
 
 	pos = ch_zero();
 	linenum = find_linenum(pos);
@@ -447,7 +449,13 @@ ctagsearch()
 		 * the way to end of line (no extra chars after the match).
 		 */
 		len = strlen(curtag->tag_pattern);
-		if (strncmp(curtag->tag_pattern, line, len) == 0 &&
+		if (unix2003_compat) {
+			/* this should probably be the else case too */
+			found_string_match = strstr(line, curtag->tag_pattern) != NULL;
+		} else {
+			found_string_match = strncmp(curtag->tag_pattern, line, len) == 0;
+		}
+		if (found_string_match  &&
 		    (!curtag->tag_endline || line[len] == '\0' || line[len] == '\r'))
 		{
 			curtag->tag_linenum = find_linenum(linepos);
@@ -498,7 +506,7 @@ findgtag(tag, type)
 #if !HAVE_POPEN
 		return TAG_NOFILE;
 #else
-		char command[512];
+		char *command;
 		char *flag;
 		char *qtag;
 		char *cmd = lgetenv("LESSGLOBALTAGS");
@@ -528,10 +536,13 @@ findgtag(tag, type)
 		qtag = shell_quote(tag);
 		if (qtag == NULL)
 			qtag = tag;
+		command = (char *) ecalloc(strlen(cmd) + strlen(flag) +
+				strlen(qtag) + 5, sizeof(char));
 		sprintf(command, "%s -x%s %s", cmd, flag, qtag);
 		if (qtag != tag)
 			free(qtag);
 		fp = popen(command, "r");
+		free(command);
 #endif
 	}
 	if (fp != NULL)
@@ -539,6 +550,7 @@ findgtag(tag, type)
 		while (fgets(buf, sizeof(buf), fp))
 		{
 			char *name, *file, *line;
+			int len;
 
 			if (sigs)
 			{
@@ -548,8 +560,9 @@ findgtag(tag, type)
 #endif
 				return TAG_INTR;
 			}
-			if (buf[strlen(buf) - 1] == '\n')
-				buf[strlen(buf) - 1] = 0;
+			len = strlen(buf);
+			if (len > 0 && buf[len-1] == '\n')
+				buf[len-1] = '\0';
 			else
 			{
 				int c;
@@ -695,14 +708,6 @@ gtagsearch()
  * The tag, file, and line will each be NUL-terminated pointers
  * into buf.
  */
-
-#ifndef isspace
-#define isspace(c)	((c) == ' ' || (c) == '\t' || (c) == '\n' || (c) == '\r' || (c) == '\f')
-#endif
-#ifndef isdigit
-#define isdigit(c)	((c) >= '0' && (c <= '9'))
-#endif
-
 	static int
 getentry(buf, tag, file, line)
 	char *buf;	/* standard or extended ctags -x format data */
@@ -712,12 +717,12 @@ getentry(buf, tag, file, line)
 {
 	char *p = buf;
 
-	for (*tag = p;  *p && !isspace(*p);  p++)	/* tag name */
+	for (*tag = p;  *p && !IS_SPACE(*p);  p++)	/* tag name */
 		;
 	if (*p == 0)
 		return (-1);
 	*p++ = 0;
-	for ( ;  *p && isspace(*p);  p++)		/* (skip blanks) */
+	for ( ;  *p && IS_SPACE(*p);  p++)		/* (skip blanks) */
 		;
 	if (*p == 0)
 		return (-1);
@@ -725,27 +730,27 @@ getentry(buf, tag, file, line)
 	 * If the second part begin with other than digit,
 	 * it is assumed tag type. Skip it.
 	 */
-	if (!isdigit(*p))
+	if (!IS_DIGIT(*p))
 	{
-		for ( ;  *p && !isspace(*p);  p++)	/* (skip tag type) */
+		for ( ;  *p && !IS_SPACE(*p);  p++)	/* (skip tag type) */
 			;
-		for (;  *p && isspace(*p);  p++)	/* (skip blanks) */
+		for (;  *p && IS_SPACE(*p);  p++)	/* (skip blanks) */
 			;
 	}
-	if (!isdigit(*p))
+	if (!IS_DIGIT(*p))
 		return (-1);
 	*line = p;					/* line number */
-	for (*line = p;  *p && !isspace(*p);  p++)
+	for (*line = p;  *p && !IS_SPACE(*p);  p++)
 		;
 	if (*p == 0)
 		return (-1);
 	*p++ = 0;
-	for ( ; *p && isspace(*p);  p++)		/* (skip blanks) */
+	for ( ; *p && IS_SPACE(*p);  p++)		/* (skip blanks) */
 		;
 	if (*p == 0)
 		return (-1);
 	*file = p;					/* file name */
-	for (*file = p;  *p && !isspace(*p);  p++)
+	for (*file = p;  *p && !IS_SPACE(*p);  p++)
 		;
 	if (*p == 0)
 		return (-1);

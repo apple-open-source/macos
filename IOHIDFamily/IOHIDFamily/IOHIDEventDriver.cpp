@@ -394,7 +394,7 @@ bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol
                 _ledElements[usage - kHIDUsage_LED_NumLock] = element;
             }
             else if ((getVendorID() == kIOUSBVendorIDAppleComputer) 
-                && (((usagePage == kHIDPage_AppleVendorTopCase) && (usage == kHIDUsage_AppleVendor_KeyboardFn)) 
+                && (((usagePage == kHIDPage_AppleVendorTopCase) && (usage == kHIDUsage_AV_TopCase_KeyboardFn)) 
                 || ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function))))
             {
                 stored |= storeReportElement ( element );
@@ -510,7 +510,7 @@ void IOHIDEventDriver::handleInterruptReport (
 {
     OSArray *       elements;
     IOHIDElement *  element;
-    Bounds          bounds;
+    IOGBounds       bounds;
     UInt32          count           = 0;
     UInt32          index           = 0;
     UInt32          usage           = 0;
@@ -607,6 +607,7 @@ void IOHIDEventDriver::handleInterruptReport (
                             absoluteY       = element->getValue();
                             bounds.miny     = element->getLogicalMin();
                             bounds.maxy     = element->getLogicalMax();                            
+                            bounds.maxy     = element->getLogicalMax();   
                             boundsDiff      = ((bounds.maxy - bounds.miny) * 15) / 200;
                             bounds.miny     += boundsDiff;
                             bounds.maxy     -= boundsDiff;
@@ -666,15 +667,15 @@ void IOHIDEventDriver::handleInterruptReport (
                         tabletHandled      |= elementIsCurrent;
                         barrelPressure      = element->getValue();
                         barrelPressureMin   = element->getLogicalMin();
-                        barrelPressureMax   = element->getLogicalMax();
-                        barrelPressureMin  += ((barrelPressureMax - barrelPressureMin) * 15) / 100;                        
+                        barrelPressureMax   = element->getLogicalMax();                        
+                        barrelPressureMin  += ((barrelPressureMax - barrelPressureMin) * 15) / 100;
                         break;
                     case kHIDUsage_Dig_TipPressure:
                         tabletHandled  |= elementIsCurrent;
                         tipPressure     = element->getValue();
                         tipPressureMin  = element->getLogicalMin();
-                        tipPressureMax  = element->getLogicalMax();
-                        tipPressureMin  += ((tipPressureMax - tipPressureMin) * 15) / 100;                        
+                        tipPressureMax  = element->getLogicalMax();                        
+                        tipPressureMin  += ((tipPressureMax - tipPressureMin) * 15) / 100;
                         break;
                     case kHIDUsage_Dig_XTilt:
                         tabletHandled  |= elementIsCurrent;
@@ -737,7 +738,7 @@ void IOHIDEventDriver::handleInterruptReport (
                 }
             }
             else if (elementIsCurrent && 
-                       (((usagePage == kHIDPage_AppleVendorTopCase) && (usage == kHIDUsage_AppleVendor_KeyboardFn)) || 
+                       (((usagePage == kHIDPage_AppleVendorTopCase) && (usage == kHIDUsage_AV_TopCase_KeyboardFn)) || 
                         ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function))))
             {
                 dispatchKeyboardEvent(timeStamp, usagePage, usage, element->getValue());
@@ -793,7 +794,7 @@ void IOHIDEventDriver::handleInterruptReport (
                 buttonState = 0;
                 tipPressure = tipPressureMin;
             }
-            
+
             dispatchAbsolutePointerEvent(timeStamp, absoluteX, absoluteY, &bounds, buttonState, inRange, tipPressure, tipPressureMin, tipPressureMax);
         } 
         else if (relativeX || relativeY || (buttonState != _cachedButtonState)) 
@@ -818,29 +819,20 @@ void IOHIDEventDriver::handleBootPointingReport (
     UInt32          bootOffset;
     UInt8 *         mouseData;
     IOByteCount     reportLength;
-    IOByteCount     segmentSize;
-
     
     // Get a pointer to the data in the descriptor.
-
-    mouseData   = (UInt8 *)report->getVirtualSegment(0, &segmentSize);
     reportLength = report->getLength();
-
-    if ( reportLength == 0 )
-        return;
-
-    // Are there multiple segments in the descriptor? If so,
-    // allocate a buffer and copy the data from the descriptor.
-
-    if ( segmentSize != reportLength )
-    {
-        mouseData = (UInt8 *)IOMalloc( reportLength );
-        if ( mouseData == 0 )
-            return;
-
-        report->readBytes( 0, mouseData, reportLength );
-    }
     
+    if ( !reportLength )
+        return;
+        
+    mouseData = (UInt8 *)IOMalloc(reportLength);
+    
+    if ( !mouseData )
+        return;
+        
+    report->readBytes( 0, (void *)mouseData, reportLength );
+
     if ( reportLength >= 3 )
     {
         bootOffset = ( _multipleReports ) ? 1 : 0;
@@ -854,11 +846,8 @@ void IOHIDEventDriver::handleBootPointingReport (
         if ( _bootSupport & kMouseYAxis )
             *dY = mouseData[bootOffset + 2];
     }
-    
-    if ( segmentSize != reportLength )
-    {
-        IOFree( mouseData, reportLength );
-    }
+
+    IOFree((void *)mouseData, reportLength);
 }
 
 

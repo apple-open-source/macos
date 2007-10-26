@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/init.c,v 1.30.2.6 2004/04/28 23:23:16 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/init.c,v 1.40.2.3 2006/01/03 22:16:22 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * Portions Copyright 1999 John C. Quillan.
  * Portions Copyright 2002 myinternet Limited.
  * All rights reserved.
@@ -17,28 +17,11 @@
 
 #include "perl_back.h"
 
-
 static void perl_back_xs_init LDAP_P((PERL_BACK_XS_INIT_PARAMS));
 EXT void boot_DynaLoader LDAP_P((PERL_BACK_BOOT_DYNALOADER_PARAMS));
 
 PerlInterpreter *PERL_INTERPRETER = NULL;
 ldap_pvt_thread_mutex_t	perl_interpreter_mutex;
-
-#if SLAPD_PERL == SLAPD_MOD_DYNAMIC
-
-int init_module(int argc, char *argv[])
-{
-	BackendInfo bi;
-
-	memset( &bi, '\0', sizeof(bi) );
-	bi.bi_type = "perl";
-	bi.bi_init = perl_back_initialize;
-
-	backend_add(&bi);
-	return 0;
-}
-
-#endif /* SLAPD_PERL */
 
 
 /**********************************************************
@@ -52,25 +35,10 @@ perl_back_initialize(
 	BackendInfo	*bi
 )
 {
-	char *embedding[] = { "", "-e", "0" };
-
-	Debug( LDAP_DEBUG_TRACE, "perl backend open\n", 0, 0, 0 );
-
-	if( PERL_INTERPRETER != NULL ) {
-		Debug( LDAP_DEBUG_ANY, "perl backend open: already opened\n",
-			0, 0, 0 );
-		return 1;
-	}
-	
-	PERL_INTERPRETER = perl_alloc();
-	perl_construct(PERL_INTERPRETER);
-	perl_parse(PERL_INTERPRETER, perl_back_xs_init, 3, embedding, (char **)NULL);
-	perl_run(PERL_INTERPRETER);
-
 	bi->bi_open = perl_back_open;
 	bi->bi_config = 0;
 	bi->bi_close = perl_back_close;
-	bi->bi_destroy = perl_back_destroy;
+	bi->bi_destroy = 0;
 
 	bi->bi_db_init = perl_back_db_init;
 	bi->bi_db_config = perl_back_db_config;
@@ -103,7 +71,22 @@ perl_back_open(
 	BackendInfo	*bi
 )
 {
+	char *embedding[] = { "", "-e", "0" };
+
+	Debug( LDAP_DEBUG_TRACE, "perl backend open\n", 0, 0, 0 );
+
+	if( PERL_INTERPRETER != NULL ) {
+		Debug( LDAP_DEBUG_ANY, "perl backend open: already opened\n",
+			0, 0, 0 );
+		return 1;
+	}
+	
 	ldap_pvt_thread_mutex_init( &perl_interpreter_mutex );
+
+	PERL_INTERPRETER = perl_alloc();
+	perl_construct(PERL_INTERPRETER);
+	perl_parse(PERL_INTERPRETER, perl_back_xs_init, 3, embedding, (char **)NULL);
+	perl_run(PERL_INTERPRETER);
 	return 0;
 }
 
@@ -172,3 +155,12 @@ perl_back_xs_init(PERL_BACK_XS_INIT_PARAMS)
 	dXSUB_SYS;
 	newXS("DynaLoader::boot_DynaLoader", boot_DynaLoader, file);
 }
+
+#if SLAPD_PERL == SLAPD_MOD_DYNAMIC
+
+/* conditionally define the init_module() function */
+SLAP_BACKEND_INIT_MODULE( perl )
+
+#endif /* SLAPD_PERL == SLAPD_MOD_DYNAMIC */
+
+

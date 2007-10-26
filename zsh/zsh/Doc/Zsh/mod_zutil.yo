@@ -7,7 +7,7 @@ The tt(zsh/zutil) module only adds some builtins:
 
 startitem()
 findex(zstyle)
-xitem(tt(zstyle) [ tt(-L) ])
+xitem(tt(zstyle) [ tt(-L) [ var(pattern) [ var(style) ] ] ])
 xitem(tt(zstyle) [ tt(-e) | tt(-) | tt(-)tt(-) ] var(pattern) var(style) var(strings) ...)
 xitem(tt(zstyle -d) [ var(pattern) [ var(styles) ... ] ])
 xitem(tt(zstyle -g) var(name) [ var(pattern) [ var(style) ] ])
@@ -31,8 +31,18 @@ complex patterns are considered to be more specific than the pattern
 `tt(*)'.
 
 The first form (without arguments) lists the definitions in the order
-tt(zstyle) will test them. If the tt(-L) option is given, listing is
-done in the form of calls to tt(zstyle).  Forms with arguments:
+tt(zstyle) will test them.
+
+If the tt(-L) option is given, listing is done in the form of calls to
+tt(zstyle).  The optional first argument is a pattern which will be matched
+against the string supplied as the pattern for the context; note that
+this means, for example, `tt(zstyle -L ":completion:*")' will
+match any supplied pattern beginning `tt(:completion:)', not
+just tt(":completion:*"):  use tt(":completion:\*") to match that.
+The optional second argument limits the output to a specific style (not a
+pattern).  tt(-L) is not compatible with any other options.
+
+The other forms are the following:
 
 startitem()
 item(tt(zstyle) [ tt(-) | tt(-)tt(-) | tt(-e) ] var(pattern) var(style) var(strings) ...)(
@@ -93,7 +103,7 @@ at least one of the var(strings) is equal to at least one of the strings
 in the value. If the style is not defined, the status is tt(2).
 
 The tt(-T) option tests the values of the style like tt(-t), but it
-returns zero (rather than tt(2)) if the style is not defined for any
+returns status zero (rather than tt(2)) if the style is not defined for any
 matching pattern.
 )
 item(tt(zstyle -m) var(context) var(style) var(pattern))(
@@ -192,7 +202,7 @@ xitem(var(name))
 item(var(name)tt(+))(
 The var(name) is the name of the option without the leading `tt(-)'.  To
 specify a GNU-style long option, one of the usual two leading `tt(-)' must
-be included in var(name); for example, a `tt(--file)' option is
+be included in var(name); for example, a `tt(-)tt(-file)' option is
 represented by a var(name) of `tt(-file)'.
 
 If a `tt(+)' appears after var(name), the option is appended to var(array)

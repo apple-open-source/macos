@@ -1,0 +1,13 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {CLASS = Game; LANGUAGE = ObjC; SUPERCLASS = NSDocument; }, 
+        {
+            CLASS = GameView; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {game = Game; }; 
+            SUPERCLASS = NSView; 
+        }
+    ); 
+    IBVersion = 1; 
+}

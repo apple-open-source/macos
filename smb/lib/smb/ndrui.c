@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -37,6 +40,7 @@
 #include <dce/idlddefs.h>
 #include <ndrui.h>
 #include <lsysdep.h>
+#include <asl.h>
 
 /*
  *  Forward function references
@@ -399,8 +403,8 @@ void rpc_ss_ndr_unmar_struct
                 offset = *offset_vec_ptr;
                 offset_vec_ptr++;
                 IDL_UNMAR_ULONG( &node_number );
-                *(rpc_void_p_t *)((idl_byte *)struct_addr+offset)
-                                                    = (rpc_void_p_t)node_number;
+		/* XXX idl_ulong_int is 32 bits this is a problem for another day! */
+                *(idl_ulong_int *)((idl_byte *)struct_addr+offset) = node_number;
                 IDL_DISCARD_LONG_FROM_VECTOR( defn_vec_ptr );
                                         /* Indirection to pointee type */
                 break;
@@ -533,8 +537,7 @@ void rpc_ss_ndr_unmar_struct
                 break;
             default:
 #ifdef DEBUG_INTERP
-                printf("rpc_ss_ndr_unmar_struct:unrecognized type %d\n",
-                        type_byte);
+               asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_unmar_struct:unrecognized type %d\n", type_byte);
                 exit(0);
 #endif
                 RAISE(rpc_x_coding_error);
@@ -733,7 +736,7 @@ void rpc_ss_ndr_unmar_by_looping
             case IDL_DT_FULL_PTR:
                 /* Unmarshall the node number into the space for the pointer */
                 IDL_UNMAR_ULONG( &node_number );
-                *(rpc_void_p_t *)(array_addr) = (rpc_void_p_t)node_number;
+                *(idl_ulong_int *)(array_addr) = node_number;
                 array_addr = (rpc_void_p_t)((rpc_void_p_t *)(array_addr) + 1);
                 break;
             case IDL_DT_UNIQUE_PTR:
@@ -802,9 +805,7 @@ void rpc_ss_ndr_unmar_by_looping
                 break;
             default:
 #ifdef DEBUG_INTERP
-                printf(
-                      "rpc_ss_ndr_unmar_by_looping:unrecognized type %d\n",
-                        base_type);
+                asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_unmar_by_looping:unrecognized type %d\n", base_type);
                 exit(0);
 #endif
                 RAISE(rpc_x_coding_error);
@@ -1815,8 +1816,7 @@ void rpc_ss_ndr_unmar_interp
                     IDL_GET_LONG_FROM_VECTOR(defn_index,type_vec_ptr);
                     /* Unmarshall the node number */
                     IDL_UNMAR_ULONG( &node_number );
-                    *(rpc_void_p_t *)(IDL_param_vector[param_index])
-                                                    = (rpc_void_p_t)node_number;
+                    *(idl_ulong_int *)(IDL_param_vector[param_index]) = node_number;
                     if (node_number != 0)
                     {
                         pointee_defn_ptr = IDL_msp->IDL_type_vec+defn_index;
@@ -2021,8 +2021,7 @@ void rpc_ss_ndr_unmar_interp
                     break;
                 default:
 #ifdef DEBUG_INTERP
-                    printf("rpc_ss_ndr_unmar_interp:unrecognized type %d\n",
-                        type_byte);
+                    asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_unmar_interp:unrecognized type %d\n", type_byte);
                     exit(0);
 #endif
                     RAISE(rpc_x_coding_error);

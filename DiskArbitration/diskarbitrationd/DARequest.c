@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -193,8 +193,8 @@ static Boolean __DARequestClaim( DARequestRef request )
 
             if ( session )
             {
-                vm_offset_t address;
-                vm_offset_t context;
+                mach_vm_offset_t address;
+                mach_vm_offset_t context;
 
                 address = ___CFNumberGetIntegerValue( DARequestGetArgument2( request ) );
                 context = ___CFNumberGetIntegerValue( DARequestGetArgument3( request ) );
@@ -592,23 +592,6 @@ static Boolean __DARequestMount( DARequestRef request )
             }
         }
 
-        /*
-         * Determine whether the disk is clean.
-         */
-
-        if ( DADiskGetState( disk, kDADiskStateRequireRepair ) )
-        {
-            DADissenterRef dissenter;
-
-            dissenter = DADissenterCreate( kCFAllocatorDefault, kDAReturnNotReady );
-
-            DARequestSetDissenter( request, dissenter );
-
-            CFRelease( dissenter );
-
-            status = kDAReturnNotReady;
-        }
-
         if ( status )
         {
             DARequestDispatchCallback( request, status );
@@ -790,8 +773,6 @@ static void __DARequestMountCallback( int status, CFURLRef mountpoint, void * co
         DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
 
         DALogDebug( "  mounted disk, id = %@, success.", disk );
-
-        DADiskLog( disk );
 
         arguments = DARequestGetArgument3( request );
 
@@ -1344,7 +1325,14 @@ static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * conte
 
     if ( DARequestGetUserUID( request ) )
     {
-        DARequestSetDissenter( request, response );
+        DADiskUnmountOptions options;
+
+        options = DARequestGetArgument1( request );
+
+        if ( ( options & kDADiskUnmountOptionForce ) == 0 )
+        {
+            DARequestSetDissenter( request, response );
+        }
     }
 ///w:start
     if ( response )

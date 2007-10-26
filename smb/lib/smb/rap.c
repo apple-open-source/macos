@@ -2,6 +2,8 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: rap.c,v 1.5.166.1 2005/07/20 05:27:02 lindak Exp $
+ * $Id: rap.c,v 1.6 2005/05/06 23:16:29 lindak Exp $
  *
  * This is very simple implementation of RAP protocol.
  */
@@ -337,11 +339,6 @@ smb_rap_request(struct smb_rap *rap, struct smb_ctx *ctx)
 		    default:
 			done = 1;
 		}
-/*		error = smb_rap_parserpparam(p, &p, &plen);
-		if (error) {
-			smb_error("reply parameter mismatch %s", 0, p);
-			return EBADRPC;
-		}*/
 	}
 	rap->r_nparam = p;
 	/*
@@ -355,7 +352,7 @@ smb_rap_request(struct smb_rap *rap, struct smb_ctx *ctx)
 			ptype = *p;
 			error = smb_rap_parserpdata(p, &p, &dlen);
 			if (error) {
-				smb_error("reply data mismatch %s", 0, p);
+				smb_log_info("reply data mismatch %s", 0, ASL_LEVEL_ERR, p);
 				return EBADRPC;
 			}
 			switch (ptype) {
@@ -370,14 +367,28 @@ smb_rap_request(struct smb_rap *rap, struct smb_ctx *ctx)
 	return error;
 }
 
-int
-smb_rap_error(struct smb_rap *rap, int error)
+/*
+ * We could translate these better, but these are the old enumerate rap calls and 
+ * we are using them less and less. The old code just passed up the rap errors, now
+ * we convert it to real errno. 
+ */
+static int smb_rap_error(struct smb_rap *rap, int error)
 {
 	if (error)
 		return error;
-	if (rap->r_result == 0)
+	if ((rap->r_result == 0) || (rap->r_result == SMB_ERROR_MORE_DATA))
 		return 0;
-	return rap->r_result | SMB_RAP_ERROR;
+	switch (rap->r_result) {
+	case SMB_ERROR_ACCESS_DENIED:
+	case SMB_ERROR_NETWORK_ACCESS_DENIED:
+		error = EACCES;
+		break;			
+	default:
+		smb_log_info("received an unknown rap enumerate share error %d", 0, ASL_LEVEL_ERR, rap->r_result);
+		error = EIO;
+		break;
+	}
+	return error;
 }
 
 int

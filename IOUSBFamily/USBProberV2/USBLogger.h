@@ -100,6 +100,7 @@ enum
 - (void)invalidate;
 - (void)setLevel:(int)level;
 
+- (kern_return_t)callUSBControllerUserClient:(io_connect_t)port methodIndex:(UInt32)methodIndex inParam:(UInt32)inParam;
 @end
 
 

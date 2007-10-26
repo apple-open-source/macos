@@ -1,5 +1,6 @@
 /* Machine-dependent configuration for GNU Emacs for AT&T 3b machines.
-   Copyright (C) 1986 Free Software Foundation, Inc.
+   Copyright (C) 1986, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
    Modified by David Robinson (daver@csvax.caltech.edu) 6/6/86
 
@@ -17,11 +18,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="usg5-2-2"  */
 
@@ -78,17 +79,9 @@ Boston, MA 02111-1307, USA.  */
 
 /* #define VIRT_ADDR_VARIES */  /* Karl Kleinpaste says this isn't needed.  */
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
 /* SysV has alloca in the PW library */
 
 #define LIB_STANDARD -lPW -lc
-#define HAVE_ALLOCA
 
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
@@ -114,31 +107,28 @@ Boston, MA 02111-1307, USA.  */
 
 #define NBPC 2048
 
+#if 0 /* If this is still needed, don't hard-code assumptions about
+	 the number of VALBITS, or other assumptions about the
+	 Lisp_Object representation.  Try to extend lisp.h instead, if
+	 necessary.  */
 /* The usual definition of XINT, which involves shifting, does not
    sign-extend properly on this machine.  */
 
 #define XINT(i) (((sign_extend_temp=(i)) & 0x00800000) \
 		 ? (sign_extend_temp | 0xFF000000) \
 		 : (sign_extend_temp & 0x00FFFFFF))
+#endif
 
 #ifdef emacs /* Don't do this when making xmakefile! */
 extern int sign_extend_temp;
 #endif
 
 #if u3b2 || u3b5 || u3b15
-
 /* On 3b2/5/15, data space has high order bit on. */
-#define VALBITS 27
-#define VALMASK (((1<<VALBITS) - 1) | (1 << 31))
-#define XTYPE(a) ((enum Lisp_Type) (((a) >> VALBITS) & GCTYPEMASK))
-
+#define DATA_SEG_BITS 0x80000000
 #endif /* 3b2, 3b5 or 3b15 */
 
 #define TEXT_START 0
-
-
-/* For alloca.c (not actually used, since HAVE_ALLOCA) */
-#define STACK_DIRECTION 1
 
 /* (short) negative-int doesn't sign-extend correctly */
 #define SHORT_CAST_BUG
@@ -155,3 +145,6 @@ extern int sign_extend_temp;
 
 /* This affects filemode.c.  */
 #define NO_MODE_T
+
+/* arch-tag: 07441a37-d630-447f-94fa-7da19645c97a
+   (do not change this comment) */

@@ -41,6 +41,8 @@
 static char sccsid[] = "@(#)setjmperr.c	5.4 (Berkeley) 6/27/88";
 #endif /* LIBC_SCCS and not lint */
 
+#include <unistd.h>
+
 /*
  * This routine is called from longjmp() when an error occurs.
  * Programs that wish to exit gracefully from this error may

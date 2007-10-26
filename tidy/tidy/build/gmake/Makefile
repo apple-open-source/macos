@@ -2,11 +2,11 @@
 #
 #  CVS Info :
 #
-#     $Author: swilkin $ 
-#     $Date: 2004/11/21 02:45:44 $ 
-#     $Revision: 1.4 $ 
+#     $Author: iccir $ 
+#     $Date: 2007/02/21 02:46:28 $ 
+#     $Revision: 1.10 $ 
 #
-#  Copyright (c) 1998-2003 World Wide Web Consortium
+#  Copyright (c) 1998-2005 World Wide Web Consortium
 #  (Massachusetts Institute of Technology, European Research 
 #  Consortium for Informatics and Mathematics, Keio University).
 #  All Rights Reserved.
@@ -64,7 +64,11 @@ devinst_prefix=/usr/local
 bininst = ${runinst_prefix}/bin
 libinst = ${devinst_prefix}/lib
 incinst = ${devinst_prefix}/include/$(PROJECT)
+maninst = ${devinst_prefix}/man
+
+ifdef TIDY_APPLE_CHANGES
 maninst = ${devinst_prefix}/share/man
+endif
 
 # Internal variables. - No spaces allowed: libtool chokes on spaces in directory names.
 TOPDIR = ../..
@@ -74,12 +78,36 @@ SRCDIR = ${TOPDIR}/src
 OBJDIR = ./obj
 LIBDIR = ${TOPDIR}/lib
 BINDIR = ${TOPDIR}/bin
+DOCDIR = ${TOPDIR}/htmldoc
+
+# Note about shared library and exported symbols:
+# With gcc, one can control the exported symbols by either using 
+# "-fvisibility=hidden -DTIDY_EXPORT='__attribute__((visibility("default")))'"
+# or using a linker map (see GNU ld "--version-script").
+
+# Lookup based on hash table can be disabled with 
+# "-DELEMENT_HASH_LOOKUP=0 -DATTRIBUTE_HASH_LOOKUP=0"
 
 # CFLAGS etc..
+# For optimised builds, flags such as "-O2" should be added and -D_DEBUG=1
+# disabled.
 CC= gcc
-CFLAGS+= -Wall -Wno-switch -Wno-parentheses -Wno-unused -I $(INCDIR)
+ifdef TIDY_APPLE_CHANGES
+CFLAGS+= -g -Wall -Wno-switch -Wno-parentheses -I $(INCDIR) \
+    -fvisibility=hidden -DTIDY_EXPORT='__attribute__((visibility("default")))'
+else
+CFLAGS= -g -Wall -Wno-switch -Wno-parentheses -I $(INCDIR)
+endif
+# flags only supported with gcc 3.x
+# CFLAGS += -Wunused-parameter
 
-# OTHERCFLAGS= -DSUPPORT_ACCESSIBILITY_CHECKS=1 -DSUPPORT_UTF16_ENCODINGS=1 -DSUPPORT_ASIAN_ENCODINGS=1
+OTHERCFLAGS=
+ifndef TIDY_APPLE_CHANGES
+OTHERCFLAGS+= -D_DEBUG=1
+OTHERCFLAGS+= -DSUPPORT_POSIX_MAPPED_FILES
+endif
+# OTHERCFLAGS+= -fvisibility=hidden -DTIDY_EXPORT='__attribute__((visibility("default")))'
+# OTHERCFLAGS+= -DSUPPORT_ACCESSIBILITY_CHECKS=1 -DSUPPORT_UTF16_ENCODINGS=1 -DSUPPORT_ASIAN_ENCODINGS=1
 ifdef SUPPORT_UTF16_ENCODINGS
 CFLAGS += -DSUPPORT_UTF16_ENCODINGS=$(SUPPORT_UTF16_ENCODINGS)
 endif
@@ -95,7 +123,7 @@ ifdef DMALLOC
 DEBUGFLAGS += -DDMALLOC
 endif
 
-LIBS=-lc
+LIBS=
 DEBUGLIBS=-ldmalloc
 
 # Tidy lib related variables
@@ -105,21 +133,29 @@ TIDY_MINOR = 0
 # This will come from autoconf again
 LIBPREFIX = lib
 LIBSUFFIX = .a
+OBJSUF = .o
 
 LIBRARY = $(LIBDIR)/$(LIBPREFIX)$(PROJECT)$(LIBSUFFIX)
 AR=ar -r
 
+XSLTPROC = xsltproc
+
 EXES = $(BINDIR)/$(PROJECT) $(BINDIR)/tab2space
 
+DOCS = $(DOCDIR)/quickref.html $(DOCDIR)/tidy.1
+
+CONFIGXML = $(DOCDIR)/tidy-config.xml
+HELPXML = $(DOCDIR)/tidy-help.xml
+
 OBJFILES=\
-        $(OBJDIR)/access.o     $(OBJDIR)/attrs.o      $(OBJDIR)/istack.o \
-        $(OBJDIR)/parser.o     $(OBJDIR)/tags.o       $(OBJDIR)/entities.o \
-        $(OBJDIR)/lexer.o      $(OBJDIR)/pprint.o     $(OBJDIR)/clean.o \
-        $(OBJDIR)/localize.o   $(OBJDIR)/config.o     $(OBJDIR)/alloc.o \
-        $(OBJDIR)/attrask.o    $(OBJDIR)/attrdict.o   $(OBJDIR)/attrget.o \
-        $(OBJDIR)/buffio.o     $(OBJDIR)/fileio.o     $(OBJDIR)/streamio.o \
-        $(OBJDIR)/tagask.o     $(OBJDIR)/tmbstr.o     $(OBJDIR)/utf8.o \
-        $(OBJDIR)/tidylib.o
+        $(OBJDIR)/access$(OBJSUF)     $(OBJDIR)/attrs$(OBJSUF)      $(OBJDIR)/istack$(OBJSUF) \
+        $(OBJDIR)/parser$(OBJSUF)     $(OBJDIR)/tags$(OBJSUF)       $(OBJDIR)/entities$(OBJSUF) \
+        $(OBJDIR)/lexer$(OBJSUF)      $(OBJDIR)/pprint$(OBJSUF)     $(OBJDIR)/clean$(OBJSUF) \
+        $(OBJDIR)/localize$(OBJSUF)   $(OBJDIR)/config$(OBJSUF)     $(OBJDIR)/alloc$(OBJSUF) \
+        $(OBJDIR)/attrask$(OBJSUF)    $(OBJDIR)/attrdict$(OBJSUF)   $(OBJDIR)/attrget$(OBJSUF) \
+        $(OBJDIR)/buffio$(OBJSUF)     $(OBJDIR)/fileio$(OBJSUF)     $(OBJDIR)/streamio$(OBJSUF) \
+        $(OBJDIR)/tagask$(OBJSUF)     $(OBJDIR)/tmbstr$(OBJSUF)     $(OBJDIR)/utf8$(OBJSUF) \
+        $(OBJDIR)/tidylib$(OBJSUF)    $(OBJDIR)/mappedio$(OBJSUF)
 
 CFILES= \
         $(SRCDIR)/access.c       $(SRCDIR)/attrs.c        $(SRCDIR)/istack.c \
@@ -129,47 +165,72 @@ CFILES= \
         $(SRCDIR)/attrask.c      $(SRCDIR)/attrdict.c     $(SRCDIR)/attrget.c \
         $(SRCDIR)/buffio.c       $(SRCDIR)/fileio.c       $(SRCDIR)/streamio.c \
         $(SRCDIR)/tagask.c       $(SRCDIR)/tmbstr.c       $(SRCDIR)/utf8.c \
-        $(SRCDIR)/tidylib.c
+        $(SRCDIR)/tidylib.c      $(SRCDIR)/mappedio.c
 
 HFILES= $(INCDIR)/platform.h     $(INCDIR)/tidy.h         $(INCDIR)/tidyenum.h \
-        $(INCDIR)/fileio.h       $(INCDIR)/buffio.h       
+        $(INCDIR)/buffio.h
 
 LIBHFILES= \
         $(SRCDIR)/access.h       $(SRCDIR)/attrs.h        $(SRCDIR)/attrdict.h \
         $(SRCDIR)/clean.h        $(SRCDIR)/config.h       $(SRCDIR)/entities.h \
-        $(SRCDIR)/forward.h      $(SRCDIR)/lexer.h        $(SRCDIR)/message.h \
-        $(SRCDIR)/parser.h       $(SRCDIR)/pprint.h       $(SRCDIR)/streamio.h \
-        $(SRCDIR)/tags.h         $(SRCDIR)/tmbstr.h       $(SRCDIR)/utf8.h \
-        $(SRCDIR)/tidy-int.h
+        $(SRCDIR)/fileio.h       $(SRCDIR)/forward.h      $(SRCDIR)/lexer.h \
+        $(SRCDIR)/mappedio.h     $(SRCDIR)/message.h      $(SRCDIR)/parser.h \
+        $(SRCDIR)/pprint.h       $(SRCDIR)/streamio.h     $(SRCDIR)/tags.h \
+        $(SRCDIR)/tmbstr.h       $(SRCDIR)/utf8.h         $(SRCDIR)/tidy-int.h \
+        $(SRCDIR)/version.h
 
-
+ifdef TIDY_APPLE_CHANGES
+LIBS=-lc
+endif
 
 all:    $(LIBRARY) $(EXES)
+
+doc:    $(DOCS)
 
 $(LIBRARY): $(OBJFILES)
 	if [ ! -d $(LIBDIR) ]; then mkdir $(LIBDIR); fi
 	$(AR) $@ $(OBJFILES)
 ifdef RANLIB
-	$(RANLIB) $@ 
+	$(RANLIB) $@
 endif
 
-$(OBJDIR)/%.o:		$(SRCDIR)/%.c $(HFILES) $(LIBHFILES) Makefile
+$(OBJDIR)/%$(OBJSUF):	$(SRCDIR)/%.c $(HFILES) $(LIBHFILES) Makefile
 	if [ ! -d $(OBJDIR) ]; then mkdir $(OBJDIR); fi
-	$(CC) -o $@ -c $(CFLAGS) $(OTHERCFLAGS) $<
+	$(CC) $(CFLAGS) $(OTHERCFLAGS) -o $@ -c $<
 
 $(BINDIR)/$(PROJECT):	$(APPDIR)/tidy.c $(HFILES) $(LIBRARY)
 	if [ ! -d $(BINDIR) ]; then mkdir $(BINDIR); fi
+ifdef TIDY_APPLE_CHANGES
 	$(CC) $(CFLAGS) $(OTHERCFLAGS) -mdynamic-no-pic -o $@ $(APPDIR)/tidy.c -I$(INCDIR) -L$(LIBDIR) -l$(PROJECT)
+else
+	$(CC) $(CFLAGS) $(OTHERCFLAGS) -o $@ $(APPDIR)/tidy.c -I$(INCDIR) -L$(LIBDIR) -l$(PROJECT)
+endif
 
 $(BINDIR)/tab2space: $(APPDIR)/tab2space.c
 	if [ ! -d $(BINDIR) ]; then mkdir $(BINDIR); fi
+ifdef TIDY_APPLE_CHANGES
 	$(CC) $(CFLAGS) $(OTHERCFLAGS) -mdynamic-no-pic -o $@ $(APPDIR)/tab2space.c $(LIBS)
+else
+	$(CC) $(CFLAGS) $(OTHERCFLAGS) -o $@ $(APPDIR)/tab2space.c $(LIBS)
+endif
+
+$(HELPXML): $(BINDIR)/$(PROJECT)
+	$(BINDIR)/$(PROJECT) -xml-help > $@
+
+$(CONFIGXML): $(BINDIR)/$(PROJECT)
+	$(BINDIR)/$(PROJECT) -xml-config > $@
+
+$(DOCDIR)/quickref.html: $(DOCDIR)/quickref-html.xsl $(CONFIGXML)
+	$(XSLTPROC) -o $@ $(DOCDIR)/quickref-html.xsl $(CONFIGXML)
+
+$(DOCDIR)/tidy.1: $(DOCDIR)/tidy1.xsl $(HELPXML) $(CONFIGXML)
+	$(XSLTPROC) -o $@ $(DOCDIR)/tidy1.xsl $(HELPXML)
 
 debug:
 	@$(MAKE) CFLAGS='$(CFLAGS) $(DEBUGFLAGS)' LIBS='$(LIBS) $(DEBUGLIBS)' all
 
 clean:
-	rm -f $(OBJFILES) $(EXES) $(LIBRARY) $(OBJDIR)/*.lo
+	rm -f $(OBJFILES) $(EXES) $(LIBRARY) $(DOCS) $(HELPXML) $(CONFIGXML) $(OBJDIR)/*.lo
 	if [ -d $(OBJDIR)/.libs ]; then rmdir $(OBJDIR)/.libs; fi
 	if [ -d $(LIBDIR)/.libs ]; then rmdir $(LIBDIR)/.libs; fi
 	if [ "$(OBJDIR)" != "$(TOPDIR)" -a -d $(OBJDIR) ]; then rmdir $(OBJDIR); fi
@@ -188,10 +249,17 @@ installexes: $(EXES)
 	if [ ! -d "$(bininst)" ]; then mkdir -p "$(bininst)"; fi
 	cp -f $(EXES) "$(bininst)/"
 
-installmanpage:
+installmanpage: $(DOCDIR)/tidy.1
+	if [ ! -d "$(maninst)/man1" ]; then mkdir -p "$(maninst)/man1"; fi;
+	cp -f $(DOCDIR)/tidy.1 "$(maninst)/man1/tidy.1";
+
+ifdef TIDY_APPLE_CHANGES
+installmanpage_apple:
 	if [ -f "$(TOPDIR)/htmldoc/man_page.txt" ] ; then \
-    	if [ ! -d "$(maninst)/man1" ]; then mkdir -p "$(maninst)/man1"; fi; \
-    	cp -f $(TOPDIR)/htmldoc/man_page.txt "$(maninst)/man1/tidy.1"; \
+	if [ ! -d "$(maninst)/man1" ]; then mkdir -p "$(maninst)/man1"; fi; \
+	cp -f $(TOPDIR)/htmldoc/man_page.txt "$(maninst)/man1/tidy.1"; \
+	cp -f $(TOPDIR)/htmldoc/tab2space_man_page.txt "$(maninst)/man1/tab2space.1"; \
 	fi
-   
-install: installhdrs installib installmanpage installexes
+endif
+
+install: installhdrs installib installexes installmanpage

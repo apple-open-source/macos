@@ -1,52 +1,104 @@
-rule       x
+rule       local
 address    !
 result     ""@
 
-rule       x
+rule       local
 address    a!
 result     ""@a.MYDOMAIN
 
-rule       x
+rule       local
 address    !b
 result     b@
 
-rule       x
+rule       local
 address    a!b
 result     b@a.MYDOMAIN
 
-rule       x
+rule       local
 address    %
 result     ""@
 
-rule       x
+rule       local
 address    a%
 result     a@
 
-rule       x
+rule       local
 address    %b
 result     ""@b.MYDOMAIN
 
-rule       x
+rule       local
 address    a%b
 result     a@b.MYDOMAIN
 
-rule       x
+rule       local
 address    @
 result     ""
 
-rule       x
+rule       local
 address    a@
 result     a@
 
-rule       x
+rule       local
 address    a@.
 result     a@.
 
-rule       x
+rule       local
 address    a@b
 result     a@b.MYDOMAIN
 
-rule       x
+rule       local
+address    a@b.
+result     a@b
+
+rule       remote
+address    !
+result     ""@
+
+rule       remote
+address    a!
+result     ""@a.INVALID_DOMAIN
+
+rule       remote
+address    !b
+result     b@
+
+rule       remote
+address    a!b
+result     b@a.INVALID_DOMAIN
+
+rule       remote
+address    %
+result     ""@
+
+rule       remote
+address    a%
+result     a@
+
+rule       remote
+address    %b
+result     ""@b.INVALID_DOMAIN
+
+rule       remote
+address    a%b
+result     a@b.INVALID_DOMAIN
+
+rule       remote
+address    @
+result     ""
+
+rule       remote
+address    a@
+result     a@
+
+rule       remote
+address    a@.
+result     a@.
+
+rule       remote
+address    a@b
+result     a@b.INVALID_DOMAIN
+
+rule       remote
 address    a@b.
 result     a@b
 

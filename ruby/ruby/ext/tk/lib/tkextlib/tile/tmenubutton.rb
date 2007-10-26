@@ -9,22 +9,22 @@ module Tk
   module Tile
     class TMenubutton < TkMenubutton
     end
+    Menubutton = TMenubutton
   end
 end
 
 class Tk::Tile::TMenubutton < TkMenubutton
   include Tk::Tile::TileWidget
 
-  TkCommandNames = ['tmenubutton'.freeze].freeze
+  if Tk::Tile::USE_TTK_NAMESPACE
+    TkCommandNames = ['::ttk::menubutton'.freeze].freeze
+  else
+    TkCommandNames = ['::tmenubutton'.freeze].freeze
+  end
   WidgetClassName = 'TMenubutton'.freeze
   WidgetClassNames[WidgetClassName] = self
 
-  def create_self(keys)
-    if keys and keys != None
-      tk_call_without_enc('tmenubutton', @path, *hash_kv(keys, true))
-    else
-      tk_call_without_enc('tmenubutton', @path)
-    end
+  def self.style(*args)
+    [self::WidgetClassName, *(args.map!{|a| _get_eval_string(a)})].join('.')
   end
-  private :create_self
 end

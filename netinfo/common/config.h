@@ -70,7 +70,7 @@ struct in6_addr {
 	} __u6_addr;			/* 128-bit IP6 address */
 };
 #define _IP6ADDR_
-#endif _IP6ADDR_
+#endif /* _IP6ADDR_ */
 #define _W_INT(w) (*(int *)&(w))
 #define _WSTATUS(x) (_W_INT(x) & 0177)
 #define WEXITSTATUS(x) (_W_INT(x) >> 8)

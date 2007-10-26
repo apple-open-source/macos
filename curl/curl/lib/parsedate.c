@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2006, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: parsedate.c,v 1.13 2005/02/11 00:03:49 bagder Exp $
+ * $Id: parsedate.c,v 1.23 2006-12-05 14:57:43 bagder Exp $
  ***************************************************************************/
 /*
   A brief summary of the date string formats this parser groks:
@@ -102,50 +102,51 @@ struct tzinfo {
 
 /* Here's a bunch of frequently used time zone names. These were supported
    by the old getdate parser. */
+#define tDAYZONE -60       /* offset for daylight savings time */
 static const struct tzinfo tz[]= {
-  {"GMT", 0},     /* Greenwich Mean */
-  {"UTC", 0},     /* Universal (Coordinated) */
-  {"WET", 0},     /* Western European */
-  {"BST", 0},     /* British Summer */
-  {"WAT", 60},    /* West Africa */
-  {"AST", 240},   /* Atlantic Standard */
-  {"ADT", 240},   /* Atlantic Daylight */
-  {"EST", 300},   /* Eastern Standard */
-  {"EDT", 300},   /* Eastern Daylight */
-  {"CST", 360},   /* Central Standard */
-  {"CDT", 360},   /* Central Daylight */
-  {"MST", 420},   /* Mountain Standard */
-  {"MDT", 420},   /* Mountain Daylight */
-  {"PST", 480},   /* Pacific Standard */
-  {"PDT", 480},   /* Pacific Daylight */
-  {"YST", 540},   /* Yukon Standard */
-  {"YDT", 540},   /* Yukon Daylight */
-  {"HST", 600},   /* Hawaii Standard */
-  {"HDT", 600},   /* Hawaii Daylight */
-  {"CAT", 600},   /* Central Alaska */
-  {"AHST", 600},  /* Alaska-Hawaii Standard */
-  {"NT",  660},   /* Nome */
-  {"IDLW", 720},  /* International Date Line West */
-  {"CET", -60},   /* Central European */
-  {"MET", -60},   /* Middle European */
-  {"MEWT", -60},  /* Middle European Winter */
-  {"MEST", -120}, /* Middle European Summer */
-  {"CEST", -120}, /* Central European Summer */
-  {"MESZ", -60},  /* Middle European Summer */
-  {"FWT", -60},   /* French Winter */
-  {"FST", -60},   /* French Summer */
-  {"EET", -120},  /* Eastern Europe, USSR Zone 1 */
-  {"WAST", -420}, /* West Australian Standard */
-  {"WADT", -420}, /* West Australian Daylight */
-  {"CCT", -480},  /* China Coast, USSR Zone 7 */
-  {"JST", -540},  /* Japan Standard, USSR Zone 8 */
-  {"EAST", -600}, /* Eastern Australian Standard */
-  {"EADT", -600}, /* Eastern Australian Daylight */
-  {"GST", -600},  /* Guam Standard, USSR Zone 9 */
-  {"NZT", -720},  /* New Zealand */
-  {"NZST", -720}, /* New Zealand Standard */
-  {"NZDT", -720}, /* New Zealand Daylight */
-  {"IDLE", -720}, /* International Date Line East */
+  {"GMT", 0},              /* Greenwich Mean */
+  {"UTC", 0},              /* Universal (Coordinated) */
+  {"WET", 0},              /* Western European */
+  {"BST", 0 tDAYZONE},     /* British Summer */
+  {"WAT", 60},             /* West Africa */
+  {"AST", 240},            /* Atlantic Standard */
+  {"ADT", 240 tDAYZONE},   /* Atlantic Daylight */
+  {"EST", 300},            /* Eastern Standard */
+  {"EDT", 300 tDAYZONE},   /* Eastern Daylight */
+  {"CST", 360},            /* Central Standard */
+  {"CDT", 360 tDAYZONE},   /* Central Daylight */
+  {"MST", 420},            /* Mountain Standard */
+  {"MDT", 420 tDAYZONE},   /* Mountain Daylight */
+  {"PST", 480},            /* Pacific Standard */
+  {"PDT", 480 tDAYZONE},   /* Pacific Daylight */
+  {"YST", 540},            /* Yukon Standard */
+  {"YDT", 540 tDAYZONE},   /* Yukon Daylight */
+  {"HST", 600},            /* Hawaii Standard */
+  {"HDT", 600 tDAYZONE},   /* Hawaii Daylight */
+  {"CAT", 600},            /* Central Alaska */
+  {"AHST", 600},           /* Alaska-Hawaii Standard */
+  {"NT",  660},            /* Nome */
+  {"IDLW", 720},           /* International Date Line West */
+  {"CET", -60},            /* Central European */
+  {"MET", -60},            /* Middle European */
+  {"MEWT", -60},           /* Middle European Winter */
+  {"MEST", -60 tDAYZONE},  /* Middle European Summer */
+  {"CEST", -60 tDAYZONE},  /* Central European Summer */
+  {"MESZ", -60 tDAYZONE},  /* Middle European Summer */
+  {"FWT", -60},            /* French Winter */
+  {"FST", -60 tDAYZONE},   /* French Summer */
+  {"EET", -120},           /* Eastern Europe, USSR Zone 1 */
+  {"WAST", -420},          /* West Australian Standard */
+  {"WADT", -420 tDAYZONE}, /* West Australian Daylight */
+  {"CCT", -480},           /* China Coast, USSR Zone 7 */
+  {"JST", -540},           /* Japan Standard, USSR Zone 8 */
+  {"EAST", -600},          /* Eastern Australian Standard */
+  {"EADT", -600 tDAYZONE}, /* Eastern Australian Daylight */
+  {"GST", -600},           /* Guam Standard, USSR Zone 9 */
+  {"NZT", -720},           /* New Zealand */
+  {"NZST", -720},          /* New Zealand Standard */
+  {"NZDT", -720 tDAYZONE}, /* New Zealand Daylight */
+  {"IDLE", -720},          /* International Date Line East */
 };
 
 /* returns:
@@ -212,7 +213,7 @@ static int checktz(char *check)
 static void skip(const char **date)
 {
   /* skip everything that aren't letters or digits */
-  while(**date && !isalnum((int)**date))
+  while(**date && !ISALNUM(**date))
     (*date)++;
 }
 
@@ -236,7 +237,6 @@ static time_t Curl_parsedate(const char *date)
   struct tm tm;
   enum assume dignext = DATE_MDAY;
   const char *indate = date; /* save the original pointer */
-
   int part = 0; /* max 6 parts */
 
   while(*date && (part < 6)) {
@@ -244,7 +244,7 @@ static time_t Curl_parsedate(const char *date)
 
     skip(&date);
 
-    if(isalpha((int)*date)) {
+    if(ISALPHA(*date)) {
       /* a name coming up */
       char buf[32]="";
       size_t len;
@@ -274,7 +274,7 @@ static time_t Curl_parsedate(const char *date)
 
       date += len;
     }
-    else if(isdigit((int)*date)) {
+    else if(ISDIGIT(*date)) {
       /* a digit */
       int val;
       char *end;
@@ -369,10 +369,17 @@ static time_t Curl_parsedate(const char *date)
   tm.tm_yday = 0;
   tm.tm_isdst = 0;
 
+  /* mktime() returns a time_t. time_t is often 32 bits, even on many
+     architectures that feature 64 bit 'long'.
+
+     Some systems have 64 bit time_t and deal with years beyond 2038. However,
+     even some of the systems with 64 bit time_t returns -1 for dates beyond
+     03:14:07 UTC, January 19, 2038. (Such as AIX 5100-06)
+  */
   t = mktime(&tm);
 
-  /* time zone adjust */
-  {
+  /* time zone adjust (cast t to int to compare to negative one) */
+  if(-1 != (int)t) {
     struct tm *gmt;
     long delta;
     time_t t2;
@@ -381,17 +388,26 @@ static time_t Curl_parsedate(const char *date)
     /* thread-safe version */
     struct tm keeptime2;
     gmt = (struct tm *)gmtime_r(&t, &keeptime2);
-#else
-    gmt = gmtime(&t); /* use gmtime_r() if available */
-#endif
     if(!gmt)
       return -1; /* illegal date/time */
-
     t2 = mktime(gmt);
+#else
+    /* It seems that at least the MSVC version of mktime() doesn't work
+       properly if it gets the 'gmt' pointer passed in (which is a pointer
+       returned from gmtime() pointing to static memory), so instead we copy
+       the tm struct to a local struct and pass a pointer to that struct as
+       input to mktime(). */
+    struct tm gmt2;
+    gmt = gmtime(&t); /* use gmtime_r() if available */
+    if(!gmt)
+      return -1; /* illegal date/time */
+    gmt2 = *gmt;
+    t2 = mktime(&gmt2);
+#endif
 
     /* Add the time zone diff (between the given timezone and GMT) and the
        diff between the local time zone and GMT. */
-    delta = (tzoff!=-1?tzoff:0) + (t - t2);
+    delta = (long)((tzoff!=-1?tzoff:0) + (t - t2));
 
     if((delta>0) && (t + delta < t))
       return -1; /* time_t overflow */

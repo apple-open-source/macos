@@ -1,6 +1,32 @@
---- /Volumes/XDisk/tmp/Libc/gen/FreeBSD/getlogin.c.orig	2003-10-29 02:45:01.000000000 -0800
-+++ /Volumes/XDisk/tmp/Libc/gen/FreeBSD/getlogin.c	2004-10-24 17:08:28.000000000 -0700
-@@ -87,7 +87,7 @@
+--- getlogin.c.orig	2007-08-19 17:24:10.000000000 -0700
++++ getlogin.c	2007-08-19 20:51:27.000000000 -0700
+@@ -40,7 +40,6 @@
+ #include <sys/param.h>
+ #include <errno.h>
+ #include <pwd.h>
+-#include <utmp.h>
+ #include <stdio.h>
+ #include <string.h>
+ #include <unistd.h>
+@@ -53,7 +52,7 @@
+ #define	THREAD_LOCK()	if (__isthreaded) _pthread_mutex_lock(&logname_mutex)
+ #define	THREAD_UNLOCK()	if (__isthreaded) _pthread_mutex_unlock(&logname_mutex)
+ 
+-extern int		_getlogin(char *, int);
++extern int		__getlogin(char *, int);
+ 
+ int			_logname_valid;		/* known to setlogin() */
+ static pthread_mutex_t	logname_mutex = PTHREAD_MUTEX_INITIALIZER;
+@@ -64,7 +63,7 @@
+ 	static char logname[MAXLOGNAME];
+ 
+ 	if (_logname_valid == 0) {
+-		if (_getlogin(logname, sizeof(logname)) < 0) {
++		if (__getlogin(logname, sizeof(logname)) < 0) {
+ 			*status = errno;
+ 			return (NULL);
+ 		}
+@@ -87,7 +86,7 @@
  }
  
  int

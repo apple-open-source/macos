@@ -1,12 +1,12 @@
 .TH LDAP.CONF 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/ldap.conf.5,v 1.23.2.3 2004/09/07 22:37:11 kurt Exp $
-.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/ldap.conf.5,v 1.28.2.3 2006/01/03 22:16:05 kurt Exp $
+.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .UC 6
 .SH NAME
 ldap.conf, .ldaprc \- ldap configuration file
 .SH SYNOPSIS
-/etc/openldap/ldap.conf, .ldaprc
+ETCDIR/ldap.conf, .ldaprc
 .SH DESCRIPTION
 If the environment variable \fBLDAPNOINIT\fP is defined, all
 defaulting is disabled.
@@ -47,13 +47,16 @@ in the
 (or file specified by
 .BR LDAPCONF ).
 .SH OPTIONS
+The configuration options are case-insensitive;
+their value, on a case by case basis, may be case-sensitive.
 The different configuration options are:
 .TP
 .B URI <ldap[s]://[name[:port]] ...>
 Specifies the URI(s) of an LDAP server(s) to which the
 .I LDAP 
 library should connect.  The URI scheme may be either
-.BR ldap or
+.B ldap
+or
 .B ldaps 
 which refer to LDAP over TCP and LDAP over SSL (TLS) respectively.
 Each server's name can be specified as a
@@ -89,6 +92,14 @@ The port may be specified as a number.
 .B PORT
 is deprecated in favor of
 .BR URI.
+.TP
+.B REFERRALS <on/true/yes/off/false/no>
+Specifies if the client should automatically follow referrals returned
+by LDAP servers.
+The default is on.
+Note that the command line tools
+.BR ldapsearch (1)
+&co always override this option.
 .TP
 .B SIZELIMIT <integer>
 Specifies a size limit to use when performing searches.  The
@@ -255,6 +266,26 @@ These keywords are equivalent. The server certificate is requested. If no
 certificate is provided, or a bad certificate is provided, the session
 is immediately terminated. This is the default setting.
 .RE
+.TP
+.B TLS_CRLCHECK <level>
+Specifies if the Certificate Revocation List (CRL) of the CA should be 
+used to verify if the server certificates have not been revoked. This
+requires
+.B TLS_CACERTDIR
+parameter to be set.
+.B <level>
+can be specified as one of the following keywords:
+.RS
+.TP
+.B none
+No CRL checks are performed
+.TP
+.B peer
+Check the CRL of the peer certificate
+.TP
+.B all
+Check the CRL for a whole certificate chain
+.RE
 .SH "ENVIRONMENT VARIABLES"
 .TP
 LDAPNOINIT
@@ -270,7 +301,7 @@ LDAP<option-name>
 Set <option-name> as from ldap.conf
 .SH FILES
 .TP
-.I  /etc/openldap/ldap.conf
+.I  ETCDIR/ldap.conf
 system-wide ldap configuration file
 .TP
 .I  $HOME/ldaprc, $HOME/.ldaprc
@@ -279,7 +310,9 @@ user ldap configuration file
 .I  $CWD/ldaprc
 local ldap configuration file
 .SH "SEE ALSO"
-.BR ldap (3)
+.BR ldap (3),
+.BR openssl (1),
+.BR sasl (3)
 .SH AUTHOR
 Kurt Zeilenga, The OpenLDAP Project
 .SH ACKNOWLEDGEMENTS

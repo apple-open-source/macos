@@ -5,6 +5,7 @@
     <reference name='EXSLTPUBFUN' href='html/libexslt-exsltexports.html#EXSLTPUBFUN'/>
     <reference name='EXSLTPUBVAR' href='html/libexslt-exsltexports.html#EXSLTPUBVAR'/>
     <reference name='EXSLT_COMMON_NAMESPACE' href='html/libexslt-exslt.html#EXSLT_COMMON_NAMESPACE'/>
+    <reference name='EXSLT_CRYPTO_NAMESPACE' href='html/libexslt-exslt.html#EXSLT_CRYPTO_NAMESPACE'/>
     <reference name='EXSLT_DATE_NAMESPACE' href='html/libexslt-exslt.html#EXSLT_DATE_NAMESPACE'/>
     <reference name='EXSLT_DYNAMIC_NAMESPACE' href='html/libexslt-exslt.html#EXSLT_DYNAMIC_NAMESPACE'/>
     <reference name='EXSLT_FUNCTIONS_NAMESPACE' href='html/libexslt-exslt.html#EXSLT_FUNCTIONS_NAMESPACE'/>
@@ -15,6 +16,7 @@
     <reference name='SAXON_NAMESPACE' href='html/libexslt-exslt.html#SAXON_NAMESPACE'/>
     <reference name='_REENTRANT' href='html/libexslt-exsltexports.html#_REENTRANT'/>
     <reference name='exsltCommonRegister' href='html/libexslt-exslt.html#exsltCommonRegister'/>
+    <reference name='exsltCryptoRegister' href='html/libexslt-exslt.html#exsltCryptoRegister'/>
     <reference name='exsltDateRegister' href='html/libexslt-exslt.html#exsltDateRegister'/>
     <reference name='exsltDynRegister' href='html/libexslt-exslt.html#exsltDynRegister'/>
     <reference name='exsltFuncRegister' href='html/libexslt-exslt.html#exsltFuncRegister'/>
@@ -34,6 +36,7 @@
       <ref name='EXSLTPUBFUN'/>
       <ref name='EXSLTPUBVAR'/>
       <ref name='EXSLT_COMMON_NAMESPACE'/>
+      <ref name='EXSLT_CRYPTO_NAMESPACE'/>
       <ref name='EXSLT_DATE_NAMESPACE'/>
       <ref name='EXSLT_DYNAMIC_NAMESPACE'/>
       <ref name='EXSLT_FUNCTIONS_NAMESPACE'/>
@@ -52,6 +55,7 @@
     </letter>
     <letter name='e'>
       <ref name='exsltCommonRegister'/>
+      <ref name='exsltCryptoRegister'/>
       <ref name='exsltDateRegister'/>
       <ref name='exsltDynRegister'/>
       <ref name='exsltFuncRegister'/>
@@ -73,6 +77,7 @@
   <files>
     <file name='exslt'>
       <ref name='EXSLT_COMMON_NAMESPACE'/>
+      <ref name='EXSLT_CRYPTO_NAMESPACE'/>
       <ref name='EXSLT_DATE_NAMESPACE'/>
       <ref name='EXSLT_DYNAMIC_NAMESPACE'/>
       <ref name='EXSLT_FUNCTIONS_NAMESPACE'/>
@@ -81,6 +86,7 @@
       <ref name='EXSLT_STRINGS_NAMESPACE'/>
       <ref name='SAXON_NAMESPACE'/>
       <ref name='exsltCommonRegister'/>
+      <ref name='exsltCryptoRegister'/>
       <ref name='exsltDateRegister'/>
       <ref name='exsltDynRegister'/>
       <ref name='exsltFuncRegister'/>
@@ -120,6 +126,7 @@
       <letter name='E'>
         <word name='EXSLT'>
           <ref name='EXSLT_COMMON_NAMESPACE'/>
+          <ref name='EXSLT_CRYPTO_NAMESPACE'/>
           <ref name='EXSLT_DATE_NAMESPACE'/>
           <ref name='EXSLT_DYNAMIC_NAMESPACE'/>
           <ref name='EXSLT_FUNCTIONS_NAMESPACE'/>
@@ -149,6 +156,7 @@
       <letter name='N'>
         <word name='Namespace'>
           <ref name='EXSLT_COMMON_NAMESPACE'/>
+          <ref name='EXSLT_CRYPTO_NAMESPACE'/>
           <ref name='EXSLT_DATE_NAMESPACE'/>
           <ref name='EXSLT_DYNAMIC_NAMESPACE'/>
           <ref name='EXSLT_FUNCTIONS_NAMESPACE'/>
@@ -200,6 +208,9 @@
         <word name='common'>
           <ref name='EXSLT_COMMON_NAMESPACE'/>
         </word>
+        <word name='crypto'>
+          <ref name='EXSLT_CRYPTO_NAMESPACE'/>
+        </word>
       </letter>
       <letter name='d'>
         <word name='date'>
@@ -222,6 +233,7 @@
       <letter name='f'>
         <word name='for'>
           <ref name='EXSLT_COMMON_NAMESPACE'/>
+          <ref name='EXSLT_CRYPTO_NAMESPACE'/>
           <ref name='EXSLT_DATE_NAMESPACE'/>
           <ref name='EXSLT_DYNAMIC_NAMESPACE'/>
           <ref name='EXSLT_FUNCTIONS_NAMESPACE'/>
@@ -232,6 +244,7 @@
         </word>
         <word name='functions'>
           <ref name='EXSLT_COMMON_NAMESPACE'/>
+          <ref name='EXSLT_CRYPTO_NAMESPACE'/>
           <ref name='EXSLT_DATE_NAMESPACE'/>
           <ref name='EXSLT_DYNAMIC_NAMESPACE'/>
           <ref name='EXSLT_FUNCTIONS_NAMESPACE'/>

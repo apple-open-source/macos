@@ -1,5 +1,11 @@
 
-int gdCosT[] =
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include "php_compat.h"
+
+const int gdCosT[] =
 {
   1024,
   1023,
@@ -363,7 +369,7 @@ int gdCosT[] =
   1023
 };
 
-int gdSinT[] =
+const int gdSinT[] =
 {
   0,
   17,

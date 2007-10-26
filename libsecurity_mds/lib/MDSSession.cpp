@@ -29,6 +29,7 @@
 #include <security_utilities/debugging.h>
 #include <security_utilities/cfutilities.h>
 #include <security_cdsa_client/dlquery.h>
+#include <securityd_client/ssclient.h>
 #include <Security/mds_schema.h>
 #include <CoreFoundation/CFBundle.h>
 
@@ -505,9 +506,18 @@ MDSSession::terminate ()
 void
 MDSSession::install ()
 {
+	//
+	// Installation requires root
+	//
 	if(geteuid() != (uid_t)0) { 
 		CssmError::throwMe(CSSMERR_DL_OS_ACCESS_DENIED);
 	}
+	
+	//
+	// install() is only (legitimately) called from securityd.
+	// Mark "server mode" so we don't end up waiting for ourselves when the databases open.
+	//
+	mModule.setServerMode();
 	
 	int sysFdLock = -1;
 	try {
@@ -603,6 +613,15 @@ void MDSSession::DbOpen(const char *DbName,
 		const void *OpenParameters,
 		CSSM_DB_HANDLE &DbHandle)
 {
+	if (!mModule.serverMode()) {
+		/*
+		 * Make sure securityd has finished initializing (system) MDS data.
+		 * Note that activate() only does IPC once and retains global state after that.
+		 */
+		SecurityServer::ClientSession client(Allocator::standard(), Allocator::standard());
+		client.activate();		/* contact securityd - won't return until MDS is ready */
+	}
+
 	/* make sure DBs are up-to-date */
 	updateDataBases();
 	
@@ -681,7 +700,7 @@ MDSSession::obtainLock(
 {
 	fd = -1;
 	for(;;) {
-		secdebug("mdslock", "obtainLock: calling open()");
+		secdebug("mdslock", "obtainLock: calling open(%s)", lockFile);
 		fd = open(lockFile, O_EXLOCK | O_CREAT | O_RDWR, 0644);
 		if(fd == -1) {
 			int err = errno;
@@ -844,7 +863,7 @@ static void safeCopyFile(
 
 		// Keep trying to obtain the lock if we get interupted.
 		for (;;) {
-			if (::fcntl(srcFd, F_SETLKW, reinterpret_cast<int>(&fl)) == -1) {
+			if (::fcntl(srcFd, F_SETLKW, &fl) == -1) {
 				error = errno;
 				if (error == EINTR) {
 					error = 0;
@@ -886,7 +905,7 @@ static void safeCopyFile(
 	/* unlock source and close both */
 	if(haveLock) {
 		fl.l_type = F_UNLCK;
-		if (::fcntl(srcFd, F_SETLK, reinterpret_cast<int>(&fl)) == -1) {
+		if (::fcntl(srcFd, F_SETLK, &fl) == -1) {
 			MSDebug("Error %d unlocking system DB file %s\n", errno, fromPath);
 		}
 	}
@@ -1111,6 +1130,8 @@ void MDSSession::removeRecordsForGuid(
 	const char *guid,
 	CSSM_DB_HANDLE dbHand)
 {
+	// tell the DB to flush its intermediate data to disk
+	PassThrough(dbHand, CSSM_APPLEFILEDL_COMMIT, NULL, NULL);
 	CssmClient::Query query = Attribute("ModuleID") == guid;
 	clearRecords(dbHand, query.cssmQuery());
 }
@@ -1523,11 +1544,14 @@ void MDSSession::DbFilesInfo::removeOutdatedPlugins()
 			MSDebug("removeOutdatedPlugins: incomplete record found (1)!");
 		}
 		for(unsigned dex=0; dex<2; dex++) {
-			if(theAttrs[dex].Value) {
-				if(theAttrs[dex].Value->Data) {
-					mSession.free(theAttrs[dex].Value->Data);
+			CSSM_DB_ATTRIBUTE_DATA *attr = &theAttrs[dex];
+			for (unsigned attrDex=0; attrDex<attr->NumberOfValues; attrDex++) {
+				if(attr->Value[attrDex].Data) {
+					mSession.free(attr->Value[attrDex].Data);
 				}
-				mSession.free(theAttrs[dex].Value);
+			}
+			if(attr->Value) {
+				mSession.free(attr->Value);
 			}
 		}
 	}
@@ -1560,11 +1584,14 @@ void MDSSession::DbFilesInfo::removeOutdatedPlugins()
 			MSDebug("removeOutdatedPlugins: incomplete record found (2)!");
 		}
 		for(unsigned dex=0; dex<2; dex++) {
-			if(theAttrs[dex].Value) {
-				if(theAttrs[dex].Value->Data) {
-					mSession.free(theAttrs[dex].Value->Data);
+			CSSM_DB_ATTRIBUTE_DATA *attr = &theAttrs[dex];
+			for (unsigned attrDex=0; attrDex<attr->NumberOfValues; attrDex++) {
+				if(attr->Value[attrDex].Data) {
+					mSession.free(attr->Value[attrDex].Data);
 				}
-				mSession.free(theAttrs[dex].Value);
+			}
+			if(attr->Value) {
+				mSession.free(attr->Value);
 			}
 		}
 	}
@@ -1683,12 +1710,12 @@ bool MDSSession::DbFilesInfo::lookupForPath(
 			MSDebug("exception on DataAbortQuery in lookupForPath");
 		}
 	}
-	if(theAttr.Value) {
-		if(theAttr.Value->Data) {
-			mSession.free(theAttr.Value->Data);
+	for(unsigned dex=0; dex<theAttr.NumberOfValues; dex++) {
+		if(theAttr.Value[dex].Data) {
+			mSession.free(theAttr.Value[dex].Data);
 		}
-		mSession.free(theAttr.Value);
 	}
+	mSession.free(theAttr.Value);
 	return ourRtn;
 }
 
@@ -1707,7 +1734,18 @@ void MDSSession::DbFilesInfo::updateForBundle(
 		mSession,
 		objDbHand(),
 		directDbHand());
-	parser.parseAttrs();
+	try {
+		parser.parseAttrs();
+	}
+	catch (const CssmError &err) {
+		// a corrupt MDS info file invalidates the entire plugin
+		const char *guid = parser.guid();
+		if (guid) {
+			Syslog::alert("Plugin (GUID %s) being unloaded from MDS", guid);
+			mSession.removeRecordsForGuid(guid, objDbHand());
+			mSession.removeRecordsForGuid(guid, directDbHand());
+		}
+	}
 }
 
 
@@ -1726,13 +1764,27 @@ void MDSSession::installFile(const MDS_InstallDefaults *defaults,
 		dbFiles.directDbHand());
 	parser.setDefaults(defaults);
 
-	if (file == NULL)	// parse a directory
-		if (subdir)		// a particular directory
-			parser.parseAttrs(CFTempString(subdir));
-		else			// all resources in bundle
-			parser.parseAttrs(NULL);
-	else				// parse just one file
-		parser.parseFile(CFRef<CFURLRef>(makeCFURL(file)), CFTempString(subdir));
+	try {
+		if (file == NULL)	// parse a directory
+			if (subdir)		// a particular directory
+				parser.parseAttrs(CFTempString(subdir));
+			else			// all resources in bundle
+				parser.parseAttrs(NULL);
+		else				// parse just one file
+			parser.parseFile(CFRef<CFURLRef>(makeCFURL(file)), CFTempString(subdir));
+	}
+	catch (const CssmError &err) {
+		if (file != NULL) {
+			Syslog::alert("Error parsing MDS info file %s/%s/%s", 
+						  bundlePath.c_str(), subdir ? subdir : "", file);
+		}
+		const char *guid = parser.guid();
+		if (guid) {
+			Syslog::alert("Plugin (GUID %s) being unloaded from MDS", guid);
+			removeRecordsForGuid(guid, dbFiles.objDbHand());
+			removeRecordsForGuid(guid, dbFiles.directDbHand());
+		}
+	}
 }
 
 

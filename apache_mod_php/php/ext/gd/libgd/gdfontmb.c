@@ -12,7 +12,7 @@
 
 #include "gdfontmb.h"
 
-char gdFontMediumBoldData[] =
+static const char gdFontMediumBoldData[] =
 {
 /* Char 0 */
   0, 0, 0, 0, 0, 0, 0,
@@ -3863,7 +3863,7 @@ gdFont gdFontMediumBoldRep =
   0,
   7,
   13,
-  gdFontMediumBoldData
+  (char*)gdFontMediumBoldData
 };
 
 gdFontPtr gdFontMediumBold = &gdFontMediumBoldRep;

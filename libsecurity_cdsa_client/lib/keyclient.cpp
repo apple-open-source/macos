@@ -68,7 +68,7 @@ CssmKeySize
 KeyImpl::sizeInBits() const
 {
     CssmKeySize size;
-    check(CSSM_QueryKeySizeInBits(csp()->handle(), NULL, this, &size));
+    check(CSSM_QueryKeySizeInBits(csp()->handle(), CSSM_INVALID_HANDLE, this, &size));
     return size;
 }
 

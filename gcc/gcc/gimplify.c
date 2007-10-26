@@ -678,7 +678,7 @@ copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 
   /* Otherwise, mark the tree as visited and keep looking.  */
   else
-    /* APPLE LOCAL begin PR 14498 etc. --dbj */
+    /* APPLE LOCAL begin PR 14498, etc. --dbj */
     /* History is complicated, this was in mainline prior to merge,
        temporarily and erroneously removed at merge snapshot,
        later put back, still later replaced by different mechanism. */
@@ -695,7 +695,7 @@ copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 		     NULL, NULL);
 	}
     }
-    /* APPLE LOCAL end PR 14498 etc. */
+    /* APPLE LOCAL end PR 14498, etc. */
 
   return NULL_TREE;
 }
@@ -2603,7 +2603,10 @@ gimplify_init_ctor_eval (tree object, tree list, tree *pre_p, bool cleared)
 	cref = build (COMPONENT_REF, TREE_TYPE (purpose),
 		      unshare_expr (object), purpose, NULL_TREE);
 
-      if (TREE_CODE (value) == CONSTRUCTOR)
+      /* APPLE LOCAL begin mainline 5119788 */
+      if (TREE_CODE (value) == CONSTRUCTOR
+	  && TREE_CODE (TREE_TYPE (value)) != VECTOR_TYPE)
+      /* APPLE LOCAL end mainline 5119788 */
 	gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 				 pre_p, cleared);
       else
@@ -2670,7 +2673,10 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	if (num_nonconstant_elements == 0
 	    && num_nonzero_elements > 1
 	    && TREE_READONLY (object)
-	    && TREE_CODE (object) == VAR_DECL)
+	    /* APPLE LOCAL begin CW asm blocks */
+	    && TREE_CODE (object) == VAR_DECL
+	    && !DECL_IASM_DONT_PROMOTE_TO_STATIC (object))
+	    /* APPLE LOCAL end CW asm blocks */
 	  {
 	    DECL_INITIAL (object) = ctor;
 	    TREE_STATIC (object) = 1;
@@ -2691,10 +2697,60 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	    break;
 	  }
 
+	/* APPLE LOCAL begin ARM mainline pr21478 */
+	/* If there are "lots" of initialized elements, even discounting
+	   those that are not address constants (and thus *must* be
+	   computed at runtime), then partition the constructor into
+	   constant and non-constant parts.  Block copy the constant
+	   parts in, then generate code for the non-constant parts.  */
+	/* TODO.  There's code in cp/typeck.c to do this.  */
+
+	num_type_elements = count_type_elements (TREE_TYPE (ctor));
+
+	/* If there are "lots" of zeros, then block clear the object first.  */
+	if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
+	    && num_nonzero_elements < num_type_elements/4)
+	  cleared = true;
+
+	/* ??? This bit ought not be needed.  For any element not present
+	   in the initializer, we should simply set them to zero.  Except
+	   we'd need to *find* the elements that are not present, and that
+	   requires trickery to avoid quadratic compile-time behavior in
+	   large cases or excessive memory use in small cases.  */
+	else if (num_ctor_elements < num_type_elements)
+	  cleared = true;
+
+	/* If there are "lots" of initialized elements, even discounting
+	   those that are not address constants (and thus *must* be
+	   computed at runtime), then partition the constructor into
+	   constant and non-constant parts.  Block copy the constant
+	   parts in, then generate code for the non-constant parts.  */
+	/* TODO.  There's code in cp/typeck.c to do this.  */
+
+	num_type_elements = count_type_elements (type);
+
+	/* If count_type_elements could not determine number of type elements
+	   for a constant-sized object, assume clearing is needed.
+	   Don't do this for variable-sized objects, as store_constructor
+	   will ignore the clearing of variable-sized objects.  */
+	if (num_type_elements < 0 && int_size_in_bytes (type) >= 0)
+	  cleared = true;
+	/* If there are "lots" of zeros, then block clear the object first.  */
+	else if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
+		 && num_nonzero_elements < num_type_elements/4)
+	  cleared = true;
+	/* ??? This bit ought not be needed.  For any element not present
+	   in the initializer, we should simply set them to zero.  Except
+	   we'd need to *find* the elements that are not present, and that
+	   requires trickery to avoid quadratic compile-time behavior in
+	   large cases or excessive memory use in small cases.  */
+	else if (num_ctor_elements < num_type_elements)
+	  cleared = true;
+
 	/* If there are "lots" of initialized elements, and all of them
 	   are valid address constants, then the entire initializer can
 	   be dropped to memory, and then memcpy'd out.  */
-	if (num_nonconstant_elements == 0)
+	if (num_nonconstant_elements == 0 && !cleared)
 	  {
 	    HOST_WIDE_INT size = int_size_in_bytes (type);
 	    unsigned int align;
@@ -2739,33 +2795,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 		return GS_UNHANDLED;
 	      }
 	  }
-
-	/* If there are "lots" of initialized elements, even discounting
-	   those that are not address constants (and thus *must* be
-	   computed at runtime), then partition the constructor into
-	   constant and non-constant parts.  Block copy the constant
-	   parts in, then generate code for the non-constant parts.  */
-	/* TODO.  There's code in cp/typeck.c to do this.  */
-
-	num_type_elements = count_type_elements (type);
-
-	/* If count_type_elements could not determine number of type elements
-	   for a constant-sized object, assume clearing is needed.
-	   Don't do this for variable-sized objects, as store_constructor
-	   will ignore the clearing of variable-sized objects.  */
-	if (num_type_elements < 0 && int_size_in_bytes (type) >= 0)
-	  cleared = true;
-	/* If there are "lots" of zeros, then block clear the object first.  */
-	else if (num_type_elements - num_nonzero_elements > CLEAR_RATIO
-		 && num_nonzero_elements < num_type_elements/4)
-	  cleared = true;
-	/* ??? This bit ought not be needed.  For any element not present
-	   in the initializer, we should simply set them to zero.  Except
-	   we'd need to *find* the elements that are not present, and that
-	   requires trickery to avoid quadratic compile-time behavior in
-	   large cases or excessive memory use in small cases.  */
-	else if (num_ctor_elements < num_type_elements)
-	  cleared = true;
+	/* APPLE LOCAL end ARM mainline pr21478 */
 
 	if (cleared)
 	  {
@@ -3025,9 +3055,17 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
      that is what we must here.  */
   maybe_with_size_expr (from_p);
 
-  ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
-  if (ret == GS_ERROR)
-    return ret;
+/* APPLE LOCAL begin 4228828 */
+  /* For stores to a pointer, keep computation of the address close to the
+     pointer.  Later optimizations should do this; the 'sink' pass in 4.2
+     does it, but that's not in 4.0.  Temporary. */
+  if (TREE_CODE (*to_p) != INDIRECT_REF)
+    {
+      ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
+      if (ret == GS_ERROR)
+	return ret;
+    }
+/* APPLE LOCAL end 4228828 */
 
   ret = gimplify_expr (from_p, pre_p, post_p,
 		       rhs_predicate_for (*to_p), fb_rvalue);
@@ -3039,6 +3077,15 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 				  want_value);
   if (ret != GS_UNHANDLED)
     return ret;
+
+/* APPLE LOCAL begin 4228828 */
+  if (TREE_CODE (*to_p) == INDIRECT_REF)
+    {
+      ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
+      if (ret == GS_ERROR)
+	return ret;
+    }
+/* APPLE LOCAL end 4228828 */
 
   /* If we've got a variable sized assignment between two lvalues (i.e. does
      not involve a call), then we can make things a bit more straightforward

@@ -1,13 +1,13 @@
 .TH SLURPD 8C "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man8/slurpd.8,v 1.15.2.2 2004/01/01 18:16:27 kurt Exp $
-.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man8/slurpd.8,v 1.17.2.4 2006/01/03 22:16:06 kurt Exp $
+.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 slurpd \- Standalone LDAP Update Replication Daemon
 .SH SYNOPSIS
-.B /usr/libexec/slurpd [\-d debug\-level]
+.B LIBEXECDIR/slurpd [\-d debug\-level]
 .B [\-f slapd\-config\-file] [\-r slapd\-replog\-file]
-.B [\-t temp\-dir] [\-o] [\-k srvtab\-file]
+.B [\-t temp\-dir] [\-o]
 .B 
 .SH DESCRIPTION
 .LP
@@ -37,7 +37,7 @@ command-line option).
 If the replication log file does not exist or is empty,
 .B slurpd
 goes to sleep.  It periodically wakes up and checks to see if there
-are any changes to be propoagated.
+are any changes to be propagated.
 .LP
 When
 .B slurpd
@@ -82,7 +82,7 @@ different kind of debugging information.  See <ldap.h> for details.
 .TP
 .BI \-f " slapd\-config\-file"
 Specifies the slapd configuration file.  The default is
-.BR /etc/openldap/slapd.conf .
+.BR ETCDIR/slapd.conf .
 .TP
 .BI \-r " slapd\-replog\-file"
 Specifies the name of the 
@@ -120,16 +120,7 @@ The directory permissions should limit read/write/execute access as
 temporary files may contain sensitive information.
 This option allows you to specify the location of these temporary files. 
 The default is
-.BR /var/db/openldap/openldap-slurp .
-.TP
-.BI \-k " srvtab\-file"
-Specify the location of the kerberos srvtab file which contains keys
-for the replica 
-.I slapd
-instances.  Overrides the srvtab argument to the
-replica directive in the 
-.I slapd
-configuration file.
+.BR LOCALSTATEDIR/openldap-slurp .
 .SH EXAMPLES
 To start 
 .I slurpd
@@ -140,7 +131,7 @@ just type:
 .LP
 .nf
 .ft tt
-	/usr/libexec/slurpd
+	LIBEXECDIR/slurpd
 .ft
 .fi
 .LP
@@ -153,7 +144,7 @@ on voluminous debugging which will be printed on standard error, type:
 .LP
 .nf
 .ft tt
-	/usr/libexec/slurpd -f /etc/openldap/slapd.conf -d 255
+	LIBEXECDIR/slurpd -f ETCDIR/slapd.conf -d 255
 .ft
 .fi
 .LP

@@ -19,10 +19,10 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
+#include <system.h>
 
 #include <fnmatch.h>
-#include <getopt.h>
+#include <argp.h>
 
 #include <signal.h>
 #if ! defined SIGCHLD && defined SIGCLD
@@ -38,6 +38,7 @@
 
 #include <getdate.h>
 #include <localedir.h>
+#include <rmt.h>
 #include <prepargs.h>
 #include <quotearg.h>
 #include <xstrtol.h>
@@ -128,6 +129,7 @@ static struct fmttab {
   { "star",    STAR_FORMAT },
 #endif
   { "gnu",     GNU_FORMAT },
+  { "pax",     POSIX_FORMAT }, /* An alias for posix */
   { NULL,	 0 }
 };
 
@@ -179,385 +181,393 @@ assert_format(unsigned fmt_mask)
 enum
 {
   ANCHORED_OPTION = CHAR_MAX + 1,
+  ALLOW_NAME_MANGLING_OPTION,
   ATIME_PRESERVE_OPTION,
   BACKUP_OPTION,
   CHECKPOINT_OPTION,
+  CHECK_LINKS_OPTION,
   DELETE_OPTION,
   EXCLUDE_OPTION,
+  EXCLUDE_CACHES_OPTION,
   FORCE_LOCAL_OPTION,
-  FORMAT_OPTION,
   GROUP_OPTION,
   IGNORE_CASE_OPTION,
   IGNORE_FAILED_READ_OPTION,
   INDEX_FILE_OPTION,
   KEEP_NEWER_FILES_OPTION,
+  LICENSE_OPTION,
   MODE_OPTION,
   NEWER_MTIME_OPTION,
   NO_ANCHORED_OPTION,
   NO_IGNORE_CASE_OPTION,
   NO_OVERWRITE_DIR_OPTION,
+  NO_RECURSION_OPTION,
+  NO_SAME_OWNER_OPTION,
+  NO_SAME_PERMISSIONS_OPTION,
   NO_WILDCARDS_OPTION,
   NO_WILDCARDS_MATCH_SLASH_OPTION,
   NULL_OPTION,
   NUMERIC_OWNER_OPTION,
   OCCURRENCE_OPTION,
+  OLD_ARCHIVE_OPTION,
+  ONE_FILE_SYSTEM_OPTION,
   OVERWRITE_OPTION,
   OWNER_OPTION,
   PAX_OPTION,
   POSIX_OPTION,
   PRESERVE_OPTION,
   RECORD_SIZE_OPTION,
+  RECURSION_OPTION,
   RECURSIVE_UNLINK_OPTION,
   REMOVE_FILES_OPTION,
   RMT_COMMAND_OPTION,
   RSH_COMMAND_OPTION,
+  SAME_OWNER_OPTION,
   SHOW_DEFAULTS_OPTION,
   SHOW_OMITTED_DIRS_OPTION,
-  STRIP_PATH_OPTION,
+  STRIP_COMPONENTS_OPTION,
   SUFFIX_OPTION,
   TOTALS_OPTION,
+  USAGE_OPTION,
   USE_COMPRESS_PROGRAM_OPTION,
   UTC_OPTION,
+  VERSION_OPTION,
   VOLNO_FILE_OPTION,
   WILDCARDS_OPTION,
   WILDCARDS_MATCH_SLASH_OPTION
 };
 
-/* If nonzero, display usage information and exit.  */
-static int show_help;
-
-/* If nonzero, print the version on standard output and exit.  */
-static int show_version;
-
-static struct option long_options[] =
-{
-  {"absolute-names", no_argument, 0, 'P'},
-  {"after-date", required_argument, 0, 'N'},
-  {"anchored", no_argument, 0, ANCHORED_OPTION},
-  {"append", no_argument, 0, 'r'},
-  {"atime-preserve", no_argument, 0, ATIME_PRESERVE_OPTION},
-  {"backup", optional_argument, 0, BACKUP_OPTION},
-  {"block-number", no_argument, 0, 'R'},
-  {"blocking-factor", required_argument, 0, 'b'},
-  {"bzip2", no_argument, 0, 'j'},
-  {"catenate", no_argument, 0, 'A'},
-  {"checkpoint", no_argument, 0, CHECKPOINT_OPTION},
-  {"check-links", no_argument, &check_links_option, 1},
-  {"compare", no_argument, 0, 'd'},
-  {"compress", no_argument, 0, 'Z'},
-  {"concatenate", no_argument, 0, 'A'},
-  {"confirmation", no_argument, 0, 'w'},
-  /* FIXME: --selective as a synonym for --confirmation?  */
-  {"create", no_argument, 0, 'c'},
-  {"delete", no_argument, 0, DELETE_OPTION},
-  {"dereference", no_argument, 0, 'h'},
-  {"diff", no_argument, 0, 'd'},
-  {"directory", required_argument, 0, 'C'},
-  {"exclude", required_argument, 0, EXCLUDE_OPTION},
-  {"exclude-from", required_argument, 0, 'X'},
-  {"extract", no_argument, 0, 'x'},
-  {"file", required_argument, 0, 'f'},
-  {"files-from", required_argument, 0, 'T'},
-  {"force-local", no_argument, 0, FORCE_LOCAL_OPTION},
-  {"format", required_argument, 0, FORMAT_OPTION},
-  {"get", no_argument, 0, 'x'},
-  {"group", required_argument, 0, GROUP_OPTION},
-  {"gunzip", no_argument, 0, 'z'},
-  {"gzip", no_argument, 0, 'z'},
-  {"help", no_argument, &show_help, 1},
-  {"ignore-case", no_argument, 0, IGNORE_CASE_OPTION},
-  {"ignore-failed-read", no_argument, 0, IGNORE_FAILED_READ_OPTION},
-  {"ignore-zeros", no_argument, 0, 'i'},
-  /* FIXME: --ignore-end as a new name for --ignore-zeros?  */
-  {"incremental", no_argument, 0, 'G'},
-  {"index-file", required_argument, 0, INDEX_FILE_OPTION},
-  {"info-script", required_argument, 0, 'F'},
-  {"interactive", no_argument, 0, 'w'},
-  {"keep-newer-files", no_argument, 0, KEEP_NEWER_FILES_OPTION},
-  {"keep-old-files", no_argument, 0, 'k'},
-  {"label", required_argument, 0, 'V'},
-  {"list", no_argument, 0, 't'},
-  {"listed-incremental", required_argument, 0, 'g'},
-  {"mode", required_argument, 0, MODE_OPTION},
-  {"multi-volume", no_argument, 0, 'M'},
-  {"new-volume-script", required_argument, 0, 'F'},
-  {"newer", required_argument, 0, 'N'},
-  {"newer-mtime", required_argument, 0, NEWER_MTIME_OPTION},
-  {"null", no_argument, 0, NULL_OPTION},
-  {"no-anchored", no_argument, 0, NO_ANCHORED_OPTION},
-  {"no-ignore-case", no_argument, 0, NO_IGNORE_CASE_OPTION},
-  {"no-overwrite-dir", no_argument, 0, NO_OVERWRITE_DIR_OPTION},
-  {"no-wildcards", no_argument, 0, NO_WILDCARDS_OPTION},
-  {"no-wildcards-match-slash", no_argument, 0, NO_WILDCARDS_MATCH_SLASH_OPTION},
-  {"no-recursion", no_argument, &recursion_option, 0},
-  {"no-same-owner", no_argument, &same_owner_option, -1},
-  {"no-same-permissions", no_argument, &same_permissions_option, -1},
-  {"numeric-owner", no_argument, 0, NUMERIC_OWNER_OPTION},
-  {"occurrence", optional_argument, 0, OCCURRENCE_OPTION},
-  {"old-archive", no_argument, 0, 'o'},
-  {"one-file-system", no_argument, 0, 'l'},
-  {"overwrite", no_argument, 0, OVERWRITE_OPTION},
-  {"owner", required_argument, 0, OWNER_OPTION},
-  {"pax-option", required_argument, 0, PAX_OPTION},
-  {"portability", no_argument, 0, 'o'},
-  {"posix", no_argument, 0, POSIX_OPTION},
-  {"preserve", no_argument, 0, PRESERVE_OPTION},
-  {"preserve-order", no_argument, 0, 's'},
-  {"preserve-permissions", no_argument, 0, 'p'},
-  {"recursion", no_argument, &recursion_option, FNM_LEADING_DIR},
-  {"recursive-unlink", no_argument, 0, RECURSIVE_UNLINK_OPTION},
-  {"read-full-records", no_argument, 0, 'B'},
-  /* FIXME: --partial-blocks might be a synonym for --read-full-records?  */
-  {"record-size", required_argument, 0, RECORD_SIZE_OPTION},
-  {"remove-files", no_argument, 0, REMOVE_FILES_OPTION},
-  {"rmt-command", required_argument, 0, RMT_COMMAND_OPTION},
-  {"rsh-command", required_argument, 0, RSH_COMMAND_OPTION},
-  {"same-order", no_argument, 0, 's'},
-  {"same-owner", no_argument, &same_owner_option, 1},
-  {"same-permissions", no_argument, 0, 'p'},
-  {"show-defaults", no_argument, 0, SHOW_DEFAULTS_OPTION},
-  {"show-omitted-dirs", no_argument, 0, SHOW_OMITTED_DIRS_OPTION},
-  {"sparse", no_argument, 0, 'S'},
-  {"starting-file", required_argument, 0, 'K'},
-  {"strip-path", required_argument, 0, STRIP_PATH_OPTION },
-  {"suffix", required_argument, 0, SUFFIX_OPTION},
-  {"tape-length", required_argument, 0, 'L'},
-  {"to-stdout", no_argument, 0, 'O'},
-  {"totals", no_argument, 0, TOTALS_OPTION},
-  {"touch", no_argument, 0, 'm'},
-  {"uncompress", no_argument, 0, 'Z'},
-  {"ungzip", no_argument, 0, 'z'},
-  {"unlink-first", no_argument, 0, 'U'},
-  {"update", no_argument, 0, 'u'},
-  {"utc", no_argument, 0, UTC_OPTION },
-  {"use-compress-program", required_argument, 0, USE_COMPRESS_PROGRAM_OPTION},
-  {"verbose", no_argument, 0, 'v'},
-  {"verify", no_argument, 0, 'W'},
-  {"version", no_argument, &show_version, 1},
-  {"volno-file", required_argument, 0, VOLNO_FILE_OPTION},
-  {"wildcards", no_argument, 0, WILDCARDS_OPTION},
-  {"wildcards-match-slash", no_argument, 0, WILDCARDS_MATCH_SLASH_OPTION},
-
-  {0, 0, 0, 0}
-};
-
-/* Print a usage message and exit with STATUS.  */
-void
-usage (int status)
-{
-  if (status != TAREXIT_SUCCESS)
-    fprintf (stderr, _("Try `%s --help' for more information.\n"),
-	     program_name);
-  else
-    {
-      fputs (_("\
-GNU `tar' saves many files together into a single tape or disk archive, and\n\
-can restore individual files from the archive.\n"),
-	     stdout);
-      printf (_("\nUsage: %s [OPTION]... [FILE]...\n\
+const char *argp_program_version = "tar (" PACKAGE_NAME ") " VERSION;
+const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
+static char doc[] = N_("GNU `tar' saves many files together into a single tape or disk archive, and can restore individual files from the archive.\n\
 \n\
 Examples:\n\
-  %s -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n\
-  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n\
-  %s -xf archive.tar          # Extract all files from archive.tar.\n"),
-	     program_name, program_name, program_name, program_name);
-      fputs (_("\
-\n\
-If a long option shows an argument as mandatory, then it is mandatory\n\
-for the equivalent short option also.  Similarly for optional arguments.\n"),
-	     stdout);
-      fputs(_("\
-\n\
-Main operation mode:\n\
-  -t, --list              list the contents of an archive\n\
-  -x, --extract, --get    extract files from an archive\n\
-  -c, --create            create a new archive\n\
-  -d, --diff, --compare   find differences between archive and file system\n\
-  -r, --append            append files to the end of an archive\n\
-  -u, --update            only append files newer than copy in archive\n\
-  -A, --catenate          append tar files to an archive\n\
-      --concatenate       same as -A\n\
-      --delete            delete from the archive (not on mag tapes!)\n"),
-	    stdout);
-      fputs (_("\
-\n\
-Operation modifiers:\n\
-  -W, --verify               attempt to verify the archive after writing it\n\
-      --remove-files         remove files after adding them to the archive\n\
-  -k, --keep-old-files       don't replace existing files when extracting\n\
-      --keep-newer-files     don't replace existing files that are newer\n\
-                             than their archive copies\n\
-      --overwrite            overwrite existing files when extracting\n\
-      --no-overwrite-dir     preserve metadata of existing directories\n\
-  -U, --unlink-first         remove each file prior to extracting over it\n\
-      --recursive-unlink     empty hierarchies prior to extracting directory\n\
-  -S, --sparse               handle sparse files efficiently\n\
-  -O, --to-stdout            extract files to standard output\n\
-  -G, --incremental          handle old GNU-format incremental backup\n\
-  -g, --listed-incremental=FILE\n\
-                             handle new GNU-format incremental backup\n\
-      --ignore-failed-read   do not exit with nonzero on unreadable files\n\
-      --occurrence[=NUM]     process only the NUMth occurrence of each file in\n\
-                             the archive. This option is valid only in\n\
-                             conjunction with one of the subcommands --delete,\n\
-                             --diff, --extract or --list and when a list of\n\
-                             files is given either on the command line or\n\
-                             via -T option.\n\
-                             NUM defaults to 1.\n"),
-	     stdout);
-      fputs (_("\
-\n\
-Handling of file attributes:\n\
-      --owner=NAME             force NAME as owner for added files\n\
-      --group=NAME             force NAME as group for added files\n\
-      --mode=CHANGES           force (symbolic) mode CHANGES for added files\n\
-      --atime-preserve         don't change access times on dumped files\n\
-  -m, --modification-time      don't extract file modified time\n\
-      --same-owner             try extracting files with the same ownership\n\
-      --no-same-owner          extract files as yourself\n\
-      --numeric-owner          always use numbers for user/group names\n\
-  -p, --same-permissions       extract permissions information\n\
-      --no-same-permissions    do not extract permissions information\n\
-      --preserve-permissions   same as -p\n\
-  -s, --same-order             sort names to extract to match archive\n\
-      --preserve-order         same as -s\n\
-      --preserve               same as both -p and -s\n"),
-	     stdout);
-      fputs (_("\
-\n\
-Device selection and switching:\n\
-  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n\
-      --force-local              archive file is local even if has a colon\n\
-      --rmt-command=COMMAND      use given rmt COMMAND instead of /etc/rmt\n\
-      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n\
-  -[0-7][lmh]                    specify drive and density\n\
-  -M, --multi-volume             create/list/extract multi-volume archive\n\
-  -L, --tape-length=NUM          change tape after writing NUM x 1024 bytes\n\
-  -F, --info-script=FILE         run script at end of each tape (implies -M)\n\
-      --new-volume-script=FILE   same as -F FILE\n\
-      --volno-file=FILE          use/update the volume number in FILE\n"),
-	     stdout);
-      fputs (_("\
-\n\
-Device blocking:\n\
-  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n\
-      --record-size=SIZE         SIZE bytes per record, multiple of 512\n\
-  -i, --ignore-zeros             ignore zeroed blocks in archive (means EOF)\n\
-  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"),
-	     stdout);
-      fputs (_("\
-\n\
-Archive format selection:\n\
-      --format=FMTNAME               create archive of the given format.\n\
-                                     FMTNAME is one of the following:\n\
-                                     v7        old V7 tar format\n\
-                                     oldgnu    GNU format as per tar <= 1.12\n\
-                                     gnu       GNU tar 1.13 format\n\
-                                     ustar     POSIX 1003.1-1988 (ustar) format\n\
-                                     posix     POSIX 1003.1-2001 (pax) format\n\
-      --old-archive, --portability   same as --format=v7\n\
-      --posix                        same as --format=posix\n\
-  --pax-option keyword[[:]=value][,keyword[[:]=value], ...]\n\
-                                     control pax keywords\n\
-  -V, --label=NAME                   create archive with volume name NAME\n\
-              PATTERN                at list/extract time, a globbing PATTERN\n\
-  -j, --bzip2                        filter the archive through bzip2\n\
-  -z, --gzip, --ungzip               filter the archive through gzip\n\
-  -Z, --compress, --uncompress       filter the archive through compress\n\
-      --use-compress-program=PROG    filter through PROG (must accept -d)\n"),
-	     stdout);
-      fputs (_("\
-\n\
-Local file selection:\n\
-  -C, --directory=DIR          change to directory DIR\n\
-  -T, --files-from=NAME        get names to extract or create from file NAME\n\
-      --null                   -T reads null-terminated names, disable -C\n\
-      --exclude=PATTERN        exclude files, given as a PATTERN\n\
-  -X, --exclude-from=FILE      exclude patterns listed in FILE\n\
-      --anchored               exclude patterns match file name start (default)\n\
-      --no-anchored            exclude patterns match after any /\n\
-      --ignore-case            exclusion ignores case\n\
-      --no-ignore-case         exclusion is case sensitive (default)\n\
-      --wildcards              exclude patterns use wildcards (default)\n\
-      --no-wildcards           exclude patterns are plain strings\n\
-      --wildcards-match-slash  exclude pattern wildcards match '/' (default)\n\
-      --no-wildcards-match-slash exclude pattern wildcards do not match '/'\n\
-  -P, --absolute-names         don't strip leading `/'s from file names\n\
-  -h, --dereference            dump instead the files symlinks point to\n\
-      --no-recursion           avoid descending automatically in directories\n\
-  -l, --one-file-system        stay in local file system when creating archive\n\
-  -K, --starting-file=NAME     begin at file NAME in the archive\n\
-      --strip-path=NUM         strip NUM leading components from file names\n\
-                               before extraction\n"),
-	     stdout);
-#if !MSDOS
-      fputs (_("\
-  -N, --newer=DATE-OR-FILE     only store files newer than DATE-OR-FILE\n\
-      --newer-mtime=DATE       compare date and time when data changed only\n\
-      --after-date=DATE        same as -N\n"),
-	     stdout);
-#endif
-      fputs (_("\
-      --backup[=CONTROL]       backup before removal, choose version control\n\
-      --suffix=SUFFIX          backup before removal, override usual suffix\n"),
-	     stdout);
-      fputs (_("\
-\n\
-Informative output:\n\
-      --help            print this help, then exit\n\
-      --version         print tar program version number, then exit\n\
-  -v, --verbose         verbosely list files processed\n\
-      --checkpoint      print directory names while reading the archive\n\
-      --check-links     print a message if not all links are dumped\n\
-      --totals          print total bytes written while creating archive\n\
-      --index-file=FILE send verbose output to FILE\n\
-      --utc             print file modification dates in UTC\n\
-  -R, --block-number    show block number within archive with each message\n\
-  -w, --interactive     ask for confirmation for every action\n\
-      --confirmation    same as -w\n"),
-	     stdout);
-      fputs (_("\
-\n\
-Compatibility options:\n\
-  -o                                 when creating, same as --old-archive\n\
-                                     when extracting, same as --no-same-owner\n"),
-             stdout);
-
-      fputs (_("\
-\n\
-The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n\
-The version control may be set with --backup or VERSION_CONTROL, values are:\n\
-\n\
+  tar -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n\
+  tar -tvf archive.tar         # List all files in archive.tar verbosely.\n\
+  tar -xf archive.tar          # Extract all files from archive.tar.\n\
+\vThe backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n\
+The version control may be set with --backup or VERSION_CONTROL, values are:\n\n\
   t, numbered     make numbered backups\n\
   nil, existing   numbered if numbered backups exist, simple otherwise\n\
-  never, simple   always make simple backups\n"),
-	     stdout);
-      printf (_("\
-\n\
-ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual date\n\
-or a file name starting with `/' or `.', in which case the file's date is used.\n\
-*This* `tar' defaults to `--format=%s -f%s -b%d'.\n"),
-	      archive_format_string (DEFAULT_ARCHIVE_FORMAT),
-	      DEFAULT_ARCHIVE, DEFAULT_BLOCKING);
-      printf (_("\nReport bugs to <%s>.\n"), PACKAGE_BUGREPORT);
-    }
-  exit (status);
-}
+  never, simple   always make simple backups\n");
 
-/* Parse the options for tar.  */
 
-/* Available option letters are DEHIJQY and aenqy.  Some are reserved:
+/* NOTE:
 
+   Available option letters are DEIJQY and aeqy. Consider the following
+   assignments:
+
+   [For Solaris tar compatibility]
    e  exit immediately with a nonzero exit status if unexpected errors occur
-   E  use extended headers (draft POSIX headers, that is)
-   I  same as T (for compatibility with Solaris tar)
-   n  the archive is quickly seekable, so don't worry about random seeks
-   q  stop after extracting the first occurrence of the named file
+   E  use extended headers (--format=posix)
+   [q  alias for --occurrence=1 =/= this would better be used for quiet?]
+   [I  same as T =/= will harm star compatibility]
+   
    y  per-file gzip compression
    Y  per-block gzip compression */
 
-#define OPTION_STRING \
-  "-01234567ABC:F:GIK:L:MN:OPRST:UV:WX:Zb:cdf:g:hijklmoprstuvwxyz"
+static struct argp_option options[] = {
+  {NULL, 0, NULL, 0,
+   N_("Main operation mode:"), 0},
+  
+  {"list", 't', 0, 0,
+   N_("list the contents of an archive"), 10 },
+  {"extract", 'x', 0, 0,
+   N_("extract files from an archive"), 10 },
+  {"get", 0, 0, OPTION_ALIAS, NULL, 0 },
+  {"create", 'c', 0, 0,
+   N_("create a new archive"), 10 },
+  {"diff", 'd', 0, 0,
+   N_("find differences between archive and file system"), 10 },
+  {"compare", 0, 0, OPTION_ALIAS, NULL, 10},
+  {"append", 'r', 0, 0,
+   N_("append files to the end of an archive"), 10 },
+  {"update", 'u', 0, 0,
+   N_("only append files newer than copy in archive"), 10 },
+  {"catenate", 'A', 0, 0,
+   N_("append tar files to an archive"), 10 },
+  {"concatenate", 0, 0, OPTION_ALIAS, NULL, 10},
+  {"delete", DELETE_OPTION, 0, 0,
+   N_("delete from the archive (not on mag tapes!)"), 10 },
+
+  {NULL, 0, NULL, 0,
+   N_("Operation modifiers:"), 20},
+
+  {"verify", 'W', 0, 0,
+   N_("attempt to verify the archive after writing it"), 21 },
+  {"remove-files", REMOVE_FILES_OPTION, 0, 0,
+   N_("remove files after adding them to the archive"), 21 },
+  {"keep-old-files", 'k', 0, 0,
+   N_("don't replace existing files when extracting"), 21 },
+  {"keep-newer-files", KEEP_NEWER_FILES_OPTION, 0, 0,
+   N_("don't replace existing files that are newer than their archive copies"), 21 },
+  {"no-overwrite-dir", NO_OVERWRITE_DIR_OPTION, 0, 0,
+   N_("preserve metadata of existing directories"), 21 },
+  {"overwrite", OVERWRITE_OPTION, 0, 0,
+   N_("overwrite existing files when extracting"), 21 },
+  {"unlink-first", 'U', 0, 0,
+   N_("remove each file prior to extracting over it"), 21 },
+  {"recursive-unlink", RECURSIVE_UNLINK_OPTION, 0, 0,
+   N_("empty hierarchies prior to extracting directory"), 21 },
+  {"sparse", 'S', 0, 0,
+   N_("handle sparse files efficiently"), 21 },
+  {"to-stdout", 'O', 0, 0,
+   N_("extract files to standard output"), 21 },
+  {"incremental", 'G', 0, 0,
+   N_("handle old GNU-format incremental backup"), 21 },
+  {"listed-incremental", 'g', N_("FILE"), 0,
+   N_("handle new GNU-format incremental backup"), 21 },
+  {"ignore-failed-read", IGNORE_FAILED_READ_OPTION, 0, 0,
+   N_("do not exit with nonzero on unreadable files"), 21 },
+  {"occurrence", OCCURRENCE_OPTION, N_("NUMBER"), OPTION_ARG_OPTIONAL,
+   N_("process only the NUMth occurrence of each file in the archive. This option is valid only in conjunction with one of the subcommands --delete, --diff, --extract or --list and when a list of files is given either on the command line or via -T option. NUMBER defaults to 1."), 21 },
+  {"seek", 'n', NULL, 0,
+   N_("Archive is seekable"), 21 },
+    
+  {NULL, 0, NULL, 0,
+   N_("Handling of file attributes:"), 30 },
+
+  {"owner", OWNER_OPTION, N_("NAME"), 0,
+   N_("force NAME as owner for added files"), 31 },
+  {"group", GROUP_OPTION, N_("NAME"), 0,
+   N_("force NAME as group for added files"), 31 },
+  {"mode", MODE_OPTION, N_("CHANGES"), 0,
+   N_("force (symbolic) mode CHANGES for added files"), 31 },
+  {"atime-preserve", ATIME_PRESERVE_OPTION, 0, 0,
+   N_("don't change access times on dumped files"), 31 },
+  {"touch", 'm', 0, 0,
+   N_("don't extract file modified time"), 31 },
+  {"same-owner", SAME_OWNER_OPTION, 0, 0,
+   N_("try extracting files with the same ownership"), 31 },
+  {"no-same-owner", NO_SAME_OWNER_OPTION, 0, 0,
+   N_("extract files as yourself"), 31 },
+  {"numeric-owner", NUMERIC_OWNER_OPTION, 0, 0,
+   N_("always use numbers for user/group names"), 31 },
+  {"preserve-permissions", 'p', 0, 0,
+   N_("extract permissions information"), 31 },
+  {"same-permissions", 0, 0, OPTION_ALIAS, NULL, 31 },
+  {"no-same-permissions", NO_SAME_PERMISSIONS_OPTION, 0, 0,
+   N_("do not extract permissions information"), 31 },
+  {"preserve-order", 's', 0, 0,
+   N_("sort names to extract to match archive"), 31 },
+  {"same-order", 0, 0, OPTION_ALIAS, NULL, 31 },
+  {"preserve", PRESERVE_OPTION, 0, 0,
+   N_("same as both -p and -s"), 31 },
+
+  {NULL, 0, NULL, 0,
+   N_("Device selection and switching:"), 40 },
+  
+  {"file", 'f', N_("ARCHIVE"), 0,
+   N_("use archive file or device ARCHIVE"), 41 },
+  {"force-local", FORCE_LOCAL_OPTION, 0, 0,
+   N_("archive file is local even if has a colon"), 41 },
+  {"rmt-command", RMT_COMMAND_OPTION, N_("COMMAND"), 0,
+   N_("use given rmt COMMAND instead of rmt"), 41 }, 
+  {"rsh-command", RSH_COMMAND_OPTION, N_("COMMAND"), 0,
+   N_("use remote COMMAND instead of rsh"), 41 },
+#ifdef DEVICE_PREFIX
+  {"-[0-7][lmh]", 0, NULL, OPTION_DOC, /* It is OK, since `name' will never be
+					  translated */
+   N_("specify drive and density"), 41 },
+#endif  
+  {NULL, '0', NULL, OPTION_HIDDEN, NULL, 41 },
+  {NULL, '1', NULL, OPTION_HIDDEN, NULL, 41 },
+  {NULL, '2', NULL, OPTION_HIDDEN, NULL, 41 },
+  {NULL, '3', NULL, OPTION_HIDDEN, NULL, 41 },
+  {NULL, '4', NULL, OPTION_HIDDEN, NULL, 41 },
+  {NULL, '5', NULL, OPTION_HIDDEN, NULL, 41 },
+  {NULL, '6', NULL, OPTION_HIDDEN, NULL, 41 },
+  {NULL, '7', NULL, OPTION_HIDDEN, NULL, 41 },
+  {NULL, '8', NULL, OPTION_HIDDEN, NULL, 41 },
+  {NULL, '9', NULL, OPTION_HIDDEN, NULL, 41 },
+  
+  {"multi-volume", 'M', 0, 0,
+   N_("create/list/extract multi-volume archive"), 41 },
+  {"tape-length", 'L', N_("NUMBER"), 0,
+   N_("change tape after writing NUMBER x 1024 bytes"), 41 },
+  {"info-script", 'F', N_("NAME"), 0,
+   N_("run script at end of each tape (implies -M)"), 41 },
+  {"new-volume-script", 0, 0, OPTION_ALIAS, NULL, 41 },
+  {"volno-file", VOLNO_FILE_OPTION, N_("FILE"), 0,
+   N_("use/update the volume number in FILE"), 41 },
+
+  {NULL, 0, NULL, 0,
+   N_("Device blocking:"), 50 },
+
+  {"blocking-factor", 'b', N_("BLOCKS"), 0,
+   N_("BLOCKS x 512 bytes per record"), 51 },
+  {"record-size", RECORD_SIZE_OPTION, N_("NUMBER"), 0,
+   N_("SIZE bytes per record, multiple of 512"), 51 },
+  {"ignore-zeros", 'i', 0, 0,
+   N_("ignore zeroed blocks in archive (means EOF)"), 51 },
+  {"read-full-records", 'B', 0, 0,
+   N_("reblock as we read (for 4.2BSD pipes)"), 51 }, 
+
+  {NULL, 0, NULL, 0,
+   N_("Archive format selection:"), 60 },
+  
+  {"format", 'H', N_("FORMAT"), 0,
+   N_("create archive of the given format."), 61 },
+
+  {NULL, 0, NULL, 0, N_("FORMAT is one of the following:"), 62 },
+  {"  v7", 0, NULL, OPTION_DOC|OPTION_NO_TRANS, N_("old V7 tar format"), 63},
+  {"  oldgnu", 0, NULL, OPTION_DOC|OPTION_NO_TRANS,
+   N_("GNU format as per tar <= 1.12"), 63},
+  {"  gnu", 0, NULL, OPTION_DOC|OPTION_NO_TRANS,
+   N_("GNU tar 1.13.x format"), 63},
+  {"  ustar", 0, NULL, OPTION_DOC|OPTION_NO_TRANS,
+   N_("POSIX 1003.1-1988 (ustar) format"), 63 },
+  {"  pax", 0, NULL, OPTION_DOC|OPTION_NO_TRANS,
+   N_("POSIX 1003.1-2001 (pax) format"), 63 },
+  {"  posix", 0, NULL, OPTION_DOC|OPTION_NO_TRANS, N_("Same as pax"), 63 },
+  
+  {"old-archive", OLD_ARCHIVE_OPTION, 0, 0, /* FIXME */
+   N_("same as --format=v7"), 68 },
+  {"portability", 0, 0, OPTION_ALIAS, NULL, 68 },
+  {"posix", POSIX_OPTION, 0, 0,
+   N_("same as --format=posix"), 68 },
+  {"pax-option", PAX_OPTION, N_("keyword[[:]=value][,keyword[[:]=value], ...]"), 0,
+   N_("control pax keywords"), 68 },
+  {"label", 'V', N_("TEXT"), 0,
+   N_("create archive with volume name NAME. At list/extract time, use TEXT as a globbing pattern"), 68 },
+  {"bzip2", 'j', 0, 0,
+   N_("filter the archive through bzip2"), 68 },
+  {"gzip", 'z', 0, 0,
+   N_("filter the archive through gzip"), 68 },
+  {"gunzip", 0, 0, OPTION_ALIAS, NULL, 68 },
+  {"ungzip", 0, 0, OPTION_ALIAS, NULL, 68 },
+  {"compress", 'Z', 0, 0,
+   N_("filter the archive through compress"), 68 },
+  {"uncompress", 0, 0, OPTION_ALIAS, NULL, 68 },
+  {"use-compress-program", USE_COMPRESS_PROGRAM_OPTION, N_("PROG"), 0,
+   N_("filter through PROG (must accept -d)"), 68 },
+
+  {NULL, 0, NULL, 0,
+   N_("Local file selection:"), 70 },
+
+  {"directory", 'C', N_("DIR"), 0,
+   N_("change to directory DIR"), 71 },
+  {"files-from", 'T', N_("FILE-OF-NAMES"), 0,
+   N_("get names to extract or create from file NAME"), 71 },
+  {"null", NULL_OPTION, 0, 0,
+   N_("-T reads null-terminated names, disable -C"), 71 },
+  {"exclude", EXCLUDE_OPTION, N_("PATTERN"), 0,
+   N_("exclude files, given as a PATTERN"), 71 },
+  {"exclude-from", 'X', N_("FILE"), 0,
+   N_("exclude patterns listed in FILE"), 71 },
+  {"exclude-caches", EXCLUDE_CACHES_OPTION, 0, 0,
+   N_("exclude directories containing a cache tag"), 71 },
+  {"ignore-case", IGNORE_CASE_OPTION, 0, 0,
+   N_("exclusion ignores case"), 71 },
+  {"anchored", ANCHORED_OPTION, 0, 0,
+   N_("exclude patterns match file name start"), 71 },
+  {"no-anchored", NO_ANCHORED_OPTION, 0, 0,
+   N_("exclude patterns match after any / (default)"), 71 },
+  {"no-ignore-case", NO_IGNORE_CASE_OPTION, 0, 0,
+   N_("exclusion is case sensitive (default)"), 71 },
+  {"no-wildcards", NO_WILDCARDS_OPTION, 0, 0,
+   N_("exclude patterns are plain strings"), 71 },
+  {"no-wildcards-match-slash", NO_WILDCARDS_MATCH_SLASH_OPTION, 0, 0,
+   N_("exclude pattern wildcards do not match '/'"), 71 },
+  {"no-recursion", NO_RECURSION_OPTION, 0, 0,
+   N_("avoid descending automatically in directories"), 71 },
+  {"one-file-system", ONE_FILE_SYSTEM_OPTION, 0, 0,
+   N_("stay in local file system when creating archive"), 71 },
+  {NULL, 'l', 0, OPTION_HIDDEN, "", 71},
+  {"recursion", RECURSION_OPTION, 0, 0,
+   N_("recurse into directories (default)"), 71 },
+  {"absolute-names", 'P', 0, 0,
+   N_("don't strip leading `/'s from file names"), 71 },
+  {"dereference", 'h', 0, 0,
+   N_("dump instead the files symlinks point to"), 71 },
+  {"starting-file", 'K', N_("MEMBER-NAME"), 0,
+   N_("begin at member MEMBER-NAME in the archive"), 71 },
+  {"strip-components", STRIP_COMPONENTS_OPTION, N_("NUMBER"), 0,
+   N_("strip NUMBER leading components from file names"), 71 },
+  {"newer", 'N', N_("DATE-OR-FILE"), 0,
+   N_("only store files newer than DATE-OR-FILE"), 71 },
+  {"newer-mtime", NEWER_MTIME_OPTION, N_("DATE"), 0,
+   N_("compare date and time when data changed only"), 71 },
+  {"after-date", 'N', N_("DATE"), 0,
+   N_("same as -N"), 71 },
+  {"backup", BACKUP_OPTION, N_("CONTROL"), OPTION_ARG_OPTIONAL,
+   N_("backup before removal, choose version CONTROL"), 71 },
+  {"suffix", SUFFIX_OPTION, N_("STRING"), 0,
+   N_("backup before removal, override usual suffix ('~' unless overridden by environment variable SIMPLE_BACKUP_SUFFIX"), 71 },
+  {"wildcards", WILDCARDS_OPTION, 0, 0,
+   N_("exclude patterns use wildcards (default)"), 71 },
+  {"wildcards-match-slash", WILDCARDS_MATCH_SLASH_OPTION, 0, 0,
+   N_("exclude pattern wildcards match '/' (default)"), 71 },
+
+  {NULL, 0, NULL, 0,
+   N_("Informative output:"), 80 },
+  
+  {"verbose", 'v', 0, 0,
+   N_("verbosely list files processed"), 81 },
+  {"checkpoint", CHECKPOINT_OPTION, 0, 0,
+   N_("display progress messages every 10th record"), 81 },
+  {"check-links", CHECK_LINKS_OPTION, 0, 0,
+   N_("print a message if not all links are dumped"), 82 },
+  {"totals", TOTALS_OPTION, 0, 0,
+   N_("print total bytes written while creating archive"), 82 },
+  {"utc", UTC_OPTION, 0, 0,
+   N_("print file modification dates in UTC"), 82 },
+  {"index-file", INDEX_FILE_OPTION, N_("FILE"), 0,
+   N_("send verbose output to FILE"), 82 },
+  {"block-number", 'R', 0, 0,
+   N_("show block number within archive with each message"), 82 },
+  {"interactive", 'w', 0, 0,
+   N_("ask for confirmation for every action"), 82 },
+  {"confirmation", 0, 0, OPTION_ALIAS, NULL, 82 },
+  {"show-defaults", SHOW_DEFAULTS_OPTION, 0, 0,
+   N_("Show tar defaults"), 82 },
+  {"show-omitted-dirs", SHOW_OMITTED_DIRS_OPTION, 0, 0,
+   N_("When listing or extracting, list each directory that does not match search criteria"), 82 },
+  
+  {NULL, 0, NULL, 0,
+   N_("Compatibility options:"), 90 },
+
+  {NULL, 'o', 0, 0,
+   N_("when creating, same as --old-archive. When extracting, same as --no-same-owner"), 91 },
+  {"allow-name-mangling", ALLOW_NAME_MANGLING_OPTION, 0, 0,
+   N_("when creating, allow GNUTYPE_NAMES mangling -- considered dangerous"), 91 },
+
+  {NULL, 0, NULL, 0,
+   N_("Other options:"), 100 },
+
+  {"help",  '?', 0, 0,  N_("Give this help list"), -1},
+  {"usage", USAGE_OPTION, 0, 0,  N_("Give a short usage message"), -1},
+  {"license", LICENSE_OPTION, 0, 0, N_("Print license and exit"), -1},
+  {"version", VERSION_OPTION, 0, 0,  N_("Print program version"), -1},
+  /* FIXME -V (--label) conflicts with the default short option for
+     --version */
+  
+  {0, 0, 0, 0, 0, 0}
+};
+
+struct tar_args {
+  char const *textual_date_option;
+  int exclude_options;
+  bool o_option;
+  int pax_option;
+  char const *backup_suffix_string;
+  char const *version_control_string;
+  int input_files;
+};
+
+static void
+show_default_settings (FILE *stream)
+{
+  fprintf (stream,
+	   "--format=%s -f%s -b%d --rmt-command=%s",
+	   archive_format_string (DEFAULT_ARCHIVE_FORMAT),
+	   DEFAULT_ARCHIVE, DEFAULT_BLOCKING,
+	   DEFAULT_RMT_COMMAND);
+#ifdef REMOTE_SHELL
+  fprintf (stream, " --rsh-command=%s", REMOTE_SHELL);
+#endif
+  fprintf (stream, "\n");
+}
 
 static void
 set_subcommand_option (enum subcommand subcommand)
@@ -573,25 +583,750 @@ set_subcommand_option (enum subcommand subcommand)
 static void
 set_use_compress_program_option (const char *string)
 {
-  if (use_compress_program_option && strcmp (use_compress_program_option, string) != 0)
+  if (use_compress_program_option
+      && strcmp (use_compress_program_option, string) != 0)
     USAGE_ERROR ((0, 0, _("Conflicting compression options")));
 
   use_compress_program_option = string;
 }
 
+void
+license ()
+{
+  printf ("tar (%s) %s\n%s\n", PACKAGE_NAME, PACKAGE_VERSION,
+	  "Copyright (C) 2004 Free Software Foundation, Inc.\n");
+  puts (_("Modified to support extended attributes.\n"));
+  puts (_("Based on the work of John Gilmore and Jay Fenlason. See AUTHORS\n\
+for complete list of authors.\n"));
+  printf (_("   GNU tar is free software; you can redistribute it and/or modify\n"
+    "   it under the terms of the GNU General Public License as published by\n"
+    "   the Free Software Foundation; either version 2 of the License, or\n"
+    "   (at your option) any later version.\n"
+    "\n"
+    "   GNU tar is distributed in the hope that it will be useful,\n"
+    "   but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+    "   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+    "   GNU General Public License for more details.\n"
+    "\n"
+    "   You should have received a copy of the GNU General Public License\n"
+    "   along with GNU tar; if not, write to the Free Software\n"
+    "   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA\n\n"));
+  exit (0);
+}
+
+static error_t
+parse_opt(int key, char *arg, struct argp_state *state)
+{
+  struct tar_args *args = state->input;
+  
+  switch (key)
+    {
+      case 1:
+	/* File name or non-parsed option, because of ARGP_IN_ORDER */
+	name_add (optarg);
+	args->input_files++;
+	break;
+
+    case 'A':
+      set_subcommand_option (CAT_SUBCOMMAND);
+      break;
+      
+    case 'b':
+      {
+	uintmax_t u;
+	if (! (xstrtoumax (arg, 0, 10, &u, "") == LONGINT_OK
+	       && u == (blocking_factor = u)
+	       && 0 < blocking_factor
+	       && u == (record_size = u * BLOCKSIZE) / BLOCKSIZE))
+	  USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (arg),
+			_("Invalid blocking factor")));
+      }
+      break;
+
+    case 'B':
+      /* Try to reblock input records.  For reading 4.2BSD pipes.  */
+      
+      /* It would surely make sense to exchange -B and -R, but it seems
+	 that -B has been used for a long while in Sun tar and most
+	 BSD-derived systems.  This is a consequence of the block/record
+	 terminology confusion.  */
+      
+      read_full_records_option = true;
+      break;
+
+    case 'c':
+      set_subcommand_option (CREATE_SUBCOMMAND);
+      break;
+
+    case 'C':
+      name_add ("-C");
+      name_add (arg);
+      break;
+
+    case 'd':
+      set_subcommand_option (DIFF_SUBCOMMAND);
+      break;
+
+    case 'f':
+      if (archive_names == allocated_archive_names)
+	{
+	  allocated_archive_names *= 2;
+	  archive_name_array =
+	    xrealloc (archive_name_array,
+		      sizeof (const char *) * allocated_archive_names);
+	}
+      archive_name_array[archive_names++] = arg;
+      break;
+
+    case 'F':
+      /* Since -F is only useful with -M, make it implied.  Run this
+	 script at the end of each tape.  */
+      
+      info_script_option = arg;
+      multi_volume_option = true;
+      break;
+      
+    case 'g':
+      listed_incremental_option = arg;
+      after_date_option = true;
+      /* Fall through.  */
+      
+    case 'G':
+      /* We are making an incremental dump (FIXME: are we?); save
+	 directories at the beginning of the archive, and include in each
+	 directory its contents.  */
+      
+      incremental_option = true;
+      break;
+      
+    case 'h':
+      /* Follow symbolic links.  */
+      dereference_option = true;
+      break;
+      
+    case 'i':
+      /* Ignore zero blocks (eofs).  This can't be the default,
+	 because Unix tar writes two blocks of zeros, then pads out
+	 the record with garbage.  */
+      
+      ignore_zeros_option = true;
+      break;
+      
+    case 'I':
+      USAGE_ERROR ((0, 0,
+		    _("Warning: the -I option is not supported;"
+		      " perhaps you meant -j or -T?")));
+      break;
+      
+    case 'j':
+      set_use_compress_program_option ("bzip2");
+      break;
+      
+    case 'k':
+      /* Don't replace existing files.  */
+      old_files_option = KEEP_OLD_FILES;
+      break;
+      
+    case 'K':
+      starting_file_option = true;
+      addname (arg, 0);
+      break;
+      
+    case 'l':
+      /* Historically equivalent to --one-file-system. This usage is
+	 incompatible with UNIX98 and POSIX specs and therefore is
+	 deprecated. The semantics of -l option will be changed in
+	 future versions. See TODO.
+      */
+      WARN ((0, 0,
+	     _("Semantics of -l option will change in the future releases.")));
+      WARN ((0, 0,
+	     _("Please use --one-file-system option instead.")));
+      /* FALL THROUGH */
+    case ONE_FILE_SYSTEM_OPTION:
+      /* When dumping directories, don't dump files/subdirectories
+	 that are on other filesystems. */
+      one_file_system_option = true;
+      break;
+      
+    case 'L':
+      {
+	uintmax_t u;
+	if (xstrtoumax (arg, 0, 10, &u, "") != LONGINT_OK)
+	  USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (arg),
+			_("Invalid tape length")));
+	tape_length_option = 1024 * (tarlong) u;
+	multi_volume_option = true;
+      }
+      break;
+      
+    case 'm':
+      touch_option = true;
+      break;
+      
+    case 'M':
+      /* Make multivolume archive: when we can't write any more into
+	 the archive, re-open it, and continue writing.  */
+      
+      multi_volume_option = true;
+      break;
+
+    case 'n':
+      seekable_archive = true;
+      break;
+      
+#if !MSDOS
+    case 'N':
+      after_date_option = true;
+      /* Fall through.  */
+
+    case NEWER_MTIME_OPTION:
+      if (NEWER_OPTION_INITIALIZED (newer_mtime_option))
+	USAGE_ERROR ((0, 0, _("More than one threshold date")));
+      
+      if (FILE_SYSTEM_PREFIX_LEN (arg) != 0
+	  || ISSLASH (*arg)
+	  || *arg == '.')
+	{
+	  struct stat st;
+	  if (deref_stat (dereference_option, arg, &st) != 0)
+	    {
+	      stat_error (arg);
+	      USAGE_ERROR ((0, 0, _("Date file not found")));
+	    }
+	  newer_mtime_option.tv_sec = st.st_mtime;
+	  newer_mtime_option.tv_nsec = TIMESPEC_NS (st.st_mtim);
+	}
+      else
+	{
+	  if (! get_date (&newer_mtime_option, arg, NULL))
+	    {
+	      WARN ((0, 0, _("Substituting %s for unknown date format %s"),
+		     tartime (newer_mtime_option.tv_sec), quote (arg)));
+	      newer_mtime_option.tv_nsec = 0;
+	    }
+	  else
+	    args->textual_date_option = arg;
+	}
+      
+      break;
+#endif /* not MSDOS */
+      
+    case 'o':
+      args->o_option = true;
+      break;
+      
+    case 'O':
+      to_stdout_option = true;
+      break;
+
+    case 'p':
+      same_permissions_option = true;
+      break;
+      
+    case 'P':
+      absolute_names_option = true;
+      break;
+      
+    case 'r':
+      set_subcommand_option (APPEND_SUBCOMMAND);
+      break;
+      
+    case 'R':
+      /* Print block numbers for debugging bad tar archives.  */
+      
+      /* It would surely make sense to exchange -B and -R, but it seems
+	 that -B has been used for a long while in Sun tar ans most
+	 BSD-derived systems.  This is a consequence of the block/record
+	 terminology confusion.  */
+      
+      block_number_option = true;
+      break;
+      
+    case 's':
+      /* Names to extr are sorted.  */
+      
+      same_order_option = true;
+      break;
+      
+    case 'S':
+      sparse_option = true;
+      break;
+      
+    case 't':
+      set_subcommand_option (LIST_SUBCOMMAND);
+      verbose_option++;
+      break;
+
+    case 'T':
+      files_from_option = arg;
+      break;
+      
+    case 'u':
+      set_subcommand_option (UPDATE_SUBCOMMAND);
+      break;
+      
+    case 'U':
+      old_files_option = UNLINK_FIRST_OLD_FILES;
+      break;
+      
+    case UTC_OPTION:
+      utc_option = true;
+      break;
+      
+    case 'v':
+      verbose_option++;
+      break;
+      
+    case 'V':
+      volume_label_option = arg;
+      break;
+      
+    case 'w':
+      interactive_option = true;
+      break;
+      
+    case 'W':
+      verify_option = true;
+      break;
+      
+    case 'x':
+      set_subcommand_option (EXTRACT_SUBCOMMAND);
+      break;
+      
+    case 'X':
+      if (add_exclude_file (add_exclude, excluded, arg,
+			    args->exclude_options | recursion_option, '\n')
+	  != 0)
+	{
+	  int e = errno;
+	  FATAL_ERROR ((0, e, "%s", quotearg_colon (arg)));
+	}
+      break;
+      
+    case 'y':
+      USAGE_ERROR ((0, 0,
+		    _("Warning: the -y option is not supported;"
+		      " perhaps you meant -j?")));
+      break;
+      
+    case 'z':
+      set_use_compress_program_option ("gzip");
+      break;
+      
+    case 'Z':
+      set_use_compress_program_option ("compress");
+      break;
+
+    case ALLOW_NAME_MANGLING_OPTION:
+      allow_name_mangling_option = true;
+      break;
+      
+    case ANCHORED_OPTION:
+      args->exclude_options |= EXCLUDE_ANCHORED;
+      break;
+      
+    case ATIME_PRESERVE_OPTION:
+      atime_preserve_option = true;
+      break;
+      
+    case CHECKPOINT_OPTION:
+      checkpoint_option = true;
+      break;
+      
+    case BACKUP_OPTION:
+      backup_option = true;
+      if (arg)
+	args->version_control_string = arg;
+      break;
+      
+    case DELETE_OPTION:
+      set_subcommand_option (DELETE_SUBCOMMAND);
+      break;
+      
+    case EXCLUDE_OPTION:
+      add_exclude (excluded, arg, args->exclude_options | recursion_option);
+      break;
+      
+    case EXCLUDE_CACHES_OPTION:
+      exclude_caches_option = true;
+      break;
+
+    case FORCE_LOCAL_OPTION:
+      force_local_option = true;
+      break;
+      
+    case 'H':
+      set_archive_format (arg);
+      break;
+      
+    case INDEX_FILE_OPTION:
+      index_file_name = arg;
+      break;
+      
+    case IGNORE_CASE_OPTION:
+      args->exclude_options |= FNM_CASEFOLD;
+      break;
+      
+    case IGNORE_FAILED_READ_OPTION:
+      ignore_failed_read_option = true;
+      break;
+      
+    case KEEP_NEWER_FILES_OPTION:
+      old_files_option = KEEP_NEWER_FILES;
+      break;
+      
+    case GROUP_OPTION:
+      if (! (strlen (arg) < GNAME_FIELD_SIZE
+	     && gname_to_gid (arg, &group_option)))
+	{
+	  uintmax_t g;
+	  if (xstrtoumax (arg, 0, 10, &g, "") == LONGINT_OK
+	      && g == (gid_t) g)
+	    group_option = g;
+	  else
+	    FATAL_ERROR ((0, 0, "%s: %s", quotearg_colon (arg),
+			  _("%s: Invalid group")));
+	}
+      break;
+      
+    case MODE_OPTION:
+      mode_option
+	= mode_compile (arg,
+			MODE_MASK_EQUALS | MODE_MASK_PLUS | MODE_MASK_MINUS);
+      if (mode_option == MODE_INVALID)
+	FATAL_ERROR ((0, 0, _("Invalid mode given on option")));
+      if (mode_option == MODE_MEMORY_EXHAUSTED)
+	xalloc_die ();
+      break;
+      
+    case NO_ANCHORED_OPTION:
+      args->exclude_options &= ~ EXCLUDE_ANCHORED;
+      break;
+      
+    case NO_IGNORE_CASE_OPTION:
+      args->exclude_options &= ~ FNM_CASEFOLD;
+      break;
+      
+    case NO_OVERWRITE_DIR_OPTION:
+      old_files_option = NO_OVERWRITE_DIR_OLD_FILES;
+      break;
+      
+    case NO_WILDCARDS_OPTION:
+      args->exclude_options &= ~ EXCLUDE_WILDCARDS;
+      break;
+      
+    case NO_WILDCARDS_MATCH_SLASH_OPTION:
+      args->exclude_options |= FNM_FILE_NAME;
+      break;
+      
+    case NULL_OPTION:
+      filename_terminator = '\0';
+      break;
+      
+    case NUMERIC_OWNER_OPTION:
+      numeric_owner_option = true;
+      break;
+      
+    case OCCURRENCE_OPTION:
+      if (!arg)
+	occurrence_option = 1;
+      else
+	{
+	  uintmax_t u;
+	  if (xstrtoumax (arg, 0, 10, &u, "") == LONGINT_OK)
+	    occurrence_option = u;
+	  else
+	    FATAL_ERROR ((0, 0, "%s: %s", quotearg_colon (arg),
+			  _("Invalid number")));
+	}
+      break;
+      
+    case OVERWRITE_OPTION:
+      old_files_option = OVERWRITE_OLD_FILES;
+      break;
+
+    case OWNER_OPTION:
+      if (! (strlen (arg) < UNAME_FIELD_SIZE
+	     && uname_to_uid (arg, &owner_option)))
+	{
+	  uintmax_t u;
+	  if (xstrtoumax (arg, 0, 10, &u, "") == LONGINT_OK
+	      && u == (uid_t) u)
+	    owner_option = u;
+	  else
+	    FATAL_ERROR ((0, 0, "%s: %s", quotearg_colon (arg),
+			  _("Invalid owner")));
+	}
+      break;
+      
+    case PAX_OPTION:
+      args->pax_option++;
+      xheader_set_option (arg);
+      break;
+      
+    case POSIX_OPTION:
+      set_archive_format ("posix");
+      break;
+      
+    case PRESERVE_OPTION:
+      same_permissions_option = true;
+      same_order_option = true;
+      break;
+      
+    case RECORD_SIZE_OPTION:
+      {
+	uintmax_t u;
+	if (! (xstrtoumax (arg, 0, 10, &u, "") == LONGINT_OK
+	       && u == (size_t) u))
+	  USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (arg),
+			_("Invalid record size")));
+	record_size = u;
+	if (record_size % BLOCKSIZE != 0)
+	  USAGE_ERROR ((0, 0, _("Record size must be a multiple of %d."),
+			BLOCKSIZE));
+	blocking_factor = record_size / BLOCKSIZE;
+      }
+      break;
+      
+    case RECURSIVE_UNLINK_OPTION:
+      recursive_unlink_option = true;
+      break;
+      
+    case REMOVE_FILES_OPTION:
+      remove_files_option = true;
+      break;
+      
+    case RMT_COMMAND_OPTION:
+      rmt_command = arg;
+      break;
+      
+    case RSH_COMMAND_OPTION:
+      rsh_command_option = arg;
+      break;
+      
+    case SHOW_DEFAULTS_OPTION:
+      show_default_settings (stdout);
+      exit(0);
+      
+    case STRIP_COMPONENTS_OPTION:
+      {
+	uintmax_t u;
+	if (! (xstrtoumax (arg, 0, 10, &u, "") == LONGINT_OK
+	       && u == (size_t) u))
+	  USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (arg),
+			_("Invalid number of elements")));
+	strip_name_components = u;
+      }
+      break;
+
+    case SHOW_OMITTED_DIRS_OPTION:
+      show_omitted_dirs_option = true;
+      break;
+      
+    case SUFFIX_OPTION:
+      backup_option = true;
+      args->backup_suffix_string = arg;
+      break;
+      
+    case TOTALS_OPTION:
+      totals_option = true;
+      break;
+      
+    case USE_COMPRESS_PROGRAM_OPTION:
+      set_use_compress_program_option (arg);
+      break;
+      
+    case VOLNO_FILE_OPTION:
+      volno_file_option = arg;
+      break;
+      
+    case WILDCARDS_OPTION:
+      args->exclude_options |= EXCLUDE_WILDCARDS;
+      break;
+      
+    case WILDCARDS_MATCH_SLASH_OPTION:
+      args->exclude_options &= ~ FNM_FILE_NAME;
+      break;
+
+    case CHECK_LINKS_OPTION:
+      check_links_option = 1;
+      break;
+      
+    case NO_RECURSION_OPTION:
+      recursion_option = 0;
+      break;
+
+    case NO_SAME_OWNER_OPTION:
+      same_owner_option = -1;
+      break;
+
+    case NO_SAME_PERMISSIONS_OPTION:
+      same_permissions_option = -1;
+      break;
+
+    case RECURSION_OPTION:
+      recursion_option = FNM_LEADING_DIR;
+      break;
+
+    case SAME_OWNER_OPTION:
+      same_owner_option = 1;
+      break;
+      
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+
+#ifdef DEVICE_PREFIX
+      {
+	int device = key - '0';
+	int density;
+	static char buf[sizeof DEVICE_PREFIX + 10];
+	char *cursor;
+
+	if (arg[1])
+	  argp_error (state, _("Malformed density argument: '%s'"), arg);
+	
+	strcpy (buf, DEVICE_PREFIX);
+	cursor = buf + strlen (buf);
+
+#ifdef DENSITY_LETTER
+
+	sprintf (cursor, "%d%c", device, arg[0]);
+	
+#else /* not DENSITY_LETTER */
+
+	switch (arg[0])
+	  {
+	  case 'l':
+#ifdef LOW_NUM
+	    device += LOW_NUM;
+#endif
+	    break;
+	    
+	  case 'm':
+#ifdef MID_NUM
+	    device += MID_NUM;
+#else
+	    device += 8;
+#endif
+	    break;
+	    
+	  case 'h':
+#ifdef HGH_NUM
+	    device += HGH_NUM;
+#else
+	    device += 16;
+#endif
+	    break;
+
+	  default:
+	    argp_error (state, _("Unknown density: '%c'"), arg[0]);
+	  }
+	sprintf (cursor, "%d", device);
+	
+#endif /* not DENSITY_LETTER */
+
+	if (archive_names == allocated_archive_names)
+	  {
+	    allocated_archive_names *= 2;
+	    archive_name_array =
+	      xrealloc (archive_name_array,
+			sizeof (const char *) * allocated_archive_names);
+	  }
+	archive_name_array[archive_names++] = strdup (buf);
+      }
+      break;
+
+#else /* not DEVICE_PREFIX */
+
+      argp_error (state, 
+		  _("Options `-[0-7][lmh]' not supported by *this* tar"));
+      
+#endif /* not DEVICE_PREFIX */
+      
+    case '?':
+      state->flags |= ARGP_NO_EXIT;
+      argp_state_help (state, state->out_stream,
+		       ARGP_HELP_STD_HELP & ~ARGP_HELP_BUG_ADDR);
+      fprintf (state->out_stream, _("\n*This* tar defaults to:\n"));
+      show_default_settings (state->out_stream);
+      fprintf (state->out_stream, "\n");
+      fprintf (state->out_stream, _("Report bugs to %s.\n"), 
+	       argp_program_bug_address);
+      exit (0);
+
+    case USAGE_OPTION:
+      argp_state_help (state, state->out_stream,
+		       ARGP_HELP_USAGE | ARGP_HELP_EXIT_OK);
+      break;
+
+    case VERSION_OPTION:
+      fprintf (state->out_stream, "%s\n", argp_program_version);
+      exit (0);
+
+    case LICENSE_OPTION:
+      license ();
+      break;
+
+    default:
+      return ARGP_ERR_UNKNOWN;
+    }
+  return 0;
+}
+
+static struct argp argp = {
+  options,
+  parse_opt,
+  N_("[FILE]..."),
+  doc,
+  NULL,
+  NULL,
+  NULL
+};
+
+void
+usage (int status)
+{
+  argp_help (&argp, stderr, ARGP_HELP_SEE, (char*) program_name);
+  exit (status);
+}
+
+/* Parse the options for tar.  */
+
+static struct argp_option *
+find_argp_option (struct argp_option *options, int letter)
+{
+  for (;
+       !(options->name == NULL
+	 && options->key == 0
+	 && options->arg == 0
+	 && options->flags == 0
+	 && options->doc == NULL); options++)
+    if (options->key == letter)
+      return options;
+  return NULL;
+}
+
 static void
 decode_options (int argc, char **argv)
 {
-  int optchar;			/* option letter */
-  int input_files;		/* number of input files */
-  char const *textual_date_option = 0;
-  char const *backup_suffix_string;
-  char const *version_control_string = 0;
-  int exclude_options = EXCLUDE_WILDCARDS;
-  bool o_option = 0;
-  int pax_option = 0;
-
+  int index;
+  struct tar_args args;
+  
   /* Set some default option values.  */
+  args.textual_date_option = NULL;
+  args.exclude_options = EXCLUDE_WILDCARDS;
+  args.o_option = 0;
+  args.pax_option = 0;
+  args.backup_suffix_string = getenv ("SIMPLE_BACKUP_SUFFIX");
+  args.version_control_string = 0;
+  args.input_files = 0;
 
   subcommand_option = UNKNOWN_SUBCOMMAND;
   archive_format = DEFAULT_FORMAT;
@@ -605,8 +1340,6 @@ decode_options (int argc, char **argv)
   owner_option = -1;
   group_option = -1;
 
-  backup_suffix_string = getenv ("SIMPLE_BACKUP_SUFFIX");
-
   /* Convert old-style tar call by exploding option element and rearranging
      options accordingly.  */
 
@@ -618,7 +1351,6 @@ decode_options (int argc, char **argv)
       char **out;		/* cursor into rearranged argv */
       const char *letter;	/* cursor into old option letters */
       char buffer[3];		/* constructed option buffer */
-      const char *cursor;	/* cursor in OPTION_STRING */
 
       /* Initialize a constructed option.  */
 
@@ -638,10 +1370,12 @@ decode_options (int argc, char **argv)
 
       for (letter = *in++; *letter; letter++)
 	{
+	  struct argp_option *opt;
+	  
 	  buffer[1] = *letter;
 	  *out++ = xstrdup (buffer);
-	  cursor = strchr (OPTION_STRING, *letter);
-	  if (cursor && cursor[1] == ':')
+	  opt = find_argp_option (options, *letter);
+	  if (opt && opt->arg)
 	    {
 	      if (in < argv + argc)
 		*out++ = *in++;
@@ -665,601 +1399,12 @@ decode_options (int argc, char **argv)
 
   /* Parse all options and non-options as they appear.  */
 
-  input_files = 0;
-
   prepend_default_options (getenv ("TAR_OPTIONS"), &argc, &argv);
 
-  while (optchar = getopt_long (argc, argv, OPTION_STRING, long_options, 0),
-	 optchar != -1)
-    switch (optchar)
-      {
-      case '?':
-	usage (TAREXIT_FAILURE);
-
-      case 0:
-	break;
-
-      case 1:
-	/* File name or non-parsed option, because of RETURN_IN_ORDER
-	   ordering triggered by the leading dash in OPTION_STRING.  */
-
-	name_add (optarg);
-	input_files++;
-	break;
-
-      case 'A':
-	set_subcommand_option (CAT_SUBCOMMAND);
-	break;
-
-      case 'b':
-	{
-	  uintmax_t u;
-	  if (! (xstrtoumax (optarg, 0, 10, &u, "") == LONGINT_OK
-		 && u == (blocking_factor = u)
-		 && 0 < blocking_factor
-		 && u == (record_size = u * BLOCKSIZE) / BLOCKSIZE))
-	    USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
-			  _("Invalid blocking factor")));
-	}
-	break;
-
-      case 'B':
-	/* Try to reblock input records.  For reading 4.2BSD pipes.  */
-
-	/* It would surely make sense to exchange -B and -R, but it seems
-	   that -B has been used for a long while in Sun tar ans most
-	   BSD-derived systems.  This is a consequence of the block/record
-	   terminology confusion.  */
-
-	read_full_records_option = true;
-	break;
-
-      case 'c':
-	set_subcommand_option (CREATE_SUBCOMMAND);
-	break;
-
-      case 'C':
-	name_add ("-C");
-	name_add (optarg);
-	break;
-
-      case 'd':
-	set_subcommand_option (DIFF_SUBCOMMAND);
-	break;
-
-      case 'f':
-	if (archive_names == allocated_archive_names)
-	  {
-	    allocated_archive_names *= 2;
-	    archive_name_array =
-	      xrealloc (archive_name_array,
-			sizeof (const char *) * allocated_archive_names);
-	  }
-	archive_name_array[archive_names++] = optarg;
-	break;
-
-      case 'F':
-	/* Since -F is only useful with -M, make it implied.  Run this
-	   script at the end of each tape.  */
-
-	info_script_option = optarg;
-	multi_volume_option = true;
-	break;
-
-      case 'g':
-	listed_incremental_option = optarg;
-	after_date_option = true;
-	/* Fall through.  */
-
-      case 'G':
-	/* We are making an incremental dump (FIXME: are we?); save
-	   directories at the beginning of the archive, and include in each
-	   directory its contents.  */
-
-	incremental_option = true;
-	break;
-
-      case 'h':
-	/* Follow symbolic links.  */
-	dereference_option = true;
-	break;
-
-      case 'i':
-	/* Ignore zero blocks (eofs).  This can't be the default,
-	   because Unix tar writes two blocks of zeros, then pads out
-	   the record with garbage.  */
-
-	ignore_zeros_option = true;
-	break;
-
-      case 'I':
-	USAGE_ERROR ((0, 0,
-		      _("Warning: the -I option is not supported;"
-			" perhaps you meant -j or -T?")));
-	break;
-
-      case 'j':
-	set_use_compress_program_option ("bzip2");
-	break;
-
-      case 'k':
-	/* Don't replace existing files.  */
-	old_files_option = KEEP_OLD_FILES;
-	break;
-
-      case 'K':
-	starting_file_option = true;
-	addname (optarg, 0);
-	break;
-
-      case 'l':
-	/* When dumping directories, don't dump files/subdirectories
-	   that are on other filesystems.  */
-
-	one_file_system_option = true;
-	break;
-
-      case 'L':
-	{
-	  uintmax_t u;
-	  if (xstrtoumax (optarg, 0, 10, &u, "") != LONGINT_OK)
-	    USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
-			  _("Invalid tape length")));
-	  tape_length_option = 1024 * (tarlong) u;
-	  multi_volume_option = true;
-	}
-	break;
-
-      case 'm':
-	touch_option = true;
-	break;
-
-      case 'M':
-	/* Make multivolume archive: when we can't write any more into
-	   the archive, re-open it, and continue writing.  */
-
-	multi_volume_option = true;
-	break;
-
-#if !MSDOS
-      case 'N':
-	after_date_option = true;
-	/* Fall through.  */
-
-      case NEWER_MTIME_OPTION:
-	if (NEWER_OPTION_INITIALIZED (newer_mtime_option))
-	  USAGE_ERROR ((0, 0, _("More than one threshold date")));
-
-	if (FILESYSTEM_PREFIX_LEN (optarg) != 0
-	    || ISSLASH (*optarg)
-	    || *optarg == '.')
-	  {
-	    struct stat st;
-	    if (deref_stat (dereference_option, optarg, &st) != 0)
-	      {
-		stat_error (optarg);
-		USAGE_ERROR ((0, 0, _("Date file not found")));
-	      }
-	    newer_mtime_option.tv_sec = st.st_mtime;
-	    newer_mtime_option.tv_nsec = TIMESPEC_NS (st.st_mtim);
-	  }
-	else
-	  {
-	    if (! get_date (&newer_mtime_option, optarg, NULL))
-	      {
-		WARN ((0, 0, _("Substituting %s for unknown date format %s"),
-		       tartime (newer_mtime_option.tv_sec), quote (optarg)));
-		newer_mtime_option.tv_nsec = 0;
-	      }
-	    else
-	      textual_date_option = optarg;
-	  }
-
-	break;
-#endif /* not MSDOS */
-
-      case 'o':
-	o_option = true;
-	break;
-
-      case 'O':
-	to_stdout_option = true;
-	break;
-
-      case 'p':
-	same_permissions_option = true;
-	break;
-
-      case 'P':
-	absolute_names_option = true;
-	break;
-
-      case 'r':
-	set_subcommand_option (APPEND_SUBCOMMAND);
-	break;
-
-      case 'R':
-	/* Print block numbers for debugging bad tar archives.  */
-
-	/* It would surely make sense to exchange -B and -R, but it seems
-	   that -B has been used for a long while in Sun tar ans most
-	   BSD-derived systems.  This is a consequence of the block/record
-	   terminology confusion.  */
-
-	block_number_option = true;
-	break;
-
-      case 's':
-	/* Names to extr are sorted.  */
-
-	same_order_option = true;
-	break;
-
-      case 'S':
-	sparse_option = true;
-	break;
-
-      case 't':
-	set_subcommand_option (LIST_SUBCOMMAND);
-	verbose_option++;
-	break;
-
-      case 'T':
-	files_from_option = optarg;
-	break;
-
-      case 'u':
-	set_subcommand_option (UPDATE_SUBCOMMAND);
-	break;
-
-      case 'U':
-	old_files_option = UNLINK_FIRST_OLD_FILES;
-	break;
-
-      case UTC_OPTION:
-	utc_option = true;
-	break;
-
-      case 'v':
-	verbose_option++;
-	break;
-
-      case 'V':
-	volume_label_option = optarg;
-	break;
-
-      case 'w':
-	interactive_option = true;
-	break;
-
-      case 'W':
-	verify_option = true;
-	break;
-
-      case 'x':
-	set_subcommand_option (EXTRACT_SUBCOMMAND);
-	break;
-
-      case 'X':
-	if (add_exclude_file (add_exclude, excluded, optarg,
-			      exclude_options | recursion_option, '\n')
-	    != 0)
-	  {
-	    int e = errno;
-	    FATAL_ERROR ((0, e, "%s", quotearg_colon (optarg)));
-	  }
-	break;
-
-      case 'y':
-	USAGE_ERROR ((0, 0,
-		      _("Warning: the -y option is not supported;"
-			" perhaps you meant -j?")));
-	break;
-
-      case 'z':
-	set_use_compress_program_option ("gzip");
-	break;
-
-      case 'Z':
-	set_use_compress_program_option ("compress");
-	break;
-
-      case ANCHORED_OPTION:
-	exclude_options |= EXCLUDE_ANCHORED;
-	break;
-
-      case ATIME_PRESERVE_OPTION:
-	atime_preserve_option = true;
-	break;
-
-      case CHECKPOINT_OPTION:
-	checkpoint_option = true;
-	break;
-
-      case BACKUP_OPTION:
-	backup_option = true;
-	if (optarg)
-	  version_control_string = optarg;
-	break;
-
-      case DELETE_OPTION:
-	set_subcommand_option (DELETE_SUBCOMMAND);
-	break;
-
-      case EXCLUDE_OPTION:
-	add_exclude (excluded, optarg, exclude_options | recursion_option);
-	break;
-
-      case FORCE_LOCAL_OPTION:
-	force_local_option = true;
-	break;
-
-      case FORMAT_OPTION:
-	set_archive_format (optarg);
-	break;
-
-      case INDEX_FILE_OPTION:
-	index_file_name = optarg;
-	break;
-
-      case IGNORE_CASE_OPTION:
-	exclude_options |= FNM_CASEFOLD;
-	break;
-
-      case IGNORE_FAILED_READ_OPTION:
-	ignore_failed_read_option = true;
-	break;
-
-      case KEEP_NEWER_FILES_OPTION:
-	old_files_option = KEEP_NEWER_FILES;
-	break;
-
-      case GROUP_OPTION:
-	if (! (strlen (optarg) < GNAME_FIELD_SIZE
-	       && gname_to_gid (optarg, &group_option)))
-	  {
-	    uintmax_t g;
-	    if (xstrtoumax (optarg, 0, 10, &g, "") == LONGINT_OK
-		&& g == (gid_t) g)
-	      group_option = g;
-	    else
-	      FATAL_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
-			    _("%s: Invalid group")));
-	  }
-	break;
-
-      case MODE_OPTION:
-	mode_option
-	  = mode_compile (optarg,
-			  MODE_MASK_EQUALS | MODE_MASK_PLUS | MODE_MASK_MINUS);
-	if (mode_option == MODE_INVALID)
-	  FATAL_ERROR ((0, 0, _("Invalid mode given on option")));
-	if (mode_option == MODE_MEMORY_EXHAUSTED)
-	  xalloc_die ();
-	break;
-
-      case NO_ANCHORED_OPTION:
-	exclude_options &= ~ EXCLUDE_ANCHORED;
-	break;
-
-      case NO_IGNORE_CASE_OPTION:
-	exclude_options &= ~ FNM_CASEFOLD;
-	break;
-
-      case NO_OVERWRITE_DIR_OPTION:
-	old_files_option = NO_OVERWRITE_DIR_OLD_FILES;
-	break;
-
-      case NO_WILDCARDS_OPTION:
-	exclude_options &= ~ EXCLUDE_WILDCARDS;
-	break;
-
-      case NO_WILDCARDS_MATCH_SLASH_OPTION:
-	exclude_options |= FNM_FILE_NAME;
-	break;
-
-      case NULL_OPTION:
-	filename_terminator = '\0';
-	break;
-
-      case NUMERIC_OWNER_OPTION:
-	numeric_owner_option = true;
-	break;
-
-      case OCCURRENCE_OPTION:
-	if (!optarg)
-	  occurrence_option = 1;
-	else
-	  {
-	    uintmax_t u;
-	    if (xstrtoumax (optarg, 0, 10, &u, "") == LONGINT_OK)
-	      occurrence_option = u;
-	    else
-	      FATAL_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
-			    _("Invalid number")));
-	  }
-	break;
-
-      case OVERWRITE_OPTION:
-	old_files_option = OVERWRITE_OLD_FILES;
-	break;
-
-      case OWNER_OPTION:
-	if (! (strlen (optarg) < UNAME_FIELD_SIZE
-	       && uname_to_uid (optarg, &owner_option)))
-	  {
-	    uintmax_t u;
-	    if (xstrtoumax (optarg, 0, 10, &u, "") == LONGINT_OK
-		&& u == (uid_t) u)
-	      owner_option = u;
-	    else
-	      FATAL_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
-			    _("Invalid owner")));
-	  }
-	break;
-
-      case PAX_OPTION:
-	pax_option++;
-	xheader_set_option (optarg);
-	break;
-
-      case POSIX_OPTION:
-	set_archive_format ("posix");
-	break;
-
-      case PRESERVE_OPTION:
-	same_permissions_option = true;
-	same_order_option = true;
-	break;
-
-      case RECORD_SIZE_OPTION:
-	{
-	  uintmax_t u;
-	  if (! (xstrtoumax (optarg, 0, 10, &u, "") == LONGINT_OK
-		 && u == (size_t) u))
-	    USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
-			  _("Invalid record size")));
-	  record_size = u;
-	  if (record_size % BLOCKSIZE != 0)
-	    USAGE_ERROR ((0, 0, _("Record size must be a multiple of %d."),
-			  BLOCKSIZE));
-	  blocking_factor = record_size / BLOCKSIZE;
-	}
-	break;
-
-      case RECURSIVE_UNLINK_OPTION:
-	recursive_unlink_option = true;
-	break;
-
-      case REMOVE_FILES_OPTION:
-	remove_files_option = true;
-	break;
-
-      case RMT_COMMAND_OPTION:
-	rmt_command_option = optarg;
-	break;
-	
-      case RSH_COMMAND_OPTION:
-	rsh_command_option = optarg;
-	break;
-
-      case SHOW_DEFAULTS_OPTION:
-	printf ("--format=%s -f%s -b%d\n",
-		archive_format_string (DEFAULT_ARCHIVE_FORMAT),
-		DEFAULT_ARCHIVE, DEFAULT_BLOCKING);
-	exit(0);
-
-      case STRIP_PATH_OPTION:
-	{
-	  uintmax_t u;
-	  if (! (xstrtoumax (optarg, 0, 10, &u, "") == LONGINT_OK
-		 && u == (size_t) u))
-	    USAGE_ERROR ((0, 0, "%s: %s", quotearg_colon (optarg),
-			  _("Invalid number of elements")));
-	  strip_path_elements = u;
-	}
-	break;
-
-      case SUFFIX_OPTION:
-	backup_option = true;
-	backup_suffix_string = optarg;
-	break;
-
-      case TOTALS_OPTION:
-	totals_option = true;
-	break;
-
-      case USE_COMPRESS_PROGRAM_OPTION:
-	set_use_compress_program_option (optarg);
-	break;
-
-      case VOLNO_FILE_OPTION:
-	volno_file_option = optarg;
-	break;
-
-      case WILDCARDS_OPTION:
-	exclude_options |= EXCLUDE_WILDCARDS;
-	break;
-
-      case WILDCARDS_MATCH_SLASH_OPTION:
-	exclude_options &= ~ FNM_FILE_NAME;
-	break;
-
-      case '0':
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7':
-
-#ifdef DEVICE_PREFIX
-	{
-	  int device = optchar - '0';
-	  int density;
-	  static char buf[sizeof DEVICE_PREFIX + 10];
-	  char *cursor;
-
-	  density = getopt_long (argc, argv, "lmh", 0, 0);
-	  strcpy (buf, DEVICE_PREFIX);
-	  cursor = buf + strlen (buf);
-
-#ifdef DENSITY_LETTER
-
-	  sprintf (cursor, "%d%c", device, density);
-
-#else /* not DENSITY_LETTER */
-
-	  switch (density)
-	    {
-	    case 'l':
-#ifdef LOW_NUM
-	      device += LOW_NUM;
-#endif
-	      break;
-
-	    case 'm':
-#ifdef MID_NUM
-	      device += MID_NUM;
-#else
-	      device += 8;
-#endif
-	      break;
-
-	    case 'h':
-#ifdef HGH_NUM
-	      device += HGH_NUM;
-#else
-	      device += 16;
-#endif
-	      break;
-
-	    default:
-	      usage (TAREXIT_FAILURE);
-	    }
-	  sprintf (cursor, "%d", device);
-
-#endif /* not DENSITY_LETTER */
-
-	  if (archive_names == allocated_archive_names)
-	    {
-	      allocated_archive_names *= 2;
-	      archive_name_array =
-		xrealloc (archive_name_array,
-			  sizeof (const char *) * allocated_archive_names);
-	    }
-	  archive_name_array[archive_names++] = strdup (buf);
-	}
-	break;
-
-#else /* not DEVICE_PREFIX */
-
-	USAGE_ERROR ((0, 0,
-		      _("Options `-[0-7][lmh]' not supported by *this* tar")));
-
-#endif /* not DEVICE_PREFIX */
-      }
+  if (argp_parse (&argp, argc, argv, ARGP_IN_ORDER|ARGP_NO_HELP,
+		  &index, &args))
+    exit (1);
+      
 
   /* Special handling for 'o' option:
 
@@ -1270,7 +1415,7 @@ decode_options (int argc, char **argv)
      The old GNU tar semantics is retained when used with --create
      option, otherwise UNIX98 semantics is assumed */
 
-  if (o_option)
+  if (args.o_option)
     {
       if (subcommand_option == CREATE_SUBCOMMAND)
 	{
@@ -1280,42 +1425,22 @@ decode_options (int argc, char **argv)
       else
 	{
 	  /* UNIX98 compatibility */
-	  same_owner_option = 1;
+	  same_owner_option = -1;
 	}
     }
 
   /* Handle operands after any "--" argument.  */
-  for (; optind < argc; optind++)
+  for (; index < argc; index++)
     {
-      name_add (argv[optind]);
-      input_files++;
+      name_add (argv[index]);
+      args.input_files++;
     }
-
-  /* Process trivial options.  */
-
-  if (show_version)
-    {
-      printf ("tar (%s) %s +CVE-2006-0300 +CVE-2006-6097\n%s\n", PACKAGE_NAME, PACKAGE_VERSION,
-	      "Copyright (C) 2004 Free Software Foundation, Inc.");
-      puts (_("\
-This program comes with NO WARRANTY, to the extent permitted by law.\n\
-You may redistribute it under the terms of the GNU General Public License;\n\
-see the file named COPYING for details."));
-
-      puts (_("Written by John Gilmore and Jay Fenlason."));
-      puts (_("Modified to support extended attributes."));
-
-      exit (TAREXIT_SUCCESS);
-    }
-
-  if (show_help)
-    usage (TAREXIT_SUCCESS);
 
   /* Derive option values and check option consistency.  */
 
   if (archive_format == DEFAULT_FORMAT)
     {
-      if (pax_option)
+      if (args.pax_option)
 	archive_format = POSIX_FORMAT;
       else
 	archive_format = DEFAULT_ARCHIVE_FORMAT;
@@ -1336,7 +1461,7 @@ see the file named COPYING for details."));
 
   if (occurrence_option)
     {
-      if (!input_files && !files_from_option)
+      if (!args.input_files && !files_from_option)
 	USAGE_ERROR ((0, 0,
 		      _("--occurrence is meaningless without a file list")));
       if (subcommand_option != DELETE_SUBCOMMAND
@@ -1347,6 +1472,18 @@ see the file named COPYING for details."));
 			  _("--occurrence cannot be used in the requested operation mode")));
     }
 
+  if (seekable_archive && subcommand_option == DELETE_SUBCOMMAND)
+    {
+      /* The current code in delete.c is based on the assumption that
+	 skip_member() reads all data from the archive. So, we should
+	 make sure it won't use seeks. On the other hand, the same code
+	 depends on the ability to backspace a record in the archive,
+	 so setting seekable_archive to false is technically incorrect.
+         However, it is tested only in skip_member(), so it's not a
+	 problem. */
+      seekable_archive = false;
+    }
+  
   if (archive_names == 0)
     {
       /* If no archive file name given, try TAPE from the environment, or
@@ -1409,7 +1546,7 @@ see the file named COPYING for details."));
      reading mode. It may even be useful, since it allows to override
      file attributes from tar headers. Therefore I allow such usage.
      --gray */
-  if (pax_option
+  if (args.pax_option
       && archive_format != POSIX_FORMAT
       && (subcommand_option != EXTRACT_SUBCOMMAND
 	  || subcommand_option != DIFF_SUBCOMMAND
@@ -1423,16 +1560,13 @@ see the file named COPYING for details."));
   if (utc_option)
     verbose_option = 2;
 
-  if (!rmt_command_option)
-    rmt_command_option = DEFAULT_RMT_COMMAND;
-  
   /* Forbid using -c with no input files whatsoever.  Check that `-f -',
      explicit or implied, is used correctly.  */
 
   switch (subcommand_option)
     {
     case CREATE_SUBCOMMAND:
-      if (input_files == 0 && !files_from_option)
+      if (args.input_files == 0 && !files_from_option)
 	USAGE_ERROR ((0, 0,
 		      _("Cowardly refusing to create an empty archive")));
       break;
@@ -1465,20 +1599,24 @@ see the file named COPYING for details."));
 
   /* Prepare for generating backup names.  */
 
-  if (backup_suffix_string)
-    simple_backup_suffix = xstrdup (backup_suffix_string);
+  if (args.backup_suffix_string)
+    simple_backup_suffix = xstrdup (args.backup_suffix_string);
 
   if (backup_option)
-    backup_type = xget_version ("--backup", version_control_string);
+    backup_type = xget_version ("--backup", args.version_control_string);
 
-  if (verbose_option && textual_date_option)
+  if (verbose_option && args.textual_date_option)
     {
       /* FIXME: tartime should support nanoseconds, too, so that this
 	 comparison doesn't complain about lost nanoseconds.  */
       char const *treated_as = tartime (newer_mtime_option.tv_sec);
-      if (strcmp (textual_date_option, treated_as) != 0)
-	WARN ((0, 0, _("Treating date `%s' as %s + %ld nanoseconds"),
-	       textual_date_option, treated_as, newer_mtime_option.tv_nsec));
+      if (strcmp (args.textual_date_option, treated_as) != 0)
+	WARN ((0, 0,
+	       ngettext ("Treating date `%s' as %s + %ld nanosecond",
+			 "Treating date `%s' as %s + %ld nanoseconds",
+			 newer_mtime_option.tv_nsec),
+	       args.textual_date_option, treated_as,
+	       newer_mtime_option.tv_nsec));
     }
 }
 
@@ -1489,12 +1627,12 @@ see the file named COPYING for details."));
 int
 main (int argc, char **argv)
 {
-#if HAVE_CLOCK_GETTIME
-  if (clock_gettime (CLOCK_REALTIME, &start_timespec) != 0)
-#endif
-    start_time = time (0);
+  set_start_time ();
   program_name = argv[0];
+
+#ifdef HAVE_SETLOCALE
   setlocale (LC_ALL, "");
+#endif
   bindtextdomain (PACKAGE, LOCALEDIR);
   textdomain (PACKAGE);
 
@@ -1571,7 +1709,7 @@ main (int argc, char **argv)
     }
 
   if (check_links_option)
-      check_links ();
+    check_links ();
 
   if (volno_file_option)
     closeout_volume_number ();

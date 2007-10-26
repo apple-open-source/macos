@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.sys.mk,v 1.35 2004/03/12 21:36:12 trhodes Exp $
+# $FreeBSD: src/share/mk/bsd.sys.mk,v 1.37 2005/01/16 21:18:16 obrien Exp $
 #
 # This file contains common settings used for building FreeBSD
 # sources.
@@ -10,26 +10,28 @@
 
 .if !defined(NO_WARNS) && ${CC} != "icc"
 . if defined(WARNS)
-.  if ${WARNS} > 0
+.  if ${WARNS} >= 1
 CWARNFLAGS	+=	-Wsystem-headers
 .   if !defined(NO_WERROR)
 CWARNFLAGS	+=	-Werror
 .   endif
 .  endif
-.  if ${WARNS} > 1
+.  if ${WARNS} >= 2
 CWARNFLAGS	+=	-Wall -Wno-format-y2k
 .  endif
-.  if ${WARNS} > 2
-CWARNFLAGS	+=	-W -Wstrict-prototypes -Wmissing-prototypes -Wpointer-arith
+.  if ${WARNS} >= 3
+CWARNFLAGS	+=	-W -Wno-unused-parameter -Wstrict-prototypes\
+			-Wmissing-prototypes -Wpointer-arith
 .  endif
-.  if ${WARNS} > 3
-CWARNFLAGS	+=	-Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch -Wshadow -Wcast-align
+.  if ${WARNS} >= 4
+CWARNFLAGS	+=	-Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch\
+			-Wshadow -Wcast-align -Wunused-parameter
 .  endif
 # BDECFLAGS
-.  if ${WARNS} > 5
+.  if ${WARNS} >= 6
 CWARNFLAGS	+=	-Wchar-subscripts -Winline -Wnested-externs -Wredundant-decls
 .  endif
-.  if ${WARNS} > 1 && ${WARNS} < 5
+.  if ${WARNS} >= 2 && ${WARNS} <= 4
 # XXX Delete -Wuninitialized by default for now -- the compiler doesn't
 # XXX always get it right.
 CWARNFLAGS	+=	-Wno-uninitialized

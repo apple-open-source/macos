@@ -1,0 +1,36 @@
+# Configuration for Darwin / MacOS X, making dynamic libs
+
+include $(TOP)/configs/default
+
+CONFIG_NAME = darwin
+
+DEFINES = -D_POSIX_SOURCE -D_POSIX_C_SOURCE=199309L -D_SVID_SOURCE \
+	  -D_BSD_SOURCE -D_GNU_SOURCE \
+	  -DGLX_INDIRECT_RENDERING \
+	  -DPTHREADS -DGLX_ALIAS_UNSUPPORTED -DHAVE_POSIX_MEMALIGN
+
+# Compiler and flags
+CC = gcc
+CXX = c++
+CFLAGS = -I/usr/X11/include -O3 -fPIC -fno-common -ffast-math -funroll-loops -fexpensive-optimizations -no-cpp-precomp -dynamic -Ddarwin $(RC_CFLAGS) $(DEFINES)
+CXXFLAGS = -I/usr/X11/include -O3 -fPIC -fno-common -ffast-math -funroll-loops -fexpensive-optimizations -no-cpp-precomp -dynamic -Ddarwin $(RC_CFLAGS) $(DEFINES)
+
+MKLIB_OPTIONS = -cplusplus
+
+# Library names (actual file names)
+GL_LIB_NAME = libGL.1.2.dylib
+GLU_LIB_NAME = libGLU.1.3.dylib
+GLUT_LIB_NAME = libglut.dylib
+GLW_LIB_NAME = libGLw.1.0.dylib
+OSMESA_LIB_NAME = libOSMesa.6.5.dylib
+
+GL_LIB_DEPS = -L/usr/X11/lib -lX11 -lXext -lm -lpthread
+OSMESA_LIB_DEPS = -L$(LIB_DIR) -lGL
+GLU_LIB_DEPS = -L$(LIB_DIR) -lGL
+GLUT_LIB_DEPS = -L$(LIB_DIR) -lGL -lGLU -L/usr/X11/lib -lX11 -lXmu -lXi -lXext
+GLW_LIB_DEPS = -L/usr/X11/lib -lX11 -lXt $(TOP)/lib/libGL.dylib
+APP_LIB_DEPS = -L$(TOP)/lib -l$(GLUT_LIB) -l$(GLU_LIB) -l$(GL_LIB) -L/usr/X11/lib -lX11 -lXmu -lXt -lXi -lm
+
+# omit glw lib for now:
+SRC_DIRS = glx/x11 glu glw glut
+

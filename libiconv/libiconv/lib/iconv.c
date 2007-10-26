@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2003 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2006 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -14,8 +14,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
- * If not, write to the Free Software Foundation, Inc., 59 Temple Place -
- * Suite 330, Boston, MA 02111-1307, USA.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include <iconv.h>
@@ -175,6 +175,7 @@ aliases2_lookup (register const char *str)
 }
 #else
 #define aliases2_lookup(str)  NULL
+#define stringpool2  NULL
 #endif
 
 #if 0
@@ -232,15 +233,20 @@ iconv_t iconv_open (const char* tocode, const char* fromcode)
       if (--count == 0)
         goto invalid;
     }
-    if (bp-buf >= 10 && memcmp(bp-10,"//TRANSLIT",10)==0) {
-      bp -= 10;
-      *bp = '\0';
-      transliterate = 1;
-    }
-    if (bp-buf >= 8 && memcmp(bp-8,"//IGNORE",8)==0) {
-      bp -= 8;
-      *bp = '\0';
-      discard_ilseq = 1;
+    for (;;) {
+      if (bp-buf >= 10 && memcmp(bp-10,"//TRANSLIT",10)==0) {
+        bp -= 10;
+        *bp = '\0';
+        transliterate = 1;
+        continue;
+      }
+      if (bp-buf >= 8 && memcmp(bp-8,"//IGNORE",8)==0) {
+        bp -= 8;
+        *bp = '\0';
+        discard_ilseq = 1;
+        continue;
+      }
+      break;
     }
     if (buf[0] == '\0') {
       tocode = locale_charset();
@@ -303,13 +309,18 @@ iconv_t iconv_open (const char* tocode, const char* fromcode)
       if (--count == 0)
         goto invalid;
     }
-    if (bp-buf >= 10 && memcmp(bp-10,"//TRANSLIT",10)==0) {
-      bp -= 10;
-      *bp = '\0';
-    }
-    if (bp-buf >= 8 && memcmp(bp-8,"//IGNORE",8)==0) {
-      bp -= 8;
-      *bp = '\0';
+    for (;;) {
+      if (bp-buf >= 10 && memcmp(bp-10,"//TRANSLIT",10)==0) {
+        bp -= 10;
+        *bp = '\0';
+        continue;
+      }
+      if (bp-buf >= 8 && memcmp(bp-8,"//IGNORE",8)==0) {
+        bp -= 8;
+        *bp = '\0';
+        continue;
+      }
+      break;
     }
     if (buf[0] == '\0') {
       fromcode = locale_charset();
@@ -403,6 +414,16 @@ iconv_t iconv_open (const char* tocode, const char* fromcode)
   /* Initialize the operation flags. */
   cd->transliterate = transliterate;
   cd->discard_ilseq = discard_ilseq;
+  #ifndef LIBICONV_PLUG
+  cd->fallbacks.mb_to_uc_fallback = NULL;
+  cd->fallbacks.uc_to_mb_fallback = NULL;
+  cd->fallbacks.mb_to_wc_fallback = NULL;
+  cd->fallbacks.wc_to_mb_fallback = NULL;
+  cd->fallbacks.data = NULL;
+  cd->hooks.uc_hook = NULL;
+  cd->hooks.wc_hook = NULL;
+  cd->hooks.data = NULL;
+  #endif
   /* Initialize additional fields. */
   if (from_wchar != to_wchar) {
     struct wchar_conv_struct * wcd = (struct wchar_conv_struct *) cd;
@@ -416,8 +437,8 @@ invalid:
 }
 
 size_t iconv (iconv_t icd,
-              ICONV_CONST char* * inbuf, size_t *inbytesleft,
-              char* * outbuf, size_t *outbytesleft)
+              char* * __restrict inbuf, size_t * __restrict inbytesleft,
+              char* * __restrict outbuf, size_t * __restrict outbytesleft)
 {
   conv_t cd = (conv_t) icd;
   if (inbuf == NULL || *inbuf == NULL)
@@ -459,6 +480,26 @@ int iconvctl (iconv_t icd, int request, void* argument)
       return 0;
     case ICONV_SET_DISCARD_ILSEQ:
       cd->discard_ilseq = (*(const int *)argument ? 1 : 0);
+      return 0;
+    case ICONV_SET_HOOKS:
+      if (argument != NULL) {
+        cd->hooks = *(const struct iconv_hooks *)argument;
+      } else {
+        cd->hooks.uc_hook = NULL;
+        cd->hooks.wc_hook = NULL;
+        cd->hooks.data = NULL;
+      }
+      return 0;
+    case ICONV_SET_FALLBACKS:
+      if (argument != NULL) {
+        cd->fallbacks = *(const struct iconv_fallbacks *)argument;
+      } else {
+        cd->fallbacks.mb_to_uc_fallback = NULL;
+        cd->fallbacks.uc_to_mb_fallback = NULL;
+        cd->fallbacks.mb_to_wc_fallback = NULL;
+        cd->fallbacks.wc_to_mb_fallback = NULL;
+        cd->fallbacks.data = NULL;
+      }
       return 0;
     default:
       errno = EINVAL;
@@ -553,6 +594,118 @@ void iconvlist (int (*do_one) (unsigned int namescount,
 #undef aliascount1
 }
 
+/*
+ * Table of canonical names of encodings.
+ * Instead of strings, it contains offsets into stringpool and stringpool2.
+ */
+static const unsigned short all_canonical[] = {
+#include "canonical.h"
+#ifdef USE_AIX
+#include "canonical_aix.h"
+#endif
+#ifdef USE_OSF1
+#include "canonical_osf1.h"
+#endif
+#ifdef USE_DOS
+#include "canonical_dos.h"
+#endif
+#ifdef USE_EXTRA
+#include "canonical_extra.h"
+#endif
+#include "canonical_local.h"
+};
+
+const char * iconv_canonicalize (const char * name)
+{
+  const char* code;
+  char buf[MAX_WORD_LENGTH+10+1];
+  const char* cp;
+  char* bp;
+  const struct alias * ap;
+  unsigned int count;
+  unsigned int index;
+  const char* pool;
+
+  /* Before calling aliases_lookup, convert the input string to upper case,
+   * and check whether it's entirely ASCII (we call gperf with option "-7"
+   * to achieve a smaller table) and non-empty. If it's not entirely ASCII,
+   * or if it's too long, it is not a valid encoding name.
+   */
+  for (code = name;;) {
+    /* Search code in the table. */
+    for (cp = code, bp = buf, count = MAX_WORD_LENGTH+10+1; ; cp++, bp++) {
+      unsigned char c = * (unsigned char *) cp;
+      if (c >= 0x80)
+        goto invalid;
+      if (c >= 'a' && c <= 'z')
+        c -= 'a'-'A';
+      *bp = c;
+      if (c == '\0')
+        break;
+      if (--count == 0)
+        goto invalid;
+    }
+    for (;;) {
+      if (bp-buf >= 10 && memcmp(bp-10,"//TRANSLIT",10)==0) {
+        bp -= 10;
+        *bp = '\0';
+        continue;
+      }
+      if (bp-buf >= 8 && memcmp(bp-8,"//IGNORE",8)==0) {
+        bp -= 8;
+        *bp = '\0';
+        continue;
+      }
+      break;
+    }
+    if (buf[0] == '\0') {
+      code = locale_charset();
+      /* Avoid an endless loop that could occur when using an older version
+         of localcharset.c. */
+      if (code[0] == '\0')
+        goto invalid;
+      continue;
+    }
+    pool = stringpool;
+    ap = aliases_lookup(buf,bp-buf);
+    if (ap == NULL) {
+      pool = stringpool2;
+      ap = aliases2_lookup(buf);
+      if (ap == NULL)
+        goto invalid;
+    }
+    if (ap->encoding_index == ei_local_char) {
+      code = locale_charset();
+      /* Avoid an endless loop that could occur when using an older version
+         of localcharset.c. */
+      if (code[0] == '\0')
+        goto invalid;
+      continue;
+    }
+    if (ap->encoding_index == ei_local_wchar_t) {
+#if __STDC_ISO_10646__
+      if (sizeof(wchar_t) == 4) {
+        index = ei_ucs4internal;
+        break;
+      }
+      if (sizeof(wchar_t) == 2) {
+        index = ei_ucs2internal;
+        break;
+      }
+      if (sizeof(wchar_t) == 1) {
+        index = ei_iso8859_1;
+        break;
+      }
+#endif
+    }
+    index = ap->encoding_index;
+    break;
+  }
+  return all_canonical[index] + pool;
+ invalid:
+  return name;
+}
+
 int _libiconv_version = _LIBICONV_VERSION;
 
 #if defined __FreeBSD__ && !defined __gnu_freebsd__
@@ -568,28 +721,43 @@ strong_alias (libiconv_open, iconv_open)
 strong_alias (libiconv, iconv)
 strong_alias (libiconv_close, iconv_close)
 #elif defined __APPLE__
-#undef iconv_open
-#undef iconv
-#undef iconv_close
+#if defined(__ppc__) || defined(__i386__)
+/* backward compatibility */
 iconv_t
-iconv_open(const char *tocode, const char *fromcode)
+libiconv_open(const char *tocode, const char *fromcode)
 {
-	return libiconv_open(tocode, fromcode);
+	return iconv_open(tocode, fromcode);
 }
 
 size_t
-iconv(iconv_t cd, char ** __restrict inbuf,
-	size_t * __restrict inbytesleft, char ** __restrict outbuf,
-	size_t * __restrict outbytesleft)
+libiconv(iconv_t cd, const char ** inbuf,
+	size_t * inbytesleft, char ** outbuf,
+	size_t * outbytesleft)
 {
-	return libiconv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
+	return iconv(cd, (char **)inbuf, inbytesleft, outbuf, outbytesleft);
 }
 
 int
-iconv_close(iconv_t cd)
+libiconv_close(iconv_t cd)
 {
-	return libiconv_close(cd);
+	return iconv_close(cd);
 }
+
+int
+libiconvctl(iconv_t cd, int request, void* argument)
+{
+	return iconvctl(cd, request, argument);
+}
+
+libiconvlist(int (*do_one) (unsigned int namescount,
+				const char * const * names,
+				void* data),
+			void* data)
+{
+	iconvlist(do_one, data);
+}
+
+#endif /* __ppc__ || __i386__ */
 #endif
 
 #endif

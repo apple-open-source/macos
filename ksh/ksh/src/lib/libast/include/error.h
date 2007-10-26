@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -38,11 +34,7 @@
 #include <option.h>
 #include <errno.h>
 
-#define ERROR_VERSION	20030214L
-
-#ifndef	error_info
-#define error_info	_error_info_
-#endif
+#define ERROR_VERSION	20070319L
 
 #if !defined(errno) && defined(__DYNAMIC__)
 #define errno		__DYNAMIC__(errno)
@@ -87,13 +79,29 @@
 #define ERROR_SILENT		0x0002	/* context is silent		*/
 #define ERROR_NOTIFY		0x0004	/* main(-sig,0,ctx) on signal	*/
 
-#define errorpush(p,f)	(*(p)=*ERROR_CONTEXT_BASE,*ERROR_CONTEXT_BASE=error_info.empty,error_info.context=(p),error_info.flags=(f))
-#define errorpop(p)	(*ERROR_CONTEXT_BASE=*(p))
+#define ERROR_FREE		0x0010	/* free context on pop		*/
+#define ERROR_POP		0x0020	/* pop context			*/
+#define ERROR_PUSH		0x0040	/* push context			*/
+#define ERROR_SET		0x0080	/* set context			*/
+
+/*
+ * errorpush()/errorpop() are obsolete -- use errorctx() instead
+ */
+
+#ifndef ERROR_CONTEXT_T
+#define ERROR_CONTEXT_T		Error_info_t
+#endif
 
 #define ERROR_CONTEXT_BASE	((Error_context_t*)&error_info.context)
 
+#define errorpush(p,f)	(*(p)=*ERROR_CONTEXT_BASE,*ERROR_CONTEXT_BASE=error_info.empty,error_info.context=(Error_context_t*)(p),error_info.flags=(f))
+#define errorpop(p)	(*ERROR_CONTEXT_BASE=*(p))
+
+typedef struct Error_info_s Error_info_t;
+typedef struct Error_context_s Error_context_t;
+
 #define ERROR_CONTEXT \
-	Error_context_t* context;	/* prev context stack element	*/ \
+	ERROR_CONTEXT_T* context;	/* prev context stack element	*/ \
 	int	errors;			/* >= ERROR_ERROR count		*/ \
 	int	flags;			/* context flags		*/ \
 	int	line;			/* input|output line number	*/ \
@@ -101,16 +109,12 @@
 	char*	file;			/* input|output file name	*/ \
 	char*	id;			/* command id			*/
 
-#define errorcontext Error_context_s	/* compatibility til 2004	*/
-
-typedef struct Error_context_s Error_context_t;
-
 struct Error_context_s			/* context stack element	*/
 {
 	ERROR_CONTEXT
 };
 
-typedef struct Error_info_s		/* error state			*/
+struct Error_info_s			/* error state			*/
 {
 	int	fd;			/* write(2) fd			*/
 
@@ -139,9 +143,9 @@ typedef struct Error_info_s		/* error state			*/
 	unsigned long	time;		/* debug time trace		*/
 
 	char*	(*translate)(const char*, const char*, const char*, const char*);	/* format translator */
-	const char*	catalog;	/* default message catalog	*/
 
-} Error_info_t;
+	const char*	catalog;	/* message catalog		*/
+};
 
 #ifndef errno
 extern int	errno;			/* system call error status	*/
@@ -154,7 +158,9 @@ extern int	errno;			/* system call error status	*/
 #define extern		extern __IMPORT__
 #endif
 
-extern Error_info_t	error_info;
+extern Error_info_t*	_error_infop_;
+
+#define error_info	(*_error_infop_)
 
 #undef	extern
 
@@ -162,14 +168,14 @@ extern Error_info_t	error_info;
 #define extern		__EXPORT__
 #endif
 
-extern void	error(int, ...);
-extern int	errormsg(const char*, int, ...);
-extern int	errorf(void*, void*, int, ...);
-extern void	errorv(const char*, int, va_list);
-extern char*	errorx(const char*, const char*, const char*, const char*);
-
-extern void	liberror(const char*, int, ...);	/* OBSOLETE 20000101 */
-extern int	libevent(void*, void*, int, ...);	/* OBSOLETE 19990101 */
+extern void		error(int, ...);
+extern int		errormsg(const char*, int, ...);
+extern int		errorf(void*, void*, int, ...);
+extern void		errorv(const char*, int, va_list);
+#ifndef errorx
+extern char*		errorx(const char*, const char*, const char*, const char*);
+#endif
+extern Error_info_t*	errorctx(Error_info_t*, int, int);
 
 #undef	extern
 

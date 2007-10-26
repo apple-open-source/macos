@@ -1,34 +1,58 @@
---- strcasecmp.3.orig	Fri Mar 11 08:37:27 2005
-+++ strcasecmp.3	Fri Mar 11 08:38:54 2005
-@@ -39,7 +39,9 @@
+--- _SB/Libc/string/FreeBSD/strcasecmp.3	2004-11-25 11:38:46.000000000 -0800
++++ _SB/Libc/string/FreeBSD/strcasecmp.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -39,16 +39,40 @@
  .Os
  .Sh NAME
  .Nm strcasecmp ,
 -.Nm strncasecmp
-+.Nm strncasecmp ,
 +.Nm strcasecmp_l ,
++.Nm strncasecmp ,
 +.Nm strncasecmp_l
  .Nd compare strings, ignoring case
  .Sh LIBRARY
  .Lb libc
-@@ -49,6 +51,11 @@
- .Fn strcasecmp "const char *s1" "const char *s2"
+ .Sh SYNOPSIS
+ .In strings.h
  .Ft int
- .Fn strncasecmp "const char *s1" "const char *s2" "size_t len"
+-.Fn strcasecmp "const char *s1" "const char *s2"
++.Fo strcasecmp
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fc
+ .Ft int
+-.Fn strncasecmp "const char *s1" "const char *s2" "size_t len"
++.Fo strncasecmp
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fa "size_t n"
++.Fc
++.In strings.h
 +.In xlocale.h
 +.Ft int
-+.Fn strcasecmp_l "const char *s1" "const char *s2" "locale_t loc"
++.Fo strcasecmp_l
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fa "locale_t loc"
++.Fc
 +.Ft int
-+.Fn strncasecmp_l "const char *s1" "const char *s2" "size_t len" "locale_t loc"
++.Fo strncasecmp_l
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fa "size_t n"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn strcasecmp
-@@ -65,6 +72,18 @@
+@@ -63,8 +87,20 @@
+ The
+ .Fn strncasecmp
  compares at most
- .Fa len
+-.Fa len
++.Fa n
  characters.
 +.Pp
-+While the
++Although the
 +.Fn strcasecmp
 +and
 +.Fn strncasecmp
@@ -42,7 +66,7 @@
  .Sh RETURN VALUES
  The
  .Fn strcasecmp
-@@ -87,7 +106,8 @@
+@@ -87,7 +123,8 @@
  .Xr strcmp 3 ,
  .Xr strcoll 3 ,
  .Xr strxfrm 3 ,

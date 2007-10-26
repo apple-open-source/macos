@@ -169,12 +169,6 @@ struct FinderInfo
 typedef struct FinderInfo FinderInfo;
 
 
-// For pre-Panther systems
-#ifndef	ATTR_VOL_VCBFSID
-#define ATTR_VOL_VCBFSID			0x00040000
-#endif
-
-
 enum
 {
 	
@@ -193,8 +187,7 @@ enum
 											ATTR_VOL_DIRCOUNT | ATTR_VOL_MAXOBJCOUNT |
 											ATTR_VOL_MOUNTPOINT | ATTR_VOL_NAME | ATTR_VOL_MOUNTFLAGS |
 											ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_ENCODINGSUSED |
-											ATTR_VOL_CAPABILITIES | ATTR_VOL_VCBFSID |
-											ATTR_VOL_ATTRIBUTES | ATTR_VOL_INFO,
+											ATTR_VOL_CAPABILITIES | ATTR_VOL_ATTRIBUTES | ATTR_VOL_INFO,
 	
 	kAppleCDDADirectoryAttributesValidMask = ATTR_DIR_LINKCOUNT | ATTR_DIR_ENTRYCOUNT | ATTR_DIR_MOUNTSTATUS,
 	

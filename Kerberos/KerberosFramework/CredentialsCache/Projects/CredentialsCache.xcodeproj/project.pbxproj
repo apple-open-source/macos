@@ -7,119 +7,104 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A123D7EC066533F40072B6B6 /* KerberosDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = A123D7CD066533DD0072B6B6 /* KerberosDebug.c */; };
-		A123D7F3066533FC0072B6B6 /* mach_server_utilities.c in Sources */ = {isa = PBXBuildFile; fileRef = A123D7E6066533DD0072B6B6 /* mach_server_utilities.c */; };
-		A123D7F4066533FC0072B6B6 /* notify.defs in Sources */ = {isa = PBXBuildFile; fileRef = A123D7E7066533DD0072B6B6 /* notify.defs */; };
-		A14E78760725A4B300A025E3 /* CredentialsCache.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF92A0229962201583103 /* CredentialsCache.h */; };
-		A14E78770725A4B300A025E3 /* CredentialsCache2.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF92B0229962201583103 /* CredentialsCache2.h */; };
-		A14E78780725A4B300A025E3 /* CredentialsCacheInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF92C0229962201583103 /* CredentialsCacheInternal.h */; };
-		A181F82B05E57CE0006CE0A8 /* CCacheIPC.defs in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99102299E0401583103 /* CCacheIPC.defs */; };
-		A181F86B05E57D64006CE0A8 /* CCacheIPC.defs in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99102299E0401583103 /* CCacheIPC.defs */; settings = {ATTRIBUTES = (Server, ); }; };
-		A1AB1B8B05DD88C700526345 /* AbstractFactory.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8B50229962201583103 /* AbstractFactory.h */; };
-		A1AB1B8C05DD88C700526345 /* Allocators.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8B60229962201583103 /* Allocators.h */; };
-		A1AB1B8D05DD88C700526345 /* CCache.config.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8B70229962201583103 /* CCache.config.h */; };
-		A1AB1B8E05DD88C700526345 /* CCache.config.mac.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8B80229962201583103 /* CCache.config.mac.h */; };
-		A1AB1B8F05DD88C700526345 /* CCache.debug.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8B90229962201583103 /* CCache.debug.h */; };
-		A1AB1B9005DD88C700526345 /* CredentialsCache.prefix.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8BB0229962201583103 /* CredentialsCache.prefix.h */; };
-		A1AB1B9105DD88C700526345 /* CCache.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8BD0229962201583103 /* CCache.h */; };
-		A1AB1B9205DD88C700526345 /* CCache.internal.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8BE0229962201583103 /* CCache.internal.h */; };
-		A1AB1B9305DD88C700526345 /* CCache2Compat.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C00229962201583103 /* CCache2Compat.h */; };
-		A1AB1B9405DD88C700526345 /* CCacheData.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C10229962201583103 /* CCacheData.h */; };
-		A1AB1B9505DD88C700526345 /* CCacheIterator.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C50229962201583103 /* CCacheIterator.h */; };
-		A1AB1B9605DD88C700526345 /* CCacheServer.prefix.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C70229962201583103 /* CCacheServer.prefix.h */; };
-		A1AB1B9705DD88C700526345 /* CCacheUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C80229962201583103 /* CCacheUtil.h */; };
-		A1AB1B9805DD88C700526345 /* ConcreteFactory.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C90229962201583103 /* ConcreteFactory.h */; };
-		A1AB1B9905DD88C700526345 /* Context.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8CA0229962201583103 /* Context.h */; };
-		A1AB1B9A05DD88C700526345 /* ContextData.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8CB0229962201583103 /* ContextData.h */; };
-		A1AB1B9B05DD88C700526345 /* Credentials.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8CE0229962201583103 /* Credentials.h */; };
-		A1AB1B9C05DD88C700526345 /* CredentialsData.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8CF0229962201583103 /* CredentialsData.h */; };
-		A1AB1B9D05DD88C700526345 /* CredentialsIterator.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D10229962201583103 /* CredentialsIterator.h */; };
-		A1AB1B9E05DD88C700526345 /* Data.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D20229962201583103 /* Data.h */; };
-		A1AB1B9F05DD88C700526345 /* Exception.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D30229962201583103 /* Exception.h */; };
-		A1AB1BA005DD88C700526345 /* FlattenCredentials.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D40229962201583103 /* FlattenCredentials.h */; };
-		A1AB1BA105DD88C700526345 /* Implementations.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D50229962201583103 /* Implementations.h */; };
-		A1AB1BA205DD88C700526345 /* Internal.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D60229962201583103 /* Internal.h */; };
-		A1AB1BA305DD88C700526345 /* Internalize.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D70229962201583103 /* Internalize.h */; };
-		A1AB1BA405DD88C700526345 /* Lock.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DA0229962201583103 /* Lock.h */; };
-		A1AB1BA505DD88C700526345 /* Magic.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DB0229962201583103 /* Magic.h */; };
-		A1AB1BA605DD88C700526345 /* Pointer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DC0229962201583103 /* Pointer.h */; };
-		A1AB1BA705DD88C700526345 /* SharedStaticData.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DD0229962201583103 /* SharedStaticData.h */; };
-		A1AB1BA805DD88C700526345 /* CCacheString.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DE0229962201583103 /* CCacheString.h */; };
-		A1AB1BA905DD88C700526345 /* UniqueGlobally.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DF0229962201583103 /* UniqueGlobally.h */; };
-		A1AB1BAB05DD88C700526345 /* CCache.MachIPC.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF98702299E0401583103 /* CCache.MachIPC.h */; };
-		A1AB1BAC05DD88C700526345 /* CCacheDataMachIPCStubs.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF98802299E0401583103 /* CCacheDataMachIPCStubs.h */; };
-		A1AB1BAD05DD88C700526345 /* ContextDataMachIPCStubs.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF98A02299E0401583103 /* ContextDataMachIPCStubs.h */; };
-		A1AB1BAE05DD88C700526345 /* CredsDataMachIPCStubs.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF98C02299E0401583103 /* CredsDataMachIPCStubs.h */; };
-		A1AB1BAF05DD88C700526345 /* MachIPCStub.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF98E02299E0401583103 /* MachIPCStub.h */; };
-		A1AB1BB005DD88C700526345 /* CCacheVectorPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF9A302299E0501583103 /* CCacheVectorPrivate.h */; };
-		A1AB1BB205DD88C700526345 /* CCacheUtil.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8E60229962201583103 /* CCacheUtil.cp */; };
-		A1AB1BB305DD88C700526345 /* CCacheIterator.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8E50229962201583103 /* CCacheIterator.cp */; };
-		A1AB1BB405DD88C700526345 /* AbstractFactory.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8E10229962201583103 /* AbstractFactory.cp */; };
-		A1AB1BB505DD88C700526345 /* CCache2Compat.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8E30229962201583103 /* CCache2Compat.cp */; };
-		A1AB1BB605DD88C700526345 /* Context.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8E80229962201583103 /* Context.cp */; };
-		A1AB1BB705DD88C700526345 /* Credentials.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8EA0229962201583103 /* Credentials.cp */; };
-		A1AB1BB805DD88C700526345 /* CredentialsIterator.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8EC0229962201583103 /* CredentialsIterator.cp */; };
-		A1AB1BB905DD88C700526345 /* Data.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8ED0229962201583103 /* Data.cp */; };
-		A1AB1BBA05DD88C700526345 /* FlattenCredentials.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8EE0229962201583103 /* FlattenCredentials.cp */; };
-		A1AB1BBB05DD88C700526345 /* CCacheString.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8F10229962201583103 /* CCacheString.cp */; };
-		A1AB1BBD05DD88C700526345 /* CCacheDataMachIPCStubs.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99502299E0401583103 /* CCacheDataMachIPCStubs.cp */; };
-		A1AB1BBE05DD88C700526345 /* ContextDataMachIPCStubs.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99902299E0401583103 /* ContextDataMachIPCStubs.cp */; };
-		A1AB1BBF05DD88C700526345 /* CredsDataMachIPCStubs.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99B02299E0401583103 /* CredsDataMachIPCStubs.cp */; };
-		A1AB1BC005DD88C700526345 /* InternalMachIPCStub.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99D02299E0401583103 /* InternalMachIPCStub.cp */; };
-		A1AB1BC105DD88C700526345 /* MachIPCStub.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99F02299E0401583103 /* MachIPCStub.cp */; };
-		A1AB1BC205DD88C700526345 /* CCacheVector.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF9A102299E0401583103 /* CCacheVector.cp */; };
-		A1AB1BC305DD88C700526345 /* CCache.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8E20229962201583103 /* CCache.cp */; };
-		A1AB1C3A05DD892B00526345 /* Allocators.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8B60229962201583103 /* Allocators.h */; };
-		A1AB1C3B05DD892B00526345 /* CCache.config.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8B70229962201583103 /* CCache.config.h */; };
-		A1AB1C3C05DD892B00526345 /* CCacheUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C80229962201583103 /* CCacheUtil.h */; };
-		A1AB1C3D05DD892B00526345 /* CCacheString.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DE0229962201583103 /* CCacheString.h */; };
-		A1AB1C3E05DD892B00526345 /* CCacheServer.prefix.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C70229962201583103 /* CCacheServer.prefix.h */; };
-		A1AB1C3F05DD892B00526345 /* CCacheIterator.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C50229962201583103 /* CCacheIterator.h */; };
-		A1AB1C4005DD892B00526345 /* CCacheData.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C10229962201583103 /* CCacheData.h */; };
-		A1AB1C4105DD892B00526345 /* CCache2Compat.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8C00229962201583103 /* CCache2Compat.h */; };
-		A1AB1C4205DD892B00526345 /* CCache.internal.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8BE0229962201583103 /* CCache.internal.h */; };
-		A1AB1C4305DD892B00526345 /* CCache.debug.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8B90229962201583103 /* CCache.debug.h */; };
-		A1AB1C4405DD892B00526345 /* CCache.config.mac.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8B80229962201583103 /* CCache.config.mac.h */; };
-		A1AB1C4505DD892B00526345 /* CredentialsData.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8CF0229962201583103 /* CredentialsData.h */; };
-		A1AB1C4605DD892B00526345 /* CredentialsIterator.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D10229962201583103 /* CredentialsIterator.h */; };
-		A1AB1C4705DD892B00526345 /* Data.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D20229962201583103 /* Data.h */; };
-		A1AB1C4805DD892B00526345 /* FlattenCredentials.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D40229962201583103 /* FlattenCredentials.h */; };
-		A1AB1C4905DD892B00526345 /* Exception.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D30229962201583103 /* Exception.h */; };
-		A1AB1C4A05DD892B00526345 /* Implementations.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D50229962201583103 /* Implementations.h */; };
-		A1AB1C4B05DD892B00526345 /* Internal.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D60229962201583103 /* Internal.h */; };
-		A1AB1C4C05DD892B00526345 /* Internalize.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8D70229962201583103 /* Internalize.h */; };
-		A1AB1C4D05DD892B00526345 /* Magic.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DB0229962201583103 /* Magic.h */; };
-		A1AB1C4E05DD892B00526345 /* Lock.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DA0229962201583103 /* Lock.h */; };
-		A1AB1C4F05DD892B00526345 /* Pointer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DC0229962201583103 /* Pointer.h */; };
-		A1AB1C5005DD892B00526345 /* SharedStaticData.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DD0229962201583103 /* SharedStaticData.h */; };
-		A1AB1C5105DD892B00526345 /* UniqueGlobally.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8DF0229962201583103 /* UniqueGlobally.h */; };
-		A1AB1C5205DD892B00526345 /* ContextData.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF8CB0229962201583103 /* ContextData.h */; };
-		A1AB1C5305DD892B00526345 /* CCache.MachIPC.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF98702299E0401583103 /* CCache.MachIPC.h */; };
-		A1AB1C5505DD892B00526345 /* CredentialsDataCallIntf.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF98B02299E0401583103 /* CredentialsDataCallIntf.h */; };
-		A1AB1C5605DD892B00526345 /* MachIPCInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = F5CEF98D02299E0401583103 /* MachIPCInterface.h */; };
-		A1AB1C5B05DD892B00526345 /* CCacheData.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8E40229962201583103 /* CCacheData.cp */; };
-		A1AB1C5C05DD892B00526345 /* CCacheUtil.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8E60229962201583103 /* CCacheUtil.cp */; };
-		A1AB1C5D05DD892B00526345 /* Data.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8ED0229962201583103 /* Data.cp */; };
-		A1AB1C5E05DD892B00526345 /* FlattenCredentials.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8EE0229962201583103 /* FlattenCredentials.cp */; };
-		A1AB1C5F05DD892B00526345 /* CredentialsData.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8EB0229962201583103 /* CredentialsData.cp */; };
-		A1AB1C6005DD892B00526345 /* ContextData.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8E90229962201583103 /* ContextData.cp */; };
-		A1AB1C6105DD892B00526345 /* CCacheDataMachIPCIntf.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99402299E0401583103 /* CCacheDataMachIPCIntf.cp */; };
-		A1AB1C6205DD892B00526345 /* CCacheServer.c in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99602299E0401583103 /* CCacheServer.c */; };
-		A1AB1C6405DD892B00526345 /* ContextDataMachIPCIntf.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99802299E0401583103 /* ContextDataMachIPCIntf.cp */; };
-		A1AB1C6505DD892B00526345 /* CredsDataMachIPCIntf.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99A02299E0401583103 /* CredsDataMachIPCIntf.cp */; };
-		A1AB1C6605DD892B00526345 /* InternalMachIPCIntf.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF99C02299E0401583103 /* InternalMachIPCIntf.cp */; };
-		A1AB1C6805DD892B00526345 /* UniqueGlobally.cp in Sources */ = {isa = PBXBuildFile; fileRef = F5CEF8F20229962201583103 /* UniqueGlobally.cp */; };
-		A1AB1C6A05DD892B00526345 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5CEFA720229FC8601583103 /* CoreFoundation.framework */; };
-		A1AB1C6B05DD892B00526345 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5CEFA730229FC8601583103 /* CoreServices.framework */; };
-		A1AB1C6C05DD892B00526345 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5CEFA780229FDCF01583103 /* Security.framework */; };
-		A1AB1C7205DD892B00526345 /* CCacheServer.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A191A6E905D81B520006B57D /* CCacheServer.plist */; };
-		A1B706B00872F42C00F0C55D /* CredentialsCacheErrors.et in Sources */ = {isa = PBXBuildFile; fileRef = A1F43BDB076F9A07006E2729 /* CredentialsCacheErrors.et */; };
-		A1EFC8A6066D658E000C6ADB /* LoginSessions.c in Sources */ = {isa = PBXBuildFile; fileRef = A123D7E4066533DD0072B6B6 /* LoginSessions.c */; };
-		A1EFC8DC066D69CE000C6ADB /* mach_client_utilities.c in Sources */ = {isa = PBXBuildFile; fileRef = A123D7E5066533DD0072B6B6 /* mach_client_utilities.c */; };
+		A10B8AED0A66C5CD00B694C9 /* cci_stream.c in Sources */ = {isa = PBXBuildFile; fileRef = A10B8AD60A66C1FC00B694C9 /* cci_stream.c */; };
+		A10B8CA20A6848EE00AB7048 /* cci_cred_union.c in Sources */ = {isa = PBXBuildFile; fileRef = A10B8C560A66EB8600B694C9 /* cci_cred_union.c */; };
+		A10BA7BE0A81449300D483AC /* ccs_list.c in Sources */ = {isa = PBXBuildFile; fileRef = A10BA7BD0A81449300D483AC /* ccs_list.c */; };
+		A10BAA030A8157DE00D483AC /* ccs_server.c in Sources */ = {isa = PBXBuildFile; fileRef = A10BAA020A8157DE00D483AC /* ccs_server.c */; };
+		A125125E0ABB43570034621D /* ccapi_test.c in Sources */ = {isa = PBXBuildFile; fileRef = A125125D0ABB43570034621D /* ccapi_test.c */; };
+		A12512C00ABB48C20034621D /* ccs_list_internal.c in Sources */ = {isa = PBXBuildFile; fileRef = A1FAE57C0AA636C9002D7314 /* ccs_list_internal.c */; };
+		A12512C40ABB48DC0034621D /* ccapi_iterator_test.c in Sources */ = {isa = PBXBuildFile; fileRef = A125126E0ABB441C0034621D /* ccapi_iterator_test.c */; };
+		A12512F90ABB4ADE0034621D /* libCredentialsCache.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A140EA9F0A642D17001A896E /* libCredentialsCache.a */; };
+		A12513020ABB4B2B0034621D /* cci_cred_union.c in Sources */ = {isa = PBXBuildFile; fileRef = A10B8C560A66EB8600B694C9 /* cci_cred_union.c */; };
+		A12513030ABB4B380034621D /* cci_stream.c in Sources */ = {isa = PBXBuildFile; fileRef = A10B8AD60A66C1FC00B694C9 /* cci_stream.c */; };
+		A12513220ABB4C190034621D /* KerberosDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA6910A659F42005CD573 /* KerberosDebug.c */; };
+		A12513260ABB4C260034621D /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A15DA6AD0A659FD8005CD573 /* CoreFoundation.framework */; };
+		A125134F0ABB4C2D0034621D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A15DA6B60A65A001005CD573 /* Security.framework */; };
+		A12513970ABB4DDD0034621D /* cci_cred_union.c in Sources */ = {isa = PBXBuildFile; fileRef = A10B8C560A66EB8600B694C9 /* cci_cred_union.c */; };
+		A12513980ABB4DDD0034621D /* cci_debugging.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EAB80A642E5F001A896E /* cci_debugging.c */; };
+		A12513990ABB4DDD0034621D /* cci_identifier.c in Sources */ = {isa = PBXBuildFile; fileRef = A140ED380A643B11001A896E /* cci_identifier.c */; };
+		A125139A0ABB4DDD0034621D /* cci_stream.c in Sources */ = {isa = PBXBuildFile; fileRef = A10B8AD60A66C1FC00B694C9 /* cci_stream.c */; };
+		A125139B0ABB4DDD0034621D /* cci_message.c in Sources */ = {isa = PBXBuildFile; fileRef = A14133E90A8934DE00F3BEA0 /* cci_message.c */; };
+		A140EAAD0A642D8A001A896E /* ccapi_ccache_iterator.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA190A6419F8001A896E /* ccapi_ccache_iterator.c */; };
+		A140EAAE0A642D8A001A896E /* ccapi_ccache.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA1B0A6419F8001A896E /* ccapi_ccache.c */; };
+		A140EAAF0A642D8A001A896E /* ccapi_v2.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA270A641A16001A896E /* ccapi_v2.c */; };
+		A140EAB00A642D8A001A896E /* ccapi_context.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA1D0A6419F8001A896E /* ccapi_context.c */; };
+		A140EAB10A642D8A001A896E /* ccapi_credentials_iterator.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA1F0A6419F8001A896E /* ccapi_credentials_iterator.c */; };
+		A140EAB20A642D8A001A896E /* ccapi_credentials.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA210A6419F8001A896E /* ccapi_credentials.c */; };
+		A140EAB30A642D8A001A896E /* ccapi_string.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA230A6419F8001A896E /* ccapi_string.c */; };
+		A140EAB90A642E5F001A896E /* cci_debugging.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EAB80A642E5F001A896E /* cci_debugging.c */; };
+		A140ED390A643B11001A896E /* cci_identifier.c in Sources */ = {isa = PBXBuildFile; fileRef = A140ED380A643B11001A896E /* cci_identifier.c */; };
+		A14136420A8AA2CB00F3BEA0 /* ccapi_ipc.c in Sources */ = {isa = PBXBuildFile; fileRef = A14136410A8AA2CB00F3BEA0 /* ccapi_ipc.c */; };
+		A141371D0A8AB1BB00F3BEA0 /* cci_message.c in Sources */ = {isa = PBXBuildFile; fileRef = A14133E90A8934DE00F3BEA0 /* cci_message.c */; };
+		A14137DF0A8BD8C700F3BEA0 /* ccapi_context_change_time.c in Sources */ = {isa = PBXBuildFile; fileRef = A14137DE0A8BD8C700F3BEA0 /* ccapi_context_change_time.c */; };
+		A15DA5D80A6597B3005CD573 /* cci_debugging.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EAB80A642E5F001A896E /* cci_debugging.c */; };
+		A15DA5D90A6597B3005CD573 /* cci_identifier.c in Sources */ = {isa = PBXBuildFile; fileRef = A140ED380A643B11001A896E /* cci_identifier.c */; };
+		A15DA5DB0A6597B3005CD573 /* ccs_cache_collection.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA4260A6588AC005CD573 /* ccs_cache_collection.c */; };
+		A15DA5DC0A6597B3005CD573 /* ccs_ccache.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA42E0A6588BD005CD573 /* ccs_ccache.c */; };
+		A15DA5DD0A6597B3005CD573 /* ccs_credentials.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA4320A6588C7005CD573 /* ccs_credentials.c */; };
+		A15DA6920A659F56005CD573 /* kipc_common.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA6840A659F25005CD573 /* kipc_common.c */; };
+		A15DA6930A659F56005CD573 /* kipc_server.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA6850A659F25005CD573 /* kipc_server.c */; };
+		A15DA6940A659F56005CD573 /* kipc_session.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA6860A659F25005CD573 /* kipc_session.c */; };
+		A15DA6950A659F56005CD573 /* notify.defs in Sources */ = {isa = PBXBuildFile; fileRef = A15DA6870A659F25005CD573 /* notify.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		A15DA6960A659F56005CD573 /* KerberosDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA6910A659F42005CD573 /* KerberosDebug.c */; };
+		A15DA6AE0A659FD8005CD573 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A15DA6AD0A659FD8005CD573 /* CoreFoundation.framework */; };
+		A15DA6B70A65A001005CD573 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A15DA6B60A65A001005CD573 /* Security.framework */; };
+		A16280920AFA995500D52461 /* cci_os_debugging.c in Sources */ = {isa = PBXBuildFile; fileRef = A16280910AFA995500D52461 /* cci_os_debugging.c */; };
+		A16280EB0AFA9BE000D52461 /* cci_os_debugging.c in Sources */ = {isa = PBXBuildFile; fileRef = A16280910AFA995500D52461 /* cci_os_debugging.c */; };
+		A166E0450AA8D0AA001719AC /* ccs_credentials_iterator.c in Sources */ = {isa = PBXBuildFile; fileRef = A166E0440AA8D0AA001719AC /* ccs_credentials_iterator.c */; };
+		A17BB50D0AA4EBE800CDBD58 /* cci_message.c in Sources */ = {isa = PBXBuildFile; fileRef = A14133E90A8934DE00F3BEA0 /* cci_message.c */; };
+		A183557B0BAB162A0012D49B /* cci_array_internal.c in Sources */ = {isa = PBXBuildFile; fileRef = A1ACF1A60B0A5793001D521C /* cci_array_internal.c */; };
+		A183557C0BAB162A0012D49B /* cci_cred_union.c in Sources */ = {isa = PBXBuildFile; fileRef = A10B8C560A66EB8600B694C9 /* cci_cred_union.c */; };
+		A183557D0BAB162A0012D49B /* cci_debugging.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EAB80A642E5F001A896E /* cci_debugging.c */; };
+		A183557E0BAB162A0012D49B /* cci_os_debugging.c in Sources */ = {isa = PBXBuildFile; fileRef = A16280910AFA995500D52461 /* cci_os_debugging.c */; };
+		A183557F0BAB162A0012D49B /* cci_identifier.c in Sources */ = {isa = PBXBuildFile; fileRef = A140ED380A643B11001A896E /* cci_identifier.c */; };
+		A18355800BAB162A0012D49B /* cci_os_identifier.c in Sources */ = {isa = PBXBuildFile; fileRef = A1C6BFB50B1CCD990065927B /* cci_os_identifier.c */; };
+		A18355810BAB162A0012D49B /* cci_stream.c in Sources */ = {isa = PBXBuildFile; fileRef = A10B8AD60A66C1FC00B694C9 /* cci_stream.c */; };
+		A18355820BAB162A0012D49B /* cci_message.c in Sources */ = {isa = PBXBuildFile; fileRef = A14133E90A8934DE00F3BEA0 /* cci_message.c */; };
+		A18355830BAB162A0012D49B /* ccs_array.c in Sources */ = {isa = PBXBuildFile; fileRef = A19B91CC0B1F8041003E5C76 /* ccs_array.c */; };
+		A18355840BAB162A0012D49B /* ccs_client.c in Sources */ = {isa = PBXBuildFile; fileRef = A19B91FD0B1F8480003E5C76 /* ccs_client.c */; };
+		A18355850BAB162A0012D49B /* ccs_os_port.c in Sources */ = {isa = PBXBuildFile; fileRef = A19B92AF0B1F9154003E5C76 /* ccs_os_port.c */; };
+		A18355860BAB162A0012D49B /* ccs_cache_collection.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA4260A6588AC005CD573 /* ccs_cache_collection.c */; };
+		A18355870BAB162A0012D49B /* ccs_ccache.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA42E0A6588BD005CD573 /* ccs_ccache.c */; };
+		A18355880BAB162A0012D49B /* ccs_ccache_iterator.c in Sources */ = {isa = PBXBuildFile; fileRef = A1FAE56F0AA633A4002D7314 /* ccs_ccache_iterator.c */; };
+		A18355890BAB162A0012D49B /* ccs_credentials.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA4320A6588C7005CD573 /* ccs_credentials.c */; };
+		A183558A0BAB162A0012D49B /* ccs_credentials_iterator.c in Sources */ = {isa = PBXBuildFile; fileRef = A166E0440AA8D0AA001719AC /* ccs_credentials_iterator.c */; };
+		A183558B0BAB162A0012D49B /* ccs_list.c in Sources */ = {isa = PBXBuildFile; fileRef = A10BA7BD0A81449300D483AC /* ccs_list.c */; };
+		A183558C0BAB162A0012D49B /* ccs_list_internal.c in Sources */ = {isa = PBXBuildFile; fileRef = A1FAE57C0AA636C9002D7314 /* ccs_list_internal.c */; };
+		A183558D0BAB162A0012D49B /* ccs_server.c in Sources */ = {isa = PBXBuildFile; fileRef = A10BAA020A8157DE00D483AC /* ccs_server.c */; };
+		A18355920BAB162A0012D49B /* KerberosDebug.c in Sources */ = {isa = PBXBuildFile; fileRef = A15DA6910A659F42005CD573 /* KerberosDebug.c */; };
+		A18355930BAB16410012D49B /* ccapi_context.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA1D0A6419F8001A896E /* ccapi_context.c */; };
+		A18355940BAB16410012D49B /* ccapi_ccache_iterator.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA190A6419F8001A896E /* ccapi_ccache_iterator.c */; };
+		A18355950BAB16410012D49B /* ccapi_ccache.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA1B0A6419F8001A896E /* ccapi_ccache.c */; };
+		A18355960BAB16410012D49B /* ccapi_credentials_iterator.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA1F0A6419F8001A896E /* ccapi_credentials_iterator.c */; };
+		A18355970BAB16410012D49B /* ccapi_credentials.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA210A6419F8001A896E /* ccapi_credentials.c */; };
+		A18355980BAB16410012D49B /* ccapi_string.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA230A6419F8001A896E /* ccapi_string.c */; };
+		A18355990BAB16410012D49B /* ccapi_ipc.c in Sources */ = {isa = PBXBuildFile; fileRef = A14136410A8AA2CB00F3BEA0 /* ccapi_ipc.c */; };
+		A183559B0BAB16410012D49B /* ccapi_context_change_time.c in Sources */ = {isa = PBXBuildFile; fileRef = A14137DE0A8BD8C700F3BEA0 /* ccapi_context_change_time.c */; };
+		A183559C0BAB16410012D49B /* ccapi_v2.c in Sources */ = {isa = PBXBuildFile; fileRef = A140EA270A641A16001A896E /* ccapi_v2.c */; };
+		A183559D0BAB16410012D49B /* ccapi_vector.c in Sources */ = {isa = PBXBuildFile; fileRef = A1E58C100AC9AE7F004FA23B /* ccapi_vector.c */; };
+		A19B91CD0B1F8041003E5C76 /* ccs_array.c in Sources */ = {isa = PBXBuildFile; fileRef = A19B91CC0B1F8041003E5C76 /* ccs_array.c */; };
+		A19B91FE0B1F8480003E5C76 /* ccs_client.c in Sources */ = {isa = PBXBuildFile; fileRef = A19B91FD0B1F8480003E5C76 /* ccs_client.c */; };
+		A19B92B00B1F9154003E5C76 /* ccs_os_port.c in Sources */ = {isa = PBXBuildFile; fileRef = A19B92AF0B1F9154003E5C76 /* ccs_os_port.c */; };
+		A1ACF2320B0A74C7001D521C /* cci_array_internal.c in Sources */ = {isa = PBXBuildFile; fileRef = A1ACF1A60B0A5793001D521C /* cci_array_internal.c */; };
+		A1ACF3060B0A7DF3001D521C /* cci_array_internal.c in Sources */ = {isa = PBXBuildFile; fileRef = A1ACF1A60B0A5793001D521C /* cci_array_internal.c */; };
+		A1C6BFB60B1CCD990065927B /* cci_os_identifier.c in Sources */ = {isa = PBXBuildFile; fileRef = A1C6BFB50B1CCD990065927B /* cci_os_identifier.c */; };
+		A1C6C0050B1CD0DE0065927B /* cci_os_identifier.c in Sources */ = {isa = PBXBuildFile; fileRef = A1C6BFB50B1CCD990065927B /* cci_os_identifier.c */; };
+		A1C8EC7B0A6C1002008DA4E8 /* ccapi_os_ipc.c in Sources */ = {isa = PBXBuildFile; fileRef = A1C8EC7A0A6C1002008DA4E8 /* ccapi_os_ipc.c */; };
+		A1D9187E0A65A4FA00099ADD /* cci_mig.defs in Sources */ = {isa = PBXBuildFile; fileRef = A1D918770A65A4BE00099ADD /* cci_mig.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		A1D918830A65A54B00099ADD /* cci_mig.defs in Sources */ = {isa = PBXBuildFile; fileRef = A1D918770A65A4BE00099ADD /* cci_mig.defs */; };
+		A1D918A00A65A59B00099ADD /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = A1D9189F0A65A59B00099ADD /* main.c */; };
+		A1DC18550AF32A80001DD410 /* edu.mit.Kerberos.CCacheServer.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A15DA5E80A659844005CD573 /* edu.mit.Kerberos.CCacheServer.plist */; };
+		A1E58C110AC9AE7F004FA23B /* ccapi_vector.c in Sources */ = {isa = PBXBuildFile; fileRef = A1E58C100AC9AE7F004FA23B /* ccapi_vector.c */; };
+		A1E58F100AC9CB9B004FA23B /* ccapi_err.et in Sources */ = {isa = PBXBuildFile; fileRef = A1E58F090AC9CAEF004FA23B /* ccapi_err.et */; };
+		A1E58F110AC9CBA2004FA23B /* ccapi_err.et in Sources */ = {isa = PBXBuildFile; fileRef = A1E58F090AC9CAEF004FA23B /* ccapi_err.et */; };
+		A1E58F530AC9CE65004FA23B /* ccapi_os_ipc.c in Sources */ = {isa = PBXBuildFile; fileRef = A1E58E410AC9C87F004FA23B /* ccapi_os_ipc.c */; };
+		A1FAE5700AA633A4002D7314 /* ccs_ccache_iterator.c in Sources */ = {isa = PBXBuildFile; fileRef = A1FAE56F0AA633A4002D7314 /* ccs_ccache_iterator.c */; };
+		A1FAE57E0AA636C9002D7314 /* ccs_list_internal.c in Sources */ = {isa = PBXBuildFile; fileRef = A1FAE57C0AA636C9002D7314 /* ccs_list_internal.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
-		A1B706A90872F3E800F0C55D /* PBXBuildRule */ = {
+		A1E58F0C0AC9CB43004FA23B /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.et";
@@ -131,955 +116,900 @@
 			);
 			script = "COMPILE_ET=\"${SRCROOT}/../../KerberosErrors/Scripts/compile_et\"\nOUTPUT_DIR=\"${BUILT_PRODUCTS_DIR}/${TARGET_NAME}.intermediates\"\n\nperl \"${COMPILE_ET}\" --etout \"${OUTPUT_DIR}\" \"${INPUT_FILE_PATH}\"\n";
 		};
-		A1B9B92507611A8200365FC0 /* PBXBuildRule */ = {
+		A1E58F0D0AC9CB6C004FA23B /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.proxy.script;
-			filePatterns = .yo;
-			fileType = sourcecode.mig;
+			filePatterns = "*.et";
+			fileType = pattern.proxy;
 			isEditable = 1;
 			outputFiles = (
-				"${DERIVED_SOURCES_DIR}/${INPUT_FILE_BASE}.h",
-				"${DERIVED_SOURCES_DIR}/${INPUT_FILE_BASE}User.c",
+				"${BUILT_PRODUCTS_DIR}/${TARGET_NAME}.intermediates/${INPUT_FILE_BASE}.strings",
+				"${BUILT_PRODUCTS_DIR}/${TARGET_NAME}.intermediates/${INPUT_FILE_BASE}.h",
 			);
-			script = "echo \"FIXME: Regular MiG client rule busted!\"\ncd \"${DERIVED_SOURCES_DIR}\" && mig \"-I${INPUT_FILE_DIR}\" \"${INPUT_FILE_PATH}\"";
-		};
-		A1C025FA05F6919300D42F99 /* PBXBuildRule */ = {
-			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.proxy.script;
-			filePatterns = "";
-			fileType = sourcecode.mig;
-			isEditable = 1;
-			outputFiles = (
-				"${DERIVED_SOURCES_DIR}/${INPUT_FILE_BASE}Server.h",
-				"${DERIVED_SOURCES_DIR}/${INPUT_FILE_BASE}Server.c",
-			);
-			script = "echo \"FIXME: Custom rule to compensate for a bug in the regular MiG server rule which includes client files in the build\"\ncd \"${DERIVED_SOURCES_DIR}\" && mig -sheader \"${INPUT_FILE_BASE}Server.h\" \"-I${INPUT_FILE_DIR}\" \"${INPUT_FILE_PATH}\"";
+			script = "COMPILE_ET=\"${SRCROOT}/../../KerberosErrors/Scripts/compile_et\"\nOUTPUT_DIR=\"${BUILT_PRODUCTS_DIR}/${TARGET_NAME}.intermediates\"\n\nperl \"${COMPILE_ET}\" --etout \"${OUTPUT_DIR}\" \"${INPUT_FILE_PATH}\"\n";
 		};
 /* End PBXBuildRule section */
 
-/* Begin PBXBuildStyle section */
-		F5CEF8B10229952601583103 /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				ZERO_LINK = YES;
-			};
-			name = Development;
+/* Begin PBXContainerItemProxy section */
+		A12512F50ABB4AD60034621D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A140E9DE0A64187B001A896E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A140EA9E0A642D17001A896E;
+			remoteInfo = CCAPI;
 		};
-		F5CEF8B20229952601583103 /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		A1AB1C7105DD892B00526345 /* CopyFiles */ = {
+		A1DC18470AF329A0001DD410 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /private/etc/mach_init_per_user.d;
+			dstPath = /System/Library/LaunchAgents;
 			dstSubfolderSpec = 0;
 			files = (
-				A1AB1C7205DD892B00526345 /* CCacheServer.plist in CopyFiles */,
+				A1DC18550AF32A80001DD410 /* edu.mit.Kerberos.CCacheServer.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		A123D7C8066533DD0072B6B6 /* KerberosDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KerberosDebug.h; sourceTree = "<group>"; };
-		A123D7CD066533DD0072B6B6 /* KerberosDebug.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = KerberosDebug.c; sourceTree = "<group>"; };
-		A123D7D9066533DD0072B6B6 /* AEClassicWorkaround.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AEClassicWorkaround.h; sourceTree = "<group>"; };
-		A123D7DA066533DD0072B6B6 /* LoginSessions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = LoginSessions.h; sourceTree = "<group>"; };
-		A123D7DB066533DD0072B6B6 /* mach_client_utilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mach_client_utilities.h; sourceTree = "<group>"; };
-		A123D7DC066533DD0072B6B6 /* mach_server_utilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mach_server_utilities.h; sourceTree = "<group>"; };
-		A123D7E3066533DD0072B6B6 /* AEClassicWorkaround.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AEClassicWorkaround.cp; sourceTree = "<group>"; };
-		A123D7E4066533DD0072B6B6 /* LoginSessions.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = LoginSessions.c; sourceTree = "<group>"; };
-		A123D7E5066533DD0072B6B6 /* mach_client_utilities.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mach_client_utilities.c; sourceTree = "<group>"; };
-		A123D7E6066533DD0072B6B6 /* mach_server_utilities.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mach_server_utilities.c; sourceTree = "<group>"; };
-		A123D7E7066533DD0072B6B6 /* notify.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = notify.defs; sourceTree = "<group>"; };
-		A16DB05204869AB100120112 /* Kerberos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		A191A6E905D81B520006B57D /* CCacheServer.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; lineEnding = 0; path = CCacheServer.plist; sourceTree = "<group>"; };
-		A1AB1BCF05DD88C700526345 /* libCredentialsCache.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCredentialsCache.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		A1AB1C7505DD892B00526345 /* CCacheServer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CCacheServer.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A1AB1C9705DD8AB800526345 /* CCacheClassicServerInfo.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = CCacheClassicServerInfo.plist; sourceTree = "<group>"; };
-		A1AB1C9805DD8AB800526345 /* CCacheServerInfo.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = CCacheServerInfo.plist; sourceTree = "<group>"; };
-		A1F43BDB076F9A07006E2729 /* CredentialsCacheErrors.et */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CredentialsCacheErrors.et; sourceTree = "<group>"; };
-		F54BD22D0230038F01120112 /* libKerberosIPC.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libKerberosIPC.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		F54BD22E0230038F01120112 /* libKerberosDebug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libKerberosDebug.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		F5CEF8B50229962201583103 /* AbstractFactory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AbstractFactory.h; sourceTree = "<group>"; };
-		F5CEF8B60229962201583103 /* Allocators.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Allocators.h; sourceTree = "<group>"; };
-		F5CEF8B70229962201583103 /* CCache.config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCache.config.h; sourceTree = "<group>"; };
-		F5CEF8B80229962201583103 /* CCache.config.mac.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCache.config.mac.h; sourceTree = "<group>"; };
-		F5CEF8B90229962201583103 /* CCache.debug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCache.debug.h; sourceTree = "<group>"; };
-		F5CEF8BB0229962201583103 /* CredentialsCache.prefix.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CredentialsCache.prefix.h; sourceTree = "<group>"; };
-		F5CEF8BD0229962201583103 /* CCache.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCache.h; sourceTree = "<group>"; };
-		F5CEF8BE0229962201583103 /* CCache.internal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCache.internal.h; sourceTree = "<group>"; };
-		F5CEF8C00229962201583103 /* CCache2Compat.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCache2Compat.h; sourceTree = "<group>"; };
-		F5CEF8C10229962201583103 /* CCacheData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCacheData.h; sourceTree = "<group>"; };
-		F5CEF8C50229962201583103 /* CCacheIterator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCacheIterator.h; sourceTree = "<group>"; };
-		F5CEF8C70229962201583103 /* CCacheServer.prefix.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCacheServer.prefix.h; sourceTree = "<group>"; };
-		F5CEF8C80229962201583103 /* CCacheUtil.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCacheUtil.h; sourceTree = "<group>"; };
-		F5CEF8C90229962201583103 /* ConcreteFactory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ConcreteFactory.h; sourceTree = "<group>"; };
-		F5CEF8CA0229962201583103 /* Context.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Context.h; sourceTree = "<group>"; };
-		F5CEF8CB0229962201583103 /* ContextData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ContextData.h; sourceTree = "<group>"; };
-		F5CEF8CE0229962201583103 /* Credentials.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Credentials.h; sourceTree = "<group>"; };
-		F5CEF8CF0229962201583103 /* CredentialsData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CredentialsData.h; sourceTree = "<group>"; };
-		F5CEF8D10229962201583103 /* CredentialsIterator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CredentialsIterator.h; sourceTree = "<group>"; };
-		F5CEF8D20229962201583103 /* Data.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Data.h; sourceTree = "<group>"; };
-		F5CEF8D30229962201583103 /* Exception.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Exception.h; sourceTree = "<group>"; };
-		F5CEF8D40229962201583103 /* FlattenCredentials.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FlattenCredentials.h; sourceTree = "<group>"; };
-		F5CEF8D50229962201583103 /* Implementations.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Implementations.h; sourceTree = "<group>"; };
-		F5CEF8D60229962201583103 /* Internal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Internal.h; sourceTree = "<group>"; };
-		F5CEF8D70229962201583103 /* Internalize.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Internalize.h; sourceTree = "<group>"; };
-		F5CEF8DA0229962201583103 /* Lock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Lock.h; sourceTree = "<group>"; };
-		F5CEF8DB0229962201583103 /* Magic.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Magic.h; sourceTree = "<group>"; };
-		F5CEF8DC0229962201583103 /* Pointer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Pointer.h; sourceTree = "<group>"; };
-		F5CEF8DD0229962201583103 /* SharedStaticData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SharedStaticData.h; sourceTree = "<group>"; };
-		F5CEF8DE0229962201583103 /* CCacheString.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCacheString.h; sourceTree = "<group>"; };
-		F5CEF8DF0229962201583103 /* UniqueGlobally.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = UniqueGlobally.h; sourceTree = "<group>"; };
-		F5CEF8E10229962201583103 /* AbstractFactory.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AbstractFactory.cp; sourceTree = "<group>"; };
-		F5CEF8E20229962201583103 /* CCache.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCache.cp; sourceTree = "<group>"; };
-		F5CEF8E30229962201583103 /* CCache2Compat.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCache2Compat.cp; sourceTree = "<group>"; };
-		F5CEF8E40229962201583103 /* CCacheData.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCacheData.cp; sourceTree = "<group>"; };
-		F5CEF8E50229962201583103 /* CCacheIterator.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCacheIterator.cp; sourceTree = "<group>"; };
-		F5CEF8E60229962201583103 /* CCacheUtil.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCacheUtil.cp; sourceTree = "<group>"; };
-		F5CEF8E80229962201583103 /* Context.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Context.cp; sourceTree = "<group>"; };
-		F5CEF8E90229962201583103 /* ContextData.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ContextData.cp; sourceTree = "<group>"; };
-		F5CEF8EA0229962201583103 /* Credentials.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Credentials.cp; sourceTree = "<group>"; };
-		F5CEF8EB0229962201583103 /* CredentialsData.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CredentialsData.cp; sourceTree = "<group>"; };
-		F5CEF8EC0229962201583103 /* CredentialsIterator.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CredentialsIterator.cp; sourceTree = "<group>"; };
-		F5CEF8ED0229962201583103 /* Data.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Data.cp; sourceTree = "<group>"; };
-		F5CEF8EE0229962201583103 /* FlattenCredentials.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = FlattenCredentials.cp; sourceTree = "<group>"; };
-		F5CEF8F10229962201583103 /* CCacheString.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCacheString.cp; sourceTree = "<group>"; };
-		F5CEF8F20229962201583103 /* UniqueGlobally.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = UniqueGlobally.cp; sourceTree = "<group>"; };
-		F5CEF92A0229962201583103 /* CredentialsCache.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CredentialsCache.h; sourceTree = "<group>"; };
-		F5CEF92B0229962201583103 /* CredentialsCache2.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CredentialsCache2.h; sourceTree = "<group>"; };
-		F5CEF92C0229962201583103 /* CredentialsCacheInternal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CredentialsCacheInternal.h; sourceTree = "<group>"; };
-		F5CEF98702299E0401583103 /* CCache.MachIPC.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCache.MachIPC.h; sourceTree = "<group>"; };
-		F5CEF98802299E0401583103 /* CCacheDataMachIPCStubs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCacheDataMachIPCStubs.h; sourceTree = "<group>"; };
-		F5CEF98A02299E0401583103 /* ContextDataMachIPCStubs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ContextDataMachIPCStubs.h; sourceTree = "<group>"; };
-		F5CEF98B02299E0401583103 /* CredentialsDataCallIntf.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CredentialsDataCallIntf.h; sourceTree = "<group>"; };
-		F5CEF98C02299E0401583103 /* CredsDataMachIPCStubs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CredsDataMachIPCStubs.h; sourceTree = "<group>"; };
-		F5CEF98D02299E0401583103 /* MachIPCInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MachIPCInterface.h; sourceTree = "<group>"; };
-		F5CEF98E02299E0401583103 /* MachIPCStub.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MachIPCStub.h; sourceTree = "<group>"; };
-		F5CEF98F02299E0401583103 /* CCache.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = CCache.defs; sourceTree = "<group>"; };
-		F5CEF99002299E0401583103 /* CCache.types.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = CCache.types.defs; sourceTree = "<group>"; };
-		F5CEF99102299E0401583103 /* CCacheIPC.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = CCacheIPC.defs; sourceTree = "<group>"; };
-		F5CEF99202299E0401583103 /* Context.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = Context.defs; sourceTree = "<group>"; };
-		F5CEF99302299E0401583103 /* Credentials.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = Credentials.defs; sourceTree = "<group>"; };
-		F5CEF99402299E0401583103 /* CCacheDataMachIPCIntf.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCacheDataMachIPCIntf.cp; sourceTree = "<group>"; };
-		F5CEF99502299E0401583103 /* CCacheDataMachIPCStubs.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCacheDataMachIPCStubs.cp; sourceTree = "<group>"; };
-		F5CEF99602299E0401583103 /* CCacheServer.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = CCacheServer.c; sourceTree = "<group>"; };
-		F5CEF99802299E0401583103 /* ContextDataMachIPCIntf.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ContextDataMachIPCIntf.cp; sourceTree = "<group>"; };
-		F5CEF99902299E0401583103 /* ContextDataMachIPCStubs.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ContextDataMachIPCStubs.cp; sourceTree = "<group>"; };
-		F5CEF99A02299E0401583103 /* CredsDataMachIPCIntf.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CredsDataMachIPCIntf.cp; sourceTree = "<group>"; };
-		F5CEF99B02299E0401583103 /* CredsDataMachIPCStubs.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CredsDataMachIPCStubs.cp; sourceTree = "<group>"; };
-		F5CEF99C02299E0401583103 /* InternalMachIPCIntf.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = InternalMachIPCIntf.cp; sourceTree = "<group>"; };
-		F5CEF99D02299E0401583103 /* InternalMachIPCStub.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = InternalMachIPCStub.cp; sourceTree = "<group>"; };
-		F5CEF99E02299E0401583103 /* MachIPCInterface.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MachIPCInterface.cp; sourceTree = "<group>"; };
-		F5CEF99F02299E0401583103 /* MachIPCStub.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MachIPCStub.cp; sourceTree = "<group>"; };
-		F5CEF9A102299E0401583103 /* CCacheVector.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCacheVector.cp; sourceTree = "<group>"; };
-		F5CEF9A302299E0501583103 /* CCacheVectorPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCacheVectorPrivate.h; sourceTree = "<group>"; };
-		F5CEFA390229F85701583103 /* CCacheVector.pbexp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = CCacheVector.pbexp; sourceTree = "<group>"; };
-		F5CEFA3A0229F85701583103 /* CredentialsCache.pbexp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = CredentialsCache.pbexp; sourceTree = "<group>"; };
-		F5CEFA720229FC8601583103 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		F5CEFA730229FC8601583103 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
-		F5CEFA780229FDCF01583103 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
-		F5CEFABD022A006F01583103 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
-		F5CEFABF022A013201583103 /* CCacheClassicServer.prefix.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCacheClassicServer.prefix.h; sourceTree = "<group>"; };
+		A10B8AD60A66C1FC00B694C9 /* cci_stream.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cci_stream.c; sourceTree = "<group>"; };
+		A10B8AD90A66C20600B694C9 /* cci_stream.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_stream.h; sourceTree = "<group>"; };
+		A10B8C560A66EB8600B694C9 /* cci_cred_union.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cci_cred_union.c; sourceTree = "<group>"; };
+		A10B8C590A66EB9300B694C9 /* cci_cred_union.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_cred_union.h; sourceTree = "<group>"; };
+		A10BA7BD0A81449300D483AC /* ccs_list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_list.c; sourceTree = "<group>"; };
+		A10BA7C10A81449D00D483AC /* ccs_list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_list.h; sourceTree = "<group>"; };
+		A10BA9620A81516E00D483AC /* ccapi_ipc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_ipc.h; sourceTree = "<group>"; };
+		A10BAA020A8157DE00D483AC /* ccs_server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_server.c; sourceTree = "<group>"; };
+		A10BAA060A8157E800D483AC /* ccs_server.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_server.h; sourceTree = "<group>"; };
+		A12512440ABB41EE0034621D /* CCAPITest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CCAPITest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A125125D0ABB43570034621D /* ccapi_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_test.c; sourceTree = "<group>"; };
+		A12512670ABB43C80034621D /* ccapi_test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_test.h; sourceTree = "<group>"; };
+		A125126E0ABB441C0034621D /* ccapi_iterator_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_iterator_test.c; sourceTree = "<group>"; };
+		A140EA190A6419F8001A896E /* ccapi_ccache_iterator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_ccache_iterator.c; sourceTree = "<group>"; };
+		A140EA1A0A6419F8001A896E /* ccapi_ccache_iterator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_ccache_iterator.h; sourceTree = "<group>"; };
+		A140EA1B0A6419F8001A896E /* ccapi_ccache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_ccache.c; sourceTree = "<group>"; };
+		A140EA1C0A6419F8001A896E /* ccapi_ccache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_ccache.h; sourceTree = "<group>"; };
+		A140EA1D0A6419F8001A896E /* ccapi_context.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_context.c; sourceTree = "<group>"; };
+		A140EA1E0A6419F8001A896E /* ccapi_context.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_context.h; sourceTree = "<group>"; };
+		A140EA1F0A6419F8001A896E /* ccapi_credentials_iterator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_credentials_iterator.c; sourceTree = "<group>"; };
+		A140EA200A6419F8001A896E /* ccapi_credentials_iterator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_credentials_iterator.h; sourceTree = "<group>"; };
+		A140EA210A6419F8001A896E /* ccapi_credentials.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_credentials.c; sourceTree = "<group>"; };
+		A140EA220A6419F8001A896E /* ccapi_credentials.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_credentials.h; sourceTree = "<group>"; };
+		A140EA230A6419F8001A896E /* ccapi_string.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_string.c; sourceTree = "<group>"; };
+		A140EA240A6419F8001A896E /* ccapi_string.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_string.h; sourceTree = "<group>"; };
+		A140EA270A641A16001A896E /* ccapi_v2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_v2.c; sourceTree = "<group>"; };
+		A140EA400A641B01001A896E /* CredentialsCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CredentialsCache.h; sourceTree = "<group>"; };
+		A140EA410A641B01001A896E /* CredentialsCache2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CredentialsCache2.h; sourceTree = "<group>"; };
+		A140EA9F0A642D17001A896E /* libCredentialsCache.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCredentialsCache.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A140EAA70A642D35001A896E /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = "<group>"; };
+		A140EAA80A642D35001A896E /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = "<group>"; };
+		A140EAB80A642E5F001A896E /* cci_debugging.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cci_debugging.c; sourceTree = "<group>"; };
+		A140EABC0A642E67001A896E /* cci_debugging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_debugging.h; sourceTree = "<group>"; };
+		A140EC4E0A643439001A896E /* cci_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_common.h; sourceTree = "<group>"; };
+		A140ED380A643B11001A896E /* cci_identifier.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cci_identifier.c; sourceTree = "<group>"; };
+		A140ED460A643D9D001A896E /* cci_identifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_identifier.h; sourceTree = "<group>"; };
+		A14133E90A8934DE00F3BEA0 /* cci_message.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cci_message.c; sourceTree = "<group>"; };
+		A14133F20A89356B00F3BEA0 /* cci_message.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_message.h; sourceTree = "<group>"; };
+		A14136410A8AA2CB00F3BEA0 /* ccapi_ipc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_ipc.c; sourceTree = "<group>"; };
+		A141364D0A8AA32800F3BEA0 /* ccapi_os_ipc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_os_ipc.h; sourceTree = "<group>"; };
+		A14137DE0A8BD8C700F3BEA0 /* ccapi_context_change_time.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_context_change_time.c; sourceTree = "<group>"; };
+		A14137E20A8BD8DB00F3BEA0 /* ccapi_context_change_time.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_context_change_time.h; sourceTree = "<group>"; };
+		A15DA4260A6588AC005CD573 /* ccs_cache_collection.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_cache_collection.c; sourceTree = "<group>"; };
+		A15DA42E0A6588BD005CD573 /* ccs_ccache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_ccache.c; sourceTree = "<group>"; };
+		A15DA4320A6588C7005CD573 /* ccs_credentials.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_credentials.c; sourceTree = "<group>"; };
+		A15DA4390A658909005CD573 /* ccs_ccache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_ccache.h; sourceTree = "<group>"; };
+		A15DA43C0A658914005CD573 /* ccs_credentials.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_credentials.h; sourceTree = "<group>"; };
+		A15DA4430A65893D005CD573 /* ccs_cache_collection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_cache_collection.h; sourceTree = "<group>"; };
+		A15DA5D00A659752005CD573 /* CCacheServer.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CCacheServer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A15DA5E80A659844005CD573 /* edu.mit.Kerberos.CCacheServer.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = edu.mit.Kerberos.CCacheServer.plist; sourceTree = "<group>"; };
+		A15DA5E90A659844005CD573 /* CCacheServerInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = CCacheServerInfo.plist; sourceTree = "<group>"; };
+		A15DA6530A659F08005CD573 /* KerberosDebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KerberosDebug.h; sourceTree = "<group>"; };
+		A15DA6790A659F25005CD573 /* kipc_client.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kipc_client.h; sourceTree = "<group>"; };
+		A15DA67A0A659F25005CD573 /* kipc_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kipc_common.h; sourceTree = "<group>"; };
+		A15DA67B0A659F25005CD573 /* kipc_server.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kipc_server.h; sourceTree = "<group>"; };
+		A15DA67C0A659F25005CD573 /* kipc_session.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kipc_session.h; sourceTree = "<group>"; };
+		A15DA6830A659F25005CD573 /* kipc_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kipc_client.c; sourceTree = "<group>"; };
+		A15DA6840A659F25005CD573 /* kipc_common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kipc_common.c; sourceTree = "<group>"; };
+		A15DA6850A659F25005CD573 /* kipc_server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kipc_server.c; sourceTree = "<group>"; };
+		A15DA6860A659F25005CD573 /* kipc_session.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kipc_session.c; sourceTree = "<group>"; };
+		A15DA6870A659F25005CD573 /* notify.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = notify.defs; sourceTree = "<group>"; };
+		A15DA6910A659F42005CD573 /* KerberosDebug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = KerberosDebug.c; sourceTree = "<group>"; };
+		A15DA6AD0A659FD8005CD573 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		A15DA6B60A65A001005CD573 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		A15DA6BF0A65A020005CD573 /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		A16280910AFA995500D52461 /* cci_os_debugging.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cci_os_debugging.c; sourceTree = "<group>"; };
+		A16280970AFA99DF00D52461 /* cci_os_debugging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_os_debugging.h; sourceTree = "<group>"; };
+		A166E0440AA8D0AA001719AC /* ccs_credentials_iterator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_credentials_iterator.c; sourceTree = "<group>"; };
+		A166E0820AA8D51C001719AC /* ccs_credentials_iterator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_credentials_iterator.h; sourceTree = "<group>"; };
+		A166E84A0AB0C458001719AC /* cci_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_types.h; sourceTree = "<group>"; };
+		A166E8A50AB0C547001719AC /* ccs_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_types.h; sourceTree = "<group>"; };
+		A166E9230AB0C6A9001719AC /* ccs_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_common.h; sourceTree = "<group>"; };
+		A19B91CC0B1F8041003E5C76 /* ccs_array.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_array.c; sourceTree = "<group>"; };
+		A19B91D10B1F8048003E5C76 /* ccs_array.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_array.h; sourceTree = "<group>"; };
+		A19B91F90B1F8479003E5C76 /* ccs_client.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_client.h; sourceTree = "<group>"; };
+		A19B91FD0B1F8480003E5C76 /* ccs_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_client.c; sourceTree = "<group>"; };
+		A19B920D0B1F86CA003E5C76 /* cci_os_identifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_os_identifier.h; sourceTree = "<group>"; };
+		A19B92AB0B1F9144003E5C76 /* ccs_os_port.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_os_port.h; sourceTree = "<group>"; };
+		A19B92AF0B1F9154003E5C76 /* ccs_os_port.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_os_port.c; sourceTree = "<group>"; };
+		A1ACF1A60B0A5793001D521C /* cci_array_internal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cci_array_internal.c; sourceTree = "<group>"; };
+		A1ACF1A90B0A579E001D521C /* cci_array_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_array_internal.h; sourceTree = "<group>"; };
+		A1C6BF5B0B1CCAD70065927B /* ccache-api-v2.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html.documentation; path = "ccache-api-v2.html"; sourceTree = "<group>"; };
+		A1C6BF5C0B1CCAD70065927B /* ccache-api-v3.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html.documentation; path = "ccache-api-v3.html"; sourceTree = "<group>"; };
+		A1C6BF5D0B1CCAD70065927B /* index.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html.documentation; path = index.html; sourceTree = "<group>"; };
+		A1C6BF5E0B1CCAD70065927B /* Version history */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Version history"; sourceTree = "<group>"; };
+		A1C6BFB50B1CCD990065927B /* cci_os_identifier.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cci_os_identifier.c; sourceTree = "<group>"; };
+		A1C8EC7A0A6C1002008DA4E8 /* ccapi_os_ipc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_os_ipc.c; sourceTree = "<group>"; };
+		A1D918770A65A4BE00099ADD /* cci_mig.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = cci_mig.defs; sourceTree = "<group>"; };
+		A1D918780A65A4BE00099ADD /* cci_mig_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cci_mig_types.h; sourceTree = "<group>"; };
+		A1D9189F0A65A59B00099ADD /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		A1E58BF30AC9AD79004FA23B /* ccapi_vector.pbexp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ccapi_vector.pbexp; sourceTree = "<group>"; };
+		A1E58BF40AC9AD79004FA23B /* ccapi.pbexp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ccapi.pbexp; sourceTree = "<group>"; };
+		A1E58BF50AC9AD79004FA23B /* ccapi_v2.pbexp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ccapi_v2.pbexp; sourceTree = "<group>"; };
+		A1E58C100AC9AE7F004FA23B /* ccapi_vector.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_vector.c; sourceTree = "<group>"; };
+		A1E58D5D0AC9C2D6004FA23B /* ccapi_vector.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccapi_vector.h; sourceTree = "<group>"; };
+		A1E58E410AC9C87F004FA23B /* ccapi_os_ipc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccapi_os_ipc.c; sourceTree = "<group>"; };
+		A1E58E650AC9C93E004FA23B /* libCCAPITestLib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCCAPITestLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1E58F090AC9CAEF004FA23B /* ccapi_err.et */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ccapi_err.et; sourceTree = "<group>"; };
+		A1FAE56F0AA633A4002D7314 /* ccs_ccache_iterator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_ccache_iterator.c; sourceTree = "<group>"; };
+		A1FAE5730AA633B1002D7314 /* ccs_ccache_iterator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_ccache_iterator.h; sourceTree = "<group>"; };
+		A1FAE57C0AA636C9002D7314 /* ccs_list_internal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccs_list_internal.c; sourceTree = "<group>"; };
+		A1FAE57D0AA636C9002D7314 /* ccs_list_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccs_list_internal.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		A1AB1BC405DD88C700526345 /* Frameworks */ = {
+		A12512420ABB41EE0034621D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A12512F90ABB4ADE0034621D /* libCredentialsCache.a in Frameworks */,
+				A12513260ABB4C260034621D /* CoreFoundation.framework in Frameworks */,
+				A125134F0ABB4C2D0034621D /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A1AB1C6905DD892B00526345 /* Frameworks */ = {
+		A15DA5CE0A659752005CD573 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1AB1C6A05DD892B00526345 /* CoreFoundation.framework in Frameworks */,
-				A1AB1C6B05DD892B00526345 /* CoreServices.framework in Frameworks */,
-				A1AB1C6C05DD892B00526345 /* Security.framework in Frameworks */,
+				A15DA6AE0A659FD8005CD573 /* CoreFoundation.framework in Frameworks */,
+				A15DA6B70A65A001005CD573 /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A123D7BF066533DD0072B6B6 /* KerberosDebug */ = {
+		A125125C0ABB43570034621D /* test */ = {
 			isa = PBXGroup;
 			children = (
-				A123D7C6066533DD0072B6B6 /* Headers */,
-				A123D7CC066533DD0072B6B6 /* Sources */,
+				A125125D0ABB43570034621D /* ccapi_test.c */,
+				A125126E0ABB441C0034621D /* ccapi_iterator_test.c */,
+				A12512670ABB43C80034621D /* ccapi_test.h */,
 			);
-			name = KerberosDebug;
-			path = ../../KerberosDebug;
-			sourceTree = SOURCE_ROOT;
-		};
-		A123D7C6066533DD0072B6B6 /* Headers */ = {
-			isa = PBXGroup;
-			children = (
-				A123D7C7066533DD0072B6B6 /* Kerberos */,
-			);
-			path = Headers;
+			path = test;
 			sourceTree = "<group>";
 		};
-		A123D7C7066533DD0072B6B6 /* Kerberos */ = {
+		A140E9DC0A64187B001A896E = {
 			isa = PBXGroup;
 			children = (
-				A123D7C8066533DD0072B6B6 /* KerberosDebug.h */,
-			);
-			path = Kerberos;
-			sourceTree = "<group>";
-		};
-		A123D7CC066533DD0072B6B6 /* Sources */ = {
-			isa = PBXGroup;
-			children = (
-				A123D7CD066533DD0072B6B6 /* KerberosDebug.c */,
-			);
-			path = Sources;
-			sourceTree = "<group>";
-		};
-		A123D7CE066533DD0072B6B6 /* KerberosIPC */ = {
-			isa = PBXGroup;
-			children = (
-				A123D7D7066533DD0072B6B6 /* Headers */,
-				A123D7E2066533DD0072B6B6 /* Sources */,
-			);
-			name = KerberosIPC;
-			path = ../../KerberosIPC;
-			sourceTree = SOURCE_ROOT;
-		};
-		A123D7D7066533DD0072B6B6 /* Headers */ = {
-			isa = PBXGroup;
-			children = (
-				A123D7D8066533DD0072B6B6 /* Kerberos */,
-			);
-			path = Headers;
-			sourceTree = "<group>";
-		};
-		A123D7D8066533DD0072B6B6 /* Kerberos */ = {
-			isa = PBXGroup;
-			children = (
-				A123D7D9066533DD0072B6B6 /* AEClassicWorkaround.h */,
-				A123D7DA066533DD0072B6B6 /* LoginSessions.h */,
-				A123D7DB066533DD0072B6B6 /* mach_client_utilities.h */,
-				A123D7DC066533DD0072B6B6 /* mach_server_utilities.h */,
-			);
-			path = Kerberos;
-			sourceTree = "<group>";
-		};
-		A123D7E2066533DD0072B6B6 /* Sources */ = {
-			isa = PBXGroup;
-			children = (
-				A123D7E3066533DD0072B6B6 /* AEClassicWorkaround.cp */,
-				A123D7E4066533DD0072B6B6 /* LoginSessions.c */,
-				A123D7E5066533DD0072B6B6 /* mach_client_utilities.c */,
-				A123D7E6066533DD0072B6B6 /* mach_server_utilities.c */,
-				A123D7E7066533DD0072B6B6 /* notify.defs */,
-			);
-			path = Sources;
-			sourceTree = "<group>";
-		};
-		A191A6DD05D81B280006B57D /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				A1AB1C9705DD8AB800526345 /* CCacheClassicServerInfo.plist */,
-				A1AB1C9805DD8AB800526345 /* CCacheServerInfo.plist */,
-				A191A6E905D81B520006B57D /* CCacheServer.plist */,
-				A1F43BDB076F9A07006E2729 /* CredentialsCacheErrors.et */,
-			);
-			name = Resources;
-			path = ../Resources;
-			sourceTree = SOURCE_ROOT;
-		};
-		F5CEF8B00229952601583103 = {
-			isa = PBXGroup;
-			children = (
-				A123D7BF066533DD0072B6B6 /* KerberosDebug */,
-				A123D7CE066533DD0072B6B6 /* KerberosIPC */,
-				F5CEFA390229F85701583103 /* CCacheVector.pbexp */,
-				F5CEFA3A0229F85701583103 /* CredentialsCache.pbexp */,
-				F5CEF9280229962201583103 /* Headers */,
-				A191A6DD05D81B280006B57D /* Resources */,
-				F5CEF8B30229962201583103 /* Sources */,
-				F5CEFA710229FC8601583103 /* Server Frameworks */,
-				F5CEF93302299AB501583103 /* Products */,
+				A15DA6730A659F25005CD573 /* KerberosIPC */,
+				A15DA6490A659F08005CD573 /* KerberosDebug */,
+				A140EAA70A642D35001A896E /* Debug.xcconfig */,
+				A140EAA80A642D35001A896E /* Release.xcconfig */,
+				A1E58BF30AC9AD79004FA23B /* ccapi_vector.pbexp */,
+				A1E58BF40AC9AD79004FA23B /* ccapi.pbexp */,
+				A1E58BF50AC9AD79004FA23B /* ccapi_v2.pbexp */,
+				A1C6BF5A0B1CCAD70065927B /* Documentation */,
+				A140EA3C0A641B01001A896E /* Headers */,
+				A140E9EE0A641990001A896E /* Sources */,
+				A15DA5E70A659844005CD573 /* Resources */,
+				A140EAA00A642D17001A896E /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		F5CEF8B30229962201583103 /* Sources */ = {
+		A140E9EE0A641990001A896E /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				F5CEF8B40229962201583103 /* Headers */,
-				F5CEF8E10229962201583103 /* AbstractFactory.cp */,
-				F5CEF8E20229962201583103 /* CCache.cp */,
-				F5CEF8E30229962201583103 /* CCache2Compat.cp */,
-				F5CEF8E40229962201583103 /* CCacheData.cp */,
-				F5CEF8E50229962201583103 /* CCacheIterator.cp */,
-				F5CEF8F10229962201583103 /* CCacheString.cp */,
-				F5CEF8E60229962201583103 /* CCacheUtil.cp */,
-				F5CEF8E80229962201583103 /* Context.cp */,
-				F5CEF8E90229962201583103 /* ContextData.cp */,
-				F5CEF8EA0229962201583103 /* Credentials.cp */,
-				F5CEF8EB0229962201583103 /* CredentialsData.cp */,
-				F5CEF8EC0229962201583103 /* CredentialsIterator.cp */,
-				F5CEF8ED0229962201583103 /* Data.cp */,
-				F5CEF8EE0229962201583103 /* FlattenCredentials.cp */,
-				F5CEF8F20229962201583103 /* UniqueGlobally.cp */,
-				F5CEF98502299E0401583103 /* MachIPCImplementations */,
-				F5CEF9A002299E0401583103 /* MacOSGlue */,
+				A140E9EF0A641990001A896E /* library */,
+				A140E9FC0A641990001A896E /* common */,
+				A140E9FD0A641990001A896E /* server */,
+				A125125C0ABB43570034621D /* test */,
 			);
 			name = Sources;
 			path = ../Sources;
 			sourceTree = SOURCE_ROOT;
 		};
-		F5CEF8B40229962201583103 /* Headers */ = {
+		A140E9EF0A641990001A896E /* library */ = {
 			isa = PBXGroup;
 			children = (
-				F5CEF8B50229962201583103 /* AbstractFactory.h */,
-				F5CEF8B60229962201583103 /* Allocators.h */,
-				F5CEF8B70229962201583103 /* CCache.config.h */,
-				F5CEF8B80229962201583103 /* CCache.config.mac.h */,
-				F5CEF8B90229962201583103 /* CCache.debug.h */,
-				F5CEF8BB0229962201583103 /* CredentialsCache.prefix.h */,
-				F5CEF8BD0229962201583103 /* CCache.h */,
-				F5CEF8BE0229962201583103 /* CCache.internal.h */,
-				F5CEF8C00229962201583103 /* CCache2Compat.h */,
-				F5CEFABF022A013201583103 /* CCacheClassicServer.prefix.h */,
-				F5CEF8C10229962201583103 /* CCacheData.h */,
-				F5CEF8C50229962201583103 /* CCacheIterator.h */,
-				F5CEF8C70229962201583103 /* CCacheServer.prefix.h */,
-				F5CEF8DE0229962201583103 /* CCacheString.h */,
-				F5CEF8C80229962201583103 /* CCacheUtil.h */,
-				F5CEF8C90229962201583103 /* ConcreteFactory.h */,
-				F5CEF8CA0229962201583103 /* Context.h */,
-				F5CEF8CB0229962201583103 /* ContextData.h */,
-				F5CEF8CE0229962201583103 /* Credentials.h */,
-				F5CEF8CF0229962201583103 /* CredentialsData.h */,
-				F5CEF8D10229962201583103 /* CredentialsIterator.h */,
-				F5CEF8D20229962201583103 /* Data.h */,
-				F5CEF8D30229962201583103 /* Exception.h */,
-				F5CEF8D40229962201583103 /* FlattenCredentials.h */,
-				F5CEF8D50229962201583103 /* Implementations.h */,
-				F5CEF8D60229962201583103 /* Internal.h */,
-				F5CEF8D70229962201583103 /* Internalize.h */,
-				F5CEF8DA0229962201583103 /* Lock.h */,
-				F5CEF8DB0229962201583103 /* Magic.h */,
-				F5CEF8DC0229962201583103 /* Pointer.h */,
-				F5CEF8DD0229962201583103 /* SharedStaticData.h */,
-				F5CEF8DF0229962201583103 /* UniqueGlobally.h */,
+				A140EA190A6419F8001A896E /* ccapi_ccache_iterator.c */,
+				A140EA1A0A6419F8001A896E /* ccapi_ccache_iterator.h */,
+				A140EA1B0A6419F8001A896E /* ccapi_ccache.c */,
+				A140EA1C0A6419F8001A896E /* ccapi_ccache.h */,
+				A140EA1D0A6419F8001A896E /* ccapi_context.c */,
+				A140EA1E0A6419F8001A896E /* ccapi_context.h */,
+				A140EA1F0A6419F8001A896E /* ccapi_credentials_iterator.c */,
+				A140EA200A6419F8001A896E /* ccapi_credentials_iterator.h */,
+				A140EA210A6419F8001A896E /* ccapi_credentials.c */,
+				A140EA220A6419F8001A896E /* ccapi_credentials.h */,
+				A140EA230A6419F8001A896E /* ccapi_string.c */,
+				A140EA240A6419F8001A896E /* ccapi_string.h */,
+				A140EA270A641A16001A896E /* ccapi_v2.c */,
+				A14137DE0A8BD8C700F3BEA0 /* ccapi_context_change_time.c */,
+				A14137E20A8BD8DB00F3BEA0 /* ccapi_context_change_time.h */,
+				A14136410A8AA2CB00F3BEA0 /* ccapi_ipc.c */,
+				A10BA9620A81516E00D483AC /* ccapi_ipc.h */,
+				A141364D0A8AA32800F3BEA0 /* ccapi_os_ipc.h */,
+				A1E58F090AC9CAEF004FA23B /* ccapi_err.et */,
+				A1C8EC790A6C1002008DA4E8 /* mac */,
+				A1E58E400AC9C87F004FA23B /* test */,
 			);
-			path = Headers;
+			path = library;
 			sourceTree = "<group>";
 		};
-		F5CEF9280229962201583103 /* Headers */ = {
+		A140E9FC0A641990001A896E /* common */ = {
 			isa = PBXGroup;
 			children = (
-				F5CEF9290229962201583103 /* Kerberos */,
+				A1ACF1A60B0A5793001D521C /* cci_array_internal.c */,
+				A1ACF1A90B0A579E001D521C /* cci_array_internal.h */,
+				A10B8C560A66EB8600B694C9 /* cci_cred_union.c */,
+				A10B8C590A66EB9300B694C9 /* cci_cred_union.h */,
+				A140EAB80A642E5F001A896E /* cci_debugging.c */,
+				A140EABC0A642E67001A896E /* cci_debugging.h */,
+				A16280970AFA99DF00D52461 /* cci_os_debugging.h */,
+				A140EC4E0A643439001A896E /* cci_common.h */,
+				A140ED380A643B11001A896E /* cci_identifier.c */,
+				A140ED460A643D9D001A896E /* cci_identifier.h */,
+				A19B920D0B1F86CA003E5C76 /* cci_os_identifier.h */,
+				A14133E90A8934DE00F3BEA0 /* cci_message.c */,
+				A14133F20A89356B00F3BEA0 /* cci_message.h */,
+				A10B8AD60A66C1FC00B694C9 /* cci_stream.c */,
+				A10B8AD90A66C20600B694C9 /* cci_stream.h */,
+				A166E84A0AB0C458001719AC /* cci_types.h */,
+				A1D918760A65A4BE00099ADD /* mac */,
+			);
+			name = common;
+			path = ../Sources/common;
+			sourceTree = SOURCE_ROOT;
+		};
+		A140E9FD0A641990001A896E /* server */ = {
+			isa = PBXGroup;
+			children = (
+				A19B91CC0B1F8041003E5C76 /* ccs_array.c */,
+				A19B91D10B1F8048003E5C76 /* ccs_array.h */,
+				A19B91FD0B1F8480003E5C76 /* ccs_client.c */,
+				A19B91F90B1F8479003E5C76 /* ccs_client.h */,
+				A15DA4260A6588AC005CD573 /* ccs_cache_collection.c */,
+				A15DA4430A65893D005CD573 /* ccs_cache_collection.h */,
+				A15DA42E0A6588BD005CD573 /* ccs_ccache.c */,
+				A15DA4390A658909005CD573 /* ccs_ccache.h */,
+				A1FAE56F0AA633A4002D7314 /* ccs_ccache_iterator.c */,
+				A1FAE5730AA633B1002D7314 /* ccs_ccache_iterator.h */,
+				A15DA4320A6588C7005CD573 /* ccs_credentials.c */,
+				A15DA43C0A658914005CD573 /* ccs_credentials.h */,
+				A166E0440AA8D0AA001719AC /* ccs_credentials_iterator.c */,
+				A166E0820AA8D51C001719AC /* ccs_credentials_iterator.h */,
+				A1FAE57C0AA636C9002D7314 /* ccs_list_internal.c */,
+				A1FAE57D0AA636C9002D7314 /* ccs_list_internal.h */,
+				A10BA7BD0A81449300D483AC /* ccs_list.c */,
+				A10BA7C10A81449D00D483AC /* ccs_list.h */,
+				A19B92AB0B1F9144003E5C76 /* ccs_os_port.h */,
+				A10BAA020A8157DE00D483AC /* ccs_server.c */,
+				A10BAA060A8157E800D483AC /* ccs_server.h */,
+				A166E8A50AB0C547001719AC /* ccs_types.h */,
+				A1D9189E0A65A59B00099ADD /* mac */,
+				A166E9230AB0C6A9001719AC /* ccs_common.h */,
+			);
+			name = server;
+			path = ../Sources/server;
+			sourceTree = SOURCE_ROOT;
+		};
+		A140EA3C0A641B01001A896E /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				A1DC165F0AF3193B001DD410 /* Kerberos */,
 			);
 			name = Headers;
 			path = ../Headers;
-			sourceTree = SOURCE_ROOT;
-		};
-		F5CEF9290229962201583103 /* Kerberos */ = {
-			isa = PBXGroup;
-			children = (
-				F5CEF92A0229962201583103 /* CredentialsCache.h */,
-				F5CEF92B0229962201583103 /* CredentialsCache2.h */,
-				F5CEF92C0229962201583103 /* CredentialsCacheInternal.h */,
-			);
-			path = Kerberos;
 			sourceTree = "<group>";
 		};
-		F5CEF93302299AB501583103 /* Products */ = {
+		A140EAA00A642D17001A896E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A1AB1BCF05DD88C700526345 /* libCredentialsCache.a */,
-				A1AB1C7505DD892B00526345 /* CCacheServer.app */,
+				A15DA6BF0A65A020005CD573 /* Kerberos.framework */,
+				A15DA6B60A65A001005CD573 /* Security.framework */,
+				A15DA6AD0A659FD8005CD573 /* CoreFoundation.framework */,
+				A140EA9F0A642D17001A896E /* libCredentialsCache.a */,
+				A15DA5D00A659752005CD573 /* CCacheServer.app */,
+				A12512440ABB41EE0034621D /* CCAPITest */,
+				A1E58E650AC9C93E004FA23B /* libCCAPITestLib.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		F5CEF98502299E0401583103 /* MachIPCImplementations */ = {
+		A15DA5E70A659844005CD573 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				F5CEF98602299E0401583103 /* Headers */,
-				F5CEF98F02299E0401583103 /* CCache.defs */,
-				F5CEF99002299E0401583103 /* CCache.types.defs */,
-				F5CEF99102299E0401583103 /* CCacheIPC.defs */,
-				F5CEF99202299E0401583103 /* Context.defs */,
-				F5CEF99302299E0401583103 /* Credentials.defs */,
-				F5CEF99402299E0401583103 /* CCacheDataMachIPCIntf.cp */,
-				F5CEF99502299E0401583103 /* CCacheDataMachIPCStubs.cp */,
-				F5CEF99602299E0401583103 /* CCacheServer.c */,
-				F5CEF99802299E0401583103 /* ContextDataMachIPCIntf.cp */,
-				F5CEF99902299E0401583103 /* ContextDataMachIPCStubs.cp */,
-				F5CEF99A02299E0401583103 /* CredsDataMachIPCIntf.cp */,
-				F5CEF99B02299E0401583103 /* CredsDataMachIPCStubs.cp */,
-				F5CEF99C02299E0401583103 /* InternalMachIPCIntf.cp */,
-				F5CEF99D02299E0401583103 /* InternalMachIPCStub.cp */,
-				F5CEF99E02299E0401583103 /* MachIPCInterface.cp */,
-				F5CEF99F02299E0401583103 /* MachIPCStub.cp */,
+				A15DA5E80A659844005CD573 /* edu.mit.Kerberos.CCacheServer.plist */,
+				A15DA5E90A659844005CD573 /* CCacheServerInfo.plist */,
 			);
-			path = MachIPCImplementations;
-			sourceTree = "<group>";
+			name = Resources;
+			path = ../Resources;
+			sourceTree = SOURCE_ROOT;
 		};
-		F5CEF98602299E0401583103 /* Headers */ = {
+		A15DA6490A659F08005CD573 /* KerberosDebug */ = {
 			isa = PBXGroup;
 			children = (
-				F5CEF98702299E0401583103 /* CCache.MachIPC.h */,
-				F5CEF98802299E0401583103 /* CCacheDataMachIPCStubs.h */,
-				F5CEF98A02299E0401583103 /* ContextDataMachIPCStubs.h */,
-				F5CEF98B02299E0401583103 /* CredentialsDataCallIntf.h */,
-				F5CEF98C02299E0401583103 /* CredsDataMachIPCStubs.h */,
-				F5CEF98D02299E0401583103 /* MachIPCInterface.h */,
-				F5CEF98E02299E0401583103 /* MachIPCStub.h */,
+				A15DA6510A659F08005CD573 /* Headers */,
+				A15DA6900A659F42005CD573 /* Sources */,
+			);
+			name = KerberosDebug;
+			path = ../../KerberosDebug;
+			sourceTree = SOURCE_ROOT;
+		};
+		A15DA6510A659F08005CD573 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				A15DA6520A659F08005CD573 /* Kerberos */,
 			);
 			path = Headers;
 			sourceTree = "<group>";
 		};
-		F5CEF9A002299E0401583103 /* MacOSGlue */ = {
+		A15DA6520A659F08005CD573 /* Kerberos */ = {
 			isa = PBXGroup;
 			children = (
-				F5CEF9A202299E0401583103 /* Headers */,
-				F5CEF9A102299E0401583103 /* CCacheVector.cp */,
+				A15DA6530A659F08005CD573 /* KerberosDebug.h */,
 			);
-			path = MacOSGlue;
+			path = Kerberos;
 			sourceTree = "<group>";
 		};
-		F5CEF9A202299E0401583103 /* Headers */ = {
+		A15DA6730A659F25005CD573 /* KerberosIPC */ = {
 			isa = PBXGroup;
 			children = (
-				F5CEF9A302299E0501583103 /* CCacheVectorPrivate.h */,
+				A15DA6770A659F25005CD573 /* Headers */,
+				A15DA6820A659F25005CD573 /* Sources */,
+			);
+			name = KerberosIPC;
+			path = ../../KerberosIPC;
+			sourceTree = SOURCE_ROOT;
+		};
+		A15DA6770A659F25005CD573 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				A15DA6780A659F25005CD573 /* Kerberos */,
 			);
 			path = Headers;
 			sourceTree = "<group>";
 		};
-		F5CEFA710229FC8601583103 /* Server Frameworks */ = {
+		A15DA6780A659F25005CD573 /* Kerberos */ = {
 			isa = PBXGroup;
 			children = (
-				F54BD22D0230038F01120112 /* libKerberosIPC.a */,
-				F54BD22E0230038F01120112 /* libKerberosDebug.a */,
-				A16DB05204869AB100120112 /* Kerberos.framework */,
-				F5CEFA720229FC8601583103 /* CoreFoundation.framework */,
-				F5CEFA730229FC8601583103 /* CoreServices.framework */,
-				F5CEFA780229FDCF01583103 /* Security.framework */,
-				F5CEFABD022A006F01583103 /* Carbon.framework */,
+				A15DA6790A659F25005CD573 /* kipc_client.h */,
+				A15DA67A0A659F25005CD573 /* kipc_common.h */,
+				A15DA67B0A659F25005CD573 /* kipc_server.h */,
+				A15DA67C0A659F25005CD573 /* kipc_session.h */,
 			);
-			name = "Server Frameworks";
+			path = Kerberos;
+			sourceTree = "<group>";
+		};
+		A15DA6820A659F25005CD573 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A15DA6830A659F25005CD573 /* kipc_client.c */,
+				A15DA6840A659F25005CD573 /* kipc_common.c */,
+				A15DA6850A659F25005CD573 /* kipc_server.c */,
+				A15DA6860A659F25005CD573 /* kipc_session.c */,
+				A15DA6870A659F25005CD573 /* notify.defs */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A15DA6900A659F42005CD573 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A15DA6910A659F42005CD573 /* KerberosDebug.c */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A1C6BF5A0B1CCAD70065927B /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				A1C6BF5B0B1CCAD70065927B /* ccache-api-v2.html */,
+				A1C6BF5C0B1CCAD70065927B /* ccache-api-v3.html */,
+				A1C6BF5D0B1CCAD70065927B /* index.html */,
+				A1C6BF5E0B1CCAD70065927B /* Version history */,
+			);
+			name = Documentation;
+			path = ../Documentation;
+			sourceTree = SOURCE_ROOT;
+		};
+		A1C8EC790A6C1002008DA4E8 /* mac */ = {
+			isa = PBXGroup;
+			children = (
+				A1C8EC7A0A6C1002008DA4E8 /* ccapi_os_ipc.c */,
+				A1E58C100AC9AE7F004FA23B /* ccapi_vector.c */,
+				A1E58D5D0AC9C2D6004FA23B /* ccapi_vector.h */,
+			);
+			path = mac;
+			sourceTree = "<group>";
+		};
+		A1D918760A65A4BE00099ADD /* mac */ = {
+			isa = PBXGroup;
+			children = (
+				A1D918770A65A4BE00099ADD /* cci_mig.defs */,
+				A1D918780A65A4BE00099ADD /* cci_mig_types.h */,
+				A16280910AFA995500D52461 /* cci_os_debugging.c */,
+				A1C6BFB50B1CCD990065927B /* cci_os_identifier.c */,
+			);
+			path = mac;
+			sourceTree = "<group>";
+		};
+		A1D9189E0A65A59B00099ADD /* mac */ = {
+			isa = PBXGroup;
+			children = (
+				A1D9189F0A65A59B00099ADD /* main.c */,
+				A19B92AF0B1F9154003E5C76 /* ccs_os_port.c */,
+			);
+			path = mac;
+			sourceTree = "<group>";
+		};
+		A1DC165F0AF3193B001DD410 /* Kerberos */ = {
+			isa = PBXGroup;
+			children = (
+				A140EA410A641B01001A896E /* CredentialsCache2.h */,
+				A140EA400A641B01001A896E /* CredentialsCache.h */,
+			);
+			path = Kerberos;
+			sourceTree = "<group>";
+		};
+		A1E58E400AC9C87F004FA23B /* test */ = {
+			isa = PBXGroup;
+			children = (
+				A1E58E410AC9C87F004FA23B /* ccapi_os_ipc.c */,
+			);
+			path = test;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
-/* Begin PBXHeadersBuildPhase section */
-		A1AB1B8A05DD88C700526345 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A14E78760725A4B300A025E3 /* CredentialsCache.h in Headers */,
-				A14E78770725A4B300A025E3 /* CredentialsCache2.h in Headers */,
-				A14E78780725A4B300A025E3 /* CredentialsCacheInternal.h in Headers */,
-				A1AB1BAB05DD88C700526345 /* CCache.MachIPC.h in Headers */,
-				A1AB1B8B05DD88C700526345 /* AbstractFactory.h in Headers */,
-				A1AB1B8C05DD88C700526345 /* Allocators.h in Headers */,
-				A1AB1B8D05DD88C700526345 /* CCache.config.h in Headers */,
-				A1AB1B8E05DD88C700526345 /* CCache.config.mac.h in Headers */,
-				A1AB1B8F05DD88C700526345 /* CCache.debug.h in Headers */,
-				A1AB1B9005DD88C700526345 /* CredentialsCache.prefix.h in Headers */,
-				A1AB1B9105DD88C700526345 /* CCache.h in Headers */,
-				A1AB1B9205DD88C700526345 /* CCache.internal.h in Headers */,
-				A1AB1B9305DD88C700526345 /* CCache2Compat.h in Headers */,
-				A1AB1B9405DD88C700526345 /* CCacheData.h in Headers */,
-				A1AB1B9505DD88C700526345 /* CCacheIterator.h in Headers */,
-				A1AB1B9605DD88C700526345 /* CCacheServer.prefix.h in Headers */,
-				A1AB1B9705DD88C700526345 /* CCacheUtil.h in Headers */,
-				A1AB1B9805DD88C700526345 /* ConcreteFactory.h in Headers */,
-				A1AB1B9905DD88C700526345 /* Context.h in Headers */,
-				A1AB1B9A05DD88C700526345 /* ContextData.h in Headers */,
-				A1AB1B9B05DD88C700526345 /* Credentials.h in Headers */,
-				A1AB1B9C05DD88C700526345 /* CredentialsData.h in Headers */,
-				A1AB1B9D05DD88C700526345 /* CredentialsIterator.h in Headers */,
-				A1AB1B9E05DD88C700526345 /* Data.h in Headers */,
-				A1AB1B9F05DD88C700526345 /* Exception.h in Headers */,
-				A1AB1BA005DD88C700526345 /* FlattenCredentials.h in Headers */,
-				A1AB1BA105DD88C700526345 /* Implementations.h in Headers */,
-				A1AB1BA205DD88C700526345 /* Internal.h in Headers */,
-				A1AB1BA305DD88C700526345 /* Internalize.h in Headers */,
-				A1AB1BA405DD88C700526345 /* Lock.h in Headers */,
-				A1AB1BA505DD88C700526345 /* Magic.h in Headers */,
-				A1AB1BA605DD88C700526345 /* Pointer.h in Headers */,
-				A1AB1BA705DD88C700526345 /* SharedStaticData.h in Headers */,
-				A1AB1BA805DD88C700526345 /* CCacheString.h in Headers */,
-				A1AB1BA905DD88C700526345 /* UniqueGlobally.h in Headers */,
-				A1AB1BAC05DD88C700526345 /* CCacheDataMachIPCStubs.h in Headers */,
-				A1AB1BAD05DD88C700526345 /* ContextDataMachIPCStubs.h in Headers */,
-				A1AB1BAE05DD88C700526345 /* CredsDataMachIPCStubs.h in Headers */,
-				A1AB1BAF05DD88C700526345 /* MachIPCStub.h in Headers */,
-				A1AB1BB005DD88C700526345 /* CCacheVectorPrivate.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A1AB1C3805DD892B00526345 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A1AB1C3A05DD892B00526345 /* Allocators.h in Headers */,
-				A1AB1C3B05DD892B00526345 /* CCache.config.h in Headers */,
-				A1AB1C3C05DD892B00526345 /* CCacheUtil.h in Headers */,
-				A1AB1C3D05DD892B00526345 /* CCacheString.h in Headers */,
-				A1AB1C3E05DD892B00526345 /* CCacheServer.prefix.h in Headers */,
-				A1AB1C3F05DD892B00526345 /* CCacheIterator.h in Headers */,
-				A1AB1C4005DD892B00526345 /* CCacheData.h in Headers */,
-				A1AB1C4105DD892B00526345 /* CCache2Compat.h in Headers */,
-				A1AB1C4205DD892B00526345 /* CCache.internal.h in Headers */,
-				A1AB1C4305DD892B00526345 /* CCache.debug.h in Headers */,
-				A1AB1C4405DD892B00526345 /* CCache.config.mac.h in Headers */,
-				A1AB1C4505DD892B00526345 /* CredentialsData.h in Headers */,
-				A1AB1C4605DD892B00526345 /* CredentialsIterator.h in Headers */,
-				A1AB1C4705DD892B00526345 /* Data.h in Headers */,
-				A1AB1C4805DD892B00526345 /* FlattenCredentials.h in Headers */,
-				A1AB1C4905DD892B00526345 /* Exception.h in Headers */,
-				A1AB1C4A05DD892B00526345 /* Implementations.h in Headers */,
-				A1AB1C4B05DD892B00526345 /* Internal.h in Headers */,
-				A1AB1C4C05DD892B00526345 /* Internalize.h in Headers */,
-				A1AB1C4D05DD892B00526345 /* Magic.h in Headers */,
-				A1AB1C4E05DD892B00526345 /* Lock.h in Headers */,
-				A1AB1C4F05DD892B00526345 /* Pointer.h in Headers */,
-				A1AB1C5005DD892B00526345 /* SharedStaticData.h in Headers */,
-				A1AB1C5105DD892B00526345 /* UniqueGlobally.h in Headers */,
-				A1AB1C5205DD892B00526345 /* ContextData.h in Headers */,
-				A1AB1C5305DD892B00526345 /* CCache.MachIPC.h in Headers */,
-				A1AB1C5505DD892B00526345 /* CredentialsDataCallIntf.h in Headers */,
-				A1AB1C5605DD892B00526345 /* MachIPCInterface.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXHeadersBuildPhase section */
-
 /* Begin PBXNativeTarget section */
-		A1AB1B8805DD88C700526345 /* CredentialsCache */ = {
+		A12512430ABB41EE0034621D /* CCAPITest */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1518E6B086C84F80042CBBC /* Build configuration list for PBXNativeTarget "CredentialsCache" */;
+			buildConfigurationList = A12512510ABB423E0034621D /* Build configuration list for PBXNativeTarget "CCAPITest" */;
 			buildPhases = (
-				A1AB1B8A05DD88C700526345 /* Headers */,
-				A1AB1BB105DD88C700526345 /* Sources */,
-				A1AB1BC405DD88C700526345 /* Frameworks */,
-				A1AB1BC505DD88C700526345 /* Rez */,
+				A12512410ABB41EE0034621D /* Sources */,
+				A12512420ABB41EE0034621D /* Frameworks */,
 			);
 			buildRules = (
-				A1B706A90872F3E800F0C55D /* PBXBuildRule */,
-				A1B9B92507611A8200365FC0 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = ../Sources/Headers/CredentialsCache.prefix.h;
-				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
-					"$(SRCROOT)/../Sources/Headers",
-					"$(SRCROOT)/../Sources/MachIPCImplementations/Headers",
-					"$(SRCROOT)/../Sources/MacOSGlue/Headers",
-					"$(SRCROOT)/../../KerberosDebug/Headers",
-					"$(SRCROOT)/../../KerberosIPC/Headers",
-					"$(SRCROOT)/../../KerberosDES/Headers",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
-				);
-				LIBRARY_STYLE = STATIC;
-				OTHER_CPLUSPLUSFLAGS = "-Wno-invalid-offsetof";
-				PRODUCT_NAME = CredentialsCache;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
+			dependencies = (
+				A12512F60ABB4AD60034621D /* PBXTargetDependency */,
+			);
+			name = CCAPITest;
+			productName = CCAPITest;
+			productReference = A12512440ABB41EE0034621D /* CCAPITest */;
+			productType = "com.apple.product-type.tool";
+		};
+		A140EA9E0A642D17001A896E /* CredentialsCache */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A140EAA10A642D18001A896E /* Build configuration list for PBXNativeTarget "CredentialsCache" */;
+			buildPhases = (
+				A140EA9C0A642D17001A896E /* Sources */,
+			);
+			buildRules = (
+				A1E58F0D0AC9CB6C004FA23B /* PBXBuildRule */,
+			);
 			dependencies = (
 			);
 			name = CredentialsCache;
-			productInstallPath = /usr/local/lib;
-			productName = CredentialsCache;
-			productReference = A1AB1BCF05DD88C700526345 /* libCredentialsCache.a */;
+			productName = CCAPI;
+			productReference = A140EA9F0A642D17001A896E /* libCredentialsCache.a */;
 			productType = "com.apple.product-type.library.static";
 		};
-		A1AB1C3605DD892B00526345 /* CCacheServer */ = {
+		A15DA5CF0A659752005CD573 /* CCacheServer */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1518E6F086C84F80042CBBC /* Build configuration list for PBXNativeTarget "CCacheServer" */;
+			buildConfigurationList = A15DA5D30A659754005CD573 /* Build configuration list for PBXNativeTarget "CCacheServer" */;
 			buildPhases = (
-				A1AB1C3805DD892B00526345 /* Headers */,
-				A1AB1C5805DD892B00526345 /* Resources */,
-				A1AB1C5905DD892B00526345 /* Sources */,
-				A1AB1C6905DD892B00526345 /* Frameworks */,
-				A1AB1C7005DD892B00526345 /* Rez */,
-				A1AB1C7105DD892B00526345 /* CopyFiles */,
+				A15DA5CD0A659752005CD573 /* Sources */,
+				A15DA5CE0A659752005CD573 /* Frameworks */,
+				A1DC18470AF329A0001DD410 /* CopyFiles */,
 			);
 			buildRules = (
-				A1C025FA05F6919300D42F99 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = ../Sources/Headers/CCacheServer.prefix.h;
-				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
-					"$(SRCROOT)/../../KerberosIPC/Headers",
-					"$(SRCROOT)/../../KerberosDebug/Headers",
-					"$(SRCROOT)/../../KerberosLogin/Headers",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
-				);
-				INFOPLIST_FILE = ../Resources/CCacheServerInfo.plist;
-				INSTALL_PATH = /System/Library/CoreServices;
-				OTHER_CPLUSPLUSFLAGS = "-Wno-invalid-offsetof";
-				PRODUCT_NAME = CCacheServer;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = app;
-			};
 			dependencies = (
 			);
 			name = CCacheServer;
-			productInstallPath = /System/Library/Frameworks/Kerberos.framework/Versions/Current/Servers;
 			productName = CCacheServer;
-			productReference = A1AB1C7505DD892B00526345 /* CCacheServer.app */;
+			productReference = A15DA5D00A659752005CD573 /* CCacheServer.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A1E58E4F0AC9C93E004FA23B /* CCAPITestLib */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1E58E620AC9C93E004FA23B /* Build configuration list for PBXNativeTarget "CCAPITestLib" */;
+			buildPhases = (
+				A1E58E500AC9C93E004FA23B /* Sources */,
+			);
+			buildRules = (
+				A1E58F0C0AC9CB43004FA23B /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = CCAPITestLib;
+			productName = CCAPI;
+			productReference = A1E58E650AC9C93E004FA23B /* libCCAPITestLib.a */;
+			productType = "com.apple.product-type.library.static";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		F5CEF8AF0229952601583103 /* Project object */ = {
+		A140E9DE0A64187B001A896E /* Project object */ = {
 			isa = PBXProject;
-			buildConfigurationList = A1518E73086C84F80042CBBC /* Build configuration list for PBXProject "CredentialsCache" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				F5CEF8B10229952601583103 /* Development */,
-				F5CEF8B20229952601583103 /* Deployment */,
-			);
-			hasScannedForEncodings = 1;
-			mainGroup = F5CEF8B00229952601583103;
-			productRefGroup = F5CEF93302299AB501583103 /* Products */;
+			buildConfigurationList = A140E9DF0A64187B001A896E /* Build configuration list for PBXProject "CredentialsCache" */;
+			hasScannedForEncodings = 0;
+			mainGroup = A140E9DC0A64187B001A896E;
+			productRefGroup = A140EAA00A642D17001A896E /* Products */;
 			projectDirPath = "";
 			targets = (
-				A1AB1B8805DD88C700526345 /* CredentialsCache */,
-				A1AB1C3605DD892B00526345 /* CCacheServer */,
+				A140EA9E0A642D17001A896E /* CredentialsCache */,
+				A15DA5CF0A659752005CD573 /* CCacheServer */,
+				A12512430ABB41EE0034621D /* CCAPITest */,
+				A1E58E4F0AC9C93E004FA23B /* CCAPITestLib */,
 			);
 		};
 /* End PBXProject section */
 
-/* Begin PBXResourcesBuildPhase section */
-		A1AB1C5805DD892B00526345 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
-
-/* Begin PBXRezBuildPhase section */
-		A1AB1BC505DD88C700526345 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A1AB1C7005DD892B00526345 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXRezBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
-		A1AB1BB105DD88C700526345 /* Sources */ = {
+		A12512410ABB41EE0034621D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1B706B00872F42C00F0C55D /* CredentialsCacheErrors.et in Sources */,
-				A181F82B05E57CE0006CE0A8 /* CCacheIPC.defs in Sources */,
-				A1AB1BB205DD88C700526345 /* CCacheUtil.cp in Sources */,
-				A1AB1BB305DD88C700526345 /* CCacheIterator.cp in Sources */,
-				A1AB1BB405DD88C700526345 /* AbstractFactory.cp in Sources */,
-				A1AB1BB505DD88C700526345 /* CCache2Compat.cp in Sources */,
-				A1AB1BB605DD88C700526345 /* Context.cp in Sources */,
-				A1AB1BB705DD88C700526345 /* Credentials.cp in Sources */,
-				A1AB1BB805DD88C700526345 /* CredentialsIterator.cp in Sources */,
-				A1AB1BB905DD88C700526345 /* Data.cp in Sources */,
-				A1AB1BBA05DD88C700526345 /* FlattenCredentials.cp in Sources */,
-				A1AB1BBB05DD88C700526345 /* CCacheString.cp in Sources */,
-				A1AB1BBD05DD88C700526345 /* CCacheDataMachIPCStubs.cp in Sources */,
-				A1AB1BBE05DD88C700526345 /* ContextDataMachIPCStubs.cp in Sources */,
-				A1AB1BBF05DD88C700526345 /* CredsDataMachIPCStubs.cp in Sources */,
-				A1AB1BC005DD88C700526345 /* InternalMachIPCStub.cp in Sources */,
-				A1AB1BC105DD88C700526345 /* MachIPCStub.cp in Sources */,
-				A1AB1BC205DD88C700526345 /* CCacheVector.cp in Sources */,
-				A1AB1BC305DD88C700526345 /* CCache.cp in Sources */,
+				A1ACF3060B0A7DF3001D521C /* cci_array_internal.c in Sources */,
+				A12513970ABB4DDD0034621D /* cci_cred_union.c in Sources */,
+				A12513980ABB4DDD0034621D /* cci_debugging.c in Sources */,
+				A12513990ABB4DDD0034621D /* cci_identifier.c in Sources */,
+				A125139A0ABB4DDD0034621D /* cci_stream.c in Sources */,
+				A125139B0ABB4DDD0034621D /* cci_message.c in Sources */,
+				A12512C00ABB48C20034621D /* ccs_list_internal.c in Sources */,
+				A12513220ABB4C190034621D /* KerberosDebug.c in Sources */,
+				A125125E0ABB43570034621D /* ccapi_test.c in Sources */,
+				A12512C40ABB48DC0034621D /* ccapi_iterator_test.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A1AB1C5905DD892B00526345 /* Sources */ = {
+		A140EA9C0A642D17001A896E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A123D7F4066533FC0072B6B6 /* notify.defs in Sources */,
-				A181F86B05E57D64006CE0A8 /* CCacheIPC.defs in Sources */,
-				A123D7EC066533F40072B6B6 /* KerberosDebug.c in Sources */,
-				A123D7F3066533FC0072B6B6 /* mach_server_utilities.c in Sources */,
-				A1EFC8DC066D69CE000C6ADB /* mach_client_utilities.c in Sources */,
-				A1EFC8A6066D658E000C6ADB /* LoginSessions.c in Sources */,
-				A1AB1C5B05DD892B00526345 /* CCacheData.cp in Sources */,
-				A1AB1C5C05DD892B00526345 /* CCacheUtil.cp in Sources */,
-				A1AB1C5D05DD892B00526345 /* Data.cp in Sources */,
-				A1AB1C5E05DD892B00526345 /* FlattenCredentials.cp in Sources */,
-				A1AB1C5F05DD892B00526345 /* CredentialsData.cp in Sources */,
-				A1AB1C6005DD892B00526345 /* ContextData.cp in Sources */,
-				A1AB1C6105DD892B00526345 /* CCacheDataMachIPCIntf.cp in Sources */,
-				A1AB1C6205DD892B00526345 /* CCacheServer.c in Sources */,
-				A1AB1C6405DD892B00526345 /* ContextDataMachIPCIntf.cp in Sources */,
-				A1AB1C6505DD892B00526345 /* CredsDataMachIPCIntf.cp in Sources */,
-				A1AB1C6605DD892B00526345 /* InternalMachIPCIntf.cp in Sources */,
-				A1AB1C6805DD892B00526345 /* UniqueGlobally.cp in Sources */,
+				A140EAB00A642D8A001A896E /* ccapi_context.c in Sources */,
+				A140EAAD0A642D8A001A896E /* ccapi_ccache_iterator.c in Sources */,
+				A140EAAE0A642D8A001A896E /* ccapi_ccache.c in Sources */,
+				A140EAB10A642D8A001A896E /* ccapi_credentials_iterator.c in Sources */,
+				A140EAB20A642D8A001A896E /* ccapi_credentials.c in Sources */,
+				A140EAB30A642D8A001A896E /* ccapi_string.c in Sources */,
+				A14136420A8AA2CB00F3BEA0 /* ccapi_ipc.c in Sources */,
+				A1C8EC7B0A6C1002008DA4E8 /* ccapi_os_ipc.c in Sources */,
+				A14137DF0A8BD8C700F3BEA0 /* ccapi_context_change_time.c in Sources */,
+				A140EAAF0A642D8A001A896E /* ccapi_v2.c in Sources */,
+				A1E58C110AC9AE7F004FA23B /* ccapi_vector.c in Sources */,
+				A1D918830A65A54B00099ADD /* cci_mig.defs in Sources */,
+				A12513020ABB4B2B0034621D /* cci_cred_union.c in Sources */,
+				A140EAB90A642E5F001A896E /* cci_debugging.c in Sources */,
+				A16280920AFA995500D52461 /* cci_os_debugging.c in Sources */,
+				A140ED390A643B11001A896E /* cci_identifier.c in Sources */,
+				A1C6C0050B1CD0DE0065927B /* cci_os_identifier.c in Sources */,
+				A141371D0A8AB1BB00F3BEA0 /* cci_message.c in Sources */,
+				A12513030ABB4B380034621D /* cci_stream.c in Sources */,
+				A1E58F100AC9CB9B004FA23B /* ccapi_err.et in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A15DA5CD0A659752005CD573 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A15DA6950A659F56005CD573 /* notify.defs in Sources */,
+				A1D9187E0A65A4FA00099ADD /* cci_mig.defs in Sources */,
+				A1ACF2320B0A74C7001D521C /* cci_array_internal.c in Sources */,
+				A10B8CA20A6848EE00AB7048 /* cci_cred_union.c in Sources */,
+				A15DA5D80A6597B3005CD573 /* cci_debugging.c in Sources */,
+				A16280EB0AFA9BE000D52461 /* cci_os_debugging.c in Sources */,
+				A15DA5D90A6597B3005CD573 /* cci_identifier.c in Sources */,
+				A1C6BFB60B1CCD990065927B /* cci_os_identifier.c in Sources */,
+				A10B8AED0A66C5CD00B694C9 /* cci_stream.c in Sources */,
+				A17BB50D0AA4EBE800CDBD58 /* cci_message.c in Sources */,
+				A19B91CD0B1F8041003E5C76 /* ccs_array.c in Sources */,
+				A19B91FE0B1F8480003E5C76 /* ccs_client.c in Sources */,
+				A19B92B00B1F9154003E5C76 /* ccs_os_port.c in Sources */,
+				A15DA5DB0A6597B3005CD573 /* ccs_cache_collection.c in Sources */,
+				A15DA5DC0A6597B3005CD573 /* ccs_ccache.c in Sources */,
+				A1FAE5700AA633A4002D7314 /* ccs_ccache_iterator.c in Sources */,
+				A15DA5DD0A6597B3005CD573 /* ccs_credentials.c in Sources */,
+				A166E0450AA8D0AA001719AC /* ccs_credentials_iterator.c in Sources */,
+				A10BA7BE0A81449300D483AC /* ccs_list.c in Sources */,
+				A1FAE57E0AA636C9002D7314 /* ccs_list_internal.c in Sources */,
+				A10BAA030A8157DE00D483AC /* ccs_server.c in Sources */,
+				A1D918A00A65A59B00099ADD /* main.c in Sources */,
+				A15DA6920A659F56005CD573 /* kipc_common.c in Sources */,
+				A15DA6930A659F56005CD573 /* kipc_server.c in Sources */,
+				A15DA6940A659F56005CD573 /* kipc_session.c in Sources */,
+				A15DA6960A659F56005CD573 /* KerberosDebug.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1E58E500AC9C93E004FA23B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A18355930BAB16410012D49B /* ccapi_context.c in Sources */,
+				A18355940BAB16410012D49B /* ccapi_ccache_iterator.c in Sources */,
+				A18355950BAB16410012D49B /* ccapi_ccache.c in Sources */,
+				A18355960BAB16410012D49B /* ccapi_credentials_iterator.c in Sources */,
+				A18355970BAB16410012D49B /* ccapi_credentials.c in Sources */,
+				A18355980BAB16410012D49B /* ccapi_string.c in Sources */,
+				A18355990BAB16410012D49B /* ccapi_ipc.c in Sources */,
+				A183559B0BAB16410012D49B /* ccapi_context_change_time.c in Sources */,
+				A183559C0BAB16410012D49B /* ccapi_v2.c in Sources */,
+				A183559D0BAB16410012D49B /* ccapi_vector.c in Sources */,
+				A183557C0BAB162A0012D49B /* cci_cred_union.c in Sources */,
+				A183557D0BAB162A0012D49B /* cci_debugging.c in Sources */,
+				A183557E0BAB162A0012D49B /* cci_os_debugging.c in Sources */,
+				A183557F0BAB162A0012D49B /* cci_identifier.c in Sources */,
+				A18355800BAB162A0012D49B /* cci_os_identifier.c in Sources */,
+				A18355820BAB162A0012D49B /* cci_message.c in Sources */,
+				A18355810BAB162A0012D49B /* cci_stream.c in Sources */,
+				A1E58F110AC9CBA2004FA23B /* ccapi_err.et in Sources */,
+				A1E58F530AC9CE65004FA23B /* ccapi_os_ipc.c in Sources */,
+				A183557B0BAB162A0012D49B /* cci_array_internal.c in Sources */,
+				A18355830BAB162A0012D49B /* ccs_array.c in Sources */,
+				A18355840BAB162A0012D49B /* ccs_client.c in Sources */,
+				A18355850BAB162A0012D49B /* ccs_os_port.c in Sources */,
+				A18355860BAB162A0012D49B /* ccs_cache_collection.c in Sources */,
+				A18355870BAB162A0012D49B /* ccs_ccache.c in Sources */,
+				A18355880BAB162A0012D49B /* ccs_ccache_iterator.c in Sources */,
+				A18355890BAB162A0012D49B /* ccs_credentials.c in Sources */,
+				A183558A0BAB162A0012D49B /* ccs_credentials_iterator.c in Sources */,
+				A183558B0BAB162A0012D49B /* ccs_list.c in Sources */,
+				A183558C0BAB162A0012D49B /* ccs_list_internal.c in Sources */,
+				A183558D0BAB162A0012D49B /* ccs_server.c in Sources */,
+				A18355920BAB162A0012D49B /* KerberosDebug.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		A12512F60ABB4AD60034621D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A140EA9E0A642D17001A896E /* CredentialsCache */;
+			targetProxy = A12512F50ABB4AD60034621D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
-		A1518E6C086C84F80042CBBC /* Development */ = {
+		A12512520ABB423E0034621D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A140EAA70A642D35001A896E /* Debug.xcconfig */;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Sources/server",
+					"$(SRCROOT)/../Sources/common",
+					"$(SRCROOT)/../Sources/common/mac",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosIPC/Headers",
+					"$(SRCROOT)/../Headers/Kerberos",
+				);
+				PRODUCT_NAME = CCAPITest;
+			};
+			name = Debug;
+		};
+		A12512530ABB423E0034621D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A140EAA80A642D35001A896E /* Release.xcconfig */;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Sources/server",
+					"$(SRCROOT)/../Sources/common",
+					"$(SRCROOT)/../Sources/common/mac",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosIPC/Headers",
+					"$(SRCROOT)/../Headers/Kerberos",
+				);
+				PRODUCT_NAME = CCAPITest;
+			};
+			name = Release;
+		};
+		A140E9E00A64187B001A896E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = ../Sources/Headers/CredentialsCache.prefix.h;
-				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
-					"$(SRCROOT)/../Sources/Headers",
-					"$(SRCROOT)/../Sources/MachIPCImplementations/Headers",
-					"$(SRCROOT)/../Sources/MacOSGlue/Headers",
-					"$(SRCROOT)/../../KerberosDebug/Headers",
-					"$(SRCROOT)/../../KerberosIPC/Headers",
-					"$(SRCROOT)/../../KerberosDES/Headers",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
-				);
-				LIBRARY_STYLE = STATIC;
-				OTHER_CPLUSPLUSFLAGS = "-Wno-invalid-offsetof";
-				PRODUCT_NAME = CredentialsCache;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		A1518E6D086C84F80042CBBC /* Deployment */ = {
+		A140E9E10A64187B001A896E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = ../Sources/Headers/CredentialsCache.prefix.h;
+			};
+			name = Release;
+		};
+		A140EAA20A642D18001A896E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A140EAA70A642D35001A896E /* Debug.xcconfig */;
+			buildSettings = {
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
-					"$(SRCROOT)/../Sources/Headers",
-					"$(SRCROOT)/../Sources/MachIPCImplementations/Headers",
-					"$(SRCROOT)/../Sources/MacOSGlue/Headers",
-					"$(SRCROOT)/../../KerberosDebug/Headers",
 					"$(SRCROOT)/../../KerberosIPC/Headers",
-					"$(SRCROOT)/../../KerberosDES/Headers",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../Kerberos5/Sources/include",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include",
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Headers/Kerberos",
+					"$(SRCROOT)/../Sources/library",
+					"$(SRCROOT)/../Sources/common",
+					"$(SRCROOT)/../Sources/common/mac",
 				);
-				LIBRARY_STYLE = STATIC;
-				OTHER_CPLUSPLUSFLAGS = "-Wno-invalid-offsetof";
+				OTHER_CFLAGS = "-D__MigTypeCheck=1";
 				PRODUCT_NAME = CredentialsCache;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Debug;
 		};
-		A1518E6E086C84F80042CBBC /* Default */ = {
+		A140EAA30A642D18001A896E /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A140EAA80A642D35001A896E /* Release.xcconfig */;
 			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = ../Sources/Headers/CredentialsCache.prefix.h;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
-					"$(SRCROOT)/../Sources/Headers",
-					"$(SRCROOT)/../Sources/MachIPCImplementations/Headers",
-					"$(SRCROOT)/../Sources/MacOSGlue/Headers",
-					"$(SRCROOT)/../../KerberosDebug/Headers",
 					"$(SRCROOT)/../../KerberosIPC/Headers",
-					"$(SRCROOT)/../../KerberosDES/Headers",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../Kerberos5/Sources/include",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include",
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Headers/Kerberos",
+					"$(SRCROOT)/../Sources/library",
+					"$(SRCROOT)/../Sources/common",
+					"$(SRCROOT)/../Sources/common/mac",
 				);
-				LIBRARY_STYLE = STATIC;
-				OTHER_CPLUSPLUSFLAGS = "-Wno-invalid-offsetof";
+				OTHER_CFLAGS = "-D__MigTypeCheck=1";
 				PRODUCT_NAME = CredentialsCache;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wall";
 			};
-			name = Default;
+			name = Release;
 		};
-		A1518E70086C84F80042CBBC /* Development */ = {
+		A15DA5D40A659754005CD573 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A140EAA70A642D35001A896E /* Debug.xcconfig */;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = ../Sources/Headers/CCacheServer.prefix.h;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
 					"$(SRCROOT)/../../KerberosIPC/Headers",
 					"$(SRCROOT)/../../KerberosDebug/Headers",
-					"$(SRCROOT)/../../KerberosLogin/Headers",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Headers/Kerberos",
+					"$(SRCROOT)/../Sources/server",
+					"$(SRCROOT)/../Sources/common",
+					"$(SRCROOT)/../Sources/common/mac",
 				);
 				INFOPLIST_FILE = ../Resources/CCacheServerInfo.plist;
 				INSTALL_PATH = /System/Library/CoreServices;
-				OTHER_CPLUSPLUSFLAGS = "-Wno-invalid-offsetof";
+				OTHER_CFLAGS = "-D__MigTypeCheck=1";
 				PRODUCT_NAME = CCacheServer;
-				WARNING_CFLAGS = "-Wall";
+				STRIP_STYLE = "non-global";
+				VALID_ARCHS = "i386 ppc";
 				WRAPPER_EXTENSION = app;
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		A1518E71086C84F80042CBBC /* Deployment */ = {
+		A15DA5D50A659754005CD573 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A140EAA80A642D35001A896E /* Release.xcconfig */;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = ../Sources/Headers/CCacheServer.prefix.h;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
 					"$(SRCROOT)/../../KerberosIPC/Headers",
 					"$(SRCROOT)/../../KerberosDebug/Headers",
-					"$(SRCROOT)/../../KerberosLogin/Headers",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Headers/Kerberos",
+					"$(SRCROOT)/../Sources/server",
+					"$(SRCROOT)/../Sources/common",
+					"$(SRCROOT)/../Sources/common/mac",
 				);
 				INFOPLIST_FILE = ../Resources/CCacheServerInfo.plist;
 				INSTALL_PATH = /System/Library/CoreServices;
-				OTHER_CPLUSPLUSFLAGS = "-Wno-invalid-offsetof";
+				OTHER_CFLAGS = "-D__MigTypeCheck=1";
 				PRODUCT_NAME = CCacheServer;
-				WARNING_CFLAGS = "-Wall";
+				STRIP_STYLE = "non-global";
+				VALID_ARCHS = "i386 ppc";
 				WRAPPER_EXTENSION = app;
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		A1518E72086C84F80042CBBC /* Default */ = {
+		A1E58E630AC9C93E004FA23B /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A140EAA70A642D35001A896E /* Debug.xcconfig */;
 			buildSettings = {
-				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = ../Sources/Headers/CCacheServer.prefix.h;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Headers/Kerberos",
 					"$(SRCROOT)/../../KerberosIPC/Headers",
-					"$(SRCROOT)/../../KerberosDebug/Headers",
-					"$(SRCROOT)/../../KerberosLogin/Headers",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
+					"$(SRCROOT)/../../Kerberos5/Sources/include",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include",
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Sources/library",
+					"$(SRCROOT)/../Sources/server",
+					"$(SRCROOT)/../Sources/common",
+					"$(SRCROOT)/../Sources/common/mac",
 				);
-				INFOPLIST_FILE = ../Resources/CCacheServerInfo.plist;
-				INSTALL_PATH = /System/Library/CoreServices;
-				OTHER_CPLUSPLUSFLAGS = "-Wno-invalid-offsetof";
-				PRODUCT_NAME = CCacheServer;
-				WARNING_CFLAGS = "-Wall";
-				WRAPPER_EXTENSION = app;
+				PRODUCT_NAME = CCAPITestLib;
 			};
-			name = Default;
+			name = Debug;
 		};
-		A1518E74086C84F80042CBBC /* Development */ = {
+		A1E58E640AC9C93E004FA23B /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A140EAA80A642D35001A896E /* Release.xcconfig */;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/../Headers/Kerberos",
+					"$(SRCROOT)/../../KerberosIPC/Headers",
+					"$(SRCROOT)/../../Kerberos5/Sources/include",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include",
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../Sources/library",
+					"$(SRCROOT)/../Sources/server",
+					"$(SRCROOT)/../Sources/common",
+					"$(SRCROOT)/../Sources/common/mac",
+				);
+				PRODUCT_NAME = CCAPITestLib;
 			};
-			name = Development;
-		};
-		A1518E75086C84F80042CBBC /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Deployment;
-		};
-		A1518E76086C84F80042CBBC /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A1518E6B086C84F80042CBBC /* Build configuration list for PBXNativeTarget "CredentialsCache" */ = {
+		A12512510ABB423E0034621D /* Build configuration list for PBXNativeTarget "CCAPITest" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1518E6C086C84F80042CBBC /* Development */,
-				A1518E6D086C84F80042CBBC /* Deployment */,
-				A1518E6E086C84F80042CBBC /* Default */,
+				A12512520ABB423E0034621D /* Debug */,
+				A12512530ABB423E0034621D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
-		A1518E6F086C84F80042CBBC /* Build configuration list for PBXNativeTarget "CCacheServer" */ = {
+		A140E9DF0A64187B001A896E /* Build configuration list for PBXProject "CredentialsCache" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1518E70086C84F80042CBBC /* Development */,
-				A1518E71086C84F80042CBBC /* Deployment */,
-				A1518E72086C84F80042CBBC /* Default */,
+				A140E9E00A64187B001A896E /* Debug */,
+				A140E9E10A64187B001A896E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
-		A1518E73086C84F80042CBBC /* Build configuration list for PBXProject "CredentialsCache" */ = {
+		A140EAA10A642D18001A896E /* Build configuration list for PBXNativeTarget "CredentialsCache" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1518E74086C84F80042CBBC /* Development */,
-				A1518E75086C84F80042CBBC /* Deployment */,
-				A1518E76086C84F80042CBBC /* Default */,
+				A140EAA20A642D18001A896E /* Debug */,
+				A140EAA30A642D18001A896E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
+		};
+		A15DA5D30A659754005CD573 /* Build configuration list for PBXNativeTarget "CCacheServer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A15DA5D40A659754005CD573 /* Debug */,
+				A15DA5D50A659754005CD573 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1E58E620AC9C93E004FA23B /* Build configuration list for PBXNativeTarget "CCAPITestLib" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1E58E630AC9C93E004FA23B /* Debug */,
+				A1E58E640AC9C93E004FA23B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = F5CEF8AF0229952601583103 /* Project object */;
+	rootObject = A140E9DE0A64187B001A896E /* Project object */;
 }

@@ -1,0 +1,378 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D66D84FA0664F721004F6E1D /* DSX509Relation.h in Headers */ = {isa = PBXBuildFile; fileRef = D66D84F80664F721004F6E1D /* DSX509Relation.h */; };
+		D66D84FB0664F721004F6E1D /* DSX509Relation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D66D84F90664F721004F6E1D /* DSX509Relation.cpp */; };
+		D67BE6B8065931A400E26A3B /* CommonCode.h in Headers */ = {isa = PBXBuildFile; fileRef = D67BE6B6065931A400E26A3B /* CommonCode.h */; };
+		D67BE6B9065931A400E26A3B /* CommonCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D67BE6B7065931A400E26A3B /* CommonCode.cpp */; };
+		D6C5CC9C0680F29A002E2C08 /* DirectoryServices.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6C5CC9A0680F29A002E2C08 /* DirectoryServices.cpp */; };
+		D6C5CC9D0680F29A002E2C08 /* DirectoryServices.h in Headers */ = {isa = PBXBuildFile; fileRef = D6C5CC9B0680F29A002E2C08 /* DirectoryServices.h */; };
+		D6C5CCA30680F2DE002E2C08 /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6C5CCA20680F2DE002E2C08 /* DirectoryService.framework */; };
+		D6EFB0AE066528F800E68C0C /* PartialRelation.h in Headers */ = {isa = PBXBuildFile; fileRef = D6EFB0AC066528F800E68C0C /* PartialRelation.h */; };
+		D6EFB0AF066528F800E68C0C /* PartialRelation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6EFB0AD066528F800E68C0C /* PartialRelation.cpp */; };
+		D6FEBAB206518908003810E8 /* Relation.h in Headers */ = {isa = PBXBuildFile; fileRef = D6FE2B2206469C1500DA234F /* Relation.h */; };
+		D6FEBAB306518908003810E8 /* TableRelation.h in Headers */ = {isa = PBXBuildFile; fileRef = D661C5A60648673400A1CFFF /* TableRelation.h */; };
+		D6FEBAB406518908003810E8 /* DataStorageLibrary.h in Headers */ = {isa = PBXBuildFile; fileRef = D64218B4064A8EF200ABB3AE /* DataStorageLibrary.h */; };
+		D6FEBAB506518908003810E8 /* LDAPDLModule.h in Headers */ = {isa = PBXBuildFile; fileRef = D64218CD064A99E300ABB3AE /* LDAPDLModule.h */; };
+		D6FEBAB606518908003810E8 /* AttachedInstance.h in Headers */ = {isa = PBXBuildFile; fileRef = D64218D1064A9E2800ABB3AE /* AttachedInstance.h */; };
+		D6FEBAB706518908003810E8 /* Mutex.h in Headers */ = {isa = PBXBuildFile; fileRef = D687EAE3064BF83800DF1A47 /* Mutex.h */; };
+		D6FEBAB806518908003810E8 /* Database.h in Headers */ = {isa = PBXBuildFile; fileRef = D687EB46064C06B500DF1A47 /* Database.h */; };
+		D6FEBABA06518908003810E8 /* ldap_common.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = D6E970330607D40C0057A1B5 /* ldap_common.mdsinfo */; };
+		D6FEBABB06518908003810E8 /* ldap_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = D6E970340607D40C0057A1B5 /* ldap_primary.mdsinfo */; };
+		D6FEBABD06518908003810E8 /* Relation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6FE2B2306469C1500DA234F /* Relation.cpp */; };
+		D6FEBABE06518908003810E8 /* TableRelation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D661C5A70648673400A1CFFF /* TableRelation.cpp */; };
+		D6FEBABF06518908003810E8 /* Bridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218A8064A89DE00ABB3AE /* Bridge.cpp */; };
+		D6FEBAC006518908003810E8 /* DataStorageLibrary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218B5064A8EF200ABB3AE /* DataStorageLibrary.cpp */; };
+		D6FEBAC106518908003810E8 /* CSSMStubs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218BB064A94E200ABB3AE /* CSSMStubs.cpp */; };
+		D6FEBAC206518908003810E8 /* LDAPDLModule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218CE064A99E300ABB3AE /* LDAPDLModule.cpp */; };
+		D6FEBAC306518908003810E8 /* AttachedInstance.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218D2064A9E2800ABB3AE /* AttachedInstance.cpp */; };
+		D6FEBAC406518908003810E8 /* Mutex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D687EAE4064BF83800DF1A47 /* Mutex.cpp */; };
+		D6FEBAC506518908003810E8 /* Database.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D687EB47064C06B500DF1A47 /* Database.cpp */; };
+		D6FEBAC706518908003810E8 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D66B17040639E5E200E30944 /* Security.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		D64218A8064A89DE00ABB3AE /* Bridge.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Bridge.cpp; sourceTree = "<group>"; };
+		D64218B4064A8EF200ABB3AE /* DataStorageLibrary.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataStorageLibrary.h; sourceTree = "<group>"; };
+		D64218B5064A8EF200ABB3AE /* DataStorageLibrary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DataStorageLibrary.cpp; sourceTree = "<group>"; };
+		D64218BB064A94E200ABB3AE /* CSSMStubs.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CSSMStubs.cpp; sourceTree = "<group>"; };
+		D64218CD064A99E300ABB3AE /* LDAPDLModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LDAPDLModule.h; sourceTree = "<group>"; };
+		D64218CE064A99E300ABB3AE /* LDAPDLModule.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LDAPDLModule.cpp; sourceTree = "<group>"; };
+		D64218D1064A9E2800ABB3AE /* AttachedInstance.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AttachedInstance.h; sourceTree = "<group>"; };
+		D64218D2064A9E2800ABB3AE /* AttachedInstance.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AttachedInstance.cpp; sourceTree = "<group>"; };
+		D661C5A60648673400A1CFFF /* TableRelation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TableRelation.h; sourceTree = "<group>"; };
+		D661C5A70648673400A1CFFF /* TableRelation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TableRelation.cpp; sourceTree = "<group>"; };
+		D66B17040639E5E200E30944 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		D66D84F80664F721004F6E1D /* DSX509Relation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DSX509Relation.h; sourceTree = "<group>"; };
+		D66D84F90664F721004F6E1D /* DSX509Relation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DSX509Relation.cpp; sourceTree = "<group>"; };
+		D67BE6B6065931A400E26A3B /* CommonCode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommonCode.h; sourceTree = "<group>"; };
+		D67BE6B7065931A400E26A3B /* CommonCode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CommonCode.cpp; sourceTree = "<group>"; };
+		D687EAE3064BF83800DF1A47 /* Mutex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Mutex.h; sourceTree = "<group>"; };
+		D687EAE4064BF83800DF1A47 /* Mutex.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Mutex.cpp; sourceTree = "<group>"; };
+		D687EB46064C06B500DF1A47 /* Database.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Database.h; sourceTree = "<group>"; };
+		D687EB47064C06B500DF1A47 /* Database.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Database.cpp; sourceTree = "<group>"; };
+		D6C5CC9A0680F29A002E2C08 /* DirectoryServices.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DirectoryServices.cpp; sourceTree = "<group>"; };
+		D6C5CC9B0680F29A002E2C08 /* DirectoryServices.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DirectoryServices.h; sourceTree = "<group>"; };
+		D6C5CCA20680F2DE002E2C08 /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = /System/Library/Frameworks/DirectoryService.framework; sourceTree = "<absolute>"; };
+		D6E970330607D40C0057A1B5 /* ldap_common.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = ldap_common.mdsinfo; sourceTree = "<group>"; };
+		D6E970340607D40C0057A1B5 /* ldap_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = ldap_primary.mdsinfo; sourceTree = "<group>"; };
+		D6EFB0AC066528F800E68C0C /* PartialRelation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PartialRelation.h; sourceTree = "<group>"; };
+		D6EFB0AD066528F800E68C0C /* PartialRelation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PartialRelation.cpp; sourceTree = "<group>"; };
+		D6FE2B2206469C1500DA234F /* Relation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Relation.h; sourceTree = "<group>"; };
+		D6FE2B2306469C1500DA234F /* Relation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Relation.cpp; sourceTree = "<group>"; };
+		D6FEBACA06518908003810E8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		D6FEBACB06518908003810E8 /* ldapdl.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ldapdl.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D6FEBAC606518908003810E8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6FEBAC706518908003810E8 /* Security.framework in Frameworks */,
+				D6C5CCA30680F2DE002E2C08 /* DirectoryService.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4094B098057EA68B00B44BCC /* mds */ = {
+			isa = PBXGroup;
+			children = (
+				D6E970330607D40C0057A1B5 /* ldap_common.mdsinfo */,
+				D6E970340607D40C0057A1B5 /* ldap_primary.mdsinfo */,
+			);
+			path = mds;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				D66B17010639E5B500E30944 /* Frameworks */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+				C28436DB0534880F000AE0FC /* lib */,
+				4094B098057EA68B00B44BCC /* mds */,
+				D6FEBACA06518908003810E8 /* Info.plist */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D6FEBACB06518908003810E8 /* ldapdl.bundle */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C28436DB0534880F000AE0FC /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				D6C5CC9A0680F29A002E2C08 /* DirectoryServices.cpp */,
+				D6C5CC9B0680F29A002E2C08 /* DirectoryServices.h */,
+				D6EFB0AC066528F800E68C0C /* PartialRelation.h */,
+				D6EFB0AD066528F800E68C0C /* PartialRelation.cpp */,
+				D66D84F80664F721004F6E1D /* DSX509Relation.h */,
+				D66D84F90664F721004F6E1D /* DSX509Relation.cpp */,
+				D6FE2B2206469C1500DA234F /* Relation.h */,
+				D6FE2B2306469C1500DA234F /* Relation.cpp */,
+				D661C5A60648673400A1CFFF /* TableRelation.h */,
+				D661C5A70648673400A1CFFF /* TableRelation.cpp */,
+				D64218A8064A89DE00ABB3AE /* Bridge.cpp */,
+				D64218CD064A99E300ABB3AE /* LDAPDLModule.h */,
+				D64218CE064A99E300ABB3AE /* LDAPDLModule.cpp */,
+				D64218BB064A94E200ABB3AE /* CSSMStubs.cpp */,
+				D64218B4064A8EF200ABB3AE /* DataStorageLibrary.h */,
+				D67BE6B6065931A400E26A3B /* CommonCode.h */,
+				D67BE6B7065931A400E26A3B /* CommonCode.cpp */,
+				D64218B5064A8EF200ABB3AE /* DataStorageLibrary.cpp */,
+				D64218D1064A9E2800ABB3AE /* AttachedInstance.h */,
+				D64218D2064A9E2800ABB3AE /* AttachedInstance.cpp */,
+				D687EAE3064BF83800DF1A47 /* Mutex.h */,
+				D687EAE4064BF83800DF1A47 /* Mutex.cpp */,
+				D687EB46064C06B500DF1A47 /* Database.h */,
+				D687EB47064C06B500DF1A47 /* Database.cpp */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		D66B17010639E5B500E30944 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D6C5CCA20680F2DE002E2C08 /* DirectoryService.framework */,
+				D66B17040639E5E200E30944 /* Security.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		D6FEBAB106518908003810E8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6FEBAB206518908003810E8 /* Relation.h in Headers */,
+				D6FEBAB306518908003810E8 /* TableRelation.h in Headers */,
+				D6FEBAB406518908003810E8 /* DataStorageLibrary.h in Headers */,
+				D6FEBAB506518908003810E8 /* LDAPDLModule.h in Headers */,
+				D6FEBAB606518908003810E8 /* AttachedInstance.h in Headers */,
+				D6FEBAB706518908003810E8 /* Mutex.h in Headers */,
+				D6FEBAB806518908003810E8 /* Database.h in Headers */,
+				D67BE6B8065931A400E26A3B /* CommonCode.h in Headers */,
+				D66D84FA0664F721004F6E1D /* DSX509Relation.h in Headers */,
+				D6EFB0AE066528F800E68C0C /* PartialRelation.h in Headers */,
+				D6C5CC9D0680F29A002E2C08 /* DirectoryServices.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		D6FEBAB006518908003810E8 /* ldapdl.bundle */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3880987FCDE001272E0 /* Build configuration list for PBXNativeTarget "ldapdl.bundle" */;
+			buildPhases = (
+				D6FEBAB106518908003810E8 /* Headers */,
+				D6FEBAB906518908003810E8 /* Resources */,
+				D6FEBABC06518908003810E8 /* Sources */,
+				D6FEBAC606518908003810E8 /* Frameworks */,
+				D6FEBAC806518908003810E8 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ldapdl.bundle;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = ldapdl.bundle;
+			productReference = D6FEBACB06518908003810E8 /* ldapdl.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD38C0987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_ldap_dl" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
+			targets = (
+				D6FEBAB006518908003810E8 /* ldapdl.bundle */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D6FEBAB906518908003810E8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6FEBABA06518908003810E8 /* ldap_common.mdsinfo in Resources */,
+				D6FEBABB06518908003810E8 /* ldap_primary.mdsinfo in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		D6FEBAC806518908003810E8 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D6FEBABC06518908003810E8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6FEBABD06518908003810E8 /* Relation.cpp in Sources */,
+				D6FEBABE06518908003810E8 /* TableRelation.cpp in Sources */,
+				D6FEBABF06518908003810E8 /* Bridge.cpp in Sources */,
+				D6FEBAC006518908003810E8 /* DataStorageLibrary.cpp in Sources */,
+				D6FEBAC106518908003810E8 /* CSSMStubs.cpp in Sources */,
+				D6FEBAC206518908003810E8 /* LDAPDLModule.cpp in Sources */,
+				D6FEBAC306518908003810E8 /* AttachedInstance.cpp in Sources */,
+				D6FEBAC406518908003810E8 /* Mutex.cpp in Sources */,
+				D6FEBAC506518908003810E8 /* Database.cpp in Sources */,
+				D67BE6B9065931A400E26A3B /* CommonCode.cpp in Sources */,
+				D66D84FB0664F721004F6E1D /* DSX509Relation.cpp in Sources */,
+				D6EFB0AF066528F800E68C0C /* PartialRelation.cpp in Sources */,
+				D6C5CC9C0680F29A002E2C08 /* DirectoryServices.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD3890987FCDE001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 30174;
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				PRODUCT_NAME = ldapdl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		C27AD38A0987FCDE001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 30174;
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				PRODUCT_NAME = ldapdl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD38B0987FCDE001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 30174;
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				PRODUCT_NAME = ldapdl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Default;
+		};
+		C27AD38D0987FCDE001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD38E0987FCDE001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD38F0987FCDE001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD3880987FCDE001272E0 /* Build configuration list for PBXNativeTarget "ldapdl.bundle" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3890987FCDE001272E0 /* Development */,
+				C27AD38A0987FCDE001272E0 /* Deployment */,
+				C27AD38B0987FCDE001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD38C0987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_ldap_dl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD38D0987FCDE001272E0 /* Development */,
+				C27AD38E0987FCDE001272E0 /* Deployment */,
+				C27AD38F0987FCDE001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

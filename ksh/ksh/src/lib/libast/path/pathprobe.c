@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -94,18 +90,25 @@ pathprobe(char* path, char* attr, const char* lang, const char* tool, const char
 	register char*	x;
 	register char**	ap;
 	int		n;
+	int		v;
+	int		force;
+	ssize_t		r;
 	char*		e;
 	char*		np;
 	char*		nx;
 	char*		probe;
 	const char*	dirs;
 	const char*	dir;
+	Proc_t*		pp;
+	Sfio_t*		sp;
 	char		buf[PATH_MAX];
 	char		cmd[PATH_MAX];
 	char		exe[PATH_MAX];
 	char		lib[PATH_MAX];
+	char		ver[PATH_MAX];
 	char		key[16];
-	char*		arg[6];
+	char*		arg[8];
+	long		ops[2];
 	unsigned long	ptime;
 	struct stat	st;
 	struct stat	ps;
@@ -190,33 +193,107 @@ pathprobe(char* path, char* attr, const char* lang, const char* tool, const char
 	{
 		if (!(p = getenv("HOME")))
 			return 0;
-		p = path + sfsprintf(path, PATH_MAX - 1, "%s/.%s/", p, probe);
+		p = path + sfsprintf(path, PATH_MAX - 1, "%s/.%s/%s/", p, probe, HOSTTYPE);
 	}
 	strncopy(p, k, x - p);
+	force = 0;
 	if (op >= 0 && !stat(path, &st))
 	{
 		if (ptime <= (unsigned long)st.st_mtime || ptime <= (unsigned long)st.st_ctime)
-			op = -1;
-		else if (st.st_mode & S_IWUSR)
+		{
+			/*
+			 * verify (<sep><name><sep><option><sep><value>)* header
+			 */
+
+			if (sp = sfopen(NiL, path, "r"))
+			{
+				if (x = sfgetr(sp, '\n', 1))
+				{
+					while (*x && *x != ' ')
+						x++;
+					while (*x == ' ')
+						x++;
+					if (n = *x++)
+						for (;;)
+						{
+							for (k = x; *x && *x != n; x++);
+							if (!*x)
+								break;
+							*x++ = 0;
+							for (p = x; *x && *x != n; x++);
+							if (!*x)
+								break;
+							*x++ = 0;
+							for (e = x; *x && *x != n; x++);
+							if (!*x)
+								break;
+							*x++ = 0;
+							if (streq(k, "VERSION"))
+							{
+								ap = arg;
+								*ap++ = proc;
+								*ap++ = p;
+								*ap = 0;
+								ops[0] =  PROC_FD_DUP(1, 2, 0);
+								ops[1] = 0;
+								if (pp = procopen(proc, arg, NiL, ops, PROC_READ))
+								{
+									if ((v = x - e) > sizeof(ver))
+										v = sizeof(ver);
+									for (k = p = ver;; k++)
+									{
+										if (k >= p)
+										{
+											if (v <= 0 || (r = read(pp->rfd, k, v)) <= 0)
+												break;
+											v -= r;
+											p = k + r;
+										}
+										if (*k == '\n')
+											break;
+										if (*k == n)
+											*k = ' ';
+									}
+									*k = 0;
+									if (strcmp(ver, e))
+									{
+										force = 1;
+										error(0, "probe processor %s version \"%s\" changed -- expected \"%s\"", proc, ver, e);
+									}
+									procclose(pp);
+								}
+								break;
+							}
+						}
+				}
+				sfclose(sp);
+			}
+			if (!force)
+				op = -1;
+		}
+		if (op >= 0 && (st.st_mode & S_IWUSR))
 		{
 			if (op == 0)
 				error(0, "%s probe information for %s language processor %s must be manually regenerated", tool, lang, proc);
 			op = -1;
+			force = 0;
 		}
 	}
 	if (op >= 0)
 	{
 		ap = arg;
 		*ap++ = exe;
+		if (force)
+			*ap++ = "-f";
 		if (op > 0)
 			*ap++ = "-s";
 		*ap++ = (char*)lang;
 		*ap++ = (char*)tool;
 		*ap++ = proc;
 		*ap = 0;
-		if (procrun(exe, arg))
+		if (procrun(exe, arg, 0))
 			return 0;
-		if (access(path, R_OK))
+		if (eaccess(path, R_OK))
 			return 0;
 	}
 	return path == buf ? strdup(path) : path;

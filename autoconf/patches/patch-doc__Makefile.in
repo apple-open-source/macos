@@ -1,11 +1,11 @@
 --- doc/Makefile.in.orig	Sat Nov 20 17:24:09 2004
 +++ doc/Makefile.in	Sat Nov 20 17:44:27 2004
-@@ -320,7 +320,7 @@
+@@ -402,7 +402,7 @@
  	  dist-info
  check-am: all-am
  check: check-am
 -all-am: Makefile $(INFO_DEPS)
 +all-am: Makefile
  installdirs:
- 	$(mkinstalldirs) $(DESTDIR)$(infodir)
- install: install-am
+ 	for dir in "$(DESTDIR)$(infodir)"; do \
+ 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \

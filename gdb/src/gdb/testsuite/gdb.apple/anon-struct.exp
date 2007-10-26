@@ -1,0 +1,228 @@
+#   Copyright (C) 2004 Free Software Foundation, Inc.
+#
+# This Program Is Free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# Test that the mi output for a structure with multiple anonymous sub-structures
+# works properly.
+#
+# Written by Jim Ingham <jingham@apple.com>
+# 
+
+load_lib mi-support.exp
+set MIFLAGS "-i=mi1"
+
+gdb_exit
+if [mi_gdb_start] {
+    continue
+}
+
+set testfile "anon-struct"
+set srcfile ${testfile}.cc
+
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [gdb_compile "$srcdir/$subdir/$srcfile" "${binfile}" executable {c++ debug}] != "" } {
+    gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+mi_delete_breakpoints
+mi_gdb_reinitialize_dir $srcdir/$subdir
+mi_gdb_load ${binfile}
+
+mi_run_to_main
+mi_next {Next so mine is initialized}
+mi_next {Next so nother is initialized}
+
+mi_gdb_test {-var-create - * mine} {.*name="var1",numchild="2",type="foo",typecode="STRUCT",dynamic_type="",in_scope="true".*} {create variable for mine}
+
+mi_gdb_test {-var-list-children var1} {.*numchild="2",children=\[child={name="var1.public",exp="public",numchild="3",type="",typecode="FAKE_CHILD",dynamic_type=""},child={name="var1.private",exp="private",numchild="3",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} {list children of var1}
+
+mi_gdb_test {-var-list-children var1.public} {.*numchild="3",children=\[child={name="var1.public.a",exp="a",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.public.#anon#1",exp="",numchild="1",type="[^"]*",typecode="UNION",dynamic_type=""},child={name="var1.public.#anon#2",exp="",numchild="1",type="[^"]*",typecode="STRUCT",dynamic_type=""}\]} {list children of var1.public}
+
+mi_gdb_test {-var-list-children var1.public.#anon#1} {.*numchild="2",children=\[child={name="var1.public.#anon#1.public.b",exp="b",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.public.#anon#1.public.c",exp="c",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {list children of var1.public.#anon#1}
+
+mi_gdb_test {-var-list-children var1.public.#anon#2} {.*numchild="2",children=\[child={name="var1.public.#anon#2.public.d",exp="d",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.public.#anon#2.public.e",exp="e",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {list children of var1.public.#anon#2}
+
+mi_gdb_test {-var-evaluate-expression var1.public.a} {.*value="1"} {value of var1.public.a}
+
+mi_gdb_test {-var-evaluate-expression var1.public.#anon#1.public.b} {.*value="2"} {value of var1.public.#anon#1.public.b}
+
+mi_gdb_test {-var-evaluate-expression var1.public.#anon#2.public.d} {.*value="3"} {value of var1.public.#anon#1.public.d}
+
+mi_gdb_test {-var-evaluate-expression var1.public.#anon#2.public.e} {.*value="4"} {value of var1.public.#anon#2.public.e}
+
+    mi_gdb_test {-var-info-path-expression var1.public.#anon#1.public.b} {.*path_expr="\(\(mine\)\.b\)"} {-var-info-path-expression works for var1.public.#anon#1.public.b}
+
+mi_gdb_test {-var-list-children var1.private} {.*numchild="3",children=\[child={name="var1.private.f",exp="f",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.private.#anon#1",exp="",numchild="1",type="[^"]*",typecode="UNION",dynamic_type=""},child={name="var1.private.#anon#2",exp="",numchild="1",type="[^"]*",typecode="STRUCT",dynamic_type=""}\]} {list children of var1.private}
+
+mi_gdb_test {-var-evaluate-expression var1.private.f} {.*value="5"} {value of var1.private.f}
+
+# This is a pain.  For stabs, the child type is recorded as "private" but for DWARF they end up
+# being public.
+
+mi_gdb_test {-var-list-children var1.private.#anon#1} {.*numchild="([12])",children=.*\]} {list children of var1.private.#anon#1}
+set child_type $expect_out(1,string)
+
+if {$child_type == 1} {
+    mi_gdb_test {-var-list-children var1.private.#anon#1.private} {.*numchild="2",children=\[child={name="var1.private.#anon#1.private.g",exp="g",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.private.#anon#1.private.h",exp="h",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {list children of var1.private.#anon#1.private}
+
+    mi_gdb_test {-var-list-children var1.private.#anon#2} {.*numchild="1",children=\[child={name="var1.private.#anon#2.private",exp="private",numchild="2",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} {list children of var1.private.#anon#2}
+
+    mi_gdb_test {-var-list-children var1.private.#anon#2.private} {.*numchild="2",children=\[child={name="var1.private.#anon#2.private.i",exp="i",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.private.#anon#2.private.j",exp="j",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {list children of var1.private.#anon#2.private}
+
+    mi_gdb_test {-var-evaluate-expression var1.private.#anon#1.private.g} {.*value="6"} {value of var1.private.#anon#1.private.g}
+
+    mi_gdb_test {-var-evaluate-expression var1.private.#anon#2.private.i} {.*value="7"} {value of var1.private.#anon#2.private.i}
+
+    mi_gdb_test {-var-evaluate-expression var1.private.#anon#2.private.j} {.*value="8"} {value of var1.private.#anon#2.private.j}
+
+} else {
+    mi_gdb_test {-var-list-children var1.private.#anon#1} {.*numchild="2",children=\[child={name="var1.private.#anon#1.public.g",exp="g",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.private.#anon#1.public.h",exp="h",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {list children of var1.private.#anon#1}
+
+    mi_gdb_test {-var-list-children var1.private.#anon#2} {.*numchild="2",children=\[child={name="var1.private.#anon#2.public.i",exp="i",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.private.#anon#2.public.j",exp="j",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {var1.private.#anon#2}
+
+    mi_gdb_test {-var-evaluate-expression var1.private.#anon#1.public.g} {.*value="6"} {value of var1.private.#anon#1.public.g}
+
+    mi_gdb_test {-var-evaluate-expression var1.private.#anon#2.public.i} {.*value="7"} {value of var1.private.#anon#2.public.i}
+
+    mi_gdb_test {-var-evaluate-expression var1.private.#anon#2.public.j} {.*value="8"} {value of var1.private.#anon#2.public.j}
+}
+
+#
+# Now test that we get this right through a pointer.  The tests are exactly the same, but it turns
+# out the gdb code is different depending on whether the parent is a pointer.
+#
+
+mi_gdb_test {-var-create - * nother} {.*name="var2",numchild="2",type="foo \*",typecode="PTR",dynamic_type="",in_scope="true".*} {create variable for nother}
+
+mi_gdb_test {-var-list-children var2} {.*numchild="2",children=\[child={name="var2.public",exp="public",numchild="3",type="",typecode="FAKE_CHILD",dynamic_type=""},child={name="var2.private",exp="private",numchild="3",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} {list children of var2}
+
+mi_gdb_test {-var-list-children var2.public} {.*numchild="3",children=\[child={name="var2.public.a",exp="a",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.public.#anon#1",exp="",numchild="1",type="[^"]*",typecode="UNION",dynamic_type=""},child={name="var2.public.#anon#2",exp="",numchild="1",type="[^"]*",typecode="STRUCT",dynamic_type=""}\]} {list children of var2.public}
+
+mi_gdb_test {-var-list-children var2.public.#anon#1} {.*numchild="2",children=\[child={name="var2.public.#anon#1.public.b",exp="b",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.public.#anon#1.public.c",exp="c",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {list children of var2.public.#anon#1}
+
+mi_gdb_test {-var-list-children var2.public.#anon#2} {.*numchild="2",children=\[child={name="var2.public.#anon#2.public.d",exp="d",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.public.#anon#2.public.e",exp="e",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {list children of var2.public.#anon#2}
+
+mi_gdb_test {-var-evaluate-expression var2.public.a} {.*value="1"} {value of var2.public.a}
+
+mi_gdb_test {-var-evaluate-expression var2.public.#anon#1.public.b} {.*value="2"} {value of var2.public.#anon#1.public.b}
+
+mi_gdb_test {-var-evaluate-expression var2.public.#anon#2.public.d} {.*value="3"} {value of var2.public.#anon#1.public.d}
+
+mi_gdb_test {-var-evaluate-expression var2.public.#anon#2.public.e} {.*value="4"} {value of var2.public.#anon#2.public.e}
+
+mi_gdb_test {-var-list-children var2.private} {.*numchild="3",children=\[child={name="var2.private.f",exp="f",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.private.#anon#1",exp="",numchild="1",type="[^"]*",typecode="UNION",dynamic_type=""},child={name="var2.private.#anon#2",exp="",numchild="1",type="[^"]*",typecode="STRUCT",dynamic_type=""}\]} {list children of var2.private}
+
+mi_gdb_test {-var-evaluate-expression var2.private.f} {.*value="5"} {value of var2.private.f}
+
+# This is a pain.  For stabs, the child type is recorded as "private" but for DWARF they end up
+# being public.
+
+mi_gdb_test {-var-list-children var2.private.#anon#1} {.*numchild="([12])",children=.*\]} {list children of var2.private.#anon#1}
+set child_type $expect_out(1,string)
+
+if {$child_type == 1} {
+    mi_gdb_test {-var-list-children var2.private.#anon#1.private} {.*numchild="2",children=\[child={name="var2.private.#anon#1.private.g",exp="g",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.private.#anon#1.private.h",exp="h",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {list children of var2.private.#anon#1.private}
+
+    mi_gdb_test {-var-list-children var2.private.#anon#2} {.*numchild="1",children=\[child={name="var2.private.#anon#2.private",exp="private",numchild="2",type="",typecode="FAKE_CHILD",dynamic_type=""}\]} {list children of var2.private.#anon#2}
+
+    mi_gdb_test {-var-list-children var2.private.#anon#2.private} {.*numchild="2",children=\[child={name="var2.private.#anon#2.private.i",exp="i",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.private.#anon#2.private.j",exp="j",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {list children of var2.private.#anon#2.private}
+
+    mi_gdb_test {-var-evaluate-expression var2.private.#anon#1.private.g} {.*value="6"} {value of var2.private.#anon#1.private.g}
+
+    mi_gdb_test {-var-evaluate-expression var2.private.#anon#2.private.i} {.*value="7"} {value of var2.private.#anon#2.private.i}
+
+    mi_gdb_test {-var-evaluate-expression var2.private.#anon#2.private.j} {.*value="8"} {value of var2.private.#anon#2.private.j}
+
+} else {
+    mi_gdb_test {-var-list-children var2.private.#anon#1} {.*numchild="2",children=\[child={name="var2.private.#anon#1.public.g",exp="g",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.private.#anon#1.public.h",exp="h",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {list children of var2.private.#anon#1}
+
+    mi_gdb_test {-var-list-children var2.private.#anon#2} {.*numchild="2",children=\[child={name="var2.private.#anon#2.public.i",exp="i",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.private.#anon#2.public.j",exp="j",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {var2.private.#anon#2}
+
+    mi_gdb_test {-var-evaluate-expression var2.private.#anon#1.public.g} {.*value="6"} {value of var2.private.#anon#1.public.g}
+
+    mi_gdb_test {-var-evaluate-expression var2.private.#anon#2.public.i} {.*value="7"} {value of var2.private.#anon#2.public.i}
+
+    mi_gdb_test {-var-evaluate-expression var2.private.#anon#2.public.j} {.*value="8"} {value of var2.private.#anon#2.public.j}
+}
+
+mi_gdb_exit
+
+if [mi_gdb_start] {
+    continue
+}
+
+#
+# Now test the straight C version.
+#
+
+set testfile "anon-struct-c"
+set srcfile ${testfile}.c
+
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [gdb_compile "$srcdir/$subdir/$srcfile" "${binfile}" executable {debug}] != "" } {
+    gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+mi_delete_breakpoints
+mi_gdb_reinitialize_dir $srcdir/$subdir
+mi_gdb_load ${binfile}
+
+mi_run_to_main
+mi_next {Next so mine is initialized}
+mi_next {Next so nother is initialized}
+
+mi_gdb_test {-var-create - * mine} {.*name="var1",numchild="3",type="struct foo",typecode="STRUCT",dynamic_type="",in_scope="true".*} {C - create variable mine}
+
+mi_gdb_test {-var-list-children var1} {.*numchild="3",children=\[child={name="var1.a",exp="a",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.#anon#1",exp="",numchild="2",type="union {...}",typecode="UNION",dynamic_type=""},child={name="var1.#anon#2",exp="",numchild="2",type="struct {...}",typecode="STRUCT",dynamic_type=""}\]} {C - list children of var1}
+
+mi_gdb_test {-var-list-children var1.#anon#1} {.*numchild="2",children=\[child={name="var1.#anon#1.b",exp="b",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.#anon#1.c",exp="c",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {C - list children of var1.#anon#1}
+
+mi_gdb_test {-var-list-children var1.#anon#2} {.*numchild="2",children=\[child={name="var1.#anon#2.d",exp="d",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var1.#anon#2.e",exp="e",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {C - list children of var1.#anon#2}
+
+mi_gdb_test {-var-evaluate-expression var1.a} {.*value="1"} {C - value of var1.a}
+
+mi_gdb_test {-var-evaluate-expression var1.#anon#1.b} {.*value="2"} {C - value of var1.#anon#1.b}
+
+mi_gdb_test {-var-evaluate-expression var1.#anon#2.d} {.*value="3"} {C - value of var1.#anon#2.d}
+
+mi_gdb_test {-var-evaluate-expression var1.#anon#2.e } {.*value="4"} {C - value of var1.#anon#2.e}
+
+#
+# Again, we do the same test with a pointer
+#
+
+mi_gdb_test {-var-create - * nother} {.*name="var2",numchild="3",type="struct foo \*",typecode="PTR",dynamic_type="",in_scope="true".*} {C - create variable nother}
+
+mi_gdb_test {-var-list-children var2} {.*numchild="3",children=\[child={name="var2.a",exp="a",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.#anon#1",exp="",numchild="2",type="union {...}",typecode="UNION",dynamic_type=""},child={name="var2.#anon#2",exp="",numchild="2",type="struct {...}",typecode="STRUCT",dynamic_type=""}\]} {C - list children of var2}
+
+mi_gdb_test {-var-list-children var2.#anon#1} {.*numchild="2",children=\[child={name="var2.#anon#1.b",exp="b",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.#anon#1.c",exp="c",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {C - list children of var2.#anon#1}
+
+mi_gdb_test {-var-list-children var2.#anon#2} {.*numchild="2",children=\[child={name="var2.#anon#2.d",exp="d",numchild="0",type="int",typecode="INT",dynamic_type=""},child={name="var2.#anon#2.e",exp="e",numchild="0",type="double",typecode="FLT",dynamic_type=""}\]} {C - list children of var2.#anon#2}
+
+mi_gdb_test {-var-evaluate-expression var2.a} {.*value="1"} {C - value of var2.a}
+
+mi_gdb_test {-var-evaluate-expression var2.#anon#1.b} {.*value="2"} {C - value of var2.#anon#1.b}
+
+mi_gdb_test {-var-evaluate-expression var2.#anon#2.d} {.*value="3"} {C - value of var2.#anon#2.d}
+
+mi_gdb_test {-var-evaluate-expression var2.#anon#2.e } {.*value="4"} {C - value of var2.#anon#2.e}
+
+
+
+
+return 0

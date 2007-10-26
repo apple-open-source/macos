@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 2003-2004, International Business Machines
+ *   Copyright (C) 2003-2007, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -34,6 +34,9 @@ static void TestIDNToUnicode(void);
 static void TestIDNToASCII(void);
 static void TestCompare(void);
 static void TestUnicode32Norm(void);
+static void TestJB4490(void);
+static void TestJB4475(void); 
+static void TestLength(void); 
 
 void addIDNATest(TestNode** root);
 
@@ -59,6 +62,9 @@ addIDNATest(TestNode** root)
    addTest(root, &TestIDNToASCII,   "idna/TestIDNToASCII");
    addTest(root, &TestCompare,      "idna/TestCompare");
    addTest(root, &TestUnicode32Norm,"idna/TestUnicode32Norm");
+   addTest(root, &TestJB4490,        "idna/TestJB4490");
+   addTest(root, &TestJB4475,       "idna/TestJB4475");
+   addTest(root, &TestLength,       "idna/TestLength");
 }
 
 static void
@@ -331,8 +337,10 @@ static UChar unicodeIn[][41] ={
         0x043e, 0x043d, 0x0438, 0x043d, 0x0435, 0x0433, 0x043e, 0x0432,
         0x043e, 0x0440, 0x044f, 0x0442, 0x043f, 0x043e, 0x0440, 0x0443,
         0x0441, 0x0441, 0x043a, 0x0438
+    },
+    {
+        0x0054,0x0045,0x0053,0x0054
     }
-
 };
 
 static const char *asciiIn[] = {
@@ -358,7 +366,8 @@ static const char *asciiIn[] = {
     "XN--db8CBHEJLGH4E0AL",
     "xn--hxargifdar",                       /* Greek */
     "xn--bonusaa-5bb1da",                   /* Maltese */
-    "xn--b1abfaaepdrnnbgefbadotcwatmq2g4l", /* Russian (Cyrillic)*/
+    "xn--b1abfaaepdrnnbgefbadotcwatmq2g4l",  /* Russian (Cyrillic)*/
+    "TEST"
 
 };
 
@@ -410,7 +419,7 @@ static const char *domainNames[] = {
     /*"\\u00CF\\u0082.com",*/
     /*"\\u00CE\\u00B2\\u00C3\\u009Fss.com",*/
     /*"\\u00E2\\u0098\\u00BA.com",*/
-    "\\u00C3\\u00BC.com",
+    "\\u00C3\\u00BC.com"
 
 };
 
@@ -654,6 +663,102 @@ static void TestUnicode32Norm() {
     }
 }
 
+static void TestJB4490(){
+    static const UChar data[][50]= {
+        {0x00F5,0x00dE,0x00dF,0x00dD, 0x0000},
+        {0xFB00,0xFB01}
+    };
+    UChar output1[40] = {0};
+    UChar output2[40] = {0};
+    int32_t i;
+    for(i=0; i< sizeof(data)/sizeof(data[0]); i++){
+        const UChar* src1 = data[i];
+        int32_t src1Len = u_strlen(src1);
+        UChar* dest1 = output1;
+        int32_t dest1Len = 40;
+        UErrorCode status = U_ZERO_ERROR;
+        UParseError ps;
+        UChar* src2 = NULL;
+        int32_t src2Len = 0;
+        UChar* dest2 = output2;
+        int32_t dest2Len = 40;
+        dest1Len = uidna_toASCII(src1, src1Len, dest1, dest1Len,UIDNA_DEFAULT, &ps, &status);
+        if(U_FAILURE(status)){
+            log_err("uidna_toUnicode failed with error %s.\n", u_errorName(status));
+        }
+        src2 = dest1;
+        src2Len = dest1Len;
+        dest2Len = uidna_toUnicode(src2, src2Len, dest2, dest2Len, UIDNA_DEFAULT, &ps, &status);
+        if(U_FAILURE(status)){
+            log_err("uidna_toUnicode failed with error %s.\n", u_errorName(status));
+        }
+    }
+}
+
+static void TestJB4475(){
+    
+    static const UChar input[][10] = {
+        {0x0054,0x0045,0x0053,0x0054,0x0000},/* TEST */
+        {0x0074,0x0065,0x0073,0x0074,0x0000} /* test */
+    };
+    int i;
+    UChar output[40] = {0};
+    for(i=0; i< sizeof(input)/sizeof(input[0]); i++){
+        const UChar* src = input[i];
+        int32_t srcLen = u_strlen(src);
+        UChar* dest = output;
+        int32_t destLen = 40;
+        UErrorCode status = U_ZERO_ERROR;
+        UParseError ps;
+
+        destLen = uidna_toASCII(src, srcLen, dest, destLen,UIDNA_DEFAULT, &ps, &status);
+        if(U_FAILURE(status)){
+            log_err("uidna_toASCII failed with error %s.\n", u_errorName(status));
+        } 
+        if(u_strncmp(input[i], dest, srcLen)!=0){
+            log_err("uidna_toASCII did not return the expected output.\n");
+        }
+    }
+}
+static void TestLength(){ 
+    { 
+          static const char* cl = "my_very_very_very_very_very_very_very_long_and_incredibly_uncreative_domain_label"; 
+          UChar ul[128] = {'\0'}; 
+          UChar dest[256] = {'\0'}; 
+          int32_t destLen = LENGTHOF(dest); 
+          UErrorCode status = U_ZERO_ERROR; 
+          UParseError ps; 
+          int32_t len = (int32_t)strlen(cl); 
+          u_charsToUChars(cl, ul, len+1); 
+          destLen = uidna_toUnicode(ul, len, dest, destLen, UIDNA_DEFAULT, &ps, &status); 
+          if(status != U_ZERO_ERROR){ 
+              log_err("uidna_toUnicode failed with error %s.\n", u_errorName(status)); 
+          } 
+          status = U_ZERO_ERROR; 
+          destLen = LENGTHOF(dest); 
+          len = -1; 
+          destLen = uidna_toUnicode(ul, len, dest, destLen, UIDNA_DEFAULT, &ps, &status); 
+          if(status != U_ZERO_ERROR){ 
+              log_err("uidna_toUnicode failed with error %s.\n", u_errorName(status)); 
+          } 
+           
+          status = U_ZERO_ERROR; 
+          destLen = LENGTHOF(dest); 
+          len = -1; 
+          destLen = uidna_toASCII(ul, len, dest, destLen, UIDNA_DEFAULT, &ps, &status); 
+          if(status != U_IDNA_LABEL_TOO_LONG_ERROR){ 
+              log_err("uidna_toASCII failed with error %s.\n", u_errorName(status)); 
+          } 
+           
+          status = U_ZERO_ERROR; 
+          destLen = LENGTHOF(dest); 
+          len = -1; 
+          destLen = uidna_toASCII(ul, len, dest, destLen, UIDNA_DEFAULT, &ps, &status); 
+          if(status != U_IDNA_LABEL_TOO_LONG_ERROR){ 
+              log_err("uidna_toASCII failed with error %s.\n", u_errorName(status)); 
+          } 
+    } 
+} 
 #endif
 
 /*

@@ -201,6 +201,11 @@
 @set xref-exclude-from @xref{exclude}
 @set pxref-exclude-from @pxref{exclude}
 
+@set op-exclude-caches @kbd{--exclude-caches}
+@set ref-exclude-from @ref{exclude-caches}
+@set xref-exclude-from @xref{exclude-caches}
+@set pxref-exclude-from @pxref{exclude-caches}
+
 @set op-extract @kbd{--extract} (@kbd{--get}, @kbd{-x})
 @set ref-extract @ref{extract}
 @set xref-extract @xref{extract}
@@ -351,7 +356,7 @@
 @set xref-owner @xref{Option Summary}
 @set pxref-owner @pxref{Option Summary}
 
-@set op-format @kbd{--format}
+@set op-format @kbd{--format} (@kbd{-H})
 @set ref-format @ref{format}
 @set xref-format @xref{format}
 @set pxref-format @pxref{format}
@@ -428,10 +433,10 @@
 @set xref-starting-file @xref{Scarce}
 @set pxref-starting-file @pxref{Scarce}
 
-@set op-strip-path @kbd{--strip-path} 
-@set ref-strip-path @ref{--strip-path}
-@set xref-strip-path @xref{--strip-path}
-@set pxref-strip-path @pxref{--strip-path}
+@set op-strip-components @kbd{--strip-components} 
+@set ref-strip-components @ref{--strip-components}
+@set xref-strip-components @xref{--strip-components}
+@set pxref-strip-components @pxref{--strip-components}
 
 @set op-suffix @kbd{--suffix=@var{suffix}}
 @set ref-suffix @ref{Backup options}
@@ -492,6 +497,11 @@
 @set ref-volno-file @ref{Using Multiple Tapes}
 @set xref-volno-file @xref{Using Multiple Tapes}
 @set pxref-volno-file @pxref{Using Multiple Tapes}
+
+@set op-seek @kbd{--seek}
+@set ref-seek @ref{seek}
+@set xref-seek @xref{seek}
+@set pxref-seek @pxref{seek}
 
 @c Put everything in one index (arbitrarily chosen to be the concept index).
 @syncodeindex fn cp
@@ -1105,8 +1115,9 @@ thing.}
 For version 1.12, Daniel Hagerty contributed a great deal of technical
 consulting.  In particular, he is the primary author of @ref{Backups}.
 
-In July, 2003 @GNUTAR{} was put on CVS at @url{savannah.gnu.org}, and
-an active development and maintenance work has started
+In July, 2003 @GNUTAR{} was put on CVS at savannah.gnu.org
+(see @url{http://savannah.gnu.org/projects/tar}), and
+active development and maintenance work has started
 again. Currently @GNUTAR{} is being maintained by Paul Eggert, Sergey
 Poznyakoff and Jeff Bailey.
 
@@ -2028,8 +2039,8 @@ $ @kbd{tar -xvf ../untrusted.tar}
 @end smallexample
 
 It is also a good practice to examine contents of the archive
-before extracting it, using @option{op-list} option, possibly combined
-with @option{op-verbose}.
+before extracting it, using @value{op-list} option, possibly combined
+with @value{op-verbose}.
 
 @node failing commands
 @subsection Commands That Will Fail
@@ -2742,6 +2753,11 @@ When performing operations, @command{tar} will skip files that match
 Similar to @samp{--exclude}, except @command{tar} will use the list of
 patterns in the file @var{file}.  @FIXME-xref{}
 
+@item --exclude-caches
+
+Automatically excludes all directories
+containing a cache directory tag.  @FIXME-xref{}
+
 @item --file=@var{archive}
 @itemx -f @var{archive}
 
@@ -2909,6 +2925,14 @@ multi-volume @command{tar} archive.  @FIXME-xref{}
 @item --new-volume-script
 
 (see --info-script)
+
+@item -n
+@itemx --seek
+
+Assume that the archive media supports seeks to arbitrary
+locations. Usually @command{tar} determines automatically whether
+the archive can be seeked or not. This option is intended for use
+in cases when such recognition fails.
 
 @item --newer=@var{date}
 @itemx --after-date=@var{date}
@@ -3266,13 +3290,14 @@ This option affects extraction only; @command{tar} will skip extracting
 files in the archive until it finds one that matches @var{name}.
 @xref{Scarce}.
 
-@item --strip-path=@var{number}
+@item --strip-components=@var{number}
 Strip given @var{number} of leading components from file names before
-extraction. For example, if archive @file{archive.tar} contained
+extraction.@footnote{This option was called @option{--strip-path} in
+version 1.14.} For example, if archive @file{archive.tar} contained
 @file{/some/file/name}, then running
 
 @smallexample
-tar --extract --file archive.tar --strip-path=2
+tar --extract --file archive.tar --strip-components=2
 @end smallexample
 
 @noindent
@@ -3692,8 +3717,8 @@ The @value{op-totals} option---which is only meaningful when used with
 amount written to the archive, after it has been fully created.
 
 The @value{op-checkpoint} option prints an occasional message
-as @command{tar} reads or writes the archive.  In fact, it print
-directory names while reading the archive.  It is designed for
+as @command{tar} reads or writes the archive. In fact, it prints
+a message each 10 records read or written. It is designed for
 those who don't need the more detailed (and voluminous) output of
 @value{op-block-number}, but do want visual confirmation that @command{tar}
 is actually making forward progress.
@@ -4579,7 +4604,7 @@ renamed the whole hierarchy from @file{/usr/local2} to
 not be welcome at all that @GNUTAR{} removes the
 whole hierarchy just to make room for the link to be reinstated
 (unless it @emph{also} simultaneously restores the full
-@file{/usr/local2}, of course!  @GNUTAR{} is indeed
+@file{/usr/local2}, of course!)  @GNUTAR{} is indeed
 able to remove a whole hierarchy to reestablish a symbolic link, for
 example, but @emph{only if} @value{op-recursive-unlink} is specified
 to allow this behavior.  In any case, single files are silently
@@ -5044,7 +5069,7 @@ distribution.
 
 @end ifclear
 
-This chapter documents both the provided FSF scripts and @command{tar}
+This chapter documents both the provided shell scripts and @command{tar}
 options which are more specific to usage as a backup tool.
 
 To @dfn{back up} a file system means to create archives that contain
@@ -5287,7 +5312,7 @@ to comparing directories; this is fairly gross, but there does not seem
 to be a better way to go.
 
 @command{tar} doesn't access @var{snapshot-file} when
-@value{op-create} or @value{op-list} are specified, but the
+@value{op-extract} or @value{op-list} are specified, but the
 @value{op-listed-incremental} option must still be given.  A
 placeholder @var{snapshot-file} can be specified, e.g.,
 @file{/dev/null}.
@@ -5470,7 +5495,7 @@ located on the remote machine and containing the list of files to
 be excluded from the backup. Exclude file lists are searched in
 /etc/tar-backup directory. A common use for exclude file lists
 is to exclude files containing security-sensitive information
-(e.g. @file{/etc/shadow} from backups.
+(e.g. @file{/etc/shadow} from backups).
 
 This variable affects only @code{backup}.
 @end defvr
@@ -5524,7 +5549,7 @@ mt_begin() @{
 @end defvr
 
 @defvr {Backup variable} MT_REWIND
-THe name of @dfn{rewind} function. The default definition is as
+The name of @dfn{rewind} function. The default definition is as
 follows:
 
 @smallexample
@@ -5567,14 +5592,14 @@ mt_status() @{
 @subsection User Hooks
 
 @dfn{User hooks} are shell functions executed before and after
-each @command{tar} invocations. Thus, there are @dfn{backup 
+each @command{tar} invocation. Thus, there are @dfn{backup 
 hooks}, which are executed before and after dumping each file
 system, and @dfn{restore hooks}, executed before and
 after restoring a file system. Each user hook is a shell function
 taking four arguments:
 
 @deffn {User Hook Function} hook @var{level} @var{host} @var{fs} @var{fsname}
-The arguments are:
+Its arguments are:
 
 @table @var
 @item level
@@ -5613,7 +5638,7 @@ Executed after restoring the filesystem.
 @node backup-specs example
 @subsection An Example Text of @file{Backup-specs}
 
-The following is the text of @file{backup-specs} as it appears at FSF:
+The following is an example of @file{backup-specs}:
 
 @smallexample
 # site-specific parameters for file system backup.
@@ -5715,8 +5740,8 @@ and files dumped, what time the backup was made, and any error
 messages that were generated, as well as how much space was left in
 the media volume after the last volume of the archive was written.
 You should check this log file after every backup.  The file name is
-@file{log-@var{mmm-ddd-yyyy}-level-@var{n}}, where @var{n} represents
-current dump level number.
+@file{log-@var{mm-dd-yyyy}-level-@var{n}}, where @var{mm-dd-yyyy}
+represents current date, and @var{n} represents current dump level number.
 
 The script also prints the name of each system being dumped to the
 standard output.
@@ -5733,7 +5758,7 @@ Do backup level @var{level} (default 0).
 @itemx --force
 Force backup even if today's log file already exists.
 
-@item -v@var{level}
+@item -v[@var{level}]
 @itemx --verbose[=@var{level}]
 Set verbosity level. The higher the level is, the more debugging
 information will be output during execution. Devault @var{level}
@@ -5762,7 +5787,7 @@ Display program version and exit.
 
 To restore files that were archived using a scripted backup, use the
 @code{restore} script. Its usage is quite straightforward. In the
-simplest form, invoke @command{restore} without options, it will
+simplest form, invoke @code{restore --all}, it will
 then restore all the filesystems and files specified in
 @file{backup-specs} (@pxref{General-Purpose Variables,BACKUP_DIRS}).
 
@@ -5800,11 +5825,15 @@ restore --level=1
 The full list of options accepted by @code{restore} follows:
 
 @table @option
+@item -a
+@itemx --all
+Restore all filesystems and files specified in @file{backup-specs}
+
 @item -l @var{level}
 @itemx --level=@var{level}
 Start restoring from the given backup level, instead of the default 0.
 
-@item -v@var{level}
+@item -v[@var{level}]
 @itemx --verbose[=@var{level}]
 Set verbosity level. The higher the level is, the more debugging
 information will be output during execution. Devault @var{level}
@@ -6138,6 +6167,24 @@ added to the archive.
 @FIXME{do the exclude options files need to have stuff separated by
 newlines the same as the files-from option does?}
 
+@table @kbd
+@item --exclude-caches
+Causes @command{tar} to ignore directories containing a cache directory tag.
+@end table
+
+@findex exclude-caches
+When creating an archive,
+the @samp{--exclude-caches} option
+causes @command{tar} to exclude all directories
+that contain a @dfn{cache directory tag}.
+A cache directory tag is a short file
+with the well-known name @file{CACHEDIR.TAG}
+and having a standard header
+specified in @url{http://www.brynosaurus.com/cachedir/spec.html}.
+Various applications write cache directory tags
+into directories they use to hold regenerable, non-precious data,
+so that such data can be more easily excluded from backups.
+
 @menu
 * controlling pattern-patching with exclude::
 * problems with exclude::
@@ -6169,8 +6216,9 @@ ignores case when excluding @samp{makefile}, but not when excluding
 @table @option
 @item --anchored
 @itemx --no-anchored
-If anchored (the default), a pattern must match an initial subsequence
-of the name's components.  Otherwise, the pattern can match any subsequence.
+If anchored, a pattern must match an initial subsequence
+of the name's components. Otherwise, the pattern can match any
+subsequence. Default is @option{--no-anchored}.
 
 @item --ignore-case
 @itemx --no-ignore-case
@@ -6573,14 +6621,35 @@ relative to the then current directory, which might not be the same as
 the original current working directory of @command{tar}, due to a previous
 @samp{--directory} option.
 
-@FIXME{dan: does this mean that you *can* use the short option form, but
-you can *not* use the long option form with --files-from?  or is this
-totally screwed?}
-
 When using @samp{--files-from} (@pxref{files}), you can put @samp{-C}
-options in the file list.  Unfortunately, you cannot put
-@samp{--directory} options in the file list.  (This interpretation can
-be disabled by using the @value{op-null} option.)
+options in the file list. Notice, however, that in this case the
+option and its argument must occupy two consecutive lines. For 
+instance, the file list for the above example will be:
+
+@smallexample
+@group
+-C
+/etc
+passwd
+hosts
+-C
+/lib
+libc.a
+@end group
+@end smallexample
+
+@noindent
+To use it, you would invoke @command{tar} as follows:
+
+@smallexample
+$ @kbd{tar -c -f foo.tar --files-from list}
+@end smallexample
+
+Notice also that you can only use the short option variant in the file
+list, i.e. always use @option{-C}, not @option{--directory}.
+
+The interpretation of @value{op-directory} is disabled by
+@value{op-null} option.
 
 @node absolute
 @subsection Absolute File Names
@@ -7040,61 +7109,90 @@ it issues a warning, as these time stamps are nonstandard and unportable.
 @subsection Creating and Reading Compressed Archives
 @cindex Compressed archives
 @cindex Storing archives in compressed format
-@UNREVISED
+
+@GNUTAR{} is able to create and read compressed archives. It supports
+@command{gzip} and @command{bzip2} compression programms. For backward
+compatibilty, it also supports @command{compress} command, although
+we strongly recommend against using it, since there is a patent
+covering the algorithm it uses and you could be sued for patent
+infringement merely by running @command{compress}! Besides, it is less
+effective than @command{gzip} and @command{bzip2}.
+
+Creating a compressed archive is simple: you just specify a
+@dfn{compression option} along with the usual archive creation
+commands. The compression option is @option{-z} (@option{--gzip}) to
+create a @command{gzip} compressed archive, @option{-j}
+(@option{--bzip2}) to create a @command{bzip2} compressed archive, and
+@option{-Z} (@option{--compress}) to use @command{compress} program.
+For example:
+
+@smallexample
+$ @kbd{tar cfz archive.tar.gz .}
+@end smallexample
+
+Reading compressed archive is even simpler: you don't need to specify
+any additional options as @GNUTAR{} recognizes its format
+automatically. Thus, the following commands will list and extract the
+archive created in previous example:
+
+@smallexample
+# List the compressed archive
+$ @kbd{tar tf archive.tar.gz}
+# Extract the compressed archive
+$ @kbd{tar xf archive.tar.gz}
+@end smallexample
+
+The only case when you have to specify a decompression option while
+reading the archive is when reading from a pipe or from a tape drive
+that does not support random access. However, in this case @GNUTAR{}
+will indicate which option you should use. For example:
+
+@smallexample
+$ @kbd{cat archive.tar.gz | tar tf -}
+tar: Archive is compressed. Use -z option
+tar: Error is not recoverable: exiting now
+@end smallexample
+
+If you see such diagnostics, just add the suggested option to the
+invocation of @GNUTAR{}:
+
+@smallexample
+$ @kbd{cat archive.tar.gz | tar tfz -}
+@end smallexample
+
+Notice also, that there are several restrictions on operations on
+compressed archives. First of all, compressed archives cannot be
+modified, i.e. you cannot update (@value{op-update}) them or delete
+(@value{op-delete}) members from them. Likewise, you cannot append
+another @command{tar} archive to a compressed archive using
+@value{op-append}). Secondly, multi-volume archives cannot be
+compressed.
+
+The following table summarizes compression options used by @GNUTAR{}.
 
 @table @kbd
 @item -z
 @itemx --gzip
 @itemx --ungzip
 Filter the archive through @command{gzip}.
-@end table
-
-@FIXME{ach; these two bits orig from "compare" (?).  where to put?} Some
-format parameters must be taken into consideration when modifying an
-archive.@FIXME{???}  Compressed archives cannot be modified.
 
 You can use @samp{--gzip} and @samp{--gunzip} on physical devices
 (tape drives, etc.) and remote files as well as on normal files; data
 to or from such devices or remote files is reblocked by another copy
 of the @command{tar} program to enforce the specified (or default) record
 size.  The default compression parameters are used; if you need to
-override them, avoid the @value{op-gzip} option and run @command{gzip}
-explicitly.  (Or set the @env{GZIP} environment variable.)
-
-The @value{op-gzip} option does not work with the @value{op-multi-volume}
-option, or with the @value{op-update}, @value{op-append},
-@value{op-concatenate}, or @value{op-delete} operations.
-
-It is not exact to say that @GNUTAR{} is to work in concert
-with @command{gzip} in a way similar to @command{zip}, say.  Surely, it is
-possible that @command{tar} and @command{gzip} be done with a single call,
-like in:
+override them, set @env{GZIP} environment variable, e.g.:
 
 @smallexample
-$ @kbd{tar cfz archive.tar.gz subdir}
+$ @kbd{GZIP=--best tar cfz archive.tar.gz subdir}
 @end smallexample
 
 @noindent
-to save all of @samp{subdir} into a @code{gzip}'ed archive.  Later you
-can do:
+Another way would be to avoid the @value{op-gzip} option and run
+@command{gzip} explicitly:
 
 @smallexample
-$ @kbd{tar xfz archive.tar.gz}
-@end smallexample
-
-@noindent
-to explode and unpack.
-
-The difference is that the whole archive is compressed.  With
-@command{zip}, archive members are archived individually.  @command{tar}'s
-method yields better compression.  On the other hand, one can view the
-contents of a @command{zip} archive without having to decompress it.  As
-for the @command{tar} and @command{gzip} tandem, you need to decompress the
-archive to see its contents.  However, this may be done without needing
-disk space, by using pipes internally:
-
-@smallexample
-$ @kbd{tar tfz archive.tar.gz}
+$ @kbd{tar cf - subdir | gzip --best -c - > archive.tar.gz}
 @end smallexample
 
 @cindex corrupted archives
@@ -7112,7 +7210,6 @@ every volume or file, in case of corrupted archives.  Doing so, we might
 lose some compressibility.  But this would have make recovering easier.
 So, there are pros and cons.  We'll see!
 
-@table @kbd
 @item -j
 @itemx --bzip2
 Filter the archive through @code{bzip2}.  Otherwise like @value{op-gzip}.
@@ -7123,56 +7220,23 @@ Filter the archive through @code{bzip2}.  Otherwise like @value{op-gzip}.
 Filter the archive through @command{compress}.  Otherwise like
 @value{op-gzip}.
 
-@item --use-compress-program=@var{prog}
-Filter through @var{prog} (must accept @samp{-d}).
-@end table
-
-@value{op-compress} stores an archive in compressed format.  This
-option is useful in saving time over networks and space in pipes, and
-when storage space is at a premium.  @value{op-compress} causes
-@command{tar} to compress when writing the archive, or to uncompress when
-reading the archive.
-
-To perform compression and uncompression on the archive, @command{tar}
-runs the @command{compress} utility.  @command{tar} uses the default
-compression parameters; if you need to override them, avoid the
-@value{op-compress} option and run the @command{compress} utility
-explicitly.  It is useful to be able to call the @command{compress}
-utility from within @command{tar} because the @command{compress} utility by
-itself cannot access remote tape drives.
-
-The @value{op-compress} option will not work in conjunction with the
-@value{op-multi-volume} option or the @value{op-append}, @value{op-update}
-and @value{op-delete} operations.  @xref{Operations}, for
-more information on these operations.
-
-If there is no compress utility available, @command{tar} will report an error.
-@strong{Please note} that the @command{compress} program may be covered by
-a patent, and therefore we recommend you stop using it.
-
-@value{op-bzip2} acts like @value{op-compress}, except that it uses
-the @code{bzip2} utility.
-
-@table @kbd
-@item --compress
-@itemx --uncompress
-@itemx -z
-@itemx -Z
-When this option is specified, @command{tar} will compress (when
-writing an archive), or uncompress (when reading an archive).  Used in
-conjunction with the @value{op-create}, @value{op-extract},
-@value{op-list} and @value{op-compare} operations.
-@end table
-
-You can have archives be compressed by using the @value{op-gzip} option.
-This will arrange for @command{tar} to use the @command{gzip} program to be
-used to compress or uncompress the archive wren writing or reading it.
-
-To use the older, obsolete, @command{compress} program, use the
-@value{op-compress} option.  The @acronym{GNU} Project recommends you not use
+The @acronym{GNU} Project recommends you not use
 @command{compress}, because there is a patent covering the algorithm it
 uses.  You could be sued for patent infringement merely by running
 @command{compress}.
+
+@item --use-compress-program=@var{prog}
+Use external compression program @var{prog}. Use this option if you
+have a compression program that @GNUTAR{} does not support. There
+are two requirements to which @var{prog} should comply:
+
+First, when called without options, it should read data from standard
+input, compress it and output it on standard output.
+
+Secondly, if called with @option{-d} argument, it should do exactly
+the opposite, i.e. read the compressed data from the standard input
+and produce uncompressed data on the standard output.
+@end table
 
 @FIXME{I have one question, or maybe it's a suggestion if there isn't a way
 to do it now. I would like to use @value{op-gzip}, but I'd also like
@@ -8644,8 +8708,7 @@ head is on.  Before writing an archive, you should make sure that no
 data on the tape will be overwritten (unless it is no longer needed).
 Before reading an archive, you should make sure the tape head is at
 the beginning of the archive you want to read.  (The @code{restore}
-script will find the archive automatically.  @FIXME{There is no such
-restore script!}@FIXME-xref{Scripted Restoration}@xref{mt}, for
+script will find the archive automatically. @FIXME-xref{Scripted Restoration}@xref{mt}, for
 an explanation of the tape moving utility.
 
 If you want to add new archive file entries to a tape, you should

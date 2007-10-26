@@ -1,19 +1,20 @@
-Dit is een maandelijkse herinnering m.b.t. uw %(hostname)s
-mailinglijst lidmaatschap. Dit bericht bevat uw inlog gegevens en uitleg hoe je
-een abonnement kunt wijzigen of stopzetten.
+Dit is een maandelijkse herinnering m.b.t. uw lidmaatschap van de
+%(hostname)s maillijst. Dit bericht bevat uw inlog gegevens en uitleg hoe
+u uw abonnement kunt wijzigen of stopzetten.
 
-U kunt de volgende URLs bezoeken om uw lidmaatschap status of
-configuratie te wijzigen, inclusief het annuleren van je lidmaatschap,
-het kiezen voor digest (samengestelde) berichten of het tijdelijk
-stopzetten van berichten (no-mail) i.v.m. vakantie etc.
+U kunt de URLs bezoeken om de status van uw lidmaatschap of
+uw instellingen te wijzigen, inclusief het annuleren van uw lidmaatschap,
+het kiezen voor ontvangst van gebundelde verzamelmails, het tijdelijk
+stopzetten van berichten (b.v. in vakantie), etc.
 
-Behalve via onderstaande URLs, kunt u dergelijke veranderingen ook via
-e-mail doorgeven. Voor meer informatie hierover, stuur een e-mail naar
-'-request' adres van de mailinglijst (bijvoorbeeld: %(exreq)s) met als tekst van je
-e-mail alleen het woord 'help'. Je ontvangt dan een e-mail terug met verdere
-instructies.
+Niet alleen via de webinterface, maar ook via e-mail kunt u dergelijke
+veranderingen doorgeven. Voor meer informatie hierover, stuur een e-mail
+naar het '-request' adres van de maillijst (bijvoorbeeld: %(exreq)s) met
+het woord 'help' als tekst van het bericht. U ontvangt dan een e-mail
+met nadere instructies.
 
-Voor verdere vragen, problemen, opmerkingen, etc. Stuur een e-mail naar
+Voor verdere vragen, problemen, opmerkingen, etc., stuur een bericht naar
 %(owner)s.  Bedankt!
 
-Paswoord voor %(useraddr)s:
+Wachtwoord voor %(useraddr)s:
+

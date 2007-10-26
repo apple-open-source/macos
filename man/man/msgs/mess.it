@@ -170,3 +170,21 @@ NO_TROFF
 NO_CAT_FOR_NONSTD_LL
 	"nessuna pagina formattata registrata a causa di una lunghezza di\n\
 linea non standard\n"
+BROWSER_IS
+        "\nutilizzando %s come browser\n"
+HTMLPAGER_IS
+        "\nimpiegando %s per convertire pagine HTML in puro testo"
+FOUND_FILE
+        "manfile_from_sec_and_dir() ha trovato %s\n"
+CALLTRACE1
+        "manfile_from_sec_and_dir(dir=%s, sec=%s, name=%s, flags=0x%0x)\n"
+CALLTRACE2
+        "glob_for_file(dir=%s, sec=%s, name=%s, type=0x%0x, ...)\n"
+NO_MATCH
+        "glob_for_file non ha trovato alcuna corrispondenza.\n"
+GLOB_FOR_FILE
+        "glob_for_file ha restituito %s.\n"
+CALLTRACE3
+         "glob_for_file_ext_glob(dir=%s, sec=%s, name=%s, ext=%s, hpx=%s, glob=%d, type=0x%0x);\n"
+ABOUT_TO_GLOB
+        "glob_for_file_ext_glob espanderà %s\n"

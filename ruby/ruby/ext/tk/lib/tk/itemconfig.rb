@@ -6,6 +6,8 @@ require 'tkutil'
 require 'tk/itemfont.rb'
 
 module TkItemConfigOptkeys
+  include TkUtil
+
   def __item_numval_optkeys(id)
     []
   end
@@ -17,13 +19,19 @@ module TkItemConfigOptkeys
   private :__item_numstrval_optkeys
 
   def __item_boolval_optkeys(id)
-    []
+    ['exportselection', 'jump', 'setgrid', 'takefocus']
   end
   private :__item_boolval_optkeys
 
   def __item_strval_optkeys(id)
     # maybe need to override
-    ['text', 'label', 'show', 'data', 'file', 'maskdata', 'maskfile']
+    [
+      'text', 'label', 'show', 'data', 'file', 'maskdata', 'maskfile', 
+      'activebackground', 'activeforeground', 'background', 
+      'disabledforeground', 'disabledbackground', 'foreground', 
+      'highlightbackground', 'highlightcolor', 'insertbackground', 
+      'selectbackground', 'selectforeground', 'troughcolor'
+    ]
   end
   private :__item_strval_optkeys
 
@@ -38,7 +46,30 @@ module TkItemConfigOptkeys
   end
   private :__item_numlistval_optkeys
 
+  def __item_tkvariable_optkeys(id)
+    ['variable', 'textvariable']
+  end
+  private :__item_tkvariable_optkeys
+
+  def __item_val2ruby_optkeys(id)  # { key=>method, ... }
+    # The method is used to convert a opt-value to a ruby's object.
+    # When get the value of the option "key", "method.call(id, val)" is called.
+    {}
+  end
+  private :__item_val2ruby_optkeys
+
+  def __item_ruby2val_optkeys(id)  # { key=>method, ... }
+    # The method is used to convert a ruby's object to a opt-value.
+    # When set the value of the option "key", "method.call(id, val)" is called.
+    # That is, "-#{key} #{method.call(id, value)}".
+    {}
+  end
+  private :__item_ruby2val_optkeys
+
   def __item_methodcall_optkeys(id)  # { key=>method, ... }
+    # Use the method for both of get and set.
+    # Usually, the 'key' will not be a widget option.
+    #
     # maybe need to override
     # {'coords'=>'coords'}
     {}
@@ -119,7 +150,22 @@ module TkItemConfigMethod
   ################################################
 
   def itemcget(tagOrId, option)
+    orig_opt = option
     option = option.to_s
+
+    if option.length == 0
+      fail ArgumentError, "Invalid option `#{orig_opt.inspect}'"
+    end
+
+    if ( method = _symbolkey2str(__item_val2ruby_optkeys(tagid(tagOrId)))[option] )
+      optval = tk_call_without_enc(*(__item_cget_cmd(tagid(tagOrId)) << "-#{option}"))
+      begin
+        return method.call(tagOrId, optval)
+      rescue => e
+        warn("Warning:: #{e.message} (when #{method}.call(#{tagOrId.inspect}, #{optval.inspect})") if $DEBUG
+        return optval
+      end
+    end
 
     if ( method = _symbolkey2str(__item_methodcall_optkeys(tagid(tagOrId)))[option] )
       return self.__send__(method, tagOrId)
@@ -154,6 +200,10 @@ module TkItemConfigMethod
         conf
       end
 
+    when /^(#{__item_tkvariable_optkeys(tagid(tagOrId)).join('|')})$/
+      v = tk_call_without_enc(*(__item_cget_cmd(tagid(tagOrId)) << "-#{option}"))
+      (v.empty?)? nil: TkVarAccess.new(v)
+
     when /^(#{__item_strval_optkeys(tagid(tagOrId)).join('|')})$/
       _fromUTF8(tk_call_without_enc(*(__item_cget_cmd(tagid(tagOrId)) << "-#{option}")))
 
@@ -184,6 +234,11 @@ module TkItemConfigMethod
         self.__send__(method, tagOrId, value) if value
       }
 
+      __item_ruby2val_optkeys(tagid(tagOrId)).each{|key, method|
+        key = key.to_s
+        slot[key] = method.call(tagOrId, slot[key]) if slot.has_key?(key)
+      }
+
       __item_keyonly_optkeys(tagid(tagOrId)).each{|defkey, undefkey|
         conf = slot.find{|kk, vv| kk == defkey.to_s}
         if conf
@@ -204,7 +259,12 @@ module TkItemConfigMethod
       end
 
     else
+      orig_slot = slot
       slot = slot.to_s
+      if slot.length == 0
+        fail ArgumentError, "Invalid option `#{orig_slot.inspect}'"
+      end
+
       if ( conf = __item_keyonly_optkeys(tagid(tagOrId)).find{|k, v| k.to_s == slot } )
         defkey, undefkey = conf
         if value
@@ -212,6 +272,8 @@ module TkItemConfigMethod
         elsif undefkey
           tk_call(*(__item_config_cmd(tagid(tagOrId)) << "-#{undefkey}"))
         end
+      elsif ( method = _symbolkey2str(__item_ruby2val_optkeys(tagid(tagOrId)))[slot] )
+        tk_call(*(__item_config_cmd(tagid(tagOrId)) << "-#{slot}" << method.call(tagOrId, value)))
       elsif ( method = _symbolkey2str(__item_methodcall_optkeys(tagid(tagOrId)))[slot] )
         self.__send__(method, tagOrId, value)
       elsif (slot =~ /^(|latin|ascii|kanji)(#{__item_font_optkeys(tagid(tagOrId)).join('|')})$/)
@@ -227,11 +289,12 @@ module TkItemConfigMethod
     self
   end
 
-  def itemconfiginfo(tagOrId, slot = nil)
+  def __itemconfiginfo_core(tagOrId, slot = nil)
     if TkComm::GET_CONFIGINFO_AS_ARRAY
-      if (slot.to_s =~ /^(|latin|ascii|kanji)(#{__item_font_optkeys(tagid(tagOrId)).join('|')})$/)
+      if (slot && slot.to_s =~ /^(|latin|ascii|kanji)(#{__item_font_optkeys(tagid(tagOrId)).join('|')})$/)
         fontkey  = $2
-        conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{fontkey}"))))
+        # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{fontkey}"))))
+        conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{fontkey}")), false, true)
         conf[__item_configinfo_struct(tagid(tagOrId))[:key]] = 
           conf[__item_configinfo_struct(tagid(tagOrId))[:key]][1..-1]
         if ( ! __item_configinfo_struct(tagid(tagOrId))[:alias] \
@@ -248,12 +311,38 @@ module TkItemConfigMethod
         if slot
           slot = slot.to_s
           case slot
+          when /^(#{__item_val2ruby_optkeys(tagid(tagOrId)).keys.join('|')})$/
+            method = _symbolkey2str(__item_val2ruby_optkeys(tagid(tagOrId)))[slot]
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
+            if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
+                && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
+              optval = conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]]
+              begin
+                val = method.call(tagOrId, optval)
+              rescue => e
+                warn("Warning:: #{e.message} (when #{method}.call(#{tagOrId.inspect}, #{optval.inspect})") if $DEBUG
+                val = optval
+              end
+              conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = val
+            end
+            if ( conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] )
+              optval = conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]]
+              begin
+                val = method.call(tagOrId, optval)
+              rescue => e
+                warn("Warning:: #{e.message} (when #{method}lcall(#{tagOrId.inspect}, #{optval.inspect})") if $DEBUG
+                val = optval
+              end
+              conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = val
+            end
+
           when /^(#{__item_methodcall_optkeys(tagid(tagOrId)).keys.join('|')})$/
             method = _symbolkey2str(__item_methodcall_optkeys(tagid(tagOrId)))[slot]
             return [slot, '', '', '', self.__send__(method, tagOrId)]
 
           when /^(#{__item_numval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
 
             if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
                 && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
@@ -274,7 +363,8 @@ module TkItemConfigMethod
             end
 
           when /^(#{__item_numstrval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
 
             if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
                 && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
@@ -287,7 +377,8 @@ module TkItemConfigMethod
             end
 
           when /^(#{__item_boolval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
 
             if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
                 && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
@@ -308,7 +399,8 @@ module TkItemConfigMethod
             end
 
           when /^(#{__item_listval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
 
             if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
                 && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
@@ -321,7 +413,8 @@ module TkItemConfigMethod
             end
 
           when /^(#{__item_numlistval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
 
             if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
                 && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] \
@@ -336,10 +429,33 @@ module TkItemConfigMethod
             end
 
           when /^(#{__item_strval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
+
+          when /^(#{__item_tkvariable_optkeys(tagid(tagOrId)).join('|')})$/
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
+
+            if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
+                && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
+              v = conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]]
+              if v.empty?
+                conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = nil
+              else
+                conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = TkVarAccess.new(v)
+              end
+            end
+            if ( conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] )
+              v = conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]]
+              if v.empty?
+                conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = nil
+              else
+                conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = TkVarAccess.new(v)
+              end
+            end
 
           else
-            conf = tk_split_list(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_list(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_list(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), 0, false, true)
           end
           conf[__item_configinfo_struct(tagid(tagOrId))[:key]] = 
             conf[__item_configinfo_struct(tagid(tagOrId))[:key]][1..-1]
@@ -354,12 +470,39 @@ module TkItemConfigMethod
           conf
 
         else
-          ret = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)))))).collect{|conflist|
-            conf = tk_split_simplelist(conflist)
+          # ret = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)))))).collect{|conflist|
+          #   conf = tk_split_simplelist(conflist)
+          ret = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)))), false, false).collect{|conflist|
+            conf = tk_split_simplelist(conflist, false, true)
             conf[__item_configinfo_struct(tagid(tagOrId))[:key]] = 
               conf[__item_configinfo_struct(tagid(tagOrId))[:key]][1..-1]
 
-            case conf[__item_configinfo_struct(tagid(tagOrId))[:key]]
+            optkey = conf[__item_configinfo_struct(tagid(tagOrId))[:key]]
+            case optkey
+            when /^(#{__item_val2ruby_optkeys(tagid(tagOrId)).keys.join('|')})$/
+              method = _symbolkey2str(__item_val2ruby_optkeys(tagid(tagOrId)))[optkey]
+              if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
+                  && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
+                optval = conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]]
+                begin
+                  val = method(tagOrId, optval)
+                rescue => e
+                  warn("Warning:: #{e.message} (when #{method}.call(#{tagOrId.inspect}, #{optval.inspect})") if $DEBUG
+                  val = optval
+                end
+                conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = val
+              end
+              if ( conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] )
+                optval = conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]]
+                begin
+                  val = method.call(tagOrId, optval)
+                rescue => e
+                  warn("Warning:: #{e.message} (when #{method}.call(#{tagOrId.inspect}, #{optval.inspect})") if $DEBUG
+                  val = optval
+                end
+                conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = val
+              end
+
             when /^(#{__item_strval_optkeys(tagid(tagOrId)).join('|')})$/
               # do nothing
 
@@ -434,6 +577,25 @@ module TkItemConfigMethod
                   && conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] =~ /^[0-9]/ )
                 conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = 
                   list(conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]])
+              end
+
+            when /^(#{__item_tkvariable_optkeys(tagid(tagOrId)).join('|')})$/
+              if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
+                  && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
+                v = conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]]
+                if v.empty?
+                  conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = nil
+                else
+                  conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = TkVarAccess.new(v)
+                end
+              end
+              if ( conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] )
+                v = conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]]
+                if v.empty?
+                  conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = nil
+                else
+                  conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = TkVarAccess.new(v)
+                end
               end
 
             else
@@ -487,9 +649,10 @@ module TkItemConfigMethod
       end
 
     else # ! TkComm::GET_CONFIGINFO_AS_ARRAY
-      if (slot.to_s =~ /^(|latin|ascii|kanji)(#{__item_font_optkeys(tagid(tagOrId)).join('|')})$/)
+      if (slot && slot.to_s =~ /^(|latin|ascii|kanji)(#{__item_font_optkeys(tagid(tagOrId)).join('|')})$/)
         fontkey  = $2
-        conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{fontkey}"))))
+        # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{fontkey}"))))
+        conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{fontkey}")), false, true)
         conf[__item_configinfo_struct(tagid(tagOrId))[:key]] = 
           conf[__item_configinfo_struct(tagid(tagOrId))[:key]][1..-1]
 
@@ -511,12 +674,38 @@ module TkItemConfigMethod
         if slot
           slot = slot.to_s
           case slot
+          when /^(#{__item_val2ruby_optkeys(tagid(tagOrId)).keys.join('|')})$/
+            method = _symbolkey2str(__item_val2ruby_optkeys(tagid(tagOrId)))[slot]
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
+            if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
+                && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
+              optval = conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]]
+              begin
+                val = method.call(tagOrId, optval)
+              rescue => e
+                warn("Warning:: #{e.message} (when #{method}.call(#{tagOrId.inspect}, #{optval.inspect})") if $DEBUG
+                val = optval
+              end
+              conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = val
+            end
+            if ( conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] )
+              optval = conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]]
+              begin
+                val = method.call(tagOrId, optval)
+              rescue => e
+                warn("Warning:: #{e.message} (when #{method}.call(#{tagOrId.inspect}, #{optval.inspect})") if $DEBUG
+                val = optval
+              end
+              conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = val
+            end
+
           when /^(#{__item_methodcall_optkeys(tagid(tagOrId)).keys.join('|')})$/
             method = _symbolkey2str(__item_methodcall_optkeys(tagid(tagOrId)))[slot]
             return {slot => ['', '', '', self.__send__(method, tagOrId)]}
 
           when /^(#{__item_numval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
 
             if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
                 && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
@@ -537,7 +726,8 @@ module TkItemConfigMethod
             end
 
           when /^(#{__item_numstrval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
 
             if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
                 && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
@@ -550,7 +740,8 @@ module TkItemConfigMethod
             end
 
           when /^(#{__item_boolval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
 
             if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
                 && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
@@ -571,7 +762,8 @@ module TkItemConfigMethod
             end
 
           when /^(#{__item_listval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
 
             if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
                 && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
@@ -584,7 +776,8 @@ module TkItemConfigMethod
             end
 
           when /^(#{__item_numlistval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
 
             if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
                 && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] \
@@ -599,10 +792,33 @@ module TkItemConfigMethod
             end
 
           when /^(#{__item_strval_optkeys(tagid(tagOrId)).join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
+
+          when /^(#{__item_tkvariable_optkeys(tagid(tagOrId)).join('|')})$/
+            conf = tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), false, true)
+
+            if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
+                && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
+              v = conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]]
+              if v.empty?
+                conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = nil
+              else
+                conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = TkVarAccess.new(v)
+              end
+            end
+            if ( conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] )
+              v = conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]]
+              if v.empty?
+                conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = nil
+              else
+                conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = TkVarAccess.new(v)
+              end
+            end
 
           else
-            conf = tk_split_list(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            # conf = tk_split_list(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}"))))
+            conf = tk_split_list(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)) << "-#{slot}")), 0, false, true)
           end
           conf[__item_configinfo_struct(tagid(tagOrId))[:key]] = 
             conf[__item_configinfo_struct(tagid(tagOrId))[:key]][1..-1]
@@ -620,12 +836,39 @@ module TkItemConfigMethod
 
         else
           ret = {}
-          tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)))))).each{|conflist|
-            conf = tk_split_simplelist(conflist)
+          # tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)))))).each{|conflist|
+          #   conf = tk_split_simplelist(conflist)
+          tk_split_simplelist(tk_call_without_enc(*(__item_confinfo_cmd(tagid(tagOrId)))), false, false).each{|conflist|
+            conf = tk_split_simplelist(conflist, false, true)
             conf[__item_configinfo_struct(tagid(tagOrId))[:key]] = 
               conf[__item_configinfo_struct(tagid(tagOrId))[:key]][1..-1]
 
-            case conf[__item_configinfo_struct(tagid(tagOrId))[:key]]
+            optkey = conf[__item_configinfo_struct(tagid(tagOrId))[:key]]
+            case optkey
+            when /^(#{__item_val2ruby_optkeys(tagid(tagOrId)).keys.join('|')})$/
+              method = _symbolkey2str(__item_val2ruby_optkeys(tagid(tagOrId)))[optkey]
+              if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
+                  && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
+                optval = conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]]
+                begin
+                  val = method.call(tagOrId, optval)
+                rescue => e
+                  warn("Warning:: #{e.message} (when #{method}.call(#{tagOrId.inspect}, #{optval.inspect})") if $DEBUG
+                  val = optval
+                end
+                conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = val
+              end
+              if ( conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] )
+                optval = conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]]
+                begin
+                  val = method.call(tagOrId, optval)
+                rescue => e
+                  warn("Warning:: #{e.message} (when #{method}.call(#{tagOrId.inspect}, #{optval.inspect})") if $DEBUG
+                  val = optval
+                end
+                conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = val
+              end
+
             when /^(#{__item_strval_optkeys(tagid(tagOrId)).join('|')})$/
               # do nothing
 
@@ -700,6 +943,25 @@ module TkItemConfigMethod
                   && conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] =~ /^[0-9]/ )
                 conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = 
                   list(conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]])
+              end
+
+            when /^(#{__item_tkvariable_optkeys(tagid(tagOrId)).join('|')})$/
+              if ( __item_configinfo_struct(tagid(tagOrId))[:default_value] \
+                  && conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] )
+                v = conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]]
+                if v.empty?
+                  conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = nil
+                else
+                  conf[__item_configinfo_struct(tagid(tagOrId))[:default_value]] = TkVarAccess.new(v)
+                end
+              end
+              if ( conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] )
+                v = conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]]
+                if v.empty?
+                  conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = nil
+                else
+                  conf[__item_configinfo_struct(tagid(tagOrId))[:current_value]] = TkVarAccess.new(v)
+                end
               end
 
             else
@@ -758,13 +1020,18 @@ module TkItemConfigMethod
       end
     end
   end
+  private :__itemconfiginfo_core
+
+  def itemconfiginfo(tagOrId, slot = nil)
+    __itemconfiginfo_core(tagOrId, slot)
+  end
 
   def current_itemconfiginfo(tagOrId, slot = nil)
     if TkComm::GET_CONFIGINFO_AS_ARRAY
       if slot
         org_slot = slot
         begin
-          conf = itemconfiginfo(tagOrId, slot)
+          conf = __itemconfiginfo_core(tagOrId, slot)
           if ( ! __item_configinfo_struct(tagid(tagOrId))[:alias] \
               || conf.size > __item_configinfo_struct(tagid(tagOrId))[:alias] + 1 )
             return {conf[0] => conf[-1]}
@@ -775,7 +1042,7 @@ module TkItemConfigMethod
           "there is a configure alias loop about '#{org_slot}'"
       else
         ret = {}
-        itemconfiginfo(tagOrId).each{|conf|
+        __itemconfiginfo_core(tagOrId).each{|conf|
           if ( ! __item_configinfo_struct(tagid(tagOrId))[:alias] \
               || conf.size > __item_configinfo_struct(tagid(tagOrId))[:alias] + 1 )
             ret[conf[0]] = conf[-1]
@@ -785,7 +1052,7 @@ module TkItemConfigMethod
       end
     else # ! TkComm::GET_CONFIGINFO_AS_ARRAY
       ret = {}
-      itemconfiginfo(slot).each{|key, conf|     
+      __itemconfiginfo_core(tagOrId, slot).each{|key, conf|
         ret[key] = conf[-1] if conf.kind_of?(Array)
       }
       ret

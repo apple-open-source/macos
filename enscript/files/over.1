@@ -1,0 +1,29 @@
+.TH OVER 1 "Jan 16, 2000" "OVER" "OVER"
+
+.SH NAME
+over \- pretty print and scroll source code on terminal
+
+.SH SYNOPSIS
+over [FILE]...
+
+.SH DECRIPTION
+Pretty print source code in the FILEs.  The language is guessed with the
+\f3states\f1 program and \f3enscript\f1 is used to do the formatting.
+The highlighting rules are defined in
+`/usr/share/enscript/hl/enscript.st'.
+
+The FILEs are paged through \f3less\f1 for more convenient display.
+
+.SH FILES
+
+.nf
+.ta 4i
+/usr/share/enscript/hl/enscript.st		rules for various languages
+.fi
+
+.SH SEE ALSO
+enscript(1), states(1)
+
+.SH AUTHOR
+Markku Rossi <mtr@iki.fi> <http://www.iki.fr/~mtr>
+

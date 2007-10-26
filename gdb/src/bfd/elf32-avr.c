@@ -1,22 +1,23 @@
 /* AVR-specific support for 32-bit ELF
-   Copyright 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Denis Chertykov <denisc@overta.ru>
 
-This file is part of BFD, the Binary File Descriptor library.
+   This file is part of BFD, the Binary File Descriptor library.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -322,12 +323,57 @@ static reloc_howto_type elf_avr_howto_table[] =
 	 23,			/* bitsize */
 	 FALSE,			/* pc_relative */
 	 0,			/* bitpos */
-	 complain_overflow_dont, /* complain_on_overflow */
+	 complain_overflow_dont,/* complain_on_overflow */
 	 bfd_elf_generic_reloc,	/* special_function */
 	 "R_AVR_CALL",		/* name */
 	 FALSE,			/* partial_inplace */
 	 0xffffffff,		/* src_mask */
 	 0xffffffff,		/* dst_mask */
+	 FALSE),			/* pcrel_offset */
+  /* A 16 bit absolute relocation of 16 bit address.
+     For LDI command.  */
+  HOWTO (R_AVR_LDI,		/* type */
+	 0,			/* rightshift */
+	 1,			/* size (0 = byte, 1 = short, 2 = long) */
+	 16,			/* bitsize */
+	 FALSE,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont,/* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_AVR_LDI",		/* name */
+	 FALSE,			/* partial_inplace */
+	 0xffff,		/* src_mask */
+	 0xffff,		/* dst_mask */
+	 FALSE),		/* pcrel_offset */
+  /* A 6 bit absolute relocation of 6 bit offset.
+     For ldd/sdd command.  */
+  HOWTO (R_AVR_6,		/* type */
+	 0,			/* rightshift */
+	 0,			/* size (0 = byte, 1 = short, 2 = long) */
+	 6,			/* bitsize */
+	 FALSE,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont,/* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_AVR_6",		/* name */
+	 FALSE,			/* partial_inplace */
+	 0xffff,		/* src_mask */
+	 0xffff,		/* dst_mask */
+	 FALSE),		/* pcrel_offset */
+  /* A 6 bit absolute relocation of 6 bit offset.
+     For sbiw/adiw command.  */
+  HOWTO (R_AVR_6_ADIW,		/* type */
+	 0,			/* rightshift */
+	 0,			/* size (0 = byte, 1 = short, 2 = long) */
+	 6,			/* bitsize */
+	 FALSE,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_dont,/* complain_on_overflow */
+	 bfd_elf_generic_reloc,	/* special_function */
+	 "R_AVR_6_ADIW",	/* name */
+	 FALSE,			/* partial_inplace */
+	 0xffff,		/* src_mask */
+	 0xffff,		/* dst_mask */
 	 FALSE)			/* pcrel_offset */
 };
 
@@ -359,7 +405,10 @@ struct avr_reloc_map
   { BFD_RELOC_AVR_LO8_LDI_PM_NEG,   R_AVR_LO8_LDI_PM_NEG },
   { BFD_RELOC_AVR_HI8_LDI_PM_NEG,   R_AVR_HI8_LDI_PM_NEG },
   { BFD_RELOC_AVR_HH8_LDI_PM_NEG,   R_AVR_HH8_LDI_PM_NEG },
-  { BFD_RELOC_AVR_CALL,             R_AVR_CALL }
+  { BFD_RELOC_AVR_CALL,             R_AVR_CALL },
+  { BFD_RELOC_AVR_LDI,              R_AVR_LDI  },
+  { BFD_RELOC_AVR_6,                R_AVR_6    },
+  { BFD_RELOC_AVR_6_ADIW,           R_AVR_6_ADIW }
 };
 
 static reloc_howto_type *
@@ -474,7 +523,12 @@ elf32_avr_check_relocs (abfd, info, sec, relocs)
       if (r_symndx < symtab_hdr->sh_info)
         h = NULL;
       else
-        h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+	{
+	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+	  while (h->root.type == bfd_link_hash_indirect
+		 || h->root.type == bfd_link_hash_warning)
+	    h = (struct elf_link_hash_entry *) h->root.u.i.link;
+	}
     }
 
   return TRUE;
@@ -557,6 +611,39 @@ avr_final_link_relocate (howto, input_bfd, input_section,
       srel = (bfd_signed_vma) relocation + rel->r_addend;
       x = bfd_get_16 (input_bfd, contents);
       x = (x & 0xf0f0) | (srel & 0xf) | ((srel << 4) & 0xf00);
+      bfd_put_16 (input_bfd, x, contents);
+      break;
+
+    case R_AVR_LDI:
+      contents += rel->r_offset;
+      srel = (bfd_signed_vma) relocation + rel->r_addend;
+      if ((srel & 0xffff) > 255)
+	/* Remove offset for data/eeprom section.  */
+	return bfd_reloc_overflow;
+      x = bfd_get_16 (input_bfd, contents);
+      x = (x & 0xf0f0) | (srel & 0xf) | ((srel << 4) & 0xf00);
+      bfd_put_16 (input_bfd, x, contents);
+      break;
+
+    case R_AVR_6:
+      contents += rel->r_offset;
+      srel = (bfd_signed_vma) relocation + rel->r_addend;
+      if (((srel & 0xffff) > 63) || (srel < 0))
+	/* Remove offset for data/eeprom section.  */
+	return bfd_reloc_overflow;
+      x = bfd_get_16 (input_bfd, contents);
+      x = (x & 0xd3f8) | ((srel & 7) | ((srel & (3 << 3)) << 7) | ((srel & (1 << 5)) << 8));
+      bfd_put_16 (input_bfd, x, contents);
+      break;
+
+    case R_AVR_6_ADIW:
+      contents += rel->r_offset;
+      srel = (bfd_signed_vma) relocation + rel->r_addend;
+      if (((srel & 0xffff) > 63) || (srel < 0))
+	/* Remove offset for data/eeprom section.  */
+	return bfd_reloc_overflow;
+      x = bfd_get_16 (input_bfd, contents);
+      x = (x & 0xff30) | (srel & 0xf) | ((srel & 0x30) << 2); 
       bfd_put_16 (input_bfd, x, contents);
       break;
 
@@ -735,7 +822,7 @@ elf32_avr_relocate_section (output_bfd, info, input_bfd, input_section,
       struct elf_link_hash_entry * h;
       bfd_vma                      relocation;
       bfd_reloc_status_type        r;
-      const char *                 name = NULL;
+      const char *                 name;
       int                          r_type;
 
       /* This is a final link.  */
@@ -758,34 +845,14 @@ elf32_avr_relocate_section (output_bfd, info, input_bfd, input_section,
 	}
       else
 	{
-	  h = sym_hashes [r_symndx - symtab_hdr->sh_info];
+	  bfd_boolean unresolved_reloc, warned;
 
-	  while (h->root.type == bfd_link_hash_indirect
-		 || h->root.type == bfd_link_hash_warning)
-	    h = (struct elf_link_hash_entry *) h->root.u.i.link;
+	  RELOC_FOR_GLOBAL_SYMBOL (info, input_bfd, input_section, rel,
+				   r_symndx, symtab_hdr, sym_hashes,
+				   h, sec, relocation,
+				   unresolved_reloc, warned);
 
 	  name = h->root.root.string;
-
-	  if (h->root.type == bfd_link_hash_defined
-	      || h->root.type == bfd_link_hash_defweak)
-	    {
-	      sec = h->root.u.def.section;
-	      relocation = (h->root.u.def.value
-			    + sec->output_section->vma
-			    + sec->output_offset);
-	    }
-	  else if (h->root.type == bfd_link_hash_undefweak)
-	    {
-	      relocation = 0;
-	    }
-	  else
-	    {
-	      if (! ((*info->callbacks->undefined_symbol)
-		     (info, h->root.root.string, input_bfd,
-		      input_section, rel->r_offset, TRUE)))
-		return FALSE;
-	      relocation = 0;
-	    }
 	}
 
       r = avr_final_link_relocate (howto, input_bfd, input_section,
@@ -799,7 +866,8 @@ elf32_avr_relocate_section (output_bfd, info, input_bfd, input_section,
 	    {
 	    case bfd_reloc_overflow:
 	      r = info->callbacks->reloc_overflow
-		(info, name, howto->name, (bfd_vma) 0,
+		(info, (h ? &h->root : NULL),
+		 name, howto->name, (bfd_vma) 0,
 		 input_bfd, input_section, rel->r_offset);
 	      break;
 

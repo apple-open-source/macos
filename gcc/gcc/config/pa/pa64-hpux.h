@@ -91,7 +91,9 @@ Boston, MA 02111-1307, USA.  */
 /* Under hpux11, the normal location of the `ld' and `as' programs is the
    /usr/ccs/bin directory.  */
 
-#ifndef CROSS_COMPILE
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #undef MD_EXEC_PREFIX
 #define MD_EXEC_PREFIX "/usr/ccs/bin"
 #endif
@@ -108,12 +110,16 @@ Boston, MA 02111-1307, USA.  */
    is the /usr/ccs/lib/pa20_64 directory.  Some files may also be in the
    /opt/langtools/lib/pa20_64 directory.  */
 
-#ifndef CROSS_COMPILE
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #undef MD_STARTFILE_PREFIX
 #define MD_STARTFILE_PREFIX "/usr/ccs/lib/pa20_64/"
 #endif
 
-#ifndef CROSS_COMPILE
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #undef MD_STARTFILE_PREFIX_1
 #define MD_STARTFILE_PREFIX_1 "/opt/langtools/lib/pa20_64/"
 #endif

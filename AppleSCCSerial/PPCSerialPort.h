@@ -47,6 +47,7 @@
 #include <IOKit/IOTimerEventSource.h>
 
 #include <IOKit/IOWorkLoop.h>
+#include <IOKit/IOCommandGate.h>
 #include <IOKit/IOConditionLock.h>
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/platform/AppleMacIODevice.h>
@@ -380,6 +381,8 @@ public:
 
 	// member variables
     IOWorkLoop*			myWorkLoop;		// holds the workloop for this driver
+    IOCommandGate		*fCommandGate;		// and the command gate
+
 	IOTimerEventSource*	myTimer;		// holds the timer we create
 	UInt32				counter;		// counter incremented each time the timeout handler is called
 
@@ -477,6 +480,13 @@ public:
 	// for DCP -- begin
     static bool LookForInternalModem(UInt8 modemID);
 	// for DCP -- end
+
+	// Static stubs for IOCommandGate::runAction
+    static	IOReturn	releasePortAction(OSObject *owner, void *, void *, void *, void *);
+
+
+	// Gated methods called by the Static stubs
+    virtual	IOReturn	releasePortGated(void);
 };
 
 #endif

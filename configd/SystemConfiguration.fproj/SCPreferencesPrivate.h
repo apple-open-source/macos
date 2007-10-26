@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,15 +39,12 @@
 	@enum SCPreferencesKeyType
 	@discussion Used with the SCDynamicStoreKeyCreatePreferences() function
 		to describe the resulting CFStringRef argument.
-	@constant kSCPreferencesKeyLock Key used when exclusive access to the
-		stored preferences is obtained or released.
 	@constant kSCPreferencesKeyCommit Key used when new preferences are
 		committed to the store
 	@constant kSCPreferencesKeyApply Key used when new preferences are
 		to be applied to the active system configuration.
  */
 enum {
-	kSCPreferencesKeyLock	= 1,
 	kSCPreferencesKeyCommit	= 2,
 	kSCPreferencesKeyApply	= 3
 };
@@ -74,22 +71,6 @@ SCDynamicStoreKeyCreatePreferences	(
 					CFStringRef		prefsID,
 					SCPreferencesKeyType	keyType
 					)	AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
-
-SCPreferencesRef
-SCUserPreferencesCreate			(
-					CFAllocatorRef		allocator,
-					CFStringRef		name,
-					CFStringRef		prefsID,
-					CFStringRef		user
-					);
-
-CFStringRef
-SCDynamicStoreKeyCreateUserPreferences	(
-					CFAllocatorRef		allocator,
-					CFStringRef		prefsID,
-					CFStringRef		user,
-					SCPreferencesKeyType	keyType
-					);
 
 __END_DECLS
 

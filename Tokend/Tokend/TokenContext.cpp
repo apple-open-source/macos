@@ -38,6 +38,3 @@ TokenContext::~TokenContext()
 } // end namespace Tokend
 
 
-
-/* arch-tag: 57027497-E707-11D8-B72A-000A95C4302E */
-

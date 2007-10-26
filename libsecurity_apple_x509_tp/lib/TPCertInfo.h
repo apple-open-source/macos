@@ -26,6 +26,8 @@
 #define _TP_CERT_INFO_H_
 
 #include <Security/cssm.h>
+#include <Security/SecTrust.h>
+#include <Security/SecTrustSettings.h>
 #include <security_utilities/alloc.h>
 #include <security_utilities/threading.h>
 #include <security_utilities/globalizer.h>
@@ -242,7 +244,7 @@ public:
 	/* accessors */
 	const CSSM_DATA *subjectName();
 
-	bool 		isSelfSigned();
+	bool 		isSelfSigned(bool avoidVerify = false);
 
 	bool		isAnchor()				{ return mIsAnchor; }
 	void		isAnchor(bool a)		{ mIsAnchor = a; }
@@ -264,6 +266,13 @@ public:
 	void 		used(bool u)			{ mUsed = u; }
 	bool		isLeaf()				{ return mIsLeaf; }
 	void		isLeaf(bool l)			{ mIsLeaf = l; }
+
+	SecTrustSettingsDomain 	trustSettingsDomain() { return mTrustSettingsDomain; }
+	SecTrustSettingsResult trustSettingsResult() { return mTrustSettingsResult; }
+	bool ignoredError()					{ return mIgnoredError; }
+	
+	/* true means "verification terminated due to user trust setting" */
+	bool		trustSettingsFound();
 	/*
 	 * Am I the issuer of the specified subject item? Returns true if so.
 	 * Works for subject certs as well as CRLs. 
@@ -271,9 +280,21 @@ public:
 	bool isIssuerOf(
 		const TPClItemInfo	&subject);
 		
-	void addStatusCode(
+	/* 
+	 * Add error status to mStatusCodes[]. Check to see if the
+	 * added status is allowed per mAllowedErrs; if not return true.
+	 * Returns false of the status *is* an allowed error.
+	 */
+	bool addStatusCode(
 		CSSM_RETURN 		code);
 
+	/* 
+	 * See if the specified error status is allowed (return false) or
+	 * fatal (return true) per mAllowedErrs[].
+	 */
+	bool isStatusFatal(
+		CSSM_RETURN			code);
+		
 	/* 
 	 * Indicate whether this cert's public key is a CSSM_KEYATTR_PARTIAL
 	 * key.
@@ -297,6 +318,25 @@ public:
 	bool				revokeCheckComplete()		{ return mRevCheckComplete; }
 	void				revokeCheckComplete(bool b)	{ mRevCheckComplete = b; }
 	
+	/*
+	 * Evaluate user trust; returns true if positive match found - i.e.,
+	 * cert chain construction is done. 
+	 * The foundEntry return value indicates that *some* entry was found for
+	 * the cert, regardless of the trust setting evaluation. 
+	 */
+	OSStatus evaluateTrustSettings(
+				const CSSM_OID			&policyOid,
+				const char				*policyString,		// optional
+				uint32					policyStringLen,
+				SecTrustSettingsKeyUsage keyUse,				// optional
+				bool 					*foundMatchingEntry,
+				bool					*foundEntry);		// RETURNED
+	
+	bool 				hasEmptySubjectName();
+	
+	/* Free mUniqueRecord if it exists */
+	void	freeUniqueRecord();
+	
 private:
 	/* obtained from CL at construction */
 	CSSM_DATA_PTR			mSubjectName;		// always valid
@@ -316,6 +356,31 @@ private:
 	TPRootState				mIsRoot;		// subject == issuer
 	bool					mRevCheckGood;		// >= 1 revoke check good
 	bool					mRevCheckComplete;	// no more revoke checking needed
+	
+	/* 
+	 * When true, we've already called SecTrustSettingsEvaluateCert,
+	 * and the cached results are in following member vars.
+	 */
+	bool					mTrustSettingsEvaluated;
+
+	/* result of trust settings evaluation */
+	SecTrustSettingsDomain	mTrustSettingsDomain;
+	SecTrustSettingsResult	mTrustSettingsResult;
+	bool					mTrustSettingsFoundAnyEntry;
+	bool					mTrustSettingsFoundMatchingEntry;
+	
+	/* allowed errors obtained from SecTrustSettingsEvaluateCert() */
+	CSSM_RETURN				*mAllowedErrs;
+	uint32					mNumAllowedErrs;
+	
+	/* we actually ignored one of mAllowedErrors[] */
+	bool					mIgnoredError;
+
+	/* key usage for which mTrustSettingsResult was evaluated */
+	SecTrustSettingsKeyUsage mTrustSettingsKeyUsage;
+	
+	/* for SecTrustSettingsEvaluateCert() */
+	CFStringRef				mCertHashStr;		
 	
 	void 					releaseResources();
 };
@@ -420,13 +485,20 @@ public:
 		*/
 		CSSM_BOOL				subjectIsInGroup,
 		
-		/* currently, only CSSM_TP_ACTION_FETCH_CERT_FROM_NET is 
-		 * interesting */
+		/* currently, only CSSM_TP_ACTION_FETCH_CERT_FROM_NET and 
+		 * CSSM_TP_ACTION_TRUST_SETTINGS are interesting */
 		CSSM_APPLE_TP_ACTION_FLAGS	actionFlags,
 		
+		/* CSSM_TP_ACTION_TRUST_SETTINGS parameters */
+		const CSSM_OID			*policyOid,
+		const char				*policyStr,
+		uint32					policyStrLen,
+		SecTrustSettingsKeyUsage	leafKeyUse,
+
 		/* returned */
-		CSSM_BOOL				&verifiedToRoot,	// end of chain self-verifies
-		CSSM_BOOL				&verifiedToAnchor);	// end of chain in anchors
+		CSSM_BOOL				&verifiedToRoot,		// end of chain self-verifies
+		CSSM_BOOL				&verifiedToAnchor,		// end of chain in anchors
+		CSSM_BOOL				&verifiedViaTrustSettings);	// chain ends per User Trust setting
 		
 	/* add/remove/access TPTCertInfo's. */
 	void appendCert(
@@ -468,6 +540,26 @@ public:
 	
 	/* set all TPCertInfo.mUsed flags false */
 	void					setAllUnused();
+
+	/* free records obtained from DBs */
+	void					freeDbRecords();
+
+	/* 
+	 * See if the specified error status is allowed (return true) or
+	 * fatal (return false) per each cert's mAllowedErrs[]. Returns
+	 * true if any cert returns false for its isStatusFatal() call. 
+	 * The list of errors which can apply to cert-chain-wide allowedErrors
+	 * is right here; if the incoming error is not in that list, we
+	 * return false. If the incoming error code is CSSM_OK we return
+	 * true as a convenience for our callers. 
+	 */
+	bool TPCertGroup::isAllowedError(
+		CSSM_RETURN	code);
+	
+	/* 
+	 * Determine if we already have the specified cert in this group.
+	 */
+	bool isInGroup(TPCertInfo &certInfo);
 	
 private:
 	

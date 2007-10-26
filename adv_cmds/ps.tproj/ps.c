@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -29,115 +25,204 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ * ------+---------+---------+-------- + --------+---------+---------+---------*
+ * Copyright (c) 2004  - Garance Alistair Drosehn <gad@FreeBSD.org>.
+ * All rights reserved.
+ *
+ * Significant modifications made to bring `ps' options somewhat closer
+ * to the standard for `ps' as described in SingleUnixSpec-v3.
+ * ------+---------+---------+-------- + --------+---------+---------+---------*
  */
 
 #ifndef lint
-static char const copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1990, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)ps.c	8.4 (Berkeley) 4/2/94";
-#endif
-static const char rcsid[] =
-	"$FreeBSD: ps.c,v 1.25 1998/06/30 21:34:14 phk Exp $";
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/bin/ps/ps.c,v 1.110 2005/02/09 17:37:38 ru Exp $");
 
 #include <sys/param.h>
-#include <sys/user.h>
+#ifdef __APPLE__
 #include <sys/time.h>
-#include <sys/resource.h>
+#endif /* __APPLE__ */
+#include <sys/proc.h>
+#include <sys/user.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/sysctl.h>
-#include <sys/syslog.h>
+#include <sys/mount.h>
 
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
+#ifndef __APPLE__
 #include <kvm.h>
+#endif /* !__APPLE__ */
 #include <limits.h>
-#include <nlist.h>
+#include <locale.h>
 #include <paths.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <locale.h>
-#include <pwd.h>
 
 #include "ps.h"
 
-KINFO *kinfo;
-struct varent *vhead, *vtail;
+#ifdef __APPLE__
+#include <get_compat.h>
+#else /* !__APPLE__ */
+#define COMPAT_MODE(func, mode) (1)
+#endif /* __APPLE__ */
 
-int	eval;			/* exit value */
-int	cflag;			/* -c */
-int	rawcpu;			/* -C */
-int	sumrusage;		/* -S */
-int	termwidth;		/* width of screen (0 == infinity) */
-int	totwidth;		/* calculated width of requested variables */
+#define	W_SEP	" \t"		/* "Whitespace" list separators */
+#define	T_SEP	","		/* "Terminate-element" list separators */
 
-static int needuser, needcomm, needenv;
-#if defined(LAZY_PS)
-static int forceuread=0;
+#ifdef LAZY_PS
+#define	DEF_UREAD	0
+#define	OPT_LAZY_f	"f"
 #else
-static int forceuread=1;
+#define	DEF_UREAD	1	/* Always do the more-expensive read. */
+#define	OPT_LAZY_f		/* I.e., the `-f' option is not added. */
 #endif
 
-enum sort { DEFAULT, SORTMEM, SORTCPU } sortby = DEFAULT;
+/*
+ * isdigit takes an `int', but expects values in the range of unsigned char.
+ * This wrapper ensures that values from a 'char' end up in the correct range.
+ */
+#define	isdigitch(Anychar) isdigit((u_char)(Anychar))
 
-static char	*fmt __P((char **(*)(kvm_t *, const struct kinfo_proc *, int),
-		    KINFO *, char *, int));
-static char	*kludge_oldps_options __P((char *));
-static int	 pscomp __P((const void *, const void *));
-static void	 saveuser __P((KINFO *));
-static void	 scanvars __P((void));
-static void	 dynsizevars __P((KINFO *));
-static void	 sizevars __P((void));
-static void	 usage __P((void));
+int	 cflag;			/* -c */
+int	 eval;			/* Exit value */
+int	 rawcpu;		/* -C */
+int	 sumrusage;		/* -S */
+int	 termwidth;		/* Width of the screen (0 == infinity). */
+int	 totwidth;		/* Calculated-width of requested variables. */
 
-char dfmt[] = "pid tt state time command";
-char jfmt[] = "user pid ppid pgid sess jobc state tt time command";
-char lfmt[] = "uid pid ppid cpu pri nice vsz rss wchan state tt time command";
-char   o1[] = "pid";
-char   o2[] = "tt state time command";
-char ufmt[] = "user pid %cpu %mem vsz rss tt state start time command";
-char mfmt[] = "user pid tt %cpu state  pri stime utime command";
-char vfmt[] = "pid state time sl re pagein vsz rss lim tsiz %cpu %mem command";
+struct varent *vhead, *vtail;
 
+static int	 forceuread = DEF_UREAD; /* Do extra work to get u-area. */
+#ifndef __APPLE__
+static kvm_t	*kd;
+#endif /* !__APPLE__ */
+static KINFO	*kinfo;
+static int	 needcomm;	/* -o "command" */
+static int	 needenv;	/* -e */
+static int	 needuser;	/* -o "user" */
+static int	 optfatal;	/* Fatal error parsing some list-option. */
+
+static enum sort { DEFAULT, SORTMEM, SORTCPU } sortby = DEFAULT;
+
+struct listinfo;
+typedef	int	addelem_rtn(struct listinfo *_inf, const char *_elem);
+
+struct listinfo {
+	int		 count;
+	int		 maxcount;
+	int		 elemsize;
+	addelem_rtn	*addelem;
+	const char	*lname;
+	union {
+		gid_t	*gids;
+		pid_t	*pids;
+		dev_t	*ttys;
+		uid_t	*uids;
+		void	*ptr;
+	} l;
+};
+
+static int	 check_procfs(void);
+static int	 addelem_gid(struct listinfo *, const char *);
+static int	 addelem_pid(struct listinfo *, const char *);
+static int	 addelem_tty(struct listinfo *, const char *);
+static int	 addelem_uid(struct listinfo *, const char *);
+static void	 add_list(struct listinfo *, const char *);
+static void	 dynsizevars(KINFO *);
+static void	*expand_list(struct listinfo *);
+#ifndef __APPLE__
+static const char *
+		 fmt(char **(*)(kvm_t *, const struct kinfo_proc *, int),
+		    KINFO *, char *, int);
+#endif /* !__APPLE__ */
+static void	 free_list(struct listinfo *);
+static void	 init_list(struct listinfo *, addelem_rtn, int, const char *);
+static char	*kludge_oldps_options(const char *, char *, const char *, int *);
+static int	 pscomp(const void *, const void *);
+static void	 saveuser(KINFO *);
+static void	 scanvars(void);
+static void	 sizevars(void);
+static void	 usage(int);
+
+/* p_ == POSIX/SUSv3/UNIX2003 format */
+static char dfmt[] = "pid,tt,state,time,command";
+static char jfmt[] = "user,pid,ppid,pgid,sess,jobc,state,tt,time,command";
+static char lfmt[] = "uid,pid,ppid,cpu,pri,nice,vsz,rss,wchan,state,"
+			"tt,time,command";
+static char   o1[] = "pid";
+static char   o2[] = "tt,state,time,command";
+static char ufmt[] = "user,pid,%cpu,%mem,vsz,rss,tt,state,start,time,command";
+static char vfmt[] = "pid,state,time,sl,re,pagein,vsz,rss,lim,tsiz,"
+			"%cpu,%mem,command";
+static char Zfmt[] = "label";
+char  p_dfmt[] = "pid tty time command=CMD";
+char  p_ffmt[] = "uid pid ppid cpu=C stime tty time command=CMD";
+char p_uffmt[] = "user pid ppid cpu=C stime tty time command=CMD";
+char  p_lfmt[] = "uid pid ppid flags cpu pri nice vsz=SZ rss wchan state=S paddr=ADDR tty time command=CMD";
+char    mfmt[] = "user pid tt %cpu state  pri stime utime command";
+
+int eflg = 0;
 int mflg = 0; /* if -M option to display all mach threads */
-int print_thread_num=0;
-int print_all_thread=0;
-kvm_t *kd;
-int eflg=0;
+int print_thread_num = 0;
+int print_all_thread = 0;
+
+#define	PS_ARGS	(u03 ? "aACcdeEfg:G:hjLlMmO:o:p:rSTt:U:u:vwx" : \
+	"aACcdeEgG:hjLlMmO:o:p:rSTt:U:uvwx")
+
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	struct kinfo_proc *kp, *kprocbuf;
+	struct listinfo gidlist, pgrplist, pidlist;
+	struct listinfo ruidlist, sesslist, ttylist, uidlist;
+	struct kinfo_proc *kp;
+	KINFO *next_KINFO;
 	struct varent *vent;
 	struct winsize ws;
+#ifndef __APPLE__
+	const char *nlistf, *memf;
+#endif /* !__APPLE__ */
+	char *cols;
+	int all, ch, elem, flag, _fmt, i, lineno;
+	int nentries, nkept, nselectors;
+	int prtheader, showthreads, wflag, what, xkeep, xkeep_implied;
+	char errbuf[_POSIX2_LINE_MAX];
+	struct kinfo_proc *kprocbuf;
+	int j;
 	struct passwd *pwd;
-	dev_t ttydev;
-	pid_t pid;
-	uid_t uid;
-	int all, ch, flag, i, j, fmt, lineno, nentries, dropgid;
-	int prtheader, wflag, what, xflg;
-	char *nlistf, *memf, *swapf, errbuf[_POSIX2_LINE_MAX];
 	int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
 	size_t bufSize = 0;
 	size_t orig_bufSize = 0;
 	int local_error=0;
 	int retry_count = 0;
+	int u03 = COMPAT_MODE("bin/ps", "unix2003");
+#ifdef __APPLE__
+	int dflag = 0;
+#endif /* __APPLE__ */
 
 	(void) setlocale(LC_ALL, "");
 
-	if ((ioctl(STDOUT_FILENO, TIOCGWINSZ, (char *)&ws) == -1 &&
+	if ((cols = getenv("COLUMNS")) != NULL && *cols != '\0')
+		termwidth = atoi(cols);
+	else if ((ioctl(STDOUT_FILENO, TIOCGWINSZ, (char *)&ws) == -1 &&
 	     ioctl(STDERR_FILENO, TIOCGWINSZ, (char *)&ws) == -1 &&
 	     ioctl(STDIN_FILENO,  TIOCGWINSZ, (char *)&ws) == -1) ||
 	     ws.ws_col == 0)
@@ -145,28 +230,44 @@ main(argc, argv)
 	else
 		termwidth = ws.ws_col - 1;
 
-	if( argc > 1 )
-		argv[1] = kludge_oldps_options(argv[1]);
+	/*
+	 * Hide a number of option-processing kludges in a separate routine,
+	 * to support some historical BSD behaviors, such as `ps axu'.
+	 */
+	if (argc > 1)
+		argv[1] = kludge_oldps_options(PS_ARGS, argv[1], argv[2], &u03);
 
-	all = fmt = prtheader = wflag = xflg = 0;
-	pid = -1;
-	uid = (uid_t) -1;
-	ttydev = NODEV;
-	dropgid = 0;
-	memf = nlistf = swapf = _PATH_DEVNULL;
-	memf = _PATH_MEM;
-	while ((ch = getopt(argc, argv,
-#if defined(LAZY_PS)
-	    "aACcefghjLlM:mN:O:o:p:rSTt:U:uvW:wx")) != -1)
-#else
-	    "aACceghjLlMmO:o:p:rSTt:U:uvwx")) != -1)
-#endif
-		switch((char)ch) {
-		case 'a':
-			all = 1;
+	all = _fmt = nselectors = optfatal = 0;
+	prtheader = showthreads = wflag = xkeep_implied = 0;
+	xkeep = -1;			/* Neither -x nor -X. */
+	init_list(&gidlist, addelem_gid, sizeof(gid_t), "group");
+	init_list(&pgrplist, addelem_pid, sizeof(pid_t), "process group");
+	init_list(&pidlist, addelem_pid, sizeof(pid_t), "process id");
+	init_list(&ruidlist, addelem_uid, sizeof(uid_t), "ruser");
+	init_list(&sesslist, addelem_pid, sizeof(pid_t), "session id");
+	init_list(&ttylist, addelem_tty, sizeof(dev_t), "tty");
+	init_list(&uidlist, addelem_uid, sizeof(uid_t), "user");
+#ifndef __APPLE__
+	memf = nlistf = _PATH_DEVNULL;
+#endif /* !__APPLE__ */
+	while ((ch = getopt(argc, argv, PS_ARGS)) != -1)
+		switch ((char)ch) {
+#ifdef __APPLE__
+		case 'd':
+			dflag = 1;
+#endif /* __APPLE__ */
+		case 'A':
+			/*
+			 * Exactly the same as `-ax'.   This has been
+			 * added for compatability with SUSv3, but for
+			 * now it will not be described in the man page.
+			 */
+			nselectors++;
+			all = xkeep = 1;
 			break;
-                case 'A':
-			all = xflg = 1;
+		case 'a':
+			nselectors++;
+			all = 1;
 			break;
 		case 'C':
 			rawcpu = 1;
@@ -175,34 +276,78 @@ main(argc, argv)
 			cflag = 1;
 			break;
 		case 'e':			/* XXX set ufmt */
+			if (u03) {
+				nselectors++;
+				all = xkeep = 1;
+				break;
+			}
+		case 'E':	
 			needenv = 1;
 			eflg = 1;
 			break;
+#ifdef LAZY_PS
+		case 'f':
+			if (getuid() == 0 || getgid() == 0)
+				forceuread = 1;
+			break;
+#endif
+		case 'f':
+			if (u03 && uidlist.count == 0) {
+			    parsefmt(p_ffmt);
+			    /* This is a unplesent little trick that makes
+			      ./ps -f -p PID -o pid,comm,args
+			      print out the whole command even if they slap
+			      more fields on after it and gobble up too much
+			      space */
+			    VAR *v = findvar("command");
+			    if (v) {
+				v->width = 64;
+			    }
+			} else {
+			    parsefmt(p_uffmt);
+			}
+			_fmt = 1;
+			break;
+		case 'G':
+			add_list(&gidlist, optarg);
+			xkeep_implied = 1;
+			nselectors++;
+			break;
 		case 'g':
-			break;			/* no-op */
+			/* The historical BSD-ish (from SunOS) behavior. */
+			if (!u03) break;
+
+			add_list(&pgrplist, optarg);
+			xkeep_implied = 1;
+			nselectors++;
+			break;
+#ifndef __APPLE__
+		case 'H':
+			showthreads = KERN_PROC_INC_THREAD;
+			break;
+#endif /* !__APPLE__ */
 		case 'h':
 			prtheader = ws.ws_row > 5 ? ws.ws_row : 22;
 			break;
 		case 'j':
 			parsefmt(jfmt);
-			fmt = 1;
+			_fmt = 1;
 			jfmt[0] = '\0';
 			break;
 		case 'L':
 			showkey();
 			exit(0);
 		case 'l':
-			parsefmt(lfmt);
-			fmt = 1;
+			parsefmt(u03 ? p_lfmt : lfmt);
+			_fmt = 1;
 			lfmt[0] = '\0';
 			break;
 		case 'M':
-#if 0
+#ifndef __APPLE__
 			memf = optarg;
-			dropgid = 1;
 #else
 			parsefmt(mfmt);
-			fmt = 1;
+			_fmt = 1;
 			mfmt[0] = '\0';
 			mflg  = 1;
 #endif /* 0 */
@@ -210,35 +355,31 @@ main(argc, argv)
 		case 'm':
 			sortby = SORTMEM;
 			break;
+#ifndef __APPLE__
 		case 'N':
 			nlistf = optarg;
-			dropgid = 1;
 			break;
+#endif /* !__APPLE__ */
 		case 'O':
 			parsefmt(o1);
 			parsefmt(optarg);
 			parsefmt(o2);
 			o1[0] = o2[0] = '\0';
-			fmt = 1;
+			_fmt = 1;
 			break;
 		case 'o':
 			parsefmt(optarg);
-			fmt = 1;
+			_fmt = 1;
 			break;
-#if defined(LAZY_PS)
-		case 'f':
-			if (getuid() == 0 || getgid() == 0)
-			    forceuread = 1;
-			break;
-#endif
 		case 'p':
-		        /* Given more than one process requested with -p
-			   or pid, ps will return information on only
-			   the first requested process as is done by FreeBSD */
-		        if (pid != -1) break;
-
-			pid = atol(optarg);
-			xflg = 1;
+			add_list(&pidlist, optarg);
+			/*
+			 * Note: `-p' does not *set* xkeep, but any values
+			 * from pidlist are checked before xkeep is.  That
+			 * way they are always matched, even if the user
+			 * specifies `-X'.
+			 */
+			nselectors++;
 			break;
 		case 'r':
 			sortby = SORTCPU;
@@ -250,47 +391,34 @@ main(argc, argv)
 			if ((optarg = ttyname(STDIN_FILENO)) == NULL)
 				errx(1, "stdin: not a terminal");
 			/* FALLTHROUGH */
-		case 't': {
-			struct stat sb;
-			char *ttypath, pathbuf[MAXPATHLEN];
-
-			if (strcmp(optarg, "co") == 0)
-				ttypath = _PATH_CONSOLE;
-			else if (*optarg != '/')
-				(void)snprintf(ttypath = pathbuf,
-				    sizeof(pathbuf), "%s%s", _PATH_TTY, optarg);
-			else
-				ttypath = optarg;
-			if (stat(ttypath, &sb) == -1)
-				err(1, "%s", ttypath);
-			if (!S_ISCHR(sb.st_mode))
-				errx(1, "%s: not a terminal", ttypath);
-			ttydev = sb.st_rdev;
+		case 't':
+			add_list(&ttylist, optarg);
+			xkeep_implied = 1;
+			nselectors++;
 			break;
-		}
 		case 'U':
-			pwd = getpwnam(optarg);
-			if (pwd == NULL)
-				errx(1, "%s: no such user", optarg);
-			uid = pwd->pw_uid;
-			endpwent();
-			xflg++;		/* XXX: intuitive? */
+			add_list(&ruidlist, optarg);
+			xkeep_implied = 1;
+			nselectors++;
 			break;
 		case 'u':
+			if (u03) {
+				/* This is what SUSv3 defines as the `-u' option. */
+				add_list(&uidlist, optarg);
+				xkeep_implied = 1;
+				nselectors++;
+				break;
+			}
 			parsefmt(ufmt);
 			sortby = SORTCPU;
-			fmt = 1;
+			_fmt = 1;
 			ufmt[0] = '\0';
 			break;
 		case 'v':
 			parsefmt(vfmt);
 			sortby = SORTMEM;
-			fmt = 1;
+			_fmt = 1;
 			vfmt[0] = '\0';
-			break;
-		case 'W':
-			swapf = optarg;
-			dropgid = 1;
 			break;
 		case 'w':
 			if (wflag)
@@ -299,78 +427,146 @@ main(argc, argv)
 				termwidth = 131;
 			wflag++;
 			break;
+		case 'X':
+			/*
+			 * Note that `-X' and `-x' are not standard "selector"
+			 * options. For most selector-options, we check *all*
+			 * processes to see if any are matched by the given
+			 * value(s).  After we have a set of all the matched
+			 * processes, then `-X' and `-x' govern whether we
+			 * modify that *matched* set for processes which do
+			 * not have a controlling terminal.  `-X' causes
+			 * those processes to be deleted from the matched
+			 * set, while `-x' causes them to be kept.
+			 */
+			xkeep = 0;
+			break;
 		case 'x':
-			xflg = 1;
+			xkeep = 1;
 			break;
 		case '?':
 		default:
-			usage();
+			usage(u03);
 		}
 	argc -= optind;
 	argv += optind;
 
-#define	BACKWARD_COMPATIBILITY
-#ifdef	BACKWARD_COMPATIBILITY
-	if (*argv) {
-		nlistf = *argv;
-		if (*++argv) {
-			memf = *argv;
-			if (*++argv)
-				swapf = *argv;
-		}
-	}
-#endif
+#ifdef __APPLE__
+	/* 3862041 */
+	if (!isatty(STDOUT_FILENO))
+		termwidth = UNLIMITED;
+#endif /* __APPLE__ */
+
 	/*
-	 * Discard setgid privileges if not the running kernel so that bad
-	 * guys can't print interesting stuff from kernel memory.
+	 * If the user specified ps -e then they want a copy of the process
+	 * environment kvm_getenvv(3) attempts to open /proc/<pid>/mem.
+	 * Check to make sure that procfs is mounted on /proc, otherwise
+	 * print a warning informing the user that output will be incomplete.
 	 */
-	if (dropgid) {
-		setgid(getgid());
-		setuid(getuid());
+#ifndef __APPLE__
+	if (needenv == 1 && check_procfs() == 0)
+		warnx("Process environment requires procfs(5)");
+#endif /* !__APPLE__ */
+	/*
+	 * If there arguments after processing all the options, attempt
+	 * to treat them as a list of process ids.
+	 */
+	while (*argv) {
+		if (!isdigitch(**argv))
+			break;
+		add_list(&pidlist, *argv);
+		argv++;
 	}
+	if (*argv) {
+		fprintf(stderr, "%s: illegal argument: %s\n",
+		    getprogname(), *argv);
+		usage(u03);
+	}
+	if (optfatal)
+		exit(1);		/* Error messages already printed. */
+	if (xkeep < 0)			/* Neither -X nor -x was specified. */
+		xkeep = xkeep_implied;
+
 #if FIXME 
-	kd = kvm_openfiles(nlistf, NULL, swapf, O_RDONLY, errbuf);
+	kd = kvm_openfiles(nlistf, memf, NULL, O_RDONLY, errbuf);
 	if (kd == 0)
 		errx(1, "%s", errbuf);
 #endif /* FIXME */
 
-	if (!fmt)
-           parsefmt(dfmt);
+	if (!_fmt) {
+		if (u03 && uidlist.count != 0) {
+			parsefmt("uid");
+		}
+		parsefmt(u03 ? p_dfmt : dfmt);
+	}
 
-	/* XXX - should be cleaner */
-	if (!all && ttydev == NODEV && pid == -1 && uid == (uid_t)-1)
-		uid = getuid();
+	if (nselectors == 0) {
+		uidlist.l.ptr = malloc(sizeof(uid_t));
+		if (uidlist.l.ptr == NULL)
+			errx(1, "malloc failed");
+		nselectors = 1;
+		uidlist.count = uidlist.maxcount = 1;
+		*uidlist.l.uids = getuid();
+	}
 
 	/*
 	 * scan requested variables, noting what structures are needed,
-	 * and adjusting header widths as appropiate.
+	 * and adjusting header widths as appropriate.
 	 */
 	scanvars();
 
 	/*
-	 * get proc list
+	 * Get process list.  If the user requested just one selector-
+	 * option, then kvm_getprocs can be asked to return just those
+	 * processes.  Otherwise, have it return all processes, and
+	 * then this routine will search that full list and select the
+	 * processes which match any of the user's selector-options.
 	 */
-	if (uid != (uid_t) -1) {
-		what = KERN_PROC_UID;
-		flag = uid;
-	} else if (ttydev != NODEV) {
-		what = KERN_PROC_TTY;
-		flag = ttydev;
-	} else if (pid != -1) {
-		what = KERN_PROC_PID;
-		flag = pid;
-	} else {
-		what = KERN_PROC_ALL;
-		flag = 0;
+	what = KERN_PROC_ALL;
+	flag = 0;
+	if (nselectors == 1) {
+		if (gidlist.count == 1) {
+#if 0
+			what = KERN_PROC_RGID | showthreads;
+			flag = *gidlist.l.gids;
+			nselectors = 0;
+#endif /* 0 */
+		} else if (pgrplist.count == 1) {
+			what = KERN_PROC_PGRP | showthreads;
+			flag = *pgrplist.l.pids;
+			nselectors = 0;
+		} else if (pidlist.count == 1) {
+			what = KERN_PROC_PID | showthreads;
+			flag = *pidlist.l.pids;
+			nselectors = 0;
+		} else if (ruidlist.count == 1) {
+			what = KERN_PROC_RUID | showthreads;
+			flag = *ruidlist.l.uids;
+			nselectors = 0;
+		} else if (sesslist.count == 1) {
+			what = KERN_PROC_SESSION | showthreads;
+			flag = *sesslist.l.pids;
+			nselectors = 0;
+		} else if (ttylist.count == 1) {
+			what = KERN_PROC_TTY | showthreads;
+			flag = *ttylist.l.ttys;
+			nselectors = 0;
+		} else if (uidlist.count == 1) {
+			what = (xkeep ? KERN_PROC_RUID : KERN_PROC_UID) | showthreads;
+			flag = *uidlist.l.uids;
+			nselectors = 0;
+		}
 	}
+
 	/*
 	 * select procs
 	 */
+	nentries = -1;
 #if FIXME
-	if ((kp = kvm_getprocs(kd, what, flag, &nentries)) == 0)
+	kp = kvm_getprocs(kd, what, flag, &nentries);
+	if ((kp == NULL && nentries > 0) || (kp != NULL && nentries < 0))
 		errx(1, "%s", kvm_geterr(kd));
 #else /* FIXME */
-
     mib[0] = CTL_KERN;
     mib[1] = KERN_PROC;
     mib[2] = what;
@@ -406,44 +602,120 @@ main(argc, argv)
 
     /* This has to be after the second sysctl since the bufSize
        may have changed.  */
-    nentries = bufSize/ sizeof(struct kinfo_proc);
-
+    nentries = bufSize / sizeof(struct kinfo_proc);
 #endif /* FIXME */
-	if ((kinfo = malloc(nentries * sizeof(KINFO))) == NULL)
-		err(1, NULL);
-	memset(kinfo, 0, (nentries * sizeof(*kinfo)));
-	for (i = nentries; --i >= 0; ++kp) {
-		kinfo[i].ki_p = kp;
-#if 1
-		get_task_info(&kinfo[i]);
-#endif /* 1 */
-		if (needuser)
-			saveuser(&kinfo[i]);
-		dynsizevars(&kinfo[i]);
+	nkept = 0;
+	if (nentries > 0) {
+		if ((kinfo = malloc(nentries * sizeof(*kinfo))) == NULL)
+			errx(1, "malloc failed");
+		for (i = nentries; --i >= 0; ++kp) {
+#ifdef __APPLE__
+			if (kp->kp_proc.p_pid == 0) {
+				continue;
+			}
+#endif /* __APPLE__ */
+
+#ifdef __APPLE__
+			if (dflag && (kp->kp_proc.p_pid == kp->kp_eproc.e_pgid))
+				continue;
+#endif /* __APPLE__ */
+
+			/*
+			 * If the user specified multiple selection-criteria,
+			 * then keep any process matched by the inclusive OR
+			 * of all the selection-criteria given.
+			 */
+			if (pidlist.count > 0) {
+				for (elem = 0; elem < pidlist.count; elem++)
+					if (kp->kp_proc.p_pid == pidlist.l.pids[elem])
+						goto keepit;
+			}
+			/*
+			 * Note that we had to process pidlist before
+			 * filtering out processes which do not have
+			 * a controlling terminal.
+			 */
+			if (xkeep == 0) {
+				if ((kp->kp_eproc.e_tdev == NODEV ||
+				    (kp->kp_proc.p_flag & P_CONTROLT) == 0))
+					continue;
+			}
+			if (all || nselectors == 0)
+				goto keepit;
+			if (gidlist.count > 0) {
+				for (elem = 0; elem < gidlist.count; elem++)
+					if (kp->kp_eproc.e_pcred.p_rgid == gidlist.l.gids[elem])
+						goto keepit;
+			}
+			if (pgrplist.count > 0) {
+				for (elem = 0; elem < pgrplist.count; elem++)
+					if (kp->kp_eproc.e_pgid ==
+					    pgrplist.l.pids[elem])
+						goto keepit;
+			}
+			if (ruidlist.count > 0) {
+				for (elem = 0; elem < ruidlist.count; elem++)
+					if (kp->kp_eproc.e_pcred.p_ruid ==
+					    ruidlist.l.uids[elem])
+						goto keepit;
+			}
+#if 0
+			if (sesslist.count > 0) {
+				for (elem = 0; elem < sesslist.count; elem++)
+					if (kp->ki_sid == sesslist.l.pids[elem])
+						goto keepit;
+			}
+#endif
+			if (ttylist.count > 0) {
+				for (elem = 0; elem < ttylist.count; elem++)
+					if (kp->kp_eproc.e_tdev == ttylist.l.ttys[elem])
+						goto keepit;
+			}
+			if (uidlist.count > 0) {
+				for (elem = 0; elem < uidlist.count; elem++)
+					if (kp->kp_eproc.e_ucred.cr_uid == uidlist.l.uids[elem])
+						goto keepit;
+			}
+			/*
+			 * This process did not match any of the user's
+			 * selector-options, so skip the process.
+			 */
+			continue;
+
+		keepit:
+			next_KINFO = &kinfo[nkept];
+			next_KINFO->ki_p = kp;
+			get_task_info(next_KINFO);
+#ifndef __APPLE__
+			next_KINFO->ki_pcpu = getpcpu(next_KINFO);
+			if (sortby == SORTMEM)
+				next_KINFO->ki_memsize = kp->ki_tsize +
+				    kp->ki_dsize + kp->ki_ssize;
+#endif /* !__APPLE__ */
+			if (needuser)
+				saveuser(next_KINFO);
+			dynsizevars(next_KINFO);
+			nkept++;
+		}
 	}
+
 	sizevars();
 
 	/*
 	 * print header
 	 */
 	printheader();
-	if (nentries == 0)
-		exit(0);
+	if (nkept == 0)
+		exit(1);
+
 	/*
 	 * sort proc list
 	 */
-	qsort(kinfo, nentries, sizeof(KINFO), pscomp);
+	qsort(kinfo, nkept, sizeof(KINFO), pscomp);
 	/*
-	 * for each proc, call each variable output function.
+	 * For each process, call each variable output function.
 	 */
-	for (i = lineno = 0; i < nentries; i++) {
-		if(kinfo[i].invalid_tinfo || kinfo[i].invalid_thinfo)
-			continue;
-		if (KI_PROC(&kinfo[i])->p_pid == 0)
-			continue;
-		if (xflg == 0 && (KI_EPROC(&kinfo[i])->e_tdev == NODEV ||
-		    (KI_PROC(&kinfo[i])->p_flag & P_CONTROLT ) == 0))
-			continue;
+	for (i = lineno = 0; i < nkept; i++) {
 		if(mflg) {
 			print_all_thread = 1;
 			for(j=0; j < kinfo[i].thread_count; j++) {
@@ -477,18 +749,325 @@ main(argc, argv)
 			}
 		}
 	}
-cleanup:
-	for (i = 0; i < nentries; i++) {
+	for (i = 0; i < nkept; i++) {
 		if(kinfo[i].thread_count)
 			free(kinfo[i].thval);	
 	}
 	free(kprocbuf);
 	free(kinfo);
+	free_list(&gidlist);
+	free_list(&pidlist);
+	free_list(&pgrplist);
+	free_list(&ruidlist);
+	free_list(&sesslist);
+	free_list(&ttylist);
+	free_list(&uidlist);
+
 	exit(eval);
 }
 
+static int
+addelem_gid(struct listinfo *inf, const char *elem)
+{
+	struct group *grp;
+	const char *nameorID;
+	char *endp;
+	u_long bigtemp;
+
+	if (*elem == '\0' || strlen(elem) >= MAXLOGNAME) {
+		if (*elem == '\0')
+			warnx("Invalid (zero-length) %s name", inf->lname);
+		else
+			warnx("%s name too long: %s", inf->lname, elem);
+		optfatal = 1;
+		return (0);		/* Do not add this value. */
+	}
+
+	/*
+	 * SUSv3 states that `ps -G grouplist' should match "real-group
+	 * ID numbers", and does not mention group-names.  I do want to
+	 * also support group-names, so this tries for a group-id first,
+	 * and only tries for a name if that doesn't work.  This is the
+	 * opposite order of what is done in addelem_uid(), but in
+	 * practice the order would only matter for group-names which
+	 * are all-numeric.
+	 */
+	grp = NULL;
+	nameorID = "named";
+	errno = 0;
+	bigtemp = strtoul(elem, &endp, 10);
+	if (errno == 0 && *endp == '\0' && bigtemp <= GID_MAX) {
+		nameorID = "name or ID matches";
+		grp = getgrgid((gid_t)bigtemp);
+	}
+	if (grp == NULL)
+		grp = getgrnam(elem);
+	if (grp == NULL) {
+		warnx("No %s %s '%s'", inf->lname, nameorID, elem);
+		optfatal = 1;
+		return (0);
+	}
+	if (inf->count >= inf->maxcount)
+		expand_list(inf);
+	inf->l.gids[(inf->count)++] = grp->gr_gid;
+	return (1);
+}
+
+#define	BSD_PID_MAX	99999		/* Copy of PID_MAX from sys/proc.h. */
+static int
+addelem_pid(struct listinfo *inf, const char *elem)
+{
+	char *endp;
+	long tempid;
+
+	if (*elem == '\0') {
+		warnx("Invalid (zero-length) process id");
+		optfatal = 1;
+		return (0);		/* Do not add this value. */
+	}
+
+	errno = 0;
+	tempid = strtol(elem, &endp, 10);
+	if (*endp != '\0' || tempid < 0 || elem == endp) {
+		warnx("Invalid %s: %s", inf->lname, elem);
+		errno = ERANGE;
+	} else if (errno != 0 || tempid > BSD_PID_MAX) {
+		warnx("%s too large: %s", inf->lname, elem);
+		errno = ERANGE;
+	}
+	if (errno == ERANGE) {
+		optfatal = 1;
+		return (0);
+	}
+	if (inf->count >= inf->maxcount)
+		expand_list(inf);
+	inf->l.pids[(inf->count)++] = tempid;
+	return (1);
+}
+#undef	BSD_PID_MAX
+
+/*-
+ * The user can specify a device via one of three formats:
+ *     1) fully qualified, e.g.:     /dev/ttyp0 /dev/console
+ *     2) missing "/dev", e.g.:      ttyp0      console
+ *     3) two-letters, e.g.:         p0         co
+ *        (matching letters that would be seen in the "TT" column)
+ */
+static int
+addelem_tty(struct listinfo *inf, const char *elem)
+{
+	const char *ttypath;
+	struct stat sb;
+	char pathbuf[PATH_MAX], pathbuf2[PATH_MAX];
+
+	ttypath = NULL;
+	pathbuf2[0] = '\0';
+	switch (*elem) {
+	case '/':
+		ttypath = elem;
+		break;
+	case 'c':
+		if (strcmp(elem, "co") == 0) {
+			ttypath = _PATH_CONSOLE;
+			break;
+		}
+		/* FALLTHROUGH */
+	default:
+		strlcpy(pathbuf, _PATH_DEV, sizeof(pathbuf));
+		strlcat(pathbuf, elem, sizeof(pathbuf));
+		ttypath = pathbuf;
+		if (strncmp(pathbuf, _PATH_TTY, strlen(_PATH_TTY)) == 0)
+			break;
+		if (strcmp(pathbuf, _PATH_CONSOLE) == 0)
+			break;
+		/* Check to see if /dev/tty${elem} exists */
+		strlcpy(pathbuf2, _PATH_TTY, sizeof(pathbuf2));
+		strlcat(pathbuf2, elem, sizeof(pathbuf2));
+		if (stat(pathbuf2, &sb) == 0 && S_ISCHR(sb.st_mode)) {
+			/* No need to repeat stat() && S_ISCHR() checks */
+			ttypath = NULL;	
+			break;
+		}
+		break;
+	}
+	if (ttypath) {
+#ifdef __APPLE__
+		if (access(ttypath, F_OK) == -1 || stat(ttypath, &sb) == -1) {
+#else
+		if (stat(ttypath, &sb) == -1) {
+#endif
+			if (pathbuf2[0] != '\0')
+				warn("%s and %s", pathbuf2, ttypath);
+			else
+				warn("%s", ttypath);
+			optfatal = 1;
+			return (0);
+		}
+		if (!S_ISCHR(sb.st_mode)) {
+			if (pathbuf2[0] != '\0')
+				warnx("%s and %s: Not a terminal", pathbuf2,
+				    ttypath);
+			else
+				warnx("%s: Not a terminal", ttypath);
+			optfatal = 1;
+			return (0);
+		}
+	}
+	if (inf->count >= inf->maxcount)
+		expand_list(inf);
+	inf->l.ttys[(inf->count)++] = sb.st_rdev;
+	return (1);
+}
+
+static int
+addelem_uid(struct listinfo *inf, const char *elem)
+{
+	struct passwd *pwd;
+	char *endp;
+	u_long bigtemp;
+
+	if (*elem == '\0' || strlen(elem) >= MAXLOGNAME) {
+		if (*elem == '\0')
+			warnx("Invalid (zero-length) %s name", inf->lname);
+		else
+			warnx("%s name too long: %s", inf->lname, elem);
+		optfatal = 1;
+		return (0);		/* Do not add this value. */
+	}
+
+	pwd = getpwnam(elem);
+	if (pwd == NULL) {
+		errno = 0;
+		bigtemp = strtoul(elem, &endp, 10);
+		if (errno != 0 || *endp != '\0' || bigtemp > UID_MAX)
+			warnx("No %s named '%s'", inf->lname, elem);
+		else {
+			/* The string is all digits, so it might be a userID. */
+			pwd = getpwuid((uid_t)bigtemp);
+			if (pwd == NULL)
+				warnx("No %s name or ID matches '%s'",
+				    inf->lname, elem);
+		}
+	}
+	if (pwd == NULL) {
+		/*
+		 * These used to be treated as minor warnings (and the
+		 * option was simply ignored), but now they are fatal
+		 * errors (and the command will be aborted).
+		 */
+		optfatal = 1;
+		return (0);
+	}
+	if (inf->count >= inf->maxcount)
+		expand_list(inf);
+	inf->l.uids[(inf->count)++] = pwd->pw_uid;
+	return (1);
+}
+
 static void
-scanvars() 
+add_list(struct listinfo *inf, const char *argp)
+{
+	const char *savep;
+	char *cp, *endp;
+	int toolong;
+	char elemcopy[PATH_MAX];
+
+	if (*argp == 0)
+		inf->addelem(inf, elemcopy);
+	while (*argp != '\0') {
+		while (*argp != '\0' && strchr(W_SEP, *argp) != NULL)
+			argp++;
+		savep = argp;
+		toolong = 0;
+		cp = elemcopy;
+		if (strchr(T_SEP, *argp) == NULL) {
+			endp = elemcopy + sizeof(elemcopy) - 1;
+			while (*argp != '\0' && cp <= endp &&
+			    strchr(W_SEP T_SEP, *argp) == NULL)
+				*cp++ = *argp++;
+			if (cp > endp)
+				toolong = 1;
+		}
+		if (!toolong) {
+			*cp = '\0';
+			/*
+			 * Add this single element to the given list.
+			 */
+			inf->addelem(inf, elemcopy);
+		} else {
+			/*
+			 * The string is too long to copy.  Find the end
+			 * of the string to print out the warning message.
+			 */
+			while (*argp != '\0' && strchr(W_SEP T_SEP,
+			    *argp) == NULL)
+				argp++;
+			warnx("Value too long: %.*s", (int)(argp - savep),
+			    savep);
+			optfatal = 1;
+		}
+		/*
+		 * Skip over any number of trailing whitespace characters,
+		 * but only one (at most) trailing element-terminating
+		 * character.
+		 */
+		while (*argp != '\0' && strchr(W_SEP, *argp) != NULL)
+			argp++;
+		if (*argp != '\0' && strchr(T_SEP, *argp) != NULL) {
+			argp++;
+#if 0
+			/* Catch case where string ended with a comma. */
+			if (*argp == '\0')
+				inf->addelem(inf, argp);
+#endif /* 0 */
+		}
+	}
+}
+
+static void *
+expand_list(struct listinfo *inf)
+{
+	void *newlist;
+	int newmax;
+
+	newmax = (inf->maxcount + 1) << 1;
+	newlist = realloc(inf->l.ptr, newmax * inf->elemsize);
+	if (newlist == NULL) {
+		free(inf->l.ptr);
+		errx(1, "realloc to %d %ss failed", newmax, inf->lname);
+	}
+	inf->maxcount = newmax;
+	inf->l.ptr = newlist;
+
+	return (newlist);
+}
+
+static void
+free_list(struct listinfo *inf)
+{
+
+	inf->count = inf->elemsize = inf->maxcount = 0;
+	if (inf->l.ptr != NULL)
+		free(inf->l.ptr);
+	inf->addelem = NULL;
+	inf->lname = NULL;
+	inf->l.ptr = NULL;
+}
+
+static void
+init_list(struct listinfo *inf, addelem_rtn artn, int elemsize,
+    const char *lname)
+{
+
+	inf->count = inf->maxcount = 0;
+	inf->elemsize = elemsize;
+	inf->addelem = artn;
+	inf->lname = lname;
+	inf->l.ptr = NULL;
+}
+
+static void
+scanvars(void)
 {
 	struct varent *vent;
 	VAR *v;
@@ -534,8 +1113,7 @@ scanvars()
 }
 
 static void
-dynsizevars(ki)
-	KINFO *ki;
+dynsizevars(KINFO *ki)
 {
 	struct varent *vent;
 	VAR *v;
@@ -545,7 +1123,7 @@ dynsizevars(ki)
 		v = vent->var;
 		if (!(v->flag & DSIZ))
 			continue;
-		i = (v->sproc)( ki);
+		i = (v->sproc)(ki, vent);
 		if (v->width < i)
 			v->width = i;
 		if (v->width > v->dwidth)
@@ -554,7 +1132,7 @@ dynsizevars(ki)
 }
 
 static void
-sizevars()
+sizevars(void)
 {
 	struct varent *vent;
 	VAR *v;
@@ -570,26 +1148,22 @@ sizevars()
 	totwidth--;
 }
 
-static char *
-fmt(fn, ki, comm, maxlen)
-	char **(*fn) __P((kvm_t *, const struct kinfo_proc *, int));
-	KINFO *ki;
-	char *comm;
-	int maxlen;
+#ifndef __APPLE__
+static const char *
+fmt(char **(*fn)(kvm_t *, const struct kinfo_proc *, int), KINFO *ki,
+    char *comm, int maxlen)
 {
-	char *s;
+	const char *s;
 
-	if ((s =
-	    fmt_argv((*fn)(kd, ki->ki_p, termwidth), comm, maxlen)) == NULL)
-		err(1, NULL);
+	s = fmt_argv((*fn)(kd, ki->ki_p, termwidth), comm, maxlen);
 	return (s);
 }
+#endif /* !__APPLE__ */
 
 #define UREADOK(ki)	(forceuread || (KI_PROC(ki)->p_flag & P_INMEM))
 
 static void
-saveuser(ki)
-	KINFO *ki;
+saveuser(KINFO *ki)
 {
 	struct pstats pstats;
 	struct usave *usp;
@@ -654,8 +1228,7 @@ saveuser(ki)
 }
 
 static int
-pscomp(a, b)
-	const void *a, *b;
+pscomp(const void *a, const void *b)
 {
 	int i;
 #if FIXME
@@ -688,72 +1261,117 @@ pscomp(a, b)
  * feature is available with the option 'T', which takes no argument.
  */
 static char *
-kludge_oldps_options(s)
-	char *s;
+kludge_oldps_options(const char *optlist, char *origval, const char *nextarg, int *u03)
 {
 	size_t len;
-	char *newopts, *ns, *cp;
+	char *argp, *cp, *newopts, *ns, *optp, *pidp;
 
-	len = strlen(s);
-	if ((newopts = ns = malloc(len + 2)) == NULL)
-		err(1, NULL);
 	/*
-	 * options begin with '-'
+	 * See if the original value includes any option which takes an
+	 * argument (and will thus use up the remainder of the string).
 	 */
-	if (*s != '-')
-		*ns++ = '-';	/* add option flag */
-	/*
-	 * gaze to end of argv[1]
-	 */
-	cp = s + len - 1;
+	argp = NULL;
+	if (optlist != NULL) {
+		for (cp = origval; *cp != '\0'; cp++) {
+			optp = strchr(optlist, *cp);
+			if ((optp != NULL) && *(optp + 1) == ':') {
+				argp = cp;
+				break;
+			}
+		}
+	}
+	if (argp != NULL && *origval == '-')
+		return (origval);
+
 	/*
 	 * if last letter is a 't' flag with no argument (in the context
 	 * of the oldps options -- option string NOT starting with a '-' --
 	 * then convert to 'T' (meaning *this* terminal, i.e. ttyname(0)).
 	 *
-	 * However, if a flag accepting a string argument is found in the
-	 * option string, the remainder of the string is the argument to
-	 * that flag; do not modify that argument.
+	 * However, if a flag accepting a string argument is found earlier
+	 * in the option string (including a possible `t' flag), then the
+	 * remainder of the string must be the argument to that flag; so
+	 * do not modify that argument.  Note that a trailing `t' would
+	 * cause argp to be set, if argp was not already set by some
+	 * earlier option.
 	 */
-	if (strcspn(s, "MNOoUW") == len && *cp == 't' && *s != '-')
-		*cp = 'T';
+	len = strlen(origval);
+	cp = origval + len - 1;
+	pidp = NULL;
+	if (*cp == 't' && *origval != '-' && cp == argp) {
+		if (nextarg == NULL || *nextarg == '-' || isdigitch(*nextarg))
+			*cp = 'T';
+	} else if (argp == NULL) {
+		/*
+		 * The original value did not include any option which takes
+		 * an argument (and that would include `p' and `t'), so check
+		 * the value for trailing number, or comma-separated list of
+		 * numbers, which we will treat as a pid request.
+		 */
+		if (isdigitch(*cp)) {
+			while (cp >= origval && (*cp == ',' || isdigitch(*cp)))
+				--cp;
+			pidp = cp + 1;
+		}
+	}
+
+	/*
+	 * If nothing needs to be added to the string, then return
+	 * the "original" (although possibly modified) value.
+	 */
+	if (*origval == '-' && pidp == NULL)
+		return (origval);
+
+	/*
+	 * Create a copy of the string to add '-' and/or 'p' to the
+	 * original value.
+	 */
+	if ((newopts = ns = malloc(len + 3)) == NULL)
+		errx(1, "malloc failed");
+
+	if (*origval != '-') {
+		*ns++ = '-';    /* add option flag */
+		*u03 = 0;
+	}
+
+	if (pidp == NULL)
+		strcpy(ns, origval);
 	else {
 		/*
-		 * otherwise check for trailing number, which *may* be a
-		 * pid.
+		 * Copy everything before the pid string, add the `p',
+		 * and then copy the pid string.
 		 */
-		while (cp >= s && isdigit(*cp))
-			--cp;
-	}
-	cp++;
-	memmove(ns, s, (size_t)(cp - s));	/* copy up to trailing number */
-	ns += cp - s;
-	/*
-	 * if there's a trailing number, and not a preceding 'p' (pid) or
-	 * 't' (tty) flag, then assume it's a pid and insert a 'p' flag.
-	 */
-	if (isdigit(*cp) &&
-	    (cp == s || (cp[-1] != 't' && cp[-1] != 'p')) &&
-	    (cp - 1 == s || cp[-2] != 't'))
+		len = pidp - origval;
+		memcpy(ns, origval, len);
+		ns += len;
 		*ns++ = 'p';
-	(void)strcpy(ns, cp);		/* and append the number */
+		strcpy(ns, pidp);
+	}
 
 	return (newopts);
 }
 
-static void
-usage()
+static int
+check_procfs(void)
 {
+	struct statfs mnt;
 
-#if defined(LAZY_PS)
-	(void)fprintf(stderr, "%s\n%s\n%s\n",
-#else
-	(void)fprintf(stderr, "%s\n%s\n",
-#endif
-	    "usage: ps [-aACcehjlmMrSTuvwx] [-O|o fmt] [-p pid] [-t tty] [-U user]",
-#if defined(LAZY_PS)
-	    "          [-N system] [-W swap]",
-#endif
+	if (statfs("/proc", &mnt) < 0)
+		return (0);
+	if (strcmp(mnt.f_fstypename, "procfs") != 0)
+		return (0);
+	return (1);
+}
+
+static void
+usage(int u03)
+{
+#define	SINGLE_OPTS	"[-AaCcEefhjlMmrSTvwXx]"
+
+	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n",
+	    "usage: ps " SINGLE_OPTS " [-O fmt | -o fmt] [-G gid[,gid...]]",
+	    (u03 ? "          [-g grp[,grp...]] [-u [uid,uid...]]" : "          [-u]"),
+	    "          [-p pid[,pid...]] [-t tty[,tty...]] [-U user[,user...]]",
 	    "       ps [-L]");
 	exit(1);
 }

@@ -2,7 +2,7 @@
 # Makefile for iODBC
 ##
 
-# Configured for Panther (10.3) by default
+# Configured for Panther (10.5) by default
 # To rebuild on Jaguar (10.2) you need to define JAGUAR
 #Extra_CC_Flags = -DJAGUAR
 
@@ -21,12 +21,13 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 export LIBTOOL_CMD_SEP = +
 
 # For building fat
-export MACOSX_DEPLOYMENT_TARGET = 10.4
+export MACOSX_DEPLOYMENT_TARGET = 10.5
 export LD_TWOLEVEL_NAMESPACE = 1
 
 Install_Target = install
-Extra_Configure_Flags += --with-iodbc-inidir=/Library/ODBC --disable-gui TMPDIR=$(OBJROOT)
+Extra_Configure_Flags += --prefix=/usr --with-iodbc-inidir=/Library/ODBC --disable-gui TMPDIR=$(OBJROOT)
 CFLAGS += -Wl,-framework,CoreFoundation
+tesLipo = $(eval "${LIPO} -verify_arch ppc64 $(RC_Install_Prefix)/bin/iodbctest")
 
 fixup:
 	@echo "Trashing RC undesirables *.la files"; \
@@ -37,6 +38,9 @@ fixup:
 	${STRIP} -S $(RC_Install_Prefix)/lib/libiodbcinst.2.dylib; \
 	${STRIP} -S $(RC_Install_Prefix)/bin/iodbctest; \
 	${STRIP} -S $(RC_Install_Prefix)/bin/iodbctestw; \
+
+	${LIPO} $(RC_Install_Prefix)/bin/iodbctestw -remove x86_64 -output $(RC_Install_Prefix)/bin/iodbctestw
+	${LIPO} $(RC_Install_Prefix)/bin/iodbctest -remove x86_64 -output $(RC_Install_Prefix)/bin/iodbctest
 
 	${MKDIR} $(RC_Install_Prefix)/local/OpenSourceVersions; \
 	${CP} $(SRCROOT)/iodbc.plist $(RC_Install_Prefix)/local/OpenSourceVersions/; \

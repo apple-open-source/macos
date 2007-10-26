@@ -22,6 +22,15 @@ include ../TEA.make
 TclExtStubConfig      = *Config.sh 
 TclExtDir             = Img
 
+# patch port.h
+ConfigStamp2 = $(ConfigStamp)2
+
+configure:: $(ConfigStamp2)
+
+$(ConfigStamp2): $(ConfigStamp)
+	$(_v) ed - $(BuildDirectory)/libtiff/tcl/port.h < $(SRCROOT)/port.h.ed
+	$(_v) $(TOUCH) $(ConfigStamp2)
+
 install-doc:
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
 	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/*.{htm,css} "$(DSTROOT)/$(TclExtHtmlDir)"

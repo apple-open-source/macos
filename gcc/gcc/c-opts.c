@@ -38,6 +38,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "opts.h"
 #include "options.h"
 #include "mkdeps.h"
+/* APPLE LOCAL iframework for 4.3 4094959 */
+#include "tm_p.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
@@ -264,13 +266,25 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     {
     default:
       if (cl_options[code].flags & (CL_C | CL_CXX | CL_ObjC | CL_ObjCXX))
-	break;
+	/* APPLE LOCAL begin iframework for 4.3 4094959 */
+	{
+#ifdef TARGET_HANDLE_C_OPTION
+	  if ((option->flags & CL_TARGET))
+	    if (! TARGET_HANDLE_C_OPTION (scode, arg, value))
+	      result = 0;
+#endif
+	  break;
+	}
+      /* APPLE LOCAL end iframework for 4.3 4094959 */
       result = 0;
       break;
 
       /* APPLE LOCAL begin ss2 */
     case OPT_fsave_repository_:
-      flag_save_repository = 1;
+      if (write_symbols != DBX_DEBUG)
+	error ("-fsave-repository may only be used with STABS debugging");
+      else
+	flag_save_repository = 1;
       break;
       /* APPLE LOCAL end ss2 */
 
@@ -618,7 +632,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
       /* APPLE LOCAL begin CW asm blocks */
     case OPT_fasm_blocks:
-      flag_cw_asm_blocks = value;
+      flag_iasm_blocks = value;
       break;
       /* APPLE LOCAL end CW asm blocks */
 
@@ -769,9 +783,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     /* APPLE LOCAL begin mainline */
-    case OPT_fobjc_call_cxx_cdtors:
-      flag_objc_call_cxx_cdtors = value;
-      break;
+    /* APPLE LOCAL radar 4949034 */
+    /* code removed */
     /* APPLE LOCAL end mainline */
 
     case OPT_fobjc_exceptions:
@@ -856,6 +869,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_use_cxa_atexit = value;
       break;
       
+/* APPLE LOCAL begin mainline 2006-02-24 4086777 */
+    case OPT_fuse_cxa_get_exception_ptr:
+      flag_use_cxa_get_exception_ptr = value;
+      break;
+      
+/* APPLE LOCAL end mainline 2006-02-24 4086777 */
     case OPT_fvisibility_inlines_hidden:
       visibility_options.inlines_hidden = value;
       break;
@@ -947,6 +966,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_print_objc_runtime_info:
       print_struct_values = 1;
       break;
+
+    /* APPLE LOCAL begin radar 5082000 */
+    case OPT_print_objc_ivar_layout:
+      print_objc_ivar_layout = 1;
+      break;
+    /* APPLE LOCAL end radar 5082000 */
 
 /* APPLE LOCAL begin mainline 4.1 2005-06-17 3988498 */
     case OPT_print_pch_checksum:
@@ -1051,6 +1076,14 @@ c_common_post_options (const char **pfilename)
   register_include_chains (parse_in, sysroot, iprefix,
 			   std_inc, std_cxx_inc && c_dialect_cxx (), verbose);
 
+/* APPLE LOCAL begin mainline 2006-02-24 4086777 */
+#ifdef C_COMMON_OVERRIDE_OPTIONS
+  /* Some machines may reject certain combinations of C
+     language-specific options.  */
+  C_COMMON_OVERRIDE_OPTIONS;
+#endif
+
+/* APPLE LOCAL end mainline 2006-02-24 4086777 */
   flag_inline_trees = 1;
 
   /* Use tree inlining.  */

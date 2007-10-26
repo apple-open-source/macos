@@ -1,134 +1,91 @@
+/*
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <libc.h>
 #include <syslog.h>
 #include "logging.h"
 #include "globals.h"
 
-void (*kextd_log)(const char * format, ...) = kextd_print;
-void (*kextd_error_log)(const char * format, ...) = kextd_error_print;
+static bool use_syslog = false;
 
 /*******************************************************************************
 *
 *******************************************************************************/
 void kextd_openlog(const char * name)
 {
-    int fd;
-
     openlog(name, LOG_CONS | LOG_NDELAY | LOG_PID,
         LOG_DAEMON);
 
-    kextd_log = kextd_syslog;
-    kextd_error_log = kextd_error_syslog;
-
-    fd = open("/dev/null", O_RDWR, 0);
-    if (fd == -1) {
-        // FIXME: print error? return error code? what kind of recovery is possible?
-        goto finish;
-    }
-    dup2(fd, STDIN_FILENO);
-    dup2(fd, STDOUT_FILENO);
-    dup2(fd, STDERR_FILENO);
-    if (fd > 2) {
-        close(fd);
-    }
-
-finish:    
-    return;
+    use_syslog = true;
 }
 
 /*******************************************************************************
 *
 *******************************************************************************/
-void kextd_syslog(const char * format, ...)
+void kextd_log(const char * format, ...)
 {
     va_list ap;
 
     va_start(ap, format);
-    vsyslog(LOG_INFO, format, ap);
-    va_end(ap);
 
-    return;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
-void kextd_error_syslog(const char * format, ...)
-{
-    va_list ap;
-
-    va_start(ap, format);
-    vsyslog(LOG_ERR, format, ap);
-    va_end(ap);
-
-    return;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
-void kextd_print(const char * format, ...)
-{
-    va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
-
-    va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
-    va_end(ap);
-
-    output_string = (char *)malloc(output_length + 1);
-    if (!output_string) {
-        fprintf(stderr, "malloc failure\n");
-        return;
+    if (use_syslog) {
+        vsyslog(LOG_NOTICE, format, ap);    // LOG_INFO disabled as of 10.4
+    } else {
+	char *newfmt;
+	asprintf(&newfmt, "%s: %s\n", getprogname(), format);
+	if (newfmt) {
+	    vfprintf(stdout, newfmt, ap);
+	    free(newfmt);
+	} else {
+	    vfprintf(stdout, format, ap);
+	}
     }
 
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
     va_end(ap);
-
-    va_start(ap, format);
-    fprintf(stdout, "%s: %s\n", progname, output_string);
-    va_end(ap);
-
-    fflush(stdout);
-
-    free(output_string);
-
-    return;
 }
 
 /*******************************************************************************
 *
 *******************************************************************************/
-void kextd_error_print(const char * format, ...)
+void kextd_error_log(const char * format, ...)
 {
     va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
+
 
     va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
-    va_end(ap);
 
-    output_string = (char *)malloc(output_length + 1);
-    if (!output_string) {
-        fprintf(stderr, "malloc failure\n");
-        return;
+    if (use_syslog) {
+        vsyslog(LOG_ERR, format, ap);
+    } else {
+	char *newfmt;
+	asprintf(&newfmt, "%s: %s\n", getprogname(), format);
+	if (newfmt) {
+	    vfprintf(stderr, newfmt, ap);
+	    free(newfmt);
+	} else {
+	    vfprintf(stderr, format, ap);
+	}
     }
 
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
     va_end(ap);
 
-    va_start(ap, format);
-    fprintf(stderr, "%s: %s\n", progname, output_string);
-    va_end(ap);
-
-    fflush(stderr);
-
-    free(output_string);
-
-    return;
 }

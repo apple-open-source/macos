@@ -119,13 +119,21 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 	
 	/* any per-user prefs? */
 	try {
-		prefsDict = new Dictionary(kSecRevocationDomain, Dictionary::US_User);
+		prefsDict = new Dictionary(kSecRevocationDomain, Dictionary::US_User, true);
+		if (!prefsDict->dict()) {
+			delete prefsDict;
+			prefsDict = NULL;
+		}
 	}
 	catch(...) {}
 	if(prefsDict == NULL) {
 		/* try system prefs */
 		try {
-			prefsDict = new Dictionary(kSecRevocationDomain, Dictionary::US_System);
+			prefsDict = new Dictionary(kSecRevocationDomain, Dictionary::US_System, true);
+			if (!prefsDict->dict()) {
+				delete prefsDict;
+				return NULL;
+			}
 		}
 		catch(...) {
 			return NULL;

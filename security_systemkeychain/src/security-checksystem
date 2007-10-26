@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# security-checksystem
+#
+# Checks to see if the System.keychain is intact and working.
+# If it isn't, replaces it with a new, empty, working one.
+#
+# Warning: This script cannot tell *why* the System.keychain cannot
+# unlock. If you have reconfigured the system to intentionally deny
+# access, remove this code or you will get it "fixed" on reboot.
+#
+export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+
+KEYCHAIN=/Library/Keychains/System.keychain
+KEY=/var/db/SystemKey
+
+if /usr/bin/security show-keychain "$KEYCHAIN" 2>/dev/null; then
+	exit 0		# we're okay
+fi
+
+# can't unlock System.keychain
+NOW=$(date "+%F.%T")
+/usr/bin/logger -p daemon.alert "Recreating System.keychain because it cannot unlock; see $0"
+/bin/mv -f "$KEYCHAIN" "$KEYCHAIN.$NOW"
+/bin/mv -f "$KEY" "$KEY.$NOW"
+/usr/sbin/systemkeychain -C -f
+exit 0

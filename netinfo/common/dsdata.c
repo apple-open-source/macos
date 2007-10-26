@@ -112,7 +112,7 @@ dsdata_unique(dsdata *d)
 	_unique_cstring_data[mid] = dsdata_retain(d);
 	return d;
 }
-#endif DSDATA_UNIQUE
+#endif /* DSDATA_UNIQUE */
 
 static u_int64_t
 htonq(u_int64_t n)

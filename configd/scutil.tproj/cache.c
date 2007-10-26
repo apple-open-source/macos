@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,7 +61,7 @@ do_list(int argc, char **argv)
 
 	list = SCDynamicStoreCopyKeyList(store, pattern);
 	CFRelease(pattern);
-	if (!list) {
+	if (list == NULL) {
 		if (SCError() != kSCStatusOK) {
 			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		} else {
@@ -128,7 +128,7 @@ do_get(int argc, char **argv)
 	key      = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	newValue = SCDynamicStoreCopyValue(store, key);
 	CFRelease(key);
-	if (!newValue) {
+	if (newValue == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		return;
 	}
@@ -148,7 +148,7 @@ do_set(int argc, char **argv)
 {
 	CFStringRef	key;
 
-	key    = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	if (!SCDynamicStoreSetValue(store, key, value)) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
@@ -177,7 +177,7 @@ do_show(int argc, char **argv)
 	}
 
 	CFRelease(key);
-	if (!newValue) {
+	if (newValue == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		return;
 	}
@@ -194,7 +194,7 @@ do_remove(int argc, char **argv)
 {
 	CFStringRef	key;
 
-	key    = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	if (!SCDynamicStoreRemoveValue(store, key)) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
@@ -209,7 +209,7 @@ do_notify(int argc, char **argv)
 {
 	CFStringRef	key;
 
-	key    = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	if (!SCDynamicStoreNotifyValue(store, key)) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}

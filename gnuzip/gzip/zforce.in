@@ -1,4 +1,3 @@
-:
 #!/bin/sh
 # zforce: force a gz extension on all gzip files so that gzip will not
 # compress them twice.
@@ -12,39 +11,52 @@
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
 
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
-
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 PATH="BINDIR:$PATH"; export PATH
-x=`basename $0`
+
+version="zforce (gzip) @VERSION@
+Copyright (C) 2006 Free Software Foundation, Inc.
+This is free software.  You may redistribute copies of it under the terms of
+the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by Jean-loup Gailly."
+
+usage="Usage: zforce [FILE]...
+Force a .gz extension on all compressed FILEs so that gzip will
+not compress them twice.
+
+Report bugs to <bug-gzip@gnu.org>."
+
 if test $# = 0; then
-  echo "force a '.gz' extension on all gzip files"
-  echo usage: $x files...
+  echo "$usage"
   exit 1
 fi
 
 res=0
 for i do
+  case "$i" in
+  --h*) exec echo "$usage";;
+  --v*) exec echo "$version";;
+  *[-.]z | *[-.]gz | *.t[ag]z) continue;;
+  esac
+
   if test ! -f "$i" ; then
-    echo ${x}: $i not a file
+    echo zforce: $i not a file
     res=1
     continue
   fi
-
-  case "$i" in
-  *[-.]z | *[-.]gz | *.t[ag]z) continue;;
-  esac
 
   if gzip -lv < "$i" 2>/dev/null | grep '^defl' > /dev/null; then
 

@@ -50,11 +50,13 @@
 #define MAIL_SERVICE_SMTPD	"smtpd"
 #define MAIL_SERVICE_SHOWQ	"showq"
 #define MAIL_SERVICE_ERROR	"error"
+#define MAIL_SERVICE_RETRY	"retry"
 #define MAIL_SERVICE_FLUSH	"flush"
 #define MAIL_SERVICE_VERIFY	"verify"
 #define MAIL_SERVICE_TRACE	"trace"
 #define MAIL_SERVICE_RELAY	"relay"
 #define MAIL_SERVICE_PROXYMAP	"proxymap"
+#define MAIL_SERVICE_SCACHE	"scache"
 
  /*
   * Well-known socket or FIFO directories. The main difference is in file
@@ -83,7 +85,7 @@ extern VSTREAM *mail_connect(const char *, const char *, int);
 extern VSTREAM *mail_connect_wait(const char *, const char *);
 extern int mail_command_client(const char *, const char *,...);
 extern int mail_command_server(VSTREAM *,...);
-extern int mail_trigger(const char *, const char *, const char *, int);
+extern int mail_trigger(const char *, const char *, const char *, ssize_t);
 extern char *mail_pathname(const char *, const char *);
 
  /*
@@ -97,6 +99,7 @@ extern char *mail_pathname(const char *, const char *);
 #define MAIL_ATTR_QUEUE		"queue_name"
 #define MAIL_ATTR_QUEUEID	"queue_id"
 #define MAIL_ATTR_SENDER	"sender"
+#define MAIL_ATTR_RCPT_COUNT	"recipient_count"
 #define MAIL_ATTR_ORCPT		"original_recipient"
 #define MAIL_ATTR_RECIP		"recipient"
 #define MAIL_ATTR_WHY		"reason"
@@ -107,6 +110,7 @@ extern char *mail_pathname(const char *, const char *);
 #define MAIL_ATTR_ERRTO		"errors-to"
 #define MAIL_ATTR_RRCPT		"return-receipt"
 #define MAIL_ATTR_TIME		"time"
+#define MAIL_ATTR_CREATE_TIME	"create_time"
 #define MAIL_ATTR_RULE		"rule"
 #define MAIL_ATTR_ADDR		"address"
 #define MAIL_ATTR_TRANSPORT	"transport"
@@ -121,6 +125,22 @@ extern char *mail_pathname(const char *, const char *);
 #define MAIL_ATTR_SASL_METHOD	"sasl_method"
 #define MAIL_ATTR_SASL_USERNAME	"sasl_username"
 #define MAIL_ATTR_SASL_SENDER	"sasl_sender"
+#define MAIL_ATTR_ETRN_DOMAIN	"etrn_domain"
+#define MAIL_ATTR_DUMMY		"dummy"
+#define MAIL_ATTR_RWR_CONTEXT	"rewrite_context"
+
+#define MAIL_ATTR_RWR_LOCAL	"local"
+#define MAIL_ATTR_RWR_REMOTE	"remote"
+
+#define MAIL_ATTR_TTL		"ttl"
+#define MAIL_ATTR_LABEL		"label"
+#define MAIL_ATTR_PROP		"property"
+#define MAIL_ATTR_CCERT_SUBJECT	"ccert_subject"
+#define MAIL_ATTR_CCERT_ISSUER	"ccert_issuer"
+#define MAIL_ATTR_CCERT_FINGERPRINT "ccert_fingerprint"
+#define MAIL_ATTR_CRYPTO_PROTOCOL "encryption_protocol"
+#define MAIL_ATTR_CRYPTO_CIPHER	"encryption_cipher"
+#define MAIL_ATTR_CRYPTO_KEYSIZE "encryption_keysize"
 
  /*
   * Suffixes for sender_name, sender_domain etc.
@@ -146,13 +166,24 @@ extern char *mail_pathname(const char *, const char *);
 #define MAIL_ATTR_ENC_8BIT	"8bit"	/* 8BITMIME equivalent */
 #define MAIL_ATTR_ENC_7BIT	"7bit"	/* 7BIT equivalent */
 #define MAIL_ATTR_ENC_NONE	""	/* encoding unknown */
-#define MAIL_ATTR_CLIENT	"client"	/* client name[addr] */
-#define MAIL_ATTR_CLIENT_NAME	"client_name"	/* client hostname */
-#define MAIL_ATTR_CLIENT_ADDR	"client_address"	/* client address */
-#define MAIL_ATTR_HELO_NAME	"helo_name"	/* SMTP helo name */
-#define MAIL_ATTR_PROTO_NAME	"protocol_name"	/* SMTP/ESMTP/QMQP/... */
+
+#define MAIL_ATTR_LOG_CLIENT_NAME "log_client_name"	/* client hostname */
+#define MAIL_ATTR_LOG_CLIENT_ADDR "log_client_address"	/* client address */
+#define MAIL_ATTR_LOG_HELO_NAME	"log_helo_name"	/* SMTP helo name */
+#define MAIL_ATTR_LOG_PROTO_NAME "log_protocol_name"	/* SMTP/ESMTP/QMQP */
+#define MAIL_ATTR_LOG_ORIGIN	"log_message_origin"	/* hostname[address] */
+
+#define MAIL_ATTR_ACT_CLIENT	"client"/* client name addr */
+#define MAIL_ATTR_ACT_CLIENT_NAME "client_name"	/* client name */
+#define MAIL_ATTR_ACT_CLIENT_ADDR "client_address"	/* client address */
+#define MAIL_ATTR_ACT_CLIENT_PORT "client_port"	/* client TCP port */
+#define MAIL_ATTR_ACT_CLIENT_AF	"client_address_type"	/* AF_INET etc. */
+#define MAIL_ATTR_ACT_HELO_NAME	"helo_name"	/* SMTP helo name */
+#define MAIL_ATTR_ACT_PROTO_NAME "protocol_name"	/* SMTP/ESMTP/QMQP */
+#define MAIL_ATTR_ACT_REVERSE_CLIENT_NAME "reverse_client_name"
+#define MAIL_ATTR_ACT_FORWARD_CLIENT_NAME "forward_client_name"
+
 #define MAIL_ATTR_PROTO_STATE	"protocol_state"	/* MAIL/RCPT/... */
-#define MAIL_ATTR_ORIGIN	"message_origin"	/* hostname[address] */
 #define MAIL_ATTR_ORG_NONE	"unknown"	/* origin unknown */
 #define MAIL_ATTR_ORG_LOCAL	"local"	/* local submission */
 
@@ -161,6 +192,10 @@ extern char *mail_pathname(const char *, const char *);
   */
 #define XCLIENT_CMD		"XCLIENT"	/* XCLIENT command */
 #define XCLIENT_NAME		"NAME"		/* client name */
+#define XCLIENT_REVERSE_NAME	"REVERSE_NAME"	/* reverse client name */
+#ifdef FORWARD_CLIENT_NAME
+#define XCLIENT_FORWARD_NAME	"FORWARD_NAME"	/* forward client name */
+#endif
 #define XCLIENT_ADDR		"ADDR"		/* client address */
 #define XCLIENT_PROTO		"PROTO"		/* client protocol */
 #define XCLIENT_HELO		"HELO"		/* client helo */
@@ -174,8 +209,25 @@ extern char *mail_pathname(const char *, const char *);
 #define XFORWARD_PROTO		"PROTO"		/* client protocol */
 #define XFORWARD_HELO		"HELO"		/* client helo */
 #define XFORWARD_IDENT		"IDENT"		/* message identifier */
+#define XFORWARD_DOMAIN		"SOURCE"	/* origin type */
+#define XFORWARD_DOM_LOCAL	"LOCAL"		/* local origin */
+#define XFORWARD_DOM_REMOTE	"REMOTE"	/* remote origin */
 
 #define XFORWARD_UNAVAILABLE	"[UNAVAILABLE]"	/* attribute unavailable */
+
+ /*
+  * DSN support.
+  */
+#define MAIL_ATTR_DSN_STATUS	"status"/* XXX Postfix <2.3 compat */
+#define MAIL_ATTR_DSN_DTYPE	"diag_type"	/* dsn diagnostic code */
+#define MAIL_ATTR_DSN_DTEXT	"diag_text"	/* dsn diagnostic code */
+#define MAIL_ATTR_DSN_MTYPE	"mta_type"	/* dsn remote MTA */
+#define MAIL_ATTR_DSN_MNAME	"mta_mname"	/* dsn remote MTA */
+#define MAIL_ATTR_DSN_ACTION	"action"/* XXX Postfix <2.3 compat */
+#define MAIL_ATTR_DSN_ENVID	"envelope_id"	/* dsn envelope id */
+#define MAIL_ATTR_DSN_RET	"ret_flags"	/* dsn full/headers */
+#define MAIL_ATTR_DSN_NOTIFY	"notify_flags"	/* dsn notify flags */
+#define MAIL_ATTR_DSN_ORCPT	"dsn_orig_rcpt"	/* dsn original recipient */
 
 /* LICENSE
 /* .ad

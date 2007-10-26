@@ -1,3 +1,0 @@
-echo "rm CVS dir(s) "
-find . \( -name "CVS" \) -exec rm -rf {} \;
-

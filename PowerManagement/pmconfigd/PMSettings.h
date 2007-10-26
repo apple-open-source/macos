@@ -34,12 +34,16 @@
 /* Power Management profile bits */
 enum {
     kPMForceLowSpeedProfile         = (1<<0),
-    kPMForceHighSpeed               = (1<<1)
+    kPMForceHighSpeed               = (1<<1),
+    kPMPreventIdleSleep             = (1<<2),
+    kPMPreventDisplaySleep          = (1<<3)
 };
 
 __private_extern__ void PMSettings_prime(void);
  
 __private_extern__ void PMSettingsSleepWakeNotification(natural_t);
+
+__private_extern__ void PMSettingsSupportedPrefsListHasChanged(void);
 
 __private_extern__ void PMSettingsPrefsHaveChanged(void);
 
@@ -51,6 +55,8 @@ __private_extern__ void PMSettingsConsoleUserHasChanged(void);
 
 // For UPS shutdown/restart code in PSLowPower.c
 __private_extern__ CFDictionaryRef  PMSettings_CopyActivePMSettings(void);
+
+__private_extern__ IOReturn _activateForcedSettings(CFDictionaryRef);
 
 // For IOPMAssertions code in SetActive.c
 __private_extern__ void overrideSetting(int, int);

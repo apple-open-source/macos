@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  *  edit.c - common routines for vi and emacs one line editors in shell
@@ -37,6 +33,7 @@
 #include	<ctype.h>
 #include	"FEATURE/options"
 #include	"FEATURE/time"
+#include	"FEATURE/cmds"
 #ifdef _hdr_utime
 #   include	<utime.h>
 #   include	<ls.h>
@@ -47,16 +44,20 @@
 #   include	"variables.h"
 #else
     extern char ed_errbuf[];
-    char e_version[] = "\n@(#)$Id: Editlib version 1993-12-28 p- $\0\n";
+    char e_version[] = "\n@(#)$Id: Editlib version 1993-12-28 r $\0\n";
 #endif	/* KSHELL */
 #include	"io.h"
 #include	"terminal.h"
 #include	"history.h"
 #include	"edit.h"
 
+static char CURSOR_UP[20] = { ESC, '[', 'A', 0 };
+
 #if SHOPT_MULTIBYTE
+#   define is_cntrl(c)	((c<=STRIP) && iscntrl(c))
 #   define is_print(c)	((c&~STRIP) || isprint(c))
 #else
+#   define is_cntrl(c)	iscntrl(c)
 #   define is_print(c)	isprint(c)
 #endif
 
@@ -132,7 +133,7 @@
 #if KSHELL
      static int keytrap(Edit_t *,char*, int, int, int);
 #else
-     struct edit editb;
+     Edit_t editb;
 #endif	/* KSHELL */
 
 
@@ -257,7 +258,7 @@ void tty_cooked(register int fd)
  *
 }*/
 
-tty_raw(register int fd, int echomode)
+int tty_raw(register int fd, int echomode)
 {
 	int echo = echomode;
 #ifdef L_MASK
@@ -384,7 +385,7 @@ tty_raw(register int fd, int echomode)
  */
 
 #   ifdef TIOCGETC
-tty_alt(register int fd)
+int tty_alt(register int fd)
 {
 	register Edit_t *ep = (Edit_t*)(sh_getinterp()->ed_context);
 	int mask;
@@ -432,7 +433,7 @@ tty_alt(register int fd)
 #	    define IEXTEN	0
 #	endif /* IEXTEN */
 
-tty_alt(register int fd)
+int tty_alt(register int fd)
 {
 	register Edit_t *ep = (Edit_t*)(sh_getinterp()->ed_context);
 	switch(ep->e_raw)
@@ -582,6 +583,7 @@ void ed_crlf(register Edit_t *ep)
 
 void	ed_setup(register Edit_t *ep, int fd, int reedit)
 {
+	Shell_t *shp = ep->sh;
 	register char *pp;
 	register char *last;
 	char *ppmax;
@@ -589,18 +591,30 @@ void	ed_setup(register Edit_t *ep, int fd, int reedit)
 	register int qlen = 1;
 	char inquote = 0;
 	ep->e_fd = fd;
+	ep->e_multiline = sh_isoption(SH_MULTILINE)!=0;
+#ifdef SIGWINCH
+	if(!(shp->sigflag[SIGWINCH]&SH_SIGFAULT))
+	{
+		signal(SIGWINCH,sh_fault);
+		shp->sigflag[SIGWINCH] |= SH_SIGFAULT;
+	}
+	pp = shp->st.trapcom[SIGWINCH];
+	shp->st.trapcom[SIGWINCH] = 0;
+	sh_fault(SIGWINCH);
+	shp->st.trapcom[SIGWINCH] = pp;
+#endif
 #if KSHELL
 	ep->e_stkptr = stakptr(0);
 	ep->e_stkoff = staktell();
-	if(!(last = sh.prompt))
+	if(!(last = shp->prompt))
 		last = "";
-	sh.prompt = 0;
+	shp->prompt = 0;
 #else
 	last = ep->e_prbuff;
 #endif /* KSHELL */
-	if(sh.hist_ptr)
+	if(shp->hist_ptr)
 	{
-		register History_t *hp = sh.hist_ptr;
+		register History_t *hp = shp->hist_ptr;
 		ep->e_hismax = hist_max(hp);
 		ep->e_hismin = hist_min(hp);
 	}
@@ -609,7 +623,11 @@ void	ed_setup(register Edit_t *ep, int fd, int reedit)
 		ep->e_hismax = ep->e_hismin = ep->e_hloff = 0;
 	}
 	ep->e_hline = ep->e_hismax;
-	ep->e_wsize = ed_window()-2;
+	if(!sh_isoption(SH_VI) && !sh_isoption(SH_EMACS) && !sh_isoption(SH_GMACS))
+		ep->e_wsize = MAXLINE;
+	else
+		ep->e_wsize = ed_window()-2;
+	ep->e_winsz = ep->e_wsize+2;
 	ep->e_crlf = 1;
 	ep->e_plen = 0;
 	pp = ep->e_prompt;
@@ -711,12 +729,39 @@ void	ed_setup(register Edit_t *ep, int fd, int reedit)
 	}
 	qlen = sfset(sfstderr,SF_READ,0);
 	/* make sure SF_READ not on */
-	ep->e_outbase = ep->e_outptr = (char*)sfreserve(sfstderr,SF_UNBOUND,1);
+	ep->e_outbase = ep->e_outptr = (char*)sfreserve(sfstderr,SF_UNBOUND,SF_LOCKR);
 	ep->e_outlast = ep->e_outptr + sfvalue(sfstderr);
 	if(qlen)
 		sfset(sfstderr,SF_READ,1);
 	sfwrite(sfstderr,ep->e_outptr,0);
 	ep->e_eol = reedit;
+	if(ep->e_multiline)
+	{
+#ifdef _cmd_tput
+		char *term;
+		if(!ep->e_term)
+			ep->e_term = nv_search("TERM",shp->var_tree,0);
+		if(ep->e_term && (term=nv_getval(ep->e_term)) && strlen(term)<sizeof(ep->e_termname) && strcmp(term,ep->e_termname))
+		{
+			sh_trap(".sh.subscript=$(tput cuu1 2>/dev/null)",0);
+			if(pp=nv_getval(SH_SUBSCRNOD))
+				strncpy(CURSOR_UP,pp,sizeof(CURSOR_UP)-1);
+			nv_unset(SH_SUBSCRNOD);
+			strcpy(ep->e_termname,term);
+		}
+#endif
+		ep->e_wsize = MAXLINE - (ep->e_plen-2);
+	}
+	if(ep->e_default && (pp = nv_getval(ep->e_default)))
+	{
+		n = strlen(pp);
+		if(n > LOOKAHEAD)
+			n = LOOKAHEAD;
+		ep->e_lookahead = n;
+		while(n-- > 0)
+			ep->e_lbuf[n] = *pp++;
+		ep->e_default = 0;
+	}
 }
 
 /*
@@ -733,8 +778,9 @@ int ed_read(void *context, int fd, char *buff, int size, int reedit)
 	register Edit_t *ep = (Edit_t*)context;
 	register int rv= -1;
 	register int delim = (ep->e_raw==RAWMODE?'\r':'\n');
+	Shell_t *shp = ep->sh;
 	int mode = -1;
-	int (*waitevent)(int,long,int) = sh.waitevent;
+	int (*waitevent)(int,long,int) = shp->waitevent;
 	if(ep->e_raw==ALTMODE)
 		mode = 1;
 	if(size < 0)
@@ -744,10 +790,10 @@ int ed_read(void *context, int fd, char *buff, int size, int reedit)
 	}
 	sh_onstate(SH_TTYWAIT);
 	errno = EINTR;
-	sh.waitevent = 0;
+	shp->waitevent = 0;
 	while(rv<0 && errno==EINTR)
 	{
-		if(sh.trapnote&(SH_SIGSET|SH_SIGTRAP))
+		if(shp->trapnote&(SH_SIGSET|SH_SIGTRAP))
 			goto done;
 		/* an interrupt that should be ignored */
 		errno = 0;
@@ -783,7 +829,7 @@ int ed_read(void *context, int fd, char *buff, int size, int reedit)
 			rv = read(fd,buff,size);
 			if(rv>=0 || errno!=EINTR)
 				break;
-			if(sh.trapnote&(SH_SIGSET|SH_SIGTRAP))
+			if(shp->trapnote&(SH_SIGSET|SH_SIGTRAP))
 				goto done;
 			/* an interrupt that should be ignored */
 			fixtime();
@@ -792,7 +838,7 @@ int ed_read(void *context, int fd, char *buff, int size, int reedit)
 	else if(rv>=0 && mode>0)
 		rv = read(fd,buff,rv>0?rv:1);
 done:
-	sh.waitevent = waitevent;
+	shp->waitevent = waitevent;
 	sh_offstate(SH_TTYWAIT);
 	return(rv);
 }
@@ -919,7 +965,7 @@ int ed_getchar(register Edit_t *ep,int mode)
 		/* check for possible key mapping */
 		if((c = ep->e_lbuf[--ep->e_lookahead]) < 0)
 		{
-			if(mode<=0 && sh.st.trap[SH_KEYTRAP])
+			if(mode<=0 && ep->sh->st.trap[SH_KEYTRAP])
 			{
 				n=1;
 				if((readin[0]= -c) == ESC)
@@ -960,6 +1006,8 @@ int ed_getchar(register Edit_t *ep,int mode)
 		/*** map '\r' to '\n' ***/
 		if(c == '\r' && mode!=2)
 			c = '\n';
+		if(ep->e_tabcount && !(c=='\t'||c==ESC || c=='\\' || c=='=' || c==cntl('L') || isdigit(c)))
+			ep->e_tabcount = 0;
 	}
 	else
 		siglongjmp(ep->e_env,(n==0?UEOF:UINTR));
@@ -1013,10 +1061,136 @@ void	ed_putchar(register Edit_t *ep,register int c)
 }
 
 /*
+ * returns the line and column corresponding to offset <off> in the physical buffer
+ * if <cur> is non-zero and <= <off>, then correspodning <curpos> will start the search 
+ */
+Edpos_t ed_curpos(Edit_t *ep,genchar *phys, int off, int cur, Edpos_t curpos)
+{
+	register genchar *sp=phys;
+	register int c=1, col=ep->e_plen;
+	Edpos_t pos;
+#if SHOPT_MULTIBYTE
+	char p[16];
+#endif /* SHOPT_MULTIBYTE */
+	if(cur && off>=cur)
+	{
+		sp += cur; 
+		off -= cur;
+		pos = curpos;
+		col = pos.col;
+	}
+	else
+		pos.line = 0;
+	while(off-->0)
+	{
+		if(c)
+			c = *sp++;
+#if SHOPT_MULTIBYTE
+		if(c && (mbconv(p, (wchar_t)c))==1 && p[0]=='\n')
+#else
+		if(c=='\n')
+#endif /* SHOPT_MULTIBYTE */
+			col = 0;
+		else
+			col++;
+		if(col >  ep->e_winsz)
+			col = 0;
+		if(col==0)
+			pos.line++;
+	}
+	pos.col = col;
+	return(pos);
+}
+
+static void ed_putstring(register Edit_t *ep, const char *str)
+{
+	register int c;
+	while(c = *str++)
+		ed_putchar(ep,c);
+}
+
+int ed_setcursor(register Edit_t *ep,genchar *physical,register int old,register int new,int first)
+{
+	static int oldline;
+	register int delta;
+	Edpos_t newpos;
+
+	delta = new - old;
+	if( delta == 0 )
+		return(new);
+	if(ep->e_multiline)
+	{
+		ep->e_curpos = ed_curpos(ep, physical, old,0,ep->e_curpos);
+		newpos =     ed_curpos(ep, physical, new,old,ep->e_curpos);
+		if(ep->e_curpos.col==0 && ep->e_curpos.line>0 && oldline<ep->e_curpos.line && delta<0)
+			ed_putstring(ep,"\r\n");
+		oldline = newpos.line;
+		if(ep->e_curpos.line > newpos.line)
+		{
+			int n;
+			for(;ep->e_curpos.line > newpos.line; ep->e_curpos.line--)
+				ed_putstring(ep,CURSOR_UP);
+			if(newpos.line==0 && (n=ep->e_plen- ep->e_curpos.col)>0)
+			{
+				ep->e_curpos.col += n;
+				ed_putchar(ep,'\r');
+				if(!ep->e_crlf)
+					ed_putstring(ep,ep->e_prompt);
+				else
+				{
+					int m = ep->e_winsz+1-ep->e_plen;
+					ed_putchar(ep,'\n');
+					n = ep->e_plen;
+					if(m < ed_genlen(physical))
+					{
+						while(physical[m] && n-->0)
+							ed_putchar(ep,physical[m++]);
+					}
+					while(n-->0)
+						ed_putchar(ep,' ');
+					ed_putstring(ep,CURSOR_UP);
+				}
+			}
+		}
+		else if(ep->e_curpos.line < newpos.line)
+		{
+			for(;ep->e_curpos.line < newpos.line;ep->e_curpos.line++)
+				ed_putchar(ep,'\n');
+			ed_putchar(ep,'\r');
+			ep->e_curpos.col = 0;
+		}
+		delta = newpos.col - ep->e_curpos.col;
+		old   =  new - delta;
+	}
+	else
+		newpos.line=0;
+	if(delta<0)
+	{
+		/*** move to left ***/
+		delta = -delta;
+		/*** attempt to optimize cursor movement ***/
+		if(!ep->e_crlf || (2*delta <= ((old-first)+(newpos.line?0:ep->e_plen))) )
+		{
+			for( ; delta; delta-- )
+				ed_putchar(ep,'\b');
+		}
+		else
+		{
+			if(newpos.line==0)
+				ed_putstring(ep,ep->e_prompt);
+			old = first;
+			delta = new-first;
+		}
+	}
+	while(delta-->0)
+		ed_putchar(ep,physical[old++]);
+	return(new);
+}
+
+/*
  * copy virtual to physical and return the index for cursor in physical buffer
  */
-
-ed_virt_to_phys(Edit_t *ep,genchar *virt,genchar *phys,int cur,int voff,int poff)
+int ed_virt_to_phys(Edit_t *ep,genchar *virt,genchar *phys,int cur,int voff,int poff)
 {
 	register genchar *sp = virt;
 	register genchar *dp = phys;
@@ -1030,10 +1204,9 @@ ed_virt_to_phys(Edit_t *ep,genchar *virt,genchar *phys,int cur,int voff,int poff
 	{
 		if(curp == sp)
 			r = dp - phys;
-		d = (is_print(c)?1:-1);
 #if SHOPT_MULTIBYTE
 		d = mbwidth((wchar_t)c);
-		if(d==1 && !is_print(c))
+		if(d==1 && is_cntrl(c))
 			d = -1;
 		if(d>1)
 		{
@@ -1047,6 +1220,8 @@ ed_virt_to_phys(Edit_t *ep,genchar *virt,genchar *phys,int cur,int voff,int poff
 			continue;
 		}
 		else
+#else
+		d = (is_cntrl(c)?-1:1);
 #endif	/* SHOPT_MULTIBYTE */
 		if(d<0)
 		{
@@ -1089,7 +1264,7 @@ int	ed_internal(const char *src, genchar *dest)
 	register const unsigned char *cp = (unsigned char *)src;
 	register int c;
 	register wchar_t *dp = (wchar_t*)dest;
-	if((unsigned char*)dest == cp)
+	if(dest == (genchar*)roundof(cp-(unsigned char*)0,sizeof(genchar)))
 	{
 		genchar buffer[MAXLINE];
 		c = ed_internal(src,buffer);
@@ -1146,6 +1321,8 @@ int	ed_external(const genchar *src, char *dest)
 
 void	ed_gencpy(genchar *dp,const genchar *sp)
 {
+	dp = (genchar*)roundof((char*)dp-(char*)0,sizeof(genchar));
+	sp = (const genchar*)roundof((char*)sp-(char*)0,sizeof(genchar));
 	while(*dp++ = *sp++);
 }
 
@@ -1155,6 +1332,8 @@ void	ed_gencpy(genchar *dp,const genchar *sp)
 
 void	ed_genncpy(register genchar *dp,register const genchar *sp, int n)
 {
+	dp = (genchar*)roundof((char*)dp-(char*)0,sizeof(genchar));
+	sp = (const genchar*)roundof((char*)sp-(char*)0,sizeof(genchar));
 	while(n-->0 && (*dp++ = *sp++));
 }
 
@@ -1165,6 +1344,7 @@ void	ed_genncpy(register genchar *dp,register const genchar *sp, int n)
 int	ed_genlen(register const genchar *str)
 {
 	register const genchar *sp = str;
+	sp = (const genchar*)roundof((char*)sp-(char*)0,sizeof(genchar));
 	while(*sp++);
 	return(sp-str-1);
 }
@@ -1271,6 +1451,7 @@ static int keytrap(Edit_t *ep,char *inbuff,register int insize, int bufsize, int
 {
 	register char *cp;
 	int savexit;
+	Shell_t *shp = ep->sh;
 #if SHOPT_MULTIBYTE
 	char buff[MAXLINE];
 	ed_external(ep->e_inbuf,cp=buff);
@@ -1290,9 +1471,9 @@ static int keytrap(Edit_t *ep,char *inbuff,register int insize, int bufsize, int
 	nv_putval(ED_COLNOD,(char*)&ep->e_col,NV_NOFREE|NV_INTEGER);
 	nv_putval(ED_TXTNOD,(char*)cp,NV_NOFREE);
 	nv_putval(ED_MODENOD,ep->e_vi_insert,NV_NOFREE);
-	savexit = sh.savexit;
-	sh_trap(sh.st.trap[SH_KEYTRAP],0);
-	sh.savexit = savexit;
+	savexit = shp->savexit;
+	sh_trap(shp->st.trap[SH_KEYTRAP],0);
+	shp->savexit = savexit;
 	if((cp = nv_getval(ED_CHRNOD)) == inbuff)
 		nv_unset(ED_CHRNOD);
 	else
@@ -1307,7 +1488,7 @@ static int keytrap(Edit_t *ep,char *inbuff,register int insize, int bufsize, int
 
 void	*ed_open(Shell_t *shp)
 {
-	Edit_t *ed = newof(0,struct edit ,1,0);
+	Edit_t *ed = newof(0,Edit_t,1,0);
 	ed->sh = shp;
 	strcpy(ed->e_macro,"_??");
 	return((void*)ed);

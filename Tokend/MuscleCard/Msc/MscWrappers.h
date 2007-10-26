@@ -159,4 +159,3 @@ std::ostream& operator << (std::ostream& strm, const MscStatusInfo& ti);
 
 #endif /* !_MSCWRAPPERS_H_ */
 
-/* arch-tag: 95430E62-BE68-11D8-914A-000A95C4302E */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -154,11 +154,20 @@ void ThresholdAclSubject::exportBlob(Writer &pub, Writer &priv)
 { exportBlobForm(pub, priv); }
 
 
+void ThresholdAclSubject::add(AclSubject *subject, unsigned beforePosition)
+{
+	secdebug("threshacl", "adding subject %p before position %u",
+		subject, beforePosition);
+	elements.insert(elements.begin() + beforePosition, subject);
+	totalSubjects++;
+}
+
+
 #ifdef DEBUGDUMP
 
 void ThresholdAclSubject::debugDump() const
 {
-	Debug::dump("Threshold(%ld of %ld)", minimumNeeded, totalSubjects);
+	Debug::dump("Threshold(%u of %u)", minimumNeeded, totalSubjects);
 	for (unsigned int n = 0; n < elements.size(); n++) {
 		Debug::dump(" [");
 		if (Version v = elements[n]->version())

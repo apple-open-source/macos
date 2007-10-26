@@ -98,7 +98,6 @@ Forward declarations
 
 static int	l2tp_wan_output(struct ppp_link *link, mbuf_t m);
 static int 	l2tp_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data);
-static int 	l2tp_wan_findfreeunit(u_short *freeunit);
 
 /* -----------------------------------------------------------------------------
 Globals
@@ -135,7 +134,7 @@ attach L2TP interface dlil layer
 int l2tp_wan_attach(void *rfc, struct ppp_link **link)
 {
     int 		ret;	
-    struct l2tp_wan  	*wan;
+    struct l2tp_wan  	*wan, *wan1;
     struct ppp_link  	*lk;
     u_short 		unit;
 	
@@ -148,14 +147,24 @@ int l2tp_wan_attach(void *rfc, struct ppp_link **link)
     if (!wan)
         return ENOMEM;
 
-    if (l2tp_wan_findfreeunit(&unit)) {
-        FREE(wan, M_TEMP);
-        return ENOMEM;
-    }
-
     bzero(wan, sizeof(struct l2tp_wan));
 
-    TAILQ_INSERT_TAIL(&l2tp_wan_head, wan, next);
+	// find a unit and where to insert it, keep the list ordered
+	unit = 0;
+    wan1 = TAILQ_FIRST(&l2tp_wan_head);
+    while (wan1) {
+    	if (wan1->link.lk_unit > unit)
+            break;
+
+		unit = wan1->link.lk_unit + 1;
+        wan1 = TAILQ_NEXT(wan1, next);
+    }
+
+	if (wan1)
+		TAILQ_INSERT_BEFORE(wan1, wan, next);
+	else
+		TAILQ_INSERT_TAIL(&l2tp_wan_head, wan, next);
+		
     lk = (struct ppp_link *) wan;
     
     // it's time now to register our brand new link
@@ -198,28 +207,6 @@ void l2tp_wan_detach(struct ppp_link *link)
     ppp_link_detach(link);
     TAILQ_REMOVE(&l2tp_wan_head, wan, next);
     FREE(wan, M_TEMP);
-}
-
-/* -----------------------------------------------------------------------------
-find a free unit in the interface list
------------------------------------------------------------------------------ */
-int l2tp_wan_findfreeunit(u_short *freeunit)
-{
-    struct l2tp_wan  	*wan = TAILQ_FIRST(&l2tp_wan_head);
-    u_short 		unit = 0;
-	
-	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
-
-    while (wan) {
-    	if (wan->link.lk_unit == unit) {
-            unit++;
-            wan = TAILQ_FIRST(&l2tp_wan_head); // restart
-        }
-        else 
-            wan = TAILQ_NEXT(wan, next); // continue
-    }
-    *freeunit = unit;
-    return 0;
 }
 
 /* -----------------------------------------------------------------------------

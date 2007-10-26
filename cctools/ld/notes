@@ -23,6 +23,86 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
+Changes for the 5.24 release (the cctools-663 release):
+- Changed the code in ld.[ch], pass1.c, symbols.c, layout.c and pass2.c for
+  the new get_macosx_deployment_target() interface.  Radar bug #5132019.
+
+Changes for the 5.24 release (the cctools-662 release):
+- Changed kld so it will propagate the LC_UUID from the last object file being
+  linked into the output.  Radar bug #5137807.
+  - Changed check_cur_obj() in pass1.c for #ifdef KLD to always clear the
+    output_uuid_info to zeros and then if the object file being checked has an
+    LC_UUID command copy that into the output_uuid_info.
+  - Changed layout() in layout.c for #ifndef KLD so it does not clear the
+    output_uuid_info and create the uuid load command if the
+    output_uuid_info.uuid_command.cmdsize is non-zero.
+
+Changes for the 5.24 release (the cctools-653 release):
+- Backed out the change for Radar bug #4930693 in internal_kld_load() in kld.c
+  to #ifdef KLD so that RLD_DEBUG_OUTPUT_FILENAME_flag is always set to 1.  This
+  was causing problems the way the prelinked kernel is generated.  Radar bug
+  #4930693.
+- Updated dylibs.c and pass1.c to handle the LC_REEXPORT_DYLIB load command.
+  Radar bug #4986624.
+
+Changes for the 5.24 release (the cctools-651 release):
+- Changed pass1() in pass1.c to swap the load command part of load commands
+  it doen't look at so when the other code in merge_dylib() in dylibs.c steps
+  over them it does not crash.  Radar bug #4953247.
+
+Changes for the 5.24 release (the cctools-650 release):
+- Changed internal_kld_load() in kld.c to #ifdef KLD so that
+  RLD_DEBUG_OUTPUT_FILENAME_flag is always set to 1.  Radar bug #4930693.
+
+Changes for the 5.24 release (the cctools-649 release):
+- Added some checks in generic_reloc.c to cause an error if the r_address field
+  were to be truncated.  Radar bug #4921122.
+- Fixed an internal error when using -s and a private external symbol is marked
+  with REFERENCED_DYNAMICALLY.  The change was in output_merged_symbols() in
+  symbols.c to not save a private external that has REFERENCED_DYNAMICALLY set
+  so this matches what assign_output_symbol_indexes() did for the -s case and
+  does not get the internal error when trying to find the string for this
+  symbol.  Radar bug #4885434.
+
+Changes for the 5.24 release (the cctools-639 release):
+- Added support for -install_name, -compatibility_version, -current_version
+  and -noall_load. Radar bug #4758790
+
+Changes for the 5.24 release (the cctools-636 release):
+- Fixed the check added below for warning about shared libraries with no table
+  of contents entries to not issue that warning when the shared library does not
+  defined any external symbols (which is the case for umbrella's).  Radar bug
+  #4733384.
+
+Changes for the 5.24 release (the cctools-634 release):
+- Changed check_cur_obj() in pass1.c to add a case statement for
+  LC_SEGMENT_SPLIT_INFO and simply ignore it as it is not looked at for linking.
+  Also added a warning for shared libraries with no table of contents entries
+  saying can't resolve symbols from it.  Radar bug #4695477.
+
+Changes for the 5.24 release (the cctools-633 release):
+- Changed indirect_sections.c and pass1.c to deal with the change of type for
+  indirect symbols to uint32_t * when ported to 64-bit. Radar bug #4407440.
+
+Changes for the 5.24 release (the cctools-631 release):
+- Fixed a bug with the symbol align_to_input_mod() not being defined for RLD
+  builds.  The fix was to add #ifdef RLD around it in sections.c.  Radar bug
+ #4685060
+
+Changes for the 5.24 release (the cctools-629 release):
+- Fixed a bug that did not get the internal alignment correct for fine reloc
+  blocks in coalesced sections.  coalesced_section_merge() in
+  coalesced_sections.c needed to use the align_to_input_mod() routine that was
+  in sections.c instead of calling round() in two places.  Radar bug #4599790.
+
+Changes for the 5.24 release (the cctools-626 release):
+- Changed check_cur_obj() in pass1.c to add a case statement for
+  LC_CODE_SIGNATURE and simply ignore it as it is not looked at for linking.
+  Radar bug #4588023.
+
+Changes for the 5.24 release (the cctools-623 release):
+- Changed the Makefile it installs in /usr/bin/ld_classic . Radar bug #4606627.
+
 Changes for the 5.23 release (the cctools-619 release):
 - Fixed a bug that caused the "internal error: output_local_symbols()'
   inconsistent local symbol count" when discarding a weak symbol from an object

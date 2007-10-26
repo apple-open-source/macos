@@ -4,23 +4,24 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2004-12-08</string>
+		<string>2006-09-15</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>OpenLDAP.txt</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>added NetInfo backend</string>
+			<string>added dynid overlay</string>
+			<string>added idattr dynacl</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>OpenLDAP</string>
 		<key>OpenSourceSHA1</key>
-		<string>cc74d3a62ca79eb169aa112d8ee19a26f7079194</string>
+		<string>c2b6ac3ec89d0f58d079592946d045dba45edafe</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.OpenLDAP.org/pub/OpenLDAP/openldap-release/openldap-2.2.19.tgz</string>
+		<string>ftp://ftp.OpenLDAP.org/pub/OpenLDAP/openldap-release/openldap-2.3.27.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>2.2.19</string>
+		<string>2.3.27</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.openldap.org</string>
 	</dict>

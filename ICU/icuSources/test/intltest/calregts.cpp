@@ -1,7 +1,7 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
- * others. All Rights Reserved.
+ * Copyright (c) 1997-2006, International Business Machines Corporation
+ * and others. All Rights Reserved.
  ********************************************************************/
  
 #include "unicode/utypes.h"
@@ -215,6 +215,16 @@ CalendarRegressionTest::test4031502()
     UErrorCode status = U_ZERO_ERROR;
     StringEnumeration* ids = TimeZone::createEnumeration();
     UBool bad = FALSE;
+    TimeZone* tz =TimeZone::createTimeZone("Asia/Riyadh87");
+    failure(status, "new TimeZone");
+    GregorianCalendar *cl = new GregorianCalendar(tz, status);
+    failure(status, "new GregorianCalendar");
+    cl->clear();
+    cl->set(1900, 15, 5, 5, 8, 13);
+    cl->get(UCAL_HOUR, status);
+    failure(status, "cl->get(UCAL_HOUR, status)");
+    status = U_ZERO_ERROR;
+    delete cl;
     for (int32_t i=0; i<ids->count(status); ++i) {
         TimeZone *zone = TimeZone::createTimeZone(*ids->snext(status));
         GregorianCalendar *cal = new GregorianCalendar(zone, status);
@@ -539,6 +549,9 @@ void CalendarRegressionTest::dowTest(UBool lenient)
         errln("FAIL: actual minimum differs from minimum");
     }
     if(cal->getActualMinimum(Calendar::DAY_OF_WEEK, status) != min) {
+        errln("FAIL: actual minimum (Calendar::DAY_OF_WEEK, status) differs from minimum");
+    }
+    if(cal->getActualMinimum(Calendar::DAY_OF_WEEK) != min) {
         errln("FAIL: actual minimum (Calendar::DAY_OF_WEEK) differs from minimum");
     }
     if(((Calendar*)cal)->getActualMinimum(UCAL_DAY_OF_WEEK, status) != min) {
@@ -1352,6 +1365,7 @@ void CalendarRegressionTest::test4125881()
       return;
     }
     DateFormat *fmt = new SimpleDateFormat(UnicodeString("MMMM d, yyyy G"),status);
+    if(!assertSuccess("trying to construct", status))return;
     cal->clear();
     for (int32_t y=-20; y<=10; ++y) {
         cal->set(UCAL_ERA, y < 1 ? GregorianCalendar::BC : GregorianCalendar::AD);
@@ -1381,6 +1395,7 @@ void CalendarRegressionTest::test4125892() {
       return;
     }
     DateFormat *fmt = new SimpleDateFormat(UnicodeString("MMMM d, yyyy G"),status);
+    if(!assertSuccess("trying to construct", status))return;
     cal->clear();
     cal->set(UCAL_ERA, GregorianCalendar::BC);
     cal->set(UCAL_YEAR, 81); // 81 BC is a leap year (proleptically)
@@ -1946,7 +1961,7 @@ void CalendarRegressionTest::TestJ81() {
     UErrorCode status = U_ZERO_ERROR;
     UnicodeString temp, temp2, temp3;
     int32_t i;
-    GregorianCalendar cal(TimeZone::createTimeZone("GMT"), status);
+    GregorianCalendar cal(TimeZone::createTimeZone("GMT"), Locale::getUS(), status);
     SimpleDateFormat fmt("HH:mm 'w'w 'd'D E d MMM yyyy", Locale::getUS(), status);
     if (U_FAILURE(status)) {
         errln("Error: Cannot create calendar or format");

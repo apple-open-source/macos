@@ -1,5 +1,5 @@
---- Makefile.in.orig	Sun Sep  5 14:31:43 2004
-+++ Makefile.in	Sun Sep  5 14:32:03 2004
+--- Makefile.in.orig	2005-08-21 18:42:14.000000000 -0700
++++ Makefile.in	2006-05-26 16:53:52.000000000 -0700
 @@ -2,7 +2,7 @@
  # [need allow_null_glob_expansion=true]
  # The parts behind % are removed when no message catalogs should be installed
@@ -8,8 +8,8 @@
 +all:	Makefile conf_script source manpages %messages
  	@echo; echo 'You can now do "make install"'
  
- Makefile: Makefile.in configure
-@@ -42,9 +42,8 @@
+ # On a machine with time before distribution time
+@@ -45,9 +45,8 @@
  %gencat/gencat:
  %	cd gencat; $(MAKE)
  

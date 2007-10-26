@@ -78,7 +78,8 @@
     <para>
       <application>xsltproc</application> is invoked from the command line with
       the name of the stylesheet to be used followed by the name of the file or
-      files to which the stylesheet is to be applied.
+      files to which the stylesheet is to be applied. It will use the standard
+      input if a filename provided is - .
     </para>
 
     <para>

@@ -1,8 +1,9 @@
-thisconfigdir=./..
+thisconfigdir=../../..
 myfulldir=lib/gssapi/generic
-mydir=generic
+mydir=lib/gssapi/generic
 BUILDTOP=$(REL)..$(S)..$(S)..
-LOCALINCLUDES = -I. -I$(srcdir)
+LOCALINCLUDES = -I. -I$(srcdir) -I$(srcdir)/..
+DEFS=
 
 ##DOS##BUILDTOP = ..\..\..
 ##DOS##PREFIXDIR=generic
@@ -37,16 +38,20 @@ $(OUTPRE)gssapi_err_generic.$(OBJEXT): gssapi_err_generic.c
 gssapi_err_generic.h: gssapi_err_generic.et
 gssapi_err_generic.c: gssapi_err_generic.et
 
+include_stdint=@include_stdint@
+include_inttypes=@include_inttypes@
 include_xom=@include_xom@
-##DOS##include_xom=
-gssapi.h: gssapi.hin
+##DOS##include_stdint=rem
+##DOS##include_inttypes=rem
+##DOS##include_xom=rem
+gssapi.h: gssapi.hin $(BUILDTOP)/include/autoconf.h
 	@echo "Creating gssapi.h" ; \
 	h=gss$$$$; $(RM) $$h; \
 	(echo "/* This is the gssapi.h prologue. */"; \
-	echo "/* It contains some choice pieces of autoconf.h */"; \
-	sed -n "/SIZEOF/s//GSS_&/p" < $(BUILDTOP)/include/krb5/autoconf.h; \
-	$(include_xom); \
-	echo "/* End of gssapi.h prologue. */"; \
+	$(include_stdint) && \
+	$(include_inttypes) && \
+	$(include_xom) && \
+	echo "/* End of gssapi.h prologue. */"&& \
 	cat $(srcdir)/gssapi.hin )> $$h && \
 	(set -x; $(MV) $$h $@) ; e=$$?; $(RM) $$h; exit $$e
 
@@ -62,11 +67,9 @@ SRCS = \
 	$(srcdir)/disp_com_err_status.c \
 	$(srcdir)/disp_major_status.c \
 	$(srcdir)/gssapi_generic.c \
-	$(srcdir)/oid_ops.c \
 	$(srcdir)/rel_buffer.c \
 	$(srcdir)/rel_oid_set.c \
 	$(srcdir)/util_buffer.c \
-	$(srcdir)/util_oid.c \
 	$(srcdir)/util_ordering.c \
 	$(srcdir)/util_set.c \
 	$(srcdir)/util_token.c \
@@ -77,11 +80,9 @@ OBJS = \
 	$(OUTPRE)disp_com_err_status.$(OBJEXT) \
 	$(OUTPRE)disp_major_status.$(OBJEXT) \
 	$(OUTPRE)gssapi_generic.$(OBJEXT) \
-	$(OUTPRE)oid_ops.$(OBJEXT) \
 	$(OUTPRE)rel_buffer.$(OBJEXT) \
 	$(OUTPRE)rel_oid_set.$(OBJEXT) \
 	$(OUTPRE)util_buffer.$(OBJEXT) \
-	$(OUTPRE)util_oid.$(OBJEXT) \
 	$(OUTPRE)util_ordering.$(OBJEXT) \
 	$(OUTPRE)util_set.$(OBJEXT) \
 	$(OUTPRE)util_token.$(OBJEXT) \
@@ -92,11 +93,9 @@ STLIBOBJS = \
 	disp_com_err_status.o \
 	disp_major_status.o \
 	gssapi_generic.o \
-	oid_ops.o \
 	rel_buffer.o \
 	rel_oid_set.o \
 	util_buffer.o \
-	util_oid.o \
 	util_ordering.o \
 	util_set.o \
 	util_token.o \
@@ -128,6 +127,8 @@ clean-windows::
 	$(RM) $(HDRS)
 	-if exist $(EHDRDIR)\nul rmdir $(EHDRDIR)
 
+generate-files-mac: gssapi.h
+
 # Krb5InstallHeaders($(EXPORTED_HEADERS), $(KRB5_INCDIR)/krb5)
 install-headers-unix install:: gssapi.h
 	@set -x; for f in $(EXPORTED_HEADERS) ; \
@@ -141,61 +142,64 @@ install-headers-unix install:: gssapi.h
 
 depend:: $(ETSRCS)
 
-# @libobj_frag@
+@libobj_frag@
 
 # +++ Dependency line eater +++
 # 
 # Makefile dependencies follow.  This must be the last section in
 # the Makefile.in file
 #
-disp_com_err_status.so disp_com_err_status.po $(OUTPRE)disp_com_err_status.$(OBJEXT): disp_com_err_status.c \
-  gssapiP_generic.h $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-disp_major_status.so disp_major_status.po $(OUTPRE)disp_major_status.$(OBJEXT): disp_major_status.c \
-  gssapiP_generic.h $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-gssapi_generic.so gssapi_generic.po $(OUTPRE)gssapi_generic.$(OBJEXT): gssapi_generic.c \
-  gssapiP_generic.h $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-oid_ops.so oid_ops.po $(OUTPRE)oid_ops.$(OBJEXT): oid_ops.c gssapiP_generic.h \
-  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-rel_buffer.so rel_buffer.po $(OUTPRE)rel_buffer.$(OBJEXT): rel_buffer.c gssapiP_generic.h \
-  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-rel_oid_set.so rel_oid_set.po $(OUTPRE)rel_oid_set.$(OBJEXT): rel_oid_set.c gssapiP_generic.h \
-  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-util_buffer.so util_buffer.po $(OUTPRE)util_buffer.$(OBJEXT): util_buffer.c gssapiP_generic.h \
-  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-util_oid.so util_oid.po $(OUTPRE)util_oid.$(OBJEXT): util_oid.c gssapiP_generic.h \
-  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-util_ordering.so util_ordering.po $(OUTPRE)util_ordering.$(OBJEXT): util_ordering.c gssapiP_generic.h \
-  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-util_set.so util_set.po $(OUTPRE)util_set.$(OBJEXT): util_set.c gssapiP_generic.h \
-  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-util_token.so util_token.po $(OUTPRE)util_token.$(OBJEXT): util_token.c gssapiP_generic.h \
-  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-util_validate.so util_validate.po $(OUTPRE)util_validate.$(OBJEXT): util_validate.c gssapiP_generic.h \
-  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/krb5/autoconf.h \
-  gssapi_generic.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  gssapi_err_generic.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h
-gssapi_err_generic.so gssapi_err_generic.po $(OUTPRE)gssapi_err_generic.$(OBJEXT): gssapi_err_generic.c \
-  $(COM_ERR_DEPS)
-
+disp_com_err_status.so disp_com_err_status.po $(OUTPRE)disp_com_err_status.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/gssapi.h $(SRCTOP)/include/k5-platform.h \
+  $(SRCTOP)/include/k5-thread.h $(srcdir)/../gss_libinit.h \
+  disp_com_err_status.c gssapiP_generic.h gssapi_err_generic.h \
+  gssapi_generic.h
+disp_major_status.so disp_major_status.po $(OUTPRE)disp_major_status.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  disp_major_status.c gssapiP_generic.h gssapi_err_generic.h \
+  gssapi_generic.h
+gssapi_generic.so gssapi_generic.po $(OUTPRE)gssapi_generic.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  gssapiP_generic.h gssapi_err_generic.h gssapi_generic.c \
+  gssapi_generic.h
+rel_buffer.so rel_buffer.po $(OUTPRE)rel_buffer.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  gssapiP_generic.h gssapi_err_generic.h gssapi_generic.h \
+  rel_buffer.c
+rel_oid_set.so rel_oid_set.po $(OUTPRE)rel_oid_set.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  gssapiP_generic.h gssapi_err_generic.h gssapi_generic.h \
+  rel_oid_set.c
+util_buffer.so util_buffer.po $(OUTPRE)util_buffer.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  gssapiP_generic.h gssapi_err_generic.h gssapi_generic.h \
+  util_buffer.c
+util_ordering.so util_ordering.po $(OUTPRE)util_ordering.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  gssapiP_generic.h gssapi_err_generic.h gssapi_generic.h \
+  util_ordering.c
+util_set.so util_set.po $(OUTPRE)util_set.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  gssapiP_generic.h gssapi_err_generic.h gssapi_generic.h \
+  util_set.c
+util_token.so util_token.po $(OUTPRE)util_token.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  gssapiP_generic.h gssapi_err_generic.h gssapi_generic.h \
+  util_token.c
+util_validate.so util_validate.po $(OUTPRE)util_validate.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/gssapi.h $(SRCTOP)/include/k5-platform.h \
+  $(SRCTOP)/include/k5-thread.h $(srcdir)/../gss_libinit.h \
+  gssapiP_generic.h gssapi_err_generic.h gssapi_generic.h \
+  util_validate.c
+gssapi_err_generic.so gssapi_err_generic.po $(OUTPRE)gssapi_err_generic.$(OBJEXT): \
+  $(COM_ERR_DEPS) gssapi_err_generic.c

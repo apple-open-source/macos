@@ -55,6 +55,11 @@ __RCSID("$NetBSD: mkfifo.c,v 1.8 1997/10/19 05:11:54 lukem Exp $");
 #include <sys/stat.h>
 #include <unistd.h>
 #include <err.h>
+#ifdef __APPLE__
+#include <get_compat.h>
+#else 
+#define COMPAT_MODE(a,b) (1) 
+#endif /* __APPLE__ */ 
 
 int	main __P((int, char **));
 static void usage __P((void));
@@ -67,17 +72,21 @@ main(argc, argv)
 	int ch, exitval;
 	void * set;
 	mode_t mode;
+	int m_used = 0;
 
 	setlocale (LC_ALL, "");
 
 	/* The default mode is the value of the bitwise inclusive or of
 	   S_IRUSR, S_IWUSR, S_IRGRP, S_IWGRP, S_IROTH, and S_IWOTH
 	   modified by the file creation mask */
-	mode = 0666 & ~umask(0);
+	if (!COMPAT_MODE("bin/mkfifo", "Unix2003")) {
+		mode = 0666 & ~umask(0);
+	}
 
 	while ((ch = getopt(argc, argv, "m:")) != -1)
 		switch(ch) {
 		case 'm':
+			m_used = 1;
 			if (!(set = setmode(optarg))) {
 				errx(1, "invalid file mode.");
 				/* NOTREACHED */
@@ -95,6 +104,12 @@ main(argc, argv)
 	argv += optind;
 	if (argv[0] == NULL)
 		usage();
+
+	if (COMPAT_MODE("bin/mkfifo", "Unix2003")) {
+		mode_t maskbits = umask(0);	/* now must disable umask so -m mode won't be masked again */
+		if (!m_used)
+			mode = 0666 & ~maskbits;
+	}
 
 	for (exitval = 0; *argv; ++argv) {
 		if (mkfifo(*argv, mode) < 0) {

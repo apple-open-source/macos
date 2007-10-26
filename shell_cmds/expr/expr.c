@@ -254,7 +254,7 @@ error()
 struct val *
 eval6()
 {
-	struct val     *v;
+	struct val *v;
 
 	if (token == OPERAND) {
 		nexttoken();
@@ -265,11 +265,73 @@ eval6()
 		v = eval0();
 
 		if (token != LP)
-			error();
+         		error();
+		  
 		nexttoken();
 		return v;
 	} else {
-		error();
+	   
+		switch (token) {
+	   	case DIV:
+			 nexttoken();
+		   	 tokval = make_str("/");
+		   	 break;
+	   	case MUL: 
+			 nexttoken();
+		    	 tokval = make_str("*");
+		   	 break;
+	   	case OR: 
+		   	 nexttoken();
+		   	 tokval = make_str("|");
+		   	 break;
+	   	case AND: 
+		   	 nexttoken();
+		   	 tokval = make_str("&");
+		   	 break;
+	   	case EQ: 
+		   	 nexttoken();
+		  	 tokval = make_str("=");
+		 	 break;
+	   	case LT: 
+		  	 nexttoken();
+		  	 tokval = make_str("<");
+		  	 break;
+	   	case GT: 
+		  	 nexttoken();
+		  	 tokval = make_str(">");
+		  	 break;
+	   	case ADD: 
+		  	 nexttoken();
+		  	 tokval = make_str("+");
+		  	 break;
+	   	case SUB: 
+		    	 nexttoken();
+		  	 tokval = make_str("-");
+		  	 break;
+	   	case MOD: 
+		   	 nexttoken();
+		  	 tokval = make_str("%");
+		  	 break;
+	   	case NE: 
+		  	 nexttoken();
+		  	 tokval = make_str("!=");
+		  	 break;
+	   	case LE: 
+		  	 nexttoken();
+		  	 tokval = make_str("<=");
+		  	 break;
+	   	case MATCH:
+		  	 nexttoken();
+		  	 tokval = make_str(":");
+		  	 break;
+	   	case GE: 
+		  	 nexttoken();
+		  	 tokval = make_str(">=");
+		  	 break;
+	   	case EOI:
+		  	 error();
+		}
+        	return tokval;
 	}
 	/* NOTREACHED */
 }
@@ -550,7 +612,7 @@ main(argc, argv)
 
 	(void) setlocale(LC_ALL, "");
 	av = argv + 1;
-	if (!strcmp(*av, "--"))
+	if (*av && !strcmp(*av, "--"))
 	    av++;
 	nexttoken();
 	vp = eval0();

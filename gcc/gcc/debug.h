@@ -18,6 +18,35 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #ifndef GCC_DEBUG_H
 #define GCC_DEBUG_H
 
+/* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
+#include "input.h"
+/* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
+
+/* APPLE LOCAL begin opt diary */
+/* Optimization diary messages */
+enum debug_od_msg
+  {
+    OD_msg_loop_vectorized,
+    OD_msg_loop_not_vectorized,
+    OD_msg_loop_vectorized_using_versioning,
+    OD_msg_loop_vectorized_using_peeling,
+    OD_msg_loop_not_vectorized_multiple_exits,    
+    OD_msg_loop_not_vectorized_bad_data_ref,
+    OD_msg_loop_not_vectorized_unsupported_ops,
+    OD_msg_loop_not_vectorized_data_dep
+  };
+
+/* Optimization diary entry categories */
+enum debug_od_category
+  {
+    OD_parm_hint = 0x0001,
+    OD_limit = 0x0002,
+    OD_report = 0x0004,
+    OD_action = 0x0008,
+    OD_hint = 0x0010,
+    OD_command = 0x0020
+  };
+/* APPLE LOCAL end opt diary */
 /* This structure contains hooks for the debug information output
    functions, accessed through the global instance debug_hooks set in
    toplev.c according to command line options.  */
@@ -107,7 +136,9 @@ struct gcc_debug_hooks
   /* DECL is an inline function which is about to be emitted out of
      line.  The hook is useful to, e.g., emit abstract debug info for
      the inline before it gets mangled by optimization.  */
-  void (* outlining_inline_function) (tree decl);
+  /* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
+  void (* outlining_inline_function) (tree decl, source_locus);
+  /* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
 
   /* Called from final_scan_insn for any CODE_LABEL insn whose
      LABEL_NAME is non-null.  */
@@ -120,6 +151,10 @@ struct gcc_debug_hooks
   /* Called from final_scan_insn for any NOTE_INSN_VAR_LOCATION note.  */
   void (* var_location) (rtx);
 
+  /* APPLE LOCAL begin opt diary */
+  /* Called to emit optimization diary entry.  */
+  void (* opt_diary_entry) (enum debug_od_msg, expanded_location);
+  /* APPLE LOCAL end opt diary */
   /* This is 1 if the debug writer wants to see start and end commands for the
      main source files, and 0 otherwise.  */
   int start_end_main_source_file;
@@ -134,10 +169,15 @@ extern void debug_nothing_int_charstar (unsigned int, const char *);
 extern void debug_nothing_int (unsigned int);
 extern void debug_nothing_int_int (unsigned int, unsigned int);
 extern void debug_nothing_tree (tree);
+/* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
+extern void debug_nothing_tree_loc (tree, source_locus);
+/* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
 extern void debug_nothing_tree_int (tree, int);
 extern void debug_nothing_tree_tree (tree, tree);
 extern bool debug_true_tree (tree);
 extern void debug_nothing_rtx (rtx);
+/* APPLE LOCAL opt diary */
+extern void debug_nothing_od_msg_loc (enum debug_od_msg, expanded_location);
 
 /* Hooks for various debug formats.  */
 extern const struct gcc_debug_hooks do_nothing_debug_hooks;

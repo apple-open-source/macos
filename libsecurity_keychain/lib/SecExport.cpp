@@ -209,6 +209,7 @@ OSStatus SecKeychainItemExport(
 		/* Enumerate remainder explicitly for clarity; all are single-item forms */
 		case kSecFormatOpenSSL:
 		case kSecFormatSSH:
+		case kSecFormatSSHv2:
 		case kSecFormatBSAFE:
 		case kSecFormatRawKey:
 		case kSecFormatWrappedPKCS8:
@@ -291,7 +292,12 @@ errOut:
 		CFRelease(outputData);
 		outputData = NULL;
 	}
-	return ortn;
+	if(ortn) {
+		return SecKeychainErrFromOSStatus(ortn);
+	}
+	else {
+		return noErr;
+	}
 	
 	END_IMP_EXP_SECAPI
 }

@@ -67,7 +67,7 @@ static char     SCCSid[] = "com/gnuemacs/src,3.1,9021-90/05/03-5/3/90";
 #define QLOC   ((HFQLOCCH<<8)|HFQLOCCL)
 #define QPS    ((HFQPRESCH<<8)|HFQPRESCL)
 
-#ifndef TCGETS 
+#ifndef TCGETS
 #define TCGETS TCGETA
 #endif
 #ifndef TCSETS
@@ -337,3 +337,6 @@ WR_REQ (fd, request, cmdlen, cmd, resplen)
   return (0);
 
 }
+
+/* arch-tag: cfd4f3bd-fd49-44e6-9f69-c8abdf367650
+   (do not change this comment) */

@@ -1,24 +1,24 @@
-Uw lidmaatschap van de mailinglijst %(listname)s is stopgezet. Dit i.v.m.
-teveel bounces.U ontvangt geen berichten meer van deze lijst totdat u uw
-lidmaatschap heeft hersteld. U ontvangt nog %(noticesleft)s herinneringen als
-deze, voordat uw lidmaatschap wordt opgeheven.
+Uw lidmaatschap van de maillijst %(listname)s is tijdelijk stopgezet
+%(reason)s. U ontvangt geen berichten meer van deze lijst totdat u uw
+lidmaatschap heeft gereactiveerd. U ontvangt nog %(noticesleft)s meer
+herinneringen zoals deze, voordat uw lidmaatschap definitief wordt
+beeindigd.
 
-Om uw lidmaatschap te herstellen kunt u simpelweg op dit bericht reageren
-(laat de onderwerp:/subject: regel staan), of bezoek de bevestigingspagina op:
+Om uw lidmaatschap te reactiveren, hoeft u slechts een antwoord op dit
+bericht terug te sturen; laat de Subject: (Onderwerp:) regel intact.
+U kunt ook de bevestigingspagina bezoeken op:
 
     %(confirmurl)s
 
-U kunt ook uw lidmaatschapspagina bezoeken
+U kunt ook uw ledenpagina bezoeken op:
 
     %(optionsurl)s
 
-Op uw lidmaatschapspagina kunt u enkele bezorg opties wijzigen.
-Bijvoorbeeld uw e-mail adres wijzigen, aangeven of u dagelijks een overzicht van
-berichten wilt ontvangen (digest).
-Als extra herinnering, uw paswoord is:
+Op uw ledenpagina kunt u diverse instellingen veranderen, zoals uw e-mailadres en of u wel of niet gebundelde verzamelmails wilt ontvangen. Als herinnering volgt hier uw wachtwoord:
 
     %(password)s
 
-Heeft u nog vragen of problemen, neem dan contact op met de list owner op
+Als u vragen hebt of problemen tegenkomt, neem dan contact op met de
+lijstbeheerder op:
 
     %(owneraddr)s

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -99,7 +99,7 @@ int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, U
     UInt8 		desc[256]; // Max possible descriptor length
     int stringLen;
     IOReturn err;
-    if (lang == nil) // set default langID
+    if (lang == 0) // set default langID
         lang=0x0409;
     
 	bzero(&req, sizeof(req));
@@ -205,7 +205,7 @@ char * GetStringFromIndex(UInt8 strIndex, IOUSBDeviceRef deviceIntf) {
     if (strIndex > 0) {
         int len;
         buf[0] = 0;
-        len = GetStringDescriptor(deviceIntf, strIndex, buf, sizeof(buf), nil);
+        len = GetStringDescriptor(deviceIntf, strIndex, buf, sizeof(buf), 0);
         
         if (len > 2) {
             Byte *p;
@@ -524,7 +524,7 @@ NSString * VendorNameFromVendorID(NSString * intValueAsString) {
     if (gVendorNamesDictionary == nil) {
         gVendorNamesDictionary = [[NSMutableDictionary dictionary] retain];
         
-        NSString *vendorListString = [NSString stringWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"USBVendors" ofType:@"txt"]];
+        NSString *vendorListString = [NSString stringWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"USBVendors" ofType:@"txt"] encoding:NSUTF8StringEncoding error:NULL];
         
         if (vendorListString == nil) { 
             NSLog(@"USB Prober: Error reading USBVendors.txt from the Resources directory");

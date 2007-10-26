@@ -41,9 +41,6 @@
 .Nm setttyent ,
 .Nm endttyent
 .Nd get ttys file entry
-.Nm isdialuptty ,
-.Nm isnettty
-.Nd determine tty type from ttys file entry
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
@@ -56,10 +53,6 @@
 .Fn setttyent void
 .Ft int
 .Fn endttyent void
-.Ft int
-.Fn isdialuptty "const char *name"
-.Ft int
-.Fn isnettty "const char *name"
 .Sh DESCRIPTION
 The
 .Fn getttyent ,
@@ -110,14 +103,8 @@ on this entry).
 Allow users with a uid of 0 to login on this terminal.
 .It Dv TTY_DIALUP
 Identifies a tty as a dialin line.
-If this flag is set, then
-.Fn isdialuptty
-will return a non-zero value.
 .It Dv TTY_NETWORK
 Identifies a tty used for network connections.
-If this flag is set, then
-.Fn isnettty
-will return a non-zero value.
 .El
 .It Fa ty_window
 The command to execute for a window system associated with the line.
@@ -177,14 +164,6 @@ function
 and
 .Fn endttyent
 return 0 on failure and 1 on success.
-.Pp
-The routines
-.Fn isdialuptty
-and
-.Fn isnettty
-return non-zero if the dialup or network flag is set for the
-tty entry relating to the tty named by the parameter, and
-zero otherwise.
 .Sh FILES
 .Bl -tag -width /etc/ttys -compact
 .It Pa /etc/ttys

@@ -1,5 +1,6 @@
 /* Unexec for Sunos 4 using shared libraries.
-   Copyright (C) 1990, 1994, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1994, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Contributed by Viktor Dukhovni.  */
 /*
@@ -98,7 +99,7 @@ static int rd_only_len;
 static long cookie;
 
 
-unexec (new_name, a_name, bndry, bss_start, entry) 
+unexec (new_name, a_name, bndry, bss_start, entry)
      char *new_name, *a_name;
      unsigned bndry, bss_start, entry;
 {
@@ -163,7 +164,7 @@ unexec (new_name, a_name, bndry, bss_start, entry)
   /* Have to do this some time before dumping the data */
   initialized = 1;
 #endif
-  
+
   /* Handle new data and bss sizes and optional new entry point.
      No one actually uses bss_start and entry,  but tradition compels
      one to support them.
@@ -171,7 +172,7 @@ unexec (new_name, a_name, bndry, bss_start, entry)
      but the caller is *supposed* to know what she is doing.  */
   nhdr.a_data = (bss_start ? bss_start : brk_value) - N_DATADDR (nhdr);
   nhdr.a_bss  = bss_start ? brk_value - bss_start : 0;
-  if (entry) 
+  if (entry)
     nhdr.a_entry = entry;
 
   /*
@@ -296,14 +297,14 @@ run_time_remap (progname)
    * First try argv[0],  will almost always succeed as shells tend to give
    * the full path from the hash list rather than using execvp ()
    */
-  if (is_it (progname)) 
+  if (is_it (progname))
     return;
 
   /*
    * If argv[0] is a full path and does not exist,  not much sense in
    * searching further
    */
-  if (strchr (progname, '/')) 
+  if (strchr (progname, '/'))
     return;
 
   /*
@@ -375,3 +376,6 @@ is_it (filename)
     }
   return 0;
 }
+
+/* arch-tag: 30227420-2c6f-4700-a4f8-9e45e52f53b1
+   (do not change this comment) */

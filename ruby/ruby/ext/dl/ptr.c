@@ -1,5 +1,5 @@
 /* -*- C -*-
- * $Id: ptr.c,v 1.19 2003/10/22 14:29:20 ttate Exp $
+ * $Id: ptr.c 12039 2007-03-11 16:24:34Z knu $
  */
 
 #include <ruby.h>
@@ -466,7 +466,7 @@ rb_dlptr_inspect(VALUE self)
   char str[1024];
 
   Data_Get_Struct(self, struct ptr_data, data);
-  snprintf(str, 1023, "#<%s:0x%p ptr=0x%p size=%ld free=0x%p>",
+  snprintf(str, 1023, "#<%s:0x%x ptr=0x%x size=%ld free=0x%x>",
 	   rb_class2name(CLASS_OF(self)), data, data->ptr, data->size, data->free);
   return rb_str_new2(str);
 }
@@ -753,32 +753,32 @@ rb_dlptr_aref(int argc, VALUE argv[], VALUE self)
   switch (data->ctype) {
   case DLPTR_CTYPE_STRUCT:
     for (i=0; i < data->ids_num; i++) {
+      switch (data->stype[i]) {
+      case 'I':
+        DLALIGN(data->ptr,offset,INT_ALIGN);
+        break;
+      case 'L':
+        DLALIGN(data->ptr,offset,LONG_ALIGN);
+        break;
+      case 'P':
+      case 'S':
+        DLALIGN(data->ptr,offset,VOIDP_ALIGN);
+        break;
+      case 'F':
+        DLALIGN(data->ptr,offset,FLOAT_ALIGN);
+        break;
+      case 'D':
+        DLALIGN(data->ptr,offset,DOUBLE_ALIGN);
+        break;
+      case 'C':
+        break;
+      case 'H':
+        DLALIGN(data->ptr,offset,SHORT_ALIGN);
+        break;
+      default:
+        rb_raise(rb_eDLTypeError, "unsupported type '%c'", data->stype[i]);
+      }
       if (data->ids[i] == id) {
-	switch (data->stype[i]) {
-	case 'I':
-	  DLALIGN(data->ptr,offset,INT_ALIGN);
-	  break;
-	case 'L':
-	  DLALIGN(data->ptr,offset,LONG_ALIGN);
-	  break;
-	case 'P':
-	case 'S':
-	  DLALIGN(data->ptr,offset,VOIDP_ALIGN);
-	  break;
-	case 'F':
-	  DLALIGN(data->ptr,offset,FLOAT_ALIGN);
-	  break;
-	case 'D':
-	  DLALIGN(data->ptr,offset,DOUBLE_ALIGN);
-	  break;
-	case 'C':
-	  break;
-	case 'H':
-	  DLALIGN(data->ptr,offset,SHORT_ALIGN);
-	  break;
-	default:
-	  rb_raise(rb_eDLTypeError, "unsupported type '%c'", data->stype[i]);
-	}
 	return cary2ary((char *)data->ptr + offset, data->stype[i], data->ssize[i]);
       }
       switch (data->stype[i]) {
@@ -883,34 +883,35 @@ rb_dlptr_aset(int argc, VALUE argv[], VALUE self)
   case DLPTR_CTYPE_STRUCT:
     offset = 0;
     for (i=0; i < data->ids_num; i++) {
+      switch (data->stype[i]) {
+      case 'I':
+        DLALIGN(data->ptr,offset,INT_ALIGN);
+        break;
+      case 'L':
+        DLALIGN(data->ptr,offset,LONG_ALIGN);
+        break;
+      case 'P':
+      case 'S':
+        DLALIGN(data->ptr,offset,VOIDP_ALIGN);
+        break;
+      case 'D':
+        DLALIGN(data->ptr,offset,DOUBLE_ALIGN);
+        break;
+      case 'F':
+        DLALIGN(data->ptr,offset,FLOAT_ALIGN);
+        break;
+      case 'C':
+        break;
+      case 'H':
+        DLALIGN(data->ptr,offset,SHORT_ALIGN);
+        break;
+      default:
+        rb_raise(rb_eDLTypeError, "unsupported type '%c'", data->stype[i]);
+      }
       if (data->ids[i] == id) {
-	switch (data->stype[i]) {
-	case 'I':
-	  DLALIGN(data->ptr,offset,INT_ALIGN);
-	  break;
-	case 'L':
-	  DLALIGN(data->ptr,offset,LONG_ALIGN);
-	  break;
-	case 'P':
-	case 'S':
-	  DLALIGN(data->ptr,offset,VOIDP_ALIGN);
-	  break;
-	case 'D':
-	  DLALIGN(data->ptr,offset,DOUBLE_ALIGN);
-	  break;
-	case 'F':
-	  DLALIGN(data->ptr,offset,FLOAT_ALIGN);
-	  break;
-	case 'C':
-	  break;
-	case 'H':
-	  DLALIGN(data->ptr,offset,SHORT_ALIGN);
-	  break;
-	default:
-	  rb_raise(rb_eDLTypeError, "unsupported type '%c'", data->stype[i]);
-	}
 	memimg = ary2cary(data->stype[i], val, &memsize);
 	memcpy((char *)data->ptr + offset, memimg, memsize);
+        dlfree(memimg);
 	return val;
       }
       switch (data->stype[i]) {
@@ -981,6 +982,7 @@ rb_dlptr_aset(int argc, VALUE argv[], VALUE self)
 	}
 	memimg = ary2cary(data->stype[i], val, NULL);
 	memcpy(data->ptr, memimg, memsize);
+        dlfree(memimg);
       }
     }
     return val;

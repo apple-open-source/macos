@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,106 +42,83 @@ typedef const struct __BondPreferences *	BondPreferencesRef;
 typedef const struct __BondStatus *		BondStatusRef;
 
 
-enum {
-	kSCBondStatusOK			= 0,	/* enabled, active, running, ... */
-	kSCBondStatusLinkInvalid	= 1,	/* The link state was not valid (i.e. down, half-duplex, wrong speed) */
-	kSCBondStatusNoPartner		= 2,	/* The port on the switch that the device is connected doesn't seem to have 802.3ad Link Aggregation enabled */
-	kSCBondStatusNotInActiveGroup	= 3,	/* We're talking to a partner, but the link aggregation group is different from the one that's active */
-	kSCBondStatusUnknown		= 999	/* Non-specific failure */
-};
-
-extern const CFStringRef kSCBondStatusDeviceAggregationStatus	/* CFNumber */		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
-extern const CFStringRef kSCBondStatusDeviceCollecting		/* CFNumber (0 or 1) */	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
-extern const CFStringRef kSCBondStatusDeviceDistributing	/* CFNumber (0 or 1) */	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
-
-
 __BEGIN_DECLS
 
 // ----------
 
-extern const CFStringRef kSCNetworkInterfaceTypeBOND;
-
 Boolean
-SCNetworkInterfaceSupportsBonding	(SCNetworkInterfaceRef	interface)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
-
-SCNetworkInterfaceRef
-SCNetworkInterfaceCreateWithBond	(BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
-
-// ----------
-
-Boolean
-IsBondSupported				(CFStringRef		device)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;	// e.g. "en0", "en1", ...
+IsBondSupported				(CFStringRef		device)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// e.g. "en0", "en1", ...
 
 // ----------
 
 CFTypeID
-BondInterfaceGetTypeID			(void)						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondInterfaceGetTypeID			(void)						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 CFStringRef
-BondInterfaceGetInterface		(BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;	// returns "bond0", "bond1", ...
+BondInterfaceGetInterface		(BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// returns "bond0", "bond1", ...
 
 CFArrayRef /* of CFStringRef's */
-BondInterfaceGetDevices			(BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondInterfaceGetDevices			(BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 CFDictionaryRef
-BondInterfaceGetOptions			(BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;	// e.g. UserDefinedName, ...
+BondInterfaceGetOptions			(BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// e.g. UserDefinedName, ...
 
 // ----------
 
 CFTypeID
-BondPreferencesGetTypeID		(void)						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondPreferencesGetTypeID		(void)						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 BondPreferencesRef
-BondPreferencesCreate			(CFAllocatorRef		allocator)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondPreferencesCreate			(CFAllocatorRef		allocator)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 CFArrayRef /* of BondInterfaceRef's */
-BondPreferencesCopyInterfaces		(BondPreferencesRef	prefs)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondPreferencesCopyInterfaces		(BondPreferencesRef	prefs)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 BondInterfaceRef
-BondPreferencesCreateInterface		(BondPreferencesRef	prefs)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondPreferencesCreateInterface		(BondPreferencesRef	prefs)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 Boolean
 BondPreferencesRemoveInterface		(BondPreferencesRef	prefs,
-					 BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+					 BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 Boolean
 BondPreferencesAddDevice		(BondPreferencesRef	prefs,
 					 BondInterfaceRef	bond,
-					 CFStringRef		device)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;	// e.g. "en0", "en1", ...
+					 CFStringRef		device)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// e.g. "en0", "en1", ...
 
 Boolean
 BondPreferencesRemoveDevice		(BondPreferencesRef	prefs,
 					 BondInterfaceRef	bond,
-					 CFStringRef		device)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;	// e.g. "en0", "en1", ...
+					 CFStringRef		device)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// e.g. "en0", "en1", ...
 
 Boolean
 BondPreferencesSetOptions		(BondPreferencesRef	prefs,
 					 BondInterfaceRef	bond,
-					 CFDictionaryRef	newOptions)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+					 CFDictionaryRef	newOptions)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 Boolean
-BondPreferencesCommitChanges		(BondPreferencesRef	prefs)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondPreferencesCommitChanges		(BondPreferencesRef	prefs)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 Boolean
-BondPreferencesApplyChanges		(BondPreferencesRef	prefs)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondPreferencesApplyChanges		(BondPreferencesRef	prefs)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 // ----------
 
 CFTypeID
-BondStatusGetTypeID			(void)						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondStatusGetTypeID			(void)						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 BondStatusRef
-BondInterfaceCopyStatus			(BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondInterfaceCopyStatus			(BondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 CFArrayRef
-BondStatusGetDevices			(BondStatusRef		bondStatus)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondStatusGetDevices			(BondStatusRef		bondStatus)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 CFDictionaryRef
-BondStatusGetInterfaceStatus		(BondStatusRef		bondStatus)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+BondStatusGetInterfaceStatus		(BondStatusRef		bondStatus)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 CFDictionaryRef
 BondStatusGetDeviceStatus		(BondStatusRef		bondStatus,
-					 CFStringRef		device)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+					 CFStringRef		device)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 __END_DECLS
 

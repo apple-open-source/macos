@@ -1,5 +1,5 @@
 /*
-* Copyright (C) {1997-2004}, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) 1997-2006, International Business Machines Corporation and others. All Rights Reserved.
 ********************************************************************************
 *
 * File MSGFMT.H
@@ -19,6 +19,11 @@
 
 #include "unicode/utypes.h"
 
+/**
+ * \file 
+ * \brief C++ API: Formats messages in a language-neutral way.
+ */
+ 
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/format.h"
@@ -31,6 +36,7 @@ class NumberFormat;
 class DateFormat;
 
 /**
+ *
  * A MessageFormat produces concatenated messages in a
  * language-neutral way.  It should be used for all string
  * concatenations that are visible to end users.
@@ -179,6 +185,21 @@ class DateFormat;
  * If a pattern is used, then unquoted braces in the pattern, if any,
  * must match: that is, "ab {0} de" and "ab '}' de" are ok, but "ab
  * {0'}' de" and "ab } de" are not.
+ * <p>
+ * <dl><dt><b>Warning:</b><dd>The rules for using quotes within message
+ * format patterns unfortunately have shown to be somewhat confusing.
+ * In particular, it isn't always obvious to localizers whether single
+ * quotes need to be doubled or not. Make sure to inform localizers about
+ * the rules, and tell them (for example, by using comments in resource
+ * bundle source files) which strings will be processed by MessageFormat.
+ * Note that localizers may need to use single quotes in translated
+ * strings where the original version doesn't have them.
+ * <br>Note also that the simplest way to avoid the problem is to
+ * use the real apostrophe (single quote) character U+2019 (') for
+ * human-readable text, and to use the ASCII apostrophe (U+0027 ' )
+ * only in program syntax, like quoting in MessageFormat.
+ * See the annotations for U+0027 Apostrophe in The Unicode Standard.</p>
+ * </dl>
  * <P>
  * The argumentIndex is a non-negative integer, which corresponds to the
  * index of the arguments presented in an array to be formatted.  The
@@ -572,6 +593,28 @@ public:
     virtual void parseObject(const UnicodeString& source,
                              Formattable& result,
                              ParsePosition& pos) const;
+
+    /**
+     * Convert an 'apostrophe-friendly' pattern into a standard
+     * pattern.  Standard patterns treat all apostrophes as
+     * quotes, which is problematic in some languages, e.g. 
+     * French, where apostrophe is commonly used.  This utility
+     * assumes that only an unpaired apostrophe immediately before
+     * a brace is a true quote.  Other unpaired apostrophes are paired,
+     * and the resulting standard pattern string is returned.
+     *
+     * <p><b>Note</b> it is not guaranteed that the returned pattern
+     * is indeed a valid pattern.  The only effect is to convert
+     * between patterns having different quoting semantics.
+     *
+     * @param pattern the 'apostrophe-friendly' patttern to convert
+     * @param status    Input/output error code.  If the pattern
+     *                  cannot be parsed, the failure code is set.
+     * @return the standard equivalent of the original pattern
+     * @stable ICU 3.4
+     */
+    static UnicodeString autoQuoteApostrophe(const UnicodeString& pattern, 
+        UErrorCode& status);
 
     /**
      * Returns a unique class ID POLYMORPHICALLY.  Pure virtual override.

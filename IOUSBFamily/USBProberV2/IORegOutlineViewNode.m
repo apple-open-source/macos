@@ -30,13 +30,13 @@
 
 - initWithName:(NSString *)name value:(NSString *)value {
     if (self = [super initWithName:name value:value]) {
-        _representedDevice = nil;
+        _representedDevice = IO_OBJECT_NULL;
     }
     return self;
 }
 
 - (void)dealloc {
-    if (_representedDevice != nil) {
+    if (_representedDevice != IO_OBJECT_NULL) {
         IOObjectRelease(_representedDevice);
     }
     [super dealloc];
@@ -47,7 +47,7 @@
 }
 
 - (void)setRepresentedDevice:(io_object_t)object {
-    if (_representedDevice != nil) {
+    if (_representedDevice != IO_OBJECT_NULL) {
         IOObjectRelease(_representedDevice);
     }
     IOObjectRetain(object);

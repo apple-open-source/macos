@@ -1,0 +1,162 @@
+.\" $XFree86$
+.\"
+.\" Copyright 2004 Red Hat Inc., Durham, North Carolina.
+.\" All Rights Reserved.
+.\"
+.\" Permission is hereby granted, free of charge, to any person obtaining
+.\" a copy of this software and associated documentation files (the
+.\" "Software"), to deal in the Software without restriction, including
+.\" without limitation on the rights to use, copy, modify, merge,
+.\" publish, distribute, sublicense, and/or sell copies of the Software,
+.\" and to permit persons to whom the Software is furnished to do so,
+.\" subject to the following conditions:
+.\"
+.\" he above copyright notice and this permission notice (including the
+.\" next paragraph) shall be included in all copies or substantial
+.\" portions of the Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+.\" NON-INFRINGEMENT.  IN NO EVENT SHALL RED HAT AND/OR THEIR SUPPLIERS
+.\" BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+.\" ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+.\" CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+.\" SOFTWARE.
+.TH DMXAddInput 3X __vendorversion__
+.SH NAME
+DMXAddInput, DMXAddBackendInput, DMXAddConsoleInput \- attach a new input
+.SH SYNOPSIS
+.B #include <X11/extensions/dmxext.h>
+.sp
+.nf
+.BI "Bool DMXAddInput(Display " *dpy ,
+.BI "                 unsigned int " mask ,
+.BI "                 DMXInputAttributes " *attr ,
+.BI "                 int " *id );
+.br
+.BI "Bool DMXAddBackendInput(Display " *dpy ,
+.BI "                        int " screen ,
+.BI "                        int " sendsCore ,
+.BI "                        int " *newId );
+.br
+.BI "Bool DMXAddConsoleInput(Display " *dpy ,
+.BI "                        const char " *name ,
+.BI "                        int " sendsCore ,
+.BI "                        int " *newId );
+.fi
+.SH DESCRIPTION
+.B DMXAddInput()
+is used to attach a new input (or a previously detached input) to the
+.BR Xdmx (1)
+server.
+.I mask
+specifies the fields in
+.I attr
+that are active, and
+.I id
+returns the device if of the first device in the series that is added.
+.PP
+The value of
+.I mask
+is computed from the following values:
+.sp
+.nf
+DMXInputType
+DMXInputPhysicalScreen
+DMXInputSendsCore
+.fi
+.PP
+The
+.B DMXInputAttributes
+structure is:
+.sp
+.nf
+typedef struct {
+    DMXInputEnum inputType;
+    int          physicalScreen;
+    int          physicalId;
+    Bool         isCore;
+    Bool         sendsCore;
+    const char   *name;
+    Bool         detached;
+} DMXInputAttributes;
+.fi
+.PP
+.I inputType
+may bave the value
+.B DmxConsoleInputType " or " DmxBackendInputType .
+.PP
+For console devices,
+.I name
+will specify the display to be used.
+.PP
+For back-end devices,
+.I physicalScreen
+will specify the
+.BR Xdmx (1)
+screen number.
+.PP
+If
+.I sendsCore
+is
+.BR True ,
+the new device will be added as a true core device.
+.PP
+If a device was removed with
+.BR DMXRemoveInput (3X)
+an attempt will be made to reconnect the previous devices
+.RI ( sendsCore
+is ignored in this case).
+.PP
+.B DMXAddBackendInput()
+is a helper function that is used to add input from a back-end server.
+With this function,
+.I screen
+refers to the back-end screen,
+.I sendsCore
+is
+.B True
+if the new input should send core events (and it ignored if the input
+has been detached), and
+.I newId
+will hold the device id of the first device in the series added.
+.PP
+.B DMXAddConsoleInput()
+is a helper function that is used to add input from a console.  With
+this function,
+.I name
+is the name of the console display,
+.I sendsCore
+is
+.B True
+if the new input should send core events (and it ignored if the input
+has been detached), and
+.I newId
+will hold the device id of the first device in the series added.
+.SH "RETURN VALUE"
+.B DMXAddInput()
+returns
+.B True
+on success and
+.B False
+otherwise.
+.PP
+.B DMXAddInput()
+can generate
+.B BadValue
+(if
+.I inputType
+is invalid or
+.I physicalScreen
+is out of range),
+.B BadAccess
+(if the input has already been attached or if the backend screen is
+currently detached).
+.SH NOTES
+Local devices cannot be attached or detached.
+.PP
+Attributes that are not specified will default to 0.  This may lead to
+unintended results.
+.SH "SEE ALSO"
+.BR DMXRemoveInput "(3X), " DMX "(3X), " Xdmx (1)

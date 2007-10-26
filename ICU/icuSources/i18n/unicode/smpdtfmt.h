@@ -1,5 +1,5 @@
 /*
-* Copyright (C) {1997-2004}, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) 1997-2006, International Business Machines Corporation and others. All Rights Reserved.
 *******************************************************************************
 *
 * File SMPDTFMT.H
@@ -25,6 +25,11 @@
 
 #include "unicode/utypes.h"
 
+/**
+ * \file 
+ * \brief C++ API: Format and parse dates in a language-independent manner.
+ */
+ 
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/datefmt.h"
@@ -35,6 +40,7 @@ class DateFormatSymbols;
 class DateFormat;
 
 /**
+ *
  * SimpleDateFormat is a concrete class for formatting and parsing dates in a
  * language-independent manner. It allows for formatting (millis -> text),
  * parsing (text -> millis), and normalization. Formats/Parses a date or time,
@@ -78,8 +84,9 @@ class DateFormat;
  * a        am/pm marker            (Text)              PM
  * k        hour in day (1~24)      (Number)            24
  * K        hour in am/pm (0~11)    (Number)            0
- * z        time zone               (Text)              Pacific Standard Time
+ * z        time zone               (Time)              Pacific Standard Time
  * Z        time zone (RFC 822)     (Number)            -0800
+ * v        time zone (generic)     (Text)              Pacific Time
  * g        Julian day              (Number)            2451334
  * A        milliseconds in day     (Number)            69540000
  * '        escape for text         (Delimiter)         'Date='
@@ -113,11 +120,11 @@ class DateFormat;
  * \code
  *    Format Pattern                         Result
  *    --------------                         -------
- *    "yyyy.MM.dd G 'at' HH:mm:ss z"    ->>  1996.07.10 AD at 15:08:56 PDT
+ *    "yyyy.MM.dd G 'at' HH:mm:ss vvvv" ->>  1996.07.10 AD at 15:08:56 Pacific Time
  *    "EEE, MMM d, ''yy"                ->>  Wed, July 10, '96
  *    "h:mm a"                          ->>  12:08 PM
  *    "hh 'o''clock' a, zzzz"           ->>  12 o'clock PM, Pacific Daylight Time
- *    "K:mm a, z"                       ->>  0:00 PM, PST
+ *    "K:mm a, vvv"                     ->>  0:00 PM, PT
  *    "yyyyy.MMMMM.dd GGG hh:mm aaa"    ->>  1996.July.10 AD 12:08 PM
  * \endcode
  * </pre>
@@ -717,6 +724,21 @@ private:
                         const UnicodeString* stringArray, int32_t stringArrayCount, Calendar& cal) const;
 
     /**
+     * Private code-size reduction function used by subParse.
+     * @param text the time text being parsed.
+     * @param start where to start parsing.
+     * @param field the date field being parsed.
+     * @param stringArray the string array to parsed.
+     * @param stringArrayCount the size of the array.
+     * @param cal a Calendar set to the date and time to be formatted
+     *            into a date/time string.
+     * @return the new start position if matching succeeded; a negative number
+     * indicating matching failure, otherwise.
+     */
+    int32_t matchQuarterString(const UnicodeString& text, int32_t start, UCalendarDateFields field,
+                               const UnicodeString* stringArray, int32_t stringArrayCount, Calendar& cal) const;
+
+    /**
      * Private member function that converts the parsed date strings into
      * timeFields. Returns -start (for ParsePosition) if failed.
      * @param text the time text to be parsed.
@@ -766,6 +788,25 @@ private:
     void         parseAmbiguousDatesAsAfter(UDate startDate, UErrorCode& status);
 
     /**
+     * Given text, a start in the text, and a row index, return the column index that
+     * of the zone name that matches (case insensitive) at start, or 0 if none matches.
+     *
+    int32_t      matchZoneString(const UnicodeString& text, int32_t start, int32_t zi) const;
+    */
+
+    /**
+     * Given text, a start in the text, and a calendar, return the next offset in the text
+     * after matching the zone string.  If we fail to match, return 0.  Update the calendar
+     * as appropriate.
+     */
+    int32_t      subParseZoneString(const UnicodeString& text, int32_t start, Calendar& cal, UErrorCode& status) const;
+    
+    /**
+     * append the gmt string
+     */
+    inline void appendGMT(UnicodeString &appendTo, Calendar& cal, UErrorCode& status) const;
+
+    /**
      * Used to map pattern characters to Calendar field identifiers.
      */
     static const UCalendarDateFields fgPatternIndexToCalendarField[];
@@ -805,6 +846,8 @@ private:
      * See documentation for defaultCenturyStart.
      */
     /*transient*/ int32_t   fDefaultCenturyStartYear;
+
+    /*transient*/ TimeZone* parsedTimeZone; // here to avoid api change
 
     UBool fHaveDefaultCentury;
 };

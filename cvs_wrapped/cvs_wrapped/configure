@@ -3325,12 +3325,8 @@ if test "$ac_cv_header_gssapi_h" = "yes" || test "$ac_cv_header_gssapi_gssapi_h"
 EOF
 
   includeopt="${includeopt} -I$gssapi_includedir"
-  # FIXME: This is ugly, but these things don't seem to be standardized.
-  if test "$ac_cv_header_gssapi_h" = "yes"; then
-    LIBS="$LIBS -L$GSSAPI/lib -lgssapi -lkrb5 -lasn1 -ldes -lroken"
-  else
-    LIBS="$LIBS -L$GSSAPI/lib -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err"
-  fi
+  # 4905819: Link against the correct Kerberos libs.
+  LIBS="$LIBS -L$GSSAPI/lib -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err"
   save_CPPFLAGS=$CPPFLAGS
   CPPFLAGS="-I$gssapi_includedir $CPPFLAGS"
   if test "$ac_cv_header_gssapi_h" = "yes"; then

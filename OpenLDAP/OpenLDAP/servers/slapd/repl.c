@@ -1,8 +1,8 @@
 /* repl.c - log modifications for replication purposes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/repl.c,v 1.49.2.6 2004/04/12 18:13:21 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/repl.c,v 1.65.2.9 2006/04/05 20:07:02 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,14 +41,14 @@
 
 int
 add_replica_info(
-    Backend     *be,
-    const char  *host 
-)
+	Backend		*be,
+	const char	*uri, 
+	const char	*host )
 {
 	int i = 0;
 
-	assert( be );
-	assert( host );
+	assert( be != NULL );
+	assert( host != NULL );
 
 	if ( be->be_replica != NULL ) {
 		for ( ; be->be_replica[ i ] != NULL; i++ );
@@ -59,12 +59,49 @@ add_replica_info(
 
 	be->be_replica[ i ] 
 		= ch_calloc( sizeof( struct slap_replica_info ), 1 );
-	be->be_replica[ i ]->ri_host = ch_strdup( host );
+	ber_str2bv( uri, 0, 0, &be->be_replica[ i ]->ri_bindconf.sb_uri );
+	be->be_replica[ i ]->ri_host = host;
 	be->be_replica[ i ]->ri_nsuffix = NULL;
 	be->be_replica[ i ]->ri_attrs = NULL;
 	be->be_replica[ i + 1 ] = NULL;
 
 	return( i );
+}
+
+int
+destroy_replica_info(
+	Backend		*be )
+{
+	int i = 0;
+
+	assert( be != NULL );
+
+	if ( be->be_replica == NULL ) {
+		return 0;
+	}
+
+	for ( ; be->be_replica[ i ] != NULL; i++ ) {
+		ber_bvarray_free( be->be_replica[ i ]->ri_nsuffix );
+
+		if ( be->be_replica[ i ]->ri_attrs ) {
+			AttributeName	*an = be->be_replica[ i ]->ri_attrs;
+			int		j;
+
+			for ( j = 0; !BER_BVISNULL( &an[ j ].an_name ); j++ )
+			{
+				ch_free( an[ j ].an_name.bv_val );
+			}
+			ch_free( an );
+		}
+
+		bindconf_free( &be->be_replica[ i ]->ri_bindconf );
+
+		ch_free( be->be_replica[ i ] );
+	}
+
+	ch_free( be->be_replica );
+
+	return 0;
 }
 
 int
@@ -131,15 +168,17 @@ replog( Operation *op )
 	int     count = 0;
 #endif
 	int	subsets = 0;
-	long now = slap_get_time();
+	long	now = slap_get_time();
+	char	*replogfile;
 
-	if ( op->o_bd->be_replogfile == NULL && replogfile == NULL ) {
+	replogfile = op->o_bd->be_replogfile ? op->o_bd->be_replogfile :
+		frontendDB->be_replogfile;
+	if ( !replogfile ) {
 		return;
 	}
 
 	ldap_pvt_thread_mutex_lock( &replog_mutex );
-	if ( (fp = lock_fopen( op->o_bd->be_replogfile ? op->o_bd->be_replogfile :
-	    replogfile, "a", &lfp )) == NULL ) {
+	if ( (fp = lock_fopen( replogfile, "a", &lfp )) == NULL ) {
 		ldap_pvt_thread_mutex_unlock( &replog_mutex );
 		return;
 	}
@@ -272,7 +311,7 @@ replog1(
 
 	case LDAP_REQ_MODIFY:
 		for ( ml = op->orm_modlist; ml != NULL; ml = ml->sml_next ) {
-			char *did, *type = ml->sml_desc->ad_cname.bv_val;
+			char *did = NULL, *type = ml->sml_desc->ad_cname.bv_val;
 			switch ( ml->sml_op ) {
 			case LDAP_MOD_ADD:
 				did = "add"; break;
@@ -289,11 +328,22 @@ replog1(
 			if ( ri && ri->ri_attrs ) {
 				int is_in = ad_inlist( ml->sml_desc, ri->ri_attrs );
 
+				/* skip if:
+				 *   1) the attribute is not in the list,
+				 *      and it's not an exclusion list
+				 *   2) the attribute is in the list
+				 *      and it's an exclusion list,
+				 *      and either the objectClass attribute
+				 *      has already been dealt with or
+				 *      this is not the objectClass attr
+				 */
 				if ( ( !is_in && !ri->ri_exclude )
-					|| ( is_in && ri->ri_exclude ) )
+					|| ( ( is_in && ri->ri_exclude )
+						&& ( !ocs || ml->sml_desc != slap_schema.si_ad_objectClass ) ) )
 				{
 					continue;
 				}
+
 				/* If this is objectClass, see if the value is included
 				 * in any subset, otherwise drop it.
 				 */
@@ -308,11 +358,24 @@ replog1(
 						int match = 0;
 						for ( an = ri->ri_attrs; an->an_name.bv_val; an++ ) {
 							if ( an->an_oc ) {
+								struct berval	bv = an->an_name;
+
 								ocs = 1;
 								match |= an->an_oc_exclude;
-								if ( ml->sml_values[i].bv_len == an->an_name.bv_len
+
+								switch ( bv.bv_val[ 0 ] ) {
+								case '@':
+								case '+':
+								case '!':
+									bv.bv_val++;
+									bv.bv_len--;
+									break;
+								}
+
+								if ( ml->sml_values[i].bv_len == bv.bv_len
 									&& !strcasecmp(ml->sml_values[i].bv_val,
-										an->an_name.bv_val ) ) {
+										bv.bv_val ) )
+								{
 									match = !an->an_oc_exclude;
 									break;
 								}
@@ -335,7 +398,7 @@ replog1(
 								fprintf( fp, "%s: %s\n", did, type );
 								first = 0;
 							}
-							vals[0] = an->an_name;
+							vals[0] = ml->sml_values[i];
 							print_vals( fp, &ml->sml_desc->ad_cname, vals );
 							ocs = 2;
 						}
@@ -367,7 +430,20 @@ replog1(
 		for ( a = op->ora_e->e_attrs ; a != NULL; a=a->a_next ) {
 			if ( ri && ri->ri_attrs ) {
 				int is_in = ad_inlist( a->a_desc, ri->ri_attrs );
-				if ( ( !is_in && !ri->ri_exclude ) || ( is_in && ri->ri_exclude ) ) {
+
+				/* skip if:
+				 *   1) the attribute is not in the list,
+				 *      and it's not an exclusion list
+				 *   2) the attribute is in the list
+				 *      and it's an exclusion list,
+				 *      and either the objectClass attribute
+				 *      has already been dealt with or
+				 *      this is not the objectClass attr
+				 */
+				if ( ( !is_in && !ri->ri_exclude )
+					|| ( ( is_in && ri->ri_exclude )
+						&& ( !ocs || a->a_desc != slap_schema.si_ad_objectClass ) ) )
+				{
 					continue;
 				}
 
@@ -384,11 +460,24 @@ replog1(
 						int match = 0;
 						for ( an = ri->ri_attrs; an->an_name.bv_val; an++ ) {
 							if ( an->an_oc ) {
+								struct berval	bv = an->an_name;
+
 								ocs = 1;
 								match |= an->an_oc_exclude;
-								if ( a->a_vals[i].bv_len == an->an_name.bv_len
+
+								switch ( bv.bv_val[ 0 ] ) {
+								case '@':
+								case '+':
+								case '!':
+									bv.bv_val++;
+									bv.bv_len--;
+									break;
+								}
+
+								if ( a->a_vals[i].bv_len == bv.bv_len
 									&& !strcasecmp(a->a_vals[i].bv_val,
-										an->an_name.bv_val ) ) {
+										bv.bv_val ) )
+								{
 									match = !an->an_oc_exclude;
 									break;
 								}
@@ -403,7 +492,7 @@ replog1(
 								fprintf( fp, "changetype: add\n" );
 								dohdr = 0;
 							}
-							vals[0] = an->an_name;
+							vals[0] = a->a_nvals[i];
 							print_vals( fp, &a->a_desc->ad_cname, vals );
 						}
 					}

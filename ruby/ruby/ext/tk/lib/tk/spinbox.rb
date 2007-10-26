@@ -1,6 +1,6 @@
 #
 #               tk/spinbox.rb - Tk spinbox classes
-#                       $Date: 2004/12/02 16:58:44 $
+#                       $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
 #                       by Yukihiro Matsumoto <matz@caelum.co.jp>
 #
 require 'tk'
@@ -25,7 +25,8 @@ class TkSpinbox<TkEntry
         [ ?w, TkComm.method(:window) ], 
 
         [ ?e, proc{|val|
-            enc = Tk.encoding
+            #enc = Tk.encoding
+            enc = ((Tk.encoding)? Tk.encoding : Tk.encoding_system)
             if enc
               Tk.fromUTF8(TkComm::string(val), enc)
             else
@@ -50,7 +51,7 @@ class TkSpinbox<TkEntry
   end
 
   def __validation_class_list
-    super << SpinCommand
+    super() << SpinCommand
   end
 
   Tk::ValidateConfigure.__def_validcmd(binding, SpinCommand)
@@ -62,6 +63,21 @@ class TkSpinbox<TkEntry
   #  end
   #end
   #private :create_self
+
+  def __boolval_optkeys
+    super() << 'wrap'
+  end
+  private :__boolval_optkeys
+
+  def __strval_optkeys
+    super() << 'buttonbackground' << 'format'
+  end
+  private :__strval_optkeys
+
+  def __listval_optkeys
+    super() << 'values'
+  end
+  private :__listval_optkeys
 
   def identify(x, y)
     tk_send_without_enc('identify', x, y)

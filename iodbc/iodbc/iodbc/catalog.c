@@ -1,21 +1,25 @@
 /*
  *  catalog.c
  *
- *  $Id: catalog.c,v 1.3 2004/11/11 01:52:36 luesang Exp $
+ *  $Id: catalog.c,v 1.17 2006/01/20 15:58:34 source Exp $
  *
  *  Catalog functions
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,6 +74,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 
 #include <iodbc.h>
 
@@ -266,6 +271,7 @@ SQLGetTypeInfo (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLGetTypeInfoA (SQLHSTMT hstmt,
     SQLSMALLINT fSqlType)
@@ -292,6 +298,7 @@ SQLGetTypeInfoW (SQLHSTMT hstmt,
   LEAVE_STMT (hstmt,
     trace_SQLGetTypeInfoW (TRACE_LEAVE, hstmt, fSqlType));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -463,6 +470,7 @@ SQLSpecialColumns (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLSpecialColumnsA (SQLHSTMT hstmt,
     SQLUSMALLINT fColType,
@@ -549,6 +557,7 @@ SQLSpecialColumnsW (SQLHSTMT hstmt,
 	fScope,
 	fNullable));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -708,6 +717,7 @@ SQLStatistics (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLStatisticsA (SQLHSTMT hstmt,
     SQLCHAR * szTableQualifier,
@@ -786,6 +796,7 @@ SQLStatisticsW (SQLHSTMT hstmt,
 	fUnique,
 	fAccuracy));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -935,6 +946,7 @@ SQLTables (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLTablesA (SQLHSTMT hstmt,
     SQLCHAR * szTableQualifier,
@@ -1007,6 +1019,7 @@ SQLTablesW (SQLHSTMT hstmt,
 	szTableName, cbTableName,
 	szTableType, cbTableType));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -1156,6 +1169,7 @@ SQLColumnPrivileges (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLColumnPrivilegesA (SQLHSTMT hstmt,
     SQLCHAR * szTableQualifier,
@@ -1226,6 +1240,7 @@ SQLColumnPrivilegesW (SQLHSTMT hstmt,
 	szTableName, cbTableName,
 	szColumnName, cbColumnName));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -1375,6 +1390,7 @@ SQLColumns (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLColumnsA (SQLHSTMT hstmt,
     SQLCHAR * szTableQualifier,
@@ -1447,6 +1463,7 @@ SQLColumnsW (SQLHSTMT hstmt,
 	szTableName, cbTableName,
 	szColumnName, cbColumnName));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -1626,6 +1643,7 @@ SQLForeignKeys (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLForeignKeysA (SQLHSTMT hstmt,
     SQLCHAR * szPkTableQualifier,
@@ -1718,6 +1736,7 @@ SQLForeignKeysW (SQLHSTMT hstmt,
 	szFkTableOwner, cbFkTableOwner,
 	szFkTableName, cbFkTableName));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -1852,6 +1871,7 @@ SQLPrimaryKeys (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLPrimaryKeysA (SQLHSTMT hstmt,
     SQLCHAR * szTableQualifier,
@@ -1914,6 +1934,7 @@ SQLPrimaryKeysW (SQLHSTMT hstmt,
 	szTableOwner, cbTableOwner,
 	szTableName, cbTableName));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -2063,6 +2084,7 @@ SQLProcedureColumns (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLProcedureColumnsA (SQLHSTMT hstmt,
     SQLCHAR * szProcQualifier,
@@ -2135,6 +2157,7 @@ SQLProcedureColumnsW (SQLHSTMT hstmt,
 	szProcName, cbProcName,
 	szColumnName, cbColumnName));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -2269,6 +2292,7 @@ SQLProcedures (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLProceduresA (SQLHSTMT hstmt,
     SQLCHAR * szProcQualifier,
@@ -2331,6 +2355,7 @@ SQLProceduresW (SQLHSTMT hstmt,
 	szProcOwner, cbProcOwner,
 	szProcName, cbProcName));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -2465,6 +2490,7 @@ SQLTablePrivileges (SQLHSTMT hstmt,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLTablePrivilegesA (SQLHSTMT hstmt,
     SQLCHAR * szTableQualifier,
@@ -2527,3 +2553,4 @@ SQLTablePrivilegesW (SQLHSTMT hstmt,
 	szTableOwner, cbTableOwner,
 	szTableName,cbTableName));
 }
+#endif

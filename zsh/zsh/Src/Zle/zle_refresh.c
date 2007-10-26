@@ -28,9 +28,78 @@
  */
 
 #include "zle.mdh"
+
+#ifdef MULTIBYTE_SUPPORT
+/*
+ * We use a wint_t here, since we need an invalid character as a
+ * placeholder and wint_t guarantees that we can use WEOF to do this.
+ */
+typedef wint_t *REFRESH_STRING;
+typedef wint_t REFRESH_CHAR;
+
+/*
+ * Unfortunately, that means the pointer is the wrong type for
+ * wmemset and friends.
+ */
+static void
+ZR_memset(wint_t *dst, wchar_t wc, int len)
+{
+    while (len--)
+	*dst++ = wc;
+}
+#define ZR_memcpy(d, s, l)  memcpy((d), (s), (l)*sizeof(wint_t))
+static void
+ZR_strcpy(wint_t *dst, wint_t *src)
+{
+    while ((*dst++ = *src++) != L'\0')
+	;
+}
+static size_t
+ZR_strlen(wint_t *wstr)
+{
+    int len = 0;
+
+    while (*wstr++ != L'\0')
+	len++;
+
+    return len;
+}
+/*
+ * Simplified strcmp: we don't need the sign, just whether
+ * the strings are equal.
+ */
+static int
+ZR_strncmp(wint_t *wstr1, wint_t *wstr2, int len)
+{
+    while (len--) {
+	if (!*wstr1 || !*wstr2)
+	    return (*wstr1 == *wstr2) ? 0 : 1;
+	if (*wstr1++ != *wstr2++)
+	    return 1;
+    }
+
+    return 0;
+}
+#else
+typedef char *REFRESH_STRING;
+typedef char REFRESH_CHAR;
+
+#define ZR_memset	memset
+#define ZR_memcpy	memcpy
+#define ZR_strcpy	strcpy
+#define ZR_strlen	strlen
+#define ZR_strncmp	strncmp
+#endif
+
 #include "zle_refresh.pro"
 
-/* Expanded prompts */
+/*
+ * Expanded prompts.
+ *
+ * These are always output from the start, except in the special
+ * case where we are sure each character in the prompt corresponds
+ * to a character on screen.
+ */
 
 /**/
 char *lpromptbuf, *rpromptbuf;
@@ -86,7 +155,7 @@ int trashedzle;
  * add non-editable text to that being displayed.
  */
 /**/
-unsigned char *predisplay, *postdisplay;
+ZLE_STRING_T predisplay, postdisplay;
 /**/
 int predisplaylen, postdisplaylen;
 
@@ -97,21 +166,56 @@ int predisplaylen, postdisplaylen;
 int cost;
 
 # define SELECT_ADD_COST(X)	cost += X
-# define zputc(a, b)		putc(a, b), cost++
-# define zwrite(a, b, c, d)	fwrite(a, b, c, d), cost += (b * c)
+# define zputc(a)		zwcputc(a), cost++
+# define zwrite(a, b)		zwcwrite(a, b), cost += (b * ZLE_CHAR_SIZE)
 #else
 # define SELECT_ADD_COST(X)
-# define zputc(a, b)		putc(a, b)
-# define zwrite(a, b, c, d)	fwrite(a, b, c, d)
+# define zputc(a)		zwcputc(a)
+# define zwrite(a, b)		zwcwrite(a, b)
 #endif
+
+/**/
+void
+zwcputc(ZLE_INT_T c)
+{
+#ifdef MULTIBYTE_SUPPORT
+    char mbtmp[MB_CUR_MAX + 1];
+    mbstate_t mbstate;
+    int i;
+
+    if (c == WEOF)
+	return;
+
+    memset(&mbstate, 0, sizeof(mbstate_t));
+    if ((i = wcrtomb(mbtmp, (wchar_t)c, &mbstate)) > 0)
+	fwrite(mbtmp, i, 1, shout);
+#else
+    fputc(c, shout);
+#endif
+}
+
+static int
+zwcwrite(REFRESH_STRING s, size_t i)
+{
+#ifdef MULTIBYTE_SUPPORT
+    size_t j;
+
+    for (j = 0; j < i; j++)
+	zwcputc(s[j]);
+    return i; /* TODO something better for error indication */
+#else
+    return fwrite(s, i, 1, shout);
+#endif
+}
 
 /* Oct/Nov 94: <mason> some code savagely redesigned to fix several bugs -
    refreshline() & tc_rightcurs() majorly rewritten; zrefresh() fixed -
    I've put my fingers into just about every routine in here -
    any queries about updates to mason@primenet.com.au */
 
-static char **nbuf = NULL,	/* new video buffer line-by-line char array */
-    **obuf = NULL;		/* old video buffer line-by-line char array */
+static REFRESH_STRING 
+    *nbuf = NULL,		/* new video buffer line-by-line char array */
+    *obuf = NULL;		/* old video buffer line-by-line char array */
 static int more_start,		/* more text before start of screen?	    */
     more_end,			/* more stuff after end of screen?	    */
     olnct,			/* previous number of lines		    */
@@ -123,7 +227,8 @@ static int more_start,		/* more text before start of screen?	    */
     vcs, vln,			/* video cursor position column & line	    */
     vmaxln,			/* video maximum number of lines	    */
     winw, winh, rwinh,		/* window width & height		    */
-    winpos;			/* singlelinezle: line's position in window */
+    winpos,			/* singlelinezle: line's position in window */
+    winprompt;			/* singlelinezle: part of lprompt showing   */
 
 /**/
 void
@@ -138,31 +243,39 @@ resetvideo(void)
     else
 	winh = (lines < 2) ? 24 : lines;
     rwinh = lines;		/* keep the real number of lines */
-    winpos = vln = vmaxln = 0;
+    vln = vmaxln = winprompt = 0;
+    winpos = -1;
     if (lwinw != winw || lwinh != winh) {
 	if (nbuf) {
 	    for (ln = 0; ln != lwinh; ln++) {
-		zfree(nbuf[ln], lwinw + 2);
-		zfree(obuf[ln], lwinw + 2);
+		zfree(nbuf[ln], (lwinw + 2) * sizeof(**nbuf));
+		zfree(obuf[ln], (lwinw + 2) * sizeof(**obuf));
 	    }
 	    free(nbuf);
 	    free(obuf);
 	}
-	nbuf = (char **)zshcalloc((winh + 1) * sizeof(char *));
-	obuf = (char **)zshcalloc((winh + 1) * sizeof(char *));
-	nbuf[0] = (char *)zalloc(winw + 2);
-	obuf[0] = (char *)zalloc(winw + 2);
+	nbuf = (REFRESH_STRING *)zshcalloc((winh + 1) * sizeof(*nbuf));
+	obuf = (REFRESH_STRING *)zshcalloc((winh + 1) * sizeof(*obuf));
+	nbuf[0] = (REFRESH_STRING)zalloc((winw + 2) * sizeof(**nbuf));
+	obuf[0] = (REFRESH_STRING)zalloc((winw + 2) * sizeof(**obuf));
 
 	lwinw = winw;
 	lwinh = winh;
     }
     for (ln = 0; ln != winh + 1; ln++) {
-	if (nbuf[ln])
-	    *nbuf[ln] = '\0';
-	if (obuf[ln])
-	    *obuf[ln] = '\0';
+	if (nbuf[ln]) {
+	    nbuf[ln][0] = ZWC('\n');
+	    nbuf[ln][1] = ZWC('\0');
+	}
+	if (obuf[ln]) {
+	    obuf[ln][0] = ZWC('\n');
+	    obuf[ln][1] = ZWC('\0');
+	}
     }
 
+    /*
+     * countprompt() now correctly handles multibyte input.
+     */
     countprompt(lpromptbuf, &lpromptwof, &lprompth, 1);
     countprompt(rpromptbuf, &rpromptw, &rprompth, 0);
     if (lpromptwof != winw)
@@ -173,9 +286,9 @@ resetvideo(void)
     }
 
     if (lpromptw) {
-    	memset(nbuf[0], ' ', lpromptw);
-	memset(obuf[0], ' ', lpromptw);
-	nbuf[0][lpromptw] = obuf[0][lpromptw] = '\0';
+    	ZR_memset(nbuf[0], ZWC(' '), lpromptw);
+	ZR_memset(obuf[0], ZWC(' '), lpromptw);
+	nbuf[0][lpromptw] = obuf[0][lpromptw] = ZWC('\0');
     }
 
     vcs = lpromptw;
@@ -194,7 +307,7 @@ static void
 scrollwindow(int tline)
 {
     int t0;
-    char *s;
+    REFRESH_STRING s;
 
     s = nbuf[tline];
     for (t0 = tline; t0 < winh - 1; t0++)
@@ -205,65 +318,20 @@ scrollwindow(int tline)
     return;
 }
 
-/* this is the messy part. */
-/* this define belongs where it's used!!! */
-
-#define nextline					\
-{							\
-    *s = '\0';						\
-    if (ln != winh - 1)					\
-	ln++;						\
-    else {						\
-	if (!canscroll)	{				\
-	    if (nvln != -1 && nvln != winh - 1		\
-		&& (numscrolls != onumscrolls - 1	\
-		    || nvln <= winh / 2))		\
-	        break;					\
-	    numscrolls++;				\
-	    canscroll = winh / 2;			\
-	}						\
-	canscroll--;					\
-	scrollwindow(0);				\
-	if (nvln != -1)					\
-	    nvln--;					\
-    }							\
-    if (!nbuf[ln])					\
-	nbuf[ln] = (char *)zalloc(winw + 2);		\
-    s = (unsigned char *)nbuf[ln];			\
-    sen = s + winw;					\
-}
-
-#define snextline					\
-{							\
-    *s = '\0';						\
-    if (ln != winh - 1)					\
-	ln++;						\
-    else						\
-	if (tosln > ln) {				\
-	    tosln--;					\
-	    if (nvln > 1) {				\
-		scrollwindow(0);			\
-		nvln--;					\
-	    } else					\
-		more_end = 1;				\
-	} else if (tosln > 2 && nvln > 1) {		\
-	    tosln--;					\
-	    if (tosln <= nvln) {			\
-		scrollwindow(0);			\
-		nvln--;					\
-	    } else {					\
-		scrollwindow(tosln);			\
-		more_end = 1;				\
-	    }						\
-	} else {					\
-	    more_status = 1;				\
-	    scrollwindow(tosln + 1);			\
-	}						\
-    if (!nbuf[ln])					\
-	nbuf[ln] = (char *)zalloc(winw + 2);		\
-    s = (unsigned char *)nbuf[ln];			\
-    sen = s + winw;					\
-}
+/*
+ * Parameters in zrefresh used for communicating with next-line functions.
+ */
+struct rparams {
+    int canscroll;		/* number of lines we are allowed to scroll */
+    int ln;			/* current line we're working on */
+    int more_status;		/* more stuff in status line */
+    int nvcs;			/* video cursor column */
+    int nvln;			/* video cursor line */
+    int tosln;			/* tmp in statusline stuff */
+    REFRESH_STRING s;		/* pointer into the video buffer */
+    REFRESH_STRING sen;		/* pointer to end of the video buffer (eol) */
+};
+typedef struct rparams *Rparams;
 
 static int cleareol,		/* clear to end-of-line (if can't cleareod) */
     clearf,			/* alwayslastprompt used immediately before */
@@ -272,26 +340,97 @@ static int cleareol,		/* clear to end-of-line (if can't cleareod) */
     oxtabs,			/* oxtabs - tabs expand to spaces if set    */
     numscrolls, onumscrolls;
 
+/*
+ * Go to the next line in the main display area.  Return 1 if we should abort
+ * processing the line loop at this point, else 0.
+ *
+ * If wrapped is non-zero, text wrapped, so output newline.
+ * Otherwise, text not wrapped, so output null.
+ */
+static int
+nextline(Rparams rpms, int wrapped)
+{
+    nbuf[rpms->ln][winw+1] = wrapped ? ZWC('\n') : ZWC('\0');
+    *rpms->s = ZWC('\0');
+    if (rpms->ln != winh - 1)
+	rpms->ln++;
+    else {
+	if (!rpms->canscroll)	{
+	    if (rpms->nvln != -1 && rpms->nvln != winh - 1
+		&& (numscrolls != onumscrolls - 1
+		    || rpms->nvln <= winh / 2))
+	        return 1;
+	    numscrolls++;
+	    rpms->canscroll = winh / 2;
+	}
+	rpms->canscroll--;
+	scrollwindow(0);
+	if (rpms->nvln != -1)
+	    rpms->nvln--;
+    }
+    if (!nbuf[rpms->ln])
+	nbuf[rpms->ln] = (REFRESH_STRING)zalloc((winw + 2) * sizeof(**nbuf));
+    rpms->s = nbuf[rpms->ln];
+    rpms->sen = rpms->s + winw;
+
+    return 0;
+}
+
+
+/*
+ * Go to the next line in the status area.
+ */
+static void
+snextline(Rparams rpms)
+{
+    *rpms->s = ZWC('\0');
+    if (rpms->ln != winh - 1)
+	rpms->ln++;
+    else
+	if (rpms->tosln > rpms->ln) {
+	    rpms->tosln--;
+	    if (rpms->nvln > 1) {
+		scrollwindow(0);
+		rpms->nvln--;
+	    } else
+		more_end = 1;
+	} else if (rpms->tosln > 2 && rpms->nvln > 1) {
+	    rpms->tosln--;
+	    if (rpms->tosln <= rpms->nvln) {
+		scrollwindow(0);
+		rpms->nvln--;
+	    } else {
+		scrollwindow(rpms->tosln);
+		more_end = 1;
+	    }
+	} else {
+	    rpms->more_status = 1;
+	    scrollwindow(rpms->tosln + 1);
+	}
+    if (!nbuf[rpms->ln])
+	nbuf[rpms->ln] = (REFRESH_STRING)zalloc((winw + 2) * sizeof(**nbuf));
+    rpms->s = nbuf[rpms->ln];
+    rpms->sen = rpms->s + winw;
+}
+
+
 /**/
 mod_export void
 zrefresh(void)
 {
     static int inlist;		/* avoiding recursion                        */
-    int canscroll = 0,		/* number of lines we are allowed to scroll  */
-	ln = 0,			/* current line we're working on	     */
-	more_status = 0,	/* more stuff in status line		     */
-	nvcs = 0, nvln = -1,	/* video cursor column and line		     */
-	t0 = -1,		/* tmp					     */
-	tosln = 0;		/* tmp in statusline stuff		     */
-    unsigned char *s,		/* pointer into the video buffer	     */
-	*t,			/* pointer into the real buffer		     */
-	*sen,			/* pointer to end of the video buffer (eol)  */
-	*scs;			/* pointer to cursor position in real buffer */
-    char **qbuf;		/* tmp					     */
-    unsigned char *tmpline;	/* line with added pre/post text */
-    int tmpcs, tmpll;		/* ditto cursor position and line length */
-    int tmpalloced;		/* flag to free tmpline when finished */
-
+    int iln;			/* current line as index in loops            */
+    int t0 = -1;		/* tmp					     */
+    ZLE_STRING_T tmpline,	/* line with added pre/post text             */
+	t,			/* pointer into the real buffer		     */
+	scs,			/* pointer to cursor position in real buffer */
+	u;			/* pointer for status line stuff             */
+    REFRESH_STRING 	*qbuf;	/* tmp					     */
+    int tmpcs, tmpll;		/* ditto cursor position and line length     */
+    int tmpalloced;		/* flag to free tmpline when finished        */
+    int remetafy;		/* flag that zle line is metafied            */
+    struct rparams rpms;
+    
     if (trashedzle)
 	reexpandprompt();
 
@@ -302,29 +441,42 @@ zrefresh(void)
     if (inlist)
 	return;
 
+    /*
+     * zrefresh() is called from all over the place, so we can't
+     * be sure if the line is metafied for completion or not.
+     */
+    if (zlemetaline != NULL) {
+	remetafy = 1;
+	unmetafy_line();
+    }
+    else
+	remetafy = 0;
+
     if (predisplaylen || postdisplaylen) {
 	/* There is extra text to display at the start or end of the line */
-	tmpline = zalloc(ll + predisplaylen + postdisplaylen);
+	tmpline = zalloc((zlell + predisplaylen + postdisplaylen)*sizeof(*tmpline));
 	if (predisplaylen)
-	    memcpy(tmpline, predisplay, predisplaylen);
-	if (ll)
-	    memcpy(tmpline+predisplaylen, line, ll);
+	    ZS_memcpy(tmpline, predisplay, predisplaylen);
+	if (zlell)
+	    ZS_memcpy(tmpline+predisplaylen, zleline, zlell);
 	if (postdisplaylen)
-	    memcpy(tmpline+predisplaylen+ll, postdisplay, postdisplaylen);
-	tmpcs = cs + predisplaylen;
-	tmpll = predisplaylen + ll + postdisplaylen;
+	    ZS_memcpy(tmpline+predisplaylen+zlell, postdisplay,
+		      postdisplaylen);
+
+	tmpcs = zlecs + predisplaylen;
+	tmpll = predisplaylen + zlell + postdisplaylen;
 	tmpalloced = 1;
     } else {
-	tmpline = line;
-	tmpcs = cs;
-	tmpll = ll;
+	tmpline = zleline;
+	tmpcs = zlecs;
+	tmpll = zlell;
 	tmpalloced = 0;
     }
 
     if (clearlist && listshown > 0) {
 	if (tccan(TCCLEAREOD)) {
 	    int ovln = vln, ovcs = vcs;
-	    char *nb = nbuf[vln];
+	    REFRESH_STRING nb = nbuf[vln];
 
 	    nbuf[vln] = obuf[vln];
 	    moveto(nlnct, 0);
@@ -414,7 +566,7 @@ zrefresh(void)
 		tsetcap(TCUNDERLINEBEG, 0);
 	}
 	if (clearflag) {
-	    zputc('\r', shout);
+	    zputc(ZWC('\r'));
 	    vcs = 0;
 	    moveto(0, lpromptw);
 	}
@@ -446,117 +598,187 @@ zrefresh(void)
 
     /* Deemed necessary by PWS 1995/05/15 due to kill-line problems */
     if (!*nbuf)
-	*nbuf = (char *)zalloc(winw + 2);
+	*nbuf = (REFRESH_STRING)zalloc((winw + 2) * sizeof(**nbuf));
 
-    s = (unsigned char *)(nbuf[ln = 0] + lpromptw);
+    memset(&rpms, 0, sizeof(rpms));
+    rpms.nvln = -1;
+
+    rpms.s = nbuf[rpms.ln = 0] + lpromptw;
     t = tmpline;
-    sen = (unsigned char *)(*nbuf + winw);
+    rpms.sen = *nbuf + winw;
     for (; t < tmpline+tmpll; t++) {
 	if (t == scs)			/* if cursor is here, remember it */
-	    nvcs = s - (unsigned char *)(nbuf[nvln = ln]);
+	    rpms.nvcs = rpms.s - nbuf[rpms.nvln = rpms.ln];
 
-	if (*t == '\n')	{		/* newline */
-	    nbuf[ln][winw + 1] = '\0';	/* text not wrapped */
-	    nextline
-	} else if (*t == '\t') {		/* tab */
-	    t0 = (char *)s - nbuf[ln];
+	if (*t == ZWC('\n')){		/* newline */
+	    /* text not wrapped */
+	    if (nextline(&rpms, 0))
+		break;
+	} else if (*t == ZWC('\t')) {		/* tab */
+	    t0 = rpms.s - nbuf[rpms.ln];
 	    if ((t0 | 7) + 1 >= winw) {
-		nbuf[ln][winw + 1] = '\n';	/* text wrapped */
-		nextline
+		/* text wrapped */
+		if (nextline(&rpms, 1))
+		    break;
 	    } else
 		do
-		    *s++ = ' ';
+		    *rpms.s++ = ZWC(' ');
 		while ((++t0) & 7);
-	} else if (icntrl(*t)) {	/* other control character */
-	    *s++ = '^';
-	    if (s == sen) {
-		nbuf[ln][winw + 1] = '\n';	/* text wrapped */
-		nextline
+	}
+#ifdef MULTIBYTE_SUPPORT
+	else if (iswprint(*t)) {
+	    int width = wcwidth(*t);
+	    if (width > rpms.sen - rpms.s) {
+		/*
+		 * Too wide to fit.  Insert spaces to end of current line.
+		 */
+		do {
+		    *rpms.s++ = ZWC(' ');
+		} while (rpms.s < rpms.sen);
+		if (nextline(&rpms, 1))
+		    break;
+		if (t == scs) {
+		    /* Update cursor to this point */
+		    rpms.nvcs = rpms.s - nbuf[rpms.nvln = rpms.ln];
+		}
 	    }
-	    *s++ = (*t == 127) ? '?' : (*t | '@');
-	} else				/* normal character */
-	    *s++ = *t;
-	if (s == sen) {
-	    nbuf[ln][winw + 1] = '\n';	/* text wrapped */
-	    nextline
+	    if (width > rpms.sen - rpms.s) {
+		/*
+		 * The screen width is too small to fit even one
+		 * occurrence.
+		 */
+		*rpms.s++ = ZWC('?');
+	    } else {
+		/* We can fit it without reaching the end of the line. */
+		*rpms.s++ = *t;
+		while (--width > 0)
+		    *rpms.s++ = WEOF;
+	    }
+	}
+#endif
+	else if (ZC_icntrl(*t)) {	/* other control character */
+	    *rpms.s++ = ZWC('^');
+	    if (rpms.s == rpms.sen) {
+		/* text wrapped */
+		if (nextline(&rpms, 1))
+		    break;
+	    }
+	    *rpms.s++ = (((unsigned int)*t & ~0x80u) > 31) ? ZWC('?') : (*t | ZWC('@'));
+	} else {			/* normal character */
+	    *rpms.s++ = *t;
+	}
+	if (rpms.s == rpms.sen) {
+	    /* text wrapped */
+	    if (nextline(&rpms, 1))
+		break;
 	}
     }
 
 /* if we're really on the next line, don't fake it; do everything properly */
-    if (t == scs && (nvcs = s - (unsigned char *)(nbuf[nvln = ln])) == winw) {
-	nbuf[ln][winw + 1] = '\n';	/* text wrapped */
-	switch ('\0') { 	/* a sad hack to make the break */
-	case '\0':		/* in nextline work */
-	    nextline
-	}
-	*s = '\0';
-	nvcs = 0;
-	nvln++;
+    if (t == scs &&
+	(rpms.nvcs = rpms.s - (nbuf[rpms.nvln = rpms.ln])) == winw) {
+	/* text wrapped */
+	(void)nextline(&rpms, 1);
+	*rpms.s = ZWC('\0');
+	rpms.nvcs = 0;
+	rpms.nvln++;
     }
 
     if (t != tmpline + tmpll)
 	more_end = 1;
 
     if (statusline) {
-	tosln = ln + 1;
-	nbuf[ln][winw + 1] = '\0';	/* text not wrapped */
-	snextline
-	t = (unsigned char *)statusline;
-	for (; t < (unsigned char *)statusline + statusll; t++) {
-	    if (icntrl(*t)) {	/* simplified processing in the status line */
-		*s++ = '^';
-		if (s == sen) {
-		    nbuf[ln][winw + 1] = '\n';	/* text wrapped */
-		    snextline
+	rpms.tosln = rpms.ln + 1;
+	nbuf[rpms.ln][winw + 1] = ZWC('\0');	/* text not wrapped */
+	snextline(&rpms);
+	u = statusline;
+	for (; u < statusline + statusll; u++) {
+#ifdef MULTIBYTE_SUPPORT
+	    if (iswprint(*u)) {
+		int width = wcwidth(*u);
+		/* Handle wide characters as above */
+		if (width > rpms.sen - rpms.s) {
+		    do {
+			*rpms.s++ = ZWC(' ');
+		    } while (rpms.s < rpms.sen);
+		    nbuf[rpms.ln][winw + 1] = ZWC('\n');
+		    snextline(&rpms);
 		}
-		*s++ = (*t == 127) ? '?' : (*t | '@');
+		if (width > rpms.sen - rpms.s) {
+		    *rpms.s++ = ZWC('?');
+		} else {
+		    *rpms.s++ = *u;
+		    while (--width > 0)
+			*rpms.s++ = WEOF;
+		}
+	    }
+	    else
+#endif
+	    if (ZC_icntrl(*u)) { /* simplified processing in the status line */
+		*rpms.s++ = ZWC('^');
+		if (rpms.s == rpms.sen) {
+		    nbuf[rpms.ln][winw + 1] = ZWC('\n');/* text wrapped */
+		    snextline(&rpms);
+		}
+		*rpms.s++ = (((unsigned int)*u & ~0x80u) > 31) ? ZWC('?') : (*u | ZWC('@'));
 	    } else
-		*s++ = *t;
-	    if (s == sen) {
-		nbuf[ln][winw + 1] = '\n';	/* text wrapped */
-		snextline
+		*rpms.s++ = *u;
+	    if (rpms.s == rpms.sen) {
+		nbuf[rpms.ln][winw + 1] = ZWC('\n');	/* text wrapped */
+		snextline(&rpms);
 	    }
 	}
-	if (s == sen)
-	    snextline
+	if (rpms.s == rpms.sen) {
+	    /*
+	     * I suppose we don't modify nbuf[rpms.ln][winw+1] here
+	     * since we're right at the end?
+	     */
+	    snextline(&rpms);
+	}
     }
-    *s = '\0';
+    *rpms.s = ZWC('\0');
 
 /* insert <.... at end of last line if there is more text past end of screen */
+/* TODO: if we start overwriting in the middle of a wide character, mayhem
+ * will ensue.
+ */
     if (more_end) {
 	if (!statusline)
-	    tosln = winh;
-	s = nbuf[tosln - 1];
-	sen = s + winw - 7;
-	for (; s < sen; s++) {
-	    if (*s == '\0') {
-		for (; s < sen; )
-		    *s++ = ' ';
+	    rpms.tosln = winh;
+	rpms.s = nbuf[rpms.tosln - 1];
+	rpms.sen = rpms.s + winw - 7;
+	for (; rpms.s < rpms.sen; rpms.s++) {
+	    if (*rpms.s == ZWC('\0')) {
+		for (; rpms.s < rpms.sen; )
+		    *rpms.s++ = ZWC(' ');
 		break;
 	    }
 	}
-	strncpy(sen, " <.... ", 7);
-	nbuf[tosln - 1][winw] = nbuf[tosln - 1][winw + 1] = '\0';
+	ZR_memcpy(rpms.sen, ZWS(" <.... "), 7);
+	nbuf[rpms.tosln - 1][winw] = nbuf[rpms.tosln - 1][winw + 1]
+	    = ZWC('\0');
     }
 
 /* insert <....> at end of first status line if status is too big */
-    if (more_status) {
-	s = nbuf[tosln];
-	sen = s + winw - 8;
-	for (; s < sen; s++) {
-	    if (*s == '\0') {
-		for (; s < sen; )
-		    *s++ = ' ';
+    if (rpms.more_status) {
+	rpms.s = nbuf[rpms.tosln];
+	rpms.sen = rpms.s + winw - 8;
+	for (; rpms.s < rpms.sen; rpms.s++) {
+	    if (*rpms.s == ZWC('\0')) {
+		for (; rpms.s < rpms.sen; )
+		    *rpms.s++ = ZWC(' ');
 		break;
 	    }
 	}
-	strncpy(sen, " <....> ", 8);
-	nbuf[tosln][winw] = nbuf[tosln][winw + 1] = '\0';
+	ZR_memcpy(rpms.sen, ZWS(" <....> "), 8);
+	nbuf[rpms.tosln][winw] = nbuf[rpms.tosln][winw + 1] = ZWC('\0');
     }
 
-    nlnct = ln + 1;
-    for (ln = nlnct; ln < winh; ln++)
-	zfree(nbuf[ln], winw + 2), nbuf[ln] = NULL;
+    nlnct = rpms.ln + 1;
+    for (iln = nlnct; iln < winh; iln++) {
+	zfree(nbuf[iln], (winw + 2) * sizeof(**nbuf));
+	nbuf[iln] = NULL;
+    }
 
 /* determine whether the right-prompt exists and can fit on the screen */
     if (!more_start) {
@@ -565,34 +787,36 @@ zrefresh(void)
 	else
 	    put_rpmpt = rprompth == 1 && rpromptbuf[0] &&
 		!strchr(rpromptbuf, '\t') &&
-		(int)strlen(nbuf[0]) + rpromptw < winw - 1;
+		(int)ZR_strlen(nbuf[0]) + rpromptw < winw - 1;
     } else {
 /* insert >.... on first line if there is more text before start of screen */
-	memset(nbuf[0], ' ', lpromptw);
+	memset(nbuf[0], ZWC(' '), lpromptw);
 	t0 = winw - lpromptw;
 	t0 = t0 > 5 ? 5 : t0;
-	strncpy(nbuf[0] + lpromptw, ">....", t0);
-	memset(nbuf[0] + lpromptw + t0, ' ', winw - t0 - lpromptw);
-	nbuf[0][winw] = nbuf[0][winw + 1] = '\0';
+	ZR_memcpy(nbuf[0] + lpromptw, ZWS(">...."), t0);
+	ZR_memset(nbuf[0] + lpromptw + t0, ZWC(' '), winw - t0 - lpromptw);
+	nbuf[0][winw] = nbuf[0][winw + 1] = ZWC('\0');
     }
 
-    for (ln = 0; ln < nlnct; ln++) {
+    for (iln = 0; iln < nlnct; iln++) {
 	/* if we have more lines than last time, clear the newly-used lines */
-	if (ln >= olnct)
+	if (iln >= olnct)
 	    cleareol = 1;
 
     /* if old line and new line are different,
        see if we can insert/delete a line to speed up update */
 
-	if (!clearf && ln > 0 && ln < olnct - 1 && !(hasam && vcs == winw) &&
-	    nbuf[ln] && obuf[ln] &&
-	    strncmp(nbuf[ln], obuf[ln], 16)) {
-	    if (tccan(TCDELLINE) && obuf[ln + 1] && obuf[ln + 1][0] &&
-		nbuf[ln] && !strncmp(nbuf[ln], obuf[ln + 1], 16)) {
-		moveto(ln, 0);
+	if (!clearf && iln > 0 && iln < olnct - 1 &&
+	    !(hasam && vcs == winw) &&
+	    nbuf[iln] && obuf[iln] &&
+	    ZR_strncmp(nbuf[iln], obuf[iln], 16)) {
+	    if (tccan(TCDELLINE) && obuf[iln + 1] &&
+		obuf[iln + 1][0] && nbuf[iln] &&
+		!ZR_strncmp(nbuf[iln], obuf[iln + 1], 16)) {
+		moveto(iln, 0);
 		tcout(TCDELLINE);
-		zfree(obuf[ln], winw + 2);
-		for (t0 = ln; t0 != olnct; t0++)
+		zfree(obuf[iln], (winw + 2) * sizeof(**obuf));
+		for (t0 = iln; t0 != olnct; t0++)
 		    obuf[t0] = obuf[t0 + 1];
 		obuf[--olnct] = NULL;
 	    }
@@ -600,22 +824,23 @@ zrefresh(void)
 	   of lines that have been displayed by this routine) so that we don't
 	   go off the end of the screen. */
 
-	    else if (tccan(TCINSLINE) && olnct < vmaxln && nbuf[ln + 1] &&
-		     obuf[ln] && !strncmp(nbuf[ln + 1], obuf[ln], 16)) {
-		moveto(ln, 0);
+	    else if (tccan(TCINSLINE) && olnct < vmaxln && nbuf[iln + 1] &&
+		     obuf[iln] && !ZR_strncmp(nbuf[iln + 1], 
+					      obuf[iln], 16)) {
+		moveto(iln, 0);
 		tcout(TCINSLINE);
-		for (t0 = olnct; t0 != ln; t0--)
+		for (t0 = olnct; t0 != iln; t0--)
 		    obuf[t0] = obuf[t0 - 1];
-		obuf[ln] = NULL;
+		obuf[iln] = NULL;
 		olnct++;
 	    }
 	}
 
     /* update the single line */
-	refreshline(ln);
+	refreshline(iln);
 
     /* output the right-prompt if appropriate */
-	if (put_rpmpt && !ln && !oput_rpmpt) {
+	if (put_rpmpt && !iln && !oput_rpmpt) {
 	    moveto(0, winw - 1 - rpromptw);
 	    zputs(rpromptbuf, shout);
 	    vcs = winw - 1;
@@ -641,8 +866,8 @@ individually */
 
     if (olnct > nlnct) {
 	cleareol = 1;
-	for (ln = nlnct; ln < olnct; ln++)
-	    refreshline(ln);
+	for (iln = nlnct; iln < olnct; iln++)
+	    refreshline(iln);
     }
 
 /* reset character attributes */
@@ -666,14 +891,14 @@ individually */
     oput_rpmpt = put_rpmpt;
 
 /* move to the new cursor position */
-    moveto(nvln, nvcs);
+    moveto(rpms.nvln, rpms.nvcs);
 
 /* swap old and new buffers - better than freeing/allocating every time */
     qbuf = nbuf;
     nbuf = obuf;
     obuf = qbuf;
 /* store current values so we can use them next time */
-    ovln = nvln;
+    ovln = rpms.nvln;
     olnct = nlnct;
     onumscrolls = numscrolls;
     if (nlnct > vmaxln)
@@ -685,8 +910,13 @@ singlelineout:
 	zfree(tmpline, tmpll);
 
     /* if we have a new list showing, note it; if part of the list has been
-    overwritten, redisplay it. */
+    overwritten, redisplay it. We have to metafy line back before calling
+    completion code */
     if (showinglist == -2 || (showinglist > 0 && showinglist < nlnct)) {
+	if (remetafy) {
+	    metafy_line();
+	    remetafy = 0;
+	}
 	inlist = 1;
 	listmatches();
 	inlist = 0;
@@ -694,6 +924,9 @@ singlelineout:
     }
     if (showinglist == -1)
 	showinglist = nlnct;
+
+    if (remetafy)
+	metafy_line();
 }
 
 #define tcinscost(X)   (tccan(TCMULTINS) ? tclen[TCMULTINS] : (X)*tclen[TCINS])
@@ -703,13 +936,23 @@ singlelineout:
 #define tc_upcurs(X)	(void) tcmultout(TCUP, TCMULTUP, (X))
 #define tc_leftcurs(X)	(void) tcmultout(TCLEFT, TCMULTLEFT, (X))
 
+static int
+wpfxlen(REFRESH_STRING s, REFRESH_STRING t)
+{
+    int i = 0;
+
+    while (*s && *s == *t)
+	s++, t++, i++;
+    return i;
+}
+
 /* refresh one line, using whatever speed-up tricks are provided by the tty */
 
 /**/
 static void
 refreshline(int ln)
 {
-    char *nl, *ol, *p1;		/* line buffer pointers			 */
+    REFRESH_STRING nl, ol, p1;	/* line buffer pointers			 */
     int ccs = 0,		/* temporary count for cursor position	 */
 	char_ins = 0,		/* number of characters inserted/deleted */
 	col_cleareol,		/* clear to end-of-line from this column */
@@ -720,9 +963,16 @@ refreshline(int ln)
 
 /* 0: setup */
     nl = nbuf[ln];
-    rnllen = nllen = nl ? strlen(nl) : 0;
-    ol = obuf[ln] ? obuf[ln] : "";
-    ollen = strlen(ol);
+    rnllen = nllen = nl ? ZR_strlen(nl) : 0;
+    if (obuf[ln]) {
+	ol = obuf[ln];
+	ollen = ZR_strlen(ol);
+    }
+    else {
+	static REFRESH_CHAR nullchr = ZWC('\0');
+	ol = &nullchr;
+	ollen = 0;
+    }
 
 /* optimisation: can easily happen for clearing old lines.  If the terminal has
    the capability, then this is the easiest way to skip unnecessary stuff */
@@ -739,22 +989,22 @@ refreshline(int ln)
     if (cleareol 		/* request to clear to end of line */
 	|| (!nllen && (ln != 0 || !put_rpmpt))	/* no line buffer given */
 	|| (ln == 0 && (put_rpmpt != oput_rpmpt))) {	/* prompt changed */
-	p1 = zhalloc(winw + 2);
+	p1 = zhalloc((winw + 2) * sizeof(*p1));
 	if (nllen)
-	    strncpy(p1, nl, nllen);
-	memset(p1 + nllen, ' ', winw - nllen);
-	p1[winw] = '\0';
-	p1[winw + 1] = (nllen < winw) ? '\0' : nl[winw + 1];
+	    ZR_memcpy(p1, nl, nllen);
+	ZR_memset(p1 + nllen, ZWC(' '), winw - nllen);
+	p1[winw] = ZWC('\0');
+	p1[winw + 1] = (nllen < winw) ? ZWC('\0') : nl[winw + 1];
 	if (ln && nbuf[ln])
-	    memcpy(nl, p1, winw + 2);	/* next time obuf will be up-to-date */
+	    ZR_memcpy(nl, p1, winw + 2);	/* next time obuf will be up-to-date */
 	else
 	    nl = p1;		/* don't keep the padding for prompt line */
 	nllen = winw;
     } else if (ollen > nllen) { /* make new line at least as long as old */
-	p1 = zhalloc(ollen + 1);
-	strncpy(p1, nl, nllen);
-	memset(p1 + nllen, ' ', ollen - nllen);
-	p1[ollen] = '\0';
+	p1 = zhalloc((ollen + 1) * sizeof(*p1));
+	ZR_memcpy(p1, nl, nllen);
+	ZR_memset(p1 + nllen, ZWC(' '), ollen - nllen);
+	p1[ollen] = ZWC('\0');
 	nl = p1;
 	nllen = ollen;
     }
@@ -769,10 +1019,10 @@ refreshline(int ln)
     else {
 	col_cleareol = -1;
 	if (tccan(TCCLEAREOL) && (nllen == winw || put_rpmpt != oput_rpmpt)) {
-	    for (i = nllen; i && nl[i - 1] == ' '; i--);
-	    for (j = ollen; j && ol[j - 1] == ' '; j--);
+	    for (i = nllen; i && nl[i - 1] == ZWC(' '); i--);
+	    for (j = ollen; j && ol[j - 1] == ZWC(' '); j--);
 	    if ((j > i + tclen[TCCLEAREOL])	/* new buf has enough spaces */
-		|| (nllen == winw && nl[winw - 1] == ' '))
+		|| (nllen == winw && nl[winw - 1] == ZWC(' ')))
 		col_cleareol = i;
 	}
     }
@@ -780,12 +1030,12 @@ refreshline(int ln)
 /* 2b: first a new trick for automargin niceness - good for cut and paste */
 
     if (hasam && vcs == winw) {
-	if (nbuf[vln] && nbuf[vln][vcs + 1] == '\n') {
+	if (nbuf[vln] && nbuf[vln][vcs + 1] == ZWC('\n')) {
 	    vln++, vcs = 1;
-            if (nbuf[vln]  && *nbuf[vln])
-		zputc(*nbuf[vln], shout);
-	    else
-		zputc(' ', shout);  /* I don't think this should happen */
+            if (nbuf[vln]  && *nbuf[vln]) {
+		zputc(*nbuf[vln]);
+	    } else
+		zputc(ZWC(' '));  /* I don't think this should happen */
 	    if (ln == vln) {	/* better safe than sorry */
 		nl++;
 		if (*ol)
@@ -794,7 +1044,7 @@ refreshline(int ln)
 	    }			/* else  hmmm... I wonder what happened */
 	} else {
 	    vln++, vcs = 0;
-	    zputc('\n', shout);
+	    zputc(ZWC('\n'));
 	}
     }
     ins_last = 0;
@@ -804,7 +1054,7 @@ refreshline(int ln)
 
     if (ln == 0 && lpromptw) {
 	i = lpromptw - ccs;
-	j = strlen(ol);
+	j = ZR_strlen(ol);
 	nl += i;
 	ol += (i > j ? j : i);	/* if ol is too short, point it to '\0' */
 	ccs = lpromptw;
@@ -813,110 +1063,164 @@ refreshline(int ln)
 /* 3: main display loop - write out the buffer using whatever tricks we can */
 
     for (;;) {
-	if (*nl && *ol && nl[1] == ol[1]) /* skip only if second chars match */
-	/* skip past all matching characters */
-	    for (; *nl && (*nl == *ol); nl++, ol++, ccs++) ;
-
-	if (!*nl) {
-	    if (ccs == winw && hasam && char_ins > 0 && ins_last
-		&& vcs != winw) {
-		nl--;           /* we can assume we can go back here */
-		moveto(ln, winw - 1);
-		zputc(*nl, shout);
-		vcs++;
-		return;         /* write last character in line */
+#ifdef MULTIBYTE_SUPPORT
+	if ((!*nl || *nl != WEOF) && (!*ol || *ol != WEOF)) {
+#endif
+	    if (*nl && *ol && nl[1] == ol[1]) {
+		/* skip only if second chars match */
+#ifdef MULTIBYTE_SUPPORT
+		int ccs_was = ccs;
+#endif
+		/* skip past all matching characters */
+		for (; *nl && (*nl == *ol); nl++, ol++, ccs++) ;
+#ifdef MULTIBYTE_SUPPORT
+		/* Make sure ol and nl are pointing to real characters */
+		while ((*nl == WEOF || *ol == WEOF) && ccs > ccs_was) {
+		    nl--;
+		    ol--;
+		    ccs--;
+		}
+#endif
 	    }
-	    if ((char_ins <= 0) || (ccs >= winw))    /* written everything */
-		return;
-	    if (tccan(TCCLEAREOL) && (char_ins >= tclen[TCCLEAREOL])
-	    	&& col_cleareol != -2)
-	    /* we've got junk on the right yet to clear */
-		col_cleareol = 0;	/* force a clear to end of line */
-	}
 
-	moveto(ln, ccs);	/* move to where we do all output from */
-
-    /* if we can finish quickly, do so */
-	if ((col_cleareol >= 0) && (ccs >= col_cleareol)) {
-	    tcout(TCCLEAREOL);
-	    return;
-	}
-
-    /* we've written out the new but yet to clear rubbish due to inserts */
-	if (!*nl) {
-	    i = (winw - ccs < char_ins) ? (winw - ccs) : char_ins;
-	    if (tccan(TCDEL) && (tcdelcost(i) <= i + 1))
-		tc_delchars(i);
-	    else {
-		vcs += i;
-		while (i-- > 0)
-		    zputc(' ', shout);
+	    if (!*nl) {
+		if (ccs == winw && hasam && char_ins > 0 && ins_last
+		    && vcs != winw) {
+		    nl--;           /* we can assume we can go back here */
+		    moveto(ln, winw - 1);
+		    zputc(*nl);
+		    vcs++;
+		    return;         /* write last character in line */
+		}
+		if ((char_ins <= 0) || (ccs >= winw))    /* written everything */
+		    return;
+		if (tccan(TCCLEAREOL) && (char_ins >= tclen[TCCLEAREOL])
+		    && col_cleareol != -2)
+		    /* we've got junk on the right yet to clear */
+		    col_cleareol = 0;	/* force a clear to end of line */
 	    }
-	    return;
-	}
 
-    /* if we've reached the end of the old buffer, then there are few tricks
-       we can do, so we just dump out what we must and clear if we can */
-	if (!*ol) {
-	    i = (col_cleareol >= 0) ? col_cleareol : nllen;
-	    i -= vcs;
-	    zwrite(nl, i, 1, shout);
-	    vcs += i;
-	    if (col_cleareol >= 0)
+	    moveto(ln, ccs);	/* move to where we do all output from */
+
+	    /* if we can finish quickly, do so */
+	    if ((col_cleareol >= 0) && (ccs >= col_cleareol)) {
 		tcout(TCCLEAREOL);
-	    return;
-	}
-
-    /* inserting & deleting chars: we can if there's no right-prompt */
-	if ((ln || !put_rpmpt || !oput_rpmpt) 
-	    && (nl[1] && ol[1] && nl[1] != ol[1])) { 
-
-	/* deleting characters - see if we can find a match series that
-	   makes it cheaper to delete intermediate characters
-	   eg. oldline: hifoobar \ hopefully cheaper here to delete two
-	       newline: foobar	 / characters, then we have six matches */
-	    if (tccan(TCDEL)) {
-		for (i = 1; *(ol + i); i++)
-		    if (tcdelcost(i) < pfxlen(ol + i, nl)) {
-			tc_delchars(i);
-			ol += i;
-			char_ins -= i;
-			i = 0;
-			break;
-		    }
-		if (!i)
-		    continue;
+		return;
 	    }
-	/* inserting characters - characters pushed off the right should be
-	   annihilated, but we don't do this if we're on the last line lest
-	   undesired scrolling occurs due to `illegal' characters on screen */
 
-	    if (tccan(TCINS) && (vln != lines - 1)) {	/* not on last line */
-		for (i = 1; *(nl + i); i++)
-		    if (tcinscost(i) < pfxlen(nl + i, ol)) {
-			tc_inschars(i);
-			zwrite(nl, i, 1, shout);
-			nl += i;
-			char_ins += i;
-			ccs = (vcs += i);
-		    /* if we've pushed off the right, truncate oldline */
-			for (i = 0; *(ol + i) && i < winw - ccs; i++);
-			if (i == winw - ccs) {
-			    *(ol + i) = '\0';
-			    ins_last = 1;
+	    /* we've written out the new but yet to clear rubbish due to inserts */
+	    if (!*nl) {
+		i = (winw - ccs < char_ins) ? (winw - ccs) : char_ins;
+		if (tccan(TCDEL) && (tcdelcost(i) <= i + 1))
+		    tc_delchars(i);
+		else {
+		    vcs += i;
+		    while (i-- > 0)
+			zputc(ZWC(' '));
+		}
+		return;
+	    }
+
+	    /* if we've reached the end of the old buffer, then there are few tricks
+	       we can do, so we just dump out what we must and clear if we can */
+	    if (!*ol) {
+		i = (col_cleareol >= 0) ? col_cleareol : nllen;
+		i -= vcs;
+		zwrite(nl, i);
+		vcs += i;
+		if (col_cleareol >= 0)
+		    tcout(TCCLEAREOL);
+		return;
+	    }
+
+	    /* inserting & deleting chars: we can if there's no right-prompt */
+	    if ((ln || !put_rpmpt || !oput_rpmpt) 
+#ifdef MULTIBYTE_SUPPORT
+		&& *ol != WEOF && *nl != WEOF
+#endif
+		&& nl[1] && ol[1] && nl[1] != ol[1]) { 
+
+		/* deleting characters - see if we can find a match series that
+		   makes it cheaper to delete intermediate characters
+		   eg. oldline: hifoobar \ hopefully cheaper here to delete two
+		   newline: foobar	 / characters, then we have six matches */
+		if (tccan(TCDEL)) {
+		    for (i = 1; *(ol + i); i++)
+			if (tcdelcost(i) < wpfxlen(ol + i, nl)) {
+			    tc_delchars(i);
+			    ol += i;
+			    char_ins -= i;
+#ifdef MULTIBYTE_SUPPORT
+			    while (*ol == WEOF) {
+				ol++;
+				char_ins--;
+			    }
+#endif
+			    i = 0;
+			    break;
 			}
-			i = 0;
-			break;
-		    }
-		if (!i)
-		    continue;
+		    if (!i)
+			continue;
+		}
+		/* inserting characters - characters pushed off the right should be
+		   annihilated, but we don't do this if we're on the last line lest
+		   undesired scrolling occurs due to `illegal' characters on screen */
+
+		if (tccan(TCINS) && (vln != lines - 1)) {	/* not on last line */
+		    for (i = 1; *(nl + i); i++)
+			if (tcinscost(i) < wpfxlen(nl + i, ol)) {
+			    tc_inschars(i);
+			    zwrite(nl, i);
+			    nl += i;
+#ifdef MULTIBYTE_SUPPORT
+			    while (*nl == WEOF) {
+				nl++;
+				i++;
+			    }
+#endif
+			    char_ins += i;
+			    ccs = (vcs += i);
+			    /* if we've pushed off the right, truncate oldline */
+			    for (i = 0; *(ol + i) && i < winw - ccs; i++);
+#ifdef MULTIBYTE_SUPPORT
+			    while (ol[i] == WEOF)
+				i++;
+#endif
+			    if (i >= winw - ccs) {
+				*(ol + i) = ZWC('\0');
+				ins_last = 1;
+			    }
+			    i = 0;
+			    break;
+			}
+		    if (!i)
+			continue;
+		}
 	    }
+#ifdef MULTIBYTE_SUPPORT
 	}
+#endif
     /* we can't do any fancy tricks, so just dump the single character
        and keep on trying */
-	zputc(*nl, shout);
-	nl++, ol++;
-	ccs++, vcs++;
+#ifdef MULTIBYTE_SUPPORT
+	/*
+	 * in case we were tidying up a funny-width character when we
+	 * reached the end of the new line...
+	 */
+	if (!*nl)
+	    break;
+	do {
+#endif
+	    zputc(*nl);
+	    nl++, ol++;
+	    ccs++, vcs++;
+#ifdef MULTIBYTE_SUPPORT
+	    /*
+	     * Make sure we always overwrite the complete width of
+	     * a character that was there before.
+	     */
+	} while ((*ol == WEOF && *nl) || (*nl == WEOF && *ol));
+#endif
     }
 }
 
@@ -927,20 +1231,20 @@ refreshline(int ln)
 void
 moveto(int ln, int cl)
 {
-    int c;
+    ZLE_INT_T c;
 
     if (vcs == winw) {
 	vln++, vcs = 0;
 	if (!hasam) {
-	    zputc('\r', shout);
-	    zputc('\n', shout);
+	    zputc(ZWC('\r'));
+	    zputc(ZWC('\n'));
 	} else {
 	    if ((vln < nlnct) && nbuf[vln] && *nbuf[vln])
 		c = *nbuf[vln];
 	    else
-		c = ' ';
-	    zputc(c, shout);
-	    zputc('\r', shout);
+		c = ZWC(' ');
+	    zputc(c);
+	    zputc(ZWC('\r'));
 	    if ((vln < olnct) && obuf[vln] && *obuf[vln])
 		*obuf[vln] = c;
 	}
@@ -970,9 +1274,9 @@ moveto(int ln, int cl)
 		continue;
 	    }
 	}
-	zputc('\r', shout), vcs = 0; /* safety precaution */
+	zputc(ZWC('\r')), vcs = 0; /* safety precaution */
 	while (ln > vln) {
-	    zputc('\n', shout);
+	    zputc(ZWC('\n'));
 	    vln++;
 	}
     }
@@ -1004,7 +1308,7 @@ tc_rightcurs(int ct)
     int cl,			/* ``desired'' absolute horizontal position */
 	i = vcs,		/* cursor position after initial movements  */
 	j;
-    char *t;
+    REFRESH_STRING t;
 
     cl = ct + vcs;
 
@@ -1033,17 +1337,34 @@ tc_rightcurs(int ct)
 
 /* otherwise _carefully_ write the contents of the video buffer.
    if we're anywhere in the prompt, goto the left column and write the whole
-   prompt out unless ztrlen(lpromptbuf) == lpromptw : we can cheat then */
+   prompt out.
+
+   If strlen(lpromptbuf) == lpromptw, we can cheat and output
+   the appropriate chunk of the string.  This test relies on the
+   fact that any funny business will always make the length of
+   the string larger than the printing width, so if they're the same
+   we have only ASCII characters or a single-byte extension of ASCII.
+   Unfortunately this trick won't work if there are potentially
+   characters occupying more than one column.  We could flag that
+   this has happened (since it's not that common to have characters
+   wider than one column), but for now it's easier not to use the
+   trick if we are using wcwidth() on the prompt.  It's not that
+   common to be editing in the middle of the prompt anyway, I would
+   think.
+   */
     if (vln == 0 && i < lpromptw && !(termflags & TERM_SHORT)) {
+#ifndef MULTIBYTE_SUPPORT
 	if ((int)strlen(lpromptbuf) == lpromptw)
 	    fputs(lpromptbuf + i, shout);
-	else if (tccan(TCRIGHT) && (tclen[TCRIGHT] * ct <= ztrlen(lpromptbuf)))
+	else 
+#endif
+	if (tccan(TCRIGHT) && (tclen[TCRIGHT] * ct <= ztrlen(lpromptbuf)))
 	    /* it is cheaper to send TCRIGHT than reprint the whole prompt */
 	    for (ct = lpromptw - i; ct--; )
 		tcout(TCRIGHT);
         else {
 	    if (i != 0)
-		zputc('\r', shout);
+		zputc('\r');
 	    tc_upcurs(lprompth - 1);
 	    zputs(lpromptbuf, shout);
 	    if (lpromptwof == winw)
@@ -1057,10 +1378,10 @@ tc_rightcurs(int ct)
 	for (j = 0, t = nbuf[vln]; *t && (j < i); j++, t++);
 	if (j == i)
 	    for ( ; *t && ct; ct--, t++)
-		zputc(*t, shout);
+		zputc(*t);
     }
     while (ct--)
-	zputc(' ', shout);	/* not my fault your terminal can't go right */
+	zputc(ZWC(' '));	/* not my fault your terminal can't go right */
 }
 
 /**/
@@ -1071,8 +1392,8 @@ tc_downcurs(int ct)
 
     if (ct && !tcmultout(TCDOWN, TCMULTDOWN, ct)) {
 	while (ct--)
-	    zputc('\n', shout);
-	zputc('\r', shout), ret = -1;
+	    zputc(ZWC('\n'));
+	zputc(ZWC('\r')), ret = -1;
     }
     return ret;
 }
@@ -1111,7 +1432,7 @@ mod_export int
 redisplay(UNUSED(char **args))
 {
     moveto(0, 0);
-    zputc('\r', shout);		/* extra care */
+    zputc(ZWC('\r'));		/* extra care */
     tc_upcurs(lprompth - 1);
     resetneeded = 1;
     clearflag = 0;
@@ -1120,23 +1441,29 @@ redisplay(UNUSED(char **args))
 
 /**/
 static void
-singlerefresh(unsigned char *tmpline, int tmpll, int tmpcs)
+singlerefresh(ZLE_STRING_T tmpline, int tmpll, int tmpcs)
 {
-    char *vbuf, *vp,		/* video buffer and pointer    */
-	**qbuf,			/* tmp			       */
-	*refreshop = *obuf;	/* pointer to old video buffer */
+    REFRESH_STRING vbuf, vp,	/* video buffer and pointer    */
+	*qbuf,			/* tmp			       */
+	refreshop;	        /* pointer to old video buffer */
     int t0,			/* tmp			       */
 	vsiz,			/* size of new video buffer    */
-	nvcs = 0;		/* new video cursor column     */
+	nvcs = 0,		/* new video cursor column     */
+	owinpos = winpos,	/* previous window position    */
+	owinprompt = winprompt;	/* previous winprompt          */
 
     nlnct = 1;
 /* generate the new line buffer completely */
     for (vsiz = 1 + lpromptw, t0 = 0; t0 != tmpll; t0++, vsiz++)
-	if (tmpline[t0] == '\t')
+	if (tmpline[t0] == ZWC('\t'))
 	    vsiz = (vsiz | 7) + 1;
-	else if (icntrl(tmpline[t0]))
+#ifdef MULTIBYTE_SUPPORT
+	else if (iswprint(tmpline[t0]))
+	    vsiz += wcwidth(tmpline[t0]);
+#endif
+	else if (ZC_icntrl(tmpline[t0]))
 	    vsiz++;
-    vbuf = (char *)zalloc(vsiz);
+    vbuf = (REFRESH_STRING)zalloc(vsiz * sizeof(*vbuf));
 
     if (tmpcs < 0) {
 #ifdef DEBUG
@@ -1146,24 +1473,31 @@ singlerefresh(unsigned char *tmpline, int tmpll, int tmpcs)
 	tmpcs = 0;
     }
 
-    /* only use last part of prompt */
-    memcpy(vbuf, strchr(lpromptbuf, 0) - lpromptw, lpromptw);
-    vbuf[lpromptw] = '\0';
+    /* prompt is not directly copied into the video buffer */
+    ZR_memset(vbuf, ZWC(' '), lpromptw);
     vp = vbuf + lpromptw;
+    *vp = ZWC('\0');
 
-    for (t0 = 0; t0 != tmpll; t0++) {
-	if (tmpline[t0] == '\t')
-	    for (*vp++ = ' '; (vp - vbuf) & 7; )
-		*vp++ = ' ';
-	else if (tmpline[t0] == '\n') {
-	    *vp++ = '\\';
-	    *vp++ = 'n';
-	} else if (tmpline[t0] == 0x7f) {
-	    *vp++ = '^';
-	    *vp++ = '?';
-	} else if (icntrl(tmpline[t0])) {
-	    *vp++ = '^';
-	    *vp++ = tmpline[t0] | '@';
+    for (t0 = 0; t0 < tmpll; t0++) {
+	if (tmpline[t0] == ZWC('\t')) {
+	    for (*vp++ = ZWC(' '); (vp - vbuf) & 7; )
+		*vp++ = ZWC(' ');
+	} else if (tmpline[t0] == ZWC('\n')) {
+	    *vp++ = ZWC('\\');
+	    *vp++ = ZWC('n');
+#ifdef MULTIBYTE_SUPPORT
+	} else if (iswprint(tmpline[t0])) {
+	    int width;
+	    *vp++ = tmpline[t0];
+	    width = wcwidth(tmpline[t0]);
+	    while (--width > 0)
+		*vp++ = WEOF;
+#endif
+	} else if (ZC_icntrl(tmpline[t0])) {
+	    ZLE_INT_T t = tmpline[++t0];
+
+	    *vp++ = ZWC('^');
+	    *vp++ = (((unsigned int)t & ~0x80u) > 31) ? ZWC('?') : (t | ZWC('@'));
 	} else
 	    *vp++ = tmpline[t0];
 	if (t0 == tmpcs)
@@ -1171,27 +1505,90 @@ singlerefresh(unsigned char *tmpline, int tmpll, int tmpcs)
     }
     if (t0 == tmpcs)
 	nvcs = vp - vbuf;
-    *vp = '\0';
+    *vp = ZWC('\0');
 
 /* determine which part of the new line buffer we want for the display */
+    if (winpos == -1)
+	winpos = 0;
     if ((winpos && nvcs < winpos + 1) || (nvcs > winpos + winw - 2)) {
 	if ((winpos = nvcs - ((winw - hasam) / 2)) < 0)
 	    winpos = 0;
     }
     if (winpos)
-	vbuf[winpos] = '<';	/* line continues to the left */
-    if ((int)strlen(vbuf + winpos) > (winw - hasam)) {
-	vbuf[winpos + winw - hasam - 1] = '>';	/* line continues to right */
-	vbuf[winpos + winw - hasam] = '\0';
+	vbuf[winpos] = ZWC('<');	/* line continues to the left */
+    if ((int)ZR_strlen(vbuf + winpos) > (winw - hasam)) {
+	vbuf[winpos + winw - hasam - 1] = ZWC('>');	/* line continues to right */
+	vbuf[winpos + winw - hasam] = ZWC('\0');
     }
-    strcpy(nbuf[0], vbuf + winpos);
-    zfree(vbuf, vsiz);
+    ZR_strcpy(nbuf[0], vbuf + winpos);
+    zfree(vbuf, vsiz * sizeof(*vbuf));
     nvcs -= winpos;
 
-/* display the `visable' portion of the line buffer */
-    for (t0 = 0, vp = *nbuf;;) {
-    /* skip past all matching characters */
-	for (; *vp && *vp == *refreshop; t0++, vp++, refreshop++) ;
+    if (winpos < lpromptw) {
+	/* skip start of buffer corresponding to prompt */
+	winprompt = lpromptw - winpos;
+    } else {
+	/* don't */
+	winprompt = 0;
+    }
+    if (winpos != owinpos && winprompt) {
+	char *pptr;
+	int skipping = 0, skipchars = winpos;
+	/*
+	 * Need to output such part of the left prompt as fits.
+	 * Skip the first winpos characters, outputting
+	 * any characters marked with %{...%}.
+	 */
+	singmoveto(0);
+	MB_METACHARINIT();
+	for (pptr = lpromptbuf; *pptr; ) {
+	    if (*pptr == Inpar) {
+		skipping = 1;
+		pptr++;
+	    } else if (*pptr == Outpar) {
+		skipping = 0;
+		pptr++;
+	    } else {
+		convchar_t cc;
+		int mblen = MB_METACHARLENCONV(pptr, &cc);
+		if (skipping || skipchars == 0)
+		{
+		    while (mblen) {
+#ifdef MULTIBYTE_SUPPORT
+			if (cc == WEOF)
+			    fputc('?', shout);
+			else
+#endif
+			    if (*pptr == Meta) {
+				mblen--;
+				fputc(*++pptr ^ 32, shout);
+			    } else {
+				fputc(*pptr, shout);
+			    }
+			pptr++;
+			mblen--;
+		    }
+		} else {
+		    skipchars--;
+		    pptr += mblen;
+		}
+	    }
+	}
+	vcs = winprompt;
+    }
+
+/* display the `visible' portion of the line buffer */
+    t0 = winprompt;
+    vp = *nbuf + winprompt;
+    refreshop = *obuf + winprompt;
+    for (;;) {
+	/*
+	 * Skip past all matching characters, but if there used
+	 * to be a prompt here be careful since all manner of
+	 * nastiness may be around.
+	 */
+	if (vp - *nbuf >= owinprompt)
+	    for (; *vp && *vp == *refreshop; t0++, vp++, refreshop++) ;
 
 	if (!*vp && !*refreshop)
 	    break;
@@ -1199,8 +1596,8 @@ singlerefresh(unsigned char *tmpline, int tmpll, int tmpcs)
 	singmoveto(t0);		/* move to where we do all output from */
 
 	if (!*refreshop) {
-	    if ((t0 = strlen(vp)))
-		zwrite(vp, t0, 1, shout);
+	    if ((t0 = ZR_strlen(vp)))
+		zwrite(vp, t0);
 	    vcs += t0;
 	    break;
 	}
@@ -1209,10 +1606,10 @@ singlerefresh(unsigned char *tmpline, int tmpll, int tmpcs)
 		tcout(TCCLEAREOL);
 	    else
 		for (; *refreshop++; vcs++)
-		    zputc(' ', shout);
+		    zputc(ZWC(' '));
 	    break;
 	}
-	zputc(*vp, shout);
+	zputc(*vp);
 	vcs++, t0++;
 	vp++, refreshop++;
     }
@@ -1235,7 +1632,7 @@ singmoveto(int pos)
    do this now because it's easier (to code) */
 
     if ((!tccan(TCMULTLEFT) || pos == 0) && (pos <= vcs / 2)) {
-	zputc('\r', shout);
+	zputc(ZWC('\r'));
 	vcs = 0;
     }
 

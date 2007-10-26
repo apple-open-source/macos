@@ -115,13 +115,6 @@
 							<string>0</string>
 						</array>
 					</dict>
-					<key>NetInfo</key>
-					<dict>
-						<key>BindingMethods</key>
-						<array>
-							<string>DHCP</string>
-						</array>
-					</dict>
 				</dict>
 				<key>Service</key>
 				<dict>

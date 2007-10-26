@@ -30,7 +30,7 @@
 #import "PrompterController.h"
 #import "AuthenticationController.h"
 #import "ChangePasswordController.h"
-#import "ErrorAlert.h"
+#import "KerberosErrorAlert.h"
 
 #define ResponseSpacing 16
 #define PromptSpacing   12

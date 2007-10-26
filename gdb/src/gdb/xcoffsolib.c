@@ -48,11 +48,11 @@ xcoff_solib_address (CORE_ADDR addr)
     if (vp->tstart <= addr && addr < vp->tend)
       {
 	xfree (buffer);
-	xasprintf (&buffer, "%s%s%s%s",
-			    vp->name,
-			    *vp->member ? "(" : "",
-			    vp->member,
-			    *vp->member ? ")" : "");
+	buffer = xstrprintf ("%s%s%s%s",
+			     vp->name,
+			     *vp->member ? "(" : "",
+			     vp->member,
+			     *vp->member ? ")" : "");
 	return buffer;
       }
   return NULL;
@@ -109,7 +109,7 @@ sharedlibrary_command (char *pattern, int from_tty)
       char *re_err = re_comp (pattern);
 
       if (re_err)
-	error ("Invalid regexp: %s", re_err);
+	error (_("Invalid regexp: %s"), re_err);
     }
 
   /* Walk the list of currently loaded shared libraries, and read
@@ -157,40 +157,23 @@ sharedlibrary_command (char *pattern, int from_tty)
   }
 }
 
-/* LOCAL FUNCTION
-
-   no_shared_libraries -- handle command to explicitly discard symbols
-   from shared libraries.
-
-   DESCRIPTION
-
-   Implements the command "nosharedlibrary", which discards symbols
-   that have been auto-loaded from shared libraries.  Symbols from
-   shared libraries that were added by explicit request of the user
-   are not discarded.  Also called from remote.c.  */
-
-void
-no_shared_libraries (char *ignored, int from_tty)
-{
-  /* FIXME */
-}
-
 void
 _initialize_xcoffsolib (void)
 {
   add_com ("sharedlibrary", class_files, sharedlibrary_command,
-	   "Load shared object library symbols for files matching REGEXP.");
+	   _("Load shared object library symbols for files matching REGEXP."));
   add_info ("sharedlibrary", solib_info,
-	    "Status of loaded shared object libraries");
+	    _("Status of loaded shared object libraries"));
 
-  add_show_from_set
-    (add_set_cmd ("auto-solib-add", class_support, var_boolean,
-		  (char *) &auto_solib_add,
-		  "Set autoloading of shared library symbols.\n\
+  add_setshow_boolean_cmd ("auto-solib-add", class_support,
+			   &auto_solib_add, _("\
+Set autoloading of shared library symbols."), _("\
+Show autoloading of shared library symbols."), _("\
 If \"on\", symbols from all shared object libraries will be loaded\n\
 automatically when the inferior begins execution, when the dynamic linker\n\
 informs gdb that a new library has been loaded, or when attaching to the\n\
-inferior.  Otherwise, symbols must be loaded manually, using `sharedlibrary'.",
-		  &setlist),
-     &showlist);
+inferior.  Otherwise, symbols must be loaded manually, using `sharedlibrary'."),
+			   NULL,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 }

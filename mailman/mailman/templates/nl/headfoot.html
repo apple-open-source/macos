@@ -1,43 +1,24 @@
-Deze commando's kunnen gebruikt worden in je tekst:<br>
-&nbsp;<table border="0" cellspacing="1" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber1">
-  <tr>
-    <td width="17%"><b>real_name</b></td>
-    <td width="83%">De lijstnaam met hoofdletters er in. </td>
-  </tr>
-  <tr>
-    <td width="17%"><b>list_name</b></td>
-    <td width="83%">De lijstnaam zonder hoofdletters er in, gepresenteerd als 
-    URL. </td>
-  </tr>
-  <tr>
-    <td width="17%"><b>host_name</b></td>
-    <td width="83%">De hostnaam van de server waar deze mailing lijst op draait..
-    </td>
-  </tr>
-  <tr>
-    <td width="17%"><b>web_page_url</b></td>
-    <td width="83%">Basis URL van Mailman. Hier kan aan toegevoegd worden: <em>listinfo/%(list_name)s</em> 
-    om naar de lijst informatie pagina te gaan.. </td>
-  </tr>
-  <tr>
-    <td width="17%"><b>description</b></td>
-    <td width="83%">Dit laat de korte omschrijving zien van de mailing lijst..
-    </td>
-  </tr>
-  <tr>
-    <td width="17%"><b>info</b></td>
-    <td width="83%">De volledige omschrijving van de mailing lijst.. </td>
-  </tr>
-  <tr>
-    <td width="17%"><b>cgiext</b></td>
-    <td width="83%">Geeft weer de extentie die is toegevoegd aan CGI scripts..
-    </td>
-  </tr>
-</table>
-&nbsp;<p>Om het commando te laten werken voeg je er voor : <b>%(</b> en er na <b>
-)s</b> .</p>
-<p>Een voorbeeld van een voetnoot:</p>
-<p><b>---------------------------<br>
-Mailing lijst: %(real_name)s<br>
-Lijst informatie: %(web_page_url)slistinfo/%(list_name)s</b></p>
-<p>&nbsp;</p>
+De tekst mag de volgende
+<a href="http://www.python.org/doc/current/lib/typesseq-strings.html" target="_blank">Python
+format strings</a> bevatten, die automatisch herleid worden naar attributen die elders
+gedefinieerd zijn voor deze lijst. De mogelijke vervangende strings zijn:
+
+<ul>
+    <li><b>real_name</b> - De "mooie" naam van de lijst; gewoonlijk
+    de lijstnaam met hoofdletters er in.
+
+    <li><b>list_name</b> - De lijstnaam zonder hoofdletters er in, gepresenteerd als 
+    URL.
+
+    <li><b>host_name</b> - De domeinnaam waaronder de server van de maillijst op     draait.
+
+    <li><b>web_page_url</b> - Basis URL van Mailman. Hier kan aan toegevoegd worden:
+    <em>listinfo/%(list_name)s</em> 
+    om naar de lijst informatie pagina te gaan.
+
+    <li><b>description</b> - De korte omschrijving van de maillijst.
+
+    <li><b>info</b> - De uitgebreide omschrijving van de maillijst.
+
+    <li><b>cgiext</b> - De extentie toegevoegd aan CGI scripts.
+</ul>

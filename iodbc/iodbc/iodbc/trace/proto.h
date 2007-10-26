@@ -1,20 +1,24 @@
 /*
  *  proto.h
  *
- *  $Id: proto.h,v 1.2 2004/11/11 01:52:39 luesang Exp $
+ *  $Id: proto.h,v 1.10 2006/01/20 15:58:35 source Exp $
  *
  *  Trace functions prototypes
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1996-2004 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -69,6 +73,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 
 /* AllocConnect.c */
 void trace_SQLAllocConnect (int trace_leave, int retcode, SQLHENV henv,
@@ -176,8 +181,10 @@ void trace_SQLConnectW (int trace_leave, int retcode, SQLHDBC hdbc,
     SQLWCHAR * szAuthStr, SQLSMALLINT cbAuthStr);
 
 /* CopyDesc.c */
+#if (ODBCVER >= 0x0300)
 void trace_SQLCopyDesc (int trace_leave, int retcode,
     SQLHDESC SourceDescHandle, SQLHDESC TargetDescHandle);
+#endif
 
 /* DataSources.c */
 void _trace_direction (SQLUSMALLINT dir);
@@ -336,6 +343,7 @@ void trace_SQLGetData (int trace_leave, int retcode, SQLHSTMT hstmt,
     SQLLEN cbValueMax, SQLLEN * pcbValue);
 
 /* GetDescField.c */
+#if (ODBCVER >= 0x0300)
 void _trace_descfield_type (SQLSMALLINT type);
 void trace_SQLGetDescField (int trace_leave, int retcode,
     SQLHDESC DescriptorHandle, SQLSMALLINT RecNumber,
@@ -380,6 +388,7 @@ void trace_SQLGetDiagRecW (int trace_leave, int retcode,
     SQLSMALLINT HandleType, SQLHANDLE Handle, SQLSMALLINT RecNumber,
     SQLWCHAR * SqlState, SQLINTEGER * NativeErrorPtr, SQLWCHAR * MessageText,
     SQLSMALLINT BufferLength, SQLSMALLINT * TextLengthPtr);
+#endif
 
 /* GetEnvAttr.c */
 void _trace_envattr_type (SQLINTEGER type);
@@ -516,6 +525,7 @@ void trace_SQLSetCursorNameW (int trace_leave, int retcode, SQLHSTMT hstmt,
     SQLWCHAR * szCursor, SQLSMALLINT cbCursor);
 
 /* SetDescField.c */
+#if (ODBCVER >= 0x0300)
 void trace_SQLSetDescField (int trace_leave, int retcode,
     SQLHDESC DescriptorHandle, SQLSMALLINT RecNumber,
     SQLSMALLINT FieldIdentifier, SQLPOINTER ValuePtr,
@@ -524,13 +534,16 @@ void trace_SQLSetDescFieldW (int trace_leave, int retcode,
     SQLHDESC DescriptorHandle, SQLSMALLINT RecNumber,
     SQLSMALLINT FieldIdentifier, SQLPOINTER ValuePtr,
     SQLINTEGER BufferLength);
+#endif
 
 /* SetDescRec.c */
+#if (ODBCVER >= 0x0300)
 void trace_SQLSetDescRec (int trace_leave, int retcode,
     SQLHDESC DescriptorHandle, SQLSMALLINT RecNumber, SQLSMALLINT Type,
     SQLSMALLINT SubType, SQLLEN Length, SQLSMALLINT Precision,
     SQLSMALLINT Scale, SQLPOINTER Data, SQLLEN * StringLength,
     SQLLEN * Indicator);
+#endif
 
 /* SetEnvAttr.c */
 void trace_SQLSetEnvAttr (int trace_leave, int retcode,

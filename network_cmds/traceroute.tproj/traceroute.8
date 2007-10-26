@@ -21,7 +21,7 @@
 .Nd print the route packets take to network host
 .Sh SYNOPSIS
 .Nm traceroute
-.Op Fl dFISdnrvx
+.Op Fl dFISdNnrvx
 .Op Fl f Ar first_ttl
 .Op Fl g Ar gateway
 .Op Fl i Ar iface
@@ -85,6 +85,8 @@ packets.  The default is
 hops (the same default used for 
 .Tn TCP
 connections).
+.It Fl N
+Disables the increment of the destination port (see -p). Useful for using tcpdump through firewalls.  
 .It Fl n
 Print hop addresses numerically rather than symbolically and numerically
 (saves a nameserver address-to-name lookup for each gateway found on the
@@ -395,4 +397,3 @@ In the TCP case,
 .Nm
 should listen for a RST from the destination host (or an intermediate
 router that's filtering packets), but this is not implemented yet.
-

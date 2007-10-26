@@ -37,13 +37,41 @@
 #include "DirServices.h"
 #include "DirServicesUtils.h"
 
+#include <CoreFoundation/CoreFoundation.h>
+
 //TODO DoAnyMatch should be made common ie. needs argument rework though
 
-sInt32	PWOpenDirNode		(	tDirNodeReference fDSRef,
-								char *inNodeName,
-								tDirNodeReference *outNodeRef );
 
-bool	DoesThisMatch		(	const char		   *inString,
-								const char		   *inPatt,
-								tDirPatternMatch	inHow );
+const char*		CStrFromCFString	( CFStringRef inCFStr, char** ioCStr, size_t* ioCStrSize, bool* outCStrAllocated = NULL );
+
+__BEGIN_DECLS
+void CFDebugLog					(	SInt32 lType, const char* format, ... );
+void CFDebugLogV				(	SInt32 lType, const char* format, va_list ap );
+
+SInt32 PWOpenDirNode			(	tDirNodeReference fDSRef,
+									char *inNodeName,
+									tDirNodeReference *outNodeRef );
+
+bool DoesThisMatch				(	const char *inString,
+									const char *inPatt,
+									tDirPatternMatch inHow );
+
+tDirStatus MSCHAPv2ChangePass	(	const char *inUsername,
+									const uint8_t *inLMHash,
+									const char *inEncoding,
+									const uint8_t *inData,
+									UInt32 inDataLen,
+									uint8_t **outPassword,
+									UInt32 *outPasswordLen );
+
+char *GetLocalKDCRealm			( void );
+
+void LaunchKerberosAutoConfigTool( void );
+
+void dsNotifyUpdatedRecord		(	const char *inModule, const char *inNodeName, const char *inRecType );
+
+char *GenerateRandomComputerPassword( void );
+
+__END_DECLS
+
 #endif

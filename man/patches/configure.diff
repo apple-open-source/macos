@@ -1,6 +1,6 @@
 --- configure.orig	Sat Oct 23 06:24:51 2004
 +++ configure	Sat Oct 23 06:37:44 2004
-@@ -473,17 +473,12 @@
+@@ -474,17 +474,12 @@
      troff="troff -mandoc"
      echo "Warning: could not find groff"
    else

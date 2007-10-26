@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.learnjunkmail</string>
+	<key>Program</key>
+	<string>/etc/mail/spamassassin/learn_junk_mail</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>learn_junk_mail</string>
+	</array>
+        <key>StartInterval</key>
+        <integer>86400</integer>
+</dict>
+</plist>

@@ -15,13 +15,17 @@
 /*
  * Flags for forming descriptors.
  */
-#define	OPT	0x80		/* this argument is optional, or'd with type */
+/*
+ * Flags for forming descriptors.
+ */
+#define	OPT		0x80	/* this argument is optional, or'd with type */
 
-#define	NO	0x0
-#define	STR	0x1		/* string argument */
-#define	UINT	0x2		/* unsigned integer */
-#define	INT	0x3		/* signed integer */
-#define	ADD	0x4		/* IP network address */
+#define	NO		0x0
+#define	NTP_STR		0x1	/* string argument */
+#define	NTP_UINT	0x2	/* unsigned integer */
+#define	NTP_INT		0x3	/* signed integer */
+#define	NTP_ADD		0x4	/* IP network address */
+#define IP_VERSION	0x5	/* IP version */
 
 /*
  * Arguments are returned in a union
@@ -30,7 +34,7 @@ typedef union {
 	char *string;
 	long ival;
 	u_long uval;
-	u_int32 netnum;
+	struct sockaddr_storage netnum;
 } arg_v;
 
 /*
@@ -76,14 +80,14 @@ struct ctl_var {
 };
 
 extern	void	asciize		P((int, char *, FILE *));
-extern	int	getnetnum	P((const char *, u_int32 *, char *));
+extern	int	getnetnum	P((const char *, struct sockaddr_storage *, char *, int));
 extern	void	sortassoc	P((void));
 extern	int	doquery		P((int, int, int, int, char *, u_short *, int *, char **));
-extern	char *	nntohost	P((u_int32));
+extern	char *	nntohost	P((struct sockaddr_storage *));
 extern	int	decodets	P((char *, l_fp *));
 extern	int	decodeuint	P((char *, u_long *));
 extern	int	nextvar		P((int *, char **, char **, char **));
 extern	int	decodetime	P((char *, l_fp *));
 extern	void	printvars	P((int, char *, int, int, FILE *));
 extern	int	decodeint	P((char *, long *));
-extern	int	findvar		P((char *, struct ctl_var *));
+extern	int	findvar		P((char *, struct ctl_var *, int code));

@@ -68,8 +68,6 @@ typedef u_int32_t KLPT_APIVersion;
 
 /* Function prototypes */
 
-#pragma export on
-
 KLStatus KerberosLoginPrincipalTranslation_InitializePlugin (KLPT_APIVersion inAPIVersion);
 
 KLStatus KerberosLoginPrincipalTranslation_TranslatePrincipal (const char  *inName,

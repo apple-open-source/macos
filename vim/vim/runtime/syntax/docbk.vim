@@ -2,8 +2,8 @@
 " Language:	DocBook
 " Maintainer:	Devin Weaver <vim@tritarget.com>
 " URL:		http://tritarget.com/pub/vim/syntax/docbk.vim
-" Last Change:	2002 Sep 04
-" Version:	$Revision$
+" Last Change:	$Date: 2005/06/23 22:31:01 $
+" Version:	$Revision: 1.2 $
 " Thanks to Johannes Zellner <johannes@zellner.org> for the default to XML
 " suggestion.
 
@@ -29,12 +29,12 @@ if !exists('b:docbk_type')
   endif
 endif
 if 'xml' == b:docbk_type
-    doau FileType xml
+    doau Syntax xml
     syn cluster xmlTagHook add=docbkKeyword
     syn cluster xmlRegionHook add=docbkRegion,docbkTitle,docbkRemark,docbkCite
     syn case match
 elseif 'sgml' == b:docbk_type
-    doau FileType sgml
+    doau Syntax sgml
     syn cluster sgmlTagHook add=docbkKeyword
     syn cluster sgmlRegionHook add=docbkRegion,docbkTitle,docbkRemark,docbkCite
     syn case ignore

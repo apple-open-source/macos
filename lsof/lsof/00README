@@ -173,8 +173,8 @@ the ``osr'' or the ``sco'' abbreviation:
  Abbreviations		UNIX Dialect
  -------------		------------
 
-    aix			IBM AIX 5.[123] using IBM's C Compiler
-    aixgcc		IBM AIX 5.[123] using gcc
+    aix			IBM AIX 5.[23] and 5.3-ML1 using IBM's C Compiler
+    aixgcc		IBM AIX 5.[12] and 5.3-ML1 using gcc
     darwin		Apple Darwin 7.x and 8.x for Power Macintosh systems
     decosf		DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0 and 5.1
     digital_unix	Digital UNIX, DEC OSF/1, Tru64 UNIX 4.0 and 5.1
@@ -728,9 +728,24 @@ Before you send me a bug report, please do these things:
        to see if there's a question and answer relevant to your
        problem.
 
+    *  Make sure you're running the lsof you think you are by
+       checking the path to it with which(1).  When in doubt, use an
+       absolute path to lsof.  Make sure that lsof binary has
+       sufficient permissions to do what you ask, including internal
+       permissions given it (e.g., restrictions on what files lsof may
+       report for whom) during its build.
+
 When you send a bug report, make sure you include output from your
 running of lsof's Configure script.  If you were able to compile a
-running lsof, please include output from its -h and -v options.
+running lsof, please also include:
+
+    *  Output from which(1) that shows the absolute path to the
+       lsof binary in question;
+
+    *  Output from running lsof with its -h and -v options at
+       lsof's absolute path;
+
+    *  Output from "ls -l" directed to lsof's absolute path.
 
 If you weren't able to compile a running lsof, please send me: the
 compiler error output; identification of the lsof revision you're using
@@ -1246,6 +1261,11 @@ discourage it.  I've built 64 bit capable gcc compilers for Solaris
 lsof executables with them.  More information on 64 bit gcc for
 Solaris may be found in the 00FAQ file.
 
+Solaris 10 ZFS support is questionable, because Sun does not distribute
+the ZFS kernel structure definition header files.  The lsof Configure
+script and source code use some risky work-arounds.  ZFS file system
+support was made possible with help from Horst Scheuermann.
+
 Dave Curry and Steve Kirsch provided resources for Solaris 2.x
 ports.  Casper Dik and Gerry Singleton consulted and provided
 valuable assistance.
@@ -1512,4 +1532,4 @@ you are trying to configure.
 
 
 Vic Abell <abe@purdue.edu>
-April 10, 2006
+April 24, 2007

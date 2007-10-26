@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,27 +31,30 @@
  * SUCH DAMAGE.
  *
  *	from: @(#)extern.h	8.1 (Berkeley) 6/4/93
- *	$Id: extern.h,v 1.1.1.2 2000/01/11 02:10:14 wsanchez Exp $
+ * $FreeBSD: src/libexec/getty/extern.h,v 1.9 2005/04/06 17:42:24 stefanf Exp $
  */
 
 struct delayval;
+struct termios;
 
-int	 adelay __P((int, struct delayval *));
-char	*autobaud __P((void));
-int	 delaybits __P((void));
-void	 edithost __P((char *));
-void	 gendefaults __P((void));
-int	 getent __P((char *, char *));
-int	 getflag __P((char *));
-long	 getnum __P((char *));
-char	*getstr __P((char *, char **));
-void	 gettable __P((char *, char *));
-void	 makeenv __P((char *[]));
-char	*portselector __P((void));
-void	 set_ttydefaults __P((int));
-void	 setchars __P((void));
-void	 setdefaults __P((void));
-void	 setflags __P((int));
-int	 speed __P((int));
+extern	char hostname[];
+extern	int hopcount;
+extern	struct termios tmode, omode;
+extern	struct gettyflags gettyflags[];
+extern	struct gettynums gettynums[];
+extern	struct gettystrs gettystrs[];
 
-int	 login_tty __P((int));			/* From libutil. */
+int	 adelay(int, struct delayval *);
+const char *autobaud(void);
+int	 delaybits(void);
+void	 edithost(const char *);
+void	 gendefaults(void);
+void	 gettable(const char *, char *);
+void	 makeenv(char *[]);
+const char *portselector(void);
+void	 set_ttydefaults(int);
+void	 setchars(void);
+void	 setdefaults(void);
+void	 set_flags(int);
+int	 speed(int);
+int	 getty_chat(char *, int, int);

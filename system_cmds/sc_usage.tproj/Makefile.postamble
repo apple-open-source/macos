@@ -65,6 +65,9 @@
 #    DEBUG_BUILD_LDFLAGS, OPTIMIZE_BUILD_LDFLAGS, PROFILE_BUILD_LDFLAGS: flags
 #	passed to ld/libtool (defaults to nothing)
 
+ifeq "$(shell tconf --test TARGET_OS_EMBEDDED)" "YES"
+OPTIMIZE_BUILD_CFLAGS = -O
+endif
 
 # Library and Framework projects only:
 #    INSTALL_NAME_DIRECTIVE:  This directive ensures that executables linked

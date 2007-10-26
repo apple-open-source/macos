@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -132,7 +132,7 @@ MBR_parse(disk, offset, reloff, mbr)
 	mbr_t *mbr;
 {
 	int i;
-	char *mbr_buf = mbr->buf;
+	unsigned char *mbr_buf = mbr->buf;
 
 	memcpy(mbr->code, mbr_buf, MBR_CODE_SIZE);
 	mbr->offset = offset;
@@ -149,7 +149,7 @@ MBR_make(mbr)
 	mbr_t *mbr;
 {
 	int i;
-	char *mbr_buf = mbr->buf;
+	unsigned char *mbr_buf = mbr->buf;
 
 	memcpy(mbr_buf, mbr->code, MBR_CODE_SIZE);
 	putshort(&mbr_buf[MBR_SIG_OFF], mbr->signature);
@@ -176,41 +176,47 @@ MBR_print(mbr)
 }
 
 int
-MBR_read(fd, where, mbr)
+MBR_read(disk, fd, where, mbr)
+	disk_t *disk;
 	int fd;
 	off_t where;
 	mbr_t *mbr;
 {
 	off_t off;
 	int len;
-	char *buf = mbr->buf;
+	int size;
+	unsigned char *buf = mbr->buf;
 
-	where *= MBR_BUF_SIZE;
+	size = disk->real->sector_size;
+	where *= size;
 	off = lseek(fd, where, SEEK_SET);
 	if (off != where)
 		return (off);
-	len = read(fd, buf, MBR_BUF_SIZE);
-	if (len != MBR_BUF_SIZE)
+	len = read(fd, buf, size);
+	if (len != size)
 		return (len);
 	return (0);
 }
 
 int
-MBR_write(fd, mbr)
+MBR_write(disk, fd, mbr)
+	disk_t *disk;
 	int fd;
 	mbr_t *mbr;
 {
 	off_t off;
 	int len;
-	char *buf = mbr->buf;
+	int size;
+	unsigned char *buf = mbr->buf;
 	off_t where;
 
-	where = mbr->offset * MBR_BUF_SIZE;
+	size = disk->real->sector_size;
+	where = mbr->offset * size;
 	off = lseek(fd, where, SEEK_SET);
 	if (off != where)
 		return (off);
-	len = write(fd, buf, MBR_BUF_SIZE);
-	if (len != MBR_BUF_SIZE)
+	len = write(fd, buf, size);
+	if (len != size)
 		return (len);
 #if defined(DIOCRLDINFO)
 	(void) ioctl(fd, DIOCRLDINFO, 0);
@@ -233,7 +239,7 @@ MBR_pcopy(disk, mbr)
 	
 	mbrd = MBR_alloc(NULL);
 	fd = DISK_open(disk->name, O_RDONLY);
-	MBR_read(fd, offset, mbrd);
+	MBR_read(disk, fd, offset, mbrd);
 	DISK_close(fd);
 	MBR_parse(disk, offset, reloff, mbrd);
 	for (i = 0; i < NDOSPART; i++) {
@@ -256,7 +262,7 @@ parse_number(char *str, int default_val, int base) {
 
 static inline int
 null_arg(char *arg) {
-  if (arg == NULL || *arg == NULL)
+  if (arg == NULL || *arg == 0)
     return 1;
   else
     return 0;
@@ -476,7 +482,7 @@ MBR_read_all(disk_t *disk)
     if (head == NULL) {
       head = mbr;
     }
-    MBR_read(fd, offset, mbr);
+    MBR_read(disk, fd, offset, mbr);
     MBR_parse(disk, offset, firstoff, mbr);
     if (mbr->signature != MBR_SIGNATURE) {
       /* The MBR signature is invalid. */
@@ -508,7 +514,7 @@ MBR_write_all(disk_t *disk, mbr_t *mbr)
   fd = DISK_open(disk->name, O_RDWR);
   while (mbr) {
     MBR_make(mbr);
-    result = MBR_write(fd, mbr);
+    result = MBR_write(disk, fd, mbr);
     if (result)
       break;
     mbr = mbr->next;

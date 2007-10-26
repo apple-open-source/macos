@@ -38,4 +38,13 @@ __private_extern__ void PMAssertions_prime(void);
 __private_extern__ IOReturn 
 _IOPMSetActivePowerProfilesRequiresRoot(CFDictionaryRef which_profile, int uid, int gid);
 
+
+/*! @function _IOPMAssertionCreateRequiresRoot
+    @abstract Do not use. Internal power management helper only.
+*/
+__private_extern__ IOReturn 
+_IOPMAssertionCreateRequiresRoot(
+            mach_port_t task, CFStringRef assertionString,
+            int level, int *assertion_id);
+
 #endif _PSLowPower_h_

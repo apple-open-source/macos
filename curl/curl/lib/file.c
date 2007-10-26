@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: file.c,v 1.71 2005/02/11 00:03:49 bagder Exp $
+ * $Id: file.c,v 1.87 2007-06-07 22:24:53 danf Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -30,16 +30,8 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <ctype.h>
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_STAT_H
-#include <sys/stat.h>
-#endif
 
-#include <errno.h>
-
-#if defined(WIN32) && !defined(__GNUC__) || defined(__MINGW32__)
+#ifdef WIN32
 #include <time.h>
 #include <io.h>
 #include <fcntl.h>
@@ -50,7 +42,9 @@
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
+#ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
+#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -102,7 +96,7 @@
  */
 CURLcode Curl_file_connect(struct connectdata *conn)
 {
-  char *real_path = curl_unescape(conn->path, 0);
+  char *real_path = curl_easy_unescape(conn->data, conn->data->reqdata.path, 0, NULL);
   struct FILEPROTO *file;
   int fd;
 #if defined(WIN32) || defined(MSDOS) || defined(__EMX__)
@@ -119,7 +113,11 @@ CURLcode Curl_file_connect(struct connectdata *conn)
     return CURLE_OUT_OF_MEMORY;
   }
 
-  conn->proto.file = file;
+  if (conn->data->reqdata.proto.file) {
+    free(conn->data->reqdata.proto.file);
+  }
+
+  conn->data->reqdata.proto.file = file;
 
 #if defined(WIN32) || defined(MSDOS) || defined(__EMX__)
   /* If the first character is a slash, and there's
@@ -158,21 +156,22 @@ CURLcode Curl_file_connect(struct connectdata *conn)
 #endif
   file->freepath = real_path; /* free this when done */
 
+  file->fd = fd;
   if(!conn->data->set.upload && (fd == -1)) {
-    failf(conn->data, "Couldn't open file %s", conn->path);
-    Curl_file_done(conn, CURLE_FILE_COULDNT_READ_FILE);
+    failf(conn->data, "Couldn't open file %s", conn->data->reqdata.path);
+    Curl_file_done(conn, CURLE_FILE_COULDNT_READ_FILE, FALSE);
     return CURLE_FILE_COULDNT_READ_FILE;
   }
-  file->fd = fd;
 
   return CURLE_OK;
 }
 
 CURLcode Curl_file_done(struct connectdata *conn,
-                        CURLcode status)
+                        CURLcode status, bool premature)
 {
-  struct FILEPROTO *file = conn->proto.file;
+  struct FILEPROTO *file = conn->data->reqdata.proto.file;
   (void)status; /* not used */
+  (void)premature; /* not used */
   Curl_safefree(file->freepath);
 
   if(file->fd != -1)
@@ -189,7 +188,7 @@ CURLcode Curl_file_done(struct connectdata *conn,
 
 static CURLcode file_upload(struct connectdata *conn)
 {
-  struct FILEPROTO *file = conn->proto.file;
+  struct FILEPROTO *file = conn->data->reqdata.proto.file;
   char *dir = strchr(file->path, DIRSEP);
   FILE *fp;
   CURLcode res=CURLE_OK;
@@ -199,6 +198,8 @@ static CURLcode file_upload(struct connectdata *conn)
   size_t nwrite;
   curl_off_t bytecount = 0;
   struct timeval now = Curl_tvnow();
+  struct_stat file_stat;
+  char* buf2;
 
   /*
    * Since FILE: doesn't do the full init, we need to provide some extra
@@ -206,7 +207,7 @@ static CURLcode file_upload(struct connectdata *conn)
    */
   conn->fread = data->set.fread;
   conn->fread_in = data->set.in;
-  conn->upload_fromhere = buf;
+  conn->data->reqdata.upload_fromhere = buf;
 
   if(!dir)
     return CURLE_FILE_COULDNT_READ_FILE; /* fix: better error code */
@@ -214,7 +215,11 @@ static CURLcode file_upload(struct connectdata *conn)
   if(!dir[1])
      return CURLE_FILE_COULDNT_READ_FILE; /* fix: better error code */
 
-  fp = fopen(file->path, "wb");
+  if(data->reqdata.resume_from)
+    fp = fopen( file->path, "ab" );
+  else
+    fp = fopen(file->path, "wb");
+
   if(!fp) {
     failf(data, "Can't open %s for writing", file->path);
     return CURLE_WRITE_ERROR;
@@ -224,19 +229,46 @@ static CURLcode file_upload(struct connectdata *conn)
     /* known size of data to "upload" */
     Curl_pgrsSetUploadSize(data, data->set.infilesize);
 
+  /* treat the negative resume offset value as the case of "-" */
+  if(data->reqdata.resume_from < 0){
+    if(stat(file->path, &file_stat)){
+      fclose(fp);
+      failf(data, "Can't get the size of %s", file->path);
+      return CURLE_WRITE_ERROR;
+    }
+    else
+      data->reqdata.resume_from = (curl_off_t)file_stat.st_size;
+  }
+
   while (res == CURLE_OK) {
     int readcount;
     res = Curl_fillreadbuffer(conn, BUFSIZE, &readcount);
     if(res)
       break;
 
-    nread = (size_t)readcount;
-
-    if (nread <= 0)
+    if (readcount <= 0)  /* fix questionable compare error. curlvms */
       break;
 
+    nread = (size_t)readcount;
+
+    /*skip bytes before resume point*/
+    if(data->reqdata.resume_from) {
+      if( (curl_off_t)nread <= data->reqdata.resume_from ) {
+        data->reqdata.resume_from -= nread;
+        nread = 0;
+        buf2 = buf;
+      }
+      else {
+        buf2 = buf + data->reqdata.resume_from;
+        nread -= data->reqdata.resume_from;
+        data->reqdata.resume_from = 0;
+      }
+    }
+    else
+      buf2 = buf;
+
     /* write the data to the target */
-    nwrite = fwrite(buf, 1, nread, fp);
+    nwrite = fwrite(buf2, 1, nread, fp);
     if(nwrite != nread) {
       res = CURLE_SEND_ERROR;
       break;
@@ -297,7 +329,7 @@ CURLcode Curl_file(struct connectdata *conn, bool *done)
     return file_upload(conn);
 
   /* get the fd from the connection phase */
-  fd = conn->proto.file->fd;
+  fd = conn->data->reqdata.proto.file->fd;
 
   /* VMS: This only works reliable for STREAMLF files */
   if( -1 != fstat(fd, &statbuf)) {
@@ -313,11 +345,11 @@ CURLcode Curl_file(struct connectdata *conn, bool *done)
     CURLcode result;
     snprintf(buf, sizeof(data->state.buffer),
              "Content-Length: %" FORMAT_OFF_T "\r\n", expected_size);
-    result = Curl_client_write(data, CLIENTWRITE_BOTH, buf, 0);
+    result = Curl_client_write(conn, CLIENTWRITE_BOTH, buf, 0);
     if(result)
       return result;
 
-    result = Curl_client_write(data, CLIENTWRITE_BOTH,
+    result = Curl_client_write(conn, CLIENTWRITE_BOTH,
                                (char *)"Accept-ranges: bytes\r\n", 0);
     if(result)
       return result;
@@ -341,13 +373,13 @@ CURLcode Curl_file(struct connectdata *conn, bool *done)
                tm->tm_hour,
                tm->tm_min,
                tm->tm_sec);
-      result = Curl_client_write(data, CLIENTWRITE_BOTH, buf, 0);
+      result = Curl_client_write(conn, CLIENTWRITE_BOTH, buf, 0);
     }
     return result;
   }
 
-  if (conn->resume_from <= expected_size)
-    expected_size -= conn->resume_from;
+  if (data->reqdata.resume_from <= expected_size)
+    expected_size -= data->reqdata.resume_from;
   else {
     failf(data, "failed to resume file:// transfer");
     return CURLE_BAD_DOWNLOAD_RESUME;
@@ -363,8 +395,11 @@ CURLcode Curl_file(struct connectdata *conn, bool *done)
   if(fstated)
     Curl_pgrsSetDownloadSize(data, expected_size);
 
-  if(conn->resume_from)
-    lseek(fd, conn->resume_from, SEEK_SET);
+  if(data->reqdata.resume_from) {
+    if(data->reqdata.resume_from !=
+       lseek(fd, data->reqdata.resume_from, SEEK_SET))
+      return CURLE_BAD_DOWNLOAD_RESUME;
+  }
 
   Curl_pgrsTime(data, TIMER_STARTTRANSFER);
 
@@ -379,7 +414,7 @@ CURLcode Curl_file(struct connectdata *conn, bool *done)
 
     bytecount += nread;
 
-    res = Curl_client_write(data, CLIENTWRITE_BODY, buf, nread);
+    res = Curl_client_write(conn, CLIENTWRITE_BODY, buf, nread);
     if(res)
       return res;
 

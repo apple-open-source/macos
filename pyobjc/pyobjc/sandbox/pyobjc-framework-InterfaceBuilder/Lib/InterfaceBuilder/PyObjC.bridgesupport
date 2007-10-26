@@ -1,0 +1,203 @@
+<?xml version='1.0'?>
+<!DOCTYPE signatures SYSTEM "file://localhost/System/Library/DTDs/BridgeSupport.dtd">
+<signatures version='0.9'>
+  <struct name='IBInset' type='{_IBInset="left"f"top"f"right"f"bottom"f}' type64='{_IBInset="left"f"top"f"right"f"bottom"f}' />
+  <constant name='IBAttributesChangedNotification' type='@' />
+  <constant name='IBCellPboardType' type='@' />
+  <constant name='IBDidAddConnectorNotification' type='@' />
+  <constant name='IBDidBeginTestingInterfaceNotification' type='@' />
+  <constant name='IBDidEndTestingInterfaceNotification' type='@' />
+  <constant name='IBDidOpenDocumentNotification' type='@' />
+  <constant name='IBDidRemoveConnectorNotification' type='@' />
+  <constant name='IBDidSaveDocumentNotification' type='@' />
+  <constant name='IBFormatterPboardType' type='@' />
+  <constant name='IBInspectAttributesMode' type='@' />
+  <constant name='IBInspectConnectionsMode' type='@' />
+  <constant name='IBMenuItemPboardType' type='@' />
+  <constant name='IBMenuPboardType' type='@' />
+  <constant name='IBObjectPboardType' type='@' />
+  <constant name='IBProjectContextHelpFilesFileType' type='@' />
+  <constant name='IBProjectDocumentationFilesFileType' type='@' />
+  <constant name='IBProjectFrameworksFileType' type='@' />
+  <constant name='IBProjectHeadersFileType' type='@' />
+  <constant name='IBProjectInterfacesFileType' type='@' />
+  <constant name='IBProjectLibrariesFileType' type='@' />
+  <constant name='IBProjectLiveProjectMadeZombie' type='@' />
+  <constant name='IBProjectResourcesFileType' type='@' />
+  <constant name='IBProjectSourcesFileType' type='@' />
+  <constant name='IBProjectSubprojectsFileType' type='@' />
+  <constant name='IBProjectSupportingFilesFileType' type='@' />
+  <constant name='IBProjectZombieProjectReanimated' type='@' />
+  <constant name='IBResourceManagerRegistryDidChangeNotification' type='@' />
+  <constant name='IBScriptControllerPboardType' type='@' />
+  <constant name='IBSelectionChangedNotification' type='@' />
+  <constant name='IBTabViewItemPboardType' type='@' />
+  <constant name='IBTableColumnPboardType' type='@' />
+  <constant name='IBViewPboardType' type='@' />
+  <constant name='IBViewResourceDraggingDelegatesRegistryDidChangeNotification' type='@' />
+  <constant name='IBWillAddConnectorNotification' type='@' />
+  <constant name='IBWillBeginTestingInterfaceNotification' type='@' />
+  <constant name='IBWillCloseDocumentNotification' type='@' />
+  <constant name='IBWillEndTestingInterfaceNotification' type='@' />
+  <constant name='IBWillInspectObjectNotification' type='@' />
+  <constant name='IBWillInspectWithModeNotification' type='@' />
+  <constant name='IBWillRemoveConnectorNotification' type='@' />
+  <constant name='IBWillSaveDocumentNotification' type='@' />
+  <constant name='IBWindowPboardType' type='@' />
+  <enum name='IBBottomLeftKnobPosition' value='0' />
+  <enum name='IBBottomMiddleKnobPosition' value='7' />
+  <enum name='IBBottomRightKnobPosition' value='6' />
+  <enum name='IBMiddleLeftKnobPosition' value='1' />
+  <enum name='IBMiddleRightKnobPosition' value='5' />
+  <enum name='IBNoKnobPosition' value='-1' />
+  <enum name='IBTopLeftKnobPosition' value='2' />
+  <enum name='IBTopMiddleKnobPosition' value='3' />
+  <enum name='IBTopRightKnobPosition' value='4' />
+  <enum name='IB_BIG_SIZE' value='10000' />
+  <enum name='kNibResource' value='0' />
+  <enum name='kPaletteResource' value='2' />
+  <enum name='kProjectResource' value='1' />
+  <enum name='kSystemResource' value='3' />
+  <enum name='kUnknownResource' value='4' />
+  <informal_protocol name='IBNibInstantiation'>
+    <method selector='nibInstantiate' type='@@:' />
+  </informal_protocol>
+  <informal_protocol name='NSObject_IBObjectProtocol' />
+  <class name='IBInspector'>
+    <method selector='isResizable'>
+      <retval type='B' />
+    </method>
+    <method selector='wantsButtons'>
+      <retval type='B' />
+    </method>
+  </class>
+  <class name='IBPalette'>
+    <method selector='shouldInstallPaletteWithPath:'>
+      <retval type='B' />
+    </method>
+  </class>
+  <class name='IBResourceManager'>
+    <method selector='acceptsResourcesFromPasteboard:'>
+      <retval type='B' />
+    </method>
+    <method selector='isReadOnly'>
+      <retval type='B' />
+    </method>
+  </class>
+  <class name='NSApplication'>
+    <method selector='isConnecting'>
+      <retval type='B' />
+    </method>
+  </class>
+  <class name='NSObject'>
+    <method selector='acceptsColor:'>
+      <retval type='B' />
+    </method>
+    <method selector='acceptsColor:atPoint:'>
+      <retval type='B' />
+    </method>
+    <method selector='acceptsTypeFromPasteboard:'>
+      <retval type='B' />
+    </method>
+    <method selector='acceptsViewResourceFromPasteboard:forObject:atPoint:'>
+      <retval type='B' />
+    </method>
+    <method selector='activate'>
+      <retval type='B' />
+    </method>
+    <method selector='allowsAltDragging'>
+      <retval type='B' />
+    </method>
+    <method selector='canEditSelf'>
+      <retval type='B' />
+    </method>
+    <method class_method='true' selector='canSubstituteForClass:'>
+      <retval type='B' />
+    </method>
+    <method selector='containsFileAtPath:'>
+      <retval type='B' />
+    </method>
+    <method selector='containsObject:'>
+      <retval type='B' />
+    </method>
+    <method selector='containsObjectWithName:forParent:'>
+      <retval type='B' />
+    </method>
+    <method selector='copyObject:type:toPasteboard:'>
+      <retval type='B' />
+    </method>
+    <method selector='copyObjects:type:toPasteboard:'>
+      <retval type='B' />
+    </method>
+    <method selector='editorForObject:create:'>
+      <arg index='1' type='B' />
+    </method>
+    <method selector='ibDrawFrameWhileResizing'>
+      <retval type='B' />
+    </method>
+    <method selector='ibHasAlternateMinimumHeight'>
+      <retval type='B' />
+    </method>
+    <method selector='ibHasAlternateMinimumHeight'>
+      <retval type='B' />
+    </method>
+    <method selector='ibHasAlternateMinimumWidth'>
+      <retval type='B' />
+    </method>
+    <method selector='ibHasAlternateMinimumWidth'>
+      <retval type='B' />
+    </method>
+    <method selector='ibHasBaseLine'>
+      <retval type='B' />
+    </method>
+    <method selector='ibIsContainer'>
+      <retval type='B' />
+    </method>
+    <method selector='ibShouldShowContainerGuides'>
+      <retval type='B' />
+    </method>
+    <method selector='ibSupportsInsideOutSelection'>
+      <retval type='B' />
+    </method>
+    <method selector='ibSupportsLiveResize'>
+      <retval type='B' />
+    </method>
+    <method selector='isAncestorOfProject:'>
+      <retval type='B' />
+    </method>
+    <method selector='isDescendantOfProject:'>
+      <retval type='B' />
+    </method>
+    <method selector='isLive'>
+      <retval type='B' />
+    </method>
+    <method selector='isLocalized'>
+      <retval type='B' />
+    </method>
+    <method selector='isTestingInterface'>
+      <retval type='B' />
+    </method>
+    <method selector='isUntitled'>
+      <retval type='B' />
+    </method>
+    <method selector='makeSelectionVisible:'>
+      <arg index='0' type='B' />
+    </method>
+    <method selector='shouldCopySelection'>
+      <retval type='B' />
+    </method>
+    <method selector='shouldDeleteSelection'>
+      <retval type='B' />
+    </method>
+    <method selector='shouldDrawConnectionFrame'>
+      <retval type='B' />
+    </method>
+    <method selector='shouldPasteInSelection'>
+      <retval type='B' />
+    </method>
+    <method selector='wantsSelection'>
+      <retval type='B' />
+    </method>
+  </class>
+</signatures>
+

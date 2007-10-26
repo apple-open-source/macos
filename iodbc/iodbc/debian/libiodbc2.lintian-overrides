@@ -1,0 +1,2 @@
+libiodbc2: non-dev-pkg-with-shlib-symlink usr/lib/libiodbcinst.so.2.1.16 usr/lib/libiodbcinst.so
+libiodbc2: non-dev-pkg-with-shlib-symlink usr/lib/libiodbc.so.2.1.16 usr/lib/libiodbc.so

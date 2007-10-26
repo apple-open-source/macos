@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@ __SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	int				sc_status	= kSCStatusOK;
 	CFDataRef			tempValue;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -117,9 +117,20 @@ _configadd(mach_port_t 			server,
 	CFDataRef		data		= NULL;		/* data (un-serialized) */
 	serverSessionRef	mySession	= getSession(server);
 
+	*sc_status = kSCStatusOK;
+
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
+		goto done;
+	}
+
+	/* un-serialize the data */
+	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
+		*sc_status = kSCStatusFailed;
+	}
+
+	if (*sc_status != kSCStatusOK) {
 		goto done;
 	}
 
@@ -128,13 +139,7 @@ _configadd(mach_port_t 			server,
 		goto done;
 	}
 
-	/* un-serialize the data */
-	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
-		*sc_status = kSCStatusFailed;
-		goto done;
-	}
-
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		goto done;
 	}
@@ -146,8 +151,8 @@ _configadd(mach_port_t 			server,
 
     done :
 
-	if (key)	CFRelease(key);
-	if (data)	CFRelease(data);
+	if (key != NULL)	CFRelease(key);
+	if (data != NULL)	CFRelease(data);
 
 	return KERN_SUCCESS;
 }
@@ -170,9 +175,19 @@ _configadd_s(mach_port_t 		server,
 	SCDynamicStorePrivateRef	storePrivate;
 	Boolean				useSessionKeys;
 
+	*sc_status = kSCStatusOK;
+
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
+	}
+
+	/* un-serialize the data */
+	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
+		*sc_status = kSCStatusFailed;
+	}
+
+	if (*sc_status != kSCStatusOK) {
 		goto done;
 	}
 
@@ -181,13 +196,7 @@ _configadd_s(mach_port_t 		server,
 		goto done;
 	}
 
-	/* un-serialize the data */
-	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
-		*sc_status = kSCStatusFailed;
-		goto done;
-	}
-
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		goto done;
 	}
@@ -207,8 +216,8 @@ _configadd_s(mach_port_t 		server,
 
     done :
 
-	if (key)	CFRelease(key);
-	if (data)	CFRelease(data);
+	if (key != NULL)	CFRelease(key);
+	if (data != NULL)	CFRelease(data);
 
 	return KERN_SUCCESS;
 }

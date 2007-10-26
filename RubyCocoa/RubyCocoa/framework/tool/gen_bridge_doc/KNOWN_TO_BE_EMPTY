@@ -1,0 +1,21 @@
+These classes are none to not contain any information.
+
+ApplicationKit:
+- NSSecureTextField_Class
+- NSTextAttachmentCell_Class
+
+Foundation:
+- NSCountCommand_Class
+- NSDeserializer_Class
+- NSExistsCommand_Class
+- NSGetCommand_Class
+- NSMessagePort_Class
+- NSMiddleSpecifier_Class
+- NSPropertySpecifier_Class
+- NSRandomSpecifier_Class
+- NSSerializer_Class
+- NSObjCTypeSerializationCallBack_Protocol
+- NSURLHandleClient_Protocol
+
+WebKit:
+- WebDownload_Class

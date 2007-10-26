@@ -1,0 +1,2 @@
+pyobjc-core>=1.5
+pyobjc-framework-Foundation>=1.5

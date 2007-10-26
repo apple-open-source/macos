@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: cyrusdb_berkeley.c,v 1.5 2005/03/18 02:36:56 dasenbro Exp $ */
+/* $Id: cyrusdb_berkeley.c,v 1.16 2007/02/05 18:43:26 jeaton Exp $ */
 
 #include <config.h>
 
@@ -51,10 +51,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "bsearch.h"
 #include "cyrusdb.h"
 #include "exitcodes.h"
 #include "libcyr_cfg.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 
 extern void fatal(const char *, int);
 
@@ -104,12 +107,25 @@ static void db_panic(DB_ENV *dbenv __attribute__((unused)),
     exit(EC_TEMPFAIL);
 }
 
+#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 3)
+static void db_err(const DB_ENV *dbenv __attribute__((unused)),
+		   const char *db_prfx, const char *buffer)
+#else
 static void db_err(const char *db_prfx, char *buffer)
+#endif
 {
+#ifdef APPLE_OS_X_SERVER
 	if ((buffer!=NULL)&&(strstr(buffer,"lockers")))
     syslog(LOG_DEBUG,"DBERROR %s: %s",db_prfx,buffer);
 	else
-    syslog(LOG_WARNING,"DBERROR %s: %s",db_prfx,buffer);
+#endif
+    syslog(LOG_WARNING, "DBERROR %s: %s", db_prfx, buffer);
+}
+
+static void db_msg(const DB_ENV *dbenv __attribute__((unused)),
+		   const char *msg)
+{
+    syslog(LOG_INFO, "DBMSG: %s", msg);
 }
 
 static int init(const char *dbdir, int myflags)
@@ -152,6 +168,9 @@ static int init(const char *dbdir, int myflags)
 #endif
     }
 
+#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 3)
+    dbenv->set_msgcall(dbenv, db_msg);
+#endif
     dbenv->set_errcall(dbenv, db_err);
     snprintf(errpfx, sizeof(errpfx), "db%d", DB_VERSION_MAJOR);
     dbenv->set_errpfx(dbenv, errpfx);
@@ -162,12 +181,64 @@ static int init(const char *dbdir, int myflags)
 	syslog(LOG_WARNING,
 	       "DBERROR: invalid berkeley_locks_max value, using internal default");
     } else {
+#if DB_VERSION_MAJOR >= 4
+#ifdef APPLE_OS_X_SERVER
+	/*
+	 * From the Berkeley DB, conservative "rough guess" tunings for the locks are:
+	 *
+	 * max lockers = max simultaneous parent and child transactions
+	 *      We treat the berkeley_locks_max imapd.conf entry as the value for this and
+	 *      basis for all other tunings.
+	 *      If we can run 2500 daemons (as we might), and we can have 4 databases
+	 *      and we assume a pessimistic 4 transactions nested per, we'd get 10k.
+	 * max lock objects = (max lockers) * depth of btree
+	 *      Suggestion: 5, therefore 5x max_lockers
+	 * max locks = 2 x ((max lockers) + (max lock objects))
+	 *      Although a pessimistic value, it ensures there are enough locks to
+	 *      not get screwed by lock contention by having plenty around so that
+	 *      most transactions won't stomp on other, unrelated, transactions.
+	 *
+	 * In our case, Cyrus's use of BDB is probably sub-optimal and requires
+	 * a more pessimal number of locks.  The btree easily pushes to 3 deep, and
+	 * BerkeleyDB docs indicate that should be a multiplier to the above, so that
+	 * takes us to 6.  In practice, probably because of the way Cyrus encodes the
+	 * quota database stuff, this gets pushed to 20x before it's stable.  Since
+	 * it only claims a little additional disk space, this is better than risking
+	 * complete lock-up.
+	 */
+	r = dbenv->set_lk_max_locks(dbenv, 20 * (opt + (5 * opt))); // dbenv->set_lk_max() was deprecated 
+#else
+	r = dbenv->set_lk_max_locks(dbenv, opt); // dbenv->set_lk_max() was deprecated 
+#endif
+	if (r) { 
+		dbenv->err(dbenv, r, "set_lk_max_locks"); 
+		syslog(LOG_ERR, "DBERROR: set_lk_max_locks(): %s", db_strerror(r)); 
+		abort(); 
+	} 
+#ifdef APPLE_OS_X_SERVER
+	r = dbenv->set_lk_max_lockers(dbenv, 5 * opt); // dbenv->set_lk_max() was deprecated 
+#else
+	r = dbenv->set_lk_max_lockers(dbenv, opt); // dbenv->set_lk_max() was deprecated 
+#endif
+	if (r) { 
+		dbenv->err(dbenv, r, "set_lk_max_lockers"); 
+		syslog(LOG_ERR, "DBERROR: set_lk_max_lockers(): %s", db_strerror(r)); 
+		abort(); 
+	} 
+	r = dbenv->set_lk_max_objects(dbenv, opt); // dbenv->set_lk_max() was deprecated 
+	if (r) { 
+		dbenv->err(dbenv, r, "set_lk_max_objects"); 
+		syslog(LOG_ERR, "DBERROR: set_lk_max_objects(): %s", db_strerror(r)); 
+		abort(); 
+	} 
+#else
 	r = dbenv->set_lk_max(dbenv, opt);
 	if (r) {
 	    dbenv->err(dbenv, r, "set_lk_max");
 	    syslog(LOG_ERR, "DBERROR: set_lk_max(): %s", db_strerror(r));
 	    abort();
 	}
+#endif
     }
 
     if ((opt = libcyrus_config_getint(CYRUSOPT_BERKELEY_TXNS_MAX)) < 0) {
@@ -195,6 +266,16 @@ static int init(const char *dbdir, int myflags)
 	    return CYRUSDB_IOERROR;
 	}
     }
+#ifdef APPLE_OS_X_SERVER
+	if ( (r = dbenv->set_lg_regionmax(dbenv, 524288)) != 0 )
+	{
+		syslog( LOG_ERR, "DBERROR: set_lg_regionmax() %s", db_strerror(r) );
+	}
+	if ( (r = dbenv->set_lg_bsize(dbenv, 2097152)) != 0 )
+	{
+		syslog( LOG_ERR, "DBERROR: set_lg_bsize() %s", db_strerror(r) );
+	}
+#endif
 
     /* what directory are we in? */
  retry:
@@ -365,7 +446,13 @@ static int myarchive(const char **fnames, const char *dirname)
     return 0;
 }
 
-static int myopen(const char *fname, int flags, struct db **ret)
+static int mbox_compar(DB *db, const DBT *a, const DBT *b)
+{
+    return bsearch_ncompare((const char *) a->data, a->size,
+			    (const char *) b->data, b->size);
+}
+
+static int myopen(const char *fname, DBTYPE type, int flags, struct db **ret)
 {
     DB *db = NULL;
     int r;
@@ -381,11 +468,12 @@ static int myopen(const char *fname, int flags, struct db **ret)
 	return CYRUSDB_IOERROR;
     }
     /* xxx set comparator! */
+    if (flags & CYRUSDB_MBOXSORT) db->set_bt_compare(db, mbox_compar);
 
 #if DB_VERSION_MAJOR == 4 && DB_VERSION_MINOR >= 1
-    r = db->open(db, NULL, fname, NULL, DB_BTREE, dbflags | DB_AUTO_COMMIT, 0664);
+    r = db->open(db, NULL, fname, NULL, type, dbflags | DB_AUTO_COMMIT, 0664);
 #else
-    r = db->open(db, fname, NULL, DB_BTREE, dbflags, 0664);
+    r = db->open(db, fname, NULL, type, dbflags, 0664);
 #endif
 
     if (r != 0) {
@@ -401,6 +489,16 @@ static int myopen(const char *fname, int flags, struct db **ret)
     *ret = (struct db *) db;
 
     return r;
+}
+
+static int open_btree(const char *fname, int flags, struct db **ret)
+{
+    return myopen(fname, DB_BTREE, flags, ret);
+}
+
+static int open_hash(const char *fname, int flags, struct db **ret)
+{
+    return myopen(fname, DB_HASH, flags, ret);
 }
 
 static int myclose(struct db *db)
@@ -960,7 +1058,7 @@ struct cyrusdb_backend cyrusdb_berkeley =
     &mysync,
     &myarchive,
 
-    &myopen,
+    &open_btree,
     &myclose,
 
     &fetch,
@@ -986,7 +1084,59 @@ struct cyrusdb_backend cyrusdb_berkeley_nosync =
     &mysync,
     &myarchive,
 
-    &myopen,
+    &open_btree,
+    &myclose,
+
+    &fetch,
+    &fetchlock,
+    &foreach,
+    &create_nosync,
+    &store_nosync,
+    &delete_nosync,
+
+    &commit_nosync,
+    &abort_txn,
+
+    NULL,
+    NULL
+};
+
+struct cyrusdb_backend cyrusdb_berkeley_hash = 
+{
+    "berkeley-hash",		/* name */
+
+    &init,
+    &done,
+    &mysync,
+    &myarchive,
+
+    &open_hash,
+    &myclose,
+
+    &fetch,
+    &fetchlock,
+    &foreach,
+    &create,
+    &store,
+    &delete,
+
+    &commit_txn,
+    &abort_txn,
+    
+    NULL,
+    NULL
+};
+
+struct cyrusdb_backend cyrusdb_berkeley_hash_nosync = 
+{
+    "berkeley-hash-nosync",	/* name */
+
+    &init,
+    &done,
+    &mysync,
+    &myarchive,
+
+    &open_hash,
     &myclose,
 
     &fetch,

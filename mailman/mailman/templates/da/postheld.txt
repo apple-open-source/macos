@@ -1,8 +1,8 @@
-Du sendte en e-mail til '%(listname)s' med emnet
+Du har sendt en e-mail til '%(listname)s' med emnet
 
     %(subject)s
 
-Den holdes foreløbigt tilbage, indtil moderatoren har læst og
+Den holdes foreløbigt tilbage, indtil moderator har læst og
 godkendt eller afvist din mail.
 
 Begrundelsen for at tilbageholde din e-mail er:
@@ -10,7 +10,7 @@ Begrundelsen for at tilbageholde din e-mail er:
     %(reason)s
 
 Enten vil din e-mail blive videresendt til listen, eller du får den retur
-med en begrundelse for afvisnin for udsendelsen. Hvis du ønsker at
+med en begrundelse for afvisningen. Hvis du ønsker at
 trække din e-mail tilbage, kan dette gøres på følgende URL:
 
     %(confirmurl)s

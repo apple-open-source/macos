@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/passwd.c,v 1.74.2.9 2004/06/04 03:39:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/passwd.c,v 1.92.2.10 2006/07/28 13:01:36 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,14 +33,6 @@
 #include <ac/string.h>
 #include <ac/unistd.h>
 
-#ifdef SLAPD_SPASSWD
-#	ifdef HAVE_SASL_SASL_H
-#		include <sasl/sasl.h>
-#	else
-#		include <sasl.h>
-#	endif
-#endif
-
 #if defined(SLAPD_LMHASH)
 #	include <openssl/des.h>
 #endif /* SLAPD_LMHASH */
@@ -50,7 +42,7 @@
 #ifdef SLAPD_CRYPT
 # include <ac/crypt.h>
 
-# if defined( HAVE_GETPWNAM ) && defined( HAVE_PW_PASSWD )
+# if defined( HAVE_GETPWNAM ) && defined( HAVE_STRUCT_PASSWD_PW_PASSWD )
 #  ifdef HAVE_SHADOW_H
 #	include <shadow.h>
 #  endif
@@ -77,8 +69,14 @@ static const unsigned char crypt64[] =
 
 #ifdef SLAPD_CRYPT
 static char *salt_format = NULL;
+static lutil_cryptfunc lutil_crypt;
+lutil_cryptfunc *lutil_cryptptr = lutil_crypt;
 #endif
 
+/* KLUDGE:
+ *  chk_fn is NULL iff name is {CLEARTEXT}
+ *	otherwise, things will break
+ */
 struct pw_scheme {
 	struct berval name;
 	LUTIL_PASSWD_CHK_FUNC *chk_fn;
@@ -112,15 +110,11 @@ static LUTIL_PASSWD_CHK_FUNC chk_lanman;
 static LUTIL_PASSWD_HASH_FUNC hash_lanman;
 #endif
 
-#ifdef SLAPD_SPASSWD
-static LUTIL_PASSWD_CHK_FUNC chk_sasl;
-#endif
-
 #ifdef SLAPD_CRYPT
 static LUTIL_PASSWD_CHK_FUNC chk_crypt;
 static LUTIL_PASSWD_HASH_FUNC hash_crypt;
 
-#if defined( HAVE_GETPWNAM ) && defined( HAVE_PW_PASSWD )
+#if defined( HAVE_GETPWNAM ) && defined( HAVE_STRUCT_PASSWD_PW_PASSWD )
 static LUTIL_PASSWD_CHK_FUNC chk_unix;
 #endif
 #endif
@@ -132,6 +126,7 @@ static LUTIL_PASSWD_HASH_FUNC hash_clear;
 #endif
 
 static struct pw_slist *pw_schemes;
+static int pw_inited;
 
 static const struct pw_scheme pw_schemes_default[] =
 {
@@ -147,20 +142,16 @@ static const struct pw_scheme pw_schemes_default[] =
 	{ BER_BVC("{LANMAN}"),		chk_lanman, hash_lanman },
 #endif /* SLAPD_LMHASH */
 
-#ifdef SLAPD_SPASSWD
-	{ BER_BVC("{SASL}"),		chk_sasl, NULL },
-#endif
-
 #ifdef SLAPD_CRYPT
 	{ BER_BVC("{CRYPT}"),		chk_crypt, hash_crypt },
-# if defined( HAVE_GETPWNAM ) && defined( HAVE_PW_PASSWD )
+# if defined( HAVE_GETPWNAM ) && defined( HAVE_STRUCT_PASSWD_PW_PASSWD )
 	{ BER_BVC("{UNIX}"),		chk_unix, NULL },
 # endif
 #endif
 
 #ifdef SLAPD_CLEARTEXT
 	/* pseudo scheme */
-	{ {0, "{CLEARTEXT}"},		NULL, hash_clear },
+	{ BER_BVC("{CLEARTEXT}"),	NULL, hash_clear },
 #endif
 
 	{ BER_BVNULL, NULL, NULL }
@@ -172,6 +163,8 @@ int lutil_passwd_add(
 	LUTIL_PASSWD_HASH_FUNC *hash )
 {
 	struct pw_slist *ptr;
+
+	if (!pw_inited) lutil_passwd_init();
 
 	ptr = ber_memalloc( sizeof( struct pw_slist ));
 	if (!ptr) return -1;
@@ -186,6 +179,8 @@ int lutil_passwd_add(
 void lutil_passwd_init()
 {
 	struct pw_scheme *s;
+
+	pw_inited = 1;
 
 	for( s=(struct pw_scheme *)pw_schemes_default; s->name.bv_val; s++) {
 		if ( lutil_passwd_add( &s->name, s->chk_fn, s->hash_fn ) ) break;
@@ -206,11 +201,19 @@ static const struct pw_scheme *get_scheme(
 	const char* scheme )
 {
 	struct pw_slist *pws;
+	struct berval bv;
 
-	if (!pw_schemes) lutil_passwd_init();
+	if (!pw_inited) lutil_passwd_init();
+
+	bv.bv_val = strchr( scheme, '}' );
+	if ( !bv.bv_val )
+		return NULL;
+
+	bv.bv_len = bv.bv_val - scheme + 1;
+	bv.bv_val = (char *) scheme;
 
 	for( pws=pw_schemes; pws; pws=pws->next ) {
-		if( strcasecmp(scheme, pws->s.name.bv_val ) == 0 ) {
+		if ( ber_bvstrcasecmp(&bv, &pws->s.name ) == 0 ) {
 			return &(pws->s);
 		}
 	}
@@ -287,7 +290,7 @@ lutil_passwd(
 		return -1;
 	}
 
-	if (!pw_schemes) lutil_passwd_init();
+	if (!pw_inited) lutil_passwd_init();
 
 	for( pws=pw_schemes; pws; pws=pws->next ) {
 		if( pws->s.chk_fn ) {
@@ -302,10 +305,17 @@ lutil_passwd(
 	}
 
 #ifdef SLAPD_CLEARTEXT
+	/* Do we think there is a scheme specifier here that we
+	 * didn't recognize? Assume a scheme name is at least 1 character.
+	 */
+	if (( passwd->bv_val[0] == '{' ) &&
+		( ber_bvchr( passwd, '}' ) > passwd->bv_val+1 ))
+	{
+		return 1;
+	}
 	if( is_allowed_scheme("{CLEARTEXT}", schemes ) ) {
-		return (( passwd->bv_len == cred->bv_len ) &&
-				( passwd->bv_val[0] != '{' /*'}'*/ ))
-			? memcmp( passwd->bv_val, cred->bv_val, passwd->bv_len )
+		return ( passwd->bv_len == cred->bv_len ) ?
+			memcmp( passwd->bv_val, cred->bv_val, passwd->bv_len )
 			: 1;
 	}
 #endif
@@ -681,18 +691,21 @@ static int chk_md5(
  */
 
 static void lmPasswd_to_key(
-	const unsigned char *lmPasswd,
+	const char *lmPasswd,
 	des_cblock *key)
 {
+	const unsigned char *lpw = (const unsigned char *) lmPasswd;
+	unsigned char *k = (unsigned char *) key;
+
 	/* make room for parity bits */
-	((char *)key)[0] = lmPasswd[0];
-	((char *)key)[1] = ((lmPasswd[0]&0x01)<<7) | (lmPasswd[1]>>1);
-	((char *)key)[2] = ((lmPasswd[1]&0x03)<<6) | (lmPasswd[2]>>2);
-	((char *)key)[3] = ((lmPasswd[2]&0x07)<<5) | (lmPasswd[3]>>3);
-	((char *)key)[4] = ((lmPasswd[3]&0x0F)<<4) | (lmPasswd[4]>>4);
-	((char *)key)[5] = ((lmPasswd[4]&0x1F)<<3) | (lmPasswd[5]>>5);
-	((char *)key)[6] = ((lmPasswd[5]&0x3F)<<2) | (lmPasswd[6]>>6);
-	((char *)key)[7] = ((lmPasswd[6]&0x7F)<<1);
+	k[0] = lpw[0];
+	k[1] = ((lpw[0] & 0x01) << 7) | (lpw[1] >> 1);
+	k[2] = ((lpw[1] & 0x03) << 6) | (lpw[2] >> 2);
+	k[3] = ((lpw[2] & 0x07) << 5) | (lpw[3] >> 3);
+	k[4] = ((lpw[3] & 0x0F) << 4) | (lpw[4] >> 4);
+	k[5] = ((lpw[4] & 0x1F) << 3) | (lpw[5] >> 5);
+	k[6] = ((lpw[5] & 0x3F) << 2) | (lpw[6] >> 6);
+	k[7] = ((lpw[6] & 0x7F) << 1);
 		
 	des_set_odd_parity( key );
 }	
@@ -748,71 +761,35 @@ static int chk_lanman(
 }
 #endif /* SLAPD_LMHASH */
 
-#ifdef SLAPD_SPASSWD
-#ifdef HAVE_CYRUS_SASL
-sasl_conn_t *lutil_passwd_sasl_conn = NULL;
-#endif
-
-static int chk_sasl(
-	const struct berval *sc,
-	const struct berval * passwd,
-	const struct berval * cred,
-	const char **text )
-{
-	unsigned int i;
-	int rtn;
-
-	for( i=0; i<cred->bv_len; i++) {
-		if(cred->bv_val[i] == '\0') {
-			return LUTIL_PASSWD_ERR;	/* NUL character in password */
-		}
-	}
-
-	if( cred->bv_val[i] != '\0' ) {
-		return LUTIL_PASSWD_ERR;	/* cred must behave like a string */
-	}
-
-	for( i=0; i<passwd->bv_len; i++) {
-		if(passwd->bv_val[i] == '\0') {
-			return LUTIL_PASSWD_ERR;	/* NUL character in password */
-		}
-	}
-
-	if( passwd->bv_val[i] != '\0' ) {
-		return LUTIL_PASSWD_ERR;	/* passwd must behave like a string */
-	}
-
-	rtn = LUTIL_PASSWD_ERR;
-
-#ifdef HAVE_CYRUS_SASL
-	if( lutil_passwd_sasl_conn != NULL ) {
-		int sc;
-# if SASL_VERSION_MAJOR < 2
-		sc = sasl_checkpass( lutil_passwd_sasl_conn,
-			passwd->bv_val, passwd->bv_len,
-			cred->bv_val, cred->bv_len,
-			text );
-# else
-		sc = sasl_checkpass( lutil_passwd_sasl_conn,
-			passwd->bv_val, passwd->bv_len,
-			cred->bv_val, cred->bv_len );
-# endif
-		rtn = ( sc != SASL_OK ) ? LUTIL_PASSWD_ERR : LUTIL_PASSWD_OK;
-	}
-#endif
-
-	return rtn;
-}
-#endif
-
 #ifdef SLAPD_CRYPT
+static int lutil_crypt(
+	const char *key,
+	const char *salt,
+	char **hash )
+{
+	char *cr = crypt( key, salt );
+	int rc;
+
+	if( cr == NULL || cr[0] == '\0' ) {
+		/* salt must have been invalid */
+		rc = LUTIL_PASSWD_ERR;
+	} else {
+		if ( hash ) {
+			*hash = ber_strdup( cr );
+			rc = LUTIL_PASSWD_OK;
+		} else {
+			rc = strcmp( salt, cr ) ? LUTIL_PASSWD_ERR : LUTIL_PASSWD_OK;
+		}
+	}
+	return rc;
+}
+
 static int chk_crypt(
 	const struct berval *sc,
 	const struct berval * passwd,
 	const struct berval * cred,
 	const char **text )
 {
-	char *cr;
 	unsigned int i;
 
 	for( i=0; i<cred->bv_len; i++) {
@@ -839,17 +816,10 @@ static int chk_crypt(
 		return LUTIL_PASSWD_ERR;	/* passwd must behave like a string */
 	}
 
-	cr = crypt( cred->bv_val, passwd->bv_val );
-
-	if( cr == NULL || cr[0] == '\0' ) {
-		/* salt must have been invalid */
-		return LUTIL_PASSWD_ERR;
-	}
-
-	return strcmp( passwd->bv_val, cr ) ? LUTIL_PASSWD_ERR : LUTIL_PASSWD_OK;
+	return lutil_cryptptr( cred->bv_val, passwd->bv_val, NULL );
 }
 
-# if defined( HAVE_GETPWNAM ) && defined( HAVE_PW_PASSWD )
+# if defined( HAVE_GETPWNAM ) && defined( HAVE_STRUCT_PASSWD_PW_PASSWD )
 static int chk_unix(
 	const struct berval *sc,
 	const struct berval * passwd,
@@ -857,7 +827,7 @@ static int chk_unix(
 	const char **text )
 {
 	unsigned int i;
-	char *pw,*cr;
+	char *pw;
 
 	for( i=0; i<cred->bv_len; i++) {
 		if(cred->bv_val[i] == '\0') {
@@ -911,15 +881,7 @@ static int chk_unix(
 		return LUTIL_PASSWD_ERR;
 	}
 
-	cr = crypt(cred->bv_val, pw);
-
-	if( cr == NULL || cr[0] == '\0' ) {
-		/* salt must have been invalid */
-		return LUTIL_PASSWD_ERR;
-	}
-
-	return strcmp(pw, cr) ? LUTIL_PASSWD_ERR : LUTIL_PASSWD_OK;
-
+	return lutil_cryptptr( cred->bv_val, pw, NULL );
 }
 # endif
 #endif
@@ -1093,6 +1055,8 @@ static int hash_crypt(
 {
 	unsigned char salt[32];	/* salt suitable for most anything */
 	unsigned int i;
+	char *save;
+	int rc;
 
 	for( i=0; i<passwd->bv_len; i++) {
 		if(passwd->bv_val[i] == '\0') {
@@ -1121,17 +1085,22 @@ static int hash_crypt(
 		snprintf( (char *) salt, sizeof(entropy), salt_format, entropy );
 	}
 
-	hash->bv_val = crypt( passwd->bv_val, (char *) salt );
+	rc = lutil_cryptptr( passwd->bv_val, (char *) salt, &hash->bv_val );
+	if ( rc != LUTIL_PASSWD_OK ) return rc;
 
 	if( hash->bv_val == NULL ) return -1;
 
 	hash->bv_len = strlen( hash->bv_val );
 
-	if( hash->bv_len == 0 ) {
-		return LUTIL_PASSWD_ERR;
-	}
+	save = hash->bv_val;
 
-	return pw_string( scheme, hash );
+	if( hash->bv_len == 0 ) {
+		rc = LUTIL_PASSWD_ERR;
+	} else {
+		rc = pw_string( scheme, hash );
+	}
+	ber_memfree( save );
+	return rc;
 }
 #endif
 
@@ -1140,7 +1109,7 @@ int lutil_salt_format(const char *format)
 #ifdef SLAPD_CRYPT
 	free( salt_format );
 
-	salt_format = format != NULL ? strdup( format ) : NULL;
+	salt_format = format != NULL ? ber_strdup( format ) : NULL;
 #endif
 
 	return 0;

@@ -33,17 +33,12 @@ FAQ Wizard</a> for more information.
 <p> <b> Q. Can I put the user's address in the footer that Mailman adds to
    each message?
 
-</b><br> A. Yes, in Mailman 2.1.  The site admin needs to enable
-   personalization by setting the following variables in the mm_cfg.py
-   file:
-<p>     VERP_PASSWORD_REMINDERS = 1
-    VERP_PERSONALIZED_DELIVERIES = 1
-    VERP_DELIVERY_INTERVAL = 1
-    VERP_CONFIRMATIONS = 1
-<p>    Once this is done, list admins can enable personalization for
-   regular delivery members (digest deliveries can't be
-   personalized currently).  A personalized list can include the
-   user's address in the footer.
+</b><br> A. Yes, in Mailman 2.1.  The site admin needs to enable personalization by
+   setting the following variable in the mm_cfg.py file:
+<p>     OWNERS_CAN_ENABLE_PERSONALIZATION = Yes
+<p>    Once this is done, list admins can enable personalization for regular
+   delivery members (digest deliveries can't be personalized currently).  A
+   personalized list can include the user's address in the footer.
 <p> <b> Q. My users hate HTML in their email and for security reasons, I want
    to strip out all MIME attachments.  How can I do this?
 

@@ -1,267 +1,187 @@
-/* Top level entry point of bison,
-   Copyright (C) 1984, 1986, 1989, 1992, 1995 Free Software Foundation, Inc.
+/* Top level entry point of Bison.
 
-This file is part of Bison, the GNU Compiler Compiler.
+   Copyright (C) 1984, 1986, 1989, 1992, 1995, 2000, 2001, 2002, 2004, 2005
+   Free Software Foundation, Inc.
 
-Bison is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   This file is part of Bison, the GNU Compiler Compiler.
 
-Bison is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   Bison is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-You should have received a copy of the GNU General Public License
-along with Bison; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   Bison is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
+   You should have received a copy of the GNU General Public License
+   along with Bison; see the file COPYING.  If not, write to
+   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
-#include <stdio.h>
+#include <config.h>
 #include "system.h"
-#include "machine.h"	/* for MAXSHORT */
 
-extern	int lineno;
-extern	int verboseflag;
-extern	char *infile;
+#include <bitset_stats.h>
+#include <bitset.h>
+#include <timevar.h>
 
-/* Nonzero means failure has been detected; don't write a parser file.  */
-int failure;
+#include "LR0.h"
+#include "complain.h"
+#include "conflicts.h"
+#include "derives.h"
+#include "files.h"
+#include "getargs.h"
+#include "gram.h"
+#include "lalr.h"
+#include "muscle_tab.h"
+#include "nullable.h"
+#include "output.h"
+#include "print.h"
+#include "print_graph.h"
+#include "reader.h"
+#include "reduce.h"
+#include "symtab.h"
+#include "tables.h"
+#include "uniqstr.h"
 
 /* The name this program was run with, for messages.  */
 char *program_name;
 
-char *printable_version PARAMS((int));
-char *int_to_string PARAMS((int));
-void fatal PARAMS((char *));
-void fatals PARAMS((char *, char *));
-void warn PARAMS((char *));
-void warni PARAMS((char *, int));
-void warns PARAMS((char *, char *));
-void warnss PARAMS((char *, char *, char *));
-void warnsss PARAMS((char *, char *, char *, char *));
-void toomany PARAMS((char *));
-void berror PARAMS((char *));
 
-extern void getargs PARAMS((int, char *[]));
-extern void openfiles PARAMS((void));
-extern void reader PARAMS((void));
-extern void reduce_grammar PARAMS((void));
-extern void set_derives PARAMS((void));
-extern void set_nullable PARAMS((void));
-extern void generate_states PARAMS((void));
-extern void lalr PARAMS((void));
-extern void initialize_conflicts PARAMS((void));
-extern void verbose PARAMS((void));
-extern void terse PARAMS((void));
-extern void output PARAMS((void));
-extern void done PARAMS((int));
-
-
-/* VMS complained about using `int'.  */
 
 int
 main (int argc, char *argv[])
 {
   program_name = argv[0];
   setlocale (LC_ALL, "");
-  bindtextdomain (PACKAGE, LOCALEDIR);
-  textdomain (PACKAGE);
+  (void) bindtextdomain (PACKAGE, LOCALEDIR);
+  (void) bindtextdomain ("bison-runtime", LOCALEDIR);
+  (void) textdomain (PACKAGE);
 
-  failure = 0;
-  lineno = 0;
-  getargs(argc, argv);
-  openfiles();
+  uniqstrs_new ();
 
-  /* read the input.  Copy some parts of it to fguard, faction, ftable and fattrs.
-     In file reader.c.
-     The other parts are recorded in the grammar; see gram.h.  */
-  reader();
-  if (failure)
-	done(failure);
+  getargs (argc, argv);
 
-  /* find useless nonterminals and productions and reduce the grammar.  In
-     file reduce.c */
-  reduce_grammar();
+  timevar_report = trace_flag & trace_time;
+  init_timevar ();
+  timevar_start (TV_TOTAL);
 
-  /* record other info about the grammar.  In files derives and nullable.  */
-  set_derives();
-  set_nullable();
+  if (trace_flag & trace_bitsets)
+    bitset_stats_enable ();
 
-  /* convert to nondeterministic finite state machine.  In file LR0.
+  muscle_init ();
+
+  /* Read the input.  Copy some parts of it to FGUARD, FACTION, FTABLE
+     and FATTRS.  In file reader.c.  The other parts are recorded in
+     the grammar; see gram.h.  */
+
+  timevar_push (TV_READER);
+  reader ();
+  timevar_pop (TV_READER);
+
+  if (complaint_issued)
+    goto finish;
+
+  /* Find useless nonterminals and productions and reduce the grammar. */
+  timevar_push (TV_REDUCE);
+  reduce_grammar ();
+  timevar_pop (TV_REDUCE);
+
+  /* Record other info about the grammar.  In files derives and
+     nullable.  */
+  timevar_push (TV_SETS);
+  derives_compute ();
+  nullable_compute ();
+  timevar_pop (TV_SETS);
+
+  /* Convert to nondeterministic finite state machine.  In file LR0.
      See state.h for more info.  */
-  generate_states();
+  timevar_push (TV_LR0);
+  generate_states ();
+  timevar_pop (TV_LR0);
 
   /* make it deterministic.  In file lalr.  */
-  lalr();
+  timevar_push (TV_LALR);
+  lalr ();
+  timevar_pop (TV_LALR);
 
-  /* Find and record any conflicts: places where one token of lookahead is not
-     enough to disambiguate the parsing.  In file conflicts.
-     Also resolve s/r conflicts based on precedence declarations.  */
-  initialize_conflicts();
+  /* Find and record any conflicts: places where one token of
+     look-ahead is not enough to disambiguate the parsing.  In file
+     conflicts.  Also resolve s/r conflicts based on precedence
+     declarations.  */
+  timevar_push (TV_CONFLICTS);
+  conflicts_solve ();
+  conflicts_print ();
+  timevar_pop (TV_CONFLICTS);
 
-  /* print information about results, if requested.  In file print. */
-  if (verboseflag)
-    verbose();
-  else
-    terse();
+  /* Compute the parser tables.  */
+  timevar_push (TV_ACTIONS);
+  tables_generate ();
+  timevar_pop (TV_ACTIONS);
 
-  /* output the tables and the parser to ftable.  In file output. */
-  output();
-  done(failure);
-  return failure;
-}
-
-/* functions to report errors which prevent a parser from being generated */
+  grammar_rules_never_reduced_report
+    (_("rule never reduced because of conflicts"));
 
+  /* Output file names. */
+  compute_output_file_names ();
 
-/* Return a string containing a printable version of C:
-   either C itself, or the corresponding \DDD code.  */
-
-char *
-printable_version (int c)
-{
-  static char buf[10];
-  if (c < ' ' || c >= '\177')
-    sprintf(buf, "\\%o", c);
-  else
+  /* Output the detailed report on the grammar.  */
+  if (report_flag)
     {
-      buf[0] = c;
-      buf[1] = '\0';
+      timevar_push (TV_REPORT);
+      print_results ();
+      timevar_pop (TV_REPORT);
     }
-  return buf;
-}
 
-/* Generate a string from the integer I.
-   Return a ptr to internal memory containing the string.  */
+  /* Output the VCG graph.  */
+  if (graph_flag)
+    {
+      timevar_push (TV_GRAPH);
+      print_graph ();
+      timevar_pop (TV_GRAPH);
+    }
 
-char *
-int_to_string (int i)
-{
-  static char buf[20];
-  sprintf(buf, "%d", i);
-  return buf;
-}
+  /* Stop if there were errors, to avoid trashing previous output
+     files.  */
+  if (complaint_issued)
+    goto finish;
 
-static void
-fatal_banner (void)
-{
-  if (infile == 0)
-    fprintf(stderr, _("%s: fatal error: "), program_name);
-  else
-    fprintf(stderr, _("%s:%d: fatal error: "), infile, lineno);
-}
+  /* Look-ahead tokens are no longer needed. */
+  timevar_push (TV_FREE);
+  lalr_free ();
+  timevar_pop (TV_FREE);
 
-/* Print the message S for a fatal error.  */
+  /* Output the tables and the parser to ftable.  In file output.  */
+  timevar_push (TV_PARSER);
+  output ();
+  timevar_pop (TV_PARSER);
 
-void
-fatal (char *s)
-{
-  fatal_banner ();
-  fputs (s, stderr);
-  fputc ('\n', stderr);
-  done (1);
-}
+  timevar_push (TV_FREE);
+  nullable_free ();
+  derives_free ();
+  tables_free ();
+  states_free ();
+  reduce_free ();
+  conflicts_free ();
+  grammar_free ();
 
+  /* The scanner memory cannot be released right after parsing, as it
+     contains things such as user actions, prologue, epilogue etc.  */
+  scanner_free ();
+  muscle_free ();
+  uniqstrs_free ();
+  timevar_pop (TV_FREE);
 
-/* Print a message for a fatal error.  Use FMT to construct the message
-   and incorporate string X1.  */
+  if (trace_flag & trace_bitsets)
+    bitset_stats_dump (stderr);
 
-void
-fatals (char *fmt, char *x1)
-{
-  fatal_banner ();
-  fprintf (stderr, fmt, x1);
-  fputc ('\n', stderr);
-  done (1);
-}
+ finish:
 
-static void
-warn_banner (void)
-{
-  if (infile == 0)
-    fprintf(stderr, _("%s: "), program_name);
-  else
-    fprintf(stderr, _("%s:%d: "), infile, lineno);
-  failure = 1;
-}
+  /* Stop timing and print the times.  */
+  timevar_stop (TV_TOTAL);
+  timevar_print (stderr);
 
-/* Print a warning message S.  */
-
-#ifdef __APPLE_CC__
-__private_extern__
-#endif
-void
-warn (char *s)
-{
-  warn_banner ();
-  fputs (s, stderr);
-  fputc ('\n', stderr);
-}
-
-/* Print a warning message containing the string for the integer X1.
-   The message is given by the format FMT.  */
-
-void
-warni (char *fmt, int x1)
-{
-  warn_banner ();
-  fprintf (stderr, fmt, x1);
-  fputc ('\n', stderr);
-}
-
-/* Print a warning message containing the string X1.
-   The message is given by the format FMT.  */
-
-void
-warns (char *fmt, char *x1)
-{
-  warn_banner ();
-  fprintf (stderr, fmt, x1);
-  fputc ('\n', stderr);
-}
-
-/* Print a warning message containing the two strings X1 and X2.
-	The message is given by the format FMT.  */
-
-void
-warnss (char *fmt, char *x1, char *x2)
-{
-  warn_banner ();
-  fprintf (stderr, fmt, x1, x2);
-  fputc ('\n', stderr);
-}
-
-/* Print a warning message containing the 3 strings X1, X2, X3.
-   The message is given by the format FMT.  */
-
-void
-warnsss (char *fmt, char *x1, char *x2, char *x3)
-{
-  warn_banner ();
-  fprintf (stderr, fmt, x1, x2, x3);
-  fputc ('\n', stderr);
-}
-
-/* Print a message for the fatal occurence of more than MAXSHORT
-   instances of whatever is denoted by the string S.  */
-
-void
-toomany (char *s)
-{
-  fatal_banner ();
-  fprintf (stderr, _("too many %s (max %d)"), s, MAXSHORT);
-  fputc ('\n', stderr);
-  done (1);
-}
-
-/* Abort for an internal error denoted by string S.  */
-
-void
-berror (char *s)
-{
-  fprintf(stderr, _("%s: internal error: %s\n"), program_name, s);
-  abort();
+  return complaint_issued ? EXIT_FAILURE : EXIT_SUCCESS;
 }

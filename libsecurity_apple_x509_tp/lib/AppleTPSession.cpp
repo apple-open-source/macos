@@ -25,6 +25,7 @@
 #include "TPCrlInfo.h"
 #include "tpCrlVerify.h"
 #include "tpdebugging.h"
+#include <Security/oidsalg.h>
 
 AppleTPSession::AppleTPSession(
 	CSSM_MODULE_HANDLE theHandle,
@@ -139,7 +140,11 @@ void AppleTPSession::CrlVerify(CSSM_CL_HANDLE CLHandle,
 		kRevokeCrlBasic,
 		actionFlags,
 		NULL,				// crlOpts
-		NULL);				// OCSP opts
+		NULL,				// OCSP opts
+		&CSSMOID_APPLE_TP_REVOCATION_CRL,
+		NULL,				// UT policyString
+		0,
+		CSSM_KEYUSE_VERIFY);
 		
 	/*
 	 * We assert the doCrlVerify flag to ensure CRL verification 

@@ -1,8 +1,0 @@
-VPATH += :../ktrace.tproj
-
-ioctl.c: mkioctls
-	$(SHELL) mkioctls -s /usr/include > $(SFILE_DIR)/ioctl.c
-
-install-man-page:
-	install -d $(DSTROOT)/usr/share/man/man1
-	install -c -m 444 kdump.1 $(DSTROOT)/usr/share/man/man1/kdump.1

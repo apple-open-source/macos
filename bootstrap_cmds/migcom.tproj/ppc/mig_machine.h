@@ -4,8 +4,8 @@
 /*
  * HISTORY
  * $Log: mig_machine.h,v $
- * Revision 1.1.1.1  2000/01/11 00:36:20  wsanchez
- * Import of bootstrap_cmds-22
+ * Revision 1.1  2000/01/11 00:36:20  wsanchez
+ * Initial revision
  *
  * Revision 1.2  1999/01/19 03:36:31  wsanchez
  * Make main branch match bootstrap_cmds-16 (Mac OS X)

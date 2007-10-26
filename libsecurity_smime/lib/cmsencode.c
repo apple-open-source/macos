@@ -69,9 +69,9 @@ struct SecCmsEncoderStr {
 
 static OSStatus nss_cms_before_data(SecCmsEncoderRef p7ecx);
 static OSStatus nss_cms_after_data(SecCmsEncoderRef p7ecx);
-static OSStatus nss_cms_encoder_update(SecCmsEncoderRef p7ecx, const char *data, unsigned long len);
+static OSStatus nss_cms_encoder_update(SecCmsEncoderRef p7ecx, const char *data, size_t len);
 static OSStatus nss_cms_encoder_work_data(SecCmsEncoderRef p7ecx, CSSM_DATA_PTR dest,
-			     const unsigned char *data, unsigned long len,
+			     const unsigned char *data, size_t len,
 			     Boolean final, Boolean innermost);
 
 extern const SecAsn1Template SecCmsMessageTemplate[];
@@ -82,17 +82,17 @@ extern const SecAsn1Template SecCmsMessageTemplate[];
  * they gave us).
  */
 static void
-nss_cms_encoder_out(void *arg, const char *buf, unsigned long len,
+nss_cms_encoder_out(void *arg, const char *buf, size_t len,
 		      int depth, SEC_ASN1EncodingPart data_kind)
 {
     struct nss_cms_encoder_output *output = (struct nss_cms_encoder_output *)arg;
     unsigned char *dest;
-    unsigned long offset;
+    CSSM_SIZE offset;
 
 #ifdef CMSDEBUG
     int i;
 
-    fprintf(stderr, "kind = %d, depth = %d, len = %d\n", data_kind, depth, len);
+    fprintf(stderr, "kind = %d, depth = %d, len = %lu\n", data_kind, depth, len);
     for (i=0; i < len; i++) {
 	fprintf(stderr, " %02x%s", (unsigned int)buf[i] & 0xff, ((i % 16) == 15) ? "\n" : "");
     }
@@ -151,7 +151,7 @@ nss_cms_encoder_notify(void *arg, Boolean before, void *dest, int depth)
     poolp = p7ecx->cmsg->poolp;
 
 #ifdef CMSDEBUG
-    fprintf(stderr, "%6.6s, dest = 0x%08x, depth = %d\n", before ? "before" : "after", dest, depth);
+    fprintf(stderr, "%6.6s, dest = %p, depth = %d\n", before ? "before" : "after", dest, depth);
 #endif
 
     /*
@@ -171,6 +171,7 @@ nss_cms_encoder_notify(void *arg, Boolean before, void *dest, int depth)
 	break;
 
     case SEC_OID_PKCS7_DATA:
+    case SEC_OID_OTHER:
 	if (before && dest == &(rootcinfo->rawContent)) {
 	    /* just set up encoder to grab from user - no encryption or digesting */
 	    if ((item = rootcinfo->content.data) != NULL)
@@ -198,7 +199,8 @@ nss_cms_encoder_notify(void *arg, Boolean before, void *dest, int depth)
 		p7ecx->error = PORT_GetError();
 	}
 	if (before && dest == &(cinfo->rawContent)) {
-	    if (childtype == SEC_OID_PKCS7_DATA && (item = cinfo->content.data) != NULL)
+	    if ( ((childtype == SEC_OID_PKCS7_DATA) || (childtype == SEC_OID_OTHER)) &&
+		 ((item = cinfo->content.data) != NULL))
 		/* we have data - feed it in */
 		(void)nss_cms_encoder_work_data(p7ecx, NULL, item->Data, item->Length, PR_TRUE, PR_TRUE);
 	    else
@@ -303,6 +305,7 @@ nss_cms_before_data(SecCmsEncoderRef p7ecx)
 	    rv = SecCmsEncryptedDataEncodeBeforeStart(cinfo->content.encryptedData);
 	    break;
 	case SEC_OID_PKCS7_DATA:
+	case SEC_OID_OTHER:
 	    rv = SECSuccess;
 	    break;
 	default:
@@ -348,6 +351,7 @@ nss_cms_before_data(SecCmsEncoderRef p7ecx)
 	break;
 
     case SEC_OID_PKCS7_DATA:
+    case SEC_OID_OTHER:
 	p7ecx->childp7ecx = NULL;
 	break;
     default:
@@ -387,6 +391,7 @@ nss_cms_after_data(SecCmsEncoderRef p7ecx)
 	rv = SecCmsEncryptedDataEncodeAfterData(p7ecx->content.encryptedData);
 	break;
     case SEC_OID_PKCS7_DATA:
+    case SEC_OID_OTHER:
 	/* do nothing */
 	break;
     default:
@@ -404,7 +409,7 @@ nss_cms_after_data(SecCmsEncoderRef p7ecx)
  */
 static OSStatus
 nss_cms_encoder_work_data(SecCmsEncoderRef p7ecx, CSSM_DATA_PTR dest,
-			     const unsigned char *data, unsigned long len,
+			     const unsigned char *data, size_t len,
 			     Boolean final, Boolean innermost)
 {
     unsigned char *buf = NULL;
@@ -431,9 +436,9 @@ nss_cms_encoder_work_data(SecCmsEncoderRef p7ecx, CSSM_DATA_PTR dest,
 
     /* Encrypt this chunk. */
     if (cinfo->ciphcx != NULL) {
-	unsigned int inlen;	/* length of data being encrypted */
-	unsigned int outlen;	/* length of encrypted data */
-	unsigned int buflen;	/* length available for encrypted data */
+	CSSM_SIZE inlen;	/* length of data being encrypted */
+	CSSM_SIZE outlen;	/* length of encrypted data */
+	CSSM_SIZE buflen;	/* length available for encrypted data */
 
 	inlen = len;
 	buflen = SecCmsCipherContextEncryptLength(cinfo->ciphcx, inlen, final);
@@ -497,7 +502,7 @@ done:
  * no recursion here because we REALLY want to end up at the next higher encoder!
  */
 static OSStatus
-nss_cms_encoder_update(SecCmsEncoderRef p7ecx, const char *data, unsigned long len)
+nss_cms_encoder_update(SecCmsEncoderRef p7ecx, const char *data, size_t len)
 {
     /* XXX Error handling needs help.  Return what?  Do "Finish" on failure? */
     return nss_cms_encoder_work_data (p7ecx, NULL, (const unsigned char *)data, len, PR_FALSE, PR_FALSE);
@@ -632,7 +637,7 @@ SecCmsEncoderUpdate(SecCmsEncoderRef p7ecx, const void *data, CFIndex len)
 	/* find out about our inner content type - must be data */
 	cinfo = SecCmsContentGetContentInfo(p7ecx->content.pointer, p7ecx->type);
 	childtype = SecCmsContentInfoGetContentTypeTag(cinfo);
-	if (childtype != SEC_OID_PKCS7_DATA)
+	if ((childtype != SEC_OID_PKCS7_DATA) && (childtype != SEC_OID_OTHER))
 	    return paramErr; /* @@@ Maybe come up with a better error? */
 	/* and we must not have preset data */
 	if (cinfo->content.data != NULL)
@@ -730,7 +735,8 @@ SecCmsEncoderFinish(SecCmsEncoderRef p7ecx)
     /* find out about our inner content type - must be data */
     cinfo = SecCmsContentGetContentInfo(p7ecx->content.pointer, p7ecx->type);
     childtype = SecCmsContentInfoGetContentTypeTag(cinfo);
-    if (childtype == SEC_OID_PKCS7_DATA && cinfo->content.data == NULL) {
+    if ( ((childtype == SEC_OID_PKCS7_DATA) || (childtype == SEC_OID_OTHER)) && 
+	 (cinfo->content.data == NULL)) {
 	SEC_ASN1EncoderClearTakeFromBuf(p7ecx->ecx);
 	/* now that TakeFromBuf is off, this will kick this encoder to finish encoding */
 	result = SEC_ASN1EncoderUpdate(p7ecx->ecx, NULL, 0);

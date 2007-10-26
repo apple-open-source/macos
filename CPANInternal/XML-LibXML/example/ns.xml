@@ -1,0 +1,4 @@
+<dromedaries xmlns="urn:camels" xmlns:mam="urn:mammals">
+    <species>Camelid</species>
+    <mam:legs xml:lang="en" yyy="zzz" a:xxx="foo" xmlns:a="urn:a">4</mam:legs>
+</dromedaries>

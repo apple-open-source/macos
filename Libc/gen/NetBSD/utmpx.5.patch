@@ -1,6 +1,11 @@
---- utmpx.5.orig	2004-07-13 09:15:18.000000000 -0700
-+++ utmpx.5	2004-08-05 15:33:40.000000000 -0700
-@@ -38,23 +38,16 @@
+--- utmpx.5.orig	2004-09-20 17:32:52.000000000 -0700
++++ utmpx.5	2005-12-26 11:25:30.000000000 -0800
+@@ -34,13 +34,11 @@
+ .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ .\" POSSIBILITY OF SUCH DAMAGE.
+ .\"
+-.Dd September 26, 2002
++.Dd Dec 26, 2005
  .Dt UTMPX 5
  .Os
  .Sh NAME
@@ -11,11 +16,9 @@
  .Nd user accounting database
  .Sh SYNOPSIS
  .In utmpx.h
- .Sh DESCRIPTION
- The
+@@ -49,89 +47,51 @@
  .Aq Pa utmpx.h
--header defines the structures and functions for logging user.
-+header defines the structure and functions for logging user.
+ header defines the structures and functions for logging user.
  Currently logged in users are tracked in
 -.Pa /var/run/utmpx ,
 -a list of all logins and logouts, as well as all shutdowns, reboots
@@ -23,20 +26,37 @@
 -.Pa /var/log/wtmpx ,
 -and the last login of each user is noted in
 -.Pa /var/log/lastlogx .
+-The files are not automatically created if they do not exist; they
+-must be created manually.
+-.Pp
 +.Pa /var/run/utmpx .
- The files are not automatically created if they do not exist; they
- must be created manually.
- .Pp
-@@ -62,76 +55,18 @@
+ The interface to the
  .Nm utmpx
  file is described in
  .Xr endutxent 3 .
--.Pp
++The file is not automatically created if they do not exist; it
++must be created manually.
+ .Pp
 -The
 -.Nm wtmpx
 -file can grow rapidly on busy systems, and is normally rotated with
 -.Xr newsyslog 8 .
--.Pp
++Traditionally, separate files would be used to store the running log of
++the logins and logouts
++.Pf ( Pa wtmpx ) ,
++and the last login of each user
++.Pf ( Pa lastlogx ) .
++With the availability of the Apple system log facility
++.Xr asl 3 ,
++these separate files can be replace with log entries, which are automatically
++generated when
++.Nm utmpx
++entries are written.
++The API to access the logins and logouts is described in
++.Xr endutxent_wtmp 3
++while the last login info is accessible with
++.Xr getlastlogx 3 .
+ .Pp
 -In the event of a date change, a shutdown, or a reboot, the following
 -items are logged in the
 -.Nm wtmpx
@@ -71,16 +91,21 @@
 -.Fa ut_name
 -(see
 -.Xr shutdown 8
--and
++For compatibility, changes to
++.Nm utmpx
++are reflected in
++.Xr utmp 3
++(in the
++.Pa utmp ,
++.Pa wtmp
+ and
 -.Xr reboot 8 ) ,
 -using
 -.Xr logwtmpx 3 .
 -.Pp
 -.El
-+For compatibility, changes to
-+.Nm utmpx
-+are reflected in
-+.Xr utmp 3 ,
++.Pa lastlog
++files),
 +but not the other way around.
  .Sh FILES
 -.Bl -tag -width /var/log/lastlogx -compact
@@ -104,10 +129,13 @@
 -.Xr rwho 1 ,
 -.Xr w 1 ,
 -.Xr who 1 ,
++.Xr asl 3 ,
  .Xr endutxent 3 ,
 -.Xr logwtmpx 3 ,
 -.Xr ac 8 ,
 -.Xr init 8 ,
 -.Xr newsyslog 8 ,
 -.Xr reboot 8
++.Xr endutxent_wtmp 3 ,
++.Xr getlastlogx 3 ,
 +.Xr utmp 5

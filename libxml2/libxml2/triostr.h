@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: triostr.h,v 1.3 2003/04/03 15:28:28 veillard Exp $
+ * $Id$
  *
  * Copyright (C) 2001 Bjorn Reese and Daniel Stenberg.
  *

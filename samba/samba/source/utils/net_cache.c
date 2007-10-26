@@ -37,34 +37,53 @@
 static void print_cache_entry(const char* keystr, const char* datastr,
                               const time_t timeout, void* dptr)
 {
-	char* timeout_str;
+	char *timeout_str;
+	char *alloc_str = NULL;
 	time_t now_t = time(NULL);
 	struct tm timeout_tm, *now_tm;
 	/* localtime returns statically allocated pointer, so timeout_tm
 	   has to be copied somewhere else */
-	memcpy(&timeout_tm, localtime(&timeout), sizeof(struct tm));
+
+	now_tm = localtime(&timeout);
+	if (!now_tm) {
+		return;
+	}
+	memcpy(&timeout_tm, now_tm, sizeof(struct tm));
 	now_tm = localtime(&now_t);
+	if (!now_tm) {
+		return;
+	}
 
 	/* form up timeout string depending whether it's today's date or not */
 	if (timeout_tm.tm_year != now_tm->tm_year ||
-	    timeout_tm.tm_mon != now_tm->tm_mon ||
-	    timeout_tm.tm_mday != now_tm->tm_mday) {
+			timeout_tm.tm_mon != now_tm->tm_mon ||
+			timeout_tm.tm_mday != now_tm->tm_mday) {
 	    
-	    timeout_str = asctime(&timeout_tm);
-	    timeout_str[strlen(timeout_str) - 1] = '\0';	/* remove tailing CR */
-	} else
-		asprintf(&timeout_str, "%.2d:%.2d:%.2d", timeout_tm.tm_hour,
+		timeout_str = asctime(&timeout_tm);
+		if (!timeout_str) {
+			return;
+		}	
+		timeout_str[strlen(timeout_str) - 1] = '\0';	/* remove tailing CR */
+	} else {
+		asprintf(&alloc_str, "%.2d:%.2d:%.2d", timeout_tm.tm_hour,
 		         timeout_tm.tm_min, timeout_tm.tm_sec);
+		if (!alloc_str) {
+			return;
+		}
+		timeout_str = alloc_str;
+	}
 	
 	d_printf("Key: %s\t Timeout: %s\t Value: %s  %s\n", keystr,
 	         timeout_str, datastr, timeout > now_t ? "": "(expired)");
+
+	SAFE_FREE(alloc_str);
 }
 
 static void delete_cache_entry(const char* keystr, const char* datastr,
                                const time_t timeout, void* dptr)
 {
 	if (!gencache_del(keystr))
-		d_printf("Couldn't delete entry! key = %s\n", keystr);
+		d_fprintf(stderr, "Couldn't delete entry! key = %s\n", keystr);
 }
 
 
@@ -147,7 +166,7 @@ static int net_cache_add(int argc, const char **argv)
 	/* parse timeout given in command line */
 	timeout = parse_timeout(timeout_str);
 	if (!timeout) {
-		d_printf("Invalid timeout argument.\n");
+		d_fprintf(stderr, "Invalid timeout argument.\n");
 		return -1;
 	}
 	
@@ -157,51 +176,10 @@ static int net_cache_add(int argc, const char **argv)
 		return 0;
 	}
 	
-	d_printf("Entry couldn't be added. Perhaps there's already such a key.\n");
+	d_fprintf(stderr, "Entry couldn't be added. Perhaps there's already such a key.\n");
 	gencache_shutdown();
 	return -1;
 }
-
-
-/**
- * Set new value of an existing entry in the cache. Fail If the entry doesn't
- * exist.
- * 
- * @param argv key being searched and new value and timeout to set in the entry
- * @return 0 on success, otherwise failure
- **/
-static int net_cache_set(int argc, const char **argv)
-{
-	const char *keystr, *datastr, *timeout_str;
-	time_t timeout;
-	
-	if (argc < 3) {
-		d_printf("\nUsage: net cache set <key string> <data string> <timeout>\n");
-		return -1;
-	}
-	
-	keystr = argv[0];
-	datastr = argv[1];
-	timeout_str = argv[2];
-	
-	/* parse timeout given in command line */
-	timeout = parse_timeout(timeout_str);
-	if (!timeout) {
-		d_printf("Invalid timeout argument.\n");
-		return -1;
-	}
-	
-	if (gencache_set_only(keystr, datastr, timeout)) {
-		d_printf("Cache entry set successfully.\n");
-		gencache_shutdown();
-		return 0;
-	}
-
-	d_printf("Entry couldn't be set. Perhaps there's no such a key.\n");
-	gencache_shutdown();
-	return -1;
-}
-
 
 /**
  * Delete an entry in the cache
@@ -223,7 +201,7 @@ static int net_cache_del(int argc, const char **argv)
 		return 0;
 	}
 
-	d_printf("Couldn't delete specified entry\n");
+	d_fprintf(stderr, "Couldn't delete specified entry\n");
 	return -1;
 }
 
@@ -250,7 +228,7 @@ static int net_cache_get(int argc, const char **argv)
 		return 0;
 	}
 
-	d_printf("Failed to find entry\n");
+	d_fprintf(stderr, "Failed to find entry\n");
 	return -1;
 }
 
@@ -315,7 +293,6 @@ static int net_cache_flush(int argc, const char **argv)
 static int net_cache_usage(int argc, const char **argv)
 {
 	d_printf("  net cache add \t add add new cache entry\n");
-	d_printf("  net cache set \t set new value for existing cache entry\n");
 	d_printf("  net cache del \t delete existing cache entry by key\n");
 	d_printf("  net cache flush \t delete all entries existing in the cache\n");
 	d_printf("  net cache get \t get cache entry by key\n");
@@ -335,7 +312,6 @@ int net_cache(int argc, const char **argv)
 {
 	struct functable func[] = {
 		{"add", net_cache_add},
-		{"set", net_cache_set},
 		{"del", net_cache_del},
 		{"get", net_cache_get},
 		{"search", net_cache_search},

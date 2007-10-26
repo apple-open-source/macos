@@ -121,7 +121,8 @@ Boston, MA 02111-1307, USA.  */
 		%{K: -I %b.o~} \
 		%{!K: %{save-temps: -I %b.o~}} \
 		%{c:%W{o*}%{!o*:-o %b.o}}%{!c:-o %U.o} \
-		%{.s:%i} %{!.s:%g.s}}}"
+		"/* APPLE LOCAL mainline 2007-03-13 5040758 */"    \
+		%{,assembler:%i;:%g.s}}}"
 
 #else
 #define ASM_FINAL_SPEC "\
@@ -130,7 +131,8 @@ Boston, MA 02111-1307, USA.  */
 		%{K: -I %b.o~} \
 		%{!K: %{save-temps: -I %b.o~}} \
 		%{c:%W{o*}%{!o*:-o %b.o}}%{!c:-o %U.o} \
-		%{.s:%i} %{!.s:%g.s}}}"
+		"/* APPLE LOCAL mainline 2007-03-13 5040758 */"    \
+		%{,assembler:%i;:%g.s}}}"
 
 #endif
 
@@ -138,7 +140,9 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_EXTRA_SPECS { "asm_oldas", ASM_OLDAS_SPEC }
 
 /* Indicate that we have a stamp.h to use.  */
-#ifndef CROSS_COMPILE
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #define HAVE_STAMP_H 1
 #endif
 

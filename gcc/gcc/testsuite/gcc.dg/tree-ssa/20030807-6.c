@@ -2,7 +2,8 @@
 /* { dg-options "-O1 -fdump-tree-dom3" } */
      
 
-static void
+/* APPLE LOCAL mainline 4840357 */
+void
 foo (distance, i, j)
      int distance[13][13];
      int i, j;
@@ -11,7 +12,8 @@ foo (distance, i, j)
    distance[i][0] = ((distance[i][j]) < 0 ? -(distance[i][j])  : (distance[i][j]));
 }
 
-static void
+/* APPLE LOCAL mainline 4840357 */
+void
 foo2 (distance, i, j)
      int distance[13][13];
      int i, j;
@@ -20,7 +22,8 @@ foo2 (distance, i, j)
    distance[i][0] = ((distance[i][j]) < 0 ? -(distance[i][j])  : (distance[i][j]));
 }
 
-static void
+/* APPLE LOCAL mainline 4840357 */
+void
 foo3 (distance, i, j)
      int distance[13][13];
      int i, j;
@@ -29,7 +32,8 @@ foo3 (distance, i, j)
    distance[i][0] = ((distance[i][j]) < 0 ? -(distance[i][j])  : (distance[i][j]));
 }
 
-static void
+/* APPLE LOCAL mainline 4840357 */
+void
 foo4 (distance, i, j)
      double distance[13][13];
      int i, j;

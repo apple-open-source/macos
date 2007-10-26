@@ -1,6 +1,7 @@
 /* Output generating routines for GDB CLI.
 
-   Copyright 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2002, 2003, 2005
+   Free Software Foundation, Inc.
 
    Contributed by Cygnus Solutions.
    Written by Fernando Nasser for Cygnus.
@@ -59,13 +60,13 @@ static void cli_field_string (struct ui_out *uiout, int fldno, int width,
 static void cli_field_fmt (struct ui_out *uiout, int fldno,
 			   int width, enum ui_align align,
 			   const char *fldname, const char *format,
-			   va_list args);
+			   va_list args) ATTR_FORMAT (printf, 6, 0);
 static void cli_spaces (struct ui_out *uiout, int numspaces);
 static void cli_text (struct ui_out *uiout, const char *string);
 static void cli_text_fmt (struct ui_out *uiout, const char *format, va_list args);
 static void cli_message (struct ui_out *uiout, int verbosity,
-			 const char *format, va_list args);
-
+			 const char *format, va_list args)
+     ATTR_FORMAT (printf, 3, 0);
 static void cli_wrap_hint (struct ui_out *uiout, const char *identstring);
 static void cli_flush (struct ui_out *uiout);
 static int cli_redirect (struct ui_out *uiout, struct ui_file *outstream);
@@ -107,7 +108,7 @@ static void field_separator (void);
 
 static void out_field_fmt (struct ui_out *uiout, int fldno,
 			   const char *fldname,
-			   const char *format,...);
+			   const char *format,...) ATTR_FORMAT (printf, 4, 5);
 
 /* local variables */
 
@@ -125,7 +126,7 @@ cli_table_begin (struct ui_out *uiout, int nbrofcols,
     data->suppress_output = 1;
   else
     /* Only the table suppresses the output and, fortunately, a table
-       is not a recursive data structure. */
+       is not a recursive data structure.  */
     gdb_assert (data->suppress_output == 0);
 }
 
@@ -269,7 +270,7 @@ cli_field_string (struct ui_out *uiout,
     field_separator ();
 }
 
-/* This is the only field function that does not align */
+/* This is the only field function that does not align.  */
 
 void
 cli_field_fmt (struct ui_out *uiout, int fldno,
@@ -367,7 +368,7 @@ cli_redirect (struct ui_out *uiout, struct ui_file *outstream)
 /* local functions */
 
 /* Like cli_field_fmt, but takes a variable number of args
-   and makes a va_list and does not insert a separator */
+   and makes a va_list and does not insert a separator.  */
 
 /* VARARGS */
 static void
@@ -384,7 +385,7 @@ out_field_fmt (struct ui_out *uiout, int fldno,
   va_end (args);
 }
 
-/* access to ui_out format private members */
+/* Access to ui_out format private members.  */
 
 static void
 field_separator (void)
@@ -393,7 +394,7 @@ field_separator (void)
   fputc_filtered (' ', data->stream);
 }
 
-/* initalize private members at startup */
+/* Initalize private members at startup.  */
 
 struct ui_out *
 cli_out_new (struct ui_file *stream)
@@ -427,7 +428,7 @@ cli_out_set_stream (struct ui_out *uiout, struct ui_file *stream)
   return old;
 }
 
-/* standard gdb initialization hook */
+/* Standard gdb initialization hook.  */
 void
 _initialize_cli_out (void)
 {

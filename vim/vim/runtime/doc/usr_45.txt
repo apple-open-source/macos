@@ -1,4 +1,4 @@
-*usr_45.txt*	For Vim version 6.2.  Last change: 2002 Oct 08
+*usr_45.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -345,7 +345,7 @@ KEYMAPS
 For some languages the character set is different from latin, but uses a
 similar number of characters.  It's possible to map keys to characters.  Vim
 uses keymaps for this.
-   Suppose you want to type hebrew.  You can load the keymap like this: >
+   Suppose you want to type Hebrew.  You can load the keymap like this: >
 
 	:set keymap=hebrew
 

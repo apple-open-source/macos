@@ -2,8 +2,8 @@
 
   random.c -
 
-  $Author: matz $
-  $Date: 2004/03/15 02:33:03 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Fri Dec 24 16:39:21 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -92,6 +92,37 @@ init_genrand(s)
     left = 1; initf = 1;
 }
 
+/* initialize by an array with array-length */
+/* init_key is the array for initializing keys */
+/* key_length is its length */
+/* slight change for C++, 2004/2/26 */
+static void
+init_by_array(unsigned long init_key[], int key_length)
+{
+    int i, j, k;
+    init_genrand(19650218UL);
+    i=1; j=0;
+    k = (N>key_length ? N : key_length);
+    for (; k; k--) {
+        state[i] = (state[i] ^ ((state[i-1] ^ (state[i-1] >> 30)) * 1664525UL))
+          + init_key[j] + j; /* non linear */
+        state[i] &= 0xffffffffUL; /* for WORDSIZE > 32 machines */
+        i++; j++;
+        if (i>=N) { state[0] = state[N-1]; i=1; }
+        if (j>=key_length) j=0;
+    }
+    for (k=N-1; k; k--) {
+        state[i] = (state[i] ^ ((state[i-1] ^ (state[i-1] >> 30)) * 1566083941UL))
+          - i; /* non linear */
+        state[i] &= 0xffffffffUL; /* for WORDSIZE > 32 machines */
+        i++;
+        if (i>=N) { state[0] = state[N-1]; i=1; }
+    }
+
+    state[0] = 0x80000000UL; /* MSB is 1; assuring non-zero initial array */ 
+    left = 1; initf = 1;
+}
+
 static void
 next_state()
 {
@@ -114,9 +145,9 @@ next_state()
     *p = p[M-N] ^ TWIST(p[0], state[0]);
 }
 
-/* generates a random number on [0,1)-real-interval */
-static double
-genrand_real()
+/* generates a random number on [0,0xffffffff]-interval */
+static unsigned long
+genrand_int32(void)
 {
     unsigned long y;
 
@@ -129,9 +160,17 @@ genrand_real()
     y ^= (y << 15) & 0xefc60000UL;
     y ^= (y >> 18);
 
-    return (double)y * (1.0/4294967296.0); 
-    /* divided by 2^32 */
+    return y;
 }
+
+/* generates a random number on [0,1) with 53-bit resolution*/
+static double
+genrand_real(void) 
+{ 
+    unsigned long a=genrand_int32()>>5, b=genrand_int32()>>6; 
+    return(a*67108864.0+b)*(1.0/9007199254740992.0); 
+} 
+/* These real versions are due to Isaku Wada, 2002/01/09 added */
 
 #undef N
 #undef M
@@ -144,32 +183,126 @@ genrand_real()
 #include <unistd.h>
 #endif
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
 
 static int first = 1;
+static VALUE saved_seed = INT2FIX(0);
 
-static int
-rand_init(seed)
-    unsigned long seed;
+static VALUE
+rand_init(vseed)
+    VALUE vseed;
 {
-    static unsigned long saved_seed;
-    unsigned long old;
+    volatile VALUE seed;
+    VALUE old;
+    long len;
+    unsigned long *buf;
 
+    seed = rb_to_int(vseed);
+    switch (TYPE(seed)) {
+      case T_FIXNUM:
+          len = sizeof(VALUE);
+          break;
+      case T_BIGNUM:
+          len = RBIGNUM(seed)->len * SIZEOF_BDIGITS;
+          if (len == 0)
+              len = 4;
+          break;
+      default:
+          rb_raise(rb_eTypeError, "failed to convert %s into Integer",
+                   rb_obj_classname(vseed));
+    }
+    len = (len + 3) / 4; /* number of 32bit words */
+    buf = ALLOC_N(unsigned long, len); /* allocate longs for init_by_array */
+    memset(buf, 0, len * sizeof(long));
+    if (FIXNUM_P(seed)) {
+        buf[0] = FIX2ULONG(seed) & 0xffffffff;
+#if SIZEOF_LONG > 4
+        buf[1] = FIX2ULONG(seed) >> 32;
+#endif
+    }
+    else {
+        int i, j;
+        for (i = RBIGNUM(seed)->len-1; 0 <= i; i--) {
+            j = i * SIZEOF_BDIGITS / 4;
+#if SIZEOF_BDIGITS < 4
+            buf[j] <<= SIZEOF_BDIGITS * 8;
+#endif
+            buf[j] |= ((BDIGIT *)RBIGNUM(seed)->digits)[i];
+        }
+    }
+    while (1 < len && buf[len-1] == 0) {
+        len--;
+    }
+    if (len <= 1) {
+        init_genrand(buf[0]);
+    }
+    else {
+        if (buf[len-1] == 1) /* remove leading-zero-guard */
+            len--;
+        init_by_array(buf, len);
+    }
     first = 0;
-    init_genrand(seed);
     old = saved_seed;
     saved_seed = seed;
-
+    free(buf);
     return old;
 }
 
-static unsigned long
+static VALUE
 random_seed()
 {
     static int n = 0;
     struct timeval tv;
+    int fd;
+    struct stat statbuf;
+
+    int seed_len;
+    BDIGIT *digits;
+    unsigned long *seed;
+    NEWOBJ(big, struct RBignum);
+    OBJSETUP(big, rb_cBignum, T_BIGNUM);
+
+    seed_len = 4 * sizeof(long);
+    big->sign = 1;
+    big->len = seed_len / SIZEOF_BDIGITS + 1;
+    digits = big->digits = ALLOC_N(BDIGIT, big->len);
+    seed = (unsigned long *)big->digits;
+
+    memset(digits, 0, big->len * SIZEOF_BDIGITS);
+
+#ifdef S_ISCHR
+    if ((fd = open("/dev/urandom", O_RDONLY
+#ifdef O_NONBLOCK
+            |O_NONBLOCK
+#endif
+#ifdef O_NOCTTY
+            |O_NOCTTY
+#endif
+#ifdef O_NOFOLLOW
+            |O_NOFOLLOW
+#endif
+            )) >= 0) {
+        if (fstat(fd, &statbuf) == 0 && S_ISCHR(statbuf.st_mode)) {
+            read(fd, seed, seed_len);
+        }
+        close(fd);
+    }
+#endif
 
     gettimeofday(&tv, 0);
-    return tv.tv_sec ^ tv.tv_usec ^ getpid() ^ n++;
+    seed[0] ^= tv.tv_usec;
+    seed[1] ^= tv.tv_sec;
+    seed[2] ^= getpid() ^ (n++ << 16);
+    seed[3] ^= (unsigned long)&seed;
+
+    /* set leading-zero-guard if need. */
+    digits[big->len-1] = digits[big->len-2] <= 1 ? 1 : 0;
+
+    return rb_big_norm((VALUE)big);
 }
 
 /*
@@ -192,19 +325,94 @@ rb_f_srand(argc, argv, obj)
     VALUE *argv;
     VALUE obj;
 {
-    VALUE sd;
-    unsigned long seed, old;
+    VALUE seed, old;
 
     rb_secure(4);
-    if (rb_scan_args(argc, argv, "01", &sd) == 0) {
+    if (rb_scan_args(argc, argv, "01", &seed) == 0) {
 	seed = random_seed();
-    }
-    else {
-	seed = NUM2ULONG(sd);
     }
     old = rand_init(seed);
 
-    return ULONG2NUM(old);
+    return old;
+}
+
+static unsigned long 
+make_mask(unsigned long x)
+{
+    x = x | x >> 1;
+    x = x | x >> 2;
+    x = x | x >> 4;
+    x = x | x >> 8;
+    x = x | x >> 16;
+#if 4 < SIZEOF_LONG
+    x = x | x >> 32;
+#endif
+    return x;
+}
+
+static unsigned long
+limited_rand(unsigned long limit)
+{
+    unsigned long mask = make_mask(limit);
+    int i;
+    unsigned long val;
+
+  retry:
+    val = 0;
+    for (i = SIZEOF_LONG/4-1; 0 <= i; i--) {
+        if (mask >> (i * 32)) {
+            val |= genrand_int32() << (i * 32);
+            val &= mask;
+            if (limit < val)
+                goto retry;
+        }
+    }
+    return val;
+}
+
+static VALUE
+limited_big_rand(struct RBignum *limit)
+{
+    unsigned long mask, lim, rnd;
+    struct RBignum *val;
+    int i, len, boundary;
+
+    len = (limit->len * SIZEOF_BDIGITS + 3) / 4;
+    val = (struct RBignum *)rb_big_clone((VALUE)limit);
+    val->sign = 1;
+#if SIZEOF_BDIGITS == 2
+# define BIG_GET32(big,i) (((BDIGIT *)(big)->digits)[(i)*2] | \
+                           ((i)*2+1 < (big)->len ? (((BDIGIT *)(big)->digits)[(i)*2+1] << 16) \
+                                                 : 0))
+# define BIG_SET32(big,i,d) ((((BDIGIT *)(big)->digits)[(i)*2] = (d) & 0xffff), \
+                             ((i)*2+1 < (big)->len ? (((BDIGIT *)(big)->digits)[(i)*2+1] = (d) >> 16) \
+                                                   : 0))
+#else
+    /* SIZEOF_BDIGITS == 4 */
+# define BIG_GET32(big,i) (((BDIGIT *)(big)->digits)[i])
+# define BIG_SET32(big,i,d) (((BDIGIT *)(big)->digits)[i] = (d))
+#endif
+  retry:
+    mask = 0;
+    boundary = 1;
+    for (i = len-1; 0 <= i; i--) {
+        lim = BIG_GET32(limit, i);
+        mask = mask ? 0xffffffff : make_mask(lim);
+        if (mask) {
+            rnd = genrand_int32() & mask;
+            if (boundary) {
+                if (lim < rnd)
+                    goto retry;
+                if (rnd < lim)
+                    boundary = 0;
+            }
+        }
+        else {
+            rnd = 0;
+        }
+        BIG_SET32(val, i, rnd);
+    }
+    return rb_big_norm((VALUE)val);
 }
 
 /*
@@ -218,7 +426,7 @@ rb_f_srand(argc, argv, obj)
  *  than or equal to zero and less than max1. <code>Kernel::srand</code>
  *  may be used to ensure repeatable sequences of random numbers between
  *  different runs of the program. Ruby currently uses a modified
- *  Mersenne Twister with a period of 219937-1.
+ *  Mersenne Twister with a period of 2**19937-1.
  *     
  *     srand 1234                 #=> 0
  *     [ rand,  rand ]            #=> [0.191519450163469, 0.49766366626136]
@@ -246,18 +454,26 @@ rb_f_rand(argc, argv, obj)
 	    max = (long)RFLOAT(vmax)->value;
 	    break;
 	}
-	vmax = rb_dbl2big(RFLOAT(vmax)->value);
+        if (RFLOAT(vmax)->value < 0)
+            vmax = rb_dbl2big(-RFLOAT(vmax)->value);
+        else
+            vmax = rb_dbl2big(RFLOAT(vmax)->value);
 	/* fall through */
       case T_BIGNUM:
       bignum:
         {
-	    long len = RBIGNUM(vmax)->len;
-	    double *buf = ALLOCA_N(double, len);
-
-	    while (len--) {
-		buf[len] = genrand_real();
-	    }
-	    return rb_big_rand(vmax, buf);
+            struct RBignum *limit = (struct RBignum *)vmax;
+            if (!limit->sign) {
+                limit = (struct RBignum *)rb_big_clone(vmax);
+                limit->sign = 1;
+            }
+            limit = (struct RBignum *)rb_big_minus((VALUE)limit, INT2FIX(1));
+            if (FIXNUM_P((VALUE)limit)) {
+                if (FIX2LONG((VALUE)limit) == -1)
+                    return rb_float_new(genrand_real());
+                return LONG2NUM(limited_rand(FIX2LONG((VALUE)limit)));
+            }
+            return limited_big_rand(limit);
 	}
       case T_NIL:
 	max = 0;
@@ -274,8 +490,7 @@ rb_f_rand(argc, argv, obj)
 	return rb_float_new(genrand_real());
     }
     if (max < 0) max = -max;
-    val = max*genrand_real();
-
+    val = limited_rand(max-1);
     return LONG2NUM(val);
 }
 
@@ -284,4 +499,5 @@ Init_Random()
 {
     rb_define_global_function("srand", rb_f_srand, -1);
     rb_define_global_function("rand", rb_f_rand, -1);
+    rb_global_variable(&saved_seed);
 }

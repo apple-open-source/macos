@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # This better succeed.  If this fails, Python is royally screwed so we might
 # as well let the Web server give us a fatal and obtrusive error.
@@ -28,7 +28,11 @@ import sys
 # comfortable with.  By setting STEALTH_MODE to 1, you disable the printing of
 # this information to the web pages.  This information is still, and always,
 # printed in the error logs.
-STEALTH_MODE = 0
+STEALTH_MODE = 1
+
+# This will be set to the entity escaper.
+def websafe(s):
+    return s
 
 
 
@@ -53,12 +57,22 @@ STEALTH_MODE = 0
 
 
 def run_main():
+    global STEALTH_MODE, websafe
+
     # These will ensure that even if something between now and the
     # creation of the real logger below fails, we can still get
     # *something* meaningful.
     logger = None
     try:
         import paths
+        # When running in non-stealth mode, we need to escape entities,
+        # otherwise we're vulnerable to cross-site scripting attacks.
+        try:
+            if not STEALTH_MODE:
+                from Mailman.Utils import websafe
+        except:
+            STEALTH_MODE = 1
+            raise
         # Map stderr to a logger, if possible.
         from Mailman.Logging.StampedLogger import StampedLogger
         logger = StampedLogger('error',
@@ -140,11 +154,13 @@ please email a copy of this page to the webmaster for this site with
 a description of what happened.  Thanks!
 
 <h4>Traceback:</h4><p><pre>'''
+        exc_info = sys.exc_info()
         if traceback:
-            traceback.print_exc(file=sys.stdout)
+            for line in traceback.format_exception(*exc_info):
+                print websafe(line),
         else:
             print '[failed to import module traceback]'
-            print '[exc: %s, var: %s]' % sys.exc_info()[0:2]
+            print '[exc: %s, var: %s]' % [websafe(x) for x in exc_info[0:2]]
         print '\n\n</pre></body>'
     else:
         print '''<p>Please inform the webmaster for this site of this
@@ -212,7 +228,9 @@ def print_environment(logfp=None):
 '''
         if os:
             for k, v in os.environ.items():
-                print '<tr><td><tt>', k, '</tt></td><td>', v, '</td></tr>'
+                print '<tr><td><tt>', websafe(k), \
+                      '</tt></td><td>', websafe(v), \
+                      '</td></tr>'
             print '</table>'
         else:
             print '<p><hr>[failed to import module os]'

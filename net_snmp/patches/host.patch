@@ -1,0 +1,46 @@
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host.h APPLE/agent/mibgroup/host.h
+--- SVN/agent/mibgroup/host.h
++++ APPLE/agent/mibgroup/host.h
+@@ -13,8 +13,17 @@
+ 	config_require(host/hr_disk)
+ 	config_require(host/hr_partition)
+ 	config_require(host/hr_filesys)
+-	config_require(host/hr_swrun)
++#ifndef NETSNMP_INCLUDE_HRSWINST_REWRITES
+ 	config_require(host/hr_swinst)
++#else
++	config_require(host/hrSWInstalledTable)
++#endif
++#ifndef NETSNMP_INCLUDE_HRSWRUN_REWRITES
++	config_require(host/hr_swrun)
++#else
++	config_require(host/hrSWRunTable)
++	config_require(host/hrSWRunPerfTable)
++#endif
+ 
+ /* add the host resources mib to the default mibs to load */
+ config_add_mib(HOST-RESOURCES-MIB)
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host/data_access/Makefile.test APPLE/agent/mibgroup/host/data_access/Makefile.test
+--- SVN/agent/mibgroup/host/data_access/Makefile.test
++++ APPLE/agent/mibgroup/host/data_access/Makefile.test
+@@ -0,0 +1,20 @@
++SNMPLIBS = $(HOME)/snmp/build/5.4.x/snmplib/.libs/libnetsnmp.a -lcrypto
++#SNMPLIBS = `net-snmp-config --libs`
++
++HEADERS	= -F/System/Library/PrivateFrameworks/ -F/System/Library/Frameworks/
++CFLAGS	= -g -O0 -I$(HOME)/snmp/build/main/include -I$(HOME)/snmp/main/include -DTEST $(HEADERS)
++CC	= gcc
++
++SWINSTLIBS	=  -framework CoreServices -framework CoreFoundation -framework Install
++#LIBS	=  /System/Library/Frameworks/CoreServices.framework/CoreServices  /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation /System/Library/Frameworks/IOKit.framework/IOKit
++
++SWRUNLIBS	=  -framework CoreFoundation -framework ApplicationServices
++
++all: swinst swrun
++
++
++swinst: swinst_darwin.o swinst.o
++	$(CC) $(CFLAGS) swinst_darwin.o swinst.o $(SWINSTLIBS) -o swinst $(SNMPLIBS)
++
++swrun: swrun_darwin.o swrun.o
++	$(CC) $(CFLAGS) swrun_darwin.o swrun.o $(SWRUNLIBS) -o swrun $(SNMPLIBS)

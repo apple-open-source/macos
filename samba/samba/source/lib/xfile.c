@@ -80,7 +80,7 @@ static int x_allocate_buffer(XFILE *f)
 {
 	if (f->buf) return 1;
 	if (f->bufsize == 0) return 0;
-	f->buf = SMB_MALLOC(f->bufsize);
+	f->buf = (char *)SMB_MALLOC(f->bufsize);
 	if (!f->buf) return 0;
 	f->next = f->buf;
 	return 1;
@@ -96,13 +96,16 @@ XFILE *x_fopen(const char *fname, int flags, mode_t mode)
 	XFILE *ret;
 
 	ret = SMB_MALLOC_P(XFILE);
-	if (!ret) return NULL;
+	if (!ret) {
+		return NULL;
+	}
 
 	memset(ret, 0, sizeof(XFILE));
 
 	if ((flags & O_ACCMODE) == O_RDWR) {
 		/* we don't support RDWR in XFILE - use file 
 		   descriptors instead */
+		SAFE_FREE(ret);
 		errno = EINVAL;
 		return NULL;
 	}
@@ -117,6 +120,28 @@ XFILE *x_fopen(const char *fname, int flags, mode_t mode)
 
 	x_setvbuf(ret, NULL, X_IOFBF, XBUFSIZE);
 	
+	return ret;
+}
+
+XFILE *x_fdup(const XFILE *f)
+{
+	XFILE *ret;
+	int fd;
+
+	fd = dup(x_fileno(f));
+	if (fd < 0) {
+		return NULL;
+	}
+
+	ret = SMB_CALLOC_ARRAY(XFILE, 1);
+	if (!ret) {
+		close(fd);
+		return NULL;
+	}
+
+	ret->fd = fd;
+	ret->open_flags = f->open_flags;
+	x_setvbuf(ret, NULL, X_IOFBF, XBUFSIZE);
 	return ret;
 }
 
@@ -217,7 +242,7 @@ size_t x_fwrite(const void *p, size_t size, size_t nmemb, XFILE *f)
 }
 
 /* at least fileno() is simple! */
-int x_fileno(XFILE *f)
+int x_fileno(const XFILE *f)
 {
 	return f->fd;
 }
@@ -234,7 +259,7 @@ int x_fflush(XFILE *f)
 		return -1;
 	}
 
-	if (f->bufused == 0) return 0;
+	if (f->bufused == 0 || !f->buf) return 0;
 
 	ret = write(f->fd, f->buf, f->bufused);
 	if (ret == -1) return -1;

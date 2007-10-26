@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,10 @@ protected:
     template <class T>
     T *at(off_t offset)		{ return LowLevelMemoryUtilities::increment<T>(this, offset); }
     void *at(off_t offset)	{ return LowLevelMemoryUtilities::increment(this, offset); }
+	
+    template <class T>
+    const T *at(off_t offset) const { return LowLevelMemoryUtilities::increment<T>(this, offset); }
+    const void *at(off_t offset) const { return LowLevelMemoryUtilities::increment(this, offset); }
 };
 
 
@@ -81,6 +85,7 @@ public:
     void validate(CSSM_RETURN failureCode) const;
 	
 	void *data()		{ return at(0); }
+	const void *data() const { return at(0); }
 };
 
 
@@ -125,10 +130,12 @@ public:
     
     // variable length fields:
     void *publicAclBlob()	{ return at(sizeof(DbBlob)); }
+    const void *publicAclBlob() const { return at(sizeof(DbBlob)); }
     size_t publicAclBlobLength() const
     { return startCryptoBlob - sizeof(DbBlob); }
     
-    void *cryptoBlob()		{ return at(startCryptoBlob); }
+	void *cryptoBlob()			{ return at(startCryptoBlob); }
+    const void *cryptoBlob() const { return at(startCryptoBlob); }
     size_t cryptoBlobLength() const { return totalLength - startCryptoBlob; }
     
     uint32 length() const	{ return totalLength; }
@@ -182,6 +189,13 @@ public:
 	static const uint32 forcedAttributes =
 		CSSM_KEYATTR_EXTRACTABLE;
 
+	/* 
+	 * Public Key blobs can be stored unencrypted. A unique blobSignature
+	 * is used to indicate this state.
+	 */
+	bool isClearText();
+	void setClearTextSignature();
+	
 public:
     KeyBlob *copy(Allocator &alloc) const
     {

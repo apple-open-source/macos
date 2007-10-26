@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,13 +24,14 @@
 
 #include <sys/types.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <sys/ipc.h>
-#include <sys/signal.h>
+#include <signal.h>
 #include <mach/mach.h>
 #include <errno.h>
 #include <pthread.h>
@@ -147,12 +148,16 @@ _internal_free_client_info(client_info_t *info)
 		case NOTIFY_TYPE_SIGNAL:
 			break;
 		case NOTIFY_TYPE_FD:
+			if (info->fd > 0) close(info->fd);
 			break;
 		case NOTIFY_TYPE_PORT:
 			if (info->msg != NULL)
 			{
 				if (info->msg->header.msgh_remote_port != MACH_PORT_NULL)
-					mach_port_destroy(mach_task_self(), info->msg->header.msgh_remote_port);
+				{
+					/* release my send right to the port */
+					mach_port_deallocate(mach_task_self(), info->msg->header.msgh_remote_port);
+				}
 				free(info->msg);
 			}
 			break;
@@ -344,8 +349,8 @@ _internal_check_access(notify_state_t *ns, name_info_t *n, uint32_t uid, uint32_
 static void
 _internal_send(notify_state_t *ns, client_t *c)
 {
-	uint32_t cid, status;
-	struct sockaddr_in sin;
+	uint32_t cid;
+	ssize_t len;
 	kern_return_t kstatus;
 
 	if (ns == NULL) return;
@@ -357,17 +362,21 @@ _internal_send(notify_state_t *ns, client_t *c)
 			kill(c->info->pid, c->info->sig);
 			break;
 		case NOTIFY_TYPE_FD:
-			if (ns->sock == -1) ns->sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-			if (ns->sock == -1) return;
-
-			memset(&sin, 0, sizeof(struct sockaddr_in));
-			sin.sin_family = AF_INET;
-			sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-			sin.sin_port = c->info->port;
-			cid = c->info->token;
-			status = sendto(ns->sock, &cid, 4, 0, (struct sockaddr *)&sin, sizeof(struct sockaddr_in));
+			if (c->info->fd >= 0)
+			{
+				cid = htonl(c->info->token);
+				len = write(c->info->fd, &cid, sizeof(uint32_t));
+				if (len != sizeof(uint32_t))
+				{
+					close(c->info->fd);
+					c->info->fd = -1;
+				}
+			}
 			break;
 		case NOTIFY_TYPE_PORT:
+			c->info->msg->header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, MACH_MSGH_BITS_ZERO);
+			c->info->msg->header.msgh_local_port = MACH_PORT_NULL;
+			c->info->msg->header.msgh_size = sizeof(mach_msg_empty_send_t);
 			c->info->msg->header.msgh_id = (mach_msg_id_t)(c->info->token);
 
 			kstatus = mach_msg(&(c->info->msg->header),
@@ -636,9 +645,11 @@ _notify_lib_check_addr(notify_state_t *ns, uint32_t cid)
  * Get state value for a name.
  */
 uint32_t
-_notify_lib_get_state(notify_state_t *ns, uint32_t cid, int *state)
+_notify_lib_get_state(notify_state_t *ns, uint32_t cid, uint64_t *state)
 {
 	client_t *c;
+
+	if (state == NULL) return NOTIFY_STATUS_FAILED;
 
 	*state = 0;
 
@@ -671,7 +682,7 @@ _notify_lib_get_state(notify_state_t *ns, uint32_t cid, int *state)
  * Set state value for a name.
  */
 uint32_t
-_notify_lib_set_state(notify_state_t *ns, uint32_t cid, int state, uint32_t uid, uint32_t gid)
+_notify_lib_set_state(notify_state_t *ns, uint32_t cid, uint64_t state, uint32_t uid, uint32_t gid)
 {
 	client_t *c;
 	int auth;
@@ -851,14 +862,15 @@ _notify_lib_register_signal(notify_state_t *ns, const char *name, task_t task, u
  * Returns the client_id;
  */
 uint32_t
-_notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_t task, uint32_t port, uint32_t token, uint32_t uid, uint32_t gid, uint32_t *out_token)
+_notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_t task, const char *path, uint32_t token, uint32_t uid, uint32_t gid, uint32_t *out_token)
 {
 	name_info_t *n;
 	client_t *c;
-	int auth;
+	int auth, fd;
 
 	if (ns == NULL) return 0;
 	if (name == NULL) return 0;
+	if (path == NULL) return 0;
 
 	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 
@@ -877,18 +889,22 @@ _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_
 		return NOTIFY_STATUS_NOT_AUTHORIZED;
 	}
 
+	fd = open(path, O_WRONLY | O_NONBLOCK, 0);
+	if (fd < 0) return NOTIFY_STATUS_INVALID_FILE;
+
 	n->refcount++;
 
 	c = _internal_client_new(ns);
 	if (c == NULL)
 	{
+		close(fd);
 		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 		return 0;
 	}
 
 	c->info->name_info = n;
 	c->info->notify_type = NOTIFY_TYPE_FD;
-	c->info->port = port;
+	c->info->fd = fd;
 	c->info->token = token;
 	c->info->session = task;
 

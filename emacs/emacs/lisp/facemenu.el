@@ -1,6 +1,7 @@
 ;;; facemenu.el --- create a face menu for interactively adding fonts to text
 
-;; Copyright (c) 1994, 1995, 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1995, 1996, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Boris Goldowsky <boris@gnu.org>
 ;; Keywords: faces
@@ -19,20 +20,14 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;; This file defines a menu of faces (bold, italic, etc) which allows you to
 ;; set the face used for a region of the buffer.  Some faces also have
-;; keybindings, which are shown in the menu.  Faces with names beginning with
-;; "fg:" or "bg:", as in "fg:red", are treated specially.
-;; Such faces are assumed to consist only of a foreground (if "fg:") or
-;; background (if "bg:") color.  They are thus put into the color submenus
-;; rather than the general Face submenu.  These faces can also be
-;; automatically created by selecting the "Other..." menu items in the
-;; "Foreground" and "Background" submenus.
+;; keybindings, which are shown in the menu.
 ;;
 ;; The menu also contains submenus for indentation and justification-changing
 ;; commands.
@@ -44,9 +39,9 @@
 ;; insertion.  It will be forgotten if you move point or make other
 ;; modifications before inserting or typing anything.
 ;;
-;; Faces can be selected from the keyboard as well.  
-;; The standard keybindings are M-g (or ESC g) + letter:
-;; M-g i = "set italic",  M-g b = "set bold", etc.
+;; Faces can be selected from the keyboard as well.
+;; The standard keybindings are M-o (or ESC o) + letter:
+;; M-o i = "set italic",  M-o b = "set bold", etc.
 
 ;;; Customization:
 ;; An alternative set of keybindings that may be easier to type can be set up
@@ -72,8 +67,8 @@
 ;;
 ;; The order of the faces that appear in the menu and their keybindings can be
 ;; controlled by setting the variables `facemenu-keybindings' and
-;; `facemenu-new-faces-at-end'.  List faces that you don't use in documents
-;; (eg, `region') in `facemenu-unlisted-faces'.
+;; `facemenu-new-faces-at-end'.  List faces that you want to use in documents
+;; in `facemenu-listed-faces'.
 
 ;;; Known Problems:
 ;; Bold and Italic do not combine to create bold-italic if you select them
@@ -92,18 +87,20 @@
 
 ;;; Code:
 
-(provide 'facemenu)
+(eval-when-compile
+  (require 'help)
+  (require 'button))
 
 ;;; Provide some binding for startup:
-;;;###autoload (define-key global-map "\M-g" 'facemenu-keymap)
+;;;###autoload (define-key global-map "\M-o" 'facemenu-keymap)
 ;;;###autoload (autoload 'facemenu-keymap "facemenu" "Keymap for face-changing commands." t 'keymap)
-  
+
 ;; Global bindings:
 (define-key global-map [C-down-mouse-2] 'facemenu-menu)
-(define-key global-map "\M-g" 'facemenu-keymap)
+(define-key global-map "\M-o" 'facemenu-keymap)
 
 (defgroup facemenu nil
-  "Create a face menu for interactively adding fonts to text"
+  "Create a face menu for interactively adding fonts to text."
   :group 'faces
   :prefix "facemenu-")
 
@@ -113,15 +110,15 @@
     (italic      . "i")
     (bold-italic . "l") ; {bold} intersect {italic} = {l}
     (underline   . "u"))
-  "Alist of interesting faces and keybindings. 
+  "Alist of interesting faces and keybindings.
 Each element is itself a list: the car is the name of the face,
 the next element is the key to use as a keyboard equivalent of the menu item;
 the binding is made in `facemenu-keymap'.
 
 The faces specifically mentioned in this list are put at the top of
-the menu, in the order specified.  All other faces which are defined,
-except for those in `facemenu-unlisted-faces', are listed after them, 
-but get no keyboard equivalents.
+the menu, in the order specified.  All other faces which are defined
+in `facemenu-listed-faces' are listed after them, but get no
+keyboard equivalents.
 
 If you change this variable after loading facemenu.el, you will need to call
 `facemenu-update' to make it take effect."
@@ -135,28 +132,40 @@ just before \"Other\" at the end."
   :type 'boolean
   :group 'facemenu)
 
-(defcustom facemenu-unlisted-faces
+(defvar facemenu-unlisted-faces
   `(modeline region secondary-selection highlight scratch-face
     ,(purecopy "^font-lock-") ,(purecopy "^gnus-") ,(purecopy "^message-")
     ,(purecopy "^ediff-") ,(purecopy "^term-") ,(purecopy "^vc-")
     ,(purecopy "^widget-") ,(purecopy "^custom-") ,(purecopy "^vm-"))
-  "*List of faces not to include in the Face menu.
-Each element may be either a symbol, which is the name of a face, or a string,
-which is a regular expression to be matched against face names.  Matching
-faces will not be added to the menu.
+  "*List of faces that are of no interest to the user.")
+(make-obsolete-variable 'facemenu-unlisted-faces 'facemenu-listed-faces
+			"since 22.1,\nand has no effect on the Face menu")
 
-You can set this list before loading facemenu.el, or add a face to it before
-creating that face if you do not want it to be listed.  If you change the
-variable so as to eliminate faces that have already been added to the menu,
-call `facemenu-update' to recalculate the menu contents.
+(defcustom facemenu-listed-faces nil
+  "*List of faces to include in the Face menu.
+Each element should be a symbol, the name of a face.
+The \"basic \" faces in `facemenu-keybindings' are automatically
+added to the Face menu, and need not be in this list.
 
-If this variable is t, no faces will be added to the menu.  This is useful for
-temporarily turning off the feature that automatically adds faces to the menu
-when they are created."
-  :type '(choice (const :tag "Don't add" t)
+This value takes effect when you load facemenu.el.  If the
+list includes symbols which are not defined as faces, they
+are ignored; however, subsequently defining or creating
+those faces adds them to the menu then.  You can call
+`facemenu-update' to recalculate the menu contents, such as
+if you change the value of this variable,
+
+If this variable is t, all faces that you apply to text
+using the face menu commands (even by name), and all faces
+that you define or create, are added to the menu.  You may
+find it useful to set this variable to t temporarily while
+you define some faces, so that they will be added.  However,
+if the value is no longer t and you call `facemenu-update',
+it will remove any faces not explicitly in the list."
+  :type '(choice (const :tag "List all faces" t)
 		 (const :tag "None" nil)
-		 (repeat (choice symbol regexp)))
-  :group 'facemenu)
+		 (repeat symbol))
+  :group 'facemenu
+  :version "22.1")
 
 ;;;###autoload
 (defvar facemenu-face-menu
@@ -166,15 +175,17 @@ when they are created."
   "Menu keymap for faces.")
 ;;;###autoload
 (defalias 'facemenu-face-menu facemenu-face-menu)
+(put 'facemenu-face-menu 'menu-enable '(facemenu-enable-faces-p))
 
 ;;;###autoload
-(defvar facemenu-foreground-menu 
+(defvar facemenu-foreground-menu
   (let ((map (make-sparse-keymap "Foreground Color")))
     (define-key map "o" (cons "Other..." 'facemenu-set-foreground))
     map)
   "Menu keymap for foreground colors.")
 ;;;###autoload
 (defalias 'facemenu-foreground-menu facemenu-foreground-menu)
+(put 'facemenu-foreground-menu 'menu-enable '(facemenu-enable-faces-p))
 
 ;;;###autoload
 (defvar facemenu-background-menu
@@ -184,9 +195,14 @@ when they are created."
   "Menu keymap for background colors.")
 ;;;###autoload
 (defalias 'facemenu-background-menu facemenu-background-menu)
+(put 'facemenu-background-menu 'menu-enable '(facemenu-enable-faces-p))
+
+;;; Condition for enabling menu items that set faces.
+(defun facemenu-enable-faces-p ()
+  (not (and font-lock-mode font-lock-defaults)))
 
 ;;;###autoload
-(defvar facemenu-special-menu 
+(defvar facemenu-special-menu
   (let ((map (make-sparse-keymap "Special")))
     (define-key map [?s] (cons (purecopy "Remove Special")
 			       'facemenu-remove-special))
@@ -217,7 +233,7 @@ when they are created."
 ;;;###autoload
 (defvar facemenu-indentation-menu
   (let ((map (make-sparse-keymap "Indentation")))
-    (define-key map [decrease-right-margin] 
+    (define-key map [decrease-right-margin]
       (cons (purecopy "Indent Right Less") 'decrease-right-margin))
     (define-key map [increase-right-margin]
       (cons (purecopy "Indent Right More") 'increase-right-margin))
@@ -240,8 +256,8 @@ when they are created."
 (let ((map facemenu-menu))
   (define-key map [dc] (cons (purecopy "Display Colors") 'list-colors-display))
   (define-key map [df] (cons (purecopy "Display Faces") 'list-faces-display))
-  (define-key map [dp] (cons (purecopy "List Properties")
-			     'list-text-properties-at))
+  (define-key map [dp] (cons (purecopy "Describe Properties")
+			     'describe-text-properties))
   (define-key map [ra] (cons (purecopy "Remove Text Properties")
 			     'facemenu-remove-all))
   (define-key map [rm] (cons (purecopy "Remove Face Properties")
@@ -249,23 +265,23 @@ when they are created."
   (define-key map [s1] (list (purecopy "--"))))
 ;;;###autoload
 (let ((map facemenu-menu))
-  (define-key map [in] (cons (purecopy "Indentation") 
+  (define-key map [in] (cons (purecopy "Indentation")
 			     'facemenu-indentation-menu))
   (define-key map [ju] (cons (purecopy "Justification")
 			     'facemenu-justification-menu))
   (define-key map [s2] (list (purecopy "--")))
-  (define-key map [sp] (cons (purecopy "Special Properties") 
+  (define-key map [sp] (cons (purecopy "Special Properties")
 			     'facemenu-special-menu))
-  (define-key map [bg] (cons (purecopy "Background Color") 
+  (define-key map [bg] (cons (purecopy "Background Color")
 			     'facemenu-background-menu))
-  (define-key map [fg] (cons (purecopy "Foreground Color") 
+  (define-key map [fg] (cons (purecopy "Foreground Color")
 			     'facemenu-foreground-menu))
-  (define-key map [fc] (cons (purecopy "Face") 
+  (define-key map [fc] (cons (purecopy "Face")
 			     'facemenu-face-menu)))
 ;;;###autoload
 (defalias 'facemenu-menu facemenu-menu)
 
-(defvar facemenu-keymap 
+(defvar facemenu-keymap
   (let ((map (make-sparse-keymap "Set face")))
     (define-key map "o" (cons (purecopy "Other...") 'facemenu-set-face))
     map)
@@ -304,9 +320,8 @@ May also be t meaning to use `facemenu-add-face-function'."
 ;;; Internal Variables
 
 (defvar facemenu-color-alist nil
-  ;; Don't initialize here; that doesn't work if preloaded.
   "Alist of colors, used for completion.
-If null, `facemenu-read-color' will set it.")
+If this is nil, then the value of (defined-colors) is used.")
 
 (defun facemenu-update ()
   "Add or update the \"Face\" menu in the menu bar.
@@ -320,79 +335,111 @@ variables."
 
 ;;;###autoload
 (defun facemenu-set-face (face &optional start end)
-  "Add FACE to the region or next character typed.
-It will be added to the top of the face list; any faces lower on the list that
-will not show through at all will be removed.
+  "Apply FACE to the region or next character typed.
 
-Interactively, the face to be used is read with the minibuffer.
+If the region is active (normally true except in Transient
+Mark mode) and nonempty, and there is no prefix argument,
+this command applies FACE to the region.  Otherwise, it applies FACE
+to the faces to use for the next character
+inserted.  (Moving point or switching buffers before typing
+a character to insert cancels the specification.)
 
-In the Transient Mark mode, if the region is active and there is no
-prefix argument, this command sets the region to the requested face.
+If FACE is `default', to \"apply\" it means clearing
+the list of faces to be used.  For any other value of FACE,
+to \"apply\" it means putting FACE at the front of the list
+of faces to be used, and removing any faces further
+along in the list that would be completely overridden by
+preceding faces (including FACE).
 
-Otherwise, this command specifies the face for the next character
-inserted.  Moving point or switching buffers before
-typing a character to insert cancels the specification." 
-  (interactive (list (read-face-name "Use face")))
-  (barf-if-buffer-read-only)
+This command can also add FACE to the menu of faces,
+if `facemenu-listed-faces' says to do that."
+  (interactive (list (progn
+		       (barf-if-buffer-read-only)
+		       (read-face-name "Use face"))
+		     (if (and mark-active (not current-prefix-arg))
+			 (region-beginning))
+		     (if (and mark-active (not current-prefix-arg))
+			 (region-end))))
   (facemenu-add-new-face face)
-  (if (and mark-active (not current-prefix-arg))
-      (let ((start (or start (region-beginning)))
-	    (end (or end (region-end))))
-	(facemenu-add-face face start end))
-    (facemenu-add-face face)))
+  (facemenu-add-face face start end))
 
 ;;;###autoload
 (defun facemenu-set-foreground (color &optional start end)
   "Set the foreground COLOR of the region or next character typed.
-The color is prompted for.  A face named `fg:color' is used \(or created).
-If the region is active, it will be set to the requested face.  If
-it is inactive \(even if mark-even-if-inactive is set) the next
-character that is typed \(via `self-insert-command') will be set to
-the selected face.  Moving point or switching buffers before
-typing a character cancels the request." 
-  (interactive (list (facemenu-read-color "Foreground color: ")))
-  (let ((face (intern (concat "fg:" color))))
-    (or (facemenu-get-face face)
-	(error "Unknown color: %s" color))
-    (facemenu-set-face face start end)))
+This command reads the color in the minibuffer.
+
+If the region is active (normally true except in Transient Mark mode)
+and there is no prefix argument, this command sets the region to the
+requested face.
+
+Otherwise, this command specifies the face for the next character
+inserted.  Moving point or switching buffers before
+typing a character to insert cancels the specification."
+  (interactive (list (progn
+		       (barf-if-buffer-read-only)
+		       (facemenu-read-color "Foreground color: "))
+		     (if (and mark-active (not current-prefix-arg))
+			 (region-beginning))
+		     (if (and mark-active (not current-prefix-arg))
+			 (region-end))))
+  (facemenu-set-face-from-menu
+   (facemenu-add-new-color color 'facemenu-foreground-menu)
+   start end))
 
 ;;;###autoload
 (defun facemenu-set-background (color &optional start end)
   "Set the background COLOR of the region or next character typed.
-The color is prompted for.  A face named `bg:color' is used \(or created).
-If the region is active, it will be set to the requested face.  If
-it is inactive \(even if mark-even-if-inactive is set) the next
-character that is typed \(via `self-insert-command') will be set to
-the selected face.  Moving point or switching buffers before
-typing a character cancels the request." 
-  (interactive (list (facemenu-read-color "Background color: ")))
-  (let ((face (intern (concat "bg:" color))))
-    (or (facemenu-get-face face)
-	(error "Unknown color: %s" color))
-    (facemenu-set-face face start end)))
+This command reads the color in the minibuffer.
+
+If the region is active (normally true except in Transient Mark mode)
+and there is no prefix argument, this command sets the region to the
+requested face.
+
+Otherwise, this command specifies the face for the next character
+inserted.  Moving point or switching buffers before
+typing a character to insert cancels the specification."
+  (interactive (list (progn
+		       (barf-if-buffer-read-only)
+		       (facemenu-read-color "Background color: "))
+		     (if (and mark-active (not current-prefix-arg))
+			 (region-beginning))
+		     (if (and mark-active (not current-prefix-arg))
+			 (region-end))))
+  (facemenu-set-face-from-menu
+   (facemenu-add-new-color color 'facemenu-background-menu)
+   start end))
 
 ;;;###autoload
 (defun facemenu-set-face-from-menu (face start end)
   "Set the FACE of the region or next character typed.
-This function is designed to be called from a menu; the face to use
-is the menu item's name.
+This function is designed to be called from a menu; FACE is determined
+using the event type of the menu entry.  If FACE is a symbol whose
+name starts with \"fg:\" or \"bg:\", then this functions sets the
+foreground or background to the color specified by the rest of the
+symbol's name.  Any other symbol is considered the name of a face.
 
-In the Transient Mark mode, if the region is active and there is no
-prefix argument, this command sets the region to the requested face.
+If the region is active (normally true except in Transient Mark mode)
+and there is no prefix argument, this command sets the region to the
+requested face.
 
 Otherwise, this command specifies the face for the next character
-inserted.  Moving point or switching buffers before
-typing a character to insert cancels the specification." 
+inserted.  Moving point or switching buffers before typing a character
+to insert cancels the specification."
   (interactive (list last-command-event
 		     (if (and mark-active (not current-prefix-arg))
 			 (region-beginning))
 		     (if (and mark-active (not current-prefix-arg))
 			 (region-end))))
   (barf-if-buffer-read-only)
-  (facemenu-get-face face)
-  (if start 
-      (facemenu-add-face face start end)
-    (facemenu-add-face face)))
+  (facemenu-add-face
+   (let ((fn (symbol-name face)))
+     (if (string-match "\\`\\([fb]\\)g:\\(.+\\)" fn)
+	 (list (list (if (string= (match-string 1 fn) "f")
+			 :foreground
+		       :background)
+		     (match-string 2 fn)))
+       face))
+   start end))
 
 ;;;###autoload
 (defun facemenu-set-invisible (start end)
@@ -423,7 +470,7 @@ This sets the `read-only' text property; it can be undone with
   "Remove `face' and `mouse-face' text properties."
   (interactive "*r") ; error if buffer is read-only despite the next line.
   (let ((inhibit-read-only t))
-    (remove-text-properties 
+    (remove-text-properties
      start end '(face nil mouse-face nil))))
 
 ;;;###autoload
@@ -439,85 +486,97 @@ This sets the `read-only' text property; it can be undone with
 These special properties include `invisible', `intangible' and `read-only'."
   (interactive "*r") ; error if buffer is read-only despite the next line.
   (let ((inhibit-read-only t))
-    (remove-text-properties 
+    (remove-text-properties
      start end '(invisible nil intangible nil read-only nil))))
-
-;;;###autoload
-(defun list-text-properties-at (p)
-  "Pop up a buffer listing text-properties at LOCATION."
-  (interactive "d")
-  (let ((props (text-properties-at p))
-	category
-	str)
-    (if (null props)
-	(message "None")
-      (if (and (not (cdr (cdr props)))
-	       (not (eq (car props) 'category))
-	       (< (length (setq str (format "Text property at %d:  %s  %S"
-					    p (car props) (car (cdr props)))))
-		  (frame-width)))
-	  (message "%s" str)
-	(with-output-to-temp-buffer "*Text Properties*"
-	  (princ (format "Text properties at %d:\n\n" p))
-	  (setq help-xref-stack nil)
-	  (while props
-	    (if (eq (car props) 'category)
-		(setq category (car (cdr props))))
-	    (princ (format "%-20s %S\n"
-			   (car props) (car (cdr props))))
-	    (setq props (cdr (cdr props))))
-	  (if category
-	      (progn
-		(setq props (symbol-plist category))
-		(princ (format "\nCategory %s:\n\n" category))
-		(while props
-		  (princ (format "%-20s %S\n"
-				 (car props) (car (cdr props))))
-		  (if (eq (car props) 'category)
-		      (setq category (car (cdr props))))
-		  (setq props (cdr (cdr props)))))))))))
-
+
 ;;;###autoload
 (defun facemenu-read-color (&optional prompt)
   "Read a color using the minibuffer."
-  (let ((col (completing-read (or prompt "Color: ") 
-			      (or facemenu-color-alist
-				  (mapcar 'list (defined-colors)))
-			      nil t)))
+  (let* ((completion-ignore-case t)
+	 (col (completing-read (or prompt "Color: ")
+			       (or facemenu-color-alist
+				   (defined-colors))
+			       nil t)))
     (if (equal "" col)
 	nil
       col)))
 
 ;;;###autoload
-(defun list-colors-display (&optional list)
+(defun list-colors-display (&optional list buffer-name)
   "Display names of defined colors, and show what they look like.
 If the optional argument LIST is non-nil, it should be a list of
-colors to display.  Otherwise, this command computes a list
-of colors that the current display can handle."
+colors to display.  Otherwise, this command computes a list of
+colors that the current display can handle.  If the optional
+argument BUFFER-NAME is nil, it defaults to *Colors*."
   (interactive)
-  (when (null list)
-    (setq list (defined-colors))
-    ;; Delete duplicate colors.
-    (let ((l list))
-      (while (cdr l)
-	(if (facemenu-color-equal (car l) (car (cdr l)))
-	    (setcdr l (cdr (cdr l)))
-	  (setq l (cdr l))))))
-  (with-output-to-temp-buffer "*Colors*"
+  (when (and (null list) (> (display-color-cells) 0))
+    (setq list (list-colors-duplicates (defined-colors)))
+    (when (memq (display-visual-class) '(gray-scale pseudo-color direct-color))
+      ;; Don't show more than what the display can handle.
+      (let ((lc (nthcdr (1- (display-color-cells)) list)))
+	(if lc
+	    (setcdr lc nil)))))
+  (with-output-to-temp-buffer (or buffer-name "*Colors*")
     (save-excursion
       (set-buffer standard-output)
-      (let (s)
-	(while list
-	  (setq s (point))
-	  (insert (car list))
-	  (indent-to 20)
-	  (put-text-property s (point) 'face 
-			     (cons 'background-color (car list)))
-	  (setq s (point))
-	  (insert "  " (car list) "\n")
-	  (put-text-property s (point) 'face 
-			     (cons 'foreground-color (car list)))
-	  (setq list (cdr list)))))))
+      (setq truncate-lines t)
+      (if temp-buffer-show-function
+	  (list-colors-print list)
+	;; Call list-colors-print from temp-buffer-show-hook
+	;; to get the right value of window-width in list-colors-print
+	;; after the buffer is displayed.
+	(add-hook 'temp-buffer-show-hook
+		  (lambda () (list-colors-print list)) nil t)))))
+
+(defun list-colors-print (list)
+  (dolist (color list)
+    (if (consp color)
+	(if (cdr color)
+	    (setq color (sort color (lambda (a b)
+				      (string< (downcase a)
+					       (downcase b))))))
+      (setq color (list color)))
+    (put-text-property
+     (prog1 (point)
+       (insert (car color))
+       (indent-to 22))
+     (point)
+     'face (cons 'background-color (car color)))
+    (put-text-property
+     (prog1 (point)
+       (insert " " (if (cdr color)
+		       (mapconcat 'identity (cdr color) ", ")
+		     (car color))))
+     (point)
+     'face (cons 'foreground-color (car color)))
+    (indent-to (max (- (window-width) 8) 44))
+    (insert (apply 'format "#%02x%02x%02x"
+		   (mapcar (lambda (c) (lsh c -8))
+			   (color-values (car color)))))
+
+    (insert "\n"))
+  (goto-char (point-min)))
+
+(defun list-colors-duplicates (&optional list)
+  "Return a list of colors with grouped duplicate colors.
+If a color has no duplicates, then the element of the returned list
+has the form '(COLOR-NAME).  The element of the returned list with
+duplicate colors has the form '(COLOR-NAME DUPLICATE-COLOR-NAME ...).
+This function uses the predicate `facemenu-color-equal' to compare
+color names.  If the optional argument LIST is non-nil, it should
+be a list of colors to display.  Otherwise, this function uses
+a list of colors that the current display can handle."
+  (let* ((list (mapcar 'list (or list (defined-colors))))
+	 (l list))
+    (while (cdr l)
+      (if (and (facemenu-color-equal (car (car l)) (car (car (cdr l))))
+	       (not (if (boundp 'w32-default-color-map)
+			(not (assoc (car (car l)) w32-default-color-map)))))
+	  (progn
+	    (setcdr (car l) (cons (car (car (cdr l))) (cdr (car l))))
+	    (setcdr l (cdr (cdr l))))
+	(setq l (cdr l))))
+    list))
 
 (defun facemenu-color-equal (a b)
   "Return t if colors A and B are the same color.
@@ -534,7 +593,7 @@ If START is nil or START to END is empty, add FACE to next typed character
 instead.  For each section of that region that has a different face property,
 FACE will be consed onto it, and other faces that are completely hidden by
 that will be removed from the list.
-If `facemenu-add-face-function' and maybe `facemenu-end-add-face' are non-`nil'
+If `facemenu-add-face-function' and maybe `facemenu-end-add-face' are non-nil,
 they are used to set the face information.
 
 As a special case, if FACE is `default', then the region is left with NO face
@@ -573,14 +632,21 @@ effect.  See `facemenu-remove-face-function'."
 				      (cons face
 					    (if (listp prev)
 						prev
-					      (list prev)))))))
+					      (list prev)))
+				      ;; Specify the selected frame
+				      ;; because nil would mean to use
+				      ;; the new-frame default settings,
+				      ;; and those are usually nil.
+				      (selected-frame)))))
 	      (setq part-start part-end)))
 	(setq self-insert-face (if (eq last-command self-insert-face-command)
 				   (cons face (if (listp self-insert-face)
 						  self-insert-face
 						(list self-insert-face)))
 				 face)
-	      self-insert-face-command this-command)))))
+	      self-insert-face-command this-command))))
+  (unless (facemenu-enable-faces-p)
+    (message "Font-lock mode will override any faces you set in this buffer")))
 
 (defun facemenu-active-faces (face-list &optional frame)
   "Return from FACE-LIST those faces that would be used for display.
@@ -588,114 +654,131 @@ This means each face attribute is not specified in a face earlier in FACE-LIST
 and such a face is therefore active when used to display text.
 If the optional argument FRAME is given, use the faces in that frame; otherwise
 use the selected frame.  If t, then the global, non-frame faces are used."
-  (let* ((mask-atts (copy-sequence (internal-get-face (car face-list) frame)))
+  (let* ((mask-atts (copy-sequence
+		     (if (consp (car face-list))
+			 (face-attributes-as-vector (car face-list))
+		       (or (internal-lisp-face-p (car face-list) frame)
+			   (check-face (car face-list))))))
 	 (active-list (list (car face-list)))
 	 (face-list (cdr face-list))
 	 (mask-len (length mask-atts)))
     (while face-list
-      (if (let ((face-atts (internal-get-face (car face-list) frame))
-		(i mask-len) (useful nil))
-	    (while (> (setq i (1- i)) 1)
-	      (and (aref face-atts i) (not (aref mask-atts i))
+      (if (let ((face-atts
+		 (if (consp (car face-list))
+		     (face-attributes-as-vector (car face-list))
+		   (or (internal-lisp-face-p (car face-list) frame)
+		       (check-face (car face-list)))))
+		(i mask-len)
+		(useful nil))
+	    (while (>= (setq i (1- i)) 0)
+	      (and (not (memq (aref face-atts i) '(nil unspecified)))
+		   (memq (aref mask-atts i) '(nil unspecified))
 		   (aset mask-atts i (setq useful t))))
 	    useful)
 	  (setq active-list (cons (car face-list) active-list)))
       (setq face-list (cdr face-list)))
     (nreverse active-list)))
 
-(defun facemenu-get-face (symbol)
-  "Make sure FACE exists.
-If not, create it and add it to the appropriate menu.  Return the SYMBOL.
-
-If a window system is in use, and this function creates a face named
-`fg:color', then it sets the foreground to that color.  Likewise, `bg:color'
-means to set the background.  In either case, if the color is undefined,
-no color is set and a warning is issued."
-  (let ((name (symbol-name symbol))
-	foreground)
-    (cond ((facep symbol))
-	  ((and (display-color-p)
-		(or (setq foreground (string-match "^fg:" name))
-		    (string-match "^bg:" name)))
-	   (let ((face (make-face symbol))
-		 (color (substring name 3)))
-	     (if (x-color-defined-p color)
-		 (if foreground
-		     (set-face-foreground face color)
-		   (set-face-background face color))
-	       (message "Color \"%s\" undefined" color))))
-	  (t (make-face symbol))))
-  symbol)
-
 (defun facemenu-add-new-face (face)
-  "Add a FACE to the appropriate Face menu.
-Automatically called when a new face is created."
-  (let* ((name (symbol-name face))
+  "Add FACE (a face) to the Face menu if `facemenu-listed-faces' says so.
+This is called whenever you create a new face, and at other times."
+  (let* (name
+	 symbol
 	 menu docstring
 	 (key (cdr (assoc face facemenu-keybindings)))
 	 function menu-val)
-    (cond ((string-match "^fg:" name) 
-	   (setq name (substring name 3))
-	   (setq docstring
-		 (format "Select foreground color %s for subsequent insertion."
-			 name))
-	   (setq menu 'facemenu-foreground-menu))
-	  ((string-match "^bg:" name) 
-	   (setq name (substring name 3))
-	   (setq docstring
-		 (format "Select background color %s for subsequent insertion."
-			 name))
-	   (setq menu 'facemenu-background-menu))
-	  (t
-	   (setq docstring
-		 (format "Select face `%s' for subsequent insertion."
-			 name))
-	   (setq menu 'facemenu-face-menu)))
-    (cond ((eq t facemenu-unlisted-faces))
-	  ((memq face facemenu-unlisted-faces))
-	  ;; test against regexps in facemenu-unlisted-faces
-	  ((let ((unlisted facemenu-unlisted-faces)
-		 (matched nil))
-	     (while (and unlisted (not matched))
-	       (if (and (stringp (car unlisted))
-			(string-match (car unlisted) name))
-		   (setq matched t)
-		 (setq unlisted (cdr unlisted))))
-	     matched))
-	  (key ; has a keyboard equivalent.  These go at the front.
+    (if (symbolp face)
+	(setq name (symbol-name face)
+	      symbol face)
+      (setq name face
+	    symbol (intern name)))
+    (setq menu 'facemenu-face-menu)
+    (setq docstring
+	  (format "Select face `%s' for subsequent insertion.
+If the mark is active and there is no prefix argument,
+apply face `%s' to the region instead.
+This command was defined by `facemenu-add-new-face'."
+		  name name))
+    (cond ((facemenu-iterate ; check if equivalent face is already in the menu
+	    (lambda (m) (and (listp m)
+			     (symbolp (car m))
+			     ;; Avoid error in face-equal
+			     ;; when a non-face is erroneously present.
+			     (facep (car m))
+			     (face-equal (car m) symbol)))
+	    (cdr (symbol-function menu))))
+	  ;; Faces with a keyboard equivalent.  These go at the front.
+	  (key
 	   (setq function (intern (concat "facemenu-set-" name)))
 	   (fset function
 		 `(lambda ()
 		    ,docstring
 		    (interactive)
-		    (facemenu-set-face (quote ,face))))
+		    (facemenu-set-face
+		     (quote ,symbol)
+		     (if (and mark-active (not current-prefix-arg))
+			 (region-beginning))
+		     (if (and mark-active (not current-prefix-arg))
+			 (region-end)))))
 	   (define-key 'facemenu-keymap key (cons name function))
 	   (define-key menu key (cons name function)))
-	  ((facemenu-iterate ; check if equivalent face is already in the menu
-	    (lambda (m) (and (listp m) 
-			     (symbolp (car m))
-			     (face-equal (car m) face)))
-	    (cdr (symbol-function menu))))
-	  (t   ; No keyboard equivalent.  Figure out where to put it:
-	   (setq key (vector face)
+	  ;; Faces with no keyboard equivalent.  Figure out where to put it:
+	  ((or (eq t facemenu-listed-faces)
+	       (memq symbol facemenu-listed-faces))
+	   (setq key (vector symbol)
 		 function 'facemenu-set-face-from-menu
 		 menu-val (symbol-function menu))
 	   (if (and facemenu-new-faces-at-end
-		   (> (length menu-val) 3))
+		    (> (length menu-val) 3))
 	       (define-key-after menu-val key (cons name function)
 		 (car (nth (- (length menu-val) 3) menu-val)))
 	     (define-key menu key (cons name function))))))
   nil) ; Return nil for facemenu-iterate
 
+(defun facemenu-add-new-color (color menu)
+  "Add COLOR (a color name string) to the appropriate Face menu.
+MENU should be `facemenu-foreground-menu' or `facemenu-background-menu'.
+Return the event type (a symbol) of the added menu entry.
+
+This is called whenever you use a new color."
+  (let (symbol docstring)
+    (unless (color-defined-p color)
+      (error "Color `%s' undefined" color))
+    (cond ((eq menu 'facemenu-foreground-menu)
+	   (setq docstring
+		 (format "Select foreground color %s for subsequent insertion."
+			 color)
+		 symbol (intern (concat "fg:" color))))
+	  ((eq menu 'facemenu-background-menu)
+	   (setq docstring
+		 (format "Select background color %s for subsequent insertion."
+			 color)
+		 symbol (intern (concat "bg:" color))))
+	  (t (error "MENU should be `facemenu-foreground-menu' or `facemenu-background-menu'")))
+    (unless (facemenu-iterate ; Check if color is already in the menu.
+	     (lambda (m) (and (listp m)
+			      (eq (car m) symbol)))
+	     (cdr (symbol-function menu)))
+      ;; Color is not in the menu.  Figure out where to put it.
+      (let ((key (vector symbol))
+	    (function 'facemenu-set-face-from-menu)
+	    (menu-val (symbol-function menu)))
+	(if (and facemenu-new-faces-at-end
+		 (> (length menu-val) 3))
+	    (define-key-after menu-val key (cons color function)
+	      (car (nth (- (length menu-val) 3) menu-val)))
+	  (define-key menu key (cons color function)))))
+    symbol))
+
 (defun facemenu-complete-face-list (&optional oldlist)
   "Return list of all faces that look different.
-Starts with given ALIST of faces, and adds elements only if they display 
+Starts with given ALIST of faces, and adds elements only if they display
 differently from any face already on the list.
-The faces on ALIST will end up at the end of the returned list, in reverse 
+The faces on ALIST will end up at the end of the returned list, in reverse
 order."
   (let ((list (nreverse (mapcar 'car oldlist))))
-    (facemenu-iterate 
-     (lambda (new-face) 
+    (facemenu-iterate
+     (lambda (new-face)
        (if (not (memq new-face list))
 	   (setq list (cons new-face list)))
        nil)
@@ -711,4 +794,7 @@ Returns the non-nil value it found, or nil if all were nil."
 
 (facemenu-update)
 
+(provide 'facemenu)
+
+;;; arch-tag: 85f6d02b-9085-420e-b651-0678f0e9c7eb
 ;;; facemenu.el ends here

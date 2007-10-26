@@ -2,12 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.AppleGMACEthernet</string>
 	<key>CFBundleName</key>
-	<string>Instal Test AppleGMACEthernet Driver</string>
+	<string>Install Test AppleGMACEthernet Driver</string>
 	<key>IFMajorVersion</key>
 	<integer>0</integer>
 	<key>IFMinorVersion</key>
-	<integer>0</integer>
+	<integer>1</integer>
 	<key>IFPkgFlagAllowBackRev</key>
 	<false/>
 	<key>IFPkgFlagAuthorizationAction</key>
@@ -18,6 +20,8 @@
 	<false/>
 	<key>IFPkgFlagIsRequired</key>
 	<false/>
+	<key>IFPkgFlagOverwritePermissions</key>
+	<false/>
 	<key>IFPkgFlagRelocatable</key>
 	<false/>
 	<key>IFPkgFlagRestartAction</key>
@@ -25,6 +29,8 @@
 	<key>IFPkgFlagRootVolumeOnly</key>
 	<false/>
 	<key>IFPkgFlagUpdateInstalledLanguages</key>
+	<false/>
+	<key>IFPkgFlagUseUserMask</key>
 	<false/>
 	<key>IFPkgFormatVersion</key>
 	<real>0.10000000149011612</real>

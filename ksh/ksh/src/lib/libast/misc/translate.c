@@ -1,32 +1,28 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
- * AT&T Labs Research and SCO
+ * AT&T Research and SCO
  * ast i18n message translation
  */
 
@@ -36,7 +32,6 @@
 #include <error.h>
 #include <mc.h>
 #include <nl_types.h>
-#include <sfstr.h>
 
 #ifndef DEBUG_trace
 #define DEBUG_trace		0
@@ -91,7 +86,7 @@ static int
 tempget(Sfio_t* sp)
 {
 	if (sfstrtell(sp) > sfstrsize(sp) / 2)
-		sfstrset(sp, 0);
+		sfstrseek(sp, 0, SEEK_SET);
 	return sfstrtell(sp);
 }
 
@@ -190,19 +185,22 @@ init(register char* s)
 		 * see <mc.h> mcindex()
 		 *
 		 * this method requires a scan of each catalog, and the
-		 * catalog do not advertize the max message number, so
+		 * catalogs do not advertize the max message number, so
 		 * we assume there are no messages after a gap of GAP
 		 * missing messages
 		 */
 
 		if (cp->messages = dtopen(&state.message_disc, Dtset))
 		{
-			m = 0;
-			for (n = 1; n < NL_MSGMAX; n++) 
+			n = m = 0;
+			for (;;)
+			{
+				n++;
 				if ((s = catgets(d, AST_MESSAGE_SET, n, state.null)) != state.null && entry(cp->messages, AST_MESSAGE_SET, n, s))
 					m = n;
 				else if ((n - m) > GAP)
 					break;
+			}
 			if (!m)
 			{
 				dtclose(cp->messages);
@@ -290,6 +288,7 @@ char*
 translate(const char* loc, const char* cmd, const char* cat, const char* msg)
 {
 	register char*	r;
+	char*		t;
 	int		p;
 	int		oerrno;
 	Catalog_t*	cp;
@@ -304,6 +303,8 @@ translate(const char* loc, const char* cmd, const char* cat, const char* msg)
 
 	if (!cmd && !cat)
 		goto done;
+	if (cmd && (t = strrchr(cmd, '/')))
+		cmd = (const char*)(t + 1);
 
 	/*
 	 * initialize the catalogs dictionary

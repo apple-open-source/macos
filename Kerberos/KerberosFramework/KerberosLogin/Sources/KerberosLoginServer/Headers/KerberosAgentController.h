@@ -28,16 +28,10 @@
 
 @interface KerberosAgentController : NSObject
 {
-    IBOutlet NSWindow *aboutWindow;
-    IBOutlet NSTextField *aboutVersionTextField;
-    IBOutlet NSTextField *aboutCopyrightTextField;
     NSMutableArray *activeWindows;
 }
 
 - (void) dealloc;
-
-- (void) awakeFromNib;
-- (IBAction) showAboutBox: (id) sender;
 
 - (void) addActiveWindow: (NSWindow *) window;
 - (void) removeActiveWindow: (NSWindow *) window;

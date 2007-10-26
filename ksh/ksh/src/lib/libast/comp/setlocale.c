@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -32,55 +28,14 @@
  * and persistent private data for locale related functions
  */
 
+#include <ast_standards.h>
+
 #include "lclib.h"
 
+#include <ast_wchar.h>
 #include <ctype.h>
 #include <mc.h>
 #include <namval.h>
-#include <sfstr.h>
-
-#if __OBSOLETE__ && __OBSOLETE__ < 20020401
-
-/*
- * _Ast_info_t grew
- * the old exported symbol was _ast_state, retained here for link compatibility
- * new compilations will use _ast_info
- * extra space was added to avoid this in the future
- */
-
-typedef struct
-{
-
-	char*		id;
-
-	struct
-	{
-	unsigned int	serial;
-	unsigned int	set;
-	}		locale;
-
-	long		tmp_long;
-	size_t		tmp_size;
-	short		tmp_short;
-	char		tmp_char;
-	wchar_t		tmp_wchar;
-
-	int		(*collate)(const char*, const char*);
-
-	int		tmp_int;
-	void*		tmp_pointer;
-
-} _Ast_state_t;
-
-#define old			_ast_state
-extern _Ast_state_t		old;
-#define OLD(x)			x
-
-#else
-
-#define OLD(x)
-
-#endif
 
 #if ( _lib_wcwidth || _lib_wctomb ) && _hdr_wctype
 #include <wctype.h>
@@ -196,7 +151,7 @@ native_setlocale(int category, const char* locale)
 		return 0;
 	sys = uwin_setlocale(category, usr);
 	if (ast.locale.set & AST_LC_debug)
-		sfprintf(sfstderr, "locale uwin %17s %-24s %-24s\n", categories[lcindex(category, 0)].name, usr, sys);
+		sfprintf(sfstderr, "locale uwin %17s %-24s %-24s\n", lc_categories[lcindex(category, 0)].name, usr, sys);
 	return sys;
 }
 
@@ -531,19 +486,16 @@ set_collate(Lc_category_t* cp)
 {
 	if (locales[cp->internal]->flags & LC_debug)
 	{
-		OLD(old.collate = debug_strcoll;)
 		ast.collate = debug_strcoll;
 		ast.mb_xfrm = debug_strxfrm;
 	}
 	else if (locales[cp->internal]->flags & LC_default)
 	{
-		OLD(old.collate = strcmp;)
 		ast.collate = strcmp;
 		ast.mb_xfrm = 0;
 	}
 	else
 	{
-		OLD(old.collate = strcoll;)
 		ast.collate = strcoll;
 		ast.mb_xfrm = strxfrm;
 	}
@@ -606,7 +558,7 @@ set_numeric(Lc_category_t* cp)
 			dp = &default_numeric;
 		LCINFO(category)->data = (void*)dp;
 		if (ast.locale.set & (AST_LC_debug|AST_LC_setlocale))
-			sfprintf(sfstderr, "locale info %17s decimal '%c' thousands '%c'\n", categories[category].name, dp->decimal, dp->thousand >= 0 ? dp->thousand : 'X');
+			sfprintf(sfstderr, "locale info %17s decimal '%c' thousands '%c'\n", lc_categories[category].name, dp->decimal, dp->thousand >= 0 ? dp->thousand : 'X');
 	}
 	return 0;
 }
@@ -615,7 +567,7 @@ set_numeric(Lc_category_t* cp)
  * this table is indexed by AST_LC_[A-Z]*
  */
 
-Lc_category_t		categories[] =
+Lc_category_t		lc_categories[] =
 {
 { "LC_ALL",           LC_ALL,           AST_LC_ALL,           0               },
 { "LC_COLLATE",       LC_COLLATE,       AST_LC_COLLATE,       set_collate     },
@@ -655,7 +607,6 @@ setopt(void* a, const void* p, int n, const char* v)
 			ast.locale.set |= ((Namval_t*)p)->value;
 		else
 			ast.locale.set &= ~((Namval_t*)p)->value;
-		OLD(old.locale.set = ast.locale.set;)
 	}
 	return 0;
 }
@@ -694,11 +645,11 @@ single(int category, Lc_t* lc)
 	const char*	sys;
 	int		i;
 
-	if (!lc && !(lc = categories[category].prev))
+	if (!lc && !(lc = lc_categories[category].prev))
 		lc = lcmake(NiL);
 	if (locales[category] != lc)
 	{
-		if (categories[category].external == -categories[category].internal)
+		if (lc_categories[category].external == -lc_categories[category].internal)
 		{
 			sys = 0;
 			for (i = 1; i < AST_LC_COUNT; i++)
@@ -709,13 +660,13 @@ single(int category, Lc_t* lc)
 				}
 		}
 		else if (lc->flags & (LC_debug|LC_local))
-			sys = setlocale(categories[category].external, lcmake(NiL)->name);
-		else if (!(sys = setlocale(categories[category].external, lc->name)) &&
-			 (streq(lc->name, lc->code) || !(sys = setlocale(categories[category].external, lc->code))) &&
+			sys = setlocale(lc_categories[category].external, lcmake(NiL)->name);
+		else if (!(sys = setlocale(lc_categories[category].external, lc->name)) &&
+			 (streq(lc->name, lc->code) || !(sys = setlocale(lc_categories[category].external, lc->code))) &&
 			 !streq(lc->code, lc->language->code))
-				sys = setlocale(categories[category].external, lc->language->code);
+				sys = setlocale(lc_categories[category].external, lc->language->code);
 		if (ast.locale.set & (AST_LC_debug|AST_LC_setlocale))
-			sfprintf(sfstderr, "locale set  %17s %-24s %-24s\n", categories[category].name, lc->name, sys);
+			sfprintf(sfstderr, "locale set  %17s %-24s %-24s\n", lc_categories[category].name, lc->name, sys);
 		if (!sys)
 		{
 			/*
@@ -733,20 +684,19 @@ single(int category, Lc_t* lc)
 			}
 			if (!(lc->flags & LC_local))
 				return 0;
-			if (categories[category].external != -categories[category].internal)
-				setlocale(categories[category].external, lcmake(NiL)->name);
+			if (lc_categories[category].external != -lc_categories[category].internal)
+				setlocale(lc_categories[category].external, lcmake(NiL)->name);
 		}
 		locales[category] = lc;
-		if (categories[category].setf && (*categories[category].setf)(&categories[category]))
+		if (lc_categories[category].setf && (*lc_categories[category].setf)(&lc_categories[category]))
 		{
-			locales[category] = categories[category].prev;
+			locales[category] = lc_categories[category].prev;
 			return 0;
 		}
 		if (lc->flags & LC_default)
 			ast.locale.set &= ~(1<<category);
 		else
 			ast.locale.set |= (1<<category);
-		OLD(old.locale.set = ast.locale.set;)
 	}
 	return (char*)lc->name;
 }
@@ -779,7 +729,7 @@ composite(register const char* s, int initialize)
 		for (i = 1; i < AST_LC_COUNT; i++)
 		{
 			s = w;
-			t = categories[i].name;
+			t = lc_categories[i].name;
 			while (*t && *s++ == *t++);
 			if (!*t && *s++ == '=')
 			{
@@ -826,8 +776,8 @@ composite(register const char* s, int initialize)
 				}
 				stk[k++] = cat[i];
 			}
-			else if (!categories[cat[i]].prev)
-				categories[cat[i]].prev = p;
+			else if (!lc_categories[cat[i]].prev)
+				lc_categories[cat[i]].prev = p;
 	}
 	while (s[0] == '/' && s[1] && n < AST_LC_COUNT)
 	{
@@ -852,8 +802,8 @@ composite(register const char* s, int initialize)
 				return -1;
 			}
 		}
-		else if (!categories[n].prev)
-			categories[n].prev = p;
+		else if (!lc_categories[n].prev)
+			lc_categories[n].prev = p;
 	}
 	return n;
 }
@@ -912,7 +862,7 @@ _ast_setlocale(int category, const char* locale)
 					if (cat[j] == k)
 					{
 						cat[j] = -1;
-						sfprintf(sp, "%s=", categories[j].name);
+						sfprintf(sp, "%s=", lc_categories[j].name);
 					}
 				sfprintf(sp, "%s", locales[i]->name);
 			}
@@ -935,14 +885,14 @@ _ast_setlocale(int category, const char* locale)
 			 */
 
 			u = 0;
-			if (!(a = getenv("LC_ALL")))
+			if (!(a = getenv("LC_ALL")) || !*a)
 			{
 				for (i = 1; i < AST_LC_COUNT; i++)
-					if (s = getenv(categories[i].name))
+					if ((s = getenv(lc_categories[i].name)) && *s)
 					{
 						if (streq(s, local) && (u || (u = native_locale(locale, tmp, sizeof(tmp)))))
 							s = u;
-						categories[i].prev = lcmake(s);
+						lc_categories[i].prev = lcmake(s);
 					}
 				a = getenv("LANG");
 			}
@@ -950,19 +900,19 @@ _ast_setlocale(int category, const char* locale)
 			{
 				if (streq(a, local) && (u || (u = native_locale(locale, tmp, sizeof(tmp)))))
 					a = u;
-				if (a && composite(a, 1))
+				if (composite(a, 1))
 					a = 0;
 			}
 			p = 0;
 			for (i = 1; i < AST_LC_COUNT; i++)
 			{
-				if (!categories[i].prev)
+				if (!lc_categories[i].prev)
 				{
 					if (!p && !(p = lcmake(a)))
 						break;
-					categories[i].prev = p;
+					lc_categories[i].prev = p;
 				}
-				if (!single(i, categories[i].prev))
+				if (!single(i, lc_categories[i].prev))
 				{
 					while (i--)
 						single(i, NiL);
@@ -971,7 +921,7 @@ _ast_setlocale(int category, const char* locale)
 			}
 			if (ast.locale.set & AST_LC_debug)
 				for (i = 1; i < AST_LC_COUNT; i++)
-					sfprintf(sfstderr, "locale env  %17s %s\n", categories[i].name, locales[i]->name);
+					sfprintf(sfstderr, "locale env  %17s %s\n", lc_categories[i].name, locales[i]->name);
 			initialized = 1;
 		}
 		goto compose;

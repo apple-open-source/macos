@@ -50,6 +50,8 @@
 #include "debuglog.h"
 #include "prothandler.h"
 
+#include <security_utilities/debugging.h>
+
 static PREADER_STATES readerStates[PCSCLITE_MAX_CONTEXTS];
 
 void EHStatusHandlerThread(PREADER_CONTEXT);
@@ -171,7 +173,6 @@ LONG EHDestroyEventHandler(PREADER_CONTEXT rContext)
 
 LONG EHSpawnEventHandler(PREADER_CONTEXT rContext)
 {
-
 	LONG rv;
 	LPCSTR lpcReader;
 	DWORD dwStatus, dwProtocol;
@@ -220,11 +221,11 @@ LONG EHSpawnEventHandler(PREADER_CONTEXT rContext)
 	strcpy((readerStates[i])->readerName, rContext->lpcReader);
 	memcpy((readerStates[i])->cardAtr, rContext->ucAtr,
 		rContext->dwAtrLen);
-	(readerStates[i])->readerID = i + 100;
-	(readerStates[i])->readerState = rContext->dwStatus;
-	(readerStates[i])->readerSharing = rContext->dwContexts;
-	(readerStates[i])->cardAtrLength = rContext->dwAtrLen;
-	(readerStates[i])->cardProtocol = rContext->dwProtocol;
+	(readerStates[i])->readerID = htonl(i + 100);
+	(readerStates[i])->readerState = htonl(rContext->dwStatus);
+	(readerStates[i])->readerSharing = htonl(rContext->dwContexts);
+	(readerStates[i])->cardAtrLength = htonl(rContext->dwAtrLen);
+	(readerStates[i])->cardProtocol = htonl(rContext->dwProtocol);
 	/*
 	 * So the thread can access this array indice 
 	 */
@@ -232,6 +233,7 @@ LONG EHSpawnEventHandler(PREADER_CONTEXT rContext)
 
 	rv = SYS_ThreadCreate(&rContext->pthThread, NULL,
 		(LPVOID) EHStatusHandlerThread, (LPVOID) rContext);
+	secdebug("pcscd", "EHSpawnEventHandler after thread create: %d [%04X]", rv, rv);
 	if (rv == 1)
 	{
 		return SCARD_S_SUCCESS;
@@ -271,11 +273,13 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 
 	rv = IFDStatusICC(rContext, &dwStatus,
 		&dwProtocol, rContext->ucAtr, &rContext->dwAtrLen);
+	secdebug("pcscd", "EHStatusHandlerThread: initial call to IFDStatusICC: %d [%04X]", rv, rv);
 
 	if (dwStatus & SCARD_PRESENT)
 	{
 		rv = IFDPowerICC(rContext, IFD_POWER_UP,
 			rContext->ucAtr, &rContext->dwAtrLen);
+		secdebug("pcscd", "EHStatusHandlerThread: initial call to IFDPowerICC: %d [%04X]", rv, rv);
 
 		if (rv == IFD_SUCCESS)
 		{
@@ -320,11 +324,11 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 	/*
 	 * Set all the public attributes to this reader 
 	 */
-	(readerStates[i])->readerState = rContext->dwStatus;
-	(readerStates[i])->cardAtrLength = rContext->dwAtrLen;
-	(readerStates[i])->cardProtocol = rContext->dwProtocol;
-	(readerStates[i])->readerSharing = dwReaderSharing =
-		rContext->dwContexts;
+	(readerStates[i])->readerState = htonl(rContext->dwStatus);
+	(readerStates[i])->cardAtrLength = htonl(rContext->dwAtrLen);
+	(readerStates[i])->cardProtocol = htonl(rContext->dwProtocol);
+	dwReaderSharing = rContext->dwContexts;
+	(readerStates[i])->readerSharing = htonl(dwReaderSharing);	
 	memcpy((readerStates[i])->cardAtr, rContext->ucAtr,
 		rContext->dwAtrLen);
 
@@ -337,6 +341,7 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 
 		rv = IFDStatusICC(rContext, &dwStatus,
 			&dwProtocol, rContext->ucAtr, &rContext->dwAtrLen);
+//		secdebug("pcscd", "EHStatusHandlerThread: loop call to IFDStatusICC: %d [%04X]", rv, rv);
 
 		if (rv != SCARD_S_SUCCESS)
 		{
@@ -362,9 +367,9 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 			/*
 			 * Set all the public attributes to this reader 
 			 */
-			(readerStates[i])->readerState = rContext->dwStatus;
-			(readerStates[i])->cardAtrLength = rContext->dwAtrLen;
-			(readerStates[i])->cardProtocol = rContext->dwProtocol;
+			(readerStates[i])->readerState = htonl(rContext->dwStatus);
+			(readerStates[i])->cardAtrLength = htonl(rContext->dwAtrLen);
+			(readerStates[i])->cardProtocol = htonl(rContext->dwProtocol);
 			memcpy((readerStates[i])->cardAtr, rContext->ucAtr,
 				rContext->dwAtrLen);
 			SYS_MMapSynchronize((void *) readerStates[i], pageSize);
@@ -421,9 +426,9 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 				/*
 				 * Set all the public attributes to this reader 
 				 */
-				(readerStates[i])->readerState = rContext->dwStatus;
-				(readerStates[i])->cardAtrLength = rContext->dwAtrLen;
-				(readerStates[i])->cardProtocol = rContext->dwProtocol;
+				(readerStates[i])->readerState = htonl(rContext->dwStatus);
+				(readerStates[i])->cardAtrLength = htonl(rContext->dwAtrLen);
+				(readerStates[i])->cardProtocol = htonl(rContext->dwProtocol);
 				memcpy((readerStates[i])->cardAtr, rContext->ucAtr,
 					rContext->dwAtrLen);
 
@@ -442,6 +447,7 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 				SYS_USleep(PCSCLITE_STATUS_WAIT);
 				rv = IFDPowerICC(rContext, IFD_POWER_UP,
 					rContext->ucAtr, &rContext->dwAtrLen);
+				secdebug("pcscd", "EHStatusHandlerThread: power-and-reset call to IFDPowerICC: %d [%04X]", rv, rv);
 
 				if (rv == IFD_SUCCESS)
 				{
@@ -480,9 +486,9 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 				/*
 				 * Set all the public attributes to this reader 
 				 */
-				(readerStates[i])->readerState = rContext->dwStatus;
-				(readerStates[i])->cardAtrLength = rContext->dwAtrLen;
-				(readerStates[i])->cardProtocol = rContext->dwProtocol;
+				(readerStates[i])->readerState = htonl(rContext->dwStatus);
+				(readerStates[i])->cardAtrLength = htonl(rContext->dwAtrLen);
+				(readerStates[i])->cardProtocol = htonl(rContext->dwProtocol);
 				memcpy((readerStates[i])->cardAtr, rContext->ucAtr,
 					rContext->dwAtrLen);
 
@@ -515,6 +521,7 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 			/*
 			 * Exit and notify the caller 
 			 */
+				secdebug("pcscd", "EHStatusHandlerThread: lockid is -1?? - exiting");
 			rContext->dwLockId = 0;
 			SYS_ThreadDetach(rContext->pthThread);
 			SYS_ThreadExit(0);
@@ -527,7 +534,7 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 		if (dwReaderSharing != rContext->dwContexts)
 		{
 			dwReaderSharing = rContext->dwContexts;
-			(readerStates[i])->readerSharing = dwReaderSharing;
+			(readerStates[i])->readerSharing = htonl(dwReaderSharing);
 			SYS_MMapSynchronize((void *) readerStates[i], pageSize);
 		}
 
@@ -538,6 +545,6 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 void EHSetSharingEvent(PREADER_CONTEXT rContext, DWORD dwValue)
 {
 
-	(readerStates[rContext->dwPublicID])->lockState = dwValue;
+	(readerStates[rContext->dwPublicID])->lockState = htonl(dwValue);
 
 }

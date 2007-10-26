@@ -39,53 +39,72 @@
  */
 
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/make/str.c,v 1.45 2005/05/23 13:27:52 harti Exp $");
 
-#include "make.h"
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
-static char **argv, *buffer;
-static int argmax, curlen;
+#include "buf.h"
+#include "globals.h"
+#include "str.h"
+#include "util.h"
 
-/*
- * str_init --
- *	Initialize the strings package
- *
+/**
+ * Initialize the argument array object.  The array is initially
+ * eight positions, and will be expaned as neccessary.  The first
+ * position is set to NULL since everything ignores it.  We allocate
+ * (size + 1) since we need space for the terminating NULL.  The
+ * buffer is set to NULL, since no common buffer is alloated yet.
  */
 void
-str_init(void)
+ArgArray_Init(ArgArray *aa)
 {
-    char *p1;
-    argv = (char **)emalloc(((argmax = 50) + 1) * sizeof(char *));
-    argv[0] = Var_Value(".MAKE", VAR_GLOBAL, &p1);
+
+	aa->size = 8;
+	aa->argv = emalloc((aa->size + 1) * sizeof(char *));
+	aa->argc = 0;
+	aa->argv[aa->argc++] = NULL;
+	aa->len = 0;
+	aa->buffer = NULL;
 }
 
-
-/*
- * str_end --
- *	Cleanup the strings package
- *
+/**
+ * Cleanup the memory allocated for in the argument array object. 
  */
 void
-str_end(void)
+ArgArray_Done(ArgArray *aa)
 {
-    if (argv) {
-	if (argv[0])
-	    free(argv[0]);
-	free(argv);
-    }
-    if (buffer)
-	free(buffer);
+
+	if (aa->buffer == NULL) {
+		int	i;
+		/* args are individually allocated */
+		for (i = 0; i < aa->argc; ++i) {
+			if (aa->argv[i]) {
+				free(aa->argv[i]);
+				aa->argv[i] = NULL;
+			}
+		}
+	} else {
+		/* args are part of a single allocation */
+		free(aa->buffer);
+		aa->buffer = NULL;
+	}
+	free(aa->argv);
+	aa->argv = NULL;
+	aa->argc = 0;
+	aa->size = 0;
 }
 
 /*-
  * str_concat --
- *	concatenate the two strings, inserting a space or slash between them,
- *	freeing them if requested.
+ *	concatenate the two strings, inserting a space or slash between them.
  *
  * returns --
  *	the resulting string in allocated space.
  */
 char *
-str_concat(char *s1, char *s2, int flags)
+str_concat(const char *s1, const char *s2, int flags)
 {
 	int len1, len2;
 	char *result;
@@ -95,7 +114,7 @@ str_concat(char *s1, char *s2, int flags)
 	len2 = strlen(s2);
 
 	/* allocate length plus separator plus EOS */
-	result = emalloc((u_int)(len1 + len2 + 2));
+	result = emalloc(len1 + len2 + 2);
 
 	/* copy first string into place */
 	memcpy(result, s1, len1);
@@ -112,136 +131,246 @@ str_concat(char *s1, char *s2, int flags)
 	/* copy second string plus EOS into place */
 	memcpy(result + len1, s2, len2 + 1);
 
-	/* free original strings */
-	if (flags & STR_DOFREE) {
-		(void)free(s1);
-		(void)free(s2);
-	}
-	return(result);
+	return (result);
 }
 
-/*-
- * brk_string --
- *	Fracture a string into an array of words (as delineated by tabs or
- *	spaces) taking quotation marks into account.  Leading tabs/spaces
- *	are ignored.
- *
- * returns --
- *	Pointer to the array of pointers to the words.  To make life easier,
- *	the first word is always the value of the .MAKE variable.
+/**
+ * Fracture a string into an array of words (as delineated by tabs or
+ * spaces) taking quotation marks into account.  Leading tabs/spaces
+ * are ignored.
  */
-char **
-brk_string(char *str, int *store_argc, Boolean expand)
+void
+brk_string(ArgArray *aa, const char str[], Boolean expand)
 {
-	int argc, ch;
-	char inquote, *p, *start, *t;
-	int len;
+	char	inquote;
+	char	*start;
+	char	*arg;
 
 	/* skip leading space chars. */
 	for (; *str == ' ' || *str == '\t'; ++str)
 		continue;
 
-	/* allocate room for a copy of the string */
-	if ((len = strlen(str) + 1) > curlen) {
-		if (buffer)
-		    free(buffer);
-		buffer = emalloc(curlen = len);
-	}
+	ArgArray_Init(aa);
+
+	aa->buffer = estrdup(str);;
+
+	arg = aa->buffer;
+	start = arg;
+	inquote = '\0';
 
 	/*
 	 * copy the string; at the same time, parse backslashes,
 	 * quotes and build the argument list.
 	 */
-	argc = 1;
-	inquote = '\0';
-	for (p = str, start = t = buffer;; ++p) {
-		switch(ch = *p) {
+	for (;;) {
+		switch (str[0]) {
 		case '"':
 		case '\'':
-			if (inquote) {
-				if (ch != inquote)
+			if (inquote == '\0') {
+				inquote = str[0];
+				if (expand)
 					break;
+				if (start == NULL)
+					start = arg;
+			} else if (inquote == str[0]) {
 				inquote = '\0';
 				/* Don't miss "" or '' */
-				if (!start)
-					start = t;
-			} else
-				inquote = (char) ch;
-			if (expand)
-				continue;
+				if (start == NULL)
+					start = arg;
+				if (expand)
+					break;
+			} else {
+				/* other type of quote found */
+				if (start == NULL)
+					start = arg;
+			}
+			*arg++ = str[0];
 			break;
 		case ' ':
 		case '\t':
 		case '\n':
-			if (inquote)
+			if (inquote) {
+				if (start == NULL)
+					start = arg;
+				*arg++ = str[0];
 				break;
-			if (!start)
-				continue;
+			}
+			if (start == NULL)
+				break;
 			/* FALLTHROUGH */
 		case '\0':
 			/*
 			 * end of a token -- make sure there's enough argv
 			 * space and save off a pointer.
 			 */
-			if (!start)
-			    goto done;
-
-			*t++ = '\0';
-			if (argc == argmax) {
-				argmax *= 2;		/* ramp up fast */
-				argv = (char **)erealloc(argv,
-				    (argmax + 1) * sizeof(char *));
+			if (aa->argc == aa->size) {
+				aa->size *= 2;		/* ramp up fast */
+				aa->argv = erealloc(aa->argv,
+				    (aa->size + 1) * sizeof(char *));
 			}
-			argv[argc++] = start;
-			start = (char *)NULL;
-			if (ch == '\n' || ch == '\0')
-				goto done;
-			continue;
+
+			*arg++ = '\0';
+			if (start == NULL) {
+				aa->argv[aa->argc] = start;
+				return;
+			}
+			if (str[0] == '\n' || str[0] == '\0') {
+				aa->argv[aa->argc++] = start;
+				aa->argv[aa->argc] = NULL;
+				return;
+			} else {
+				aa->argv[aa->argc++] = start;
+				start = NULL;
+				break;
+			}
 		case '\\':
-			if (!expand) {
-				if (!start)
-					start = t;
-				*t++ = '\\';
-				ch = *++p;
-				break;
-			}
-
-			switch (ch = *++p) {
-			case '\0':
-			case '\n':
-				/* hmmm; fix it up as best we can */
-				ch = '\\';
-				--p;
-				break;
-			case 'b':
-				ch = '\b';
-				break;
-			case 'f':
-				ch = '\f';
-				break;
-			case 'n':
-				ch = '\n';
-				break;
-			case 'r':
-				ch = '\r';
-				break;
-			case 't':
-				ch = '\t';
-				break;
-			default:
-				break;
+			if (start == NULL)
+				start = arg;
+			if (expand) {
+				switch (str[1]) {
+				case '\0':
+				case '\n':
+					/* hmmm; fix it up as best we can */
+					*arg++ = '\\';
+					break;
+				case 'b':
+					*arg++ = '\b';
+					++str;
+					break;
+				case 'f':
+					*arg++ = '\f';
+					++str;
+					break;
+				case 'n':
+					*arg++ = '\n';
+					++str;
+					break;
+				case 'r':
+					*arg++ = '\r';
+					++str;
+					break;
+				case 't':
+					*arg++ = '\t';
+					++str;
+					break;
+				default:
+					*arg++ = str[1];
+					++str;
+					break;
+				}
+			} else {
+				*arg++ = str[0];
+				++str;
+				*arg++ = str[0];
 			}
 			break;
 		default:
+			if (start == NULL)
+				start = arg;
+			*arg++ = str[0];
 			break;
 		}
-		if (!start)
-			start = t;
-		*t++ = (char) ch;
+		++str;
 	}
-done:	argv[argc] = (char *)NULL;
-	*store_argc = argc;
-	return(argv);
+}
+
+/*
+ * Quote a string for appending it to MAKEFLAGS. According to Posix the
+ * kind of quoting here is implementation-defined. This quoting must ensure
+ * that the parsing of MAKEFLAGS's contents in a sub-shell yields the same
+ * options, option arguments and macro definitions as in the calling make.
+ * We simply quote all blanks, which according to Posix are space and tab
+ * in the POSIX locale. Don't use isblank because in that case makes with
+ * different locale settings could not communicate. We must also quote
+ * backslashes obviously.
+ */
+char *
+MAKEFLAGS_quote(const char *str)
+{
+	char *ret, *q;
+	const char *p;
+
+	/* assume worst case - everything has to be quoted */
+	ret = emalloc(strlen(str) * 2 + 1);
+
+	p = str;
+	q = ret;
+	while (*p != '\0') {
+		switch (*p) {
+
+		  case ' ':
+		  case '\t':
+			*q++ = '\\';
+			break;
+
+		  default:
+			break;
+		}
+		*q++ = *p++;
+	}
+	*q++ = '\0';
+	return (ret);
+}
+
+void
+MAKEFLAGS_break(ArgArray *aa, const char str[])
+{
+	char	*arg;
+	char	*start;
+
+	ArgArray_Init(aa);
+
+	aa->buffer = strdup(str);
+
+	arg = aa->buffer;
+	start = NULL;
+
+	for (;;) {
+		switch (str[0]) {
+		case ' ':
+		case '\t':
+			/* word separator */
+			if (start == NULL) {
+				/* not in a word */
+				str++;
+				continue;
+			}
+			/* FALLTHRU */
+		case '\0':
+			if (aa->argc == aa->size) {
+				aa->size *= 2;
+				aa->argv = erealloc(aa->argv,
+ 				    (aa->size + 1) * sizeof(char *));
+			}
+
+			*arg++ = '\0';
+			if (start == NULL) {
+				aa->argv[aa->argc] = start;
+				return;
+			}
+			if (str[0] == '\0') {
+				aa->argv[aa->argc++] = start;
+				aa->argv[aa->argc] = NULL;
+				return;
+			} else {
+				aa->argv[aa->argc++] = start;
+				start = NULL;
+				str++;
+				continue;
+			}
+
+		case '\\':
+			if (str[1] == ' ' || str[1] == '\t')
+				str++;
+			break;
+
+		default:
+			break;
+		}
+		if (start == NULL)
+			start = arg;
+		*arg++ = *str++;
+	}
 }
 
 /*
@@ -267,9 +396,9 @@ Str_Match(const char *string, const char *pattern)
 		 * pattern but not at the end of the string, we failed.
 		 */
 		if (*pattern == 0)
-			return(!*string);
+			return (!*string);
 		if (*string == 0 && *pattern != '*')
-			return(0);
+			return (0);
 		/*
 		 * Check for a "*" as the next pattern character.  It matches
 		 * any substring.  We handle this by calling ourselves
@@ -279,13 +408,13 @@ Str_Match(const char *string, const char *pattern)
 		if (*pattern == '*') {
 			pattern += 1;
 			if (*pattern == 0)
-				return(1);
+				return (1);
 			while (*string != 0) {
 				if (Str_Match(string, pattern))
-					return(1);
+					return (1);
 				++string;
 			}
-			return(0);
+			return (0);
 		}
 		/*
 		 * Check for a "?" as the next pattern character.  It matches
@@ -302,13 +431,13 @@ Str_Match(const char *string, const char *pattern)
 			++pattern;
 			for (;;) {
 				if ((*pattern == ']') || (*pattern == 0))
-					return(0);
+					return (0);
 				if (*pattern == *string)
 					break;
 				if (pattern[1] == '-') {
 					c2 = pattern[2];
 					if (c2 == 0)
-						return(0);
+						return (0);
 					if ((*pattern <= *string) &&
 					    (c2 >= *string))
 						break;
@@ -330,113 +459,101 @@ Str_Match(const char *string, const char *pattern)
 		if (*pattern == '\\') {
 			++pattern;
 			if (*pattern == 0)
-				return(0);
+				return (0);
 		}
 		/*
 		 * There's no special character.  Just make sure that the
 		 * next characters of each string match.
 		 */
 		if (*pattern != *string)
-			return(0);
+			return (0);
 thisCharOK:	++pattern;
 		++string;
 	}
 }
 
 
-/*-
- *-----------------------------------------------------------------------
- * Str_SYSVMatch --
+/**
+ * Str_SYSVMatch
  *	Check word against pattern for a match (% is wild),
  *
  * Results:
  *	Returns the beginning position of a match or null. The number
  *	of characters matched is returned in len.
- *
- * Side Effects:
- *	None
- *
- *-----------------------------------------------------------------------
  */
 const char *
 Str_SYSVMatch(const char *word, const char *pattern, int *len)
 {
-    const char *m, *p, *w;
+	const char *m, *p, *w;
 
-    p = pattern;
-    w = word;
+	p = pattern;
+	w = word;
 
-    if (*w == '\0') {
-	/* Zero-length word cannot be matched against */
-	*len = 0;
-	return NULL;
-    }
-
-    if (*p == '\0') {
-	/* Null pattern is the whole string */
-	*len = strlen(w);
-	return w;
-    }
-
-    if ((m = strchr(p, '%')) != NULL) {
-	/* check that the prefix matches */
-	for (; p != m && *w && *w == *p; w++, p++)
-	     continue;
-
-	if (p != m)
-	    return NULL;	/* No match */
-
-	if (*++p == '\0') {
-	    /* No more pattern, return the rest of the string */
-	    *len = strlen(w);
-	    return w;
+	if (*w == '\0') {
+		/* Zero-length word cannot be matched against */
+		*len = 0;
+		return (NULL);
 	}
-    }
 
-    m = w;
-
-    /* Find a matching tail */
-    do
-	if (strcmp(p, w) == 0) {
-	    *len = w - m;
-	    return m;
+	if (*p == '\0') {
+		/* Null pattern is the whole string */
+		*len = strlen(w);
+		return (w);
 	}
-    while (*w++ != '\0');
 
-    return NULL;
+	if ((m = strchr(p, '%')) != NULL) {
+		/* check that the prefix matches */
+		for (; p != m && *w && *w == *p; w++, p++)
+			continue;
+
+		if (p != m)
+			return (NULL);	/* No match */
+
+		if (*++p == '\0') {
+			/* No more pattern, return the rest of the string */
+			*len = strlen(w);
+			return (w);
+		}
+	}
+
+	m = w;
+
+	/* Find a matching tail */
+	do
+		if (strcmp(p, w) == 0) {
+			*len = w - m;
+			return (m);
+		}
+	while (*w++ != '\0');
+
+	return (NULL);
 }
 
 
-/*-
- *-----------------------------------------------------------------------
- * Str_SYSVSubst --
+/**
+ * Str_SYSVSubst
  *	Substitute '%' on the pattern with len characters from src.
  *	If the pattern does not contain a '%' prepend len characters
  *	from src.
  *
- * Results:
- *	None
- *
  * Side Effects:
  *	Places result on buf
- *
- *-----------------------------------------------------------------------
  */
 void
-Str_SYSVSubst(Buffer buf, const char *pat, const char *src, int len)
+Str_SYSVSubst(Buffer *buf, const char *pat, const char *src, int len)
 {
-    const char *m;
+	const char *m;
 
-    if ((m = strchr(pat, '%')) != NULL) {
-	/* Copy the prefix */
-	Buf_AddBytes(buf, m - pat, (Byte *) pat);
-	/* skip the % */
-	pat = m + 1;
-    }
+	if ((m = strchr(pat, '%')) != NULL) {
+		/* Copy the prefix */
+		Buf_AppendRange(buf, pat, m);
+		/* skip the % */
+		pat = m + 1;
+	}
 
-    /* Copy the pattern */
-    Buf_AddBytes(buf, len, (Byte *) src);
+	/* Copy the pattern */
+	Buf_AddBytes(buf, len, (const Byte *)src);
 
-    /* append the rest */
-    Buf_AddBytes(buf, strlen(pat), (Byte *) pat);
+	/* append the rest */
+	Buf_Append(buf, pat);
 }

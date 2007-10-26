@@ -1,3 +1,13 @@
+<testcase>
+<info>
+<keywords>
+FTP
+EPSV
+RETR
+post-quote
+pre-quote
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -27,7 +37,7 @@ ftp://%HOSTIP:%FTPPORT/121 -Q "-DELE after_transfer" -Q "DELE before_transfer"
 <verify>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 DELE before_transfer
 EPSV
@@ -38,3 +48,4 @@ DELE after_transfer
 QUIT
 </protocol>
 </verify>
+</testcase>

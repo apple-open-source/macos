@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,7 +27,7 @@
 
 #define nil (0)
 
-#define super IOUSBController
+#define super IOUSBControllerV3
 #define self this
 
 void AppleUSBOHCI::DoOptiFix(AppleOHCIEndpointDescriptorPtr pHead)

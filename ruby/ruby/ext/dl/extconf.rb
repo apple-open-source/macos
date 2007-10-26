@@ -20,12 +20,10 @@ EOF
   exit(0)
 end
 
-$CFLAGS << " -I."
-$CPPFLAGS << " -I."
+($CPPFLAGS || $CFLAGS) << " -I."
 
 if (Config::CONFIG['CC'] =~ /gcc/)  # from Win32API
   $CFLAGS << " -fno-defer-pop -fno-omit-frame-pointer"
-  $CPPFLAGS << " -fno-defer-pop -fno-omit-frame-pointer"
 end
 
 $with_dlstack ||= true

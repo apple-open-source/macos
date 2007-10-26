@@ -3,14 +3,17 @@
    In the public domain.
    By David MacKenzie <djm@gnu.ai.mit.edu>.  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
 
+#include <stddef.h>
+
 void *
-memmove (char *dest, const char *source, unsigned length)
+memmove (void *dest0, void const *source0, size_t length)
 {
-  char *d0 = dest;
+  char *dest = dest0;
+  char const *source = source0;
   if (source < dest)
     /* Moving from low mem to hi mem; start at end.  */
     for (source += length, dest += length; length; --length)
@@ -21,5 +24,5 @@ memmove (char *dest, const char *source, unsigned length)
       for (; length; --length)
 	*dest++ = *source++;
     }
-  return (void *) d0;
+  return dest0;
 }

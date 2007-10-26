@@ -1,6 +1,6 @@
 /*
 *****************************************************************
-* Copyright (c) 2002-2004, International Business Machines Corporation
+* Copyright (c) 2002-2005, International Business Machines Corporation
 * and others.  All Rights Reserved.
 *****************************************************************
 * Date        Name        Description
@@ -20,6 +20,7 @@
 #include "tridpars.h"
 #include "hash.h"
 #include "putilimp.h"
+#include "uinvchar.h"
 
 //------------------------------------------------------------
 // Constants
@@ -181,7 +182,7 @@ AnyTransliterator::AnyTransliterator(const UnicodeString& id,
     Transliterator(id, NULL),
     targetScript(theTargetScript) 
 {
-    cache = uhash_open(uhash_hashLong, uhash_compareLong, &ec);
+    cache = uhash_open(uhash_hashLong, uhash_compareLong, NULL, &ec);
     uhash_setValueDeleter(cache, _deleteTransliterator);
 
     target = theTarget;
@@ -204,7 +205,7 @@ AnyTransliterator::AnyTransliterator(const AnyTransliterator& o) :
 {
     // Don't copy the cache contents
     UErrorCode ec = U_ZERO_ERROR;
-    cache = uhash_open(uhash_hashLong, uhash_compareLong, &ec);
+    cache = uhash_open(uhash_hashLong, uhash_compareLong, NULL, &ec);
     uhash_setValueDeleter(cache, _deleteTransliterator);
 }
 
@@ -271,7 +272,7 @@ Transliterator* AnyTransliterator::getTransliterator(UScriptCode source) const {
     Transliterator* t = (Transliterator*) uhash_iget(cache, (int32_t) source);
     if (t == NULL) {
         UErrorCode ec = U_ZERO_ERROR;
-        UnicodeString sourceName(uscript_getName(source), "");
+        UnicodeString sourceName(uscript_getName(source), -1, US_INV);
         UnicodeString id(sourceName);
         id.append(TARGET_SEP).append(target);
         
@@ -300,14 +301,19 @@ Transliterator* AnyTransliterator::getTransliterator(UScriptCode source) const {
 /**
  * Return the script code for a given name, or -1 if not found.
  */
-UScriptCode AnyTransliterator::scriptNameToCode(const UnicodeString& name) {
+static UScriptCode scriptNameToCode(const UnicodeString& name) {
     char buf[128];
     UScriptCode code;
     UErrorCode ec = U_ZERO_ERROR;
-
-    name.extract(0, 128, buf, 128, "");
-    if (uscript_getCode(buf, &code, 1, &ec) != 1 ||
-        U_FAILURE(ec)) {
+    int32_t nameLen = name.length();
+    UBool isInvariant = uprv_isInvariantUString(name.getBuffer(), nameLen);
+    
+    if (isInvariant) {
+        name.extract(0, nameLen, buf, (int32_t)sizeof(buf), US_INV);
+        buf[127] = 0;   // Make sure that we NULL terminate the string.
+    }
+    if (!isInvariant || uscript_getCode(buf, &code, 1, &ec) != 1 || U_FAILURE(ec))
+    {
         code = USCRIPT_INVALID_CODE;
     }
     return code;

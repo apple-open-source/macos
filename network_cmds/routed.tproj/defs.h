@@ -63,14 +63,19 @@
  * general addressing scheme.
  */
 #include <sys/param.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 
+struct mbuf; /* forward reference */
 #include <net/route.h>
 #include <netinet/in.h>
 #include <protocols/routed.h>
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <netdb.h>
 
 /* NeXT */
@@ -118,14 +123,40 @@ extern struct	rip *msg;
 EXTERN char	**argv0;
 EXTERN struct	servent *sp;
 
-EXTERN struct	in_addr inet_makeaddr();
-EXTERN int	inet_addr();
-EXTERN int	inet_maskof();
-EXTERN int	sndmsg();
-EXTERN int	supply();
-EXTERN int	cleanup();
-
-EXTERN int	rtioctl();
 #define ADD 1
 #define DELETE 2
 #define CHANGE 3
+
+/* arpa/inet.h */
+in_addr_t inet_addr(const char *);
+in_addr_t inet_network(const char *);
+char *inet_ntoa(struct in_addr);
+
+/* inet.c */
+struct in_addr inet_makeaddr(u_long, u_long);
+int inet_netof(struct in_addr);
+int inet_lnaof(struct in_addr);
+int inet_maskof(u_long);
+int inet_rtflags(struct sockaddr_in *);
+int inet_sendroute(struct rt_entry *, struct sockaddr_in *);
+
+/* input.c */
+void rip_input(struct sockaddr *, struct rip *, int);
+
+/* main.c */
+void timevaladd(struct timeval *, struct timeval *);
+
+/* startup.c */
+void quit(char *);
+void rt_xaddrs(caddr_t, caddr_t, struct rt_addrinfo *);
+void ifinit(void);
+void addrouteforif(struct interface *);
+void add_ptopt_localrt(struct interface *);
+void gwkludge(void);
+int getnetorhostname(char *, char *, struct sockaddr_in *);
+int gethostnameornumber(char *, struct sockaddr_in *);
+
+/* output.c */
+void toall(int (*)(), int, struct interface *);
+void sndmsg(struct sockaddr *, int, struct interface *, int);
+void supply(struct sockaddr *, int, struct interface *, int);

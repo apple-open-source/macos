@@ -38,7 +38,7 @@ extern pstring user_socket_options;
 /****************************************************************************
 handle completion of commands for readline
 ****************************************************************************/
-static char **completion_fn(char *text, int start, int end)
+static char **completion_fn(const char *text, int start, int end)
 {
 #define MAX_COMPLETIONS 100
 	char **matches;
@@ -52,10 +52,10 @@ static char **completion_fn(char *text, int start, int end)
 	if (!commands) 
 		return NULL;
 
-	matches = (char **)malloc(sizeof(matches[0])*MAX_COMPLETIONS);
+	matches = SMB_MALLOC_ARRAY(char *, MAX_COMPLETIONS);
 	if (!matches) return NULL;
 
-	matches[count++] = strdup(text);
+	matches[count++] = SMB_STRDUP(text);
 	if (!matches[0]) return NULL;
 
 	while (commands && count < MAX_COMPLETIONS-1) 
@@ -68,7 +68,7 @@ static char **completion_fn(char *text, int start, int end)
 			if ((strncmp(text, commands->cmd_set[i].name, strlen(text)) == 0) &&
 				commands->cmd_set[i].fn) 
 			{
-				matches[count] = strdup(commands->cmd_set[i].name);
+				matches[count] = SMB_STRDUP(commands->cmd_set[i].name);
 				if (!matches[count]) 
 					return NULL;
 				count++;
@@ -81,7 +81,7 @@ static char **completion_fn(char *text, int start, int end)
 
 	if (count == 2) {
 		SAFE_FREE(matches[0]);
-		matches[0] = strdup(matches[1]);
+		matches[0] = SMB_STRDUP(matches[1]);
 	}
 	matches[count] = NULL;
 	return matches;
@@ -113,7 +113,7 @@ static NTSTATUS cmd_conf(struct vfs_state *vfs, TALLOC_CTX *mem_ctx,
 		return NT_STATUS_OK;
 	}
 
-	if (!lp_load(argv[1], False, True, False)) {
+	if (!lp_load(argv[1], False, True, False, True)) {
 		printf("Error loading \"%s\"\n", argv[1]);
 		return NT_STATUS_OK;
 	}
@@ -189,10 +189,10 @@ static NTSTATUS cmd_debuglevel(struct vfs_state *vfs, TALLOC_CTX *mem_ctx, int a
 	}
 
 	if (argc == 2) {
-		SAMBA_DEBUGLEVEL = atoi(argv[1]);
+		DEBUGLEVEL = atoi(argv[1]);
 	}
 
-	printf("debuglevel is %d\n", SAMBA_DEBUGLEVEL);
+	printf("debuglevel is %d\n", DEBUGLEVEL);
 
 	return NT_STATUS_OK;
 }
@@ -248,7 +248,7 @@ static void add_command_set(struct cmd_set *cmd_set)
 {
 	struct cmd_list *entry;
 
-	if (!(entry = (struct cmd_list *)malloc(sizeof(struct cmd_list)))) {
+	if (!(entry = SMB_MALLOC_P(struct cmd_list))) {
 		DEBUG(0, ("out of memory\n"));
 		return;
 	}
@@ -274,7 +274,7 @@ static NTSTATUS do_cmd(struct vfs_state *vfs, struct cmd_set *cmd_entry, char *c
  again:
 	while(next_token(&p, buf, " ", sizeof(buf))) {
 		if (argv) {
-			argv[argc] = strdup(buf);
+			argv[argc] = SMB_STRDUP(buf);
 		}
 		
 		argc++;
@@ -284,7 +284,7 @@ static NTSTATUS do_cmd(struct vfs_state *vfs, struct cmd_set *cmd_entry, char *c
 
 		/* Create argument list */
 
-		argv = (char **)malloc(sizeof(char *) * argc);
+		argv = SMB_MALLOC_ARRAY(char *, argc);
 		memset(argv, 0, sizeof(char *) * argc);
 
 		if (!argv) {
@@ -410,12 +410,22 @@ void exit_server(const char *reason)
 	exit(0);
 }
 
+void exit_server_cleanly(const char *const reason)
+{
+	exit_server("normal exit");
+}
+
 static int server_fd = -1;
 int last_message = -1;
 
 int smbd_server_fd(void)
 {
 		return server_fd;
+}
+
+void reload_printers(void)
+{
+	return;
 }
 
 /****************************************************************************
@@ -443,9 +453,7 @@ BOOL reload_services(BOOL test)
 
 	lp_killunused(conn_snum_used);
 	
-	ret = lp_load(dyn_CONFIGFILE, False, False, True);
-
-	load_printers();
+	ret = lp_load(dyn_CONFIGFILE, False, False, True, True);
 
 	/* perhaps the config filename is now set */
 	if (!test)
@@ -471,6 +479,27 @@ BOOL reload_services(BOOL test)
 	return (ret);
 }
 
+struct event_context *smbd_event_context(void)
+{
+	static struct event_context *ctx;
+
+	if (!ctx && !(ctx = event_context_init(NULL))) {
+		smb_panic("Could not init smbd event context\n");
+	}
+	return ctx;
+}
+
+struct messaging_context *smbd_messaging_context(void)
+{
+	static struct messaging_context *ctx;
+
+	if (!ctx && !(ctx = messaging_init(NULL, server_id_self(),
+					   smbd_event_context()))) {
+		smb_panic("Could not init smbd messaging context\n");
+	}
+	return ctx;
+}
+
 /* Main function */
 
 int main(int argc, char *argv[])
@@ -492,6 +521,7 @@ int main(int argc, char *argv[])
 		POPT_TABLEEND
 	};
 
+	load_case_tables();
 
 	setlinebuf(stdout);
 
@@ -566,6 +596,6 @@ int main(int argc, char *argv[])
 			process_cmd(&vfs, line);
 	}
 	
-	free(vfs.conn);
+	conn_free(vfs.conn);
 	return 0;
 }

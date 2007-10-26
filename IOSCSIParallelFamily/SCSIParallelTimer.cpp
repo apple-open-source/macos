@@ -143,6 +143,37 @@ SCSIParallelTimer::CancelTimeout ( void )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	BeginTimeoutContext - Begins context.							   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+SCSIParallelTimer::BeginTimeoutContext ( void )
+{
+	
+	closeGate ( );
+	fHandlingTimeout = true;
+	openGate ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	EndTimeoutContext - Ends context.								   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+
+void
+SCSIParallelTimer::EndTimeoutContext ( void )
+{
+	
+	closeGate ( );
+	fHandlingTimeout = false;
+	openGate ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	CompareDeadlines - Compares absolute times.						   [PUBLIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
@@ -326,7 +357,7 @@ SCSIParallelTimer::SetTimeout ( SCSIParallelTaskIdentifier	taskIdentifier,
 	// element at the beginning.
 	// 2) Check if the task has a shorter timeout than the list head
 	if ( ( fTimeoutTaskListHead == NULL ) ||
-		 ( CompareDeadlines ( GetDeadline ( task ), GetDeadline ( fTimeoutTaskListHead ) ) == 1 ) )
+		 ( CompareDeadlines ( GetDeadline ( fTimeoutTaskListHead ), GetDeadline ( task ) ) == 1 ) )
 	{
 		
 		SCSIParallelTask *	oldHead = fTimeoutTaskListHead;
@@ -400,15 +431,20 @@ SCSIParallelTimer::RemoveTask ( SCSIParallelTaskIdentifier parallelRequest )
 	SCSIParallelTask *	task 		= NULL;
 	SCSIParallelTask *	prevTask	= NULL;
 	
+	closeGate ( );
+	
 	require_nonzero ( OSDynamicCast ( SCSIParallelTask, parallelRequest ), Exit );
 	require_nonzero ( fTimeoutTaskListHead, Exit );
-	
-	closeGate ( );
 	
 	// Special case for parallelRequest being the list head.
 	if ( parallelRequest == fTimeoutTaskListHead )
 	{
+		
 		fTimeoutTaskListHead = GetNextTask ( ( SCSIParallelTask * ) parallelRequest );
+		
+		// Rearm the timer.
+		Rearm ( );
+		
 	}
 	
 	else
@@ -436,16 +472,11 @@ SCSIParallelTimer::RemoveTask ( SCSIParallelTaskIdentifier parallelRequest )
 		
 	}
 	
-	openGate ( );
-	
-	// Rearm the timer.
-	Rearm ( );
-	
 	
 Exit:
 	
 	
-	return;
+	openGate ( );
 	
 }
 
@@ -462,12 +493,20 @@ SCSIParallelTimer::Rearm ( void )
 	
 	closeGate ( );
 	
-	if ( fTimeoutTaskListHead != NULL )
+	if ( ( fTimeoutTaskListHead != NULL ) && ( fHandlingTimeout == false ) )
 	{
 		
 		// Re-arm the timer with new timeout deadline
 		wakeAtTime ( GetDeadline ( fTimeoutTaskListHead ) );
 		result = true;
+		
+	}
+	
+	else
+	{
+		
+		// No list head, cancel the timer.
+		cancelTimeout ( );
 		
 	}
 	

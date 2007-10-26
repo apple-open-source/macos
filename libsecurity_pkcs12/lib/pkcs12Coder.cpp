@@ -38,7 +38,7 @@
  */
 #define P12_ENCR_ITER_COUNT		2048
 #define P12_MAC_ITER_COUNT		1
-#define P12_WEAK_ENCR_ALG		CSSMOID_PKCS12_pbeWithSHAAnd40BitRC4
+#define P12_WEAK_ENCR_ALG		CSSMOID_PKCS12_pbewithSHAAnd40BitRC2CBC
 #define P12_STRONG_ENCR_ALG		CSSMOID_PKCS12_pbeWithSHAAnd3Key3DESCBC
 
 /* 
@@ -71,14 +71,21 @@ void P12Coder::init()
 	mDlDbHand.DLHandle = 0;
 	mDlDbHand.DBHandle = 0;
 	mPrivKeyImportState = PKIS_NoLimit;
-	mWeakEncrAlg   = CSSMOID_PKCS12_pbeWithSHAAnd40BitRC4;
-	mStrongEncrAlg = CSSMOID_PKCS12_pbeWithSHAAnd3Key3DESCBC;
+	mWeakEncrAlg   = P12_WEAK_ENCR_ALG;
+	mStrongEncrAlg = P12_STRONG_ENCR_ALG;
 	mWeakEncrIterCount = P12_ENCR_ITER_COUNT;
 	mStrongEncrIterCount = P12_ENCR_ITER_COUNT;
 	mMacIterCount  = P12_MAC_ITER_COUNT;
 	mImportFlags = P12_KC_IMPORT_DEFAULT;
 	mRawCspHand = 0;
 	mClHand = 0;
+	mAccess = NULL;
+	mNoAcl = false;
+	mKeyUsage = CSSM_KEYUSE_ANY;		/* default */
+	/* default key attrs; we add CSSM_KEYATTR_PERMANENT if importing to 
+	 * a keychain */
+	mKeyAttrs = CSSM_KEYATTR_RETURN_REF | CSSM_KEYATTR_EXTRACTABLE | 
+		CSSM_KEYATTR_SENSITIVE;
 }
 
 /* 
@@ -100,6 +107,9 @@ P12Coder::~P12Coder()
 	}
 	if(mEncrPassPhrase) {
 		CFRelease(mEncrPassPhrase);
+	}
+	if(mAccess) {
+		CFRelease(mAccess);
 	}
 	deleteVect(mCerts);
 	deleteVect(mCrls);
@@ -130,6 +140,34 @@ void P12Coder::setKeychain(
 	}
 	CFRetain(keychain);
 	mKeychain = keychain;
+}
+
+void P12Coder::setAccess(
+	SecAccessRef			access)
+{
+	if(mAccess) {
+		CFRelease(mAccess);
+	}
+	mAccess = access;
+	if(mAccess) {
+		CFRetain(mAccess);
+	}
+	else {
+		/* NULL ==> no ACL */
+		mNoAcl = true;
+	}
+}
+
+#define SEC_KEYATTR_RETURN_MASK		\
+	(CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_RETURN_REF | CSSM_KEYATTR_RETURN_NONE)
+
+void P12Coder::setKeyAttrs(
+	CSSM_KEYATTR_FLAGS		keyAttrs)
+{
+	/* ensure we're generating a ref key no matter what caller asks for */
+	mKeyAttrs = keyAttrs;
+	mKeyAttrs &= ~SEC_KEYATTR_RETURN_MASK;
+	mKeyAttrs |= CSSM_KEYATTR_RETURN_REF;
 }
 
 /*

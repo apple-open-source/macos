@@ -10,9 +10,16 @@ FBSDMISRCS= bt_close.c bt_conv.c bt_debug.c bt_delete.c bt_get.c bt_open.c \
 .for _src in ${FBSDMISRCS}
 CFLAGS-${_src:R}-fbsd.${_src:E} += -D__DBINTERFACE_PRIVATE
 .endfor
+.for _src in bt_debug.c bt_open.c bt_overflow.c
+CFLAGS-${_src:R}-fbsd.${_src:E} += -UDEBUG
+.endfor
 FBSDHDRS= btree.h
 .include "Makefile.fbsd_end"
 
 # need to rename extern.h to make it unique
-${SYMROOT}/bt_extern.h: ${.CURDIR}/db/btree/FreeBSD/extern.h _AUTOPATCHSYM
-AUTOPATCHHDRS+= ${SYMROOT}/bt_extern.h
+.ifmake autopatch
+bt_extern.h: FreeBSD/extern.h _AUTOPATCHCUR
+AUTOPATCHHDRS+= bt_extern.h
+.endif # autopatch
+
+INSTBTREEPRIVHDRS_AUTOPATCH+= ${.CURDIR}/db/btree/bt_extern.h ${.CURDIR}/db/btree/btree.h

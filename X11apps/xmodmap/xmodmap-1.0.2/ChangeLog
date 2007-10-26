@@ -1,0 +1,38 @@
+2006-04-26  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Bump to 1.0.1
+
+2006-03-22  Matthias Hopf  <mhopf@suse.de>
+
+	* handle.c: (do_pointer):
+	Allow changing of only a few buttons (not all).
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-06  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-09-28  Kristian Høgsberg  <krh@redhat.com>
+
+	* AUTHORS: Copy bits from COPYING here.
+
+	* README: Copy first paragraph from man page.
+
+	* Makefile.am (EXTRA_DIST): Add swap.km.
+

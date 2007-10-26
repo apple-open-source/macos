@@ -1,9 +1,9 @@
 #                                                       -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-# Copyright (C) 1992, 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003
-# Free Software Foundation, Inc.
-#
+# Copyright (C) 1992, 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003,
+# 2004, 2005, 2006 Free Software Foundation, Inc.
+
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2, or (at your option)
@@ -16,38 +16,62 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 # We need AC_CONFIG_TESTDIR.
-AC_PREREQ([2.57])
+AC_PREREQ([2.59])
 
-AC_INIT([GNU Autoconf], [2.59], [bug-autoconf@gnu.org])
+AC_INIT([GNU Autoconf], [2.61], [bug-autoconf@gnu.org])
 AC_SUBST([PACKAGE_NAME])dnl
 AC_CONFIG_SRCDIR([ChangeLog])
 
-AC_CONFIG_AUX_DIR([config])
-AC_CONFIG_FILES([config/Makefile])
+AC_CONFIG_AUX_DIR([build-aux])
 
-AM_INIT_AUTOMAKE([check-news 1.7.8 dist-bzip2 readme-alpha])
+AM_INIT_AUTOMAKE([check-news 1.7.9 dist-bzip2 readme-alpha])
 
-# Initialize the test suite and build position independent wrappers.
+# We use `/bin/sh -n script' to check that there are no syntax errors
+# in the scripts.  Although incredible, there are /bin/sh that go into
+# endless loops with `-n', e.g., SunOS's:
+#
+#   $ uname -a
+#   SunOS ondine 4.1.3 2 sun4m unknown
+#   $ cat endless.sh
+#   while false
+#   do
+#     :
+#   done
+#   exit 0
+#   $ time sh endless.sh
+#   sh endless.sh  0,02s user 0,03s system 78% cpu 0,064 total
+#   $ time sh -nx endless.sh
+#   ^Csh -nx endless.sh  3,67s user 0,03s system 63% cpu 5,868 total
+#
+# Also, some implementations of /bin/sh (e.g., Solaris 8) are soooo slow
+# that they are unusable on large scripts like our testsuite.
+
+# So before using `/bin/sh -n' to check our scripts, we first check
+# that `/bin/sh -n' is known to not have these problems.
+
+AC_CACHE_CHECK([whether /bin/sh -n is known to work], ac_cv_sh_n_works,
+[if (
+    unset BASH_VERSION ZSH_VERSION
+    /bin/sh -c '
+      test -n "${BASH_VERSION+set}" || # Bash
+      test -n "${KSH_VERSION+set}" || # pdksh
+      test -n "${ZSH_VERSION+set}" || # zsh
+      test -n "${.sh.version}" # ksh93; put this last since its syntax is dodgy
+    '
+  ) 2>/dev/null
+then ac_cv_sh_n_works=yes
+else ac_cv_sh_n_works=no
+fi
+])
+AC_SUBST(ac_cv_sh_n_works)
+
+# Initialize the test suite.
 AC_CONFIG_TESTDIR([tests])
 AC_CONFIG_FILES([tests/Makefile tests/atlocal])
-AC_CONFIG_FILES([tests/autoconf:tests/wrapper.in],
-                [chmod +x tests/autoconf])
-AC_CONFIG_FILES([tests/autoheader:tests/wrapper.in],
-                [chmod +x tests/autoheader])
-AC_CONFIG_FILES([tests/autom4te:tests/wrapper.in],
-                [chmod +x tests/autom4te])
-AC_CONFIG_FILES([tests/autoreconf:tests/wrapper.in],
-                [chmod +x tests/autoreconf])
-AC_CONFIG_FILES([tests/autoscan:tests/wrapper.in],
-                [chmod +x tests/autoscan])
-AC_CONFIG_FILES([tests/autoupdate:tests/wrapper.in],
-                [chmod +x tests/autoupdate])
-AC_CONFIG_FILES([tests/ifnames:tests/wrapper.in],
-                [chmod +x tests/ifnames])
 AC_PATH_PROG([EXPR], [expr])
 
 
@@ -55,7 +79,7 @@ AC_PATH_PROG([EXPR], [expr])
 ## M4.  ##
 ## ---- ##
 
-# We use a path for GNU m4 so even if users have another m4 first in
+# We use an absolute name for GNU m4 so even if users have another m4 first in
 # their path, the installer can configure with a path that has GNU m4
 # first and get that path embedded in the installed autoconf and
 # autoheader scripts.
@@ -76,7 +100,7 @@ AM_MISSING_PROG(HELP2MAN, help2man)
 ## Perl.  ##
 ## ------ ##
 
-# We use a path for perl so the #! line in autoscan will work.
+# We use an absolute name for perl so the #! line in autoscan will work.
 AC_PATH_PROG([PERL], perl, no)
 AC_SUBST([PERL])dnl
 if test "$PERL" = no; then
@@ -117,6 +141,14 @@ EOF
 AC_SUBST([EMACS], [$TEST_EMACS])
 
 AM_PATH_LISPDIR
+
+
+## ------------ ##
+## Grep & sed.  ##
+## ------------ ##
+AC_PROG_GREP
+AC_PROG_EGREP
+AC_PROG_SED
 
 
 ## ------------ ##

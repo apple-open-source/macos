@@ -49,7 +49,7 @@
 /* log resumable session info */
 #define sslLogResumSessDebug(args...)	secdebug("sslResumSession", ## args)
 
-/* log low-level session info in appleSession.cpp */
+/* log low-level session info in appleSession.c */
 #define sslLogSessCacheDebug(args...)	secdebug("sslSessionCache", ## args)
 
 /* log record-level I/O (SSLRead, SSLWrite) */
@@ -84,5 +84,12 @@ extern void SSLChangeHdskState(SSLContext *ctx, SSLHandshakeState newState);
 #define sslErrorLog(args...)			printf(args)
 
 #endif	/* NDEBUG */
+
+
+#ifdef	NDEBUG
+#define ASSERT(s)
+#else
+#define ASSERT(s)	assert(s)
+#endif
 
 #endif	/* _SSL_DEBUG_H_ */

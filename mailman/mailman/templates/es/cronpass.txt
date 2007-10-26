@@ -8,7 +8,7 @@ Puede visitar las URLs para cambiar la configuración de las
 subscripciones, darse de baja o desactivar la recepción de
 los mensajes (por ejemplo durante las vacaciones).
 
-Ademas de las URLs, puede utilizar el correo electrónico para
+Además de las URLs, puede utilizar el correo electrónico para
 realizar dichos cambios. Si necesita mas información envíe un
 mensaje a la dirección de solicitudes ('-request') de la lista
 (por ejemplo, %(exreq)s) con la palabra

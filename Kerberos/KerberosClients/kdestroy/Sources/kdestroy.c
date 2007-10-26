@@ -68,11 +68,9 @@ int destroy_tickets (void)
 {
     krb5_error_code err = 0;
     
-    if (cacheName != NULL) {
+    if (cacheName) {
         krb5_context kcontext = NULL;
         krb5_ccache  ccache = NULL;
-        const char  *name = NULL;        
-        const char  *type = NULL;
 
         /* Initialize the Kerberos 5 context */
         err = krb5_init_context (&kcontext);
@@ -84,43 +82,8 @@ int destroy_tickets (void)
         }
 
         if (!err) {
-            name = krb5_cc_get_name (kcontext, ccache);
-            if (name == NULL) { err = EINVAL; }
-            printiferr (err, "while getting the credentials cache name");
-        }
-        
-        if (!err) {
-            type = krb5_cc_get_type (kcontext, ccache);
-            if (type == NULL) { err = EINVAL; }
-            printiferr (err, "while getting the credentials cache type");
-        }    
-        
-        if (!err) {
-            if (strcmp (type, "API") == 0) {
-                cc_context_t cc_context = NULL;
-                cc_ccache_t  cc_ccache = NULL;
-                
-                err = cc_initialize (&cc_context, ccapi_version_4, NULL, NULL);
-                printiferr (err, "while initializing credentials cache");
-                
-                if (!err) {
-                    err = cc_context_open_ccache (cc_context, name, &cc_ccache);
-                    printiferr (err, "while opening credentials cache '%s'", cacheName);
-                }
-                
-                if (!err) {
-                    err = cc_ccache_destroy (cc_ccache);
-                    if (!err) { cc_ccache = NULL; }
-                    printiferr (err, "while destroying credentials cache '%s'", cacheName);
-                }
-                
-                if (cc_ccache  != NULL) { cc_ccache_release (cc_ccache); }
-                if (cc_context != NULL) { cc_context_release (cc_context); }
-                
-            } else {
-                err = krb5_cc_destroy (kcontext, ccache);
-                printiferr (err, "while destroying credentials cache '%s'", cacheName);
-            }
+            err = krb5_cc_destroy (kcontext, ccache);
+            printiferr (err, "while destroying credentials cache '%s'", cacheName);
         }
         
         if (kcontext != NULL) { krb5_free_context (kcontext); }
@@ -136,7 +99,7 @@ int destroy_tickets (void)
         /* Destroy the tickets by the principal or the default tickets */
         KLPrincipal principal = NULL;
         
-        if (principalName != NULL) {
+        if (principalName) {
             err = KLCreatePrincipalFromString (principalName, kerberosVersion_V5, &principal);
             printiferr (err, "while creating principal for '%s'", principalName);
         }
@@ -146,7 +109,7 @@ int destroy_tickets (void)
             if ((err == klPrincipalDoesNotExistErr) || 
                 (err == klCacheDoesNotExistErr) ||
                 (err == klSystemDefaultDoesNotExistErr)) {
-                if (principal != NULL && principalName != NULL) {
+                if (principal && principalName) {
                     printerr ("No credentials cache for principal '%s'\n", principalName);
                 } else {
                     printerr ("No default credentials cache\n");

@@ -1,14 +1,13 @@
 # $RoughId: extconf.rb,v 1.4 2001/08/14 19:54:51 knu Exp $
-# $Id: extconf.rb,v 1.7 2001/08/20 10:55:46 eban Exp $
+# $Id: extconf.rb 11708 2007-02-12 23:01:19Z shyouhei $
 
 require "mkmf"
 
-$CFLAGS << " -DHAVE_CONFIG_H -I#{File.dirname(__FILE__)}/.."
-$CPPFLAGS << " -DHAVE_CONFIG_H -I#{File.dirname(__FILE__)}/.."
+$defs << "-DHAVE_CONFIG_H"
+$INCFLAGS << " -I$(srcdir)/.."
 
 $objs = [
   "sha2.#{$OBJEXT}",
-  "sha2hl.#{$OBJEXT}",
   "sha2init.#{$OBJEXT}",
 ]
 
@@ -18,12 +17,8 @@ have_header("inttypes.h")
 
 have_header("unistd.h")
 
-if try_cpp(<<SRC, $defs.join(' '))
-#include "defs.h"
-#ifdef NO_UINT64_T
-  #error ** Cannot find a 64bit integer type - skipping the SHA2 module.
-#endif
-SRC
-then
+$preload = %w[digest]
+
+if have_type("uint64_t", "defs.h", $defs.join(' '))
   create_makefile("digest/sha2")
 end

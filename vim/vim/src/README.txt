@@ -24,16 +24,19 @@ Most code can be found in a file with an obvious name (incomplete list):
 	fold.c		folding
 	getchar.c	getting characters and key mapping
 	mark.c		marks
+	mbyte.c		multy-byte character handling
 	memfile.c	storing lines for buffers in a swapfile
 	memline.c	storing lines for buffers in memory
 	menu.c		menus
 	message.c	(error) messages
-	mbyte.c		multy-byte character handling
 	ops.c		handling operators ("d", "y", "p")
 	option.c	options
 	quickfix.c	quickfix commands (":make", ":cn")
+	regexp.c	pattern matching
 	screen.c	updating the windows
 	search.c	pattern searching
+	spell.c		spell checking
+	syntax.c	syntax and other highlighting
 	tag.c		tags
 	term.c		terminal handling, termcap codes
 	undo.c		undo and redo
@@ -128,3 +131,13 @@ Updating the GUI window is done by writing codes in the output buffer, just
 like writing to a terminal.  When the buffer gets full or is flushed,
 gui_write() will parse the codes and draw the appropriate items.  Finally the
 system-specific GUI code will be called to do the work.
+
+
+DEBUGGING THE GUI
+
+Remember to prevent that gvim forks and the debugger thinks Vim has exited,
+add the "-f" argument.  In gdb: "run -f -g".
+
+When stepping through display updating code, the focus event is triggerred
+when going from the debugger to Vim and back.  To avoid this, recompile with
+some code in gui_focus_change() disabled.

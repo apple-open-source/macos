@@ -1,5 +1,5 @@
 /* save-cwd.c -- Save and restore current working directory.
-   Copyright (C) 1995, 1997, 1998, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1997, 1998, 2003, 2004 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 # include "config.h"
 #endif
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -35,9 +36,6 @@
 #endif
 
 #include <errno.h>
-#ifndef errno
-extern int errno;
-#endif
 
 #ifndef O_DIRECTORY
 # define O_DIRECTORY 0
@@ -66,7 +64,7 @@ extern int errno;
 int
 save_cwd (struct saved_cwd *cwd)
 {
-  static int have_working_fchdir = 1;
+  static bool have_working_fchdir = true;
 
   cwd->desc = -1;
   cwd->name = NULL;
@@ -76,7 +74,12 @@ save_cwd (struct saved_cwd *cwd)
 #if HAVE_FCHDIR
       cwd->desc = open (".", O_RDONLY | O_DIRECTORY);
       if (cwd->desc < 0)
-	return 1;
+	cwd->desc = open (".", O_WRONLY | O_DIRECTORY);
+      if (cwd->desc < 0)
+	{
+	  cwd->name = xgetcwd ();
+	  return cwd->name ? 0 : -1;
+	}
 
 # if __sun__ || sun
       /* On SunOS 4 and IRIX 5.3, fchdir returns EINVAL when auditing
@@ -87,7 +90,7 @@ save_cwd (struct saved_cwd *cwd)
 	    {
 	      close (cwd->desc);
 	      cwd->desc = -1;
-	      have_working_fchdir = 0;
+	      have_working_fchdir = false;
 	    }
 	  else
 	    {
@@ -95,13 +98,13 @@ save_cwd (struct saved_cwd *cwd)
 	      close (cwd->desc);
 	      cwd->desc = -1;
 	      errno = saved_errno;
-	      return 1;
+	      return -1;
 	    }
 	}
 # endif /* __sun__ || sun */
 #else
 # define fchdir(x) (abort (), 0)
-      have_working_fchdir = 0;
+      have_working_fchdir = false;
 #endif
     }
 
@@ -109,22 +112,22 @@ save_cwd (struct saved_cwd *cwd)
     {
       cwd->name = xgetcwd ();
       if (cwd->name == NULL)
-	return 1;
+	return -1;
     }
   return 0;
 }
 
 /* Change to recorded location, CWD, in directory hierarchy.
-   Upon failure, return nonzero (errno is set by chdir or fchdir).
+   Upon failure, return -1 (errno is set by chdir or fchdir).
    Upon success, return zero.  */
 
 int
 restore_cwd (const struct saved_cwd *cwd)
 {
   if (0 <= cwd->desc)
-    return fchdir (cwd->desc) < 0;
+    return fchdir (cwd->desc);
   else
-    return chdir (cwd->name) < 0;
+    return chdir (cwd->name);
 }
 
 void

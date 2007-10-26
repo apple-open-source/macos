@@ -14,7 +14,7 @@
 # shell script, named $LSOF_MK, that places its source modules in this
 # directory.
 #
-# $Id: Configure,v 1.150 2006/04/10 12:44:20 abe Exp $
+# $Id: Configure,v 1.151 2007/04/24 16:16:30 abe Exp $
 
 #LSOF_CFLAGS_OVERRIDE=1 may be introduced through the environment to cause
 #	the library Makefile's CFLAGS definition to override any in the
@@ -61,7 +61,7 @@ LSOF_VF=version
 #			    lsof library
 #	$LSOF_ARCH	    Unix dialect architecture as a string -- may be
 #			    supplied externally
-#	$LSOF_CC	    C compiler name (may be supplied extermally)
+#	$LSOF_CC	    C compiler name (may be supplied externally)
 #	$LSOF_CCV	    C compiler version (may be supplied externally)
 #	$LSOF_CDIR	    configuration directory
 #	$LSOF_CFGD	    depend options
@@ -247,8 +247,8 @@ do
       echo "rm -rf AFSHeaders AFSVersion version.h"
       rm -f ${LSOF_HLP_BASE}* cd9660_node.h
       echo "rm -f ${LSOF_HLP_BASE}* cd9660_node.h"
-      rm -f dialects/aix/aix41*
-      echo "rm -f dialects/aix/aix41*"
+      rm -f dialects/aix/aix5/j2/j2_snapshot.h
+      echo "rm -f dialects/aix/aix5/j2/j2_snapshot.h"
       rm -f dialects/sun/solaris10	# DEBUG -- for s10_44
       echo "rm -f dialects/sun/solaris10"	# DEBUG -- for s10_44
       rm -f dialects/du/du5_sys_malloc.h
@@ -535,10 +535,20 @@ case $LSOF_TGT in	# {
       # The AIX > 5.0 system has jfs2 support.  Make the necesssary definitions
       # and adjustments.
 
+	rm -f dialects/aix/aix5/j2/j2_snapshot.h
+	(cd dialects/aix/aix5/j2; ln -s private_j2_snapshot.h j2_snapshot.h)
 	LSOF_CFGF="$LSOF_CFGF -DHAS_JFS2"
 	LSOF_CFGF="$LSOF_CFGF -I`pwd`/dialects/aix/aix5"
 	if test $LSOF_VERS -ge 5200	# {
 	then
+	  if test -r ${LSOF_INCLUDE}/j2/j2_snapshot.h	# {
+	  then
+
+	  # The system has its own j2_snapshot.h, so make sure the
+	  # private lsof copy is discarded.
+
+	    rm -f dialects/aix/aix5/j2/j2_snapshot.h
+	  fi	# }
 	  echo $LSOF_CC | grep gcc > /dev/null
 	  if test $? -eq 0	# {
 	  then
@@ -815,10 +825,13 @@ case $LSOF_TGT in	# {
       8.*)
 	LSOF_VERS=800
 	;;
+      9.*)
+	LSOF_VERS=900
+	;;
       *)
 	echo Unknown Darwin release: `uname -r`
-	echo Assuming Darwin 8.0
-	LSOF_VERS=800
+	echo Assuming Darwin 9.0
+	LSOF_VERS=900
 	;;
       esac	# }
     fi	# }
@@ -846,6 +859,10 @@ case $LSOF_TGT in	# {
     800)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1="net/ndrv_var.h net/raw_cb.h netinet/ip_var.h netinet/tcp_var.h sys/eventvar.h sys/file_internal.h sys/mount_internal.h sys/proc_internal.h sys/vnode_internal.h"
+      ;;
+    900)
+      LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
+      LSOF_TMP1=""
       ;;
     *)
       echo "Unsupported Darwin version: $LSOF_VERS"
@@ -1581,6 +1598,12 @@ kernel generation process.
 	      if test $? -eq 0	# {
 	      then
 		LSOF_CFGF="$LSOF_CFGF -DHASCPUMASK_T"
+	      else
+		$LSOF_CC -E ${LSOF_INCLUDE}/machine/_types.h 2>/dev/null | grep -q __cpumask_t
+		if test $? -eq 0  # {
+		then
+		  LSOF_CFGF="$LSOF_CFGF -DHASCPUMASK_T"
+		fi	# }
 	      fi	# }
 	    fi	# }
 	  fi	# }
@@ -2344,6 +2367,14 @@ return(0); }
     if test -r ${LSOF_INCLUDE}/netinet/ip6.h	# {
     then
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
+    fi	# }
+
+    # Test for SELinux support.
+
+    if test -r ${LSOF_INCLUDE}/selinux/selinux.h	# {
+    then
+      LSOF_CFGF="$LSOF_CFGF -DHASSELINUX"
+      LSOF_CFGL="$LSOF_CFGL -lselinux"
     fi	# }
     LSOF_DIALECT_DIR="linux"
     LSOF_CFGF="$LSOF_CFGF -D_FILE_OFFSET_BITS=64"
@@ -4215,6 +4246,68 @@ return(0); }
       then
 	LSOF_CFGF="$LSOF_CFGF -DHASZONES"
       fi	# }
+
+      # Check for Solaris 10 or higher ZFS.
+
+      if test -r ${LSOF_INCLUDE}/sys/fs/zfs.h	# {
+      then
+	LSOF_TMP1="dmu.h zfs_acl.h zfs_debug.h zfs_rlock.h zil.h spa.h zfs_context.h zfs_dir.h zfs_vfsops.h zio.h txg.h zfs_ctldir.h zfs_ioctl.h zfs_znode.h zio_impl.h"
+	LSOF_TMP2=""
+	for i in $LSOF_TMP1	# {
+	do
+	  if test ! -r /usr/include/sys/$i	# {
+	  then
+	    if test "X$LSOF_TMP2" = "X"	# {
+	    then
+	      LSOF_TMP2=$i
+	    else
+	      LSOF_TMP2="$LSOF_TMP2 $i"
+	    fi	# }
+	  fi	# }
+	done	# }
+	if test "X$LSOF_TMP2" != "X"	# {
+	then
+          LSOF_TMP3=`pwd`/dialects/sun/get-hdr-loc.sh
+          if test ! -x $LSOF_TMP3	# {
+          then
+	    echo "FATAL: can't execute: $LSOF_TMP3"
+	    rm -f $LSOF_HLP
+	    exit 1
+          fi	# }
+          LSOF_TMP4=`$LSOF_TMP3 $LSOF_TMP2`
+	  if test $? -eq 0	# {
+	  then
+
+	  # ZFS support has been requested.
+
+	    if test "X$LSOF_TMP4" = "X"	# {
+	    then
+
+	    # Use of lsof interal ZFS structure definitions has been
+	    # requested.
+
+	      LSOF_CFGF="$LSOF_CFGF -DHAS_ZFS=1"
+	    else
+
+	    # Use of ZFS header files at the returned location has
+	    # been requested.
+
+	      LSOF_CFGF="$LSOF_CFGF -DHAS_ZFS=2 -I$LSOF_TMP4"
+	    fi	# }
+	  else
+
+	  # If there is a message on STDOUT, get-hdr-loc.sh detected
+	  # an error; no message, ZFS support is not required.
+
+	    if test "X$LSOF_TMP4" != "X"	# {
+	    then
+	      echo "$LSOF_TMP3 detected the error: $LSOF_TMP4"
+	      rm -f $LSOF_HLP
+	      exit 1
+	    fi	# }
+	  fi	# }
+	fi	# }
+      fi	# }
       ;;
     *)
       echo "Unsupported Solaris version: $LSOF_VERS"
@@ -4225,7 +4318,6 @@ return(0); }
     LSOF_CFGF="-Dsolaris=$LSOF_VERS $LSOF_CFGF"
 
     # Test for <utmpx.h>
-
     if test -r ${LSOF_INCLUDE}/utmpx.h	# {
     then
       LSOF_CFGF="$LSOF_CFGF -DHASUTMPX"

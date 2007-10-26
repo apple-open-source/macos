@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_sprintf.c,v 1.16.2.1.2.1 2007/01/01 09:35:47 sebastian Exp $ */
 
 #include <stdio.h>
 
@@ -26,6 +27,7 @@
 # include <stdarg.h>
 #endif
 
+#if ZEND_BROKEN_SPRINTF
 int zend_sprintf(char *buffer, const char *format, ...)
 {
 	va_list args;
@@ -36,3 +38,12 @@ int zend_sprintf(char *buffer, const char *format, ...)
 
 	return strlen(buffer);
 }
+#endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

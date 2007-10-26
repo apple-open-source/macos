@@ -128,8 +128,8 @@ void ASCContext::init(
 	const Context &context, 
 	bool encrypting)
 {
-	UInt32 			keyLen;
-	UInt8 			*keyData 	= NULL;
+	CSSM_SIZE		keyLen;
+	uint8 			*keyData 	= NULL;
 	comcryptReturn	crtn;
 	
 	/* obtain key from context */

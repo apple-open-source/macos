@@ -89,28 +89,26 @@
 #include <mypwd.h>
 #include <canon_addr.h>
 
-#ifdef __APPLE__
+#ifdef __APPLE_OS_X_SERVER__
 /* Apple Open Directory */
 #include <DirectoryService/DirServices.h>
 #include "aod.h"
-#endif /* __APPLE__ */
+#endif /* __APPLE_OS_X_SERVER__ */
 
 /* Application-specific. */
 
 #include "local.h"
 
-#define STR(x) vstring_str(x)
-
 /* deliver_switch - branch on recipient type */
 
 static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
 {
-    char   *myname = "deliver_switch";
+    const char *myname = "deliver_switch";
     int     status = 0;
-#ifdef __APPLE__
+#ifdef __APPLE_OS_X_SERVER__
 	int		addr_count = 0;
 	struct od_user_opts user_opts;
-#endif /* __APPLE__ */
+#endif /* __APPLE_OS_X_SERVER__ */
     struct stat st;
     struct mypasswd *mypwd;
 
@@ -131,8 +129,8 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
      * 
      * XXX Should test for presence of user home directory.
      */
-    if (state.msg_attr.recipient[0] == '\\') {
-	state.msg_attr.recipient++, state.msg_attr.local++, state.msg_attr.user++;
+    if (state.msg_attr.rcpt.address[0] == '\\') {
+	state.msg_attr.rcpt.address++, state.msg_attr.local++, state.msg_attr.user++;
 	if (deliver_mailbox(state, usr_attr, &status) == 0)
 	    status = deliver_unknown(state, usr_attr);
 	return (status);
@@ -180,18 +178,12 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
 	&& strcasecmp(state.msg_attr.owner, state.msg_attr.user) != 0)
 	return (deliver_indirect(state));
 
-    /*
-     * Always forward recipients in :include: files.
-     */
-    if (state.msg_attr.exp_type == EXPAND_TYPE_INCL)
-	return (deliver_indirect(state));
-
-#ifdef __APPLE__
+#ifdef __APPLE_OS_X_SERVER__
 	/*
 	 * Check for forward info in user record
 	 */
 
-	if ( var_enable_server_options )
+	if ( var_enable_server_options && var_check_for_od_forward )
 	{
 		if ( aodGetUserOptions( state.msg_attr.user, &user_opts ) == eDSNoErr )
 		{
@@ -202,7 +194,13 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
 			}
 		}
 	}
-#endif /* __APPLE__ */
+#endif /* __APPLE_OS_X_SERVER__ */
+
+    /*
+     * Always forward recipients in :include: files.
+     */
+    if (state.msg_attr.exp_type == EXPAND_TYPE_INCL)
+	return (deliver_indirect(state));
 
     /*
      * Delivery to local user. First try expansion of the recipient's
@@ -211,11 +209,12 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
      */
     if (var_stat_home_dir
 	&& (mypwd = mypwnam(state.msg_attr.user)) != 0
-	&& stat_as(mypwd->pw_dir, &st, mypwd->pw_uid, mypwd->pw_gid) < 0)
+	&& stat_as(mypwd->pw_dir, &st, mypwd->pw_uid, mypwd->pw_gid) < 0) {
+	dsb_simple(state.msg_attr.why, "4.3.0",
+		   "cannot access home directory %s: %m", mypwd->pw_dir);
 	return (defer_append(BOUNCE_FLAGS(state.request),
-			     BOUNCE_ATTR(state.msg_attr),
-			     "cannot access home directory %s: %m",
-			     mypwd->pw_dir));
+			     BOUNCE_ATTR(state.msg_attr)));
+    }
     if (deliver_dotforward(state, usr_attr, &status) == 0
 	&& deliver_mailbox(state, usr_attr, &status) == 0)
 	status = deliver_unknown(state, usr_attr);
@@ -226,7 +225,7 @@ static int deliver_switch(LOCAL_STATE state, USER_ATTR usr_attr)
 
 int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
 {
-    char   *myname = "deliver_recipient";
+    const char *myname = "deliver_recipient";
     int     rcpt_stat;
 
     /*
@@ -240,7 +239,7 @@ int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
      * Duplicate filter.
      */
     if (been_here(state.dup_filter, "recipient %d %s",
-		  state.level, state.msg_attr.recipient))
+		  state.level, state.msg_attr.rcpt.address))
 	return (0);
 
     /*
@@ -258,7 +257,7 @@ int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
      * need for VERP specific bouncing code, at the cost of complicating the
      * normal bounce sending procedure, but would simplify the code below.
      */
-    if (delivered_find(state.loop_info, state.msg_attr.recipient)) {
+    if (delivered_find(state.loop_info, state.msg_attr.rcpt.address)) {
 	VSTRING *canon_owner = 0;
 
 	if (var_ownreq_special) {
@@ -272,11 +271,11 @@ int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
 	rhs = maps_find(alias_maps, lhs, DICT_FLAG_NONE); \
     }
 
-	    FIND_OWNER(owner_alias, owner_expansion, state.msg_attr.recipient);
+	    FIND_OWNER(owner_alias, owner_expansion, state.msg_attr.rcpt.address);
 	    if (owner_expansion == 0
-		&& (stripped_recipient = strip_addr(state.msg_attr.recipient,
-						    (char **) 0,
-						    *var_rcpt_delim)) != 0) {
+	    && (stripped_recipient = strip_addr(state.msg_attr.rcpt.address,
+						(char **) 0,
+						*var_rcpt_delim)) != 0) {
 		myfree(owner_alias);
 		FIND_OWNER(owner_alias, owner_expansion, stripped_recipient);
 		myfree(stripped_recipient);
@@ -289,17 +288,15 @@ int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
 	    }
 	    myfree(owner_alias);
 	}
+	dsb_simple(state.msg_attr.why, "5.4.6",	"mail forwarding loop for %s",
+		   state.msg_attr.rcpt.address);
 	if (canon_owner) {
 	    rcpt_stat = bounce_one(BOUNCE_FLAGS(state.request),
-				   BOUNCE_ONE_ATTR(state.msg_attr),
-				   "mail forwarding loop for %s",
-				   state.msg_attr.recipient);
+				   BOUNCE_ONE_ATTR(state.msg_attr));
 	    vstring_free(canon_owner);
 	} else {
 	    rcpt_stat = bounce_append(BOUNCE_FLAGS(state.request),
-				      BOUNCE_ATTR(state.msg_attr),
-				      "mail forwarding loop for %s",
-				      state.msg_attr.recipient);
+				      BOUNCE_ATTR(state.msg_attr));
 	}
 	return (rcpt_stat);
     }
@@ -310,8 +307,8 @@ int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
      * will show the correct forwarding recipient.
      */
     if (state.msg_attr.delivered == 0)
-	state.msg_attr.delivered = state.msg_attr.recipient;
-    state.msg_attr.local = mystrdup(state.msg_attr.recipient);
+	state.msg_attr.delivered = state.msg_attr.rcpt.address;
+    state.msg_attr.local = mystrdup(state.msg_attr.rcpt.address);
     lowercase(state.msg_attr.local);
     if ((state.msg_attr.domain = split_at_right(state.msg_attr.local, '@')) == 0)
 	msg_warn("no @ in recipient address: %s", state.msg_attr.local);
@@ -335,10 +332,12 @@ int     deliver_recipient(LOCAL_STATE state, USER_ATTR usr_attr)
     /*
      * Do not allow null usernames.
      */
-    if (state.msg_attr.user[0] == 0)
+    if (state.msg_attr.user[0] == 0) {
+	dsb_simple(state.msg_attr.why, "5.1.3",
+		   "null username in \"%s\"", state.msg_attr.rcpt.address);
 	return (bounce_append(BOUNCE_FLAGS(state.request),
-			      BOUNCE_ATTR(state.msg_attr),
-			  "null username in %s", state.msg_attr.recipient));
+			      BOUNCE_ATTR(state.msg_attr)));
+    }
 
     /*
      * Run the recipient through the delivery switch.

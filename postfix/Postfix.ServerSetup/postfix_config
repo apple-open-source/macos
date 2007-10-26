@@ -1,0 +1,59 @@
+#!/bin/sh
+#
+# Configure postfix
+#
+_mail_log="/var/log/mail.log"
+_main_cf="/etc/postfix/main.cf"
+_main_cf_default="/etc/postfix/main.cf.default"
+_master_cf="/etc/postfix/master.cf"
+_master_cf_tmp="/etc/postfix/master.cf.tmp"
+_master_cf_orig="/etc/postfix/master.cf.orig"
+_master_cf_default="/etc/postfix/master.cf.default"
+
+echo "Configuring Postfix..."
+
+# Create the mail.log if it doesn't exist
+if [ ! -e "$_mail_log" ] ; then
+  touch "$_mail_log"
+fi
+
+# Create main.cf file
+if [ ! -e "$_main_cf" ] ; then
+  if [ -e "$_main_cf_default" ] ; then
+    cp "$_main_cf_default" "$_main_cf"
+  else
+    echo "$_main_cf_default does not exist:  Could not create $_main_cf"
+  fi
+fi
+
+# Create master.cf
+if [ ! -e "$_master_cf" ] ; then
+  if [ -e "$_master_cf_default" ] ; then
+    cp "$_master_cf_default" "$_master_cf"
+  else
+    echo "$_master_cf_default does not exist:  Could not create $_master_cf"
+  fi
+fi
+
+# Set content_filter to nil in master.cf
+#    This will override global settings
+if [ -e "$_master_cf" ] ; then
+  # Add the override
+  sed '/^pickup/ a\
+  \ \ -o content_filter=
+  ' < $_master_cf > $_master_cf_tmp
+  # If it succeeded, move original master.cf to master.cf.orig
+  #    Then move new .tmp to master.cf
+  if [ -e "$_master_cf_tmp" ] ; then
+    mv $_master_cf $_master_cf_orig
+    mv $_master_cf_tmp $_master_cf
+  fi
+fi
+
+# Set postfix owner and group IDs
+/usr/sbin/postconf -e mail_owner=_postfix
+/usr/sbin/postconf -e setgid_group=_postdrop
+/usr/sbin/postconf -e mailbox_size_limit=0
+
+sed 's/^mail\.\*/mail.crit/' < /etc/syslog.conf > /etc/syslog.conf.$$ && mv /etc/syslog.conf.$$ /etc/syslog.conf
+

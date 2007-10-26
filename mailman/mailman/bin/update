@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 """Perform all necessary upgrades.
 
@@ -431,16 +431,21 @@ def update_qfiles():
             # The files in qfiles/bad can't possibly be pickles
             continue
         sb = Switchboard(dirpath)
-        for filename in os.listdir(dirpath):
-            filepath = os.path.join(dirpath, filename)
-            filebase, ext = os.path.splitext(filepath)
-            # Handle the .db metadata files as part of the handling of the
-            # .pck or .msg message files.
-            if ext not in ('.pck', '.msg'):
-                continue
-            msg, data = dequeue(filebase)
-            if msg is not None and data is not None:
-                sb.enqueue(msg, data)
+        try:
+            for filename in os.listdir(dirpath):
+                filepath = os.path.join(dirpath, filename)
+                filebase, ext = os.path.splitext(filepath)
+                # Handle the .db metadata files as part of the handling of the
+                # .pck or .msg message files.
+                if ext not in ('.pck', '.msg'):
+                    continue
+                msg, data = dequeue(filebase)
+                if msg is not None and data is not None:
+                    sb.enqueue(msg, data)
+        except EnvironmentError, e:
+            if e.errno <> errno.ENOTDIR:
+                raise
+            print _('Warning!  Not a directory: %(dirpath)s')
 
 
 
@@ -521,6 +526,10 @@ def dequeue(filebase):
                 else:
                     os.unlink(msgfile)
                 msg = data = None
+        except EOFError:
+            # For some reason the pckfile was empty.  Just delete it.
+            print _('Warning!  Deleting empty .pck file: %(pckfile)s')
+            os.unlink(pckfile)
     finally:
         if msgfp:
             msgfp.close()

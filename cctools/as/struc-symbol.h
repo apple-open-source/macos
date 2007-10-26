@@ -20,7 +20,7 @@ along with GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #ifdef NeXT_MOD
-#include "stuff/target_arch.h"
+#include "arch64_32.h"
 #import <mach-o/nlist.h>
 #else /* !defined(NeXT_MOD) */
 #ifndef		VMS

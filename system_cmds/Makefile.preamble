@@ -1,3 +1,6 @@
 CLEAN_ALL_SUBPROJECTS = YES
 SUBPROJECTS = 
 OTHER_CFLAGS = -mdynamic-no-pic
+ifeq "$(shell tconf --test TARGET_OS_EMBEDDED)" "YES"
+OTHER_LDFLAGS = -dead_strip
+endif

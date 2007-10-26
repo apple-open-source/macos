@@ -30,7 +30,6 @@
             mount_fdesc.tproj, 
             mount_hfs.tproj, 
             mount_nfs.tproj, 
-            mount_synthfs.tproj, 
             newfs.tproj, 
             newfs_hfs.tproj, 
             newfs_msdos.tproj, 

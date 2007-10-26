@@ -1,8 +1,8 @@
 /* oidm.c - object identifier macro routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/oidm.c,v 1.8.2.2 2004/01/01 18:16:34 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/oidm.c,v 1.11.2.5 2006/01/03 22:16:15 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,9 +23,10 @@
 #include <ac/socket.h>
 
 #include "slap.h"
+#include "lutil.h"
 
-static LDAP_SLIST_HEAD(OidMacroList, slap_oid_macro) om_list
-	= LDAP_SLIST_HEAD_INITIALIZER(om_list);
+static LDAP_STAILQ_HEAD(OidMacroList, slap_oid_macro) om_list
+	= LDAP_STAILQ_HEAD_INITIALIZER(om_list);
 
 /* Replace an OID Macro invocation with its full numeric OID.
  * If the macro is used with "macroname:suffix" append ".suffix"
@@ -41,28 +42,23 @@ oidm_find(char *oid)
 		return oid;
 	}
 
-	LDAP_SLIST_FOREACH( om, &om_list, som_next ) {
-		char **names = om->som_names;
+	LDAP_STAILQ_FOREACH( om, &om_list, som_next ) {
+		BerVarray names = om->som_names;
 
 		if( names == NULL ) {
 			continue;
 		}
 
-		for( ; *names != NULL ; names++ ) {
-			int pos = dscompare(*names, oid, ':');
+		for( ; !BER_BVISNULL( names ) ; names++ ) {
+			int pos = dscompare(names->bv_val, oid, ':');
 
 			if( pos ) {
 				int suflen = strlen(oid + pos);
 				char *tmp = SLAP_MALLOC( om->som_oid.bv_len
 					+ suflen + 1);
 				if( tmp == NULL ) {
-#ifdef NEW_LOGGING
-					LDAP_LOG( OPERATION, ERR,
-						"oidm_find: SLAP_MALLOC failed", 0, 0, 0 );
-#else
 					Debug( LDAP_DEBUG_ANY,
 						"oidm_find: SLAP_MALLOC failed", 0, 0, 0 );
-#endif
 					return NULL;
 				}
 				strcpy(tmp, om->som_oid.bv_val);
@@ -82,11 +78,12 @@ void
 oidm_destroy()
 {
 	OidMacro *om;
-	while( !LDAP_SLIST_EMPTY( &om_list )) {
-		om = LDAP_SLIST_FIRST( &om_list );
-		LDAP_SLIST_REMOVE_HEAD( &om_list, som_next );
+	while( !LDAP_STAILQ_EMPTY( &om_list )) {
+		om = LDAP_STAILQ_FIRST( &om_list );
+		LDAP_STAILQ_REMOVE_HEAD( &om_list, som_next );
 
-		ldap_charray_free(om->som_names);
+		ber_bvarray_free(om->som_names);
+		ber_bvarray_free(om->som_subs);
 		free(om->som_oid.bv_val);
 		free(om);
 		
@@ -98,10 +95,13 @@ parse_oidm(
     const char	*fname,
     int		lineno,
     int		argc,
-    char 	**argv )
+    char 	**argv,
+	int		user,
+	OidMacro **rom)
 {
 	char *oid;
 	OidMacro *om;
+	struct berval bv;
 
 	if (argc != 3) {
 		fprintf( stderr, "%s: line %d: too many arguments\n",
@@ -119,19 +119,18 @@ usage:	fprintf( stderr, "\tObjectIdentifier <name> <oid>\n");
 		return 1;
 	}
 
-	om = (OidMacro *) SLAP_MALLOC( sizeof(OidMacro) );
+	om = (OidMacro *) SLAP_CALLOC( sizeof(OidMacro), 1 );
 	if( om == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, "parse_oidm: SLAP_MALLOC failed", 0, 0, 0 );
-#else
-		Debug( LDAP_DEBUG_ANY, "parse_oidm: SLAP_MALLOC failed", 0, 0, 0 );
-#endif
+		Debug( LDAP_DEBUG_ANY, "parse_oidm: SLAP_CALLOC failed", 0, 0, 0 );
 		return 1;
 	}
 
-	LDAP_SLIST_NEXT( om, som_next ) = NULL;
 	om->som_names = NULL;
-	ldap_charray_add( &om->som_names, argv[1] );
+	om->som_subs = NULL;
+	ber_str2bv( argv[1], 0, 1, &bv );
+	ber_bvarray_add( &om->som_names, &bv );
+	ber_str2bv( argv[2], 0, 1, &bv );
+	ber_bvarray_add( &om->som_subs, &bv );
 	om->som_oid.bv_val = oidm_find( argv[2] );
 
 	if (!om->som_oid.bv_val) {
@@ -145,7 +144,58 @@ usage:	fprintf( stderr, "\tObjectIdentifier <name> <oid>\n");
 	}
 
 	om->som_oid.bv_len = strlen( om->som_oid.bv_val );
+	if ( !user )
+		om->som_flags |= SLAP_OM_HARDCODE;
 
-	LDAP_SLIST_INSERT_HEAD( &om_list, om, som_next );
+	LDAP_STAILQ_INSERT_TAIL( &om_list, om, som_next );
+	if ( rom ) *rom = om;
 	return 0;
+}
+
+void oidm_unparse( BerVarray *res, OidMacro *start, OidMacro *end, int sys )
+{
+	OidMacro *om;
+	int i, j, num;
+	struct berval *bva = NULL, idx;
+	char ibuf[32], *ptr;
+
+	if ( !start )
+		start = LDAP_STAILQ_FIRST( &om_list );
+
+	/* count the result size */
+	i = 0;
+	for ( om=start; om; om=LDAP_STAILQ_NEXT(om, som_next)) {
+		if ( sys && !(om->som_flags & SLAP_OM_HARDCODE)) continue;
+		for ( j=0; !BER_BVISNULL(&om->som_names[j]); j++ );
+		i += j;
+		if ( om == end ) break;
+	}
+	num = i;
+	if (!i) return;
+
+	bva = ch_malloc( (num+1) * sizeof(struct berval) );
+	BER_BVZERO( bva+num );
+	idx.bv_val = ibuf;
+	if ( sys ) {
+		idx.bv_len = 0;
+		ibuf[0] = '\0';
+	}
+	for ( i=0,om=start; om; om=LDAP_STAILQ_NEXT(om, som_next)) {
+		if ( sys && !(om->som_flags & SLAP_OM_HARDCODE)) continue;
+		for ( j=0; !BER_BVISNULL(&om->som_names[j]); i++,j++ ) {
+			if ( !sys ) {
+				idx.bv_len = sprintf(idx.bv_val, "{%d}", i );
+			}
+			bva[i].bv_len = idx.bv_len + om->som_names[j].bv_len +
+				om->som_subs[j].bv_len + 1;
+			bva[i].bv_val = ch_malloc( bva[i].bv_len + 1 );
+			ptr = lutil_strcopy( bva[i].bv_val, ibuf );
+			ptr = lutil_strcopy( ptr, om->som_names[j].bv_val );
+			*ptr++ = ' ';
+			strcpy( ptr, om->som_subs[j].bv_val );
+		}
+		if ( i>=num ) break;
+		if ( om == end ) break;
+	}
+	*res = bva;
 }

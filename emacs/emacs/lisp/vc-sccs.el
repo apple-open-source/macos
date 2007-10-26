@@ -1,11 +1,12 @@
 ;;; vc-sccs.el --- support for SCCS version-control
 
-;; Copyright (C) 1992,93,94,95,96,97,98,99,2000,2001 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+;;   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author:     FSF (see vc.el for full credits)
 ;; Maintainer: Andre Spiegel <spiegel@gnu.org>
 
-;; $Id: vc-sccs.el,v 1.1.1.1 2001/10/31 17:56:07 jevans Exp $
+;; $Id$
 
 ;; This file is part of GNU Emacs.
 
@@ -21,17 +22,17 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;;; Code:
 
-(eval-when-compile 
+(eval-when-compile
   (require 'vc))
 
-;;; 
+;;;
 ;;; Customization options
 ;;;
 
@@ -88,8 +89,13 @@ For a description of possible values, see `vc-check-master-templates'."
 ;;; State-querying functions
 ;;;
 
-;;;###autoload
-(progn (defun vc-sccs-registered (f) (vc-default-registered 'SCCS f)))
+;;; The autoload cookie below places vc-sccs-registered directly into
+;;; loaddefs.el, so that vc-sccs.el does not need to be loaded for
+;;; every file that is visited.  The definition is repeated below
+;;; so that Help and etags can find it.
+
+;;;###autoload (defun vc-sccs-registered(f) (vc-default-registered 'SCCS f))
+(defun vc-sccs-registered (f) (vc-default-registered 'SCCS f))
 
 (defun vc-sccs-state (file)
   "SCCS-specific function to compute the version control state."
@@ -102,7 +108,7 @@ For a description of possible values, see `vc-check-master-templates'."
               (if (vc-workfile-unchanged-p file)
                   'up-to-date
                 'unlocked-changes)
-            (if (string= locking-user (vc-user-login-name))
+            (if (string= locking-user (vc-user-login-name file))
                 'edited
               locking-user)))
       'up-to-date)))
@@ -116,24 +122,28 @@ For a description of possible values, see `vc-check-master-templates'."
       ;; We have to be careful not to exclude files with execute bits on;
       ;; scripts can be under version control too.  Also, we must ignore the
       ;; group-read and other-read bits, since paranoid users turn them off.
-      (let* ((attributes (file-attributes file))
-             (owner-uid  (nth 2 attributes))
+      (let* ((attributes  (file-attributes file 'string))
+             (owner-name  (nth 2 attributes))
              (permissions (nth 8 attributes)))
 	(if (string-match ".r-..-..-." permissions)
             'up-to-date
           (if (string-match ".rw..-..-." permissions)
               (if (file-ownership-preserved-p file)
                   'edited
-                (vc-user-login-name owner-uid))
-          ;; Strange permissions.
-          ;; Fall through to real state computation.
-          (vc-sccs-state file)))
-    (vc-sccs-state file))))
+                owner-name)
+            ;; Strange permissions.
+            ;; Fall through to real state computation.
+            (vc-sccs-state file))))
+    (vc-sccs-state file)))
 
 (defun vc-sccs-workfile-version (file)
   "SCCS-specific version of `vc-workfile-version'."
   (with-temp-buffer
-    (vc-insert-file (vc-name file) "^\001e")
+    ;; The workfile version is always the latest version number.
+    ;; To find this number, search the entire delta table,
+    ;; rather than just the first entry, because the
+    ;; first entry might be a deleted ("R") version.
+    (vc-insert-file (vc-name file) "^\001e\n\001[^s]")
     (vc-parse-buffer "^\001d D \\([^ ]+\\)" 1)))
 
 (defun vc-sccs-checkout-model (file)
@@ -141,7 +151,7 @@ For a description of possible values, see `vc-check-master-templates'."
   'locking)
 
 (defun vc-sccs-workfile-unchanged-p (file)
-  "SCCS-specific implementation of vc-workfile-unchanged-p."
+  "SCCS-specific implementation of `vc-workfile-unchanged-p'."
   (zerop (apply 'vc-do-command nil 1 "vcdiff" (vc-name file)
                 (list "--brief" "-q"
                       (concat "-r" (vc-workfile-version file))))))
@@ -161,25 +171,18 @@ the SCCS command (in that order).
 
 Automatically retrieve a read-only version of the file with keywords
 expanded if `vc-keep-workfiles' is non-nil, otherwise, delete the workfile."
-    (let* ((switches (list
-		     (if (stringp vc-register-switches)
-			 (list vc-register-switches)
-		       vc-register-switches)
-		     (if (stringp vc-sccs-register-switches)
-			 (list vc-sccs-register-switches)
-		       vc-sccs-register-switches)))
-	   (dirname (or (file-name-directory file) ""))
+    (let* ((dirname (or (file-name-directory file) ""))
 	   (basename (file-name-nondirectory file))
 	   (project-file (vc-sccs-search-project-dir dirname basename)))
       (let ((vc-name
 	     (or project-file
-		 (format (car vc-sccs-master-templates) dirname basename)))|)
+		 (format (car vc-sccs-master-templates) dirname basename))))
 	(apply 'vc-do-command nil 0 "admin" vc-name
 	       (and rev (concat "-r" rev))
 	       "-fb"
 	       (concat "-i" (file-relative-name file))
 	       (and comment (concat "-y" comment))
-	       switches))
+	       (vc-switches 'SCCS 'register)))
       (delete-file file)
       (if vc-keep-workfiles
 	  (vc-do-command nil 0 "get" (vc-name file)))))
@@ -193,30 +196,34 @@ expanded if `vc-keep-workfiles' is non-nil, otherwise, delete the workfile."
 
 (defun vc-sccs-checkin (file rev comment)
   "SCCS-specific version of `vc-backend-checkin'."
-  (let ((switches (if (stringp vc-checkin-switches)
-		      (list vc-checkin-switches)
-		    vc-checkin-switches)))
-    (apply 'vc-do-command nil 0 "delta" (vc-name file)
-	   (if rev (concat "-r" rev))
-	   (concat "-y" comment)
-	   switches)
-    (if vc-keep-workfiles
-	(vc-do-command nil 0 "get" (vc-name file)))))
+  (apply 'vc-do-command nil 0 "delta" (vc-name file)
+	 (if rev (concat "-r" rev))
+	 (concat "-y" comment)
+	 (vc-switches 'SCCS 'checkin))
+  (if vc-keep-workfiles
+      (vc-do-command nil 0 "get" (vc-name file))))
 
-(defun vc-sccs-checkout (file &optional editable rev workfile)
-  "Retrieve a copy of a saved version of SCCS controlled FILE into a WORKFILE.
+(defun vc-sccs-find-version (file rev buffer)
+  (apply 'vc-do-command
+	 buffer 0 "get" (vc-name file)
+	 "-s" ;; suppress diagnostic output
+	 "-p"
+	 (and rev
+	      (concat "-r"
+		      (vc-sccs-lookup-triple file rev)))
+	 (vc-switches 'SCCS 'checkout)))
+
+(defun vc-sccs-checkout (file &optional editable rev)
+  "Retrieve a copy of a saved version of SCCS controlled FILE.
 EDITABLE non-nil means that the file should be writable and
-locked.  REV is the revision to check out into WORKFILE."
-  (let ((filename (or workfile file))
-	(file-buffer (get-file-buffer file))
+locked.  REV is the revision to check out."
+  (let ((file-buffer (get-file-buffer file))
 	switches)
-    (message "Checking out %s..." filename)
+    (message "Checking out %s..." file)
     (save-excursion
       ;; Change buffers to get local value of vc-checkout-switches.
       (if file-buffer (set-buffer file-buffer))
-      (setq switches (if (stringp vc-checkout-switches)
-			 (list vc-checkout-switches)
-		       vc-checkout-switches))
+      (setq switches (vc-switches 'SCCS 'checkout))
       ;; Save this buffer's default-directory
       ;; and use save-excursion to make sure it is restored
       ;; in the same buffer it was saved in.
@@ -224,42 +231,16 @@ locked.  REV is the revision to check out into WORKFILE."
 	(save-excursion
 	  ;; Adjust the default-directory so that the check-out creates
 	  ;; the file in the right place.
-	  (setq default-directory (file-name-directory filename))
+	  (setq default-directory (file-name-directory file))
 
-	  (and rev (string= rev "") (setq rev nil))
-	  (if workfile
-	      ;; Some SCCS implementations allow checking out directly to a
-	      ;; file using the -G option, but then some don't so use the
-	      ;; least common denominator approach and use the -p option
-	      ;; ala RCS.
-	      (let ((vc-modes (logior (file-modes (vc-name file))
-				      (if editable 128 0)))
-		    (failed t))
-		(unwind-protect
-		    (progn
-                      (let ((coding-system-for-read 'no-conversion)
-                            (coding-system-for-write 'no-conversion))
-                        (with-temp-file filename
-                          (apply 'vc-do-command
-                                 (current-buffer) 0 "get" (vc-name file)
-                                 "-s" ;; suppress diagnostic output
-                                 (if editable "-e")
-                                 "-p"
-                                 (and rev
-                                      (concat "-r"
-                                              (vc-sccs-lookup-triple file rev)))
-                                 switches)))
-                      (set-file-modes filename
-                                      (logior (file-modes (vc-name file))
-                                              (if editable 128 0)))
-		      (setq failed nil))
-		  (and failed (file-exists-p filename)
-		       (delete-file filename))))
-	    (apply 'vc-do-command nil 0 "get" (vc-name file)
-		   (if editable "-e")
-		   (and rev (concat "-r" (vc-sccs-lookup-triple file rev)))
-		   switches)))))
-    (message "Checking out %s...done" filename)))
+	  (and rev (or (string= rev "")
+                       (not (stringp rev)))
+               (setq rev nil))
+	  (apply 'vc-do-command nil 0 "get" (vc-name file)
+		 (if editable "-e")
+		 (and rev (concat "-r" (vc-sccs-lookup-triple file rev)))
+		 switches))))
+    (message "Checking out %s...done" file)))
 
 (defun vc-sccs-revert (file &optional contents-done)
   "Revert FILE to the version it was based on."
@@ -290,9 +271,9 @@ EDITABLE non-nil means previous version should be locked."
 ;;; History functions
 ;;;
 
-(defun vc-sccs-print-log (file)
+(defun vc-sccs-print-log (file &optional buffer)
   "Get change log associated with FILE."
-  (vc-do-command nil 0 "prs" (vc-name file)))
+  (vc-do-command buffer 0 "prs" (vc-name file)))
 
 (defun vc-sccs-logentry-check ()
   "Check that the log entry in the current buffer is acceptable for SCCS."
@@ -300,15 +281,15 @@ EDITABLE non-nil means previous version should be locked."
     (goto-char 512)
     (error "Log must be less than 512 characters; point is now at pos 512")))
 
-(defun vc-sccs-diff (file &optional oldvers newvers)
+(defun vc-sccs-diff (file &optional oldvers newvers buffer)
   "Get a difference report using SCCS between two versions of FILE."
   (setq oldvers (vc-sccs-lookup-triple file oldvers))
   (setq newvers (vc-sccs-lookup-triple file newvers))
-  (apply 'vc-do-command "*vc-diff*" 1 "vcdiff" (vc-name file) 
+  (apply 'vc-do-command (or buffer "*vc-diff*") 1 "vcdiff" (vc-name file)
          (append (list "-q"
                        (and oldvers (concat "-r" oldvers))
                        (and newvers (concat "-r" newvers)))
-                 (vc-diff-switches-list sccs))))
+                 (vc-switches 'SCCS 'diff))))
 
 
 ;;;
@@ -417,4 +398,5 @@ If NAME is nil or a version number string it's just passed through."
 
 (provide 'vc-sccs)
 
+;; arch-tag: d751dee3-d7b3-47e1-95e3-7ae98c052041
 ;;; vc-sccs.el ends here

@@ -32,10 +32,10 @@
 /* L2TP exit codes */
 #define EXIT_L2TP_NOSERVER  		1
 #define EXIT_L2TP_NOANSWER  		2
-#define EXIT_L2TP_STARTFAILED 		3
-#define EXIT_L2TP_OUTFAILED 		4
 #define EXIT_L2TP_PROTOCOLERROR 	5
 #define EXIT_L2TP_NETWORKCHANGED 	6
+#define EXIT_L2TP_NOSHAREDSECRET 	7
+#define EXIT_L2TP_NOCERTIFICATE 	8
 
 /* AVP flags */
 #define L2TP_AVP_FLAGS_M		0x8000
@@ -194,6 +194,7 @@ int l2tp_outgoing_call(int fd, struct sockaddr *peer_address, struct l2tp_parame
 int l2tp_incoming_call(int fd, struct l2tp_parameters *our_params, struct l2tp_parameters *peer_params, int recv_timeout);
 int l2tp_data_in(int fd);
 int l2tp_send_hello(int fd, struct l2tp_parameters *our_params);
+int l2tp_send_SCCRQ(int fd, struct sockaddr *peer_address, struct l2tp_parameters *our_params);
 int l2tp_send_CDN(int fd, struct l2tp_parameters *our_params, struct l2tp_parameters *peer_params);
 int l2tp_send_StopCCN(int fd, struct l2tp_parameters *our_params);
 void l2tp_reset_timers(int fd, int connect_mode);

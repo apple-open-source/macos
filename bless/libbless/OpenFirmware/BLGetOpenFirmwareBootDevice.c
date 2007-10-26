@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,127 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Apr 19 2001.
- *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLGetOpenFirmwareBootDevice.c,v 1.29 2005/11/15 23:59:53 ssen Exp $
- *
- *  $Log: BLGetOpenFirmwareBootDevice.c,v $
- *  Revision 1.29  2005/11/15 23:59:53  ssen
- *  Export new API, Add __attribute__((format)) for better compile-time
- *  checking
- *
- *  Revision 1.28  2005/08/22 20:49:25  ssen
- *  Change functions to take "char *foo" instead of "char foo[]".
- *  It should be semantically identical, and be more consistent with
- *  other system APIs
- *
- *  Revision 1.27  2005/06/24 16:39:51  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.26  2005/02/08 00:18:47  ssen
- *  Implement support for offline updating of BootX and OF labels
- *  in Apple_Boot partitions, and also for RAIDs. Only works
- *  in --device mode so far
- *
- *  Revision 1.25  2005/02/07 21:22:38  ssen
- *  Refact lookupServiceForName and code for BLDeviceNeedsBooter
- *
- *  Revision 1.24  2005/02/03 00:42:29  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.23  2005/01/26 01:25:30  ssen
- *  Finish v1 booting support. Also prepare for the day that
- *  unbootable RAIDs will not publish IOBoot entries.
- *
- *  Revision 1.22  2005/01/25 19:37:10  ssen
- *  Apple_Boot_RAID partitions don't have booters themselves,
- *  so don't look for one.
- *
- *  Revision 1.21  2005/01/16 02:11:53  ssen
- *  misc changes to support updating booters
- *
- *  Revision 1.20  2005/01/16 00:10:12  ssen
- *  <rdar://problem/3861859> bless needs to try getProperty(kIOBootDeviceKey)
- *  Implement -getBoot and -info functionality. If boot-device is
- *  set to the Apple_Boot for one of the RAID members, we map
- *  this back to the top-level RAID device and print that out. This
- *  enables support in Startup Disk
- *
- *  Revision 1.19  2005/01/14 22:29:59  ssen
- *  <rdar://problem/3861859> bless needs to try getProperty(kIOBootDeviceKey)
- *  When determining the "OF path" for a device, figure out if it's
- *  part of a RAID set, and if so, find the booter for the primary
- *  path. Otherwise, find a normal booter, or else no booter at all
- *
- *  Revision 1.18  2004/05/17 23:28:35  ssen
- *  Validate arguments a bit
- *  Bug #:
- *  Submitted by:
- *  Reviewed by:
- *
- *  Revision 1.17  2004/04/20 21:40:45  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.16  2003/10/24 22:46:36  ssen
- *  don't try to compare IOKit objects to NULL, since they are really mach port integers
- *
- *  Revision 1.15  2003/10/17 00:10:39  ssen
- *  add more const
- *
- *  Revision 1.14  2003/07/25 01:16:25  ssen
- *  When mapping OF -> device, if we found an Apple_Boot, try to
- *  find the corresponding partition that is the real root filesystem
- *
- *  Revision 1.13  2003/07/22 15:58:36  ssen
- *  APSL 2.0
- *
- *  Revision 1.12  2003/05/19 02:17:00  ssen
- *  don't look for booters if an Apple_Boot is specified
- *
- *  Revision 1.11  2003/04/23 00:08:03  ssen
- *  Use blostype2string for OSTypes
- *
- *  Revision 1.10  2003/04/19 00:11:14  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.9  2003/04/16 23:57:35  ssen
- *  Update Copyrights
- *
- *  Revision 1.8  2002/09/24 21:05:46  ssen
- *  Eliminate use of deprecated constants
- *
- *  Revision 1.7  2002/08/22 00:38:42  ssen
- *  Gah. Search for ",\\:tbxi" from the end of the OF path
- *  instead of the beginning. For SCSI cards that use commas
- *  in the OF path, the search was causing a mis-parse.
- *
- *  Revision 1.6  2002/06/11 00:50:51  ssen
- *  All function prototypes need to use BLContextPtr. This is really
- *  a minor change in all of the files.
- *
- *  Revision 1.5  2002/04/27 17:55:00  ssen
- *  Rewrite output logic to format the string before sending of to logger
- *
- *  Revision 1.4  2002/04/25 07:27:30  ssen
- *  Go back to using errorprint and verboseprint inside library
- *
- *  Revision 1.3  2002/02/23 04:13:06  ssen
- *  Update to context-based API
- *
- *  Revision 1.2  2002/02/03 19:20:23  ssen
- *  look for external booter
- *
- *  Revision 1.1  2001/11/16 05:36:47  ssen
- *  Add libbless files
- *
- *  Revision 1.10  2001/11/11 06:20:59  ssen
- *  readding files
- *
- *  Revision 1.8  2001/10/26 04:19:41  ssen
- *  Add dollar Id and dollar Log
- *
+ *  $Id: BLGetOpenFirmwareBootDevice.c,v 1.30 2006/02/20 22:49:57 ssen Exp $
  *
  */
 #include <stdlib.h>
@@ -214,11 +96,13 @@ int BLGetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm, char 
       return 2;
     }
 
+#if SUPPORT_RAID
     err = BLGetRAIDBootDataForDevice(context, mntfrm, &bootData);
     if(err) {
         contextprintf(context, kBLLogLevelError,  "Error while determining if %s is a RAID\n", mntfrm );
         return 3;
     }
+#endif
     
     if(bootData) {
         CFDictionaryRef primary = NULL;

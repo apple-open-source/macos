@@ -101,13 +101,14 @@ main(argc, argv)
 	int i_flag = 0, m_flag = 0, u_flag = 0, r_flag = 0, d_flag = 0, y_flag = 0, t_flag = 0;
 	int c_arg = 0, h_arg = 0, s_arg = 0;
 	int size_arg = 0;
+	int block_size_arg = 0;
 	disk_t disk;
 	DISK_metrics *usermetrics;
 	char *mbrfile = _PATH_MBR;
 	mbr_t *mp;
 	char *auto_style = NULL;
 
-	while ((ch = getopt(argc, argv, "ieuf:c:h:s:S:ra:dyt")) != -1) {
+	while ((ch = getopt(argc, argv, "ieuf:c:h:s:b:S:ra:dyt")) != -1) {
 		switch(ch) {
 		case 'i':
 			i_flag = 1;
@@ -135,6 +136,13 @@ main(argc, argv)
 			s_arg = atoi(optarg);
 			if (s_arg < 1 || s_arg > 63)
 				errx(1, "Sector argument out of range.");
+			break;
+		case 'b':
+			block_size_arg = atoi(optarg);
+			if (block_size_arg & (block_size_arg - 1))
+				errx(1, "Block size argument not a power of two.");
+			if (block_size_arg < 512 || block_size_arg > 4096)
+				errx(1, "Block size argument out of range 512..4096.");
 			break;
 		case 'S':
 		        size_arg = atoi(optarg);
@@ -170,7 +178,7 @@ main(argc, argv)
 	if (i_flag && u_flag) errx(1, "-i and -u cannot be specified simultaneously");
 
 	/* Put in supplied geometry if there */
-	if (c_arg | h_arg | s_arg | size_arg) {
+	if (c_arg | h_arg | s_arg | size_arg | block_size_arg) {
 		usermetrics = malloc(sizeof(DISK_metrics));
 		if (usermetrics != NULL) {
 			if (c_arg && h_arg && s_arg) {
@@ -189,6 +197,11 @@ main(argc, argv)
 			  } else {
 			    errx(1, "Please specify a full geometry with [-chs].");
 			  }
+			}
+			if (block_size_arg) {
+				usermetrics->sector_size = block_size_arg;
+			} else {
+				DISK_get_sector_size(&disk, usermetrics);
 			}
 		}
 	} else {

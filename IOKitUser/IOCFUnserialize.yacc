@@ -53,6 +53,7 @@
 %pure_parser
 
 %{
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -111,8 +112,8 @@ static int		yyparse(void * state);
 
 static object_t 	*newObject(parser_state_t *state);
 static void 		freeObject(parser_state_t *state, object_t *o);
-static void		rememberObject(parser_state_t *state, int tag, CFTypeRef o);
-static object_t		*retrieveObject(parser_state_t *state, int tag);
+static void		rememberObject(parser_state_t *state, intptr_t tag, CFTypeRef o);
+static object_t		*retrieveObject(parser_state_t *state, intptr_t tag);
 static void		cleanupObjects(parser_state_t *state);
 
 static object_t		*buildDictionary(parser_state_t *state, object_t *o);
@@ -797,22 +798,22 @@ cleanupObjects(parser_state_t *state)
 // !@$&)(^Q$&*^!$(*!@$_(^%_(*Q#$(_*&!$_(*&!$_(*&!#$(*!@&^!@#%!_!#
 
 static void 
-rememberObject(parser_state_t *state, int tag, CFTypeRef o)
+rememberObject(parser_state_t *state, intptr_t tag, CFTypeRef o)
 {
 //	printf("remember idref %d\n", tag);
 
-	CFDictionarySetValue(state->tags, (const void *)tag,  (const void *)o);
+	CFDictionarySetValue(state->tags, (void *) tag,  o);
 }
 
 static object_t *
-retrieveObject(parser_state_t *state, int tag)
+retrieveObject(parser_state_t *state, intptr_t tag)
 {
 	CFTypeRef ref;
 	object_t *o;
 
 //	printf("retrieve idref '%d'\n", tag);
 
-	ref  = (CFTypeRef)CFDictionaryGetValue(state->tags, (const void *)tag);
+	ref = (CFTypeRef) CFDictionaryGetValue(state->tags, (void *) tag);
 	if (!ref) return 0;
 
 	o = newObject(state);
@@ -1005,7 +1006,7 @@ buildNumber(parser_state_t *state, object_t *o)
 };
 
 object_t *
-buildBoolean(parser_state_t *state, object_t *o)
+buildBoolean(parser_state_t *state __unused, object_t *o)
 {
 	o->object = CFRetain((o->number == 0) ? kCFBooleanFalse : kCFBooleanTrue);
 	return o;

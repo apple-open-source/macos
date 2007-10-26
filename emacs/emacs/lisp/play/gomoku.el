@@ -1,8 +1,10 @@
 ;;; gomoku.el --- Gomoku game between you and Emacs
 
-;; Copyright (C) 1988, 1994, 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1988, 1994, 1996, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Philippe Schnoebelen <phs@lsv.ens-cachan.fr>
+;; Maintainer: FSF
 ;; Adapted-By: ESR, Daniel Pfeiffer <occitan@esperanto.org>
 ;; Keywords: games
 
@@ -20,14 +22,14 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;; RULES:
 ;;
-;; Gomoku is a game played between two players on a rectangular board.	Each
+;; Gomoku is a game played between two players on a rectangular board.  Each
 ;; player, in turn, marks a free square of its choice. The winner is the first
 ;; one to mark five contiguous squares in any direction (horizontally,
 ;; vertically or diagonally).
@@ -35,8 +37,8 @@
 ;; I have been told that, in "The TRUE Gomoku", some restrictions are made
 ;; about the squares where one may play, or else there is a known forced win
 ;; for the first player. This program has no such restriction, but it does not
-;; know about the forced win, nor do I.	 Furthermore, you probably do not know
-;; it yourself :-).
+;; know about the forced win, nor do I.
+;; See http://renju.nu/r1rulhis.htm for more information.
 
 
 ;; There are two main places where you may want to customize the program: key
@@ -78,6 +80,29 @@
 One useful value to include is `turn-on-font-lock' to highlight the pieces."
   :type 'hook
   :group 'gomoku)
+
+;;;
+;;; CONSTANTS FOR BOARD
+;;;
+
+(defconst gomoku-buffer-name "*Gomoku*"
+  "Name of the Gomoku buffer.")
+
+;; You may change these values if you have a small screen or if the squares
+;; look rectangular, but spacings SHOULD be at least 2 (MUST BE at least 1).
+
+(defconst gomoku-square-width 4
+  "*Horizontal spacing between squares on the Gomoku board.")
+
+(defconst gomoku-square-height 2
+  "*Vertical spacing between squares on the Gomoku board.")
+
+(defconst gomoku-x-offset 3
+  "*Number of columns between the Gomoku board and the side of the window.")
+
+(defconst gomoku-y-offset 1
+  "*Number of lines between the Gomoku board and the top of the window.")
+
 
 (defvar gomoku-mode-map nil
   "Local keymap to use in Gomoku mode.")
@@ -126,42 +151,30 @@ One useful value to include is `turn-on-font-lock' to highlight the pieces."
   (define-key gomoku-mode-map [mouse-2] 'gomoku-mouse-play)
   (define-key gomoku-mode-map [drag-mouse-2] 'gomoku-mouse-play)
 
-  (substitute-key-definition 'previous-line 'gomoku-move-up
-			     gomoku-mode-map (current-global-map))
-  (substitute-key-definition 'next-line 'gomoku-move-down
-			     gomoku-mode-map (current-global-map))
-  (substitute-key-definition 'beginning-of-line 'gomoku-beginning-of-line
-			     gomoku-mode-map (current-global-map))
-  (substitute-key-definition 'end-of-line 'gomoku-end-of-line
-			     gomoku-mode-map (current-global-map))
-  (substitute-key-definition 'undo 'gomoku-human-takes-back
-			     gomoku-mode-map (current-global-map))
-  (substitute-key-definition 'advertised-undo 'gomoku-human-takes-back
-			     gomoku-mode-map (current-global-map)))
+  (define-key gomoku-mode-map [remap previous-line] 'gomoku-move-up)
+  (define-key gomoku-mode-map [remap next-line] 'gomoku-move-down)
+  (define-key gomoku-mode-map [remap beginning-of-line] 'gomoku-beginning-of-line)
+  (define-key gomoku-mode-map [remap end-of-line] 'gomoku-end-of-line)
+  (define-key gomoku-mode-map [remap undo] 'gomoku-human-takes-back)
+  (define-key gomoku-mode-map [remap advertised-undo] 'gomoku-human-takes-back))
 
 (defvar gomoku-emacs-won ()
   "For making font-lock use the winner's face for the line.")
 
-(defcustom gomoku-font-lock-O-face
-  (if (display-color-p)
-      (list (facemenu-get-face 'fg:red) 'bold))
-  "*Face to use for Emacs' O."
-  :type '(repeat face)
+(defface gomoku-O
+    '((((class color)) (:foreground "red" :weight bold)))
+  "Face to use for Emacs' O."
   :group 'gomoku)
 
-(defcustom gomoku-font-lock-X-face
-  (if (display-color-p)
-      (list (facemenu-get-face 'fg:green) 'bold))
-  "*Face to use for your X."
-  :type '(repeat face)
+(defface gomoku-X
+    '((((class color)) (:foreground "green" :weight bold)))
+  "Face to use for your X."
   :group 'gomoku)
 
 (defvar gomoku-font-lock-keywords
-  '(("O" . gomoku-font-lock-O-face)
-    ("X" . gomoku-font-lock-X-face)
-    ("[-|/\\]" 0 (if gomoku-emacs-won
-		     gomoku-font-lock-O-face
-		   gomoku-font-lock-X-face)))
+  '(("O" . 'gomoku-O)
+    ("X" . 'gomoku-X)
+    ("[-|/\\]" 0 (if gomoku-emacs-won 'gomoku-O 'gomoku-X)))
   "*Font lock rules for Gomoku.")
 
 (put 'gomoku-mode 'front-sticky
@@ -182,8 +195,9 @@ You play by moving the cursor over the square you choose and hitting \\[gomoku-h
 Other useful commands:
 \\{gomoku-mode-map}
 Entry to this mode calls the value of `gomoku-mode-hook' if that value
-is non-nil.  One interesting value is `turn-on-font-lock'."
+is non-nil."
   (interactive)
+  (kill-all-local-variables)
   (setq major-mode 'gomoku-mode
 	mode-name "Gomoku")
   (gomoku-display-statistics)
@@ -191,16 +205,16 @@ is non-nil.  One interesting value is `turn-on-font-lock'."
   (make-local-variable 'font-lock-defaults)
   (setq font-lock-defaults '(gomoku-font-lock-keywords t))
   (toggle-read-only t)
-  (run-hooks 'gomoku-mode-hook))
+  (run-mode-hooks 'gomoku-mode-hook))
 
 ;;;
 ;;; THE BOARD.
 ;;;
 
 ;; The board is a rectangular grid. We code empty squares with 0, X's with 1
-;; and O's with 6. The rectangle is recorded in a one dimensional vector
-;; containing padding squares (coded with -1). These squares allow us to
-;; detect when we are trying to move out of the board.	We denote a square by
+;; and O's with 6.  The rectangle is recorded in a one dimensional vector
+;; containing padding squares (coded with -1).  These squares allow us to
+;; detect when we are trying to move out of the board.  We denote a square by
 ;; its (X,Y) coords, or by the INDEX corresponding to them in the vector.  The
 ;; leftmost topmost square has coords (1,1) and index gomoku-board-width + 2.
 ;; Similarly, vectors between squares may be given by two DX, DY coords or by
@@ -216,7 +230,7 @@ is non-nil.  One interesting value is `turn-on-font-lock'."
   "Vector recording the actual state of the Gomoku board.")
 
 (defvar gomoku-vector-length nil
-  "Length of gomoku-board vector.")
+  "Length of `gomoku-board' vector.")
 
 (defvar gomoku-draw-limit nil
   ;; This is usually set to 70% of the number of squares.
@@ -236,7 +250,7 @@ is non-nil.  One interesting value is `turn-on-font-lock'."
   (/ index (1+ gomoku-board-width)))
 
 (defun gomoku-init-board ()
-  "Create the gomoku-board vector and fill it with initial values."
+  "Create the `gomoku-board' vector and fill it with initial values."
   (setq gomoku-board (make-vector gomoku-vector-length 0))
   ;; Every square is 0 (i.e. empty) except padding squares:
   (let ((i 0) (ii (1- gomoku-vector-length)))
@@ -657,11 +671,11 @@ that DVAL has been added on SQUARE."
      (cond ((< gomoku-number-of-moves 20)
 	    "This was a REALLY QUICK win.")
 	   (gomoku-human-refused-draw
-	    "I won... Too bad you refused my offer of a draw !")
+	    "I won...  Too bad you refused my offer of a draw!")
 	   (gomoku-human-took-back
-	    "I won... Taking moves back will not help you !")
+	    "I won...  Taking moves back will not help you!")
 	   ((not gomoku-emacs-played-first)
-	    "I won... Playing first did not help you much !")
+	    "I won...  Playing first did not help you much!")
 	   ((and (zerop gomoku-number-of-human-wins)
 		 (zerop gomoku-number-of-draws)
 		 (> gomoku-number-of-emacs-wins 1))
@@ -674,7 +688,7 @@ that DVAL has been added on SQUARE."
 	      (gomoku-human-took-back
 	       "  I, for one, never take my moves back...")
 	      (gomoku-emacs-played-first
-	       ".. so what ?")
+	       ".. so what?")
 	      ("  Now, let me play first just once."))))
     ((eq result 'human-resigned)
      (setq gomoku-number-of-emacs-wins (1+ gomoku-number-of-emacs-wins))
@@ -717,6 +731,7 @@ that DVAL has been added on SQUARE."
 ;;;###autoload
 (defun gomoku (&optional n m)
   "Start a Gomoku game between you and Emacs.
+
 If a game is in progress, this command allow you to resume it.
 If optional arguments N and M are given, an N by M board is used.
 If prefix arg is given for N, M is prompted for.
@@ -727,11 +742,25 @@ marks horizontally, vertically or in diagonal.
 
 You play by moving the cursor over the square you choose and hitting
 \\<gomoku-mode-map>\\[gomoku-human-plays].
+
+This program actually plays a simplified or archaic version of the
+Gomoku game, and ought to be upgraded to use the full modern rules.
+
 Use \\[describe-mode] for more info."
   (interactive (if current-prefix-arg
 		   (list (prefix-numeric-value current-prefix-arg)
 			 (eval (read-minibuffer "Height: ")))))
-  (gomoku-switch-to-window)
+  ;; gomoku-switch-to-window, but without the potential call to gomoku
+  ;; from gomoku-prompt-for-other-game.
+  (if (get-buffer gomoku-buffer-name)
+      (switch-to-buffer gomoku-buffer-name)
+    (when gomoku-game-in-progress
+      (setq gomoku-emacs-is-computing nil)
+      (gomoku-terminate-game 'crash-game)
+      (sit-for 4)
+      (or (y-or-n-p "Another game? ") (error "Chicken!")))
+    (switch-to-buffer gomoku-buffer-name)
+    (gomoku-mode))
   (cond
    (gomoku-emacs-is-computing
     (gomoku-crash-game))
@@ -750,14 +779,14 @@ Use \\[describe-mode] for more info."
       (if (and (> m max-height)
 	       (not (eq m gomoku-saved-board-height))
 	       ;; Use EQ because SAVED-BOARD-HEIGHT may be nil
-	       (not (y-or-n-p (format "Do you really want %d rows " m))))
+	       (not (y-or-n-p (format "Do you really want %d rows? " m))))
 	  (setq m max-height)))
     (message "One moment, please...")
     (gomoku-start-game n m)
-    (if (y-or-n-p "Do you allow me to play first ")
+    (if (y-or-n-p "Do you allow me to play first? ")
 	(gomoku-emacs-plays)
 	(gomoku-prompt-for-move)))
-   ((y-or-n-p "Shall we continue our game ")
+   ((y-or-n-p "Shall we continue our game? ")
     (gomoku-prompt-for-move))
    (t
     (gomoku-human-resigns))))
@@ -824,7 +853,7 @@ Use \\[describe-mode] for more info."
 		     gomoku-square-height)
 		  1)
 	     gomoku-board-height))))
-  
+
 (defun gomoku-mouse-play (click)
   "Play at the square where you click."
   (interactive "e")
@@ -846,9 +875,9 @@ If the game is finished, this command requests for another game."
     (let (square score)
       (setq square (gomoku-point-square))
       (cond ((null square)
-	     (error "Your point is not on a square. Retry !"))
+	     (error "Your point is not on a square.  Retry!"))
 	    ((not (zerop (aref gomoku-board square)))
-	     (error "Your point is not on a free square. Retry !"))
+	     (error "Your point is not on a free square.  Retry!"))
 	    (t
 	     (setq score (aref gomoku-score-table square))
 	     (gomoku-play-move square 1)
@@ -873,7 +902,7 @@ If the game is finished, this command requests for another game."
     (sit-for 4)
     (gomoku-prompt-for-other-game))
    ((zerop gomoku-number-of-human-moves)
-    (message "You have not played yet... Your move ?"))
+    (message "You have not played yet...  Your move?"))
    (t
     (message "One moment, please...")
     ;; It is possible for the user to let Emacs play several consecutive
@@ -894,9 +923,9 @@ If the game is finished, this command requests for another game."
     (gomoku-crash-game))
    ((not gomoku-game-in-progress)
     (message "There is no game in progress"))
-   ((y-or-n-p "You mean, you resign ")
+   ((y-or-n-p "You mean, you resign? ")
     (gomoku-terminate-game 'human-resigned))
-   ((y-or-n-p "You mean, we continue ")
+   ((y-or-n-p "You mean, we continue? ")
     (gomoku-prompt-for-move))
    (t
     (gomoku-terminate-game 'human-resigned)))) ; OK. Accept it
@@ -908,42 +937,26 @@ If the game is finished, this command requests for another game."
 (defun gomoku-prompt-for-move ()
   "Display a message asking for Human's move."
   (message (if (zerop gomoku-number-of-human-moves)
-	       "Your move ? (move to a free square and hit X, RET ...)"
-	       "Your move ?"))
+	       "Your move?  (Move to a free square and hit X, RET ...)"
+	       "Your move?"))
   ;; This may seem silly, but if one omits the following line (or a similar
   ;; one), the cursor may very well go to some place where POINT is not.
   (save-excursion (set-buffer (other-buffer))))
 
 (defun gomoku-prompt-for-other-game ()
   "Ask for another game, and start it."
-  (if (y-or-n-p "Another game ")
+  (if (y-or-n-p "Another game? ")
       (gomoku gomoku-board-width gomoku-board-height)
-    (message "Chicken !")))
+    (error "Chicken!")))
 
 (defun gomoku-offer-a-draw ()
-  "Offer a draw and return T if Human accepted it."
-  (or (y-or-n-p "I offer you a draw. Do you accept it ")
+  "Offer a draw and return t if Human accepted it."
+  (or (y-or-n-p "I offer you a draw.  Do you accept it? ")
       (not (setq gomoku-human-refused-draw t))))
 
 ;;;
 ;;; DISPLAYING THE BOARD.
 ;;;
-
-;; You may change these values if you have a small screen or if the squares
-;; look rectangular, but spacings SHOULD be at least 2 (MUST BE at least 1).
-
-(defconst gomoku-square-width 4
-  "*Horizontal spacing between squares on the Gomoku board.")
-
-(defconst gomoku-square-height 2
-  "*Vertical spacing between squares on the Gomoku board.")
-
-(defconst gomoku-x-offset 3
-  "*Number of columns between the Gomoku board and the side of the window.")
-
-(defconst gomoku-y-offset 1
-  "*Number of lines between the Gomoku board and the top of the window.")
-
 
 (defun gomoku-max-width ()
   "Largest possible board width for the current window."
@@ -1042,11 +1055,11 @@ If the game is finished, this command requests for another game."
       (insert-char ?\n gomoku-square-height))
     (or (eq (char-after 1) ?.)
 	(put-text-property 1 2 'point-entered
-			   (lambda (x x) (if (bobp) (forward-char)))))
+			   (lambda (x y) (if (bobp) (forward-char)))))
     (or intangible
 	(put-text-property point (point) 'intangible 2))
     (put-text-property point (point) 'point-entered
-		       (lambda (x x) (if (eobp) (backward-char))))
+		       (lambda (x y) (if (eobp) (backward-char))))
     (put-text-property (point-min) (point) 'category 'gomoku-mode))
   (gomoku-goto-xy (/ (1+ n) 2) (/ (1+ m) 2)) ; center of the board
   (sit-for 0))				; Display NOW
@@ -1067,13 +1080,12 @@ If the game is finished, this command requests for another game."
 (defun gomoku-switch-to-window ()
   "Find or create the Gomoku buffer, and display it."
   (interactive)
-  (let ((buff (get-buffer "*Gomoku*")))
-    (if buff				; Buffer exists:
-	(switch-to-buffer buff)		;   no problem.
-      (if gomoku-game-in-progress
-	  (gomoku-crash-game))		;   buffer has been killed or something
-      (switch-to-buffer "*Gomoku*")	; Anyway, start anew.
-      (gomoku-mode))))
+  (if (get-buffer gomoku-buffer-name)       ; Buffer exists:
+      (switch-to-buffer gomoku-buffer-name) ;   no problem.
+    (if gomoku-game-in-progress
+        (gomoku-crash-game))            ;   buffer has been killed or something
+    (switch-to-buffer gomoku-buffer-name)   ; Anyway, start anew.
+    (gomoku-mode)))
 
 ;;;
 ;;; CROSSING WINNING QTUPLES.
@@ -1085,14 +1097,14 @@ If the game is finished, this command requests for another game."
 ;; who won. The solution is to scan the board along all four directions.
 
 (defun gomoku-find-filled-qtuple (square value)
-  "Return T if SQUARE belongs to a qtuple filled with VALUEs."
+  "Return t if SQUARE belongs to a qtuple filled with VALUEs."
   (or (gomoku-check-filled-qtuple square value 1 0)
       (gomoku-check-filled-qtuple square value 0 1)
       (gomoku-check-filled-qtuple square value 1 1)
       (gomoku-check-filled-qtuple square value -1 1)))
 
 (defun gomoku-check-filled-qtuple (square value dx dy)
-  "Return T if SQUARE belongs to a qtuple filled  with VALUEs along DX, DY."
+  "Return t if SQUARE belongs to a qtuple filled  with VALUEs along DX, DY."
   (let ((a 0) (b 0)
 	(left square) (right square)
 	(depl (gomoku-xy-to-index dx dy)))
@@ -1150,13 +1162,17 @@ If the game is finished, this command requests for another game."
   "Move point down one row on the Gomoku board."
   (interactive)
   (if (< (gomoku-point-y) gomoku-board-height)
-      (next-line gomoku-square-height)))
+      (let ((column (current-column)))
+	(forward-line gomoku-square-height)
+	(move-to-column column))))
 
 (defun gomoku-move-up ()
   "Move point up one row on the Gomoku board."
   (interactive)
   (if (> (gomoku-point-y) 1)
-      (previous-line gomoku-square-height)))
+      (let ((column (current-column)))
+	(forward-line (- 1 gomoku-square-height))
+	(move-to-column column))))
 
 (defun gomoku-move-ne ()
   "Move point North East on the Gomoku board."
@@ -1193,6 +1209,9 @@ If the game is finished, this command requests for another game."
   (move-to-column (+ gomoku-x-offset
 		     (* gomoku-square-width (1- gomoku-board-width)))))
 
+(random t)
+
 (provide 'gomoku)
 
+;;; arch-tag: b1b8205e-77fc-4597-b373-3ea2c04311eb
 ;;; gomoku.el ends here

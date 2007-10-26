@@ -24,6 +24,11 @@ if $tracelevel then {
         strace $tracelevel
 }
 
+if [target_info exists darwin64] {
+   verbose "Fix and continue not supported for x86-64/ppc64."
+   return
+}
+
 set b1suffix 1
 set b2suffix 2
 set b3suffix 3

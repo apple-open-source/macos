@@ -1,5 +1,5 @@
 # Register display window for Insight.
-# Copyright 1998, 1999, 2001, 2002, 2003 Red Hat, Inc.
+# Copyright 1998, 1999, 2001, 2002, 2003, 2004 Red Hat, Inc.
 #
 # Written by Keith Seitz (keiths@redhat.com)
 #        and Martin Hunt (hunt@redhat.com)
@@ -409,21 +409,17 @@ itcl::body RegWin::_size_column {col down} {
 }
 
 # ------------------------------------------------------------------
-#  NAME:         private method RegWin::_prefs_changed
+#  NAME:         private method RegWin::reconfig
 #  DESCRIPTION:  Reconfigures register window when a preference
 #                changes.
 #
-#  ARGUMENTS:
-#                pref   - the preference which changed
-#                value  - preference's new value
+#  ARGUMENTS:	 None
 #  RETURNS:      Nothing
 #
-#  NOTES:        Callback from pref system
 # ------------------------------------------------------------------
-itcl::body RegWin::_prefs_changed {pref value} {
-  debug "$pref $value"
-  # do nothing for now.  With proper iwidgets this would not
-  # be required anyway.
+itcl::body RegWin::reconfig {} {
+  $itk_component(table) tag configure normal  \
+    -state disabled -bg $::Colors(textbg) -fg $::Colors(textfg)
 }
 
 

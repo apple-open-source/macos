@@ -30,6 +30,9 @@ MFLAGS=-MD
 !if !defined(PREFIX)
 PREFIX = c:\usr
 !endif
+!if !defined(IIPREFIX)
+IIPREFIX = c:\\usr
+!endif
 
 # Directories used by "make":
 srcdir = .
@@ -39,6 +42,10 @@ prefix = $(PREFIX)
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)\bin
 libdir = $(exec_prefix)\lib
+IIprefix = $(IIPREFIX)
+IIexec_prefix = $(IIprefix)
+IIbindir = $(IIexec_prefix)\\bin
+IIlibdir = $(IIexec_prefix)\\lib
 
 # Programs used by "make":
 
@@ -53,7 +60,9 @@ PICFLAGS =
 !else
 # "-GD" (msvc5) optimizes for DLL.
 # mscv4 doesn't know about this flag and ignores it.
-PICFLAGS = -GD
+# -DBUILDING_LIBCHARSET: Change expansion of LIBCHARSET_DLL_EXPORTED macro.
+# -DBUILDING_DLL: Change expansion of RELOCATABLE_DLL_EXPORTED macro.
+PICFLAGS = -GD -DBUILDING_LIBCHARSET -DBUILDING_DLL -DPIC
 !endif
 
 !if $(DEBUG)
@@ -65,8 +74,7 @@ OPTIMFLAGS = -D_NDEBUG -O1
 DEBUGFLAGS =
 !endif
 
-# -DBUILDING_LIBCHARSET: Change expansion of LIBCHARSET_DLL_EXPORTED macro.
-CFLAGS = $(MFLAGS) $(WARN_CFLAGS) $(OPTIMFLAGS) -DHAVE_CONFIG_H -DBUILDING_LIBCHARSET
+CFLAGS = $(MFLAGS) $(WARN_CFLAGS) $(OPTIMFLAGS) -DHAVE_CONFIG_H -DENABLE_RELOCATABLE=1 -DIN_LIBRARY -DINSTALLPREFIX=\"$(IIprefix)\" -DINSTALLDIR=\"$(IIbindir)\" -DNO_XMALLOC -Dset_relocation_prefix=libcharset_set_relocation_prefix -Drelocate=libcharset_relocate
 
 INCLUDES = -I. -I.. -I..\include
 

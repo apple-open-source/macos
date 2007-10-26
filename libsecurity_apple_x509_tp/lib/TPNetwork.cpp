@@ -38,13 +38,14 @@ typedef enum {
 
 static CSSM_RETURN tpFetchViaNet(
 	const CSSM_DATA &url,
+	const CSSM_DATA *issuer,		// optional
 	LF_Type 		lfType,
 	CSSM_TIMESTRING verifyTime,		// CRL only
 	Allocator		&alloc,
 	CSSM_DATA		&rtnBlob)		// mallocd and RETURNED
 {
 	if(lfType == LT_Crl) {
-		return ocspdCRLFetch(alloc, url, 
+		return ocspdCRLFetch(alloc, url, issuer,
 			true, true,				// cache r/w both enable
 			verifyTime, rtnBlob);
 	}
@@ -55,6 +56,7 @@ static CSSM_RETURN tpFetchViaNet(
 
 static CSSM_RETURN tpCrlViaNet(
 	const CSSM_DATA &url,
+	const CSSM_DATA *issuer,	// optional, only if cert and CRL have same issuer
 	TPVerifyContext &vfyCtx,
 	TPCertInfo &forCert,		// for verifyWithContext
 	TPCrlInfo *&rtnCrl)
@@ -73,7 +75,7 @@ static CSSM_RETURN tpCrlViaNet(
 		timeAtNowPlus(0, TIME_CSSM, cssmTime);
 	}
 
-	crtn = tpFetchViaNet(url, LT_Crl, cssmTime, alloc, crlData);
+	crtn = tpFetchViaNet(url, issuer, LT_Crl, cssmTime, alloc, crlData);
 	if(crtn) {
 		return crtn;
 	}
@@ -94,7 +96,7 @@ static CSSM_RETURN tpCrlViaNet(
 		 */
 		tpDebug("   bad CRL; flushing from cache and retrying"); 
 		ocspdCRLFlush(url);
-		crtn = tpFetchViaNet(url, LT_Crl, cssmTime, alloc, crlData);
+		crtn = tpFetchViaNet(url, issuer, LT_Crl, cssmTime, alloc, crlData);
 		if(crtn == CSSM_OK) {
 			try {
 				crl = new TPCrlInfo(vfyCtx.clHand,
@@ -151,7 +153,7 @@ static CSSM_RETURN tpIssuerCertViaNet(
 	CSSM_RETURN crtn;
 	Allocator &alloc = Allocator::standard();
 	
-	crtn = tpFetchViaNet(url, LT_Cert, NULL, alloc, certData);
+	crtn = tpFetchViaNet(url, NULL, LT_Cert, NULL, alloc, certData);
 	if(crtn) {
 		tpErrorLog("tpIssuerCertViaNet: net fetch failed\n");
 		return CSSMERR_APPLETP_CERT_NOT_FOUND_FROM_ISSUER;
@@ -202,6 +204,7 @@ static CSSM_RETURN tpIssuerCertViaNet(
 static CSSM_RETURN tpFetchViaGeneralNames(
 	const CE_GeneralNames	*names,
 	TPCertInfo 				&forCert,
+	const CSSM_DATA			*issuer,			// optional, and only for CRLs
 	TPVerifyContext			*verifyContext,		// only for CRLs
 	CSSM_CL_HANDLE			clHand,				// only for certs
 	CSSM_CSP_HANDLE			cspHand,			// only for certs
@@ -240,6 +243,7 @@ static CSSM_RETURN tpFetchViaGeneralNames(
 					tpDebug("   fetching CRL via net"); 
 					assert(verifyContext != NULL);
 					crtn = tpCrlViaNet(name->name, 
+						issuer,
 						*verifyContext,
 						forCert,
 						*crlInfo);
@@ -329,9 +333,15 @@ CSSM_RETURN tpFetchCrlFromNet(
 				
 			case CE_CDNT_FullName:
 			{
+				/*
+				 * Since we don't support indirect CRLs (yet), we always pass
+				 * the cert-to-be-verified's issuer as the CRL issuer for 
+				 * cache lookup.
+				 */
 				CE_GeneralNames *names = dp->distPointName->dpn.fullName;
 				crtn = tpFetchViaGeneralNames(names,
 					cert,
+					cert.issuerName(),
 					&vfyCtx,
 					0,			// clHand, use the one in vfyCtx
 					0,			// cspHand, ditto
@@ -406,6 +416,7 @@ CSSM_RETURN tpFetchIssuerFromNet(
 	
 	crtn = tpFetchViaGeneralNames(names,
 					subject,
+					NULL,		// issuer - not used
 					NULL,		// verifyContext
 					clHand,
 					cspHand,

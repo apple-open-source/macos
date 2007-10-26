@@ -3,6 +3,9 @@
  * (c) Copyright 1990 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1990 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1990 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -58,8 +61,8 @@
  */
 
 #define RPC_CN_ASSOC_GRP(grp_id)\
-    (rpc_cn_assoc_grp_t *)(RPC_CN_LOCAL_ID_VALID (grp_id)) ?\
-        &rpc_g_cn_assoc_grp_tbl.assoc_grp_vector[(grp_id).parts.id_index] : NULL;
+    (rpc_cn_assoc_grp_t *)((RPC_CN_LOCAL_ID_VALID (grp_id)) ?\
+        &rpc_g_cn_assoc_grp_tbl.assoc_grp_vector[(grp_id).parts.id_index] : NULL)
 
 /*
  * R P C _ C N _ A S S O C _ S Y N T A X _ E Q U A L

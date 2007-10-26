@@ -1,4 +1,4 @@
-Følgende forespørgsel om at blive medlem af listen skal vurderes
+Følgende anmodning om at blive medlem af listen skal vurderes
 af dig:
 
 
@@ -9,4 +9,4 @@ Når du får tid, gå ind på:
 
     %(admindb_url)s
 
-for at godkende eller afvise forespørgslen.
+for at godkende eller afvise anmodningen.

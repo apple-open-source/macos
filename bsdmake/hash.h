@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1988, 1989, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 1988, 1989 by Adam de Boor
@@ -37,8 +37,11 @@
  * SUCH DAMAGE.
  *
  *	@(#)hash.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.bin/make/hash.h,v 1.12 2002/09/17 21:29:06 jmallett Exp $
+ * $FreeBSD: src/usr.bin/make/hash.h,v 1.20 2005/05/13 08:53:00 harti Exp $
  */
+
+#ifndef hash_h_f6312f46
+#define	hash_h_f6312f46
 
 /* hash.h --
  *
@@ -46,40 +49,33 @@
  * 	which maintains hash tables.
  */
 
-#ifndef	_HASH
-#define	_HASH
+#include "util.h"
 
 /*
  * The following defines one entry in the hash table.
  */
-
 typedef struct Hash_Entry {
-    struct Hash_Entry *next;		/* Used to link together all the
-    					 * entries associated with the same
-					 * bucket. */
-    void *	      clientData;	/* Arbitrary piece of data associated
-    					 * with key. */
-    unsigned	      namehash;		/* hash value of key */
-    char	      name[1];		/* key string */
+	struct Hash_Entry *next;	/* Link entries within same bucket. */
+	void		*clientData;	/* Data associated with key. */
+	unsigned	namehash;	/* hash value of key */
+	char		name[1];	/* key string */
 } Hash_Entry;
 
 typedef struct Hash_Table {
-    struct Hash_Entry **bucketPtr;/* Pointers to Hash_Entry, one
-    				 * for each bucket in the table. */
-    int 	size;		/* Actual size of array. */
-    int 	numEntries;	/* Number of entries in the table. */
-    int 	mask;		/* Used to select bits for hashing. */
+	struct Hash_Entry **bucketPtr;	/* Buckets in the table */
+	int 		size;		/* Actual size of array. */
+	int 		numEntries;	/* Number of entries in the table. */
+	int 		mask;		/* Used to select bits for hashing. */
 } Hash_Table;
 
 /*
  * The following structure is used by the searching routines
  * to record where we are in the search.
  */
-
 typedef struct Hash_Search {
-    Hash_Table  *tablePtr;	/* Table being searched. */
-    int 	nextIndex;	/* Next bucket to check (after current). */
-    Hash_Entry 	*hashEntryPtr;	/* Next entry to check in current bucket. */
+	const Hash_Table *tablePtr;	/* Table being searched. */
+	int		nextIndex;	/* Next bucket to check */
+	Hash_Entry 	*hashEntryPtr;	/* Next entry in current bucket */
 } Hash_Search;
 
 /*
@@ -87,32 +83,21 @@ typedef struct Hash_Search {
  */
 
 /*
- * void * Hash_GetValue(h)
- *     Hash_Entry *h;
+ * void *Hash_GetValue(const Hash_Entry *h)
  */
-
 #define	Hash_GetValue(h) ((h)->clientData)
 
 /*
- * Hash_SetValue(h, val);
- *     Hash_Entry *h;
- *     char *val;
+ * Hash_SetValue(Hash_Entry *h, void *val);
  */
-
-#define	Hash_SetValue(h, val) ((h)->clientData = (void *) (val))
-
-/*
- * Hash_Size(n) returns the number of words in an object of n bytes
- */
-
-#define	Hash_Size(n)	(((n) + sizeof (int) - 1) / sizeof (int))
+#define	Hash_SetValue(h, val) ((h)->clientData = (val))
 
 void Hash_InitTable(Hash_Table *, int);
 void Hash_DeleteTable(Hash_Table *);
-Hash_Entry *Hash_FindEntry(Hash_Table *, char *);
-Hash_Entry *Hash_CreateEntry(Hash_Table *, char *, Boolean *);
+Hash_Entry *Hash_FindEntry(const Hash_Table *, const char *);
+Hash_Entry *Hash_CreateEntry(Hash_Table *, const char *, Boolean *);
 void Hash_DeleteEntry(Hash_Table *, Hash_Entry *);
-Hash_Entry *Hash_EnumFirst(Hash_Table *, Hash_Search *);
+Hash_Entry *Hash_EnumFirst(const Hash_Table *, Hash_Search *);
 Hash_Entry *Hash_EnumNext(Hash_Search *);
 
-#endif /* _HASH */
+#endif /* hash_h_f6312f46 */

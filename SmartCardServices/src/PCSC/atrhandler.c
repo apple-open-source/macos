@@ -44,7 +44,7 @@
  */
 
 short ATRDecodeAtr(PSMARTCARD_EXTENSION psExtension,
-	PUCHAR pucAtr, DWORD dwLength)
+	const unsigned char *pucAtr, DWORD dwLength)
 {
 
 	USHORT p;

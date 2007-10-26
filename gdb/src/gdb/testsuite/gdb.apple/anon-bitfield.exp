@@ -46,7 +46,7 @@ mi_run_to_main
 mi_next {Next so mine is initialized}
 
 mi_gdb_test "-var-create - * mine" {.*name="var1",numchild="1",type="Foo",typecode="STRUCT".*} {create variable for mine}
-mi_gdb_test "-var-list-children var1" {.*numchild="4",children=\[child=\{name="var1.public.f1",exp="f1".*\},child=\{name="var1.public.\#anon\#0",exp="".*\},child=\{name="var1.public.f2",exp="f2".*\},child=\{name="var1.public.\#anon\#1",exp="".*\}\]} {list children of mine}
+mi_gdb_test "-var-list-children var1" {(.*numchild="4",children=\[child=\{name="var1.public.f1",exp="f1".*\},child=\{name="var1.public.(\#anon\#[0-9])",exp="".*\},child=\{name="var1.public.f2",exp="f2".*\},child=\{name="var1.public.(\#anon\#[0-9])",exp="".*\}\])|(.*numchild="2",children=\[child=\{name="var1.public.f1",exp="f1".*\},child=\{name="var1.public.f2",exp="f2".*\}\])} {list children of mine}
 mi_gdb_test "-var-evaluate-expression var1.public.f1" {value="1 '\\\\001'"} {get value of mine.f1}
 mi_gdb_test "-var-evaluate-expression var1.public.f2" {value="5 '\\\\005'"} {get value of mine.f2}
 

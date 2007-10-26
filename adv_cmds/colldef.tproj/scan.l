@@ -1,4 +1,4 @@
-%x string name charmap defn nchar subs subs2
+%x string s_name charmap defn nchar subs subs2 ldef elem
 %{
 /*-
  * Copyright (c) 1995 Alex Tatmanjants <alex@elvisti.kiev.ua>
@@ -35,25 +35,80 @@ __FBSDID("$FreeBSD: src/usr.bin/colldef/scan.l,v 1.19 2002/08/23 04:18:26 ache E
 #include <limits.h>
 #include <unistd.h>
 #include <string.h>
+#include <wchar.h>
 #include <sysexits.h>
+#include <sys/types.h>
+#include "collate.h"
 #include "common.h"
 #include "y.tab.h"
 
 int line_no = 1, save_no, fromsubs;
-u_char buf[BUFSIZE], *ptr;
+wchar_t buf0[BUFSIZE], *ptr;
+wchar_t *buf = buf0;
+wchar_t bufstr[BUFSIZE], *ptrsave;
 FILE *map_fp;
 YY_BUFFER_STATE main_buf, map_buf;
 #ifdef FLEX_DEBUG
 YYSTYPE yylval;
 #endif /* FLEX_DEBUG */
 int yylex(void);
+static int localedefmode = 0;
+static orderpass = 0;
 %}
 %%
-<INITIAL,charmap,nchar,subs,subs2>[ \t]+      ;
-<subs2>\"               { ptr = buf; BEGIN(string); }
-<subs>\<                { ptr = buf; fromsubs = 1; BEGIN(name); }
-<INITIAL>\<             { ptr = buf; fromsubs = 0; BEGIN(name); }
-^#.*\n			line_no++;
+<INITIAL,charmap,nchar,subs,subs2,ldef>[ \t]+      ;
+<subs2,ldef>\"          { ptr = buf; BEGIN(string); }
+<string>\<             {
+	if(localedefmode) {
+		ptrsave = ptr;
+		ptr = buf = bufstr;
+		BEGIN(s_name);
+	} else {
+		if(ptr >= buf + BUFSIZE - 1)
+			errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '<'",
+			     line_no);
+		*ptr++ = '<';
+	}
+}
+<subs>\<                { ptr = buf; fromsubs = 1; BEGIN(s_name); }
+<ldef>[,;]		return *yytext;
+<ldef>forward	{ yylval.ch = DIRECTIVE_FORWARD; return ORDER_DIRECTIVE; }
+<ldef>backward	{ yylval.ch = DIRECTIVE_BACKWARD; return ORDER_DIRECTIVE; }
+<ldef>position	{ yylval.ch = DIRECTIVE_POSITION; return ORDER_DIRECTIVE; }
+<ldef>collating[-_]element	return COLLATING_ELEMENT;
+<ldef>collating[-_]symbol	return COLLATING_SYMBOL;
+<ldef>from		return FROM;
+<ldef>\.\.\.		return ELLIPSIS;
+<ldef>IGNORE		return IGNORE;
+<ldef>UNDEFINED		return UNDEFINED;
+<ldef>order[-_]start	return ORDER_START;
+<ldef>order[-_]end	{
+	char line[YY_BUF_SIZE];
+	if (orderpass)
+		return ORDER_END;
+	/* The first pass only defined the left-most symbol.  We reread the
+	 * order lines, and forward references should now be resolved. */
+	orderpass++;
+	YY_FLUSH_BUFFER;
+	rewind(yyin);
+	for(;;) {
+		if (fgets(line, sizeof(line), yyin) == NULL)
+			errx(EX_UNAVAILABLE, "EOF rescanning for order_start");
+		if (*line == '#')
+			continue;
+		if (strstr(line, "order_start") != NULL)
+			break;
+	}
+	return ORDER_SECOND_PASS;
+}
+<ldef>END[ \t]+LC_COLLATE return END_LC_COLLATE;
+<ldef>\n		{
+	line_no++;
+	return '\n';
+}
+<ldef>\<                { ptr = buf; BEGIN(elem); }
+<INITIAL>\<             { ptr = buf; fromsubs = 0; BEGIN(s_name); }
+<*>^#.*\n		line_no++;
 ^\n			line_no++;
 <INITIAL>\\\n           line_no++;
 <INITIAL,nchar,subs>\\t      { yylval.ch = '\t'; return CHAR; }
@@ -78,171 +133,225 @@ int yylex(void);
 }
 <INITIAL>[;,{}()]       return *yytext;
 <INITIAL>substitute     { BEGIN(subs); return SUBSTITUTE; }
+<INITIAL>LC_COLLATE	{ BEGIN(ldef); localedefmode++; return START_LC_COLLATE; }
 <subs>with              { BEGIN(subs2); return WITH; }
 <INITIAL>order          return ORDER;
-<INITIAL>charmap        BEGIN(charmap);
+<INITIAL,ldef>charmap   BEGIN(charmap);
 <INITIAL>;[ \t]*\.\.\.[ \t]*;   return RANGE;
-<INITIAL,nchar,subs>\\[0-7]{3}       {
+<INITIAL,nchar,subs>\\([0-7]{3})       {
 	u_int v;
 
 	sscanf(&yytext[1], "%o", &v);
-	yylval.ch = (u_char)v;
+	yylval.ch = v;
 	return CHAR;
 }
-<INITIAL,nchar,subs>\\x[0-9a-fA-F]{2}   {
+<INITIAL,nchar,subs>\\x\{([0-9a-fA-F]{2,8})\}   {
+	u_int v;
+
+	sscanf(&yytext[3], "%x", &v);
+	yylval.ch = v;
+	return CHAR;
+}
+<INITIAL,nchar,subs>\\x([0-9a-fA-F]{2})   {
 	u_int v;
 
 	sscanf(&yytext[2], "%x", &v);
-	yylval.ch = (u_char)v;
+	yylval.ch = v;
 	return CHAR;
 }
 <INITIAL,nchar,subs>\\. { yylval.ch = yytext[1]; return CHAR; }
-<INITIAL,nchar,subs>.   { yylval.ch = *yytext; return CHAR; }
-<defn>^#.*\n            line_no++;
+<INITIAL,nchar,subs>.   { yylval.ch = *(u_char *)yytext; return CHAR; }
+<defn>^\n		line_no++;
 <defn>[ \t]+            {
 	if (ptr == buf)
 		errx(EX_UNAVAILABLE, "map expected near line %u of %s",
 		     line_no, map_name);
-	*ptr = '\0';
-	strcpy(yylval.str, buf);
+	*ptr = 0;
+	if (localedefmode && *buf == '<' && ptr[-1] == '>') {
+		if (ptr == buf + 2)
+			errx(EX_UNAVAILABLE, "map expected near line %u of %s",
+		    	line_no, map_name);
+		*--ptr = 0;
+		wcscpy(yylval.str, buf + 1);
+	} else
+		wcscpy(yylval.str, buf);
 	BEGIN(nchar);
 	return DEFN;
 }
-<name>\/\/              {
-	if(ptr >= buf + sizeof(buf) - 1)
+<s_name,elem>\/\/         {
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "name buffer overflow near line %u, character '/'",
 		     line_no);
 	*ptr++ = '/';
 }
-<name>\/\>              {
-	if(ptr >= buf + sizeof(buf) - 1)
+<s_name,elem>\/\>         {
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "name buffer overflow near line %u, character '>'",
 		     line_no);
 	*ptr++ = '>';
 }
 <string>\\\"		{
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '\"'",
 		     line_no);
 	*ptr++ = '"';
 }
-<name>\>		{
-	u_int i;
+<elem>\>		{
+	if (ptr == buf)
+		errx(EX_UNAVAILABLE, "non-empty name expected near line %u",
+		     line_no);
+	*ptr = 0;
+	wcscpy(yylval.str, buf);
+	BEGIN(ldef);
+	return ELEM;
+}
+<s_name>\>		{
+	struct symbol *s;
 
 	if (ptr == buf)
 		errx(EX_UNAVAILABLE, "non-empty name expected near line %u",
 		     line_no);
-	*ptr = '\0';
-	for (i = 0; i <= UCHAR_MAX; i++) {
-		if (strcmp(charmap_table[i], buf) == 0)
-			goto findit;
+	*ptr = 0;
+	s = getsymbol(buf, EXISTS);
+	switch (s->type) {
+	case SYMBOL_CHAR:
+		break;
+	case SYMBOL_CHAIN:
+		errx(EX_UNAVAILABLE, "name <%s> is chain type near line %u",
+			showwcs(buf, CHARMAP_SYMBOL_LEN), line_no);
+	case SYMBOL_SYMBOL:
+		errx(EX_UNAVAILABLE, "name <%s> is symbol type near line %u",
+			showwcs(buf, CHARMAP_SYMBOL_LEN), line_no);
+	default:
+		errx(EX_UNAVAILABLE, "name <%s>: unknown symbol type (%d) near line %u",
+			showwcs(buf, CHARMAP_SYMBOL_LEN), s->type, line_no);
 	}
-	errx(EX_UNAVAILABLE, "name <%s> not 'charmap'-defined near line %u",
-		buf, line_no);
- findit:
-	yylval.ch = i;
-	if (fromsubs)
-		BEGIN(subs);
-	else
-		BEGIN(INITIAL);
-	return CHAR;
+	if (localedefmode) {
+		ptr = ptrsave;
+		buf = buf0;
+		if(ptr >= buf + BUFSIZE - 1)
+			errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character <%s>",
+			     line_no, showwcs(bufstr, CHARMAP_SYMBOL_LEN));
+		*ptr++ = s->u.wc;
+		BEGIN(string);
+	} else {
+		yylval.ch = s->u.wc;
+		if (fromsubs)
+			BEGIN(subs);
+		else
+			BEGIN(INITIAL);
+		return CHAR;
+	}
 }
 <string>\"		{
-	*ptr = '\0';
-	strcpy(yylval.str, buf);
-	BEGIN(subs2);
+	*ptr = 0;
+	wcscpy(yylval.str, buf);
+	if (localedefmode)
+		BEGIN(ldef);
+	else
+		BEGIN(subs2);
 	return STRING;
 }
-<name,defn>.            {
+<s_name,defn,elem>.       {
 	const char *s = (map_fp != NULL) ? map_name : "input";
 
 	if (!isascii(*yytext) || !isprint(*yytext))
 		errx(EX_UNAVAILABLE, "non-ASCII or non-printable character 0x%02x not allowed in the map/name near line %u of %s",
 		     *yytext, line_no, s);
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "map/name buffer overflow near line %u of %s, character '%c'",
 		     line_no, s, *yytext);
 	*ptr++ = *yytext;
 }
 <string>\\t             {
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '\\t'",
 		     line_no);
 	*ptr++ = '\t';
 }
 <string>\\b             {
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '\\b'",
 		     line_no);
 	*ptr++ = '\b';
 }
 <string>\\f             {
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '\\f'",
 		     line_no);
 	*ptr++ = '\f';
 }
 <string>\\v             {
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '\\v'",
 		     line_no);
 	*ptr++ = '\v';
 }
 <string>\\n             {
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '\\n'",
 		     line_no);
 	*ptr++ = '\n';
 }
 <string>\\r             {
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '\\r'",
 		     line_no);
 	*ptr++ = '\r';
 }
 <string>\\a             {
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '\\a'",
 		     line_no);
 	*ptr++ = '\a';
 }
-<name,string,defn>\n            {
+<s_name,string,defn,elem>\n       {
 	const char *s = (map_fp != NULL) ? map_name : "input";
 
 	errx(EX_UNAVAILABLE, "unterminated map/name/string near line %u of %s", line_no, s);
 }
-<name,string,nchar><<EOF>>      {
+<s_name,string,nchar,elem><<EOF>> {
 	const char *s = (map_fp != NULL) ? map_name : "input";
 
 	errx(EX_UNAVAILABLE, "premature EOF in the name/string/char near line %u of %s", line_no, s);
 }
-<string>\\x[0-9a-f]{2}          {
+<string>\\x\{([0-9a-f]{2,8})\}    {
+	u_int v;
+
+	sscanf(&yytext[3], "%x", &v);
+	*ptr++ = v;
+}
+<string>\\x([0-9a-f]{2})          {
 	u_int v;
 
 	sscanf(&yytext[2], "%x", &v);
-	*ptr++ = (u_char)v;
+	*ptr++ = v;
 }
-<string>\\[0-7]{3}              {
+<string>\\([0-7]{3})              {
 	u_int v;
 
 	sscanf(&yytext[1], "%o", &v);
-	*ptr++ = (u_char)v;
+	*ptr++ = v;
 }
 <string>\\.             {
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '%c'",
 		     line_no, yytext[1]);
 	*ptr++ = yytext[1];
 }
 <string>.               {
-	if(ptr >= buf + sizeof(buf) - 1)
+	if(ptr >= buf + BUFSIZE - 1)
 		errx(EX_UNAVAILABLE, "string buffer overflow near line %u, character '%c'",
 		     line_no, *yytext);
 	*ptr++ = *yytext;
 }
 <charmap>[^ \t\n]+	{
-	strcat(map_name, "/");
-	strcat(map_name, yytext);
+	if(*yytext == '/')
+		strcpy(map_name, yytext);
+	else {
+		strcat(map_name, "/");
+		strcat(map_name, yytext);
+	}
 	if((map_fp = fopen(map_name, "r")) == NULL)
 		err(EX_UNAVAILABLE, "can't open 'charmap' file %s",
 		    map_name);
@@ -271,7 +380,10 @@ int yylex(void);
 		fclose(map_fp);
 		map_fp = NULL;
 		line_no = save_no;
-		BEGIN(INITIAL);
+		if (localedefmode)
+			BEGIN(ldef);
+		else
+			BEGIN(INITIAL);
 	} else
 		yyterminate();
 }

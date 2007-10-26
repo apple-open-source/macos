@@ -1,13 +1,13 @@
+/*
+**********************************************************************
+*   Copyright (c) 2002-2006, International Business Machines
+*   Corporation and others.  All Rights Reserved.
+**********************************************************************
+*/
 //
 //  rbbitblb.cpp
 //
 
-/*
-**********************************************************************
-*   Copyright (c) 2002-2004, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-**********************************************************************
-*/
 
 #include "unicode/utypes.h"
 
@@ -20,6 +20,7 @@
 #include "rbbidata.h"
 #include "cstring.h"
 #include "uassert.h"
+#include "cmemory.h"
 
 U_NAMESPACE_BEGIN
 
@@ -75,9 +76,27 @@ void  RBBITableBuilder::build() {
     //   parse tree for the substition expression.
     //
     fTree = fTree->flattenVariables();
+#ifdef RBBI_DEBUG
     if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "ftree")) {
         RBBIDebugPuts("Parse tree after flattening variable references.");
         fTree->printTree(TRUE);
+    }
+#endif
+
+    //
+    // If the rules contained any references to {bof} 
+    //   add a {bof} <cat> <former root of tree> to the
+    //   tree.  Means that all matches must start out with the 
+    //   {bof} fake character.
+    // 
+    if (fRB->fSetBuilder->sawBOF()) {
+        RBBINode *bofTop    = new RBBINode(RBBINode::opCat);
+        RBBINode *bofLeaf   = new RBBINode(RBBINode::leafChar);
+        bofTop->fLeftChild  = bofLeaf;
+        bofTop->fRightChild = fTree;
+        bofLeaf->fParent    = bofTop;
+        bofLeaf->fVal       = 2;      // Reserved value for {bof}.
+        fTree               = bofTop;
     }
 
     //
@@ -97,10 +116,12 @@ void  RBBITableBuilder::build() {
     //      expression.
     //
     fTree->flattenSets();
+#ifdef RBBI_DEBUG
     if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "stree")) {
         RBBIDebugPuts("Parse tree after flattening Unicode Set references.");
         fTree->printTree(TRUE);
     }
+#endif
 
 
     //
@@ -124,6 +145,13 @@ void  RBBITableBuilder::build() {
     //
     if (fRB->fChainRules) {
         calcChainedFollowPos(fTree);
+    }
+
+    //
+    //  BOF (start of input) test fixup.
+    //
+    if (fRB->fSetBuilder->sawBOF()) {
+        bofFixup();
     }
 
     //
@@ -207,6 +235,9 @@ void RBBITableBuilder::calcFirstPos(RBBINode *n) {
         n->fType == RBBINode::lookAhead ||
         n->fType == RBBINode::tag) {
         // These are non-empty leaf node types.
+        // Note: In order to maintain the sort invariant on the set,
+        // this function should only be called on a node whose set is
+        // empty to start with.
         n->fFirstPosSet->addElement(n, *fStatus);
         return;
     }
@@ -250,6 +281,9 @@ void RBBITableBuilder::calcLastPos(RBBINode *n) {
         n->fType == RBBINode::lookAhead ||
         n->fType == RBBINode::tag) {
         // These are non-empty leaf node types.
+        // Note: In order to maintain the sort invariant on the set,
+        // this function should only be called on a node whose set is
+        // empty to start with.
         n->fLastPosSet->addElement(n, *fStatus);
         return;
     }
@@ -343,14 +377,21 @@ void RBBITableBuilder::calcChainedFollowPos(RBBINode *tree) {
     // get a list of all endmarker nodes.
     tree->findNodes(&endMarkerNodes, RBBINode::endMark, *fStatus);
 
-    // get a list all leaf nodes 
+    // get a list all leaf nodes
     tree->findNodes(&leafNodes, RBBINode::leafChar, *fStatus);
     if (U_FAILURE(*fStatus)) {
         return;
     }
 
-    // Get all nodes that can be the start a match, which is FirstPosition(root)
-    UVector *matchStartNodes = tree->fFirstPosSet;
+    // Get all nodes that can be the start a match, which is FirstPosition()
+    // of the portion of the tree corresponding to user-written rules.
+    // See the tree description in bofFixup().
+    RBBINode *userRuleRoot = tree;
+    if (fRB->fSetBuilder->sawBOF()) {
+        userRuleRoot = tree->fLeftChild->fRightChild;
+    }
+    U_ASSERT(userRuleRoot != NULL);
+    UVector *matchStartNodes = userRuleRoot->fFirstPosSet;
 
 
     // Iteratate over all leaf nodes,
@@ -383,10 +424,12 @@ void RBBITableBuilder::calcChainedFollowPos(RBBINode *tree) {
         //        into the rule file.
         if (fRB->fLBCMNoChain) {
             UChar32 c = this->fRB->fSetBuilder->getFirstChar(endNode->fVal);
-            U_ASSERT(c != -1);
-            ULineBreak cLBProp = (ULineBreak)u_getIntPropertyValue(c, UCHAR_LINE_BREAK);
-            if (cLBProp == U_LB_COMBINING_MARK) {
-                continue;
+            if (c != -1) {
+                // c == -1 occurs with sets containing only the {eof} marker string.
+                ULineBreak cLBProp = (ULineBreak)u_getIntPropertyValue(c, UCHAR_LINE_BREAK);
+                if (cLBProp == U_LB_COMBINING_MARK) {
+                    continue;
+                }
             }
         }
 
@@ -414,6 +457,62 @@ void RBBITableBuilder::calcChainedFollowPos(RBBINode *tree) {
     }
 }
 
+
+//-----------------------------------------------------------------------------
+//
+//   bofFixup.    Fixup for state tables that include {bof} beginning of input testing.
+//                Do an swizzle similar to chaining, modifying the followPos set of
+//                the bofNode to include the followPos nodes from other {bot} nodes
+//                scattered through the tree.
+//
+//                This function has much in common with calcChainedFollowPos().
+//
+//-----------------------------------------------------------------------------
+void RBBITableBuilder::bofFixup() {
+
+    if (U_FAILURE(*fStatus)) {
+        return;
+    }
+
+    //   The parse tree looks like this ...
+    //         fTree root  --->       <cat>
+    //                               /     \       .
+    //                            <cat>   <#end node>
+    //                           /     \  .
+    //                     <bofNode>   rest
+    //                               of tree
+    //
+    //    We will be adding things to the followPos set of the <bofNode>
+    //
+    RBBINode  *bofNode = fTree->fLeftChild->fLeftChild;
+    U_ASSERT(bofNode->fType == RBBINode::leafChar);
+    U_ASSERT(bofNode->fVal == 2);
+
+    // Get all nodes that can be the start a match of the user-written rules
+    //  (excluding the fake bofNode)
+    //  We want the nodes that can start a match in the
+    //     part labeled "rest of tree"
+    // 
+    UVector *matchStartNodes = fTree->fLeftChild->fRightChild->fFirstPosSet;
+
+    RBBINode *startNode;
+    int       startNodeIx;
+    for (startNodeIx = 0; startNodeIx<matchStartNodes->size(); startNodeIx++) {
+        startNode = (RBBINode *)matchStartNodes->elementAt(startNodeIx);
+        if (startNode->fType != RBBINode::leafChar) {
+            continue;
+        }
+
+        if (startNode->fVal == bofNode->fVal) {
+            //  We found a leaf node corresponding to a {bof} that was
+            //    explicitly written into a rule.
+            //  Add everything from the followPos set of this node to the
+            //    followPos set of the fake bofNode at the start of the tree.
+            //  
+            setAdd(bofNode->fFollowPos, startNode->fFollowPos);
+        }
+    }
+}
 
 //-----------------------------------------------------------------------------
 //
@@ -572,14 +671,29 @@ void     RBBITableBuilder::flagAcceptingStates() {
                 // Any non-zero value for fAccepting means this is an accepting node.
                 // The value is what will be returned to the user as the break status.
                 // If no other value was specified, force it to -1.
-                sd->fAccepting = endMarker->fVal;
-                if (sd->fAccepting == 0) {
-                    sd->fAccepting = -1;
+
+                if (sd->fAccepting==0) {
+                    // State hasn't been marked as accepting yet.  Do it now.
+                    sd->fAccepting = endMarker->fVal;
+                    if (sd->fAccepting == 0) {
+                        sd->fAccepting = -1;
+                    }
                 }
+                if (sd->fAccepting==-1 && endMarker->fVal != 0) {
+                    // Both lookahead and non-lookahead accepting for this state.
+                    // Favor the look-ahead.  Expedient for line break.
+                    // TODO:  need a more elegant resolution for conflicting rules.
+                    sd->fAccepting = endMarker->fVal;
+                }
+                // implicit else:
+                // if sd->fAccepting already had a value other than 0 or -1, leave it be.
 
                 // If the end marker node is from a look-ahead rule, set
                 //   the fLookAhead field or this state also.
                 if (endMarker->fLookAheadEnd) {
+                    // TODO:  don't change value if already set?
+                    // TODO:  allow for more than one active look-ahead rule in engine.
+                    //        Make value here an index to a side array in engine?
                     sd->fLookAhead = sd->fAccepting;
                 }
             }
@@ -644,7 +758,7 @@ void     RBBITableBuilder::flagTaggedStates() {
     }
     for (i=0; i<tagNodes.size(); i++) {                   // For each tag node t (all of 'em)
         tagNode = (RBBINode *)tagNodes.elementAt(i);
-        
+
         for (n=0; n<fDStates->size(); n++) {              //    For each state  s (row in the state table)
             RBBIStateDescriptor *sd = (RBBIStateDescriptor *)fDStates->elementAt(n);
             if (sd->fPositions->indexOf(tagNode) >= 0) {  //       if  s include the tag node t
@@ -686,9 +800,9 @@ void  RBBITableBuilder::mergeRuleStatusVals() {
         fRB->fRuleStatusVals->addElement(1, *fStatus);  // Num of statuses in group
         fRB->fRuleStatusVals->addElement((int32_t)0, *fStatus);  //   and our single status of zero
     }
-        
-    //    For each state 
-    for (n=0; n<fDStates->size(); n++) {     
+
+    //    For each state
+    for (n=0; n<fDStates->size(); n++) {
         RBBIStateDescriptor *sd = (RBBIStateDescriptor *)fDStates->elementAt(n);
         UVector *thisStatesTagValues = sd->fTagVals;
         if (thisStatesTagValues == NULL) {
@@ -704,7 +818,7 @@ void  RBBITableBuilder::mergeRuleStatusVals() {
         sd->fTagsIdx = -1;
         int32_t  thisTagGroupStart = 0;   // indexes into the global rule status vals list
         int32_t  nextTagGroupStart = 0;
-        
+
         // Loop runs once per group of tags in the global list
         while (nextTagGroupStart < fRB->fRuleStatusVals->size()) {
             thisTagGroupStart = nextTagGroupStart;
@@ -718,21 +832,21 @@ void  RBBITableBuilder::mergeRuleStatusVals() {
             // The lengths match, go ahead and compare the actual tag values
             //    between this state and the group from the global list.
             for (i=0; i<thisStatesTagValues->size(); i++) {
-                if (thisStatesTagValues->elementAti(i) != 
+                if (thisStatesTagValues->elementAti(i) !=
                     fRB->fRuleStatusVals->elementAti(thisTagGroupStart + 1 + i) ) {
-                    // Mismatch.  
+                    // Mismatch.
                     break;
                 }
             }
-            
+
             if (i == thisStatesTagValues->size()) {
                 // We found a set of tag values in the global list that match
                 //   those for this state.  Use them.
                 sd->fTagsIdx = thisTagGroupStart;
-                break;   
+                break;
             }
         }
-        
+
         if (sd->fTagsIdx == -1) {
             // No suitable entry in the global tag list already.  Add one
             sd->fTagsIdx = fRB->fRuleStatusVals->size();
@@ -788,23 +902,78 @@ void RBBITableBuilder::sortedAdd(UVector **vector, int32_t val) {
 //
 //  setAdd     Set operation on UVector
 //             dest = dest union source
-//             Elements may only appear once.   Order is unimportant.
+//             Elements may only appear once and must be sorted.
 //
 //-----------------------------------------------------------------------------
 void RBBITableBuilder::setAdd(UVector *dest, UVector *source) {
     int destOriginalSize = dest->size();
     int sourceSize       = source->size();
-    int32_t  si, di;
+    int32_t di           = 0;
+    void *(destS[16]), *(sourceS[16]);  // Handle small cases without malloc
+    void **destH = 0, **sourceH = 0;
+    void **destBuff, **sourceBuff;
+    void **destLim, **sourceLim;
 
-    for (si=0; si<sourceSize && U_SUCCESS(*fStatus); si++) {
-        void *elToAdd = source->elementAt(si);
-        for (di=0; di<destOriginalSize; di++) {
-            if (dest->elementAt(di) == elToAdd) {
-                goto  elementAlreadyInDest;
-            }
+    if (destOriginalSize > sizeof(destS)/sizeof(destS[0])) {
+        destH = (void **)uprv_malloc(sizeof(void *) * destOriginalSize);
+        destBuff = destH;
+    }
+    else {
+        destBuff = destS;
+    }
+    if (destBuff == 0) {
+        return;
+    }
+    destLim = destBuff + destOriginalSize;
+
+    if (sourceSize > sizeof(sourceS)/sizeof(sourceS[0])) {
+        sourceH = (void **)uprv_malloc(sizeof(void *) * sourceSize);
+        sourceBuff = sourceH;
+    }
+    else {
+        sourceBuff = sourceS;
+    }
+    if (sourceBuff == 0) {
+        if (destH) {
+            uprv_free(destH);
         }
-        dest->addElement(elToAdd, *fStatus);
-        elementAlreadyInDest: ;
+        return;
+    }
+    sourceLim = sourceBuff + sourceSize;
+
+    // Avoid multiple "get element" calls by getting the contents into arrays
+    (void) dest->toArray(destBuff);
+    (void) source->toArray(sourceBuff);
+
+    dest->setSize(sourceSize+destOriginalSize);
+
+    while (sourceBuff < sourceLim && destBuff < destLim) {
+        if (*destBuff < *sourceBuff) {
+            dest->setElementAt(*destBuff++, di++);
+        }
+        else if (*sourceBuff < *destBuff) {
+            dest->setElementAt(*sourceBuff++, di++);
+        }
+        else {
+            dest->setElementAt(*sourceBuff++, di++);
+            destBuff++;
+        }
+    }
+
+    // At most one of these two cleanup loops will execute
+    while (destBuff < destLim) {
+        dest->setElementAt(*destBuff++, di++);
+    }
+    while (sourceBuff < sourceLim) {
+        dest->setElementAt(*sourceBuff++, di++);
+    }
+
+    dest->setSize(di);
+    if (destH) {
+        uprv_free(destH);
+    }
+    if (sourceH) {
+        uprv_free(sourceH);
     }
 }
 
@@ -814,40 +983,11 @@ void RBBITableBuilder::setAdd(UVector *dest, UVector *source) {
 //
 //  setEqual    Set operation on UVector.
 //              Compare for equality.
-//              Elements may appear only once.
-//              Elements may appear in any order.
+//              Elements must be sorted.
 //
 //-----------------------------------------------------------------------------
 UBool RBBITableBuilder::setEquals(UVector *a, UVector *b) {
-    int32_t    aSize = a->size();
-    int32_t    bSize = b->size();
-
-    if (aSize != bSize) {
-        return FALSE;
-    }
-
-    int32_t  ax;
-    int32_t  bx;
-    int32_t  firstBx = 0;
-    void     *aVal;
-    void     *bVal = NULL;
-
-    for (ax=0; ax<aSize; ax++) {
-        aVal = a->elementAt(ax);
-        for (bx=firstBx; bx<bSize; bx++) {
-            bVal = b->elementAt(bx);
-            if (aVal == bVal) {
-                if (bx==firstBx) {
-                    firstBx++;
-                }
-                break;
-            }
-        }
-        if (aVal != bVal) {
-            return FALSE;
-        }
-    }
-    return TRUE;
+    return a->equals(*b);
 }
 
 
@@ -941,6 +1081,9 @@ void RBBITableBuilder::exportTable(void *where) {
     if (fRB->fLookAheadHardBreak) {
         table->fFlags  |= RBBI_LOOKAHEAD_HARD_BREAK;
     }
+    if (fRB->fSetBuilder->sawBOF()) {
+        table->fFlags  |= RBBI_BOF_REQUIRED;
+    }
     table->fReserved  = 0;
 
     for (state=0; state<table->fNumStates; state++) {
@@ -1027,7 +1170,7 @@ void RBBITableBuilder::printRuleStatusTable() {
 
     RBBIDebugPrintf("index |  tags \n");
     RBBIDebugPrintf("-------------------\n");
-    
+
     while (nextRecord < tbl->size()) {
         thisRecord = nextRecord;
         nextRecord = thisRecord + tbl->elementAti(thisRecord) + 1;
@@ -1057,7 +1200,7 @@ RBBIStateDescriptor::RBBIStateDescriptor(int lastInputSymbol, UErrorCode *fStatu
     fTagVals   = NULL;
     fPositions = NULL;
     fDtran     = NULL;
-    
+
     fDtran     = new UVector(lastInputSymbol+1, *fStatus);
     if (U_FAILURE(*fStatus)) {
         return;

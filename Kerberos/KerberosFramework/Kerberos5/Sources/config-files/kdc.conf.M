@@ -57,9 +57,13 @@ port 88 and port 750.
 .IP v4_mode
 This 
 .B string
-specifies how the KDC should respond to Kerberos IV packets. If this
-relation is not specified, the compiled-in default of
-.I nopreauth 
+specifies how the KDC should respond to Kerberos IV packets. Valid
+values for this relation are the same as the valid arguments to the
+.B -4
+flag to
+.BR krb5kdc .
+If this relation is not specified, the compiled-in default of
+.I none
 is used.
 
 .SH REALMS SECTION
@@ -78,14 +82,14 @@ This
 .B string
 specifies the location of the access control list (acl) file that
 kadmin uses to determine which principals are allowed which permissions
-on the database. The default value is /usr/local/var/krb5kdc/kadm5.acl.
+on the database. The default value is /var/db/krb5kdc/kadm5.acl.
 
 .IP admin_keytab
 This
 .B string
 Specifies the location of the keytab file that kadmin uses to
 authenticate to the database.  The default value is
-/usr/local/var/krb5kdc/kadm5.keytab.
+/var/db/krb5kdc/kadm5.keytab.
 
 .IP database_name
 This
@@ -234,8 +238,12 @@ specifies whether or not the list of transited realms for cross-realm
 tickets should be checked against the transit path computed from the
 realm names and the [capaths] section of its krb5.conf file
 
+.SH DATE FORMAT
+For valid date format examples (both absolute time and delta time), please
+see the DATE FORMAT section of the kadmin manpage.
+
 .SH FILES 
-/usr/local/var/krb5kdc/kdc.conf
+/var/db/krb5kdc/kdc.conf
 
 .SH SEE ALSO
-krb5.conf(5), krb5kdc(8)
+krb5.conf(5), krb5kdc(8), kadmin(8)

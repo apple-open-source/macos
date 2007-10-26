@@ -8,7 +8,7 @@ UserType              = Administration
 ToolType              = Commands
 Extra_Configure_Flags = --disable-nls
 Extra_CC_Flags        = -mdynamic-no-pic
-GnuAfterInstall       = install-html install-plist fix-egrep
+GnuAfterInstall       = install-html install-plist fix-egrep install-symbol
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -27,7 +27,8 @@ AEP_Version    = 2.5.1
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = doc__Makefile.in.diff doc__grep.1.diff src__dfa.c.diff PR-3715846.diff PR-3716425.diff
+Fedora_Patches = grep-2.5.1-fgrep.patch grep-2.5.1-bracket.patch grep-2.5-i18n.patch grep-2.5.1-egf-speedup.patch
+AEP_Patches    = doc__Makefile.in.diff doc__grep.1.diff src__dfa.c.diff PR-3715846.diff PR-3716425.diff PR-3716570.diff PR-3934152.diff PR-4053512.diff 
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -41,8 +42,11 @@ ifeq ($(AEP),YES)
 	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
+	for patchfile in $(Fedora_Patches); do \
+		cd $(SRCROOT)/$(Project) && patch -p1 < $(SRCROOT)/patches/$$patchfile || exit 1; \
+	done
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 endif
 
@@ -60,3 +64,6 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(Project).txt
+
+install-symbol:
+	$(CP) $(OBJROOT)/src/grep $(SYMROOT)

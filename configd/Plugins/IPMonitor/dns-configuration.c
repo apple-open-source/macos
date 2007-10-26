@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,9 +49,79 @@
 #include <dnsinfo.h>
 #include <dnsinfo_create.h>
 
+#include <dns_sd.h>
+#ifndef	kDNSServiceCompPrivateDNS
+#define	kDNSServiceCompPrivateDNS	"PrivateDNS"
+#endif
 
 /* pre-defined (supplemental) resolver configurations */
-static  CFArrayRef      S_predefined  = NULL;
+static  CFArrayRef      S_predefined	= NULL;
+
+/* private DNS resolver configurations */
+static	CFNumberRef	S_pdns_timeout	= NULL;
+
+
+static void
+add_resolver(CFMutableArrayRef supplemental, CFMutableDictionaryRef resolver)
+{
+	CFIndex		i;
+	CFIndex		n_supplemental;
+	CFNumberRef	order;
+	uint32_t	order_val	= 0;
+
+	order = CFDictionaryGetValue(resolver, kSCPropNetDNSSearchOrder);
+	if (!isA_CFNumber(order) ||
+	    !CFNumberGetValue(order, kCFNumberIntType, &order_val)) {
+		order     = NULL;
+		order_val = 0;
+	}
+
+	n_supplemental = CFArrayGetCount(supplemental);
+	for (i = 0; i < n_supplemental; i++) {
+		CFDictionaryRef		supplemental_resolver;
+
+		supplemental_resolver = CFArrayGetValueAtIndex(supplemental, i);
+		if (CFEqual(resolver, supplemental_resolver)) {
+			// a real duplicate
+			return;
+		}
+
+		if (order != NULL) {
+			CFMutableDictionaryRef	compare;
+			Boolean			match;
+
+			compare = CFDictionaryCreateMutableCopy(NULL, 0, supplemental_resolver);
+			CFDictionarySetValue(compare, kSCPropNetDNSSearchOrder, order);
+			match = CFEqual(resolver, compare);
+			CFRelease(compare);
+			if (match) {
+				CFNumberRef	supplemental_order;
+				uint32_t	supplemental_order_val	= 0;
+
+				// if only the search order's are different
+				supplemental_order = CFDictionaryGetValue(supplemental_resolver, kSCPropNetDNSSearchOrder);
+				if (!isA_CFNumber(supplemental_order) ||
+				    !CFNumberGetValue(supplemental_order, kCFNumberIntType, &supplemental_order_val)) {
+					supplemental_order_val = 0;
+				}
+
+				if (order_val < supplemental_order_val ) {
+					// if we should prefer this match resolver, else just skip it
+					CFArraySetValueAtIndex(supplemental, i, resolver);
+				}
+
+				return;
+			}
+		}
+	}
+
+	order = CFNumberCreate(NULL, kCFNumberIntType, &n_supplemental);
+	CFDictionarySetValue(resolver, CFSTR("*ORDER*"), order);
+	CFRelease(order);
+
+	CFArrayAppendValue(supplemental, resolver);
+	return;
+}
 
 
 static void
@@ -61,7 +131,6 @@ add_supplemental(CFMutableArrayRef supplemental, CFDictionaryRef dns, uint32_t d
 	CFIndex		i;
 	CFIndex		n_domains;
 	CFArrayRef	orders;
-
 
 	domains = CFDictionaryGetValue(dns, kSCPropNetDNSSupplementalMatchDomains);
 	n_domains = isA_CFArray(domains) ? CFArrayGetCount(domains) : 0;
@@ -81,12 +150,9 @@ add_supplemental(CFMutableArrayRef supplemental, CFDictionaryRef dns, uint32_t d
 	 * the match domains and add each to the supplemental list.
 	 */
 	for (i = 0; i < n_domains; i++) {
-		CFIndex			j;
 		CFStringRef		match_domain;
 		CFNumberRef		match_order;
-		uint32_t		match_order_val	= 0;
 		CFMutableDictionaryRef	match_resolver;
-		CFIndex			n_supplemental;
 
 		match_domain = CFArrayGetValueAtIndex(domains, i);
 		if (!isA_CFString(match_domain)) {
@@ -96,10 +162,21 @@ add_supplemental(CFMutableArrayRef supplemental, CFDictionaryRef dns, uint32_t d
 		match_order = (orders != NULL) ? CFArrayGetValueAtIndex(orders, i) : NULL;
 
 		match_resolver = CFDictionaryCreateMutableCopy(NULL, 0, dns);
+
+		// remove keys we don't want in a supplemental resolver
 		CFDictionaryRemoveValue(match_resolver, kSCPropNetDNSSupplementalMatchDomains);
 		CFDictionaryRemoveValue(match_resolver, kSCPropNetDNSSupplementalMatchOrders);
 		CFDictionaryRemoveValue(match_resolver, kSCPropNetDNSSearchDomains);
-		CFDictionarySetValue(match_resolver, kSCPropNetDNSDomainName, match_domain);
+		CFDictionaryRemoveValue(match_resolver, kSCPropNetDNSSortList);
+
+		// set supplemental resolver "domain"
+		if (CFStringGetLength(match_domain) > 0) {
+			CFDictionarySetValue(match_resolver, kSCPropNetDNSDomainName, match_domain);
+		} else {
+			CFDictionaryRemoveValue(match_resolver, kSCPropNetDNSDomainName);
+		}
+
+		// set supplemental resolver "search_order"
 		if (isA_CFNumber(match_order)) {
 			CFDictionarySetValue(match_resolver, kSCPropNetDNSSearchOrder, match_order);
 		} else if (!CFDictionaryContainsKey(match_resolver, kSCPropNetDNSSearchOrder)) {
@@ -111,61 +188,8 @@ add_supplemental(CFMutableArrayRef supplemental, CFDictionaryRef dns, uint32_t d
 
 			defaultOrder++;		// if multiple domains, maintain ordering
 		}
-
-		match_order = CFDictionaryGetValue(match_resolver, kSCPropNetDNSSearchOrder);
-		if (!isA_CFNumber(match_order) ||
-		    !CFNumberGetValue(match_order, kCFNumberIntType, &match_order_val)) {
-			match_order     = NULL;
-			match_order_val = 0;
-		}
-
-		n_supplemental = CFArrayGetCount(supplemental);
-		for (j = 0; j < n_supplemental; j++) {
-			CFMutableDictionaryRef	compare;
-			Boolean			match;
-			CFDictionaryRef		supplemental_resolver;
-
-			supplemental_resolver = CFArrayGetValueAtIndex(supplemental, j);
-			if (CFEqual(match_resolver, supplemental_resolver)) {
-				// a real duplicate
-				CFRelease(match_resolver);
-				match_resolver = NULL;
-				break;
-			}
-
-			compare = CFDictionaryCreateMutableCopy(NULL, 0, supplemental_resolver);
-			if (match_order != NULL) {
-				CFDictionarySetValue(compare, kSCPropNetDNSSearchOrder, match_order);
-			}
-			match = CFEqual(match_resolver, compare);
-			CFRelease(compare);
-
-			if (match) {
-				CFNumberRef	supplemental_order;
-				uint32_t	supplemental_order_val	= 0;
-
-				// if only the search order's are different
-				supplemental_order = CFDictionaryGetValue(supplemental_resolver, kSCPropNetDNSSearchOrder);
-				if (!isA_CFNumber(supplemental_order) ||
-				    !CFNumberGetValue(supplemental_order, kCFNumberIntType, &supplemental_order_val)) {
-					supplemental_order_val = 0;
-				}
-
-				if (match_order_val < supplemental_order_val ) {
-					// if we should prefer this match resolver, else just skip it
-					CFArraySetValueAtIndex(supplemental, j, match_resolver);
-				}
-
-				CFRelease(match_resolver);
-				match_resolver = NULL;
-				break;
-			}
-		}
-
-		if (match_resolver != NULL) {
-			CFArrayAppendValue(supplemental, match_resolver);
-			CFRelease(match_resolver);
-		}
+		add_resolver(supplemental, match_resolver);
+		CFRelease(match_resolver);
 	}
 
 	return;
@@ -192,9 +216,9 @@ add_predefined_resolvers(CFMutableArrayRef supplemental)
 			continue;
 		}
 
-		defaultOrder = DEFAULT_SEARCH_ORDER +
-			       (DEFAULT_SEARCH_ORDER / 2) +
-			       ((DEFAULT_SEARCH_ORDER / 1000) * i);
+		defaultOrder = DEFAULT_SEARCH_ORDER
+			       + (DEFAULT_SEARCH_ORDER / 2)
+			       + ((DEFAULT_SEARCH_ORDER / 1000) * i);
 		add_supplemental(supplemental, dns, defaultOrder);
 	}
 
@@ -243,9 +267,9 @@ add_supplemental_resolvers(CFMutableArrayRef supplemental, CFDictionaryRef servi
 			continue;
 		}
 
-		defaultOrder = DEFAULT_SEARCH_ORDER -
-			       (DEFAULT_SEARCH_ORDER / 2) +
-			       ((DEFAULT_SEARCH_ORDER / 1000) * i);
+		defaultOrder = DEFAULT_SEARCH_ORDER
+			       - (DEFAULT_SEARCH_ORDER / 2)
+			       + ((DEFAULT_SEARCH_ORDER / 1000) * i);
 		if ((n_order > 0) &&
 		    !CFArrayContainsValue(service_order, CFRangeMake(0, n_order), keys[i])) {
 			// push out services not specified in service order
@@ -264,28 +288,85 @@ add_supplemental_resolvers(CFMutableArrayRef supplemental, CFDictionaryRef servi
 }
 
 
+static void
+add_private_resolvers(CFMutableArrayRef supplemental, CFArrayRef privateResolvers)
+{
+	CFIndex	i;
+	CFIndex	n;
+
+	n = isA_CFArray(privateResolvers) ? CFArrayGetCount(privateResolvers) : 0;
+	for (i = 0; i < n; i++) {
+		uint32_t		defaultOrder;
+		CFStringRef		domain;
+		CFNumberRef		num;
+		CFMutableDictionaryRef	resolver;
+
+		domain = CFArrayGetValueAtIndex(privateResolvers, i);
+		if (!isA_CFString(domain) || (CFStringGetLength(domain) == 0)) {
+			continue;
+		}
+
+		defaultOrder = DEFAULT_SEARCH_ORDER
+			       - (DEFAULT_SEARCH_ORDER / 4)
+			       + ((DEFAULT_SEARCH_ORDER / 1000) * i);
+
+		resolver = CFDictionaryCreateMutable(NULL,
+						     0,
+						     &kCFTypeDictionaryKeyCallBacks,
+						     &kCFTypeDictionaryValueCallBacks);
+		CFDictionarySetValue(resolver, kSCPropNetDNSDomainName, domain);
+		CFDictionarySetValue(resolver, kSCPropNetDNSOptions, CFSTR("pdns"));
+		num = CFNumberCreate(NULL, kCFNumberIntType, &defaultOrder);
+		CFDictionarySetValue(resolver, kSCPropNetDNSSearchOrder, num);
+		CFRelease(num);
+		if (S_pdns_timeout != NULL) {
+			CFDictionarySetValue(resolver, kSCPropNetDNSServerTimeout, S_pdns_timeout);
+		}
+		add_resolver(supplemental, resolver);
+		CFRelease(resolver);
+	}
+
+	return;
+}
+
+
 static CFComparisonResult
 compareBySearchOrder(const void *val1, const void *val2, void *context)
 {
 	CFDictionaryRef	dns1	= (CFDictionaryRef)val1;
 	CFDictionaryRef	dns2	= (CFDictionaryRef)val2;
-	CFNumberRef	num;
+	CFNumberRef	num1;
+	CFNumberRef	num2;
 	uint32_t	order1	= DEFAULT_SEARCH_ORDER;
 	uint32_t	order2	= DEFAULT_SEARCH_ORDER;
 
-	num = CFDictionaryGetValue(dns1, kSCPropNetDNSSearchOrder);
-	if (!isA_CFNumber(num) ||
-	    !CFNumberGetValue(num, kCFNumberIntType, &order1)) {
+	num1 = CFDictionaryGetValue(dns1, kSCPropNetDNSSearchOrder);
+	if (!isA_CFNumber(num1) ||
+	    !CFNumberGetValue(num1, kCFNumberIntType, &order1)) {
 		order1 = DEFAULT_SEARCH_ORDER;
 	}
 
-	num = CFDictionaryGetValue(dns2, kSCPropNetDNSSearchOrder);
-	if (!isA_CFNumber(num) ||
-	    !CFNumberGetValue(num, kCFNumberIntType, &order2)) {
+	num2 = CFDictionaryGetValue(dns2, kSCPropNetDNSSearchOrder);
+	if (!isA_CFNumber(num2) ||
+	    !CFNumberGetValue(num2, kCFNumberIntType, &order2)) {
 		order2 = DEFAULT_SEARCH_ORDER;
 	}
 
 	if (order1 == order2) {
+		// if same "SearchOrder", retain original orderring for configurations
+		if (CFDictionaryGetValueIfPresent(dns1, CFSTR("*ORDER*"), (const void **)&num1) &&
+		    CFDictionaryGetValueIfPresent(dns2, CFSTR("*ORDER*"), (const void **)&num2) &&
+		    isA_CFNumber(num1) &&
+		    isA_CFNumber(num2) &&
+		    CFNumberGetValue(num1, kCFNumberIntType, &order1) &&
+		    CFNumberGetValue(num2, kCFNumberIntType, &order2)) {
+			if (order1 == order2) {
+				return kCFCompareEqualTo;
+			} else {
+				return (order1 < order2) ? kCFCompareLessThan : kCFCompareGreaterThan;
+			}
+		}
+
 		return kCFCompareEqualTo;
 	}
 
@@ -297,32 +378,37 @@ static CFStringRef
 trimDomain(CFStringRef domain)
 {
 	CFIndex	length;
-	CFRange	range;
-	Boolean	trimmed	= FALSE;
 
 	if (!isA_CFString(domain)) {
 		return NULL;
 	}
 
-	// remove trailing dots
+	// remove any leading/trailing dots
 	length = CFStringGetLength(domain);
-	while (CFStringFindWithOptions(domain,
-				       CFSTR("."),
-				       CFRangeMake(0, length),
-				       kCFCompareAnchored|kCFCompareBackwards,
-				       &range)) {
-		trimmed = TRUE;
-		length = range.location;
+	if ((length > 0) &&
+	    (CFStringFindWithOptions(domain,
+				     CFSTR("."),
+				     CFRangeMake(0, 1),
+				     kCFCompareAnchored,
+				     NULL) ||
+	     CFStringFindWithOptions(domain,
+				     CFSTR("."),
+				     CFRangeMake(0, length),
+				     kCFCompareAnchored|kCFCompareBackwards,
+				     NULL))) {
+		CFMutableStringRef	trimmed;
+
+		trimmed = CFStringCreateMutableCopy(NULL, 0, domain);
+		CFStringTrim(trimmed, CFSTR("."));
+		domain = (CFStringRef)trimmed;
+		length = CFStringGetLength(domain);
+	} else {
+		CFRetain(domain);
 	}
 
 	if (length == 0) {
-		return NULL;
-	}
-
-	if (trimmed) {
-		domain = CFStringCreateWithSubstring(NULL, domain, CFRangeMake(0, length));
-	} else {
-		CFRetain(domain);
+		CFRelease(domain);
+		domain = NULL;
 	}
 
 	return domain;
@@ -426,10 +512,17 @@ update_search_domains(CFMutableDictionaryRef *defaultDomain, CFArrayRef suppleme
 		CFDictionaryRef dns;
 		CFIndex		domainIndex;
 		CFNumberRef	num;
+		CFStringRef	options;
 		CFStringRef	supplementalDomain;
 		uint32_t	supplementalOrder;
 
 		dns = CFArrayGetValueAtIndex(mySupplemental, i);
+
+		options = CFDictionaryGetValue(dns, kSCPropNetDNSOptions);
+		if (isA_CFString(options) && CFEqual(options, CFSTR("pdns"))) {
+			// don't add private resolver domains to the search list
+			continue;
+		}
 
 		supplementalDomain = CFDictionaryGetValue(dns, kSCPropNetDNSDomainName);
 		supplementalDomain = trimDomain(supplementalDomain);
@@ -505,7 +598,7 @@ create_resolver(CFDictionaryRef dns)
 
 	// process domain
 	str = CFDictionaryGetValue(dns, kSCPropNetDNSDomainName);
-	if (isA_CFString(str)) {
+	if (isA_CFString(str) && (CFStringGetLength(str) > 0)) {
 		char	domain[NS_MAXDNAME];
 
 		if (_SC_cfstring_to_cstring(str, domain, sizeof(domain), kCFStringEncodingUTF8) != NULL) {
@@ -522,7 +615,7 @@ create_resolver(CFDictionaryRef dns)
 		// add "search" domains
 		for (i = 0; i < n; i++) {
 			str = CFArrayGetValueAtIndex(list, i);
-			if (isA_CFString(str)) {
+			if (isA_CFString(str) && (CFStringGetLength(str) > 0)) {
 				char	search[NS_MAXDNAME];
 
 				if (_SC_cfstring_to_cstring(str, search, sizeof(search), kCFStringEncodingUTF8) != NULL) {
@@ -629,7 +722,8 @@ __private_extern__
 void
 dns_configuration_set(CFDictionaryRef   defaultResolver,
 		      CFDictionaryRef   services,
-		      CFArrayRef	serviceOrder)
+		      CFArrayRef	serviceOrder,
+		      CFArrayRef	privateResolvers)
 {
 	CFIndex			i;
 	CFMutableDictionaryRef	myDefault;
@@ -690,13 +784,17 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		CFDictionaryRemoveValue(mySupplemental, kSCPropNetDNSSearchDomains);
 		CFDictionaryRemoveValue(mySupplemental, kSCPropNetDNSSupplementalMatchDomains);
 		CFDictionaryRemoveValue(mySupplemental, kSCPropNetDNSSupplementalMatchOrders);
-		CFArrayAppendValue(supplemental, mySupplemental);
+		add_resolver(supplemental, mySupplemental);
 		CFRelease(mySupplemental);
 	}
 
 	// collect (and add) any supplemental resolver configurations
 
 	add_supplemental_resolvers(supplemental, services, serviceOrder);
+
+	// collect (and add) any "private" resolver configurations
+
+	add_private_resolvers(supplemental, privateResolvers);
 
 	// update the "search" list
 
@@ -755,7 +853,7 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		 * if no default or supplemental resolvers
 		 */
 		if (!_dns_configuration_store(NULL)) {
-			SCLog(TRUE, LOG_ERR, CFSTR("set_dns_configuration: could not store configuration"));
+			SCLog(TRUE, LOG_ERR, CFSTR("dns_configuration_set: could not store configuration"));
 		}
 	} else {
 		dns_create_config_t	_config;
@@ -788,7 +886,7 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		// save configuration
 
 		if (!_dns_configuration_store(&_config)) {
-			SCLog(TRUE, LOG_ERR, CFSTR("set_dns_configuration() failed: could not store configuration"));
+			SCLog(TRUE, LOG_ERR, CFSTR("dns_configuration_set: could not store configuration"));
 		}
 
 		_dns_configuration_free(&_config);
@@ -845,7 +943,135 @@ __private_extern__
 void
 dns_configuration_init(CFBundleRef bundle)
 {
+	CFDictionaryRef	dict;
+
+	dict = CFBundleGetInfoDictionary(bundle);
+	if (isA_CFDictionary(dict)) {
+		S_pdns_timeout = CFDictionaryGetValue(dict, CFSTR("pdns_timeout"));
+		S_pdns_timeout = isA_CFNumber(S_pdns_timeout);
+	}
+
 	load_predefined_resolvers(bundle);
 	return;
 }
+
+
+#ifdef	MAIN
+#undef	MAIN
+
+static void
+split(const void * key, const void * value, void * context)
+{
+	CFArrayRef		components;
+	CFStringRef		entity_id;
+	CFStringRef		service_id;
+	CFMutableDictionaryRef	state_dict;
+
+	components = CFStringCreateArrayBySeparatingStrings(NULL, (CFStringRef)key, CFSTR("/"));
+	service_id = CFArrayGetValueAtIndex(components, 3);
+	entity_id  = CFArrayGetValueAtIndex(components, 4);
+	state_dict = CFDictionaryCreateMutable(NULL,
+					       0,
+					       &kCFTypeDictionaryKeyCallBacks,
+					       &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(state_dict, entity_id, (CFDictionaryRef)value);
+	CFDictionarySetValue((CFMutableDictionaryRef)context, service_id, state_dict);
+	CFRelease(state_dict);
+	CFRelease(components);
+
+	return;
+}
+
+int
+main(int argc, char **argv)
+{
+	CFDictionaryRef		entities;
+	CFStringRef		key;
+	CFStringRef		pattern;
+	CFMutableArrayRef	patterns;
+	CFStringRef		primary		= NULL;
+	CFDictionaryRef		primaryDNS	= NULL;
+	CFArrayRef		private_resolvers;
+	CFArrayRef		service_order	= NULL;
+	CFMutableDictionaryRef	service_state_dict;
+	CFDictionaryRef		setup_global_ipv4;
+	CFDictionaryRef		state_global_ipv4;
+	SCDynamicStoreRef	store;
+
+	_sc_log     = FALSE;
+	_sc_verbose = (argc > 1) ? TRUE : FALSE;
+
+	store = SCDynamicStoreCreate(NULL, CFSTR("TEST"), NULL, NULL);
+
+	// get DNS entities
+	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							      kSCDynamicStoreDomainState,
+							      kSCCompAnyRegex,
+							      kSCEntNetDNS);
+	patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayAppendValue(patterns, pattern);
+	CFRelease(pattern);
+	entities = SCDynamicStoreCopyMultiple(store, NULL, patterns);
+	CFRelease(patterns);
+
+	service_state_dict = CFDictionaryCreateMutable(NULL,
+						       0,
+						       &kCFTypeDictionaryKeyCallBacks,
+						       &kCFTypeDictionaryValueCallBacks);
+	CFDictionaryApplyFunction(entities, split, service_state_dict);
+	CFRelease(entities);
+
+	// get primary service ID
+	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+							 kSCDynamicStoreDomainState,
+							 kSCEntNetIPv4);
+	state_global_ipv4 = SCDynamicStoreCopyValue(store, key);
+	CFRelease(key);
+	if (state_global_ipv4 != NULL) {
+		primary = CFDictionaryGetValue(state_global_ipv4, kSCDynamicStorePropNetPrimaryService);
+		if (primary != NULL) {
+			CFDictionaryRef	service_dict;
+
+			// get DNS configuration for primary service
+			service_dict = CFDictionaryGetValue(service_state_dict, primary);
+			if (service_dict != NULL) {
+				primaryDNS = CFDictionaryGetValue(service_dict, kSCEntNetDNS);
+			}
+		}
+	}
+
+	// get serviceOrder
+	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+							 kSCDynamicStoreDomainSetup,
+							 kSCEntNetIPv4);
+	setup_global_ipv4 = SCDynamicStoreCopyValue(store, key);
+	CFRelease(key);
+	if (setup_global_ipv4 != NULL) {
+		service_order = CFDictionaryGetValue(setup_global_ipv4, kSCPropNetServiceOrder);
+	}
+
+	// get private resolvers
+	key = SCDynamicStoreKeyCreate(NULL, CFSTR("%@/%@/%@"),
+				      kSCDynamicStoreDomainState,
+				      kSCCompNetwork,
+				      CFSTR(kDNSServiceCompPrivateDNS));
+	private_resolvers = SCDynamicStoreCopyValue(store, key);
+	CFRelease(key);
+
+	// update DNS configuration
+	dns_configuration_init(CFBundleGetMainBundle());
+	dns_configuration_set(primaryDNS, service_state_dict, service_order, private_resolvers);
+
+	// cleanup
+	if (setup_global_ipv4 != NULL)	CFRelease(setup_global_ipv4);
+	if (state_global_ipv4 != NULL)	CFRelease(state_global_ipv4);
+	if (private_resolvers != NULL)	CFRelease(private_resolvers);
+	CFRelease(service_state_dict);
+	CFRelease(store);
+
+	/* not reached */
+	exit(0);
+	return 0;
+}
+#endif
 

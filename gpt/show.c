@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 2002 Marcel Moolenaar
  * All rights reserved.
  *
@@ -25,10 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/sbin/gpt/show.c,v 1.11 2004/10/25 02:23:39 marcel Exp $");
-#endif
+__FBSDID("$FreeBSD: src/sbin/gpt/show.c,v 1.11.2.2 2006/07/07 03:30:37 marcel Exp $");
 
 #include <sys/types.h>
 
@@ -42,12 +39,19 @@ __FBSDID("$FreeBSD: src/sbin/gpt/show.c,v 1.11 2004/10/25 02:23:39 marcel Exp $"
 #include "map.h"
 #include "gpt.h"
 
+static int show_label = 0;
+static int show_uuid = 0;
+
 static void
 usage_show(void)
 {
 
 	fprintf(stderr,
-	    "usage: %s device ...\n", getprogname());
+#ifdef __APPLE__
+	    "usage: %s [-l] device ...\n", getprogname());
+#else
+	    "usage: %s [-lu] device ...\n", getprogname());
+#endif
 	exit(1);
 }
 
@@ -55,11 +59,16 @@ static const char *
 friendly(uuid_t *t)
 {
 #ifdef __APPLE__
-	static char buf[80];
+	static char buf[40];
+
+	uuid_unparse(*t, buf);
+
+	return (buf);
 #else
 	static uuid_t efi_slice = GPT_ENT_TYPE_EFI;
 	static uuid_t mslinux = GPT_ENT_TYPE_MS_BASIC_DATA;
 	static uuid_t freebsd = GPT_ENT_TYPE_FREEBSD;
+	static uuid_t hfs = GPT_ENT_TYPE_APPLE_HFS;
 	static uuid_t linuxswap = GPT_ENT_TYPE_LINUX_SWAP;
 	static uuid_t msr = GPT_ENT_TYPE_MS_RESERVED;
 	static uuid_t swap = GPT_ENT_TYPE_FREEBSD_SWAP;
@@ -67,11 +76,10 @@ friendly(uuid_t *t)
 	static uuid_t vinum = GPT_ENT_TYPE_FREEBSD_VINUM;
 	static char buf[80];
 	char *s;
-#endif
 
-#ifdef __APPLE__
-	uuid_unparse(*t, buf);
-#else
+	if (show_uuid)
+		goto unfriendly;
+
 	if (uuid_equal(t, &efi_slice, NULL))
 		return ("EFI System");
 	if (uuid_equal(t, &swap, NULL))
@@ -89,12 +97,15 @@ friendly(uuid_t *t)
 		return ("Linux swap");
 	if (uuid_equal(t, &msr, NULL))
 		return ("Windows reserved");
+	if (uuid_equal(t, &hfs, NULL))
+		return ("Apple HFS");
 
+unfriendly:
 	uuid_to_string(t, &s, NULL);
 	strlcpy(buf, s, sizeof buf);
 	free(s);
-#endif
 	return (buf);
+#endif
 }
 
 static void
@@ -159,12 +170,13 @@ show(int fd __unused)
 		case MAP_TYPE_GPT_PART:
 			printf("GPT part ");
 			ent = m->map_data;
-#ifdef __APPLE__
-			le_uuid_dec(ent->ent_type, type);
-#else
-			le_uuid_dec(&ent->ent_type, &type);
-#endif
-			printf("- %s", friendly(&type));
+			if (show_label) {
+				printf("- \"%s\"",
+				    utf16_to_utf8(ent->ent_name));
+			} else {
+				le_uuid_dec(&ent->ent_type, &type);
+				printf("- %s", friendly(&type));
+			}
 			break;
 		case MAP_TYPE_PMBR:
 			printf("PMBR");
@@ -180,8 +192,18 @@ cmd_show(int argc, char *argv[])
 {
 	int ch, fd;
 
-	while ((ch = getopt(argc, argv, "")) != -1) {
+#ifdef __APPLE__
+	while ((ch = getopt(argc, argv, "l")) != -1) {
+#else
+	while ((ch = getopt(argc, argv, "lu")) != -1) {
+#endif
 		switch(ch) {
+		case 'l':
+			show_label = 1;
+			break;
+		case 'u':
+			show_uuid = 1;
+			break;
 		default:
 			usage_show();
 		}

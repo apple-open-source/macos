@@ -15,12 +15,17 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 382
+AEP_Version    = 394
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = command.c.diff forwback.c.diff main.c.diff \
-                 screen.c.diff search.c.diff signal.c.diff
+                 screen.c.diff search.c.diff signal.c.diff \
+                 decode.c.diff funcs.h.diff main.c.diff2 screen.c.diff2 \
+                 funcs.h.diff2 command.c.diff2 edit.c.diff \
+                 ifile.c.diff main.c.diff3 optfunc.c.diff option.c.diff \
+                 opttbl.c.diff tags.c.diff ttyin.c.diff position.c.diff \
+                 main.c.diff4
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -55,4 +60,4 @@ install-plist:
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
-	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(Project).txt
+	$(INSTALL_FILE) $(Sources)/LICENSE $(OSL)/$(Project).txt

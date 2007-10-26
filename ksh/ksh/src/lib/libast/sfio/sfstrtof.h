@@ -1,30 +1,26 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 /*
- * AT&T Labs Research
+ * AT&T Research
  * Glenn Fowler & Phong Vo
  *
  * common header and implementation for
@@ -57,7 +53,7 @@
 
 #if !defined(S2F_function)
 #define S2F_function	_sfdscan
-#define S2F_static	0
+#define S2F_static	1
 #define S2F_type	2
 #define S2F_scan	1
 #ifndef elementsof
@@ -74,7 +70,8 @@
 #define S2F_number	float
 #define S2F_ldexp	ldexp
 #define S2F_pow10	_Sffpow10
-#define S2F_huge	_Sffhuge
+#define S2F_inf		_Sffinf
+#define S2F_nan		_Sffnan
 #define S2F_min		(FLT_MIN)
 #define S2F_max		(FLT_MAX)
 #define S2F_exp_10_min	(FLT_MIN_10_EXP)
@@ -86,7 +83,8 @@
 #define S2F_number	double
 #define S2F_ldexp	ldexp
 #define S2F_pow10	_Sfdpow10
-#define S2F_huge	_Sfdhuge
+#define S2F_inf		_Sfdinf
+#define S2F_nan		_Sfdnan
 #define S2F_min		(DBL_MIN)
 #define S2F_max		(DBL_MAX)
 #define S2F_exp_10_min	(DBL_MIN_10_EXP)
@@ -98,7 +96,8 @@
 #define S2F_number	long double
 #define S2F_ldexp	ldexpl
 #define S2F_pow10	_Sflpow10
-#define S2F_huge	_Sflhuge
+#define S2F_inf		_Sflinf
+#define S2F_nan		_Sflnan
 #define S2F_min		(LDBL_MIN)
 #define S2F_max		(LDBL_MAX)
 #define S2F_exp_10_min	(LDBL_MIN_10_EXP)
@@ -114,6 +113,8 @@
 #endif
 
 #define S2F_batch	_ast_flt_unsigned_max_t
+
+#undef	ERR		/* who co-opted this namespace? */
 
 #if S2F_scan
 
@@ -313,7 +314,7 @@ S2F_function(str, end) char* str; char** end;
 			else if (m > S2F_exp_2_max)
 			{
 				ERR(ERANGE);
-				return negative ? -S2F_huge : S2F_huge;
+				return negative ? -S2F_inf : S2F_inf;
 			}
 			v = S2F_ldexp(v, m);
 			goto check;
@@ -355,7 +356,7 @@ S2F_function(str, end) char* str; char** end;
 		}
 		REV(s, t, b);
 		PUT(s);
-		return negative ? -S2F_huge : S2F_huge;
+		return negative ? -S2F_inf : S2F_inf;
 	}
 	else if (c == 'n' || c == 'N')
 	{
@@ -368,7 +369,7 @@ S2F_function(str, end) char* str; char** end;
 		}
 		do c = GET(s); while (c && !isspace(c));
 		PUT(s);
-		return negative ? -S2F_huge : S2F_huge;
+		return S2F_nan;
 	}
 	else if (c < '1' || c > '9')
 	{
@@ -403,6 +404,7 @@ S2F_function(str, end) char* str; char** end;
 		else if (c == decimal)
 		{
 			decimal = -1;
+			thousand = -1;
 			m = 0;
 			fraction = digits;
 		}
@@ -486,7 +488,7 @@ S2F_function(str, end) char* str; char** end;
 		if (c > S2F_exp_10_max)
 		{
 			ERR(ERANGE);
-			return negative ? -S2F_huge : S2F_huge;
+			return negative ? -S2F_inf : S2F_inf;
 		}
 		if (c > 0)
 		{
@@ -494,7 +496,7 @@ S2F_function(str, end) char* str; char** end;
 			if ((S2F_max / p) < S2F_pow10[c])
 			{
 				ERR(ERANGE);
-				return negative ? -S2F_huge : S2F_huge;
+				return negative ? -S2F_inf : S2F_inf;
 			}
 #endif
 			p *= S2F_pow10[c];
@@ -512,7 +514,7 @@ S2F_function(str, end) char* str; char** end;
 		if ((S2F_min * p) > S2F_pow10[c])
 		{
 			ERR(ERANGE);
-			return negative ? -S2F_huge : S2F_huge;
+			return negative ? -S2F_inf : S2F_inf;
 		}
 #endif
 		v /= S2F_pow10[m];
@@ -531,7 +533,7 @@ S2F_function(str, end) char* str; char** end;
 	else if (v > S2F_max)
 	{
 		ERR(ERANGE);
-		v = S2F_huge;
+		v = S2F_inf;
 	}
 
 	/*

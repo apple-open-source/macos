@@ -1,9 +1,21 @@
 /* gzip.h -- common declarations for all gzip modules
- * Copyright (C) 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
- * Copyright (C) 1992-1993 Jean-loup Gailly.
- * This is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License, see the file COPYING.
- */
+
+   Copyright (C) 1997, 1998, 1999, 2001, 2006 Free Software Foundation, Inc.
+   Copyright (C) 1992-1993 Jean-loup Gailly.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #if defined(__STDC__) || defined(PROTO)
 #  define OF(args)  args
@@ -15,6 +27,16 @@
    typedef void *voidp;
 #else
    typedef char *voidp;
+#endif
+
+#ifndef __attribute__
+# if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 8) || __STRICT_ANSI__
+#  define __attribute__(x)
+# endif
+#endif
+
+#ifndef ATTRIBUTE_NORETURN
+# define ATTRIBUTE_NORETURN __attribute__ ((__noreturn__))
 #endif
 
 /* I don't like nested includes, but the following headers are used
@@ -30,10 +52,10 @@
 #  define memzero(s, n)     memset ((voidp)(s), 0, (n))
 #else
 #  include <strings.h>
-#  define strchr            index 
+#  define strchr            index
 #  define strrchr           rindex
-#  define memcpy(d, s, n)   bcopy((s), (d), (n)) 
-#  define memcmp(s1, s2, n) bcmp((s1), (s2), (n)) 
+#  define memcpy(d, s, n)   bcopy((s), (d), (n))
+#  define memcmp(s1, s2, n) bcmp((s1), (s2), (n))
 #  define memzero(s, n)     bzero((s), (n))
 #endif
 
@@ -104,7 +126,7 @@ extern int method;         /* compression method */
 #  define DECLARE(type, array, size)  type * near array
 #  define ALLOC(type, array, size) { \
       array = (type*)fcalloc((size_t)(((size)+1L)/2), 2*sizeof(type)); \
-      if (array == NULL) error("insufficient memory"); \
+      if (!array) xalloc_die (); \
    }
 #  define FREE(array) {if (array != NULL) fcfree(array), array=NULL;}
 #else
@@ -142,9 +164,9 @@ extern int  ifd;        /* input file descriptor */
 extern int  ofd;        /* output file descriptor */
 extern char ifname[];   /* input file name or "stdin" */
 extern char ofname[];   /* output file name or "stdout" */
-extern char *progname;  /* program name */
+extern char *program_name;  /* program name */
 
-extern time_t time_stamp; /* original time stamp (modification time) */
+extern struct timespec time_stamp; /* original time stamp (modification time) */
 extern off_t ifile_size; /* input file size, -1 for devices (debug only) */
 
 typedef int file_t;     /* Do not use stdio */
@@ -239,7 +261,7 @@ extern int save_orig_name; /* set if original name must be saved */
 
 /* Diagnostic functions */
 #ifdef DEBUG
-#  define Assert(cond,msg) {if(!(cond)) error(msg);}
+#  define Assert(cond,msg) {if (!(cond)) gzip_error (msg);}
 #  define Trace(x) fprintf x
 #  define Tracev(x) {if (verbose) fprintf x ;}
 #  define Tracevv(x) {if (verbose>1) fprintf x ;}
@@ -272,7 +294,7 @@ extern int unpack     OF((int in, int out));
 extern int unlzh      OF((int in, int out));
 
 	/* in gzip.c */
-RETSIGTYPE abort_gzip OF((void));
+void abort_gzip OF((void)) ATTRIBUTE_NORETURN;
 
         /* in deflate.c */
 void lm_init OF((int pack_level, ush *flags));
@@ -299,18 +321,19 @@ extern int  fill_inbuf    OF((int eof_ok));
 extern void flush_outbuf  OF((void));
 extern void flush_window  OF((void));
 extern void write_buf     OF((int fd, voidp buf, unsigned cnt));
+extern int read_buffer    OF((int fd, voidp buf, unsigned int cnt));
 extern char *strlwr       OF((char *s));
-extern char *base_name    OF((char *fname));
+extern char *gzip_base_name OF((char *fname));
 extern int xunlink        OF((char *fname));
 extern void make_simple_name OF((char *name));
 extern char *add_envopt   OF((int *argcp, char ***argvp, char *env));
-extern void error         OF((char *m));
+extern void gzip_error    OF((char *m));
+extern void xalloc_die    OF((void)) ATTRIBUTE_NORETURN;
 extern void warning       OF((char *m));
 extern void read_error    OF((void));
 extern void write_error   OF((void));
 extern void display_ratio OF((off_t num, off_t den, FILE *file));
 extern void fprint_off    OF((FILE *, off_t, int));
-extern voidp xmalloc      OF((unsigned int size));
 
 	/* in inflate.c */
 extern int inflate OF((void));

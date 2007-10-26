@@ -64,12 +64,12 @@ extern const char *protocolVersStr(
  */ 
 OSStatus sslIoRead(
  	SSLBuffer 		buf, 
- 	UInt32 			*actualLength, 
+ 	size_t			*actualLength, 
  	SSLContext 		*ctx);
  
 OSStatus sslIoWrite(
  	SSLBuffer 		buf, 
- 	UInt32 			*actualLength, 
+ 	size_t			*actualLength, 
  	SSLContext 		*ctx);
  
 /*

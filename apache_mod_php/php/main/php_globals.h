@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,6 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: php_globals.h,v 1.98.2.1.2.7 2007/07/24 14:21:36 jani Exp $ */
 
 #ifndef PHP_GLOBALS_H
 #define PHP_GLOBALS_H
@@ -32,13 +33,18 @@ extern PHPAPI int core_globals_id;
 extern ZEND_API struct _php_core_globals core_globals;
 #endif
 
+/* Error display modes */
+#define PHP_DISPLAY_ERRORS_STDOUT	1
+#define PHP_DISPLAY_ERRORS_STDERR	2
 
+/* Track vars */
 #define TRACK_VARS_POST		0
 #define TRACK_VARS_GET		1
 #define TRACK_VARS_COOKIE	2
 #define TRACK_VARS_SERVER	3
 #define TRACK_VARS_ENV		4
 #define TRACK_VARS_FILES	5
+#define TRACK_VARS_REQUEST	6
 
 struct _php_tick_function_entry;
 
@@ -67,6 +73,7 @@ struct _php_core_globals {
 	char *output_handler;
 
 	char *unserialize_callback_func;
+	long serialize_precision;
 
 	char *safe_mode_exec_dir;
 
@@ -100,7 +107,6 @@ struct _php_core_globals {
 
 	arg_separators arg_separator;
 
-	char *gpc_order;
 	char *variables_order;
 
 	HashTable rfc1867_protected_variables;
@@ -117,7 +123,9 @@ struct _php_core_globals {
 	zend_bool expose_php;
 
 	zend_bool register_globals;
+	zend_bool register_long_arrays;
 	zend_bool register_argc_argv;
+	zend_bool auto_globals_jit;
 
 	zend_bool y2k_compliance;
 
@@ -129,18 +137,30 @@ struct _php_core_globals {
 
 	long xmlrpc_error_number;
 
+	zend_bool activated_auto_globals[8];
 
 	zend_bool modules_activated;
-
 	zend_bool file_uploads;
-
 	zend_bool during_request_startup;
-
 	zend_bool allow_url_fopen;
-
 	zend_bool always_populate_raw_post_data;
-	
-	long serialize_precision;
+	zend_bool report_zend_debug;
+
+	int last_error_type;
+	char *last_error_message;
+	char *last_error_file;
+	int  last_error_lineno;
+	error_handling_t  error_handling;
+	zend_class_entry *exception_class;
+
+	char *disable_functions;
+	char *disable_classes;
+	zend_bool allow_url_include;
+#ifdef PHP_WIN32
+	zend_bool com_initialized;
+#endif
+	long max_input_nesting_level;
+	zend_bool in_user_include;
 };
 
 

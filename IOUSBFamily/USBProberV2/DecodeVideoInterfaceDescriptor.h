@@ -343,8 +343,7 @@ struct IOUSBVCExtensionUnitDescriptor
     UInt8	bDescriptorType;
     UInt8	bDescriptorSubType;
     UInt8	bUnitID;
-    UInt64	guidExtensionCodeHi;
-    UInt64	guidExtensionCodeLo;
+	UInt8	guidFormat[16];
     UInt8	bNumControls;
     UInt8	bNrInPins;
     UInt8	baSourceID[1];
@@ -432,6 +431,33 @@ struct IOUSBVDC_MJPEGFormatDescriptor
 typedef struct IOUSBVDC_MJPEGFormatDescriptor IOUSBVDC_MJPEGFormatDescriptor;
 #pragma options align=reset
 
+struct IOSUBVDC_StillImageSize
+{
+	UInt16	wWidth;
+	UInt16	wHeight;
+};
+typedef struct IOSUBVDC_StillImageSize IOSUBVDC_StillImageSize;
+
+struct IOSUBVDC_StillImageCompressionPattern
+{
+	UInt8	bNumCompressionPattern;
+	UInt8	bCompression[1];
+};
+typedef struct IOSUBVDC_StillImageCompressionPattern IOSUBVDC_StillImageCompressionPattern;
+
+#pragma pack(1)
+struct IOUSBVDC_StillImageFrameDescriptor
+{
+    UInt8	bLength;
+    UInt8	bDescriptorType;
+    UInt8	bDescriptorSubType;
+    UInt8	bEndpointAddress;
+    UInt8	bNumImageSizePatterns;
+	IOSUBVDC_StillImageSize	dwSize[1];
+};
+typedef struct IOUSBVDC_StillImageFrameDescriptor IOUSBVDC_StillImageFrameDescriptor;
+#pragma options align=reset
+
 #pragma pack(1)
 struct IOUSBVDC_MJPEGFrameDescriptor
 {
@@ -482,8 +508,7 @@ struct IOUSBVDC_UncompressedFormatDescriptor
     UInt8	bDescriptorSubType;
     UInt8	bFormatIndex;
     UInt8	bNumFrameDescriptors;
-    UInt64	guidFormatHi;
-    UInt64	guidFormatLo;
+    UInt8	guidFormat[16];
     UInt8	bBitsPerPixel;
     UInt8	bDefaultFrameIndex;
     UInt8	bAspectRatioX;
@@ -544,12 +569,9 @@ struct IOUSBVDC_VendorFormatDescriptor
     UInt8	bDescriptorSubType;
     UInt8	bFormatIndex;
     UInt8	bNumFrameDescriptors;
-    UInt64	guidMajorFormatHi;
-    UInt64	guidMajorFormatLo;
-    UInt64	guidSubFormatHi;
-    UInt64	guidSubFormatLo;
-    UInt64	guidSpecifierFormatHi;
-    UInt64	guidSpecifierFormatLo;
+    UInt8	guidMajorFormat[16];
+    UInt8	guidSubFormat[16];
+    UInt8	guidSpecifierFormat[16];
     UInt8	bPayloadClass;
     UInt8	bDefaultFrameIndex;
     UInt8	bCopyProtect;

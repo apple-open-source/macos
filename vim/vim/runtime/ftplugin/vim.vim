@@ -1,7 +1,7 @@
 " Vim filetype plugin
 " Language:	Vim
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2003 May 17
+" Last Change:	2005 Feb 14
 
 " Only do this when not done yet for this buffer
 if exists("b:did_ftplugin")
@@ -25,10 +25,22 @@ setlocal fo-=t fo+=croql
 setlocal com=sO:\"\ -,mO:\"\ \ ,eO:\"\",:\"
 
 " Format comments to be up to 78 characters long
-setlocal tw=78
+if &tw == 0
+  setlocal tw=78
+endif
 
 " Comments start with a double quote
 setlocal commentstring=\"%s
+
+" Move around functions.
+noremap <silent><buffer> [[ m':call search('^\s*fu\%[nction]\>', "bW")<CR>
+noremap <silent><buffer> ]] m':call search('^\s*fu\%[nction]\>', "W")<CR>
+noremap <silent><buffer> [] m':call search('^\s*endf*\%[unction]\>', "bW")<CR>
+noremap <silent><buffer> ][ m':call search('^\s*endf*\%[unction]\>', "W")<CR>
+
+" Move around comments
+noremap <silent><buffer> ]" :call search('^\(\s*".*\n\)\@<!\(\s*"\)', "W")<CR>
+noremap <silent><buffer> [" :call search('\%(^\s*".*\n\)\%(^\s*"\)\@!', "bW")<CR>
 
 " Let the matchit plugin know what items can be matched.
 if exists("loaded_matchit")
@@ -46,4 +58,6 @@ if exists("loaded_matchit")
 endif
 
 let &cpo = cpo_save
-setlocal cpo+=M		" makes \%( match \)
+
+" removed this, because 'cpoptions' is a global option.
+" setlocal cpo+=M		" makes \%( match \)

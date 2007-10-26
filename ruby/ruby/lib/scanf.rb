@@ -1,9 +1,9 @@
 # scanf for Ruby
 #
-# $Revision: 1.2.2.1 $
-# $Id: scanf.rb,v 1.2.2.1 2004/03/20 11:57:10 dblack Exp $
-# $Author: dblack $
-# $Date: 2004/03/20 11:57:10 $
+# $Revision: 11708 $
+# $Id: scanf.rb 11708 2007-02-12 23:01:19Z shyouhei $
+# $Author: shyouhei $
+# $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
 #
 # A product of the Austin Ruby Codefest (Austin, Texas, August 2002)
 

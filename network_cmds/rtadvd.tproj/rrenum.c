@@ -247,7 +247,7 @@ do_pco(struct icmp6_router_renum *rr, int len, struct rr_pco_match *rpm)
 	int ifindex = 0;
 	struct in6_rrenumreq irr;
 
-	if ((rr_pco_check(len, rpm) != NULL))
+	if ((rr_pco_check(len, rpm) != 0))
 		return 1;
 
 	if (s == -1 && (s = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
@@ -355,7 +355,7 @@ rr_command_check(int len, struct icmp6_router_renum *rr, struct in6_addr *from,
 	    !IN6_IS_ADDR_MC_SITELOCAL(dst)) {
 		syslog(LOG_ERR,	"<%s> dst mcast addr %s is illegal",
 		       __FUNCTION__,
-		       inet_ntop(AF_INET6, dst, ntopbuf, INET6_ADDRSTRLEN));
+		       inet_ntop(AF_INET6, dst, (char *)ntopbuf, INET6_ADDRSTRLEN));
 		return 1;
 	}
 
@@ -364,7 +364,7 @@ rr_command_check(int len, struct icmp6_router_renum *rr, struct in6_addr *from,
 		syslog(LOG_WARNING,
 		       "<%s> rcvd old seqnum %d from %s",
 		       __FUNCTION__, (u_int32_t)ntohl(rr->rr_seqnum),
-		       inet_ntop(AF_INET6, from, ntopbuf, INET6_ADDRSTRLEN));
+		       inet_ntop(AF_INET6, from, (char *)ntopbuf, INET6_ADDRSTRLEN));
 		return 1;
 	}
 	if (rro.rro_seqnum == rr->rr_seqnum &&
@@ -374,7 +374,7 @@ rr_command_check(int len, struct icmp6_router_renum *rr, struct in6_addr *from,
 			syslog(LOG_WARNING,
 			       "<%s> rcvd duped segnum %d from %s",
 			       __FUNCTION__, rr->rr_segnum,
-			       inet_ntop(AF_INET6, from, ntopbuf,
+			       inet_ntop(AF_INET6, from, (char *)ntopbuf,
 					 INET6_ADDRSTRLEN));
 		return 0;
 	}
@@ -428,9 +428,9 @@ rr_input(int len, struct icmp6_router_renum *rr, struct in6_pktinfo *pi,
 	       "<%s> RR received from %s to %s on %s",
 	       __FUNCTION__,
 	       inet_ntop(AF_INET6, &from->sin6_addr,
-			 ntopbuf[0], INET6_ADDRSTRLEN),
-	       inet_ntop(AF_INET6, &dst, ntopbuf[1], INET6_ADDRSTRLEN),
-	       if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+			 (char *)ntopbuf[0], INET6_ADDRSTRLEN),
+	       inet_ntop(AF_INET6, &dst, (char *)ntopbuf[1], INET6_ADDRSTRLEN),
+	       if_indextoname(pi->ipi6_ifindex, (char *)ifnamebuf));
 
 	/* packet validation based on Section 4.1 of RFC2894 */
 	if (len < sizeof(struct icmp6_router_renum)) {
@@ -438,9 +438,9 @@ rr_input(int len, struct icmp6_router_renum *rr, struct in6_pktinfo *pi,
 		       "<%s>: RR short message (size %d) from %s to %s on %s",
 		       __FUNCTION__, len,
 		       inet_ntop(AF_INET6, &from->sin6_addr,
-				 ntopbuf[0], INET6_ADDRSTRLEN),
-		       inet_ntop(AF_INET6, &dst, ntopbuf[1], INET6_ADDRSTRLEN),
-		       if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+				 (char *)ntopbuf[0], INET6_ADDRSTRLEN),
+		       inet_ntop(AF_INET6, &dst, (char *)ntopbuf[1], INET6_ADDRSTRLEN),
+		       if_indextoname(pi->ipi6_ifindex, (char *)ifnamebuf));
 		return;
 	}
 
@@ -458,10 +458,10 @@ rr_input(int len, struct icmp6_router_renum *rr, struct in6_pktinfo *pi,
 		       "<%s>: RR message with invalid destination (%s) "
 		       "from %s on %s",
 		       __FUNCTION__,
-		       inet_ntop(AF_INET6, &dst, ntopbuf[0], INET6_ADDRSTRLEN),
+		       inet_ntop(AF_INET6, &dst, (char *)ntopbuf[0], INET6_ADDRSTRLEN),
 		       inet_ntop(AF_INET6, &from->sin6_addr,
-				 ntopbuf[1], INET6_ADDRSTRLEN),
-		       if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+				 (char *)ntopbuf[1], INET6_ADDRSTRLEN),
+		       if_indextoname(pi->ipi6_ifindex, (char *)ifnamebuf));
 		return;
 	}
 

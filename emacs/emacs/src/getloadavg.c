@@ -1,6 +1,10 @@
 /* Get the system load averages.
-   Copyright (C) 1985, 86, 87, 88, 89, 91, 92, 93, 1994, 1995, 1997
-   	Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995,
+                 1997, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+                 Free Software Foundation, Inc.
+
+   NOTE: The canonical source of this file is maintained with gnulib.
+   Bugs can be reported to bug-gnulib@gnu.org.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -14,7 +18,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
    USA.  */
 
 /* Compile-time symbols that this file uses:
@@ -37,11 +41,15 @@
 				apollo, DGUX, NeXT, or UMAX is defined;
                                 or we have libkstat;
 				otherwise, no load average is available.
+   HAVE_NLIST_H                 nlist.h is available.  NLIST_STRUCT defaults
+                                to this.
    NLIST_STRUCT			Include nlist.h, not a.out.h, and
 				the nlist n_name element is a pointer,
 				not an array.
-   NLIST_NAME_UNION		struct nlist has an n_un member, not n_name.
+   HAVE_STRUCT_NLIST_N_UN_N_NAME `n_un.n_name' is member of `struct nlist'.
    LINUX_LDAV_FILE		[__linux__]: File containing load averages.
+   HAVE_LOCALE_H                locale.h is available.
+   HAVE_SETLOCALE               The `setlocale' function is available.
 
    Specific system predefines this file uses, aside from setting
    default values if not emacs:
@@ -54,8 +62,6 @@
    hpux
    __MSDOS__			No-op for MSDOS.
    NeXT
-   RHAPSODY			Mac OS X Server
-   DARWIN			Darwin (Mac OS)
    sgi
    sequent			Sequent Dynix 3.x.x (BSD)
    _SEQUENT_			Sequent DYNIX/ptx 1.x.x (SYSV)
@@ -101,8 +107,14 @@
 extern int errno;
 #endif
 
-#ifndef HAVE_GETLOADAVG
+#ifdef HAVE_LOCALE_H
+# include <locale.h>
+#endif
+#ifndef HAVE_SETLOCALE
+# define setlocale(Category, Locale) /* empty */
+#endif
 
+#ifndef HAVE_GETLOADAVG
 
 /* The existing Emacs configuration files define a macro called
    LOAD_AVE_CVT, which accepts a value of type LOAD_AVE_TYPE, and
@@ -290,7 +302,7 @@ extern int errno;
 /* Sometimes both MIPS and sgi are defined, so FSCALE was just defined
    above under #ifdef MIPS.  But we want the sgi value.  */
 #   undef FSCALE
-#   define	FSCALE 1000.0
+#   define FSCALE 1000.0
 #  endif
 
 #  if defined (ardent) && defined (titan)
@@ -308,9 +320,14 @@ extern int errno;
 # endif	/* Not FSCALE.  */
 
 # if !defined (LDAV_CVT) && defined (FSCALE)
-#  define	LDAV_CVT(n) (((double) (n)) / FSCALE)
+#  define LDAV_CVT(n) (((double) (n)) / FSCALE)
 # endif
 
+# ifndef NLIST_STRUCT
+#  if HAVE_NLIST_H
+#   define NLIST_STRUCT
+#  endif
+# endif
 
 # if defined(sgi) || (defined(mips) && !defined(BSD))
 #  define FIXUP_KERNEL_SYMBOL_ADDR(nl) ((nl)[0].n_value &= ~(1 << 31))
@@ -403,7 +420,7 @@ extern int errno;
 #  define host_self mach_host_self
 # endif
 
-# if defined(NeXT) || defined(RHAPSODY) || defined(DARWIN)
+# ifdef NeXT
 #  ifdef HAVE_MACH_MACH_H
 #   include <mach/mach.h>
 #  else
@@ -448,10 +465,9 @@ extern int errno;
 #  include <sys/file.h>
 # endif
 
-
 /* Avoid static vars inside a function since in HPUX they dump as pure.  */
 
-# if defined(NeXT) || defined(RHAPSODY) || defined(DARWIN)
+# ifdef NeXT
 static processor_set_t default_set;
 static int getloadavg_initialized;
 # endif /* NeXT */
@@ -473,13 +489,13 @@ static int getloadavg_initialized;
 /* Offset in kmem to seek to read load average, or 0 means invalid.  */
 static long offset;
 
-#if !defined(VMS) && !defined(sgi) && !defined(__linux__)
+#  if !defined(VMS) && !defined(sgi) && !defined(__linux__)
 static struct nlist nl[2];
-#endif /* Not VMS or sgi */
+#  endif /* Not VMS or sgi */
 
-#ifdef SUNOS_5
+#  ifdef SUNOS_5
 static kvm_t *kd;
-#endif /* SUNOS_5 */
+#  endif /* SUNOS_5 */
 
 #endif /* LOAD_AVE_TYPE && !HAVE_LIBKSTAT */
 
@@ -488,9 +504,6 @@ static kvm_t *kd;
    Return the number written (never more than 3, but may be less than NELEM),
    or -1 if an error occurred.  */
 
-#ifdef __APPLE_CC__
-__private_extern__
-#endif
 int
 getloadavg (loadavg, nelem)
      double loadavg[];
@@ -590,8 +603,11 @@ getloadavg (loadavg, nelem)
   if (count <= 0)
     return -1;
 
+  /* The following sscanf must use the C locale.  */
+  setlocale (LC_NUMERIC, "C");
   count = sscanf (ldavgbuf, "%lf %lf %lf",
 		  &load_ave[0], &load_ave[1], &load_ave[2]);
+  setlocale (LC_NUMERIC, "");
   if (count < 1)
     return -1;
 
@@ -631,9 +647,13 @@ getloadavg (loadavg, nelem)
 
 # endif /* __NetBSD__ */
 
-# if !defined (LDAV_DONE) && (defined(NeXT) || defined(RHAPSODY) || defined(DARWIN))
+# if !defined (LDAV_DONE) && defined (NeXT)
 #  define LDAV_DONE
   /* The NeXT code was adapted from iscreen 3.2.  */
+
+  host_t host;
+  struct processor_set_basic_info info;
+  unsigned info_count;
 
   /* We only know how to get the 1-minute average for this system,
      so even if the caller asks for more than 1, we only return 1.  */
@@ -644,19 +664,10 @@ getloadavg (loadavg, nelem)
 	getloadavg_initialized = 1;
     }
 
-#ifndef DARWIN
-#define processor_set_load_info processor_set_basic_info
-#define PROCESSOR_SET_LOAD_INFO PROCESSOR_SET_BASIC_INFO
-#define PROCESSOR_SET_LOAD_INFO_COUNT PROCESSOR_SET_BASIC_INFO_COUNT
-#endif
-
   if (getloadavg_initialized)
     {
-      struct processor_set_load_info info;
-      host_t host;
-      unsigned info_count = PROCESSOR_SET_LOAD_INFO_COUNT;
-
-      if (processor_set_info (default_set, PROCESSOR_SET_LOAD_INFO, &host,
+      info_count = PROCESSOR_SET_BASIC_INFO_COUNT;
+      if (processor_set_info (default_set, PROCESSOR_SET_BASIC_INFO, &host,
 			      (processor_set_info_t) &info, &info_count)
 	  != KERN_SUCCESS)
 	getloadavg_initialized = 0;
@@ -872,13 +883,13 @@ getloadavg (loadavg, nelem)
       strcpy (nl[0].n_name, LDAV_SYMBOL);
       strcpy (nl[1].n_name, "");
 #   else /* NLIST_STRUCT */
-#    ifdef NLIST_NAME_UNION
+#    ifdef HAVE_STRUCT_NLIST_N_UN_N_NAME
       nl[0].n_un.n_name = LDAV_SYMBOL;
       nl[1].n_un.n_name = 0;
-#    else /* not NLIST_NAME_UNION */
+#    else /* not HAVE_STRUCT_NLIST_N_UN_N_NAME */
       nl[0].n_name = LDAV_SYMBOL;
       nl[1].n_name = 0;
-#    endif /* not NLIST_NAME_UNION */
+#    endif /* not HAVE_STRUCT_NLIST_N_UN_N_NAME */
 #   endif /* NLIST_STRUCT */
 
 #   ifndef SUNOS_5
@@ -987,7 +998,7 @@ getloadavg (loadavg, nelem)
 #endif /* ! HAVE_GETLOADAVG */
 
 #ifdef TEST
-int
+void
 main (argc, argv)
      int argc;
      char **argv;
@@ -1026,3 +1037,6 @@ main (argc, argv)
   exit (0);
 }
 #endif /* TEST */
+
+/* arch-tag: 2b37a242-6289-41f4-8cd5-0e73fd615db1
+   (do not change this comment) */

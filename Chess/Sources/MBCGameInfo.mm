@@ -15,6 +15,21 @@
 	Change History (most recent first):
 
 		$Log: MBCGameInfo.mm,v $
+		Revision 1.9.2.1  2007/05/18 20:36:37  neerache
+		Properly hook up board to game info <rdar://problem/3852844>
+		
+		Revision 1.9  2007/03/02 07:40:46  neerache
+		Revise document handling & saving <rdar://problems/3776337&4186113>
+		
+		Revision 1.8  2007/01/17 05:40:45  neerache
+		Defer title updates <rdar://problem/3852824>
+		
+		Revision 1.7  2007/01/16 08:28:45  neerache
+		Don't mess with nil strings
+		
+		Revision 1.6  2006/05/19 21:09:32  neerache
+		Fix 64 bit compilation errors
+		
 		Revision 1.5  2003/07/25 22:05:21  neerache
 		Dismiss edit window properly (RADAR 3343292)
 		
@@ -39,8 +54,6 @@
 #include <sys/types.h>
 #include <regex.h>
 #include <algorithm>
-
-using std::min;
 
 static NSTextTab * MakeTab(NSTextTabType type, float location)
 {
@@ -68,7 +81,7 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	char	   n[100];
 	NSData * d = [fullName dataUsingEncoding:NSUTF8StringEncoding];
 	[d getBytes:n length:99];
-	n[min(99u, [d length])] = 0;
+	n[std::min<unsigned>(99u, [d length])] = 0;
 	
 	char * first 	= n+strspn(n, " \t"); 	// Beginning of first name
 	char * last;
@@ -200,6 +213,9 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	NSUserDefaults *defaults 	= [NSUserDefaults standardUserDefaults];
 
 	[fShowMoveInTitle setIntValue:[defaults boolForKey:kMBCShowMoveInTitle]];
+
+	fRows	= 0;
+	fBoard	= [[MBCController controller] board];
 }
 
 - (void) updateMoves:(NSNotification *)notification
@@ -349,9 +365,6 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 		fResult			= [@"*" retain];
 		[fOutcome release];
 		fOutcome = nil;
-
-		fRows	= 0;
-		fBoard	= [[MBCController controller] board];
 	} else
 		fSetInfo	= false;
 
@@ -437,8 +450,11 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	//
 	// Defer title update until table gets redrawn
 	//
-	if (fTitleNeedsUpdate) 
-		[self updateTitle:nil];
+	if (fTitleNeedsUpdate) {
+		[self performSelector:@selector(updateTitle:) withObject:nil
+			  afterDelay:0.01];
+		fTitleNeedsUpdate = false;
+	}
 
 	NSString * 		ident 	= [col identifier];
 	if ([ident isEqual:@"Move"])
@@ -446,6 +462,8 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	
 	NSString * move = [[fBoard move: row*2+[ident isEqual:@"Black"]] 
 						  localizedText:YES];
+	if (!move)
+		return nil;
 	NSMutableParagraphStyle * style = 
 		[[[NSParagraphStyle defaultParagraphStyle] mutableCopy] autorelease];
 	float tab   = [col width] / 14.0f;

@@ -84,16 +84,19 @@ void rb_trap_exec _((void));
 #  endif
 # endif /* atarist */
 #else
-# if defined(HAVE_ALLOCA_H)
+# ifdef HAVE_ALLOCA_H
 #  include <alloca.h>
-# elif !defined(alloca)
-char *alloca();
-# endif
-#endif /* __GNUC__ */
+# else
+#  ifdef _AIX
+ #pragma alloca
+#  else
+#   ifndef alloca /* predefined by HP cc +Olibcalls */
+void *alloca ();
+#   endif
+#  endif /* AIX */
+# endif /* HAVE_ALLOCA_H */
 
-#ifdef _AIX
-#pragma alloca
-#endif
+#endif /* __GNUC__ */
 
 #ifdef HAVE_STRING_H
 # include <string.h>
@@ -185,7 +188,7 @@ static int current_mbctype = MBCTYPE_ASCII;
 
 #ifdef RUBY
 #include "util.h"
-void rb_warn _((char*));
+void rb_warn _((const char*, ...));
 # define re_warning(x) rb_warn(x)
 #endif
 
@@ -1011,8 +1014,8 @@ calculate_must_string(start, end)
 {
   int mcnt;
   int max = 0;
-  unsigned char *p = start;
-  unsigned char *pend = end;
+  unsigned char *p = (unsigned char *)start;
+  unsigned char *pend = (unsigned char *)end;
   char *must = 0;
 
   if (start == NULL) return 0;
@@ -1026,7 +1029,7 @@ calculate_must_string(start, end)
     case exactn:
       mcnt = *p;
       if (mcnt > max) {
-	must = p;
+	must = (char *)p;
 	max = mcnt;
       }
       p += mcnt+1;
@@ -1162,7 +1165,7 @@ read_special(p, pend, pp)
     PATFETCH_RAW(c);
     *pp = p;
     if (c == '\\') {
-      return read_special(p, pend, pp) | 0x80;
+      return read_special(--p, pend, pp) | 0x80;
     }
     else if (c == -1) return ~0;
     else {
@@ -1176,12 +1179,13 @@ read_special(p, pend, pp)
     PATFETCH_RAW(c);
     *pp = p;
     if (c == '\\') {
-      c = read_special(p, pend, pp);
+      c = read_special(--p, pend, pp);
     }
     else if (c == '?') return 0177;
     else if (c == -1) return ~0;
     return c & 0x9f;
   default:
+    *pp = p + 1;
     return read_backslash(c);
   }
 
@@ -1577,7 +1581,7 @@ re_compile_pattern(pattern, size, bufp)
 	  case 'C':
 	  case 'c':
 	    {
-	      char *pp;
+	      const char *pp;
 
 	      --p;
 	      c = read_special(p, pend, &pp);
@@ -1704,7 +1708,7 @@ re_compile_pattern(pattern, size, bufp)
 	  goto range_retry;
 	}
 	else {
-	  if (TRANSLATE_P()) c = (unsigned char)translate[c];
+	  if (TRANSLATE_P() && c < 0x100) c = (unsigned char)translate[c];
 	  if (had_mbchar == 0 && (!current_mbctype || !had_num_literal)) {
 	    SET_LIST_BIT(c);
 	    had_num_literal = 0;
@@ -1724,6 +1728,7 @@ re_compile_pattern(pattern, size, bufp)
 	memmove(&b[(unsigned char)b[-1]], &b[(1 << BYTEWIDTH) / BYTEWIDTH],
 		2 + EXTRACT_UNSIGNED(&b[(1 << BYTEWIDTH) / BYTEWIDTH])*8);
       b += b[-1] + 2 + EXTRACT_UNSIGNED(&b[(unsigned char)b[-1]])*8;
+      had_num_literal = 0;
       break;
 
     case '(':
@@ -2684,7 +2689,7 @@ slow_search(little, llen, big, blen, translate)
       }
     }
 
-    if (slow_match(little, little+llen, big, bend, translate))
+    if (slow_match(little, little+llen, big, bend, (unsigned char *)translate))
       return big - bsave;
 
     big+=mbclen(*big);
@@ -3217,13 +3222,13 @@ re_search(bufp, string, size, startpos, range, regs)
     }
     pend = size;
     if (bufp->options & RE_OPTIMIZE_NO_BM) {
-      pos = slow_search(bufp->must+1, len,
-			string+pbeg, pend-pbeg,
-			MAY_TRANSLATE()?translate:0);
+      pos = slow_search((unsigned char *)(bufp->must+1), len,
+			(unsigned char*)(string+pbeg), pend-pbeg,
+			(char *)(MAY_TRANSLATE()?translate:0));
     }
     else {
-      pos = bm_search(bufp->must+1, len,
-		      string+pbeg, pend-pbeg,
+      pos = bm_search((unsigned char *)(bufp->must+1), len,
+		      (unsigned char *)(string+pbeg), pend-pbeg,
 		      bufp->must_skip,
 		      MAY_TRANSLATE()?translate:0);
     }

@@ -4,7 +4,7 @@
 
 # TARGTYPE "Win32 (x86) Dynamic-Link Library" 0x0102
 
-CFG=mbstring - Win32 Debug_TS
+CFG=mbstring - Win32 Debug_TS MBSTRING
 !MESSAGE This is not a valid makefile. To build this project using NMAKE,
 !MESSAGE use the Export Makefile command and run
 !MESSAGE 
@@ -13,12 +13,12 @@ CFG=mbstring - Win32 Debug_TS
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "mbstring.mak" CFG="mbstring - Win32 Debug_TS"
+!MESSAGE NMAKE /f "mbstring.mak" CFG="mbstring - Win32 Debug_TS MBSTRING"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
-!MESSAGE "mbstring - Win32 Release_TS" (based on "Win32 (x86) Dynamic-Link Library")
-!MESSAGE "mbstring - Win32 Debug_TS" (based on "Win32 (x86) Dynamic-Link Library")
+!MESSAGE "mbstring - Win32 Release_TS MBSTRING" (based on "Win32 (x86) Dynamic-Link Library")
+!MESSAGE "mbstring - Win32 Debug_TS MBSTRING" (based on "Win32 (x86) Dynamic-Link Library")
 !MESSAGE 
 
 # Begin Project
@@ -29,74 +29,98 @@ CPP=cl.exe
 MTL=midl.exe
 RSC=rc.exe
 
-!IF  "$(CFG)" == "mbstring - Win32 Release_TS"
+!IF  "$(CFG)" == "mbstring - Win32 Release_TS MBSTRING"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 0
-# PROP BASE Output_Dir "mbstring___Win32_Release_TS"
-# PROP BASE Intermediate_Dir "mbstring___Win32_Release_TS"
+# PROP BASE Output_Dir "mbstring___Win32_Release_TS_MBSTRING"
+# PROP BASE Intermediate_Dir "mbstring___Win32_Release_TS_MBSTRING"
+# PROP BASE Ignore_Export_Lib 0
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
-# PROP Output_Dir "../../Release_TS"
+# PROP Output_Dir "Release_TS"
 # PROP Intermediate_Dir "Release_TS"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
-# ADD BASE CPP /nologo /MD /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "MBSTRING_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\TSRM" /I "libmbfl" /I "libmbfl\mbfl" /I "mbregex" /D ZEND_DEBUG=0 /D "_MBCS" /D "_USRDLL" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "COMPILE_DL_MBSTRING" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D MBSTRING_EXPORTS=1 /D HAVE_MBSTRING=1 /D HAVE_MBREGEX=1 /D HAVE_CONFIG_H=1 /D MBFL_DLL_EXPORT=1 /FR /YX /FD /c
+# ADD BASE CPP /nologo /MD /W3 /GX /O2 /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\TSRM" /D ZEND_DEBUG=0 /D "_MBCS" /D "_USRDLL" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "COMPILE_DL_MBSTRING" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D MBSTRING_EXPORTS=1 /D HAVE_MBSTRING=1 /D HAVE_MBREGEX=1 /D HAVE_MBSTR_CN=1 /D HAVE_MBSTR_JA=1 /D HAVE_MBSTR_KR=1 /D HAVE_MBSTR_RU=1 /D HAVE_MBSTR_TW=1 /FR /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\TSRM" /I "libmbfl" /I "libmbfl\mbfl" /D ZEND_DEBUG=0 /D "MBSTRING_EXPORTS" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "COMPILE_DL_MBSTRING" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D HAVE_MBSTRING=1 /D HAVE_MBSTR_CN=1 /D HAVE_MBSTR_JA=1 /D HAVE_MBSTR_KR=1 /D HAVE_MBSTR_RU=1 /D HAVE_MBSTR_TW=1 /D MBFL_DLL_EXPORT=1 /D NOT_RUBY=1 /D "LIBMBFL_EXPORTS" /D "HAVE_STRICMP" /D "HAVE_CONFIG_H" /D "HAVE_STDLIB_H" /FR /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x407 /d "NDEBUG"
-# ADD RSC /l 0x407 /d "NDEBUG"
+# ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
 LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 php4ts.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /out:"..\..\Release_TS/php_mbstring.dll" /libpath:"..\..\Release_TS" /libpath:"..\..\Release_TS_Inline"
+# ADD BASE LINK32 php5ts.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /out:"..\..\Release_TS/php_mbstring.dll" /libpath:"..\..\Release_TS" /libpath:"..\..\Release_TS_Inline"
+# ADD LINK32 php5ts.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /out:"..\..\Release_TS/php_mbstring.dll" /libpath:"..\..\Release_TS" /libpath:"..\..\Release_TS_Inline"
 
-!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS"
+!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS MBSTRING"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 1
-# PROP BASE Output_Dir "mbstring___Win32_Debug_TS"
-# PROP BASE Intermediate_Dir "mbstring___Win32_Debug_TS"
+# PROP BASE Output_Dir "mbstring___Win32_Debug_TS_MBSTRING"
+# PROP BASE Intermediate_Dir "mbstring___Win32_Debug_TS_MBSTRING"
+# PROP BASE Ignore_Export_Lib 0
 # PROP BASE Target_Dir ""
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 1
-# PROP Output_Dir "mbstring___Win32_Debug_TS"
-# PROP Intermediate_Dir "mbstring___Win32_Debug_TS"
+# PROP Output_Dir "Debug_TS"
+# PROP Intermediate_Dir "Debug_TS"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
-# ADD BASE CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "MBSTRING_EXPORTS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\TSRM" /I "libmbfl" /I "libmbfl\mbfl" /I "mbregex" /D ZEND_DEBUG=1 /D "MBSTRING_EXPORTS" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "COMPILE_DL_MBSTRING" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D MBSTRING_EXPORTS=1 /D HAVE_MBSTRING=1 /D HAVE_MBREGEX=1 /D HAVE_CONFIG_H=1 /D MBFL_DLL_EXPORT=1 /YX /FD /GZ /c
+# ADD BASE CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\TSRM" /D ZEND_DEBUG=1 /D "MBSTRING_EXPORTS" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "COMPILE_DL_MBSTRING" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D MBSTRING_EXPORTS=1 /D HAVE_MBSTRING=1 /D HAVE_MBREGEX=1 /D HAVE_MBSTR_CN=1 /D HAVE_MBSTR_JA=1 /D HAVE_MBSTR_KR=1 /D HAVE_MBSTR_RU=1 /D HAVE_MBSTR_TW=1 /YX /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\TSRM" /I "libmbfl" /I "libmbfl\mbfl" /I "oniguruma" /D ZEND_DEBUG=1 /D MBSTRING_EXPORTS=1 /D HAVE_STDLIB_H=1 /D HAVE_STRING_H=1 /D "MBSTRING_EXPORTS" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "COMPILE_DL_MBSTRING" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D HAVE_MBSTRING=1 /D HAVE_MBSTR_CN=1 /D HAVE_MBSTR_JA=1 /D HAVE_MBSTR_KR=1 /D HAVE_MBSTR_RU=1 /D HAVE_MBSTR_TW=1 /D MBFL_DLL_EXPORT=1 /D NOT_RUBY=1 /D "LIBMBFL_EXPORTS" /D "HAVE_STRICMP" /D "HAVE_CONFIG_H" /D "HAVE_STDLIB_H" /FR /YX /FD /GZ /c
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x407 /d "_DEBUG"
-# ADD RSC /l 0x407 /d "_DEBUG"
+# ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
 LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 php4ts_debug.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /out:"..\..\Debug_TS/php_mbstring.dll" /pdbtype:sept /libpath:"..\..\Debug_TS"
+# ADD BASE LINK32 php5ts_debug.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /out:"..\..\Debug_TS/php_mbstring.dll" /pdbtype:sept /libpath:"..\..\Debug_TS"
+# ADD LINK32 php5ts_debug.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /out:"..\..\Debug_TS/php_mbstring.dll" /pdbtype:sept /libpath:"..\..\Debug_TS"
 
 !ENDIF 
 
 # Begin Target
 
-# Name "mbstring - Win32 Release_TS"
-# Name "mbstring - Win32 Debug_TS"
+# Name "mbstring - Win32 Release_TS MBSTRING"
+# Name "mbstring - Win32 Debug_TS MBSTRING"
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
-SOURCE=.\mbregex\mbregex.c
+SOURCE=.\mb_gpc.c
+
+!IF  "$(CFG)" == "mbstring - Win32 Release_TS MBSTRING"
+
+# PROP Intermediate_Dir "Release_TS"
+
+!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS MBSTRING"
+
+# PROP Intermediate_Dir "Debug_TS"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\mbstring.c
+
+!IF  "$(CFG)" == "mbstring - Win32 Release_TS MBSTRING"
+
+# PROP Intermediate_Dir "Release_TS"
+
+!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS MBSTRING"
+
+# PROP Intermediate_Dir "Debug_TS"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -105,6 +129,17 @@ SOURCE=.\php_mbregex.c
 # Begin Source File
 
 SOURCE=.\php_unicode.c
+
+!IF  "$(CFG)" == "mbstring - Win32 Release_TS MBSTRING"
+
+# PROP Intermediate_Dir "Release_TS"
+
+!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS MBSTRING"
+
+# PROP Intermediate_Dir "Debug_TS"
+
+!ENDIF 
+
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -112,19 +147,67 @@ SOURCE=.\php_unicode.c
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
 # Begin Source File
 
-SOURCE=.\mbregex\mbregex.h
+SOURCE=.\mb_gpc.h
+
+!IF  "$(CFG)" == "mbstring - Win32 Release_TS MBSTRING"
+
+# PROP Intermediate_Dir "Release_TS"
+
+!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS MBSTRING"
+
+# PROP Intermediate_Dir "Debug_TS"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\mbstring.h
+
+!IF  "$(CFG)" == "mbstring - Win32 Release_TS MBSTRING"
+
+# PROP Intermediate_Dir "Release_TS"
+
+!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS MBSTRING"
+
+# PROP Intermediate_Dir "Debug_TS"
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\php_mbregex.h
 # End Source File
 # Begin Source File
 
 SOURCE=.\php_unicode.h
+
+!IF  "$(CFG)" == "mbstring - Win32 Release_TS MBSTRING"
+
+# PROP Intermediate_Dir "Release_TS"
+
+!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS MBSTRING"
+
+# PROP Intermediate_Dir "Debug_TS"
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
 SOURCE=.\unicode_data.h
+
+!IF  "$(CFG)" == "mbstring - Win32 Release_TS MBSTRING"
+
+# PROP Intermediate_Dir "Release_TS"
+
+!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS MBSTRING"
+
+# PROP Intermediate_Dir "Debug_TS"
+
+!ENDIF 
+
 # End Source File
 # End Group
 # Begin Group "libmbfl"
@@ -243,10 +326,6 @@ SOURCE=.\libmbfl\filters\mbfilter_iso8859_15.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\libmbfl\filters\mbfilter_iso8859_16.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\libmbfl\filters\mbfilter_iso8859_2.c
 # End Source File
 # Begin Source File
@@ -287,11 +366,11 @@ SOURCE=.\libmbfl\filters\mbfilter_koi8r.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\libmbfl\mbfl\mbfilter_pass.c
+SOURCE=.\libmbfl\filters\mbfilter_armscii8.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\libmbfl\filters\mbfilter_armscii8.c
+SOURCE=.\libmbfl\mbfl\mbfilter_pass.c
 # End Source File
 # Begin Source File
 
@@ -409,10 +488,6 @@ SOURCE=.\libmbfl\nls\nls_zh.c
 
 SOURCE=.\libmbfl\nls\nls_hy.c
 # End Source File
-# Begin Source File
-
-SOURCE=.\libmbfl\nls\nls_tr.c
-# End Source File
 # End Group
 # Begin Group "Header Files No. 1"
 
@@ -421,7 +496,7 @@ SOURCE=.\libmbfl\nls\nls_tr.c
 
 SOURCE=.\libmbfl\config.h.vc6
 
-!IF  "$(CFG)" == "mbstring - Win32 Release_TS"
+!IF  "$(CFG)" == "mbstring - Win32 Release_TS MBSTRING"
 
 # Begin Custom Build
 InputDir=.\libmbfl
@@ -432,7 +507,7 @@ InputPath=.\libmbfl\config.h.vc6
 
 # End Custom Build
 
-!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS"
+!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS MBSTRING"
 
 # Begin Custom Build
 InputDir=.\libmbfl
@@ -600,11 +675,11 @@ SOURCE=.\libmbfl\filters\mbfilter_koi8r.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\libmbfl\mbfl\mbfilter_pass.h
+SOURCE=.\libmbfl\filters\mbfilter_armscii8.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\libmbfl\filters\mbfilter_armscii8.h
+SOURCE=.\libmbfl\mbfl\mbfilter_pass.h
 # End Source File
 # Begin Source File
 
@@ -732,10 +807,6 @@ SOURCE=.\libmbfl\nls\nls_hy.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\libmbfl\nls\nls_tr.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\libmbfl\filters\unicode_prop.h
 # End Source File
 # Begin Source File
@@ -784,10 +855,6 @@ SOURCE=.\libmbfl\filters\unicode_table_iso8859_15.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\libmbfl\filters\unicode_table_iso8859_16.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\libmbfl\filters\unicode_table_iso8859_2.h
 # End Source File
 # Begin Source File
@@ -828,7 +895,192 @@ SOURCE=.\libmbfl\filters\unicode_table_koi8r.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\libmbfl\filters\unicode_table_armscii8.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\libmbfl\filters\unicode_table_uhc.h
+# End Source File
+# End Group
+# End Group
+# Begin Group "oniguruma"
+
+# PROP Default_Filter ""
+# Begin Group "Source Files No. 2"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=.\oniguruma\regcomp.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\regerror.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\regexec.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\reggnu.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\regparse.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\regposerr.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\ascii.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\utf8.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\euc_jp.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\euc_tw.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\euc_kr.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\sjis.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_1.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_2.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_3.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_4.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_5.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_6.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_7.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_8.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_9.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_10.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_11.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_13.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_14.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_15.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\iso8859_16.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\koi8.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\koi8_r.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\enc\big5.c
+# End Source File
+# End Group
+# Begin Group "Header Files No. 2"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=.\oniguruma\win32\config.h
+
+!IF  "$(CFG)" == "mbstring - Win32 Release_TS MBSTRING"
+
+# Begin Custom Build
+InputDir=.\oniguruma\win32
+InputPath=.\oniguruma\win32\config.h
+
+"$(InputDir)\..\config.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy $(InputDir)\config.h "$(InputDir)\..\config.h"
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "mbstring - Win32 Debug_TS MBSTRING"
+
+# Begin Custom Build
+InputDir=.\oniguruma\win32
+InputPath=.\oniguruma\win32\config.h
+
+"$(InputDir)\..\config.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy $(InputDir)\config.h "$(InputDir)\..\config.h"
+
+# End Custom Build
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\onigposix.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\oniguruma.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\php_compat.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\regint.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\oniguruma\regparse.h
 # End Source File
 # End Group
 # End Group

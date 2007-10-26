@@ -76,8 +76,6 @@
 /*                                                   */
 /*****************************************************/ 
 
-#define NO_SYSLOG
-
 #include "includes.h" 
 
 #define WORDSIZE 2
@@ -93,7 +91,7 @@
 /* put string s at p with max len n and increment p past string */
 #define PUTSTRING(p,s,n) do {\
   push_ascii(p,s?s:"",n?n:256,STR_TERMINATE);\
-  p = skip_string(p,1);\
+  p = push_skip_string(p);\
   } while(0)
 /* put string s and p, using fixed len l, and increment p by l */
 #define PUTSTRINGF(p,s,l) do {\
@@ -113,7 +111,7 @@
 /* get asciiz string s from p, increment p past string */
 #define GETSTRING(p,s) do {\
   pull_ascii_pstring(s,p);\
-  p = skip_string(p,1);\
+  p = push_skip_string(p);\
   } while(0)
 /* get fixed length l string s from p, increment p by l */
 #define GETSTRINGF(p,s,l) do {\
@@ -213,11 +211,20 @@ int cli_NetGroupAdd(struct cli_state *cli, RAP_GROUP_INFO_1 * grinfo )
 	    +WORDSIZE                    /* info level    */
 	    +WORDSIZE];                  /* reserved word */
 
-  char data[1024];
-    
   /* offset into data of free format strings.  Will be updated */
   /* by PUTSTRINGP macro and end up with total data length.    */
   int soffset = RAP_GROUPNAME_LEN + 1 + DWORDSIZE; 
+  char *data;
+  size_t data_size;
+
+  /* Allocate data. */
+  data_size = MAX(soffset + strlen(grinfo->comment) + 1, 1024);
+
+  data = SMB_MALLOC_ARRAY(char, data_size);
+  if (!data) {
+    DEBUG (1, ("Malloc fail\n"));
+    return -1;
+  }
 
   /* now send a SMBtrans command with api WGroupAdd */
   
@@ -255,6 +262,7 @@ int cli_NetGroupAdd(struct cli_state *cli, RAP_GROUP_INFO_1 * grinfo )
       DEBUG(4,("NetGroupAdd failed\n"));
     }
   
+  SAFE_FREE(data);
   SAFE_FREE(rparam);
   SAFE_FREE(rdata);
 
@@ -315,6 +323,69 @@ int cli_RNetGroupEnum(struct cli_state *cli, void (*fn)(const char *, const char
 	    GETSTRINGP(p, comment, rdata, converter);
 
 	    fn(groupname, comment, cli);
+      }	
+    } else {
+      DEBUG(4,("NetGroupEnum res=%d\n", res));
+    }
+  } else {
+    DEBUG(4,("NetGroupEnum no data returned\n"));
+  }
+    
+  SAFE_FREE(rparam);
+  SAFE_FREE(rdata);
+
+  return res;
+}
+
+int cli_RNetGroupEnum0(struct cli_state *cli,
+		       void (*fn)(const char *, void *),
+		       void *state)
+{
+  char param[WORDSIZE                     /* api number    */
+	    +sizeof(RAP_NetGroupEnum_REQ) /* parm string   */
+	    +sizeof(RAP_GROUP_INFO_L0)    /* return string */
+	    +WORDSIZE                     /* info level    */
+	    +WORDSIZE];                   /* buffer size   */
+  char *p;
+  char *rparam = NULL;
+  char *rdata = NULL; 
+  unsigned int rprcnt, rdrcnt;
+  int res = -1;
+  
+  
+  memset(param, '\0', sizeof(param));
+  p = make_header(param, RAP_WGroupEnum,
+		  RAP_NetGroupEnum_REQ, RAP_GROUP_INFO_L0);
+  PUTWORD(p,0); /* Info level 0 */ /* Hmmm. I *very* much suspect this
+				      is the resume count, at least
+				      that's what smbd believes... */
+  PUTWORD(p,0xFFE0); /* Return buffer size */
+
+  if (cli_api(cli,
+	      param, PTR_DIFF(p,param),8,
+	      NULL, 0, 0xFFE0 /* data area size */,
+	      &rparam, &rprcnt,
+	      &rdata, &rdrcnt)) {
+    res = GETRES(rparam);
+    cli->rap_error = res;
+    if(cli->rap_error == 234) 
+        DEBUG(1,("Not all group names were returned (such as those longer than 21 characters)\n"));
+    else if (cli->rap_error != 0) {
+      DEBUG(1,("NetGroupEnum gave error %d\n", cli->rap_error));
+    }
+  }
+
+  if (rdata) {
+    if (res == 0 || res == ERRmoredata) {
+      int i, count;
+
+      p = rparam + WORDSIZE + WORDSIZE; /* skip result and converter */
+      GETWORD(p, count);
+
+      for (i=0,p=rdata;i<count;i++) {
+	    char groupname[RAP_GROUPNAME_LEN];
+	    GETSTRINGF(p, groupname, RAP_GROUPNAME_LEN);
+	    fn(groupname, cli);
       }	
     } else {
       DEBUG(4,("NetGroupEnum res=%d\n", res));
@@ -479,10 +550,9 @@ int cli_NetGroupGetUsers(struct cli_state * cli, const char *group_name, void (*
   }
   if (rdata) {
     if (res == 0 || res == ERRmoredata) {
-      int i, converter, count;
+      int i, count;
       fstring username;
-      p = rparam +WORDSIZE;
-      GETWORD(p, converter);
+      p = rparam + WORDSIZE + WORDSIZE;
       GETWORD(p, count);
 
       for (i=0,p=rdata; i<count; i++) {
@@ -534,10 +604,9 @@ int cli_NetUserGetGroups(struct cli_state * cli, const char *user_name, void (*f
   }
   if (rdata) {
     if (res == 0 || res == ERRmoredata) {
-      int i, converter, count;
+      int i, count;
       fstring groupname;
-      p = rparam +WORDSIZE;
-      GETWORD(p, converter);
+      p = rparam + WORDSIZE + WORDSIZE;
       GETWORD(p, count);
 
       for (i=0,p=rdata; i<count; i++) {
@@ -736,7 +805,6 @@ int cli_RNetUserEnum(struct cli_state *cli, void (*fn)(const char *, const char 
       char username[RAP_USERNAME_LEN];
       char userpw[RAP_UPASSWD_LEN];
       pstring comment, homedir, logonscript;
-      int pwage, priv, flags;
 
       p = rparam + WORDSIZE; /* skip result */
       GETWORD(p, converter);
@@ -746,14 +814,73 @@ int cli_RNetUserEnum(struct cli_state *cli, void (*fn)(const char *, const char 
         GETSTRINGF(p, username, RAP_USERNAME_LEN);
         p++; /* pad byte */
         GETSTRINGF(p, userpw, RAP_UPASSWD_LEN);
-        GETDWORD(p, pwage); /* password age */
-        GETWORD(p, priv); /* 0=guest, 1=user, 2=admin */
+        p += DWORDSIZE; /* skip password age */
+        p += WORDSIZE;  /* skip priv: 0=guest, 1=user, 2=admin */
         GETSTRINGP(p, homedir, rdata, converter);
         GETSTRINGP(p, comment, rdata, converter);
-        GETWORD(p, flags);
+        p += WORDSIZE;  /* skip flags */
         GETSTRINGP(p, logonscript, rdata, converter);
 
         fn(username, comment, homedir, logonscript, cli);
+      }
+    } else {
+      DEBUG(4,("NetUserEnum res=%d\n", res));
+    }
+  } else {
+    DEBUG(4,("NetUserEnum no data returned\n"));
+  }
+    
+  SAFE_FREE(rparam);
+  SAFE_FREE(rdata);
+
+  return res;
+}
+
+int cli_RNetUserEnum0(struct cli_state *cli,
+		      void (*fn)(const char *, void *),
+		      void *state)
+{
+  char param[WORDSIZE                 /* api number    */
+	    +sizeof(RAP_NetUserEnum_REQ) /* parm string   */
+	    +sizeof(RAP_USER_INFO_L0)    /* return string */
+	    +WORDSIZE                 /* info level    */
+	    +WORDSIZE];               /* buffer size   */
+  char *p;
+  char *rparam = NULL;
+  char *rdata = NULL; 
+  unsigned int rprcnt, rdrcnt;
+  int res = -1;
+  
+
+  memset(param, '\0', sizeof(param));
+  p = make_header(param, RAP_WUserEnum,
+		  RAP_NetUserEnum_REQ, RAP_USER_INFO_L0);
+  PUTWORD(p,0); /* Info level 1 */
+  PUTWORD(p,0xFF00); /* Return buffer size */
+
+/* BB Fix handling of large numbers of users to be returned */
+  if (cli_api(cli,
+	      param, PTR_DIFF(p,param),8,
+	      NULL, 0, CLI_BUFFER_SIZE,
+	      &rparam, &rprcnt,
+	      &rdata, &rdrcnt)) {
+    res = GETRES(rparam);
+    cli->rap_error = res;
+    if (cli->rap_error != 0) {
+      DEBUG(1,("NetUserEnum gave error %d\n", cli->rap_error));
+    }
+  }
+  if (rdata) {
+    if (res == 0 || res == ERRmoredata) {
+      int i, count;
+      char username[RAP_USERNAME_LEN];
+
+      p = rparam + WORDSIZE + WORDSIZE; /* skip result and converter */
+      GETWORD(p, count);
+
+      for (i=0,p=rdata;i<count;i++) {
+        GETSTRINGF(p, username, RAP_USERNAME_LEN);
+        fn(username, cli);
       }
     } else {
       DEBUG(4,("NetUserEnum res=%d\n", res));
@@ -1287,6 +1414,62 @@ BOOL cli_get_server_type(struct cli_state *cli, uint32 *pstype)
   return(res == 0 || res == ERRmoredata);
 }
 
+BOOL cli_get_server_name(TALLOC_CTX *mem_ctx, struct cli_state *cli,
+			 char **servername)
+{
+	char *rparam = NULL;
+	char *rdata = NULL;
+	unsigned int rdrcnt,rprcnt;
+	char *p;
+	char param[WORDSIZE                       /* api number    */
+		   +sizeof(RAP_WserverGetInfo_REQ) /* req string    */
+		   +sizeof(RAP_SERVER_INFO_L1)     /* return string */
+		   +WORDSIZE                       /* info level    */
+		   +WORDSIZE];                     /* buffer size   */
+	BOOL res = False;
+	fstring tmp;
+  
+	/* send a SMBtrans command with api NetServerGetInfo */
+	p = make_header(param, RAP_WserverGetInfo,
+			RAP_WserverGetInfo_REQ, RAP_SERVER_INFO_L1);
+	PUTWORD(p, 1); /* info level */
+	PUTWORD(p, CLI_BUFFER_SIZE);
+	
+	if (!cli_api(cli, 
+		     param, PTR_DIFF(p,param), 8, /* params, length, max */
+		     NULL, 0, CLI_BUFFER_SIZE, /* data, length, max */
+		     &rparam, &rprcnt,         /* return params, return size */
+		     &rdata, &rdrcnt           /* return data, return size */
+		    )) {
+		goto failed;
+	}
+    
+	if (GETRES(rparam) != 0) {
+		goto failed;
+	}
+
+	if (rdrcnt < 16) {
+		DEBUG(10, ("invalid data count %d, expected >= 16\n", rdrcnt));
+		goto failed;
+	}
+
+	if (pull_ascii(tmp, rdata, sizeof(tmp)-1, 16, STR_TERMINATE) == -1) {
+		DEBUG(10, ("pull_ascii failed\n"));
+		goto failed;
+	}
+
+	if (!(*servername = talloc_strdup(mem_ctx, tmp))) {
+		DEBUG(1, ("talloc_strdup failed\n"));
+		goto failed;
+	}
+
+	res = True;
+
+ failed:
+	SAFE_FREE(rparam);
+	SAFE_FREE(rdata);
+	return res;
+}
 
 /*************************************************************************
 *
@@ -1349,10 +1532,9 @@ BOOL cli_ns_check_server_type(struct cli_state *cli, char *workgroup, uint32 sty
     cli->rap_error = res;
 
     if (res == 0 || res == ERRmoredata) {
-      int i, converter, count;
+      int i, count;
 
-      p = rparam + WORDSIZE;
-      GETWORD(p, converter);
+      p = rparam + WORDSIZE + WORDSIZE;
       GETWORD(p, count);
 
       p = rdata;
@@ -1674,10 +1856,9 @@ int cli_RNetServiceEnum(struct cli_state *cli, void (*fn)(const char *, const ch
 
   if (rdata) {
     if (res == 0 || res == ERRmoredata) {
-      int i, converter, count;
+      int i, count;
 
-      p = rparam + WORDSIZE; /* skip result */
-      GETWORD(p, converter);
+      p = rparam + WORDSIZE + WORDSIZE; /* skip result and converter */
       GETWORD(p, count);
 
       for (i=0,p=rdata;i<count;i++) {
@@ -1819,14 +2000,14 @@ int cli_NetSessionGetInfo(struct cli_state *cli, const char *workstation, void (
     res = GETRES(rparam);
     
     if (res == 0 || res == ERRmoredata) {
-      int rsize, converter;
+      int converter;
       pstring wsname, username, clitype_name;
       uint16  num_conns, num_opens, num_users;
       unsigned int    sess_time, idle_time, user_flags;
 
       p = rparam + WORDSIZE;
       GETWORD(p, converter);
-      GETWORD(p, rsize);
+      p += WORDSIZE;            /* skip rsize */
 
       p = rdata;
       GETSTRINGP(p, wsname, rdata, converter);

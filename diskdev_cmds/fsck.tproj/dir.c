@@ -294,7 +294,7 @@ dircheck(idesc, dp)
 #	endif
 	if (dp->d_reclen < size ||
 	    idesc->id_filesize < size ||
-	    namlen > MAXNAMLEN ||
+	    namlen > UFSMAXNAMLEN ||
 	    type > 15)
 		return (0);
 	for (cp = dp->d_name, size = 0; size < namlen; size++)
@@ -528,7 +528,7 @@ linkup(orphan, parentdir)
 		lncntp[lfdir]++;
 		pwarn("DIR I=%lu CONNECTED. ", orphan);
 		if (parentdir != (ino_t)-1)
-			printf("PARENT WAS I=%lu\n", parentdir);
+			printf("PARENT WAS I=%u\n", parentdir);
 		if (preen == 0)
 			printf("\n");
 	}

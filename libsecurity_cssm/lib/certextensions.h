@@ -410,6 +410,48 @@ typedef struct {
 	CE_AccessDescription	*accessDescriptions;
 } CE_AuthorityInfoAccess;
 
+/*
+ * Qualified Certificate Statement support, per RFC 3739.
+ *
+ * First, NameRegistrationAuthorities, a component of
+ * SemanticsInformation; it's the same as a GeneralNames - 
+ * a sequence of GeneralName. 
+ */
+typedef CE_GeneralNames CE_NameRegistrationAuthorities;
+
+/*
+ * SemanticsInformation, identified as the qcType field
+ * of a CE_QC_Statement for statementId value id-qcs-pkixQCSyntax-v2.
+ * Both fields optional; at least one must be present. 
+ */
+typedef struct {
+	CSSM_OID							*semanticsIdentifier;	
+	CE_NameRegistrationAuthorities		*nameRegistrationAuthorities;
+} CE_SemanticsInformation;
+
+/* 
+ * One Qualified Certificate Statement. 
+ * The statementId OID is required; zero or one of {semanticsInfo, 
+ * otherInfo} can be valid, depending on the value of statementId. 
+ * For statementId id-qcs-pkixQCSyntax-v2 (CSSMOID_OID_QCS_SYNTAX_V2), 
+ * the semanticsInfo field may be present; otherwise, DER-encoded
+ * information may be present in otherInfo. Both semanticsInfo and
+ * otherInfo are optional. 
+ */
+typedef struct {
+	CSSM_OID							statementId;
+	CE_SemanticsInformation				*semanticsInfo;
+	CSSM_DATA							*otherInfo;
+} CE_QC_Statement;
+
+/*
+ * The top-level Qualified Certificate Statements extension.
+ */
+typedef struct {
+	uint32								numQCStatements;
+	CE_QC_Statement						*qcStatements;
+} CE_QC_Statements;
+
 /*** CRL extensions ***/
 
 /*
@@ -472,7 +514,8 @@ typedef enum {
 	DT_CrlDistributionPoints,	// CE_CRLDistPointsSyntax
 	DT_IssuingDistributionPoint,// CE_IssuingDistributionPoint
 	DT_AuthorityInfoAccess,		// CE_AuthorityInfoAccess
-	DT_Other					// unknown, raw data as a CSSM_DATA
+	DT_Other,					// unknown, raw data as a CSSM_DATA
+	DT_QC_Statements			// CE_QC_Statements
 } CE_DataType;
 
 /*
@@ -494,6 +537,7 @@ typedef union {
 	CE_CRLDistPointsSyntax		crlDistPoints;
 	CE_IssuingDistributionPoint	issuingDistPoint;
 	CE_AuthorityInfoAccess		authorityInfoAccess;
+	CE_QC_Statements			qualifiedCertStatements;
 	CSSM_DATA					rawData;			// unknown, not decoded
 } CE_Data;
 

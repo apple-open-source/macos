@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -42,7 +42,7 @@ static const char* const txt_testResultStrings[] = {
     "Quotes ', {, a 1 {0}",
     "Quotes ', {, a 1 {0}",
     "You deposited 1 times an amount of $3,456.00 on 1/12/70",
-    "{2,time,full}, for 3,456, 1 is 5:46:40 AM PST and full date is Monday, January 12, 1970",
+    "{2,time,full}, for 3,456, 1 is 5:46:40 AM PT and full date is Monday, January 12, 1970",
     "{1,number,percent} for 1 is 345,600%"
 };
 
@@ -257,7 +257,7 @@ static void MessageFormatTest( void )
 
 
 /*test u_formatMessage() with sample patterns */
-static void TestSampleMessageFormat()
+static void TestSampleMessageFormat(void)
 {
     UChar *str;
     UChar *result;
@@ -368,7 +368,7 @@ static void TestNewFormatAndParseAPI(void)
     UDate d1,d;
     UDateFormat *def1;
     UErrorCode status = U_ZERO_ERROR;
-    double value = 0.0;
+    int32_t value = 0;
     UChar ret[30];
     UParseError parseError;
     UMessageFormat* fmt = NULL;
@@ -432,7 +432,7 @@ static void TestNewFormatAndParseAPI(void)
     if(U_FAILURE(status)){
         log_err("ERROR: error in parsing: test#5: %s\n", myErrorName(status));
     }
-    if(value!=7.00 && u_strcmp(str,ret)!=0)
+    if(value!=7 && u_strcmp(str,ret)!=0)
         log_err("FAIL: Error in parseMessage on test#5 \n");
     else
         log_verbose("PASS: parseMessage successful on test#5\n");
@@ -474,7 +474,7 @@ static void TestSampleFormatAndParseWithError(void)
     UDate d1,d;
     UDateFormat *def1;
     UErrorCode status = U_ZERO_ERROR;
-    double value = 0.0;
+    int32_t value = 0;
     UChar ret[30];
     UParseError parseError;
 
@@ -528,7 +528,7 @@ static void TestSampleFormatAndParseWithError(void)
     if(U_FAILURE(status)){
         log_err("ERROR: error in parsing: test#5: %s\n", myErrorName(status));
     }
-    if(value!=7.00 && u_strcmp(str,ret)!=0)
+    if(value!=7 && u_strcmp(str,ret)!=0)
         log_err("FAIL: Error in parseMessage on test#5 \n");
     else
         log_verbose("PASS: parseMessage successful on test#5\n");
@@ -557,7 +557,7 @@ static void TestSampleFormatAndParseWithError(void)
 }
 
 /* Test u_formatMessage() and u_parseMessage() , format and parse sequence and round trip */
-static void TestSampleFormatAndParse()
+static void TestSampleFormatAndParse(void)
 {
 
     UChar *result, *tzID, *str;
@@ -568,7 +568,7 @@ static void TestSampleFormatAndParse()
     UDate d1,d;
     UDateFormat *def1;
     UErrorCode status = U_ZERO_ERROR;
-    double value = 0.0;
+    int32_t value = 0;
     UChar ret[30];
 
     ctest_setTimeZone(NULL, &status);
@@ -621,7 +621,7 @@ static void TestSampleFormatAndParse()
     if(U_FAILURE(status)){
         log_err("ERROR: error in parsing: test#5: %s\n", myErrorName(status));
     }
-    if(value!=7.00 && u_strcmp(str,ret)!=0)
+    if(value!=7 && u_strcmp(str,ret)!=0)
         log_err("FAIL: Error in parseMessage on test#5 \n");
     else
         log_verbose("PASS: parseMessage successful on test#5\n");
@@ -650,7 +650,7 @@ static void TestSampleFormatAndParse()
 }
 
 /* test message format with a choice option */
-static void TestMsgFormatChoice()
+static void TestMsgFormatChoice(void)
 {
     UChar* str;
     UErrorCode status = U_ZERO_ERROR;
@@ -737,7 +737,7 @@ static void TestMsgFormatChoice()
 }
 
 /*test u_parseMessage() with various test patterns */
-static void TestParseMessage()
+static void TestParseMessage(void)
 {
     UChar pattern[100];
     UChar source[100];
@@ -998,10 +998,11 @@ static void OpenMessageFormatTest(void)
     umsg_toPattern(f1,result,256,&status);
     if(U_FAILURE(status) ){
         log_err("umsg_toPattern method failed. Error: %s \n",u_errorName(status));
-    }
-    if(u_strcmp(result,pattern)!=0){
-        u_UCharsToChars(result,cresult,256);
-        log_err("umsg_toPattern method failed. Expected: %s Got: %s \n",PAT,cresult);
+    } else {
+        if(u_strcmp(result,pattern)!=0){
+            u_UCharsToChars(result,cresult,256);
+            log_err("umsg_toPattern method failed. Expected: %s Got: %s \n",PAT,cresult);
+        }
     }
     /* umsg_format umsg_parse */
 
@@ -1032,6 +1033,19 @@ static void MessageLength(void)
     }
 }
 
+static void TestErrorChaining(void) {
+    UErrorCode status = U_USELESS_COLLATOR_ERROR;
+
+    umsg_open(NULL, 0, NULL, NULL, &status);
+    umsg_applyPattern(NULL, NULL, 0, NULL, &status);
+    umsg_clone(NULL, &status);
+    umsg_close(NULL);
+
+    /* All of this code should have done nothing. */
+    if (status != U_USELESS_COLLATOR_ERROR) {
+        log_err("Status got changed to %s\n", u_errorName(status));
+    }
+}
 
 void addMsgForTest(TestNode** root);
 
@@ -1049,6 +1063,7 @@ void addMsgForTest(TestNode** root)
     addTest(root, &TestParseMessageWithValist, "tsformat/cmsgtst/TestParseMessageWithValist");
     addTest(root, &TestJ904, "tsformat/cmsgtst/TestJ904");
     addTest(root, &MessageLength, "tsformat/cmsgtst/MessageLength");
+    addTest(root, &TestErrorChaining, "tsformat/cmsgtst/TestErrorChaining");
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

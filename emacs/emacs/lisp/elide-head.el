@@ -1,6 +1,7 @@
 ;;; elide-head.el --- hide headers in files
 
-;; Copyright (C) 1999 Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Dave Love <fx@gnu.org>
 ;; Keywords: outlines tools
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -33,7 +34,7 @@
 ;; elision.
 
 ;; You might add `elide-head' to appropriate major mode hooks or to
-;; `find-file-hooks'.  Please do not do this in site init files.  If
+;; `find-file-hook'.  Please do not do this in site init files.  If
 ;; you do, information may be hidden from users who don't know it
 ;; already.
 
@@ -53,9 +54,9 @@
 
 (defcustom elide-head-headers-to-hide
   '(("is free software; you can redistribute it" . ; GNU boilerplate
-     "Boston, MA 02111-1307, USA\\.")
+     "Boston, MA 0211\\(1-1307\\|0-1301\\), USA\\.")
     ("The Regents of the University of California\\.  All rights reserved\\." .
-     "SUCH DAMAGE\\.")			; BSD
+     "SUCH DAMAGE\\.")				      ; BSD
     ("Permission is hereby granted, free of charge" . ; X11
      "authorization from the X Consortium\\."))
   "Alist of regexps defining start end end of text to elide.
@@ -78,7 +79,7 @@ cdr."
 The header is made invisible with an overlay.  With a prefix arg, show
 an elided material again.
 
-This is suitable as an entry on `find-file-hooks' or appropriate mode hooks."
+This is suitable as an entry on `find-file-hook' or appropriate mode hooks."
   (interactive "P")
   (if arg
       (elide-head-show)
@@ -98,14 +99,13 @@ This is suitable as an entry on `find-file-hooks' or appropriate mode hooks."
 	    (if rest (setq rest (cdr rest))))
 	  (if (not (and beg end))
 	      (if (interactive-p)
-		  (error "No header found"))
+		  (message "No header found"))
 	    (goto-char beg)
 	    (end-of-line)
 	    (if (overlayp elide-head-overlay)
 		(move-overlay elide-head-overlay (point-marker) end)
 	      (setq elide-head-overlay (make-overlay (point-marker) end)))
 	    (overlay-put elide-head-overlay 'invisible t)
-	    (overlay-put elide-head-overlay 'intangible t)
 	    (overlay-put elide-head-overlay 'evaporate t)
 	    (overlay-put elide-head-overlay 'after-string "...")))))))
 
@@ -116,8 +116,9 @@ This is suitable as an entry on `find-file-hooks' or appropriate mode hooks."
 	   (overlay-buffer elide-head-overlay))
       (delete-overlay elide-head-overlay)
     (if (interactive-p)
-	(error "No header hidden"))))
+	(message "No header hidden"))))
 
 (provide 'elide-head)
 
+;;; arch-tag: a00e6b5b-6aeb-45b1-b734-63e23df80928
 ;;; elide-head.el ends here

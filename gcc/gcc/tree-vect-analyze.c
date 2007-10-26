@@ -26,6 +26,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "errors.h"
 #include "ggc.h"
 #include "tree.h"
+/* APPLE LOCAL 4375453 */
+#include "target.h"
 #include "basic-block.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
@@ -634,6 +636,135 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
   return true;
 }
 
+/* APPLE LOCAL begin mainline Radar 4382844 */
+/* Determine if a pointer (BASE_A) and a record/union access (BASE_B)
+   are not aliased. Return TRUE if they differ.  */
+
+static bool
+record_ptr_differ_p (tree base_a, tree base_b)
+{
+  HOST_WIDE_INT alias_set_a, alias_set_b; 
+
+  if (TREE_CODE (base_b) != COMPONENT_REF)
+    return false; 
+
+  /* Peel COMPONENT_REFs to get to the base. Do not peel INDIRECT_REFs.           
+     For a.b.c.d[i] we will get a, and for a.b->c.d[i] we will get a.b.           
+     Probably will be unnecessary with struct alias analysis.  */
+  while (TREE_CODE (base_b) == COMPONENT_REF)
+    base_b = TREE_OPERAND (base_b, 0);
+
+  /* Compare a record/union access (b.c[i] or p->c[i]) and a pointer
+     ((*q)[i]).  */
+
+  if ((TREE_CODE (base_a) == INDIRECT_REF && TREE_CODE (base_b) == VAR_DECL)
+      || (TREE_CODE (base_b) == INDIRECT_REF && TREE_CODE (base_a) == VAR_DECL))
+    {
+      alias_set_a = TREE_CODE (base_a) == INDIRECT_REF ?
+	get_alias_set (TREE_OPERAND (base_a, 0)) : get_alias_set (base_a);
+      alias_set_b = TREE_CODE (base_b) == INDIRECT_REF ?
+	get_alias_set (TREE_OPERAND (base_b, 0)) : get_alias_set (base_b);
+      if (!alias_sets_conflict_p (alias_set_a, alias_set_b))
+	return true;
+    }
+
+    return false;                                                                 
+}
+                      
+static bool
+vect_base_object_differ_p (struct data_reference *dra,
+			   struct data_reference *drb,
+			   bool *differ_p)
+{
+  tree base_a = DR_BASE_NAME (dra);
+  tree base_b = DR_BASE_NAME (drb);
+
+  if (!base_a || !base_b)
+    return false;
+
+  /* Determine if same base.  Example: for the array accesses
+     a[i], b[i] or pointer accesses *a, *b, bases are a, b.  */
+  if (base_a == base_b)
+    {
+      *differ_p = false;
+      return true;
+    }
+
+  /* For pointer based accesses, (*p)[i], (*q)[j], the bases are (*p)
+     and (*q)  */
+  if (TREE_CODE (base_a) == INDIRECT_REF && TREE_CODE (base_b) == INDIRECT_REF
+      && TREE_OPERAND (base_a, 0) == TREE_OPERAND (base_b, 0))
+    {
+      *differ_p = false;
+      return true;
+    }
+
+  /* Record/union based accesses - s.a[i], t.b[j]. bases are s.a,t.b.  */
+  if (TREE_CODE (base_a) == COMPONENT_REF && TREE_CODE (base_b) == COMPONENT_REF
+      && TREE_OPERAND (base_a, 0) == TREE_OPERAND (base_b, 0)
+      && TREE_OPERAND (base_a, 1) == TREE_OPERAND (base_b, 1))
+    {
+      *differ_p = false;
+      return true; 
+    }
+
+  /* Determine if different bases.  */
+
+  /* At this point we know that base_a != base_b.  However, pointer
+     accesses of the form x=(*p) and y=(*q), whose bases are p and q,
+     may still be pointing to the same base. In SSAed GIMPLE p and q will
+     be SSA_NAMES in this case.  Therefore, here we check if they are
+     really two different declarations.  */
+  if (TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == VAR_DECL)
+    { 
+      *differ_p = true; 
+      return true;
+    }
+
+  /* Compare two record/union bases s.a and t.b: s != t or (a != b and
+     s and t are not unions).  */
+  if (TREE_CODE (base_a) == COMPONENT_REF && TREE_CODE (base_b) == COMPONENT_REF
+      && ((TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL
+           && TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL 
+           && TREE_OPERAND (base_a, 0) != TREE_OPERAND (base_b, 0))
+          || (TREE_CODE (TREE_TYPE (TREE_OPERAND (base_a, 0))) == RECORD_TYPE
+              && TREE_CODE (TREE_TYPE (TREE_OPERAND (base_b, 0))) == RECORD_TYPE
+              && TREE_OPERAND (base_a, 1) != TREE_OPERAND (base_b, 1)))) 
+    {
+      *differ_p = true; 
+      return true; 
+    }
+
+  if (TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == INDIRECT_REF)
+    {
+      HOST_WIDE_INT alias_set_a, alias_set_b;   
+      alias_set_a = get_alias_set (base_a);
+      alias_set_b = get_alias_set (base_b);
+      if (!alias_sets_conflict_p (alias_set_a, alias_set_b))
+      *differ_p = true;
+      return true;
+    }
+
+  if (TREE_CODE (base_b) == VAR_DECL && TREE_CODE (base_a) == INDIRECT_REF)
+    {
+      HOST_WIDE_INT alias_set_a, alias_set_b;   
+      alias_set_a = get_alias_set (base_a);
+      alias_set_b = get_alias_set (base_b);
+      if (!alias_sets_conflict_p (alias_set_a, alias_set_b))
+      *differ_p = true;
+      return true;
+    }
+
+  if (record_ptr_differ_p (base_a, base_b) ||
+      record_ptr_differ_p (base_b, base_a))
+    {
+      *differ_p = true;
+      return true;
+    }
+
+  return false;                                                                   
+}
+/* APPLE LOCAL end mainline Radar 4382844 */
 
 /* Function vect_base_addr_differ_p.
 
@@ -672,6 +803,12 @@ vect_base_addr_differ_p (struct data_reference *dra,
 
   if (!alias_sets_conflict_p (alias_set_a, alias_set_b))
     {
+      /* APPLE LOCAL begin mainline Radar 4382844 */
+      if (DR_TYPE (dra) == ARRAY_REF_TYPE &&
+	  DR_TYPE (drb)  == ARRAY_REF_TYPE)
+	return vect_base_object_differ_p (dra, drb, differ_p);
+      /* APPLE LOCAL end mainline Radar 4382844 */
+
       *differ_p = true;
       return true;
     }
@@ -741,7 +878,7 @@ vect_analyze_data_ref_dependence (struct data_reference *dra,
   unsigned int loop_depth = 0;
   int dist;
   /* APPLE LOCAL end AV data dependence. -dpatel */
-  
+
   if (!vect_base_addr_differ_p (dra, drb, &differ_p))
     {
       if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS,
@@ -890,6 +1027,26 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   base_aligned_p = STMT_VINFO_VECT_BASE_ALIGNED_P (stmt_info);
   base = build_fold_indirect_ref (STMT_VINFO_VECT_DR_BASE_ADDRESS (stmt_info));
   vectype = STMT_VINFO_VECTYPE (stmt_info);
+
+  /* APPLE LOCAL begin 4333194 */
+  /* If misalignment is such that loop peeling is not able to cure it then
+     avoid vectorization. This happens, for example when misalignment is 4, 
+     size of element is 8 and vector alignment required is 16.  */
+  if (misalign)
+    {
+      HOST_WIDE_INT misalign_b = int_cst_value (misalign);
+      HOST_WIDE_INT elm_size_b = int_cst_value (TYPE_SIZE_UNIT (TREE_TYPE (vectype)));
+      if (misalign_b % elm_size_b)
+ 	{
+ 	  if (vect_print_dump_info (REPORT_ALIGNMENT, UNKNOWN_LOC))
+ 	    {
+ 	      fprintf (vect_dump, "Inappropriate alignment for vectorizer: \
+                        misalignment = " HOST_WIDE_INT_PRINT_DEC, misalign_b);
+ 	    }
+ 	  return false;
+ 	}
+    }
+  /* APPLE LOCAL end 4333194 */
 
   if (!misalign)
     {
@@ -1102,6 +1259,31 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
     {
       struct data_reference *dr = VARRAY_GENERIC_PTR (loop_write_datarefs, i);
+      /* APPLE LOCAL begin 4375453 */
+      if (unknown_alignment_for_access_p (dr))
+	{
+	  tree base_type;
+	  tree type = (TREE_TYPE (DR_REF (dr)));
+	  tree ba = DR_BASE_NAME (dr);
+	  bool is_packed = false;
+	  if (ba && TREE_CODE (ba) == COMPONENT_REF)
+	    {
+	      base_type = TREE_TYPE (TREE_OPERAND (ba, 0));
+	      is_packed = TYPE_PACKED (base_type);
+	    }
+	  if (targetm.vectorize.vector_alignment_reachable
+	      && targetm.vectorize.vector_alignment_reachable (type, is_packed))
+	    {
+	      LOOP_VINFO_UNALIGNED_DR (loop_vinfo) = dr;
+	      LOOP_DO_PEELING_FOR_ALIGNMENT (loop_vinfo) = true;
+	    }
+	  else
+	    {
+	      LOOP_DO_PEELING_FOR_ALIGNMENT (loop_vinfo) = false;
+	      break;
+	    }
+	}
+      /* APPLE LOCAL end 4375453 */
       if (!aligned_access_p (dr))
         {
           LOOP_VINFO_UNALIGNED_DR (loop_vinfo) = dr;

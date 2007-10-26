@@ -1,0 +1,1456 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		523E0D1C00D563920ACE152D /* Build All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FBFB81830AF0213C0059045E /* Build configuration list for PBXAggregateTarget "Build All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				523E0D1E00D563920ACE152D /* PBXTargetDependency */,
+				F570CAFE00EA73C301000001 /* PBXTargetDependency */,
+				523E0D1D00D563920ACE152D /* PBXTargetDependency */,
+			);
+			name = "Build All";
+			productName = "Build All";
+		};
+		5263F81D00D689AC0ACE152D /* B&I Build */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FBFB81730AF0213C0059045E /* Build configuration list for PBXAggregateTarget "B&I Build" */;
+			buildPhases = (
+			);
+			dependencies = (
+				5263F81E00D689AC0ACE152D /* PBXTargetDependency */,
+			);
+			name = "B&I Build";
+			productName = "B&I Build";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		522DA8EA00D671540ACE152D /* dumplog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 522DA8E900D671540ACE152D /* dumplog.cpp */; };
+		525DCB5A00D545800ACE152D /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 525DCB5900D545800ACE152D /* IOKit.framework */; };
+		F558771A00E926DC01000001 /* AppleSCCIrDA.h in Headers */ = {isa = PBXBuildFile; fileRef = F558771700E926DB01000001 /* AppleSCCIrDA.h */; settings = {ATTRIBUTES = (); }; };
+		F558771B00E926DC01000001 /* AppleSCCIrDA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F558771600E926DB01000001 /* AppleSCCIrDA.cpp */; };
+		F558772200E9270301000001 /* AppleUSBIrDA.h in Headers */ = {isa = PBXBuildFile; fileRef = F558771F00E9270301000001 /* AppleUSBIrDA.h */; settings = {ATTRIBUTES = (); }; };
+		F558772300E9270301000001 /* AppleUSBIrDA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F558771E00E9270301000001 /* AppleUSBIrDA.cpp */; };
+		F558772600E927CF01000001 /* AppleIrDA.h in Headers */ = {isa = PBXBuildFile; fileRef = F558772500E927CF01000001 /* AppleIrDA.h */; settings = {ATTRIBUTES = (); }; };
+		F558772700E927CF01000001 /* AppleIrDA.h in Headers */ = {isa = PBXBuildFile; fileRef = F558772500E927CF01000001 /* AppleIrDA.h */; settings = {ATTRIBUTES = (); }; };
+		F559826C00EA766001000001 /* IrDAUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = F559826B00EA766001000001 /* IrDAUserClient.h */; };
+		F559826D00EA766101000001 /* IrDAUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = F559826B00EA766001000001 /* IrDAUserClient.h */; };
+		F55A100C00E92C3101000001 /* IrDAComm.h in Headers */ = {isa = PBXBuildFile; fileRef = F55A100A00E92C3101000001 /* IrDAComm.h */; settings = {ATTRIBUTES = (); }; };
+		F55A100D00E92C3101000001 /* IrDAUser.h in Headers */ = {isa = PBXBuildFile; fileRef = F55A100B00E92C3101000001 /* IrDAUser.h */; settings = {ATTRIBUTES = (); }; };
+		F55A100E00E92C3101000001 /* IrDAComm.h in Headers */ = {isa = PBXBuildFile; fileRef = F55A100A00E92C3101000001 /* IrDAComm.h */; settings = {ATTRIBUTES = (); }; };
+		F55A100F00E92C3101000001 /* IrDAUser.h in Headers */ = {isa = PBXBuildFile; fileRef = F55A100B00E92C3101000001 /* IrDAUser.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101000E92D4A01000001 /* IrGlue.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8B00E6A11D01000001 /* IrGlue.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101100E92D4A01000001 /* IrDATypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8900E6A11D01000001 /* IrDATypes.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101200E92D4A01000001 /* IrDALog.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E7800E6A11D01000001 /* IrDALog.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101300E92D4A01000001 /* IrDALogPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E7900E6A11D01000001 /* IrDALogPriv.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101400E92D4A01000001 /* IrIASClient.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E7D00E6A11D01000001 /* IrIASClient.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101500E92D4A01000001 /* IrIASServer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E7F00E6A11D01000001 /* IrIASServer.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101600E92D4A01000001 /* IrIASService.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8100E6A11D01000001 /* IrIASService.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101700E92D4A01000001 /* CIrDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8400E6A11D01000001 /* CIrDevice.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101800E92D4A01000001 /* IrDAStats.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8500E6A11D01000001 /* IrDAStats.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101900E92D4A01000001 /* IrComm.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8800E6A11D01000001 /* IrComm.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101A00E92D4A01000001 /* IrQOS.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9800E6A11D01000001 /* IrQOS.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101B00E92D4A01000001 /* IrLMP.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9600E6A11D01000001 /* IrLMP.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101C00E92D4A01000001 /* IrLAPConn.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9400E6A11D01000001 /* IrLAPConn.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101D00E92D4A01000001 /* IrLAP.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9200E6A11D01000001 /* IrLAP.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101E00E92D4A01000001 /* IrEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9000E6A11D01000001 /* IrEvent.h */; settings = {ATTRIBUTES = (); }; };
+		F55A101F00E92D4A01000001 /* IrDscInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8E00E6A11D01000001 /* IrDscInfo.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102000E92D4A01000001 /* CIrLSAP.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9B00E6A11D01000001 /* CIrLSAP.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102100E92D4A01000001 /* IrDiscovery.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9D00E6A11D01000001 /* IrDiscovery.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102200E92D4A01000001 /* IrLSAPConn.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9F00E6A11D01000001 /* IrLSAPConn.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102300E92D4A01000001 /* IrStream.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EA100E6A11D01000001 /* IrStream.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102400E92D4A01000001 /* ttp.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EA400E6A11D01000001 /* ttp.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102500E92D4A01000001 /* ttppdu.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EA900E6A11D01000001 /* ttppdu.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102600E92D4A01000001 /* CArrayIterator.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EAC00E6A11D01000001 /* CArrayIterator.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102700E92D4A01000001 /* CBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EAE00E6A11D01000001 /* CBuffer.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102800E92D4A01000001 /* CBufferSegment.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EB000E6A11D01000001 /* CBufferSegment.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102900E92D4A01000001 /* CDynamicArray.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EB200E6A11D01000001 /* CDynamicArray.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102A00E92D4A01000001 /* CItemComparer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EB400E6A11D01000001 /* CItemComparer.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102B00E92D4A01000001 /* CList.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EB600E6A11D01000001 /* CList.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102C00E92D4A01000001 /* CListIterator.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EB800E6A11D01000001 /* CListIterator.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102D00E92D4A01000001 /* CTimer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EBA00E6A11D01000001 /* CTimer.h */; settings = {ATTRIBUTES = (); }; };
+		F55A102E00E92D4A01000001 /* IrDALog.c in Sources */ = {isa = PBXBuildFile; fileRef = F5426E7700E6A11D01000001 /* IrDALog.c */; };
+		F55A102F00E92D4A01000001 /* IrIASClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E7C00E6A11D01000001 /* IrIASClient.cpp */; };
+		F55A103000E92D4A01000001 /* IrIASServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E7E00E6A11D01000001 /* IrIASServer.cpp */; };
+		F55A103100E92D4A01000001 /* IrIASService.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8000E6A11D01000001 /* IrIASService.cpp */; };
+		F55A103200E92D4A01000001 /* CIrDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8300E6A11D01000001 /* CIrDevice.cpp */; };
+		F55A103300E92D4A01000001 /* IrComm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8700E6A11D01000001 /* IrComm.cpp */; };
+		F55A103400E92D4A01000001 /* IrDAComm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E7100E6A11D01000001 /* IrDAComm.cpp */; };
+		F55A103500E92D4A01000001 /* IrDAUser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E7200E6A11D01000001 /* IrDAUser.cpp */; };
+		F55A103600E92D4A01000001 /* IrGlue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8A00E6A11D01000001 /* IrGlue.cpp */; };
+		F55A103700E92D4A01000001 /* IrDscInfo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8D00E6A11D01000001 /* IrDscInfo.cpp */; };
+		F55A103800E92D4A01000001 /* IrQOS.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9700E6A11D01000001 /* IrQOS.cpp */; };
+		F55A103900E92D4A01000001 /* IrLMP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9500E6A11D01000001 /* IrLMP.cpp */; };
+		F55A103A00E92D4A01000001 /* IrLAPConn.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9300E6A11D01000001 /* IrLAPConn.cpp */; };
+		F55A103B00E92D4A01000001 /* IrLAP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9100E6A11D01000001 /* IrLAP.cpp */; };
+		F55A103C00E92D4A01000001 /* IrEvent.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8F00E6A11D01000001 /* IrEvent.cpp */; };
+		F55A103D00E92D4A01000001 /* CIrLSAP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9A00E6A11D01000001 /* CIrLSAP.cpp */; };
+		F55A103E00E92D4A01000001 /* IrDiscovery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9C00E6A11D01000001 /* IrDiscovery.cpp */; };
+		F55A103F00E92D4A01000001 /* IrLSAPConn.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9E00E6A11D01000001 /* IrLSAPConn.cpp */; };
+		F55A104000E92D4A01000001 /* IrStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA000E6A11D01000001 /* IrStream.cpp */; };
+		F55A104100E92D4A01000001 /* ttp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA300E6A11D01000001 /* ttp.cpp */; };
+		F55A104200E92D4A01000001 /* ttp2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA500E6A11D01000001 /* ttp2.cpp */; };
+		F55A104300E92D4A01000001 /* ttp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA600E6A11D01000001 /* ttp3.cpp */; };
+		F55A104400E92D4A01000001 /* ttplmp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA700E6A11D01000001 /* ttplmp.cpp */; };
+		F55A104500E92D4A01000001 /* ttppdu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA800E6A11D01000001 /* ttppdu.cpp */; };
+		F55A104600E92D4A01000001 /* CArrayIterator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EAB00E6A11D01000001 /* CArrayIterator.cpp */; };
+		F55A104700E92D4A01000001 /* CBuffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EAD00E6A11D01000001 /* CBuffer.cpp */; };
+		F55A104800E92D4A01000001 /* CBufferSegment.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EAF00E6A11D01000001 /* CBufferSegment.cpp */; };
+		F55A104900E92D4A01000001 /* CDynamicArray.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EB100E6A11D01000001 /* CDynamicArray.cpp */; };
+		F55A104A00E92D4A01000001 /* CItemComparer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EB300E6A11D01000001 /* CItemComparer.cpp */; };
+		F55A104B00E92D4A01000001 /* CList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EB500E6A11D01000001 /* CList.cpp */; };
+		F55A104C00E92D4A01000001 /* CListIterator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EB700E6A11D01000001 /* CListIterator.cpp */; };
+		F55A104D00E92D4A01000001 /* CTimer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EB900E6A11D01000001 /* CTimer.cpp */; };
+		F572FF3801948122010001C8 /* IrDATimerEventSource.h in Headers */ = {isa = PBXBuildFile; fileRef = F572FF3701948122010001C8 /* IrDATimerEventSource.h */; };
+		F572FF3901948122010001C8 /* IrDATimerEventSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F572FF3601948122010001C8 /* IrDATimerEventSource.cpp */; };
+		F572FF3A01948122010001C8 /* IrDATimerEventSource.h in Headers */ = {isa = PBXBuildFile; fileRef = F572FF3701948122010001C8 /* IrDATimerEventSource.h */; };
+		F572FF3B01948122010001C8 /* IrDATimerEventSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F572FF3601948122010001C8 /* IrDATimerEventSource.cpp */; };
+		F5F07A3A00EA5E8E01000001 /* IrDADebugging.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E7600E6A11D01000001 /* IrDADebugging.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A3B00EA5EE801000001 /* IrDATypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8900E6A11D01000001 /* IrDATypes.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A3C00EA5EE801000001 /* IrGlue.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8B00E6A11D01000001 /* IrGlue.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A3D00EA5EE801000001 /* CTimer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EBA00E6A11D01000001 /* CTimer.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A3E00EA5EE801000001 /* CListIterator.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EB800E6A11D01000001 /* CListIterator.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A3F00EA5EE801000001 /* CList.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EB600E6A11D01000001 /* CList.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4000EA5EE801000001 /* CItemComparer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EB400E6A11D01000001 /* CItemComparer.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4100EA5EE801000001 /* CDynamicArray.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EB200E6A11D01000001 /* CDynamicArray.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4200EA5EE801000001 /* CBufferSegment.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EB000E6A11D01000001 /* CBufferSegment.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4300EA5EE801000001 /* CBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EAE00E6A11D01000001 /* CBuffer.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4400EA5EE801000001 /* CArrayIterator.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EAC00E6A11D01000001 /* CArrayIterator.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4500EA5EE801000001 /* ttp.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EA400E6A11D01000001 /* ttp.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4600EA5EE801000001 /* ttppdu.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EA900E6A11D01000001 /* ttppdu.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4700EA5EE801000001 /* CIrLSAP.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9B00E6A11D01000001 /* CIrLSAP.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4800EA5EE801000001 /* IrDiscovery.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9D00E6A11D01000001 /* IrDiscovery.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4900EA5EE801000001 /* IrLSAPConn.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9F00E6A11D01000001 /* IrLSAPConn.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4A00EA5EE801000001 /* IrStream.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426EA100E6A11D01000001 /* IrStream.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4B00EA5EE801000001 /* IrDscInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8E00E6A11D01000001 /* IrDscInfo.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4C00EA5EE801000001 /* IrEvent.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9000E6A11D01000001 /* IrEvent.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4D00EA5EE801000001 /* IrLAP.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9200E6A11D01000001 /* IrLAP.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4E00EA5EE801000001 /* IrLAPConn.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9400E6A11D01000001 /* IrLAPConn.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A4F00EA5EE801000001 /* IrLMP.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9600E6A11D01000001 /* IrLMP.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5000EA5EE801000001 /* IrQOS.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E9800E6A11D01000001 /* IrQOS.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5100EA5EE801000001 /* IrComm.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8800E6A11D01000001 /* IrComm.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5200EA5EE801000001 /* CIrDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8400E6A11D01000001 /* CIrDevice.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5300EA5EE801000001 /* IrDAStats.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8500E6A11D01000001 /* IrDAStats.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5400EA5EE801000001 /* IrIASClient.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E7D00E6A11D01000001 /* IrIASClient.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5500EA5EE801000001 /* IrIASServer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E7F00E6A11D01000001 /* IrIASServer.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5600EA5EE801000001 /* IrIASService.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E8100E6A11D01000001 /* IrIASService.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5700EA5EE801000001 /* IrDADebugging.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E7600E6A11D01000001 /* IrDADebugging.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5800EA5EE801000001 /* IrDALog.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E7800E6A11D01000001 /* IrDALog.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5900EA5EE801000001 /* IrDALogPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = F5426E7900E6A11D01000001 /* IrDALogPriv.h */; settings = {ATTRIBUTES = (); }; };
+		F5F07A5A00EA5EE801000001 /* CTimer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EB900E6A11D01000001 /* CTimer.cpp */; };
+		F5F07A5B00EA5EE801000001 /* CListIterator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EB700E6A11D01000001 /* CListIterator.cpp */; };
+		F5F07A5C00EA5EE801000001 /* CList.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EB500E6A11D01000001 /* CList.cpp */; };
+		F5F07A5D00EA5EE801000001 /* CItemComparer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EB300E6A11D01000001 /* CItemComparer.cpp */; };
+		F5F07A5E00EA5EE801000001 /* CDynamicArray.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EB100E6A11D01000001 /* CDynamicArray.cpp */; };
+		F5F07A5F00EA5EE801000001 /* CBufferSegment.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EAF00E6A11D01000001 /* CBufferSegment.cpp */; };
+		F5F07A6000EA5EE801000001 /* CBuffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EAD00E6A11D01000001 /* CBuffer.cpp */; };
+		F5F07A6100EA5EE801000001 /* CArrayIterator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EAB00E6A11D01000001 /* CArrayIterator.cpp */; };
+		F5F07A6200EA5EE801000001 /* ttp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA300E6A11D01000001 /* ttp.cpp */; };
+		F5F07A6300EA5EE801000001 /* ttp2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA500E6A11D01000001 /* ttp2.cpp */; };
+		F5F07A6400EA5EE801000001 /* ttp3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA600E6A11D01000001 /* ttp3.cpp */; };
+		F5F07A6500EA5EE801000001 /* ttplmp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA700E6A11D01000001 /* ttplmp.cpp */; };
+		F5F07A6600EA5EE801000001 /* ttppdu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA800E6A11D01000001 /* ttppdu.cpp */; };
+		F5F07A6700EA5EE801000001 /* CIrLSAP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9A00E6A11D01000001 /* CIrLSAP.cpp */; };
+		F5F07A6800EA5EE801000001 /* IrDiscovery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9C00E6A11D01000001 /* IrDiscovery.cpp */; };
+		F5F07A6900EA5EE801000001 /* IrLSAPConn.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9E00E6A11D01000001 /* IrLSAPConn.cpp */; };
+		F5F07A6A00EA5EE801000001 /* IrStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426EA000E6A11D01000001 /* IrStream.cpp */; };
+		F5F07A6B00EA5EE801000001 /* IrDscInfo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8D00E6A11D01000001 /* IrDscInfo.cpp */; };
+		F5F07A6C00EA5EE801000001 /* IrEvent.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8F00E6A11D01000001 /* IrEvent.cpp */; };
+		F5F07A6D00EA5EE801000001 /* IrLAP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9100E6A11D01000001 /* IrLAP.cpp */; };
+		F5F07A6E00EA5EE801000001 /* IrLAPConn.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9300E6A11D01000001 /* IrLAPConn.cpp */; };
+		F5F07A6F00EA5EE801000001 /* IrLMP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9500E6A11D01000001 /* IrLMP.cpp */; };
+		F5F07A7000EA5EE801000001 /* IrQOS.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E9700E6A11D01000001 /* IrQOS.cpp */; };
+		F5F07A7100EA5EE801000001 /* IrGlue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8A00E6A11D01000001 /* IrGlue.cpp */; };
+		F5F07A7200EA5EE801000001 /* IrDAUser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E7200E6A11D01000001 /* IrDAUser.cpp */; };
+		F5F07A7300EA5EE801000001 /* IrDAComm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E7100E6A11D01000001 /* IrDAComm.cpp */; };
+		F5F07A7400EA5EE801000001 /* IrComm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8700E6A11D01000001 /* IrComm.cpp */; };
+		F5F07A7500EA5EE801000001 /* CIrDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8300E6A11D01000001 /* CIrDevice.cpp */; };
+		F5F07A7600EA5EE801000001 /* IrIASClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E7C00E6A11D01000001 /* IrIASClient.cpp */; };
+		F5F07A7700EA5EE801000001 /* IrIASServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E7E00E6A11D01000001 /* IrIASServer.cpp */; };
+		F5F07A7800EA5EE801000001 /* IrIASService.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5426E8000E6A11D01000001 /* IrIASService.cpp */; };
+		F5F07A7900EA5EE801000001 /* IrDALog.c in Sources */ = {isa = PBXBuildFile; fileRef = F5426E7700E6A11D01000001 /* IrDALog.c */; };
+		F5F07A8900EA636301000001 /* AppleIrDA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5F07A8800EA636301000001 /* AppleIrDA.cpp */; };
+		F5F07A8A00EA636301000001 /* AppleIrDA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5F07A8800EA636301000001 /* AppleIrDA.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBundleTarget section */
+		525DCB5E00D54B8A0ACE152D /* AppleUSBIrDA */ = {
+			isa = PBXBundleTarget;
+			buildConfigurationList = FBFB81670AF0213C0059045E /* Build configuration list for PBXBundleTarget "AppleUSBIrDA" */;
+			buildPhases = (
+				525DCB5F00D54B8A0ACE152D /* ShellScript */,
+				525DCB6000D54B8A0ACE152D /* Headers */,
+				525DCB6100D54B8A0ACE152D /* Sources */,
+				525DCB6200D54B8A0ACE152D /* Resources */,
+				525DCB6300D54B8A0ACE152D /* Frameworks */,
+				525DCB6400D54B8A0ACE152D /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = AppleUSBIrDA;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+			productName = AppleUSBIrDA;
+			productReference = 525DCB5D00D54B8A0ACE152D /* AppleUSBIrDA.kext */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleUSBIrDA</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IrDA version 1.4.4, Copyright 2001-2007, Apple Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleUSBIrDA</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleUSBIrDA</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.4</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.4</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleUSBIrDA</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBIrDA</string>
+			<key>IOClass</key>
+			<string>AppleUSBIrDADriver</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>0</integer>
+			<key>idProduct</key>
+			<integer>384</integer>
+			<key>idVendor</key>
+			<integer>1295</integer>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOSerialFamily</key>
+		<string>1.0.4</string>
+		<key>com.apple.iokit.IOUSBFamily</key>
+		<string>1.8.3b3</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		F5426EBC00E6A11E01000001 /* AppleSCCIrDA */ = {
+			isa = PBXBundleTarget;
+			buildConfigurationList = FBFB816B0AF0213C0059045E /* Build configuration list for PBXBundleTarget "AppleSCCIrDA" */;
+			buildPhases = (
+				F5426EBD00E6A11E01000001 /* ShellScript */,
+				F5426EBE00E6A11E01000001 /* Headers */,
+				F5426EE300E6A11E01000001 /* Sources */,
+				F5426F0700E6A11E01000001 /* Resources */,
+				F5426F0800E6A11E01000001 /* Frameworks */,
+				F5426F0900E6A11E01000001 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = AppleSCCIrDA;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+			productName = AppleSCCIrDA;
+			productReference = F5426EBB00E6A11D01000001 /* AppleSCCIrDA.kext */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleSCCIrDA</string>
+	<key>CFBundleGetInfoString</key>
+	<string>IrDA version 1.4.0b1, Copyright 2001-2006, Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleSCCIrDA</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleSCCIrDA</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.0b1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleSCCIrDA</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleSCCIrDA</string>
+			<key>IOClass</key>
+			<string>AppleSCCIrDA</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>chrp,es3</string>
+			</array>
+			<key>IOProbeScore</key>
+			<integer>2000</integer>
+			<key>IOProviderClass</key>
+			<string>IORS232SerialStreamSync</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleKeyLargo</key>
+		<string>1.1d5</string>
+		<key>com.apple.iokit.IOSerialFamily</key>
+		<string>1.0.7d10</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+/* End PBXBundleTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		FB0DAA75072EA4C200C9ABF6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 523BE09600D540DC0ACE152D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F5426EBC00E6A11E01000001;
+			remoteInfo = AppleSCCIrDA;
+		};
+		FB0DAA77072EA4C200C9ABF6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 523BE09600D540DC0ACE152D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 525DCB5E00D54B8A0ACE152D;
+			remoteInfo = AppleUSBIrDA;
+		};
+		FB0DAA79072EA4C200C9ABF6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 523BE09600D540DC0ACE152D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 525DCB5E00D54B8A0ACE152D;
+			remoteInfo = AppleUSBIrDA;
+		};
+		FB0DAA7B072EA4C200C9ABF6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 523BE09600D540DC0ACE152D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 523BE09A00D541340ACE152D;
+			remoteInfo = DumpLog;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		522DA8E900D671540ACE152D /* dumplog.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = dumplog.cpp; path = DumpLog/dumplog.cpp; sourceTree = "<group>"; };
+		523BE09900D541340ACE152D /* DumpLog */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = DumpLog; sourceTree = BUILT_PRODUCTS_DIR; };
+		525DCB5900D545800ACE152D /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		525DCB5D00D54B8A0ACE152D /* AppleUSBIrDA.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = AppleUSBIrDA.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		5285C22D00D5563A0ACE152D /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		5285C22F00D556750ACE152D /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
+		5285C23100D5569A0ACE152D /* SystemUIPlugin.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemUIPlugin.framework; path = /System/Library/PrivateFrameworks/SystemUIPlugin.framework; sourceTree = "<absolute>"; };
+		F5426E7100E6A11D01000001 /* IrDAComm.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrDAComm.cpp; sourceTree = SOURCE_ROOT; };
+		F5426E7200E6A11D01000001 /* IrDAUser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrDAUser.cpp; sourceTree = SOURCE_ROOT; };
+		F5426E7500E6A11D01000001 /* Dummy.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = file; path = Dummy.cpp; sourceTree = "<group>"; };
+		F5426E7600E6A11D01000001 /* IrDADebugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDADebugging.h; sourceTree = "<group>"; };
+		F5426E7700E6A11D01000001 /* IrDALog.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IrDALog.c; sourceTree = "<group>"; };
+		F5426E7800E6A11D01000001 /* IrDALog.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDALog.h; sourceTree = "<group>"; };
+		F5426E7900E6A11D01000001 /* IrDALogPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDALogPriv.h; sourceTree = "<group>"; };
+		F5426E7A00E6A11D01000001 /* Test.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = file; path = Test.cpp; sourceTree = "<group>"; };
+		F5426E7C00E6A11D01000001 /* IrIASClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = IrIASClient.cpp; sourceTree = "<group>"; };
+		F5426E7D00E6A11D01000001 /* IrIASClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrIASClient.h; sourceTree = "<group>"; };
+		F5426E7E00E6A11D01000001 /* IrIASServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrIASServer.cpp; sourceTree = "<group>"; };
+		F5426E7F00E6A11D01000001 /* IrIASServer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrIASServer.h; sourceTree = "<group>"; };
+		F5426E8000E6A11D01000001 /* IrIASService.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrIASService.cpp; sourceTree = "<group>"; };
+		F5426E8100E6A11D01000001 /* IrIASService.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrIASService.h; sourceTree = "<group>"; };
+		F5426E8300E6A11D01000001 /* CIrDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CIrDevice.cpp; sourceTree = "<group>"; };
+		F5426E8400E6A11D01000001 /* CIrDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CIrDevice.h; sourceTree = "<group>"; };
+		F5426E8500E6A11D01000001 /* IrDAStats.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDAStats.h; sourceTree = "<group>"; };
+		F5426E8700E6A11D01000001 /* IrComm.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrComm.cpp; sourceTree = "<group>"; };
+		F5426E8800E6A11D01000001 /* IrComm.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrComm.h; sourceTree = "<group>"; };
+		F5426E8900E6A11D01000001 /* IrDATypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDATypes.h; sourceTree = "<group>"; };
+		F5426E8A00E6A11D01000001 /* IrGlue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrGlue.cpp; sourceTree = "<group>"; };
+		F5426E8B00E6A11D01000001 /* IrGlue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrGlue.h; sourceTree = "<group>"; };
+		F5426E8D00E6A11D01000001 /* IrDscInfo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrDscInfo.cpp; sourceTree = "<group>"; };
+		F5426E8E00E6A11D01000001 /* IrDscInfo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDscInfo.h; sourceTree = "<group>"; };
+		F5426E8F00E6A11D01000001 /* IrEvent.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrEvent.cpp; sourceTree = "<group>"; };
+		F5426E9000E6A11D01000001 /* IrEvent.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrEvent.h; sourceTree = "<group>"; };
+		F5426E9100E6A11D01000001 /* IrLAP.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrLAP.cpp; sourceTree = "<group>"; };
+		F5426E9200E6A11D01000001 /* IrLAP.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrLAP.h; sourceTree = "<group>"; };
+		F5426E9300E6A11D01000001 /* IrLAPConn.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrLAPConn.cpp; sourceTree = "<group>"; };
+		F5426E9400E6A11D01000001 /* IrLAPConn.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrLAPConn.h; sourceTree = "<group>"; };
+		F5426E9500E6A11D01000001 /* IrLMP.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrLMP.cpp; sourceTree = "<group>"; };
+		F5426E9600E6A11D01000001 /* IrLMP.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrLMP.h; sourceTree = "<group>"; };
+		F5426E9700E6A11D01000001 /* IrQOS.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrQOS.cpp; sourceTree = "<group>"; };
+		F5426E9800E6A11D01000001 /* IrQOS.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrQOS.h; sourceTree = "<group>"; };
+		F5426E9A00E6A11D01000001 /* CIrLSAP.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CIrLSAP.cpp; sourceTree = "<group>"; };
+		F5426E9B00E6A11D01000001 /* CIrLSAP.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CIrLSAP.h; sourceTree = "<group>"; };
+		F5426E9C00E6A11D01000001 /* IrDiscovery.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrDiscovery.cpp; sourceTree = "<group>"; };
+		F5426E9D00E6A11D01000001 /* IrDiscovery.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDiscovery.h; sourceTree = "<group>"; };
+		F5426E9E00E6A11D01000001 /* IrLSAPConn.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrLSAPConn.cpp; sourceTree = "<group>"; };
+		F5426E9F00E6A11D01000001 /* IrLSAPConn.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrLSAPConn.h; sourceTree = "<group>"; };
+		F5426EA000E6A11D01000001 /* IrStream.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrStream.cpp; sourceTree = "<group>"; };
+		F5426EA100E6A11D01000001 /* IrStream.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrStream.h; sourceTree = "<group>"; };
+		F5426EA300E6A11D01000001 /* ttp.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ttp.cpp; sourceTree = "<group>"; };
+		F5426EA400E6A11D01000001 /* ttp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ttp.h; sourceTree = "<group>"; };
+		F5426EA500E6A11D01000001 /* ttp2.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ttp2.cpp; sourceTree = "<group>"; };
+		F5426EA600E6A11D01000001 /* ttp3.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ttp3.cpp; sourceTree = "<group>"; };
+		F5426EA700E6A11D01000001 /* ttplmp.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ttplmp.cpp; sourceTree = "<group>"; };
+		F5426EA800E6A11D01000001 /* ttppdu.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ttppdu.cpp; sourceTree = "<group>"; };
+		F5426EA900E6A11D01000001 /* ttppdu.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ttppdu.h; sourceTree = "<group>"; };
+		F5426EAB00E6A11D01000001 /* CArrayIterator.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CArrayIterator.cpp; sourceTree = "<group>"; };
+		F5426EAC00E6A11D01000001 /* CArrayIterator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CArrayIterator.h; sourceTree = "<group>"; };
+		F5426EAD00E6A11D01000001 /* CBuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CBuffer.cpp; sourceTree = "<group>"; };
+		F5426EAE00E6A11D01000001 /* CBuffer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CBuffer.h; sourceTree = "<group>"; };
+		F5426EAF00E6A11D01000001 /* CBufferSegment.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CBufferSegment.cpp; sourceTree = "<group>"; };
+		F5426EB000E6A11D01000001 /* CBufferSegment.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CBufferSegment.h; sourceTree = "<group>"; };
+		F5426EB100E6A11D01000001 /* CDynamicArray.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CDynamicArray.cpp; sourceTree = "<group>"; };
+		F5426EB200E6A11D01000001 /* CDynamicArray.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CDynamicArray.h; sourceTree = "<group>"; };
+		F5426EB300E6A11D01000001 /* CItemComparer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CItemComparer.cpp; sourceTree = "<group>"; };
+		F5426EB400E6A11D01000001 /* CItemComparer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CItemComparer.h; sourceTree = "<group>"; };
+		F5426EB500E6A11D01000001 /* CList.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CList.cpp; sourceTree = "<group>"; };
+		F5426EB600E6A11D01000001 /* CList.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CList.h; sourceTree = "<group>"; };
+		F5426EB700E6A11D01000001 /* CListIterator.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CListIterator.cpp; sourceTree = "<group>"; };
+		F5426EB800E6A11D01000001 /* CListIterator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CListIterator.h; sourceTree = "<group>"; };
+		F5426EB900E6A11D01000001 /* CTimer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CTimer.cpp; sourceTree = "<group>"; };
+		F5426EBA00E6A11D01000001 /* CTimer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CTimer.h; sourceTree = "<group>"; };
+		F5426EBB00E6A11D01000001 /* AppleSCCIrDA.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = AppleSCCIrDA.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		F558771600E926DB01000001 /* AppleSCCIrDA.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleSCCIrDA.cpp; sourceTree = "<group>"; };
+		F558771700E926DB01000001 /* AppleSCCIrDA.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleSCCIrDA.h; sourceTree = "<group>"; };
+		F558771E00E9270301000001 /* AppleUSBIrDA.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUSBIrDA.cpp; sourceTree = "<group>"; };
+		F558771F00E9270301000001 /* AppleUSBIrDA.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleUSBIrDA.h; sourceTree = "<group>"; };
+		F558772500E927CF01000001 /* AppleIrDA.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleIrDA.h; sourceTree = "<group>"; };
+		F559826B00EA766001000001 /* IrDAUserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDAUserClient.h; sourceTree = SOURCE_ROOT; };
+		F55A100A00E92C3101000001 /* IrDAComm.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDAComm.h; sourceTree = SOURCE_ROOT; };
+		F55A100B00E92C3101000001 /* IrDAUser.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDAUser.h; sourceTree = SOURCE_ROOT; };
+		F572FF3601948122010001C8 /* IrDATimerEventSource.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IrDATimerEventSource.cpp; sourceTree = "<group>"; };
+		F572FF3701948122010001C8 /* IrDATimerEventSource.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IrDATimerEventSource.h; sourceTree = "<group>"; };
+		F5F07A8800EA636301000001 /* AppleIrDA.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleIrDA.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		523BE09D00D541340ACE152D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				525DCB5A00D545800ACE152D /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		525DCB6300D54B8A0ACE152D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5426F0800E6A11E01000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		523BE09700D540DC0ACE152D = {
+			isa = PBXGroup;
+			children = (
+				F558772500E927CF01000001 /* AppleIrDA.h */,
+				F5F07A8800EA636301000001 /* AppleIrDA.cpp */,
+				F558771500E926DB01000001 /* AppleSCCIrDA */,
+				F558771D00E9270301000001 /* AppleUSBIrDA */,
+				F5426E7300E6A11D01000001 /* IrDA */,
+				523BE0A000D543040ACE152D /* DumpLog */,
+				525DCB5800D545800ACE152D /* Frameworks */,
+				523BE09800D541340ACE152D /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		523BE09800D541340ACE152D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				523BE09900D541340ACE152D /* DumpLog */,
+				525DCB5D00D54B8A0ACE152D /* AppleUSBIrDA.kext */,
+				F5426EBB00E6A11D01000001 /* AppleSCCIrDA.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		523BE0A000D543040ACE152D /* DumpLog */ = {
+			isa = PBXGroup;
+			children = (
+				522DA8E900D671540ACE152D /* dumplog.cpp */,
+			);
+			name = DumpLog;
+			sourceTree = "<group>";
+		};
+		525DCB5800D545800ACE152D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5285C22F00D556750ACE152D /* ApplicationServices.framework */,
+				5285C22D00D5563A0ACE152D /* Cocoa.framework */,
+				525DCB5900D545800ACE152D /* IOKit.framework */,
+				5285C23100D5569A0ACE152D /* SystemUIPlugin.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F5426E7300E6A11D01000001 /* IrDA */ = {
+			isa = PBXGroup;
+			children = (
+				F5426E8900E6A11D01000001 /* IrDATypes.h */,
+				F5426E8B00E6A11D01000001 /* IrGlue.h */,
+				F55A100A00E92C3101000001 /* IrDAComm.h */,
+				F55A100B00E92C3101000001 /* IrDAUser.h */,
+				F559826B00EA766001000001 /* IrDAUserClient.h */,
+				F5426E7400E6A11D01000001 /* Debugging */,
+				F5426E7B00E6A11D01000001 /* IAS */,
+				F5426E8200E6A11D01000001 /* IO */,
+				F5426E8600E6A11D01000001 /* IrComm */,
+				F5426E7100E6A11D01000001 /* IrDAComm.cpp */,
+				F5426E7200E6A11D01000001 /* IrDAUser.cpp */,
+				F5426E8A00E6A11D01000001 /* IrGlue.cpp */,
+				F5426E8C00E6A11D01000001 /* Stack */,
+				F5426E9900E6A11D01000001 /* Streams */,
+				F5426EA200E6A11D01000001 /* TinyTP */,
+				F5426EAA00E6A11D01000001 /* Utils */,
+			);
+			path = IrDA;
+			sourceTree = "<group>";
+		};
+		F5426E7400E6A11D01000001 /* Debugging */ = {
+			isa = PBXGroup;
+			children = (
+				F5426E7500E6A11D01000001 /* Dummy.cpp */,
+				F5426E7600E6A11D01000001 /* IrDADebugging.h */,
+				F5426E7700E6A11D01000001 /* IrDALog.c */,
+				F5426E7800E6A11D01000001 /* IrDALog.h */,
+				F5426E7900E6A11D01000001 /* IrDALogPriv.h */,
+				F5426E7A00E6A11D01000001 /* Test.cpp */,
+			);
+			path = Debugging;
+			sourceTree = "<group>";
+		};
+		F5426E7B00E6A11D01000001 /* IAS */ = {
+			isa = PBXGroup;
+			children = (
+				F5426E7C00E6A11D01000001 /* IrIASClient.cpp */,
+				F5426E7D00E6A11D01000001 /* IrIASClient.h */,
+				F5426E7E00E6A11D01000001 /* IrIASServer.cpp */,
+				F5426E7F00E6A11D01000001 /* IrIASServer.h */,
+				F5426E8000E6A11D01000001 /* IrIASService.cpp */,
+				F5426E8100E6A11D01000001 /* IrIASService.h */,
+			);
+			path = IAS;
+			sourceTree = "<group>";
+		};
+		F5426E8200E6A11D01000001 /* IO */ = {
+			isa = PBXGroup;
+			children = (
+				F5426E8300E6A11D01000001 /* CIrDevice.cpp */,
+				F5426E8400E6A11D01000001 /* CIrDevice.h */,
+				F5426E8500E6A11D01000001 /* IrDAStats.h */,
+			);
+			path = IO;
+			sourceTree = "<group>";
+		};
+		F5426E8600E6A11D01000001 /* IrComm */ = {
+			isa = PBXGroup;
+			children = (
+				F5426E8700E6A11D01000001 /* IrComm.cpp */,
+				F5426E8800E6A11D01000001 /* IrComm.h */,
+			);
+			path = IrComm;
+			sourceTree = "<group>";
+		};
+		F5426E8C00E6A11D01000001 /* Stack */ = {
+			isa = PBXGroup;
+			children = (
+				F5426E8D00E6A11D01000001 /* IrDscInfo.cpp */,
+				F5426E8E00E6A11D01000001 /* IrDscInfo.h */,
+				F5426E8F00E6A11D01000001 /* IrEvent.cpp */,
+				F5426E9000E6A11D01000001 /* IrEvent.h */,
+				F5426E9100E6A11D01000001 /* IrLAP.cpp */,
+				F5426E9200E6A11D01000001 /* IrLAP.h */,
+				F5426E9300E6A11D01000001 /* IrLAPConn.cpp */,
+				F5426E9400E6A11D01000001 /* IrLAPConn.h */,
+				F5426E9500E6A11D01000001 /* IrLMP.cpp */,
+				F5426E9600E6A11D01000001 /* IrLMP.h */,
+				F5426E9700E6A11D01000001 /* IrQOS.cpp */,
+				F5426E9800E6A11D01000001 /* IrQOS.h */,
+			);
+			path = Stack;
+			sourceTree = "<group>";
+		};
+		F5426E9900E6A11D01000001 /* Streams */ = {
+			isa = PBXGroup;
+			children = (
+				F5426E9A00E6A11D01000001 /* CIrLSAP.cpp */,
+				F5426E9B00E6A11D01000001 /* CIrLSAP.h */,
+				F5426E9C00E6A11D01000001 /* IrDiscovery.cpp */,
+				F5426E9D00E6A11D01000001 /* IrDiscovery.h */,
+				F5426E9E00E6A11D01000001 /* IrLSAPConn.cpp */,
+				F5426E9F00E6A11D01000001 /* IrLSAPConn.h */,
+				F5426EA000E6A11D01000001 /* IrStream.cpp */,
+				F5426EA100E6A11D01000001 /* IrStream.h */,
+			);
+			path = Streams;
+			sourceTree = "<group>";
+		};
+		F5426EA200E6A11D01000001 /* TinyTP */ = {
+			isa = PBXGroup;
+			children = (
+				F5426EA300E6A11D01000001 /* ttp.cpp */,
+				F5426EA400E6A11D01000001 /* ttp.h */,
+				F5426EA500E6A11D01000001 /* ttp2.cpp */,
+				F5426EA600E6A11D01000001 /* ttp3.cpp */,
+				F5426EA700E6A11D01000001 /* ttplmp.cpp */,
+				F5426EA800E6A11D01000001 /* ttppdu.cpp */,
+				F5426EA900E6A11D01000001 /* ttppdu.h */,
+			);
+			path = TinyTP;
+			sourceTree = "<group>";
+		};
+		F5426EAA00E6A11D01000001 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				F5426EAB00E6A11D01000001 /* CArrayIterator.cpp */,
+				F5426EAC00E6A11D01000001 /* CArrayIterator.h */,
+				F5426EAD00E6A11D01000001 /* CBuffer.cpp */,
+				F5426EAE00E6A11D01000001 /* CBuffer.h */,
+				F5426EAF00E6A11D01000001 /* CBufferSegment.cpp */,
+				F5426EB000E6A11D01000001 /* CBufferSegment.h */,
+				F5426EB100E6A11D01000001 /* CDynamicArray.cpp */,
+				F5426EB200E6A11D01000001 /* CDynamicArray.h */,
+				F5426EB300E6A11D01000001 /* CItemComparer.cpp */,
+				F5426EB400E6A11D01000001 /* CItemComparer.h */,
+				F5426EB500E6A11D01000001 /* CList.cpp */,
+				F5426EB600E6A11D01000001 /* CList.h */,
+				F5426EB700E6A11D01000001 /* CListIterator.cpp */,
+				F5426EB800E6A11D01000001 /* CListIterator.h */,
+				F5426EB900E6A11D01000001 /* CTimer.cpp */,
+				F5426EBA00E6A11D01000001 /* CTimer.h */,
+				F572FF3601948122010001C8 /* IrDATimerEventSource.cpp */,
+				F572FF3701948122010001C8 /* IrDATimerEventSource.h */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		F558771500E926DB01000001 /* AppleSCCIrDA */ = {
+			isa = PBXGroup;
+			children = (
+				F558771700E926DB01000001 /* AppleSCCIrDA.h */,
+				F558771600E926DB01000001 /* AppleSCCIrDA.cpp */,
+			);
+			path = AppleSCCIrDA;
+			sourceTree = "<group>";
+		};
+		F558771D00E9270301000001 /* AppleUSBIrDA */ = {
+			isa = PBXGroup;
+			children = (
+				F558771F00E9270301000001 /* AppleUSBIrDA.h */,
+				F558771E00E9270301000001 /* AppleUSBIrDA.cpp */,
+			);
+			path = AppleUSBIrDA;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		523BE09B00D541340ACE152D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		525DCB6000D54B8A0ACE152D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F558772200E9270301000001 /* AppleUSBIrDA.h in Headers */,
+				F558772600E927CF01000001 /* AppleIrDA.h in Headers */,
+				F55A100C00E92C3101000001 /* IrDAComm.h in Headers */,
+				F55A100D00E92C3101000001 /* IrDAUser.h in Headers */,
+				F55A101000E92D4A01000001 /* IrGlue.h in Headers */,
+				F55A101100E92D4A01000001 /* IrDATypes.h in Headers */,
+				F55A101200E92D4A01000001 /* IrDALog.h in Headers */,
+				F55A101300E92D4A01000001 /* IrDALogPriv.h in Headers */,
+				F55A101400E92D4A01000001 /* IrIASClient.h in Headers */,
+				F55A101500E92D4A01000001 /* IrIASServer.h in Headers */,
+				F55A101600E92D4A01000001 /* IrIASService.h in Headers */,
+				F55A101700E92D4A01000001 /* CIrDevice.h in Headers */,
+				F55A101800E92D4A01000001 /* IrDAStats.h in Headers */,
+				F55A101900E92D4A01000001 /* IrComm.h in Headers */,
+				F55A101A00E92D4A01000001 /* IrQOS.h in Headers */,
+				F55A101B00E92D4A01000001 /* IrLMP.h in Headers */,
+				F55A101C00E92D4A01000001 /* IrLAPConn.h in Headers */,
+				F55A101D00E92D4A01000001 /* IrLAP.h in Headers */,
+				F55A101E00E92D4A01000001 /* IrEvent.h in Headers */,
+				F55A101F00E92D4A01000001 /* IrDscInfo.h in Headers */,
+				F55A102000E92D4A01000001 /* CIrLSAP.h in Headers */,
+				F55A102100E92D4A01000001 /* IrDiscovery.h in Headers */,
+				F55A102200E92D4A01000001 /* IrLSAPConn.h in Headers */,
+				F55A102300E92D4A01000001 /* IrStream.h in Headers */,
+				F55A102400E92D4A01000001 /* ttp.h in Headers */,
+				F55A102500E92D4A01000001 /* ttppdu.h in Headers */,
+				F55A102600E92D4A01000001 /* CArrayIterator.h in Headers */,
+				F55A102700E92D4A01000001 /* CBuffer.h in Headers */,
+				F55A102800E92D4A01000001 /* CBufferSegment.h in Headers */,
+				F55A102900E92D4A01000001 /* CDynamicArray.h in Headers */,
+				F55A102A00E92D4A01000001 /* CItemComparer.h in Headers */,
+				F55A102B00E92D4A01000001 /* CList.h in Headers */,
+				F55A102C00E92D4A01000001 /* CListIterator.h in Headers */,
+				F55A102D00E92D4A01000001 /* CTimer.h in Headers */,
+				F5F07A3A00EA5E8E01000001 /* IrDADebugging.h in Headers */,
+				F559826C00EA766001000001 /* IrDAUserClient.h in Headers */,
+				F572FF3801948122010001C8 /* IrDATimerEventSource.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5426EBE00E6A11E01000001 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F558771A00E926DC01000001 /* AppleSCCIrDA.h in Headers */,
+				F558772700E927CF01000001 /* AppleIrDA.h in Headers */,
+				F55A100E00E92C3101000001 /* IrDAComm.h in Headers */,
+				F55A100F00E92C3101000001 /* IrDAUser.h in Headers */,
+				F5F07A3B00EA5EE801000001 /* IrDATypes.h in Headers */,
+				F5F07A3C00EA5EE801000001 /* IrGlue.h in Headers */,
+				F5F07A3D00EA5EE801000001 /* CTimer.h in Headers */,
+				F5F07A3E00EA5EE801000001 /* CListIterator.h in Headers */,
+				F5F07A3F00EA5EE801000001 /* CList.h in Headers */,
+				F5F07A4000EA5EE801000001 /* CItemComparer.h in Headers */,
+				F5F07A4100EA5EE801000001 /* CDynamicArray.h in Headers */,
+				F5F07A4200EA5EE801000001 /* CBufferSegment.h in Headers */,
+				F5F07A4300EA5EE801000001 /* CBuffer.h in Headers */,
+				F5F07A4400EA5EE801000001 /* CArrayIterator.h in Headers */,
+				F5F07A4500EA5EE801000001 /* ttp.h in Headers */,
+				F5F07A4600EA5EE801000001 /* ttppdu.h in Headers */,
+				F5F07A4700EA5EE801000001 /* CIrLSAP.h in Headers */,
+				F5F07A4800EA5EE801000001 /* IrDiscovery.h in Headers */,
+				F5F07A4900EA5EE801000001 /* IrLSAPConn.h in Headers */,
+				F5F07A4A00EA5EE801000001 /* IrStream.h in Headers */,
+				F5F07A4B00EA5EE801000001 /* IrDscInfo.h in Headers */,
+				F5F07A4C00EA5EE801000001 /* IrEvent.h in Headers */,
+				F5F07A4D00EA5EE801000001 /* IrLAP.h in Headers */,
+				F5F07A4E00EA5EE801000001 /* IrLAPConn.h in Headers */,
+				F5F07A4F00EA5EE801000001 /* IrLMP.h in Headers */,
+				F5F07A5000EA5EE801000001 /* IrQOS.h in Headers */,
+				F5F07A5100EA5EE801000001 /* IrComm.h in Headers */,
+				F5F07A5200EA5EE801000001 /* CIrDevice.h in Headers */,
+				F5F07A5300EA5EE801000001 /* IrDAStats.h in Headers */,
+				F5F07A5400EA5EE801000001 /* IrIASClient.h in Headers */,
+				F5F07A5500EA5EE801000001 /* IrIASServer.h in Headers */,
+				F5F07A5600EA5EE801000001 /* IrIASService.h in Headers */,
+				F5F07A5700EA5EE801000001 /* IrDADebugging.h in Headers */,
+				F5F07A5800EA5EE801000001 /* IrDALog.h in Headers */,
+				F5F07A5900EA5EE801000001 /* IrDALogPriv.h in Headers */,
+				F559826D00EA766101000001 /* IrDAUserClient.h in Headers */,
+				F572FF3A01948122010001C8 /* IrDATimerEventSource.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXProject section */
+		523BE09600D540DC0ACE152D /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = FBFB81630AF0213C0059045E /* Build configuration list for PBXProject "IrDA" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 523BE09700D540DC0ACE152D;
+			productRefGroup = 523BE09800D541340ACE152D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5263F81D00D689AC0ACE152D /* B&I Build */,
+				523E0D1C00D563920ACE152D /* Build All */,
+				525DCB5E00D54B8A0ACE152D /* AppleUSBIrDA */,
+				F5426EBC00E6A11E01000001 /* AppleSCCIrDA */,
+				523BE09A00D541340ACE152D /* DumpLog */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		525DCB6200D54B8A0ACE152D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5426F0700E6A11E01000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		523BE09E00D541340ACE152D /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		525DCB5F00D54B8A0ACE152D /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		525DCB6400D54B8A0ACE152D /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n#\n# guytons symbol stripping gone insane\n#\n# first try and find the kext\nkext=\"\"\nif [ \"${TARGET_PRODUCT_DIR}\" ]; then\n    kext=\"${TARGET_PRODUCT_DIR}/${INNER_PRODUCT_SUBPATH}\"\nelse\n    if [ \"${TARGET_BUILD_DIR}\" ]; then\n\t    kext=\"${TARGET_BUILD_DIR}/${INNER_PRODUCT_SUBPATH}\"\n\telse\t\n\t    if [ \"${SYMROOT}\" ]; then\n\t\t    kext=\"${SYMROOT}/${INNER_PRODUCT_SUBPATH}\"\n\t    fi\n\tfi\nfi\n\nif [ -f \"${kext}\" ]; then\n    # since nmedit does not run from stdin need a tmp file\n    mytmp=\"${kext}.syms\"\n    echo -n \"before \"; nm -g \"${kext}\" | grep -v \"U \" | wc -l\n    nm -g \"${kext}\" | grep -v \"U \" | fgrep -F -f \"${SRCROOT}/export.keys\" | awk ' { print $3 } '  >  \"${mytmp}\"\n    nmedit -s \"${mytmp}\" -arch ppc \"${kext}\"\n    rm \"${mytmp}\"\n    echo -n \"after \"; nm -g \"${kext}\" | grep -v \"U \" | wc -l\nfi\n";
+		};
+		F5426EBD00E6A11E01000001 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		F5426F0900E6A11E01000001 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n#\n# guytons symbol stripping gone insane\n#\n# first try and find the kext\nkext=\"\"\nif [ \"${TARGET_PRODUCT_DIR}\" ]; then\n    kext=\"${TARGET_PRODUCT_DIR}/${INNER_PRODUCT_SUBPATH}\"\nelse\n    if [ \"${TARGET_BUILD_DIR}\" ]; then\n\t    kext=\"${TARGET_BUILD_DIR}/${INNER_PRODUCT_SUBPATH}\"\n\telse\t\n\t    if [ \"${SYMROOT}\" ]; then\n\t\t    kext=\"${SYMROOT}/${INNER_PRODUCT_SUBPATH}\"\n\t    fi\n\tfi\nfi\n\nif [ -f \"${kext}\" ]; then\n    # since nmedit does not run from stdin need a tmp file\n    mytmp=\"${kext}.syms\"\n    echo -n \"before \"; nm -g \"${kext}\" | grep -v \"U \" | wc -l\n    nm -g \"${kext}\" | grep -v \"U \" | fgrep -F -f \"${SRCROOT}/export.keys\" | awk ' { print $3 } '  >  \"${mytmp}\"\n    nmedit -s \"${mytmp}\" -arch ppc \"${kext}\"\n    rm \"${mytmp}\"\n    echo -n \"after \"; nm -g \"${kext}\" | grep -v \"U \" | wc -l\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		523BE09C00D541340ACE152D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				522DA8EA00D671540ACE152D /* dumplog.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		525DCB6100D54B8A0ACE152D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F558772300E9270301000001 /* AppleUSBIrDA.cpp in Sources */,
+				F55A102E00E92D4A01000001 /* IrDALog.c in Sources */,
+				F55A102F00E92D4A01000001 /* IrIASClient.cpp in Sources */,
+				F55A103000E92D4A01000001 /* IrIASServer.cpp in Sources */,
+				F55A103100E92D4A01000001 /* IrIASService.cpp in Sources */,
+				F55A103200E92D4A01000001 /* CIrDevice.cpp in Sources */,
+				F55A103300E92D4A01000001 /* IrComm.cpp in Sources */,
+				F55A103400E92D4A01000001 /* IrDAComm.cpp in Sources */,
+				F55A103500E92D4A01000001 /* IrDAUser.cpp in Sources */,
+				F55A103600E92D4A01000001 /* IrGlue.cpp in Sources */,
+				F55A103700E92D4A01000001 /* IrDscInfo.cpp in Sources */,
+				F55A103800E92D4A01000001 /* IrQOS.cpp in Sources */,
+				F55A103900E92D4A01000001 /* IrLMP.cpp in Sources */,
+				F55A103A00E92D4A01000001 /* IrLAPConn.cpp in Sources */,
+				F55A103B00E92D4A01000001 /* IrLAP.cpp in Sources */,
+				F55A103C00E92D4A01000001 /* IrEvent.cpp in Sources */,
+				F55A103D00E92D4A01000001 /* CIrLSAP.cpp in Sources */,
+				F55A103E00E92D4A01000001 /* IrDiscovery.cpp in Sources */,
+				F55A103F00E92D4A01000001 /* IrLSAPConn.cpp in Sources */,
+				F55A104000E92D4A01000001 /* IrStream.cpp in Sources */,
+				F55A104100E92D4A01000001 /* ttp.cpp in Sources */,
+				F55A104200E92D4A01000001 /* ttp2.cpp in Sources */,
+				F55A104300E92D4A01000001 /* ttp3.cpp in Sources */,
+				F55A104400E92D4A01000001 /* ttplmp.cpp in Sources */,
+				F55A104500E92D4A01000001 /* ttppdu.cpp in Sources */,
+				F55A104600E92D4A01000001 /* CArrayIterator.cpp in Sources */,
+				F55A104700E92D4A01000001 /* CBuffer.cpp in Sources */,
+				F55A104800E92D4A01000001 /* CBufferSegment.cpp in Sources */,
+				F55A104900E92D4A01000001 /* CDynamicArray.cpp in Sources */,
+				F55A104A00E92D4A01000001 /* CItemComparer.cpp in Sources */,
+				F55A104B00E92D4A01000001 /* CList.cpp in Sources */,
+				F55A104C00E92D4A01000001 /* CListIterator.cpp in Sources */,
+				F55A104D00E92D4A01000001 /* CTimer.cpp in Sources */,
+				F5F07A8900EA636301000001 /* AppleIrDA.cpp in Sources */,
+				F572FF3901948122010001C8 /* IrDATimerEventSource.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5426EE300E6A11E01000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F558771B00E926DC01000001 /* AppleSCCIrDA.cpp in Sources */,
+				F5F07A5A00EA5EE801000001 /* CTimer.cpp in Sources */,
+				F5F07A5B00EA5EE801000001 /* CListIterator.cpp in Sources */,
+				F5F07A5C00EA5EE801000001 /* CList.cpp in Sources */,
+				F5F07A5D00EA5EE801000001 /* CItemComparer.cpp in Sources */,
+				F5F07A5E00EA5EE801000001 /* CDynamicArray.cpp in Sources */,
+				F5F07A5F00EA5EE801000001 /* CBufferSegment.cpp in Sources */,
+				F5F07A6000EA5EE801000001 /* CBuffer.cpp in Sources */,
+				F5F07A6100EA5EE801000001 /* CArrayIterator.cpp in Sources */,
+				F5F07A6200EA5EE801000001 /* ttp.cpp in Sources */,
+				F5F07A6300EA5EE801000001 /* ttp2.cpp in Sources */,
+				F5F07A6400EA5EE801000001 /* ttp3.cpp in Sources */,
+				F5F07A6500EA5EE801000001 /* ttplmp.cpp in Sources */,
+				F5F07A6600EA5EE801000001 /* ttppdu.cpp in Sources */,
+				F5F07A6700EA5EE801000001 /* CIrLSAP.cpp in Sources */,
+				F5F07A6800EA5EE801000001 /* IrDiscovery.cpp in Sources */,
+				F5F07A6900EA5EE801000001 /* IrLSAPConn.cpp in Sources */,
+				F5F07A6A00EA5EE801000001 /* IrStream.cpp in Sources */,
+				F5F07A6B00EA5EE801000001 /* IrDscInfo.cpp in Sources */,
+				F5F07A6C00EA5EE801000001 /* IrEvent.cpp in Sources */,
+				F5F07A6D00EA5EE801000001 /* IrLAP.cpp in Sources */,
+				F5F07A6E00EA5EE801000001 /* IrLAPConn.cpp in Sources */,
+				F5F07A6F00EA5EE801000001 /* IrLMP.cpp in Sources */,
+				F5F07A7000EA5EE801000001 /* IrQOS.cpp in Sources */,
+				F5F07A7100EA5EE801000001 /* IrGlue.cpp in Sources */,
+				F5F07A7200EA5EE801000001 /* IrDAUser.cpp in Sources */,
+				F5F07A7300EA5EE801000001 /* IrDAComm.cpp in Sources */,
+				F5F07A7400EA5EE801000001 /* IrComm.cpp in Sources */,
+				F5F07A7500EA5EE801000001 /* CIrDevice.cpp in Sources */,
+				F5F07A7600EA5EE801000001 /* IrIASClient.cpp in Sources */,
+				F5F07A7700EA5EE801000001 /* IrIASServer.cpp in Sources */,
+				F5F07A7800EA5EE801000001 /* IrIASService.cpp in Sources */,
+				F5F07A7900EA5EE801000001 /* IrDALog.c in Sources */,
+				F5F07A8A00EA636301000001 /* AppleIrDA.cpp in Sources */,
+				F572FF3B01948122010001C8 /* IrDATimerEventSource.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		523E0D1D00D563920ACE152D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 523BE09A00D541340ACE152D /* DumpLog */;
+			targetProxy = FB0DAA7B072EA4C200C9ABF6 /* PBXContainerItemProxy */;
+		};
+		523E0D1E00D563920ACE152D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 525DCB5E00D54B8A0ACE152D /* AppleUSBIrDA */;
+			targetProxy = FB0DAA79072EA4C200C9ABF6 /* PBXContainerItemProxy */;
+		};
+		5263F81E00D689AC0ACE152D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 525DCB5E00D54B8A0ACE152D /* AppleUSBIrDA */;
+			targetProxy = FB0DAA77072EA4C200C9ABF6 /* PBXContainerItemProxy */;
+		};
+		F570CAFE00EA73C301000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F5426EBC00E6A11E01000001 /* AppleSCCIrDA */;
+			targetProxy = FB0DAA75072EA4C200C9ABF6 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXToolTarget section */
+		523BE09A00D541340ACE152D /* DumpLog */ = {
+			isa = PBXToolTarget;
+			buildConfigurationList = FBFB817F0AF0213C0059045E /* Build configuration list for PBXToolTarget "DumpLog" */;
+			buildPhases = (
+				523BE09B00D541340ACE152D /* Headers */,
+				523BE09C00D541340ACE152D /* Sources */,
+				523BE09D00D541340ACE152D /* Frameworks */,
+				523BE09E00D541340ACE152D /* Rez */,
+			);
+			dependencies = (
+			);
+			name = DumpLog;
+			productInstallPath = /usr/local/bin;
+			productName = DumpLog;
+			productReference = 523BE09900D541340ACE152D /* DumpLog */;
+		};
+/* End PBXToolTarget section */
+
+/* Begin XCBuildConfiguration section */
+		FBFB81640AF0213C0059045E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		FBFB81650AF0213C0059045E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		FBFB81660AF0213C0059045E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+		FBFB81680AF0213C0059045E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBIrDA;
+				MODULE_VERSION = 1.4.4;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBIrDA;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		FBFB81690AF0213C0059045E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBIrDA;
+				MODULE_VERSION = 1.4.4;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBIrDA;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		FBFB816A0AF0213C0059045E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBIrDA;
+				MODULE_VERSION = 1.4.4;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleUSBIrDA;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		FBFB816C0AF0213C0059045E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleSCCIrDA;
+				MODULE_VERSION = "\U00011.4.0b1";
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleSCCIrDA;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		FBFB816D0AF0213C0059045E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleSCCIrDA;
+				MODULE_VERSION = "\U00011.3.5b2";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleSCCIrDA;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		FBFB816E0AF0213C0059045E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleSCCIrDA;
+				MODULE_VERSION = "\U00011.3.5b2";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleSCCIrDA;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		FBFB81740AF0213C0059045E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "B&I Build";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		FBFB81750AF0213C0059045E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "B&I Build";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		FBFB81760AF0213C0059045E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "B&I Build";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		FBFB81800AF0213C0059045E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = IrDA/Debugging/;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DumpLog;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		FBFB81810AF0213C0059045E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = IrDA/Debugging/;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DumpLog;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		FBFB81820AF0213C0059045E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = IrDA/Debugging/;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-twolevel_namespace";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = DumpLog;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		FBFB81840AF0213C0059045E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Build All";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		FBFB81850AF0213C0059045E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Build All";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		FBFB81860AF0213C0059045E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Build All";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FBFB81630AF0213C0059045E /* Build configuration list for PBXProject "IrDA" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FBFB81640AF0213C0059045E /* Development */,
+				FBFB81650AF0213C0059045E /* Deployment */,
+				FBFB81660AF0213C0059045E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		FBFB81670AF0213C0059045E /* Build configuration list for PBXBundleTarget "AppleUSBIrDA" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FBFB81680AF0213C0059045E /* Development */,
+				FBFB81690AF0213C0059045E /* Deployment */,
+				FBFB816A0AF0213C0059045E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		FBFB816B0AF0213C0059045E /* Build configuration list for PBXBundleTarget "AppleSCCIrDA" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FBFB816C0AF0213C0059045E /* Development */,
+				FBFB816D0AF0213C0059045E /* Deployment */,
+				FBFB816E0AF0213C0059045E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		FBFB81730AF0213C0059045E /* Build configuration list for PBXAggregateTarget "B&I Build" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FBFB81740AF0213C0059045E /* Development */,
+				FBFB81750AF0213C0059045E /* Deployment */,
+				FBFB81760AF0213C0059045E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		FBFB817F0AF0213C0059045E /* Build configuration list for PBXToolTarget "DumpLog" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FBFB81800AF0213C0059045E /* Development */,
+				FBFB81810AF0213C0059045E /* Deployment */,
+				FBFB81820AF0213C0059045E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		FBFB81830AF0213C0059045E /* Build configuration list for PBXAggregateTarget "Build All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FBFB81840AF0213C0059045E /* Development */,
+				FBFB81850AF0213C0059045E /* Deployment */,
+				FBFB81860AF0213C0059045E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 523BE09600D540DC0ACE152D /* Project object */;
+}

@@ -1,21 +1,20 @@
 #
 #   irb/locale.rb - internationalization module
-#   	$Release Version: 0.9$
-#   	$Revision: 1.6 $
-#   	$Date: 2003/07/24 05:18:47 $
-#   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
+#   	$Release Version: 0.9.5$
+#   	$Revision: 11708 $
+#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
 #   
 #
 
-autoload :Tempfile, "tempfile"
 autoload :Kconv, "kconv"
 
 module IRB
   class Locale
-    @RCS_ID='-$Id: locale.rb,v 1.6 2003/07/24 05:18:47 matz Exp $-'
+    @RCS_ID='-$Id: locale.rb 11708 2007-02-12 23:01:19Z shyouhei $-'
 
     JPDefaultLocale = "ja"
     LOCALE_DIR = "/lc/"
@@ -32,6 +31,8 @@ module IRB
         Kconv::EUC
       when "ja_JP.sjis", "ja_JP.SJIS"
         Kconv::SJIS
+      when /ja_JP.utf-?8/i
+	Kconv::UTF8
       end
     end
     private :lc2kconv
@@ -70,7 +71,7 @@ module IRB
     end
 
     def puts(*opts)
-      ary = opts.collect{|opt| String(opts)}
+      ary = opts.collect{|opt| String(opt)}
       super(*ary)
     end
 
@@ -126,15 +127,12 @@ module IRB
     end 
 
     def real_load(path, priv)
-      tmp_base = path.tr("./:", "___")
-      lc_file = Tempfile.new(tmp_base)
-      File.foreach(path) do |line|
-	line = self.String(line)
-	lc_file.print(line)
+      src = self.String(File.read(path))
+      if priv
+	eval("self", TOPLEVEL_BINDING).extend(Module.new {eval(src, nil, path)})
+      else
+	eval(src, TOPLEVEL_BINDING, path)
       end
-      lc_file.close
-      toplevel_load lc_file.path, priv
-      lc_file.close(true)
     end
     private :real_load
 
@@ -155,8 +153,8 @@ module IRB
     end
 
     def search_file(path, file)
-      if File.exists?(p1 = path + lc_path(file, "C"))
-	if File.exists?(p2 = path + lc_path(file))
+      if File.exist?(p1 = path + lc_path(file, "C"))
+	if File.exist?(p2 = path + lc_path(file))
 	  return p2
 	else
 	end

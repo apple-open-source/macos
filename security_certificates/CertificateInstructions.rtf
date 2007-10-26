@@ -1,94 +1,129 @@
-{\rtf1\mac\ansicpg10000\cocoartf792\cocoasubrtf100
-{\fonttbl\f0\fnil\fcharset77 LucidaGrande;\f1\fnil\fcharset77 LucidaGrande-Bold;\f2\fswiss\fcharset77 Helvetica;
-\f3\fswiss\fcharset77 Helvetica-Bold;}
+{\rtf1\ansi\ansicpg1252\cocoartf942
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset238 LucidaGrande;}
 {\colortbl;\red255\green255\blue255;}
-{\info}\margl1440\margr1440\vieww15440\viewh18840\viewkind0
-\pard\tx1440\tx2880\tx4320\tx5760\tx7200\tx8640\slleading40\ql\qnatural
+\margl1440\margr1440\vieww18180\viewh17700\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
 
 \f0\fs24 \cf0 \
-These are the procedures to follow when adding a root and/or intermediate certificate to the system.\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
+
+\fs28 \cf0 								 
+\b CertificateInstructions.rtf
+\b0\fs26 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
+
+\f1\fs24 \cf0 \
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\tx8640\slleading40\ql\qnatural
+\cf0 These are the procedures to follow when adding a root and/or intermediate certificate to the system.\
 \
-For the purposes of these instructions, assume that $SRCDIR is e.g. ~/tla and that LOCAL_BUILD_DIR points to your build directory. For purposes of illustration, assume that you have checked out the security_certificates project to the directory SECCERTDIR:\
+For the purposes of these instructions, assume that $SRCDIR is e.g. ~/tla. For purposes of illustration, assume that you have checked out a branch of the security_certificates project to the directory SECCERTDIR:\
 \
-	cvs.src -q co -d SECCERTDIR security_certificates\
+	svk-co-branch PR-xxxxxxx security_certificates\
+	cd tla/security_certificates\
+	set SECCERTDIR=`pwd`\
 \
-In practice, this would be something like security_certificates-PR-3XXXXXX.\
+(export SECCERTDIR=`pwd` if using zsh).\
 \
 \pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
 
-\f1\b \cf0 To add a root certificate:\
+\b \cf0 To add a root certificate:\
 \
 
-\f0\b0 - Convert the certificate to DER form with either a .der, .crt, or .cer extension\
+\b0 - Convert the certificate to DER form with either a .der, .crt, or .cer extension\
 - Copy the file to $SECCERTDIR/roots/\
 - Add the file to the security_certificates.xcode project in the "roots" folder, target security_certificates\
-- Open the security_certificates target and drag (copy) the file to the 
-\f1\b top
-\f0\b0  "Copy Files" section\
-- Install the result via buildit or 'xcodebuild install':\
+- Test all anchors, including the one you just added. You must have built cspxutils and clxutils; see the section\
+   entitled "
+\b To make the test tools". 
+\b0 \
 \
-	cd $SECCERTDIR\
-	sudo ~rc/bin/buildit . install\
+		cd $SECCERTDIR/roots\
+		$SRCDIR/SecurityTests/clxutils/anchorTest/anchorSourceTest .\
 \
-   This will copy the files listed in the project to the directories:\
+   Another way to specify this would be like this:\
 \
-	/tmp/SECCERTDIR.roots/SECCERTDIR~dst/System/Library/Keychains/Anchors\
-	/tmp/SECCERTDIR.roots/SECCERTDIR~dst/System/Library/Keychains/Certificates\
+		export SRCTST=/SecurityTests/clxutils/anchorTest/\
+		$SRCTST/anchorSourceTest .\
 \
-   It does NOT create or modify the system keychains.\
+- Build a new SystemRootCertificates.keychain and SystemTrustSettings.plist in place on your branch like this:\
 \
-- Run \
+      		cd $SECCERTDIR\
+		./buildRootKeychain\
 \
-\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardeftab160\ql\qnatural
-\cf0 	export ROOTTMP=/tmp/SECCERTDIR.roots/SECCERTDIR~dst/System/Library/Keychains/Anchors\
-\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
-\cf0 	$SRCDIR/SecurityTests/clxutils/anchorTest/anchorSourceTest  $ROOTTMP\
+- The results of running the buildRootKeychain script are placed in $SECCERTDIR/BuiltKeychains. Manually\
+   install those files like this, as root (this includes making a backup of the system files you're replacing):\
 \
-- The "buildCertKeychains" script will move the existing system keychain out of the way and create a new keychain from\
-   built directories above. Run it with:\
+   		mkdir /System/Library/Keychains/saved\
+		cp /System/Library/Keychains/System* /System/Library/Keychains/saved\
+		cp $SECCERTDIR/BuiltKeychains/SystemRootCertificates.keychain $SECCERTDIR/BuiltKeychains/SystemTrustSettings.plist /System/Library/Keychains\
 \
-	sudo $SRCDIR/SecurityTests/clxutils/anchorTest/buildCertKeychains anchors $ROOTTMP\
+- Now run this (no longer as root, and assuming you've build cspxutils and clxutils):\
 \
-   Note that this needs to be run again if you have intermediates; this only operators on X509Anchors\
+		$LOCAL_BUILD_DIR/anchorTest t\
 \
-- Run anchorTest:\
+   The 't' argument tells anchorTest to test SystemRootCertificates.keychain, not X509Anchors. \
 \
-	$LOCAL_BUILD_DIR/anchorTest\
-\
-   This assumes that you have built the csp and cl tests\
-\
-- Finally, add the file(s) to cvs on a branch\
+- Assuming that test passes, check your changes into SVK - 
+\b including the new SystemRootCertificates.keychain and SystemTrustSettings.plist. \
+
+\b0    As of 8/29/06, these files are submitted to B&I "as is" in binary form, so they don't have to have an up-to-date (or even working)\
+   Security.framework and securityd in order to build and install security_certificates.\
 \
 \
 
-\f1\b To add an intermediate certificate:\
+\b To add an intermediate certificate:\
 \
 \pard\tx1440\tx2880\tx4320\tx5760\tx7200\tx8640\slleading40\ql\qnatural
 
-\f0\b0 \cf0 - Follow the steps above "
-\f1\b To add a root certificate:
-\f0\b0 " if necessary. The project file additions can be done simultaneously,\
+\b0 \cf0 - Follow the steps above "
+\b To add a root certificate:
+\b0 " if necessary. The project file additions can be done simultaneously,\
    but the roots must be actually installed for the intermediate tests to run properly.\
 \pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
 \cf0 - Convert the certificate to DER form with either a .der, .crt, or .cer extension\
 - Copy the file to tla/security_certificates/certs/\
 - Add the file to the security_certificates.xcode project in the "certs" folder\
 - Open the security_certificates target and drag (copy) the file to the 
-\f1\b bottom
-\f0\b0  "Copy Files" section\
-- Install the result via buildit or 'xcodebuild install', installing raw intermediate certs into __some_cert_dir__\
-- Run \
-  % tla/SecurityTests/clxutils/anchorTest/anchorintermedSourceTest __some_cert_dir__\
-- Build new X509Certificates using clxutils/anchorTest/buildCertKeychains like so (as root):\
-   % clxutils/anchorTest/buildCertKeychains certs __some_cert_dir__\
-- Run tla/SecurityTests/clxutils/anchorTest/
-\f2 intermedTest\
+\b bottom
+\b0  "Copy Files" section\
+- Test all intermediates, including the one you just added. You must have built cspxutils and clxutils; see the section\
+   entitled "
+\b To make the test tools". 
+\b0 \
+\
+		cd $SECCERTDIR/certs\
+		$SRCDIR/SecurityTests/clxutils/anchorTest/intermedSourceTest .\
+\
+   NOTE as of 8/29/06 the intermedSourceTest script *fails* due to expired certs per Radar 4614279. \
+\
+- Build a new SystemCACertificates.keychain in place on your branch like this:\
+\
+      		cd $SECCERTDIR\
+		./buildCAKeychain\
+\
+- The result of running the buildCAKeychain script is placed in $SECCERTDIR/BuiltKeychains. Manually\
+   install that file like this, as root (this includes making a backup of the system file you're replacing):\
+\
+   		mkdir /System/Library/Keychains/saved\
+		cp /System/Library/Keychains/SystemCACertificates.keychain /System/Library/Keychains/saved\
+		cp $SECCERTDIR/BuiltKeychains/SystemCACertificates.keychain /System/Library/Keychains\
+\
+- Now run this (no longer as root, and assuming you've build cspxutils and clxutils):\
+\
+		$SRCDIR/SecurityTests/clxutils/anchorTest/intermedTest\
+\
+  NOTE as of 8/29/06 the intermedTest script allows for expired certs per Radar 4614279. \
+\
+- Assuming that test passes, check your changes into SVK - 
+\b including the new SystemCACertificates.keychain. \
 
-\f0 - Add the file to cvs\
+\b0    As of 8/29/06, this file is submitted to B&I "as is" in binary form, so they don't have to have an up-to-date (or even working)\
+   Security.framework and securityd in order to build and install security_certificates.\
+\
 \
 
-\f1\b To pre-flight an intermediate certificate
-\f0\b0 \
+\b To pre-flight an intermediate certificate
+\b0 \
 \
 - Assume that the intermediate is intermed.crt with corresponding root root.crt\
 - Run\
@@ -98,44 +133,75 @@ In practice, this would be something like security_certificates-PR-3XXXXXX.\
 \cf0 \
 \pard\tx1440\tx2880\tx4320\tx5760\tx7200\tx8640\slleading40\ql\qnatural
 
-\f1\b \cf0 To remove a root or intermediate
-\f0\b0 \
+\b \cf0 To remove a root or intermediate
+\b0 \
 \
 - Remove the file from the project\
-- Remove the file from cvs\
+- Remove the file from svk\
 \
 
-\f1\b To make the test tools
-\f0\b0 \
+\b To make the test tools
+\b0 \
+\
+To build and run the test tools, you must have the LOCAL_BUILD_DIR env var set to point to a build directory.\
 \
 - cd tla/SecurityTests/cspxutils\
-- set LOCAL_BUILD_DIR\
+- set LOCAL_BUILD_DIR ....\
 - make all\
 \
 
-\f1\b Converting from PEM
-\f0\b0 \
+\b Converting from PEM
+\b0 \
 \
 - openssl x509 -outform DER -in SoneraClass1CA.pem -out SoneraClass1.crt\
 \
+
+\b Other useful scripts
+\b0 \
 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
+
+\f0 \cf0 The following line was useful in determining which DoD roots and intermediates were not already in the source tree. It was run in the tla directory, then in the new directory. An opendiff of the two outputs shows what is new.\
+\
+	for n in *; do echo `openssl x509 -inform DER -noout -fingerprint -in $n` "   $n";done | sed 's/MD5 Fingerprint=//'   | sort\
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\tx8640\slleading40\ql\qnatural
+
+\f1 \cf0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
+
+\f0\b \cf0 Finding expired roots
+\b0 \
+\
+This is a useful check to run periodically, to see which roots may expire soon.\
+\
+	for n in *; do echo `openssl x509 -inform DER -noout -enddate -in $n` "   $n";done | sed 's/notAfter=//' | awk '\{print $4," ",$1," ",$2," ",$6\}' | sort\
+\
+Note that it does not sort in strict chronological order (e.g. Aug 2006 appears before Feb 2006).\
 \pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\slleading60\ql\qnatural
 
-\f3\b \cf0 Description of tools
-\f2\b0 \
+\b \cf0 \
+Description of tools
+\b0 \
 
-\f0 \
-intermedTest - verifies contents of /System/Library/Keychains/X509Certificates. Run with no args, or with \'d4q\'d5 for quiet.\
+\f1 anchorTest - verifies all the roots in either SystemRootCertificates.keychain (if you specify the 't' option) or X509Anchors. This test can be persuaded to ignore expired roots via the 'e' option. \
 \
-anchorSourceTest - like anchorTest but just tests a directory full of anchor certs. Intended to pre-screen changes to security_certificates/roots. Run with one arg, a path to the directory full of root certs. Run with no args to get a hint.\
+anchorSourceTest - like anchorTest, but just tests a directory full of anchor certs. Intended to pre-screen changes to security_certificates/roots. Run with one arg, a path to the directory full of root certs. Run with no args to get a hint.\
 \
-intermedSourceTest - like intermedTest crossed with anchorSourceTest. Prescreens a directory full of intermediate certs. Run with one arg, a path to the directory full of intermediate certs. Run with no args to get a hint. All of these must be verifiable by the current X509Anchors (so if you add an intermediate and the associated root to the security_certificates project, without updating X509Anchors, this test will fail).\
+intermedTest - verifies contents of /System/Library/Keychains/SystemCACertificates.keychain. Run with no args, or with \'91q\'92 for quiet.\
+\
+intermedSourceTest - like intermedTest crossed with anchorSourceTest. Prescreens a directory full of intermediate certs. Run with one arg, a path to the directory full of intermediate certs. Run with no args to get a hint. All of these must be verifiable by the current SystemRootCertificates.keychain (so if you add an intermediate and the associated root to the security_certificates project, without updating SystemRootCertificates.keychain, this test will fail).\
 \
 \pard\tx1440\tx2880\tx4320\tx5760\tx7200\tx8640\slleading40\ql\qnatural
-\cf0 Run SecurityTests/clxutils/anchorTest on a machine with the new roots installed\
+
+\b \cf0 History
+\b0 \
 \
-For intermediate certificates, run:\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
+
+\f0\fs26 \cf0 29 Aug 2006	dmitch	Updated to reflect new trust structure for Leopard\
+18 Dec 2006	jhurley	Added more useful scripts, history section, notes on zsh\
 \
-	$BUILDDIR/certcrl -c VeriSign_TSA_CA.crt -C Class3_PCA_G2_v2.crt -f\
-\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
+
+\f1\fs24 \cf0 \
 }

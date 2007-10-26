@@ -31,15 +31,33 @@
 #include <asl.h>
 #include <asl_private.h>
 #include <notify.h>
+#include <launch.h>
+
+#define ADDFD_FLAGS_LOCAL 0x00000001
+
+#define ASL_DB_NOTIFICATION "com.apple.system.logger.message"
+
+#define ASL_KEY_READ_UID "ReadUID"
+#define ASL_KEY_READ_GID "ReadGID"
+#define ASL_KEY_EXPIRE_TIME "ASLExpireTime"
+#define ASL_KEY_IGNORE "ASLIgnore"
+#define ASL_KEY_TIME_NSEC "TimeNanoSec"
+#define ASL_KEY_REF_PID "RefPID"
+#define ASL_KEY_REF_PROC "RefProc"
+#define ASL_KEY_SESSION "Session"
 
 #define _PATH_PIDFILE		"/var/run/syslog.pid"
 #define _PATH_ASL_IN		"/var/run/asl_input"
-#define _PATH_ASL_PRUNE		"/var/run/asl_prune"
-#define _PATH_ASL_OUT		"/var/log/asl.log"
+#define _PATH_ASL_DIR		"/var/log"
+#define _PATH_ASL_DB		"/var/log/asl.db"
 #define _PATH_SYSLOG_CONF   "/etc/syslog.conf"
 #define _PATH_SYSLOG_IN		"/var/run/syslog"
 #define _PATH_KLOG			"/dev/klog"
 #define _PATH_MODULE_LIB	"/usr/lib/asl"
+
+#define KERN_DISASTER_LEVEL 3
+
+extern launch_data_t launch_dict;
 
 struct module_list
 {
@@ -53,8 +71,9 @@ struct module_list
 
 int aslevent_init(void);
 int aslevent_fdsets(fd_set *, fd_set *, fd_set *);
-void aslevent_handleevent(fd_set, fd_set, fd_set, char *);
-void aslmark(void);
+void aslevent_handleevent(fd_set *, fd_set *, fd_set *);
+void asl_mark(void);
+void asl_archive(void);
 
 char *get_line_from_file(FILE *f);
 
@@ -71,7 +90,7 @@ typedef char *(*aslwritefn)(const char *, int);
 typedef char *(*aslexceptfn)(int);
 typedef int (*aslsendmsgfn)(asl_msg_t *msg, const char *outid);
 
-int aslevent_addfd(int fd, aslreadfn, aslwritefn, aslexceptfn);
+int aslevent_addfd(int fd, uint32_t flags, aslreadfn, aslwritefn, aslexceptfn);
 int aslevent_removefd(int fd);
 int aslevent_addmatch(asl_msg_t *query, char *outid);
 
@@ -79,12 +98,18 @@ int aslevent_addoutput(aslsendmsgfn, const char *outid);
 
 int asl_syslog_faciliy_name_to_num(const char *fac);
 const char *asl_syslog_faciliy_num_to_name(int num);
-asl_msg_t *asl_syslog_input_convert(const char *in, int len, char *rhost, int flag);
-int asl_prune(asl_msg_t *pq);
+asl_msg_t *asl_input_parse(const char *in, int len, char *rhost, int flag);
+
+uint32_t db_prune(aslresponse query);
+uint32_t db_archive(time_t cut, uint64_t max);
+uint32_t db_compact(void);
+
+/* message refcount utilities */
+uint32_t asl_msg_type(asl_msg_t *m);
+asl_msg_t *asl_msg_retain(asl_msg_t *m);
+void asl_msg_release(asl_msg_t *m);
 
 /* notify SPI */
-uint32_t notify_get_state(int token, int *state);
-uint32_t notify_set_state(int token, int state);
 uint32_t notify_register_plain(const char *name, int *out_token);
 
 #endif /* __DAEMON_H__ */

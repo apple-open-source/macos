@@ -25,12 +25,37 @@
 #define _SECURITY_SECIDENTITYSEARCHPRIV_H_
 
 #include <Security/SecIdentitySearch.h>
+#include <AvailabilityMacros.h>
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-OSStatus SecIdentitySearchCreateWithPolicy(SecPolicyRef policy, CFStringRef idString, CSSM_KEYUSE keyUsage, CFTypeRef keychainOrArray, Boolean returnOnlyValidIdentities, SecIdentitySearchRef* searchRef);
+/*!
+	@function SecIdentitySearchCreateWithAttributes
+	@abstract Creates a search reference for finding identities that match specified attributes.
+    @param attributes A dictionary containing optional attributes for controlling the search. Pass NULL to find all possible valid identities. See SecItem.h for a description of currently defined attributes.
+    @param searchRef On return, an identity search reference. You are responsible for releasing this reference by calling the CFRelease function.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+    @discussion This function is an advanced version of SecIdentitySearchCreate which allows finer-grained control over the search. The returned search reference is used to obtain matching identities in subsequent calls to the SecIdentitySearchCopyNext function. You must release the identity search reference by calling the CFRelease function.
+*/
+OSStatus SecIdentitySearchCreateWithAttributes(CFDictionaryRef attributes, SecIdentitySearchRef* searchRef)
+    AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SecIdentitySearchCreateWithPolicy
+	@abstract Creates a search reference for finding identities that match specified attributes.
+	@param policy An optional policy reference. If provided, returned identities must be valid for this policy. Pass NULL to ignore policy when searching.
+	@param idString An optional string containing a URI, RFC822 email address, DNS hostname, or other name which uniquely identifies the service requiring this identity. If a preferred identity has previously been specified for this name (see functions in SecIdentity.h), that identity will be returned first by the SecIdentitySearchCopyNext function. Pass NULL to ignore this string when searching.
+	@param keyUsage A key usage value, as defined in cssmtype.h. Pass 0 to ignore key usage when searching.
+	@param keychainOrArray A reference to an array of keychains to search, a single keychain, or NULL to search the user's default keychain search list.
+	@param returnOnlyValidIdentities Pass TRUE to find only valid (non-expired) identities, or FALSE to obtain all identities which match the search criteria.
+	@param searchRef On return, an identity search reference. You are responsible for releasing this reference by calling the CFRelease function.
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@discussion This function is an advanced version of SecIdentitySearchCreate which allows finer-grained control over the search. The returned search reference is used to obtain matching identities in subsequent calls to the SecIdentitySearchCopyNext function. You must release the identity search reference by calling the CFRelease function.
+*/
+OSStatus SecIdentitySearchCreateWithPolicy(SecPolicyRef policy, CFStringRef idString, CSSM_KEYUSE keyUsage, CFTypeRef keychainOrArray, Boolean returnOnlyValidIdentities, SecIdentitySearchRef* searchRef)
+    AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 #if defined(__cplusplus)
 }

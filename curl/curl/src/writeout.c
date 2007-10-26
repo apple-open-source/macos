@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2006, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: writeout.c,v 1.27 2004/12/21 19:59:35 bagder Exp $
+ * $Id: writeout.c,v 1.30 2006-03-21 22:30:03 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -60,6 +60,7 @@ typedef enum {
   VAR_NUM_CONNECTS,
   VAR_REDIRECT_TIME,
   VAR_REDIRECT_COUNT,
+  VAR_FTP_ENTRY_PATH,
   VAR_NUM_OF_VARS /* must be the last */
 } replaceid;
 
@@ -88,6 +89,7 @@ static const struct variable replacements[]={
   {"num_connects", VAR_NUM_CONNECTS},
   {"time_redirect", VAR_REDIRECT_TIME},
   {"num_redirects", VAR_REDIRECT_COUNT},
+  {"ftp_entry_path", VAR_FTP_ENTRY_PATH},
   {NULL, VAR_NONE}
 };
 
@@ -112,11 +114,13 @@ void ourWriteOut(CURL *curl, char *writeinfo)
         char keepit;
         int i;
         if(('{' == ptr[1]) && (end=strchr(ptr, '}'))) {
+          bool match = FALSE;
           ptr+=2; /* pass the % and the { */
           keepit=*end;
           *end=0; /* zero terminate */
           for(i=0; replacements[i].name; i++) {
             if(curl_strequal(ptr, replacements[i].name)) {
+              match = TRUE;
               switch(replacements[i].id) {
               case VAR_EFFECTIVE_URL:
                 if((CURLE_OK ==
@@ -211,11 +215,21 @@ void ourWriteOut(CURL *curl, char *writeinfo)
                     curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &stringp))
                    && stringp)
                   fputs(stringp, stream);
+                break;
+              case VAR_FTP_ENTRY_PATH:
+                if((CURLE_OK ==
+                    curl_easy_getinfo(curl, CURLINFO_FTP_ENTRY_PATH, &stringp))
+                   && stringp)
+                  fputs(stringp, stream);
+                break;
               default:
                 break;
               }
               break;
             }
+          }
+          if(!match) {
+            fprintf(stderr, "curl: unknown --write-out variable: '%s'\n", ptr);
           }
           ptr=end+1; /* pass the end */
           *end = keepit;

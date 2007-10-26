@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004,2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,6 +71,7 @@ public:
 	
 	static RefPointer<Token> find(uint32 ssid);
 	
+	void getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls);
 	ResetGeneration resetGeneration() const;
 	bool resetGeneration(ResetGeneration rg) const { return rg == resetGeneration(); }
 	void resetAcls();

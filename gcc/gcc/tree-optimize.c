@@ -113,6 +113,8 @@ static struct tree_opt_pass pass_all_optimizations =
 static void 
 execute_cleanup_cfg_post_optimizing (void)
 {
+  /* APPLE LOCAL mainline 4506977 */
+  fold_cond_expr_cond ();
   cleanup_tree_cfg ();
   cleanup_dead_labels ();
   group_case_labels ();
@@ -377,6 +379,8 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_forwprop);
   NEXT_PASS (pass_phiopt);
+  /* APPLE LOCAL mainline */
+  NEXT_PASS (pass_object_sizes);
   NEXT_PASS (pass_ccp);
   NEXT_PASS (pass_redundant_phi);
   NEXT_PASS (pass_fold_builtins);
@@ -448,6 +452,11 @@ static unsigned int last_verified;
 static void
 execute_todo (int properties, unsigned int flags)
 {
+  /* APPLE LOCAL begin ARM cleanup cfg before computing dominators */
+  if (flags & TODO_cleanup_cfg)
+    cleanup_tree_cfg ();
+  /* APPLE LOCAL end ARM cleanup cfg before computing dominators */
+
   if (flags & TODO_rename_vars)
     {
       rewrite_into_ssa (false);
@@ -467,8 +476,8 @@ execute_todo (int properties, unsigned int flags)
       bitmap_clear (vars_to_rename);
     }
 
-  if (flags & TODO_cleanup_cfg)
-    cleanup_tree_cfg ();
+  /* APPLE LOCAL ARM cleanup cfg before computing dominators */
+  /* Moved call to cleanup_tree_cfg.  */
 
   if ((flags & TODO_dump_func) && dump_file)
     {

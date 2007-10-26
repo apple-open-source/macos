@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: os.c,v 1.4.14.3 2004/03/08 09:05:00 marka Exp $ */
+/* $Id: os.c,v 1.6 2004/03/05 05:11:58 marka Exp $ */
 
 #include <windows.h>
 

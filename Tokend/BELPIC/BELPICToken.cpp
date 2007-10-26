@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2007 Apple Inc. All Rights Reserved.
  * 
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -39,6 +39,8 @@
 
 using CssmClient::AclFactory;
 
+#define INTER_COMMAND_DELAY	10000	// delay in microseconds between commands
+
 #define OFF_CLA  0
 #define OFF_INS  1
 #define OFF_P1   2
@@ -55,6 +57,8 @@ using CssmClient::AclFactory;
 
 #define SELECT_APPLET \
 	CLA_STANDARD, INS_SELECT_FILE, P1_SELECT_APPLET, P2_SELECT_APPLET
+
+#define BELPIC_MAX_DATA_SIZE           (6*1024L)		// plus some extra
 
 //static const unsigned char kBELPICPKCS15Applet[] =
 //	{ 0xA0, 0x00, 0x00, 0x01, 0x77, 0x50, 0x4B, 0x43, 0x53, 0x2D, 0x31, 0x35 };
@@ -99,6 +103,7 @@ static const unsigned char kPuK7_Id[] =             { 0x87 };
 BELPICToken::BELPICToken() :
 	mCurrentDF(NULL),
 	mCurrentEF(NULL),
+	mReturnedData(NULL),
 	mPinStatus(0)
 {
 	mTokenContext = this;
@@ -108,6 +113,7 @@ BELPICToken::BELPICToken() :
 BELPICToken::~BELPICToken()
 {
 	delete mSchema;
+	delete mReturnedData;
 }
 
 void BELPICToken::select(const uint8_t *df, const uint8_t *ef)
@@ -159,71 +165,155 @@ void BELPICToken::selectKeyForSign(const uint8_t *keyId)
 		resultLength));
 }
 
+/**
+ * @brief Makes the current process sleep for some microseconds.
+ *
+ * @param[in] iTimeVal Number of microseconds to sleep.
+ */
+int BELPICToken::usleep(int iTimeVal)
+{
+	struct timespec mrqtp;
+	mrqtp.tv_sec = iTimeVal/1000000;
+	mrqtp.tv_nsec = (iTimeVal - (mrqtp.tv_sec * 1000000)) * 1000;
+
+	return nanosleep(&mrqtp, NULL);
+}
+
 #define READ_BLOCK_SIZE  0xF4
+
+/*
+	A full transaction for the readBinary command seems to be the following:
+	
+	- Select the appropriate file [ref INS_SELECT_FILE]
+	- Issue read binary command (0xB0) for READ_BLOCK_SIZE (0xF4) bytes
+	- usually, it will come back with a response of "6C xx", where xx is the 
+	  actual number of bytes available
+	- Issue a new read binary command with correct size
+	
+*/
+
+/*
+	See NIST IR 6887, 5.1.1.2 Read Binary APDU
+
+	Function Code 0x02
+	
+	CLA			0x00 
+	INS			0xB0 
+	P1			High-order byte of 2-byte offset 
+	P2			Low-order byte of 2-byte offset 
+	Lc			Empty 
+	Data Field	Empty 
+	Le			Number of bytes to read
+
+
+	Processing State returned in the Response Message 
+
+	SW1 SW2		Meaning
+	---	---	-----------------------------------------------------
+	62	81	Part of returned data may be corrupted 
+	62	82	End of file reached before reading Le bytes 
+	67	00	Wrong length (wrong Le field) 
+	69	81	Command incompatible with file structure 
+	69	82	Security status not satisfied 
+	69	86	Command not allowed (no current EF) 
+	6A	81	Function not supported 
+	6A	82	File not found 
+	6B	00	Wrong parameters (offset outside the EF) 
+	6C	XX	Wrong length (wrong Le field; XX indicates the exact length) 
+	90	00	Successful execution
+	
+	Non-fatal errors:
+	62	82	End of file reached before reading Le bytes 
+	6B	00	Wrong parameters (offset outside the EF) 
+	6C	XX	Wrong length (wrong Le field; XX indicates the exact length) 
+	90	00	Successful execution
+*/
 
 void BELPICToken::readBinary(uint8_t *result, size_t &resultLength)
 {
-	uint32_t offset = 0;
-
 	// Attempt to read READ_BLOCK_SIZE bytes
-	uint8_t command[] = { 0x00, 0xB0, 0x00, 0x00, READ_BLOCK_SIZE };
-	uint32_t status;
-    bool last_read = false;
-	for (;;)
+
+	unsigned char rcvBuffer[MAX_BUFFER_SIZE];		// N.B. Must be > READ_BLOCK_SIZE
+	size_t bytesReceived = sizeof(rcvBuffer);
+	size_t returnedDataLength = 0;
+
+	// The initial "Read Binary" command, with offset 0 and length READ_BLOCK_SIZE
+	unsigned char apdu[] = { 0x00, 0xB0, 0x00, 0x00, READ_BLOCK_SIZE };
+	size_t apduSize = sizeof(apdu);
+
+	// Talk to token here to get data
 	{
-		command[OFF_P1] = offset >> 8;
-		command[OFF_P2] = offset & 0xFF;
-		// Never read more than we have room for.
-		size_t bytes_read = resultLength - offset;
-		status = exchangeAPDU(command, sizeof(command), result + offset,
-			bytes_read);
-		bytes_read -= 2;
-		offset += bytes_read;
+		PCSC::Transaction _(*this);
 
-		if ((status & SCARD_LE_IN_SW2) == SCARD_LE_IN_SW2)
-        {
-            command[OFF_LC] = status & 0xFF;
-            last_read = true;  // The next read will be the last
-            continue;
-        }
-
-		// We have read at least one byte already and we just happened to read
-		// until the end of the file the last time, so now we are asking for a
-		// block past the end of the file.  Which means we are done.
-		if (status == SCARD_WRONG_PARAMETER_P1_P2 && offset > 0)
-			break;
-
-        BELPICError::check(status);
-
-        if (bytes_read < command[OFF_LC])
+		uint16_t rx;
+		uint32_t offset = 0;
+		bool requestedTooMuch = false;
+		
+		for (bool done = false; !done; )
 		{
-			// We recieved less bytes than we requsted, so we are done.
-			break;
-		}
-		else if (bytes_read > command[OFF_LC])
-		{
-			// We got too many bytes that's a no no
-			PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
-		}
+			bytesReceived = sizeof(rcvBuffer);	// must reset each time
+			secdebug("token", "readBinary: attempting read of %d bytes at offset: %d", 
+				apdu[OFF_LC], (apdu[OFF_P1] << 8 | apdu[OFF_P2]));
+			transmit(apdu, apduSize, rcvBuffer, bytesReceived);
+			if (bytesReceived < 2)
+				break;
+			rx = (rcvBuffer[bytesReceived - 2] << 8) + rcvBuffer[bytesReceived - 1];
+			secdebug("tokend", "readBinary result 0x%02X (masked: 0x%02X)", rx, rx & 0xFF00);
 
-        if (last_read)
-            break;
+			switch (rx & 0xFF00)
+			{
+			case SCARD_BYTES_LEFT_IN_SW2:		// 0x6100
+			case SCARD_LE_IN_SW2:				// 0x6C00
+				secdebug("token", "readBinary should only have read: %d bytes", rx & 0x00FF);
+				// Re-read from same offset with new, shorter length
+				apdu[OFF_LC] = (uint8_t)(rx & 0xFF);
+				requestedTooMuch = true;				// signal that we are almost done
+				break;
+			case SCARD_WRONG_PARAMETER_P1_P2:			// we read past the end, (probably) non-fatal
+				done = true;
+				break;
+			case SCARD_SUCCESS:
+				offset += (bytesReceived - 2);
+				apdu[OFF_P1] = offset >> 8;
+				apdu[OFF_P2] = offset & 0xFF;
+				apdu[OFF_LC] = READ_BLOCK_SIZE & 0xFF;
+				if (requestedTooMuch)
+					done = true;
+				if (resultLength >= (returnedDataLength + bytesReceived - 2))
+				{
+					memcpy(result + returnedDataLength, rcvBuffer, bytesReceived - 2);
+					returnedDataLength += bytesReceived - 2;
+				}
+				else
+					done = true;
+				break;
+			case SCARD_EXECUTION_WARNING:	// No way to recover from SCARD_END_OF_FILE_REACHED, so fall through
+			default:
+				BELPICError::check(rx);
+				return;						// will actually throw above
+			}
+
+		}
 	}
 
-	resultLength = offset;
+	secdebug("token", "readBinary read a total of %ld bytes", returnedDataLength);
+	resultLength = returnedDataLength;
 }
 
 uint32_t BELPICToken::exchangeAPDU(const uint8_t *apdu, size_t apduLength,
 	uint8_t *result, size_t &resultLength)
 {
+	// see SCARD_LE_IN_SW2
+
 	size_t savedLength = resultLength;
 
 	transmit(apdu, apduLength, result, resultLength);
-	if (resultLength == 2 && result[0] == 0x61)
+	if (resultLength == 2 && result[0] == 0x61)	// || result[0] == 0x6C)
 	{
 		resultLength = savedLength;
 		uint8 expectedLength = result[1];
 		unsigned char getResult[] = { 0x00, 0xC0, 0x00, 0x00, expectedLength };
+		BELPICToken::usleep(INTER_COMMAND_DELAY);
 		transmit(getResult, sizeof(getResult), result, resultLength);
 		if (resultLength - 2 != expectedLength)
         {
@@ -476,6 +566,21 @@ void BELPICToken::getOwner(AclOwnerPrototype &owner)
 void BELPICToken::getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
 {
 	Allocator &alloc = Allocator::standard();
+
+	if (unsigned pin = pinFromAclTag(tag, "?")) {
+		static AutoAclEntryInfoList acl;
+		acl.clear();
+		acl.allocator(alloc);
+		uint32_t status = this->pinStatus(pin);
+		if (status == SCARD_SUCCESS)
+			acl.addPinState(pin, CSSM_ACL_PREAUTH_TRACKING_AUTHORIZED);
+		else
+			acl.addPinState(pin, CSSM_ACL_PREAUTH_TRACKING_UNKNOWN);
+		count = acl.size();
+		acls = acl.entries();
+		return;
+	}
+
 	// get pin list, then for each pin
 	if (!mAclEntries)
 	{
@@ -555,4 +660,3 @@ void BELPICToken::populate()
 	secdebug("populate", "BELPICToken::populate() end");
 }
 
-/* arch-tag: 8A7C3BAF-124C-11D9-A606-000A9595DEEE */

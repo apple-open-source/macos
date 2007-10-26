@@ -41,7 +41,8 @@ typedef enum {
     dhcptype_ip_e       	 = 10,
     dhcptype_ip_mult_e  	 = 11,
     dhcptype_ip_pairs_e 	 = 12,
-    dhcptype_last_e     	 = dhcptype_ip_pairs_e,
+    dhcptype_dns_namelist_e	 = 13,
+    dhcptype_last_e     	 = dhcptype_dns_namelist_e,
 } dhcptype_t;
 
 typedef struct {
@@ -53,6 +54,7 @@ typedef struct {
     int		size;  /* in bytes */
     int		multiple_of; /* type of element */
     const char * name;
+    int		string_list;
 } dhcptype_info_t;
 
 #endif _S_DHCP_TYPE

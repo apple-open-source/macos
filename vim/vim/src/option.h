@@ -10,35 +10,30 @@
  * option.h: definition of global variables for settable options
  */
 
-#ifndef EXTERN
-# define EXTERN extern
-# define INIT(x)
-#else
-# ifndef INIT
-#  define INIT(x) x
-# endif
-#endif
-
-/* default values for p_efm 'errorformat' */
+/*
+ * Default values for 'errorformat'.
+ * The "%f|%l| %m" one is used for when the contents of the quickfix window is
+ * written to a file.
+ */
 #ifdef AMIGA
-# define DFLT_EFM	"%f>%l:%c:%t:%n:%m,%f:%l: %t%*\\D%n: %m,%f %l %t%*\\D%n: %m,%*[^\"]\"%f\"%*\\D%l: %m,%f:%l:%m"
+# define DFLT_EFM	"%f>%l:%c:%t:%n:%m,%f:%l: %t%*\\D%n: %m,%f %l %t%*\\D%n: %m,%*[^\"]\"%f\"%*\\D%l: %m,%f:%l:%m,%f|%l| %m"
 #else
 # if defined(MSDOS) || defined(WIN3264)
-#  define DFLT_EFM	"%f(%l) : %t%*\\D%n: %m,%*[^\"]\"%f\"%*\\D%l: %m,%f(%l) : %m,%*[^ ] %f %l: %m,%f:%l:%m"
+#  define DFLT_EFM	"%f(%l) : %t%*\\D%n: %m,%*[^\"]\"%f\"%*\\D%l: %m,%f(%l) : %m,%*[^ ] %f %l: %m,%f:%l:%c:%m,%f(%l):%m,%f:%l:%m,%f|%l| %m"
 # else
 #  if defined(__EMX__)	/* put most common here (i.e. gcc format) at front */
-#   define DFLT_EFM	"%f:%l:%m,%*[^\"]\"%f\"%*\\D%l: %m,\"%f\"%*\\D%l: %m,%f(%l:%c) : %m"
+#   define DFLT_EFM	"%f:%l:%c:%m,%f(%l):%m,%f:%l:%m,%*[^\"]\"%f\"%*\\D%l: %m,\"%f\"%*\\D%l: %m,%f(%l:%c) : %m,%f|%l| %m"
 #  else
 #   if defined(__QNX__)
-#    define DFLT_EFM	"%f(%l):%*[^WE]%t%*\\D%n:%m"
+#    define DFLT_EFM	"%f(%l):%*[^WE]%t%*\\D%n:%m,%f|%l| %m"
 #   else
 #    ifdef VMS
-#     define DFLT_EFM	"%A%p^,%C%%CC-%t-%m,%Cat line number %l in file %f"
+#     define DFLT_EFM	"%A%p^,%C%%CC-%t-%m,%Cat line number %l in file %f,%f|%l| %m"
 #    else /* Unix, probably */
 #     ifdef EBCDIC
-#define DFLT_EFM	"%*[^ ] %*[^ ] %f:%l%*[ ]%m,%*[^\"]\"%f\"%*\\D%l: %m,\"%f\"%*\\D%l: %m,%f:%l:%m,\"%f\"\\, line %l%*\\D%c%*[^ ] %m,%D%*\\a[%*\\d]: Entering directory `%f',%X%*\\a[%*\\d]: Leaving directory `%f',%DMaking %*\\a in %f"
+#define DFLT_EFM	"%*[^ ] %*[^ ] %f:%l%*[ ]%m,%*[^\"]\"%f\"%*\\D%l: %m,\"%f\"%*\\D%l: %m,%f:%l:%c:%m,%f(%l):%m,%f:%l:%m,\"%f\"\\, line %l%*\\D%c%*[^ ] %m,%D%*\\a[%*\\d]: Entering directory `%f',%X%*\\a[%*\\d]: Leaving directory `%f',%DMaking %*\\a in %f,%f|%l| %m"
 #     else
-#define DFLT_EFM	"%*[^\"]\"%f\"%*\\D%l: %m,\"%f\"%*\\D%l: %m,%-G%f:%l: (Each undeclared identifier is reported only once,%-G%f:%l: for each function it appears in.),%f:%l:%m,\"%f\"\\, line %l%*\\D%c%*[^ ] %m,%D%*\\a[%*\\d]: Entering directory `%f',%X%*\\a[%*\\d]: Leaving directory `%f',%DMaking %*\\a in %f"
+#define DFLT_EFM	"%*[^\"]\"%f\"%*\\D%l: %m,\"%f\"%*\\D%l: %m,%-G%f:%l: (Each undeclared identifier is reported only once,%-G%f:%l: for each function it appears in.),%f:%l:%c:%m,%f(%l):%m,%f:%l:%m,\"%f\"\\, line %l%*\\D%c%*[^ ] %m,%D%*\\a[%*\\d]: Entering directory `%f',%X%*\\a[%*\\d]: Leaving directory `%f',%D%*\\a: Entering directory `%f',%X%*\\a: Leaving directory `%f',%DMaking %*\\a in %f,%f|%l| %m"
 #     endif
 #    endif
 #   endif
@@ -128,7 +123,9 @@
 #define CPO_FNAMER	'f'	/* set file name for ":r file" */
 #define CPO_FNAMEW	'F'	/* set file name for ":w file" */
 #define CPO_GOTO1	'g'	/* goto line 1 for ":edit" */
+#define CPO_INSEND	'H'	/* "I" inserts before last blank in line */
 #define CPO_INTMOD	'i'	/* interrupt a read makes buffer modified */
+#define CPO_INDENT	'I'	/* remove auto-indent more often */
 #define CPO_JOINSP	'j'	/* only use two spaces for join after '.' */
 #define CPO_ENDOFSENT	'J'	/* need two spaces to detect end of sentence */
 #define CPO_KEYCODE	'k'	/* don't recognize raw key code in mappings */
@@ -141,7 +138,10 @@
 #define CPO_LINEOFF	'o'
 #define CPO_OVERNEW	'O'	/* silently overwrite new file */
 #define CPO_LISP	'p'	/* 'lisp' indenting */
+#define CPO_FNAMEAPP	'P'	/* set file name for ":w >>file" */
+#define CPO_JOINCOL	'q'	/* with "3J" use column after first join */
 #define CPO_REDO	'r'
+#define CPO_REMMARK	'R'	/* remove marks when filtering */
 #define CPO_BUFOPT	's'
 #define CPO_BUFOPTGLOB	'S'
 #define CPO_TAGPAT	't'
@@ -150,14 +150,29 @@
 #define CPO_CW		'w'	/* "cw" only changes one blank */
 #define CPO_FWRITE	'W'	/* "w!" doesn't overwrite readonly files */
 #define CPO_ESC		'x'
+#define CPO_REPLCNT	'X'	/* "R" with a count only delets chars once */
 #define CPO_YANK	'y'
+#define CPO_KEEPRO	'Z'	/* don't reset 'readonly' on ":w!" */
 #define CPO_DOLLAR	'$'
 #define CPO_FILTER	'!'
 #define CPO_MATCH	'%'
 #define CPO_STAR	'*'	/* ":*" means ":@" */
+#define CPO_PLUS	'+'	/* ":write file" resets 'modified' */
+#define CPO_MINUS	'-'	/* "9-" fails at and before line 9 */
 #define CPO_SPECI	'<'	/* don't recognize <> in mappings */
-#define CPO_DEFAULT	"aABceFs"
-#define CPO_ALL		"aAbBcCdDeEfFgijJkKlLmMnoOprsStuvwWxy$!%*<"
+#define CPO_REGAPPEND	'>'	/* insert NL when appending to a register */
+/* POSIX flags */
+#define CPO_HASH	'#'	/* "D", "o" and "O" do not use a count */
+#define CPO_PARA	'{'	/* "{" is also a paragraph boundary */
+#define CPO_TSIZE	'|'	/* $LINES and $COLUMNS overrule term size */
+#define CPO_PRESERVE	'&'	/* keep swap file after :preserve */
+#define CPO_SUBPERCENT	'/'	/* % in :s string uses previous one */
+#define CPO_BACKSL	'\\'	/* \ is not special in [] */
+#define CPO_CHDIR	'.'	/* don't chdir if buffer is modified */
+/* default values for Vim, Vi and POSIX */
+#define CPO_VIM		"aABceFs"
+#define CPO_VI		"aAbBcCdDeEfFgHiIjJkKlLmMnoOpPqrRsStuvwWxXyZ$!%*-+<>"
+#define CPO_ALL		"aAbBcCdDeEfFgHiIjJkKlLmMnoOpPqrRsStuvwWxXyZ$!%*-+<>#{|&/\\."
 
 /* characters for p_ww option: */
 #define WW_ALL		"bshl<>[],~"
@@ -199,8 +214,10 @@
 #define GO_ASELML	'A'		/* autoselect modeless selection */
 #define GO_BOT		'b'		/* use bottom scrollbar */
 #define GO_CONDIALOG	'c'		/* use console dialog */
+#define GO_TABLINE	'e'		/* may show tabline */
 #define GO_FORG		'f'		/* start GUI in foreground */
 #define GO_GREY		'g'		/* use grey menu items */
+#define GO_HORSCROLL	'h'		/* flexible horizontal scrolling */
 #define GO_ICON		'i'		/* use Vim icon */
 #define GO_LEFT		'l'		/* use left scrollbar */
 #define GO_VLEFT	'L'		/* left scrollbar with vert split */
@@ -213,7 +230,7 @@
 #define GO_TOOLBAR	'T'		/* add toolbar */
 #define GO_FOOTER	'F'		/* add footer */
 #define GO_VERTICAL	'v'		/* arrange dialog buttons vertically */
-#define GO_ALL		"aAbcfFgilmMprtTv" /* all possible flags for 'go' */
+#define GO_ALL		"aAbcefFghilmMprtTv" /* all possible flags for 'go' */
 
 /* flags for 'comments' option */
 #define COM_NEST	'n'		/* comments strings nest */
@@ -261,8 +278,11 @@
 #define STL_VIM_EXPR	'{'		/* start of expression to substitute */
 #define STL_MIDDLEMARK	'='		/* separation between left and right */
 #define STL_TRUNCMARK	'<'		/* truncation mark if line is too long*/
-#define STL_HIGHLIGHT	'*'		/* highlight from (User)1..9 or 0 */
-#define STL_ALL		((char_u *) "fFtcvVlLknoObBrRhHmYyWwMpPaN{")
+#define STL_USER_HL	'*'		/* highlight from (User)1..9 or 0 */
+#define STL_HIGHLIGHT	'#'		/* highlight name */
+#define STL_TABPAGENR	'T'		/* tab page label nr */
+#define STL_TABCLOSENR	'X'		/* tab page close nr */
+#define STL_ALL		((char_u *) "fFtcvVlLknoObBrRhHmYyWwMpPaN{#")
 
 /* flags used for parsed 'wildmode' */
 #define WIM_FULL	1
@@ -277,18 +297,22 @@
 #define LISPWORD_VALUE	"defun,define,defmacro,set!,lambda,if,case,let,flet,let*,letrec,do,do*,define-syntax,let-syntax,letrec-syntax,destructuring-bind,defpackage,defparameter,defstruct,deftype,defvar,do-all-symbols,do-external-symbols,do-symbols,dolist,dotimes,ecase,etypecase,eval-when,labels,macrolet,multiple-value-bind,multiple-value-call,multiple-value-prog1,multiple-value-setq,prog1,progv,typecase,unless,unwind-protect,when,with-input-from-string,with-open-file,with-open-stream,with-output-to-string,with-package-iterator,define-condition,handler-bind,handler-case,restart-bind,restart-case,with-simple-restart,store-value,use-value,muffle-warning,abort,continue,with-slots,with-slots*,with-accessors,with-accessors*,defclass,defmethod,print-unreadable-object"
 
 /*
- * The following are actual variabables for the options
+ * The following are actual variables for the options
  */
 
 #ifdef FEAT_RIGHTLEFT
 EXTERN long	p_aleph;	/* 'aleph' */
 #endif
-#if defined(FEAT_NETBEANS_INTG) || defined(FEAT_SUN_WORKSHOP)
+#ifdef FEAT_AUTOCHDIR
 EXTERN int	p_acd;		/* 'autochdir' */
 #endif
 #ifdef FEAT_MBYTE
 EXTERN char_u	*p_ambw;	/* 'ambiwidth' */
 #endif
+#if defined(FEAT_GUI) && defined(MACOS_X)
+EXTERN int	*p_antialias;	/* 'antialias' */
+#endif
+EXTERN int	p_ap;		/* 'autoprint' */
 EXTERN int	p_ar;		/* 'autoread' */
 EXTERN int	p_aw;		/* 'autowrite' */
 EXTERN int	p_awa;		/* 'autowriteall' */
@@ -296,6 +320,15 @@ EXTERN char_u	*p_bs;		/* 'backspace' */
 EXTERN char_u	*p_bg;		/* 'background' */
 EXTERN int	p_bk;		/* 'backup' */
 EXTERN char_u	*p_bkc;		/* 'backupcopy' */
+EXTERN unsigned	bkc_flags;
+#ifdef IN_OPTION_C
+static char *(p_bkc_values[]) = {"yes", "auto", "no", "breaksymlink", "breakhardlink", NULL};
+#endif
+# define BKC_YES		0x001
+# define BKC_AUTO		0x002
+# define BKC_NO			0x004
+# define BKC_BREAKSYMLINK	0x008
+# define BKC_BREAKHARDLINK	0x010
 EXTERN char_u	*p_bdir;	/* 'backupdir' */
 EXTERN char_u	*p_bex;		/* 'backupext' */
 #ifdef FEAT_WILDIGN
@@ -303,10 +336,12 @@ EXTERN char_u	*p_bsk;		/* 'backupskip' */
 #endif
 #ifdef FEAT_BEVAL
 EXTERN long	p_bdlay;	/* 'balloondelay' */
-# if defined(FEAT_SUN_WORKSHOP) || defined(FEAT_NETBEANS_INTG)
 EXTERN int	p_beval;	/* 'ballooneval' */
+# ifdef FEAT_EVAL
+EXTERN char_u	*p_bexpr;
 # endif
 #endif
+EXTERN int	p_bf;		/* 'beautify' */
 #ifdef FEAT_BROWSE
 EXTERN char_u	*p_bsdir;	/* 'browsedir' */
 #endif
@@ -317,13 +352,15 @@ EXTERN int	p_consk;	/* 'conskey' */
 #ifdef FEAT_LINEBREAK
 EXTERN char_u	*p_breakat;	/* 'breakat' */
 #endif
+#ifdef FEAT_MBYTE
 EXTERN char_u	*p_cmp;		/* 'casemap' */
 EXTERN unsigned	cmp_flags;
-#ifdef IN_OPTION_C
+# ifdef IN_OPTION_C
 static char *(p_cmp_values[]) = {"internal", "keepascii", NULL};
+# endif
+# define CMP_INTERNAL		0x001
+# define CMP_KEEPASCII		0x002
 #endif
-#define CMP_INTERNAL		0x001
-#define CMP_KEEPASCII		0x002
 #ifdef FEAT_MBYTE
 EXTERN char_u	*p_enc;		/* 'encoding' */
 EXTERN int	p_deco;		/* 'delcombine' */
@@ -337,16 +374,16 @@ EXTERN long	p_cwh;		/* 'cmdwinheight' */
 #endif
 #ifdef FEAT_CLIPBOARD
 EXTERN char_u	*p_cb;		/* 'clipboard' */
-EXTERN int	clip_unnamed INIT(= FALSE);
-EXTERN int	clip_autoselect INIT(= FALSE);
-EXTERN int	clip_autoselectml INIT(= FALSE);
-EXTERN regprog_T *clip_exclude_prog INIT(= NULL);
 #endif
 EXTERN long	p_ch;		/* 'cmdheight' */
 #if defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG)
 EXTERN int	p_confirm;	/* 'confirm' */
 #endif
 EXTERN int	p_cp;		/* 'compatible' */
+#ifdef FEAT_INS_EXPAND
+EXTERN char_u	*p_cot;		/* 'completeopt' */
+EXTERN long	p_ph;		/* 'pumheight' */
+#endif
 EXTERN char_u	*p_cpo;		/* 'cpoptions' */
 #ifdef FEAT_CSCOPE
 EXTERN char_u	*p_csprg;	/* 'cscopeprg' */
@@ -430,17 +467,25 @@ static char *(p_fdo_values[]) = {"all", "block", "hor", "mark", "percent",
 # define FDO_JUMP		0x400
 #endif
 EXTERN char_u	*p_fp;		/* 'formatprg' */
+#ifdef HAVE_FSYNC
+EXTERN int	p_fs;		/* 'fsync' */
+#endif
 EXTERN int	p_gd;		/* 'gdefault' */
 #ifdef FEAT_PRINTER
 EXTERN char_u	*p_pdev;	/* 'printdevice' */
 # ifdef FEAT_POSTSCRIPT
 EXTERN char_u	*p_penc;	/* 'printencoding' */
 EXTERN char_u	*p_pexpr;	/* 'printexpr' */
+#   ifdef FEAT_MBYTE
+EXTERN char_u	*p_pmfn;	/* 'printmbfont' */
+EXTERN char_u	*p_pmcs;	/* 'printmbcharset' */
+#   endif
 # endif
 EXTERN char_u	*p_pfn;		/* 'printfont' */
 EXTERN char_u	*p_popt;	/* 'printoptions' */
 EXTERN char_u	*p_header;	/* 'printheader' */
 #endif
+EXTERN int	p_prompt;	/* 'prompt' */
 #ifdef FEAT_GUI
 EXTERN char_u	*p_guifont;	/* 'guifont' */
 # ifdef FEAT_XFONTSET
@@ -463,9 +508,16 @@ EXTERN char_u	*p_mouseshape;	/* 'mouseshape' */
 #if defined(FEAT_GUI)
 EXTERN char_u	*p_go;		/* 'guioptions' */
 #endif
+#if defined(FEAT_GUI_TABLINE)
+EXTERN char_u	*p_gtl;		/* 'guitablabel' */
+EXTERN char_u	*p_gtt;		/* 'guitabtooltip' */
+#endif
 EXTERN char_u	*p_hf;		/* 'helpfile' */
 #ifdef FEAT_WINDOWS
 EXTERN long	p_hh;		/* 'helpheight' */
+#endif
+#ifdef FEAT_MULTI_LANG
+EXTERN char_u	*p_hlg;		/* 'helplang' */
 #endif
 EXTERN int	p_hid;		/* 'hidden' */
 /* Use P_HID to check if a buffer is to be hidden when it is no longer
@@ -494,7 +546,7 @@ EXTERN int	p_icon;		/* 'icon' */
 EXTERN char_u	*p_iconstring;	/* 'iconstring' */
 #endif
 EXTERN int	p_ic;		/* 'ignorecase' */
-#if defined(FEAT_XIM) && defined(FEAT_GUI_GTK)
+#if defined(FEAT_XIM) && (defined(FEAT_GUI_GTK))
 EXTERN char_u	*p_imak;	/* 'imactivatekey' */
 #endif
 #ifdef USE_IM_CONTROL
@@ -525,25 +577,36 @@ EXTERN char_u	*p_lispwords;	/* 'lispwords' */
 #endif
 #ifdef FEAT_WINDOWS
 EXTERN long	p_ls;		/* 'laststatus' */
+EXTERN long	p_stal;		/* 'showtabline' */
 #endif
 EXTERN char_u	*p_lcs;		/* 'listchars' */
 
 EXTERN int	p_lz;		/* 'lazyredraw' */
 EXTERN int	p_lpl;		/* 'loadplugins' */
+#ifdef FEAT_GUI_MAC
+EXTERN int	p_macatsui;	/* 'macatsui' */
+#endif
 EXTERN int	p_magic;	/* 'magic' */
 #ifdef FEAT_QUICKFIX
 EXTERN char_u	*p_mef;		/* 'makeef' */
 EXTERN char_u	*p_mp;		/* 'makeprg' */
 #endif
 EXTERN long	p_mat;		/* 'matchtime' */
+#ifdef FEAT_MBYTE
+EXTERN long	p_mco;		/* 'maxcombine' */
+#endif
 #ifdef FEAT_EVAL
 EXTERN long	p_mfd;		/* 'maxfuncdepth' */
 #endif
 EXTERN long	p_mmd;		/* 'maxmapdepth' */
 EXTERN long	p_mm;		/* 'maxmem' */
+EXTERN long	p_mmp;		/* 'maxmempattern' */
 EXTERN long	p_mmt;		/* 'maxmemtot' */
 #ifdef FEAT_MENU
 EXTERN long	p_mis;		/* 'menuitems' */
+#endif
+#ifdef FEAT_SPELL
+EXTERN char_u	*p_msm;		/* 'mkspellmem' */
 #endif
 EXTERN long	p_mls;		/* 'modelines' */
 EXTERN char_u	*p_mouse;	/* 'mouse' */
@@ -554,6 +617,10 @@ EXTERN int	p_mh;		/* 'mousehide' */
 EXTERN char_u	*p_mousem;	/* 'mousemodel' */
 EXTERN long	p_mouset;	/* 'mousetime' */
 EXTERN int	p_more;		/* 'more' */
+#ifdef FEAT_MZSCHEME
+EXTERN long	p_mzq;		/* 'mzquantum */
+#endif
+EXTERN char_u	*p_opfunc;	/* 'operatorfunc' */
 EXTERN char_u	*p_para;	/* 'paragraphs' */
 EXTERN int	p_paste;	/* 'paste' */
 EXTERN char_u	*p_pt;		/* 'pastetoggle' */
@@ -602,7 +669,7 @@ EXTERN unsigned	ssop_flags;
 /* Also used for 'viewoptions'! */
 static char *(p_ssop_values[]) = {"buffers", "winpos", "resize", "winsize",
     "localoptions", "options", "help", "blank", "globals", "slash", "unix",
-    "sesdir", "curdir", "folds", "cursor", NULL};
+    "sesdir", "curdir", "folds", "cursor", "tabpages", NULL};
 # endif
 # define SSOP_BUFFERS		0x001
 # define SSOP_WINPOS		0x002
@@ -619,6 +686,7 @@ static char *(p_ssop_values[]) = {"buffers", "winpos", "resize", "winsize",
 # define SSOP_CURDIR		0x1000
 # define SSOP_FOLDS		0x2000
 # define SSOP_CURSOR		0x4000
+# define SSOP_TABPAGES		0x8000
 #endif
 EXTERN char_u	*p_sh;		/* 'shell' */
 EXTERN char_u	*p_shcf;	/* 'shellcmdflag' */
@@ -631,6 +699,7 @@ EXTERN char_u	*p_srr;		/* 'shellredir' */
 #ifdef AMIGA
 EXTERN long	p_st;		/* 'shelltype' */
 #endif
+EXTERN int	p_stmp;		/* 'shelltemp' */
 #ifdef BACKSLASH_IN_FILENAME
 EXTERN int	p_ssl;		/* 'shellslash' */
 #endif
@@ -654,6 +723,13 @@ EXTERN int	p_scs;		/* 'smartcase' */
 EXTERN int	p_sta;		/* 'smarttab' */
 #ifdef FEAT_WINDOWS
 EXTERN int	p_sb;		/* 'splitbelow' */
+EXTERN long	p_tpm;		/* 'tabpagemax' */
+# if defined(FEAT_STL_OPT)
+EXTERN char_u	*p_tal;		/* 'tabline' */
+# endif
+#endif
+#ifdef FEAT_SPELL
+EXTERN char_u	*p_sps;		/* 'spellsuggest' */
 #endif
 #ifdef FEAT_VERTSPLIT
 EXTERN int	p_spr;		/* 'splitright' */
@@ -746,14 +822,20 @@ EXTERN int	p_vb;		/* 'visualbell' */
 EXTERN char_u	*p_ve;		/* 'virtualedit' */
 EXTERN unsigned ve_flags;
 # ifdef IN_OPTION_C
-static char *(p_ve_values[]) = {"block", "insert", "all", NULL};
+static char *(p_ve_values[]) = {"block", "insert", "all", "onemore", NULL};
 # endif
 # define VE_BLOCK	5	/* includes "all" */
 # define VE_INSERT	6	/* includes "all" */
 # define VE_ALL		4
+# define VE_ONEMORE	8
 #endif
 EXTERN long	p_verbose;	/* 'verbose' */
+EXTERN char_u	*p_vfile;	/* 'verbosefile' */
 EXTERN int	p_warn;		/* 'warn' */
+#ifdef FEAT_CMDL_COMPL
+EXTERN char_u	*p_wop;		/* 'wildoptions' */
+#endif
+EXTERN long	p_window;	/* 'window' */
 #if defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_MOTIF) || defined(LINT) \
 	|| defined (FEAT_GUI_GTK) || defined(FEAT_GUI_PHOTON)
 #define FEAT_WAK
@@ -783,3 +865,198 @@ EXTERN int	p_write;	/* 'write' */
 EXTERN int	p_wa;		/* 'writeany' */
 EXTERN int	p_wb;		/* 'writebackup' */
 EXTERN long	p_wd;		/* 'writedelay' */
+
+/*
+ * "indir" values for buffer-local opions.
+ * These need to be defined globally, so that the BV_COUNT can be used with
+ * b_p_scriptID[].
+ */
+enum
+{
+    BV_AI = 0
+    , BV_AR
+#ifdef FEAT_QUICKFIX
+    , BV_BH
+    , BV_BT
+    , BV_EFM
+    , BV_GP
+    , BV_MP
+#endif
+    , BV_BIN
+    , BV_BL
+#ifdef FEAT_MBYTE
+    , BV_BOMB
+#endif
+    , BV_CI
+#ifdef FEAT_CINDENT
+    , BV_CIN
+    , BV_CINK
+    , BV_CINO
+#endif
+#if defined(FEAT_SMARTINDENT) || defined(FEAT_CINDENT)
+    , BV_CINW
+#endif
+#ifdef FEAT_FOLDING
+    , BV_CMS
+#endif
+#ifdef FEAT_COMMENTS
+    , BV_COM
+#endif
+#ifdef FEAT_INS_EXPAND
+    , BV_CPT
+    , BV_DICT
+    , BV_TSR
+#endif
+#ifdef FEAT_COMPL_FUNC
+    , BV_CFU
+#endif
+#ifdef FEAT_FIND_ID
+    , BV_DEF
+    , BV_INC
+#endif
+    , BV_EOL
+    , BV_EP
+    , BV_ET
+    , BV_FENC
+#ifdef FEAT_EVAL
+    , BV_BEXPR
+    , BV_FEX
+#endif
+    , BV_FF
+    , BV_FLP
+    , BV_FO
+#ifdef FEAT_AUTOCMD
+    , BV_FT
+#endif
+    , BV_IMI
+    , BV_IMS
+#if defined(FEAT_CINDENT) && defined(FEAT_EVAL)
+    , BV_INDE
+    , BV_INDK
+#endif
+#if defined(FEAT_FIND_ID) && defined(FEAT_EVAL)
+    , BV_INEX
+#endif
+    , BV_INF
+    , BV_ISK
+#ifdef FEAT_CRYPT
+    , BV_KEY
+#endif
+#ifdef FEAT_KEYMAP
+    , BV_KMAP
+#endif
+    , BV_KP
+#ifdef FEAT_LISP
+    , BV_LISP
+#endif
+    , BV_MA
+    , BV_ML
+    , BV_MOD
+    , BV_MPS
+    , BV_NF
+#ifdef FEAT_OSFILETYPE
+    , BV_OFT
+#endif
+#ifdef FEAT_COMPL_FUNC
+    , BV_OFU
+#endif
+    , BV_PATH
+    , BV_PI
+#ifdef FEAT_TEXTOBJ
+    , BV_QE
+#endif
+    , BV_RO
+#ifdef FEAT_SMARTINDENT
+    , BV_SI
+#endif
+#ifndef SHORT_FNAME
+    , BV_SN
+#endif
+#ifdef FEAT_SYN_HL
+    , BV_SMC
+    , BV_SYN
+#endif
+#ifdef FEAT_SPELL
+    , BV_SPC
+    , BV_SPF
+    , BV_SPL
+#endif
+    , BV_STS
+#ifdef FEAT_SEARCHPATH
+    , BV_SUA
+#endif
+    , BV_SW
+    , BV_SWF
+    , BV_TAGS
+    , BV_TS
+    , BV_TW
+    , BV_TX
+    , BV_WM
+    , BV_COUNT	    /* must be the last one */
+};
+
+/*
+ * "indir" values for window-local options.
+ * These need to be defined globally, so that the WV_COUNT can be used in the
+ * window structure.
+ */
+enum
+{
+    WV_LIST = 0
+#ifdef FEAT_ARABIC
+    , WV_ARAB
+#endif
+#ifdef FEAT_DIFF
+    , WV_DIFF
+#endif
+#ifdef FEAT_FOLDING
+    , WV_FDC
+    , WV_FEN
+    , WV_FDI
+    , WV_FDL
+    , WV_FDM
+    , WV_FML
+    , WV_FDN
+# ifdef FEAT_EVAL
+    , WV_FDE
+    , WV_FDT
+# endif
+    , WV_FMR
+#endif
+#ifdef FEAT_LINEBREAK
+    , WV_LBR
+#endif
+    , WV_NU
+#ifdef FEAT_LINEBREAK
+    , WV_NUW
+#endif
+#if defined(FEAT_WINDOWS) && defined(FEAT_QUICKFIX)
+    , WV_PVW
+#endif
+#ifdef FEAT_RIGHTLEFT
+    , WV_RL
+    , WV_RLC
+#endif
+#ifdef FEAT_SCROLLBIND
+    , WV_SCBIND
+#endif
+    , WV_SCROLL
+#ifdef FEAT_SPELL
+    , WV_SPELL
+#endif
+#ifdef FEAT_SYN_HL
+    , WV_CUC
+    , WV_CUL
+#endif
+#ifdef FEAT_STL_OPT
+    , WV_STL
+#endif
+#ifdef FEAT_WINDOWS
+    , WV_WFH
+#endif
+#ifdef FEAT_VERTSPLIT
+    , WV_WFW
+#endif
+    , WV_WRAP
+    , WV_COUNT	    /* must be the last one */
+};

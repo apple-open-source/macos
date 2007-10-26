@@ -1,6 +1,6 @@
 /* ELF support for BFD.
    Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003
+   2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    Written by Fred Fish @ Cygnus Support, from information published
@@ -21,7 +21,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 
 /* This file is part of ELF support for BFD, and contains the portions
@@ -180,7 +180,9 @@
 #define EM_ARC_A5	 93	/* ARC Cores Tangent-A5 */
 #define EM_XTENSA	 94	/* Tensilica Xtensa Architecture */
 #define EM_IP2K		101	/* Ubicom IP2022 micro controller */
+#define EM_CR		103	/* National Semiconductor CompactRISC */
 #define EM_MSP430	105	/* TI msp430 micro controller */
+#define EM_CRX		114	/* National Semiconductor CRX */
 
 /* If it is necessary to assign new unofficial EM_* values, please pick large
    random numbers (0x8523, 0xa7f2, etc.) to minimize the chances of collision
@@ -208,6 +210,9 @@
 
 /* (Deprecated) Temporary number for the OpenRISC processor.  */
 #define EM_OR32		0x8472
+
+/* Renesas M32C and M16C.  */
+#define EM_M32C			0xFEB0
 
 /* Cygnus M32R ELF backend.  Written in the absence of an ABI.  */
 #define EM_CYGNUS_M32R	0x9041
@@ -255,6 +260,8 @@
 /* Ubicom IP2xxx; no ABI */
 #define EM_IP2K_OLD		0x8217
 
+#define EM_MS1                  0x2530  /* Morpho MS1; no ABI */
+
 /* MSP430 magic number
       Written in the absense everything.  */
 #define EM_MSP430_OLD		0x1059
@@ -287,8 +294,10 @@
 #define PT_LOPROC	0x70000000	/* Processor-specific */
 #define PT_HIPROC	0x7FFFFFFF	/* Processor-specific */
 
-#define PT_GNU_EH_FRAME	(PT_LOOS + 0x474e550)
-#define PT_GNU_STACK	(PT_LOOS + 0x474e551)
+#define PT_GNU_EH_FRAME	(PT_LOOS + 0x474e550) /* Frame unwind information */
+#define PT_SUNW_EH_FRAME PT_GNU_EH_FRAME      /* Solaris uses the same value */
+#define PT_GNU_STACK	(PT_LOOS + 0x474e551) /* Stack flags */
+#define PT_GNU_RELRO	(PT_LOOS + 0x474e552) /* Read-only after relocation */
 
 /* Program segment permissions, in program header p_flags field.  */
 
@@ -493,7 +502,7 @@
 
 #define ELF64_R_SYM(i)		((i) >> 32)
 #define ELF64_R_TYPE(i)		((i) & 0xffffffff)
-#define ELF64_R_INFO(s,t)	(((bfd_vma) (s) << 32) + (bfd_vma) (t))
+#define ELF64_R_INFO(s,t)	(((bfd_vma) (s) << 31 << 1) + (bfd_vma) (t))
 
 /* Dynamic section tags.  */
 

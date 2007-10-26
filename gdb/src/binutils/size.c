@@ -1,6 +1,6 @@
 /* size.c -- report size of various sections of an executable file.
-   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GNU Binutils.
 
@@ -16,7 +16,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Extensions/incompatibilities:
    o - BSD output has filenames at the end.
@@ -45,7 +45,9 @@ enum
   }
 radix = decimal;
 
-int berkeley_format = BSD_DEFAULT;	/* 0 means use AT&T-style output.  */
+/* 0 means use AT&T-style output.  */
+static int berkeley_format = BSD_DEFAULT;
+
 int show_version = 0;
 int show_help = 0;
 int show_totals = 0;
@@ -66,9 +68,6 @@ static void display_file (char *);
 static void display_bfd (bfd *);
 static void display_archive (bfd *);
 static int size_number (bfd_size_type);
-#if 0
-static void lprint_number (int, bfd_size_type);
-#endif
 static void rprint_number (int, bfd_size_type);
 static void print_berkeley_format (bfd *);
 static void sysv_internal_sizer (bfd *, asection *, void *);
@@ -103,7 +102,7 @@ usage (FILE *stream, int status)
   exit (status);
 }
 
-struct option long_options[] =
+static struct option long_options[] =
 {
   {"format", required_argument, 0, 200},
   {"radix", required_argument, 0, 201},
@@ -382,25 +381,6 @@ size_number (bfd_size_type num)
   return strlen (buffer);
 }
 
-#if 0
-
-/* This is not used.  */
-
-static void
-lprint_number (int width, bfd_size_type num)
-{
-  char buffer[40];
-
-  sprintf (buffer,
-	   (radix == decimal ? "%lu" :
-	   ((radix == octal) ? "0%lo" : "0x%lx")),
-	   (unsigned long) num);
-
-  printf ("%-*s", width, buffer);
-}
-
-#endif
-
 static void
 rprint_number (int width, bfd_size_type num)
 {
@@ -429,7 +409,7 @@ berkeley_sum (bfd *abfd ATTRIBUTE_UNUSED, sec_ptr sec,
   if ((flags & SEC_ALLOC) == 0)
     return;
 
-  size = bfd_get_section_size_before_reloc (sec);
+  size = bfd_get_section_size (sec);
   if ((flags & SEC_CODE) != 0 || (flags & SEC_READONLY) != 0)
     textsize += size;
   else if ((flags & SEC_HAS_CONTENTS) != 0)
@@ -451,14 +431,8 @@ print_berkeley_format (bfd *abfd)
   bfd_map_over_sections (abfd, berkeley_sum, NULL);
 
   if (files_seen++ == 0)
-#if 0
-    /* Intel doesn't like bss/stk because they don't have core files.  */
-    puts ((radix == octal) ? "   text\t   data\tbss/stk\t    oct\t    hex\tfilename" :
-	  "   text\t   data\tbss/stk\t    dec\t    hex\tfilename");
-#else
     puts ((radix == octal) ? "   text\t   data\t    bss\t    oct\t    hex\tfilename" :
 	  "   text\t   data\t    bss\t    dec\t    hex\tfilename");
-#endif
 
   total = textsize + datasize + bsssize;
 

@@ -1,32 +1,53 @@
 ##
 # User Database
 # 
-# Note that this file is consulted when the system is running in single-user
-# mode.  At other times this information is handled by lookupd.  By default,
-# lookupd gets information from NetInfo, so this file will not be consulted
-# unless you have changed lookupd's configuration.
+# Note that this file is consulted directly only when the system is running
+# in single-user mode.  At other times this information is provided by
+# Open Directory.
+#
+# This file will not be consulted for authentication unless the BSD local node
+# is enabled via /Applications/Utilities/Directory Utility.app
+# 
+# See the DirectoryService(8) man page for additional information about
+# Open Directory.
 ##
 nobody:*:-2:-2::0:0:Unprivileged User:/var/empty:/usr/bin/false
 root:*:0:0::0:0:System Administrator:/var/root:/bin/sh
 daemon:*:1:1::0:0:System Services:/var/root:/usr/bin/false
-unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false
-lp:*:26:26::0:0:Printing Services:/var/spool/cups:/usr/bin/false
-uucp:*:4:4::0:0:Unix to Unix Copy Protocol:/var/spool/uucp:/usr/sbin/uucico
-postfix:*:27:27::0:0:Postfix User:/var/spool/postfix:/usr/bin/false
-www:*:70:70::0:0:World Wide Web Server:/Library/WebServer:/usr/bin/false
-eppc:*:71:71::0:0:Apple Events User:/var/empty:/usr/bin/false
-mysql:*:74:74::0:0:MySQL Server:/var/empty:/usr/bin/false
-sshd:*:75:75::0:0:sshd Privilege separation:/var/empty:/usr/bin/false
-qtss:*:76:76::0:0:QuickTime Streaming Server:/var/empty:/usr/bin/false
-cyrusimap:*:77:6::0:0:Cyrus IMAP User:/var/imap:/usr/bin/false
-mailman:*:78:78::0:0:Mailman user:/var/empty:/usr/bin/false
-appserver:*:79:79::0:0:Application Server:/var/empty:/usr/bin/false
-clamav:*:82:82::0:0:Clamav User:/var/virusmails:/bin/tcsh
-amavisd:*:83:83::0:0:Amavisd User:/var/virusmails:/bin/tcsh
-jabber:*:84:84::0:0:Jabber User:/var/empty:/usr/bin/false
-xgridcontroller:*:85:85::0:0:Xgrid Controller:/var/xgrid/controller:/usr/bin/false
-xgridagent:*:86:86::0:0:Xgrid Agent:/var/xgrid/agent:/usr/bin/false
-appowner:*:87:87::0:0:Application Owner:/var/empty:/usr/bin/false
-windowserver:*:88:88::0:0:WindowServer:/var/empty:/usr/bin/false
-tokend:*:91:91::0:0:Token Daemon:/var/empty:/usr/bin/false
-securityagent:*:92:92::0:0:SecurityAgent:/var/empty:/usr/bin/false
+_uucp:*:4:4::0:0:Unix to Unix Copy Protocol:/var/spool/uucp:/usr/sbin/uucico
+_lp:*:26:26::0:0:Printing Services:/var/spool/cups:/usr/bin/false
+_postfix:*:27:27::0:0:Postfix Mail Server:/var/spool/postfix:/usr/bin/false
+_mcxalr:*:54:54::0:0:MCX AppLaunch:/var/empty:/usr/bin/false
+_pcastagent:*:55:55::0:0:Podcast Producer Agent:/var/pcast/agent:/usr/bin/false
+_pcastserver:*:56:56::0:0:Podcast Producer Server:/var/pcast/server:/usr/bin/false
+_serialnumberd:*:58:58::0:0:Serial Number Daemon:/var/empty:/usr/bin/false
+_devdocs:*:59:59::0:0:Developer Documentation:/var/empty:/usr/bin/false
+_sandbox:*:60:60::0:0:Seatbelt:/var/empty:/usr/bin/false
+_mdnsresponder:*:65:65::0:0:mDNSResponder:/var/empty:/usr/bin/false
+_ard:*:67:67::0:0:Apple Remote Desktop:/var/empty:/usr/bin/false
+_www:*:70:70::0:0:World Wide Web Server:/Library/WebServer:/usr/bin/false
+_eppc:*:71:71::0:0:Apple Events User:/var/empty:/usr/bin/false
+_cvs:*:72:72::0:0:CVS Server:/var/empty:/usr/bin/false
+_svn:*:73:73::0:0:SVN Server:/var/empty:/usr/bin/false
+_mysql:*:74:74::0:0:MySQL Server:/var/empty:/usr/bin/false
+_sshd:*:75:75::0:0:sshd Privilege separation:/var/empty:/usr/bin/false
+_qtss:*:76:76::0:0:QuickTime Streaming Server:/var/empty:/usr/bin/false
+_cyrus:*:77:6::0:0:Cyrus Administrator:/var/imap:/usr/bin/false
+_mailman:*:78:78::0:0:Mailman List Server:/var/empty:/usr/bin/false
+_appserver:*:79:79::0:0:Application Server:/var/empty:/usr/bin/false
+_clamav:*:82:82::0:0:ClamAV Daemon:/var/virusmails:/usr/bin/false
+_amavisd:*:83:83::0:0:AMaViS Daemon:/var/virusmails:/usr/bin/false
+_jabber:*:84:84::0:0:Jabber XMPP Server:/var/empty:/usr/bin/false
+_xgridcontroller:*:85:85::0:0:Xgrid Controller:/var/xgrid/controller:/usr/bin/false
+_xgridagent:*:86:86::0:0:Xgrid Agent:/var/xgrid/agent:/usr/bin/false
+_appowner:*:87:87::0:0:Application Owner:/var/empty:/usr/bin/false
+_windowserver:*:88:88::0:0:WindowServer:/var/empty:/usr/bin/false
+_spotlight:*:89:89::0:0:Spotlight:/var/empty:/usr/bin/false
+_tokend:*:91:91::0:0:Token Daemon:/var/empty:/usr/bin/false
+_securityagent:*:92:92::0:0:SecurityAgent:/var/empty:/usr/bin/false
+_calendar:*:93:93::0:0:Calendar:/var/empty:/usr/bin/false
+_teamsserver:*:94:94::0:0:TeamsServer:/var/teamsserver:/usr/bin/false
+_update_sharing:*:95:-2::0:0:Update Sharing:/var/empty:/usr/bin/false
+_installer:*:96:-2::0:0:Installer:/var/empty:/usr/bin/false
+_atsserver:*:97:97::0:0:ATS Server:/var/empty:/usr/bin/false
+_unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false

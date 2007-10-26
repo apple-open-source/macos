@@ -39,7 +39,6 @@
 #    OTHER_RPCFLAGS, LOCAL_RPCFLAGS:  additional flags passed to rpcgen
 #    OTHER_YFLAGS, LOCAL_YFLAGS:  additional flags passed to yacc
 #    OTHER_LFLAGS, LOCAL_LFLAGS:  additional flags passed to lex
-OTHER_LDFLAGS += -seg1addr 0xf9300000
 
 # These variables provide hooks enabling you to add behavior at almost every 
 # stage of the make:

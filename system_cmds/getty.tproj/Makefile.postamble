@@ -71,7 +71,7 @@
 # the top-level:
 #OPTIMIZATION_CFLAG = -O
 #DEBUG_SYMBOLS_CFLAG = -g
-#WARNING_CFLAGS = -Wall
+WARNING_CFLAGS = -Wall -Werror
 #DEBUG_BUILD_CFLAGS = -DDEBUG
 #PROFILE_BUILD_CFLAGS = -pg -DPROFILE
 
@@ -108,9 +108,18 @@
 # owned by the top-level Makefile API and no context has been set up for where 
 # derived files should go.
 
+LAUNCHD_PLIST_DIR = $(DSTROOT)/System/Library/LaunchDaemons
+LAUNCHD_PLIST = com.apple.getty.plist
+
+Embedded = $(shell tconf --test TARGET_OS_EMBEDDED)
+
 after_install:
 	mkdir -p $(DSTROOT)/usr/share/man/man5
 	install -c -m 444 gettytab.5 $(DSTROOT)/usr/share/man/man5
 	install -c -m 444 ttys.5 $(DSTROOT)/usr/share/man/man5
 	mkdir -p $(DSTROOT)/usr/share/man/man8
 	install -c -m 444 getty.8 $(DSTROOT)/usr/share/man/man8
+ifeq "$(Embedded)" "YES"
+	install -d $(LAUNCHD_PLIST_DIR)
+	install -c -m 644 $(LAUNCHD_PLIST) $(LAUNCHD_PLIST_DIR)/$(LAUNCHD_PLIST)
+endif

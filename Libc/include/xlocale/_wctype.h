@@ -24,6 +24,53 @@
 #ifndef _XLOCALE__WCTYPE_H_
 #define _XLOCALE__WCTYPE_H_
 
+#if !defined(_DONT_USE_CTYPE_INLINE_) && \
+    (defined(_USE_CTYPE_INLINE_) || defined(__GNUC__) || defined(__cplusplus))
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswblank_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_B, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswhexnumber_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_X, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswideogram_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_I, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswnumber_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_D, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswphonogram_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_Q, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswrune_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, 0xFFFFFFF0L, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswspecial_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_T, _l));
+}
+
+#else /* not using inlines */
+
 __BEGIN_DECLS
 int	iswblank_l(wint_t, locale_t);
 wint_t	iswhexnumber_l(wint_t, locale_t);
@@ -32,19 +79,15 @@ wint_t	iswnumber_l(wint_t, locale_t);
 wint_t	iswphonogram_l(wint_t, locale_t);
 wint_t	iswrune_l(wint_t, locale_t);
 wint_t	iswspecial_l(wint_t, locale_t);
+__END_DECLS
+
+#endif /* using inlines */
+
+__BEGIN_DECLS
 wint_t	nextwctype_l(wint_t, wctype_t, locale_t);
 wint_t	towctrans_l(wint_t, wctrans_t, locale_t);
 wctrans_t
 	wctrans_l(const char *, locale_t);
 __END_DECLS
 
-#define	iswblank_l(wc, l)	__istype_l((wc), _CTYPE_B, (l))
-#define	iswhexnumber_l(wc, l)	__istype_l((wc), _CTYPE_X, (l))
-#define	iswideogram_l(wc, l)	__istype_l((wc), _CTYPE_I, (l))
-#define	iswnumber_l(wc, l)	__istype_l((wc), _CTYPE_D, (l))
-#define	iswphonogram_l(wc, l)	__istype_l((wc), _CTYPE_Q, (l))
-#define	iswrune_l(wc, l)	__istype_l((wc), 0xFFFFFF00L, (l))
-#define	iswspecial_l(wc, l)	__istype_l((wc), _CTYPE_T, (l))
-
 #endif /* _XLOCALE__WCTYPE_H_ */
-

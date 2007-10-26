@@ -1,8 +1,35 @@
-/*	$NetBSD: lexi.c,v 1.7 1998/08/25 20:59:38 ross Exp $	*/
+/*	$NetBSD: lexi.c,v 1.12 2003/08/07 11:14:09 agc Exp $	*/
 
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
+/*
  * Copyright (c) 1976 Board of Trustees of the University of Illinois.
  * Copyright (c) 1985 Sun Microsystems, Inc.
  * All rights reserved.
@@ -41,7 +68,7 @@
 #if 0
 static char sccsid[] = "@(#)lexi.c	8.1 (Berkeley) 6/6/93";
 #else
-__RCSID("$NetBSD: lexi.c,v 1.7 1998/08/25 20:59:38 ross Exp $");
+__RCSID("$NetBSD: lexi.c,v 1.12 2003/08/07 11:14:09 agc Exp $");
 #endif
 #endif				/* not lint */
 
@@ -125,7 +152,7 @@ char    chartype[128] =
 
 
 int
-lexi()
+lexi(void)
 {
 	int     unary_delim;	/* this is set to 1 if the current token
 				 * 
@@ -150,7 +177,7 @@ lexi()
 
 	/* Scan an alphanumeric token */
 	if (chartype[(int) *buf_ptr] == alphanum ||
-	    (buf_ptr[0] == '.' && isdigit(buf_ptr[1]))) {
+	    (buf_ptr[0] == '.' && isdigit((unsigned char)buf_ptr[1]))) {
 		/*
 		 * we have a character or number
 		 */
@@ -159,13 +186,14 @@ lexi()
 				 * reserved words */
 		struct templ *p;
 
-		if (isdigit(*buf_ptr) || (buf_ptr[0] == '.' && isdigit(buf_ptr[1]))) {
-			int     seendot = 0, seenexp = 0;
+		if (isdigit((unsigned char)*buf_ptr) ||
+		    (buf_ptr[0] == '.' && isdigit((unsigned char)buf_ptr[1]))) {
+			int     seendot = 0, seenexp = 0, seensfx = 0;
 			if (*buf_ptr == '0' &&
 			    (buf_ptr[1] == 'x' || buf_ptr[1] == 'X')) {
 				*e_token++ = *buf_ptr++;
 				*e_token++ = *buf_ptr++;
-				while (isxdigit(*buf_ptr)) {
+				while (isxdigit((unsigned char)*buf_ptr)) {
 					CHECK_SIZE_TOKEN;
 					*e_token++ = *buf_ptr++;
 				}
@@ -179,7 +207,7 @@ lexi()
 					}
 					CHECK_SIZE_TOKEN;
 					*e_token++ = *buf_ptr++;
-					if (!isdigit(*buf_ptr)
+					if (!isdigit((unsigned char)*buf_ptr)
 					&& *buf_ptr != '.') {
 						if ((*buf_ptr != 'E'
 						&& *buf_ptr != 'e') || seenexp)
@@ -195,8 +223,33 @@ lexi()
 					}
 				}
 			}
-			if (*buf_ptr == 'L' || *buf_ptr == 'l')
+			if (*buf_ptr == 'F' || *buf_ptr == 'f') {
+				/* float constant */
 				*e_token++ = *buf_ptr++;
+			} else {
+				/* integer constant */
+				while (1) {
+					if (!(seensfx & 1) &&
+					    (*buf_ptr == 'U' ||
+					     *buf_ptr == 'u')) {
+						CHECK_SIZE_TOKEN;
+						*e_token++ = *buf_ptr++;
+						seensfx |= 1;
+						continue;
+					}
+					if (!(seensfx & 2) &&
+					    (*buf_ptr == 'L' ||
+					     *buf_ptr == 'l')) {
+						CHECK_SIZE_TOKEN;
+						if (buf_ptr[1] == buf_ptr[0])
+							*e_token++ = *buf_ptr++;
+						*e_token++ = *buf_ptr++;
+						seensfx |= 2;
+						continue;
+					}
+					break;
+				}
+			}
 		} else
 			while (chartype[(int) *buf_ptr] == alphanum) {	/* copy it over */
 				CHECK_SIZE_TOKEN;
@@ -297,7 +350,8 @@ lexi()
 		 * token is in fact a declaration keyword -- one that has been
 		 * typedefd
 		 */
-		if (((*buf_ptr == '*' && buf_ptr[1] != '=') || isalpha(*buf_ptr) || *buf_ptr == '_')
+		if (((*buf_ptr == '*' && buf_ptr[1] != '=') ||
+		    isalpha((unsigned char)*buf_ptr) || *buf_ptr == '_')
 		    && !ps.p_l_follow
 		    && !ps.block_init
 		    && (ps.last_token == rparen || ps.last_token == semicolon ||
@@ -559,9 +613,7 @@ stop_lit:
  * Add the given keyword to the keyword table, using val as the keyword type
  */
 void
-addkey(key, val)
-	char   *key;
-	int     val;
+addkey(char *key, int val)
 {
 	struct templ *p = specials;
 	while (p->rwd)

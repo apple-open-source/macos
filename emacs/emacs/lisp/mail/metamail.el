@@ -1,9 +1,9 @@
 ;;; metamail.el --- Metamail interface for GNU Emacs
 
-;; Copyright (C) 1993, 1996  Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1996, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Masanobu UMEDA <umerin@mse.kyutech.ac.jp>
-;; Version: $Id: metamail.el,v 1.1.1.4 2001/10/31 17:57:14 jevans Exp $
 ;; Keywords: mail, news, mime, multimedia
 
 ;; This file is part of GNU Emacs.
@@ -20,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -35,6 +35,9 @@
 ;; gnus-mime.el by Spike <Spike@world.std.com>.
 
 ;;; Code:
+
+(defvar rmail-current-message)
+(defvar rmail-message-vector)
 
 (defgroup metamail nil
   "Metamail interface for Emacs."
@@ -111,9 +114,9 @@ Its header part is not interpreted at all."
       ;; Find Content-Type and Content-Transfer-Encoding from the header.
       (save-restriction
 	(narrow-to-region (point-min) end)
-	(setq contype 
+	(setq contype
 	      (or (mail-fetch-field "Content-Type") "text/plain"))
-	(setq encoding 
+	(setq encoding
 	      (or (mail-fetch-field "Content-Transfer-Encoding") "7bit")))
       ;; Interpret the body part only.
       (let ((metamail-switches		;Process body part only.
@@ -153,7 +156,7 @@ redisplayed as output is inserted."
 	(buffer-read-only nil)
 	(metafile (make-temp-file "metamail"))
 	(option-environment
-	 (list (format "EMACS_VIEW_MODE=%d" 
+	 (list (format "EMACS_VIEW_MODE=%d"
 		       (if (numberp viewmode) viewmode 1)))))
     (save-excursion
       ;; Gee!  Metamail does not ouput to stdout if input comes from
@@ -190,4 +193,5 @@ redisplayed as output is inserted."
 
 (provide 'metamail)
 
+;;; arch-tag: 52c0cb6f-d800-4776-9789-f0275cb5490e
 ;;; metamail.el ends here

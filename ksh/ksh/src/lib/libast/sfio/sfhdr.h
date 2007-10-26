@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #ifndef _SFHDR_H
 #define _SFHDR_H	1
 #if !defined(_BLD_sfio) && !defined(_BLD_stdio)
@@ -803,7 +799,7 @@ typedef struct _sfextern_s
 			 ((n) >= SF_GRAIN && (ssize_t)(n) >= (f)->size/16 ) )
 
 /* number of pages to memory map at a time */
-#define SF_NMAP		8
+#define SF_NMAP		4
 
 #ifndef MAP_VARIABLE
 #define MAP_VARIABLE	0
@@ -877,7 +873,7 @@ typedef struct _sfextern_s
 #define _SFOPENWR(f)	((f)->endw = ((f)->flags&(SF_MTSAFE|SF_LINE)) ? (f)->data : (f)->endb)
 #define _SFOPEN(f)	((f)->mode == SF_READ  ? _SFOPENRD(f) : \
 			 (f)->mode == SF_WRITE ? _SFOPENWR(f) : \
-			 ((f)->endr = (f)->endr = (f)->data) )
+			 ((f)->endw = (f)->endr = (f)->data) )
 #define SFOPEN(f,l)	(void)((l) ? 0 : \
 				((f)->mode &= ~(SF_LOCK|SF_RC|SF_RV), _SFOPEN(f), 0) )
 
@@ -995,12 +991,25 @@ typedef struct _sfextern_s
 #define _Sfcv36		(_Sftable.sf_cv36)
 #define _Sfcv64		(_Sftable.sf_cv64)
 #define _Sftype		(_Sftable.sf_type)
-#define _Sffhuge	(_Sftable.sf_flt_huge)
-#define _Sfdhuge	(_Sftable.sf_dbl_huge)
-#define _Sflhuge	(_Sftable.sf_ldbl_huge)
+#define _Sfieee		(&_Sftable.sf_ieee)
+#define _Sffinf		(_Sftable.sf_ieee.fltinf)
+#define _Sfdinf		(_Sftable.sf_ieee.dblinf)
+#define _Sflinf		(_Sftable.sf_ieee.ldblinf)
+#define _Sffnan		(_Sftable.sf_ieee.fltnan)
+#define _Sfdnan		(_Sftable.sf_ieee.dblnan)
+#define _Sflnan		(_Sftable.sf_ieee.ldblnan)
 #define _Sffpow10	(_Sftable.sf_flt_pow10)
 #define _Sfdpow10	(_Sftable.sf_dbl_pow10)
 #define _Sflpow10	(_Sftable.sf_ldbl_pow10)
+typedef struct _sfieee_s	Sfieee_t;
+struct _sfieee_s
+{	float		fltnan;		/* float NAN			*/
+	float		fltinf;		/* float INF			*/
+	double		dblnan;		/* double NAN			*/
+	double		dblinf;		/* double INF			*/
+	Sfdouble_t	ldblnan;	/* Sfdouble_t NAN		*/
+	Sfdouble_t	ldblinf;	/* Sfdouble_t INF		*/
+};
 typedef struct _sftab_
 {	Sfdouble_t	sf_pos10[SF_MAXEXP10];	/* positive powers of 10	*/
 	Sfdouble_t	sf_neg10[SF_MAXEXP10];	/* negative powers of 10	*/
@@ -1013,12 +1022,10 @@ typedef struct _sftab_
 	float*		sf_flt_pow10;		/* float powers of 10		*/
 	double*		sf_dbl_pow10;		/* double powers of 10		*/
 	Sfdouble_t*	sf_ldbl_pow10;		/* Sfdouble_t powers of 10	*/
-	float		sf_flt_huge;		/* float HUGE_VALUE		*/
-	double		sf_dbl_huge;		/* double HUGE_VALUE		*/
-	Sfdouble_t	sf_ldbl_huge;		/* Sfdouble_t HUGE_VALUE	*/
 	uchar		sf_cv36[SF_MAXCHAR+1];	/* conversion for base [2-36]	*/
 	uchar		sf_cv64[SF_MAXCHAR+1];	/* conversion for base [37-64]	*/
 	uchar		sf_type[SF_MAXCHAR+1];	/* conversion formats&types	*/
+	Sfieee_t	sf_ieee;		/* IEEE floating point constants*/
 } Sftab_t;
 
 /* thread-safe macro/function to initialize _Sfcv* conversion tables */
@@ -1125,7 +1132,6 @@ extern Sfrsrv_t*	_sfrsrv _ARG_((Sfio_t*, ssize_t));
 extern int		_sfsetpool _ARG_((Sfio_t*));
 extern char*		_sfcvt _ARG_((Sfdouble_t,char*,size_t,int,int*,int*,int*,int));
 extern char**		_sfgetpath _ARG_((char*));
-extern Sfdouble_t	_sfdscan _ARG_((Void_t*, int(*)(Void_t*,int)));
 
 #if _BLD_sfio && defined(__EXPORT__)
 #define extern		__EXPORT__
@@ -1146,13 +1152,21 @@ extern int		errno;
 #endif
 
 /* for portable encoding of double values */
+#ifndef frexpl
 #if _ast_fltmax_double
 #define frexpl		frexp
-#define ldexpl		ldexp
 #endif
 #if !__STDC__
 extern Sfdouble_t	frexpl _ARG_((Sfdouble_t, int*));
+#endif
+#endif
+#ifndef ldexpl
+#if _ast_fltmax_double
+#define ldexpl		ldexp
+#endif
+#if !__STDC__
 extern Sfdouble_t	ldexpl _ARG_((Sfdouble_t, int));
+#endif
 #endif
 
 #if !_PACKAGE_ast

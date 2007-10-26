@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -95,14 +95,64 @@ AppleUSBHSHubUserClient::sMethods[kNumUSBHSHubMethods] =
         0							// # of params out
     },
     {	// kAppleUSBHSHubUserClientGetLocationID
-        (IOService*)kMethodObjectThis,				// object
+        (IOService*)kMethodObjectThis,							// object
         ( IOMethod )&AppleUSBHSHubUserClient::GetLocationID,	// func
-        kIOUCScalarIScalarO,					// flags
-        0,							// # of params in
-        1							// # of params out
+        kIOUCScalarIScalarO,									// flags
+        0,														// # of params in
+        1														// # of params out
+    },
+    {	// kAppleUSBHSHubUserClientSupportsIndicators
+        (IOService*)kMethodObjectThis,								// object
+        ( IOMethod )&AppleUSBHSHubUserClient::SupportsIndicators,	// func
+        kIOUCScalarIScalarO,										// flags
+        0,															// # of params in
+        1															// # of params out
+    },
+    {	// kAppleUSBHSHubUserClientSetIndicatorForPort
+        (IOService*)kMethodObjectThis,								// object
+        ( IOMethod )&AppleUSBHSHubUserClient::SetIndicatorForPort,	// func
+        kIOUCScalarIScalarO,										// flags
+        2,															// # of params in
+        0															// # of params out
+    },
+    {	// kAppleUSBHSHubUserClientGetPortIndicatorControl
+        (IOService*)kMethodObjectThis,								// object
+        ( IOMethod )&AppleUSBHSHubUserClient::GetPortIndicatorControl,	// func
+        kIOUCScalarIScalarO,										// flags
+        1,															// # of params in
+        1															// # of params out
+    },
+    {	// kAppleUSBHSHubUserClientSetIndicatorsToAutomatic
+        (IOService*)kMethodObjectThis,									// object
+        ( IOMethod )&AppleUSBHSHubUserClient::SetIndicatorsToAutomatic,	// func
+        kIOUCScalarIScalarO,											// flags
+        0,																// # of params in
+        0																// # of params out
+    },
+    {	// kAppleUSBHSHubUserClientGetPowerSwitchingMode
+        (IOService*)kMethodObjectThis,								// object
+        ( IOMethod )&AppleUSBHSHubUserClient::GetPowerSwitchingMode,// func
+        kIOUCScalarIScalarO,										// flags
+        0,															// # of params in
+        1															// # of params out
+    },
+    {	// kAppleUSBHSHubUserClientSetPortPower
+        (IOService*)kMethodObjectThis,								// object
+        ( IOMethod )&AppleUSBHSHubUserClient::SetPortPower,			// func
+        kIOUCScalarIScalarO,										// flags
+        2,															// # of params in
+        0															// # of params out
+    },
+    {	// kAppleUSBHSHubUserClientGetPortPower
+        (IOService*)kMethodObjectThis,								// object
+        ( IOMethod )&AppleUSBHSHubUserClient::GetPortPower,			// func
+        kIOUCScalarIScalarO,										// flags
+        1,															// # of params in
+        1															// # of params out
     }
 };
 
+#pragma mark IOKit
 const IOItemCount
 AppleUSBHSHubUserClient::sMethodCount = sizeof( AppleUSBHSHubUserClient::sMethods ) / sizeof( AppleUSBHSHubUserClient::sMethods[ 0 ] );
 
@@ -110,7 +160,7 @@ void
 AppleUSBHSHubUserClient::SetExternalMethodVectors()
 {
     fMethods = sMethods;
-    fNumMethods = kNumUSBControllerMethods;
+    fNumMethods = kNumUSBHSHubMethods;
 }
 
 
@@ -204,6 +254,7 @@ AppleUSBHSHubUserClient::close()
 }
 
 
+#pragma mark Utilities
 
 IOReturn
 AppleUSBHSHubUserClient::IsEHCIRootHub(UInt32 *ret)
@@ -215,7 +266,31 @@ AppleUSBHSHubUserClient::IsEHCIRootHub(UInt32 *ret)
     return kIOReturnSuccess;
 }
 
+IOReturn
+AppleUSBHSHubUserClient::GetNumberOfPorts(UInt32 *numPorts)
+{
+    
+    if (!fOwner)
+        return kIOReturnNotAttached;
+	
+    *numPorts = fOwner->_hubDescriptor.numPorts;
+    USBLog(1, "%s[%p]::GetNumberOfPorts - returning %ld", getName(), this, *numPorts);
+    return kIOReturnSuccess;
+}
 
+
+IOReturn
+AppleUSBHSHubUserClient::GetLocationID(UInt32 *locID)
+{
+    USBLog(1, "+AppleUSBHSHubUserClient::GetLocationID");
+    if (!fOwner)
+        return kIOReturnNotAttached;
+	
+    *locID = fOwner->_locationID;
+    return kIOReturnSuccess;
+}
+
+#pragma mark Test Mode Support
 IOReturn
 AppleUSBHSHubUserClient::EnterTestMode(void)
 {
@@ -227,7 +302,6 @@ AppleUSBHSHubUserClient::EnterTestMode(void)
 	
     return fOwner->EnterTestMode();
 }
-
 
 
 IOReturn
@@ -242,19 +316,6 @@ AppleUSBHSHubUserClient::LeaveTestMode(void)
 
 
 IOReturn
-AppleUSBHSHubUserClient::GetNumberOfPorts(UInt32 *numPorts)
-{
-    
-    if (!fOwner)
-        return kIOReturnNotAttached;
-
-    *numPorts = fOwner->_hubDescriptor.numPorts;
-    USBLog(1, "%s[%p]::GetNumberOfPorts - returning %ld", getName(), this, *numPorts);
-    return kIOReturnSuccess;
-}
-
-
-IOReturn
 AppleUSBHSHubUserClient::PutPortIntoTestMode(UInt32 port, UInt32 mode)
 {
     USBLog(1, "+AppleUSBHSHubUserClient::PutPortIntoTestMode");
@@ -263,22 +324,165 @@ AppleUSBHSHubUserClient::PutPortIntoTestMode(UInt32 port, UInt32 mode)
 	
     if (!fOwner->isOpen(this))
     {
-	USBLog(1, "AppleUSBHSHubUserClient::PutPortIntoTestMode - fOwner (%p) is not open", fOwner);
-	return kIOReturnBadArgument;
+		USBLog(1, "AppleUSBHSHubUserClient::PutPortIntoTestMode - fOwner (%p) is not open", fOwner);
+		return kIOReturnBadArgument;
     }
 	
     return fOwner->PutPortIntoTestMode(port, mode);
 }
 
 
+
+#pragma mark Hub Indicator Support
+//================================================================================================
+//   SupportsIndicators
+//================================================================================================
 IOReturn
-AppleUSBHSHubUserClient::GetLocationID(UInt32 *locID)
+AppleUSBHSHubUserClient::SupportsIndicators(UInt32 *indicatorSupport)
 {
-    USBLog(1, "+AppleUSBHSHubUserClient::GetLocationID");
     if (!fOwner)
         return kIOReturnNotAttached;
+	
+	if ( (USBToHostWord(fOwner->_hubDescriptor.characteristics) & kHubPortIndicatorMask) == 0)
+	{
+		*indicatorSupport = 0;
+	}
+	else
+	{
+		*indicatorSupport = 1;
+	}
+	
+    USBLog(1, "+AppleUSBHSHubUserClient::AppleUSB returning %ld", *indicatorSupport);
+	
+	return kIOReturnSuccess;
+}
 
-    *locID = fOwner->_locationID;
-    return kIOReturnSuccess;
+//================================================================================================
+//   SetIndicatorForPort
+//================================================================================================
+IOReturn
+AppleUSBHSHubUserClient::SetIndicatorForPort(UInt32 portNumber, UInt32 selector)
+{
+    USBLog(1, "+AppleUSBHSHubUserClient::SetIndicatorForPort (port %ld, %ld)", portNumber, selector);
+    if (!fOwner)
+        return kIOReturnNotAttached;
+	
+    if (!fOwner->isOpen(this))
+    {
+		USBLog(1, "AppleUSBHSHubUserClient::SetIndicatorForPort - fOwner (%p) is not open", fOwner);
+		return kIOReturnBadArgument;
+    }
+	
+    return fOwner->SetIndicatorForPort(portNumber, selector);
+}
+
+//================================================================================================
+//   GetIndicatorForPort
+//================================================================================================
+IOReturn
+AppleUSBHSHubUserClient::GetPortIndicatorControl(UInt32 portNumber, UInt32 *defaultColors)
+{
+	IOReturn	kr;
+	
+    if (!fOwner)
+        return kIOReturnNotAttached;
+	
+    if (!fOwner->isOpen(this))
+    {
+		USBLog(1, "AppleUSBHSHubUserClient::GetIndicatorForPort - fOwner (%p) is not open", fOwner);
+		return kIOReturnBadArgument;
+    }
+    
+	kr = fOwner->GetPortIndicatorControl(portNumber, defaultColors);
+	
+    USBLog(1, "+AppleUSBHSHubUserClient::GetIndicatorForPort (port %ld, %ld), 0x%x", portNumber, *defaultColors, kr);
+    return kr;
+}
+
+//================================================================================================
+//   SetIndicatorsToAutomatic
+//================================================================================================
+IOReturn
+AppleUSBHSHubUserClient::SetIndicatorsToAutomatic()
+{
+    USBLog(1, "+AppleUSBHSHubUserClient::SetIndicatorsToAutomatic ");
+    if (!fOwner)
+        return kIOReturnNotAttached;
+	
+    if (!fOwner->isOpen(this))
+    {
+		USBLog(1, "AppleUSBHSHubUserClient::SetIndicatorsToAutomatic - fOwner (%p) is not open", fOwner);
+		return kIOReturnBadArgument;
+    }
+    
+	return fOwner->SetIndicatorsToAutomatic();
+}
+
+#pragma mark Port Power Support
+
+//================================================================================================
+//   GetPowerSwitchingMode
+//================================================================================================
+IOReturn
+AppleUSBHSHubUserClient::GetPowerSwitchingMode(UInt32 *mode)
+{
+    if (!fOwner)
+        return kIOReturnNotAttached;
+	
+	if ( !USBToHostWord(fOwner->_hubDescriptor.characteristics) & kPerPortSwitchingBit )
+	{
+		*mode = kHubSupportsGangPower;
+	}
+	else
+	{
+		*mode = kHubSupportsIndividualPortPower;
+	}
+	
+    USBLog(1, "+AppleUSBHSHubUserClient::GetPowerSwitchingMode returning %ld", *mode);
+	
+	return kIOReturnSuccess;
+}
+
+//================================================================================================
+//   GetPortPower
+//================================================================================================
+IOReturn
+AppleUSBHSHubUserClient::GetPortPower(UInt32 portNumber, UInt32 *on)
+{
+	IOReturn	kr;
+	
+    if (!fOwner)
+        return kIOReturnNotAttached;
+	
+    if (!fOwner->isOpen(this))
+    {
+		USBLog(1, "AppleUSBHSHubUserClient::GetPortPower - fOwner (%p) is not open", fOwner);
+		return kIOReturnBadArgument;
+    }
+    
+	kr = fOwner->GetPortPower(portNumber, on);
+	
+    USBLog(1, "+AppleUSBHSHubUserClient::GetPortPower (port %ld, to %s), 0x%x", portNumber, *on ? "ON" : "OFF", kr);
+    return kr;
+}
+
+//================================================================================================
+//   SetPortPower
+//================================================================================================
+IOReturn
+AppleUSBHSHubUserClient::SetPortPower(UInt32 portNumber, UInt32 on)
+{
+    USBLog(1, "+AppleUSBHSHubUserClient::SetPortPower (port %ld to %s)", portNumber, on ? "ON" : "OFF");
+    if (!fOwner)
+        return kIOReturnNotAttached;
+	
+    if (!fOwner->isOpen(this))
+    {
+		USBLog(1, "AppleUSBHSHubUserClient::GetPortPower - fOwner (%p) is not open", fOwner);
+		return kIOReturnBadArgument;
+    }
+    
+	return fOwner->SetPortPower(portNumber, on);
+	
 }
 

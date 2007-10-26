@@ -1,4 +1,4 @@
-#   Copyright 1999 Free Software Foundation, Inc.
+# Copyright 1999, 2001, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,13 +28,17 @@ if [mi_gdb_start] {
     continue
 }
 
-mi_gdb_test "show architecture" \
-	"&\"show architecture\\\\n\"\r\n~\"The target architecture.*\"\r\n\\^done" \
-	"show architecture"
+mi_gdb_test "set print pretty on" \
+	"&\"set print pretty on\\\\n\"\r\n\\^done" \
+	"set print pretty"
 
-mi_gdb_test "47show architecture" \
-	"&\"show architecture\\\\n\"\r\n~\"The target architecture.*\"\r\n47\\^done" \
-	"47show architecture"
+mi_gdb_test "show print pretty" \
+	"&\"show print pretty\\\\n\"\r\n\\^done,value=\"on\"" \
+	"show print pretty"
+
+mi_gdb_test "47show print pretty" \
+	"&\"show print pretty\\\\n\"\r\n47\\^done,value=\"on\"" \
+	"47show print pretty"
 
 mi_gdb_exit
 return 0

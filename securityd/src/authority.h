@@ -28,14 +28,15 @@
 #ifndef _H_AUTHORITY
 #define _H_AUTHORITY
 
-#include <security_cdsa_utilities/AuthorizationData.h>
 #include <security_utilities/osxcode.h>
 #include <security_utilities/ccaudit.h>
 #include "database.h"
+#include "credential.h"
+#include <security_cdsa_utilities/AuthorizationData.h>
 
+using Authorization::AuthItemSet;
 using Authorization::Credential;
 using Authorization::CredentialSet;
-using Authorization::AuthItemSet;
 using Security::CommonCriteria::AuditToken;
 
 class Process;
@@ -43,7 +44,7 @@ class Session;
 
 class AuthorizationToken : public PerSession {
 public:
-	AuthorizationToken(Session &ssn, const CredentialSet &base, const audit_token_t &auditToken);
+	AuthorizationToken(Session &ssn, const CredentialSet &base, const audit_token_t &auditToken, bool operateAsLeastPrivileged = false);
 	~AuthorizationToken();
 
     Session &session() const;
@@ -69,7 +70,7 @@ public:
 
 	uid_t creatorUid() const	{ return mCreatorUid; }
 	gid_t creatorGid() const	{ return mCreatorGid; }
-    OSXCode *creatorCode() const { return mCreatorCode; }
+    SecStaticCodeRef creatorCode() const { return mCreatorCode; }
 	pid_t creatorPid() const	{ return mCreatorPid; }
 	
 	const AuditToken &creatorAuditToken() const { return mCreatorAuditToken; }
@@ -79,6 +80,7 @@ public:
     void setCredentialInfo(const Credential &inCred);
     void clearInfoSet();
 	void scrubInfoSet();
+	bool operatesAsLeastPrivileged() const { return mOperatesAsLeastPrivileged; }
 
 public:
 	static AuthorizationToken &find(const AuthorizationBlob &blob);
@@ -107,20 +109,19 @@ private:
 
 	uid_t mCreatorUid;				// Uid of process that created this authorization
 	gid_t mCreatorGid;				// Gid of process that created this authorization
-    RefPointer<OSXCode> mCreatorCode; // code id of creator
+	CFCopyRef<SecStaticCodeRef> mCreatorCode; // code reference to creator
 	pid_t mCreatorPid;				// Pid of processs that created this authorization
 	
 	AuditToken mCreatorAuditToken;	// Audit token of the process that created this authorization
 
     AuthItemSet mInfoSet;			// Side band info gathered from evaluations in this session
 
+	bool mOperatesAsLeastPrivileged;
+
 private:
 	typedef map<AuthorizationBlob, RefPointer<AuthorizationToken> > AuthMap;
 	static AuthMap &authMap;			// set of extant authorizations
     static Mutex authMapLock;		// lock for mAuthorizations (only)
 };
-
-
-
 
 #endif //_H_AUTHORITY

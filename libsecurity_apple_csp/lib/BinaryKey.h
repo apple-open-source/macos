@@ -27,7 +27,7 @@
 #include <security_cdsa_utilities/cssmkey.h>
 
 // opaque key reference type 
-typedef uint32	KeyRef;
+typedef CSSM_INTPTR	KeyRef;
 
 class AppleCSPSession;
 
@@ -44,7 +44,7 @@ class AppleCSPSession;
 class BinaryKey
 {
 public:
-						BinaryKey() : mKeyRef(0) { }
+						BinaryKey() : mKeyRef(0), mDescData(Allocator::standard()) { }
 	virtual 			~BinaryKey() { mKeyRef = 0; }
 
 	/* 
@@ -82,6 +82,13 @@ public:
 		
 	CssmKey::Header		mKeyHeader;
 	KeyRef				mKeyRef;
+	const CssmData		&descData()		{ return mDescData; }
+	void				descData(const CssmData &inDescData) 
+										{ mDescData.copy(inDescData); }
+	
+private:
+	/* optional DescriptiveData specified by app during WrapKey */
+	CssmAutoData		mDescData;
 };
 
 // Binary key representing a symmetric key.

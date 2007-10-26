@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -19,7 +19,9 @@
 *   12/09/1999  weiv    Added multiple file handling
 */
 
-#ifdef WIN32
+#include "unicode/utypes.h"
+
+#ifdef U_WINDOWS
 #   define VC_EXTRALEAN
 #   define WIN32_LEAN_AND_MEAN
 #   define NOUSER
@@ -45,7 +47,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "unicode/utypes.h"
 #include "unicode/putil.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -58,7 +59,7 @@
 
 static uint32_t column=MAX_COLUMN;
 
-#ifdef WIN32
+#ifdef U_WINDOWS
 #define CAN_GENERATE_OBJECTS
 #endif
 
@@ -148,8 +149,10 @@ static const struct AssemblyType {
 } assemblyHeader[] = {
     {"gcc",
         ".globl %s\n"
+        "\t.section .note.GNU-stack,\"\",@progbits\n"
         "\t.section .rodata\n"
         "\t.align 8\n" /* Either align 8 bytes or 2^8 (256) bytes. 8 bytes is needed. */
+        "\t.type %s,@object\n"
         "%s:\n\n",
 
         ".long "
@@ -485,7 +488,7 @@ writeCCode(const char *filename, const char *destdir) {
 #ifdef CAN_GENERATE_OBJECTS
 static void
 writeObjectCode(const char *filename, const char *destdir) {
-#ifdef WIN32
+#ifdef U_WINDOWS
     char buffer[4096], entry[40];
     struct {
         IMAGE_FILE_HEADER fileHeader;

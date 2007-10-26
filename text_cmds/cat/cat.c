@@ -1,6 +1,4 @@
-/*	$NetBSD: cat.c,v 1.18 1998/07/28 05:31:22 mycroft Exp $	*/
-
-/*
+/*-
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -15,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -36,53 +30,59 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__COPYRIGHT(
+static char const copyright[] =
 "@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
+#endif
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)cat.c	8.2 (Berkeley) 4/27/95";
-#else
-__RCSID("$NetBSD: cat.c,v 1.18 1998/07/28 05:31:22 mycroft Exp $");
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/bin/cat/cat.c,v 1.32 2005/01/10 08:39:20 imp Exp $");
 
 #include <sys/param.h>
 #include <sys/stat.h>
+#ifndef NO_UDOM_SUPPORT
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <errno.h>
+#endif
 
-#include <locale.h>
 #include <ctype.h>
 #include <err.h>
-#include <errno.h>
 #include <fcntl.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stddef.h>
 
 int bflag, eflag, nflag, sflag, tflag, vflag;
 int rval;
-char *filename;
+const char *filename;
 
-int main __P((int, char *[]));
-void cook_args __P((char *argv[]));
-void cook_buf __P((FILE *));
-void raw_args __P((char *argv[]));
-void raw_cat __P((int));
+static void usage(void);
+static void scanfiles(char *argv[], int cooked);
+static void cook_cat(FILE *);
+static void raw_cat(int);
+
+#ifndef NO_UDOM_SUPPORT
+static int udom_open(const char *path, int flags);
+#endif
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	extern int optind;
 	int ch;
 
-	(void)setlocale(LC_ALL, "");
+	setlocale(LC_CTYPE, "");
 
 	while ((ch = getopt(argc, argv, "benstuv")) != -1)
 		switch (ch) {
@@ -102,96 +102,106 @@ main(argc, argv)
 			tflag = vflag = 1;	/* -t implies -v */
 			break;
 		case 'u':
-			setbuf(stdout, (char *)NULL);
+			setbuf(stdout, NULL);
 			break;
 		case 'v':
 			vflag = 1;
 			break;
 		default:
-		case '?':
-			(void)fprintf(stderr,
-			    "usage: cat [-benstuv] [-] [file ...]\n");
-			exit(1);
-			/* NOTREACHED */
+			usage();
 		}
 	argv += optind;
 
 	if (bflag || eflag || nflag || sflag || tflag || vflag)
-		cook_args(argv);
+		scanfiles(argv, 1);
 	else
-		raw_args(argv);
+		scanfiles(argv, 0);
 	if (fclose(stdout))
 		err(1, "stdout");
 	exit(rval);
 	/* NOTREACHED */
 }
 
-void
-cook_args(argv)
-	char **argv;
+static void
+usage(void)
 {
-	FILE *fp;
-
-	fp = stdin;
-	filename = "stdin";
-	do {
-		if (*argv) {
-			if (!strcmp(*argv, "-"))
-				fp = stdin;
-			else if ((fp = fopen(*argv, "r")) == NULL) {
-				warn("%s", *argv);
-				rval = 1;
-				++argv;
-				continue;
-			}
-			filename = *argv++;
-		}
-		cook_buf(fp);
-		if (fp != stdin)
-			(void)fclose(fp);
-	} while (*argv);
+	fprintf(stderr, "usage: cat [-benstuv] [file ...]\n");
+	exit(1);
+	/* NOTREACHED */
 }
 
-void
-cook_buf(fp)
+static void
+scanfiles(char *argv[], int cooked)
+{
+	int i = 0;
+	char *path;
 	FILE *fp;
+
+	while ((path = argv[i]) != NULL || i == 0) {
+		int fd;
+
+		if (path == NULL || strcmp(path, "-") == 0) {
+			filename = "stdin";
+			fd = STDIN_FILENO;
+		} else {
+			filename = path;
+			fd = open(path, O_RDONLY);
+#ifndef NO_UDOM_SUPPORT
+			if (fd < 0 && errno == EOPNOTSUPP)
+				fd = udom_open(path, O_RDONLY);
+#endif
+		}
+		if (fd < 0) {
+			warn("%s", path);
+			rval = 1;
+		} else if (cooked) {
+			if (fd == STDIN_FILENO)
+				cook_cat(stdin);
+			else {
+				fp = fdopen(fd, "r");
+				cook_cat(fp);
+				fclose(fp);
+			}
+		} else {
+			raw_cat(fd);
+			if (fd != STDIN_FILENO)
+				close(fd);
+		}
+		if (path == NULL)
+			break;
+		++i;
+	}
+}
+
+static void
+cook_cat(FILE *fp)
 {
 	int ch, gobble, line, prev;
+
+	/* Reset EOF condition on stdin. */
+	if (fp == stdin && feof(stdin))
+		clearerr(stdin);
 
 	line = gobble = 0;
 	for (prev = '\n'; (ch = getc(fp)) != EOF; prev = ch) {
 		if (prev == '\n') {
-			if (ch == '\n') {
-				if (sflag) {
-					if (!gobble && putchar(ch) == EOF)
-						break;
+			if (sflag) {
+				if (ch == '\n') {
+					if (gobble)
+						continue;
 					gobble = 1;
-					continue;
-				}
-				if (nflag) {
-					if (!bflag) {
-						(void)fprintf(stdout,
-						    "%6d\t", ++line);
-						if (ferror(stdout))
-							break;
-					} else if (eflag) {
-						(void)fprintf(stdout,
-						    "%6s\t", "");
-						if (ferror(stdout))
-							break;
-					}
-				}
-			} else if (nflag) {
+				} else
+					gobble = 0;
+			}
+			if (nflag && (!bflag || ch != '\n')) {
 				(void)fprintf(stdout, "%6d\t", ++line);
 				if (ferror(stdout))
 					break;
 			}
 		}
-		gobble = 0;
 		if (ch == '\n') {
-			if (eflag)
-				if (putchar('$') == EOF)
-					break;
+			if (eflag && putchar('$') == EOF)
+				break;
 		} else if (ch == '\t') {
 			if (tflag) {
 				if (putchar('^') == EOF || putchar('I') == EOF)
@@ -199,7 +209,7 @@ cook_buf(fp)
 				continue;
 			}
 		} else if (vflag) {
-			if (!isascii(ch)) {
+			if (!isascii(ch) && !isprint(ch)) {
 				if (putchar('M') == EOF || putchar('-') == EOF)
 					break;
 				ch = toascii(ch);
@@ -224,39 +234,13 @@ cook_buf(fp)
 		err(1, "stdout");
 }
 
-void
-raw_args(argv)
-	char **argv;
+static void
+raw_cat(int rfd)
 {
-	int fd;
-
-	fd = fileno(stdin);
-	filename = "stdin";
-	do {
-		if (*argv) {
-			if (!strcmp(*argv, "-"))
-				fd = fileno(stdin);
-			else if ((fd = open(*argv, O_RDONLY, 0)) < 0) {
-				warn("%s", *argv);
-				rval = 1;
-				++argv;
-				continue;
-			}
-			filename = *argv++;
-		}
-		raw_cat(fd);
-		if (fd != fileno(stdin))
-			(void)close(fd);
-	} while (*argv);
-}
-
-void
-raw_cat(rfd)
-	int rfd;
-{
-	int nr, nw, off, wfd;
-	static int bsize;
-	static char *buf;
+	int off, wfd;
+	ssize_t nr, nw;
+	static size_t bsize;
+	static char *buf = NULL;
 	struct stat sbuf;
 
 	wfd = fileno(stdout);
@@ -264,15 +248,67 @@ raw_cat(rfd)
 		if (fstat(wfd, &sbuf))
 			err(1, "%s", filename);
 		bsize = MAX(sbuf.st_blksize, 1024);
-		if ((buf = malloc((u_int)bsize)) == NULL)
-			err(1, "cannot allocate buffer");
+		if ((buf = malloc(bsize)) == NULL)
+			err(1, "buffer");
 	}
-	while ((nr = read(rfd, buf, (u_int)bsize)) > 0)
+	while ((nr = read(rfd, buf, bsize)) > 0)
 		for (off = 0; nr; nr -= nw, off += nw)
-			if ((nw = write(wfd, buf + off, (u_int)nr)) < 0)
+			if ((nw = write(wfd, buf + off, (size_t)nr)) < 0)
 				err(1, "stdout");
 	if (nr < 0) {
 		warn("%s", filename);
 		rval = 1;
 	}
 }
+
+#ifndef NO_UDOM_SUPPORT
+
+static int
+udom_open(const char *path, int flags)
+{
+	struct sockaddr_un sou;
+	int fd;
+	unsigned int len;
+
+	bzero(&sou, sizeof(sou));
+
+	/*
+	 * Construct the unix domain socket address and attempt to connect
+	 */
+	fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (fd >= 0) {
+		sou.sun_family = AF_UNIX;
+		if ((len = strlcpy(sou.sun_path, path,
+		    sizeof(sou.sun_path))) >= sizeof(sou.sun_path)) {
+			errno = ENAMETOOLONG;
+			return (-1);
+		}
+		len = offsetof(struct sockaddr_un, sun_path[len+1]);
+
+		if (connect(fd, (void *)&sou, len) < 0) {
+			close(fd);
+			fd = -1;
+		}
+	}
+
+	/*
+	 * handle the open flags by shutting down appropriate directions
+	 */
+	if (fd >= 0) {
+		switch(flags & O_ACCMODE) {
+		case O_RDONLY:
+			if (shutdown(fd, SHUT_WR) == -1)
+				warn(NULL);
+			break;
+		case O_WRONLY:
+			if (shutdown(fd, SHUT_RD) == -1)
+				warn(NULL);
+			break;
+		default:
+			break;
+		}
+	}
+	return(fd);
+}
+
+#endif

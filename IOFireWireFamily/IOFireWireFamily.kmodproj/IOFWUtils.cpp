@@ -45,11 +45,12 @@
 
 UInt16 FWUpdateCRC16(UInt16 crc16, UInt32 quad)
 {
+	UInt32 host_quad = OSSwapBigToHostInt32( quad );
     SInt32 shift;
     UInt32 sum;
     UInt32 crc = crc16;
     for (shift = 28; shift >= 0; shift -= 4) {
-        sum = ((crc >> 12) ^ (quad >> shift)) & 0x0F;
+        sum = ((crc >> 12) ^ (host_quad >> shift)) & 0x0F;
         crc = (crc << 4) ^ (sum << 12) ^ (sum << 5) ^ (sum);
     }
     return (crc & 0xFFFF);
@@ -72,7 +73,7 @@ UInt16	FWComputeCRC16(const UInt32 *pQuads, UInt32 numQuads)
     // Compute CRC 16 over all quads.
     crc16 = 0;
     for (quadNum = 0; quadNum < numQuads; quadNum++) {
-        quad = *pQuads++;
+        quad = OSSwapBigToHostInt32(*pQuads++);
         for (shift = 28; shift >= 0; shift -= 4) {
             sum = ((crc16 >> 12) ^ (quad >> shift)) & 0x0F;
             crc16 = (crc16 << 4) ^ (sum << 12) ^ (sum << 5) ^ (sum);
@@ -159,7 +160,7 @@ UInt32 SubtractFWCycleTimeFromFWCycleTime( UInt32 cycleTime1, UInt32 cycleTime2)
 // takes a pointer and a list of ranges, and finds the offset of the pointer into 
 // the range array
 bool
-findOffsetInRanges ( IOVirtualAddress address, unsigned rangeCount, IOVirtualRange ranges[], IOByteCount & outOffset )
+findOffsetInRanges ( mach_vm_address_t address, unsigned rangeCount, IOAddressRange ranges[], IOByteCount & outOffset )
 {
 	UInt32			index			= 0 ;
 	IOByteCount		distanceInRange ;

@@ -6,6 +6,7 @@
    Copyright (C) Jeremy Allison  		1999
    Copyright (C) Stefan (metze) Metzmacher 	2002
    Copyright (C) Simo Sorce 			2002
+   Copyright (C) Jim McDonough <jmcd@us.ibm.com> 2005
       
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -28,59 +29,88 @@
  * Some useful sids
  */
 
-DOM_SID global_sid_World_Domain;	    	/* Everyone domain */
-DOM_SID global_sid_World;    				/* Everyone */
-DOM_SID global_sid_Creator_Owner_Domain;    /* Creator Owner domain */
-DOM_SID global_sid_NT_Authority;    		/* NT Authority */
-DOM_SID global_sid_System;    		/* System */
-DOM_SID global_sid_NULL;            		/* NULL sid */
-DOM_SID global_sid_Authenticated_Users;		/* All authenticated rids */
-DOM_SID global_sid_Network;			/* Network rids */
 
-DOM_SID global_sid_Creator_Owner;	/* Creator Owner */
-DOM_SID global_sid_Creator_Group;	/* Creator Group */
-DOM_SID global_sid_Anonymous;		/* Anonymous login */
+const DOM_SID global_sid_World_Domain =               /* Everyone domain */
+{ 1, 0, {0,0,0,0,0,1}, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_World =                      /* Everyone */
+{ 1, 1, {0,0,0,0,0,1}, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Creator_Owner_Domain =       /* Creator Owner domain */
+{ 1, 0, {0,0,0,0,0,3}, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_NT_Authority =    		/* NT Authority */
+{ 1, 0, {0,0,0,0,0,5}, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_System =			/* System */
+{ 1, 1, {0,0,0,0,0,5}, {18,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_NULL =            		/* NULL sid */
+{ 1, 1, {0,0,0,0,0,0}, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Authenticated_Users =	/* All authenticated rids */
+{ 1, 1, {0,0,0,0,0,5}, {11,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Network =			/* Network rids */
+{ 1, 1, {0,0,0,0,0,5}, {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
 
-DOM_SID global_sid_Builtin; 			/* Local well-known domain */
-DOM_SID global_sid_Builtin_Administrators;	/* Builtin administrators */
-DOM_SID global_sid_Builtin_Users;		/* Builtin users */
-DOM_SID global_sid_Builtin_Guests;		/* Builtin guest users */
-DOM_SID global_sid_Builtin_Power_Users;		/* Builtin power users */
-DOM_SID global_sid_Builtin_Account_Operators;	/* Builtin account operators */
-DOM_SID global_sid_Builtin_Server_Operators;	/* Builtin server operators */
-DOM_SID global_sid_Builtin_Print_Operators;	/* Builtin print operators */
-DOM_SID global_sid_Builtin_Backup_Operators;	/* Builtin backup operators */
-DOM_SID global_sid_Builtin_Replicator;		/* Builtin replicator */
+const DOM_SID global_sid_Creator_Owner =		/* Creator Owner */
+{ 1, 1, {0,0,0,0,0,3}, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Creator_Group =		/* Creator Group */
+{ 1, 1, {0,0,0,0,0,3}, {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Anonymous =			/* Anonymous login */
+{ 1, 1, {0,0,0,0,0,5}, {7,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
 
+const DOM_SID global_sid_Builtin = 			/* Local well-known domain */
+{ 1, 1, {0,0,0,0,0,5}, {32,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Builtin_Administrators =	/* Builtin administrators */
+{ 1, 2, {0,0,0,0,0,5}, {32,544,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Builtin_Users =		/* Builtin users */
+{ 1, 2, {0,0,0,0,0,5}, {32,545,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Builtin_Guests =		/* Builtin guest users */
+{ 1, 2, {0,0,0,0,0,5}, {32,546,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Builtin_Power_Users =	/* Builtin power users */
+{ 1, 2, {0,0,0,0,0,5}, {32,547,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Builtin_Account_Operators =	/* Builtin account operators */
+{ 1, 2, {0,0,0,0,0,5}, {32,548,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Builtin_Server_Operators =	/* Builtin server operators */
+{ 1, 2, {0,0,0,0,0,5}, {32,549,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Builtin_Print_Operators =	/* Builtin print operators */
+{ 1, 2, {0,0,0,0,0,5}, {32,550,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Builtin_Backup_Operators =	/* Builtin backup operators */
+{ 1, 2, {0,0,0,0,0,5}, {32,551,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Builtin_Replicator =		/* Builtin replicator */
+{ 1, 2, {0,0,0,0,0,5}, {32,552,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Builtin_PreWin2kAccess =	/* Builtin pre win2k access */
+{ 1, 2, {0,0,0,0,0,5}, {32,554,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+
+const DOM_SID global_sid_Unix_Users =			/* Unmapped Unix users */
+{ 1, 1, {0,0,0,0,0,22}, {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+const DOM_SID global_sid_Unix_Groups =			/* Unmapped Unix groups */
+{ 1, 1, {0,0,0,0,0,22}, {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+
+/* Unused, left here for documentary purposes */
+#if 0
 #define SECURITY_NULL_SID_AUTHORITY    0
 #define SECURITY_WORLD_SID_AUTHORITY   1
 #define SECURITY_LOCAL_SID_AUTHORITY   2
 #define SECURITY_CREATOR_SID_AUTHORITY 3
 #define SECURITY_NT_AUTHORITY          5
+#endif
 
 /*
  * An NT compatible anonymous token.
  */
 
-static DOM_SID anon_sid_array[3];
+static DOM_SID anon_sid_array[3] =
+{ { 1, 1, {0,0,0,0,0,1}, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+  { 1, 1, {0,0,0,0,0,5}, {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0}},
+  { 1, 1, {0,0,0,0,0,5}, {7,0,0,0,0,0,0,0,0,0,0,0,0,0,0}} };
+NT_USER_TOKEN anonymous_token = { 3, anon_sid_array, SE_NONE };
 
-NT_USER_TOKEN anonymous_token = {
-	3,
-	anon_sid_array
-};
-
-static DOM_SID system_sid_array[4];
-NT_USER_TOKEN system_token = {
-	1,
-	system_sid_array
-};
+static DOM_SID system_sid_array[1] =
+{ { 1, 1, {0,0,0,0,0,5}, {18,0,0,0,0,0,0,0,0,0,0,0,0,0,0}} };
+NT_USER_TOKEN system_token = { 1, system_sid_array, SE_ALL_PRIVS };
 
 /****************************************************************************
  Lookup string names for SID types.
 ****************************************************************************/
 
 static const struct {
-	enum SID_NAME_USE sid_type;
+	enum lsa_SidType sid_type;
 	const char *string;
 } sid_name_type[] = {
 	{SID_NAME_USER, "User"},
@@ -93,7 +123,7 @@ static const struct {
 	{SID_NAME_UNKNOWN, "UNKNOWN"},
 	{SID_NAME_COMPUTER, "Computer"},
 
- 	{(enum SID_NAME_USE)0, NULL}
+ 	{(enum lsa_SidType)0, NULL}
 };
 
 const char *sid_type_lookup(uint32 sid_type) 
@@ -111,66 +141,12 @@ const char *sid_type_lookup(uint32 sid_type)
 	return "SID *TYPE* is INVALID";
 }
 
-/****************************************************************************
- Creates some useful well known sids
-****************************************************************************/
-
-void generate_wellknown_sids(void)
-{
-	static BOOL initialised = False;
-
-	if (initialised) 
-		return;
-
-	/* SECURITY_NULL_SID_AUTHORITY */
-	string_to_sid(&global_sid_NULL, "S-1-0-0");
-
-	/* SECURITY_WORLD_SID_AUTHORITY */
-	string_to_sid(&global_sid_World_Domain, "S-1-1");
-	string_to_sid(&global_sid_World, "S-1-1-0");
-
-	/* SECURITY_CREATOR_SID_AUTHORITY */
-	string_to_sid(&global_sid_Creator_Owner_Domain, "S-1-3");
-	string_to_sid(&global_sid_Creator_Owner, "S-1-3-0");
-	string_to_sid(&global_sid_Creator_Group, "S-1-3-1");
-
-	/* SECURITY_NT_AUTHORITY */
-	string_to_sid(&global_sid_NT_Authority, "S-1-5");
-	string_to_sid(&global_sid_Network, "S-1-5-2");
-	string_to_sid(&global_sid_Anonymous, "S-1-5-7");
-	string_to_sid(&global_sid_Authenticated_Users, "S-1-5-11");
-	string_to_sid(&global_sid_System, "S-1-5-18");
-
-	/* SECURITY_BUILTIN_DOMAIN_RID */
-	string_to_sid(&global_sid_Builtin, "S-1-5-32");
-	string_to_sid(&global_sid_Builtin_Administrators, "S-1-5-32-544");
-	string_to_sid(&global_sid_Builtin_Users, "S-1-5-32-545");
-	string_to_sid(&global_sid_Builtin_Guests, "S-1-5-32-546");
-	string_to_sid(&global_sid_Builtin_Power_Users, "S-1-5-32-547");
-	string_to_sid(&global_sid_Builtin_Account_Operators, "S-1-5-32-548");
-	string_to_sid(&global_sid_Builtin_Server_Operators, "S-1-5-32-549");
-	string_to_sid(&global_sid_Builtin_Print_Operators, "S-1-5-32-550");
-	string_to_sid(&global_sid_Builtin_Backup_Operators, "S-1-5-32-551");
-	string_to_sid(&global_sid_Builtin_Replicator, "S-1-5-32-552");
-
-	/* Create the anon token. */
-	sid_copy( &anonymous_token.user_sids[0], &global_sid_World);
-	sid_copy( &anonymous_token.user_sids[1], &global_sid_Network);
-	sid_copy( &anonymous_token.user_sids[2], &global_sid_Anonymous);
-
-	/* Create the system token. */
-	sid_copy( &system_token.user_sids[0], &global_sid_System);
-	
-	initialised = True;
-}
-
 /**************************************************************************
  Create the SYSTEM token.
 ***************************************************************************/
 
 NT_USER_TOKEN *get_system_token(void) 
 {
-	generate_wellknown_sids(); /* The token is initialised here */
 	return &system_token;
 }
 
@@ -185,59 +161,6 @@ const char *get_global_sam_name(void)
 		return lp_workgroup();
 	}
 	return global_myname();
-}
-
-/**************************************************************************
- Splits a name of format \DOMAIN\name or name into its two components.
- Sets the DOMAIN name to global_myname() if it has not been specified.
-***************************************************************************/
-
-void split_domain_name(const char *fullname, char *domain, char *name)
-{
-	pstring full_name;
-	const char *sep;
-	char *p;
-
-	sep = lp_winbind_separator();
-
-	*domain = *name = '\0';
-
-	if (fullname[0] == sep[0] || fullname[0] == '\\')
-		fullname++;
-
-	pstrcpy(full_name, fullname);
-	p = strchr_m(full_name+1, '\\');
-	if (!p) p = strchr_m(full_name+1, sep[0]);
-
-	if (p != NULL) {
-		*p = 0;
-		fstrcpy(domain, full_name);
-		fstrcpy(name, p+1);
-	} else {
-		fstrcpy(domain, get_global_sam_name());
-		fstrcpy(name, full_name);
-	}
-
-	DEBUG(10,("split_domain_name:name '%s' split into domain :'%s' and user :'%s'\n",
-			fullname, domain, name));
-}
-
-/****************************************************************************
- Test if a SID is wellknown and resolvable.
-****************************************************************************/
-
-BOOL resolvable_wellknown_sid(DOM_SID *sid)
-{
-	uint32 ia = (sid->id_auth[5]) +
-			(sid->id_auth[4] << 8 ) +
-			(sid->id_auth[3] << 16) +
-			(sid->id_auth[2] << 24);
-
-	if (sid->sid_rev_num != SEC_DESC_REVISION || sid->num_auths < 1)
-		return False;
-
-	return (ia == SECURITY_WORLD_SID_AUTHORITY ||
-		ia == SECURITY_CREATOR_SID_AUTHORITY);
 }
 
 /*****************************************************************
@@ -291,64 +214,69 @@ const char *sid_string_static(const DOM_SID *sid)
    
 BOOL string_to_sid(DOM_SID *sidout, const char *sidstr)
 {
-	pstring tok;
-	char *q;
 	const char *p;
+	char *q;
 	/* BIG NOTE: this function only does SIDS where the identauth is not >= 2^32 */
-	uint32 ia;
+	uint32 conv;
   
-	if (StrnCaseCmp( sidstr, "S-", 2)) {
-		DEBUG(0,("string_to_sid: Sid %s does not start with 'S-'.\n", sidstr));
+	if ((sidstr[0] != 'S' && sidstr[0] != 's') || sidstr[1] != '-') {
+		DEBUG(3,("string_to_sid: Sid %s does not start with 'S-'.\n", sidstr));
 		return False;
 	}
 
-	memset((char *)sidout, '\0', sizeof(DOM_SID));
-
-	p = q = SMB_STRDUP(sidstr + 2);
-	if (p == NULL) {
-		DEBUG(0, ("string_to_sid: out of memory!\n"));
-		return False;
-	}
-
-	if (!next_token(&p, tok, "-", sizeof(tok))) {
-		DEBUG(0,("string_to_sid: Sid %s is not in a valid format.\n", sidstr));
-		SAFE_FREE(q);
-		return False;
-	}
+	ZERO_STRUCTP(sidout);
 
 	/* Get the revision number. */
-	sidout->sid_rev_num = (uint8)strtoul(tok, NULL, 10);
-
-	if (!next_token(&p, tok, "-", sizeof(tok))) {
-		DEBUG(0,("string_to_sid: Sid %s is not in a valid format.\n", sidstr));
-		SAFE_FREE(q);
+	p = sidstr + 2;
+	conv = (uint32) strtoul(p, &q, 10);
+	if (!q || (*q != '-')) {
+		DEBUG(3,("string_to_sid: Sid %s is not in a valid format.\n", sidstr));
 		return False;
 	}
+	sidout->sid_rev_num = (uint8) conv;
+	q++;
 
+	/* get identauth */
+	conv = (uint32) strtoul(q, &q, 10);
+	if (!q || (*q != '-')) {
+		DEBUG(0,("string_to_sid: Sid %s is not in a valid format.\n", sidstr));
+		return False;
+	}
 	/* identauth in decimal should be <  2^32 */
-	ia = (uint32)strtoul(tok, NULL, 10);
-
-	/* NOTE - the ia value is in big-endian format. */
+	/* NOTE - the conv value is in big-endian format. */
 	sidout->id_auth[0] = 0;
 	sidout->id_auth[1] = 0;
-	sidout->id_auth[2] = (ia & 0xff000000) >> 24;
-	sidout->id_auth[3] = (ia & 0x00ff0000) >> 16;
-	sidout->id_auth[4] = (ia & 0x0000ff00) >> 8;
-	sidout->id_auth[5] = (ia & 0x000000ff);
+	sidout->id_auth[2] = (conv & 0xff000000) >> 24;
+	sidout->id_auth[3] = (conv & 0x00ff0000) >> 16;
+	sidout->id_auth[4] = (conv & 0x0000ff00) >> 8;
+	sidout->id_auth[5] = (conv & 0x000000ff);
 
+	q++;
 	sidout->num_auths = 0;
 
-	while(next_token(&p, tok, "-", sizeof(tok)) && 
-		sidout->num_auths < MAXSUBAUTHS) {
-		/* 
-		 * NOTE - the subauths are in native machine-endian format. They
-		 * are converted to little-endian when linearized onto the wire.
-		 */
-		sid_append_rid(sidout, (uint32)strtoul(tok, NULL, 10));
+	for(conv = (uint32) strtoul(q, &q, 10);
+	    q && (*q =='-' || *q =='\0') && (sidout->num_auths < MAXSUBAUTHS);
+	    conv = (uint32) strtoul(q, &q, 10)) {
+		sid_append_rid(sidout, conv);
+		if (*q == '\0')
+			break;
+		q++;
 	}
-
-	SAFE_FREE(q);
+		
 	return True;
+}
+
+DOM_SID *string_sid_talloc(TALLOC_CTX *mem_ctx, const char *sidstr)
+{
+	DOM_SID *result = TALLOC_P(mem_ctx, DOM_SID);
+
+	if (result == NULL)
+		return NULL;
+
+	if (!string_to_sid(result, sidstr))
+		return NULL;
+
+	return result;
 }
 
 /*****************************************************************
@@ -362,6 +290,12 @@ BOOL sid_append_rid(DOM_SID *sid, uint32 rid)
 		return True;
 	}
 	return False;
+}
+
+BOOL sid_compose(DOM_SID *dst, const DOM_SID *domain_sid, uint32 rid)
+{
+	sid_copy(dst, domain_sid);
+	return sid_append_rid(dst, rid);
 }
 
 /*****************************************************************
@@ -556,30 +490,6 @@ BOOL sid_equal(const DOM_SID *sid1, const DOM_SID *sid2)
 }
 
 /*****************************************************************
- Check if the SID is the builtin SID (S-1-5-32).
-*****************************************************************/  
-
-BOOL sid_check_is_builtin(const DOM_SID *sid)
-{
-	return sid_equal(sid, &global_sid_Builtin);
-}
-
-/*****************************************************************
- Check if the SID is one of the builtin SIDs (S-1-5-32-a).
-*****************************************************************/  
-
-BOOL sid_check_is_in_builtin(const DOM_SID *sid)
-{
-	DOM_SID dom_sid;
-	uint32 rid;
-
-	sid_copy(&dom_sid, sid);
-	sid_split_rid(&dom_sid, &rid);
-	
-	return sid_equal(&dom_sid, &global_sid_Builtin);
-}
-
-/*****************************************************************
  Calculates size of a sid.
 *****************************************************************/  
 
@@ -621,7 +531,25 @@ char *sid_binstring(const DOM_SID *sid)
 {
 	char *buf, *s;
 	int len = sid_size(sid);
-	buf = SMB_MALLOC(len);
+	buf = (char *)SMB_MALLOC(len);
+	if (!buf)
+		return NULL;
+	sid_linearize(buf, len, sid);
+	s = binary_string_rfc2254(buf, len);
+	free(buf);
+	return s;
+}
+
+/*****************************************************************
+ Return the binary string representation of a DOM_SID.
+ Caller must free.
+*****************************************************************/
+
+char *sid_binstring_hex(const DOM_SID *sid)
+{
+	char *buf, *s;
+	int len = sid_size(sid);
+	buf = (char *)SMB_MALLOC(len);
 	if (!buf)
 		return NULL;
 	sid_linearize(buf, len, sid);
@@ -646,4 +574,99 @@ DOM_SID *sid_dup_talloc(TALLOC_CTX *ctx, const DOM_SID *src)
 	}
 	
 	return dst;
+}
+
+/********************************************************************
+ Add SID to an array SIDs
+********************************************************************/
+
+BOOL add_sid_to_array(TALLOC_CTX *mem_ctx, const DOM_SID *sid, 
+		      DOM_SID **sids, size_t *num)
+{
+	*sids = TALLOC_REALLOC_ARRAY(mem_ctx, *sids, DOM_SID,
+					     (*num)+1);
+	if (*sids == NULL) {
+		*num = 0;
+		return False;
+	}
+
+	sid_copy(&((*sids)[*num]), sid);
+	*num += 1;
+
+	return True;
+}
+
+
+/********************************************************************
+ Add SID to an array SIDs ensuring that it is not already there
+********************************************************************/
+
+BOOL add_sid_to_array_unique(TALLOC_CTX *mem_ctx, const DOM_SID *sid,
+			     DOM_SID **sids, size_t *num_sids)
+{
+	size_t i;
+
+	for (i=0; i<(*num_sids); i++) {
+		if (sid_compare(sid, &(*sids)[i]) == 0)
+			return True;
+	}
+
+	return add_sid_to_array(mem_ctx, sid, sids, num_sids);
+}
+
+/********************************************************************
+ Remove SID from an array
+********************************************************************/
+
+void del_sid_from_array(const DOM_SID *sid, DOM_SID **sids, size_t *num)
+{
+	DOM_SID *sid_list = *sids;
+	size_t i;
+
+	for ( i=0; i<*num; i++ ) {
+
+		/* if we find the SID, then decrement the count
+		   and break out of the loop */
+
+		if ( sid_equal(sid, &sid_list[i]) ) {
+			*num -= 1;
+			break;
+		}
+	}
+
+	/* This loop will copy the remainder of the array 
+	   if i < num of sids ni the array */
+
+	for ( ; i<*num; i++ ) 
+		sid_copy( &sid_list[i], &sid_list[i+1] );
+	
+	return;
+}
+
+BOOL add_rid_to_array_unique(TALLOC_CTX *mem_ctx,
+				    uint32 rid, uint32 **pp_rids, size_t *p_num)
+{
+	size_t i;
+
+	for (i=0; i<*p_num; i++) {
+		if ((*pp_rids)[i] == rid)
+			return True;
+	}
+	
+	*pp_rids = TALLOC_REALLOC_ARRAY(mem_ctx, *pp_rids, uint32, *p_num+1);
+
+	if (*pp_rids == NULL) {
+		*p_num = 0;
+		return False;
+	}
+
+	(*pp_rids)[*p_num] = rid;
+	*p_num += 1;
+	return True;
+}
+
+BOOL is_null_sid(const DOM_SID *sid)
+{
+	static const DOM_SID null_sid = {0};
+	return sid_equal(sid, &null_sid);
 }

@@ -210,6 +210,8 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
    debug_nothing_rtx,		  /* label */
    debug_nothing_int,		  /* handle_pch */
    debug_nothing_rtx,		  /* var_location */
+   /* APPLE LOCAL opt diary */
+   debug_nothing_od_msg_loc,      /* Optimization Diary Entry */
    0                              /* start_end_main_source_file */
 };
 
@@ -1679,7 +1681,9 @@ static void
 vmsdbgout_abstract_function (tree decl)
 {
   if (write_symbols == VMS_AND_DWARF2_DEBUG)
-    (*dwarf2_debug_hooks.outlining_inline_function) (decl);
+    /* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
+    (*dwarf2_debug_hooks.outlining_inline_function) (decl, NULL);
+    /* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
 }
 
 /* Output stuff that Debug requires at the end of every file and generate the

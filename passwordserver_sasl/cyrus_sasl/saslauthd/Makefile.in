@@ -47,6 +47,7 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+CMU_LIB_SUBDIR = @CMU_LIB_SUBDIR@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -130,6 +131,7 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
+AUTOMAKE_OPTIONS = 1.7
 sbin_PROGRAMS = saslauthd
 EXTRA_PROGRAMS = testsaslauthd saslcache
 
@@ -139,15 +141,16 @@ saslauthd_SOURCES = mechanisms.c globals.h \
 		    auth_krb4.h auth_pam.c auth_pam.h auth_rimap.c \
 		    auth_rimap.h auth_shadow.c auth_shadow.h auth_sia.c \
 		    auth_sia.h auth_sasldb.c auth_sasldb.h lak.c lak.h \
-		    auth_ldap.c auth_ldap.h cache.c cache.h utils.c utils.h \
+		    auth_ldap.c auth_ldap.h cache.c cache.h cfile.c cfile.h \
+		    krbtf.c krbtf.h utils.c utils.h \
                     ipc_unix.c ipc_doors.c saslauthd-main.c saslauthd-main.h \
-		    md5.c saslauthd_md5.h md5global.h
+		    md5.c saslauthd_md5.h md5global.h 
 
 EXTRA_saslauthd_sources = getaddrinfo.c getnameinfo.c
-saslauthd_DEPENDENCIES = saslauthd-main.o
+saslauthd_DEPENDENCIES = saslauthd-main.o @LTLIBOBJS@
 saslauthd_LDADD = @SASL_KRB_LIB@ \
 		  @GSSAPIBASE_LIBS@ @GSSAPI_LIBS@ @LIB_CRYPT@ @LIB_SIA@ \
-		  @LIB_SOCKET@ @SASL_DB_LIB@ @LIB_PAM@ @LDAP_LIBS@
+		  @LIB_SOCKET@ @SASL_DB_LIB@ @LIB_PAM@ @LDAP_LIBS@ @LTLIBOBJS@
 
 
 testsaslauthd_SOURCES = testsaslauthd.c utils.c
@@ -172,9 +175,9 @@ am_saslauthd_OBJECTS = mechanisms.$(OBJEXT) auth_dce.$(OBJEXT) \
 	auth_getpwent.$(OBJEXT) auth_krb5.$(OBJEXT) auth_krb4.$(OBJEXT) \
 	auth_pam.$(OBJEXT) auth_rimap.$(OBJEXT) auth_shadow.$(OBJEXT) \
 	auth_sia.$(OBJEXT) auth_sasldb.$(OBJEXT) lak.$(OBJEXT) \
-	auth_ldap.$(OBJEXT) cache.$(OBJEXT) utils.$(OBJEXT) \
-	ipc_unix.$(OBJEXT) ipc_doors.$(OBJEXT) saslauthd-main.$(OBJEXT) \
-	md5.$(OBJEXT)
+	auth_ldap.$(OBJEXT) cache.$(OBJEXT) cfile.$(OBJEXT) \
+	krbtf.$(OBJEXT) utils.$(OBJEXT) ipc_unix.$(OBJEXT) \
+	ipc_doors.$(OBJEXT) saslauthd-main.$(OBJEXT) md5.$(OBJEXT)
 saslauthd_OBJECTS = $(am_saslauthd_OBJECTS)
 saslauthd_LDFLAGS =
 am_saslcache_OBJECTS = saslcache.$(OBJEXT)
@@ -190,15 +193,17 @@ testsaslauthd_LDFLAGS =
 DEFAULT_INCLUDES =  -I. -I$(srcdir) -I.
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
 am__depfiles_maybe = depfiles
-@AMDEP_TRUE@DEP_FILES = ./$(DEPDIR)/auth_dce.Po \
+@AMDEP_TRUE@DEP_FILES = $(DEPDIR)/getaddrinfo.Plo \
+@AMDEP_TRUE@	$(DEPDIR)/getnameinfo.Plo ./$(DEPDIR)/auth_dce.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/auth_getpwent.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/auth_krb4.Po ./$(DEPDIR)/auth_krb5.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/auth_ldap.Po ./$(DEPDIR)/auth_pam.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/auth_rimap.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/auth_sasldb.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/auth_shadow.Po ./$(DEPDIR)/auth_sia.Po \
-@AMDEP_TRUE@	./$(DEPDIR)/cache.Po ./$(DEPDIR)/ipc_doors.Po \
-@AMDEP_TRUE@	./$(DEPDIR)/ipc_unix.Po ./$(DEPDIR)/lak.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/cache.Po ./$(DEPDIR)/cfile.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/ipc_doors.Po ./$(DEPDIR)/ipc_unix.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/krbtf.Po ./$(DEPDIR)/lak.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/md5.Po ./$(DEPDIR)/mechanisms.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/saslauthd-main.Po \
 @AMDEP_TRUE@	./$(DEPDIR)/saslcache.Po \
@@ -213,7 +218,8 @@ DIST_COMMON = README AUTHORS COPYING ChangeLog INSTALL Makefile.am \
 	Makefile.in NEWS aclocal.m4 config/config.guess \
 	config/config.sub config/depcomp config/install-sh \
 	config/ltconfig config/ltmain.sh config/missing \
-	config/mkinstalldirs configure configure.in saslauthd.h.in
+	config/mkinstalldirs configure configure.in getaddrinfo.c \
+	getnameinfo.c saslauthd.h.in
 SOURCES = $(saslauthd_SOURCES) $(saslcache_SOURCES) $(testsaslauthd_SOURCES)
 
 all: saslauthd.h
@@ -294,6 +300,8 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/getaddrinfo.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@$(DEPDIR)/getnameinfo.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/auth_dce.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/auth_getpwent.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/auth_krb4.Po@am__quote@
@@ -305,8 +313,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/auth_shadow.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/auth_sia.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cache.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cfile.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ipc_doors.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ipc_unix.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/krbtf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lak.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/md5.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mechanisms.Po@am__quote@
@@ -316,7 +326,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utils.Po@am__quote@
 
 distclean-depend:
-	-rm -rf ./$(DEPDIR)
+	-rm -rf $(DEPDIR) ./$(DEPDIR)
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" \

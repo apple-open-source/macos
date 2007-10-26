@@ -31,7 +31,7 @@
 #include "prompt.pro"
 
 /* text attribute mask */
- 
+
 /**/
 unsigned txtattrmask;
 
@@ -41,7 +41,7 @@ unsigned txtattrmask;
 mod_export unsigned txtchange;
 
 /* the command stack for use with %_ in prompts */
- 
+
 /**/
 unsigned char *cmdstack;
 /**/
@@ -59,7 +59,7 @@ static char *cmdnames[CS_COUNT] = {
     "cmdsubst", "mathsubst", "elif-then", "heredoc",
     "heredocd", "brace",     "braceparam", "always",
 };
- 
+
 /* The buffer into which an expanded and metafied prompt is being written, *
  * and its size.                                                           */
 
@@ -87,7 +87,7 @@ static char *fm;
 
 /* Non-zero if truncating the current segment of the buffer. */
 
-static int trunclen;
+static int truncwidth;
 
 /* Current level of nesting of %{ / %} sequences. */
 
@@ -113,7 +113,7 @@ promptpath(char *p, int npath, int tilde)
     Nameddir nd;
 
     if (tilde && ((nd = finddir(p))))
-	modp = tricat("~", nd->nam, p + strlen(nd->dir));
+	modp = tricat("~", nd->node.nam, p + strlen(nd->dir));
 
     if (npath) {
 	char *sptr;
@@ -179,7 +179,7 @@ promptexpand(char *s, int ns, char *rs, char *Rs)
     fm = s;
     bp = bufline = buf = zshcalloc(bufspc = 256);
     bp1 = NULL;
-    trunclen = 0;
+    truncwidth = 0;
     putpromptchar(1, '\0');
     addbufspc(1);
     if(dontcount)
@@ -207,7 +207,7 @@ promptexpand(char *s, int ns, char *rs, char *Rs)
 static int
 putpromptchar(int doprint, int endchar)
 {
-    char *ss, *tmbuf = NULL, *hostnam;
+    char *ss, *hostnam;
     int t0, arg, test, sep, j, numjobs;
     struct tm *tm;
     time_t timet;
@@ -229,7 +229,7 @@ putpromptchar(int doprint, int endchar)
 	    } else if (minus)
 		arg = -1;
 	    if (*fm == '(') {
-		int tc, otrunclen;
+		int tc, otruncwidth;
 
 		if (idigit(*++fm)) {
 		    arg = zstrtol(fm, &fm, 10);
@@ -334,14 +334,14 @@ putpromptchar(int doprint, int endchar)
 		    return 0;
 		fm++;
 		/* Don't do the current truncation until we get back */
-		otrunclen = trunclen;
-		trunclen = 0;
+		otruncwidth = truncwidth;
+		truncwidth = 0;
 		if (!putpromptchar(test == 1 && doprint, sep) || !*++fm ||
 		    !putpromptchar(test == 0 && doprint, ')')) {
-		    trunclen = otrunclen;
+		    truncwidth = otruncwidth;
 		    return 0;
 		}
-		trunclen = otrunclen;
+		truncwidth = otruncwidth;
 		continue;
 	    }
 	    if (!doprint)
@@ -489,7 +489,7 @@ putpromptchar(int doprint, int endchar)
 	    case 'W':
 	    case 'D':
 		{
-		    char *tmfmt, *dd;
+		    char *tmfmt, *dd, *tmbuf = NULL;
 
 		    switch (*fm) {
 		    case 'T':
@@ -543,9 +543,11 @@ putpromptchar(int doprint, int endchar)
 			if (ztrftime(bp, t0, tmfmt, tm) >= 0)
 			    break;
 		    }
+		    /* There is enough room for this because addbufspc(t0)
+		     * allocates room for t0 * 2 bytes. */
+		    metafy(bp, -1, META_NOALLOC);
 		    bp += strlen(bp);
-		    free(tmbuf);
-		    tmbuf = NULL;
+		    zsfree(tmbuf);
 		    break;
 		}
 	    case 'n':
@@ -700,7 +702,7 @@ putpromptchar(int doprint, int endchar)
 static void
 pputc(char c)
 {
-    if(imeta(STOUC(c))) {
+    if (imeta(c)) {
 	*bp++ = Meta;
 	c ^= 32;
     }
@@ -736,13 +738,65 @@ addbufspc(int need)
 void
 stradd(char *d)
 {
+#ifdef MULTIBYTE_SUPPORT
+    char *ums, *ups;
+    int upslen, eol = 0;
+    mbstate_t mbs;
+
+    memset(&mbs, 0, sizeof mbs);
+    ums = ztrdup(d);
+    ups = unmetafy(ums, &upslen);
+
+    /*
+     * We now have a raw string of possibly multibyte characters.
+     * Read each character one by one.
+     */
+    while (upslen > 0) {
+	wchar_t cc;
+	char *pc;
+	size_t cnt = eol ? MB_INVALID : mbrtowc(&cc, ups, upslen, &mbs);
+
+	switch (cnt) {
+	case MB_INCOMPLETE:
+	    eol = 1;
+	    /* FALL THROUGH */
+	case MB_INVALID:
+	    /* Bad character.  Take the next byte on its own. */
+	    pc = nicechar(*ups);
+	    cnt = 1;
+	    memset(&mbs, 0, sizeof mbs);
+	    break;
+	case 0:
+	    cnt = 1;
+	    /* FALL THROUGH */
+	default:
+	    /* Take full wide character in one go */
+	    mb_metacharinit();
+	    pc = wcs_nicechar(cc, NULL, NULL);
+	    break;
+	}
+	/* Keep output as metafied string. */
+	addbufspc(strlen(pc));
+
+	upslen -= cnt;
+	ups += cnt;
+
+	/* Put printed representation into the buffer */
+	while (*pc)
+	    *bp++ = *pc++;
+    }
+
+    free(ums);
+#else
     char *ps, *pc;
     addbufspc(niceztrlen(d));
-    /* This loop puts the nice representation of the string into the prompt *
-     * buffer.                                                              */
-    for(ps=d; *ps; ps++)
-	for(pc=nicechar(*ps == Meta ? STOUC(*++ps)^32 : STOUC(*ps)); *pc; pc++)
+    /* This loop puts the nice representation of the string into the
+     * prompt buffer. */
+    for (ps = d; *ps; ps++) {
+	for (pc = nicechar(*ps == Meta ? *++ps^32 : *ps); *pc; pc++)
 	    *bp++ = *pc;
+    }
+#endif
 }
 
 /* tsetcap(), among other things, can write a termcap string into the buffer. */
@@ -804,10 +858,15 @@ putstr(int d)
     return 0;
 }
 
-/* Count height etc. of a prompt string returned by promptexpand(). *
- * This depends on the current terminal width, and tabs and         *
- * newlines require nontrivial processing.                          *
- * Passing `overf' as -1 means to ignore columns (absolute width).  */
+/*
+ * Count height etc. of a prompt string returned by promptexpand().
+ * This depends on the current terminal width, and tabs and
+ * newlines require nontrivial processing.
+ * Passing `overf' as -1 means to ignore columns (absolute width).
+ *
+ * If multibyte is enabled, take account of multibyte characters
+ * by locating them and finding out their screen width.
+ */
 
 /**/
 mod_export void
@@ -815,29 +874,98 @@ countprompt(char *str, int *wp, int *hp, int overf)
 {
     int w = 0, h = 1;
     int s = 1;
-    for(; *str; str++) {
-	if(w >= columns && overf >= 0) {
+#ifdef MULTIBYTE_SUPPORT
+    int wcw, multi = 0;
+    char inchar;
+    mbstate_t mbs;
+    wchar_t wc;
+
+    memset(&mbs, 0, sizeof(mbs));
+#endif
+
+    for (; *str; str++) {
+	if (w >= columns && overf >= 0) {
 	    w = 0;
 	    h++;
 	}
-	if(*str == Meta)
-	    str++;
-	if(*str == Inpar)
+	/*
+	 * Input string should be metafied, so tokens in it should
+	 * be real tokens, even if there are multibyte characters.
+	 */
+	if (*str == Inpar)
 	    s = 0;
-	else if(*str == Outpar)
+	else if (*str == Outpar)
 	    s = 1;
-	else if(*str == Nularg)
+	else if (*str == Nularg)
 	    w++;
-	else if(s) {
-	    if(*str == '\t')
-		w = (w | 7) + 1;
-	    else if(*str == '\n') {
-		w = 0;
-		h++;
-	    } else
-		w++;
+	else if (s) {
+	    if (*str == Meta) {
+#ifdef MULTIBYTE_SUPPORT
+		inchar = *++str ^ 32;
+#else
+		str++;
+#endif
+	    } else {
+#ifdef MULTIBYTE_SUPPORT
+		/*
+		 * Don't look for tab or newline in the middle
+		 * of a multibyte character.  Otherwise, we are
+		 * relying on the character set being an extension
+		 * of ASCII so it's safe to test a single byte.
+		 */
+		if (!multi) {
+#endif
+		    if (*str == '\t') {
+			w = (w | 7) + 1;
+			continue;
+		    } else if (*str == '\n') {
+			w = 0;
+			h++;
+			continue;
+		    }
+#ifdef MULTIBYTE_SUPPORT
+		}
+
+		inchar = *str;
+#endif
+	    }
+
+#ifdef MULTIBYTE_SUPPORT
+	    switch (mbrtowc(&wc, &inchar, 1, &mbs)) {
+	    case MB_INCOMPLETE:
+		/* Character is incomplete -- keep looking. */
+		multi = 1;
+		break;
+	    case MB_INVALID:
+		memset(&mbs, 0, sizeof mbs);
+		/* FALL THROUGH */
+	    case 0:
+		/* Invalid character or null: assume no output. */
+		multi = 0;
+		break;
+	    default:
+		/*
+		 * If the character isn't printable, wcwidth() returns
+		 * -1.  We assume width 1.
+		 */
+		wcw = wcwidth(wc);
+		if (wcw >= 0)
+		    w += wcw;
+		else
+		    w++;
+		multi = 0;
+		break;
+	    }
+#else
+	    w++;
+#endif
 	}
     }
+    /*
+     * multi may still be set if we were in the middle of the character.
+     * This isn't easy to handle generally; just assume there's no
+     * output.
+     */
     if(w >= columns && overf >= 0) {
 	if (!overf || w > columns) {
 	    w = 0;
@@ -864,14 +992,14 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 	 * can be finished, backing up so that the new truncation
 	 * can be started afterwards.
 	 */
-	if (trunclen) {
+	if (truncwidth) {
 	    while (*--fm != '%')
 		;
 	    fm--;
 	    return 0;
 	}
 
-	trunclen = arg;
+	truncwidth = arg;
 	if (*fm != ']')
 	    fm++;
 	while (*fm && *fm != truncchar) {
@@ -887,6 +1015,12 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 	    *bp++ = '<';
 	}
 	ptr = buf + w;		/* addbufspc() may have realloc()'d buf */
+	/*
+	 * Now:
+	 *   buf is the start of the output prompt buffer
+	 *   ptr is the start of the truncation string
+	 *   bp is the end of the truncation string
+	 */
 	truncstr = ztrduppfx(ptr, bp - ptr);
 
 	bp = ptr;
@@ -897,103 +1031,259 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 	trunccount = 0;
 	ptr = buf + w;		/* putpromptchar() may have realloc()'d */
 	*bp = '\0';
+	/*
+	 * Now:
+	 *   ptr is the start of the truncation string and also
+	 *     where we need to start putting any truncated output
+	 *   bp is the end of the string we have just added, which
+	 *     may need truncating.
+	 */
 
+	/*
+	 * w below is screen width if multibyte support is enabled
+	 * (note that above it was a raw string pointer difference).
+	 * It's the full width of the string we may need to truncate.
+	 *
+	 * truncwidth has come from the user, so we interpret this
+	 * as a screen width, too.
+	 */
 	countprompt(ptr, &w, 0, -1);
-	if (w > trunclen) {
+	if (w > truncwidth) {
 	    /*
-	     * We need to truncate.  t points to the truncation string -- *
-	     * which is inserted literally, without nice representation.  *
-	     * tlen is its length, and maxlen is the amount of the main	  *
-	     * string that we want to keep.  Note that if the truncation  *
-	     * string is longer than the truncation length (tlen >	  *
-	     * trunclen), the truncation string is used in full.	  *
+	     * We need to truncate.  t points to the truncation string
+	     * -- which is inserted literally, without nice
+	     * representation.  twidth is its printing width, and maxwidth
+	     * is the amount of the main string that we want to keep.
+	     * Note that if the truncation string is longer than the
+	     * truncation length (twidth > truncwidth), the truncation
+	     * string is used in full.
 	     */
 	    char *t = truncstr;
 	    int fullen = bp - ptr;
-	    int tlen = ztrlen(t), maxlen;
-	    maxlen = tlen < trunclen ? trunclen - tlen : 0;
-	    if (w < fullen) {
-		/* Invisible substrings, lots of shuffling. */
-		int n = strlen(t);
-		char *p = ptr, *q = buf;
-		addbufspc(n);
-		ptr = buf + (p - q); /* addbufspc() may have realloc()'d */
+	    int twidth, maxwidth;
+	    int ntrunc = strlen(t);
+
+	    twidth = MB_METASTRWIDTH(t);
+	    if (twidth < truncwidth) {
+		maxwidth = truncwidth - twidth;
+		/*
+		 * It's not safe to assume there are no invisible substrings
+		 * just because the width is less than the full string
+		 * length since there may be multibyte characters.
+		 */
+		addbufspc(ntrunc+1);
+		/* may have realloc'd */
+		ptr = bp - fullen;
 
 		if (truncatleft) {
-		    p = ptr + n;
-		    q = p;
+		    /*
+		     * To truncate at the left, selectively copy
+		     * maxwidth bytes from the main prompt, preceeded
+		     * by the truncation string in full.
+		     *
+		     * We're overwriting the string containing the
+		     * text to be truncated, so copy it.  We've
+		     * just ensured there's sufficient space at the
+		     * end of the prompt string.
+		     *
+		     * Pointer into text to be truncated.
+		     */
+		    char *fulltextptr, *fulltext;
+		    int remw;
+#ifdef MULTIBYTE_SUPPORT
+		    mbstate_t mbs;
+		    memset(&mbs, 0, sizeof mbs);
+#endif
 
-		    n = fullen - w;
+		    fulltextptr = fulltext = ptr + ntrunc;
+		    memmove(fulltext, ptr, fullen);
+		    fulltext[fullen] = '\0';
 
-		    /* Shift the whole string right, then *
-		     * selectively copy to the left.      */
-		    memmove(p, ptr, fullen);
-		    while (w > 0 || n > 0) {
-			if (*p == Inpar)
-			    do {
-				*q++ = *p;
-				--n;
-			    } while (*p++ != Outpar && *p && n);
-			else if (w) {
-			    if (--w < maxlen)
-				*q++ = *p;
-			    ++p;
-			}
-		    }
-		    bp = q;
-		} else {
-		    /* Truncate on the right, selectively */
-		    q = ptr + fullen;
+		    /* Copy the truncstr into place. */
+		    while (*t)
+			*ptr++ = *t++;
 
-		    /* First skip over as much as will "fit". */
-		    while (w > 0 && maxlen > 0) {
-			if (*ptr == Inpar)
-			    while (*ptr++ != Outpar && *ptr) {;}
-			else
-			    ++ptr, --w, --maxlen;
-		    }
-		    if (ptr < q) {
-			/* We didn't reach the end of the string. *
-			 * In case there are more invisible bits, *
-			 * insert the truncstr and keep looking.  */
-			memmove(ptr + n, ptr, q - ptr);
-			q = ptr + n;
-			while (*t)
-			    *ptr++ = *t++;
-			while (*q) {
-			    if (*q == Inpar)
-				do {
-				    *ptr++ = *q;
-				} while (*q++ != Outpar && *q);
+		    /*
+		     * Find the point in the text at which we should
+		     * start copying, i.e. when the remaining width
+		     * is less than or equal to the maximum width.
+		     */
+		    remw = w;
+		    while (remw > maxwidth && *fulltextptr) {
+			if (*fulltextptr == Inpar) {
+			    /*
+			     * Text marked as invisible: copy
+			     * regardless, since we don't know what
+			     * this does but it shouldn't affect
+			     * the width.
+			     */
+			    for (;;) {
+				*ptr++ = *fulltextptr;
+				if (*fulltextptr == Outpar ||
+				    *fulltextptr == '\0')
+				    break;
+				fulltextptr++;
+			    }
+			} else {
+#ifdef MULTIBYTE_SUPPORT
+			    /*
+			     * Normal text: build up a multibyte character.
+			     */
+			    char inchar;
+			    wchar_t cc;
+			    int wcw;
+
+			    /*
+			     * careful: string is still metafied (we
+			     * need that because we don't know a
+			     * priori when to stop and the resulting
+			     * string must be metafied).
+			     */
+			    if (*fulltextptr == Meta)
+				inchar = *++fulltextptr ^ 32;
 			    else
-				++q;
+				inchar = *fulltextptr;
+			    fulltextptr++;
+			    switch (mbrtowc(&cc, &inchar, 1, &mbs)) {
+			    case MB_INCOMPLETE:
+				/* Incomplete multibyte character. */
+				break;
+			    case MB_INVALID:
+				/* Reset invalid state. */
+				memset(&mbs, 0, sizeof mbs);
+				/* FALL THROUGH */
+			    case 0:
+				/* Assume a single-byte character. */
+				remw--;
+				break;
+			    default:
+				wcw = wcwidth(cc);
+				if (wcw >= 0)
+				    remw -= wcw;
+				else
+				    remw--;
+				break;
+			    }
+#else
+			    /* Single byte character */
+			    if (*fulltextptr == Meta)
+				fulltextptr++;
+			    fulltextptr++;
+			    remw--;
+#endif
 			}
-			bp = ptr;
-			*bp = 0;
-		    } else
-			bp = ptr + n;
+		    }
+
+		    /*
+		     * Now simply copy the rest of the text.  Still
+		     * metafied, so this is easy.
+		     */
+		    while (*fulltextptr)
+			*ptr++ = *fulltextptr++;
+		    /* Mark the end of copying */
+		    bp = ptr;
+		} else {
+		    /*
+		     * Truncating at the right is easier: just leave
+		     * enough characters until we have reached the
+		     * maximum width.
+		     */
+		    char *skiptext = ptr;
+#ifdef MULTIBYTE_SUPPORT
+		    mbstate_t mbs;
+		    memset(&mbs, 0, sizeof mbs);
+#endif
+
+		    while (maxwidth > 0 && *skiptext) {
+			if (*skiptext == Inpar) {
+			    for (; *skiptext != Outpar && *skiptext;
+				 skiptext++);
+			} else {
+#ifdef MULTIBYTE_SUPPORT
+			    char inchar;
+			    wchar_t cc;
+			    int wcw;
+
+			    if (*skiptext == Meta)
+				inchar = *++skiptext ^ 32;
+			    else
+				inchar = *skiptext;
+			    skiptext++;
+			    switch (mbrtowc(&cc, &inchar, 1, &mbs)) {
+			    case MB_INCOMPLETE:
+				/* Incomplete character. */
+				break;
+			    case MB_INVALID:
+				/* Reset invalid state. */
+				memset(&mbs, 0, sizeof mbs);
+				/* FALL THROUGH */
+			    case 0:
+				/* Assume a single-byte character. */
+				maxwidth--;
+				break;
+			    default:
+				wcw = wcwidth(cc);
+				if (wcw >= 0)
+				    maxwidth -= wcw;
+				else
+				    maxwidth--;
+				break;
+			    }
+#else
+			    if (*skiptext == Meta)
+				skiptext++;
+			    skiptext++;
+			    maxwidth--;
+#endif
+			}
+		    }
+		    /*
+		     * We don't need the visible text from now on,
+		     * but we'd better copy any invisible bits.
+		     * History dictates that these go after the
+		     * truncation string.  This is sensible since
+		     * they may, for example, turn off an effect which
+		     * should apply to all text at this point.
+		     *
+		     * Copy the truncstr.
+		     */
+		    ptr = skiptext;
+		    while (*t)
+			*ptr++ = *t++;
+		    bp = ptr;
+		    if (*skiptext) {
+			/* Move remaining text so we don't overwrite it */
+			memmove(bp, skiptext, strlen(skiptext)+1);
+			skiptext = bp;
+
+			/*
+			 * Copy anything we want, updating bp
+			 */
+			while (*skiptext) {
+			    if (*skiptext == Inpar) {
+				for (;;) {
+				    *bp++ = *skiptext;
+				    if (*skiptext == Outpar ||
+					*skiptext == '\0')
+					break;
+				    skiptext++;
+				}
+			    }
+			    else
+				skiptext++;
+			}
+		    }
 		}
 	    } else {
-		/* No invisible substrings. */
-		if (tlen > fullen) {
-		    addbufspc(tlen - fullen);
-		    ptr = bp;	/* addbufspc() may have realloc()'d buf */
-		    bp += tlen - fullen;
-		} else
-		    bp -= fullen - trunclen;
-		if (truncatleft) {
-		    if (maxlen)
-			memmove(ptr + strlen(t), ptr + fullen - maxlen,
-				maxlen);
-		} else
-		    ptr += maxlen;
+		/* Just copy truncstr; no other text appears. */
+		while (*t)
+		    *ptr++ = *t++;
+		bp = ptr;
 	    }
-	    /* Finally, copy the truncstr into place. */
-	    while (*t)
-		*ptr++ = *t++;
+	    *bp = '\0';
 	}
 	zsfree(truncstr);
-	trunclen = 0;
+	truncwidth = 0;
 	/*
 	 * We may have returned early from the previous putpromptchar *
 	 * because we found another truncation following this one.    *
@@ -1004,7 +1294,7 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 	if (*fm != endchar) {
 	    fm++;
 	    /*
-	     * With trunclen set to zero, we always reach endchar *
+	     * With truncwidth set to zero, we always reach endchar *
 	     * (or the terminating NULL) this time round.         *
 	     */
 	    if (!putpromptchar(doprint, endchar))
@@ -1020,8 +1310,27 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar)
 		fm++;
 	    fm++;
 	}
-	if (trunclen || !*fm)
+	if (truncwidth || !*fm)
 	    return 0;
     }
     return 1;
+}
+
+/**/
+void
+cmdpush(int cmdtok)
+{
+    if (cmdsp >= 0 && cmdsp < CMDSTACKSZ)
+	cmdstack[cmdsp++] = (unsigned char)cmdtok;
+}
+
+/**/
+void
+cmdpop(void)
+{
+    if (cmdsp <= 0) {
+	DPUTS(1, "BUG: cmdstack empty");
+	fflush(stderr);
+    } else
+	cmdsp--;
 }

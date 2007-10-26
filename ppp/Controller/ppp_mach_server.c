@@ -93,7 +93,6 @@ _pppcontroller_attach(mach_port_t server,
 	kern_return_t		status;
 	
 	*session = 0;
-	
 	/* un-serialize the serviceID */
 	if (!_SCUnserializeString(&serviceID, NULL, (void *)nameRef, nameLen)) {
 		*result = kSCStatusFailed;
@@ -497,20 +496,22 @@ failed:
 __private_extern__
 kern_return_t
 _pppcontroller_bootstrap(mach_port_t server,
-	    task_t task, 
 		mach_port_t *bootstrap,
-		      int * result)
+		int * result,
+		audit_token_t *audit_token)
 {
-    kern_return_t       status;
     int                 pid;
 	struct ppp			*ppp;
 
-    status = pid_for_task(task, &pid);
-    mach_port_deallocate(mach_task_self(), task);
-    if (status != KERN_SUCCESS) {
-        *result = kSCStatusFailed;
-        goto failed;
-    }
+	audit_token_to_au32(*audit_token,
+			    NULL,			// auidp
+			    NULL,			// euid
+			    NULL,			// egid
+			    NULL,			// ruid
+			    NULL,			// rgid
+			    &pid,			// pid
+			    NULL,			// asid
+			    NULL);			// tid
 
 	if ((ppp = ppp_findbypid(pid)) == 0) {
 		*result = kSCStatusInvalidArgument;
@@ -531,24 +532,26 @@ failed:
 __private_extern__
 kern_return_t
 _pppcontroller_copyprivoptions(mach_port_t server,
-	    task_t task, 
 		int options_type,
 		xmlDataOut_t * options, 
 		mach_msg_type_number_t * options_len,
-		      int * result)
+		int * result,
+		audit_token_t *audit_token)
 {
-    kern_return_t       status;
     int                 pid;
 	struct ppp			*ppp;
 	void				*reply = 0;
 	u_int16_t			replylen = 0;
 	
-    status = pid_for_task(task, &pid);
-    mach_port_deallocate(mach_task_self(), task);
-    if (status != KERN_SUCCESS) {
-        *result = kSCStatusFailed;
-        goto failed;
-    }
+	audit_token_to_au32(*audit_token,
+			    NULL,			// auidp
+			    NULL,			// euid
+			    NULL,			// egid
+			    NULL,			// ruid
+			    NULL,			// rgid
+			    &pid,			// pid
+			    NULL,			// asid
+			    NULL);			// tid
 
 	if ((ppp = ppp_findbypid(pid)) == 0) {
 		*result = kSCStatusInvalidArgument;
@@ -618,7 +621,7 @@ _pppcontroller_iscontrolled(mach_port_t server,
 }
 
 /* -----------------------------------------------------------------------------
-+----------------------------------------------------------------------------- */
+----------------------------------------------------------------------------- */
 void mach_client_notify (mach_port_t port, CFStringRef serviceID, u_long event, u_long error)
 {
 	mach_msg_empty_send_t	msg;

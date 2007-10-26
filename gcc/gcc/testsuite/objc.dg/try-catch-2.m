@@ -5,7 +5,8 @@
 /* { dg-options "-fobjc-exceptions" } */
 /* { dg-do run } */
 
-#include <objc/Object.h>
+/* APPLE LOCAL radar 4894756 */
+#include "../objc/execute/Object2.h"
 #include <stdio.h>
 
 /* The following is not required in actual user code; we include it

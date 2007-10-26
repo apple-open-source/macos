@@ -18,19 +18,14 @@ if (-e 'test_dir') {            # running from test directory, not ..
 use strict;
 use SATest; sa_t_init("rule_names");
 use Test;
+
 use Mail::SpamAssassin;
 use Digest::SHA1;
 use vars qw(%patterns %anti_patterns);
 
 # initialize SpamAssassin
-my $sa = Mail::SpamAssassin->new({
-    rules_filename => "$prefix/t/log/test_rules_copy",
-    site_rules_filename => "$prefix/t/log/test_default.cf",
-    userprefs_filename  => "$prefix/masses/spamassassin/user_prefs",
-    local_tests_only    => 1,
-    debug             => 0,
-    dont_copy_prefs   => 1,
-});
+my $sa = create_saobj({'dont_copy_prefs' => 1});
+
 $sa->init(0); # parse rules
 
 # get rule names
@@ -48,24 +43,40 @@ for my $test (@tests) {
   # look for test with spaces on either side, should match report
   # lines in spam report, only exempt rules that are really unavoidable
   # and are clearly not hitting due to rules being named poorly
-  next if $test eq "UPPERCASE_75_100";
+  next if $test =~ /^UPPERCASE_\d/;
   next if $test eq "UNIQUE_WORDS";
+  # exempt the auto-generated nightly mass-check rules
+  next if $test =~ /^T_MC_/;
+
   $anti_patterns{"$test,"} = "P_" . $i++;
 }
 
-# settings
-plan tests => (scalar(keys %anti_patterns) + scalar(keys %patterns)),
-onfail => sub {
-    warn "\n\n   Note: rule_name failures may be only cosmetic" .
-    "\n        but must be fixed before release\n\n";
+our $RUN_THIS_TEST;
+
+BEGIN {
+  $RUN_THIS_TEST = conf_bool('run_rule_name_tests');
+
+  plan tests => (!$RUN_THIS_TEST ? 0 : 
+                  scalar(keys %anti_patterns) + scalar(keys %patterns)),
+  onfail => sub {
+      warn "\n\n   Note: rule_name failures may be only cosmetic" .
+      "\n        but must be fixed before release\n\n";
+  };
 };
+
+print "NOTE: this test requires 'run_rule_name_tests' set to 'y'.\n";
+exit unless $RUN_THIS_TEST;
+
+# ---------------------------------------------------------------------------
+
 
 tstprefs ("
 	# set super low threshold, so always marked as spam
 	required_score -10000.0
-	# add a fake lexically final test so every other hit will always be
+	# add two fake lexically high tests so every other hit will always be
 	# followed by a comma in the X-Spam-Status header
 	body ZZZZZZZZ /./
+	body zzzzzzzz /./
 ");
 sarun ("-L < $mail", \&patterns_run_cb);
 ok_all_patterns();
@@ -88,9 +99,15 @@ Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
 EOF
-    print MAIL join("\n", @tests) . "\n\n";
+
     # we are looking for random failures, but we do a deterministic
-    # test to prevent too much frustration with "make test"
+    # test to prevent too much frustration with "make test".
+
+    # start off sorted
+    @tests = sort @tests;
+
+    print MAIL join("\n", @tests) . "\n\n";
+
     # 25 iterations gets most hits most of the time, but 10 is large enough
     for (1..10) {
       print MAIL join("\n", sha1_shuffle($_, @tests)) . "\n\n";

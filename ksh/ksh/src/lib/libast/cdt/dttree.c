@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"dthdr.h"
 
 /*	Ordered set/multiset
@@ -52,6 +48,7 @@ int		type;
 
 	UNFLATTEN(dt);
 	disc = dt->disc; _DTDSC(disc,ky,sz,lk,cmpf);
+	dt->type &= ~DT_FOUND;
 
 	root = dt->data->here;
 	if(!obj)
@@ -232,6 +229,7 @@ int		type;
 
 	if(root)
 	{	/* found it, now isolate it */
+		dt->type |= DT_FOUND;
 		l->right = root->left;
 		r->left = root->right;
 
@@ -326,7 +324,11 @@ int		type;
 		r->left = NIL(Dtlink_t*);
 		l->right = NIL(Dtlink_t*);
 
-		if(type&(DT_SEARCH|DT_MATCH))
+		if(type&DT_NEXT)
+			goto dt_next;
+		else if(type&DT_PREV)
+			goto dt_prev;
+		else if(type&(DT_SEARCH|DT_MATCH))
 		{ no_root:
 			while((t = r->left) )
 				r = t;
@@ -358,10 +360,6 @@ int		type;
 			}
 			else	goto no_root;
 		}
-		else if(type&DT_NEXT)
-			goto dt_next;
-		else if(type&DT_PREV)
-			goto dt_prev;
 		else if(type&DT_RENEW)
 		{	root = me;
 			dt->data->size += 1;

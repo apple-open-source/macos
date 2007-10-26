@@ -19,8 +19,6 @@
    
 */
 
-#define NO_SYSLOG
-
 #include "includes.h"
 #ifdef HAVE_NS_API_H
 #undef VOLATILE
@@ -35,6 +33,11 @@
 static int initialised;
 
 extern BOOL AllowDebugChange;
+
+NSS_STATUS _nss_wins_gethostbyname_r(const char *hostname, struct hostent *he,
+			  char *buffer, size_t buflen, int *h_errnop);
+NSS_STATUS _nss_wins_gethostbyname2_r(const char *name, int af, struct hostent *he,
+			   char *buffer, size_t buflen, int *h_errnop);
 
 /* Use our own create socket code so we don't recurse.... */
 
@@ -77,12 +80,13 @@ static int wins_lookup_open_socket_in(void)
 static void nss_wins_init(void)
 {
 	initialised = 1;
-	SAMBA_DEBUGLEVEL = 0;
+	DEBUGLEVEL = 0;
 	AllowDebugChange = False;
 
 	TimeInit();
 	setup_logging("nss_wins",False);
-	lp_load(dyn_CONFIGFILE,True,False,False);
+	load_case_tables();
+	lp_load(dyn_CONFIGFILE,True,False,False,True);
 	load_interfaces();
 }
 
@@ -128,12 +132,12 @@ static struct in_addr *lookup_byname_backend(const char *name, int *count)
 
 #ifdef HAVE_NS_API_H
 
-static struct node_status *lookup_byaddr_backend(char *addr, int *count)
+static NODE_STATUS_STRUCT *lookup_byaddr_backend(char *addr, int *count)
 {
 	int fd;
 	struct in_addr  ip;
 	struct nmb_name nname;
-	struct node_status *status;
+	NODE_STATUS_STRUCT *status;
 
 	if (!initialised) {
 		nss_wins_init();
@@ -166,7 +170,7 @@ int lookup(nsd_file_t *rq)
 	char *key;
 	char *addr;
 	struct in_addr *ip_list;
-	struct node_status *status;
+	NODE_STATUS_STRUCT *status;
 	int i, count, len, size;
 	char response[1024];
 	BOOL found = False;

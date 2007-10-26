@@ -16,6 +16,7 @@
 #include "stuff/errors.h"
 #include "stuff/execute.h"
 #include "stuff/allocate.h"
+#include <mach-o/dyld.h>
 
 /* used by error calls (exported) */
 char *progname = NULL;
@@ -29,28 +30,44 @@ char **envp)
     const char *LIB =
 #if defined(__OPENSTEP__) || defined(__HERA__) || \
     defined(__GONZO_BUNSEN_BEAKER__) || defined(__KODIAK__)
-		    "/usr/libexec/";
+		    "../libexec/";
 #else
-		    "/usr/libexec/gcc/darwin/";
+		    "../libexec/gcc/darwin/";
 #endif
     const char *LOCALLIB =
 #if defined(__OPENSTEP__) || defined(__HERA__) || \
     defined(__GONZO_BUNSEN_BEAKER__) || defined(__KODIAK__)
-		    "/usr/local/libexec/";
+		    "../local/libexec/";
 #else
-		    "/usr/local/libexec/gcc/darwin/";
+		    "../local/libexec/gcc/darwin/";
 #endif
     const char *AS = "/as";
 
     int i;
     unsigned long count, verbose;
     char *p, c, *arch_name, *as, *as_local;
+    char *prefix, buf[MAXPATHLEN], resolved_name[PATH_MAX];
+    uint32_t bufsize;
     struct arch_flag arch_flag;
     const struct arch_flag *arch_flags, *family_arch_flag;
 
 	progname = argv[0];
 	arch_name = NULL;
 	verbose = 0;
+	/*
+	 * Construct the prefix to the assembler driver.
+	 */
+	bufsize = MAXPATHLEN;
+	p = buf;
+	i = _NSGetExecutablePath(p, &bufsize);
+	if(i == -1){
+	    p = allocate(bufsize);
+	    _NSGetExecutablePath(p, &bufsize);
+	}
+	prefix = realpath(p, resolved_name);
+	p = rindex(prefix, '/');
+	if(p != NULL)
+	    p[1] = '\0';
 	/*
 	 * Process the assembler flags exactly like the assembler would (except
 	 * let the assembler complain about multiple flags, bad combinations of
@@ -134,8 +151,8 @@ char **envp)
 	    if(get_arch_from_host(&arch_flag, NULL))
 		arch_name = arch_flag.name;
 	    else
-		fatal("known host architecture (can't determine which assembler"
-		      " to run)");
+		fatal("unknown host architecture (can't determine which "
+		      "assembler to run)");
 	}
 	else{
 	    /*
@@ -150,7 +167,7 @@ char **envp)
 	    }
 
 	}
-	as = makestr(LIB, arch_name, AS, NULL);
+	as = makestr(prefix, LIB, arch_name, AS, NULL);
 
 	/*
 	 * If this assembler exist try to run it else print an error message.
@@ -162,7 +179,7 @@ char **envp)
 	    else
 		exit(1);
 	}
-	as_local = makestr(LOCALLIB, arch_name, AS, NULL);
+	as_local = makestr(prefix, LOCALLIB, arch_name, AS, NULL);
 	if(access(as_local, F_OK) == 0){
 	    argv[0] = as_local;
 	    if(execute(argv, verbose))
@@ -176,7 +193,7 @@ char **envp)
 	    arch_flags = get_arch_flags();
 	    count = 0;
 	    for(i = 0; arch_flags[i].name != NULL; i++){
-		as = makestr(LIB, arch_flags[i].name, AS, NULL);
+		as = makestr(prefix, LIB, arch_flags[i].name, AS, NULL);
 		if(access(as, F_OK) == 0){
 		    if(count == 0)
 			printf("Installed assemblers are:\n");
@@ -184,7 +201,8 @@ char **envp)
 		    count++;
 		}
 		else{
-		    as_local = makestr(LOCALLIB, arch_flags[i].name, AS, NULL);
+		    as_local = makestr(prefix, LOCALLIB, arch_flags[i].name,
+				       AS, NULL);
 		    if(access(as_local, F_OK) == 0){
 			if(count == 0)
 			    printf("Installed assemblers are:\n");

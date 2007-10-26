@@ -1,0 +1,15 @@
+--- erand48.c.orig	2003-05-20 15:21:01.000000000 -0700
++++ erand48.c	2005-11-03 12:30:30.000000000 -0800
+@@ -19,8 +19,8 @@
+ double
+ erand48(unsigned short xseed[3])
+ {
+-	_dorand48(xseed);
+-	return ldexp((double) xseed[0], -48) +
+-	       ldexp((double) xseed[1], -32) +
+-	       ldexp((double) xseed[2], -16);
++	uint48 tmp;
++	ERAND48_BEGIN;
++	DORAND48(tmp, xseed);
++	ERAND48_END(tmp);
+ }

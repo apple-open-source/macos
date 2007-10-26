@@ -31,7 +31,7 @@
 */
 
 
-static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.4.4.2 2004/04/27 17:34:05 iliaa Exp $";
+static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.8.4.2 2007/06/07 09:07:36 tony2001 Exp $";
 
 
 /****h* ABOUT/xmlrpc
@@ -43,11 +43,23 @@ static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.4.4.2 2004/04/27 17:34:05 il
  *   9/1999 - 10/2000
  * HISTORY
  *   $Log: xmlrpc.c,v $
- *   Revision 1.4.4.2  2004/04/27 17:34:05  iliaa
- *   MFH: Removed C++ style comments.
+ *   Revision 1.8.4.2  2007/06/07 09:07:36  tony2001
+ *   MFH: php_localtime_r() checks
  *
- *   Revision 1.4.4.1  2003/12/16 21:00:36  sniper
- *   MFH: fix compile warnings
+ *   Revision 1.8.4.1  2006/11/30 16:38:37  iliaa
+ *   last set of zts fixes
+ *
+ *   Revision 1.8  2005/03/28 00:07:24  edink
+ *   Reshufle includes to make it compile on windows
+ *
+ *   Revision 1.7  2005/03/26 03:13:58  sniper
+ *   - Made it possible to build ext/xmlrpc with libxml2
+ *
+ *   Revision 1.6  2004/04/27 17:33:59  iliaa
+ *   Removed C++ style comments.
+ *
+ *   Revision 1.5  2003/12/16 21:00:21  sniper
+ *   Fix some compile warnings (patch by Joe Orton)
  *
  *   Revision 1.4  2002/07/05 04:43:53  danda
  *   merged in updates from SF project.  bring php repository up to date with xmlrpc-epi version 0.51
@@ -119,7 +131,8 @@ static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.4.4.2 2004/04/27 17:34:05 il
  *     - comprehensive API for manipulation of values
  *******/
 
-
+#include "ext/xml/expat_compat.h"
+#include "main/php_reentrancy.h"
 #ifdef _WIN32
 #include "xmlrpc_win32.h"
 #endif
@@ -132,7 +145,6 @@ static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.4.4.2 2004/04/27 17:34:05 il
 
 #include "queue.h"
 #include "xmlrpc.h"
-#include "expat.h"
 #include "base64.h"
 
 #include "xml_to_xmlrpc.h"
@@ -225,8 +237,11 @@ static int date_from_ISO8601 (const char *text, time_t * value) {
 }
 
 static int date_to_ISO8601 (time_t value, char *buf, int length) {
-   struct tm *tm;
-   tm = localtime(&value);
+   struct tm *tm, tmbuf;
+   tm = php_localtime_r(&value, &tmbuf);
+   if (!tm) {
+	   return 0;
+   }
 #if 0  /* TODO: soap seems to favor this method. xmlrpc the latter. */
 	return strftime (buf, length, "%Y-%m-%dT%H:%M:%SZ", tm);
 #else

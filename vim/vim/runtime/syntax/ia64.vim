@@ -1,10 +1,10 @@
 " Vim syntax file
 " Language:     IA-64 (Itanium) assembly language
-" Maintainer:   Parth Malwankar <parth.malwankar@techie.com>
+" Maintainer:   Parth Malwankar <pmalwankar@yahoo.com>
 " URL:		http://www.geocities.com/pmalwankar (Home Page with link to my Vim page)
 "		http://www.geocities.com/pmalwankar/vim.htm (for VIM)
-" File Version: 0.6
-" Last Change:  2003 May 11
+" File Version: 0.7
+" Last Change:  2004 May 04
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -218,7 +218,7 @@ syn match ia64opcode "stf\.spill\(\.nta\)\=\>"
 "sxt
 syn match ia64opcode "sxt[124]\>"
 "tbit/tnat
-syn match ia64opcode "t\(bit\|nat\)\.nz\=\(\.\(unc\|or\(\.andcm\|cm\)\=\|and\(\.orcm\|cm\)\=\)\)\=\>"
+syn match ia64opcode "t\(bit\|nat\)\(\.nz\|\.z\)\=\(\.\(unc\|or\(\.andcm\|cm\)\=\|and\(\.orcm\|cm\)\=\)\)\=\>"
 "unpack
 syn match ia64opcode "unpack[124]\.[lh]\>"
 "xchq

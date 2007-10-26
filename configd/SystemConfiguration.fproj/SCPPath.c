@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -343,7 +343,7 @@ SCPreferencesPathCreateUniqueChild(SCPreferencesRef	prefs,
 {
 	CFStringRef             child;
 	CFStringRef		newPath		= NULL;
-	CFMutableDictionaryRef	newDict		= NULL;
+	CFDictionaryRef		newDict;
 	CFUUIDRef               uuid;
 	CFDictionaryRef		entity;
 
@@ -371,11 +371,11 @@ SCPreferencesPathCreateUniqueChild(SCPreferencesRef	prefs,
 	CFRelease(child);
 	CFRelease(uuid);
 
-	/* save the new dictionary */
-	newDict = CFDictionaryCreateMutable(NULL,
-					    0,
-					    &kCFTypeDictionaryKeyCallBacks,
-					    &kCFTypeDictionaryValueCallBacks);
+	/* save a new/empty dictionary */
+	newDict = CFDictionaryCreate(NULL,
+				     NULL, NULL, 0,
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
 	if (!setPath(prefs, newPath, newDict)) {
 		CFRelease(newPath);
 		newPath = NULL;
@@ -459,11 +459,11 @@ SCPreferencesPathSetValue(SCPreferencesRef	prefs,
 #define	NETPREF_NEEDS_REPAIR
 #ifdef	NETPREF_NEEDS_REPAIR
 	if (CFEqual(path, CFSTR("/CurrentSet")) && isA_CFString(value)) {
-//		static Boolean	warned	= FALSE;
-//		if (!warned) {
-//			SCPrint(TRUE, stderr, CFSTR("SCPreferencesPathSetValue(, %@, ) called with non-dictionary value\n"), path);
-//			warned = TRUE;
-//		}
+		static Boolean	warned	= FALSE;
+		if (!warned) {
+			SCPrint(TRUE, stderr, CFSTR("SCPreferencesPathSetValue(, %@, ) called with non-dictionary value\n"), path);
+			warned = TRUE;
+		}
 		return SCPreferencesSetValue(prefs, CFSTR("CurrentSet"), value);
 	}
 #endif	// NETPREF_NEEDS_REPAIR
@@ -510,7 +510,7 @@ SCPreferencesPathSetLink(SCPreferencesRef	prefs,
 					 0,
 					 &kCFTypeDictionaryKeyCallBacks,
 					 &kCFTypeDictionaryValueCallBacks);
-	CFDictionaryAddValue(dict, kSCResvLink, link);
+	CFDictionarySetValue(dict, kSCResvLink, link);
 	ok = setPath(prefs, path, dict);
 	CFRelease(dict);
 

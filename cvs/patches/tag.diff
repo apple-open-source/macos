@@ -1,0 +1,86 @@
+--- doc/cvs.1.orig      2004-11-11 10:29:46.000000000 -0800
++++ doc/cvs.1   2005-07-06 11:59:42.000000000 -0700
+@@ -3654,6 +3654,83 @@
+ \fB/etc/cvs.conf\fR or prefixed by \fB/etc/cvs/\fR.  This option is
+ supported beginning with \fBcvs\fR release 1.12.13.
+ .SP
++.SH "tag"
++.SS "Add a symbolic tag to checked out version of RCS file"
++.IX "tag (subcommand)"
++.SP
++.IP "\(bu" 2
++tag [-lQqR] [-b] [-d] symbolic_tag [files...]
++.IP "\(bu" 2
++Requires: repository, working directory.
++.IP "\(bu" 2   
++Changes: repository.
++.IP "\(bu" 2
++Synonym: freeze.
++.SP
++Use this command to assign symbolic tags to the nearest repository versions to your
++working sources.  The tags are applied immediately to the repository, as with
++\fBrtag\fR, but the versions are supplied implicitly by the CVS records of your
++working files' history rather than applied explicitly.
++.SP
++One use for tags is to record a snapshot of the current sources when the software
++freeze date of a project arrives.  As bugs are fixed after the freeze date, only
++those changed sources that are to be part of the release need be re-tagged.
++.SP
++The symbolic tags are meant to permanently record which revisions of which files were
++used in creating a software distribution.  The \fBcheckout\fR and \fBupdate\fR
++commands allow you to extract an exact copy of a tagged release at any time in the
++future, regardless of whether files have been changed, added, or removed since the
++release was tagged.
++.SP
++This command can also be used to delete a symbolic tag, or to create a branch.
++See the options section below.
++.SP
++.SH "tag options"
++.SP
++These standard options are supported by \fBtag\fR
++(see node `Common options\(aq in the CVS manual, for a complete description of
++them):
++.SP
++.IP "" 0
++\fB-l\fR
++.IP "" 2
++Local; run only in current working directory.
++.SP
++.IP "" 0
++\fB-R\fR
++.IP "" 2
++Commit directories recursively.  This is on by default.
++.SP
++.IP "" 0
++\fB-Q\fR
++.IP "" 2
++Really quiet.
++.SP
++.IP "" 0
++\fB-q\fR
++.IP "" 2
++Somewhat quiet.
++.SP
++.IP "" 0
++Two special options are available:
++.SP
++.IP "" 0
++\fB-b\fR
++.IP "" 2
++The \fB-b\fR option makes the tag a branch tag (see node `Branches\(aq in the
++CVS manual), allowing concurrent, isolated development.  This is most useful for
++creating a patch to a previously released software distribution.
++.SP
++.IP "" 0
++\fB-d\fR
++.IP "" 2
++Delete a tag.
++.SP
++If you use \fBcvs tag -d symbolic_tag\fR, the symbolic tag you specify is deleted
++instead of being added.  Warning: Be very certain of your ground before you delete
++a tag; doing this effectively discards some historical information, which may later
++turn out to have been valuable.
++.SP
+ .SH "update"
+ .SS "Bring work tree in sync with repository"
+ .IX "update (subcommand)"

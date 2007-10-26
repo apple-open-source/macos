@@ -1,9 +1,8 @@
 " Menu Translations:	Czech for MS-Windows
-" Maintainer:		Jiri Brezina <brz@centrum.cz>
-" URL:			http://brz.d2.cz/vim
+" Maintainer:		Jiri Brezina <brzj@seznam.cz>
 " vim:set foldmethod=marker:
-" $Revision$
-" $Date$
+" $Revision: 1.3 $
+" $Date: 2005/12/19 22:13:30 $
 
 " Quit when menu translations have already been done.
 if exists("did_menu_trans")
@@ -39,7 +38,7 @@ menutrans &Paste<Tab>"+gP		V&ložit<Tab>"+gP
 menutrans Put\ &Before<Tab>[p		Vložit\ &pøed<Tab>[p
 menutrans Put\ &After<Tab>]p		Vloži&t\ za<Tab>]p
 menutrans &Delete<Tab>x			&Smazat<Tab>x
-menutrans &Select\ all<Tab>ggVG		Vy&brat\ vše<Tab>ggVG
+menutrans &Select\ All<Tab>ggVG		Vy&brat\ vše<Tab>ggVG
 menutrans &Find\.\.\.			&Hledat\.\.\.
 menutrans Find\ and\ Rep&lace\.\.\.	&Nahradit\.\.\.
 menutrans Options\.\.\.			Volb&y\.\.\.
@@ -89,6 +88,23 @@ menutrans &Jump\ to\ this\ tag<Tab>g^]	&Skoèit\ na\ tag<Tab>g^]
 menutrans Jump\ &back<Tab>^T		Skoèit\ &zpìt<Tab>^T
 menutrans Build\ &Tags\ File		&Vytvoøit\ soubor\ tagù
 
+menutrans &Spelling			&Kontrola\ pravopisu
+menutrans &Spell\ Check\ On		Kontrola\ pravopisu\ &zapnuta
+menutrans Spell\ Check\ &Off		Kontrola\ pravopisu\ &vypnuta
+menutrans To\ Next\ error<Tab>]s	&Další\ chyba<Tab>]s
+menutrans To\ Previous\ error<Tab>[s	&Pøedchozí\ chyba<Tab>[s
+menutrans Suggest\ Corrections<Tab>z?	&Návrh\ oprav<Tab>z?
+menutrans Repeat\ correction<Tab>:spellrepall	Zopakovat\ &opravu<Tab>:spellrepall
+menutrans Set\ language\ to\ "en"	Nastav\ jazyk\ na\ "en"
+menutrans Set\ language\ to\ "en_au"	Nastav\ jazyk\ na\ "en_au"
+menutrans Set\ language\ to\ "en_ca"	Nastav\ jazyk\ na\ "en_ca"
+menutrans Set\ language\ to\ "en_gb"	Nastav\ jazyk\ na\ "en_gb"
+menutrans Set\ language\ to\ "en_nz"	Nastav\ jazyk\ na\ "en_nz"
+menutrans Set\ language\ to\ "en_us"	Nastav\ jazyk\ na\ "en_us"
+menutrans Set\ language\ to\ "cz"	Nastav\ jazyk\ na\ "cz"
+menutrans Set\ language\ to\ "cs_cz"	Nastav\ jazyk\ na\ "cs_cz"
+menutrans &Find\ More\ Languages	Nalézt\ další\ &jazyky
+
 menutrans &Folding			&Foldy
 menutrans &Enable/Disable\ folds<Tab>zi &Ano/Ne<Tab>zi
 menutrans &View\ Cursor\ Line<Tab>zv	&Zobrazit\ øádek\ kurzoru<Tab>zv
@@ -107,7 +123,7 @@ menutrans Fold\ Met&hod			Metoda\ &skládání
 menutrans Create\ &Fold<Tab>zf		Vytvoøit\ &fold<Tab>zf
 menutrans &Delete\ Fold<Tab>zd		Vymazat\ fol&d<Tab>zd
 menutrans Delete\ &All\ Folds<Tab>zD	V&ymazat\ všechny\ foldy<Tab>zD
-menutrans Fold\ column\ &width		Sloupec\ zob&razení\ foldù
+menutrans Fold\ col&umn\ width		Sloupec\ zob&razení\ foldù
 
 menutrans &Update			&Obnovit
 menutrans &Get\ Block			&Sejmout\ Blok
@@ -120,6 +136,7 @@ menutrans &Previous\ Error<Tab>:cp	&Pøedchozí\ chyba<Tab>:cp
 menutrans &Older\ List<Tab>:cold	Sta&rší\ seznam<Tab>:cold
 menutrans N&ewer\ List<Tab>:cnew	N&ovìjší\ seznam<Tab>:cnew
 menutrans Error\ &Window		Chybové\ o&kno
+menutrans SeT\ Compiler			Nas&tavení\ kompilátoru
 menutrans &Update<Tab>:cwin		O&bnovit<Tab>:cwin
 menutrans &Open<Tab>:copen		&Otevøít<Tab>:copen
 menutrans &Close<Tab>:cclose		&Zavøít<Tab>:cclose
@@ -141,7 +158,7 @@ menutrans o&ff\ (this\ file)	vyp&nout\ (pro\ tento\ soubor)
 menutrans Co&lor\ test		Test\ &barev
 menutrans &Highlight\ test	&Test\ zvýrazòování
 menutrans &Convert\ to\ HTML	Pøevést\ &do\ HTML
-menutrans &Show\ individual\ choices	&Zobrazit\ výbìr\ možností
+menutrans &Show\ filetypes\ in\ menu	&Zobrazit\ výbìr\ možností
 " }}}
 
 " {{{ Menu Buffers
@@ -187,6 +204,7 @@ menutrans &How-to\ links	Ho&wto
 menutrans &GUI			&Grafické\ rozhraní
 menutrans &Credits		&Autoøi
 menutrans Co&pying		&Licenèní\ politika
+menutrans &Sponsor/Register	Sponzorování/&Registrace
 menutrans &Find\.\.\.		&Hledat\.\.\.
 menutrans O&rphans		O&siøelé\ dìti
 menutrans &Version		&Verze

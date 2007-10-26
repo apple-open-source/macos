@@ -1,0 +1,856 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4C088047053219880049BBEF /* cssmdb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C088043053219880049BBEF /* cssmdb.cpp */; };
+		4C3895410534B31D009CF879 /* KeySchema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C3895400534B31D009CF879 /* KeySchema.cpp */; };
+		4C52AC180540AF7A00536F78 /* acl_any.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CE1052A3278008ED0EA /* acl_any.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC190540AF7A00536F78 /* acl_codesigning.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CE3052A3278008ED0EA /* acl_codesigning.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC1A0540AF7A00536F78 /* acl_comment.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CE5052A3278008ED0EA /* acl_comment.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC1B0540AF7A00536F78 /* acl_password.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CE7052A3278008ED0EA /* acl_password.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC1C0540AF7A00536F78 /* acl_process.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CE9052A3278008ED0EA /* acl_process.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC1D0540AF7A00536F78 /* acl_protectedpw.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CEB052A3278008ED0EA /* acl_protectedpw.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC1E0540AF7A00536F78 /* acl_threshold.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CED052A3278008ED0EA /* acl_threshold.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC1F0540AF7A00536F78 /* callback.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CEF052A3278008ED0EA /* callback.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC210540AF7A00536F78 /* constdata.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CF3052A3278008ED0EA /* constdata.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC220540AF7A00536F78 /* context.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CF5052A3278008ED0EA /* context.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC230540AF7A00536F78 /* cssmacl.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CF7052A3278008ED0EA /* cssmacl.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC240540AF7A00536F78 /* cssmaclpod.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CF9052A3278008ED0EA /* cssmaclpod.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC250540AF7A00536F78 /* cssmalloc.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CFB052A3278008ED0EA /* cssmalloc.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC260540AF7A00536F78 /* cssmcert.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CFD052A3278008ED0EA /* cssmcert.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC270540AF7A00536F78 /* cssmcred.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64CFF052A3278008ED0EA /* cssmcred.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC280540AF7A00536F78 /* cssmdata.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D01052A3278008ED0EA /* cssmdata.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC290540AF7A00536F78 /* cssmdates.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D03052A3278008ED0EA /* cssmdates.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC2A0540AF7A00536F78 /* cssmdb.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C088044053219880049BBEF /* cssmdb.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC2B0540AF7A00536F78 /* cssmdbname.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C66D5E905321B2700537B59 /* cssmdbname.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC2C0540AF7A00536F78 /* cssmendian.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D07052A3278008ED0EA /* cssmendian.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC2E0540AF7A00536F78 /* cssmerrors.h in Headers */ = {isa = PBXBuildFile; fileRef = C22EC42A052B8E4900D55C69 /* cssmerrors.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC2F0540AF7A00536F78 /* cssmlist.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D0B052A3278008ED0EA /* cssmlist.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC300540AF7A00536F78 /* cssmtrust.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D0D052A3278008ED0EA /* cssmtrust.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC320540AF7A00536F78 /* cssmwalkers.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D11052A3278008ED0EA /* cssmwalkers.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC330540AF7A00536F78 /* db++.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D13052A3278008ED0EA /* db++.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC340540AF7A00536F78 /* digestobject.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D14052A3278008ED0EA /* digestobject.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC350540AF7A00536F78 /* handleobject.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D16052A3278008ED0EA /* handleobject.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC360540AF7A00536F78 /* KeySchema.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C38951C0534B198009CF879 /* KeySchema.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC370540AF7A00536F78 /* Schema.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C96461A05378CCD00499C82 /* Schema.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC380540AF7A00536F78 /* uniformrandom.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D23052A3278008ED0EA /* uniformrandom.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC390540AF7A00536F78 /* walkers.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CF64D25052A3278008ED0EA /* walkers.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C66D5EA05321B2700537B59 /* cssmdbname.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C66D5E805321B2700537B59 /* cssmdbname.cpp */; };
+		4C838EA6058163A4006DA084 /* AuthorizationData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C838EA3058163A4006DA084 /* AuthorizationData.cpp */; };
+		4C838EA7058163A4006DA084 /* AuthorizationData.h in Sources */ = {isa = PBXBuildFile; fileRef = 4C838EA4058163A4006DA084 /* AuthorizationData.h */; };
+		4C838EA8058163A4006DA084 /* AuthorizationWalkers.h in Sources */ = {isa = PBXBuildFile; fileRef = 4C838EA5058163A4006DA084 /* AuthorizationWalkers.h */; };
+		4C838EA9058163BE006DA084 /* AuthorizationData.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C838EA4058163A4006DA084 /* AuthorizationData.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C838EAA058163BE006DA084 /* AuthorizationWalkers.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C838EA5058163A4006DA084 /* AuthorizationWalkers.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C92661705349551004B0E72 /* cssmerrors.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C22EC429052B8E4900D55C69 /* cssmerrors.cpp */; };
+		4C96462105378CEE00499C82 /* Schema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C96462005378CEE00499C82 /* Schema.cpp */; };
+		4CF64D26052A3278008ED0EA /* acl_any.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CE0052A3278008ED0EA /* acl_any.cpp */; };
+		4CF64D28052A3278008ED0EA /* acl_codesigning.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CE2052A3278008ED0EA /* acl_codesigning.cpp */; };
+		4CF64D2A052A3278008ED0EA /* acl_comment.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CE4052A3278008ED0EA /* acl_comment.cpp */; };
+		4CF64D2C052A3278008ED0EA /* acl_password.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CE6052A3278008ED0EA /* acl_password.cpp */; };
+		4CF64D2E052A3278008ED0EA /* acl_process.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CE8052A3278008ED0EA /* acl_process.cpp */; };
+		4CF64D30052A3278008ED0EA /* acl_protectedpw.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CEA052A3278008ED0EA /* acl_protectedpw.cpp */; };
+		4CF64D32052A3278008ED0EA /* acl_threshold.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CEC052A3278008ED0EA /* acl_threshold.cpp */; };
+		4CF64D34052A3278008ED0EA /* callback.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CEE052A3278008ED0EA /* callback.cpp */; };
+		4CF64D38052A3278008ED0EA /* constdata.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CF2052A3278008ED0EA /* constdata.cpp */; };
+		4CF64D3A052A3278008ED0EA /* context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CF4052A3278008ED0EA /* context.cpp */; };
+		4CF64D3C052A3278008ED0EA /* cssmacl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CF6052A3278008ED0EA /* cssmacl.cpp */; };
+		4CF64D3E052A3278008ED0EA /* cssmaclpod.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CF8052A3278008ED0EA /* cssmaclpod.cpp */; };
+		4CF64D40052A3278008ED0EA /* cssmalloc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CFA052A3278008ED0EA /* cssmalloc.cpp */; };
+		4CF64D42052A3278008ED0EA /* cssmcert.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CFC052A3278008ED0EA /* cssmcert.cpp */; };
+		4CF64D44052A3278008ED0EA /* cssmcred.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CFE052A3278008ED0EA /* cssmcred.cpp */; };
+		4CF64D46052A3278008ED0EA /* cssmdata.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64D00052A3278008ED0EA /* cssmdata.cpp */; };
+		4CF64D48052A3278008ED0EA /* cssmdates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64D02052A3278008ED0EA /* cssmdates.cpp */; };
+		4CF64D4C052A3278008ED0EA /* cssmendian.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64D06052A3278008ED0EA /* cssmendian.cpp */; };
+		4CF64D50052A3278008ED0EA /* cssmlist.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64D0A052A3278008ED0EA /* cssmlist.cpp */; };
+		4CF64D52052A3278008ED0EA /* cssmtrust.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64D0C052A3278008ED0EA /* cssmtrust.cpp */; };
+		4CF64D56052A3278008ED0EA /* cssmwalkers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64D10052A3278008ED0EA /* cssmwalkers.cpp */; };
+		4CF64D58052A3278008ED0EA /* db++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64D12052A3278008ED0EA /* db++.cpp */; };
+		4CF64D5B052A3278008ED0EA /* handleobject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64D15052A3278008ED0EA /* handleobject.cpp */; };
+		4CF64D68052A3278008ED0EA /* uniformrandom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64D22052A3278008ED0EA /* uniformrandom.cpp */; };
+		4CF64D6A052A3278008ED0EA /* walkers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64D24052A3278008ED0EA /* walkers.cpp */; };
+		C21A3EC40545BEFA00C40B2E /* cssmkey.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21A3EBF0545BEFA00C40B2E /* cssmkey.cpp */; };
+		C21A3EC60545BEFA00C40B2E /* cssmpods.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21A3EC10545BEFA00C40B2E /* cssmpods.cpp */; };
+		C21A3F5D0545C42400C40B2E /* cssmbridge.h in Headers */ = {isa = PBXBuildFile; fileRef = C21A3EBE0545BEFA00C40B2E /* cssmbridge.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C21A3F5E0545C42600C40B2E /* cssmpods.h in Headers */ = {isa = PBXBuildFile; fileRef = C21A3EC20545BEFA00C40B2E /* cssmpods.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C21A3F5F0545C42700C40B2E /* cssmkey.h in Headers */ = {isa = PBXBuildFile; fileRef = C21A3EC00545BEFA00C40B2E /* cssmkey.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2371E4006DD3E5E00E15E6F /* acl_preauth.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2371E3E06DD3E5E00E15E6F /* acl_preauth.cpp */; };
+		C24D11D506DD4752009A9B44 /* acl_preauth.h in Headers */ = {isa = PBXBuildFile; fileRef = C2371E3F06DD3E5E00E15E6F /* acl_preauth.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2BFD03406E6CDFE0047EA99 /* aclsubject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BFD03006E6CDFE0047EA99 /* aclsubject.cpp */; };
+		C2BFD03506E6CDFE0047EA99 /* objectacl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BFD03206E6CDFE0047EA99 /* objectacl.cpp */; };
+		C2BFD03906E6CFAB0047EA99 /* objectacl.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BFD03306E6CDFE0047EA99 /* objectacl.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2BFD03A06E6CFAB0047EA99 /* aclsubject.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BFD03106E6CDFE0047EA99 /* aclsubject.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2BFD05C06E6D0560047EA99 /* acl_secret.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BFD05A06E6D0560047EA99 /* acl_secret.cpp */; };
+		C2BFD06306E6D8E70047EA99 /* acl_secret.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BFD05B06E6D0560047EA99 /* acl_secret.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2BFD0E806E792410047EA99 /* acl_prompted.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BFD0E606E792410047EA99 /* acl_prompted.cpp */; };
+		C2BFD0F006E794D50047EA99 /* acl_prompted.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BFD0E706E792410047EA99 /* acl_prompted.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2C1DC550A2CD98A00D1B02B /* osxverifier.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C1DC530A2CD98A00D1B02B /* osxverifier.cpp */; };
+		C2C1DC560A2CD98A00D1B02B /* osxverifier.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C1DC540A2CD98A00D1B02B /* osxverifier.h */; settings = {ATTRIBUTES = (Public, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4C1E266E0540A5D5002A7E83 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA2A5330523D2CD00978A7B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CF9C5B80535E557009B9B8D;
+			remoteInfo = Schemas;
+		};
+		4C52AC3B0540AFB900536F78 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA2A5330523D2CD00978A7B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C5634F30540A4DE00DCF0C8;
+			remoteInfo = security_cdsa_utilities;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		4C088043053219880049BBEF /* cssmdb.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmdb.cpp; sourceTree = "<group>"; };
+		4C088044053219880049BBEF /* cssmdb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmdb.h; sourceTree = "<group>"; };
+		4C38951C0534B198009CF879 /* KeySchema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KeySchema.h; sourceTree = "<group>"; };
+		4C38951D0534B198009CF879 /* KeySchema.m4 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = KeySchema.m4; sourceTree = "<group>"; };
+		4C3895400534B31D009CF879 /* KeySchema.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = KeySchema.cpp; sourceTree = "<group>"; };
+		4C5634F40540A4DE00DCF0C8 /* security_cdsa_utilities.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_cdsa_utilities.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C66D5E805321B2700537B59 /* cssmdbname.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmdbname.cpp; sourceTree = "<group>"; };
+		4C66D5E905321B2700537B59 /* cssmdbname.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmdbname.h; sourceTree = "<group>"; };
+		4C838EA3058163A4006DA084 /* AuthorizationData.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AuthorizationData.cpp; sourceTree = "<group>"; };
+		4C838EA4058163A4006DA084 /* AuthorizationData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AuthorizationData.h; sourceTree = "<group>"; };
+		4C838EA5058163A4006DA084 /* AuthorizationWalkers.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AuthorizationWalkers.h; sourceTree = "<group>"; };
+		4C96461A05378CCD00499C82 /* Schema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Schema.h; sourceTree = "<group>"; };
+		4C96461B05378CCD00499C82 /* Schema.m4 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = Schema.m4; sourceTree = "<group>"; };
+		4C96462005378CEE00499C82 /* Schema.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Schema.cpp; sourceTree = "<group>"; };
+		4CA2A53A0523D32800978A7B /* security_cdsa_utilities */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_cdsa_utilities; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CF64CE0052A3278008ED0EA /* acl_any.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_any.cpp; sourceTree = "<group>"; };
+		4CF64CE1052A3278008ED0EA /* acl_any.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_any.h; sourceTree = "<group>"; };
+		4CF64CE2052A3278008ED0EA /* acl_codesigning.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_codesigning.cpp; sourceTree = "<group>"; };
+		4CF64CE3052A3278008ED0EA /* acl_codesigning.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_codesigning.h; sourceTree = "<group>"; };
+		4CF64CE4052A3278008ED0EA /* acl_comment.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_comment.cpp; sourceTree = "<group>"; };
+		4CF64CE5052A3278008ED0EA /* acl_comment.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_comment.h; sourceTree = "<group>"; };
+		4CF64CE6052A3278008ED0EA /* acl_password.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_password.cpp; sourceTree = "<group>"; };
+		4CF64CE7052A3278008ED0EA /* acl_password.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_password.h; sourceTree = "<group>"; };
+		4CF64CE8052A3278008ED0EA /* acl_process.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_process.cpp; sourceTree = "<group>"; };
+		4CF64CE9052A3278008ED0EA /* acl_process.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_process.h; sourceTree = "<group>"; };
+		4CF64CEA052A3278008ED0EA /* acl_protectedpw.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_protectedpw.cpp; sourceTree = "<group>"; };
+		4CF64CEB052A3278008ED0EA /* acl_protectedpw.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_protectedpw.h; sourceTree = "<group>"; };
+		4CF64CEC052A3278008ED0EA /* acl_threshold.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_threshold.cpp; sourceTree = "<group>"; };
+		4CF64CED052A3278008ED0EA /* acl_threshold.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_threshold.h; sourceTree = "<group>"; };
+		4CF64CEE052A3278008ED0EA /* callback.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = callback.cpp; sourceTree = "<group>"; };
+		4CF64CEF052A3278008ED0EA /* callback.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = callback.h; sourceTree = "<group>"; };
+		4CF64CF2052A3278008ED0EA /* constdata.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = constdata.cpp; sourceTree = "<group>"; };
+		4CF64CF3052A3278008ED0EA /* constdata.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = constdata.h; sourceTree = "<group>"; };
+		4CF64CF4052A3278008ED0EA /* context.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = context.cpp; sourceTree = "<group>"; };
+		4CF64CF5052A3278008ED0EA /* context.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = context.h; sourceTree = "<group>"; };
+		4CF64CF6052A3278008ED0EA /* cssmacl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmacl.cpp; sourceTree = "<group>"; };
+		4CF64CF7052A3278008ED0EA /* cssmacl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmacl.h; sourceTree = "<group>"; };
+		4CF64CF8052A3278008ED0EA /* cssmaclpod.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmaclpod.cpp; sourceTree = "<group>"; };
+		4CF64CF9052A3278008ED0EA /* cssmaclpod.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmaclpod.h; sourceTree = "<group>"; };
+		4CF64CFA052A3278008ED0EA /* cssmalloc.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmalloc.cpp; sourceTree = "<group>"; };
+		4CF64CFB052A3278008ED0EA /* cssmalloc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmalloc.h; sourceTree = "<group>"; };
+		4CF64CFC052A3278008ED0EA /* cssmcert.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmcert.cpp; sourceTree = "<group>"; };
+		4CF64CFD052A3278008ED0EA /* cssmcert.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmcert.h; sourceTree = "<group>"; };
+		4CF64CFE052A3278008ED0EA /* cssmcred.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmcred.cpp; sourceTree = "<group>"; };
+		4CF64CFF052A3278008ED0EA /* cssmcred.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmcred.h; sourceTree = "<group>"; };
+		4CF64D00052A3278008ED0EA /* cssmdata.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmdata.cpp; sourceTree = "<group>"; };
+		4CF64D01052A3278008ED0EA /* cssmdata.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmdata.h; sourceTree = "<group>"; };
+		4CF64D02052A3278008ED0EA /* cssmdates.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmdates.cpp; sourceTree = "<group>"; };
+		4CF64D03052A3278008ED0EA /* cssmdates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmdates.h; sourceTree = "<group>"; };
+		4CF64D06052A3278008ED0EA /* cssmendian.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmendian.cpp; sourceTree = "<group>"; };
+		4CF64D07052A3278008ED0EA /* cssmendian.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmendian.h; sourceTree = "<group>"; };
+		4CF64D0A052A3278008ED0EA /* cssmlist.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmlist.cpp; sourceTree = "<group>"; };
+		4CF64D0B052A3278008ED0EA /* cssmlist.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmlist.h; sourceTree = "<group>"; };
+		4CF64D0C052A3278008ED0EA /* cssmtrust.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmtrust.cpp; sourceTree = "<group>"; };
+		4CF64D0D052A3278008ED0EA /* cssmtrust.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmtrust.h; sourceTree = "<group>"; };
+		4CF64D10052A3278008ED0EA /* cssmwalkers.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmwalkers.cpp; sourceTree = "<group>"; };
+		4CF64D11052A3278008ED0EA /* cssmwalkers.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmwalkers.h; sourceTree = "<group>"; };
+		4CF64D12052A3278008ED0EA /* db++.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = "db++.cpp"; sourceTree = "<group>"; };
+		4CF64D13052A3278008ED0EA /* db++.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "db++.h"; sourceTree = "<group>"; };
+		4CF64D14052A3278008ED0EA /* digestobject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = digestobject.h; sourceTree = "<group>"; };
+		4CF64D15052A3278008ED0EA /* handleobject.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = handleobject.cpp; sourceTree = "<group>"; };
+		4CF64D16052A3278008ED0EA /* handleobject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = handleobject.h; sourceTree = "<group>"; };
+		4CF64D22052A3278008ED0EA /* uniformrandom.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = uniformrandom.cpp; sourceTree = "<group>"; };
+		4CF64D23052A3278008ED0EA /* uniformrandom.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = uniformrandom.h; sourceTree = "<group>"; };
+		4CF64D24052A3278008ED0EA /* walkers.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = walkers.cpp; sourceTree = "<group>"; };
+		4CF64D25052A3278008ED0EA /* walkers.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = walkers.h; sourceTree = "<group>"; };
+		4CF9C5B90535E557009B9B8D /* KeySchema */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = KeySchema; sourceTree = BUILT_PRODUCTS_DIR; };
+		C21A3EBE0545BEFA00C40B2E /* cssmbridge.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmbridge.h; sourceTree = "<group>"; };
+		C21A3EBF0545BEFA00C40B2E /* cssmkey.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmkey.cpp; sourceTree = "<group>"; };
+		C21A3EC00545BEFA00C40B2E /* cssmkey.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmkey.h; sourceTree = "<group>"; };
+		C21A3EC10545BEFA00C40B2E /* cssmpods.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmpods.cpp; sourceTree = "<group>"; };
+		C21A3EC20545BEFA00C40B2E /* cssmpods.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmpods.h; sourceTree = "<group>"; };
+		C22EC429052B8E4900D55C69 /* cssmerrors.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmerrors.cpp; sourceTree = "<group>"; };
+		C22EC42A052B8E4900D55C69 /* cssmerrors.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmerrors.h; sourceTree = "<group>"; };
+		C2371E3E06DD3E5E00E15E6F /* acl_preauth.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_preauth.cpp; sourceTree = "<group>"; };
+		C2371E3F06DD3E5E00E15E6F /* acl_preauth.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_preauth.h; sourceTree = "<group>"; };
+		C2BFD03006E6CDFE0047EA99 /* aclsubject.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = aclsubject.cpp; sourceTree = "<group>"; };
+		C2BFD03106E6CDFE0047EA99 /* aclsubject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = aclsubject.h; sourceTree = "<group>"; };
+		C2BFD03206E6CDFE0047EA99 /* objectacl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = objectacl.cpp; sourceTree = "<group>"; };
+		C2BFD03306E6CDFE0047EA99 /* objectacl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = objectacl.h; sourceTree = "<group>"; };
+		C2BFD05A06E6D0560047EA99 /* acl_secret.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_secret.cpp; sourceTree = "<group>"; };
+		C2BFD05B06E6D0560047EA99 /* acl_secret.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_secret.h; sourceTree = "<group>"; };
+		C2BFD0E606E792410047EA99 /* acl_prompted.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_prompted.cpp; sourceTree = "<group>"; };
+		C2BFD0E706E792410047EA99 /* acl_prompted.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_prompted.h; sourceTree = "<group>"; };
+		C2C1DC530A2CD98A00D1B02B /* osxverifier.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = osxverifier.cpp; sourceTree = "<group>"; };
+		C2C1DC540A2CD98A00D1B02B /* osxverifier.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = osxverifier.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworkTarget section */
+		4C5634F30540A4DE00DCF0C8 /* security_cdsa_utilities */ = {
+			isa = PBXFrameworkTarget;
+			buildConfigurationList = C27AD2EE0987FCDD001272E0 /* Build configuration list for PBXFrameworkTarget "security_cdsa_utilities" */;
+			buildPhases = (
+				4C5634EE0540A4DE00DCF0C8 /* Headers */,
+			);
+			dependencies = (
+			);
+			name = security_cdsa_utilities;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_cdsa_utilities;
+			productReference = 4C5634F40540A4DE00DCF0C8 /* security_cdsa_utilities.framework */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict/>
+</plist>
+";
+		};
+/* End PBXFrameworkTarget section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA2A5370523D32800978A7B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4C38953B0534B2FD009CF879 /* derived_src */ = {
+			isa = PBXGroup;
+			children = (
+				4C3895400534B31D009CF879 /* KeySchema.cpp */,
+				4C96462005378CEE00499C82 /* Schema.cpp */,
+			);
+			path = derived_src;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		4CA2A52F0523D2CD00978A7B = {
+			isa = PBXGroup;
+			children = (
+				4CF64CDB052A3236008ED0EA /* lib */,
+				4C38953B0534B2FD009CF879 /* derived_src */,
+				4CA2A53B0523D32800978A7B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA2A53B0523D32800978A7B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA2A53A0523D32800978A7B /* security_cdsa_utilities */,
+				4CF9C5B90535E557009B9B8D /* KeySchema */,
+				4C5634F40540A4DE00DCF0C8 /* security_cdsa_utilities.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4CF64CDB052A3236008ED0EA /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				C29CE2B906DD5BD60051AFA9 /* ACLs */,
+				4C838EA3058163A4006DA084 /* AuthorizationData.cpp */,
+				4C838EA4058163A4006DA084 /* AuthorizationData.h */,
+				4C838EA5058163A4006DA084 /* AuthorizationWalkers.h */,
+				4CF64CEE052A3278008ED0EA /* callback.cpp */,
+				4CF64CEF052A3278008ED0EA /* callback.h */,
+				4CF64CF2052A3278008ED0EA /* constdata.cpp */,
+				4CF64CF3052A3278008ED0EA /* constdata.h */,
+				4CF64CF4052A3278008ED0EA /* context.cpp */,
+				4CF64CF5052A3278008ED0EA /* context.h */,
+				4CF64CF8052A3278008ED0EA /* cssmaclpod.cpp */,
+				4CF64CF9052A3278008ED0EA /* cssmaclpod.h */,
+				4CF64CFA052A3278008ED0EA /* cssmalloc.cpp */,
+				4CF64CFB052A3278008ED0EA /* cssmalloc.h */,
+				C21A3EBE0545BEFA00C40B2E /* cssmbridge.h */,
+				4CF64CFC052A3278008ED0EA /* cssmcert.cpp */,
+				4CF64CFD052A3278008ED0EA /* cssmcert.h */,
+				4CF64CFE052A3278008ED0EA /* cssmcred.cpp */,
+				4CF64CFF052A3278008ED0EA /* cssmcred.h */,
+				4CF64D00052A3278008ED0EA /* cssmdata.cpp */,
+				4CF64D01052A3278008ED0EA /* cssmdata.h */,
+				4CF64D02052A3278008ED0EA /* cssmdates.cpp */,
+				4CF64D03052A3278008ED0EA /* cssmdates.h */,
+				4C088043053219880049BBEF /* cssmdb.cpp */,
+				4C088044053219880049BBEF /* cssmdb.h */,
+				4C66D5E805321B2700537B59 /* cssmdbname.cpp */,
+				4C66D5E905321B2700537B59 /* cssmdbname.h */,
+				4CF64D06052A3278008ED0EA /* cssmendian.cpp */,
+				4CF64D07052A3278008ED0EA /* cssmendian.h */,
+				C22EC429052B8E4900D55C69 /* cssmerrors.cpp */,
+				C22EC42A052B8E4900D55C69 /* cssmerrors.h */,
+				C21A3EBF0545BEFA00C40B2E /* cssmkey.cpp */,
+				C21A3EC00545BEFA00C40B2E /* cssmkey.h */,
+				4CF64D0A052A3278008ED0EA /* cssmlist.cpp */,
+				4CF64D0B052A3278008ED0EA /* cssmlist.h */,
+				C21A3EC10545BEFA00C40B2E /* cssmpods.cpp */,
+				C21A3EC20545BEFA00C40B2E /* cssmpods.h */,
+				4CF64D0C052A3278008ED0EA /* cssmtrust.cpp */,
+				4CF64D0D052A3278008ED0EA /* cssmtrust.h */,
+				4CF64D10052A3278008ED0EA /* cssmwalkers.cpp */,
+				4CF64D11052A3278008ED0EA /* cssmwalkers.h */,
+				4CF64D12052A3278008ED0EA /* db++.cpp */,
+				4CF64D13052A3278008ED0EA /* db++.h */,
+				4CF64D14052A3278008ED0EA /* digestobject.h */,
+				4CF64D15052A3278008ED0EA /* handleobject.cpp */,
+				4CF64D16052A3278008ED0EA /* handleobject.h */,
+				4C38951C0534B198009CF879 /* KeySchema.h */,
+				4C38951D0534B198009CF879 /* KeySchema.m4 */,
+				4C96461A05378CCD00499C82 /* Schema.h */,
+				4C96461B05378CCD00499C82 /* Schema.m4 */,
+				C2C1DC530A2CD98A00D1B02B /* osxverifier.cpp */,
+				C2C1DC540A2CD98A00D1B02B /* osxverifier.h */,
+				4CF64D22052A3278008ED0EA /* uniformrandom.cpp */,
+				4CF64D23052A3278008ED0EA /* uniformrandom.h */,
+				4CF64D24052A3278008ED0EA /* walkers.cpp */,
+				4CF64D25052A3278008ED0EA /* walkers.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		C29CE2B906DD5BD60051AFA9 /* ACLs */ = {
+			isa = PBXGroup;
+			children = (
+				C2BFD03306E6CDFE0047EA99 /* objectacl.h */,
+				C2BFD03206E6CDFE0047EA99 /* objectacl.cpp */,
+				C2BFD03106E6CDFE0047EA99 /* aclsubject.h */,
+				C2BFD03006E6CDFE0047EA99 /* aclsubject.cpp */,
+				4CF64CF7052A3278008ED0EA /* cssmacl.h */,
+				4CF64CF6052A3278008ED0EA /* cssmacl.cpp */,
+				C2BFD02B06E6CDE10047EA99 /* Subjects */,
+			);
+			name = ACLs;
+			sourceTree = "<group>";
+		};
+		C2BFD02B06E6CDE10047EA99 /* Subjects */ = {
+			isa = PBXGroup;
+			children = (
+				4CF64CE0052A3278008ED0EA /* acl_any.cpp */,
+				4CF64CE1052A3278008ED0EA /* acl_any.h */,
+				4CF64CE2052A3278008ED0EA /* acl_codesigning.cpp */,
+				4CF64CE3052A3278008ED0EA /* acl_codesigning.h */,
+				4CF64CE4052A3278008ED0EA /* acl_comment.cpp */,
+				4CF64CE5052A3278008ED0EA /* acl_comment.h */,
+				4CF64CE6052A3278008ED0EA /* acl_password.cpp */,
+				4CF64CE7052A3278008ED0EA /* acl_password.h */,
+				C2371E3E06DD3E5E00E15E6F /* acl_preauth.cpp */,
+				C2371E3F06DD3E5E00E15E6F /* acl_preauth.h */,
+				4CF64CE8052A3278008ED0EA /* acl_process.cpp */,
+				4CF64CE9052A3278008ED0EA /* acl_process.h */,
+				C2BFD0E606E792410047EA99 /* acl_prompted.cpp */,
+				C2BFD0E706E792410047EA99 /* acl_prompted.h */,
+				4CF64CEA052A3278008ED0EA /* acl_protectedpw.cpp */,
+				4CF64CEB052A3278008ED0EA /* acl_protectedpw.h */,
+				C2BFD05A06E6D0560047EA99 /* acl_secret.cpp */,
+				C2BFD05B06E6D0560047EA99 /* acl_secret.h */,
+				4CF64CEC052A3278008ED0EA /* acl_threshold.cpp */,
+				4CF64CED052A3278008ED0EA /* acl_threshold.h */,
+			);
+			name = Subjects;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4C5634EE0540A4DE00DCF0C8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2BFD03906E6CFAB0047EA99 /* objectacl.h in Headers */,
+				C2BFD03A06E6CFAB0047EA99 /* aclsubject.h in Headers */,
+				4C52AC180540AF7A00536F78 /* acl_any.h in Headers */,
+				4C52AC190540AF7A00536F78 /* acl_codesigning.h in Headers */,
+				4C52AC1A0540AF7A00536F78 /* acl_comment.h in Headers */,
+				4C52AC1B0540AF7A00536F78 /* acl_password.h in Headers */,
+				C24D11D506DD4752009A9B44 /* acl_preauth.h in Headers */,
+				4C52AC1C0540AF7A00536F78 /* acl_process.h in Headers */,
+				C2BFD0F006E794D50047EA99 /* acl_prompted.h in Headers */,
+				4C52AC1D0540AF7A00536F78 /* acl_protectedpw.h in Headers */,
+				C2BFD06306E6D8E70047EA99 /* acl_secret.h in Headers */,
+				4C52AC1E0540AF7A00536F78 /* acl_threshold.h in Headers */,
+				4C838EA9058163BE006DA084 /* AuthorizationData.h in Headers */,
+				4C838EAA058163BE006DA084 /* AuthorizationWalkers.h in Headers */,
+				4C52AC1F0540AF7A00536F78 /* callback.h in Headers */,
+				4C52AC210540AF7A00536F78 /* constdata.h in Headers */,
+				4C52AC220540AF7A00536F78 /* context.h in Headers */,
+				4C52AC230540AF7A00536F78 /* cssmacl.h in Headers */,
+				4C52AC240540AF7A00536F78 /* cssmaclpod.h in Headers */,
+				4C52AC250540AF7A00536F78 /* cssmalloc.h in Headers */,
+				C21A3F5D0545C42400C40B2E /* cssmbridge.h in Headers */,
+				4C52AC260540AF7A00536F78 /* cssmcert.h in Headers */,
+				4C52AC270540AF7A00536F78 /* cssmcred.h in Headers */,
+				4C52AC280540AF7A00536F78 /* cssmdata.h in Headers */,
+				4C52AC290540AF7A00536F78 /* cssmdates.h in Headers */,
+				4C52AC2A0540AF7A00536F78 /* cssmdb.h in Headers */,
+				4C52AC2B0540AF7A00536F78 /* cssmdbname.h in Headers */,
+				4C52AC2C0540AF7A00536F78 /* cssmendian.h in Headers */,
+				4C52AC2E0540AF7A00536F78 /* cssmerrors.h in Headers */,
+				C21A3F5F0545C42700C40B2E /* cssmkey.h in Headers */,
+				4C52AC2F0540AF7A00536F78 /* cssmlist.h in Headers */,
+				C21A3F5E0545C42600C40B2E /* cssmpods.h in Headers */,
+				4C52AC300540AF7A00536F78 /* cssmtrust.h in Headers */,
+				4C52AC320540AF7A00536F78 /* cssmwalkers.h in Headers */,
+				4C52AC330540AF7A00536F78 /* db++.h in Headers */,
+				4C52AC340540AF7A00536F78 /* digestobject.h in Headers */,
+				4C52AC350540AF7A00536F78 /* handleobject.h in Headers */,
+				4C52AC360540AF7A00536F78 /* KeySchema.h in Headers */,
+				4C52AC370540AF7A00536F78 /* Schema.h in Headers */,
+				4C52AC380540AF7A00536F78 /* uniformrandom.h in Headers */,
+				4C52AC390540AF7A00536F78 /* walkers.h in Headers */,
+				C2C1DC560A2CD98A00D1B02B /* osxverifier.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLibraryTarget section */
+		4CA2A5390523D32800978A7B /* libsecurity_cdsa_utilities */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = C27AD2F60987FCDD001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_cdsa_utilities" */;
+			buildPhases = (
+				4CA2A5360523D32800978A7B /* Sources */,
+				4CA2A5370523D32800978A7B /* Frameworks */,
+				4C789B9B055AF4C100B6FC95 /* ShellScript */,
+				4CD0D4AA055B0EE0001715CB /* ShellScript */,
+			);
+			dependencies = (
+				4C52AC3C0540AFB900536F78 /* PBXTargetDependency */,
+				4CFF43000535E5E900638F31 /* PBXTargetDependency */,
+			);
+			name = libsecurity_cdsa_utilities;
+			productName = libsecurity_cdsa_utilities.a;
+			productReference = 4CA2A53A0523D32800978A7B /* security_cdsa_utilities */;
+		};
+/* End PBXLibraryTarget section */
+
+/* Begin PBXProject section */
+		4CA2A5330523D2CD00978A7B /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD2FA0987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_utilities" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 4CA2A52F0523D2CD00978A7B;
+			productRefGroup = 4CA2A53B0523D32800978A7B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4CA2A5390523D32800978A7B /* libsecurity_cdsa_utilities */,
+				4CF9C5B80535E557009B9B8D /* Schemas */,
+				4C5634F30540A4DE00DCF0C8 /* security_cdsa_utilities */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4C789B9B055AF4C100B6FC95 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+		};
+		4CD0D4AA055B0EE0001715CB /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A\"\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework\"\ndone";
+		};
+		4CFF42FC0535E5B100638F31 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "TARGET=$BUILT_PRODUCTS_DIR/derived_src/KeySchema.cpp\nmkdir -p $BUILT_PRODUCTS_DIR/derived_src\n/usr/bin/m4 lib/KeySchema.m4 > $TARGET.new\ncmp -s $TARGET.new $TARGET || mv $TARGET.new $TARGET\nTARGET=$BUILT_PRODUCTS_DIR/derived_src/Schema.cpp\n/usr/bin/m4 lib/Schema.m4 > $TARGET.new\ncmp -s $TARGET.new $TARGET || mv $TARGET.new $TARGET";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA2A5360523D32800978A7B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CF64D26052A3278008ED0EA /* acl_any.cpp in Sources */,
+				4CF64D28052A3278008ED0EA /* acl_codesigning.cpp in Sources */,
+				4CF64D2A052A3278008ED0EA /* acl_comment.cpp in Sources */,
+				4CF64D2C052A3278008ED0EA /* acl_password.cpp in Sources */,
+				4CF64D2E052A3278008ED0EA /* acl_process.cpp in Sources */,
+				4CF64D30052A3278008ED0EA /* acl_protectedpw.cpp in Sources */,
+				4CF64D32052A3278008ED0EA /* acl_threshold.cpp in Sources */,
+				4CF64D34052A3278008ED0EA /* callback.cpp in Sources */,
+				4CF64D38052A3278008ED0EA /* constdata.cpp in Sources */,
+				4CF64D3A052A3278008ED0EA /* context.cpp in Sources */,
+				4CF64D3C052A3278008ED0EA /* cssmacl.cpp in Sources */,
+				4CF64D3E052A3278008ED0EA /* cssmaclpod.cpp in Sources */,
+				4CF64D40052A3278008ED0EA /* cssmalloc.cpp in Sources */,
+				4CF64D42052A3278008ED0EA /* cssmcert.cpp in Sources */,
+				4CF64D44052A3278008ED0EA /* cssmcred.cpp in Sources */,
+				4CF64D46052A3278008ED0EA /* cssmdata.cpp in Sources */,
+				4CF64D48052A3278008ED0EA /* cssmdates.cpp in Sources */,
+				4C088047053219880049BBEF /* cssmdb.cpp in Sources */,
+				4C66D5EA05321B2700537B59 /* cssmdbname.cpp in Sources */,
+				4CF64D4C052A3278008ED0EA /* cssmendian.cpp in Sources */,
+				4C92661705349551004B0E72 /* cssmerrors.cpp in Sources */,
+				4CF64D50052A3278008ED0EA /* cssmlist.cpp in Sources */,
+				4CF64D52052A3278008ED0EA /* cssmtrust.cpp in Sources */,
+				4CF64D56052A3278008ED0EA /* cssmwalkers.cpp in Sources */,
+				4CF64D58052A3278008ED0EA /* db++.cpp in Sources */,
+				4CF64D5B052A3278008ED0EA /* handleobject.cpp in Sources */,
+				4C3895410534B31D009CF879 /* KeySchema.cpp in Sources */,
+				4C96462105378CEE00499C82 /* Schema.cpp in Sources */,
+				4CF64D68052A3278008ED0EA /* uniformrandom.cpp in Sources */,
+				4CF64D6A052A3278008ED0EA /* walkers.cpp in Sources */,
+				C21A3EC40545BEFA00C40B2E /* cssmkey.cpp in Sources */,
+				C21A3EC60545BEFA00C40B2E /* cssmpods.cpp in Sources */,
+				4C838EA6058163A4006DA084 /* AuthorizationData.cpp in Sources */,
+				4C838EA7058163A4006DA084 /* AuthorizationData.h in Sources */,
+				4C838EA8058163A4006DA084 /* AuthorizationWalkers.h in Sources */,
+				C2371E4006DD3E5E00E15E6F /* acl_preauth.cpp in Sources */,
+				C2BFD03406E6CDFE0047EA99 /* aclsubject.cpp in Sources */,
+				C2BFD03506E6CDFE0047EA99 /* objectacl.cpp in Sources */,
+				C2BFD05C06E6D0560047EA99 /* acl_secret.cpp in Sources */,
+				C2BFD0E806E792410047EA99 /* acl_prompted.cpp in Sources */,
+				C2C1DC550A2CD98A00D1B02B /* osxverifier.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4C52AC3C0540AFB900536F78 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C5634F30540A4DE00DCF0C8 /* security_cdsa_utilities */;
+			targetProxy = 4C52AC3B0540AFB900536F78 /* PBXContainerItemProxy */;
+		};
+		4CFF43000535E5E900638F31 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CF9C5B80535E557009B9B8D /* Schemas */;
+			targetProxy = 4C1E266E0540A5D5002A7E83 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXToolTarget section */
+		4CF9C5B80535E557009B9B8D /* Schemas */ = {
+			isa = PBXToolTarget;
+			buildConfigurationList = C27AD2F20987FCDD001272E0 /* Build configuration list for PBXToolTarget "Schemas" */;
+			buildPhases = (
+				4CFF42FC0535E5B100638F31 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = Schemas;
+			productInstallPath = /usr/local/bin;
+			productName = KeySchema;
+			productReference = 4CF9C5B90535E557009B9B8D /* KeySchema */;
+		};
+/* End PBXToolTarget section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD2EF0987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_cdsa_utilities;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD2F00987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_cdsa_utilities;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD2F10987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_cdsa_utilities;
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Default;
+		};
+		C27AD2F30987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				PRODUCT_NAME = KeySchema;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD2F40987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = KeySchema;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD2F50987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = KeySchema;
+			};
+			name = Default;
+		};
+		C27AD2F70987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_nopic = "-mdynamic-no-pic $(OPT_CFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_cdsa_utilities;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD2F80987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+					nopic,
+				);
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_nopic = "-mdynamic-no-pic $(OPT_CFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_cdsa_utilities;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD2F90987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+					nopic,
+				);
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_nopic = "-mdynamic-no-pic $(OPT_CFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_cdsa_utilities;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD2FB0987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD2FC0987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD2FD0987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				UNSTRIPPED_PRODUCT = YES;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD2EE0987FCDD001272E0 /* Build configuration list for PBXFrameworkTarget "security_cdsa_utilities" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2EF0987FCDD001272E0 /* Development */,
+				C27AD2F00987FCDD001272E0 /* Deployment */,
+				C27AD2F10987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD2F20987FCDD001272E0 /* Build configuration list for PBXToolTarget "Schemas" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2F30987FCDD001272E0 /* Development */,
+				C27AD2F40987FCDD001272E0 /* Deployment */,
+				C27AD2F50987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD2F60987FCDD001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_cdsa_utilities" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2F70987FCDD001272E0 /* Development */,
+				C27AD2F80987FCDD001272E0 /* Deployment */,
+				C27AD2F90987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD2FA0987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_utilities" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2FB0987FCDD001272E0 /* Development */,
+				C27AD2FC0987FCDD001272E0 /* Deployment */,
+				C27AD2FD0987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA2A5330523D2CD00978A7B /* Project object */;
+}

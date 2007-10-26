@@ -1,3 +1,4 @@
+.\" Portions Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
 .\"	$NetBSD: protocols.5,v 1.3 1994/11/30 19:31:27 jtc Exp $
 .\"
 .\" Copyright (c) 1983, 1991, 1993
@@ -60,18 +61,22 @@ not interpreted by routines which search the file.
 Protocol names may contain any printable
 character other than a field delimiter, newline,
 or comment character.
+.Sh INTERACTION WITH DIRECTORY SERVICES
+Processes generally find protocol records using one of the
+.Xr getprotoent 3
+family of functions.
+On Mac OS X, these functions interact with the
+.Xr DirectoryService 8
+daemon,
+which reads the /etc/protocols file as well as searching other directory information services
+to determine protocol name and number information.
 .Sh FILES
 .Bl -tag -width /etc/protocols -compact
 .It Pa /etc/protocols
-The
-.Nm protocols
-file resides in
-.Pa /etc .
 .El
 .Sh SEE ALSO
-.Xr getprotoent 3
-.Sh BUGS
-A name server should be used instead of a static file.
+.Xr getprotoent 3 ,
+.Xr DirectoryService 8
 .Sh HISTORY
 The
 .Nm

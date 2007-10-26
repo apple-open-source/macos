@@ -1,35 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <plist version="1.0">
-<dict>
-	<key>OpenSourceProject</key>
-	<string>tcl</string>
-	<key>OpenSourceVersion</key>
-	<string>8.4.7</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://tcl.tk/</string>
-	<key>OpenSourceURL</key>
-	<string>http://tcltkaqua.sourceforge.net/darwin-TclBI/tcl/tcl.tar.gz</string>
-	<key>OpenSourceMD5</key>
-	<string>07e256e21bd0d05887770318b540c36f</string>
-	<key>OpenSourceLicense</key>
-	<string>Other</string>
-	<key>OpenSourceLicenseFile</key>
-	<string>tcl.txt</string>
-</dict>
-<dict>
-	<key>OpenSourceProject</key>
-	<string>tk</string>
-	<key>OpenSourceVersion</key>
-	<string>8.4.7</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://tcl.tk/</string>
-	<key>OpenSourceURL</key>
-	<string>http://tcltkaqua.sourceforge.net/darwin-TclBI/tk/tk.tar.gz</string>
-	<key>OpenSourceMD5</key>
-	<string>b86b0db1c28723e6d3139e88250353a6</string>
-	<key>OpenSourceLicense</key>
-	<string>Other</string>
-	<key>OpenSourceLicenseFile</key>
-	<string>tk.txt</string>
-</dict>
+<array>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tcl</string>
+		<key>OpenSourceVersion</key>
+		<string>8.4.7</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tcl.tk/</string>
+		<key>OpenSourceURL</key>
+		<string>http://tcltkaqua.sourceforge.net/darwin-TclBI/tcl/tcl.tar.gz</string>
+		<key>OpenSourceMD5</key>
+		<string>07e256e21bd0d05887770318b540c36f</string>
+		<key>OpenSourceLicense</key>
+		<string>Other</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tcl.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tk</string>
+		<key>OpenSourceVersion</key>
+		<string>8.4.7</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://tcl.tk/</string>
+		<key>OpenSourceURL</key>
+		<string>http://tcltkaqua.sourceforge.net/darwin-TclBI/tk/tk.tar.gz</string>
+		<key>OpenSourceMD5</key>
+		<string>b86b0db1c28723e6d3139e88250353a6</string>
+		<key>OpenSourceLicense</key>
+		<string>Other</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>tk.txt</string>
+	</dict>
+</array>
 </plist>

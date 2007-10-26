@@ -1,1 +1,1 @@
-source <sfile>:p:h/menu_es_es.iso_8859-1.vim
+source <sfile>:p:h/menu_es_es.latin1.vim

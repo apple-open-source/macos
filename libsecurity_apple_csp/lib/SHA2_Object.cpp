@@ -33,6 +33,40 @@
 #include <string.h>
 
 /***
+ *** SHA224
+ ***/
+void SHA224Object::digestInit()
+{
+	mIsDone = false;
+	CC_SHA224_Init(&mCtx);
+}
+
+void SHA224Object::digestUpdate(
+	const void 	*data, 
+	size_t 		len)
+{
+	CC_SHA224_Update(&mCtx, (const unsigned char *)data, len);
+}
+
+void SHA224Object::digestFinal(
+	void 		*digest)
+{
+	CC_SHA224_Final((unsigned char *)digest, &mCtx);
+	mIsDone = true;
+}
+
+/* use default memberwise init */
+DigestObject *SHA224Object::digestClone() const
+{
+	return new SHA224Object(*this);
+}
+
+size_t SHA224Object::digestSizeInBytes() const
+{
+	return CC_SHA224_DIGEST_LENGTH;
+}
+
+/***
  *** SHA256
  ***/
 void SHA256Object::digestInit()
@@ -61,7 +95,7 @@ DigestObject *SHA256Object::digestClone() const
 	return new SHA256Object(*this);
 }
 
-UInt32 SHA256Object::digestSizeInBytes() const
+size_t SHA256Object::digestSizeInBytes() const
 {
 	return CC_SHA256_DIGEST_LENGTH;
 }
@@ -95,7 +129,7 @@ DigestObject *SHA384Object::digestClone() const
 	return new SHA384Object(*this);
 }
 
-UInt32 SHA384Object::digestSizeInBytes() const
+size_t SHA384Object::digestSizeInBytes() const
 {
 	return CC_SHA384_DIGEST_LENGTH;
 }
@@ -129,7 +163,7 @@ DigestObject *SHA512Object::digestClone() const
 	return new SHA512Object(*this);
 }
 
-UInt32 SHA512Object::digestSizeInBytes() const
+size_t SHA512Object::digestSizeInBytes() const
 {
 	return CC_SHA512_DIGEST_LENGTH;
 }

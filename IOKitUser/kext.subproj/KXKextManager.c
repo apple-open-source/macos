@@ -1,3 +1,7 @@
+#if !__LP64__
+
+#include <sys/cdefs.h>
+
 #include <libc.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <IOKit/IOKitLib.h>
@@ -15,7 +19,7 @@
 #include "KXKextRepository_private.h"
 
 #include "load.h"
-#include "paths.h"
+#include "path_util.h"
 #include "printPList.h"
 #include "vers_rsrc.h"
 
@@ -31,11 +35,11 @@ typedef struct __KXKextManager {
     CFRuntimeBase  cfBase;   // base CFType information
 
     SInt32 logLevel;
-    void (*log_func)(const char * format, ...);
-    void (*error_log_func)(const char * format, ...);
-    int  (*user_approve_func)(int defaultAnswer, const char * format, ...);
-    int  (*user_veto_func)(int defaultAnswer, const char * format, ...);
-    const char * (*user_input_func)(const char * format, ...);
+    void (*log_func)(const char * format, ...) __attribute__((format(printf, 1, 2)));
+    void (*error_log_func)(const char * format, ...) __attribute__((format(printf, 1, 2)));
+    int  (*user_approve_func)(int defaultAnswer, const char * format, ...) __attribute__((format(printf, 2, 3)));
+    int  (*user_veto_func)(int defaultAnswer, const char * format, ...) __attribute__((format(printf, 2, 3)));
+    const char * (*user_input_func)(const char * format, ...) __attribute__((format(printf, 1, 2)));
 
     CFMutableArrayRef       repositoryList;
     
@@ -124,6 +128,8 @@ static int __KXKextManagerCheckPersonalityForSafeBoot(
     CFDictionaryRef aPersonality,
     const char * personality_name);
 
+extern KXKextManagerError __KXKextRealizeFromCache(KXKextRef aKext);
+
 
 /*******************************************************************************
 *
@@ -209,6 +215,35 @@ const char * KXKextManagerErrorStaticCStringForError(KXKextManagerError error)
         return "(string conversion failure)";
     }
     return return_string;
+}
+
+/******************************************************************************
+* cStringForCFString()
+******************************************************************************/
+static char * cStringForCFString(CFStringRef aString)
+{
+    char * result;  // returned
+    CFIndex length;
+    int error = 0;
+
+    length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(aString),
+        kCFStringEncodingMacRoman) + sizeof('\0');
+    result = (char *)malloc(length * sizeof(char));
+    if (!result) {
+         error = 1;
+         goto finish;
+     }
+    
+    if (!CFStringGetCString(aString, result, length,
+        kCFStringEncodingMacRoman)) {
+
+        error = 1;
+         goto finish;
+    }
+
+finish:
+    if (error && result) free(result);
+    return result;
 }
 
 /*******************************************************************************
@@ -739,10 +774,12 @@ KXKextManagerError KXKextManagerAddKextWithURL(
     KXKextRef * theKext)
 {
     KXKextManagerError result = kKXKextManagerErrorNone;
+    KXKextRepositoryRef repository = NULL;  // don't release
     KXKextRef foundKext = NULL;  // don't release
     KXKextRef newKext = NULL;    // must release
     CFURLRef localURL = NULL;
     char * url_path = NULL;      // must free
+    char kext_url[MAXPATHLEN] = "(unknown)";
     Boolean error = false;
 
     url_path = PATH_CanonicalizedCStringForURL(kextURL);
@@ -755,13 +792,28 @@ KXKextManagerError KXKextManagerAddKextWithURL(
 	localURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, CFSTR(kSystemKextPath),
 						    kCFURLPOSIXPathStyle, true);
 	if (!localURL) {
-	    goto finish;
+            error = true;
+            result = kKXKextManagerErrorUnspecified;
+            goto finish;
 	}
 	kextURL = localURL;
 	url_path = PATH_CanonicalizedCStringForURL(kextURL);
     }
 
-    _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelDetails, NULL, 0,
+    if (!url_path) {
+        CFStringGetCString(CFURLGetString(kextURL),
+            kext_url, sizeof(kext_url) - 1, kCFStringEncodingUTF8);
+
+        _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelDetails, NULL, 0,
+            "can't determine absolute pathname for kext  %s (%s)",
+            kext_url, KXKextManagerErrorStaticCStringForError(result));
+        error = true;
+        result = kKXKextManagerErrorUnspecified;
+        goto finish;
+    }
+
+ 
+   _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelDetails, NULL, 0,
         "request to add kernel extension %s", url_path);
 
     foundKext = KXKextManagerGetKextWithURL(aKextManager, kextURL);
@@ -800,11 +852,17 @@ KXKextManagerError KXKextManagerAddKextWithURL(
             error = true;
             goto finish;
         } else if (result != kKXKextManagerErrorNone) {
-            _KXKextRepositoryAddBadKext(KXKextGetRepository(newKext), newKext);
+            repository = KXKextGetRepository(newKext);
+            if (repository) {
+                _KXKextRepositoryAddBadKext(repository, newKext);
+            }
             error = true;
             goto finish;
         }
-        _KXKextRepositoryAddKext(KXKextGetRepository(newKext), newKext);
+        repository = KXKextGetRepository(newKext);
+        if (repository) {
+            _KXKextRepositoryAddKext(repository, newKext);
+        }
 
         if (includePlugins) {
             KXKextManagerError scanResult = kKXKextManagerErrorNone;
@@ -814,8 +872,10 @@ KXKextManagerError KXKextManagerAddKextWithURL(
             scanResult = _KXKextScanPlugins(newKext, &addedPlugins,
                 &badKextPlugins, NULL);
             if (scanResult == kKXKextManagerErrorNone) {
-                _KXKextRepositoryAddKexts(KXKextGetRepository(newKext), addedPlugins);
-                _KXKextRepositoryAddBadKexts(KXKextGetRepository(newKext), badKextPlugins);
+                if (repository) {
+                    _KXKextRepositoryAddKexts(repository, addedPlugins);
+                    _KXKextRepositoryAddBadKexts(repository, badKextPlugins);
+                }
             }
 
             if (addedPlugins) {
@@ -837,9 +897,16 @@ KXKextManagerError KXKextManagerAddKextWithURL(
 
 finish:
     if (error) {
+        char * kext_name = "(unknown)";
+
+        if (url_path) {
+            kext_name = url_path;
+        } else if (kext_url) {
+            kext_name = kext_url;
+        }
         _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelDetails, NULL, 0,
             "failed to add kernel extension %s (%s)",
-            url_path, KXKextManagerErrorStaticCStringForError(result));
+            kext_name, KXKextManagerErrorStaticCStringForError(result));
     }
 
     if (url_path) free(url_path);
@@ -853,10 +920,13 @@ finish:
 *
 *******************************************************************************/
 void KXKextManagerRemoveKext(
-    KXKextManagerRef aKextManager,
+    KXKextManagerRef aKextManager __unused,
     KXKextRef aKext)
 {
-    _KXKextRepositoryRemoveKext(KXKextGetRepository(aKext), aKext);
+    KXKextRepositoryRef repository = KXKextGetRepository(aKext);
+    if (repository) {
+        _KXKextRepositoryRemoveKext(repository, aKext);
+    }
     return;
 }
 
@@ -898,22 +968,26 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
-void KXKextManagerDisqualifyKext(KXKextManagerRef aKextManager,
+void KXKextManagerDisqualifyKext(KXKextManagerRef aKextManager __unused,
     KXKextRef aKext)
 {
-    _KXKextRepositoryDisqualifyKext(KXKextGetRepository(aKext),
-        aKext);
+    KXKextRepositoryRef repository = KXKextGetRepository(aKext);
+    if (repository) {
+        _KXKextRepositoryDisqualifyKext(repository, aKext);
+    }
     return;
 }
 
 /*******************************************************************************
 *
 *******************************************************************************/
-void KXKextManagerRequalifyKext(KXKextManagerRef aKextManager,
+void KXKextManagerRequalifyKext(KXKextManagerRef aKextManager __unused,
     KXKextRef aKext)
 {
-    _KXKextRepositoryRequalifyKext(KXKextGetRepository(aKext),
-        aKext);
+    KXKextRepositoryRef repository = KXKextGetRepository(aKext);
+    if (repository) {
+    _KXKextRepositoryRequalifyKext(repository, aKext);
+    }
     return;
 }
 
@@ -1536,7 +1610,7 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
-CFArrayRef KXKextManagerCopyAllKexts(KXKextManagerRef aKextManager)
+CFMutableArrayRef KXKextManagerCopyAllKexts(KXKextManagerRef aKextManager)
 {
     CFMutableArrayRef kextArray = NULL;  // returned
     KXKextRef * kexts = NULL;           // must free
@@ -1548,39 +1622,17 @@ CFArrayRef KXKextManagerCopyAllKexts(KXKextManagerRef aKextManager)
         goto finish;
     }
 
-   /*****
-    * Nab all of the candidate kexts, including prior and duplicate
-    * versions.
-    */
-    count = CFDictionaryGetCount(aKextManager->candidateKexts);
-    if (count) {
-        kexts = (KXKextRef *)malloc(count * sizeof(CFStringRef));
-        if (!kexts) {
-            goto finish;
-        }
-        CFDictionaryGetKeysAndValues(aKextManager->candidateKexts, NULL,
-            (const void **)kexts);
-        for (i = 0; i < count; i++) {
-            KXKextRef thisKext = kexts[i];
-
-            CFArrayAppendValue(kextArray, thisKext);
-
-            while ( (thisKext = KXKextGetPriorVersionKext(thisKext)) ) {
-                KXKextRef dupKext = NULL;   // don't release
-                CFArrayAppendValue(kextArray, thisKext);
-                dupKext = thisKext;
-                while ( (dupKext = KXKextGetDuplicateVersionKext(dupKext)) ) {
-                    CFArrayAppendValue(kextArray, dupKext);
-                }
-            }
-        }
-    }
-
     count = CFArrayGetCount(aKextManager->repositoryList);
     for (i = 0; i < count; i++) {
         KXKextRepositoryRef thisRepository = (KXKextRepositoryRef)
             CFArrayGetValueAtIndex(aKextManager->repositoryList, i);
+
+        CFArrayRef candidateKexts =
+            _KXKextRepositoryGetCandidateKexts(thisRepository);
         CFArrayRef badKexts = _KXKextRepositoryGetBadKexts(thisRepository);
+
+        CFArrayAppendArray(kextArray, candidateKexts,
+            CFRangeMake(0, CFArrayGetCount(candidateKexts)));
         CFArrayAppendArray(kextArray, badKexts,
             CFRangeMake(0, CFArrayGetCount(badKexts)));
     }
@@ -1697,7 +1749,7 @@ KXKextManagerError KXKextManagerSendAllKextPersonalitiesToCatalog(
     result = kKXKextManagerErrorNone;
     count = CFDictionaryGetCount(aKextManager->candidateKexts);
     _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelDefault, NULL, 0,
-        "%d cached, %d uncached personalities to catalog",
+        "%ld cached, %ld uncached personalities to catalog",
         kextCount - count, count);
 
     if (!count)
@@ -1836,9 +1888,9 @@ KXKextManagerError KXKextManagerCheckForLoadedKexts(
 {
     KXKextManagerError result = kKXKextManagerErrorNone;
     CFIndex repository_count, r, k;
-    mach_port_t host_port = PORT_NULL;
+    mach_port_t host_port = MACH_PORT_NULL;
     unsigned int loaded_bytecount;
-    unsigned int kmod_count;
+    CFIndex kmod_count;
     int mach_result;
     kmod_info_t * loaded_modules = NULL;  // must vm_deallocate()
     CFStringRef kmodName = NULL;          // must release
@@ -1930,7 +1982,7 @@ finish:
     * leaks. We don't care about the kern_return_t value of this
     * call for now as there's nothing we can do if it fails.
     */
-    if (PORT_NULL != host_port) {
+    if (MACH_PORT_NULL != host_port) {
         mach_port_deallocate(mach_task_self(), host_port);
     }
 
@@ -2036,6 +2088,9 @@ finish:
     return result;
 }
 
+/*******************************************************************************
+*
+*******************************************************************************/
 KXKextManagerError _KXKextManagerPrepareKextForLoading(
     KXKextManagerRef aKextManager,
     KXKextRef aKext,
@@ -2049,6 +2104,23 @@ KXKextManagerError _KXKextManagerPrepareKextForLoading(
     CFMutableArrayRef kextList = NULL;  // must release
     CFIndex count, i;
     KXKextManagerError auth_result = kKXKextManagerErrorNone;
+
+    result = __KXKextRealizeFromCache(aKext);
+    if (result != kKXKextManagerErrorNone) {
+        goto finish;
+    }
+
+    if (KXKextGetIsKernelResource(aKext)) {
+        result = kKXKextManagerErrorLoadKernelComponent;
+        goto finish;
+    }
+
+    if (KXKextGetDeclaresExecutable(aKext) &&
+	    !KXKextSupportsHostArchitecture(aKext)) {
+
+        result = kKXKextManagerErrorLoadExecutableNoArch;
+        goto finish;
+    }
 
    /*****
     * The kext_name is optional. If not provided, set it to the absolute
@@ -2163,9 +2235,6 @@ KXKextManagerError _KXKextManagerPrepareKextForLoading(
         // Do not disqualify kext; this is not a hard failure.
         goto finish;
     }
-
-    // FIXME: Need to realize kexts from disk if they're currently from
-    // FIXME: ...a plist cache.
 
    /*****
     * Authenticate the dependency list. If any of them fails, disqualify
@@ -2296,12 +2365,16 @@ KXKextManagerError _KXKextManagerLoadKextUsingOptions(
     KXKextManagerError result = kKXKextManagerErrorNone;
     KXKextManagerError loader_result = kKXKextManagerErrorNone;
     const char * kext_name_buffer = NULL;  // must free
-    static const char * default_kernel_file = "/mach";
     dgraph_t * dgraph = NULL;     // must dgraph_free()
     pid_t fork_pid;
     Boolean do_load, do_prelink;
-    int i;
+    unsigned i;
     Boolean exit_on_finish = false;  // for a forked task
+
+    if (KXKextGetIsKernelResource(aKext)) {
+        result = kKXKextManagerErrorLoadKernelComponent;
+        goto finish;
+    }
 
    /*****
     * The kext_name is optional. If not provided, set it to the absolute
@@ -2355,14 +2428,6 @@ KXKextManagerError _KXKextManagerLoadKextUsingOptions(
     }
 
    /*****
-    * The kernel_file is optional. If not provided, set it to the standard
-    * Mach kernel file.
-    */
-    if (!kernel_file) {
-        kernel_file = default_kernel_file;
-    }
-
-   /*****
     */
 
     for (i = 0; i < dgraph->length; i++) {
@@ -2399,15 +2464,15 @@ KXKextManagerError _KXKextManagerLoadKextUsingOptions(
 	    }
     
 	    entry->link_output_file_alloc = true;
-	    strcpy(entry->link_output_file, symbol_dir);
-	    strcat(entry->link_output_file, "/");
-	    strcat(entry->link_output_file, entry->expected_kmod_name);
+	    strlcpy(entry->link_output_file, symbol_dir, length);
+	    strlcat(entry->link_output_file, "/", length);
+	    strlcat(entry->link_output_file, entry->expected_kmod_name, length);
 	    if (do_prelink) {
 		if (kload_file_exists(entry->link_output_file) > 0) {
 		    entry->name = entry->link_output_file;
 		}
 	    } else {
-		strcat(entry->link_output_file, __KLOAD_SYMBOL_EXTENSION);
+		strlcat(entry->link_output_file, __KLOAD_SYMBOL_EXTENSION, length);
 	    }
 	}
     }
@@ -2420,9 +2485,9 @@ KXKextManagerError _KXKextManagerLoadKextUsingOptions(
     */
     if (!do_load && !do_prelink && symbol_dir && !get_addrs_from_kernel) {
         if (num_addresses > 0) {
-            int m;
+            unsigned m;
             loader_result = kload_set_load_addresses_from_args(
-                dgraph, kernel_file, addresses);
+                dgraph, addresses);
 
             if (loader_result == kKXKextManagerErrorInvalidArgument) {
                 _KXKextManagerLogError(aKextManager,
@@ -2446,7 +2511,7 @@ KXKextManagerError _KXKextManagerLoadKextUsingOptions(
                 goto finish;
             }
         } else {
-            loader_result = kload_request_load_addresses(dgraph, kernel_file);
+            loader_result = kload_request_load_addresses(dgraph);
             if (loader_result != kKXKextManagerErrorNone) {
                 _KXKextManagerLogError(aKextManager, "error getting load addresses");
                 result = kKXKextManagerErrorUnspecified;
@@ -2520,7 +2585,7 @@ KXKextManagerError _KXKextManagerLoadKextUsingOptions(
                 " is already loaded", kext_name);
         } else if (result == kKXKextManagerErrorUserAbort) {
             _KXKextManagerLogError(aKextManager,
-                "the user aborted the load of extension", kext_name);
+                "the user aborted the load of extension");
         } else {
             _KXKextManagerLogError(aKextManager,
                 "a link/load error occured for kernel extension %s", kext_name);
@@ -2535,8 +2600,8 @@ finish:
     if (exit_on_finish) {
         exit(result);
     }
-    if (dgraph)           dgraph_free(dgraph, 1);
-    if (kext_name_buffer) free((char *)kext_name_buffer);
+    if (dgraph)             dgraph_free(dgraph, 1);
+    if (kext_name_buffer)   free((char *)kext_name_buffer);
 
    /* If the load failed, mark the kext so and clear the database of
     * kexts so it gets rebuilt when next needed. This kext will be
@@ -2560,155 +2625,277 @@ KXKextManagerError KXKextManagerSendKextPersonalitiesToCatalog(
     KXKextManagerRef aKextManager,
     KXKextRef aKext,
     CFArrayRef personalityNames,
-    Boolean interactive,
+    Boolean includeDependencies,
+    int interactiveLevel,
     Boolean safeBoot)
 {
     KXKextManagerError result = kKXKextManagerErrorNone;
-    const char * url_path = NULL;  // must free
-    CFDictionaryRef kextPersonalities = NULL;    // must release
-    CFMutableDictionaryRef candidatePersonalities = NULL;  // must release
+    const char * url_path = NULL;     // must free
+    char * kext_name = NULL;         // must free
+    char * personality_name = NULL;  // must free
+    CFStringRef * personalityKeys = NULL;  // must free
+    CFStringRef * personalities = NULL;  // must free
+
+    CFStringRef kextPath = NULL;     // must release
+    CFMutableArrayRef kexts = NULL;  // dependencies + kext; must release
+
+   /* These 3 objects are matched by index in triples so we maintain
+    * association between {kext, personality name, personality}.
+    */
+    CFMutableArrayRef kextsToSend = NULL; // must release
     CFMutableArrayRef personalityNamesToSend = NULL;  // must release
     CFMutableArrayRef personalitiesToSend = NULL;  // must release
-    CFStringRef * keys = NULL;  // must free
-    CFStringRef * values = NULL;  // must free
-    CFIndex count, i;
-    char personality_name[255];
-    int ok;
+
+    CFDictionaryRef kextPersonalities = NULL;    // must release
+
+    KXKextRef thisKext = NULL;  // do not release
+    CFStringRef personalityName = NULL;  // do not release
+
+    CFRange personalityNamesRange;
+    CFIndex numPersonalityNames = 0;
+    CFIndex numKexts, kextIndex;
+    CFIndex numPersonalities, personalityIndex;
 
     url_path = _KXKextCopyCanonicalPathnameAsCString(aKext);
-
-    if (url_path) {
-        _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelKexts, NULL, 0,
-            "loading personalities for extension %s",  url_path);
-    }
-
-    kextPersonalities = KXKextCopyPersonalities(aKext);
-    if (!kextPersonalities) {
-        _KXKextManagerLogError(aKextManager, "extension %s has no personalities",
-            url_path);
-        result = kKXKextManagerErrorInvalidArgument;
+    if (!url_path) {
+        _KXKextManagerLogError(aKextManager, "internal error, or no memory?");
+        result = kKXKextManagerErrorNoMemory;
         goto finish;
     }
 
-    count = 0;
-    if (personalityNames) {
-        count = CFArrayGetCount(personalityNames);
-    }
-    if (count) {
-        candidatePersonalities = CFDictionaryCreateMutable(
-            kCFAllocatorDefault, count,
-            &kCFTypeDictionaryKeyCallBacks,
-            &kCFTypeDictionaryValueCallBacks);
-        if (!candidatePersonalities) {
-            _KXKextManagerLogError(aKextManager, "no memory?");
-            result = kKXKextManagerErrorNoMemory;
-            goto finish;
-        }
+    _KXKextManagerLogMessageAtLevel(aKextManager,
+        kKXKextManagerLogLevelKexts, NULL, 0,
+        "loading personalities for extension %s%s",  url_path,
+        includeDependencies ? " and dependencies" : "");
 
-        for (i = 0; i < count; i++) {
-            CFStringRef thisName = (CFStringRef)CFArrayGetValueAtIndex(
-                personalityNames, i);
-            CFDictionaryRef thisPersonality =
-                (CFDictionaryRef)CFDictionaryGetValue(kextPersonalities,
-                thisName);
-            CFDictionarySetValue(candidatePersonalities, thisName,
-                thisPersonality);
-        }
-    } else {
-        candidatePersonalities = (CFMutableDictionaryRef)CFDictionaryCreateCopy(
-            kCFAllocatorDefault, kextPersonalities);
-        if (!candidatePersonalities) {
-            _KXKextManagerLogError(aKextManager, "no memory?");
-            result = kKXKextManagerErrorNoMemory;
-            goto finish;
-        }
+   /* Get a list of dependencies in load order, and append the kext itself.
+    */
+    kexts = KXKextCopyAllDependencies(aKext);
+    if (!kexts) {
+        _KXKextManagerLogError(aKextManager, "no memory?");
+        result = kKXKextManagerErrorNoMemory;
+        goto finish;
     }
+    
+    CFArrayAppendValue(kexts, aKext);
+    numKexts = CFArrayGetCount(kexts);
 
-    count = CFDictionaryGetCount(candidatePersonalities);
+   /* Make the arrays for our local bookkeeping.
+    */
+    kextsToSend = CFArrayCreateMutable(kCFAllocatorDefault,
+        0, &kCFTypeArrayCallBacks);
 
     personalitiesToSend = CFArrayCreateMutable(kCFAllocatorDefault,
-        count, &kCFTypeArrayCallBacks);
-    if (!personalitiesToSend) {
-        _KXKextManagerLogError(aKextManager, "no memory?");
-        result = kKXKextManagerErrorNoMemory;
-        goto finish;
-    }
+        0, &kCFTypeArrayCallBacks);
 
     personalityNamesToSend = CFArrayCreateMutable(kCFAllocatorDefault,
-        count, &kCFTypeArrayCallBacks);
-    if (!personalityNamesToSend) {
+        0, &kCFTypeArrayCallBacks);
+    if (!kextsToSend || !personalitiesToSend || !personalityNamesToSend) {
         _KXKextManagerLogError(aKextManager, "no memory?");
         result = kKXKextManagerErrorNoMemory;
         goto finish;
     }
 
-
-    keys = (CFStringRef *)malloc(count * sizeof(CFTypeRef));
-    values = (CFStringRef *)malloc(count * sizeof(CFTypeRef));
-    CFDictionaryGetKeysAndValues(candidatePersonalities, (const void **)keys,
-        (const void **)values);
-
-    for (i = 0; i < count; i++) {
-        CFStringRef thisKey = (CFStringRef)keys[i];
-        CFDictionaryRef thisPersonality = (CFDictionaryRef)values[i];
-
-        ok = 1;
-
-        if (!CFStringGetCString(thisKey, personality_name,
-            sizeof(personality_name) - 1, kCFStringEncodingUTF8)) {
-            _KXKextManagerLogError(aKextManager, "can't convert CFString");
-            result = kKXKextManagerErrorUnspecified;
-            goto finish;
-        }
-
-        if (safeBoot) {
-            ok = __KXKextManagerCheckPersonalityForSafeBoot(aKextManager,
-                thisPersonality, personality_name);
-        }
-
-        if (ok && interactive) {
-            ok = aKextManager->user_veto_func(
-                1, "\nSend personality \"%s\" to the kernel", personality_name);
-        }
-        if (ok > 0) {
-            CFArrayAppendValue(personalitiesToSend, thisPersonality);
-            CFArrayAppendValue(personalityNamesToSend, thisKey);
-        } else if (ok < 0) {
-            _KXKextManagerLogError(aKextManager, "internal failure");
-            result = kKXKextManagerErrorUnspecified;
-            goto finish;
+    numPersonalityNames = 0;
+    if (personalityNames) {
+        numPersonalities = CFArrayGetCount(personalityNames);
+        if (numPersonalityNames) {
+            personalityNamesRange = CFRangeMake(0, numPersonalities);
         }
     }
 
-    count = CFArrayGetCount(personalitiesToSend);
-    if (count) {
-        if (_KXKextManagerCheckLogLevel(aKextManager, kKXKextManagerLogLevelBasic, NULL, 0)) {
-            _KXKextManagerLogMessage(aKextManager, "loading personalities named:");
-            for (i = 0; i < count; i++) {
-                CFStringRef thisName = (CFStringRef)CFArrayGetValueAtIndex(
-                    personalityNamesToSend, i);
-                if (!CFStringGetCString(thisName, personality_name,
-                    sizeof(personality_name) - 1, kCFStringEncodingUTF8)) {
-                    _KXKextManagerLogError(aKextManager, "can't convert CFString");
-                    result = kKXKextManagerErrorUnspecified;
-                    goto finish;
+    for (kextIndex = 0; kextIndex < numKexts; kextIndex++) {
+        Boolean isDependency = (kextIndex + 1 < numKexts) ? true : false;
+
+        thisKext = (KXKextRef)CFArrayGetValueAtIndex(kexts, kextIndex);
+
+        if (kext_name) {
+            free(kext_name);
+            kext_name = NULL;
+        }
+        if (personalityKeys) {
+            free(personalityKeys);
+            personalityKeys = NULL;
+        }
+        if (personalities) {
+            free(personalities);
+            personalities = NULL;
+        }
+
+        kextPersonalities = KXKextCopyPersonalities(thisKext);
+        if (!kextPersonalities) {
+            continue;
+        }
+
+        numPersonalities = CFDictionaryGetCount(kextPersonalities);
+        if (!numPersonalities) {
+            continue;  // Skip this kext.
+        }
+
+        kextPath = KXKextCopyAbsolutePath(thisKext);
+        if (!kextPath) {
+            _KXKextManagerLogError(aKextManager, "no memory?");
+            result = kKXKextManagerErrorNoMemory;
+            goto finish;
+        }
+        kext_name = cStringForCFString(kextPath);
+        CFRelease(kextPath);
+        kextPath = NULL;
+
+        personalityKeys = (CFStringRef *)malloc(
+            numPersonalities * sizeof(CFTypeRef));
+        personalities = (CFStringRef *)malloc(
+            numPersonalities * sizeof(CFTypeRef));
+
+        if (!kext_name || !personalityKeys || !personalities) {
+            _KXKextManagerLogError(aKextManager, "no memory?");
+            result = kKXKextManagerErrorNoMemory;
+            goto finish;
+        }
+        CFDictionaryGetKeysAndValues(kextPersonalities,
+            (const void **)personalityKeys,
+            (const void **)personalities);
+
+        for (personalityIndex = 0;
+             personalityIndex < numPersonalities;
+             personalityIndex++) {
+
+            CFDictionaryRef personality =
+                (CFDictionaryRef)personalities[personalityIndex];
+            int okToSend = 1;
+
+            personalityName = (CFStringRef)personalityKeys[personalityIndex];
+
+            if (personality_name) {
+                free(personality_name);
+                personality_name = NULL;
+            }
+            personality_name = cStringForCFString(personalityName);
+            if (!personality_name) {
+                _KXKextManagerLogError(aKextManager, "no memory?");
+                result = kKXKextManagerErrorNoMemory;
+                goto finish;
+            }
+
+            if (numPersonalityNames) {
+                if (-1 == CFArrayGetFirstIndexOfValue(personalityNames,
+                    personalityNamesRange, personalityName)) {
+
+                    continue;  // Not named, skip this personality
                 }
-                _KXKextManagerLogMessage(aKextManager, "    %s", personality_name);
+            }
+
+            if (safeBoot) {
+                if (!__KXKextManagerCheckPersonalityForSafeBoot(aKextManager,
+                    personality, personality_name)) {
+                    
+                    continue;  // Skip this personality
+                }
+            }
+
+            if (isDependency) {
+                if (interactiveLevel == 2) {
+                    okToSend = aKextManager->user_veto_func(1,
+                        "Send personality \"%s\" of dependency %s to the kernel",
+                        personality_name, kext_name);
+                }
+            } else if (interactiveLevel >= 1) {
+                okToSend = aKextManager->user_veto_func(
+                    1, "Send personality \"%s\" to the kernel",
+                    personality_name);
+            }
+            if (okToSend > 0) {
+                CFArrayAppendValue(kextsToSend, thisKext);
+                CFArrayAppendValue(personalityNamesToSend, personalityName);
+                CFArrayAppendValue(personalitiesToSend, personality);
+            } else if (okToSend < 0) {
+                _KXKextManagerLogError(aKextManager, "internal failure");
+                result = kKXKextManagerErrorUnspecified;
+                goto finish;
             }
         }
+
+    }
+
+    numPersonalities = CFArrayGetCount(personalitiesToSend);
+
+    if (_KXKextManagerCheckLogLevel(aKextManager,
+        kKXKextManagerLogLevelBasic, NULL, 0)) {
+        
+        KXKextRef lastKext = NULL;  // do not release
+
+        if (!numPersonalities) {
+            _KXKextManagerLogMessage(aKextManager, "no personalities to send");
+        } else {
+            _KXKextManagerLogMessage(aKextManager, "sending personalities to kernel:");
+        }
+        for (personalityIndex = 0;
+             personalityIndex < numPersonalities;
+             personalityIndex++) {
+     
+            thisKext = (KXKextRef)CFArrayGetValueAtIndex(kextsToSend,
+                personalityIndex);
+            personalityName = (CFStringRef)CFArrayGetValueAtIndex(
+                personalityNamesToSend, personalityIndex);
+
+            if (thisKext != lastKext) {
+                if (kext_name) {
+                    free(kext_name);
+                    kext_name = NULL;
+                }
+                kextPath = KXKextCopyAbsolutePath(thisKext);
+                if (!kextPath) {
+                    _KXKextManagerLogError(aKextManager, "no memory?");
+                    result = kKXKextManagerErrorNoMemory;
+                    goto finish;
+                }
+                kext_name = cStringForCFString(kextPath);
+                CFRelease(kextPath);
+                kextPath = NULL;
+            }
+
+            if (personality_name) {
+                free(personality_name);
+                personality_name = NULL;
+            }
+            personality_name = cStringForCFString(personalityName);
+
+            if (!kext_name || !personality_name) {
+                _KXKextManagerLogError(aKextManager, "no memory?");
+                result = kKXKextManagerErrorNoMemory;
+                goto finish;
+            }
+
+            if (thisKext != lastKext) {
+                _KXKextManagerLogMessage(aKextManager,
+                    "    from extension %s:", kext_name);
+            }
+            _KXKextManagerLogMessage(aKextManager, "        %s",
+                personality_name);
+                
+            lastKext = thisKext;
+        }
+    }
+
+    if (numPersonalities) {
         result = KXKextManagerSendPersonalitiesToCatalog(
             aKextManager, personalitiesToSend);
     }
 
 finish:
 
-    if (url_path)               free((char *)url_path);
-    if (keys)                   free(keys);
-    if (values)                 free(values);
-    if (kextPersonalities)      CFRelease(kextPersonalities);
-    if (candidatePersonalities) CFRelease(candidatePersonalities);
-    if (personalityNamesToSend) CFRelease(personalityNamesToSend);
-    if (personalitiesToSend)    CFRelease(personalitiesToSend);
+    if (url_path)                 free((char *)url_path);
+    if (kext_name)                free(kext_name);
+    if (personality_name)         free(personality_name);
+    if (personalityKeys)          free(personalityKeys);
+    if (personalities)            free(personalities);
+
+    if (kextPath)                 CFRelease(kextPath);
+    if (kexts)                    CFRelease(kexts);
+    if (kextsToSend)              CFRelease(kextsToSend);
+    if (personalityNamesToSend)   CFRelease(personalityNamesToSend);
+    if (personalitiesToSend)      CFRelease(personalitiesToSend);
+    if (kextPersonalities)        CFRelease(kextPersonalities);
 
     return result;
 }
@@ -2732,7 +2919,7 @@ KXKextManagerError KXKextManagerSendPersonalitiesToCatalog(
     }
 
     _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelBasic, NULL, 0,
-        "sending %U personalit%s to the kernel", CFArrayGetCount(personalities),
+        "sending %ld personalit%s to the kernel", CFArrayGetCount(personalities),
         (CFArrayGetCount(personalities) != 1) ? "ies" : "y");
 
     data = IOCFSerialize(personalities, kNilOptions);
@@ -2904,30 +3091,26 @@ void _KXKextManagerLogMessageAtLevel(KXKextManagerRef aKextManager,
     const char * format, ...)
 {
     va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
+    char * output_string = NULL;
 
     if (!_KXKextManagerCheckLogLevel(aKextManager, logLevel, aKext, kextLogLevel)) {
-        return;
+        goto finish;
     }
 
     va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
+    vasprintf(&output_string, format, ap);
     va_end(ap);
 
-    output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        return;
+        goto finish;
     }
 
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
+    aKextManager->log_func("%s", output_string);
 
-    aKextManager->log_func(output_string);
-    free(output_string);
-
+finish:
+    if (output_string) {
+        free(output_string);
+    }
     return;
 }
 
@@ -2938,30 +3121,26 @@ void _KXKextManagerLogMessage(KXKextManagerRef aKextManager,
     const char * format, ...)
 {
     va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
+    char * output_string = NULL;
 
     if (aKextManager->logLevel <= kKXKextManagerLogLevelSilent) {
-        return;
+        goto finish;
     }
 
     va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
+    vasprintf(&output_string, format, ap);
     va_end(ap);
 
-    output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        return;
+        goto finish;
     }
 
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
+    aKextManager->log_func("%s", output_string);
 
-    aKextManager->log_func(output_string);
-    free(output_string);
-
+finish:
+    if (output_string) {
+        free(output_string);
+    }
     return;
 }
 
@@ -2972,30 +3151,26 @@ void _KXKextManagerLogError(KXKextManagerRef aKextManager,
     const char * format, ...)
 {
     va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
+    char * output_string = NULL;
 
     if (aKextManager->logLevel <= kKXKextManagerLogLevelSilent) {
-        return;
+        goto finish;
     }
 
     va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
+    vasprintf(&output_string, format, ap);
     va_end(ap);
 
-    output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        return;
+        goto finish;
     }
 
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
+    aKextManager->error_log_func("%s", output_string);
 
-    aKextManager->error_log_func(output_string);
-    free(output_string);
-
+finish:
+    if (output_string) {
+        free(output_string);
+    }
     return;
 }
 
@@ -3015,9 +3190,8 @@ Boolean _KXKextManagerCheckLogLevel(KXKextManagerRef aKextManager,
 /*******************************************************************************
 *
 *******************************************************************************/
-
-// As of Mac OS X 10.1, an uncompressed cache was in the neighborhood of 400KB
-#define CHUNK_SIZE (400 * 1024)
+#define GZIP_RATIO    (6)
+#define MAX_REALLOCS (16)
 
 KXKextManagerError _KXKextManagerAddRepositoryFromCacheFile(
     KXKextManagerRef aKextManager,
@@ -3027,16 +3201,21 @@ KXKextManagerError _KXKextManagerAddRepositoryFromCacheFile(
 {
     KXKextManagerError result = kKXKextManagerErrorNone;
     char * cache_path = NULL;   // must free
+    struct stat stat_buf;
+    int gzip_fd = -1;
+    ssize_t gzip_length;
+    ssize_t data_length;
+    unsigned char * gzip_data = NULL;
+    unsigned char * data = NULL;
+    ssize_t bytes_read, total_bytes_read;
+    z_stream zstream;
+    int z_result = Z_UNKNOWN;
+    int num_reallocs;
+    Boolean inflate_tried = false;
+
     CFDataRef fileData = NULL;  // must release
     CFStringRef errorString = NULL;  // must release
     CFDictionaryRef cacheDictionary = NULL;  // must release
-    gzFile inputGZFile = NULL;  // must close
-    int bytes_read = 0;
-    int input_data_length = 0;
-    int input_data_read = 0;
-    int input_data_available = 0;
-    UInt8 * input_data = NULL;      // must free
-    UInt8 * input_data_pos = NULL;  // don't free
 
     cache_path = PATH_CanonicalizedCStringForURL(fileURL);
     if (!cache_path) {
@@ -3044,58 +3223,106 @@ KXKextManagerError _KXKextManagerAddRepositoryFromCacheFile(
         goto finish;
     }
 
-    inputGZFile = gzopen(cache_path, "r");
-    if (!inputGZFile) {
+    if (-1 == stat(cache_path, &stat_buf)) {
         _KXKextManagerLogError(aKextManager,
-            "cannot open kext cache file %s for reading",
+            "can't stat kext cache file %s",
             cache_path);
-        if (errno == 0) {
-            result = kKXKextManagerErrorNoMemory;
-        } else {
-            result = kKXKextManagerErrorFileAccess;
-        }
+        result = kKXKextManagerErrorFileAccess;
         goto finish;
     }
 
-    input_data_length = CHUNK_SIZE * sizeof(UInt8);
-    input_data_available = input_data_length;
-    input_data = (UInt8 *)malloc(input_data_length);
-    if (!input_data) {
+    gzip_fd = open(cache_path, O_RDONLY);
+    if (gzip_fd == -1) {
+        _KXKextManagerLogError(aKextManager,
+            "can't open kext cache file %s for reading",
+            cache_path);
+        result = kKXKextManagerErrorFileAccess;
+        goto finish;
+    }
+
+   /* Prepare to read the file into memory and uncompress it there.
+    * gzread() has proven inefficient.
+    */
+    gzip_length = stat_buf.st_size;
+    data_length = GZIP_RATIO * gzip_length;
+    gzip_data = (unsigned char *)malloc(gzip_length * sizeof(char));
+    data = (unsigned char *)malloc(data_length * sizeof(char));
+    if (!gzip_data || !data) {
         result = kKXKextManagerErrorNoMemory;
         goto finish;
     }
-    input_data_pos = input_data;
-    input_data_read = 0;
 
-    while (1) {
-        bytes_read = gzread(inputGZFile, input_data_pos, input_data_available);
-        if (bytes_read == 0) {
+    total_bytes_read = 0;
+    while (total_bytes_read < gzip_length) {
+        bytes_read = read(gzip_fd, (void *)(gzip_data + total_bytes_read),
+            gzip_length - total_bytes_read);
+        if (bytes_read <= 0) {
+            // we rely below on errno being set if this has returned -1
             break;
-        } else if (bytes_read < 0) {
-            _KXKextManagerLogError(aKextManager,
-                "error reading from kext cache file %s",
-                cache_path);
-            result = kKXKextManagerErrorUnspecified;
-            goto finish;
+        } else {
+            total_bytes_read += bytes_read;
         }
+    }
+    if (total_bytes_read < gzip_length) {
+        // errno will be set if this condition is true
+        _KXKextManagerLogError(aKextManager,
+            "error reading kext cache file %s - %s",
+            cache_path, strerror(errno));
+        result = kKXKextManagerErrorFileAccess;
+        goto finish;
+    }
 
-        input_data_available -= bytes_read;
-        input_data_read += bytes_read;
-        input_data_pos += bytes_read;
-        if (input_data_read == input_data_length) {
-            input_data_length += CHUNK_SIZE * sizeof(UInt8);
-            input_data = (UInt8 *)realloc(input_data, input_data_length);
-            if (!input_data) {
+    zstream.next_in   = gzip_data;
+    zstream.avail_in  = gzip_length;
+    zstream.next_out  = data;
+    zstream.avail_out = data_length;
+    zstream.zalloc    = NULL;
+    zstream.zfree     = NULL;
+    zstream.opaque    = NULL;
+
+   /* In order to read gzip data, we need to specify the default
+    * bit window of 15, and add 32, per the zlib.h comments.
+    */
+    z_result = inflateInit2(&zstream, 15 + 32);
+    if (z_result != Z_OK) {
+        _KXKextManagerLogError(aKextManager,
+            "error initializing uncompression engine %s",
+            cache_path);
+        result = kKXKextManagerErrorSerialization;
+        goto finish;
+    }
+    inflate_tried = true;
+
+    num_reallocs = 0;
+    while (num_reallocs < MAX_REALLOCS && z_result == Z_OK) {
+        z_result = inflate(&zstream, Z_NO_FLUSH);
+        if (z_result == Z_STREAM_END) {
+            // success! nothing do here, actually
+            break;
+        } else if ((z_result == Z_OK) || (z_result == Z_BUF_ERROR)) {
+            num_reallocs++;
+            data_length *= 2;
+            data = realloc(data, data_length);
+            if (!data) {
                 result = kKXKextManagerErrorNoMemory;
                 goto finish;
             }
-            input_data_pos = input_data + input_data_read;
-            input_data_available += CHUNK_SIZE * sizeof(UInt8);
+            zstream.next_out  = data + zstream.total_out;
+            zstream.avail_out = data_length;
+        } else {
+            break;
         }
     }
+    if (z_result != Z_STREAM_END) {
+        _KXKextManagerLogError(aKextManager,
+            "error uncompressing kext cache file %s - %s",
+            cache_path, zstream.msg ? zstream.msg : "(unknown)");
+        result = kKXKextManagerErrorSerialization;
+        goto finish;
+    }
 
-    fileData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, input_data,
-        input_data_read, kCFAllocatorNull);
+    fileData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+        (const UInt8 *)data, zstream.total_out, kCFAllocatorNull);
     if (!fileData) {
         result = kKXKextManagerErrorNoMemory;
         goto finish;
@@ -3105,14 +3332,15 @@ KXKextManagerError _KXKextManagerAddRepositoryFromCacheFile(
         fileData, kCFPropertyListImmutable, &errorString);
     if (!cacheDictionary) {
         if (errorString) {
-            CFIndex length = CFStringGetLength(errorString);
-            char * error_string = (char *)malloc((1+length) * sizeof(char));
+            CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(errorString),
+		    kCFStringEncodingUTF8) + sizeof('\0');
+            char * error_string = (char *)malloc(bufSize);
             if (!error_string) {
                 result = kKXKextManagerErrorNoMemory;
                 goto finish;
             }
             if (CFStringGetCString(errorString, error_string,
-                 length, kCFStringEncodingUTF8)) {
+                    bufSize, kCFStringEncodingUTF8)) {
                 _KXKextManagerLogError(aKextManager, "error reading cache data %s: %s",
                     cache_path, error_string);
             }
@@ -3137,15 +3365,14 @@ KXKextManagerError _KXKextManagerAddRepositoryFromCacheFile(
 
 finish:
 
-    if (inputGZFile && gzclose(inputGZFile) != Z_OK) {
-        _KXKextManagerLogError(aKextManager, "error closing kext cache file %s",
-            cache_path);
-        if (result == kKXKextManagerErrorNone) {
-            result = kKXKextManagerErrorUnspecified;
-        }
+    if (inflate_tried) {
+        inflateEnd(&zstream);
     }
-
-    if (input_data)      free(input_data);
+    if (gzip_fd >= 0) {
+        close(gzip_fd);
+    }
+    if (gzip_data)       free(gzip_data);
+    if (data)            free(data);
     if (cache_path)      free(cache_path);
     if (fileData)        CFRelease(fileData);
     if (cacheDictionary) CFRelease(cacheDictionary);
@@ -3306,7 +3533,7 @@ void _KXKextManagerRemoveRepository(
 /*******************************************************************************
 *
 *******************************************************************************/
-static void __km_null_log(const char * format, ...)
+static void __km_null_log(const char * format __unused, ...)
 {
     return;
 }
@@ -3314,7 +3541,7 @@ static void __km_null_log(const char * format, ...)
 /*******************************************************************************
 *
 *******************************************************************************/
-static void __km_null_err_log(const char * format, ...)
+static void __km_null_err_log(const char * format __unused, ...)
 {
     return;
 }
@@ -3322,7 +3549,7 @@ static void __km_null_err_log(const char * format, ...)
 /*******************************************************************************
 * Default is to *not* approve.
 *******************************************************************************/
-static int __km_null_approve(int defaultAnswer, const char * format, ...)
+static int __km_null_approve(int defaultAnswer __unused, const char * format __unused, ...)
 {
     return 0;
 }
@@ -3330,7 +3557,7 @@ static int __km_null_approve(int defaultAnswer, const char * format, ...)
 /*******************************************************************************
 * Default is to approve and *not* veto.
 *******************************************************************************/
-static int __km_null_veto(int defaultAnswer, const char * format, ...)
+static int __km_null_veto(int defaultAnswer __unused, const char * format __unused, ...)
 {
     return 1;
 }
@@ -3338,7 +3565,7 @@ static int __km_null_veto(int defaultAnswer, const char * format, ...)
 /*******************************************************************************
 *
 *******************************************************************************/
-static const char * __km_null_input(const char * format, ...)
+static const char * __km_null_input(const char * format __unused, ...)
 {
     return NULL;
 }
@@ -3348,7 +3575,7 @@ static const char * __km_null_input(const char * format, ...)
 *******************************************************************************/
 static const CFRuntimeClass __KXKextManagerClass = {
     0,                       // version
-    "KXKextManager",                // className
+    "KXKextManager",         // className
     NULL,                    // init
     NULL,                    // copy
     __KXKextManagerReleaseContents, // finalize
@@ -3371,7 +3598,7 @@ static pthread_once_t initialized = PTHREAD_ONCE_INIT;
 
 static __KXKextManagerRef __KXKextManagerCreatePrivate(
     CFAllocatorRef       allocator,
-    CFAllocatorContext * context)
+    CFAllocatorContext * context __unused)
 {
     __KXKextManagerRef newManager = NULL;
     void * offset = NULL;
@@ -3436,7 +3663,7 @@ void __KXKextManagerReleaseContents(CFTypeRef cf)
 
 /*******************************************************************************
 *
-/******************************************************************************/
+*******************************************************************************/
 static void __KXKextManagerClearRelationships(
     KXKextManagerRef aKextManager)
 {
@@ -3463,7 +3690,7 @@ static void __KXKextManagerClearRelationships(
 
 /*******************************************************************************
 *
-/******************************************************************************/
+*******************************************************************************/
 void __KXKextManagerClearDependencyRelationships(
     KXKextManagerRef aKextManager)
 {
@@ -3482,7 +3709,7 @@ void __KXKextManagerClearDependencyRelationships(
 }
 /*******************************************************************************
 *
-/******************************************************************************/
+*******************************************************************************/
 static Boolean __versionNumberForString(
     CFStringRef aVersionString,
     VERS_version * version)
@@ -3656,16 +3883,19 @@ static Boolean __KXKextManagerCheckForRepositoryCache(
     Boolean * canUpdate)
 {
     Boolean result = false;
-    CFURLRef absURL = NULL;     // must release
+    CFURLRef absURL = NULL;        // must release
+    CFURLRef cacheDirURL = NULL;   // must release
     CFURLRef theCacheURL = NULL;   // must release
-    CFURLRef parentURL = NULL;  // must release
 
-    char * cache_path = NULL;   // must free
-    char * dir_path = NULL;   // must free
-    char * parent_path = NULL;   // must free
+    char * repository_path = NULL; // must free
+    char * cache_dir_path = NULL;  // must free
+    char * cache_path = NULL;      // must free
 
+    struct stat repository_stat;
+    struct stat cache_dir_stat;
     struct stat cache_stat;
-    struct stat dir_stat;
+
+    Boolean no_cache_dir = false;
 
     if (cacheURL) {
         *cacheURL = NULL;
@@ -3688,16 +3918,33 @@ static Boolean __KXKextManagerCheckForRepositoryCache(
     if (!absURL) {
         goto finish;
     }
-    dir_path = PATH_CanonicalizedCStringForURL(absURL);
-    if (!dir_path) {
+
+    cacheDirURL = CFURLCreateCopyAppendingPathComponent(
+        kCFAllocatorDefault, absURL,
+        CFSTR(_kKXKextCachesFolderName),
+        true /* isDirectory */);
+    if (!cacheDirURL) {
         goto finish;
     }
 
-    theCacheURL = CFURLCreateCopyAppendingPathExtension(kCFAllocatorDefault,
-        absURL, kKXKextRepositoryCacheExtension);
+    theCacheURL = CFURLCreateCopyAppendingPathComponent(
+        kCFAllocatorDefault, cacheDirURL,
+        CFSTR(_kKXKextPlistCacheFilename),
+        false /* isDirectory */);
     if (!theCacheURL) {
         goto finish;
     }
+
+    repository_path = PATH_CanonicalizedCStringForURL(absURL);
+    if (!repository_path) {
+        goto finish;
+    }
+
+    cache_dir_path = PATH_CanonicalizedCStringForURL(cacheDirURL);
+    if (!cache_dir_path) {
+        goto finish;
+    }
+
     cache_path = PATH_CanonicalizedCStringForURL(theCacheURL);
     if (!cache_path) {
         goto finish;
@@ -3706,19 +3953,52 @@ static Boolean __KXKextManagerCheckForRepositoryCache(
    /* Check the repository directory first. If it doesn't exist we have more
     * serious problems, but the caller will have to deal with that.
     */
-    if (stat(dir_path, &dir_stat) != 0) {
+    if (stat(repository_path, &repository_stat) != 0) {
         if (errno == ENOENT || errno == ENOTDIR) {
             result = false;
             goto finish;
         } else if (errno == EACCES) {
             _KXKextManagerLogError(aKextManager,
-                "%s: cannot check existence; permission denied", dir_path);
+                "%s: cannot check existence; permission denied", repository_path);
             result = false;
             goto finish;
         } else {
             result = false;
             goto finish;
         }
+    }
+
+    if (!(repository_stat.st_mode & S_IFDIR)) {
+            _KXKextManagerLogError(aKextManager,
+                "%s is not a directory", repository_path);
+            result = false;
+            goto finish;
+    }
+
+   /* Check the cache directory.
+    */
+    if (stat(cache_dir_path, &cache_dir_stat) != 0) {
+        if (errno == ENOENT) {
+            // We may be able to create it.
+            result = false;
+            no_cache_dir = true;
+            goto check_update;
+        } else if (errno == EACCES) {
+            _KXKextManagerLogError(aKextManager,
+                "%s: cannot check existence; permission denied", cache_dir_path);
+            result = false;
+            goto finish;
+        } else {
+            result = false;
+            goto finish;
+        }
+    }
+
+    if (!(cache_dir_stat.st_mode & S_IFDIR)) {
+            _KXKextManagerLogError(aKextManager,
+                "%s is not a directory", cache_dir_path);
+            result = false;
+            goto finish;
     }
 
    /* Check the cache file. If it doesn't exist we know the result will
@@ -3748,12 +4028,13 @@ static Boolean __KXKextManagerCheckForRepositoryCache(
     if (cache_stat.st_mode & S_IFREG) {
         result = true;
         if (isCurrent) {
-            if (cache_stat.st_mtime == (dir_stat.st_mtime + 1)) {
+            if (cache_stat.st_mtime == (repository_stat.st_mtime + 1)) {
                 *isCurrent = true;
             } 
-	}
+        }
     } else {
-        _KXKextManagerLogError(aKextManager, "cache file %s is not a regular file",
+        _KXKextManagerLogError(aKextManager,
+            "cache file %s is not a regular file",
             cache_path);
         result = false;
         goto finish;
@@ -3761,17 +4042,9 @@ static Boolean __KXKextManagerCheckForRepositoryCache(
 
 check_update:
 
-    parentURL = CFURLCreateCopyDeletingLastPathComponent(kCFAllocatorDefault,
-        absURL);
-    if (!parentURL) {
-        goto finish;
-    }
-    parent_path = PATH_CanonicalizedCStringForURL(parentURL);
-    if (!parentURL) {
-        goto finish;
-    }
+    if ((access(cache_dir_path, W_OK) == 0) ||
+        (no_cache_dir && (access(repository_path, W_OK) == 0))) {
 
-    if (access(parent_path, W_OK) == 0) {
         if (canUpdate) {
             *canUpdate = true;
         }
@@ -3779,11 +4052,11 @@ check_update:
 
 finish:
     if (absURL)      CFRelease(absURL);
-    if (parentURL)   CFRelease(parentURL);
+    if (cacheDirURL) CFRelease(cacheDirURL);
 
-    if (dir_path)    free(dir_path);
-    if (cache_path)  free(cache_path);
-    if (parent_path) free(parent_path);
+    if (repository_path) free(repository_path);
+    if (cache_dir_path)  free(cache_dir_path);
+    if (cache_path)      free(cache_path);
 
     if (cacheURL) {
         if (result) {
@@ -3834,3 +4107,4 @@ finish:
     return result;
 }
 
+#endif // !__LP64__

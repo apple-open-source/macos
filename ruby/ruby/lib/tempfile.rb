@@ -1,7 +1,7 @@
 #
 # tempfile - manipulates temporary files
 #
-# $Id: tempfile.rb,v 1.19.2.3 2004/10/19 10:25:19 matz Exp $
+# $Id: tempfile.rb 11708 2007-02-12 23:01:19Z shyouhei $
 #
 
 require 'delegate'
@@ -67,7 +67,7 @@ class Tempfile < DelegateClass(File)
   end
 
   def make_tmpname(basename, n)
-    sprintf('%s%d.%d', basename, $$, n)
+    sprintf('%s.%d.%d', basename, $$, n)
   end
   private :make_tmpname
 
@@ -116,7 +116,7 @@ class Tempfile < DelegateClass(File)
       @@cleanlist.delete(@tmpname)
       @data = @tmpname = nil
       ObjectSpace.undefine_finalizer(self)
-    rescue Errno::EACCESS
+    rescue Errno::EACCES
       # may not be able to unlink on Windows; just ignore
     end
   end

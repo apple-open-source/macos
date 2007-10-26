@@ -1,4 +1,4 @@
 OTHER_GENERATED_OFILES = $(VERS_OFILE)
 -include ../Makefile.include
-OTHER_CFLAGS += -DINET6 -DIPSEC
+OTHER_CFLAGS += -DINET6 -DIPSEC -mdynamic-no-pic
 AFTER_INSTALL += install-man-page

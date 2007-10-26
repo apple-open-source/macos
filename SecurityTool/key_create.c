@@ -460,11 +460,13 @@ createCertCsr(
 }
 #endif
 
+#if 0
+/* this was added in Michael's integration of PR-3420772, but this is an unimplemented command */
+
 int
 csr_create(int argc, char * const *argv)
 {
 	int result = 0;
-#if 0
 	int ch;
 	const char *keychainName = NULL;
 	CSSM_ALGORITHMS algorithm = CSSM_ALGID_RSA;
@@ -608,7 +610,7 @@ loser:
 		CFRelease(trusted_list);
 	if (access)
 		CFRelease(access);
-#endif
 
 	return result;
 }
+#endif

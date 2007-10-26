@@ -1,0 +1,917 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D63C4CC90B20BFAE0047FE0F /* IOAudioControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E17FFE702AD11CA29EB /* IOAudioControl.h */; };
+		D63C4CCA0B20BFAE0047FE0F /* IOAudioControlUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E18FFE702AD11CA29EB /* IOAudioControlUserClient.h */; };
+		D63C4CCB0B20BFAE0047FE0F /* IOAudioDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E19FFE702AD11CA29EB /* IOAudioDevice.h */; };
+		D63C4CCC0B20BFAE0047FE0F /* IOAudioEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E1AFFE702AD11CA29EB /* IOAudioEngine.h */; };
+		D63C4CCD0B20BFAE0047FE0F /* IOAudioEngineUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E1BFFE702AD11CA29EB /* IOAudioEngineUserClient.h */; };
+		D63C4CCE0B20BFAE0047FE0F /* IOAudioLevelControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E1DFFE702AD11CA29EB /* IOAudioLevelControl.h */; };
+		D63C4CCF0B20BFAE0047FE0F /* IOAudioPort.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E20FFE702AD11CA29EB /* IOAudioPort.h */; };
+		D63C4CD00B20BFAE0047FE0F /* IOAudioStream.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E21FFE702AD11CA29EB /* IOAudioStream.h */; };
+		D63C4CD10B20BFAE0047FE0F /* IOAudioTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 06F44E22FFE702AD11CA29EB /* IOAudioTypes.h */; };
+		D63C4CD20B20BFAE0047FE0F /* IOAudioDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 15F1CA6BFFEC8F6A11CA29EB /* IOAudioDebug.h */; };
+		D63C4CD30B20BFAE0047FE0F /* IOAudioDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 01577ADFFFEC9C1011CA29EB /* IOAudioDefines.h */; };
+		D63C4CD40B20BFAE0047FE0F /* IOAudioSelectorControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B71235D00570F9911CA29EB /* IOAudioSelectorControl.h */; };
+		D63C4CD50B20BFAE0047FE0F /* IOAudioToggleControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B71235E00570F9911CA29EB /* IOAudioToggleControl.h */; };
+		D63C4CD70B20BFAE0047FE0F /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
+		D63C4CD90B20BFAE0047FE0F /* IOAudioControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E0AFFE702AD11CA29EB /* IOAudioControl.cpp */; settings = {ATTRIBUTES = (); }; };
+		D63C4CDA0B20BFAE0047FE0F /* IOAudioControlUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E0BFFE702AD11CA29EB /* IOAudioControlUserClient.cpp */; settings = {ATTRIBUTES = (); }; };
+		D63C4CDB0B20BFAE0047FE0F /* IOAudioDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E0CFFE702AD11CA29EB /* IOAudioDevice.cpp */; settings = {ATTRIBUTES = (); }; };
+		D63C4CDC0B20BFAE0047FE0F /* IOAudioEngine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E0DFFE702AD11CA29EB /* IOAudioEngine.cpp */; settings = {ATTRIBUTES = (); }; };
+		D63C4CDD0B20BFAE0047FE0F /* IOAudioEngineUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E0FFFE702AD11CA29EB /* IOAudioEngineUserClient.cpp */; settings = {ATTRIBUTES = (); }; };
+		D63C4CDE0B20BFAE0047FE0F /* IOAudioLevelControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E11FFE702AD11CA29EB /* IOAudioLevelControl.cpp */; settings = {ATTRIBUTES = (); }; };
+		D63C4CDF0B20BFAE0047FE0F /* IOAudioPort.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E14FFE702AD11CA29EB /* IOAudioPort.cpp */; settings = {ATTRIBUTES = (); }; };
+		D63C4CE00B20BFAE0047FE0F /* IOAudioStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E15FFE702AD11CA29EB /* IOAudioStream.cpp */; settings = {ATTRIBUTES = (); }; };
+		D63C4CE10B20BFAE0047FE0F /* IOAudioSelectorControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1B71235B00570F9911CA29EB /* IOAudioSelectorControl.cpp */; };
+		D63C4CE20B20BFAE0047FE0F /* IOAudioToggleControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1B71235C00570F9911CA29EB /* IOAudioToggleControl.cpp */; };
+		D63C4CE80B20BFAE0047FE0F /* Contents.rtf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 401DA4E50119EA6A05CA29EB /* Contents.rtf */; };
+		D63C4CEA0B20BFAE0047FE0F /* Templates in CopyFiles */ = {isa = PBXBuildFile; fileRef = 401DA4E20119EA2005CA29EB /* Templates */; };
+		D63C4CF40B20BFAE0047FE0F /* IOAudioEngineMixer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E0EFFE702AD11CA29EB /* IOAudioEngineMixer.cpp */; settings = {ATTRIBUTES = (); }; };
+		D63C4CFF0B20BFAE0047FE0F /* IOAudioControl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E17FFE702AD11CA29EB /* IOAudioControl.h */; };
+		D63C4D000B20BFAE0047FE0F /* IOAudioControlUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E18FFE702AD11CA29EB /* IOAudioControlUserClient.h */; };
+		D63C4D010B20BFAE0047FE0F /* IOAudioDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E19FFE702AD11CA29EB /* IOAudioDevice.h */; };
+		D63C4D020B20BFAE0047FE0F /* IOAudioEngine.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E1AFFE702AD11CA29EB /* IOAudioEngine.h */; };
+		D63C4D030B20BFAE0047FE0F /* IOAudioEngineUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E1BFFE702AD11CA29EB /* IOAudioEngineUserClient.h */; };
+		D63C4D040B20BFAE0047FE0F /* IOAudioLevelControl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E1DFFE702AD11CA29EB /* IOAudioLevelControl.h */; };
+		D63C4D050B20BFAE0047FE0F /* IOAudioPort.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E20FFE702AD11CA29EB /* IOAudioPort.h */; };
+		D63C4D060B20BFAE0047FE0F /* IOAudioSelectorControl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1B71235D00570F9911CA29EB /* IOAudioSelectorControl.h */; };
+		D63C4D070B20BFAE0047FE0F /* IOAudioStream.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E21FFE702AD11CA29EB /* IOAudioStream.h */; };
+		D63C4D080B20BFAE0047FE0F /* IOAudioToggleControl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1B71235E00570F9911CA29EB /* IOAudioToggleControl.h */; };
+		D63C4D090B20BFAE0047FE0F /* IOAudioTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E22FFE702AD11CA29EB /* IOAudioTypes.h */; };
+		D63C4D0A0B20BFAE0047FE0F /* IOAudioDefines.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 01577ADFFFEC9C1011CA29EB /* IOAudioDefines.h */; };
+		D63C4D0B0B20BFAE0047FE0F /* IOAudioDebug.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 15F1CA6BFFEC8F6A11CA29EB /* IOAudioDebug.h */; };
+		D63C4D0D0B20BFAE0047FE0F /* IOAudioTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E22FFE702AD11CA29EB /* IOAudioTypes.h */; };
+		D63C4D0E0B20BFAE0047FE0F /* IOAudioDefines.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 01577ADFFFEC9C1011CA29EB /* IOAudioDefines.h */; };
+		D63C4D1C0B20BFAE0047FE0F /* libIOAudioFloatLib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D63C4CFB0B20BFAE0047FE0F /* libIOAudioFloatLib.a */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D63C4D180B20BFAE0047FE0F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D63C4CFC0B20BFAE0047FE0F;
+			remoteInfo = "InstallHeaders (Upgraded)";
+		};
+		D63C4D1A0B20BFAE0047FE0F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D63C4CF10B20BFAE0047FE0F;
+			remoteInfo = "IOAudioFloatLib (Upgraded)";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D63C4CE70B20BFAE0047FE0F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_DEVELOPER_DIR)/Examples/Kernel/IOKit/Audio";
+			dstSubfolderSpec = 0;
+			files = (
+				D63C4CE80B20BFAE0047FE0F /* Contents.rtf in CopyFiles */,
+				D63C4CEA0B20BFAE0047FE0F /* Templates in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D63C4CFE0B20BFAE0047FE0F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/audio";
+			dstSubfolderSpec = 0;
+			files = (
+				D63C4CFF0B20BFAE0047FE0F /* IOAudioControl.h in CopyFiles */,
+				D63C4D000B20BFAE0047FE0F /* IOAudioControlUserClient.h in CopyFiles */,
+				D63C4D010B20BFAE0047FE0F /* IOAudioDevice.h in CopyFiles */,
+				D63C4D020B20BFAE0047FE0F /* IOAudioEngine.h in CopyFiles */,
+				D63C4D030B20BFAE0047FE0F /* IOAudioEngineUserClient.h in CopyFiles */,
+				D63C4D040B20BFAE0047FE0F /* IOAudioLevelControl.h in CopyFiles */,
+				D63C4D050B20BFAE0047FE0F /* IOAudioPort.h in CopyFiles */,
+				D63C4D060B20BFAE0047FE0F /* IOAudioSelectorControl.h in CopyFiles */,
+				D63C4D070B20BFAE0047FE0F /* IOAudioStream.h in CopyFiles */,
+				D63C4D080B20BFAE0047FE0F /* IOAudioToggleControl.h in CopyFiles */,
+				D63C4D090B20BFAE0047FE0F /* IOAudioTypes.h in CopyFiles */,
+				D63C4D0A0B20BFAE0047FE0F /* IOAudioDefines.h in CopyFiles */,
+				D63C4D0B0B20BFAE0047FE0F /* IOAudioDebug.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D63C4D0C0B20BFAE0047FE0F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/audio";
+			dstSubfolderSpec = 0;
+			files = (
+				D63C4D0D0B20BFAE0047FE0F /* IOAudioTypes.h in CopyFiles */,
+				D63C4D0E0B20BFAE0047FE0F /* IOAudioDefines.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0118E627009F9D167F000001 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
+		01577ADFFFEC9C1011CA29EB /* IOAudioDefines.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioDefines.h; sourceTree = "<group>"; };
+		06F44E0AFFE702AD11CA29EB /* IOAudioControl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioControl.cpp; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
+		06F44E0BFFE702AD11CA29EB /* IOAudioControlUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioControlUserClient.cpp; sourceTree = "<group>"; };
+		06F44E0CFFE702AD11CA29EB /* IOAudioDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioDevice.cpp; sourceTree = "<group>"; };
+		06F44E0DFFE702AD11CA29EB /* IOAudioEngine.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioEngine.cpp; sourceTree = "<group>"; };
+		06F44E0EFFE702AD11CA29EB /* IOAudioEngineMixer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioEngineMixer.cpp; sourceTree = "<group>"; };
+		06F44E0FFFE702AD11CA29EB /* IOAudioEngineUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioEngineUserClient.cpp; sourceTree = "<group>"; };
+		06F44E11FFE702AD11CA29EB /* IOAudioLevelControl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioLevelControl.cpp; sourceTree = "<group>"; };
+		06F44E14FFE702AD11CA29EB /* IOAudioPort.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioPort.cpp; sourceTree = "<group>"; };
+		06F44E15FFE702AD11CA29EB /* IOAudioStream.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioStream.cpp; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
+		06F44E17FFE702AD11CA29EB /* IOAudioControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioControl.h; sourceTree = "<group>"; };
+		06F44E18FFE702AD11CA29EB /* IOAudioControlUserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioControlUserClient.h; sourceTree = "<group>"; };
+		06F44E19FFE702AD11CA29EB /* IOAudioDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioDevice.h; sourceTree = "<group>"; };
+		06F44E1AFFE702AD11CA29EB /* IOAudioEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioEngine.h; sourceTree = "<group>"; };
+		06F44E1BFFE702AD11CA29EB /* IOAudioEngineUserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioEngineUserClient.h; sourceTree = "<group>"; };
+		06F44E1DFFE702AD11CA29EB /* IOAudioLevelControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioLevelControl.h; sourceTree = "<group>"; };
+		06F44E20FFE702AD11CA29EB /* IOAudioPort.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioPort.h; sourceTree = "<group>"; };
+		06F44E21FFE702AD11CA29EB /* IOAudioStream.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioStream.h; sourceTree = "<group>"; };
+		06F44E22FFE702AD11CA29EB /* IOAudioTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioTypes.h; sourceTree = "<group>"; };
+		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		15F1CA6BFFEC8F6A11CA29EB /* IOAudioDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioDebug.h; sourceTree = "<group>"; };
+		1B71235B00570F9911CA29EB /* IOAudioSelectorControl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioSelectorControl.cpp; sourceTree = "<group>"; };
+		1B71235C00570F9911CA29EB /* IOAudioToggleControl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAudioToggleControl.cpp; sourceTree = "<group>"; };
+		1B71235D00570F9911CA29EB /* IOAudioSelectorControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioSelectorControl.h; sourceTree = "<group>"; };
+		1B71235E00570F9911CA29EB /* IOAudioToggleControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAudioToggleControl.h; sourceTree = "<group>"; };
+		401DA4E20119EA2005CA29EB /* Templates */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = folder; name = Templates; path = Examples/Templates; sourceTree = "<group>"; };
+		401DA4E50119EA6A05CA29EB /* Contents.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = Contents.rtf; path = Examples/Contents.rtf; sourceTree = "<group>"; };
+		4027DBB9010E532A05CA29EB /* HISTORY.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = HISTORY.rtf; sourceTree = "<group>"; };
+		4027DBBA010E55A905CA29EB /* IOAudioFamily-README.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = "IOAudioFamily-README.rtf"; sourceTree = "<group>"; };
+		79985E100B3B532700C7B13B /* Info-IOAudioFamily.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = "Info-IOAudioFamily.plist"; sourceTree = "<group>"; };
+		D63C4CF00B20BFAE0047FE0F /* IOAudioFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOAudioFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D63C4CFB0B20BFAE0047FE0F /* libIOAudioFloatLib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libIOAudioFloatLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		D63C4D160B20BFAE0047FE0F /* audio */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = audio; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D63C4CE30B20BFAE0047FE0F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D63C4D1C0B20BFAE0047FE0F /* libIOAudioFloatLib.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D63C4CF50B20BFAE0047FE0F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D63C4D100B20BFAE0047FE0F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		06F44E16FFE702AD11CA29EB /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				06F44E17FFE702AD11CA29EB /* IOAudioControl.h */,
+				06F44E18FFE702AD11CA29EB /* IOAudioControlUserClient.h */,
+				06F44E19FFE702AD11CA29EB /* IOAudioDevice.h */,
+				06F44E1AFFE702AD11CA29EB /* IOAudioEngine.h */,
+				06F44E1BFFE702AD11CA29EB /* IOAudioEngineUserClient.h */,
+				06F44E1DFFE702AD11CA29EB /* IOAudioLevelControl.h */,
+				06F44E20FFE702AD11CA29EB /* IOAudioPort.h */,
+				1B71235D00570F9911CA29EB /* IOAudioSelectorControl.h */,
+				06F44E21FFE702AD11CA29EB /* IOAudioStream.h */,
+				1B71235E00570F9911CA29EB /* IOAudioToggleControl.h */,
+				06F44E22FFE702AD11CA29EB /* IOAudioTypes.h */,
+				01577ADFFFEC9C1011CA29EB /* IOAudioDefines.h */,
+				15F1CA6BFFEC8F6A11CA29EB /* IOAudioDebug.h */,
+			);
+			name = Headers;
+			sourceTree = "<group>";
+		};
+		089C166AFE841209C02AAC07 /* IOAudioFamily */ = {
+			isa = PBXGroup;
+			children = (
+				247142CAFF3F8F9811CA285C /* Source */,
+				06F44E16FFE702AD11CA29EB /* Headers */,
+				089C167CFE841241C02AAC07 /* Resources */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+				401DA4E00119EA0805CA29EB /* Examples */,
+				0118E627009F9D167F000001 /* Kernel.framework */,
+				4027DBBA010E55A905CA29EB /* IOAudioFamily-README.rtf */,
+				4027DBB9010E532A05CA29EB /* HISTORY.rtf */,
+			);
+			name = IOAudioFamily;
+			sourceTree = "<group>";
+		};
+		089C167CFE841241C02AAC07 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				79985E100B3B532700C7B13B /* Info-IOAudioFamily.plist */,
+				089C167DFE841241C02AAC07 /* InfoPlist.strings */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D63C4CF00B20BFAE0047FE0F /* IOAudioFamily.kext */,
+				D63C4CFB0B20BFAE0047FE0F /* libIOAudioFloatLib.a */,
+				D63C4D160B20BFAE0047FE0F /* audio */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		247142CAFF3F8F9811CA285C /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				06F44E0AFFE702AD11CA29EB /* IOAudioControl.cpp */,
+				06F44E0BFFE702AD11CA29EB /* IOAudioControlUserClient.cpp */,
+				06F44E0CFFE702AD11CA29EB /* IOAudioDevice.cpp */,
+				06F44E0DFFE702AD11CA29EB /* IOAudioEngine.cpp */,
+				06F44E0EFFE702AD11CA29EB /* IOAudioEngineMixer.cpp */,
+				06F44E0FFFE702AD11CA29EB /* IOAudioEngineUserClient.cpp */,
+				06F44E11FFE702AD11CA29EB /* IOAudioLevelControl.cpp */,
+				06F44E14FFE702AD11CA29EB /* IOAudioPort.cpp */,
+				1B71235B00570F9911CA29EB /* IOAudioSelectorControl.cpp */,
+				06F44E15FFE702AD11CA29EB /* IOAudioStream.cpp */,
+				1B71235C00570F9911CA29EB /* IOAudioToggleControl.cpp */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		401DA4E00119EA0805CA29EB /* Examples */ = {
+			isa = PBXGroup;
+			children = (
+				401DA4E50119EA6A05CA29EB /* Contents.rtf */,
+				401DA4E20119EA2005CA29EB /* Templates */,
+			);
+			name = Examples;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		D63C4CC80B20BFAE0047FE0F /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D63C4CC90B20BFAE0047FE0F /* IOAudioControl.h in Headers */,
+				D63C4CCA0B20BFAE0047FE0F /* IOAudioControlUserClient.h in Headers */,
+				D63C4CCB0B20BFAE0047FE0F /* IOAudioDevice.h in Headers */,
+				D63C4CCC0B20BFAE0047FE0F /* IOAudioEngine.h in Headers */,
+				D63C4CCD0B20BFAE0047FE0F /* IOAudioEngineUserClient.h in Headers */,
+				D63C4CCE0B20BFAE0047FE0F /* IOAudioLevelControl.h in Headers */,
+				D63C4CCF0B20BFAE0047FE0F /* IOAudioPort.h in Headers */,
+				D63C4CD00B20BFAE0047FE0F /* IOAudioStream.h in Headers */,
+				D63C4CD10B20BFAE0047FE0F /* IOAudioTypes.h in Headers */,
+				D63C4CD20B20BFAE0047FE0F /* IOAudioDebug.h in Headers */,
+				D63C4CD30B20BFAE0047FE0F /* IOAudioDefines.h in Headers */,
+				D63C4CD40B20BFAE0047FE0F /* IOAudioSelectorControl.h in Headers */,
+				D63C4CD50B20BFAE0047FE0F /* IOAudioToggleControl.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D63C4CF20B20BFAE0047FE0F /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D63C4CFD0B20BFAE0047FE0F /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		D63C4CC20B20BFAE0047FE0F /* IOAudioFamily */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D63C4CEB0B20BFAE0047FE0F /* Build configuration list for PBXNativeTarget "IOAudioFamily" */;
+			buildPhases = (
+				D63C4CC70B20BFAE0047FE0F /* ShellScript */,
+				D63C4CC80B20BFAE0047FE0F /* Headers */,
+				D63C4CD60B20BFAE0047FE0F /* Resources */,
+				D63C4CD80B20BFAE0047FE0F /* Sources */,
+				D63C4CE30B20BFAE0047FE0F /* Frameworks */,
+				D63C4CE50B20BFAE0047FE0F /* Rez */,
+				D63C4CE60B20BFAE0047FE0F /* ShellScript */,
+				D63C4CE70B20BFAE0047FE0F /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D63C4D190B20BFAE0047FE0F /* PBXTargetDependency */,
+				D63C4D1B0B20BFAE0047FE0F /* PBXTargetDependency */,
+			);
+			name = IOAudioFamily;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOAudioFamily;
+			productReference = D63C4CF00B20BFAE0047FE0F /* IOAudioFamily.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		D63C4CF10B20BFAE0047FE0F /* IOAudioFloatLib */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D63C4CF70B20BFAE0047FE0F /* Build configuration list for PBXNativeTarget "IOAudioFloatLib" */;
+			buildPhases = (
+				D63C4CF20B20BFAE0047FE0F /* Headers */,
+				D63C4CF30B20BFAE0047FE0F /* Sources */,
+				D63C4CF50B20BFAE0047FE0F /* Frameworks */,
+				D63C4CF60B20BFAE0047FE0F /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOAudioFloatLib;
+			productInstallPath = /usr/local/lib;
+			productName = IOAudioFloatLib;
+			productReference = D63C4CFB0B20BFAE0047FE0F /* libIOAudioFloatLib.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		D63C4CFC0B20BFAE0047FE0F /* InstallHeaders */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D63C4D120B20BFAE0047FE0F /* Build configuration list for PBXNativeTarget "InstallHeaders" */;
+			buildPhases = (
+				D63C4CFD0B20BFAE0047FE0F /* Headers */,
+				D63C4CFE0B20BFAE0047FE0F /* CopyFiles */,
+				D63C4D0C0B20BFAE0047FE0F /* CopyFiles */,
+				D63C4D0F0B20BFAE0047FE0F /* Sources */,
+				D63C4D100B20BFAE0047FE0F /* Frameworks */,
+				D63C4D110B20BFAE0047FE0F /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = InstallHeaders;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
+			productName = InstallHeaders;
+			productReference = D63C4D160B20BFAE0047FE0F /* audio */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 306FEE6E090FDD0A00D6B7FE /* Build configuration list for PBXProject "IOAudioFamily" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* IOAudioFamily */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D63C4CC20B20BFAE0047FE0F /* IOAudioFamily */,
+				D63C4CF10B20BFAE0047FE0F /* IOAudioFloatLib */,
+				D63C4CFC0B20BFAE0047FE0F /* InstallHeaders */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D63C4CD60B20BFAE0047FE0F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D63C4CD70B20BFAE0047FE0F /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		D63C4CE50B20BFAE0047FE0F /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D63C4CF60B20BFAE0047FE0F /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D63C4D110B20BFAE0047FE0F /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D63C4CC70B20BFAE0047FE0F /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		D63C4CE60B20BFAE0047FE0F /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D63C4CD80B20BFAE0047FE0F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D63C4CD90B20BFAE0047FE0F /* IOAudioControl.cpp in Sources */,
+				D63C4CDA0B20BFAE0047FE0F /* IOAudioControlUserClient.cpp in Sources */,
+				D63C4CDB0B20BFAE0047FE0F /* IOAudioDevice.cpp in Sources */,
+				D63C4CDC0B20BFAE0047FE0F /* IOAudioEngine.cpp in Sources */,
+				D63C4CDD0B20BFAE0047FE0F /* IOAudioEngineUserClient.cpp in Sources */,
+				D63C4CDE0B20BFAE0047FE0F /* IOAudioLevelControl.cpp in Sources */,
+				D63C4CDF0B20BFAE0047FE0F /* IOAudioPort.cpp in Sources */,
+				D63C4CE00B20BFAE0047FE0F /* IOAudioStream.cpp in Sources */,
+				D63C4CE10B20BFAE0047FE0F /* IOAudioSelectorControl.cpp in Sources */,
+				D63C4CE20B20BFAE0047FE0F /* IOAudioToggleControl.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D63C4CF30B20BFAE0047FE0F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D63C4CF40B20BFAE0047FE0F /* IOAudioEngineMixer.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D63C4D0F0B20BFAE0047FE0F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D63C4D190B20BFAE0047FE0F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D63C4CFC0B20BFAE0047FE0F /* InstallHeaders */;
+			targetProxy = D63C4D180B20BFAE0047FE0F /* PBXContainerItemProxy */;
+		};
+		D63C4D1B0B20BFAE0047FE0F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D63C4CF10B20BFAE0047FE0F /* IOAudioFloatLib */;
+			targetProxy = D63C4D1A0B20BFAE0047FE0F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		089C167DFE841241C02AAC07 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				089C167EFE841241C02AAC07 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		306FEE6F090FDD0A00D6B7FE /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Development;
+		};
+		306FEE70090FDD0A00D6B7FE /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Deployment;
+		};
+		306FEE71090FDD0A00D6B7FE /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Default;
+		};
+		D63C4CEC0B20BFAE0047FE0F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUG_CFLAGS = "-DDEBUG";
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 2;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOAudioFamily.plist";
+				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-traditional-cpp -I.";
+				INFOPLIST_PREPROCESS = YES;
+				INFOPLIST_PREPROCESSOR_DEFINITIONS = DEBUG;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOAudioFamily;
+				MODULE_VERSION = 1.6.4b7;
+				OTHER_CFLAGS = "$(DEBUG_CFLAGS)";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOAudioFamily;
+				SDKROOT = "";
+				SECTORDER_FLAGS = "";
+				UNSTRIPPED_PRODUCT = YES;
+				VALID_ARCHS = "ppc i386 x86_64 ppc64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		D63C4CED0B20BFAE0047FE0F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOAudioFamily.plist";
+				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-traditional-cpp -I.";
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Default\"";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOAudioFamily;
+				MODULE_VERSION = 1.6.4b7;
+				OTHER_CFLAGS = "$(DEBUG_CFLAGS)";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOAudioFamily;
+				SDKROOT = "";
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386 ppc64 x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		D63C4CEE0B20BFAE0047FE0F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_32_BIT)";
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOAudioFamily.plist";
+				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-traditional-cpp -I.";
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Default\"";
+				MACOSX_DEPLOYMENT_TARGET = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOAudioFamily;
+				MODULE_VERSION = 1.6.4b7;
+				OTHER_CFLAGS = "$(DEBUG_CFLAGS)";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOAudioFamily;
+				SDKROOT = "";
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		D63C4CF80B20BFAE0047FE0F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUG_CFLAGS = "-DDEBUG";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_INPUT_FILETYPE = sourcecode.cpp.cpp;
+				GCC_OPTIMIZATION_LEVEL = 2;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					KERNEL,
+					KERNEL_PRIVATE,
+					DRIVER_PRIVATE,
+					APPLE,
+					NeXT,
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd",
+				);
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(DEBUG_CFLAGS)",
+					"-nostdinc",
+					"-finline",
+					"-fno-keep-inline-functions",
+					"-force_cpusubtype_ALL",
+					"-fcheck-new",
+					"-findirect-virtual-calls",
+					"-static",
+				);
+				OTHER_LDFLAGS = "-static";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-mlong-branch";
+				PRODUCT_NAME = IOAudioFloatLib;
+				REZ_EXECUTABLE = YES;
+				SDKROOT = "";
+				SECTORDER_FLAGS = "";
+				UNSTRIPPED_PRODUCT = YES;
+				VALID_ARCHS = "x86_64 ppc64 ppc i386";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		D63C4CF90B20BFAE0047FE0F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_INPUT_FILETYPE = sourcecode.cpp.cpp;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					KERNEL,
+					KERNEL_PRIVATE,
+					DRIVER_PRIVATE,
+					APPLE,
+					NeXT,
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd",
+				);
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(DEBUG_CFLAGS)",
+					"-nostdinc",
+					"-finline",
+					"-fno-keep-inline-functions",
+					"-force_cpusubtype_ALL",
+					"-fcheck-new",
+					"-findirect-virtual-calls",
+					"-static",
+				);
+				OTHER_LDFLAGS = "-static";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-mlong-branch";
+				PRODUCT_NAME = IOAudioFloatLib;
+				REZ_EXECUTABLE = YES;
+				SDKROOT = "";
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "x86_64 ppc64 ppc i386";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		D63C4CFA0B20BFAE0047FE0F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_32_BIT)";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_INPUT_FILETYPE = sourcecode.cpp.cpp;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					KERNEL,
+					KERNEL_PRIVATE,
+					DRIVER_PRIVATE,
+					APPLE,
+					NeXT,
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd",
+				);
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(DEBUG_CFLAGS)",
+					"-nostdinc",
+					"-finline",
+					"-fno-keep-inline-functions",
+					"-force_cpusubtype_ALL",
+					"-fcheck-new",
+					"-findirect-virtual-calls",
+					"-static",
+				);
+				OTHER_LDFLAGS = "-static";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-mlong-branch";
+				PRODUCT_NAME = IOAudioFloatLib;
+				REZ_EXECUTABLE = YES;
+				SDKROOT = "";
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		D63C4D130B20BFAE0047FE0F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUG_CFLAGS = "-DDEBUG";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 2;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = InstallHeaders;
+				REZ_EXECUTABLE = YES;
+				SDKROOT = "";
+				SECTORDER_FLAGS = "";
+				UNSTRIPPED_PRODUCT = YES;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		D63C4D140B20BFAE0047FE0F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = InstallHeaders;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		D63C4D150B20BFAE0047FE0F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_32_BIT)";
+				DEPLOYMENT_LOCATION = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_OWNER = "$(USER)";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = audio;
+				PUBLIC_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit;
+				REZ_EXECUTABLE = YES;
+				SDKROOT = "";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		306FEE6E090FDD0A00D6B7FE /* Build configuration list for PBXProject "IOAudioFamily" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				306FEE6F090FDD0A00D6B7FE /* Development */,
+				306FEE70090FDD0A00D6B7FE /* Deployment */,
+				306FEE71090FDD0A00D6B7FE /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		D63C4CEB0B20BFAE0047FE0F /* Build configuration list for PBXNativeTarget "IOAudioFamily" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D63C4CEC0B20BFAE0047FE0F /* Development */,
+				D63C4CED0B20BFAE0047FE0F /* Deployment */,
+				D63C4CEE0B20BFAE0047FE0F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		D63C4CF70B20BFAE0047FE0F /* Build configuration list for PBXNativeTarget "IOAudioFloatLib" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D63C4CF80B20BFAE0047FE0F /* Development */,
+				D63C4CF90B20BFAE0047FE0F /* Deployment */,
+				D63C4CFA0B20BFAE0047FE0F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		D63C4D120B20BFAE0047FE0F /* Build configuration list for PBXNativeTarget "InstallHeaders" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D63C4D130B20BFAE0047FE0F /* Development */,
+				D63C4D140B20BFAE0047FE0F /* Deployment */,
+				D63C4D150B20BFAE0047FE0F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

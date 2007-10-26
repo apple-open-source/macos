@@ -2,12 +2,12 @@
 #
 #  install_libodbc.sh
 #
-#  $Id: install_libodbc.sh,v 1.2 2004/11/11 01:52:37 luesang Exp $
+#  $Id: install_libodbc.sh,v 1.6 2006/01/20 15:58:35 source Exp $
 #
 #  The iODBC driver manager.
 #  
 #  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
-#  Copyright (C) 1996-2004 by OpenLink Software <iodbc@openlinksw.com>
+#  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
 #  All Rights Reserved.
 #
 #  This software is released under the terms of either of the following
@@ -15,6 +15,10 @@
 #
 #      - GNU Library General Public License (see LICENSE.LGPL) 
 #      - The BSD License (see LICENSE.BSD).
+#
+#  Note that the only valid version of the LGPL license as far as this
+#  project is concerned is the original GNU Library General Public License
+#  Version 2, dated June 1991.
 #
 #  While not mandated by the BSD license, any patches you make to the
 #  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
 #  ============================================
 #  This library is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU Library General Public
-#  License as published by the Free Software Foundation; either
-#  version 2 of the License, or (at your option) any later version.
+#  License as published by the Free Software Foundation; only
+#  Version 2 of the License dated June 1991.
 #
 #  This library is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
 #
 #  You should have received a copy of the GNU Library General Public
 #  License along with this library; if not, write to the Free
-#  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 #
 #  The BSD License
@@ -70,6 +74,7 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+
 PREFIX="$1"
 MACHINE=`uname`
 
@@ -82,14 +87,14 @@ then
   exit 1
 fi
 
-if test ! -d "$PREFIX/lib"
+if test ! -d "$PREFIX"
 then
-   echo "**ERROR: installation directory [$PREFIX/lib] does not exist"
+   echo "**ERROR: installation directory [$PREFIX] does not exist"
    exit 1
 fi
 
 
-cd "$PREFIX"/lib
+cd "$PREFIX"
 
 
 #

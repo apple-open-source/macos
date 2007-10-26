@@ -37,6 +37,7 @@
 #include "DirServicesPriv.h"
 #include "DirServicesConst.h"
 #include "DirServicesUtils.h"
+#include "DSUtils.h"
 
 #ifdef SERVERINTERNAL
 #include "DSCThread.h"
@@ -54,52 +55,25 @@
 #include <syslog.h>		// for syslog()
 #include <ctype.h>		// for isalpha()
 
-extern dsBool				gResetSession;
-extern sInt32				gProcessPID;
-extern uInt32				gTranslateBit;
-
 //------------------------------------------------------------------------------------
 //	* CMessaging
 //------------------------------------------------------------------------------------
 
-CMessaging::CMessaging ( void )
-{
-	bMachEndpoint = true;
-
-	fLock = new DSMutexSemaphore();
-
-	fMsgData = (sComData *)::calloc( 1, sizeof( sComData ) + kMsgBlockSize );
-	if ( fMsgData != nil )
-	{
-		fMsgData->fDataSize		= kMsgBlockSize;
-		fMsgData->fDataLength	= 0;
-	}
-	fServerVersion = 1; //for internal dispatch and mach
-
-#ifndef SERVERINTERNAL
-	fCommPort		= nil;
-	fTCPEndpoint	= nil;
-#endif
-} // CMessaging
-
-
-//------------------------------------------------------------------------------------
-//	* CMessaging
-//------------------------------------------------------------------------------------
-
-CMessaging::CMessaging ( Boolean inMachEndpoint )
+CMessaging::CMessaging ( Boolean inMachEndpoint, UInt32 inTranslateBit )
 {
 	bMachEndpoint = inMachEndpoint;
 
-	fLock = new DSMutexSemaphore();
+	fLock = new DSMutexSemaphore("CMessaging::fLock");
 
-	fMsgData = (sComData *)::calloc( 1, sizeof( sComData ) + kMsgBlockSize );
+	fMsgData = (sComData *)::calloc( 1, sizeof( sComData ) + kMaxFixedMsgData );
 	if ( fMsgData != nil )
 	{
-		fMsgData->fDataSize		= kMsgBlockSize;
+		fMsgData->fDataSize		= kMaxFixedMsgData;
 		fMsgData->fDataLength	= 0;
 	}
 	fServerVersion = 1; //for internal dispatch and mach
+	fLocalDaemonInUse = false;
+	fTranslateBit = inTranslateBit;
 
 #ifndef SERVERINTERNAL
 	fCommPort		= nil;
@@ -132,12 +106,12 @@ CMessaging::~CMessaging ( void )
 //	* ConfigTCP()
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CMessaging::ConfigTCP (	const char *inRemoteIPAddress,
-								uInt32 inRemotePort )
+SInt32 CMessaging::ConfigTCP (	const char *inRemoteIPAddress,
+								UInt32 inRemotePort )
 {
-	sInt32		result		= eDSNoErr;
+	SInt32		result		= eDSNoErr;
 #ifndef SERVERINTERNAL
-	sInt32		siResult	= eDSNoErr;
+	SInt32		siResult	= eDSNoErr;
 
 	// check on the input vars and allow domain to be entered ie. convert it
 	if (inRemoteIPAddress != nil)
@@ -162,33 +136,26 @@ sInt32 CMessaging::ConfigTCP (	const char *inRemoteIPAddress,
 //	* OpenCommPort
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::OpenCommPort ( void )
+SInt32 CMessaging::OpenCommPort ( Boolean inLocalDS )
 {
-	sInt32			siStatus	= eDSNoErr;
+	SInt32			siStatus	= eDSNoErr;
 #ifndef SERVERINTERNAL
 	siStatus	= eMemoryAllocError;
 
-	fCommPort = new CClientEndPoint( kDSStdMachPortName );
+#ifdef DSDEBUGFW
+	fCommPort = new CClientEndPoint( kDSStdMachDebugPortName );
+#else
+	fLocalDaemonInUse = inLocalDS;
+
+	if (inLocalDS)
+		fCommPort = new CClientEndPoint( kDSStdMachLocalPortName );
+	else
+		fCommPort = new CClientEndPoint( kDSStdMachPortName );
+	
+#endif
 	if ( fCommPort != nil )
 	{
 		siStatus = fCommPort->Initialize();
-		if (siStatus == eDSNoErr)
-		{
-			siStatus = fCommPort->CheckForServer();
-			if (siStatus == BOOTSTRAP_UNKNOWN_SERVICE)
-			{
-				// this is bad.  DirectoryService should always be available since mach_init should be launching it if needed.
-				syslog( LOG_ALERT, "Could not open connection to local DirectoryService daemon!\n" );
-
-				siStatus = eServerNotRunning;
-			}
-			else if ( siStatus != eDSNoErr )
-			{
-				//either bootstrap port retrieval failed or another unknown error on the lookup
-				siStatus = eMemoryAllocError;
-			}
-			
-		} // Initialize succeeded
 	}
 #endif
 	return( siStatus ); 
@@ -199,9 +166,9 @@ sInt32 CMessaging::OpenCommPort ( void )
 //	* CloseCommPort
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::CloseCommPort ( void )
+SInt32 CMessaging::CloseCommPort ( void )
 {
-	sInt32 result	= eDSNoErr;
+	SInt32 result	= eDSNoErr;
 #ifndef SERVERINTERNAL
 	if ( fCommPort != nil )
 	{
@@ -218,13 +185,13 @@ sInt32 CMessaging::CloseCommPort ( void )
 //	* OpenTCPEndpoint()
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CMessaging::OpenTCPEndpoint ( void )
+SInt32 CMessaging::OpenTCPEndpoint ( void )
 {
-	sInt32 result = eDSNoErr;
+	SInt32 result = eDSNoErr;
 #ifndef SERVERINTERNAL
 	if ( fTCPEndpoint == nil )
 	{
-		fTCPEndpoint = new DSEncryptedEndpoint((uInt32)::time(NULL), kTCPOpenTimeout, kTCPRWTimeout);
+		fTCPEndpoint = new DSEncryptedEndpoint((UInt32)::time(NULL), kTCPOpenTimeout, kTCPRWTimeout);
 		if ( fTCPEndpoint != nil )
 		{
 				//attempt to connect to a port on a remote machine
@@ -253,9 +220,9 @@ sInt32 CMessaging::OpenTCPEndpoint ( void )
 //	* CloseTCPEndpoint
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::CloseTCPEndpoint ( void )
+SInt32 CMessaging::CloseTCPEndpoint ( void )
 {
-	sInt32 result	= eDSNoErr;
+	SInt32 result	= eDSNoErr;
 #ifndef SERVERINTERNAL
 	if ( fTCPEndpoint != nil )
 	{
@@ -272,9 +239,9 @@ sInt32 CMessaging::CloseTCPEndpoint ( void )
 //	* SendRemoteMessage
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::SendRemoteMessage ( void )
+SInt32 CMessaging::SendRemoteMessage ( void )
 {
-	sInt32		result	= eDSDirSrvcNotOpened;
+	SInt32		result	= eDSDirSrvcNotOpened;
 
 	if ( fTCPEndpoint == nil )
 	{
@@ -283,7 +250,7 @@ sInt32 CMessaging::SendRemoteMessage ( void )
 	
 	if ( (fTCPEndpoint != nil) && (fMsgData != nil) )
 	{
-		LOG3( kStdErr, "CMessaging::SendRemoteMessage: before ep send - Correlate the message type: %d with the actual CMessaging class ptr %d and the endpoint class %d.", fMsgData->type.msgt_name, (uInt32)this, (uInt32)fTCPEndpoint );
+		LOG3( kStdErr, "CMessaging::SendRemoteMessage: before ep send - Correlate the message type: %d with the actual CMessaging class ptr %d and the endpoint class %d.", fMsgData->type.msgt_name, (UInt32)this, (UInt32)fTCPEndpoint );
 		result = fTCPEndpoint->SendServerMessage( fMsgData );
 	}
 
@@ -296,13 +263,13 @@ sInt32 CMessaging::SendRemoteMessage ( void )
 //	* SendServerMessage
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::SendServerMessage ( void )
+SInt32 CMessaging::SendServerMessage ( void )
 {
-	sInt32		result	= eDSDirSrvcNotOpened;
+	SInt32		result	= eDSDirSrvcNotOpened;
 
 	if ( fCommPort == nil )
 	{
-		result = OpenCommPort();
+		result = OpenCommPort(fLocalDaemonInUse);
 	}
 	
 	if ( (fCommPort != nil) && (fMsgData != nil) )
@@ -319,36 +286,23 @@ sInt32 CMessaging::SendServerMessage ( void )
 //	* GetReplyMessage
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::GetReplyMessage ( void )
+SInt32 CMessaging::GetReplyMessage ( void )
 {
 #ifdef SERVERINTERNAL
     return eDSNoErr; // reply already got generated during call to SendInlineMessage
 #else
-	sInt32		result	= eDSDirSrvcNotOpened;
+	SInt32		result	= eDSDirSrvcNotOpened;
 
 	if (bMachEndpoint)
 	{
 		if ( fCommPort == nil )
 		{
-			result = OpenCommPort();
+			result = OpenCommPort(fLocalDaemonInUse);
 		}
 		
 		if ( (fCommPort != nil) && (fMsgData != nil) )
 		{
 			result = fCommPort->GetServerReply( &fMsgData );
-		}
-		
-		if (result == eServerSendError)
-		{
-			syslog(LOG_ALERT,"DirectoryService Framework::CMessaging::Mach msg receiver error - out of order mach msgs.");
-		}
-	
-		//if the mach reply failed due to an interrupt then we need to reset the entire session
-		if (result == eDSCannotAccessSession)
-		{
-			syslog(LOG_ALERT,"DirectoryService Framework::CMessaging::Mach msg receiver interrupt error = %d", result);
-		
-			gResetSession = true;
 		}
 	}
 	else
@@ -362,7 +316,7 @@ sInt32 CMessaging::GetReplyMessage ( void )
 				fMsgData = nil;
 			}
 			result = fTCPEndpoint->GetServerReply( &fMsgData );
-			LOG3( kStdErr, "CMessaging::GetReplyMessage: after ep reply - Correlate the message type: %d with the actual CMessaging class ptr %d and the endpoint class %d.", fMsgData->type.msgt_name, (uInt32)this, (uInt32)fTCPEndpoint );
+			LOG3( kStdErr, "CMessaging::GetReplyMessage: after ep reply - Correlate the message type: %d with the actual CMessaging class ptr %d and the endpoint class %d.", fMsgData->type.msgt_name, (UInt32)this, (UInt32)fTCPEndpoint );
 		}
 	}
 
@@ -375,7 +329,7 @@ sInt32 CMessaging::GetReplyMessage ( void )
 //	* SendInlineMessage
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::SendInlineMessage ( uInt32 inMsgType )
+SInt32 CMessaging::SendInlineMessage ( UInt32 inMsgType )
 {
 #ifdef SERVERINTERNAL
 	sComData   *aMsgData		= nil;
@@ -436,29 +390,21 @@ sInt32 CMessaging::SendInlineMessage ( uInt32 inMsgType )
 	}
     return eDSNoErr;
 #else
-	sInt32			result	= eDSNoErr;
+	SInt32			result	= eDSNoErr;
 
 	if (bMachEndpoint)
 	{
 		fMsgData->type.msgt_name		= inMsgType;
 		fMsgData->type.msgt_size		= 32;
 		fMsgData->type.msgt_number		= 0;
-		fMsgData->type.msgt_translate	= gTranslateBit;
+		fMsgData->type.msgt_translate	= fTranslateBit;
 		
 		result = this->SendServerMessage();
-	
-		//if the mach send was interrupted then we need to reset the entire session
-		if (result == eDSCannotAccessSession)
-		{
-			syslog(LOG_ALERT,"DirectoryService Framework::CMessaging::Mach msg send interrupt error = %d.",result);
-	
-			gResetSession = true;
-		}
 	}
 	else
 	{
 		fMsgData->type.msgt_name= inMsgType;
-		fMsgData->fPID			= gProcessPID;
+		fMsgData->fPID			= getpid();
 		fMsgData->fMsgID		= ::time( nil );
 
 		result = this->SendRemoteMessage();
@@ -473,12 +419,12 @@ sInt32 CMessaging::SendInlineMessage ( uInt32 inMsgType )
 //	* Add_tDataBuff_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Add_tDataBuff_ToMsg ( tDataBuffer *inBuff, eValueType inType )
+SInt32 CMessaging::Add_tDataBuff_ToMsg ( tDataBuffer *inBuff, eValueType inType )
 {
-	sInt32				result			= eDSNoErr;
+	SInt32				result			= eDSNoErr;
 	sObject			   *pObj			= nil;
-	uInt32				offset			= 0;
-	uInt32				length			= 0;
+	UInt32				offset			= 0;
+	UInt32				length			= 0;
 	sComData		   *aMsgData		= nil;
 
 	aMsgData = GetMsgData();
@@ -521,13 +467,13 @@ sInt32 CMessaging::Add_tDataBuff_ToMsg ( tDataBuffer *inBuff, eValueType inType 
 //	* Add_tDataList_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Add_tDataList_ToMsg ( tDataList *inList, eValueType inType )
+SInt32 CMessaging::Add_tDataList_ToMsg ( tDataList *inList, eValueType inType )
 {
-	sInt32				result		= eDSNoErr;
+	SInt32				result		= eDSNoErr;
 	bool				done		= false;
-	uInt32				len			= 0;
-	uInt32				offset		= 0;
-	uInt32				length		= 0;
+	UInt32				len			= 0;
+	UInt32				offset		= 0;
+	UInt32				length		= 0;
 	tDataNodePtr		pCurrNode	= nil;
 	tDataBufferPriv	   *pPrivData	= nil;
 	sObject			   *pObj		= nil;
@@ -547,7 +493,7 @@ sInt32 CMessaging::Add_tDataList_ToMsg ( tDataList *inList, eValueType inType )
 		{
 			pObj->type		= inType;	// == ktDataList
 			pObj->count		= inList->fDataNodeCount;
-			pObj->length	= ::dsGetDataLength( inList ) + (inList->fDataNodeCount * sizeof( uInt32 ));
+			pObj->length	= ::dsGetDataLength( inList ) + (inList->fDataNodeCount * sizeof( UInt32 ));
 			offset			= pObj->offset;
 			length			= pObj->length;
 
@@ -594,9 +540,9 @@ sInt32 CMessaging::Add_tDataList_ToMsg ( tDataList *inList, eValueType inType )
 //	* Add_Value_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Add_Value_ToMsg ( uInt32 inValue, eValueType inType )
+SInt32 CMessaging::Add_Value_ToMsg ( UInt32 inValue, eValueType inType )
 {
-	sInt32			result		= eDSNoErr;
+	SInt32			result		= eDSNoErr;
 	sObject		   *pObj		= nil;
 	sComData	   *aMsgData	= nil;
 
@@ -622,12 +568,12 @@ sInt32 CMessaging::Add_Value_ToMsg ( uInt32 inValue, eValueType inType )
 //	* Add_tAttrEntry_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Add_tAttrEntry_ToMsg ( tAttributeEntry *inData )
+SInt32 CMessaging::Add_tAttrEntry_ToMsg ( tAttributeEntry *inData )
 {
-	sInt32			result	= eDSNoErr;
+	SInt32			result	= eDSNoErr;
 	sObject		   *pObj	= nil;
-	uInt32			offset	= 0;
-	uInt32			length	= 0;
+	UInt32			offset	= 0;
+	UInt32			length	= 0;
 	sComData	   *aMsgData= nil;
 
 	aMsgData = GetMsgData();
@@ -672,12 +618,12 @@ sInt32 CMessaging::Add_tAttrEntry_ToMsg ( tAttributeEntry *inData )
 //	* Add_tAttrValueEntry_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Add_tAttrValueEntry_ToMsg ( tAttributeValueEntry *inData )
+SInt32 CMessaging::Add_tAttrValueEntry_ToMsg ( tAttributeValueEntry *inData )
 {
-	sInt32			result	= eDSNoErr;
+	SInt32			result	= eDSNoErr;
 	sObject		   *pObj	= nil;
-	uInt32			offset	= 0;
-	uInt32			length	= 0;
+	UInt32			offset	= 0;
+	UInt32			length	= 0;
 	sComData	   *aMsgData= nil;
 
 	aMsgData = GetMsgData();
@@ -723,12 +669,12 @@ sInt32 CMessaging::Add_tAttrValueEntry_ToMsg ( tAttributeValueEntry *inData )
 //	* Add_tRecordEntry_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Add_tRecordEntry_ToMsg ( tRecordEntry *inData )
+SInt32 CMessaging::Add_tRecordEntry_ToMsg ( tRecordEntry *inData )
 {
-	sInt32			result	= eDSNoErr;
+	SInt32			result	= eDSNoErr;
 	sObject		   *pObj	= nil;
-	uInt32			offset	= 0;
-	uInt32			length	= 0;
+	UInt32			offset	= 0;
+	UInt32			length	= 0;
 	sComData	   *aMsgData= nil;
 
 	aMsgData = GetMsgData();
@@ -772,11 +718,11 @@ sInt32 CMessaging::Add_tRecordEntry_ToMsg ( tRecordEntry *inData )
 //	* Get_tDataBuff_FromMsg		ktDataBuff
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Get_tDataBuff_FromMsg ( tDataBuffer **outBuff, eValueType inType )
+SInt32 CMessaging::Get_tDataBuff_FromMsg ( tDataBuffer **outBuff, eValueType inType )
 {
-	sInt32		result		= eDSNoErr;
-	uInt32		offset		= 0;
-	uInt32		length		= 0;
+	SInt32		result		= eDSNoErr;
+	UInt32		offset		= 0;
+	UInt32		length		= 0;
 	sObject	   *pObj		= nil;
 	sComData   *aMsgData	= nil;
 
@@ -796,7 +742,7 @@ sInt32 CMessaging::Get_tDataBuff_FromMsg ( tDataBuffer **outBuff, eValueType inT
 		{
 			if ( *outBuff == nil )
 			{
-				*outBuff = ::dsDataBufferAllocate( 0x00F0F0F0, length );
+				*outBuff = ::dsDataBufferAllocate( 0, length );
 			}
 
 			if ( *outBuff != nil )
@@ -832,13 +778,13 @@ sInt32 CMessaging::Get_tDataBuff_FromMsg ( tDataBuffer **outBuff, eValueType inT
 //	* Get_tDataList_FromMsg		ktDataList
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Get_tDataList_FromMsg ( tDataList **outList, eValueType inType )
+SInt32 CMessaging::Get_tDataList_FromMsg ( tDataList **outList, eValueType inType )
 {
-	sInt32		siResult	= eDSNoErr;
-	uInt32		offset		= 0;
-	uInt32		length		= 0;
-	uInt32		count		= 0;
-	uInt32		cntr		= 0;
+	SInt32		siResult	= eDSNoErr;
+	UInt32		offset		= 0;
+	UInt32		length		= 0;
+	UInt32		count		= 0;
+	UInt32		cntr		= 0;
 	sObject	   *pObj		= nil;
 	tDataList  *pOutList	= nil;
 	char	   *tmpStr		= nil;
@@ -857,7 +803,7 @@ sInt32 CMessaging::Get_tDataList_FromMsg ( tDataList **outList, eValueType inTyp
 		{
 			if ( outList != nil )
 			{
-				pOutList = ::dsDataListAllocate( 0x00F0F0F0 );
+				pOutList = ::dsDataListAllocate( 0 );
 				if ( pOutList != nil )
 				{
 					offset	= pObj->offset;
@@ -867,13 +813,15 @@ sInt32 CMessaging::Get_tDataList_FromMsg ( tDataList **outList, eValueType inTyp
 					{
 						::memcpy( &length, (char *)aMsgData + offset, 4 );
 						offset += 4;
-
-						tmpStr = (char *)calloc(1, length+1);
-						if (tmpStr == nil) throw((sInt32)eMemoryAllocError);
-						strncpy(tmpStr, (char *)aMsgData + offset, length);
-						::dsAppendStringToListAlloc( 0x00F0F0F0, pOutList, tmpStr );
+						
+						// can't use dsCStrFromCharacters because it indirectly references DirectoryServiceCore.framework
+						tmpStr = (char *) malloc( length + 1 );
+						if (tmpStr == nil) throw((SInt32)eMemoryAllocError);
+						memcpy( tmpStr, aMsgData + offset, length );
+						tmpStr[length] = '\0';
+						::dsAppendStringToListAlloc( 0, pOutList, tmpStr );
 						free(tmpStr);
-
+						
 						offset += length;
 						cntr++;
 					}
@@ -891,11 +839,11 @@ sInt32 CMessaging::Get_tDataList_FromMsg ( tDataList **outList, eValueType inTyp
 		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( pOutList != nil )
 		{
-			::dsDataListDeAllocate( 0x00F0F0F0, pOutList, true );
+			::dsDataListDeallocate( 0, pOutList );
 			free(pOutList);
 			*outList = nil;
 		}
@@ -911,9 +859,9 @@ sInt32 CMessaging::Get_tDataList_FromMsg ( tDataList **outList, eValueType inTyp
 //	* Get_Value_FromMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Get_Value_FromMsg ( uInt32 *outValue, eValueType inType )
+SInt32 CMessaging::Get_Value_FromMsg ( UInt32 *outValue, eValueType inType )
 {
-	uInt32		result	= eDSNoErr;
+	UInt32		result	= eDSNoErr;
 	sObject	   *pObj	= nil;
 	sComData   *aMsgData= nil;
 
@@ -938,9 +886,9 @@ sInt32 CMessaging::Get_Value_FromMsg ( uInt32 *outValue, eValueType inType )
 //	* Get_tAttrEntry_FromMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Get_tAttrEntry_FromMsg ( tAttributeEntry **outAttrEntry, eValueType inType )
+SInt32 CMessaging::Get_tAttrEntry_FromMsg ( tAttributeEntry **outAttrEntry, eValueType inType )
 {
-	sInt32				result		= eDSNoErr;
+	SInt32				result		= eDSNoErr;
 	sObject			   *pObj		= nil;
 	tAttributeEntry	   *pAttrEntry	= nil;
 	sComData		   *aMsgData	= nil;
@@ -977,10 +925,10 @@ sInt32 CMessaging::Get_tAttrEntry_FromMsg ( tAttributeEntry **outAttrEntry, eVal
 //	* Get_tAttrValueEntry_FromMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Get_tAttrValueEntry_FromMsg ( tAttributeValueEntry **outAttrValue,
+SInt32 CMessaging::Get_tAttrValueEntry_FromMsg ( tAttributeValueEntry **outAttrValue,
 												 eValueType				inType )
 {
-	sInt32						result			= eDSNoErr;
+	SInt32						result			= eDSNoErr;
 	sObject					   *pObj			= nil;
 	tAttributeValueEntry	   *pAttrValueEntry	= nil;
 	sComData				   *aMsgData		= nil;
@@ -1018,9 +966,9 @@ sInt32 CMessaging::Get_tAttrValueEntry_FromMsg ( tAttributeValueEntry **outAttrV
 //	* Get_tRecordEntry_FromMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::Get_tRecordEntry_FromMsg ( tRecordEntry **outRecEntry, eValueType inType )
+SInt32 CMessaging::Get_tRecordEntry_FromMsg ( tRecordEntry **outRecEntry, eValueType inType )
 {
-	sInt32		   		result			= eDSNoErr;
+	SInt32		   		result			= eDSNoErr;
 	sObject		   	   *pObj			= nil;
 	tRecordEntry	   *pRecordEntry	= nil;
 	sComData		   *aMsgData		= nil;
@@ -1058,10 +1006,10 @@ sInt32 CMessaging::Get_tRecordEntry_FromMsg ( tRecordEntry **outRecEntry, eValue
 //	* GetEmptyObj
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::GetEmptyObj ( sComData *inMsg, eValueType inType, sObject **outObj )
+SInt32 CMessaging::GetEmptyObj ( sComData *inMsg, eValueType inType, sObject **outObj )
 {
-	sInt32		siResult	= eDSIndexNotFound;
-	uInt32		i;
+	SInt32		siResult	= eDSIndexNotFound;
+	UInt32		i;
 
 	for ( i = 0; i < 10; i++ )
 	{
@@ -1070,12 +1018,12 @@ sInt32 CMessaging::GetEmptyObj ( sComData *inMsg, eValueType inType, sObject **o
 			*outObj = &inMsg->obj[ i ];
 			if ( i == 0 )
 			{
-                //offset was incorrect ie. missing 2 more uInt32 fixed below ie. now 3*
+                //offset was incorrect ie. missing 2 more UInt32 fixed below ie. now 3*
                 // but should really use offsetof here since it is a fixed size object
                 (*outObj)->offset = offsetof(struct sComData, data);
                 //(*outObj)->offset = sizeof( mach_msg_header_t ) +
                 //					sizeof( mach_msg_type_t ) +
-                //					3*sizeof( uInt32 ) +
+                //					3*sizeof( UInt32 ) +
                 //				   (sizeof( sObject ) * 10);
 			}
 			else
@@ -1085,7 +1033,7 @@ sInt32 CMessaging::GetEmptyObj ( sComData *inMsg, eValueType inType, sObject **o
 			siResult = eDSNoErr;
 			break;
 		}
-		else if ( inMsg->obj[ i ].type == (uInt32)inType )
+		else if ( inMsg->obj[ i ].type == (UInt32)inType )
 		{
 			//siResult = kDupInList;
 			break;
@@ -1101,14 +1049,14 @@ sInt32 CMessaging::GetEmptyObj ( sComData *inMsg, eValueType inType, sObject **o
 //	* GetThisObj
 //------------------------------------------------------------------------------------
 
-sInt32 CMessaging::GetThisObj ( sComData *inMsg, eValueType inType, sObject **outObj )
+SInt32 CMessaging::GetThisObj ( sComData *inMsg, eValueType inType, sObject **outObj )
 {
-	sInt32		siResult	= eDSIndexNotFound;
-	uInt32		i;
+	SInt32		siResult	= eDSIndexNotFound;
+	UInt32		i;
 
 	for ( i = 0; i < 10; i++ )
 	{
-		if ( inMsg->obj[ i ].type == (uInt32)inType )
+		if ( inMsg->obj[ i ].type == (UInt32)inType )
 		{
 			*outObj = &inMsg->obj[ i ];
 			siResult = eDSNoErr;
@@ -1125,11 +1073,11 @@ sInt32 CMessaging::GetThisObj ( sComData *inMsg, eValueType inType, sObject **ou
 //	* Grow
 //------------------------------------------------------------------------------------
 
-bool CMessaging::Grow ( uInt32 inOffset, uInt32 inSize )
+bool CMessaging::Grow ( UInt32 inOffset, UInt32 inSize )
 {
-	uInt32		newSize		= 0;
+	UInt32		newSize		= 0;
 	char	   *pNewPtr		= nil;
-	uInt32		length		= 0;
+	UInt32		length		= 0;
 	sComData   *aMsgData	= nil;
 	bool		bGrown		= false;
 
@@ -1157,7 +1105,7 @@ bool CMessaging::Grow ( uInt32 inOffset, uInt32 inSize )
 			pNewPtr = (char *)::calloc( 1, sizeof( sComData ) + newSize );
 			if ( pNewPtr == nil )
 			{
-				throw( (sInt32)eMemoryAllocError );
+				throw( (SInt32)eMemoryAllocError );
 			}
 	
 			// Copy the old data to the new destination
@@ -1221,7 +1169,7 @@ void CMessaging::Lock ( void )
 		{
 			if ( fLock != nil )
 			{
-				fLock->Wait();
+				fLock->WaitLock();
 			}
 		}
 	}
@@ -1229,13 +1177,13 @@ void CMessaging::Lock ( void )
 	{
 		if ( fLock != nil )
 		{
-			fLock->Wait();
+			fLock->WaitLock();
 		}
 	}
 #else
 	if ( fLock != nil )
 	{
-		fLock->Wait();
+		fLock->WaitLock();
 	}
 #endif
 } // Lock
@@ -1247,13 +1195,14 @@ void CMessaging::Lock ( void )
 void CMessaging::ResetMessageBlock( void )
 {
 	// let's free and reallocate the block if it isn't the default block size so we don't grow memory
-	if( kMsgBlockSize != fMsgData->fDataSize )
+	if( fMsgData == NULL || kMaxFixedMsgData != fMsgData->fDataSize )
 	{
-		free( fMsgData );
-		fMsgData = (sComData *)::calloc( 1, sizeof( sComData ) + kMsgBlockSize );
+		if ( fMsgData != NULL ) free( fMsgData );
+		
+		fMsgData = (sComData *)::calloc( 1, sizeof( sComData ) + kMaxFixedMsgData );
 		if ( fMsgData != nil )
 		{
-			fMsgData->fDataSize		= kMsgBlockSize;
+			fMsgData->fDataSize		= kMaxFixedMsgData;
 			fMsgData->fDataLength	= 0;
 		}				
 	}
@@ -1279,7 +1228,7 @@ void CMessaging::Unlock ( void )
 			if ( fLock != nil )
 			{
 				ResetMessageBlock();
-				fLock->Signal();
+				fLock->SignalLock();
 			}
 		}
 	}
@@ -1288,13 +1237,14 @@ void CMessaging::Unlock ( void )
 		if ( fLock != nil )
 		{
 			ResetMessageBlock();
-			fLock->Signal();
+			fLock->SignalLock();
 		}
 	}
 #else
 	if ( fLock != nil )
 	{
-		fLock->Signal();
+		ResetMessageBlock();
+		fLock->SignalLock();
 	}
 #endif
 } // Unlock
@@ -1306,7 +1256,7 @@ void CMessaging::Unlock ( void )
 
 void CMessaging::ClearMessageBlock ( void )
 {
-	uInt32		size		= 0;
+	UInt32		size		= 0;
 	sComData   *aMsgData	= nil;
 
 	aMsgData = GetMsgData();
@@ -1324,7 +1274,7 @@ void CMessaging::ClearMessageBlock ( void )
 //	* GetServerVersion
 //------------------------------------------------------------------------------------
 
-uInt32 CMessaging::GetServerVersion ( void )
+UInt32 CMessaging::GetServerVersion ( void )
 {
 	return( fServerVersion );
 } // GetServerVersion
@@ -1333,7 +1283,7 @@ uInt32 CMessaging::GetServerVersion ( void )
 //	* SetServerVersion
 //------------------------------------------------------------------------------------
 
-void CMessaging::SetServerVersion ( uInt32 inServerVersion )
+void CMessaging::SetServerVersion ( UInt32 inServerVersion )
 {
 	fServerVersion = inServerVersion;
 } // SetServerVersion
@@ -1394,16 +1344,25 @@ sComData* CMessaging::GetMsgData ( void )
 //	* IsThreadUsingInternalDispatchBuffering
 //------------------------------------------------------------------------------------
 
-bool CMessaging::IsThreadUsingInternalDispatchBuffering( OSType inThreadSig )
+bool CMessaging::IsThreadUsingInternalDispatchBuffering( UInt32 inThreadSig )
 {
 	bool	isInternalDispatchThread = false;
 	
-	if (	(inThreadSig == DSCThread::kTSMigHandlerThread) ||
-			(inThreadSig == DSCThread::kTSTCPConnectionThread) ||
-			(inThreadSig == DSCThread::kTSLauncherThread) ||
-			(inThreadSig == DSCThread::kTSPlugInHndlrThread) )
+	switch( inThreadSig )
 	{
-		isInternalDispatchThread = true;
+		case DSCThread::kTSMigHandlerThread:
+		case DSCThread::kTSSearchPlugInHndlrThread:
+		case DSCThread::kTSTCPConnectionThread:
+		case DSCThread::kTSLauncherThread:
+		case DSCThread::kTSPlugInHndlrThread:
+		case DSCThread::kTSLibinfoQueueThread:
+		case DSCThread::kTSMemberdKernelHndlrThread:
+		case DSCThread::kTSPluginRunloopThread:
+			isInternalDispatchThread = true;
+			break;
+		default:
+			isInternalDispatchThread = false;
+			break;
 	}
 	
 	return(isInternalDispatchThread);

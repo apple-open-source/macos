@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2006, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,6 +77,15 @@
  */
 
 /*
+ * 4.3 compat sockaddr
+ */
+#include <_types.h>
+struct osockaddr {
+	__uint16_t	sa_family;	/* address family */
+	char		sa_data[14];	/* up to 14 bytes of direct address */
+};
+
+/*
  * Client->server request message format.
  */
 typedef struct {
@@ -84,10 +93,18 @@ typedef struct {
 	unsigned char	type;		/* request type, see below */
 	unsigned char	answer;		/* not used */
 	unsigned char	pad;
+#ifdef __LP64__
+	unsigned int	id_num;		/* message id */
+#else /* !__LP64__ */
 	unsigned long	id_num;		/* message id */
+#endif /* __LP64__ */
 	struct		osockaddr addr;		/* old (4.3) style */
 	struct		osockaddr ctl_addr;	/* old (4.3) style */
+#ifdef __LP64__
+	int		pid;		/* caller's process id */
+#else /* !__LP64__ */
 	long		pid;		/* caller's process id */
+#endif /* __LP64__ */
 #define	NAME_SIZE	12
 	char		l_name[NAME_SIZE];/* caller's name */
 	char		r_name[NAME_SIZE];/* callee's name */
@@ -103,7 +120,11 @@ typedef struct {
 	unsigned char	type;		/* type of request message, see below */
 	unsigned char	answer;		/* respose to request message, see below */
 	unsigned char	pad;
+#ifdef __LP64__
+	unsigned int	id_num;		/* message id */
+#else /* !__LP64__ */
 	unsigned long	id_num;		/* message id */
+#endif /* __LP64__ */
 	struct	osockaddr addr;		/* address for establishing conversation */
 } CTL_RESPONSE;
 

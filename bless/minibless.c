@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,9 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Mon Aug 25 2003.
- *  Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2003-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: minibless.c,v 1.8 2005/12/04 07:42:58 ssen Exp $
+ *  $Id: minibless.c,v 1.12 2006/07/18 22:09:51 ssen Exp $
  *
  */
 
@@ -41,10 +41,9 @@
 #include <err.h>
 
 #include "bless.h"
+#include "protos.h"
 
 void usage(char *program);
-extern int setefidevice(BLContextPtr context, const char * bsdname,
-						int bootNext, const char *optionalData);
 
 int main(int argc, char *argv[]) {
 	
@@ -80,13 +79,16 @@ int main(int argc, char *argv[]) {
 #else
 #ifdef __i386__
 	if(0 != setefidevice(NULL, device + 5 /* strlen("/dev/") */,
-					   0,
-					   NULL)) {
+			     0,
+			     0,
+			     NULL,
+			     NULL,
+                       false)) {
 		errx(1, "Can't set EFI");		
 	}
 	
 #else
-#err wha?????
+#error wha?????
 #endif
 #endif
 	

@@ -1,0 +1,2260 @@
+# Greek translation of tar
+# Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+# Μπαλάσκας Ευάγγελος (Balaskas Euaggelos) <ebalaskas@cs.teiath.gr>, 2004.
+# Simos Xenitellis <simos74@gmx.net>, 2004.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: tar 1.13.25 \n"
+"Report-Msgid-Bugs-To: bug-tar@gnu.org\n"
+"POT-Creation-Date: 2004-12-21 17:11+0200\n"
+"PO-Revision-Date: 2004-03-08 14:44+0200\n"
+"Last-Translator: Μπαλάσκας Ευάγγελος (Balaskas Euaggelos) <ebalaskas@cs."
+"teiath.gr>\n"
+"Language-Team: Greek <nls@tux.hellug.gr>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: KBabel 1.0.2\n"
+
+#: lib/argmatch.c:137
+#, c-format
+msgid "invalid argument %s for %s"
+msgstr "άκυρο όρισμα %s για %s"
+
+#: lib/argmatch.c:138
+#, c-format
+msgid "ambiguous argument %s for %s"
+msgstr "αμφιλεγόμενο όρισμα %s για %s"
+
+#: lib/argmatch.c:157
+#, c-format
+msgid "Valid arguments are:"
+msgstr "Έγκυρα ορίσματα είναι:"
+
+#: lib/error.c:123 rmt/rmt.c:92
+msgid "Unknown system error"
+msgstr "Άγνωστο σφάλμα συστήματος"
+
+#: lib/getopt.c:551 lib/getopt.c:570
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: η επιλογή`%s' είναι αμφιλεγόμενη\n"
+
+#: lib/getopt.c:603 lib/getopt.c:607
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: η επιλογή `--%s' δεν επιτρέπει όρισμα\n"
+
+#: lib/getopt.c:616 lib/getopt.c:621
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: η επιλογή `%c%s' δεν επιτρέπει όρισμα\n"
+
+#: lib/getopt.c:667 lib/getopt.c:689 lib/getopt.c:1020 lib/getopt.c:1042
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: η επιλογή `%s' απαιτεί όρισμα\n"
+
+#: lib/getopt.c:727 lib/getopt.c:730
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: μη αναγνωρίσιμη επιλογή `--%s'\n"
+
+#: lib/getopt.c:738 lib/getopt.c:741
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: μη αναγνωρίσιμη επιλογή `%c%s'\n"
+
+#: lib/getopt.c:796 lib/getopt.c:799
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: παράνομη επιλογή -- %c\n"
+
+#: lib/getopt.c:805 lib/getopt.c:808
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: άκυρη επιλογή -- %c\n"
+
+#: lib/getopt.c:863 lib/getopt.c:882 lib/getopt.c:1095 lib/getopt.c:1116
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: η επιλογή απαιτεί όρισμα -- %c\n"
+
+#: lib/getopt.c:935 lib/getopt.c:954
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: η επιλογή `-W %s' είναι αμφιλεγόμενη\n"
+
+#: lib/getopt.c:978 lib/getopt.c:999
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: η επιλογή `-W %s' δεν επιτρέπει όρισμα\n"
+
+#: lib/human.c:484
+msgid "block size"
+msgstr "μέγεθος μπλοκ"
+
+#: lib/quotearg.c:240
+msgid "`"
+msgstr "`"
+
+#: lib/quotearg.c:241
+msgid "'"
+msgstr "'"
+
+#: lib/rtapelib.c:297
+msgid "exec/tcp: Service not available"
+msgstr "exec/tcp: Μη διαθέσιμη υπηρεσία"
+
+#: lib/rtapelib.c:301
+msgid "stdin"
+msgstr "κανονική είσοδος"
+
+#: lib/rtapelib.c:304
+msgid "stdout"
+msgstr "κανονική έξοδος"
+
+#: lib/rtapelib.c:512
+msgid "Cannot execute remote shell"
+msgstr "Δεν είναι δυνατή η εκτέλεση απομακρυσμένου κελύφους (φλοιού)"
+
+#: lib/argp-help.c:194
+#, c-format
+msgid "%.*s: ARGP_HELP_FMT parameter requires a value"
+msgstr ""
+
+#: lib/argp-help.c:203
+#, c-format
+msgid "%.*s: Unknown ARGP_HELP_FMT parameter"
+msgstr ""
+
+#: lib/argp-help.c:215
+#, c-format
+msgid "Garbage in ARGP_HELP_FMT: %s"
+msgstr ""
+
+#: lib/argp-help.c:1188
+msgid ""
+"Mandatory or optional arguments to long options are also mandatory or "
+"optional for any corresponding short options."
+msgstr ""
+
+#: lib/argp-help.c:1575
+msgid "Usage:"
+msgstr ""
+
+#: lib/argp-help.c:1579
+msgid "  or: "
+msgstr ""
+
+#: lib/argp-help.c:1591
+#, fuzzy
+msgid " [OPTION...]"
+msgstr ""
+"\n"
+"Χρήση: %s [ΕΠΙΛΟΓΉ]...\n"
+
+#: lib/argp-help.c:1618
+#, fuzzy, c-format
+msgid "Try `%s --help' or `%s --usage' for more information.\n"
+msgstr "Προσπαθήστε `%s --help' για περισσότερες πληροφορίες.\n"
+
+#: lib/argp-help.c:1646 src/tar.c:1252
+#, fuzzy, c-format
+msgid "Report bugs to %s.\n"
+msgstr ""
+"\n"
+"Αναφορά σφαλμάτων στο <bug-tar@gnu.org>.\n"
+
+#: rmt/rmt.c:144
+msgid "rmtd: Cannot allocate buffer space\n"
+msgstr "rmtd: Δεν είναι δυνατή η δέσμευση προσωρινού αποθηκευτικού χώρου \n"
+
+#: rmt/rmt.c:146
+msgid "Cannot allocate buffer space"
+msgstr "Δεν είναι δυνατή η δέσμευση προσωρινού αποθηκευτικού χώρου"
+
+#: rmt/rmt.c:256
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Προσπαθήστε `%s --help' για περισσότερες πληροφορίες.\n"
+
+#: rmt/rmt.c:260
+#, c-format
+msgid ""
+"Usage: %s [OPTION]\n"
+"Manipulate a tape drive, accepting commands from a remote process.\n"
+"\n"
+"  --version  Output version info.\n"
+"  --help  Output this help.\n"
+msgstr ""
+"Χρήση: %s [ΕΠΙΛΟΓΉ]\n"
+"Διαχείριση συσκευής αποθήκευσης ταινίας, αποδοχή εντολών από απομακρυσμένη "
+"διεργασία.\n"
+"\n"
+"  --version  Εμφάνιση πληροφοριών έκδοσης.\n"
+"  --help  Εμφάνιση αυτής της βοήθειας.\n"
+
+#: rmt/rmt.c:267
+#, fuzzy, c-format
+msgid ""
+"\n"
+"Report bugs to <%s>.\n"
+msgstr ""
+"\n"
+"Αναφορά σφαλμάτων στο <bug-tar@gnu.org>.\n"
+
+#: rmt/rmt.c:301
+msgid ""
+"This program comes with NO WARRANTY, to the extent permitted by law.\n"
+"You may redistribute it under the terms of the GNU General Public License;\n"
+"see the file named COPYING for details."
+msgstr ""
+"Αυτό το πρόγραμμα παρέχεται χωρίς ΚΑΜΜΙΑ ΕΓΓΎΗΣΗ, στον βαθμό που επιτρέπεται "
+"από τον νόμο.\n"
+"Μπορείτε να το αναδιανέμεται υπό τους όρους της GNU General Public License;\n"
+"δείτε το αρχείο με όνομα COPYING για λεπτομέρειες."
+
+#: rmt/rmt.c:400 rmt/rmt.c:520 rmt/rmt.c:530
+msgid "Seek offset out of range"
+msgstr "Η μετατόπιση αναζήτησης είναι εκτός εύρους"
+
+#: rmt/rmt.c:413
+msgid "Seek direction out of range"
+msgstr "Η κατεύθυνση αναζήτησης είναι εκτός εύρους"
+
+#: rmt/rmt.c:452
+msgid "rmtd: Premature eof\n"
+msgstr "rmtd: Πρόωρο eof (τέλος αρχείου)\n"
+
+#: rmt/rmt.c:454
+msgid "Premature end of file"
+msgstr "Πρόωρο τέλος αρχείου"
+
+#: rmt/rmt.c:562
+#, c-format
+msgid "rmtd: Garbage command %c\n"
+msgstr "rmtd: Εντολή απορριμμάτων %c\n"
+
+#: rmt/rmt.c:564
+msgid "Garbage command"
+msgstr "Εντολή απορριμμάτων"
+
+#: src/buffer.c:263
+#, fuzzy, c-format
+msgid "Total bytes written: %s (%s, %s/s)\n"
+msgstr "Συνολικά byte που γράφτηκαν: %s (%sB, %sB/s)\n"
+
+#: src/buffer.c:340
+msgid "(pipe)"
+msgstr "(σωλήνωση)"
+
+#: src/buffer.c:388
+msgid "Invalid value for record_size"
+msgstr "Άκυρη τιμή για record_size"
+
+#: src/buffer.c:391
+msgid "No archive name given"
+msgstr "Δεν δόθηκε όνομα αρχειοθήκης"
+
+#: src/buffer.c:441
+msgid "Cannot verify stdin/stdout archive"
+msgstr ""
+"Δεν είναι δυνατή η επαλήθευση των κανονικών εισόδων/εξόδων της αρχειοθήκης"
+
+#: src/buffer.c:454
+#, c-format
+msgid "Archive is compressed. Use %s option"
+msgstr ""
+
+#: src/buffer.c:526
+#, c-format
+msgid "Archive not labeled to match %s"
+msgstr "Η αρχειοθήκη δεν έχει ετικέτα για ταίριασμα %s"
+
+#: src/buffer.c:529 src/buffer.c:896
+#, c-format
+msgid "Volume %s does not match %s"
+msgstr "Ο τόμος %s δεν ταιριάζει %s"
+
+#: src/buffer.c:567
+#, c-format
+msgid "Write checkpoint %d"
+msgstr "Εγγραφή σημείου ελέγχου %d"
+
+#: src/buffer.c:654
+#, c-format
+msgid "%s: file name too long to be stored in a GNU multivolume header"
+msgstr ""
+
+#: src/buffer.c:733
+msgid "At beginning of tape, quitting now"
+msgstr "Στην αρχή της ταινίας, τερματισμός τώρα"
+
+#: src/buffer.c:739
+msgid "Too many errors, quitting"
+msgstr "Πάρα πολλά σφάλματα, τερματισμός"
+
+#: src/buffer.c:765
+#, fuzzy, c-format
+msgid "Read %s bytes from %s"
+msgstr "Μετονομάστηκε %s σε %s"
+
+#: src/buffer.c:777
+#, fuzzy, c-format
+msgid "Unaligned block (%lu byte) in archive"
+msgid_plural "Unaligned block (%lu bytes) in archive"
+msgstr[0] "Μη ευθυγραμμισμένο μπλοκ (%lu byte) στην αρχειοθήκη"
+msgstr[1] "Μη ευθυγραμμισμένο μπλοκ (%lu byte) στην αρχειοθήκη"
+
+#: src/buffer.c:797
+#, fuzzy, c-format
+msgid "Record size = %lu block"
+msgid_plural "Record size = %lu blocks"
+msgstr[0] "Μέγεθος εγγραφής = %lu block"
+msgstr[1] "Μέγεθος εγγραφής = %lu block"
+
+#: src/buffer.c:814
+#, c-format
+msgid "Read checkpoint %d"
+msgstr "Ανάγνωση σημείου ελέγχου %d"
+
+#: src/buffer.c:905 src/extract.c:1100
+#, c-format
+msgid "Reading %s\n"
+msgstr "Ανάγνωση %s\n"
+
+#: src/buffer.c:909
+msgid "WARNING: No volume header"
+msgstr "ΠΡΟΕΙΔΟΠΟΊΗΣΗ: Καμία κεφαλίδα του πλήθους"
+
+#: src/buffer.c:917
+#, c-format
+msgid "%s is not continued on this volume"
+msgstr "%s δεν συνεχίζεται σε αυτόν τον τόμο"
+
+#: src/buffer.c:931
+#, c-format
+msgid "%s is the wrong size (%s != %s + %s)"
+msgstr "%s είναι το εσφαλμένο μέγεθος (%s != %s + %s)"
+
+#: src/buffer.c:943
+msgid "This volume is out of sequence"
+msgstr "Αυτός ο τόμος είναι εκτός συνέχειας"
+
+#: src/buffer.c:1025
+msgid "Cannot backspace archive file; it may be unreadable without -i"
+msgstr ""
+
+#: src/buffer.c:1057
+msgid "rmtlseek not stopped at a record boundary"
+msgstr ""
+
+#: src/buffer.c:1108
+#, c-format
+msgid "%s: contains invalid volume number"
+msgstr "%s: περιέχει άκυρο αριθμό τόμου"
+
+#: src/buffer.c:1160
+msgid "Volume number overflow"
+msgstr "Υπερχήλιση αριθμού τόμου"
+
+#: src/buffer.c:1179
+#, c-format
+msgid "`%s' command failed"
+msgstr "`%s' η εντολή απέτυχε"
+
+#: src/buffer.c:1188
+#, c-format
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr "Προετοίμασε τον τόμο #%d για %s και πάτα το πλήκτρο επιστροφής γραμμής"
+
+#: src/buffer.c:1194
+msgid "EOF where user reply was expected"
+msgstr "EOF (Τέλος Αρχείου) ενώ η απάντηση του χρήστη αναμενότανε"
+
+#: src/buffer.c:1199 src/buffer.c:1229
+msgid "WARNING: Archive is incomplete"
+msgstr "ΠΡΟΕΙΔΟΠΟΊΗΣΗ: Η αρχειοθήκη είναι ημιτελής"
+
+#: src/buffer.c:1213
+#, c-format
+msgid ""
+" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
+" q          Abort tar\n"
+" !          Spawn a subshell\n"
+" ?          Print this list\n"
+msgstr ""
+" n [όνομα]   Δώσε ένα νέο όνομα για τον επόμενο (και τον επακόλουθο) τόμο\n"
+" q          Εγκατάλειψη tar\n"
+" !          Παραγωγή νέου υπό-φλοιού\n"
+" ?          Εκτύπωση αυτής της λίστας\n"
+
+#: src/buffer.c:1224
+msgid "No new volume; exiting.\n"
+msgstr "Κανένας νέος τόμος; έξοδος\n"
+
+#: src/compare.c:105
+#, fuzzy, c-format
+msgid "Could only read %lu of %lu byte"
+msgid_plural "Could only read %lu of %lu bytes"
+msgstr[0] "Δυνατή μόνο η ανάγνωση %lu από %lu byte"
+msgstr[1] "Δυνατή μόνο η ανάγνωση %lu από %lu byte"
+
+#: src/compare.c:116 src/compare.c:132
+msgid "Contents differ"
+msgstr "Τα περιεχόμενα διαφέρουν"
+
+#: src/compare.c:158 src/extract.c:763 src/incremen.c:496 src/list.c:235
+#: src/list.c:412 src/list.c:1282
+msgid "Unexpected EOF in archive"
+msgstr "Μη αναμενόμενο EOF (Τέλος Αρχείου) στην αρχειοθήκη"
+
+#: src/compare.c:212
+#, c-format
+msgid "Verify "
+msgstr "Επαλήθευση "
+
+#: src/compare.c:219
+#, c-format
+msgid "%s: Unknown file type '%c', diffed as normal file"
+msgstr "%s: Άγνωστος τύπος αρχείου '%c', εκτέλεση της diff ως κανονικό αρχείο"
+
+#: src/compare.c:242 src/compare.c:364 src/compare.c:416 src/compare.c:443
+msgid "File type differs"
+msgstr "Οι τύποι αρχείων διαφέρουν"
+
+#: src/compare.c:249 src/compare.c:378 src/compare.c:422
+msgid "Mode differs"
+msgstr "Οι καταστάσεις διαφέρουν"
+
+#: src/compare.c:252
+msgid "Uid differs"
+msgstr "Ταυτότητες χρήστη διαφέρουν"
+
+#: src/compare.c:254
+msgid "Gid differs"
+msgstr "Ταυτότητες ομάδας διαφέρουν"
+
+#: src/compare.c:257
+msgid "Mod time differs"
+msgstr "Ώρες τροποποίησης διαφέρουν"
+
+#: src/compare.c:261 src/compare.c:451
+msgid "Size differs"
+msgstr "Τα μεγέθη διαφέρουν"
+
+#: src/compare.c:319
+#, c-format
+msgid "Not linked to %s"
+msgstr "Δεν είναι συνδεδεμένο με %s"
+
+#: src/compare.c:342
+msgid "Symlink differs"
+msgstr "Οι σύνδεσμοι διαφέρουν"
+
+#: src/compare.c:372
+msgid "Device number differs"
+msgstr "Οι αριθμοί των συσκευών διαφέρουν"
+
+#: src/compare.c:500
+msgid "Archive contains file names with leading prefixes removed."
+msgstr ""
+
+#: src/compare.c:502
+msgid "Verification may fail to locate original files."
+msgstr ""
+
+#: src/compare.c:572
+#, fuzzy, c-format
+msgid "VERIFY FAILURE: %d invalid header detected"
+msgid_plural "VERIFY FAILURE: %d invalid headers detected"
+msgstr[0] "Η ΕΠΑΛΎΘΕΥΣΗ ΑΠΈΤΥΧΕ: ανιχνεύτηκαν %d άκυρη(ες) επικεφαλίδα(δες)"
+msgstr[1] "Η ΕΠΑΛΎΘΕΥΣΗ ΑΠΈΤΥΧΕ: ανιχνεύτηκαν %d άκυρη(ες) επικεφαλίδα(δες)"
+
+#: src/create.c:145
+msgid "Generating negative octal headers"
+msgstr "Παράχθηκαν αρνητικές οκταδικές επικεφαλίδες"
+
+#: src/create.c:196
+#, c-format
+msgid "value %s out of %s range %s..%s; substituting %s"
+msgstr "η τιμή %s είναι εκτός του %s εύρος %s..%s; αντικαταστήθηκε από %s"
+
+#: src/create.c:202
+#, c-format
+msgid "value %s out of %s range %s..%s"
+msgstr "η τιμή %s είναι εκτός του %s εύρους %s..%s"
+
+#: src/create.c:481 src/create.c:544
+#, fuzzy, c-format
+msgid "%s: file name is too long (max %d); not dumped"
+msgstr "%s: δεν μπορεί να τροποποιηθεί το αρχείο; δεν αποθηκεύτηκε"
+
+#: src/create.c:491
+#, fuzzy, c-format
+msgid "%s: file name is too long (cannot be split); not dumped"
+msgstr "%s: δεν μπορεί να τροποποιηθεί το αρχείο; δεν αποθηκεύτηκε"
+
+#: src/create.c:518
+#, fuzzy, c-format
+msgid "%s: link name is too long; not dumped"
+msgstr "%s: δεν μπορεί να τροποποιηθεί το αρχείο; δεν αποθηκεύτηκε"
+
+#: src/create.c:884
+#, fuzzy, c-format
+msgid "%s: File shrank by %s byte; padding with zeros"
+msgid_plural "%s: File shrank by %s bytes; padding with zeros"
+msgstr[0] "%s: Το αρχείο συρρικνώθηκε σε %s bytes; συμπλήρωση με μηδενικά"
+msgstr[1] "%s: Το αρχείο συρρικνώθηκε σε %s bytes; συμπλήρωση με μηδενικά"
+
+#: src/create.c:910
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr "%s: αρχείο τροποποιήθηκε κατά την ανάγνωση"
+
+#: src/create.c:1051
+#, c-format
+msgid "%s: file is on a different filesystem; not dumped"
+msgstr "%s: το αρχείο είναι σε διαφορετικό σύστημα αρχείων; δεν αποθηκεύτηκε"
+
+#: src/create.c:1061
+#, fuzzy, c-format
+msgid "%s: contains a cache directory tag; not dumped"
+msgstr "%s: το αρχείο είναι η αρχειοθήκη; δεν αποθηκεύτηκε"
+
+#: src/create.c:1221
+#, c-format
+msgid "%s: Unknown file type; file ignored"
+msgstr "%s: Άγνωστος τύπος αρχείου; το αρχείο αγνοήθηκε"
+
+#: src/create.c:1320
+#, fuzzy, c-format
+msgid "Missing links to '%s'.\n"
+msgstr " σύνδεσμος σε %s\n"
+
+#: src/create.c:1387
+#, c-format
+msgid "%s: file is unchanged; not dumped"
+msgstr "%s: δεν μπορεί να τροποποιηθεί το αρχείο; δεν αποθηκεύτηκε"
+
+#: src/create.c:1395
+#, c-format
+msgid "%s: file is the archive; not dumped"
+msgstr "%s: το αρχείο είναι η αρχειοθήκη; δεν αποθηκεύτηκε"
+
+#: src/create.c:1430
+#, c-format
+msgid "%s: File removed before we read it"
+msgstr "%s: Το αρχείο απομακρύνθηκε πριν το διαβάσουμε"
+
+#: src/create.c:1523
+#, c-format
+msgid "%s: socket ignored"
+msgstr "%s: η υποδοχή αγνοήθηκε"
+
+#: src/create.c:1528
+#, c-format
+msgid "%s: door ignored"
+msgstr "%s: η πόρτα αγνοήθηκε"
+
+#: src/delete.c:209 src/list.c:171 src/update.c:163
+msgid "This does not look like a tar archive"
+msgstr "Αυτό δεν φαίνεται ως αρχειοθήκη tar"
+
+#: src/delete.c:215 src/list.c:185 src/update.c:168
+msgid "Skipping to next header"
+msgstr "Παραλείποντας στην επόμενη επικεφαλίδα"
+
+#: src/delete.c:280
+msgid "Deleting non-header from archive"
+msgstr "Διαγραφή μη-επικεφαλίδων από την αρχειοθήκη"
+
+#: src/extract.c:208
+#, c-format
+msgid "%s: implausibly old time stamp %s"
+msgstr ""
+
+#: src/extract.c:211
+#, c-format
+msgid "%s: time stamp %s is %lu s in the future"
+msgstr "%s: η ένδειξη χρόνου %s είναι %lu s στο μέλλον"
+
+#: src/extract.c:359
+#, c-format
+msgid "%s: Unexpected inconsistency when making directory"
+msgstr "%s: Μη αναμενόμενη ανακολουθία κατά την δημιουργία του καταλόγου"
+
+#: src/extract.c:478
+#, c-format
+msgid "Current `%s' is newer"
+msgstr ""
+
+#: src/extract.c:590
+#, c-format
+msgid "%s: Directory renamed before its status could be extracted"
+msgstr "%s: Ο κατάλογος μετονομάστηκε πριν η κατάστασή του γίνει μη εξαγώγιμη"
+
+#: src/extract.c:655
+#, c-format
+msgid "%s: Was unable to backup this file"
+msgstr "%s: Δεν είναι δυνατή η αποθήκευση αυτού του αρχείου"
+
+#: src/extract.c:722
+msgid "Extracting contiguous files as regular files"
+msgstr "Εξαγωγή συνεχόμενων αρχείων ως κανονικών αρχείων"
+
+#: src/extract.c:908
+msgid "Attempting extraction of symbolic links as hard links"
+msgstr "Προσπάθεια εξαγωγής των συμβολικών συνδέσμων ως σθεναρών συνδέσμων"
+
+#: src/extract.c:1109
+#, c-format
+msgid "%s: Cannot extract -- file is continued from another volume"
+msgstr "%s: Δεν είναι δυνατή η εξαγωγή -- το αρχείο συνεχίζεται σε άλλο τόμο"
+
+#: src/extract.c:1118
+msgid "Visible long name error"
+msgstr "Ορατό σφάλμα μεγάλων ονομάτων"
+
+#: src/extract.c:1126
+#, c-format
+msgid "%s: Unknown file type '%c', extracted as normal file"
+msgstr "%s: Άγνωστος τύπος αρχείου '%c', εξαγωγή ως κανονικό αρχείο"
+
+#: src/extract.c:1211
+msgid "Error is not recoverable: exiting now"
+msgstr "Το σφάλμα δεν είναι επανορθώσιμο: τερματισμός τώρα"
+
+#: src/extract.c:1218
+msgid "memory exhausted"
+msgstr "η μνήμη εξαντλήθηκε"
+
+#: src/incremen.c:193
+#, c-format
+msgid "%s: Directory has been renamed"
+msgstr "%s: Ο κατάλογος έχει μετονομαστεί"
+
+#: src/incremen.c:205
+#, c-format
+msgid "%s: Directory is new"
+msgstr "%s: Ο κατάλογος είναι καινούριος"
+
+#: src/incremen.c:354
+msgid "Invalid time stamp"
+msgstr "Άκυρη ένδειξη χρόνου"
+
+#: src/incremen.c:357
+msgid "Time stamp out of range"
+msgstr "Η ένδειξη χρόνου είναι εκτός εύρους"
+
+#: src/incremen.c:381
+msgid "Invalid device number"
+msgstr "Άκυρος αριθμός συσκευής"
+
+#: src/incremen.c:385
+msgid "Device number out of range"
+msgstr "Ο αριθμός της συσκευής είναι εκτός εύρους"
+
+#: src/incremen.c:393
+msgid "Invalid inode number"
+msgstr "Άκυρος αριθμός i-κόμβου"
+
+#: src/incremen.c:397
+msgid "Inode number out of range"
+msgstr "Ο αριθμός του i-κόμβου είναι εκτός εύρους"
+
+#: src/incremen.c:524
+#, c-format
+msgid "%s: Not purging directory: unable to stat"
+msgstr ""
+
+#: src/incremen.c:531
+#, fuzzy, c-format
+msgid "%s: directory is on a different device: not purging"
+msgstr "%s: το αρχείο είναι σε διαφορετικό σύστημα αρχείων; δεν αποθηκεύτηκε"
+
+#: src/incremen.c:539
+#, c-format
+msgid "%s: Deleting %s\n"
+msgstr "%s: Διαγραφή %s\n"
+
+#: src/incremen.c:544
+#, c-format
+msgid "%s: Cannot remove"
+msgstr "%s: Δεν είναι δυνατή η απομάκρυνση"
+
+#: src/list.c:117
+#, c-format
+msgid "%s: Omitting"
+msgstr "%s: Παράλειψη"
+
+#: src/list.c:135
+#, c-format
+msgid "block %s: ** Block of NULs **\n"
+msgstr "μπλοκ %s: ** Μπλοκ με χαρακτήρες NUL **\n"
+
+#: src/list.c:148
+#, c-format
+msgid "A lone zero block at %s"
+msgstr ""
+
+#: src/list.c:159
+#, c-format
+msgid "block %s: ** End of File **\n"
+msgstr "μπλοκ %s: ** Τέλος Αρχείου **\n"
+
+#: src/list.c:182 src/list.c:1017 src/list.c:1244
+#, c-format
+msgid "block %s: "
+msgstr "μπλοκ %s: "
+
+#: src/list.c:644
+#, c-format
+msgid "Blanks in header where numeric %s value expected"
+msgstr "Κενά στην επικεφαλίδα ενώ αναμενόταν αριθμητική τιμή %s"
+
+#: src/list.c:698
+#, c-format
+msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
+msgstr ""
+"Αρχειοθήκη οκταδικής τιμής %.*s είναι εκτός του %s εύρους; Υποθέτω δυαδικά "
+"συμπληρώματα"
+
+#: src/list.c:708
+#, c-format
+msgid "Archive octal value %.*s is out of %s range"
+msgstr "Αρχειοθήκη οκταδικής τιμής %.*s είναι εκτός του %s εύρους"
+
+#: src/list.c:725
+msgid "Archive contains obsolescent base-64 headers"
+msgstr "Η αρχειοθήκη περιέχει απαρχαιωμένες επικεφαλίδες κωδικοποίησης base64"
+
+#: src/list.c:738
+#, c-format
+msgid "Archive signed base-64 string %s is out of %s range"
+msgstr ""
+"Η αρχειοθήκη είναι υπογεγραμμένη με αλφαριθμητικά base-64 %s είναι εκτός του "
+"%s εύρους"
+
+#: src/list.c:769
+#, c-format
+msgid "Archive base-256 value is out of %s range"
+msgstr "Η αρχειοθήκη με base-256 τιμές είναι εκτός του %s εύρους"
+
+#: src/list.c:797
+#, c-format
+msgid "Archive contains %.*s where numeric %s value expected"
+msgstr "Η αρχειοθήκη περιέχει %.*s όπου αριθμητικές %s τιμές αναμένονται"
+
+#: src/list.c:818
+#, fuzzy, c-format
+msgid "Archive value %s is out of %s range %s.%s"
+msgstr "Η τιμή της αρχειοθήκης %s είναι εκτός του %s εύρους %s..%s"
+
+#: src/list.c:1048
+msgid "Visible longname error"
+msgstr "Ορατό σφάλμα μεγάλων ονομάτων"
+
+#: src/list.c:1175
+#, c-format
+msgid " link to %s\n"
+msgstr " σύνδεσμος σε %s\n"
+
+#: src/list.c:1183
+#, c-format
+msgid " unknown file type %s\n"
+msgstr " άγνωστος τύπος αρχείου %s\n"
+
+#: src/list.c:1201
+#, c-format
+msgid "--Long Link--\n"
+msgstr ""
+
+#: src/list.c:1205
+#, c-format
+msgid "--Long Name--\n"
+msgstr ""
+
+#: src/list.c:1209
+#, c-format
+msgid "--Volume Header--\n"
+msgstr "--Επικεφαλίδα Τόμου--\n"
+
+#: src/list.c:1217
+#, c-format
+msgid "--Continued at byte %s--\n"
+msgstr "--Συνέχιση στο byte %s--\n"
+
+#: src/list.c:1221
+#, c-format
+msgid "--Mangled file names--\n"
+msgstr "--Κατακερματισμένα ονόματα αρχείων--\n"
+
+#: src/list.c:1249
+msgid "Creating directory:"
+msgstr "Δημιουργία καταλόγου:"
+
+#: src/mangle.c:54
+msgid "Unexpected EOF in mangled names"
+msgstr "Μη αναμενόμενο EOF (Τέλος Αρχείου) στα κατακερματισμένα ονόματα"
+
+#: src/mangle.c:90 src/misc.c:399 src/misc.c:417
+#, c-format
+msgid "%s: Cannot rename to %s"
+msgstr "%s: Δεν είναι δυνατή η μετονομασία σε %s"
+
+#: src/mangle.c:93
+#, c-format
+msgid "Renamed %s to %s"
+msgstr "Μετονομάστηκε %s σε %s"
+
+#: src/mangle.c:110
+#, c-format
+msgid "%s: Cannot symlink to %s"
+msgstr "%s: Δεν είναι δυνατή η συμβολική σύνδεση στο %s"
+
+#: src/mangle.c:113
+#, c-format
+msgid "Symlinked %s to %s"
+msgstr "Συμβολικός δεσμός %s στο %s"
+
+#: src/mangle.c:117
+#, c-format
+msgid "Unknown demangling command %s"
+msgstr "Άγνωστη εντολή ανασύνταξης %s"
+
+#: src/misc.c:390
+#, c-format
+msgid "Renaming %s to %s\n"
+msgstr "Μετονομασία %s σε %s\n"
+
+#: src/misc.c:422
+#, c-format
+msgid "Renaming %s back to %s\n"
+msgstr "Μετονομασία %s πίσω στο %s\n"
+
+#: src/misc.c:502
+msgid "Cannot save working directory"
+msgstr "Δεν είναι δυνατή η αποθήκευση του τρέχοντος καταλόγου"
+
+#: src/misc.c:508
+msgid "Cannot change working directory"
+msgstr "Δεν είναι δυνατή η τροποποίηση του τρέχοντος καταλόγου"
+
+#: src/misc.c:552 src/misc.c:561
+#, c-format
+msgid "%s: Cannot %s"
+msgstr "%s: Δεν είναι δυνατή %s"
+
+#: src/misc.c:570
+#, c-format
+msgid "%s: Warning: Cannot %s"
+msgstr "%s: Προειδοποίηση: Δεν είναι δυνατή %s"
+
+#: src/misc.c:585
+#, c-format
+msgid "%s: Cannot change mode to %s"
+msgstr "%s: Δεν είναι δυνατή η αλλαγή κατάστασης σε %s"
+
+#: src/misc.c:593
+#, c-format
+msgid "%s: Cannot change ownership to uid %lu, gid %lu"
+msgstr "%s: Δεν είναι δυνατή η αλλαγή ιδιοκτησίας σε uid %lu, gid %lu"
+
+#: src/misc.c:628
+#, c-format
+msgid "%s: Cannot hard link to %s"
+msgstr "%s: Δεν είναι δυνατή η σύνδεση υλικού σε %s"
+
+#: src/misc.c:689 src/misc.c:730
+#, fuzzy, c-format
+msgid "%s: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Read error at byte %s, reading %lu bytes"
+msgstr[0] "%s: Σφάλμα ανάγνωσης στο byte %s, διαβάζοντας %lu byte"
+msgstr[1] "%s: Σφάλμα ανάγνωσης στο byte %s, διαβάζοντας %lu byte"
+
+#: src/misc.c:702
+#, fuzzy, c-format
+msgid "%s: Warning: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
+msgstr[0] ""
+"%s: Προειδοποίηση: Σφάλμα ανάγνωσης στο byte %s, διαβάζοντας %lu byte"
+msgstr[1] ""
+"%s: Προειδοποίηση: Σφάλμα ανάγνωσης στο byte %s, διαβάζοντας %lu byte"
+
+#: src/misc.c:790
+#, c-format
+msgid "%s: Cannot seek to %s"
+msgstr "%s: Δεν είναι δυνατή η αναζήτηση σε %s"
+
+#: src/misc.c:806
+#, c-format
+msgid "%s: Warning: Cannot seek to %s"
+msgstr "%s: Προειδοποίηση: Δεν είναι δυνατή η αναζήτηση σε %s"
+
+#: src/misc.c:824
+#, c-format
+msgid "%s: Cannot create symlink to %s"
+msgstr "%s: Δεν είναι δυνατή η δημιουργία συμβολικού δεσμού στο %s"
+
+#: src/misc.c:892
+#, fuzzy, c-format
+msgid "%s: Wrote only %lu of %lu byte"
+msgid_plural "%s: Wrote only %lu of %lu bytes"
+msgstr[0] "%s: Γράφτηκαν μόνο %lu από %lu byte"
+msgstr[1] "%s: Γράφτηκαν μόνο %lu από %lu byte"
+
+#: src/misc.c:918
+msgid "child process"
+msgstr "θυγατρική διεργασία"
+
+#: src/misc.c:927
+msgid "interprocess channel"
+msgstr "κανάλι μεταξύ διεργασιών"
+
+#: src/names.c:372 src/names.c:421 src/names.c:465
+msgid "Missing file name after -C"
+msgstr "Λείπει όνομα αρχείου μετά -C"
+
+#: src/names.c:642 src/names.c:658
+#, c-format
+msgid "%s: Not found in archive"
+msgstr "%s: Δεν βρέθηκε στην αρχειοθήκη"
+
+#: src/names.c:645
+#, fuzzy, c-format
+msgid "%s: Required occurrence not found in archive"
+msgstr "%s: Δεν βρέθηκε στην αρχειοθήκη"
+
+#: src/names.c:1093
+#, fuzzy, c-format
+msgid "Removing leading `%s' from member names"
+msgstr "Απομακρύνονται τα αρχικά `%.*s' από τα ονόματα των μελών"
+
+#: src/names.c:1094
+#, fuzzy, c-format
+msgid "Removing leading `%s' from hard link targets"
+msgstr "Απομακρύνονται τα αρχικά `%.*s' από τα ονόματα των μελών"
+
+#: src/names.c:1107
+#, fuzzy
+msgid "Substituting `.' for empty member name"
+msgstr "Απομακρύνονται τα αρχικά `%.*s' από τα ονόματα των μελών"
+
+#: src/names.c:1108
+msgid "Substituting `.' for empty hard link target"
+msgstr ""
+
+#: src/tar.c:71
+#, c-format
+msgid "Options `-%s' and `-%s' both want standard input"
+msgstr "Οι επιλογές `-%s' και `-%s' απαιτούν κανονική είσοδο"
+
+#: src/tar.c:143
+#, fuzzy, c-format
+msgid "%s: Invalid archive format"
+msgstr "%s: Άκυρη ομάδα"
+
+#: src/tar.c:167
+msgid "GNU features wanted on incompatible archive format"
+msgstr "Τα χαρακτηριστικά GNU απαιτούν μη συμβατή διαμόρφωση αρχειοθήκης"
+
+#: src/tar.c:241
+#, fuzzy
+msgid ""
+"GNU `tar' saves many files together into a single tape or disk archive, and "
+"can restore individual files from the archive.\n"
+"\n"
+"Examples:\n"
+"  tar -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
+"  tar -tvf archive.tar         # List all files in archive.tar verbosely.\n"
+"  tar -xf archive.tar          # Extract all files from archive.tar.\n"
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+"The version control may be set with --backup or VERSION_CONTROL, values "
+"are:\n"
+"\n"
+"  t, numbered     make numbered backups\n"
+"  nil, existing   numbered if numbered backups exist, simple otherwise\n"
+"  never, simple   always make simple backups\n"
+msgstr ""
+"\n"
+"Η κατάληξη αντιγράφου είναι `~', εκτός εάν τεθεί --suffix ή με "
+"SIMPLE_BACKUP_SUFFIX.\n"
+"Ο έλεγχος της έκδοσης μπορεί να τεθεί με --backup ή με VERSION_CONTROL, οι "
+"τιμές είναι:\n"
+"\n"
+"  t, numbered     κάνε αριθμημένα αντίγραφα\n"
+"  nil, existing   αρίθμησε-τα ακόμα και εάν είναι αριθμημένα, απλά "
+"διαφορετικά\n"
+"  never, simple   πάντα κάνε απλά αντίγραφα\n"
+
+#: src/tar.c:270
+msgid "Main operation mode:"
+msgstr ""
+
+#: src/tar.c:273
+msgid "list the contents of an archive"
+msgstr ""
+
+#: src/tar.c:275
+msgid "extract files from an archive"
+msgstr ""
+
+#: src/tar.c:278
+#, fuzzy
+msgid "create a new archive"
+msgstr "Μη αναμενόμενο EOF (Τέλος Αρχείου) στην αρχειοθήκη"
+
+#: src/tar.c:280
+msgid "find differences between archive and file system"
+msgstr ""
+
+#: src/tar.c:283
+msgid "append files to the end of an archive"
+msgstr ""
+
+#: src/tar.c:285
+msgid "only append files newer than copy in archive"
+msgstr ""
+
+#: src/tar.c:287
+msgid "append tar files to an archive"
+msgstr ""
+
+#: src/tar.c:290
+msgid "delete from the archive (not on mag tapes!)"
+msgstr ""
+
+#: src/tar.c:293
+msgid "Operation modifiers:"
+msgstr ""
+
+#: src/tar.c:296
+msgid "attempt to verify the archive after writing it"
+msgstr ""
+
+#: src/tar.c:298
+msgid "remove files after adding them to the archive"
+msgstr ""
+
+#: src/tar.c:300
+msgid "don't replace existing files when extracting"
+msgstr ""
+
+#: src/tar.c:302
+msgid "don't replace existing files that are newer than their archive copies"
+msgstr ""
+
+#: src/tar.c:304
+msgid "preserve metadata of existing directories"
+msgstr ""
+
+#: src/tar.c:306
+msgid "overwrite existing files when extracting"
+msgstr ""
+
+#: src/tar.c:308
+msgid "remove each file prior to extracting over it"
+msgstr ""
+
+#: src/tar.c:310
+msgid "empty hierarchies prior to extracting directory"
+msgstr ""
+
+#: src/tar.c:312
+msgid "handle sparse files efficiently"
+msgstr ""
+
+#: src/tar.c:314
+#, fuzzy
+msgid "extract files to standard output"
+msgstr "Σφάλμα κατά την εγγραφή στην κανονική έξοδο"
+
+#: src/tar.c:316
+msgid "handle old GNU-format incremental backup"
+msgstr ""
+
+#: src/tar.c:317 src/tar.c:390 src/tar.c:455 src/tar.c:514
+msgid "FILE"
+msgstr ""
+
+#: src/tar.c:318
+msgid "handle new GNU-format incremental backup"
+msgstr ""
+
+#: src/tar.c:320
+msgid "do not exit with nonzero on unreadable files"
+msgstr ""
+
+#: src/tar.c:321 src/tar.c:385 src/tar.c:398 src/tar.c:484
+msgid "NUMBER"
+msgstr ""
+
+#: src/tar.c:322
+msgid ""
+"process only the NUMth occurrence of each file in the archive. This option "
+"is valid only in conjunction with one of the subcommands --delete, --diff, --"
+"extract or --list and when a list of files is given either on the command "
+"line or via -T option. NUMBER defaults to 1."
+msgstr ""
+
+#: src/tar.c:324
+msgid "Archive is seekable"
+msgstr ""
+
+#: src/tar.c:327
+msgid "Handling of file attributes:"
+msgstr ""
+
+#: src/tar.c:329 src/tar.c:331 src/tar.c:387
+msgid "NAME"
+msgstr ""
+
+#: src/tar.c:330
+msgid "force NAME as owner for added files"
+msgstr ""
+
+#: src/tar.c:332
+msgid "force NAME as group for added files"
+msgstr ""
+
+#: src/tar.c:333
+msgid "CHANGES"
+msgstr ""
+
+#: src/tar.c:334
+msgid "force (symbolic) mode CHANGES for added files"
+msgstr ""
+
+#: src/tar.c:336
+msgid "don't change access times on dumped files"
+msgstr ""
+
+#: src/tar.c:338
+msgid "don't extract file modified time"
+msgstr ""
+
+#: src/tar.c:340
+msgid "try extracting files with the same ownership"
+msgstr ""
+
+#: src/tar.c:342
+msgid "extract files as yourself"
+msgstr ""
+
+#: src/tar.c:344
+msgid "always use numbers for user/group names"
+msgstr ""
+
+#: src/tar.c:346
+msgid "extract permissions information"
+msgstr ""
+
+#: src/tar.c:349
+msgid "do not extract permissions information"
+msgstr ""
+
+#: src/tar.c:351
+msgid "sort names to extract to match archive"
+msgstr ""
+
+#: src/tar.c:354
+msgid "same as both -p and -s"
+msgstr ""
+
+#: src/tar.c:357
+msgid "Device selection and switching:"
+msgstr ""
+
+#: src/tar.c:359
+msgid "ARCHIVE"
+msgstr ""
+
+#: src/tar.c:360
+msgid "use archive file or device ARCHIVE"
+msgstr ""
+
+#: src/tar.c:362
+msgid "archive file is local even if has a colon"
+msgstr ""
+
+#: src/tar.c:363 src/tar.c:365
+msgid "COMMAND"
+msgstr ""
+
+#: src/tar.c:364
+msgid "use given rmt COMMAND instead of rmt"
+msgstr ""
+
+#: src/tar.c:366
+msgid "use remote COMMAND instead of rsh"
+msgstr ""
+
+#: src/tar.c:370
+msgid "specify drive and density"
+msgstr ""
+
+#: src/tar.c:384
+#, fuzzy
+msgid "create/list/extract multi-volume archive"
+msgstr "Δεν είναι δυνατή η επαλήθευση πολλαπλών αρχειοθηκών"
+
+#: src/tar.c:386
+msgid "change tape after writing NUMBER x 1024 bytes"
+msgstr ""
+
+#: src/tar.c:388
+msgid "run script at end of each tape (implies -M)"
+msgstr ""
+
+#: src/tar.c:391
+msgid "use/update the volume number in FILE"
+msgstr ""
+
+#: src/tar.c:394
+msgid "Device blocking:"
+msgstr ""
+
+#: src/tar.c:396
+msgid "BLOCKS"
+msgstr ""
+
+#: src/tar.c:397
+msgid "BLOCKS x 512 bytes per record"
+msgstr ""
+
+#: src/tar.c:399
+msgid "SIZE bytes per record, multiple of 512"
+msgstr ""
+
+#: src/tar.c:401
+msgid "ignore zeroed blocks in archive (means EOF)"
+msgstr ""
+
+#: src/tar.c:403
+msgid "reblock as we read (for 4.2BSD pipes)"
+msgstr ""
+
+#: src/tar.c:406
+#, fuzzy
+msgid "Archive format selection:"
+msgstr "Συγκρουόμενες επιλογές διαμόρφωσης αρχειοθήκης"
+
+#: src/tar.c:408
+msgid "FORMAT"
+msgstr ""
+
+#: src/tar.c:409
+msgid "create archive of the given format."
+msgstr ""
+
+#: src/tar.c:411
+msgid "FORMAT is one of the following:"
+msgstr ""
+
+#: src/tar.c:412
+msgid "old V7 tar format"
+msgstr ""
+
+#: src/tar.c:414
+msgid "GNU format as per tar <= 1.12"
+msgstr ""
+
+#: src/tar.c:416
+msgid "GNU tar 1.13.x format"
+msgstr ""
+
+#: src/tar.c:418
+msgid "POSIX 1003.1-1988 (ustar) format"
+msgstr ""
+
+#: src/tar.c:420
+msgid "POSIX 1003.1-2001 (pax) format"
+msgstr ""
+
+#: src/tar.c:421
+msgid "Same as pax"
+msgstr ""
+
+#: src/tar.c:424
+msgid "same as --format=v7"
+msgstr ""
+
+#: src/tar.c:427
+msgid "same as --format=posix"
+msgstr ""
+
+#: src/tar.c:428
+msgid "keyword[[:]=value][,keyword[[:]=value], ...]"
+msgstr ""
+
+#: src/tar.c:429
+msgid "control pax keywords"
+msgstr ""
+
+#: src/tar.c:430
+msgid "TEXT"
+msgstr ""
+
+#: src/tar.c:431
+msgid ""
+"create archive with volume name NAME. At list/extract time, use TEXT as a "
+"globbing pattern"
+msgstr ""
+
+#: src/tar.c:433
+msgid "filter the archive through bzip2"
+msgstr ""
+
+#: src/tar.c:435
+#, fuzzy
+msgid "filter the archive through gzip"
+msgstr "%s: το αρχείο είναι η αρχειοθήκη; δεν αποθηκεύτηκε"
+
+#: src/tar.c:439
+#, fuzzy
+msgid "filter the archive through compress"
+msgstr "%s: το αρχείο είναι η αρχειοθήκη; δεν αποθηκεύτηκε"
+
+#: src/tar.c:441
+msgid "PROG"
+msgstr ""
+
+#: src/tar.c:442
+msgid "filter through PROG (must accept -d)"
+msgstr ""
+
+#: src/tar.c:445
+msgid "Local file selection:"
+msgstr ""
+
+#: src/tar.c:447
+msgid "DIR"
+msgstr ""
+
+#: src/tar.c:448
+#, fuzzy
+msgid "change to directory DIR"
+msgstr "Δεν είναι δυνατή η τροποποίηση του τρέχοντος καταλόγου"
+
+#: src/tar.c:449
+msgid "FILE-OF-NAMES"
+msgstr ""
+
+#: src/tar.c:450
+msgid "get names to extract or create from file NAME"
+msgstr ""
+
+#: src/tar.c:452
+msgid "-T reads null-terminated names, disable -C"
+msgstr ""
+
+#: src/tar.c:453
+msgid "PATTERN"
+msgstr ""
+
+#: src/tar.c:454
+msgid "exclude files, given as a PATTERN"
+msgstr ""
+
+#: src/tar.c:456
+msgid "exclude patterns listed in FILE"
+msgstr ""
+
+#: src/tar.c:458
+msgid "exclude directories containing a cache tag"
+msgstr ""
+
+#: src/tar.c:460
+msgid "exclusion ignores case"
+msgstr ""
+
+#: src/tar.c:462
+msgid "exclude patterns match file name start"
+msgstr ""
+
+#: src/tar.c:464
+msgid "exclude patterns match after any / (default)"
+msgstr ""
+
+#: src/tar.c:466
+msgid "exclusion is case sensitive (default)"
+msgstr ""
+
+#: src/tar.c:468
+msgid "exclude patterns are plain strings"
+msgstr ""
+
+#: src/tar.c:470
+msgid "exclude pattern wildcards do not match '/'"
+msgstr ""
+
+#: src/tar.c:472
+msgid "avoid descending automatically in directories"
+msgstr ""
+
+#: src/tar.c:474
+msgid "stay in local file system when creating archive"
+msgstr ""
+
+#: src/tar.c:477
+msgid "recurse into directories (default)"
+msgstr ""
+
+#: src/tar.c:479
+#, fuzzy
+msgid "don't strip leading `/'s from file names"
+msgstr "Απομακρύνονται τα αρχικά `%.*s' από τα ονόματα των μελών"
+
+#: src/tar.c:481
+msgid "dump instead the files symlinks point to"
+msgstr ""
+
+#: src/tar.c:482
+msgid "MEMBER-NAME"
+msgstr ""
+
+#: src/tar.c:483
+msgid "begin at member MEMBER-NAME in the archive"
+msgstr ""
+
+#: src/tar.c:485
+msgid "strip NUMBER leading components from file names"
+msgstr ""
+
+#: src/tar.c:486
+msgid "DATE-OR-FILE"
+msgstr ""
+
+#: src/tar.c:487
+msgid "only store files newer than DATE-OR-FILE"
+msgstr ""
+
+#: src/tar.c:488 src/tar.c:490
+msgid "DATE"
+msgstr ""
+
+#: src/tar.c:489
+msgid "compare date and time when data changed only"
+msgstr ""
+
+#: src/tar.c:491
+msgid "same as -N"
+msgstr ""
+
+#: src/tar.c:492
+msgid "CONTROL"
+msgstr ""
+
+#: src/tar.c:493
+msgid "backup before removal, choose version CONTROL"
+msgstr ""
+
+#: src/tar.c:494
+msgid "STRING"
+msgstr ""
+
+#: src/tar.c:495
+msgid ""
+"backup before removal, override usual suffix ('~' unless overridden by "
+"environment variable SIMPLE_BACKUP_SUFFIX"
+msgstr ""
+
+#: src/tar.c:497
+msgid "exclude patterns use wildcards (default)"
+msgstr ""
+
+#: src/tar.c:499
+msgid "exclude pattern wildcards match '/' (default)"
+msgstr ""
+
+#: src/tar.c:502
+msgid "Informative output:"
+msgstr ""
+
+#: src/tar.c:505
+msgid "verbosely list files processed"
+msgstr ""
+
+#: src/tar.c:507
+msgid "display progress messages every 10th record"
+msgstr ""
+
+#: src/tar.c:509
+msgid "print a message if not all links are dumped"
+msgstr ""
+
+#: src/tar.c:511
+msgid "print total bytes written while creating archive"
+msgstr ""
+
+#: src/tar.c:513
+msgid "print file modification dates in UTC"
+msgstr ""
+
+#: src/tar.c:515
+msgid "send verbose output to FILE"
+msgstr ""
+
+#: src/tar.c:517
+msgid "show block number within archive with each message"
+msgstr ""
+
+#: src/tar.c:519
+msgid "ask for confirmation for every action"
+msgstr ""
+
+#: src/tar.c:522
+msgid "Show tar defaults"
+msgstr ""
+
+#: src/tar.c:524
+msgid ""
+"When listing or extracting, list each directory that does not match search "
+"criteria"
+msgstr ""
+
+#: src/tar.c:527
+msgid "Compatibility options:"
+msgstr ""
+
+#: src/tar.c:530
+msgid ""
+"when creating, same as --old-archive. When extracting, same as --no-same-"
+"owner"
+msgstr ""
+
+#: src/tar.c:533
+msgid "Other options:"
+msgstr ""
+
+#: src/tar.c:535
+msgid "Give this help list"
+msgstr ""
+
+#: src/tar.c:536
+msgid "Give a short usage message"
+msgstr ""
+
+#: src/tar.c:537
+msgid "Print license and exit"
+msgstr ""
+
+#: src/tar.c:538
+msgid "Print program version"
+msgstr ""
+
+#: src/tar.c:575
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr "Ίσως δεν καθορίσατε παραπάνω από μία επιλογή `-Acdtrux'"
+
+#: src/tar.c:585
+msgid "Conflicting compression options"
+msgstr "Συγκρουόμενες επιλογές συμπίεσης"
+
+#: src/tar.c:595
+msgid ""
+"Based on the work of John Gilmore and Jay Fenlason. See AUTHORS\n"
+"for complete list of authors.\n"
+msgstr ""
+
+#: src/tar.c:597
+#, c-format
+msgid ""
+"   GNU tar is free software; you can redistribute it and/or modify\n"
+"   it under the terms of the GNU General Public License as published by\n"
+"   the Free Software Foundation; either version 2 of the License, or\n"
+"   (at your option) any later version.\n"
+"\n"
+"   GNU tar is distributed in the hope that it will be useful,\n"
+"   but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+"   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+"   GNU General Public License for more details.\n"
+"\n"
+"   You should have received a copy of the GNU General Public License\n"
+"   along with GNU tar; if not, write to the Free Software\n"
+"   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA\n"
+"\n"
+msgstr ""
+
+#: src/tar.c:638
+msgid "Invalid blocking factor"
+msgstr "Άκυρος συντελεστής ομαδοποίησης"
+
+#: src/tar.c:713
+msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
+msgstr ""
+"Προειδοποίηση: η -I επιλογή δεν υποστηρίζεται; ίσως εννοούσατε την -j ή την -"
+"T;"
+
+#: src/tar.c:738
+msgid "Semantics of -l option will change in the future releases."
+msgstr ""
+
+#: src/tar.c:740
+msgid "Please use --one-file-system option instead."
+msgstr ""
+
+#: src/tar.c:753
+msgid "Invalid tape length"
+msgstr "Άκυρο μέγεθος ταινίας"
+
+#: src/tar.c:781
+msgid "More than one threshold date"
+msgstr "Παραπάνω από ένα όριο ημερομηνίας"
+
+#: src/tar.c:791
+msgid "Date file not found"
+msgstr "Το αρχείο ημερομηνίας δεν βρέθηκε"
+
+#: src/tar.c:800
+#, c-format
+msgid "Substituting %s for unknown date format %s"
+msgstr "Αντικατάσταση %s για άγνωστη διαμόρφωση ημερομηνίας %s"
+
+#: src/tar.c:905
+msgid "Warning: the -y option is not supported; perhaps you meant -j?"
+msgstr "Προειδοποίηση: η επιλογή -y δεν υποστηρίζεται; ίσως εννοούσατε -j;"
+
+#: src/tar.c:981
+#, c-format
+msgid "%s: Invalid group"
+msgstr "%s: Άκυρη ομάδα"
+
+#: src/tar.c:990
+msgid "Invalid mode given on option"
+msgstr "Άκυρη κατάσταση δόθηκε σε επιλογή"
+
+#: src/tar.c:1033
+#, fuzzy
+msgid "Invalid number"
+msgstr "Άκυρος αριθμός i-κόμβου"
+
+#: src/tar.c:1051
+msgid "Invalid owner"
+msgstr "Άκυρος ιδιοκτήτης"
+
+#: src/tar.c:1075
+msgid "Invalid record size"
+msgstr "Άκυρο μέγεθος εγγραφής"
+
+#: src/tar.c:1078
+#, c-format
+msgid "Record size must be a multiple of %d."
+msgstr "Το μέγεθος της εγγραφής πρέπει να είναι πολλαπλάσιο του %d."
+
+#: src/tar.c:1110
+#, fuzzy
+msgid "Invalid number of elements"
+msgstr "Άκυρο μέγεθος ταινίας"
+
+#: src/tar.c:1185
+#, c-format
+msgid "Malformed density argument: '%s'"
+msgstr ""
+
+#: src/tar.c:1221
+#, c-format
+msgid "Unknown density: '%c'"
+msgstr ""
+
+#: src/tar.c:1241
+msgid "Options `-[0-7][lmh]' not supported by *this* tar"
+msgstr ""
+"Οι επιλογές `-[0-7][lmh]' δεν υποστηρίζονται από *αυτήν* την εντολή tar"
+
+#: src/tar.c:1249
+#, c-format
+msgid ""
+"\n"
+"*This* tar defaults to:\n"
+msgstr ""
+
+#: src/tar.c:1278
+msgid "[FILE]..."
+msgstr ""
+
+#: src/tar.c:1375
+#, c-format
+msgid "Old option `%c' requires an argument."
+msgstr "Παλιά επιλογή `%c' απαιτεί όρισμα."
+
+#: src/tar.c:1458
+msgid "--occurrence is meaningless without a file list"
+msgstr ""
+
+#: src/tar.c:1464
+msgid "--occurrence cannot be used in the requested operation mode"
+msgstr ""
+
+#: src/tar.c:1494
+#, fuzzy
+msgid "Multiple archive files require `-M' option"
+msgstr "Πολλαπλά αρχεία αρχειοθηκών απαιτούν την επιλογή `-M'"
+
+#: src/tar.c:1499
+msgid "Cannot combine --listed-incremental with --newer"
+msgstr "Δεν είναι δυνατός ο συνδυασμός --listed-incremental με --newer"
+
+#: src/tar.c:1514
+#, fuzzy, c-format
+msgid "%s: Volume label is too long (limit is %lu byte)"
+msgid_plural "%s: Volume label is too long (limit is %lu bytes)"
+msgstr[0] "%s: Η ετικέτα του τόμου είναι πολύ μεγάλη (το όριο είναι %lu byte)"
+msgstr[1] "%s: Η ετικέτα του τόμου είναι πολύ μεγάλη (το όριο είναι %lu byte)"
+
+#: src/tar.c:1524
+msgid "Cannot verify multi-volume archives"
+msgstr "Δεν είναι δυνατή η επαλήθευση πολλαπλών αρχειοθηκών"
+
+#: src/tar.c:1526
+msgid "Cannot verify compressed archives"
+msgstr "Δεν είναι δυνατή η επαλήθευση των συμπιεσμένων αρχειοθηκών"
+
+#: src/tar.c:1532
+msgid "Cannot use multi-volume compressed archives"
+msgstr "Δεν είναι δυνατή η χρήση πολλαπλών συμπιεσμένων αρχειοθηκών"
+
+#: src/tar.c:1534
+msgid "Cannot update compressed archives"
+msgstr "Δεν είναι δυνατή η ανανέωση των συμπιεσμένων αρχειοθηκών"
+
+#: src/tar.c:1546
+msgid "--pax-option can be used only on POSIX archives"
+msgstr ""
+
+#: src/tar.c:1563
+msgid "Cowardly refusing to create an empty archive"
+msgstr "Αρνούμαι δειλά στη δημιουργία μίας κενής αρχειοθήκης"
+
+#: src/tar.c:1584
+msgid "Options `-Aru' are incompatible with `-f -'"
+msgstr "Οι επιλογές `-Aru' δεν είναι συμβατές με  `-f -'"
+
+#: src/tar.c:1607
+#, c-format
+msgid "Treating date `%s' as %s + %ld nanosecond"
+msgid_plural "Treating date `%s' as %s + %ld nanoseconds"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/tar.c:1663
+msgid "You must specify one of the `-Acdtrux' options"
+msgstr "Πρέπει να καθορίσεις μία από τις επιλογές `-Acdtrux'"
+
+#: src/tar.c:1715
+msgid "Error in writing to standard output"
+msgstr "Σφάλμα κατά την εγγραφή στην κανονική έξοδο"
+
+#: src/tar.c:1717
+msgid "Error exit delayed from previous errors"
+msgstr "Καθυστέρησε το σφάλμα εξόδου από προηγούμενα σφάλματα"
+
+#: src/update.c:86
+#, fuzzy, c-format
+msgid "%s: File shrank by %s byte"
+msgid_plural "%s: File shrank by %s bytes"
+msgstr[0] "%s: Το αρχείο συρρικνώθηκε κάτα %s byte"
+msgstr[1] "%s: Το αρχείο συρρικνώθηκε κάτα %s byte"
+
+#: src/xheader.c:140
+#, c-format
+msgid "Keyword %s is unknown or not yet imlemented"
+msgstr ""
+
+#: src/xheader.c:166
+#, c-format
+msgid "Pattern %s cannot be used"
+msgstr ""
+
+#: src/xheader.c:176
+#, c-format
+msgid "Keyword %s cannot be overridden"
+msgstr ""
+
+#: src/xheader.c:490
+msgid "Malformed extended header: missing whitespace after the length"
+msgstr ""
+
+#: src/xheader.c:501
+msgid "Malformed extended header: missing equal sign"
+msgstr ""
+
+#~ msgid "Cannot close"
+#~ msgstr "Δεν είναι δυνατό το κλείσιμο"
+
+#~ msgid "Cannot dup"
+#~ msgstr "Δεν είναι δυνατή η εκτέλεση της dup"
+
+#~ msgid "Cannot use compressed or remote archives"
+#~ msgstr "Δεν είναι δυνατή η χρήση συμπιεσμένων ή απομακρυσμένων αρχειοθηκών"
+
+#~ msgid "tar (child)"
+#~ msgstr "tar (θυγατρική)"
+
+#~ msgid "tar (grandchild)"
+#~ msgstr "tar (εγγόνι)"
+
+#~ msgid "Cannot allocate memory for blocking factor %d"
+#~ msgstr ""
+#~ "Δεν είναι δυνατή η δέσμευση μνήμης για τον συντελεστή ομαδοποίησης %d"
+
+#~ msgid "Child died with signal %d"
+#~ msgstr "Η θυγατρική διεργασία τερματίστηκε με το σήμα %d"
+
+#~ msgid "Child returned status %d"
+#~ msgstr "Η θυγατρική διεργασία επέστρεψε την κατάσταση %d"
+
+#~ msgid "Member names contain `..'"
+#~ msgstr "Τα ονόματα των μελών περιέχουν `..'"
+
+#~ msgid "%s: Member name contains `..'"
+#~ msgstr "%s: Τα ονόματα των μελών περιέχουν `..'"
+
+#~ msgid ""
+#~ "GNU `tar' saves many files together into a single tape or disk archive, "
+#~ "and\n"
+#~ "can restore individual files from the archive.\n"
+#~ msgstr ""
+#~ "Η εντολή GNU `tar' αποθηκεύει πολλά αρχεία μαζί σε μία μόνο ταινία (tape) "
+#~ "ή σε μία αρχειοθήκη δίσκου (disk archive),\n"
+#~ " και μπορεί να επαναφέρει ξεχωριστά αρχεία από την αρχειοθήκη.\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Usage: %s [OPTION]... [FILE]...\n"
+#~ "\n"
+#~ "Examples:\n"
+#~ "  %s -cf archive.tar foo bar  # Create archive.tar from files foo and "
+#~ "bar.\n"
+#~ "  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n"
+#~ "  %s -xf archive.tar          # Extract all files from archive.tar.\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Χρήση: %s [ΕΠΙΛΟΓΈΣ]... [ΑΡΧΕΊΟ]...\n"
+#~ "\n"
+#~ "Παραδείγματα:\n"
+#~ "  %s -cf archive.tar foo bar  # Δημιουργεί το archive.tar από τα αρχεία "
+#~ "foo και bar.\n"
+#~ "  %s -tvf archive.tar         # Εμφανίζει σε λίστα όλα τα αρχεία από το "
+#~ "archive.tar με λεπτομέρειες.\n"
+#~ "  %s -xf archive.tar          # Εξάγει όλα τα αρχεία από το archive.tar.\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "If a long option shows an argument as mandatory, then it is mandatory\n"
+#~ "for the equivalent short option also.  Similarly for optional arguments.\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Εάν μία μεγάλη επιλογή παρουσιάζει ένα όρισμα ως υποχρεωτικό,\n"
+#~ "τότε αυτό είναι υποχρεωτικό και για την αντίστοιχη σύντομη επιλογή "
+#~ "επίσης.\n"
+#~ "Παρομοίως για προαιρετικά ορίσματα.\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Main operation mode:\n"
+#~ "  -t, --list              list the contents of an archive\n"
+#~ "  -x, --extract, --get    extract files from an archive\n"
+#~ "  -c, --create            create a new archive\n"
+#~ "  -d, --diff, --compare   find differences between archive and file "
+#~ "system\n"
+#~ "  -r, --append            append files to the end of an archive\n"
+#~ "  -u, --update            only append files newer than copy in archive\n"
+#~ "  -A, --catenate          append tar files to an archive\n"
+#~ "      --concatenate       same as -A\n"
+#~ "      --delete            delete from the archive (not on mag tapes!)\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Κύρια κατάσταση λειτουργίας:\n"
+#~ "  -t, --list              εμφανίζει λίστα τα περιεχόμενα μίας "
+#~ "αρχειοθήκης\n"
+#~ "  -x, --extract, --get    εξάγει τα αρχεία από μία αρχειοθήκη\n"
+#~ "  -c, --create            δημιουργεί μία νέα αρχειοθήκη\n"
+#~ "  -d, --diff, --compare   βρίσκει διαφορές μεταξύ μίας αρχειοθήκης και "
+#~ "ενός συστήματος αρχείων\n"
+#~ "  -r, --append            προσθέτει αρχεία στο τέλος μίας αρχειοθήκης\n"
+#~ "  -u, --update            μόνο προσθέτει αρχεία νεότερα από ότι αυτά στο "
+#~ "αντίγραφο της αρχειοθήκης\n"
+#~ "  -A, --catenate          προσθέτει αρχεία tar σε μία αρχειοθήκη\n"
+#~ "      --concatenate       ίδιο όπως -A\n"
+#~ "      --delete            διαγράφει από μία αρχειοθήκη (όχι γιαμαγνητικές "
+#~ "ταινίες)\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Operation modifiers:\n"
+#~ "  -W, --verify               attempt to verify the archive after writing "
+#~ "it\n"
+#~ "      --remove-files         remove files after adding them to the "
+#~ "archive\n"
+#~ "  -k, --keep-old-files       don't replace existing files when "
+#~ "extracting\n"
+#~ "      --overwrite            overwrite existing files when extracting\n"
+#~ "      --overwrite-dir        overwrite directory metadata when "
+#~ "extracting\n"
+#~ "  -U, --unlink-first         remove each file prior to extracting over "
+#~ "it\n"
+#~ "      --recursive-unlink     empty hierarchies prior to extracting "
+#~ "directory\n"
+#~ "  -S, --sparse               handle sparse files efficiently\n"
+#~ "  -O, --to-stdout            extract files to standard output\n"
+#~ "  -G, --incremental          handle old GNU-format incremental backup\n"
+#~ "  -g, --listed-incremental=FILE\n"
+#~ "                             handle new GNU-format incremental backup\n"
+#~ "      --ignore-failed-read   do not exit with nonzero on unreadable "
+#~ "files\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Τροποποιητές λειτουργίας:\n"
+#~ "  -W, --verify               προσπάθεια για επιβεβαίωση της αρχειοθήκης "
+#~ "μετά από την εγγραφή της\n"
+#~ "      --remove-files         απομακρύνει τα αρχεία μετά την προσθήκη τους "
+#~ "στην αρχειοθήκη\n"
+#~ "  -k, --keep-old-files       δεν αντικαθιστά τα υπάρχοντα αρχεία κατά την "
+#~ "εξαγωγή τους\n"
+#~ "      --overwrite            αντικαθιστά τα υπάρχοντα αρχεία κατά την "
+#~ "εξαγωγή τους\n"
+#~ "      --overwrite-dir        αντικαθιστά καταλόγους με τα δεδομένα κατά "
+#~ "την εξαγωγή τους\n"
+#~ "  -U, --unlink-first         απομακρύνει κάθε σύνδεσμο αρχείου για να τα "
+#~ "εξάγει\n"
+#~ "      --recursive-unlink     καθορίζει τις ιεραρχικότητες των συνδέσμων "
+#~ "των αρχείων για να τα εξάγει\n"
+#~ "  -S, --sparse               χειρίζεται τα αραιά αρχεία αποτελεσματικά\n"
+#~ "  -O, --to-stdout            εξάγει τα αρχεία στην κανονική έξοδο\n"
+#~ "  -G, --incremental          χειρίζεται τα παλιά GNU-format αυξανόμενα "
+#~ "αντίγραφα\n"
+#~ "  -g, --listed-incremental=FILE\n"
+#~ "                             χειρίζεται τα νέα GNU-format αυξανόμενα "
+#~ "αντίγραφα\n"
+#~ "      --ignore-failed-read  αποφυγή τερματισμού κατά μη-μηδενικά ή μη-"
+#~ "αναγνώσιμα αρχεία\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Handling of file attributes:\n"
+#~ "      --owner=NAME             force NAME as owner for added files\n"
+#~ "      --group=NAME             force NAME as group for added files\n"
+#~ "      --mode=CHANGES           force (symbolic) mode CHANGES for added "
+#~ "files\n"
+#~ "      --atime-preserve         don't change access times on dumped files\n"
+#~ "  -m, --modification-time      don't extract file modified time\n"
+#~ "      --same-owner             try extracting files with the same "
+#~ "ownership\n"
+#~ "      --no-same-owner          extract files as yourself\n"
+#~ "      --numeric-owner          always use numbers for user/group names\n"
+#~ "  -p, --same-permissions       extract permissions information\n"
+#~ "      --no-same-permissions    do not extract permissions information\n"
+#~ "      --preserve-permissions   same as -p\n"
+#~ "  -s, --same-order             sort names to extract to match archive\n"
+#~ "      --preserve-order         same as -s\n"
+#~ "      --preserve               same as both -p and -s\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Χειρισμός αρχείων ιδιοτήτων:\n"
+#~ "      --owner=ΌΝΟΜΑ             ρύθμιση ΌΝΟΜΑ ως ιδιοκτήτης για τα "
+#~ "πρόσθετα αρχεία\n"
+#~ "      --group=ΌΝΟΜΑ             εξαναγκασμός ΌΝΟΜΑ ως ομάδα για τα "
+#~ "πρόσθετα αρχεία\n"
+#~ "      --mode=ΑΛΛΑΓΈΣ           εξαναγκασμός (συμβολικών) κατάστασης "
+#~ "ΑΛΛΑΓΈΣ για τα πρόσθετα αρχεία\n"
+#~ "      --atime-preserve         να μην αλλάξει η ώρα προσπέλασης στα "
+#~ "αποθηκευμένα αρχεία\n"
+#~ "  -m, --modification-time      να μην γίνει εξαγωγή της ώρας τροποποίησης "
+#~ "αρχείου\n"
+#~ "      --same-owner             προσπάθεια εξαγωγής αρχείων με την ίδια "
+#~ "ιδιοκτησία\n"
+#~ "      --no-same-owner          εξαγωγή αρχείων ως ο εαυτός σου\n"
+#~ "      --numeric-owner          πάντα να χρησιμοποιείται αριθμούς για τα "
+#~ "ονόματα χρήστη/ομάδα\n"
+#~ "  -p, --same-permissions       εξαγωγή πληροφοριών δικαιωμάτων\n"
+#~ "      --no-same-permissions    να μην γίνει εξαγωγή πληροφοριών "
+#~ "δικαιωμάτων\n"
+#~ "      --preserve-permissions   ίδιο όπως -p\n"
+#~ "  -s, --same-order             ταξινόμηση ονομάτων για εξαγωγή για "
+#~ "ταίριασμα με αρχειοθήκη\n"
+#~ "      --preserve-order         ίδιο όπως -s\n"
+#~ "      --preserve               ίδιο όπως -p και -s\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Device selection and switching:\n"
+#~ "  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
+#~ "      --force-local              archive file is local even if has a "
+#~ "colon\n"
+#~ "      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
+#~ "  -[0-7][lmh]                    specify drive and density\n"
+#~ "  -M, --multi-volume             create/list/extract multi-volume "
+#~ "archive\n"
+#~ "  -L, --tape-length=NUM          change tape after writing NUM x 1024 "
+#~ "bytes\n"
+#~ "  -F, --info-script=FILE         run script at end of each tape (implies -"
+#~ "M)\n"
+#~ "      --new-volume-script=FILE   same as -F FILE\n"
+#~ "      --volno-file=FILE          use/update the volume number in FILE\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Επιλογή συσκευής και εναλλαγή:\n"
+#~ "  -f, --file=ΑΡΧΕΙΟΘΉΚΗ         χρησιμοποίησε αρχείο αρχειοθήκης ή "
+#~ "συσκευή ΑΡΧΕΙΟΘΉΚΗς\n"
+#~ "      --force-local              το αρχείο αρχειοθήκης είναι τοπικό ακόμα "
+#~ "και εάν είχε άνω στιγμή\n"
+#~ "      --rsh-command=ΕΝΤΟΛΉ      χρησιμοποίησε απομακρυσμένη ΕΝΤΟΛΉ αντί "
+#~ "για rsh\n"
+#~ "  -[0-7][lmh]                    καθόρισε συσκευή και πυκνότητα\n"
+#~ "  -M, --multi-volume             δημιουργία/λίστα/εξαγωγή πολλαπλών "
+#~ "αρχειοθηκών\n"
+#~ "  -L, --tape-length=ΑΡΙΘΜ        αλλαγή ταινίας αφού γραφτούν ΑΡΙΘΜ x "
+#~ "1024 byte\n"
+#~ "  -F, --info-script=ΑΡΧΕΊΟ       εκτέλεσε ΑΡΧΕΊΟ στο τέλος κάθε ταινίας "
+#~ "(υπονοείται -M)\n"
+#~ "      --new-volume-script=ΑΡΧΕΊΟ ίδιο όπως -F ΑΡΧΕΙΟ\n"
+#~ "      --volno-file=ΑΡΧΕΊΟ        χρησιμοποιεί/ανανεώνει τον αριθμό του "
+#~ "τόμου στο ΑΡΧΕΊΟ\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Device blocking:\n"
+#~ "  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
+#~ "      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
+#~ "  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
+#~ "EOF)\n"
+#~ "  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Διάταξη ομαδοποίησης:\n"
+#~ "  -b, --blocking-factor=ΜΠΛΟΚ   ΜΠΛΟΚ x 512 byte ανά εγγραφή\n"
+#~ "      --record-size=ΜΈΓΕΘΟΣ     ΜΈΓΕΘΟΣ byte ανά εγγραφή, πολλαπλάσιο του "
+#~ "512\n"
+#~ "  -i, --ignore-zeros            παράβλεψη μηδενικών μπλοκ στην αρχειοθήκη "
+#~ "(δηλαδή EOF)\n"
+#~ "  -B, --read-full-records       δημιουργία ξανά μπλοκ κατά την ανάγνωση "
+#~ "(για σωληνώσεις σε 4.2BSD)\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Archive format selection:\n"
+#~ "  -V, --label=NAME                   create archive with volume name "
+#~ "NAME\n"
+#~ "              PATTERN                at list/extract time, a globbing "
+#~ "PATTERN\n"
+#~ "  -o, --old-archive, --portability   write a V7 format archive\n"
+#~ "      --posix                        write a POSIX format archive\n"
+#~ "  -j, --bzip2                        filter the archive through bzip2\n"
+#~ "  -z, --gzip, --ungzip               filter the archive through gzip\n"
+#~ "  -Z, --compress, --uncompress       filter the archive through compress\n"
+#~ "      --use-compress-program=PROG    filter through PROG (must accept -"
+#~ "d)\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Επιλογή μορφής αρχείοθήκης:\n"
+#~ "  -V, --label=ΌΝΟΜΑ                  δημιουργία αρχειοθήκης με όνομα "
+#~ "τόμου ΌΝΟΜΑ\n"
+#~ "              ΣΧΈΔΙΟ                 κατά την ώρα λίστας/εξαγωγής,ένα "
+#~ "ΣΧΈΔΙΟ ταιριάσματος\n"
+#~ "  -o, --old-archive, --portability   γράφω μία αρχειοθήκη μορφής V7\n"
+#~ "      --posix                        γράφω μία αρχειοθήκη μορφής POSIX\n"
+#~ "  -j, --bzip2                        φιλτράρισμα αρχειοθήκης μέσα από "
+#~ "bzip2\n"
+#~ "  -z, --gzip, --ungzip               φιλτράρισμα αρχειοθήκης μέσα από "
+#~ "gzip\n"
+#~ "  -Z, --compress, --uncompress       φιλτράρισμα αρχειοθήκης μέσα από "
+#~ "compress\n"
+#~ "      --use-compress-program=ΠΡΟΓΡ    φιλτράρισμα μέσα από ΠΡΟΓΡ (πρέπει "
+#~ "να δεχτεί -d)\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Local file selection:\n"
+#~ "  -C, --directory=DIR          change to directory DIR\n"
+#~ "  -T, --files-from=NAME        get names to extract or create from file "
+#~ "NAME\n"
+#~ "      --null                   -T reads null-terminated names, disable -"
+#~ "C\n"
+#~ "      --exclude=PATTERN        exclude files, given as a PATTERN\n"
+#~ "  -X, --exclude-from=FILE      exclude patterns listed in FILE\n"
+#~ "      --anchored               exclude patterns match file name start "
+#~ "(default)\n"
+#~ "      --no-anchored            exclude patterns match after any /\n"
+#~ "      --ignore-case            exclusion ignores case\n"
+#~ "      --no-ignore-case         exclusion is case sensitive (default)\n"
+#~ "      --wildcards              exclude patterns use wildcards (default)\n"
+#~ "      --no-wildcards           exclude patterns are plain strings\n"
+#~ "      --wildcards-match-slash  exclude pattern wildcards match "
+#~ "'/' (default)\n"
+#~ "      --no-wildcards-match-slash exclude pattern wildcards do not match "
+#~ "'/'\n"
+#~ "  -P, --absolute-names         don't strip leading `/'s from file names\n"
+#~ "  -h, --dereference            dump instead the files symlinks point to\n"
+#~ "      --no-recursion           avoid descending automatically in "
+#~ "directories\n"
+#~ "  -l, --one-file-system        stay in local file system when creating "
+#~ "archive\n"
+#~ "  -K, --starting-file=NAME     begin at file NAME in the archive\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Επιλογές τοπικών αρχείων:\n"
+#~ "  -C, --directory=ΚΑΤΑΛ        άλλαξε στον κατάλογο ΚΑΤΑΛ\n"
+#~ "  -T, --files-from=ΌΝΟΜΑ       πάρε ονόματα από το αρχείο ΌΝΟΜΑ για "
+#~ "εξαγωγή/δημιουργία\n"
+#~ "      --null                   -T διαβάζει κενά-τελικά ονόματα, "
+#~ "απενεργοποιεί με -C\n"
+#~ "      --exclude=ΣΧΈΔΙΟ         αποκλείει αρχεία, δοσμένα ως ΣΧΈΔΙΟ\n"
+#~ "  -X, --exclude-from=ΑΡΧΕΊΟ   αποκλείει σχέδια που εμφανίζονται στο FILE\n"
+#~ "      --anchored               αποκλείει σχέδια που ταιριάζουν τα ονόματα "
+#~ "των αρχικών αρχείων (προεπιλογή)\n"
+#~ "      --no-anchored            αποκλείει σχέδια που ταιριάζουν με "
+#~ "καθένα /\n"
+#~ "      --ignore-case            παράληψη αγνοώντας τα πεζά\n"
+#~ "      --no-ignore-case         παράληψη σε διάκριση πεζών-κεφαλαίων "
+#~ "(προεπιλογή)\n"
+#~ "      --wildcards              αποκλείει σχέδια χρησιμοποιώντας σύμβολα "
+#~ "(προεπιλογή)\n"
+#~ "      --no-wildcards           αποκλείει σχέδια που είναι απλά κείμενα\n"
+#~ "      --wildcards-match-slash  αποκλείει σχέδια που ταιριάζουν σε σύμβολα "
+#~ "'/' (προεπιλογή)\n"
+#~ "      --no-wildcards-match-slash αποκλείει σχέδια που δεν ταιριάζουν σε "
+#~ "σύμβολα '/'\n"
+#~ "  -P, --absolute-names         δεν αφαιρεί αρχικό `/'s από τα ονόματα των "
+#~ "αρχείων\n"
+#~ "  -h, --dereference            αποθηκεύει αντί για τα αρχεία συμβολικούς "
+#~ "δεσμούς που δείχνουν σε αυτά\n"
+#~ "      --no-recursion           αποφεύγει αυτόματη κάθοδος στους "
+#~ "καταλόγους\n"
+#~ "  -l, --one-file-system        μένει στο τοπικό σύστημα αρχείων κατά την "
+#~ "δημιουργία αρχειοθήκης\n"
+#~ "  -K, --starting-file=ΌΝΟΜΑ    αρχίζει στο αρχείο ΌΝΟΜΑ μέσα στην "
+#~ "αρχειοθήκη\n"
+
+#~ msgid ""
+#~ "  -N, --newer=DATE             only store files newer than DATE\n"
+#~ "      --newer-mtime=DATE       compare date and time when data changed "
+#~ "only\n"
+#~ "      --after-date=DATE        same as -N\n"
+#~ msgstr ""
+#~ "  -N, --newer=ΗΜΕΡΟΜΗΝΊΑ       αποθήκευσε μόνο αρχεία νεώτερα από την "
+#~ "ΗΜΕΡΟΜΉΝΙΑ\n"
+#~ "      --newer-mtime=ΗΜΕΡΟΜΗΝΊΑ σύγκρινε ημερομηνία και ώρα μόνο όταν τα "
+#~ "δεδομένα τροποποιούνται\n"
+#~ "      --after-date=ΗΜΕΡΟΜΗΝΊΑ  ίδιο όπως -N\n"
+
+#~ msgid ""
+#~ "      --backup[=CONTROL]       backup before removal, choose version "
+#~ "control\n"
+#~ "      --suffix=SUFFIX          backup before removal, override usual "
+#~ "suffix\n"
+#~ msgstr ""
+#~ "      --backup[=CONTROL]       αποθήκευση πριν τη διαγραφή, επέλεξε τον "
+#~ "έλεγχο έκδοσης\n"
+#~ "      --suffix=ΚΑΤΆΛΗΞΗ        αποθήκευση πριν τη διαγραφή, παράκαμψη "
+#~ "συνηθισμένης κατάληξης\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Informative output:\n"
+#~ "      --help            print this help, then exit\n"
+#~ "      --version         print tar program version number, then exit\n"
+#~ "  -v, --verbose         verbosely list files processed\n"
+#~ "      --checkpoint      print directory names while reading the archive\n"
+#~ "      --totals          print total bytes written while creating archive\n"
+#~ "  -R, --block-number    show block number within archive with each "
+#~ "message\n"
+#~ "  -w, --interactive     ask for confirmation for every action\n"
+#~ "      --confirmation    same as -w\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Εμφάνιση πληροφοριών:\n"
+#~ "      --help            τύπωμα αυτής της βοήθειας, έπειτα έξοδος\n"
+#~ "      --version         τύπωμα αριθμού έκδοσης του προγράμματος tar, "
+#~ "έπειτα έξοδος\n"
+#~ "  -v, --verbose         εμφάνιση ονομάτων αρχείων κατά την επεξεργασία "
+#~ "τους\n"
+#~ "      --checkpoint      τύπωσε τα ονόματα των καταλόγων κατά την ανάγνωση "
+#~ "της αρχειοθήκης\n"
+#~ "      --totals          τύπωσε συνολικά byte γραμμένα κατά την δημιουργία "
+#~ "της αρχειοθήκης\n"
+#~ "  -R, --block-number    εμφάνισε αριθμό μπλοκ μέσα στην αρχειοθήκη σε "
+#~ "κάθε μήνυμα\n"
+#~ "  -w, --interactive     ρώτησε για επιβεβαίωση για κάθε ενέργεια\n"
+#~ "      --confirmation    ίδιο όπως -w\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "GNU tar cannot read nor produce `--posix' archives.  If POSIXLY_CORRECT\n"
+#~ "is set in the environment, GNU extensions are disallowed with `--posix'.\n"
+#~ "Support for POSIX is only partially implemented, don't count on it yet.\n"
+#~ "ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual "
+#~ "date\n"
+#~ "or a file name starting with `/' or `.', in which case the file's date is "
+#~ "used.\n"
+#~ "*This* `tar' defaults to `-f%s -b%d'.\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Το GNU tar δεν μπορεί να αναγνώσει είτε να παράγει αρχειοθήκες `--"
+#~ "posix'.\n"
+#~ "Εάν στο περιβάλλον έχει τεθεί POSIXLY_CORRECT, οι επεκτάσεις GNU δεν "
+#~ "επιτρέπονται με `--posix'.\n"
+#~ "Η υποστήριξη για POSIX είναι μόνο μερικών υλοποιημένη, μην βασίζεστε πάνω "
+#~ "σε αυτήν ακόμα.\n"
+#~ "Η ΑΡΧΕΙΟΘΉΚΗ μπορεί να είναι ΑΡΧΕΊΟ, ΔΙΑΚΟΜΙΣΤΉΣ:ΑΡΧΕΊΟ ή "
+#~ "ΧΡΉΣΤΗΣ@ΔΙΑΚΟΜΙΣΤΉΣ:ΑΡΧΕΊΟ; \n"
+#~ "Η ΗΜΕΡΟΜΉΝΙΑ μπορεί να είναι σε μορφή κειμένου ή ένα όνομα αρχείου\n"
+#~ "όπου αρχίζει με `/' ή `.', στην οποία περίπτωση η ημερομηνία του αρχείου "
+#~ "χρησιμοποιείτε.\n"
+#~ "*Τούτη* η εντολή `tar' χρησιμοποιεί εξ ορισμού `-f%s -b%d'.\n"
+
+#~ msgid "Obsolete option, now implied by --blocking-factor"
+#~ msgstr "Εκτός χρήσης επιλογή, τώρα συνεπάγεται από το --blocking-factor"
+
+#~ msgid "Obsolete option name replaced by --blocking-factor"
+#~ msgstr ""
+#~ "Εκτός χρήσης όνομα επιλογής αντικαταστάθηκε από το --blocking-factor"
+
+#~ msgid "Obsolete option name replaced by --read-full-records"
+#~ msgstr ""
+#~ "Εκτός χρήσης όνομα επιλογής αντικαταστάθηκε από το --read-full-records"
+
+#~ msgid "Obsolete option name replaced by --touch"
+#~ msgstr "Εκτός χρήσης όνομα επιλογής αντικαταστάθηκε από το --touch"
+
+#~ msgid "Obsolete option name replaced by --absolute-names"
+#~ msgstr "Εκτός χρήσης όνομα επιλογής αντικαταστάθηκε από το --absolute-names"
+
+#~ msgid "Obsolete option name replaced by --block-number"
+#~ msgstr "Εκτός χρήσης όνομα επιλογής αντικαταστάθηκε από το --block-number"
+
+#~ msgid "Obsolete option name replaced by --backup"
+#~ msgstr "Εκτός χρήσης όνομα επιλογής αντικαταστάθηκε από το --backup"
+
+#~ msgid "Written by John Gilmore and Jay Fenlason."
+#~ msgstr "Γράφτηκε από τους John Gilmore και Jay Fenlason."
+
+#~ msgid "Generate data files for GNU tar test suite.\n"
+#~ msgstr "Παράγει αρχεία δεδομένων για δοκιμαστική πλατφόρμα GNU tar.\n"
+
+#~ msgid ""
+#~ "If a long option shows an argument as mandatory, then it is mandatory\n"
+#~ "for the equivalent short option also.\n"
+#~ "\n"
+#~ "  -l, --file-length=LENGTH   LENGTH of generated file\n"
+#~ "  -p, --pattern=PATTERN      PATTERN is `default' or `zeros'\n"
+#~ "      --help                 display this help and exit\n"
+#~ "      --version              output version information and exit\n"
+#~ msgstr ""
+#~ "Εάν μία μεγάλη επιλογή εμφανίζει ένα όρισμα ως υποχρεωτικό, τότε αυτό\n"
+#~ "είναι υποχρεωτικό και για την αντίστοιχη μικρή επιλογή επίσης.\n"
+#~ "\n"
+#~ "  -l, --file-length=ΜΉΚΟΣ    Το ΜΉΚΟΣ του παραγομένου αρχείου\n"
+#~ "  -p, --pattern=ΜΟΤΊΒΟ       Το ΜΟΤΊΒΟ είναι το `default' ή `zeros'\n"
+#~ "      --help                 εμφάνισης αυτής της βοήθειας και "
+#~ "τερματισμός\n"
+#~ "      --version              εμφάνιση πληροφοριών έκδοσης και "
+#~ "τερματισμός\n"
+
+#~ msgid "Written by F. Pinard."
+#~ msgstr ""
+#~ "Γράφτηκε από τον F. Pinard.\n"
+#~ "Μεταφράστηκε από τον Μπαλάσκα Ευάγγελο."

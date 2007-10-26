@@ -1,14 +1,14 @@
---- signal.c.orig	2004-07-28 11:26:29.000000000 -0700
-+++ signal.c	2004-07-28 11:26:54.000000000 -0700
-@@ -33,6 +33,7 @@
- extern int linenums;
+--- signal.c.orig	2005-12-03 12:20:32.000000000 -0800
++++ signal.c	2006-01-25 20:35:41.000000000 -0800
+@@ -34,6 +34,7 @@ extern int linenums;
  extern int wscroll;
  extern int reading;
+ extern int quit_on_intr;
 +extern int more_mode;
  
  /*
   * Interrupt signal handler.
-@@ -56,6 +57,8 @@
+@@ -57,6 +58,8 @@ u_interrupt(type)
  	if (kbhit())
  		getkey();
  #endif

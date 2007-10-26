@@ -180,7 +180,7 @@ MetaRecord::packRecord(WriteSection &inWriteSection,
     if (aDataSize)
         anOffset = inWriteSection.put(anOffset, aDataSize, inData->Data);
 
-    vector<uint32> aNumValues(mAttributeVector.size(), ~0UL);
+    vector<uint32> aNumValues(mAttributeVector.size(), ~(uint32)0);
     vector<CSSM_DATA_PTR> aValues(mAttributeVector.size());
     uint32 anIndex;
 
@@ -206,7 +206,7 @@ MetaRecord::packRecord(WriteSection &inWriteSection,
 				CssmError::throwMe(CSSMERR_DL_INCOMPATIBLE_FIELD_FORMAT);
 
             // If this attribute was specified before, throw.
-            if (aNumValues[anAttributeIndex] != ~0UL)
+            if (aNumValues[anAttributeIndex] != ~(uint32)0)
                 CssmError::throwMe(CSSMERR_DL_FIELD_SPECIFIED_MULTIPLE);
 
             aNumValues[anAttributeIndex] = anAttribute.NumberOfValues;
@@ -220,7 +220,7 @@ MetaRecord::packRecord(WriteSection &inWriteSection,
         uint32 aNumberOfValues = aNumValues[anIndex];
         // Now call the parsingmodule for each attribute that
         // wasn't explicitly specified and that has a parsingmodule.
-        if (aNumberOfValues == ~0UL)
+        if (aNumberOfValues == ~(uint32)0)
             aNumberOfValues = aDataSize == 0 ? 0 : aMetaAttribute.parse(*inData, aValues[anIndex]);
 
         // XXX When do we throw CSSMERR_DL_MISSING_VALUE?  Maybe if an
@@ -256,34 +256,66 @@ MetaRecord::unpackRecord(const ReadSection &inReadSection,
 {
 	// XXX Use POD wrapper for inoutAttributes here.
 	TrackingAllocator anAllocator(inAllocator);
-    if (inoutData)
-    {
-        // XXX Treat KEY records specially.
+	
+	try
+	{
+		if (inoutData)
+		{
+			// XXX Treat KEY records specially.
 
-        // If inQueryFlags & CSSM_QUERY_RETURN_DATA is true return the raw
-        // key bits in the CSSM_KEY structure
-        Range aDataRange = dataRange(inReadSection);
-    	inoutData->Length = aDataRange.mSize;
-        inoutData->Data = inReadSection.allocCopyRange(aDataRange, anAllocator);
-    }
+			// If inQueryFlags & CSSM_QUERY_RETURN_DATA is true return the raw
+			// key bits in the CSSM_KEY structure
+			Range aDataRange = dataRange(inReadSection);
+			inoutData->Length = aDataRange.mSize;
+			inoutData->Data = inReadSection.allocCopyRange(aDataRange, anAllocator);
+		}
 
-    if (inoutAttributes)
-    {
-        inoutAttributes->DataRecordType = dataRecordType();
-        inoutAttributes->SemanticInformation = semanticInformation(inReadSection);
-        uint32 anIndex = inoutAttributes->NumberOfAttributes;
+		if (inoutAttributes)
+		{
+			inoutAttributes->DataRecordType = dataRecordType();
+			inoutAttributes->SemanticInformation = semanticInformation(inReadSection);
+			uint32 anIndex = inoutAttributes->NumberOfAttributes;
 
-        // Make sure that AttributeData is a valid array.
-        if (anIndex > 0 && inoutAttributes->AttributeData == NULL)
-            CssmError::throwMe(CSSM_ERRCODE_INVALID_POINTER);
+			// Make sure that AttributeData is a valid array.
+			if (anIndex > 0 && inoutAttributes->AttributeData == NULL)
+				CssmError::throwMe(CSSM_ERRCODE_INVALID_POINTER);
 
-        while (anIndex-- > 0)
-        {
-            unpackAttribute(inReadSection, anAllocator,
-            				inoutAttributes->AttributeData[anIndex]);
-        }
-    }
-
+			while (anIndex-- > 0)
+			{
+				unpackAttribute(inReadSection, anAllocator,
+								inoutAttributes->AttributeData[anIndex]);
+			}
+		}
+	}
+	catch (...)
+	{
+		// clear all pointers so that nothing dangles back to the user
+		if (inoutData)
+		{
+			inoutData->Data = NULL;
+		}
+		
+		if (inoutAttributes)
+		{
+			unsigned i;
+			for (i = 0; i < inoutAttributes->NumberOfAttributes; ++i)
+			{
+				CSSM_DB_ATTRIBUTE_DATA& data = inoutAttributes->AttributeData[i];
+				
+				unsigned j;
+				for (j = 0; j < data.NumberOfValues; ++j)
+				{
+					data.Value[j].Data = NULL;
+				}
+				
+				if (data.Info.AttributeNameFormat == CSSM_DB_ATTRIBUTE_NAME_AS_STRING)
+				{
+					data.Info.Label.AttributeName = NULL;
+				}
+			}
+		}
+	}
+	
 	// Don't free anything the trackingAllocator allocated when it is destructed.
 	anAllocator.commit();
 }
@@ -312,7 +344,7 @@ MetaRecord::attributeIndex(const CSSM_DB_ATTRIBUTE_INFO &inAttributeInfo) const
 				for(it = mNameStringMap.begin();
 				    it != mNameStringMap.end();
 					it++) {
-						printf("name %s val %lu\n", it->first.c_str(), it->second);
+						printf("name %s val %d\n", it->first.c_str(), it->second);
 				}
 				#endif
 				CssmError::throwMe(CSSMERR_DL_INVALID_FIELD_NAME);

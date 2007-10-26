@@ -103,8 +103,8 @@ bool IOMbufMemoryCursor::initWithSpecification(OutputSegmentFunc inOutSeg,
 //
 // Copy the src packet into the destination packet. The amount to copy is
 // determined by the dstm->m_len, which is setup by analyseSegments, see below.
-// The source mbuf is not freed nor modified.
-//
+// Mbufs(except for the head) from the source are freed as they are copied and the
+// remaining uncopied mbufs are attached to the end of the dest chain.
 #define BCOPY(s, d, l) do { bcopy((void *) s, (void *) d, l); } while(0)
 
 static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
@@ -112,7 +112,8 @@ static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
     vm_offset_t src, dst;
     SInt32 srcLen, dstLen;
     mbuf_t temp;
-            
+    mbuf_t head = srcm;
+	
     srcLen = mbuf_len( srcm );
     src = (vm_offset_t) mbuf_data(srcm);
 
@@ -129,6 +130,8 @@ static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
 
             // Move on to the next source mbuf.
             temp = mbuf_next( srcm ); assert(temp);
+			if(srcm != head)
+				mbuf_free(srcm);
             srcm = temp;
 
             srcLen = mbuf_len( srcm );
@@ -154,11 +157,18 @@ static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
             BCOPY(src, dst, srcLen);
 
             // Free current mbuf and move the current onto the next
-            srcm = mbuf_next( srcm );
-
-            // Do we have any data left to copy?
+            temp = mbuf_next( srcm );
+			if(srcm != head)
+				mbuf_free(srcm);
+			srcm = temp;
+			
+            // Do we have any more dest buffers to copy to?
             if (! mbuf_next ( dstm ))
+			{
+				// nope- hook the remainder of source chain to end of dest chain
+				mbuf_setnext(dstm, srcm);
                 break;
+			}
             dstm = mbuf_next ( dstm );
 
             assert(srcm);
@@ -303,28 +313,15 @@ static inline bool analyseSegments(
         //
         coalesceSegments(packet, newPacket);
         
-        // Copy complete. 
-        
-        // If 'in' is non zero, then it means that we only need to copy part
-        // of the input packet, beginning at the start. The mbuf chain
-        // beginning at 'in' must be preserved and linked to the new
-        // output packet chain. Everything before 'in', except for the
-        // header mbuf can be freed.
-        //
-        mbuf_t m = mbuf_next(packet);
-        while (m != in)
-		{
-			mbuf_t nextm = mbuf_next(m);
-            mbuf_free(m);
-			m = nextm;
-		}
-
         // The initial header mbuf is preserved, its length set to zero, and
         // linked to the new packet chain.
+        // coalesceSegments() has already freed the mbufs that it coalesced into the newPacket chain.
+		// It also hooked the remaining chain pointed to by "in" to the end of the newPacket chain.
+		// All that remains is to set packet's len to 0 (to "free" the contents that coalesceSegments copied out)
+		// and make it the head of the new chain.
         
         mbuf_setlen(packet , 0 );
         mbuf_setnext(packet, newPacket);
-        mbuf_setnext(newPacket, in);
         
         return true;
     }

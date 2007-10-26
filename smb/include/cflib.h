@@ -2,6 +2,8 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved. 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,12 +31,9 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: cflib.h,v 1.1 2001/06/09 00:28:11 zarzycki Exp $
  */
 #ifndef _zzzzzz_RCFILE_H_
 #define _zzzzzz_RCFILE_H_
-
-struct rcfile;
 
 /*
  * A unified options parser
@@ -67,11 +66,7 @@ extern const char *cf_optarg;
 
 __BEGIN_DECLS
 
-int  opt_args_parse(struct rcfile *, struct opt_args *, const char *,
-	opt_callback_t *);
-int  opt_args_parseopt(struct opt_args *, int, char *, opt_callback_t *);
-
-int  cf_getopt(int, char * const *, const char *);
+struct rcfile;
 
 int  rc_open(const char *, const char *, struct rcfile **);
 int  rc_close(struct rcfile *);

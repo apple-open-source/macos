@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Trolltech ASA
- * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,9 +49,6 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QPainterPath>
-#elif PLATFORM(CAIRO)
-#include "CairoPath.h"
-#include <cairo.h>
 #endif
 
 namespace WebCore {
@@ -139,12 +135,7 @@ void CanvasRenderingContext2D::setFillStyle(PassRefPtr<CanvasStyle> style)
     GraphicsContext* c = drawingContext();
     if (!c)
         return;
-#if PLATFORM(CAIRO)
-    // FIXME: hack to reduce code duplication in CanvasStyle.cpp
-    state().m_fillStyle->applyStrokeColor(c);
-#else
     state().m_fillStyle->applyFillColor(c);
-#endif
     state().m_appliedFillPattern = false;
 }
 
@@ -482,22 +473,6 @@ void CanvasRenderingContext2D::fill()
             applyFillPattern();
         p->fillPath(*path, p->brush());
     }
-#elif PLATFORM(CAIRO)
-    cairo_t* pathCr = state().m_path.platformPath()->m_cr;
-    cairo_t* cr = c->platformContext();
-    cairo_save(cr);
-    willDraw(state().m_path.boundingRect());
-    if (state().m_fillStyle->gradient()) {
-        cairo_set_source(cr, state().m_fillStyle->gradient()->platformShading());
-        c->addPath(state().m_path);
-        cairo_fill(cr);
-    } else {
-        if (state().m_fillStyle->pattern())
-            applyFillPattern();
-        c->addPath(state().m_path);
-        cairo_fill(cr);
-    }
-    cairo_restore(cr);
 #endif
 
     clearPathForDashboardBackwardCompatibilityMode();
@@ -546,23 +521,6 @@ void CanvasRenderingContext2D::stroke()
             applyStrokePattern();
         p->strokePath(*path, p->pen());
     }
-#elif PLATFORM(CAIRO)
-    cairo_t* pathCr = state().m_path.platformPath()->m_cr;
-    cairo_t* cr = c->platformContext();
-    cairo_save(cr);
-    // FIXME: consider inset, as in CG
-    willDraw(state().m_path.boundingRect());
-    if (state().m_strokeStyle->gradient()) {
-        cairo_set_source(cr, state().m_strokeStyle->gradient()->platformShading());
-        c->addPath(state().m_path);
-        cairo_stroke(cr);
-    } else {
-        if (state().m_strokeStyle->pattern())
-            applyStrokePattern();
-        c->addPath(state().m_path);
-        cairo_stroke(cr);
-    }
-    cairo_restore(cr);
 #endif
 
     clearPathForDashboardBackwardCompatibilityMode();
@@ -632,20 +590,6 @@ void CanvasRenderingContext2D::fillRect(float x, float y, float width, float hei
             applyFillPattern();
         p->fillRect(rect, p->brush());
     }
-#elif PLATFORM(CAIRO)
-    FloatRect rect(x, y, width, height);
-    willDraw(rect);
-    cairo_t* cr = c->platformContext();
-    cairo_save(cr);
-    if (state().m_fillStyle->gradient()) {
-        cairo_set_source(cr, state().m_fillStyle->gradient()->platformShading());
-    } else {
-        if (state().m_fillStyle->pattern())
-            applyFillPattern();
-    }
-    cairo_rectangle(cr, x, y, width, height);
-    cairo_fill(cr);
-    cairo_restore(cr);
 #endif
 }
 
@@ -971,15 +915,6 @@ void CanvasRenderingContext2D::drawImage(HTMLCanvasElement* canvas, const FloatR
     willDraw(dstRect);
     QPainter* painter = static_cast<QPainter*>(c->platformContext());
     painter->drawImage(dstRect, px, srcRect);
-#elif PLATFORM(CAIRO)
-    cairo_surface_t* image = canvas->createPlatformImage();
-    willDraw(dstRect);
-    cairo_t* cr = c->platformContext();
-    cairo_save(cr);
-    cairo_set_source_surface(cr, image, srcRect.x(), srcRect.y());
-    cairo_rectangle(cr, dstRect.x(), dstRect.y(), dstRect.width(), dstRect.height());
-    cairo_fill(cr);
-    cairo_restore(cr);
 #endif
 }
 
@@ -1106,8 +1041,6 @@ void CanvasRenderingContext2D::applyStrokePattern()
     state().m_strokeStylePatternTransform = m;
 #elif PLATFORM(QT)
     fprintf(stderr, "FIXME: CanvasRenderingContext2D::applyStrokePattern\n");
-#elif PLATFORM(CAIRO)
-    notImplemented();
 #endif
     state().m_appliedStrokePattern = true;
 }

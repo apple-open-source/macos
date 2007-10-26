@@ -1,8 +1,8 @@
 /*
- * ybext.c
+ * yaml2byte.c
  *
- * $Author: why $
- * $Date: 2004/05/16 16:09:40 $
+ * $Author: shyouhei $
+ * $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
  *
  * Copyright (C) 2003 why the lucky stiff, clark evans
  *
@@ -145,6 +145,7 @@ syck_yaml2byte_handler(p, n)
             strcat( type_tag, "!" );
             strcat( type_tag, n->type_id );
             bytestring_append( val, YAMLBYTE_TRANSFER, type_tag, NULL);
+	    S_FREE(type_tag);
         }
     }
     switch (n->kind)
@@ -226,12 +227,17 @@ syck_yaml2byte(char *yamlstr)
     syck_parser_implicit_typing( parser, 1 );
     syck_parser_taguri_expansion( parser, 1 );
     oid = syck_parse( parser );
-    syck_lookup_sym( parser, oid, (char **)&sav );
 
-    ret = S_ALLOC_N( char, strlen( sav->buffer ) + 3 );
-    ret[0] = '\0';
-    strcat( ret, "D\n" );
-    strcat( ret, sav->buffer );
+    if ( syck_lookup_sym( parser, oid, (char **)&sav ) == 1 ) {
+        ret = S_ALLOC_N( char, strlen( sav->buffer ) + 3 );
+        ret[0] = '\0';
+        strcat( ret, "D\n" );
+        strcat( ret, sav->buffer );
+    }
+    else
+    {
+        ret = NULL;
+    }
 
     syck_free_parser( parser );
     return ret;

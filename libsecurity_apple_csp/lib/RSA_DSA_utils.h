@@ -46,7 +46,8 @@ RSA *contextToRsaKey(
 	AppleCSPSession	 	&session,
 	CSSM_KEYCLASS		keyClass,	  // CSSM_KEYCLASS_{PUBLIC,PRIVATE}_KEY
 	CSSM_KEYUSE			usage,		  // CSSM_KEYUSE_ENCRYPT, CSSM_KEYUSE_SIGN, etc.
-	bool				&mallocdKey); // RETURNED
+	bool				&mallocdKey,  // RETURNED
+	CSSM_DATA			&label);	  // mallocd and RETURNED for OAEP
 
 /* 
  * Convert a CssmKey to an RSA * key. May result in the creation of a new
@@ -56,13 +57,15 @@ RSA *contextToRsaKey(
 RSA *cssmKeyToRsa(
 	const CssmKey	&cssmKey,
 	AppleCSPSession	&session,
-	bool			&allocdKey);	// RETURNED
+	bool			&allocdKey,		// RETURNED
+	CSSM_DATA		&label);		// mallocd and RETURNED for OAEP
 
 /* 
  * Convert a raw CssmKey to a newly alloc'd RSA *.
  */
 RSA *rawCssmKeyToRsa(
-	const CssmKey	&cssmKey);
+	const CssmKey	&cssmKey,
+	CSSM_DATA		&label);		// mallocd and RETURNED for OAEP keys
 
 /*
  * Given a partially formed DSA public key (with no p, q, or g) and a 

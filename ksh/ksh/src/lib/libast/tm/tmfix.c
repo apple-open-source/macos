@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -40,8 +36,7 @@
 /*
  * correct out of bounds fields in tm
  *
- * tm_wday, tm_yday and tm_isdst are not changed
- * as these can be computed from the other fields
+ * tm_isdst is not changed -- call tmxmake() to get that
  *
  * tm is the return value
  */
@@ -60,7 +55,7 @@ tmfix(register Tm_t* tm)
 	 *	nl_langinfo() => strftime() => tmfmt()
 	 */
 
-	if (w = !(tm->tm_sec | tm->tm_min | tm->tm_mday | tm->tm_year | tm->tm_yday | tm->tm_isdst))
+	if (w = !tm->tm_sec && !tm->tm_min && !tm->tm_mday && !tm->tm_year && !tm->tm_yday && !tm->tm_isdst)
 	{
 		tm->tm_year = 99;
 		tm->tm_mday = 2;
@@ -83,9 +78,9 @@ tmfix(register Tm_t* tm)
 	if ((n = tm->tm_min) < 0)
 	{
 		tm->tm_hour -= (60 - n) / 60;
-		tm->tm_min = 60 - (-n) % 60;
+		n = tm->tm_min = 60 - (-n) % 60;
 	}
-	else if (n > 59)
+	if (n > 59)
 	{
 		tm->tm_hour += n / 60;
 		tm->tm_min %= 60;
@@ -95,7 +90,7 @@ tmfix(register Tm_t* tm)
 		tm->tm_mday -= (23 - n) / 24;
 		tm->tm_hour = 24 - (-n) % 24;
 	}
-	else if (n > 24)
+	else if (n >= 24)
 	{
 		tm->tm_mday += n / 24;
 		tm->tm_hour %= 24;
@@ -107,13 +102,22 @@ tmfix(register Tm_t* tm)
 	}
 	else if (tm->tm_mon < 0)
 	{
-		tm->tm_year -= (12 - tm->tm_mon) / 12;
-		tm->tm_mon = (12 - tm->tm_mon) % 12;
+		tm->tm_year--;
+		if ((tm->tm_mon += 12) < 0)
+		{
+			tm->tm_year += tm->tm_mon / 12;
+			tm->tm_mon = (-tm->tm_mon) % 12;
+		}
 	}
 	while (tm->tm_mday < -365)
 	{
 		tm->tm_year--;
 		tm->tm_mday += 365 + LEAP(tm);
+	}
+	while (tm->tm_mday > 365)
+	{
+		tm->tm_mday -= 365 + LEAP(tm);
+		tm->tm_year++;
 	}
 	while (tm->tm_mday < 1)
 	{
@@ -123,11 +127,6 @@ tmfix(register Tm_t* tm)
 			tm->tm_year--;
 		}
 		tm->tm_mday += DAYS(tm);
-	}
-	while (tm->tm_mday > 365)
-	{
-		tm->tm_mday -= 365 + LEAP(tm);
-		tm->tm_year++;
 	}
 	while (tm->tm_mday > (n = DAYS(tm)))
 	{
@@ -152,6 +151,9 @@ tmfix(register Tm_t* tm)
 				tm->tm_mday -= 7;
 		}
 	}
+	tm->tm_yday = tm_data.sum[tm->tm_mon] + (tm->tm_mon > 1 && LEAP(tm)) + tm->tm_mday - 1;
+	n = tm->tm_year + 1900 - 1;
+	tm->tm_wday = (n + n / 4 - n / 100 + n / 400 + tm->tm_yday + 1) % 7;
 
 	/*
 	 * tm_isdst is adjusted by tmtime()

@@ -1,53 +1,71 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please
- * obtain a copy of the License at http://www.apple.com/publicsource and
- * read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please
- * see the License for the specific language governing rights and
- * limitations under the License.
+ *  Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * 
+ *  @APPLE_LICENSE_HEADER_START@
+ *  
+ *  This file contains Original Code and/or Modifications of Original Code
+ *  as defined in and that are subject to the Apple Public Source License
+ *  Version 2.0 (the 'License'). You may not use this file except in
+ *  compliance with the License. Please obtain a copy of the License at
+ *  http://www.opensource.apple.com/apsl/ and read it before using this
+ *  file.
+ *  
+ *  The Original Code and all software distributed under the License are
+ *  distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *  EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ *  INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ *  Please see the License for the specific language governing rights and
+ *  limitations under the License.
+ *  
+ *  @APPLE_LICENSE_HEADER_END@
  */
 
-/******************************************************************
+/*
+ *  ifdwrapper.c
+ *  SmartCardServices
+ */
 
-            Title  : ifdwrapper.c
-            Package: PC/SC Lite
-            Author : David Corcoran
-            Date   : 10/08/99
-	    License: Copyright (C) 1999 David Corcoran
-	             <corcoran@linuxnet.com>
-            Purpose: This wraps the dynamic ifdhandler functions.
+/*
+ * MUSCLE SmartCard Development ( http://www.linuxnet.com )
+ *
+ * Copyright (C) 1999-2004
+ *  David Corcoran <corcoran@linuxnet.com>
+ *  Damien Sauveron <damien.sauveron@labri.fr>
+ *  Ludovic Rousseau <ludovic.rousseau@free.fr>
+ *
+ * $Id: ifdwrapper.c 2377 2007-02-05 13:13:56Z rousseau $
+ */
 
-********************************************************************/
+/**
+ * @file
+ * @brief This wraps the dynamic ifdhandler functions.
+ */
 
 #include "config.h"
 #include "wintypes.h"
 #include "pcsclite.h"
-#include "readerfactory.h"
 #include "ifdhandler.h"
+#include "debuglog.h"
+#include "readerfactory.h"
 #include "ifdwrapper.h"
 #include "atrhandler.h"
 #include "dyn_generic.h"
 #include "sys_generic.h"
 
+#include <security_utilities/debugging.h>
+
+#undef PCSCLITE_STATIC_DRIVER
+
 /*
- * Function: IFDSetPTS Purpose : To set the protocol type selection (PTS). 
- * This function sets the appropriate protocol to be used on the card. 
+ * Function: IFDSetPTS Purpose : To set the protocol type selection (PTS).
+ * This function sets the appropriate protocol to be used on the card.
  */
 
 LONG IFDSetPTS(PREADER_CONTEXT rContext, DWORD dwProtocol, UCHAR ucFlags,
 	UCHAR ucPTS1, UCHAR ucPTS2, UCHAR ucPTS3)
 {
-
-	RESPONSECODE rv;
-	LPVOID vFunction;
+	RESPONSECODE rv = IFD_SUCCESS;
 	UCHAR ucValue[1];
 
 #ifndef PCSCLITE_STATIC_DRIVER
@@ -55,69 +73,57 @@ LONG IFDSetPTS(PREADER_CONTEXT rContext, DWORD dwProtocol, UCHAR ucFlags,
 		UCHAR, UCHAR) = NULL;
 	RESPONSECODE(*IFDH_set_protocol_parameters) (DWORD, DWORD, UCHAR,
 		UCHAR, UCHAR, UCHAR) = NULL;
-#endif
 
-	/*
-	 * Zero out everything 
-	 */
-	rv = 0;
-	vFunction = 0;
-	ucValue[0] = 0;
-
-#ifndef PCSCLITE_STATIC_DRIVER
-	/*
-	 * Make sure the symbol exists in the driver 
-	 */
-	vFunction = rContext->psFunctions.pvfSetProtocol;
-
-	if (vFunction == 0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
-		return SCARD_E_UNSUPPORTED_FEATURE;
+		IFD_set_protocol_parameters = (RESPONSECODE(*)(DWORD, UCHAR, UCHAR,
+			UCHAR, UCHAR)) rContext->psFunctions.psFunctions_v1.pvfSetProtocolParameters;
+
+		if (NULL == IFD_set_protocol_parameters)
+			return SCARD_E_UNSUPPORTED_FEATURE;
 	}
+	else
+	{
+		IFDH_set_protocol_parameters = (RESPONSECODE(*)(DWORD, DWORD, UCHAR,
+			UCHAR, UCHAR, UCHAR))
+			rContext->psFunctions.psFunctions_v2.pvfSetProtocolParameters;
 
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
-		IFD_set_protocol_parameters = (RESPONSECODE(*)(DWORD, UCHAR, 
-							       UCHAR, UCHAR, 
-							       UCHAR)) 
-		  vFunction;
-	} else
-	{
-		IFDH_set_protocol_parameters =
-			(RESPONSECODE(*)(DWORD, DWORD, UCHAR, UCHAR, UCHAR,
-				UCHAR)) vFunction;
+		if (NULL == IFDH_set_protocol_parameters)
+			return SCARD_E_UNSUPPORTED_FEATURE;
 	}
 #endif
 
 	/*
-	 * LOCK THIS CODE REGION 
+	 * LOCK THIS CODE REGION
 	 */
 	SYS_MutexLock(rContext->mMutex);
 
 	ucValue[0] = rContext->dwSlot;
 
 #ifndef PCSCLITE_STATIC_DRIVER
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
 	        ucValue[0] = rContext->dwSlot;
 	        IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
 	        rv = (*IFD_set_protocol_parameters) (dwProtocol,
 			ucFlags, ucPTS1, ucPTS2, ucPTS3);
-	} else
+	}
+	else
 	{
-		rv = (*IFDH_set_protocol_parameters) (rContext->dwSlot, 
+		rv = (*IFDH_set_protocol_parameters) (rContext->dwSlot,
 						      dwProtocol,
-						      ucFlags, ucPTS1, 
+						      ucFlags, ucPTS1,
 						      ucPTS2, ucPTS3);
 	}
 #else
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
 	        ucValue[0] = rContext->dwSlot;
 	        IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
 		rv = IFD_Set_Protocol_Parameters(dwProtocol, ucFlags, ucPTS1,
 			ucPTS2, ucPTS3);
-	} else
+	}
+	else
 	{
 		rv = IFDHSetProtocolParameters(rContext->dwSlot, dwProtocol,
 			ucFlags, ucPTS1, ucPTS2, ucPTS3);
@@ -126,7 +132,7 @@ LONG IFDSetPTS(PREADER_CONTEXT rContext, DWORD dwProtocol, UCHAR ucFlags,
 
 	SYS_MutexUnLock(rContext->mMutex);
 	/*
-	 * END OF LOCKED REGION 
+	 * END OF LOCKED REGION
 	 */
 
 	return rv;
@@ -134,72 +140,74 @@ LONG IFDSetPTS(PREADER_CONTEXT rContext, DWORD dwProtocol, UCHAR ucFlags,
 
 /*
  * Function: IFDOpenIFD Purpose : This function opens a communication
- * channel to the IFD. 
+ * channel to the IFD.
  */
 
-LONG IFDOpenIFD(PREADER_CONTEXT rContext, DWORD dwChannelId)
+LONG IFDOpenIFD(PREADER_CONTEXT rContext)
 {
-
-	RESPONSECODE rv;
-	LPVOID vFunction;
+	RESPONSECODE rv = 0;
 
 #ifndef PCSCLITE_STATIC_DRIVER
 	RESPONSECODE(*IO_create_channel) (DWORD) = NULL;
 	RESPONSECODE(*IFDH_create_channel) (DWORD, DWORD) = NULL;
+	RESPONSECODE(*IFDH_create_channel_by_name) (DWORD, LPSTR) = NULL;
+
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
+		IO_create_channel =
+			rContext->psFunctions.psFunctions_v1.pvfCreateChannel;
+	else
+		if (rContext->dwVersion == IFD_HVERSION_2_0)
+			IFDH_create_channel =
+				rContext->psFunctions.psFunctions_v2.pvfCreateChannel;
+		else
+		{
+			IFDH_create_channel =
+				rContext->psFunctions.psFunctions_v3.pvfCreateChannel;
+			IFDH_create_channel_by_name =
+				rContext->psFunctions.psFunctions_v3.pvfCreateChannelByName;
+		}
 #endif
 
 	/*
-	 * Zero out everything 
-	 */
-	rv = 0;
-	vFunction = 0;
-
-#ifndef PCSCLITE_STATIC_DRIVER
-	/*
-	 * Make sure the symbol exists in the driver 
-	 */
-	vFunction = rContext->psFunctions.pvfCreateChannel;
-
-	if (vFunction == 0)
-	{
-		return SCARD_E_UNSUPPORTED_FEATURE;
-	}
-
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
-		IO_create_channel = (RESPONSECODE(*)(DWORD)) vFunction;
-	} else
-	{
-		IFDH_create_channel = (RESPONSECODE(*)(DWORD, DWORD)) vFunction;
-	}
-#endif
-
-	/*
-	 * LOCK THIS CODE REGION 
+	 * LOCK THIS CODE REGION
 	 */
 
 	SYS_MutexLock(rContext->mMutex);
 #ifndef PCSCLITE_STATIC_DRIVER
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
-		rv = (*IO_create_channel) (dwChannelId);
+		rv = (*IO_create_channel) (rContext->dwPort);
+	} else if (rContext->dwVersion == IFD_HVERSION_2_0)
+	{
+		rv = (*IFDH_create_channel) (rContext->dwSlot, rContext->dwPort);
 	} else
 	{
-		rv = (*IFDH_create_channel) (rContext->dwSlot, dwChannelId);
+		/* use device name only if defined */
+		if (rContext->lpcDevice[0] != '\0')
+			rv = (*IFDH_create_channel_by_name) (rContext->dwSlot, rContext->lpcDevice);
+		else
+			rv = (*IFDH_create_channel) (rContext->dwSlot, rContext->dwPort);
 	}
 #else
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
-		rv = IO_Create_Channel(dwChannelId);
+		rv = IO_Create_Channel(rContext->dwPort);
+	} else if (rContext->dwVersion == IFD_HVERSION_2_0)
+	{
+		rv = IFDHCreateChannel(rContext->dwSlot, rContext->dwPort);
 	} else
 	{
-		rv = IFDHCreateChannel(rContext->dwSlot, dwChannelId);
+		/* Use device name only if defined */
+		if (rContext->lpcDevice[0] != '\0')
+			rv = IFDHCreateChannelByName(rContext->dwSlot, rContext->lpcDevice);
+		else
+			rv = IFDHCreateChannel(rContext->dwSlot, rContext->dwPort);
 	}
 #endif
 	SYS_MutexUnLock(rContext->mMutex);
 
 	/*
-	 * END OF LOCKED REGION 
+	 * END OF LOCKED REGION
 	 */
 
 	return rv;
@@ -207,72 +215,44 @@ LONG IFDOpenIFD(PREADER_CONTEXT rContext, DWORD dwChannelId)
 
 /*
  * Function: IFDCloseIFD Purpose : This function closes a communication
- * channel to the IFD. 
+ * channel to the IFD.
  */
 
 LONG IFDCloseIFD(PREADER_CONTEXT rContext)
 {
-
-	RESPONSECODE rv;
-	LPVOID vFunction;
+	RESPONSECODE rv = IFD_SUCCESS;
 
 #ifndef PCSCLITE_STATIC_DRIVER
 	RESPONSECODE(*IO_close_channel) () = NULL;
 	RESPONSECODE(*IFDH_close_channel) (DWORD) = NULL;
+
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
+		IO_close_channel = rContext->psFunctions.psFunctions_v1.pvfCloseChannel;
+	else
+		IFDH_close_channel = rContext->psFunctions.psFunctions_v2.pvfCloseChannel;
 #endif
 
 	/*
-	 * Zero out everything 
-	 */
-	rv = 0;
-	vFunction = 0;
-
-#ifndef PCSCLITE_STATIC_DRIVER
-	/*
-	 * Make sure the symbol exists in the driver 
-	 */
-	vFunction = rContext->psFunctions.pvfCloseChannel;
-
-	if (vFunction == 0)
-	{
-		return SCARD_E_UNSUPPORTED_FEATURE;
-	}
-
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
-		IO_close_channel = (RESPONSECODE(*)())vFunction;
-	} else
-	{
-		IFDH_close_channel = (RESPONSECODE(*)(DWORD)) vFunction;
-	}
-#endif
-
-	/*
-	 * LOCK THIS CODE REGION 
+	 * LOCK THIS CODE REGION
 	 */
 
 	SYS_MutexLock(rContext->mMutex);
 #ifndef PCSCLITE_STATIC_DRIVER
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
+
 		rv = (*IO_close_channel) ();
-	} else
-	{
+	else
 		rv = (*IFDH_close_channel) (rContext->dwSlot);
-	}
 #else
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 		rv = IO_Close_Channel();
-	} else
-	{
+	else
 		rv = IFDHCloseChannel(rContext->dwSlot);
-	}
 #endif
 	SYS_MutexUnLock(rContext->mMutex);
 
 	/*
-	 * END OF LOCKED REGION 
+	 * END OF LOCKED REGION
 	 */
 
 	return rv;
@@ -280,73 +260,41 @@ LONG IFDCloseIFD(PREADER_CONTEXT rContext)
 
 /*
  * Function: IFDSetCapabilites Purpose : This function set's capabilities
- * in the reader. 
+ * in the reader.
  */
 
 LONG IFDSetCapabilities(PREADER_CONTEXT rContext, DWORD dwTag,
 			DWORD dwLength, PUCHAR pucValue)
 {
-
-	LONG rv;
-	LPVOID vFunction;
+	RESPONSECODE rv = IFD_SUCCESS;
 
 #ifndef PCSCLITE_STATIC_DRIVER
 	RESPONSECODE(*IFD_set_capabilities) (DWORD, PUCHAR) = NULL;
-	RESPONSECODE(*IFDH_set_capabilities) (DWORD, DWORD, DWORD, PUCHAR) =
-		NULL;
-#endif
+	RESPONSECODE(*IFDH_set_capabilities) (DWORD, DWORD, DWORD, PUCHAR) = NULL;
 
-	/*
-	 * Zero out everything 
-	 */
-	rv = 0;
-	vFunction = 0;
-
-#ifndef PCSCLITE_STATIC_DRIVER
-	/*
-	 * Make sure the symbol exists in the driver 
-	 */
-	vFunction = rContext->psFunctions.pvfSetCapabilities;
-
-	if (vFunction == 0)
-	{
-		return SCARD_E_UNSUPPORTED_FEATURE;
-	}
-
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
-		IFD_set_capabilities = (RESPONSECODE(*)(DWORD, PUCHAR)) 
-		  vFunction;
-	} else
-	{
-		IFDH_set_capabilities = (RESPONSECODE(*)(DWORD, DWORD, DWORD,
-				PUCHAR)) vFunction;
-	}
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
+		IFD_set_capabilities = rContext->psFunctions.psFunctions_v1.pvfSetCapabilities;
+	else
+		IFDH_set_capabilities = rContext->psFunctions.psFunctions_v2.pvfSetCapabilities;
 #endif
 
 	/*
 	 * Let the calling function lock this otherwise a deadlock will
-	 * result 
+	 * result
 	 */
 
 #ifndef PCSCLITE_STATIC_DRIVER
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 		rv = (*IFD_set_capabilities) (dwTag, pucValue);
-	} else
-	{
+	else
 		rv = (*IFDH_set_capabilities) (rContext->dwSlot, dwTag,
 			dwLength, pucValue);
-	}
 #else
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 		rv = IFD_Set_Capabilities(dwTag, pucValue);
-	} else
-	{
+	else
 		rv = IFDHSetCapabilities(rContext->dwSlot, dwTag, dwLength,
 			pucValue);
-	}
 #endif
 
 	return rv;
@@ -355,98 +303,67 @@ LONG IFDSetCapabilities(PREADER_CONTEXT rContext, DWORD dwTag,
 /*
  * Function: IFDGetCapabilites Purpose : This function get's capabilities
  * in the reader. Other functions int this file will call the driver
- * directly to not cause a deadlock. 
+ * directly to not cause a deadlock.
  */
 
 LONG IFDGetCapabilities(PREADER_CONTEXT rContext, DWORD dwTag,
 	PDWORD pdwLength, PUCHAR pucValue)
 {
-
-	LONG rv;
-	LPVOID vFunction;
+	RESPONSECODE rv = IFD_SUCCESS;
 
 #ifndef PCSCLITE_STATIC_DRIVER
 	RESPONSECODE(*IFD_get_capabilities) (DWORD, PUCHAR) = NULL;
-	RESPONSECODE(*IFDH_get_capabilities) (DWORD, DWORD, PDWORD, PUCHAR) =
-		NULL;
+	RESPONSECODE(*IFDH_get_capabilities) (DWORD, DWORD, PDWORD, PUCHAR) = NULL;
+
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
+		IFD_get_capabilities =
+			rContext->psFunctions.psFunctions_v1.pvfGetCapabilities;
+	else
+		IFDH_get_capabilities =
+			rContext->psFunctions.psFunctions_v2.pvfGetCapabilities;
 #endif
 
 	/*
-	 * Zero out everything 
-	 */
-	rv = 0;
-	vFunction = 0;
-
-#ifndef PCSCLITE_STATIC_DRIVER
-	/*
-	 * Make sure the symbol exists in the driver 
-	 */
-	vFunction = rContext->psFunctions.pvfGetCapabilities;
-
-	if (vFunction == 0)
-	{
-		return SCARD_E_UNSUPPORTED_FEATURE;
-	}
-
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
-		IFD_get_capabilities = (RESPONSECODE(*)(DWORD, PUCHAR)) 
-		  vFunction;
-	} else
-	{
-		IFDH_get_capabilities = (RESPONSECODE(*)(DWORD, DWORD, PDWORD,
-				PUCHAR)) vFunction;
-	}
-#endif
-
-	/*
-	 * LOCK THIS CODE REGION 
+	 * LOCK THIS CODE REGION
 	 */
 
 	SYS_MutexLock(rContext->mMutex);
 
 #ifndef PCSCLITE_STATIC_DRIVER
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 		rv = (*IFD_get_capabilities) (dwTag, pucValue);
-	} else
-	{
+	else
 		rv = (*IFDH_get_capabilities) (rContext->dwSlot, dwTag,
 			pdwLength, pucValue);
-	}
 #else
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 		rv = IFD_Get_Capabilities(dwTag, pucValue);
-	} else
-	{
+	else
 		rv = IFDHGetCapabilities(rContext->dwSlot, dwTag, pdwLength,
 			pucValue);
-	}
 #endif
 
 	SYS_MutexUnLock(rContext->mMutex);
 
 	/*
-	 * END OF LOCKED REGION 
+	 * END OF LOCKED REGION
 	 */
 
 	return rv;
 }
 
 /*
- * Function: IFDPowerICC Purpose : This function powers up/down or reset's 
- * an ICC located in the IFD. 
+ * Function: IFDPowerICC Purpose : This function powers up/down or reset's
+ * an ICC located in the IFD.
  */
 
 LONG IFDPowerICC(PREADER_CONTEXT rContext, DWORD dwAction,
-	PUCHAR pucAtr, PDWORD pdwAtrLen)
+	const unsigned char *pucAtr, PDWORD pdwAtrLen)
 {
-
-	RESPONSECODE rv, ret;
-	LPVOID vFunction;
+	RESPONSECODE rv;
+	short ret;
 	SMARTCARD_EXTENSION sSmartCard;
-	DWORD dwStatus, dwProtocol;
+	DWORD dwStatus;
 	UCHAR ucValue[1];
 
 #ifndef PCSCLITE_STATIC_DRIVER
@@ -455,57 +372,40 @@ LONG IFDPowerICC(PREADER_CONTEXT rContext, DWORD dwAction,
 #endif
 
 	/*
-	 * Zero out everything 
+	 * Zero out everything
 	 */
-	rv = 0;
-	vFunction = 0;
+	rv = IFD_SUCCESS;
 	dwStatus = 0;
-	dwProtocol = 0;
 	ucValue[0] = 0;
 
 	/*
-	 * Check that the card is inserted first 
+	 * Check that the card is inserted first
 	 */
-	IFDStatusICC(rContext, &dwStatus, &dwProtocol, pucAtr, pdwAtrLen);
+	IFDStatusICC(rContext, &dwStatus, pucAtr, pdwAtrLen);
 
 	if (dwStatus & SCARD_ABSENT)
-	{
 		return SCARD_W_REMOVED_CARD;
-	}
 #ifndef PCSCLITE_STATIC_DRIVER
-	/*
-	 * Make sure the symbol exists in the driver 
-	 */
-	vFunction = rContext->psFunctions.pvfPowerICC;
-
-	if (vFunction == 0)
-	{
-		return SCARD_E_UNSUPPORTED_FEATURE;
-	}
-
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
-		IFD_power_icc = (RESPONSECODE(*)(DWORD)) vFunction;
-	} else
-	{
-		IFDH_power_icc = (RESPONSECODE(*)(DWORD, DWORD, PUCHAR,
-				PDWORD)) vFunction;
-	}
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
+		IFD_power_icc = rContext->psFunctions.psFunctions_v1.pvfPowerICC;
+	else
+		IFDH_power_icc = rContext->psFunctions.psFunctions_v2.pvfPowerICC;
 #endif
 
 	/*
-	 * LOCK THIS CODE REGION 
+	 * LOCK THIS CODE REGION
 	 */
 
 	SYS_MutexLock(rContext->mMutex);
 
 #ifndef PCSCLITE_STATIC_DRIVER
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
-	        ucValue[0] = rContext->dwSlot;
-	        IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
+		ucValue[0] = rContext->dwSlot;
+		IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
 		rv = (*IFD_power_icc) (dwAction);
-	} else
+	}
+	else
 	{
 		rv = (*IFDH_power_icc) (rContext->dwSlot, dwAction,
 			pucAtr, pdwAtrLen);
@@ -513,29 +413,41 @@ LONG IFDPowerICC(PREADER_CONTEXT rContext, DWORD dwAction,
 		ret = ATRDecodeAtr(&sSmartCard, pucAtr, *pdwAtrLen);
 	}
 #else
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
-	        ucValue[0] = rContext->dwSlot;
-	        IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
+		ucValue[0] = rContext->dwSlot;
+		IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
 		rv = IFD_Power_ICC(dwAction);
-	} else
-	{
-		rv = IFDHPowerICC(rContext->dwSlot, dwAction, pucAtr, dwAtrLen);
 	}
+	else
+		rv = IFDHPowerICC(rContext->dwSlot, dwAction, pucAtr, pdwAtrLen);
 #endif
 	SYS_MutexUnLock(rContext->mMutex);
 
 	/*
-	 * END OF LOCKED REGION 
+	 * END OF LOCKED REGION
 	 */
 
-	/*
-	 * Get the ATR and it's length 
-	 */
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	/* use clean values in case of error */
+	if (rv != IFD_SUCCESS)
 	{
-		IFDStatusICC(rContext, &dwStatus, &dwProtocol, pucAtr, pdwAtrLen);
+		*pdwAtrLen = 0;
+//		pucAtr[0] = '\0';
+
+		if (rv == IFD_NO_SUCH_DEVICE)
+		{
+		//	SendHotplugSignal();
+			return SCARD_E_READER_UNAVAILABLE;
+		}
+
+		return SCARD_E_NOT_TRANSACTED;
 	}
+
+	/*
+	 * Get the ATR and it's length
+	 */
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
+		IFDStatusICC(rContext, &dwStatus, pucAtr, pdwAtrLen);
 
 	return rv;
 }
@@ -543,121 +455,104 @@ LONG IFDPowerICC(PREADER_CONTEXT rContext, DWORD dwAction,
 /*
  * Function: IFDStatusICC Purpose : This function provides statistical
  * information about the IFD and ICC including insertions, atr, powering
- * status/etc. 
+ * status/etc.
  */
 
 LONG IFDStatusICC(PREADER_CONTEXT rContext, PDWORD pdwStatus,
-	PDWORD pdwProtocol, PUCHAR pucAtr, PDWORD pdwAtrLen)
+	const unsigned char *pucAtr, PDWORD pdwAtrLen)
 {
-
-	RESPONSECODE rv, rv1;
-	LPVOID vFunctionA, vFunctionB;
-	DWORD dwTag, dwCardStatus;
+	RESPONSECODE rv = IFD_SUCCESS;
+	DWORD dwTag = 0, dwCardStatus = 0;
 	SMARTCARD_EXTENSION sSmartCard;
-	UCHAR ucValue[1];
+	UCHAR ucValue[1] = "\x00";
 
 #ifndef PCSCLITE_STATIC_DRIVER
 	RESPONSECODE(*IFD_is_icc_present) () = NULL;
 	RESPONSECODE(*IFDH_icc_presence) (DWORD) = NULL;
 	RESPONSECODE(*IFD_get_capabilities) (DWORD, PUCHAR) = NULL;
-#endif
 
-	/*
-	 * Zero out everything 
-	 */
-	rv = 0;
-	rv1 = 0;
-	vFunctionA = 0;
-	vFunctionB = 0;
-	dwTag = 0;
-	dwCardStatus = 0;
-	ucValue[0] = 0;
-
-#ifndef PCSCLITE_STATIC_DRIVER
-	/*
-	 * Make sure the symbol exists in the driver 
-	 */
-	vFunctionA = rContext->psFunctions.pvfICCPresent;
-	vFunctionB = rContext->psFunctions.pvfGetCapabilities;
-
-	if (vFunctionA == 0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
-		return SCARD_E_UNSUPPORTED_FEATURE;
+		IFD_is_icc_present =
+			rContext->psFunctions.psFunctions_v1.pvfICCPresence;
+		IFD_get_capabilities =
+			rContext->psFunctions.psFunctions_v1.pvfGetCapabilities;
 	}
-
-	if (vFunctionB == 0 && rContext->dwVersion & IFD_HVERSION_1_0)
+	else
 	{
-		return SCARD_E_UNSUPPORTED_FEATURE;
-	}
-
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
-		IFD_is_icc_present = (RESPONSECODE(*)())vFunctionA;
-		IFD_get_capabilities = (RESPONSECODE(*)(DWORD, PUCHAR)) 
-		  vFunctionB;
-	} else
-	{
-		IFDH_icc_presence = (RESPONSECODE(*)(DWORD)) vFunctionA;
+		IFDH_icc_presence = rContext->psFunctions.psFunctions_v2.pvfICCPresence;
+		// Defensive measure
+		if (!IFDH_icc_presence)
+			return SCARD_E_SYSTEM_CANCELLED;
 	}
 #endif
 
 	/*
-	 * LOCK THIS CODE REGION 
+	 * LOCK THIS CODE REGION
 	 */
 
 	SYS_MutexLock(rContext->mMutex);
 
 #ifndef PCSCLITE_STATIC_DRIVER
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
-	        ucValue[0] = rContext->dwSlot;
-	        IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
+		ucValue[0] = rContext->dwSlot;
+		IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
 		rv = (*IFD_is_icc_present) ();
-	} else
-	{
+	}
+	else
 		rv = (*IFDH_icc_presence) (rContext->dwSlot);
-	}
 #else
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
-	        ucValue[0] = rContext->dwSlot;
-	        IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
+		ucValue[0] = rContext->dwSlot;
+		IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
 		rv = IFD_Is_ICC_Present();
-	} else
-	{
-		rv = IFDHICCPresence(rContext->dwSlot);
 	}
+	else
+		rv = IFDHICCPresence(rContext->dwSlot);
 #endif
 	SYS_MutexUnLock(rContext->mMutex);
 
 	/*
-	 * END OF LOCKED REGION 
+	 * END OF LOCKED REGION
 	 */
 
 	if (rv == IFD_SUCCESS || rv == IFD_ICC_PRESENT)
-	{
 		dwCardStatus |= SCARD_PRESENT;
-	} else if (rv == IFD_ICC_NOT_PRESENT)
-	{
-		dwCardStatus |= SCARD_ABSENT;
-	} else
-	{
-		return SCARD_E_NOT_TRANSACTED;
-	}
+	else
+		if (rv == IFD_ICC_NOT_PRESENT)
+			dwCardStatus |= SCARD_ABSENT;
+		else
+		{
+			Log2(PCSC_LOG_ERROR, "Card not transacted: %ld", rv);
+			*pdwStatus = SCARD_UNKNOWN;
+
+			if (rv == IFD_NO_SUCH_DEVICE)
+			{
+			//	SendHotplugSignal();
+				return SCARD_E_READER_UNAVAILABLE;
+			}
+
+			return SCARD_E_NOT_TRANSACTED;
+		}
 
 	/*
-	 * Now lets get the ATR and process it if IFD Handler version 1.0 2.0
-	 * does this immediately after reset/power up to conserve resources 
+	 * Now lets get the ATR and process it if IFD Handler version 1.0.
+	 * IFD Handler version 2.0 does this immediately after reset/power up
+	 * to conserve resources
 	 */
 
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
 		if (rv == IFD_SUCCESS || rv == IFD_ICC_PRESENT)
 		{
+			short ret;
+
 			dwTag = TAG_IFD_ATR;
 
 			/*
-			 * LOCK THIS CODE REGION 
+			 * LOCK THIS CODE REGION
 			 */
 
 			SYS_MutexLock(rContext->mMutex);
@@ -673,40 +568,37 @@ LONG IFDStatusICC(PREADER_CONTEXT rContext, PDWORD pdwStatus,
 			SYS_MutexUnLock(rContext->mMutex);
 
 			/*
-			 * END OF LOCKED REGION 
+			 * END OF LOCKED REGION
 			 */
 
 			/*
 			 * FIX :: This is a temporary way to return the correct size
-			 * of the ATR since most of the drivers return MAX_ATR_SIZE 
+			 * of the ATR since most of the drivers return MAX_ATR_SIZE
 			 */
 
-			rv = ATRDecodeAtr(&sSmartCard, pucAtr, MAX_ATR_SIZE);
+			ret = ATRDecodeAtr(&sSmartCard, pucAtr, MAX_ATR_SIZE);
 
 			/*
-			 * Might be a memory card without an ATR 
+			 * Might be a memory card without an ATR
 			 */
-			if (rv == 0)
-			{
+			if (ret == 0)
 				*pdwAtrLen = 0;
-			} else
-			{
+			else
 				*pdwAtrLen = sSmartCard.ATR.Length;
-			}
-		} else
+		}
+		else
 		{
 			/*
-			 * No card is inserted - Atr length is 0 
+			 * No card is inserted - Atr length is 0
 			 */
 			*pdwAtrLen = 0;
 		}
 		/*
-		 * End of FIX 
+		 * End of FIX
 		 */
 	}
 
 	*pdwStatus = dwCardStatus;
-	*pdwProtocol = rContext->dwProtocol;
 
 	return SCARD_S_SUCCESS;
 }
@@ -714,183 +606,202 @@ LONG IFDStatusICC(PREADER_CONTEXT rContext, PDWORD pdwStatus,
 /*
  * Function: IFDControl Purpose : This function provides a means for
  * toggling a specific action on the reader such as swallow, eject,
- * biometric. 
+ * biometric.
  */
 
-LONG IFDControl(PREADER_CONTEXT rContext, PUCHAR TxBuffer,
+/*
+ * Valid only for IFDHandler version 2.0
+ */
+
+LONG IFDControl_v2(PREADER_CONTEXT rContext, PUCHAR TxBuffer,
 	DWORD TxLength, PUCHAR RxBuffer, PDWORD RxLength)
 {
-
-	RESPONSECODE rv;
-	LPVOID vFunction;
-	UCHAR ucValue[1];
+	RESPONSECODE rv = IFD_SUCCESS;
 
 #ifndef PCSCLITE_STATIC_DRIVER
-	RESPONSECODE(*IFDH_control) (DWORD, PUCHAR, DWORD, PUCHAR, PDWORD);
+	RESPONSECODE(*IFDH_control_v2) (DWORD, PUCHAR, DWORD, PUCHAR, PDWORD);
 #endif
 
-	/*
-	 * Zero out everything 
-	 */
-	rv = 0;
-	vFunction = 0;
-	ucValue[0] = 0;
-
-#ifndef PCSCLITE_STATIC_DRIVER
-	/*
-	 * Make sure the symbol exists in the driver 
-	 */
-	vFunction = rContext->psFunctions.pvfControl;
-
-	if (vFunction == 0)
-	{
+	if (rContext->dwVersion != IFD_HVERSION_2_0)
 		return SCARD_E_UNSUPPORTED_FEATURE;
-	}
 
-	IFDH_control = (RESPONSECODE(*)(DWORD, PUCHAR, DWORD,
-			PUCHAR, PDWORD)) vFunction;
+#ifndef PCSCLITE_STATIC_DRIVER
+	IFDH_control_v2 = rContext->psFunctions.psFunctions_v2.pvfControl;
 #endif
 
 	/*
-	 * LOCK THIS CODE REGION 
+	 * LOCK THIS CODE REGION
+	 */
+	SYS_MutexLock(rContext->mMutex);
+
+#ifndef PCSCLITE_STATIC_DRIVER
+	rv = (*IFDH_control_v2) (rContext->dwSlot, TxBuffer, TxLength,
+		RxBuffer, RxLength);
+#else
+	rv = IFDHControl_v2(rContext->dwSlot, TxBuffer, TxLength,
+		RxBuffer, RxLength);
+#endif
+	SYS_MutexUnLock(rContext->mMutex);
+	/*
+	 * END OF LOCKED REGION
+	 */
+
+	if (rv == IFD_SUCCESS)
+		return SCARD_S_SUCCESS;
+	else
+	{
+		Log2(PCSC_LOG_ERROR, "Card not transacted: %ld", rv);
+		return SCARD_E_NOT_TRANSACTED;
+	}
+}
+
+/*
+ * Function: IFDControl Purpose : This function provides a means for
+ * toggling a specific action on the reader such as swallow, eject,
+ * biometric.
+ */
+
+/*
+ * Valid only for IFDHandler version 3.0 and up
+ */
+
+LONG IFDControl(PREADER_CONTEXT rContext, DWORD ControlCode,
+	LPCVOID TxBuffer, DWORD TxLength, LPVOID RxBuffer, DWORD RxLength,
+	LPDWORD BytesReturned)
+{
+	RESPONSECODE rv = IFD_SUCCESS;
+
+#ifndef PCSCLITE_STATIC_DRIVER
+	RESPONSECODE(*IFDH_control) (DWORD, DWORD, LPCVOID, DWORD, LPVOID, DWORD, LPDWORD);
+#endif
+
+	if (rContext->dwVersion < IFD_HVERSION_3_0)
+		return SCARD_E_UNSUPPORTED_FEATURE;
+
+#ifndef PCSCLITE_STATIC_DRIVER
+	IFDH_control = rContext->psFunctions.psFunctions_v3.pvfControl;
+#endif
+
+	/*
+	 * LOCK THIS CODE REGION
 	 */
 
 	SYS_MutexLock(rContext->mMutex);
 
 #ifndef PCSCLITE_STATIC_DRIVER
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
-		return SCARD_E_UNSUPPORTED_FEATURE;
-	} else
-	{
-		rv = (*IFDH_control) (rContext->dwSlot, TxBuffer, TxLength,
-			RxBuffer, RxLength);
-	}
+	rv = (*IFDH_control) (rContext->dwSlot, ControlCode, TxBuffer,
+		TxLength, RxBuffer, RxLength, BytesReturned);
 #else
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
-		rv = SCARD_E_UNSUPPORTED_FEATURE;
-	} else
-	{
-		rv = IFDHControl(rContext->dwSlot, TxBuffer, TxLength,
-			RxBuffer, RxLength);
-	}
+	rv = IFDHControl(rContext->dwSlot, ControlCode, TxBuffer,
+		TxLength, RxBuffer, RxLength, BytesReturned);
 #endif
 	SYS_MutexUnLock(rContext->mMutex);
 
 	/*
-	 * END OF LOCKED REGION 
+	 * END OF LOCKED REGION
 	 */
 
 	if (rv == IFD_SUCCESS)
-	{
 		return SCARD_S_SUCCESS;
-	} else
+	else
 	{
+		Log2(PCSC_LOG_ERROR, "Card not transacted: %ld", rv);
+
+		if (rv == IFD_NO_SUCH_DEVICE)
+		{
+//			SendHotplugSignal();
+			return SCARD_E_READER_UNAVAILABLE;
+		}
+
 		return SCARD_E_NOT_TRANSACTED;
 	}
 }
 
 /*
  * Function: IFDTransmit Purpose : This function transmits an APDU to the
- * ICC. 
+ * ICC.
  */
 
 LONG IFDTransmit(PREADER_CONTEXT rContext, SCARD_IO_HEADER pioTxPci,
 	PUCHAR pucTxBuffer, DWORD dwTxLength, PUCHAR pucRxBuffer,
 	PDWORD pdwRxLength, PSCARD_IO_HEADER pioRxPci)
 {
-
-	RESPONSECODE rv;
-	LPVOID vFunction;
-	UCHAR ucValue[1];
+	RESPONSECODE rv = IFD_SUCCESS;
+	UCHAR ucValue[1] = "\x00";
 
 #ifndef PCSCLITE_STATIC_DRIVER
 	RESPONSECODE(*IFD_transmit_to_icc) (SCARD_IO_HEADER, PUCHAR, DWORD,
-		PUCHAR, DWORD *, PSCARD_IO_HEADER) = NULL;
+		PUCHAR, PDWORD, PSCARD_IO_HEADER) = NULL;
 	RESPONSECODE(*IFDH_transmit_to_icc) (DWORD, SCARD_IO_HEADER, PUCHAR,
 		DWORD, PUCHAR, PDWORD, PSCARD_IO_HEADER) = NULL;
 #endif
 
-	/*
-	 * Zero out everything 
-	 */
-	rv = 0;
-	vFunction = 0;
-	ucValue[0] = 0;
+	/* log the APDU */
+	DebugLogCategory(DEBUG_CATEGORY_APDU, pucTxBuffer, dwTxLength);
 
 #ifndef PCSCLITE_STATIC_DRIVER
-	/*
-	 * Make sure the symbol exists in the driver 
-	 */
-	vFunction = rContext->psFunctions.pvfTransmitICC;
-
-	if (vFunction == 0)
-	{
-		return SCARD_E_UNSUPPORTED_FEATURE;
-	}
-
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
-	{
-		IFD_transmit_to_icc = (RESPONSECODE(*)(SCARD_IO_HEADER, PUCHAR,
-						       DWORD, PUCHAR, DWORD *,
-						       PSCARD_IO_HEADER)) 
-		  vFunction;
-	} else
-	{
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
+		IFD_transmit_to_icc =
+			rContext->psFunctions.psFunctions_v1.pvfTransmitToICC;
+	else
 		IFDH_transmit_to_icc =
-			(RESPONSECODE(*)(DWORD, SCARD_IO_HEADER, PUCHAR, 
-					 DWORD, PUCHAR, DWORD *, 
-					 PSCARD_IO_HEADER)) vFunction;
-	}
+			rContext->psFunctions.psFunctions_v2.pvfTransmitToICC;
 #endif
 
 	/*
-	 * LOCK THIS CODE REGION 
+	 * LOCK THIS CODE REGION
 	 */
 
 	SYS_MutexLock(rContext->mMutex);
 
 
 #ifndef PCSCLITE_STATIC_DRIVER
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
-	        ucValue[0] = rContext->dwSlot;
-	        IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
+		ucValue[0] = rContext->dwSlot;
+		IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
 		rv = (*IFD_transmit_to_icc) (pioTxPci, (LPBYTE) pucTxBuffer,
 			dwTxLength, pucRxBuffer, pdwRxLength, pioRxPci);
-	} else
-	{
+	}
+	else
 		rv = (*IFDH_transmit_to_icc) (rContext->dwSlot, pioTxPci,
 			(LPBYTE) pucTxBuffer, dwTxLength,
 			pucRxBuffer, pdwRxLength, pioRxPci);
-	}
 #else
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
-	        ucValue[0] = rContext->dwSlot;
-	        IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
+		ucValue[0] = rContext->dwSlot;
+		IFDSetCapabilities(rContext, TAG_IFD_SLOTNUM, 1, ucValue);
 		rv = IFD_Transmit_to_ICC(pioTxPci, (LPBYTE) pucTxBuffer,
 			dwTxLength, pucRxBuffer, pdwRxLength, pioRxPci);
-	} else
-	{
+	}
+	else
 		rv = IFDHTransmitToICC(rContext->dwSlot, pioTxPci,
 			(LPBYTE) pucTxBuffer, dwTxLength,
 			pucRxBuffer, pdwRxLength, pioRxPci);
-	}
 #endif
 	SYS_MutexUnLock(rContext->mMutex);
 
 	/*
-	 * END OF LOCKED REGION 
+	 * END OF LOCKED REGION
 	 */
 
+	/* log the returned status word */
+	DebugLogCategory(DEBUG_CATEGORY_SW, pucRxBuffer, *pdwRxLength);
+
 	if (rv == IFD_SUCCESS)
-	{
 		return SCARD_S_SUCCESS;
-	} else
+	else
 	{
+		Log2(PCSC_LOG_ERROR, "Card not transacted: %ld", rv);
+
+		if (rv == IFD_NO_SUCH_DEVICE)
+		{
+	//		SendHotplugSignal();
+			return SCARD_E_READER_UNAVAILABLE;
+		}
+
 		return SCARD_E_NOT_TRANSACTED;
 	}
-
 }
+

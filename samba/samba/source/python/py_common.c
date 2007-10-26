@@ -45,9 +45,11 @@ void py_samba_init(void)
 	if (initialised)
 		return;
 
+	load_case_tables();
+
 	/* Load configuration file */
 
-	if (!lp_load(dyn_CONFIGFILE, True, False, False))
+	if (!lp_load(dyn_CONFIGFILE, True, False, False, True))
 		fprintf(stderr, "Can't load %s\n", dyn_CONFIGFILE);
 
 	/* Misc other stuff */
@@ -67,7 +69,7 @@ PyObject *get_debuglevel(PyObject *self, PyObject *args)
 	if (!PyArg_ParseTuple(args, ""))
 		return NULL;
 
-	debuglevel = PyInt_FromLong(SAMBA_DEBUGLEVEL);
+	debuglevel = PyInt_FromLong(DEBUGLEVEL);
 
 	return debuglevel;
 }
@@ -79,7 +81,7 @@ PyObject *set_debuglevel(PyObject *self, PyObject *args)
 	if (!PyArg_ParseTuple(args, "i", &debuglevel))
 		return NULL;
 
-	SAMBA_DEBUGLEVEL = debuglevel;
+	DEBUGLEVEL = debuglevel;
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -144,34 +146,34 @@ BOOL py_parse_creds(PyObject *creds, char **username, char **domain,
 		password_obj = PyDict_GetItemString(creds, "password");
 
 		if (!username_obj) {
-			*errstr = strdup("no username field in credential");
+			*errstr = SMB_STRDUP("no username field in credential");
 			return False;
 		}
 
 		if (!domain_obj) {
-			*errstr = strdup("no domain field in credential");
+			*errstr = SMB_STRDUP("no domain field in credential");
 			return False;
 		}
 
 		if (!password_obj) {
-			*errstr = strdup("no password field in credential");
+			*errstr = SMB_STRDUP("no password field in credential");
 			return False;
 		}
 
 		/* Check type of required fields */
 
 		if (!PyString_Check(username_obj)) {
-			*errstr = strdup("username field is not string type");
+			*errstr = SMB_STRDUP("username field is not string type");
 			return False;
 		}
 
 		if (!PyString_Check(domain_obj)) {
-			*errstr = strdup("domain field is not string type");
+			*errstr = SMB_STRDUP("domain field is not string type");
 			return False;
 		}
 
 		if (!PyString_Check(password_obj)) {
-			*errstr = strdup("password field is not string type");
+			*errstr = SMB_STRDUP("password field is not string type");
 			return False;
 		}
 
@@ -212,6 +214,7 @@ struct cli_state *open_pipe_creds(char *server, PyObject *creds,
 {
 	char *username, *password, *domain;
 	struct cli_state *cli;
+	struct rpc_pipe_client *pipe_hnd;
 	NTSTATUS result;
 	
 	/* Extract credentials from the python dictionary */
@@ -226,11 +229,12 @@ struct cli_state *open_pipe_creds(char *server, PyObject *creds,
 		username, domain, password, 0, Undefined, NULL);
 	
 	if (!NT_STATUS_IS_OK(result)) {
-		*errstr = strdup("error connecting to IPC$ pipe");
+		*errstr = SMB_STRDUP("error connecting to IPC$ pipe");
 		return NULL;
 	}
 
-	if (!cli_nt_session_open(cli, pipe_idx)) {
+	pipe_hnd = cli_rpc_pipe_open_noauth(cli, pipe_idx, &result);
+	if (!pipe_hnd) {
 		cli_shutdown(cli);
 		asprintf(errstr, "error opening pipe index %d", pipe_idx);
 		return NULL;

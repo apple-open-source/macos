@@ -1,24 +1,34 @@
-Help voor %(listname)s mailinglijsten:
+Hulp bij de %(listname)s maillijst:
 
-Dit is e-mail commando help voor versie %(version)s van de "Mailman"
-lijst manager.
-De Commando's kun je plaatsen in het onderwerp veld of in de body van een bericht.
+Dit is 'e-mail opdracht hulp' voor versie %(version)s van de "Mailman"
+lijstmanager. Hieronder staan een aantal opdrachten beschreven die u via
+e-mail kunt versturen om informatie over uw lidmaatschap van een Mailman
+maillijst te verkijgen, alsmede om uw persoonlijke instellingen te 
+onderhouden. Een dergelijke opdracht kunt u opnemen in de onderwerp-regel of in de
+tekst van uw bericht.
 
-TIP: het beste is om dit in plaintekst mail te doen (geen HTML mail dus).
-
-
-De e-mail commando's kun je ook grafish instellen op de volgende website:
+Voor de volledigheid: al deze handelingen kunt u ook verrichten via de
+webpagina:
 
     %(listinfo_url)s
 
-Woorden tussen "<>"s Zijn verplicht.
-Woorden tussen "[]" Zijn optionele commando's.
-De commando's invullen zonder <> en [].
+(De webpagina is met name handig om uw wachtwoord te laten verzenden naar
+het e-mail adres waaronder uw lidmaatschap is geregistreerd.)
 
-De lijst met commando's:
+De specifieke e-mail opdrachten (subscribe, who, etc.) moet u richten aan
+het *-request adres van de betreffende lijst. B.v., voor de 'mailman'
+lijst, moet u gebruiken 'mailman-request@...'.
+
+Woorden tussen "<>"s zijn VERPLICHT.
+Woorden tussen "[]" zijn OPTIONELE opdrachten.
+De opdrachten moeten ingevoerd worden zonder <> en [].
+
+De volgende opdrachten zijn geldig:
 
     %(commands)s
 
-De commando's stuur je naar: %(requestaddr)s
+Opdrachten moeten verzonden worden naar: %(requestaddr)s
 
-Voor vragen mail : %(adminaddr)s
+Vragen die u wilt richten aan de lijstbeheerder, de persoon achter deze lijst, kunt u sturen naar: 
+
+    %(adminaddr)s

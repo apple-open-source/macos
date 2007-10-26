@@ -20,18 +20,9 @@ If you have some software that works with CVS that you wish to offer it
 is suggested that you make it available by FTP or HTTP and then announce
 it on the info-cvs mailing list.
 
-There is a web page of software related to CVS at the following URL which
-would presumably be willing to list your software.
-
-	http://www.loria.fr/~molli/cvs-index.html
-
 An attempt at a table of Contents for this directory:
 
 	README		This file.
-
-	check_cvs	A perl script to check an entire repository for
-			corruption.
-			Contributed by Donald Sharp <sharpd@cisco.com>.
 
  	clmerge		A perl script to handle merge conflicts in GNU
 			style ChangeLog files .
@@ -57,13 +48,10 @@ An attempt at a table of Contents for this directory:
 			Contributed by Greg A. Woods <woods@planix.com>.
 
 	cvs_acls	A perl script that implements Access Control Lists
-			by using the "commitinfo" hook provided with the
+	cvs_acls.html	by using the "commitinfo" hook provided with the
 			"cvs commit" command.
 			Contributed by David G. Grubbs <dgg@ksr.com>.
-
-	cvscheck	Identifies files added, changed, or removed in a
-	cvscheck.man	checked out CVS tree; also notices unknown files.
-			Contributed by Lowell Skoog <fluke!lowell@uunet.uu.net>
+			Enhanced by Peter Connolly <Peter.Connolly@cnet.com>.
 
 	cvshelp.man	An introductory manual page written by Lowell Skoog
 			<fluke!lowell@uunet.uu.net>.  It is most likely
@@ -71,8 +59,7 @@ An attempt at a table of Contents for this directory:
 			useful.
 
 	debug_check_log	A shell script to help analyze sanity check failures.
-			Contributed by Derek R. Price
-			<derek.price@openavenue.com>
+			Contributed by Derek R. Price <derek@ximbiot.com>.
 
 	descend		A shell script that can be used to recursively
 	descend.man	descend through a directory.  In CVS 1.2, this was
@@ -106,6 +93,24 @@ An attempt at a table of Contents for this directory:
 
 	pvcs2rcs	A perl script to convert a PVCS tree to an RCS tree.
 
+	rcs-5.7-commitid.patch
+			Patch to RCS 5.7 sources of 1995-06-16 to support
+			the newphrase 'commitid' used by CVS and CVSNT.
+
+	rcs-5.7-sameuserlocks.patch
+			Patch to RCS 5.7 sources from 2003-10-24
+			submitted to both help-rcs@gnu.org and Redhat.
+			Included in many Redhat GNU/Linux distribution
+			RPM files. A new -S switch to the co command
+			will disallow the user to check out the same
+			file twice.
+
+	rcs-5.7-security.patch
+			Patch to RCS 5.7 sources from 2001-01-05
+			included in many GNU/Linux distributions as applied
+			by Preston Brown <pbrown@redhat.com>
+			tmpfile security patch from Olaf Kirch <okir@lst.de>.
+
 	rcs-to-cvs	Script to import sources that may have been under
 			RCS control already.
 			Contributed by Per Cederqvist <ceder@lysator.liu.se>.
@@ -127,7 +132,17 @@ An attempt at a table of Contents for this directory:
 			case for a binary file.
 			Contributed by John Rouillard <rouilj@cs.umb.edu>.
 
+	sandbox_status
+	sandbox_status.man
+			Identifies files added, changed, or removed in a
+			checked out CVS tree; also notices unknown files.
+			Contributed by Lowell Skoog <fluke!lowell@uunet.uu.net>
+
 	sccs2rcs	A C-shell script that can convert (some) SCCS files
 			into RCS files, retaining the info contained in the
 			SCCS file (like dates, author, and log message).
 			Contributed by Ken Cox <kenstir@viewlogic.com>.
+
+	verify_repo	A perl script to check an entire repository for
+			corruption.
+			Contributed by Donald Sharp <sharpd@cisco.com>.

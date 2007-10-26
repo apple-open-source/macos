@@ -16,7 +16,7 @@
 ocvs \- Concurrent Versions System
 .SH "SYNOPSIS"
 .TP
-\fBcvs\fP [ \fIcvs_options\fP ]
+\fBocvs\fP [ \fIcvs_options\fP ]
 .I cvs_command
 [
 .I command_options
@@ -25,6 +25,8 @@ ocvs \- Concurrent Versions System
 ]
 .SH "NOTE"
 The command ocvs is recommended for legacy use only where tar wrappers are being used.  References to cvs in this manpage refer to the legacy ocvs command.
+.SP
+By default, ocvs will attempt to talk to ocvs on the remote machine. You may need to set the CVS_SERVER environment variable if your server configuration differs.
 .SP
 This manpage is a summary of some of the features of
 .B cvs

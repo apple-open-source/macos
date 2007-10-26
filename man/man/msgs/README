@@ -22,4 +22,4 @@ The files x.en.h and x.da.h should be identical.
 
 
 Recent gencat wants to know what codeset the messages are in.
-Please report incorrect codesets to aeb@cwi.nl.
+Please report incorrect codesets to flucifredi@acm.org.

@@ -3754,7 +3754,7 @@ void volumeConverter (UInt32 inVolume, UInt32 inMinLinear, UInt32 inMaxLinear, S
 	offset = slope*inMinLinear - mindB;
 	volumedB = slope*inVolume - offset;
 	
-	*outVolume = pow (10.0f, volumedB*0.05f);
+	*outVolume = pow (10.0, volumedB*0.05);
 	
 #ifdef TESTING_VOLUME_CONVERSION
 	*t1 = mindB;

@@ -23,7 +23,7 @@
 /*
  * POSIXSIGS	Use the POSIX signal facilities to emulate BSD signals.
  */
-#undef POSIXSIGS
+#define POSIXSIGS
 
 /*
  * VFORK	This machine has a vfork().  
@@ -51,7 +51,9 @@
  *		Note: POSIX systems should not define this unless they
  *		have sigvec() and friends (ie: 4.3BSD-RENO, HP-UX).
  */
+#ifndef DARWIN /* sigpause is USG */
 #define BSDSIGS
+#endif /* DARWIN */
 
 /*
  * BSDTIMES	You have BSD-style process time stuff (like rusage)
@@ -64,12 +66,6 @@
  * BSDLIMIT	You have BSD-style resource limit stuff (getrlimit/setrlimit)
  */
 #define BSDLIMIT
-
-/*
- * BSDNICE	Your system uses setpriority() instead of nice, to
- *		change a processes scheduling priority
- */
-#define BSDNICE
 
 /*
  * TERMIO	You have struct termio instead of struct sgttyb.
@@ -94,31 +90,7 @@
  */
 #undef YPBUGS
 
-/*
- * SIGVOID	Define this if your signal handlers return void.  On older
- *		systems, signal returns int, but on newer ones, it returns void.
- */
-#define SIGVOID 
-
-/*
- * HAVEDUP2	Define this if your system supports dup2().
- */
-#define HAVEDUP2
-
-/*
- * UTHOST	Does the utmp file have a host field?
- */
-#define UTHOST
-
-/*
- * DIRENT	Your system has <dirent.h> instead of <sys/dir.h>
- */
-#define DIRENT
 /****************** local defines *********************/
-/****************** configurable hacks ****************/
-
-/* have been moved to config_f.h */
-#include "config_f.h"
 
 #if defined(__FreeBSD__)
 #define NLS_BUGS

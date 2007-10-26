@@ -1,10 +1,9 @@
-/* APPLE LOCAL file mainline */
+/* APPLE LOCAL file radar 4621575 */
 /* Test to make sure that the const objc strings are the same across
    scopes.  */
 /* Developed by Andrew Pinski <pinskia@physics.uc.edu> */
 
-
-/* { dg-options "-fnext-runtime -fconstant-string-class=Foo -lobjc" } */
+/* { dg-options "-fnext-runtime -fno-constant-cfstrings -fconstant-string-class=Foo -lobjc" } */
 /* { dg-do run { target *-*-darwin* } } */
 
 
@@ -12,7 +11,8 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <objc/objc.h>
-#include <objc/Object.h>
+/* APPLE LOCAL radar 4894756 */
+#include "../objc/execute/Object2.h"
 
 
 @interface Foo: Object {
@@ -22,7 +22,13 @@
 - (char *)customString;
 @end
 
+/* APPLE LOCAL begin objc2 */
+#   if (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_5 || __OBJC2__)
+Class _FooClassReference;
+#else
 struct objc_class _FooClassReference;
+#endif
+/* APPLE LOCAL end objc2 */
 
 
 @implementation Foo : Object

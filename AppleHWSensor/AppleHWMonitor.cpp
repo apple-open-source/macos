@@ -23,11 +23,44 @@
  * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
  *
  */
+//		$Log: AppleHWMonitor.cpp,v $
+//		Revision 1.8  2007/05/07 18:29:38  pmr
+//		change acknowledgePowerChange to acknowledgeSetPowerState
+//		
+//		Revision 1.7  2006/09/15 22:37:33  raddog
+//		[4703348] Fix buffer overrun problem when parsing sensor type
+//		
+//		Revision 1.6  2005/11/11 21:13:11  ialigaen
+//		Fixed endian problems w/ HWSensor when reading properties for the IOHWSensor class.
+//		
+//		Revision 1.5  2005/08/06 01:00:52  tsherman
+//		rdar:4204990 - Q63: Platform Plugin not loaded on boot.
+//		
+//		Revision 1.4  2004/02/12 01:17:01  eem
+//		Merge Rohan changes from tag MERGED-FROM-rohan-branch-TO-TOT-1
+//		
+//		Revision 1.3  2004/01/30 23:52:00  eem
+//		[3542678] IOHWSensor/IOHWControl should use "reg" with version 2 thermal parameters
+//		Remove AppleSMUSensor/AppleSMUFan since that code will be in AppleSMUDevice class.
+//		Fix IOHWMonitor, AppleMaxim6690, AppleAD741x to use setPowerState() API instead of
+//		unsynchronized powerStateWIllChangeTo() API.
+//		
+//		Revision 1.2.4.1  2004/02/10 09:58:01  eem
+//		3548562, 3554178 - prevent extra OSNumber allocations
+//		
+//		Revision 1.2  2003/12/02 02:02:28  tsherman
+//		3497295 - Q42 Task - AppleHWSensor's AppleLM8x (NEW) driver needs to be revised to comply with Thermal API
+//		
+//		Revision 1.1  2003/10/23 20:08:18  wgulland
+//		Adding IOHWControl and a base class for IOHWSensor and IOHWControl
+//		
+//		
 
 #include <sys/cdefs.h>
 
 #include "AppleHWMonitor.h"
-
+#include <libkern/c++/OSContainers.h>
+#include <libkern/OSByteOrder.h>
 
 OSDefineMetaClass( IOHWMonitor, IOService )
 OSDefineAbstractStructors(IOHWMonitor, IOService)
@@ -101,7 +134,9 @@ bool IOHWMonitor::start(IOService *provider)
     }
 
     UInt32 version;
-    version = *(UInt32 *)data->getBytesNoCopy();
+	
+	// Changed this to OSReadBigInt32 from *(UInt32 *) to take care of endian problems
+   version = OSReadBigInt32(data->getBytesNoCopy(),0);
     num = OSNumber::withNumber(version, 32);
     if (!num)
     {
@@ -156,6 +191,8 @@ bool IOHWMonitor::start(IOService *provider)
     obj = provider->getProperty("type");
     if (!obj)
     {
+		UInt32 len;
+		
 		obj = provider->getProperty("device_type"); // if no type, parse device_type
 		data = OSDynamicCast(OSData, obj);
 		if (!data)
@@ -165,9 +202,17 @@ bool IOHWMonitor::start(IOService *provider)
 		}
 		
 		ptr = (char *)data->getBytesNoCopy();
-		strcpy(type, ptr);
+		len = data->getLength();
+		
+		if (len >= 31)		// Don't overflow the buffer
+			len = 31;
+			
+		strncpy(type, ptr, len);
+		type[len] = '\0';	// Make sure it's null terminated
+		
 		DLOG("IOHWMonitor::start(%s) - found device_type '%s'\n", fDebugID, type);
 
+		// Lop off "-sensor"
 		for(unsigned int i = strlen(type); i >= 0; i--)
 		{
 			if (type[i] == '-')
@@ -283,7 +328,7 @@ IOReturn IOHWMonitor::updateValue(const OSSymbol *func, const OSSymbol *key)
 	 * in which case we have to ack the PM so it knows we can sleep.
 	 */
 	if (sleeping && powerPolicyMaker)
-		powerPolicyMaker->acknowledgePowerChange (this);
+		powerPolicyMaker->acknowledgeSetPowerState ();
 		
     if(ret != kIOReturnSuccess)
         return ret;

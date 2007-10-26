@@ -268,39 +268,24 @@ protected:
 // made earlier (unless another mechanism provides the memory barrier).
 // On the other hand, if your compiler has brains, this is blindingly fast...
 //
-template <class Integer = int>
+template <class Integer = uint32_t>
 class StaticAtomicCounter {
 protected:
-
-#if defined(_HAVE_ATOMIC_OPERATIONS)
-    AtomicWord mValue;
+	Integer mValue;
+	
 public:
     operator Integer() const	{ return mValue; }
 
     // infix versions (primary)
-    Integer operator ++ ()		{ return atomicIncrement(mValue); }
-    Integer operator -- ()		{ return atomicDecrement(mValue); }
+    Integer operator ++ ()		{ return Atomic<Integer>::increment(mValue); }
+    Integer operator -- ()		{ return Atomic<Integer>::decrement(mValue); }
     
     // postfix versions
-    Integer operator ++ (int)	{ return atomicIncrement(mValue) - 1; }
-    Integer operator -- (int)	{ return atomicDecrement(mValue) + 1; }
+    Integer operator ++ (int)	{ return Atomic<Integer>::increment(mValue) - 1; }
+    Integer operator -- (int)	{ return Atomic<Integer>::decrement(mValue) + 1; }
 
     // generic offset
-    Integer operator += (int delta) { return atomicOffset(mValue, delta); }
-
-#else // no atomic integers, use locks
-
-    Integer mValue;
-    mutable Mutex mLock;
-public:
-    StaticAtomicCounter() : mLock(false) { }
-    operator Integer() const	{ StLock<Mutex> _(mLock); return mValue; }
-    Integer operator ++ ()		{ StLock<Mutex> _(mLock); return ++mValue; }
-    Integer operator -- ()		{ StLock<Mutex> _(mLock); return --mValue; }
-    Integer operator ++ (int)	{ StLock<Mutex> _(mLock); return mValue++; }
-    Integer operator -- (int)	{ StLock<Mutex> _(mLock); return mValue--; }
-    Integer operator += (int delta) { StLock<Mutex> _(mLock); return mValue += delta; }
-#endif
+    Integer operator += (int delta) { return Atomic<Integer>::add(delta, mValue); }
 };
 
 
@@ -367,28 +352,6 @@ public:
 private:
     void action();
     Action *mAction;
-};
-
-
-//
-// Once upon a time, pthread mutexi on Mac OS X did not support recursion.
-// In desperation, NestingMutex was born. Things are better now. This class
-// is a historical wart.
-// In today's enlightened age, use Mutex(Mutex::recursive).
-//
-class NestingMutex {
-public:
-    NestingMutex();
-    
-    void lock();
-    bool tryLock();
-    void unlock();
-
-private:
-    Mutex mLock;
-    Mutex mWait;
-    Thread::Identity mIdent;
-    UInt32 mCount;
 };
 
 

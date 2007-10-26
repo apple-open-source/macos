@@ -28,10 +28,10 @@
 #ifndef __DirServicesPriv_h__
 #define	__DirServicesPriv_h__	1
 
-#include "DirServicesTypes.h"
-#include "PrivateTypes.h"
-#include "CDSRefTable.h"
-#include "CBuff.h"
+#include <DirectoryService/DirServicesTypes.h>
+#include <DirectoryServiceCore/PrivateTypes.h>
+#include <DirectoryService/CDSRefTable.h>
+#include <DirectoryServiceCore/CBuff.h>
 
 /*!
  * @defined kDSStdNotifyxxxxx
@@ -44,7 +44,9 @@
 #define		kDSStdNotifySearchPolicyChanged			"com.apple.DirectoryService.NotifyTypeStandard:SearchPolicyChanged"
 #define		kDSStdNotifyDirectoryNodeAdded			"com.apple.DirectoryService.NotifyTypeStandard:DirectoryNodeAdded"
 #define		kDSStdNotifyDirectoryNodeDeleted		"com.apple.DirectoryService.NotifyTypeStandard:DirectoryNodeDeleted"
-#define		kDSStdNotifySearchPolicyFoundNIParent	"com.apple.DirectoryService.NotifyTypeStandard:SearchPolicyFoundNIParent"
+#define		kDSStdNotifyDHCPOptionsAvailable		"com.apple.DirectoryService.NotifyTypeStandard:DHCPOptionsAvailable"
+#define		kDSStdNotifyDHCPConfigStateChanged		"com.apple.DirectoryService.NotifyTypeStandard:DHCPConfigStateChanged"
+#define		kDSStdNotifyContactSearchPolicyChanged	"com.apple.DirectoryService.NotifyTypeStandard:ContactSearchPolicyChanged"
 
 tDirStatus	VerifyTDataBuff		(	tDataBuffer	   *inBuff,
 									tDirStatus		inNullErr,
@@ -54,33 +56,54 @@ tDirStatus	VerifyTNodeList		(	tDataList	   *inDataList,
 									tDirStatus		inNullErr,
 									tDirStatus		inEmptyErr );
 									
-uInt32		CalcCRC				(	const char	   *inStr );
+UInt32		CalcCRC				(	const char	   *inStr );
+UInt32		CalcCRCWithLength	(	const void	   *inData,
+													UInt32 inLength );
 
 tDirStatus	IsStdBuffer			(	tDataBufferPtr	inOutDataBuff );
 
 tDirStatus	IsNodePathStrBuffer	(	tDataBufferPtr	inOutDataBuff );
 
-tDirStatus	IsFWReference		(	uInt32			inRef );
+tDirStatus	IsFWReference		(	UInt32			inRef );
 
-tDirStatus	IsRemoteReferenceMap(	uInt32			inRef );
+tDirStatus	IsRemoteReferenceMap(	UInt32			inRef );
 
 tDirStatus	ExtractRecordEntry	(	tDataBufferPtr				inOutDataBuff,
-									unsigned long				inRecordEntryIndex,
+									UInt32						inRecordEntryIndex,
 									tAttributeListRef		   *outAttributeListRef,
 									tRecordEntryPtr			   *outRecEntryPtr );
 									
 tDirStatus	ExtractAttributeEntry (	tDataBufferPtr				inOutDataBuff,
 									tAttributeListRef			inAttrListRef,
-									unsigned long				inAttrInfoIndex,
+									UInt32						inAttrInfoIndex,
 									tAttributeValueListRef	   *outAttrValueListRef,
 									tAttributeEntryPtr		   *outAttrInfoPtr );
 									
+tDirStatus ExtractNextAttributeEntry (	tDataBufferPtr				inOutDataBuff,
+										tAttributeListRef			inAttrListRef,
+										UInt32						inAttrInfoIndex,
+										SInt32					   *inOutOffset,
+										tAttributeValueListRef	   *outAttrValueListRef,
+										tAttributeEntryPtr		   *outAttrInfoPtr );
+
 tDirStatus	ExtractAttributeValue (	tDataBufferPtr				inOutDataBuff,
 									tAttributeValueListRef		inAttrValueListRef,
-									unsigned long				inAttrValueIndex,
+									UInt32						inAttrValueIndex,
 									tAttributeValueEntryPtr	   *outAttrValue );
 
+tDirStatus ExtractNextAttributeValue (	tDataBufferPtr				inOutDataBuff,
+										tAttributeValueListRef		inAttrValueListRef,
+										UInt32						inAttrValueIndex,
+										SInt32					   *inOutOffset,
+										tAttributeValueEntryPtr	   *outAttrValue );
+
 tDirStatus	ExtractDirNodeName	  (	tDataBufferPtr				inOutDataBuff,
-									unsigned long				inDirNodeIndex,
+									UInt32						inDirNodeIndex,
 									tDataListPtr			   *outDataList );
+
+tDirStatus MakeGDNIFWRef		  (	tDataBufferPtr				inOutDataBuff,
+									tAttributeListRef		   *outAttributeListRef );
+
+const char *dsGetPluginNamePriv	( UInt32 inNodeRefNum, UInt32 inPID );
+
 #endif

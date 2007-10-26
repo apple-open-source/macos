@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # $RoughId: test.sh,v 1.5 2001/07/13 15:38:27 knu Exp $
-# $Id: test.sh,v 1.2 2002/09/26 17:55:16 knu Exp $
+# $Id: test.sh 11708 2007-02-12 23:01:19Z shyouhei $
 
 RUBY=${RUBY:=ruby}
 MAKE=${MAKE:=make}
@@ -10,8 +10,6 @@ CFLAGS=${CFLAGS:=-Wall}
 ${RUBY} extconf.rb --with-cflags="${CFLAGS}"
 ${MAKE} clean
 ${MAKE}
-
-mkdir -p lib/digest
 
 for algo in md5 rmd160 sha1 sha2; do
     args=--with-cflags="${CFLAGS}"
@@ -27,7 +25,6 @@ for algo in md5 rmd160 sha1 sha2; do
     ln -sf ../../$algo/$algo.so lib/digest/
 done
 
-${RUBY} -I. -I./lib test.rb
+${RUBY} -I. -I./lib ../../test/digest/test_digest.rb
 
 rm lib/digest/*.so
-rmdir lib/digest

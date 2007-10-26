@@ -22,7 +22,7 @@
  */
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-bootp.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $ (LBL)";
+    "@(#) $Header: /tcpdump/master/tcpdump/print-bootp.c,v 1.78.2.7 2007/01/29 20:56:00 guy Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -42,6 +42,7 @@ static const char rcsid[] _U_ =
 
 static void rfc1048_print(const u_char *);
 static void cmu_print(const u_char *);
+static char *client_fqdn_flags(u_int flags);
 
 static char tstr[] = " [|bootp]";
 
@@ -77,7 +78,7 @@ bootp_print(register const u_char *cp, u_int length)
 		printf(" from %s", etheraddr_string(bp->bp_chaddr));
 	}
 
-        printf(", length: %u", length);
+        printf(", length %u", length);
 
         if (!vflag)
             return;
@@ -86,49 +87,49 @@ bootp_print(register const u_char *cp, u_int length)
 
 	/* The usual hardware address type is 1 (10Mb Ethernet) */
 	if (bp->bp_htype != 1)
-		printf(", htype-#%d", bp->bp_htype);
+		printf(", htype %d", bp->bp_htype);
 
 	/* The usual length for 10Mb Ethernet address is 6 bytes */
 	if (bp->bp_htype != 1 || bp->bp_hlen != 6)
-		printf(", hlen:%d", bp->bp_hlen);
+		printf(", hlen %d", bp->bp_hlen);
 
 	/* Only print interesting fields */
 	if (bp->bp_hops)
-		printf(", hops:%d", bp->bp_hops);
+		printf(", hops %d", bp->bp_hops);
 	if (bp->bp_xid)
-		printf(", xid:0x%x", EXTRACT_32BITS(&bp->bp_xid));
+		printf(", xid 0x%x", EXTRACT_32BITS(&bp->bp_xid));
 	if (bp->bp_secs)
-		printf(", secs:%d", EXTRACT_16BITS(&bp->bp_secs));
+		printf(", secs %d", EXTRACT_16BITS(&bp->bp_secs));
 
-	printf(", flags: [%s]",
-	       bittok2str(bootp_flag_values, "none", EXTRACT_16BITS(&bp->bp_flags)));
-	if (vflag>1)
-	  printf( " (0x%04x)", EXTRACT_16BITS(&bp->bp_flags));
+	printf(", Flags [%s]",
+		bittok2str(bootp_flag_values, "none", EXTRACT_16BITS(&bp->bp_flags)));
+	if (vflag > 1)
+		printf(" (0x%04x)", EXTRACT_16BITS(&bp->bp_flags));
 
 	/* Client's ip address */
 	TCHECK(bp->bp_ciaddr);
 	if (bp->bp_ciaddr.s_addr)
-		printf("\n\t  Client IP: %s", ipaddr_string(&bp->bp_ciaddr));
+		printf("\n\t  Client-IP %s", ipaddr_string(&bp->bp_ciaddr));
 
 	/* 'your' ip address (bootp client) */
 	TCHECK(bp->bp_yiaddr);
 	if (bp->bp_yiaddr.s_addr)
-		printf("\n\t  Your IP: %s", ipaddr_string(&bp->bp_yiaddr));
+		printf("\n\t  Your-IP %s", ipaddr_string(&bp->bp_yiaddr));
 
 	/* Server's ip address */
 	TCHECK(bp->bp_siaddr);
 	if (bp->bp_siaddr.s_addr)
-		printf("\n\t  Server IP: %s", ipaddr_string(&bp->bp_siaddr));
+		printf("\n\t  Server-IP %s", ipaddr_string(&bp->bp_siaddr));
 
 	/* Gateway's ip address */
 	TCHECK(bp->bp_giaddr);
 	if (bp->bp_giaddr.s_addr)
-		printf("\n\t  Gateway IP: %s", ipaddr_string(&bp->bp_giaddr));
+		printf("\n\t  Gateway-IP %s", ipaddr_string(&bp->bp_giaddr));
 
 	/* Client's Ethernet address */
 	if (bp->bp_htype == 1 && bp->bp_hlen == 6) {
 		TCHECK2(bp->bp_chaddr[0], 6);
-		printf("\n\t  Client Ethernet Address: %s", etheraddr_string(bp->bp_chaddr));
+		printf("\n\t  Client-Ethernet-Address %s", etheraddr_string(bp->bp_chaddr));
 	}
 
 	TCHECK2(bp->bp_sname[0], 1);		/* check first char only */
@@ -189,23 +190,23 @@ trunc:
 static struct tok tag2str[] = {
 /* RFC1048 tags */
 	{ TAG_PAD,		" PAD" },
-	{ TAG_SUBNET_MASK,	"iSM" },	/* subnet mask (RFC950) */
-	{ TAG_TIME_OFFSET,	"LTZ" },	/* seconds from UTC */
-	{ TAG_GATEWAY,		"iDG" },	/* default gateway */
-	{ TAG_TIME_SERVER,	"iTS" },	/* time servers (RFC868) */
-	{ TAG_NAME_SERVER,	"iIEN" },	/* IEN name servers (IEN116) */
-	{ TAG_DOMAIN_SERVER,	"iNS" },	/* domain name (RFC1035) */
+	{ TAG_SUBNET_MASK,	"iSubnet-Mask" },	/* subnet mask (RFC950) */
+	{ TAG_TIME_OFFSET,	"LTime-Zone" },	/* seconds from UTC */
+	{ TAG_GATEWAY,		"iDefault-Gateway" },	/* default gateway */
+	{ TAG_TIME_SERVER,	"iTime-Server" },	/* time servers (RFC868) */
+	{ TAG_NAME_SERVER,	"iIEN-Name-Server" },	/* IEN name servers (IEN116) */
+	{ TAG_DOMAIN_SERVER,	"iDomain-Name-Server" },	/* domain name (RFC1035) */
 	{ TAG_LOG_SERVER,	"iLOG" },	/* MIT log servers */
 	{ TAG_COOKIE_SERVER,	"iCS" },	/* cookie servers (RFC865) */
-	{ TAG_LPR_SERVER,	"iLPR" },	/* lpr server (RFC1179) */
+	{ TAG_LPR_SERVER,	"iLPR-Server" },	/* lpr server (RFC1179) */
 	{ TAG_IMPRESS_SERVER,	"iIM" },	/* impress servers (Imagen) */
 	{ TAG_RLP_SERVER,	"iRL" },	/* resource location (RFC887) */
-	{ TAG_HOSTNAME,		"aHN" },	/* ascii hostname */
+	{ TAG_HOSTNAME,		"aHostname" },	/* ascii hostname */
 	{ TAG_BOOTSIZE,		"sBS" },	/* 512 byte blocks */
 	{ TAG_END,		" END" },
 /* RFC1497 tags */
 	{ TAG_DUMPPATH,		"aDP" },
-	{ TAG_DOMAINNAME,	"aDN" },
+	{ TAG_DOMAINNAME,	"aDomain-Name" },
 	{ TAG_SWAP_SERVER,	"iSS" },
 	{ TAG_ROOTPATH,		"aRP" },
 	{ TAG_EXTPATH,		"aEP" },
@@ -215,16 +216,16 @@ static struct tok tag2str[] = {
 	{ TAG_PFILTERS,		"pPF" },
 	{ TAG_REASS_SIZE,	"sRSZ" },
 	{ TAG_DEF_TTL,		"bTTL" },
-	{ TAG_MTU_TIMEOUT,	"lMA" },
-	{ TAG_MTU_TABLE,	"sMT" },
+	{ TAG_MTU_TIMEOUT,	"lMTU-Timeout" },
+	{ TAG_MTU_TABLE,	"sMTU-Table" },
 	{ TAG_INT_MTU,		"sMTU" },
 	{ TAG_LOCAL_SUBNETS,	"BLSN" },
 	{ TAG_BROAD_ADDR,	"iBR" },
 	{ TAG_DO_MASK_DISC,	"BMD" },
 	{ TAG_SUPPLY_MASK,	"BMS" },
-	{ TAG_DO_RDISC,		"BRD" },
+	{ TAG_DO_RDISC,		"BRouter-Discovery" },
 	{ TAG_RTR_SOL_ADDR,	"iRSA" },
-	{ TAG_STATIC_ROUTE,	"pSR" },
+	{ TAG_STATIC_ROUTE,	"pStatic-Route" },
 	{ TAG_USE_TRAILERS,	"BUT" },
 	{ TAG_ARP_TIMEOUT,	"lAT" },
 	{ TAG_ETH_ENCAP,	"BIE" },
@@ -234,11 +235,11 @@ static struct tok tag2str[] = {
 	{ TAG_NIS_DOMAIN,	"aYD" },
 	{ TAG_NIS_SERVERS,	"iYS" },
 	{ TAG_NTP_SERVERS,	"iNTP" },
-	{ TAG_VENDOR_OPTS,	"bVO" },
-	{ TAG_NETBIOS_NS,	"iWNS" },
+	{ TAG_VENDOR_OPTS,	"bVendor-Option" },
+	{ TAG_NETBIOS_NS,	"iNetbios-Name-Server" },
 	{ TAG_NETBIOS_DDS,	"iWDD" },
-	{ TAG_NETBIOS_NODE,	"$WNT" },
-	{ TAG_NETBIOS_SCOPE,	"aWSC" },
+	{ TAG_NETBIOS_NODE,	"$Netbios-Node" },
+	{ TAG_NETBIOS_SCOPE,	"aNetbios-Scope" },
 	{ TAG_XWIN_FS,		"iXFS" },
 	{ TAG_XWIN_DM,		"iXDM" },
 	{ TAG_NIS_P_DOMAIN,	"sN+D" },
@@ -252,20 +253,20 @@ static struct tok tag2str[] = {
 	{ TAG_IRC_SERVER,	"iIRC" },
 	{ TAG_STREETTALK_SRVR,	"iSTS" },
 	{ TAG_STREETTALK_STDA,	"iSTDA" },
-	{ TAG_REQUESTED_IP,	"iRQ" },
-	{ TAG_IP_LEASE,		"lLT" },
+	{ TAG_REQUESTED_IP,	"iRequested-IP" },
+	{ TAG_IP_LEASE,		"lLease-Time" },
 	{ TAG_OPT_OVERLOAD,	"$OO" },
 	{ TAG_TFTP_SERVER,	"aTFTP" },
 	{ TAG_BOOTFILENAME,	"aBF" },
-	{ TAG_DHCP_MESSAGE,	" DHCP" },
-	{ TAG_SERVER_ID,	"iSID" },
-	{ TAG_PARM_REQUEST,	"bPR" },
+	{ TAG_DHCP_MESSAGE,	" DHCP-Message" },
+	{ TAG_SERVER_ID,	"iServer-ID" },
+	{ TAG_PARM_REQUEST,	"bParameter-Request" },
 	{ TAG_MESSAGE,		"aMSG" },
 	{ TAG_MAX_MSG_SIZE,	"sMSZ" },
 	{ TAG_RENEWAL_TIME,	"lRN" },
 	{ TAG_REBIND_TIME,	"lRB" },
-	{ TAG_VENDOR_CLASS,	"aVC" },
-	{ TAG_CLIENT_ID,	"$CID" },
+	{ TAG_VENDOR_CLASS,	"aVendor-Class" },
+	{ TAG_CLIENT_ID,	"$Client-ID" },
 /* RFC 2485 */
 	{ TAG_OPEN_GROUP_UAP,	"aUAP" },
 /* RFC 2563 */
@@ -281,7 +282,7 @@ static struct tok tag2str[] = {
 	{ TAG_USER_CLASS,	"aCLASS" },
 	{ TAG_SLP_NAMING_AUTH,	"aSLP-NA" },
 	{ TAG_CLIENT_FQDN,	"$FQDN" },
-	{ TAG_AGENT_CIRCUIT,	"bACKT" },
+	{ TAG_AGENT_CIRCUIT,	"$Agent-Information" },
 	{ TAG_AGENT_REMOTE,	"bARMT" },
 	{ TAG_AGENT_MASK,	"bAMSK" },
 	{ TAG_TZ_STRING,	"aTZSTR" },
@@ -336,6 +337,25 @@ static struct tok arp2str[] = {
 	{ 0,			NULL }
 };
 
+static struct tok dhcp_msg_values[] = {
+        { DHCPDISCOVER, "Discover" },
+        { DHCPOFFER, "Offer" },
+        { DHCPREQUEST, "Request" },
+        { DHCPDECLINE, "Decline" },
+        { DHCPACK, "ACK" },
+        { DHCPNAK, "NACK" },
+        { DHCPRELEASE, "Release" },
+        { DHCPINFORM, "Inform" },
+        { 0,			NULL }
+};
+
+#define AGENT_SUBOPTION_CIRCUIT_ID 1
+static struct tok agent_suboption_values[] = {
+        { AGENT_SUBOPTION_CIRCUIT_ID, "Circuit-ID" },
+        { 0,			NULL }
+};
+
+
 static void
 rfc1048_print(register const u_char *bp)
 {
@@ -343,22 +363,23 @@ rfc1048_print(register const u_char *bp)
 	register u_int len, size;
 	register const char *cp;
 	register char c;
-	int first;
+	int first, idx;
 	u_int32_t ul;
 	u_int16_t us;
-	u_int8_t uc;
+	u_int8_t uc, subopt, suboptlen;
 
-	printf("\n\t  Vendor-rfc1048:");
+	printf("\n\t  Vendor-rfc1048 Extensions");
 
 	/* Step over magic cookie */
+        printf("\n\t    Magic Cookie 0x%08x", EXTRACT_32BITS(bp));
 	bp += sizeof(int32_t);
 
 	/* Loop while we there is a tag left in the buffer */
-	while (bp + 1 < snapend) {
+	while (TTEST2(*bp, 1)) {
 		tag = *bp++;
-		if (tag == TAG_PAD)
+		if (tag == TAG_PAD && vflag < 3)
 			continue;
-		if (tag == TAG_END)
+		if (tag == TAG_END && vflag < 3)
 			return;
 		if (tag == TAG_EXTENDED_OPTION) {
 			TCHECK2(*(bp + 1), 2);
@@ -371,47 +392,54 @@ rfc1048_print(register const u_char *bp)
 		} else
 			cp = tok2str(tag2str, "?T%u", tag);
 		c = *cp++;
-		printf("\n\t    %s:", cp);
 
-		/* Get the length; check for truncation */
-		if (bp + 1 >= snapend) {
-			fputs(tstr, stdout);
-			return;
+		if (tag == TAG_PAD || tag == TAG_END)
+			len = 0;
+		else {
+			/* Get the length; check for truncation */
+			TCHECK2(*bp, 1);
+			len = *bp++;
 		}
-		len = *bp++;
-		if (bp + len >= snapend) {
-			printf("[|bootp %u]", len);
+
+		printf("\n\t    %s Option %u, length %u%s", cp, tag, len,
+		    len > 0 ? ": " : "");
+
+		if (tag == TAG_PAD && vflag > 2) {
+			u_int ntag = 1;
+			while (TTEST2(*bp, 1) && *bp == TAG_PAD) {
+				bp++;
+				ntag++;
+			}
+			if (ntag > 1)
+				printf(", occurs %u", ntag);
+		}
+
+		if (!TTEST2(*bp, len)) {
+			printf("[|rfc1048 %u]", len);
 			return;
 		}
 
 		if (tag == TAG_DHCP_MESSAGE && len == 1) {
 			uc = *bp++;
-			switch (uc) {
-			case DHCPDISCOVER:	printf("DISCOVER");	break;
-			case DHCPOFFER:		printf("OFFER");	break;
-			case DHCPREQUEST:	printf("REQUEST");	break;
-			case DHCPDECLINE:	printf("DECLINE");	break;
-			case DHCPACK:		printf("ACK");		break;
-			case DHCPNAK:		printf("NACK");		break;
-			case DHCPRELEASE:	printf("RELEASE");	break;
-			case DHCPINFORM:	printf("INFORM");	break;
-			default:		printf("%u", uc);	break;
+                        printf("%s", tok2str(dhcp_msg_values, "Unknown (%u)", uc));
+                        continue;
+		}
+
+		if (tag == TAG_PARM_REQUEST) {
+			idx = 0;
+			while (len-- > 0) {
+				uc = *bp++;
+				cp = tok2str(tag2str, "?Option %u", uc);
+				if (idx % 4 == 0)
+					printf("\n\t      ");
+				else
+					printf(", ");
+				printf("%s", cp + 1);
+				idx++;
 			}
 			continue;
 		}
 
-		if (tag == TAG_PARM_REQUEST) {
-			first = 1;
-			while (len-- > 0) {
-				uc = *bp++;
-				cp = tok2str(tag2str, "?T%u", uc);
-				if (!first)
-					putchar('+');
-				printf("%s", cp + 1);
-				first = 0;
-			}
-			continue;
-		}
 		if (tag == TAG_EXTENDED_REQUEST) {
 			first = 1;
 			while (len > 1) {
@@ -444,7 +472,10 @@ rfc1048_print(register const u_char *bp)
 		case 'a':
 			/* ascii strings */
 			putchar('"');
-			(void)fn_printn(bp, size, NULL);
+			if (fn_printn(bp, size, snapend)) {
+				putchar('"');
+				goto trunc;
+			}
 			putchar('"');
 			bp += size;
 			size = 0;
@@ -556,17 +587,22 @@ rfc1048_print(register const u_char *bp)
 				break;
 
 			case TAG_CLIENT_FQDN:
-				/* option 81 should be at least 4 bytes long */
-				if (len < 4) 
-                                        printf("ERROR: options 81 len %u < 4 bytes", len);
+				/* option 81 should be at least 3 bytes long */
+				if (len < 3)  {
+					printf("ERROR: option 81 len %u < 3 bytes", len);
 					break;
-				if (*bp++)
-					printf("[svrreg]");
+				}
 				if (*bp)
-					printf("%u/%u/", *bp, *(bp+1));
+					printf("[%s] ", client_fqdn_flags(*bp));
+				bp++;
+				if (*bp || *(bp+1))
+					printf("%u/%u ", *bp, *(bp+1));
 				bp += 2;
 				putchar('"');
-				(void)fn_printn(bp, size - 3, NULL);
+				if (fn_printn(bp, size - 3, snapend)) {
+					putchar('"');
+					goto trunc;
+				}
 				putchar('"');
 				bp += size - 3;
 				size = 0;
@@ -577,13 +613,16 @@ rfc1048_print(register const u_char *bp)
 				size--;
 				if (type == 0) {
 					putchar('"');
-					(void)fn_printn(bp, size, NULL);
+					if (fn_printn(bp, size, snapend)) {
+						putchar('"');
+						goto trunc;
+					}
 					putchar('"');
 					bp += size;
 					size = 0;
 					break;
 				} else {
-					printf("[%s]", tok2str(arp2str, "type-%d", type));
+					printf("%s ", tok2str(arp2str, "hardware-type %u,", type));
 				}
 				while (size > 0) {
 					if (!first)
@@ -596,6 +635,37 @@ rfc1048_print(register const u_char *bp)
 				break;
 			    }
 
+                        case TAG_AGENT_CIRCUIT:
+                        {
+                            while (size > 0 ) {
+                            subopt = *bp++;
+                            suboptlen = *bp++;
+                            size -= 2;
+                            printf("\n\t      %s SubOption %u, length %u: ",
+                                   tok2str(agent_suboption_values, "Unknown", subopt),
+                                   subopt,
+                                   suboptlen);
+
+                            if (subopt == 0 || suboptlen == 0) {
+                                break;
+                            }
+
+                            switch(subopt) {
+                            case AGENT_SUBOPTION_CIRCUIT_ID:
+                                for (idx = 0; idx < suboptlen; idx++) {
+                                    safeputchar(*(bp+idx));
+                                }
+                                break;
+                            default:
+                                print_unknown_data(bp, "\n\t\t", suboptlen);
+                            }
+
+                            size -= suboptlen;
+                            bp += suboptlen;
+                            }
+                        }
+                            break;
+
 			default:
 				printf("[unknown special tag %u, size %u]",
 				    tag, size);
@@ -607,7 +677,7 @@ rfc1048_print(register const u_char *bp)
 		}
 		/* Data left over? */
 		if (size) {
-			printf("[len %u]", len);
+			printf("\n\t  trailing data length %u", len);
 			bp += size;
 		}
 	}
@@ -645,4 +715,23 @@ cmu_print(register const u_char *bp)
 trunc:
 	fputs(tstr, stdout);
 #undef PRINTCMUADDR
+}
+
+static char *
+client_fqdn_flags(u_int flags)
+{
+	static char buf[8+1];
+	int i = 0;
+
+	if (flags & CLIENT_FQDN_FLAGS_S)
+		buf[i++] = 'S';
+	if (flags & CLIENT_FQDN_FLAGS_O)
+		buf[i++] = 'O';
+	if (flags & CLIENT_FQDN_FLAGS_E)
+		buf[i++] = 'E';
+	if (flags & CLIENT_FQDN_FLAGS_N)
+		buf[i++] = 'N';
+	buf[i] = '\0';
+
+	return buf;
 }

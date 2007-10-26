@@ -375,8 +375,16 @@ Awkfloat getfval(Cell *vp)	/* get float val of a Cell */
 		else
 			sprintf(s, *fmt, vp->fval);
 		vp->sval = tostring(s);
+#if 0
+		/*
+		   Cannot reuse the converted form unless you confirm
+		   that the current value of CONVFMT is the same as that
+		   which was used to convert the previous string. See
+		   conformance test awk.ex 233
+		 */
 		vp->tval &= ~DONTFREE;
 		vp->tval |= STR;
+#endif
 	}
 	   dprintf( ("getsval %p: %s = \"%s (%p)\", t=%o\n", vp, NN(vp->nval), vp->sval, vp->sval, vp->tval) );
 	return(vp->sval);

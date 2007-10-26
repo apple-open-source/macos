@@ -2,10 +2,10 @@ Summary: A version control system.
 Name: @PACKAGE_TARNAME@
 Version: @PACKAGE_VERSION@
 Release: 1
-Copyright: GPL
+License: GPL
 Group: Development/Tools
-Source: ftp://ftp.cvshome.com/pub/%{name}-%{version}/%{name}-%{version}.tar.bz2
-URL: http://cvshome.org
+Source: http://savannah.nongnu.org/download/cvs/%{name}-%{version}.tar.bz2
+URL: http://cvs.nongnu.org/
 Prereq: /sbin/install-info
 Prefix: %{_prefix}
 BuildRoot:  %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -84,7 +84,7 @@ make LDFLAGS=-s
 %makeinstall
 # The Kerberized binary
 %if %gssapi
-./install-sh src/cvs.krb5 $RPM_BUILD_ROOT%{_kerberosbindir}/cvs
+build-aux/install-sh src/cvs.krb5 $RPM_BUILD_ROOT%{_kerberosbindir}/cvs
 %endif
 # forcefully compress the info pages so that install-info will work properly
 # in the %%post
@@ -96,8 +96,13 @@ rm -f $RPM_BUILD_ROOT/%{_infodir}/dir
 
 %post
 /sbin/install-info /%{_infodir}/cvs.info.gz /%{_infodir}/dir
-/sbin/install-info /%{_infodir}/cvsclient.info.gz /%{_infodir}/dir 
-
+/sbin/install-info /%{_infodir}/cvsclient.info.gz /%{_infodir}/dir
+# Remove any existing uncompressed versions of the info files since
+# install-info doesn't and info doesn't seem to be very good at spotting that
+# its uncompressed cache is out of date.
+rm -f /%{_infodir}/cvs.info /%{_infodir}/cvs.info-? /%{_infodir}/cvs.info-??
+rm -f /%{_infodir}/cvsclient.info /%{_infodir}/cvsclient.info-?
+rm -f /%{_infodir}/cvsclient.info-??
 %preun
 if [ $1 = 0 ]; then
 # uninstall the info reference in the dir file
@@ -121,6 +126,15 @@ fi
 %endif
 
 %changelog
+* Wed Aug 31 2005 Derek Price <derek@ximbiot.com>
+- Update links to Savannah.  s/Copyright/License/ for RPM 4.mumble.
+
+* Mon July 20 2005 Derek Price <derek@ximbiot.com>
+- Update to homepage on Savannah.
+
+* Mon May 09 2005 Derek Price <derek@ximbiot.com>
+- Find install-sh in its new location in the build-aux directory.
+
 * Wed Mar 31 2004 Mark D. Baushke <mdb@cvshome.org>
 - Do not fail if info DIR file is not present to be deleted.
 

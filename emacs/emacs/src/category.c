@@ -1,6 +1,10 @@
 /* GNU Emacs routines to deal with category tables.
-   Copyright (C) 1995, 1997 Electrotechnical Laboratory, JAPAN.
-   Licensed to the Free Software Foundation.
+   Copyright (C) 1998, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+     Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+     2005, 2006, 2007
+     National Institute of Advanced Industrial Science and Technology (AIST)
+     Registration Number H14PRO021
 
 This file is part of GNU Emacs.
 
@@ -16,8 +20,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* Here we handle three objects: category, category set, and category
@@ -29,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "buffer.h"
 #include "charset.h"
 #include "category.h"
+#include "keymap.h"
 
 /* The version number of the latest category table.  Each category
    table has a unique version number.  It is assigned a new number
@@ -52,29 +57,29 @@ Lisp_Object _temp_category_set;
 /* Category set staff.  */
 
 DEFUN ("make-category-set", Fmake_category_set, Smake_category_set, 1, 1, 0,
-  "Return a newly created category-set which contains CATEGORIES.\n\
-CATEGORIES is a string of category mnemonics.\n\
-The value is a bool-vector which has t at the indices corresponding to\n\
-those categories.")
-  (categories)
+       doc: /* Return a newly created category-set which contains CATEGORIES.
+CATEGORIES is a string of category mnemonics.
+The value is a bool-vector which has t at the indices corresponding to
+those categories.  */)
+     (categories)
      Lisp_Object categories;
 {
   Lisp_Object val;
   int len;
 
-  CHECK_STRING (categories, 0);
+  CHECK_STRING (categories);
   val = MAKE_CATEGORY_SET;
 
   if (STRING_MULTIBYTE (categories))
-    error ("Multibyte string in make-category-set");
+    error ("Multibyte string in `make-category-set'");
 
-  len = XSTRING (categories)->size;
+  len = SCHARS (categories);
   while (--len >= 0)
     {
       Lisp_Object category;
 
-      XSETFASTINT (category, XSTRING (categories)->data[len]);
-      CHECK_CATEGORY (category, 0);
+      XSETFASTINT (category, SREF (categories, len));
+      CHECK_CATEGORY (category);
       SET_CATEGORY_SET (val, category, Qt);
     }
   return val;
@@ -86,16 +91,16 @@ those categories.")
 Lisp_Object check_category_table ();
 
 DEFUN ("define-category", Fdefine_category, Sdefine_category, 2, 3, 0,
-  "Define CHAR as a category which is described by DOCSTRING.\n\
-CHAR should be an ASCII printing character in the range ` ' to `~'.\n\
-DOCSTRING is a documentation string of the category.\n\
-The category is defined only in category table TABLE, which defaults to\n\
- the current buffer's category table.")
-  (category, docstring, table)
+       doc: /* Define CATEGORY as a category which is described by DOCSTRING.
+CATEGORY should be an ASCII printing character in the range ` ' to `~'.
+DOCSTRING is the documentation string of the category.
+The category is defined only in category table TABLE, which defaults to
+the current buffer's category table.  */)
+     (category, docstring, table)
      Lisp_Object category, docstring, table;
 {
-  CHECK_CATEGORY (category, 0);
-  CHECK_STRING (docstring, 1);
+  CHECK_CATEGORY (category);
+  CHECK_STRING (docstring);
   table = check_category_table (table);
 
   if (!NILP (CATEGORY_DOCSTRING (table, XFASTINT (category))))
@@ -106,11 +111,13 @@ The category is defined only in category table TABLE, which defaults to\n\
 }
 
 DEFUN ("category-docstring", Fcategory_docstring, Scategory_docstring, 1, 2, 0,
-  "Return the documentation string of CATEGORY, as defined in CATEGORY-TABLE.")
-  (category, table)
+       doc: /* Return the documentation string of CATEGORY, as defined in TABLE.
+TABLE should be a category table and defaults to the current buffer's
+category table.  */)
+     (category, table)
      Lisp_Object category, table;
 {
-  CHECK_CATEGORY (category, 0);
+  CHECK_CATEGORY (category);
   table = check_category_table (table);
 
   return CATEGORY_DOCSTRING (table, XFASTINT (category));
@@ -118,11 +125,11 @@ DEFUN ("category-docstring", Fcategory_docstring, Scategory_docstring, 1, 2, 0,
 
 DEFUN ("get-unused-category", Fget_unused_category, Sget_unused_category,
        0, 1, 0,
-  "Return a category which is not yet defined in CATEGORY-TABLE.\n\
-If no category remains available, return nil.\n\
-The optional argument CATEGORY-TABLE specifies which category table\n\
-to modify; it defaults to the current buffer's category table.")
-  (table)
+       doc: /* Return a category which is not yet defined in TABLE.
+If no category remains available, return nil.
+The optional argument TABLE specifies which category table to modify;
+it defaults to the current buffer's category table.  */)
+     (table)
      Lisp_Object table;
 {
   int i;
@@ -140,8 +147,8 @@ to modify; it defaults to the current buffer's category table.")
 /* Category-table staff.  */
 
 DEFUN ("category-table-p", Fcategory_table_p, Scategory_table_p, 1, 1, 0,
-  "Return t if ARG is a category table.")
-  (arg)
+       doc: /* Return t if ARG is a category table.  */)
+     (arg)
      Lisp_Object arg;
 {
   if (CHAR_TABLE_P (arg)
@@ -159,27 +166,25 @@ Lisp_Object
 check_category_table (table)
      Lisp_Object table;
 {
-  register Lisp_Object tem;
   if (NILP (table))
     return current_buffer->category_table;
-  while (tem = Fcategory_table_p (table), NILP (tem))
-    table = wrong_type_argument (Qcategory_table_p, table);
+  CHECK_TYPE (!NILP (Fcategory_table_p (table)), Qcategory_table_p, table);
   return table;
-}   
+}
 
 DEFUN ("category-table", Fcategory_table, Scategory_table, 0, 0, 0,
-  "Return the current category table.\n\
-This is the one specified by the current buffer.")
-  ()
+       doc: /* Return the current category table.
+This is the one specified by the current buffer.  */)
+     ()
 {
   return current_buffer->category_table;
 }
 
 DEFUN ("standard-category-table", Fstandard_category_table,
    Sstandard_category_table, 0, 0, 0,
-  "Return the standard category table.\n\
-This is the one used for new buffers.")
-  ()
+       doc: /* Return the standard category table.
+This is the one used for new buffers.  */)
+     ()
 {
   return Vstandard_category_table;
 }
@@ -237,9 +242,9 @@ copy_category_table (table)
 
 DEFUN ("copy-category-table", Fcopy_category_table, Scopy_category_table,
        0, 1, 0,
-  "Construct a new category table and return it.\n\
-It is a copy of the TABLE, which defaults to the standard category table.")
-  (table)
+       doc: /* Construct a new category table and return it.
+It is a copy of the TABLE, which defaults to the standard category table.  */)
+     (table)
      Lisp_Object table;
 {
   if (!NILP (table))
@@ -252,8 +257,8 @@ It is a copy of the TABLE, which defaults to the standard category table.")
 
 DEFUN ("make-category-table", Fmake_category_table, Smake_category_table,
        0, 0, 0,
-  "Construct a new and empty category table and return it.")
-  ()
+       doc: /* Construct a new and empty category table and return it.  */)
+     ()
 {
   Lisp_Object val;
 
@@ -265,8 +270,9 @@ DEFUN ("make-category-table", Fmake_category_table, Smake_category_table,
 }
 
 DEFUN ("set-category-table", Fset_category_table, Sset_category_table, 1, 1, 0,
-  "Specify TABLE as the category table for the current buffer.")
-  (table)
+       doc: /* Specify TABLE as the category table for the current buffer.
+Return TABLE.  */)
+     (table)
      Lisp_Object table;
 {
   int idx;
@@ -280,27 +286,28 @@ DEFUN ("set-category-table", Fset_category_table, Sset_category_table, 1, 1, 0,
 
 
 DEFUN ("char-category-set", Fchar_category_set, Schar_category_set, 1, 1, 0,
-  "Return the category set of CHAR.")
-  (ch)
+       doc: /* Return the category set of CHAR.
+usage: (char-category-set CHAR)  */)
+     (ch)
      Lisp_Object ch;
 {
-  CHECK_NUMBER (ch, 0);
+  CHECK_NUMBER (ch);
   return CATEGORY_SET (XFASTINT (ch));
 }
 
 DEFUN ("category-set-mnemonics", Fcategory_set_mnemonics,
        Scategory_set_mnemonics, 1, 1, 0,
-  "Return a string containing mnemonics of the categories in CATEGORY-SET.\n\
-CATEGORY-SET is a bool-vector, and the categories \"in\" it are those\n\
-that are indexes where t occurs the bool-vector.\n\
-The return value is a string containing those same categories.")
-  (category_set)
+       doc: /* Return a string containing mnemonics of the categories in CATEGORY-SET.
+CATEGORY-SET is a bool-vector, and the categories \"in\" it are those
+that are indexes where t occurs in the bool-vector.
+The return value is a string containing those same categories.  */)
+     (category_set)
      Lisp_Object category_set;
 {
   int i, j;
   char str[96];
 
-  CHECK_CATEGORY_SET (category_set, 0);
+  CHECK_CATEGORY_SET (category_set);
 
   j = 0;
   for (i = 32; i < 127; i++)
@@ -356,26 +363,26 @@ set_category_set (category_set, category, val)
 
 DEFUN ("modify-category-entry", Fmodify_category_entry,
        Smodify_category_entry, 2, 4, 0,
-  "Modify the category set of CHARACTER by adding CATEGORY to it.\n\
-The category is changed only for table TABLE, which defaults to\n\
- the current buffer's category table.\n\
-If optional fourth argument RESET is non-nil,\n\
- then delete CATEGORY from the category set instead of adding it.")
-  (character, category, table, reset)
+       doc: /* Modify the category set of CHARACTER by adding CATEGORY to it.
+The category is changed only for table TABLE, which defaults to
+ the current buffer's category table.
+If optional fourth argument RESET is non-nil,
+then delete CATEGORY from the category set instead of adding it.  */)
+     (character, category, table, reset)
      Lisp_Object character, category, table, reset;
 {
   int c, charset, c1, c2;
   Lisp_Object set_value;	/* Actual value to be set in category sets.  */
   Lisp_Object val, category_set;
 
-  CHECK_NUMBER (character, 0);
+  CHECK_NUMBER (character);
   c = XINT (character);
-  CHECK_CATEGORY (category, 1);
+  CHECK_CATEGORY (category);
   table = check_category_table (table);
 
   if (NILP (CATEGORY_DOCSTRING (table, XFASTINT (category))))
     error ("Undefined category: %c", XFASTINT (category));
-  
+
   set_value = NILP (reset) ? Qt : Qnil;
 
   if (c < CHAR_TABLE_SINGLE_BYTE_SLOTS)
@@ -469,99 +476,6 @@ If optional fourth argument RESET is non-nil,\n\
   return Qnil;
 }
 
-/* Dump category table to buffer in human-readable format */
-
-static void
-describe_category (value)
-    Lisp_Object value;
-{
-  Lisp_Object mnemonics;
-
-  Findent_to (make_number (16), make_number (1));
-
-  if (NILP (value))
-    {
-      insert_string ("default\n");
-      return;
-    }
-
-  if (CHAR_TABLE_P (value))
-    {
-      insert_string ("deeper char-table ...\n");
-      return;
-    }
-
-  if (!CATEGORY_SET_P (value))
-    {
-      insert_string ("invalid\n");
-      return;
-    }
-
-  mnemonics = Fcategory_set_mnemonics (value);
-  insert_from_string (mnemonics, 0, 0, XSTRING (mnemonics)->size,
-		      STRING_BYTES (XSTRING (mnemonics)), 0);
-  insert_string ("\n");
-  return;
-}
-
-static Lisp_Object
-describe_category_1 (vector)
-     Lisp_Object vector;
-{
-  struct buffer *old = current_buffer;
-  set_buffer_internal (XBUFFER (Vstandard_output));
-  describe_vector (vector, Qnil, describe_category, 0, Qnil, Qnil,
-		   (int *)0, 0);
-  {
-    int i;
-    Lisp_Object docs = XCHAR_TABLE (vector)->extras[0];
-    Lisp_Object elt;
-
-    if (!VECTORP (docs) || XVECTOR (docs)->size != 95)
-      {
-	insert_string ("Invalid first extra slot in this char table\n");
-	return Qnil;
-      }
-      
-    insert_string ("Meanings of mnemonice characters are:\n");
-    for (i = 0; i < 95; i++)
-      {
-	elt = XVECTOR (docs)->contents[i];
-	if (NILP (elt))
-	  continue;
-
-	insert_char (i + 32);
-	insert (": ", 2);
-	insert_from_string (elt, 0, 0, XSTRING (elt)->size,
-			    STRING_BYTES (XSTRING (elt)), 0);
-	insert ("\n", 1);
-      }
-  }
-
-  while (! NILP (XCHAR_TABLE (vector)->parent))
-    {
-      vector = XCHAR_TABLE (vector)->parent;
-      insert_string ("\nThe parent category table is:");
-      describe_vector (vector, Qnil, describe_category, 0, Qnil, Qnil,
-		       (int *) 0, 0);
-    }
-
-  call0 (intern ("help-mode"));
-  set_buffer_internal (old);
-  return Qnil;
-}
-
-DEFUN ("describe-categories", Fdescribe_categories, Sdescribe_categories, 0, 0, "",
-  "Describe the category specifications in the current category table.\n\
-The descriptions are inserted in a buffer, which is then displayed.")
-  ()
-{
-  internal_with_output_to_temp_buffer
-     ("*Help*", describe_category_1, current_buffer->category_table);
-
-  return Qnil;
-}
-
 /* Return 1 if there is a word boundary between two word-constituent
    characters C1 and C2 if they appear in this order, else return 0.
    Use the macro WORD_BOUNDARY_P instead of calling this function
@@ -625,7 +539,7 @@ init_category_once ()
   Fput (Qcategory_table, Qchar_table_extra_slots, make_number (2));
 
   Vstandard_category_table = Fmake_char_table (Qcategory_table, Qnil);
-  /* Set a category set which contains nothing to the default.  */ 
+  /* Set a category set which contains nothing to the default.  */
   XCHAR_TABLE (Vstandard_category_table)->defalt = MAKE_CATEGORY_SET;
   Fset_char_table_extra_slot (Vstandard_category_table, make_number (0),
 			      Fmake_vector (make_number (95), Qnil));
@@ -642,45 +556,45 @@ syms_of_category ()
   staticpro (&Qcategory_table_p);
 
   DEFVAR_LISP ("word-combining-categories", &Vword_combining_categories,
-    "List of pair (cons) of categories to determine word boundary.\n\
-\n\
-Emacs treats a sequence of word constituent characters as a single\n\
-word (i.e. finds no word boundary between them) iff they belongs to\n\
-the same charset.  But, exceptions are allowed in the following cases.\n\
-\n\
-\(1) The case that characters are in different charsets is controlled\n\
-by the variable `word-combining-categories'.\n\
-\n\
-Emacs finds no word boundary between characters of different charsets\n\
-if they have categories matching some element of this list.\n\
-\n\
-More precisely, if an element of this list is a cons of category CAT1\n\
-and CAT2, and a multibyte character C1 which has CAT1 is followed by\n\
-C2 which has CAT2, there's no word boundary between C1 and C2.\n\
-\n\
-For instance, to tell that ASCII characters and Latin-1 characters can\n\
-form a single word, the element `(?l . ?l)' should be in this list\n\
-because both characters have the category `l' (Latin characters).\n\
-\n\
-\(2) The case that character are in the same charset is controlled by\n\
-the variable `word-separating-categories'.\n\
-\n\
-Emacs find a word boundary between characters of the same charset\n\
-if they have categories matching some element of this list.\n\
-\n\
-More precisely, if an element of this list is a cons of category CAT1\n\
-and CAT2, and a multibyte character C1 which has CAT1 is followed by\n\
-C2 which has CAT2, there's a word boundary between C1 and C2.\n\
-\n\
-For instance, to tell that there's a word boundary between Japanese\n\
-Hiragana and Japanese Kanji (both are in the same charset), the\n\
-element `(?H . ?C) should be in this list.");
+	       doc: /* List of pair (cons) of categories to determine word boundary.
+
+Emacs treats a sequence of word constituent characters as a single
+word (i.e. finds no word boundary between them) iff they belongs to
+the same charset.  But, exceptions are allowed in the following cases.
+
+\(1) The case that characters are in different charsets is controlled
+by the variable `word-combining-categories'.
+
+Emacs finds no word boundary between characters of different charsets
+if they have categories matching some element of this list.
+
+More precisely, if an element of this list is a cons of category CAT1
+and CAT2, and a multibyte character C1 which has CAT1 is followed by
+C2 which has CAT2, there's no word boundary between C1 and C2.
+
+For instance, to tell that ASCII characters and Latin-1 characters can
+form a single word, the element `(?l . ?l)' should be in this list
+because both characters have the category `l' (Latin characters).
+
+\(2) The case that character are in the same charset is controlled by
+the variable `word-separating-categories'.
+
+Emacs find a word boundary between characters of the same charset
+if they have categories matching some element of this list.
+
+More precisely, if an element of this list is a cons of category CAT1
+and CAT2, and a multibyte character C1 which has CAT1 is followed by
+C2 which has CAT2, there's a word boundary between C1 and C2.
+
+For instance, to tell that there's a word boundary between Japanese
+Hiragana and Japanese Kanji (both are in the same charset), the
+element `(?H . ?C) should be in this list.  */);
 
   Vword_combining_categories = Qnil;
 
   DEFVAR_LISP ("word-separating-categories", &Vword_separating_categories,
-    "List of pair (cons) of categories to determine word boundary.\n\
-See the documentation of the variable `word-combining-categories'.");
+	       doc: /* List of pair (cons) of categories to determine word boundary.
+See the documentation of the variable `word-combining-categories'.  */);
 
   Vword_separating_categories = Qnil;
 
@@ -697,7 +611,9 @@ See the documentation of the variable `word-combining-categories'.");
   defsubr (&Schar_category_set);
   defsubr (&Scategory_set_mnemonics);
   defsubr (&Smodify_category_entry);
-  defsubr (&Sdescribe_categories);
 
   category_table_version = 0;
 }
+
+/* arch-tag: 74ebf524-121b-4d9c-bd68-07f8d708b211
+   (do not change this comment) */

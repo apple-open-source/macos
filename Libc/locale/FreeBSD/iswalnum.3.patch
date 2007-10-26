@@ -1,7 +1,11 @@
---- iswalnum.3.orig	Fri Mar 11 19:18:47 2005
-+++ iswalnum.3	Fri Mar 11 19:20:06 2005
-@@ -114,6 +114,12 @@
- functions (like
+--- iswalnum.3	2003-05-20 15:21:44.000000000 -0700
++++ iswalnum.3.edit	2006-08-09 13:28:43.000000000 -0700
+@@ -111,9 +111,15 @@
+ or
+ .Vt wint_t ) .
+ See the description for the similarly-named single byte classification
+-functions (like
++functions (such as
  .Xr isalnum 3 ) ,
  for details.
 +.Pp
@@ -13,13 +17,20 @@
  .Sh RETURN VALUES
  The functions return zero if the character tests false and
  return non-zero if the character tests true.
-@@ -137,7 +143,8 @@
+@@ -136,6 +142,7 @@
+ .Xr isspace 3 ,
  .Xr isspecial 3 ,
  .Xr isupper 3 ,
++.Xr iswalnum_l 3 ,
  .Xr isxdigit 3 ,
--.Xr wctype 3
-+.Xr wctype 3 ,
-+.Xr iswalnum_l 3
+ .Xr wctype 3
  .Sh STANDARDS
- These functions conform to
- .St -p1003.1-2001 ,
+@@ -147,7 +154,7 @@
+ .Fn iswideogram ,
+ .Fn iswnumber ,
+ .Fn iswphonogram ,
+-.Fn iswrune
++.Fn iswrune ,
+ and
+ .Fn iswspecial ,
+ which are

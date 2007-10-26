@@ -1,15 +1,15 @@
 /*
 *******************************************************************************
-*   Copyright (C) 2004, International Business Machines
+*   Copyright (C) 2004-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 *
-*   file name:  udraft.h
+*   file name:  
 *   encoding:   US-ASCII
 *   tab size:   8 (not used)
 *   indentation:4
 *
-*   Created by: gendraft.pl, a perl script written by Ram Viswanadha
+*   Created by: genheaders.pl, a perl script written by Ram Viswanadha
 *
 *  Contains data for commenting out APIs.
 *  Gets included by umachine.h
@@ -23,223 +23,239 @@
 
 #ifdef U_HIDE_DRAFT_API
 
-#define ULineBreakTag_3_2 ULineBreakTag_DRAFT_API_DO_NOT_USE
-#define USentenceBreakTag_3_2 USentenceBreakTag_DRAFT_API_DO_NOT_USE
-#define ULineBreakTag_3_2 ULineBreakTag_DRAFT_API_DO_NOT_USE
-#define USentenceBreakTag_3_2 USentenceBreakTag_DRAFT_API_DO_NOT_USE
-#define ubrk_getRuleStatusVec_3_2 ubrk_getRuleStatusVec_DRAFT_API_DO_NOT_USE
-#define ubrk_getLocaleByType_3_2 ubrk_getLocaleByType_DRAFT_API_DO_NOT_USE
-#define UCAL_EXTENDED_YEAR_3_2 UCAL_EXTENDED_YEAR_DRAFT_API_DO_NOT_USE
-#define UCAL_JULIAN_DAY_3_2 UCAL_JULIAN_DAY_DRAFT_API_DO_NOT_USE
-#define UCAL_MILLISECONDS_IN_DAY_3_2 UCAL_MILLISECONDS_IN_DAY_DRAFT_API_DO_NOT_USE
-#define UCAL_DAY_OF_MONTH_3_2 UCAL_DAY_OF_MONTH_DRAFT_API_DO_NOT_USE
-#define ucal_getLocaleByType_3_2 ucal_getLocaleByType_DRAFT_API_DO_NOT_USE
-#define UCHAR_S_TERM_3_2 UCHAR_S_TERM_DRAFT_API_DO_NOT_USE
-#define UCHAR_VARIATION_SELECTOR_3_2 UCHAR_VARIATION_SELECTOR_DRAFT_API_DO_NOT_USE
-#define UCHAR_NFD_INERT_3_2 UCHAR_NFD_INERT_DRAFT_API_DO_NOT_USE
-#define UCHAR_NFKD_INERT_3_2 UCHAR_NFKD_INERT_DRAFT_API_DO_NOT_USE
-#define UCHAR_NFC_INERT_3_2 UCHAR_NFC_INERT_DRAFT_API_DO_NOT_USE
-#define UCHAR_NFKC_INERT_3_2 UCHAR_NFKC_INERT_DRAFT_API_DO_NOT_USE
-#define UCHAR_SEGMENT_STARTER_3_2 UCHAR_SEGMENT_STARTER_DRAFT_API_DO_NOT_USE
-#define UCHAR_NFD_QUICK_CHECK_3_2 UCHAR_NFD_QUICK_CHECK_DRAFT_API_DO_NOT_USE
-#define UCHAR_NFKD_QUICK_CHECK_3_2 UCHAR_NFKD_QUICK_CHECK_DRAFT_API_DO_NOT_USE
-#define UCHAR_NFC_QUICK_CHECK_3_2 UCHAR_NFC_QUICK_CHECK_DRAFT_API_DO_NOT_USE
-#define UCHAR_NFKC_QUICK_CHECK_3_2 UCHAR_NFKC_QUICK_CHECK_DRAFT_API_DO_NOT_USE
-#define UCHAR_LEAD_CANONICAL_COMBINING_CLASS_3_2 UCHAR_LEAD_CANONICAL_COMBINING_CLASS_DRAFT_API_DO_NOT_USE
-#define UCHAR_TRAIL_CANONICAL_COMBINING_CLASS_3_2 UCHAR_TRAIL_CANONICAL_COMBINING_CLASS_DRAFT_API_DO_NOT_USE
-#define UBLOCK_CYRILLIC_SUPPLEMENT_3_2 UBLOCK_CYRILLIC_SUPPLEMENT_DRAFT_API_DO_NOT_USE
-#define U_LB_INSEPARABLE_3_2 U_LB_INSEPARABLE_DRAFT_API_DO_NOT_USE
-#define UCNV_GET_MAX_BYTES_FOR_STRING_3_2 UCNV_GET_MAX_BYTES_FOR_STRING_DRAFT_API_DO_NOT_USE
-#define ucol_openFromShortString_3_2 ucol_openFromShortString_DRAFT_API_DO_NOT_USE
-#define ucol_getContractions_3_2 ucol_getContractions_DRAFT_API_DO_NOT_USE
-#define ucol_openAvailableLocales_3_2 ucol_openAvailableLocales_DRAFT_API_DO_NOT_USE
-#define ucol_getKeywords_3_2 ucol_getKeywords_DRAFT_API_DO_NOT_USE
-#define ucol_getKeywordValues_3_2 ucol_getKeywordValues_DRAFT_API_DO_NOT_USE
-#define ucol_getFunctionalEquivalent_3_2 ucol_getFunctionalEquivalent_DRAFT_API_DO_NOT_USE
-#define ucol_getShortDefinitionString_3_2 ucol_getShortDefinitionString_DRAFT_API_DO_NOT_USE
-#define ucol_normalizeShortDefinitionString_3_2 ucol_normalizeShortDefinitionString_DRAFT_API_DO_NOT_USE
-#define ucol_getUCAVersion_3_2 ucol_getUCAVersion_DRAFT_API_DO_NOT_USE
-#define ucol_getLocaleByType_3_2 ucol_getLocaleByType_DRAFT_API_DO_NOT_USE
-#define ucol_cloneBinary_3_2 ucol_cloneBinary_DRAFT_API_DO_NOT_USE
-#define ucol_openBinary_3_2 ucol_openBinary_DRAFT_API_DO_NOT_USE
-#define UCONFIG_NO_CONVERSION_3_2 UCONFIG_NO_CONVERSION_DRAFT_API_DO_NOT_USE
-#define ucurr_forLocale_3_2 ucurr_forLocale_DRAFT_API_DO_NOT_USE
-#define ucurr_getDefaultFractionDigits_3_2 ucurr_getDefaultFractionDigits_DRAFT_API_DO_NOT_USE
-#define ucurr_getRoundingIncrement_3_2 ucurr_getRoundingIncrement_DRAFT_API_DO_NOT_USE
-#define UDateFormatField_3_2 UDateFormatField_DRAFT_API_DO_NOT_USE
-#define UDAT_ERA_FIELD_3_2 UDAT_ERA_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_YEAR_FIELD_3_2 UDAT_YEAR_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_MONTH_FIELD_3_2 UDAT_MONTH_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_DATE_FIELD_3_2 UDAT_DATE_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_HOUR_OF_DAY1_FIELD_3_2 UDAT_HOUR_OF_DAY1_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_HOUR_OF_DAY0_FIELD_3_2 UDAT_HOUR_OF_DAY0_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_MINUTE_FIELD_3_2 UDAT_MINUTE_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_SECOND_FIELD_3_2 UDAT_SECOND_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_FRACTIONAL_SECOND_FIELD_3_2 UDAT_FRACTIONAL_SECOND_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_DAY_OF_WEEK_FIELD_3_2 UDAT_DAY_OF_WEEK_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_DAY_OF_YEAR_FIELD_3_2 UDAT_DAY_OF_YEAR_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_DAY_OF_WEEK_IN_MONTH_FIELD_3_2 UDAT_DAY_OF_WEEK_IN_MONTH_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_WEEK_OF_YEAR_FIELD_3_2 UDAT_WEEK_OF_YEAR_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_WEEK_OF_MONTH_FIELD_3_2 UDAT_WEEK_OF_MONTH_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_AM_PM_FIELD_3_2 UDAT_AM_PM_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_HOUR1_FIELD_3_2 UDAT_HOUR1_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_HOUR0_FIELD_3_2 UDAT_HOUR0_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_TIMEZONE_FIELD_3_2 UDAT_TIMEZONE_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_YEAR_WOY_FIELD_3_2 UDAT_YEAR_WOY_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_DOW_LOCAL_FIELD_3_2 UDAT_DOW_LOCAL_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_EXTENDED_YEAR_FIELD_3_2 UDAT_EXTENDED_YEAR_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_JULIAN_DAY_FIELD_3_2 UDAT_JULIAN_DAY_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_MILLISECONDS_IN_DAY_FIELD_3_2 UDAT_MILLISECONDS_IN_DAY_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_TIMEZONE_RFC_FIELD_3_2 UDAT_TIMEZONE_RFC_FIELD_DRAFT_API_DO_NOT_USE
-#define UDAT_FIELD_COUNT_3_2 UDAT_FIELD_COUNT_DRAFT_API_DO_NOT_USE
-#define UDateFormatField_3_2 UDateFormatField_DRAFT_API_DO_NOT_USE
-#define udat_getLocaleByType_3_2 udat_getLocaleByType_DRAFT_API_DO_NOT_USE
-#define ULOC_SCRIPT_CAPACITY_3_2 ULOC_SCRIPT_CAPACITY_DRAFT_API_DO_NOT_USE
-#define ULOC_KEYWORDS_CAPACITY_3_2 ULOC_KEYWORDS_CAPACITY_DRAFT_API_DO_NOT_USE
-#define ULOC_KEYWORD_AND_VALUES_CAPACITY_3_2 ULOC_KEYWORD_AND_VALUES_CAPACITY_DRAFT_API_DO_NOT_USE
-#define ULOC_KEYWORD_SEPARATOR_3_2 ULOC_KEYWORD_SEPARATOR_DRAFT_API_DO_NOT_USE
-#define ULOC_KEYWORD_ASSIGN_3_2 ULOC_KEYWORD_ASSIGN_DRAFT_API_DO_NOT_USE
-#define ULOC_KEYWORD_ITEM_SEPARATOR_3_2 ULOC_KEYWORD_ITEM_SEPARATOR_DRAFT_API_DO_NOT_USE
-#define UAcceptResult_3_2 UAcceptResult_DRAFT_API_DO_NOT_USE
-#define uloc_getScript_3_2 uloc_getScript_DRAFT_API_DO_NOT_USE
-#define uloc_canonicalize_3_2 uloc_canonicalize_DRAFT_API_DO_NOT_USE
-#define uloc_getDisplayScript_3_2 uloc_getDisplayScript_DRAFT_API_DO_NOT_USE
-#define uloc_getDisplayKeyword_3_2 uloc_getDisplayKeyword_DRAFT_API_DO_NOT_USE
-#define uloc_getDisplayKeywordValue_3_2 uloc_getDisplayKeywordValue_DRAFT_API_DO_NOT_USE
-#define uloc_getBaseName_3_2 uloc_getBaseName_DRAFT_API_DO_NOT_USE
-#define uloc_openKeywords_3_2 uloc_openKeywords_DRAFT_API_DO_NOT_USE
-#define uloc_getKeywordValue_3_2 uloc_getKeywordValue_DRAFT_API_DO_NOT_USE
-#define uloc_setKeywordValue_3_2 uloc_setKeywordValue_DRAFT_API_DO_NOT_USE
-#define uloc_acceptLanguageFromHTTP_3_2 uloc_acceptLanguageFromHTTP_DRAFT_API_DO_NOT_USE
-#define uloc_acceptLanguage_3_2 uloc_acceptLanguage_DRAFT_API_DO_NOT_USE
-#define UMeasurementSystem_3_2 UMeasurementSystem_DRAFT_API_DO_NOT_USE
-#define UMeasurementSystem_3_2 UMeasurementSystem_DRAFT_API_DO_NOT_USE
-#define ulocdata_getExemplarSet_3_2 ulocdata_getExemplarSet_DRAFT_API_DO_NOT_USE
-#define ulocdata_getMeasurementSystem_3_2 ulocdata_getMeasurementSystem_DRAFT_API_DO_NOT_USE
-#define ulocdata_getPaperSize_3_2 ulocdata_getPaperSize_DRAFT_API_DO_NOT_USE
-#define UINT64_C_3_2 UINT64_C_DRAFT_API_DO_NOT_USE
-#define umsg_getLocaleByType_3_2 umsg_getLocaleByType_DRAFT_API_DO_NOT_USE
-#define U_ETHER_3_2 U_ETHER_DRAFT_API_DO_NOT_USE
-#define US_INV_3_2 US_INV_DRAFT_API_DO_NOT_USE
-#define UNUM_PATTERN_DECIMAL_3_2 UNUM_PATTERN_DECIMAL_DRAFT_API_DO_NOT_USE
-#define UNUM_ORDINAL_3_2 UNUM_ORDINAL_DRAFT_API_DO_NOT_USE
-#define UNUM_DURATION_3_2 UNUM_DURATION_DRAFT_API_DO_NOT_USE
-#define UNUM_PATTERN_RULEBASED_3_2 UNUM_PATTERN_RULEBASED_DRAFT_API_DO_NOT_USE
-#define UNUM_SIGNIFICANT_DIGITS_USED_3_2 UNUM_SIGNIFICANT_DIGITS_USED_DRAFT_API_DO_NOT_USE
-#define UNUM_MIN_SIGNIFICANT_DIGITS_3_2 UNUM_MIN_SIGNIFICANT_DIGITS_DRAFT_API_DO_NOT_USE
-#define UNUM_MAX_SIGNIFICANT_DIGITS_3_2 UNUM_MAX_SIGNIFICANT_DIGITS_DRAFT_API_DO_NOT_USE
-#define UNUM_LENIENT_PARSE_3_2 UNUM_LENIENT_PARSE_DRAFT_API_DO_NOT_USE
-#define UNUM_DEFAULT_RULESET_3_2 UNUM_DEFAULT_RULESET_DRAFT_API_DO_NOT_USE
-#define UNUM_PUBLIC_RULESETS_3_2 UNUM_PUBLIC_RULESETS_DRAFT_API_DO_NOT_USE
-#define UNUM_SIGNIFICANT_DIGIT_SYMBOL_3_2 UNUM_SIGNIFICANT_DIGIT_SYMBOL_DRAFT_API_DO_NOT_USE
-#define unum_formatDoubleCurrency_3_2 unum_formatDoubleCurrency_DRAFT_API_DO_NOT_USE
-#define unum_parseInt64_3_2 unum_parseInt64_DRAFT_API_DO_NOT_USE
-#define unum_parseDoubleCurrency_3_2 unum_parseDoubleCurrency_DRAFT_API_DO_NOT_USE
-#define unum_getLocaleByType_3_2 unum_getLocaleByType_DRAFT_API_DO_NOT_USE
-#define URegularExpression_3_2 URegularExpression_DRAFT_API_DO_NOT_USE
-#define UREGEX_CANON_EQ_3_2 UREGEX_CANON_EQ_DRAFT_API_DO_NOT_USE
-#define UREGEX_UWORD_3_2 UREGEX_UWORD_DRAFT_API_DO_NOT_USE
-#define uregex_open_3_2 uregex_open_DRAFT_API_DO_NOT_USE
-#define uregex_openC_3_2 uregex_openC_DRAFT_API_DO_NOT_USE
-#define uregex_close_3_2 uregex_close_DRAFT_API_DO_NOT_USE
-#define uregex_clone_3_2 uregex_clone_DRAFT_API_DO_NOT_USE
-#define uregex_pattern_3_2 uregex_pattern_DRAFT_API_DO_NOT_USE
-#define uregex_flags_3_2 uregex_flags_DRAFT_API_DO_NOT_USE
-#define uregex_setText_3_2 uregex_setText_DRAFT_API_DO_NOT_USE
-#define uregex_getText_3_2 uregex_getText_DRAFT_API_DO_NOT_USE
-#define uregex_matches_3_2 uregex_matches_DRAFT_API_DO_NOT_USE
-#define uregex_lookingAt_3_2 uregex_lookingAt_DRAFT_API_DO_NOT_USE
-#define uregex_find_3_2 uregex_find_DRAFT_API_DO_NOT_USE
-#define uregex_findNext_3_2 uregex_findNext_DRAFT_API_DO_NOT_USE
-#define uregex_groupCount_3_2 uregex_groupCount_DRAFT_API_DO_NOT_USE
-#define uregex_group_3_2 uregex_group_DRAFT_API_DO_NOT_USE
-#define uregex_start_3_2 uregex_start_DRAFT_API_DO_NOT_USE
-#define uregex_end_3_2 uregex_end_DRAFT_API_DO_NOT_USE
-#define uregex_reset_3_2 uregex_reset_DRAFT_API_DO_NOT_USE
-#define uregex_replaceAll_3_2 uregex_replaceAll_DRAFT_API_DO_NOT_USE
-#define uregex_replaceFirst_3_2 uregex_replaceFirst_DRAFT_API_DO_NOT_USE
-#define uregex_appendReplacement_3_2 uregex_appendReplacement_DRAFT_API_DO_NOT_USE
-#define uregex_appendTail_3_2 uregex_appendTail_DRAFT_API_DO_NOT_USE
-#define uregex_split_3_2 uregex_split_DRAFT_API_DO_NOT_USE
-#define ures_getLocaleByType_3_2 ures_getLocaleByType_DRAFT_API_DO_NOT_USE
-#define ures_openAvailableLocales_3_2 ures_openAvailableLocales_DRAFT_API_DO_NOT_USE
-#define USCRIPT_KATAKANA_OR_HIRAGANA_3_2 USCRIPT_KATAKANA_OR_HIRAGANA_DRAFT_API_DO_NOT_USE
-#define USET_ADD_CASE_MAPPINGS_3_2 USET_ADD_CASE_MAPPINGS_DRAFT_API_DO_NOT_USE
-#define uset_set_3_2 uset_set_DRAFT_API_DO_NOT_USE
-#define uset_applyPattern_3_2 uset_applyPattern_DRAFT_API_DO_NOT_USE
-#define uset_applyIntPropertyValue_3_2 uset_applyIntPropertyValue_DRAFT_API_DO_NOT_USE
-#define uset_applyPropertyAlias_3_2 uset_applyPropertyAlias_DRAFT_API_DO_NOT_USE
-#define uset_resemblesPattern_3_2 uset_resemblesPattern_DRAFT_API_DO_NOT_USE
-#define uset_removeAll_3_2 uset_removeAll_DRAFT_API_DO_NOT_USE
-#define uset_retain_3_2 uset_retain_DRAFT_API_DO_NOT_USE
-#define uset_retainAll_3_2 uset_retainAll_DRAFT_API_DO_NOT_USE
-#define uset_compact_3_2 uset_compact_DRAFT_API_DO_NOT_USE
-#define uset_complementAll_3_2 uset_complementAll_DRAFT_API_DO_NOT_USE
-#define uset_indexOf_3_2 uset_indexOf_DRAFT_API_DO_NOT_USE
-#define uset_charAt_3_2 uset_charAt_DRAFT_API_DO_NOT_USE
-#define uset_containsAll_3_2 uset_containsAll_DRAFT_API_DO_NOT_USE
-#define uset_containsNone_3_2 uset_containsNone_DRAFT_API_DO_NOT_USE
-#define uset_containsSome_3_2 uset_containsSome_DRAFT_API_DO_NOT_USE
-#define uset_equals_3_2 uset_equals_DRAFT_API_DO_NOT_USE
-#define USPREP_DEFAULT_3_2 USPREP_DEFAULT_DRAFT_API_DO_NOT_USE
-#define USPREP_ALLOW_UNASSIGNED_3_2 USPREP_ALLOW_UNASSIGNED_DRAFT_API_DO_NOT_USE
-#define UStringPrepProfile_3_2 UStringPrepProfile_DRAFT_API_DO_NOT_USE
-#define usprep_open_3_2 usprep_open_DRAFT_API_DO_NOT_USE
-#define usprep_close_3_2 usprep_close_DRAFT_API_DO_NOT_USE
-#define usprep_prepare_3_2 usprep_prepare_DRAFT_API_DO_NOT_USE
-#define U_IS_BMP_3_2 U_IS_BMP_DRAFT_API_DO_NOT_USE
-#define U_IS_SUPPLEMENTARY_3_2 U_IS_SUPPLEMENTARY_DRAFT_API_DO_NOT_USE
-#define UDateTimeScale_3_2 UDateTimeScale_DRAFT_API_DO_NOT_USE
-#define UDTS_JAVA_TIME_3_2 UDTS_JAVA_TIME_DRAFT_API_DO_NOT_USE
-#define UDTS_UNIX_TIME_3_2 UDTS_UNIX_TIME_DRAFT_API_DO_NOT_USE
-#define UDTS_ICU4C_TIME_3_2 UDTS_ICU4C_TIME_DRAFT_API_DO_NOT_USE
-#define UDTS_WINDOWS_FILE_TIME_3_2 UDTS_WINDOWS_FILE_TIME_DRAFT_API_DO_NOT_USE
-#define UDTS_WINDOWS_DATE_TIME_3_2 UDTS_WINDOWS_DATE_TIME_DRAFT_API_DO_NOT_USE
-#define UDTS_MAC_OLD_TIME_3_2 UDTS_MAC_OLD_TIME_DRAFT_API_DO_NOT_USE
-#define UDTS_MAC_TIME_3_2 UDTS_MAC_TIME_DRAFT_API_DO_NOT_USE
-#define UDTS_EXCEL_TIME_3_2 UDTS_EXCEL_TIME_DRAFT_API_DO_NOT_USE
-#define UDTS_DB2_TIME_3_2 UDTS_DB2_TIME_DRAFT_API_DO_NOT_USE
-#define UDTS_MAX_SCALE_3_2 UDTS_MAX_SCALE_DRAFT_API_DO_NOT_USE
-#define UDateTimeScale_3_2 UDateTimeScale_DRAFT_API_DO_NOT_USE
-#define UTSV_UNITS_VALUE_3_2 UTSV_UNITS_VALUE_DRAFT_API_DO_NOT_USE
-#define UTSV_EPOCH_OFFSET_VALUE_3_2 UTSV_EPOCH_OFFSET_VALUE_DRAFT_API_DO_NOT_USE
-#define UTSV_FROM_MIN_VALUE_3_2 UTSV_FROM_MIN_VALUE_DRAFT_API_DO_NOT_USE
-#define UTSV_FROM_MAX_VALUE_3_2 UTSV_FROM_MAX_VALUE_DRAFT_API_DO_NOT_USE
-#define UTSV_TO_MIN_VALUE_3_2 UTSV_TO_MIN_VALUE_DRAFT_API_DO_NOT_USE
-#define UTSV_TO_MAX_VALUE_3_2 UTSV_TO_MAX_VALUE_DRAFT_API_DO_NOT_USE
-#define UTSV_EPOCH_OFFSET_PLUS_1_VALUE_3_2 UTSV_EPOCH_OFFSET_PLUS_1_VALUE_DRAFT_API_DO_NOT_USE
-#define UTSV_EPOCH_OFFSET_MINUS_1_VALUE_3_2 UTSV_EPOCH_OFFSET_MINUS_1_VALUE_DRAFT_API_DO_NOT_USE
-#define utmscale_getTimeScaleValue_3_2 utmscale_getTimeScaleValue_DRAFT_API_DO_NOT_USE
-#define utmscale_fromInt64_3_2 utmscale_fromInt64_DRAFT_API_DO_NOT_USE
-#define utmscale_toInt64_3_2 utmscale_toInt64_DRAFT_API_DO_NOT_USE
-#define UTraceLevel_3_2 UTraceLevel_DRAFT_API_DO_NOT_USE
-#define UTraceFunctionNumber_3_2 UTraceFunctionNumber_DRAFT_API_DO_NOT_USE
-#define UTraceEntry_3_2 UTraceEntry_DRAFT_API_DO_NOT_USE
-#define UTraceExit_3_2 UTraceExit_DRAFT_API_DO_NOT_USE
-#define UTraceData_3_2 UTraceData_DRAFT_API_DO_NOT_USE
-#define UTRACE_OFF_3_2 UTRACE_OFF_DRAFT_API_DO_NOT_USE
-#define UTRACE_ERROR_3_2 UTRACE_ERROR_DRAFT_API_DO_NOT_USE
-#define UTRACE_WARNING_3_2 UTRACE_WARNING_DRAFT_API_DO_NOT_USE
-#define UTRACE_OPEN_CLOSE_3_2 UTRACE_OPEN_CLOSE_DRAFT_API_DO_NOT_USE
-#define UTRACE_INFO_3_2 UTRACE_INFO_DRAFT_API_DO_NOT_USE
-#define UTRACE_VERBOSE_3_2 UTRACE_VERBOSE_DRAFT_API_DO_NOT_USE
-#define UTraceLevel_3_2 UTraceLevel_DRAFT_API_DO_NOT_USE
-#define UTraceFunctionNumber_3_2 UTraceFunctionNumber_DRAFT_API_DO_NOT_USE
-#define utrace_setLevel_3_2 utrace_setLevel_DRAFT_API_DO_NOT_USE
-#define utrace_getLevel_3_2 utrace_getLevel_DRAFT_API_DO_NOT_USE
-#define utrace_setFunctions_3_2 utrace_setFunctions_DRAFT_API_DO_NOT_USE
-#define utrace_getFunctions_3_2 utrace_getFunctions_DRAFT_API_DO_NOT_USE
-#define utrace_vformat_3_2 utrace_vformat_DRAFT_API_DO_NOT_USE
-#define utrace_format_3_2 utrace_format_DRAFT_API_DO_NOT_USE
-#define utrace_functionName_3_2 utrace_functionName_DRAFT_API_DO_NOT_USE
-#define utrans_openU_3_2 utrans_openU_DRAFT_API_DO_NOT_USE
-#define utrans_getUnicodeID_3_2 utrans_getUnicodeID_DRAFT_API_DO_NOT_USE
-#define utrans_unregisterID_3_2 utrans_unregisterID_DRAFT_API_DO_NOT_USE
-#define utrans_openIDs_3_2 utrans_openIDs_DRAFT_API_DO_NOT_USE
-#define U_DATA_API_3_2 U_DATA_API_DRAFT_API_DO_NOT_USE
-#define unistr_3_2 unistr_DRAFT_API_DO_NOT_USE
-#define UnicodeSet_3_2 UnicodeSet_DRAFT_API_DO_NOT_USE
-#define UnicodeString_3_2 UnicodeString_DRAFT_API_DO_NOT_USE
+#    if U_DISABLE_RENAMING
+#        define u_fclose u_fclose_DRAFT_API_DO_NOT_USE
+#        define u_feof u_feof_DRAFT_API_DO_NOT_USE
+#        define u_fflush u_fflush_DRAFT_API_DO_NOT_USE
+#        define u_fgetConverter u_fgetConverter_DRAFT_API_DO_NOT_USE
+#        define u_fgetc u_fgetc_DRAFT_API_DO_NOT_USE
+#        define u_fgetcodepage u_fgetcodepage_DRAFT_API_DO_NOT_USE
+#        define u_fgetcx u_fgetcx_DRAFT_API_DO_NOT_USE
+#        define u_fgetfile u_fgetfile_DRAFT_API_DO_NOT_USE
+#        define u_fgetlocale u_fgetlocale_DRAFT_API_DO_NOT_USE
+#        define u_fgets u_fgets_DRAFT_API_DO_NOT_USE
+#        define u_file_read u_file_read_DRAFT_API_DO_NOT_USE
+#        define u_file_write u_file_write_DRAFT_API_DO_NOT_USE
+#        define u_finit u_finit_DRAFT_API_DO_NOT_USE
+#        define u_fopen u_fopen_DRAFT_API_DO_NOT_USE
+#        define u_fprintf u_fprintf_DRAFT_API_DO_NOT_USE
+#        define u_fprintf_u u_fprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_fputc u_fputc_DRAFT_API_DO_NOT_USE
+#        define u_fputs u_fputs_DRAFT_API_DO_NOT_USE
+#        define u_frewind u_frewind_DRAFT_API_DO_NOT_USE
+#        define u_fscanf u_fscanf_DRAFT_API_DO_NOT_USE
+#        define u_fscanf_u u_fscanf_u_DRAFT_API_DO_NOT_USE
+#        define u_fsetcodepage u_fsetcodepage_DRAFT_API_DO_NOT_USE
+#        define u_fsetlocale u_fsetlocale_DRAFT_API_DO_NOT_USE
+#        define u_fsettransliterator u_fsettransliterator_DRAFT_API_DO_NOT_USE
+#        define u_fstropen u_fstropen_DRAFT_API_DO_NOT_USE
+#        define u_fungetc u_fungetc_DRAFT_API_DO_NOT_USE
+#        define u_snprintf u_snprintf_DRAFT_API_DO_NOT_USE
+#        define u_snprintf_u u_snprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_sprintf u_sprintf_DRAFT_API_DO_NOT_USE
+#        define u_sprintf_u u_sprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_sscanf u_sscanf_DRAFT_API_DO_NOT_USE
+#        define u_sscanf_u u_sscanf_u_DRAFT_API_DO_NOT_USE
+#        define u_strFromUTF8Lenient u_strFromUTF8Lenient_DRAFT_API_DO_NOT_USE
+#        define u_strFromUTF8WithSub u_strFromUTF8WithSub_DRAFT_API_DO_NOT_USE
+#        define u_strToUTF8WithSub u_strToUTF8WithSub_DRAFT_API_DO_NOT_USE
+#        define u_vfprintf u_vfprintf_DRAFT_API_DO_NOT_USE
+#        define u_vfprintf_u u_vfprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_vfscanf u_vfscanf_DRAFT_API_DO_NOT_USE
+#        define u_vfscanf_u u_vfscanf_u_DRAFT_API_DO_NOT_USE
+#        define u_vsnprintf u_vsnprintf_DRAFT_API_DO_NOT_USE
+#        define u_vsnprintf_u u_vsnprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_vsprintf u_vsprintf_DRAFT_API_DO_NOT_USE
+#        define u_vsprintf_u u_vsprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_vsscanf u_vsscanf_DRAFT_API_DO_NOT_USE
+#        define u_vsscanf_u u_vsscanf_u_DRAFT_API_DO_NOT_USE
+#        define ubidi_getProcessedLength ubidi_getProcessedLength_DRAFT_API_DO_NOT_USE
+#        define ubidi_getReorderingMode ubidi_getReorderingMode_DRAFT_API_DO_NOT_USE
+#        define ubidi_getReorderingOptions ubidi_getReorderingOptions_DRAFT_API_DO_NOT_USE
+#        define ubidi_getResultLength ubidi_getResultLength_DRAFT_API_DO_NOT_USE
+#        define ubidi_setReorderingMode ubidi_setReorderingMode_DRAFT_API_DO_NOT_USE
+#        define ubidi_setReorderingOptions ubidi_setReorderingOptions_DRAFT_API_DO_NOT_USE
+#        define ubrk_setUText ubrk_setUText_DRAFT_API_DO_NOT_USE
+#        define ucal_getGregorianChange ucal_getGregorianChange_DRAFT_API_DO_NOT_USE
+#        define ucal_setGregorianChange ucal_setGregorianChange_DRAFT_API_DO_NOT_USE
+#        define ucasemap_close ucasemap_close_DRAFT_API_DO_NOT_USE
+#        define ucasemap_getLocale ucasemap_getLocale_DRAFT_API_DO_NOT_USE
+#        define ucasemap_getOptions ucasemap_getOptions_DRAFT_API_DO_NOT_USE
+#        define ucasemap_open ucasemap_open_DRAFT_API_DO_NOT_USE
+#        define ucasemap_setLocale ucasemap_setLocale_DRAFT_API_DO_NOT_USE
+#        define ucasemap_setOptions ucasemap_setOptions_DRAFT_API_DO_NOT_USE
+#        define ucasemap_utf8ToLower ucasemap_utf8ToLower_DRAFT_API_DO_NOT_USE
+#        define ucasemap_utf8ToUpper ucasemap_utf8ToUpper_DRAFT_API_DO_NOT_USE
+#        define ucnv_fromUCountPending ucnv_fromUCountPending_DRAFT_API_DO_NOT_USE
+#        define ucnv_setSubstString ucnv_setSubstString_DRAFT_API_DO_NOT_USE
+#        define ucnv_toUCountPending ucnv_toUCountPending_DRAFT_API_DO_NOT_USE
+#        define ucol_getContractionsAndExpansions ucol_getContractionsAndExpansions_DRAFT_API_DO_NOT_USE
+#        define ucsdet_close ucsdet_close_DRAFT_API_DO_NOT_USE
+#        define ucsdet_detect ucsdet_detect_DRAFT_API_DO_NOT_USE
+#        define ucsdet_detectAll ucsdet_detectAll_DRAFT_API_DO_NOT_USE
+#        define ucsdet_enableInputFilter ucsdet_enableInputFilter_DRAFT_API_DO_NOT_USE
+#        define ucsdet_getAllDetectableCharsets ucsdet_getAllDetectableCharsets_DRAFT_API_DO_NOT_USE
+#        define ucsdet_getConfidence ucsdet_getConfidence_DRAFT_API_DO_NOT_USE
+#        define ucsdet_getLanguage ucsdet_getLanguage_DRAFT_API_DO_NOT_USE
+#        define ucsdet_getName ucsdet_getName_DRAFT_API_DO_NOT_USE
+#        define ucsdet_getUChars ucsdet_getUChars_DRAFT_API_DO_NOT_USE
+#        define ucsdet_isInputFilterEnabled ucsdet_isInputFilterEnabled_DRAFT_API_DO_NOT_USE
+#        define ucsdet_open ucsdet_open_DRAFT_API_DO_NOT_USE
+#        define ucsdet_setDeclaredEncoding ucsdet_setDeclaredEncoding_DRAFT_API_DO_NOT_USE
+#        define ucsdet_setText ucsdet_setText_DRAFT_API_DO_NOT_USE
+#        define udata_setFileAccess udata_setFileAccess_DRAFT_API_DO_NOT_USE
+#        define ulocdata_close ulocdata_close_DRAFT_API_DO_NOT_USE
+#        define ulocdata_getDelimiter ulocdata_getDelimiter_DRAFT_API_DO_NOT_USE
+#        define ulocdata_getExemplarSet ulocdata_getExemplarSet_DRAFT_API_DO_NOT_USE
+#        define ulocdata_getNoSubstitute ulocdata_getNoSubstitute_DRAFT_API_DO_NOT_USE
+#        define ulocdata_open ulocdata_open_DRAFT_API_DO_NOT_USE
+#        define ulocdata_setNoSubstitute ulocdata_setNoSubstitute_DRAFT_API_DO_NOT_USE
+#        define ures_getUTF8String ures_getUTF8String_DRAFT_API_DO_NOT_USE
+#        define ures_getUTF8StringByIndex ures_getUTF8StringByIndex_DRAFT_API_DO_NOT_USE
+#        define ures_getUTF8StringByKey ures_getUTF8StringByKey_DRAFT_API_DO_NOT_USE
+#        define uset_addAllCodePoints uset_addAllCodePoints_DRAFT_API_DO_NOT_USE
+#        define uset_containsAllCodePoints uset_containsAllCodePoints_DRAFT_API_DO_NOT_USE
+#        define utext_char32At utext_char32At_DRAFT_API_DO_NOT_USE
+#        define utext_clone utext_clone_DRAFT_API_DO_NOT_USE
+#        define utext_close utext_close_DRAFT_API_DO_NOT_USE
+#        define utext_copy utext_copy_DRAFT_API_DO_NOT_USE
+#        define utext_current32 utext_current32_DRAFT_API_DO_NOT_USE
+#        define utext_equals utext_equals_DRAFT_API_DO_NOT_USE
+#        define utext_extract utext_extract_DRAFT_API_DO_NOT_USE
+#        define utext_freeze utext_freeze_DRAFT_API_DO_NOT_USE
+#        define utext_getNativeIndex utext_getNativeIndex_DRAFT_API_DO_NOT_USE
+#        define utext_getPreviousNativeIndex utext_getPreviousNativeIndex_DRAFT_API_DO_NOT_USE
+#        define utext_hasMetaData utext_hasMetaData_DRAFT_API_DO_NOT_USE
+#        define utext_isLengthExpensive utext_isLengthExpensive_DRAFT_API_DO_NOT_USE
+#        define utext_isWritable utext_isWritable_DRAFT_API_DO_NOT_USE
+#        define utext_moveIndex32 utext_moveIndex32_DRAFT_API_DO_NOT_USE
+#        define utext_nativeLength utext_nativeLength_DRAFT_API_DO_NOT_USE
+#        define utext_next32 utext_next32_DRAFT_API_DO_NOT_USE
+#        define utext_next32From utext_next32From_DRAFT_API_DO_NOT_USE
+#        define utext_openUChars utext_openUChars_DRAFT_API_DO_NOT_USE
+#        define utext_openUTF8 utext_openUTF8_DRAFT_API_DO_NOT_USE
+#        define utext_previous32 utext_previous32_DRAFT_API_DO_NOT_USE
+#        define utext_previous32From utext_previous32From_DRAFT_API_DO_NOT_USE
+#        define utext_replace utext_replace_DRAFT_API_DO_NOT_USE
+#        define utext_setNativeIndex utext_setNativeIndex_DRAFT_API_DO_NOT_USE
+#        define utext_setup utext_setup_DRAFT_API_DO_NOT_USE
+#    else
+#        define u_fclose_3_6 u_fclose_DRAFT_API_DO_NOT_USE
+#        define u_feof_3_6 u_feof_DRAFT_API_DO_NOT_USE
+#        define u_fflush_3_6 u_fflush_DRAFT_API_DO_NOT_USE
+#        define u_fgetConverter_3_6 u_fgetConverter_DRAFT_API_DO_NOT_USE
+#        define u_fgetc_3_6 u_fgetc_DRAFT_API_DO_NOT_USE
+#        define u_fgetcodepage_3_6 u_fgetcodepage_DRAFT_API_DO_NOT_USE
+#        define u_fgetcx_3_6 u_fgetcx_DRAFT_API_DO_NOT_USE
+#        define u_fgetfile_3_6 u_fgetfile_DRAFT_API_DO_NOT_USE
+#        define u_fgetlocale_3_6 u_fgetlocale_DRAFT_API_DO_NOT_USE
+#        define u_fgets_3_6 u_fgets_DRAFT_API_DO_NOT_USE
+#        define u_file_read_3_6 u_file_read_DRAFT_API_DO_NOT_USE
+#        define u_file_write_3_6 u_file_write_DRAFT_API_DO_NOT_USE
+#        define u_finit_3_6 u_finit_DRAFT_API_DO_NOT_USE
+#        define u_fopen_3_6 u_fopen_DRAFT_API_DO_NOT_USE
+#        define u_fprintf_3_6 u_fprintf_DRAFT_API_DO_NOT_USE
+#        define u_fprintf_u_3_6 u_fprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_fputc_3_6 u_fputc_DRAFT_API_DO_NOT_USE
+#        define u_fputs_3_6 u_fputs_DRAFT_API_DO_NOT_USE
+#        define u_frewind_3_6 u_frewind_DRAFT_API_DO_NOT_USE
+#        define u_fscanf_3_6 u_fscanf_DRAFT_API_DO_NOT_USE
+#        define u_fscanf_u_3_6 u_fscanf_u_DRAFT_API_DO_NOT_USE
+#        define u_fsetcodepage_3_6 u_fsetcodepage_DRAFT_API_DO_NOT_USE
+#        define u_fsetlocale_3_6 u_fsetlocale_DRAFT_API_DO_NOT_USE
+#        define u_fsettransliterator_3_6 u_fsettransliterator_DRAFT_API_DO_NOT_USE
+#        define u_fstropen_3_6 u_fstropen_DRAFT_API_DO_NOT_USE
+#        define u_fungetc_3_6 u_fungetc_DRAFT_API_DO_NOT_USE
+#        define u_snprintf_3_6 u_snprintf_DRAFT_API_DO_NOT_USE
+#        define u_snprintf_u_3_6 u_snprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_sprintf_3_6 u_sprintf_DRAFT_API_DO_NOT_USE
+#        define u_sprintf_u_3_6 u_sprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_sscanf_3_6 u_sscanf_DRAFT_API_DO_NOT_USE
+#        define u_sscanf_u_3_6 u_sscanf_u_DRAFT_API_DO_NOT_USE
+#        define u_strFromUTF8Lenient_3_6 u_strFromUTF8Lenient_DRAFT_API_DO_NOT_USE
+#        define u_strFromUTF8WithSub_3_6 u_strFromUTF8WithSub_DRAFT_API_DO_NOT_USE
+#        define u_strToUTF8WithSub_3_6 u_strToUTF8WithSub_DRAFT_API_DO_NOT_USE
+#        define u_vfprintf_3_6 u_vfprintf_DRAFT_API_DO_NOT_USE
+#        define u_vfprintf_u_3_6 u_vfprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_vfscanf_3_6 u_vfscanf_DRAFT_API_DO_NOT_USE
+#        define u_vfscanf_u_3_6 u_vfscanf_u_DRAFT_API_DO_NOT_USE
+#        define u_vsnprintf_3_6 u_vsnprintf_DRAFT_API_DO_NOT_USE
+#        define u_vsnprintf_u_3_6 u_vsnprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_vsprintf_3_6 u_vsprintf_DRAFT_API_DO_NOT_USE
+#        define u_vsprintf_u_3_6 u_vsprintf_u_DRAFT_API_DO_NOT_USE
+#        define u_vsscanf_3_6 u_vsscanf_DRAFT_API_DO_NOT_USE
+#        define u_vsscanf_u_3_6 u_vsscanf_u_DRAFT_API_DO_NOT_USE
+#        define ubidi_getProcessedLength_3_6 ubidi_getProcessedLength_DRAFT_API_DO_NOT_USE
+#        define ubidi_getReorderingMode_3_6 ubidi_getReorderingMode_DRAFT_API_DO_NOT_USE
+#        define ubidi_getReorderingOptions_3_6 ubidi_getReorderingOptions_DRAFT_API_DO_NOT_USE
+#        define ubidi_getResultLength_3_6 ubidi_getResultLength_DRAFT_API_DO_NOT_USE
+#        define ubidi_setReorderingMode_3_6 ubidi_setReorderingMode_DRAFT_API_DO_NOT_USE
+#        define ubidi_setReorderingOptions_3_6 ubidi_setReorderingOptions_DRAFT_API_DO_NOT_USE
+#        define ubrk_setUText_3_6 ubrk_setUText_DRAFT_API_DO_NOT_USE
+#        define ucal_getGregorianChange_3_6 ucal_getGregorianChange_DRAFT_API_DO_NOT_USE
+#        define ucal_setGregorianChange_3_6 ucal_setGregorianChange_DRAFT_API_DO_NOT_USE
+#        define ucasemap_close_3_6 ucasemap_close_DRAFT_API_DO_NOT_USE
+#        define ucasemap_getLocale_3_6 ucasemap_getLocale_DRAFT_API_DO_NOT_USE
+#        define ucasemap_getOptions_3_6 ucasemap_getOptions_DRAFT_API_DO_NOT_USE
+#        define ucasemap_open_3_6 ucasemap_open_DRAFT_API_DO_NOT_USE
+#        define ucasemap_setLocale_3_6 ucasemap_setLocale_DRAFT_API_DO_NOT_USE
+#        define ucasemap_setOptions_3_6 ucasemap_setOptions_DRAFT_API_DO_NOT_USE
+#        define ucasemap_utf8ToLower_3_6 ucasemap_utf8ToLower_DRAFT_API_DO_NOT_USE
+#        define ucasemap_utf8ToUpper_3_6 ucasemap_utf8ToUpper_DRAFT_API_DO_NOT_USE
+#        define ucnv_fromUCountPending_3_6 ucnv_fromUCountPending_DRAFT_API_DO_NOT_USE
+#        define ucnv_setSubstString_3_6 ucnv_setSubstString_DRAFT_API_DO_NOT_USE
+#        define ucnv_toUCountPending_3_6 ucnv_toUCountPending_DRAFT_API_DO_NOT_USE
+#        define ucol_getContractionsAndExpansions_3_6 ucol_getContractionsAndExpansions_DRAFT_API_DO_NOT_USE
+#        define ucsdet_close_3_6 ucsdet_close_DRAFT_API_DO_NOT_USE
+#        define ucsdet_detectAll_3_6 ucsdet_detectAll_DRAFT_API_DO_NOT_USE
+#        define ucsdet_detect_3_6 ucsdet_detect_DRAFT_API_DO_NOT_USE
+#        define ucsdet_enableInputFilter_3_6 ucsdet_enableInputFilter_DRAFT_API_DO_NOT_USE
+#        define ucsdet_getAllDetectableCharsets_3_6 ucsdet_getAllDetectableCharsets_DRAFT_API_DO_NOT_USE
+#        define ucsdet_getConfidence_3_6 ucsdet_getConfidence_DRAFT_API_DO_NOT_USE
+#        define ucsdet_getLanguage_3_6 ucsdet_getLanguage_DRAFT_API_DO_NOT_USE
+#        define ucsdet_getName_3_6 ucsdet_getName_DRAFT_API_DO_NOT_USE
+#        define ucsdet_getUChars_3_6 ucsdet_getUChars_DRAFT_API_DO_NOT_USE
+#        define ucsdet_isInputFilterEnabled_3_6 ucsdet_isInputFilterEnabled_DRAFT_API_DO_NOT_USE
+#        define ucsdet_open_3_6 ucsdet_open_DRAFT_API_DO_NOT_USE
+#        define ucsdet_setDeclaredEncoding_3_6 ucsdet_setDeclaredEncoding_DRAFT_API_DO_NOT_USE
+#        define ucsdet_setText_3_6 ucsdet_setText_DRAFT_API_DO_NOT_USE
+#        define udata_setFileAccess_3_6 udata_setFileAccess_DRAFT_API_DO_NOT_USE
+#        define ulocdata_close_3_6 ulocdata_close_DRAFT_API_DO_NOT_USE
+#        define ulocdata_getDelimiter_3_6 ulocdata_getDelimiter_DRAFT_API_DO_NOT_USE
+#        define ulocdata_getExemplarSet_3_6 ulocdata_getExemplarSet_DRAFT_API_DO_NOT_USE
+#        define ulocdata_getNoSubstitute_3_6 ulocdata_getNoSubstitute_DRAFT_API_DO_NOT_USE
+#        define ulocdata_open_3_6 ulocdata_open_DRAFT_API_DO_NOT_USE
+#        define ulocdata_setNoSubstitute_3_6 ulocdata_setNoSubstitute_DRAFT_API_DO_NOT_USE
+#        define ures_getUTF8StringByIndex_3_6 ures_getUTF8StringByIndex_DRAFT_API_DO_NOT_USE
+#        define ures_getUTF8StringByKey_3_6 ures_getUTF8StringByKey_DRAFT_API_DO_NOT_USE
+#        define ures_getUTF8String_3_6 ures_getUTF8String_DRAFT_API_DO_NOT_USE
+#        define uset_addAllCodePoints_3_6 uset_addAllCodePoints_DRAFT_API_DO_NOT_USE
+#        define uset_containsAllCodePoints_3_6 uset_containsAllCodePoints_DRAFT_API_DO_NOT_USE
+#        define utext_char32At_3_6 utext_char32At_DRAFT_API_DO_NOT_USE
+#        define utext_clone_3_6 utext_clone_DRAFT_API_DO_NOT_USE
+#        define utext_close_3_6 utext_close_DRAFT_API_DO_NOT_USE
+#        define utext_copy_3_6 utext_copy_DRAFT_API_DO_NOT_USE
+#        define utext_current32_3_6 utext_current32_DRAFT_API_DO_NOT_USE
+#        define utext_equals_3_6 utext_equals_DRAFT_API_DO_NOT_USE
+#        define utext_extract_3_6 utext_extract_DRAFT_API_DO_NOT_USE
+#        define utext_freeze_3_6 utext_freeze_DRAFT_API_DO_NOT_USE
+#        define utext_getNativeIndex_3_6 utext_getNativeIndex_DRAFT_API_DO_NOT_USE
+#        define utext_getPreviousNativeIndex_3_6 utext_getPreviousNativeIndex_DRAFT_API_DO_NOT_USE
+#        define utext_hasMetaData_3_6 utext_hasMetaData_DRAFT_API_DO_NOT_USE
+#        define utext_isLengthExpensive_3_6 utext_isLengthExpensive_DRAFT_API_DO_NOT_USE
+#        define utext_isWritable_3_6 utext_isWritable_DRAFT_API_DO_NOT_USE
+#        define utext_moveIndex32_3_6 utext_moveIndex32_DRAFT_API_DO_NOT_USE
+#        define utext_nativeLength_3_6 utext_nativeLength_DRAFT_API_DO_NOT_USE
+#        define utext_next32From_3_6 utext_next32From_DRAFT_API_DO_NOT_USE
+#        define utext_next32_3_6 utext_next32_DRAFT_API_DO_NOT_USE
+#        define utext_openUChars_3_6 utext_openUChars_DRAFT_API_DO_NOT_USE
+#        define utext_openUTF8_3_6 utext_openUTF8_DRAFT_API_DO_NOT_USE
+#        define utext_previous32From_3_6 utext_previous32From_DRAFT_API_DO_NOT_USE
+#        define utext_previous32_3_6 utext_previous32_DRAFT_API_DO_NOT_USE
+#        define utext_replace_3_6 utext_replace_DRAFT_API_DO_NOT_USE
+#        define utext_setNativeIndex_3_6 utext_setNativeIndex_DRAFT_API_DO_NOT_USE
+#        define utext_setup_3_6 utext_setup_DRAFT_API_DO_NOT_USE
+#    endif /* U_DISABLE_RENAMING */
 
 #endif /* U_HIDE_DRAFT_API */
 #endif /* UDRAFT_H */

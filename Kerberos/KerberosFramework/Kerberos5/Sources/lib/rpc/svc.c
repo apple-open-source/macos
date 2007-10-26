@@ -41,6 +41,7 @@ static char sccsid[] = "@(#)svc.c 1.41 87/10/13 Copyr 1984 Sun Micro";
  * Copyright (C) 1984, Sun Microsystems, Inc.
  */
 
+#include "autoconf.h"
 #if HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
@@ -519,9 +520,9 @@ svc_do_xprt(SVCXPRT *xprt)
 		if ((stat = SVC_STAT(xprt)) == XPRT_DIED){
 			SVC_DESTROY(xprt);
 			break;
- 		} else if ((xprt->xp_auth != NULL) &&
- 			   (xprt->xp_auth->svc_ah_ops != &svc_auth_gss_ops)) {
- 			xprt->xp_auth = NULL;
+		} else if ((xprt->xp_auth != NULL) &&
+			   (xprt->xp_auth->svc_ah_ops != &svc_auth_gss_ops)) {
+			xprt->xp_auth = NULL;
 		}
 	} while (stat == XPRT_MOREREQS);
 

@@ -32,6 +32,11 @@ class TkListbox<TkTextWin
   #end
   #private :create_self
 
+  def __tkvariable_optkeys
+    super() << 'listvariable'
+  end
+  private :__tkvariable_optkeys
+
   def tagid(id)
     #id.to_s
     _get_eval_string(id)
@@ -46,7 +51,8 @@ class TkListbox<TkTextWin
   end
   def get(first, last=nil)
     if last
-      tk_split_simplelist(_fromUTF8(tk_send_without_enc('get', first, last)))
+      # tk_split_simplelist(_fromUTF8(tk_send_without_enc('get', first, last)))
+      tk_split_simplelist(tk_send_without_enc('get', first, last), false, true)
     else
       _fromUTF8(tk_send_without_enc('get', first))
     end
@@ -73,8 +79,8 @@ class TkListbox<TkTextWin
     self
   end
 
-  def index(index)
-    tk_send_without_enc('index', index).to_i
+  def index(idx)
+    tk_send_without_enc('index', idx).to_i
   end
 
   def value

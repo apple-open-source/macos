@@ -62,16 +62,16 @@ addfile(char *name)
 	if ((fp = fopen(name, "r")) == NULL)
 		err(1, "%s", name);
 	while (fgets(buf, sizeof(buf), fp)) {
-		if (!(p = index(buf, '\n'))) {
+		if (!(p = (unsigned char *)index(buf, '\n'))) {
 			warnx("line too long");
 			while ((ch = getchar()) != '\n' && ch != EOF);
 			continue;
 		}
 		*p = '\0';
-		for (p = buf; *p && isspace(*p); ++p);
+		for (p = (unsigned char *)buf; *p && isspace(*p); ++p);
 		if (!*p || *p == '#')
 			continue;
-		add(p);
+		add((const char *)p);
 	}
 	(void)fclose(fp);
 }
@@ -95,7 +95,7 @@ add(const char *fmt)
 	nextfu = &tfs->nextfu;
 
 	/* take the format string and break it up into format units */
-	for (p = fmt;;) {
+	for (p = (unsigned const char *)fmt;;) {
 		/* skip leading white space */
 		for (; isspace(*p); ++p);
 		if (!*p)
@@ -114,7 +114,7 @@ add(const char *fmt)
 			if (!isspace(*p) && *p != '/')
 				badfmt(fmt);
 			/* may overwrite either white space or slash */
-			tfu->reps = atoi(savep);
+			tfu->reps = atoi((const char *)savep);
 			tfu->flags = F_SETREP;
 			/* skip trailing white space */
 			for (++p; isspace(*p); ++p);
@@ -129,7 +129,7 @@ add(const char *fmt)
 			for (savep = p; isdigit(*p); ++p);
 			if (!isspace(*p))
 				badfmt(fmt);
-			tfu->bcnt = atoi(savep);
+			tfu->bcnt = atoi((const char *)savep);
 			/* skip trailing white space */
 			for (++p; isspace(*p); ++p);
 		}
@@ -142,7 +142,7 @@ add(const char *fmt)
 				badfmt(fmt);
 		if (!(tfu->fmt = malloc(p - savep + 1)))
 			err(1, NULL);
-		(void) strncpy(tfu->fmt, savep, p - savep);
+		(void) strncpy(tfu->fmt, (const char *)savep, p - savep);
 		tfu->fmt[p - savep] = '\0';
 		escape(tfu->fmt);
 		p++;
@@ -165,7 +165,7 @@ size(FS *fs)
 			cursize += fu->bcnt * fu->reps;
 			continue;
 		}
-		for (bcnt = prec = 0, fmt = fu->fmt; *fmt; ++fmt) {
+		for (bcnt = prec = 0, fmt = (unsigned char *)fu->fmt; *fmt; ++fmt) {
 			if (*fmt != '%')
 				continue;
 			/*
@@ -174,7 +174,7 @@ size(FS *fs)
 			 */
 			while (index(spec + 1, *++fmt));
 			if (*fmt == '.' && isdigit(*++fmt)) {
-				prec = atoi(fmt);
+				prec = atoi((const char *)fmt);
 				while (isdigit(*++fmt));
 			}
 			switch(*fmt) {
@@ -208,18 +208,18 @@ void
 rewrite(FS *fs)
 {
 	enum { NOTOKAY, USEBCNT, USEPREC } sokay;
-	PR *pr, **nextpr;
+	PR *pr, **nextpr = NULL;
 	FU *fu;
 	unsigned char *p1, *p2, *fmtp;
 	char savech, cs[3];
-	int nconv, prec;
+	int nconv, prec = 0;
 
 	for (fu = fs->nextfu; fu; fu = fu->nextfu) {
 		/*
 		 * Break each format unit into print units; each conversion
 		 * character gets its own.
 		 */
-		for (nconv = 0, fmtp = fu->fmt; *fmtp; nextpr = &pr->nextpr) {
+		for (nconv = 0, fmtp = (unsigned char *)fu->fmt; *fmtp; nextpr = &pr->nextpr) {
 			if ((pr = calloc(1, sizeof(PR))) == NULL)
 				err(1, NULL);
 			if (!fu->nextpr)
@@ -232,7 +232,7 @@ rewrite(FS *fs)
 
 			/* Only text in the string. */
 			if (!*p1) {
-				pr->fmt = fmtp;
+				pr->fmt = (char *)fmtp;
 				pr->flags = F_TEXT;
 				break;
 			}
@@ -250,7 +250,7 @@ rewrite(FS *fs)
 				while (index(spec + 1, *++p1));
 				if (*p1 == '.' && isdigit(*++p1)) {
 					sokay = USEPREC;
-					prec = atoi(p1);
+					prec = atoi((const char *)p1);
 					while (isdigit(*++p1));
 				} else
 					sokay = NOTOKAY;
@@ -274,7 +274,7 @@ rewrite(FS *fs)
 					break;
 				default:
 					p1[1] = '\0';
-					badcnt(p1);
+					badcnt((char *)p1);
 				}
 				break;
 			case 'd': case 'i':
@@ -297,7 +297,7 @@ isint:				cs[2] = '\0';
 					break;
 				default:
 					p1[1] = '\0';
-					badcnt(p1);
+					badcnt((char *)p1);
 				}
 				break;
 			case 'e': case 'E': case 'f': case 'g': case 'G':
@@ -317,7 +317,7 @@ isint:				cs[2] = '\0';
 						pr->bcnt = sizeof(long double);
 					} else {
 						p1[1] = '\0';
-						badcnt(p1);
+						badcnt((char *)p1);
 					}
 				}
 				break;
@@ -352,7 +352,7 @@ isint:				cs[2] = '\0';
 						break;
 					default:
 						p1[3] = '\0';
-						badconv(p1);
+						badconv((char *)p1);
 					}
 					break;
 				case 'c':
@@ -372,24 +372,24 @@ isint2:					switch(fu->bcnt) {
 						break;
 					default:
 						p1[2] = '\0';
-						badcnt(p1);
+						badcnt((char *)p1);
 					}
 					break;
 				case 'n': /* Force -A n to dump extra blank line like default od behavior */
 					endfu = fu;
 					fu->flags = F_IGNORE;
 					pr->flags = F_TEXT;
-					fmtp = "\n";
+					fmtp = (unsigned char *)"\n";
 					cs[0] = '\0';
 					break;
 				default:
 					p1[2] = '\0';
-					badconv(p1);
+					badconv((char *)p1);
 				}
 				break;
 			default:
 				p1[1] = '\0';
-				badconv(p1);
+				badconv((char *)p1);
 			}
 
 			/*
@@ -398,9 +398,9 @@ isint2:					switch(fu->bcnt) {
 			 */
 			savech = *p2;
 			p1[0] = '\0';
-			if ((pr->fmt = calloc(1, strlen(fmtp) + 2)) == NULL)
+			if ((pr->fmt = calloc(1, strlen((const char *)fmtp) + 2)) == NULL)
 				err(1, NULL);
-			(void)strcpy(pr->fmt, fmtp);
+			(void)strcpy(pr->fmt, (const char *)fmtp);
 			(void)strcat(pr->fmt, cs);
 			*p2 = savech;
 			pr->cchar = pr->fmt + (p1 - fmtp);
@@ -435,10 +435,10 @@ isint2:					switch(fu->bcnt) {
 			for (pr = fu->nextpr;; pr = pr->nextpr)
 				if (!pr->nextpr)
 					break;
-			for (p1 = pr->fmt, p2 = NULL; *p1; ++p1)
+			for (p1 = (unsigned char *)pr->fmt, p2 = NULL; *p1; ++p1)
 				p2 = isspace(*p1) ? p1 : NULL;
 			if (p2)
-				pr->nospace = p2;
+				pr->nospace = (char *)p2;
 		}
 	}
 #ifdef DEBUG

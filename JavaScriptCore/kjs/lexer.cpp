@@ -26,7 +26,6 @@
 #include "lexer.h"
 
 #include <ctype.h>
-#include <limits.h>
 #include <string.h>
 
 #include "function.h"

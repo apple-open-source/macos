@@ -1,3 +1,4 @@
+<testcase>
 #
 # Server-side
 <reply>
@@ -8,7 +9,7 @@ Content-Length: 6
 Content-Type: text/html
 Funny-head: yesyes
 
-<foo>
+-foo-
 </data>
 </reply>
 
@@ -35,9 +36,9 @@ HTTP URL with escaped { and }
 <protocol>
 GET /{}\/214 HTTP/1.1
 Host: %HOSTIP:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 
 </protocol>
 
 </verify>
+</testcase>

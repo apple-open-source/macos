@@ -6,7 +6,7 @@
 /* SYNOPSIS
 /*	\fBpipe\fR [generic Postfix daemon options] command_attributes...
 /* DESCRIPTION
-/*	The \fBpipe\fR daemon processes requests from the Postfix queue
+/*	The \fBpipe\fR(8) daemon processes requests from the Postfix queue
 /*	manager to deliver messages to external commands.
 /*	This program expects to be run from the \fBmaster\fR(8) process
 /*	manager.
@@ -15,7 +15,7 @@
 /*	next-hop host name can be specified as command-line macros that are
 /*	expanded before the external command is executed.
 /*
-/*	The \fBpipe\fR daemon updates queue files and marks recipients
+/*	The \fBpipe\fR(8) daemon updates queue files and marks recipients
 /*	as finished, or it informs the queue manager that delivery should
 /*	be tried again at a later time. Delivery status reports are sent
 /*	to the \fBbounce\fR(8), \fBdefer\fR(8) or \fBtrace\fR(8) daemon as
@@ -24,14 +24,15 @@
 /* .ad
 /* .fi
 /*	Some external commands cannot handle more than one recipient
-/*	per delivery request. Examples of such transports are pagers,
-/*	fax machines, and so on.
+/*	per delivery request. Examples of such transports are pagers
+/*	or fax machines.
 /*
 /*	To prevent Postfix from sending multiple recipients per delivery
 /*	request, specify
-/*
-/* .ti +4
-/*	\fItransport\fB_destination_recipient_limit = 1\fR
+/* .sp
+/* .nf
+/*	    \fItransport\fB_destination_recipient_limit = 1\fR
+/* .fi
 /*
 /*	in the Postfix \fBmain.cf\fR file, where \fItransport\fR
 /*	is the name in the first column of the Postfix \fBmaster.cf\fR
@@ -41,6 +42,27 @@
 /* .fi
 /*	The external command attributes are given in the \fBmaster.cf\fR
 /*	file at the end of a service definition.  The syntax is as follows:
+/* .IP "\fBchroot=\fIpathname\fR (optional)"
+/*	Change the process root directory and working directory to
+/*	the named directory. This happens before switching to the
+/*	privileges specified with the \fBuser\fR attribute, and
+/*	before executing the optional \fBdirectory=\fIpathname\fR
+/*	directive. Delivery is deferred in case of failure.
+/* .sp
+/*	This feature is available as of Postfix 2.3.
+/* .IP "\fBdirectory=\fIpathname\fR (optional)"
+/*	Change to the named directory before executing the external command.
+/*	The directory must be accessible for the user specified with the
+/*	\fBuser\fR attribute (see below).
+/*	The default working directory is \fB$queue_directory\fR.
+/*	Delivery is deferred in case of failure.
+/* .sp
+/*	This feature is available as of Postfix 2.2.
+/* .IP "\fBeol=\fIstring\fR (optional, default: \fB\en\fR)"
+/*	The output record delimiter. Typically one would use either
+/*	\fB\er\en\fR or \fB\en\fR. The usual C-style backslash escape
+/*	sequences are recognized: \fB\ea \eb \ef \en \er \et \ev
+/*	\e\fIddd\fR (up to three octal digits) and \fB\e\e\fR.
 /* .IP "\fBflags=BDFORhqu.>\fR (optional)"
 /*	Optional message processing flags. By default, a message is
 /*	copied unchanged.
@@ -53,6 +75,8 @@
 /*	Prepend a "\fBDelivered-To: \fIrecipient\fR" message header with the
 /*	envelope recipient address. Note: for this to work, the
 /*	\fItransport\fB_destination_recipient_limit\fR must be 1.
+/* .sp
+/*	This feature is available as of Postfix 2.0.
 /* .IP \fBF\fR
 /*	Prepend a "\fBFrom \fIsender time_stamp\fR" envelope header to
 /*	the message content.
@@ -61,6 +85,8 @@
 /*	Prepend an "\fBX-Original-To: \fIrecipient\fR" message header
 /*	with the recipient address as given to Postfix. Note: for this to
 /*	work, the \fItransport\fB_destination_recipient_limit\fR must be 1.
+/* .sp
+/*	This feature is available as of Postfix 2.0.
 /* .IP \fBR\fR
 /*	Prepend a \fBReturn-Path:\fR message header with the envelope sender
 /*	address.
@@ -76,7 +102,7 @@
 /*	This is recommended for delivery via \fBUUCP\fR or \fBBSMTP\fR.
 /* .sp
 /*	The result is compatible with the address parsing of command-line
-/*	recipients by the Postfix \fBsendmail\fR mail submission command.
+/*	recipients by the Postfix \fBsendmail\fR(1) mail submission command.
 /* .sp
 /*	The \fBq\fR flag affects only entire addresses, not the partial
 /*	address information from the \fB$user\fR, \fB$extension\fR or
@@ -86,28 +112,55 @@
 /*	the left of the right-most \fB@\fR character) to lower case.
 /*	This is recommended for delivery via \fBUUCP\fR.
 /* .IP \fB.\fR
-/*	Prepend \fB.\fR to lines starting with "\fB.\fR". This is needed
+/*	Prepend "\fB.\fR" to lines starting with "\fB.\fR". This is needed
 /*	by, for example, \fBBSMTP\fR software.
 /* .IP \fB>\fR
-/*	Prepend \fB>\fR to lines starting with "\fBFrom \fR". This is expected
+/*	Prepend "\fB>\fR" to lines starting with "\fBFrom \fR". This is expected
 /*	by, for example, \fBUUCP\fR software.
 /* .RE
+/* .IP "\fBnull_sender\fR=\fIreplacement\fR (default: MAILER-DAEMON)"
+/*	Replace the null sender address (typically used for delivery
+/*	status notifications) with the specified text
+/*	when expanding the \fB$sender\fR command-line macro, and
+/*	when generating a From_ or Return-Path: message header.
+/*
+/*	If the null sender replacement text is a non-empty string
+/*	then it is affected by the \fBq\fR flag for address quoting
+/*	in command-line arguments.
+/*
+/*	The null sender replacement text may be empty; this form
+/*	is recommended for content filters that feed mail back into
+/*	Postfix. The empty sender address is not affected by the
+/*	\fBq\fR flag for address quoting in command-line arguments.
+/* .sp
+/*	Caution: a null sender address is easily mis-parsed by
+/*	naive software. For example, when the \fBpipe\fR(8) daemon
+/*	executes a command such as:
+/* .sp
+/* .nf
+/*	    command -f$sender -- $recipient (\fIbad\fR)
+/* .fi
+/* .IP
+/*	the command will mis-parse the -f option value when the
+/*	sender address is a null string.  For correct parsing,
+/*	specify \fB$sender\fR as an argument by itself:
+/* .sp
+/* .nf
+/*	    command -f $sender -- $recipient (\fIgood\fR)
+/* .fi
+/* .IP
+/*	This feature is available with Postfix 2.3 and later.
+/* .IP "\fBsize\fR=\fIsize_limit\fR (optional)"
+/*	Messages greater in size than this limit (in bytes) will
+/*	be returned to the sender as undeliverable.
 /* .IP "\fBuser\fR=\fIusername\fR (required)"
 /* .IP "\fBuser\fR=\fIusername\fR:\fIgroupname\fR"
-/*	The external command is executed with the rights of the
+/*	Execute the external command with the rights of the
 /*	specified \fIusername\fR.  The software refuses to execute
 /*	commands with root privileges, or with the privileges of the
 /*	mail system owner. If \fIgroupname\fR is specified, the
 /*	corresponding group ID is used instead of the group ID of
 /*	\fIusername\fR.
-/* .IP "\fBeol=string\fR (optional, default: \fB\en\fR)"
-/*	The output record delimiter. Typically one would use either
-/*	\fB\er\en\fR or \fB\en\fR. The usual C-style backslash escape
-/*	sequences are recognized: \fB\ea \eb \ef \en \er \et \ev
-/*	\e\fIoctal\fR and \fB\e\e\fR.
-/* .IP "\fBsize\fR=\fIsize_limit\fR (optional)"
-/*	Messages greater in size than this limit (in bytes) will be bounced
-/*	back to the sender.
 /* .IP "\fBargv\fR=\fIcommand\fR... (required)"
 /*	The command to be executed. This must be specified as the
 /*	last command attribute.
@@ -116,8 +169,28 @@
 /* .sp
 /*	In the command argument vector, the following macros are recognized
 /*	and replaced with corresponding information from the Postfix queue
-/*	manager delivery request:
+/*	manager delivery request.
+/* .sp
+/*	In addition to the form ${\fIname\fR}, the forms $\fIname\fR and
+/*	$(\fIname\fR) are also recognized.  Specify \fB$$\fR where a single
+/*	\fB$\fR is wanted.
 /* .RS
+/* .IP \fB${\fBclient_address\fR}\fR
+/*	This macro expands to the remote client network address.
+/* .sp
+/*	This is available in Postfix 2.2 and later.
+/* .IP \fB${\fBclient_helo\fR}\fR
+/*	This macro expands to the remote client HELO command parameter.
+/* .sp
+/*	This is available in Postfix 2.2 and later.
+/* .IP \fB${\fBclient_hostname\fR}\fR
+/*	This macro expands to the remote client hostname.
+/* .sp
+/*	This is available in Postfix 2.2 and later.
+/* .IP \fB${\fBclient_protocol\fR}\fR
+/*	This macro expands to the remote client protocol.
+/* .sp
+/*	This is available in Postfix 2.2 and later.
 /* .IP \fB${\fBextension\fR}\fR
 /*	This macro expands to the extension part of a recipient address.
 /*	For example, with an address \fIuser+foo@domain\fR the extension is
@@ -133,7 +206,7 @@
 /*	\fIuser+foo\fR.
 /* .sp
 /*	A command-line argument that contains \fB${\fBmailbox\fR}\fR
-/*	expands into as many command-line arguments as there are recipients.
+/*	expands to as many command-line arguments as there are recipients.
 /* .sp
 /*	This information is modified by the \fBu\fR flag for case folding.
 /* .IP \fB${\fBnexthop\fR}\fR
@@ -144,12 +217,32 @@
 /*	This macro expands to the complete recipient address.
 /* .sp
 /*	A command-line argument that contains \fB${\fBrecipient\fR}\fR
-/*	expands into as many command-line arguments as there are recipients.
+/*	expands to as many command-line arguments as there are recipients.
 /* .sp
 /*	This information is modified by the \fBhqu\fR flags for quoting
 /*	and case folding.
+/* .IP \fB${\fBsasl_method\fR}\fR
+/*	This macro expands to the SASL authentication mechanism used
+/*	during the reception of the message. An empty string is passed
+/*	if the message has been received without SASL authentication.
+/* .sp
+/*	This is available in Postfix 2.2 and later.
+/* .IP \fB${\fBsasl_sender\fR}\fR
+/*	This macro expands to the SASL sender name (i.e. the original
+/*	submitter as per RFC 2554) used during the reception of the message.
+/* .sp
+/*	This is available in Postfix 2.2 and later.
+/* .IP \fB${\fBsasl_username\fR}\fR
+/*	This macro expands to the SASL user name used during the reception
+/*	of the message. An empty string is passed if the message has been
+/*	received without SASL authentication.
+/* .sp
+/*	This is available in Postfix 2.2 and later.
 /* .IP \fB${\fBsender\fR}\fR
-/*	This macro expands to the envelope sender address.
+/*	This macro expands to the envelope sender address. By default,
+/*	the null sender address expands to MAILER-DAEMON; this can
+/*	be changed with the \fBnull_sender\fR attribute, as described
+/*	above.
 /* .sp
 /*	This information is modified by the \fBq\fR flag for quoting.
 /* .IP \fB${\fBsize\fR}\fR
@@ -165,13 +258,18 @@
 /* .sp
 /*	This information is modified by the \fBu\fR flag for case folding.
 /* .RE
-/* .PP
-/*	In addition to the form ${\fIname\fR}, the forms $\fIname\fR and
-/*	$(\fIname\fR) are also recognized.  Specify \fB$$\fR where a single
-/*	\fB$\fR is wanted.
+/* STANDARDS
+/*	RFC 3463 (Enhanced status codes)
 /* DIAGNOSTICS
 /*	Command exit status codes are expected to
 /*	follow the conventions defined in <\fBsysexits.h\fR>.
+/*	Exit status 0 means normal successful completion.
+/*
+/*	Postfix version 2.3 and later support RFC 3463-style enhanced
+/*	status codes.  If a command terminates with a non-zero exit
+/*	status, and the command output begins with an enhanced
+/*	status code, this status code takes precedence over the
+/*	non-zero exit status.
 /*
 /*	Problems and transactions are logged to \fBsyslogd\fR(8).
 /*	Corrupted message files are marked so that the queue manager
@@ -185,12 +283,12 @@
 /* CONFIGURATION PARAMETERS
 /* .ad
 /* .fi
-/*	Changes to \fBmain.cf\fR are picked up automatically as pipe(8)
+/*	Changes to \fBmain.cf\fR are picked up automatically as \fBpipe\fR(8)
 /*	processes run for only a limited amount of time. Use the command
 /*	"\fBpostfix reload\fR" to speed up a change.
 /*
 /*	The text below provides only a parameter summary. See
-/*	postconf(5) for more details including examples.
+/*	\fBpostconf\fR(5) for more details including examples.
 /* RESOURCE AND RATE CONTROLS
 /* .ad
 /* .fi
@@ -208,6 +306,10 @@
 /*	Limit the time for delivery to external command, for delivery via
 /*	the named \fItransport\fR.
 /*	The limit is enforced by the pipe delivery agent.
+/*
+/*	Postfix 2.4 and later support a suffix that specifies the
+/*	time unit: s (seconds), m (minutes), h (hours), d (days),
+/*	w (weeks). The default time unit is seconds.
 /* MISCELLANEOUS CONTROLS
 /* .ad
 /* .fi
@@ -217,6 +319,9 @@
 /* .IP "\fBdaemon_timeout (18000s)\fR"
 /*	How much time a Postfix daemon process may take to handle a
 /*	request before it is terminated by a built-in watchdog timer.
+/* .IP "\fBdelay_logging_resolution_limit (2)\fR"
+/*	The maximal number of digits after the decimal point when logging
+/*	sub-second delay values.
 /* .IP "\fBexport_environment (see 'postconf -d' output)\fR"
 /*	The list of environment variables that a Postfix process will export
 /*	to non-Postfix processes.
@@ -227,11 +332,11 @@
 /*	The UNIX system account that owns the Postfix queue and most Postfix
 /*	daemon processes.
 /* .IP "\fBmax_idle (100s)\fR"
-/*	The maximum amount of time that an idle Postfix daemon process
-/*	waits for the next service request before exiting.
+/*	The maximum amount of time that an idle Postfix daemon process waits
+/*	for an incoming connection before terminating voluntarily.
 /* .IP "\fBmax_use (100)\fR"
-/*	The maximal number of connection requests before a Postfix daemon
-/*	process terminates.
+/*	The maximal number of incoming connections that a Postfix daemon
+/*	process will service before terminating voluntarily.
 /* .IP "\fBprocess_id (read-only)\fR"
 /*	The process ID of a Postfix command or daemon process.
 /* .IP "\fBprocess_name (read-only)\fR"
@@ -249,6 +354,7 @@
 /*	qmgr(8), queue manager
 /*	bounce(8), delivery status reports
 /*	postconf(5), configuration parameters
+/*	master(5), generic daemon options
 /*	master(8), process manager
 /*	syslogd(8), system logging
 /* LICENSE
@@ -297,6 +403,7 @@
 #include <recipient_list.h>
 #include <deliver_request.h>
 #include <mail_params.h>
+#include <mail_version.h>
 #include <mail_conf.h>
 #include <bounce.h>
 #include <defer.h>
@@ -310,6 +417,9 @@
 #include <off_cvt.h>
 #include <quote_822_local.h>
 #include <flush_clnt.h>
+#include <dsn_util.h>
+#include <dsn_buf.h>
+#include <sys_exits.h>
 
 /* Single server skeleton. */
 
@@ -332,6 +442,13 @@
 #define PIPE_DICT_EXTENSION	"extension"	/* key */
 #define PIPE_DICT_MAILBOX	"mailbox"	/* key */
 #define PIPE_DICT_SIZE		"size"	/* key */
+#define PIPE_DICT_CLIENT_ADDR	"client_address"	/* key */
+#define PIPE_DICT_CLIENT_NAME	"client_hostname"	/* key */
+#define PIPE_DICT_CLIENT_PROTO	"client_protocol"	/* key */
+#define PIPE_DICT_CLIENT_HELO	"client_helo"	/* key */
+#define PIPE_DICT_SASL_METHOD	"sasl_method"	/* key */
+#define PIPE_DICT_SASL_USERNAME	"sasl_username"	/* key */
+#define PIPE_DICT_SASL_SENDER	"sasl_sender"	/* key */
 
  /*
   * Flags used to pass back the type of special parameter found by
@@ -378,7 +495,10 @@ typedef struct {
     uid_t   uid;			/* command privileges */
     gid_t   gid;			/* command privileges */
     int     flags;			/* mail_copy() flags */
+    char   *exec_dir;			/* working directory */
+    char   *chroot_dir;			/* chroot directory */
     VSTRING *eol;			/* output record delimiter */
+    VSTRING *null_sender;		/* null sender expansion */
     off_t   size_limit;			/* max size in bytes we will accept */
 } PIPE_ATTR;
 
@@ -412,6 +532,13 @@ static int parse_callback(int type, VSTRING *buf, char *context)
 	PIPE_DICT_EXTENSION, PIPE_FLAG_EXTENSION,
 	PIPE_DICT_MAILBOX, PIPE_FLAG_MAILBOX,
 	PIPE_DICT_SIZE, 0,
+	PIPE_DICT_CLIENT_ADDR, 0,
+	PIPE_DICT_CLIENT_NAME, 0,
+	PIPE_DICT_CLIENT_PROTO, 0,
+	PIPE_DICT_CLIENT_HELO, 0,
+	PIPE_DICT_SASL_METHOD, 0,
+	PIPE_DICT_SASL_USERNAME, 0,
+	PIPE_DICT_SASL_SENDER, 0,
 	0, 0,
     };
     struct cmd_flags *p;
@@ -464,6 +591,7 @@ static void morph_recipient(VSTRING *buf, const char *address, int flags)
 	    *cp = '@';
 	    break;
 	}
+	/* FALLTHROUGH */
     case PIPE_OPT_FOLD_USER | PIPE_OPT_FOLD_HOST:
 	lowercase(STR(buf));
 	break;
@@ -588,13 +716,13 @@ static ARGV *expand_argv(const char *service, char **argv,
 
 static void get_service_params(PIPE_PARAMS *config, char *service)
 {
-    char   *myname = "get_service_params";
+    const char *myname = "get_service_params";
 
     /*
      * Figure out the command time limit for this transport.
      */
     config->time_limit =
-	get_mail_conf_int2(service, "_time_limit", var_command_maxtime, 1, 0);
+	get_mail_conf_time2(service, "_time_limit", var_command_maxtime, 's', 1, 0);
 
     /*
      * Give the poor tester a clue of what is going on.
@@ -607,7 +735,7 @@ static void get_service_params(PIPE_PARAMS *config, char *service)
 
 static void get_service_attr(PIPE_ATTR *attr, char **argv)
 {
-    char   *myname = "get_service_attr";
+    const char *myname = "get_service_attr";
     struct passwd *pwd;
     struct group *grp;
     char   *user;			/* user name */
@@ -622,7 +750,10 @@ static void get_service_attr(PIPE_ATTR *attr, char **argv)
     group = 0;
     attr->command = 0;
     attr->flags = 0;
+    attr->exec_dir = 0;
+    attr->chroot_dir = 0;
     attr->eol = vstring_strcpy(vstring_alloc(1), "\n");
+    attr->null_sender = vstring_strcpy(vstring_alloc(1), MAIL_ADDR_MAIL_DAEMON);
     attr->size_limit = 0;
 
     /*
@@ -694,10 +825,31 @@ static void get_service_attr(PIPE_ATTR *attr, char **argv)
 	}
 
 	/*
+	 * directory=string
+	 */
+	else if (strncasecmp("directory=", *argv, sizeof("directory=") - 1) == 0) {
+	    attr->exec_dir = mystrdup(*argv + sizeof("directory=") - 1);
+	}
+
+	/*
+	 * chroot=string
+	 */
+	else if (strncasecmp("chroot=", *argv, sizeof("chroot=") - 1) == 0) {
+	    attr->chroot_dir = mystrdup(*argv + sizeof("chroot=") - 1);
+	}
+
+	/*
 	 * eol=string
 	 */
 	else if (strncasecmp("eol=", *argv, sizeof("eol=") - 1) == 0) {
 	    unescape(attr->eol, *argv + sizeof("eol=") - 1);
+	}
+
+	/*
+	 * null_sender=string
+	 */
+	else if (strncasecmp("null_sender=", *argv, sizeof("eol=") - 1) == 0) {
+	    vstring_strcpy(attr->null_sender, *argv + sizeof("null_sender=") - 1);
 	}
 
 	/*
@@ -756,7 +908,7 @@ static void get_service_attr(PIPE_ATTR *attr, char **argv)
 
 static int eval_command_status(int command_status, char *service,
 			             DELIVER_REQUEST *request, VSTREAM *src,
-			               char *why)
+			               DSN_BUF *why)
 {
     RECIPIENT *rcpt;
     int     status;
@@ -769,45 +921,52 @@ static int eval_command_status(int command_status, char *service,
      */
     switch (command_status) {
     case PIPE_STAT_OK:
+	dsb_update(why, "2.0.0", "relayed", DSB_SKIP_RMTA, DSB_SKIP_REPLY,
+		   "delivered via %s service", service);
+	(void) DSN_FROM_DSN_BUF(why);
 	for (n = 0; n < request->rcpt_list.len; n++) {
 	    rcpt = request->rcpt_list.info + n;
 	    status = sent(DEL_REQ_TRACE_FLAGS(request->flags),
-			  request->queue_id, rcpt->orig_addr,
-			  rcpt->address, rcpt->offset, service,
-			  request->arrival_time, "%s", request->nexthop);
+			  request->queue_id, &request->msg_stats, rcpt,
+			  service, &why->dsn);
 	    if (status == 0 && (request->flags & DEL_REQ_FLAG_SUCCESS))
 		deliver_completed(src, rcpt->offset);
 	    result |= status;
 	}
 	break;
     case PIPE_STAT_BOUNCE:
-	for (n = 0; n < request->rcpt_list.len; n++) {
-	    rcpt = request->rcpt_list.info + n;
-	    status = bounce_append(DEL_REQ_TRACE_FLAGS(request->flags),
-				   request->queue_id, rcpt->orig_addr,
-				   rcpt->address, rcpt->offset, service,
-				   request->arrival_time, "%s", why);
-	    if (status == 0)
-		deliver_completed(src, rcpt->offset);
-	    result |= status;
-	}
-	break;
     case PIPE_STAT_DEFER:
-	for (n = 0; n < request->rcpt_list.len; n++) {
-	    rcpt = request->rcpt_list.info + n;
-	    result |= defer_append(DEL_REQ_TRACE_FLAGS(request->flags),
-				   request->queue_id, rcpt->orig_addr,
-				   rcpt->address, rcpt->offset, service,
-				   request->arrival_time, "%s", why);
+	(void) DSN_FROM_DSN_BUF(why);
+	if (STR(why->status)[0] != '4') {
+	    for (n = 0; n < request->rcpt_list.len; n++) {
+		rcpt = request->rcpt_list.info + n;
+		status = bounce_append(DEL_REQ_TRACE_FLAGS(request->flags),
+				       request->queue_id,
+				       &request->msg_stats, rcpt,
+				       service, &why->dsn);
+		if (status == 0)
+		    deliver_completed(src, rcpt->offset);
+		result |= status;
+	    }
+	} else {
+	    for (n = 0; n < request->rcpt_list.len; n++) {
+		rcpt = request->rcpt_list.info + n;
+		result |= defer_append(DEL_REQ_TRACE_FLAGS(request->flags),
+				       request->queue_id,
+				       &request->msg_stats, rcpt,
+				       service, &why->dsn);
+	    }
 	}
 	break;
     case PIPE_STAT_CORRUPT:
+	/* XXX DSN should we send something? */
 	result |= DEL_STAT_DEFER;
 	break;
     default:
 	msg_panic("eval_command_status: bad status %d", command_status);
 	/* NOTREACHED */
     }
+
     return (result);
 }
 
@@ -815,40 +974,25 @@ static int eval_command_status(int command_status, char *service,
 
 static int deliver_message(DELIVER_REQUEST *request, char *service, char **argv)
 {
-    char   *myname = "deliver_message";
+    const char *myname = "deliver_message";
     static PIPE_PARAMS conf;
     static PIPE_ATTR attr;
     RECIPIENT_LIST *rcpt_list = &request->rcpt_list;
-    VSTRING *why = vstring_alloc(100);
+    DSN_BUF *why = dsb_create();
     VSTRING *buf;
     ARGV   *expanded_argv = 0;
     int     deliver_status;
     int     command_status;
     ARGV   *export_env;
+    const char *sender;
 
 #define DELIVER_MSG_CLEANUP() { \
-	vstring_free(why); \
+	dsb_free(why); \
 	if (expanded_argv) argv_free(expanded_argv); \
     }
 
     if (msg_verbose)
 	msg_info("%s: from <%s>", myname, request->sender);
-
-    /*
-     * First of all, replace an empty sender address by the mailer daemon
-     * address. The resolver already fixes empty recipient addresses.
-     * 
-     * XXX Should sender and recipient be transformed into external (i.e.
-     * quoted) form? Problem is that the quoting rules are transport
-     * specific. Such information must evidently not be hard coded into
-     * Postfix, but would have to be provided in the form of lookup tables.
-     */
-    if (request->sender[0] == 0) {
-	buf = vstring_alloc(100);
-	canon_addr_internal(buf, MAIL_ADDR_MAIL_DAEMON);
-	myfree(request->sender);
-	request->sender = vstring_export(buf);
-    }
 
     /*
      * Sanity checks. The get_service_params() and get_service_attr()
@@ -869,9 +1013,9 @@ static int deliver_message(DELIVER_REQUEST *request, char *service, char **argv)
      * The D flag cannot be specified for multi-recipient deliveries.
      */
     if ((attr.flags & MAIL_COPY_DELIVERED) && (rcpt_list->len > 1)) {
+	dsb_simple(why, "4.3.5", "mail system configuration error");
 	deliver_status = eval_command_status(PIPE_STAT_DEFER, service,
-					     request, request->fp,
-					     "mailer configuration error");
+					     request, request->fp, why);
 	msg_warn("pipe flag `D' requires %s_destination_recipient_limit = 1",
 		 service);
 	DELIVER_MSG_CLEANUP();
@@ -882,9 +1026,9 @@ static int deliver_message(DELIVER_REQUEST *request, char *service, char **argv)
      * The O flag cannot be specified for multi-recipient deliveries.
      */
     if ((attr.flags & MAIL_COPY_ORIG_RCPT) && (rcpt_list->len > 1)) {
+	dsb_simple(why, "4.3.5", "mail system configuration error");
 	deliver_status = eval_command_status(PIPE_STAT_DEFER, service,
-					     request, request->fp,
-					     "mailer configuration error");
+					     request, request->fp, why);
 	msg_warn("pipe flag `O' requires %s_destination_recipient_limit = 1",
 		 service);
 	DELIVER_MSG_CLEANUP();
@@ -898,9 +1042,9 @@ static int deliver_message(DELIVER_REQUEST *request, char *service, char **argv)
 	if (msg_verbose)
 	    msg_info("%s: too big: size_limit = %ld, request->data_size = %ld",
 		     myname, (long) attr.size_limit, request->data_size);
-
+	dsb_simple(why, "5.2.3", "message too large");
 	deliver_status = eval_command_status(PIPE_STAT_BOUNCE, service,
-				 request, request->fp, "message too large");
+					     request, request->fp, why);
 	DELIVER_MSG_CLEANUP();
 	return (deliver_status);
     }
@@ -914,13 +1058,13 @@ static int deliver_message(DELIVER_REQUEST *request, char *service, char **argv)
 	int     n;
 
 	deliver_status = 0;
+	dsb_simple(why, "2.0.0", "delivers to command: %s", attr.command[0]);
+	(void) DSN_FROM_DSN_BUF(why);
 	for (n = 0; n < request->rcpt_list.len; n++) {
 	    rcpt = request->rcpt_list.info + n;
 	    status = sent(DEL_REQ_TRACE_FLAGS(request->flags),
-			  request->queue_id, rcpt->orig_addr,
-			  rcpt->address, rcpt->offset, service,
-			  request->arrival_time,
-			  "delivers to command: %s", attr.command[0]);
+			  request->queue_id, &request->msg_stats,
+			  rcpt, service, &why->dsn);
 	    if (status == 0 && (request->flags & DEL_REQ_FLAG_SUCCESS))
 		deliver_completed(request->fp, rcpt->offset);
 	    deliver_status |= status;
@@ -938,12 +1082,16 @@ static int deliver_message(DELIVER_REQUEST *request, char *service, char **argv)
     if (vstream_fseek(request->fp, request->data_offset, SEEK_SET) < 0)
 	msg_fatal("seek queue file %s: %m", VSTREAM_PATH(request->fp));
 
+    /*
+     * A non-empty null sender replacement is subject to the 'q' flag.
+     */
     buf = vstring_alloc(10);
-    if (attr.flags & PIPE_OPT_QUOTE_LOCAL) {
-	quote_822_local(buf, request->sender);
+    sender = *request->sender ? request->sender : STR(attr.null_sender);
+    if (*sender && (attr.flags & PIPE_OPT_QUOTE_LOCAL)) {
+	quote_822_local(buf, sender);
 	dict_update(PIPE_DICT_TABLE, PIPE_DICT_SENDER, STR(buf));
     } else
-	dict_update(PIPE_DICT_TABLE, PIPE_DICT_SENDER, request->sender);
+	dict_update(PIPE_DICT_TABLE, PIPE_DICT_SENDER, sender);
     if (attr.flags & PIPE_OPT_FOLD_HOST) {
 	vstring_strcpy(buf, request->nexthop);
 	lowercase(STR(buf));
@@ -952,13 +1100,27 @@ static int deliver_message(DELIVER_REQUEST *request, char *service, char **argv)
 	dict_update(PIPE_DICT_TABLE, PIPE_DICT_NEXTHOP, request->nexthop);
     vstring_sprintf(buf, "%ld", (long) request->data_size);
     dict_update(PIPE_DICT_TABLE, PIPE_DICT_SIZE, STR(buf));
+    dict_update(PIPE_DICT_TABLE, PIPE_DICT_CLIENT_ADDR,
+		request->client_addr);
+    dict_update(PIPE_DICT_TABLE, PIPE_DICT_CLIENT_HELO,
+		request->client_helo);
+    dict_update(PIPE_DICT_TABLE, PIPE_DICT_CLIENT_NAME,
+		request->client_name);
+    dict_update(PIPE_DICT_TABLE, PIPE_DICT_CLIENT_PROTO,
+		request->client_proto);
+    dict_update(PIPE_DICT_TABLE, PIPE_DICT_SASL_METHOD,
+		request->sasl_method);
+    dict_update(PIPE_DICT_TABLE, PIPE_DICT_SASL_USERNAME,
+		request->sasl_username);
+    dict_update(PIPE_DICT_TABLE, PIPE_DICT_SASL_SENDER,
+		request->sasl_sender);
     vstring_free(buf);
 
     if ((expanded_argv = expand_argv(service, attr.command,
 				     rcpt_list, attr.flags)) == 0) {
+	dsb_simple(why, "4.3.5", "mail system configuration error");
 	deliver_status = eval_command_status(PIPE_STAT_DEFER, service,
-					     request, request->fp,
-					     "mailer configuration error");
+					     request, request->fp, why);
 	DELIVER_MSG_CLEANUP();
 	return (deliver_status);
     }
@@ -967,19 +1129,21 @@ static int deliver_message(DELIVER_REQUEST *request, char *service, char **argv)
     command_status = pipe_command(request->fp, why,
 				  PIPE_CMD_UID, attr.uid,
 				  PIPE_CMD_GID, attr.gid,
-				  PIPE_CMD_SENDER, request->sender,
+				  PIPE_CMD_SENDER, sender,
 				  PIPE_CMD_COPY_FLAGS, attr.flags,
 				  PIPE_CMD_ARGV, expanded_argv->argv,
 				  PIPE_CMD_TIME_LIMIT, conf.time_limit,
 				  PIPE_CMD_EOL, STR(attr.eol),
 				  PIPE_CMD_EXPORT, export_env->argv,
+				  PIPE_CMD_CWD, attr.exec_dir,
+				  PIPE_CMD_CHROOT, attr.chroot_dir,
 			   PIPE_CMD_ORIG_RCPT, rcpt_list->info[0].orig_addr,
 			     PIPE_CMD_DELIVERED, rcpt_list->info[0].address,
 				  PIPE_CMD_END);
     argv_free(export_env);
 
     deliver_status = eval_command_status(command_status, service, request,
-					 request->fp, vstring_str(why));
+					 request->fp, why);
 
     /*
      * Clean up.
@@ -1036,6 +1200,8 @@ static void pre_init(char *unused_name, char **unused_argv)
     flush_init();
 }
 
+MAIL_VERSION_STAMP_DECLARE;
+
 /* main - pass control to the single-threaded skeleton */
 
 int     main(int argc, char **argv)
@@ -1045,10 +1211,16 @@ int     main(int argc, char **argv)
 	0,
     };
 
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
+
     single_server_main(argc, argv, pipe_service,
 		       MAIL_SERVER_TIME_TABLE, time_table,
 		       MAIL_SERVER_PRE_INIT, pre_init,
 		       MAIL_SERVER_POST_INIT, drop_privileges,
 		       MAIL_SERVER_PRE_ACCEPT, pre_accept,
+		       MAIL_SERVER_PRIVILEGED,
 		       0);
 }

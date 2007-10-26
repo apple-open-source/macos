@@ -1,4 +1,0 @@
-LIBRARY_STYLE = STATIC
-STRIP_ON_INSTALL = NO
-BEFORE_INSTALL += debug profile
-AFTER_INSTALL = after_install

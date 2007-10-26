@@ -46,19 +46,22 @@ static unsigned long address_func(
 
 static void count_func_symbols(
     struct nlist *symbols,
+    struct nlist_64 *symbols64,
     unsigned long nsymbols,
     char *strings,
     unsigned long strsize);
 
 static void load_func_symbols(
     struct nlist *symbols,
+    struct nlist_64 *symbols64,
     unsigned long nsymbols,
     char *strings,
     unsigned long strsize,
     unsigned long vmaddr_slide);
 
 static enum bool funcsymbol(
-    struct nlist *nlistp,
+    uint8_t n_type,
+    uint8_t n_sect,
     char *name);
 
 static int valcmp(
@@ -67,26 +70,34 @@ static int valcmp(
 
 static void count_N_SO_stabs(
     struct nlist *symbols,
+    struct nlist_64 *symbols64,
     unsigned long nsymbols,
     char *strings,
     unsigned long strsize);
 
 static void load_files(
     struct nlist *symbols,
+    struct nlist_64 *symbols64,
     unsigned long nsymbols,
     char *strings,
     unsigned long strsize);
+
+static struct arch_flag host_arch_flag;
 
 void
 getnfile(
 void)
 {
-    unsigned long i, j, text_highpc;
-    struct arch_flag host_arch_flag;
+    uint32_t i, j, ncmds;
+    uint64_t text_highpc;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s;
+    struct section_64 *s64;
     struct symtab_command *st;
+    struct nlist *symbols;
+    struct nlist_64 *symbols64;
 #ifdef notdef
     struct ofile lib_ofile;
     unsigned long k;
@@ -102,13 +113,56 @@ void)
 	if(get_arch_from_host(&host_arch_flag, NULL) == 0)
 	    fatal("can't determine the host architecture");
 
-	if(ofile_map(a_outname, &host_arch_flag, NULL, &ofile, FALSE) == FALSE)
+	if(ofile_map(a_outname, NULL, NULL, &ofile, FALSE) == FALSE)
 	    return;
 
-	if(ofile.mh == NULL ||
-	   (ofile.mh->filetype != MH_EXECUTE &&
-	    ofile.mh->filetype != MH_DYLIB &&
-	    ofile.mh->filetype != MH_DYLINKER))
+	/*
+	 * Pick the host architecture first if it is there, or the 64-bit
+	 * version of the host architecture next if it is there.
+	 */
+	if(ofile.file_type == OFILE_FAT){
+	    (void)ofile_first_arch(&ofile);
+	    do{
+		if(host_arch_flag.cputype == ofile.mh_cputype)
+		    goto good;
+	    }while(ofile_next_arch(&ofile) == TRUE);
+
+	    (void)ofile_first_arch(&ofile);
+	    do{
+		if((host_arch_flag.cputype | CPU_ARCH_ABI64) ==
+		   ofile.mh_cputype){
+		    host_arch_flag.cputype |= CPU_ARCH_ABI64;
+		    goto good;
+		}
+	    }while(ofile_next_arch(&ofile) == TRUE);
+
+	    error("file: %s does not contain the host architecture", a_outname);
+	    return;
+	}
+	else if(ofile.file_type == OFILE_ARCHIVE){
+	    error("file: %s is not an Mach-O file executable", a_outname);
+	    return;
+	}
+	else if(ofile.file_type == OFILE_Mach_O){
+	    if(host_arch_flag.cputype == ofile.mh_cputype)
+		goto good;
+	    if((host_arch_flag.cputype | CPU_ARCH_ABI64) == ofile.mh_cputype){
+		host_arch_flag.cputype |= CPU_ARCH_ABI64;
+		goto good;
+	    }
+	    error("file: %s is not of the host architecture", a_outname);
+	    return;
+	}
+	else{ /* ofile.file_type == OFILE_UNKNOWN */
+	    error("file: %s is not an Mach-O file executable", a_outname);
+	    return;
+	}
+good:
+
+	if((ofile.mh == NULL && ofile.mh64 == NULL) ||
+	   (ofile.mh_filetype != MH_EXECUTE &&
+	    ofile.mh_filetype != MH_DYLIB &&
+	    ofile.mh_filetype != MH_DYLINKER))
 	    fatal("file: %s is not a Mach-O executable file", a_outname);
 
 	/*
@@ -116,8 +170,15 @@ void)
 	 */
 	st = NULL;
 	lc = ofile.load_commands;
-	text_highpc = 0xfffffffe;
-	for(i = 0; i < ofile.mh->ncmds; i++){
+	if(ofile.mh != NULL){
+	    text_highpc = 0xfffffffe;
+	    ncmds = ofile.mh->ncmds;
+	}
+	else{
+	    text_highpc = 0xfffffffffffffffeULL;
+	    ncmds = ofile.mh64->ncmds;
+	}
+	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		s = (struct section *)
@@ -130,6 +191,20 @@ void)
 			text_highpc = s->addr + s->size;
 		    }
 		    s++;
+		}
+	    }
+	    else if(lc->cmd == LC_SEGMENT_64){
+		sg64 = (struct segment_command_64 *)lc;
+		s64 = (struct section_64 *)
+		      ((char *)sg64 + sizeof(struct segment_command_64));
+		for(j = 0; j < sg64->nsects; j++){
+		    if(strcmp(s64->sectname, SECT_TEXT) == 0 &&
+		       strcmp(s64->segname, SEG_TEXT) == 0){
+			textspace = (unsigned char *)ofile.object_addr +
+				    s64->offset;
+			text_highpc = s64->addr + s64->size;
+		    }
+		    s64++;
 		}
 	    }
 #ifdef notdef
@@ -185,11 +260,19 @@ done1:		;
 #endif
 	    else if(st == NULL && lc->cmd == LC_SYMTAB){
 		st = (struct symtab_command *)lc;
-		count_func_symbols((struct nlist *)
-				   (ofile.object_addr + st->symoff), st->nsyms,
+		if(ofile.mh != NULL){
+		    symbols = (struct nlist *)
+			      (ofile.object_addr + st->symoff);
+		    symbols64 = NULL;
+		}
+		else{
+		    symbols64 = (struct nlist_64 *)
+				(ofile.object_addr + st->symoff);
+		    symbols = NULL;
+		}
+		count_func_symbols(symbols, symbols64, st->nsyms,
 				   ofile.object_addr + st->stroff, st->strsize);
-		count_N_SO_stabs((struct nlist *)
-				 (ofile.object_addr + st->symoff), st->nsyms,
+		count_N_SO_stabs(symbols, symbols64, st->nsyms,
 				 ofile.object_addr + st->stroff, st->strsize);
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -215,12 +298,20 @@ done1:		;
 	 * Pass 2 load symbols and files.
 	 */
 	if(st != NULL){
-	    load_func_symbols((struct nlist *)
-			      (ofile.object_addr + st->symoff), st->nsyms,
-			       ofile.object_addr + st->stroff, st->strsize, 0);
-	    load_files((struct nlist *)
-		       (ofile.object_addr + st->symoff), st->nsyms,
-			ofile.object_addr + st->stroff, st->strsize);
+	    if(ofile.mh != NULL){
+		symbols = (struct nlist *)
+			  (ofile.object_addr + st->symoff);
+		symbols64 = NULL;
+	    }
+	    else{
+		symbols64 = (struct nlist_64 *)
+			    (ofile.object_addr + st->symoff);
+		symbols = NULL;
+	    }
+	    load_func_symbols(symbols, symbols64, st->nsyms,
+			      ofile.object_addr + st->stroff, st->strsize, 0);
+	    load_files(symbols, symbols64, st->nsyms,
+		       ofile.object_addr + st->stroff, st->strsize);
 	}
 #ifdef notdef
 	lc = ofile.load_commands;
@@ -256,7 +347,10 @@ done1:		;
 	npe++;
 	nname++;
 
-	npe->value = npe->svalue = 0xffffffff;
+	if(ofile.mh != NULL)
+	    npe->value = npe->svalue = 0xffffffff;
+	else
+	    npe->value = npe->svalue = 0xffffffffffffffffULL;
 	npe->name = "top of memory";
 
 	qsort(nl, nname, sizeof(nltype),
@@ -264,8 +358,12 @@ done1:		;
 #ifdef DEBUG
 	if(debug & AOUTDEBUG){
 	    for(i = 0; i < nname; i++){
-		printf("[getnfile] 0x%08x\t%s\n", (unsigned int)nl[i].value, 
-		       nl[i].name);
+		printf("[getnfile] ");
+		if(ofile.mh != NULL)
+		    printf("0x%08x", (unsigned int)nl[i].value);
+		else
+		    printf("%016llx", nl[i].value);
+		printf("\t%s\n", nl[i].name);
 	    }
 	}
 #endif /* DEBUG */
@@ -392,25 +490,26 @@ void
 get_dyld_state_symbols(
 void)
 {
-    unsigned long i, j, save_nname;
+    unsigned long i, j, save_nname, ncmds;
     struct ofile *ofiles;
-    struct arch_flag host_arch_flag;
     struct load_command *lc;
+    struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct symtab_command *st;
+    struct nlist *symbols;
+    struct nlist_64 *symbols64;
 
 	if(image_count == 0)
 	    return;
 	/*
 	 * Create an ofile for each image.
 	 */
-	if(get_arch_from_host(&host_arch_flag, NULL) == 0)
-	    fatal("can't determine the host architecture");
 	ofiles = allocate(image_count * sizeof(struct ofile));
 	for(i = 0; i < image_count; i++){
 	    if(ofile_map(dyld_images[i].name, &host_arch_flag, NULL, ofiles + i,
 			 FALSE) == 0)
 		fatal("ofile_map() failed");
-	    if(ofiles[i].mh == NULL)
+	    if(ofiles[i].mh == NULL && ofiles[i].mh64 == NULL)
 		fatal("file from dyld loaded state: %s is not a Mach-O file",
 		      dyld_images[i].name);
 	}
@@ -422,14 +521,43 @@ void)
 	for(i = 0; i < image_count; i++){
 	    st = NULL;
 	    lc = ofiles[i].load_commands;
-	    for(j = 0; j < ofiles[i].mh->ncmds; j++){
+	    if(ofiles[i].mh != NULL)
+		ncmds = ofiles[i].mh->ncmds;
+	    else
+		ncmds = ofiles[i].mh64->ncmds;
+	    for(j = 0; j < ncmds; j++){
 		if(st == NULL && lc->cmd == LC_SYMTAB){
 		    st = (struct symtab_command *)lc;
-		    count_func_symbols((struct nlist *)
-				       (ofiles[i].object_addr + st->symoff),
-				       st->nsyms,
+		    if(ofiles[i].mh != NULL){
+			symbols = (struct nlist *)
+				  (ofiles[i].object_addr + st->symoff);
+			symbols64 = NULL;
+		    }
+		    else{
+			symbols64 = (struct nlist_64 *)
+				    (ofiles[i].object_addr + st->symoff);
+			symbols = NULL;
+		    }
+		    count_func_symbols(symbols, symbols64, st->nsyms,
 				       ofiles[i].object_addr + st->stroff,
 				       st->strsize);
+		}
+		if(dyld_images[i].image_header != 0 &&
+		   dyld_images[i].vmaddr_slide == 0){
+		    if(lc->cmd == LC_SEGMENT){
+			sg = (struct segment_command *)lc;
+			if(sg->filesize != 0){
+			    dyld_images[i].vmaddr_slide = 
+				dyld_images[i].image_header - sg->vmaddr;
+			}
+		    }
+		    else if(lc->cmd == LC_SEGMENT_64){
+			sg64 = (struct segment_command_64 *)lc;
+			if(sg64->filesize != 0){
+			    dyld_images[i].vmaddr_slide = 
+				dyld_images[i].image_header - sg64->vmaddr;
+			}
+		    }
 		}
 		lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	    }
@@ -449,12 +577,24 @@ void)
 	for(i = 0; i < image_count; i++){
 	    st = NULL;
 	    lc = ofiles[i].load_commands;
-	    for(j = 0; j < ofiles[i].mh->ncmds; j++){
+	    if(ofiles[i].mh != NULL)
+		ncmds = ofiles[i].mh->ncmds;
+	    else
+		ncmds = ofiles[i].mh64->ncmds;
+	    for(j = 0; j < ncmds; j++){
 		if(st == NULL && lc->cmd == LC_SYMTAB){
 		    st = (struct symtab_command *)lc;
-		    load_func_symbols((struct nlist *)
-				      (ofiles[i].object_addr + st->symoff),
-				      st->nsyms,
+		    if(ofiles[i].mh != NULL){
+			symbols = (struct nlist *)
+				  (ofiles[i].object_addr + st->symoff);
+			symbols64 = NULL;
+		    }
+		    else{
+			symbols64 = (struct nlist_64 *)
+				    (ofiles[i].object_addr + st->symoff);
+			symbols = NULL;
+		    }
+		    load_func_symbols(symbols, symbols64, st->nsyms,
 				      ofiles[i].object_addr + st->stroff,
 				      st->strsize,
 				      dyld_images[i].vmaddr_slide);
@@ -465,8 +605,12 @@ void)
 #ifdef DEBUG
 	if(debug & DYLDDEBUG){
 	    for(i = save_nname + 1; i < nname + 1; i++){
-		printf("[get_dyld_state_symbols] 0x%08x\t%s\n",
-			(unsigned int)nl[i].value, nl[i].name);
+		printf("[get_dyld_state_symbols] ");
+		if(ofiles[0].mh != NULL)
+		    printf("0x%08x", (unsigned int)nl[i].value);
+		else
+		    printf("%016llx", nl[i].value);
+		printf("\t%s\n", nl[i].name);
 	    }
 	}
 #endif /* DEBUG */
@@ -482,16 +626,29 @@ static
 void
 count_func_symbols(
 struct nlist *symbols,
+struct nlist_64 *symbols64,
 unsigned long nsymbols,
 char *strings,
 unsigned long strsize)
 {
     unsigned long i;
+    uint32_t n_strx;
+    uint8_t n_type;
+    uint8_t n_sect;
 
 	for(i = 0; i < nsymbols; i++){
-	    if(symbols[i].n_un.n_strx != 0 &&
-	       (unsigned long)symbols[i].n_un.n_strx < strsize){
-		if(funcsymbol(symbols + i, strings + symbols[i].n_un.n_strx))
+	    if(symbols != NULL){
+		n_strx = symbols[i].n_un.n_strx;
+		n_type = symbols[i].n_type;
+		n_sect = symbols[i].n_sect;
+	    }
+	    else{
+		n_strx = symbols64[i].n_un.n_strx;
+		n_type = symbols64[i].n_type;
+		n_sect = symbols64[i].n_sect;
+	    }
+	    if(n_strx != 0 && n_strx < strsize){
+		if(funcsymbol(n_type, n_sect, strings + n_strx))
 		    nname++;
 	    }
 	}
@@ -501,19 +658,35 @@ static
 void
 load_func_symbols(
 struct nlist *symbols,
+struct nlist_64 *symbols64,
 unsigned long nsymbols,
 char *strings,
 unsigned long strsize,
 unsigned long vmaddr_slide)
 {
     unsigned long i;
+    uint32_t n_strx;
+    uint8_t n_type;
+    uint8_t n_sect;
+    uint64_t n_value;
 
 	for(i = 0; i < nsymbols; i++){
-	    if(symbols[i].n_un.n_strx != 0 &&
-	       (unsigned long)symbols[i].n_un.n_strx < strsize){
-		if(funcsymbol(symbols + i, strings + symbols[i].n_un.n_strx)){
-		    npe->value = symbols[i].n_value + vmaddr_slide;
-		    npe->name = strings + symbols[i].n_un.n_strx;
+	    if(symbols != NULL){
+		n_strx = symbols[i].n_un.n_strx;
+		n_type = symbols[i].n_type;
+		n_sect = symbols[i].n_sect;
+		n_value = symbols[i].n_value;
+	    }
+	    else{
+		n_strx = symbols64[i].n_un.n_strx;
+		n_type = symbols64[i].n_type;
+		n_sect = symbols64[i].n_sect;
+		n_value = symbols64[i].n_value;
+	    }
+	    if(n_strx != 0 && n_strx < strsize){
+		if(funcsymbol(n_type, n_sect, strings + n_strx)){
+		    npe->value = n_value + vmaddr_slide;
+		    npe->name = strings + n_strx;
 		    npe++;
 		}
 	    }
@@ -523,7 +696,8 @@ unsigned long vmaddr_slide)
 static
 enum bool
 funcsymbol(
-struct nlist *nlistp,
+uint8_t n_type,
+uint8_t n_sect,
 char *name)
 {
     int type;
@@ -532,14 +706,14 @@ char *name)
 	 *	must be a text symbol,
 	 *	and static text symbols don't qualify if aflag set.
 	 */
-	if(nlistp->n_type & N_STAB)
+	if(n_type & N_STAB)
 	    return(FALSE);
-	type = (nlistp->n_type & N_TYPE);
-	if(type == N_SECT && nlistp->n_sect == 1)
+	type = n_type & N_TYPE;
+	if(type == N_SECT && n_sect == 1)
 	    type = N_TEXT;
 	if(type != N_TEXT)
 	    return FALSE;
-	if((!(nlistp->n_type&N_EXT)) && aflag)
+	if((!(n_type & N_EXT)) && aflag)
 	    return(FALSE);
 	/*
 	 * can't have any `funny' characters in name,
@@ -573,19 +747,32 @@ static
 void
 count_N_SO_stabs(
 struct nlist *symbols,
+struct nlist_64 *symbols64,
 unsigned long nsymbols,
 char *strings,
 unsigned long strsize)
 {
     unsigned long i, len;
     char *name;
+    uint32_t n_strx;
+    uint8_t n_type;
+    uint64_t n_value;
 
 	for(i = 0; i < nsymbols; i++){
-	    if(symbols[i].n_type == N_SO){
+	    if(symbols != NULL){
+		n_strx = symbols[i].n_un.n_strx;
+		n_type = symbols[i].n_type;
+		n_value = symbols[i].n_value;
+	    }
+	    else{
+		n_strx = symbols64[i].n_un.n_strx;
+		n_type = symbols64[i].n_type;
+		n_value = symbols64[i].n_value;
+	    }
+	    if(n_type == N_SO){
 		/* skip the N_SO for the directory name that ends in a '/' */
-		if(symbols[i].n_un.n_strx != 0 &&
-		   (unsigned long)symbols[i].n_un.n_strx < strsize){
-		    name = strings + symbols[i].n_un.n_strx;
+		if(n_strx != 0 && n_strx < strsize){
+		    name = strings + n_strx;
 		    len = strlen(name);
 		    if(len != 0 && name[len-1] == '/')
 			continue;
@@ -599,6 +786,7 @@ static
 void
 load_files(
 struct nlist *symbols,
+struct nlist_64 *symbols64,
 unsigned long nsymbols,
 char *strings,
 unsigned long strsize)
@@ -607,29 +795,41 @@ unsigned long strsize)
     char *s, *name;
     int len;
     int oddeven;
+    uint32_t n_strx;
+    uint8_t n_type;
+    uint64_t n_value;
 
 	oddeven = 0;
 	for(i = 0; i < nsymbols; i++){
-	    if(symbols[i].n_type == N_SO){
+	    if(symbols != NULL){
+		n_strx = symbols[i].n_un.n_strx;
+		n_type = symbols[i].n_type;
+		n_value = symbols[i].n_value;
+	    }
+	    else{
+		n_strx = symbols64[i].n_un.n_strx;
+		n_type = symbols64[i].n_type;
+		n_value = symbols64[i].n_value;
+	    }
+	    if(n_type == N_SO){
 		/* skip the N_SO for the directory name that ends in a '/' */
-		if(symbols[i].n_un.n_strx != 0 &&
-		   (unsigned long)symbols[i].n_un.n_strx < strsize){
-		    name = strings + symbols[i].n_un.n_strx;
+		if(n_strx != 0 && n_strx < strsize){
+		    name = strings + n_strx;
 		    len = strlen(name);
 		    if(len != 0 && name[len-1] == '/')
 			continue;
 		}
 		if(oddeven){
-		    files[n_files++].lastpc = symbols[i].n_value;
+		    files[n_files++].lastpc = n_value;
 		    oddeven = 0;
 		}
 		else {
-		    s = strings + symbols[i].n_un.n_strx;
+		    s = strings + n_strx;
 		    len = strlen(s);
 		    if(len > 0)
 			s[len-1] = 'o';
 		    files[n_files].name = files[n_files].what_name = s;
-		    files[n_files].firstpc = symbols[i].n_value; 
+		    files[n_files].firstpc = n_value; 
 		    oddeven = 1;
 		}
 	    }
@@ -644,19 +844,28 @@ unsigned long strsize)
 
 void
 get_text_min_max(
-unsigned long *text_min,
-unsigned long *text_max)
+uint64_t *text_min,
+uint64_t *text_max)
 {
-    unsigned long i, j;
+    unsigned long i, j, ncmds;
     struct load_command *lc;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s;
+    struct section_64 *s64;
 
 	*text_min = 0;
-	*text_max = 0xffffffff;
+	if(ofile.mh != NULL){
+	    *text_max = 0xffffffff;
+	    ncmds = ofile.mh->ncmds;
+	}
+	else{
+	    *text_max = 0xffffffffffffffffULL;
+	    ncmds = ofile.mh64->ncmds;
+	}
 
 	lc = ofile.load_commands;
-	for (i = 0; i < ofile.mh->ncmds; i++){
+	for (i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		s = (struct section *)
@@ -666,6 +875,20 @@ unsigned long *text_max)
 		       strcmp(s->segname, SEG_TEXT) == 0){
 			*text_min = s->addr;
 			*text_max = s->addr + s->size;
+			return;
+		    }
+		    s++;
+		}
+	    }
+	    else if(lc->cmd == LC_SEGMENT_64){
+		sg64 = (struct segment_command_64 *)lc;
+		s64 = (struct section_64 *)
+		      ((char *)sg64 + sizeof(struct segment_command_64));
+		for(j = 0; j < sg64->nsects; j++){
+		    if(strcmp(s64->sectname, SECT_TEXT) == 0 &&
+		       strcmp(s64->segname, SEG_TEXT) == 0){
+			*text_min = s64->addr;
+			*text_max = s64->addr + s64->size;
 			return;
 		    }
 		    s++;

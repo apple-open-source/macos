@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,13 +33,14 @@
 struct __DASession
 {
     CFRuntimeBase      _base;
+
+    AuthorizationRef   _authorization;
     mach_port_t        _client;
     char *             _name;
     pid_t              _pid;
     DASessionOptions   _options;
     CFMutableArrayRef  _queue;
     CFMutableArrayRef  _register;
-    AuthorizationRef   _rights;
     CFMachPortRef      _server;
     CFRunLoopSourceRef _source;
     DASessionState     _state;
@@ -102,16 +103,16 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
 
     if ( session )
     {
-        session->_client   = MACH_PORT_NULL;
-        session->_name     = NULL;
-        session->_pid      = 0;
-        session->_options  = 0;
-        session->_queue    = CFArrayCreateMutable( allocator, 0, &kCFTypeArrayCallBacks );
-        session->_register = CFArrayCreateMutable( allocator, 0, &kCFTypeArrayCallBacks );
-        session->_rights   = NULL;
-        session->_server   = NULL;
-        session->_source   = NULL;
-        session->_state    = 0;
+        session->_authorization = NULL;
+        session->_client        = MACH_PORT_NULL;
+        session->_name          = NULL;
+        session->_pid           = 0;
+        session->_options       = 0;
+        session->_queue         = CFArrayCreateMutable( allocator, 0, &kCFTypeArrayCallBacks );
+        session->_register      = CFArrayCreateMutable( allocator, 0, &kCFTypeArrayCallBacks );
+        session->_server        = NULL;
+        session->_source        = NULL;
+        session->_state         = 0;
 
         assert( session->_queue    );
         assert( session->_register );
@@ -124,14 +125,14 @@ static void __DASessionDeallocate( CFTypeRef object )
 {
     DASessionRef session = ( DASessionRef ) object;
 
-    if ( session->_client   )  mach_port_deallocate( mach_task_self( ), session->_client );
-    if ( session->_name     )  free( session->_name );
-    if ( session->_queue    )  CFRelease( session->_queue );
-    if ( session->_register )  CFRelease( session->_register );
-    if ( session->_rights   )  AuthorizationFree( session->_rights, kAuthorizationFlagDefaults );
-    if ( session->_server   )  CFMachPortInvalidate( session->_server );
-    if ( session->_server   )  CFRelease( session->_server );
-    if ( session->_source   )  CFRelease( session->_source );
+    if ( session->_authorization )  AuthorizationFree( session->_authorization, kAuthorizationFlagDefaults );
+    if ( session->_client        )  mach_port_deallocate( mach_task_self( ), session->_client );
+    if ( session->_name          )  free( session->_name );
+    if ( session->_queue         )  CFRelease( session->_queue );
+    if ( session->_register      )  CFRelease( session->_register );
+    if ( session->_server        )  CFMachPortInvalidate( session->_server );
+    if ( session->_server        )  CFRelease( session->_server );
+    if ( session->_source        )  CFRelease( session->_source );
 }
 
 static Boolean __DASessionEqual( CFTypeRef object1, CFTypeRef object2 )
@@ -155,7 +156,7 @@ const char * _DASessionGetName( DASessionRef session )
     return session->_name;
 }
 ///w:stop
-DASessionRef DASessionCreate( CFAllocatorRef allocator, mach_port_t _client, const char * _name, pid_t _pid, AuthorizationExternalForm _rights )
+DASessionRef DASessionCreate( CFAllocatorRef allocator, mach_port_t _client, const char * _name, pid_t _pid )
 {
     DASessionRef session;
 
@@ -211,39 +212,15 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator, mach_port_t _client, con
 
                 if ( status == KERN_SUCCESS )
                 {
-                    AuthorizationRef rights;
-
                     assert( port == MACH_PORT_NULL );
 
-                    /*
-                     * Create the session's authorization reference.
-                     */
+                    session->_client = _client;
+                    session->_name   = strdup( _name );
+                    session->_pid    = _pid;
+                    session->_server = server;
+                    session->_source = source;
 
-                    status = AuthorizationCreateFromExternalForm( &_rights, &rights );
-
-///w:start
-                    if ( status )
-                    {
-                        extern Boolean _gDAAuthorize;
-
-                        if ( _gDAAuthorize == FALSE )
-                        {
-                            rights = NULL;
-                            status = errAuthorizationSuccess;
-                        }
-                    }
-///w:stop
-                    if ( status == errAuthorizationSuccess )
-                    {
-                        session->_client = _client;
-                        session->_name   = strdup( _name );
-                        session->_pid    = _pid;
-                        session->_rights = rights;
-                        session->_server = server;
-                        session->_source = source;
-
-                        return session;
-                    }
+                    return session;
                 }
 
                 CFRelease( source );
@@ -258,6 +235,11 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator, mach_port_t _client, con
     }
 
     return NULL;
+}
+
+AuthorizationRef DASessionGetAuthorization( DASessionRef session )
+{
+    return session->_authorization;
 }
 
 CFMutableArrayRef DASessionGetCallbackQueue( DASessionRef session )
@@ -288,11 +270,6 @@ Boolean DASessionGetOption( DASessionRef session, DASessionOption option )
 DASessionOptions DASessionGetOptions( DASessionRef session )
 {
     return session->_options;
-}
-
-AuthorizationRef DASessionGetRights( DASessionRef session )
-{
-    return session->_rights;
 }
 
 mach_port_t DASessionGetServerPort( DASessionRef session )
@@ -350,6 +327,16 @@ void DASessionRegisterCallback( DASessionRef session, DACallbackRef callback )
 void DASessionScheduleWithRunLoop( DASessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode )
 {
     CFRunLoopAddSource( runLoop, session->_source, runLoopMode );
+}
+
+void DASessionSetAuthorization( DASessionRef session, AuthorizationRef authorization )
+{
+    if ( session->_authorization )
+    {
+        AuthorizationFree( session->_authorization, kAuthorizationFlagDefaults );
+    }
+
+    session->_authorization = authorization;
 }
 
 void DASessionSetOption( DASessionRef session, DASessionOption option, Boolean value )

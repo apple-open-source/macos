@@ -25,6 +25,9 @@
 
 #include "gdb_obstack.h"	/* For obstack internals.  */
 #include "symfile.h"		/* For struct psymbol_allocation_list */
+/* APPLE LOCAL subroutine inlining  */
+#include "inlining.h"           /* For information about inlined subroutines  */
+#include <sqlite3.h>
 
 struct bcache;
 struct htab;
@@ -44,9 +47,8 @@ struct objfile_data;
    to the user executable's recorded entry point, as if the call had been made
    directly by the kernel.
 
-   The traditional gdb method of using this info is to use the
-   recorded entry point to set the variables
-   deprecated_entry_file_lowpc and deprecated_entry_file_highpc from
+   The traditional gdb method of using this info was to use the
+   recorded entry point to set the entry-file's lowpc and highpc from
    the debugging information, where these values are the starting
    address (inclusive) and ending address (exclusive) of the
    instruction space in the executable which correspond to the
@@ -57,7 +59,7 @@ struct objfile_data;
 
    NOTE: cagney/2003-09-09: It turns out that this "traditional"
    method doesn't work.  Corinna writes: ``It turns out that the call
-   to deprecated_inside_entry_file destroys a meaningful backtrace
+   to test for "inside entry file" destroys a meaningful backtrace
    under some conditions.  E. g. the backtrace tests in the asm-source
    testcase are broken for some targets.  In this test the functions
    are all implemented as part of one file and the testcase is not
@@ -109,26 +111,11 @@ struct entry_info
 
     CORE_ADDR entry_point;
 
-#define INVALID_ENTRY_POINT (~0)	/* ~0 will not be in any file, we hope.  */
-
-    /* Start (inclusive) and end (exclusive) of function containing the
-       entry point. */
-
-    CORE_ADDR entry_func_lowpc;
-    CORE_ADDR entry_func_highpc;
-
-    /* Start (inclusive) and end (exclusive) of object file containing the
-       entry point. */
-
-    CORE_ADDR deprecated_entry_file_lowpc;
-    CORE_ADDR deprecated_entry_file_highpc;
-
-    /* Start (inclusive) and end (exclusive) of the user code main() function. */
+    /* APPLE LOCAL: Start (inclusive) and end (exclusive) of the user code 
+       main() function. */
 
     CORE_ADDR main_func_lowpc;
     CORE_ADDR main_func_highpc;
-
-/* Use these values when any of the above ranges is invalid.  */
 
 /* We use these values because it guarantees that there is no number that is
    both >= LOWPC && < HIGHPC.  It is also highly unlikely that 3 is a valid
@@ -136,6 +123,8 @@ struct entry_info
 
 #define INVALID_ENTRY_LOWPC (3)
 #define INVALID_ENTRY_HIGHPC (1)
+
+#define INVALID_ENTRY_POINT (~0)	/* ~0 will not be in any file, we hope.  */
 
   };
 
@@ -152,6 +141,10 @@ struct entry_info
 
    I'm not sure this could or should be changed, however.  */
 
+/* APPLE LOCAL: Note that for a separate_debug_objfile, the obj_sections
+   are a copy of the sections of the parent objfile.  This is more useful
+   than having them be the sections of the separate debug file, which
+   may, for instance, just have a few DWARF sections and that's all...  */
 struct obj_section
   {
     CORE_ADDR addr;		/* lowest address in section */
@@ -373,26 +366,35 @@ struct objfile
 
     /* Information about stabs.  Will be filled in with a dbx_symfile_info
        struct by those readers that need it. */
+    /* NOTE: cagney/2004-10-23: This has been replaced by per-objfile
+       data points implemented using "data" and "num_data" below.  For
+       an example of how to use this replacement, see "objfile_data"
+       in "mips-tdep.c".  */
 
-    struct dbx_symfile_info *sym_stab_info;
+    struct dbx_symfile_info *deprecated_sym_stab_info;
 
     /* Hook for information for use by the symbol reader (currently used
        for information shared by sym_init and sym_read).  It is
        typically a pointer to malloc'd memory.  The symbol reader's finish
        function is responsible for freeing the memory thusly allocated.  */
+    /* NOTE: cagney/2004-10-23: This has been replaced by per-objfile
+       data points implemented using "data" and "num_data" below.  For
+       an example of how to use this replacement, see "objfile_data"
+       in "mips-tdep.c".  */
 
-    void *sym_private;
+    void *deprecated_sym_private;
 
     /* Hook for target-architecture-specific information.  This must
        point to memory allocated on one of the obstacks in this objfile,
        so that it gets freed automatically when reading a new object
        file. */
 
-    void *obj_private;
+    void *deprecated_obj_private;
 
     /* Per objfile data-pointers required by other GDB modules.  */
     /* FIXME: kettenis/20030711: This mechanism could replace
-       sym_stab_info, sym_private and obj_private entirely.  */
+       deprecated_sym_stab_info, deprecated_sym_private and
+       deprecated_obj_private entirely.  */
 
     void **data;
     unsigned num_data;
@@ -478,6 +480,19 @@ struct objfile
        we leave it a void * here.  */
     void *equivalence_table;
 
+    /* APPLE LOCAL: Mark whether the objfile is a kext or not.
+       kexts have a dSYM file (because they are run through ld -r) but
+       their addresses are not final until kextload has loaded them.
+       We need to combine the debug map output from kextload with the
+       dSYM file from the ld -r which is a rather unusual combination.  */
+
+    /* APPLE LOCAL: If objfile_is_kext is true then this will be the name
+       of the original kext, i.e. the file that was output by ld -r and
+       dsymutil was run on but NOT the output of kextload -s or kextload -a.  
+       We'll need this and the kextload'ed kext image to create the
+       address translation table when reading the DWARF.  */
+    const char *not_loaded_kext_filename;
+
     /* APPLE LOCAL: Mark struct objfile's as to whether they are 
        symbol files or if they represent file images that contain actual
        code that is, or will be, loaded into memory.  
@@ -487,6 +502,14 @@ struct objfile
        "is this objfile resident in memory" check and assume that, in the case
        of a breakpoint in a hand-added symbol file, it's always resident.  */
     int syms_only_objfile;
+    
+    /* APPLE LOCAL begin dwarf repository  */
+    int uses_sql_repository;
+    /* APPLE LOCAL end dwarf repository  */
+
+    /* APPLE LOCAL begin subroutine inlining  */
+    struct rb_tree_node *inlined_subroutine_data;
+    /* APPLE LOCAL end subroutine inlining  */
   };
 
 /* Defines for the objfile flag word. */
@@ -531,10 +554,15 @@ struct objfile
 
 #define OBJF_USERLOADED	(1 << 5)	/* User loaded */
 
+/* APPLE LOCAL: Treat separate debug files special so we don't add
+   the sections to the ordered list while initially creating the objfile
+   in symbol_file_add() since the backlink pointer will not be valid yet.  */
+#define OBJF_SEPARATE_DEBUG_FILE (1 << 6)	/* Separate debug file */
+
 
 /* APPLE LOCAL: The following OBJF_SYM_ constants are used to limit
    the scope of how much debug/symbol information we read from
-   a given objfile.  */
+   a given objfile.  All legitimate values should be > 0.  */
 
 #define OBJF_SYM_NONE 0
 #define OBJF_SYM_CONTAINER (1 << 0)
@@ -578,11 +606,18 @@ extern struct objfile *object_files;
 
 extern struct objfile *allocate_objfile (bfd *, int, int symflags, CORE_ADDR mapaddr, const char *prefix);
 
+/* APPLE LOCAL: for use with clear_objfile.  */
+extern struct objfile *allocate_objfile_using_objfile (struct objfile *, bfd *, int, int symflags, 
+						      CORE_ADDR mapaddr, const char *prefix);
+
 extern void init_entry_point_info (struct objfile *);
 
 extern CORE_ADDR entry_point_address (void);
 
 extern int build_objfile_section_table (struct objfile *);
+
+/* APPLE LOCAL */
+extern int objfile_keeps_section (bfd *abfd, asection *asect);
 
 extern void terminate_minimal_symbol_table (struct objfile *objfile);
 
@@ -595,6 +630,9 @@ extern void link_objfile (struct objfile *);
 extern void unlink_objfile (struct objfile *);
 
 extern void free_objfile (struct objfile *);
+
+/* APPLE LOCAL: clear the contents of the objfile but don't delete or unlink it.  */
+extern void clear_objfile (struct objfile *);
 
 extern struct cleanup *make_cleanup_free_objfile (struct objfile *);
 
@@ -662,6 +700,8 @@ enum objfile_matches_name_return
 
 enum objfile_matches_name_return objfile_matches_name (struct objfile *objfile, char *name);
 struct cleanup *make_cleanup_restrict_to_objfile (struct objfile *objfile);
+/* APPLE LOCAL radar 5273932  */
+struct cleanup *make_cleanup_restrict_to_objfile_by_name (char *objfile_name);
 struct cleanup *make_cleanup_restrict_to_shlib (char *shlib);
 
 /* APPLE LOCAL: These manage & look up obj_sections in the ordered_sections
@@ -677,6 +717,10 @@ int objfile_set_load_state (struct objfile *, int, int);
 int pc_set_load_state (CORE_ADDR, int, int);
 int objfile_name_set_load_state (char *, int, int);
 
+/* APPLE LOCAL begin dwarf repository  */
+extern unsigned get_objfile_registry_num_registrations (void);
+/* APPLE LOCAL end dwarf repository  */
+
 /* APPLE LOCAL begin fix-and-continue */
 struct symtab *symtab_get_first (struct objfile *, int );
 struct symtab *symtab_get_next (struct symtab *, int );
@@ -690,8 +734,8 @@ struct partial_symtab *psymtab_get_next (struct partial_symtab *, int );
        (obj) = objfile_get_next (obj))
 
 #define	ALL_OBJFILES_SAFE(obj,nxt) \
-  for ((obj) = object_files; 	   \
-       (obj) != NULL? ((nxt)=(obj)->next,1) :0;	\
+  for ((obj) = objfile_get_first(); 	   \
+       (obj) != NULL? ((nxt)=objfile_get_next((obj)),1) :0;	\
        (obj) = (nxt))
 
 /* Traverse all symtabs in one objfile.  */
@@ -762,24 +806,43 @@ struct partial_symtab *psymtab_get_next (struct partial_symtab *, int );
   ALL_OBJFILES (objfile)			\
     ALL_OBJFILE_OSECTIONS (objfile, osect)
 
+/* APPLE LOCAL BEGIN: dSYM support
+   Always grab the executable objfile when getting section information.  */
+
+/* Given and objfile, always return the main executable objfile
+   if one exists. It is safe to call this macro with NULL.  */
+struct objfile *executable_objfile (struct objfile *objfile);
+
+/* Given and objfile, always return the separate debug objfile
+   if one exists. It is safe to call this macro with NULL.  */
+struct objfile *separate_debug_objfile (struct objfile *objfile);
+
 #define SECT_OFF_DATA(objfile) \
-     ((objfile->sect_index_data == -1) \
-      ? (internal_error (__FILE__, __LINE__, "sect_index_data not initialized"), -1) \
-      : objfile->sect_index_data)
+     ((executable_objfile(objfile)->sect_index_data == -1) \
+      ? (internal_error (__FILE__, __LINE__, _("sect_index_data not initialized")), -1) \
+      : executable_objfile(objfile)->sect_index_data)
 
 #define SECT_OFF_RODATA(objfile) \
-     ((objfile->sect_index_rodata == -1) \
-      ? (internal_error (__FILE__, __LINE__, "sect_index_rodata not initialized"), -1) \
-      : objfile->sect_index_rodata)
+     ((executable_objfile(objfile)->sect_index_rodata == -1) \
+      ? (internal_error (__FILE__, __LINE__, _("sect_index_rodata not initialized")), -1) \
+      : executable_objfile(objfile)->sect_index_rodata)
 
 #define SECT_OFF_TEXT(objfile) \
-     ((objfile->sect_index_text == -1) \
-      ? (internal_error (__FILE__, __LINE__, "sect_index_text not initialized"), -1) \
-      : objfile->sect_index_text)
+     ((executable_objfile(objfile)->sect_index_text == -1) \
+      ? (internal_error (__FILE__, __LINE__, _("sect_index_text not initialized")), -1) \
+      : executable_objfile(objfile)->sect_index_text)
 
 /* Sometimes the .bss section is missing from the objfile, so we don't
    want to die here. Let the users of SECT_OFF_BSS deal with an
    uninitialized section index. */
-#define SECT_OFF_BSS(objfile) (objfile)->sect_index_bss
+#define SECT_OFF_BSS(objfile) (executable_objfile(objfile))->sect_index_bss
+
+CORE_ADDR objfile_section_offset (struct objfile *objfile, int sect_idx);
+CORE_ADDR objfile_text_section_offset (struct objfile *objfile);
+CORE_ADDR objfile_data_section_offset (struct objfile *objfile);
+CORE_ADDR objfile_rodata_section_offset (struct objfile *objfile);
+CORE_ADDR objfile_bss_section_offset (struct objfile *objfile);
+
+/* APPLE LOCAL END: Use EXECUTABLE_OBJFILE.  */
 
 #endif /* !defined (OBJFILES_H) */

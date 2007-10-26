@@ -1,6 +1,7 @@
 ;;; esh-mode.el --- user interface
 
-;; Copyright (C) 1999, 2000, 2001 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'esh-mode)
 
@@ -305,7 +306,7 @@ This is used by `eshell-watch-for-password-prompt'."
 
   (when eshell-status-in-modeline
     (make-local-variable 'eshell-command-running-string)
-    (let ((fmt (eshell-copy-list mode-line-format)))
+    (let ((fmt (copy-sequence mode-line-format)))
       (make-local-variable 'mode-line-format)
       (setq mode-line-format fmt))
     (let ((modeline (memq 'mode-line-modified mode-line-format)))
@@ -382,7 +383,7 @@ This is used by `eshell-watch-for-password-prompt'."
   (set (make-local-variable 'eshell-last-output-end) (point-marker))
   (set (make-local-variable 'eshell-last-output-block-begin) (point))
 
-  (let ((modules-list (eshell-copy-list eshell-modules-list)))
+  (let ((modules-list (copy-sequence eshell-modules-list)))
     (make-local-variable 'eshell-modules-list)
     (setq eshell-modules-list modules-list))
 
@@ -415,8 +416,6 @@ This is used by `eshell-watch-for-password-prompt'."
       (if (and load-hook (boundp load-hook))
 	  (run-hooks load-hook))))
 
-  (make-local-hook 'pre-command-hook)
-
   (if eshell-send-direct-to-subprocesses
       (add-hook 'pre-command-hook 'eshell-intercept-commands t t))
 
@@ -427,12 +426,9 @@ This is used by `eshell-watch-for-password-prompt'."
     (set (make-local-variable 'scroll-conservatively) 1000))
 
   (when eshell-status-in-modeline
-    (make-local-hook 'eshell-pre-command-hook)
     (add-hook 'eshell-pre-command-hook 'eshell-command-started nil t)
-    (make-local-hook 'eshell-post-command-hook)
     (add-hook 'eshell-post-command-hook 'eshell-command-finished nil t))
 
-  (make-local-hook 'kill-buffer-hook)
   (add-hook 'kill-buffer-hook
 	    (function
 	     (lambda ()
@@ -440,7 +436,7 @@ This is used by `eshell-watch-for-password-prompt'."
 
   (if eshell-first-time-p
       (run-hooks 'eshell-first-time-mode-hook))
-  (run-hooks 'eshell-mode-hook)
+  (run-mode-hooks 'eshell-mode-hook)
   (run-hooks 'eshell-post-command-hook))
 
 (put 'eshell-mode 'mode-class 'special)
@@ -522,7 +518,8 @@ This is used by `eshell-watch-for-password-prompt'."
   (let ((inhibit-read-only t)
 	(no-default (eobp))
 	(find-tag-default-function 'ignore))
-    (setq tagname (car (find-tag-interactive "Find tag: ")))
+    (with-no-warnings
+      (setq tagname (car (find-tag-interactive "Find tag: "))))
     (find-tag tagname next-p regexp-p)))
 
 (defun eshell-move-argument (limit func property arg)
@@ -668,7 +665,7 @@ waiting for input."
   (eshell-match-result "alpha\n"))
 
 (defun eshell-send-input (&optional use-region queue-p no-newline)
-  "Send the input received to Eshell for parsing and processing..
+  "Send the input received to Eshell for parsing and processing.
 After `eshell-last-output-end', sends all text from that marker to
 point as input.  Before that marker, calls `eshell-get-old-input' to
 retrieve old input, copies it to the end of the buffer, and sends it.
@@ -822,7 +819,7 @@ This is done after all necessary filtering has been done."
   "Go to the end of buffer in all windows showing it.
 Movement occurs if point in the selected window is not after the
 process mark, and `this-command' is an insertion command.  Insertion
-commands recognised are `self-insert-command', `yank', and
+commands recognized are `self-insert-command', `yank', and
 `hilit-yank'.  Depends on the value of
 `eshell-scroll-to-bottom-on-input'.
 
@@ -948,10 +945,11 @@ With a prefix argument, narrows region to last command output."
       (eshell-bol)
       (kill-region (point) here))))
 
-(defun eshell-show-maximum-output ()
-  "Put the end of the buffer at the bottom of the window."
-  (interactive)
-  (if (interactive-p)
+(defun eshell-show-maximum-output (&optional interactive)
+  "Put the end of the buffer at the bottom of the window.
+When run interactively, widen the buffer first."
+  (interactive "p")
+  (if interactive
       (widen))
   (goto-char (point-max))
   (recenter -1))
@@ -1007,7 +1005,7 @@ a key."
       (let ((pos (point)))
 	(if (bobp)
 	    (if (interactive-p)
-		(error "Buffer too short to truncate"))
+		(message "Buffer too short to truncate"))
 	  (delete-region (point-min) (point))
 	  (if (interactive-p)
 	      (message "Truncated buffer from %d to %d lines (%.1fk freed)"
@@ -1022,7 +1020,7 @@ a key."
 Then send it to the process running in the current buffer."
   (interactive "P")                     ; Defeat snooping via C-x ESC ESC
   (let ((str (read-passwd
-	      (format "Password: "
+	      (format "%s Password: "
 		      (process-name (eshell-interactive-process))))))
     (if (stringp str)
 	(process-send-string (eshell-interactive-process)
@@ -1080,6 +1078,16 @@ This function could be in the list `eshell-output-filter-functions'."
 (custom-add-option 'eshell-output-filter-functions
 		   'eshell-handle-control-codes)
 
+(defun eshell-handle-ansi-color ()
+  "Handle ANSI color codes."
+  (require 'ansi-color)
+  (ansi-color-apply-on-region eshell-last-output-start
+                              eshell-last-output-end))
+
+(custom-add-option 'eshell-output-filter-functions
+		   'eshell-handle-ansi-color)
+
 ;;; Code:
 
+;;; arch-tag: ec65bc2b-da14-4547-81d3-a32af3a4dc57
 ;;; esh-mode.el ends here

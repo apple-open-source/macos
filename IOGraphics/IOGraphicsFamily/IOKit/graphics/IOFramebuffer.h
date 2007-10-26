@@ -148,7 +148,13 @@ enum {
     kIOFBNotifyDidPowerOn	= 8,
 
     kIOFBNotifyWillChangeSpeed	= 9,
-    kIOFBNotifyDidChangeSpeed	= 10
+    kIOFBNotifyDidChangeSpeed	= 10,
+
+    kIOFBNotifyClamshellChange	= 20,
+
+    kIOFBNotifyCaptureChange	= 30,
+
+    kIOFBNotifyOnlineChange	= 40
 };
 
 enum {
@@ -217,7 +223,7 @@ protected:
     volatile unsigned char *		cursorSave;
     unsigned int			white;
 
-    Point				nextCursorLoc;
+    IOGPoint				nextCursorLoc;
     int					nextCursorFrame;
     SInt32				connectChange;
     semaphore_t				vblSemaphore;
@@ -343,14 +349,14 @@ public:
 				    void *p3, void *p4 );
 
     virtual void hideCursor( void );
-    virtual void showCursor( Point * cursorLoc, int frame );
-    virtual void moveCursor( Point * cursorLoc, int frame );
+    virtual void showCursor( IOGPoint * cursorLoc, int frame );
+    virtual void moveCursor( IOGPoint * cursorLoc, int frame );
     // virtual
     void resetCursor( void );
 
     virtual void getVBLTime( AbsoluteTime * time, AbsoluteTime * delta );
 
-    virtual void getBoundingRect ( Bounds ** bounds );
+    virtual void getBoundingRect ( IOGBounds ** bounds );
 
     virtual IOReturn open( void );
     

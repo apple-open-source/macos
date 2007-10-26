@@ -91,7 +91,7 @@ static int lak_auth_custom(LAK *, const char *, const char *, const char *, cons
 static int lak_auth_bind(LAK *, const char *, const char *, const char *, const char *);
 static int lak_auth_fastbind(LAK *, const char *, const char *, const char *, const char *);
 static int lak_group_member(LAK *, const char *, const char *, const char *, const char *);
-static LAK_RESULT *lak_result_get(const LAK_RESULT *, const char *);
+static char *lak_result_get(const LAK_RESULT *, const char *);
 static int lak_result_add(const char *, const char *, LAK_RESULT **);
 static int lak_check_password(const char *, const char *, void *);
 static int lak_check_crypt(const char *, const char *, void *);
@@ -130,6 +130,8 @@ static LAK_PASSWORD_SCHEME password_scheme[] = {
 #endif
 	{ NULL, NULL, NULL }
 };
+
+static const char *dn_attr = "dn";
 
 #define ISSET(x)  ((x != NULL) && (*(x) != '\0'))
 #define EMPTY(x)  ((x == NULL) || (*(x) == '\0'))
@@ -475,7 +477,7 @@ static int lak_tokenize_domains(
 {
 	char *s, *s1;
 	char *lasts;
-	int nt, i;
+	int nt, i, rc;
 
 	*result = NULL;
 
@@ -499,9 +501,9 @@ static int lak_tokenize_domains(
 	s1 = (char *)strtok_r(s, ".", &lasts);
 	while(s1) {
 		if (i == 0) {
-			*result = strdup(s1);
+			rc = lak_escape(s1, strlen(s1), result);
 			free(s);
-			return (*result == NULL ? LAK_NOMEM : LAK_OK);
+			return rc;
 		}
 		s1 = (char *)strtok_r(NULL, ".", &lasts);
 		i--;
@@ -520,9 +522,11 @@ static int lak_tokenize_domains(
  *   %u   = user
  *   %U   = user part of %u
  *   %d   = domain part of %u if available, othwise same as %r
- *   %1-9 = domain tokens (%1 = tld, %2 = domain when %d = domain.tld)
+ *   %1-9 = domain if not available realm, token
+ *          (%1 = tld, %2 = domain when %r = domain.tld)
  *   %s   = service
  *   %r   = realm
+ *   %R   = prepend '@' to realm
  *   %D   = user DN
  * Note: calling function must free memory.
  */
@@ -558,7 +562,7 @@ static int lak_expand_tokens(
 	dn_len=ISSET(dn) ? strlen(dn) : 0;
 
 	maxparamlength = LAK_MAX(user_len, service_len);
-	maxparamlength = LAK_MAX(maxparamlength, realm_len);
+	maxparamlength = LAK_MAX(maxparamlength, realm_len + 1);  /* +1 for %R when '@' is prepended */
 	maxparamlength = LAK_MAX(maxparamlength, dn_len);
 
 	/* find the number of occurences of percent sign in filter */
@@ -568,7 +572,7 @@ static int lak_expand_tokens(
 
 	/* percents * 3 * maxparamlength because we need to account for
          * an entirely-escaped worst-case-length parameter */
-	buf=malloc(strlen(pattern) + (percents * 3 * maxparamlength) +1);
+	buf=malloc(strlen(pattern) + (percents * 3 * maxparamlength) + 1);
 	if(buf == NULL)
 		return LAK_NOMEM;
 	buf[0] = '\0';
@@ -602,7 +606,6 @@ static int lak_expand_tokens(
 				break;
 			case 'U':
 				if (ISSET(username)) {
-					
 					user = strchr(username, '@');
 					rc=lak_escape(username, (user ? user - username : strlen(username)), &ebuf);
 					if (rc == LAK_OK) {
@@ -621,17 +624,25 @@ static int lak_expand_tokens(
 			case '7':
 			case '8':
 			case '9':
-				if (ISSET(username) && (domain = strchr(username, '@')) && domain[1]!='\0') {
+				if (ISSET(username) && 
+				    ((domain = strchr(username, '@')) && domain[1]!='\0')) {
 					rc=lak_tokenize_domains(domain+1, (int) *(temp+1)-48, &ebuf);
 					if (rc == LAK_OK) {
 						strcat(buf,ebuf);
 						free(ebuf);
 					}
+				} else if (ISSET(realm)) {
+					rc=lak_tokenize_domains(realm, (int) *(temp+1)-48, &ebuf);
+					if (rc == LAK_OK) {
+						strcat(buf,ebuf);
+						free(ebuf);
+					}
 				} else
-					syslog(LOG_DEBUG|LOG_AUTH, "Domain tokens not available.");
+					syslog(LOG_DEBUG|LOG_AUTH, "Domain/Realm not available.");
 				break;
 			case 'd':
-				if (ISSET(username) && (domain = strchr(username, '@')) && domain[1]!='\0') {
+				if (ISSET(username) && 
+				    ((domain = strchr(username, '@')) && domain[1]!='\0')) {
 					rc=lak_escape(domain+1, strlen(domain+1), &ebuf);
 					if (rc == LAK_OK) {
 						strcat(buf,ebuf);
@@ -639,10 +650,13 @@ static int lak_expand_tokens(
 					}
 					break;
 				} 
+			case 'R':
 			case 'r':
 				if (ISSET(realm)) {
 					rc = lak_escape(realm, strlen(realm), &ebuf);
 					if (rc == LAK_OK) {
+						if (*(temp+1) == 'R')
+							strcat(buf,"@");
 						strcat(buf,ebuf);
 						free(ebuf);
 					}
@@ -1033,7 +1047,10 @@ static int lak_bind(
 	lak_user_free(lak->user);
 	lak->user = NULL;
 
-	if (lak->conf->use_sasl ||
+	if (
+#if LDAP_VENDOR_VERSION < 20204
+        lak->conf->use_sasl ||
+#endif
 	    lak->conf->version == LDAP_VERSION2) 
 		lak->status = LAK_NOT_BOUND;
 
@@ -1121,9 +1138,8 @@ int lak_retrieve(
 	BerElement *ber = NULL;
 	char *attr = NULL, **vals = NULL, *dn = NULL;
 	LAK_USER *lu = NULL;
-    const char *dn_attr = "dn";
     
-    *ret = NULL;
+	*ret = NULL;
 
 	if (lak == NULL) {
 		syslog(LOG_ERR|LOG_AUTH, "lak_init did not run.");
@@ -1268,7 +1284,7 @@ static int lak_group_member(
 	struct berval *dn_bv = NULL;
 	int rc;
     LAK_RESULT *lres = NULL;
-    const char *attrs[] = { "dn", NULL };
+    const char *attrs[] = { dn_attr, NULL };
     const char *group_attrs[] = {"1.1", NULL};
 
 	LDAPMessage *res = NULL;
@@ -1378,7 +1394,6 @@ static int lak_auth_custom(
 	LAK_RESULT *lres;
 	int rc;
 	const char *attrs[] = { lak->conf->password_attr, NULL};
-	char *dn = NULL;
 
 	rc = lak_retrieve(lak, user, service, realm, attrs, &lres);
 	if (rc != LAK_OK)
@@ -1406,7 +1421,7 @@ static int lak_auth_bind(
     LAK_USER *lu = NULL;
 	LAK_RESULT *dn = NULL;
 	int rc;
-	const char *attrs[] = {"dn", NULL};
+	const char *attrs[] = {dn_attr, NULL};
 
 	rc = lak_retrieve(lak, user, service, realm, attrs, &dn);
 	if (rc != LAK_OK)
@@ -1451,18 +1466,14 @@ static int lak_auth_fastbind(
 	char *dn = NULL;
 	char id[LAK_BUF_LEN];
 
-	if (lak->conf->use_sasl) {
+	*id = '\0';
 
-		if (strchr(user, '@'))
-			strlcpy(id, user, LAK_BUF_LEN);
-		else if (realm || lak->conf->default_realm) {
-			strlcpy(id, user, LAK_BUF_LEN);
-			if (ISSET(realm) ||
-			    ISSET(lak->conf->default_realm)) {
-				strlcat(id, "@", LAK_BUF_LEN);
-				strlcat(id, (ISSET(realm) ?
-				                   realm : lak->conf->default_realm), LAK_BUF_LEN);
-			}
+	if (lak->conf->use_sasl) {
+		strlcpy(id, user, LAK_BUF_LEN);
+		if (!strchr(id, '@') &&
+		    (ISSET(realm))) {
+			strlcat(id, "@", LAK_BUF_LEN);
+			strlcat(id, realm, LAK_BUF_LEN);
 		}
 	} else {
 		rc = lak_expand_tokens(lak->conf->filter, user, service, realm, NULL, &dn);
@@ -1584,7 +1595,7 @@ char *lak_error(
     }
 }
 
-static LAK_RESULT *lak_result_get(
+static char *lak_result_get(
     const LAK_RESULT *lres, 
     const char *attr) 
 {
@@ -1593,7 +1604,7 @@ static LAK_RESULT *lak_result_get(
 
     for (ptr = (LAK_RESULT *)lres; ptr != NULL; ptr = ptr->next)
         if (!strcasecmp(ptr->attribute, attr))
-            return ptr;
+            return ptr->value;
 
     return NULL;
 }

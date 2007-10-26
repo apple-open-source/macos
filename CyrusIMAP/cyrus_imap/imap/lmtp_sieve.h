@@ -1,6 +1,6 @@
 /* lmtp_sieve.h -- Sieve implementation for lmtpd
  *
- * $Id: lmtp_sieve.h,v 1.3 2005/03/05 00:36:57 dasenbro Exp $
+ * $Id: lmtp_sieve.h,v 1.4 2006/11/30 17:11:18 murch Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,31 +45,11 @@
 #ifndef LMTP_SIEVE_H
 #define LMTP_SIEVE_H
 
-#include "append.h"
-#include "auth.h"
-#include "lmtpengine.h"
-#include "mboxname.h"
+#include "lmtpd.h"
 #include "sieve_interface.h"
-
-/* data per message */
-typedef struct sieve_msgdata {
-    message_data_t *m;
-    int cur_rcpt;
-
-    struct stagemsg *stage;	/* staging location for single instance
-				   store */
-    char *notifyheader;
-    const char *temp[2];	/* used to avoid extra indirection in
-				   getenvelope() */
-
-    struct namespace *namespace;
-
-    char *authuser;		/* user who submitted message */
-    struct auth_state *authstate;
-} sieve_msgdata_t;
 
 sieve_interp_t *setup_sieve(void);
 int run_sieve(const char *user, const char *domain, const char *mailbox,
-	      sieve_interp_t *interp, sieve_msgdata_t *mydata);
+	      sieve_interp_t *interp, deliver_data_t *mydata);
 
 #endif /* LMTP_SIEVE_H */

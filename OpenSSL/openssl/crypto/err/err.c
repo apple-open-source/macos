@@ -123,7 +123,7 @@ static void err_load_strings(int lib, ERR_STRING_DATA *str);
 
 static void ERR_STATE_free(ERR_STATE *s);
 #ifndef OPENSSL_NO_ERR
-static ERR_STRING_DATA ERR_str_libraries[]=
+const static ERR_STRING_DATA ERR_str_libraries[]=
 	{
 {ERR_PACK(ERR_LIB_NONE,0,0)		,"unknown library"},
 {ERR_PACK(ERR_LIB_SYS,0,0)		,"system library"},
@@ -153,7 +153,7 @@ static ERR_STRING_DATA ERR_str_libraries[]=
 {0,NULL},
 	};
 
-static ERR_STRING_DATA ERR_str_functs[]=
+const static ERR_STRING_DATA ERR_str_functs[]=
 	{
 	{ERR_PACK(0,SYS_F_FOPEN,0),     	"fopen"},
 	{ERR_PACK(0,SYS_F_CONNECT,0),		"connect"},
@@ -172,7 +172,7 @@ static ERR_STRING_DATA ERR_str_functs[]=
 	{0,NULL},
 	};
 
-static ERR_STRING_DATA ERR_str_reasons[]=
+const static ERR_STRING_DATA ERR_str_reasons[]=
 	{
 {ERR_R_SYS_LIB				,"system lib"},
 {ERR_R_BN_LIB				,"BN lib"},

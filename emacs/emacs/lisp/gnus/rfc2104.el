@@ -1,5 +1,7 @@
 ;;; rfc2104.el --- RFC2104 Hashed Message Authentication Codes
-;; Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+
+;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Simon Josefsson <jas@pdc.kth.se>
 ;; Keywords: mail
@@ -18,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -53,7 +55,7 @@
 ;;; 2000-05-12  added sha-1 example, added test case reference
 
 ;;; Code:
- 
+
 (eval-when-compile (require 'cl))
 
 ;; Magic character for inner HMAC round. 0x36 == 54 == '6'
@@ -66,7 +68,7 @@
 (defconst rfc2104-zero ?\x00)
 
 ;; Alist for converting hex to decimal.
-(defconst rfc2104-hex-alist 
+(defconst rfc2104-hex-alist
   '((?0 . 0)	      (?a . 10)	      (?A . 10)
     (?1 . 1)	      (?b . 11)	      (?B . 11)
     (?2 . 2)	      (?c . 12)	      (?C . 12)
@@ -95,7 +97,7 @@
 
 (defun rfc2104-hash (hash block-length hash-length key text)
   (let* (;; if key is longer than B, reset it to HASH(key)
-	 (key (if (> (length key) block-length) 
+	 (key (if (> (length key) block-length)
 		  (funcall hash key) key))
 	 (k_ipad (append key nil))
 	 (k_opad (append key nil)))
@@ -114,4 +116,5 @@
 
 (provide 'rfc2104)
 
+;;; arch-tag: cf671d5c-a45f-4a09-815e-704e59e43950
 ;;; rfc2104.el ends here

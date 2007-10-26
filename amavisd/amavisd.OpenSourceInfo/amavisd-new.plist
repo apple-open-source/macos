@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2007-06-19</string>
+	<key>OpenSourceLicense</key>
+	<string>GNU General Public License, Version 2, June 1991</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>amavisd-new.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Modified daemon to work with launchd</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>amavisd-new</string>
+	<key>OpenSourceSHA1</key>
+	<string></string>
+	<key>OpenSourceURL</key>
+	<string>http://www.ijs.si/software/amavisd/amavisd-new-2.5.1.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>amavisd-new-2.5.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.ijs.si/software/amavisd/</string>
+</dict>
+</plist>

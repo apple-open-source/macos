@@ -5,6 +5,7 @@ bug compatibility: global is used albeit register_globals=0
  if (version_compare(PHP_VERSION,"4.2.3-dev", "<")) die("skip this is for PHP >= 4.2.3");
 ?>
 --INI--
+register_long_arrays=1
 session.use_cookies=0
 session.cache_limiter=
 register_globals=0
@@ -16,6 +17,8 @@ html_errors=0
 display_errors=1
 error_reporting=2039;
 session.serialize_handler=php
+session.save_handler=files
+precision=14
 --FILE--
 <?php
 session_id("abtest");
@@ -56,7 +59,7 @@ session_destroy();
 ?>
 --EXPECTF--
 NULL
-Your script possibly relies on a session side-effect which existed until PHP 4.2.3. Please be advised that the session extension does not consider global variables as a source of data, unless register_globals is enabled. You can disable this functionality and this warning by setting session.bug_compat_42 or session.bug_compat_warn to off, respectively.
+session_write_close(): Your script possibly relies on a session side-effect which existed until PHP 4.2.3. Please be advised that the session extension does not consider global variables as a source of data, unless register_globals is enabled. You can disable this functionality and this warning by setting session.bug_compat_42 or session.bug_compat_warn to off, respectively.
 array(1) {
   ["c"]=>
   float(3.14)

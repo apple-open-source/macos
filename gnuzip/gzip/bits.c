@@ -1,8 +1,21 @@
 /* bits.c -- output variable-length bit strings
- * Copyright (C) 1992-1993 Jean-loup Gailly
- * This is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License, see the file COPYING.
- */
+
+   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992-1993 Jean-loup Gailly
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 
 /*
@@ -61,7 +74,7 @@
 #endif
 
 #ifdef RCSID
-static char rcsid[] = "$Id: bits.c,v 0.9 1993/06/11 10:16:58 jloup Exp $";
+static char rcsid[] = "$Id: bits.c,v 1.4 2006/11/20 08:40:33 eggert Exp $";
 #endif
 
 /* ===========================================================================
@@ -187,7 +200,7 @@ void copy_block(buf, len, header)
     bi_windup();              /* align on byte boundary */
 
     if (header) {
-        put_short((ush)len);   
+        put_short((ush)len);
         put_short((ush)~len);
 #ifdef DEBUG
         bits_sent += 2*16;

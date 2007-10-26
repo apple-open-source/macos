@@ -269,5 +269,3 @@ protected:
 
 #endif /* !_TOKEND_SCARDERROR_H_ */
 
-
-/* arch-tag: D03ECC8E-C502-473C-9A1D-AAF96094CA48 */

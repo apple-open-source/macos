@@ -1,5 +1,6 @@
 /* System description file for SCO 3.2v5.
-   Copyright (C) 1996  Free Software Foundation, Inc.
+   Copyright (C) 1996, 2001, 2002, 2003, 2004, 2005, 2006,
+                 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Contributed by Mark Diekhans <markd@grizzly.com>.  */
 
@@ -150,7 +151,7 @@ extern SIGMASKTYPE sigprocmask_set;
 #define PENDING_OUTPUT_COUNT(FILE) ((FILE)->__ptr - (FILE)->__base)
 #endif
 
-/* Use ELF and get real shared libraries */ 
+/* Use ELF and get real shared libraries */
 
 #undef COFF
 #define ELF
@@ -162,9 +163,6 @@ extern SIGMASKTYPE sigprocmask_set;
 #define LD_SWITCH_SYSTEM -belf
 #endif
 
-/* SCO has a working alloca in libPW */
-#define HAVE_ALLOCA
-
 /* Don't disable static function, as SCO's header files have some.*/
 #undef static
 
@@ -174,3 +172,6 @@ extern SIGMASKTYPE sigprocmask_set;
 #define LIB_STANDARD -lc /usr/ccs/lib/crtn.o
 
 #define NARROWPROTO 1
+
+/* arch-tag: 930541b5-52d9-4cbe-b73c-f4c72091f5df
+   (do not change this comment) */

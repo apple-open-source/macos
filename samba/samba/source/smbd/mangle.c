@@ -29,6 +29,7 @@ static const struct {
 } mangle_backends[] = {
 	{ "hash", mangle_hash_init },
 	{ "hash2", mangle_hash2_init },
+	{ "posix", posix_mangle_init },
 	/*{ "tdb", mangle_tdb_init }, */
 	{ NULL, NULL }
 };
@@ -39,7 +40,7 @@ static const struct {
 static void mangle_init(void)
 {
 	int i;
-	char *method;
+	const char *method;
 
 	if (mangle_fns)
 		return;
@@ -67,29 +68,37 @@ static void mangle_init(void)
 void mangle_reset_cache(void)
 {
 	mangle_init();
-
 	mangle_fns->reset();
+}
+
+void mangle_change_to_posix(void)
+{
+	mangle_fns = NULL;
+	lp_set_mangling_method("posix");
+	mangle_reset_cache();
 }
 
 /*
   see if a filename has come out of our mangling code
 */
-BOOL mangle_is_mangled(const char *s)
+BOOL mangle_is_mangled(const char *s, const struct share_params *p)
 {
-	return mangle_fns->is_mangled(s);
+	return mangle_fns->is_mangled(s, p);
 }
 
 /*
   see if a filename matches the rules of a 8.3 filename
 */
-BOOL mangle_is_8_3(const char *fname, BOOL check_case)
+BOOL mangle_is_8_3(const char *fname, BOOL check_case,
+		   const struct share_params *p)
 {
-	return mangle_fns->is_8_3(fname, check_case, False);
+	return mangle_fns->is_8_3(fname, check_case, False, p);
 }
 
-BOOL mangle_is_8_3_wildcards(const char *fname, BOOL check_case)
+BOOL mangle_is_8_3_wildcards(const char *fname, BOOL check_case,
+			     const struct share_params *p)
 {
-	return mangle_fns->is_8_3(fname, check_case, True);
+	return mangle_fns->is_8_3(fname, check_case, True, p);
 }
 
 /*
@@ -98,20 +107,22 @@ BOOL mangle_is_8_3_wildcards(const char *fname, BOOL check_case)
   looking for a matching name if it doesn't. It should succeed most of the time
   or there will be a huge performance penalty
 */
-BOOL mangle_check_cache(char *s, size_t maxlen)
+BOOL mangle_check_cache(char *s, size_t maxlen,
+			const struct share_params *p)
 {
-	return mangle_fns->check_cache(s, maxlen);
+	return mangle_fns->check_cache(s, maxlen, p);
 }
 
 /* 
    map a long filename to a 8.3 name. 
  */
 
-void mangle_map(pstring OutName, BOOL need83, BOOL cache83, int snum)
+void mangle_map(pstring OutName, BOOL need83, BOOL cache83,
+		const struct share_params *p)
 {
 	/* name mangling can be disabled for speed, in which case
 	   we just truncate the string */
-	if (!lp_manglednames(snum)) {
+	if (!lp_manglednames(p)) {
 		if (need83) {
 			string_truncate(OutName, 12);
 		}
@@ -119,6 +130,6 @@ void mangle_map(pstring OutName, BOOL need83, BOOL cache83, int snum)
 	}
 
 	/* invoke the inane "mangled map" code */
-	mangle_map_filename(OutName, snum);
-	mangle_fns->name_map(OutName, need83, cache83, lp_defaultcase(snum));
+	mangle_map_filename(OutName, p);
+	mangle_fns->name_map(OutName, need83, cache83, lp_defaultcase(p->service), p);
 }

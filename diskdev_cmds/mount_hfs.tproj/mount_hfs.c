@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,17 +46,18 @@
 #include <hfs/hfs_mount.h>
 #include <hfs/hfs_format.h>
 
+#include <TargetConditionals.h>
+
 /* Sensible wrappers over the byte-swapping routines */
 #include "hfs_endian.h"
+#include "optical.h"
 
-#include "../disklib/mntopts.h"
+#include <mntopts.h>
 
-
-/* This really belongs in mntopts.h */
-#define MOPT_PERMISSIONS	{ "perm", 1, MNT_UNKNOWNPERMISSIONS, 0 }
 
 struct mntopt mopts[] = {
 	MOPT_STDOPTS,
+	MOPT_IGNORE_OWNERSHIP,
 	MOPT_PERMISSIONS,
 	MOPT_UPDATE,
 	{ NULL }
@@ -68,7 +69,7 @@ gid_t	a_gid __P((char *));
 uid_t	a_uid __P((char *));
 mode_t	a_mask __P((char *));
 struct hfs_mnt_encoding * a_encoding __P((char *));
-struct hfs_mnt_encoding * get_encoding_pref __P((char *));
+int	get_encoding_pref __P((char *));
 int	get_encoding_bias __P((void));
 unsigned int  get_default_encoding(void);
 
@@ -305,7 +306,11 @@ main(argc, argv)
 	u_long localCreateTime;
 	struct hfs_mnt_encoding *encp;
 
+#if TARGET_OS_EMBEDDED
+	mntflags = MNT_NOATIME;
+#else
 	mntflags = 0;
+#endif
 	encp = NULL;
 	(void)memset(&args, '\0', sizeof(struct hfs_mount_args));
 
@@ -336,19 +341,19 @@ main(argc, argv)
 				else if (*ptr == 'm')
 					args.journal_tbuffer_size *= 1024*1024;
 			}
-			if (args.flags == VNOVAL) {
+			if (args.flags == VNOVAL){
 				args.flags = 0;
-			}
+			}	
 			args.flags |= HFSFSMNT_EXTENDED_ARGS;
 			break;
 		}
 		case 'j':
 			/* disable the journal */
-			if (args.flags == VNOVAL) {
+			if(args.flags == VNOVAL){
 				args.flags = 0;
 			}
-			args.journal_disable = 1;
 			args.flags |= HFSFSMNT_EXTENDED_ARGS;
+			args.journal_disable = 1;
 			break;
 		case 'c':
 			// XXXdbg JOURNAL_NO_GROUP_COMMIT == 0x0001
@@ -375,7 +380,7 @@ main(argc, argv)
 			{
 				int dummy;
 				getmntopts(optarg, mopts, &mntflags, &dummy);
-				if (mntflags & MNT_UNKNOWNPERMISSIONS) {
+				if (mntflags & MNT_IGNORE_OWNERSHIP) {
 					/*
 						The defaults to be supplied in lieu of the on-disk permissions
 						(could be overridden by explicit -u, -g, or -m options):
@@ -440,13 +445,17 @@ main(argc, argv)
             		args.flags = 0;
 
 		if ((args.hfs_encoding == (u_long)VNOVAL) && (encp == NULL)) {
-			args.hfs_encoding = 0;
+			int encoding;
 
-			/* Check if volume had a previous encoding preference. */
-			encp = get_encoding_pref(dev);
-			if (encp != NULL) {
-				if (load_encoding(encp) == 0)
-					args.hfs_encoding = encp->encoding_id;
+			/* Find a suitable encoding preference. */
+			if ((encoding = get_encoding_pref(dev)) != -1) {
+				/* 
+				 * Note: the encoding kext was loaded by
+				 * hfs.util during the file system probe.
+				 */
+				args.hfs_encoding = encoding;
+			} else {
+				args.hfs_encoding = 0;
 			}
 		}
 		/* when the mountpoint is root, use default values */
@@ -480,6 +489,17 @@ main(argc, argv)
     printf("\tencoding = %ld\n", args.hfs_encoding);
 
 #endif
+
+	/*
+	* We shouldn't really be calling up to other layers, but
+	* an exception was made in this case to fix the situation
+	* where HFS was writable on optical media.
+	*/
+
+    	if ((_optical_is_writable(dev) & _OPTICAL_WRITABLE_PACKET)) {
+		mntflags |= MNT_RDONLY;
+    	}
+
 	if ((mntflags & MNT_RDONLY) == 0) {
 		/*
 		 * get the volume's create date so we can synchronize
@@ -520,6 +540,8 @@ a_gid(s)
     if ((gr = getgrnam(s)) != NULL)
         gid = gr->gr_gid;
     else {
+	if (*s == '-')
+		s++;
         for (gname = s; *s && isdigit(*s); ++s);
         if (!*s)
             gid = atoi(gname);
@@ -611,7 +633,7 @@ unknown:
 /*
  * Get file system's encoding preference.
  */
-struct hfs_mnt_encoding *
+int
 get_encoding_pref(char *dev)
 {
 	char buffer[HFS_BLOCK_SIZE];
@@ -622,24 +644,20 @@ get_encoding_pref(char *dev)
 	int fd;
 	int i;
 
-	/* Can only load encoding modules if root. */
-	if (geteuid() != 0)
-		return (NULL);
-
 	fd = open(dev, O_RDONLY | O_NDELAY, 0);
-	if (fd == -1)
-		return (NULL);
-
+	if (fd == -1) {
+		return (-1);
+	}
      	if (pread(fd, buffer, sizeof(buffer), 1024) != sizeof(buffer)) {
      		close(fd);
-		return (NULL);
+		return (-1);
 	}
     	close(fd);
 
 	mdbp = (HFSMasterDirectoryBlock *) buffer;
 	if (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord ||
 	    SWAP_BE16(mdbp->drEmbedSigWord) == kHFSPlusSigWord ) {
-		return (NULL);
+		return (-1);
 	}
 	encoding = GET_HFS_TEXT_ENCODING(SWAP_BE32(mdbp->drFndrInfo[4]));
 
@@ -649,13 +667,14 @@ get_encoding_pref(char *dev)
 			encoding = get_default_encoding();
 	}
 
+	/* Check if this is a supported encoding. */
 	elements = sizeof(hfs_mnt_encodinglist) / sizeof(struct hfs_mnt_encoding);
 	for (i=0, enclist = hfs_mnt_encodinglist; i < elements; i++, enclist++) {
 		if (enclist->encoding_id == encoding)
-			return (enclist);
+			return (encoding);
 	}
 
-	return (NULL);
+	return (0);
 }
 
 /*

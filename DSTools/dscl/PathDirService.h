@@ -40,9 +40,14 @@
 // Open a connection to the local machine.
 - initWithLocal;
 
+// Open a connection to the local machine to the local only DS daemon
+- initWithLocalPath:(NSString*)filePath;
+
 // Open a conection to a remote machine using DS Proxy.
 - initWithHost:(NSString*)hostName user:(NSString*)user password:(NSString*)password;
 
 - (NSArray*) getPluginList;
 
+// ATM - PlugInManager needs access to directory
+-(DSoDirectory*)	directory;
 @end

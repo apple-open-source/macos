@@ -61,7 +61,6 @@
 #ifndef _NDBM_H_
 #define	_NDBM_H_
 
-#include <sys/cdefs.h>
 #include <_types.h>
 
 #ifndef _MODE_T
@@ -74,7 +73,7 @@ typedef __darwin_mode_t	mode_t;
 typedef __darwin_size_t	size_t;
 #endif
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 /* Map dbm interface onto db(3). */
 #include <fcntl.h>
 #define DBM_RDONLY	O_RDONLY
@@ -84,7 +83,7 @@ typedef __darwin_size_t	size_t;
 #define DBM_INSERT      0
 #define DBM_REPLACE     1
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 /*
  * The db(3) support for ndbm(3) always appends this suffix to the
  * file name to avoid overwriting the user's original database.
@@ -97,8 +96,14 @@ typedef struct {
 	size_t dsize;
 } datum;
 
-typedef struct __db DBM;
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#ifndef _DBM
+#define _DBM
+typedef struct {
+    char __opaque[sizeof(int) + 8 * sizeof(void *)];
+} DBM;
+#endif /* _DBM */
+
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 #define	dbm_pagfno(a)	DBM_PAGFNO_NOT_AVAILABLE
 #endif
 
@@ -106,13 +111,13 @@ __BEGIN_DECLS
 int	 dbm_clearerr( DBM *);
 void	 dbm_close(DBM *);
 int	 dbm_delete(DBM *, datum);
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 int	 dbm_dirfno(DBM *);
 #endif
 int	 dbm_error( DBM *);
 datum	 dbm_fetch(DBM *, datum);
 datum	 dbm_firstkey(DBM *);
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 long	 dbm_forder(DBM *, datum);
 #endif
 datum	 dbm_nextkey(DBM *);

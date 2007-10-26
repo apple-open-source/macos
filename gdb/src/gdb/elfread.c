@@ -1,7 +1,7 @@
 /* Read ELF (Executable and Linking Format) object files for GDB.
 
    Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    Written by Fred Fish at Cygnus Support.
 
@@ -83,12 +83,12 @@ elf_locate_sections (bfd *ignore_abfd, asection *sectp, void *eip)
   if (strcmp (sectp->name, ".debug") == 0)
     {
       ei->dboffset = sectp->filepos;
-      ei->dbsize = bfd_get_section_size_before_reloc (sectp);
+      ei->dbsize = bfd_get_section_size (sectp);
     }
   else if (strcmp (sectp->name, ".line") == 0)
     {
       ei->lnoffset = sectp->filepos;
-      ei->lnsize = bfd_get_section_size_before_reloc (sectp);
+      ei->lnsize = bfd_get_section_size (sectp);
     }
   else if (strcmp (sectp->name, ".stab") == 0)
     {
@@ -162,7 +162,7 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
   /* Name of filesym, as saved on the objfile_obstack.  */
   char *filesymname = obsavestring ("", 0, &objfile->objfile_obstack);
 #endif
-  struct dbx_symfile_info *dbx = objfile->sym_stab_info;
+  struct dbx_symfile_info *dbx = objfile->deprecated_sym_stab_info;
   int stripped = (bfd_get_symcount (objfile->obfd) == 0);
 
   if (dynamic)
@@ -177,7 +177,7 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
     {
       storage_needed = bfd_get_symtab_upper_bound (objfile->obfd);
       if (storage_needed < 0)
-	error ("Can't read symbols from %s: %s", bfd_get_filename (objfile->obfd),
+	error (_("Can't read symbols from %s: %s"), bfd_get_filename (objfile->obfd),
 	       bfd_errmsg (bfd_get_error ()));
     }
   if (storage_needed > 0)
@@ -190,7 +190,7 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
       else
 	number_of_symbols = bfd_canonicalize_symtab (objfile->obfd, symbol_table);
       if (number_of_symbols < 0)
-	error ("Can't read symbols from %s: %s", bfd_get_filename (objfile->obfd),
+	error (_("Can't read symbols from %s: %s"), bfd_get_filename (objfile->obfd),
 	       bfd_errmsg (bfd_get_error ()));
 
       for (i = 0; i < number_of_symbols; i++)
@@ -203,7 +203,7 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 	      continue;
 	    }
 
-          offset = ANOFFSET (objfile->section_offsets, sym->section->index);
+          offset = objfile_section_offset (objfile, sym->section->index);
 	  if (dynamic
 	      && sym->section == &bfd_und_section
 	      && (sym->flags & BSF_FUNCTION))
@@ -225,7 +225,8 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 	      msym = record_minimal_symbol
 		((char *) sym->name, symaddr,
 		 mst_solib_trampoline, sym->section, objfile);
-#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+/* APPLE LOCAL: We don't need the struct minimal_symbol member filename.  */
+#if defined(SOFUN_ADDRESS_MAYBE_MISSING) && !defined(TM_NEXTSTEP)
 	      if (msym != NULL)
 		msym->filename = filesymname;
 #endif
@@ -254,6 +255,8 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 			      &objfile->objfile_obstack);
 #endif
 	    }
+	  else if (sym->flags & BSF_SECTION_SYM)
+	    continue;
 	  else if (sym->flags & (BSF_GLOBAL | BSF_LOCAL | BSF_WEAK))
 	    {
 	      struct minimal_symbol *msym;
@@ -377,13 +380,13 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 				      + (sizeof (CORE_ADDR)
 					 * max_index));
 			      sectinfo = (struct stab_section_info *)
-				xmmalloc (objfile->md, size);
+				xmalloc (size);
 			      memset (sectinfo, 0, size);
 			      sectinfo->num_sections = max_index;
 			      if (filesym == NULL)
 				{
 				  complaint (&symfile_complaints,
-					     "elf/stab section information %s without a preceding file symbol",
+					     _("elf/stab section information %s without a preceding file symbol"),
 					     sym->name);
 				}
 			      else
@@ -394,7 +397,7 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 			    }
 			  if (sectinfo->sections[special_local_sect] != 0)
 			    complaint (&symfile_complaints,
-				       "duplicated elf/stab section information for %s",
+				       _("duplicated elf/stab section information for %s"),
 				       sectinfo->filename);
 			  /* BFD symbols are section relative.  */
 			  symaddr = sym->value + sym->section->vma;
@@ -441,7 +444,8 @@ elf_symtab_read (struct objfile *objfile, int dynamic)
 		unsigned long size = ((elf_symbol_type *) sym)->internal_elf_sym.st_size;
 		MSYMBOL_SIZE(msym) = size;
 	      }
-#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+/* APPLE LOCAL: We don't need the struct minimal_symbol member filename.  */
+#if defined(SOFUN_ADDRESS_MAYBE_MISSING) && !defined(TM_NEXTSTEP)
 	      if (msym != NULL)
 		msym->filename = filesymname;
 #endif
@@ -498,13 +502,13 @@ elf_symfile_read (struct objfile *objfile, int mainline)
   memset ((char *) &ei, 0, sizeof (ei));
 
   /* Allocate struct to keep track of the symfile */
-  objfile->sym_stab_info = (struct dbx_symfile_info *)
-    xmmalloc (objfile->md, sizeof (struct dbx_symfile_info));
-  memset ((char *) objfile->sym_stab_info, 0, sizeof (struct dbx_symfile_info));
+  objfile->deprecated_sym_stab_info = (struct dbx_symfile_info *)
+    xmalloc (sizeof (struct dbx_symfile_info));
+  memset ((char *) objfile->deprecated_sym_stab_info, 0, sizeof (struct dbx_symfile_info));
   make_cleanup (free_elfinfo, (void *) objfile);
 
   /* Process the normal ELF symbol table first.  This may write some 
-     chain of info into the dbx_symfile_info in objfile->sym_stab_info,
+     chain of info into the dbx_symfile_info in objfile->deprecated_sym_stab_info,
      which can later be used by elfstab_offset_sections.  */
 
   elf_symtab_read (objfile, 0);
@@ -575,7 +579,7 @@ elf_symfile_read (struct objfile *objfile, int mainline)
 				str_sect->filepos,
 				bfd_section_size (abfd, str_sect));
     }
-  if (dwarf2_has_info (abfd))
+  if (dwarf2_has_info (objfile))
     {
       /* DWARF 2 sections */
       dwarf2_build_psymtabs (objfile, mainline);
@@ -594,21 +598,22 @@ elf_symfile_read (struct objfile *objfile, int mainline)
   dwarf2_build_frame_info (objfile);
 }
 
-/* This cleans up the objfile's sym_stab_info pointer, and the chain of
-   stab_section_info's, that might be dangling from it.  */
+/* This cleans up the objfile's deprecated_sym_stab_info pointer, and
+   the chain of stab_section_info's, that might be dangling from
+   it.  */
 
 static void
 free_elfinfo (void *objp)
 {
   struct objfile *objfile = (struct objfile *) objp;
-  struct dbx_symfile_info *dbxinfo = objfile->sym_stab_info;
+  struct dbx_symfile_info *dbxinfo = objfile->deprecated_sym_stab_info;
   struct stab_section_info *ssi, *nssi;
 
   ssi = dbxinfo->stab_section_info;
   while (ssi)
     {
       nssi = ssi->next;
-      xmfree (objfile->md, ssi);
+      xfree (ssi);
       ssi = nssi;
     }
 
@@ -637,9 +642,9 @@ elf_new_init (struct objfile *ignore)
 static void
 elf_symfile_finish (struct objfile *objfile)
 {
-  if (objfile->sym_stab_info != NULL)
+  if (objfile->deprecated_sym_stab_info != NULL)
     {
-      xmfree (objfile->md, objfile->sym_stab_info);
+      xfree (objfile->deprecated_sym_stab_info);
     }
 }
 
@@ -673,7 +678,7 @@ void
 elfstab_offset_sections (struct objfile *objfile, struct partial_symtab *pst)
 {
   char *filename = pst->filename;
-  struct dbx_symfile_info *dbx = objfile->sym_stab_info;
+  struct dbx_symfile_info *dbx = objfile->deprecated_sym_stab_info;
   struct stab_section_info *maybe = dbx->stab_section_info;
   struct stab_section_info *questionable = 0;
   int i;
@@ -703,7 +708,7 @@ elfstab_offset_sections (struct objfile *objfile, struct partial_symtab *pst)
   if (maybe == 0 && questionable != 0)
     {
       complaint (&symfile_complaints,
-		 "elf/stab section information questionable for %s", filename);
+		 _("elf/stab section information questionable for %s"), filename);
       maybe = questionable;
     }
 
@@ -722,7 +727,7 @@ elfstab_offset_sections (struct objfile *objfile, struct partial_symtab *pst)
   /* We were unable to find any offsets for this file.  Complain.  */
   if (dbx->stab_section_info)	/* If there *is* any info, */
     complaint (&symfile_complaints,
-	       "elf/stab section information missing for %s", filename);
+	       _("elf/stab section information missing for %s"), filename);
 }
 
 /* Register that we are able to handle ELF object file formats.  */

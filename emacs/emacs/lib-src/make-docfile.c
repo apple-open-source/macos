@@ -1,6 +1,6 @@
 /* Generate doc-string file for GNU Emacs from source files.
-   Copyright (C) 1985, 86, 92, 93, 94, 97, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1992, 1993, 1994, 1997, 1999, 2000, 2001,
+                 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -16,13 +16,14 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* The arguments given to this program are all the C and Lisp source files
  of GNU Emacs.  .elc and .el and .c files are allowed.
  A .o file can also be specified; the .c file it was made from is used.
  This helps the makefile pass the correct list of files.
+ Option -d DIR means change to DIR before looking for files.
 
  The results, which go to standard output or to a file
  specified with -a or -o (-a to append, -o to start from nothing),
@@ -59,6 +60,18 @@ Boston, MA 02111-1307, USA.  */
 #define READ_BINARY "r"
 #endif /* not DOS_NT */
 
+#ifndef DIRECTORY_SEP
+#ifdef MAC_OS8
+#define DIRECTORY_SEP ':'
+#else  /* not MAC_OS8 */
+#define DIRECTORY_SEP '/'
+#endif	/* not MAC_OS8 */
+#endif
+
+#ifndef IS_DIRECTORY_SEP
+#define IS_DIRECTORY_SEP(_c_) ((_c_) == DIRECTORY_SEP)
+#endif
+
 int scan_file ();
 int scan_lisp_file ();
 int scan_c_file ();
@@ -79,7 +92,7 @@ FILE *outfile;
 /* Name this program was invoked with.  */
 char *progname;
 
-/* Print error message.  `s1' is printf control string, `s2' is arg for it. */
+/* Print error message.  `s1' is printf control string, `s2' is arg for it.  */
 
 /* VARARGS1 */
 void
@@ -99,16 +112,16 @@ fatal (s1, s2)
      char *s1, *s2;
 {
   error (s1, s2);
-  exit (1);
+  exit (EXIT_FAILURE);
 }
 
 /* Like malloc but get fatal error if memory is exhausted.  */
 
-long *
+void *
 xmalloc (size)
      unsigned int size;
 {
-  long *result = (long *) malloc (size);
+  void *result = (void *) malloc (size);
   if (result == NULL)
     fatal ("virtual memory exhausted", 0);
   return result;
@@ -174,10 +187,25 @@ main (argc, argv)
       if (j == i)
 	err_count += scan_file (argv[i]);
     }
-#ifndef VMS
-  exit (err_count > 0);
-#endif /* VMS */
-  return err_count > 0;
+  return (err_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+}
+
+/* Add a source file name boundary marker in the output file.  */
+void
+put_filename (filename)
+     char *filename;
+{
+  char *tmp;
+
+  for (tmp = filename; *tmp; tmp++)
+    {
+      if (IS_DIRECTORY_SEP(*tmp))
+	filename = tmp + 1;
+    }
+
+  putc (037, outfile);
+  putc ('S', outfile);
+  fprintf (outfile, "%s\n", filename);
 }
 
 /* Read file FILENAME and output its doc strings to outfile.  */
@@ -188,6 +216,8 @@ scan_file (filename)
      char *filename;
 {
   int len = strlen (filename);
+
+  put_filename (filename);
   if (len > 4 && !strcmp (filename + len - 4, ".elc"))
     return scan_lisp_file (filename, READ_BINARY);
   else if (len > 3 && !strcmp (filename + len - 3, ".el"))
@@ -198,25 +228,168 @@ scan_file (filename)
 
 char buf[128];
 
-/* Skip a C string from INFILE,
- and return the character that follows the closing ".
- If printflag is positive, output string contents to outfile.
- If it is negative, store contents in buf.
- Convert escape sequences \n and \t to newline and tab;
- discard \ followed by newline.  */
+/* Some state during the execution of `read_c_string_or_comment'.  */
+struct rcsoc_state
+{
+  /* A count of spaces and newlines that have been read, but not output.  */
+  unsigned pending_spaces, pending_newlines;
+
+  /* Where we're reading from.  */
+  FILE *in_file;
+
+  /* If non-zero, a buffer into which to copy characters.  */
+  char *buf_ptr;
+  /* If non-zero, a file into which to copy characters.  */
+  FILE *out_file;
+
+  /* A keyword we look for at the beginning of lines.  If found, it is
+     not copied, and SAW_KEYWORD is set to true.  */
+  char *keyword;
+  /* The current point we've reached in an occurance of KEYWORD in
+     the input stream.  */
+  char *cur_keyword_ptr;
+  /* Set to true if we saw an occurance of KEYWORD.  */
+  int saw_keyword;
+};
+
+/* Output CH to the file or buffer in STATE.  Any pending newlines or
+   spaces are output first.  */
+
+static INLINE void
+put_char (ch, state)
+     int ch;
+     struct rcsoc_state *state;
+{
+  int out_ch;
+  do
+    {
+      if (state->pending_newlines > 0)
+	{
+	  state->pending_newlines--;
+	  out_ch = '\n';
+	}
+      else if (state->pending_spaces > 0)
+	{
+	  state->pending_spaces--;
+	  out_ch = ' ';
+	}
+      else
+	out_ch = ch;
+
+      if (state->out_file)
+	putc (out_ch, state->out_file);
+      if (state->buf_ptr)
+	*state->buf_ptr++ = out_ch;
+    }
+  while (out_ch != ch);
+}
+
+/* If in the middle of scanning a keyword, continue scanning with
+   character CH, otherwise output CH to the file or buffer in STATE.
+   Any pending newlines or spaces are output first, as well as any
+   previously scanned characters that were thought to be part of a
+   keyword, but were in fact not.  */
+
+static void
+scan_keyword_or_put_char (ch, state)
+     int ch;
+     struct rcsoc_state *state;
+{
+  if (state->keyword
+      && *state->cur_keyword_ptr == ch
+      && (state->cur_keyword_ptr > state->keyword
+	  || state->pending_newlines > 0))
+    /* We might be looking at STATE->keyword at some point.
+       Keep looking until we know for sure.  */
+    {
+      if (*++state->cur_keyword_ptr == '\0')
+	/* Saw the whole keyword.  Set SAW_KEYWORD flag to true.  */
+	{
+	  state->saw_keyword = 1;
+
+	  /* Reset the scanning pointer.  */
+	  state->cur_keyword_ptr = state->keyword;
+
+	  /* Canonicalize whitespace preceding a usage string.  */
+	  state->pending_newlines = 2;
+	  state->pending_spaces = 0;
+
+	  /* Skip any whitespace between the keyword and the
+	     usage string.  */
+	  do
+	    ch = getc (state->in_file);
+	  while (ch == ' ' || ch == '\n');
+
+	  /* Output the open-paren we just read.  */
+	  put_char (ch, state);
+
+	  /* Skip the function name and replace it with `fn'.  */
+	  do
+	    ch = getc (state->in_file);
+	  while (ch != ' ' && ch != ')');
+	  put_char ('f', state);
+	  put_char ('n', state);
+
+	  /* Put back the last character.  */
+	  ungetc (ch, state->in_file);
+	}
+    }
+  else
+    {
+      if (state->keyword && state->cur_keyword_ptr > state->keyword)
+	/* We scanned the beginning of a potential usage
+	   keyword, but it was a false alarm.  Output the
+	   part we scanned.  */
+	{
+	  char *p;
+
+	  for (p = state->keyword; p < state->cur_keyword_ptr; p++)
+	    put_char (*p, state);
+
+	  state->cur_keyword_ptr = state->keyword;
+	}
+
+      put_char (ch, state);
+    }
+}
+
+
+/* Skip a C string or C-style comment from INFILE, and return the
+   character that follows.  COMMENT non-zero means skip a comment.  If
+   PRINTFLAG is positive, output string contents to outfile.  If it is
+   negative, store contents in buf.  Convert escape sequences \n and
+   \t to newline and tab; discard \ followed by newline.
+   If SAW_USAGE is non-zero, then any occurances of the string `usage:'
+   at the beginning of a line will be removed, and *SAW_USAGE set to
+   true if any were encountered.  */
 
 int
-read_c_string (infile, printflag)
+read_c_string_or_comment (infile, printflag, comment, saw_usage)
      FILE *infile;
      int printflag;
+     int *saw_usage;
+     int comment;
 {
   register int c;
-  char *p = buf;
+  struct rcsoc_state state;
+
+  state.in_file = infile;
+  state.buf_ptr = (printflag < 0 ? buf : 0);
+  state.out_file = (printflag > 0 ? outfile : 0);
+  state.pending_spaces = 0;
+  state.pending_newlines = 0;
+  state.keyword = (saw_usage ? "usage:" : 0);
+  state.cur_keyword_ptr = state.keyword;
+  state.saw_keyword = 0;
 
   c = getc (infile);
+  if (comment)
+    while (c == '\n' || c == '\r' || c == '\t' || c == ' ')
+      c = getc (infile);
+
   while (c != EOF)
     {
-      while (c != '"' && c != EOF)
+      while (c != EOF && (comment ? c != '*' : c != '"'))
 	{
 	  if (c == '\\')
 	    {
@@ -231,24 +404,53 @@ read_c_string (infile, printflag)
 	      if (c == 't')
 		c = '\t';
 	    }
-	  if (printflag > 0)
-	    putc (c, outfile);
-	  else if (printflag < 0)
-	    *p++ = c;
+
+	  if (c == ' ')
+	    state.pending_spaces++;
+	  else if (c == '\n')
+	    {
+	      state.pending_newlines++;
+	      state.pending_spaces = 0;
+	    }
+	  else
+	    scan_keyword_or_put_char (c, &state);
+
 	  c = getc (infile);
 	}
-      c = getc (infile);
-      if (c != '"')
-	break;
-      /* If we had a "", concatenate the two strings.  */
-      c = getc (infile);
+
+      if (c != EOF)
+	c = getc (infile);
+
+      if (comment)
+	{
+	  if (c == '/')
+	    {
+	      c = getc (infile);
+	      break;
+	    }
+
+	  scan_keyword_or_put_char ('*', &state);
+	}
+      else
+	{
+	  if (c != '"')
+	    break;
+
+	  /* If we had a "", concatenate the two strings.  */
+	  c = getc (infile);
+	}
     }
 
   if (printflag < 0)
-    *p = 0;
+    *state.buf_ptr = 0;
+
+  if (saw_usage)
+    *saw_usage = state.saw_keyword;
 
   return c;
 }
+
+
 
 /* Write to file OUT the argument names of function FUNC, whose text is in BUF.
    MINARGS and MAXARGS are the minimum and maximum number of arguments.  */
@@ -264,7 +466,7 @@ write_c_args (out, func, buf, minargs, maxargs)
   int just_spaced = 0;
   int need_space = 1;
 
-  fprintf (out, "(%s", func);
+  fprintf (out, "(fn");
 
   if (*buf == '(')
     ++buf;
@@ -365,12 +567,14 @@ scan_c_file (filename, mode)
       return 0;
     }
 
-  /* Reset extension to be able to detect duplicate files. */
+  /* Reset extension to be able to detect duplicate files.  */
   filename[strlen (filename) - 1] = extension;
 
   c = '\n';
   while (!feof (infile))
     {
+      int doc_keyword = 0;
+
       if (c != '\n' && c != '\r')
 	{
 	  c = getc (infile);
@@ -421,6 +625,7 @@ scan_c_file (filename, mode)
 	  c = getc (infile);
 	  defunflag = c == 'U';
 	  defvarflag = 0;
+	  defvarperbufferflag = 0;
 	}
       else continue;
 
@@ -431,10 +636,15 @@ scan_c_file (filename, mode)
 	  c = getc (infile);
 	}
 
+      /* Lisp variable or function name.  */
       c = getc (infile);
       if (c != '"')
 	continue;
-      c = read_c_string (infile, -1);
+      c = read_c_string_or_comment (infile, -1, 0, 0);
+
+      /* DEFVAR_LISP ("name", addr, "doc")
+	 DEFVAR_LISP ("name", addr /\* doc *\/)
+	 DEFVAR_LISP ("name", addr, doc: /\* doc *\/)  */
 
       if (defunflag)
 	commas = 5;
@@ -450,6 +660,7 @@ scan_c_file (filename, mode)
 	  if (c == ',')
 	    {
 	      commas--;
+
 	      if (defunflag && (commas == 1 || commas == 2))
 		{
 		  do
@@ -467,40 +678,75 @@ scan_c_file (filename, mode)
 		      fscanf (infile, "%d", &maxargs);
 		}
 	    }
-	  if (c < 0)
+
+	  if (c == EOF)
 	    goto eof;
 	  c = getc (infile);
 	}
-      while (c == ' ' || c == '\n' || c == '\r' || c == '\t')
-	c = getc (infile);
-      if (c == '"')
-	c = read_c_string (infile, 0);
-      while (c != ',')
-	c = getc (infile);
-      c = getc (infile);
+
       while (c == ' ' || c == '\n' || c == '\r' || c == '\t')
 	c = getc (infile);
 
       if (c == '"')
+	c = read_c_string_or_comment (infile, 0, 0, 0);
+
+      while (c != EOF && c != ',' && c != '/')
+	c = getc (infile);
+      if (c == ',')
 	{
+	  c = getc (infile);
+	  while (c == ' ' || c == '\n' || c == '\r' || c == '\t')
+	    c = getc (infile);
+	  while ((c >= 'a' && c <= 'z') || (c >= 'Z' && c <= 'Z'))
+	    c = getc (infile);
+	  if (c == ':')
+	    {
+	      doc_keyword = 1;
+	      c = getc (infile);
+	      while (c == ' ' || c == '\n' || c == '\r' || c == '\t')
+		c = getc (infile);
+	    }
+	}
+
+      if (c == '"'
+	  || (c == '/'
+	      && (c = getc (infile),
+		  ungetc (c, infile),
+		  c == '*')))
+	{
+	  int comment = c != '"';
+	  int saw_usage;
+
 	  putc (037, outfile);
 	  putc (defvarflag ? 'V' : 'F', outfile);
 	  fprintf (outfile, "%s\n", buf);
-	  c = read_c_string (infile, 1);
+
+	  if (comment)
+	    getc (infile); 	/* Skip past `*' */
+	  c = read_c_string_or_comment (infile, 1, comment, &saw_usage);
 
 	  /* If this is a defun, find the arguments and print them.  If
 	     this function takes MANY or UNEVALLED args, then the C source
 	     won't give the names of the arguments, so we shouldn't bother
-	     trying to find them.  */
-	  if (defunflag && maxargs != -1)
+	     trying to find them.
+
+	     Various doc-string styles:
+	      0: DEFUN (..., "DOC") (args)            [!comment]
+	      1: DEFUN (..., /\* DOC *\/ (args))      [comment && !doc_keyword]
+	      2: DEFUN (..., doc: /\* DOC *\/) (args) [comment && doc_keyword]
+	  */
+	  if (defunflag && maxargs != -1 && !saw_usage)
 	    {
 	      char argbuf[1024], *p = argbuf;
-	      while (c != ')')
-		{
-		  if (c < 0)
-		    goto eof;
-		  c = getc (infile);
-		}
+
+	      if (!comment || doc_keyword)
+		while (c != ')')
+		  {
+		    if (c < 0)
+		      goto eof;
+		    c = getc (infile);
+		  }
+
 	      /* Skip into arguments.  */
 	      while (c != '(')
 		{
@@ -518,6 +764,9 @@ scan_c_file (filename, mode)
 	      fprintf (outfile, "\n\n");
 	      write_c_args (outfile, buf, argbuf, minargs, maxargs);
 	    }
+	  else if (defunflag && maxargs == -1 && !saw_usage)
+	    /* The DOC should provide the usage form.  */
+	    fprintf (stderr, "Missing `usage' for function `%s'.\n", buf);
 	}
     }
  eof:
@@ -544,14 +793,14 @@ scan_c_file (filename, mode)
  When we find that, we save it for the following defining-form,
  and we use that instead of reading a doc string within that defining-form.
 
- For defvar, defconst, and fset we skip to the docstring with a kludgy 
+ For defvar, defconst, and fset we skip to the docstring with a kludgy
  formatting convention: all docstrings must appear on the same line as the
- initial open-paren (the one in column zero) and must contain a backslash 
+ initial open-paren (the one in column zero) and must contain a backslash
  and a newline immediately after the initial double-quote.  No newlines
  must appear between the beginning of the form and the first double-quote.
  For defun, defmacro, and autoload, we know how to skip over the
  arglist, but the doc string must still have a backslash and newline
- immediately after the double quote. 
+ immediately after the double quote.
  The only source files that must follow this convention are preloaded
  uncompiled ones like loaddefs.el and bindings.el; aside
  from that, it is always the .elc file that we look at, and they are no
@@ -597,7 +846,7 @@ read_lisp_symbol (infile, buffer)
 
   if (! buffer[0])
     fprintf (stderr, "## expected a symbol, got '%c'\n", c);
-  
+
   skip_white (infile);
 }
 
@@ -741,7 +990,7 @@ scan_lisp_file (filename, mode)
 		  c1 = c;
 		  c = getc (infile);
 		}
-	  
+
 	      /* If two previous characters were " and \,
 		 this is a doc string.  Otherwise, there is none.  */
 	      if (c2 != '"' || c1 != '\\')
@@ -800,7 +1049,7 @@ scan_lisp_file (filename, mode)
 		  c1 = c;
 		  c = getc (infile);
 		}
-	  
+
 	      /* If two previous characters were " and \,
 		 this is a doc string.  Otherwise, there is none.  */
 	      if (c2 != '"' || c1 != '\\')
@@ -857,7 +1106,7 @@ scan_lisp_file (filename, mode)
 		  c1 = c;
 		  c = getc (infile);
 		}
-	  
+
 	      /* If two previous characters were " and \,
 		 this is a doc string.  Otherwise, there is none.  */
 	      if (c2 != '"' || c1 != '\\')
@@ -909,7 +1158,7 @@ scan_lisp_file (filename, mode)
 		       buffer, filename);
 	      continue;
 	    }
-	  read_c_string (infile, 0);
+	  read_c_string_or_comment (infile, 0, 0, 0);
 	  skip_white (infile);
 
 	  if (saved_string == 0)
@@ -962,8 +1211,13 @@ scan_lisp_file (filename, mode)
 	  saved_string = 0;
 	}
       else
-	read_c_string (infile, 1);
+	read_c_string_or_comment (infile, 1, 0, 0);
     }
   fclose (infile);
   return 0;
 }
+
+/* arch-tag: f7203aaf-991a-4238-acb5-601db56f2894
+   (do not change this comment) */
+
+/* make-docfile.c ends here */

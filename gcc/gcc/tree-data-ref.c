@@ -579,6 +579,8 @@ analyze_array (tree stmt, tree ref, bool is_read)
   
   DR_STMT (res) = stmt;
   DR_REF (res) = ref;
+  /* APPLE LOCAL mainline Radar 4382844 */
+  DR_TYPE (res) = ARRAY_REF_TYPE;
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 3, "access_fns");
   DR_BASE_NAME (res) = analyze_array_indexes 
     (loop_containing_stmt (stmt), &(DR_ACCESS_FNS (res)), ref, stmt);
@@ -614,6 +616,8 @@ init_data_ref (tree stmt,
   
   DR_STMT (res) = stmt;
   DR_REF (res) = ref;
+  /* APPLE LOCAL mainline Radar 4382844 */
+  DR_TYPE (res) = 0;
   VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 5, "access_fns");
   DR_BASE_NAME (res) = base;
   VARRAY_PUSH_TREE (DR_ACCESS_FNS (res), access_fn);
@@ -2272,6 +2276,8 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 		  res = xmalloc (sizeof (struct data_reference));
 		  DR_STMT (res) = NULL_TREE;
 		  DR_REF (res) = NULL_TREE;
+		  /* APPLE LOCAL mainline Radar 4382844 */
+		  DR_TYPE (res) = 0;
 		  DR_ACCESS_FNS (res) = NULL;
 		  DR_BASE_NAME (res) = NULL;
 		  DR_IS_READ (res) = false;

@@ -1,0 +1,8 @@
+2006-07-12  Caroline Tice  <ctice@apple.com>
+
+	* linux-low.c (inlining.h): New include statement.
+	(check_removed_breakpoint):  Check to see if the stop_pc has changed since
+	the last time global_inlined_call_stack was updated, and if so
+	re-update global_inlined_call_stack.
+	(linux_wait_for_event): Likewise.
+

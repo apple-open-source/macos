@@ -1,8 +1,8 @@
 /* operational.c - ldbm backend operational attributes function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/operational.c,v 1.8.2.2 2004/01/01 18:16:37 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/operational.c,v 1.12.2.3 2006/01/03 22:16:19 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,24 +51,27 @@ ldbm_back_hasSubordinates(
 int
 ldbm_back_operational(
 	Operation	*op,
-	SlapReply	*rs,
-	int		opattrs,
-	Attribute	**a )
+	SlapReply	*rs )
 {
-	Attribute	**aa = a;
+	Attribute	**ap;
 
-	assert( rs->sr_entry );
+	assert( rs->sr_entry != NULL );
 
-	if ( opattrs || ad_inlist( slap_schema.si_ad_hasSubordinates, rs->sr_attrs ) ) {
+	for ( ap = &rs->sr_operational_attrs; *ap; ap = &(*ap)->a_next )
+		/* just count */ ;
+
+	if ( SLAP_OPATTRS( rs->sr_attr_flags ) ||
+			ad_inlist( slap_schema.si_ad_hasSubordinates, rs->sr_attrs ) )
+	{
 		int	hs;
 
 		hs = has_children( op->o_bd, rs->sr_entry );
-		*aa = slap_operational_hasSubordinate( hs );
-		if ( *aa != NULL ) {
-			aa = &(*aa)->a_next;
-		}
+		*ap = slap_operational_hasSubordinate( hs );
+		assert( *ap != NULL );
+
+		ap = &(*ap)->a_next;
 	}
-	
+
 	return 0;
 }
 

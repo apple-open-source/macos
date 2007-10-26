@@ -96,7 +96,7 @@ enum {
     kUHCI_SOF_TIMING    = 0x7F      /* Bits 6:0. */
 };
 
-/* Bits for kUHCI_PORTSCx. */
+// Bits for kUHCI_PORTSCx.
 
 enum {
     kUHCI_PORTSC_SUSPEND    = 0x1000,   // Suspend control
@@ -238,6 +238,7 @@ enum
 #define kUHCIPageMask 		(~(kUHCIPageOffsetMask))	// mask off just the page number (high 20)
 #define kUHCIPtrMask		( 0xFFFFFFF0 )				// mask for list element pointers
 
+#define	kUHCIStructureAllocationPhysicalMask	0x00000000FFFFF000ULL			// for use with inTaskWithPhysicalMask (below 4GB and 4K aligned)
 
 #endif /*  _IOKIT_UHCI_H_ */
 

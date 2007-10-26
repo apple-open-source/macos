@@ -16,7 +16,7 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
+#include <system.h>
 #include <quotearg.h>
 #include "common.h"
 
@@ -189,7 +189,7 @@ sparse_scan_file (struct tar_sparse_file *file)
     return false;
   clear_block (buffer);
 
-  file->stat_info->sparse_map_size = 0;
+  file->stat_info->sparse_map_avail = 0;
   file->stat_info->archive_file_size = 0;
 
   if (!tar_sparse_scan (file, scan_begin, NULL))
@@ -626,7 +626,7 @@ oldgnu_get_sparse_info (struct tar_sparse_file *file)
   int ext_p;
   static enum oldgnu_add_status rc;
 
-  file->stat_info->sparse_map_size = 0;
+  file->stat_info->sparse_map_avail = 0;
   for (i = 0; i < SPARSES_IN_OLDGNU_HEADER; i++)
     {
       rc = oldgnu_add_sparse (file, &h->oldgnu_header.sp[i]);
@@ -752,7 +752,7 @@ star_get_sparse_info (struct tar_sparse_file *file)
   int ext_p;
   static enum oldgnu_add_status rc;
 
-  file->stat_info->sparse_map_size = 0;
+  file->stat_info->sparse_map_avail = 0;
 
   if (h->star_in_header.prefix[0] == '\0'
       && h->star_in_header.sp[0].offset[10] != '\0')

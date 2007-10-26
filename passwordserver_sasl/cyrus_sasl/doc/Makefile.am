@@ -1,6 +1,6 @@
 # Makefile.am for SASL documentation
 # Rob Earhart
-# $Id: Makefile.am,v 1.4 2005/01/10 19:13:36 snsimon Exp $
+# $Id: Makefile.am,v 1.6 2006/01/20 20:15:07 snsimon Exp $
 #
 ################################################################
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
@@ -58,16 +58,17 @@ EXTRA_DIST =	rfc1321.txt \
 		rfc3174.txt \
 		testing.txt \
 		server-plugin-flow.fig \
-		draft-burdis-cat-srp-sasl-08.txt \
-		draft-ietf-sasl-anon-02.txt \
-		draft-ietf-sasl-crammd5-01.txt \
-		draft-ietf-sasl-gssapi-00.txt \
-		draft-ietf-sasl-plain-03.txt \
-		draft-ietf-sasl-rfc2222bis-03.txt \
-		draft-ietf-sasl-rfc2831bis-02.txt \
-		draft-ietf-sasl-saslprep-04.txt \
-		draft-murchison-sasl-login-00.txt \
-		draft-newman-sasl-c-api-01.txt \
+		draft-burdis-cat-srp-sasl-xx.txt \
+		draft-ietf-sasl-anon-xx.txt \
+		draft-ietf-sasl-crammd5-xx.txt \
+		draft-ietf-sasl-gssapi-xx.txt \
+		draft-ietf-sasl-plain-xx.txt \
+		draft-ietf-sasl-rfc2222bis-xx.txt \
+		draft-ietf-sasl-rfc2831bis-xx.txt \
+		draft-ietf-sasl-saslprep-xx.txt \
+		draft-murchison-sasl-login-xx.txt \
+		draft-newman-sasl-c-api-xx.txt \
+		draft-newman-sasl-passdss-xx.txt \
 		programming.html \
 		sysadmin.html \
 		gssapi.html \

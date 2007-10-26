@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,7 +34,7 @@
 #include <sys/buf.h>
 #include <sys/malloc.h>
 #include <sys/ubc.h>
-#include <miscfs/specfs/specdev.h>
+#include <mach/kmod.h>
 
 // Project Includes
 #ifndef __APPLE_CDDA_FS_VFS_OPS_H__
@@ -61,12 +61,6 @@
 #include "AIFFSupport.h"
 #endif
 
-
-// Declarations
-typedef int (*PFI)();
-
-extern char *	strncpy __P ( ( char *, const char *, size_t ) );	// Kernel already includes a copy
-extern int		strcmp __P	( ( const char *, const char * ) );		// Kernel already includes a copy
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Globals
@@ -99,7 +93,9 @@ struct vfsops gCDDA_VFSOps =
 	0,			// fhtovp
 	0,			// vptofh
 	0,			// init
-	0			// sysctl
+	0,			// sysctl
+	0,			// setattr
+	{ 0 }		// reserved
 };
 
 static void
@@ -119,12 +115,16 @@ CDDA_Mount ( mount_t				mountPtr,
 {
 	
 	AppleCDDAMountPtr		cddaMountPtr	= NULL;
-	UserAppleCDDAArguments	cddaArgs		= { 0 };
 	AppleCDDANodePtr		cddaNodePtr		= NULL;
-	int						error			= 0;
-	struct timeval			now				= { 0 };
-	struct timespec			timespec		= { 0 };
 	void *					xmlData			= NULL;
+	int						error			= 0;
+	UserAppleCDDAArguments	cddaArgs;
+	struct timeval			now;
+	struct timespec			timespec;
+	
+	bzero ( &cddaArgs, sizeof ( cddaArgs ) );
+	bzero ( &now, sizeof ( now ) );
+	bzero ( &timespec, sizeof ( timespec ) );
 	
 	DebugLog ( ( "CDDA_Mount: Entering.\n" ) );
 	
@@ -139,7 +139,9 @@ CDDA_Mount ( mount_t				mountPtr,
 	else
 	{
 		
-		AppleCDDAArguments	temp = { 0 };
+		AppleCDDAArguments	temp;
+		
+		bzero ( &temp, sizeof ( temp ) );
 		
 		error = copyin ( data, ( caddr_t ) &temp, sizeof ( temp ) );
 		if ( error == 0 )
@@ -159,7 +161,8 @@ CDDA_Mount ( mount_t				mountPtr,
 	
 	if ( error != 0 )
 	{
-		
+
+		DebugLog ( ( "copyin error = %d\n", error ) );
 		goto ERROR;
 		
 	}
@@ -250,7 +253,7 @@ CDDA_Mount ( mount_t				mountPtr,
 	cddaNodePtr->blockDeviceVNodePtr = blockDeviceVNodePtr;
 	
 	vfs_setflags ( mountPtr, ( MNT_LOCAL | MNT_RDONLY | MNT_DOVOLFS ) );	// Local Read-Only FileSystem
-	vfs_setfsprivate ( mountPtr, ( void * ) cddaMountPtr );		// Hang our data off the MountPoint
+	vfs_setfsprivate ( mountPtr, ( void * ) cddaMountPtr );					// Hang our data off the MountPoint
 	
 	// Get a filesystem ID for us
 	vfs_getnewfsid ( mountPtr );
@@ -538,29 +541,28 @@ CDDA_VFSGetAttributes ( mount_t					mountPtr,
 	
 	VFSATTR_RETURN ( attrPtr, f_create_time, cddaMountPtr->mountTime );
 	VFSATTR_RETURN ( attrPtr, f_modify_time, cddaMountPtr->mountTime );
+	
 	if ( VFSATTR_IS_ACTIVE ( attrPtr, f_backup_time ) )
 	{
+		
 		attrPtr->f_backup_time.tv_sec = 0;
 		attrPtr->f_backup_time.tv_nsec = 0;
 		VFSATTR_SET_SUPPORTED ( attrPtr, f_backup_time );
+		
 	}
 	
 	if ( VFSATTR_IS_ACTIVE ( attrPtr, f_vol_name ) )
 	{
 		
-		char *		vname 	= NULL;
-		ssize_t		length 	= 0;
+		const char *	vname 	= NULL;
+		ssize_t			length 	= 0;
 		
 		FindVolumeName ( vfs_statfs ( mountPtr )->f_mntonname, &vname, &length );
 		
 		if ( vname != NULL )
  		{
- 			
- 			if ( length > ( MAXPATHLEN - 1 ) )
- 				length = MAXPATHLEN - 1;
- 			
- 			strncpy ( attrPtr->f_vol_name, vname, length );
- 			attrPtr->f_vol_name[length] = '\0';
+			
+ 			strlcpy ( attrPtr->f_vol_name, vname, MAXPATHLEN );
  			VFSATTR_SET_SUPPORTED ( attrPtr, f_vol_name );
 			
 		}
@@ -588,7 +590,8 @@ CDDA_VFSGetAttributes ( mount_t					mountPtr,
 			VOL_CAP_FMT_ZERO_RUNS |
 			VOL_CAP_FMT_CASE_SENSITIVE |
 			VOL_CAP_FMT_CASE_PRESERVING |
-			VOL_CAP_FMT_FAST_STATFS;
+			VOL_CAP_FMT_FAST_STATFS |
+			VOL_CAP_FMT_PATH_FROM_ID;
 	
 	// We understand the following interfaces.
 	capabilities->valid[VOL_CAPABILITIES_INTERFACES] =
@@ -601,16 +604,20 @@ CDDA_VFSGetAttributes ( mount_t					mountPtr,
 			VOL_CAP_INT_ALLOCATE |
 			VOL_CAP_INT_VOL_RENAME |
 			VOL_CAP_INT_ADVLOCK |
-			VOL_CAP_INT_FLOCK;
+			VOL_CAP_INT_FLOCK |
+			VOL_CAP_INT_EXTENDED_ATTR;
 	
 	// We only support these bits of the above recognized things.
 	capabilities->capabilities[VOL_CAPABILITIES_FORMAT] =
+			VOL_CAP_FMT_PATH_FROM_ID |
 			VOL_CAP_FMT_PERSISTENTOBJECTIDS |
 			VOL_CAP_FMT_FAST_STATFS |
 			VOL_CAP_FMT_NO_ROOT_TIMES;
 	
-	// We only support this one thing of the above recognized ones.
-	capabilities->capabilities[VOL_CAPABILITIES_INTERFACES] = VOL_CAP_INT_ATTRLIST;
+	// We only support these things of the above recognized ones.
+	capabilities->capabilities[VOL_CAPABILITIES_INTERFACES] =
+			VOL_CAP_INT_ATTRLIST |
+			VOL_CAP_INT_EXTENDED_ATTR;
 	
 	// Reserved. Zero them.
 	capabilities->capabilities[VOL_CAPABILITIES_RESERVED1]	= 0;
@@ -693,7 +700,7 @@ CDDA_VGetInternal ( mount_t					mountPtr,
 		
 		DebugLog ( ( "Root vnode asked for!\n" ) );
 		
-		// Get the root vnode pointer
+		// Get the root vnode.
 		error = vnode_getwithvid ( cddaMountPtr->root, cddaMountPtr->rootVID );
 		if ( error == 0 )
 		{
@@ -1005,19 +1012,21 @@ FindVolumeName ( const char * mn, const char ** np, ssize_t * nl )
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-Apple_CDDA_FS_Module_Start ( unused struct kmod_info_t * moduleInfo,
+Apple_CDDA_FS_Module_Start ( unused kmod_info_t * moduleInfo,
 							 unused void * loadArgument )
 {
 	
 	errno_t				error		= KERN_FAILURE;
-	struct vfs_fsentry	vfsEntry	= { 0 };
+	struct vfs_fsentry	vfsEntry;
+	
+	bzero ( &vfsEntry, sizeof ( vfsEntry ) );
 	
 	vfsEntry.vfe_vfsops		= &gCDDA_VFSOps;
 	vfsEntry.vfe_vopcnt		= 1;	// Just one vnode operation table
 	vfsEntry.vfe_opvdescs	= gCDDA_VNodeOperationsDescList;
 	vfsEntry.vfe_flags		= VFS_TBLNOTYPENUM | VFS_TBLLOCALVOL | VFS_TBL64BITREADY;
 	
-	strcpy ( vfsEntry.vfe_fsname, gAppleCDDAName ); 
+	strlcpy ( vfsEntry.vfe_fsname, gAppleCDDAName, sizeof ( gAppleCDDAName ) ); 
 	
 	error = vfs_fsadd ( &vfsEntry, &gCDDA_VFSTableEntry );
 	
@@ -1032,7 +1041,7 @@ Apple_CDDA_FS_Module_Start ( unused struct kmod_info_t * moduleInfo,
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-Apple_CDDA_FS_Module_Stop ( unused struct kmod_info_t * moduleInfo,
+Apple_CDDA_FS_Module_Stop ( unused kmod_info_t * moduleInfo,
 							unused void * unloadArgument )
 {
 	

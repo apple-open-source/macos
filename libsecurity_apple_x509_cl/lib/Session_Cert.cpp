@@ -265,6 +265,8 @@ AppleX509CLSession::CertCreateTemplate(
 	/* 
 	 * We have the CertificateToSign in NSS format. Encode.
 	 */
+	CertTemplate.Data = NULL;
+	CertTemplate.Length = 0;
 	CssmRemoteData rData(*this, CertTemplate);
 	cert.encodeTbs(rData);
 	rData.release();

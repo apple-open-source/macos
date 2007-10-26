@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ServiceName</key>
+	<string>iChatServer</string>
+
+	<key>BackupBinaryPath</key>
+	<string>/usr/libexec/sbs_backup/iChatServer_backup</string>
+	<key>BackupLog</key>
+	<string>/private/var/log/sbs_backup/iChatServer_backup.log</string>
+	<key>BackupActions</key>
+	<dict>
+		<key>Configuration</key>
+		<string>configuration</string>
+		<key>Data</key>
+		<string>data</string>
+		<key>Default</key>
+		<string>all</string>
+		<key>Size</key>
+		<string>size</string>
+	</dict>
+
+	<key>RestoreBinaryPath</key>
+	<string>/usr/libexec/sbs_backup/iChatServer_restore</string>
+	<key>RestoreLog</key>
+	<string>/private/var/log/sbs_backup/iChatServer_restore.log</string>
+	<key>RestoreActions</key>
+	<dict>
+		<key>Configuration</key>
+		<string>configuration</string>
+		<key>Data</key>
+		<string>data</string>
+		<key>Default</key>
+		<string>all</string>
+		<key>Browse</key>
+		<string>browse</string>
+	</dict>
+
+	<key>VerifyBinaryPath</key>
+	<string>/usr/libexec/sbs_backup/iChatServer_verify</string>
+	<key>VerifyLog</key>
+	<string>/private/var/log/sbs_backup/iChatServer_verify.log</string>
+	<key>VerifyActions</key>
+	<dict>
+		<key>Configuration</key>
+		<string>configuration</string>
+		<key>Data</key>
+		<string>data</string>
+		<key>Default</key>
+		<string>all</string>
+	</dict>
+
+	<key>BrowseActions</key>
+	<dict/>
+	
+	<key>ConfigurationFilesToTar</key>
+	<array>
+		<string>/private/etc/jabberd/*.xml</string>
+		<string>/private/etc/jabberd/jabberd.cfg</string>
+		<string>/Library/Preferences/com.apple.ichatserver.plist</string>
+	</array>
+	
+	<key>DataFiles</key>
+	<array/>
+
+	<key>Version</key>
+	<string>10.5</string>
+</dict>
+</plist>

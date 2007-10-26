@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -36,7 +32,6 @@
 #include <ccode.h>
 #include <ctype.h>
 #include <sfdisc.h>
-#include <sfstr.h>
 #include <regex.h>
 
 #define FMT_case	1
@@ -225,6 +220,7 @@ getfmt(Sfio_t* sp, void* vp, Sffmt_t* dp)
 		value->c = s ? *s : n;
 		break;
 	case 'd':
+	case 'i':
 		fp->fmt.size = sizeof(Sflong_t);
 		value->q = (Sflong_t)(s ? strtoll(s, NiL, 0) : n);
 		break;
@@ -235,7 +231,9 @@ getfmt(Sfio_t* sp, void* vp, Sffmt_t* dp)
 		value->q = s ? (Sflong_t)strtoull(s, NiL, 0) : n;
 		break;
 	case 'p':
-		value->p = (char**)(s ? strtol(s, NiL, 0) : n);
+		if (s)
+			n = strtoll(s, NiL, 0);
+		value->p = pointerof(n);
 		break;
 	case 'q':
 		if (s)
@@ -250,21 +248,8 @@ getfmt(Sfio_t* sp, void* vp, Sffmt_t* dp)
 		}
 		break;
 	case 's':
-		if (!s)
-		{
-			if (h)
-			{
-				if (fp->tmp[1] || (fp->tmp[1] = sfstropen()))
-				{
-					sfprintf(fp->tmp[1], "%I*d", sizeof(n), n);
-					s = sfstruse(fp->tmp[1]);
-				}
-				else
-					s = "";
-			}
-			else
-				s = "";
-		}
+		if (!s && (!h || !fp->tmp[1] && !(fp->tmp[1] = sfstropen()) || sfprintf(fp->tmp[1], "%I*d", sizeof(n), n) <= 0 || !(s = sfstruse(fp->tmp[1]))))
+			s = "";
 		if (x)
 		{
 			h = 0;
@@ -282,12 +267,7 @@ getfmt(Sfio_t* sp, void* vp, Sffmt_t* dp)
 						fmt.fmt.form = v;
 						for (h = 0; h < elementsof(fmt.tmp); h++)
 							fmt.tmp[h] = 0;
-						if (fp->tmp[0] || (fp->tmp[0] = sfstropen()))
-						{
-							sfprintf(fp->tmp[0], "%!", &fmt);
-							s = sfstruse(fp->tmp[0]);
-						}
-						else
+						if (!fp->tmp[0] && !(fp->tmp[0] = sfstropen()) || sfprintf(fp->tmp[0], "%!", &fmt) <= 0 || !(s = sfstruse(fp->tmp[0])))
 							s = "";
 						*(v - 1) = d;
 						if (f.delimiter)
@@ -343,11 +323,8 @@ getfmt(Sfio_t* sp, void* vp, Sffmt_t* dp)
 		value->i = n;
 		break;
 	default:
-		if (!fp->convert || !(value->s = (*fp->convert)(fp->handle, &fp->fmt, a, s, n)) && (fp->tmp[0] || (fp->tmp[0] = sfstropen())))
-		{
-			sfprintf(fp->tmp[0], "%%%c", fp->fmt.fmt);
-			value->s = sfstruse(fp->tmp[0]);
-		}
+		if ((!fp->convert || !(value->s = (*fp->convert)(fp->handle, &fp->fmt, a, s, n))) && (!fp->tmp[0] && !(fp->tmp[0] = sfstropen()) || sfprintf(fp->tmp[0], "%%%c", fp->fmt.fmt) <= 0 || !(value->s = sfstruse(fp->tmp[0]))))
+			value->s = "";
 		break;
 	}
 	fp->level--;

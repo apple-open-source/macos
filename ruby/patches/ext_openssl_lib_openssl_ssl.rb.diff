@@ -1,0 +1,11 @@
+--- ext/openssl/lib/openssl/ssl.rb	2007/09/24 08:02:33	13503
++++ ext/openssl/lib/openssl/ssl.rb	2007/09/24 08:12:24	13504
+@@ -88,7 +88,7 @@
+             end
+           }
+         end
+-        raise SSLError, "hostname not match"
++        raise SSLError, "hostname was not match with the server certificate"
+       end
+     end
+ 

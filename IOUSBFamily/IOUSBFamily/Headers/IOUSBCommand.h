@@ -26,6 +26,7 @@
 
 #include <IOKit/IOCommand.h>
 #include <IOKit/IOMemoryDescriptor.h>
+#include <IOKit/IODMACommand.h>
 #include <IOKit/usb/USB.h>
 
 /*
@@ -40,12 +41,13 @@
  */
 
 typedef enum {
-    DEVICE_REQUEST,	// Device request using pointer
+    DEVICE_REQUEST,						// Device request using pointer
     READ,
     WRITE,
     CREATE_EP,
     DELETE_EP,
-    DEVICE_REQUEST_DESC	// Device request using descriptor
+    DEVICE_REQUEST_DESC,				// Device request using descriptor
+	DEVICE_REQUEST_BUFFERCOMMAND		// Device request using a second IOUSBCommand in _bufferCommand
 } usbCommand;
 
 
@@ -85,6 +87,9 @@ protected:
         bool				_useTimeStamp;
         AbsoluteTime		_timeStamp;
 		bool				_isSyncTransfer;						// Returns true if the command is used for a synchronous transfer
+		IODMACommand		*_dmaCommand;							// used to get memory mapping
+		IOUSBCommand		*_bufferUSBCommand;						// points to another IOUSBCommand used for phase 2 of control transactions
+		IOUSBCommand		*_masterUSBCommand;						// points from the bufferUSBCommand back to the parent command
     };
     ExpansionData * 		_expansionData;
     
@@ -125,35 +130,39 @@ public:
     void					SetUseTimeStamp(bool);
     void					SetTimeStamp(AbsoluteTime timeStamp);
 	void					SetIsSyncTransfer(bool);
+	inline void				SetDMACommand(IODMACommand *dmaCommand)					{ _expansionData->_dmaCommand = dmaCommand; }
+	void					SetBufferUSBCommand(IOUSBCommand *bufferUSBCommand);
 	
 	// Accessors
-    usbCommand				GetSelector(void);
-    IOUSBDeviceRequestPtr 	GetRequest(void);
-    USBDeviceAddress 		GetAddress(void);
-    UInt8					GetEndpoint(void);
-    UInt8					GetDirection(void);
-    UInt8					GetType(void);
-    bool					GetBufferRounding(void);
-    IOMemoryDescriptor * 	GetBuffer(void);
-    IOUSBCompletion 		GetUSLCompletion(void);
-    IOUSBCompletion 		GetClientCompletion(void);
-    UInt32					GetDataRemaining(void);
-    UInt8					GetStage(void);
-    IOReturn				GetStatus(void);
-    IOMemoryDescriptor *	GetOrigBuffer(void);
-    IOUSBCompletion 		GetDisjointCompletion(void);
-    IOByteCount				GetDblBufLength(void);
-    UInt32					GetNoDataTimeout(void);
-    UInt32					GetCompletionTimeout(void);
-    UInt32					GetUIMScratch(UInt32 index);
-    IOByteCount				GetReqCount(void);
-    IOMemoryDescriptor *	GetRequestMemoryDescriptor(void);
-    IOMemoryDescriptor *	GetBufferMemoryDescriptor(void);
-    bool					GetMultiTransferTransaction(void);
-    bool					GetFinalTransferInTransaction(void);
-    bool					GetUseTimeStamp(void);
-    AbsoluteTime			GetTimeStamp(void);
-	bool					GetIsSyncTransfer(void);
+    usbCommand					GetSelector(void);
+    IOUSBDeviceRequestPtr		GetRequest(void);
+    USBDeviceAddress			GetAddress(void);
+    UInt8						GetEndpoint(void);
+    UInt8						GetDirection(void);
+    UInt8						GetType(void);
+    bool						GetBufferRounding(void);
+    IOMemoryDescriptor *		GetBuffer(void);
+    IOUSBCompletion				GetUSLCompletion(void);
+    IOUSBCompletion				GetClientCompletion(void);
+    UInt32						GetDataRemaining(void);
+    UInt8						GetStage(void);
+    IOReturn					GetStatus(void);
+    IOMemoryDescriptor *		GetOrigBuffer(void);
+    IOUSBCompletion				GetDisjointCompletion(void);
+    IOByteCount					GetDblBufLength(void);
+    UInt32						GetNoDataTimeout(void);
+    UInt32						GetCompletionTimeout(void);
+    UInt32						GetUIMScratch(UInt32 index);
+    IOByteCount					GetReqCount(void);
+    IOMemoryDescriptor *		GetRequestMemoryDescriptor(void);
+    IOMemoryDescriptor *		GetBufferMemoryDescriptor(void);
+    bool						GetMultiTransferTransaction(void);
+    bool						GetFinalTransferInTransaction(void);
+    bool						GetUseTimeStamp(void);
+    AbsoluteTime				GetTimeStamp(void);
+	bool						GetIsSyncTransfer(void);
+	inline IODMACommand *		GetDMACommand(void)							{return _expansionData->_dmaCommand; }
+	inline IOUSBCommand *		GetBufferUSBCommand(void)					{return _expansionData->_bufferUSBCommand; }
 };
 
 
@@ -180,6 +189,9 @@ protected:
         AbsoluteTime		_timeStamp;
 		bool				_isSyncTransfer;								// Returns true if the command is used for a synchronous transfer
 		bool				_rosettaClient;
+		IODMACommand *		_dmaCommand;
+		IOUSBIsocCompletion	_uslCompletion;
+		bool				_lowLatency;
     };
     ExpansionData * 		_expansionData;
 
@@ -192,22 +204,25 @@ public:
     static IOUSBIsocCommand *NewCommand(void);
     
     // Manipulators
-    void					SetSelector(usbCommand sel)						{_selector = sel; }
-    void					SetAddress(USBDeviceAddress addr)				{_address = addr; }
-    void					SetEndpoint(UInt8 ep)							{_endpoint = ep; }
-    void					SetDirection(UInt8 dir)							{_direction = dir; }
-    void					SetBuffer(IOMemoryDescriptor *buf)				{_buffer = buf; }
-    void					SetCompletion(IOUSBIsocCompletion completion)	{_completion = completion; }
-    void					SetStartFrame(UInt64 sf)						{_startFrame = sf; }
-    void					SetNumFrames(UInt32 nf)							{_numFrames = nf; }
-    void					SetFrameList(IOUSBIsocFrame *fl)				{_frameList = fl; }
-    void					SetStatus(IOReturn stat)						{_status = stat; }
-    void					SetUpdateFrequency( UInt32 fr)					{ _expansionData->_updateFrequency = fr; }
-    void					SetUseTimeStamp(bool useIt)						{ _expansionData->_useTimeStamp= useIt; }
-    void					SetTimeStamp(AbsoluteTime timeStamp)			{ _expansionData->_timeStamp= timeStamp; }
- 	void					SetIsSyncTransfer(bool isSync)					{ _expansionData->_isSyncTransfer = isSync; }
- 	void					SetRosettaClient(bool isRosetta)				{ _expansionData->_rosettaClient = isRosetta; }
-   
+    void					SetSelector(usbCommand sel)							{_selector = sel; }
+    void					SetAddress(USBDeviceAddress addr)					{_address = addr; }
+    void					SetEndpoint(UInt8 ep)								{_endpoint = ep; }
+    void					SetDirection(UInt8 dir)								{_direction = dir; }
+    void					SetBuffer(IOMemoryDescriptor *buf)					{_buffer = buf; }
+    void					SetCompletion(IOUSBIsocCompletion completion)		{_completion = completion; }
+    void					SetStartFrame(UInt64 sf)							{_startFrame = sf; }
+    void					SetNumFrames(UInt32 nf)								{_numFrames = nf; }
+    void					SetFrameList(IOUSBIsocFrame *fl)					{_frameList = fl; }
+    void					SetStatus(IOReturn stat)							{_status = stat; }
+    void					SetUpdateFrequency( UInt32 fr)						{ _expansionData->_updateFrequency = fr; }
+    void					SetUseTimeStamp(bool useIt)							{ _expansionData->_useTimeStamp= useIt; }
+    void					SetTimeStamp(AbsoluteTime timeStamp)				{ _expansionData->_timeStamp= timeStamp; }
+ 	void					SetIsSyncTransfer(bool isSync)						{ _expansionData->_isSyncTransfer = isSync; }
+ 	void					SetRosettaClient(bool isRosetta)					{ _expansionData->_rosettaClient = isRosetta; }
+ 	void					SetDMACommand(IODMACommand *dmaCommand)				{ _expansionData->_dmaCommand = dmaCommand; }
+    void					SetUSLCompletion(IOUSBIsocCompletion completion)	{ _expansionData->_uslCompletion = completion; }
+ 	void					SetLowLatency(bool lowLatency)						{ _expansionData->_lowLatency = lowLatency; }
+
 	// Accessors
     usbCommand				GetSelector(void)								{ return _selector; }
     USBDeviceAddress		GetAddress(void)								{ return _address; }
@@ -223,7 +238,10 @@ public:
     bool					GetUseTimeStamp(void)							{ return _expansionData->_useTimeStamp; }
     AbsoluteTime			GetTimeStamp(void)								{ return _expansionData->_timeStamp; }
 	bool					GetIsSyncTransfer(void)							{ return _expansionData->_isSyncTransfer; }
-	bool					GetIsRosettaClient(void)							{ return _expansionData->_rosettaClient; }
+	bool					GetIsRosettaClient(void)						{ return _expansionData->_rosettaClient; }
+	IODMACommand *			GetDMACommand(void)								{ return _expansionData->_dmaCommand; }
+    IOUSBIsocCompletion		GetUSLCompletion(void)							{ return _expansionData->_uslCompletion; }
+	bool					GetLowLatency(void)								{ return _expansionData->_lowLatency; }
 };
 
 

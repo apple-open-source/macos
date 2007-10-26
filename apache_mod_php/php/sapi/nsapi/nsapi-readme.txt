@@ -1,8 +1,8 @@
-Configuration of your Netscape/SunONE/iPlanet Web Server for PHP4
--------------------------------------------------------------
+Configuration of your Netscape/iPlanet/Sun Webserver for PHP5
+-----------------------------------------------------------------
 
 These instructions are targetted at Netscape Enterprise Web Server and
-SUN/Netscape Alliance iPlanet Web Server/SunONE Webserver.
+SUN/Netscape Alliance iPlanet Web Server and the new Sun Java System Webserver.
 On other web servers your milage may vary.
 
 Firstly you may need to add some paths to the LD_LIBRARY_PATH
@@ -13,7 +13,7 @@ probably skip this step. The start script is located in:
     <path-to-netscape-server>/https-servername/start
 
 
-Netscape/iPlanet/SunONE config files are located in:
+Netscape/iPlanet/Sun config files are located in:
 
     <path-to-server>/https-servername/config
 
@@ -25,19 +25,19 @@ Add the following line to mime.types (you can do that by the administration serv
 
 Place the following two lines after mime.types init in
 <path-to-server>/https-servername/config/obj.conf (for servers < 6) or
-for iPlanet/SunONE Web Server 6.0 and above however at the end of the
+for iPlanet/Sun Webserver 6.0 and above however at the end of the
 <path-to-server>/https-servername/config/magnus.conf file:
 
-    Init fn="load-modules" funcs="php4_init,php4_execute,php4_auth_trans" shlib="/path/to/phplibrary"
-    Init fn=php4_init errorString="Failed to initialize PHP!" [php_ini="/path/to/php.ini"]
+    Init fn="load-modules" funcs="php5_init,php5_execute,php5_auth_trans" shlib="/path/to/phplibrary"
+    Init fn=php5_init errorString="Failed to initialize PHP!" [php_ini="/path/to/php.ini"]
 
 The "shlib" will vary depending on your OS:
 
-	Unix: "<path-to-server>/bin/libphp4.so".
-	Windows: "c:/path/to/PHP4/php4nsapi.dll"
+	Unix: "<path-to-server>/bin/libphp5.so".
+	Windows: "c:/path/to/php5/php5nsapi.dll"
 
 
-In obj.conf (for virtual server classes [SunONE 6.0+] in their vserver.obj.conf):
+In obj.conf (for virtual server classes [Sun 6.0+] in their vserver.obj.conf):
 
     <Object name="default">
     .
@@ -50,7 +50,7 @@ In obj.conf (for virtual server classes [SunONE 6.0+] in their vserver.obj.conf)
     # For boolean ini-keys please use 0/1 as value, NOT "On","Off",... (this will not work
     # correctly), e.g. zlib.output_compression=1 instead of zlib.output_compression="On"
 
-    Service fn="php4_execute" type="magnus-internal/x-httpd-php" [inikey=value ...]
+    Service fn="php5_execute" type="magnus-internal/x-httpd-php" [inikey=value ...]
     .
     .
     .
@@ -61,7 +61,7 @@ PHP scripts (same like a cgi-bin directory):
 
     <Object name="x-httpd-php">
     ObjectType fn="force-type" type="magnus-internal/x-httpd-php"
-    Service fn="php4_execute" [inikey=value ...]
+    Service fn="php5_execute" [inikey=value ...]
     </Object>
 
 After that you can configure a directory in the Administration server and assign it
@@ -81,7 +81,7 @@ AUTHENTICATION IS PASSED TO YOUR PHP SCRIPT.  To configure PHP
 Authentication for the entire server, add the following line:
 
     <Object name="default">
-    AuthTrans fn=php4_auth_trans
+    AuthTrans fn=php5_auth_trans
     .
     .
     .
@@ -92,7 +92,7 @@ Authentication for the entire server, add the following line:
 To use PHP Authentication on a single directory, add the following:
 
     <Object ppath="d:\path\to\authenticated\dir\*">
-    AuthTrans fn=php4_auth_trans
+    AuthTrans fn=php5_auth_trans
     </Object>
 
 
@@ -103,7 +103,7 @@ You can use PHP to generate the error pages for "404 Not Found"
 or similar. Add the following line to the object in obj.conf for
 every error page you want to overwrite:
 
-    Error fn="php4_execute" code=XXX script="/path/to/script.php" [inikey=value inikey=value...]
+    Error fn="php5_execute" code=XXX script="/path/to/script.php" [inikey=value inikey=value...]
 
 where XXX ist the HTTP error code. Please delete any other Error
 directives which could interfere with yours.
@@ -116,7 +116,7 @@ Just generate a PHP script which displays a directory listing and
 replace the corresponding default Service line for
 type="magnus-internal/directory" in obj.conf with the following:
 
-    Service fn="php4_execute" type="magnus-internal/directory" script="/path/to/script.php" [inikey=value inikey=value...]
+    Service fn="php5_execute" type="magnus-internal/directory" script="/path/to/script.php" [inikey=value inikey=value...]
 
 For both error and directory listing pages the original URI and
 translated URI are in the variables $_SERVER['PATH_INFO'] and
@@ -137,13 +137,13 @@ is disabled.
 
 Under Windows limitations in the DLL handling need the use of a automatic
 detection of the most recent ns-httpdXX.dll file. This is tested for servers
-till version 6.1. If a newer version of the SunONE server is used, the detection
+till version 6.1. If a newer version of the Sun server is used, the detection
 fails and nsapi_virtual() is disabled.
 
 If this is the case, try the following:
-Add the following parameter to php4_init in magnus.conf:
+Add the following parameter to php5_init in magnus.conf:
 
-    Init fn=php4_init ... server_lib="ns-httpdXX.dll"
+    Init fn=php5_init ... server_lib="ns-httpdXX.dll"
     
 where XX is the correct DLL version number. To get it, look in the server-root
 for the correct DLL name. The DLL with the biggest filesize is the right one.
@@ -151,4 +151,4 @@ for the correct DLL name. The DLL with the biggest filesize is the right one.
 But be warned: SUPPORT FOR nsapi_virtual() IS EXPERIMENTAL !!!
 
 
-$Id: nsapi-readme.txt,v 1.3.8.9 2004/03/18 13:37:41 thetaphi Exp $
+$Id: nsapi-readme.txt,v 1.12.6.1 2006/10/27 07:29:51 thetaphi Exp $

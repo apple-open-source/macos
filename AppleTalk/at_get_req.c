@@ -126,7 +126,7 @@ atp_getreq(fd, src, reqbuf, reqlen, userdata, xo, tid, bitmap, nowait)
 	if (userdata)
 		*userdata = *(unsigned *)atphdr->user_bytes;
 
-	*tid	= UAS_VALUE(atphdr->tid);
+	*tid	= UAS_VALUE_NTOH(atphdr->tid);
 	*xo 	= atphdr->xo ? 1 : 0; 
 	*bitmap	= atphdr->bitmap;
 	

@@ -1,0 +1,53 @@
+RubyCocoa
+=========
+
+[RubyCocoa][1]はMac OS Xアプリケーションを開発するためのMac OS Xフレームワークです。
+RubyCocoaにより、[Ruby][10]でMac OS Xのnativeアプリケーションを開発できます。
+また、Ruby拡張ライブラリとして、Mac OS X固有の機能[Cocoa][11]を活用したRubyスクリプトを開発できます。
+
+
+インストール
+------------
+
+Mac OS X 10.4(Tiger)上で、システム付属のRuby 1.8.2とともに使用する場合、[ダウンロード][2]から最新バージョンのdmgファイルをダウンロードしてインストールするとよいでしょう。その他の場合については、installation.txtをご覧ください。
+
+
+License
+-------
+
+RubyCocoaのソースコードとドキュメントファイルは、藤本尚邦が著作権を持つフリーソフトウェアです。
+これらのファイルは、 [LGPL][6] またはRubyライセンスに基づいて再配布することができます。
+詳細についてはCOPYINGをご覧ください。
+
+THIS SOFTWARE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+
+
+連絡先
+------
+
+バグレポートやアイディアなどのフィードバックは以下へお寄せください。
+
+メーリングリスト:
+* [rubycocoa (日本語)][3]
+* [rubycocoa-talk (英語)][4]
+* [rubycocoa-devel (英語)][5]
+
+IRC:
+* #ruby-osx on irc.freenode.net
+
+
+  [1]: http://rubycocoa.sourceforge.net/
+  [2]: http://sourceforge.net/project/showfiles.php?group_id=44114
+       (rubycocoa download page)
+  [3]: http://www.freeml.com/rubycocoa
+       (rubycocoa ML for Japanese)
+  [4]: http://lists.sourceforge.net/mailman/listinfo/rubycocoa-talk
+       (rubycocoa-talk ML)
+  [5]: http://lists.sourceforge.jp/mailman/listinfo/rubycocoa-devel
+       (rubycocoa-devel ML)
+  [6]: http://www.gnu.org/licenses/lgpl-2.1.html
+       (GNU Lesser General Public License, version 2.1)
+
+  [10]: http://www.ruby-lang.org/
+  [11]: http://developer.apple.com/cocoa/
+  [12]: http://developer.apple.com/documentation/Cocoa/Conceptual/ObjectiveC/

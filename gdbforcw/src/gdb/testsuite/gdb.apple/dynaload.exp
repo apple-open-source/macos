@@ -1,0 +1,142 @@
+# Copyright 2002 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# This file was written by Jason Molenda (jmolenda@apple.com)
+
+# In this test, we have a program that loads a dylib at run-time.  Before
+# startup, we set a future-break breakpoint which should get finally set
+# when the shlib is settled in.
+
+# The shared library is compiled several different ways to force slides.
+
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+set libfile "libmylib"
+set libbinfile ${objdir}/${subdir}/${libfile}.dylib
+
+set secondlibbasename mysecondlib
+set secondlibfile lib$secondlibbasename
+set secondlibbindir [file join ${objdir} ${subdir}]
+set secondlibbinfile [file join $secondlibbindir ${secondlibfile}.dylib]
+
+set testfile "dylib-loader"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+
+proc get_libsystem_load_addr { } {
+   global decimal
+   global hex
+   global gdb_prompt
+   global libsystem_load_addr
+
+   set libsystem_load_addr -1
+
+   gdb_exit
+   gdb_start
+   gdb_load "/bin/echo"
+   send_gdb "info sharedlibrary\n"
+   gdb_expect {
+     -re ".*$decimal libSystem...dylib - - *init Y Y .*libSystem...dylib at ($hex).*$gdb_prompt $" {
+       set libsystem_load_addr $expect_out(1,string)
+     }
+     -re "$gdb_prompt $" { }
+     timeout { }
+   }
+   return 0
+}
+   
+
+proc build_library { args } {
+   global srcdir
+   global subdir
+   global libfile
+   global libbinfile
+
+   set more_opts [lindex $args 0]
+   set additional_flags "additional_flags=-dynamiclib $more_opts"
+if     { [gdb_compile "${srcdir}/${subdir}/${libfile}.c" "${libbinfile}" executable [list debug $additional_flags]] != "" } {
+        gdb_suppress_entire_file "Testcase library compile failed, so all tests in this file will automatically fail."
+   }
+
+   return 0
+}
+
+proc test_run { args } {
+   # Start with a fresh gdb
+   global srcdir
+   global subdir
+   global binfile
+   global hex
+   global decimal
+   global libbinfile
+ 
+   set run_name [lindex $args 0]
+
+   gdb_exit
+   gdb_start
+   gdb_reinitialize_dir $srcdir/$subdir
+   gdb_load ${binfile}
+
+   gdb_test "future-break foo" "Function \"foo\" not defined..*Breakpoint 1 .foo. pending.*" "Set object breakpoint ($run_name)"
+   gdb_test "future-break -shlib libmysecondlib.dylib foo" "Breakpoint 2 .foo. pending.*" "Set shlib-specific breakpoint ($run_name)"
+
+   gdb_test "run" "Starting program: .*$binfile *.*Reading symbols for shared libraries \\.+ done.*Pending breakpoint 1 - \"foo\" resolved.*foo is resolved to address \[a-f0-9A-F\].*Breakpoint 1, foo.*libmylib.c.*" "continue to object bp ($run_name)"
+   gdb_test "bt" "#0 *foo.*libmylib.c.*#1 *$hex in main.*dylib-loader.c.*" "backtrace in dynamically loaded lib"
+   gdb_test "info sharedlibrary" ".*libmylib.dylib *- $hex *dyld Y Y *${libbinfile} at $hex \\(offset -?$hex\\).*"
+   gdb_test "fin" "Run till exit from #0 *foo.*in main.*dylib-loader.c.*" "finish back to main"
+
+   # Now load the second library, but make sure the foo brakepoint didn't get changed:
+
+   gdb_test "future-break blubby" "Function \"blubby\" not defined..*Breakpoint 3 .blubby. pending.*" "Set second object breakpoint ($run_name)"
+   gdb_test "ignore 3 1" "Will ignore next crossing of breakpoint 3." "Set ignore count on second object breakpoint ($run_name)"
+   gdb_test "continue" "Continuing*.*Reading symbols for shared libraries \\.+ done.*Breakpoint 2.*libmysecondlib.c.*Pending breakpoint 2 - \"foo\" resolved.*Breakpoint 3.*libmysecondlib.c.*Pending breakpoint 3 - \"blubby\" resolved.*blubby is resolved to address \[a-f0-9A-F\].*Breakpoint 3, blubby.*libmysecondlib.c.*" "continue to second object bp ($run_name)"
+   gdb_test "print input" {\$[0-9]+ = 6} "Make sure we stopped the second time. ($run_name)"
+   gdb_test "continue" "Continuing.*Breakpoint 2, foo .*libmysecondlib.c.*" "Make sure we stop in the foo -shlib breakpoint."
+   gdb_exit
+   return 0
+}
+
+set additional_flags "additional_flags=-DLIBNAME=\"${libbinfile}\" -DSECONDLIBNAME=\"$secondlibbinfile\""
+if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable [list debug $additional_flags]] != "" } {
+     gdb_suppress_entire_file "Testcase executable compile failed, so all tests in this file will automatically fail."
+}
+
+# build the second library:
+set additional_flags "additional_flags=-dynamiclib -seg1addr 0x600000"
+if  { [gdb_compile "${srcdir}/${subdir}/${secondlibfile}.c" "$secondlibbinfile" executable [list debug $additional_flags]] != "" } {
+     gdb_suppress_entire_file "Testcase second library compile failed, so all tests in this file will automatically fail."
+}
+
+
+build_library "-multiply_defined suppress"
+test_run "dylib no addr specified"
+
+build_library "-seg1addr 0x0 -multiply_defined suppress"
+test_run "dylib slide from 0x0"
+
+get_libsystem_load_addr
+build_library "-seg1addr $libsystem_load_addr -multiply_defined suppress"
+test_run "dylib slide from $libsystem_load_addr"
+
+build_library "-seg1addr  0x500000 -multiply_defined suppress"
+test_run "dylib maybe without a slide"
+
+return 0

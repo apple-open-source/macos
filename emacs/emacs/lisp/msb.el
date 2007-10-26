@@ -1,9 +1,9 @@
 ;;; msb.el --- customizable buffer-selection with multiple menus
 
-;; Copyright (C) 1993, 94, 95, 97, 98, 99, 2000, 2001
-;;  Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002,
+;;   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Lars Lindberg <Lars.G.Lindberg@capgemini.se>
+;; Author: Lars Lindberg <lars.lindberg@home.se>
 ;; Maintainer: FSF
 ;; Created: 8 Oct 1993
 ;; Lindberg's last update version: 3.34
@@ -23,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -41,11 +41,11 @@
 ;;   There are some constants for you to try here:
 ;;   msb--few-menus
 ;;   msb--very-many-menus (default)
-;;   
+;;
 ;;   Look at the variable `msb-item-handling-function' for customization
 ;;   of the appearance of every menu item.  Try for instance setting
 ;;   it to `msb-alon-item-handler'.
-;;  
+;;
 ;;   Look at the variable `msb-item-sort-function' for customization
 ;;   of sorting the menus.  Set it to t for instance, which means no
 ;;   sorting - you will get latest used buffer first.
@@ -185,7 +185,7 @@
      "Elisp Files (%d)")
     ((eq major-mode 'latex-mode)
      3030
-     "LaTex Files (%d)")
+     "LaTeX Files (%d)")
     ('no-multi
      3099
      "Other files (%d)")))
@@ -230,7 +230,7 @@ the test is surrounded by calls to `save-excursion' and
 `save-match-data'.
 
 The categories are sorted by MENU-SORT-KEY.  Smaller keys are on top.
-nil means don't display this menu.
+A value of nil means don't display this menu.
 
 MENU-TITLE is really a format.  If you add %d in it, the %d is
 replaced with the number of items in that menu.
@@ -282,7 +282,7 @@ that differs by this value or more."
 (defcustom msb-max-menu-items 15
   "*The maximum number of items in a menu.
 If this variable is set to 15 for instance, then the submenu will be
-split up in minor parts, 15 items each.  Nil means no limit."
+split up in minor parts, 15 items each.  nil means no limit."
   :type '(choice integer (const nil))
   :set 'msb-custom-set
   :group 'msb)
@@ -320,7 +320,7 @@ No buffers at all if less than 1 or nil (or any non-number)."
   :type 'string
   :set 'msb-custom-set
   :group 'msb)
- 
+
 (defvar msb-horizontal-shift-function '(lambda () 0)
   "*Function that specifies how many pixels to shift the top menu leftwards.")
 
@@ -362,7 +362,7 @@ Set this to nil or t if you don't want any sorting (faster)."
 		 (const :tag "Oldest first" nil))
   :set 'msb-custom-set
   :group 'msb)
-		
+
 (defcustom msb-files-by-directory nil
   "*Non-nil means that files should be sorted by directory.
 This is instead of the groups in `msb-menu-cond'."
@@ -474,12 +474,20 @@ See the function `mouse-select-buffer' and the variable
 `msb-menu-cond' for more information about how the menus are split."
   (interactive "e")
   (let ((old-window (selected-window))
-	(window (posn-window (event-start event))))
+	(window (posn-window (event-start event)))
+	early-release)
     (unless (framep window) (select-window window))
+    ;; This `sit-for' magically makes the menu stay up if the mouse
+    ;; button is released within 0.1 second.
+    (setq early-release (not (sit-for 0.1 t)))
     (let ((buffer (mouse-select-buffer event)))
       (if buffer
 	  (switch-to-buffer buffer)
-	(select-window old-window))))
+	(select-window old-window)))
+    ;; If the above `sit-for' was interrupted by a mouse-up, avoid
+    ;; generating a drag event.
+    (if (and early-release (memq 'down (event-modifiers last-input-event)))
+	(discard-input)))
   nil)
 
 ;;;
@@ -489,20 +497,20 @@ See the function `mouse-select-buffer' and the variable
   "Return t if optional BUFFER is an \"invisible\" buffer.
 If the argument is left out or nil, then the current buffer is considered."
   (and (> (length (buffer-name buffer)) 0)
-       (eq ?\ (aref (buffer-name buffer) 0))))
+       (eq ?\s (aref (buffer-name buffer) 0))))
 
 (defun msb--strip-dir (dir)
   "Strip one hierarchy level from the end of DIR."
   (file-name-directory (directory-file-name dir)))
 
 ;; Create an alist with all buffers from LIST that lies under the same
-;; directory will be in the same item as the directory string.
-;; ((PATH1 . (BUFFER-1 BUFFER-2 ...)) (PATH2 . (BUFFER-K BUFFER-K+1...)) ...)
+;; directory will be in the same item as the directory name.
+;; ((DIR1 . (BUFFER-1 BUFFER-2 ...)) (DIR2 . (BUFFER-K BUFFER-K+1...)) ...)
 (defun msb--init-file-alist (list)
   (let ((buffer-alist
 	 ;; Make alist that looks like
-	 ;; ((PATH-1 BUFFER-1) (PATH-2 BUFFER-2) ...)
-	 ;; sorted on PATH-x
+	 ;; ((DIR-1 BUFFER-1) (DIR-2 BUFFER-2) ...)
+	 ;; sorted on DIR-x
 	 (sort
 	  (apply #'nconc
 		 (mapcar
@@ -514,37 +522,37 @@ If the argument is left out or nil, then the current buffer is considered."
 		  list))
 	  (lambda (item1 item2)
 	    (string< (car item1) (car item2))))))
-    ;; Now clump buffers together that have the same path
+    ;; Now clump buffers together that have the same directory name
     ;; Make alist that looks like
-    ;; ((PATH1 . (BUFFER-1 BUFFER-2 ...)) (PATH2 . (BUFFER-K)) ...)
-    (let ((path nil)
+    ;; ((DIR1 . (BUFFER-1 BUFFER-2 ...)) (DIR2 . (BUFFER-K)) ...)
+    (let ((dir nil)
 	  (buffers nil))
       (nconc
        (apply
 	#'nconc
 	(mapcar (lambda (item)
 		  (cond
-		   ((equal path (car item))
-		    ;; The same path as earlier: Add to current list of
-		    ;; buffers.
+		   ((equal dir (car item))
+		    ;; The same dir as earlier:
+		    ;; Add to current list of buffers.
 		    (push (cdr item) buffers)
 		    ;; This item should not be added to list
 		    nil)
 		   (t
-		    ;; New path
-		    (let ((result (and path (cons path buffers))))
-		      (setq path (car item))
+		    ;; New dir
+		    (let ((result (and dir (cons dir buffers))))
+		      (setq dir (car item))
 		      (setq buffers (list (cdr item)))
 		      ;; Add the last result the list.
 		      (and result (list result))))))
 		buffer-alist))
        ;; Add the last result to the list
-       (list (cons path buffers))))))
+       (list (cons dir buffers))))))
 
-(defun msb--format-title (top-found-p path number-of-items)
+(defun msb--format-title (top-found-p dir number-of-items)
   "Format a suitable title for the menu item."
   (format (if top-found-p "%s... (%d)" "%s (%d)")
-	  (abbreviate-file-name path) number-of-items))
+	  (abbreviate-file-name dir) number-of-items))
 
 ;; Variables for debugging.
 (defvar msb--choose-file-menu-list)
@@ -559,32 +567,32 @@ If the argument is left out or nil, then the current buffer is considered."
 				  msb-max-file-menu-items
 				10))
 	(top-found-p nil)
-	(last-path nil)
-	first rest path buffers old-path)
+	(last-dir nil)
+	first rest dir buffers old-dir)
     ;; Prepare for looping over all items in buffer-alist
     (setq first (car buffer-alist)
 	  rest (cdr buffer-alist)
-	  path (car first)
+	  dir (car first)
 	  buffers (cdr first))
     (setq msb--choose-file-menu-list (copy-sequence rest))
     ;; This big loop tries to clump buffers together that have a
     ;; similar name. Remember that buffer-alist is sorted based on the
-    ;; path for the buffers.
+    ;; directory name of the buffers' visited files.
     (while rest
       (let ((found-p nil)
 	    (tmp-rest rest)
 	    result
-	    new-path item)
+	    new-dir item)
 	(setq item (car tmp-rest))
-	;; Clump together the "rest"-buffers that have a path that is
-	;; a subpath of the current one.
+	;; Clump together the "rest"-buffers that have a dir that is
+	;; a subdir of the current one.
 	(while (and tmp-rest
 		    (<= (length buffers) max-clumped-together)
-		    (>= (length (car item)) (length path))
+		    (>= (length (car item)) (length dir))
 		    ;; `completion-ignore-case' seems to default to t
 		    ;; on the systems with case-insensitive file names.
-		    (eq t (compare-strings path 0 nil
-					   (car item) 0 (length path)
+		    (eq t (compare-strings dir 0 nil
+					   (car item) 0 (length dir)
 					   completion-ignore-case)))
 	  (setq found-p t)
 	  (setq buffers (append buffers (cdr item))) ;nconc is faster than append
@@ -594,7 +602,7 @@ If the argument is left out or nil, then the current buffer is considered."
 	 ((> (length buffers) max-clumped-together)
 	  ;; Oh, we failed. Too many buffers clumped together.
 	  ;; Just use the original ones for the result.
-	  (setq last-path (car first))
+	  (setq last-dir (car first))
 	  (push (cons (msb--format-title top-found-p
 					 (car first)
 					 (length (cdr first)))
@@ -603,33 +611,33 @@ If the argument is left out or nil, then the current buffer is considered."
 	  (setq top-found-p nil)
 	  (setq first (car rest)
 		rest (cdr rest)
-		path (car first)
+		dir (car first)
 		buffers (cdr first)))
 	 (t
 	  ;; The first pass of clumping together worked out, go ahead
 	  ;; with this result.
 	  (when found-p
 	    (setq top-found-p t)
-	    (setq first (cons path buffers)
+	    (setq first (cons dir buffers)
 		  rest tmp-rest))
 	  ;; Now see if we can clump more buffers together if we go up
 	  ;; one step in the file hierarchy.
-	  ;; If path isn't changed by msb--strip-dir, we are looking
+	  ;; If dir isn't changed by msb--strip-dir, we are looking
 	  ;; at the machine name component of an ange-ftp filename.
-	  (setq old-path path)
-	  (setq path (msb--strip-dir path)
+	  (setq old-dir dir)
+	  (setq dir (msb--strip-dir dir)
 		buffers (cdr first))
-	  (if (equal old-path path)
-	      (setq last-path path))
-	  (when (and last-path
-		     (or (and (>= (length path) (length last-path))
+	  (if (equal old-dir dir)
+	      (setq last-dir dir))
+	  (when (and last-dir
+		     (or (and (>= (length dir) (length last-dir))
 			      (eq t (compare-strings
-				     last-path 0 nil path 0
-				     (length last-path)
+				     last-dir 0 nil dir 0
+				     (length last-dir)
 				     completion-ignore-case)))
-			 (and (< (length path) (length last-path))
+			 (and (< (length dir) (length last-dir))
 			      (eq t (compare-strings
-				     path 0 nil last-path 0 (length path)
+				     dir 0 nil last-dir 0 (length dir)
 				     completion-ignore-case)))))
 	    ;; We have reached the same place in the file hierarchy as
 	    ;; the last result, so we should quit at this point and
@@ -642,7 +650,7 @@ If the argument is left out or nil, then the current buffer is considered."
 	    (setq top-found-p nil)
 	    (setq first (car rest)
 		  rest (cdr rest)
-		  path (car first)
+		  dir (car first)
 		  buffers (cdr first)))))))
     ;; Now take care of the last item.
     (when first
@@ -729,7 +737,7 @@ to the buffer-list variable in function-info."
 			      max-buffer-name-length)
 		     buffer)
 	       (eval list-symbol)))))
- 
+
 (defsubst msb--choose-menu (buffer function-info-vector max-buffer-name-length)
   "Select the appropriate menu for BUFFER."
   ;; This is all side-effects, folks!
@@ -990,9 +998,6 @@ variable `msb-menu-cond'."
 	;; adjust position
 	(setq posX (- posX (funcall msb-horizontal-shift-function))
 	      position (list (list posX posY) posWind))))
-    ;; This `sit-for' magically makes the menu stay up if the mouse
-    ;; button is released within 0.1 second.
-    (sit-for 0 100)
     ;; Popup the menu
     (setq choice (x-popup-menu position msb--last-buffer-menu))
     (cond
@@ -1002,7 +1007,7 @@ variable `msb-menu-cond'."
       (mouse-select-buffer event))
      ((and (numberp (car choice))
 	   (null (cdr choice)))
-      (let ((msb--last-buffer-menu (nthcdr 3 (assq (car choice)
+      (let ((msb--last-buffer-menu (nthcdr 2 (assq (car choice)
 						   msb--last-buffer-menu))))
 	(mouse-select-buffer event)))
      ((while (numberp (car choice))
@@ -1114,9 +1119,8 @@ variable `msb-menu-cond'."
 		 (mapcar
 		  (lambda (frame)
 		    (nconc
-		     (list frame
-			   (cdr (assq 'name
-				      (frame-parameters frame)))
+		     (list (frame-parameter frame 'name)
+			   (frame-parameter frame 'name)
 			   (cons nil nil))
 		     'menu-bar-select-frame))
 		  frames)))))
@@ -1133,7 +1137,7 @@ variable `msb-menu-cond'."
 ;; C-down-mouse-1).
 (defvar msb-mode-map
   (let ((map (make-sparse-keymap "Msb")))
-    (substitute-key-definition 'mouse-buffer-menu 'msb map global-map)
+    (define-key map [remap mouse-buffer-menu] 'msb)
     map))
 
 ;;;###autoload
@@ -1142,7 +1146,7 @@ variable `msb-menu-cond'."
 With arg, turn Msb mode on if and only if arg is positive.
 This mode overrides the binding(s) of `mouse-buffer-menu' to provide a
 different buffer menu using the function `msb'."
-  :global t
+  :global t :group 'msb
   (if msb-mode
       (progn
 	(add-hook 'menu-bar-update-hook 'msb-menu-bar-update-buffers)
@@ -1154,8 +1158,10 @@ different buffer menu using the function `msb'."
 
 (defun msb-unload-hook ()
   (msb-mode 0))
+(add-hook 'msb-unload-hook 'msb-unload-hook)
 
 (provide 'msb)
 (eval-after-load "msb" '(run-hooks 'msb-after-load-hook 'msb-after-load-hooks))
 
+;;; arch-tag: 403f9e82-b92e-4e7a-a797-5d6d9b76da36
 ;;; msb.el ends here

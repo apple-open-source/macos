@@ -44,7 +44,7 @@
 
 CConfigs::CConfigs ( void )
 {
-	fSearchPolicy						= kNetInfoSearchPolicy;
+	fSearchPolicy						= kAutomaticSearchPolicy;
     fSearchNodeListLength				= 0;
     pSearchNodeList						= nil;
 	fDirRef								= 0;
@@ -56,6 +56,15 @@ CConfigs::CConfigs ( void )
 	fXMLSearchPolicyKeyString		= CFStringCreateWithCString( NULL, kXMLSearchPolicyKey, kCFStringEncodingUTF8 );
 	fXMLSearchPathArrayKeyString	= CFStringCreateWithCString( NULL, kXMLSearchPathArrayKey, kCFStringEncodingUTF8 );
 	fXMLSearchDHCPLDAPString		= CFStringCreateWithCString( NULL, kXMLSearchDHCPLDAP, kCFStringEncodingUTF8 );
+#if AUGMENT_RECORDS
+	fXMLAugmentSearchKeyString		= CFStringCreateWithCString( NULL, kXMLAugmentSearchKey, kCFStringEncodingUTF8 );
+	fXMLAugmentDirNodeNameKeyString	= CFStringCreateWithCString( NULL, kXMLAugmentDirNodeNameKey, kCFStringEncodingUTF8 );
+	fXMLToBeAugmentedDirNodeNameKeyString = CFStringCreateWithCString( NULL, kXMLToBeAugmentedDirNodeNameKey, kCFStringEncodingUTF8 );
+	fXMLAugmentAttrListDictKeyString= CFStringCreateWithCString( NULL, kXMLAugmentAttrListDictKey, kCFStringEncodingUTF8 );
+	bAugmentSearch = false;
+	fAugmentDirNodeName = nil;
+	fAugmentAttrListDict = nil;
+#endif
 } // CConfigs
 
 
@@ -65,54 +74,32 @@ CConfigs::CConfigs ( void )
 
 CConfigs::~CConfigs ( void )
 {
-	//need to cleanup the struct list ie. the internals
-	//NO NO these are created on demand and owned by the caller to GetCustom
-	//KW should use local vars for this purpose
-//	pList = pSearchNodeList;
-//    while (pList != nil)
-//    {
-//			pDeleteList = pList;
-//			pList = pList->fNext;		//assign to next BEFORE deleting current
-//			CleanListData( pDeleteList );
-//			delete( pDeleteList );
-//			pDeleteList = nil;
-//    }
-
 	//KW might consider cleanup of the fDirRef here
-	if (fConfigDict)
-	{
-		CFRelease(fConfigDict);
-	}
-	if (fSearchNodeConfigFileName != nil)
-	{
-		free(fSearchNodeConfigFileName);
-		fSearchNodeConfigFileName = nil;
-	}
-	if (fSearchNodeConfigBackupFileName != nil)
-	{
-		free(fSearchNodeConfigBackupFileName);
-		fSearchNodeConfigBackupFileName = nil;
-	}
-	if (fSearchNodeConfigCorruptedFileName != nil)
-	{
-		free(fSearchNodeConfigCorruptedFileName);
-		fSearchNodeConfigCorruptedFileName = nil;
-	}
-	CFRelease(fXMLSearchPathVersionKeyString);
-	CFRelease(fXMLSearchPolicyKeyString);
-	CFRelease(fXMLSearchPathArrayKeyString);
-	CFRelease(fXMLSearchDHCPLDAPString);
-
+	DSCFRelease(fConfigDict);
+	DSFreeString(fSearchNodeConfigFileName);
+	DSFreeString(fSearchNodeConfigBackupFileName);
+	DSFreeString(fSearchNodeConfigCorruptedFileName);
+	DSCFRelease(fXMLSearchPathVersionKeyString);
+	DSCFRelease(fXMLSearchPolicyKeyString);
+	DSCFRelease(fXMLSearchPathArrayKeyString);
+	DSCFRelease(fXMLSearchDHCPLDAPString);
+#if AUGMENT_RECORDS
+	DSCFRelease(fXMLAugmentSearchKeyString);
+	DSFreeString(fAugmentDirNodeName);
+	DSCFRelease(fXMLAugmentDirNodeNameKeyString);
+	DSCFRelease(fXMLToBeAugmentedDirNodeNameKeyString);
+	DSCFRelease(fXMLAugmentAttrListDictKeyString);
+#endif
 } // ~CConfigs
 
 
 // --------------------------------------------------------------------------------
-//	* Init (uInt32)
+//	* Init (UInt32)
 // --------------------------------------------------------------------------------
 
-sInt32 CConfigs::Init ( const char *inSearchNodeConfigFilePrefix, uInt32 &outSearchPolicy )
+SInt32 CConfigs::Init ( const char *inSearchNodeConfigFilePrefix, UInt32 &outSearchPolicy )
 {
-	sInt32				siResult		= eDSNullParameter;
+	SInt32				siResult		= eDSNullParameter;
 	CFMutableArrayRef   cfArrayRef		= NULL;
 	CFIndex				cfConfigCount   = 0;
 	CFMutableStringRef	cfSearchNode	= NULL;
@@ -162,7 +149,7 @@ sInt32 CConfigs::Init ( const char *inSearchNodeConfigFilePrefix, uInt32 &outSea
 				CFStringRef cfBSDOldPrefix = CFStringCreateWithCString( NULL, "/BSD Configuration Files/Local", kCFStringEncodingUTF8 );
 				CFStringRef cfBSDNewPrefix = CFStringCreateWithCString( NULL, "/BSD/local", kCFStringEncodingUTF8 );
 				cfConfigCount = ::CFArrayGetCount( cfArrayRef );
-				for (sInt32 iConfigIndex = 0; iConfigIndex < cfConfigCount; iConfigIndex++)
+				for (SInt32 iConfigIndex = 0; iConfigIndex < cfConfigCount; iConfigIndex++)
 				{
 					cfSearchNode = (CFMutableStringRef)::CFArrayGetValueAtIndex( cfArrayRef, iConfigIndex );
 					if ( cfSearchNode != nil )
@@ -219,7 +206,7 @@ sInt32 CConfigs::Init ( const char *inSearchNodeConfigFilePrefix, uInt32 &outSea
 		}
 			
 	} // try
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}
@@ -235,7 +222,7 @@ sInt32 CConfigs::Init ( const char *inSearchNodeConfigFilePrefix, uInt32 &outSea
 sSearchList *CConfigs:: GetCustom ( void )
 {
 	sSearchList	   *outList		= nil;
-	sInt32			siResult	= eDSNoErr;
+	SInt32			siResult	= eDSNoErr;
 
 	//build the list and get the search policy
 	//each time we call this we create a new one and assume that the old is owned by the previous caller
@@ -260,10 +247,10 @@ sSearchList *CConfigs:: GetCustom ( void )
 //	* ConfigSearchPolicy
 // ---------------------------------------------------------------------------
 
-sInt32 CConfigs:: ConfigSearchPolicy ( void )
+SInt32 CConfigs:: ConfigSearchPolicy ( void )
 {
-    sInt32					siResult				= eDSNoErr;
-    sInt32					result					= eDSNoErr;
+    SInt32					siResult				= eDSNoErr;
+    SInt32					result					= eDSNoErr;
     CFStringRef				errorString;
     CFURLRef				configFileURL			= nil;
     CFURLRef				configFileCorruptedURL	= nil;
@@ -278,7 +265,7 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 	CFNumberRef				aSearchPolicy;
 	struct stat				statResult;
 	CFStringRef				cfStringRef				= nil;
-	sInt32					errorCode				= 0;
+	SInt32					errorCode				= 0;
 	int						defaultSearchPolicy		= 1;
 	CFStringRef				sBase					= nil;
 	CFStringRef				sPath					= nil;
@@ -300,8 +287,8 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 
 	::memset(string,0,PATH_MAX);
 	::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingUTF8 );
-	DBGLOG( kLogPlugin, "Checking for Search Node XML config file:" );
-	DBGLOG1( kLogPlugin, "%s", string );
+	DbgLog( kLogPlugin, "Checking for Search Node XML config file:" );
+	DbgLog( kLogPlugin, "%s", string );
 	
 	filenameString = strdup(string);
 
@@ -407,8 +394,8 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 		if (configPropertyList != nil )
 		{
 
-			DBGLOG( kLogPlugin, "Have read Search Node XML config file:" );
-			DBGLOG1( kLogPlugin, "%s", string );
+			DbgLog( kLogPlugin, "Have read Search Node XML config file:" );
+			DbgLog( kLogPlugin, "%s", string );
 
 			//make the propertylist a dict
 			if ( CFDictionaryGetTypeID() == CFGetTypeID( configPropertyList ) )
@@ -429,7 +416,17 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 				else
 				{
 					fSearchPolicy	= GetSearchPolicy(configDict);
-
+#if AUGMENT_RECORDS
+					bAugmentSearch	= GetAugmentSearch(configDict);
+					if (bAugmentSearch)
+					{
+						fAugmentDirNodeName = GetAugmentDirNodeName(configDict);
+						fToBeAugmentedDirNodeName = GetToBeAugmentedDirNodeName(configDict);
+						//retrieve the dictionary of attribute lists per record type
+						//ie. dictinoary of arrays where the array key is the record type
+						fAugmentAttrListDict = GetAugmentAttrListDict(configDict);
+					}
+#endif
 					//set the member dict variable
 					fConfigDict		= configDict;
 
@@ -441,8 +438,8 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 		}//if (configPropertyList != nil )
 		if ( configPropertyList == nil) //we have a corrupted file
 		{
-			DBGLOG( kLogPlugin, "Search Node XML config file is corrupted" );
-			DBGLOG( kLogPlugin, "Using default NetInfo Search Policy" );
+			DbgLog( kLogPlugin, "Search Node XML config file is corrupted" );
+			DbgLog( kLogPlugin, "Using default NetInfo Search Policy" );
 			bCorruptedFile = true;
 			//here we need to make a backup of the file - why? - because
 
@@ -470,8 +467,8 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 	}
 	else
 	{
-		DBGLOG( kLogPlugin, "Search Node XML config file is not readable" );
-		DBGLOG( kLogPlugin, "Using default NetInfo Search Policy" );
+		DbgLog( kLogPlugin, "Search Node XML config file is not readable" );
+		DbgLog( kLogPlugin, "Using default NetInfo Search Policy" );
 		bCorruptedFile = true;
 		//here we make no backup since unable to read it at all
 	}
@@ -531,8 +528,8 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 
 			if ( configPropertyList != nil )
 			{
-				DBGLOG( kLogPlugin, "Using Newly Replaced Search Node XML config file:" );
-				DBGLOG1( kLogPlugin, "%s", string );
+				DbgLog( kLogPlugin, "Using Newly Replaced Search Node XML config file:" );
+				DbgLog( kLogPlugin, "%s", string );
 				//make the propertylist a dict
 				if ( CFDictionaryGetTypeID() == CFGetTypeID( configPropertyList ) )
 				{
@@ -597,13 +594,41 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 
 } // ConfigSearchPolicy
 
+
+#if AUGMENT_RECORDS
+// ---------------------------------------------------------------------------
+//	* UpdateAugmentDict
+// ---------------------------------------------------------------------------
+
+void CConfigs:: UpdateAugmentDict( CFDictionaryRef inDict )
+{
+
+	// update fConfigDict first
+	CFDictionarySetValue(fConfigDict, fXMLAugmentSearchKeyString, (CFBooleanRef)CFDictionaryGetValue( inDict, fXMLAugmentSearchKeyString ));
+	CFDictionarySetValue(fConfigDict, fXMLAugmentDirNodeNameKeyString, (CFBooleanRef)CFDictionaryGetValue( inDict, fXMLAugmentDirNodeNameKeyString ));
+	CFDictionarySetValue(fConfigDict, fXMLToBeAugmentedDirNodeNameKeyString, (CFBooleanRef)CFDictionaryGetValue( inDict, fXMLToBeAugmentedDirNodeNameKeyString ));
+	CFDictionarySetValue(fConfigDict, fXMLAugmentAttrListDictKeyString, (CFBooleanRef)CFDictionaryGetValue( inDict, fXMLAugmentAttrListDictKeyString ));
+	WriteConfig();
+	bAugmentSearch	= GetAugmentSearch(inDict);
+	DSFreeString(fAugmentDirNodeName);
+	fAugmentDirNodeName = GetAugmentDirNodeName(inDict);
+	DSFreeString(fToBeAugmentedDirNodeName);
+	fToBeAugmentedDirNodeName = GetToBeAugmentedDirNodeName(inDict);
+	//retrieve the dictionary of attribute lists per record type
+	//ie. dictionary of arrays where the array key is the record type
+	//need to use fConfigDict after updating it above
+	fAugmentAttrListDict = GetAugmentAttrListDict(fConfigDict);
+}
+
+#endif
+
 // ---------------------------------------------------------------------------
 //	* WriteConfig
 // ---------------------------------------------------------------------------
 
-sInt32 CConfigs:: WriteConfig ( void )
+SInt32 CConfigs:: WriteConfig ( void )
 {
-	sInt32					siResult			= eDSNoErr;
+	SInt32					siResult			= eDSNoErr;
 	CFURLRef				configFileURL;
 	CFURLRef				configFileBackupURL;
 	CFDataRef				xmlData;
@@ -611,7 +636,7 @@ sInt32 CConfigs:: WriteConfig ( void )
 	bool					bReadFile			= false;
 	char					string[ PATH_MAX ];
 	struct stat				statResult;
-	sInt32					errorCode			= 0;
+	SInt32					errorCode			= 0;
 	char				   *filenameString		= nil;
 
 	//Config data is written to a XML file
@@ -629,8 +654,8 @@ sInt32 CConfigs:: WriteConfig ( void )
 
 	::memset(string,0,PATH_MAX);
 	::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingUTF8 );
-	DBGLOG( kLogPlugin, "Checking for Search Node XML config file:" );
-	DBGLOG1( kLogPlugin, "%s", string );
+	DbgLog( kLogPlugin, "Checking for Search Node XML config file:" );
+	DbgLog( kLogPlugin, "%s", string );
 	
 	filenameString = strdup(string);
 
@@ -705,7 +730,7 @@ sInt32 CConfigs:: WriteConfig ( void )
 		CFRelease( sPath ); // build with Create so okay to dealloac here
 		sPath = nil;
 		//next subdirectory
-		sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%s" ), "/Library/Preferences/DirectoryService" );
+		sPath = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%s" ), kDSLDAPPrefsDirPath );
 		::memset(string,0,PATH_MAX);
 		::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingUTF8 );
 		siResult = ::stat( string, &statResult );
@@ -746,14 +771,14 @@ sInt32 CConfigs:: WriteConfig ( void )
 
 	if (bWroteFile)
 	{
-		DBGLOG( kLogPlugin, "Have written the Search Node XML config file:" );
-		DBGLOG1( kLogPlugin, "%s", string );
+		DbgLog( kLogPlugin, "Have written the Search Node XML config file:" );
+		DbgLog( kLogPlugin, "%s", string );
 		siResult = eDSNoErr;
 	}
 	else
 	{
-		DBGLOG( kLogPlugin, "Search Node XML config file has NOT been written" );
-		DBGLOG( kLogPlugin, "Update to Custom Search Path Node List in Config File Failed" );
+		DbgLog( kLogPlugin, "Search Node XML config file has NOT been written" );
+		DbgLog( kLogPlugin, "Update to Custom Search Path Node List in Config File Failed" );
 		siResult = eDSPlugInConfigFileError;
 	}
 	
@@ -771,9 +796,9 @@ sInt32 CConfigs:: WriteConfig ( void )
 //	* ConfigList
 // ---------------------------------------------------------------------------
 
-sInt32 CConfigs:: ConfigList ( void )
+SInt32 CConfigs:: ConfigList ( void )
 {
-	sInt32					siResult			= eDSNoErr;
+	SInt32					siResult			= eDSNoErr;
 	sSearchList			   *pSearchNode			= nil;
 	sSearchList			   *pTailSearchNode		= nil;
 	CFStringRef				cfSearchNode;
@@ -800,7 +825,7 @@ sInt32 CConfigs:: ConfigList ( void )
 							
 			//loop through the array
             //use iConfigIndex for the access to the cfArrayRef
-			for (sInt32 iConfigIndex = 0; iConfigIndex < cfConfigCount; iConfigIndex++)
+			for (SInt32 iConfigIndex = 0; iConfigIndex < cfConfigCount; iConfigIndex++)
 			{
 				cfSearchNode = (CFStringRef)::CFArrayGetValueAtIndex( cfArrayRef, iConfigIndex );
 				if ( cfSearchNode != nil )
@@ -843,7 +868,7 @@ sInt32 CConfigs:: ConfigList ( void )
 		} // if (cfArrayRef != nil) ie. an array of search nodes exists
 		
 	} // try
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}
@@ -888,13 +913,146 @@ char *CConfigs::GetVersion ( CFDictionaryRef configDict )
 } // GetVersion
 
 
+#if AUGMENT_RECORDS
+// --------------------------------------------------------------------------------
+//	* AugmentDirNodeName
+// --------------------------------------------------------------------------------
+
+char *CConfigs::AugmentDirNodeName ( void )
+{
+	// return if nil or not
+	return( fAugmentDirNodeName );
+
+} // AugmentDirNodeName
+
+
+// --------------------------------------------------------------------------------
+//	* GetAugmentDirNodeName
+// --------------------------------------------------------------------------------
+
+char *CConfigs::GetAugmentDirNodeName ( CFDictionaryRef configDict )
+{
+	char			   *outName		= nil;
+	CFStringRef			cfStringRef	= nil;
+	char			   *tmpBuff		= nil;
+	CFIndex				cfBuffSize	= 1024;
+
+	if ( CFDictionaryContainsKey( configDict, fXMLAugmentDirNodeNameKeyString ) )
+	{
+		cfStringRef = (CFStringRef)CFDictionaryGetValue( configDict, fXMLAugmentDirNodeNameKeyString );
+		if ( cfStringRef != nil )
+		{
+			if ( CFGetTypeID( cfStringRef ) == CFStringGetTypeID() )
+			{
+				//assume that the extracted strings will be significantly less than 1024 characters
+				tmpBuff = new char[1024];
+				::memset(tmpBuff,0,1024);
+				if (CFStringGetCString(cfStringRef, tmpBuff, cfBuffSize, kCFStringEncodingUTF8 ))
+				{
+					outName = new char[1+strlen(tmpBuff)];
+					::strcpy(outName, tmpBuff);
+				}
+				delete( tmpBuff );
+			}
+		}
+	}
+
+	// return if nil or not
+	return( outName );
+
+} // GetAugmentDirNodeName
+
+
+// --------------------------------------------------------------------------------
+//	* ToBeAugmentedDirNodeName
+// --------------------------------------------------------------------------------
+
+char *CConfigs::ToBeAugmentedDirNodeName ( void )
+{
+	// return if nil or not
+	return( fToBeAugmentedDirNodeName );
+
+} // ToBeAugmentedDirNodeName
+
+
+// --------------------------------------------------------------------------------
+//	* GetToBeAugmentedDirNodeName
+// --------------------------------------------------------------------------------
+
+char *CConfigs::GetToBeAugmentedDirNodeName ( CFDictionaryRef configDict )
+{
+	char			   *outName		= nil;
+	CFStringRef			cfStringRef	= nil;
+	char			   *tmpBuff		= nil;
+	CFIndex				cfBuffSize	= 1024;
+
+	if ( CFDictionaryContainsKey( configDict, fXMLToBeAugmentedDirNodeNameKeyString ) )
+	{
+		cfStringRef = (CFStringRef)CFDictionaryGetValue( configDict, fXMLToBeAugmentedDirNodeNameKeyString );
+		if ( cfStringRef != nil )
+		{
+			if ( CFGetTypeID( cfStringRef ) == CFStringGetTypeID() )
+			{
+				//assume that the extracted strings will be significantly less than 1024 characters
+				tmpBuff = new char[1024];
+				::memset(tmpBuff,0,1024);
+				if (CFStringGetCString(cfStringRef, tmpBuff, cfBuffSize, kCFStringEncodingUTF8 ))
+				{
+					outName = new char[1+strlen(tmpBuff)];
+					::strcpy(outName, tmpBuff);
+				}
+				delete( tmpBuff );
+			}
+		}
+	}
+
+	// return if nil or not
+	return( outName );
+
+} // GetToBeAugmentedDirNodeName
+
+// --------------------------------------------------------------------------------
+//	* AugmentSearch
+// --------------------------------------------------------------------------------
+
+bool CConfigs::AugmentSearch ( void )
+{
+	return( bAugmentSearch );
+
+} // AugmentSearch
+
+
+// --------------------------------------------------------------------------------
+//	* GetAugmentSearch
+// --------------------------------------------------------------------------------
+
+bool CConfigs::GetAugmentSearch ( CFDictionaryRef configDict )
+{
+	CFBooleanRef	cfBool		= false;
+	bool			bAugSearch	= false;
+
+	if ( CFDictionaryContainsKey( configDict, fXMLAugmentSearchKeyString ) )
+	{
+		cfBool = (CFBooleanRef)CFDictionaryGetValue( configDict, fXMLAugmentSearchKeyString );
+		if ( cfBool != nil )
+		{
+			bAugSearch = CFBooleanGetValue(cfBool);
+			//CFRelease( cfBool ); // no since pointer only from Get
+		}
+	}
+
+	return( bAugSearch );
+
+} // GetAugmentSearch
+#endif
+
 // --------------------------------------------------------------------------------
 //	* GetSearchPolicy
 // --------------------------------------------------------------------------------
 
-uInt32 CConfigs:: GetSearchPolicy ( CFDictionaryRef configDict )
+UInt32 CConfigs:: GetSearchPolicy ( CFDictionaryRef configDict )
 {
-	uInt32				searchPolicy	= kNetInfoSearchPolicy; // default
+	UInt32				searchPolicy	= kAutomaticSearchPolicy; // default
 	CFNumberRef			cfNumber		= 0;
 	unsigned char		cfNumBool		= false;
 
@@ -912,6 +1070,38 @@ uInt32 CConfigs:: GetSearchPolicy ( CFDictionaryRef configDict )
 
 } // GetSearchPolicy
 
+
+#if AUGMENT_RECORDS
+// --------------------------------------------------------------------------------
+//	* AugmentAttrListDict
+// --------------------------------------------------------------------------------
+
+CFDictionaryRef CConfigs::AugmentAttrListDict ( void )
+{
+	// return if nil or not
+	return( fAugmentAttrListDict );
+
+} // AugmentAttrListDict
+
+
+// --------------------------------------------------------------------------------
+//	* GetAugmentAttrListDict
+// --------------------------------------------------------------------------------
+
+CFDictionaryRef CConfigs::GetAugmentAttrListDict ( CFDictionaryRef configDict )
+{
+	CFDictionaryRef		cfDictRef	= nil;
+
+	if ( CFDictionaryContainsKey( configDict, fXMLAugmentAttrListDictKeyString ) )
+	{
+		cfDictRef = (CFDictionaryRef)CFDictionaryGetValue( configDict, fXMLAugmentAttrListDictKeyString );
+	}
+
+	// return if nil or not
+	return( cfDictRef );
+
+} // GetAugmentAttrListDict
+#endif
 
 // --------------------------------------------------------------------------------
 //	* GetListArray
@@ -960,7 +1150,7 @@ CFDictionaryRef CConfigs::GetDHCPLDAPDictionary ( )
 
 bool CConfigs::IsDHCPLDAPEnabled ( )
 {
-	bool dhcpLDAPEnabled = true;
+	bool dhcpLDAPEnabled = false;
 	CFDictionaryRef cfDict = 0;
 	CFBooleanRef cfBool = 0;
 	SCDynamicStoreRef sysConfigRef = 0;
@@ -1015,10 +1205,10 @@ void CConfigs::SetDHCPLDAPDictionary ( CFDictionaryRef dhcpLDAPdict )
 //	* SetSearchPolicy
 // --------------------------------------------------------------------------------
 
-sInt32 CConfigs:: SetSearchPolicy ( uInt32 inSearchPolicy )
+SInt32 CConfigs:: SetSearchPolicy ( UInt32 inSearchPolicy )
 {
 	CFNumberRef		cfNumber		= 0;
-	sInt32			siResult		= eDSNoErr;
+	SInt32			siResult		= eDSNoErr;
 
 	fSearchPolicy = inSearchPolicy;
 	if (fConfigDict)
@@ -1049,9 +1239,9 @@ sInt32 CConfigs:: SetSearchPolicy ( uInt32 inSearchPolicy )
 //	* SetListArray
 // --------------------------------------------------------------------------------
 
-sInt32 CConfigs:: SetListArray ( CFMutableArrayRef inCSPArray )
+SInt32 CConfigs:: SetListArray ( CFMutableArrayRef inCSPArray )
 {
-	sInt32			siResult	= eDSNoErr;
+	SInt32			siResult	= eDSNoErr;
 
 	if (fConfigDict)
 	{
@@ -1077,7 +1267,7 @@ sInt32 CConfigs:: SetListArray ( CFMutableArrayRef inCSPArray )
 
 sSearchList *CConfigs::MakeListData ( char *inNodeName )
 {
-	sInt32				siResult		= eDSNoErr;
+	SInt32				siResult		= eDSNoErr;
     sSearchList		   *listOut			= nil;
 
 	try
@@ -1099,24 +1289,24 @@ sSearchList *CConfigs::MakeListData ( char *inNodeName )
 			if (fDirRef == 0)
 			{
 				siResult = ::dsOpenDirService( &fDirRef );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eDSOpenFailed );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eDSOpenFailed );
 			}
 			siResult = ::dsOpenDirNode( fDirRef, listOut->fDataList, &listOut->fNodeRef );
 			if ( siResult != eDSNoErr )
 			{
-				DBGLOG2( kLogPlugin, "Failed to open node: %s with error: %l", listOut->fNodeName, siResult );
-				DBGLOG( kLogPlugin, "Will attempt to open again later?" );
+				DbgLog( kLogPlugin, "Failed to open node: %s with error: %l", listOut->fNodeName, siResult );
+				DbgLog( kLogPlugin, "Will attempt to open again later?" );
 				siResult = eDSNoErr;
 			}
 			else
 			{
-				DBGLOG1( kLogPlugin, "  Node Reference = %l", listOut->fNodeRef );
+				DbgLog( kLogPlugin, "  Node Reference = %l", listOut->fNodeRef );
 				listOut->fOpened = true;
 			}
 			*/
     	}
 	}
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}
@@ -1130,18 +1320,16 @@ sSearchList *CConfigs::MakeListData ( char *inNodeName )
 //	* CleanListData
 // ---------------------------------------------------------------------------
 
-sInt32 CConfigs::CleanListData ( sSearchList *inList )
+SInt32 CConfigs::CleanListData ( sSearchList *inList )
 {
-    sInt32				siResult		= eDSNoErr;
+    SInt32				siResult		= eDSNoErr;
 
     if ( inList != nil )
     {
-        if (inList->fNodeName != nil)
-        {
-            delete ( inList->fNodeName );
-        }
+        DSFreeString(inList->fNodeName);
 		inList->fOpened					= false;
-		inList->fPreviousOpenFailed		= false;
+		inList->fHasNeverOpened		= true;
+		inList->fNodeReachable			= false;
 		if (inList->fNodeRef != 0)
 		{
 			::dsCloseDirNode(inList->fNodeRef); // don't check error code

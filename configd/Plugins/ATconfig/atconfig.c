@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,9 +44,12 @@
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <sys/ioctl.h>
+#include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
+#include <dlfcn.h>
 #include <net/if.h>
 #include <netat/appletalk.h>
 #include <netat/at_var.h>
@@ -76,8 +79,60 @@ static CFMutableDictionaryRef	curStartup	= NULL;
 static Boolean			_verbose	= FALSE;
 
 
-static void	stopAppleTalk (CFRunLoopTimerRef timer, void *info);
+#define	RETRY_DELAY	2.0	// seconds
+#define	RETRY_LIMIT	5	// # of startup/shutdown attempts
+
 static void	startAppleTalk(CFRunLoopTimerRef timer, void *info);
+static void	stopAppleTalk (CFRunLoopTimerRef timer, void *info);
+
+
+static void *
+__loadAppleTalk(void) {
+	static void *image = NULL;
+	if (NULL == image) {
+		const char	*framework		= "/System/Library/Frameworks/AppleTalk.framework/Versions/A/AppleTalk";
+		struct stat	statbuf;
+		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
+		char		path[MAXPATHLEN];
+
+		strlcpy(path, framework, sizeof(path));
+		if (suffix) strlcat(path, suffix, sizeof(path));
+		if (0 <= stat(path, &statbuf)) {
+			image = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+		} else {
+			image = dlopen(framework, RTLD_LAZY | RTLD_LOCAL);
+		}
+	}
+	return (void *)image;
+}
+
+
+static int
+_at_setdefaultaddr(char *ifName, struct at_addr *init_address)
+{
+	#undef at_setdefaultaddr
+	static typeof (at_setdefaultaddr) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadAppleTalk();
+		if (image) dyfunc = dlsym(image, "at_setdefaultaddr");
+	}
+	return dyfunc ? dyfunc(ifName, init_address) : -1;
+}
+#define at_setdefaultaddr _at_setdefaultaddr
+
+
+static int
+_at_setdefaultzone(char *ifName, at_nvestr_t *zone)
+{
+	#undef at_setdefaultzone
+	static typeof (at_setdefaultzone) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadAppleTalk();
+		if (image) dyfunc = dlsym(image, "at_setdefaultzone");
+	}
+	return dyfunc ? dyfunc(ifName, zone) : -1;
+}
+#define at_setdefaultzone _at_setdefaultzone
 
 
 static void
@@ -92,7 +147,7 @@ updateDefaults(const void *key, const void *val, void *context)
 
 	if (!CFDictionaryGetValueIfPresent(curDefaults, ifName, (const void **)&oldDict) ||
 	    !CFEqual(oldDict, newDict)) {
-		char		ifr_name[IFNAMSIZ+1];
+		char		ifr_name[IFNAMSIZ + 1];
 
 		bzero(&ifr_name, sizeof(ifr_name));
 		if (!_SC_cfstring_to_cstring(ifName, ifr_name, sizeof(ifr_name), kCFStringEncodingASCII)) {
@@ -1194,7 +1249,8 @@ stopComplete(pid_t pid, int status, struct rusage *rusage, void *context)
 		}
 	}
 
-	SCLog(TRUE, LOG_ERR,
+	SCLog(TRUE,
+	      (execRetry > 1) ? LOG_NOTICE : LOG_ERR,
 	      CFSTR("AppleTalk shutdown failed, status = %d%s"),
 	      WEXITSTATUS(status),
 	      (execRetry > 1) ? " (retrying)" : "");
@@ -1205,7 +1261,7 @@ stopComplete(pid_t pid, int status, struct rusage *rusage, void *context)
 		CFRunLoopTimerRef	timer;
 
 		timer = CFRunLoopTimerCreate(NULL,
-					     CFAbsoluteTimeGetCurrent() + 1.0,
+					     CFAbsoluteTimeGetCurrent() + RETRY_DELAY,
 					     0.0,
 					     0,
 					     0,
@@ -1245,7 +1301,7 @@ stopAppleTalk(CFRunLoopTimerRef timer, void *info)
 					    argv);			// argv
 
 	if (!timer) {
-		execRetry = 5;	// initialize retry count
+		execRetry = RETRY_LIMIT;	// initialize retry count
 	}
 
 	return;
@@ -1277,7 +1333,8 @@ startComplete(pid_t pid, int status, struct rusage *rusage, void *context)
 		}
 	}
 
-	SCLog(TRUE, LOG_ERR,
+	SCLog(TRUE,
+	      (execRetry > 1) ? LOG_NOTICE : LOG_ERR,
 	      CFSTR("AppleTalk startup failed, status = %d%s"),
 	      WEXITSTATUS(status),
 	      (execRetry > 1) ? " (retrying)" : "");
@@ -1288,7 +1345,7 @@ startComplete(pid_t pid, int status, struct rusage *rusage, void *context)
 		CFRunLoopTimerRef	timer;
 
 		timer = CFRunLoopTimerCreate(NULL,
-					     CFAbsoluteTimeGetCurrent() + 1.0,
+					     CFAbsoluteTimeGetCurrent() + RETRY_DELAY,
 					     0.0,
 					     0,
 					     0,
@@ -1373,7 +1430,7 @@ startAppleTalk(CFRunLoopTimerRef timer, void *info)
 					    argv);			// argv
 
 	if (!timer) {
-		execRetry = 5;	// initialize retry count
+		execRetry = RETRY_LIMIT;	// initialize retry count
 	}
 
     done :
@@ -1476,7 +1533,7 @@ load_ATconfig(CFBundleRef bundle, Boolean bundleVerbose)
 				     CFSTR("AppleTalk Configuraton plug-in"),
 				     atConfigChangedCallback,
 				     NULL);
-	if (!store) {
+	if (store == NULL) {
 		SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCreate() failed: %s"), SCErrorString(SCError()));
 		goto error;
 	}

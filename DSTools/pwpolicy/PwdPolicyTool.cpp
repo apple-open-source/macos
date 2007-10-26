@@ -33,6 +33,14 @@
 
 #define debugerr(ERR, A, args...)	if (gVerbose && (ERR)) {fprintf(stderr, (A), ##args);}
 
+extern "C" {
+extern tDirStatus dsFillAuthBuffer(
+	tDataBufferPtr inOutAuthBuffer,
+	unsigned long inCount,
+	unsigned long inLen,
+	const void *inData, ... );
+};
+
 // Static Locals
 const 	long		kBuffSize			= 8192;
 
@@ -76,11 +84,11 @@ tDirNodeReference PwdPolicyTool::GetSearchNodeRef ( void )
 //	Initialize ()
 // ---------------------------------------------------------------------------
 
-long PwdPolicyTool::Initialize ( void )
+tDirStatus PwdPolicyTool::Initialize ( void )
 {
-	long					siStatus		= eDSNoErr;
-	char				   *pNodeName		= nil;
-
+	tDirStatus		siStatus		= eDSNoErr;
+	char			**pNodeName		= NULL;
+	
 	siStatus = OpenDirectoryServices();
 	if ( siStatus != eDSNoErr )
 	{
@@ -97,11 +105,14 @@ long PwdPolicyTool::Initialize ( void )
 	siStatus = FindDirectoryNodes( nil, eDSSearchNodeName, &pNodeName );
 	if ( siStatus == eDSNoErr )
 	{
-		siStatus = OpenDirNode( pNodeName, &fSearchNodeRef );
-
+		if ( pNodeName[0] != NULL ) {
+			siStatus = OpenDirNode( pNodeName[0], &fSearchNodeRef );
+			free( pNodeName[0] );
+		}
+		
 		free( pNodeName );
-		pNodeName = nil;
-
+		pNodeName = NULL;
+		
 		if ( siStatus != eDSNoErr )
 		{
 			return( siStatus );
@@ -121,9 +132,9 @@ long PwdPolicyTool::Initialize ( void )
 //	Deinitialize ()
 // ---------------------------------------------------------------------------
 
-long PwdPolicyTool::Deinitialize ( void )
+tDirStatus PwdPolicyTool::Deinitialize ( void )
 {
-	long			siStatus		= eDSNoErr;
+	tDirStatus			siStatus		= eDSNoErr;
 
 	siStatus = DeallocateTDataBuff();
 	if ( siStatus != eDSNoErr )
@@ -133,7 +144,7 @@ long PwdPolicyTool::Deinitialize ( void )
 
 	// local node
 	siStatus = CloseDirectoryNode( fLocalNodeRef );
-	if ( siStatus != noErr )
+	if ( siStatus != eDSNoErr )
 	{
 		::fprintf( stderr, "error in  CloseDirectoryNode %ld\n", siStatus );
 	}
@@ -161,24 +172,24 @@ long PwdPolicyTool::Deinitialize ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::OpenDirectoryServices ( void )
+tDirStatus PwdPolicyTool::OpenDirectoryServices ( void )
 {
-	long		error	= eDSNoErr;
+	tDirStatus		error	= eDSNoErr;
 
 	if ( gVerbose == true )
 	{
 		fprintf( stderr, "\n----- Opening Directory Services -----\n" );
 	}
 
-		error = ::dsOpenDirService( &fDSRef );
-		if ( error != eDSNoErr )
-		{
+	error = dsOpenDirService( &fDSRef );
+	if ( error != eDSNoErr )
+	{
 		PrintError( error, "dsOpenDirService" );
-		}
-		else if ( gVerbose == true )
-		{
-			fprintf( stderr, "  Directory Reference = %ld.\n", fDSRef );
-		}
+	}
+	else if ( gVerbose == true )
+	{
+		fprintf( stderr, "  Directory Reference = %ld.\n", fDSRef );
+	}
 
 	return( error );
 
@@ -190,18 +201,18 @@ long PwdPolicyTool::OpenDirectoryServices ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::CloseDirectoryServices ( void )
+tDirStatus PwdPolicyTool::CloseDirectoryServices ( void )
 {
-	long		error	= eDSNoErr;
+	tDirStatus		error	= eDSNoErr;
 
 	if ( gVerbose == true )
 	{
 		fprintf( stderr, "\n----- Closing Directory Services -----\n" );
 	}
 
-		error = ::dsCloseDirService( fDSRef );
-		if ( error != eDSNoErr )
-		{
+	error = dsCloseDirService( fDSRef );
+	if ( error != eDSNoErr )
+	{
 		PrintError( error, "dsCloseDirService" );
 	}
 
@@ -215,29 +226,28 @@ long PwdPolicyTool::CloseDirectoryServices ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::AllocateTDataBuff ( void )
+tDirStatus PwdPolicyTool::AllocateTDataBuff ( void )
 {
-	long		error	= eDSNoErr;
+	tDirStatus		error	= eDSNoErr;
 
 	if ( gVerbose == true )
 	{
 		fprintf( stderr, "\n----- Allocating a %ldK buffer -----\n", kBuffSize / 1024 );
 	}
 
-		fTDataBuff = ::dsDataBufferAllocate( fDSRef, kBuffSize );
-		if ( fTDataBuff == nil )
-		{
+	fTDataBuff = dsDataBufferAllocate( fDSRef, kBuffSize );
+	if ( fTDataBuff == nil )
+	{
 		PrintError( eMemoryAllocError, "dsDataBufferAllocate" );
 		error = eMemoryAllocError;
-		}
+	}
 
-		if ( gVerbose == true )
-		{
-			fprintf( stderr, "  allocated buffer of %ld size.\n", fTDataBuff->fBufferSize );
-		}
-
+	if ( gVerbose == true )
+	{
+		fprintf( stderr, "  allocated buffer of %ld size.\n", fTDataBuff->fBufferSize );
+	}
+	
 	return( error );
-
 } // AllocateTDataBuff
 
 
@@ -246,23 +256,22 @@ long PwdPolicyTool::AllocateTDataBuff ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::DeallocateTDataBuff ( void )
+tDirStatus PwdPolicyTool::DeallocateTDataBuff ( void )
 {
-	long		error	= eDSNoErr;
+	tDirStatus		error	= eDSNoErr;
 
 	if ( gVerbose == true )
 	{
 		fprintf( stderr, "\n----- Deallocating default buffer -----\n" );
 	}
 
-		error = ::dsDataBufferDeAllocate( fDSRef, fTDataBuff );
-		if ( error != eDSNoErr )
-		{
+	error = dsDataBufferDeAllocate( fDSRef, fTDataBuff );
+	if ( error != eDSNoErr )
+	{
 		PrintError( error, "dsDataBufferDeAllocate" );
 	}
 
 	return( error );
-
 } // DeallocateTDataBuff
 
 
@@ -271,17 +280,17 @@ long PwdPolicyTool::DeallocateTDataBuff ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::DoGetRecordList (	tDirNodeReference   inNodeRef,
+tDirStatus PwdPolicyTool::DoGetRecordList (	tDirNodeReference   inNodeRef,
 										const char			*inRecName,
-										char				*inRecType,
+										const char			*inRecType,
 										char				*inAttrType,
 										tDirPatternMatch	 inMatchType,	// eDSExact, eDSContains ...
 										char				**outAuthAuthority,
 										char				**outNodeName )
 {
-	long					error			= eDSNoErr;
-	long					error2			= eDSNoErr;
-	unsigned long			recCount		= 0;
+	tDirStatus				error			= eDSNoErr;
+	tDirStatus				error2			= eDSNoErr;
+	UInt32					recCount		= 1;
 	tContextData			context			= nil;
 	tDataList			   *pRecName		= nil;
 	tDataList			   *pRecType		= nil;
@@ -295,67 +304,67 @@ long PwdPolicyTool::DoGetRecordList (	tDirNodeReference   inNodeRef,
 		fprintf( stderr, "  Attribute Type = %s\n", inAttrType );
 	}
 
-		pRecName = ::dsBuildListFromStrings( fDSRef, inRecName, nil );
-		if ( pRecName != nil )
+	pRecName = dsBuildListFromStrings( fDSRef, inRecName, nil );
+	if ( pRecName != nil )
+	{
+		pRecType = dsBuildListFromStrings( fDSRef, inRecType, nil );
+		if ( pRecType != nil )
 		{
-			pRecType = ::dsBuildListFromStrings( fDSRef, inRecType, nil );
-			if ( pRecType != nil )
+			pAttrType = dsBuildListFromStrings( fDSRef, inAttrType, kDSNAttrMetaNodeLocation, nil );
+			if ( pAttrType != nil )
 			{
-				pAttrType = ::dsBuildListFromStrings( fDSRef, inAttrType, kDSNAttrMetaNodeLocation, nil );
-				if ( pAttrType != nil )
+				*outAuthAuthority = NULL;
+				*outNodeName = NULL;
+				
+				do
 				{
-					*outAuthAuthority = NULL;
-					*outNodeName = NULL;
-					
-					do
+					error = dsGetRecordList( inNodeRef, fTDataBuff, pRecName, inMatchType, pRecType,
+												pAttrType, false, &recCount, &context );
+					if ( error == eDSNoErr )
 					{
-						error = ::dsGetRecordList( inNodeRef, fTDataBuff, pRecName, inMatchType, pRecType,
-													pAttrType, false, &recCount, &context );
-						if ( error == eDSNoErr )
-						{
-							error = GetDataFromDataBuff( inNodeRef, fTDataBuff, recCount, outAuthAuthority, outNodeName );
-						} 
-						else if ( error == eDSBufferTooSmall )
-						{
-							unsigned long buffSize = fTDataBuff->fBufferSize;
-							dsDataBufferDeAllocate( fDSRef, fTDataBuff );
-							fTDataBuff = nil;
-							fTDataBuff = dsDataBufferAllocate( fDSRef, buffSize * 2 );
-						}
-					} while ( ((error == eDSNoErr) && (context != nil)) || (error == eDSBufferTooSmall) );
-
-					error2 = ::dsDataListDeallocate( fDSRef, pAttrType );
-					if ( error2 != eDSNoErr )
+						error = GetDataFromDataBuff( inNodeRef, fTDataBuff, recCount, outAuthAuthority, outNodeName );
+					} 
+					else if ( error == eDSBufferTooSmall )
 					{
-					PrintError( error2, "dsDataListDeallocate" );
+						UInt32 buffSize = fTDataBuff->fBufferSize;
+						dsDataBufferDeAllocate( fDSRef, fTDataBuff );
+						fTDataBuff = nil;
+						fTDataBuff = dsDataBufferAllocate( fDSRef, buffSize * 2 );
 					}
-				}
-				else
-				{
-				PrintError( eMemoryAllocError, "dsBuildListFromStrings" );
-				error = eMemoryAllocError;
-				}
+				} while ( ((error == eDSNoErr) && (context != nil)) || (error == eDSBufferTooSmall) );
 
-				error2 = ::dsDataListDeallocate( fDSRef, pRecType );
+				error2 = dsDataListDeallocate( fDSRef, pAttrType );
 				if ( error2 != eDSNoErr )
 				{
-				PrintError( error2, "dsDataListDeallocate" );
+					PrintError( error2, "dsDataListDeallocate" );
 				}
 			}
 			else
 			{
-			PrintError( eMemoryAllocError, "dsBuildListFromStrings" );
-			error = eMemoryAllocError;
+				PrintError( eMemoryAllocError, "dsBuildListFromStrings" );
+				error = eMemoryAllocError;
 			}
 
-			error2 = ::dsDataListDeallocate( fDSRef, pRecName );
+			error2 = dsDataListDeallocate( fDSRef, pRecType );
 			if ( error2 != eDSNoErr )
 			{
-			PrintError( error2, "dsDataListDeallocate" );
+				PrintError( error2, "dsDataListDeallocate" );
 			}
 		}
 		else
 		{
+			PrintError( eMemoryAllocError, "dsBuildListFromStrings" );
+			error = eMemoryAllocError;
+		}
+
+		error2 = dsDataListDeallocate( fDSRef, pRecName );
+		if ( error2 != eDSNoErr )
+		{
+			PrintError( error2, "dsDataListDeallocate" );
+		}
+	}
+	else
+	{
 		PrintError( eMemoryAllocError, "dsBuildListFromStrings" );
 		error = eMemoryAllocError;
 	}
@@ -371,17 +380,17 @@ long PwdPolicyTool::DoGetRecordList (	tDirNodeReference   inNodeRef,
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::GetDataFromDataBuff(
+tDirStatus PwdPolicyTool::GetDataFromDataBuff(
 	tDirNodeReference inNodeRef,
-	tDataBuffer		   *inTDataBuff,
-	unsigned long		inRecCount,
-	char			  **outAuthAuthority,
-	char			  **outNodeName )
+	tDataBuffer *inTDataBuff,
+	UInt32 inRecCount,
+	char **outAuthAuthority,
+	char **outNodeName )
 {
-	long					error			= eDSNoErr;
-	unsigned long			i				= 0;
-	unsigned long			j				= 0;
-	unsigned long			k				= 0;
+	tDirStatus				error			= eDSNoErr;
+	UInt32					i				= 0;
+	UInt32					j				= 0;
+	UInt32					k				= 0;
 	char				   *pRecNameStr		= nil;
 	char				   *pRecTypeStr		= nil;
 	tRecordEntry		   *pRecEntry		= nil;
@@ -405,13 +414,13 @@ long PwdPolicyTool::GetDataFromDataBuff(
 	{
 		for ( i = 1; (i <= inRecCount) && (error == eDSNoErr) && (!found); i++ )
 		{
-			error = ::dsGetRecordEntry( inNodeRef, inTDataBuff, i, &attrListRef, &pRecEntry );
+			error = dsGetRecordEntry( inNodeRef, inTDataBuff, i, &attrListRef, &pRecEntry );
 			if ( error == eDSNoErr && pRecEntry != NULL )
 			{
-				error = ::dsGetRecordNameFromEntry( pRecEntry, &pRecNameStr );
+				error = dsGetRecordNameFromEntry( pRecEntry, &pRecNameStr );
 				if ( error == eDSNoErr )
 				{
-					error = ::dsGetRecordTypeFromEntry( pRecEntry, &pRecTypeStr );
+					error = dsGetRecordTypeFromEntry( pRecEntry, &pRecTypeStr );
 					if ( error == eDSNoErr )
 					{
 						if ( gVerbose == true )
@@ -425,12 +434,12 @@ long PwdPolicyTool::GetDataFromDataBuff(
 
 						for ( j = 1; (j <= pRecEntry->fRecordAttributeCount) && (error == eDSNoErr); j++ )
 						{
-							error = ::dsGetAttributeEntry( inNodeRef, inTDataBuff, attrListRef, j, &valueRef, &pAttrEntry );
+							error = dsGetAttributeEntry( inNodeRef, inTDataBuff, attrListRef, j, &valueRef, &pAttrEntry );
 							if ( error == eDSNoErr && pAttrEntry != NULL )
 							{
 								for ( k = 1; (k <= pAttrEntry->fAttributeValueCount) && (error == eDSNoErr); k++ )
 								{
-									error = ::dsGetAttributeValue( inNodeRef, inTDataBuff, k, valueRef, &pValueEntry );
+									error = dsGetAttributeValue( inNodeRef, inTDataBuff, k, valueRef, &pValueEntry );
 									if ( error == eDSNoErr && pValueEntry != NULL )
 									{
 										if ( gVerbose == true )
@@ -446,7 +455,7 @@ long PwdPolicyTool::GetDataFromDataBuff(
 										{
 											*outAuthAuthority = (char *) malloc( pValueEntry->fAttributeValueData.fBufferLength + 1 );
 											strcpy( *outAuthAuthority, pValueEntry->fAttributeValueData.fBufferData );
-											::dsDeallocAttributeValueEntry( fDSRef, pValueEntry );
+											dsDeallocAttributeValueEntry( fDSRef, pValueEntry );
 											pValueEntry = NULL;
 											found = true;
 										}
@@ -455,11 +464,11 @@ long PwdPolicyTool::GetDataFromDataBuff(
 										{
 											*outNodeName = (char *) malloc( pValueEntry->fAttributeValueData.fBufferLength + 1 );
 											strcpy( *outNodeName, pValueEntry->fAttributeValueData.fBufferData );
-											::dsDeallocAttributeValueEntry( fDSRef, pValueEntry );
+											dsDeallocAttributeValueEntry( fDSRef, pValueEntry );
 											pValueEntry = NULL;
 										}
 										
-										::dsDeallocAttributeValueEntry( fDSRef, pValueEntry );
+										dsDeallocAttributeValueEntry( fDSRef, pValueEntry );
 										pValueEntry = NULL;
 									}
 									else
@@ -467,9 +476,9 @@ long PwdPolicyTool::GetDataFromDataBuff(
 										PrintError( error, "dsGetAttributeValue" );
 									}
 								}
-								::dsDeallocAttributeEntry( fDSRef, pAttrEntry );
+								dsDeallocAttributeEntry( fDSRef, pAttrEntry );
 								pAttrEntry = NULL;
-								::dsCloseAttributeValueList(valueRef);
+								dsCloseAttributeValueList(valueRef);
 								valueRef = 0;
 							}
 							else
@@ -493,9 +502,9 @@ long PwdPolicyTool::GetDataFromDataBuff(
 				{
 					PrintError( error, "dsGetRecordNameFromEntry" );
 				}
-				::dsDeallocRecordEntry( fDSRef, pRecEntry );
+				dsDeallocRecordEntry( fDSRef, pRecEntry );
 				pRecEntry = NULL;
-				::dsCloseAttributeList(	attrListRef	);
+				dsCloseAttributeList(	attrListRef	);
 				attrListRef = 0;
 			}
 			else
@@ -515,16 +524,16 @@ long PwdPolicyTool::GetDataFromDataBuff(
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::FindDirectoryNodes( char			   *inNodeName,
+tDirStatus PwdPolicyTool::FindDirectoryNodes( char			*inNodeName,
 									  	tDirPatternMatch	inMatch,
-									  	char			  **outNodeName,
+									  	char			  **outNodeNameList[],
 										bool				inPrintNames )
 {
-	long			error			= eDSNoErr;
-	long			error2			= eDSNoErr;
-	bool			done			= false;
-	unsigned long   uiCount			= 0;
-	unsigned long   uiIndex			= 0;
+	tDirStatus		error			= eDSNoErr;
+	tDirStatus		error2			= eDSNoErr;
+	UInt32			uiCount			= 0;
+	UInt32			uiIndex			= 0;
+	UInt32			outIndex		= 0;
 	tDataList	   *pNodeNameList	= nil;
 	tDataList	   *pDataList		= nil;
 	char		   *pNodeName		= nil;
@@ -539,23 +548,23 @@ long PwdPolicyTool::FindDirectoryNodes( char			   *inNodeName,
 	try
 	{
 		if ( fTDataBuff == NULL )
-			throw( (long)eDSNullParameter );
+			throw( (tDirStatus)eDSNullParameter );
 		
 		if ( inNodeName != nil )
 		{
-			pNodeNameList = ::dsBuildFromPath( fDSRef, inNodeName, "/" );
+			pNodeNameList = dsBuildFromPath( fDSRef, inNodeName, "/" );
 			if ( pNodeNameList == nil )
 			{
 				PrintError( eMemoryAllocError, "dsBuildFromPath" );
-				throw( (long)eMemoryAllocError );
+				throw( (tDirStatus)eMemoryAllocError );
 			}
 		}
 
 		do {
-			error = ::dsFindDirNodes( fDSRef, fTDataBuff, pNodeNameList, inMatch, &uiCount, nil );
+			error = dsFindDirNodes( fDSRef, fTDataBuff, pNodeNameList, inMatch, &uiCount, nil );
 			if ( error == eDSBufferTooSmall )
 			{
-				unsigned long buffSize = fTDataBuff->fBufferSize;
+				UInt32 buffSize = fTDataBuff->fBufferSize;
 				dsDataBufferDeAllocate( fDSRef, fTDataBuff );
 				fTDataBuff = nil;
 				fTDataBuff = dsDataBufferAllocate( fDSRef, buffSize * 2 );
@@ -570,15 +579,19 @@ long PwdPolicyTool::FindDirectoryNodes( char			   *inNodeName,
 
 			if ( uiCount != 0 )
 			{
-				pDataList = ::dsDataListAllocate( fDSRef );
+				*outNodeNameList = (char **) calloc(uiCount + 1, sizeof(char *));
+				if ( *outNodeNameList == NULL )
+					throw((tDirStatus)eMemoryError);
+				
+				pDataList = dsDataListAllocate( fDSRef );
 				if ( pDataList != nil )
 				{
 					for ( uiIndex = 1; (uiIndex <= uiCount) && (error == eDSNoErr); uiIndex++ )
 					{
-						error = ::dsGetDirNodeName( fDSRef, fTDataBuff, uiIndex, &pDataList );
+						error = dsGetDirNodeName( fDSRef, fTDataBuff, uiIndex, &pDataList );
 						if ( error == eDSNoErr )
 						{
-							pNodeName = ::dsGetPathFromList( fDSRef, pDataList, "/" );
+							pNodeName = dsGetPathFromList( fDSRef, pDataList, "/" );
 							if ( pNodeName != nil )
 							{
 								if ( inPrintNames || gVerbose )
@@ -586,18 +599,9 @@ long PwdPolicyTool::FindDirectoryNodes( char			   *inNodeName,
 									fprintf( stderr, "  %2ld - Node Name = %s\n", uiIndex, pNodeName );
 								}
 
-								if ( (outNodeName != nil) && !done )
-								{
-									*outNodeName = pNodeName;
-									done = true;
-								}
-								else
-								{
-									free( pNodeName );
-									pNodeName = nil;
-								}
+								(*outNodeNameList)[outIndex++] = pNodeName;
 
-								error2 = ::dsDataListDeallocate( fDSRef, pDataList );
+								error2 = dsDataListDeallocate( fDSRef, pDataList );
 								if ( error2 != eDSNoErr )
 								{
 									PrintError( error2, "dsDataListDeallocate" );
@@ -629,7 +633,7 @@ long PwdPolicyTool::FindDirectoryNodes( char			   *inNodeName,
 
 		if ( pNodeNameList != nil )
 		{
-			error2 = ::dsDataListDeallocate( fDSRef, pNodeNameList );
+			error2 = dsDataListDeallocate( fDSRef, pNodeNameList );
 			if ( error2 != eDSNoErr )
 			{
 				PrintError( error2, "dsDataListDeallocate" );
@@ -637,7 +641,7 @@ long PwdPolicyTool::FindDirectoryNodes( char			   *inNodeName,
 		}
 	}
 
-	catch ( long err )
+	catch ( tDirStatus err )
 	{
 		PrintError( err, "FindDirectoryNodes" );
 		error = err;
@@ -649,14 +653,42 @@ long PwdPolicyTool::FindDirectoryNodes( char			   *inNodeName,
 
 
 //--------------------------------------------------------------------------------------------------
+// * OpenLocalNode ()
+//
+//--------------------------------------------------------------------------------------------------
+
+tDirStatus PwdPolicyTool::OpenLocalNode( tDirNodeReference *outNodeRef )
+{
+	char **localNodeNameList = NULL;
+	
+	tDirStatus result = this->FindDirectoryNodes( NULL, eDSLocalNodeNames, &localNodeNameList, false );
+	if ( result == eDSNoErr )
+	{
+		if ( localNodeNameList != NULL && localNodeNameList[0] != NULL )
+		{
+			result = this->OpenDirNode( localNodeNameList[0], outNodeRef );
+			free( localNodeNameList[0] );
+			free( localNodeNameList );
+		}
+		else
+		{
+			result = eDSOpenNodeFailed;
+		}
+	}
+	
+	return result;
+}
+
+
+//--------------------------------------------------------------------------------------------------
 // * OpenDirNode ()
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::OpenDirNode ( char *inNodeName, tDirNodeReference *outNodeRef )
+tDirStatus PwdPolicyTool::OpenDirNode ( char *inNodeName, tDirNodeReference *outNodeRef )
 {
-	long			error		= eDSNoErr;
-	long			error2		= eDSNoErr;
+	tDirStatus		error		= eDSNoErr;
+	tDirStatus		error2		= eDSNoErr;
 	tDataList	   *pDataList	= nil;
 
 	if ( gVerbose == true )
@@ -666,34 +698,34 @@ long PwdPolicyTool::OpenDirNode ( char *inNodeName, tDirNodeReference *outNodeRe
 	}
 
 
-		pDataList = ::dsBuildFromPath( fDSRef, inNodeName, "/" );
-		if ( pDataList != nil )
+	pDataList = dsBuildFromPath( fDSRef, inNodeName, "/" );
+	if ( pDataList != nil )
+	{
+		error = dsOpenDirNode( fDSRef, pDataList, outNodeRef );
+		if (error == eDSNoErr) 
 		{
-			error = ::dsOpenDirNode( fDSRef, pDataList, outNodeRef );
-			if (error == eDSNoErr) 
+			if (gVerbose == true)
 			{
-				if (gVerbose == true)
-				{
-					fprintf( stderr, "  Open Node Reference = %ld.\n", *outNodeRef );
-				}
-			}
-		else
-			{
-			PrintError( error, "dsOpenDirNode" );
-			}
-
-			error2 = ::dsDataListDeallocate( fDSRef, pDataList );
-			if ( error2 != eDSNoErr )
-			{
-			PrintError( error2, "dsDataListDeallocate" );
+				fprintf( stderr, "  Open Node Reference = %ld.\n", *outNodeRef );
 			}
 		}
 		else
 		{
+			PrintError( error, "dsOpenDirNode" );
+		}
+
+		error2 = dsDataListDeallocate( fDSRef, pDataList );
+		if ( error2 != eDSNoErr )
+		{
+			PrintError( error2, "dsDataListDeallocate" );
+		}
+	}
+	else
+	{
 		PrintError( eMemoryAllocError, "dsBuildFromPath" );
 		error = eMemoryAllocError;
 	}
-
+	
 	return( error );
 
 } // OpenDirNode
@@ -704,9 +736,9 @@ long PwdPolicyTool::OpenDirNode ( char *inNodeName, tDirNodeReference *outNodeRe
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::CloseDirectoryNode ( tDirNodeReference inNodeRef )
+tDirStatus PwdPolicyTool::CloseDirectoryNode ( tDirNodeReference inNodeRef )
 {
-	long			error		= eDSNoErr;
+	tDirStatus			error		= eDSNoErr;
 
 	if ( gVerbose == true )
 	{
@@ -717,7 +749,7 @@ long PwdPolicyTool::CloseDirectoryNode ( tDirNodeReference inNodeRef )
 	if ( inNodeRef == 0 )
 		return eDSNoErr;
 	
-	error = ::dsCloseDirNode( inNodeRef );
+	error = dsCloseDirNode( inNodeRef );
 	if ( error != eDSNoErr )
 	{
 		PrintError( error, "dsCloseDirNode" );
@@ -733,13 +765,23 @@ long PwdPolicyTool::CloseDirectoryNode ( tDirNodeReference inNodeRef )
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::DoNodePWAuth ( tDirNodeReference inNode, const char *inName, char *inPasswd, const char *inMethod, char *inUserName, const char *inOther, char *outResult )
+tDirStatus
+PwdPolicyTool::DoNodePWAuth(
+	tDirNodeReference inNode,
+	const char *inName,
+	const char *inPasswd,
+	const char *inMethod,
+	char *inUserName,
+	const char *inOther,
+	const char *inRecordType,
+	char *outResult )
 {
-	long			error			= eDSNoErr;
-	long			error2			= eDSNoErr;
+	tDirStatus		error			= eDSNoErr;
+	tDirStatus		error2			= eDSNoErr;
 	tDataBuffer	   *pAuthBuff		= nil;
 	tDataBuffer	   *pStepBuff		= nil;
 	tDataNode	   *pAuthType		= nil;
+	tDataNodePtr	recordTypeNode	= NULL;
 	
 	// kDSStdAuthNewUser
 	// "dsAuthMethodStandard:dsAuthNewUser"
@@ -749,7 +791,9 @@ long PwdPolicyTool::DoNodePWAuth ( tDirNodeReference inNode, const char *inName,
 		fprintf( stderr, "\n----- Node Password Server Auth -----\n" );
 		fprintf( stderr, "  User Name   = %s\n", inName );
 	}
-    
+	
+	recordTypeNode = dsDataNodeAllocateString( fDSRef, inRecordType ? inRecordType : kDSStdRecordTypeUsers );
+	
 	error = SetUpAuthBuffs( &pAuthBuff, 2048, &pStepBuff, 2048, &pAuthType, inMethod );
 	if ( error == eDSNoErr )
 	{
@@ -757,31 +801,45 @@ long PwdPolicyTool::DoNodePWAuth ( tDirNodeReference inNode, const char *inName,
 			inName = "";
 		if ( inPasswd == NULL )
 			inPasswd = "";
-		if ( inUserName == NULL )
-			inUserName = "";
-			
+		
+		if ( strcmp(kDSStdAuthGetEffectivePolicy, inMethod) == 0 )
+		{
+			error = dsFillAuthBuffer( pAuthBuff, 1,
+									 ::strlen( inUserName ), inUserName);
+		}
+		else
 		if ( inOther != NULL )
 		{
-			error = FillAuthBuff ( pAuthBuff, 4,
+			error = dsFillAuthBuffer( pAuthBuff, 4,
 									::strlen( inName ), inName,
 									::strlen( inPasswd ), inPasswd,
 									::strlen( inUserName ), inUserName,
 									::strlen( inOther ), inOther );
 		}
 		else
+		if ( inUserName != NULL )
 		{
-			error = FillAuthBuff ( pAuthBuff, 3,
+			error = dsFillAuthBuffer( pAuthBuff, 3,
 									::strlen( inName ), inName,
 									::strlen( inPasswd ), inPasswd,
 									::strlen( inUserName ), inUserName );
 		}
+		else
+		{
+			error = dsFillAuthBuffer( pAuthBuff, 2,
+									::strlen( inName ), inName,
+									::strlen( inPasswd ), inPasswd );
+		}
 		
 		if ( error == eDSNoErr )
 		{
-			error = ::dsDoDirNodeAuth( inNode, pAuthType, true, pAuthBuff, pStepBuff, nil );
+			if ( inRecordType == NULL || strcmp(inRecordType, kDSStdRecordTypeUsers) == 0 )
+				error = dsDoDirNodeAuth( inNode, pAuthType, true, pAuthBuff, pStepBuff, nil );
+			else
+				error = dsDoDirNodeAuthOnRecordType( inNode, pAuthType, true, pAuthBuff, pStepBuff, nil, recordTypeNode );
 			if ( error == eDSNoErr )
 			{
-				unsigned long len;
+				UInt32 len;
 				
 				memcpy(&len, pStepBuff->fBufferData, 4);
 				if ( len < pStepBuff->fBufferSize - 4 )
@@ -807,25 +865,28 @@ long PwdPolicyTool::DoNodePWAuth ( tDirNodeReference inNode, const char *inName,
 			}
 		}
 		
-		error2 = ::dsDataBufferDeAllocate( fDSRef, pAuthBuff );
+		error2 = dsDataBufferDeAllocate( fDSRef, pAuthBuff );
 		if ( error2 != eDSNoErr )
 		{
 			PrintError( error2, "dsDataBufferDeAllocate" );
 		}
 
-		error2 = ::dsDataBufferDeAllocate( fDSRef, pStepBuff );
+		error2 = dsDataBufferDeAllocate( fDSRef, pStepBuff );
 		if ( error2 != eDSNoErr )
 		{
 			PrintError( error2, "dsDataBufferDeAllocate" );
 		}
 
-		error2 = ::dsDataBufferDeAllocate( fDSRef, pAuthType );
+		error2 = dsDataBufferDeAllocate( fDSRef, pAuthType );
 		if ( error2 != eDSNoErr )
 		{
 			PrintError( error2, "dsDataBufferDeAllocate" );
 		}
 	}
-
+	
+	if ( recordTypeNode )
+		dsDataNodeDeAllocate( fDSRef, recordTypeNode );
+	
 	return( error );
 
 } // DoNodePWAuth
@@ -835,10 +896,10 @@ long PwdPolicyTool::DoNodePWAuth ( tDirNodeReference inNode, const char *inName,
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::DoNodeNativeAuth ( tDirNodeReference inNode, const char *inName, char *inPasswd )
+tDirStatus PwdPolicyTool::DoNodeNativeAuth ( tDirNodeReference inNode, const char *inName, char *inPasswd )
 {
-	long			error			= eDSNoErr;
-	long			error2			= eDSNoErr;
+	tDirStatus		error			= eDSNoErr;
+	tDirStatus		error2			= eDSNoErr;
 	tDataBuffer	   *pAuthBuff		= nil;
 	tDataBuffer	   *pStepBuff		= nil;
 	tDataNode	   *pAuthType		= nil;
@@ -857,29 +918,29 @@ long PwdPolicyTool::DoNodeNativeAuth ( tDirNodeReference inNode, const char *inN
 		if ( inPasswd == NULL )
 			inPasswd = "";
 
-		error = FillAuthBuff ( pAuthBuff, 2, strlen( inName ), inName, strlen( inPasswd ), inPasswd );
+		error = dsFillAuthBuffer( pAuthBuff, 2, strlen( inName ), inName, strlen( inPasswd ), inPasswd );
 		if ( error == eDSNoErr )
 		{
-			error = ::dsDoDirNodeAuth( inNode, pAuthType, false, pAuthBuff, pStepBuff, nil );
+			error = dsDoDirNodeAuth( inNode, pAuthType, false, pAuthBuff, pStepBuff, nil );
 			if ( error != eDSNoErr )
 			{
 				PrintError( error, "dsDoDirNodeAuth" );
 			}
 		}
 		
-		error2 = ::dsDataBufferDeAllocate( fDSRef, pAuthBuff );
+		error2 = dsDataBufferDeAllocate( fDSRef, pAuthBuff );
 		if ( error2 != eDSNoErr )
 		{
 			PrintError( error2, "dsDataBufferDeAllocate" );
 		}
 
-		error2 = ::dsDataBufferDeAllocate( fDSRef, pStepBuff );
+		error2 = dsDataBufferDeAllocate( fDSRef, pStepBuff );
 		if ( error2 != eDSNoErr )
 		{
 			PrintError( error2, "dsDataBufferDeAllocate" );
 		}
 
-		error2 = ::dsDataBufferDeAllocate( fDSRef, pAuthType );
+		error2 = dsDataBufferDeAllocate( fDSRef, pAuthType );
 		if ( error2 != eDSNoErr )
 		{
 			PrintError( error2, "dsDataBufferDeAllocate" );
@@ -908,13 +969,13 @@ void PwdPolicyTool::PrintError ( long inErrCode, const char *messageTag )
 	statusString = dsCopyDirStatusName(inErrCode);
 
 	if ( messageTag == nil )
-				{
-		fprintf( stderr, "\n***Error: %s : (%d)\n", statusString, inErrCode );
-				}
-				else
-				{
-		fprintf( stderr, "\n***Error: %s : (%d) for %s\n", statusString, inErrCode, messageTag );
-				}
+	{
+		fprintf( stderr, "\n***Error: %s : (%ld)\n", statusString, inErrCode );
+	}
+	else
+	{
+		fprintf( stderr, "\n***Error: %s : (%ld) for %s\n", statusString, inErrCode, messageTag );
+	}
 
 	free(statusString);
 	statusString = nil;
@@ -929,15 +990,15 @@ void PwdPolicyTool::PrintError ( long inErrCode, const char *messageTag )
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::SetUpAuthBuffs ( tDataBuffer	  **outAuthBuff,
-									unsigned long		inAuthBuffSize,
-									tDataBuffer		  **outStepBuff,
-									unsigned long		inStepBuffSize,
-									tDataBuffer		  **outTypeBuff,
-									const char	 *inAuthMethod )
+tDirStatus PwdPolicyTool::SetUpAuthBuffs ( tDataBuffer **outAuthBuff,
+									UInt32 inAuthBuffSize,
+									tDataBuffer **outStepBuff,
+									UInt32 inStepBuffSize,
+									tDataBuffer **outTypeBuff,
+									const char *inAuthMethod )
 {
-	long		error	= eDSNoErr;
-	long		error2	= eDSNoErr;
+	tDirStatus		error	= eDSNoErr;
+	tDirStatus		error2	= eDSNoErr;
 
 	if ( (outAuthBuff == nil) || (outStepBuff == nil) ||
 		 (outTypeBuff == nil) || (inAuthMethod == nil) )
@@ -945,13 +1006,13 @@ long PwdPolicyTool::SetUpAuthBuffs ( tDataBuffer	  **outAuthBuff,
 		return( eDSNullParameter );
 	}
 
-	*outAuthBuff = ::dsDataBufferAllocate( fDSRef, inAuthBuffSize );
+	*outAuthBuff = dsDataBufferAllocate( fDSRef, inAuthBuffSize );
 	if ( *outAuthBuff != nil )
 	{
-		*outStepBuff = ::dsDataBufferAllocate( fDSRef, inStepBuffSize );
+		*outStepBuff = dsDataBufferAllocate( fDSRef, inStepBuffSize );
 		if ( *outStepBuff != nil )
 		{
-			*outTypeBuff = ::dsDataNodeAllocateString( fDSRef, inAuthMethod );
+			*outTypeBuff = dsDataNodeAllocateString( fDSRef, inAuthMethod );
 			if ( *outTypeBuff == nil )
 			{
 				PrintError( eMemoryAllocError, "dsDataNodeAllocateString" );
@@ -974,7 +1035,7 @@ long PwdPolicyTool::SetUpAuthBuffs ( tDataBuffer	  **outAuthBuff,
 	{
 		if ( *outAuthBuff != nil )
 		{
-			error2 = ::dsDataBufferDeAllocate( fDSRef, *outAuthBuff );
+			error2 = dsDataBufferDeAllocate( fDSRef, *outAuthBuff );
 			if ( error2 != eDSNoErr )
 			{
 				PrintError( error2, "dsDataBufferDeAllocate" );
@@ -983,7 +1044,7 @@ long PwdPolicyTool::SetUpAuthBuffs ( tDataBuffer	  **outAuthBuff,
 
 		if ( *outStepBuff != nil )
 		{
-			error2 = ::dsDataBufferDeAllocate( fDSRef, *outStepBuff );
+			error2 = dsDataBufferDeAllocate( fDSRef, *outStepBuff );
 			if ( error2 != eDSNoErr )
 			{
 				PrintError( error2, "dsDataBufferDeAllocate" );
@@ -992,7 +1053,7 @@ long PwdPolicyTool::SetUpAuthBuffs ( tDataBuffer	  **outAuthBuff,
 
 		if ( *outTypeBuff != nil )
 		{
-			error2 = ::dsDataBufferDeAllocate( fDSRef, *outTypeBuff );
+			error2 = dsDataBufferDeAllocate( fDSRef, *outTypeBuff );
 			if ( error2 != eDSNoErr )
 			{
 				PrintError( error2, "dsDataBufferDeAllocate" );
@@ -1006,93 +1067,32 @@ long PwdPolicyTool::SetUpAuthBuffs ( tDataBuffer	  **outAuthBuff,
 
 
 //--------------------------------------------------------------------------------------------------
-// * FillAuthBuff ()
-//
-//		inCount		== Number of unsigned long, void* pairs
-//		va args		== unsigned long, void* pairs
-//--------------------------------------------------------------------------------------------------
-
-long PwdPolicyTool::FillAuthBuff ( tDataBuffer *inAuthBuff, unsigned long inCount, unsigned long inLen, const void *inData ... )
-{
-	long			error		= eDSNoErr;
-	unsigned long   curr		= 0;
-	unsigned long   buffSize	= 0;
-	unsigned long   count		= inCount;
-	unsigned long   len			= inLen;
-	const void	   *data		= inData;
-	bool			firstPass   = true;
-	char	   *p			= nil;
-	va_list		args;
-
-	// If the buffer is nil, we have nowhere to put the data
-	if ( inAuthBuff == nil )
-	{
-		return( eDSNullParameter );
-	}
-
-	// If the buffer is nil, we have nowhere to put the data
-	if ( inAuthBuff->fBufferData == nil )
-	{
-		return( eDSNullParameter );
-	}
-
-	// Make sure we have data to copy
-	if ( (inLen != 0) && (inData == nil) )
-	{
-		return( eDSNullParameter );
-	}
-
-	// Get buffer info
-	p		 = inAuthBuff->fBufferData;
-	buffSize = inAuthBuff->fBufferSize;
-
-	// Set up the arg list
-	va_start( args, inData );
-
-	while ( count-- > 0 )
-	{
-		if ( !firstPass )
-		{
-			len = va_arg( args, unsigned long );
-			data = va_arg( args, void * );
-		}
-
-		if ( (curr + len) > buffSize )
-		{
-			return( (long)eDSBufferTooSmall );
-		}
-
-		::memcpy( &(p[ curr ]), &len, sizeof( long ) );
-		curr += sizeof( long );
-
-		if ( len > 0 )
-		{
-			memcpy( &(p[ curr ]), data, len );
-			curr += len;
-		}
-		firstPass = false;
-	}
-
-	inAuthBuff->fBufferLength = curr;
-
-	return( error );
-
-} // FillAuthBuff
-
-
-//--------------------------------------------------------------------------------------------------
 // * GetUserByName ()
 //
 //--------------------------------------------------------------------------------------------------
 
-long PwdPolicyTool::GetUserByName( tDirNodeReference inNode, const char *inUserName, char **outAuthAuthority, char **outNodeName )
+tDirStatus
+PwdPolicyTool::GetUserByName(
+	tDirNodeReference inNode,
+	const char *inUserName,
+	const char *inRecordType,
+	char **outAuthAuthority,
+	char **outNodeName )
 {
-	long status = eDSNoErr;
+	tDirStatus status = eDSNoErr;
 
 	if (gVerbose)
 		fprintf( stderr, "\n----- Getting user by name: %s -----\n", inUserName );
 
-	status = DoGetRecordList( inNode, inUserName, kDSStdRecordTypeUsers, kDSNAttrAuthenticationAuthority, eDSExact, outAuthAuthority, outNodeName );
+	status = DoGetRecordList( inNode, inUserName, inRecordType, kDSNAttrAuthenticationAuthority, eDSExact, outAuthAuthority, outNodeName );
+	if ( outAuthAuthority && *outAuthAuthority == NULL )
+	{
+		char *unamePlusDollar = (char *) malloc( strlen(inUserName) + 2 );
+		strcpy( unamePlusDollar, inUserName );
+		strcat( unamePlusDollar, "$" );
+		status = DoGetRecordList( inNode, unamePlusDollar, inRecordType, kDSNAttrAuthenticationAuthority, eDSExact, outAuthAuthority, outNodeName );
+	}
+	
 	if ( status != eDSNoErr )
 	{
 		fprintf( stderr, "  *** GetRecordList failed with error = %ld.\n", status );
@@ -1152,14 +1152,14 @@ PwdPolicyTool::ChangeAuthAuthorityToShadowHash( tRecordReference inRecordRef )
 {
     long						status				= eDSNoErr;
 	tAttributeValueEntry	   *pExistingAttrValue	= NULL;
-	unsigned long				attrValIndex		= 0;
-    unsigned long				attrValCount		= 0;
+	UInt32					attrValIndex		= 0;
+    UInt32					attrValCount		= 0;
     tDataNode				   *attrTypeNode		= nil;
     tAttributeEntryPtr			pAttrEntry			= nil;
     char						*aaVersion			= nil;
     char						*aaTag				= nil;
     char						*aaData				= nil;
-    unsigned long				attrValueIDToReplace = 0;
+    UInt32					attrValueIDToReplace = 0;
 	
     try
     {
@@ -1272,15 +1272,15 @@ PwdPolicyTool::SetUserHashList( tRecordReference inRecordRef, int firstArg, int 
     long						status				= eDSNoErr;
 	int							returnValue			= 0;
 	tAttributeValueEntry	   *pExistingAttrValue	= NULL;
-	unsigned long				attrValIndex		= 0;
-    unsigned long				attrValCount		= 0;
+	UInt32					attrValIndex		= 0;
+    UInt32					attrValCount		= 0;
     tDataNode				   *attrTypeNode		= NULL;
     tAttributeEntryPtr			pAttrEntry			= NULL;
     char						*aaVersion			= NULL;
     char						*aaTag				= NULL;
     char						*aaData				= NULL;
 	char						*aaNewData			= NULL;
-    unsigned long				attrValueIDToReplace = 0;
+    UInt32					attrValueIDToReplace = 0;
 	CFMutableArrayRef			hashTypeArray		= NULL;
 	CFStringRef					stringRef			= NULL;
 	char						*newDataStr			= NULL;
@@ -1488,6 +1488,8 @@ PwdPolicyTool::SetHashTypes( const char *inName, char *inPasswd, int arg1, int a
 	tDataNode *attrTypeNode = NULL;
 	tDataNode *attrValueNode = NULL;
 	bool bNeedToAddAttribute;
+	bool serverOS = false;
+	struct stat statResult;
 	CFIndex typeCount;
 	CFRange arrayRange;
 	CFStringRef stringRef;
@@ -1497,6 +1499,8 @@ PwdPolicyTool::SetHashTypes( const char *inName, char *inPasswd, int arg1, int a
 	long status = GetHashTypeArray( &hashTypeArray );
 	if ( status != eDSNoErr )
 		return status;
+	
+	serverOS = (stat( "/System/Library/CoreServices/ServerVersion.plist", &statResult ) == 0);
 	
 	// edit the list
     for ( argIndex = arg1; argIndex < argc - 1; argIndex += 2 )
@@ -1511,8 +1515,12 @@ PwdPolicyTool::SetHashTypes( const char *inName, char *inPasswd, int arg1, int a
 		
 		if ( strcasecmp( argv[argIndex + 1], "on" ) == 0 )
 		{
-			if ( ! CFArrayContainsValue( hashTypeArray, arrayRange, (const void *)stringRef ) )
-				CFArrayAppendValue( hashTypeArray, (const void *)stringRef );
+			// RECOVERABLE is always prohibited on Desktop OS so do not
+			// add it to the list
+			if ( serverOS || strcmp(argv[argIndex], "RECOVERABLE") != 0 ) {
+				if ( ! CFArrayContainsValue( hashTypeArray, arrayRange, (const void *)stringRef ) )
+					CFArrayAppendValue( hashTypeArray, (const void *)stringRef );
+			}
 		}
 		else
 		if ( strcasecmp( argv[argIndex + 1], "off" ) == 0 )
@@ -1536,10 +1544,10 @@ PwdPolicyTool::SetHashTypes( const char *inName, char *inPasswd, int arg1, int a
 	// replace the list
 	try
 	{
-		status = this->OpenDirNode( "/NetInfo/DefaultLocalNode", &localNodeRef );
+		status = this->OpenLocalNode( &localNodeRef );
 		if ( status != eDSNoErr ) throw ( status );
 		
-		if ( inName != NULL )
+		if ( inName != NULL && inPasswd != NULL )
 		{
 			status = this->DoNodeNativeAuth( localNodeRef, inName, inPasswd );
 			if ( status != eDSNoErr ) throw ( status );
@@ -1609,7 +1617,7 @@ PwdPolicyTool::GetHashTypeArray( CFMutableArrayRef *outHashTypeArray )
 	tAttributeValueEntry *pAttrValueEntry = NULL;
 	tDataNode *attrTypeNode = NULL;
 	bool attributeExists = false;
-	bool serverOS = true;
+	bool serverOS = false;
 	struct stat statResult;
 	tDirNodeReference localNodeRef = 0;
 	
@@ -1617,9 +1625,11 @@ PwdPolicyTool::GetHashTypeArray( CFMutableArrayRef *outHashTypeArray )
 		return -1;
 	*outHashTypeArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 	
+	serverOS = (stat( "/System/Library/CoreServices/ServerVersion.plist", &statResult ) == 0);
+	
 	try
 	{
-		status = this->OpenDirNode( "/NetInfo/DefaultLocalNode", &localNodeRef );
+		status = this->OpenLocalNode( &localNodeRef );
 		if ( status != eDSNoErr )
 			throw( status );
 	
@@ -1640,7 +1650,10 @@ PwdPolicyTool::GetHashTypeArray( CFMutableArrayRef *outHashTypeArray )
 			if ( status != eDSNoErr )
 				continue;
 			
-			AppendHashTypeToArray( pAttrValueEntry->fAttributeValueData.fBufferData, *outHashTypeArray );
+			// RECOVERABLE is always prohibited on Desktop OS so filter
+			// it out of the list
+			if ( serverOS || strcmp(pAttrValueEntry->fAttributeValueData.fBufferData, "RECOVERABLE") != 0 )
+				AppendHashTypeToArray( pAttrValueEntry->fAttributeValueData.fBufferData, *outHashTypeArray );
 			dsDeallocAttributeValueEntry( fDSRef, pAttrValueEntry );
 		}
 	}
@@ -1653,19 +1666,17 @@ PwdPolicyTool::GetHashTypeArray( CFMutableArrayRef *outHashTypeArray )
 	{
 		status = eDSNoErr;
 		
-		serverOS = (stat( "/System/Library/CoreServices/ServerVersion.plist", &statResult ) == 0);
-		
 		// return the default set
 		// If Server OS, add more mechs.
 		if ( serverOS )
 		{
 			AppendHashTypeToArray( "CRAM-MD5", *outHashTypeArray );
 			AppendHashTypeToArray( "RECOVERABLE", *outHashTypeArray );
+			AppendHashTypeToArray( "SMB-LAN-MANAGER", *outHashTypeArray );
+			AppendHashTypeToArray( "SMB-NT", *outHashTypeArray );
 		}
 		
 		AppendHashTypeToArray( "SALTED-SHA1", *outHashTypeArray );
-		AppendHashTypeToArray( "SMB-LAN-MANAGER", *outHashTypeArray );
-		AppendHashTypeToArray( "SMB-NT", *outHashTypeArray );
 	}
 	
 	// clean up

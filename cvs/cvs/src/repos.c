@@ -1,14 +1,20 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
  */
 
-#include <assert.h>
 #include "cvs.h"
 #include "getline.h"
+
+
 
 /* Determine the name of the RCS repository for directory DIR in the
    current working directory, or for the current working directory
@@ -20,9 +26,7 @@
    invoked.  */
 
 char *
-Name_Repository (dir, update_dir)
-    const char *dir;
-    const char *update_dir;
+Name_Repository (const char *dir, const char *update_dir)
 {
     FILE *fpin;
     const char *xupdate_dir;
@@ -37,10 +41,7 @@ Name_Repository (dir, update_dir)
 	xupdate_dir = ".";
 
     if (dir != NULL)
-    {
-	tmp = xmalloc (strlen (dir) + sizeof (CVSADM_REP) + 10);
-	(void) sprintf (tmp, "%s/%s", dir, CVSADM_REP);
-    }
+	tmp = Xasprintf ("%s/%s", dir, CVSADM_REP);
     else
 	tmp = xstrdup (CVSADM_REP);
 
@@ -56,76 +57,71 @@ Name_Repository (dir, update_dir)
 	char *cvsadm;
 
 	if (dir != NULL)
-	{
-	    cvsadm = xmalloc (strlen (dir) + sizeof (CVSADM) + 10);
-	    (void) sprintf (cvsadm, "%s/%s", dir, CVSADM);
-	}
+	    cvsadm = Xasprintf ("%s/%s", dir, CVSADM);
 	else
 	    cvsadm = xstrdup (CVSADM);
 
 	if (!isdir (cvsadm))
 	{
-	    error (0, 0, "in directory %s:", xupdate_dir);
-	    error (1, 0, "there is no version here; do '%s checkout' first",
+	    error (0, 0, "in directory `%s':", xupdate_dir);
+	    error (1, 0, "there is no version here; do `%s checkout' first",
 		   program_name);
 	}
 	free (cvsadm);
 
 	if (existence_error (save_errno))
 	{
-	    /* FIXME: This is a very poorly worded error message.  It
-	       occurs at least in the case where the user manually
-	       creates a directory named CVS, so the error message
-	       should be more along the lines of "CVS directory found
-	       without administrative files; use CVS to create the CVS
-	       directory, or rename it to something else if the
-	       intention is to store something besides CVS
-	       administrative files".  */
-	    error (0, 0, "in directory %s:", xupdate_dir);
-	    error (1, 0, "*PANIC* administration files missing");
+	    /* This occurs at least in the case where the user manually
+	     * creates a directory named CVS.
+	     */
+	    error (0, 0, "in directory `%s':", xupdate_dir);
+	    error (0, 0, "CVS directory found without administrative files.");
+	    error (0, 0, "Use CVS to create the CVS directory, or rename the");
+	    error (0, 0, "directory if it is intended to store something");
+	    error (0, 0, "besides CVS administrative files.");
+	    error (1, 0, "*PANIC* administration files missing!");
 	}
 
-	error (1, save_errno, "cannot open %s", tmp);
+	error (1, save_errno, "cannot open `%s'", tmp);
     }
 
     if (getline (&repos, &repos_allocated, fpin) < 0)
     {
 	/* FIXME: should be checking for end of file separately.  */
-	error (0, 0, "in directory %s:", xupdate_dir);
-	error (1, errno, "cannot read %s", CVSADM_REP);
+	error (0, 0, "in directory `%s':", xupdate_dir);
+	error (1, errno, "cannot read `%s'", CVSADM_REP);
     }
     if (fclose (fpin) < 0)
-	error (0, errno, "cannot close %s", tmp);
+	error (0, errno, "cannot close `%s'", tmp);
     free (tmp);
 
     if ((cp = strrchr (repos, '\n')) != NULL)
 	*cp = '\0';			/* strip the newline */
 
-    /*
-     * If this is a relative repository pathname, turn it into an absolute
-     * one by tacking on the CVSROOT environment variable. If the CVSROOT
-     * environment variable is not set, die now.
+    /* If this is a relative repository pathname, turn it into an absolute
+     * one by tacking on the current root.  There is no need to grab it from
+     * the CVS/Root file via the Name_Root() function because by the time
+     * this function is called, we the contents of CVS/Root have already been
+     * compared to original_root and found to match.
      */
-    if (! isabsolute(repos))
+    if (!ISABSOLUTE (repos))
     {
 	char *newrepos;
 
 	if (current_parsed_root == NULL)
 	{
-	    error (0, 0, "in directory %s:", xupdate_dir);
+	    error (0, 0, "in directory `%s:", xupdate_dir);
 	    error (0, 0, "must set the CVSROOT environment variable\n");
-	    error (0, 0, "or specify the '-d' option to %s.", program_name);
-	    error (1, 0, "illegal repository setting");
+	    error (0, 0, "or specify the '-d' option to `%s'.", program_name);
+	    error (1, 0, "invalid repository setting");
 	}
 	if (pathname_levels (repos) > 0)
 	{
-	    error (0, 0, "in directory %s:", xupdate_dir);
+	    error (0, 0, "in directory `%s':", xupdate_dir);
 	    error (0, 0, "`..'-relative repositories are not supported.");
-	    error (1, 0, "illegal source repository");
+	    error (1, 0, "invalid source repository");
 	}
-	newrepos = xmalloc (strlen (current_parsed_root->directory)
-	                    + strlen (repos) + 2);
-	sprintf (newrepos, "%s/%s", current_parsed_root->directory, repos);
+	newrepos = Xasprintf ("%s/%s", original_parsed_root->directory, repos);
 	free (repos);
 	repos = newrepos;
     }
@@ -142,18 +138,17 @@ Name_Repository (dir, update_dir)
  * possibly fully qualified repository
  */
 const char *
-Short_Repository (repository)
-    const char *repository;
+Short_Repository (const char *repository)
 {
     if (repository == NULL)
 	return NULL;
 
     /* If repository matches CVSroot at the beginning, strip off CVSroot */
     /* And skip leading '/' in rep, in case CVSroot ended with '/'. */
-    if (strncmp (current_parsed_root->directory, repository,
-		 strlen (current_parsed_root->directory)) == 0)
+    if (strncmp (original_parsed_root->directory, repository,
+		 strlen (original_parsed_root->directory)) == 0)
     {
-	const char *rep = repository + strlen (current_parsed_root->directory);
+	const char *rep = repository + strlen (original_parsed_root->directory);
 	return (*rep == '/') ? rep+1 : rep;
     }
     else
@@ -187,8 +182,7 @@ Short_Repository (repository)
  */
 
 void
-Sanitize_Repository_Name (repository)
-    char *repository;
+Sanitize_Repository_Name (char *repository)
 {
     size_t len;
 
@@ -199,7 +193,7 @@ Sanitize_Repository_Name (repository)
     len = strlen (repository);
     if (len >= 2
 	&& repository[len - 1] == '.'
-	&& ISDIRSEP (repository[len - 2]))
+	&& ISSLASH (repository[len - 2]))
     {
 	repository[len - 2] = '\0';
     }

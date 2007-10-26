@@ -14,11 +14,55 @@ class TkImage<TkObject
 
   TkCore::INTERP.init_ip_env{ Tk_IMGTBL.clear }
 
+  def self.new(keys=nil)
+    if keys.kind_of?(Hash)
+      name = nil
+      if keys.key?(:imagename)
+        name = keys[:imagename]
+      elsif keys.key?('imagename')
+        name = keys['imagename']
+      end
+      if name
+        if name.kind_of?(TkImage)
+          obj = name
+        else
+          name = _get_eval_string(name)
+          obj = Tk_IMGTBL[name]
+        end
+        if obj
+          if !(keys[:without_creating] || keys['without_creating'])
+            keys = _symbolkey2str(keys)
+            keys.delete('imagename')
+            keys.delete('without_creating')
+            obj.instance_eval{
+              tk_call_without_enc('image', 'create', 
+                                  @type, @path, *hash_kv(keys, true))
+            }
+          end
+          return obj
+        end
+      end
+    end
+    super(keys)
+  end
+
   def initialize(keys=nil)
-    # @path = Tk_Image_ID.join('')
-    @path = Tk_Image_ID.join(TkCore::INTERP._ip_id_)
-    Tk_Image_ID[1].succ!
-    tk_call_without_enc('image', 'create', @type, @path, *hash_kv(keys, true))
+    @path = nil
+    without_creating = false
+    if keys.kind_of?(Hash)
+      keys = _symbolkey2str(keys)
+      @path = keys.delete('imagename')
+      without_creating = keys.delete('without_creating')
+    end
+    unless @path
+      # @path = Tk_Image_ID.join('')
+      @path = Tk_Image_ID.join(TkCore::INTERP._ip_id_)
+      Tk_Image_ID[1].succ!
+    end
+    unless without_creating
+      tk_call_without_enc('image', 'create', 
+                          @type, @path, *hash_kv(keys, true))
+    end
     Tk_IMGTBL[@path] = self
   end
 
@@ -52,9 +96,14 @@ class TkImage<TkObject
 end
 
 class TkBitmapImage<TkImage
+  def __strval_optkeys
+    super() + ['maskdata', 'maskfile']
+  end
+  private :__strval_optkeys
+
   def initialize(*args)
     @type = 'bitmap'
-    super
+    super(*args)
   end
 end
 
@@ -78,7 +127,7 @@ class TkPhotoImage<TkImage
 
   def initialize(*args)
     @type = 'photo'
-    super
+    super(*args)
   end
 
   def blank

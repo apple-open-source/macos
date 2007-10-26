@@ -1,5 +1,5 @@
 /* setproctitle -- set process title shown by ps(1)
- $Id: setproctitle.c,v 1.5 2005/03/05 00:37:05 dasenbro Exp $
+ $Id: setproctitle.c,v 1.16 2003/02/13 20:15:30 rjs3 Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -151,10 +151,6 @@ void setproctitle_init(int argc, char **argv, char **envp)
 #define SPT_PSSTRINGS	4	/* use PS_STRINGS->... */
 #define SPT_SYSMIPS	5	/* use sysmips() supported by NEWS-OS 6 */
 #define SPT_SCO		6	/* write kernel u. area */
-
-#ifdef SPT_TYPE
-#undef SPT_TYPE
-#endif
 
 #ifndef SPT_TYPE
 # define SPT_TYPE	SPT_REUSEARGV

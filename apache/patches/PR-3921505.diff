@@ -1,0 +1,11 @@
+--- modules/generators/mod_autoindex.c.orig	2007-09-13 14:46:46.000000000 -0700
++++ modules/generators/mod_autoindex.c	2007-09-13 14:46:58.000000000 -0700
+@@ -1998,7 +1998,7 @@
+         charset = autoindex_conf->charset;
+     }
+     else {
+-#if APR_HAS_UNICODE_FS
++#if APR_HAS_UNICODE_FS || defined(__APPLE__)
+         charset = "UTF-8";
+ #else
+         charset = "ISO-8859-1";

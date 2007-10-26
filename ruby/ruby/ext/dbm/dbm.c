@@ -2,8 +2,8 @@
 
   dbm.c -
 
-  $Author: matz $
-  $Date: 2004/12/09 02:35:29 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Mon Jan 24 15:59:52 JST 1994
 
   Copyright (C) 1995-2001 Yukihiro Matsumoto
@@ -69,6 +69,21 @@ fdbm_close(obj)
     dbmp->di_dbm = 0;
 
     return Qnil;
+}
+
+static VALUE
+fdbm_closed(obj)
+    VALUE obj;
+{
+    struct dbmdata *dbmp;
+
+    Data_Get_Struct(obj, struct dbmdata, dbmp);
+    if (dbmp == 0)
+	return Qtrue;
+    if (dbmp->di_dbm == 0)
+	return Qtrue;
+
+    return Qfalse;
 }
 
 static VALUE fdbm_alloc _((VALUE));
@@ -750,6 +765,7 @@ Init_dbm()
 
     rb_define_method(rb_cDBM, "initialize", fdbm_initialize, -1);
     rb_define_method(rb_cDBM, "close", fdbm_close, 0);
+    rb_define_method(rb_cDBM, "closed?", fdbm_closed, 0);
     rb_define_method(rb_cDBM, "[]", fdbm_aref, 1);
     rb_define_method(rb_cDBM, "fetch", fdbm_fetch_m, -1);
     rb_define_method(rb_cDBM, "[]=", fdbm_store, 2);

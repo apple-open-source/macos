@@ -21,16 +21,16 @@
   test code for internal messaging
  */
 
-#define NO_SYSLOG
-
 #include "includes.h"
 
 static int pong_count;
 
+
 /****************************************************************************
 a useful function for testing the message system
 ****************************************************************************/
-void pong_message(int msg_type, pid_t src, void *buf, size_t len)
+static void pong_message(int msg_type, struct process_id src,
+			 void *buf, size_t len, void *private_data)
 {
 	pong_count++;
 }
@@ -41,24 +41,27 @@ void pong_message(int msg_type, pid_t src, void *buf, size_t len)
 	int i, n;
 	char buf[12];
 
+	load_case_tables();
+
 	setup_logging(argv[0],True);
 	
-	lp_load(dyn_CONFIGFILE,False,False,False);
+	lp_load(dyn_CONFIGFILE,False,False,False,True);
 
 	message_init();
 
 	if (argc != 3) {
-		fprintf(stderr, "%s: Usage - %s pid count\n", argv[0], argv[0]);
+		fprintf(stderr, "%s: Usage - %s pid count\n", argv[0],
+			argv[0]);
 		exit(1);
 	}
 
 	pid = atoi(argv[1]);
 	n = atoi(argv[2]);
 
-	message_register(MSG_PONG, pong_message);
+	message_register(MSG_PONG, pong_message, NULL);
 
 	for (i=0;i<n;i++) {
-		message_send_pid(pid, MSG_PING, NULL, 0, True);
+		message_send_pid(pid_to_procid(pid), MSG_PING, NULL, 0, True);
 	}
 
 	while (pong_count < i) {
@@ -72,8 +75,10 @@ void pong_message(int msg_type, pid_t src, void *buf, size_t len)
 	safe_strcpy(buf, "1234567890", sizeof(buf)-1);
 
 	for (i=0;i<n;i++) {
-		message_send_pid(getpid(), MSG_PING, NULL, 0, False);
-		message_send_pid(getpid(), MSG_PING, buf, 11, False);
+		message_send_pid(pid_to_procid(getpid()), MSG_PING,
+				 NULL, 0, False);
+		message_send_pid(pid_to_procid(getpid()), MSG_PING,
+				 buf, 11, False);
 	}
 
 	for (i=0;i<n;i++) {
@@ -83,7 +88,46 @@ void pong_message(int msg_type, pid_t src, void *buf, size_t len)
 
 	if (pong_count != 2) {
 		fprintf(stderr, "Duplicate filter failed (%d).\n", pong_count);
-		exit(1);
+	}
+
+	/* Speed testing */
+
+	pong_count = 0;
+
+	{
+		struct timeval tv = timeval_current();
+		size_t timelimit = n;
+		size_t ping_count = 0;
+
+		printf("Sending pings for %d seconds\n", (int)timelimit);
+		while (timeval_elapsed(&tv) < timelimit) {		
+			if(NT_STATUS_IS_OK(message_send_pid(pid_to_procid(pid),
+							    MSG_PING,
+							    buf, 11, False)))
+			   ping_count++;
+			if(NT_STATUS_IS_OK(message_send_pid(pid_to_procid(pid),
+							    MSG_PING,
+							    NULL, 0, False)))
+			   ping_count++;
+
+			while (ping_count > pong_count + 20) {
+				message_dispatch();
+			}
+		}
+		
+		printf("waiting for %d remaining replies (done %d)\n", 
+		       (int)(ping_count - pong_count), pong_count);
+		while (timeval_elapsed(&tv) < 30 && pong_count < ping_count) {
+			message_dispatch();
+		}
+		
+		if (ping_count != pong_count) {
+			fprintf(stderr, "ping test failed! received %d, sent "
+				"%d\n", pong_count, (int)ping_count);
+		}
+		
+		printf("ping rate of %.0f messages/sec\n", 
+		       (ping_count+pong_count)/timeval_elapsed(&tv));
 	}
 
 	return (0);

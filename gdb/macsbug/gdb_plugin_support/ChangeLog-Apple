@@ -1,0 +1,9 @@
+2006-11-02  Caroline Tice  (ctice@apple.com)
+
+	* gdb.c (gdb_get_function_start): Replace BLOCK_START with BLOCK_LOWEST_PC
+	and remove CVS conflict code.
+
+2006-11-02  Caroline Tice  (ctice@apple.com)
+
+	* gdb.c (gdb_get_function_start): Replace BLOCK_START with BLOCK_LOWEST_PC
+

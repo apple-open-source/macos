@@ -20,6 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <IOKit/IOTypes.h>
+#include <device/device_types.h>
+
 #include <mach/mach.h>
 #include <mach/mach_port.h>
 
@@ -29,6 +32,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFMachPort.h>
 
+
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitServer.h>
@@ -36,8 +40,38 @@
 #include <IOKit/IOCFSerialize.h>
 #include <IOKit/IOCFUnserialize.h>
 
-#include <IOKit/iokitmig.h> 	// mig generated
 #include <IOKit/IOKitLibPrivate.h>
+
+#if __LP64__
+static const int kIsLP64 = 1;
+typedef struct OSNotificationHeader64 NotificationHeader;
+
+// XXX gvdl: Need to conditionalise this for LP64
+#define mig_external __private_extern__
+#include <iokitmig64.h>
+#undef mig_external
+
+#else
+
+// To stage the IOKitUser map the 64 bit aware APIs locally
+#   if EMULATE_IOCONNECT
+#	define EMULATE_IOCONNECT_64		1
+#	define EMULATE_IOCONNECT_ASYNC_64	1
+#   endif
+
+#   if EMULATE_IOCONNECT_64
+#	define io_connect_method	em_connect_method
+#   endif
+
+#   if EMULATE_IOCONNECT_ASYNC_64
+#	define io_connect_async_method	em_connect_async_method
+#   endif
+
+typedef struct OSNotificationHeader NotificationHeader;
+static const int kIsLP64 = 0;
+#include <iokitmig32.h>
+
+#endif
 
 
 /*
@@ -45,24 +79,22 @@
  */
 
 extern 	mach_port_t 	mach_task_self();
-
 const 	mach_port_t 	kIOMasterPortDefault = MACH_PORT_NULL;
 
 static mach_port_t
 __IOGetDefaultMasterPort()
 {
-    kern_return_t	result;
-    mach_port_t	masterPort;
+    mach_port_t masterPort;
 
-    result = IOMasterPort(MACH_PORT_NULL, &masterPort);
-    if( KERN_SUCCESS != result) {
-        masterPort = MACH_PORT_NULL;
-    }
+    kern_return_t result = IOMasterPort(MACH_PORT_NULL, &masterPort);
+    if( KERN_SUCCESS != result)
+	masterPort = MACH_PORT_NULL;
+
     return( masterPort );
 }
 
 kern_return_t
-IOMasterPort( mach_port_t bootstrapPort,
+IOMasterPort( mach_port_t bootstrapPort __unused,
 		mach_port_t * masterPort )
 {
     kern_return_t result = KERN_SUCCESS;
@@ -80,7 +112,7 @@ IOMasterPort( mach_port_t bootstrapPort,
 }
 
 kern_return_t
-IOCreateReceivePort( int msgType, mach_port_t * recvPort )
+IOCreateReceivePort( uint32_t msgType, mach_port_t * recvPort )
 {
     kern_return_t res;
     switch (msgType) {
@@ -130,76 +162,75 @@ IOObjectGetClass(
 CFStringRef 
 IOObjectCopyClass(io_object_t object)
 {
-	io_name_t my_name;
-	CFStringRef my_str = NULL;
-	
-	// if there's no argument, no point going on.  Return NULL.
-	if (object == NULL) {
-		return my_str;
-	}
-	
-	io_object_get_class( object, &my_name );	
-	my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
-	
+    io_name_t my_name;
+    CFStringRef my_str = NULL;
+    
+    // if there's no argument, no point going on.  Return NULL.
+    if (!object)
 	return my_str;
+    
+    io_object_get_class( object, my_name );	
+    my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
+
+    return my_str;
 }
 
 CFStringRef 
 IOObjectCopySuperclassForClass(CFStringRef classname)
 {
-	io_name_t my_name, orig_name;
-	CFStringRef my_str = NULL;
-	char * my_cstr;
-	kern_return_t kr; 
-	
-	mach_port_t masterPort = __IOGetDefaultMasterPort();
-	
-	// if there's no argument, no point going on.  Return NULL.
-	if (classname == NULL) {
-		return my_str;
-	}
-	
-	my_cstr = malloc(sizeof(char) * 128);
-	CFStringGetCString (classname, my_cstr, 128, kCFStringEncodingUTF8);
-		
-	strncpy(orig_name, my_cstr, sizeof(io_name_t));
-	
-	kr = io_object_get_superclass(masterPort, &orig_name, &my_name);
-	if (kr == kIOReturnSuccess) {
-		my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
-	}
-	free(my_cstr);
-	
+    io_name_t my_name, orig_name;
+    CFStringRef my_str = NULL;
+    char * my_cstr;
+    kern_return_t kr; 
+
+    mach_port_t masterPort = __IOGetDefaultMasterPort();
+
+    // if there's no argument, no point going on.  Return NULL.
+    if (classname == NULL) {
 	return my_str;
+    }
+
+    my_cstr = malloc(sizeof(char) * 128);
+    CFStringGetCString (classname, my_cstr, 128, kCFStringEncodingUTF8);
+
+    strncpy(orig_name, my_cstr, sizeof(io_name_t));
+
+    kr = io_object_get_superclass(masterPort, orig_name, my_name);
+    if (kr == kIOReturnSuccess) {
+	my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
+    }
+    free(my_cstr);
+
+    return my_str;
 }
 
 CFStringRef 
 IOObjectCopyBundleIdentifierForClass(CFStringRef classname)
 {
-	io_name_t my_name, orig_name;
-	CFStringRef my_str = NULL;
-	char * my_cstr;
-	kern_return_t kr; 
-	
-	mach_port_t masterPort = __IOGetDefaultMasterPort();
-	
-	// if there's no argument, no point going on.  Return NULL.
-	if (classname == NULL) {
-		return my_str;
-	}
-	
-	my_cstr = malloc(sizeof(char) * 128);
-	CFStringGetCString (classname, my_cstr, 128, kCFStringEncodingUTF8);
-		
-	strncpy(orig_name, my_cstr, sizeof(io_name_t));
-	
-	kr = io_object_get_bundle_identifier(masterPort, &orig_name, &my_name);
-	if (kr == kIOReturnSuccess) {
-		my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
-	}
-	free(my_cstr);
-	
+    io_name_t my_name, orig_name;
+    CFStringRef my_str = NULL;
+    char * my_cstr;
+    kern_return_t kr; 
+
+    mach_port_t masterPort = __IOGetDefaultMasterPort();
+
+    // if there's no argument, no point going on.  Return NULL.
+    if (classname == NULL) {
 	return my_str;
+    }
+
+    my_cstr = malloc(sizeof(char) * 128);
+    CFStringGetCString (classname, my_cstr, 128, kCFStringEncodingUTF8);
+
+    strncpy(orig_name, my_cstr, sizeof(io_name_t));
+
+    kr = io_object_get_bundle_identifier(masterPort, orig_name, my_name);
+    if (kr == kIOReturnSuccess) {
+	my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
+    }
+    free(my_cstr);
+
+    return my_str;
 }
 
 boolean_t
@@ -224,11 +255,11 @@ IOObjectIsEqualTo(
     return( object == anObject );
 }
 
-int
+uint32_t
 IOObjectGetRetainCount(
 	io_object_t	object )
 {
-    int	count;
+    uint32_t	count;
 
     if( kIOReturnSuccess != io_object_get_retain_count( object, &count))
 	count = 0;
@@ -283,8 +314,8 @@ IOServiceGetMatchingService(
 	mach_port_t	masterPort,
 	CFDictionaryRef	matching )
 {
-    io_iterator_t       iter = NULL;
-    io_service_t        service = NULL;
+    io_iterator_t       iter = MACH_PORT_NULL;
+    io_service_t        service = MACH_PORT_NULL;
 
     IOServiceGetMatchingServices( masterPort, matching, &iter );
 
@@ -307,7 +338,8 @@ IOServiceGetMatchingServices(
     CFDataRef		data;
     CFIndex		dataLen;
 
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     if( !matching)
 	return( kIOReturnBadArgument);
@@ -319,7 +351,7 @@ IOServiceGetMatchingServices(
 
     dataLen = CFDataGetLength(data);
 
-    if (dataLen < sizeof(io_string_t))
+    if ((size_t) dataLen < sizeof(io_string_t))
 	kr = io_service_get_matching_services( masterPort,
 		    (char *) CFDataGetBytePtr(data), existing );
     else {
@@ -354,7 +386,7 @@ IOServiceMatchPropertyTable( io_service_t service, CFDictionaryRef matching,
 
     dataLen = CFDataGetLength(data);
 
-    if (dataLen < sizeof(io_string_t))
+    if ((size_t) dataLen < sizeof(io_string_t))
 	kr = io_service_match_property_table( service,
 		    (char *) CFDataGetBytePtr(data), matches );
     else {
@@ -373,18 +405,19 @@ IOServiceMatchPropertyTable( io_service_t service, CFDictionaryRef matching,
 
 kern_return_t
 IOServiceAddNotification(
-        mach_port_t	masterPort,
-	const io_name_t	notificationType,
-	CFDictionaryRef	matching,
-	mach_port_t	wakePort,
-	int		reference,
-	io_iterator_t * notification )
+        mach_port_t	 masterPort,
+	const io_name_t	 notificationType,
+	CFDictionaryRef	 matching,
+	mach_port_t	 wakePort,
+	uintptr_t	 reference,
+	io_iterator_t 	*notification )
 {
     kern_return_t	kr;
     CFDataRef		data;
     CFIndex		dataLen;
 
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     if( !matching)
 	return( kIOReturnBadArgument);
@@ -396,16 +429,18 @@ IOServiceAddNotification(
 
     dataLen = CFDataGetLength(data);
 
-    if (dataLen < sizeof(io_string_t))
+    if ((size_t) dataLen < sizeof(io_string_t))
 	kr = io_service_add_notification( masterPort, (char *) notificationType,
 		    (char *) CFDataGetBytePtr(data),
-		    wakePort, &reference, 1, notification );
+		    wakePort, (io_user_reference_t *) &reference, 1,
+		    notification );
     else {
 	kern_return_t result;
 
 	kr = io_service_add_notification_ool( masterPort, (char *) notificationType,
 		    (char *) CFDataGetBytePtr(data), dataLen,
-		    wakePort, &reference, 1, &result, notification );
+		    wakePort, (io_user_reference_t *) &reference, 1,
+		    &result, notification );
 	if (KERN_SUCCESS == kr)
 	    kr = result;
     }
@@ -427,7 +462,7 @@ IOServiceAddMatchingNotification(
     kern_return_t	kr;
     CFDataRef		data;
     CFIndex		dataLen;
-    natural_t		asyncRef[kIOMatchingCalloutCount];
+    io_user_reference_t	asyncRef[kIOMatchingCalloutCount];
 
     if( !matching)
 	return( kIOReturnBadArgument);
@@ -437,12 +472,12 @@ IOServiceAddMatchingNotification(
     if( !data)
 	return( kIOReturnUnsupported );
 
-    asyncRef[kIOMatchingCalloutFuncIndex] = (natural_t) callback;
-    asyncRef[kIOMatchingCalloutRefconIndex] = (natural_t) refcon;
+    asyncRef[kIOMatchingCalloutFuncIndex]   = (io_user_reference_t) callback;
+    asyncRef[kIOMatchingCalloutRefconIndex] = (io_user_reference_t) refcon;
 
     dataLen = CFDataGetLength(data);
 
-    if (dataLen < sizeof(io_string_t))
+    if ((size_t) dataLen < sizeof(io_string_t))
 	kr = io_service_add_notification( notifyPort->masterPort,
 		    (char *) notificationType,
 		    (char *) CFDataGetBytePtr(data),
@@ -474,12 +509,12 @@ IOServiceAddInterestNotification(
         void *			refcon,
         io_object_t *		notification )
 {
-    natural_t		asyncRef[kIOInterestCalloutCount];
+    io_user_reference_t	asyncRef[kIOInterestCalloutCount];
     kern_return_t	kr;
 
-    asyncRef[kIOInterestCalloutFuncIndex] = (natural_t) callback;
-    asyncRef[kIOInterestCalloutRefconIndex] = (natural_t) refcon;
-    asyncRef[kIOInterestCalloutServiceIndex] = (natural_t) service;
+    asyncRef[kIOInterestCalloutFuncIndex]    = (io_user_reference_t) callback;
+    asyncRef[kIOInterestCalloutRefconIndex]  = (io_user_reference_t) refcon;
+    asyncRef[kIOInterestCalloutServiceIndex] = (io_user_reference_t) service;
     
     kr = io_service_add_interest_notification( service, (char *) interestType,
                             notifyPort->wakePort,
@@ -496,7 +531,8 @@ IONotificationPortCreate(
     kern_return_t 	 kr;
     IONotificationPort * notify;
 
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     notify = calloc( 1, sizeof( IONotificationPort));
     if( !notify)
@@ -570,16 +606,17 @@ IONotificationPortGetMachPort(
 CFMutableDictionaryRef
 IOMakeMatching(
         mach_port_t	masterPort,
-	unsigned int	type,
-	unsigned int	options,
+	uint32_t	type,
+	uint32_t	options,
 	void *		args,
-	unsigned int	argsSize )
+	uint32_t	argsSize )
 {
     IOReturn			err;
     CFMutableDictionaryRef	result = 0;
     char * 			matching;
 
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     matching = (char *) malloc( sizeof( io_string_t));
 
@@ -642,7 +679,7 @@ IOServiceNameMatching(
 CFMutableDictionaryRef
 IOBSDNameMatching(
         mach_port_t	masterPort,
-	unsigned int	options,
+	uint32_t	options,
 	const char *	name )
 {
     if (name == NULL) { return 0; }
@@ -655,7 +692,7 @@ IOBSDNameMatching(
 CFMutableDictionaryRef
 IOOpenFirmwarePathMatching(
         mach_port_t	masterPort,
-	unsigned int	options,
+	uint32_t	options,
 	const char *	path )
 {
     return( IOMakeMatching( masterPort, kIOOFPathMatching, options,
@@ -666,30 +703,31 @@ IOOpenFirmwarePathMatching(
 
 kern_return_t
 OSGetNotificationFromMessage(
-	mach_msg_header_t     *	msg,
-	unsigned int	  	index,
-        unsigned long int     *	type,
-        unsigned long int     *	reference,
-	void		     ** content,
-        vm_size_t	      *	size )
+	mach_msg_header_t	 *msg,
+	uint32_t		  index,
+        uint32_t		 *type,
+        uintptr_t		 *reference,
+	void			**content,
+        vm_size_t		 *size )
 {
-    OSNotificationHeader *	header;
+    // The kernel handles the downcast of the reference vector for 32bit tasks
+    NotificationHeader *	header;
 
     if( msg->msgh_id != kOSNotificationMessageID)
 	return( kIOReturnBadMessageID );
 
     if( msg->msgh_size < (sizeof( mach_msg_header_t)
-			+ sizeof( OSNotificationHeader)))
+			+ sizeof( NotificationHeader)))
 	return( kIOReturnNoResources );
 
     if( index)
 	return( kIOReturnNoResources );
 
-    header = (OSNotificationHeader *) (msg + 1);
+    header = (NotificationHeader *) (msg + 1);
     if( type)
         *type = header->type;
     if( reference)
-        *reference = header->reference[0];
+        *reference = (uintptr_t) header->reference[0];
     if( size)
         *size = header->size;
     if( content) {
@@ -704,63 +742,6 @@ OSGetNotificationFromMessage(
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#if __ppc__
-static void swapOSNotification(
-       OSNotificationHeader * header,
-       unsigned int leftOver )
-{
-    // Do some conditional byte-swapping if we're running a ppc binary, 
-    // under Rosetta on x86 HW.
-    // We expect this function to be called ONLY when running in Rosetta, not
-    // when running on native ppc HW.
-    
-    header->size = OSSwapInt32(header->size);
-    header->type = OSSwapInt32(header->type);
-    
-    int i;
-    for (i = 0; i < sizeof(header->reference) / sizeof(header->reference[0]); i++) {
-           header->reference[i] = OSSwapInt32(header->reference[i]);
-    }
-    
-    switch (header->type) {
-        case kIOServicePublishNotificationType:
-        case kIOServiceMatchedNotificationType:
-        case kIOServiceTerminatedNotificationType:
-               // only need to swap the reference field
-               break;
-        case kIOAsyncCompletionNotificationType:
-        {
-            IOAsyncCompletionContent *asyncHdr = 
-                    (IOAsyncCompletionContent *)(header + 1);
-            leftOver = (leftOver - sizeof(*asyncHdr)) / sizeof(void *);
-            
-            asyncHdr->result = OSSwapInt32(asyncHdr->result);
-            for (i = 0; i < leftOver; i++) {
-                asyncHdr->args[i] = OSSwapInt32(asyncHdr->args[i]);
-            }
-            break;
-        }
-        case kIOServiceMessageNotificationType:
-        {
-            IOServiceInterestContent *interestHdr = 
-                    (IOServiceInterestContent *)(header + 1);
-            leftOver = (leftOver - sizeof(*interestHdr) + 
-                    sizeof(interestHdr->messageArgument)) / sizeof(void *);
-            
-            interestHdr->messageType = OSSwapInt32(interestHdr->messageType);
-            for (i = 0; i < leftOver; i++) {
-                interestHdr->messageArgument[i] = 
-                        OSSwapInt32(interestHdr->messageArgument[i]);
-            }
-            break;
-        }
-        default:
-               printf("unknown OSNotificationHeader type %d\n", header->type);
-               break;
-    }
-}
-#endif
-
 
 void
 IODispatchCalloutFromMessage(void *cfPort, mach_msg_header_t *msg, void *info)
@@ -769,7 +750,8 @@ IODispatchCalloutFromMessage(void *cfPort, mach_msg_header_t *msg, void *info)
 }
 
 void
-IODispatchCalloutFromCFMessage(CFMachPortRef port, void *_msg, CFIndex size, void *info)
+IODispatchCalloutFromCFMessage(CFMachPortRef port __unused,
+			void *_msg, CFIndex size __unused, void *info __unused)
 {
     struct ComplexMsg {
         mach_msg_header_t		msgHdr;
@@ -777,10 +759,10 @@ IODispatchCalloutFromCFMessage(CFMachPortRef port, void *_msg, CFIndex size, voi
 	mach_msg_port_descriptor_t	ports[1];
     } *					complexMsg = NULL;
     mach_msg_header_t *			msg = (mach_msg_header_t *)_msg;
-    OSNotificationHeader *		header;
+    NotificationHeader *		header;
     io_iterator_t			notifier = MACH_PORT_NULL;
     io_service_t			service = MACH_PORT_NULL;
-    int					leftOver;
+    uint32_t				leftOver;
     boolean_t				deliver = TRUE;
 
     if( msg->msgh_id != kOSNotificationMessageID)
@@ -792,21 +774,12 @@ IODispatchCalloutFromCFMessage(CFMachPortRef port, void *_msg, CFIndex size, voi
 
 	if( complexMsg->msgBody.msgh_descriptor_count)
 	    service = complexMsg->ports[0].name;
-	header = (OSNotificationHeader *) &complexMsg->ports[complexMsg->msgBody.msgh_descriptor_count];
+	header = (NotificationHeader *) &complexMsg->ports[complexMsg->msgBody.msgh_descriptor_count];
     
     } else
-	header = (OSNotificationHeader *) (msg + 1);
+	header = (NotificationHeader *) (msg + 1);
 
     leftOver = msg->msgh_size - (((vm_address_t) (header + 1)) - ((vm_address_t) msg));
-
-#if __ppc__
-    // If this is ppc code running under Rosetta over an x86 kernel,
-    // we may need to do some byte swapping. The magic cookie in the
-    // inline asm makes Rosetta ignore this branch command.
-    asm volatile ("b L_SkipSwap_label \n .long 0x14400004");
-    swapOSNotification(header, leftOver);
-    asm volatile ("L_SkipSwap_label:");
-#endif
 
     // remote port is the notification (an iterator_t) that fired
     notifier = msg->msgh_remote_port;
@@ -821,6 +794,7 @@ IODispatchCalloutFromCFMessage(CFMachPortRef port, void *_msg, CFIndex size, voi
 	    deliver = false;
 	}
     }
+
     if(deliver)
     {
       switch( header->type )
@@ -831,30 +805,24 @@ IODispatchCalloutFromCFMessage(CFMachPortRef port, void *_msg, CFIndex size, voi
 	    
 	    asyncHdr = (IOAsyncCompletionContent *)(header + 1);
 	    leftOver = (leftOver - sizeof(*asyncHdr)) / sizeof(void *);
+	    void *func   = (void *) header->reference[kIOAsyncCalloutFuncIndex];
+	    void *refCon = (void *) header->reference[kIOAsyncCalloutRefconIndex];
 	    switch (leftOver) {
-		case 0:
-		    ((IOAsyncCallback0 )header->reference[kIOAsyncCalloutFuncIndex])(
-			(void *) header->reference[kIOAsyncCalloutRefconIndex],
-			asyncHdr->result);
-		    break;
-		case 1:
-		    ((IOAsyncCallback1 )header->reference[kIOAsyncCalloutFuncIndex])(
-			(void *) header->reference[kIOAsyncCalloutRefconIndex],
-			asyncHdr->result,
-			asyncHdr->args[0]);
-		    break;
-		case 2:
-		    ((IOAsyncCallback2 )header->reference[kIOAsyncCalloutFuncIndex])(
-			(void *) header->reference[kIOAsyncCalloutRefconIndex],
-			asyncHdr->result,
-			asyncHdr->args[0], asyncHdr->args[1]);
-		    break;
-		default:
-		    ((IOAsyncCallback )header->reference[kIOAsyncCalloutFuncIndex])(
-			(void *) header->reference[kIOAsyncCalloutRefconIndex],
-			asyncHdr->result,
-			asyncHdr->args, leftOver);
-		    break;
+	    case 0:
+		((IOAsyncCallback0) func)(refCon, asyncHdr->result);
+		break;
+	    case 1:
+		((IOAsyncCallback1) func)(refCon, asyncHdr->result,
+		    asyncHdr->args[0]);
+		break;
+	    case 2:
+		((IOAsyncCallback2) func)(refCon, asyncHdr->result,
+		    asyncHdr->args[0], asyncHdr->args[1]);
+		break;
+	    default:
+		((IOAsyncCallback) func)(refCon, asyncHdr->result,
+		    asyncHdr->args, leftOver);
+		break;
 	    }
 	    break;
 	}          
@@ -891,7 +859,7 @@ IODispatchCalloutFromCFMessage(CFMachPortRef port, void *_msg, CFIndex size, voi
 	mach_port_deallocate( mach_task_self(), notifier );
     if( complexMsg)
     {
-	unsigned int i;
+	uint32_t i;
 	for( i = 0; i < complexMsg->msgBody.msgh_descriptor_count; i++)
 	    mach_port_deallocate( mach_task_self(), complexMsg->ports[i].name );
     }
@@ -902,7 +870,7 @@ IODispatchCalloutFromCFMessage(CFMachPortRef port, void *_msg, CFIndex size, voi
 kern_return_t
 IOServiceGetBusyState(
 	io_service_t    service,
-	int *		busyState )
+	uint32_t *	busyState )
 {
     kern_return_t	kr;
 
@@ -932,12 +900,13 @@ IOServiceGetState(
 kern_return_t
 IOKitGetBusyState(
         mach_port_t	masterPort,
-	int *		busyState )
+	uint32_t *	busyState )
 {
     io_service_t 	root;
     kern_return_t	kr;
 
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     kr = io_registry_entry_from_path( masterPort,
 			kIOServicePlane ":/", &root );
@@ -978,7 +947,8 @@ IOKitWaitQuiet(
     kern_return_t	kr;
     mach_timespec_t	defaultWait = { 0, -1 };
 
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     kr = io_registry_entry_from_path( masterPort,
 			kIOServicePlane ":/", &root );
@@ -997,11 +967,27 @@ kern_return_t
 IOServiceOpen(
 	io_service_t    service,
 	task_port_t	owningTask,
-	unsigned int	type,
+	uint32_t	type,
 	io_connect_t  *	connect )
 {
-    return( io_service_open( service,
-	owningTask, type, connect ));
+    kern_return_t	kr;
+    kern_return_t	result;
+
+    kr = io_service_open_extended( service,
+	owningTask, type, NDR_record, NULL, 0, &result, connect );
+
+#if 1
+    if (MIG_BAD_ID == kr)
+    {
+	kr = io_service_open(service, owningTask, type, connect);
+	result = kr;
+    }
+#endif
+
+    if (KERN_SUCCESS == kr)
+        kr = result;
+
+    return (kr);
 }
 
 kern_return_t
@@ -1019,7 +1005,7 @@ IOServiceClose(
 kern_return_t
 IOServiceRequestProbe(
 	io_service_t    service,
-	unsigned int	options )
+	uint32_t	options )
 {
     return( io_service_request_probe( service, options ));
 }
@@ -1041,7 +1027,7 @@ kern_return_t
 IOConnectRelease(
 	io_connect_t	connect )
 {
-    // @@@ gvdl: Check with Simon about last reference removal
+    // XXX gvdl: Check with Simon about last reference removal
     return mach_port_mod_refs(mach_task_self(),
                               connect,
                               MACH_PORT_RIGHT_SEND,
@@ -1059,36 +1045,66 @@ IOConnectGetService(
 kern_return_t
 IOConnectSetNotificationPort(
 	io_connect_t	connect,
-	unsigned int	type,
+	uint32_t	type,
 	mach_port_t	port,
-	unsigned int	reference )
+	uintptr_t	reference )
 {
     return( io_connect_set_notification_port( connect,
 		type, port, reference));
 }
 
+#if !__LP64__
 kern_return_t
 IOConnectMapMemory(
-	io_connect_t	connect,
-	unsigned int	memoryType,
-	task_port_t	intoTask,
-	vm_address_t *	atAddress,
-	vm_size_t    *	ofSize,
-	IOOptionBits	options )
+	io_connect_t		connect,
+	uint32_t		memoryType,
+	task_port_t		intoTask,
+	vm_address_t		*atAddress,
+	vm_size_t		*ofSize,
+	IOOptionBits		options )
 {
-    return( io_connect_map_memory( connect, memoryType, intoTask,
-	atAddress, ofSize, options));
+    return io_connect_map_memory
+		(connect, memoryType, intoTask, atAddress, ofSize, options);
 }
 
+kern_return_t IOConnectMapMemory64
+#else
+kern_return_t IOConnectMapMemory
+#endif
+	(io_connect_t		connect,
+	 uint32_t		memoryType,
+	 task_port_t		intoTask,
+	 mach_vm_address_t	*atAddress,
+	 mach_vm_size_t		*ofSize,
+	 IOOptionBits		options )
+{
+    return io_connect_map_memory_into_task
+		(connect, memoryType, intoTask, atAddress, ofSize, options);
+}
+
+#if !__LP64__
 kern_return_t
 IOConnectUnmapMemory(
-	io_connect_t	connect,
-	unsigned int	memoryType,
-	task_port_t	intoTask,
-	vm_address_t	atAddress )
+	io_connect_t		connect,
+	uint32_t		memoryType,
+	task_port_t		fromTask,
+	vm_address_t		atAddress )
 {
-    return( io_connect_unmap_memory( connect, memoryType, intoTask,
-	atAddress));
+    return io_connect_unmap_memory
+		(connect, memoryType, fromTask, atAddress);
+}
+
+kern_return_t IOConnectUnmapMemory64
+#else
+kern_return_t IOConnectUnmapMemory
+#endif
+	(io_connect_t		connect,
+	 uint32_t		memoryType,
+	 task_port_t		fromTask,
+	 mach_vm_address_t	atAddress)
+{
+    return io_connect_unmap_memory_from_task
+		(connect, memoryType, fromTask, atAddress);
 }
 
 kern_return_t
@@ -1101,168 +1117,310 @@ IOConnectAddClient(
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-kern_return_t
-IOConnectMethodScalarIScalarO( 
-	io_connect_t	connect,
-        unsigned int	index,
-        IOItemCount	scalarInputCount,
-        IOItemCount	scalarOutputCount,
-        ... )
+#if USE_TRAP_TRANSPORT
+
+#define kUseTrapTransport 1
+__private_extern__ char checkBegin = 0, checkEnd = 0;
+static __inline__ void checkPtrRange(void *ptr, IOByteCount cnt)
 {
-    int			params[8];
-    int * 		input;
-    int ** 		output;
-    kern_return_t	err;
-    int			i;
+    checkBegin = ((uint8_t *) ptr)[0];
+    checkEnd   = ((uint8_t *) ptr)[cnt];
+}
 
-    input = (int *) __builtin_next_arg( scalarOutputCount );
-    output = (int **)(input + scalarInputCount);
+#else
 
-    err = io_connect_method_scalarI_scalarO( connect, index,
-                    input, scalarInputCount,
-                    params, (unsigned int *) &scalarOutputCount);
+#define kUseTrapTransport 0
 
-    if( kIOReturnSuccess == err) {
-        for( i = 0; i < scalarOutputCount; i++)
-            *output[i] = params[i];
+#endif /* USE_TRAP_TRANSPORT */
+
+#define reinterpret_cast_mach_vm_address_t(p) \
+    ((mach_vm_address_t) (uintptr_t) p)
+
+kern_return_t
+IOConnectCallMethod(
+	mach_port_t	 connection,		// In
+	uint32_t	 selector,		// In
+	const uint64_t	*input,			// In
+	uint32_t	 inputCnt,		// In
+	const void	*inputStruct,		// In
+	size_t		 inputStructCnt,	// In
+	uint64_t	*output,		// Out
+	uint32_t	*outputCnt,		// In/Out
+	void		*outputStruct,		// Out
+	size_t		*outputStructCntP)	// In/Out
+{
+    kern_return_t	        rtn;
+
+    void			*inb_input       = 0;
+    mach_msg_type_number_t	 inb_input_size  = 0;
+    void			*inb_output      = 0;
+    mach_msg_type_number_t	 inb_output_size = 0;
+
+    mach_vm_address_t		 ool_input       = 0;
+    mach_vm_size_t		 ool_input_size  = 0;
+    mach_vm_address_t		 ool_output      = 0;
+    mach_vm_size_t		 ool_output_size = 0;
+
+    if (inputStructCnt <= sizeof(io_struct_inband_t)) {
+	inb_input      = (void *) inputStruct;
+	inb_input_size = (mach_msg_type_number_t) inputStructCnt;
+    }
+    else {
+	ool_input      = reinterpret_cast_mach_vm_address_t(inputStruct);
+	ool_input_size = inputStructCnt;
     }
 
-    return( err );
+    if (!outputCnt) {
+	static uint32_t zero = 0;
+	outputCnt = &zero;
+    }
+
+    if (outputStructCntP) {
+	size_t size = *outputStructCntP;
+
+	if (size <= sizeof(io_struct_inband_t)) {
+	    inb_output      = outputStruct;
+	    inb_output_size = (mach_msg_type_number_t) size;
+	}
+	else {
+	    ool_output      = reinterpret_cast_mach_vm_address_t(outputStruct);
+	    ool_output_size = (mach_vm_size_t)    size;
+	}
+    }
+
+    rtn = io_connect_method(connection,         selector,
+			    (uint64_t *) input, inputCnt,
+			    inb_input,          inb_input_size,
+			    ool_input,          ool_input_size,
+			    output,             outputCnt,
+			    inb_output,         &inb_output_size,
+			    ool_output,         &ool_output_size);
+
+    if (outputStructCntP) {
+	if (*outputStructCntP <= sizeof(io_struct_inband_t))
+	    *outputStructCntP = (size_t) inb_output_size;
+	else
+	    *outputStructCntP = (size_t) ool_output_size;
+    }
+
+    return rtn;
 }
 
 kern_return_t
-IOConnectMethodScalarIStructureO(
-	io_connect_t	connect,
-        unsigned int	index,
-        IOItemCount	scalarInputCount,
-        IOByteCount *	structureSize,
-        ... )
+IOConnectCallAsyncMethod(
+	mach_port_t	 connection,		// In
+	uint32_t	 selector,		// In
+	mach_port_t	 wakePort,		// In
+	uint64_t	*reference,		// In
+	uint32_t	 referenceCnt,		// In
+	const uint64_t	*input,			// In
+	uint32_t	 inputCnt,		// In
+	const void	*inputStruct,		// In
+	size_t		 inputStructCnt,	// In
+	uint64_t	*output,		// Out
+	uint32_t	*outputCnt,		// In/Out
+	void		*outputStruct,		// Out
+	size_t		*outputStructCntP)	// In/Out
 {
-    int * 		input;
-    char *		structure;
-    kern_return_t	err;
+    kern_return_t	        rtn;
 
-    input = (int *) __builtin_next_arg( structureSize );
-    structure = (char *) input[scalarInputCount];
+    void			*inb_input       = 0;
+    mach_msg_type_number_t	 inb_input_size  = 0;
+    void			*inb_output      = 0;
+    mach_msg_type_number_t	 inb_output_size = 0;
 
-    err = io_connect_method_scalarI_structureO( connect, index,
-                    input, scalarInputCount,
-                    structure, (unsigned int *) structureSize);
+    mach_vm_address_t		 ool_input       = 0;
+    mach_vm_size_t		 ool_input_size  = 0;
+    mach_vm_address_t		 ool_output      = 0;
+    mach_vm_size_t		 ool_output_size = 0;
 
-    return( err );
+    if (inputStructCnt <= sizeof(io_struct_inband_t)) {
+	inb_input      = (void *) inputStruct;
+	inb_input_size = (mach_msg_type_number_t) inputStructCnt;
+    }
+    else {
+	ool_input      = reinterpret_cast_mach_vm_address_t(inputStruct);
+	ool_input_size = inputStructCnt;
+    }
+
+    if (!outputCnt) {
+	static uint32_t zero = 0;
+	outputCnt = &zero;
+    }
+
+    if (outputStructCntP) {
+	size_t size = *outputStructCntP;
+
+	if (size <= sizeof(io_struct_inband_t)) {
+	    inb_output      = outputStruct;
+	    inb_output_size = (mach_msg_type_number_t) size;
+	}
+	else {
+	    ool_output      = reinterpret_cast_mach_vm_address_t(outputStruct);
+	    ool_output_size = (mach_vm_size_t)    size;
+	}
+    }
+
+    rtn = io_connect_async_method(connection,         wakePort,
+				  reference,          referenceCnt,
+				  selector,
+				  (uint64_t *) input, inputCnt,
+				  inb_input,          inb_input_size,
+				  ool_input,          ool_input_size,
+				  output,             outputCnt,
+				  inb_output,         &inb_output_size,
+				  ool_output,         &ool_output_size);
+
+    if (outputStructCntP) {
+	if (*outputStructCntP <= sizeof(io_struct_inband_t))
+	    *outputStructCntP = (size_t) inb_output_size;
+	else
+	    *outputStructCntP = (size_t) ool_output_size;
+    }
+
+    return rtn;
 }
 
 kern_return_t
-IOConnectMethodScalarIStructureI(
-	io_connect_t	connect,
-        unsigned int	index,
-        IOItemCount	scalarInputCount,
-        IOByteCount	structureSize,
-        ... )
+IOConnectCallStructMethod(
+	mach_port_t	 connection,		// In
+	uint32_t	 selector,		// In
+	const void	*inputStruct,		// In
+	size_t		 inputStructCnt,	// In
+	void		*outputStruct,		// Out
+	size_t		*outputStructCnt)	// In/Out
 {
-    int * 		input;
-    char *		structure;
-    kern_return_t	err;
-
-    input = (int *) __builtin_next_arg( structureSize );
-    structure = (char *) input[scalarInputCount];
-
-    err = io_connect_method_scalarI_structureI( connect, index,
-                    input, scalarInputCount,
-                    structure, structureSize );
-
-    return( err );
+    return IOConnectCallMethod(connection,   selector,
+			       NULL,         0,
+			       inputStruct,  inputStructCnt,
+			       NULL,         NULL,
+			       outputStruct, outputStructCnt);
 }
 
 kern_return_t
-IOConnectMethodStructureIStructureO(
-	io_connect_t	connect,
-        unsigned int	index,
-        IOItemCount	structureInputSize,
-        IOByteCount *	structureOutputSize,
-        void *		inputStructure,
-        void *		ouputStructure )
+IOConnectCallAsyncStructMethod(
+	mach_port_t	 connection,		// In
+	uint32_t	 selector,		// In
+	mach_port_t	 wakePort,		// In
+	uint64_t	*reference,		// In
+	uint32_t	 referenceCnt,		// In
+	const void	*inputStruct,		// In
+	size_t		 inputStructCnt,	// In
+	void		*outputStruct,		// Out
+	size_t		*outputStructCnt)	// In/Out
 {
-    return( io_connect_method_structureI_structureO( connect, index,
-                    inputStructure, structureInputSize,
-                    ouputStructure, (unsigned int *) structureOutputSize ));
+    return IOConnectCallAsyncMethod(connection,   selector, wakePort,
+				    reference,    referenceCnt,
+				    NULL,         0,
+				    inputStruct,  inputStructCnt,
+				    NULL,         NULL,
+				    outputStruct, outputStructCnt);
+}
+
+kern_return_t
+IOConnectCallScalarMethod(
+	mach_port_t	 connection,		// In
+	uint32_t	 selector,		// In
+	const uint64_t	*input,			// In
+	uint32_t	 inputCnt,		// In
+	uint64_t	*output,		// Out
+	uint32_t	*outputCnt)		// In/Out
+{
+    return IOConnectCallMethod(connection, selector,
+			       input,      inputCnt,
+			       NULL,       0,
+			       output,     outputCnt,
+			       NULL,       NULL);
+}
+
+kern_return_t
+IOConnectCallAsyncScalarMethod(
+	mach_port_t	 connection,		// In
+	uint32_t	 selector,		// In
+	mach_port_t	 wakePort,		// In
+	uint64_t	*reference,		// In
+	uint32_t	 referenceCnt,		// In
+	const uint64_t	*input,			// In
+	uint32_t	 inputCnt,		// In
+	uint64_t	*output,		// Out
+	uint32_t	*outputCnt)		// In/Out
+{
+    return IOConnectCallAsyncMethod(connection, selector, wakePort,
+				    reference,  referenceCnt,
+				    input,      inputCnt,
+				    NULL,       0,
+				    output,    outputCnt,
+				    NULL,      NULL);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 kern_return_t
-IOConnectTrap0(
-        io_connect_t	connect,
-        unsigned int	index )
+IOConnectTrap0(io_connect_t	connect,
+	       uint32_t		index)
 {
-    return iokit_user_client_trap(connect, index, NULL, NULL, NULL, NULL, NULL, NULL);
+    return iokit_user_client_trap(connect, index, 0, 0, 0, 0, 0, 0);
 }
 
 kern_return_t
-IOConnectTrap1(
-        io_connect_t	connect,
-        unsigned int	index,
-        void 		*p1 )
+IOConnectTrap1(io_connect_t	connect,
+	       uint32_t		index,
+	       uintptr_t	p1 )
 {
-    return iokit_user_client_trap(connect, index, p1, NULL, NULL, NULL, NULL, NULL);
+    return iokit_user_client_trap(connect, index, p1, 0, 0, 0, 0, 0);
 }
 
 kern_return_t
-IOConnectTrap2(
-        io_connect_t	connect,
-        unsigned int	index,
-        void 		*p1,
-        void 		*p2 )
+IOConnectTrap2(io_connect_t	connect,
+	       uint32_t		index,
+	       uintptr_t	p1,
+	       uintptr_t	p2 )
 {
-    return iokit_user_client_trap(connect, index, p1, p2, NULL, NULL, NULL, NULL);
+    return iokit_user_client_trap(connect, index, p1, p2, 0, 0, 0, 0);
 }
 
 kern_return_t
-IOConnectTrap3(
-        io_connect_t	connect,
-        unsigned int	index,
-        void 		*p1,
-        void 		*p2,
-        void		*p3 )
+IOConnectTrap3(io_connect_t	connect,
+	       uint32_t		index,
+	       uintptr_t	p1,
+	       uintptr_t	p2,
+	       uintptr_t	p3 )
 {
-    return iokit_user_client_trap(connect, index, p1, p2, p3, NULL, NULL, NULL);
+    return iokit_user_client_trap(connect, index, p1, p2, p3, 0, 0, 0);
 }
 
 kern_return_t
-IOConnectTrap4(
-        io_connect_t	connect,
-        unsigned int	index,
-        void 		*p1,
-        void 		*p2,
-        void		*p3,
-        void		*p4 )
+IOConnectTrap4(io_connect_t	connect,
+	       uint32_t		index,
+	       uintptr_t	p1,
+	       uintptr_t	p2,
+	       uintptr_t	p3,
+	       uintptr_t	p4 )
 {
-    return iokit_user_client_trap(connect, index, p1, p2, p3, p4, NULL, NULL);
+    return iokit_user_client_trap(connect, index, p1, p2, p3, p4, 0, 0);
 }
 
 kern_return_t
-IOConnectTrap5(
-        io_connect_t	connect,
-        unsigned int	index,
-        void 		*p1,
-        void 		*p2,
-        void		*p3,
-        void		*p4,
-        void		*p5 )
+IOConnectTrap5(io_connect_t	connect,
+	       uint32_t		index,
+	       uintptr_t	p1,
+	       uintptr_t	p2,
+	       uintptr_t	p3,
+	       uintptr_t	p4,
+	       uintptr_t	p5 )
 {
-    return iokit_user_client_trap(connect, index, p1, p2, p3, p4, p5, NULL);
+    return iokit_user_client_trap(connect, index, p1, p2, p3, p4, p5, 0);
 }
 
 kern_return_t
-IOConnectTrap6(
-        io_connect_t	connect,
-        unsigned int	index,
-        void 		*p1,
-        void 		*p2,
-        void		*p3,
-        void		*p4,
-        void		*p5,
-        void		*p6 )
+IOConnectTrap6(io_connect_t	connect,
+	       uint32_t		index,
+	       uintptr_t	p1,
+	       uintptr_t	p2,
+	       uintptr_t	p3,
+	       uintptr_t	p4,
+	       uintptr_t	p5,
+	       uintptr_t	p6 )
 {
     return iokit_user_client_trap(connect, index, p1, p2, p3, p4, p5, p6);
 }
@@ -1283,7 +1441,7 @@ IOConnectSetCFProperties(
 	return( kIOReturnUnsupported );
 
     kr = io_connect_set_properties( connect,
-            (UInt8 *) CFDataGetBytePtr(data), CFDataGetLength(data),
+            (char *) CFDataGetBytePtr(data), CFDataGetLength(data),
             &result );
 
     CFRelease(data);
@@ -1302,11 +1460,12 @@ IOConnectSetCFProperty(
 {
     CFDictionaryRef	dict;
     kern_return_t	kr;
-
+ 
+    CFTypeRef name = propertyName;
     dict = CFDictionaryCreate( kCFAllocatorDefault,
-                                (const void **) &propertyName, (const void **) &property, 1,
-                                &kCFTypeDictionaryKeyCallBacks,
-                                &kCFTypeDictionaryValueCallBacks );
+		    &name, &property, 1,
+		    &kCFTypeDictionaryKeyCallBacks,
+		    &kCFTypeDictionaryValueCallBacks );
     if( !dict)
 	return( kIOReturnNoMemory );
 
@@ -1330,7 +1489,8 @@ IORegistryCreateIterator(
 	IOOptionBits	options,
 	io_iterator_t * iterator )
 {
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     return( io_registry_create_iterator( masterPort, (char *) plane,
 		options, iterator));
@@ -1370,7 +1530,8 @@ IORegistryEntryFromPath(
     kern_return_t	kr;
     io_registry_entry_t	entry;
 
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     kr = io_registry_entry_from_path( masterPort, (char *) path, &entry );
     if( kIOReturnSuccess != kr)
@@ -1386,7 +1547,8 @@ IORegistryGetRootEntry(
     kern_return_t	kr;
     io_registry_entry_t	entry;
 
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     kr = io_registry_get_root_entry( masterPort, &entry );
     if( kIOReturnSuccess != kr)
@@ -1456,10 +1618,10 @@ IORegistryEntryCreateCFProperties(
 	io_registry_entry_t	entry,
 	CFMutableDictionaryRef * properties,
         CFAllocatorRef		allocator,
-	IOOptionBits		options )
+	IOOptionBits   options __unused )
 {
     kern_return_t 	kr;
-    unsigned int 	size;
+    uint32_t	 	size;
     char *	 	propertiesBuffer;
     CFStringRef  	errorString;
     const char * 	cstr;
@@ -1489,11 +1651,11 @@ IORegistryEntryCreateCFProperty(
 	io_registry_entry_t	entry,
 	CFStringRef		key,
         CFAllocatorRef		allocator,
-	IOOptionBits		options )
+	IOOptionBits   options __unused )
 {
     IOReturn		kr;
     CFTypeRef		type;
-    unsigned int 	size;
+    uint32_t	 	size;
     char *	 	propertiesBuffer;
     CFStringRef  	errorString;
     const char *    	cStr;
@@ -1501,7 +1663,8 @@ IORegistryEntryCreateCFProperty(
 
     cStr = CFStringGetCStringPtr( key, kCFStringEncodingMacRoman);
     if( !cStr) {
-        CFIndex bufferSize = CFStringGetLength(key) + 1;
+	CFIndex bufferSize = CFStringGetMaximumSizeForEncoding( CFStringGetLength(key),
+	       kCFStringEncodingMacRoman) + sizeof('\0');
         buffer = malloc( bufferSize);
         if( buffer && CFStringGetCString( key, buffer, bufferSize, kCFStringEncodingMacRoman))
             cStr = buffer;
@@ -1545,7 +1708,7 @@ IORegistryEntrySearchCFProperty(
 {
     IOReturn		kr;
     CFTypeRef		type;
-    unsigned int 	size;
+    uint32_t	 	size;
     char *	 	propertiesBuffer;
     CFStringRef  	errorString;
     const char *    	cStr;
@@ -1553,7 +1716,8 @@ IORegistryEntrySearchCFProperty(
 
     cStr = CFStringGetCStringPtr( key, kCFStringEncodingMacRoman);
     if( !cStr) {
-        CFIndex bufferSize = CFStringGetLength(key) + 1;
+	CFIndex bufferSize = CFStringGetMaximumSizeForEncoding( CFStringGetLength(key),
+	       kCFStringEncodingMacRoman) + sizeof('\0');
         buffer = malloc( bufferSize);
         if( buffer && CFStringGetCString( key, buffer, bufferSize, kCFStringEncodingMacRoman))
             cStr = buffer;
@@ -1593,8 +1757,10 @@ IORegistryEntryGetProperty(
 	io_registry_entry_t	entry,
 	const io_name_t		name,
 	io_struct_inband_t	buffer,
-	unsigned int	      * size )
+	uint32_t	      * size )
 {
+
+
     return( io_registry_entry_get_property_bytes( entry, (char *) name,
 						  buffer, size ));
 }
@@ -1614,7 +1780,7 @@ IORegistryEntrySetCFProperties(
 	return( kIOReturnUnsupported );
 
     kr = io_registry_entry_set_properties( entry,
-            (UInt8 *) CFDataGetBytePtr(data), CFDataGetLength(data),
+            (char *) CFDataGetBytePtr(data), CFDataGetLength(data),
             &result );
 
     CFRelease(data);
@@ -1731,7 +1897,7 @@ IOServiceOFPathToBSDName(mach_port_t	 masterPort,
              /* mach_port_t   */ masterPort,
              /* void *        */ IOOpenFirmwarePathMatching(
                                      /* mach_port_t  */ masterPort,
-                                     /* unsigned int */ 0,
+                                     /* uint32_t     */ 0,
                                      /* const char * */ openFirmwarePath ),
              /* io_iterator * */ &services );
 
@@ -1745,13 +1911,13 @@ IOServiceOFPathToBSDName(mach_port_t	 masterPort,
 
         // Obtain the BSD name property from this object.
 
-        unsigned int bsdNameSize = sizeof(io_name_t);
+        uint32_t bsdNameSize = sizeof(io_name_t);
 
         kr = IORegistryEntryGetProperty(
                  /* mach_port_t        */ service,
                  /* io_name_t          */ kIOBSDNameKey,
                  /* io_struct_inband_t */ bsdName,
-                 /* unsigned int *     */ &bsdNameSize);
+                 /* uint32_t *         */ &bsdNameSize);
 
         if( KERN_SUCCESS != kr )  bsdName[0] = 0;
 
@@ -1771,14 +1937,15 @@ IOServiceOFPathToBSDName(mach_port_t	 masterPort,
 kern_return_t
 IOCatalogueSendData(
         mach_port_t		masterPort,
-        int                     flag,
+        uint32_t                flag,
         const char             *buffer,
-        int                     size )
+        uint32_t                size )
 {
     kern_return_t kr;
     kern_return_t result;
 
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     kr = io_catalog_send_data( masterPort, flag,
                             (char *) buffer, size, &result );
@@ -1791,10 +1958,11 @@ IOCatalogueSendData(
 kern_return_t
 IOCatalogueTerminate(
         mach_port_t		masterPort,
-        int                     flag,
+        uint32_t                flag,
         io_name_t		description )
 {
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     return( io_catalog_terminate( masterPort, flag, description ));
 }
@@ -1802,11 +1970,12 @@ IOCatalogueTerminate(
 kern_return_t
 IOCatalogueGetData(
         mach_port_t		masterPort,
-        int                     flag,
+        uint32_t                flag,
         char                  **buffer,
-        int                    *size )
+        uint32_t               *size )
 {
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     return ( io_catalog_get_data( masterPort, flag, (char **)buffer, (unsigned *)size ) );
 }
@@ -1814,9 +1983,10 @@ IOCatalogueGetData(
 kern_return_t
 IOCatlogueGetGenCount(
         mach_port_t		masterPort,
-        int                    *genCount )
+        uint32_t               *genCount )
 {
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     return ( io_catalog_get_gen_count( masterPort, genCount ) );
 }
@@ -1826,7 +1996,8 @@ IOCatalogueModuleLoaded(
         mach_port_t		masterPort,
         io_name_t               name )
 {
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     return ( io_catalog_module_loaded( masterPort, name ) );
 }
@@ -1834,9 +2005,10 @@ IOCatalogueModuleLoaded(
 kern_return_t
 IOCatalogueReset(
         mach_port_t		masterPort,
-	int			flag )
+	uint32_t		flag )
 {
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     return ( io_catalog_reset(masterPort, flag) );
 }
@@ -1850,7 +2022,8 @@ IORegistryCreateEnumerator(
         mach_port_t	masterPort,
 	mach_port_t *	enumerator )
 {
-    masterPort = (NULL == masterPort) ? __IOGetDefaultMasterPort() : masterPort;
+    if (MACH_PORT_NULL == masterPort)
+	masterPort = __IOGetDefaultMasterPort();
 
     return( io_registry_create_iterator( masterPort,
                                          "IOService", true, enumerator));
@@ -1870,7 +2043,7 @@ kern_return_t
 IORegistryEnumeratorNextConforming(
 	mach_port_t	enumerator,
 	const char *	name,
-	boolean_t	recursive )
+	boolean_t recursive __unused )
 {
     io_object_t	next 	= 0;
 
@@ -1901,9 +2074,9 @@ IORegistryGetProperties(
 
 kern_return_t
 IOOpenConnection(
-	mach_port_t	enumerator,
+	mach_port_t enumerator __unused,
 	task_port_t	owningTask,
-	unsigned int	type,
+	uint32_t	type,
 	mach_port_t *	connect )
 {
     kern_return_t	kr;
@@ -1928,7 +2101,7 @@ IOCloseConnection(
 kern_return_t
 IOSetNotificationPort(
 	mach_port_t	connect,
-	unsigned int	type,
+	uint32_t	type,
 	mach_port_t	port )
 {
     return( io_connect_set_notification_port( connect, type, port, 0));
@@ -1948,25 +2121,12 @@ IORegistryDisposeEnumerator(
     return( IOObjectRelease( enumerator ));
 }
 
-kern_return_t
-IOMapMemory(
-	io_connect_t	connect,
-	unsigned int	memoryType,
-	task_port_t	intoTask,
-	vm_address_t *	atAddress,
-	vm_size_t    *	ofSize,
-	unsigned int	flags )
-{
-    return( io_connect_map_memory( connect, memoryType, intoTask,
-	atAddress, ofSize, flags));
-}
-
 /* -------------------------- */
 
 kern_return_t
 IOCompatibiltyNumber(
-	mach_port_t	connect,
-	unsigned int *	objectNumber )
+	mach_port_t connect __unused,
+	uint32_t *	objectNumber )
 {
 	*objectNumber = 1;
 	return( kIOReturnSuccess);
@@ -1979,4 +2139,501 @@ IOInitContainerClasses()
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/* 32bit binary compatibility routines for deprecated APIs */
+#if !defined(__LP64__)
+
+// Compatability routines with 32bit IOKitLib
+kern_return_t
+IOConnectMethodScalarIScalarO( 
+	io_connect_t	connect,
+	uint32_t	index,
+	IOItemCount	inCount,
+	IOItemCount	scalarOutputCount,
+	... )
+{
+    uint64_t		inData[6], outData[6];
+    kern_return_t	err;
+    uint32_t		i, outCount;
+    va_list		val;
+
+    if (inCount + scalarOutputCount > 6)
+	return MIG_ARRAY_TOO_LARGE;
+
+    va_start(val, scalarOutputCount);
+    for (i = 0; i < inCount; i++)
+	inData[i] = va_arg(val, uint32_t);
+
+    outCount = scalarOutputCount;
+    err = IOConnectCallScalarMethod(connect, index,
+	    inData, inCount, outData, &outCount);
+
+    if( kIOReturnSuccess == err) {
+	for (i = 0; i < outCount; i++) {
+	    uint32_t *out = va_arg(val, uint32_t *);
+	    *out = (uint32_t) outData[i];
+	}
+    }
+    va_end(val);
+
+    return err;
+}
+
+kern_return_t
+IOConnectMethodScalarIStructureO(
+	io_connect_t	connect,
+	uint32_t	index,
+	IOItemCount	inCount,
+	IOByteCount *	outSizeP,
+	... )
+{
+    uint64_t		inData[6];
+    void               *out = NULL;
+    IOItemCount		i;
+    va_list		val;
+
+    if (inCount > 6)
+	return MIG_ARRAY_TOO_LARGE;
+
+    va_start(val, outSizeP);
+    for (i = 0; i < inCount; i++)
+	inData[i] = va_arg(val, uint32_t);
+    if (outSizeP && *outSizeP)
+	out = va_arg(val, void *);
+
+    kern_return_t err = IOConnectCallMethod(connect, index,
+	    inData, inCount, NULL, 0,
+	    NULL,   0,       out,  outSizeP);
+
+    va_end(val);
+
+    return err;
+}
+
+kern_return_t
+IOConnectMethodScalarIStructureI(
+	io_connect_t	connect,
+	uint32_t	index,
+	IOItemCount	inCount,
+	IOByteCount	inSize,
+	... )
+{
+    uint64_t		inData[6];
+    uint8_t            *in = NULL;
+    va_list		val;
+
+    if (inCount > 6)
+	return MIG_ARRAY_TOO_LARGE;
+
+    va_start(val, inSize);
+    for (IOItemCount i = 0; i < inCount; i++)
+	inData[i] = va_arg(val, uint32_t);
+    if (inSize)
+	in = va_arg(val, void *);
+
+    kern_return_t err = IOConnectCallMethod(connect, index,
+	    inData, inCount, in,   inSize,
+	    NULL,   NULL,    NULL, NULL);
+
+    va_end(val);
+
+    return err;
+}
+
+kern_return_t
+IOConnectMethodStructureIStructureO(
+	io_connect_t	connect,
+	uint32_t	index,
+	IOItemCount	inSize,
+	IOByteCount *	outSizeP,
+	void *		in,
+	void *		out )
+{
+    return IOConnectCallStructMethod(connect, index, in, inSize, out, outSizeP);
+}
+
+kern_return_t
+IOMapMemory(
+	io_connect_t	connect,
+	uint32_t	memoryType,
+	task_port_t	intoTask,
+	vm_address_t *	atAddress,
+	vm_size_t    *	ofSize,
+	uint32_t	flags )
+{
+    return( io_connect_map_memory( connect, memoryType, intoTask,
+	atAddress, ofSize, flags));
+}
+
+#if MAP_32B_METHODS || EMULATE_IOCONNECT_64 || EMULATE_IOCONNECT_ASYNC_64
+
+// ILP32 - need to remap up to 64 bit scalars these are helpers
+#define arrayCnt(type)	(sizeof(type)/sizeof(type[0]))
+static void inflate_vec(uint64_t *dp, int d, int *sp, int s)
+{
+    if (d > s)
+	d = s;
+
+    for (int i = 0; i < d; i++)
+	dp[i] = (uint32_t) sp[i];
+}
+
+static void deflate_vec(int *dp, int d, uint64_t *sp, int s)
+{
+    if (d > s)
+	d = s;
+
+    for (int i = 0; i < d; i++)
+	dp[i] = (int) sp[i];
+}
+#endif // MAP_32B_METHODS || EMULATE_IOCONNECT_64 || EMULATE_IOCONNECT_ASYNC_64
+
+#if MAP_32B_METHODS
+
+// Compatability routines with earlier Mig interface routines
+// Remember only ILP32 ONLY
+kern_return_t
+io_connect_map_memory(
+	io_connect_t		connect,
+	uint32_t		memoryType,
+	task_port_t		intoTask,
+	vm_address_t		*atAddress,
+	vm_size_t		*ofSize,
+	IOOptionBits		options)
+{
+    kern_return_t rtn;
+
+    mach_vm_address_t	machAtAddress =  *atAddress;
+    mach_vm_size_t      machOfSize    =  *ofSize;
+
+    rtn = io_connect_map_memory_into_task(
+	connect, memoryType, intoTask, &machAtAddress, &machOfSize, options);
+
+    // Must be safe as we are have !__LP64__ checked
+    *atAddress = (vm_address_t) machAtAddress;
+    *ofSize    = (vm_size_t)    machOfSize;
+
+    return rtn;
+}
+
+kern_return_t
+io_connect_unmap_memory(
+	io_connect_t		connect,
+	uint32_t		memoryType,
+	task_port_t		fromTask,
+	vm_address_t		atAddress)
+{
+    // Must be safe as we are have !__LP64__ checked
+    return io_connect_unmap_memory_from_task
+	(connect, memoryType, fromTask, (mach_vm_address_t) atAddress);
+}
+
+kern_return_t
+io_connect_method_scalarI_scalarO(
+	mach_port_t connection,
+	int selector,
+	int *input,
+	mach_msg_type_number_t inputCnt,
+	int *output,
+	mach_msg_type_number_t *outputCnt)
+{
+    kern_return_t rtn;
+
+    // ILP32 - need to remap up to 64 bit scalars
+    io_scalar_inband64_t scalarData;
+    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
+
+    rtn = IOConnectCallMethod(connection, selector,
+			      scalarData, inputCnt,  NULL,       0,
+			      scalarData, outputCnt, NULL,       NULL);
+
+    inputCnt = (rtn == KERN_SUCCESS && outputCnt)? *outputCnt : 0;
+    deflate_vec(output, inputCnt, scalarData, arrayCnt(scalarData));
+
+    return rtn;
+}
+
+kern_return_t
+io_async_method_scalarI_scalarO(
+	mach_port_t connection,
+	mach_port_t wakePort,
+	io_async_ref_t reference,
+	mach_msg_type_number_t referenceCnt,
+	int selector,
+	int *input,
+	mach_msg_type_number_t inputCnt,
+	int *output,
+	mach_msg_type_number_t *outputCnt)
+{
+    kern_return_t rtn;
+
+    // ILP32 - need to remap up to 64 bit scalars
+    io_scalar_inband64_t scalarData;
+    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
+    io_async_ref64_t refrncData;
+    inflate_vec(refrncData, arrayCnt(refrncData), (int *) reference, referenceCnt);
+
+    rtn = IOConnectCallAsyncMethod(connection, selector, wakePort,
+				   refrncData, referenceCnt,
+				   scalarData, inputCnt,
+				   NULL,       0,
+				   scalarData, outputCnt,
+				   NULL,       NULL);
+
+    inputCnt = (rtn == KERN_SUCCESS && outputCnt)? *outputCnt : 0;
+    deflate_vec(output, inputCnt, scalarData, arrayCnt(scalarData));
+
+    return rtn;
+}
+
+
+kern_return_t
+io_connect_method_scalarI_structureO(
+	mach_port_t connection,
+	int selector,
+	int *input,
+	mach_msg_type_number_t inputCnt,
+	io_struct_inband_t output,
+	mach_msg_type_number_t *outputCnt)
+{
+    // ILP32 - need to remap up to 64 bit scalars
+    io_scalar_inband64_t scalarData;
+    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
+
+    return IOConnectCallMethod(connection, selector,
+			       scalarData, inputCnt,
+			       NULL,       0,
+			       NULL,       NULL,
+			       output,     (size_t *) outputCnt);
+}
+
+kern_return_t
+io_async_method_scalarI_structureO(
+	mach_port_t connection,
+	mach_port_t wakePort,
+	io_async_ref_t reference,
+	mach_msg_type_number_t referenceCnt,
+	int selector,
+	int *input,
+	mach_msg_type_number_t inputCnt,
+	io_struct_inband_t output,
+	mach_msg_type_number_t *outputCnt)
+{
+    // ILP32 - need to remap up to 64 bit scalars
+    io_scalar_inband64_t scalarData;
+    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
+    io_async_ref64_t refrncData;
+    inflate_vec(refrncData, arrayCnt(refrncData), (int*)reference, referenceCnt);
+
+    return IOConnectCallAsyncMethod(connection, selector, wakePort,
+				    refrncData, referenceCnt,
+				    scalarData, inputCnt,
+				    NULL,       0,
+				    NULL,       NULL,
+				    output,     (size_t *) outputCnt);
+}
+
+
+kern_return_t
+io_connect_method_scalarI_structureI(
+	mach_port_t connection,
+	int selector,
+	io_scalar_inband_t input,
+	mach_msg_type_number_t inputCnt,
+	io_struct_inband_t inputStruct,
+	mach_msg_type_number_t inputStructCnt)
+{
+    // ILP32 - need to remap up to 64 bit scalars
+    io_scalar_inband64_t scalarData;
+    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
+
+    return IOConnectCallMethod(connection,  selector,
+			       scalarData,  inputCnt,
+			       inputStruct, inputStructCnt,
+			       NULL,         NULL,
+			       NULL,         NULL);
+}
+
+kern_return_t
+io_async_method_scalarI_structureI(
+	mach_port_t connection,
+	mach_port_t wakePort,
+	io_async_ref_t reference,
+	mach_msg_type_number_t referenceCnt,
+	int selector,
+	io_scalar_inband_t input,
+	mach_msg_type_number_t inputCnt,
+	io_struct_inband_t inputStruct,
+	mach_msg_type_number_t inputStructCnt)
+{
+    // ILP32 - need to remap up to 64 bit scalars
+    io_scalar_inband64_t scalarData;
+    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
+    io_async_ref64_t refrncData;
+    inflate_vec(refrncData, arrayCnt(refrncData), (int*)reference, referenceCnt);
+
+    return IOConnectCallAsyncMethod(connection,  selector, wakePort,
+				    refrncData,  referenceCnt,
+				    scalarData,  inputCnt,
+				    inputStruct, inputStructCnt,
+				    NULL,        NULL,
+				    NULL,        NULL);
+}
+
+
+kern_return_t
+io_connect_method_structureI_structureO(
+	mach_port_t connection,
+	int selector,
+	io_struct_inband_t input,
+	mach_msg_type_number_t inputCnt,
+	io_struct_inband_t output,
+	mach_msg_type_number_t *outputCnt)
+{
+    return IOConnectCallMethod(connection, selector,
+			       NULL,       0,
+			       input,      inputCnt,
+			       NULL,       NULL,
+			       output,     (size_t *) outputCnt);
+}
+
+kern_return_t
+io_async_method_structureI_structureO(
+	mach_port_t connection,
+	mach_port_t wakePort,
+	io_async_ref_t reference,
+	mach_msg_type_number_t referenceCnt,
+	int selector,
+	io_struct_inband_t input,
+	mach_msg_type_number_t inputCnt,
+	io_struct_inband_t output,
+	mach_msg_type_number_t *outputCnt)
+{
+    // ILP32 - need to remap up to 64 bit scalars
+    io_async_ref64_t refrncData;
+    inflate_vec(refrncData, arrayCnt(refrncData), (int*)reference, referenceCnt);
+
+    return IOConnectCallAsyncMethod(connection, selector, wakePort,
+				    refrncData, referenceCnt,
+				    NULL,       0,
+				    input,      inputCnt,
+				    NULL,       NULL,
+				    output,	    (size_t *) outputCnt);
+}
+#endif // MAP_32B_METHODS
+
+#if EMULATE_IOCONNECT_64
+kern_return_t io_connect_method
+(
+     mach_port_t connection,
+     uint32_t selector,
+     io_scalar_inband64_t input,
+     mach_msg_type_number_t inputCnt,
+     io_struct_inband_t inband_input,
+     mach_msg_type_number_t inband_inputCnt,
+     mach_vm_address_t ool_input,
+     mach_vm_size_t  ool_input_size __unused,
+     io_scalar_inband64_t output,
+     mach_msg_type_number_t *outputCnt,
+     io_struct_inband_t inband_output,
+     mach_msg_type_number_t *inband_outputCnt,
+     mach_vm_address_t ool_output,
+     mach_vm_size_t * ool_output_size __unused
+)
+{
+    if (ool_input || ool_output)
+	return MIG_ARRAY_TOO_LARGE;
+
+    if (inband_input && inband_output) {
+	// io_connect_method_structureI_structureO
+	return io_connect_method_structureI_structureO(connection, selector,
+		inband_input, inband_inputCnt, inband_output, inband_outputCnt);
+    }
+
+    io_scalar_inband_t inData;
+    deflate_vec(inData, arrayCnt(inData), input, inputCnt);
+
+    if (inband_input) {
+	// io_connect_method_scalarI_structureI
+	return io_connect_method_scalarI_structureI(connection, selector,
+		inData, inputCnt, inband_input, inband_inputCnt);
+    }
+    else if (inband_output) {
+	// io_connect_method_scalarI_structureO
+	return io_connect_method_scalarI_structureO(connection, selector,
+		inData, inputCnt, inband_output, inband_outputCnt);
+    }
+
+    // io_connect_method_scalarI_scalarO
+    kern_return_t rtn = io_connect_method_scalarI_scalarO(connection, selector,
+	    inData, inputCnt, inData, outputCnt);
+    inputCnt = (rtn == KERN_SUCCESS && outputCnt)? *outputCnt : 0;
+    inflate_vec(output, inputCnt, inData, arrayCnt(inData));
+    return rtn;
+}
+#endif // EMULATE_IOCONNECT_64
+
+#if EMULATE_IOCONNECT_ASYNC_64
+kern_return_t io_connect_async_method
+(
+    mach_port_t connection,
+    mach_port_t wake_port,
+    io_async_ref64_t reference,
+    mach_msg_type_number_t referenceCnt,
+    uint32_t selector,
+    io_scalar_inband64_t input,
+    mach_msg_type_number_t inputCnt,
+    io_struct_inband_t inband_input,
+    mach_msg_type_number_t inband_inputCnt,
+    mach_vm_address_t ool_input,
+    mach_vm_size_t  ool_input_size __unused,
+    io_scalar_inband64_t output,
+    mach_msg_type_number_t *outputCnt,
+    io_struct_inband_t inband_output,
+    mach_msg_type_number_t *inband_outputCnt,
+    mach_vm_address_t ool_output,
+    mach_vm_size_t * ool_output_size __unused
+)
+{
+    if (ool_input || ool_output)
+	return MIG_ARRAY_TOO_LARGE;
+
+    io_async_ref_t refData;
+    deflate_vec((int*)refData, arrayCnt(refData), reference, referenceCnt);
+
+    if (inband_input && inband_output) {
+	// io_async_method_structureI_structureO
+	return io_async_method_structureI_structureO(
+		connection, wake_port, refData, referenceCnt, selector,
+		inband_input, inband_inputCnt, inband_output, inband_outputCnt);
+    }
+
+    io_scalar_inband_t inData;
+    deflate_vec(inData, arrayCnt(inData), input, inputCnt);
+
+    if (inband_input) {
+	// io_async_method_scalarI_structureI
+	return io_async_method_scalarI_structureI(
+		connection, wake_port, refData, referenceCnt, selector,
+		inData, inputCnt, inband_input, inband_inputCnt);
+    }
+    else if (inband_output) {
+	// io_async_method_scalarI_structureO
+	return io_async_method_scalarI_structureO(
+		connection, wake_port, refData, referenceCnt, selector,
+		inData, inputCnt, inband_output, inband_outputCnt);
+    }
+
+    // io_async_method_scalarI_scalarO
+    kern_return_t rtn = io_async_method_scalarI_scalarO(
+	    connection, wake_port, refData, referenceCnt, selector,
+	    inData, inputCnt, inData, outputCnt);
+    inputCnt = (rtn == KERN_SUCCESS && outputCnt)? *outputCnt : 0;
+    inflate_vec(output, inputCnt, inData, arrayCnt(inData));
+    return rtn;
+}
+#endif // EMULATE_IOCONNECT_ASYNC_64
+
+
+#endif /* !__LP64__ */
 

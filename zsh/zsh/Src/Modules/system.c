@@ -48,7 +48,7 @@ getposint(char *instr, char *nam)
 
     ret = (int)zstrtol(instr, &eptr, 10);
     if (*eptr || ret < 0) {
-	zwarnnam(nam, "integer expected: %s", instr, 0);
+	zwarnnam(nam, "integer expected: %s", instr);
 	return -1;
     }
 
@@ -83,7 +83,7 @@ bin_sysread(char *nam, char **args, Options ops, UNUSED(int func))
     /* -o: output file descriptor, else store in REPLY */
     if (OPT_ISSET(ops, 'o')) {
 	if (*args) {
-	    zwarnnam(nam, "no argument allowed with -o", NULL, 0);
+	    zwarnnam(nam, "no argument allowed with -o");
 	    return 1;
 	}
 	outfd = getposint(OPT_ARG(ops, 'o'), nam);
@@ -102,7 +102,7 @@ bin_sysread(char *nam, char **args, Options ops, UNUSED(int func))
     if (OPT_ISSET(ops, 'c')) {
 	countvar = OPT_ARG(ops, 'c');
 	if (!isident(countvar)) {
-	    zwarnnam(nam, "not an identifier: %s", countvar, 0);
+	    zwarnnam(nam, "not an identifier: %s", countvar);
 	    return 1;
 	}
     }
@@ -116,7 +116,7 @@ bin_sysread(char *nam, char **args, Options ops, UNUSED(int func))
 	 */
 	outvar = *args;
 	if (!isident(outvar)) {
-	    zwarnnam(nam, "not an identifier: %s", outvar, 0);
+	    zwarnnam(nam, "not an identifier: %s", outvar);
 	    return 1;
 	}
     }
@@ -252,7 +252,7 @@ bin_syswrite(char *nam, char **args, Options ops, UNUSED(int func))
     if (OPT_ISSET(ops, 'c')) {
 	countvar = OPT_ARG(ops, 'c');
 	if (!isident(countvar)) {
-	    zwarnnam(nam, "not an identifier: %s", countvar, 0);
+	    zwarnnam(nam, "not an identifier: %s", countvar);
 	    return 1;
 	}
     }
@@ -299,7 +299,7 @@ bin_syserror(char *nam, char **args, Options ops, UNUSED(int func))
     if (OPT_ISSET(ops, 'e')) {
 	errvar = OPT_ARG(ops, 'e');
 	if (!isident(errvar)) {
-	    zwarnnam(nam, "not an identifier: %s", errvar, 0);
+	    zwarnnam(nam, "not an identifier: %s", errvar);
 	    return 1;
 	}
     }
@@ -340,6 +340,12 @@ bin_syserror(char *nam, char **args, Options ops, UNUSED(int func))
     return 0;
 }
 
+static struct builtin bintab[] = {
+    BUILTIN("syserror", 0, bin_syserror, 0, 1, 0, "e:p:", NULL),
+    BUILTIN("sysread", 0, bin_sysread, 0, 1, 0, "c:i:o:s:t:", NULL),
+    BUILTIN("syswrite", 0, bin_syswrite, 1, 1, 0, "c:o:", NULL),
+};
+
 
 /* Functions for the errnos special parameter. */
 
@@ -351,15 +357,53 @@ errnosgetfn(UNUSED(Param pm))
     return arrdup((char **)sys_errnames);
 }
 
-
-static struct builtin bintab[] = {
-    BUILTIN("syserror", 0, bin_syserror, 0, 1, 0, "e:p:", NULL),
-    BUILTIN("sysread", 0, bin_sysread, 0, 1, 0, "c:i:o:s:t:", NULL),
-    BUILTIN("syswrite", 0, bin_syswrite, 1, 1, 0, "c:o:", NULL),
-};
-
 static const struct gsu_array errnos_gsu =
 { errnosgetfn, arrsetfn, stdunsetfn };
+
+
+/* Functions for the sysparams special parameter. */
+
+/**/
+static char *
+sysparamgetfn(Param pm)
+{
+    char buf[DIGBUFSIZE];
+    int num;
+
+    if (!strcmp(pm->node.nam, "pid")) {
+	num = (int)getpid();
+    } else if (!strcmp(pm->node.nam, "ppid")) {
+	num = (int)getppid();
+    }
+    else {
+#ifdef DEBUG
+	dputs("Bad sysparam parameter");
+#endif
+	return "";
+    }
+
+    sprintf(buf, "%d", num);
+    return dupstring(buf);
+}
+
+static const struct gsu_scalar sysparam_gsu =
+{ sysparamgetfn, strsetfn, stdunsetfn };
+
+static void
+fixsysparams(HashNode hn, int flags)
+{
+    Param pm = (Param)hn;
+
+    if (flags) {
+	/* prepare to free */
+	pm->node.flags &= ~PM_READONLY;
+    } else {
+	/* assign */
+	pm->gsu.s = &sysparam_gsu;
+	pm->node.flags |= PM_READONLY;
+    }
+}
+
 
 /* The load/unload routines required by the zsh library interface */
 
@@ -376,7 +420,7 @@ tidyparam(Param pm)
 {
     if (!pm)
 	return;
-    pm->flags &= ~PM_READONLY;
+    pm->node.flags &= ~PM_READONLY;
     unsetparam_pm(pm, 0, 1);
 }
 
@@ -385,7 +429,12 @@ tidyparam(Param pm)
 int
 boot_(Module m)
 {
-    Param pm_nos;
+    Param pm_nos, pm_params;
+    HashTable ht;
+    const char *sysparams_args[] = {
+	"pid", 	"ppid", NULL
+    }, **srcptr;
+    char **arglist, **dstptr;
 
     /* this takes care of an autoload on errnos */
     unsetparam("errnos");
@@ -394,8 +443,31 @@ boot_(Module m)
 	return 1;
     pm_nos->gsu.a = &errnos_gsu;
 
+    if (!(pm_params = createparam("sysparams", PM_HASHED|PM_SPECIAL|
+				  PM_HIDE|PM_HIDEVAL|PM_REMOVABLE))) {
+	tidyparam(pm_nos);
+	return 1;
+    }
+    pm_params->level = pm_params->old ? locallevel : 0;
+    pm_params->gsu.h = &stdhash_gsu;
+    pm_params->u.hash = ht = newparamtable(0, "sysparams");
+
+    arglist = (char **)zshcalloc((2*arrlen((char **)sysparams_args) + 1) *
+			       sizeof(char *));
+    for (srcptr = sysparams_args, dstptr = arglist; *srcptr; ) {
+	*dstptr++ = ztrdup(*srcptr++);
+	*dstptr++ = ztrdup("");
+    }
+    *dstptr = NULL;
+    /* make sure we don't overwrite the hash table: use the "augment" arg */
+    arrhashsetfn(pm_params, arglist, 1);
+    scanhashtable(ht, 0, 0, 0, fixsysparams, 0);
+
+    pm_params->node.flags |= PM_READONLY;
+
     if (!addbuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab))) {
 	tidyparam(pm_nos);
+	tidyparam(pm_params);
 	return 1;
     }
     return 0;
@@ -406,7 +478,14 @@ boot_(Module m)
 int
 cleanup_(Module m)
 {
-    tidyparam((Param)paramtab->getnode(paramtab, "errnos"));
+    Param pm;
+    if ((pm = (Param)paramtab->getnode(paramtab, "errnos")))
+	tidyparam(pm);
+    if ((pm = (Param)paramtab->getnode(paramtab, "sysparams")))
+    {
+	scanhashtable(pm->u.hash, 0, 0, 0, fixsysparams, 1);
+	tidyparam(pm);
+    }
 
     deletebuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab));
     return 0;

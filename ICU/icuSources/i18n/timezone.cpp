@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2004, International Business Machines Corporation and    *
+* Copyright (C) 1997-2006, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -107,7 +107,7 @@ static UnicodeString* OLSON_IDS = 0;
 #endif
 
 U_CDECL_BEGIN
-static UBool U_CALLCONV timeZone_cleanup()
+static UBool U_CALLCONV timeZone_cleanup(void)
 {
 #ifdef U_USE_TIMEZONE_OBSOLETE_2_8
     delete []OLSON_IDS;
@@ -179,38 +179,39 @@ static UBool getOlsonMeta() {
 static int32_t findInStringArray(UResourceBundle* array, const UnicodeString& id, UErrorCode &status)
 {
     UnicodeString copy;
-    copy.fastCopyFrom(id);
-    const UChar* buf = copy.getTerminatedBuffer();
-    const UChar* u = NULL;
-    
-    int32_t count = ures_getSize(array);
-    int32_t start = 0;
-    int32_t i;
+    const UChar *u;
     int32_t len;
-    int32_t limit = count;
-    if(U_FAILURE(status) || (count < 1)) { 
+    
+    int32_t start = 0;
+    int32_t limit = ures_getSize(array);
+    int32_t mid;
+    int32_t lastMid = INT32_MAX;
+    if(U_FAILURE(status) || (limit < 1)) { 
         return -1;
     }
-    U_DEBUG_TZ_MSG(("fisa: Looking for %s, between %d and %d\n", U_DEBUG_TZ_STR(buf), start, limit));
+    U_DEBUG_TZ_MSG(("fisa: Looking for %s, between %d and %d\n", U_DEBUG_TZ_STR(UnicodeString(id).getTerminatedBuffer()), start, limit));
     
-    while(U_SUCCESS(status) && (start<limit-1)) {
-        i = (int32_t)((start+limit)/2);
-        u = ures_getStringByIndex(array, i, &len, &status);
-        U_DEBUG_TZ_MSG(("tz: compare to %s, %d .. [%d] .. %d\n", U_DEBUG_TZ_STR(u), start, i, limit));
-        int r = u_strcmp(buf,u);
-        if((r==0) && U_SUCCESS(status)) {
-            U_DEBUG_TZ_MSG(("fisa: found at %d\n", i));
-            return i;
-        } else if(r<0) {
-            limit = i;
-        } else {
-            start = i;
+    for (;;) {
+        mid = (int32_t)((start + limit) / 2);
+        if (lastMid == mid) {   /* Have we moved? */
+            break;  /* We haven't moved, and it wasn't found. */
         }
-    }
-    u = ures_getStringByIndex(array, start, &len, &status);
-    if(u_strcmp(buf,u)==0) {
-        U_DEBUG_TZ_MSG(("fisa: finally found at %d\n", start));
-        return start;
+        lastMid = mid;
+        u = ures_getStringByIndex(array, mid, &len, &status);
+        if (U_FAILURE(status)) {
+            break;
+        }
+        U_DEBUG_TZ_MSG(("tz: compare to %s, %d .. [%d] .. %d\n", U_DEBUG_TZ_STR(u), start, mid, limit));
+        copy.setTo(TRUE, u, len);
+        int r = id.compare(copy);
+        if(r==0) {
+            U_DEBUG_TZ_MSG(("fisa: found at %d\n", mid));
+            return mid;
+        } else if(r<0) {
+            limit = mid;
+        } else {
+            start = mid;
+        }
     }
     U_DEBUG_TZ_MSG(("fisa: not found\n"));
     return -1;
@@ -526,6 +527,16 @@ TimeZone::initDefault()
     hostStrID.truncate(hostStrID.length()-1);
     default_zone = createSystemTimeZone(hostStrID);
 
+    int32_t hostIDLen = hostStrID.length();
+    if (default_zone != NULL && rawOffset != default_zone->getRawOffset()
+        && (3 <= hostIDLen && hostIDLen <= 4))
+    {
+        // Uh oh. This probably wasn't a good id.
+        // It was probably an ambiguous abbreviation
+        delete default_zone;
+        default_zone = NULL;
+    }
+
 #if 0
     // NOTE: As of ICU 2.8, we no longer have an offsets table, since
     // historical zones can change offset over time.  If we add
@@ -686,6 +697,8 @@ void TimeZone::getOffset(UDate date, UBool local, int32_t& rawOffset,
 // New available IDs API as of ICU 2.4.  Uses StringEnumeration API.
 
 class TZEnumeration : public StringEnumeration {
+private:
+
     // Map into to zones.  Our results are zone[map[i]] for
     // i=0..len-1, where zone[i] is the i-th Olson zone.  If map==NULL
     // then our results are zone[i] for i=0..len-1.  Len will be zero
@@ -693,6 +706,23 @@ class TZEnumeration : public StringEnumeration {
     int32_t* map;
     int32_t  len;
     int32_t  pos;
+
+    UBool getID(int32_t i) {
+        UErrorCode ec = U_ZERO_ERROR;
+        int32_t idLen = 0;
+        const UChar* id = NULL;
+        UResourceBundle *top = ures_openDirect(0, kZONEINFO, &ec);
+        top = ures_getByKey(top, kNAMES, top, &ec); // dereference Zones section
+        id = ures_getStringByIndex(top, i, &idLen, &ec);
+        if(U_FAILURE(ec)) {
+            unistr.truncate(0);
+        }
+        else {
+            unistr.fastCopyFrom(UnicodeString(TRUE, id, idLen));
+        }
+        ures_close(top);
+        return U_SUCCESS(ec);
+    }
 
 public:
     TZEnumeration() : map(NULL), len(0), pos(0) {
@@ -809,25 +839,6 @@ public:
 
     virtual void reset(UErrorCode& /*status*/) {
         pos = 0;
-    }
-
-private:
-
-    UBool getID(int32_t i) {
-        UErrorCode ec = U_ZERO_ERROR;
-        int32_t idLen = 0;
-        const UChar* id = NULL;
-        UResourceBundle *top = ures_openDirect(0, kZONEINFO, &ec);
-        top = ures_getByKey(top, kNAMES, top, &ec); // dereference Zones section
-        id = ures_getStringByIndex(top, i, &idLen, &ec);
-        if(U_FAILURE(ec)) {
-            unistr.truncate(0);
-        }
-        else {
-            unistr.fastCopyFrom(UnicodeString(TRUE, id, idLen));
-        }
-        ures_close(top);
-        return U_SUCCESS(ec);
     }
 
 public:
@@ -1072,7 +1083,15 @@ TimeZone::getDisplayName(UBool daylight, EDisplayType style, UnicodeString& resu
 {
     return getDisplayName(daylight,style, Locale::getDefault(), result);
 }
-
+//--------------------------------------
+int32_t 
+TimeZone::getDSTSavings()const {
+    if (useDaylightTime()) {
+        return 3600000;
+    }
+    return 0;
+}
+//---------------------------------------
 UnicodeString&
 TimeZone::getDisplayName(UBool daylight, EDisplayType style, const Locale& locale, UnicodeString& result) const
 {
@@ -1099,14 +1118,17 @@ TimeZone::getDisplayName(UBool daylight, EDisplayType style, const Locale& local
     // and hence the same display name.
     // We don't cache these because they're small and cheap to create.
     UnicodeString tempID;
-    SimpleTimeZone *tz =  daylight ?
-        // For the pure-DST zone, we use JANUARY and DECEMBER
-
-        new SimpleTimeZone(getRawOffset(), getID(tempID),
-                           UCAL_JANUARY , 1, 0, 0,
-                           UCAL_DECEMBER , 31, 0, U_MILLIS_PER_DAY, status) :
-        new SimpleTimeZone(getRawOffset(), getID(tempID));
-
+    SimpleTimeZone *tz = NULL;
+    if(daylight  && useDaylightTime()){
+        // For the pure-DST zone, we use JANUARY and DECEMBER        
+        int savings = getDSTSavings();
+        tz = new SimpleTimeZone(getRawOffset(), getID(tempID),
+                                UCAL_JANUARY, 1, 0, 0,
+                                UCAL_FEBRUARY, 1, 0, 0,
+                                savings, status);
+    }else{
+        tz = new SimpleTimeZone(getRawOffset(), getID(tempID));
+    }
     format.applyPattern(style == LONG ? ZZZZ_STR : Z_STR);
     Calendar *myCalendar = (Calendar*)format.getCalendar();
     myCalendar->setTimeZone(*tz); // copy
@@ -1114,7 +1136,7 @@ TimeZone::getDisplayName(UBool daylight, EDisplayType style, const Locale& local
     delete tz;
 
     FieldPosition pos(FieldPosition::DONT_CARE);
-    return format.format(UDate(196262345678.), result, pos); // Must use a valid date here.
+    return format.format(UDate(864000000L), result, pos); // Must use a valid date here.
 }
 
 
@@ -1150,6 +1172,9 @@ TimeZone::createCustomTimeZone(const UnicodeString& id)
 
         UErrorCode success = U_ZERO_ERROR;
         numberFormat = NumberFormat::createInstance(success);
+        if(U_FAILURE(success)){
+            return NULL;
+        }
         numberFormat->setParseIntegerOnly(TRUE);
 
     

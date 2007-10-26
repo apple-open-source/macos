@@ -60,10 +60,6 @@
 
     // Globals
 
-#if USE_ELG
-    com_apple_iokit_XTrace	*gXTrace = 0;
-#endif
-
 //AppleUSBCDCACMData		*gDataDriver = NULL;
 
 static IOPMPowerState gOurPowerStates[kNumCDCStates] =
@@ -75,73 +71,6 @@ static IOPMPowerState gOurPowerStates[kNumCDCStates] =
 #define super IOService
 
 OSDefineMetaClassAndStructors(AppleUSBCDCACMControl, IOService);
-
-#if USE_ELG
-/****************************************************************************************************/
-//
-//		Function:	findKernelLoggerAC
-//
-//		Inputs:		
-//
-//		Outputs:	
-//
-//		Desc:		Just like the name says
-//
-/****************************************************************************************************/
-
-IOReturn findKernelLoggerAC()
-{
-    OSIterator		*iterator = NULL;
-    OSDictionary	*matchingDictionary = NULL;
-    IOReturn		error = 0;
-	
-	// Get matching dictionary
-	
-    matchingDictionary = IOService::serviceMatching("com_apple_iokit_XTrace");
-    if (!matchingDictionary)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerAC] Couldn't create a matching dictionary.\n");
-        goto exit;
-    }
-	
-	// Get an iterator
-	
-    iterator = IOService::getMatchingServices(matchingDictionary);
-    if (!iterator)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerAC] No XTrace logger found.\n");
-        goto exit;
-    }
-	
-	// User iterator to find each com_apple_iokit_XTrace instance. There should be only one, so we
-	// won't iterate
-	
-    gXTrace = (com_apple_iokit_XTrace*)iterator->getNextObject();
-    if (gXTrace)
-    {
-        IOLog(DEBUG_NAME "[findKernelLoggerAC] Found XTrace logger at %p.\n", gXTrace);
-    }
-	
-exit:
-	
-    if (error != kIOReturnSuccess)
-    {
-        gXTrace = NULL;
-        IOLog(DEBUG_NAME "[findKernelLoggerAC] Could not find a logger instance. Error = %X.\n", error);
-    }
-	
-    if (matchingDictionary)
-        matchingDictionary->release();
-            
-    if (iterator)
-        iterator->release();
-		
-    return error;
-    
-}/* end findKernelLoggerAC */
-#endif
 
 /****************************************************************************************************/
 //
@@ -193,7 +122,7 @@ AppleUSBCDC *findCDCDriverAC(void *controlAddr)
         
         if (me->fControlInterface->GetDevice() == CDCDriver->getCDCDevice())
         {
-            XTRACE(me, 0, CDCDriver, "findCDCDriverAD - Found our CDC driver");
+            XTRACE(me, 0, CDCDriver, "findCDCDriverAC - Found our CDC driver");
             driverOK = CDCDriver->confirmControl(kUSBAbstractControlModel, me->fControlInterface);
             break;
         }
@@ -221,6 +150,7 @@ AppleUSBCDC *findCDCDriverAC(void *controlAddr)
 
 	// Encode the 4 modem status bits (so we only make one call to setState)
 
+#if 0
 static UInt32 sMapModemStates[16] = 
 {
 	             0 |              0 |              0 |              0, // 0000
@@ -240,6 +170,7 @@ static UInt32 sMapModemStates[16] =
 	PD_RS232_S_RNG | PD_RS232_S_BRK | PD_RS232_S_DSR |              0, // 1110
 	PD_RS232_S_RNG | PD_RS232_S_BRK | PD_RS232_S_DSR | PD_RS232_S_DCD, // 1111
 };
+#endif
 
 /****************************************************************************************************/
 //
@@ -280,14 +211,36 @@ void AppleUSBCDCACMControl::commReadComplete(void *obj, void *param, IOReturn rc
             tState = (UInt16 *)&me->fCommPipeBuffer[8];
             tempS = USBToHostWord(*tState);
             XTRACE(me, 0, tempS, "commReadComplete - kUSBSERIAL_STATE");
+			if (tempS & kUSBbRxCarrier)
+			{
+				value = PD_RS232_S_DCD;
+				mask = PD_RS232_S_DCD;
+			}
+			if (tempS & kUSBbTxCarrier)
+			{
+				value |= PD_RS232_S_DSR;
+				mask |= PD_RS232_S_DSR;
+			}
+			if (tempS & kUSBbBreak)
+			{
+				value |= PD_RS232_S_BRK;
+				mask |= PD_RS232_S_BRK;
+			}
+			if (tempS & kUSBbRingSignal)
+			{
+				value |= PD_RS232_S_RNG;
+				mask |= PD_RS232_S_RNG;
+			}
 			
-            mask = sMapModemStates[15];				// All 4 on
-            value = sMapModemStates[tempS & 15];		// now the status bits
+//            mask = sMapModemStates[15];				// All 4 on
+//            value = sMapModemStates[tempS & 15];		// now the status bits
             if (me->fDataDriver)
             {
                 me->fDataDriver->setState(value, mask, NULL);
             }
-        }
+        } else {
+			XTRACE(me, 0, me->fCommPipeBuffer[1], "commReadComplete - Unhandled notification");
+		}
     } else {
         XTRACE(me, 0, rc, "commReadComplete - error");
         if (rc != kIOReturnAborted)
@@ -450,21 +403,6 @@ bool AppleUSBCDCACMControl::start(IOService *provider)
     fCommPipeBuffer = NULL;
 	fReadDead = false;
     
-#if USE_ELG
-    XTraceLogInfo	*logInfo;
-    
-    findKernelLoggerAC();
-    if (gXTrace)
-    {
-        gXTrace->retain();		// don't let it unload ...
-        XTRACE(this, 0, 0xbeefbeef, "Hello from start");
-        logInfo = gXTrace->LogGetInfo();
-        IOLog("AppleUSBCDCACMControl: start - Log is at %x\n", (unsigned int)logInfo);
-    } else {
-        return false;
-    }
-#endif
-
     XTRACE(this, 0, provider, "start - provider.");
     
     if(!super::start(provider))
@@ -481,6 +419,13 @@ bool AppleUSBCDCACMControl::start(IOService *provider)
         ALERT(0, 0, "start - provider invalid");
         return false;
     }
+	
+	fCDCDriver = findCDCDriverAC(this);
+	if (!fCDCDriver)
+	{
+		ALERT(0, 0, "start - Failed to find the CDC driver");
+        return false;
+	}
     
     if (!configureACM())
     {
@@ -491,12 +436,14 @@ bool AppleUSBCDCACMControl::start(IOService *provider)
     if (!allocateResources()) 
     {
         ALERT(0, 0, "start - allocateResources failed");
+		releaseResources();
         return false;
     }
     
     if (!initForPM(provider))
     {
         ALERT(0, 0, "start - initForPM failed");
+		releaseResources();
         return false;
     }
     
@@ -599,7 +546,7 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
     CMFunctionalDescriptor		*CMFDesc;		// call management functional descriptor
     ACMFunctionalDescriptor		*ACMFDesc;		// abstract control management functional descriptor
     UnionFunctionalDescriptor		*UNNFDesc;		// union functional descriptor
-	AppleUSBCDC				*CDCDriver = NULL;
+//	AppleUSBCDC				*CDCDriver = NULL;
        
     XTRACE(this, 0, 0, "getFunctionalDescriptors");
     
@@ -697,12 +644,12 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
     if (fDataInterfaceNumber == 0xFF)
     {
         XTRACE(this, 0, 0, "getFunctionalDescriptors - No data interface specified");
-		CDCDriver = findCDCDriverAC(this);
-		if (CDCDriver)
+//		fCDCDriver = findCDCDriverAC(this);
+		if (fCDCDriver)
 		{
-			if (CDCDriver->fDataInterfaceNumber != 0xFF)
+			if (fCDCDriver->fDataInterfaceNumber != 0xFF)
 			{
-				fDataInterfaceNumber = CDCDriver->fDataInterfaceNumber;
+				fDataInterfaceNumber = fCDCDriver->fDataInterfaceNumber;
 				XTRACE(this, fACMCapabilities, fDataInterfaceNumber, "getFunctionalDescriptors - Data interface number (assumed from CDC driver)");
 			} else {
 				return false;
@@ -718,7 +665,13 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
 		if (fCommInterfaceNumber == fDataInterfaceNumber)
 		{
 			ALERT(fCommInterfaceNumber, fDataInterfaceNumber, "getFunctionalDescriptors - Descriptors are incorrect, checking...");
-			fDataInterfaceNumber = UNNFDesc->bMasterInterface;
+			if (UNNFDesc)
+			{
+				fDataInterfaceNumber = UNNFDesc->bMasterInterface;
+			} else {
+				ALERT(fCommInterfaceNumber, fDataInterfaceNumber, "getFunctionalDescriptors - unable to continue");
+				return false;
+			}
 		}
     }
     

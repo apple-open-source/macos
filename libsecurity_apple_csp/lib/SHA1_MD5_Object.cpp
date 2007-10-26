@@ -67,7 +67,7 @@ DigestObject *MD5Object::digestClone() const
 	return new MD5Object(*this);
 }
 
-UInt32 MD5Object::digestSizeInBytes() const
+size_t MD5Object::digestSizeInBytes() const
 {
 	return CC_MD5_DIGEST_LENGTH;
 }
@@ -101,7 +101,7 @@ DigestObject *SHA1Object::digestClone() const
 	return new SHA1Object(*this);
 }
 
-UInt32 SHA1Object::digestSizeInBytes() const
+size_t SHA1Object::digestSizeInBytes() const
 {
 	return CC_SHA1_DIGEST_LENGTH;
 }

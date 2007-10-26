@@ -899,6 +899,26 @@ rest_of_handle_combine (void)
   rebuild_jump_labels_after_combine
     = combine_instructions (get_insns (), max_reg_num ());
 
+  /* APPLE LOCAL begin ARM rerun cse after combine */
+  if (flag_rerun_cse_after_combine)
+    {
+      int save_csb, save_cfj;
+      int tem2 = 0;
+      timevar_push (TV_CSE);
+      save_csb = flag_cse_skip_blocks;
+      save_cfj = flag_cse_follow_jumps;
+      flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
+      reg_scan (get_insns (), max_reg_num ());
+      tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
+      if (purge_all_dead_edges (0))
+	delete_unreachable_blocks();
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+      timevar_pop (TV_CSE);
+      cse_not_expected = 1;
+      flag_cse_skip_blocks = save_csb;
+      flag_cse_follow_jumps = save_cfj;
+    }
+  /* APPLE LOCAL end ARM rerun cse after combine */
   /* Combining insns may have turned an indirect jump into a
      direct jump.  Rebuild the JUMP_LABEL fields of jumping
      instructions.  */
@@ -983,7 +1003,8 @@ rest_of_handle_cse (void)
 
   /* If we are not running more CSE passes, then we are no longer
      expecting CSE to be run.  But always rerun it in a cheap mode.  */
-  cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
+  /* APPLE LOCAL ARM rerun cse after combine */
+  cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse && !flag_rerun_cse_after_combine;
 
   if (tem)
     delete_dead_jumptables ();
@@ -1062,7 +1083,8 @@ rest_of_handle_gcse (void)
       purge_all_dead_edges (0);
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
       timevar_pop (TV_CSE);
-      cse_not_expected = !flag_rerun_cse_after_loop;
+      /* APPLE LOCAL ARM rerun cse after combine */
+      cse_not_expected = !flag_rerun_cse_after_loop && !flag_rerun_cse_after_combine;
     }
 
   /* If gcse or cse altered any jumps, rerun jump optimizations to clean
@@ -1554,8 +1576,10 @@ rest_of_compilation (void)
   /* We are now committed to emitting code for this function.  Do any
      preparation, such as emitting abstract debug info for the inline
      before it gets mangled by optimization.  */
+/* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
   if (cgraph_function_possibly_inlined_p (current_function_decl))
-    (*debug_hooks->outlining_inline_function) (current_function_decl);
+    (*debug_hooks->outlining_inline_function) (current_function_decl, NULL);
+/* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
 
   /* Remove any notes we don't need.  That will make iterating
      over the instruction sequence faster, and allow the garbage
@@ -1659,7 +1683,8 @@ rest_of_compilation (void)
   if (optimize > 0 && flag_rerun_cse_after_loop)
     rest_of_handle_cse2 ();
 
-  cse_not_expected = 1;
+  /* APPLE LOCAL ARM rerun cse after combine */
+  cse_not_expected = !flag_rerun_cse_after_combine;
 
   rest_of_handle_life ();
   timevar_pop (TV_FLOW);

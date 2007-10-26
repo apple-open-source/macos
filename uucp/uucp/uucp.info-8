@@ -1,0 +1,172 @@
+This is uucp.info, produced by makeinfo version 4.1 from uucp.texi.
+
+START-INFO-DIR-ENTRY
+* UUCP: (uucp).                 Transfer mail and news across phone lines.
+END-INFO-DIR-ENTRY
+
+   This file documents Taylor UUCP, version 1.07.
+
+   Copyright (C) 1992, 1993, 1994, 1995, 2002 Ian Lance Taylor
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "Copying" are included exactly as in the
+original, and provided that the entire resulting derived work is
+distributed under the terms of a permission notice identical to this
+one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the section entitled "Copying" may be included in
+a translation approved by the author instead of in the original English.
+
+
+File: uucp.info,  Node: Index (configuration file),  Prev: Index (concepts),  Up: Top
+
+Configuration File Index
+************************
+
+* Menu:
+
+* abort:                                 dial File.
+* abort-chat:                            dial File.
+* abort-chat-fail:                       dial File.
+* abort-chat-program:                    dial File.
+* abort-chat-seven-bit:                  dial File.
+* abort-chat-timeout:                    dial File.
+* address:                               Placing the Call.
+* alias:                                 Naming the System.
+* alternate:                             Naming the System.
+* baud in port file:                     port File.
+* baud in sys file:                      Placing the Call.
+* baud-range:                            port File.
+* call-local-size:                       File Transfer Control.
+* call-login:                            Logging In.
+* call-password:                         Logging In.
+* call-remote-size:                      File Transfer Control.
+* call-timegrade:                        When to Call.
+* call-transfer:                         File Transfer Control.
+* callback:                              Accepting a Call.
+* called-chat:                           Accepting a Call.
+* called-chat-fail:                      Accepting a Call.
+* called-chat-program:                   Accepting a Call.
+* called-chat-seven-bit:                 Accepting a Call.
+* called-chat-timeout:                   Accepting a Call.
+* called-local-size:                     File Transfer Control.
+* called-login:                          Accepting a Call.
+* called-remote-size:                    File Transfer Control.
+* called-timegrade:                      When to Call.
+* called-transfer:                       File Transfer Control.
+* callfile:                              Configuration File Names.
+* carrier in dial file:                  dial File.
+* carrier in port file:                  port File.
+* carrier-wait:                          dial File.
+* chat:                                  Chat Scripts.
+* chat in dial file:                     dial File.
+* chat in sys file:                      Logging In.
+* chat-fail:                             Chat Scripts.
+* chat-fail in dial file:                dial File.
+* chat-fail in sys file:                 Logging In.
+* chat-program:                          Chat Scripts.
+* chat-program in dial file:             dial File.
+* chat-program in sys file:              Logging In.
+* chat-seven-bit:                        Chat Scripts.
+* chat-seven-bit in dial file:           dial File.
+* chat-seven-bit in sys file:            Logging In.
+* chat-timeout:                          Chat Scripts.
+* chat-timeout in dial file:             dial File.
+* chat-timeout in sys file:              Logging In.
+* command:                               port File.
+* command-path:                          Miscellaneous (sys).
+* commands:                              Miscellaneous (sys).
+* complete:                              dial File.
+* complete-chat:                         dial File.
+* complete-chat-fail:                    dial File.
+* complete-chat-program:                 dial File.
+* complete-chat-seven-bit:               dial File.
+* complete-chat-timeout:                 dial File.
+* debug in config file:                  Debugging Levels.
+* debug in sys file:                     Miscellaneous (sys).
+* debugfile:                             Log File Names.
+* default-alternates:                    Naming the System.
+* device:                                port File.
+* dial-device:                           port File.
+* dialcodefile:                          Configuration File Names.
+* dialer in dial file:                   dial File.
+* dialer in port file:                   port File.
+* dialer-sequence:                       port File.
+* dialfile:                              Configuration File Names.
+* dialtone:                              dial File.
+* dtr-toggle:                            dial File.
+* forward:                               File Transfer Control.
+* forward-from:                          File Transfer Control.
+* forward-to:                            File Transfer Control.
+* free-space:                            Miscellaneous (sys).
+* half-duplex in dial file:              dial File.
+* half-duplex in port file:              port File.
+* hardflow:                              port File.
+* hdb-files:                             Miscellaneous (config).
+* hostname:                              Miscellaneous (config).
+* local-receive:                         File Transfer Control.
+* local-send:                            File Transfer Control.
+* lockdir:                               Miscellaneous (config).
+* lockname:                              port File.
+* logfile:                               Log File Names.
+* max-file-time:                         File Transfer Control.
+* max-remote-debug:                      Miscellaneous (sys).
+* max-retries:                           When to Call.
+* max-uuxqts:                            Miscellaneous (config).
+* myname:                                Naming the System.
+* nodename:                              Miscellaneous (config).
+* passwdfile:                            Configuration File Names.
+* pause:                                 dial File.
+* phone:                                 Placing the Call.
+* port in port file:                     port File.
+* port in sys file:                      Placing the Call.
+* portfile:                              Configuration File Names.
+* protocol in port file:                 port File.
+* protocol in sys file:                  Protocol Selection.
+* protocol-parameter in dial file:       dial File.
+* protocol-parameter in port file:       port File.
+* protocol-parameter in sys file:        Protocol Selection.
+* pubdir in config file:                 Miscellaneous (config).
+* pubdir in sys file:                    Miscellaneous (sys).
+* push:                                  port File.
+* receive-request:                       File Transfer Control.
+* reliable in dial file:                 dial File.
+* reliable in port file:                 port File.
+* remote-receive:                        File Transfer Control.
+* remote-send:                           File Transfer Control.
+* request:                               File Transfer Control.
+* run-uuxqt:                             Miscellaneous (config).
+* send-request:                          File Transfer Control.
+* sequence:                              Miscellaneous (sys).
+* server-address:                        port File.
+* service:                               port File.
+* seven-bit in dial file:                dial File.
+* seven-bit in port file:                port File.
+* speed in port file:                    port File.
+* speed in sys file:                     Placing the Call.
+* speed-range:                           port File.
+* spool:                                 Miscellaneous (config).
+* statfile:                              Log File Names.
+* stream:                                port File.
+* strip-login:                           Miscellaneous (config).
+* strip-proto:                           Miscellaneous (config).
+* sysfile:                               Configuration File Names.
+* system:                                Naming the System.
+* time:                                  When to Call.
+* timegrade:                             When to Call.
+* timetable:                             Miscellaneous (config).
+* transfer:                              File Transfer Control.
+* type:                                  port File.
+* unknown:                               Miscellaneous (config).
+* uuname:                                Miscellaneous (config).
+* v2-files:                              Miscellaneous (config).
+* version:                               port File.
+
+

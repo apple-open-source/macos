@@ -313,7 +313,9 @@ ModuleImpl::ModuleImpl(const Guid &guid) : ObjectImpl(Cssm::standard()),
 	setGuid(guid);
 }
 
-ModuleImpl::ModuleImpl(const Guid &guid, const Cssm &session) : ObjectImpl(session)
+ModuleImpl::ModuleImpl(const Guid &guid, const Cssm &session) : ObjectImpl(session),
+	mAppNotifyCallback(NULL),
+	mAppNotifyCallbackCtx(NULL)
 {
 	setGuid(guid);
 }
@@ -372,6 +374,8 @@ void ModuleEvents::fault(uint32 subService, CSSM_SERVICE_TYPE type) { }
 void
 ModuleImpl::appNotifyCallback(CSSM_API_ModuleEventHandler appNotifyCallback, void *appNotifyCallbackCtx)
 {
+	secdebug("callback","In ModuleImpl::appNotifyCallback, appNotifyCallback=%p, appNotifyCallbackCtx=%p",
+		appNotifyCallback, appNotifyCallbackCtx);
 	if (mActive)
 		Error::throwMe(Error::objectBusy);
 
@@ -392,6 +396,8 @@ ModuleImpl::activate()
 	{
 		session()->init();
 		// @@@ install handler here (use central dispatch with override)
+		secdebug("callback","In ModuleImpl::activate, mAppNotifyCallback=%p, mAppNotifyCallbackCtx=%p",
+			mAppNotifyCallback, mAppNotifyCallbackCtx);
 		check(CSSM_ModuleLoad(&guid(), CSSM_KEY_HIERARCHY_NONE, mAppNotifyCallback, mAppNotifyCallbackCtx));
 		mActive = true;
 		session()->catchExit();

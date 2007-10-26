@@ -1,7 +1,7 @@
 /* stristr.h -- locate a substring case-insensitively
  */
 
-/* $Id: stristr.h,v 1.5 2005/03/05 00:37:19 dasenbro Exp $ */
+/* $Id: stristr.h,v 1.2 2002/05/25 19:57:47 leg Exp $ */
 
 #ifndef INCLUDED_STRISTR_H
 #define INCLUDED_STRISTR_H

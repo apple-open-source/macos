@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: syslog.c,v 1.3.12.5 2004/03/08 09:05:01 marka Exp $ */
+/* $Id: syslog.c,v 1.8 2004/03/05 05:11:59 marka Exp $ */
 
 #include <config.h>
 

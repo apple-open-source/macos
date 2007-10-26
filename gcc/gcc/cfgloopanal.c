@@ -532,6 +532,16 @@ init_set_costs (void)
   seq = get_insns ();
   end_sequence ();
   target_small_cost = seq_cost (seq);
+  /* APPLE LOCAL begin ARM addresses involving large constants */
+#if defined(TARGET_ARM)
+  /* This roughly measures the setup cost of getting something into a reg in
+     the first place, which is done outside the loop; thus, lower it a bit. 
+     Probably OK for other targets too (and should not cause correctness problems)
+     but untested. */
+  if (TARGET_ARM)
+    target_small_cost = seq_cost (seq) -1;
+#endif
+  /* APPLE LOCAL end ARM addresses involving large constants */
   target_pres_cost = 2 * target_small_cost;
 
   start_sequence ();

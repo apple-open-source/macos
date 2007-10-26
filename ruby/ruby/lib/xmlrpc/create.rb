@@ -3,7 +3,7 @@
 # 
 # Copyright (C) 2001, 2002, 2003 by Michael Neumann (mneumann@ntecs.de)
 #
-# $Id: create.rb,v 1.1 2003/07/19 10:05:54 matz Exp $
+# $Id: create.rb 11820 2007-02-23 03:47:59Z knu $
 #
 
 require "date"
@@ -85,6 +85,18 @@ module XMLRPC
       end
 
     end # class XMLParser
+
+    Classes = [Simple, XMLParser]
+
+    # yields an instance of each installed XML writer
+    def self.each_installed_writer
+      XMLRPC::XMLWriter::Classes.each do |klass|
+        begin
+          yield klass.new
+        rescue LoadError
+        end
+      end
+    end
 
   end # module XMLWriter
 
@@ -229,12 +241,7 @@ module XMLRPC
 	    @writer.ele("data", *a)
 	  )
 
-	when Date
-	  t = param
-	  @writer.tag("dateTime.iso8601", 
-	    format("%.4d%02d%02dT00:00:00", t.year, t.month, t.day))
-
-	when Time
+	when Time, Date, ::DateTime
 	  @writer.tag("dateTime.iso8601", param.strftime("%Y%m%dT%H:%M:%S"))  
 
 	when XMLRPC::DateTime
@@ -248,7 +255,10 @@ module XMLRPC
           if Config::ENABLE_MARSHALLING and param.class.included_modules.include? XMLRPC::Marshallable
             # convert Ruby object into Hash
             ret = {"___class___" => param.class.name}
-            param.__get_instance_variables.each {|name, val| 
+            param.instance_variables.each {|v| 
+              name = v[1..-1]
+              val = param.instance_variable_get(v)
+
               if val.nil?
                 ret[name] = val if Config::ENABLE_NIL_CREATE
               else

@@ -28,13 +28,14 @@
 
 #include <IOKit/IOLib.h>
 #include <IOKit/IOCommandGate.h>
+#include <IOKit/IOKitKeys.h>
 
 #define super IOUserClient
 
 OSDefineMetaClassAndStructors(IOAudioControlUserClient, IOUserClient)
 OSMetaClassDefineReservedUsed(IOAudioControlUserClient, 0);
+OSMetaClassDefineReservedUsed(IOAudioControlUserClient, 1);
 
-OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 1);
 OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 2);
 OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 3);
 OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 4);
@@ -51,6 +52,38 @@ OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 14);
 OSMetaClassDefineReservedUnused(IOAudioControlUserClient, 15);
 
 // New code here
+
+// OSMetaClassDefineReservedUsed(IOAudioControlUserClient, 1);
+bool IOAudioControlUserClient::initWithAudioControl(IOAudioControl *control, task_t task, void *securityID, UInt32 type, OSDictionary *properties)
+{
+	// Declare Rosetta compatibility
+	if (properties) {
+		properties->setObject(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
+	}
+	
+    if (!initWithTask(task, securityID, type, properties)) {
+        return false;
+    }
+/*
+	// For 3019260
+	if (clientHasPrivilege(securityID, kIOClientPrivilegeLocalUser)) {
+		// You don't have enough privileges to control the audio
+		return false;
+	}
+*/
+    if (!control) {
+        return false;
+    }
+
+    audioControl = control;
+	audioControl->retain();
+    clientTask = task;
+    notificationMessage = 0;
+
+    return true;
+}
+
+// OSMetaClassDefineReservedUsed(IOAudioControlUserClient, 0);
 void IOAudioControlUserClient::sendChangeNotification(UInt32 notificationType)
 {
     if (notificationMessage) {
@@ -62,6 +95,22 @@ void IOAudioControlUserClient::sendChangeNotification(UInt32 notificationType)
             IOLog("IOAudioControlUserClient: sendRangeChangeNotification() failed - msg_send returned: %d\n", kr);
         }
     }
+}
+
+IOAudioControlUserClient *IOAudioControlUserClient::withAudioControl(IOAudioControl *control, task_t clientTask, void *securityID, UInt32 type, OSDictionary *properties)
+{
+    IOAudioControlUserClient *client;
+
+    client = new IOAudioControlUserClient;
+
+    if (client) {
+        if (!client->initWithAudioControl(control, clientTask, securityID, type, properties)) {
+            client->release();
+            client = 0;
+        }
+    }
+    
+    return client;
 }
 
 // Original code here...

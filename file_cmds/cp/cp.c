@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1988, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -34,6 +30,7 @@
  * SUCH DAMAGE.
  */
 
+#if 0
 #ifndef lint
 static char const copyright[] =
 "@(#) Copyright (c) 1988, 1993, 1994\n\
@@ -41,12 +38,11 @@ static char const copyright[] =
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)cp.c	8.2 (Berkeley) 4/1/94";
-#endif
 #endif /* not lint */
+#endif
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/cp/cp.c,v 1.42 2002/09/22 11:15:56 mckay Exp $");
+__FBSDID("$FreeBSD: src/bin/cp/cp.c,v 1.52 2005/09/05 04:36:08 csjp Exp $");
 
 /*
  * Cp copies source files to target files.
@@ -63,13 +59,14 @@ __RCSID("$FreeBSD: src/bin/cp/cp.c,v 1.42 2002/09/22 11:15:56 mckay Exp $");
  * in "to") to form the final target path.
  */
 
-#include <sys/param.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 
 #include <err.h>
 #include <errno.h>
 #include <fts.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,9 +74,11 @@ __RCSID("$FreeBSD: src/bin/cp/cp.c,v 1.42 2002/09/22 11:15:56 mckay Exp $");
 
 #ifdef __APPLE__
 #include <copyfile.h>
-#endif
+#include <get_compat.h>
+#else /* !__APPLE__ */
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
 
-#include "get_compat.h"
 #include "extern.h"
 
 #define	STRIP_TRAILING_SLASH(p) {					\
@@ -92,12 +91,17 @@ static char emptystring[] = "";
 PATH_T to = { to.p_path, emptystring, "" };
 
 int fflag, iflag, nflag, pflag, vflag;
+#ifdef __APPLE__
+int Xflag;
+#endif /* __APPLE__ */
 static int Rflag, rflag;
+volatile sig_atomic_t info;
 
 enum op { FILE_TO_FILE, FILE_TO_DIR, DIR_TO_DNE };
 
 static int copy(char *[], enum op, int);
 static int mastercmp(const FTSENT * const *, const FTSENT * const *);
+static void siginfo(int __unused);
 
 int
 main(int argc, char *argv[])
@@ -108,7 +112,7 @@ main(int argc, char *argv[])
 	char *target;
 
 	Hflag = Lflag = Pflag = 0;
-	while ((ch = getopt(argc, argv, "HLPRfinprv")) != -1)
+	while ((ch = getopt(argc, argv, "HLPRXfinprv")) != -1)
 		switch (ch) {
 		case 'H':
 			Hflag = 1;
@@ -125,17 +129,23 @@ main(int argc, char *argv[])
 		case 'R':
 			Rflag = 1;
 			break;
+		case 'X':
+			Xflag = 1;
+			break;
 		case 'f':
 			fflag = 1;
 			/* Determine if the STD is SUSv3 or Legacy */
-			if (compat_mode("bin/cp", "unix2003"))
+			if (COMPAT_MODE("bin/cp", "unix2003"))
 				nflag = 0;	/* reset nflag, but not iflag */
 			else
 				iflag = nflag = 0;	/* reset both */
 			break;
 		case 'i':
 			iflag = 1;
-			fflag = nflag = 0;
+			if (COMPAT_MODE("bin/cp", "unix2003"))
+				nflag = 0;	/* reset nflag, but not fflag */
+			else
+				fflag = nflag = 0;
 			break;
 		case 'n':
 			nflag = 1;
@@ -182,6 +192,7 @@ main(int argc, char *argv[])
 		fts_options &= ~FTS_PHYSICAL;
 		fts_options |= FTS_LOGICAL | FTS_COMFOLLOW;
 	}
+	(void)signal(SIGINFO, siginfo);
 
 	/* Save the target base in "to". */
 	target = argv[--argc];
@@ -261,7 +272,7 @@ main(int argc, char *argv[])
 	exit (copy(argv, type, fts_options));
 }
 
-int
+static int
 copy(char *argv[], enum op type, int fts_options)
 {
 	struct stat to_stat;
@@ -371,11 +382,17 @@ copy(char *argv[], enum op type, int fts_options)
 			 * normally want to preserve them on directories.
 			 */
 			if (pflag) {
+				if (setfile(curr->fts_statp, -1))
+					rval = 1;
 #ifdef __APPLE__
-				copyfile(curr->fts_path, to.p_path, 0, COPYFILE_ACL);
-#endif
-				if (setfile(curr->fts_statp, 0))
-				    rval = 1;
+				/* setfile will fail if writeattr is denied */
+				if (copyfile(curr->fts_path, to.p_path, NULL, COPYFILE_ACL)<0)
+					warn("%s: unable to copy ACL to %s", curr->fts_path, to.p_path);
+#else  /* !__APPLE__ */
+				if (preserve_dir_acls(curr->fts_statp,
+				    curr->fts_accpath, to.p_path) != 0)
+					rval = 1;
+#endif /* __APPLE__ */
 			} else {
 				mode = curr->fts_statp->st_mode;
 				if ((mode & (S_ISUID | S_ISGID | S_ISTXT)) ||
@@ -428,7 +445,7 @@ copy(char *argv[], enum op type, int fts_options)
 		case S_IFDIR:
 			if (!Rflag && !rflag) {
 				warnx("%s is a directory (not copied).",
-					 curr->fts_path);
+				    curr->fts_path);
 				(void)fts_set(ftsp, curr, FTS_SKIP);
 				badcp = rval = 1;
 				break;
@@ -444,10 +461,18 @@ copy(char *argv[], enum op type, int fts_options)
 			if (dne) {
 				if (mkdir(to.p_path,
 				    curr->fts_statp->st_mode | S_IRWXU) < 0)
-					err(1, "%s", to.p_path);
+					if (COMPAT_MODE("bin/cp", "unix2003")) {
+						warn("%s", to.p_path);
+					} else {
+						err(1, "%s", to.p_path);
+					}
 			} else if (!S_ISDIR(to_stat.st_mode)) {
 				errno = ENOTDIR;
-				err(1, "%s", to.p_path);
+				if (COMPAT_MODE("bin/cp", "unix2003")) {
+					warn("%s", to.p_path);
+				} else {
+					err(1, "%s", to.p_path);
+				}
 			}
 			/*
 			 * Arrange to correct directory attributes later
@@ -456,8 +481,12 @@ copy(char *argv[], enum op type, int fts_options)
 			 */
 			curr->fts_number = pflag || dne;
 #ifdef __APPLE__
-			copyfile(curr->fts_path, to.p_path, 0, COPYFILE_XATTR);
-#endif
+			if (!Xflag) {
+				if (copyfile(curr->fts_path, to.p_path, NULL, COPYFILE_XATTR) < 0)
+					warn("%s: unable to copy extended attributes to %s", curr->fts_path, to.p_path);
+				/* ACL and mtime set in postorder traversal */
+			}
+#endif /* __APPLE__ */
 			break;
 		case S_IFBLK:
 		case S_IFCHR:
@@ -488,6 +517,7 @@ copy(char *argv[], enum op type, int fts_options)
 	}
 	if (errno)
 		err(1, "fts_read");
+	fts_close(ftsp);
 	return (rval);
 }
 
@@ -499,7 +529,7 @@ copy(char *argv[], enum op type, int fts_options)
  *	parent directory, whereas directories tend not to be.  Copying the
  *	files first reduces seeking.
  */
-int
+static int
 mastercmp(const FTSENT * const *a, const FTSENT * const *b)
 {
 	int a_info, b_info;
@@ -515,4 +545,11 @@ mastercmp(const FTSENT * const *a, const FTSENT * const *b)
 	if (b_info == FTS_D)
 		return (1);
 	return (0);
+}
+
+static void
+siginfo(int sig __unused)
+{
+
+	info = 1;
 }

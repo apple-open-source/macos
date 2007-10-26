@@ -26,17 +26,22 @@
 #include "ui-out.h"
 #include "cli-out.h"
 #include "top.h"		/* for "execute_command" */
+/* APPLE LOCAL inferior.h */
 #include "inferior.h"           /* for "sync_execution" */
 #include "mi/mi-console.h"      /* for "mi_console_file_new" */
 #include "gdb_string.h"
+/* APPLE LOCAL cli-cmds.h */
 #include "cli-cmds.h"
+#include "exceptions.h"
 
 struct ui_out *cli_uiout;
 
-/* These are the ui_out and the interpreter for the console interpreter. */
+/* These are the ui_out and the interpreter for the console interpreter.  */
 
-/* Longjmp-safe wrapper for "execute_command" */
-static int do_captured_execute_command (struct ui_out *uiout, void *data);
+/* Longjmp-safe wrapper for "execute_command".  */
+/* APPLE LOCAL Make globally visible */
+struct gdb_exception safe_execute_command (struct ui_out *uiout,
+						  char *command, int from_tty);
 
 struct captured_execute_command_args
 {
@@ -97,10 +102,10 @@ cli_interpreter_display_prompt_p (void *data)
     return 1;
 }
 
-static int
+static struct gdb_exception
 cli_interpreter_exec (void *data, const char *command_str)
 {
-  int result;
+  struct gdb_exception result;
   /* APPLE LOCAL: We don't use old_stream.  */
 
   /* FIXME: cagney/2003-02-01: Need to const char *propogate
@@ -123,24 +128,28 @@ cli_interpreter_exec (void *data, const char *command_str)
   return result;
 }
 
-static int
+static void
 do_captured_execute_command (struct ui_out *uiout, void *data)
 {
   struct captured_execute_command_args *args =
     (struct captured_execute_command_args *) data;
   execute_command (args->command, args->from_tty);
-  return GDB_RC_OK;
 }
 
 /* APPLE LOCAL make globally visible because the MI needs it */
-enum gdb_rc
+struct gdb_exception
 safe_execute_command (struct ui_out *uiout, char *command, int from_tty)
 {
+  struct gdb_exception e;
   struct captured_execute_command_args args;
   args.command = command;
   args.from_tty = from_tty;
-  return catch_exceptions (uiout, do_captured_execute_command, &args,
-			   NULL, RETURN_MASK_ALL);
+  e = catch_exception (uiout, do_captured_execute_command, &args,
+		       RETURN_MASK_ALL);
+  /* FIXME: cagney/2005-01-13: This shouldn't be needed.  Instead the
+     caller should print the exception.  */
+  exception_print (gdb_stderr, e);
+  return e;
 }
 
 /* APPLE LOCAL begin console-quoted interpreter */
@@ -174,7 +183,7 @@ cli_quoted_interpreter_resume (void *data)
 }
 /* APPLE LOCAL end console-quoted interpreter */
 
-/* standard gdb initialization hook */
+/* Standard gdb initialization hook.  */
 extern initialize_file_ftype _initialize_cli_interp; /* -Wmissing-prototypes */
 
 void
@@ -209,7 +218,7 @@ _initialize_cli_interp (void)
   struct ui_file *raw_stdout;
   /* APPLE LOCAL end console-quoted interpreter */
   
-  /* Create a default uiout builder for the CLI. */
+  /* Create a default uiout builder for the CLI.  */
   cli_uiout = cli_out_new (gdb_stdout);
   cli_interp = interp_new (INTERP_CONSOLE, NULL, cli_uiout, &procs);
 

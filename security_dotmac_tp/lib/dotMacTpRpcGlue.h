@@ -35,13 +35,6 @@
 extern "C" {
 #endif
 
-/* flavor of sign request */
-typedef enum {
-	DMST_Identity,
-	DMST_EmailSigning,
-	DMST_EmailEncrypting
-} DotMacSignType;
-
 /* flavor of archive type */
 typedef enum {
 	DMAT_List,
@@ -51,7 +44,7 @@ typedef enum {
 } DotMacArchiveType;
 
 OSStatus dotMacPostCertReq(
-	DotMacSignType		signType,
+	DotMacCertTypeTag	certType,
 	const CSSM_DATA		&userName,
 	const CSSM_DATA		&password,
 	const CSSM_DATA		&hostName,
@@ -63,6 +56,8 @@ OSStatus dotMacPostCertReq(
 
 /* post archive request */
 OSStatus dotMacPostArchiveReq(
+	uint32				version,
+	DotMacCertTypeTag	certTypeTag,
 	DotMacArchiveType	archiveType,
 	const CSSM_DATA		&userName,
 	const CSSM_DATA		&password,
@@ -70,13 +65,17 @@ OSStatus dotMacPostArchiveReq(
 	const CSSM_DATA		*archiveName,
 	const CSSM_DATA		*pfxIn,			// for store only
 	const CSSM_DATA		*timeString,	// for store only
+	const CSSM_DATA		*serialNumber,	// for store only
 	CSSM_DATA			*pfxOut,		// RETURNED for fetch, allocated via alloc
 	unsigned			*numArchives,	// RETURNED for list
-	DotMacArchive		**archives,		// RETURNED for list, allocated via alloc
+	// at most one of the following is returned
+	DotMacArchive		**archives_v1,	// RETURNED for list, allocated via alloc
+	DotMacArchive_v2	**archives_v2,		
 	Allocator			&mAlloc);
 
 /* post "is request pending?" request */
 OSStatus dotMacPostReqPendingPing(
+	DotMacCertTypeTag	certType,
 	const CSSM_DATA		&userName,
 	const CSSM_DATA		&password,
 	const CSSM_DATA		&hostName);

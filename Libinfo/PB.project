@@ -14,8 +14,7 @@
             netinfo.subproj, 
             nis.subproj, 
             rpc.subproj, 
-            util.subproj, 
-            mdns.subproj
+            util.subproj
         ); 
     }; 
     LANGUAGE = English; 

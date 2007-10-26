@@ -4,15 +4,15 @@
 	<key>OpenSourceProject</key>
 	<string>diffstat</string>
 	<key>OpenSourceVersion</key>
-	<string>1.3.4</string>
+	<string>1.41</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://invisible-island.net/diffstat/</string>
 	<key>OpenSourceURL</key>
-	<string>ftp://invisible-island.net/diffstat/diffstat-1.34.tgz</string>
-	<key>OpenSourceMD5</key>
-	<string>8cf39406d471722499b4d9dacdf367f5</string>
+	<string>ftp://invisible-island.net/diffstat/diffstat.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>75545e796ad6b2663170f21dc7d303d3487ad5d8</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-09-29</string>
+	<string>2006-05-02</string>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>
 	<key>OpenSourceLicenseFile</key>

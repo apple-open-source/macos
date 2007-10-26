@@ -3,7 +3,7 @@ dnl *** EXAMPLE *** sendmail.mc file for a Mailman list server using
 dnl mm-handler to deal with list operations (in place of aliases).
 dnl This is what I actually use on my site.
 dnl
-dnl $Id: mailman.mc,v 1.1.1.1 2001/10/27 02:30:51 jalbert Exp $
+dnl $Id: mailman.mc 4287 2001-10-27 02:30:51Z bwarsaw $
 dnl
 
 

@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#define SHUTDOWN_SNITCH
 
 
 //
@@ -34,7 +35,6 @@
 #include <security_utilities/ccaudit.h>
 #include <security_cdsa_client/cssmclient.h>
 #include <security_cdsa_client/cspclient.h>
-#include <security_cdsa_client/osxsigner.h>
 #include <security_utilities/devrandom.h>
 #include <security_cdsa_utilities/uniformrandom.h>
 #include "codesigdb.h"
@@ -94,7 +94,7 @@ public:
 	//
 	static Connection &connection(mach_port_t replyPort);	// find by reply port and make active
 	static Connection &connection(bool tolerant = false);	// return active (or fail unless tolerant)
-	static void requestComplete();							// de-activate active connection
+	static void requestComplete(CSSM_RETURN &rcode);		// de-activate active connection
 	
 	//
 	// Process and session of the active Connection
@@ -114,11 +114,11 @@ public:
 	static AclSource &aclBearer(AclKind kind, CSSM_HANDLE handle);
 	
 	// Generic version of handle lookup
-	template <class Type>
-	static RefPointer<Type> find(CSSM_HANDLE handle, CSSM_RETURN notFoundError)
+	template <class ProcessBearer>
+	static RefPointer<ProcessBearer> find(CSSM_HANDLE handle, CSSM_RETURN notFoundError)
 	{
-		RefPointer<Type> object = 
-			HandleObject::findRef<Type>(handle, notFoundError);
+		RefPointer<ProcessBearer> object = 
+			HandleObject::findRef<ProcessBearer>(handle, notFoundError);
 		if (object->process() != Server::process())
 			CssmError::throwMe(notFoundError);
 		return object;
@@ -161,6 +161,7 @@ protected:
 	void notifyDeadName(Port port);
 	void notifyNoSenders(Port port, mach_port_mscount_t);
 	void threadLimitReached(UInt32 count);
+	void eventDone();
 
 private:
 	class SleepWatcher : public MachPlusPlus::PortPowerWatcher {
@@ -182,6 +183,12 @@ public:
 	using MachServer::remove;
 	void add(MachPlusPlus::PowerWatcher *client)	{ StLock<Mutex> _(*this); sleepWatcher.add(client); }
 	void remove(MachPlusPlus::PowerWatcher *client)	{ StLock<Mutex> _(*this); sleepWatcher.remove(client); }
+	
+public:
+	Process *findPid(pid_t pid) const;
+
+	void waitForClients(bool waiting);				// set waiting behavior
+	bool beginShutdown();							// start delayed shutdown if configured
     
 private:
 	// mach bootstrap registration name
@@ -191,7 +198,16 @@ private:
 	PortMap<Connection> mConnections;
 
 	// process map (by process task port)
-	PortMap<Process> mProcesses;
+	typedef std::map<pid_t, Process *> PidMap;
+	PortMap<Process> mProcesses;					// strong reference
+	PidMap mPids;									// weak reference (subsidiary to mProcesses)
+	
+	enum ShutdownMode {
+		shutdownImmediately,						// shut down immediately on SIGTERM
+		shutdownDelayed,							// wait for clients on SIGTERM
+		shuttingDown								// delayed shutdown in progress
+	} mShutdown;									// shutdown mode
+	void shutdownSnitch();							// rat out lingering clients (to syslog)
 	
 	// Current connection, if any (per thread).
 	// Set as a side effect of calling connection(mach_port_t)
@@ -208,6 +224,16 @@ private:
     
     // Per-process audit initialization
     CommonCriteria::AuditSession mAudit;
+};
+
+
+//
+// A StLock that (also) declares a longTermActivity (only) once it's been entered.
+//
+class LongtermStLock : public StLock<Mutex> {
+public:
+	LongtermStLock(Mutex &lck);
+	// destructor inherited
 };
 
 #endif //_H_SERVER

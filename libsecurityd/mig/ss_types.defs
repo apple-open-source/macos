@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+// Copyright (c) 2004,2006-2007 Apple Inc. All Rights Reserved.
 //
 // @APPLE_LICENSE_HEADER_START@
 // 
@@ -38,6 +38,13 @@ type BasePointer = uint32_t;
 
 type KeyBlob = Data
 	ctype: Pointer;
+
+type IPCHandle = uint32_t;
+type IPCDbHandle = IPCHandle;
+type IPCKeyHandle = IPCHandle;
+type IPCRecordHandle = IPCHandle;
+type IPCSearchHandle = IPCHandle;
+type IPCGenericHandle = IPCHandle;
 
 type DbHandle = uint32_t;
 type DbBlob = Data
@@ -135,7 +142,8 @@ type CSSM_KEY_SIZE = struct [2] of uint32_t
 
 type DBParameters = struct [2] of uint32_t;
 
-type CSPOperationalStatistics = struct [10] of uint32_t;
+type CSSM_CSP_OPERATIONAL_STATISTICS = struct [10] of uint32_t;
+type CSPOperationalStatistics = CSSM_CSP_OPERATIONAL_STATISTICS;
 
 type AuthorizationItemSetBlob = Data
 	ctype: AuthorizationItemSetPtr;
@@ -146,7 +154,8 @@ type AuthorizationExternalForm = struct [32] of uint8_t;		// 32 opaque bytes
 
 type CssmString = c_string[*:64+4];
 type AuthorizationString = c_string[*:1024];
-type CSSM_RETURN = int32;
+type CSSM_RETURN = int32_t;
+type OSStatus = int32_t;
 type CSSM_ALGORITHMS = uint32_t;
 type CSSM_ACL_EDIT_MODE = uint32_t;
 type CSSM_ACL_HANDLE = uint32_t;
@@ -168,6 +177,11 @@ type CSSM_DB_MODIFY_MODE = uint32_t;
 type FilePath = c_string[*:1024];		// PATH_MAX
 type FilePathOut = c_string[*:1024];	// PATH_MAX
 type RelationName = c_string[*:2048];	//@@@ a bit big, no?
+
+type pid_t = unsigned32;
+
+type SecGuestRef = unsigned32;
+type GuestChain = array [] of SecGuestRef;
 
 
 //

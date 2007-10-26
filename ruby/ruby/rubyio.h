@@ -2,8 +2,8 @@
 
   rubyio.h -
 
-  $Author: matz $
-  $Date: 2004/11/22 15:29:50 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Fri Nov 12 16:47:09 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -39,6 +39,8 @@ typedef struct OpenFile {
 #define FMODE_SYNC      8
 #define FMODE_WBUF     16
 #define FMODE_RBUF     32
+#define FMODE_WSPLIT  0x200
+#define FMODE_WSPLIT_INITIALIZED  0x400
 
 #define GetOpenFile(obj,fp) rb_io_check_closed((fp) = RFILE(rb_io_taint_check(obj))->fptr)
 
@@ -76,9 +78,10 @@ void rb_io_check_initialized _((OpenFile*));
 void rb_io_check_closed _((OpenFile*));
 int rb_io_wait_readable _((int));
 int rb_io_wait_writable _((int));
+void rb_io_set_nonblock(OpenFile *fptr);
 
 VALUE rb_io_taint_check _((VALUE));
-void rb_eof_error _((void));
+NORETURN(void rb_eof_error _((void)));
 
 void rb_read_check _((FILE*));
 int rb_read_pending _((FILE*));

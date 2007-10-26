@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,6 +57,10 @@ public:
     
     void exportBlob(Writer::Counter &pub, Writer::Counter &priv);
     void exportBlob(Writer &pub, Writer &priv);
+	
+	unsigned count() const { return totalSubjects; }
+	AclSubject *subject(unsigned n) const { return elements[n]; }
+	void add(AclSubject *subject, unsigned beforePosition);
 	
 	IFDUMP(void debugDump() const);
     

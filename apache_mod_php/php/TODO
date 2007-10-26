@@ -3,18 +3,10 @@ parenthesis means that person has taken on this project.
 
 Zend
 ----
-    For PHP 4.3.0:
-    * Allow foreach ($array as $k => &$val) syntax. right now we cannot 
-      traverse an array without copying each element.
     * Allow foreach ($array as $k => list($a, $b)) syntax for multi
       dimensional arrays.
     * Look at replacing c-lib call tolower().
     * Make hash API functions work with HASH_OF() to save time.
-    * Allow to set a default value for call-by-reference-parameters. 
-      eg: function hello (&$pallo = NULL) {} 
-    * Disallow function(method) redefinition in class.
-
-    For PHP 5.0.0:
     * Native large number support (probably with GNU GMP)
     * Const'ify APIs. Right now, many functions leave parameters untouched,
       but don't declare those as const. This makes interaction with other
@@ -23,26 +15,11 @@ Zend
 
 global
 ------
-    For PHP 4.3.0:
-    * Add aliases to functions to conform to new naming conventions, e.g.
-      str_to_upper().
-    * Make all extensions thread-safe.
-    * Make everything on the language-level independent of your locale 
-      settings.
-    * Change PHP error messages, so that they point to pages or sections 
-      in the PHP Manual.
     * Make sure that all ZTS globals get destructed. Most ts_allocate_id()
       calls should have a dtor entry.
-    * Activate all extensions by default that don't rely on external
-      dependencies. (eg ftp) (DONE?)
     * on some platforms unimplemented function will just do nothing 
       (e.g. symlink) they should print a warning or not even be defined!
       (DONE ?)
-    * Use arg_separator.input to implode args in the CGI sapi extension
-      and arg_separator.input to explode in php_build_argv(). (DONE?)
-
-    For PHP 5.0.0
-    * bundle and use curl lib for fopen wrapper.
     * --enable-all in configure. (--enable-shared=max ...)
     * make configure print out a summary when it's done (like XEmacs)
     * replace standard functions which work on static data with 
@@ -55,16 +32,28 @@ global
     * Move most extensions and PEAR packages out of the PHP CVS tree,
       include them again during release packaging.
 
-
     Other
     * use thread-safe resolver functions (either require BIND 8 or adns).
     * implement javadoc based function docs template system.
-    * provide optional IPv6 support.
+    * provide optional IPv6 support (seems to be done?).
     * find a better way to implement script timeouts. SIGVTALRM is used
       by some POSIX threads implementations (i.e. OpenBSD) and is not
       available in ZTS mode.
     * Implement flush feature suitable for nested output buffers.
 
+Streams
+-------
+    * Route filestat.c through the wrapper layer; isolate the statcache code
+      so that it is independent of php functions and can be applied to any
+      stream/path.
+    * Implement generalized connection pool for stated protocols such as
+      ftp and http/1.1 (using keep-alive) to avoid having to negotiate
+      new command/request stream for each subsequent call; Possibly store 
+      resources in contexts (creating a default context if necessary) to 
+      allow segmentation of connection pools.
+    * Add a method to take ownership of the memory buffer in memory streams so
+      that generating string values for zvals doesn't require an estrdup.
+    * bundle and use curl lib for fopen wrapper.
 
 documentation
 -------------
@@ -74,14 +63,6 @@ documentation
     * Update curl documentation (DONE?)
     * Add developer documentation.
     * Add detailed documentation for Java extension.
-
-ext/bz2
--------
-    * Add an ini directive to specify the size of decompression buffer.
-      The default 4k is too small for large files and also requires much time
-      for decompression. 40k is suitable for such files, however it may be too
-      much under certain environments. There should be appropriate default
-      settings for the various SAPI modules (e.g. apache and cli).
 
 ext/curl
 --------
@@ -115,13 +96,6 @@ ext/pcntl
     * Remove all zend_extension code
     * Add object callback support to pcntl_signal()
 
-ext/pgsql
----------
-    For PHP 4.3.0:
-    * Add pg_metadata() with metadata cache feature.
-    * Add pg_convert() to check and convert array value for query.
-    * Add pg_insert/pg_update/pg_delete/pg_select for simple query.
-
 ext/session
 -----------
     For PHP 4.3.0:
@@ -137,29 +111,17 @@ ext/session
     * Provide a callback facility which is executed upon encountering
       an unknown class name during deserialization
 
-ext/sockets
------------
-    * Implement IPv6
-    * Review/Fix vectors
-
 ext/standard
 ------------
     * Add a version number to data serialized via serialize().
     * Possibly modify parsing of GPC data to automatically create arrays if
       variable name is seen more than once.
     * Implement regex-cache for url-functions.
-    * stri_replace(). (Andrei)
     * Move socket related functions to fsock.c.
-    * NOT binary safe:
-        strtok()
-        basename()
-        dirname()
-        strrpos()
 
 ext/wddx
 --------
     * See if we can support the remaining data types:
-        dateTime
         binary
 
         http://www.wddx.org/WDDX_SDK_10a/7__References/WDDX_DTD.htm
@@ -170,3 +132,5 @@ ext/wddx
 other cool stuff
 ----------------
     * PVM extension
+
+vim:et:sw=4:ts=4

@@ -1,8 +1,8 @@
+#include "shs.h"
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
 #include <string.h>
-#include "shs.h"
 
 /* The SHS f()-functions.  The f1 and f3 functions can be optimized to
    save one boolean operation each - thanks to Rich Schroeppel,
@@ -112,6 +112,32 @@ void SHSTransform(SHS_LONG *digest, const SHS_LONG *data)
     E = digest[ 4 ];
     memcpy(eData, data, sizeof (eData));
 
+#ifdef CONFIG_SMALL
+
+    {
+	int i;
+	SHS_LONG temp;
+	for (i = 0; i < 20; i++) {
+	    SHS_LONG x = (i < 16) ? eData[i] : expand(eData, i);
+	    subRound(A, B, C, D, E, f1, K1, x);
+	    temp = E, E = D, D = C, C = B, B = A, A = temp;
+	}
+	for (i = 20; i < 40; i++) {
+	    subRound(A, B, C, D, E, f2, K2, expand(eData, i));
+	    temp = E, E = D, D = C, C = B, B = A, A = temp;
+	}
+	for (i = 40; i < 60; i++) {
+	    subRound(A, B, C, D, E, f3, K3, expand(eData, i));
+	    temp = E, E = D, D = C, C = B, B = A, A = temp;
+	}
+	for (i = 60; i < 80; i++) {
+	    subRound(A, B, C, D, E, f4, K4, expand(eData, i));
+	    temp = E, E = D, D = C, C = B, B = A, A = temp;
+	}
+    }
+
+#else
+
     /* Heavy mangling, in 4 sub-rounds of 20 interations each. */
     subRound( A, B, C, D, E, f1, K1, eData[  0 ] );
     subRound( E, A, B, C, D, f1, K1, eData[  1 ] );
@@ -197,6 +223,8 @@ void SHSTransform(SHS_LONG *digest, const SHS_LONG *data)
     subRound( C, D, E, A, B, f4, K4, expand( eData, 78 ) );
     subRound( B, C, D, E, A, f4, K4, expand( eData, 79 ) );
 
+#endif
+
     /* Build message digest */
     digest[ 0 ] += A;
     digest[ 0 ] &= 0xffffffff;
@@ -212,7 +240,7 @@ void SHSTransform(SHS_LONG *digest, const SHS_LONG *data)
 
 /* Update SHS for a block of data */
 
-void shsUpdate(SHS_INFO *shsInfo, const SHS_BYTE *buffer, int count)
+void shsUpdate(SHS_INFO *shsInfo, const SHS_BYTE *buffer, unsigned int count)
 {
     SHS_LONG tmp;
     int dataCount, canfill;

@@ -311,9 +311,6 @@ bool IODisplay::start( IOService * provider )
 
     // display parameter hooks
 
-    fNotifier = framebuffer->addFramebufferNotification(
-                    &IODisplay::_framebufferEvent, this, NULL );
-
     IOService *			look = this;
     IODisplayParameterHandler * parameterHandler = 0;
 
@@ -336,7 +333,14 @@ bool IODisplay::start( IOService * provider )
 
     if (!fParameterHandler && OSDynamicCast(IOBacklightDisplay, this))
     {
-	OSIterator * iter = getMatchingServices(nameMatching("backlight"));
+	OSDictionary * matching = nameMatching("backlight");
+	OSIterator *   iter = NULL;
+	if (matching)
+	{
+	    iter = getMatchingServices(matching);
+	    matching->release();
+	}
+
 	if (iter)
 	{
 	    look = OSDynamicCast(IOService, iter->getNextObject());
@@ -368,6 +372,10 @@ bool IODisplay::start( IOService * provider )
     fDisplayPMVars->maxState = kIODisplayMaxPowerState;
 
     initPowerManagement( provider );
+
+    fNotifier = framebuffer->addFramebufferNotification(
+                    &IODisplay::_framebufferEvent, this, NULL );
+
     registerService();
 
     return (true);
@@ -424,7 +432,7 @@ void IODisplay::stop( IOService * provider )
 {
     IODisplayUpdateNVRAM(this, 0);
 
-    if (pm_vars)
+    if ( initialized )
         PMstop();
     if (fNotifier)
     {
@@ -938,56 +946,6 @@ void IODisplay::initPowerManagement( IOService * provider )
     registerPowerDriver(this, ourPowerStates, kIODisplayNumPowerStates);
 }
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-// setAggressiveness
-//
-// We are informed by our power domain parent of a new level of "power management
-// aggressiveness".  Our only interest is if it implies a power management
-// emergency, in which case we keep the display brightness low.
-
-IOReturn IODisplay::setAggressiveness( unsigned long type, unsigned long newLevel )
-{
-    unsigned long i;
-
-    if (type == kPMGeneralAggressiveness )
-    {
-        if (newLevel >= kIOPowerEmergencyLevel)
-        {
-            // emergency level
-            // find lowest usable state
-            for (i = 0; i < pm_vars->theNumberOfPowerStates; i++)
-            {
-                if (pm_vars->thePowerStates[i].capabilityFlags & IOPMDeviceUsable)
-                {
-                    break;
-                }
-            }
-            fDisplayPMVars->maxState = i;
-            if (pm_vars->myCurrentState > i)
-            {
-                // if we are currently above that, drop to emergency level
-                changePowerStateToPriv(i);
-            }
-        }
-        else
-        {
-            // not emergency level
-            if (pm_vars->aggressiveness >= kIOPowerEmergencyLevel)
-            {
-                // but it was emergency level
-                fDisplayPMVars->maxState = pm_vars->theNumberOfPowerStates - 1;
-                if (!fDisplayPMVars->displayIdle)
-                {
-                    // return to normal usable level
-                    changePowerStateToPriv(fDisplayPMVars->maxState);
-                }
-            }
-        }
-    }
-    super::setAggressiveness(type, newLevel);
-    return (IOPMNoErr);
-}
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // dropOneLevel
@@ -1001,15 +959,13 @@ void IODisplay::dropOneLevel( void )
     if (initialized)
     {
         fDisplayPMVars->displayIdle = true;
-        if (pm_vars != NULL)
-        {
-            if (pm_vars->myCurrentState > 0)
-                // drop a level
-                changePowerStateToPriv(pm_vars->myCurrentState - 1);
-            else
-                // this may rescind previous request for domain power
-                changePowerStateToPriv(0);
-        }
+
+        if (getPowerState() > 0)
+            // drop a level
+            changePowerStateToPriv(getPowerState() - 1);
+        else
+            // this may rescind previous request for domain power
+            changePowerStateToPriv(0);
     }
 }
 
@@ -1026,7 +982,7 @@ void IODisplay::makeDisplayUsable( void )
     if (initialized)
     {
         fDisplayPMVars->displayIdle = false;
-        if (pm_vars)
+        if ( initialized )
             changePowerStateToPriv(fDisplayPMVars->maxState);
     }
 }
@@ -1045,10 +1001,15 @@ IOReturn IODisplay::setPowerState( unsigned long powerState, IOService * whatDev
         fDisplayPMVars->currentState = powerState;
 
         powerState |= (powerState >= kIODisplayMaxUsableState) ? kFBDisplayUsablePowerState : 0;
-        if (fConnection)
+
+	OSObject * obj;
+	if ((!powerState) && (obj = copyProperty(kIOHibernatePreviewActiveKey, gIOServicePlane)))
+	{
+	    obj->release();
+	} else if (fConnection)
             fConnection->setAttributeForConnection( kConnectionPower, powerState );
     }
-    return (IOPMAckImplied);
+    return (kIOReturnSuccess);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1099,7 +1060,7 @@ unsigned long IODisplay::powerStateForDomainState( IOPMPowerFlags domainState )
 {
     if (domainState & IOPMPowerOn)
         // domain has power
-        return (pm_vars->myCurrentState);
+        return (getPowerState());
     else
         // domain is down, so display is off
         return (0);

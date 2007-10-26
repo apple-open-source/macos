@@ -4,15 +4,15 @@
 	<key>OpenSourceProject</key>
 	<string>m4</string>
 	<key>OpenSourceVersion</key>
-	<string>1.4.2</string>
+	<string>1.4.6</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.gnu.org/software/m4/</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.gnu.org/gnu/m4/m4-1.4.2.tar.gz</string>
+	<string>http://ftp.gnu.org/gnu/m4/m4-1.4.6.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>60353e84a9d534dcc43aea3bb6370ed8c1164cd4</string>
+	<string>a29c051e967f2d11ad7e4bb41121f68321a15832</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-11-20</string>
+	<string>2006-09-21</string>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>
 	<key>OpenSourceLicenseFile</key>

@@ -3699,6 +3699,17 @@ _Z3fooIPA3_iEvRKT_
 void foo<int (*) [3]>(int (* const&) [3])
 foo<int (*) [3]>
 #
+# This used to crash the demangler--PR 16240
+--format=gnu-v3 --no-params
+_ZN13PatternDriver23StringScalarDeleteValueC1ERKNS_25ConflateStringScalarValueERKNS_25AbstractStringScalarValueERKNS_12TemplateEnumINS_12pdcomplementELZNS_16complement_namesEELZNS_14COMPLEMENTENUMEEEE
+_ZN13PatternDriver23StringScalarDeleteValueC1ERKNS_25ConflateStringScalarValueERKNS_25AbstractStringScalarValueERKNS_12TemplateEnumINS_12pdcomplementELZNS_16complement_namesEELZNS_14COMPLEMENTENUMEEEE
+PatternDriver::StringScalarDeleteValue::StringScalarDeleteValue
+#
+# This used to cause the demangler to walk into undefined memory--PR 22268
+--format=gnu-v3 --no-params
+ALsetchannels
+ALsetchannels
+ALsetchannels
 # Test GNU V3 constructor and destructor identification.
 # 0 means it is not a constructor/destructor.
 # Other integers correspond to enum gnu_v3_{c,d}tor_kinds in demangle.h.
@@ -3770,3 +3781,7 @@ _Z1ZZ2Z::__CPR212____ct__Q3_3std141list__tm__128_Q2_3edm41THandle__tm__26_Q2_4em
 _test_array__L_1__B23b___clean.6
 _test_array__L_1__B23b___clean.6
 _test_array__L_1__B23b___clean.6
+#
+--format=java
+_ZGAN4java4lang5Class7forNameEPNS0_6StringE
+hidden alias for java.lang.Class.forName(java.lang.String)

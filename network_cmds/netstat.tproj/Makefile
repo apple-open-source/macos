@@ -12,10 +12,16 @@ NAME = netstat
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
+
 HFILES = netstat.h
 
-CFILES = data.c if.c inet.c inet6.c ipsec.c main.c mbuf.c mroute.c mroute6.c route.c\
-         tp_astring.c unix.c
+CFILES = data.c if.c inet.c inet6.c ipsec.c main.c mcast.c mbuf.c\
+         route.c tp_astring.c unix.c
+
+ifeq "$(Embedded)" "NO"
+CFILES += mroute.c mroute6.c
+endif
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble netstat.1\
             DERIVED_FILES

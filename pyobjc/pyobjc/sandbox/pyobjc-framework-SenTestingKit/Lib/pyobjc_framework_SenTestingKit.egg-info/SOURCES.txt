@@ -1,0 +1,17 @@
+LICENSE.txt
+README.txt
+setup.py
+Exceptions/SenTestingKit.bridgesupport
+Lib/SenTestingKit/PyObjC.bridgesupport
+Lib/SenTestingKit/__init__.py
+Lib/SenTestingKit/_macros.py
+Lib/SenTestingKit/test/__init__.py
+Lib/SenTestingKit/test/test_sentestingkit.py
+Lib/pyobjc_framework_SenTestingKit.egg-info/PKG-INFO
+Lib/pyobjc_framework_SenTestingKit.egg-info/SOURCES.txt
+Lib/pyobjc_framework_SenTestingKit.egg-info/dependency_links.txt
+Lib/pyobjc_framework_SenTestingKit.egg-info/not-zip-safe
+Lib/pyobjc_framework_SenTestingKit.egg-info/requires.txt
+Lib/pyobjc_framework_SenTestingKit.egg-info/top_level.txt
+ez_setup/README.txt
+ez_setup/__init__.py

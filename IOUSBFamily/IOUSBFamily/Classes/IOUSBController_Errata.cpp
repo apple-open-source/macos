@@ -26,6 +26,7 @@
 
 
 #include <IOKit/usb/IOUSBController.h>
+#include <IOKit/usb/IOUSBLog.h>
 
 #define super IOUSBBus
 #define self this
@@ -53,23 +54,31 @@ static ErrataListEntry  errataList[] = {
     {0x1131, 0x1561, 0x30, 0x30, kErrataNeedsPortPowerOff },																// Philips, USB 2
     {0x11C1, 0x5805, 0x11, 0x11, kErrataAgereEHCIAsyncSched },																// Agere, Async Schedule bug
 	
-	{0x8086, 0x2658, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// ICH6 UHCI #1
-	{0x8086, 0x2659, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// ICH6 UHCI #2
-	{0x8086, 0x265A, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// ICH6 UHCI #3
-	{0x8086, 0x265B, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// ICH6 UHCI #4
+	{0x8086, 0x2658, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// ICH6 UHCI #1
+	{0x8086, 0x2659, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// ICH6 UHCI #2
+	{0x8086, 0x265A, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// ICH6 UHCI #3
+	{0x8086, 0x265B, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// ICH6 UHCI #4
 	{0x8086, 0x265C, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },									// ICH6 EHCI
 	
-	{0x8086, 0x2688, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// Southbridge UHCI #1
-	{0x8086, 0x2689, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// Southbridge UHCI #2
-	{0x8086, 0x268A, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// Southbridge UHCI #3
-	{0x8086, 0x268B, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// Southbridge UHCI #4
+	{0x8086, 0x2688, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// Southbridge UHCI #1
+	{0x8086, 0x2689, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// Southbridge UHCI #2
+	{0x8086, 0x268A, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// Southbridge UHCI #3
+	{0x8086, 0x268B, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// Southbridge UHCI #4
 	{0x8086, 0x268C, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },									// Southbridge EHCI
 	
-	{0x8086, 0x27C8, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// ICH7 UHCI #1
-	{0x8086, 0x27C9, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// ICH7 UHCI #2
-	{0x8086, 0x27CA, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// ICH7 UHCI #3
-	{0x8086, 0x27CB, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce },	// ICH7 UHCI #4
-	{0x8086, 0x27CC, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataICH7ISTBuffer  | kErrataNeedsOvercurrentDebounce }				// ICH7 EHCI
+	{0x8086, 0x27C8, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// ICH7 UHCI #1
+	{0x8086, 0x27C9, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// ICH7 UHCI #2
+	{0x8086, 0x27CA, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// ICH7 UHCI #3
+	{0x8086, 0x27CB, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },	// ICH7 UHCI #4
+	{0x8086, 0x27CC, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataICH7ISTBuffer  | kErrataNeedsOvercurrentDebounce },			// ICH7 EHCI
+
+	{0x8086, 0x2830, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH8 UHCI #1
+	{0x8086, 0x2831, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH8 UHCI #2
+	{0x8086, 0x2832, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH8 UHCI #3
+	{0x8086, 0x2834, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH8 UHCI #4
+	{0x8086, 0x2835, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH8 UHCI #5
+	{0x8086, 0x2836, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },			// ICH8 EHCI #1
+	{0x8086, 0x283a, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce }				// ICH8 EHCI #2
 };
 
 #define errataListLength (sizeof(errataList)/sizeof(ErrataListEntry))
@@ -90,6 +99,7 @@ UInt32 IOUSBController::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 r
             errata |= entryPtr->errata;
         }
     }
+	//USBError(1, "Errata bits for controller 0x%x/0x%x(rev 0x%x) are 0x%x", vendorID, deviceID, revisionID, errata);
     return(errata);
 }       
 

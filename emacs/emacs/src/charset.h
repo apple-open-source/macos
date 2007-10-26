@@ -1,7 +1,10 @@
 /* Header for multibyte character handler.
-   Copyright (C) 1995, 1997, 1998 Electrotechnical Laboratory, JAPAN.
-   Licensed to the Free Software Foundation.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+     2005, 2006, 2007
+     National Institute of Advanced Industrial Science and Technology (AIST)
+     Registration Number H14PRO021
 
 This file is part of GNU Emacs.
 
@@ -17,8 +20,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef EMACS_CHARSET_H
 #define EMACS_CHARSET_H
@@ -129,6 +132,9 @@ extern int charset_katakana_jisx0201; /* JISX0201.Kana (Japanese Katakana) */
 extern int charset_latin_jisx0201; /* JISX0201.Roman (Japanese Roman) */
 extern int charset_big5_1;	/* Big5 Level 1 (Chinese Traditional) */
 extern int charset_big5_2;	/* Big5 Level 2 (Chinese Traditional) */
+extern int charset_mule_unicode_0100_24ff;
+extern int charset_mule_unicode_2500_33ff;
+extern int charset_mule_unicode_e000_ffff;
 
 /* Check if CH is an ASCII character or a base leading-code.
    Nowadays, any byte can be the first byte of a character in a
@@ -216,7 +222,7 @@ extern int charset_big5_2;	/* Big5 Level 2 (Chinese Traditional) */
 #define MAX_CHAR (0x1F << 14)
 
 /* 1 if C is a single byte character, else 0.  */
-#define SINGLE_BYTE_CHAR_P(c) ((unsigned) (c) < 0x100)
+#define SINGLE_BYTE_CHAR_P(c) (((unsigned)(c) & 0xFF) == (c))
 
 /* 1 if BYTE is an ASCII character in itself, in multibyte mode.  */
 #define ASCII_BYTE_P(byte) ((byte) < 0x80)
@@ -437,25 +443,33 @@ extern int width_by_char_head[256];
 #else  /* not BYTE_COMBINING_DEBUG */
 
 #define PARSE_MULTIBYTE_SEQ(str, length, bytes)	\
-  (bytes) = BYTES_BY_CHAR_HEAD ((str)[0])
+  ((void)(length), (bytes) = BYTES_BY_CHAR_HEAD ((str)[0]))
 
 #endif /* not BYTE_COMBINING_DEBUG */
+
+#define VALID_LEADING_CODE_P(code)	\
+  (! NILP (CHARSET_TABLE_ENTRY (code)))
 
 /* Return 1 iff the byte sequence at unibyte string STR (LENGTH bytes)
    is valid as a multibyte form.  If valid, by a side effect, BYTES is
    set to the byte length of the multibyte form.  */
 
-#define UNIBYTE_STR_AS_MULTIBYTE_P(str, length, bytes)	\
-  (((str)[0] < 0x80 || (str)[0] >= 0xA0)		\
-   ? (bytes) = 1					\
-   : (((bytes) = BYTES_BY_CHAR_HEAD ((str)[0])),	\
-      ((bytes) > 1 && (bytes) <= (length)		\
-       && (str)[0] != LEADING_CODE_8_BIT_CONTROL	\
-       && !CHAR_HEAD_P ((str)[1])			\
-       && ((bytes) == 2					\
-	   || (!CHAR_HEAD_P ((str)[2])			\
-	       && ((bytes) == 3				\
-		   || !CHAR_HEAD_P ((str)[3])))))))
+#define UNIBYTE_STR_AS_MULTIBYTE_P(str, length, bytes)		\
+  (((str)[0] < 0x80 || (str)[0] >= 0xA0)			\
+   ? ((bytes) = 1)						\
+   : (((bytes) = BYTES_BY_CHAR_HEAD ((str)[0])),		\
+      ((bytes) <= (length)					\
+       && !CHAR_HEAD_P ((str)[1])				\
+       && ((bytes) == 2						\
+	   ? (str)[0] != LEADING_CODE_8_BIT_CONTROL		\
+	   : (!CHAR_HEAD_P ((str)[2])				\
+	      && ((bytes) == 3					\
+		  ? (((str)[0] != LEADING_CODE_PRIVATE_11	\
+		      && (str)[0] != LEADING_CODE_PRIVATE_12)	\
+		     || VALID_LEADING_CODE_P (str[1]))		\
+		  : (!CHAR_HEAD_P ((str)[3])			\
+		     && VALID_LEADING_CODE_P (str[1]))))))))
+
 
 /* Return 1 iff the byte sequence at multibyte string STR is valid as
    a unibyte form.  By a side effect, BYTES is set to the byte length
@@ -527,7 +541,7 @@ extern int iso_charset_table[2][2][128];
 
 #define CHAR_STRING(c, str)						  \
   (SINGLE_BYTE_CHAR_P (c)						  \
-   ? ((ASCII_BYTE_P (c) || c >= 0xA0)					  \
+   ? ((ASCII_BYTE_P (c) || c >= 0xA0)			  \
       ? (*(str) = (unsigned char)(c), 1)				  \
       : (*(str) = LEADING_CODE_8_BIT_CONTROL, *((str)+ 1) = c + 0x20, 2)) \
    : char_to_string (c, (unsigned char *) str))
@@ -573,15 +587,15 @@ if (1)									   \
     CHARIDX++;								   \
     if (STRING_MULTIBYTE (STRING))					   \
       {									   \
-	unsigned char *ptr = &XSTRING (STRING)->data[BYTEIDX];		   \
-	int space_left = XSTRING (STRING)->size_byte - BYTEIDX;		   \
+	const unsigned char *ptr = SDATA (STRING) + BYTEIDX;		   \
+	int space_left = SBYTES (STRING) - BYTEIDX;			   \
 	int actual_len;							   \
 									   \
 	OUTPUT = STRING_CHAR_AND_LENGTH (ptr, space_left, actual_len);	   \
 	BYTEIDX += actual_len;						   \
       }									   \
     else								   \
-      OUTPUT = XSTRING (STRING)->data[BYTEIDX++];			   \
+      OUTPUT = SREF (STRING, BYTEIDX++);				   \
   }									   \
 else
 
@@ -590,8 +604,8 @@ else
 #define FETCH_STRING_CHAR_ADVANCE_NO_CHECK(OUTPUT, STRING, CHARIDX, BYTEIDX)  \
 if (1)									      \
   {									      \
-    unsigned char *fetch_string_char_ptr = &XSTRING (STRING)->data[BYTEIDX];  \
-    int fetch_string_char_space_left = XSTRING (STRING)->size_byte - BYTEIDX; \
+    const unsigned char *fetch_string_char_ptr = SDATA (STRING) + BYTEIDX;    \
+    int fetch_string_char_space_left = SBYTES (STRING) - BYTEIDX;	      \
     int actual_len;							      \
     									      \
     OUTPUT								      \
@@ -634,6 +648,46 @@ else
    ? 1							\
    : multibyte_form_length (str, len))
 
+/* If P is before LIMIT, advance P to the next character boundary.  It
+   assumes that P is already at a character boundary of the sane
+   mulitbyte form whose end address is LIMIT.  */
+
+#define NEXT_CHAR_BOUNDARY(p, limit)	\
+  do {					\
+    if ((p) < (limit))			\
+      (p) += BYTES_BY_CHAR_HEAD (*(p));	\
+  } while (0)
+
+
+/* If P is after LIMIT, advance P to the previous character boundary.  */
+
+#define PREV_CHAR_BOUNDARY(p, limit)					\
+  do {									\
+    if ((p) > (limit))							\
+      {									\
+	const unsigned char *p0 = (p);					\
+	const unsigned char *p_limit = max (limit, p0 - MAX_MULTIBYTE_LENGTH);\
+	do {								\
+	  p0--;								\
+	} while (p0 >= p_limit && ! CHAR_HEAD_P (*p0));			\
+	/* If BBCH(*p0) > p-p0, it means we were not on a boundary.  */	\
+	(p) = (BYTES_BY_CHAR_HEAD (*p0) >= (p) - p0) ? p0 : (p) - 1;	\
+      }									\
+  } while (0)
+
+#define AT_CHAR_BOUNDARY_P(result, p, limit)	\
+  do {						\
+    if (CHAR_HEAD_P (*(p)) || (p) <= limit)	\
+      /* Optimization for the common case. */	\
+      (result) = 1;				\
+    else					\
+      {						\
+	const unsigned char *p_aux = (p)+1;	\
+	PREV_CHAR_BOUNDARY (p_aux, limit);	\
+	(result) = (p_aux == (p));		\
+      }						\
+} while (0)
+
 #ifdef emacs
 
 /* Increase the buffer byte position POS_BYTE of the current buffer to
@@ -675,13 +729,15 @@ else
     									\
     pos_byte--;								\
     if (pos_byte < GPT_BYTE)						\
-      p = BEG_ADDR + pos_byte - 1, p_min = BEG_ADDR;			\
+      p = BEG_ADDR + pos_byte - BEG_BYTE, p_min = BEG_ADDR;		\
     else								\
-      p = BEG_ADDR + GAP_SIZE + pos_byte - 1, p_min = GAP_END_ADDR;	\
+      p = BEG_ADDR + GAP_SIZE + pos_byte - BEG_BYTE, p_min = GAP_END_ADDR;\
     if (p > p_min && !CHAR_HEAD_P (*p))					\
       {									\
 	unsigned char *pend = p--;					\
 	int len, bytes;							\
+        if (p_min < p - MAX_MULTIBYTE_LENGTH)				\
+          p_min = p - MAX_MULTIBYTE_LENGTH;				\
 	while (p > p_min && !CHAR_HEAD_P (*p)) p--;			\
 	len = pend + 1 - p;						\
 	PARSE_MULTIBYTE_SEQ (p, len, bytes);				\
@@ -755,18 +811,20 @@ while (0)
     pos_byte--;								\
     if (pos_byte < BUF_GPT_BYTE (buf))					\
       {									\
-	p = BUF_BEG_ADDR (buf) + pos_byte - 1;				\
+	p = BUF_BEG_ADDR (buf) + pos_byte - BEG_BYTE;			\
 	p_min = BUF_BEG_ADDR (buf);					\
       }									\
     else								\
       {									\
-	p = BUF_BEG_ADDR (buf) + BUF_GAP_SIZE (buf) + pos_byte - 1;	\
+	p = BUF_BEG_ADDR (buf) + BUF_GAP_SIZE (buf) + pos_byte - BEG_BYTE;\
 	p_min = BUF_GAP_END_ADDR (buf);					\
       }									\
     if (p > p_min && !CHAR_HEAD_P (*p))					\
       {									\
 	unsigned char *pend = p--;					\
 	int len, bytes;							\
+        if (p_min < p - MAX_MULTIBYTE_LENGTH)				\
+          p_min = p - MAX_MULTIBYTE_LENGTH;				\
 	while (p > p_min && !CHAR_HEAD_P (*p)) p--;			\
 	len = pend + 1 - p;						\
 	PARSE_MULTIBYTE_SEQ (p, len, bytes);				\
@@ -780,7 +838,7 @@ while (0)
 /* This is the maximum byte length of multi-byte sequence.  */
 #define MAX_MULTIBYTE_LENGTH 4
 
-extern void invalid_character P_ ((int));
+extern void invalid_character P_ ((int)) NO_RETURN;
 
 extern int translate_char P_ ((Lisp_Object, int, int, int, int));
 extern int split_string P_ ((const unsigned char *, int, int *,
@@ -790,19 +848,22 @@ extern int char_to_string_1 P_ ((int, unsigned char *));
 extern int string_to_char P_ ((const unsigned char *, int, int *));
 extern int char_printable_p P_ ((int c));
 extern int multibyte_form_length P_ ((const unsigned char *, int));
-extern void parse_str_as_multibyte P_ ((unsigned char *, int, int *, int *));
+extern void parse_str_as_multibyte P_ ((const unsigned char *, int, int *,
+					int *));
 extern int str_as_multibyte P_ ((unsigned char *, int, int, int *));
 extern int parse_str_to_multibyte P_ ((unsigned char *, int));
 extern int str_to_multibyte P_ ((unsigned char *, int, int));
 extern int str_as_unibyte P_ ((unsigned char *, int));
 extern int get_charset_id P_ ((Lisp_Object));
-extern int find_charset_in_text P_ ((unsigned char *, int, int, int *,
+extern int find_charset_in_text P_ ((const unsigned char *, int, int, int *,
 				    Lisp_Object));
 extern int strwidth P_ ((unsigned char *, int));
-extern int c_string_width P_ ((unsigned char *, int, int, int *, int *));
+extern int c_string_width P_ ((const unsigned char *, int, int, int *, int *));
 extern int lisp_string_width P_ ((Lisp_Object, int, int *, int *));
 extern int char_bytes P_ ((int));
 extern int char_valid_p P_ ((int, int));
+
+EXFUN (Funibyte_char_to_multibyte, 1);
 
 extern Lisp_Object Vtranslation_table_vector;
 
@@ -821,8 +882,12 @@ extern Lisp_Object Vauto_fill_chars;
 #define BCOPY_SHORT(from, to, len)		\
   do {						\
     int i = len;				\
-    unsigned char *from_p = from, *to_p = to;	\
+    const unsigned char *from_p = from;		\
+    unsigned char *to_p = to;			\
     while (i--) *to_p++ = *from_p++;		\
   } while (0)
 
 #endif /* EMACS_CHARSET_H */
+
+/* arch-tag: 3b96db55-4961-481d-ac3e-219f46a2b3aa
+   (do not change this comment) */

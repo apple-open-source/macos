@@ -20,7 +20,7 @@ SRCDIR=`rpm "$@" --eval "%{_sourcedir}"`
 
 USERID=`id -u`
 GRPID=`id -g`
-VERSION='3.0.10'
+VERSION='3.0.13'
 
 RPMVER=`rpm --version | awk '{print $3}'`
 echo The RPM Version on this machine is: $RPMVER

@@ -53,7 +53,7 @@ typedef struct  {
 // declare a CSSM_DB_ATTRIBUTE_INFO
 #define DB_ATTRIBUTE(name, type) \
 	{  CSSM_DB_ATTRIBUTE_NAME_AS_STRING, \
-	   name, \
+	   { name }, \
 	   CSSM_DB_ATTRIBUTE_FORMAT_ ## type \
 	}
 
@@ -62,7 +62,7 @@ typedef struct  {
 	{  CSSM_DB_INDEX_NONUNIQUE, \
 	   CSSM_DB_INDEX_ON_ATTRIBUTE, \
 	   {  CSSM_DB_ATTRIBUTE_NAME_AS_STRING, \
-	      name, \
+	      { name }, \
 		  CSSM_DB_ATTRIBUTE_FORMAT_ ## type \
 	   } \
 	}

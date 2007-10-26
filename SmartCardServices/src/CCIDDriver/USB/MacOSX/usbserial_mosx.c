@@ -62,7 +62,7 @@ static intrFace intFace[USBMAX_READERS];
 
 
 // Local helper function
-void ReadUSBString(IOUSBDeviceInterface182 **dev, UInt8 bIndex, 
+void ReadUSBString(IOUSBDeviceInterface245 **dev, UInt8 bIndex,
                    const char* pcHeader);
 
 
@@ -286,9 +286,9 @@ TrRv OpenUSB( DWORD lun, DWORD Channel)
             
         /* Get the interface */
         res = (*ioPlugin)->QueryInterface(ioPlugin, 
-                                          CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID182),
+                                          CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID245),
                                           (LPVOID)&(intFace[rdrLun]).iface);
-        (*ioPlugin)->Release(ioPlugin); 
+		IODestroyPlugInInterface(ioPlugin);
         if (res || !(intFace[rdrLun]).iface)
         {
             LogMessage( __FILE__,  __LINE__, LogLevelCritical, 
@@ -358,9 +358,9 @@ TrRv OpenUSB( DWORD lun, DWORD Channel)
      
      // Get the device 
      res = (*ioPlugin)->QueryInterface(ioPlugin, 
-                                       CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID),
+                                       CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID245),
                                        (LPVOID)&(intFace[rdrLun]).dev);
-     (*ioPlugin)->Release(ioPlugin); 
+	IODestroyPlugInInterface(ioPlugin);
      if (res || !(intFace[rdrLun]).dev)
      {
          LogMessage( __FILE__,  __LINE__, LogLevelCritical, 
@@ -489,7 +489,7 @@ TrRv OpenUSB( DWORD lun, DWORD Channel)
 TrRv GetConfigDescNumberUSB( DWORD lun, BYTE* pcconfigDescNb )
 {
     DWORD		rdrLun;
-    IOUSBDeviceInterface182 **dev;
+    IOUSBDeviceInterface245 **dev;
     IOReturn err;
 
     rdrLun = lun >> 16;
@@ -547,7 +547,7 @@ TrRv GetVendorAndProductIDUSB( DWORD lun, DWORD *vendorID, DWORD *productID )
 TrRv GetClassDescUSB( DWORD lun, BYTE configDescNb, BYTE bdescType,
                       BYTE *pcdesc, BYTE *pcdescLength)
 {
-    IOUSBDeviceInterface182 **dev;
+    IOUSBDeviceInterface245 **dev;
     IOReturn err;
     DWORD		rdrLun;
     IOUSBConfigurationDescriptorPtr     confDesc;
@@ -687,7 +687,7 @@ TrRv SetupConnectionsUSB( DWORD lun, BYTE ConfigDescNb, BYTE interruptPipe)
     if (kr)
     {
         LogMessage( __FILE__,  __LINE__, LogLevelCritical,
-                    "ERR: unable to get the configuration\n");
+                    "ERR: unable to get the configuration: 0x%08X\n", kr);
         return TrRv_ERR;
     }
 
@@ -702,7 +702,7 @@ TrRv SetupConnectionsUSB( DWORD lun, BYTE ConfigDescNb, BYTE interruptPipe)
     if (kr)
     {
         LogMessage( __FILE__,  __LINE__, LogLevelCritical,
-                    "ERR: unable to set the configuration\n");
+                    "ERR: unable to set the configuration: 0x%08X\n", kr);
         return TrRv_ERR;
     }
 
@@ -750,9 +750,9 @@ TrRv SetupConnectionsUSB( DWORD lun, BYTE ConfigDescNb, BYTE interruptPipe)
     }
 
     // Now get the real interface
-     res = (*iodevB)->QueryInterface(iodevB, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID),
+     res = (*iodevB)->QueryInterface(iodevB, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID245),
                                    (LPVOID)&(intFace[rdrLun]).iface);
-    (*iodevB)->Release(iodevB);				// done with this
+	IODestroyPlugInInterface(iodevB);	// done with this
     IOObjectRelease(USBIface);
     if ( res || !(intFace[rdrLun]).iface)
     {
@@ -987,7 +987,7 @@ TrRv CloseUSB( DWORD lun )
 
 
 
-void ReadUSBString(IOUSBDeviceInterface182 **dev, UInt8 bIndex, 
+void ReadUSBString(IOUSBDeviceInterface245 **dev, UInt8 bIndex,
                    const char* pcHeader)
 {
     IOUSBDevRequest stDevRequest;
@@ -1041,7 +1041,7 @@ void ReadUSBString(IOUSBDeviceInterface182 **dev, UInt8 bIndex,
     // Turn the CFString in a standard C string    
     if ( !CFStringGetCString (
                               cfstr,
-                              pcArray,
+                              (char *)pcArray,
                               sizeof(pcArray)-1,
                               kCFStringEncodingASCII
                               )

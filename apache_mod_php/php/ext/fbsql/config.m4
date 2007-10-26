@@ -1,9 +1,9 @@
 dnl
-dnl $Id: config.m4,v 1.12.2.1 2003/10/01 02:53:55 sniper Exp $
+dnl $Id: config.m4,v 1.14 2005/05/29 23:16:40 sniper Exp $
 dnl
 
 PHP_ARG_WITH(fbsql, for FrontBase SQL92 (fbsql) support,
-[  --with-fbsql[=DIR]      Include FrontBase support. DIR is the FrontBase base directory.])
+[  --with-fbsql[=DIR]      Include FrontBase support. DIR is the FrontBase base directory])
 
 if test "$PHP_FBSQL" != "no"; then
 

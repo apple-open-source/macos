@@ -10,22 +10,23 @@ module Tk
     class TRadioButton < TkRadioButton
     end
     TRadiobutton = TRadioButton
+    RadioButton  = TRadioButton
+    Radiobutton  = TRadioButton
   end
 end
 
 class Tk::Tile::TRadioButton < TkRadioButton
   include Tk::Tile::TileWidget
 
-  TkCommandNames = ['tradiobutton'.freeze].freeze
+  if Tk::Tile::USE_TTK_NAMESPACE
+    TkCommandNames = ['::ttk::radiobutton'.freeze].freeze
+  else
+    TkCommandNames = ['::tradiobutton'.freeze].freeze
+  end
   WidgetClassName = 'TRadiobutton'.freeze
   WidgetClassNames[WidgetClassName] = self
 
-  def create_self(keys)
-    if keys and keys != None
-      tk_call_without_enc('tradiobutton', @path, *hash_kv(keys, true))
-    else
-      tk_call_without_enc('tradiobutton', @path)
-    end
+  def self.style(*args)
+    [self::WidgetClassName, *(args.map!{|a| _get_eval_string(a)})].join('.')
   end
-  private :create_self
 end

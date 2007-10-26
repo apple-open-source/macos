@@ -1,0 +1,209 @@
+# Messages français pour GNU concernant libidn.
+# Copyright © 1996 Free Software Foundation, Inc.
+# Michel Robitaille <robitail@IRO.UMontreal.CA>, traducteur depuis/since 1996.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: GNU libidn 0.5.6\n"
+"Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
+"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"PO-Revision-Date: 2004-10-08 08:00-0500\n"
+"Last-Translator: Michel Robitaille <robitail@IRO.UMontreal.CA>\n"
+"Language-Team: French <traduc@traduc.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Content-Transfer-Encoding: 8-bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Success"
+msgstr "Succès"
+
+msgid "String preparation failed"
+msgstr "La préparation de la chaîne a échoué"
+
+msgid "Punycode failed"
+msgstr "Punycode a échoué"
+
+msgid "Non-digit/letter/hyphen in input"
+msgstr "Pas de chiffre/lettre/tirait fourni dans l'entrée"
+
+msgid "Forbidden leading or trailing minus sign (`-')"
+msgstr "Signe de négation (`-') en préfixe ou en suffixe interdit"
+
+msgid "Output would be too large or too small"
+msgstr "La sortie serait trop grande ou top petite"
+
+msgid "Input does not start with ACE prefix (`xn--')"
+msgstr "L'entrée ne débute pas par un préfixe ACE (`xn--')"
+
+msgid "String not idempotent under ToASCII"
+msgstr "La chaîne n'est pas idempotente sous ToASCII"
+
+msgid "Input already contain ACE prefix (`xn--')"
+msgstr "L'entrée contient déjà un préfixe ACE (`xn--')"
+
+msgid "System iconv failed"
+msgstr "La fonction système icon() a échoué"
+
+msgid "Cannot allocate memory"
+msgstr "Ne peut allouer de la mémoire"
+
+msgid "System dlopen failed"
+msgstr "La fonction système dlopen() a échoué"
+
+msgid "Unknown error"
+msgstr "Erreur inconnue"
+
+msgid "String not idempotent under Unicode NFKC normalization"
+msgstr "La chaîne n'est pas idempotente sous la normalisation Unicode NFKC"
+
+msgid "Invalid input"
+msgstr "Entrée invalide"
+
+msgid "Output would exceed the buffer space provided"
+msgstr "La sortie excèderait l'espace tampon fourni"
+
+msgid "String size limit exceeded"
+msgstr "La limite de  la taille de la chaîne est dépassée"
+
+msgid "Forbidden unassigned code points in input"
+msgstr "Interdiction de codes points non affectées dans l'entrée"
+
+msgid "Prohibited code points in input"
+msgstr "Codes points prohibés dans l'entrée"
+
+msgid "Conflicting bidirectional properties in input"
+msgstr "Propriétés bidirectionnelles conflictuelles dans l'entrée"
+
+msgid "Malformed bidirectional string"
+msgstr "Chaîne bidirectionnelle mal composée"
+
+msgid "Prohibited bidirectional code points in input"
+msgstr "Codes points bidirectionnels prohibés dans l'entrée"
+
+msgid "Error in stringprep profile definition"
+msgstr "Erreur dans la définition de profil de stringprep"
+
+msgid "Flag conflict with profile"
+msgstr "Conflit de fanions avec le profil"
+
+msgid "Unknown profile"
+msgstr "Profil inconnu"
+
+msgid "Unicode normalization failed (internal error)"
+msgstr "La normalisation Unicode a échoué (erreur interne)"
+
+msgid "Code points prohibited by top-level domain"
+msgstr "Codes points prohibés par le domaine de haut niveau"
+
+msgid "Missing input"
+msgstr "Entrée manquante"
+
+msgid "No top-level domain found in input"
+msgstr "Aucun domaine de haut niveau n'a été repéré dans l'entrée"
+
+msgid "Only one of -s, -e, -d, -a or -u can be specified."
+msgstr "Seulement une option parmi -s, -e, -d, -a ou -u peut être spécifiée."
+
+#, c-format
+msgid "Charset `%s'.\n"
+msgstr "Jeu de caractères `%s'.\n"
+
+#, c-format
+msgid ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+msgstr ""
+"Tapez chaque chaque chaîne sur une seule ligne terminée par un retour de "
+"chariot.\n"
+
+msgid "Input error"
+msgstr "Erreur de saisie"
+
+#, c-format
+msgid "Could not convert from %s to UTF-8."
+msgstr "Ne peut effectuer la conversion à partir de %s vers UTF-8."
+
+msgid "Could not convert from UTF-8 to UCS-4."
+msgstr "Ne peut effectuer la conversion à partir de UTF-8 vers UCS-4."
+
+#, c-format
+msgid "input[%d] = U+%04x\n"
+msgstr "entrée[%d] = U+%04x\n"
+
+#, c-format
+msgid "stringprep_profile: %s"
+msgstr "stringprep_profile: %s"
+
+#, c-format
+msgid "output[%d] = U+%04x\n"
+msgstr "sortie[%d] = U+%04x\n"
+
+#, c-format
+msgid "Could not convert from UTF-8 to %s."
+msgstr "Ne peut effectuer la conversion à partir de UTF-8 vers %s."
+
+#, c-format
+msgid "punycode_encode: %s"
+msgstr "punycode_encode: %s"
+
+msgid "malloc"
+msgstr "malloc"
+
+#, c-format
+msgid "punycode_decode: %s"
+msgstr "punycode_decode: %s"
+
+msgid "Could not convert from UCS-4 to UTF-8."
+msgstr "Ne peut effectuer la conversion à partir de UCS-4 vers UTF-8."
+
+#, c-format
+msgid "idna_to_ascii_4z: %s"
+msgstr "idna_to_ascii_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z (TLD): %s"
+msgstr "idna_to_unicode_8z4z (TLD): %s"
+
+#, c-format
+msgid "tld[%d] = U+%04x\n"
+msgstr "tld[%d] = U+%04x\n"
+
+#, c-format
+msgid "tld_check_4z (position %d): %s"
+msgstr "tld_check_4z (position %d): %s"
+
+#, c-format
+msgid "tld_check_4z: %s"
+msgstr "tld_check_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z: %s"
+msgstr "idna_to_unicode_8z4z: %s"
+
+#~ msgid "%s: fgets() failed: "
+#~ msgstr "%s: fgets() a échoué: "
+
+#~ msgid "%s: stringprep_profile() failed with error %d.\n"
+#~ msgstr "%s: stringprep_profile() a échoué avec l'erreur %d.\n"
+
+#~ msgid "%s: punycode_encode() failed with error %d.\n"
+#~ msgstr "%s: punycode_encode() a échoué avec l'erreur %d.\n"
+
+#~ msgid "%s: malloc() failed: "
+#~ msgstr "%s: malloc() a échoué: "
+
+#~ msgid "%s: punycode_decode() failed with error %d.\n"
+#~ msgstr "%s: punycode_decode() a échoué avec l'erreur %d.\n"
+
+#~ msgid "%s: idna_to_ascii_4z() failed with error %d.\n"
+#~ msgstr "%s: idna_to_ascii_4z() a échoué avec l'erreur %d.\n"
+
+#~ msgid "%s: TLD idna_to_unicode_8z8z() failed with error %d.\n"
+#~ msgstr "%s: TLD idna_to_unicode_8z8z() a échoué avec l'erreur %d.\n"
+
+#~ msgid "%s: string rejected by TLD test (Unicode position %d)\n"
+#~ msgstr "%s: chaîne rejeté par TLD test (Unicode position %d)\n"
+
+#~ msgid "%s: tld_check_4z failed with error %d.\n"
+#~ msgstr "%s: tld_check_4z a échoué avec l'erreur %d.\n"

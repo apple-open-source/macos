@@ -15,7 +15,7 @@ PROJECT_TYPE = Tool
 CFILES = vsdbutil_main.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble m.template\
-            h.template
+            h.template vsdbutil.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -24,7 +24,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
 WINDOWS_INSTALLDIR = /Library/Executables
 PDO_UNIX_INSTALLDIR = /bin
-LIBS = -lcrypto
+LIBS = 
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

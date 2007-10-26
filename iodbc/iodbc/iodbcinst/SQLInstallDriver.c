@@ -1,20 +1,24 @@
 /*
  *  SQLInstallDriver.c
  *
- *  $Id: SQLInstallDriver.c,v 1.3 2004/11/11 01:52:40 luesang Exp $
+ *  $Id: SQLInstallDriver.c,v 1.10 2006/01/20 15:58:35 source Exp $
  *
  *  Install a driver
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,8 +74,10 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
+#include <unicode.h>
 
 #include "misc.h"
 #include "inifile.h"
@@ -91,7 +97,7 @@
 
 
 BOOL
-InstallDriverPath (LPSTR lpszPath, WORD cbPathMax, WORD *pcbPathOut,
+InstallDriverPath (LPSTR lpszPath, WORD cbPathMax, WORD * pcbPathOut,
     LPSTR envname)
 {
 #ifdef _MAC
@@ -228,7 +234,7 @@ quit:
 
 BOOL INSTAPI
 SQLInstallDriver (LPCSTR lpszInfFile, LPCSTR lpszDriver, LPSTR lpszPath,
-    WORD cbPathMax, WORD *pcbPathOut)
+    WORD cbPathMax, WORD * pcbPathOut)
 {
   PCONFIG pCfg = NULL, pOdbcCfg = NULL;
   BOOL retcode = FALSE;
@@ -262,7 +268,7 @@ SQLInstallDriver (LPCSTR lpszInfFile, LPCSTR lpszDriver, LPSTR lpszPath,
     case ODBC_SYSTEM_DSN:
       wSystemDSN = SYSTEMDSN_ONLY;
       break;
-    };
+    }
 
   if (_iodbcdm_cfg_search_init (&pCfg, "odbcinst.ini", TRUE))
     {
@@ -308,6 +314,55 @@ done:
 quit:
   wSystemDSN = USERDSN_ONLY;
   configMode = ODBC_BOTH_DSN;
+
+  return retcode;
+}
+
+BOOL INSTAPI
+SQLInstallDriverW (LPCWSTR lpszInfFile, LPCWSTR lpszDriver, LPWSTR lpszPath,
+    WORD cbPathMax, WORD FAR * pcbPathOut)
+{
+  char *_inf_u8 = NULL;
+  char *_driver_u8 = NULL;
+  char *_path_u8 = NULL;
+  BOOL retcode = FALSE;
+
+  _inf_u8 = (char *) dm_SQL_WtoU8 ((SQLWCHAR *) lpszInfFile, SQL_NTS);
+  if (_inf_u8 == NULL && lpszInfFile)
+    {
+      PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+      goto done;
+    }
+
+  _driver_u8 = (char *) dm_SQL_WtoU8 ((SQLWCHAR *) lpszDriver, SQL_NTS);
+  if (_driver_u8 == NULL && lpszDriver)
+    {
+      PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+      goto done;
+    }
+
+  if (cbPathMax > 0)
+    {
+      if ((_path_u8 = malloc (cbPathMax * UTF8_MAX_CHAR_LEN + 1)) == NULL)
+	{
+	  PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+	  goto done;
+	}
+    }
+
+  retcode =
+      SQLInstallDriver (_inf_u8, _driver_u8, _path_u8,
+      cbPathMax * UTF8_MAX_CHAR_LEN, pcbPathOut);
+
+  if (retcode == TRUE)
+    {
+      dm_StrCopyOut2_U8toW (_path_u8, lpszPath, cbPathMax, pcbPathOut);
+    }
+
+done:
+  MEM_FREE (_inf_u8);
+  MEM_FREE (_driver_u8);
+  MEM_FREE (_path_u8);
 
   return retcode;
 }

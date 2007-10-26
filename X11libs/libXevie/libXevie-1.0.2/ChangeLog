@@ -1,0 +1,121 @@
+2006-04-26  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Bump to 1.0.1
+
+2006-04-03  Adam Jackson  <ajax@freedesktop.org>
+
+	* src/Makefile.am:
+	Bug #6403: Cygwin build fix.  (Yaakov Selkowitz)
+
+2006-02-12  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* man/Makefile.am: 
+	Bug #5628 <https://bugs.freedesktop.org/show_bug.cgi?id=5628>
+	Shadow pages not created correctly when MANDIR & MANSUFFIX don't match.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-06  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* man/Makefile.am:
+	Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-12-02  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	* src/Makefile.am:
+	Add check and cflags for malloc(0) returning NULL.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-10-12  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* configure.ac:
+	* Makefile.am:
+	* man/Makefile.am: 
+	Use sed to put version number in man page
+	Add shadow man pages for man pages that document multiple functions.
+
+2005-10-05  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	Add man page to build
+
+2005-07-08  Keith Packard  <keithp@keithp.com>
+
+	reviewed by: <delete if not using a buddy>
+
+	* .cvsignore:
+	* include/.cvsignore:
+	* src/.cvsignore:
+	* src/Makefile.am:
+
+2005-05-21  Alan Coopersmith  <alan.coopersmith@sun.com
+
+	* COPYING:
+	* Makefile.am:
+	* NEWS:
+	* README
+	* autogen.sh:
+	* configure.ac:
+	* src/Makefile.am:
+	Initial modularization.
+
+ChangeLog from Xorg monolithic tree:
+
+2005-05-21  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* include/extensions/Xevie.h:
+	* include/extensions/Xeviestr.h:
+	* lib/Xevie/Xevie.c:
+	Move request id definitions to Xeviestr.h, leaving Xevie.h for
+	client library definitions and Xeviestr.h for protocol definitions
+	to allow cleaner split in modularization.
+
+2005-04-03  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* lib/Xevie/Xevie.man:
+	Clean up text and formatting of Xevie man page
+	
+2004-08-16  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* lib/Xevie/Imakefile:
+	Fix build problem with xevie.pc
+
+2004-08-16  Stuart Kreitman  <stukreit@freedesktop.org>
+	* xc/lib/Imakefile
+	* xc/lib/Xext/Imakefile
+	* xc/lib/Xext/Attic/Xevie.c moved to lib/Xevie
+	* xc/lib/Xevie/Imakefile
+	* xc/lib/Xevie/Xevie.c
+	* xc/lib/Xevie/Xevie.man
+	* xc/lib/Xevie/xevie.pc.in
+	* xc/lib/Xevie/xevieplaceholder.h
+	Bug #957 Moved Xevie client side to libXevie.so
+
+2004-07-31  Stuart Kreitman  <stuart dot kreitman at sun dot com>
+
+	* lib/Xext/Imakefile:
+	* lib/Xext/Xevie.c:
+	Bugzilla #947: Merge from XEVIE branch, turning on XEVIE,
+	updating the xevie impl.
+
+Changelog from Sun internal tree before X.Org integration:
+
+2002-06-27  Derek Wang <derek dot wang at sun dot com>
+	* lib/Xext/Xevie.c:
+	* include/extensions/Xevie.h:
+	* include/extensions/Xeviestr.h:
+	Initial checkin

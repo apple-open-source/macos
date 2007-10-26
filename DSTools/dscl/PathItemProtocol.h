@@ -51,13 +51,19 @@
 - (PathItem*) cd:(NSString*)dest;
 
 - (tDirStatus) createKey:(NSString*)inKey withValues:(NSArray*)inValues;
+- (tDirStatus) create:(NSString*)inKey plistPath:(NSString*)inPlistPath values:(NSArray*)inValues;
+- (tDirStatus) create:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath values:(NSArray*)inValues;
 
 // Delete the record held by this PathItem.
 - (tDirStatus) deleteItem;
 - (tDirStatus) deleteKey:(NSString*)inKey withValues:(NSArray*)inValues;
+- (tDirStatus) delete:(NSString*)inKey plistPath:(NSString*)inPlistPath values:(NSArray*)inValues;
+- (tDirStatus) delete:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath values:(NSArray*)inValues;
 
 // List the contents of the current path
+- (NSDictionary*) getDictionary:(NSArray*)inKeys;
 - (NSArray*) getList;
+- (NSArray*) getListWithKeys:(NSArray*)inKeys;
 - (tDirStatus) list:(NSString*)inPath key:(NSString*)inKey;
 - (NSArray*) getPossibleCompletionsFor:(NSString*)inPrefix;
 
@@ -73,6 +79,20 @@
 // ie. for a record, this will display all its attributes.
 - (tDirStatus) read:(NSArray*)inKeys;
 
+// Perform a read all operation on the current path location.
+// ie. for a record type, this will display all the attributes for all records of that type.
+- (tDirStatus) readAll:(NSArray*)inKeys;
+
+- (tDirStatus) read:(NSString*)inPath keys:(NSArray*)inKeys;
+
+- (tDirStatus) read:(NSString*)inKey plistPath:(NSString*)inPlistPath;
+
+- (tDirStatus) read:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath;
+
+
 // Search for records with a matching key & value pair.
 - (tDirStatus) searchForKey:(NSString*)inKey withValue:(NSString*)inValue matchType:(NSString*)inType;
+
+- (void) printDictionary:(NSDictionary*)inDict withRequestedKeys:(NSArray*)inKeys;
+
 @end

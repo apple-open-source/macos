@@ -3,4 +3,5 @@ aguardando por sua consideração em:
 
 	%(adminDB)s
 
-Por favor atenda isto no horário que te for mais conveniente. 
+Por favor atenda isto no horário que te for mais conveniente. Esta notificação
+lhe será enviada diariamente.

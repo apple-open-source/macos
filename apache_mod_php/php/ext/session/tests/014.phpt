@@ -11,6 +11,7 @@ session.bug_compat_42=1
 session.bug_compat_warn=0
 session.name=PHPSESSID
 session.serialize_handler=php
+session.save_handler=files
 --FILE--
 <?php
 error_reporting(E_ALL);
@@ -31,7 +32,11 @@ ini_set("session.use_trans_sid","1");
 <?php
 session_destroy();
 ?>
---EXPECT--
+--EXPECTF--
 <a href="/link?PHPSESSID=abtest">
+
+Warning: ini_set(): A session is active. You cannot change the session module's ini settings at this time. in %s on line %d
 <a href="/link?PHPSESSID=abtest">
+
+Warning: ini_set(): A session is active. You cannot change the session module's ini settings at this time. in %s on line %d
 <a href="/link?PHPSESSID=abtest">

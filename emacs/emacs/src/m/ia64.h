@@ -1,12 +1,13 @@
 /* machine description file for the IA-64 architecture.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
      Contributed by David Mosberger <davidm@hpl.hp.com>
 
 This file is part of GNU Emacs.
 
 GNU Emacs is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 1, or (at your option)
+the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
 GNU Emacs is distributed in the hope that it will be useful,
@@ -16,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #define BITS_PER_LONG		64
 #define BITS_PER_EMACS_INT	64
@@ -87,15 +88,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* #define VIRT_ADDR_VARIES */
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#define HAVE_ALLOCA
-
 /* Define the following if GNU malloc and the relocating allocator do
    not work together with X.  */
 
@@ -128,43 +120,7 @@ Boston, MA 02111-1307, USA.  */
 
 #define PNTR_COMPARISON_TYPE unsigned long
 
-/* On the 64 bit architecture, we can use 60 bits for addresses */
-
-#define VALBITS         60
-
-/* This definition of MARKBIT is necessary because of the comparison of
-   ARRAY_MARK_FLAG and MARKBIT in an #if in lisp.h, which cpp doesn't like. */
-
-#define MARKBIT         0x8000000000000000L
-
-/* Define XINT and XUINT so that they can take arguments of type int */
-
-#define XINT(a)  (((long) (a) << (BITS_PER_LONG - VALBITS)) >> (BITS_PER_LONG - VALBITS))
-#define XUINT(a) ((long) (a) & VALMASK)
-
-/* Declare malloc and realloc in a way that is clean.
-   But not in makefiles!  */
-
 #ifndef NOT_C_CODE
-/* We need these because pointers are larger than the default ints.  */
-# if !defined(__NetBSD__) && !defined(__OpenBSD__)
-#  include <alloca.h>
-# else
-#  include <stdlib.h>
-# endif
-
-/* We need to prototype these for the lib-src programs even if we don't
-   use the system malloc for the Emacs proper.  */
-#ifdef _MALLOC_INTERNAL
-/* These declarations are designed to match the ones in gmalloc.c.  */
-#if defined (__STDC__) && __STDC__
-extern void *malloc (), *realloc (), *calloc ();
-#else
-extern char *malloc (), *realloc (), *calloc ();
-#endif
-#else /* not _MALLOC_INTERNAL */
-extern void *malloc (), *realloc (), *calloc ();
-#endif /* not _MALLOC_INTERNAL */
 
 #ifdef REL_ALLOC
 #ifndef _MALLOC_INTERNAL
@@ -178,6 +134,7 @@ extern void r_alloc_free ();
 
 #endif /* not NOT_C_CODE */
 
-#define DATA_SEG_BITS	0x6000000000000000
-
 #define HAVE_TEXT_START
+
+/* arch-tag: 9b8e9fb2-2e49-4c22-b68f-11a488e77c66
+   (do not change this comment) */

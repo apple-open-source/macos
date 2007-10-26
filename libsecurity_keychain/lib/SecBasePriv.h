@@ -37,7 +37,7 @@ extern "C" {
 
 const char *cssmErrorString(CSSM_RETURN error);
 
-CFStringRef SecCopyErrorMessageString(OSStatus status, void *reserved);
+OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus);
 
 #if defined(__cplusplus)
 }

@@ -30,6 +30,7 @@
 #ifndef _S_NBIMAGES_H
 #define _S_NBIMAGES_H
 
+#include <net/ethernet.h>
 #include "nbsp.h"
 #include "bsdp.h"
 #include <sys/types.h>
@@ -58,7 +59,7 @@ typedef union {
 } NBImageTypeInfo;
 
 typedef struct {
-    NBSPEntry		sharepoint;
+    NBSPEntryRef	sharepoint;
     const char *	arch;
     const char * *	archlist;
     int			archlist_count;
@@ -75,22 +76,30 @@ typedef struct {
     boolean_t		filter_only;
     const char * *	sysids;
     int			sysids_count;
+    const struct ether_addr *	enabled_mac_addresses;
+    int			enabled_mac_addresses_count;
+    const struct ether_addr *	disabled_mac_addresses;
+    int			disabled_mac_addresses_count;
+    struct in_addr	load_balance_ip;
 } NBImageEntry, * NBImageEntryRef;
 
 boolean_t	NBImageEntry_supported_sysid(NBImageEntryRef entry, 
 					     const char * arch,
-					     const char * sysid);
+					     const char * sysid,
+					     const struct ether_addr * ether_addr);
 struct NBImageList_s;
 typedef struct NBImageList_s * NBImageListRef;
 
 int		NBImageList_count(NBImageListRef list);
 NBImageEntryRef	NBImageList_element(NBImageListRef list, int i);
 NBImageEntryRef NBImageList_elementWithID(NBImageListRef list, bsdp_image_id_t);
-NBImageListRef	NBImageList_init(NBSPListRef sharepoints);
+NBImageListRef	NBImageList_init(NBSPListRef sharepoints,
+				 boolean_t allow_diskless);
 void		NBImageList_free(NBImageListRef * list);
 void		NBImageList_print(NBImageListRef images);
 NBImageEntryRef NBImageList_default(NBImageListRef images, 
 				    const char * arch, const char * sysid,
+				    const struct ether_addr * ether,
 				    const u_int16_t * attrs, int n_attrs);
 boolean_t	NBImageEntry_attributes_match(NBImageEntryRef entry,
 					      const u_int16_t * attrs,

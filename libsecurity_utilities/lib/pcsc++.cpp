@@ -133,7 +133,7 @@ void ReaderState::setATR(const void *atr, size_t size)
 
 void ReaderState::dump()
 {
-	Debug::dump("reader(%s) state=0x%lx events=0x%lx",
+	Debug::dump("reader(%s) state=0x%x events=0x%x",
 		szReader ? szReader : "(null)", dwCurrentState, dwEventState);
 	Debug::dumpData(" ATR", rgbAtr, cbAtr);
 }
@@ -178,6 +178,22 @@ void Session::open()
 	}
 }
 
+void Session::close()
+{
+	if (mIsOpen) {
+		mIsOpen = false;
+		try {
+			Error::check(SCardReleaseContext(mContext));
+			secdebug("pcsc", "context closed");
+		} catch (const Error &err) {
+			if (err.error == SCARD_F_INTERNAL_ERROR)
+			{
+				secdebug("pcsc", "got internal error; assuming pcscd absent; context not ready");
+				return;
+			}
+		}
+	}
+}
 
 bool Session::check(long rc)
 {
@@ -195,12 +211,18 @@ bool Session::check(long rc)
 
 void Session::listReaders(vector<string> &readers, const char *groups)
 {
-	mReaderBuffer.resize(1000); //@@@ preliminary hack
-	unsigned long size = mReaderBuffer.size();
-	if (check(::SCardListReaders(mContext, groups, &mReaderBuffer[0], &size)))
-		decode(readers, mReaderBuffer, size);
-	else
-		readers.clear();	// treat as success (returning zero readers)
+	uint32_t size = 0;
+	if (check(::SCardListReaders(mContext, groups, NULL, &size)))
+	{
+		mReaderBuffer.resize(size);
+		if (check(::SCardListReaders(mContext, groups, &mReaderBuffer[0], &size)))
+		{
+			decode(readers, mReaderBuffer, size);
+			return;
+		}
+	}
+	
+	readers.clear();	// treat as success (returning zero readers)
 }
 
 
@@ -246,7 +268,7 @@ void Card::setIOType(unsigned long activeProtocol)
 void Card::connect(Session &session, const char *reader,
 	unsigned long share, unsigned long protocols)
 {
-	DWORD activeProtocol;
+	uint32_t activeProtocol;
 	Error::check(::SCardConnect(session.mContext,
 		reader, share, protocols, &mHandle, &activeProtocol));
 	setIOType(activeProtocol);
@@ -315,9 +337,11 @@ Card::transmit(const unsigned char *pbSendBuffer, size_t cbSendLength,
 
 	IFDUMPING("pcsc", dump("->", pbSendBuffer, cbSendLength));
 
+	uint32_t tmpRecvLength = pcbRecvLength;
 	checkReset(::SCardTransmit(mHandle, mIOType, pbSendBuffer, cbSendLength,
-		NULL, pbRecvBuffer, &pcbRecvLength));
-
+		NULL, pbRecvBuffer, &tmpRecvLength));
+	pcbRecvLength = tmpRecvLength;
+	
 	IFDUMPING("pcsc", dump("<-", pbRecvBuffer, pcbRecvLength));
 }
 

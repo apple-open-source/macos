@@ -35,7 +35,7 @@ OTHER_SRCS = notes gnu/symseg.h \
 	     stuff/seg_addr_table.h stuff/dylib_table.h \
 	     stuff/SymLoc.h stuff/dylib_roots.h stuff/guess_short_name.h \
 	     stuff/macosx_deployment_target.h stuff/symbol_list.h \
-	     stuff/target_arch.h stuff/symbol.h stuff/unix_standard_mode.h \
+	     stuff/symbol.h stuff/unix_standard_mode.h \
 	     $(GAS_OTHER_SRCS)
 
 ENCUMBERED_SRCS = gnu/a.out.h gnu/exec.h

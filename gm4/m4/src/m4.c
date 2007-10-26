@@ -1,29 +1,30 @@
 /* GNU m4 -- A simple macro processor
 
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2004 Free
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2004, 2005, 2006 Free
    Software Foundation, Inc.
-  
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-  
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-  
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301  USA
 */
 
 #include "m4.h"
 
 #include <getopt.h>
-#include <sys/signal.h>
+#include <signal.h>
 
-static void usage _((int));
+static void usage (int);
 
 /* Operate interactively (-e).  */
 static int interactive = 0;
@@ -35,7 +36,7 @@ int sync_output = 0;
 int debug_level = 0;
 
 /* Hash table size (should be a prime) (-Hsize).  */
-int hash_table_size = HASHMAX;
+size_t hash_table_size = HASHMAX;
 
 /* Disable GNU extensions (-G).  */
 int no_gnu_extensions = 0;
@@ -53,11 +54,11 @@ int suppress_warnings = 0;
 int warning_status = 0;
 
 /* Artificial limit for expansion_level in macro.c.  */
-int nesting_limit = 250;
+int nesting_limit = 1024;
 
 #ifdef ENABLE_CHANGEWORD
 /* User provided regexp for describing m4 words.  */
-const char *user_word_regexp = NULL;
+const char *user_word_regexp = "";
 #endif
 
 /* Name of frozen file to digest after initialization.  */
@@ -85,18 +86,30 @@ typedef struct macro_definition macro_definition;
 
 /* Error handling functions.  */
 
-/*-------------------------------------------------------------------------.
-| Print source and line reference on standard error, as a prefix for error |
-| messages.  Flush standard output first.				   |
-`-------------------------------------------------------------------------*/
+/*-----------------------.
+| Wrapper around error.  |
+`-----------------------*/
 
 void
-reference_error (void)
+m4_error (int status, int errnum, const char *format, ...)
 {
-  int e = errno;
-  fflush (stdout);
-  fprintf (stderr, "%s:%d: ", current_file, current_line);
-  errno = e;
+  va_list args;
+  va_start (args, format);
+  verror_at_line (status, errnum, current_line ? current_file : NULL,
+                  current_line, format, args);
+}
+
+/*-------------------------------.
+| Wrapper around error_at_line.  |
+`-------------------------------*/
+
+void
+m4_error_at_line (int status, int errnum, const char *file, int line,
+                  const char *format, ...)
+{
+  va_list args;
+  va_start (args, format);
+  verror_at_line (status, errnum, line ? file : NULL, line, format, args);
 }
 
 #ifdef USE_STACKOVF
@@ -109,23 +122,10 @@ static void
 stackovf_handler (void)
 {
   M4ERROR ((EXIT_FAILURE, 0,
-	    "ERROR: Stack overflow.  (Infinite define recursion?)"));
+	    "ERROR: stack overflow.  (Infinite define recursion?)"));
 }
 
 #endif /* USE_STACKOV */
-
-/* Memory allocation.  */
-
-/*------------------------.
-| Failsafe free routine.  |
-`------------------------*/
-
-void
-xfree (voidstar p)
-{
-  if (p != NULL)
-    free (p);
-}
 
 
 /*---------------------------------------------.
@@ -141,71 +141,86 @@ usage (int status)
     {
       printf ("Usage: %s [OPTION]... [FILE]...\n", program_name);
       fputs ("\
+Process macros in FILEs.  If no FILE or if FILE is `-', standard input\n\
+is read.\n\
+", stdout);
+      fputs ("\
+\n\
 Mandatory or optional arguments to long options are mandatory or optional\n\
 for short options too.\n\
 \n\
 Operation modes:\n\
       --help                   display this help and exit\n\
       --version                output version information and exit\n\
-  -e, --interactive            unbuffer output, ignore interrupts\n\
   -E, --fatal-warnings         stop execution after first warning\n\
+  -e, --interactive            unbuffer output, ignore interrupts\n\
+  -P, --prefix-builtins        force a `m4_' prefix to all builtins\n\
   -Q, --quiet, --silent        suppress some warnings for builtins\n\
-  -P, --prefix-builtins        force a `m4_' prefix to all builtins\n",
-	     stdout);
+", stdout);
 #ifdef ENABLE_CHANGEWORD
       fputs ("\
-  -W, --word-regexp=REGEXP     use REGEXP for macro name syntax\n",
-	     stdout);
+  -W, --word-regexp=REGEXP     use REGEXP for macro name syntax\n\
+", stdout);
 #endif
       fputs ("\
 \n\
 Preprocessor features:\n\
-  -I, --include=DIRECTORY      search this directory second for includes\n\
-  -D, --define=NAME[=VALUE]    enter NAME has having VALUE, or empty\n\
-  -U, --undefine=NAME          delete builtin NAME\n\
-  -s, --synclines              generate `#line NO \"FILE\"' lines\n",
-	     stdout);
+  -D, --define=NAME[=VALUE]    define NAME has having VALUE, or empty\n\
+  -I, --include=DIRECTORY      append DIRECTORY to include path\n\
+  -s, --synclines              generate `#line NUM \"FILE\"' lines\n\
+  -U, --undefine=NAME          undefine NAME\n\
+", stdout);
       fputs ("\
 \n\
 Limits control:\n\
   -G, --traditional            suppress all GNU extensions\n\
-  -H, --hashsize=PRIME         set symbol lookup hash table size\n\
-  -L, --nesting-limit=NUMBER   change artificial nesting limit\n",
-	     stdout);
+  -H, --hashsize=PRIME         set symbol lookup hash table size [509]\n\
+  -L, --nesting-limit=NUMBER   change artificial nesting limit [1024]\n\
+", stdout);
       fputs ("\
 \n\
 Frozen state files:\n\
   -F, --freeze-state=FILE      produce a frozen state on FILE at end\n\
-  -R, --reload-state=FILE      reload a frozen state from FILE at start\n",
-	     stdout);
+  -R, --reload-state=FILE      reload a frozen state from FILE at start\n\
+", stdout);
       fputs ("\
 \n\
 Debugging:\n\
-  -d, --debug=[FLAGS]          set debug level (no FLAGS implies `aeq')\n\
-  -t, --trace=NAME             trace NAME when it will be defined\n\
+  -d, --debug[=FLAGS]          set debug level (no FLAGS implies `aeq')\n\
   -l, --arglength=NUM          restrict macro tracing size\n\
-  -o, --error-output=FILE      redirect debug and trace output\n",
-	     stdout);
+  -o, --error-output=FILE      redirect debug and trace output\n\
+  -t, --trace=NAME             trace NAME when it will be defined\n\
+", stdout);
       fputs ("\
 \n\
 FLAGS is any of:\n\
-  t   trace for all macro calls, not only traceon'ed\n\
   a   show actual arguments\n\
-  e   show expansion\n\
-  q   quote values as necessary, with a or e flag\n\
   c   show before collect, after collect and after call\n\
-  x   add a unique macro call id, useful with c flag\n\
+  e   show expansion\n\
   f   say current input file name\n\
+  i   show changes in input files\n\
   l   say current input line number\n\
   p   show results of path searches\n\
-  i   show changes in input files\n\
-  V   shorthand for all of the above flags\n",
-	     stdout);
+  q   quote values as necessary, with a or e flag\n\
+  t   trace for all macro calls, not only traceon'ed\n\
+  x   add a unique macro call id, useful with c flag\n\
+  V   shorthand for all of the above flags\n\
+", stdout);
       fputs ("\
 \n\
-If no FILE or if FILE is `-', standard input is read.\n",
-	     stdout);
+If defined, the environment variable `M4PATH' is a colon-separated list\n\
+of directories included after any specified by `-I'.\n\
+", stdout);
+      fputs ("\
+\n\
+Exit status is 0 for success, 1 for failure, 63 for frozen file version\n\
+mismatch, or whatever value was passed to the m4exit macro.\n\
+", stdout);
+      printf ("\nReport bugs to <%s>.\n", PACKAGE_BUGREPORT);
     }
+
+  if (close_stream (stdout) != 0)
+    M4ERROR ((EXIT_FAILURE, errno, "write error"));
   exit (status);
 }
 
@@ -244,6 +259,10 @@ static const struct option long_options[] =
   { 0, 0, 0, 0 },
 };
 
+/* Global catchall for any errors that should affect final error status, but
+   where we try to continue execution in the meantime.  */
+int retcode;
+
 #ifdef ENABLE_CHANGEWORD
 #define OPTSTRING "B:D:EF:GH:I:L:N:PQR:S:T:U:W:d::el:o:st:"
 #else
@@ -262,6 +281,7 @@ main (int argc, char *const *argv, char *const *envp)
   FILE *fp;
 
   program_name = argv[0];
+  retcode = EXIT_SUCCESS;
 
   include_init ();
   debug_init ();
@@ -273,7 +293,8 @@ main (int argc, char *const *argv, char *const *envp)
 
   head = tail = NULL;
 
-  while (optchar = getopt_long (argc, argv, OPTSTRING, long_options, NULL),
+  while (optchar = getopt_long (argc, (char **) argv, OPTSTRING,
+				long_options, NULL),
 	 optchar != EOF)
     switch (optchar)
       {
@@ -321,8 +342,8 @@ main (int argc, char *const *argv, char *const *envp)
 	break;
 
       case 'H':
-	hash_table_size = atoi (optarg);
-	if (hash_table_size <= 0)
+	hash_table_size = atol (optarg);
+	if (hash_table_size == 0)
 	  hash_table_size = HASHMAX;
 	break;
 
@@ -383,7 +404,17 @@ main (int argc, char *const *argv, char *const *envp)
 
   if (show_version)
     {
-      printf ("GNU %s %s\n", PRODUCT, VERSION);
+      printf ("%s\n", PACKAGE_STRING);
+      fputs ("\
+Copyright (C) 2006 Free Software Foundation, Inc.\n\
+This is free software; see the source for copying conditions.  There is NO\n\
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\
+\n\
+Written by Rene' Seindal.\n\
+", stdout);
+
+      if (close_stream (stdout) != 0)
+	M4ERROR ((EXIT_FAILURE, errno, "write error"));
       exit (EXIT_SUCCESS);
     }
 
@@ -435,12 +466,12 @@ main (int argc, char *const *argv, char *const *envp)
 
 	default:
 	  M4ERROR ((warning_status, 0,
-		    "INTERNAL ERROR: Bad code in deferred arguments"));
+		    "INTERNAL ERROR: bad code in deferred arguments"));
 	  abort ();
 	}
 
       next = defines->next;
-      xfree ((voidstar) defines);
+      free (defines);
       defines = next;
     }
 
@@ -467,14 +498,18 @@ main (int argc, char *const *argv, char *const *envp)
 	  push_file (stdin, "stdin");
 	else
 	  {
-	    fp = path_search (argv[optind]);
+	    const char *name;
+	    fp = path_search (argv[optind], &name);
 	    if (fp == NULL)
 	      {
 		error (0, errno, "%s", argv[optind]);
+		/* Set the status to EXIT_FAILURE, even though we
+		   continue to process files after a missing file.  */
+		retcode = EXIT_FAILURE;
 		continue;
 	      }
-	    else
-	      push_file (fp, argv[optind]);
+	    push_file (fp, name);
+	    free ((char *) name);
 	  }
 	expand_input ();
       }
@@ -485,6 +520,10 @@ main (int argc, char *const *argv, char *const *envp)
   while (pop_wrapup ())
     expand_input ();
 
+  /* Change debug stream back to stderr, to force flushing debug stream and
+     detect any errors it might have encountered.  */
+  debug_set_output (NULL);
+
   if (frozen_file_to_write)
     produce_frozen_state (frozen_file_to_write);
   else
@@ -493,5 +532,7 @@ main (int argc, char *const *argv, char *const *envp)
       undivert_all ();
     }
 
-  exit (EXIT_SUCCESS);
+  if (close_stream (stdout) != 0)
+    M4ERROR ((EXIT_FAILURE, errno, "write error"));
+  exit (retcode);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,6 +60,16 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOService.h>
 #include <IOKit/storage/IOMedia.h>
+
+/*!
+ * @defined kIOMessageMediaParametersHaveChanged
+ * @abstract
+ * The message ID which indicates that the media parameters, such as the highest valid block
+ * for the device, have changed.
+ * @discussion
+ * The message is passed to all clients of the IOBlockStorageDevice via the message() method.
+ */
+#define kIOMessageMediaParametersHaveChanged iokit_family_msg(sub_iokit_block_storage, 2)
 
 /*!
  * @defined kIOMessageMediaStateHasChanged
@@ -144,28 +154,12 @@ public:
 
     /* --- A subclass must implement the the following methods: --- */
 
-    /*!
-     * @function doAsyncReadWrite
-     * @abstract
-     * Start an asynchronous read or write operation.
-     * @param buffer
-     * An IOMemoryDescriptor describing the data-transfer buffer. The data direction
-     * is contained in the IOMemoryDescriptor. Responsibility for releasing the descriptor
-     * rests with the caller.
-     * @param block
-     * The starting block number of the data transfer.
-     * @param nblks
-     * The integral number of blocks to be transferred.
-     * @param completion
-     * The completion routine to call once the data transfer is complete.
-     */
-
     virtual IOReturn	doAsyncReadWrite(IOMemoryDescriptor *buffer,
                                             UInt32 block, UInt32 nblks,
-                                            IOStorageCompletion completion)	= 0;
+                                            IOStorageCompletion completion) __attribute__ ((deprecated));
 
-    /* DEPRECATED */ virtual IOReturn	doSyncReadWrite(IOMemoryDescriptor *buffer,
-    /* DEPRECATED */                                 UInt32 block,UInt32 nblks);
+    virtual IOReturn	doSyncReadWrite(IOMemoryDescriptor *buffer,
+                                    UInt32 block,UInt32 nblks) __attribute__ ((deprecated));
 
     /*!
      * @function doEjectMedia
@@ -393,24 +387,9 @@ public:
      */
     virtual IOReturn	reportWriteProtection(bool *isWriteProtected)	= 0;
 
-    /*!
-     * @function doAsyncReadWrite
-     * @abstract
-     * Start an asynchronous read or write operation.
-     * @param buffer
-     * An IOMemoryDescriptor describing the data-transfer buffer. The data direction
-     * is contained in the IOMemoryDescriptor. Responsibility for releasing the descriptor
-     * rests with the caller.
-     * @param block
-     * The starting block number of the data transfer.
-     * @param nblks
-     * The integral number of blocks to be transferred.
-     * @param completion
-     * The completion routine to call once the data transfer is complete.
-     */
     virtual IOReturn	doAsyncReadWrite(IOMemoryDescriptor *buffer,
                                             UInt64 block, UInt64 nblks,
-                                            IOStorageCompletion completion);
+                                            IOStorageCompletion completion); /* DEPRECATED */
 
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice, 0); /* 10.2.0 */
 
@@ -443,7 +422,30 @@ public:
 
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice, 2); /* 10.3.0 */
 
-    OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  3);
+    /*!
+     * @function doAsyncReadWrite
+     * @abstract
+     * Start an asynchronous read or write operation.
+     * @param buffer
+     * An IOMemoryDescriptor describing the data-transfer buffer. The data direction
+     * is contained in the IOMemoryDescriptor. Responsibility for releasing the descriptor
+     * rests with the caller.
+     * @param block
+     * The starting block number of the data transfer.
+     * @param nblks
+     * The integral number of blocks to be transferred.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.
+     * @param completion
+     * The completion routine to call once the data transfer is complete.
+     */
+    virtual IOReturn	doAsyncReadWrite(IOMemoryDescriptor *buffer,
+                                            UInt64 block, UInt64 nblks,
+                                            IOStorageAttributes *attributes,
+                                            IOStorageCompletion *completion); /* ABSTRACT */
+
+    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice, 3); /* 10.5.0 */
+
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  4);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  5);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  6);

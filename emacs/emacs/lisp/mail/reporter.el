@@ -1,6 +1,7 @@
 ;;; reporter.el --- customizable bug reporting of lisp programs
 
-;; Copyright (C) 1993,1994,1995,1996,1997,1998 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author:          1993-1998 Barry A. Warsaw
 ;; Maintainer:      FSF
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -263,7 +264,7 @@ dumped."
 	       varlist)
 	      (lisp-indent-line)
 	      (insert ")\n"))
-	    (insert-buffer elbuf))
+	    (insert-buffer-substring elbuf))
 	(error
 	 (insert "State could not be dumped due to the following error:\n\n"
 		 (format "%s" fault)
@@ -317,7 +318,7 @@ This function prompts for a summary if `reporter-prompt-for-summary-p'
 is non-nil.
 
 This function does not send a message; it uses the given information
-to initialize a a messagem, which the user can then edit and finally send
+to initialize a message, which the user can then edit and finally send
 \(or decline to send).  The variable `mail-user-agent' controls which
 mail-sending package is used for editing and sending the message."
   (let ((reporter-eval-buffer (current-buffer))
@@ -407,4 +408,6 @@ mail-sending package is used for editing and sending the message."
 
 
 (provide 'reporter)
+
+;;; arch-tag: 33612ff4-fbbc-4be2-b183-560ce9e0199b
 ;;; reporter.el ends here

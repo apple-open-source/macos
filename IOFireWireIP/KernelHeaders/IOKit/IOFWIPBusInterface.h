@@ -28,18 +28,57 @@
 #include <IOKit/IOLib.h>
 #include "IOFireWireIP.h"
 
+#define FIREWIREPRIVATE
+
+#include <IOKit/firewire/IOFireWireController.h>
+#include <IOKit/firewire/IOFWAsyncStreamListener.h>
+
+
+class IOFireWireController;
+class IOFWAsyncStreamListener;
 class IOFWIPAsyncWriteCommand;
 
-const int kWaitSecs			=	5;
-const int kUnicastArbs		=	128;
-const int kMulticastArbs	=	64;
-const int kActiveDrbs		=	128;
-const int kActiveRcbs		=	128;
-const int kMaxChannels		=	64;
+const int		kWaitSecs				= 5;
+const int		kUnicastArbs			= 128;
+const int		kMulticastArbs			= 64;
+const int		kActiveDrbs				= 128;
+const int		kActiveRcbs				= 128;
+const int		kMaxChannels			= 64;
+const int		kMaxAsyncCommands		= 127;
+const int		kMaxAsyncStreamCommands = 5;
+const int		kRCBExpirationtime		= 2; // 2 seconds active time for reassembly control blocks, decremented by watchdog
 
+const bool		kCopyBuffers			= false; // Set to true if need to copy the payload
+const bool		kQueueCommands			= false; // Set to true if need to queue the block write packets 
 
-const int kMaxAsyncCommands		  =  127;
-const int kMaxAsyncStreamCommands = 5;
+const UInt32	kLowWaterMark			= 48;	 // Low water mark for commands in the pre-allocated pool
+const UInt32	kWatchDogTimerMS		= 1000;  // Watch dog timeout set to 1 sec = 1000 milli second
+const UInt32	kMaxPseudoAddressSize	= 4096;
+
+// BusyX Ack workaround to maximize IPoFW performance
+const UInt32 kMaxBusyXAcksPerSecond				= 10;
+const UInt32 kMaxSecondsToTurnOffFastRetry		= 60;
+
+class IOFWIPMBufCommand : public IOCommand
+{
+	OSDeclareDefaultStructors(IOFWIPMBufCommand);
+	
+private:
+    mbuf_t			fMbuf;
+    IOFireWireIP	*fIPLocalNode;
+	bool			fInited;
+	IOReturn		fStatus;
+	IOCommandPool	*fPool;
+
+protected:
+	void free();
+	
+public:
+	bool init();
+	void reinit(mbuf_t pkt, IOFireWireIP *ipNode, IOCommandPool *pool);
+	void releaseWithStatus(IOReturn status = kIOReturnSuccess);
+	mbuf_t getMBuf();
+};
 
 /*!
 @class IOFWIPBusInterface
@@ -54,34 +93,39 @@ private:
 	IOFireWireController	*fControl;
 	LCB						*fLcb;
 
-    UInt32					*fMemoryPool;
     IOFWPseudoAddressSpace	*fIP1394AddressSpace;
     FWAddress				fIP1394Address;
 	bool					fStarted;
 	
     IOCommandPool			*fAsyncCmdPool;
+    IOCommandPool			*fMbufCmdPool;
+	IOCommandPool			*fRCBCmdPool;
 	OSSet					*fAsyncTransitSet;
     IOCommandPool			*fAsyncStreamTxCmdPool;
 	OSSet					*fAsyncStreamTransitSet;
-	UInt32					fMaxRxIsocPacketSize;
 	UInt32					fMaxTxAsyncDoubleBuffer;
-	bool					bOnLynx;
 	IORecursiveLock			*fIPLock;
     IOWorkLoop				*workLoop;
-	IOReturn				fTxStatus;
-	UInt16					fDurationBeforeTerminate;
 	
 	OSSet					*unicastArb;        // Address information from ARP
 	OSSet					*multicastArb;      // Address information from MCAP
     OSSet					*activeDrb;         // Devices with valid device IDs
     OSSet					*activeRcb;         // Linked list of datagrams in reassembly
-    OSDictionary			*mcapState;			// Per channel MCAP descriptors
+    OSArray					*mcapState;			// Per channel MCAP descriptors
 	IOTimerEventSource		*timerSource;
-	volatile UInt16			fUnitCount;
+	SInt16					fUnitCount;
+	UInt32					fLowWaterMark;
+	UInt32					fPrevTransmitCount;
+	UInt32					fPrevBusyAcks;
+	UInt32					fPrevFastRetryBusyAcks;
+	UInt8					fFastRetryUnsetTimer;
+	int						fCurrentAsyncIPCommands;
+	int						fCurrentMBufCommands;
+	int						fCurrentRCBCommands;
 
 protected:	
-	IOFWAsyncStreamRxCommand *fBroadcastReceiveClient;	
-	
+	IOFWAsyncStreamListener	*fBroadcastReceiveClient;
+
 	// Instance methods:
 	/*! 
 		@struct ExpansionData
@@ -102,7 +146,9 @@ public:
 	bool		init(IOFireWireIP *provider);
 
 	bool		finalize(IOOptionBits options);
-	
+
+	void		stop(IOService *provider);
+
 	void		free();
 
 	IOReturn	message(UInt32 type, IOService *provider, void *argument);
@@ -114,12 +160,12 @@ public:
 	void		detachIOFireWireIP();
 	
 	/*!
-		@function isAppleLynx
+		@function calculateMaxTransferUnit
 		@abstract checks whether the FWIM is for builtin H/W.
 		@param none.
 		@result Returns void.
 	*/
-	void	isAppleLynx();
+	void	calculateMaxTransferUnit();
 
 	/*!
 		@function createIPFifoAddress
@@ -128,10 +174,6 @@ public:
 		@result IOReturn - kIOReturnSuccess or error if failure.
 	*/
 	IOReturn createIPFifoAddress(UInt32 fifosize);
-	
-	IOReturn stopReceivingBroadcast();
-
-	IOReturn startReceivingBroadcast(IOFWSpeed speed);
 	
 	/*!
 		@function initAsyncStreamCmdPool
@@ -148,8 +190,10 @@ public:
         @result Returns kIOReturnSuccess if it was successful, else kIOReturnNoMemory.
 	*/
 	UInt32 initAsyncCmdPool();
-	
-	IOFWIPAsyncWriteCommand	*getAsyncCommand(const mbuf_t m, bool block, bool *deferNotify);
+		
+	IOFWIPMBufCommand *getMBufCommand();
+		
+	IOFWIPAsyncWriteCommand	*getAsyncCommand(bool block, bool *deferNotify);
 	
 	void	returnAsyncCommand(IOFWIPAsyncWriteCommand *cmd);
 	
@@ -187,7 +231,7 @@ public:
     */	
 	void decrementUnitCount();
 
-	UInt16 getUnitCount();
+	SInt16 getUnitCount();
 
 	/*!
 		@function fwIPUnitAttach
@@ -253,7 +297,7 @@ public:
 	*/
 	SInt32  txARP(mbuf_t m, UInt16 nodeID, UInt32 busGeneration, IOFWSpeed speed);
 	
-	SInt32	txBroadcastIP(const mbuf_t m, UInt16 nodeID, UInt32 busGeneration, UInt16 ownMaxPayload, UInt16 maxBroadcastPayload, IOFWSpeed speed, const UInt16 type);
+	SInt32	txBroadcastIP(const mbuf_t m, UInt16 nodeID, UInt32 busGeneration, UInt16 ownMaxPayload, UInt16 maxBroadcastPayload, IOFWSpeed speed, const UInt16 type, UInt32 channel);
 	
 	SInt32	txUnicastUnFragmented(IOFireWireNub *device, const FWAddress addr, const mbuf_t m, const UInt16 pktSize, const UInt16 type);
 	
@@ -266,9 +310,11 @@ public:
 	
 	static  UInt32	staticOutputPacket(mbuf_t pkt, void * param);
 
-	IOTransmitPacket	getOutputHandler() const;
+	IOTransmitPacket		getOutputHandler() const;
+
+	IOUpdateARPCache		getARPCacheHandler() const;
 	
-	IOUpdateARPCache	getARPCacheHandler() const;
+	IOUpdateMulticastCache	getMulticastCacheHandler() const;
 	
 	/*!
 		@function txIP
@@ -278,15 +324,16 @@ public:
 	*/
 	SInt32 txIP(mbuf_t m, UInt16 nodeID, UInt32 busGeneration, UInt16 ownMaxPayload, UInt16 maxBroadcastPayload, IOFWSpeed speed, UInt16 type);
 	
+	IOReturn createAsyncStreamRxClient(UInt8 speed, UInt32 channel, MCB *mcb);
+
 	/*!
 		@function txMCAP
 		@abstract multicast solicitation and advertisement messages.
-		@param LCB* - link control block
-		@param MCB* - mcb - multicast channel control block
-		@param ipAddress - address of the multicast group.
+		@param MCB*			- mcb - multicast channel control block
+		@param ipAddress	- address of the multicast group.
         @result void.
 	*/
-	void txMCAP(LCB *lcb, MCB *mcb, UInt32 ipAddress);
+	void txMCAP(MCB *mcb, UInt32 groupAddress);
 	
 	/*!
 		@function rxUnicastFlush
@@ -326,7 +373,7 @@ public:
 		@param DCLCommandStruct *callProc.
 		@result void.
 	*/
-	static void rxAsyncStream(DCLCommandStruct *dclProgram);
+	static void rxAsyncStream(void *refcon, const void *buf);
 	
 	/*!
 		@function rxMCAP
@@ -370,8 +417,14 @@ public:
 	IOReturn rxARP(IP1394_ARP *arp, UInt32 flags);
 
 	static bool staticUpdateARPCache(void *refcon, IP1394_ARP *fwa);
+
+	static bool staticUpdateMulticastCache(void *refcon, IOFWAddress *addrs, UInt32 count);
 	
 	bool updateARPCache(IP1394_ARP *fwa);
+
+	bool wellKnownMulticastAddress(IOFWAddress *addr);
+
+	bool updateMulticastCache(IOFWAddress *addrs, UInt32 count);
 
 	/*!
 		@function getRcb
@@ -383,16 +436,17 @@ public:
 	*/
 	RCB *getRcb(UInt16 sourceID, UInt16 dgl);
 
+	RCB *getRCBCommand( UInt16 sourceID, UInt16 dgl, UInt16 etherType, UInt16 datagramSize, mbuf_t m );
 	
 	/*!
 		@function getMulticastArb
 		@abstract Locates the corresponding multicast ARB (Address resolution block) for ipaddress
-		@param lcb - the firewire link control block for this interface.
-        @param ipAddress - destination ipaddress to send the multicast packet.
+		@param lcb			- the firewire link control block for this interface.
+        @param groupAddress - destination ipaddress to send the multicast packet.
         @result Returns ARB if successfull else NULL.
 	*/
-	ARB *getMulticastArb(UInt32 ipAddress);
-	
+	MARB *getMulticastArb(UInt32 groupAddress);
+
 	/*!
 		@function getDrbFromDeviceID
 		@abstract Locates the corresponding DRB (Address resolution block) for IOFireWireNub
@@ -426,7 +480,7 @@ public:
 		@param itsMac - destination is Mac or not.
 		@result Returns IOFireWireNub if successfull else 0.
 	*/
-	UInt32 getDeviceID(UWIDE eui64, BOOLEAN *itsMac);
+	UInt32 getDeviceID(UWIDE eui64, bool *itsMac);
 
 	/*!
 		@function getDrbFromEui64
@@ -445,7 +499,7 @@ public:
 		@param fwaddr - global unique id of a device on the bus.
 		@result Returns DRB if successfull else NULL.
 	*/
-	DRB *getDrbFromFwAddr(u_char *fwaddr);
+	DRB *getDrbFromFwAddr(UInt8 *fwaddr);
 	
 	/*! 
 		@function getArbFromFwAddr
@@ -453,9 +507,9 @@ public:
 		@param FwAddr - global unique id of a device on the bus.
 		@result Returns ARB if successfull else NULL.
 	*/
-	ARB *getArbFromFwAddr(u_char *fwaddr);
+	ARB *getArbFromFwAddr(UInt8 *fwaddr);
 
-	static ARB *staticGetArbFromFwAddr(void *refcon, u_char *fwaddr);
+	static ARB *staticGetArbFromFwAddr(void *refcon, UInt8 *fwaddr);
 
 	/*!
 		@function getUnicastArb
@@ -464,14 +518,6 @@ public:
         @result Returns ARB if successfull else NULL.
 	*/
 	ARB *getUnicastArb(UInt32 ipAddress);
-	
-	/*!
-		@function cleanFWArbCache
-		@abstract cleans the Link control block's stale arb's.
-		@param none.
-        @result void.
-	*/
-	void cleanARBCache();
 	
 	/*!
 		@function cleanRCBCache
@@ -484,19 +530,23 @@ public:
 
 	void releaseRCB(RCB	*rcb, bool freeMbuf = true);
 
-	void cleanDRBCache();
-
-	void resetARBCache();
+	void resetMARBCache();
 	
 	void resetRCBCache();
 	
 	void resetMcapState();
+	
+	void releaseDRB(UInt8 *fwaddr);
 
-	void releaseARB(ULONG deviceID);
+	void releaseDRB(UInt32 deviceID);
+
+	void releaseARB(UInt8 *fwaddr);
 
 	void updateMcapState();
 	
 	void releaseMulticastARB(MCB *mcb);
+	
+    mbuf_t allocateMbuf(UInt32 size);
 	
 	/*!
 		@function bufferToMbuf
@@ -530,15 +580,15 @@ public:
 						UInt32 length);
 						
 	void moveMbufWithOffset(SInt32 tempOffset, mbuf_t *srcm, vm_address_t *src, SInt32 *srcLen);	
-};
 
-class recursiveScopeLock
-{
-private:
-	IORecursiveLock *fLock;
-public:
-	recursiveScopeLock(IORecursiveLock *lock){fLock = lock; IORecursiveLockLock(fLock);};
-	~recursiveScopeLock(){IORecursiveLockUnlock(fLock);};
+#ifdef DEBUG
+	void showRcb(RCB *rcb);
+	void showMinRcb(RCB *rcb);
+	void showArb(ARB *arb);
+	void showHandle(TNF_HANDLE *handle);
+	void showDrb(DRB *drb);
+	void showLcb(); 
+#endif
 };
 
 #endif 

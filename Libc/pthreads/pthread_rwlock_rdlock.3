@@ -34,16 +34,20 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fn pthread_rwlock_rdlock "pthread_rwlock_t *lock"
+.Fo pthread_rwlock_rdlock
+.Fa "pthread_rwlock_t *rwlock"
+.Fc
 .Ft int
-.Fn pthread_rwlock_tryrdlock "pthread_rwlock_t *lock"
+.Fo pthread_rwlock_tryrdlock
+.Fa "pthread_rwlock_t *rwlock"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlock_rdlock
 function acquires a read lock on
-.Fa lock
+.Fa rwlock ,
 provided that
-.Fa lock
+.Fa rwlock
 is not presently held for writing and no writer threads are
 presently blocked on the lock.  If the read lock cannot be
 immediately acquired, the calling thread blocks until it can
@@ -52,7 +56,7 @@ acquire the lock.
 The
 .Fn pthread_rwlock_tryrdlock
 function performs the same action, but does not block if the lock
-cannot be immediately obtained (i.e. the lock is held for writing
+cannot be immediately obtained (i.e., the lock is held for writing
 or there are waiting writers).
 .Pp
 A thread may hold multiple concurrent read locks.  If so,
@@ -68,8 +72,8 @@ If successful, the
 .Fn pthread_rwlock_rdlock
 and
 .Fn pthread_rwlock_tryrdlock
-functions will return zero.  Otherwise an error number will be returned
-to indicate the error.
+functions will return zero.
+Otherwise, an error number will be returned to indicate the error.
 .Sh SEE ALSO
 .Xr pthread_rwlock_init 3 ,
 .Xr pthread_rwlock_trywrlock 3 ,
@@ -88,7 +92,7 @@ The
 function will fail if:
 .Bl -tag -width Er
 .It Bq Er EBUSY
-The lock could not be acquired because a writer holds the lock or
+The lock could not be acquired, because a writer holds the lock or
 was blocked on it.
 .El
 .Pp
@@ -99,17 +103,17 @@ and
 functions may fail if:
 .Bl -tag -width Er
 .It Bq Er EAGAIN
-The lock could not be acquired because the maximum number of read locks
+The lock could not be acquired, because the maximum number of read locks
 against
 .Fa lock
 has been exceeded.
 .It Bq Er EDEADLK
 The current thread already owns
-.Fa lock
+.Fa rwlock
 for writing.
 .It Bq Er EINVAL
 The value specified by
-.Fa lock
+.Fa rwlock
 is invalid.
 .It Bq Er ENOMEM
 Insufficient memory exists to initialize the lock (applies to

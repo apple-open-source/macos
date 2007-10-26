@@ -1,36 +1,26 @@
 /*
- * Copyright (c) 2001, Apple Computer, Inc.
- * All rights reserved.
+ * Copyright (c) 2001 - 2007 Apple Inc. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *    This product includes software developed by Boris Popov.
- * 4. Neither the name of the author nor the names of any co-contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- * $Id: status.c,v 1.2 2001/08/18 05:44:50 conrad Exp $
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <sys/param.h>
 #include <sys/errno.h>
 #include <sys/stat.h>
@@ -51,6 +41,7 @@
 #include <netsmb/smb_lib.h>
 #include <netsmb/nb_lib.h>
 #include <netsmb/smb_conn.h>
+#include <charsets.h>
 
 #include "common.h"
 
@@ -58,24 +49,25 @@
 int
 cmd_status(int argc, char *argv[])
 {
-	struct nb_ctx *ctx;
+	struct rcfile *smb_rc;
+	struct nb_ctx ctx;
 	struct sockaddr *sap;
 	char *hostname;
-	char servername[SMB_MAXSRVNAMELEN + 1];
-	char workgroupname[SMB_MAXUSERNAMELEN + 1];
-	int error, opt;
+	char servername[SMB_MAXNetBIOSNAMELEN + 1];
+	char workgroupname[SMB_MAXNetBIOSNAMELEN + 1];
+	char * displayName;
+	int opt;
 
 	if (argc < 2)
 		status_usage();
-	error = nb_ctx_create(&ctx);
-	if (error) {
-		smb_error("unable to create nbcontext", error);
-		exit(1);
-	}
-	if (smb_open_rcfile() == 0) {
-		if (nb_ctx_readrcsection(smb_rc, ctx, "default", 0) != 0)
+	bzero(&ctx, sizeof(ctx));
+	smb_rc = smb_open_rcfile(FALSE);
+	if (smb_rc) {
+		if (nb_ctx_readrcsection(smb_rc, &ctx, "default", 0) != 0)
 			exit(1);
+		nb_ctx_readcodepage(smb_rc, "default");
 		rc_close(smb_rc);
+		smb_rc = NULL;
 	}
 	while ((opt = getopt(argc, argv, "")) != EOF) {
 		switch(opt){
@@ -88,25 +80,33 @@ cmd_status(int argc, char *argv[])
 		status_usage();
 
 	hostname = argv[argc - 1];
-	error = nb_resolvehost_in(hostname, &sap);
-	if (error) {
-		smb_error("unable to resolve DNS hostname %s", error, hostname);
-		exit(1);
-	}
+	errno = nb_resolvehost_in(hostname, &sap, NBSS_TCP_PORT_139, TRUE);
+	if (errno)
+		err(EX_NOHOST, "unable to resolve DNS hostname %s", hostname);
+
 	servername[0] = (char)0;
 	workgroupname[0] = (char)0;
-	error = nbns_getnodestatus(sap, ctx, servername, workgroupname);
-	if (error) {
-		smb_error("unable to get status from %s", error, hostname);
-		exit(1);
-	}
+	errno = nbns_getnodestatus(sap, &ctx, servername, workgroupname);
+	if (errno)
+		err(EX_UNAVAILABLE, "unable to get status from %s", hostname);
 	
 	if (workgroupname[0]) {
-		printf("Workgroup: %s\n", workgroupname);
+		displayName = convert_wincs_to_utf8(workgroupname);
+		if (displayName) {
+			fprintf(stdout, "Workgroup: %s\n", displayName);
+			free(displayName);
+		} else 
+			fprintf(stdout, "Workgroup: %s\n", workgroupname);
 	}
 	if (servername[0]) {
-		printf("Server: %s\n", servername);
+		displayName = convert_wincs_to_utf8(servername);
+		if (displayName) {
+			fprintf(stdout, "Server: %s\n", displayName);
+			free(displayName);
+		} else 
+			fprintf(stdout, "Server: %s\n", servername);
 	}
+	nb_ctx_done(&ctx);
 	
 	return 0;
 }
@@ -115,6 +115,6 @@ cmd_status(int argc, char *argv[])
 void
 status_usage(void)
 {
-	printf("usage: smbutil status hostname\n");
+	fprintf(stderr, "usage: smbutil status hostname\n");
 	exit(1);
 }

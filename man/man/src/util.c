@@ -194,6 +194,8 @@ my_popen(const char *command, const char *type) {
      return popen(command, type);
 }
 
+#define NOT_SAFE "/unsafe/"
+
 /*
  * Attempt a system () call.
  */
@@ -204,7 +206,7 @@ do_system_command (const char *command, int silent) {
      /*
       * If we're debugging, don't really execute the command
       */
-     if (debug & 1) 
+     if ((debug & 1) || !strncmp(command, NOT_SAFE, strlen(NOT_SAFE)))
 	  gripe (NO_EXEC, command);
      else
 	  status = my_system (command);
@@ -237,7 +239,6 @@ my_strdup (const char *s) {
  * The %S parameters are checked for being shell safe.
  * The %Q parameters are checked for being shell safe inside single quotes.
  */
-#define NOT_SAFE "/unsafe/"
 
 static int
 is_shell_safe(const char *ss, int quoted) {

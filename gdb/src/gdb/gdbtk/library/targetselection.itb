@@ -1,5 +1,5 @@
 # Target selection dialog for Insight.
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003 Red Hat, Inc.
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -881,7 +881,7 @@ itcl::body TargetSelection::port_list {} {
       # Failed.  Find out why.
       if {[string first "permission denied" $msg] != -1} {
 	# Port is there, but busy right now. That's OK.
-	lappend plist com$i
+	lappend plist /dev/com$i
       } elseif {$i > 4} {
 	# if we've scanned the first 4 ports, then quit when we find no more 
 	set quit 1
@@ -889,7 +889,7 @@ itcl::body TargetSelection::port_list {} {
     } else {
       # We got it.  Now close it and add to list.
       close $fd
-      lappend plist com$i
+      lappend plist /dev/com$i
     }
   }
   return $plist

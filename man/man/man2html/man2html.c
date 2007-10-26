@@ -3205,7 +3205,7 @@ main(int argc, char **argv) {
 	/* &nbsp; for mosaic users */
 	printf("<HR>\n<A NAME=\"index\">&nbsp;</A><H2>Index</H2>\n<DL>\n");
 	manidx[mip]=0;
-	printf(manidx);
+	printf("%s", manidx);
 	if (subs) printf("</DL>\n");
 	printf("</DL>\n");
 	print_sig();

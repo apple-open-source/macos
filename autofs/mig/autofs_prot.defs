@@ -1,0 +1,185 @@
+/*
+ * CDDL HEADER START
+ *
+ * The contents of this file are subject to the terms of the
+ * Common Development and Distribution License, Version 1.0 only
+ * (the "License").  You may not use this file except in compliance
+ * with the License.
+ *
+ * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+ * or http://www.opensolaris.org/os/licensing.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ *
+ * When distributing Covered Code, include this CDDL HEADER in each
+ * file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+ * If applicable, add the following below this CDDL HEADER, with the
+ * fields enclosed by brackets "[]" replaced with your own identifying
+ * information: Portions Copyright [yyyy] [name of copyright owner]
+ *
+ * CDDL HEADER END
+ */
+/*
+ * Copyright 1993-1999, 2002 Sun Microsystems, Inc.  All rights reserved.
+ * Use is subject to license terms.
+ */
+
+/*
+ * From OpenSolaris
+ *
+ * #pragma ident	"@(#)autofs_prot.x	1.20	05/06/08 SMI"
+ */
+
+/*
+ * Portions Copyright 2007 Apple Inc.  All rights reserved.
+ *
+ * $Id$
+ */
+
+subsystem KernelUser autofs 666;
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+#include <sys/syslimits.h>
+#include "autofs_defs.h"
+#include "autofs_migtypes.h"
+
+import <autofs_types.h>;
+
+/*
+ * AUTOFS routines.
+ */
+
+/*
+ * Mount request.
+ * Request automountd to mount the map entry associated with
+ * 'path/subdir/name' in 'map' given 'opts' options.
+ */
+routine autofs_mount(
+	server		: mach_port_t;
+	in map		: autofs_pathname;	/* context or map name */
+	in path		: autofs_pathname;	/* mountpoint */
+	in name		: autofs_component;	/* entry we're looking for */
+	in subdir	: autofs_pathname;	/* subdir within map */
+	in opts		: autofs_opts;
+	in isdirect	: boolean_t;		/* direct mountpoint? */
+	in sendereuid	: uint32_t;		/* EUID of process sending request */
+	in gssd_port	: mach_port_t;		/* GSSD port of process sending request */
+	out mr_type	: int;			/* enum autofs_stat */
+	out actions	: byte_buffer, dealloc;	/* variable number of entries */
+	out err		: int;
+	out mr_verbose	: boolean_t;
+	ServerSecToken token : security_token_t
+);
+
+/*
+ * Unmount request.
+ * Automountd will issue unmount system call for the file system with the
+ * given fsid with the given fstype, etc..
+ * Status returned is 0 if the unmount was successful, an errno otherwise.
+ */
+routine autofs_unmount(
+	server		: mach_port_t;
+	in fsid_val0	: int32_t;		/* mntpnt fsid, first half */
+	in fsid_val1	: int32_t;		/* mntpnt fsid, second half */
+	in mntresource	: autofs_pathname;	/* mntpnt source */
+	in mntpnt	: autofs_pathname;	/* mntpnt to unmount */
+	in fstype	: autofs_fstype;	/* filesystem type to unmount */
+	in mntopts	: autofs_opts;		/* mntpnt options */
+	out status	: int;
+	ServerSecToken token : security_token_t
+);
+
+/*
+ * Readdir request.
+ * Request list of entries in 'rda_map' map starting at the given
+ * offset 'rda_offset', for 'rda_count' bytes.
+ */
+routine autofs_readdir(
+	server			: mach_port_t;
+	in rda_map		: autofs_pathname;
+	in rda_offset		: uint64_t;	/* starting offset */
+	in rda_count		: uint32_t;	/* total size requested */
+	out status		: int;
+	out rddir_offset	: uint64_t;	/* last offset in list */
+	out rddir_eof		: boolean_t;	/* TRUE if last entry in result */
+	out rddir_entries	: byte_buffer, dealloc;
+						/* variable number of entries */
+	ServerSecToken token : security_token_t
+);
+
+/*
+ * Lookup request.
+ * Query automountd if 'subdir/name' exists in 'map'
+ */
+routine autofs_lookup(
+	server		: mach_port_t;
+	in map		: autofs_pathname;	/* context or map name */
+	in path		: autofs_pathname;	/* mountpoint */
+	in name		: autofs_component;	/* entry we're looking for */
+	in subdir	: autofs_pathname;	/* subdir within map */
+	in opts		: autofs_opts;
+	in isdirect	: boolean_t;		/* direct mountpoint? */
+	in sendereuid	: uint32_t;		/* EUID of process sending request */
+	out err		: int;
+	out lu_action	: int;			/* enum autofs_action */
+	out lu_verbose	: boolean_t;
+	ServerSecToken token : security_token_t
+);
+
+/*
+ * Mount-submount-trigger request.
+ * Request automountd to mount autofs as a trigger on submntpt under
+ * mntpt.
+ */
+routine autofs_mount_trigger(
+	server		: mach_port_t;
+	in mntpt	: autofs_pathname;	/* top-level mount point */
+	in submntpt	: autofs_pathname;	/* submount point relative to mntpt */
+	in path		: autofs_pathname;	/* path mount argument */
+	in opts		: autofs_opts;		/* opts mount argument */
+	in map		: autofs_pathname;	/* map mount argument */
+	in subdir	: autofs_pathname;	/* subdir mount argument */
+	in key		: autofs_pathname;	/* key mount argument */
+	in flags	: uint32_t;		/* flags argument to mount() */
+	in mntflags	: uint32_t;		/* mntflags mount argument */
+	in mount_to	: int32_t;		/* mount_to mount argument */
+	in mach_to	: int32_t;		/* mach_to mount argument */
+	in direct	: int32_t;		/* direct mount argument */
+	out fsid_val0	: int32_t;		/* mounted FS fsid, first half */
+	out fsid_val1	: int32_t;		/* mounted FS fsid, second half */
+	out top_level	: boolean_t;		/* true if submntpt empty */
+	out err		: int;
+	ServerSecToken token : security_token_t
+);
+
+/*
+ * Check-hostname request.
+ * Ask automountd whether the specified name is our host name.
+ */
+routine autofs_check_thishost(
+	server		: mach_port_t;
+	in name		: autofs_component;	/* name we're checking */
+	out is_us	: boolean_t;		/* true if it's us */
+	ServerSecToken token : security_token_t
+);
+
+/*
+ * Check-trigger request.
+ * Request automountd to check the map entry associated with
+ * 'path/subdir/name' in 'map' given 'opts' options to see
+ * whether it'll trigger a mount or not.
+ */
+routine autofs_check_trigger(
+	server		: mach_port_t;
+	in map		: autofs_pathname;	/* context or map name */
+	in path		: autofs_pathname;	/* mountpoint */
+	in name		: autofs_component;	/* entry we're looking for */
+	in subdir	: autofs_pathname;	/* subdir within map */
+	in opts		: autofs_opts;
+	in isdirect	: boolean_t;		/* direct mountpoint? */
+	out err		: int;
+	out istrigger	: boolean_t;
+	ServerSecToken token : security_token_t
+);

@@ -1,3 +1,6 @@
+#include <config.h>
+
+#if !HAVE_STRERROR
 /*
  * Copyright (c) 1988 Regents of the University of California.
  * All rights reserved.
@@ -24,6 +27,8 @@ static const char sccsid[] = "@(#)strerror.c	5.1 (Berkeley) 4/9/89";
 #include <stdio.h>
 #include <string.h>
 
+#include "l_stdlib.h"
+
 char *
 strerror(
 	int errnum
@@ -38,3 +43,6 @@ strerror(
 	(void)sprintf(ebuf, "Unknown error: %d", errnum);
 	return(ebuf);
 }
+#else
+int strerror_bs;
+#endif

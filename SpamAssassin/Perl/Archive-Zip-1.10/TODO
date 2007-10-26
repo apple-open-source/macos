@@ -1,9 +1,0 @@
-$Revision: 1.1 $
-Still to do:
-* auto-choosing storing vs compression
-* extra field hooks (see notes.txt)
-* check for dups on addition/renaming?
-* Text file extraction (line end translation)
-* Reading zip files from non-seekable inputs
-* separate unused constants into separate module
-* cookbook style docs

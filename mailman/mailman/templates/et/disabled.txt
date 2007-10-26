@@ -1,16 +1,16 @@
-Teie %(listname)s listi tellimus on katkestatud järgnetavel
-põhjustel:
+Teie %(listname)s listi tellimus on peatatud sest:
 %(reason)s
+
 Te ei saa listist rohkem kirju enne, kui olete oma tellimust
 uuendanud. Te saate veel %(noticesleft)s sellist meeldetuletust, enne
-kui teie tellimus lõplikult tühistatakse.
+kui teie tellimus lõplikult peatatakse.
 
 Tellimuse uuendamiseks lihtsalt vastake sellele kirjale (jättes
 teema samaks), või külastage aadressi:
 
     %(confirmurl)s
 
-Alternatiivina võite külastada ka oma tellimisinfo lehte aadressil
+Alternatiivina võib külastada ka oma tellimisinfo lehte aadressil
 
     %(optionsurl)s
 

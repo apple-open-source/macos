@@ -85,7 +85,7 @@ EventTraceCauseDesc TraceEvents[] = {
     */
 };
 
-#define XTRACE(x, y, z) IrDALogAdd (x, y, z, TraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd (x, y, (int)z & 0xffff, TraceEvents, true )
 #else
     #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -190,7 +190,7 @@ DeleteEventListItems(CList *eventlist, Boolean check_contents)
 	    event = (TIrEvent*)eventlist->At(index);
 	    eventlist->RemoveAt(index);
 	    require(event, Fail);
-	    XTRACE(kLogDeleteEventList, (int)event >> 16, (short)event);
+	    XTRACE(kLogDeleteEventList, (int)event >> 16, event);
 	    XTRACE(kLogDeleteEventList, 0, event->fEvent);
 	    /** this appears to not work well ...
 	    if (check_contents) {
@@ -252,8 +252,8 @@ TIrEvent::GrabEventBlock(ULong event, ULong size)
     err = gInUseEventList->InsertLast(eventBlock);      // keep a list of allocated events
     ncheck(err);
     if (err) {
-	XTRACE(kLogGrabErr1, err >> 16, (short)err);
-	XTRACE(kLogGrabErr2, (int)gInUseEventList >> 16, (short)gInUseEventList);
+	XTRACE(kLogGrabErr1, err >> 16, err);
+	XTRACE(kLogGrabErr2, (int)gInUseEventList >> 16, gInUseEventList);
 	XTRACE(kLogGrabErr3, 0, gInUseEventList->GetArraySize());
 	/*for (int index = 0; index < gInUseEventList->GetArraySize(); index++ ) {
 	    ULong member;
@@ -270,7 +270,7 @@ TIrEvent::GrabEventBlock(ULong event, ULong size)
     eventBlock->fAllocated = true;
 
 Fail_New_EventBlock:
-    XTRACE( kGrabEventBlock, (int)eventBlock >> 16, (short)eventBlock);
+    XTRACE( kGrabEventBlock, (int)eventBlock >> 16, eventBlock);
 
     return eventBlock;
 
@@ -284,7 +284,7 @@ Fail_New_EventBlock:
 void
 TIrEvent::ReleaseEventBlock(TIrEvent * eventBlock)
 {
-    XTRACE( kReleaseEventBlock, (int)eventBlock >> 16, (short)eventBlock);
+    XTRACE( kReleaseEventBlock, (int)eventBlock >> 16, eventBlock);
     require(eventBlock, Fail);
     require(eventBlock->fAllocated == true, Fail);
     
@@ -293,14 +293,14 @@ TIrEvent::ReleaseEventBlock(TIrEvent * eventBlock)
 	err = gInUseEventList->Remove(eventBlock);
 	ncheck(err);
 	if (err) {
-	    XTRACE(kLogReleaseErr1, err >> 16, (short)err);
-	    XTRACE(kLogReleaseErr2, (int) gInUseEventList >> 16, (short)gInUseEventList);
+	    XTRACE(kLogReleaseErr1, err >> 16, err);
+	    XTRACE(kLogReleaseErr2, (int) gInUseEventList >> 16, gInUseEventList);
 	    XTRACE(kLogReleaseErr3, 0, gInUseEventList->GetArraySize());
 	    /*
 	    for (int index = 0; index < gInUseEventList->GetArraySize(); index++ ) {
 		ULong member;
 		member = (ULong)gInUseEventList->At(index);
-		XTRACE(kLogReleaseErr3, member >> 16, (short)member);
+		XTRACE(kLogReleaseErr3, member >> 16, member);
 	    }*/
 	}
     }
@@ -355,7 +355,7 @@ Boolean
 TIrEvent::CheckAllocated(TIrEvent * eventBlock)
 {
     int index;
-    XTRACE(kLogChecking, (int)eventBlock >> 16, (short)eventBlock);
+    XTRACE(kLogChecking, (int)eventBlock >> 16, eventBlock);
     
     if (gInUseEventList) {
 	DumpCList(gInUseEventList);     // dump the clist to xtrace buffer
@@ -373,7 +373,7 @@ TIrEvent::CheckAllocated(TIrEvent * eventBlock)
 	    for (int index = 0; index < gInUseEventList->GetArraySize(); index++ ) {
 		ULong member;
 		member = (ULong)gInUseEventList->At(index);
-		XTRACE(kLogCheckFailed, member >> 16, (short)member);
+		XTRACE(kLogCheckFailed, member >> 16, member);
 	    }*/
 	    return false;
 	}
@@ -383,14 +383,14 @@ TIrEvent::CheckAllocated(TIrEvent * eventBlock)
 
 void DumpCList(CList *list)
 {
-    XTRACE(kLogCList,           (int)list >> 16, (short)list);
+    XTRACE(kLogCList,           (int)list >> 16, list);
     XTRACE(kLogCListSize,       list->fSize >> 16, list->fSize);
     XTRACE(kLogCListElemSize,   list->fElementSize >> 16, list->fElementSize);
     XTRACE(kLogCListChunk,      list->fChunkSize >> 16, list->fChunkSize);
     
     XTRACE(kLogCListAllocated,  list->fAllocatedSize >> 16, list->fAllocatedSize);
-    XTRACE(kLogCListBuffer,     (int)list->fArrayBlock >> 16, (short)list->fArrayBlock);
-    XTRACE(kLogCListIters,      (int)list->fIterator >> 16, (short)list->fIterator);
+    XTRACE(kLogCListBuffer,     (int)list->fArrayBlock >> 16, list->fArrayBlock);
+    XTRACE(kLogCListIters,      (int)list->fIterator >> 16, list->fIterator);
     
     if (list->fElementSize == 4 && list->fArrayBlock) { // sanity
 	int i;
@@ -399,7 +399,7 @@ void DumpCList(CList *list)
 	for (i = 0 ; i < list->fAllocatedSize; i++) {
 	    UInt32 x;
 	    x = *block++;
-	    XTRACE(kLogCListContents, x >> 16, (short)x);
+	    XTRACE(kLogCListContents, x >> 16, x);
 	}
     }
 }

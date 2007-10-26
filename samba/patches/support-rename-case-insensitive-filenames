@@ -1,0 +1,143 @@
+Index: samba/source/smbd/reply.c
+===================================================================
+--- samba/source/smbd/reply.c.orig
++++ samba/source/smbd/reply.c
+@@ -4239,6 +4239,7 @@ NTSTATUS rename_internals_fsp(connection
+ 	NTSTATUS status = NT_STATUS_OK;
+ 	BOOL dest_exists;
+ 	struct share_mode_lock *lck = NULL;
++	BOOL check_dest_exist = True;
+ 
+ 	ZERO_STRUCT(sbuf);
+ 
+@@ -4292,6 +4293,13 @@ NTSTATUS rename_internals_fsp(connection
+ 			 * the original.
+ 			 */
+ 			pstrcpy(p+1, newname_last_component);
++			/*
++			 * We are renaming the same item to a different case,
++			 * there is no reason to check to see if the item
++			 * exists. If the local file system is case insensitive.
++			 */
++			if (!(conn->fs_capabilities & FILE_CASE_SENSITIVE_SEARCH))
++				check_dest_exist = False;
+ 		}
+ 	}
+ 
+@@ -4306,33 +4314,41 @@ NTSTATUS rename_internals_fsp(connection
+ 		return NT_STATUS_OK;
+ 	}
+ 
+-	dest_exists = vfs_object_exist(conn,newname,NULL);
+-
+-	if(!replace_if_exists && dest_exists) {
+-		DEBUG(3,("rename_internals_fsp: dest exists doing rename %s -> %s\n",
+-			fsp->fsp_name,newname));
+-		return NT_STATUS_OBJECT_NAME_COLLISION;
+-	}
++	/*
++	 * The check_dest_exist is only set to false when the the file system is case
++	 * insensitive and we are just renaming the item to a different case. No sense
++	 * checking to see if it exist in this case since we know it does. We will
++	 * just let the underlining file system handle the exist issues.
++	 */
++	if (check_dest_exist) {
++		dest_exists = vfs_object_exist(conn,newname,NULL);
+ 
+-	/* Ensure we have a valid stat struct for the source. */
+-	if (fsp->fh->fd != -1) {
+-		if (SMB_VFS_FSTAT(fsp,fsp->fh->fd,&sbuf) == -1) {
+-			return map_nt_error_from_unix(errno);
++		if(!replace_if_exists && dest_exists) {
++			DEBUG(3,("rename_internals_fsp: dest exists doing rename %s -> %s\n",
++				fsp->fsp_name,newname));
++			return NT_STATUS_OBJECT_NAME_COLLISION;
+ 		}
+-	} else {
+-		if (SMB_VFS_STAT(conn,fsp->fsp_name,&sbuf) == -1) {
+-			return map_nt_error_from_unix(errno);
++
++		/* Ensure we have a valid stat struct for the source. */
++		if (fsp->fh->fd != -1) {
++			if (SMB_VFS_FSTAT(fsp,fsp->fh->fd,&sbuf) == -1) {
++				return map_nt_error_from_unix(errno);
++			}
++		} else {
++			if (SMB_VFS_STAT(conn,fsp->fsp_name,&sbuf) == -1) {
++				return map_nt_error_from_unix(errno);
++			}
+ 		}
+-	}
+ 
+-	status = can_rename(conn,fsp->fsp_name,attrs,&sbuf,True);
++		status = can_rename(conn,fsp->fsp_name,attrs,&sbuf,True);
+ 
+-	if (!NT_STATUS_IS_OK(status)) {
+-		DEBUG(3,("rename_internals_fsp: Error %s rename %s -> %s\n",
+-			nt_errstr(status), fsp->fsp_name,newname));
+-		if (NT_STATUS_EQUAL(status,NT_STATUS_SHARING_VIOLATION))
+-			status = NT_STATUS_ACCESS_DENIED;
+-		return status;
++		if (!NT_STATUS_IS_OK(status)) {
++			DEBUG(3,("rename_internals_fsp: Error %s rename %s -> %s\n",
++				nt_errstr(status), fsp->fsp_name,newname));
++			if (NT_STATUS_EQUAL(status,NT_STATUS_SHARING_VIOLATION))
++				status = NT_STATUS_ACCESS_DENIED;
++			return status;
++		}
+ 	}
+ 
+ 	if (rename_path_prefix_equal(fsp->fsp_name, newname)) {
+@@ -4455,6 +4471,7 @@ NTSTATUS rename_internals(connection_str
+ 	const char *dname;
+ 	long offset = 0;
+ 	pstring destname;
++	BOOL check_dest_exist = True;
+ 
+ 	*directory = *mask = 0;
+ 
+@@ -4577,6 +4594,14 @@ NTSTATUS rename_internals(connection_str
+ 				 * the original.
+ 				 */
+ 				pstrcpy(p+1, last_component_dest);
++				/*
++				 * We are renaming the same item to a different
++				 * case, there is no reason to check to see if
++				 * the item exists. If the local file system is
++				 * case insensitive.
++				 */
++				if (!(conn->fs_capabilities & FILE_CASE_SENSITIVE_SEARCH))
++					check_dest_exist = False;
+ 			}
+ 		}
+ 	
+@@ -4632,7 +4657,6 @@ NTSTATUS rename_internals(connection_str
+ 		 * If the src and dest names are identical - including case,
+ 		 * don't do the rename, just return success.
+ 		 */
+-
+ 		if (strcsequal(directory, newname)) {
+ 			DEBUG(3, ("rename_internals: identical names in "
+ 				  "rename %s - returning success\n",
+@@ -4640,7 +4664,20 @@ NTSTATUS rename_internals(connection_str
+ 			return NT_STATUS_OK;
+ 		}
+ 
+-		if(!replace_if_exists && vfs_object_exist(conn,newname,NULL)) {
++
++		/*
++		 * We don't care if the item exist in the following cases:
++		 *
++		 * 1. They want us to replace the item even if it exist.
++		 *
++		 * 2. The check_dest_exist flag is set to false. This can only
++		 * happen when the file system is case insensitive and we are
++		 * just renaming the item to a different case. No sense
++		 * checking to see if it exist in this case since we know it
++		 * does. We will just let the underlining file system handle
++		 * the exist issues.
++		 */
++		if(check_dest_exist && !replace_if_exists && vfs_object_exist(conn,newname,NULL)) {
+ 			DEBUG(3,("rename_internals: dest exists doing "
+ 				 "rename %s -> %s\n", directory, newname));
+ 			return NT_STATUS_OBJECT_NAME_COLLISION;

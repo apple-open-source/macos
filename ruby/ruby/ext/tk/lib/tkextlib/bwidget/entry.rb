@@ -21,6 +21,21 @@ class Tk::BWidget::Entry
   WidgetClassName = 'Entry'.freeze
   WidgetClassNames[WidgetClassName] = self
 
+  def __strval_optkeys
+    super() << 'helptext' << 'insertbackground'
+  end
+  private :__strval_optkeys
+
+  def __boolval_optkeys
+    super() << 'dragenabled' << 'dropenabled' << 'editable'
+  end
+  private :__boolval_optkeys
+
+  def __tkvariable_optkeys
+    super() << 'helpvar'
+  end
+  private :__tkvariable_optkeys
+
   def invoke
     tk_send_without_enc('invoke')
     self

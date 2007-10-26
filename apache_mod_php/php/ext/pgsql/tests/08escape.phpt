@@ -6,7 +6,7 @@ PostgreSQL escape functions
 <?php
 
 include 'config.inc';
-define('FILE_NAME', './php.gif');
+define('FILE_NAME', dirname(__FILE__) . '/php.gif');
 
 // pg_escape_string() test
 $before = "ABC\\ABC\'";
@@ -37,8 +37,7 @@ else {
 }
 
 // Test using database
-$fp   = fopen(FILE_NAME,'r');
-$data = fread($fp, filesize(FILE_NAME));
+$data = file_get_contents(FILE_NAME);
 $db   = pg_connect($conn_str);
 
 // Insert binary to DB
@@ -52,14 +51,12 @@ $sql = "SELECT bin::bytea FROM ".$table_name." WHERE num = -9999";
 $result = pg_query($db, $sql);
 $row = pg_fetch_array($result, 0, PGSQL_ASSOC);
 
-// Compare
-// Need to wait PostgreSQL 7.3.x for PQunescapeBytea()
-// if ($data === pg_unescape_bytea($row['bin'])) {
-// 	echo "pg_escape_bytea() actually works with databse\n";
-// }
-// else {
-// 	echo "pg_escape_bytea() is broken\n";
-// }
+if ($data === pg_unescape_bytea($row['bin'])) {
+	echo "pg_escape_bytea() actually works with database\n";
+}
+else {
+	echo "pg_escape_bytea() is broken\n";
+}
 
 ?>
 --EXPECT--
@@ -68,3 +65,4 @@ string(9) "ABC\ABC\'"
 string(12) "ABC\\ABC\\''"
 string(10) "ABC\\ABC\'"
 pg_escape_bytea() is Ok
+pg_escape_bytea() actually works with database

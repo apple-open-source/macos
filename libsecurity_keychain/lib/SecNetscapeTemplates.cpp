@@ -26,7 +26,7 @@
  */
  
 #include "SecNetscapeTemplates.h"
-#include <Security/asn1Templates.h>
+#include <Security/SecAsn1Templates.h>
 #include <Security/secasn1t.h>
 #include <stddef.h>
 

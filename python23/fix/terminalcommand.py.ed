@@ -1,0 +1,5 @@
+/^TERMINAL_SIG/c
+TERMINAL_BUNDLEID = "com.apple.Terminal"
+.
+/typeApplSignature, TERMINAL_SIG/s//typeApplicationBundleID, TERMINAL_BUNDLEID/
+w

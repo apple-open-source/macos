@@ -1,11 +1,24 @@
+/*****************************************************************************
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
+ *                             \___|\___/|_| \_\_____|
+ *
+ * $Id: lib509.c,v 1.23 2007-03-16 22:44:46 bagder Exp $
+ */
+
 #include "test.h"
 
 #ifdef USE_SSLEAY
 
-#include <sys/time.h>
 #include <sys/types.h>
 
 #include <openssl/opensslv.h>
+#include <openssl/ssl.h>
+
+#ifndef YASSL_VERSION
+
 #include <openssl/x509v3.h>
 #include <openssl/x509_vfy.h>
 #include <openssl/crypto.h>
@@ -16,7 +29,18 @@
 #include <openssl/x509.h>
 #include <openssl/pkcs12.h>
 #include <openssl/bio.h>
-#include <openssl/ssl.h>
+
+#include "testutil.h"
+
+#define MAIN_LOOP_HANG_TIMEOUT     90 * 1000
+#define MULTI_PERFORM_HANG_TIMEOUT 60 * 1000
+
+/*
+ * We use this ZERO_NULL to avoid picky compiler warnings,
+ * when assigning a NULL pointer to a function pointer var.
+ */
+
+#define ZERO_NULL 0
 
 int portnum; /* the HTTPS port number we use */
 
@@ -150,7 +174,7 @@ static CURLcode sslctxfun(CURL * curl, void * sslctx, void * parm)
    but it still does, see the error handling in the call back */
 
   SSL_CTX_set_verify_depth(ctx,0);
-  SSL_CTX_set_verify(ctx,SSL_VERIFY_NONE,NULL);
+  SSL_CTX_set_verify(ctx,SSL_VERIFY_NONE,ZERO_NULL);
 
 #if OPENSSL_VERSION_NUMBER<0x00907000L
 /* in newer openssl versions we can set a parameter for the call back. */
@@ -171,17 +195,31 @@ int test(char *URL)
 {
   CURLM* multi;
   sslctxparm p;
-
+  CURLMcode res;
+  int running;
+  char done = FALSE;
   int i = 0;
   CURLMsg *msg;
+
+  struct timeval ml_start;
+  struct timeval mp_start;
+  char ml_timedout = FALSE;
+  char mp_timedout = FALSE;
 
   if(arg2) {
     portnum = atoi(arg2);
   }
 
-  curl_global_init(CURL_GLOBAL_ALL);
+  if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
+    fprintf(stderr, "curl_global_init() failed\n");
+    return TEST_ERR_MAJOR_BAD;
+  }
 
-  p.curl = curl_easy_init();
+  if ((p.curl = curl_easy_init()) == NULL) {
+    fprintf(stderr, "curl_easy_init() failed\n");
+    curl_global_cleanup();
+    return TEST_ERR_MAJOR_BAD;
+  }
 
   p.accessinfoURL = (unsigned char *) strdup(URL);
   p.accesstype = OBJ_obj2nid(OBJ_txt2obj("AD_DVCS",0)) ;
@@ -194,68 +232,99 @@ int test(char *URL)
   curl_easy_setopt(p.curl, CURLOPT_SSL_VERIFYPEER, FALSE);
   curl_easy_setopt(p.curl, CURLOPT_SSL_VERIFYHOST, 1);
 
+  if ((multi = curl_multi_init()) == NULL) {
+    fprintf(stderr, "curl_multi_init() failed\n");
+    curl_easy_cleanup(p.curl);
+    curl_global_cleanup();
+    return TEST_ERR_MAJOR_BAD;
+  }
+
+  if ((res = curl_multi_add_handle(multi, p.curl)) != CURLM_OK) {
+    fprintf(stderr, "curl_multi_add_handle() failed, "
+            "with code %d\n", res);
+    curl_multi_cleanup(multi);
+    curl_easy_cleanup(p.curl);
+    curl_global_cleanup();
+    return TEST_ERR_MAJOR_BAD;
+  }
+
   fprintf(stderr, "Going to perform %s\n", (char *)p.accessinfoURL);
 
-  {
-    CURLMcode res;
-    int running;
-    char done=FALSE;
+  ml_timedout = FALSE;
+  ml_start = tutil_tvnow();
 
-    multi = curl_multi_init();
+  while (!done) {
+    fd_set rd, wr, exc;
+    int max_fd;
+    struct timeval interval;
 
-    res = curl_multi_add_handle(multi, p.curl);
+    interval.tv_sec = 1;
+    interval.tv_usec = 0;
 
-    while(!done) {
-      fd_set rd, wr, exc;
-      int max_fd;
-      struct timeval interval;
-
-      interval.tv_sec = 1;
-      interval.tv_usec = 0;
-
-      while (res == CURLM_CALL_MULTI_PERFORM) {
-        res = curl_multi_perform(multi, &running);
-        fprintf(stderr, "running=%d res=%d\n",running,res);
-        if (running <= 0) {
-          done = TRUE;
-          break;
-        }
-      }
-      if(done)
-        break;
-
-      if (res != CURLM_OK) {
-        fprintf(stderr, "not okay???\n");
-        i = 80;
-        break;
-      }
-
-      FD_ZERO(&rd);
-      FD_ZERO(&wr);
-      FD_ZERO(&exc);
-      max_fd = 0;
-
-      if (curl_multi_fdset(multi, &rd, &wr, &exc, &max_fd) != CURLM_OK) {
-        fprintf(stderr, "unexpected failured of fdset.\n");
-        i = 89;
-        break;
-      }
-
-      if (select(max_fd+1, &rd, &wr, &exc, &interval) == -1) {
-        fprintf(stderr, "bad select??\n");
-        i =95;
-        break;
-      }
-
-      res = CURLM_CALL_MULTI_PERFORM;
+    if (tutil_tvdiff(tutil_tvnow(), ml_start) >
+        MAIN_LOOP_HANG_TIMEOUT) {
+      ml_timedout = TRUE;
+      break;
     }
+    mp_timedout = FALSE;
+    mp_start = tutil_tvnow();
+
+    while (res == CURLM_CALL_MULTI_PERFORM) {
+      res = curl_multi_perform(multi, &running);
+      if (tutil_tvdiff(tutil_tvnow(), mp_start) >
+          MULTI_PERFORM_HANG_TIMEOUT) {
+        mp_timedout = TRUE;
+        break;
+      }
+      fprintf(stderr, "running=%d res=%d\n",running,res);
+      if (running <= 0) {
+        done = TRUE;
+        break;
+      }
+    }
+    if (mp_timedout || done)
+      break;
+
+    if (res != CURLM_OK) {
+      fprintf(stderr, "not okay???\n");
+      i = 80;
+      break;
+    }
+
+    FD_ZERO(&rd);
+    FD_ZERO(&wr);
+    FD_ZERO(&exc);
+    max_fd = 0;
+
+    if (curl_multi_fdset(multi, &rd, &wr, &exc, &max_fd) != CURLM_OK) {
+      fprintf(stderr, "unexpected failured of fdset.\n");
+      i = 89;
+      break;
+    }
+
+    if (select_test(max_fd+1, &rd, &wr, &exc, &interval) == -1) {
+      fprintf(stderr, "bad select??\n");
+      i =95;
+      break;
+    }
+
+    res = CURLM_CALL_MULTI_PERFORM;
+  }
+
+  if (ml_timedout || mp_timedout) {
+    if (ml_timedout) fprintf(stderr, "ml_timedout\n");
+    if (mp_timedout) fprintf(stderr, "mp_timedout\n");
+    fprintf(stderr, "ABORTING TEST, since it seems "
+            "that it would have run forever.\n");
+    i = TEST_ERR_RUNS_FOREVER;
+  }
+  else {
     msg = curl_multi_info_read(multi, &running);
     /* this should now contain a result code from the easy handle, get it */
     if(msg)
       i = msg->data.result;
+    fprintf(stderr, "all done\n");
   }
-
-  fprintf(stderr, "all done\n");
 
   curl_multi_remove_handle(multi, p.curl);
   curl_easy_cleanup(p.curl);
@@ -266,10 +335,19 @@ int test(char *URL)
 
   return i;
 }
+#endif /* YASSL_VERSION */
 #else /* USE_SSLEAY */
+
 int test(char *URL)
 {
   (void)URL;
-  return CURLE_FAILED_INIT;
+  if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
+    fprintf(stderr, "curl_global_init() failed\n");
+    return TEST_ERR_MAJOR_BAD;
+  }
+  fprintf(stderr, "libcurl lacks openssl support needed for test 509\n");
+  curl_global_cleanup();
+  return TEST_ERR_MAJOR_BAD;
 }
+
 #endif /* USE_SSLEAY */

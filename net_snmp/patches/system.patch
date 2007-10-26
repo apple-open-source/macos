@@ -1,0 +1,111 @@
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/snmplib/system.c APPLE/snmplib/system.c
+--- SVN/snmplib/system.c
++++ APPLE/snmplib/system.c
+@@ -138,6 +138,10 @@ SOFTWARE.
+ #include <sys/systeminfo.h>
+ #endif
+ 
++#if defined(darwin9)
++#include <crt_externs.h>        /* for _NSGetArgv() */
++#endif
++
+ #include <net-snmp/types.h>
+ #include <net-snmp/output_api.h>
+ #include <net-snmp/utilities.h>
+@@ -156,6 +160,31 @@ SOFTWARE.
+ # define LOOPBACK    0x7f000001
+ #endif
+ 
++static void
++_daemon_prep(int stderr_log)
++{
++    /* Avoid keeping any directory in use. */
++    chdir("/");
++
++    if (stderr_log)
++        return;
++
++    /*
++     * Close inherited file descriptors to avoid
++     * keeping unnecessary references.
++     */
++    close(0);
++    close(1);
++    close(2);
++
++    /*
++     * Redirect std{in,out,err} to /dev/null, just in case.
++     */
++    open("/dev/null", O_RDWR);
++    dup(0);
++    dup(0);
++}
++
+ /**
+  * fork current process into the background.
+  *
+@@ -184,6 +213,22 @@ netsnmp_daemonize(int quit_immediately, 
+     int i = 0;
+     DEBUGMSGT(("daemonize","deamonizing...\n"));
+ #if HAVE_FORK
++#if defined(darwin9)
++     char            path [PATH_MAX] = "";
++     uint32_t        size = sizeof (path);
++
++     /*
++      * if we are already launched in a "daemonized state", just
++      * close & redirect the file descriptors
++      */
++     if(getppid() <= 2) {
++         _daemon_prep(stderr_log);
++         return 0;
++     }
++
++     if (_NSGetExecutablePath (path, &size))
++         return -1;
++#endif
+     /*
+      * Fork to return control to the invoking process and to
+      * guarantee that we aren't a process group leader.
+@@ -225,26 +270,23 @@ netsnmp_daemonize(int quit_immediately, 
+             
+             DEBUGMSGT(("daemonize","child continuing\n"));
+ 
+-            /* Avoid keeping any directory in use. */
+-            chdir("/");
+-            
+-            if (!stderr_log) {
+-                /*
+-                 * Close inherited file descriptors to avoid
+-                 * keeping unnecessary references.
+-                 */
+-                close(0);
+-                close(1);
+-                close(2);
+-                
++#if ! defined(darwin9)
++#error "darwin9 MUST be defined for Apple builds"
++            _daemon_prep(stderr_log);
++#else
+                 /*
+-                 * Redirect std{in,out,err} to /dev/null, just in
+-                 * case.
++              * Some darwin calls (using mach ports) don't work after
++              * a fork. So, now that we've forked, we re-exec ourself
++              * to ensure that the child's mach ports are all set up correctly,
++              * the getppid call above will prevent the exec child from
++              * forking...
+                  */
+-                open("/dev/null", O_RDWR);
+-                dup(0);
+-                dup(0);
+-            }
++             char * const *argv = *_NSGetArgv ();
++             DEBUGMSGT(("daemonize","re-execing forked child\n"));
++             execv (path, argv);
++             snmp_log(LOG_ERR,"Forked child unable to re-exec - %s.\n", strerror (errno));
++             exit (0);
++#endif
+         }
+ #endif /* !WIN32 */
+     }

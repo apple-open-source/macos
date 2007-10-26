@@ -138,6 +138,7 @@ print(struct termios *tp, struct winsize *wp, int ldisc, enum FMT fmt)
 	put("-ixoff", IXOFF, 0);
 	put("-ixany", IXANY, 1);
 	put("-imaxbel", IMAXBEL, 1);
+	put("-iutf8", IUTF8, 0);
 	put("-ignbrk", IGNBRK, 0);
 	put("-brkint", BRKINT, 1);
 	put("-inpck", INPCK, 0);

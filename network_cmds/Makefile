@@ -12,30 +12,33 @@ NAME = network_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-SUBPROJECTS = timed.tproj bootparams
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 
-TOOLS = arp.tproj domainname.tproj \
-	rpc_lockd.tproj rpc_statd.tproj \
-        ifconfig.tproj logger.tproj netstat.tproj\
-        nfsd.tproj nfsiod.tproj nfsstat.tproj ping.tproj rarpd.tproj\
-        rcp.tproj rexecd.tproj rlogin.tproj rlogind.tproj\
-        route.tproj routed.tproj rpcinfo.tproj rsh.tproj rshd.tproj\
-        ruptime.tproj rwho.tproj rwhod.tproj slattach.tproj spray.tproj\
-        talk.tproj talkd.tproj telnet.tproj telnetd.tproj tftp.tproj\
-        tftpd.tproj traceroute.tproj trpt.tproj wall.tproj\
-        ypbind.tproj ypcat.tproj ypmatch.tproj yppoll.tproj\
-        yppush.tproj ypserv.tproj ypset.tproj ypwhich.tproj\
-        ypxfr.tproj makedbm.tproj revnetgroup.tproj rpc_yppasswdd.tproj\
-        stdethers.tproj stdhosts.tproj natd.tproj ipfw.tproj\
-        setkey.tproj racoon.tproj eaytest.tproj\
+ifeq "$(Embedded)" "YES"
+TOOLS = arp.tproj \
+	ifconfig.tproj netstat.tproj\
+	ping.tproj\
+	route.tproj\
+	traceroute.tproj
+else
+SUBPROJECTS = bootparams
+
+TOOLS = arp.tproj \
+        ifconfig.tproj netstat.tproj\
+        ping.tproj rarpd.tproj\
+        route.tproj routed.tproj\
+        slattach.tproj spray.tproj\
+        traceroute.tproj trpt.tproj\
+        natd.tproj ipfw.tproj\
         ping6.tproj traceroute6.tproj rtsol.tproj ndp.tproj rtadvd.tproj\
 	ip6conf.tproj ip6fw.tproj kdumpd.tproj
 
-LIBRARIES = alias ipsec
+LIBRARIES = alias
+endif
 
-LEGACIES = ypinit.tproj
+LEGACIES = 
 
-OTHERSRCS = Makefile Makefile.include Makefile.preamble
+OTHERSRCS = Makefile Makefile.include Makefile.preamble Makefile.postamble
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

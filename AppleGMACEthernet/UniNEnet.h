@@ -265,6 +265,7 @@ public:
 	bool		fK2;
 	bool		fReady;
 	bool		fWOL;				// WakeOnLAN desired.
+
 	bool		fCellClockEnabled;
 	bool		netifEnabled;
 	bool		debugEnabled;
@@ -274,6 +275,7 @@ public:
 	bool		multicastEnabled;
 	bool		isFullDuplex;
 	bool		txDebuggerPktInUse;	// for Tx timeout code use only
+
 	bool		fLoopback;			// PHY is in loopback mode
 	bool		fAutoNegotiate;		// auto negotiate or force speed/duplex
 	bool		fTimerRunning;
@@ -339,6 +341,7 @@ public:
 	UInt32		fSendPauseCommand;
 	UInt32		fIntStatusForTO;			// accumulate Tx & Rx int bits for timer code.
 	UInt32		fTxCompletion;				// avoid reading register - get from status.
+	UInt32		fMaxFrameSize;
 
 private:			// Instance methods:
 	bool		allocateMemory();
@@ -363,7 +366,6 @@ private:			// Instance methods:
 	bool		wakeUp( bool pangeaClockOnly );
 	void		resetHashTableMask();
 	void		addToHashTableMask( UInt8 *addr );
-	void		removeFromHashTableMask( UInt8 *addr );
 	void		updateHashTableMask();
 
 	void		sendPacket( void *pkt, UInt32 pkt_len );
@@ -418,7 +420,12 @@ public:		// Override methods:
 	virtual IOReturn	setMulticastMode( IOEnetMulticastMode mode );
 	virtual IOReturn	setMulticastList( IOEthernetAddress  *addrs, UInt32 count );
 
-	virtual IOReturn         setPromiscuousMode( IOEnetPromiscuousMode mode );
+	virtual UInt32		getFeatures() const;
+	virtual IOReturn	getMaxPacketSize( UInt32 *maxSize ) const;
+	virtual IOReturn	setMaxPacketSize( UInt32  maxSize );
+
+
+	virtual IOReturn	setPromiscuousMode( IOEnetPromiscuousMode mode );
 
 	virtual IOOutputQueue*  createOutputQueue();
     
@@ -444,7 +451,15 @@ public:		// Override methods:
 	virtual UInt32     maxCapabilityForDomainState(		IOPMPowerFlags state);
 	virtual UInt32     initialPowerStateForDomainState(	IOPMPowerFlags state );
 	virtual UInt32     powerStateForDomainState(		IOPMPowerFlags state );
-										
+	virtual IOReturn   setPowerState( UInt32 powerStateOrdinal, IOService *whatDevice );
+	virtual IOReturn   powerStateWillChangeTo(	IOPMPowerFlags	flags,
+												UInt32			stateNumber,
+												IOService*		policyMaker );
+	virtual IOReturn   powerStateDidChangeTo(	IOPMPowerFlags	flags,
+												UInt32			stateNumber,
+												IOService*		policyMaker );
+
+
 		// UserClient public access methods:
 
 	virtual IOReturn	newUserClient( task_t, void*, UInt32, IOUserClient** );

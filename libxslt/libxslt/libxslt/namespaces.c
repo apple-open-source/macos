@@ -437,6 +437,9 @@ xsltGetNamespace(xsltTransformContextPtr ctxt, xmlNodePtr cur, xmlNsPtr ns,
 	 * do a standard namespace search for ns in the output doc
 	 */
         ret = xmlSearchNs(out->doc, out, ns->prefix);
+	if ((ret != NULL) && (!xmlStrEqual(ret->href, URI)))
+	    ret = NULL;
+
 	/*
 	 * if the search fails and it's not for the default prefix
 	 * do a search by href
@@ -489,16 +492,18 @@ xsltCopyNamespaceList(xsltTransformContextPtr ctxt, xmlNodePtr node,
 	/*
 	 * Avoid duplicating namespace declrations on the tree
 	 */
-	if ((node != NULL) && (node->ns != NULL) &&
-            (xmlStrEqual(node->ns->href, cur->href)) &&
-            (xmlStrEqual(node->ns->prefix, cur->prefix))) {
-	    cur = cur->next;
-	    continue;
-	}
-	tmp = xmlSearchNs(node->doc, node, cur->prefix);
-	if ((tmp != NULL) && (xmlStrEqual(tmp->href, cur->href))) {
-	    cur = cur->next;
-	    continue;
+	if (node != NULL) {
+	    if ((node->ns != NULL) &&
+        	(xmlStrEqual(node->ns->href, cur->href)) &&
+        	(xmlStrEqual(node->ns->prefix, cur->prefix))) {
+		cur = cur->next;
+		continue;
+	    }
+	    tmp = xmlSearchNs(node->doc, node, cur->prefix);
+	    if ((tmp != NULL) && (xmlStrEqual(tmp->href, cur->href))) {
+		cur = cur->next;
+		continue;
+	    }
 	}
 	
 	if (!xmlStrEqual(cur->href, XSLT_NAMESPACE)) {

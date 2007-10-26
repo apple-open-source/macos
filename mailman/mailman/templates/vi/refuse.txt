@@ -1,0 +1,11 @@
+Bạn đã gởi một yêu cầu cho hộp thư chung %(listname)s:
+
+    %(request)s
+
+đã bị từ chối bởi điều tiết viên của hộp thư, vì lý do này:
+
+"%(reason)s"
+
+Mỗi câu hỏi hay chú thích nên được gởi cho quản trị hộp thư tại
+
+    %(adminaddr)s

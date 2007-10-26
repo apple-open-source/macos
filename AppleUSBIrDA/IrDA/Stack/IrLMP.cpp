@@ -67,7 +67,7 @@ EventTraceCauseDesc IrLMPTraceEvents[] = {
     {kDequeueEventEnd,              "irlmp: Event End"}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd( x, y, z, IrLMPTraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, IrLMPTraceEvents, true )
 
 #else
 #define XTRACE(x, y, z) ((void)0)
@@ -89,7 +89,7 @@ TIrLMP * TIrLMP::tIrLMP(TIrGlue* irda)
 {
     TIrLMP *obj = new TIrLMP;
     
-    XTRACE(kCreate, (int)obj >> 16, (short)obj);
+    XTRACE(kCreate, (int)obj >> 16, obj);
 
     if (obj && !obj->Init(irda)) {
 	obj->release();
@@ -100,7 +100,7 @@ TIrLMP * TIrLMP::tIrLMP(TIrGlue* irda)
 
 void TIrLMP::free(void)
 {
-    XTRACE(kLogFree, (int)this >> 16, (short)this);
+    XTRACE(kLogFree, (int)this >> 16, this);
     
     if (fPendingRequests) {     // cleanup pending event list
 	fPendingRequests->release();
@@ -116,7 +116,7 @@ void TIrLMP::free(void)
 //--------------------------------------------------------------------------------
 Boolean TIrLMP::Init(TIrGlue* irda)
 {
-    XTRACE(kInit, (int)this >> 16, (short)this);
+    XTRACE(kInit, (int)this >> 16, this);
     
     
     fState = kIrLMPReady;
@@ -503,7 +503,7 @@ ULong TIrLMP::FillInLMPDUHeader(TIrPutRequest* putRequest, UByte* buffer)
 {
     int lapconn = (int)GetLAPConn;
     
-    XTRACE(kLogFillInLMPDUHeader, lapconn >> 16, (short)lapconn);
+    XTRACE(kLogFillInLMPDUHeader, lapconn >> 16, lapconn);
     // All of the real work is done in IrLAPConn - pass it on
     return GetLAPConn->FillInLMPDUHeader(putRequest, buffer);
 

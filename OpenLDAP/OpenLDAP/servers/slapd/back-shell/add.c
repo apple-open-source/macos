@@ -1,8 +1,8 @@
 /* add.c - shell backend add function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/add.c,v 1.19.2.3 2004/01/01 18:16:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/add.c,v 1.24.2.3 2006/01/03 22:16:23 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,7 +55,7 @@ shell_back_add(
 	}
 
 	if ( ! access_allowed( op, op->oq_add.rs_e,
-		entry, NULL, ACL_WRITE, NULL ) )
+		entry, NULL, ACL_WADD, NULL ) )
 	{
 		send_ldap_error( op, rs, LDAP_INSUFFICIENT_ACCESS, NULL );
 		return -1;

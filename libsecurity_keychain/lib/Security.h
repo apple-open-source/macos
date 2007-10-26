@@ -61,6 +61,7 @@
 #include <Security/SecPolicySearch.h>
 #include <Security/SecTrust.h>
 #include <Security/SecTrustedApplication.h>
+#include <Security/SecTrustSettings.h>
 #include <Security/SecImportExport.h>
 
 #include <Security/Authorization.h>

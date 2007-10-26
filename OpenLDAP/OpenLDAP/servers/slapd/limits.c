@@ -1,8 +1,8 @@
 /* limits.c - routines to handle regex-based size and time limits */
-/* $OpenLDAP: pkg/ldap/servers/slapd/limits.c,v 1.30.2.12 2004/06/29 21:45:49 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/limits.c,v 1.62.2.7 2006/04/07 16:46:02 ando Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,6 +22,7 @@
 #include <ac/string.h>
 
 #include "slap.h"
+#include "lutil.h"
 
 /* define to get an error if requesting limit higher than hard */
 #undef ABOVE_HARD_LIMIT_IS_ERROR
@@ -71,19 +72,12 @@ limits_get(
 {
 	struct slap_limits **lm;
 
-	assert( op );
-	assert( limit );
+	assert( op != NULL );
+	assert( limit != NULL );
 
-#ifdef NEW_LOGGING
-	LDAP_LOG( SLAPD, DETAIL1, "==> limits_get: conn=%lu op=%lu dn=\"%s\"\n",
-			op->o_connid, op->o_opid,
-			BER_BVISNULL( ndn ) ? "[anonymous]" : ndn->bv_val );
- 
-#else
-	Debug( LDAP_DEBUG_TRACE, "==> limits_get: conn=%lu op=%lu dn=\"%s\"\n",
-			op->o_connid, op->o_opid,
-			BER_BVISNULL( ndn ) ? "[anonymous]" : ndn->bv_val );
-#endif
+	Debug( LDAP_DEBUG_TRACE, "==> limits_get: %s dn=\"%s\"\n",
+			op->o_log_prefix,
+			BER_BVISNULL( ndn ) ? "[anonymous]" : ndn->bv_val, 0 );
 	/*
 	 * default values
 	 */
@@ -99,7 +93,7 @@ limits_get(
 
 		switch ( style ) {
 		case SLAP_LIMITS_EXACT:
-			if ( ndn->bv_len == 0 ) {
+			if ( BER_BVISEMPTY( ndn ) ) {
 				break;
 			}
 
@@ -112,33 +106,20 @@ limits_get(
 						lm[0]->lm_group_ad );
 				if ( rc == 0 ) {
 					*limit = &lm[0]->lm_limits;
-#ifdef NEW_LOGGING
-					LDAP_LOG( SLAPD, DETAIL1, "<== limits_get: type=GROUP match=EXACT "
-							"dn=\"%s\" oc=\"%s\" ad=\"%s\"\n",
-							lm[0]->lm_pat.bv_val,
-							lm[0]->lm_group_oc->soc_cname.bv_val,
-							lm[0]->lm_group_ad->ad_cname.bv_val );
-#else
 					Debug( LDAP_DEBUG_TRACE, "<== limits_get: type=GROUP match=EXACT "
 							"dn=\"%s\" oc=\"%s\" ad=\"%s\"\n",
 							lm[0]->lm_pat.bv_val,
 							lm[0]->lm_group_oc->soc_cname.bv_val,
 							lm[0]->lm_group_ad->ad_cname.bv_val );
 
-#endif
 					return( 0 );
 				}
 			} else {
 			
 				if ( dn_match( &lm[0]->lm_pat, ndn ) ) {
 					*limit = &lm[0]->lm_limits;
-#ifdef NEW_LOGGING
-					LDAP_LOG( SLAPD, DETAIL1, "<== limits_get: type=DN match=EXACT dn=\"%s\"\n",
-							lm[0]->lm_pat.bv_val, 0, 0 );
-#else
 					Debug( LDAP_DEBUG_TRACE, "<== limits_get: type=DN match=EXACT dn=\"%s\"\n",
 							lm[0]->lm_pat.bv_val, 0, 0 );
-#endif
 					return( 0 );
 				}
 			}
@@ -149,7 +130,7 @@ limits_get(
 		case SLAP_LIMITS_CHILDREN: {
 			size_t d;
 			
-			if ( ndn->bv_len == 0 ) {
+			if ( BER_BVISEMPTY( ndn ) ) {
 				break;
 			}
 
@@ -166,7 +147,7 @@ limits_get(
 				}
 			} else {
 				/* check for unescaped rdn separator */
-				if ( !DN_SEPARATOR( ndn->bv_val[d-1] ) ) {
+				if ( !DN_SEPARATOR( ndn->bv_val[d - 1] ) ) {
 					break;
 				}
 			}
@@ -190,13 +171,8 @@ limits_get(
 				}
 
 				*limit = &lm[0]->lm_limits;
-#ifdef NEW_LOGGING
-				LDAP_LOG( SLAPD, DETAIL1, "<== limits_get: type=DN match=%s dn=\"%s\"\n",
-						limits2str( style ), lm[0]->lm_pat.bv_val, 0 );
-#else
 				Debug( LDAP_DEBUG_TRACE, "<== limits_get: type=DN match=%s dn=\"%s\"\n",
 						limits2str( style ), lm[0]->lm_pat.bv_val, 0 );
-#endif
 				return( 0 );
 			}
 
@@ -204,48 +180,33 @@ limits_get(
 		}
 
 		case SLAP_LIMITS_REGEX:
-			if ( ndn->bv_len == 0 ) {
+			if ( BER_BVISEMPTY( ndn ) ) {
 				break;
 			}
 			if ( regexec( &lm[0]->lm_regex, ndn->bv_val,
 						0, NULL, 0 ) == 0 )
 			{
 				*limit = &lm[0]->lm_limits;
-#ifdef NEW_LOGGING
-				LDAP_LOG( SLAPD, DETAIL1, "<== limits_get: type=DN match=%s dn=\"%s\"\n",
-						limits2str( style ), lm[0]->lm_pat.bv_val, 0 );
-#else
 				Debug( LDAP_DEBUG_TRACE, "<== limits_get: type=DN match=%s dn=\"%s\"\n",
 						limits2str( style ), lm[0]->lm_pat.bv_val, 0 );
-#endif
 				return( 0 );
 			}
 			break;
 
 		case SLAP_LIMITS_ANONYMOUS:
-			if ( ndn->bv_len == 0 ) {
-#ifdef NEW_LOGGING
-				LDAP_LOG( SLAPD, DETAIL1, "<== limits_get: type=DN match=%s\n",
-						limits2str( style ), 0, 0 );
-#else
+			if ( BER_BVISEMPTY( ndn ) ) {
 				Debug( LDAP_DEBUG_TRACE, "<== limits_get: type=DN match=%s\n",
 						limits2str( style ), 0, 0 );
-#endif
 				*limit = &lm[0]->lm_limits;
 				return( 0 );
 			}
 			break;
 
 		case SLAP_LIMITS_USERS:
-			if ( ndn->bv_len != 0 ) {
+			if ( !BER_BVISEMPTY( ndn ) ) {
 				*limit = &lm[0]->lm_limits;
-#ifdef NEW_LOGGING
-				LDAP_LOG( SLAPD, DETAIL1, "<== limits_get: type=DN match=%s\n",
-						limits2str( style ), 0, 0 );
-#else
 				Debug( LDAP_DEBUG_TRACE, "<== limits_get: type=DN match=%s\n",
 						limits2str( style ), 0, 0 );
-#endif
 				return( 0 );
 			}
 			break;
@@ -277,8 +238,8 @@ limits_add(
 	struct slap_limits	*lm;
 	unsigned		type, style;
 	
-	assert( be );
-	assert( limit );
+	assert( be != NULL );
+	assert( limit != NULL );
 
 	type = flags & SLAP_LIMITS_TYPE_MASK;
 	style = flags & SLAP_LIMITS_MASK;
@@ -310,8 +271,8 @@ limits_add(
 		{
 			int rc;
 			struct berval bv;
-			bv.bv_val = (char *) pattern;
-			bv.bv_len = strlen( pattern );
+
+			ber_str2bv( pattern, 0, 0, &bv );
 
 			rc = dnNormalize( 0, NULL, NULL, &bv, &lm->lm_pat, NULL );
 			if ( rc != LDAP_SUCCESS ) {
@@ -336,15 +297,14 @@ limits_add(
 	case SLAP_LIMITS_USERS:
 	case SLAP_LIMITS_ANY:
 		lm->lm_flags = style | type;
-		lm->lm_pat.bv_val = NULL;
-		lm->lm_pat.bv_len = 0;
+		BER_BVZERO( &lm->lm_pat );
 		break;
 	}
 
 	switch ( type ) {
 	case SLAP_LIMITS_TYPE_GROUP:
-		assert( group_oc );
-		assert( group_ad );
+		assert( group_oc != NULL );
+		assert( group_ad != NULL );
 		lm->lm_group_oc = group_oc;
 		lm->lm_group_ad = group_ad;
 		break;
@@ -381,19 +341,13 @@ limits_parse(
 	ObjectClass		*group_oc = NULL;
 	AttributeDescription	*group_ad = NULL;
 
-	assert( be );
+	assert( be != NULL );
 
 	if ( argc < 3 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( CONFIG, CRIT, 
-			"%s : line %d: missing arg(s) in "
-			"\"limits <pattern> <limits>\" line.\n", fname, lineno, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"%s : line %d: missing arg(s) in "
 			"\"limits <pattern> <limits>\" line.\n%s",
 			fname, lineno, "" );
-#endif
 		return( -1 );
 	}
 
@@ -459,17 +413,10 @@ limits_parse(
 					pattern += STRLENOF( "level" );
 
 				} else {
-#ifdef NEW_LOGGING
-					LDAP_LOG( CONFIG, WARNING , 
-						"%s : line %d: deprecated \"one\" style "
-						"\"limits <pattern> <limits>\" line; "
-						"use \"onelevel\" instead.\n", fname, lineno, 0 );
-#else
 					Debug( LDAP_DEBUG_ANY,
 						"%s : line %d: deprecated \"one\" style "
 						"\"limits <pattern> <limits>\" line; "
 						"use \"onelevel\" instead.\n", fname, lineno, 0 );
-#endif
 				}
 
 			} else if ( strncasecmp( pattern, "sub", STRLENOF( "sub" ) ) == 0 ) {
@@ -479,17 +426,10 @@ limits_parse(
 					pattern += STRLENOF( "tree" );
 
 				} else {
-#ifdef NEW_LOGGING
-					LDAP_LOG( CONFIG, WARNING , 
-						"%s : line %d: deprecated \"sub\" style "
-						"\"limits <pattern> <limits>\" line; "
-						"use \"subtree\" instead.\n", fname, lineno, 0 );
-#else
 					Debug( LDAP_DEBUG_ANY,
 						"%s : line %d: deprecated \"sub\" style "
 						"\"limits <pattern> <limits>\" line; "
 						"use \"subtree\" instead.\n", fname, lineno, 0 );
-#endif
 				}
 
 			} else if ( strncasecmp( pattern, "children", STRLENOF( "children" ) ) == 0 ) {
@@ -521,13 +461,6 @@ limits_parse(
 
 		default:
 			if ( pattern[0] != '=' ) {
-#ifdef NEW_LOGGING
-				LDAP_LOG( CONFIG, CRIT, 
-					"%s : line %d: missing '=' in "
-					"\"dn[.{exact|base|onelevel|subtree"
-					"|children|regex|anonymous}]" "=<pattern>\" in "
-					"\"limits <pattern> <limits>\" line.\n", fname, lineno, 0 );
-#else
 				Debug( LDAP_DEBUG_ANY,
 					"%s : line %d: missing '=' in "
 					"\"dn[.{exact|base|onelevel|subtree"
@@ -536,7 +469,6 @@ limits_parse(
 					"\"limits <pattern> <limits>\" "
 					"line.\n%s",
 					fname, lineno, "" );
-#endif
 				return( -1 );
 			}
 
@@ -562,8 +494,12 @@ limits_parse(
 			struct berval	oc, ad;
 
 			oc.bv_val = pattern + 1;
+			pattern = strchr( pattern, '=' );
+			if ( pattern == NULL ) {
+				return -1;
+			}
 
-			ad.bv_val = strchr(pattern, '/');
+			ad.bv_val = strchr( oc.bv_val, '/' );
 			if ( ad.bv_val != NULL ) {
 				const char	*text = NULL;
 				int		rc;
@@ -571,18 +507,14 @@ limits_parse(
 				oc.bv_len = ad.bv_val - oc.bv_val;
 
 				ad.bv_val++;
-				ad.bv_len = strlen( ad.bv_val );
+				ad.bv_len = pattern - ad.bv_val;
 				rc = slap_bv2ad( &ad, &group_ad, &text );
 				if ( rc != LDAP_SUCCESS ) {
 					goto no_ad;
 				}
 
-				pattern = ad.bv_val + ad.bv_len;
-
 			} else {
-				oc.bv_len = strlen( oc.bv_val );
-
-				pattern = oc.bv_val + oc.bv_len;
+				oc.bv_len = pattern - oc.bv_val;
 			}
 
 			group_oc = oc_bvfind( &oc );
@@ -614,21 +546,12 @@ no_ad:;
 		flags = SLAP_LIMITS_TYPE_GROUP | SLAP_LIMITS_EXACT;
 
 		if ( pattern[0] != '=' ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( CONFIG, CRIT, 
-				"%s : line %d: missing '=' in "
-				"\"group[/objectClass[/attributeType]]"
-				"=<pattern>\" in "
-				"\"limits <pattern> <limits>\" line.\n",
-				fname, lineno, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 				"%s : line %d: missing '=' in "
 				"\"group[/objectClass[/attributeType]]"
 				"=<pattern>\" in "
 				"\"limits <pattern> <limits>\" line.\n",
 				fname, lineno, 0 );
-#endif
 			return( -1 );
 		}
 
@@ -640,17 +563,10 @@ no_ad:;
 	for ( i = 2; i < argc; i++ ) {
 		if ( limits_parse_one( argv[i], &limit ) ) {
 
-#ifdef NEW_LOGGING
-			LDAP_LOG( CONFIG, CRIT, 
-				"%s : line %d: unknown limit values \"%s\" in "
-				"\"limits <pattern> <limits>\" line.\n",
-				fname, lineno, argv[i] );
-#else
 			Debug( LDAP_DEBUG_ANY,
 				"%s : line %d: unknown limit values \"%s\" in "
 				"\"limits <pattern> <limits>\" line.\n",
 			fname, lineno, argv[i] );
-#endif
 
 			return( 1 );
 		}
@@ -705,17 +621,10 @@ no_ad:;
 	rc = limits_add( be, flags, pattern, group_oc, group_ad, &limit );
 	if ( rc ) {
 
-#ifdef NEW_LOGGING
-		LDAP_LOG( CONFIG, CRIT, 
-			"%s : line %d: unable to add limit in "
-			"\"limits <pattern> <limits>\" line.\n",
-			fname, lineno, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"%s : line %d: unable to add limit in "
 			"\"limits <pattern> <limits>\" line.\n",
 		fname, lineno, 0 );
-#endif
 	}
 
 	return( rc );
@@ -727,8 +636,8 @@ limits_parse_one(
 	struct slap_limits_set 	*limit
 )
 {
-	assert( arg );
-	assert( limit );
+	assert( arg != NULL );
+	assert( limit != NULL );
 
 	if ( strncasecmp( arg, "time", STRLENOF( "time" ) ) == 0 ) {
 		arg += STRLENOF( "time" );
@@ -741,14 +650,9 @@ limits_parse_one(
 					limit->lms_t_soft = -1;
 
 				} else {
-					char	*next = NULL;
-					int	soft = strtol( arg, &next, 10 );
+					int	soft;
 
-					if ( next == arg || next[ 0 ] != '\0' ) {
-						return( 1 );
-					}
-
-					if ( soft < -1 ) {
+					if ( lutil_atoi( &soft, arg ) != 0 || soft < -1 ) {
 						return( 1 );
 					}
 
@@ -768,14 +672,9 @@ limits_parse_one(
 					limit->lms_t_hard = -1;
 
 				} else {
-					char	*next = NULL;
-					int	hard = strtol( arg, &next, 10 );
+					int	hard;
 
-					if ( next == arg || next[ 0 ] != '\0' ) {
-						return( 1 );
-					}
-
-					if ( hard < -1 ) {
+					if ( lutil_atoi( &hard, arg ) != 0 || hard < -1 ) {
 						return( 1 );
 					}
 
@@ -800,10 +699,9 @@ limits_parse_one(
 				limit->lms_t_soft = -1;
 
 			} else {
-				char	*next = NULL;
-
-				limit->lms_t_soft = strtol( arg, &next, 10 );
-				if ( next == arg || limit->lms_t_soft < -1 ) {
+				if ( lutil_atoi( &limit->lms_t_soft, arg ) != 0 
+					|| limit->lms_t_soft < -1 )
+				{
 					return( 1 );
 				}
 			}
@@ -824,14 +722,9 @@ limits_parse_one(
 					limit->lms_s_soft = -1;
 
 				} else {
-					char	*next = NULL;
-					int	soft = strtol( arg, &next, 10 );
+					int	soft;
 
-					if ( next == arg || next[ 0 ] != '\0' ) {
-						return( 1 );
-					}
-
-					if ( soft < -1 ) {
+					if ( lutil_atoi( &soft, arg ) != 0 || soft < -1 ) {
 						return( 1 );
 					}
 
@@ -851,14 +744,9 @@ limits_parse_one(
 					limit->lms_s_hard = -1;
 
 				} else {
-					char	*next = NULL;
-					int	hard = strtol( arg, &next, 10 );
+					int	hard;
 
-					if ( next == arg || next[ 0 ] != '\0' ) {
-						return( 1 );
-					}
-
-					if ( hard < -1 ) {
+					if ( lutil_atoi( &hard, arg ) != 0 || hard < -1 ) {
 						return( 1 );
 					}
 
@@ -882,14 +770,9 @@ limits_parse_one(
 					limit->lms_s_unchecked = 0;
 
 				} else {
-					char	*next = NULL;
-					int	unchecked = strtol( arg, &next, 10 );
+					int	unchecked;
 
-					if ( next == arg || next[ 0 ] != '\0' ) {
-						return( 1 );
-					}
-
-					if ( unchecked < -1 ) {
+					if ( lutil_atoi( &unchecked, arg ) != 0 || unchecked < -1 ) {
 						return( 1 );
 					}
 
@@ -909,14 +792,9 @@ limits_parse_one(
 					limit->lms_s_pr = -1;
 
 				} else {
-					char	*next = NULL;
-					int	pr = strtol( arg, &next, 10 );
+					int	pr;
 
-					if ( next == arg || next[ 0 ] != '\0' ) {
-						return( 1 );
-					}
-
-					if ( pr < -1 ) {
+					if ( lutil_atoi( &pr, arg ) != 0 || pr < -1 ) {
 						return( 1 );
 					}
 
@@ -940,15 +818,9 @@ limits_parse_one(
 					limit->lms_s_pr_total = 0;
 
 				} else {
-					char	*next = NULL;
 					int	total;
 
-					total = strtol( arg, &next, 10 );
-					if ( next == arg || next[ 0 ] != '\0' ) {
-						return( 1 );
-					}
-
-					if ( total < -1 ) {
+					if ( lutil_atoi( &total, arg ) != 0 || total < -1 ) {
 						return( 1 );
 					}
 
@@ -973,10 +845,9 @@ limits_parse_one(
 				limit->lms_s_soft = -1;
 
 			} else {
-				char	*next = NULL;
-
-				limit->lms_s_soft = strtol( arg, &next, 10 );
-				if ( next == arg || limit->lms_s_soft < -1 ) {
+				if ( lutil_atoi( &limit->lms_s_soft, arg ) != 0
+					|| limit->lms_s_soft < -1 )
+				{
 					return( 1 );
 				}
 			}
@@ -990,12 +861,183 @@ limits_parse_one(
 	return 0;
 }
 
+static const char *lmpats[] = {
+	"base",
+	"base",
+	"onelevel",
+	"subtree",
+	"children",
+	"regex",
+	"anonymous",
+	"users",
+	"*"
+};
+
+/* Caller must provide an adequately sized buffer in bv */
+void
+limits_unparse( struct slap_limits *lim, struct berval *bv )
+{
+	struct berval btmp;
+	char *ptr;
+	int lm;
+
+	if ( !bv || !bv->bv_val ) return;
+
+	ptr = bv->bv_val;
+
+	if (( lim->lm_flags & SLAP_LIMITS_TYPE_MASK ) == SLAP_LIMITS_TYPE_GROUP ) {
+		ptr = lutil_strcopy( ptr, "group/" );
+		ptr = lutil_strcopy( ptr, lim->lm_group_oc->soc_cname.bv_val );
+		*ptr++ = '/';
+		ptr = lutil_strcopy( ptr, lim->lm_group_ad->ad_cname.bv_val );
+		ptr = lutil_strcopy( ptr, "=\"" );
+		ptr = lutil_strcopy( ptr, lim->lm_pat.bv_val );
+		*ptr++ = '"';
+	} else {
+		lm = lim->lm_flags & SLAP_LIMITS_MASK;
+		switch( lm ) {
+		case SLAP_LIMITS_ANONYMOUS:
+		case SLAP_LIMITS_USERS:
+		case SLAP_LIMITS_ANY:
+			ptr = lutil_strcopy( ptr, lmpats[lm] );
+			break;
+		case SLAP_LIMITS_UNDEFINED:
+		case SLAP_LIMITS_EXACT:
+		case SLAP_LIMITS_ONE:
+		case SLAP_LIMITS_SUBTREE:
+		case SLAP_LIMITS_CHILDREN:
+		case SLAP_LIMITS_REGEX:
+			ptr = lutil_strcopy( ptr, "dn." );
+			ptr = lutil_strcopy( ptr, lmpats[lm] );
+			*ptr++ = '=';
+			*ptr++ = '"';
+			ptr = lutil_strcopy( ptr, lim->lm_pat.bv_val );
+			*ptr++ = '"';
+			break;
+		}
+	}
+	*ptr++ = ' ';
+	bv->bv_len = ptr - bv->bv_val;
+	btmp.bv_val = ptr;
+	btmp.bv_len = 0;
+	limits_unparse_one( &lim->lm_limits, SLAP_LIMIT_SIZE|SLAP_LIMIT_TIME, &btmp );
+	bv->bv_len += btmp.bv_len;
+}
+
+/* Caller must provide an adequately sized buffer in bv */
+void
+limits_unparse_one( struct slap_limits_set *lim, int which, struct berval *bv )
+{
+	char *ptr;
+
+	if ( !bv || !bv->bv_val ) return;
+
+	ptr = bv->bv_val;
+
+	if ( which & SLAP_LIMIT_SIZE ) {
+		if ( lim->lms_s_soft != SLAPD_DEFAULT_SIZELIMIT ) {
+
+			/* If same as global limit, drop it */
+			if ( lim != &frontendDB->be_def_limit &&
+				lim->lms_s_soft == frontendDB->be_def_limit.lms_s_soft )
+				goto s_hard;
+			/* If there's also a hard limit, fully qualify this one */
+			else if ( lim->lms_s_hard )
+				ptr = lutil_strcopy( ptr, " size.soft=" );
+
+			/* If doing both size & time, qualify this */
+			else if ( which & SLAP_LIMIT_TIME )
+				ptr = lutil_strcopy( ptr, " size=" );
+
+			if ( lim->lms_s_soft == -1 )
+				ptr = lutil_strcopy( ptr, "unlimited" );
+			else
+				ptr += sprintf( ptr, "%d", lim->lms_s_soft );
+			*ptr++ = ' ';
+		}
+s_hard:
+		if ( lim->lms_s_hard ) {
+			ptr = lutil_strcopy( ptr, " size.hard=" );
+			if ( lim->lms_s_hard == -1 )
+				ptr = lutil_strcopy( ptr, "unlimited" );
+			else
+				ptr += sprintf( ptr, "%d", lim->lms_s_hard );
+			*ptr++ = ' ';
+		}
+		if ( lim->lms_s_unchecked != -1 ) {
+			ptr = lutil_strcopy( ptr, " size.unchecked=" );
+			if ( lim->lms_s_unchecked == 0 )
+				ptr = lutil_strcopy( ptr, "disabled" );
+			else
+				ptr += sprintf( ptr, "%d", lim->lms_s_unchecked );
+			*ptr++ = ' ';
+		}
+		if ( lim->lms_s_pr_hide ) {
+			ptr = lutil_strcopy( ptr, " size.pr=noEstimate " );
+		}
+		if ( lim->lms_s_pr ) {
+			ptr = lutil_strcopy( ptr, " size.pr=" );
+			if ( lim->lms_s_pr == -1 )
+				ptr = lutil_strcopy( ptr, "unlimited" );
+			else
+				ptr += sprintf( ptr, "%d", lim->lms_s_pr );
+			*ptr++ = ' ';
+		}
+		if ( lim->lms_s_pr_total ) {
+			ptr = lutil_strcopy( ptr, " size.prtotal=" );
+			if ( lim->lms_s_pr_total == -1 )
+				ptr = lutil_strcopy( ptr, "unlimited" );
+			else if ( lim->lms_s_pr_total == -2 )
+				ptr = lutil_strcopy( ptr, "disabled" );
+			else 
+				ptr += sprintf( ptr, "%d", lim->lms_s_pr_total );
+			*ptr++ = ' ';
+		}
+	}
+	if ( which & SLAP_LIMIT_TIME ) {
+		if ( lim->lms_t_soft != SLAPD_DEFAULT_TIMELIMIT ) {
+
+			/* If same as global limit, drop it */
+			if ( lim != &frontendDB->be_def_limit &&
+				lim->lms_t_soft == frontendDB->be_def_limit.lms_t_soft )
+				goto t_hard;
+
+			/* If there's also a hard limit, fully qualify this one */
+			else if ( lim->lms_t_hard ) 
+				ptr = lutil_strcopy( ptr, " time.soft=" );
+
+			/* If doing both size & time, qualify this */
+			else if ( which & SLAP_LIMIT_SIZE )
+				ptr = lutil_strcopy( ptr, " time=" );
+
+			if ( lim->lms_t_soft == -1 )
+				ptr = lutil_strcopy( ptr, "unlimited" );
+			else
+				ptr += sprintf( ptr, "%d", lim->lms_t_soft );
+			*ptr++ = ' ';
+		}
+t_hard:
+		if ( lim->lms_t_hard ) {
+			ptr = lutil_strcopy( ptr, " time.hard=" );
+			if ( lim->lms_t_hard == -1 )
+				ptr = lutil_strcopy( ptr, "unlimited" );
+			else
+				ptr += sprintf( ptr, "%d", lim->lms_t_hard );
+			*ptr++ = ' ';
+		}
+	}
+	if ( ptr != bv->bv_val ) {
+		ptr--;
+		*ptr = '\0';
+		bv->bv_len = ptr - bv->bv_val;
+	}
+}
 
 int
 limits_check( Operation *op, SlapReply *rs )
 {
-	assert( op );
-	assert( rs );
+	assert( op != NULL );
+	assert( rs != NULL );
 	/* FIXME: should this be always true? */
 	assert( op->o_tag == LDAP_REQ_SEARCH);
 
@@ -1073,9 +1115,10 @@ limits_check( Operation *op, SlapReply *rs )
 		}
 
 		/* if paged results is requested */	
-		if ( get_pagedresults( op ) > SLAP_NO_CONTROL ) {
+		if ( get_pagedresults( op ) > SLAP_CONTROL_IGNORED ) {
 			int	slimit = -2;
 			int	pr_total;
+			PagedResultsState *ps = op->o_pagedresults_state;
 
 			/* paged results is not allowed */
 			if ( op->ors_limit->lms_s_pr_total == -2 ) {
@@ -1087,7 +1130,7 @@ limits_check( Operation *op, SlapReply *rs )
 				return -1;
 			}
 			
-			if ( op->ors_limit->lms_s_pr > 0 && op->o_pagedresults_size > op->ors_limit->lms_s_pr ) {
+			if ( op->ors_limit->lms_s_pr > 0 && ps->ps_size > op->ors_limit->lms_s_pr ) {
 				rs->sr_err = LDAP_ADMINLIMIT_EXCEEDED;
 				rs->sr_text = "illegal pagedResults page size";
 				send_ldap_result( op, rs );
@@ -1111,7 +1154,7 @@ limits_check( Operation *op, SlapReply *rs )
 					slimit = -1;
 
 				} else {
-					slimit = op->ors_slimit - op->o_pagedresults_state.ps_count;
+					slimit = op->ors_slimit - ps->ps_count;
 				}
 
 #ifdef ABOVE_HARD_LIMIT_IS_ERROR
@@ -1147,7 +1190,7 @@ limits_check( Operation *op, SlapReply *rs )
 					slimit2 = op->ors_slimit;
 				}
 
-				total = slimit2 - op->o_pagedresults_state.ps_count;
+				total = slimit2 - ps->ps_count;
 
 				if ( total >= 0 ) {
 					if ( op->ors_limit->lms_s_pr > 0 ) {
@@ -1183,13 +1226,16 @@ limits_check( Operation *op, SlapReply *rs )
 					op->ors_slimit = slimit;
 
 				} else if ( slimit > 0 ) {
-					if ( op->ors_slimit - op->o_pagedresults_state.ps_count > slimit ) {
+					if ( op->ors_slimit - ps->ps_count > slimit ) {
 						rs->sr_err = LDAP_ADMINLIMIT_EXCEEDED;
 						send_ldap_result( op, rs );
 						rs->sr_err = LDAP_SUCCESS;
 						return -1;
 					}
 					op->ors_slimit = slimit;
+
+				} else if ( slimit == 0 ) {
+					op->ors_slimit = 0;
 				}
 
 			} else {
@@ -1237,3 +1283,37 @@ limits_check( Operation *op, SlapReply *rs )
 	return 0;
 }
 
+void
+limits_destroy( 
+	struct slap_limits	**lm )
+{
+	int		i;
+
+	if ( lm == NULL ) {
+		return;
+	}
+
+	for ( i = 0; lm[ i ]; i++ ) {
+		switch ( lm[ i ]->lm_flags & SLAP_LIMITS_MASK ) {
+		case SLAP_LIMITS_REGEX:
+			regfree( &lm[ i ]->lm_regex );
+			break;
+
+		case SLAP_LIMITS_EXACT:
+		case SLAP_LIMITS_ONE:
+		case SLAP_LIMITS_SUBTREE:
+		case SLAP_LIMITS_CHILDREN:
+			if ( !BER_BVISNULL( &lm[ i ]->lm_pat ) ) {
+				ch_free( lm[ i ]->lm_pat.bv_val );
+			}
+			break;
+
+		default:
+			break;
+		}
+
+		ch_free( lm[ i ] );
+	}
+
+	ch_free( lm );
+}

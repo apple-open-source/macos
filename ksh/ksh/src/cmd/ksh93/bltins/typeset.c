@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * export [-p] [arg...]
@@ -49,6 +45,7 @@
 struct tdata
 {
 	Shell_t 	*sh;
+	Namval_t	*tp;
 	Sfio_t  	*outfile;
 	char    	*prefix;
 	int     	aflag;
@@ -56,7 +53,6 @@ struct tdata
 	int     	scanmask;
 	Dt_t 		*scanroot;
 	char    	**argnam;
-	Namval_t	*tp;
 };
 
 
@@ -122,15 +118,18 @@ int    b_readonly(int argc,char *argv[],void *extra)
 	}
 #endif
 	else
+	{
 		flag = (NV_ASSIGN|NV_EXPORT|NV_IDENT);
+		if(!sh.prefix)
+			sh.prefix = "";
+	}
 	return(b_common(argv,flag,tdata.sh->var_tree, &tdata));
-	return(0);
 }
 
 
 int    b_alias(int argc,register char *argv[],void *extra)
 {
-	register unsigned flag = NV_ARRAY|NV_NOSCOPE|NV_ASSIGN;
+	register unsigned flag = NV_NOARRAY|NV_NOSCOPE|NV_ASSIGN;
 	register Dt_t *troot;
 	register int n;
 	struct tdata tdata;
@@ -194,7 +193,7 @@ int    b_typeset(int argc,register char *argv[],void *extra)
 	struct tdata tdata;
 	Namtype_t *ntp = (Namtype_t*)extra;
 	Dt_t *troot;
-	int isfloat = 0;
+	int isfloat=0, shortint=0;
 	NOT_USED(argc);
 	memset((void*)&tdata,0,sizeof(tdata));
 	tdata.sh = ntp->shp;
@@ -205,6 +204,9 @@ int    b_typeset(int argc,register char *argv[],void *extra)
 	{
 		switch(n)
 		{
+			case 'a':
+				flag |= NV_IARRAY;
+				break;
 			case 'A':
 				flag |= NV_ARRAY;
 				break;
@@ -273,6 +275,9 @@ int    b_typeset(int argc,register char *argv[],void *extra)
 			case 'r':
 				flag |= NV_RDONLY;
 				break;
+			case 's':
+				shortint=1;
+				break;
 			case 't':
 				flag |= NV_TAGGED;
 				break;
@@ -311,12 +316,16 @@ int    b_typeset(int argc,register char *argv[],void *extra)
 		errormsg(SH_DICT,ERROR_usage(2),"%s", optusage(NIL(char*)));
 	if(isfloat)
 		flag |= NV_INTEGER|NV_DOUBLE;
+	if(shortint)
+		flag |= NV_SHORT|NV_INTEGER;
 	if(tdata.sh->fn_depth)
 		flag |= NV_NOSCOPE;
 	if(flag&NV_TYPE)
 	{
 		int offset = staktell();
 		stakputs(NV_CLASS);
+		if(NV_CLASS[sizeof(NV_CLASS)-2]!='.')
+			stakputc('.');
 		stakputs(tdata.prefix);
 		stakputc(0);
 		tdata.tp = nv_open(stakptr(offset),tdata.sh->var_tree,NV_VARNAME|NV_NOARRAY|NV_NOASSIGN);
@@ -334,10 +343,14 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 {
 	register char *name;
 	char *last = 0;
-	int nvflags=(flag&(NV_NOARRAY|NV_NOSCOPE|NV_VARNAME|NV_IDENT|NV_ASSIGN));
+	int nvflags=(flag&(NV_ARRAY|NV_NOARRAY|NV_VARNAME|NV_IDENT|NV_ASSIGN));
 	int r=0, ref=0;
 	Shell_t *shp =tp->sh;
-	flag &= ~(NV_ARRAY|NV_NOSCOPE|NV_VARNAME|NV_IDENT);
+	if(!sh.prefix)
+		nvflags |= NV_NOSCOPE;
+	else if(*sh.prefix==0)
+		sh.prefix = 0;
+	flag &= ~(NV_NOARRAY|NV_NOSCOPE|NV_VARNAME|NV_IDENT);
 	if(argv[1])
 	{
 		if(flag&NV_REF)
@@ -407,10 +420,21 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 				}
 				continue;
 			}
+			if(tp->tp)
+			{
+				nv_settype(np,tp->tp,tp->aflag=='-'?0:NV_APPEND);
+				flag = (np->nvflag&NV_NOCHANGE);
+			}
+			if(troot==shp->var_tree && (flag&NV_IARRAY))
+			{
+				flag &= ~NV_IARRAY;
+				if(nv_isnull(np))
+					nv_onattr(np,NV_ARRAY);
+				else
+					nv_putsub(np, (char*)0, 0);
+			}
 			if(troot==shp->var_tree && (nvflags&NV_ARRAY))
 				nv_setarray(np,nv_associative);
-			if(tp->tp)
-				nv_settype(np,tp->tp,tp->aflag=='-'?0:NV_APPEND);
 			curflag = np->nvflag;
 			flag &= ~NV_ASSIGN;
 			if(last=strchr(name,'='))
@@ -474,14 +498,22 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 			if(ref)
 			{
 				if(tp->aflag=='-')
-					nv_setref(np);
+				{
+					Dt_t *hp=0;
+					if(nv_isattr(np,NV_PARAM) && shp->st.prevst)
+					{
+						if(!(hp=(Dt_t*)shp->st.prevst->save_tree))
+							hp = dtvnext(shp->var_tree);
+					}
+					nv_setref(np,hp,NV_VARNAME);
+				}
 				else
 					nv_unref(np);
 			}
 			nv_close(np);
 		}
 	}
-	else
+	else if(!sh.envlist)
 	{
 		if(tp->aflag)
 		{
@@ -503,16 +535,69 @@ static int     b_common(char **argv,register int flag,Dt_t *troot,struct tdata *
 	return(r);
 }
 
+typedef void (*Iptr_t)(int,void*);
 typedef int (*Fptr_t)(int, char*[], void*);
 
 #define GROWLIB	4
-static void **liblist;
+
+static void		**liblist;
+static unsigned short	*libattr;
+static int		nlib;
+static int		maxlib;
 
 /*
  * This allows external routines to load from the same library */
 void **sh_getliblist(void)
 {
 	return(liblist);
+}
+
+/*
+ * add library to loaded list
+ * call (*lib_init)() on first load if defined
+ * always move to head of search list
+ * return: 0: already loaded 1: first load
+ */
+int sh_addlib(void* library)
+{
+	register int	n;
+	register int	r;
+	Iptr_t		initfn;
+	Shbltin_t	*sp = &sh.bltindata;
+
+	sp->nosfio = 0;
+	for (n = r = 0; n < nlib; n++)
+	{
+		if (r)
+		{
+			liblist[n-1] = liblist[n];
+			libattr[n-1] = libattr[n];
+		}
+		else if (liblist[n] == library)
+			r++;
+	}
+	if (r)
+		nlib--;
+	else if ((initfn = (Iptr_t)dlllook(library, "lib_init")))
+		(*initfn)(0,sp);
+	if (nlib >= maxlib)
+	{
+		maxlib += GROWLIB;
+		if (liblist)
+		{
+			liblist = (void**)realloc((void*)liblist, (maxlib+1)*sizeof(void**));
+			libattr = (unsigned short*)realloc((void*)liblist, (maxlib+1)*sizeof(unsigned short*));
+		}
+		else
+		{
+			liblist = (void**)malloc((maxlib+1)*sizeof(void**));
+			libattr = (unsigned short*)malloc((maxlib+1)*sizeof(unsigned short*));
+		}
+	}
+	libattr[nlib] = NV_BLTINOPT|(sp->nosfio?BLT_NOSFIO:0);
+	liblist[nlib++] = library;
+	liblist[nlib] = 0;
+	return !r;
 }
 
 /*
@@ -524,9 +609,8 @@ int	b_builtin(int argc,char *argv[],void *extra)
 	register char *arg=0, *name;
 	register int n, r=0, flag=0;
 	register Namval_t *np;
-	int dlete=0;
+	long dlete=0;
 	struct tdata tdata;
-	static int maxlib, nlib;
 	Fptr_t addr;
 	void *library=0;
 	char *errmsg;
@@ -570,10 +654,10 @@ int	b_builtin(int argc,char *argv[],void *extra)
 	if(arg)
 	{
 #ifdef _hdr_dlldefs
-#if (_AST_VERSION>=20021118)
-		if(!(library = dllfind(arg,NIL(char*),RTLD_LAZY,NIL(char*),0)))
+#if (_AST_VERSION>=20040404)
+		if(!(library = dllplug(SH_ID,arg,NIL(char*),RTLD_LAZY,NIL(char*),0)))
 #else
-		if(!(library = dllfind(arg,NIL(char*),RTLD_LAZY)))
+		if(!(library = dllfind(arg,NIL(char*),RTLD_LAZY,NIL(char*),0)))
 #endif
 #else
 		if(!(library = dlopen(arg,DL_MODE)))
@@ -582,37 +666,7 @@ int	b_builtin(int argc,char *argv[],void *extra)
 			errormsg(SH_DICT,ERROR_exit(0),"%s: %s",arg,dlerror());
 			return(1);
 		}
-		/* 
-		 * see if library is already on search list
-		 * if it is, move to head of search list
-		 */
-		for(n=r=0; n < nlib; n++)
-		{
-			if(r)
-				liblist[n-1] = liblist[n];
-			else if(liblist[n]==library)
-				r++;
-		}
-		if(r)
-			nlib--;
-		else
-		{
-			typedef void (*Iptr_t)(int);
-			Iptr_t initfn;
-			if((initfn = (Iptr_t)dlllook(library,"lib_init")))
-				(*initfn)(0);
-		}
-		if(nlib >= maxlib)
-		{
-			/* add library to search list */
-			maxlib += GROWLIB;
-			if(nlib>0)
-				liblist = (void**)realloc((void*)liblist,(maxlib+1)*sizeof(void**));
-			else
-				liblist = (void**)malloc((maxlib+1)*sizeof(void**));
-		}
-		liblist[nlib++] = library;
-		liblist[nlib] = 0;
+		sh_addlib(library);
 	}
 	else if(*argv==0 && !dlete)
 	{
@@ -633,10 +687,12 @@ int	b_builtin(int argc,char *argv[],void *extra)
 			/* (char*) added for some sgi-mips compilers */ 
 			if(dlete || (addr = (Fptr_t)dlllook(liblist[n],stakptr(flag))))
 			{
-				if(np = sh_addbuiltin(arg, addr,(void*)dlete))
+				if(np = sh_addbuiltin(arg, addr,pointerof(dlete)))
 				{
 					if(dlete || nv_isattr(np,BLT_SPC))
 						errmsg = "restricted name";
+					else
+						nv_onattr(np,libattr[n]);
 				}
 				break;
 			}
@@ -663,6 +719,7 @@ int	b_builtin(int argc,char *argv[],void *extra)
 int    b_set(int argc,register char *argv[],void *extra)
 {
 	struct tdata tdata;
+	memset(&tdata,0,sizeof(tdata));
 	tdata.sh = (Shell_t*)extra;
 	tdata.prefix=0;
 	if(argv[1])
@@ -845,13 +902,17 @@ static int print_namval(Sfio_t *file,register Namval_t *np,register int flag, st
 		sfputc(file,flag);
 		if(flag != '\n')
 		{
-			if(nv_isref(np) && np->nvenv)
+			if(nv_isref(np) && nv_refsub(np))
 			{
 				sfputr(file,sh_fmtq(cp),-1);
-				sfprintf(file,"[%s]\n", sh_fmtq(np->nvenv));
+				sfprintf(file,"[%s]\n", sh_fmtq(nv_refsub(np)));
 			}
 			else
+#if SHOPT_TYPEDEF
+				sfputr(file,nv_isvtree(np)?cp:sh_fmtq(cp),'\n');
+#else
 				sfputr(file,sh_fmtq(cp),'\n');
+#endif /* SHOPT_TYPEDEF */
 		}
 		return(1);
 	}
@@ -894,12 +955,17 @@ static void print_scan(Sfio_t *file, int flag, Dt_t *root, int option,struct tda
 	tp->scanmask = flag&~NV_NOSCOPE;
 	tp->scanroot = root;
 	tp->outfile = file;
+#if SHOPT_TYPEDEF
+	if(!tp->prefix && tp->tp)
+		tp->prefix = nv_name(tp->tp);
+#endif /* SHOPT_TYPEDEF */
 	if(flag&NV_INTEGER)
 		tp->scanmask |= (NV_DOUBLE|NV_EXPNOTE);
-	namec = nv_scan(root,nullscan,(void*)0,tp->scanmask,flag);
+	namec = nv_scan(root,nullscan,(void*)tp,tp->scanmask,flag);
 	argv = tp->argnam  = (char**)stakalloc((namec+1)*sizeof(char*));
 	namec = nv_scan(root, pushname, (void*)tp, tp->scanmask, flag);
-	strsort(argv,namec,strcoll);
+	if(mbcoll())
+		strsort(argv,namec,strcoll);
 	while(namec--)
 	{
 		if((np=nv_search(*argv++,root,0)) && np!=onp && (!nv_isnull(np) || np->nvfun || nv_isattr(np,~NV_NOFREE)))

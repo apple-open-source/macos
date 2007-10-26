@@ -1,33 +1,44 @@
 // { dg-do compile }
 template<typename T> struct takes_member_ptr;
-template<typename T, typename Class> struct takes_member_ptr<T Class::*> {};
+// APPLE LOCAL mainline 2006-10-13 3904173
+template<typename T, typename Klasse> struct takes_member_ptr<T Klasse::*> {};
 
-template<typename T, typename Class>
-void fun_takes_member_ptr(T Class::*) {}
+// APPLE LOCAL begin mainline 2006-10-13 3904173
+template<typename T, typename Klasse>
+void fun_takes_member_ptr(T Klasse::*) {}
+// APPLE LOCAL end mainline 2006-10-13 3904173
 
 
 template<typename T> struct order_member_ptrs;
-template<typename T, typename Class> struct order_member_ptrs<T Class::*> {};
-template<typename R, typename T1, typename Class> 
-  struct order_member_ptrs<R (Class::*)(T1)>
+// APPLE LOCAL begin mainline 2006-10-13 3904173
+template<typename T, typename Klasse> struct order_member_ptrs<T Klasse::*> {};
+template<typename R, typename T1, typename Klasse> 
+  struct order_member_ptrs<R (Klasse::*)(T1)>
+// APPLE LOCAL end mainline 2006-10-13 3904173
   {
     typedef int type;
   };
 
-template<typename R, typename T1, typename Class>
-  struct order_member_ptrs<R (Class::*)(T1) const>
+// APPLE LOCAL begin mainline 2006-10-13 3904173
+template<typename R, typename T1, typename Klasse>
+  struct order_member_ptrs<R (Klasse::*)(T1) const>
+// APPLE LOCAL end mainline 2006-10-13 3904173
   {
     typedef int c_type;
   };
 
-template<typename R, typename T1, typename Class>
-  struct order_member_ptrs<R (Class::*)(T1) volatile>
+// APPLE LOCAL begin mainline 2006-10-13 3904173
+template<typename R, typename T1, typename Klasse>
+  struct order_member_ptrs<R (Klasse::*)(T1) volatile>
+// APPLE LOCAL end mainline 2006-10-13 3904173
   {
     typedef int v_type;
   };
 
-template<typename R, typename T1, typename Class>
-  struct order_member_ptrs<R (Class::*)(T1) const volatile>
+// APPLE LOCAL begin mainline 2006-10-13 3904173
+template<typename R, typename T1, typename Klasse>
+  struct order_member_ptrs<R (Klasse::*)(T1) const volatile>
+// APPLE LOCAL end mainline 2006-10-13 3904173
   {
     typedef int cv_type;
   };

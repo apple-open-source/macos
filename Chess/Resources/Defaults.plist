@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>MBCAlternateVoice</key>
-	<string>com.apple.speech.synthesis.voice.Bruce</string>
+	<string>com.apple.speech.synthesis.voice.Vicki</string>
 	<key>MBCBoardAngle</key>
 	<integer>60</integer>
 	<key>MBCBoardSpin</key>
@@ -21,6 +21,8 @@
 	<key>MBCSearchTime</key>
 	<integer>5</integer>
 	<key>MBCShowMoveInTitle</key>
+	<false/>
+	<key>MBCSpeakHumanMoves</key>
 	<false/>
 	<key>MBCSpeakMoves</key>
 	<true/>

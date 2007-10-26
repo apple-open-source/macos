@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Stig Sæther Bakken <ssb@fast.no>                             |
+   | Author: Stig Sæther Bakken <ssb@php.net>                             |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: formatted_print.c,v 1.59.2.15.2.4 2007/01/13 16:31:36 iliaa Exp $ */
+/* $Id: formatted_print.c,v 1.82.2.1.2.16 2007/06/03 09:12:04 shire Exp $ */
 
 #include <math.h>				/* modf() */
 #include "php.h"
@@ -27,6 +27,9 @@
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
+#define LCONV_DECIMAL_POINT (*lconv->decimal_point)
+#else
+#define LCONV_DECIMAL_POINT '.'
 #endif
 
 #define ALIGN_LEFT 0
@@ -50,111 +53,7 @@
 static char hexchars[] = "0123456789abcdef";
 static char HEXCHARS[] = "0123456789ABCDEF";
 
-
-/*
- * cvt.c - IEEE floating point formatting routines for FreeBSD
- * from GNU libc-4.6.27
- */
-
-/*
- *    php_convert_to_decimal converts to decimal
- *      the number of digits is specified by ndigit
- *      decpt is set to the position of the decimal point
- *      sign is set to 0 for positive, 1 for negative
- */
-static char *php_convert_to_decimal(double arg, int ndigits, int *decpt, int *sign, int eflag)
-{
-	register int r2;
-	int mvl;
-	double fi, fj;
-	register char *p, *p1;
-	/*THREADX*/
-#ifndef THREAD_SAFE
-	static char cvt_buf[NDIG];
-#endif
-
-	if (ndigits >= NDIG - 1)
-		ndigits = NDIG - 2;
-	r2 = 0;
-	*sign = 0;
-	p = &cvt_buf[0];
-	if (arg < 0) {
-		*sign = 1;
-		arg = -arg;
-	}
-	arg = modf(arg, &fi);
-	p1 = &cvt_buf[NDIG];
-	/*
-	 * Do integer part
-	 */
-	if (fi != 0) {
-		p1 = &cvt_buf[NDIG];
-		while (fi != 0) {
-			fj = modf(fi / 10, &fi);
-			if (p1 <= &cvt_buf[0]) {
-				mvl = NDIG - ndigits;
-				memmove(&cvt_buf[mvl], &cvt_buf[0], NDIG-mvl-1);
-				p1 += mvl;
-			}
-			*--p1 = (int) ((fj + .03) * 10) + '0';
-			r2++;
-		}
-		while (p1 < &cvt_buf[NDIG])
-			*p++ = *p1++;
-	} else if (arg > 0) {
-		while ((fj = arg * 10) < 1) {
-			if (!eflag && (r2 * -1) < ndigits) {
-				break;
-			}
-			arg = fj;
-			r2--;
-		}
-	}
-	p1 = &cvt_buf[ndigits];
-	if (eflag == 0)
-		p1 += r2;
-	*decpt = r2;
-	if (p1 < &cvt_buf[0]) {
-		cvt_buf[0] = '\0';
-		return (cvt_buf);
-	}
-	if (p <= p1 && p < &cvt_buf[NDIG]) {
-		arg = modf(arg * 10, &fj);
-		if ((int)fj==10) {
-			*p++ = '1';
-			fj = 0;
-			*decpt = ++r2;
-		}
-	while (p <= p1 && p < &cvt_buf[NDIG]) {
-		*p++ = (int) fj + '0';
-			arg = modf(arg * 10, &fj);
-		}
-	}
-	if (p1 >= &cvt_buf[NDIG]) {
-		cvt_buf[NDIG - 1] = '\0';
-		return (cvt_buf);
-	}
-	p = p1;
-	*p1 += 5;
-	while (*p1 > '9') {
-		*p1 = '0';
-		if (p1 > cvt_buf)
-			++ * --p1;
-		else {
-			*p1 = '1';
-			(*decpt)++;
-			if (eflag == 0) {
-				if (p > cvt_buf)
-					*p = '0';
-				p++;
-			}
-		}
-	}
-	*p = '\0';
-	return (cvt_buf);
-}
-
-
+/* php_spintf_appendchar() {{{ */
 inline static void
 php_sprintf_appendchar(char **buffer, int *pos, int *size, char add TSRMLS_DC)
 {
@@ -166,8 +65,9 @@ php_sprintf_appendchar(char **buffer, int *pos, int *size, char add TSRMLS_DC)
 	PRINTF_DEBUG(("sprintf: appending '%c', pos=\n", add, *pos));
 	(*buffer)[(*pos)++] = add;
 }
+/* }}} */
 
-
+/* php_spintf_appendstring() {{{ */
 inline static void
 php_sprintf_appendstring(char **buffer, int *pos, int *size, char *add,
 						   int min_width, int max_width, char padding,
@@ -216,8 +116,9 @@ php_sprintf_appendstring(char **buffer, int *pos, int *size, char *add,
 		}
 	}
 }
+/* }}} */
 
-
+/* php_spintf_appendint() {{{ */
 inline static void
 php_sprintf_appendint(char **buffer, int *pos, int *size, long number,
 						int width, char padding, int alignment, 
@@ -259,7 +160,9 @@ php_sprintf_appendint(char **buffer, int *pos, int *size, long number,
 							 padding, alignment, (NUM_BUF_SIZE - 1) - i,
 							 neg, 0, always_sign);
 }
+/* }}} */
 
+/* php_spintf_appenduint() {{{ */
 inline static void
 php_sprintf_appenduint(char **buffer, int *pos, int *size,
 					   unsigned long number,
@@ -271,7 +174,7 @@ php_sprintf_appenduint(char **buffer, int *pos, int *size,
 
 	PRINTF_DEBUG(("sprintf: appenduint(%x, %x, %x, %d, %d, '%c', %d)\n",
 				  *buffer, pos, size, number, width, padding, alignment));
-	magn = (unsigned int) number;
+	magn = (unsigned long) number;
 
 	/* Can't right-pad 0's on integers */
 	if (alignment == 0 && padding == '0') padding = ' ';
@@ -289,7 +192,9 @@ php_sprintf_appenduint(char **buffer, int *pos, int *size,
 	php_sprintf_appendstring(buffer, pos, size, &numbuf[i], width, 0,
 							 padding, alignment, (NUM_BUF_SIZE - 1) - i, 0, 0, 0);
 }
+/* }}} */
 
+/* php_spintf_appenddouble() {{{ */
 inline static void
 php_sprintf_appenddouble(char **buffer, int *pos,
 						 int *size, double number,
@@ -299,18 +204,11 @@ php_sprintf_appenddouble(char **buffer, int *pos,
 						 int always_sign
 						 TSRMLS_DC)
 {
-	char numbuf[NUM_BUF_SIZE];
-	char *cvt;
-	register int i = 0, j = 0;
-	int sign, decpt, cvt_len;
-	char decimal_point = '.';
+	char num_buf[NUM_BUF_SIZE];
+	char *s = NULL;
+	int s_len = 0, is_negative = 0;
 #ifdef HAVE_LOCALE_H
-	struct lconv lc;
-	char locale_decimal_point;
-	localeconv_r(&lc);
-	locale_decimal_point = (lc.decimal_point)[0];
-#else
-	char locale_decimal_point = '.';
+	struct lconv *lconv;
 #endif
 
 	PRINTF_DEBUG(("sprintf: appenddouble(%x, %x, %x, %f, %d, '%c', %d, %c)\n",
@@ -322,95 +220,71 @@ php_sprintf_appenddouble(char **buffer, int *pos,
 	}
 	
 	if (zend_isnan(number)) {
-		sign = (number<0);
+		is_negative = (number<0);
 		php_sprintf_appendstring(buffer, pos, size, "NaN", 3, 0, padding,
-								 alignment, precision, sign, 0, always_sign);
+								 alignment, precision, is_negative, 0, always_sign);
 		return;
 	}
 
 	if (zend_isinf(number)) {
-		sign = (number<0);
+		is_negative = (number<0);
 		php_sprintf_appendstring(buffer, pos, size, "INF", 3, 0, padding,
-								 alignment, precision, sign, 0, always_sign);
+								 alignment, precision, is_negative, 0, always_sign);
 		return;
 	}
 
-	cvt = php_convert_to_decimal(number, precision, &decpt, &sign, (fmt == 'e'));
-	cvt_len = strlen(cvt);
+	switch (fmt) {			
+		case 'e':
+		case 'E':
+		case 'f':
+		case 'F':
+#ifdef HAVE_LOCALE_H
+			lconv = localeconv();
+#endif
+			s = php_conv_fp((fmt == 'f')?'F':fmt, number, 0, precision,
+						(fmt == 'f')?LCONV_DECIMAL_POINT:'.',
+						&is_negative, &num_buf[1], &s_len);
+			if (is_negative) {
+				num_buf[0] = '-';
+				s = num_buf;
+				s_len++;
+			} else if (always_sign) {
+				num_buf[0] = '+';
+				s = num_buf;
+				s_len++;
+			}
+			break;
 
-	if (sign) {
-		numbuf[i++] = '-';
-	} else if (always_sign) {
-		numbuf[i++] = '+';
+		case 'g':
+		case 'G':
+			if (precision == 0)
+				precision = 1;
+			/*
+			 * * We use &num_buf[ 1 ], so that we have room for the sign
+			 */
+#ifdef HAVE_LOCALE_H
+			lconv = localeconv();
+#endif
+			s = php_gcvt(number, precision, LCONV_DECIMAL_POINT, (fmt == 'G')?'E':'e', &num_buf[1]);
+			is_negative = 0;
+			if (*s == '-') {
+				is_negative = 1;
+				s = &num_buf[1];
+			} else if (always_sign) {
+				num_buf[0] = '+';
+				s = num_buf;
+			}
+
+			s_len = strlen(s);
+			break;
 	}
 
-	if (fmt == 'f' || fmt == 'F') {
-		if (decpt <= 0) {
-			numbuf[i++] = '0';
-			if (precision > 0) {
-				int k = precision;
-				numbuf[i++] = fmt == 'F' ? decimal_point : locale_decimal_point;
-				while ((decpt++ < 0) && k--) {
-					numbuf[i++] = '0';
-				}
-			}
-		} else {
-			while (decpt-- > 0) {
-				numbuf[i++] = j < cvt_len ? cvt[j++] : '0';
-			}
-			if (precision > 0) {
-				numbuf[i++] = fmt == 'F' ? decimal_point : locale_decimal_point;
-				while (precision-- > 0) {
-					numbuf[i++] = j < cvt_len ? cvt[j++] : '0';
-				}
-			}
-		}
-	} else if (fmt == 'e' || fmt == 'E') {
-		char *exp_p;
-		int dec2;
-		
-		decpt--;
-		
-		numbuf[i++] = cvt[j++];
-		numbuf[i++] = decimal_point;	
-
-		if (precision > 0) {
-			int k = precision;
-				
-			while (k-- && cvt[j]) {
-				numbuf[i++] = cvt[j++];
-			}
-		} else {
-			numbuf[i++] = '0';
-		}
-		
-		numbuf[i++] = fmt;
-		exp_p = php_convert_to_decimal(decpt, 0, &dec2, &sign, 0);
-		numbuf[i++] = sign ? '-' : '+';
-		if (*exp_p) { 
-			while (*exp_p) {
-				numbuf[i++] = *(exp_p++);
-			}
-		} else {
-			numbuf[i++] = '0';
-		}
-	} else {
-		numbuf[i++] = cvt[j++];
-		if (precision > 0)
-			numbuf[i++] = decimal_point;
-	}
-
-	while (cvt[j]) {
-		numbuf[i++] = cvt[j++];
-	}
-
-	numbuf[i] = '\0';
-
-	php_sprintf_appendstring(buffer, pos, size, numbuf, width, 0, padding,
-							 alignment, i, sign, 0, always_sign);
+	php_sprintf_appendstring(buffer, pos, size, s, width, 0, padding,
+							 alignment, s_len, is_negative, 0, always_sign);
 }
+/* }}} */
 
-
+/* php_spintf_appendd2n() {{{ */
 inline static void
 php_sprintf_append2n(char **buffer, int *pos, int *size, long number,
 					 int width, char padding, int alignment, int n,
@@ -439,8 +313,9 @@ php_sprintf_append2n(char **buffer, int *pos, int *size, long number,
 							 padding, alignment, (NUM_BUF_SIZE - 1) - i,
 							 0, expprec, 0);
 }
+/* }}} */
 
-
+/* php_spintf_getnumber() {{{ */
 inline static int
 php_sprintf_getnumber(char *buffer, int *pos)
 {
@@ -460,8 +335,9 @@ php_sprintf_getnumber(char *buffer, int *pos)
 		return (int) num;
 	}
 }
+/* }}} */
 
-/* {{{ php_formatted_print
+/* php_formatted_print() {{{
  * New sprintf implementation for PHP.
  *
  * Modifiers:
@@ -478,8 +354,7 @@ php_sprintf_getnumber(char *buffer, int *pos)
  *  "b"   integer argument is printed as binary
  *  "c"   integer argument is printed as a single character
  *  "d"   argument is an integer
- *  "f"   the argument is a float, the decimal separator is locale-aware
- *  "F"   the argument is a float, but the decimal separator is always "."
+ *  "f"   the argument is a float
  *  "o"   integer argument is printed as octal
  *  "s"   argument is a string
  *  "x"   integer argument is printed as lowercase hexadecimal
@@ -487,9 +362,9 @@ php_sprintf_getnumber(char *buffer, int *pos)
  *
  */
 static char *
-php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
+php_formatted_print(int ht, int *len, int use_array, int format_offset TSRMLS_DC)
 {
-	zval ***args, **z_format, **array;
+	zval ***args, **z_format;
 	int argc, size = 240, inpos = 0, outpos = 0, temppos;
 	int alignment, currarg, adjusting, argnum, width, precision;
 	char *format, *result, padding;
@@ -497,39 +372,49 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 
 	argc = ZEND_NUM_ARGS();
 
+	/* verify the number of args */
+	if ((use_array && argc != (2 + format_offset)) 
+			|| (!use_array && argc < (1 + format_offset))) {
+		WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
+	}
+	args = (zval ***)safe_emalloc(argc, sizeof(zval *), 0);
+
+	if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
+		efree(args);
+		WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
+	}
+	
 	if (use_array) {
 		int i = 1;
+		zval ***newargs;
+		zval **array;
 
-		if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(argc, &z_format, &array) == FAILURE) {
-			WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
-		}
+		z_format = args[format_offset];
+		array = args[1 + format_offset];
+		
 		SEPARATE_ZVAL(array);
 		convert_to_array_ex(array);
+		
 		argc = 1 + zend_hash_num_elements(Z_ARRVAL_PP(array));
-		args = (zval ***)safe_emalloc(argc, sizeof(zval *), 0);
-		args[0] = z_format;
+		newargs = (zval ***)safe_emalloc(argc, sizeof(zval *), 0);
+		newargs[0] = z_format;
+		
 		for (zend_hash_internal_pointer_reset(Z_ARRVAL_PP(array));
-			 zend_hash_get_current_data(Z_ARRVAL_PP(array), (void **)&args[i++]) == SUCCESS;
+			 zend_hash_get_current_data(Z_ARRVAL_PP(array), (void **)&newargs[i++]) == SUCCESS;
 			 zend_hash_move_forward(Z_ARRVAL_PP(array)));
-	} else {
-		if (argc < 1) {
-			WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
-		}
 
-		args = (zval ***)safe_emalloc(argc, sizeof(zval *), 0);
-
-		if (zend_get_parameters_array_ex(argc, args) == FAILURE) {
-			efree(args);
-			WRONG_PARAM_COUNT_WITH_RETVAL(NULL);
-		}
+		efree(args);
+		args = newargs;
+		format_offset = 0;
 	}
-	convert_to_string_ex(args[0]);
-	format = Z_STRVAL_PP(args[0]);
+	
+	convert_to_string_ex(args[format_offset]);
+	format = Z_STRVAL_PP(args[format_offset]);
 	result = emalloc(size);
 
 	currarg = 1;
 
-	while (inpos<Z_STRLEN_PP(args[0])) {
+	while (inpos<Z_STRLEN_PP(args[format_offset])) {
 		int expprec = 0, multiuse = 0;
 		zval *tmp;
 
@@ -560,7 +445,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 					if (argnum <= 0) {
 						efree(result);
 						efree(args);
-						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Argument number must be greater then zero.");
+						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Argument number must be greater than zero.");
 						return NULL;
 					}
 
@@ -569,6 +454,8 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 				} else {
 					argnum = currarg++;
 				}
+
+				argnum += format_offset;
 
 				/* after argnum comes modifiers */
 				PRINTF_DEBUG(("sprintf: looking for modifiers\n"
@@ -600,7 +487,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 					if ((width = php_sprintf_getnumber(format, &inpos)) < 0) {
 						efree(result);
 						efree(args);
-						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Width must be greater then zero and less then %d.", INT_MAX);
+						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Width must be greater than zero and less than %d.", INT_MAX);
 						return NULL;
 					}
 					adjusting |= ADJ_WIDTH;
@@ -617,7 +504,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 						if ((precision = php_sprintf_getnumber(format, &inpos)) < 0) {
 							efree(result);
 							efree(args);
-							php_error_docref(NULL TSRMLS_CC, E_WARNING, "Precision must be greater then zero and less then %d.", INT_MAX);
+							php_error_docref(NULL TSRMLS_CC, E_WARNING, "Precision must be greater than zero and less than %d.", INT_MAX);
 							return NULL;
 						}
 						adjusting |= ADJ_PRECISION;
@@ -631,7 +518,7 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 				PRINTF_DEBUG(("sprintf: precision=%d\n", precision));
 			} else {
 				width = precision = 0;
-				argnum = currarg++;
+				argnum = currarg++ + format_offset;
 			}
 
 			if (argnum >= argc) {
@@ -646,26 +533,38 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 			}
 			PRINTF_DEBUG(("sprintf: format character='%c'\n", format[inpos]));
 			/* now we expect to find a type specifier */
- 			if (multiuse) {
- 				MAKE_STD_ZVAL(tmp);
- 				*tmp = **(args[argnum]);
+			if (multiuse) {
+				MAKE_STD_ZVAL(tmp);
+				*tmp = **(args[argnum]);
 				INIT_PZVAL(tmp);
- 				zval_copy_ctor(tmp);
- 			} else {
- 				SEPARATE_ZVAL(args[argnum]);
- 				tmp = *(args[argnum]);
- 			}
+				zval_copy_ctor(tmp);
+			} else {
+				SEPARATE_ZVAL(args[argnum]);
+				tmp = *(args[argnum]);
+			}
 
 			switch (format[inpos]) {
-				case 's':
-					convert_to_string(tmp);
+				case 's': {
+					zval *var, var_copy;
+					int use_copy;
+
+					zend_make_printable_zval(tmp, &var_copy, &use_copy);
+					if (use_copy) {
+						var = &var_copy;
+					} else {
+						var = tmp;
+					}
 					php_sprintf_appendstring(&result, &outpos, &size,
-											 Z_STRVAL_P(tmp),
+											 Z_STRVAL_P(var),
 											 width, precision, padding,
 											 alignment,
-											 Z_STRLEN_P(tmp),
+											 Z_STRLEN_P(var),
 											 0, expprec, 0);
+					if (use_copy) {
+						zval_dtor(&var_copy);
+					}
 					break;
+				}
 
 				case 'd':
 					convert_to_long(tmp);
@@ -682,10 +581,12 @@ php_formatted_print(int ht, int *len, int use_array TSRMLS_DC)
 										  width, padding, alignment);
 					break;
 
+				case 'g':
+				case 'G':
 				case 'e':
+				case 'E':
 				case 'f':
 				case 'F':
-					/* XXX not done */
 					convert_to_double(tmp);
 					php_sprintf_appenddouble(&result, &outpos, &size,
 											 Z_DVAL_P(tmp),
@@ -763,11 +664,10 @@ PHP_FUNCTION(user_sprintf)
 	char *result;
 	int len;
 	
-	if ((result=php_formatted_print(ht, &len, 0 TSRMLS_CC))==NULL) {
+	if ((result=php_formatted_print(ht, &len, 0, 0 TSRMLS_CC))==NULL) {
 		RETURN_FALSE;
 	}
-	RETVAL_STRINGL(result, len, 1);
-	efree(result);
+	RETVAL_STRINGL(result, len, 0);
 }
 /* }}} */
 
@@ -778,11 +678,10 @@ PHP_FUNCTION(vsprintf)
 	char *result;
 	int len;
 	
-	if ((result=php_formatted_print(ht, &len, 1 TSRMLS_CC))==NULL) {
+	if ((result=php_formatted_print(ht, &len, 1, 0 TSRMLS_CC))==NULL) {
 		RETURN_FALSE;
 	}
-	RETVAL_STRINGL(result, len, 1);
-	efree(result);
+	RETVAL_STRINGL(result, len, 0);
 }
 /* }}} */
 
@@ -793,7 +692,7 @@ PHP_FUNCTION(user_printf)
 	char *result;
 	int len;
 	
-	if ((result=php_formatted_print(ht, &len, 0 TSRMLS_CC))==NULL) {
+	if ((result=php_formatted_print(ht, &len, 0, 0 TSRMLS_CC))==NULL) {
 		RETURN_FALSE;
 	}
 	PHPWRITE(result, len);
@@ -809,11 +708,73 @@ PHP_FUNCTION(vprintf)
 	char *result;
 	int len;
 	
-	if ((result=php_formatted_print(ht, &len, 1 TSRMLS_CC))==NULL) {
+	if ((result=php_formatted_print(ht, &len, 1, 0 TSRMLS_CC))==NULL) {
 		RETURN_FALSE;
 	}
 	PHPWRITE(result, len);
 	efree(result);
+	RETURN_LONG(len);
+}
+/* }}} */
+
+/* {{{ proto int fprintf(resource stream, string format [, mixed arg1 [, mixed ...]])
+   Output a formatted string into a stream */
+PHP_FUNCTION(fprintf)
+{
+	php_stream *stream;
+	zval **arg1;
+	char *result;
+	int len;
+	
+	if (ZEND_NUM_ARGS() < 2) {
+		WRONG_PARAM_COUNT;
+	}
+	
+	if (zend_get_parameters_ex(1, &arg1)==FAILURE) {
+		RETURN_FALSE;
+	}
+	
+	php_stream_from_zval(stream, arg1);
+
+	if ((result=php_formatted_print(ht, &len, 0, 1 TSRMLS_CC))==NULL) {
+		RETURN_FALSE;
+	}
+
+	php_stream_write(stream, result, len);
+
+	efree(result);
+
+	RETURN_LONG(len);
+}
+/* }}} */
+
+/* {{{ proto int vfprintf(resource stream, string format, array args)
+   Output a formatted string into a stream */
+PHP_FUNCTION(vfprintf)
+{
+	php_stream *stream;
+	zval **arg1;
+	char *result;
+	int len;
+	
+	if (ZEND_NUM_ARGS() != 3) {
+		WRONG_PARAM_COUNT;
+	}
+	
+	if (zend_get_parameters_ex(1, &arg1)==FAILURE) {
+		RETURN_FALSE;
+	}
+	
+	php_stream_from_zval(stream, arg1);
+
+	if ((result=php_formatted_print(ht, &len, 1, 1 TSRMLS_CC))==NULL) {
+		RETURN_FALSE;
+	}
+
+	php_stream_write(stream, result, len);
+
+	efree(result);
+
 	RETURN_LONG(len);
 }
 /* }}} */

@@ -16,7 +16,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -439,28 +439,12 @@ elf32_h8_relocate_section (bfd *output_bfd, struct bfd_link_info *info,
 	}
       else
 	{
-	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
-	  while (h->root.type == bfd_link_hash_indirect
-		 || h->root.type == bfd_link_hash_warning)
-	    h = (struct elf_link_hash_entry *) h->root.u.i.link;
-	  if (h->root.type == bfd_link_hash_defined
-	      || h->root.type == bfd_link_hash_defweak)
-	    {
-	      sec = h->root.u.def.section;
-	      relocation = (h->root.u.def.value
-			    + sec->output_section->vma
-			    + sec->output_offset);
-	    }
-	  else if (h->root.type == bfd_link_hash_undefweak)
-	    relocation = 0;
-	  else
-	    {
-	      if (! ((*info->callbacks->undefined_symbol)
-		     (info, h->root.root.string, input_bfd,
-		      input_section, rel->r_offset, TRUE)))
-		return FALSE;
-	      relocation = 0;
-	    }
+	  bfd_boolean unresolved_reloc, warned;
+
+	  RELOC_FOR_GLOBAL_SYMBOL (info, input_bfd, input_section, rel,
+				   r_symndx, symtab_hdr, sym_hashes,
+				   h, sec, relocation,
+				   unresolved_reloc, warned);
 	}
 
       r = elf32_h8_final_link_relocate (r_type, input_bfd, output_bfd,
@@ -493,8 +477,9 @@ elf32_h8_relocate_section (bfd *output_bfd, struct bfd_link_info *info,
 	    {
 	    case bfd_reloc_overflow:
 	      if (! ((*info->callbacks->reloc_overflow)
-		     (info, name, howto->name, (bfd_vma) 0,
-		      input_bfd, input_section, rel->r_offset)))
+		     (info, (h ? &h->root : NULL), name, howto->name,
+		      (bfd_vma) 0, input_bfd, input_section,
+		      rel->r_offset)))
 		return FALSE;
 	      break;
 
@@ -695,11 +680,6 @@ elf32_h8_relax_section (bfd *abfd, asection *sec,
       || (sec->flags & SEC_CODE) == 0)
     return TRUE;
 
-  /* If this is the first time we have been called for this section,
-     initialize the cooked size.  */
-  if (sec->_cooked_size == 0)
-    sec->_cooked_size = sec->_raw_size;
-
   symtab_hdr = &elf_tdata (abfd)->symtab_hdr;
 
   /* Get a copy of the native relocations.  */
@@ -741,12 +721,7 @@ elf32_h8_relax_section (bfd *abfd, asection *sec,
 	  else
 	    {
 	      /* Go get them off disk.  */
-	      contents = (bfd_byte *) bfd_malloc (sec->_raw_size);
-	      if (contents == NULL)
-		goto error_return;
-
-	      if (! bfd_get_section_contents (abfd, sec, contents,
-					      (file_ptr) 0, sec->_raw_size))
+	      if (!bfd_malloc_and_get_section (abfd, sec, &contents))
 		goto error_return;
 	    }
 	}
@@ -1313,7 +1288,7 @@ elf32_h8_relax_delete_bytes (bfd *abfd, asection *sec, bfd_vma addr, int count)
      power larger than the number of bytes we are deleting.  */
 
   irelalign = NULL;
-  toaddr = sec->_cooked_size;
+  toaddr = sec->size;
 
   irel = elf_section_data (sec)->relocs;
   irelend = irel + sec->reloc_count;
@@ -1321,7 +1296,7 @@ elf32_h8_relax_delete_bytes (bfd *abfd, asection *sec, bfd_vma addr, int count)
   /* Actually delete the bytes.  */
   memmove (contents + addr, contents + addr + count,
 	   (size_t) (toaddr - addr - count));
-  sec->_cooked_size -= count;
+  sec->size -= count;
 
   /* Adjust all the relocs.  */
   for (irel = elf_section_data (sec)->relocs; irel < irelend; irel++)
@@ -1438,7 +1413,7 @@ elf32_h8_get_relocated_section_contents (bfd *output_bfd,
   symtab_hdr = &elf_tdata (input_bfd)->symtab_hdr;
 
   memcpy (data, elf_section_data (input_section)->this_hdr.contents,
-	  (size_t) input_section->_raw_size);
+	  (size_t) input_section->size);
 
   if ((input_section->flags & SEC_RELOC) != 0
       && input_section->reloc_count > 0)
@@ -1574,7 +1549,7 @@ elf32_h8_gc_sweep_hook (bfd *abfd ATTRIBUTE_UNUSED,
 
 /* ??? when elf_backend_relocate_section is not defined, elf32-target.h
    defaults to using _bfd_generic_link_hash_table_create, but
-   elflink.h:bfd_elf32_size_dynamic_sections uses
+   bfd_elf_size_dynamic_sections uses
    dynobj = elf_hash_table (info)->dynobj;
    and thus requires an elf hash table.  */
 #define bfd_elf32_bfd_link_hash_table_create _bfd_elf_link_hash_table_create

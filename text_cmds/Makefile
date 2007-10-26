@@ -12,11 +12,11 @@ NAME = text_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = banner cat cksum col colrm column comm csplit cut ed expand fmt\
+TOOLS = banner cat col colrm column comm csplit cut ed expand fmt\
         fold head join lam look md5 nl paste pr rev rs sed sort split\
         tail tr ul unexpand uniq unvis vis wc
 
-OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble text_cmds.plist
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

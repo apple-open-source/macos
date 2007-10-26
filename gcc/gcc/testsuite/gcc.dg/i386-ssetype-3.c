@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
 /* { dg-options "-O2 -msse2 -march=k8" } */
 /* { dg-final { scan-assembler "andps\[^\\n\]*magic" } } */
@@ -11,7 +12,7 @@
 
 #include <xmmintrin.h>
 
-__m128 magic_a, magic_b;
+static __m128 magic_a, magic_b;
 __m128
 t1(void)
 {

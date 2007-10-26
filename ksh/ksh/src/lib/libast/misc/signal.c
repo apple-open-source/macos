@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -31,23 +27,31 @@
  */
 
 #if !_UWIN
-#if defined(__STDPP__directive) && defined(__STDPP__hide)
-__STDPP__directive pragma pp:hide signal
-#else
+
 #undef	signal
 #define signal		______signal
-#endif
+
 #endif
 
 #include <ast.h>
 #include <sig.h>
 
 #if !_UWIN
-#if defined(__STDPP__directive) && defined(__STDPP__hide)
-__STDPP__directive pragma pp:nohide signal
-#else
+
 #undef	signal
+
+#undef	_def_map_ast
+#include <ast_map.h>
+
+#if defined(__EXPORT__)
+#define extern	__EXPORT__
 #endif
+
+#endif
+
+#if defined(SV_ABORT)                                         
+#undef	SV_INTERRUPT
+#define SV_INTERRUPT	SV_ABORT
 #endif
 
 #if !_std_signal && (_lib_sigaction && defined(SA_NOCLDSTOP) || _lib_sigvec && defined(SV_INTERRUPT))
@@ -67,7 +71,7 @@ __STDPP__directive pragma pp:nohide signal
 #define	sa_mask		sv_mask
 #endif
 
-Sig_handler_t
+extern Sig_handler_t
 signal(int sig, Sig_handler_t fun)
 {
 	struct sigaction	na;

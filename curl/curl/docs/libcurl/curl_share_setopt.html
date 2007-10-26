@@ -67,7 +67,7 @@ p.roffit {
 <p class="level1"><a name="CURLLOCKDATACOOKIE"></a><span class="nroffip">CURL_LOCK_DATA_COOKIE</span> 
 <p class="level2">Cookie data will be shared across the easy handles using this shared object. 
 <p class="level1"><a name="CURLLOCKDATADNS"></a><span class="nroffip">CURL_LOCK_DATA_DNS</span> 
-<p class="level2">Cached DNS hosts will be shared across the easy handles using this shared object. 
+<p class="level2">Cached DNS hosts will be shared across the easy handles using this shared object. Note that when you use the multi interface, all easy handles added to the same multi handle will share DNS cache by default without this having to be used! 
 <p class="level1">
 <p class="level0"><a name="CURLSHOPTUNSHARE"></a><span class="nroffip">CURLSHOPT_UNSHARE</span> 
 <p class="level1">This option does the opposite of <a class="emphasis" href="#CURLSHOPTSHARE">CURLSHOPT_SHARE</a>. It specifies that the specified <span Class="emphasis">parameter</span> will no longer be shared. Valid values are  the same as those for <a class="emphasis" href="#CURLSHOPTSHARE">CURLSHOPT_SHARE</a>. 

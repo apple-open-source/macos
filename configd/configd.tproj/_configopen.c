@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,10 @@
 #include "configd.h"
 #include "configd_server.h"
 #include "session.h"
+
+#include <bsm/libbsm.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 __private_extern__
 int
@@ -75,6 +79,13 @@ __SCDynamicStoreOpen(SCDynamicStoreRef *store, CFStringRef name)
 }
 
 
+static CFStringRef
+openMPCopyDescription(const void *info)
+{
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SCDynamicStore MP>"));
+}
+
+
 __private_extern__
 kern_return_t
 _configopen(mach_port_t			server,
@@ -83,8 +94,15 @@ _configopen(mach_port_t			server,
 	    xmlData_t			optionsRef,		/* raw XML bytes */
 	    mach_msg_type_number_t	optionsLen,
 	    mach_port_t			*newServer,
-	    int				*sc_status)
+	    int				*sc_status,
+	    audit_token_t		audit_token)
 {
+	CFMachPortContext		context		= { 0
+							  , (void *)1
+							  , NULL
+							  , NULL
+							  , openMPCopyDescription
+							  };
 	CFDictionaryRef			info;
 	CFMachPortRef			mp;
 	serverSessionRef		mySession;
@@ -98,9 +116,21 @@ _configopen(mach_port_t			server,
 	SCDynamicStorePrivateRef	storePrivate;
 	CFBooleanRef			useSessionKeys	= NULL;
 
+	*sc_status = kSCStatusOK;
+
 	/* un-serialize the name */
 	if (!_SCUnserializeString(&name, NULL, (void *)nameRef, nameLen)) {
 		*sc_status = kSCStatusFailed;
+	}
+
+	if ((optionsRef != NULL) && (optionsLen > 0)) {
+		/* un-serialize the [session] options */
+		if (!_SCUnserialize((CFPropertyListRef *)&options, NULL, (void *)optionsRef, optionsLen)) {
+			*sc_status = kSCStatusFailed;
+		}
+	}
+
+	if (*sc_status != kSCStatusOK) {
 		goto done;
 	}
 
@@ -109,13 +139,7 @@ _configopen(mach_port_t			server,
 		goto done;
 	}
 
-	if (optionsRef && (optionsLen > 0)) {
-		/* un-serialize the [session] options */
-		if (!_SCUnserialize((CFPropertyListRef *)&options, NULL, (void *)optionsRef, optionsLen)) {
-			*sc_status = kSCStatusFailed;
-			goto done;
-		}
-
+	if (options != NULL) {
 		if (!isA_CFDictionary(options)) {
 			*sc_status = kSCStatusInvalidArgument;
 			goto done;
@@ -134,7 +158,7 @@ _configopen(mach_port_t			server,
 	}
 
 	mySession = getSession(server);
-	if (mySession->store) {
+	if (mySession->store != NULL) {
 #ifdef	DEBUG
 		SCLog(TRUE, LOG_DEBUG, CFSTR("_configopen(): session is already open."));
 #endif	/* DEBUG */
@@ -143,7 +167,7 @@ _configopen(mach_port_t			server,
 	}
 
 	/* Create the server port for this session */
-	mp = CFMachPortCreate(NULL, configdCallback, NULL, NULL);
+	mp = CFMachPortCreate(NULL, configdCallback, &context, NULL);
 
 	/* return the newly allocated port to be used for this session */
 	*newServer = CFMachPortGetPort(mp);
@@ -153,20 +177,30 @@ _configopen(mach_port_t			server,
 	 */
 	newSession = addSession(mp);
 
+	/*
+	 * get the credentials associated with the caller.
+	 */
+	audit_token_to_au32(audit_token,
+			    NULL,			// auidp
+			    &newSession->callerEUID,	// euid
+			    NULL,			// egid
+			    NULL,			// ruid
+			    NULL,			// rgid
+			    NULL,			// pid
+			    NULL,			// asid
+			    NULL);			// tid
+
 	/* Create and add a run loop source for the port */
 	newSession->serverRunLoopSource = CFMachPortCreateRunLoopSource(NULL, mp, 0);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(),
 			   newSession->serverRunLoopSource,
 			   kCFRunLoopDefaultMode);
 
-	/*
-	 * save the credentials associated with the caller.
-	 */
-	newSession->callerEUID = mySession->callerEUID;
-	newSession->callerEGID = mySession->callerEGID;
-
 	if (_configd_trace) {
-		SCTrace(TRUE, _configd_trace, CFSTR("open    : %5d : %@\n"), *newServer, name);
+		SCTrace(TRUE, _configd_trace,
+			CFSTR("open    : %5d : %@\n"),
+			*newServer,
+			name);
 	}
 
 	*sc_status = __SCDynamicStoreOpen(&newSession->store, name);
@@ -211,7 +245,7 @@ _configopen(mach_port_t			server,
 	 */
 	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), *newServer);
 	info = CFDictionaryGetValue(sessionData, sessionKey);
-	if (info) {
+	if (info != NULL) {
 		newInfo = CFDictionaryCreateMutableCopy(NULL, 0, info);
 	} else {
 		newInfo = CFDictionaryCreateMutable(NULL,
@@ -226,7 +260,7 @@ _configopen(mach_port_t			server,
 
     done :
 
-	if (name)	CFRelease(name);
-	if (options)	CFRelease(options);
+	if (name != NULL)	CFRelease(name);
+	if (options != NULL)	CFRelease(options);
 	return KERN_SUCCESS;
 }

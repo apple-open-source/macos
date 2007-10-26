@@ -33,8 +33,8 @@ ui_write(s, len)
     }
 #endif
 #ifndef NO_CONSOLE
-    /* Don't output anything in silent mode ("ex -s") */
-    if (!silent_mode)
+    /* Don't output anything in silent mode ("ex -s") unless 'verbose' set */
+    if (!(silent_mode && p_verbose == 0))
     {
 #ifdef FEAT_MBYTE
 	char_u	*tofree = NULL;
@@ -58,8 +58,7 @@ ui_write(s, len)
 #endif
 }
 
-#if (defined(FEAT_GUI) && (defined(UNIX) || defined(VMS))) \
-	|| defined(MACOS_X_UNIX) || defined(PROTO)
+#if defined(UNIX) || defined(VMS) || defined(PROTO)
 /*
  * When executing an external program, there may be some typed characters that
  * are not consumed by it.  Give them back to ui_inchar() and they are stored
@@ -105,12 +104,18 @@ ui_inchar_undo(s, len)
  * If "wtime" == 0 do not wait for characters.
  * If "wtime" == -1 wait forever for characters.
  * If "wtime" > 0 wait "wtime" milliseconds for a character.
+ *
+ * "tb_change_cnt" is the value of typebuf.tb_change_cnt if "buf" points into
+ * it.  When typebuf.tb_change_cnt changes (e.g., when a message is received
+ * from a remote client) "buf" can no longer be used.  "tb_change_cnt" is NULL
+ * otherwise.
  */
     int
-ui_inchar(buf, maxlen, wtime)
+ui_inchar(buf, maxlen, wtime, tb_change_cnt)
     char_u	*buf;
     int		maxlen;
     long	wtime;	    /* don't use "time", MIPS cannot handle it */
+    int		tb_change_cnt;
 {
     int		retval = 0;
 
@@ -133,6 +138,11 @@ ui_inchar(buf, maxlen, wtime)
     }
 #endif
 
+#ifdef FEAT_PROFILE
+    if (do_profiling == PROF_YES && wtime != 0)
+	prof_inchar_enter();
+#endif
+
 #ifdef NO_CONSOLE_INPUT
     /* Don't wait for character input when the window hasn't been opened yet.
      * Do try reading, this works when redirecting stdin from a file.
@@ -143,14 +153,16 @@ ui_inchar(buf, maxlen, wtime)
 	static int count = 0;
 
 # ifndef NO_CONSOLE
-	retval = mch_inchar(buf, maxlen, 10L);
-	if (retval > 0)
-	    return retval;
+	retval = mch_inchar(buf, maxlen, (wtime >= 0 && wtime < 10)
+						? 10L : wtime, tb_change_cnt);
+	if (retval > 0 || typebuf_changed(tb_change_cnt) || wtime >= 0)
+	    goto theend;
 # endif
 	if (wtime == -1 && ++count == 1000)
 	    read_error_exit();
-	buf[0] = CR;
-	return 1;
+	buf[0] = CAR;
+	retval = 1;
+	goto theend;
     }
 #endif
 
@@ -162,7 +174,7 @@ ui_inchar(buf, maxlen, wtime)
 #ifdef FEAT_GUI
     if (gui.in_use)
     {
-	if (gui_wait_for_chars(wtime))
+	if (gui_wait_for_chars(wtime) && !typebuf_changed(tb_change_cnt))
 	    retval = read_from_input_buf(buf, (long)maxlen);
     }
 #endif
@@ -170,11 +182,26 @@ ui_inchar(buf, maxlen, wtime)
 # ifdef FEAT_GUI
     else
 # endif
-	retval = mch_inchar(buf, maxlen, wtime);
+    {
+	if (wtime == -1 || wtime > 100L)
+	    /* allow signals to kill us */
+	    (void)vim_handle_signal(SIGNAL_UNBLOCK);
+	retval = mch_inchar(buf, maxlen, wtime, tb_change_cnt);
+	if (wtime == -1 || wtime > 100L)
+	    /* block SIGHUP et al. */
+	    (void)vim_handle_signal(SIGNAL_BLOCK);
+    }
 #endif
 
     ctrl_c_interrupts = TRUE;
 
+#ifdef NO_CONSOLE_INPUT
+theend:
+#endif
+#ifdef FEAT_PROFILE
+    if (do_profiling == PROF_YES && wtime != 0)
+	prof_inchar_exit();
+#endif
     return retval;
 }
 
@@ -301,7 +328,7 @@ ui_set_shellsize(mustset)
 # else
 		FALSE
 # endif
-		);
+		, RESIZE_BOTH);
     else
 #endif
 	mch_set_shellsize();
@@ -405,7 +432,7 @@ clip_update_selection()
 	    end = curwin->w_cursor;
 #ifdef FEAT_MBYTE
 	    if (has_mbyte)
-		end.col += (*mb_ptr2len_check)(ml_get_cursor()) - 1;
+		end.col += (*mb_ptr2len)(ml_get_cursor()) - 1;
 #endif
 	}
 	else
@@ -413,8 +440,9 @@ clip_update_selection()
 	    start = curwin->w_cursor;
 	    end = VIsual;
 	}
-	if (!equal(clip_star.start, start) || !equal(clip_star.end, end)
-					    || clip_star.vmode != VIsual_mode)
+	if (!equalpos(clip_star.start, start)
+		|| !equalpos(clip_star.end, end)
+		|| clip_star.vmode != VIsual_mode)
 	{
 	    clip_clear_selection();
 	    clip_star.start = start;
@@ -441,11 +469,12 @@ clip_own_selection(cbd)
 #ifdef FEAT_X11
 	if (cbd == &clip_star)
 	{
-	    /* May have to show a different kind of highlighting for the selected
-	     * area.  There is no specific redraw command for this, just redraw
-	     * all windows on the current buffer. */
+	    /* May have to show a different kind of highlighting for the
+	     * selected area.  There is no specific redraw command for this,
+	     * just redraw all windows on the current buffer. */
 	    if (cbd->owned
-		    && get_real_state() == VISUAL
+		    && (get_real_state() == VISUAL
+					    || get_real_state() == SELECTMODE)
 		    && clip_isautosel()
 		    && hl_attr(HLF_V) != hl_attr(HLF_VNC))
 		redraw_curbuf_later(INVERTED_ALL);
@@ -475,7 +504,8 @@ clip_lose_selection(cbd)
 	 * area.  There is no specific redraw command for this, just redraw all
 	 * windows on the current buffer. */
 	if (was_owned
-		&& get_real_state() == VISUAL
+		&& (get_real_state() == VISUAL
+					    || get_real_state() == SELECTMODE)
 		&& clip_isautosel()
 		&& hl_attr(HLF_V) != hl_attr(HLF_VNC))
 	{
@@ -1114,6 +1144,10 @@ clip_copy_modeless_selection(both)
     int		row2 = clip_star.end.lnum;
     int		col2 = clip_star.end.col;
 
+    /* Can't use ScreenLines unless initialized */
+    if (ScreenLines == NULL)
+	return;
+
     /*
      * Make sure row1 <= row2, and if row1 == row2 that col1 <= col2.
      */
@@ -1141,7 +1175,7 @@ clip_copy_modeless_selection(both)
     if (enc_dbcs != 0)
 	len *= 2;	/* max. 2 bytes per display cell */
     else if (enc_utf8)
-	len *= 9;	/* max. 3 bytes per display cell + 2 composing chars */
+	len *= MB_MAXBYTES;
 #endif
     buffer = lalloc((long_u)len, TRUE);
     if (buffer == NULL)	    /* out of memory */
@@ -1176,7 +1210,7 @@ clip_copy_modeless_selection(both)
 	}
 
 	/* If after the first row, we need to always add a newline */
-	if (row > row1)
+	if (row > row1 && !LineWraps[row - 1])
 	    *bufp++ = NL;
 
 	if (row < screen_Rows && end_col <= screen_Columns)
@@ -1202,6 +1236,8 @@ clip_copy_modeless_selection(both)
 	    else if (enc_utf8)
 	    {
 		int	off;
+		int	i;
+		int	ci;
 
 		off = LineOffset[row];
 		for (i = start_col; i < end_col; ++i)
@@ -1213,14 +1249,13 @@ clip_copy_modeless_selection(both)
 		    else
 		    {
 			bufp += utf_char2bytes(ScreenLinesUC[off + i], bufp);
-			if (ScreenLinesC1[off + i] != 0)
+			for (ci = 0; ci < Screen_mco; ++ci)
 			{
-			    /* Add one or two composing characters. */
-			    bufp += utf_char2bytes(ScreenLinesC1[off + i],
+			    /* Add a composing character. */
+			    if (ScreenLinesC[ci][off + i] == 0)
+				break;
+			    bufp += utf_char2bytes(ScreenLinesC[ci][off + i],
 									bufp);
-			    if (ScreenLinesC2[off + i] != 0)
-				bufp += utf_char2bytes(ScreenLinesC2[off + i],
-					bufp);
 			}
 		    }
 		    /* Skip right halve of double-wide character. */
@@ -1284,7 +1319,7 @@ clip_get_word_boundaries(cb, row, col)
     int		mboff;
 #endif
 
-    if (row >= screen_Rows || col >= screen_Columns)
+    if (row >= screen_Rows || col >= screen_Columns || ScreenLines == NULL)
 	return;
 
     p = ScreenLines + LineOffset[row];
@@ -1339,7 +1374,7 @@ clip_get_line_end(row)
 {
     int	    i;
 
-    if (row >= screen_Rows)
+    if (row >= screen_Rows || ScreenLines == NULL)
 	return 0;
     for (i = screen_Columns; i > 0; i--)
 	if (ScreenLines[LineOffset[row] + i - 1] != ' ')
@@ -1538,6 +1573,7 @@ get_input_buf()
 
 /*
  * Restore the input buffer with a pointer returned from get_input_buf().
+ * The allocated memory is freed, this only works once!
  */
     void
 set_input_buf(p)
@@ -1545,17 +1581,25 @@ set_input_buf(p)
 {
     garray_T	*gap = (garray_T *)p;
 
-    if (gap != NULL && gap->ga_data != NULL)
+    if (gap != NULL)
     {
-	mch_memmove(inbuf, gap->ga_data, gap->ga_len);
-	inbufcount = gap->ga_len;
+	if (gap->ga_data != NULL)
+	{
+	    mch_memmove(inbuf, gap->ga_data, gap->ga_len);
+	    inbufcount = gap->ga_len;
+	    vim_free(gap->ga_data);
+	}
+	vim_free(gap);
     }
 }
 #endif
 
 #if defined(FEAT_GUI) || defined(FEAT_MOUSE_GPM) \
 	|| defined(FEAT_XCLIPBOARD) || defined(VMS) \
-	|| defined(FEAT_SNIFF) || defined(FEAT_CLIENTSERVER) || defined(PROTO)
+	|| defined(FEAT_SNIFF) || defined(FEAT_CLIENTSERVER) \
+	|| (defined(FEAT_GUI) && (!defined(USE_ON_FLY_SCROLL) \
+		|| defined(FEAT_MENU))) \
+	|| defined(PROTO)
 /*
  * Add the given bytes to the input buffer
  * Special keys start with CSI.  A real CSI must have been translated to
@@ -1582,6 +1626,8 @@ add_to_input_buf(s, len)
 
 #if (defined(FEAT_XIM) && defined(FEAT_GUI_GTK)) \
 	|| (defined(FEAT_MBYTE) && defined(FEAT_MBYTE_IME)) \
+	|| (defined(FEAT_GUI) && (!defined(USE_ON_FLY_SCROLL) \
+		|| defined(FEAT_MENU))) \
 	|| defined(PROTO)
 /*
  * Add "str[len]" to the input buffer while escaping CSI bytes.
@@ -1648,6 +1694,7 @@ read_from_input_buf(buf, maxlen)
     return (int)maxlen;
 }
 
+/*ARGSUSED*/
     void
 fill_input_buf(exit_on_error)
     int	exit_on_error;
@@ -1656,10 +1703,21 @@ fill_input_buf(exit_on_error)
     int		len;
     int		try;
     static int	did_read_something = FALSE;
+# ifdef FEAT_MBYTE
+    static char_u *rest = NULL;	    /* unconverted rest of previous read */
+    static int	restlen = 0;
+    int		unconverted;
+# endif
 #endif
 
 #ifdef FEAT_GUI
-    if (gui.in_use)
+    if (gui.in_use
+# ifdef NO_CONSOLE_INPUT
+    /* Don't use the GUI input when the window hasn't been opened yet.
+     * We get here from ui_inchar() when we should try reading from stdin. */
+	    && !no_console_input()
+# endif
+       )
     {
 	gui_mch_update();
 	return;
@@ -1695,6 +1753,32 @@ fill_input_buf(exit_on_error)
     }
 #  endif
 
+# ifdef FEAT_MBYTE
+    if (rest != NULL)
+    {
+	/* Use remainder of previous call, starts with an invalid character
+	 * that may become valid when reading more. */
+	if (restlen > INBUFLEN - inbufcount)
+	    unconverted = INBUFLEN - inbufcount;
+	else
+	    unconverted = restlen;
+	mch_memmove(inbuf + inbufcount, rest, unconverted);
+	if (unconverted == restlen)
+	{
+	    vim_free(rest);
+	    rest = NULL;
+	}
+	else
+	{
+	    restlen -= unconverted;
+	    mch_memmove(rest, rest + unconverted, restlen);
+	}
+	inbufcount += unconverted;
+    }
+    else
+	unconverted = 0;
+#endif
+
     len = 0;	/* to avoid gcc warning */
     for (try = 0; try < 100; ++try)
     {
@@ -1711,6 +1795,7 @@ fill_input_buf(exit_on_error)
 #  if 0
 		)	/* avoid syntax highlight error */
 #  endif
+
 	if (len > 0 || got_int)
 	    break;
 	/*
@@ -1744,15 +1829,28 @@ fill_input_buf(exit_on_error)
 	did_read_something = TRUE;
     if (got_int)
     {
-	inbuf[inbufcount] = 3;
+	/* Interrupted, pretend a CTRL-C was typed. */
+	inbuf[0] = 3;
 	inbufcount = 1;
     }
     else
     {
 # ifdef FEAT_MBYTE
-	/* May perform conversion on the input characters. */
+	/*
+	 * May perform conversion on the input characters.
+	 * Include the unconverted rest of the previous call.
+	 * If there is an incomplete char at the end it is kept for the next
+	 * time, reading more bytes should make conversion possible.
+	 * Don't do this in the unlikely event that the input buffer is too
+	 * small ("rest" still contains more bytes).
+	 */
 	if (input_conv.vc_type != CONV_NONE)
-	    len = convert_input(inbuf + inbufcount, len, INBUFLEN - inbufcount);
+	{
+	    inbufcount -= unconverted;
+	    len = convert_input_safe(inbuf + inbufcount,
+				     len + unconverted, INBUFLEN - inbufcount,
+				       rest == NULL ? &rest : NULL, &restlen);
+	}
 # endif
 	while (len-- > 0)
 	{
@@ -1795,7 +1893,10 @@ ui_cursor_shape()
 # ifdef FEAT_GUI
     if (gui.in_use)
 	gui_update_cursor_later();
+    else
 # endif
+	term_cursor_shape();
+
 # ifdef MCH_CURSOR_SHAPE
     mch_update_cursor();
 # endif
@@ -1856,6 +1957,9 @@ open_app_context()
 }
 
 static Atom	vim_atom;	/* Vim's own special selection format */
+#ifdef FEAT_MBYTE
+static Atom	vimenc_atom;	/* Vim's extended selection format */
+#endif
 static Atom	compound_text_atom;
 static Atom	text_atom;
 static Atom	targets_atom;
@@ -1865,6 +1969,9 @@ x11_setup_atoms(dpy)
     Display	*dpy;
 {
     vim_atom	       = XInternAtom(dpy, VIM_ATOM_NAME,   False);
+#ifdef FEAT_MBYTE
+    vimenc_atom	       = XInternAtom(dpy, VIMENC_ATOM_NAME,False);
+#endif
     compound_text_atom = XInternAtom(dpy, "COMPOUND_TEXT", False);
     text_atom	       = XInternAtom(dpy, "TEXT",	   False);
     targets_atom       = XInternAtom(dpy, "TARGETS",       False);
@@ -1895,6 +2002,9 @@ clip_x11_request_selection_cb(w, success, sel_atom, type, value, length,
     char_u	*p;
     char	**text_list = NULL;
     VimClipboard	*cbd;
+#ifdef FEAT_MBYTE
+    char_u	*tmpbuf = NULL;
+#endif
 
     if (*sel_atom == clip_plus.sel_atom)
 	cbd = &clip_plus;
@@ -1915,6 +2025,37 @@ clip_x11_request_selection_cb(w, success, sel_atom, type, value, length,
 	motion_type = *p++;
 	len--;
     }
+
+#ifdef FEAT_MBYTE
+    else if (*type == vimenc_atom)
+    {
+	char_u		*enc;
+	vimconv_T	conv;
+	int		convlen;
+
+	motion_type = *p++;
+	--len;
+
+	enc = p;
+	p += STRLEN(p) + 1;
+	len -= p - enc;
+
+	/* If the encoding of the text is different from 'encoding', attempt
+	 * converting it. */
+	conv.vc_type = CONV_NONE;
+	convert_setup(&conv, enc, p_enc);
+	if (conv.vc_type != CONV_NONE)
+	{
+	    convlen = len;	/* Need to use an int here. */
+	    tmpbuf = string_convert(&conv, p, &convlen);
+	    len = convlen;
+	    if (tmpbuf != NULL)
+		p = tmpbuf;
+	    convert_setup(&conv, NULL, NULL);
+	}
+    }
+#endif
+
     else if (*type == compound_text_atom || (
 #ifdef FEAT_MBYTE
 		enc_dbcs != 0 &&
@@ -1943,7 +2084,9 @@ clip_x11_request_selection_cb(w, success, sel_atom, type, value, length,
 
     if (text_list != NULL)
 	XFreeStringList(text_list);
-
+#ifdef FEAT_MBYTE
+    vim_free(tmpbuf);
+#endif
     XtFree((char *)value);
     *(int *)success = TRUE;
 }
@@ -1961,13 +2104,22 @@ clip_x11_request_selection(myShell, dpy, cbd)
     int		nbytes = 0;
     char_u	*buffer;
 
-    for (i = 0; i < 4; i++)
+    for (i =
+#ifdef FEAT_MBYTE
+	    0
+#else
+	    1
+#endif
+	    ; i < 5; i++)
     {
 	switch (i)
 	{
-	    case 0:  type = vim_atom;	break;
-	    case 1:  type = compound_text_atom; break;
-	    case 2:  type = text_atom;	break;
+#ifdef FEAT_MBYTE
+	    case 0:  type = vimenc_atom;	break;
+#endif
+	    case 1:  type = vim_atom;		break;
+	    case 2:  type = compound_text_atom; break;
+	    case 3:  type = text_atom;		break;
 	    default: type = XA_STRING;
 	}
 	XtGetSelectionValue(myShell, cbd->sel_atom, type,
@@ -1986,9 +2138,16 @@ clip_x11_request_selection(myShell, dpy, cbd)
 	{
 	    if (XCheckTypedEvent(dpy, SelectionNotify, &event))
 		break;
+	    if (XCheckTypedEvent(dpy, SelectionRequest, &event))
+		/* We may get a SelectionRequest here and if we don't handle
+		 * it we hang.  KDE klipper does this, for example. */
+		XtDispatchEvent(&event);
 
 	    /* Do we need this?  Probably not. */
 	    XSync(dpy, False);
+
+	    /* Bernhard Walle solved a slow paste response in an X terminal by
+	     * adding: usleep(10000); here. */
 	}
 
 	/* this is where clip_x11_request_selection_cb() is actually called */
@@ -2006,7 +2165,7 @@ clip_x11_request_selection(myShell, dpy, cbd)
 	clip_yank_selection(MCHAR, buffer, (long)nbytes, cbd);
 	XFree((void *)buffer);
 	if (p_verbose > 0)
-	    smsg((char_u *)_("Used CUT_BUFFER0 instead of empty selection") );
+	    verb_msg((char_u *)_("Used CUT_BUFFER0 instead of empty selection"));
     }
 }
 
@@ -2027,6 +2186,7 @@ clip_x11_convert_selection_cb(w, sel_atom, target, type, value, length, format)
     char_u	*result;
     int		motion_type;
     VimClipboard	*cbd;
+    int		i;
 
     if (*sel_atom == clip_plus.sel_atom)
 	cbd = &clip_plus;
@@ -2041,23 +2201,30 @@ clip_x11_convert_selection_cb(w, sel_atom, target, type, value, length, format)
     {
 	Atom *array;
 
-	if ((array = (Atom *)XtMalloc((unsigned)(sizeof(Atom) * 5))) == NULL)
+	if ((array = (Atom *)XtMalloc((unsigned)(sizeof(Atom) * 6))) == NULL)
 	    return False;
 	*value = (XtPointer)array;
-	array[0] = XA_STRING;
-	array[1] = targets_atom;
-	array[2] = vim_atom;
-	array[3] = text_atom;
-	array[4] = compound_text_atom;
+	i = 0;
+	array[i++] = XA_STRING;
+	array[i++] = targets_atom;
+#ifdef FEAT_MBYTE
+	array[i++] = vimenc_atom;
+#endif
+	array[i++] = vim_atom;
+	array[i++] = text_atom;
+	array[i++] = compound_text_atom;
 	*type = XA_ATOM;
 	/* This used to be: *format = sizeof(Atom) * 8; but that caused
 	 * crashes on 64 bit machines. (Peter Derr) */
 	*format = 32;
-	*length = 5;
+	*length = i;
 	return True;
     }
 
     if (       *target != XA_STRING
+#ifdef FEAT_MBYTE
+	    && *target != vimenc_atom
+#endif
 	    && *target != vim_atom
 	    && *target != text_atom
 	    && *target != compound_text_atom)
@@ -2071,6 +2238,12 @@ clip_x11_convert_selection_cb(w, sel_atom, target, type, value, length, format)
     /* For our own format, the first byte contains the motion type */
     if (*target == vim_atom)
 	(*length)++;
+
+#ifdef FEAT_MBYTE
+    /* Our own format with encoding: motion 'encoding' NUL text */
+    if (*target == vimenc_atom)
+	*length += STRLEN(p_enc) + 2;
+#endif
 
     *value = XtMalloc((Cardinal)*length);
     result = (char_u *)*value;
@@ -2102,6 +2275,19 @@ clip_x11_convert_selection_cb(w, sel_atom, target, type, value, length, format)
 	*length = text_prop.nitems;
 	*type = compound_text_atom;
     }
+
+#ifdef FEAT_MBYTE
+    else if (*target == vimenc_atom)
+    {
+	int l = STRLEN(p_enc);
+
+	result[0] = motion_type;
+	STRCPY(result + 1, p_enc);
+	mch_memmove(result + l + 2, string, (size_t)(*length - l - 2));
+	*type = vimenc_atom;
+    }
+#endif
+
     else
     {
 	result[0] = motion_type;
@@ -2262,7 +2448,8 @@ retnomove:
 #ifdef FEAT_FOLDING
     /* Remember the character under the mouse, it might be a '-' or '+' in the
      * fold column. */
-    if (row >= 0 && row < Rows && col >= 0 && col <= Columns)
+    if (row >= 0 && row < Rows && col >= 0 && col <= Columns
+						       && ScreenLines != NULL)
 	mouse_char = ScreenLines[LineOffset[row] + col];
     else
 	mouse_char = ' ';
@@ -2343,9 +2530,10 @@ retnomove:
 	if (cmdwin_type != 0 && wp != curwin)
 	{
 	    /* A click outside the command-line window: Use modeless
-	     * selection if possible.  Allow dragging the status line of the
-	     * window just above the command-line window. */
-	    if (wp != curwin->w_prev)
+	     * selection if possible.  Allow dragging the status line of
+	     * windows just above the command-line window. */
+	    if (wp->w_winrow + wp->w_height
+		       != curwin->w_prev->w_winrow + curwin->w_prev->w_height)
 	    {
 		on_status_line = 0;
 		dragwin = NULL;
@@ -2577,7 +2765,7 @@ retnomove:
 	/* if 'selectmode' contains "mouse", start Select mode */
 	may_start_select('o');
 	setmouse();
-	if (p_smd)
+	if (p_smd && msg_silent == 0)
 	    redraw_cmdline = TRUE;	/* show visual mode later */
     }
 #endif
@@ -2638,7 +2826,11 @@ mouse_comp_pos(win, rowp, colp, lnump)
     {
 #ifdef FEAT_DIFF
 	/* Don't include filler lines in "count" */
-	if (win->w_p_diff && !hasFoldingWin(win, lnum, NULL, NULL, TRUE, NULL))
+	if (win->w_p_diff
+# ifdef FEAT_FOLDING
+		&& !hasFoldingWin(win, lnum, NULL, NULL, TRUE, NULL)
+# endif
+		)
 	{
 	    if (lnum == win->w_topline)
 		row -= win->w_topfill;
@@ -2708,6 +2900,7 @@ mouse_find_win(rowp, colp)
     frame_T	*fp;
 
     fp = topframe;
+    *rowp -= firstwin->w_winrow;
     for (;;)
     {
 	if (fp->fr_layout == FR_LEAF)
@@ -2804,12 +2997,7 @@ vcol2col(wp, lnum, vcol)
     {
 	++col;
 	count += win_lbr_chartabsize(wp, ptr, count, NULL);
-# ifdef FEAT_MBYTE
-	if (has_mbyte)
-	    ptr += (*mb_ptr2len_check)(ptr);
-	else
-# endif
-	    ++ptr;
+	mb_ptr_adv(ptr);
     }
     return col;
 }

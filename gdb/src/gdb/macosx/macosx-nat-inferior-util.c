@@ -21,15 +21,6 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "macosx-nat-inferior-util.h"
-#include "macosx-nat-dyld-process.h"
-#include "macosx-nat-inferior-debug.h"
-
-#include "macosx-nat-dyld-info.h"
-#include "macosx-nat-dyld-path.h"
-#include "macosx-nat-inferior.h"
-#include "macosx-nat-mutils.h"
-
 #include "defs.h"
 #include "inferior.h"
 #include "symfile.h"
@@ -41,13 +32,23 @@
 
 #include <mach-o/nlist.h>
 #include <mach-o/loader.h>
-#include <mach-o/dyld_debug.h>
 
 #include <string.h>
 #include <signal.h>
 #include <sys/ptrace.h>
 
 #include "mach-o.h"
+
+#include "macosx-nat-inferior-util.h"
+#include "macosx-nat-dyld-process.h"
+#include "macosx-nat-inferior-debug.h"
+
+#include "macosx-nat-dyld-info.h"
+#include "macosx-nat-dyld-path.h"
+#include "macosx-nat-inferior.h"
+#include "macosx-nat-mutils.h"
+
+extern macosx_dyld_thread_status macosx_dyld_status;
 
 const char *
 ptrace_request_unparse (int request)
@@ -90,7 +91,7 @@ ptrace_request_unparse (int request)
 }
 
 int
-call_ptrace (int request, int pid, int arg3, int arg4)
+call_ptrace (int request, int pid, PTRACE_ARG3_TYPE arg3, int arg4)
 {
   int ret;
   errno = 0;
@@ -117,7 +118,7 @@ macosx_inferior_reset (macosx_inferior_status *s)
 
   s->last_thread = THREAD_NULL;
 
-  macosx_dyld_thread_init (&s->dyld_status);
+  macosx_dyld_thread_init (&macosx_dyld_status);
 
   macosx_signal_thread_init (&s->signal_status);
 
@@ -290,7 +291,7 @@ macosx_inferior_resume_ptrace (macosx_inferior_status *s, unsigned int thread,
 
   if ((s->stopped_in_softexc) && (thread != 0))
     {
-      if (call_ptrace (PTRACE_THUPDATE, s->pid, thread, nsignal) != 0)
+      if (call_ptrace (PTRACE_THUPDATE, s->pid, (PTRACE_ARG3_TYPE) thread, nsignal) != 0)
         error ("Error calling ptrace (%s (0x%lx), %d, %d, %d): %s",
                ptrace_request_unparse (PTRACE_THUPDATE),
                (unsigned long) PTRACE_THUPDATE, s->pid, 1, nsignal,
@@ -300,7 +301,7 @@ macosx_inferior_resume_ptrace (macosx_inferior_status *s, unsigned int thread,
   if ((s->stopped_in_ptrace && (!s->stopped_in_softexc))
       || (val == PTRACE_DETACH))
     {
-      if (call_ptrace (val, s->pid, 1, nsignal) != 0)
+      if (call_ptrace (val, s->pid, (PTRACE_ARG3_TYPE) 1, nsignal) != 0)
         error ("Error calling ptrace (%s (0x%lx), %d, %d, %d): %s",
                ptrace_request_unparse (val), (unsigned long) val,
                s->pid, 1, nsignal, strerror (errno));

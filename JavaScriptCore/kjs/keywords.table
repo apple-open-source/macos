@@ -10,7 +10,7 @@ false		FALSETOKEN
 break		BREAK
 case		CASE
 catch		CATCH
-const		CONSTTOKEN
+const		CONST
 default		DEFAULT
 finally		FINALLY
 for		FOR
@@ -20,14 +20,14 @@ var		VAR
 continue	CONTINUE
 function	FUNCTION
 return		RETURN
-void		VOIDTOKEN
-delete		DELETETOKEN
+void		VOID
+delete		DELETE
 if		IF
-this		THISTOKEN
+this		THIS
 do		DO
 while		WHILE
 else		ELSE
-in		INTOKEN
+in		IN
 switch		SWITCH
 throw		THROW
 try		TRY

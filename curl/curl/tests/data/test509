@@ -1,3 +1,4 @@
+<testcase>
 #
 # Server-side
 <reply>
@@ -21,6 +22,7 @@ https
 </server>
 <features>
 SSL
+OpenSSL
 </features>
 <tool>
 lib509
@@ -43,7 +45,6 @@ https://127.0.0.1:%HTTPSPORT/dvcs %HTTPSPORT
 <protocol>
 GET /509 HTTP/1.1
 Host: 127.0.0.1:%HTTPSPORT
-Pragma: no-cache
 Accept: */*
 
 </protocol>
@@ -53,3 +54,4 @@ Accept: */*
 disable
 </valgrind>
 </verify>
+</testcase>

@@ -1,7 +1,11 @@
 ;;; characters.el --- set syntax and category for multibyte characters
 
-;; Copyright (C) 1995, 1997 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
+;; Copyright (C) 1997, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Keywords: multibyte character, character set, syntax, category
 
@@ -19,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -32,11 +36,16 @@
 
 ;;; Code:
 
+;; We must set utf-translate-cjk-mode to nil while loading this file
+;; to avoid translating CJK characters in decode-char.
+(defvar saved-utf-translate-cjk-mode utf-translate-cjk-mode)
+(setq utf-translate-cjk-mode nil)
+
 ;;; Predefined categories.
 
 ;; For each character set.
 
-(define-category ?a "ASCII")
+(define-category ?a "ASCII graphic characters 32-126 (ISO646 IRV:1983[4/0])")
 (define-category ?l "Latin")
 (define-category ?t "Thai")
 (define-category ?g "Greek")
@@ -82,7 +91,7 @@
 (define-category ?| "While filling, we can break a line at this character.")
 
 ;; For indentation calculation.
-(define-category ? 
+(define-category ?\s
   "This character counts as a space for indentation purposes.")
 
 ;; Keep the following for `kinsoku' processing.  See comments in
@@ -90,6 +99,8 @@
 (define-category ?> "A character which can't be placed at beginning of line.")
 (define-category ?< "A character which can't be placed at end of line.")
 
+;; Combining
+(define-category ?^ "Combining diacritic or mark")
 
 ;;; Setting syntax and category.
 
@@ -108,13 +119,25 @@
 		  arabic-1-column
 		  arabic-2-column)))
   (while charsets
-    (modify-syntax-entry (make-char (car charsets)) "w")
+;;     (modify-syntax-entry (make-char (car charsets)) "w")
     (modify-category-entry (make-char (car charsets)) ?b)
     (setq charsets (cdr charsets))))
+(let ((ch #x600))
+  (while (<= ch #x6ff)
+    (modify-category-entry (decode-char 'ucs ch) ?b)
+    (setq ch (1+ ch)))
+  (setq ch #xfb50)
+  (while (<= ch #xfdff)
+    (modify-category-entry (decode-char 'ucs ch) ?b)
+    (setq ch (1+ ch)))
+  (setq ch #xfe70)
+  (while (<= ch #xfefe)
+    (modify-category-entry (decode-char 'ucs ch) ?b)
+    (setq ch (1+ ch))))
 
 ;; Chinese character set (GB2312)
 
-(modify-syntax-entry (make-char 'chinese-gb2312) "w")
+;; (modify-syntax-entry (make-char 'chinese-gb2312) "w")
 (modify-syntax-entry (make-char 'chinese-gb2312 33) "_")
 (modify-syntax-entry (make-char 'chinese-gb2312 34) "_")
 (modify-syntax-entry (make-char 'chinese-gb2312 41) "_")
@@ -125,6 +148,9 @@
 (modify-syntax-entry ?\$A!:(B "($A!;(B")
 (modify-syntax-entry ?\$A!<(B "($A!=(B")
 (modify-syntax-entry ?\$A!>(B "($A!?(B")
+(modify-syntax-entry ?\$A#((B "($A#)(B")
+(modify-syntax-entry ?\$A#{(B "($A#}(B")
+(modify-syntax-entry ?\$A#[(B "($A#](B")
 (modify-syntax-entry ?\$A!3(B ")$A!2(B")
 (modify-syntax-entry ?\$A!5(B ")$A!4(B")
 (modify-syntax-entry ?\$A!7(B ")$A!6(B")
@@ -132,6 +158,13 @@
 (modify-syntax-entry ?\$A!;(B ")$A!:(B")
 (modify-syntax-entry ?\$A!=(B ")$A!<(B")
 (modify-syntax-entry ?\$A!?(B ")$A!>(B")
+(modify-syntax-entry ?\$A#)(B ")$A#((B")
+(modify-syntax-entry ?\$A#}(B ")$A#{(B")
+(modify-syntax-entry ?\$A#](B ")$A#[(B")
+
+(let ((chars "$A#,!"!##.!$#;#:#?#!!C!-!'#|#_!.!/!0!1#"!e#`!d(B"))
+  (dotimes (i (length chars))
+    (modify-syntax-entry (aref chars i) ".")))
 
 (modify-category-entry (make-char 'chinese-gb2312) ?c)
 (modify-category-entry (make-char 'chinese-gb2312) ?\|)
@@ -145,12 +178,47 @@
     (modify-category-entry (make-char 'chinese-gb2312 row) ?C)
     (setq row (1+ row))))
 
+(let ((tbl (standard-case-table)))
+  (dotimes (i 26)
+    (set-case-syntax-pair (make-char 'chinese-gb2312 #x23 (+ #x41 i))
+			  (make-char 'chinese-gb2312 #x23 (+ #x61 i)) tbl))
+  (dotimes (i 24)
+    (set-case-syntax-pair (make-char 'chinese-gb2312 #x26 (+ #x21 i))
+			  (make-char 'chinese-gb2312 #x26 (+ #x41 i)) tbl))
+  (dotimes (i 33)
+    (set-case-syntax-pair (make-char 'chinese-gb2312 #x27 (+ #x21 i))
+			  (make-char 'chinese-gb2312 #x27 (+ #x51 i)) tbl)))
+
 ;; Chinese character set (BIG5)
+
+(let ((from (decode-big5-char #xA141))
+      (to (decode-big5-char #xA15D)))
+  (while (< from to)
+    (modify-syntax-entry from ".")
+    (setq from (1+ from))))
+(let ((from (decode-big5-char #xA1A5))
+      (to (decode-big5-char #xA1AD)))
+  (while (< from to)
+    (modify-syntax-entry from ".")
+    (setq from (1+ from))))
+(let ((from (decode-big5-char #xA1AD))
+      (to (decode-big5-char #xA2AF)))
+  (while (< from to)
+    (modify-syntax-entry from "_")
+    (setq from (1+ from))))
+
+(let ((parens "$(0!>!?!@!A!B!C!D!E!F!G!H!I!J!K!L!M!N!O!P!Q!R!S!T!U!V!W!X!Y!Z![!\!]!^!_!`!a!b!c(B")
+      open close)
+  (dotimes (i (/ (length parens) 2))
+    (setq open (aref parens (* i 2))
+	  close (aref parens (1+ (* i 2))))
+    (modify-syntax-entry open (format "(%c" close))
+    (modify-syntax-entry close (format ")%c" open))))
 
 (let ((generic-big5-1-char (make-char 'chinese-big5-1))
       (generic-big5-2-char (make-char 'chinese-big5-2)))
-  (modify-syntax-entry generic-big5-1-char "w")
-  (modify-syntax-entry generic-big5-2-char "w")
+;;   (modify-syntax-entry generic-big5-1-char "w")
+;;   (modify-syntax-entry generic-big5-2-char "w")
 
   (modify-category-entry generic-big5-1-char ?c)
   (modify-category-entry generic-big5-2-char ?c)
@@ -160,6 +228,17 @@
 
   (modify-category-entry generic-big5-1-char ?\|)
   (modify-category-entry generic-big5-2-char ?\|))
+
+(let ((tbl (standard-case-table)))
+  (dotimes (i 22)
+    (set-case-syntax-pair (decode-big5-char (+ #xA2CF i))
+			  (decode-big5-char (+ #xA2CF i 26)) tbl))
+  (dotimes (i 4)
+    (set-case-syntax-pair (decode-big5-char (+ #xA2E4 i))
+			  (decode-big5-char (+ #xA340 i)) tbl))
+  (dotimes (i 24)
+    (set-case-syntax-pair (decode-big5-char (+ #xA344 i))
+			  (decode-big5-char (+ #xA344 i 24)) tbl)))
 
 
 ;; Chinese character set (CNS11643)
@@ -174,11 +253,19 @@
       generic-char)
   (while cns-list
     (setq generic-char (make-char (car cns-list)))
-    (modify-syntax-entry generic-char "w")
+;;     (modify-syntax-entry generic-char "w")
     (modify-category-entry generic-char ?c)
     (modify-category-entry generic-char ?C)
     (modify-category-entry generic-char ?|)
     (setq cns-list (cdr cns-list))))
+
+(let ((parens "$(G!>!?!@!A!B!C!D!E!F!G!H!I!J!K!L!M!N!O!P!Q!R!S!T!U!V!W!X!Y!Z![!\!]!^!_!`!a!b!c(B")
+      open close)
+  (dotimes (i (/ (length parens) 2))
+    (setq open (aref parens (* i 2))
+	  close (aref parens (1+ (* i 2))))
+    (modify-syntax-entry open (format "(%c" close))
+    (modify-syntax-entry close (format ")%c" open))))
 
 ;; Cyrillic character set (ISO-8859-5)
 
@@ -234,44 +321,103 @@
   (set-case-syntax-pair ?,LL(B ?,Ll(B tbl)
   (set-case-syntax-pair ?,LM(B ?,Lm(B tbl)
   (set-case-syntax-pair ?,LN(B ?,Ln(B tbl)
-  (set-case-syntax-pair ?,LO(B ?,Lo(B tbl))
+  (set-case-syntax-pair ?,LO(B ?,Lo(B tbl)
+  (set-case-syntax-pair ?$,1(!(B ?$,1(q(B tbl)
+  (set-case-syntax-pair ?$,1("(B ?$,1(r(B tbl)
+  (set-case-syntax-pair ?$,1(#(B ?$,1(s(B tbl)
+  (set-case-syntax-pair ?$,1($(B ?$,1(t(B tbl)
+  (set-case-syntax-pair ?$,1(%(B ?$,1(u(B tbl)
+  (set-case-syntax-pair ?$,1(&(B ?$,1(v(B tbl)
+  (set-case-syntax-pair ?$,1('(B ?$,1(w(B tbl)
+  (set-case-syntax-pair ?$,1(((B ?$,1(x(B tbl)
+  (set-case-syntax-pair ?$,1()(B ?$,1(y(B tbl)
+  (set-case-syntax-pair ?$,1(*(B ?$,1(z(B tbl)
+  (set-case-syntax-pair ?$,1(+(B ?$,1({(B tbl)
+  (set-case-syntax-pair ?$,1(,(B ?$,1(|(B tbl)
+  (set-case-syntax-pair ?$,1(.(B ?$,1(~(B tbl)
+  (set-case-syntax-pair ?$,1(/(B ?$,1((B tbl)
+  (set-case-syntax-pair ?$,1(0(B ?$,1(P(B tbl)
+  (set-case-syntax-pair ?$,1(1(B ?$,1(Q(B tbl)
+  (set-case-syntax-pair ?$,1(2(B ?$,1(R(B tbl)
+  (set-case-syntax-pair ?$,1(3(B ?$,1(S(B tbl)
+  (set-case-syntax-pair ?$,1(4(B ?$,1(T(B tbl)
+  (set-case-syntax-pair ?$,1(5(B ?$,1(U(B tbl)
+  (set-case-syntax-pair ?$,1(6(B ?$,1(V(B tbl)
+  (set-case-syntax-pair ?$,1(7(B ?$,1(W(B tbl)
+  (set-case-syntax-pair ?$,1(8(B ?$,1(X(B tbl)
+  (set-case-syntax-pair ?$,1(9(B ?$,1(Y(B tbl)
+  (set-case-syntax-pair ?$,1(:(B ?$,1(Z(B tbl)
+  (set-case-syntax-pair ?$,1(;(B ?$,1([(B tbl)
+  (set-case-syntax-pair ?$,1(<(B ?$,1(\(B tbl)
+  (set-case-syntax-pair ?$,1(=(B ?$,1(](B tbl)
+  (set-case-syntax-pair ?$,1(>(B ?$,1(^(B tbl)
+  (set-case-syntax-pair ?$,1(?(B ?$,1(_(B tbl)
+  (set-case-syntax-pair ?$,1(@(B ?$,1(`(B tbl)
+  (set-case-syntax-pair ?$,1(A(B ?$,1(a(B tbl)
+  (set-case-syntax-pair ?$,1(B(B ?$,1(b(B tbl)
+  (set-case-syntax-pair ?$,1(C(B ?$,1(c(B tbl)
+  (set-case-syntax-pair ?$,1(D(B ?$,1(d(B tbl)
+  (set-case-syntax-pair ?$,1(E(B ?$,1(e(B tbl)
+  (set-case-syntax-pair ?$,1(F(B ?$,1(f(B tbl)
+  (set-case-syntax-pair ?$,1(G(B ?$,1(g(B tbl)
+  (set-case-syntax-pair ?$,1(H(B ?$,1(h(B tbl)
+  (set-case-syntax-pair ?$,1(I(B ?$,1(i(B tbl)
+  (set-case-syntax-pair ?$,1(J(B ?$,1(j(B tbl)
+  (set-case-syntax-pair ?$,1(K(B ?$,1(k(B tbl)
+  (set-case-syntax-pair ?$,1(L(B ?$,1(l(B tbl)
+  (set-case-syntax-pair ?$,1(M(B ?$,1(m(B tbl)
+  (set-case-syntax-pair ?$,1(N(B ?$,1(n(B tbl)
+  (set-case-syntax-pair ?$,1(O(B ?$,1(o(B tbl))
 
 ;; Devanagari character set
 
-(let ((deflist	'(;; chars	syntax	category
-		  ("$(5!!!"!#(B"	"w"	?7) ; vowel-modifying diacritical mark
-					    ; chandrabindu, anuswar, visarga
-		  ("$(5!$(B-$(5!2(B"	"w"	?1) ; independent vowel
-		  ("$(5!3(B-$(5!X(B"	"w"	?0) ; consonant
-		  ("$(5!Z(B-$(5!g(B"	"w"	?8) ; matra
-		  ("$(5!q(B-$(5!z(B"	"w"	?6) ; digit
-		  ))
-      elm chars len syntax category to ch i)
-  (while deflist
-    (setq elm (car deflist))
-    (setq chars (car elm)
-	  len (length chars)
-	  syntax (nth 1 elm)
-	  category (nth 2 elm)
-	  i 0)
-    (while (< i len)
-      (if (= (aref chars i) ?-)
-	  (setq i (1+ i)
-		to (aref chars i))
-	(setq ch (aref chars i)
-	      to ch))
-      (while (<= ch to)
-	(modify-syntax-entry ch syntax)
-	(modify-category-entry ch category)
-	(setq ch (1+ ch)))
-      (setq i (1+ i)))
-    (setq deflist (cdr deflist))))
+;;; Commented out since the categories appear not to be used anywhere
+;;; and word syntax is the default.
+;; (let ((deflist	'(;; chars	syntax	category
+;; 		  ("$(5!!!"!#(B"	"w"	?7) ; vowel-modifying diacritical mark
+;; 					    ; chandrabindu, anuswar, visarga
+;; 		  ("$(5!$(B-$(5!2(B"	"w"	?1) ; independent vowel
+;; 		  ("$(5!3(B-$(5!X(B"	"w"	?0) ; consonant
+;; 		  ("$(5!Z(B-$(5!g(B"	"w"	?8) ; matra
+;; 		  ("$(5!q(B-$(5!z(B"	"w"	?6) ; digit
+;; 		  ;; Unicode equivalents
+;; 		  ("$,15A5B5C(B"	"w"	?7) ; vowel-modifying diacritical mark
+;; 					    ; chandrabindu, anuswar, visarga
+;; 		  ("$,15E(B-$,15M(B"	"w"	?1) ; independent vowel
+;; 		  ("$,15U(B-$,15y(B"	"w"	?0) ; consonant
+;; 		  ("$,15~(B-$,16)(B"	"w"	?8) ; matra
+;; 		  ("$,16F(B-$,16O(B"	"w"	?6) ; digit
+;; 		  ))
+;;       elm chars len syntax category to ch i)
+;;   (while deflist
+;;     (setq elm (car deflist))
+;;     (setq chars (car elm)
+;; 	  len (length chars)
+;; 	  syntax (nth 1 elm)
+;; 	  category (nth 2 elm)
+;; 	  i 0)
+;;     (while (< i len)
+;;       (if (= (aref chars i) ?-)
+;; 	  (setq i (1+ i)
+;; 		to (aref chars i))
+;; 	(setq ch (aref chars i)
+;; 	      to ch))
+;;       (while (<= ch to)
+;; 	(modify-syntax-entry ch syntax)
+;; 	(modify-category-entry ch category)
+;; 	(setq ch (1+ ch)))
+;;       (setq i (1+ i)))
+;;     (setq deflist (cdr deflist))))
 
 ;; Ethiopic character set
 
 (modify-category-entry (make-char 'ethiopic) ?e)
-(modify-syntax-entry (make-char 'ethiopic) "w")
-(let ((chars '(?$(3$h(B ?$(3$i(B ?$(3$j(B ?$(3$k(B ?$(3$l(B ?$(3$m(B ?$(3$n(B ?$(3$o(B ?$(3%i(B ?$(3%t(B ?$(3%u(B ?$(3%v(B ?$(3%w(B ?$(3%x(B)))
+;; (modify-syntax-entry (make-char 'ethiopic) "w")
+(dotimes (i (1+ (- #x137c #x1200)))
+  (modify-category-entry (decode-char 'ucs (+ #x1200 i)) ?e))
+(let ((chars '(?$(3$h(B ?$(3$i(B ?$(3$j(B ?$(3$k(B ?$(3$l(B ?$(3$m(B ?$(3$n(B ?$(3$o(B ?$(3%i(B ?$(3%t(B ?$(3%u(B ?$(3%v(B ?$(3%w(B ?$(3%x(B
+	       ;; Unicode equivalents of the above:
+	       ?$,1Q!(B ?$,1Q"(B ?$,1Q#(B ?$,1Q$(B ?$,1Q%(B ?$,1Q&(B ?$,1Q'(B ?$,1Q((B ?$,3op(B ?$,3o{(B ?$,3o|(B ?$,3o}(B ?$,3o~(B ?$,3o(B)))
   (while chars
     (modify-syntax-entry (car chars) ".")
     (setq chars (cdr chars))))
@@ -279,16 +425,36 @@
 ;; Greek character set (ISO-8859-7)
 
 (modify-category-entry (make-char 'greek-iso8859-7) ?g)
-
-(let ((c 182))
-  (while (< c 255)
-    (modify-syntax-entry (make-char 'greek-iso8859-7 c) "w")
+(let ((c #x370))
+  (while (<= c #x3ff)
+    (modify-category-entry (decode-char 'ucs c) ?g)
     (setq c (1+ c))))
-(modify-syntax-entry (make-char 'greek-iso8859-7 160) "w") ; NBSP
+
+;; (let ((c 182))
+;;   (while (< c 255)
+;;     (modify-syntax-entry (make-char 'greek-iso8859-7 c) "w")
+;;     (setq c (1+ c))))
+;; (modify-syntax-entry (make-char 'greek-iso8859-7 160) "w") ; NBSP
 (modify-syntax-entry ?,F7(B ".")
 (modify-syntax-entry ?,F;(B ".")
 (modify-syntax-entry ?,F=(B ".")
 (let ((tbl (standard-case-table)))
+  ;; Fixme: non-letter syntax copied from latin-1, but that's dubious
+  ;; in several cases.
+  (set-case-syntax ?,F!(B "." tbl)
+  (set-case-syntax ?,F"(B "." tbl)
+  (set-case-syntax ?,F&(B "." tbl)
+  (set-case-syntax ?,F&(B "_" tbl)
+  (set-case-syntax ?,F'(B "." tbl)
+  (set-case-syntax ?,F)(B "_" tbl)
+  (set-case-syntax ?,F+(B "." tbl)
+  (set-case-syntax ?,F,(B "_" tbl)
+  (set-case-syntax ?,F-(B "_" tbl)
+  (set-case-syntax ?,F/(B "." tbl)
+  (set-case-syntax ?,F0(B "_" tbl)
+  (set-case-syntax ?,F1(B "_" tbl)
+;;  (set-case-syntax ?,F7(B "_" tbl)
+;;  (set-case-syntax ?,F=(B "_" tbl)
   (set-case-syntax-pair ?,FA(B ?,Fa(B tbl)
   (set-case-syntax-pair ?,FB(B ?,Fb(B tbl)
   (set-case-syntax-pair ?,FC(B ?,Fc(B tbl)
@@ -306,6 +472,7 @@
   (set-case-syntax-pair ?,FO(B ?,Fo(B tbl)
   (set-case-syntax-pair ?,FP(B ?,Fp(B tbl)
   (set-case-syntax-pair ?,FQ(B ?,Fq(B tbl)
+  (set-upcase-syntax    ?,FS(B ?,Fr(B tbl)
   (set-case-syntax-pair ?,FS(B ?,Fs(B tbl)
   (set-case-syntax-pair ?,FT(B ?,Ft(B tbl)
   (set-case-syntax-pair ?,FU(B ?,Fu(B tbl)
@@ -321,54 +488,95 @@
   (set-case-syntax-pair ?,F6(B ?,F\(B tbl)
   (set-case-syntax-pair ?,F8(B ?,F](B tbl)
   (set-case-syntax-pair ?,F9(B ?,F^(B tbl)
-  (set-case-syntax-pair ?,F:(B ?,F_(B tbl))
+  (set-case-syntax-pair ?,F:(B ?,F_(B tbl)
+  ;; Unicode equivalents
+  (set-case-syntax-pair ?$,1&q(B ?$,1'1(B tbl)
+  (set-case-syntax-pair ?$,1&r(B ?$,1'2(B tbl)
+  (set-case-syntax-pair ?$,1&s(B ?$,1'3(B tbl)
+  (set-case-syntax-pair ?$,1&t(B ?$,1'4(B tbl)
+  (set-case-syntax-pair ?$,1&u(B ?$,1'5(B tbl)
+  (set-case-syntax-pair ?$,1&v(B ?$,1'6(B tbl)
+  (set-case-syntax-pair ?$,1&w(B ?$,1'7(B tbl)
+  (set-case-syntax-pair ?$,1&x(B ?$,1'8(B tbl)
+  (set-case-syntax-pair ?$,1&y(B ?$,1'9(B tbl)
+  (set-case-syntax-pair ?$,1&z(B ?$,1':(B tbl)
+  (set-case-syntax-pair ?$,1&{(B ?$,1';(B tbl)
+  (set-case-syntax-pair ?$,1&|(B ?$,1'<(B tbl)
+  (set-case-syntax-pair ?$,1&}(B ?$,1'=(B tbl)
+  (set-case-syntax-pair ?$,1&~(B ?$,1'>(B tbl)
+  (set-case-syntax-pair ?$,1&(B ?$,1'?(B tbl)
+  (set-case-syntax-pair ?$,1' (B ?$,1'@(B tbl)
+  (set-case-syntax-pair ?$,1'!(B ?$,1'A(B tbl)
+  (set-upcase-syntax    ?$,1'#(B ?$,1'B(B tbl)
+  (set-case-syntax-pair ?$,1'#(B ?$,1'C(B tbl)
+  (set-case-syntax-pair ?$,1'$(B ?$,1'D(B tbl)
+  (set-case-syntax-pair ?$,1'%(B ?$,1'E(B tbl)
+  (set-case-syntax-pair ?$,1'&(B ?$,1'F(B tbl)
+  (set-case-syntax-pair ?$,1''(B ?$,1'G(B tbl)
+  (set-case-syntax-pair ?$,1'((B ?$,1'H(B tbl)
+  (set-case-syntax-pair ?$,1')(B ?$,1'I(B tbl)
+  (set-case-syntax-pair ?$,1'*(B ?$,1'J(B tbl)
+  (set-case-syntax-pair ?$,1'+(B ?$,1'K(B tbl)
+  (set-case-syntax-pair ?$,1&o(B ?$,1'N(B tbl)
+  (set-case-syntax-pair ?$,1&n(B ?$,1'M(B tbl)
+  (set-case-syntax-pair ?$,1&l(B ?$,1'L(B tbl)
+  (set-case-syntax-pair ?$,1&f(B ?$,1',(B tbl)
+  (set-case-syntax-pair ?$,1&h(B ?$,1'-(B tbl)
+  (set-case-syntax-pair ?$,1&i(B ?$,1'.(B tbl)
+  (set-case-syntax-pair ?$,1&j(B ?$,1'/(B tbl))
 
 ;; Hebrew character set (ISO-8859-8)
 
 (modify-category-entry (make-char 'hebrew-iso8859-8) ?w)
-
-(let ((c 224))
-  (while (< c 251)
-    (modify-syntax-entry (make-char 'hebrew-iso8859-8 c) "w")
+(let ((c #x591))
+  (while (<= c #x5f4)
+    (modify-category-entry (decode-char 'ucs c) ?w)
     (setq c (1+ c))))
-(modify-syntax-entry (make-char 'hebrew-iso8859-8 160) "w") ; NBSP
+
+(modify-syntax-entry (make-char 'hebrew-iso8859-8 208) ".") ; PASEQ
+(modify-syntax-entry (make-char 'hebrew-iso8859-8 211) ".") ; SOF PASUQ
+(modify-syntax-entry (decode-char 'ucs #x5be) ".") ; MAQAF
+(modify-syntax-entry (decode-char 'ucs #x5c0) ".") ; PASEQ
+(modify-syntax-entry (decode-char 'ucs #x5c3) ".") ; SOF PASUQ
+(modify-syntax-entry (decode-char 'ucs #x5f3) ".") ; GERESH
+(modify-syntax-entry (decode-char 'ucs #x5f4) ".") ; GERSHAYIM
+
+;; (let ((c 224))
+;;   (while (< c 251)
+;;     (modify-syntax-entry (make-char 'hebrew-iso8859-8 c) "w")
+;;     (setq c (1+ c))))
+;; (modify-syntax-entry (make-char 'hebrew-iso8859-8 160) "w") ; NBSP
 
 ;; Indian character set (IS 13194 and other Emacs original Indian charsets)
 
 (modify-category-entry (make-char 'indian-is13194) ?i)
 (modify-category-entry (make-char 'indian-2-column) ?I)
-(modify-category-entry (make-char 'indian-1-column) ?I)
+(modify-category-entry (make-char 'indian-glyph) ?I)
+;; Unicode Devanagari block
+(let ((c #x901))
+  (while (<= c #x970)
+    (modify-category-entry (decode-char 'ucs c) ?i)
+    (setq c (1+ c))))
 
-(let ((deflist	
-	'(;; chars	syntax	category
-	  ("(5!"#(B"	"w"	?7) ; vowel-modifying diacritical mark
-				    ; chandrabindu, anuswar, visarga
-	  ("(5$(B-(52(B"	"w"	?1) ; base (independent) vowel
-	  ("(53(B-(5X(B"	"w"	?0) ; consonant
-	  ("(5Z(B-(5g(B"	"w"	?8) ; matra
-	  ("(5q(B-(5z(B"	"w"	?6) ; digit
-	  ))
-      elm chars len syntax category to ch i)
-  (while deflist
-    (setq elm (car deflist))
-    (setq chars (car elm)
-	  len (length chars)
-	  syntax (nth 1 elm)
-	  category (nth 2 elm)
-	  i 0)
-    (while (< i len)
-      (if (= (aref chars i) ?-)
-	  (setq i (1+ i)
-		to (aref chars i))
-	(setq ch (aref chars i)
-	      to ch))
-      (while (<= ch to)
-	(modify-syntax-entry ch syntax)
-	(modify-category-entry ch category)
-	(setq ch (1+ ch)))
-      (setq i (1+ i)))
-    (setq deflist (cdr deflist))))
-
+(let ((l '(;; RANGE   CATEGORY		MEANINGS
+	   (#x01 #x03 ?7)		; vowel modifier
+	   (#x05 #x14 ?1)		; base vowel
+	   (#x15 #x39 ?0)		; consonants
+	   (#x3e #x4d ?8)		; vowel modifier
+	   (#x51 #x54 ?4)		; stress/tone mark
+	   (#x58 #x5f ?0)		; consonants
+	   (#x60 #x61 ?1)		; base vowel
+	   (#x62 #x63 ?8)		; vowel modifier
+	   (#x66 #x6f ?6)		; digits
+	   )))
+  (dolist (elt1 '(#x900 #x980 #xa00 #xa80 #xb00 #xb80 #xc00 #xc80 #xd00))
+    (dolist (elt2 l)
+      (let* ((from (car elt2))
+	     (counts (1+ (- (nth 1 elt2) from)))
+	     (category (nth 2 elt2)))
+	(dotimes (i counts)
+	  (modify-category-entry (decode-char 'ucs (+ elt1 from i)) 
+				 category))))))
 
 ;; Japanese character set (JISX0201-kana, JISX0201-roman, JISX0208, JISX0212)
 
@@ -381,8 +589,34 @@
 (modify-category-entry (make-char 'japanese-jisx0208) ?\|)
 (modify-category-entry (make-char 'japanese-jisx0212) ?\|)
 
+;; Unicode equivalents of JISX0201-kana
+(let ((c #xff61))
+  (while (<= c #xff9f)
+    (modify-category-entry (decode-char 'ucs c) ?k)
+    (modify-category-entry (decode-char 'ucs c) ?j)
+    (modify-category-entry (decode-char 'ucs c) ?\|)
+    (setq c (1+ c))))
+
+;; Katakana block
+(let ((c #x30a0))
+  (while (<= c #x30ff)
+    ;; ?K is double width, ?k isn't specified
+    (modify-category-entry (decode-char 'ucs c) ?k)
+    (modify-category-entry (decode-char 'ucs c) ?j)
+    (modify-category-entry (decode-char 'ucs c) ?\|)
+    (setq c (1+ c))))
+
+;; Hiragana block
+(let ((c #x3040))
+  (while (<= c #x309f)
+    ;; ?H is actually defined to be double width
+    (modify-category-entry (decode-char 'ucs c) ?H)
+    ;;(modify-category-entry (decode-char 'ucs c) ?j)
+    (modify-category-entry (decode-char 'ucs c) ?\|)
+    (setq c (1+ c))))
+
 ;; JISX0208
-(modify-syntax-entry (make-char 'japanese-jisx0208) "w")
+;; (modify-syntax-entry (make-char 'japanese-jisx0208) "w")
 (modify-syntax-entry (make-char 'japanese-jisx0208 33) "_")
 (modify-syntax-entry (make-char 'japanese-jisx0208 34) "_")
 (modify-syntax-entry (make-char 'japanese-jisx0208 40) "_")
@@ -390,16 +624,13 @@
   (while chars
     (modify-syntax-entry (car chars) "w")
     (setq chars (cdr chars))))
-(modify-syntax-entry ?\$B!J(B "($B!K(B")
-(modify-syntax-entry ?\$B!N(B "($B!O(B")
-(modify-syntax-entry ?\$B!P(B "($B!Q(B")
-(modify-syntax-entry ?\$B!V(B "($B!W(B")
-(modify-syntax-entry ?\$B!X(B "($B!Y(B")
-(modify-syntax-entry ?\$B!K(B ")$B!J(B")
-(modify-syntax-entry ?\$B!O(B ")$B!N(B")
-(modify-syntax-entry ?\$B!Q(B ")$B!P(B")
-(modify-syntax-entry ?\$B!W(B ")$B!V(B")
-(modify-syntax-entry ?\$B!Y(B ")$B!X(B")
+(let ((parens "$B!J!K!L!M!N!O!P!Q!R!S!T!U!V!W!X!Y!Z![(B" )
+      open close)
+  (dotimes (i (/ (length parens) 2))
+    (setq open (aref parens (* i 2))
+	  close (aref parens (1+ (* i 2))))
+    (modify-syntax-entry open (format "(%c" close))
+    (modify-syntax-entry close (format ")%c" open))))
 
 (modify-category-entry (make-char 'japanese-jisx0208 35) ?A)
 (modify-category-entry (make-char 'japanese-jisx0208 36) ?H)
@@ -421,8 +652,19 @@
     (modify-category-entry (car chars) ?C)
     (setq chars (cdr chars))))
 
+(let ((tbl (standard-case-table)))
+  (dotimes (i 26)
+    (set-case-syntax-pair (make-char 'japanese-jisx0208 #x23 (+ #x41 i))
+			  (make-char 'japanese-jisx0208 #x23 (+ #x61 i)) tbl))
+  (dotimes (i 24)
+    (set-case-syntax-pair (make-char 'japanese-jisx0208 #x26 (+ #x21 i))
+			  (make-char 'japanese-jisx0208 #x26 (+ #x41 i)) tbl))
+  (dotimes (i 33)
+    (set-case-syntax-pair (make-char 'japanese-jisx0208 #x27 (+ #x21 i))
+			  (make-char 'japanese-jisx0208 #x27 (+ #x51 i)) tbl)))
+
 ;; JISX0212
-(modify-syntax-entry (make-char 'japanese-jisx0212) "w")
+;; (modify-syntax-entry (make-char 'japanese-jisx0212) "w")
 (modify-syntax-entry (make-char 'japanese-jisx0212 33) "_")
 (modify-syntax-entry (make-char 'japanese-jisx0212 34) "_")
 (modify-syntax-entry (make-char 'japanese-jisx0212 35) "_")
@@ -430,8 +672,10 @@
 (modify-category-entry (make-char 'japanese-jisx0212 ) ?C)
 
 ;; JISX0201-Kana
-(modify-syntax-entry (make-char 'katakana-jisx0201) "w")
-(let ((chars '(?(I!(B ?(I$(B ?(I%(B)))
+;; (modify-syntax-entry (make-char 'katakana-jisx0201) "w")
+(let ((chars '(?(I!(B ?(I$(B ?(I%(B
+	       ;; Unicode:
+	       ?$,3sa(B ?$,3sd(B ?$,3se(B)))
   (while chars
     (modify-syntax-entry (car chars) ".")
     (setq chars (cdr chars))))
@@ -441,7 +685,7 @@
 
 ;; Korean character set (KSC5601)
 
-(modify-syntax-entry (make-char 'korean-ksc5601) "w")
+;; (modify-syntax-entry (make-char 'korean-ksc5601) "w")
 (modify-syntax-entry (make-char 'korean-ksc5601 33) "_")
 (modify-syntax-entry (make-char 'korean-ksc5601 34) "_")
 (modify-syntax-entry (make-char 'korean-ksc5601 38) "_")
@@ -455,6 +699,28 @@
 (modify-category-entry (make-char 'korean-ksc5601 42) ?H)
 (modify-category-entry (make-char 'korean-ksc5601 43) ?K)
 (modify-category-entry (make-char 'korean-ksc5601 44) ?Y)
+
+(let ((parens "$(C!2!3!4!5!6!7!8!9!:!;!<!=#(#)#[#]#{#}(B" )
+      open close)
+  (dotimes (i (/ (length parens) 2))
+    (setq open (aref parens (* i 2))
+	  close (aref parens (1+ (* i 2))))
+    (modify-syntax-entry open (format "(%c" close))
+    (modify-syntax-entry close (format ")%c" open))))
+
+(let ((tbl (standard-case-table)))
+  (dotimes (i 26)
+    (set-case-syntax-pair (make-char 'korean-ksc5601 #x23 (+ #x41 i))
+			  (make-char 'korean-ksc5601 #x23 (+ #x61 i)) tbl))
+  (dotimes (i 10)
+    (set-case-syntax-pair (make-char 'korean-ksc5601 #x25 (+ #x21 i))
+			  (make-char 'korean-ksc5601 #x25 (+ #x30 i)) tbl))
+  (dotimes (i 24)
+    (set-case-syntax-pair (make-char 'korean-ksc5601 #x25 (+ #x41 i))
+			  (make-char 'korean-ksc5601 #x25 (+ #x61 i)) tbl))
+  (dotimes (i 33)
+    (set-case-syntax-pair (make-char 'korean-ksc5601 #x2C (+ #x21 i))
+			  (make-char 'korean-ksc5601 #x2C (+ #x51 i)) tbl)))
 
 ;; Latin character set (latin-1,2,3,4,5,8,9)
 
@@ -477,16 +743,27 @@
 ;; Lao character set
 
 (modify-category-entry (make-char 'lao) ?o)
+(dotimes (i (1+ (- #xeff #xe80)))
+  (modify-category-entry (decode-char 'ucs (+ i #xe80)) ?o))
 
 (let ((deflist	'(;; chars	syntax	category
 		  ("(1!(B-(1N(B"	"w"	?0) ; consonant
 		  ("(1PRS]`(B-(1d(B"	"w"	?1) ; vowel base
 		  ("(1QT(B-(1W[m(B"	"w"	?2) ; vowel upper
 		  ("(1XY(B"		"w"	?3) ; vowel lower
-		  ("(1h(B-(1l(B"	"w"	?4) ; tone mark 
+		  ("(1h(B-(1l(B"	"w"	?4) ; tone mark
 		  ("(1\(B"		"w"	?9) ; semivowel lower
 		  ("(1p(B-(1y(B"	"w"	?6) ; digit
 		  ("(1Of(B"		"_"	?5) ; symbol
+		  ;; Unicode equivalents
+		  ("$,1D!(B-$,1DN(B"	"w"	?0) ; consonant
+		  ("$,1DPDRDSD]D`(B-$,1Dd(B"	"w"	?1) ; vowel base
+		  ("$,1DQDT(B-$,1DWD[Dm(B"	"w"	?2) ; vowel upper
+		  ("$,1DXDY(B"	"w"	?3) ; vowel lower
+		  ("$,1Dh(B-$,1Dk(B"	"w"	?4) ; tone mark
+		  ("$,1D\D](B"	"w"	?9) ; semivowel lower
+		  ("$,1Dp(B-$,1Dy(B"	"w"	?6) ; digit
+		  ("$,1DODf(B"	"_"	?5) ; symbol
 		  ))
       elm chars len syntax category to ch i)
   (while deflist
@@ -503,7 +780,8 @@
 	(setq ch (aref chars i)
 	      to ch))
       (while (<= ch to)
-	(modify-syntax-entry ch syntax)
+	(unless (string-equal syntax "w")
+	  (modify-syntax-entry ch syntax))
 	(modify-category-entry ch category)
 	(setq ch (1+ ch)))
       (setq i (1+ i)))
@@ -512,15 +790,25 @@
 ;; Thai character set (TIS620)
 
 (modify-category-entry (make-char 'thai-tis620) ?t)
+(dotimes (i (1+ (- #xe7f #xe00)))
+  (modify-category-entry (decode-char 'ucs (+ i #xe00)) ?t))
 
 (let ((deflist	'(;; chars	syntax	category
 		  (",T!(B-,TCEG(B-,TN(B"	"w"	?0) ; consonant
 		  (",TDFPRS`(B-,Te(B"	"w"	?1) ; vowel base
 		  (",TQT(B-,TWgn(B"	"w"	?2) ; vowel upper
 		  (",TX(B-,TZ(B"	"w"	?3) ; vowel lower
-		  (",Th(B-,Tm(B"	"w"	?4) ; tone mark 
+		  (",Th(B-,Tm(B"	"w"	?4) ; tone mark
 		  (",Tp(B-,Ty(B"	"w"	?6) ; digit
 		  (",TOf_oz{(B"	"_"	?5) ; symbol
+		  ;; Unicode equivalents
+		  ("$,1Ba(B-$,1C#C%C'(B-$,1C.(B"	"w"	?0) ; consonant
+		  ("$,1C$C&C0C2C3C@(B-$,1CE(B"	"w"	?1) ; vowel base
+		  ("$,1C1C4(B-$,1C7CGCN(B"	"w"	?2) ; vowel upper
+		  ("$,1C8(B-$,1C:(B"	"w"	?3) ; vowel lower
+		  ("$,1CH(B-$,1CM(B"	"w"	?4) ; tone mark
+		  ("$,1CP(B-$,1CY(B"	"w"	?6) ; digit
+		  ("$,1C/CFC?COCZC[(B"	"_"	?5) ; symbol
 		  ))
       elm chars len syntax category to ch i)
   (while deflist
@@ -537,7 +825,8 @@
 	(setq ch (aref chars i)
 	      to ch))
       (while (<= ch to)
-	(modify-syntax-entry ch syntax)
+	(unless (string-equal syntax "w")
+	  (modify-syntax-entry ch syntax))
 	(modify-category-entry ch category)
 	(setq ch (1+ ch)))
       (setq i (1+ i)))
@@ -547,9 +836,11 @@
 
 (modify-category-entry (make-char 'tibetan) ?q)
 (modify-category-entry (make-char 'tibetan-1-column) ?q)
+(dotimes (i (1+ (- #xfff #xf00)))
+  (modify-category-entry (decode-char 'ucs (+ i #xf00)) ?q))
 
 (let ((deflist	'(;; chars             syntax category
-		  ("$(7"!(B-$(7"J"K(B"        	"w"	?0) ; consonant
+		  ("4$(7"!0"!1(B-4$(7"J0"J14"K0"K1(B"        	"w"	?0) ; consonant
 		  ("$(7#!(B-$(7#J#K#L#M!"!#(B"       "w"     ?0) ;
 		  ("$(7$!(B-$(7$e(B"              "w"     ?0) ;
 		  ("$(7%!(B-$(7%u(B"              "w"     ?0) ;
@@ -563,6 +854,18 @@
 		  ("$(8!;!=!?!@!A!D"`(B"            "."     ?>) ;
 		  ("$(7!0(B-$(7!:!l#R#S"f(B"      "."     ?<) ; prohibition
 		  ("$(7!C!E(B-$(7!H!J(B-$(7!O!f!h(B-$(7!k!n!o#O#P(B-$(7#`(B" "." ?q) ; others
+
+		  ;; Unicode version (not complete)
+		  ("$,1F (B-$,1FIFJ(B"        	"w"	?0) ; consonant
+		  ("$,1Fp(B-$,1G9G:G;G<(B"       "w"     ?0) ;
+		  ("$,1FRFZF[F\F]F`(B"       "w"	?2) ; upper vowel
+		  ("$,1F^FbFcFfFgFhFiFjFk(B" "w"	?2) ; upper modifier
+		  ("$,1EYFPFQFTFdEuEw(B"       "w"	?3) ; lowel vowel/modifier
+		  ("$,1E`(B-$,1EiEj(B-$,1Es(B"	        "w"	?6) ; digit
+		  ("$,1EKEM(B-$,1ERETF_(B"        "."     ?|) ; line-break char
+		  ("$,1EHEKEM(B-$,1ERETF_E}Et(B"  "."     ?>) ; prohibition
+		  ("$,1E@(B-$,1EJE|GAGBFe(B"      "."     ?<) ; prohibition
+		  ("$,1ESEU(B-$,1EXEZ(B-$,1E_EvEx(B-$,1E{E~EG>G?(B-$,1GO(B" "." ?q) ; others
 		  ))
       elm chars len syntax category to ch i)
   (while deflist
@@ -579,7 +882,8 @@
 	(setq ch (aref chars i)
 	      to ch))
       (while (<= ch to)
-	(modify-syntax-entry ch syntax)
+	(unless (string-equal syntax "w")
+	  (modify-syntax-entry ch syntax))
 	(modify-category-entry ch category)
 	(setq ch (1+ ch)))
       (setq i (1+ i)))
@@ -589,8 +893,8 @@
 
 (let ((lower (make-char 'vietnamese-viscii-lower))
       (upper (make-char 'vietnamese-viscii-upper)))
-  (modify-syntax-entry lower "w")
-  (modify-syntax-entry upper "w")
+;;   (modify-syntax-entry lower "w")
+;;   (modify-syntax-entry upper "w")
   (modify-category-entry lower ?v)
   (modify-category-entry upper ?v)
   (modify-category-entry lower ?l)	; To make a word with
@@ -609,18 +913,14 @@
 
 (let ((tbl (standard-case-table)) c)
 
-;; In some languages, U+0049 LATIN CAPITAL LETTER I and U+0131 LATIN
-;; SMALL LETTER DOTLESS I make a case pair, and so do U+0130 LATIN
-;; CAPITAL LETTER I WITH DOT ABOVE and U+0069 LATIN SMALL LETTER I.
-;; Thus we have to check language-environment to handle casing
-;; correctly.  Currently only I<->i is available.
-
-;; case-syntax-pair's are not yet given for Latin Extendet-B
-
-  ;; Latin Extended-A, Latin Extended-B
+  ;; Latin Extended-A, Latin Extended-B, IPA
   (setq c #x0100)
-  (while (<= c #x0233)
+  (while (<= c #x02AF)
     (modify-category-entry (decode-char 'ucs c) ?l)
+    (setq c (1+ c)))
+
+  (setq c #x0100)
+  (while (<= c #x0177)
     (and (or (<= c #x012e)
 	     (and (>= c #x014a) (<= c #x0177)))
 	 (zerop (% c 2))
@@ -632,13 +932,123 @@
 	 (set-case-syntax-pair
 	  (decode-char 'ucs (1- c)) (decode-char 'ucs c) tbl))
     (setq c (1+ c)))
+
+
+  ;; In some languages, such as Turkish, U+0049 LATIN CAPITAL LETTER I
+  ;; and U+0131 LATIN SMALL LETTER DOTLESS I make a case pair, and so
+  ;; do U+0130 LATIN CAPITAL LETTER I WITH DOT ABOVE and U+0069 LATIN
+  ;; SMALL LETTER I.
+
+  ;; We used to set up half of those correspondence unconditionally,
+  ;; but that makes searches slow.  So now we don't set up either half
+  ;; of these correspondences by default.
+
+  ;;  (set-downcase-syntax  ?$,1 P(B ?i tbl)
+  ;;  (set-upcase-syntax    ?I ?$,1 Q(B tbl)
+
   (set-case-syntax-pair ?$,1 R(B ?$,1 S(B tbl)
   (set-case-syntax-pair ?$,1 T(B ?$,1 U(B tbl)
   (set-case-syntax-pair ?$,1 V(B ?$,1 W(B tbl)
-;  (set-case-syntax-pair ?$,1!8(B ?,A(B tbl)	; these two have different length!
+  (set-case-syntax-pair ?$,1!8(B ?,A(B tbl)
   (set-case-syntax-pair ?$,1!9(B ?$,1!:(B tbl)
   (set-case-syntax-pair ?$,1!;(B ?$,1!<(B tbl)
   (set-case-syntax-pair ?$,1!=(B ?$,1!>(B tbl)
+
+  ;; Latin Extended-B
+  (set-case-syntax-pair ?$,1!A(B ?$,1#S(B tbl)
+  (set-case-syntax-pair ?$,1!B(B ?$,1!C(B tbl)
+  (set-case-syntax-pair ?$,1!D(B ?$,1!E(B tbl)
+  (set-case-syntax-pair ?$,1!F(B ?$,1#T(B tbl)
+  (set-case-syntax-pair ?$,1!G(B ?$,1!H(B tbl)
+  (set-case-syntax-pair ?$,1!I(B ?$,1#V(B tbl)
+  (set-case-syntax-pair ?$,1!J(B ?$,1#W(B tbl)
+  (set-case-syntax-pair ?$,1!K(B ?$,1!L(B tbl)
+  (set-case-syntax-pair ?$,1!N(B ?$,1"=(B tbl)
+  (set-case-syntax-pair ?$,1!O(B ?$,1#Y(B tbl)
+  (set-case-syntax-pair ?$,1!P(B ?$,1#[(B tbl)
+  (set-case-syntax-pair ?$,1!Q(B ?$,1!R(B tbl)
+  (set-case-syntax-pair ?$,1!S(B ?$,1#`(B tbl)
+  (set-case-syntax-pair ?$,1!T(B ?$,1#c(B tbl)
+  (set-case-syntax-pair ?$,1!V(B ?$,1#i(B tbl)
+  (set-case-syntax-pair ?$,1!W(B ?$,1#h(B tbl)
+  (set-case-syntax-pair ?$,1!X(B ?$,1!Y(B tbl)
+  (set-case-syntax-pair ?$,1!\(B ?$,1#o(B tbl)
+  (set-case-syntax-pair ?$,1!](B ?$,1#r(B tbl)
+  (set-case-syntax-pair ?$,1!_(B ?$,1#u(B tbl)
+  (set-case-syntax-pair ?$,1!`(B ?$,1!a(B tbl)
+  (set-case-syntax-pair ?$,1!b(B ?$,1!c(B tbl)
+  (set-case-syntax-pair ?$,1!d(B ?$,1!e(B tbl)
+  (set-case-syntax-pair ?$,1!f(B ?$,1$ (B tbl)
+  (set-case-syntax-pair ?$,1!g(B ?$,1!h(B tbl)
+  (set-case-syntax-pair ?$,1!i(B ?$,1$#(B tbl)
+  (set-case-syntax-pair ?$,1!l(B ?$,1!m(B tbl)
+  (set-case-syntax-pair ?$,1!n(B ?$,1$((B tbl)
+  (set-case-syntax-pair ?$,1!o(B ?$,1!p(B tbl)
+  (set-case-syntax-pair ?$,1!q(B ?$,1$*(B tbl)
+  (set-case-syntax-pair ?$,1!r(B ?$,1$+(B tbl)
+  (set-case-syntax-pair ?$,1!s(B ?$,1!t(B tbl)
+  (set-case-syntax-pair ?$,1!u(B ?$,1!v(B tbl)
+  (set-case-syntax-pair ?$,1!w(B ?$,1$2(B tbl)
+  (set-case-syntax-pair ?$,1!x(B ?$,1!y(B tbl)
+  (set-case-syntax-pair ?$,1!|(B ?$,1!}(B tbl)
+  (set-case-syntax-pair ?$,1"$(B ?$,1"&(B tbl)
+  (set-case-syntax-pair ?$,1"%(B ?$,1"&(B tbl)
+  (set-case-syntax-pair ?$,1"'(B ?$,1")(B tbl)
+  (set-case-syntax-pair ?$,1"((B ?$,1")(B tbl)
+  (set-case-syntax-pair ?$,1"*(B ?$,1",(B tbl)
+  (set-case-syntax-pair ?$,1"+(B ?$,1",(B tbl)
+  (set-case-syntax-pair ?$,1"-(B ?$,1".(B tbl)
+  (set-case-syntax-pair ?$,1"/(B ?$,1"0(B tbl)
+  (set-case-syntax-pair ?$,1"1(B ?$,1"2(B tbl)
+  (set-case-syntax-pair ?$,1"3(B ?$,1"4(B tbl)
+  (set-case-syntax-pair ?$,1"5(B ?$,1"6(B tbl)
+  (set-case-syntax-pair ?$,1"7(B ?$,1"8(B tbl)
+  (set-case-syntax-pair ?$,1"9(B ?$,1":(B tbl)
+  (set-case-syntax-pair ?$,1";(B ?$,1"<(B tbl)
+  (set-case-syntax-pair ?$,1">(B ?$,1"?(B tbl)
+  (set-case-syntax-pair ?$,1"@(B ?$,1"A(B tbl)
+  (set-case-syntax-pair ?$,1"B(B ?$,1"C(B tbl)
+  (set-case-syntax-pair ?$,1"D(B ?$,1"E(B tbl)
+  (set-case-syntax-pair ?$,1"F(B ?$,1"G(B tbl)
+  (set-case-syntax-pair ?$,1"H(B ?$,1"I(B tbl)
+  (set-case-syntax-pair ?$,1"J(B ?$,1"K(B tbl)
+  (set-case-syntax-pair ?$,1"L(B ?$,1"M(B tbl)
+  (set-case-syntax-pair ?$,1"N(B ?$,1"O(B tbl)
+  ;; 01F0; F; 006A 030C; # LATIN SMALL LETTER J WITH CARON
+  (set-case-syntax-pair ?$,1"Q(B ?$,1"S(B tbl)
+  (set-case-syntax-pair ?$,1"R(B ?$,1"S(B tbl)
+  (set-case-syntax-pair ?$,1"T(B ?$,1"U(B tbl)
+  (set-case-syntax-pair ?$,1"V(B ?$,1!U(B tbl)
+  (set-case-syntax-pair ?$,1"W(B ?$,1!(B tbl)
+  (set-case-syntax-pair ?$,1"X(B ?$,1"Y(B tbl)
+  (set-case-syntax-pair ?$,1"Z(B ?$,1"[(B tbl)
+  (set-case-syntax-pair ?$,1"\(B ?$,1"](B tbl)
+  (set-case-syntax-pair ?$,1"^(B ?$,1"_(B tbl)
+  (set-case-syntax-pair ?$,1"`(B ?$,1"a(B tbl)
+  (set-case-syntax-pair ?$,1"b(B ?$,1"c(B tbl)
+  (set-case-syntax-pair ?$,1"d(B ?$,1"e(B tbl)
+  (set-case-syntax-pair ?$,1"f(B ?$,1"g(B tbl)
+  (set-case-syntax-pair ?$,1"h(B ?$,1"i(B tbl)
+  (set-case-syntax-pair ?$,1"j(B ?$,1"k(B tbl)
+  (set-case-syntax-pair ?$,1"l(B ?$,1"m(B tbl)
+  (set-case-syntax-pair ?$,1"n(B ?$,1"o(B tbl)
+  (set-case-syntax-pair ?$,1"p(B ?$,1"q(B tbl)
+  (set-case-syntax-pair ?$,1"r(B ?$,1"s(B tbl)
+  (set-case-syntax-pair ?$,1"t(B ?$,1"u(B tbl)
+  (set-case-syntax-pair ?$,1"v(B ?$,1"w(B tbl)
+  (set-case-syntax-pair ?$,1"x(B ?$,1"y(B tbl)
+  (set-case-syntax-pair ?$,1"z(B ?$,1"{(B tbl)
+  (set-case-syntax-pair ?$,1"|(B ?$,1"}(B tbl)
+  (set-case-syntax-pair ?$,1"~(B ?$,1"(B tbl)
+  (set-case-syntax-pair ?$,1#"(B ?$,1##(B tbl)
+  (set-case-syntax-pair ?$,1#$(B ?$,1#%(B tbl)
+  (set-case-syntax-pair ?$,1#&(B ?$,1#'(B tbl)
+  (set-case-syntax-pair ?$,1#((B ?$,1#)(B tbl)
+  (set-case-syntax-pair ?$,1#*(B ?$,1#+(B tbl)
+  (set-case-syntax-pair ?$,1#,(B ?$,1#-(B tbl)
+  (set-case-syntax-pair ?$,1#.(B ?$,1#/(B tbl)
+  (set-case-syntax-pair ?$,1#0(B ?$,1#1(B tbl)
+  (set-case-syntax-pair ?$,1#2(B ?$,1#3(B tbl)
 
   ;; Latin Extended Additional
   (setq c #x1e00)
@@ -671,6 +1081,13 @@
   (set-case-syntax-pair ?$,1&l(B ?$,1'L(B tbl)
   (set-case-syntax-pair ?$,1&n(B ?$,1'M(B tbl)
   (set-case-syntax-pair ?$,1&o(B ?$,1'N(B tbl)
+
+  ;; Armenian
+  (setq c #x531)
+  (while (<= c #x556)
+    (set-case-syntax-pair (decode-char 'ucs c)
+			  (decode-char 'ucs (+ c #x30)) tbl)
+    (setq c (1+ c)))
 
   ;; Greek Extended
   (setq c #x1f00)
@@ -725,7 +1142,7 @@
 	     (and (>= c #x048c) (<= c #x04be))
 	     (and (>= c #x04d0) (<= c #x04f4)))
 	 (set-case-syntax-pair
-	  (decode-char 'ucs c) (decode-char 'ucs (1+ c)) tbl))	 
+	  (decode-char 'ucs c) (decode-char 'ucs (1+ c)) tbl))
     (setq c (1+ c)))
   (set-case-syntax-pair ?$,1*!(B ?$,1*"(B tbl)
   (set-case-syntax-pair ?$,1*#(B ?$,1*$(B tbl)
@@ -736,19 +1153,126 @@
   ;; general punctuation
   (setq c #x2000)
   (while (<= c #x200b)
-    (set-case-syntax c " " tbl)
+    (set-case-syntax (decode-char 'ucs c) " " tbl)
     (setq c (1+ c)))
   (setq c #x2010)
-  (while (<= c #x2027)
-    (set-case-syntax c "_" tbl)
+  (while (<= c #x2016)
+    (set-case-syntax (decode-char 'ucs c) "_" tbl)
     (setq c (1+ c)))
+  ;; Punctuation syntax for quotation marks (like `)
+  (while (<= c #x201f)
+    (set-case-syntax (decode-char 'ucs c) "." tbl)
+    (setq c (1+ c)))
+  (while (<= c #x2027)
+    (set-case-syntax (decode-char 'ucs c) "_" tbl)
+    (setq c (1+ c)))
+
+  ;; Roman numerals
+  (setq c #x2160)
+  (while (<= c #x216f)
+    (set-case-syntax-pair (decode-char 'ucs c)
+			  (decode-char 'ucs (+ c #x10)) tbl)
+    (setq c (1+ c)))
+
+  ;; Circled Latin
+  (setq c #x24b6)
+  (while (<= c #x24cf)
+    (set-case-syntax-pair (decode-char 'ucs c)
+			  (decode-char 'ucs (+ c 26)) tbl)
+    (modify-category-entry (decode-char 'ucs c) ?l)
+    (modify-category-entry (decode-char 'ucs (+ c 26)) ?l)
+    (setq c (1+ c)))
+
+  ;; Fullwidth Latin
+  (setq c #xff21)
+  (while (<= c #xff3a)
+    (set-case-syntax-pair (decode-char 'ucs c)
+			  (decode-char 'ucs (+ c #x20)) tbl)
+    (modify-category-entry (decode-char 'ucs c) ?l)
+    (modify-category-entry (decode-char 'ucs (+ c #x20)) ?l)
+    (setq c (1+ c)))
+
+  ;; Combining diacritics
+  (setq c #x300)
+  (while (<= c #x362)
+    (modify-category-entry (decode-char 'ucs c) ?^)
+    (setq c (1+ c)))
+
+  ;; Combining marks
+  (setq c #x20d0)
+  (while (<= c #x20e3)
+    (modify-category-entry (decode-char 'ucs c) ?^)
+    (setq c (1+ c)))
+
+  ;; Fixme: syntax for symbols &c
   )
+
+(let ((pairs
+       '("$,1sEsF(B"				; U+2045 U+2046
+	 "$,1s}s~(B"				; U+207D U+207E
+	 "$,1t-t.(B"				; U+208D U+208E
+	 "$,1{){*(B"				; U+2329 U+232A
+	 "$,1|T|U(B"				; U+23B4 U+23B5
+	 "$,2&H&I(B"				; U+2768 U+2769
+	 "$,2&J&K(B"				; U+276A U+276B
+	 "$,2&L&M(B"				; U+276C U+276D
+	 "$,2&P&Q(B"				; U+2770 U+2771
+	 "$,2&R&S(B"				; U+2772 U+2773
+	 "$,2&T&U(B"				; U+2774 U+2775
+	 "$,2'f'g(B"				; U+27E6 U+27E7
+	 "$,2'h'i(B"				; U+27E8 U+27E9
+	 "$,2'j'k(B"				; U+27EA U+27EB
+	 "$,2,#,$(B"				; U+2983 U+2984
+	 "$,2,%,&(B"				; U+2985 U+2986
+	 "$,2,',((B"				; U+2987 U+2988
+	 "$,2,),*(B"				; U+2989 U+298A
+	 "$,2,+,,(B"				; U+298B U+298C
+	 "$,2,-,.(B"				; U+298D U+298E
+	 "$,2,/,0(B"				; U+298F U+2990
+	 "$,2,1,2(B"				; U+2991 U+2992
+	 "$,2,3,4(B"				; U+2993 U+2994
+	 "$,2,5,6(B"				; U+2995 U+2996
+	 "$,2,7,8(B"				; U+2997 U+2998
+	 "$,2-<-=(B"				; U+29FC U+29FD
+	 "$,2=H=I(B"				; U+3008 U+3009
+	 "$,2=J=K(B"				; U+300A U+300B
+	 "$,2=L=M(B"				; U+300C U+300D
+	 "$,2=N=O(B"				; U+300E U+300F
+	 "$,2=P=Q(B"				; U+3010 U+3011
+	 "$,2=T=U(B"				; U+3014 U+3015
+	 "$,2=V=W(B"				; U+3016 U+3017
+	 "$,2=X=Y(B"				; U+3018 U+3019
+	 "$,2=Z=[(B"				; U+301A U+301B
+	 "$,3m~m(B"				; U+FD3E U+FD3F
+	 "$,3pUpV(B"				; U+FE35 U+FE36
+	 "$,3pWpX(B"				; U+FE37 U+FE38
+	 "$,3pYpZ(B"				; U+FE39 U+FE3A
+	 "$,3p[p\(B"				; U+FE3B U+FE3C
+	 "$,3p]p^(B"				; U+FE3D U+FE3E
+	 "$,3p_p`(B"				; U+FE3F U+FE40
+	 "$,3papb(B"				; U+FE41 U+FE42
+	 "$,3pcpd(B"				; U+FE43 U+FE44
+	 "$,3pypz(B"				; U+FE59 U+FE5A
+	 "$,3p{p|(B"				; U+FE5B U+FE5C
+	 "$,3p}p~(B"				; U+FE5D U+FE5E
+	 "$,3rhri(B"				; U+FF08 U+FF09
+	 "$,3s;s=(B"				; U+FF3B U+FF3D
+	 "$,3s[s](B"				; U+FF5B U+FF5D
+	 "$,3s_s`(B"				; U+FF5F U+FF60
+	 "$,3sbsc(B"				; U+FF62 U+FF63
+	 )))
+  (dolist (elt pairs)
+    (modify-syntax-entry (aref elt 0) (string ?\( (aref elt 1)))
+    (modify-syntax-entry (aref elt 1) (string ?\) (aref elt 0)))))
 
 
 ;;; Setting word boundary.
 
 (setq word-combining-categories
-      '((?l . ?l)))
+      '((?l . ?l)
+	(?C . ?C)
+	(?C . ?H)
+	(?C . ?K)))
 
 (setq word-separating-categories	;  (2-byte character sets)
       '((?A . ?K)			; Alpha numeric - Katakana
@@ -797,7 +1321,7 @@
 	   (lao			. lao)
 	   (arabic-2-column	. iso-2022-7bit)
 	   (indian-is13194	. devanagari)
-	   (indian-1-column	. devanagari)
+	   (indian-glyph	. devanagari)
 	   (tibetan-1-column	. tibetan)
 	   (ethiopic		. iso-2022-7bit)
 	   (chinese-cns11643-3	. iso-2022-cn)
@@ -815,8 +1339,8 @@
 
 
 ;; Setup auto-fill-chars for charsets that should invoke auto-filling.
-;; SPACE and NEWLIE are already set.  Also put `nospace-between-words'
-;; property to the charsets.
+;; SPACE and NEWLINE are already set.  Also put `nospace-between-words'
+;; property on the charsets.
 (let ((l '(katakana-jisx0201
 	   japanese-jisx0208 japanese-jisx0212
 	   chinese-gb2312 chinese-big5-1 chinese-big5-2)))
@@ -825,8 +1349,13 @@
     (put-charset-property (car l) 'nospace-between-words t)
     (setq l (cdr l))))
 
+
+(setq utf-translate-cjk-mode saved-utf-translate-cjk-mode)
+(makunbound 'saved-utf-translate-cjk-mode)
+
 ;;; Local Variables:
 ;;; coding: iso-2022-7bit
 ;;; End:
 
+;;; arch-tag: 85889c35-9f4d-4912-9bf5-82de31b0d42d
 ;;; characters.el ends here

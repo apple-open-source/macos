@@ -2,8 +2,8 @@
 
   stringio.c -
 
-  $Author: nobu $
-  $Date: 2004/11/29 07:06:21 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   $RoughId: stringio.c,v 1.13 2002/03/14 03:24:18 nobu Exp $
   created at: Tue Feb 19 04:10:38 JST 2002
 
@@ -98,9 +98,9 @@ get_strio(self)
 
 #define StringIO(obj) get_strio(obj)
 
-#define CLOSED(ptr) NIL_P((ptr)->string)
-#define READABLE(ptr) (!CLOSED(ptr) && ((ptr)->flags & FMODE_READABLE))
-#define WRITABLE(ptr) (!CLOSED(ptr) && ((ptr)->flags & FMODE_WRITABLE))
+#define CLOSED(ptr) (!((ptr)->flags & FMODE_READWRITE))
+#define READABLE(ptr) ((ptr)->flags & FMODE_READABLE)
+#define WRITABLE(ptr) ((ptr)->flags & FMODE_WRITABLE)
 
 static struct StringIO*
 readable(ptr)
@@ -187,6 +187,13 @@ strio_s_allocate(klass)
     return Data_Wrap_Struct(klass, strio_mark, strio_free, 0);
 }
 
+/*
+ * call-seq: StringIO.open(string=""[, mode]) {|strio| ...}
+ *
+ * Equivalent to StringIO.new except that when it is called with a block, it
+ * yields with the new instance and closes it, and returns the result which
+ * returned from the block.
+ */
 static VALUE
 strio_s_open(argc, argv, klass)
     int argc;
@@ -198,6 +205,11 @@ strio_s_open(argc, argv, klass)
     return rb_ensure(rb_yield, obj, strio_finalize, obj);
 }
 
+/*
+ * call-seq: StringIO.new(string=""[, mode])
+ *
+ * Creates new StringIO instance from with _string_ and _mode_.
+ */
 static VALUE
 strio_initialize(argc, argv, self)
     int argc;
@@ -256,6 +268,9 @@ strio_finalize(self)
     return self;
 }
 
+/*
+ * Returns +false+.  Just for compatibility to IO.
+ */
 static VALUE
 strio_false(self)
     VALUE self;
@@ -264,6 +279,9 @@ strio_false(self)
     return Qfalse;
 }
 
+/*
+ * Returns +nil+.  Just for compatibility to IO.
+ */
 static VALUE
 strio_nil(self)
     VALUE self;
@@ -272,6 +290,9 @@ strio_nil(self)
     return Qnil;
 }
 
+/*
+ * Returns *strio* itself.  Just for compatibility to IO.
+ */
 static VALUE
 strio_self(self)
     VALUE self;
@@ -280,6 +301,9 @@ strio_self(self)
     return self;
 }
 
+/*
+ * Returns 0.  Just for compatibility to IO.
+ */
 static VALUE
 strio_0(self)
     VALUE self;
@@ -288,6 +312,9 @@ strio_0(self)
     return INT2FIX(0);
 }
 
+/*
+ * Returns the argument unchanged.  Just for compatibility to IO.
+ */
 static VALUE
 strio_first(self, arg)
     VALUE self, arg;
@@ -296,6 +323,9 @@ strio_first(self, arg)
     return arg;
 }
 
+/*
+ * Raises NotImplementedError.
+ */
 static VALUE
 strio_unimpl(argc, argv, self)
     int argc;
@@ -307,6 +337,11 @@ strio_unimpl(argc, argv, self)
     return Qnil;		/* not reached */
 }
 
+/*
+ * call-seq: strio.string     -> string
+ *
+ * Returns underlying String object, the subject of IO.
+ */
 static VALUE
 strio_get_string(self)
     VALUE self;
@@ -314,6 +349,12 @@ strio_get_string(self)
     return StringIO(self)->string;
 }
 
+/*
+ * call-seq:
+ *   strio.string = string  -> string
+ *
+ * Changes underlying String object, the subject of IO.
+ */
 static VALUE
 strio_set_string(self, string)
     VALUE self, string;
@@ -322,15 +363,20 @@ strio_set_string(self, string)
 
     if (!OBJ_TAINTED(self)) rb_secure(4);
     ptr->flags &= ~FMODE_READWRITE;
-    if (!NIL_P(string)) {
-	StringValue(string);
-	ptr->flags = OBJ_FROZEN(string) ? FMODE_READABLE : FMODE_READWRITE;
-    }
+    StringValue(string);
+    ptr->flags = OBJ_FROZEN(string) ? FMODE_READABLE : FMODE_READWRITE;
     ptr->pos = 0;
     ptr->lineno = 0;
     return ptr->string = string;
 }
 
+/*
+ * call-seq:
+ *   strio.close  -> nil
+ *
+ * Closes strio.  The *strio* is unavailable for any further data 
+ * operations; an +IOError+ is raised if such an attempt is made.
+ */
 static VALUE
 strio_close(self)
     VALUE self;
@@ -339,11 +385,17 @@ strio_close(self)
     if (CLOSED(ptr)) {
 	rb_raise(rb_eIOError, "closed stream");
     }
-    ptr->string = Qnil;
     ptr->flags &= ~FMODE_READWRITE;
-    return self;
+    return Qnil;
 }
 
+/*
+ * call-seq:
+ *   strio.close_read    -> nil
+ *
+ * Closes the read end of a StringIO.  Will raise an +IOError+ if the
+ * *strio* is not readable.
+ */
 static VALUE
 strio_close_read(self)
     VALUE self;
@@ -352,12 +404,17 @@ strio_close_read(self)
     if (!READABLE(ptr)) {
 	rb_raise(rb_eIOError, "closing non-duplex IO for reading");
     }
-    if (!((ptr->flags &= ~FMODE_READABLE) & FMODE_READWRITE)) {
-	ptr->string = Qnil;
-    }
-    return self;
+    ptr->flags &= ~FMODE_READABLE;
+    return Qnil;
 }
 
+/*
+ * call-seq:
+ *   strio.close_write    -> nil
+ *
+ * Closes the write end of a StringIO.  Will raise an  +IOError+ if the
+ * *strio* is not writeable.
+ */
 static VALUE
 strio_close_write(self)
     VALUE self;
@@ -366,12 +423,16 @@ strio_close_write(self)
     if (!WRITABLE(ptr)) {
 	rb_raise(rb_eIOError, "closing non-duplex IO for writing");
     }
-    if (!((ptr->flags &= ~FMODE_WRITABLE) & FMODE_READWRITE)) {
-	ptr->string = Qnil;
-    }
-    return self;
+    ptr->flags &= ~FMODE_WRITABLE;
+    return Qnil;
 }
 
+/*
+ * call-seq:
+ *   strio.closed?    -> true or false
+ *
+ * Returns +true+ if *strio* is completely closed, +false+ otherwise.
+ */
 static VALUE
 strio_closed(self)
     VALUE self;
@@ -381,6 +442,12 @@ strio_closed(self)
     return Qtrue;
 }
 
+/*
+ * call-seq:
+ *   strio.closed_read?    -> true or false
+ *
+ * Returns +true+ if *strio* is not readable, +false+ otherwise.
+ */
 static VALUE
 strio_closed_read(self)
     VALUE self;
@@ -390,6 +457,12 @@ strio_closed_read(self)
     return Qtrue;
 }
 
+/*
+ * call-seq:
+ *   strio.closed_write?    -> true or false
+ *
+ * Returns +true+ if *strio* is not writable, +false+ otherwise.
+ */
 static VALUE
 strio_closed_write(self)
     VALUE self;
@@ -399,6 +472,14 @@ strio_closed_write(self)
     return Qtrue;
 }
 
+/*
+ * call-seq:
+ *   strio.eof     -> true or false
+ *   strio.eof?    -> true or false
+ *
+ * Returns true if *strio* is at end of file. The stringio must be  
+ * opened for reading or an +IOError+ will be raised.
+ */
 static VALUE
 strio_eof(self)
     VALUE self;
@@ -408,6 +489,7 @@ strio_eof(self)
     return Qtrue;
 }
 
+/* :nodoc: */
 static VALUE
 strio_copy(copy, orig)
     VALUE copy, orig;
@@ -426,6 +508,16 @@ strio_copy(copy, orig)
     return copy;
 }
 
+/*
+ * call-seq:
+ *   strio.lineno    -> integer
+ *
+ * Returns the current line number in *strio*. The stringio must be
+ * opened for reading. +lineno+ counts the number of times  +gets+ is
+ * called, rather than the number of newlines  encountered. The two
+ * values will differ if +gets+ is  called with a separator other than
+ * newline.  See also the  <code>$.</code> variable.
+ */
 static VALUE
 strio_get_lineno(self)
     VALUE self;
@@ -433,6 +525,13 @@ strio_get_lineno(self)
     return LONG2NUM(StringIO(self)->lineno);
 }
 
+/*
+ * call-seq:
+ *   strio.lineno = integer    -> integer
+ *
+ * Manually sets the current line number to the given value.
+ * <code>$.</code> is updated only on the next read.
+ */
 static VALUE
 strio_set_lineno(self, lineno)
     VALUE self, lineno;
@@ -441,14 +540,26 @@ strio_set_lineno(self, lineno)
     return lineno;
 }
 
+/* call-seq: strio.binmode -> true */
 #define strio_binmode strio_self
 
+/* call-seq: strio.fcntl */
 #define strio_fcntl strio_unimpl
 
+/* call-seq: strio.flush -> strio */
 #define strio_flush strio_self
 
+/* call-seq: strio.fsync -> 0 */
 #define strio_fsync strio_0
 
+/*
+ * call-seq:
+ *   strio.reopen(other_StrIO)     -> strio
+ *   strio.reopen(string, mode)    -> strio
+ *
+ * Reinitializes *strio* with the given <i>other_StrIO</i> or _string_ 
+ * and _mode_ (see StringIO#new).
+ */
 static VALUE
 strio_reopen(argc, argv, self)
     int argc;
@@ -462,6 +573,13 @@ strio_reopen(argc, argv, self)
     return strio_initialize(argc, argv, self);
 }
 
+/*
+ * call-seq:
+ *   strio.pos     -> integer
+ *   strio.tell    -> integer
+ *
+ * Returns the current offset (in bytes) of *strio*.
+ */
 static VALUE
 strio_get_pos(self)
     VALUE self;
@@ -469,6 +587,12 @@ strio_get_pos(self)
     return LONG2NUM(StringIO(self)->pos);
 }
 
+/*
+ * call-seq:
+ *   strio.pos = integer    -> integer
+ *
+ * Seeks to the given position (in bytes) in *strio*.
+ */
 static VALUE
 strio_set_pos(self, pos)
     VALUE self;
@@ -480,9 +604,17 @@ strio_set_pos(self, pos)
 	error_inval(0);
     }
     ptr->pos = p;
+    ptr->flags &= ~STRIO_EOF;
     return pos;
 }
 
+/*
+ * call-seq:
+ *   strio.rewind    -> 0
+ *
+ * Positions *strio* to the beginning of input, resetting
+ * +lineno+ to zero.
+ */
 static VALUE
 strio_rewind(self)
     VALUE self;
@@ -494,6 +626,13 @@ strio_rewind(self)
     return INT2FIX(0);
 }
 
+/*
+ * call-seq:
+ *   strio.seek(amount, whence=SEEK_SET) -> 0
+ *
+ * Seeks to a given offset _amount_ in the stream according to
+ * the value of _whence_ (see IO#seek).
+ */
 static VALUE
 strio_seek(argc, argv, self)
     int argc;
@@ -526,6 +665,12 @@ strio_seek(argc, argv, self)
     return INT2FIX(0);
 }
 
+/*
+ * call-seq:
+ *   strio.sync    -> true
+ *
+ * Returns +true+ always.
+ */
 static VALUE
 strio_get_sync(self)
     VALUE self;
@@ -534,10 +679,17 @@ strio_get_sync(self)
     return Qtrue;
 }
 
+/* call-seq: strio.sync = boolean -> boolean */
 #define strio_set_sync strio_first
 
 #define strio_tell strio_get_pos
 
+/*
+ * call-seq:
+ *   strio.each_byte {|byte| block }  -> strio
+ *
+ * See IO#each_byte.
+ */
 static VALUE
 strio_each_byte(self)
     VALUE self;
@@ -550,6 +702,12 @@ strio_each_byte(self)
     return Qnil;
 }
 
+/*
+ * call-seq:
+ *   strio.getc   -> fixnum or nil
+ *
+ * See IO#getc.
+ */
 static VALUE
 strio_getc(self)
     VALUE self;
@@ -564,6 +722,35 @@ strio_getc(self)
     return CHR2FIX(c);
 }
 
+static void
+strio_extend(ptr, pos, len)
+    struct StringIO *ptr;
+    long pos, len;
+{
+    long olen;
+
+    check_modifiable(ptr);
+    olen = RSTRING(ptr->string)->len;
+    if (pos + len > olen) {
+	rb_str_resize(ptr->string, pos + len);
+	if (pos > olen)
+	    MEMZERO(RSTRING(ptr->string)->ptr + olen, char, pos - olen);
+    }
+    else {
+	rb_str_modify(ptr->string);
+    }
+}
+
+/*
+ * call-seq:
+ *   strio.ungetc(integer)   -> nil
+ *
+ * Pushes back one character (passed as a parameter) onto *strio*
+ * such that a subsequent buffered read will return it.  Pushing back 
+ * behind the beginning of the buffer string is not possible.  Nothing
+ * will be done if such an attempt is made.
+ * In other case, there is no limitation for multiple pushbacks.
+ */
 static VALUE
 strio_ungetc(self, ch)
     VALUE self, ch;
@@ -573,18 +760,11 @@ strio_ungetc(self, ch)
     long len, pos = ptr->pos;
 
     if (cc != EOF && pos > 0) {
-	if ((len = RSTRING(ptr->string)->len) < pos ||
-	    (unsigned char)RSTRING(ptr->string)->ptr[pos - 1] !=
+	if ((len = RSTRING(ptr->string)->len) < pos-- ||
+	    (unsigned char)RSTRING(ptr->string)->ptr[pos] !=
 	    (unsigned char)cc) {
-	    check_modifiable(ptr);
-	    if (len < pos) {
-		rb_str_resize(ptr->string, pos);
-		MEMZERO(RSTRING(ptr->string)->ptr + len, char, pos - len - 1);
-	    }
-	    else {
-		rb_str_modify(ptr->string);
-	    }
-	    RSTRING(ptr->string)->ptr[pos - 1] = cc;
+	    strio_extend(ptr, pos, 1);
+	    RSTRING(ptr->string)->ptr[pos] = cc;
 	    OBJ_INFECT(ptr->string, self);
 	}
 	--ptr->pos;
@@ -593,6 +773,12 @@ strio_ungetc(self, ch)
     return Qnil;
 }
 
+/*
+ * call-seq:
+ *   strio.readchar   -> fixnum
+ *
+ * See IO#readchar.
+ */
 static VALUE
 strio_readchar(self)
     VALUE self;
@@ -679,8 +865,7 @@ strio_getline(argc, argv, ptr)
 	    }
 	}
 	s = p;
-	while (p = memchr(p, '\n', e - p)) {
-	    if (p == e) break;
+	while ((p = memchr(p, '\n', e - p)) && (p != e)) {
 	    if (*++p == '\n') {
 		e = p;
 		break;
@@ -689,7 +874,7 @@ strio_getline(argc, argv, ptr)
 	str = rb_str_substr(ptr->string, s - RSTRING(ptr->string)->ptr, e - s); 
     }
     else if (n == 1) {
-	if (p = memchr(s, RSTRING(str)->ptr[0], e - s)) {
+	if ((p = memchr(s, RSTRING(str)->ptr[0], e - s)) != 0) {
 	    e = p + 1;
 	}
 	str = rb_str_substr(ptr->string, ptr->pos, e - s);
@@ -720,6 +905,12 @@ strio_getline(argc, argv, ptr)
     return str;
 }
 
+/*
+ * call-seq:
+ *   strio.gets(sep_string=$/)   -> string or nil
+ *
+ * See IO#gets.
+ */
 static VALUE
 strio_gets(argc, argv, self)
     int argc;
@@ -732,6 +923,12 @@ strio_gets(argc, argv, self)
     return str;
 }
 
+/*
+ * call-seq:
+ *   strio.readline(sep_string=$/)   -> string
+ *
+ * See IO#readline.
+ */
 static VALUE
 strio_readline(argc, argv, self)
     int argc;
@@ -743,6 +940,13 @@ strio_readline(argc, argv, self)
     return line;
 }
 
+/*
+ * call-seq:
+ *   strio.each(sep_string=$/)      {|line| block }  -> strio
+ *   strio.each_line(sep_string=$/) {|line| block }  -> strio
+ *
+ * See IO#each.
+ */
 static VALUE
 strio_each(argc, argv, self)
     int argc;
@@ -758,6 +962,12 @@ strio_each(argc, argv, self)
     return self;
 }
 
+/*
+ * call-seq:
+ *   strio.readlines(sep_string=$/)  ->   array
+ *
+ * See IO#readlines.
+ */
 static VALUE
 strio_readlines(argc, argv, self)
     int argc;
@@ -772,6 +982,16 @@ strio_readlines(argc, argv, self)
     return ary;
 }
 
+/*
+ * call-seq:
+ *   strio.write(string)    -> integer
+ *   strio.syswrite(string) -> integer
+ *
+ * Appends the given string to the underlying buffer string of *strio*.
+ * The stream must be opened for writing.  If the argument is not a
+ * string, it will be converted to a string using <code>to_s</code>.
+ * Returns the number of bytes written.  See IO#write.
+ */
 static VALUE
 strio_write(self, str)
     VALUE self, str;
@@ -792,13 +1012,7 @@ strio_write(self, str)
 	rb_str_cat(ptr->string, RSTRING(str)->ptr, len);
     }
     else {
-	if (ptr->pos + len > olen) {
-	    rb_str_resize(ptr->string, ptr->pos + len);
-	    MEMZERO(RSTRING(ptr->string)->ptr + olen, char, ptr->pos + len - olen);
-	}
-	else {
-	    rb_str_modify(ptr->string);
-	}
+	strio_extend(ptr, ptr->pos, len);
 	rb_str_update(ptr->string, ptr->pos, len, str);
     }
     OBJ_INFECT(ptr->string, self);
@@ -806,36 +1020,70 @@ strio_write(self, str)
     return LONG2NUM(len);
 }
 
+/*
+ * call-seq:
+ *   strio << obj     -> strio
+ *
+ * See IO#<<.
+ */
 #define strio_addstr rb_io_addstr
 
+/*
+ * call-seq:
+ *   strio.print()             -> nil
+ *   strio.print(obj, ...)     -> nil
+ *
+ * See IO#print.
+ */
 #define strio_print rb_io_print
 
+/*
+ * call-seq:
+ *   strio.printf(format_string [, obj, ...] )   -> nil
+ *
+ * See IO#printf.
+ */
 #define strio_printf rb_io_printf
 
+/*
+ * call-seq:
+ *   strio.putc(obj)    -> obj
+ *
+ * See IO#putc.
+ */
 static VALUE
 strio_putc(self, ch)
     VALUE self, ch;
 {
     struct StringIO *ptr = writable(StringIO(self));
     int c = NUM2CHR(ch);
+    long olen;
 
     check_modifiable(ptr);
+    olen = RSTRING(ptr->string)->len;
     if (ptr->flags & FMODE_APPEND) {
-	ptr->pos = RSTRING(ptr->string)->len;
+	ptr->pos = olen;
     }
-    if (ptr->pos >= RSTRING(ptr->string)->len) {
-	rb_str_resize(ptr->string, ptr->pos + 1);
-    }
-    else {
-	rb_str_modify(ptr->string);
-    }
+    strio_extend(ptr, ptr->pos, 1);
     RSTRING(ptr->string)->ptr[ptr->pos++] = c;
     OBJ_INFECT(ptr->string, self);
     return ch;
 }
 
+/*
+ * call-seq:
+ *   strio.puts(obj, ...)    -> nil
+ *
+ * See IO#puts.
+ */
 #define strio_puts rb_io_puts
 
+/*
+ * call-seq:
+ *   strio.read([length [, buffer]])    -> string, buffer, or nil
+ *
+ * See IO#read.
+ */
 static VALUE
 strio_read(argc, argv, self)
     int argc;
@@ -909,6 +1157,13 @@ strio_read(argc, argv, self)
     return str;
 }
 
+/*
+ * call-seq:
+ *   strio.sysread(integer[, outbuf])    -> string
+ *
+ * Similar to #read, but raises +EOFError+ at end of string instead of
+ * returning +nil+, as well as IO#sysread does.
+ */
 static VALUE
 strio_sysread(argc, argv, self)
     int argc;
@@ -924,14 +1179,29 @@ strio_sysread(argc, argv, self)
 
 #define strio_syswrite strio_write
 
+/* call-seq: strio.path -> nil */
 #define strio_path strio_nil
 
+/*
+ * call-seq:
+ *   strio.isatty -> nil
+ *   strio.tty? -> nil
+ *
+ */
 #define strio_isatty strio_false
 
+/* call-seq: strio.pid -> nil */
 #define strio_pid strio_nil
 
+/* call-seq: strio.fileno -> nil */
 #define strio_fileno strio_nil
 
+/*
+ * call-seq:
+ *   strio.size   -> integer
+ *
+ * Returns the size of the buffer string.
+ */
 static VALUE
 strio_size(self)
     VALUE self;
@@ -943,19 +1213,33 @@ strio_size(self)
     return ULONG2NUM(RSTRING(string)->len);
 }
 
+/*
+ * call-seq:
+ *   strio.truncate(integer)    -> 0
+ *
+ * Truncates the buffer string to at most _integer_ bytes. The *strio*
+ * must be opened for writing.
+ */
 static VALUE
 strio_truncate(self, len)
     VALUE self, len;
 {
     VALUE string = writable(StringIO(self))->string;
     long l = NUM2LONG(len);
+    long plen = RSTRING(string)->len;
     if (l < 0) {
 	error_inval("negative legnth");
     }
     rb_str_resize(string, l);
+    if (plen < l) {
+	MEMZERO(RSTRING(string)->ptr + plen, char, l - plen);
+    }
     return len;
 }
 
+/*
+ * Pseudo I/O on String object.
+ */
 void
 Init_stringio()
 {

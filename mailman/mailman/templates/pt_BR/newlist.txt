@@ -6,8 +6,8 @@ A senha de sua lista de discussão é:
     %(password)s
 
 Você precisará desta senha para configurar sua lista. Ela também 
-será necessária para manipular requisições administrativas, tais 
-como liberar mensagens se desejar fazer uma lista de discussão 
+será necessária para fazer as requisições administrativas, tais 
+como liberar mensagens se quiser tornar uma lista de discussão 
 moderada.
 
 Você poderá configurar sua lista de discussão na seguinte 

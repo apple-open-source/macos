@@ -33,9 +33,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)id.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/id/id.1,v 1.11 2001/08/15 09:09:41 ru Exp $
+.\" $FreeBSD: src/usr.bin/id/id.1,v 1.18 2006/09/26 22:28:12 ceri Exp $
 .\"
-.Dd June 6, 1993
+.Dd September 26, 2006
 .Dt ID 1
 .Os
 .Sh NAME
@@ -45,8 +45,12 @@
 .Nm
 .Op Ar user
 .Nm
+.Fl A
+.Nm
 .Fl G Op Fl n
 .Op Ar user
+.Nm
+.Fl M
 .Nm
 .Fl P
 .Op Ar user
@@ -75,11 +79,20 @@ In this case, the real and effective IDs are assumed to be the same.
 .Pp
 The options are as follows:
 .Bl -tag -width indent
+.It Fl A
+Display the process audit user ID and other process audit properties, which
+requires privilege.
 .It Fl G
 Display the different group IDs (effective, real and supplementary)
 as white-space separated numbers, in no particular order.
+.It Fl M
+Display the MAC label of the current process.
 .It Fl P
 Display the id as a password file entry.
+.It Fl a
+Ignored for compatibility with other
+.Nm
+implementations.
 .It Fl g
 Display the effective group ID as a number.
 .It Fl n
@@ -121,7 +134,7 @@ options instead of the effective ID.
 .It Fl u
 Display the effective user ID as a number.
 .El
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 .Ex -std
 .Sh SEE ALSO
 .Xr who 1

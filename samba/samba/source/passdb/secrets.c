@@ -30,6 +30,9 @@
 
 static TDB_CONTEXT *tdb;
 
+/* Urrrg. global.... */
+BOOL global_machine_password_needs_changing;
+
 /**
  * Use a TDB to store an incrementing random seed.
  *
@@ -50,7 +53,7 @@ static void get_rand_seed(int *new_seed)
 BOOL secrets_init(void)
 {
 	pstring fname;
-	char dummy;
+	unsigned char dummy;
 
 	if (tdb)
 		return True;
@@ -84,13 +87,11 @@ BOOL secrets_init(void)
  */
 void *secrets_fetch(const char *key, size_t *size)
 {
-	TDB_DATA kbuf, dbuf;
+	TDB_DATA dbuf;
 	secrets_init();
 	if (!tdb)
 		return NULL;
-	kbuf.dptr = (char *)key;
-	kbuf.dsize = strlen(key);
-	dbuf = tdb_fetch(tdb, kbuf);
+	dbuf = tdb_fetch(tdb, string_tdb_data(key));
 	if (size)
 		*size = dbuf.dsize;
 	return dbuf.dptr;
@@ -100,15 +101,12 @@ void *secrets_fetch(const char *key, size_t *size)
  */
 BOOL secrets_store(const char *key, const void *data, size_t size)
 {
-	TDB_DATA kbuf, dbuf;
 	secrets_init();
 	if (!tdb)
 		return False;
-	kbuf.dptr = (char *)key;
-	kbuf.dsize = strlen(key);
-	dbuf.dptr = (char *)data;
-	dbuf.dsize = size;
-	return tdb_store(tdb, kbuf, dbuf, TDB_REPLACE) == 0;
+	return tdb_trans_store(tdb, string_tdb_data(key),
+			       make_tdb_data((const char *)data, size),
+			       TDB_REPLACE) == 0;
 }
 
 
@@ -116,13 +114,10 @@ BOOL secrets_store(const char *key, const void *data, size_t size)
  */
 BOOL secrets_delete(const char *key)
 {
-	TDB_DATA kbuf;
 	secrets_init();
 	if (!tdb)
 		return False;
-	kbuf.dptr = (char *)key;
-	kbuf.dsize = strlen(key);
-	return tdb_delete(tdb, kbuf) == 0;
+	return tdb_delete(tdb, string_tdb_data(key)) == 0;
 }
 
 BOOL secrets_store_domain_sid(const char *domain, const DOM_SID *sid)
@@ -144,7 +139,7 @@ BOOL secrets_fetch_domain_sid(const char *domain, DOM_SID *sid)
 {
 	DOM_SID *dyn_sid;
 	fstring key;
-	size_t size;
+	size_t size = 0;
 
 	slprintf(key, sizeof(key)-1, "%s/%s", SECRETS_DOMAIN_SID, domain);
 	strupper_m(key);
@@ -153,8 +148,7 @@ BOOL secrets_fetch_domain_sid(const char *domain, DOM_SID *sid)
 	if (dyn_sid == NULL)
 		return False;
 
-	if (size != sizeof(DOM_SID))
-	{ 
+	if (size != sizeof(DOM_SID)) { 
 		SAFE_FREE(dyn_sid);
 		return False;
 	}
@@ -164,37 +158,39 @@ BOOL secrets_fetch_domain_sid(const char *domain, DOM_SID *sid)
 	return True;
 }
 
-BOOL secrets_store_domain_guid(const char *domain, struct uuid *guid)
+BOOL secrets_store_domain_guid(const char *domain, struct GUID *guid)
 {
 	fstring key;
 
 	slprintf(key, sizeof(key)-1, "%s/%s", SECRETS_DOMAIN_GUID, domain);
 	strupper_m(key);
-	return secrets_store(key, guid, sizeof(struct uuid));
+	return secrets_store(key, guid, sizeof(struct GUID));
 }
 
-BOOL secrets_fetch_domain_guid(const char *domain, struct uuid *guid)
+BOOL secrets_fetch_domain_guid(const char *domain, struct GUID *guid)
 {
-	struct uuid *dyn_guid;
+	struct GUID *dyn_guid;
 	fstring key;
-	size_t size;
-	struct uuid new_guid;
+	size_t size = 0;
+	struct GUID new_guid;
 
 	slprintf(key, sizeof(key)-1, "%s/%s", SECRETS_DOMAIN_GUID, domain);
 	strupper_m(key);
-	dyn_guid = (struct uuid *)secrets_fetch(key, &size);
+	dyn_guid = (struct GUID *)secrets_fetch(key, &size);
 
-	if ((!dyn_guid) && (lp_server_role() == ROLE_DOMAIN_PDC)) {
-		smb_uuid_generate_random(&new_guid);
-		if (!secrets_store_domain_guid(domain, &new_guid))
+	if (!dyn_guid) {
+		if (lp_server_role() == ROLE_DOMAIN_PDC) {
+			smb_uuid_generate_random(&new_guid);
+			if (!secrets_store_domain_guid(domain, &new_guid))
+				return False;
+			dyn_guid = (struct GUID *)secrets_fetch(key, &size);
+		}
+		if (dyn_guid == NULL) {
 			return False;
-		dyn_guid = (struct uuid *)secrets_fetch(key, &size);
-		if (dyn_guid == NULL)
-			return False;
+		}
 	}
 
-	if (size != sizeof(struct uuid))
-	{ 
+	if (size != sizeof(struct GUID)) { 
 		DEBUG(1,("UUID size %d is wrong!\n", (int)size));
 		SAFE_FREE(dyn_guid);
 		return False;
@@ -212,7 +208,7 @@ BOOL secrets_fetch_domain_guid(const char *domain, struct uuid *guid)
  *
  * @return stored password's key
  **/
-const char *trust_keystr(const char *domain)
+static const char *trust_keystr(const char *domain)
 {
 	static fstring keystr;
 
@@ -250,7 +246,7 @@ BOOL secrets_lock_trust_account_password(const char *domain, BOOL dolock)
 		return False;
 
 	if (dolock)
-		return (tdb_lock_bystring(tdb, trust_keystr(domain),0) == 0);
+		return (tdb_lock_bystring(tdb, trust_keystr(domain)) == 0);
 	else
 		tdb_unlock_bystring(tdb, trust_keystr(domain));
 	return True;
@@ -282,7 +278,7 @@ BOOL secrets_fetch_trust_account_password(const char *domain, uint8 ret_pwd[16],
 {
 	struct machine_acct_pass *pass;
 	char *plaintext;
-	size_t size;
+	size_t size = 0;
 
 	plaintext = secrets_fetch_machine_password(domain, pass_last_set_time, 
 						   channel);
@@ -293,7 +289,8 @@ BOOL secrets_fetch_trust_account_password(const char *domain, uint8 ret_pwd[16],
 		return True;
 	}
 
-	if (!(pass = secrets_fetch(trust_keystr(domain), &size))) {
+	if (!(pass = (struct machine_acct_pass *)secrets_fetch(
+		      trust_keystr(domain), &size))) {
 		DEBUG(5, ("secrets_fetch failed!\n"));
 		return False;
 	}
@@ -303,14 +300,155 @@ BOOL secrets_fetch_trust_account_password(const char *domain, uint8 ret_pwd[16],
 		return False;
 	}
 
-	if (pass_last_set_time) *pass_last_set_time = pass->mod_time;
+	if (pass_last_set_time) {
+		*pass_last_set_time = pass->mod_time;
+	}
 	memcpy(ret_pwd, pass->hash, 16);
-	SAFE_FREE(pass);
 
-	if (channel) 
+	if (channel) {
 		*channel = get_default_sec_channel();
+	}
 
+	/* Test if machine password has expired and needs to be changed */
+	if (lp_machine_password_timeout()) {
+		if (pass->mod_time > 0 && time(NULL) > (pass->mod_time +
+				(time_t)lp_machine_password_timeout())) {
+			global_machine_password_needs_changing = True;
+		}
+	}
+
+	SAFE_FREE(pass);
 	return True;
+}
+
+/**
+ * Pack SID passed by pointer
+ *
+ * @param pack_buf pointer to buffer which is to be filled with packed data
+ * @param bufsize size of packing buffer
+ * @param sid pointer to sid to be packed
+ *
+ * @return length of the packed representation of the whole structure
+ **/
+static size_t tdb_sid_pack(char* pack_buf, int bufsize, DOM_SID* sid)
+{
+	int idx;
+	size_t len = 0;
+	
+	if (!sid || !pack_buf) return -1;
+	
+	len += tdb_pack(pack_buf + len, bufsize - len, "bb", sid->sid_rev_num,
+	                sid->num_auths);
+	
+	for (idx = 0; idx < 6; idx++) {
+		len += tdb_pack(pack_buf + len, bufsize - len, "b",
+				sid->id_auth[idx]);
+	}
+	
+	for (idx = 0; idx < MAXSUBAUTHS; idx++) {
+		len += tdb_pack(pack_buf + len, bufsize - len, "d",
+				sid->sub_auths[idx]);
+	}
+	
+	return len;
+}
+
+/**
+ * Unpack SID into a pointer
+ *
+ * @param pack_buf pointer to buffer with packed representation
+ * @param bufsize size of the buffer
+ * @param sid pointer to sid structure to be filled with unpacked data
+ *
+ * @return size of structure unpacked from buffer
+ **/
+static size_t tdb_sid_unpack(char* pack_buf, int bufsize, DOM_SID* sid)
+{
+	int idx, len = 0;
+	
+	if (!sid || !pack_buf) return -1;
+
+	len += tdb_unpack(pack_buf + len, bufsize - len, "bb",
+	                  &sid->sid_rev_num, &sid->num_auths);
+			  
+	for (idx = 0; idx < 6; idx++) {
+		len += tdb_unpack(pack_buf + len, bufsize - len, "b",
+				  &sid->id_auth[idx]);
+	}
+	
+	for (idx = 0; idx < MAXSUBAUTHS; idx++) {
+		len += tdb_unpack(pack_buf + len, bufsize - len, "d",
+				  &sid->sub_auths[idx]);
+	}
+	
+	return len;
+}
+
+/**
+ * Pack TRUSTED_DOM_PASS passed by pointer
+ *
+ * @param pack_buf pointer to buffer which is to be filled with packed data
+ * @param bufsize size of the buffer
+ * @param pass pointer to trusted domain password to be packed
+ *
+ * @return length of the packed representation of the whole structure
+ **/
+static size_t tdb_trusted_dom_pass_pack(char* pack_buf, int bufsize,
+					TRUSTED_DOM_PASS* pass)
+{
+	int idx, len = 0;
+	
+	if (!pack_buf || !pass) return -1;
+	
+	/* packing unicode domain name and password */
+	len += tdb_pack(pack_buf + len, bufsize - len, "d",
+			pass->uni_name_len);
+	
+	for (idx = 0; idx < 32; idx++)
+		len +=  tdb_pack(pack_buf + len, bufsize - len, "w",
+				 pass->uni_name[idx]);
+	
+	len += tdb_pack(pack_buf + len, bufsize - len, "dPd", pass->pass_len,
+	                     pass->pass, pass->mod_time);
+
+	/* packing SID structure */
+	len += tdb_sid_pack(pack_buf + len, bufsize - len, &pass->domain_sid);
+
+	return len;
+}
+
+
+/**
+ * Unpack TRUSTED_DOM_PASS passed by pointer
+ *
+ * @param pack_buf pointer to buffer with packed representation
+ * @param bufsize size of the buffer
+ * @param pass pointer to trusted domain password to be filled with unpacked data
+ *
+ * @return size of structure unpacked from buffer
+ **/
+static size_t tdb_trusted_dom_pass_unpack(char* pack_buf, int bufsize,
+					  TRUSTED_DOM_PASS* pass)
+{
+	int idx, len = 0;
+	
+	if (!pack_buf || !pass) return -1;
+
+	/* unpack unicode domain name and plaintext password */
+	len += tdb_unpack(pack_buf, bufsize - len, "d", &pass->uni_name_len);
+	
+	for (idx = 0; idx < 32; idx++)
+		len +=  tdb_unpack(pack_buf + len, bufsize - len, "w",
+				   &pass->uni_name[idx]);
+
+	len += tdb_unpack(pack_buf + len, bufsize - len, "dPd",
+			  &pass->pass_len, &pass->pass, &pass->mod_time);
+	
+	/* unpack domain sid */
+	len += tdb_sid_unpack(pack_buf + len, bufsize - len,
+			      &pass->domain_sid);
+	
+	return len;	
 }
 
 /************************************************************************
@@ -321,7 +459,7 @@ BOOL secrets_fetch_trusted_domain_password(const char *domain, char** pwd,
                                            DOM_SID *sid, time_t *pass_last_set_time)
 {
 	struct trusted_dom_pass pass;
-	size_t size;
+	size_t size = 0;
 	
 	/* unpacking structures */
 	char* pass_buf;
@@ -330,7 +468,8 @@ BOOL secrets_fetch_trusted_domain_password(const char *domain, char** pwd,
 	ZERO_STRUCT(pass);
 
 	/* fetching trusted domain password structure */
-	if (!(pass_buf = secrets_fetch(trustdom_keystr(domain), &size))) {
+	if (!(pass_buf = (char *)secrets_fetch(trustdom_keystr(domain),
+					       &size))) {
 		DEBUG(5, ("secrets_fetch failed!\n"));
 		return False;
 	}
@@ -356,7 +495,7 @@ BOOL secrets_fetch_trusted_domain_password(const char *domain, char** pwd,
 	if (pass_last_set_time) *pass_last_set_time = pass.mod_time;
 
 	/* domain sid */
-	sid_copy(sid, &pass.domain_sid);
+	if (sid != NULL) sid_copy(sid, &pass.domain_sid);
 		
 	return True;
 }
@@ -385,10 +524,11 @@ BOOL secrets_store_trust_account_password(const char *domain, uint8 new_pwd[16])
  * @return true if succeeded
  **/
 
-BOOL secrets_store_trusted_domain_password(const char* domain, smb_ucs2_t *uni_dom_name,
-                                           size_t uni_name_len, const char* pwd,
-                                           DOM_SID sid)
-{	
+BOOL secrets_store_trusted_domain_password(const char* domain, const char* pwd,
+                                           const DOM_SID *sid)
+{
+	smb_ucs2_t *uni_dom_name;
+
 	/* packing structures */
 	pstring pass_buf;
 	int pass_len = 0;
@@ -396,13 +536,16 @@ BOOL secrets_store_trusted_domain_password(const char* domain, smb_ucs2_t *uni_d
 	
 	struct trusted_dom_pass pass;
 	ZERO_STRUCT(pass);
-	
-	/* unicode domain name and its length */
-	if (!uni_dom_name)
+
+	if (push_ucs2_allocate(&uni_dom_name, domain) == (size_t)-1) {
+		DEBUG(0, ("Could not convert domain name %s to unicode\n",
+			  domain));
 		return False;
-		
+	}
+	
 	strncpy_w(pass.uni_name, uni_dom_name, sizeof(pass.uni_name) - 1);
-	pass.uni_name_len = uni_name_len;
+	pass.uni_name_len = strlen_w(uni_dom_name)+1;
+	SAFE_FREE(uni_dom_name);
 
 	/* last change time */
 	pass.mod_time = time(NULL);
@@ -412,7 +555,7 @@ BOOL secrets_store_trusted_domain_password(const char* domain, smb_ucs2_t *uni_d
 	fstrcpy(pass.pass, pwd);
 
 	/* domain sid */
-	sid_copy(&pass.domain_sid, &sid);
+	sid_copy(&pass.domain_sid, sid);
 	
 	pass_len = tdb_trusted_dom_pass_pack(pass_buf, pass_buf_len, &pass);
 
@@ -463,29 +606,20 @@ BOOL secrets_store_machine_password(const char *pass, const char *domain, uint32
 	return ret;
 }
 
-
 /************************************************************************
  Routine to fetch the plaintext machine account password for a realm
-the password is assumed to be a null terminated ascii string
+ the password is assumed to be a null terminated ascii string.
 ************************************************************************/
+
 char *secrets_fetch_machine_password(const char *domain, 
 				     time_t *pass_last_set_time,
 				     uint32 *channel)
 {
 	char *key = NULL;
-	char *ret = NULL;
+	char *ret;
 	asprintf(&key, "%s/%s", SECRETS_MACHINE_PASSWORD, domain);
 	strupper_m(key);
-	size_t secret_len;
-	char *secret = NULL;
-	ret = (char *)secrets_fetch(key, &secret_len);
-	
-	if (ret && secret_len) {
-		secret = calloc(1, secret_len + 1);
-		memcpy(secret, ret, secret_len);
-		free(ret);
-		ret = secret;
-	}
+	ret = (char *)secrets_fetch(key, NULL);
 	SAFE_FREE(key);
 	
 	if (pass_last_set_time) {
@@ -493,7 +627,7 @@ char *secrets_fetch_machine_password(const char *domain,
 		uint32 *last_set_time;
 		asprintf(&key, "%s/%s", SECRETS_MACHINE_LAST_CHANGE_TIME, domain);
 		strupper_m(key);
-		last_set_time = secrets_fetch(key, &size);
+		last_set_time = (unsigned int *)secrets_fetch(key, &size);
 		if (last_set_time) {
 			*pass_last_set_time = IVAL(last_set_time,0);
 			SAFE_FREE(last_set_time);
@@ -508,7 +642,7 @@ char *secrets_fetch_machine_password(const char *domain,
 		uint32 *channel_type;
 		asprintf(&key, "%s/%s", SECRETS_MACHINE_SEC_CHANNEL_TYPE, domain);
 		strupper_m(key);
-		channel_type = secrets_fetch(key, &size);
+		channel_type = (unsigned int *)secrets_fetch(key, &size);
 		if (channel_type) {
 			*channel = IVAL(channel_type,0);
 			SAFE_FREE(channel_type);
@@ -521,7 +655,46 @@ char *secrets_fetch_machine_password(const char *domain,
 	return ret;
 }
 
+/*******************************************************************
+ Wrapper around retrieving the trust account password
+*******************************************************************/
+                                                                                                                     
+BOOL get_trust_pw(const char *domain, uint8 ret_pwd[16], uint32 *channel)
+{
+	DOM_SID sid;
+	char *pwd;
+	time_t last_set_time;
+                                                                                                                     
+	/* if we are a DC and this is not our domain, then lookup an account
+		for the domain trust */
+                                                                                                                     
+	if ( IS_DC && !strequal(domain, lp_workgroup()) && lp_allow_trusted_domains() ) {
+		if (!secrets_fetch_trusted_domain_password(domain, &pwd, &sid,
+							&last_set_time)) {
+			DEBUG(0, ("get_trust_pw: could not fetch trust "
+				"account password for trusted domain %s\n",
+				domain));
+			return False;
+		}
+                                                                                                                     
+		*channel = SEC_CHAN_DOMAIN;
+		E_md4hash(pwd, ret_pwd);
+		SAFE_FREE(pwd);
 
+		return True;
+	}
+                                                                                                                     
+	/* Just get the account for the requested domain. In the future this
+	 * might also cover to be member of more than one domain. */
+                                                                                                                     
+	if (secrets_fetch_trust_account_password(domain, ret_pwd,
+						&last_set_time, channel))
+		return True;
+
+	DEBUG(5, ("get_trust_pw: could not fetch trust account "
+		"password for domain %s\n", domain));
+	return False;
+}
 
 /************************************************************************
  Routine to delete the machine trust account password file for a domain.
@@ -541,7 +714,6 @@ BOOL trusted_domain_password_delete(const char *domain)
 	return secrets_delete(trustdom_keystr(domain));
 }
 
-
 BOOL secrets_store_ldap_pw(const char* dn, char* pw)
 {
 	char *key = NULL;
@@ -558,140 +730,187 @@ BOOL secrets_store_ldap_pw(const char* dn, char* pw)
 	return ret;
 }
 
+/*******************************************************************
+ Find the ldap password.
+******************************************************************/
+
+BOOL fetch_ldap_pw(char **dn, char** pw)
+{
+	char *key = NULL;
+	size_t size = 0;
+	
+	*dn = smb_xstrdup(lp_ldap_admin_dn());
+	
+	if (asprintf(&key, "%s/%s", SECRETS_LDAP_BIND_PW, *dn) < 0) {
+		SAFE_FREE(*dn);
+		DEBUG(0, ("fetch_ldap_pw: asprintf failed!\n"));
+	}
+	
+	*pw=(char *)secrets_fetch(key, &size);
+	SAFE_FREE(key);
+
+	if (!size) {
+		/* Upgrade 2.2 style entry */
+		char *p;
+	        char* old_style_key = SMB_STRDUP(*dn);
+		char *data;
+		fstring old_style_pw;
+		
+		if (!old_style_key) {
+			DEBUG(0, ("fetch_ldap_pw: strdup failed!\n"));
+			return False;
+		}
+
+		for (p=old_style_key; *p; p++)
+			if (*p == ',') *p = '/';
+	
+		data=(char *)secrets_fetch(old_style_key, &size);
+		if (!size && size < sizeof(old_style_pw)) {
+			DEBUG(0,("fetch_ldap_pw: neither ldap secret retrieved!\n"));
+			SAFE_FREE(old_style_key);
+			SAFE_FREE(*dn);
+			return False;
+		}
+
+		size = MIN(size, sizeof(fstring)-1);
+		strncpy(old_style_pw, data, size);
+		old_style_pw[size] = 0;
+
+		SAFE_FREE(data);
+
+		if (!secrets_store_ldap_pw(*dn, old_style_pw)) {
+			DEBUG(0,("fetch_ldap_pw: ldap secret could not be upgraded!\n"));
+			SAFE_FREE(old_style_key);
+			SAFE_FREE(*dn);
+			return False;			
+		}
+		if (!secrets_delete(old_style_key)) {
+			DEBUG(0,("fetch_ldap_pw: old ldap secret could not be deleted!\n"));
+		}
+
+		SAFE_FREE(old_style_key);
+
+		*pw = smb_xstrdup(old_style_pw);		
+	}
+	
+	return True;
+}
 
 /**
  * Get trusted domains info from secrets.tdb.
- *
- * The linked list is allocated on the supplied talloc context, caller gets to destroy
- * when done.
- *
- * @param ctx Allocation context
- * @param enum_ctx Starting index, eg. we can start fetching at third
- *        or sixth trusted domain entry. Zero is the first index.
- *        Value it is set to is the enum context for the next enumeration.
- * @param num_domains Number of domain entries to fetch at one call
- * @param domains Pointer to array of trusted domain structs to be filled up
- *
- * @return nt status code of rpc response
  **/ 
 
-NTSTATUS secrets_get_trusted_domains(TALLOC_CTX* ctx, int* enum_ctx, unsigned int max_num_domains,
-                                     int *num_domains, TRUSTDOM ***domains)
+NTSTATUS secrets_trusted_domains(TALLOC_CTX *mem_ctx, uint32 *num_domains,
+				 struct trustdom_info ***domains)
 {
 	TDB_LIST_NODE *keys, *k;
-	TRUSTDOM *dom = NULL;
 	char *pattern;
-	unsigned int start_idx;
-	uint32 idx = 0;
-	size_t size, packed_size = 0;
-	fstring dom_name;
-	char *packed_pass;
-	struct trusted_dom_pass *pass = TALLOC_ZERO_P(ctx, struct trusted_dom_pass);
-	NTSTATUS status;
+	TALLOC_CTX *tmp_ctx;
+
+	if (!(tmp_ctx = talloc_new(mem_ctx))) {
+		return NT_STATUS_NO_MEMORY;
+	}
 
 	if (!secrets_init()) return NT_STATUS_ACCESS_DENIED;
 	
-	if (!pass) {
-		DEBUG(0, ("talloc_zero failed!\n"));
-		return NT_STATUS_NO_MEMORY;
-	}
-				
-	*num_domains = 0;
-	start_idx = *enum_ctx;
-
 	/* generate searching pattern */
-	if (!(pattern = talloc_asprintf(ctx, "%s/*", SECRETS_DOMTRUST_ACCT_PASS))) {
-		DEBUG(0, ("secrets_get_trusted_domains: talloc_asprintf() failed!\n"));
+	pattern = talloc_asprintf(tmp_ctx, "%s/*", SECRETS_DOMTRUST_ACCT_PASS);
+	if (pattern == NULL) {
+		DEBUG(0, ("secrets_trusted_domains: talloc_asprintf() "
+			  "failed!\n"));
+		TALLOC_FREE(tmp_ctx);
 		return NT_STATUS_NO_MEMORY;
 	}
 
-	DEBUG(5, ("secrets_get_trusted_domains: looking for %d domains, starting at index %d\n", 
-		  max_num_domains, *enum_ctx));
+	*num_domains = 0;
 
-	*domains = TALLOC_ZERO_ARRAY(ctx, TRUSTDOM *, max_num_domains);
+	/*
+	 * Make sure that a talloc context for the trustdom_info structs
+	 * exists
+	 */
+
+	if (!(*domains = TALLOC_ARRAY(mem_ctx, struct trustdom_info *, 1))) {
+		TALLOC_FREE(tmp_ctx);
+		return NT_STATUS_NO_MEMORY;
+	}
 
 	/* fetching trusted domains' data and collecting them in a list */
 	keys = tdb_search_keys(tdb, pattern);
 
-	/* 
-	 * if there's no keys returned ie. no trusted domain,
-	 * return "no more entries" code
-	 */
-	status = NT_STATUS_NO_MORE_ENTRIES;
-
 	/* searching for keys in secrets db -- way to go ... */
 	for (k = keys; k; k = k->next) {
+		char *packed_pass;
+		size_t size = 0, packed_size = 0;
+		struct trusted_dom_pass pass;
 		char *secrets_key;
+		struct trustdom_info *dom_info;
 		
 		/* important: ensure null-termination of the key string */
-		secrets_key = SMB_STRNDUP(k->node_key.dptr, k->node_key.dsize);
+		secrets_key = talloc_strndup(tmp_ctx,
+					     k->node_key.dptr,
+					     k->node_key.dsize);
 		if (!secrets_key) {
 			DEBUG(0, ("strndup failed!\n"));
+			tdb_search_list_free(keys);
+			TALLOC_FREE(tmp_ctx);
 			return NT_STATUS_NO_MEMORY;
 		}
 
-		packed_pass = secrets_fetch(secrets_key, &size);
-		packed_size = tdb_trusted_dom_pass_unpack(packed_pass, size, pass);
+		packed_pass = (char *)secrets_fetch(secrets_key, &size);
+		packed_size = tdb_trusted_dom_pass_unpack(packed_pass, size,
+							  &pass);
 		/* packed representation isn't needed anymore */
 		SAFE_FREE(packed_pass);
 		
 		if (size != packed_size) {
-			DEBUG(2, ("Secrets record %s is invalid!\n", secrets_key));
+			DEBUG(2, ("Secrets record %s is invalid!\n",
+				  secrets_key));
 			continue;
 		}
-		
-		pull_ucs2_fstring(dom_name, pass->uni_name);
-		DEBUG(18, ("Fetched secret record num %d.\nDomain name: %s, SID: %s\n",
-			   idx, dom_name, sid_string_static(&pass->domain_sid)));
 
-		SAFE_FREE(secrets_key);
-
-		if (idx >= start_idx && idx < start_idx + max_num_domains) {
-			dom = TALLOC_ZERO_P(ctx, TRUSTDOM);
-			if (!dom) {
-				/* free returned tdb record */
-				return NT_STATUS_NO_MEMORY;
-			}
-			
-			/* copy domain sid */
-			SMB_ASSERT(sizeof(dom->sid) == sizeof(pass->domain_sid));
-			memcpy(&(dom->sid), &(pass->domain_sid), sizeof(dom->sid));
-			
-			/* copy unicode domain name */
-			dom->name = talloc_strdup_w(ctx, pass->uni_name);
-			
-			(*domains)[idx - start_idx] = dom;
-			
-			DEBUG(18, ("Secret record is in required range.\n \
-				   start_idx = %d, max_num_domains = %d. Added to returned array.\n",
-				   start_idx, max_num_domains));
-
-			*enum_ctx = idx + 1;
-			(*num_domains)++;
-		
-			/* set proper status code to return */
-			if (k->next) {
-				/* there are yet some entries to enumerate */
-				status = STATUS_MORE_ENTRIES;
-			} else {
-				/* this is the last entry in the whole enumeration */
-				status = NT_STATUS_OK;
-			}
-		} else {
-			DEBUG(18, ("Secret is outside the required range.\n \
-				   start_idx = %d, max_num_domains = %d. Not added to returned array\n",
-				   start_idx, max_num_domains));
+		if (pass.domain_sid.num_auths != 4) {
+			DEBUG(0, ("SID %s is not a domain sid, has %d "
+				  "auths instead of 4\n",
+				  sid_string_static(&pass.domain_sid),
+				  pass.domain_sid.num_auths));
+			continue;
 		}
-		
-		idx++;		
+
+		if (!(dom_info = TALLOC_P(*domains, struct trustdom_info))) {
+			DEBUG(0, ("talloc failed\n"));
+			tdb_search_list_free(keys);
+			TALLOC_FREE(tmp_ctx);
+			return NT_STATUS_NO_MEMORY;
+		}
+
+		if (pull_ucs2_talloc(dom_info, &dom_info->name,
+				     pass.uni_name) == (size_t)-1) {
+			DEBUG(2, ("pull_ucs2_talloc failed\n"));
+			tdb_search_list_free(keys);
+			TALLOC_FREE(tmp_ctx);
+			return NT_STATUS_NO_MEMORY;
+		}
+
+		sid_copy(&dom_info->sid, &pass.domain_sid);
+
+		ADD_TO_ARRAY(*domains, struct trustdom_info *, dom_info,
+			     domains, num_domains);
+
+		if (*domains == NULL) {
+			tdb_search_list_free(keys);
+			TALLOC_FREE(tmp_ctx);
+			return NT_STATUS_NO_MEMORY;
+		}
 	}
 	
-	DEBUG(5, ("secrets_get_trusted_domains: got %d domains\n", *num_domains));
+	DEBUG(5, ("secrets_get_trusted_domains: got %d domains\n",
+		  *num_domains));
 
 	/* free the results of searching the keys */
 	tdb_search_list_free(keys);
+	TALLOC_FREE(tmp_ctx);
 
-	return status;
+	return NT_STATUS_OK;
 }
 
 /*******************************************************************************
@@ -703,10 +922,10 @@ BOOL secrets_named_mutex(const char *name, unsigned int timeout)
 {
 	int ret = 0;
 
-	if (!message_init())
+	if (!secrets_init())
 		return False;
 
-	ret = tdb_lock_bystring(tdb, name, timeout);
+	ret = tdb_lock_bystring_with_timeout(tdb, name, timeout);
 	if (ret == 0)
 		DEBUG(10,("secrets_named_mutex: got mutex for %s\n", name ));
 
@@ -721,35 +940,6 @@ void secrets_named_mutex_release(const char *name)
 {
 	tdb_unlock_bystring(tdb, name);
 	DEBUG(10,("secrets_named_mutex: released mutex for %s\n", name ));
-}
-
-/*********************************************************
- Check to see if we must talk to the PDC to avoid sam 
- sync delays
- ********************************************************/
- 
-BOOL must_use_pdc( const char *domain )
-{
-	time_t	now = time(NULL);
-	time_t  last_change_time;
-	unsigned char	passwd[16];   
-	
-	if ( !secrets_fetch_trust_account_password(domain, passwd, &last_change_time, NULL) )
-		return False;
-		
-	/*
-	 * If the time the machine password has changed
-	 * was less than about 15 minutes then we need to contact
-	 * the PDC only, as we cannot be sure domain replication
-	 * has yet taken place. Bug found by Gerald (way to go
-	 * Gerald !). JRA.
-	 */
-	 
-	if ( now - last_change_time < SAM_SYNC_WINDOW )
-		return True;
-		
-	return False;
-
 }
 
 /*******************************************************************************
@@ -777,7 +967,7 @@ BOOL secrets_fetch_afs_key(const char *cell, struct afs_key *result)
 {
 	fstring key;
 	struct afs_keyfile *keyfile;
-	size_t size;
+	size_t size = 0;
 	uint32 i;
 
 	slprintf(key, sizeof(key)-1, "%s/%s", SECRETS_AFS_KEYFILE, cell);
@@ -819,9 +1009,9 @@ BOOL secrets_fetch_afs_key(const char *cell, struct afs_key *result)
 *******************************************************************************/
 void secrets_fetch_ipc_userpass(char **username, char **domain, char **password)
 {
-	*username = secrets_fetch(SECRETS_AUTH_USER, NULL);
-	*domain = secrets_fetch(SECRETS_AUTH_DOMAIN, NULL);
-	*password = secrets_fetch(SECRETS_AUTH_PASSWORD, NULL);
+	*username = (char *)secrets_fetch(SECRETS_AUTH_USER, NULL);
+	*domain = (char *)secrets_fetch(SECRETS_AUTH_DOMAIN, NULL);
+	*password = (char *)secrets_fetch(SECRETS_AUTH_PASSWORD, NULL);
 	
 	if (*username && **username) {
 
@@ -840,5 +1030,267 @@ void secrets_fetch_ipc_userpass(char **username, char **domain, char **password)
 		*domain = smb_xstrdup("");
 		*password = smb_xstrdup("");
 	}
+}
+
+/******************************************************************************
+ Open or create the schannel session store tdb.
+*******************************************************************************/
+
+static TDB_CONTEXT *open_schannel_session_store(TALLOC_CTX *mem_ctx)
+{
+	TDB_DATA vers;
+	uint32 ver;
+	TDB_CONTEXT *tdb_sc = NULL;
+	char *fname = talloc_asprintf(mem_ctx, "%s/schannel_store.tdb", lp_private_dir());
+
+	if (!fname) {
+		return NULL;
+	}
+
+        tdb_sc = tdb_open_log(fname, 0, TDB_DEFAULT, O_RDWR|O_CREAT, 0600);
+
+        if (!tdb_sc) {
+                DEBUG(0,("open_schannel_session_store: Failed to open %s\n", fname));
+		TALLOC_FREE(fname);
+                return NULL;
+        }
+
+	vers = tdb_fetch_bystring(tdb_sc, "SCHANNEL_STORE_VERSION");
+	if (vers.dptr == NULL) {
+		/* First opener, no version. */
+		SIVAL(&ver,0,1);
+		vers.dptr = (char *)&ver;
+		vers.dsize = 4;
+		tdb_store_bystring(tdb_sc, "SCHANNEL_STORE_VERSION", vers, TDB_REPLACE);
+		vers.dptr = NULL;
+	} else if (vers.dsize == 4) {
+		ver = IVAL(vers.dptr,0);
+		if (ver != 1) {
+			tdb_close(tdb_sc);
+			tdb_sc = NULL;
+			DEBUG(0,("open_schannel_session_store: wrong version number %d in %s\n",
+				(int)ver, fname ));
+		}
+	} else {
+		tdb_close(tdb_sc);
+		tdb_sc = NULL;
+		DEBUG(0,("open_schannel_session_store: wrong version number size %d in %s\n",
+			(int)vers.dsize, fname ));
+	}
+
+	SAFE_FREE(vers.dptr);
+	TALLOC_FREE(fname);
+
+	return tdb_sc;
+}
+
+/******************************************************************************
+ Store the schannel state after an AUTH2 call.
+ Note we must be root here.
+*******************************************************************************/
+
+BOOL secrets_store_schannel_session_info(TALLOC_CTX *mem_ctx,
+				const char *remote_machine,
+				const struct dcinfo *pdc)
+{
+	TDB_CONTEXT *tdb_sc = NULL;
+	TDB_DATA value;
+	BOOL ret;
+	char *keystr = talloc_asprintf(mem_ctx, "%s/%s", SECRETS_SCHANNEL_STATE,
+				remote_machine);
+	if (!keystr) {
+		return False;
+	}
+
+	strupper_m(keystr);
+
+	/* Work out how large the record is. */
+	value.dsize = tdb_pack(NULL, 0, "dBBBBBfff",
+				pdc->sequence,
+				8, pdc->seed_chal.data,
+				8, pdc->clnt_chal.data,
+				8, pdc->srv_chal.data,
+				16, pdc->sess_key,
+				16, pdc->mach_pw,
+				pdc->mach_acct,
+				pdc->remote_machine,
+				pdc->domain);
+
+	value.dptr = (char *)TALLOC(mem_ctx, value.dsize);
+	if (!value.dptr) {
+		TALLOC_FREE(keystr);
+		return False;
+	}
+
+	value.dsize = tdb_pack(value.dptr, value.dsize, "dBBBBBfff",
+				pdc->sequence,
+				8, pdc->seed_chal.data,
+				8, pdc->clnt_chal.data,
+				8, pdc->srv_chal.data,
+				16, pdc->sess_key,
+				16, pdc->mach_pw,
+				pdc->mach_acct,
+				pdc->remote_machine,
+				pdc->domain);
+
+	tdb_sc = open_schannel_session_store(mem_ctx);
+	if (!tdb_sc) {
+		TALLOC_FREE(keystr);
+		TALLOC_FREE(value.dptr);
+		return False;
+	}
+
+	ret = (tdb_store_bystring(tdb_sc, keystr, value, TDB_REPLACE) == 0 ? True : False);
+
+	DEBUG(3,("secrets_store_schannel_session_info: stored schannel info with key %s\n",
+		keystr ));
+
+	tdb_close(tdb_sc);
+	TALLOC_FREE(keystr);
+	TALLOC_FREE(value.dptr);
+	return ret;
+}
+
+/******************************************************************************
+ Restore the schannel state on a client reconnect.
+ Note we must be root here.
+*******************************************************************************/
+
+BOOL secrets_restore_schannel_session_info(TALLOC_CTX *mem_ctx,
+				const char *remote_machine,
+				struct dcinfo **ppdc)
+{
+	TDB_CONTEXT *tdb_sc = NULL;
+	TDB_DATA value;
+	unsigned char *pseed_chal = NULL;
+	unsigned char *pclnt_chal = NULL;
+	unsigned char *psrv_chal = NULL;
+	unsigned char *psess_key = NULL;
+	unsigned char *pmach_pw = NULL;
+	uint32 l1, l2, l3, l4, l5;
+	int ret;
+	struct dcinfo *pdc = NULL;
+	char *keystr = talloc_asprintf(mem_ctx, "%s/%s", SECRETS_SCHANNEL_STATE,
+				remote_machine);
+
+	*ppdc = NULL;
+
+	if (!keystr) {
+		return False;
+	}
+
+	strupper_m(keystr);
+
+	tdb_sc = open_schannel_session_store(mem_ctx);
+	if (!tdb_sc) {
+		TALLOC_FREE(keystr);
+		return False;
+	}
+
+	value = tdb_fetch_bystring(tdb_sc, keystr);
+	if (!value.dptr) {
+		DEBUG(0,("secrets_restore_schannel_session_info: Failed to find entry with key %s\n",
+			keystr ));
+		tdb_close(tdb_sc);
+		return False;
+	}
+
+	pdc = TALLOC_ZERO_P(mem_ctx, struct dcinfo);
+
+	/* Retrieve the record. */
+	ret = tdb_unpack(value.dptr, value.dsize, "dBBBBBfff",
+				&pdc->sequence,
+				&l1, &pseed_chal,
+				&l2, &pclnt_chal,
+				&l3, &psrv_chal,
+				&l4, &psess_key,
+				&l5, &pmach_pw,
+				&pdc->mach_acct,
+				&pdc->remote_machine,
+				&pdc->domain);
+
+	if (ret == -1 || l1 != 8 || l2 != 8 || l3 != 8 || l4 != 16 || l5 != 16) {
+		/* Bad record - delete it. */
+		tdb_delete_bystring(tdb_sc, keystr);
+		tdb_close(tdb_sc);
+		TALLOC_FREE(keystr);
+		TALLOC_FREE(pdc);
+		SAFE_FREE(pseed_chal);
+		SAFE_FREE(pclnt_chal);
+		SAFE_FREE(psrv_chal);
+		SAFE_FREE(psess_key);
+		SAFE_FREE(pmach_pw);
+		SAFE_FREE(value.dptr);
+		return False;
+	}
+
+	tdb_close(tdb_sc);
+
+	memcpy(pdc->seed_chal.data, pseed_chal, 8);
+	memcpy(pdc->clnt_chal.data, pclnt_chal, 8);
+	memcpy(pdc->srv_chal.data, psrv_chal, 8);
+	memcpy(pdc->sess_key, psess_key, 16);
+	memcpy(pdc->mach_pw, pmach_pw, 16);
+
+	/* We know these are true so didn't bother to store them. */
+	pdc->challenge_sent = True;
+	pdc->authenticated = True;
+
+	DEBUG(3,("secrets_restore_schannel_session_info: restored schannel info key %s\n",
+		keystr ));
+
+	SAFE_FREE(pseed_chal);
+	SAFE_FREE(pclnt_chal);
+	SAFE_FREE(psrv_chal);
+	SAFE_FREE(psess_key);
+	SAFE_FREE(pmach_pw);
+
+	TALLOC_FREE(keystr);
+	SAFE_FREE(value.dptr);
+
+	*ppdc = pdc;
+
+	return True;
+}
+
+BOOL secrets_store_generic(const char *owner, const char *key, const char *secret)
+{
+	char *tdbkey = NULL;
+	BOOL ret;
+	
+	if (asprintf(&tdbkey, "SECRETS/GENERIC/%s/%s", owner, key) < 0) {
+		DEBUG(0, ("asprintf failed!\n"));
+		return False;
+	}
+		
+	ret = secrets_store(tdbkey, secret, strlen(secret)+1);
+	
+	SAFE_FREE(tdbkey);
+	return ret;
+}
+
+/*******************************************************************
+ Find the ldap password.
+******************************************************************/
+
+char *secrets_fetch_generic(const char *owner, const char *key)
+{
+	char *secret = NULL;
+	char *tdbkey = NULL;
+
+	if (( ! owner) || ( ! key)) {
+		DEBUG(1, ("Invalid Paramters"));
+		return NULL;
+	}
+
+	if (asprintf(&tdbkey, "SECRETS/GENERIC/%s/%s", owner, key) < 0) {
+		DEBUG(0, ("Out of memory!\n"));
+		return NULL;
+	}
+	
+	secret = (char *)secrets_fetch(tdbkey, NULL);
+	SAFE_FREE(tdbkey);
+
+	return secret;
 }
 

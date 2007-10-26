@@ -1,0 +1,138 @@
+Index: samba/source/smbd/darwin_check_share_access.c
+===================================================================
+--- /dev/null
++++ samba/source/smbd/darwin_check_share_access.c
+@@ -0,0 +1,63 @@
++/*
++ * Darwin check share access
++ *
++ * Copyright (c) 2007 Apple Inc. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ */
++
++/* This header has to be here due to preprocessor conflicts with Samba
++ * headers.
++ */
++#include "includes.h"
++#include <sys/attr.h>
++
++/*
++ * Given a path to a share check the users access. The
++ * user needs to be able to read or write to the share point.
++ *
++ * Note: This routine doesn't handle the "force user" option.
++ */
++BOOL check_share_access(const char *path)
++{
++	struct attrlist attrlist;
++	u_int32_t attrbuf[2];	/* Length field and access modes */
++
++	ZERO_STRUCT(attrlist);
++	ZERO_STRUCT(attrbuf);
++	attrlist.bitmapcount = ATTR_BIT_MAP_COUNT;
++	attrlist.commonattr = ATTR_CMN_USERACCESS;
++	/* Call getattrlist to get the real volume name */
++	if (getattrlist(path, &attrlist, attrbuf, sizeof(attrbuf), 0) != 0) {
++		if (errno == EACCES) {
++		    DEBUG(5, ("getattrlist for %s failed: %s disallowing access!\n", path, strerror(errno)));
++		    return False;
++		}
++		DEBUG(10, ("getattrlist for %s failed: %s allowing access!\n", path, strerror(errno)));
++		return True;
++	}
++	/* Check the length just to be safe */
++	if (attrbuf[0] < sizeof(attrbuf)) {
++	    DEBUG(10, ("getattrlist for %s returned a bad length (%d) allowing access!\n", path, attrbuf[0]));
++	    return True;
++	}
++	/* Make sure they have read or write access */
++	if ((attrbuf[1] & X_OK) && ((attrbuf[1] & R_OK) || (attrbuf[1] & W_OK)) ) {
++		DEBUG(10, ("%s allowing access 0x%x\n", path, attrbuf[1]));
++		return True;
++	}
++	DEBUG(5, ("%s disallowing access 0x%x\n", path, attrbuf[1]));
++	return False;
++}
+Index: samba/source/rpc_server/srv_srvsvc_nt.c
+===================================================================
+--- samba/source/rpc_server/srv_srvsvc_nt.c.orig
++++ samba/source/rpc_server/srv_srvsvc_nt.c
+@@ -472,8 +472,15 @@ static BOOL init_srv_share_info_ctr(pipe
+ 
+ 	/* Count the number of entries. */
+ 	for (snum = 0; snum < num_services; snum++) {
+-		if (lp_browseable(snum) && lp_snum_ok(snum) && (all_shares || !is_hidden_share(snum)) )
++		if (lp_browseable(snum) && lp_snum_ok(snum) && (all_shares || !is_hidden_share(snum)) ) {
++		    if ((lp_parm_bool(snum, "com.apple", "filter shares by access", False) == False) ||
++		    	(check_share_access(lp_pathname(snum)) == True))
+ 			num_entries++;
++		    else {
++			DEBUG(10,("Marking service %s unbrowseable - path = %s\n", lp_servicename(snum), lp_pathname(snum)));
++			lp_set_browseable(snum, False);
++		    }
++		}
+ 	}
+ 
+ 	*total_entries = num_entries;
+Index: samba/source/smbd/lanman.c
+===================================================================
+--- samba/source/smbd/lanman.c.orig
++++ samba/source/smbd/lanman.c
+@@ -1729,6 +1729,13 @@ static BOOL api_RNetShareEnum( connectio
+ 		if (!(lp_browseable(i) && lp_snum_ok(i))) {
+ 			continue;
+ 		}
++		if ((lp_parm_bool(i, "com.apple", "filter shares by access", False) == True) &&
++			(check_share_access(lp_pathname(i)) == False)) {
++		    DEBUG(10,("Marking service %s unbrowseable -  path = %s\n", lp_servicename(i), lp_pathname(i)));
++		    lp_set_browseable(i, False);
++		    continue;
++		}
++
+ 		push_ascii_fstring(servicename_dos, lp_servicename(i));
+ 		/* Maximum name length = 13. */
+ 		if( lp_browseable( i ) && lp_snum_ok( i ) && (strlen(servicename_dos) < 13)) {
+Index: samba/source/Makefile.in
+===================================================================
+--- samba/source/Makefile.in.orig
++++ samba/source/Makefile.in
+@@ -481,6 +481,7 @@ SMBD_OBJ_SRV = smbd/files.o smbd/chgpass
+ 	       smbd/quotas.o smbd/ntquotas.o $(AFS_OBJ) smbd/msdfs.o \
+ 	       $(AFS_SETTOKEN_OBJ) smbd/aio.o smbd/statvfs.o \
+ 	       smbd/darwin_clone_local_volumes.o \
++	       smbd/darwin_check_share_access.o \
+ 	       smbd/dmapi.o lib/opendirectory.o \
+ 	       lib/launchd.o smbd/sockinit.o \
+ 	       $(MANGLE_OBJ) @VFS_STATIC@
+Index: samba/source/param/loadparm.c
+===================================================================
+--- samba/source/param/loadparm.c.orig
++++ samba/source/param/loadparm.c
+@@ -5936,3 +5936,14 @@ void lp_set_posix_default_cifsx_readwrit
+ 	posix_default_lock_was_set = True;
+ 	posix_cifsx_locktype = val;
+ }
++
++/***************************************************************************
++ Make the service browseable or not.
++***************************************************************************/
++
++void lp_set_browseable(int snum, BOOL val)
++{
++	if (LP_SNUM_OK(snum)) {
++		ServicePtrs[snum]->bBrowseable = val;
++	}
++}

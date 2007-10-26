@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2002-2004, International Business Machines Corporation and
+ * Copyright (c) 2002-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -146,7 +146,7 @@ void UCAConformanceTest::openTestFile(const char *type)
           "INFO: Working with the stub file.\n"
           "If you need the full conformance test, please\n"
           "download the appropriate data files from:\n"
-          "http://oss.software.ibm.com/cvs/icu4j/unicodetools/com/ibm/text/data/");
+          "http://dev.icu-project.org/cgi-bin/viewcvs.cgi/unicodetools/com/ibm/text/data/");
       }
     }
   }
@@ -169,13 +169,14 @@ void UCAConformanceTest::testConformance(UCollator *coll)
   int32_t buflen = 0, oldBlen = 0;
   uint32_t first = 0;
   uint32_t offset = 0;
+  UnicodeString oldS, newS;
 
 
   while (fgets(lineB, 1024, testFile) != NULL) {
     offset = 0;
 
     line++;
-    if(*lineB == 0 || lineB[0] == '#') {
+    if(*lineB == 0 || strlen(lineB) < 3 || lineB[0] == '#') {
       continue;
     }
     offset = u_parseString(lineB, buffer, 1024, &first, &status);
@@ -203,6 +204,9 @@ void UCAConformanceTest::testConformance(UCollator *coll)
       if(res > 0) {
         errln("Line %i is not greater or equal than previous line", line);
         logln("Data line %s", lineB);
+        prettify(CollationKey(oldSk, oldLen), oldS);
+        prettify(CollationKey(newSk, resLen), newS);
+        logln("Keys: "+oldS+" and "+newS);
       } else if(res == 0) { /* equal */
         res = u_strcmpCodePointOrder(oldB, buffer);
         if (res == 0) {

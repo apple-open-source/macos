@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,14 +55,16 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #ifndef lint
-static char copyright[] =
+__unused static char copyright[] =
 "@(#) Copyright (c) 1980, 1990, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-static char sccsid[] = "@(#)repquota.c	8.2 (Berkeley) 11/22/94";
+__unused static char sccsid[] = "@(#)repquota.c	8.2 (Berkeley) 11/22/94";
 #endif /* not lint */
 
 /*
@@ -85,7 +87,7 @@ static char sccsid[] = "@(#)repquota.c	8.2 (Berkeley) 11/22/94";
 #include <string.h>
 #include <unistd.h>
 #ifdef __APPLE__
-#include <architecture/byte_order.h>
+#include <libkern/OSByteOrder.h>
 #endif /* __APPLE__ */
 
 char *qfname = QUOTAFILENAME;
@@ -264,9 +266,15 @@ repquota(fst, type, qfpathname)
 	int i;
 	struct passwd *pw;
 	struct group *gr;
+	int maxentries;
+	u_int64_t bsoftlimit;
+	u_int32_t isoftlimit;
+	u_int64_t curbytes;
+	u_int32_t curinodes;
+
 
 	if (quotactl(fst->f_mntonname, QCMD(Q_SYNC, type), 0, 0) < 0 &&
-	    errno == EOPNOTSUPP && !warned && vflag) {
+	    errno == ENOTSUP && !warned && vflag) {
 		warned++;
 		fprintf(stdout,
 		    "*** Warning: Quotas are not compiled into this kernel\n");
@@ -283,20 +291,20 @@ repquota(fst, type, qfpathname)
 
 	/* Read in the quota file header. */
 	if (fread((char *)&dqhdr, sizeof(struct dqfilehdr), 1, qf) > 0) {
-		/* Check for reverse endian file. */
-		if (dqhdr.dqh_magic != quotamagic[type] &&
-		    NXSwapLong(dqhdr.dqh_magic) == quotamagic[type]) {
+		/* Check for non big endian file. */
+		if (OSSwapBigToHostInt32(dqhdr.dqh_magic) != quotamagic[type] &&
+		    OSSwapInt32(dqhdr.dqh_magic) == quotamagic[type]) {
 			(void) fprintf(stderr,
-			    "*** Error: %s: not in machine native byte order\n", qfpathname);
+			    "*** Error: %s: not in big endian byte order\n", qfpathname);
 			(void) fclose(qf);
 			return (1);
 		}
 		/* Sanity check the quota file header. */
-		if ((dqhdr.dqh_magic != quotamagic[type]) ||
-		    (dqhdr.dqh_version > QF_VERSION) ||
-		    (!powerof2(dqhdr.dqh_maxentries))) {
+		if ((OSSwapBigToHostInt32(dqhdr.dqh_magic) != quotamagic[type]) ||
+		    (OSSwapBigToHostInt32(dqhdr.dqh_version) > QF_VERSION) ||
+		    (!powerof2(OSSwapBigToHostInt32(dqhdr.dqh_maxentries)))) {
 			(void) fprintf(stderr,
-			    "quotacheck: %s: not a valid quota file\n", qfpathname);
+			    "repquota: %s: not a valid quota file\n", qfpathname);
 			(void) fclose(qf);
 			return (1);
 		}
@@ -305,11 +313,13 @@ repquota(fst, type, qfpathname)
 	printf("                        1K Block limits               File limits\n");
 	printf("User                used        soft        hard  grace    used  soft  hard  grace\n");
 
+	maxentries = OSSwapBigToHostInt32(dqhdr.dqh_maxentries);
+
 	/* Read the entries in the quota file. */
-	for (i = 0; i < dqhdr.dqh_maxentries; i++) {
+	for (i = 0; i < maxentries; i++) {
 		if (fread(&dqbuf, sizeof(struct dqblk), 1, qf) == 0 && feof(qf))
 			break;
-		id = dqbuf.dqb_id;
+		id = OSSwapBigToHostInt32(dqbuf.dqb_id);
 		if (id == 0)
 			continue;
 		if (dqbuf.dqb_curinodes == 0 && dqbuf.dqb_curbytes == 0LL)
@@ -330,28 +340,33 @@ repquota(fst, type, qfpathname)
 		else
 			printf("%-10u", (unsigned int)id);
 
+		bsoftlimit = OSSwapBigToHostInt64( dqbuf.dqb_bsoftlimit );
+		isoftlimit = OSSwapBigToHostInt32( dqbuf.dqb_isoftlimit );
+		curbytes   = OSSwapBigToHostInt64( dqbuf.dqb_curbytes );
+		curinodes  = OSSwapBigToHostInt32( dqbuf.dqb_curinodes );
+
 		printf("%c%c%12qd%12qd%12qd%7s",
-			dqbuf.dqb_bsoftlimit && 
-			    dqbuf.dqb_curbytes >= 
-			    dqbuf.dqb_bsoftlimit ? '+' : '-',
-			dqbuf.dqb_isoftlimit &&
-			    dqbuf.dqb_curinodes >=
-			    dqbuf.dqb_isoftlimit ? '+' : '-',
-			dqbuf.dqb_curbytes / 1024,
-			dqbuf.dqb_bsoftlimit / 1024,
-			dqbuf.dqb_bhardlimit / 1024,
-			dqbuf.dqb_bsoftlimit && 
-			    dqbuf.dqb_curbytes >= 
-			    dqbuf.dqb_bsoftlimit ?
-			    timeprt(dqbuf.dqb_btime) : "");
+			bsoftlimit && 
+			    curbytes >= 
+			    bsoftlimit ? '+' : '-',
+			isoftlimit &&
+			    curinodes >=
+			    isoftlimit ? '+' : '-',
+			curbytes / 1024,
+			bsoftlimit / 1024,
+			OSSwapBigToHostInt64( dqbuf.dqb_bhardlimit ) / 1024,
+			bsoftlimit && 
+			    curbytes >= 
+			    bsoftlimit ?
+			    timeprt(OSSwapBigToHostInt32(dqbuf.dqb_btime)) : "");
 		printf("  %6d%6d%6d%7s\n",
-			dqbuf.dqb_curinodes,
-			dqbuf.dqb_isoftlimit,
-			dqbuf.dqb_ihardlimit,
-			dqbuf.dqb_isoftlimit &&
-			    dqbuf.dqb_curinodes >=
-			    dqbuf.dqb_isoftlimit ?
-			    timeprt(dqbuf.dqb_itime) : "");
+			curinodes,
+			isoftlimit,
+			OSSwapBigToHostInt32( dqbuf.dqb_ihardlimit ),
+			isoftlimit &&
+			    curinodes >=
+			    isoftlimit ?
+			    timeprt(OSSwapBigToHostInt32(dqbuf.dqb_itime)) : "");
 	}
 	fclose(qf);
 
@@ -374,7 +389,7 @@ repquota(fs, type, qfpathname)
 	extern int errno;
 
 	if (quotactl(fs->fs_file, QCMD(Q_SYNC, type), 0, 0) < 0 &&
-	    errno == EOPNOTSUPP && !warned && vflag) {
+	    errno == ENOTSUP && !warned && vflag) {
 		warned++;
 		fprintf(stdout,
 		    "*** Warning: Quotas are not compiled into this kernel\n");
@@ -605,13 +620,13 @@ timeprt(seconds)
 	minutes = (seconds + 30) / 60;
 	hours = (minutes + 30) / 60;
 	if (hours >= 36) {
-		sprintf(buf, "%ddays", (hours + 12) / 24);
+		sprintf(buf, "%lddays", (hours + 12) / 24);
 		return (buf);
 	}
 	if (minutes >= 60) {
-		sprintf(buf, "%2d:%d", minutes / 60, minutes % 60);
+		sprintf(buf, "%2ld:%ld", minutes / 60, minutes % 60);
 		return (buf);
 	}
-	sprintf(buf, "%2d", minutes);
+	sprintf(buf, "%2ld", minutes);
 	return (buf);
 }

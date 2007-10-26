@@ -1,0 +1,104 @@
+.\" $Xorg: xrefresh.man,v 1.4 2001/02/09 02:05:56 xorgcvs Exp $
+.\" Copyright 1988, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\"
+.\" $XFree86: xc/programs/xrefresh/xrefresh.man,v 1.7 2001/01/27 18:21:22 dawes Exp $
+.\"
+.TH XREFRESH 1 __xorgversion__
+.SH NAME
+xrefresh - refresh all or part of an X screen
+.SH SYNOPSIS
+.B "xrefresh"
+[-option ...] 
+.SH DESCRIPTION
+.PP
+.I Xrefresh
+is a simple X program that causes all or part of your screen to be repainted.
+This is useful when system messages have messed up your screen.
+.I Xrefresh
+maps a window on top of the desired area of the screen and then immediately
+unmaps it, 
+causing refresh events to be sent to all applications.  By default,
+a window with no background is used, causing all applications to repaint
+``smoothly.''
+However, the various options can be used to indicate that a solid background 
+(of any color) or the root window background should be used instead.
+.SH ARGUMENTS
+.PP
+.TP 10
+.B \-white
+Use a white background.  The screen just appears to flash quickly, and then
+repaint.
+.PP
+.TP 10
+.B \-black
+Use a black background (in effect, turning off all of the electron guns to
+the tube).  This can be somewhat disorienting as everything goes black for
+a moment.
+.PP
+.TP 10
+.B \-solid \fIcolor\fP
+Use a solid background of the specified color.  Try green.
+.PP
+.TP 10
+.B \-root
+Use the root window background.
+.PP
+.TP 10
+.B \-none
+This is the default.  All of the windows simply repaint.
+.PP
+.TP 10
+.B \-geometry \fIWxH+X+Y\fP
+Specifies the portion of the screen to be repainted; see \fIX(__miscmansuffix__)\fP.
+.PP
+.TP 10
+.B \-display \fIdisplay\fP
+This  argument  allows  you  to  specify the server and screen to
+refresh; see \fIX(__miscmansuffix__)\fP.
+.SH X DEFAULTS
+The
+.I xrefresh
+program uses the routine 
+.I XGetDefault(3X)
+to read defaults, so its resource names are all capitalized.
+.PP
+.TP 8
+.B Black\fP, \fBWhite\fP, \fBSolid\fP, \fBNone\fP, \fBRoot\fP
+Determines what sort of window background to use.
+.PP
+.TP 8
+.B Geometry
+Determines the area to refresh.  Not very useful.
+.SH ENVIRONMENT
+.PP
+.TP 8
+DISPLAY - To get default host and display number.
+.SH SEE ALSO
+X(__miscmansuffix__)
+.SH BUGS
+.PP
+It should have just one default type for the background.
+.SH AUTHORS
+Jim Gettys, Digital Equipment Corp., MIT Project Athena

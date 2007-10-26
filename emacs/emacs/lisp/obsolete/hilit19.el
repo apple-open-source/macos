@@ -1,6 +1,7 @@
 ;;; hilit19.el --- customizable highlighting for Emacs 19
 
-;; Copyright (c) 1993, 1994, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author:   Jonathan Stigelman <stig@hackvan.com>
 ;; Maintainer: FSF
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -30,7 +31,7 @@
 ;; not only source code highlighting, but also Info, RMAIL, VM, gnus...
 ;; Hilit19 knows (or thinks it knows) how to highlight emacs buffers in
 ;; about 25 different modes.
-;; 
+;;
 ;; WHERE TO GET THE LATEST VERSIONS OF HILIT19.EL (beta and release):
 ;;
 ;;      http://hackvan.com/pub/stig/src/elisp/
@@ -55,7 +56,7 @@
 ;; GENERAL OVERVIEW
 ;;
 ;;      This package installs numerous hooks to colorfully highlight your
-;;      source code buffers as well as mail and news buffers.  Most 
+;;      source code buffers as well as mail and news buffers.  Most
 ;;      programming languages have predefined highlighting patterns.
 ;;	Just load hilit19 and files will be automatically highlighted as
 ;;      they're loaded.
@@ -69,27 +70,27 @@
 ;;
 ;;      Hilit19 can build faces by examining the names that you give to them
 ;;	For example, green/black-bold-italic-underline would be created as
-;;	a face with a green foreground, and a black background, using a 
+;;	a face with a green foreground, and a black background, using a
 ;;	bold-italic font...with underlining for good measure.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; SETUP -- In your .emacs:
 ;;
-;; 
+;;
 ;; (cond (window-system
 ;;        (setq hilit-mode-enable-list  '(not text-mode)
 ;;              hilit-background-mode   'light
 ;;              hilit-inhibit-hooks     nil
 ;;              hilit-inhibit-rebinding nil)
-;; 
+;;
 ;;        (require 'hilit19)
 ;;        ))
-;; 
+;;
 ;; If you like font-lock-mode and want to use both packages, then you can
 ;; disable hilit for the modes in which you want to use font-lock by listing
 ;; said modes in hilit-mode-enable-list.
-;; 
+;;
 ;;      (hilit-translate type     'RoyalBlue   ; enable highlighting in C/C++
 ;;			 string	  nil)         ; disable string highlighting
 ;;
@@ -293,7 +294,7 @@
 ;;
 
 ;;;;;; AND THIS CAN BE APPLIED TO VM 5.33L_19
-;; 
+;;
 ;; *** ../site/vm5.33L_19/vm-summary.el    Fri Jun  4 22:17:11 1993
 ;; --- ./vm-summary.el     Tue Jun 22 16:39:30 1993
 ;; ***************
@@ -303,7 +304,7 @@
 ;;                   (forward-char -2)
 ;; !                 (and w vm-auto-center-summary (vm-auto-center-summary))))
 ;;             (and old-window (select-window old-window)))))))
-;;   
+;;
 ;;   (defun vm-mark-for-display-update (message)
 ;; --- 152,159 ----
 ;;                   (insert "->")
@@ -312,9 +313,9 @@
 ;; !                 (and w vm-auto-center-summary (vm-auto-center-summary))
 ;; !                 (run-hooks 'vm-summary-pointer-hook)))
 ;;             (and old-window (select-window old-window)))))))
-;;   
+;;
 ;;   (defun vm-mark-for-display-update (message)
-;; 
+;;
 ;;;;;;
 
 ;;; Code:
@@ -325,7 +326,7 @@
   "* If non-nil, this inhibits progress indicators during highlighting")
 
 (defvar hilit-auto-highlight t
-  "* T if we should highlight all buffers as we find 'em, nil to disable
+  "* t if we should highlight all buffers as we find 'em, nil to disable
   automatic highlighting by the find-file hook.")
 
 (defvar hilit-auto-highlight-maxout 60000 ; hilit19 keeps getting bigger...
@@ -333,7 +334,7 @@
 
 (defvar hilit-auto-rehighlight t
   "* If this is non-nil, then hilit-redraw and hilit-recenter will also
-  rehighlight part or all of the current buffer.  T will rehighlight the
+  rehighlight part or all of the current buffer.  t will rehighlight the
   whole buffer, a NUMBER will rehighlight that many lines before and after
   the cursor, and the symbol 'visible' will rehighlight only the visible
   portion of the current buffer.  This variable is buffer-local.")
@@ -346,10 +347,10 @@
   THRESHOLD.")
 
 (defvar hilit-face-check t
-  "* T slows down highlighting but permits the user to change fonts without
-  losing bold and italic faces...  T causes hilit-lookup-face-create to dig
+  "* t slows down highlighting but permits the user to change fonts without
+  losing bold and italic faces...  t causes hilit-lookup-face-create to dig
   through the frame parameters for the current window every time it's called.
-  If you never change fonts in emacs, set this to NIL.")
+  If you never change fonts in emacs, set this to nil.")
 
 ;; Variables which must be set before loading hilit19.
 
@@ -396,8 +397,6 @@ See the hilit-lookup-face-create documentation for valid face names.")
 
 If hilit19 is dumped into emacs at your site, you may have to set this in
 your init file.")
-
-(eval-when-compile (setq byte-optimize t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Use this to report bugs:
@@ -468,16 +467,16 @@ your init file.")
     (keyword	RoyalBlue	    cyan	       bold-italic)
     (label	red-underline	    orange-underlined  underline)
     (string	grey40		    orange	       underline)
-    
+
     ;; some further faces for Ada
     (struct	  black-bold        white-bold	       bold)
     (glob-struct  magenta	    Plum1	       default-bold-underline)
     (named-param  DarkGoldenrod	    Goldenrod	       underline)
-	
+
     ;; and another one for LaTeX
     (crossref	  DarkGoldenrod	    Goldenrod	       underline)
     (formula	  Goldenrod	    DarkGoldenrod      underline)
- 
+
     ;; compilation buffers
     (active-error default/pink-bold  default/DeepPink-bold  default-underline)
     (error	  red-bold           yellow	       bold)
@@ -485,7 +484,7 @@ your init file.")
 
     ;; Makefiles (some faces borrowed from C/C++ too)
     (rule	  blue-bold-underline cyan-underline   default-bold-underline)
-    
+
     ;; VM, GNUS and Text mode
     (msg-subject    blue-bold       yellow             bold)
     (msg-from	    purple-bold	    green	       bold)
@@ -512,7 +511,7 @@ your init file.")
     (dired-ignored   ForestGreen       moccasin	       nil)
     (dired-deleted   red-bold-italic   orange	       bold-italic)
     (dired-marked    purple	       Plum1	       nil)
-	
+
     ;; Info-mode, and jargon-mode.el and prep.ai.mit.edu:/pub/gnu/jargon*
     (jargon-entry    blue-bold	       cyan            bold)
     (jargon-xref     purple-bold       Plum1	       italic)
@@ -557,9 +556,9 @@ See the documentation for hilit-lookup-face-create for names of valid faces."
 		       cmdl)))
     (cons 'progn cmdl)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; This function actually translates and then creates the faces...
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun hilit-lookup-face-create (face &optional force)
   "Get a FACE, or create it if it doesn't exist.  In order for it to
@@ -589,7 +588,7 @@ See the documentation for hilit-translate and hilit-face-translation-table."
 	 (basefont (cdr (assq 'font (frame-parameters frame))))
 	 error fgcolor bgcolor)
     (cond
-     ((or (null face)			
+     ((or (null face)
 	  (memq face hilit-predefined-face-list))
       ;; do nothing if the face is nil or if it's predefined.
       )
@@ -616,10 +615,10 @@ See the documentation for hilit-translate and hilit-face-translation-table."
 			 (and (match-beginning 1) "#")
 			 (substring fn (match-beginning 2) (match-end 2)))
 		fn (substring fn (match-end 0))))
-      
+
       (and (string= "default" fgcolor) (setq fgcolor nil))
       (and (string= "default" bgcolor) (setq bgcolor nil))
-      
+
       ;; catch errors if we can't allocate the color(s)
       (condition-case nil
 	  (progn (and fgcolor (set-face-foreground 'scratch-face fgcolor))
@@ -705,7 +704,7 @@ non-nil."
   (cond ((null patterns)
 	 (setq patterns (cdr (assq major-mode hilit-patterns-alist))))
 	((symbolp patterns)
-	 (setq patterns (cdr (assq patterns hilit-patterns-alist)))))  
+	 (setq patterns (cdr (assq patterns hilit-patterns-alist)))))
   ;; txt prop: (setq patterns (reverse patterns))
   (let ((case-fold-search (car patterns))
 	(prio (1- (length patterns)))
@@ -725,11 +724,11 @@ non-nil."
 	  (if (not face)		; skipped if nil
 	      nil
 	    (or quietly hilit-quietly
-		(message "highlighting %d: %s%s" prio pstart 
+		(message "highlighting %d: %s%s" prio pstart
 			 (if (stringp pend) (concat " ... " pend) "")))
 	    (goto-char (point-min))
 	    (condition-case msg
-		(cond 
+		(cond
 		      ((symbolp pstart)
 		       ;; inner loop -- special function to find pattern
 		       (let (region)
@@ -799,7 +798,7 @@ non-nil."
 
 ;; Well, I want to remove this function...there's one sure way to find out if
 ;; anyone uses it or not...and that's to comment it out.
-;; 
+;;
 ;; (defun hilit-toggle-highlight (arg)
 ;;   "Locally toggle highlighting.  With arg, forces highlighting off."
 ;;   (interactive "P")
@@ -835,7 +834,7 @@ prefix argument if that is specified.
 \t^U \\[hilit-repaint-command]\trepaint entire buffer
 \t^U - \\[hilit-repaint-command]\trepaint visible portion of buffer
 \t^U n \\[hilit-repaint-command]\trepaint n lines to either side of point"
-  (interactive "P") 
+  (interactive "P")
   (let (st en quietly)
     (or arg (setq arg hilit-auto-rehighlight))
     (cond ((or (eq  arg 'visible) (eq arg '-))
@@ -878,7 +877,7 @@ the entire buffer is forced."
 
 ;;; this line highlighting stuff is untested.  play with it only if you feel
 ;;; adventurous...don't ask me to fix it...though you're welcome to.  -- Stig
-;; 
+;;
 ;; (defun hilit-rehighlight-line-quietly (&rest args)
 ;;   "Quietly rehighlight just this line.
 ;; Useful as an after change hook in VM/gnus summary buffers and dired buffers.
@@ -887,7 +886,7 @@ the entire buffer is forced."
 ;;     (push-mark nil t)
 ;;     (hilit-rehighlight-yank-region)
 ;;     (and orig-achange-function (apply orig-achange-function args))))
-;; 
+;;
 ;; (defun hilit-install-line-hooks ()
 ;;   (make-variable-buffer-local 'after-change-function)
 ;;   (make-local-variable 'orig-achange-function)
@@ -897,11 +896,11 @@ the entire buffer is forced."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Wysiwyg Stuff...  take it away and build a whole package around it!
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; 
+;;
 ;; ; For the Jargon-impaired, WYSIWYG === What You See Is What You Get
 ;; ; Sure, it sucks to type.  Oh, well.
 ;; (defun hilit-wysiwyg-replace ()
-;;   "Replace overstruck text with normal text that's been overlaid with the 
+;;   "Replace overstruck text with normal text that's been overlaid with the
 ;; appropriate text attribute.  Suitable for a find-file hook."
 ;;   (save-excursion
 ;;     (goto-char (point-min))
@@ -918,7 +917,7 @@ the entire buffer is forced."
 ;; 	    (replace-match "") (forward-char))
 ;; 	  ))
 ;;       (set-buffer-modified-p bmod))))
-;; 
+;;
 ;; ; is this more appropriate as a write-file-hook or a write-contents-hook?
 ;; (defun hilit-wysiwyg-write-repair ()
 ;;   "Replace wysiwyg overlays with overstrike text."
@@ -942,49 +941,63 @@ the entire buffer is forced."
 ;;  nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Initialization.  
+;; Initialization.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(and (not hilit-inhibit-rebinding)
-     (progn 
-       (substitute-key-definition 'yank     'hilit-yank
-				  (current-global-map))
-       (substitute-key-definition 'yank-pop 'hilit-yank-pop
-				  (current-global-map))
-       (substitute-key-definition 'recenter 'hilit-recenter
-				  (current-global-map))))
+(define-minor-mode hilit-mode
+  "Obsolete minor mode.  Use `global-font-lock-mode' instead."
+  :global t
 
-(global-set-key [?\C-\S-l] 'hilit-repaint-command)
+  (unless (and hilit-inhibit-rebinding hilit-mode)
+    (substitute-key-definition
+     (if hilit-mode 'yank 'hilit-yank)
+     (if hilit-mode 'hilit-yank 'yank)
+     (current-global-map))
+    (substitute-key-definition
+     (if hilit-mode 'yank-pop 'hilit-yank-pop)
+     (if hilit-mode 'hilit-yank-pop 'yank-pop)
+     (current-global-map))
+    (substitute-key-definition
+     (if hilit-mode 'recenter 'hilit-recenter)
+     (if hilit-mode 'hilit-recenter 'recenter)
+     (current-global-map)))
 
-(add-hook 'find-file-hooks 'hilit-find-file-hook t)
+  (if hilit-mode
+      (global-set-key [?\C-\S-l] 'hilit-repaint-command)
+    (global-unset-key [?\C-\S-l]))
+
+  (if hilit-mode
+      (add-hook 'find-file-hook 'hilit-find-file-hook t)
+    (remove-hook 'find-file-hook 'hilit-find-file-hook))
+
+  (unless (and hilit-inhibit-hooks hilit-mode)
+    (condition-case c
+	(progn
+
+	  ;; BUFFER highlights...
+	  (mapcar (lambda (hook)
+		    (if hilit-mode
+			(add-hook hook 'hilit-rehighlight-buffer-quietly)
+		      (remove-hook hook 'hilit-rehighlight-buffer-quietly)))
+		  '(
+		    Info-selection-hook
+
+		    ;; runs too early		     vm-summary-mode-hooks
+		    vm-summary-pointer-hook
+		    vm-preview-message-hook
+		    vm-show-message-hook
+
+		    rmail-show-message-hook
+		    mail-setup-hook
+		    mh-show-mode-hook
+
+		    dired-after-readin-hook
+		    ))
+	  )
+      (error (message "Error loading highlight hooks: %s" c)
+	     (ding) (sit-for 1)))))
 
 (eval-when-compile (require 'gnus))	; no compilation gripes
-
-(and (not hilit-inhibit-hooks)
-     (condition-case c
-	 (progn
-
-	   ;; BUFFER highlights...
-	   (mapcar (function
-		    (lambda (hook)
-		      (add-hook hook 'hilit-rehighlight-buffer-quietly)))
-		   '(
-		     Info-selection-hook
-
-;; runs too early		     vm-summary-mode-hooks
-		     vm-summary-pointer-hook
-		     vm-preview-message-hook
-		     vm-show-message-hook
-
-		     rmail-show-message-hook
-		     mail-setup-hook 
-		     mh-show-mode-hook
-
-		     dired-after-readin-hook
-		     ))
-	   )
-       (error (message "Error loading highlight hooks: %s" c)
-	      (ding) (sit-for 1))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Default patterns for various modes.
@@ -994,7 +1007,7 @@ the entire buffer is forced."
 ;;; inappropriate, but I don't know why I wanted hilit-patterns-alist to be
 ;;; reset on every reload...
 
-(setq hilit-patterns-alist nil) 
+(setq hilit-patterns-alist nil)
 
 (defun hilit-associate (alist key val)
   "creates, or destructively replaces, the pair (key . val) in alist"
@@ -1002,7 +1015,7 @@ the entire buffer is forced."
     (if oldentry
 	(setcdr oldentry val)
       (set alist (cons (cons key val) (eval alist))))))
-  
+
 (defun hilit-set-mode-patterns (modelist patterns
 					 &optional parse-fn case-fold)
   "Sets the default highlighting patterns for MODE to PATTERNS.
@@ -1016,7 +1029,7 @@ Takes optional arguments PARSE-FN and CASE-FOLD."
 			   (setcar (cdr p) 0))))
 	  patterns)
   (setq patterns (cons case-fold patterns))
-  
+
   (or (consp modelist) (setq modelist (list modelist)))
   (let (ok (flip (eq (car hilit-mode-enable-list) 'not)))
     (mapcar (function
@@ -1038,7 +1051,7 @@ Optionally, place the new pattern first in the pattern list"
 
   (and (equal pstart "") (error "Must specify starting regex"))
   (cond ((equal pend "") (setq pend 0))
-	((string-match "^[0-9]+$" pend) (setq pend (string-to-int pend))))
+	((string-match "^[0-9]+$" pend) (setq pend (string-to-number pend))))
   (or mode (setq mode major-mode))
   (let ((old-patterns (cdr (assq mode hilit-patterns-alist)))
 	(new-pat (list pstart pend face)))
@@ -1046,12 +1059,12 @@ Optionally, place the new pattern first in the pattern list"
 	   (hilit-set-mode-patterns mode (list new-pat)))
 	  (first
 	   (setcdr old-patterns (cons new-pat (cdr old-patterns))))
-	  (t 
+	  (t
 	   (nconc old-patterns (list new-pat)))))
   (and (interactive-p) (hilit-rehighlight-buffer)))
 
 (defun hilit-string-find (qchar)
-  "looks for a string and returns (start . end) or NIL.  The argument QCHAR
+  "Looks for a string and returns (start . end) or nil.  The argument QCHAR
 is the character that would precede a character constant double quote.
 Finds strings delimited by double quotes.  The first double quote may not be
 preceded by QCHAR and the closing double quote may not be preceded by an odd
@@ -1066,17 +1079,17 @@ number of backslashes."
 		  (skip-chars-backward "\\\\")
 		  (forward-char 1)
 		  (not (zerop (% (- en (point)) 2))))))
-    (and en (cons st en))))    
+    (and en (cons st en))))
 
 ;; return types on same line...
 ;; ("^[a-zA-z].*\\(\\w\\|[$_]\\)+\\s *\\(\\(\\w\\|[$_]\\)+\\s *((\\|(\\)[^)]*)+" nil defun)
 
 ;; On another note, a working pattern for grabbing function definitions for C is
-;; 
+;;
 ;; ("^[a-zA-Z_]+.*[;{]$" nil ForestGreen)  ; global defns ( start at col 1 )
 ;; ("^[a-zA-Z_]+.*(" ")" defun)
 ;; ; defuns assumed to start at col 1, not with # or {
-;; 
+;;
 ;; this will make external declarations/definitions green, and function
 ;; definitions the defun face.  Hmmm - seems to work for me anyway.
 
@@ -1179,7 +1192,7 @@ number of backslashes."
    ("\\(^[ \t]*[0-9]+\\|[ \t]continue[ \t\n]\\|format\\)" nil define)
    ("[ \t]\\(do\\|do[ \t]*[0-9]+\\|go[ \t]*to[ \t]*[0-9]+\\|end[ \t]*do\\|if\\|else[ \t]*if\\|then\\|else\\|end[ \t]*if\\)[ \t\n(]" nil define)
    ("[ \t]\\(call\\|program\\|subroutine\\|function\\|stop\\|return\\|end\\|include\\)[ \t\n]" nil include)
-   ("[ \t]\\(parameter[\t\n ]*([^)]*)\\|data\\|save\\|common[ \t\n]*/[^/]*/\\)" 
+   ("[ \t]\\(parameter[\t\n ]*([^)]*)\\|data\\|save\\|common[ \t\n]*/[^/]*/\\)"
     nil decl)
    ("^     ." nil type)
    ("implicit[ \t]*none" nil decl)
@@ -1249,7 +1262,7 @@ number of backslashes."
    ("[^\\]\\\\("  "\\\\)" formula)                   ; \( \)
    ("[^\\]\\\\\\[" "\\\\\\]" formula)                ; \[ \]
    ("[^\\$]\\(\\$\\(\\$[^$]*\\$\\|[^$]*\\)\\$\\)" 1 formula) ; '$...$' or '$$...$$'
-   
+
    ;; things that bring in external files
    ("\\\\\\(include\\|input\\|bibliography\\){" "}" include)
 
@@ -1334,7 +1347,7 @@ number of backslashes."
  '(
    (";.*" nil comment)
 
-;;; This almost works...but I think I'll stick with the parser function 
+;;; This almost works...but I think I'll stick with the parser function
 ;;;("[^?]\\(\"\\(\"\\||\\([^\"]+\\|[\\]\\([\\][\\]\\)*\"\\)*\"\\)\\)" 1 string)
    (hilit-string-find ?\\ string)
 
@@ -1352,7 +1365,7 @@ number of backslashes."
  '(
    (";.*" nil comment)
    ("#|" "|#" comment)
-;;; This almost works...but I think I'll stick with the parser function 
+;;; This almost works...but I think I'll stick with the parser function
 ;;;("[^?]\\(\"\\(\"\\||\\([^\"]+\\|[\\]\\([\\][\\]\\)*\"\\)*\"\\)\\)" 1 string)
    (hilit-string-find ?\\ string)
 
@@ -1490,7 +1503,7 @@ number of backslashes."
 ;; Pascal, strings are delimited with ' and an embedded quote is doubled,
 ;; thus string syntax would be extremely simple. However, if a string
 ;; occurs within a comment, the following text is considered a string.
-;; 
+;;
 ;; In Icon, strings are similar to C ones, but there are also charsets,
 ;; delimited with simple quotes. I could not manage to use both regexps at
 ;; the same time.
@@ -1510,4 +1523,5 @@ number of backslashes."
 
 (provide 'hilit19)
 
+;; arch-tag: db99739a-4837-41ee-ad02-3baced8ae71d
 ;;; hilit19.el ends here

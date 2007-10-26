@@ -1,4 +1,4 @@
-.\" $Id: curl_multi_info_read.3,v 1.5 2004/12/18 10:24:49 bagder Exp $
+.\" $Id: curl_multi_info_read.3,v 1.9 2007-05-26 20:47:33 bagder Exp $
 .\"
 .TH curl_multi_info_read 3 "18 Dec 2004" "libcurl 7.10.3" "libcurl Manual"
 .SH NAME
@@ -20,8 +20,14 @@ NULL is returned as a signal that there is no more to get at this point. The
 integer pointed to with \fImsgs_in_queue\fP will contain the number of
 remaining messages after this function was called.
 
-The data the returned pointer points to will not survive calling
-\fIcurl_multi_cleanup(3)\fP or \fIcurl_multi_remove_handle(3)\fP.
+When you fetch a message using this function, it is removed from the internal
+queue so calling this function again will not return the same message
+again. It will instead return new messages at each new invoke until the queue
+is emptied.
+
+\fBWARNING:\fP The data the returned pointer points to will not survive
+calling \fIcurl_multi_cleanup(3)\fP, \fIcurl_multi_remove_handle(3)\fP or
+\fIcurl_easy_cleanup(3)\fP.
 
 The 'CURLMsg' struct is very simple and only contain very basic information.
 If more involved information is wanted, the particular "easy handle" in
@@ -37,6 +43,12 @@ present in that struct and can thus be used in subsequent regular
      CURLcode result;   /* return code for transfer */
    } data;
  };
+
+When \fBmsg\fP is \fICURLMSG_DONE\fP, the message identifies a transfer that
+is done, and then \fBresult\fP contains the return code for the easy handle
+that just completed.
+
+At this point, there is no other \fBmsg\fP types defined.
 .SH "RETURN VALUE"
 A pointer to a filled-in struct, or NULL if it failed or ran out of
 structs. It also writes the number of messages left in the queue (after this

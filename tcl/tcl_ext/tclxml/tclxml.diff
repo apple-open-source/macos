@@ -69,7 +69,7 @@ RCS file: configure
 diff -N configure
 --- /dev/null	1 Jan 1970 00:00:00 -0000
 +++ configure	2 Jun 2004 11:20:36 -0000
-@@ -0,0 +1,6538 @@
+@@ -0,0 +1,6506 @@
 +#! /bin/sh
 +# From configure.in Id: configure.in.
 +# Guess values for system-dependent variables and create Makefiles.
@@ -983,7 +983,7 @@ diff -N configure
 +ac_ext=c
 +ac_cpp='$CPP $CPPFLAGS'
 +ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
++ac_link='$CC -o conftest $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 +ac_compiler_gnu=$ac_cv_c_compiler_gnu
 +
 +case `echo "testing\c"; echo 1,2,3`,`echo -n testing; echo 1,2,3` in
@@ -1315,7 +1315,7 @@ diff -N configure
 +ac_ext=c
 +ac_cpp='$CPP $CPPFLAGS'
 +ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
++ac_link='$CC -o conftest $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 +ac_compiler_gnu=$ac_cv_c_compiler_gnu
 +echo "$as_me:1248: checking how to run the C preprocessor" >&5
 +echo $ECHO_N "checking how to run the C preprocessor... $ECHO_C" >&6
@@ -1509,7 +1509,7 @@ diff -N configure
 +ac_ext=c
 +ac_cpp='$CPP $CPPFLAGS'
 +ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
++ac_link='$CC -o conftest $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 +ac_compiler_gnu=$ac_cv_c_compiler_gnu
 +
 +    # If the user did not set CFLAGS, set it now to keep
@@ -1521,7 +1521,7 @@ diff -N configure
 +    ac_ext=c
 +ac_cpp='$CPP $CPPFLAGS'
 +ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
++ac_link='$CC -o conftest $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 +ac_compiler_gnu=$ac_cv_c_compiler_gnu
 +if test -n "$ac_tool_prefix"; then
 +  # Extract the first word of "${ac_tool_prefix}gcc", so it can be a program name with args.
@@ -1924,39 +1924,7 @@ diff -N configure
 +echo "$as_me:1852: result: $cross_compiling" >&5
 +echo "${ECHO_T}$cross_compiling" >&6
 +
-+echo "$as_me:1855: checking for executable suffix" >&5
-+echo $ECHO_N "checking for executable suffix... $ECHO_C" >&6
-+if { (eval echo "$as_me:1857: \"$ac_link\"") >&5
-+  (eval $ac_link) 2>&5
-+  ac_status=$?
-+  echo "$as_me:1860: \$? = $ac_status" >&5
-+  (exit $ac_status); }; then
-+  # If both `conftest.exe' and `conftest' are `present' (well, observable)
-+# catch `conftest.exe'.  For instance with Cygwin, `ls conftest' will
-+# work properly (i.e., refer to `conftest.exe'), while it won't with
-+# `rm'.
-+for ac_file in `(ls conftest.exe; ls conftest; ls conftest.*) 2>/dev/null`; do
-+  case $ac_file in
-+    *.$ac_ext | *.o | *.obj | *.xcoff | *.tds | *.d | *.pdb ) ;;
-+    *.* ) ac_cv_exeext=`expr "$ac_file" : '[^.]*\(\..*\)'`
-+          export ac_cv_exeext
-+          break;;
-+    * ) break;;
-+  esac
-+done
-+else
-+  { { echo "$as_me:1876: error: cannot compute EXEEXT: cannot compile and link" >&5
-+echo "$as_me: error: cannot compute EXEEXT: cannot compile and link" >&2;}
-+   { (exit 1); exit 1; }; }
-+fi
-+
-+rm -f conftest$ac_cv_exeext
-+echo "$as_me:1882: result: $ac_cv_exeext" >&5
-+echo "${ECHO_T}$ac_cv_exeext" >&6
-+
-+rm -f conftest.$ac_ext
-+EXEEXT=$ac_cv_exeext
-+ac_exeext=$EXEEXT
++ac_exeext=
 +echo "$as_me:1888: checking for object suffix" >&5
 +echo $ECHO_N "checking for object suffix... $ECHO_C" >&6
 +if test "${ac_cv_objext+set}" = set; then
@@ -6629,29 +6597,30 @@ Index: doc/tclxml.html
 RCS file: doc/tclxml.html
 diff -N doc/tclxml.html
 --- /dev/null	1 Jan 1970 00:00:00 -0000
-+++ doc/tclxml.html	2 Jun 2004 11:20:36 -0000
-@@ -0,0 +1,273 @@
-+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>TclXML</title><meta name="generator" content="DocBook XSL Stylesheets V1.65.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry"><h1 class="title"><a name="id650102">TclXML</a></h1><h2>Contents</h2><ul><li><a href="#synopsis">Synopsis</a></li><li><a href="#Description">Description</a></li><li><a href="#Commands">Commands</a><ul><li><a href="#Commands-::xml::parserclass">::xml::parserclass</a><ul><li><a href="#Commands-::xml::parserclass-Command-Options">Command Options</a></li></ul></li><li><a href="#Commands-::xml::parser">::xml::parser</a><ul><li><a href="#Commands-::xml::parser-Configuration-Options">Configuration Options</a></li><li><a href="#Commands-::xml::parser-Parser-Command">Parser Command</a></li></ul></li></ul></li><li><a href="#Callback-Return-Codes">Callback Return Codes</a></li><li><a href="#Application-Examples">Application Examples</a></li><li><a href="#Parser-Classes">Parser Classes</a><ul><li><a href="#Parser-Classes-Tcl-Parser-Class">Tcl Parser Class</a></li><li><a href="#Parser-Classes-Expat-Parser-Class">Expat Parser Class</a></li></ul></li><li><a href="#See-Also">See Also</a></li><li><a href="#Keywords">Keywords</a></li></ul><div class="refnamediv"><h2>Name</h2><p>::xml::parser, ::xml::parserclass &#8212; XML parser support for Tcl</p></div><div class="refsynopsisdiv"><a name="synopsis"></a><h2>Synopsis</h2><div class="tclcmdsynopsis" id="id793246"><a name="id793246"></a>
-+      <span class="command" id="id793249"><a name="package_require_xml"></a><tt class="command">package require xml</tt> </span>
-+    </div><div class="tclcmdsynopsis" id="id793342"><a name="id793342"></a>
-+      <span class="command" id="id793345"><a name="package_require_parserclass"></a><tt class="command">package require <i class="replaceable"><tt>parserclass</tt></i></tt> </span>
-+    </div><br><span class="tclpkgsynopsis"><pre>package require xml ?2.6?</pre></span><div class="tclcmdsynopsis" id="id793377"><a name="id793377"></a>
-+      <span class="command" id="id793379"><a name="__xml__parserclass"></a><tt class="command">::xml::parserclass</tt> </span>
++++ doc/tclxml.html	3 Nov 2005 11:20:36 -0000
+@@ -0,0 +1,317 @@
++<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>TclXML</title><meta name="generator" content="DocBook XSL Stylesheets V1.65.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry"><h1 class="title"><a name="id613354">TclXML</a></h1><h2>Contents</h2><ul><li><a href="#synopsis">Synopsis</a></li><li><a href="#Description">Description</a></li><li><a href="#Commands">Commands</a><ul><li><a href="#Commands-::xml::parserclass">::xml::parserclass</a><ul><li><a href="#Commands-::xml::parserclass-Command-Options">Command Options</a></li></ul></li><li><a href="#Commands-::xml::parser">::xml::parser</a><ul><li><a href="#Commands-::xml::parser-Configuration-Options">Configuration Options</a></li><li><a href="#Commands-::xml::parser-Parser-Command">Parser Command</a></li></ul></li></ul></li><li><a href="#Callback-Return-Codes">Callback Return Codes</a></li><li><a href="#Error-Messages">Error Messages</a></li><li><a href="#Application-Examples">Application Examples</a></li><li><a href="#Safe-XML">Safe XML</a></li><li><a href="#Parser-Classes">Parser Classes</a><ul><li><a href="#Parser-Classes-Tcl-Parser-Class">Tcl Parser Class</a></li><li><a href="#Parser-Classes-Expat-Parser-Class">Expat Parser Class</a></li><li><a href="#Parser-Classes-libxml2-Parser-Class">libxml2 Parser Class</a><ul><li><a href="#Parser-Classes-libxml2-Parser-Class-get-Method">get Method</a></li><li><a href="#Parser-Classes-libxml2-Parser-Class-Additional-Options">Additional Options</a></li><li><a href="#Parser-Classes-libxml2-Parser-Class-Limitations">Limitations</a></li></ul></li></ul></li><li><a href="#See-Also">See Also</a></li><li><a href="#Keywords">Keywords</a></li></ul><div class="refnamediv"><h2>Name</h2><p>::xml::parser, ::xml::parserclass &#8212; XML parser support for Tcl</p></div><div class="refsynopsisdiv"><a name="synopsis"></a><h2>Synopsis</h2><div class="tclcmdsynopsis" id="id752038"><a name="id752038"></a>
++      <span class="command" id="id752040"><a name="package_require_xml"></a><tt class="command">package require xml</tt> </span>
++    </div><div class="tclcmdsynopsis" id="id752047"><a name="id752047"></a>
++      <span class="command" id="id752049"><a name="package_require_parserclass"></a><tt class="command">package require <i class="replaceable"><tt>parserclass</tt></i></tt> </span>
++    </div><br><span class="tclpkgsynopsis"><pre>package require xml ?3.1?</pre></span><div class="tclcmdsynopsis" id="id752089"><a name="id752089"></a>
++      <span class="command" id="id752091"><a name="__xml__parserclass"></a><tt class="command">::xml::parserclass</tt> </span>
 +      <u>option</u>
 +      ?arg arg...?
-+    </div><div class="tclcmdsynopsis" id="id793409"><a name="id793409"></a>
-+      <span class="command" id="id793411"><a name="__xml__parser"></a><tt class="command">::xml::parser</tt> </span>
++    </div><div class="tclcmdsynopsis" id="id752121"><a name="id752121"></a>
++      <span class="command" id="id752123"><a name="__xml__parser"></a><tt class="command">::xml::parser</tt> </span>
 +      ?<i class="replaceable"><tt>name</tt></i>?
 +      ?<tt class="option">-option</tt><i class="replaceable"><tt>value</tt></i>...?
-+    </div><div class="tclcmdsynopsis" id="id793453"><a name="id793453"></a>
-+      <span class="command" id="id793455"><a name="parser"></a><tt class="command"><i class="replaceable"><tt>parser</tt></i></tt> </span>
++    </div><div class="tclcmdsynopsis" id="id752165"><a name="id752165"></a>
++      <span class="command" id="id752167"><a name="parser"></a><tt class="command"><i class="replaceable"><tt>parser</tt></i></tt> </span>
 +      <i class="replaceable"><tt>option</tt></i>
 +       <i class="replaceable"><tt>arg</tt></i>
 +    </div><h3>Tcl Namespace Usage</h3>
 +      <br><tt class="tclnamespace">::xml</tt>
 +      <br><tt class="tclnamespace">::sgml</tt>
 +      <br><tt class="tclnamespace">::xml::tclparser</tt>
-+    <p></p></div><div class="refsect1" lang="en"><a name="id793481"></a><h2>Description</h2><p>TclXML provides event-based parsing of <span class="acronym"><a href="http://www.w3.org/XML/">XML</a></span> documents.  The application may register callback scripts for certain document features, and when the parser encounters those features while parsing the document the callback is evaluated.</p><p>The parser may also perform other functions, such as normalisation, validation and/or entity expansion.  Generally, these functions are under the control of configuration options.  Whether these functions can be performed at all depends on the parser implementation.</p><p>The TclXML package provides a generic interface for use by a Tcl application, along with a low-level interface for use by a parser implementation.  Each implementation provides a class of XML parser, and these register themselves using the <a href="#__xml__parserclass_create"><span><b class="tclcommand">::xml::parserclass create</b></span></a> command.  One of the registered parser classes will be the default parser class.</p><p>Loading the package with the generic <a href="#package_require_xml"><span><b class="tclcommand">package require xml</b></span></a> command allows the package to automatically determine the default parser class.  In order to select a particular parser class as the default, that class' package may be loaded directly, eg. <a href="#package_require_expat"><span><b class="tclcommand">package require expat</b></span></a>.  In all cases, all available parser classes are registered with the TclXML package, the difference is simply in which one becomes the default.</p></div><div class="refsect1" lang="en"><a name="id793545"></a><h2>Commands</h2><div class="refsect2" lang="en"><a name="id793550"></a><h3><a href="#__xml__parserclass"><span><b class="tclcommand">::xml::parserclass</b></span></a></h3><p>The <a href="#__xml__parserclass"><span><b class="tclcommand">::xml::parserclass</b></span></a> command is used to manage XML parser classes.</p><div class="refsect3" lang="en"><a name="id793569"></a><h4>Command Options</h4><p>The following command options may be used:</p><div class="variablelist"><dl><dt><span class="term"><tt class="methodname">create</tt></span></dt><dd><div class="tclcmdsynopsis" id="id793590"><a name="id793590"></a>
++      <br><tt class="tclnamespace">::xml::libxml2</tt>
++    <p></p></div><div class="refsect1" lang="en"><a name="id752193"></a><h2>Description</h2><p>TclXML provides event-based parsing of <span class="acronym"><a href="http://www.w3.org/XML/">XML</a></span> documents.  The application may register callback scripts for certain document features, and when the parser encounters those features while parsing the document the callback is evaluated.</p><p>The parser may also perform other functions, such as normalisation, validation and/or entity expansion.  Generally, these functions are under the control of configuration options.  Whether these functions can be performed at all depends on the parser implementation.</p><p>The TclXML package provides a generic interface for use by a Tcl application, along with a low-level interface for use by a parser implementation.  Each implementation provides a class of XML parser, and these register themselves using the <a href="#__xml__parserclass_create"><span><b class="tclcommand">::xml::parserclass create</b></span></a> command.  One of the registered parser classes will be the default parser class.</p><p>Loading the package with the generic <a href="#package_require_xml"><span><b class="tclcommand">package require xml</b></span></a> command allows the package to automatically determine the default parser class.  In order to select a particular parser class as the default, that class' package may be loaded directly, eg. <a href="#package_require_expat"><span><b class="tclcommand">package require expat</b></span></a>.  In all cases, all available parser classes are registered with the TclXML package, the difference is simply in which one becomes the default.</p></div><div class="refsect1" lang="en"><a name="id752257"></a><h2>Commands</h2><div class="refsect2" lang="en"><a name="id752262"></a><h3><a href="#__xml__parserclass"><span><b class="tclcommand">::xml::parserclass</b></span></a></h3><p>The <a href="#__xml__parserclass"><span><b class="tclcommand">::xml::parserclass</b></span></a> command is used to manage XML parser classes.</p><div class="refsect3" lang="en"><a name="id752281"></a><h4>Command Options</h4><p>The following command options may be used:</p><div class="variablelist"><dl><dt><span class="term"><tt class="methodname">create</tt></span></dt><dd><div class="tclcmdsynopsis" id="id752302"><a name="id752302"></a>
 +		create
 +		 <i class="replaceable"><tt>name</tt></i>
 +		?<tt class="option">-createcommand</tt><i class="replaceable"><tt>script</tt></i>?
@@ -6660,41 +6629,44 @@ diff -N doc/tclxml.html
 +		?<tt class="option">-configurecommand</tt><i class="replaceable"><tt>script</tt></i>?
 +		?<tt class="option">-getcommand</tt><i class="replaceable"><tt>script</tt></i>?
 +		?<tt class="option">-deletecommand</tt><i class="replaceable"><tt>script</tt></i>?
-+              </div><p>Creates an XML parser class with the given name.</p></dd><dt><span class="term"><tt class="methodname">destroy</tt></span></dt><dd><div class="tclcmdsynopsis" id="id793746"><a name="id793746"></a>
++              </div><p>Creates an XML parser class with the given name.</p></dd><dt><span class="term"><tt class="methodname">destroy</tt></span></dt><dd><div class="tclcmdsynopsis" id="id752456"><a name="id752456"></a>
 +		destroy
 +		 <i class="replaceable"><tt>name</tt></i>
-+	      </div><p>Destroys an XML parser class.</p></dd><dt><span class="term"><tt class="methodname">info</tt></span></dt><dd><div class="tclcmdsynopsis" id="id793781"><a name="id793781"></a>
++	      </div><p>Destroys an XML parser class.</p></dd><dt><span class="term"><tt class="methodname">info</tt></span></dt><dd><div class="tclcmdsynopsis" id="id752490"><a name="id752490"></a>
 +		<u>info</u>
-+		names
-+	      </div><p>Returns information about registered XML parser classes.</p></dd></dl></div></div></div><div class="refsect2" lang="en"><a name="id793812"></a><h3><a href="#__xml__parser"><span><b class="tclcommand">::xml::parser</b></span></a></h3><p>The <a href="#__xml__parser"><span><b class="tclcommand">::xml::parser</b></span></a> command creates an <span class="acronym">XML</span> parser object.  The return value of the command is the name of the newly created parser.</p><p>The parser scans an XML document's syntactical structure, evaluating callback scripts for each feature found.  At the very least the parser will normalise the document and check the document for well-formedness.  If the document is not well-formed then the <tt class="option">-errorcommand</tt> option will be evaluated.  Some parser classes may perform additional functions, such as validation.  Additional features provided by the various parser classes are described in the section Parser Classes</p><p>Parsing is performed synchronously.  The command blocks until the entire document has been parsed.  Parsing may be terminated by an application callback, see the section Callback Return Codes.  Incremental parsing is also supported by using the <tt class="option">-final</tt> configuration option.</p><div class="refsect3" lang="en"><a name="id793861"></a><h4>Configuration Options</h4><p>The <a href="#__xml__parser"><span><b class="tclcommand">::xml::parser</b></span></a> command accepts the following configuration options:</p><div class="variablelist"><dl><dt><span class="term"><tt class="option">-attlistdeclcommand</tt></span></dt><dd><p>
++		names default
++	      </div><p>Returns information about registered XML parser classes.</p></dd></dl></div></div></div><div class="refsect2" lang="en"><a name="id752529"></a><h3><a href="#__xml__parser"><span><b class="tclcommand">::xml::parser</b></span></a></h3><p>The <a href="#__xml__parser"><span><b class="tclcommand">::xml::parser</b></span></a> command creates an <span class="acronym">XML</span> parser object.  The return value of the command is the name of the newly created parser.</p><p>The parser scans an XML document's syntactical structure, evaluating callback scripts for each feature found.  At the very least the parser will normalise the document and check the document for well-formedness.  If the document is not well-formed then the <tt class="option">-errorcommand</tt> option will be evaluated.  Some parser classes may perform additional functions, such as validation.  Additional features provided by the various parser classes are described in the section Parser Classes</p><p>Parsing is performed synchronously.  The command blocks until the entire document has been parsed.  Parsing may be terminated by an application callback, see the section Callback Return Codes.  Incremental parsing is also supported by using the <tt class="option">-final</tt> configuration option.</p><div class="refsect3" lang="en"><a name="id752579"></a><h4>Configuration Options</h4><p>The <a href="#__xml__parser"><span><b class="tclcommand">::xml::parser</b></span></a> command accepts the following configuration options:</p><div class="variablelist"><dl><dt><span class="term"><tt class="option">-attlistdeclcommand</tt></span></dt><dd><p>
 +		<tt class="option">-attlistdeclcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated whenever an attribute list declaration is encountered in the DTD subset of an XML document.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id793910"><a name="id793910"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated whenever an attribute list declaration is encountered in the DTD subset of an XML document.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id752628"><a name="id752628"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>name</tt></i>
 +		 <i class="replaceable"><tt>attrname</tt></i>
 +		 <i class="replaceable"><tt>type</tt></i>
 +		 <i class="replaceable"><tt>default</tt></i>
 +		 <i class="replaceable"><tt>value</tt></i>
-+	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">Element type name</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>attrname</tt></i></tt></td><td valign="top">Attribute name being declared</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>type</tt></i></tt></td><td valign="top">Attribute type</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>default</tt></i></tt></td><td valign="top">Attribute default, such as #IMPLIED</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>value</tt></i></tt></td><td valign="top">Default attribute value.  Empty string if none given.</td></tr></table></dd><dt><span class="term"><tt class="option">-baseurl</tt></span></dt><dd><p>
++	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">Element type name</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>attrname</tt></i></tt></td><td valign="top">Attribute name being declared</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>type</tt></i></tt></td><td valign="top">Attribute type</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>default</tt></i></tt></td><td valign="top">Attribute default, such as #IMPLIED</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>value</tt></i></tt></td><td valign="top">Default attribute value.  Empty string if none given.</td></tr></table></dd><dt><span class="term"><tt class="option">-baseuri</tt>, </span><span class="term"><tt class="option">-baseurl</tt></span></dt><dd><p>
++		<tt class="option">-baseuri</tt>
++		<u><i class="replaceable"><tt>URI</tt></i></u>
++	      </p><p>
 +		<tt class="option">-baseurl</tt>
 +		<u><i class="replaceable"><tt>URI</tt></i></u>
-+	      </p><p>Specifies the base URI for resolving relative URIs that may be used in the XML document to refer to external entities.</p></dd><dt><span class="term"><tt class="option">-characterdatacommand</tt></span></dt><dd><p>
++	      </p><p>Specifies the base URI for resolving relative URIs that may be used in the XML document to refer to external entities.</p><p><tt class="option">-baseurl</tt> is deprecated in favour of <tt class="option">-baseuri</tt>.</p></dd><dt><span class="term"><tt class="option">-characterdatacommand</tt></span></dt><dd><p>
 +		<tt class="option">-characterdatacommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated whenever character data is encountered in the XML document being parsed.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id794120"><a name="id794120"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated whenever character data is encountered in the XML document being parsed.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id752866"><a name="id752866"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>data</tt></i>
 +	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>data</tt></i></tt></td><td valign="top">Character data in the document</td></tr></table></dd><dt><span class="term"><tt class="option">-commentcommand</tt></span></dt><dd><p>
 +		<tt class="option">-commentcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated whenever a comment is encountered in the XML document being parsed.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id794194"><a name="id794194"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated whenever a comment is encountered in the XML document being parsed.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id752941"><a name="id752941"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>data</tt></i>
 +	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>data</tt></i></tt></td><td valign="top">Comment data</td></tr></table></dd><dt><span class="term"><tt class="option">-defaultcommand</tt></span></dt><dd><p>
 +		<tt class="option">-defaultcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when no other callback has been defined for a document feature which has been encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id794268"><a name="id794268"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when no other callback has been defined for a document feature which has been encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id753015"><a name="id753015"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>data</tt></i>
 +	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>data</tt></i></tt></td><td valign="top">Document data</td></tr></table></dd><dt><span class="term"><tt class="option">-defaultexpandinternalentities</tt></span></dt><dd><p>
@@ -6703,7 +6675,7 @@ diff -N doc/tclxml.html
 +	      </p><p>Specifies whether entities declared in the internal DTD subset are expanded with their replacement text.  If entities are not expanded then the entity references will be reported with no expansion.</p></dd><dt><span class="term"><tt class="option">-doctypecommand</tt></span></dt><dd><p>
 +		<tt class="option">-doctypecommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when the document type declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id794376"><a name="id794376"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when the document type declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id753123"><a name="id753123"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>name</tt></i>
 +		 <i class="replaceable"><tt>public</tt></i>
@@ -6712,26 +6684,29 @@ diff -N doc/tclxml.html
 +	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">The name of the document element</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>public</tt></i></tt></td><td valign="top">Public identifier for the external DTD subset</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>system</tt></i></tt></td><td valign="top">System identifier for the external DTD subset.  Usually a URI.</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>dtd</tt></i></tt></td><td valign="top">The internal DTD subset</td></tr></table><p>See also <tt class="option">-startdoctypedeclcommand</tt> and <tt class="option">-enddoctypedeclcommand</tt>.</p></dd><dt><span class="term"><tt class="option">-elementdeclcommand</tt></span></dt><dd><p>
 +		<tt class="option">-elementdeclcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when an element markup declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id794539"><a name="id794539"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when an element markup declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id753286"><a name="id753286"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>name</tt></i>
 +		 <i class="replaceable"><tt>model</tt></i>
 +	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">The element type name</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>model</tt></i></tt></td><td valign="top">Content model specification</td></tr></table></dd><dt><span class="term"><tt class="option">-elementendcommand</tt></span></dt><dd><p>
 +		<tt class="option">-elementendcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when an element end tag is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id794639"><a name="id794639"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when an element end tag is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id753386"><a name="id753386"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>name</tt></i>
 +		 <i class="replaceable"><tt>args</tt></i>
 +	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">The element type name that has ended</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>args</tt></i></tt></td><td valign="top">Additional information about this element</td></tr></table><p>Additional information about the element takes the form of configuration options.  Possible options are:</p><table border="0"><tr><td valign="top"><tt class="option">-empty</tt> <tt class="arg"><i class="replaceable"><tt>boolean</tt></i></tt></td><td valign="top">The empty element syntax was used for this element</td></tr><tr><td valign="top"><tt class="option">-namespace</tt> <tt class="arg"><i class="replaceable"><tt>uri</tt></i></tt></td><td valign="top">The element is in the XML namespace associated with the given URI</td></tr></table></dd><dt><span class="term"><tt class="option">-elementstartcommand</tt></span></dt><dd><p>
 +		<tt class="option">-elementstartcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when an element start tag is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id794790"><a name="id794790"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when an element start tag is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id753536"><a name="id753536"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>name</tt></i>
 +		 <i class="replaceable"><tt>attlist</tt></i>
 +		 <i class="replaceable"><tt>args</tt></i>
-+	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">The element type name that has started</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>attlist</tt></i></tt></td><td valign="top">A Tcl list containing the attributes for this element.  The list of attributes is formatted as pairs of attribute names and their values.  </td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>args</tt></i></tt></td><td valign="top">Additional information about this element</td></tr></table><p>Additional information about the element takes the form of configuration options.  Possible options are:</p><table border="0"><tr><td valign="top"><tt class="option">-empty</tt> <tt class="arg"><i class="replaceable"><tt>boolean</tt></i></tt></td><td valign="top">The empty element syntax was used for this element</td></tr><tr><td valign="top"><tt class="option">-namespace</tt> <tt class="arg"><i class="replaceable"><tt>uri</tt></i></tt></td><td valign="top">The element is in the XML namespace associated with the given URI</td></tr><tr><td valign="top"><tt class="option">-namespacedecls</tt> <tt class="arg"><i class="replaceable"><tt>list</tt></i></tt></td><td valign="top">The start tag included one or more XML Namespace declarations.  <tt class="arg"><i class="replaceable"><tt>list</tt></i></tt> is a Tcl list giving the namespaces declared.  The list is formatted as pairs of values, the first value is the namespace URI and the second value is the prefix used for the namespace in this document.  A default XML namespace declaration will have an empty string for the prefix.</td></tr></table></dd><dt><span class="term"><tt class="option">-endcdatasectioncommand</tt></span></dt><dd><p>
++	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">The element type name that has started</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>attlist</tt></i></tt></td><td valign="top">A Tcl list containing the attributes for this element.  The list of attributes is formatted as pairs of attribute names and their values.  </td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>args</tt></i></tt></td><td valign="top">Additional information about this element</td></tr></table><p>Additional information about the element takes the form of configuration options.  Possible options are:</p><table border="0"><tr><td valign="top"><tt class="option">-empty</tt> <tt class="arg"><i class="replaceable"><tt>boolean</tt></i></tt></td><td valign="top">The empty element syntax was used for this element</td></tr><tr><td valign="top"><tt class="option">-namespace</tt> <tt class="arg"><i class="replaceable"><tt>uri</tt></i></tt></td><td valign="top">The element is in the XML namespace associated with the given URI</td></tr><tr><td valign="top"><tt class="option">-namespacedecls</tt> <tt class="arg"><i class="replaceable"><tt>list</tt></i></tt></td><td valign="top">The start tag included one or more XML Namespace declarations.  <tt class="arg"><i class="replaceable"><tt>list</tt></i></tt> is a Tcl list giving the namespaces declared.  The list is formatted as pairs of values, the first value is the namespace URI and the second value is the prefix used for the namespace in this document.  A default XML namespace declaration will have an empty string for the prefix.</td></tr></table></dd><dt><span class="term"><tt class="option">-encoding</tt></span></dt><dd><p>
++		<tt class="option">-encoding</tt>
++		<u><i class="replaceable"><tt>value</tt></i></u>
++	      </p><p>Gives the character encoding of the document.  This option only has an effect before a document is parsed.  The default character encoding is <tt class="literal">utf-8</tt>.  If the value <tt class="literal">unknown</tt> is given, or any value other than <tt class="literal">utf-8</tt>, then the document text is treated as binary data.  If the value is given as <tt class="literal">unknown</tt> then the parser will attempt to automatically determine the character encoding of the document (using byte-order-marks, etc).  If any value other than <tt class="literal">utf-8</tt> or <tt class="literal">unknown</tt> is given then the parser will read the document text using that character encoding.</p></dd><dt><span class="term"><tt class="option">-endcdatasectioncommand</tt></span></dt><dd><p>
 +		<tt class="option">-endcdatasectioncommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
 +	      </p><p>Specifies the prefix of a Tcl command to be evaluated when end of a CDATA section is encountered.  The command is evaluated with no further arguments.</p></dd><dt><span class="term"><tt class="option">-enddoctypedeclcommand</tt></span></dt><dd><p>
@@ -6740,33 +6715,58 @@ diff -N doc/tclxml.html
 +	      </p><p>Specifies the prefix of a Tcl command to be evaluated when end of the document type declaration is encountered.  The command is evaluated with no further arguments.</p></dd><dt><span class="term"><tt class="option">-entitydeclcommand</tt></span></dt><dd><p>
 +		<tt class="option">-entitydeclcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when an entity declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id795068"><a name="id795068"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when an entity declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id753887"><a name="id753887"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>name</tt></i>
 +		 <i class="replaceable"><tt>args</tt></i>
 +	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">The name of the entity being declared</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>args</tt></i></tt></td><td valign="top">Additional information about the entity declaration.  An internal entity shall have a single argument, the replacement text.  An external parsed entity shall have two additional arguments, the public and system indentifiers of the external resource.  An external unparsed entity shall have three additional arguments, the public and system identifiers followed by the notation name.</td></tr></table></dd><dt><span class="term"><tt class="option">-entityreferencecommand</tt></span></dt><dd><p>
 +		<tt class="option">-entityreferencecommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when an entity reference is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id795176"><a name="id795176"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when an entity reference is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id753995"><a name="id753995"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>name</tt></i>
-+	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">The name of the entity being referenced</td></tr></table></dd><dt><span class="term"><tt class="option">-errrocommand</tt></span></dt><dd><p>
++	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">The name of the entity being referenced</td></tr></table></dd><dt><span class="term"><tt class="option">-errorcommand</tt></span></dt><dd><p>
 +		<tt class="option">-errorcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a fatal error is detected.  The error may be due to the XML document not being well-formed.  In the case of a validating parser class, the error may also be due to the XML document not obeying validity constraints.  By default, a callback script is provided which causes an error return code, but an application may supply a script which attempts to continue parsing.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id795256"><a name="id795256"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a fatal error is detected.  The error may be due to the XML document not being well-formed.  In the case of a validating parser class, the error may also be due to the XML document not obeying validity constraints.  By default, a callback script is provided which causes an error return code, but an application may supply a script which attempts to continue parsing.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id754067"><a name="id754067"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>errorcode</tt></i>
 +		 <i class="replaceable"><tt>errormsg</tt></i>
 +	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>errorcode</tt></i></tt></td><td valign="top">A single word description of the error, intended for use by an application</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>errormsg</tt></i></tt></td><td valign="top">A human-readable description of the error</td></tr></table></dd><dt><span class="term"><tt class="option">-externalentitycommand</tt></span></dt><dd><p>
 +		<tt class="option">-externalentitycommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated to resolve an external entity reference.  If the parser has been configured to validate the XML document, a default script is supplied that resolves the URI given as the system identifier of the external entity and recursively parses the entity's data.  If the parser has been configured as a non-validating parser, then by default external entities are not resolved.  This option can be used to override the default behaviour.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id795354"><a name="id795354"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated to resolve an external entity reference.  If the parser has been configured to validate the XML document, a default script is supplied that resolves the URI given as the system identifier of the external entity and recursively parses the entity's data.  If the parser has been configured as a non-validating parser, then by default external entities are not resolved.  This option can be used to override the default behaviour.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id754166"><a name="id754166"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>name</tt></i>
 +		 <i class="replaceable"><tt>baseuri</tt></i>
 +		 <i class="replaceable"><tt>uri</tt></i>
 +		 <i class="replaceable"><tt>id</tt></i>
-+	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">The Tcl command name of the current parser</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>baseuri</tt></i></tt></td><td valign="top">An absolute URI for the current entity which is to be used to resolve relative URIs</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>uri</tt></i></tt></td><td valign="top">The system identifier of the external entity, usually a URI</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>id</tt></i></tt></td><td valign="top">The public identifier of the external entity.  If no public identifier was given in the entity declaration then <tt class="arg"><i class="replaceable"><tt>id</tt></i></tt> will be an empty string.</td></tr></table></dd><dt><span class="term"><tt class="option">-final</tt></span></dt><dd><p>
++	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>name</tt></i></tt></td><td valign="top">The Tcl command name of the current parser</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>baseuri</tt></i></tt></td><td valign="top">An absolute URI for the current entity which is to be used to resolve relative URIs</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>uri</tt></i></tt></td><td valign="top">The system identifier of the external entity, usually a URI</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>id</tt></i></tt></td><td valign="top">The public identifier of the external entity.  If no public identifier was given in the entity declaration then <tt class="arg"><i class="replaceable"><tt>id</tt></i></tt> will be an empty string.</td></tr></table><p>The return result of the callback script determines the action of the parser.  Note that these codes are interpreted in a different manner to other callbacks.</p><div class="variablelist"><dl><dt><span class="term"><tt class="literal">TCL_OK</tt></span></dt><dd><p>The return result of the callback script is used as the external entity's data.  The URI passed to the callback script is used as the entity's base URI.</p><p>This is useful to either override the normal loading of an entity's data, or to implement new or alternative URI schemes.  As an example, the script below sets an external entity handler that intercepts "tcl:" URIs and evaluates them as inline Tcl scripts:</p><div class="informalexample"><pre class="programlisting">
++package require xml
++
++proc External {name baseuri uri id} {
++    switch -glob -- $uri {
++	tcl:* {
++	    regexp {^tcl:(.*)$} $uri discard script
++	    return [uplevel #0 $script]
++	}
++	default {
++	    return -code continue {}
++	}
++    }
++}
++
++set parser [xml::parser -externalentitycommand External]
++$parser parse {&lt;!DOCTYPE example [
++  &lt;!ENTITY example SYSTEM "tcl:set%20example%20HelloWorld"&gt;
++]&gt;
++&lt;example&gt;
++  &amp;example;
++&lt;/example&gt;
++}
++
++puts $example
++</pre></div><p>This script will print "HelloWorld" to stdout.</p></dd><dt><span class="term"><tt class="literal">TCL_CONTINUE</tt></span></dt><dd><p>In a normal (non-safe) interpreter, the default external entity handler is used to load the external entity data as per normal operation of the parser.  If the parser is executing in a Safe Tcl interpreter then the entity is not loaded at all.</p><p>This is useful to interpose on the loading of external entities without interfering with the loading of entities.</p></dd><dt><span class="term"><tt class="literal">TCL_BREAK</tt></span></dt><dd><p>No data is returned for this entity, ie. the entity is ignored.  No error is propagated.</p></dd><dt><span class="term"><tt class="literal">TCL_ERROR</tt></span></dt><dd><p>No data is returned for this entity, ie. the entity is ignored.  A background error is registered, using the result of the callback script.</p></dd></dl></div></dd><dt><span class="term"><tt class="option">-final</tt></span></dt><dd><p>
 +		<tt class="option">-final</tt>
 +		<u><i class="replaceable"><tt>boolean</tt></i></u>
 +	      </p><p>Specifies whether the XML document being parsed is complete.  If the document is to be incrementally parsed then this option will be set to false, and when the last fragment of document is parsed it is set to true.  For example,</p><div class="informalexample"><pre class="programlisting">
@@ -6787,7 +6787,7 @@ diff -N doc/tclxml.html
 +	      </p><p>If this option is set to true then spans of character data in the XML document which are composed only of white-space (CR, LF, space, tab) will not be reported to the application.  In other words, the data passed to every invocation of the <tt class="option">-characterdatacommand</tt> script will contain at least one non-white-space character.</p></dd><dt><span class="term"><tt class="option">-notationdeclcommand</tt></span></dt><dd><p>
 +		<tt class="option">-notationdeclcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a notation declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id795601"><a name="id795601"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a notation declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id754534"><a name="id754534"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>name</tt></i>
 +		 <i class="replaceable"><tt>uri</tt></i>
@@ -6800,7 +6800,7 @@ diff -N doc/tclxml.html
 +	      </p><p>Controls whether external parameter entities are parsed.</p></dd><dt><span class="term"><tt class="option">-parameterentitydeclcommand</tt></span></dt><dd><p>
 +		<tt class="option">-parameterentitydeclcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a parameter entity declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id795765"><a name="id795765"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a parameter entity declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id754699"><a name="id754699"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>name</tt></i>
 +		 <i class="replaceable"><tt>args</tt></i>
@@ -6810,14 +6810,14 @@ diff -N doc/tclxml.html
 +	      </p><p>The name of the parser class to instantiate for this parser object.  This option may only be specified when the parser instance is created.</p></dd><dt><span class="term"><tt class="option">-processinginstructioncommand</tt></span></dt><dd><p>
 +		<tt class="option">-processinginstructioncommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a processing instruction is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id795900"><a name="id795900"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a processing instruction is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id754834"><a name="id754834"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>target</tt></i>
 +		 <i class="replaceable"><tt>data</tt></i>
 +	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>target</tt></i></tt></td><td valign="top">The name of the processing instruction target</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>data</tt></i></tt></td><td valign="top">Remaining data from the processing instruction</td></tr></table></dd><dt><span class="term"><tt class="option">-reportempty</tt></span></dt><dd><p>
 +		<tt class="option">-reportempty</tt>
 +		<u><i class="replaceable"><tt>boolean</tt></i></u>
-+	      </p><p>If this option is enabled then when an element is encountered that uses the special empty element syntax, additional arguments are appended to the <tt class="option">-elementstartcommand</tt> and <tt class="option">-elementendcommand</tt> callbacks.  The arguments  [-empty 1] are appended.  For example:</p><div class="tclcmdsynopsis" id="id796017"><a name="id796017"></a>
++	      </p><p>If this option is enabled then when an element is encountered that uses the special empty element syntax, additional arguments are appended to the <tt class="option">-elementstartcommand</tt> and <tt class="option">-elementendcommand</tt> callbacks.  The arguments  [-empty 1] are appended.  For example:</p><div class="tclcmdsynopsis" id="id754951"><a name="id754951"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<u>-empty</u>
 +		1
@@ -6833,7 +6833,7 @@ diff -N doc/tclxml.html
 +	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a character is encountered with an unknown encoding.  This option has not been implemented.</p></dd><dt><span class="term"><tt class="option">-unparsedentitydeclcommand</tt></span></dt><dd><p>
 +		<tt class="option">-unparsedentitydeclcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a declaration is encountered for an unparsed entity.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id796169"><a name="id796169"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a declaration is encountered for an unparsed entity.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id755102"><a name="id755102"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>system</tt></i>
 +		 <i class="replaceable"><tt>public</tt></i>
@@ -6844,45 +6844,45 @@ diff -N doc/tclxml.html
 +	      </p><p>Enables validation of the XML document to be parsed.  Any changes to this option are ignored after an XML document has started to be parsed, but the option may be changed after a reset.</p></dd><dt><span class="term"><tt class="option">-warningcommand</tt></span></dt><dd><p>
 +		<tt class="option">-warningcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a warning condition is detected.  A warning condition is where the XML document has not been authored correctly, but is still well-formed and may be valid.  For example, the special empty element syntax may be used for an element which has not been declared to have empty content.  By default, a callback script is provided which silently ignores the warning.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id796333"><a name="id796333"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when a warning condition is detected.  A warning condition is where the XML document has not been authored correctly, but is still well-formed and may be valid.  For example, the special empty element syntax may be used for an element which has not been declared to have empty content.  By default, a callback script is provided which silently ignores the warning.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id755267"><a name="id755267"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>warningcode</tt></i>
 +		 <i class="replaceable"><tt>warningmsg</tt></i>
 +	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>warningcode</tt></i></tt></td><td valign="top">A single word description of the warning, intended for use by an application</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>wanringmsg</tt></i></tt></td><td valign="top">A human-readable description of the warning</td></tr></table></dd><dt><span class="term"><tt class="option">-xmldeclcommand</tt></span></dt><dd><p>
 +		<tt class="option">-xmldeclcommand</tt>
 +		<u><i class="replaceable"><tt>script</tt></i></u>
-+	      </p><p>Specifies the prefix of a Tcl command to be evaluated when the XML declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id796434"><a name="id796434"></a>
++	      </p><p>Specifies the prefix of a Tcl command to be evaluated when the XML declaration is encountered.  The command evaluated is:</p><div class="tclcmdsynopsis" id="id755367"><a name="id755367"></a>
 +		<tt class="command"><i class="replaceable"><tt>script</tt></i></tt> 
 +		<i class="replaceable"><tt>version</tt></i>
 +		 <i class="replaceable"><tt>encoding</tt></i>
 +		 <i class="replaceable"><tt>standalone</tt></i>
-+	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>version</tt></i></tt></td><td valign="top">The version number of the XML specification to which this document purports to conform</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>encoding</tt></i></tt></td><td valign="top">The character encoding of the document</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>standalone</tt></i></tt></td><td valign="top">A boolean declaring whether the document is standalone</td></tr></table></dd></dl></div></div><div class="refsect3" lang="en"><a name="id796533"></a><h4>Parser Command</h4><p>The <a href="#__xml__parser"><span><b class="tclcommand">::xml::parser</b></span></a> command creates a new Tcl command with the same name as the parser.  This command may be used to invoke various operations on the parser object.  It has the following general form:</p><div class="tclcmdsynopsis" id="id796551"><a name="id796551"></a>
++	      </div><p>where:</p><table border="0"><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>version</tt></i></tt></td><td valign="top">The version number of the XML specification to which this document purports to conform</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>encoding</tt></i></tt></td><td valign="top">The character encoding of the document</td></tr><tr><td valign="top"><tt class="arg"><i class="replaceable"><tt>standalone</tt></i></tt></td><td valign="top">A boolean declaring whether the document is standalone</td></tr></table></dd></dl></div></div><div class="refsect3" lang="en"><a name="id755467"></a><h4>Parser Command</h4><p>The <a href="#__xml__parser"><span><b class="tclcommand">::xml::parser</b></span></a> command creates a new Tcl command with the same name as the parser.  This command may be used to invoke various operations on the parser object.  It has the following general form:</p><div class="tclcmdsynopsis" id="id755485"><a name="id755485"></a>
 +	  <tt class="command"><i class="replaceable"><tt>name</tt></i></tt> 
 +	  <u><i class="replaceable"><tt>option</tt></i></u>
 +	  <i class="replaceable"><tt>arg</tt></i>
-+	</div><p><tt class="option"><i class="replaceable"><tt>option</tt></i></tt> and the  [<i class="replaceable"><tt>arg</tt></i>...] determine the exact behaviour of the command.  The following commands are possible for parser objects:</p><div class="variablelist"><dl><dt><span class="term"><tt class="option">cget</tt></span></dt><dd><div class="tclcmdsynopsis" id="id796605"><a name="id796605"></a>
++	</div><p><tt class="option"><i class="replaceable"><tt>option</tt></i></tt> and the  [<i class="replaceable"><tt>arg</tt></i>...] determine the exact behaviour of the command.  The following commands are possible for parser objects:</p><div class="variablelist"><dl><dt><span class="term"><tt class="option">cget</tt></span></dt><dd><div class="tclcmdsynopsis" id="id755538"><a name="id755538"></a>
 +		<u>cget</u>
 +		<i class="replaceable"><tt>-option</tt></i>
-+	      </div><p>Returns the current value of the configuration option given by <tt class="option"><i class="replaceable"><tt>option</tt></i></tt>.  <tt class="option"><i class="replaceable"><tt>Option</tt></i></tt> may have any of the values accepted by the parser object.</p></dd><dt><span class="term"><tt class="option">configure</tt></span></dt><dd><div class="tclcmdsynopsis" id="id796646"><a name="id796646"></a>
++	      </div><p>Returns the current value of the configuration option given by <tt class="option"><i class="replaceable"><tt>option</tt></i></tt>.  <tt class="option"><i class="replaceable"><tt>Option</tt></i></tt> may have any of the values accepted by the parser object.</p></dd><dt><span class="term"><tt class="option">configure</tt></span></dt><dd><div class="tclcmdsynopsis" id="id755579"><a name="id755579"></a>
 +		<u>configure</u>
 +		?<i class="replaceable"><tt>-option</tt></i> <i class="replaceable"><tt>value</tt></i>...?
-+	      </div><p>Modify the configuration options of the parser object.  <tt class="option"><i class="replaceable"><tt>Option</tt></i></tt> may have any of the values accepted by the parser object.</p></dd><dt><span class="term"><tt class="option">entityparser</tt></span></dt><dd><div class="tclcmdsynopsis" id="id796698"><a name="id796698"></a>
++	      </div><p>Modify the configuration options of the parser object.  <tt class="option"><i class="replaceable"><tt>Option</tt></i></tt> may have any of the values accepted by the parser object.</p></dd><dt><span class="term"><tt class="option">entityparser</tt></span></dt><dd><div class="tclcmdsynopsis" id="id755632"><a name="id755632"></a>
 +		<u>entityparser</u>
 +		?<i class="replaceable"><tt>option</tt></i> <i class="replaceable"><tt>value</tt></i>...?
-+	      </div><p>Creates a new parser object.  The new object inherits the same configuration options as the parent parser object, but is able to parse XML data in a parsed entity.  The option <tt class="option">-dtdsubset</tt> allows markup declarations to be treated as being in the internal or external DTD subset.</p></dd><dt><span class="term"><tt class="option">free</tt></span></dt><dd><div class="tclcmdsynopsis" id="id796752"><a name="id796752"></a>
++	      </div><p>Creates a new parser object.  The new object inherits the same configuration options as the parent parser object, but is able to parse XML data in a parsed entity.  The option <tt class="option">-dtdsubset</tt> allows markup declarations to be treated as being in the internal or external DTD subset.</p></dd><dt><span class="term"><tt class="option">free</tt></span></dt><dd><div class="tclcmdsynopsis" id="id755686"><a name="id755686"></a>
 +		<u>free</u>
 +		<i class="replaceable"><tt>name</tt></i>
-+	      </div><p>Frees all resources associated with the parser object.  The object is not usable after this command has been invoked.</p></dd><dt><span class="term"><tt class="option">get</tt></span></dt><dd><div class="tclcmdsynopsis" id="id796784"><a name="id796784"></a>
++	      </div><p>Frees all resources associated with the parser object.  The object is not usable after this command has been invoked.</p></dd><dt><span class="term"><tt class="option">get</tt></span></dt><dd><div class="tclcmdsynopsis" id="id755717"><a name="id755717"></a>
 +		<u>get</u>
 +		<i class="replaceable"><tt>name</tt></i>
 +		 args
-+	      </div><p>Returns information about the XML document being parsed.  Each parser class provides different information, see the documentation for the parser class.</p></dd><dt><span class="term"><tt class="option">parse</tt></span></dt><dd><div class="tclcmdsynopsis" id="id796824"><a name="id796824"></a>
++	      </div><p>Returns information about the XML document being parsed.  Each parser class provides different information, see the documentation for the parser class.</p></dd><dt><span class="term"><tt class="option">parse</tt></span></dt><dd><div class="tclcmdsynopsis" id="id755757"><a name="id755757"></a>
 +		<u>parse</u>
 +		<i class="replaceable"><tt>xml</tt></i>
 +		 args
-+	      </div><p>Parses the XML document.  The usual desired effect is for various application callbacks to be evaluated.  Other functions will also be performed by the parser class, at the very least this includes checking the XML document for well-formedness.</p></dd><dt><span class="term"><tt class="option">reset</tt></span></dt><dd><div class="tclcmdsynopsis" id="id796865"><a name="id796865"></a>
++	      </div><p>Parses the XML document.  The usual desired effect is for various application callbacks to be evaluated.  Other functions will also be performed by the parser class, at the very least this includes checking the XML document for well-formedness.</p></dd><dt><span class="term"><tt class="option">reset</tt></span></dt><dd><div class="tclcmdsynopsis" id="id755798"><a name="id755798"></a>
 +		<u>reset</u>
-+	      </div><p>Initialises the parser object in preparation for parsing a new XML document.</p></dd></dl></div></div></div></div><div class="refsect1" lang="en"><a name="id796882"></a><h2>Callback Return Codes</h2><p>Every callback script evaluated by a parser may return a return code other than  [TCL_OK].  Return codes are interpreted as follows:</p><table border="0"><tr><td valign="top">break</td><td valign="top">Suppresses invocation of all further callback scripts.  The <tt class="option">parse</tt> method returns the <tt class="arg">TCL_OK</tt> return code.</td></tr><tr><td valign="top">continue</td><td valign="top">Suppresses invocation of further callback scripts until the current element has finished.</td></tr><tr><td valign="top">error</td><td valign="top">Suppresses invocation of all further callback scripts.  The <tt class="option">parse</tt> method also returns the <tt class="arg">TCL_ERROR</tt> return code.</td></tr><tr><td valign="top">default</td><td valign="top">Any other return code suppresses invocation of all further callback scripts.  The <tt class="option">parse</tt> method returns the same return code.</td></tr></table></div><div class="refsect1" lang="en"><a name="id796979"></a><h2>Application Examples</h2><p>This script outputs the character data of an XML document read from stdin.</p><div class="informalexample"><pre class="programlisting">
++	      </div><p>Initialises the parser object in preparation for parsing a new XML document.</p></dd></dl></div></div></div></div><div class="refsect1" lang="en"><a name="id755816"></a><h2>Callback Return Codes</h2><p>Every callback script evaluated by a parser may return a return code other than  [TCL_OK].  Return codes are interpreted as follows:</p><table border="0"><tr><td valign="top">break</td><td valign="top">Suppresses invocation of all further callback scripts.  The <tt class="option">parse</tt> method returns the <tt class="arg">TCL_OK</tt> return code.</td></tr><tr><td valign="top">continue</td><td valign="top">Suppresses invocation of further callback scripts until the current element has finished.</td></tr><tr><td valign="top">error</td><td valign="top">Suppresses invocation of all further callback scripts.  The <tt class="option">parse</tt> method also returns the <tt class="arg">TCL_ERROR</tt> return code.</td></tr><tr><td valign="top">default</td><td valign="top">Any other return code suppresses invocation of all further callback scripts.  The <tt class="option">parse</tt> method returns the same return code.</td></tr></table></div><div class="refsect1" lang="en"><a name="id755912"></a><h2>Error Messages</h2><p>If an error or warning condition is detected then an error message is returned.  These messages are structured as a Tcl list, as described below:</p><div class="informalexample"><pre class="programlisting">{domain level code node line message int1 int2 string1 string2 string3}</pre></div><div class="variablelist"><dl><dt><span class="term"><tt class="literal">domain</tt></span></dt><dd><p>A code for the subsystem that detected the error.</p></dd><dt><span class="term"><tt class="literal">level</tt></span></dt><dd><p>Severity level of the problem.</p></dd><dt><span class="term"><tt class="literal">code</tt></span></dt><dd><p>A one word string describing the error.</p></dd><dt><span class="term"><tt class="literal">node</tt></span></dt><dd><p>If available, the token of the DOM node associated with the problem.</p></dd><dt><span class="term"><tt class="literal">line</tt></span></dt><dd><p>If known, the line number in the source XML document where the problem was detected.</p></dd><dt><span class="term"><tt class="literal">message</tt></span></dt><dd><p>A human-readable description of the problem.</p></dd><dt><span class="term"><tt class="literal">int1</tt></span></dt><dd><p>Additional integer data.  For the parser domain, this is usually the column number where the problem was detected.</p></dd><dt><span class="term"><tt class="literal">int2</tt></span></dt><dd><p>Additional integer data.</p></dd><dt><span class="term"><tt class="literal">string1</tt></span></dt><dd><p>Additional string data.</p></dd><dt><span class="term"><tt class="literal">string2</tt></span></dt><dd><p>Additional string data.</p></dd><dt><span class="term"><tt class="literal">string3</tt></span></dt><dd><p>Additional string data.</p></dd></dl></div></div><div class="refsect1" lang="en"><a name="id756127"></a><h2>Application Examples</h2><p>This script outputs the character data of an XML document read from stdin.</p><div class="informalexample"><pre class="programlisting">
 +package require xml
 +
 +proc cdata {data args} {
@@ -6903,279 +6903,57 @@ diff -N doc/tclxml.html
 +set parser [::xml::parser -elementstartcommand [list EStart count]]
 +$parser parse [read stdin]
 +puts "The XML document contains $count elements"
-+      </pre></div></div><div class="refsect1" lang="en"><a name="id797019"></a><h2>Parser Classes</h2><p>This section will discuss how a parser class is implemented.</p><div class="refsect2" lang="en"><a name="id797029"></a><h3>Tcl Parser Class</h3><p>The pure-Tcl parser class requires no compilation - it is a collection of Tcl scripts.  This parser implementation is non-validating, ie. it can only check well-formedness in a document.  However, by enabling the <tt class="option">-validate</tt> option it will read the document's DTD and resolve external entities.</p><p>This parser implementation aims to implement XML v1.0 and supports XML Namespaces.</p><p>Generally the parser produces XML Infoset information items.  That is, it gives the application a slightly higher-level view than the raw XML syntax.  For example, it does not report CDATA Sections.</p></div><div class="refsect2" lang="en"><a name="id797059"></a><h3>Expat Parser Class</h3><p>This section will discuss the Expat parser class.</p></div></div><div class="refsect1" lang="en"><a name="id797072"></a><h2>See Also</h2><p>TclDOM, a Tcl interface for the W3C Document Object Model.</p></div><div class="refsect1" lang="en"><a name="id797082"></a><h2>Keywords</h2></div></div></body></html>
++      </pre></div></div><div class="refsect1" lang="en"><a name="id756168"></a><h2>Safe XML</h2><p>TclXML/Tcl and TclXML/libxml2 may be used in a Safe Tcl interpreter.  When a document is parsed in a Safe Tcl interpreter, any attempt by the XML document to load an external entity is handled by the -externalentitycommand callback.  This callback is evaluated in the context of the safe interpreter and therefore is subject to the security policy in force for that interpreter.  The default entity loader will not be invoked, even if the callback script returns a <tt class="literal">TCL_CONTINUE</tt> code.</p><p>See the description of the -externalentitycommand for further details.</p></div><div class="refsect1" lang="en"><a name="id756196"></a><h2>Parser Classes</h2><p>This section will discuss how a parser class is implemented.</p><div class="refsect2" lang="en"><a name="id756206"></a><h3>Tcl Parser Class</h3><p>The pure-Tcl parser class requires no compilation - it is a collection of Tcl scripts.  This parser implementation is non-validating, ie. it can only check well-formedness in a document.  However, by enabling the <tt class="option">-validate</tt> option it will read the document's DTD and resolve external entities.  This parser class is referred to as TclXML/tcl.</p><p>This parser implementation aims to implement XML v1.0 and supports XML Namespaces.</p><p>Generally the parser produces XML Infoset information items.  That is, it gives the application a slightly higher-level view than the raw XML syntax.  For example, it does not report CDATA Sections.</p><p>TclXML/tcl is not able to handle character encodings other than UTF-8.</p></div><div class="refsect2" lang="en"><a name="id756238"></a><h3>Expat Parser Class</h3><p>This section will discuss the Expat parser class.</p></div><div class="refsect2" lang="en"><a name="id756249"></a><h3>libxml2 Parser Class</h3><p>The libxml2 parser class provides a Tcl interface to the libxml2 XML parser library.  This parser class is referred to as TclXML/libxml2.</p><p>When the package is loaded the variable <tt class="literal">::xml::libxml2::libxml2version</tt> is set to the version number of the libxml2 library being used.</p><p>On MS Windows, it is necessary to load the generic XML package first, and then the TclXML/libxml2 package.  For example,</p><div class="informalexample"><pre class="programlisting">
++package require xml
++package require xml::libxml2
++</pre></div><div class="refsect3" lang="en"><a name="id756286"></a><h4>get Method</h4><p>TclXML/libxml2 provides the following arguments to the get method:</p><div class="variablelist"><dl><dt><span class="term">[document]</span></dt><dd><p>Returns the parsed document object.  libxml2 builds an in-memory data structure of the XML document it parses (a DOM tree).  This method returns a handle (or token) for that structure.</p><p>TclXML/libxml2 manages the document object as a Tcl object.  See the <tt class="option">-keep</tt> for further information.</p></dd></dl></div></div><div class="refsect3" lang="en"><a name="id756331"></a><h4>Additional Options</h4><div class="variablelist"><dl><dt><span class="term"><tt class="option">-keep</tt></span></dt><dd><p>
++		<tt class="option">-keep</tt>
++		<u>normal | implicit</u>
++	      </p><p>Controls how the TclXML/libxml2 packages manages the document object.  The default value is <tt class="literal">implicit</tt>; the document is destroyed when the Tcl Object's internal representation is freed.  If the option is given the value <tt class="literal">normal</tt> then the document must be explicit destroyed.  The only way to explicitly destroy the document is by using the C API.</p></dd><dt><span class="term"><tt class="option">-retainpath</tt></span></dt><dd><p>
++		<tt class="option">-retainpath</tt>
++		<u><i class="replaceable"><tt>xpath</tt></i></u>
++	      </p><p>The given XPath location path specifies which part of the document is to be kept after the parsing operation has completed.  By default, all document data is discard after it has been parsed.</p></dd><dt><span class="term"><tt class="option">-retainpathns</tt></span></dt><dd><p>
++		<tt class="option">-retainpathns</tt>
++		<u><i class="replaceable"><tt>prefix ns ...</tt></i></u>
++	      </p><p>The value of this option is a list of pairs of XML Namespace prefixes and their corresponding namespace URIs.  These are used by the XPath location path given in the  [-retainpath] option.</p></dd></dl></div></div><div class="refsect3" lang="en"><a name="id756460"></a><h4>Limitations</h4><p>The libxml2 parser classes has the following limitations:</p><div class="itemizedlist"><ul type="disc"><li><p><tt class="option">-reportempty</tt> has no effect.  libxml2 does not report empty element syntax.</p></li><li><p>Incremental (push) parsing, ie.  [<tt class="option">-final</tt> <tt class="literal">0</tt>] is not supported.</p></li><li><p>TclXML/libxml2 does not provide (DTD) validation, (WXS) schema validation or Relax NG validation, although the libxml2 library does provide those functions.  These functions are provided by the TclDOM/libxml2 package, but only in a "posteriori" fashion (ie. only after the document has been parsed).</p></li><li><p>libxml2 supports XML Namespaces.  The use of XML Namespaces can be queried, but the <span class="emphasis"><em>declaration</em></span> of a XML Namespace is not reported.</p></li></ul></div></div></div></div><div class="refsect1" lang="en"><a name="id756532"></a><h2>See Also</h2><p>TclDOM, a Tcl interface for the W3C Document Object Model.</p></div><div class="refsect1" lang="en"><a name="id756543"></a><h2>Keywords</h2></div></div></body></html>
 Index: doc/tclxml.n
 ===================================================================
 RCS file: doc/tclxml.n
 diff -N doc/tclxml.n
 --- /dev/null	1 Jan 1970 00:00:00 -0000
-+++ doc/tclxml.n	2 Jun 2004 11:20:36 -0000
-@@ -0,0 +1,895 @@
++++ doc/tclxml.n	3 Nov 2005 11:20:36 -0000
+@@ -0,0 +1,898 @@
 +'\"
-+Steve Ball'\" Copyright (c) 2000 Zveno Pty Ltd
++'\" Copyright (c) 2005 eXplain
++'\" http://www.explain.com.au/
 +'\"
-+'\" Zveno makes this software and all associated data and docume
-+'\" ntation ('Software') available free of charge for any purpos
-+'\" e.  Copies may be made of this Software but all of this noti
-+'\" ce must be included on any copy.
++'\" Copyright (c) 2004 Zveno Pty Ltd
++'\" http://www.zveno.com/
 +'\"
-+'\" The Software was developed for research purposes and Zveno d
-+'\" oes not warrant that it is error free or fit for any purpose
-+'\" .  Zveno disclaims any liability for all claims, expenses, l
-+'\" osses, damages and costs any user may incur as a result of u
-+'\" sing, copying or modifying the Software.
++'\"Zveno makes this software and all associated data and documentation
++'\"('Software') available free of charge for any purpose.  Copies may be made
++'\"of this Software but all of this notice must be included on any copy.
++'\"
++'\"The Software was developed for research purposes and Zveno does not
++'\"warrant that it is error free or fit for any purpose.  Zveno disclaims any
++'\"liability for all claims, expenses, losses, damages and costs any user may
++'\"incur as a result of using, copying or modifying the Software.
++'\"
++'\"
++'\" RCS: @(#) $Id: nroff.xsl,v 1.3 2003/12/03 20:06:33 balls Exp $
 +'\" 
-+'\" RCS: @(#) $Id: tclxml.diff,v 1.2 2004/08/20 18:39:35 tpeterso Exp $
-+'\" 
-+'\" The definitions below are for supplemental macros used in Tcl/Tk
-+'\" manual entries.
-+'\"
-+'\" .AP type name in/out ?indent?
-+'\"	Start paragraph describing an argument to a library procedure.
-+'\"	type is type of argument (int, etc.), in/out is either "in", "out",
-+'\"	or "in/out" to describe whether procedure reads or modifies arg,
-+'\"	and indent is equivalent to second arg of .IP (shouldn't ever be
-+'\"	needed;  use .AS below instead)
-+'\"
-+'\" .AS ?type? ?name?
-+'\"	Give maximum sizes of arguments for setting tab stops.  Type and
-+'\"	name are examples of largest possible arguments that will be passed
-+'\"	to .AP later.  If args are omitted, default tab stops are used.
-+'\"
-+'\" .BS
-+'\"	Start box enclosure.  From here until next .BE, everything will be
-+'\"	enclosed in one large box.
-+'\"
-+'\" .BE
-+'\"	End of box enclosure.
-+'\"
-+'\" .CS
-+'\"	Begin code excerpt.
-+'\"
-+'\" .CE
-+'\"	End code excerpt.
-+'\"
-+'\" .VS ?version? ?br?
-+'\"	Begin vertical sidebar, for use in marking newly-changed parts
-+'\"	of man pages.  The first argument is ignored and used for recording
-+'\"	the version when the .VS was added, so that the sidebars can be
-+'\"	found and removed when they reach a certain age.  If another argument
-+'\"	is present, then a line break is forced before starting the sidebar.
-+'\"
-+'\" .VE
-+'\"	End of vertical sidebar.
-+'\"
-+'\" .DS
-+'\"	Begin an indented unfilled display.
-+'\"
-+'\" .DE
-+'\"	End of indented unfilled display.
-+'\"
-+'\" .SO
-+'\"	Start of list of standard options for a Tk widget.  The
-+'\"	options follow on successive lines, in four columns separated
-+'\"	by tabs.
-+'\"
-+'\" .SE
-+'\"	End of list of standard options for a Tk widget.
-+'\"
-+'\" .OP cmdName dbName dbClass
-+'\"	Start of description of a specific option.  cmdName gives the
-+'\"	option's name as specified in the class command, dbName gives
-+'\"	the option's name in the option database, and dbClass gives
-+'\"	the option's class in the option database.
-+'\"
-+'\" .UL arg1 arg2
-+'\"	Print arg1 underlined, then print arg2 normally.
-+'\"
-+'\" RCS: @(#) $Id: tclxml.diff,v 1.2 2004/08/20 18:39:35 tpeterso Exp $
-+'\"
-+'\"	# Set up traps and other miscellaneous stuff for Tcl/Tk man pages.
-+.if t .wh -1.3i ^B
-+.nr ^l \n(.l
-+.ad b
-+'\"	# Start an argument description
-+.de AP
-+.ie !"\\$4"" .TP \\$4
-+.el \{\
-+.   ie !"\\$2"" .TP \\n()Cu
-+.   el          .TP 15
-+.\}
-+.ta \\n()Au \\n()Bu
-+.ie !"\\$3"" \{\
-+\&\\$1	\\fI\\$2\\fP	(\\$3)
-+.\".b
-+.\}
-+.el \{\
-+.br
-+.ie !"\\$2"" \{\
-+\&\\$1	\\fI\\$2\\fP
-+.\}
-+.el \{\
-+\&\\fI\\$1\\fP
-+.\}
-+.\}
-+..
-+'\"	# define tabbing values for .AP
-+.de AS
-+.nr )A 10n
-+.if !"\\$1"" .nr )A \\w'\\$1'u+3n
-+.nr )B \\n()Au+15n
-+.\"
-+.if !"\\$2"" .nr )B \\w'\\$2'u+\\n()Au+3n
-+.nr )C \\n()Bu+\\w'(in/out)'u+2n
-+..
-+.AS Tcl_Interp Tcl_CreateInterp in/out
-+'\"	# BS - start boxed text
-+'\"	# ^y = starting y location
-+'\"	# ^b = 1
-+.de BS
-+.br
-+.mk ^y
-+.nr ^b 1u
-+.if n .nf
-+.if n .ti 0
-+.if n \l'\\n(.lu\(ul'
-+.if n .fi
-+..
-+'\"	# BE - end boxed text (draw box now)
-+.de BE
-+.nf
-+.ti 0
-+.mk ^t
-+.ie n \l'\\n(^lu\(ul'
-+.el \{\
-+.\"	Draw four-sided box normally, but don't draw top of
-+.\"	box if the box started on an earlier page.
-+.ie !\\n(^b-1 \{\
-+\h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
-+.\}
-+.el \}\
-+\h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
-+.\}
-+.\}
-+.fi
-+.br
-+.nr ^b 0
-+..
-+'\"	# VS - start vertical sidebar
-+'\"	# ^Y = starting y location
-+'\"	# ^v = 1 (for troff;  for nroff this doesn't matter)
-+.de VS
-+.if !"\\$2"" .br
-+.mk ^Y
-+.ie n 'mc \s12\(br\s0
-+.el .nr ^v 1u
-+..
-+'\"	# VE - end of vertical sidebar
-+.de VE
-+.ie n 'mc
-+.el \{\
-+.ev 2
-+.nf
-+.ti 0
-+.mk ^t
-+\h'|\\n(^lu+3n'\L'|\\n(^Yu-1v\(bv'\v'\\n(^tu+1v-\\n(^Yu'\h'-|\\n(^lu+3n'
-+.sp -1
-+.fi
-+.ev
-+.\}
-+.nr ^v 0
-+..
-+'\"	# Special macro to handle page bottom:  finish off current
-+'\"	# box/sidebar if in box/sidebar mode, then invoked standard
-+'\"	# page bottom macro.
-+.de ^B
-+.ev 2
-+'ti 0
-+'nf
-+.mk ^t
-+.if \\n(^b \{\
-+.\"	Draw three-sided box if this is the box's first page,
-+.\"	draw two sides but no top otherwise.
-+.ie !\\n(^b-1 \h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
-+.el \h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
-+.\}
-+.if \\n(^v \{\
-+.nr ^x \\n(^tu+1v-\\n(^Yu
-+\kx\h'-\\nxu'\h'|\\n(^lu+3n'\ky\L'-\\n(^xu'\v'\\n(^xu'\h'|0u'\c
-+.\}
-+.bp
-+'fi
-+.ev
-+.if \\n(^b \{\
-+.mk ^y
-+.nr ^b 2
-+.\}
-+.if \\n(^v \{\
-+.mk ^Y
-+.\}
-+..
-+'\"	# DS - begin display
-+.de DS
-+.RS
-+.nf
-+.sp
-+..
-+'\"	# DE - end display
-+.de DE
-+.fi
-+.RE
-+.sp
-+..
-+'\"	# SO - start of list of standard options
-+.de SO
-+.SH "STANDARD OPTIONS"
-+.LP
-+.nf
-+.ta 4c 8c 12c
-+.ft B
-+..
-+'\"	# SE - end of list of standard options
-+.de SE
-+.fi
-+.ft R
-+.LP
-+See the \\fBoptions\\fR manual entry for details on the standard options.
-+..
-+'\"	# OP - start of full description for a single option
-+.de OP
-+.LP
-+.nf
-+.ta 4c
-+Command-Line Name:	\\fB\\$1\\fR
-+Database Name:	\\fB\\$2\\fR
-+Database Class:	\\fB\\$3\\fR
-+.fi
-+.IP
-+..
-+'\"	# CS - begin code excerpt
-+.de CS
-+.RS
-+.nf
-+.ta .25i .5i .75i 1i
-+..
-+'\"	# CE - end code excerpt
-+.de CE
-+.fi
-+.RE
-+..
-+.de UL
-+\\$1\l'|0\(ul'\\$2
-+..
-+.TH TclXML n  Tcl "Tcl Built-In Commands"
++.so man.macros
++.TH TclXML n 3.1 TclXML "TclXML Package Commands"
 +.BS
 +'\" Note:  do not modify the .SH NAME line immediately below!
 +.SH NAME
-+::xml::parser \- XML parser support for Tcl
++::xml::parser ::xml::parserclass \- XML parser support for Tcl
++.BE
++
 +.SH SYNOPSIS
 +\fBpackage require xml\fP
 +.sp
 +\fBpackage require \fIparserclass\fR
-+.sp
-+\fBxml\fR\fB2.6\fR\fP
-+.sp
-+\fB::xml\fR\fB::sgml\fR\fB::xml::tclparser\fR\fP
 +.sp
 +\fB::xml::parserclass\fI option\fR ?\fI arg\fI arg ... ?\fP
 +.sp
@@ -7199,41 +6977,36 @@ diff -N doc/tclxml.n
 +Loading the package with the generic \fBpackage require xml\fR command allows the package to automatically determine the default parser class.  In order to select a particular parser class as the default, that class' package may be loaded directly, eg. \fBpackage require expat\fR.  In all cases, all available parser classes are registered with the TclXML package, the difference is simply in which one becomes the default.
 +
 +.SH COMMANDS
-+.TP
-+\fB::xml::parserclass\fR
++.SS \fB::xml::parserclass\fR
 +
 +.PP
 +The \fB::xml::parserclass\fR command is used to manage XML parser classes.
-+
-+.RS
-+.TP
-+Command Options
++.SS Command Options
 +
 +.PP
 +The following command options may be used:
 +
-+.TP
 +.RS
 +.TP
-+\fI\fB\fBcreate\fR\fR\fP \fI create\fI \fIname\fR ?\fI -createcommand\fR\fI \fIscript\fR? ?\fI -createentityparsercommand\fR\fI \fIscript\fR? ?\fI -parsecommand\fR\fI \fIscript\fR? ?\fI -configurecommand\fR\fI \fIscript\fR? ?\fI -getcommand\fR\fI \fIscript\fR? ?\fI -deletecommand\fR\fI \fIscript\fR?\fP
++\fI\fB\fBcreate\fR\fR\fP 
++\fI create\fI \fIname\fR ?\fI -createcommand\fR\fI \fIscript\fR? ?\fI -createentityparsercommand\fR\fI \fIscript\fR? ?\fI -parsecommand\fR\fI \fIscript\fR? ?\fI -configurecommand\fR\fI \fIscript\fR? ?\fI -getcommand\fR\fI \fIscript\fR? ?\fI -deletecommand\fR\fI \fIscript\fR?\fP
 +.PP
 +Creates an XML parser class with the given name.
 +
 +.TP
-+\fI\fB\fBdestroy\fR\fR\fP \fI destroy\fI \fIname\fR\fP
++\fI\fB\fBdestroy\fR\fR\fP 
++\fI destroy\fI \fIname\fR\fP
 +.PP
 +Destroys an XML parser class.
 +
 +.TP
-+\fI\fB\fBinfo\fR\fR\fP \fI info\fR\fI names\fP
++\fI\fB\fBinfo\fR\fR\fP 
++\fI info\fR\fI names\fI default\fP
 +.PP
 +Returns information about registered XML parser classes.
 +
 +.RE
-+
-+.RE
-+.TP
-+\fB::xml::parser\fR
++.SS \fB::xml::parser\fR
 +
 +.PP
 +The \fB::xml::parser\fR command creates an XML parser object.  The return value of the command is the name of the newly created parser.
@@ -7243,25 +7016,21 @@ diff -N doc/tclxml.n
 +
 +.PP
 +Parsing is performed synchronously.  The command blocks until the entire document has been parsed.  Parsing may be terminated by an application callback, see the section Callback Return Codes.  Incremental parsing is also supported by using the \fI -final\fR configuration option.
-+
-+.RS
-+.TP
-+Configuration Options
++.SS Configuration Options
 +
 +.PP
 +The \fB::xml::parser\fR command accepts the following configuration options:
 +
-+.TP
 +.RS
 +.TP
-+\fI\fB\fI -attlistdeclcommand\fR\fR\fP \fI -attlistdeclcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -attlistdeclcommand\fR\fR\fP 
++\fI -attlistdeclcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated whenever an attribute list declaration is encountered in the DTD subset of an XML document.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIname\fR\fI \fIattrname\fR\fI \fItype\fR\fI \fIdefault\fR\fI \fIvalue\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIname\fP Element type name
@@ -7276,66 +7045,73 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -baseurl\fR\fR\fP \fI -baseurl\fR\fI \fIURI\fR\fP
++\fI\fB\fI -baseuri\fR\fR\fB\fI -baseurl\fR\fR\fP 
++\fI -baseuri\fR\fI \fIURI\fR\fP
++.sp
++\fI -baseurl\fR\fI \fIURI\fR\fP
 +.PP
 +Specifies the base URI for resolving relative URIs that may be used in the XML document to refer to external entities.
 +
++.PP
++\fI -baseurl\fR is deprecated in favour of \fI -baseuri\fR.
++
 +.TP
-+\fI\fB\fI -characterdatacommand\fR\fR\fP \fI -characterdatacommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -characterdatacommand\fR\fR\fP 
++\fI -characterdatacommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated whenever character data is encountered in the XML document being parsed.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIdata\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIdata\fP Character data in the document
 +.RE
 +
 +.TP
-+\fI\fB\fI -commentcommand\fR\fR\fP \fI -commentcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -commentcommand\fR\fR\fP 
++\fI -commentcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated whenever a comment is encountered in the XML document being parsed.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIdata\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIdata\fP Comment data
 +.RE
 +
 +.TP
-+\fI\fB\fI -defaultcommand\fR\fR\fP \fI -defaultcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -defaultcommand\fR\fR\fP 
++\fI -defaultcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when no other callback has been defined for a document feature which has been encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIdata\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIdata\fP Document data
 +.RE
 +
 +.TP
-+\fI\fB\fI -defaultexpandinternalentities\fR\fR\fP \fI -defaultexpandinternalentities\fR\fI \fIboolean\fR\fP
++\fI\fB\fI -defaultexpandinternalentities\fR\fR\fP 
++\fI -defaultexpandinternalentities\fR\fI \fIboolean\fR\fP
 +.PP
 +Specifies whether entities declared in the internal DTD subset are expanded with their replacement text.  If entities are not expanded then the entity references will be reported with no expansion.
 +
 +.TP
-+\fI\fB\fI -doctypecommand\fR\fR\fP \fI -doctypecommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -doctypecommand\fR\fR\fP 
++\fI -doctypecommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when the document type declaration is encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIname\fR\fI \fIpublic\fR\fI \fIsystem\fR\fI \fIdtd\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIname\fP The name of the document element
@@ -7351,14 +7127,14 @@ diff -N doc/tclxml.n
 +See also \fI -startdoctypedeclcommand\fR and \fI -enddoctypedeclcommand\fR.
 +
 +.TP
-+\fI\fB\fI -elementdeclcommand\fR\fR\fP \fI -elementdeclcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -elementdeclcommand\fR\fR\fP 
++\fI -elementdeclcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when an element markup declaration is encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIname\fR\fI \fImodel\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIname\fP The element type name
@@ -7367,14 +7143,14 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -elementendcommand\fR\fR\fP \fI -elementendcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -elementendcommand\fR\fR\fP 
++\fI -elementendcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when an element end tag is encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIname\fR\fI \fIargs\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIname\fP The element type name that has ended
@@ -7385,7 +7161,6 @@ diff -N doc/tclxml.n
 +.PP
 +Additional information about the element takes the form of configuration options.  Possible options are:
 +
-+.TP
 +.RS
 +.TP
 +\fI-empty boolean\fP The empty element syntax was used for this element
@@ -7394,14 +7169,14 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -elementstartcommand\fR\fR\fP \fI -elementstartcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -elementstartcommand\fR\fR\fP 
++\fI -elementstartcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when an element start tag is encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIname\fR\fI \fIattlist\fR\fI \fIargs\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIname\fP The element type name that has started
@@ -7414,7 +7189,6 @@ diff -N doc/tclxml.n
 +.PP
 +Additional information about the element takes the form of configuration options.  Possible options are:
 +
-+.TP
 +.RS
 +.TP
 +\fI-empty boolean\fP The empty element syntax was used for this element
@@ -7425,24 +7199,32 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -endcdatasectioncommand\fR\fR\fP \fI -endcdatasectioncommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -encoding\fR\fR\fP 
++\fI -encoding\fR\fI \fIvalue\fR\fP
++.PP
++Gives the character encoding of the document.  This option only has an effect before a document is parsed.  The default character encoding is \fButf-8\fR.  If the value \fBunknown\fR is given, or any value other than \fButf-8\fR, then the document text is treated as binary data.  If the value is given as \fBunknown\fR then the parser will attempt to automatically determine the character encoding of the document (using byte-order-marks, etc).  If any value other than \fButf-8\fR or \fBunknown\fR is given then the parser will read the document text using that character encoding.
++
++.TP
++\fI\fB\fI -endcdatasectioncommand\fR\fR\fP 
++\fI -endcdatasectioncommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when end of a CDATA section is encountered.  The command is evaluated with no further arguments.
 +
 +.TP
-+\fI\fB\fI -enddoctypedeclcommand\fR\fR\fP \fI -enddoctypedeclcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -enddoctypedeclcommand\fR\fR\fP 
++\fI -enddoctypedeclcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when end of the document type declaration is encountered.  The command is evaluated with no further arguments.
 +
 +.TP
-+\fI\fB\fI -entitydeclcommand\fR\fR\fP \fI -entitydeclcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -entitydeclcommand\fR\fR\fP 
++\fI -entitydeclcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when an entity declaration is encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIname\fR\fI \fIargs\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIname\fP The name of the entity being declared
@@ -7451,28 +7233,28 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -entityreferencecommand\fR\fR\fP \fI -entityreferencecommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -entityreferencecommand\fR\fR\fP 
++\fI -entityreferencecommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when an entity reference is encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIname\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIname\fP The name of the entity being referenced
 +.RE
 +
 +.TP
-+\fI\fB\fI -errrocommand\fR\fR\fP \fI -errorcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -errorcommand\fR\fR\fP 
++\fI -errorcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when a fatal error is detected.  The error may be due to the XML document not being well-formed.  In the case of a validating parser class, the error may also be due to the XML document not obeying validity constraints.  By default, a callback script is provided which causes an error return code, but an application may supply a script which attempts to continue parsing.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIerrorcode\fR\fI \fIerrormsg\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIerrorcode\fP A single word description of the error, intended for use by an application
@@ -7481,14 +7263,14 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -externalentitycommand\fR\fR\fP \fI -externalentitycommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -externalentitycommand\fR\fR\fP 
++\fI -externalentitycommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated to resolve an external entity reference.  If the parser has been configured to validate the XML document, a default script is supplied that resolves the URI given as the system identifier of the external entity and recursively parses the entity's data.  If the parser has been configured as a non-validating parser, then by default external entities are not resolved.  This option can be used to override the default behaviour.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIname\fR\fI \fIbaseuri\fR\fI \fIuri\fR\fI \fIid\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIname\fP The Tcl command name of the current parser
@@ -7500,8 +7282,77 @@ diff -N doc/tclxml.n
 +\fIid\fP The public identifier of the external entity.  If no public identifier was given in the entity declaration then id will be an empty string.
 +.RE
 +
++.PP
++The return result of the callback script determines the action of the parser.  Note that these codes are interpreted in a different manner to other callbacks.
++
++.RS
 +.TP
-+\fI\fB\fI -final\fR\fR\fP \fI -final\fR\fI \fIboolean\fR\fP
++\fI\fB\fBTCL_OK\fR\fR\fP 
++
++.PP
++The return result of the callback script is used as the external entity's data.  The URI passed to the callback script is used as the entity's base URI.
++
++.PP
++This is useful to either override the normal loading of an entity's data, or to implement new or alternative URI schemes.  As an example, the script below sets an external entity handler that intercepts "tcl:" URIs and evaluates them as inline Tcl scripts:
++.PP
++.CS
++
++package require xml
++
++proc External {name baseuri uri id} {
++    switch -glob -- $uri {
++	tcl:* {
++	    regexp {^tcl:(.*)$} $uri discard script
++	    return [uplevel #0 $script]
++	}
++	default {
++	    return -code continue {}
++	}
++    }
++}
++
++set parser [xml::parser -externalentitycommand External]
++$parser parse {<!DOCTYPE example [
++  <!ENTITY example SYSTEM "tcl:set%20example%20HelloWorld">
++]>
++<example>
++  &example;
++</example>
++}
++
++puts $example
++
++.CE
++
++.PP
++This script will print "HelloWorld" to stdout.
++
++.TP
++\fI\fB\fBTCL_CONTINUE\fR\fR\fP 
++
++.PP
++In a normal (non-safe) interpreter, the default external entity handler is used to load the external entity data as per normal operation of the parser.  If the parser is executing in a Safe Tcl interpreter then the entity is not loaded at all.
++
++.PP
++This is useful to interpose on the loading of external entities without interfering with the loading of entities.
++
++.TP
++\fI\fB\fBTCL_BREAK\fR\fR\fP 
++
++.PP
++No data is returned for this entity, ie. the entity is ignored.  No error is propagated.
++
++.TP
++\fI\fB\fBTCL_ERROR\fR\fR\fP 
++
++.PP
++No data is returned for this entity, ie. the entity is ignored.  A background error is registered, using the result of the callback script.
++
++.RE
++
++.TP
++\fI\fB\fI -final\fR\fR\fP 
++\fI -final\fR\fI \fIboolean\fR\fP
 +.PP
 +Specifies whether the XML document being parsed is complete.  If the document is to be incrementally parsed then this option will be set to false, and when the last fragment of document is parsed it is set to true.  For example,
 +.PP
@@ -7522,19 +7373,20 @@ diff -N doc/tclxml.n
 +.CE
 +
 +.TP
-+\fI\fB\fI -ignorewhitespace\fR\fR\fP \fI -ignorewhitespace\fR\fI \fIboolean\fR\fP
++\fI\fB\fI -ignorewhitespace\fR\fR\fP 
++\fI -ignorewhitespace\fR\fI \fIboolean\fR\fP
 +.PP
 +If this option is set to true then spans of character data in the XML document which are composed only of white-space (CR, LF, space, tab) will not be reported to the application.  In other words, the data passed to every invocation of the \fI -characterdatacommand\fR script will contain at least one non-white-space character.
 +
 +.TP
-+\fI\fB\fI -notationdeclcommand\fR\fR\fP \fI -notationdeclcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -notationdeclcommand\fR\fR\fP 
++\fI -notationdeclcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when a notation declaration is encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIname\fR\fI \fIuri\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIname\fP The name of the notation
@@ -7543,24 +7395,26 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -notstandalonecommand\fR\fR\fP \fI -notstandalonecommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -notstandalonecommand\fR\fR\fP 
++\fI -notstandalonecommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when the parser determines that the XML document being parsed is not a standalone document.
 +
 +.TP
-+\fI\fB\fI -paramentityparsing\fR\fR\fP \fI -paramentityparsing\fR\fI \fIboolean\fR\fP
++\fI\fB\fI -paramentityparsing\fR\fR\fP 
++\fI -paramentityparsing\fR\fI \fIboolean\fR\fP
 +.PP
 +Controls whether external parameter entities are parsed.
 +
 +.TP
-+\fI\fB\fI -parameterentitydeclcommand\fR\fR\fP \fI -parameterentitydeclcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -parameterentitydeclcommand\fR\fR\fP 
++\fI -parameterentitydeclcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when a parameter entity declaration is encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIname\fR\fI \fIargs\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIname\fP The name of the parameter entity
@@ -7569,19 +7423,20 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -parser\fR\fR\fP \fI -parser\fR\fI \fIname\fR\fP
++\fI\fB\fI -parser\fR\fR\fP 
++\fI -parser\fR\fI \fIname\fR\fP
 +.PP
 +The name of the parser class to instantiate for this parser object.  This option may only be specified when the parser instance is created.
 +
 +.TP
-+\fI\fB\fI -processinginstructioncommand\fR\fR\fP \fI -processinginstructioncommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -processinginstructioncommand\fR\fR\fP 
++\fI -processinginstructioncommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when a processing instruction is encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fItarget\fR\fI \fIdata\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fItarget\fP The name of the processing instruction target
@@ -7590,34 +7445,38 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -reportempty\fR\fR\fP \fI -reportempty\fR\fI \fIboolean\fR\fP
++\fI\fB\fI -reportempty\fR\fR\fP 
++\fI -reportempty\fR\fI \fIboolean\fR\fP
 +.PP
 +If this option is enabled then when an element is encountered that uses the special empty element syntax, additional arguments are appended to the \fI -elementstartcommand\fR and \fI -elementendcommand\fR callbacks.  The arguments \fI -empty 1 are appended.  For example:
 +\fB\fIscript\fR\fI -empty\fR\fI 1
 +.TP
-+\fI\fB\fI -startcdatasectioncommand\fR\fR\fP \fI -startcdatasectioncommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -startcdatasectioncommand\fR\fR\fP 
++\fI -startcdatasectioncommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when the start of a CDATA section section is encountered.  No arguments are appended to the script.
 +
 +.TP
-+\fI\fB\fI -startdoctypedeclcommand\fR\fR\fP \fI -startdoctypedeclcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -startdoctypedeclcommand\fR\fR\fP 
++\fI -startdoctypedeclcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated at the start of a document type declaration.  No arguments are appended to the script.
 +
 +.TP
-+\fI\fB\fI -unknownencodingcommand\fR\fR\fP \fI -unknownencodingcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -unknownencodingcommand\fR\fR\fP 
++\fI -unknownencodingcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when a character is encountered with an unknown encoding.  This option has not been implemented.
 +
 +.TP
-+\fI\fB\fI -unparsedentitydeclcommand\fR\fR\fP \fI -unparsedentitydeclcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -unparsedentitydeclcommand\fR\fR\fP 
++\fI -unparsedentitydeclcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when a declaration is encountered for an unparsed entity.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIsystem\fR\fI \fIpublic\fR\fI \fInotation\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIsystem\fP The system identifier of the external entity, usually a URI
@@ -7628,19 +7487,20 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -validate\fR\fR\fP \fI -validate\fR\fI \fIboolean\fR\fP
++\fI\fB\fI -validate\fR\fR\fP 
++\fI -validate\fR\fI \fIboolean\fR\fP
 +.PP
 +Enables validation of the XML document to be parsed.  Any changes to this option are ignored after an XML document has started to be parsed, but the option may be changed after a reset.
 +
 +.TP
-+\fI\fB\fI -warningcommand\fR\fR\fP \fI -warningcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -warningcommand\fR\fR\fP 
++\fI -warningcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when a warning condition is detected.  A warning condition is where the XML document has not been authored correctly, but is still well-formed and may be valid.  For example, the special empty element syntax may be used for an element which has not been declared to have empty content.  By default, a callback script is provided which silently ignores the warning.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIwarningcode\fR\fI \fIwarningmsg\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIwarningcode\fP A single word description of the warning, intended for use by an application
@@ -7649,14 +7509,14 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.TP
-+\fI\fB\fI -xmldeclcommand\fR\fR\fP \fI -xmldeclcommand\fR\fI \fIscript\fR\fP
++\fI\fB\fI -xmldeclcommand\fR\fR\fP 
++\fI -xmldeclcommand\fR\fI \fIscript\fR\fP
 +.PP
 +Specifies the prefix of a Tcl command to be evaluated when the XML declaration is encountered.  The command evaluated is:
 +\fB\fIscript\fR\fI \fIversion\fR\fI \fIencoding\fR\fI \fIstandalone\fR
 +.PP
 +where:
 +
-+.TP
 +.RS
 +.TP
 +\fIversion\fP The version number of the XML specification to which this document purports to conform
@@ -7667,8 +7527,7 @@ diff -N doc/tclxml.n
 +.RE
 +
 +.RE
-+.TP
-+Parser Command
++.SS Parser Command
 +
 +.PP
 +The \fB::xml::parser\fR command creates a new Tcl command with the same name as the parser.  This command may be used to invoke various operations on the parser object.  It has the following general form:
@@ -7676,44 +7535,48 @@ diff -N doc/tclxml.n
 +.PP
 +\fI \fIoption\fR\fR and the \fI \fIarg\fR determine the exact behaviour of the command.  The following commands are possible for parser objects:
 +
-+.TP
 +.RS
 +.TP
-+\fI\fB\fI cget\fR\fR\fP \fI cget\fR\fI \fI-option\fR\fP
++\fI\fB\fI cget\fR\fR\fP 
++\fI cget\fR\fI \fI-option\fR\fP
 +.PP
 +Returns the current value of the configuration option given by \fI \fIoption\fR\fR.  \fI \fIOption\fR\fR may have any of the values accepted by the parser object.
 +
 +.TP
-+\fI\fB\fI configure\fR\fR\fP \fI configure\fR ?\fI \fI-option\fR\fI \fIvalue\fR ... ?\fP
++\fI\fB\fI configure\fR\fR\fP 
++\fI configure\fR ?\fI \fI-option\fR\fI \fIvalue\fR ... ?\fP
 +.PP
 +Modify the configuration options of the parser object.  \fI \fIOption\fR\fR may have any of the values accepted by the parser object.
 +
 +.TP
-+\fI\fB\fI entityparser\fR\fR\fP \fI entityparser\fR ?\fI \fIoption\fR\fI \fIvalue\fR ... ?\fP
++\fI\fB\fI entityparser\fR\fR\fP 
++\fI entityparser\fR ?\fI \fIoption\fR\fI \fIvalue\fR ... ?\fP
 +.PP
 +Creates a new parser object.  The new object inherits the same configuration options as the parent parser object, but is able to parse XML data in a parsed entity.  The option \fI -dtdsubset\fR allows markup declarations to be treated as being in the internal or external DTD subset.
 +
 +.TP
-+\fI\fB\fI free\fR\fR\fP \fI free\fR\fI \fIname\fR\fP
++\fI\fB\fI free\fR\fR\fP 
++\fI free\fR\fI \fIname\fR\fP
 +.PP
 +Frees all resources associated with the parser object.  The object is not usable after this command has been invoked.
 +
 +.TP
-+\fI\fB\fI get\fR\fR\fP \fI get\fR\fI \fIname\fR\fI args\fP
++\fI\fB\fI get\fR\fR\fP 
++\fI get\fR\fI \fIname\fR\fI args\fP
 +.PP
 +Returns information about the XML document being parsed.  Each parser class provides different information, see the documentation for the parser class.
 +
 +.TP
-+\fI\fB\fI parse\fR\fR\fP \fI parse\fR\fI \fIxml\fR\fI args\fP
++\fI\fB\fI parse\fR\fR\fP 
++\fI parse\fR\fI \fIxml\fR\fI args\fP
 +.PP
 +Parses the XML document.  The usual desired effect is for various application callbacks to be evaluated.  Other functions will also be performed by the parser class, at the very least this includes checking the XML document for well-formedness.
 +
 +.TP
-+\fI\fB\fI reset\fR\fR\fP \fI reset\fR\fP
++\fI\fB\fI reset\fR\fR\fP 
++\fI reset\fR\fP
 +.PP
 +Initialises the parser object in preparation for parsing a new XML document.
-+
-+.RE
 +
 +.RE
 +
@@ -7722,7 +7585,6 @@ diff -N doc/tclxml.n
 +.PP
 +Every callback script evaluated by a parser may return a return code other than \fI TCL_OK.  Return codes are interpreted as follows:
 +
-+.TP
 +.RS
 +.TP
 +\fIbreak\fP Suppresses invocation of all further callback scripts.  The parse method returns the TCL_OK return code.
@@ -7732,6 +7594,84 @@ diff -N doc/tclxml.n
 +\fIerror\fP Suppresses invocation of all further callback scripts.  The parse method also returns the TCL_ERROR return code.
 +.TP
 +\fIdefault\fP Any other return code suppresses invocation of all further callback scripts.  The parse method returns the same return code.
++.RE
++
++.SH ERROR MESSAGES
++
++.PP
++If an error or warning condition is detected then an error message is returned.  These messages are structured as a Tcl list, as described below:
++.PP
++.CS
++{domain level code node line message int1 int2 string1 string2 string3}
++.CE
++
++.RS
++.TP
++\fI\fB\fBdomain\fR\fR\fP 
++
++.PP
++A code for the subsystem that detected the error.
++
++.TP
++\fI\fB\fBlevel\fR\fR\fP 
++
++.PP
++Severity level of the problem.
++
++.TP
++\fI\fB\fBcode\fR\fR\fP 
++
++.PP
++A one word string describing the error.
++
++.TP
++\fI\fB\fBnode\fR\fR\fP 
++
++.PP
++If available, the token of the DOM node associated with the problem.
++
++.TP
++\fI\fB\fBline\fR\fR\fP 
++
++.PP
++If known, the line number in the source XML document where the problem was detected.
++
++.TP
++\fI\fB\fBmessage\fR\fR\fP 
++
++.PP
++A human-readable description of the problem.
++
++.TP
++\fI\fB\fBint1\fR\fR\fP 
++
++.PP
++Additional integer data.  For the parser domain, this is usually the column number where the problem was detected.
++
++.TP
++\fI\fB\fBint2\fR\fR\fP 
++
++.PP
++Additional integer data.
++
++.TP
++\fI\fB\fBstring1\fR\fR\fP 
++
++.PP
++Additional string data.
++
++.TP
++\fI\fB\fBstring2\fR\fR\fP 
++
++.PP
++Additional string data.
++
++.TP
++\fI\fB\fBstring3\fR\fR\fP 
++
++.PP
++Additional string data.
++
 +.RE
 +
 +.SH APPLICATION EXAMPLES
@@ -7771,15 +7711,22 @@ diff -N doc/tclxml.n
 +      
 +.CE
 +
++.SH SAFE XML
++
++.PP
++TclXML/Tcl and TclXML/libxml2 may be used in a Safe Tcl interpreter.  When a document is parsed in a Safe Tcl interpreter, any attempt by the XML document to load an external entity is handled by the -externalentitycommand callback.  This callback is evaluated in the context of the safe interpreter and therefore is subject to the security policy in force for that interpreter.  The default entity loader will not be invoked, even if the callback script returns a \fBTCL_CONTINUE\fR code.
++
++.PP
++See the description of the -externalentitycommand for further details.
++
 +.SH PARSER CLASSES
 +
 +.PP
 +This section will discuss how a parser class is implemented.
-+.TP
-+Tcl Parser Class
++.SS Tcl Parser Class
 +
 +.PP
-+The pure-Tcl parser class requires no compilation - it is a collection of Tcl scripts.  This parser implementation is non-validating, ie. it can only check well-formedness in a document.  However, by enabling the \fI -validate\fR option it will read the document's DTD and resolve external entities.
++The pure-Tcl parser class requires no compilation - it is a collection of Tcl scripts.  This parser implementation is non-validating, ie. it can only check well-formedness in a document.  However, by enabling the \fI -validate\fR option it will read the document's DTD and resolve external entities.  This parser class is referred to as TclXML/tcl.
 +
 +.PP
 +This parser implementation aims to implement XML v1.0 and supports XML Namespaces.
@@ -7787,17 +7734,85 @@ diff -N doc/tclxml.n
 +.PP
 +Generally the parser produces XML Infoset information items.  That is, it gives the application a slightly higher-level view than the raw XML syntax.  For example, it does not report CDATA Sections.
 +
-+.RS
-+
-+.RE
-+.TP
-+Expat Parser Class
++.PP
++TclXML/tcl is not able to handle character encodings other than UTF-8.
++.SS Expat Parser Class
 +
 +.PP
 +This section will discuss the Expat parser class.
++.SS libxml2 Parser Class
++
++.PP
++The libxml2 parser class provides a Tcl interface to the libxml2 XML parser library.  This parser class is referred to as TclXML/libxml2.
++
++.PP
++When the package is loaded the variable \fB::xml::libxml2::libxml2version\fR is set to the version number of the libxml2 library being used.
++
++.PP
++On MS Windows, it is necessary to load the generic XML package first, and then the TclXML/libxml2 package.  For example,
++.PP
++.CS
++
++package require xml
++package require xml::libxml2
++
++.CE
++.SS get Method
++
++.PP
++TclXML/libxml2 provides the following arguments to the get method:
++
++.RS
++.TP
++\fI\fB\fI document\fR\fP 
++
++.PP
++Returns the parsed document object.  libxml2 builds an in-memory data structure of the XML document it parses (a DOM tree).  This method returns a handle (or token) for that structure.
++
++.PP
++TclXML/libxml2 manages the document object as a Tcl object.  See the \fI -keep\fR for further information.
++
++.RE
++.SS Additional Options
++
++.RS
++.TP
++\fI\fB\fI -keep\fR\fR\fP 
++\fI -keep\fR\fI normal | implicit\fP
++.PP
++Controls how the TclXML/libxml2 packages manages the document object.  The default value is \fBimplicit\fR; the document is destroyed when the Tcl Object's internal representation is freed.  If the option is given the value \fBnormal\fR then the document must be explicit destroyed.  The only way to explicitly destroy the document is by using the C API.
++
++.TP
++\fI\fB\fI -retainpath\fR\fR\fP 
++\fI -retainpath\fR\fI \fIxpath\fR\fP
++.PP
++The given XPath location path specifies which part of the document is to be kept after the parsing operation has completed.  By default, all document data is discard after it has been parsed.
++
++.TP
++\fI\fB\fI -retainpathns\fR\fR\fP 
++\fI -retainpathns\fR\fI \fIprefix ns ...\fR\fP
++.PP
++The value of this option is a list of pairs of XML Namespace prefixes and their corresponding namespace URIs.  These are used by the XPath location path given in the \fI -retainpath option.
++
++.RE
++.SS Limitations
++
++.PP
++The libxml2 parser classes has the following limitations:
 +
 +.RS
 +
++.PP
++*  \fI -reportempty\fR has no effect.  libxml2 does not report empty element syntax.
++
++.PP
++*  Incremental (push) parsing, ie. \fI \fI -final\fR\fB0\fR is not supported.
++
++.PP
++*  TclXML/libxml2 does not provide (DTD) validation, (WXS) schema validation or Relax NG validation, although the libxml2 library does provide those functions.  These functions are provided by the TclDOM/libxml2 package, but only in a "posteriori" fashion (ie. only after the document has been parsed).
++
++.PP
++*  libxml2 supports XML Namespaces.  The use of XML Namespaces can be queried, but the \fIdeclaration\fR of a XML Namespace is not reported.
 +.RE
 +
 +.SH SEE ALSO

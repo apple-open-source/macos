@@ -1,5 +1,5 @@
---- /Volumes/XDisk/tmp/Libc/gen/FreeBSD/signal.3.orig	2004-07-03 15:30:08.000000000 -0700
-+++ /Volumes/XDisk/tmp/Libc/gen/FreeBSD/signal.3	2004-10-24 17:08:28.000000000 -0700
+--- signal.3.orig	2006-12-15 11:55:30.000000000 -0800
++++ signal.3	2006-12-15 11:57:08.000000000 -0800
 @@ -48,9 +48,7 @@
  .Ft void \*(lp*
  .Fn signal "int sig" "void \*(lp*func\*(rp\*(lpint\*(rp\*(rp\*(rp\*(lpint"
@@ -11,3 +11,58 @@
  .Ft typedef "void \*(lp*sig_t\*(rp \*(lpint\*(rp" ;
  .Ft sig_t
  .Fn signal "int sig" "sig_t func"
+@@ -62,9 +60,9 @@
+ .Xr sigaction 2
+ facility.
+ .Pp
+-Signals allow the manipulation of a process from outside its
+-domain as well as allowing the process to manipulate itself or
+-copies of itself (children).
++Signals allow the manipulation of a process from outside its domain,
++as well as allowing the process to manipulate itself
++or copies of itself (children).
+ There are two general types of signals:
+ those that cause termination of a process and those that do not.
+ Signals which cause termination of a program might result from
+@@ -77,11 +75,10 @@
+ when a process resumes after being stopped,
+ when the status of child processes changes,
+ or when input is ready at the control terminal.
+-Most signals result in the termination of the process receiving them
+-if no action
+-is taken; some signals instead cause the process receiving them
+-to be stopped, or are simply discarded if the process has not
+-requested otherwise.
++Most signals result in the termination of the process receiving them,
++if no action is taken;
++some signals instead cause the process receiving them to be stopped,
++or are simply discarded if the process has not requested otherwise.
+ Except for the
+ .Dv SIGKILL
+ and
+@@ -135,7 +132,6 @@
+ .It 29 Ta Dv SIGINFO Ta "discard signal" Ta "status request from keyboard"
+ .It 30 Ta Dv SIGUSR1 Ta "terminate process" Ta "User defined signal 1"
+ .It 31 Ta Dv SIGUSR2 Ta "terminate process" Ta "User defined signal 2"
+-.It 32 Ta Dv SIGTHR Ta "terminate process" Ta "thread interrupt"
+ .El
+ .Pp
+ The
+@@ -151,7 +147,7 @@
+ A
+ .Dv SIG_DFL
+ resets the default action.
+-To ignore the signal
++To ignore the signal,
+ .Fa func
+ should be
+ .Dv SIG_IGN .
+@@ -185,7 +181,7 @@
+ .Xr write 2 ,
+ .Xr sendto 2 ,
+ .Xr recvfrom 2 ,
+-.Xr sendmsg 2
++.Xr sendmsg 2 ,
+ and
+ .Xr recvmsg 2
+ on a communications channel or a low speed device

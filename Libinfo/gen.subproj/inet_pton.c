@@ -28,6 +28,7 @@ static char rcsid[] = "$Id: inet_pton.c,v 1.3 2003/04/10 18:53:29 majka Exp $";
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 #include <arpa/nameser.h>
 #include <string.h>
 #include <stdlib.h>
@@ -82,16 +83,20 @@ int
 inet_pton(int af, const char *src, void *dst)
 {
 	int status;
+	unsigned short ifnum;
 	char *p, *s;
 
 	switch (af)
 	{
-		case AF_INET: return (inet_pton4(src, dst));
+		case AF_INET:
+		{
+			return (inet_pton4(src, dst));
+		}
 
 #ifdef INET6
 		case AF_INET6:
-			/* Ignore trailing %xxx (interface specification) */
-
+		{
+			ifnum = 0;
 			p = NULL;
 			s = (char *)src;
 
@@ -99,19 +104,39 @@ inet_pton(int af, const char *src, void *dst)
 			if (p != NULL)
 			{
 				s = strdup(src);
+				if (s == NULL)
+				{
+					errno = ENOMEM;
+					return -1;
+				}
+				
 				s[p - src] = '\0';
 			}
 
 			status = inet_pton6(s, dst);
 			if (p != NULL) free(s);
-			return status;
+			if (status != 1) return status;
+			
+			if ((p != NULL) && IN6_IS_ADDR_LINKLOCAL((struct in6_addr *)dst))
+			{
+				ifnum = if_nametoindex(++p);
+				ifnum = htons(ifnum);
+				((struct in6_addr *)dst)->__u6_addr.__u6_addr16[1] = ifnum;
+			}
+
+			return 1;
+		}
 #endif
 
 		default:
+		{
 			errno = EAFNOSUPPORT;
 			return -1;
+		}
 	}
+
 	/* NOTREACHED */
+	return -1;
 }
 
 /* int
@@ -125,23 +150,21 @@ inet_pton(int af, const char *src, void *dst)
  *	Paul Vixie, 1996.
  */
 static int
-inet_pton4(src, dst)
-	const char *src;
-	u_char *dst;
+inet_pton4(const char *src, u_char *dst)
 {
 	static const char digits[] = "0123456789";
 	int saw_digit, octets, ch;
 	u_char tmp[NS_INADDRSZ], *tp;
-
+	
 	saw_digit = 0;
 	octets = 0;
 	*(tp = tmp) = 0;
 	while ((ch = *src++) != '\0') {
 		const char *pch;
-
+		
 		if ((pch = strchr(digits, ch)) != NULL) {
 			u_int new = *tp * 10 + (pch - digits);
-
+			
 			if (new > 255)
 				return (0);
 			*tp = new;
@@ -179,17 +202,15 @@ inet_pton4(src, dst)
  *	Paul Vixie, 1996.
  */
 static int
-inet_pton6(src, dst)
-	const char *src;
-	u_char *dst;
+inet_pton6(const char *src, u_char *dst)
 {
 	static const char xdigits_l[] = "0123456789abcdef",
-			  xdigits_u[] = "0123456789ABCDEF";
+	xdigits_u[] = "0123456789ABCDEF";
 	u_char tmp[NS_IN6ADDRSZ], *tp, *endp, *colonp;
 	const char *xdigits, *curtok;
 	int ch, saw_xdigit;
 	u_int val;
-
+	
 	memset((tp = tmp), '\0', NS_IN6ADDRSZ);
 	endp = tp + NS_IN6ADDRSZ;
 	colonp = NULL;
@@ -202,7 +223,7 @@ inet_pton6(src, dst)
 	val = 0;
 	while ((ch = *src++) != '\0') {
 		const char *pch;
-
+		
 		if ((pch = strchr((xdigits = xdigits_l), ch)) == NULL)
 			pch = strchr((xdigits = xdigits_u), ch);
 		if (pch != NULL) {
@@ -252,7 +273,7 @@ inet_pton6(src, dst)
 		 */
 		const int n = tp - colonp;
 		int i;
-
+		
 		if (tp == endp)
 			return (0);
 		for (i = 1; i <= n; i++) {

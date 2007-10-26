@@ -8,26 +8,26 @@
 /*	\fBpostfix\fR [\fB-Dv\fR] [\fB-c \fIconfig_dir\fR] \fIcommand\fR
 /* DESCRIPTION
 /*	This command is reserved for the superuser. To submit mail,
-/*	use the Postfix \fBsendmail\fR command.
+/*	use the Postfix \fBsendmail\fR(1) command.
 /*
-/*	The \fBpostfix\fR command controls the operation of the Postfix
-/*	mail system: start or stop the \fBmaster\fR daemon, do a health
+/*	The \fBpostfix\fR(1) command controls the operation of the Postfix
+/*	mail system: start or stop the \fBmaster\fR(8) daemon, do a health
 /*	check, and other maintenance.
 /*
-/*	The \fBpostfix\fR command sets up a standardized environment and
+/*	The \fBpostfix\fR(1) command sets up a standardized environment and
 /*	runs the \fBpostfix-script\fR shell script to do the actual work.
 /*
 /*	The following commands are implemented:
 /* .IP \fBcheck\fR
-/*	Validate the Postfix mail system configuration. Warn about bad
-/*	directory/file ownership or permissions, and create missing
-/*	directories.
+/*	Warn about bad directory/file ownership or permissions,
+/*	and create missing directories.
 /* .IP \fBstart\fR
 /*	Start the Postfix mail system. This also runs the configuration
 /*	check described above.
 /* .IP \fBstop\fR
-/*	Stop the Postfix mail system in an orderly fashion. Running processes
-/*	are allowed to terminate at their earliest convenience.
+/*	Stop the Postfix mail system in an orderly fashion. If
+/*	possible, running processes are allowed to terminate at
+/*	their earliest convenience.
 /* .sp
 /*	Note: in order to refresh the Postfix mail system after a
 /*	configuration change, do not use the \fBstart\fR and \fBstop\fR
@@ -46,7 +46,7 @@
 /*	Re-read configuration files. Running processes terminate at their
 /*	earliest convenience.
 /* .IP "\fBset-permissions\fR \fB[\fIname\fR=\fIvalue ...\fB]\fR
-/*	Set the ownership and permissions of Postfix related files and 
+/*	Set the ownership and permissions of Postfix related files and
 /*	directories, as specified in the \fBpostfix-files\fR file.
 /* .sp
 /*	Specify \fIname\fR=\fIvalue\fR to override and update specific
@@ -54,7 +54,9 @@
 /*	change the \fBmail_owner\fR or \fBsetgid_group\fR setting for an
 /*	already installed Postfix system.
 /* .sp
-/*	This feature is available in Postfix 2.1 and later.
+/*	This feature is available in Postfix 2.1 and later.  With
+/*	Postfix 2.0 and earlier, use "\fB/etc/postfix/post-install
+/*	set-permissions\fR".
 /* .IP "\fBupgrade-configuration\fR \fB[\fIname\fR=\fIvalue ...\fB]\fR
 /*	Update the \fBmain.cf\fR and \fBmaster.cf\fR files with information
 /*	that Postfix needs in order to run: add or update services, and add
@@ -63,7 +65,9 @@
 /*	Specify \fIname\fR=\fIvalue\fR to override and update specific
 /*	main.cf configuration parameters.
 /* .sp
-/*	This feature is available in Postfix 2.1 and later.
+/*	This feature is available in Postfix 2.1 and later.  With
+/*	Postfix 2.0 and earlier, use "\fB/etc/postfix/post-install
+/*	upgrade-configuration\fR".
 /* .PP
 /*	The following options are implemented:
 /* .IP "\fB-c \fIconfig_dir\fR"
@@ -80,7 +84,7 @@
 /* ENVIRONMENT
 /* .ad
 /* .fi
-/*	The \fBpostfix\fR command exports the following environment
+/*	The \fBpostfix\fR(1) command exports the following environment
 /*	variables before executing the \fBpostfix-script\fR file:
 /* .IP \fBMAIL_CONFIG\fR
 /*	This is set when the -c command-line option is present.
@@ -110,13 +114,13 @@
 /*	Postfix directories.
 /* .IP "\fBsendmail_path (see 'postconf -d' output)\fR"
 /*	A Sendmail compatibility feature that specifies the location of
-/*	the Postfix sendmail(1) command.
+/*	the Postfix \fBsendmail\fR(1) command.
 /* .IP "\fBnewaliases_path (see 'postconf -d' output)\fR"
 /*	Sendmail compatibility feature that specifies the location of the
-/*	newaliases(1) command.
+/*	\fBnewaliases\fR(1) command.
 /* .IP "\fBmailq_path (see 'postconf -d' output)\fR"
 /*	Sendmail compatibility feature that specifies where the Postfix
-/*	mailq(1) command is installed.
+/*	\fBmailq\fR(1) command is installed.
 /* .IP "\fBhtml_directory (see 'postconf -d' output)\fR"
 /*	The location of Postfix HTML files that describe how to build,
 /*	configure or operate a specific Postfix subsystem or feature.
@@ -148,22 +152,29 @@
 /*	Commands:
 /*	postalias(1), create/update/query alias database
 /*	postcat(1), examine Postfix queue file
+/*	postconf(1), Postfix configuration utility
+/*	postfix(1), Postfix control program
 /*	postkick(1), trigger Postfix daemon
 /*	postlock(1), Postfix-compatible locking
 /*	postlog(1), Postfix-compatible logging
 /*	postmap(1), Postfix lookup table manager
 /*	postqueue(1), Postfix mail queue control
 /*	postsuper(1), Postfix housekeeping
+/*	mailq(1), Sendmail compatibility interface
+/*	newaliases(1), Sendmail compatibility interface
 /*	sendmail(1), Sendmail compatibility interface
 /*
 /*	Postfix configuration:
-/*	postconf(5), Postfix configuration parameters
+/*	bounce(5), Postfix bounce message templates
+/*	master(5), Postfix master.cf file syntax
+/*	postconf(5), Postfix main.cf file syntax
 /*
 /*	Table-driven mechanisms:
 /*	access(5), Postfix SMTP access control table
 /*	aliases(5), Postfix alias database
-/*	header_checks(5), body_checks(5), content inspection
-/*	canonical(5), Postfix address rewriting
+/*	canonical(5), Postfix input address rewriting
+/*	generic(5), Postfix output address rewriting
+/*	header_checks(5), body_checks(5), Postfix content inspection
 /*	relocated(5), Users that have moved
 /*	transport(5), Postfix routing table
 /*	virtual(5), Postfix virtual aliasing
@@ -172,6 +183,7 @@
 /*	cidr_table(5), Associate CIDR pattern with value
 /*	ldap_table(5), Postfix LDAP client
 /*	mysql_table(5), Postfix MYSQL client
+/*	nisplus_table(5), Postfix NIS+ client
 /*	pcre_table(5), Associate PCRE pattern with value
 /*	pgsql_table(5), Postfix PostgreSQL client
 /*	regexp_table(5), Associate POSIX regexp pattern with value
@@ -181,9 +193,9 @@
 /*	anvil(8), Postfix connection/rate limiting
 /*	bounce(8), defer(8), trace(8), Delivery status reports
 /*	cleanup(8), canonicalize and enqueue message
+/*	discard(8), Postfix discard delivery agent
 /*	error(8), Postfix error delivery agent
 /*	flush(8), Postfix fast ETRN service
-/*	lmtp(8), Postfix LMTP client
 /*	local(8), Postfix local delivery agent
 /*	master(8), Postfix master daemon
 /*	oqmgr(8), old Postfix queue manager
@@ -192,10 +204,12 @@
 /*	proxymap(8), Postfix lookup table proxy server
 /*	qmgr(8), Postfix queue manager
 /*	qmqpd(8), Postfix QMQP server
+/*	scache(8), Postfix connection cache manager
 /*	showq(8), list Postfix mail queue
-/*	smtp(8), Postfix SMTP client
+/*	smtp(8), lmtp(8), Postfix SMTP+LMTP client
 /*	smtpd(8), Postfix SMTP server
 /*	spawn(8), run non-Postfix server
+/*	tlsmgr(8), Postfix TLS cache and randomness manager
 /*	trivial-rewrite(8), Postfix address rewriting
 /*	verify(8), Postfix address verification
 /*	virtual(8), Postfix virtual delivery agent
@@ -224,6 +238,35 @@
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	TLS support by:
+/*	Lutz Jaenicke
+/*	Brandenburg University of Technology
+/*	Cottbus, Germany
+/*
+/*	Victor Duchovni
+/*	Morgan Stanley
+/*
+/*	SASL support originally by:
+/*	Till Franke
+/*	SuSE Rhein/Main AG
+/*	65760 Eschborn, Germany
+/*
+/*	LMTP support originally by:
+/*	Philip A. Prindeville
+/*	Mirapoint, Inc.
+/*	USA.
+/*
+/*	Amos Gouaux
+/*	University of Texas at Dallas
+/*	P.O. Box 830688, MC34
+/*	Richardson, TX 75083, USA
+/*
+/*	IPv6 support originally by:
+/*	Mark Huizer, Eindhoven University, The Netherlands
+/*	Jun-ichiro 'itojun' Hagino, KAME project, Japan
+/*	The Linux PLD project
+/*	Dean Strik, Eindhoven University, The Netherlands
 /*--*/
 
 /* System library. */
@@ -254,6 +297,7 @@
 
 #include <mail_conf.h>
 #include <mail_params.h>
+#include <mail_version.h>
 
 /* Additional installation parameters. */
 
@@ -273,6 +317,8 @@ static void check_setenv(char *name, char *value)
     if (setenv(name, value, CLOBBER) < 0)
 	msg_fatal("setenv: %m");
 }
+
+MAIL_VERSION_STAMP_DECLARE;
 
 /* main - run administrative script from controlled environment */
 
@@ -294,6 +340,11 @@ int     main(int argc, char **argv)
 	VAR_HTML_DIR, DEF_HTML_DIR, &var_html_dir, 1, 0,
 	0,
     };
+
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
 
     /*
      * Be consistent with file permissions.

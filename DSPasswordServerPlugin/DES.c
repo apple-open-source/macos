@@ -21,15 +21,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if defined(MACINTOSH)
-        #include <Types.h>
-#endif
+#include <TargetConditionals.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <sys/_endian.h>
 #include "DES.h"
 
 #define kVersion1 1
 #define kVersion2 2 
 
-void DES (long* keysArrayPtr, long Count, char * encryptData,short mode);
+void DES (const int32_t *keysArrayPtr, int32_t Count, char * encryptData,short mode);
 
 
 #define klonghiBit 	0x80000000L
@@ -50,10 +50,10 @@ void DES (long* keysArrayPtr, long Count, char * encryptData,short mode);
 
 typedef struct doubleLong
 {
-	unsigned short 	bits49to64;			
-	unsigned short 	bits17to32;			
-	unsigned short 	bits33to48;			
-	unsigned short 	bits1to16;			
+	uint16_t 	bits49to64;			
+	uint16_t 	bits17to32;			
+	uint16_t 	bits33to48;			
+	uint16_t 	bits1to16;			
 } doubleLong;
 
 typedef char byte;
@@ -63,11 +63,11 @@ typedef char byte;
 	extern "C" {
 #endif
 
-void Permute(EncryptBlk *aBlkPTr, long* aKeyPtr);
-long RotateExtended(unsigned short *theWord, unsigned long resultLo);
-void Extract(doubleLong *ExtractData, unsigned long *resultLow, unsigned long *resultHigh);
+void Permute(EncryptBlk *aBlkPTr, int32_t* aKeyPtr);
+int32_t RotateExtended(uint16_t *theWord, uint32_t resultLo);
+void Extract(doubleLong *ExtractData, uint32_t *resultLow, uint32_t *resultHigh);
 void InitialPermutation(EncryptBlk *sourceBlkPTr,EncryptBlk *resultBlkPTr );
-long FRK(unsigned long theData,unsigned long keyHi,unsigned long keyLo);
+int32_t FRK(uint32_t theData,uint32_t keyHi,uint32_t keyLo);
 #if defined(__cplusplus)
 }
 #endif
@@ -98,7 +98,7 @@ long FRK(unsigned long theData,unsigned long keyHi,unsigned long keyLo);
 #define ROXLeftLong(Reg) Reg = Reg << 1;if (xVal != 0) Reg = Reg | klongloBit;
 #define ROXRightLong(Reg) Reg = Reg >> 1; if (xVal != 0) Reg = Reg | klonghiBit;
 #define RORightLong4(Reg) xVal = Reg & 0x0000000FL; xVal = xVal << 28; Reg = Reg >> 4; if (xVal != 0) Reg = Reg  | xVal;
-#define TheLastKey(ArrayPtr) (unsigned long *) ((char *) ArrayPtr + (kkeyArraySize - klowKeySize ));
+#define TheLastKey(ArrayPtr) (uint32_t *) ((char *) ArrayPtr + (kkeyArraySize - klowKeySize ));
 
 /* -------------------------------------------------------------------- */
 /*	Permute tables for permutation					*/
@@ -231,136 +231,132 @@ const byte N_SBoxes[512] =
  
 
 
-void Permute(EncryptBlk *aBlkPTr, long* aKeyPtr)
+void Permute(EncryptBlk *aBlkPTr, int32_t* aKeyPtr)
 {
+	register char bitPos;
+	char* ArrayPtr;
 
-		register char bitPos;
-		char* ArrayPtr;
+	register uint32_t	keyLo;
+	register uint32_t	keyHi;
+	register uint32_t	loBits;
+	register uint32_t	hiBits;
+	register uint32_t	gTestVal;
+	register uint32_t	gTemp;
+	register uint32_t	arrayByte;
 
-		register unsigned long	keyLo;
+	bitPos = 0;
+	hiBits = 0;
+	loBits = 0;
 
-		register unsigned long	keyHi;
+	keyLo = aBlkPTr->keyLo;
+	keyHi = aBlkPTr->keyHi;
 
-		register unsigned long	loBits;
+	ArrayPtr = (char*) aKeyPtr;
+	bitPos = *ArrayPtr ++; 		/* get source bit */
 
-		register unsigned long	hiBits;
+Loop:
+	arrayByte = bitPos;
+	ROLeftLong(hiBits);
 
-		register unsigned long	gTestVal;
+	BitTest(5, arrayByte);
+	BEQ(jump20);
 
-		register unsigned long	gTemp;
-
-		register unsigned long	arrayByte; 
-
-
-
-		bitPos = 0;
-
-		hiBits = 0;
-
-		loBits = 0;
-
-
-		keyLo = aBlkPTr->keyLo;
-		keyHi = aBlkPTr->keyHi;
-
-		ArrayPtr = (char*) aKeyPtr;
-		bitPos = *ArrayPtr ++; 		/* get source bit */
-
-Loop:		arrayByte = bitPos;
-		ROLeftLong(hiBits);
-
-		BitTest(5, arrayByte);
-		BEQ(jump20);
-
-		BitClear(5,arrayByte);
-		BitTest(arrayByte,keyLo);
-		BNE(jump30);
-		BRA(jump40);
+	BitClear(5,arrayByte);
+	BitTest(arrayByte,keyLo);
+	BNE(jump30);
+	BRA(jump40);
 		
-jump20: 	BitTest(arrayByte,keyHi);
-		BEQ(jump40);	
+jump20:
+	BitTest(arrayByte,keyHi);
+	BEQ(jump40);	
 		
-jump30: 	BitSet(kbit0,hiBits);
+jump30:
+	BitSet(kbit0,hiBits);
 
-jump40:		bitPos = *ArrayPtr++;
-		if (bitPos >= 0) goto Loop;
-		EXchange(hiBits,loBits);
-		if ( bitPos !=  -1 ) goto jump50;
-		bitPos = *ArrayPtr++;
-		goto Loop;
+jump40:
+	bitPos = *ArrayPtr++;
+	if (bitPos >= 0) goto Loop;
+	EXchange(hiBits,loBits);
+	if ( bitPos !=  -1 ) goto jump50;
+	bitPos = *ArrayPtr++;
+	goto Loop;
 		
-jump50:		aBlkPTr->keyLo = loBits; /* low bits */
-		aBlkPTr->keyHi = hiBits;
-
+jump50:
+	aBlkPTr->keyLo = loBits; /* low bits */
+	aBlkPTr->keyHi = hiBits;
 }
 
 /* -------------------------------------------------------------------- */
 /*	KeyScheduler							*/
 /* -------------------------------------------------------------------- */
 
-void KeySched(const EncryptBlk *Key, long* keysArrayPtr, short version)
+void KeySched(const EncryptBlk *Key, int32_t* keysArrayPtr, short version)
 {
-		EncryptBlk	permuteKey;
-		unsigned long	*keyPtr;
-		register unsigned long	keyLo;
-		register unsigned long	keyHi;
-		register short		shiftSchedule;
-		register unsigned long	gTestVal;
+	EncryptBlk	permuteKey;
+	uint32_t	*keyPtr;
+	register uint32_t	keyLo;
+	register uint32_t	keyHi;
+	register short		shiftSchedule;
+	register uint32_t	gTestVal;
 
-		permuteKey.keyLo = Key->keyHi;
-		permuteKey.keyHi = Key->keyLo;
-		
-		if (version > kVersion1 ) /* PPC and AppleShare 1.0 use version 1 (see RAndrews comment)*/
-		{
-			LSL(permuteKey.keyLo,1);
-			LSL(permuteKey.keyHi,1);  
-		} 
-		
-		keyPtr = (unsigned long *)keysArrayPtr;
-		
-		Permute(&permuteKey, (long *)&N_PC1Tbl);
-
-
-		keyLo = permuteKey.keyLo;
-		keyHi = permuteKey.keyHi;
-
-		LSL(keyLo,4);
-		LSL(keyHi,4);
-		
-		
-		shiftSchedule = 0xC081;
-			
-jump5: 		LSLword(shiftSchedule,1);
-		BNE(jump20);
+	permuteKey.keyLo = Key->keyHi;
+	permuteKey.keyHi = Key->keyLo;
 	
-		LSL(keyHi,1);
-		BEQ(jump10); 
-		keyHi = keyHi | 16;
+	if (version > kVersion1 ) /* PPC and AppleShare 1.0 use version 1 (see RAndrews comment)*/
+	{
+		LSL(permuteKey.keyLo,1);
+		LSL(permuteKey.keyHi,1);  
+	} 
+	
+	keyPtr = (uint32_t *)keysArrayPtr;
+	
+	Permute(&permuteKey, (int32_t *)&N_PC1Tbl);
 
-jump10:		LSL(keyLo,1)
-		BEQ(jump20);
-		keyLo = keyLo | 16;
 
-jump20:		LSL(keyHi,1)
-		BEQ(jump30);
-		keyHi = keyHi | 16;
+	keyLo = permuteKey.keyLo;
+	keyHi = permuteKey.keyHi;
+
+	LSL(keyLo,4);
+	LSL(keyHi,4);
+	
+	
+	shiftSchedule = 0xC081;
 			
-jump30:		LSL(keyLo,1)
-		BEQ(jump40);
-		keyLo = keyLo | 16;
+jump5:
+	LSLword(shiftSchedule,1);
+	BNE(jump20);
+	
+	LSL(keyHi,1);
+	BEQ(jump10); 
+	keyHi = keyHi | 16;
+
+jump10:
+	LSL(keyLo,1)
+	BEQ(jump20);
+	keyLo = keyLo | 16;
+
+jump20:
+	LSL(keyHi,1)
+	BEQ(jump30);
+	keyHi = keyHi | 16;
+			
+jump30:
+	LSL(keyLo,1)
+	BEQ(jump40);
+	keyLo = keyLo | 16;
 
 			
-jump40:		permuteKey.keyLo = keyHi;
-		permuteKey.keyHi = keyLo;
-			
-		Permute((EncryptBlk *) &permuteKey,(long*)&N_PC2Tbl);
-		*keyPtr = permuteKey.keyHi;
-		keyPtr ++ ;
-		*keyPtr = permuteKey.keyLo;
-		keyPtr ++ ;
-			
-		if (shiftSchedule != 0) goto jump5;
-
+jump40:
+	permuteKey.keyLo = keyHi;
+	permuteKey.keyHi = keyLo;
+		
+	Permute((EncryptBlk *) &permuteKey,(int32_t*)&N_PC2Tbl);
+	*keyPtr = permuteKey.keyHi;
+	keyPtr ++ ;
+	*keyPtr = permuteKey.keyLo;
+	keyPtr ++ ;
+		
+	if (shiftSchedule != 0) goto jump5;
 }
 
 
@@ -369,10 +365,10 @@ jump40:		permuteKey.keyLo = keyHi;
 /* -------------------------------------------------------------------- */
 
 	
-long RotateExtended(unsigned short *theWord, unsigned long resultLo)
+int32_t RotateExtended(uint16_t *theWord, uint32_t resultLo)
 {
-	register unsigned long	xVal = 0;
-	register unsigned short	tempPiece;
+	register uint32_t	xVal = 0;
+	register uint16_t	tempPiece;
 
 	tempPiece = *theWord;
 	xVal = tempPiece & kwordhiBit;
@@ -387,12 +383,12 @@ long RotateExtended(unsigned short *theWord, unsigned long resultLo)
 }
 
 
-void Extract(doubleLong *ExtractData, unsigned long *resultLow, unsigned long *resultHigh)
+void Extract(doubleLong *ExtractData, uint32_t *resultLow, uint32_t *resultHigh)
 {
 	short 	i;
-	unsigned long	resultLo;
-	unsigned long	resultHi;
-	unsigned long	gTemp;
+	uint32_t	resultLo;
+	uint32_t	resultHi;
+	uint32_t	gTemp;
 
 	resultLo = *resultLow;
 	resultHi = *resultHigh;
@@ -415,16 +411,22 @@ void Extract(doubleLong *ExtractData, unsigned long *resultLow, unsigned long *r
 void InitialPermutation(EncryptBlk *sourceBlkPTr,EncryptBlk *resultBlkPTr )
 {
 	doubleLong 	dataToEncrypt;
-	unsigned long 	resultLow = 0;
-	unsigned long 	resultHi = 0;
-	register unsigned long gTestVal = 0;
+	uint32_t 	resultLow = 0;
+	uint32_t 	resultHi = 0;
+	register uint32_t gTestVal = 0;
 
-
+#if TARGET_RT_BIG_ENDIAN
 	dataToEncrypt.bits49to64 = sourceBlkPTr->keyLo & klowWord;
 	dataToEncrypt.bits33to48 = sourceBlkPTr->keyHi & klowWord;
 	dataToEncrypt.bits17to32 = sourceBlkPTr->keyLo >> kwordSize;
 	dataToEncrypt.bits1to16  = sourceBlkPTr->keyHi >> kwordSize;
-		
+#else
+	dataToEncrypt.bits49to64 = CFSwapInt16(sourceBlkPTr->keyLo >> kwordSize);
+	dataToEncrypt.bits33to48 = CFSwapInt16(sourceBlkPTr->keyHi >> kwordSize);
+	dataToEncrypt.bits17to32 = CFSwapInt16(sourceBlkPTr->keyLo & klowWord);
+	dataToEncrypt.bits1to16  = CFSwapInt16(sourceBlkPTr->keyHi & klowWord);
+#endif
+	
 	Extract(&dataToEncrypt, &resultLow, &resultHi);
 
 	RORightLong(resultLow)
@@ -438,18 +440,18 @@ void InitialPermutation(EncryptBlk *sourceBlkPTr,EncryptBlk *resultBlkPTr )
 
 
 
-long FRK(unsigned long theData,unsigned long keyHi,unsigned long keyLo)
+int32_t FRK(uint32_t theData,uint32_t keyHi,uint32_t keyLo)
 {
-	register unsigned long	gTestVal = 0;
-	register unsigned long	xVal = 0;
-	register unsigned short tempData = 0;
-	register unsigned long	result = 0;
-	char			tableVal;
+	register uint32_t gTestVal = 0;
+	register uint32_t xVal = 0;
+	register uint16_t tempData = 0;
+	register uint32_t result = 0;
+	char tableVal;
 	EncryptBlk encryptBlock;
 	short counter;
 	short count;
 	short offset = 0;
-			
+	
 	ROLeftLong(theData);
 	for ( counter = kkeySize; counter > 0 ; )
 	{
@@ -477,34 +479,33 @@ long FRK(unsigned long theData,unsigned long keyHi,unsigned long keyLo)
 	
 	encryptBlock.keyHi = result;
 	encryptBlock.keyLo = keyHi;
-	Permute(&encryptBlock, (long*)&N_PTbl );
+	Permute(&encryptBlock, (int32_t*)&N_PTbl );
 	return encryptBlock.keyLo;
 }
 
 
 
-void Encode (long* keysArrayPtr, long Count, char * encryptData)
+void Encode (const int32_t *keysArrayPtr, int32_t Count, char * encryptData)
 {
 	DES(keysArrayPtr,Count,encryptData,kEncrypt);
 }
 
-void Decode (long* keysArrayPtr, long Count, char * encryptData)
+void Decode (const int32_t *keysArrayPtr, int32_t Count, char * encryptData)
 {
 	DES(keysArrayPtr,Count,encryptData,kDecrypt);
 }
 
-void DES (long* keysArrayPtr, long Count, char * encryptData,short mode)
-
+void DES (const int32_t *keysArrayPtr, int32_t Count, char * encryptData,short mode)
 {
 	EncryptBlk *EncryptDataPtr;
 	EncryptBlk resultData;
 	EncryptBlk *ReturnData;
 	short		swapCount;
-	unsigned long	fResult;
-	unsigned long	gTemp;
-	unsigned long	keyHi;
-	unsigned long	keyLo;
-	unsigned long	*keyPtr;
+	uint32_t	fResult;
+	uint32_t	gTemp;
+	uint32_t	keyHi;
+	uint32_t	keyLo;
+	uint32_t	*keyPtr;
 
 	EncryptDataPtr	= (EncryptBlk *) encryptData;
 	ReturnData = EncryptDataPtr;
@@ -514,33 +515,36 @@ void DES (long* keysArrayPtr, long Count, char * encryptData,short mode)
 		InitialPermutation(EncryptDataPtr, &resultData );
 
 		if (mode == kEncrypt)
-			keyPtr =  (unsigned long*)keysArrayPtr;
+			keyPtr =  (uint32_t*)keysArrayPtr;
 		else /* must be decrypt */
 			keyPtr =  TheLastKey(keysArrayPtr); /* start at last key in array */
 
 		for (swapCount = knumKeys; swapCount != 0; swapCount--)
 		{
 			if (mode == kEncrypt)
-			{	keyHi = *keyPtr++;
+			{
+				keyHi = *keyPtr++;
 				keyLo = *keyPtr++;
 			}
 			else /* must be decrypt */
-			{	keyLo = *keyPtr--;
-					keyHi = *keyPtr--;
+			{
+				keyLo = *keyPtr--;
+				keyHi = *keyPtr--;
 			}
-								
+			
 			fResult = FRK(resultData.keyLo,keyHi,keyLo);
 			resultData.keyHi = resultData.keyHi ^ fResult;
 			if (swapCount > 1) /* EXchange is multi-line macro and requires {}*/
-				{ EXchange(resultData.keyHi,resultData.keyLo); } 
+			{
+				EXchange(resultData.keyHi,resultData.keyLo);
+			} 
 		}
 			
 		EXchange(resultData.keyHi,resultData.keyLo);
-		Permute(&resultData,(long*)&N_IPInvTbl);
+		Permute(&resultData,(int32_t*)&N_IPInvTbl);
 		EncryptDataPtr = (EncryptBlk *) (((char*) EncryptDataPtr) + kkeySize);   
 	}
 
-	ReturnData->keyLo = resultData.keyLo;
-	ReturnData->keyHi = resultData.keyHi; 
-
+	ReturnData->keyLo = htonl(resultData.keyLo);
+	ReturnData->keyHi = htonl(resultData.keyHi);
 }

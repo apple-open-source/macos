@@ -76,8 +76,13 @@ static char *sccsid = "@(#)xdr_stdio.c	2.1 88/07/29 4.0 RPCSRC";
 #include <rpc/xdr.h>
 
 static void xdrstdio_destroy(XDR *);
+#ifdef __LP64__
+static bool_t xdrstdio_getlong(XDR *, int *);
+static bool_t xdrstdio_putlong(XDR *, const int *);
+#else
 static bool_t xdrstdio_getlong(XDR *, long *);
 static bool_t xdrstdio_putlong(XDR *, const long *);
+#endif
 static bool_t xdrstdio_getbytes(XDR *, char *, u_int);
 static bool_t xdrstdio_putbytes(XDR *, const char *, u_int);
 static u_int xdrstdio_getpos(XDR *);
@@ -109,7 +114,6 @@ xdrstdio_create(xdrs, file, op)
 	FILE *file;
 	enum xdr_op op;
 {
-
 	xdrs->x_op = op;
 	xdrs->x_ops = &xdrstdio_ops;
 	xdrs->x_private = file;
@@ -126,31 +130,38 @@ xdrstdio_destroy(xdrs)
 	XDR *xdrs;
 {
 	(void)fflush((FILE *)xdrs->x_private);
-		/* XXX: should we close the file ?? */
+	/* XXX: should we close the file ?? */
 }
 
 static bool_t
 xdrstdio_getlong(xdrs, lp)
 	XDR *xdrs;
+#ifdef __LP64__
+	int *lp;
+#else
 	long *lp;
+#endif
 {
 	u_int32_t temp;
 
 	if (fread(&temp, sizeof(int32_t), 1, (FILE *)xdrs->x_private) != 1)
 		return (FALSE);
-	*lp = (long)ntohl(temp);
+	*lp = ntohl(temp);
 	return (TRUE);
 }
 
 static bool_t
 xdrstdio_putlong(xdrs, lp)
 	XDR *xdrs;
+#ifdef __LP64__
+	const int *lp;
+#else
 	const long *lp;
+#endif
 {
-	int32_t mycopy = htonl((u_int32_t)*lp);
+	int32_t mycopy = htonl(*lp);
 
-	if (fwrite(&mycopy, sizeof(int32_t), 1, (FILE *)xdrs->x_private) != 1)
-		return (FALSE);
+	if (fwrite(&mycopy, sizeof(int32_t), 1, (FILE *)xdrs->x_private) != 1) return (FALSE);
 	return (TRUE);
 }
 
@@ -160,9 +171,9 @@ xdrstdio_getbytes(xdrs, addr, len)
 	char *addr;
 	u_int len;
 {
+	size_t flen = len;
 
-	if ((len != 0) && (fread(addr, (size_t)len, 1, (FILE *)xdrs->x_private) != 1))
-		return (FALSE);
+	if ((len != 0) && (fread(addr, flen, 1, (FILE *)xdrs->x_private) != 1)) return (FALSE);
 	return (TRUE);
 }
 
@@ -172,29 +183,38 @@ xdrstdio_putbytes(xdrs, addr, len)
 	const char *addr;
 	u_int len;
 {
+	size_t flen = len;
 
-	if ((len != 0) && (fwrite(addr, (size_t)len, 1,
-	    (FILE *)xdrs->x_private) != 1))
-		return (FALSE);
+	if ((len != 0) && (fwrite(addr, flen, 1, (FILE *)xdrs->x_private) != 1)) return (FALSE);
 	return (TRUE);
 }
 
+/* This only works if file offsets are <= UINT32_MAX */
 static u_int
 xdrstdio_getpos(xdrs)
 	XDR *xdrs;
 {
+	long offset;
+	u_int val;
 
-	return ((u_int) ftell((FILE *)xdrs->x_private));
+	offset = ftell((FILE *)xdrs->x_private);
+#ifdef __LP64__
+	if (offset > UINT32_MAX) return -1;
+#endif
+	val = offset;
+	return val;
 }
 
+/* This only works if file offsets are <= UINT32_MAX */
 static bool_t
 xdrstdio_setpos(xdrs, pos) 
 	XDR *xdrs;
 	u_int pos;
 { 
+	long offset;
 
-	return ((fseek((FILE *)xdrs->x_private, (long)pos, 0) < 0) ?
-		FALSE : TRUE);
+	offset = pos;
+	return ((fseek((FILE *)xdrs->x_private, offset, 0) < 0) ? FALSE : TRUE);
 }
 
 /* ARGSUSED */

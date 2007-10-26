@@ -109,24 +109,7 @@ public:
     virtual void handleClose(   IOService *		forClient,
                                 IOOptionBits	options );
     
-    /*! @function newUserClient
-        @abstract A request to create a connection for a non kernel client.
-        @discussion See IOService for discussion.
-        @param owningTask The mach task requesting the connection.
-        @param security_id A token representing the access level for the task.
-        @param type A constant specifying the type of connection to be created, specified by the caller 
-        of IOServiceOpen and interpreted only by the family.
-        @param handler An instance of an IOUserClient object to represent the connection, which will be 
-        released when the connection is closed, or zero if the connection was not opened.    
-        @result A return code to be passed back to the caller of IOServiceOpen. 
-    */
-
-    virtual IOReturn newUserClient( task_t		owningTask,
-                                    void * 		security_id,
-                                    UInt32  		type,
-                                    IOUserClient **	handler );
-
-	/*! 
+ 	/*! 
 		@function matchPropertyTable
 		@abstract Implements SBP2 specific matching.
 		@discussion See IOService for discussion.
@@ -265,6 +248,8 @@ public:
 	*/
     	
 	virtual OSObject * getDiagnostics( void );
+
+    virtual bool finalize( IOOptionBits options );
 
 protected:
 

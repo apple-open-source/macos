@@ -1,6 +1,6 @@
 <HTML><HEAD>
     <TITLE>Cyrus IMAP Server Release Information</TITLE>
-    <!-- $Id: readme.html,v 1.5 2005/03/05 00:36:26 dasenbro Exp $ -->
+    <!-- $Id: readme.html,v 1.22 2007/02/06 18:51:29 murch Exp $ -->
   </HEAD><BODY>
       <H1>                Cyrus IMAP Server Release Information</H1>
       
@@ -41,15 +41,24 @@ possible when an email message is addressed to multiple recipients.
 
 <p>We current support the following IMAP capabilities:
 <tt>
-IMAP4 IMAP4rev1 ACL QUOTA LITERAL+ NAMESPACE UIDPLUS ID
-NO_ATOMIC_RENAME UNSELECT CHILDREN MULTIAPPEND SORT
-THREAD=ORDEREDSUBJECT THREAD=REFERENCES ANNOTATEMORE IDLE STARTTLS</tt>.
+IMAP4 IMAP4rev1 ACL RIGHTS=kxte QUOTA LITERAL+ NAMESPACE UIDPLUS ID
+NO_ATOMIC_RENAME UNSELECT CHILDREN MULTIAPPEND SORT SORT=MODSEQ
+THREAD=ORDEREDSUBJECT THREAD=REFERENCES ANNOTATEMORE CATENATE
+CONDSTORE URLAUTH IDLE STARTTLS SASL-IR</tt>.
 
 <p> The server supports SIEVE for server side email filtering.
 
 <h2>Upgrade Caveats</h2>
 
 This section reserved for WARNING WARNING WARNING comments.
+
+<br><br><b><i>Note that the replication protocol currently does not have
+the facility to support the IMAP CONDSTORE extension (modification
+sequences).  It is recommended that you do not try to use both
+CONDSTORE and replication at this time.  The deficiencies in the
+replication protocol will be fixed in version 2.3.9.
+</i></b>
+
 
 <h2>Installation Overview</h2>
 	
@@ -69,7 +78,7 @@ this document.
 href="overview.html">overview.html</a>.
 
 <P> This server has been successfully installed on a number of Unix
-systems.  We run the software under SPARC Solaris 2.7.  Please refer
+systems.  We run the software under SPARC Solaris 8.  Please refer
 to <a href="os.html">os.html</a> for operating system specific issues. 
 
 

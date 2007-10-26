@@ -24,6 +24,9 @@
  *
  */
 //		$Log: AppleHWControl.cpp,v $
+//		Revision 1.6  2007/05/07 18:29:38  pmr
+//		change acknowledgePowerChange to acknowledgeSetPowerState
+//		
 //		Revision 1.5  2004/06/03 21:32:07  eem
 //		[3671325] Remember control's "safe-value" property
 //		
@@ -284,7 +287,7 @@ IOReturn IOHWControl::setTargetValue(OSNumber *val)
 	 * in which case we have to ack the PM so it knows we can sleep.
 	 */
 	if (sleeping && powerPolicyMaker)
-		powerPolicyMaker->acknowledgePowerChange (this);
+		powerPolicyMaker->acknowledgeSetPowerState ();
 		
     if(ret == kIOReturnSuccess)
         setNumber(sTargetValue, val->unsigned32BitValue());

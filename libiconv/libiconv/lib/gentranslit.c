@@ -1,4 +1,4 @@
-/* Copyright (C) 1999-2003 Free Software Foundation, Inc.
+/* Copyright (C) 1999-2003, 2005 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Library.
 
    The GNU LIBICONV Library is free software; you can redistribute it
@@ -13,8 +13,8 @@
 
    You should have received a copy of the GNU Library General Public
    License along with the GNU LIBICONV Library; see the file COPYING.LIB.
-   If not, write to the Free Software Foundation, Inc., 59 Temple Place -
-   Suite 330, Boston, MA 02111-1307, USA.  */
+   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /*
  * Generates a table of small strings, used for transliteration, from a table
@@ -51,8 +51,8 @@ int main (int argc, char *argv[])
   printf(" *\n");
   printf(" * You should have received a copy of the GNU Library General Public\n");
   printf(" * License along with the GNU LIBICONV Library; see the file COPYING.LIB.\n");
-  printf(" * If not, write to the Free Software Foundation, Inc., 59 Temple Place -\n");
-  printf(" * Suite 330, Boston, MA 02111-1307, USA.\n");
+  printf(" * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,\n");
+  printf(" * Fifth Floor, Boston, MA 02110-1301, USA.\n");
   printf(" */\n");
   printf("\n");
   printf("/*\n");
@@ -252,8 +252,7 @@ int main (int argc, char *argv[])
     printf("-1)\n");
   }
 
-  fflush(stdout);
-  if (ferror(stdout))
+  if (ferror(stdout) || fclose(stdout))
     exit(1);
   exit(0);
 }

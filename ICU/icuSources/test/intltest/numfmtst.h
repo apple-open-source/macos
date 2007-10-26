@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
  
@@ -28,6 +28,9 @@ class NumberFormatTest: public CalendarTimeZoneTest {
      * Test APIs (to increase code coverage)
      */   
     void TestAPI(void);
+
+    void TestCoverage(void);
+
     /**
      * Test the handling of quotes
      **/
@@ -102,6 +105,10 @@ class NumberFormatTest: public CalendarTimeZoneTest {
 
     void TestCurrencyNames(void);
 
+    void TestCurrencyAmount(void);
+
+    void TestCurrencyUnit(void);
+
     void TestSymbolsWithBadLocale(void);
 
     void TestAdoptDecimalFormatSymbols(void);
@@ -109,9 +116,14 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void TestPerMill(void);
 
     void TestIllegalPatterns(void);
-
+    
     void TestCases(void);
 
+    void TestJB3832(void);
+
+    void TestHost(void);
+
+    void TestCurrencyFormat(void);
  private:
 
     static UBool equalValue(const Formattable& a, const Formattable& b);
@@ -153,20 +165,6 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void expectCurrency(NumberFormat& nf, const Locale& locale,
                         double value, const UnicodeString& string);
 
-    void expectPat(DecimalFormat& fmt, const UnicodeString& exp);
-
-    void expectPat(DecimalFormat& fmt, const char *exp) {
-        expectPat(fmt, UnicodeString(exp, ""));
-    }
-
-    void expectPad(DecimalFormat& fmt, const UnicodeString& pat,
-                   int32_t pos);
-
-    void expectPad(DecimalFormat& fmt, const char *pat,
-                   int32_t pos) {
-        expectPad(fmt, pat, pos, 0, (UChar)0);
-    }
-
     void expectPad(DecimalFormat& fmt, const UnicodeString& pat,
                    int32_t pos, int32_t width, UChar pad);
 
@@ -181,6 +179,20 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void expectPad(DecimalFormat& fmt, const char *pat,
                    int32_t pos, int32_t width, const UnicodeString& pad) {
         expectPad(fmt, UnicodeString(pat, ""), pos, width, pad);
+    }
+
+    void expectPat(DecimalFormat& fmt, const UnicodeString& exp);
+
+    void expectPat(DecimalFormat& fmt, const char *exp) {
+        expectPat(fmt, UnicodeString(exp, ""));
+    }
+
+    void expectPad(DecimalFormat& fmt, const UnicodeString& pat,
+                   int32_t pos);
+
+    void expectPad(DecimalFormat& fmt, const char *pat,
+                   int32_t pos) {
+        expectPad(fmt, pat, pos, 0, (UChar)0);
     }
 
     // internal utility routine

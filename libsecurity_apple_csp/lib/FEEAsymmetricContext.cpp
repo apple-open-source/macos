@@ -182,6 +182,7 @@ void CryptKit::FEEDContext::encryptBlock(
 
 void CryptKit::FEEDContext::decryptBlock(
 	const void		*cipherText,		// length implied (one cipher block)
+	size_t			cipherTextLen,
 	void			*plainText,	
 	size_t			&plainTextLen,		// in/out, throws on overflow
 	bool			final)
@@ -411,6 +412,7 @@ void CryptKit::FEEDExpContext::encryptBlock(
 
 void CryptKit::FEEDExpContext::decryptBlock(
 	const void		*cipherText,		// length implied (one cipher block)
+	size_t			cipherTextLen,
 	void			*plainText,	
 	size_t			&plainTextLen,		// in/out, throws on overflow
 	bool			final)

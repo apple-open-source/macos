@@ -1,5 +1,5 @@
 /* APPLE LOCAL file non lvalue assign */
-/* { dg-do compile } */
+/* { dg-do compile { target powerpc*-*-darwin* } } */
 /* { dg-options "-fnon-lvalue-assign -faltivec" } */
 
 int foo(void) {

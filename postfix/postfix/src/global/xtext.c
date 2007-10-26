@@ -11,9 +11,10 @@
 /*	const char *unquoted;
 /*	const char *special;
 /*
-/*	VSTRING	*xtext_unquote_append(unquoted, quoted)
+/*	VSTRING	*xtext_quote_append(unquoted, quoted, special)
 /*	VSTRING	*unquoted;
 /*	const char *quoted;
+/*	const char *special;
 /*
 /*	VSTRING	*xtext_unquote(unquoted, quoted)
 /*	VSTRING	*unquoted;
@@ -132,9 +133,9 @@ VSTRING *xtext_unquote(VSTRING *unquoted, const char *quoted)
 
 #define BUFLEN 1024
 
-static int read_buf(VSTREAM *fp, VSTRING *buf)
+static ssize_t read_buf(VSTREAM *fp, VSTRING *buf)
 {
-    int     len;
+    ssize_t len;
 
     VSTRING_RESET(buf);
     len = vstream_fread(fp, STR(buf), vstring_avail(buf));
@@ -143,18 +144,19 @@ static int read_buf(VSTREAM *fp, VSTRING *buf)
     return (len);
 }
 
-main(int unused_argc, char **unused_argv)
+int     main(int unused_argc, char **unused_argv)
 {
     VSTRING *unquoted = vstring_alloc(BUFLEN);
     VSTRING *quoted = vstring_alloc(100);
-    int     len;
+    ssize_t len;
 
     while ((len = read_buf(VSTREAM_IN, unquoted)) > 0) {
 	xtext_quote(quoted, STR(unquoted), "+=");
 	if (xtext_unquote(unquoted, STR(quoted)) == 0)
 	    msg_fatal("bad input: %.100s", STR(quoted));
 	if (LEN(unquoted) != len)
-	    msg_fatal("len %d != unquoted len %d", len, LEN(unquoted));
+	    msg_fatal("len %ld != unquoted len %ld",
+		      (long) len, (long) LEN(unquoted));
 	if (vstream_fwrite(VSTREAM_OUT, STR(unquoted), LEN(unquoted)) != LEN(unquoted))
 	    msg_fatal("write error: %m");
     }

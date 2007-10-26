@@ -22,10 +22,10 @@ int main(int argc, char *argv[])
      krb5_context	context;
 
 
-    krb5_init_context(&context);
+    kadm5_init_krb5_context(&context);
      
     ret = ovsec_kadm_init("admin/none", "admin", "ovsec_adm/admin", 0,
-			  OVSEC_KADM_STRUCT_VERSION, OVSEC_KADM_API_VERSION_1,
+			  OVSEC_KADM_STRUCT_VERSION, OVSEC_KADM_API_VERSION_1, NULL,
 			  &server_handle);
     if(ret != OVSEC_KADM_OK) {
 	com_err("test", ret, "init");

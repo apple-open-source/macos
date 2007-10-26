@@ -23,7 +23,7 @@
 # a separate version for such a tiny option.
 #
 
-FRAMEWORKS="$(cat FrameworkList)";
+FRAMEWORKS="$(cat FrameworkList | grep -v '^\#')";
 oldifs="$IFS"
 # NOTE: This is intentionally a string containing a newline.
 IFS="
@@ -49,6 +49,9 @@ for frameworkline in $FRAMEWORKS ; do
 
 		echo "HDOC FILE WOULD BE $frameworkHDOC"
 		if [ -f "$frameworkHDOC" ] ; then
+			if [ -d copyframework ] ; then
+				rm -rf copyframework;
+			fi
 			mkdir copyframework;
 			cp $frameworkHDOC copyframework;
 			cp -R $frameworkDir copyframework;
@@ -58,8 +61,16 @@ for frameworkline in $FRAMEWORKS ; do
 		fi
 		# ls $frameworkDir
 
-		./headerDoc2HTML.pl -H -O -p -o $outputDir $frameworkDir
-		./gatherHeaderDoc.pl $outputDir $frameworkName.html
+		./headerDoc2HTML.pl -H -O -j -p -o $outputDir $frameworkDir
+		if [ $? != 0 ] ; then
+			echo "HeaderDoc crashed.  Exiting."
+			exit -1;
+		fi
+		./gatherHeaderDoc.pl $outputDir index.html
+		if [ $? != 0 ] ; then
+			echo "GatherHeaderDoc crashed.  Exiting."
+			exit -1;
+		fi
 
 		if [ $delete == 1 ] ; then
 			echo "Cleaning up."

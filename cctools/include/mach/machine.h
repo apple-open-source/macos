@@ -168,6 +168,13 @@ extern vm_offset_t		interrupt_stack[];
  */
 
 /*
+ * Capability bits used in the definition of cpu_subtype.
+ */
+#define CPU_SUBTYPE_MASK       0xff000000      /* mask for feature flags */
+#define CPU_SUBTYPE_LIB64      0x80000000      /* 64 bit libraries */
+
+
+/*
  *	Object files that are hand-crafted to run on any
  *	implementation of an architecture are tagged with
  *	CPU_SUBTYPE_MULTIPLE.  This functions essentially the same as
@@ -369,6 +376,8 @@ extern vm_offset_t		interrupt_stack[];
  */
 #define CPU_SUBTYPE_VEO_1	((cpu_subtype_t) 1)
 #define CPU_SUBTYPE_VEO_2	((cpu_subtype_t) 2)
+#define CPU_SUBTYPE_VEO_3	((cpu_subtype_t) 3)
+#define CPU_SUBTYPE_VEO_4	((cpu_subtype_t) 4)
 #define CPU_SUBTYPE_VEO_ALL	CPU_SUBTYPE_VEO_2
 
 #endif	/* _MACH_MACHINE_H_ */

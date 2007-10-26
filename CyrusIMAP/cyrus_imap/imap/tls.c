@@ -93,7 +93,7 @@
 *
 */
 
-/* $Id: tls.c,v 1.7 2005/03/05 00:37:07 dasenbro Exp $ */
+/* $Id: tls.c,v 1.53 2007/02/05 18:49:56 jeaton Exp $ */
 
 #include <config.h>
 
@@ -116,14 +116,16 @@
 #include <openssl/x509.h>
 #include <openssl/ssl.h>
 
-/* Apple Open Directory */
+#ifdef APPLE_OS_X_SERVER
 /*  Needed for default password callback */
-
 #include "AppleOD.h"
+#endif
 
 /* Application-specific. */
 #include "assert.h"
 #include "xmalloc.h"
+#include "xstrlcat.h"
+#include "xstrlcpy.h"
 #include "tls.h"
 
 /* Session caching/reuse stuff */
@@ -132,7 +134,9 @@
 
 #define DB (config_tlscache_db) /* sessions are binary -> MUST use DB3 */
 
+#ifdef APPLE_OS_X_SERVER
 static CallbackUserData *sUserData = NULL;
+#endif
 
 static struct db *sessdb = NULL;
 static int sess_dbopen = 0;
@@ -233,7 +237,7 @@ static int verify_callback(int ok, X509_STORE_CTX * ctx)
     int     err;
     int     depth;
 
-    syslog(LOG_ERR,"Doing a peer verify");
+    syslog(LOG_DEBUG, "Doing a peer verify");
 
     err_cert = X509_STORE_CTX_get_current_cert(ctx);
     err = X509_STORE_CTX_get_error(ctx);
@@ -364,14 +368,14 @@ static int set_cert_stuff(SSL_CTX * ctx,
 			  const char *cert_file, const char *key_file)
 {
     if (cert_file != NULL) {
-	if (SSL_CTX_use_certificate_file(ctx, cert_file,
-					 SSL_FILETYPE_PEM) <= 0) {
+	if (SSL_CTX_use_certificate_chain_file(ctx, cert_file) <= 0) {
 	    syslog(LOG_ERR, "unable to get certificate from '%s'", cert_file);
 	    return (0);
 	}
 	if (key_file == NULL)
 	    key_file = cert_file;
 
+#ifdef APPLE_OS_X_SERVER
 	if ( strlen( key_file ) < FILENAME_MAX )
 	{
 		if ( sUserData == NULL )
@@ -434,6 +438,7 @@ static int set_cert_stuff(SSL_CTX * ctx,
 	{
 		syslog( LOG_NOTICE, "Key file path too big for custom callback: %s", key_file );
 	}
+#endif
 
 	if (SSL_CTX_use_PrivateKey_file(ctx, key_file,
 					SSL_FILETYPE_PEM) <= 0) {
@@ -491,9 +496,9 @@ static int new_session_cb(SSL *ssl __attribute__((unused)),
     if (data && len) {
 	/* store the session in our database */
 	do {
-	    ret = DB->store(sessdb, sess->session_id,
+	    ret = DB->store(sessdb, (const char *) sess->session_id,
 			    sess->session_id_length,
-			    data, len + sizeof(time_t), NULL);
+			    (const char *) data, len + sizeof(time_t), NULL);
 	} while (ret == CYRUSDB_AGAIN);
     }
 
@@ -526,7 +531,7 @@ static void remove_session(unsigned char *id, int idlen)
     if (!sess_dbopen) return;
 
     do {
-	ret = DB->delete(sessdb, id, idlen, NULL, 1);
+	ret = DB->delete(sessdb, (const char *) id, idlen, NULL, 1);
     } while (ret == CYRUSDB_AGAIN);
 
     /* log this transaction */
@@ -567,7 +572,6 @@ static SSL_SESSION *get_session_cb(SSL *ssl __attribute__((unused)),
 {
     int ret;
     const char *data = NULL;
-    unsigned char *asn;
     int len = 0;
     time_t expire = 0, now = time(0);
     SSL_SESSION *sess = NULL;
@@ -578,7 +582,7 @@ static SSL_SESSION *get_session_cb(SSL *ssl __attribute__((unused)),
     if (!sess_dbopen) return NULL;
 
     do {
-	ret = DB->fetch(sessdb, id, idlen, &data, &len, NULL);
+	ret = DB->fetch(sessdb, (const char *) id, idlen, &data, &len, NULL);
     } while (ret == CYRUSDB_AGAIN);
 
     if (!ret && data) {
@@ -594,7 +598,7 @@ static SSL_SESSION *get_session_cb(SSL *ssl __attribute__((unused)),
 	else {
 	    /* transform the ASN1 representation of the session
 	       into an SSL_SESSION object */
-	    asn = (unsigned char*) data + sizeof(time_t);
+	    const unsigned char *asn = (unsigned char *) data + sizeof(time_t);
 	    sess = d2i_SSL_SESSION(NULL, &asn, len - sizeof(time_t));
 	    if (!sess) syslog(LOG_ERR, "d2i_SSL_SESSION failed: %m");
 	}

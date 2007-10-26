@@ -105,6 +105,8 @@ Environment += $(Extra_Environment)
 
 VPATH=$(Sources)
 
+ManPageDirectories = /usr/share/man
+
 ##
 # Targets
 ##
@@ -134,7 +136,7 @@ ifneq ($(wildcard $(PAX)),)
 else
 	$(_v) $(TAR) cf - . | (cd "$(SRCROOT)" ; $(TAR) xfp -)
 endif
-	$(_v) $(FIND) "$(SRCROOT)" $(Find_Cruft) | $(XARGS) $(RMDIR)
+	$(_v) $(FIND) "$(SRCROOT)" $(Find_Cruft) -depth -exec $(RMDIR) "{}" \;
 endif
 
 ifndef ShadowTestFile
@@ -177,3 +179,9 @@ endif
 
 rshowvar: showvar
 	$(_v) $(MAKE) recurse TARGET=rshowvar
+
+compress_man_pages:
+ifneq "$(strip $(ManPageDirectories))" ""
+	@echo "Compressing man pages for $(Project)..."
+	$(_v) $(COMPRESSMANPAGES) $(ManPageDirectories)
+endif

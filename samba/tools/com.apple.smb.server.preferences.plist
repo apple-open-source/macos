@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Run synchronize-preferences when the SMB server preferences are
+	modified.
+	-->
+	<key>Label</key>
+	<string>com.apple.smb.server.preferences</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/samba/synchronize-preferences</string>
+		<string>--linger</string>
+	</array>
+	<key>TimeOut</key>
+	<integer>120</integer>
+	<key>WatchPaths</key>
+	<array>
+	    <string>/Library/Preferences/SystemConfiguration/com.apple.smb.server.plist</string>
+	</array>
+</dict>
+</plist>

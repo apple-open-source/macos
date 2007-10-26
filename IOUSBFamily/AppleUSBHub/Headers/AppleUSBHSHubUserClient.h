@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -39,6 +39,13 @@ enum
     kAppleUSBHSHubUserClientGetNumberOfPorts,
     kAppleUSBHSHubUserClientPutPortIntoTestMode,
     kAppleUSBHSHubUserClientGetLocationID,
+	kAppleUSBHSHubUserClientSupportsIndicators,
+	kAppleUSBHSHubUserClientSetIndicatorForPort,
+	kAppleUSBHSHubUserClientGetPortIndicatorControl,
+	kAppleUSBHSHubUserClientSetIndicatorsToAutomatic,
+	kAppleUSBHSHubUserClientGetPowerSwitchingMode,
+	kAppleUSBHSHubUserClientSetPortPower,
+	kAppleUSBHSHubUserClientGetPortPower,
     kNumUSBHSHubMethods
 };
 
@@ -49,39 +56,46 @@ class AppleUSBHSHubUserClient : public IOUserClient
     
 private:
 
-    AppleUSBHub *			fOwner;
-    task_t				fTask;
-    const IOExternalMethod *		fMethods;
-    IOCommandGate *			fGate;
-    UInt32				fNumMethods;
-    mach_port_t 			fWakePort;
-    bool				fDead;
+    AppleUSBHub *				fOwner;
+    task_t						fTask;
+    const IOExternalMethod *	fMethods;
+    IOCommandGate *				fGate;
+    UInt32						fNumMethods;
+    mach_port_t					fWakePort;
+    bool						fDead;
 
     static const IOExternalMethod	sMethods[kNumUSBHSHubMethods];
     static const IOItemCount 		sMethodCount;
 
-    virtual void 			SetExternalMethodVectors(void);
+    virtual void				SetExternalMethodVectors(void);
 
-        //	IOService overrides
-        //
+	//	IOService overrides
+	//
     virtual IOReturn  			open(bool seize);
     virtual IOReturn  			close(void);
-    virtual bool 			start( IOService * provider );
-    virtual void 			stop( IOService * provider );
+    virtual bool				start( IOService * provider );
+    virtual void				stop( IOService * provider );
 
     //	IOUserClient overrides
     //
-    virtual bool 			initWithTask( task_t owningTask, void * securityID, UInt32 type,  OSDictionary * properties );
-    virtual IOExternalMethod * 		getTargetAndMethodForIndex(IOService **target, UInt32 index);
+    virtual bool				initWithTask( task_t owningTask, void * securityID, UInt32 type,  OSDictionary * properties );
+    virtual IOExternalMethod *	getTargetAndMethodForIndex(IOService **target, UInt32 index);
     virtual IOReturn 			clientClose( void );
 
 
     // Hub specific methods
     //
-    IOReturn				IsEHCIRootHub(UInt32 *ret);
-    IOReturn				EnterTestMode(void);
-    IOReturn				LeaveTestMode(void);
-    IOReturn				GetNumberOfPorts(UInt32 *numPorts);
-    IOReturn				PutPortIntoTestMode(UInt32 port, UInt32 mode);
-    IOReturn				GetLocationID(UInt32 *locID);
+    IOReturn					IsEHCIRootHub(UInt32 *ret);
+    IOReturn					EnterTestMode(void);
+    IOReturn					LeaveTestMode(void);
+    IOReturn					GetNumberOfPorts(UInt32 *numPorts);
+    IOReturn					PutPortIntoTestMode(UInt32 port, UInt32 mode);
+    IOReturn					GetLocationID(UInt32 *locID);
+	IOReturn					SupportsIndicators(UInt32 *indicatorSupport);
+	IOReturn					GetPortIndicatorControl(UInt32 portNumber, UInt32 *defaultColor );
+	IOReturn					SetIndicatorForPort(UInt32 portNumber, UInt32 selector );
+	IOReturn					SetIndicatorsToAutomatic();
+	IOReturn					GetPowerSwitchingMode(UInt32 *mode);
+	IOReturn					GetPortPower(UInt32 port, UInt32 *on);
+	IOReturn					SetPortPower(UInt32 port, UInt32 on);
 };

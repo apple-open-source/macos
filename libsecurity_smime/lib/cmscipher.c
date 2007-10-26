@@ -41,7 +41,7 @@
 #include "secoid.h"
 #include <security_asn1/secerr.h>
 #include <security_asn1/secasn1.h>
-#include <Security/asn1Templates.h>
+#include <Security/SecAsn1Templates.h>
 #include <Security/cssmapi.h>
 #include <Security/cssmapple.h>
 #include <Security/SecKeyPriv.h>
@@ -651,8 +651,8 @@ SecCmsCipherContextLength(SecCmsCipherContextRef cc, unsigned int input_len, Boo
  * passed in to the subsequent decrypt operation, as no output bytes
  * will be stored.
  */
-unsigned int
-SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, unsigned int input_len, Boolean final)
+size_t
+SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, size_t input_len, Boolean final)
 {
 #if 1
     return SecCmsCipherContextLength(cc, input_len, final, PR_FALSE);
@@ -713,8 +713,8 @@ SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, unsigned int input_l
  * passed in to the subsequent encrypt operation, as no output bytes
  * will be stored.
  */
-unsigned int
-SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, unsigned int input_len, Boolean final)
+size_t
+SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, size_t input_len, Boolean final)
 {
 #if 1
     return SecCmsCipherContextLength(cc, input_len, final, PR_TRUE);
@@ -763,12 +763,12 @@ SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, unsigned int input_l
 
 OSStatus
 SecCmsCipherContextCrypt(SecCmsCipherContextRef cc, unsigned char *output,
-		  unsigned int *output_len_p, unsigned int max_output_len,
-		  const unsigned char *input, unsigned int input_len,
+		  size_t *output_len_p, size_t max_output_len,
+		  const unsigned char *input, size_t input_len,
 		  Boolean final, Boolean encrypt)
 {
     CSSM_DATA outputBuf = { max_output_len, output };
-    uint32 bytes_output = 0;
+    CSSM_SIZE bytes_output = 0;
     OSStatus rv = 0;
 
     if (input_len)
@@ -832,8 +832,8 @@ SecCmsCipherContextCrypt(SecCmsCipherContextRef cc, unsigned char *output,
  */ 
 OSStatus
 SecCmsCipherContextDecrypt(SecCmsCipherContextRef cc, unsigned char *output,
-		  unsigned int *output_len_p, unsigned int max_output_len,
-		  const unsigned char *input, unsigned int input_len,
+		  size_t *output_len_p, size_t max_output_len,
+		  const unsigned char *input, size_t input_len,
 		  Boolean final)
 {
 #if 1
@@ -1050,8 +1050,8 @@ SecCmsCipherContextDecrypt(SecCmsCipherContextRef cc, unsigned char *output,
  */ 
 OSStatus
 SecCmsCipherContextEncrypt(SecCmsCipherContextRef cc, unsigned char *output,
-		  unsigned int *output_len_p, unsigned int max_output_len,
-		  const unsigned char *input, unsigned int input_len,
+		  size_t *output_len_p, size_t max_output_len,
+		  const unsigned char *input, size_t input_len,
 		  Boolean final)
 {
 #if 1

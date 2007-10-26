@@ -92,7 +92,7 @@ public:
         SecPointer<KeyItem> &outPublicKey, 
         SecPointer<KeyItem> &outPrivateKey);
 
-	static KeyItem *generate(
+	static SecPointer<KeyItem> generate(
 		Keychain keychain,
 		CSSM_ALGORITHMS algorithm,
 		uint32 keySizeInBits,
@@ -101,11 +101,14 @@ public:
 		uint32 keyAttr,
 		SecPointer<Access> initialAccess);
 
+	virtual const CssmData &itemID();
+	
 protected:
 	virtual PrimaryKey add(Keychain &keychain);
 private:
 	CssmClient::Key mKey;
 	const CSSM_X509_ALGORITHM_IDENTIFIER *algid;
+	CssmAutoData mPubKeyHash;
 };
 
 } // end namespace KeychainCore

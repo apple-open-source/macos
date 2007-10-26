@@ -19,8 +19,19 @@
 ## 02111-1307, USA.
 
 noinst_LIBRARIES = libtar.a
+noinst_HEADERS = system.h localedir.h rmt.h
+libtar_a_SOURCES = prepargs.c prepargs.h rtapelib.c
 
-libtar_a_SOURCES = prepargs.c prepargs.h
+localedir = $(datadir)/locale
+
+DISTCLEANFILES = localedir.h
+localedir.h : Makefile
+	echo '#define LOCALEDIR "$(localedir)"' >$@
+	echo "#ifndef DEFAULT_RMT_COMMAND" >> $@
+	echo "# define DEFAULT_RMT_COMMAND \"$(DEFAULT_RMT_DIR)/`echo \"rmt\" | sed 's,^.*/,,;$(transform)'`$(EXEEXT)\"" >> $@
+	echo "#endif" >> $@
+
+rtapelib.o: localedir.h
 
 libtar_a_LIBADD = $(LIBOBJS) $(ALLOCA)
 libtar_a_DEPENDENCIES = $(libtar_a_LIBADD)
@@ -39,6 +50,8 @@ $(srcdir)/getdate.c: getdate.y
 	  $(YACC) $(YFLAGS) getdate.y && \
 	  mv -f y.tab.c getdate.c
 
+SUFFIXES = .o .c .h
+CLEANFILES = 
 # gnulib modules
 
 # alloca
@@ -53,11 +66,20 @@ alloca.h: alloca_.h
 	mv $@-t $@
 MOSTLYCLEANFILES += alloca.h alloca.h-t
 
+# allocsa
+libtar_a_SOURCES += allocsa.h allocsa.c
+EXTRA_DIST += allocsa.valgrind
+
 # argmatch
 libtar_a_SOURCES += argmatch.h argmatch.c
 
+# argp
+libtar_a_SOURCES += argp.h argp-ba.c argp-eexst.c \
+           argp-fmtstream.c argp-fmtstream.h argp-fs-xinl.c argp-help.c \
+           argp-namefrob.h argp-parse.c argp-pv.c argp-pvh.c argp-xinl.c
+
 # backupfile
-libtar_a_SOURCES += backupfile.h backupfile.c addext.c
+libtar_a_SOURCES += backupfile.h backupfile.c
 
 # chown
 
@@ -98,6 +120,9 @@ MOSTLYCLEANFILES += fnmatch.h fnmatch.h-t
 # full-write
 libtar_a_SOURCES += full-write.h full-write.c
 
+# getcwd
+libtar_a_SOURCES += getcwd.h
+
 # getdate
 libtar_a_SOURCES += getdate.h getdate.y
 BUILT_SOURCES += getdate.c
@@ -108,7 +133,19 @@ libtar_a_SOURCES += getline.h
 EXTRA_DIST += getndelim2.h getndelim2.c
 
 # getopt
-libtar_a_SOURCES += getopt.h getopt.c getopt1.c getopt_int.h
+BUILT_SOURCES += $(GETOPT_H)
+EXTRA_DIST += getopt_.h getopt_int.h
+
+# We need the following in order to create an <getopt.h> when the system
+# doesn't have one that works with the given compiler.
+all-local $(lib_OBJECTS): $(GETOPT_H)
+getopt.h: getopt_.h
+	cp $(srcdir)/getopt_.h $@-t
+	mv $@-t $@
+MOSTLYCLEANFILES += getopt.h getopt.h-t
+
+# getpagesize
+libtar_a_SOURCES += getpagesize.h
 
 # gettext
 libtar_a_SOURCES += gettext.h
@@ -125,9 +162,63 @@ libtar_a_SOURCES += hash.h hash.c
 libtar_a_SOURCES += human.h human.c
 
 # lchown
-libtar_a_SOURCES += lchown.h
+libtar_a_SOURCES += lchown.h stat-macros.h
 
-# malloc
+# localcharset
+libtar_a_SOURCES += localcharset.h localcharset.c
+EXTRA_DIST += config.charset ref-add.sin ref-del.sin
+DEFS += -DLIBDIR=\"$(libdir)\"
+
+# We need the following in order to install a simple file in $(libdir)
+# which is shared with other installed packages. We use a list of referencing
+# packages so that "make uninstall" will remove the file if and only if it
+# is not used by another installed package.
+# On systems with glibc-2.1 or newer, the file is redundant, therefore we
+# avoid installing it.
+
+all-local: charset.alias ref-add.sed ref-del.sed
+
+charset_alias = $(DESTDIR)$(libdir)/charset.alias
+charset_tmp = $(DESTDIR)$(libdir)/charset.tmp
+install-exec-local: all-local
+	test $(GLIBC21) != no || $(mkinstalldirs) $(DESTDIR)$(libdir)
+	if test -f $(charset_alias); then \
+	  sed -f ref-add.sed $(charset_alias) > $(charset_tmp) ; \
+	  $(INSTALL_DATA) $(charset_tmp) $(charset_alias) ; \
+	  rm -f $(charset_tmp) ; \
+	else \
+	  if test $(GLIBC21) = no; then \
+	    sed -f ref-add.sed charset.alias > $(charset_tmp) ; \
+	    $(INSTALL_DATA) $(charset_tmp) $(charset_alias) ; \
+	    rm -f $(charset_tmp) ; \
+	  fi ; \
+	fi
+
+uninstall-local: all-local
+	if test -f $(charset_alias); then \
+	  sed -f ref-del.sed $(charset_alias) > $(charset_tmp); \
+	  if grep '^# Packages using this file: $$' $(charset_tmp) \
+	      > /dev/null; then \
+	    rm -f $(charset_alias); \
+	  else \
+	    $(INSTALL_DATA) $(charset_tmp) $(charset_alias); \
+	  fi; \
+	  rm -f $(charset_tmp); \
+	fi
+
+charset.alias: config.charset
+	$(SHELL) $(srcdir)/config.charset '$(host)' > t-$@
+	mv t-$@ $@
+
+SUFFIXES += .sed .sin
+.sin.sed:
+	sed -e '/^#/d' -e 's/@''PACKAGE''@/$(PACKAGE)/g' $< > t-$@
+	mv t-$@ $@
+
+CLEANFILES += charset.alias ref-add.sed ref-del.sed
+
+# mempcpy
+libtar_a_SOURCES += mempcpy.h
 
 # memset
 
@@ -138,20 +229,16 @@ libtar_a_SOURCES += modechange.h modechange.c
 
 # obstack
 
-# pathmax
-libtar_a_SOURCES += pathmax.h
-
 # quote
 libtar_a_SOURCES += quote.h quote.c
 
 # quotearg
 libtar_a_SOURCES += quotearg.h quotearg.c
 
-# realloc
-
 # restrict
 
 # rmdir
+libtar_a_SOURCES += stat-macros.h
 
 # safe-read
 libtar_a_SOURCES += safe-read.h safe-read.c
@@ -164,6 +251,9 @@ libtar_a_SOURCES += save-cwd.h save-cwd.c
 
 # savedir
 libtar_a_SOURCES += savedir.h savedir.c
+
+# setenv
+libtar_a_SOURCES += setenv.h
 
 # stdbool
 BUILT_SOURCES += $(STDBOOL_H)
@@ -183,6 +273,14 @@ libtar_a_SOURCES += stpcpy.h
 # strcase
 libtar_a_SOURCES += strcase.h
 
+# strchrnul
+libtar_a_SOURCES += strchrnul.h
+
+# strndup
+libtar_a_SOURCES += strndup.h
+
+# strnlen
+
 # strtoimax
 
 # strtol
@@ -194,6 +292,17 @@ libtar_a_SOURCES += strcase.h
 # strtoull
 
 # strtoumax
+
+# sysexits
+EXTRA_DIST += sysexit_.h
+
+# We need the following in order to create a <sysexits.h> when the system
+# doesn't have one that works with the given compiler.
+all-local $(lib_OBJECTS): $(SYSEXITS_H)
+sysexits.h: sysexit_.h
+	cp $(srcdir)/sysexit_.h sysexits.h-t
+	mv sysexits.h-t sysexits.h
+MOSTLYCLEANFILES += sysexits.h sysexits.h-t
 
 # time_r
 libtar_a_SOURCES += time_r.h
@@ -207,7 +316,10 @@ libtar_a_SOURCES += unlocked-io.h
 # utime
 
 # xalloc
-libtar_a_SOURCES += xalloc.h xmalloc.c xstrdup.c
+libtar_a_SOURCES += xalloc.h xmalloc.c
+
+# xalloc-die
+libtar_a_SOURCES += xalloc-die.c
 
 # xgetcwd
 libtar_a_SOURCES += xgetcwd.h xgetcwd.c

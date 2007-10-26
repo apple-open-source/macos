@@ -2,7 +2,8 @@
 
 AT_BANNER([C low level compiling/preprocessing macros.])
 
-# Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+# Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,8 +17,8 @@ AT_BANNER([C low level compiling/preprocessing macros.])
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 
 # Since the macros which compile are required by most tests, check
@@ -43,7 +44,6 @@ case $ac_objext in
   'o' | 'obj' ) ;;
   * ) AC_MSG_ERROR([suspicious object suffix: $ac_objext]);;
 esac
-AS_EXIT([0])
 ]])
 
 
@@ -74,16 +74,15 @@ AT_CLEANUP
 ## C keywords.  ##
 ## ------------ ##
 
-# GCC supports `const', `inline', `restrict', and `volatile'.
+# GCC supports `const', `typeof', and `volatile'.
 AT_CHECK_MACRO([C keywords],
 [[AC_PROG_CC
 AC_C_CONST
-AC_C_INLINE
-AC_C_RESTRICT
+AC_C_TYPEOF
 AC_C_VOLATILE
-case $GCC,$ac_cv_c_const,$ac_cv_c_inline,$ac_cv_c_restrict,$ac_cv_c_volatile in
+case $GCC,$ac_cv_c_const,$ac_cv_c_typeof,$ac_cv_c_volatile in
  yes,*no*)
-   AC_MSG_ERROR([failed to detect `const', `inline', `restrict', or `volatile' support]);;
+   AC_MSG_ERROR([failed to detect `const', `typeof', or `volatile' support]);;
 esac
 ]])
 
@@ -142,7 +141,8 @@ AT_CLEANUP
 AT_SETUP([AC_PROG_CPP without warnings])
 
 # Ignore if /lib/cpp doesn't work
-AT_CHECK([/lib/cpp </dev/null || exit 77], [], [ignore], [ignore])
+AT_CHECK([echo '#include <stdio.h>' | /lib/cpp || exit 77],
+  [], [ignore], [ignore])
 
 # A cpp which exit status is meaningless.
 AT_DATA([mycpp],
@@ -179,7 +179,8 @@ AT_CLEANUP
 AT_SETUP([AC_PROG_CPP via CC])
 
 # Ignore if /lib/cpp doesn't work
-AT_CHECK([/lib/cpp </dev/null || exit 77], [], [ignore], [ignore])
+AT_CHECK([echo '#include <stdio.h>' | /lib/cpp || exit 77],
+  [], [ignore], [ignore])
 
 AT_DATA([mycc],
 [[#! /bin/sh

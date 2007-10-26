@@ -1,5 +1,6 @@
 /* machine description file for SEQUENT BALANCE machines
-   Copyright (C) 1985, 1986 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,19 +16,19 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
-   USUAL-OPSYS="note"  
+   USUAL-OPSYS="note"
 
 NOTE-START
 Use -opsystem=bsd4-2, or -opsystem=bsd4-3 on newer systems.
 NOTE-END */
 
-/* NOTE: this file works for DYNIX release 2.0 
+/* NOTE: this file works for DYNIX release 2.0
 	  (not tested on 1.3) on NS32000's */
 
 /* Define WORDS_BIG_ENDIAN iff lowest-numbered byte in a word
@@ -100,16 +101,6 @@ NOTE-END */
 
 /* #define VIRT_ADDR_VARIES */
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-/* #define C_ALLOCA */
-#define HAVE_ALLOCA
-
 /* Name of file the to look in
    for the kernel symbol table (for load average) */
 
@@ -173,3 +164,6 @@ NOTE-END */
   sprintf (ptyname, "/dev/pty%c%c", PTY_MAJOR[ma], PTY_MINOR[mi]);
 #define PTY_TTY_NAME_SPRINTF \
   sprintf (ptyname, "/dev/tty%c%c", PTY_MAJOR[ma], PTY_MINOR[mi]);
+
+/* arch-tag: 81caea48-aa64-4021-9544-e969dea71ee8
+   (do not change this comment) */

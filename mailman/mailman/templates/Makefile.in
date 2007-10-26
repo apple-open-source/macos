@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software 
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # NOTE: Makefile.in is converted into Makefile by the configure script
 # in the parent directory.  Once configure has run, you can recreate
@@ -42,8 +42,8 @@ TEMPLATEDIR= 	$(prefix)/templates
 
 SHELL=		/bin/sh
 
-LANGUAGES=	big5 ca cs de en es et eu fi fr gb hr hu it ja ko lt nl \
-		no pl pt pt_BR ro ru sl sr sv tr uk
+LANGUAGES=	ar ca cs da de en es et eu fi fr hr hu ia it ja ko lt nl \
+		no pl pt pt_BR ro ru sl sr sv tr uk vi zh_CN zh_TW
 
 # Modes for directories and executables created by the install
 # process.  Default to group-writable directories but
@@ -52,7 +52,6 @@ DIRMODE=	775
 EXEMODE=	755
 FILEMODE=	644
 INSTALL_PROGRAM=$(INSTALL) -m $(EXEMODE)
-DIRSETGID=	$(CHMOD) g+s
 
 
 # Rules
@@ -62,13 +61,10 @@ all:
 install:
 	for d in $(LANGUAGES); \
 	do \
-	    dir=$(DESTDIR)$(TEMPLATEDIR)/$$d; \
-	    $(srcdir)/../mkinstalldirs $$dir; \
-	    $(CHMOD) $(DIRMODE) $$dir; \
-	    $(DIRSETGID) $$dir; \
+	    $(srcdir)/../mkinstalldirs $(DESTDIR)$(TEMPLATEDIR)/$$d; \
 	    for f in $(srcdir)/$$d/*.html $(srcdir)/$$d/*.txt; \
 	    do \
-	    	$(INSTALL) -m $(FILEMODE) $$f $$dir; \
+	    	$(INSTALL) -m $(FILEMODE) $$f $(DESTDIR)$(TEMPLATEDIR)/$$d; \
 	    done; \
 	done
 

@@ -28,7 +28,7 @@ CFILES = getdomainname.c getnetgrent.c innetgr.c setdomainname.c\
 OTHERSRCS = Makefile.preamble Makefile yp_all.3 yp_bind.3 yp_first.3\
             yp_get_default_domain.3 yp_master.3 yp_match.3 yp_next.3\
             yp_order.3 yp_unbind.3 ypclnt.3 yperr_string.3 ypprot_err.3\
-            Makefile.postamble
+            yp.8 Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

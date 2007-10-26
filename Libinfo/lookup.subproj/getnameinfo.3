@@ -24,12 +24,18 @@
 .Nm getnameinfo
 .Nd socket address structure to hostname and service name
 .Sh SYNOPSIS
-.In sys/types.h
 .In sys/socket.h
 .In netdb.h
 .Ft int
-.Fn getnameinfo "const struct sockaddr *sa" "socklen_t salen" "char *host" \
-    "size_t hostlen" "char *serv" "size_t servlen" "int flags"
+.Fo getnameinfo
+.Fa "const struct sockaddr *restrict sa"
+.Fa "socklen_t salen"
+.Fa "char *restrict node"
+.Fa "socklen_t nodelen"
+.Fa "char *restrict service"
+.Fa "socklen_t servicelen"
+.Fa "int flags"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn getnameinfo
@@ -59,19 +65,19 @@ bytes long.
 The host and service names associated with
 .Fa sa
 are stored in
-.Fa host
+.Fa node
 and
-.Fa serv
+.Fa service
 which have length parameters
-.Fa hostlen
+.Fa nodelen
 and
-.Fa servlen .
+.Fa servicelen .
 The maximum value for
-.Fa hostlen
+.Fa nodelen
 is
 .Dv NI_MAXHOST
 and the maximum value for
-.Fa servlen
+.Fa servicelen
 is
 .Dv NI_MAXSERV ,
 as defined by
@@ -156,6 +162,31 @@ if (getnameinfo(sa, sa-\*[Gt]sa_len, hbuf, sizeof(hbuf), NULL, 0,
 }
 printf("host=%s\en", hbuf);
 .Ed
+.Sh LEGACY SYNOPSIS
+.Fd #include <sys/types.h>
+.Fd #include <sys/socket.h>
+.Fd #include <netdb.h>
+.Pp
+The include file
+.In sys/types.h
+is necessary.
+.Pp
+.Ft int
+.Fo getnameinfo
+.Fa "const struct sockaddr *restrict sa"
+.Fa "socklen_t salen"
+.Fa "char *restrict node"
+.Fa "size_t nodelen"
+.Fa "char *service"
+.Fa "size_t servicelen"
+.Fa "int flags"
+.Fc ;
+.Pp
+The type of
+.Fa nodelen
+and
+.Fa servicelen
+has changed.
 .Sh SEE ALSO
 .Xr gai_strerror 3 ,
 .Xr getaddrinfo 3 ,
@@ -256,10 +287,6 @@ if (error == 0) {
 	    NULL, 0, NI_NUMERICHOST);
 }
 .Ed
-.Sh BUGS
-The implementation of
-.Fn getnameinfo
-is not thread-safe.
 .\".Pp
 .\".Ox
 .\"intentionally uses a different

@@ -85,12 +85,7 @@ extern void lhd_tree_inlining_end_inlining (tree);
 extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree, int);
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
-/* APPLE LOCAL begin 4133801 */
-extern void lhd_start_source_file (int, const char *);
-extern void lhd_end_source_file (int, const char *);
-#define LANG_HOOKS_START_SOURCE_FILE lhd_start_source_file
-#define LANG_HOOKS_END_SOURCE_FILE   lhd_end_source_file
-/* APPLE LOCAL end 4133801 */
+
 
 /* Declarations for tree gimplification hooks.  */
 extern int lhd_gimplify_expr (tree *, tree *, tree *);
@@ -315,10 +310,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_GIMPLIFY_EXPR, \
   LANG_HOOKS_FOLD_OBJ_TYPE_REF, \
   LANG_HOOKS_BUILTIN_FUNCTION, \
-/* APPLE LOCAL begin 4133801 */ \
-  LANG_HOOKS_START_SOURCE_FILE, \
-  LANG_HOOKS_END_SOURCE_FILE, \
-/* APPLE LOCAL end 4133801 */ \
 }
 
 #endif /* GCC_LANG_HOOKS_DEF_H */

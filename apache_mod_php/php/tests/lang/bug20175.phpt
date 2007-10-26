@@ -1,7 +1,9 @@
 --TEST--
 Bug #20175 (Static vars can't store ref to new instance)
 --SKIPIF--
-<?php if (version_compare(zend_version(),'2.0.0-dev','<')) die('skip ZE1 does not have static class members');
+<?php if (version_compare(zend_version(),'2.0.0-dev','<')) die('skip ZE1 does not have static class members'); ?>
+--INI--
+error_reporting=4095
 --FILE--
 <?php
 print zend_version()."\n";
@@ -111,10 +113,10 @@ class oop_test {
 	
 	function oop_static() {
 		echo "oop_static()\n";
-		if (!isset(self::oop_value)) {
-			self::oop_value = & new oop_class;
+		if (!isset(self::$oop_value)) {
+			self::$oop_value = & new oop_class;
 		}
-		echo self::oop_value->oop_name;
+		echo self::$oop_value->oop_name;
 	}
 }
 
@@ -145,10 +147,11 @@ foo_static()
 foo:1
 bar_static()
 bar_global()
+
+Strict Standards: Only variables should be assigned by reference in %sbug20175.php on line 47
 bar:1
 bar_static()
-bar_global()
-bar:2
+bar:1
 wow_static()
 wow_global()
 wow:1

@@ -1,6 +1,7 @@
 ;;; esh-cmd.el --- command invocation
 
-;; Copyright (C) 1999, 2000 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'esh-cmd)
 
@@ -30,7 +31,7 @@
 pressing <RET>.  There are several different kinds of commands,
 however."
   :tag "Command invocation"
-  :link '(info-link "(eshell)Command invocation")
+  ;; :link '(info-link "(eshell)Command invocation")
   :group 'eshell)
 
 ;;; Commentary:
@@ -295,28 +296,24 @@ command line.")
   (set (make-local-variable 'eshell-last-command-name) nil)
   (set (make-local-variable 'eshell-last-async-proc) nil)
 
-  (make-local-hook 'eshell-kill-hook)
   (add-hook 'eshell-kill-hook 'eshell-resume-command nil t)
 
   ;; make sure that if a command is over, and no process is being
   ;; waited for, that `eshell-current-command' is set to nil.  This
   ;; situation can occur, for example, if a Lisp function results in
   ;; `debug' being called, and the user then types \\[top-level]
-  (make-local-hook 'eshell-post-command-hook)
   (add-hook 'eshell-post-command-hook
 	    (function
 	     (lambda ()
 	       (setq eshell-current-command nil
 		     eshell-last-async-proc nil))) nil t)
 
-  (make-local-hook 'eshell-parse-argument-hook)
   (add-hook 'eshell-parse-argument-hook
 	    'eshell-parse-subcommand-argument nil t)
   (add-hook 'eshell-parse-argument-hook
 	    'eshell-parse-lisp-argument nil t)
 
   (when (eshell-using-module 'eshell-cmpl)
-    (make-local-hook 'pcomplete-try-first-hook)
     (add-hook 'pcomplete-try-first-hook
 	      'eshell-complete-lisp-symbols nil t)))
 
@@ -456,12 +453,14 @@ hooks should be run before and after the command."
 
 (defun eshell-rewrite-named-command (terms)
   "If no other rewriting rule transforms TERMS, assume a named command."
-  (list (if eshell-in-pipeline-p
-	    'eshell-named-command*
-	  'eshell-named-command)
-	(car terms)
-	(and (cdr terms)
-	     (append (list 'list) (cdr terms)))))
+  (let ((sym (if eshell-in-pipeline-p
+		 'eshell-named-command*
+	       'eshell-named-command))
+	(cmd (car terms))
+	(args (cdr terms)))
+    (if args
+	(list sym cmd (append (list 'list) (cdr terms)))
+      (list sym cmd))))
 
 (eshell-deftest cmd named-command
   "Execute named command"
@@ -498,7 +497,7 @@ the second is ignored."
 (defun eshell-rewrite-for-command (terms)
   "Rewrite a `for' command into its equivalent Eshell command form.
 Because the implementation of `for' relies upon conditional evaluation
-of its argumbent (i.e., use of a Lisp special form), it must be
+of its argument (i.e., use of a Lisp special form), it must be
 implemented via rewriting, rather than as a function."
   (if (and (stringp (car terms))
 	   (string= (car terms) "for")
@@ -713,7 +712,7 @@ For an external command, it means an exit code of 0."
 				       reversed last-terms-sym)
   "Separate TERMS using SEPARATOR.
 If REVERSED is non-nil, the list of separated term groups will be
-returned in reverse order.  If LAST-TERMS-SYM is a symbol, it's value
+returned in reverse order.  If LAST-TERMS-SYM is a symbol, its value
 will be set to a list of all the separator operators found (or '(list
 nil)' if none)."
   (let ((sub-terms (list t))
@@ -761,7 +760,7 @@ nil)' if none)."
 
 (defmacro eshell-do-subjob (object)
   "Evaluate a command OBJECT as a subjob.
-We indicate thet the process was run in the background by returned it
+We indicate that the process was run in the background by returning it
 ensconced in a list."
   `(let ((eshell-current-subjob-p t))
      ,object))
@@ -1010,11 +1009,10 @@ at the moment are:
 		   (eshell-resume-eval))))
       ;; On systems that don't support async subprocesses, eshell-resume
       ;; can return t.  Don't treat that as an error.
+      (if (listp delim)
+	  (setq delim (car delim)))
       (if (and delim (not (eq delim t)))
-	  (error "Unmatched delimiter: %c"
-		 (if (listp delim)
-		     (car delim)
-		   delim))))))
+	  (error "Unmatched delimiter: %c" delim)))))
 
 (defun eshell-resume-command (proc status)
   "Resume the current command when a process ends."
@@ -1064,7 +1062,7 @@ at the moment are:
   object)
 
 (defconst function-p-func
-  (if (eshell-under-xemacs-p)
+  (if (fboundp 'compiled-function-p)
       'compiled-function-p
     'byte-code-function-p))
 
@@ -1250,9 +1248,8 @@ be finished later after the completion of an asynchronous subprocess."
 	(setq program (eshell-search-path name))
 	(let* ((esym (eshell-find-alias-function name))
 	       (sym (or esym (intern-soft name))))
-	  (if (and sym (fboundp sym)
-		   (or esym eshell-prefer-lisp-functions
-		       (not program)))
+	  (if (and (or esym (and sym (fboundp sym)))
+		   (or eshell-prefer-lisp-functions (not direct)))
 	      (let ((desc (let ((inhibit-redisplay t))
 			    (save-window-excursion
 			      (prog1
@@ -1290,7 +1287,7 @@ COMMAND may result in an alias being executed, or a plain command."
 (defun eshell-find-alias-function (name)
   "Check whether a function called `eshell/NAME' exists."
   (let* ((sym (intern-soft (concat "eshell/" name)))
-	 (file (symbol-file sym)))
+	 (file (symbol-file sym 'defun)))
     ;; If the function exists, but is defined in an eshell module
     ;; that's not currently enabled, don't report it as found
     (if (and file
@@ -1404,7 +1401,8 @@ messages, and errors."
 		      (let ((arg (car args)))
 			(if (and (stringp arg)
 				 (> (length arg) 0)
-				 (get-text-property 0 'number arg))
+				 (not (text-property-not-all
+				       0 (length arg) 'number t arg)))
 			    (setcar args (string-to-number arg))))
 		      (setq args (cdr args))))
 		  (eshell-apply object eshell-last-arguments))
@@ -1420,4 +1418,5 @@ messages, and errors."
 
 (defalias 'eshell-lisp-command* 'eshell-lisp-command)
 
+;;; arch-tag: 8e4f3867-a0c5-441f-96ba-ddd142d94366
 ;;; esh-cmd.el ends here

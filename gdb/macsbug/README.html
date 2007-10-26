@@ -11,15 +11,17 @@
 MacsBug Interface for GDB
 </FONT>
 <BR><FONT SIZE=3>
-7/25/05</FONT>
+8/21/06</FONT>
 </B></CENTER></P>
 
 <FONT SIZE=4><P><B>1. Introduction</B></P></FONT>
 <P>
-The <a href="http://developer.apple.com/tools/debuggers/MacsBug/">MacsBug</a> supported here is 
+The MacsBug supported here is and extension to
 <a href="http://developer.apple.com/documentation/DeveloperTools/gdb/gdb/gdb_toc.html">gdb</a> 
-extended to support a subset of the Mac Classic MacsBug commands and a MacsBug-like screen UI. 
-Thus it basically is a variant of MacsBug with source-level debugging!
+to support a subset of the Mac Classic
+<a href="http://developer.apple.com/tools/debuggers/MacsBug/">MacsBug</a> commands and a
+MacsBug-like screen UI.  Thus it basically is a variant of Classic MacsBug with source-level
+debugging!
 </P><P>
 Along with this README there are three other files in this directory:
 </P>
@@ -268,7 +270,46 @@ to restore the proper display.
 </P>
 
 <P>&nbsp;</P>
-<FONT SIZE=4><P><B>7. Changes in MacsBug 1.5</B></P></FONT>
+<FONT SIZE=4, color=red><P><B>7. Changes in MacsBug 1.6</B></P></FONT>
+<UL>
+<LI type=square>
+Fixed the MacsBug <B>set</B> and <B>show</B> commands (broken by incompatibilities with gdb-477).
+
+</LI></P><P><LI type=square>
+Fixed the MacsBug screen display errors (same reason).
+
+</LI></P><P><LI type=square>
+Fixed a infinite loop handing nested '<'s in function names (e.g., C++ templates) during
+disassemblies to the MacsBug screen.
+
+</LI></P><P><LI type=square>
+Fixed a bug where the MacsBug screen input (command) line was being erased when backspacing
+over the first character (if the line was beyond a minimum length).
+
+</LI></P><P><LI type=square>
+Some 64-bit and other internal bug fixes.
+
+</LI></P><P><LI type=square>
+New <B>set</B> mb-objc-selectors [ON|OFF|NOW|SHOW] command to display the selector of a
+Objective C message dispatch call in disassemblies if the call is at the current PC.  Default
+is ON.
+     
+ </LI></P><P><LI type=square>
+If <B>set</B> print demangle, <B>set</B> print asm-demangle, or <B>set</B> [mb-]unmangle
+is ON then MacsBug attempts to demangle symbols if present in the comment field of disassmbled
+lines if they are not already demangled.  For exmaple, C++ calls to symbols prefixed with
+"dyld_stub_" are not shown demangled in gdb.
+     
+</LI></P><P><LI type=square>
+<B>set</B> mb-wrap now controls the wrapping of disassembled lines when the MacsBug screen of
+off in addition to its already existing control of the MacsBug screen history area lines.
+
+</P>
+</LI>
+</UL>
+
+<P>&nbsp;</P>
+<FONT SIZE=4><P><B>8. Changes in MacsBug 1.5</B></P></FONT>
 <UL>
 <LI type=square>
 Fixed crashing bug when attempting to use the MacsBug screen (<B>mb</B> command)
@@ -343,7 +384,7 @@ and, depending on type, either the load address or pathname).
 </UL>
 
 <P>&nbsp;</P>
-<FONT SIZE=4><P><B>8. Changes in MacsBug 1.4</B></P></FONT>
+<FONT SIZE=4><P><B>9. Changes in MacsBug 1.4</B></P></FONT>
 <UL>
 <LI type=square>
 Fixed bugs in <B>tf</B> and <B>tv</B>.
@@ -355,7 +396,7 @@ Improved register display efficiency which greatly improves overall stepping spe
 </UL>
 
 <P>&nbsp;</P>
-<FONT SIZE=4><P><B>9. Changes in MacsBug 1.3</B></P></FONT>
+<FONT SIZE=4><P><B>10. Changes in MacsBug 1.3</B></P></FONT>
 <UL>
 <LI type=square>
 Fixed typeo in the <B>fb</B> help info in the reference to <B>future-break</B>.
@@ -368,7 +409,7 @@ inaccessible.
 </UL>
 
 <P>&nbsp;</P>
-<FONT SIZE=4><P><B>10. Changes in MacsBug 1.2</B></P></FONT>
+<FONT SIZE=4><P><B>11. Changes in MacsBug 1.2</B></P></FONT>
 <UL>
 <LI type=square>
 Fixed all commands that potentially bcak up over gdb prompt to produce
@@ -394,7 +435,7 @@ the width was fixed at 16 in groups of 2.
 </UL>
 
 <P>&nbsp;</P>
-<FONT SIZE=4><P><B>11. Changes in MacsBug 1.1</B></P></FONT>
+<FONT SIZE=4><P><B>12. Changes in MacsBug 1.1</B></P></FONT>
 <UL>
 <LI type=square>Removed all references to the install-MacsBug script which was documented 
 but never installed in 1.0.

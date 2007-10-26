@@ -41,6 +41,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <err.h>
 
 #define BF_SZ 	512	/* Size of write chunks */
 
@@ -142,9 +143,12 @@ create_file(file_name, size, empty, verbose)
 	char buff[BF_SZ];
 	int fd, bytes_written = BF_SZ;
 	quad_t i;
-    mode_t	mode;
+	mode_t mode = S_IRUSR | S_IWUSR;
 
-	if ((fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC )) == -1)
+	/* If superuser, then set sticky bit */
+	if (!geteuid()) mode |= S_ISVTX;
+
+	if ((fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, mode)) == -1)
                 err(1, NULL);
 
 
@@ -176,17 +180,11 @@ create_file(file_name, size, empty, verbose)
 		}
 	}
 
+	if (fchmod(fd, mode))	/* Change permissions */
+		err_rm(file_name, NULL);
 
-	mode = S_IRUSR | S_IWUSR;
-	/* If superuser, then set sticky bit */
-    if (! geteuid())
-		mode |= S_ISVTX;
-
-    if (fchmod(fd, mode))	/* Change permissions */
-        err_rm(file_name, NULL);
-
-    if ((close(fd)) == -1)
-            err_rm(file_name, NULL);
+	if ((close(fd)) == -1)
+		err_rm(file_name, NULL);
 
 	if (verbose)
 		(void)fprintf(stderr, "%s %qd bytes\n", file_name, size);

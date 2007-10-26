@@ -342,6 +342,11 @@ STATIC void permute(cp, out, p, chars_in)
 #endif /* BUILDING_VARIANT */
 #endif /* LARGEDATA */
 
+#ifndef BUILDING_VARIANT
+__private_extern__ int __crypt_des_setkey_called = 0;
+#else /* BUILDING_VARIANT */
+__private_extern__ int __crypt_des_setkey_called;
+#endif /* BUILDING_VARIANT */
 
 /* =====  (mostly) Standard DES Tables ==================== */
 
@@ -639,6 +644,7 @@ __private_extern__ int __crypt_des_setkey(key)
 		PERM6464(K,K0,K1,(unsigned char *)key,ptabp);
 		STORE(K&~0x03030303L, K0&~0x03030303L, K1, *(C_block *)key);
 	}
+	__crypt_des_setkey_called = 1;
 	return (0);
 }
 
@@ -983,6 +989,12 @@ int encrypt(block, flag)
 	register int i, j, k;
 	C_block cblock;
 
+	/* Prevent encrypt from crashing if setkey was never called.
+	 * This does not make a good cypher */
+	if (!__crypt_des_setkey_called) {
+		cblock.b32.i0 = cblock.b32.i1 = 0;
+		__crypt_des_setkey((char *)cblock.b);
+	}
 	for (i = 0; i < 8; i++) {
 		k = 0;
 		for (j = 0; j < 8; j++) {

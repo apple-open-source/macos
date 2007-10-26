@@ -1,0 +1,1025 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		176A8AF20B8D1A3F00DA0E77 /* all */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 176A8AFB0B8D1A3F00DA0E77 /* Build configuration list for PBXAggregateTarget "all" */;
+			buildPhases = (
+			);
+			dependencies = (
+				176A8B490B8D1A3F00DA0E77 /* PBXTargetDependency */,
+				176A8B4B0B8D1A3F00DA0E77 /* PBXTargetDependency */,
+				176A8B4D0B8D1A3F00DA0E77 /* PBXTargetDependency */,
+				176A8B4F0B8D1A3F00DA0E77 /* PBXTargetDependency */,
+			);
+			name = all;
+			productName = all;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		176A8B020B8D1A3F00DA0E77 /* KeyLargo.h in Headers */ = {isa = PBXBuildFile; fileRef = 73D52286FFE5D05111CA2A1B /* KeyLargo.h */; };
+		176A8B030B8D1A3F00DA0E77 /* USBKeyLargo.h in Headers */ = {isa = PBXBuildFile; fileRef = 73D52288FFE5D05111CA2A1B /* USBKeyLargo.h */; };
+		176A8B040B8D1A3F00DA0E77 /* KeyLargoWatchDogTimer.h in Headers */ = {isa = PBXBuildFile; fileRef = B05AB279018A0F5D05CE0D9E /* KeyLargoWatchDogTimer.h */; };
+		176A8B050B8D1A3F00DA0E77 /* AppleKeyLargo.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C228A2F03B7C0CE04CE206E /* AppleKeyLargo.h */; };
+		176A8B080B8D1A3F00DA0E77 /* AppleKeyLargo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8C228A2D03B7C0AC04CE206E /* AppleKeyLargo.cpp */; };
+		176A8B150B8D1A3F00DA0E77 /* AppleK2.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C50543003AE4C0804CE206E /* AppleK2.h */; };
+		176A8B160B8D1A3F00DA0E77 /* KeyLargoWatchDogTimer.h in Headers */ = {isa = PBXBuildFile; fileRef = B05AB279018A0F5D05CE0D9E /* KeyLargoWatchDogTimer.h */; };
+		176A8B170B8D1A3F00DA0E77 /* USBKeyLargo.h in Headers */ = {isa = PBXBuildFile; fileRef = 73D52288FFE5D05111CA2A1B /* USBKeyLargo.h */; };
+		176A8B180B8D1A3F00DA0E77 /* KeyLargo.h in Headers */ = {isa = PBXBuildFile; fileRef = 73D52286FFE5D05111CA2A1B /* KeyLargo.h */; };
+		176A8B190B8D1A3F00DA0E77 /* IOPlatformFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C489A210415330504CE206E /* IOPlatformFunction.h */; };
+		176A8B1B0B8D1A3F00DA0E77 /* AppleK2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8C50542F03AE4C0804CE206E /* AppleK2.cpp */; };
+		176A8B280B8D1A3F00DA0E77 /* KeyLargo.h in Headers */ = {isa = PBXBuildFile; fileRef = 73D52286FFE5D05111CA2A1B /* KeyLargo.h */; };
+		176A8B290B8D1A3F00DA0E77 /* KeyLargoWatchDogTimer.h in Headers */ = {isa = PBXBuildFile; fileRef = B05AB279018A0F5D05CE0D9E /* KeyLargoWatchDogTimer.h */; };
+		176A8B2A0B8D1A3F00DA0E77 /* USBKeyLargo.h in Headers */ = {isa = PBXBuildFile; fileRef = 73D52288FFE5D05111CA2A1B /* USBKeyLargo.h */; };
+		176A8B2C0B8D1A3F00DA0E77 /* KeyLargo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 73D52285FFE5D05111CA2A1B /* KeyLargo.cpp */; };
+		176A8B2D0B8D1A3F00DA0E77 /* KeyLargoWatchDogTimer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B05AB278018A0F5D05CE0D9E /* KeyLargoWatchDogTimer.cpp */; };
+		176A8B2E0B8D1A3F00DA0E77 /* USBKeyLargo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 73D52287FFE5D05111CA2A1B /* USBKeyLargo.cpp */; };
+		176A8B2F0B8D1A3F00DA0E77 /* BusTimings.s in Sources */ = {isa = PBXBuildFile; fileRef = B03E150701778A6305CE0D9E /* BusTimings.s */; };
+		176A8B3C0B8D1A3F00DA0E77 /* AppleK2Driver.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C9E0B0103D5F77504CE206E /* AppleK2Driver.h */; };
+		176A8B3E0B8D1A3F00DA0E77 /* AppleK2Driver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8C9E0B0003D5F77504CE206E /* AppleK2Driver.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		176A8B480B8D1A3F00DA0E77 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 176A8AFF0B8D1A3F00DA0E77;
+			remoteInfo = "AppleKeyLargo (Upgraded)";
+		};
+		176A8B4A0B8D1A3F00DA0E77 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 176A8B120B8D1A3F00DA0E77;
+			remoteInfo = "AppleK2 (Upgraded)";
+		};
+		176A8B4C0B8D1A3F00DA0E77 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 176A8B390B8D1A3F00DA0E77;
+			remoteInfo = "AppleK2Driver (Upgraded)";
+		};
+		176A8B4E0B8D1A3F00DA0E77 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 176A8B250B8D1A3F00DA0E77;
+			remoteInfo = "IOKeyLargo (Upgraded)";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		176A8B100B8D1A3F00DA0E77 /* Info-AppleKeyLargo.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-AppleKeyLargo.plist"; sourceTree = "<group>"; };
+		176A8B110B8D1A3F00DA0E77 /* AppleKeyLargo.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleKeyLargo.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		176A8B230B8D1A3F00DA0E77 /* Info-AppleK2.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-AppleK2.plist"; sourceTree = "<group>"; };
+		176A8B240B8D1A3F00DA0E77 /* AppleK2.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleK2.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		176A8B370B8D1A3F00DA0E77 /* Info-IOKeyLargo.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-IOKeyLargo.plist"; sourceTree = "<group>"; };
+		176A8B380B8D1A3F00DA0E77 /* IOKeyLargo.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOKeyLargo.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		176A8B460B8D1A3F00DA0E77 /* Info-AppleK2Driver.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-AppleK2Driver.plist"; sourceTree = "<group>"; };
+		176A8B470B8D1A3F00DA0E77 /* AppleK2Driver.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleK2Driver.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		73D52285FFE5D05111CA2A1B /* KeyLargo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = KeyLargo.cpp; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
+		73D52286FFE5D05111CA2A1B /* KeyLargo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KeyLargo.h; sourceTree = "<group>"; };
+		73D52287FFE5D05111CA2A1B /* USBKeyLargo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = USBKeyLargo.cpp; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
+		73D52288FFE5D05111CA2A1B /* USBKeyLargo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = USBKeyLargo.h; sourceTree = "<group>"; };
+		8C228A2D03B7C0AC04CE206E /* AppleKeyLargo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleKeyLargo.cpp; sourceTree = "<group>"; };
+		8C228A2F03B7C0CE04CE206E /* AppleKeyLargo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleKeyLargo.h; sourceTree = "<group>"; };
+		8C489A210415330504CE206E /* IOPlatformFunction.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPlatformFunction.h; sourceTree = "<group>"; };
+		8C50542F03AE4C0804CE206E /* AppleK2.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleK2.cpp; sourceTree = "<group>"; };
+		8C50543003AE4C0804CE206E /* AppleK2.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleK2.h; sourceTree = "<group>"; };
+		8C9E0B0003D5F77504CE206E /* AppleK2Driver.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleK2Driver.cpp; sourceTree = "<group>"; };
+		8C9E0B0103D5F77504CE206E /* AppleK2Driver.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleK2Driver.h; sourceTree = "<group>"; };
+		B03E150701778A6305CE0D9E /* BusTimings.s */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.asm; path = BusTimings.s; sourceTree = "<group>"; };
+		B05AB278018A0F5D05CE0D9E /* KeyLargoWatchDogTimer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = KeyLargoWatchDogTimer.cpp; sourceTree = "<group>"; };
+		B05AB279018A0F5D05CE0D9E /* KeyLargoWatchDogTimer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KeyLargoWatchDogTimer.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		176A8B090B8D1A3F00DA0E77 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B1D0B8D1A3F00DA0E77 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B310B8D1A3F00DA0E77 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B400B8D1A3F00DA0E77 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		089C166AFE841209C02AAC07 /* AppleKeyLargo */ = {
+			isa = PBXGroup;
+			children = (
+				8C28BA94043B78AF04CE206E /* AppleK2Driver */,
+				8C228A2303B7B52304CE206E /* AppleKeyLargo */,
+				8C50542E03AE4BE604CE206E /* AppleK2 */,
+				247142CAFF3F8F9811CA285C /* KeyLargo */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+				176A8B100B8D1A3F00DA0E77 /* Info-AppleKeyLargo.plist */,
+				176A8B230B8D1A3F00DA0E77 /* Info-AppleK2.plist */,
+				176A8B370B8D1A3F00DA0E77 /* Info-IOKeyLargo.plist */,
+				176A8B460B8D1A3F00DA0E77 /* Info-AppleK2Driver.plist */,
+			);
+			name = AppleKeyLargo;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				176A8B110B8D1A3F00DA0E77 /* AppleKeyLargo.kext */,
+				176A8B240B8D1A3F00DA0E77 /* AppleK2.kext */,
+				176A8B380B8D1A3F00DA0E77 /* IOKeyLargo.kext */,
+				176A8B470B8D1A3F00DA0E77 /* AppleK2Driver.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		247142CAFF3F8F9811CA285C /* KeyLargo */ = {
+			isa = PBXGroup;
+			children = (
+				73D52285FFE5D05111CA2A1B /* KeyLargo.cpp */,
+				73D52286FFE5D05111CA2A1B /* KeyLargo.h */,
+				B05AB278018A0F5D05CE0D9E /* KeyLargoWatchDogTimer.cpp */,
+				B05AB279018A0F5D05CE0D9E /* KeyLargoWatchDogTimer.h */,
+				73D52287FFE5D05111CA2A1B /* USBKeyLargo.cpp */,
+				73D52288FFE5D05111CA2A1B /* USBKeyLargo.h */,
+				B03E150701778A6305CE0D9E /* BusTimings.s */,
+			);
+			name = KeyLargo;
+			sourceTree = "<group>";
+		};
+		8C228A2303B7B52304CE206E /* AppleKeyLargo */ = {
+			isa = PBXGroup;
+			children = (
+				8C228A2D03B7C0AC04CE206E /* AppleKeyLargo.cpp */,
+				8C228A2F03B7C0CE04CE206E /* AppleKeyLargo.h */,
+			);
+			name = AppleKeyLargo;
+			sourceTree = "<group>";
+		};
+		8C28BA94043B78AF04CE206E /* AppleK2Driver */ = {
+			isa = PBXGroup;
+			children = (
+				8C9E0B0003D5F77504CE206E /* AppleK2Driver.cpp */,
+				8C9E0B0103D5F77504CE206E /* AppleK2Driver.h */,
+			);
+			name = AppleK2Driver;
+			sourceTree = "<group>";
+		};
+		8C50542E03AE4BE604CE206E /* AppleK2 */ = {
+			isa = PBXGroup;
+			children = (
+				8C50542F03AE4C0804CE206E /* AppleK2.cpp */,
+				8C50543003AE4C0804CE206E /* AppleK2.h */,
+				8C489A210415330504CE206E /* IOPlatformFunction.h */,
+			);
+			name = AppleK2;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		176A8B010B8D1A3F00DA0E77 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				176A8B020B8D1A3F00DA0E77 /* KeyLargo.h in Headers */,
+				176A8B030B8D1A3F00DA0E77 /* USBKeyLargo.h in Headers */,
+				176A8B040B8D1A3F00DA0E77 /* KeyLargoWatchDogTimer.h in Headers */,
+				176A8B050B8D1A3F00DA0E77 /* AppleKeyLargo.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B140B8D1A3F00DA0E77 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				176A8B150B8D1A3F00DA0E77 /* AppleK2.h in Headers */,
+				176A8B160B8D1A3F00DA0E77 /* KeyLargoWatchDogTimer.h in Headers */,
+				176A8B170B8D1A3F00DA0E77 /* USBKeyLargo.h in Headers */,
+				176A8B180B8D1A3F00DA0E77 /* KeyLargo.h in Headers */,
+				176A8B190B8D1A3F00DA0E77 /* IOPlatformFunction.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B270B8D1A3F00DA0E77 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				176A8B280B8D1A3F00DA0E77 /* KeyLargo.h in Headers */,
+				176A8B290B8D1A3F00DA0E77 /* KeyLargoWatchDogTimer.h in Headers */,
+				176A8B2A0B8D1A3F00DA0E77 /* USBKeyLargo.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B3B0B8D1A3F00DA0E77 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				176A8B3C0B8D1A3F00DA0E77 /* AppleK2Driver.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		176A8AFF0B8D1A3F00DA0E77 /* AppleKeyLargo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 176A8B0C0B8D1A3F00DA0E77 /* Build configuration list for PBXNativeTarget "AppleKeyLargo" */;
+			buildPhases = (
+				176A8B000B8D1A3F00DA0E77 /* ShellScript */,
+				176A8B010B8D1A3F00DA0E77 /* Headers */,
+				176A8B060B8D1A3F00DA0E77 /* Resources */,
+				176A8B070B8D1A3F00DA0E77 /* Sources */,
+				176A8B090B8D1A3F00DA0E77 /* Frameworks */,
+				176A8B0A0B8D1A3F00DA0E77 /* Rez */,
+				176A8B0B0B8D1A3F00DA0E77 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleKeyLargo;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleKeyLargo;
+			productReference = 176A8B110B8D1A3F00DA0E77 /* AppleKeyLargo.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		176A8B120B8D1A3F00DA0E77 /* AppleK2 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 176A8B1F0B8D1A3F00DA0E77 /* Build configuration list for PBXNativeTarget "AppleK2" */;
+			buildPhases = (
+				176A8B130B8D1A3F00DA0E77 /* ShellScript */,
+				176A8B140B8D1A3F00DA0E77 /* Headers */,
+				176A8B1A0B8D1A3F00DA0E77 /* Sources */,
+				176A8B1C0B8D1A3F00DA0E77 /* Resources */,
+				176A8B1D0B8D1A3F00DA0E77 /* Frameworks */,
+				176A8B1E0B8D1A3F00DA0E77 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleK2;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleK2;
+			productReference = 176A8B240B8D1A3F00DA0E77 /* AppleK2.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		176A8B250B8D1A3F00DA0E77 /* IOKeyLargo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 176A8B330B8D1A3F00DA0E77 /* Build configuration list for PBXNativeTarget "IOKeyLargo" */;
+			buildPhases = (
+				176A8B260B8D1A3F00DA0E77 /* ShellScript */,
+				176A8B270B8D1A3F00DA0E77 /* Headers */,
+				176A8B2B0B8D1A3F00DA0E77 /* Sources */,
+				176A8B300B8D1A3F00DA0E77 /* Resources */,
+				176A8B310B8D1A3F00DA0E77 /* Frameworks */,
+				176A8B320B8D1A3F00DA0E77 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOKeyLargo;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOKeyLargo;
+			productReference = 176A8B380B8D1A3F00DA0E77 /* IOKeyLargo.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		176A8B390B8D1A3F00DA0E77 /* AppleK2Driver */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 176A8B420B8D1A3F00DA0E77 /* Build configuration list for PBXNativeTarget "AppleK2Driver" */;
+			buildPhases = (
+				176A8B3A0B8D1A3F00DA0E77 /* ShellScript */,
+				176A8B3B0B8D1A3F00DA0E77 /* Headers */,
+				176A8B3D0B8D1A3F00DA0E77 /* Sources */,
+				176A8B3F0B8D1A3F00DA0E77 /* Resources */,
+				176A8B400B8D1A3F00DA0E77 /* Frameworks */,
+				176A8B410B8D1A3F00DA0E77 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleK2Driver;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleK2Driver;
+			productReference = 176A8B470B8D1A3F00DA0E77 /* AppleK2Driver.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 17D012CE0B8CF13F00CC6420 /* Build configuration list for PBXProject "AppleKeyLargo" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* AppleKeyLargo */;
+			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
+			targets = (
+				176A8AF20B8D1A3F00DA0E77 /* all */,
+				176A8AFF0B8D1A3F00DA0E77 /* AppleKeyLargo */,
+				176A8B120B8D1A3F00DA0E77 /* AppleK2 */,
+				176A8B250B8D1A3F00DA0E77 /* IOKeyLargo */,
+				176A8B390B8D1A3F00DA0E77 /* AppleK2Driver */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		176A8B060B8D1A3F00DA0E77 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B1C0B8D1A3F00DA0E77 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B300B8D1A3F00DA0E77 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B3F0B8D1A3F00DA0E77 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		176A8B0A0B8D1A3F00DA0E77 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		176A8B000B8D1A3F00DA0E77 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		176A8B0B0B8D1A3F00DA0E77 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		176A8B130B8D1A3F00DA0E77 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		176A8B1E0B8D1A3F00DA0E77 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		176A8B260B8D1A3F00DA0E77 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		176A8B320B8D1A3F00DA0E77 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		176A8B3A0B8D1A3F00DA0E77 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		176A8B410B8D1A3F00DA0E77 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		176A8B070B8D1A3F00DA0E77 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				176A8B080B8D1A3F00DA0E77 /* AppleKeyLargo.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B1A0B8D1A3F00DA0E77 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				176A8B1B0B8D1A3F00DA0E77 /* AppleK2.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B2B0B8D1A3F00DA0E77 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				176A8B2C0B8D1A3F00DA0E77 /* KeyLargo.cpp in Sources */,
+				176A8B2D0B8D1A3F00DA0E77 /* KeyLargoWatchDogTimer.cpp in Sources */,
+				176A8B2E0B8D1A3F00DA0E77 /* USBKeyLargo.cpp in Sources */,
+				176A8B2F0B8D1A3F00DA0E77 /* BusTimings.s in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		176A8B3D0B8D1A3F00DA0E77 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				176A8B3E0B8D1A3F00DA0E77 /* AppleK2Driver.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		176A8B490B8D1A3F00DA0E77 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 176A8AFF0B8D1A3F00DA0E77 /* AppleKeyLargo */;
+			targetProxy = 176A8B480B8D1A3F00DA0E77 /* PBXContainerItemProxy */;
+		};
+		176A8B4B0B8D1A3F00DA0E77 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 176A8B120B8D1A3F00DA0E77 /* AppleK2 */;
+			targetProxy = 176A8B4A0B8D1A3F00DA0E77 /* PBXContainerItemProxy */;
+		};
+		176A8B4D0B8D1A3F00DA0E77 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 176A8B390B8D1A3F00DA0E77 /* AppleK2Driver */;
+			targetProxy = 176A8B4C0B8D1A3F00DA0E77 /* PBXContainerItemProxy */;
+		};
+		176A8B4F0B8D1A3F00DA0E77 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 176A8B250B8D1A3F00DA0E77 /* IOKeyLargo */;
+			targetProxy = 176A8B4E0B8D1A3F00DA0E77 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		176A8AFC0B8D1A3F00DA0E77 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		176A8AFD0B8D1A3F00DA0E77 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		176A8AFE0B8D1A3F00DA0E77 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		176A8B0D0B8D1A3F00DA0E77 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = _BIG_ENDIAN;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleKeyLargo.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleKeyLargo;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleKeyLargo;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		176A8B0E0B8D1A3F00DA0E77 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = _BIG_ENDIAN;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleKeyLargo.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleKeyLargo;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleKeyLargo;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		176A8B0F0B8D1A3F00DA0E77 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = _BIG_ENDIAN;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleKeyLargo.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleKeyLargo;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleKeyLargo;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		176A8B200B8D1A3F00DA0E77 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = _BIG_ENDIAN;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleK2.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleK2;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleK2;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		176A8B210B8D1A3F00DA0E77 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = _BIG_ENDIAN;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleK2.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleK2;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleK2;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		176A8B220B8D1A3F00DA0E77 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = _BIG_ENDIAN;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleK2.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleK2;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleK2;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		176A8B340B8D1A3F00DA0E77 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = _BIG_ENDIAN;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOKeyLargo.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOKeyLargo;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOKeyLargo;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		176A8B350B8D1A3F00DA0E77 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = _BIG_ENDIAN;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOKeyLargo.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOKeyLargo;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOKeyLargo;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		176A8B360B8D1A3F00DA0E77 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = _BIG_ENDIAN;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOKeyLargo.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOKeyLargo;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOKeyLargo;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		176A8B430B8D1A3F00DA0E77 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleK2Driver.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleK2Driver;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleK2Driver;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		176A8B440B8D1A3F00DA0E77 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleK2Driver.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleK2Driver;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleK2Driver;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		176A8B450B8D1A3F00DA0E77 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleK2Driver.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleK2Driver;
+				MODULE_VERSION = 1.7.1f2;
+				OTHER_CFLAGS = "-mno-string";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleK2Driver;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		17D012CF0B8CF13F00CC6420 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		17D012D00B8CF13F00CC6420 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		17D012D10B8CF13F00CC6420 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		176A8AFB0B8D1A3F00DA0E77 /* Build configuration list for PBXAggregateTarget "all" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				176A8AFC0B8D1A3F00DA0E77 /* Development */,
+				176A8AFD0B8D1A3F00DA0E77 /* Deployment */,
+				176A8AFE0B8D1A3F00DA0E77 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		176A8B0C0B8D1A3F00DA0E77 /* Build configuration list for PBXNativeTarget "AppleKeyLargo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				176A8B0D0B8D1A3F00DA0E77 /* Development */,
+				176A8B0E0B8D1A3F00DA0E77 /* Deployment */,
+				176A8B0F0B8D1A3F00DA0E77 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		176A8B1F0B8D1A3F00DA0E77 /* Build configuration list for PBXNativeTarget "AppleK2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				176A8B200B8D1A3F00DA0E77 /* Development */,
+				176A8B210B8D1A3F00DA0E77 /* Deployment */,
+				176A8B220B8D1A3F00DA0E77 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		176A8B330B8D1A3F00DA0E77 /* Build configuration list for PBXNativeTarget "IOKeyLargo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				176A8B340B8D1A3F00DA0E77 /* Development */,
+				176A8B350B8D1A3F00DA0E77 /* Deployment */,
+				176A8B360B8D1A3F00DA0E77 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		176A8B420B8D1A3F00DA0E77 /* Build configuration list for PBXNativeTarget "AppleK2Driver" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				176A8B430B8D1A3F00DA0E77 /* Development */,
+				176A8B440B8D1A3F00DA0E77 /* Deployment */,
+				176A8B450B8D1A3F00DA0E77 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		17D012CE0B8CF13F00CC6420 /* Build configuration list for PBXProject "AppleKeyLargo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				17D012CF0B8CF13F00CC6420 /* Development */,
+				17D012D00B8CF13F00CC6420 /* Deployment */,
+				17D012D10B8CF13F00CC6420 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

@@ -97,7 +97,7 @@ EventTraceCauseDesc IrGlueTraceEvents[] = {
     
 };
 
-#define XTRACE(x, y, z) IrDALogAdd (x, y, z, IrGlueTraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd (x, y, (int)z & 0xffff, IrGlueTraceEvents, true )
 #else
     #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -130,7 +130,7 @@ TIrGlue::tIrGlue(AppleIrDASerial *driver, AppleIrDA *appleirda, IOWorkLoop *work
 {
     TIrGlue *obj = new TIrGlue;
     
-    XTRACE(kLogNew, (int)obj >> 16, (short)obj);
+    XTRACE(kLogNew, (int)obj >> 16, obj);
     
     if (obj && !obj->init(driver, appleirda, workloop, qos)) {
 	obj->release();
@@ -232,7 +232,7 @@ TIrGlue::free()
 {
     int i;
 	
-    XTRACE(kLogFree, (int)this >> 16, (short)this);
+    XTRACE(kLogFree, (int)this >> 16, this);
     
 
     for (i = 0 ; i < kNumTimers; i++) {     // first, stop and free the timers
@@ -258,7 +258,7 @@ TIrGlue::free()
 void
 TIrGlue::ReadComplete(UInt8 *buffer, UInt32 length)
 {
-    XTRACE(kLogReadComplete, length >> 16, (short)length);
+    XTRACE(kLogReadComplete, length >> 16, length);
     
     if (fIrDevice)
 	fIrDevice->ReadComplete(buffer, length);
@@ -416,8 +416,8 @@ void TimerNotifier(OSObject *owner, IrDATimerEventSource *iotimer)
 {
     TIrGlue *obj;
 
-    XTRACE(kLogTimerNotifier1, (int)owner >> 16, (short)owner);
-    XTRACE(kLogTimerNotifier2, (int)iotimer >> 16, (short)iotimer);
+    XTRACE(kLogTimerNotifier1, (int)owner >> 16, owner);
+    XTRACE(kLogTimerNotifier2, (int)iotimer >> 16, iotimer);
 	
     require(owner, Failed);
     require(iotimer, Failed);
@@ -752,7 +752,7 @@ NewtonErr TIrGlue::Init()
     NewtonErr result;
     OSErr err;
 
-    XTRACE(kInit, (int)this >> 16, (short)this);
+    XTRACE(kInit, (int)this >> 16, this);
     
     gIrDAPrefs.Init();          // initialize the irda prefs from iqos resources
 				// note this gets Reset each time the ir hardware is changed (ugh!)

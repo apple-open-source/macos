@@ -97,7 +97,6 @@ static bool								gI2CTransactionComplete;
 static IOService						*gI2CDriver,
 										*gTBDriver;
 static const OSSymbol					*gTBFunctionNameSym;
-static const OSSymbol					*gTBReadFunctionNameSym;		// XXX Temp!!!
 static const cpu_timebase_params_t		*gTimeBaseParams;
 static UInt32 							*gPHibernateState;
 
@@ -118,7 +117,7 @@ bool MacRISC4CPU::start(IOService *provider)
     OSData               *interruptData, *parentICData;
     OSArray              *tmpArray;
     OSDictionary         *matchDict;
-    char                 mpicICName[48];
+    char                 mpicICName[32];
 	bool				 makeInterruptsProperties;
     UInt32               maxCPUs, physCPU, mpicPHandle;
     IOService            *tbResources;
@@ -154,7 +153,7 @@ bool MacRISC4CPU::start(IOService *provider)
     // Find out if this is the boot CPU.
     tmpData = OSDynamicCast(OSData, provider->getProperty("state"));
     if (tmpData == 0) return false;
-    bootCPU = (strcmp((char *)tmpData->getBytesNoCopy(), "running") == 0);
+    bootCPU = (strncmp((char *)tmpData->getBytesNoCopy(), "running", strlen( "running" )) == 0);
 
     // Count the CPUs.
     numCPUs = 0;
@@ -183,21 +182,15 @@ bool MacRISC4CPU::start(IOService *provider)
 		if (cpusRegEntry->getProperty ("platform-cpu-timebase")) {
 			// OK a platform function handler exists so go find it
 			OSData *pHandle;
-			char	functionName[64];
+			char	functionName[64];	// this could be 32 ...
 			
 			if ((pHandle = OSDynamicCast( OSData, cpusRegEntry->getProperty("AAPL,phandle") )) != NULL) {
 				// Build the call plaform function name by appending our phandle
-				sprintf(functionName, "%s-%08lx", "platform-cpu-timebase", *((UInt32 *)pHandle->getBytesNoCopy()));
+				// "platform-cpu-timebase" == 21 chars; "-%08lx" = 9 chars; 1 byte for EOS; 31 bytes total
+				snprintf(functionName, sizeof(functionName)-1, "%s-%08lx", "platform-cpu-timebase", *((UInt32 *)pHandle->getBytesNoCopy()));
 				//MYLOG ("4CPU: got tb function '%s'\n", functionName);
 				gTBFunctionNameSym = OSSymbol::withCString(functionName);
 
-				// XXX - This is temporary for Waveland bringup
-				if (cpusRegEntry->getProperty ("platform-read-cpu-timebase")) {
-					sprintf(functionName, "%s-%08lx", "platform-read-cpu-timebase", 
-						*((UInt32 *)pHandle->getBytesNoCopy()));
-					//MYLOG ("4CPU: got tb read function '%s'\n", functionName);
-					gTBReadFunctionNameSym = OSSymbol::withCString(functionName);
-				}
 			}
 		} else {
 			/*
@@ -208,7 +201,9 @@ bool MacRISC4CPU::start(IOService *provider)
 			IORegistryEntry * clockchip;
 	
 			// PowerMac7,2 (CY28508) and PowerMac7,3 (Pulsar)
-			if ((strcmp(macRISC4PE->provider_name, "PowerMac7,2") == 0) || (strcmp(macRISC4PE->provider_name, "PowerMac7,3") == 0)) {
+			if ((strncmp(macRISC4PE->provider_name, "PowerMac7,2", strlen("PowerMac7,2")) == 0) ||
+			    (strncmp(macRISC4PE->provider_name, "PowerMac7,3", strlen("PowerMac7,3")) == 0))
+			{
 				// look for cypress/pulsar at slave address 0xd2
 				if ((clockchip = fromPath("/u3/i2c/i2c-hwclock@d2", gIODTPlane, 0, 0, 0)) != NULL) {
 					OSString *pulsarCompat, *cypressCompat;
@@ -234,7 +229,7 @@ bool MacRISC4CPU::start(IOService *provider)
 			}
 	
 			// RackMac3,1 (Pulsar)
-			else if (strcmp(macRISC4PE->provider_name, "RackMac3,1") == 0)
+			else if (strncmp(macRISC4PE->provider_name, "RackMac3,1", strlen("RackMac3,1")) == 0)
 			{
 				// look for pulsar at slave address 0xd4
 				if ((clockchip = fromPath("/u3/i2c/i2c-hwclock@d4", gIODTPlane, 0, 0, 0)) != NULL)
@@ -317,7 +312,8 @@ bool MacRISC4CPU::start(IOService *provider)
 		parentICData = OSDynamicCast(OSData, provider->getProperty(kMacRISC4ParentICKey));
 		if (parentICData) {
 			mpicPHandle = *(UInt32 *)parentICData->getBytesNoCopy();
-			sprintf(mpicICName, "IOInterruptController%08lX", mpicPHandle);
+			// "IOInterruptController" = 21 chars;  %08lx = 8 chars; 1 byte for EOS == 30 bytes
+			snprintf(mpicICName, sizeof(mpicICName), "IOInterruptController%08lX", mpicPHandle);
 			mpicICSymbol = OSSymbol::withCString(mpicICName);
 		} else {
 			IOLog ("MacRISC4CPU::start - no cpu IOInterruptController!  Start failed!\n");
@@ -357,7 +353,7 @@ bool MacRISC4CPU::start(IOService *provider)
     pmRootDomain = OSDynamicCast(IOPMrootDomain, service);
     if (pmRootDomain != 0)
     {
-        kprintf("Register MacRISC4CPU %d to acknowledge power changes\n", getCPUNumber());
+        kprintf("Register MacRISC4CPU %ld to acknowledge power changes\n", getCPUNumber());
         pmRootDomain->registerInterestedDriver(this);
         
         // Join the Power Management Tree to receive setAggressiveness calls.
@@ -513,13 +509,13 @@ void MacRISC4CPU::initCPU(bool boot)
 			// Enables the interrupts for this CPU.
 			if (macRISC4PE->getMachineType() == kMacRISC4TypePowerMac) {
 				haveSleptMPIC = false;
-				kprintf("MacRISC4CPU::initCPU %d -> mpic->setUpForSleep off", getCPUNumber());
+				kprintf("MacRISC4CPU::initCPU %ld -> mpic->setUpForSleep off", getCPUNumber());
 				mpic->callPlatformFunction(mpic_setUpForSleep, false, (void *)false, (void *)getCPUNumber(), 0, 0);
 			}
 		}
     }
 
-    kprintf("MacRISC4CPU::initCPU %d Here!\n", getCPUNumber());
+    kprintf("MacRISC4CPU::initCPU %ld Here!\n", getCPUNumber());
  
     // Set time base.
     if (bootCPU)
@@ -529,15 +525,16 @@ void MacRISC4CPU::initCPU(bool boot)
 		if (gCPUIC)
         	gCPUIC->enableCPUInterrupt(this);
 		else
-			panic ("MacRISC4CPU: gCPUIC uninitialized for CPU %d\n", getCPUNumber());
+			panic ("MacRISC4CPU: gCPUIC uninitialized for CPU %ld\n", getCPUNumber());
     
         // Register and enable IPIs.
         cpuNub->registerInterrupt(0, this, MacRISC4CPU::sIPIHandler, 0);
         cpuNub->enableInterrupt(0);
-    } else {
-        long priority = 0;
-        mpic->callPlatformFunction(mpic_setCurrentTaskPriority, false, (void *)&priority, 0, 0, 0);
-    }
+    } 
+	
+	// [5376988] - MPIC is no longer automatically setting priority to 0 so now must do this in all cases, not just non-boot case
+	long priority = 0;
+	mpic->callPlatformFunction(mpic_setCurrentTaskPriority, false, (void *)&priority, 0, 0, 0);
   
     setCPUState(kIOCPUStateRunning);
 		
@@ -700,7 +697,8 @@ void MacRISC4CPU::haltCPU(void)
 				while ((childEntry = (IORegistryEntry *)(childIterator->getNextObject ())) != NULL) {
 					deviceTypeString = OSDynamicCast( OSData, childEntry->getProperty( "device_type" ));
 					if (deviceTypeString) {
-						if (!strcmp((const char *)deviceTypeString->getBytesNoCopy(), "pci")) {
+						if ( strncmp((const char *)deviceTypeString->getBytesNoCopy(), "pci", sizeof("pci")) == 0 )
+						{
 							childDriver = childEntry->copyChildEntry(gIOServicePlane);
 							if (childDriver) {
 								pciDriver = OSDynamicCast( IOPCIBridge, childDriver );
@@ -709,7 +707,7 @@ void MacRISC4CPU::haltCPU(void)
 										// Remember this driver
 										topLevelPCIBridges[topLevelPCIBridgeCount++] = pciDriver;
 									else
-										kprintf ("MacRISC4CPU::haltCPU - warning, more than %ld PCI bridges - cannot save/restore them all\n", kMaxPCIBridges);
+										kprintf ("MacRISC4CPU::haltCPU - warning, more than %d PCI bridges - cannot save/restore them all\n", kMaxPCIBridges);
 								childDriver->release();
 							}
 						}
@@ -725,7 +723,7 @@ void MacRISC4CPU::haltCPU(void)
 			}
     }
 
-	kprintf("MacRISC4CPU::haltCPU %d Here!\n", getCPUNumber());
+	kprintf("MacRISC4CPU::haltCPU %ld Here!\n", getCPUNumber());
 
 	processor_exit(machProcessor);
 	
@@ -780,38 +778,12 @@ void MacRISC4CPU::enableCPUTimeBase(bool enable)
 {
 	if (gTBDriver) {
 		UInt32		gpioValue;
-		UInt32 		count = 0;
 		
-		// XXX - temp for Waveland bringup - for Waveland we always drive the GPIO low
-		// SMU will set it high when it is done which is how we know it is complete - see
-		// the poll loop below.
-		// For normal systems, the GPIO itself drives the timebase signal so we just have
-		// to set it high or low to control it.
-		if (gTBReadFunctionNameSym) 
-			gpioValue = 0;
-		else
-			gpioValue = enable ? 1 : 0;
+		gpioValue = enable ? 1 : 0;
 		
 		// GPIO driver can handle it
 		gTBDriver->callPlatformFunction (gTBFunctionNameSym, false, (void *)gpioValue, 0, 0, 0);
 		
-		// XXX - temp for Waveland bringup
-		if (gTBReadFunctionNameSym) {
-			UInt32 gpioState;
-				
-			do {
-								
-				count++;
-				// Wait for SMU to restore GPIO state
-				gTBDriver->callPlatformFunction (gTBReadFunctionNameSym, false, (void *)&gpioState, 0, 0, 0);
-				//getCPUTimebase (&tbu, &tbl);
-				//kprintf ("4CPU::tb read tb gpio got value %d, current tb values %d, %ud\n", gpioState, tbu, tbl);
-			} while ((gpioState == 0) && (count < 15));
-			
-			//getCPUTimebase (&tbu, &tbl);
-		
-			kprintf ("MacRISC4CPU::enableCPUTimeBase(%s) complete\n", enable ? "enable" : "disable");
-		}
 	} else {
 		// Do it messy I2C way 
 		UInt8 sevenBitAddr, buf, tmp;
@@ -869,7 +841,7 @@ const OSSymbol *MacRISC4CPU::getCPUName(void)
 {
     char tmpStr[256];
   
-    sprintf(tmpStr, "Primary%ld", getCPUNumber());
+    snprintf(tmpStr, sizeof(tmpStr)-1, "Primary%ld", getCPUNumber());
   
     return OSSymbol::withCString(tmpStr);
 }

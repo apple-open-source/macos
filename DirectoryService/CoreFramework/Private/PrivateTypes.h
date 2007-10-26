@@ -30,43 +30,7 @@
 
 #include <DirectoryService/DirServicesTypes.h>
 
-typedef		char					sInt8;
-typedef		unsigned char			uInt8;
-
-typedef		short					sInt16;
-typedef		unsigned short			uInt16;
-
-typedef		long					sInt32;
-typedef		unsigned long			uInt32;
-
-typedef		long long				sInt64;
-typedef		unsigned long long		uInt64;
-
-// the following are already part of MacTypes.h causes warnings for other plugins
-#ifndef __MACTYPES__
-
-typedef		unsigned char			Byte;
-typedef		signed char				SignedByte;
-
-typedef unsigned char *				StringPtr;
-
-typedef unsigned long 				FourCharCode;
-
-typedef FourCharCode 				OSType;
-typedef FourCharCode 				ResType;
-typedef OSType *					OSTypePtr;
-typedef ResType *					ResTypePtr;
-
-typedef sInt16 						OSErr;
-typedef sInt32 						OSStatus;
-
-typedef uInt32 						OptionBits;
-
-typedef unsigned char				Boolean;
-
-#endif
-
-#ifdef DSDEBUGFW
+#ifdef DSDEBUGLOGFW
 	#include <syslog.h>
 
 	#define kStdErr LOG_ALERT
@@ -139,6 +103,9 @@ enum {
 	kAuthSMBWorkstationCredentialSessionKey	= 1246,
 	kAuthSMB_NTUserSessionKey	= 1247,
 	kAuthNTLMv2					= 1248,
+	kAuthPPS					= 1249,
+	kAuthNativeRetainCredential	= 1250,
+	kAuthSetCertificateHashAsRoot = 1251,
 	
     kAuthGetPolicy				= 1278,
     kAuthSetPolicy				= 1279,
@@ -165,7 +132,11 @@ enum {
 	kAuthSetShadowHashWindows	= 1300,
 	kAuthSetShadowHashSecure	= 1301,
 	kAuthNTSessionKey			= 1302,
-	kAuthGetMethodListForUser	= 1303
+	kAuthGetMethodListForUser	= 1303,
+	kAuthKerberosTickets		= 1304,
+	kAuthNTLMv2WithSessionKey	= 1305,
+	kAuthNewComputer			= 1306,
+	kAuthSetComputerAcctPasswdAsRoot = 1307
 };
 
 #ifndef nil
@@ -192,12 +163,12 @@ typedef enum
 
 typedef struct
 {
-	unsigned long		fBufferSize;
-	unsigned long		fBufferLength;
+	UInt32		fBufferSize;
+	UInt32		fBufferLength;
 
 	tDataNodePtr		fPrevPtr;
 	tDataNodePtr		fNextPtr;
-	uInt32				fType;
+	UInt32				fType;
 	eScriptCode			fScriptCode;
 
 	char				fBufferData[ 1 ];
@@ -213,7 +184,9 @@ typedef enum {
 	kDefaultNetworkNodeType	= 0x00000020,
 	kContactsSearchNodeType	= 0x00000040,
 	kNetworkSearchNodeType	= 0x00000080,
-	kDHCPLDAPv3NodeType		= 0x00000100
+	kDHCPLDAPv3NodeType		= 0x00000100,
+	kCacheNodeType			= 0x00000200,
+	kBSDNodeType			= 0x00000400
 } eDirNodeType;
 
 typedef enum {
@@ -255,7 +228,7 @@ typedef enum {
 {												\
 	if ( inStringListPtr != nil )				\
 	{											\
-		uInt32 strCnt = 0;						\
+		UInt32 strCnt = 0;						\
 		while(inStringListPtr[strCnt] != nil)   \
 		{										\
 			free(inStringListPtr[strCnt]);		\
@@ -295,6 +268,15 @@ typedef enum {
 		free( inMemoryPtr );			\
 		inMemoryPtr = NULL;				\
 	}									\
+}
+
+#define DSRelease( inClassPtr )		\
+{									\
+	if ( (inClassPtr) != NULL )		\
+	{								\
+		(inClassPtr)->Release();	\
+		(inClassPtr) = NULL;		\
+	}								\
 }
 
 // check if a string is empty; cheaper than strlen(inString) != 0

@@ -13,9 +13,8 @@
 #define TIME_H
 
 /* Include stuff ************************************************************ */
-#include <winsock.h>
 #include <time.h>
-#include <php.h>
+#include "php.h"
 
 /* Struct stuff ************************************************************* */
 struct timezone {

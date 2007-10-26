@@ -332,7 +332,7 @@ static int DoProbe( char *theDeviceNamePtr )
 		    sizeof(vdp->vd_id)) != 0) {
 		    if (bestname[0] != 0)
 		    	break;
-			error = FSUR_IO_FAIL;
+			error = FSUR_UNRECOGNIZED;
 			goto out;	/* Not ISO 9660 */
 		}
 		type = (u_char)vdp->vd_type[0];

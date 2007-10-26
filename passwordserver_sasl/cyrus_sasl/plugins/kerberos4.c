@@ -1,7 +1,7 @@
 /* Kerberos4 SASL plugin
  * Rob Siemborski
  * Tim Martin 
- * $Id: kerberos4.c,v 1.7 2005/01/10 19:36:15 snsimon Exp $
+ * $Id: kerberos4.c,v 1.10 2006/02/03 22:33:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -124,7 +124,7 @@ extern int gethostname(char *, int);
 /*****************************  Common Section  *****************************/
 
 #ifndef __APPLE__
-static const char plugin_id[] = "$Id: kerberos4.c,v 1.7 2005/01/10 19:36:15 snsimon Exp $";
+static const char plugin_id[] = "$Id: kerberos4.c,v 1.10 2006/02/03 22:33:14 snsimon Exp $";
 #endif
 
 #ifndef KEYFILE
@@ -179,9 +179,9 @@ typedef struct context {
     const sasl_utils_t *utils;       /* this is useful to have around */
     
     Krb_sec_t sec_type;
-    char *encode_buf;                /* For encoding/decoding mem management */
-    char *decode_buf;
-    char *decode_once_buf;
+    unsigned char *encode_buf;                /* For encoding/decoding mem management */
+    unsigned char *decode_buf;
+    unsigned char *decode_once_buf;
     unsigned encode_buf_len;
     unsigned decode_buf_len;
     unsigned decode_once_buf_len;
@@ -247,6 +247,10 @@ static int kerberosv4_encode(void *context,
     KRB_LOCK_MUTEX(text->utils);
     
     if (text->sec_type == KRB_SEC_ENCRYPTION) {
+	/* Type incompatibility on 4th arg probably means you're
+	   building against krb4 in MIT krb5, but got the OpenSSL
+	   headers in your way. You need to not use openssl/des.h with
+	   MIT kerberos. */
 	len=krb_mk_priv(inblob->data, (text->encode_buf+4),
 			inblob->curlen,  text->init_keysched, 
 			&text->session, &text->ip_local,
@@ -270,14 +274,14 @@ static int kerberosv4_encode(void *context,
     memcpy(text->encode_buf, &len, 4);
     
     /* Setup the const pointer */
-    *output = text->encode_buf;
+    *output = (const char *)text->encode_buf;
     
     return SASL_OK;
 }
 
 static int kerberosv4_decode_packet(void *context,
-				    const char *input, unsigned inputlen,
-				    char **output, unsigned *outputlen)
+				    const unsigned char *input, unsigned inputlen,
+				    unsigned char **output, unsigned *outputlen)
 {
     context_t *text = (context_t *) context;
     int result;
@@ -288,11 +292,11 @@ static int kerberosv4_decode_packet(void *context,
     KRB_LOCK_MUTEX(text->utils);
     
     if (text->sec_type == KRB_SEC_ENCRYPTION) {
-	result=krb_rd_priv(input, inputlen, text->init_keysched, 
+	result=krb_rd_priv((u_char *)input, inputlen, text->init_keysched, 
 			   &text->session, &text->ip_remote,
 			   &text->ip_local, &data);
     } else if (text->sec_type == KRB_SEC_INTEGRITY) {
-        result = krb_rd_safe(input, inputlen,
+        result = krb_rd_safe((u_char *)input, inputlen,
 			     &text->session, &text->ip_remote,
 			     &text->ip_local, &data);
     } else {
@@ -343,11 +347,11 @@ static int kerberosv4_decode(void *context,
     context_t *text = (context_t *) context;
     int ret;
     
-    ret = _plug_decode(&text->decode_context, input, inputlen,
+    ret = _plug_decode(&text->decode_context, (const unsigned char *)input, inputlen,
 		       &text->decode_buf, &text->decode_buf_len, outputlen,
 		       kerberosv4_decode_packet, text);
     
-    *output = text->decode_buf;
+    *output = (char *)text->decode_buf;
     
     return ret;
 }
@@ -504,7 +508,7 @@ static int kerberosv4_server_mech_step(void *conn_context,
 	text->challenge=randocts; 
 	nchal = htonl(text->challenge);
 	
-	result = _plug_buf_alloc(text->utils, &text->out_buf,
+	result = _plug_buf_alloc(text->utils, (unsigned char **)&text->out_buf,
 				 &text->out_buf_len, 5);
 	if (result != SASL_OK) return result;
 	
@@ -524,6 +528,7 @@ static int kerberosv4_server_mech_step(void *conn_context,
 	KTEXT_ST ticket;
 	unsigned lup;
 	struct sockaddr_in addr;
+	char *dot;
 	
 	/* received authenticator */
 	
@@ -549,6 +554,14 @@ static int kerberosv4_server_mech_step(void *conn_context,
 	KRB_UNLOCK_MUTEX(sparams->utils);
 	
 	text->instance[sizeof(text->instance)-1] = 0;
+
+	/* At some sites, krb_get_phost() sensibly but
+	 * atypically returns FQDNs, versus the first component,
+	 * which is what we need for RFC2222 section 7.1
+	 */
+	dot = strchr(text->instance, '.');
+	if (dot) *dot = '\0';
+
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	
 #ifndef KRB4_IGNORE_IP_ADDRESS
@@ -619,11 +632,11 @@ static int kerberosv4_server_mech_step(void *conn_context,
 	memcpy(text->pname, ad.pname, sizeof(text->pname));
 	memcpy(text->pinst, ad.pinst, sizeof(text->pinst));
 	memcpy(text->prealm, ad.prealm, sizeof(text->prealm));
-	des_key_sched(ad.session, text->init_keysched);
+	des_key_sched(&ad.session, text->init_keysched);
 	
 	/* make keyschedule for encryption and decryption */
-	des_key_sched(ad.session, text->enc_keysched);
-	des_key_sched(ad.session, text->dec_keysched);
+	des_key_sched(&ad.session, text->enc_keysched);
+	des_key_sched(&ad.session, text->dec_keysched);
 	
 	des_ecb_encrypt((des_cblock *)sout,
 			(des_cblock *)sout,
@@ -967,6 +980,7 @@ static int kerberosv4_client_mech_step(void *conn_context,
 	 * We want to reply with an authenticator. */
 	int result;
 	KTEXT_ST ticket;
+	char *dot;
 	
 	memset(&ticket, 0L, sizeof(ticket));
 	ticket.length = MAX_KTXT_LEN;   
@@ -1004,6 +1018,13 @@ static int kerberosv4_client_mech_step(void *conn_context,
 	
 	/* text->instance is NULL terminated unless it was too long */
 	text->instance[sizeof(text->instance)-1] = '\0';
+
+	/* At some sites, krb_get_phost() sensibly but
+	 * atypically returns FQDNs, versus the first component,
+	 * which is what we need for RFC2222 section 7.1
+	 */
+	dot = strchr(text->instance, '.');
+	if (dot) *dot = '\0';
 	
 #ifndef macintosh
 	if ((result = krb_mk_req(&ticket, (char *) cparams->service, 
@@ -1122,9 +1143,9 @@ static int kerberosv4_client_mech_step(void *conn_context,
 	memcpy(text->session, text->credentials.session, 8);
 	
 	/* make key schedule for encryption and decryption */
-	des_key_sched(text->session, text->init_keysched);
-	des_key_sched(text->session, text->enc_keysched);
-	des_key_sched(text->session, text->dec_keysched);
+	des_key_sched(&text->session, text->init_keysched);
+	des_key_sched(&text->session, text->enc_keysched);
+	des_key_sched(&text->session, text->dec_keysched);
 	
 	/* decrypt from server */
 	des_ecb_encrypt((des_cblock *)in, (des_cblock *)in,
@@ -1156,7 +1177,7 @@ static int kerberosv4_client_mech_step(void *conn_context,
 	}
 	
 	/* create stuff to send to server */
-	sout = (char *)
+	sout = (unsigned char *)
 	    cparams->utils->malloc(9+(text->user ? strlen(text->user) : 0)+9);
 	if (!sout) {
 	    MEMERROR(cparams->utils);
@@ -1339,7 +1360,7 @@ static int kerberosv4_client_mech_step(void *conn_context,
     return SASL_FAIL; /* should never get here */
 }
 
-static const long kerberosv4_required_prompts[] = {
+static const unsigned long kerberosv4_required_prompts[] = {
     SASL_CB_LIST_END
 };
 

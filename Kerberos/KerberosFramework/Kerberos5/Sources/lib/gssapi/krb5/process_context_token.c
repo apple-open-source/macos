@@ -23,7 +23,7 @@
 #include "gssapiP_krb5.h"
 
 /*
- * $Id: process_context_token.c 16171 2004-03-15 17:45:01Z raeburn $
+ * $Id: process_context_token.c 18396 2006-07-25 20:29:43Z lxs $
  */
 
 OM_uint32
@@ -42,7 +42,7 @@ krb5_gss_process_context_token(minor_status, context_handle,
       return(GSS_S_NO_CONTEXT);
    }
 
-   ctx = (krb5_gss_ctx_id_rec *) context_handle;
+   ctx = (krb5_gss_ctx_id_t) context_handle;
 
    if (! ctx->established) {
       *minor_status = KG_CTX_INCOMPLETE;
@@ -51,7 +51,8 @@ krb5_gss_process_context_token(minor_status, context_handle,
 
    /* "unseal" the token */
 
-   if (GSS_ERROR(majerr = kg_unseal(minor_status, ctx, token_buffer,
+   if (GSS_ERROR(majerr = kg_unseal(minor_status, context_handle, 
+                                    token_buffer,
 				    GSS_C_NO_BUFFER, NULL, NULL,
 				    KG_TOK_DEL_CTX)))
       return(majerr);

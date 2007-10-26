@@ -1,0 +1,127 @@
+#! /bin/bash
+
+##
+# Copyright (C) 2007 Apple Inc. All rights reserved.
+# 
+# @APPLE_LICENSE_HEADER_START@
+# 
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+
+LAUNCHCTL=/bin/launchctl
+SERVERADMIN=/usr/sbin/serveradmin
+GREP=/usr/bin/grep
+PERL=/usr/bin/perl
+XXD=/usr/bin/xxd
+KILLALL=/usr/bin/killall
+
+# The installer supplies $1 as the path to the package being installed, $2 as
+# the path to the installation folder, $3 as the path to the mountpoint of the
+# target.
+PKGPATH="$1"
+INSTALLPATH="$2"
+TARGET="$3"
+
+if [ "$TARGET" = "" ]; then
+    echo \$TARGET must be set
+    exit 1
+fi
+
+if [ -x $SERVERADMIN ]; then
+    # On Server, the "smb" service handles both smbd and nmbd
+    SERVICES=smb
+else
+    # On Desktop, we need separate service name for every launchd task
+    SERVICES="smbd nmbd swat"
+fi
+
+RUNNING=""
+
+stop_service()
+{
+    service=$1
+    if [ -x $SERVERADMIN ]; then
+	$SERVERADMIN stop $service
+    else
+	$LAUNCHCTL stop org.samba.$service
+	$LAUNCHCTL unload /System/Library/LaunchDaemons/$service.plist
+    fi
+}
+
+start_service()
+{
+    service=$1
+
+    if [ -x $SERVERADMIN ]; then
+	$SERVERADMIN start $1
+    else
+	$LAUNCHCTL load /System/Library/LaunchDaemons/$service.plist
+    fi
+}
+
+running_service()
+{
+    service=$1
+    if [ -x $SERVERADMIN ]; then
+	# serveradmin output for a running process is
+	#	smb:state = "RUNNING"
+	state=$(
+	$SERVERADMIN status $1 | \
+	    $PERL -ne "/$service:state = \"(.+)\"/ && print \"\$1\n\";"
+	    )
+
+	[[ "$state" = "RUNNING" ]]
+    else
+	# WARNING: The grep will hang unless launchctl is run as root.
+	$LAUNCHCTL list | $GREP -q org.samba.$service
+    fi
+}
+
+# If we are not installing to /, we don't need to suspend any services, but
+# we still might have to fix up the TDB files.
+if [ "$TARGET" == "/" ]; then
+
+    for s in $SERVICES ; do
+	if running_service $s ; then
+	    RUNNING="$RUNNING $s"
+	fi
+    done
+
+    for s in $RUNNING ; do
+	stop_service $s
+    done
+
+    # Irrespective of whether the tools said they were running, we need to
+    # make doubly sure that these processes are stopped.
+    for pass in 1 2 ; do
+	$KILLALL -TERM smbd nmbd swat
+	sleep 1
+    done
+
+fi
+
+find "$TARGET/var/db/samba" "$TARGET/var/samba" -name \*.tdb | \
+	 while read tdb ; do
+    echo '0000028: 0000 0000' | $XXD -r - $tdb
+done
+
+if [ "$TARGET" == "/" ]; then
+    for s in $RUNNING ; do
+	start_service $s
+    done
+fi

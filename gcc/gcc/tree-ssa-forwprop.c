@@ -366,8 +366,19 @@ substitute_single_use_vars (varray_type *cond_worklist,
 	  if (TREE_CODE (cond_stmt) != COND_EXPR) 
 	    continue;
 
+	  /* APPLE LOCAL begin 4349512 */
 	  cond = COND_EXPR_COND (cond_stmt);
 	  cond_code = TREE_CODE (cond);
+
+	  /* Make sure the conditional has one of the forms we're expecting. */
+	  if (! (cond_code == SSA_NAME
+	         || ((cond_code == EQ_EXPR || cond_code == NE_EXPR)
+		      && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
+		      && CONSTANT_CLASS_P (TREE_OPERAND (cond, 1))
+		      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (cond, 1))))))
+	    continue;
+	  /* APPLE LOCAL end 4349512 */
+
 	  def_rhs = TREE_OPERAND (def, 1);
 	  def_rhs_code = TREE_CODE (def_rhs);
 
@@ -563,6 +574,9 @@ all_uses_are_replacable (tree stmt, bool replace)
   int j, num_uses;
   bool replacable = true;
 
+  if (!cast_conversion_assignment_p (stmt))
+    return false;
+
   /* Now compute the immediate uses of TEST_VAR.  */
   df = get_immediate_uses (stmt);
   num_uses = num_immediate_uses (df);
@@ -605,6 +619,7 @@ all_uses_are_replacable (tree stmt, bool replace)
 		       == TYPE_MAIN_VARIANT (use_lhs_type)))
 	      {
 		TREE_OPERAND (use, 1) = TREE_OPERAND (def_rhs, 0);
+		fold_stmt (&use);
 		modify_stmt (use);
 	      }
 	    }
@@ -620,6 +635,7 @@ all_uses_are_replacable (tree stmt, bool replace)
 	      if (new_cond)
 		{
 		  COND_EXPR_COND (use) = new_cond;
+		  fold_stmt (&use);
 		  modify_stmt (use);
 		}
 	      else

@@ -8,7 +8,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,7 +21,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: http.h,v 1.27 2005/02/09 13:06:40 bagder Exp $
+ * $Id: http.h,v 1.33 2007-01-27 03:43:06 yangtse Exp $
  ***************************************************************************/
 #ifndef CURL_DISABLE_HTTP
 bool Curl_compareheader(char *headerline,     /* line to check */
@@ -29,14 +29,18 @@ bool Curl_compareheader(char *headerline,     /* line to check */
                         const char *content); /* content string to find */
 
 /* ftp can use this as well */
-CURLcode Curl_ConnectHTTPProxyTunnel(struct connectdata *conn,
-                                     int tunnelsocket,
-                                     char *hostname, int remote_port);
+CURLcode Curl_proxyCONNECT(struct connectdata *conn,
+                           int tunnelsocket,
+                           char *hostname, int remote_port);
 
 /* protocol-specific functions set up to be called by the main engine */
 CURLcode Curl_http(struct connectdata *conn, bool *done);
-CURLcode Curl_http_done(struct connectdata *, CURLcode);
+CURLcode Curl_http_done(struct connectdata *, CURLcode, bool premature);
 CURLcode Curl_http_connect(struct connectdata *conn, bool *done);
+CURLcode Curl_https_connecting(struct connectdata *conn, bool *done);
+int Curl_https_getsock(struct connectdata *conn,
+                       curl_socket_t *socks,
+                       int numsocks);
 
 /* The following functions are defined in http_chunks.c */
 void Curl_httpchunk_init(struct connectdata *conn);
@@ -70,7 +74,11 @@ int Curl_http_should_fail(struct connectdata *conn);
    It must not be greater than 64K to work on VMS.
 */
 #ifndef MAX_INITIAL_POST_SIZE
-#define MAX_INITIAL_POST_SIZE 1024
+#define MAX_INITIAL_POST_SIZE (64*1024)
+#endif
+
+#ifndef TINY_INITIAL_POST_SIZE
+#define TINY_INITIAL_POST_SIZE 1024
 #endif
 
 #endif

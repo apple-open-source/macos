@@ -61,6 +61,8 @@ int dyld_is_objfile_loaded (struct objfile *obj);
 
 void dyld_remove_objfile (struct dyld_objfile_entry *);
 
+void dyld_clear_objfile (struct dyld_objfile_entry *);
+
 void dyld_remove_objfiles (const struct dyld_path_info * d,
                            struct dyld_objfile_info * result);
 
@@ -96,5 +98,12 @@ int dyld_default_load_flag (const struct dyld_path_info * d,
 char *dyld_find_dylib_name (CORE_ADDR addr, int ncmds);
 
 void dyld_load_symfile (struct dyld_objfile_entry *e);
+
+void dyld_load_symfile_preserving_objfile (struct dyld_objfile_entry *e);
+
+struct pre_run_memory_map *create_pre_run_memory_map (struct bfd *abfd);
+
+void free_pre_run_memory_map (struct pre_run_memory_map *map);
+
 
 #endif /* __GDB_MACOSX_NAT_DYLD_PROCESS_H__ */

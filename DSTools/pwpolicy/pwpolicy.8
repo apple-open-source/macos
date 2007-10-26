@@ -1,4 +1,4 @@
-.\"	$Id: pwpolicy.8,v 1.5 2004/09/20 17:07:57 snsimon Exp $
+.\"	$Id: pwpolicy.8,v 1.7 2006/05/02 23:06:14 snsimon Exp $
 .\"
 .\" Copyright (c) 2002 Apple Computer, Inc., all rights reserved.
 .\" Distributed as unsupported software for Mac OS X Server
@@ -16,14 +16,14 @@
 .Op Fl v
 .Op Fl a Ar authenticator
 .Op Fl p Ar password
-.Op Fl u Ar username
+.Op Fl u Ar username | Fl c Ar computername
 .Op Fl n Ar nodename
 command command-arg
 .Nm
 .Op Fl v
 .Op Fl a Ar authenticator
 .Op Fl p Ar password
-.Op Fl u Ar username
+.Op Fl u Ar username | Fl c Ar computername
 .Op Fl n Ar nodename
 command "policy1=value1 policy2=value2 ..."
 .sp
@@ -35,10 +35,12 @@ manipulates password policies.
 .Bl -tag -width flag
 .It Fl a
 name of the authenticator
+.It Fl c
+name of the computer account to modify
 .It Fl p
 password (omit this option for a secure prompt)
 .It Fl u
-name of the user to modify
+name of the user account to modify
 .It Fl n
 use a specific directory node; the search node is used by default.
 .It Fl v
@@ -47,13 +49,15 @@ verbose
 help
 .El
 .Ss Commands
-.Bl -tag -width getglobalpolicystrlen -compact
+.Bl -tag -width getglobalpolicystrleneffect -compact
 .It Fl getglobalpolicy
 Get global policies
 .It Fl setglobalpolicy
 Set global policies
 .It Fl getpolicy
 Get policies for a user
+.It Fl -get-effective-policy
+Gets the combination of global and user policies that apply to the user.
 .It Fl setpolicy
 Set policies for a user
 .It Fl setpolicyglobal
@@ -183,3 +187,5 @@ To set the list of hash types for local accounts:
 -a authenticator -setglobalhashtypes SMB-LAN-MANAGER off SMB-NT on
 .El
 .sp
+.Sh SEE ALSO
+.Xr PasswordService 8

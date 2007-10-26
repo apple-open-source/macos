@@ -734,4 +734,9 @@ extern void do_jump_by_parts_greater_rtx (enum machine_mode, int, rtx, rtx,
 
 extern int vector_mode_valid_p (enum machine_mode);
 
+/* APPLE LOCAL begin radar 4441049 */
+extern tree objc_v2_component_ref_field_offset (tree exp);
+extern tree objc_v2_bitfield_ivar_bitpos (tree exp);
+/* APPLE LOCAL end radar 4441049 */
+
 #endif /* GCC_EXPR_H */

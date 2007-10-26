@@ -1,18 +1,28 @@
 --TEST--
 wddx deserialization test
+--SKIPIF--
+<?php if (!extension_loaded("wddx")) print "skip"; ?>
+--INI--
+precision=14
 --FILE--
 <?php
 	$path = dirname(__FILE__);
 	var_dump(wddx_deserialize(file_get_contents("{$path}/wddx.xml")));
 ?>
 --EXPECT--
-array(8) {
+array(11) {
   ["aNull"]=>
   NULL
   ["aString"]=>
   string(8) "a string"
   ["aNumber"]=>
   float(-12.456)
+  ["aDateTime"]=>
+  int(897625932)
+  ["aDateTime2"]=>
+  int(329632332)
+  ["aDateTime3"]=>
+  string(22) "2040-06-12T04:32:12+00"
   ["aBoolean"]=>
   bool(true)
   ["anArray"]=>

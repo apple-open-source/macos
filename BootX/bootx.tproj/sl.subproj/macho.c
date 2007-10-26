@@ -27,6 +27,7 @@
  *  DRI: Josh de Cesare
  */
 
+#define __srr0 srr0			// so we can build in both (conformant/not) worlds
 #include <mach-o/fat.h>
 #include <mach-o/loader.h>
 #include <mach/machine/thread_status.h>
@@ -208,11 +209,11 @@ static long DecodeSegment(long cmdBase)
 
 static long DecodeUnixThread(long cmdBase)
 {
-  struct ppc_thread_state *ppcThreadState;
+  ppc_thread_state_t *ppcThreadState;
   
   // The PPC Thread State starts after the thread command stuct plus,
   // 2 longs for the flaver an num longs.
-  ppcThreadState = (struct ppc_thread_state *)
+  ppcThreadState = (ppc_thread_state_t *)
     (cmdBase + sizeof(struct thread_command) + 8);
   
   gKernelEntryPoint = ppcThreadState->srr0;

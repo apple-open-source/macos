@@ -125,13 +125,22 @@ public:
 	
 	class Receiver {
 	public:
+		virtual ~Receiver();
+		
 		virtual void ioChange(DeviceIterator &iterator) = 0;
+		virtual void ioServiceChange(void *refCon, io_service_t service,	//IOServiceInterestCallback
+			natural_t messageType, void *messageArgument) {}
 	};
 	
 	void add(DeviceMatch match, Receiver &receiver, const char *type = kIOFirstMatchNotification);
+	void addInterestNotification(Receiver &receiver, io_service_t service,
+		const io_name_t interestType = kIOGeneralInterest);
 
 private:
+
 	static void ioNotify(void *refCon, io_iterator_t iterator);
+	static void ioDeviceNotification(void *refCon, io_service_t service,
+		natural_t messageType, void *messageArgument);
 
 protected:
 	IONotificationPortRef mPortRef;

@@ -18,7 +18,7 @@ CFILES = dirs.c interactive.c main.c restore.c symtab.c tape.c\
          utilities.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble Makefile.dist\
-            restore.8
+            restore.8 rrestore.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -32,7 +32,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -DRRESTORE
+NEXTSTEP_PB_CFLAGS = -DRRESTORE -Wall -Werror
 WINDOWS_PB_CFLAGS = -DRRESTORE
 PDO_UNIX_PB_CFLAGS = -DRRESTORE
 

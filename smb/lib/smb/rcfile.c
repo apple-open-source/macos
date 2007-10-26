@@ -2,6 +2,8 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -41,14 +43,11 @@
 #include <pwd.h>
 #include <unistd.h>
 #include <err.h>
+#include <asl.h>
 
 #include <cflib.h>
 #include "rcfile_priv.h"
 
-SLIST_HEAD(rcfile_head, rcfile);
-static struct rcfile_head pf_head = {NULL};
-
-static struct rcfile* rc_cachelookup(const char *filename);
 static struct rcsection *rc_findsect(struct rcfile *rcp, const char *sectname);
 static struct rcsection *rc_addsect(struct rcfile *rcp, const char *sectname);
 static int rc_freesect(struct rcfile *rcp, struct rcsection *rsp);
@@ -67,11 +66,6 @@ rc_open(const char *filename, const char *mode, struct rcfile **rcfile)
 	struct rcfile *rcp;
 	FILE *f;
 	
-	rcp = rc_cachelookup(filename);
-	if (rcp) {
-		*rcfile = rcp;
-		return 0;
-	}
 	f = fopen(filename, mode);
 	if (f == NULL)
 		return errno;
@@ -83,7 +77,7 @@ rc_open(const char *filename, const char *mode, struct rcfile **rcfile)
 	bzero(rcp, sizeof(struct rcfile));
 	rcp->rf_name = strdup(filename);
 	rcp->rf_f = f;
-	SLIST_INSERT_HEAD(&pf_head, rcp, rf_next);
+
 	rc_parse(rcp);
 	*rcfile = rcp;
 	return 0;
@@ -121,19 +115,7 @@ rc_close(struct rcfile *rcp)
 		rc_freesect(rcp, n);
 	}
 	free(rcp->rf_name);
-	SLIST_REMOVE(&pf_head, rcp, rcfile, rf_next);
 	free(rcp);
-	return 0;
-}
-
-static struct rcfile*
-rc_cachelookup(const char *filename)
-{
-	struct rcfile *p;
-
-	SLIST_FOREACH(p, &pf_head, rf_next)
-		if (strcmp (filename, p->rf_name) == 0)
-			return p;
 	return 0;
 }
 
@@ -153,6 +135,9 @@ rc_addsect(struct rcfile *rcp, const char *sectname)
 {
 	struct rcsection *p;
 
+	/* Not the best way to do this, but it improves the lookup speed */
+	if (strcmp(sectname, "global") == 0)
+		sectname = "default";	/* To us they are the same section */
 	p = rc_findsect(rcp, sectname);
 	if (p) return p;
 	p = malloc(sizeof(*p));
@@ -222,12 +207,15 @@ rc_sect_delkey(struct rcsection *rsp, struct rckey *p)
 static void
 rc_key_free(struct rckey *p)
 {
-	free(p->rk_value);
-	free(p->rk_name);
-	free(p);
+	if (p->rk_value)
+		free(p->rk_value);
+	if (p->rk_name)
+		free(p->rk_name);
+	if (p)
+		free(p);
 }
 
-enum { stNewLine, stHeader, stSkipToEOL, stGetKey, stGetValue};
+enum { stNewLine, stHeader, stSkipToEOL, stGetKey, stGoToGetValue, stGetValue};
 
 static void
 rc_parse(struct rcfile *rcp) 
@@ -293,25 +281,35 @@ rc_parse(struct rcfile *rcp)
 			}
 			rkp = rc_sect_addkey(rsp, buf, NULL);
 			next = buf;
-			state = stGetValue;
+			state = stGoToGetValue;
 			continue;
 		}
-		/* only stGetValue left */
-		if (state != stGetValue) {
+		/* only stGetValue or stGoToGetValue left */
+		if ((state != stGetValue) && (state != stGoToGetValue)) {
 			fprintf(stderr, "Well, I can't parse file '%s'\n",rcp->rf_name);
 			state = stSkipToEOL;
 		}
+		/* Remove any spaces or tabs between equal sign and the value */
+		if ((state == stGoToGetValue) && ((c == ' ') || (c == '\t')))
+			continue;
+		else /* Now only the value left get it */
+			state = stGetValue;
+						
 		if (c != '\n') {
 			*next++ = c;
 			continue;
 		}
 		*next = 0;
+		if (rkp->rk_value)
+			free(rkp->rk_value);
 		rkp->rk_value = strdup(buf);
 		state = stNewLine;
 		rkp = NULL;
 	} 	/* while */
 	if (c == EOF && state == stGetValue) {
 		*next = 0;
+		if (rkp->rk_value)
+			free(rkp->rk_value);
 		rkp->rk_value = strdup(buf);
 	}
 	return;
@@ -400,100 +398,3 @@ rc_getbool(struct rcfile *rcp, const char *section, const char *key, int *value)
 	fprintf(stderr, "invalid boolean value '%s' for key '%s' in section '%s' \n",p, key, section);
 	return EINVAL;
 }
-
-/*
- * Unified command line/rc file parser
- */
-int
-opt_args_parse(struct rcfile *rcp, struct opt_args *ap, const char *sect,
-	opt_callback_t *callback)
-{
-	int len, error;
-
-	for (; ap->opt; ap++) {
-		switch (ap->type) {
-		    case OPTARG_STR:
-			if (rc_getstringptr(rcp, sect, ap->name, &ap->str) != 0)
-				break;
-			len = strlen(ap->str);
-			if (len > ap->ival) {
-				warnx("rc: argument for option '%c' (%s) too long\n", ap->opt, ap->name);
-				return EINVAL;
-			}
-			callback(ap);
-			break;
-		    case OPTARG_BOOL:
-			error = rc_getbool(rcp, sect, ap->name, &ap->ival);
-			if (error == ENOENT)
-				break;
-			if (error)
-				return EINVAL;
-			callback(ap);
-			break;
-		    case OPTARG_INT:
-			if (rc_getint(rcp, sect, ap->name, &ap->ival) != 0)
-				break;
-			if (((ap->flag & OPTFL_HAVEMIN) && ap->ival < ap->min) || 
-			    ((ap->flag & OPTFL_HAVEMAX) && ap->ival > ap->max)) {
-				warnx("rc: argument for option '%c' (%s) should be in [%d-%d] range\n",
-				    ap->opt, ap->name, ap->min, ap->max);
-				return EINVAL;
-			}
-			callback(ap);
-			break;
-		    default:
-			break;
-		}
-	}
-	return 0;
-}
-
-int
-opt_args_parseopt(struct opt_args *ap, int opt, char *arg,
-	opt_callback_t *callback)
-{
-	int len;
-
-	for (; ap->opt; ap++) {
-		if (ap->opt != opt)
-			continue;
-		switch (ap->type) {
-		    case OPTARG_STR:
-			ap->str = arg;
-			if (arg) {
-				len = strlen(ap->str);
-				if (len > ap->ival) {
-					warnx("opt: Argument for option '%c' (%s) too long\n", ap->opt, ap->name);
-					return EINVAL;
-				}
-				callback(ap);
-			}
-			break;
-		    case OPTARG_BOOL:
-			ap->ival = 0;
-			callback(ap);
-			break;
-		    case OPTARG_INT:
-			errno = 0;
-			ap->ival = strtol(arg, NULL, 0);
-			if (errno) {
-				warnx("opt: Invalid integer value for option '%c' (%s).\n",ap->opt,ap->name);
-				return EINVAL;
-			}
-			if (((ap->flag & OPTFL_HAVEMIN) && 
-			     (ap->ival < ap->min)) || 
-			    ((ap->flag & OPTFL_HAVEMAX) && 
-			     (ap->ival > ap->max))) {
-				warnx("opt: Argument for option '%c' (%s) should be in [%d-%d] range\n",ap->opt,ap->name,ap->min,ap->max);
-				return EINVAL;
-			}
-			callback(ap);
-			break;
-		    default:
-			break;
-		}
-		break;
-	}
-	return 0;
-}
-

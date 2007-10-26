@@ -1,25 +1,24 @@
 /*
 
-    cparse.c -- racc runtime core
+    cparse.c -- Racc Runtime Core
   
-    Copyright (c) 1999-2003 Minero Aoki <aamine@loveruby.net>
+    Copyright (c) 1999-2006 Minero Aoki
   
     This library is free software.
     You can distribute/modify this program under the same terms of ruby.
 
-    $raccId: cparse.c,v 1.3 2003/11/03 12:20:54 aamine Exp $
+    $originalId: cparse.c,v 1.8 2006/07/06 11:39:46 aamine Exp $
 
 */
 
 #include "ruby.h"
-#include <stdio.h>
-
+#include "version.h"
 
 /* -----------------------------------------------------------------------
                         Important Constants
 ----------------------------------------------------------------------- */
 
-#define RACC_VERSION "1.4.4"
+#define RACC_VERSION "1.4.5"
 
 #define DEFAULT_TOKEN -1
 #define ERROR_TOKEN    1
@@ -28,7 +27,6 @@
 #define vDEFAULT_TOKEN  INT2FIX(DEFAULT_TOKEN)
 #define vERROR_TOKEN    INT2FIX(ERROR_TOKEN)
 #define vFINAL_TOKEN    INT2FIX(FINAL_TOKEN)
-
 
 /* -----------------------------------------------------------------------
                           File Local Variables
@@ -41,8 +39,6 @@ static ID id_yydebug;
 static ID id_nexttoken;
 static ID id_onerror;
 static ID id_noreduce;
-static ID id_catch;
-static VALUE sym_raccjump;
 static ID id_errstatus;
 
 static ID id_d_shift;
@@ -52,51 +48,47 @@ static ID id_d_read_token;
 static ID id_d_next_state;
 static ID id_d_e_pop;
 
-
 /* -----------------------------------------------------------------------
                               Utils
 ----------------------------------------------------------------------- */
 
-static ID value_to_id _((VALUE v));
-static inline long num_to_long _((VALUE n));
-
-#ifdef ID2SYM
-# define id_to_value(i) ID2SYM(i)
-#else
-# define id_to_value(i) ULONG2NUM(i)
+/* For backward compatibility */
+#ifndef ID2SYM
+# define ID2SYM(i) ULONG2NUM(i)
 #endif
-
-static ID
-value_to_id(v)
-    VALUE v;
-{
+#ifndef SYM2ID
+#  define SYM2ID(v) ((ID)NUM2ULONG(v))
+#endif
 #ifndef SYMBOL_P
 #  define SYMBOL_P(v) FIXNUM_P(v)
 #endif
-    if (! SYMBOL_P(v)) {
-        rb_raise(rb_eTypeError, "not symbol");
-    }
-#ifdef SYM2ID
-    return SYM2ID(v);
-#else
-    return (ID)NUM2ULONG(v);
-#endif
-}
-
 #ifndef LONG2NUM
 #  define LONG2NUM(i) INT2NUM(i)
 #endif
+#if RUBY_VERSION_CODE >= 190
+#  define HAVE_RB_BLOCK_CALL 1
+#endif
+
+static ID value_to_id _((VALUE v));
+static inline long num_to_long _((VALUE n));
+
+static ID
+value_to_id(VALUE v)
+{
+    if (! SYMBOL_P(v)) {
+        rb_raise(rb_eTypeError, "not symbol");
+    }
+    return SYM2ID(v);
+}
 
 static inline long
-num_to_long(n)
-    VALUE n;
+num_to_long(VALUE n)
 {
     return NUM2LONG(n);
 }
 
 #define AREF(s, idx) \
     ((0 <= idx && idx < RARRAY(s)->len) ? RARRAY(s)->ptr[idx] : Qnil)
-
 
 /* -----------------------------------------------------------------------
                         Parser Stack Interfaces
@@ -106,9 +98,7 @@ static VALUE get_stack_tail _((VALUE stack, long len));
 static void cut_stack_tail _((VALUE stack, long len));
 
 static VALUE
-get_stack_tail(stack, len)
-    VALUE stack;
-    long len;
+get_stack_tail(VALUE stack, long len)
 {
     if (len < 0) return Qnil;  /* system error */
     if (len > RARRAY(stack)->len) len = RARRAY(stack)->len;
@@ -116,9 +106,7 @@ get_stack_tail(stack, len)
 }
 
 static void
-cut_stack_tail(stack, len)
-    VALUE stack;
-    long len;
+cut_stack_tail(VALUE stack, long len)
 {
     while (len > 0) {
         rb_ary_pop(stack);
@@ -134,7 +122,6 @@ cut_stack_tail(stack, len)
     ((RARRAY(s)->len > 0) ? RARRAY(s)->ptr[RARRAY(s)->len - 1] : Qnil)
 #define GET_TAIL(s, len) get_stack_tail(s, len)
 #define CUT_TAIL(s, len) cut_stack_tail(s, len)
-
 
 /* -----------------------------------------------------------------------
                        struct cparse_params
@@ -193,7 +180,6 @@ struct cparse_params {
     long i;                 /* table index */
 };
 
-
 /* -----------------------------------------------------------------------
                         Parser Main Routines
 ----------------------------------------------------------------------- */
@@ -203,15 +189,14 @@ static VALUE racc_yyparse _((VALUE parser, VALUE lexer, VALUE lexmid,
                              VALUE arg, VALUE sysdebug));
 
 static void call_lexer _((struct cparse_params *v));
-static VALUE lexer_iter _((VALUE data));
 static VALUE lexer_i _((VALUE block_args, VALUE data, VALUE self));
 
 static VALUE assert_array _((VALUE a));
 static long assert_integer _((VALUE n));
 static VALUE assert_hash _((VALUE h));
-static void initialize_params _((struct cparse_params *v,
-                                 VALUE parser, VALUE arg,
+static VALUE initialize_params _((VALUE vparams, VALUE parser, VALUE arg,
                                  VALUE lexer, VALUE lexmid));
+static void cparse_params_mark _((void *ptr));
 
 static void parse_main _((struct cparse_params *v,
                          VALUE tok, VALUE val, int resume));
@@ -219,7 +204,6 @@ static void extract_user_token _((struct cparse_params *v,
                                   VALUE block_args, VALUE *tok, VALUE *val));
 static void shift _((struct cparse_params* v, long act, VALUE tok, VALUE val));
 static int reduce _((struct cparse_params* v, long act));
-static VALUE catch_iter _((VALUE dummy));
 static VALUE reduce0 _((VALUE block_args, VALUE data, VALUE self));
 
 #ifdef DEBUG
@@ -231,15 +215,16 @@ static VALUE reduce0 _((VALUE block_args, VALUE data, VALUE self));
 #endif
 
 static VALUE
-racc_cparse(parser, arg, sysdebug)
-    VALUE parser, arg, sysdebug;
+racc_cparse(VALUE parser, VALUE arg, VALUE sysdebug)
 {
-    struct cparse_params params;
-    struct cparse_params *v = &params;
+    volatile VALUE vparams;
+    struct cparse_params *v;
 
+    vparams = Data_Make_Struct(CparseParams, struct cparse_params,
+                               cparse_params_mark, -1, v);
     D_puts("starting cparse");
     v->sys_debug = RTEST(sysdebug);
-    initialize_params(v, parser, arg, Qnil, Qnil);
+    vparams = initialize_params(vparams, parser, arg, Qnil, Qnil);
     v->lex_is_iterator = Qfalse;
     parse_main(v, Qnil, Qnil, 0);
 
@@ -247,15 +232,16 @@ racc_cparse(parser, arg, sysdebug)
 }
 
 static VALUE
-racc_yyparse(parser, lexer, lexmid, arg, sysdebug)
-    VALUE parser, lexer, lexmid, arg, sysdebug;
+racc_yyparse(VALUE parser, VALUE lexer, VALUE lexmid, VALUE arg, VALUE sysdebug)
 {
-    struct cparse_params params;
-    struct cparse_params *v = &params;
+    volatile VALUE vparams;
+    struct cparse_params *v;
 
+    vparams = Data_Make_Struct(CparseParams, struct cparse_params,
+                               cparse_params_mark, -1, v);
     v->sys_debug = RTEST(sysdebug);
     D_puts("start C yyparse");
-    initialize_params(v, parser, arg, lexer, lexmid);
+    vparams = initialize_params(vparams, parser, arg, lexer, lexmid);
     v->lex_is_iterator = Qtrue;
     D_puts("params initialized");
     parse_main(v, Qnil, Qnil, 0);
@@ -268,16 +254,15 @@ racc_yyparse(parser, lexer, lexmid, arg, sysdebug)
     return v->retval;
 }
 
+#ifdef HAVE_RB_BLOCK_CALL
 static void
-call_lexer(v)
-    struct cparse_params *v;
+call_lexer(struct cparse_params *v)
 {
-    rb_iterate(lexer_iter, v->value_v, lexer_i, v->value_v);
+    rb_block_call(v->lexer, v->lexmid, 0, NULL, lexer_i, v->value_v);
 }
-
+#else
 static VALUE
-lexer_iter(data)
-    VALUE data;
+lexer_iter(VALUE data)
 {
     struct cparse_params *v;
 
@@ -286,9 +271,15 @@ lexer_iter(data)
     return Qnil;
 }
 
+static void
+call_lexer(struct cparse_params *v)
+{
+    rb_iterate(lexer_iter, v->value_v, lexer_i, v->value_v);
+}
+#endif
+
 static VALUE
-lexer_i(block_args, data, self)
-    VALUE block_args, data, self;
+lexer_i(VALUE block_args, VALUE data, VALUE self)
 {
     struct cparse_params *v;
     VALUE tok, val;
@@ -304,35 +295,32 @@ lexer_i(block_args, data, self)
 }
 
 static VALUE
-assert_array(a)
-    VALUE a;
+assert_array(VALUE a)
 {
     Check_Type(a, T_ARRAY);
     return a;
 }
 
 static VALUE
-assert_hash(h)
-    VALUE h;
+assert_hash(VALUE h)
 {
     Check_Type(h, T_HASH);
     return h;
 }
 
 static long
-assert_integer(n)
-    VALUE n;
+assert_integer(VALUE n)
 {
     return NUM2LONG(n);
 }
 
-static void
-initialize_params(v, parser, arg, lexer, lexmid)
-    struct cparse_params *v;
-    VALUE parser, arg, lexer, lexmid;
+static VALUE
+initialize_params(VALUE vparams, VALUE parser, VALUE arg, VALUE lexer, VALUE lexmid)
 {
-    v->value_v = Data_Wrap_Struct(CparseParams, 0, 0, v);
+    struct cparse_params *v;
 
+    Data_Get_Struct(vparams, struct cparse_params, v);
+    v->value_v = vparams;
     v->parser = parser;
     v->lexer = lexer;
     if (! NIL_P(lexmid))
@@ -377,13 +365,46 @@ initialize_params(v, parser, arg, lexer, lexmid)
     v->fin = 0;
 
     v->lex_is_iterator = Qfalse;
+
+    rb_iv_set(parser, "@vstack", v->vstack);
+    if (v->debug) {
+        rb_iv_set(parser, "@tstack", v->tstack);
+    }
+    else {
+        rb_iv_set(parser, "@tstack", Qnil);
+    }
+
+    return vparams;
 }
 
 static void
-extract_user_token(v, block_args, tok, val)
-    struct cparse_params *v;
-    VALUE block_args;
-    VALUE *tok, *val;
+cparse_params_mark(void *ptr)
+{
+    struct cparse_params *v = (struct cparse_params*)ptr;
+
+    rb_gc_mark(v->value_v);
+    rb_gc_mark(v->parser);
+    rb_gc_mark(v->lexer);
+    rb_gc_mark(v->action_table);
+    rb_gc_mark(v->action_check);
+    rb_gc_mark(v->action_default);
+    rb_gc_mark(v->action_pointer);
+    rb_gc_mark(v->goto_table);
+    rb_gc_mark(v->goto_check);
+    rb_gc_mark(v->goto_default);
+    rb_gc_mark(v->goto_pointer);
+    rb_gc_mark(v->reduce_table);
+    rb_gc_mark(v->token_table);
+    rb_gc_mark(v->state);
+    rb_gc_mark(v->vstack);
+    rb_gc_mark(v->tstack);
+    rb_gc_mark(v->t);
+    rb_gc_mark(v->retval);
+}
+
+static void
+extract_user_token(struct cparse_params *v, VALUE block_args,
+                   VALUE *tok, VALUE *val)
 {
     if (NIL_P(block_args)) {
         /* EOF */
@@ -426,10 +447,7 @@ extract_user_token(v, block_args, tok, val)
 } while (0)
 
 static void
-parse_main(v, tok, val, resume)
-    struct cparse_params *v;
-    VALUE tok, val;
-    int resume;
+parse_main(struct cparse_params *v, VALUE tok, VALUE val, int resume)
 {
     long i;              /* table index */
     long act;            /* action type */
@@ -468,8 +486,10 @@ parse_main(v, tok, val, resume)
                 extract_user_token(v, tmp, &tok, &val);
             }
             /* convert token */
-            tmp = rb_hash_aref(v->token_table, tok);
-            v->t = NIL_P(tmp) ? vERROR_TOKEN : tmp;
+            v->t = rb_hash_aref(v->token_table, tok);
+            if (NIL_P(v->t)) {
+                v->t = vERROR_TOKEN;
+            }
             D_printf("(act) t(k2)=%ld\n", NUM2LONG(v->t));
             if (v->debug) {
                 rb_funcall(v->parser, id_d_read_token,
@@ -636,10 +656,7 @@ parse_main(v, tok, val, resume)
 }
 
 static void
-shift(v, act, tok, val)
-    struct cparse_params *v;
-    long act;
-    VALUE tok, val;
+shift(struct cparse_params *v, long act, VALUE tok, VALUE val)
 {
     PUSH(v->vstack, val);
     if (v->debug) {
@@ -652,33 +669,23 @@ shift(v, act, tok, val)
 }
 
 static int
-reduce(v, act)
-    struct cparse_params *v;
-    long act;
+reduce(struct cparse_params *v, long act)
 {
     VALUE code;
     v->ruleno = -act * 3;
-    code = rb_iterate(catch_iter, Qnil, reduce0, v->value_v);
+    code = rb_catch("racc_jump", reduce0, v->value_v);
     v->errstatus = num_to_long(rb_ivar_get(v->parser, id_errstatus));
     return NUM2INT(code);
 }
 
 static VALUE
-catch_iter(dummy)
-    VALUE dummy;
-{
-    return rb_funcall(rb_mKernel, id_catch, 1, sym_raccjump);
-}
-
-static VALUE
-reduce0(val, data, self)
-    VALUE val, data, self;
+reduce0(VALUE val, VALUE data, VALUE self)
 {
     struct cparse_params *v;
     VALUE reduce_to, reduce_len, method_id;
     long len;
     ID mid;
-    VALUE tmp, tmp_t, tmp_v;
+    VALUE tmp, tmp_t = Qundef, tmp_v = Qundef;
     long i, k1, k2;
     VALUE goto_state;
 
@@ -777,13 +784,12 @@ reduce0(val, data, self)
     goto transit;
 }
 
-
 /* -----------------------------------------------------------------------
                           Ruby Interface
 ----------------------------------------------------------------------- */
 
 void
-Init_cparse()
+Init_cparse(void)
 {
     VALUE Racc, Parser;
     ID id_racc = rb_intern("Racc");
@@ -801,7 +807,7 @@ Init_cparse()
     rb_define_const(Parser, "Racc_Runtime_Core_Version_C",
                     rb_str_new2(RACC_VERSION));
     rb_define_const(Parser, "Racc_Runtime_Core_Id_C",
-        rb_str_new2("$raccId: cparse.c,v 1.3 2003/11/03 12:20:54 aamine Exp $"));
+        rb_str_new2("$originalId: cparse.c,v 1.8 2006/07/06 11:39:46 aamine Exp $"));
 
     CparseParams = rb_define_class_under(Racc, "CparseParams", rb_cObject);
 
@@ -811,9 +817,7 @@ Init_cparse()
     id_nexttoken    = rb_intern("next_token");
     id_onerror      = rb_intern("on_error");
     id_noreduce     = rb_intern("_reduce_none");
-    id_catch        = rb_intern("catch");
     id_errstatus    = rb_intern("@racc_error_status");
-    sym_raccjump    = id_to_value(rb_intern("racc_jump"));
 
     id_d_shift       = rb_intern("racc_shift");
     id_d_reduce      = rb_intern("racc_reduce");

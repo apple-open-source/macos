@@ -26,8 +26,6 @@
 #ifndef AXObjectCache_h
 #define AXObjectCache_h
 
-#include <limits.h>
-
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 

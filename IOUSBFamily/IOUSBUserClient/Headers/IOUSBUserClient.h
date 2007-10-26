@@ -34,25 +34,15 @@ enum {
     kUSBDeviceUserClientGetFrameNumber,
     kUSBDeviceUserClientDeviceRequestOut,
     kUSBDeviceUserClientDeviceRequestIn,
-    kUSBDeviceUserClientDeviceRequestOutOOL,
-    kUSBDeviceUserClientDeviceRequestInOOL,
     kUSBDeviceUserClientCreateInterfaceIterator,
     kUSBDeviceUserClientResetDevice,
-    // new with 1.8.2
     kUSBDeviceUserClientSuspend,
     kUSBDeviceUserClientAbortPipeZero,
-    // new with 1.8.7
     kUSBDeviceUserClientReEnumerateDevice,
-    // new with 1.9.7
     kUSBDeviceUserClientGetMicroFrameNumber,
-    kNumUSBDeviceMethods
-    };
-
-enum {
+    kUSBDeviceUserClientGetFrameNumberWithTime,
     kUSBDeviceUserClientSetAsyncPort,
-    kUSBDeviceUserClientDeviceAsyncRequestOut,
-    kUSBDeviceUserClientDeviceAsyncRequestIn,
-    kNumUSBDeviceAsyncMethods
+    kIOUSBLibDeviceUserClientNumCommands
     };
 
 enum {
@@ -63,49 +53,66 @@ enum {
     kUSBInterfaceUserClientGetFrameNumber,
     kUSBInterfaceUserClientGetPipeProperties,
     kUSBInterfaceUserClientReadPipe,
-    kUSBInterfaceUserClientReadPipeOOL,
     kUSBInterfaceUserClientWritePipe,
-    kUSBInterfaceUserClientWritePipeOOL,
     kUSBInterfaceUserClientGetPipeStatus,
     kUSBInterfaceUserClientAbortPipe,
     kUSBInterfaceUserClientResetPipe,
-    kUSBInterfaceUserClientSetPipeIdle,
-    kUSBInterfaceUserClientSetPipeActive,
     kUSBInterfaceUserClientClearPipeStall,
     kUSBInterfaceUserClientControlRequestOut,
     kUSBInterfaceUserClientControlRequestIn,
-    kUSBInterfaceUserClientControlRequestOutOOL,
-    kUSBInterfaceUserClientControlRequestInOOL,
-    // new with 1.9.0
     kUSBInterfaceUserClientSetPipePolicy,
     kUSBInterfaceUserClientGetBandwidthAvailable,
     kUSBInterfaceUserClientGetEndpointProperties,
-    // new with 1.9.2
     kUSBInterfaceUserClientLowLatencyPrepareBuffer,
     kUSBInterfaceUserClientLowLatencyReleaseBuffer,
-    // new with 1.9.7
     kUSBInterfaceUserClientGetMicroFrameNumber,
     kUSBInterfaceUserClientGetFrameListTime,
-    kNumUSBInterfaceMethods
-    };
-
-
-enum {
+    kUSBInterfaceUserClientGetFrameNumberWithTime,
     kUSBInterfaceUserClientSetAsyncPort,
-    kUSBInterfaceUserClientControlAsyncRequestOut,
-    kUSBInterfaceUserClientControlAsyncRequestIn,
-    kUSBInterfaceUserClientAsyncReadPipe,
-    kUSBInterfaceUserClientAsyncWritePipe,
     kUSBInterfaceUserClientReadIsochPipe,
     kUSBInterfaceUserClientWriteIsochPipe,
-    // new with 1.9.2
     kUSBInterfaceUserClientLowLatencyReadIsochPipe,
     kUSBInterfaceUserClientLowLatencyWriteIsochPipe,
-    kNumUSBInterfaceAsyncMethods
+	kUSBInterfaceUserClientGetConfigDescriptor,
+    kIOUSBLibInterfaceUserClientNumCommands
     };
+
 
 #if KERNEL
 #include <IOKit/IOService.h>
+#include <IOKit/IOUserClient.h>
+#include <IOKit/usb/USB.h>
+
+//================================================================================================
+//
+//   Structure declarations
+//
+//================================================================================================
+//
+typedef struct IOUSBUserClientAsyncParamBlock IOUSBUserClientAsyncParamBlock;
+
+struct IOUSBUserClientAsyncParamBlock 
+{
+    OSAsyncReference64			fAsyncRef;
+    uint32_t					fAsyncCount;
+    UInt32						fMax;
+    IOMemoryDescriptor *		fMem;
+    IOUSBDevRequestDesc			req;
+};
+
+typedef struct IOUSBInterfaceUserClientISOAsyncParamBlock IOUSBInterfaceUserClientISOAsyncParamBlock;
+struct IOUSBInterfaceUserClientISOAsyncParamBlock 
+{
+    OSAsyncReference64			fAsyncRef;
+	uint32_t					fAsyncCount;
+    int							frameLen;	// In bytes
+    void *                      frameBase;	// In user task
+    IOMemoryDescriptor *        dataMem;
+    IOMemoryDescriptor *        countMem;
+	UInt32						numFrames;
+    IOUSBIsocFrame              frames[0];  // Must be the last one
+};
+
 
 //================================================================================================
 //

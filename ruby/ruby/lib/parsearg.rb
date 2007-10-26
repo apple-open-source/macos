@@ -1,8 +1,8 @@
 #
 #		parsearg.rb - parse arguments
 #			$Release Version: $
-#			$Revision: 1.2 $
-#			$Date: 2002/07/29 06:14:06 $
+#			$Revision: 11708 $
+#			$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
 #			by Yasuo OHBA(SHL Japan Inc. Technology Dept.)
 #
 # --
@@ -10,7 +10,9 @@
 #	
 #
 
-$RCS_ID=%q$Header: /src/ruby/lib/parsearg.rb,v 1.2 2002/07/29 06:14:06 matz Exp $
+warn "Warning:#{caller[0].sub(/:in `.*'\z/, '')}: parsearg is deprecated after Ruby 1.8.1; use optparse instead"
+
+$RCS_ID=%q$Header$
 
 require "getopts"
 
@@ -54,6 +56,8 @@ def setExpression(ex, opt, op)
   end
   return ex
 end
+
+# parseArgs is obsolete.  Use OptionParser instead.
 
 def parseArgs(argc, nopt, single_opts, *opts)
   if (noOptions = getopts(single_opts, *opts)) == nil

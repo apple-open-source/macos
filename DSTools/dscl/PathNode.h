@@ -62,4 +62,6 @@
 - (BOOL)enableSubNodes;
 - (void)setEnableSubNodes:(BOOL)value;
 
+// ATM - PlugInManager needs access to node
+-(DSoNode*) node;
 @end

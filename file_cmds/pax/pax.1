@@ -1,3 +1,6 @@
+.\"	$OpenBSD: pax.1,v 1.44 2004/02/19 19:15:32 jmc Exp $
+.\"	$NetBSD: pax.1,v 1.3 1995/03/21 09:07:37 cgd Exp $
+.\"
 .\" Copyright (c) 1992 Keith Muller.
 .\" Copyright (c) 1992, 1993
 .\"	The Regents of the University of California.  All rights reserved.
@@ -13,7 +16,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,31 +33,30 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)pax.1	8.4 (Berkeley) 4/18/94
-.\" $FreeBSD: src/bin/pax/pax.1,v 1.33 2004/07/03 02:03:44 tjr Exp $
 .\"
-.Dd July 3, 2004
+.Dd April 18, 1994
 .Dt PAX 1
 .Os
 .Sh NAME
 .Nm pax
 .Nd read and write file archives and copy directory hierarchies
 .Sh SYNOPSIS
-.Nm
-.Op Fl cdnvz
+.Nm pax
+.Op Fl 0cdnvz
 .Bk -words
 .Op Fl f Ar archive
 .Ek
 .Bk -words
 .Op Fl s Ar replstr
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl U Ar user
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl G Ar group
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Oo
@@ -62,10 +64,10 @@
 .Op Ar from_date
 .Op Ar ,to_date
 .Oc
-.Ar ...\&
+.Ar ...
 .Ek
-.Op Ar pattern ...\&
-.Nm
+.Op Ar pattern ...
+.Nm pax
 .Fl r
 .Op Fl cdiknuvzDYZ
 .Bk -words
@@ -73,24 +75,24 @@
 .Ek
 .Bk -words
 .Op Fl o Ar options
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl p Ar string
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl s Ar replstr
-.Ar ...\&
+.Ar ...
 .Ek
 .Op Fl E Ar limit
 .Bk -words
 .Op Fl U Ar user
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl G Ar group
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Oo
@@ -98,12 +100,12 @@
 .Op Ar from_date
 .Op Ar ,to_date
 .Oc
-.Ar ...\&
+.Ar ...
 .Ek
-.Op Ar pattern ...\&
-.Nm
+.Op Ar pattern ...
+.Nm pax
 .Fl w
-.Op Fl dituvzHLPX
+.Op Fl 0dituvzHLPX
 .Bk -words
 .Op Fl b Ar blocksize
 .Ek
@@ -116,19 +118,19 @@
 .Ek
 .Bk -words
 .Op Fl s Ar replstr
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl o Ar options
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl U Ar user
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl G Ar group
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl B Ar bytes
@@ -140,28 +142,28 @@
 .Op Ar ,to_date
 .Op Ar /[c][m]
 .Oc
-.Ar ...\&
+.Ar ...
 .Ek
-.Op Ar
-.Nm
+.Op Ar file ...
+.Nm pax
 .Fl r
 .Fl w
-.Op Fl diklntuvDHLPXYZ
+.Op Fl 0diklntuvDHLPXYZ
 .Bk -words
 .Op Fl p Ar string
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl s Ar replstr
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl U Ar user
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Op Fl G Ar group
-.Ar ...\&
+.Ar ...
 .Ek
 .Bk -words
 .Oo
@@ -170,17 +172,17 @@
 .Op Ar ,to_date
 .Op Ar /[c][m]
 .Oc
-.Ar ...\&
+.Ar ...
 .Ek
-.Op Ar
+.Op Ar file ...
 .Ar directory
 .Sh DESCRIPTION
-The
-.Nm
-utility will read, write, and list the members of an archive file,
+.Nm pax
+will read, write, and list the members of an archive file,
 and will copy directory hierarchies.
-These operations are independent of the specific archive format,
-and support a wide variety of different archive formats.
+.Nm pax
+operation is independent of the specific archive format,
+and supports a wide variety of different archive formats.
 A list of supported archive formats can be found under the description of the
 .Fl x
 option.
@@ -190,7 +192,7 @@ The presence of the
 and the
 .Fl w
 options specifies which of the following functional modes
-.Nm
+.Nm pax
 will operate under:
 .Em list , read , write ,
 and
@@ -198,18 +200,18 @@ and
 .Bl -tag -width 6n
 .It <none>
 .Em List .
-Write to
-.Dv standard output
+.Nm pax
+will write to standard output
 a table of contents of the members of the archive file read from
-.Dv standard input ,
-whose pathnames match the specified
+standard input, whose pathnames match the specified
 .Ar patterns .
 The table of contents contains one filename per line
 and is written using single line buffering.
+.\" ==========
 .It Fl r
 .Em Read .
-Extract the members of the archive file read from the
-.Dv standard input ,
+.Nm pax
+extracts the members of the archive file read from the standard input,
 with pathnames matching the specified
 .Ar patterns .
 The archive format and blocking is automatically determined on input.
@@ -220,32 +222,34 @@ The setting of ownership, access and modification times, and file mode of
 the extracted files are discussed in more detail under the
 .Fl p
 option.
+.\" ==========
 .It Fl w
 .Em Write .
-Write an archive containing the
+.Nm pax
+writes an archive containing the
 .Ar file
-operands to
-.Dv standard output
+operands to standard output
 using the specified archive format.
 When no
 .Ar file
 operands are specified, a list of files to copy with one per line is read from
-.Dv standard input .
+standard input.
 When a
 .Ar file
 operand is also a directory, the entire file hierarchy rooted
 at that directory will be included.
+.\" ==========
 .It Fl r Fl w
 .Em Copy .
-Copy the
+.Nm pax
+copies the
 .Ar file
 operands to the destination
 .Ar directory .
 When no
 .Ar file
 operands are specified, a list of files to copy with one per line is read from
-the
-.Dv standard input .
+the standard input.
 When a
 .Ar file
 operand is also a directory the entire file
@@ -276,12 +280,12 @@ While processing a damaged archive during a
 or
 .Em list
 operation,
-.Nm
+.Nm pax
 will attempt to recover from media defects and will search through the archive
 to locate and process the largest number of archive members possible (see the
 .Fl E
 option for more details on error handling).
-.Sh OPERANDS
+.Pp
 The
 .Ar directory
 operand specifies a destination directory pathname.
@@ -289,7 +293,7 @@ If the
 .Ar directory
 operand does not exist, or it is not writable by the user,
 or it is not of type directory,
-.Nm
+.Nm pax
 will exit with a non-zero exit status.
 .Pp
 The
@@ -308,11 +312,10 @@ be selected.
 When a
 .Ar pattern
 operand does not select at least one archive member,
-.Nm
+.Nm pax
 will write these
 .Ar pattern
-operands in a diagnostic message to
-.Dv standard error
+operands in a diagnostic message to standard error
 and then exit with a non-zero exit status.
 .Pp
 The
@@ -321,47 +324,32 @@ operand specifies the pathname of a file to be copied or archived.
 When a
 .Ar file
 operand does not select at least one archive member,
-.Nm
+.Nm pax
 will write these
 .Ar file
-operand pathnames in a diagnostic message to
-.Dv standard error
+operand pathnames in a diagnostic message to standard error
 and then exit with a non-zero exit status.
-.Sh OPTIONS
-The following options are supported:
-.Bl -tag -width 4n
-.It Fl r
-Read an archive file from
-.Dv standard input
-and extract the specified
-.Ar files .
-If any intermediate directories are needed in order to extract an archive
-member, these directories will be created as if
-.Xr mkdir 2
-was called with the bitwise inclusive
-.Dv OR
-of
-.Dv S_IRWXU , S_IRWXG ,
-and
-.Dv S_IRWXO
-as the mode argument.
-When the selected archive format supports the specification of linked
-files and these files cannot be linked while the archive is being extracted,
-.Nm
-will write a diagnostic message to
-.Dv standard error
-and exit with a non-zero exit status at the completion of operation.
-.It Fl w
-Write files to the
-.Dv standard output
-in the specified archive format.
-When no
-.Ar file
-operands are specified,
-.Dv standard input
-is read for a list of pathnames with one per line without any leading or
-trailing
-.Aq blanks .
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.\" ==========
+.It Fl 0
+Use the NUL
+.Pq Ql \e0
+character as a pathname terminator, instead of newline
+.Pq Ql \en .
+This applies only to the pathnames read from standard input in
+the write and copy modes,
+and to the pathnames written to standard output in list mode.
+This option is expected to be used in concert with the
+.Fl print0
+function in
+.Xr find 1
+or the
+.Fl 0
+flag in
+.Xr xargs 1 .
+.\" ==========
 .It Fl a
 Append
 .Ar files
@@ -371,7 +359,7 @@ If an archive format is not specified with a
 option, the format currently being used in the archive will be selected.
 Any attempt to append to an archive in a format different from the
 format already used in the archive will cause
-.Nm
+.Nm pax
 to exit immediately
 with a non-zero exit status.
 The blocking size used in the archive volume where writing starts
@@ -385,6 +373,30 @@ archive or have other unpredictable results.
 Tape drives in particular are more likely to not support an append operation.
 An archive stored in a regular file system file or on a disk device will
 usually support an append operation.
+.\" ==========
+.It Fl B Ar bytes
+Limit the number of bytes written to a single archive volume to
+.Ar bytes .
+The
+.Ar bytes
+limit can end with
+.Sq Li m ,
+.Sq Li k ,
+or
+.Sq Li b
+to specify multiplication by 1048576 (1M), 1024 (1K) or 512, respectively.
+A pair of
+.Ar bytes
+limits can be separated by
+.Sq Li x
+to indicate a product.
+.Pp
+.Em Warning :
+Only use this option when writing an archive to a device which supports
+an end of file read condition based on last (or largest) write offset
+(such as a regular file or a tape drive).
+The use of this option with a floppy or hard disk is not recommended.
+.\" ==========
 .It Fl b Ar blocksize
 When
 .Em writing
@@ -400,14 +412,14 @@ standard and will not be portable to all systems.
 A
 .Ar blocksize
 can end with
-.Li k
+.Sq Li k
 or
-.Li b
+.Sq Li b
 to specify multiplication by 1024 (1K) or 512, respectively.
 A pair of
 .Ar blocksizes
 can be separated by
-.Li x
+.Sq Li x
 to indicate a product.
 A specific archive device may impose additional restrictions on the size
 of blocking it will support.
@@ -416,6 +428,7 @@ When blocking is not specified, the default
 is dependent on the specific archive format being used (see the
 .Fl x
 option).
+.\" ==========
 .It Fl c
 Match all file or archive members
 .Em except
@@ -424,28 +437,88 @@ those specified by the
 and
 .Ar file
 operands.
+.\" ==========
+.It Fl D
+This option is the same as the
+.Fl u
+option, except that the file inode change time is checked instead of the
+file modification time.
+The file inode change time can be used to select files whose inode information
+(e.g., UID, GID, etc.) is newer than a copy of the file in the destination
+.Ar directory .
+.\" ==========
 .It Fl d
 Cause files of type directory being copied or archived, or archive members of
 type directory being extracted, to match only the directory file or archive
 member and not the file hierarchy rooted at the directory.
+.\" ==========
+.It Fl E Ar limit
+Limit the number of consecutive read faults while trying to read a flawed
+archive to
+.Ar limit .
+With a positive
+.Ar limit ,
+.Nm pax
+will attempt to recover from an archive read error and will
+continue processing starting with the next file stored in the archive.
+A
+.Ar limit
+of 0 will cause
+.Nm pax
+to stop operation after the first read error is detected on an archive volume.
+A
+.Ar limit
+of
+.Li NONE
+will cause
+.Nm pax
+to attempt to recover from read errors forever.
+The default
+.Ar limit
+is a small positive number of retries.
+.Pp
+.Em Warning :
+Using this option with
+.Li NONE
+should be used with extreme caution as
+.Nm pax
+may get stuck in an infinite loop on a very badly flawed archive.
+.\" ==========
 .It Fl f Ar archive
 Specify
 .Ar archive
 as the pathname of the input or output archive, overriding the default
-.Dv standard input
-(for
+standard input (for
 .Em list
 and
 .Em read )
-or
-.Dv standard output
+or standard output
 (for
 .Em write ) .
 A single archive may span multiple files and different archive devices.
 When required,
-.Nm
+.Nm pax
 will prompt for the pathname of the file or device of the next volume in the
 archive.
+.\" ==========
+.It Fl G Ar group
+Select a file based on its
+.Ar group
+name, or when starting with a
+.Cm # ,
+a numeric gid.
+A
+.Ql \e
+can be used to escape the
+.Cm # .
+Multiple
+.Fl G
+options may be supplied and checking stops with the first match.
+.\" ==========
+.It Fl H
+Follow only command-line symbolic links while performing a physical file
+system traversal.
+.\" ==========
 .It Fl i
 Interactively rename files or archive members.
 For each archive member matching a
@@ -453,36 +526,41 @@ For each archive member matching a
 operand or each file matching a
 .Ar file
 operand,
-.Nm
+.Nm pax
 will prompt to
 .Pa /dev/tty
-giving the name of the file, its file mode and its modification time.
-The
-.Nm
-utility will then read a line from
+giving the name of the file, its file mode, and its modification time.
+.Nm pax
+will then read a line from
 .Pa /dev/tty .
 If this line is blank, the file or archive member is skipped.
 If this line consists of a single period, the
 file or archive member is processed with no modification to its name.
 Otherwise, its name is replaced with the contents of the line.
-The
-.Nm
-utility will immediately exit with a non-zero exit status if
-.Dv <EOF>
+.Nm pax
+will immediately exit with a non-zero exit status if
+.Dv EOF
 is encountered when reading a response or if
 .Pa /dev/tty
 cannot be opened for reading and writing.
+.\" ==========
 .It Fl k
 Do not overwrite existing files.
+.\" ==========
+.It Fl L
+Follow all symbolic links to perform a logical file system traversal.
+.\" ==========
 .It Fl l
+(The lowercase letter
+.Dq ell. )
 Link files.
-(The letter ell).
 In the
 .Em copy
 mode
-.Pq Fl r w ,
+.Pq Fl r Fl w ,
 hard links are made between the source and destination file hierarchies
 whenever possible.
+.\" ==========
 .It Fl n
 Select the first archive member that matches each
 .Ar pattern
@@ -493,6 +571,15 @@ When members of type directory are matched, the file hierarchy rooted at that
 directory is also matched (unless
 .Fl d
 is also specified).
+.\" ==========
+.It Fl O
+Force the archive to be one volume.
+If a volume ends prematurely,
+.Nm pax
+will not prompt for a new volume.
+This option can be useful for
+automated tasks where error recovery cannot be performed by a human.
+.\" ==========
 .It Fl o Ar options
 Information to modify the algorithm for extracting or writing archive files
 which is specific to the archive format specified by
@@ -500,7 +587,56 @@ which is specific to the archive format specified by
 In general,
 .Ar options
 take the form:
-.Cm name=value
+.Ar name Ns = Ns Ar value .
+.Pp
+If the "-x pax" option is used,
+the ":=" form of keyword specification is supported.
+Also, the following new keywords are implemented:
+.Bl -bullet
+.It
+delete=<pattern>
+.It
+exthdr.name=<string>
+.It
+globexhdr.name=<string>
+.It
+invalid=<action> for actions
+bypass, rename, utf-8 (recognized, but ignored), and write
+.It
+linkdata
+.It
+listopt=<format>
+for the 'F' conversion specifier 
+(not the 'D', 'T', 'M', or 'L' specifiers)
+.It
+times
+.It
+all keywords in pax Extended Header,
+with the following restrictions:
+.Bl -tag
+.It charset
+keyword recognized, but ignored
+.It realtime.any
+keyword not recognized
+.It security.any
+keyword not recognized
+.El
+.El
+.Pp
+In "copy mode", only the following new keywords are supported:
+.Bl -bullet
+.It
+delete=
+.It
+invalid=
+.It
+path= (from pax Extended Header description)
+.El
+.\" ==========
+.It Fl P
+Do not follow symbolic links, perform a physical file system traversal.
+This is the default mode.
+.\" ==========
 .It Fl p Ar string
 Specify one or more file characteristic options (privileges).
 The
@@ -515,7 +651,7 @@ Multiple characteristics can be concatenated within the same string
 and multiple
 .Fl p
 options can be specified.
-The meaning of the specification characters are as follows:
+The meanings of the specification characters are as follows:
 .Bl -tag -width 2n
 .It Cm a
 Do not preserve file access times.
@@ -543,7 +679,7 @@ Preserve the user ID and group ID.
 .It Cm p
 .Sq Preserve
 the file mode bits.
-This intended to be used by a
+This is intended to be used by a
 .Em user
 with regular privileges who wants to preserve all aspects of the file other
 than the ownership.
@@ -564,7 +700,7 @@ nor the
 .Cm o
 specification character is specified, or the user ID and group ID are not
 preserved for any reason,
-.Nm
+.Nm pax
 will not set the
 .Dv S_ISUID
 .Em ( setuid )
@@ -573,9 +709,8 @@ and
 .Em ( setgid )
 bits of the file mode.
 If the preservation of any of these items fails for any reason,
-.Nm
-will write a diagnostic message to
-.Dv standard error .
+.Nm pax
+will write a diagnostic message to standard error.
 Failure to preserve these items will affect the final exit status,
 but will not cause the extracted file to be deleted.
 If the file characteristic letters in any of the string option-arguments are
@@ -584,6 +719,25 @@ precedence.
 For example, if
 .Dl Fl p Ar eme
 is specified, file modification times are still preserved.
+.It Fl r
+Read an archive file from standard input
+and extract the specified
+.Ar files .
+If any intermediate directories are needed in order to extract an archive
+member, these directories will be created as if
+.Xr mkdir 2
+was called with the bitwise inclusive
+.Tn OR
+of
+.Dv S_IRWXU , S_IRWXG ,
+and
+.Dv S_IRWXO
+as the mode argument.
+When the selected archive format supports the specification of linked
+files and these files cannot be linked while the archive is being extracted,
+.Nm pax
+will write a diagnostic message to standard error
+and exit with a non-zero exit status at the completion of operation.
 .It Fl s Ar replstr
 Modify the file or archive member names specified by the
 .Ar pattern
@@ -594,21 +748,28 @@ operands according to the substitution expression
 using the syntax of the
 .Xr ed 1
 utility regular expressions.
-The format of these regular expressions are:
+The format of these regular expressions is:
 .Dl /old/new/[gp]
 As in
 .Xr ed 1 ,
 .Cm old
 is a basic regular expression and
 .Cm new
-can contain an ampersand (&), \\n (where n is a digit) back-references,
+can contain an ampersand
+.Pq Ql & ,
+.Ql \en
+(where
+.Ar n
+is a digit) back-references,
 or subexpression matching.
 The
 .Cm old
-string may also contain
-.Dv <newline>
-characters.
-Any non-null character can be used as a delimiter (/ is shown here).
+string may also contain newline characters.
+Any non-null character can be used as a delimiter
+.Po
+.Ql /
+is shown here
+.Pc .
 Multiple
 .Fl s
 expressions can be specified.
@@ -616,7 +777,7 @@ The expressions are applied in the order they are specified on the
 command line, terminating with the first successful substitution.
 The optional trailing
 .Cm g
-continues to apply the substitution expression to the pathname substring
+continues to apply the substitution expression to the pathname substring,
 which starts with the first character following the end of the last successful
 substitution.
 The first unsuccessful substitution stops the operation of the
@@ -625,222 +786,10 @@ option.
 The optional trailing
 .Cm p
 will cause the final result of a successful substitution to be written to
-.Dv standard error
-in the following format:
+standard error in the following format:
 .Dl <original pathname> >> <new pathname>
 File or archive member names that substitute to the empty string
 are not selected and will be skipped.
-.It Fl t
-Reset the access times of any file or directory read or accessed by
-.Nm
-to be the same as they were before being read or accessed by
-.Nm .
-.It Fl u
-Ignore files that are older (having a less recent file modification time)
-than a pre-existing file or archive member with the same name.
-During
-.Em read ,
-an archive member with the same name as a file in the file system will be
-extracted if the archive member is newer than the file.
-During
-.Em write ,
-a file system member with the same name as an archive member will be
-written to the archive if it is newer than the archive member.
-During
-.Em copy ,
-the file in the destination hierarchy is replaced by the file in the source
-hierarchy or by a link to the file in the source hierarchy if the file in
-the source hierarchy is newer.
-.It Fl v
-During a
-.Em list
-operation, produce a verbose table of contents using the format of the
-.Xr ls 1
-utility with the
-.Fl l
-option.
-For pathnames representing a hard link to a previous member of the archive,
-the output has the format:
-.Dl <ls -l listing> == <link name>
-For pathnames representing a symbolic link, the output has the format:
-.Dl <ls -l listing> => <link name>
-Where <ls -l listing> is the output format specified by the
-.Xr ls 1
-utility when used with the
-.Fl l
-option.
-Otherwise for all the other operational modes
-.Em ( read , write ,
-and
-.Em copy ) ,
-pathnames are written and flushed to
-.Dv standard error
-without a trailing
-.Dv <newline>
-as soon as processing begins on that file or
-archive member.
-The trailing
-.Dv <newline> ,
-is not buffered, and is written only after the file has been read or written.
-.It Fl x Ar format
-Specify the output archive format, with the default format being
-.Ar ustar .
-The
-.Nm
-utility currently supports the following formats:
-.Bl -tag -width "sv4cpio"
-.It Ar cpio
-The extended cpio interchange format specified in the
-.St -p1003.2
-standard.
-The default blocksize for this format is 5120 bytes.
-Inode and device information about a file (used for detecting file hard links
-by this format) which may be truncated by this format is detected by
-.Nm
-and is repaired.
-.It Ar bcpio
-The old binary cpio format.
-The default blocksize for this format is 5120 bytes.
-This format is not very portable and should not be used when other formats
-are available.
-Inode and device information about a file (used for detecting file hard links
-by this format) which may be truncated by this format is detected by
-.Nm
-and is repaired.
-.It Ar sv4cpio
-The System V release 4 cpio.
-The default blocksize for this format is 5120 bytes.
-Inode and device information about a file (used for detecting file hard links
-by this format) which may be truncated by this format is detected by
-.Nm
-and is repaired.
-.It Ar sv4crc
-The System V release 4 cpio with file crc checksums.
-The default blocksize for this format is 5120 bytes.
-Inode and device information about a file (used for detecting file hard links
-by this format) which may be truncated by this format is detected by
-.Nm
-and is repaired.
-.It Ar tar
-The old
-.Bx
-tar format as found in
-.Bx 4.3 .
-The default blocksize for this format is 10240 bytes.
-Pathnames stored by this format must be 100 characters or less in length.
-Only
-.Em regular
-files,
-.Em hard links , soft links ,
-and
-.Em directories
-will be archived (other file system types are not supported).
-For backwards compatibility with even older tar formats, a
-.Fl o
-option can be used when writing an archive to omit the storage of directories.
-This option takes the form:
-.Dl Fl o Cm write_opt=nodir
-.It Ar ustar
-The extended tar interchange format specified in the
-.St -p1003.2
-standard.
-The default blocksize for this format is 10240 bytes.
-Pathnames stored by this format must be 250 characters or less in length.
-.El
-.Pp
-The
-.Nm
-utility will detect and report any file that it is unable to store or extract
-as the result of any specific archive format restrictions.
-The individual archive formats may impose additional restrictions on use.
-Typical archive format restrictions include (but are not limited to):
-file pathname length, file size, link pathname length and the type of the file.
-.It Fl z
-Use
-.Xr gzip 1
-to compress (decompress) the archive while writing (reading).
-Incompatible with
-.Fl a .
-.It Fl B Ar bytes
-Limit the number of bytes written to a single archive volume to
-.Ar bytes .
-The
-.Ar bytes
-limit can end with
-.Li m ,
-.Li k ,
-or
-.Li b
-to specify multiplication by 1048576 (1M), 1024 (1K) or 512, respectively.
-A pair of
-.Ar bytes
-limits can be separated by
-.Li x
-to indicate a product.
-.Pp
-.Em Warning :
-Only use this option when writing an archive to a device which supports
-an end of file read condition based on last (or largest) write offset
-(such as a regular file or a tape drive).
-The use of this option with a floppy or hard disk is not recommended.
-.It Fl D
-This option is the same as the
-.Fl u
-option, except that the file inode change time is checked instead of the
-file modification time.
-The file inode change time can be used to select files whose inode information
-(e.g.\& uid, gid, etc.) is newer than a copy of the file in the destination
-.Ar directory .
-.It Fl E Ar limit
-Limit the number of consecutive read faults while trying to read a flawed
-archives to
-.Ar limit .
-With a positive
-.Ar limit ,
-.Nm
-will attempt to recover from an archive read error and will
-continue processing starting with the next file stored in the archive.
-A
-.Ar limit
-of 0 will cause
-.Nm
-to stop operation after the first read error is detected on an archive volume.
-A
-.Ar limit
-of
-.Li NONE
-will cause
-.Nm
-to attempt to recover from read errors forever.
-The default
-.Ar limit
-is a small positive number of retries.
-.Pp
-.Em Warning :
-Using this option with
-.Li NONE
-should be used with extreme caution as
-.Nm
-may get stuck in an infinite loop on a very badly flawed archive.
-.It Fl G Ar group
-Select a file based on its
-.Ar group
-name, or when starting with a
-.Cm # ,
-a numeric gid.
-A '\\' can be used to escape the
-.Cm # .
-Multiple
-.Fl G
-options may be supplied and checking stops with the first match.
-.It Fl H
-Follow only command line symbolic links while performing a physical file
-system traversal.
-.It Fl L
-Follow all symbolic links to perform a logical file system traversal.
-.It Fl P
-Do not follow symbolic links, perform a physical file system traversal.
-This is the default mode.
 .It Fl T Ar [from_date][,to_date][/[c][m]]
 Allow files to be selected based on a file modification or inode change
 time falling within a specified time range of
@@ -864,7 +813,7 @@ only files with a modification or inode change time of exactly that
 time will be selected.
 .Pp
 When
-.Nm
+.Nm pax
 is in the
 .Em write
 or
@@ -881,7 +830,7 @@ the file was last written).
 The
 .Ar c
 specifies the comparison of inode change time (the time when the file
-inode was last changed; e.g.\& a change of owner, group, mode, etc).
+inode was last changed; e.g., a change of owner, group, mode, etc).
 When
 .Ar c
 and
@@ -894,15 +843,17 @@ created and had their modification time reset to an older time (as what
 happens when a file is extracted from an archive and the modification time
 is preserved).
 Time comparisons using both file times is useful when
-.Nm
+.Nm pax
 is used to create a time based incremental archive (only files that were
 changed during a specified time range will be archived).
 .Pp
 A time range is made up of six different fields and each field must contain two
 digits.
 The format is:
-.Dl [yy[mm[dd[hh]]]]mm[.ss]
+.Dl [[[[[cc]yy]mm]dd]HH]MM[.SS]
 Where
+.Cm cc
+is the first two digits of the year (the century),
 .Cm yy
 is the last two digits of the year,
 the first
@@ -910,21 +861,23 @@ the first
 is the month (from 01 to 12),
 .Cm dd
 is the day of the month (from 01 to 31),
-.Cm hh
+.Cm HH
 is the hour of the day (from 00 to 23),
-the second
-.Cm mm
+.Cm MM
 is the minute (from 00 to 59),
 and
-.Cm ss
+.Cm SS
 is the seconds (from 00 to 59).
 The minute field
-.Cm mm
+.Cm MM
 is required, while the other fields are optional and must be added in the
 following order:
-.Dl Cm hh , dd , mm , yy .
+.br
+.Cm \&	HH , dd , mm ,
+.Cm yy , cc .
+.br
 The
-.Cm ss
+.Cm SS
 field may be added independently of the other fields.
 Time ranges are relative to the current time, so
 .Dl Fl T Ar 1234/cm
@@ -933,17 +886,82 @@ of 12:34 PM today or later.
 Multiple
 .Fl T
 time range can be supplied and checking stops with the first match.
+.\" ==========
+.It Fl t
+Reset the access times of any file or directory read or accessed by
+.Nm pax
+to be the same as they were before being read or accessed by
+.Nm pax .
+.\" ==========
 .It Fl U Ar user
 Select a file based on its
 .Ar user
 name, or when starting with a
 .Cm # ,
-a numeric uid.
-A '\\' can be used to escape the
+a numeric UID.
+A
+.Ql \e
+can be used to escape the
 .Cm # .
 Multiple
 .Fl U
 options may be supplied and checking stops with the first match.
+.\" ==========
+.It Fl u
+Ignore files that are older (having a less recent file modification time)
+than a pre-existing file or archive member with the same name.
+During
+.Em read ,
+an archive member with the same name as a file in the file system will be
+extracted if the archive member is newer than the file.
+During
+.Em write ,
+a file system member with the same name as an archive member will be
+written to the archive if it is newer than the archive member.
+During
+.Em copy ,
+the file in the destination hierarchy is replaced by the file in the source
+hierarchy or by a link to the file in the source hierarchy if the file in
+the source hierarchy is newer.
+.\" ==========
+.It Fl v
+During a
+.Em list
+operation, produce a verbose table of contents using the format of the
+.Xr ls 1
+utility with the
+.Fl l
+option.
+For pathnames representing a hard link to a previous member of the archive,
+the output has the format:
+.Dl <ls -l listing> == <link name>
+For pathnames representing a symbolic link, the output has the format:
+.Dl <ls -l listing> => <link name>
+Where <ls -l listing> is the output format specified by the
+.Xr ls 1
+utility when used with the
+.Fl l
+option.
+Otherwise for all the other operational modes
+.Po Em read , write , Li and Em copy
+.Pc ,
+pathnames are written and flushed to standard error
+without a trailing newline
+as soon as processing begins on that file or
+archive member.
+The trailing newline
+is not buffered and is written only after the file has been read or written.
+.\" ==========
+.It Fl w
+Write files to the standard output
+in the specified archive format.
+When no
+.Ar file
+operands are specified, standard input
+is read for a list of pathnames with one per line without any leading or
+trailing
+.Aq blanks .
+.\" ==========
 .It Fl X
 When traversing the file hierarchy specified by a pathname,
 do not descend into directories that have a different device ID.
@@ -951,21 +969,116 @@ See the
 .Li st_dev
 field as described in
 .Xr stat 2
-for more information about device ID's.
+for more information about device IDs.
+.\" ==========
+.It Fl x Ar format
+Specify the output archive format, with the default format being
+.Ar ustar .
+.Nm pax
+currently supports the following formats:
+.Bl -tag -width "sv4cpio"
+.\" ==========
+.It Ar bcpio
+The old binary cpio format.
+The default blocksize for this format is 5120 bytes.
+This format is not very portable and should not be used when other formats
+are available.
+Inode and device information about a file (used for detecting file hard links
+by this format), which may be truncated by this format, is detected by
+.Nm pax
+and is repaired.
+.\" ==========
+.It Ar cpio
+The extended cpio interchange format specified in the
+.St -p1003.2
+standard.
+The default blocksize for this format is 5120 bytes.
+Inode and device information about a file (used for detecting file hard links
+by this format), which may be truncated by this format, is detected by
+.Nm pax
+and is repaired.
+.\" ==========
+.It Ar pax
+"pax interchange format", described in the
+EXTENDED DESCRIPTION of the pax interchange format
+in The Open Group's SUSv3 specification.
+Includes support for pax Header Block,
+pax Extended Header,
+pax Extended Header Keyword Precedence, and 
+pax Extended Header File Times.
+.\" ==========
+.It Ar sv4cpio
+The System V release 4 cpio.
+The default blocksize for this format is 5120 bytes.
+Inode and device information about a file (used for detecting file hard links
+by this format), which may be truncated by this format, is detected by
+.Nm pax
+and is repaired.
+.\" ==========
+.It Ar sv4crc
+The System V release 4 cpio with file crc checksums.
+The default blocksize for this format is 5120 bytes.
+Inode and device information about a file (used for detecting file hard links
+by this format), which may be truncated by this format, is detected by
+.Nm pax
+and is repaired.
+.\" ==========
+.It Ar tar
+The old BSD tar format as found in BSD4.3.
+The default blocksize for this format is 10240 bytes.
+Pathnames stored by this format must be 100 characters or less in length.
+Only
+.Em regular
+files,
+.Em hard links , soft links ,
+and
+.Em directories
+will be archived (other file system types are not supported).
+For backwards compatibility with even older tar formats, a
+.Fl o
+option can be used when writing an archive to omit the storage of directories.
+This option takes the form:
+.Dl Fl o Cm write_opt=nodir
+.\" ==========
+.It Ar ustar
+The extended tar interchange format specified in the
+.St -p1003.2
+standard.
+The default blocksize for this format is 10240 bytes.
+Filenames stored by this format must be 100 characters or less in length;
+the total pathname must be 255 characters or less.
+.El
+.Pp
+.Nm pax
+will detect and report any file that it is unable to store or extract
+as the result of any specific archive format restrictions.
+The individual archive formats may impose additional restrictions on use.
+Typical archive format restrictions include (but are not limited to):
+file pathname length, file size, link pathname length, and the type of the
+file.
+.\" ==========
 .It Fl Y
 This option is the same as the
 .Fl D
 option, except that the inode change time is checked using the
 pathname created after all the file name modifications have completed.
+.\" ==========
 .It Fl Z
 This option is the same as the
 .Fl u
 option, except that the modification time is checked using the
 pathname created after all the file name modifications have completed.
+.\" ==========
+.It Fl z
+Use
+.Xr gzip 1
+to compress (decompress) the archive while writing (reading).
+Incompatible with
+.Fl a .
 .El
 .Pp
 The options that operate on the names of files or archive members
-.Fl ( c ,
+.Po Fl c ,
 .Fl i ,
 .Fl n ,
 .Fl s ,
@@ -977,7 +1090,8 @@ The options that operate on the names of files or archive members
 .Fl U ,
 .Fl Y ,
 and
-.Fl Z )
+.Fl Z
+.Pc
 interact as follows.
 .Pp
 When extracting files during a
@@ -1003,7 +1117,7 @@ Then the
 and
 .Fl Z
 options will be applied based on the final pathname.
-Finally the
+Finally, the
 .Fl v
 option will write the names resulting from these modifications.
 .Pp
@@ -1036,7 +1150,7 @@ operation the
 and the
 .Fl Z
 options will be applied based on the final pathname.
-Finally the
+Finally, the
 .Fl v
 option will write the names resulting from these modifications.
 .Pp
@@ -1048,70 +1162,130 @@ options are specified along with the
 .Fl n
 option, a file is not considered selected unless it is newer
 than the file to which it is compared.
+.Sh ENVIRONMENT
+.Bl -tag -width Fl
+.It Ev TMPDIR
+Path in which to store temporary files.
+.El
 .Sh EXAMPLES
-The command:
-.Dl "pax -w -f /dev/sa0 ."
-copies the contents of the current directory to the device
-.Pa /dev/sa0 .
+.Li $ pax -w -f /dev/rst0 \&.
 .Pp
-The command:
-.Dl pax -v -f filename
-gives the verbose table of contents for an archive stored in
+Copies the contents of the current directory to the device
+.Pa /dev/rst0 .
+.Pp
+.Li $ pax -v -f filename
+.Pp
+Gives the verbose table of contents for an archive stored in
 .Pa filename .
 .Pp
-The following commands:
-.Dl mkdir /tmp/to
-.Dl cd /tmp/from
-.Dl pax -rw .\ /tmp/to
-will copy the entire
-.Pa /tmp/from
+.Li $ mkdir newdir ;
+.Li cd olddir ;
+.Li pax -rw \&. newdir
+.Pp
+This sequence of commands will copy the entire
+.Pa olddir
 directory hierarchy to
-.Pa /tmp/to .
+.Pa newdir .
 .Pp
-The command:
-.Dl pax -r -s ',^//*usr//*,,' -f a.pax
-reads the archive
+.Li $ pax -r -s ',^//*usr//*,,' -f a.pax
+.Pp
+Reads the archive
 .Pa a.pax ,
-with all files rooted in ``/usr'' into the archive extracted relative to the
-current directory.
+with all files rooted in
+.Pa /usr
+into the archive extracted relative to the current directory.
 .Pp
-The command:
-.Dl pax -rw -i .\ dest_dir
-can be used to interactively select the files to copy from the current
+.Li $ pax -rw -i \&. dest_dir
+.Pp
+Can be used to interactively select the files to copy from the current
 directory to
 .Pa dest_dir .
 .Pp
-The command:
-.Dl pax -r -pe -U root -G bin -f a.pax
-will extract all files from the archive
+.Li "$ pax -r -pe -U root -G bin -f a.pax"
+.Pp
+Extract all files from the archive
 .Pa a.pax
 which are owned by
 .Em root
 with group
 .Em bin
-and will preserve all file permissions.
+and preserve all file permissions.
 .Pp
-The command:
-.Dl pax -r -w -v -Y -Z home /backup
-will update (and list) only those files in the destination directory
+.Li "$ pax -r -w -v -Y -Z home /backup"
+.Pp
+Update (and list) only those files in the destination directory
 .Pa /backup
 which are older (less recent inode change or file modification times) than
 files with the same name found in the source file tree
 .Pa home .
+.Sh DIAGNOSTICS
+.Nm pax
+will exit with one of the following values:
+.Bl -tag -width 2n
+.It 0
+All files were processed successfully.
+.It 1
+An error occurred.
+.El
+.Pp
+Whenever
+.Nm pax
+cannot create a file or a link when reading an archive or cannot
+find a file when writing an archive, or cannot preserve the user ID,
+group ID, or file mode when the
+.Fl p
+option is specified, a diagnostic message is written to standard error
+and a non-zero exit status will be returned, but processing will continue.
+In the case where
+.Nm pax
+cannot create a link to a file,
+.Nm pax
+will not create a second copy of the file.
+.Pp
+If the extraction of a file from an archive is prematurely terminated by
+a signal or error,
+.Nm pax
+may have only partially extracted a file the user wanted.
+Additionally, the file modes of extracted files and directories
+may have incorrect file bits, and the modification and access times may be
+wrong.
+.Pp
+If the creation of an archive is prematurely terminated by a signal or error,
+.Nm pax
+may have only partially created the archive, which may violate the specific
+archive format specification.
+.Pp
+If, while doing a
+.Em copy ,
+.Nm pax
+detects a file is about to overwrite itself, the file is not copied,
+a diagnostic message is written to standard error
+and when
+.Nm pax
+completes it will exit with a non-zero exit status.
+.Sh SEE ALSO
+.Xr cpio 1 ,
+.Xr tar 1
+.Pp
+"Archiving with Pax", Dru Lavigne, ONLamp.com BSD DevCenter,
+http://www.onlamp.com/pub/a/bsd/2002/08/22/FreeBSD_Basics.html
+.Pp
+pax(1) manual page,
+http://heirloom.sourceforge.net/man/pax.1.html
 .Sh STANDARDS
 The
-.Nm
+.Nm pax
 utility is a superset of the
 .St -p1003.2
 standard.
 The options
-.Fl z ,
 .Fl B ,
 .Fl D ,
 .Fl E ,
 .Fl G ,
 .Fl H ,
 .Fl L ,
+.Fl O ,
 .Fl P ,
 .Fl T ,
 .Fl U ,
@@ -1129,64 +1303,5 @@ and
 operations are extensions to the
 .Tn POSIX
 standard.
-.Sh SEE ALSO
-.Xr cpio 1 ,
-.Xr tar 1
-.Sh HISTORY
-The
-.Nm
-utility appeared in
-.Bx 4.4 .
 .Sh AUTHORS
-.An Keith Muller
-at the University of California, San Diego
-.Sh DIAGNOSTICS
-The
-.Nm
-utility will exit with one of the following values:
-.Bl -tag -width 2n
-.It 0
-All files were processed successfully.
-.It 1
-An error occurred.
-.El
-.Pp
-Whenever
-.Nm
-cannot create a file or a link when reading an archive or cannot
-find a file when writing an archive, or cannot preserve the user ID,
-group ID, or file mode when the
-.Fl p
-option is specified, a diagnostic message is written to
-.Dv standard error
-and a non-zero exit status will be returned, but processing will continue.
-In the case where pax cannot create a link to a file,
-.Nm
-will not create a second copy of the file.
-.Pp
-If the extraction of a file from an archive is prematurely terminated by
-a signal or error,
-.Nm
-may have only partially extracted a file the user wanted.
-Additionally, the file modes of extracted files and directories
-may have incorrect file bits, and the modification and access times may be
-wrong.
-.Pp
-If the creation of an archive is prematurely terminated by a signal or error,
-.Nm
-may have only partially created the archive which may violate the specific
-archive format specification.
-.Pp
-If while doing a
-.Em copy ,
-.Nm
-detects a file is about to overwrite itself, the file is not copied,
-a diagnostic message is written to
-.Dv standard error
-and when
-.Nm
-completes it will exit with a non-zero exit status.
-.Sh BUGS
-The
-.Nm
-utility does not recognize multibyte characters.
+Keith Muller at the University of California, San Diego.

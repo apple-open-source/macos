@@ -1,7 +1,7 @@
 #  +----------------------------------------------------------------------+
-#  | PHP Version 4                                                        |
+#  | PHP Version 5                                                        |
 #  +----------------------------------------------------------------------+
-#  | Copyright (c) 1997-2006 The PHP Group                                |
+#  | Copyright (c) 1997-2007 The PHP Group                                |
 #  +----------------------------------------------------------------------+
 #  | This source file is subject to version 3.01 of the PHP license,      |
 #  | that is bundled with this package in the file LICENSE, and is        |
@@ -14,7 +14,7 @@
 #  | Author: Sascha Schumann <sascha@schumann.cx>                         |
 #  +----------------------------------------------------------------------+
 #
-# $Id: build.mk,v 1.18.2.1.4.2 2006/01/01 13:46:49 sniper Exp $ 
+# $Id: build.mk,v 1.26.2.2.2.2 2007/02/15 20:42:24 nlopess Exp $ 
 #
 #
 # Makefile to generate build tools
@@ -45,7 +45,7 @@ $(STAMP): build/buildcheck.sh
 snapshot:
 	distname='$(DISTNAME)'; \
 	if test -z "$$distname"; then \
-		distname='php4-snapshot'; \
+		distname='php5-snapshot'; \
 	fi; \
 	myname=`basename \`pwd\`` ; \
 	cd .. && cp -rp $$myname $$distname; \
@@ -67,7 +67,7 @@ snapshot:
 
 cvsclean-work:
 	@for i in `find . -name .cvsignore`; do \
-		(cd `dirname $$i` 2>/dev/null && rm -rf `cat .cvsignore | grep -v config.nice` *.o *.a .libs || true); \
+		(cd `dirname $$i` 2>/dev/null && rm -rf `cat .cvsignore | grep -v config.nice | sed 's/[\r\n]/ /g'` *.o *.a .libs || true); \
 	done
 
-.PHONY: $(ALWAYS) snapshot cvsclean
+.PHONY: $(ALWAYS) snapshot

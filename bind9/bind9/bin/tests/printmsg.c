@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: printmsg.c,v 1.25.2.2.8.2 2004/03/08 04:04:26 marka Exp $ */
+/* $Id: printmsg.c,v 1.27 2004/03/05 04:58:39 marka Exp $ */
 
 #include <config.h>
 

@@ -40,8 +40,16 @@
 .Dt PRINTF_L 3
 .Os
 .Sh NAME
-.Nm printf_l , fprintf_l , sprintf_l , snprintf_l , asprintf_l ,
-.Nm vprintf_l , vfprintf_l , vsprintf_l , vsnprintf_l , vasprintf_l
+.Nm asprintf_l ,
+.Nm fprintf_l ,
+.Nm printf_l ,
+.Nm snprintf_l ,
+.Nm sprintf_l ,
+.Nm vasprintf_l ,
+.Nm vfprintf_l ,
+.Nm vprintf_l ,
+.Nm vsnprintf_l ,
+.Nm vsprintf_l
 .Nd formatted output conversion
 .Sh LIBRARY
 .Lb libc
@@ -49,26 +57,77 @@
 .In stdio.h
 .In xlocale.h
 .Ft int
-.Fn printf_l "locale_t loc" "const char * restrict format" ...
+.Fo asprintf_l
+.Fa "char **ret"
+.Fa "locale_t loc"
+.Fa "const char *format"
+.Fa ...
+.Fc
 .Ft int
-.Fn fprintf_l "FILE * restrict stream" "locale_t loc" "const char * restrict format" ...
+.Fo fprintf_l
+.Fa "FILE * restrict stream"
+.Fa "locale_t loc"
+.Fa "const char * restrict format"
+.Fa ...
+.Fc
 .Ft int
-.Fn sprintf_l "char * restrict str" "locale_t loc" "const char * restrict format" ...
+.Fo printf_l
+.Fa "locale_t loc"
+.Fa "const char * restrict format"
+.Fa ...
+.Fc
 .Ft int
-.Fn snprintf_l "char * restrict str" "size_t size" "locale_t loc" "const char * restrict format" ...
+.Fo snprintf_l
+.Fa "char * restrict str"
+.Fa "size_t size"
+.Fa "locale_t loc"
+.Fa "const char * restrict format"
+.Fa ...
+.Fc
 .Ft int
-.Fn asprintf_l "char **ret" "locale_t loc" "const char *format" ...
+.Fo sprintf_l
+.Fa "char * restrict str"
+.Fa "locale_t loc"
+.Fa "const char * restrict format"
+.Fa ...
+.Fc
 .In stdarg.h
+.In xlocale.h
 .Ft int
-.Fn vprintf_l "locale_t loc" "const char * restrict format" "va_list ap"
+.Fo vasprintf_l
+.Fa "char **ret"
+.Fa "locale_t loc"
+.Fa "const char *format"
+.Fa "va_list ap"
+.Fc
 .Ft int
-.Fn vfprintf_l "FILE * restrict stream" "locale_t loc" "const char * restrict format" "va_list ap"
+.Fo vfprintf_l
+.Fa "FILE * restrict stream"
+.Fa "locale_t loc"
+.Fa "const char * restrict format"
+.Fa "va_list ap"
+.Fc
 .Ft int
-.Fn vsprintf_l "char * restrict str" "locale_t loc" "const char * restrict format" "va_list ap"
+.Fo vprintf_l
+.Fa "locale_t loc"
+.Fa "const char * restrict format"
+.Fa "va_list ap"
+.Fc
 .Ft int
-.Fn vsnprintf_l "char * restrict str" "size_t size" "locale_t loc" "const char * restrict format" "va_list ap"
+.Fo vsnprintf_l
+.Fa "char * restrict str"
+.Fa "size_t size"
+.Fa "locale_t loc"
+.Fa "const char * restrict format"
+.Fa "va_list ap"
+.Fc
 .Ft int
-.Fn vasprintf_l "char **ret" "locale_t loc" "const char *format" "va_list ap"
+.Fo vsprintf_l
+.Fa "char * restrict str"
+.Fa "locale_t loc"
+.Fa "const char * restrict format"
+.Fa "va_list ap"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn printf_l ,

@@ -3,7 +3,7 @@
  * Rob Siemborski
  * Tim Martin
  * split from common.c by Rolf Braun
- * $Id: seterror.c,v 1.4 2004/07/07 22:48:35 snsimon Exp $
+ * $Id: seterror.c,v 1.5 2006/02/03 22:33:14 snsimon Exp $
  */
 
 /* 
@@ -145,7 +145,7 @@ void sasl_seterror(sasl_conn_t *conn,
   {
     if (fmt[pos]!='%') /* regular character */
     {
-      result = _buf_alloc(error_buf, error_buf_len, outlen+1);
+      result = _buf_alloc((void **)error_buf, error_buf_len, outlen+1);
       if (result != SASL_OK)
 	return;
       (*error_buf)[outlen]=fmt[pos];
@@ -175,7 +175,7 @@ void sasl_seterror(sasl_conn_t *conn,
 	    break;
 
 	  case '%': /* double % output the '%' character */
-	    result = _buf_alloc(error_buf, error_buf_len, outlen+1);
+	    result = _buf_alloc((void **)error_buf, error_buf_len, outlen+1);
 	    if (result != SASL_OK)
 	      return;
 	    (*error_buf)[outlen]='%';

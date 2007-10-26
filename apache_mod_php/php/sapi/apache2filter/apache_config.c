@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,9 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: apache_config.c,v 1.28.2.1.8.3 2007/01/01 09:46:51 sebastian Exp $ */
+/* $Id: apache_config.c,v 1.34.2.1.2.3 2007/08/03 09:33:30 jani Exp $ */
+
+#define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
 #include "php.h"
 #include "php_ini.h"
@@ -33,7 +35,7 @@
 #include "http_log.h"
 #include "http_main.h"
 #include "util_script.h"
-#include "http_core.h"                         
+#include "http_core.h"
 
 #ifdef PHP_AP_DEBUG
 #define phpapdebug(a) fprintf a
@@ -49,16 +51,15 @@ typedef struct {
 	char *value;
 	size_t value_len;
 	char status;
+	char htaccess;
 } php_dir_entry;
 
-static const char *real_value_hnd(cmd_parms *cmd, void *dummy, 
-		const char *name, const char *value, int status)
+static const char *real_value_hnd(cmd_parms *cmd, void *dummy, const char *name, const char *value, int status)
 {
 	php_conf_rec *d = dummy;
 	php_dir_entry e;
 
-	phpapdebug((stderr, "Getting %s=%s for %p (%d)\n", name, value, dummy, 
-				zend_hash_num_elements(&d->config)));
+	phpapdebug((stderr, "Getting %s=%s for %p (%d)\n", name, value, dummy, zend_hash_num_elements(&d->config)));
 	
 	if (!strncasecmp(value, "none", sizeof("none"))) {
 		value = "";
@@ -67,26 +68,23 @@ static const char *real_value_hnd(cmd_parms *cmd, void *dummy,
 	e.value = apr_pstrdup(cmd->pool, value);
 	e.value_len = strlen(value);
 	e.status = status;
-	
-	zend_hash_update(&d->config, (char *) name, strlen(name) + 1, &e, 
-			sizeof(e), NULL);
+	e.htaccess = ((cmd->override & (RSRC_CONF|ACCESS_CONF)) == 0);
+
+	zend_hash_update(&d->config, (char *) name, strlen(name) + 1, &e, sizeof(e), NULL);
 	return NULL;
 }
 
-static const char *php_apache_value_handler(cmd_parms *cmd, void *dummy, 
-		const char *name, const char *value)
+static const char *php_apache_value_handler(cmd_parms *cmd, void *dummy, const char *name, const char *value)
 {
 	return real_value_hnd(cmd, dummy, name, value, PHP_INI_PERDIR);
 }
 
-static const char *php_apache_admin_value_handler(cmd_parms *cmd, void *dummy, 
-		const char *name, const char *value)
+static const char *php_apache_admin_value_handler(cmd_parms *cmd, void *dummy, const char *name, const char *value)
 {
 	return real_value_hnd(cmd, dummy, name, value, PHP_INI_SYSTEM);
 }
 
-static const char *real_flag_hnd(cmd_parms *cmd, void *dummy, const char *arg1,
-		const char *arg2, int status)
+static const char *real_flag_hnd(cmd_parms *cmd, void *dummy, const char *arg1, const char *arg2, int status)
 {
 	char bool_val[2];
 
@@ -100,24 +98,20 @@ static const char *real_flag_hnd(cmd_parms *cmd, void *dummy, const char *arg1,
 	return real_value_hnd(cmd, dummy, arg1, bool_val, status);
 }
 
-static const char *php_apache_flag_handler(cmd_parms *cmd, void *dummy, 
-		const char *name, const char *value)
+static const char *php_apache_flag_handler(cmd_parms *cmd, void *dummy, const char *name, const char *value)
 {
 	return real_flag_hnd(cmd, dummy, name, value, PHP_INI_PERDIR);
 }
 
-static const char *php_apache_admin_flag_handler(cmd_parms *cmd, void *dummy, 
-		const char *name, const char *value)
+static const char *php_apache_admin_flag_handler(cmd_parms *cmd, void *dummy, const char *name, const char *value)
 {
 	return real_flag_hnd(cmd, dummy, name, value, PHP_INI_SYSTEM);
 }
 
-static const char *php_apache_phpini_set(cmd_parms *cmd, void *mconfig, 
-		const char *arg)
+static const char *php_apache_phpini_set(cmd_parms *cmd, void *mconfig, const char *arg)
 {
 	if (apache2_php_ini_path_override) {
-		return "Only first PHPINIDir directive honored per configuration tree "
-			"- subsequent ones ignored";
+		return "Only first PHPINIDir directive honored per configuration tree - subsequent ones ignored";
 	}
 	apache2_php_ini_path_override = ap_server_root_relative(cmd->pool, arg);
 	return NULL;
@@ -178,8 +172,7 @@ void apply_config(void *dummy)
 			zend_hash_move_forward(&d->config)) {
 		zend_hash_get_current_data(&d->config, (void **) &data);
 		phpapdebug((stderr, "APPLYING (%s)(%s)\n", str, data->value));
-		if (zend_alter_ini_entry(str, str_len, data->value, data->value_len, 
-					data->status, PHP_INI_STAGE_RUNTIME) == FAILURE) {
+		if (zend_alter_ini_entry(str, str_len, data->value, data->value_len, data->status, data->htaccess?PHP_INI_STAGE_HTACCESS:PHP_INI_STAGE_ACTIVATE) == FAILURE) {
 			phpapdebug((stderr, "..FAILED\n"));
 		}	
 	}
@@ -187,17 +180,12 @@ void apply_config(void *dummy)
 
 const command_rec php_dir_cmds[] =
 {
-	AP_INIT_TAKE2("php_value", php_apache_value_handler, NULL, OR_OPTIONS,
-                  "PHP Value Modifier"),
-	AP_INIT_TAKE2("php_flag", php_apache_flag_handler, NULL, OR_OPTIONS,
-                  "PHP Flag Modifier"),
-	AP_INIT_TAKE2("php_admin_value", php_apache_admin_value_handler, NULL, 
-			ACCESS_CONF|RSRC_CONF, "PHP Value Modifier (Admin)"),
-	AP_INIT_TAKE2("php_admin_flag", php_apache_admin_flag_handler, NULL, 
-			ACCESS_CONF|RSRC_CONF, "PHP Flag Modifier (Admin)"),
-	AP_INIT_TAKE1("PHPINIDir", php_apache_phpini_set, NULL, RSRC_CONF,
-                  "Directory containing the php.ini file"),
-   {NULL}
+	AP_INIT_TAKE2("php_value", php_apache_value_handler, NULL, OR_OPTIONS, "PHP Value Modifier"),
+	AP_INIT_TAKE2("php_flag", php_apache_flag_handler, NULL, OR_OPTIONS, "PHP Flag Modifier"),
+	AP_INIT_TAKE2("php_admin_value", php_apache_admin_value_handler, NULL, ACCESS_CONF|RSRC_CONF, "PHP Value Modifier (Admin)"),
+	AP_INIT_TAKE2("php_admin_flag", php_apache_admin_flag_handler, NULL, ACCESS_CONF|RSRC_CONF, "PHP Flag Modifier (Admin)"),
+	AP_INIT_TAKE1("PHPINIDir", php_apache_phpini_set, NULL, RSRC_CONF, "Directory containing the php.ini file"),
+	{NULL}
 };
 
 static apr_status_t destroy_php_config(void *data)
@@ -212,8 +200,7 @@ static apr_status_t destroy_php_config(void *data)
 
 void *create_php_config(apr_pool_t *p, char *dummy)
 {
-    php_conf_rec *newx =
-    (php_conf_rec *) apr_pcalloc(p, sizeof(*newx));
+	php_conf_rec *newx = (php_conf_rec *) apr_pcalloc(p, sizeof(*newx));
 
 	phpapdebug((stderr, "Creating new config (%p) for %s\n", newx, dummy));
 	zend_hash_init(&newx->config, 0, NULL, NULL, 1);

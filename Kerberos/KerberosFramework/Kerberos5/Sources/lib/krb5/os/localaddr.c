@@ -33,7 +33,6 @@
  * XNS support is untested, but "Should just work".  (Hah!)
  */
 
-#define NEED_SOCKETS
 #include "k5-int.h"
 
 #if !defined(_WIN32)
@@ -416,6 +415,23 @@ get_linux_ipv6_addrs ()
 
 #ifdef HAVE_IFADDRS_H
 
+static int
+is_loopback_address(struct sockaddr *sa)
+{
+    switch (sa->sa_family) {
+    case AF_INET: {
+	struct sockaddr_in *s4 = (struct sockaddr_in *)sa;
+	return s4->sin_addr.s_addr == htonl(INADDR_LOOPBACK);
+    }
+    case AF_INET6: {
+	struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)sa;
+	return IN6_IS_ADDR_LOOPBACK(&s6->sin6_addr);
+    }
+    default:
+	return 0;
+    }
+}
+
 int
 foreach_localaddr (/*@null@*/ void *data,
 		   int (*pass1fn) (/*@null@*/ void *, struct sockaddr *) /*@*/,
@@ -437,7 +453,7 @@ foreach_localaddr (/*@null@*/ void *data,
 #endif
 	if ((ifp->ifa_flags & IFF_UP) == 0)
 	    continue;
-	if (ifp->ifa_flags & IFF_LOOPBACK) {
+	if (is_loopback_address(ifp->ifa_addr)) {
 	    /* Pretend it's not up, so the second pass will skip
 	       it.  */
 	    ifp->ifa_flags &= ~IFF_UP;
@@ -460,7 +476,7 @@ foreach_localaddr (/*@null@*/ void *data,
 	for (ifp2 = ifp_head; ifp2 && ifp2 != ifp; ifp2 = ifp2->ifa_next) {
 	    if ((ifp2->ifa_flags & IFF_UP) == 0)
 		continue;
-	    if (ifp2->ifa_flags & IFF_LOOPBACK)
+	    if (is_loopback_address(ifp2->ifa_addr))
 		continue;
 	    if (addr_eq (ifp->ifa_addr, ifp2->ifa_addr)) {
 		match = 1;

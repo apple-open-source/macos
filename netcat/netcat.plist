@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>nc</string>
+	<key>OpenSourceVersion</key>
+	<string>HEAD</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.openbsd.org/cgi-bin/cvsweb/src/usr.bin/nc/</string>
+	<key>OpenSourceCVS</key>
+	<string>cvs -d :ext:anoncvs@anoncvs1.usa.openbsd.org:/cvs co src/usr.bin/nc</string>
+	<key>OpenSourceImportDate</key>
+	<string>2005-10-07</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Disabled -S and -j options, unsupported on Mac OS X.</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>netcat.txt</string>
+</dict>
+</plist>

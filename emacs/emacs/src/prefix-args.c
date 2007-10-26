@@ -1,5 +1,6 @@
 /* prefix-args.c - echo each argument, prefixed by a string.
-   Copyright (C) 1992 Free Software Foundation, Inc.
+   Copyright (C) 1992, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Jim Blandy <jimb@occs.cs.oberlin.edu> - September 1992
 
@@ -42,6 +43,14 @@ Boston, MA 02111-1307, USA.  */
 
    If I can't write a completely portable program to do this in C,
    I'm quitting and taking up gardening.  */
+
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
+
+#if STDC_HEADERS
+# include <stdlib.h>		/* for proper declaration of `exit' */
+#endif
 
 #include <stdio.h>
 
@@ -71,3 +80,6 @@ Echo each ARG preceded by PREFIX and a space.\n", progname);
 
   exit (0);
 }
+
+/* arch-tag: 08136d70-e5c0-49c7-bcd8-b4850233977a
+   (do not change this comment) */

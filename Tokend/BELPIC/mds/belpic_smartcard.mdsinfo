@@ -13,7 +13,7 @@
 	<key>ScVersion</key>
 	<string>unknown</string>
 	<key>ScFirmwareVersion</key>
-	<string>unknown</string>
+	<string>BELPICViewerPlugin</string>
 	<key>ScFlags</key>			<!-- @@@ dynamic -->
 	<integer>0</integer>
 	<key>ScCustomFlags</key>

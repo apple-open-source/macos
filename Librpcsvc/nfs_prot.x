@@ -53,7 +53,7 @@
 %/*static char sccsid[] = "from: @(#)nfs_prot.x 1.2 87/10/12 Copyr 1987 Sun Micro";*/
 %/*static char sccsid[] = "from: @(#)nfs_prot.x	2.1 88/08/01 4.0 RPCSRC";*/
 %/*static char rcsid[] = "from FreeBSD: nfs_prot.x,v 1.4 1997/04/18 12:31:27 dfr Exp $";*/
-%static char rcsid[] = "$Id: nfs_prot.x,v 1.2 2000/03/05 02:04:44 wsanchez Exp $";
+%static char rcsid[] = "$Id: nfs_prot.x,v 1.2.12.1 2005/09/08 17:08:20 majka Exp $";
 %#endif /* not lint */
 #endif
 
@@ -328,8 +328,15 @@ const NFS3_WRITEVERFSIZE = 8;	/* size of the verifier used for WRITE */
 
 typedef unsigned hyper uint64;
 typedef hyper int64;
+
+#ifdef __LP64__
+typedef unsigned int uint32;
+typedef int int32;
+#else
 typedef unsigned long uint32;
 typedef long int32;
+#endif
+
 typedef string filename3<>;
 typedef string nfspath3<>;
 typedef uint64 fileid3;

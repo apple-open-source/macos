@@ -44,7 +44,6 @@
 .Op Fl m Ar mode
 .Nm fsck
 .Op Fl b Ar block#
-.Op Fl c Ar level
 .Op Fl l Ar maxparallel
 .Op Fl q
 .Op Fl y
@@ -70,9 +69,9 @@ Filesystems with pass number 1 (normally just the root filesystem)
 are checked one at a time.
 When pass 1 completes, all remaining filesystems are checked,
 running one process per disk drive.
-The disk drive containing each filesystem is inferred from the longest prefix
-of the device name that ends in a digit; the remaining characters are assumed
-to be the partition designator.
+The disk drive containing each filesystem is inferred from the shortest prefix
+of the device name that ends in one or more digits; the remaining characters
+are assumed to be the partition designator.
 In preening mode,
 filesystems that are marked clean are skipped.
 Filesystems are marked clean when they are unmounted,
@@ -189,39 +188,6 @@ except for
 .Ql CONTINUE? ,
 which is assumed to be affirmative;
 do not open the filesystem for writing.
-.It Fl c
-Convert the filesystem to the specified level.
-Note that the level of a filesystem can only be raised.
-.Bl -tag
-There are currently four levels defined:
-.It 0
-The filesystem is in the old (static table) format.
-.It 1
-The filesystem is in the new (dynamic table) format.
-.It 2
-The filesystem supports 32-bit uid's and gid's,
-short symbolic links are stored in the inode, 
-and directories have an added field showing the file type.
-.It 3
-If maxcontig is greater than one,
-build the free segment maps to aid in finding contiguous sets of blocks.
-If maxcontig is equal to one, delete any existing segment maps.
-.El
-.Pp
-In interactive mode,
-.Nm fsck
-will list the conversion to be made
-and ask whether the conversion should be done.
-If a negative answer is given,
-no further operations are done on the filesystem.
-In preen mode,
-the conversion is listed and done if
-possible without user interaction.
-Conversion in preen mode is best used when all the filesystems
-are being converted at once.
-The format of a filesystem can be determined from the
-first line of output from 
-.Xr dumpfs 8 .
 .El
 .Pp
 If no filesystems are given to 

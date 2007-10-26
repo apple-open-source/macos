@@ -41,6 +41,9 @@ top - display and update sorted information about processes
 .br
 .RB [ \-h ]
 .br
+.RB [ \-i
+.IR <interval> ]
+.br
 .RB [ \-k ]
 .br
 .RB [ \-L
@@ -52,6 +55,11 @@ top - display and update sorted information about processes
 .IR <key> ]
 .RB [ \-O
 .IR <skey> ]
+.br
+.RB [ \-p
+.IR <format> ]
+.RB [ \-P
+.IR <legend> ]
 .br
 .RB [ \-R
 | 
@@ -84,8 +92,8 @@ top - display and update sorted information about processes
 .SH DESCRIPTION
 The
 .B top
-program periodically displays a list of processes on the system in sorted order.
-The default key for sorting is pid, but other keys can be used instead.
+program periodically displays a sorted list of system processes.
+The default sorting key is pid, but other keys can be used instead.
 Various output options are available.
 .SH OPTIONS
 Command line option specifications are processed from left to right.
@@ -138,15 +146,19 @@ Deprecated, equivalent to
 .TP
 .B \-F
 Do not calculate statistics on shared libraries, also known as frameworks.
-This substantially reduces the amount of processor time
-.B top
-consumes.
 .TP
-.B \-f
+.B \-f 
 Calculate statistics on shared libraries, also known as frameworks (default).
 .TP
 .B \-h
 Print command line usage information and exit.
+.TP
+.BI \-i " " "" <interval>
+Update framework (-f) info every 
+.I <interval> 
+samples; see the 
+.B PERFORMANCE vs. ACCURACY
+section below for more details.
 .TP
 .B \-k
 Deprecated (does nothing).
@@ -154,7 +166,7 @@ This flag used to turn on memory object reporting for process 0 (kernel_task),
 but this is now done by default.
 .TP
 .B \-L
-Use interactive (non-logging) mode.
+Use non-logging mode.
 If not running on a terminal, exit with an error rather than running in
 logging mode.
 .TP
@@ -164,6 +176,8 @@ Use logging mode and display
 samples, even if standard output is a terminal.
 0 is treated as infinity.
 Rather than redisplaying, output is periodically printed in raw form.
+Note that the first sample displayed will have an invalid %CPU displayed
+for each process, as it is calculated using the delta between samples.
 .TP
 .BI \-n " " "" <nprocs>
 Only display up to
@@ -205,7 +219,7 @@ Command name.
 CPU usage.
 .TP
 .B pid
-Process ID (default).
+Process ID (default)..
 .TP
 .B prt
 Number of Mach ports.
@@ -241,11 +255,17 @@ Private address space size.
 Total memory size.
 .RE
 .TP
+.BI \-P " " "" <legend>
+Set a custom legend string (containing the column headings); this should usually
+be used with a custom format string.
+.TP
+.BI \-p " " "" <format>
+Set a custom format string to display process info; see the
+.B CUSTOM DISPLAY FORMAT
+section for more information on this option.
+.TP
 .B \-R
 Do not traverse and report the memory object map for each process.
-This substantially reduces the amount of processor time
-.B top
-consumes.
 .TP
 .B \-r
 Traverse and report the memory object map for each process (default).
@@ -289,24 +309,10 @@ or
 .BR - .
 .TP
 .B \-X
-Run in compatibility mode.
+Run using the legacy display format.
 .TP
 .B \-x
-Do not run in compatibility mode (default).
-This causes
-.B top
-to display output in the same format as the version of top included with
-Jaguar.
-Specifying this flag in combination with options that did not exist in Jaguar's
-.B top
-may produce meaningless output in some cases.
-For documentation on the usage and output of Jaguar's
-.BR top ,
-see top(1) on a Jaguar system.
-When this option is specified, all interactive key bindings are the same as in
-Jaguar's top, except that the
-.B x
-key switches to compatibility mode.
+Run using the nominal display format. 
 .TP
 .SH DISPLAY
 The first several lines of the
@@ -436,7 +442,7 @@ Total address space allocated, including shared pages.
 .SH INTERACTION
 When
 .B top
-is run in interactive mode, it is possible to control the output of
+is run in interactive (non-logging) mode, it is possible to control the output of
 .BR top ,
 as well as interactively send signals to processes.
 The interactive command syntax is terse.
@@ -449,7 +455,6 @@ enter.
 escapes the interactive argument prompt, and has the same effect as leaving
 the input field blank and pressing enter.
 .PP
-Keypresses that do not correspond to a command cause an immediate sample update.
 The following commands are supported:
 .TP
 .BR ?
@@ -591,7 +596,117 @@ To display all processes, press enter without entering a username or uid number.
 Toggle wide/narrow delta mode.
 .TP
 .B x
-Toggle deprecated/normal mode.
+Toggle display formats.
+.SH PERFORMANCE vs. ACCURACY
+Calculating detailed memory statistics is fundamentally resource-intensive.
+To reduce the cpu usage in top, the
+.I \-i
+parameter has been introduced to allow the user to tune this tradeoff.  With the 
+default value of 10, framework stats will be updated once every 10 samples.
+Specifying
+.I \-i
+1 will result in the most accurate display, at the expense of system resources.
+.SH CUSTOM DISPLAY FORMATS
+Users who would like to change the format of the top process display lines may
+use the
+.I \-p
+option to specify a custom format.  Any number of fields may be specified, and
+the the order of these fields and their widths may be specified by using the
+following special syntax.
+.PP
+The following fields are available:
+.TP
+.B a
+Process ID (PID)
+.TP
+.B b
+command string
+.TP
+.B c
+CPU usage (percentage)
+.TP
+.B d
+CPU usage (time)
+.TP
+.B e
+threads
+.TP
+.B f
+Mach ports
+.TP
+.B g
+memory regions
+.TP
+.B h
+RPRVT
+.TP
+.B i
+RSHRD
+.TP
+.B j
+RSIZE
+.TP
+.B k
+VPRVT
+.TP
+.B l
+VSIZE
+.TP
+.B m
+UID
+.TP
+.B n
+username
+.TP
+.B o
+page faults
+.TP
+.B p
+pageins
+.TP
+.B q
+COW faults
+.TP
+.B r
+messages sent
+.TP
+.B s
+messages received
+.TP
+.B t
+bsyscall
+.TP
+.B u
+msyscall
+.TP
+.B v
+cswitch
+.TP
+.B w
+time (in HH:MM:SS) format
+.PP
+Each format specification is introduced by either the carat (^) character
+(indicating left justification) or the dollar ($) character (indicating 
+right justification).  It is then followed by the desired format character; this
+character may be repeated to delineate the field width.  (For example,
+'^aaaaa' will produce a left-justified PID field of width 6.)
+.PP
+Certain fields (f, h, i, j, l) may be followed by one or more dash (-) characters;
+this will cause a delta to be displayed.   One dash will display `-', `+' or ' '
+to indicate a decrease, increase, or no change in the value.  Multiple dashes will
+result in an actual delta value being displayed.
+.PP
+The backslash character may be used to escape any character, including itself.
+Any other character will be displayed as a literal.
+.PP
+The
+.I -P
+flag may be used to specify a custom legend line.  Specifying either
+.I -P
+or
+.I -p
+without a following format string will cause top to display the default legend
+and format for the selected display mode.
 .SH EXAMPLES
 .TP
 top -ocpu -O+rsize -s 5 -n 20
@@ -605,8 +720,11 @@ Run top in event counter mode.
 top -tl 10
 Translate uid numbers to usernames and run in logging mode, taking 10 samples
 at 2 second intervals.
+.TP
+top -P '  PID COMMAND      %CPU   TIME   #TH #PRTS #MREGS RPRVT  RSHRD  RSIZE  VSIZE' \\
+    -p '$aaaa ^bbbbbbbbb $cccc% $wwwwwww $ee $ffff-$ggggg $hhhh- $iiii- $jjjj- $llll-'
+This will recreate the default process display. 
 .SH SEE ALSO
 kill(2),
-top(1)[Jaguar],
 vm_stat(1),
 signal(3)

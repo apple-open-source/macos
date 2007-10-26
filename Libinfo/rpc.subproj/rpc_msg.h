@@ -64,7 +64,11 @@
 #ifndef _RPC_RPCMSG_H
 #define _RPC_RPCMSG_H
 
+#ifdef __LP64__
+#define RPC_MSG_VERSION		((unsigned int) 2)
+#else
 #define RPC_MSG_VERSION		((unsigned long) 2)
+#endif
 #define RPC_SERVICE_PORT	((unsigned short) 2048)
 
 /*
@@ -111,8 +115,13 @@ struct accepted_reply {
 	enum accept_stat	ar_stat;
 	union {
 		struct {
-			unsigned long	low;
-			unsigned long	high;
+#ifdef __LP64__
+			unsigned int low;
+			unsigned int high;
+#else
+			unsigned long low;
+			unsigned long high;
+#endif
 		} AR_versions;
 		struct {
 			caddr_t	where;
@@ -131,8 +140,13 @@ struct rejected_reply {
 	enum reject_stat rj_stat;
 	union {
 		struct {
+#ifdef __LP64__
+			unsigned int low;
+			unsigned int high;
+#else
 			unsigned long low;
 			unsigned long high;
+#endif
 		} RJ_versions;
 		enum auth_stat RJ_why;  /* why authentication did not work */
 	} ru;
@@ -157,10 +171,17 @@ struct reply_body {
  * Body of an rpc request call.
  */
 struct call_body {
+#ifdef __LP64__
+	unsigned int cb_rpcvers;	/* must be equal to two */
+	unsigned int cb_prog;
+	unsigned int cb_vers;
+	unsigned int cb_proc;
+#else
 	unsigned long cb_rpcvers;	/* must be equal to two */
 	unsigned long cb_prog;
 	unsigned long cb_vers;
 	unsigned long cb_proc;
+#endif
 	struct opaque_auth cb_cred;
 	struct opaque_auth cb_verf; /* protocol specific - provided by client */
 };
@@ -169,7 +190,11 @@ struct call_body {
  * The rpc message
  */
 struct rpc_msg {
+#ifdef __LP64__
+	unsigned int			rm_xid;
+#else
 	unsigned long			rm_xid;
+#endif
 	enum msg_type		rm_direction;
 	union {
 		struct call_body RM_cmb;

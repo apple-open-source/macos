@@ -271,7 +271,7 @@ const char *program_name,
 char **error_message);
 
 #if __cplusplus
-};
+}
 #endif /* __cplusplus */
 
 #endif /* _MACH_O_REDO_PREBINDING_H_ */

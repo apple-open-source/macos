@@ -5,7 +5,7 @@
 int main (int argc, const char * argv[]) {
     NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
 
-    char *fn = "class-bundlized.o";
+    char *fn = "class-bundlized.o2";
     NSObjectFileImage objfile_ref;
     NSObjectFileImageReturnCode retval1;
     NSModule retval2;
@@ -24,7 +24,6 @@ int main (int argc, const char * argv[]) {
     retval1 = NSCreateObjectFileImageFromFile (fn, &objfile_ref);
     retval2 = NSLinkModule (objfile_ref, fn, NSLINKMODULE_OPTION_PRIVATE);
 #endif
-
 
     /* See how the old object behaves */
 

@@ -1,9 +1,11 @@
+#if !__LP64__
+
 #ifndef __KXKEXTREPOSITORY_H__
 #define __KXKEXTREPOSITORY_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -75,8 +77,7 @@ KXKextManagerError KXKextRepositorySendCatalogFromCache(
 #if 0
 #endif 0
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif __KXKEXTREPOSITORY_H__
+#endif // !__LP64__

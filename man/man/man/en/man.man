@@ -13,8 +13,9 @@
 .\" Austin, Texas  78712
 .\"
 .\" Many changes - aeb
+.\" More changes - flc
 .\"
-.TH man 1 "September 2, 1995"
+.TH man 1 "September 19, 2005"
 .LO 1
 .SH NAME
 man \- format and display the on-line manual pages
@@ -32,6 +33,10 @@ man \- format and display the on-line manual pages
 .IR pathlist ]
 .RB [ \-P
 .IR pager ] 
+.RB [ \-B
+.IR browser ] 
+.RB [ \-H
+.IR htmlpager ] 
 .RB [ \-S 
 .IR section_list ] 
 .RI [ section ] 
@@ -88,6 +93,24 @@ variable.  By default,
 uses
 .BR "@pager@" .
 .TP
+.B \-\^B
+Specify which browser to use on HTML files. 
+This option overrides the
+.B BROWSER
+environment variable. By default,
+.B man
+uses
+.BR @browser@ ,
+.TP
+.B \-\^H
+Specify a command that renders HTML files as text. 
+This option overrides the
+.B HTMLPAGER
+environment variable. By default,
+.B man
+uses
+.BR @htmlpager@ ,
+.TP
 .B \-\^S " section_list"
 List is a colon separated list of manual sections to search.
 This option overrides the
@@ -125,7 +148,7 @@ Equivalent to
 Format only - do not display.
 .TP
 .B \-\^h
-Print a one-line help message and exit.
+Print a help message and exit.
 .TP
 .B \-\^k
 Equivalent to
@@ -158,8 +181,14 @@ Use
 .B @troff@
 to format the manual page, passing the output to 
 .B stdout.
-The output from
+The default output format of
+.B @troff@ 
+is Postscript, refer to the manual page of
 .B @troff@
+for ways to pick an alternate format.
+.PP
+Depending on the selected format and the availability of printing
+devices, the output
 may need to be passed through some filter or another before being
 printed.
 .TP
@@ -206,6 +235,13 @@ The option
 .B \-c
 forces reformatting a page, even if a recent cat page exists.
 
+.SH "HTML PAGES"
+Man will find HTML pages if they live in directories named as
+'html' followed by a section extension.  The last file extension is
+expected to be ".html", thus a valid name for an HTML version of the
+.BR ls (1)
+man page would be
+.IR /usr/share/man/htmlman1/ls.1.html .
 
 .SH "SEARCH PATH FOR MANUAL PAGES"
 .B man
@@ -385,6 +421,14 @@ is used. If that has no value either,
 .B @pager@
 is used.
 .TP
+.B BROWSER
+The name of a browser to use for displaying HTML manual pages.  If
+it is not set, @browser@ is used.
+.TP
+.B HTMLPAGER
+The command to use for rendering HTML manual pages as text.  If
+it is not set, @htmlpager@ is used.
+.TP
 .B LANG
 If
 .B LANG
@@ -420,8 +464,6 @@ is used to get the default alternate system name (for use
 with the
 .B \-m
 option). 
-.SH "SEE ALSO"
-apropos(1), whatis(1), less(1), groff(1), man.conf(5).
 .SH BUGS
 The
 .B \-t
@@ -443,4 +485,10 @@ To get a plain text version of a man page, without backspaces
 and underscores, try
 
   # man foo | col -b > foo.mantxt
-
+.SH AUTHOR
+John W. Eaton was the original author of
+.BR "man" .
+Zeyd M. Ben-Halim released man 1.2, and Andries Brouwer followed up with versions 1.3 thru 1.5p.
+Federico Lucifredi <flucifredi@acm.org> is the current maintainer.
+.SH "SEE ALSO"
+apropos(1), whatis(1), less(1), groff(1), man.conf(5).

@@ -134,9 +134,9 @@ static unsigned binhash_hash(const char *key, int len, unsigned size)
      */
 
     while (len-- > 0) {
-	h = (h << 4) + *key++;
+	h = (h << 4U) + *key++;
 	if ((g = (h & 0xf0000000)) != 0) {
-	    h ^= (g >> 24);
+	    h ^= (g >> 24U);
 	    h ^= g;
 	}
     }
@@ -146,11 +146,11 @@ static unsigned binhash_hash(const char *key, int len, unsigned size)
 /* binhash_link - insert element into table */
 
 #define binhash_link(table, elm) { \
-    BINHASH_INFO **h = table->data + binhash_hash(elm->key, elm->key_len, table->size);\
+    BINHASH_INFO **_h = table->data + binhash_hash(elm->key, elm->key_len, table->size);\
     elm->prev = 0; \
-    if ((elm->next = *h) != 0) \
-	(*h)->prev = elm; \
-    *h = elm; \
+    if ((elm->next = *_h) != 0) \
+	(*_h)->prev = elm; \
+    *_h = elm; \
     table->used++; \
 }
 

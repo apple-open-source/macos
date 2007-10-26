@@ -62,6 +62,12 @@ typedef tDirReference DSRef ;
 - (id)initWithLocal;
 
 /*!
+ * @method initWithLocalPath
+ * @abstract Open a connection to the local machine's Local Only DS process.
+ */
+- (id)initWithLocalPath:(NSString*)filePath;
+
+/*!
  * @method initWithHost:user:password:
  * @abstract Open a connection to a remote machine's DS process.
  * @discussion With an admin's username and password, one can connect

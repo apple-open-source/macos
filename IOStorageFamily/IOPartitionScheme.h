@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,12 +41,26 @@
 #define kIOPartitionSchemeClass "IOPartitionScheme"
 
 /*!
+ * @defined kIOMediaLiveKey
+ * @abstract
+ * A property of IOMedia objects.
+ * @discussion
+ * The kIOMediaLiveKey property has an OSBoolean
+ * value and is placed into an IOMedia instance
+ * created via the partition scheme.  It describes whether the
+ * partition is live, that is, it is up-to-date with respect
+ * to the on-disk partition table.
+ */
+
+#define kIOMediaLiveKey "Live"
+
+/*!
  * @defined kIOMediaPartitionIDKey
  * @abstract
  * A property of IOMedia objects.
  * @discussion
  * The kIOMediaPartitionIDKey property has an OSNumber
- * value and is placed into each IOMedia instance
+ * value and is placed into an IOMedia instance
  * created via the partition scheme.  It is an ID that differentiates one 
  * partition from the other (within a given scheme).  It is typically an index
  * into the on-disk partition table.
@@ -159,6 +173,39 @@ protected:
 
     virtual void handleClose(IOService * client, IOOptionBits options);
 
+    /*
+     * Attach the given media object to the device tree plane.
+     */
+
+    virtual bool attachMediaObjectToDeviceTree(IOMedia *    media,
+                                               IOOptionBits options = 0);
+
+    OSMetaClassDeclareReservedUsed(IOPartitionScheme, 0); /* 10.5.0 */
+
+    /*
+     * Detach the given media object from the device tree plane.
+     */
+
+    virtual void detachMediaObjectFromDeviceTree(IOMedia *    media,
+                                                 IOOptionBits options = 0);
+
+    OSMetaClassDeclareReservedUsed(IOPartitionScheme, 1); /* 10.5.0 */
+
+    /*
+     * Updates a set of existing partitions, represented by partitionsOld,
+     * with possible updates from a rescan of the disk, represented by
+     * partitionsNew.  It returns a new set of partitions with the results,
+     * removing partitions from partitionsOld where applicable, adding
+     * partitions from partitionsNew where applicable, and folding in property
+     * changes to partitions from partitionsNew into partitionsOld where
+     * applicable.
+     */
+
+    virtual OSSet * juxtaposeMediaObjects(OSSet * partitionsOld,
+                                          OSSet * partitionsNew);
+
+    OSMetaClassDeclareReservedUsed(IOPartitionScheme, 2); /* 10.5.0 */
+
 public:
 
     using IOStorage::read;
@@ -189,14 +236,21 @@ public:
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion routine to call once the data transfer is complete.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    virtual void read(IOService *          client,
-                      UInt64               byteStart,
-                      IOMemoryDescriptor * buffer,
-                      IOStorageCompletion  completion);
+    virtual void read(IOService *           client,
+                      UInt64                byteStart,
+                      IOMemoryDescriptor *  buffer,
+                      IOStorageAttributes * attributes,
+                      IOStorageCompletion * completion);
 
     /*!
      * @function write
@@ -217,14 +271,21 @@ public:
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion routine to call once the data transfer is complete.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    virtual void write(IOService *          client,
-                       UInt64               byteStart,
-                       IOMemoryDescriptor * buffer,
-                       IOStorageCompletion  completion);
+    virtual void write(IOService *           client,
+                       UInt64                byteStart,
+                       IOMemoryDescriptor *  buffer,
+                       IOStorageAttributes * attributes,
+                       IOStorageCompletion * completion);
 
     /*!
      * @function synchronizeCache
@@ -246,9 +307,6 @@ public:
 
     virtual IOMedia * getProvider() const;
 
-    OSMetaClassDeclareReservedUnused(IOPartitionScheme,  0);
-    OSMetaClassDeclareReservedUnused(IOPartitionScheme,  1);
-    OSMetaClassDeclareReservedUnused(IOPartitionScheme,  2);
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  3);
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  4);
     OSMetaClassDeclareReservedUnused(IOPartitionScheme,  5);

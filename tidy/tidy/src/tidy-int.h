@@ -3,22 +3,22 @@
 
 /* tidy-int.h -- internal library declarations
 
-  (c) 1998-2003 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
 
   CVS Info :
 
-    $Author: rbraun $ 
-    $Date: 2004/05/04 20:05:14 $ 
-    $Revision: 1.1.1.1 $ 
+    $Author: iccir $ 
+    $Date: 2007/02/21 02:46:28 $ 
+    $Revision: 1.6 $ 
 
 */
 
 #include "tidy.h"
 #include "config.h"
+#include "lexer.h"
 #include "tags.h"
 #include "attrs.h"
-#include "lexer.h"
 #include "pprint.h"
 #include "access.h"
 
@@ -71,7 +71,7 @@ struct _TidyDocImpl
     uint                badForm;     /* for badly placed form tags */
 
     /* Miscellaneous */
-    ulong               appData;
+    void*               appData;
     uint                nClassId;
     Bool                inputHadBOM;
 
@@ -115,6 +115,13 @@ TidyOption   tidyImplToOption( const TidyOptionImpl* option );
 
 #endif
 
+/* Apple Changes:
+   2007-02-20 iccir Export for binary compatibility.
+*/
+#ifdef TIDY_APPLE_CHANGES
+#pragma GCC visibility push(default)
+#endif
+
 /* Create/Destroy a Tidy "document" object */
 TidyDocImpl* tidyDocCreate(void);
 void         tidyDocRelease( TidyDocImpl* impl );
@@ -146,5 +153,9 @@ int          tidyDocSaveString( TidyDocImpl* impl, tmbstr buffer, uint* buflen )
 int          tidyDocSaveBuffer( TidyDocImpl* impl, TidyBuffer* outbuf );
 int          tidyDocSaveSink( TidyDocImpl* impl, TidyOutputSink* docOut );
 int          tidyDocSaveStream( TidyDocImpl* impl, StreamOut* out );
+
+#ifdef TIDY_APPLE_CHANGES
+#pragma GCC visibility pop
+#endif
 
 #endif /* __TIDY_INT_H__ */

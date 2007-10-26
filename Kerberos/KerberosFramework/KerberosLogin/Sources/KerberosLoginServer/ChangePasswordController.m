@@ -28,7 +28,7 @@
 
 #import "KerberosAgentController.h"
 #import "ChangePasswordController.h"
-#import "ErrorAlert.h"
+#import "KerberosErrorAlert.h"
 
 #define ChangePasswordControllerString(key) NSLocalizedStringFromTable (key, @"ChangePasswordController", NULL)
 
@@ -36,7 +36,7 @@
 
 // ---------------------------------------------------------------------------
 
-- (id) initWithPrincipal: (Principal *) inPrincipal
+- (id) initWithPrincipal: (KerberosPrincipal *) inPrincipal
 {
     if ((self = [super initWithWindowNibName: @"ChangePasswordController"])) {
         dprintf ("ChangePasswordController initializing");
@@ -80,7 +80,7 @@
     }
 
     // Text Fields
-    NSString *principalString = [principal displayStringForKLVersion: kerberosVersion_V5];
+    NSString *principalString = [principal displayString];
     if (applicationNameString != NULL) {
         [headerTextField setStringValue: 
             [NSString stringWithFormat: ChangePasswordControllerString (@"ChangePasswordControllerApplicationRequest"), 
@@ -140,7 +140,7 @@
     
     if (err == klNoErr) {
         if (rejected) {
-            [ErrorAlert alertForMessage: rejectionError
+            [KerberosErrorAlert alertForMessage: rejectionError
                             description: rejectionDescription
                          modalForWindow: [self window]];
         } else {
@@ -151,7 +151,7 @@
             [self stopWithCode: err];
         }
     } else {
-        [ErrorAlert alertForError: err
+        [KerberosErrorAlert alertForError: err
                            action: KerberosChangePasswordAction
                    modalForWindow: [self window]];        
     }
@@ -204,7 +204,6 @@
     [[self window] center];
     [self showWindow: self];
     [NSApp run];
-    [self close];
     [[NSApp delegate] removeActiveWindow: [self window]];
     
     return result;
@@ -212,41 +211,32 @@
 
 // ---------------------------------------------------------------------------
 
-- (int) runSheetModalForWindow: (NSWindow *) parentWindow
+- (void) beginSheetModalForWindow: (NSWindow *) parentWindow
+                    modalDelegate: (id) modalDelegate
+                   didEndSelector: (SEL) didEndSelector
+                      contextInfo: (id) contextInfo
 {
     isSheet = YES;
     
     [NSApp beginSheet: [self window]
        modalForWindow: parentWindow 
-        modalDelegate: self 
-       didEndSelector: NULL
-          contextInfo: NULL];
-    
-    result = [NSApp runModalForWindow: [self window]];
-    
-    [self close];
-    
-    return result;
+        modalDelegate: modalDelegate 
+       didEndSelector: didEndSelector
+          contextInfo: contextInfo];
 }
 
 // ---------------------------------------------------------------------------
 
 - (void) stopWithCode: (int) returnCode
 {
+    [self close];
+
     if (isSheet) {
         [NSApp endSheet: [self window] returnCode: returnCode];
-        [NSApp stopModalWithCode: returnCode];
     } else {
         result = returnCode;
         [NSApp stop: self];
     }
-}
-
-// ---------------------------------------------------------------------------
-
-- (BOOL) worksWhenModal
-{
-    return YES;
 }
 
 @end

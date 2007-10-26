@@ -2,8 +2,8 @@
 
   sprintf.c -
 
-  $Author: matz $
-  $Date: 2004/12/08 06:22:51 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Fri Oct 15 10:39:26 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -13,6 +13,7 @@
 **********************************************************************/
 
 #include "ruby.h"
+#include "re.h"
 #include <ctype.h>
 #include <math.h>
 
@@ -107,13 +108,17 @@ sign_bits(base, p)
 	       (posarg = -1, GETNTHARG(n))))
 
 #define GETNTHARG(nth) \
-    ((nth >= argc) ? (rb_raise(rb_eArgError, "too few arguments."), 0) : argv[nth])
+    ((nth >= argc) ? (rb_raise(rb_eArgError, "too few arguments"), 0) : argv[nth])
 
 #define GETASTER(val) do { \
     t = p++; \
     n = 0; \
     for (; p < end && ISDIGIT(*p); p++) { \
-	n = 10 * n + (*p - '0'); \
+	int next_n = 10 * n + (*p - '0'); \
+        if (next_n / 10 != n) {\
+	    rb_raise(rb_eArgError, #val " too big"); \
+	} \
+	n = next_n; \
     } \
     if (p >= end) { \
 	rb_raise(rb_eArgError, "malformed format string - %%*[0-9]"); \
@@ -146,7 +151,7 @@ sign_bits(base, p)
  *
  *    Flag     | Applies to   | Meaning
  *    ---------+--------------+-----------------------------------------
- *    space    | bdeEfgGioxXu | Leave a space at the start of 
+ *    space    | bdeEfgGiouxX | Leave a space at the start of 
  *             |              | positive numbers.
  *    ---------+--------------+-----------------------------------------
  *    (digit)$ | all          | Specifies the absolute argument number
@@ -162,11 +167,11 @@ sign_bits(base, p)
  *             |              | point to be added, even if no digits follow.
  *             |              | For `g' and 'G', do not remove trailing zeros.
  *    ---------+--------------+-----------------------------------------
- *    +        | bdeEfgGioxXu | Add a leading plus sign to positive numbers.
+ *    +        | bdeEfgGiouxX | Add a leading plus sign to positive numbers.
  *    ---------+--------------+-----------------------------------------
  *    -        | all          | Left-justify the result of this conversion.
  *    ---------+--------------+-----------------------------------------
- *    0 (zero) | all          | Pad with zeros, not spaces.
+ *    0 (zero) | bdeEfgGiouxX | Pad with zeros, not spaces.
  *    ---------+--------------+-----------------------------------------
  *    *        | all          | Use the next argument as the field width. 
  *             |              | If negative, left-justify the result. If the
@@ -208,7 +213,12 @@ sign_bits(base, p)
  *        s   | Argument is a string to be substituted. If the format
  *            | sequence contains a precision, at most that many characters
  *            | will be copied.
- *        u   | Treat argument as an unsigned decimal number.
+ *        u   | Treat argument as an unsigned decimal number. Negative integers
+ *            | are displayed as a 32 bit two's complement plus one for the
+ *            | underlying architecture; that is, 2 ** 32 + n.  However, since
+ *            | Ruby has no inherent limit on bits used to represent the
+ *            | integer, this value is preceded by two dots (..) in order to
+ *            | indicate a infinite number of leading sign bits.
  *        X   | Convert argument as a hexadecimal number using uppercase
  *            | letters. Negative numbers will be displayed with two
  *            | leading periods (representing an infinite string of
@@ -225,6 +235,7 @@ sign_bits(base, p)
  *     sprintf("%1$*2$s %2$d %1$s", "hello", 8)   #=> "   hello 8 hello"
  *     sprintf("%1$*2$s %2$d", "hello", -8)       #=> "hello    -8"
  *     sprintf("%+g:% g:%-g", 1.23, 1.23, 1.23)   #=> "+1.23: 1.23:1.23"
+ *     sprintf("%u", -123)                        #=> "..4294967173"
  */
 
 VALUE
@@ -309,6 +320,10 @@ rb_f_sprintf(argc, argv)
 	  case '5': case '6': case '7': case '8': case '9':
 	    n = 0;
 	    for (; p < end && ISDIGIT(*p); p++) {
+		int next_n = 10 * n + (*p - '0');
+		if (next_n / 10 != n) {
+		    rb_raise(rb_eArgError, "width too big");
+		}
 		n = 10 * n + (*p - '0');
 	    }
 	    if (p >= end) {
@@ -405,6 +420,7 @@ rb_f_sprintf(argc, argv)
 			len = prec;
 		    }
 		}
+		/* need to adjust multi-byte string pos */
 		if (flags&FWIDTH) {
 		    if (width > len) {
 			CHECK(width);
@@ -414,7 +430,7 @@ rb_f_sprintf(argc, argv)
 				buf[blen++] = ' ';
 			    }
 			}
-			memcpy(&buf[blen], RSTRING(str)->ptr, len);
+			memcpy(&buf[blen], RSTRING_PTR(str), len);
 			blen += len;
 			if (flags&FMINUS) {
 			    while (width--) {
@@ -446,6 +462,7 @@ rb_f_sprintf(argc, argv)
 		int base, bignum = 0;
 		int len, pos;
 		VALUE tmp;
+                volatile VALUE tmp1;
 
 		switch (*p) {
 		  case 'd':
@@ -594,32 +611,29 @@ rb_f_sprintf(argc, argv)
 		    val = rb_big_clone(val);
 		    rb_big_2comp(val);
 		}
-		tmp = rb_big2str(val, base);
+		tmp1 = tmp = rb_big2str0(val, base, RBIGNUM(val)->sign);
 		s = RSTRING(tmp)->ptr;
 		if (*s == '-') {
 		    if (base == 10) {
 			rb_warning("negative number for %%u specifier");
-			s++;
 		    }
-		    else {
-			remove_sign_bits(++s, base);
-			tmp = rb_str_new(0, 3+strlen(s));
-			t = RSTRING(tmp)->ptr;
-			if (!(flags&(FPREC|FZERO))) {
-			    strcpy(t, "..");
-			    t += 2;
-			}
-			switch (base) {
-			  case 16:
-			    if (s[0] != 'f') strcpy(t++, "f"); break;
-			  case 8:
-			    if (s[0] != '7') strcpy(t++, "7"); break;
-			  case 2:
-			    if (s[0] != '1') strcpy(t++, "1"); break;
-			}
-			strcpy(t, s);
-			bignum = 2;
+		    remove_sign_bits(++s, base);
+		    tmp = rb_str_new(0, 3+strlen(s));
+		    t = RSTRING(tmp)->ptr;
+		    if (!(flags&(FPREC|FZERO))) {
+			strcpy(t, "..");
+			t += 2;
 		    }
+		    switch (base) {
+		      case 16:
+			if (s[0] != 'f') strcpy(t++, "f"); break;
+		      case 8:
+			if (s[0] != '7') strcpy(t++, "7"); break;
+		      case 2:
+			if (s[0] != '1') strcpy(t++, "1"); break;
+		    }
+		    strcpy(t, s);
+		    bignum = 2;
 		}
 		s = RSTRING(tmp)->ptr;
 
@@ -771,11 +785,12 @@ rb_f_sprintf(argc, argv)
     }
 
   sprint_exit:
-    /* XXX - We cannot validiate the number of arguments because
-     *       the format string may contain `n$'-style argument selector.
+    /* XXX - We cannot validiate the number of arguments if (digit)$ style used.
      */
-    if (RTEST(ruby_verbose) && posarg >= 0 && nextarg < argc) {
-	rb_raise(rb_eArgError, "too many arguments for format string");
+    if (posarg >= 0 && nextarg < argc) {
+	const char *mesg = "too many arguments for format string";
+	if (RTEST(ruby_debug)) rb_raise(rb_eArgError, mesg);
+	if (RTEST(ruby_verbose)) rb_warn(mesg);
     }
     rb_str_resize(result, blen);
 

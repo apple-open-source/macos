@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -28,8 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $Id: smbfs_io.c,v 1.41.38.3 2005/07/20 05:26:59 lindak Exp $
  *
  */
 #include <sys/param.h>
@@ -59,6 +59,7 @@
 #include <fs/smbfs/smbfs.h>
 #include <fs/smbfs/smbfs_node.h>
 #include <fs/smbfs/smbfs_subr.h>
+#include <sys/smb_iconv.h>
 
 #include <sys/buf.h>
 
@@ -67,32 +68,26 @@
 	#define round_page_32 round_page
 #endif
 
-/*#define SMBFS_RWGENERIC*/
-
-extern int smbfs_pbuf_freecnt;
-
 static int smbfs_fastlookup = 1;
 
 extern struct linker_set sysctl_net_smb_fs;
 
-#ifdef SYSCTL_DECL
 SYSCTL_DECL(_net_smb_fs);
-#endif
 SYSCTL_INT(_net_smb_fs, OID_AUTO, fastlookup, CTLFLAG_RW, &smbfs_fastlookup, 0, "");
 
 
 #define DE_SIZE	(int)(sizeof(struct dirent))
 
-static int
-smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
+PRIVSYM int smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
 {
 	struct dirent de;
 	struct smb_cred scred;
 	struct smbfs_fctx *ctx;
 	vnode_t newvp;
 	struct smbnode *np = VTOSMB(vp);
-	int error/*, *eofflag = ap->a_eofflag*/;
-	long offset, limit;
+	int error;
+	off_t offset;
+	user_ssize_t limit;
 
 	if (uio_resid(uio) < DE_SIZE || uio_offset(uio) < 0)
 		return (EINVAL);
@@ -102,9 +97,15 @@ smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
 	 * This cache_purge ensures that name cache for this dir will be
 	 * current - it'll only have the items for which the smbfs_nget
 	 * MAKEENTRY happened.
+	 *
+	 * We no longer make this call. Since we are calling this everytime, none of our
+	 * items  every get put in the name cache. What would be nice is to have
+	 * a way to cache purge the children and only do that if uio offset is zero. Not
+	 * sure that is worth it. Leaving the code in for now in case we run into any problems.
+	 *
+	 * if (smbfs_fastlookup)
+	 *	cache_purge(vp);
 	 */
-	if (smbfs_fastlookup)
-		cache_purge(vp);
 	SMBVDEBUG("dirname='%s'\n", np->n_name);
 	smb_scred_init(&scred, vfsctx);
 	// LP64todo - should change to handle 64-bit values
@@ -139,7 +140,7 @@ smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
 		np->n_dirofs = 2;
 		error = smbfs_smb_findopen(np, "*", 1,
 		    SMB_FA_SYSTEM | SMB_FA_HIDDEN | SMB_FA_DIR,
-		    &scred, &ctx);
+		    &scred, &ctx, NO_SFM_CONVERSIONS);
 		if (error) {
 			SMBVDEBUG("can not open search, error = %d", error);
 			return error;
@@ -169,11 +170,20 @@ smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
 		bcopy(ctx->f_name, de.d_name, de.d_namlen);
 		de.d_name[de.d_namlen] = '\0';
 		if (smbfs_fastlookup) {
-			error = smbfs_nget(vnode_mount(vp), vp, ctx->f_name,
-					   ctx->f_nmlen, &ctx->f_attr, &newvp,
-					   MAKEENTRY, 0);
-			if (!error)
+			error = smbfs_nget(vnode_mount(vp), vp, ctx->f_name, ctx->f_nmlen, &ctx->f_attr, &newvp, MAKEENTRY, vfsctx);
+			if (!error) {
+				/* 
+				 * Some applications use the inode as a marker and expect it to be presistent. Currently our
+				 * inode numbers are create by hashing the name and adding the parent inode number. Once a node
+				 * is create we should try to keep the same inode number though out its life. The smbfs_nget will either
+				 * create the node or return one found in the hash table. The one that gets created will use 
+				 * ctx->f_attr.fa_ino, but if its in our hash table it will have its original number. So in either
+				 * case set the file number to the inode number that was used when the node was created.
+				 */
+				de.d_fileno = VTOSMB(newvp)->n_ino;
+				smbnode_unlock(VTOSMB(newvp));	/* Release the smbnode lock */
 				vnode_put(newvp);
+			}
 		}
 		error = uiomove((caddr_t)&de, DE_SIZE, uio);
 		if (error)
@@ -184,46 +194,23 @@ smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t vfsctx)
 	return error;
 }
 
-int
-smbfs_readvnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx,
-		struct vnode_attr *vap)
+PRIVSYM int smbfs_doread(vnode_t vp, uio_t uiop, struct smb_cred *scred, u_int16_t fid)
 {
 	struct smbmount *smp = VFSTOSMBFS(vnode_mount(vp));
 	struct smbnode *np = VTOSMB(vp);
-	struct smb_cred scred;
 	int error;
 	int requestsize;
 	user_ssize_t remainder;
-	int vtype;
-
-	vtype = vnode_vtype(vp);
-
-	if (vtype != VREG && vtype != VDIR && vtype != VLNK) {
-		SMBFSERR("smbfs_readvnode only supports VREG/VDIR/VLNK!\n");
-		return (EIO);
-	}
-	if (uio_resid(uiop) == 0)
-		return (0);
-	if (uio_offset(uiop) < 0)
-		return (EINVAL);
-/*	if (uio_offset(uiop) + uio_resid(uiop) > smp->nm_maxfilesize)
-		return EFBIG;*/
-	if (vtype == VDIR)
-		return (smbfs_readvdir(vp, uiop, vfsctx));
-
-/*	biosize = SSTOCN(smp->sm_share)->sc_txmax;*/
-	smb_scred_init(&scred, vfsctx);
-	(void) smbfs_smb_flush(np, &scred);
 	
-	if (uio_offset(uiop) >= (off_t)vap->va_data_size) {
+	
+	if (uio_offset(uiop) >= (off_t)np->n_size) {
 		/* if offset is beyond EOF, read nothing */
 		error = 0;
 		goto exit;
 	}
 	
 	/* pin requestsize to EOF */
-	requestsize = MIN(uio_resid(uiop),
-			  (off_t)(vap->va_data_size - uio_offset(uiop)));
+	requestsize = MIN(uio_resid(uiop), (off_t)(np->n_size - uio_offset(uiop)));
 	
 	/* subtract requestSize from uio_resid and save remainder */
 	remainder = uio_resid(uiop) - requestsize;
@@ -231,7 +218,7 @@ smbfs_readvnode(vnode_t vp, uio_t uiop, vfs_context_t vfsctx,
 	/* adjust size of read */
 	uio_setresid(uiop, requestsize);
 	
-	error = smb_read(smp->sm_share, np->n_fid, uiop, &scred);
+	error = smb_read(smp->sm_share, fid, uiop, scred);
 	
 	/* set remaining uio_resid */
 	uio_setresid(uiop, (uio_resid(uiop) + remainder));
@@ -241,11 +228,14 @@ exit:
 	return error;
 }
 
+/* 
+ * This routine will zero fill the data between from and to. We may want to allocate
+ * smbzeroes in the future.
+ */
 char smbzeroes[4096] = { 0 };
 
-int
-smbfs_0extend(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to,
-	      struct smb_cred *scredp, int timo)
+static int
+smbfs_zero_fill(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to, struct smb_cred *scredp, int timo)
 {
 	struct smbmount *smp = VTOSMBFS(vp);
 	struct smbnode *np = VTOSMB(vp);
@@ -266,9 +256,9 @@ smbfs_0extend(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to,
 		np->n_flag |= (NFLUSHWIRE | NATTRCHANGED);
 		if (error)
 			break;
-		if (uio_resid(uio) == len) { /* nothing written?!? */
-			log(LOG_WARNING,
-			    "smbfs_0extend: short from=%d to=%d\n", from, to);
+			/* nothing written */
+		if (uio_resid(uio) == len) {
+			SMBDEBUG(" short from=%llu to=%llu\n", from, to);
 			break;
 		}
 		from += len - uio_resid(uio);
@@ -278,142 +268,74 @@ smbfs_0extend(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to,
 	return (error);
 }
 
-int
-smbfs_writevnode(vnode_t vp, uio_t uiop,
-	vfs_context_t vfsctx, int ioflag, int timo)
+/*
+ * One of two things has happen. The file is growing or the file has holes in it. Either case we would like
+ * to make sure the data return is zero filled. For UNIX servers we get this for free. So if the server is UNIX
+ * just return and let the server handle this issue.
+ */
+int smbfs_0extend(vnode_t vp, u_int16_t fid, u_quad_t from, u_quad_t to, struct smb_cred *scredp, int timo)
+{
+	struct smbmount *smp = VTOSMBFS(vp);
+	struct smb_vc *vcp = SSTOVC(smp->sm_share);
+	int error;
+
+	/*
+	 * Make an exception here for UNIX servers. Since UNIX servers always zero fill there is no reason to make this 
+	 * call in their case. So if this is a UNIX server just return no error.
+	 */
+	if (UNIX_SERVER(vcp))
+		return(0);
+	/* 
+	 * We always zero fill the whole amount if the share is not NTFS. We always zero fill NT4 servers and Windows 2000
+	 * servers. For all others just write one byte of zero data at the eof of file. This will cause the NTFS windows
+	 * servers to zero fill.
+	 */
+	if ((smp->sm_share->ss_fstype != SMB_FS_NTFS) || ((vcp->vc_flags & SMBV_NT4)) || ((vcp->vc_flags & SMBV_WIN2K)))
+		error = smbfs_zero_fill(vp, fid, from, to, scredp, timo);
+	else {
+		char onezero = 0;
+		int len = 1;
+		uio_t uio;
+		
+			/* Writing one byte of zero before the eof will force NTFS to zero fill. */
+		uio = uio_create(1, (to - 1) , UIO_SYSSPACE, UIO_WRITE);
+		uio_addiov(uio, CAST_USER_ADDR_T(&onezero), len);
+		error = smb_write(smp->sm_share, fid, uio, scredp, timo);
+		uio_free(uio);
+	}
+	return(error);
+}
+
+PRIVSYM int smbfs_dowrite(vnode_t vp, uio_t uiop, u_int16_t fid, vfs_context_t vfsctx, int ioflag, int timo)
 {
 	struct smbmount *smp = VTOSMBFS(vp);
 	struct smbnode *np = VTOSMB(vp);
 	struct smb_cred scred;
 	int error = 0;
 
-	if (!vnode_isreg(vp)) {
-		SMBERROR("vn types other than VREG unsupported !\n");
-		return (EIO);
-	}
 	SMBVDEBUG("ofs=%d,resid=%d\n",(int)uio_offset(uiop), uio_resid(uiop));
-	if (uio_offset(uiop) < 0)
-		return (EINVAL);
-/*	if (uio_offset(uiop) + uio_resid(uiop) > smp->nm_maxfilesize)
-		return (EFBIG);*/
-	if (ioflag & (IO_APPEND | IO_SYNC)) {
-		if (np->n_flag & NMODIFIED) {
-			smbfs_attr_cacheremove(np);
-			error = smbfs_vinvalbuf(vp, V_SAVE, vfsctx, 1);
-			if (error)
-				return error;
-		}
-		if (ioflag & IO_APPEND) {
-#if notyet
-			struct vnode_attr vattr;
-			/*
-			 * File size can be changed by another client
-			 */
-			smbfs_attr_cacheremove(np);
-			VATTR_INIT(&vattr);
-			VATTR_WANTED(&vattr, va_data_size);
-			error = smbi_getattr(vp, &vattr, vfsctx);
-			if (error)
-				return (error);
-#endif
-			uio_setoffset(uiop, np->n_size);
-		}
-	}
+	/*
+	 * Changed this code while working on removing extra over the wire flush calls. Didn't
+	 * change the excution of the code here. May want to look at that later, but for now
+	 * lets only correct the extra smb flush calls.
+	 */
+	if (ioflag & IO_APPEND)
+		uio_setoffset(uiop, np->n_size);
+
 	if (uio_resid(uiop) == 0)
 		return (0);
 
 	smb_scred_init(&scred, vfsctx);
-	if (uio_offset(uiop) > (off_t)np->n_size) {
-		// LP64todo - need to handle 64-bit offset value 
-		error = smbfs_0extend(vp, np->n_fid, np->n_size,
-				      uio_offset(uiop), &scred, timo);
-		timo = 0;
-		if (!error)
-			smbfs_setsize(vp, uio_offset(uiop));
-	}
+	/* We have a hole in the file make sure it gets zero filled */
+	if (uio_offset(uiop) > (off_t)np->n_size)
+		error = smbfs_0extend(vp, fid, np->n_size, uio_offset(uiop), &scred, timo);
+
 	if (!error)
-		error = smb_write(smp->sm_share, np->n_fid, uiop, &scred, timo);
+		error = smb_write(smp->sm_share, fid, uiop, &scred, timo);
 	np->n_flag |= (NFLUSHWIRE | NATTRCHANGED);
-	SMBVDEBUG("after: ofs=%d,resid=%d\n",(int)uio_offset(uiop), uio_resid(uiop));
-	if (!error) {
-		if (uio_offset(uiop) > (off_t)np->n_size)
-			smbfs_setsize(vp, uio_offset(uiop));
-	}
+
+	if ((!error) && (uio_offset(uiop) > (off_t)np->n_size))
+		smbfs_setsize(vp, uio_offset(uiop));
+	
 	return error;
-}
-
-static int
-smbfs_vinvalbuf_internal(vnode_t vp, int flags, vfs_context_t vfsctx, int slpflg)
-{
-	int error = 0;
-
-	if (flags & BUF_WRITE_DATA)
-		error = smbi_fsync(vp, MNT_WAIT, vfsctx);
-	if (!error)
-		error = buf_invalidateblks(vp, flags, slpflg, 0);
-	return (error);
-}
-
-/*
- * Flush and invalidate all dirty buffers. If another process is already
- * doing the flush, just wait for completion.
- */
-PRIVSYM int
-smbfs_vinvalbuf(vp, flags, vfsctx, intrflg)
-	vnode_t vp;
-	int flags;
-	vfs_context_t vfsctx;
-	int intrflg;
-{
-	struct smbnode *np = VTOSMB(vp);
-	int error = 0, slpflag, slptimeo;
-	int lasterror = ENXIO;
-	struct timespec ts;
-	off_t size;
-
-	if (intrflg) {
-		slpflag = PCATCH;
-		ts.tv_sec = 2;
-		ts.tv_nsec = 0;
-		slptimeo = 1;
-	} else {
-		slpflag = 0;
-		slptimeo = 0;
-	}
-	while (np->n_flag & NFLUSHINPROG) {
-		np->n_flag |= NFLUSHWANT;
-		error = msleep((caddr_t)&np->n_flag, 0, PRIBIO + 2, "smfsvinv", slptimeo? &ts:0);
-		error = smb_sigintr(vfsctx);
-		if (error == EINTR && intrflg)
-			return (EINTR);
-	}
-	np->n_flag |= NFLUSHINPROG;
-	error = smbfs_vinvalbuf_internal(vp, flags, vfsctx, slpflag);
-	while (error && error != lasterror) {
-		if (intrflg && (error == ERESTART || error == EINTR)) {
-			np->n_flag &= ~NFLUSHINPROG;
-			if (np->n_flag & NFLUSHWANT) {
-				np->n_flag &= ~NFLUSHWANT;
-				wakeup((caddr_t)&np->n_flag);
-			}
-			return (EINTR);
-		}
-		lasterror = error;
-		/* Avoid potential CPU loop by yielding for at least 0.1 sec */
-		ts.tv_sec= 0;
-		ts.tv_nsec = 100 *1000 *1000;
-		(void)msleep(NULL, NULL, PWAIT, "smbfs_vinvalbuf", &ts);
-		error = smbfs_vinvalbuf_internal(vp, flags, vfsctx, slpflag);
-	}
-	np->n_flag &= ~(NMODIFIED | NFLUSHINPROG);
-	if (np->n_flag & NFLUSHWANT) {
-		np->n_flag &= ~NFLUSHWANT;
-		wakeup((caddr_t)&np->n_flag);
-	}
-	/* get the pages out of vm also */
-	size = smb_ubc_getsize(vp);
-	if (size && !ubc_sync_range(vp, (off_t)0, size,
-				    UBC_PUSHALL | UBC_INVALIDATE))
-		SMBERROR("ubc_sync_range failure");
-	return (error);
 }

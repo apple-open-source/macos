@@ -54,15 +54,15 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
+/********
 static char copyright[] =
 "@(#) Copyright (c) 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
+********/
 
-#ifndef lint
+/********
 static char sccsid[] = "@(#)mount_ufs.c	8.4 (Berkeley) 4/26/95";
-#endif /* not lint */
+********/
 
 #include <sys/param.h>
 #include <sys/mount.h>
@@ -76,7 +76,7 @@ static char sccsid[] = "@(#)mount_ufs.c	8.4 (Berkeley) 4/26/95";
 
 #include <ufs/ufs/ufsmount.h>
 
-#include "mntopts.h"
+#include <mntopts.h>
 
 void	ufs_usage __P((void));
 
@@ -99,6 +99,7 @@ mount_ufs(argc, argv)
 	struct statfs fsinfo;
 	int ch, mntflags, noasync;
 	char *fs_name;
+	mntoptparse_t tmp;
 
 	mntflags = 0;
 	noasync = 0;
@@ -108,9 +109,10 @@ mount_ufs(argc, argv)
 		case 'o':
 			if (strstr(optarg, "noasync") != NULL)
 				noasync = 1;
-			getmntopts(optarg, mopts, &mntflags, 0);
+			tmp = getmntopts(optarg, mopts, &mntflags, 0);
 			if (mntflags & MNT_SYNCHRONOUS)
 				noasync = 1;
+			freemntopts(tmp);
 			break;
 		case '?':
 		default:

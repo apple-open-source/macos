@@ -1,0 +1,17 @@
+diff -ur ./src/grep.c ../grep.new/src/grep.c
+--- ./src/grep.c	2005-09-23 15:05:04.000000000 -0700
++++ ../grep.new/src/grep.c	2005-09-23 15:09:32.000000000 -0700
+@@ -1733,8 +1733,12 @@
+ 	}
+ 	while ( ++optind < argc);
+     }
+-  else
++  else {
++    if (directories == RECURSE_DIRECTORIES) {
++	error (0, 0, _("warning: recursive search of stdin"));
++    }
+     status = grepfile ((char *) NULL, &stats_base);
++  }
+ 
+   /* We register via atexit() to test stdout.  */
+   exit (errseen ? 2 : status);

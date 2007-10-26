@@ -1,5 +1,5 @@
 /*
- * $Id: ossl.h,v 1.14 2003/12/11 12:29:08 gotoyuzo Exp $
+ * $Id: ossl.h 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -11,9 +11,20 @@
 #if !defined(_OSSL_H_)
 #define _OSSL_H_
 
+#include RUBY_EXTCONF_H
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
+
+/*
+* OpenSSL has defined RFILE and Ruby has defined RFILE - so undef it!
+*/
+#if defined(RFILE) /*&& !defined(OSSL_DEBUG)*/
+#  undef RFILE
+#endif
+#include <ruby.h>
+#include <rubyio.h>
 
 /*
  * Check the OpenSSL version
@@ -45,7 +56,7 @@ extern "C" {
 #include <openssl/conf_api.h>
 #undef X509_NAME
 #undef PKCS7_SIGNER_INFO
-#if defined(HAVE_OPENSSL_ENGINE_H) && !defined(OPENSSL_NO_ENGINE)
+#if defined(HAVE_OPENSSL_ENGINE_H) && defined(HAVE_ST_ENGINE)
 #  define OSSL_ENGINE_ENABLED
 #  include <openssl/engine.h>
 #endif
@@ -56,15 +67,6 @@ extern "C" {
 #if defined(_WIN32)
 #  undef OpenFile
 #endif
-
-/*
- * OpenSSL has defined RFILE and Ruby has defined RFILE - so undef it!
- */
-#if defined(RFILE) /*&& !defined(OSSL_DEBUG)*/
-#  undef RFILE
-#endif
-#include <ruby.h>
-#include <rubyio.h>
 
 /*
  * Common Module
@@ -164,7 +166,7 @@ extern VALUE dOSSL;
   if (dOSSL == Qtrue) { \
     fprintf(stderr, "OSSL_DEBUG: "); \
     fprintf(stderr, fmt, ##__VA_ARGS__); \
-    fprintf(stderr, " [in %s (%s:%d)]\n", __func__, __FILE__, __LINE__); \
+    fprintf(stderr, " [%s:%d]\n", __FILE__, __LINE__); \
   } \
 } while (0)
 

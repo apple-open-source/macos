@@ -78,6 +78,9 @@ extern unsigned long is_section_non_lazy_symbol_pointers(
 extern unsigned long is_section_debug(
     unsigned long n_sect);
 
+extern unsigned long is_section_cstring_literals(
+    unsigned long n_sect);
+
 extern unsigned long is_end_section_address(
     unsigned long n_sect,
     unsigned long addr);

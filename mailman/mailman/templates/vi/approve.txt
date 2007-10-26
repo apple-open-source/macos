@@ -1,0 +1,13 @@
+Yêu cầu của bạn cho %(requestaddr)s:
+
+    %(cmd)s
+
+đã được chuyển tiếp tới quản trị hộp thư chung.
+
+Rất có thể vì bạn cố đăng ký với một hộp thư chung « bị đóng ».
+
+Bạn sẽ nhận thư chứa sự quyết định của quản trị hộp thư chung về yêu cầu đăng ký của bạn.
+
+Mỗi câu hỏi về chính sách của quản trị hộp thư chung nên được gởi cho :
+
+    %(adminaddr)s

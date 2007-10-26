@@ -1,0 +1,399 @@
+/*
+ * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * 
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+//
+// Requirements Language Grammar
+//
+// This file describes two distinct (related) grammars:
+//	Requirement => single requirement (Requirement *)
+//	RequirementSet => set of labeled requirements (Requirements *)
+// The grammar can "autosense" - i.e. recognize which one it's fed and
+// return appropriate semantic data.
+// The semantic data compiled is a malloc'ed BlobCore * - a Requirement
+// object or a SuperBlob containing multiple Requirements.
+//
+header "post_include_hpp" {
+#include "requirement.h"
+using namespace CodeSigning;
+typedef Requirement::Maker Maker;
+}
+
+header "post_include_cpp" {
+#include "requirement.h"
+#include "reqmaker.h"
+#include "csutilities.h"
+#include <security_utilities/cfutilities.h>
+#include <security_utilities/hashing.h>
+using namespace CodeSigning;
+typedef Requirement::Maker Maker;
+}
+
+options {
+	language="Cpp";
+	namespace="Security_CodeSigning";
+	namespaceStd="std";
+	namespaceAntlr="antlr";
+	genHashLines=false;
+}
+
+
+{
+	//
+	// Collect error messages
+	//
+	void RequirementParser::reportError(const antlr::RecognitionException &ex)
+	{
+		errors += ex.toString() + "\n";
+	}
+	
+	void RequirementParser::reportError(const std::string &s)
+	{
+		errors += s + "\n";
+	}
+
+	
+	//
+	// Parser helper functions
+	//
+	string RequirementParser::hexString(const string &s)
+	{
+		if (s.size() % 2)
+			throw antlr::SemanticException("odd number of digits");
+		const char *p = s.data();
+		string result;
+		for (unsigned n = 0; n < s.length(); n += 2) {
+			char c;
+			sscanf(p+n, "%2hhx", &c);
+			result.push_back(c);
+		}
+		return result;
+	}
+
+	void RequirementParser::hashString(const string &s, SHA1::Digest hash)
+	{
+		if (s.size() != 2 * SHA1::digestLength)
+			throw antlr::SemanticException("invalid hash length");
+		memcpy(hash, hexString(s).data(), SHA1::digestLength);
+	}
+}
+
+class RequirementParser extends Parser;
+
+options {
+	k=2;
+}
+
+{
+public:
+	std::string errors;
+	void reportError(const antlr::RecognitionException &ex);
+	void reportError(const std::string &s);
+
+private:
+	static string hexString(const string &s);
+	static void hashString(const string &s, SHA1::Digest hash);
+}
+
+
+//
+// Compound target; compiles single requirements or requirement sets
+// and returns them as a BlobCore.
+//
+autosense returns [BlobCore *result = NULL]
+	:	result=requirement
+	|	result=requirementSet
+	;
+
+
+//
+// A Requirements Set.
+//
+requirementSet returns [Requirements *result = NULL]
+		{ Requirements::Maker maker; }
+	:	(		{ uint32_t t; Requirement *req; }
+			t=requirementType ARROW req=requirementElement
+				{ maker.add(t, req); }
+		)+
+			{ result = errors.empty() ? maker() : NULL; }
+		EOF
+	;
+
+requirementType returns [uint32_t type = kSecInvalidRequirementType]
+	:	"guest"
+			{ type = kSecGuestRequirementType; }
+	|	"host"
+			{ type = kSecHostRequirementType; }
+	|	"designated"
+			{ type = kSecDesignatedRequirementType; }
+	|	"library"
+			{ type = kSecLibraryRequirementType; }
+	|	stype:INTEGER
+			{ type = atol(stype->getText().c_str()); }
+	;
+
+
+//
+// A single Requirement (untyped)
+//
+requirement returns [Requirement *result = NULL]
+	:	result = requirementElement
+		EOF
+	;
+
+requirementElement returns [Requirement *result = NULL]
+		{ Requirement::Maker maker; }
+	:	expr[maker]
+		{ result = maker(); }
+		( fluff )*
+	;
+
+
+//
+// Classic recursive expressions
+// 
+expr[Maker &maker]
+		{ Maker::Label label(maker); }
+	:	term[maker] ( "and" { maker.insert<ExprOp>(label) = opAnd; } term[maker] )*
+	;
+
+term[Maker &maker]
+		{ Maker::Label label(maker); }
+	:	primary[maker] ( "or" { maker.insert<ExprOp>(label) = opOr; } primary[maker] )*
+	;
+
+primary[Maker &maker]
+	:	LPAREN expr[maker] RPAREN
+	|	NOT { maker.put(opNot); } primary[maker]
+	|	( "always" | "true" )
+			{ maker.put(opTrue); }
+	|	( "never" | "false" )
+			{ maker.put(opFalse); }
+	|	certspec[maker]
+	|	infospec[maker]
+	|	"identifier" { string code; } eql code=identifierString
+			{ maker.ident(code); }
+	|	"cdhash" { SHA1::Digest digest; } hash[digest]
+			{ maker.cdhash(digest); }
+	;
+
+
+//
+// Certificate specifications restrict certificates in the signing chain
+//
+certspec[Maker &maker]
+	:	"anchor" "apple"
+			{ maker.put(opAppleAnchor); }
+	|	( "certificate" | "cert" | "anchor" ) "trusted"
+			{ maker.trustedAnchor(); }
+	|	( "certificate" | "cert" ) { int slot; } slot=certSlot
+		( certslotspec[maker, slot] | "trusted" { maker.trustedAnchor(slot); } )
+	|	"anchor" certslotspec[maker, Requirement::anchorCert]
+	;
+
+certslotspec[Maker &maker, int slot]	{ string key; }
+	:	eql { SHA1::Digest digest; } certificateDigest[digest]
+            { maker.anchor(slot, digest); }
+	|	key=bracketKey
+			{ maker.put(opCertField); maker.put(slot); maker.put(key); }
+		match_suffix[maker]
+	;
+
+
+//
+// Info specifications place conditions on entries in the Info.plist
+//
+infospec[Maker &maker]		{ string key; }
+	:	"info" key=bracketKey
+			{ maker.put(opInfoKeyField); maker.put(key); }
+		match_suffix[maker]
+	;
+
+match_suffix[Maker &maker]
+	:	empty
+			{ maker.put(matchExists); }
+	|	EQL { string value; } value=datavalue
+			{ maker.put(matchEqual); maker.put(value); }
+	|	SUBS { string value; } value=datavalue
+			{ maker.put(matchContains); maker.put(value); }
+	;
+
+bracketKey returns [string key]
+	:	LBRACK key=stringvalue RBRACK
+	;
+
+//
+// A certSlot identifiers one certificate from the certificate chain
+//
+certSlot returns [int slot]
+	:	s:INTEGER		// counting from the anchor up
+			{ slot = atol(s->getText().c_str()); }
+	|	NEG ss:INTEGER	// counting from the leaf down
+			{ slot = -atol(ss->getText().c_str()); }
+	|	"leaf"			// the leaf ( == -1)
+			{ slot = Requirement::leafCert; }
+	|	"root"			// the root ( == 0)
+			{ slot = Requirement::anchorCert; }
+	;
+
+certSlotAnchor returns [int slot]
+	:	slot=certSlot
+	|	empty			// defaults to anchor ( == 0)
+			{ slot = Requirement::anchorCert; }
+	;
+
+// an arbitrary digest value
+hash[SHA1::Digest digest]
+	:	hash:HASHCONSTANT
+			{ hashString(hash->getText(), digest); }
+	;
+
+// various forms to specify a certificate hash
+certificateDigest[SHA1::Digest digest]
+	:	hash[digest]
+	|	{ string path; } path=pathstring
+			{ if (CFRef<CFDataRef> certData = cfLoadFile(path))
+				hashOfCertificate(CFDataGetBytePtr(certData), CFDataGetLength(certData), digest);
+			  else
+				throw antlr::SemanticException(path + ": not found");
+			}
+	;
+
+// generic data - can be simple string, quoted string, or 0x-style hex
+datavalue returns [string result]
+	:	result=stringvalue
+	|	hex:HEXCONSTANT { result = hexString(hex->getText()); }
+	;
+
+// strings can always be quoted, but DOTKEYs don't need to be
+stringvalue returns [string result]
+	:	dk:DOTKEY	{ result = dk->getText(); }
+	|	s:STRING	{ result = s->getText(); }
+	;
+
+// pathstrings are like strings, but PATHNAMEs don't need to be quoted either
+pathstring returns [string result]
+	:	dk:DOTKEY	{ result = dk->getText(); }
+	|	s:STRING	{ result = s->getText(); }
+	|	pn:PATHNAME	{ result = pn->getText(); }
+	;
+
+// unique identifier value
+identifierString returns [string result]
+	:	dk:DOTKEY	{ result = dk->getText(); }
+	|	s:STRING	{ result = s->getText(); }
+	;
+
+// syntactic cavity generators
+fluff
+	:	SEMI
+	;
+
+eql
+	:	EQL
+	|	empty
+	;
+
+empty : ;
+
+
+//
+// The lexer for the Requirement language.
+// Really straightforward and conventional.
+// A subset of strings don't need to be quoted (DOTKEYs), though the disassembler
+//   will always quote them anyway.
+// There's a syntax H"abcd" to denote hash values (in hex).
+//
+class RequirementLexer extends Lexer;
+
+options {
+	k=2;
+	testLiterals=false;
+}
+
+protected
+IDENT options { testLiterals=true; }
+	:	( 'A' .. 'Z' | 'a' .. 'z' ) ( 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' )*
+	;
+
+DOTKEY options { testLiterals=true; }
+	:	IDENT ( "." IDENT )*
+	;
+
+PATHNAME
+	:	"/" IDENT ( "/" IDENT )+
+	;
+
+HASHCONSTANT
+	:	'H'! '"'! ( HEX )+ '"'!
+	;
+
+HEXCONSTANT
+	:	'0'! 'x'! ( HEX )+
+	;
+
+STRING
+	:	'"'! ( ( '\\'! '"' ) | ( ~ ( '"' | '\\' ) ) )* '"'!
+	;
+
+INTEGER
+	:	( '0' .. '9' ) +
+	;
+
+protected
+HEX	:	'0' .. '9' | 'a' .. 'f' | 'A' .. 'F' ;
+
+// operator tokens
+ARROW	: "=>" ;
+SEMI	: ';' ;
+LPAREN	: '(' ;
+RPAREN	: ')' ;
+LBRACK	: '[' ;
+RBRACK	: ']' ;
+COMMA	: ',' ;
+EQL		: '=' ;
+SUBS	: '~' ;
+NEG		: '-' ;
+NOT		: '!' ;
+
+
+//
+// White spaces
+//
+WS	:	( ' ' | '\n' { newline(); } | '\t' )+
+	{ $setType(antlr::Token::SKIP); }
+	;
+
+SHELLCOMMENT
+	:	'#' ( ~ '\n' )*
+	{ $setType(antlr::Token::SKIP); }
+	;
+
+C_COMMENT
+	:	"/*" ( (~'*')|('*'(~'/')) )* "*/"
+	{ $setType(antlr::Token::SKIP); }
+	;
+
+CPP_COMMENT
+	:	"//" ( ~ '\n' )*
+	{ $setType(antlr::Token::SKIP); }
+	;

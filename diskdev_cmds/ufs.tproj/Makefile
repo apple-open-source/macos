@@ -24,7 +24,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = $(SYSTEM_LIBRARY_DIR)/Filesystems/ufs.fs
 WINDOWS_INSTALLDIR = /Library/Executables
 PDO_UNIX_INSTALLDIR = /bin
-LIBS = -ldisk
+LIBS = -ldisk 
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

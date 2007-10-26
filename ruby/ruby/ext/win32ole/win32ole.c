@@ -12,7 +12,7 @@
  */
 
 /*
-  $Date: 2004/10/30 15:33:00 $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   modified for win32ole (ruby) by Masaki.Suketa <masaki.suketa@nifty.ne.jp>
  */
 
@@ -29,6 +29,7 @@
 #include <varargs.h>
 #define va_init_list(a,b) va_start(a)
 #endif
+
 
 #define DOUT fprintf(stderr,"[%d]\n",__LINE__)
 #define DOUTS(x) fprintf(stderr,"[%d]:" #x "=%s\n",__LINE__,x)
@@ -72,13 +73,13 @@
 #define OLEData_Get_Struct(obj, pole) {\
     Data_Get_Struct(obj, struct oledata, pole);\
     if(!pole->pDispatch) {\
-        rb_raise(rb_eRuntimeError, "Failed to get Dispatch Interface");\
+        rb_raise(rb_eRuntimeError, "failed to get Dispatch Interface");\
     }\
 }
 
 #define WC2VSTR(x) ole_wc2vstr((x), TRUE)
 
-#define WIN32OLE_VERSION "0.5.9"
+#define WIN32OLE_VERSION "0.7.1"
 
 typedef HRESULT (STDAPICALLTYPE FNCOCREATEINSTANCEEX)
     (REFCLSID, IUnknown*, DWORD, COSERVERINFO*, DWORD, MULTI_QI*);
@@ -134,6 +135,7 @@ typedef struct tagIEVENTSINKOBJ {
     DWORD m_dwCookie;
     IConnectionPoint *pConnectionPoint;
     ITypeInfo *pTypeInfo;
+    int *ptr_freed;
 }IEVENTSINKOBJ, *PIEVENTSINKOBJ;
 
 VALUE cWIN32OLE;
@@ -153,6 +155,8 @@ static HINSTANCE gole32 = NULL;
 static FNCOCREATEINSTANCEEX *gCoCreateInstanceEx = NULL;
 static VALUE com_hash;
 static IDispatchVtbl com_vtbl;
+static UINT  cWIN32OLE_cp = CP_ACP;
+static VARTYPE g_nil_to = VT_ERROR;
 
 struct oledata {
     IDispatch *pDispatch;
@@ -181,6 +185,7 @@ struct oleparamdata {
 
 struct oleeventdata {
     IEVENTSINKOBJ *pEvent;
+    int freed;
 };
 
 struct oleparam {
@@ -470,10 +475,10 @@ ole_wc2mb(pw)
 {
     int size;
     LPSTR pm;
-    size = WideCharToMultiByte(CP_ACP, 0, pw, -1, NULL, 0, NULL, NULL);
+    size = WideCharToMultiByte(cWIN32OLE_cp, 0, pw, -1, NULL, 0, NULL, NULL);
     if (size) {
         pm = ALLOC_N(char, size);    
-        WideCharToMultiByte(CP_ACP, 0, pw, -1, pm, size, NULL, NULL);
+        WideCharToMultiByte(cWIN32OLE_cp, 0, pw, -1, pm, size, NULL, NULL);
     }
     else {
         pm = ALLOC_N(char, 1);
@@ -603,7 +608,7 @@ ole_initialize()
     if(gOLEInitialized == Qfalse) {
         hr = OleInitialize(NULL);
         if(FAILED(hr)) {
-            ole_raise(hr, rb_eRuntimeError, "Fail: OLE initialize");
+            ole_raise(hr, rb_eRuntimeError, "fail: OLE initialize");
         }
         gOLEInitialized = Qtrue;
         /*
@@ -629,6 +634,7 @@ ole_free(pole)
     struct oledata *pole;
 {
     OLE_FREE(pole->pDispatch);
+    free(pole);
 }
 
 static void
@@ -636,6 +642,7 @@ oletype_free(poletype)
     struct oletypedata *poletype;
 {
     OLE_FREE(poletype->pTypeInfo);
+    free(poletype);
 }
 
 static void
@@ -644,6 +651,7 @@ olemethod_free(polemethod)
 {
     OLE_FREE(polemethod->pTypeInfo);
     OLE_FREE(polemethod->pOwnerTypeInfo);
+    free(polemethod);
 }
 
 static void
@@ -651,6 +659,7 @@ olevariable_free(polevar)
     struct olevariabledata *polevar;
 {
     OLE_FREE(polevar->pTypeInfo);
+    free(polevar);
 }
 
 static void
@@ -658,6 +667,7 @@ oleparam_free(pole)
     struct oleparamdata *pole;
 {
     OLE_FREE(pole->pTypeInfo);
+    free(pole);
 }
 
 static LPWSTR
@@ -667,9 +677,9 @@ ole_mb2wc(pm, len)
 {
     int size;
     LPWSTR pw;
-    size = MultiByteToWideChar(CP_ACP, 0, pm, len, NULL, 0);
+    size = MultiByteToWideChar(cWIN32OLE_cp, 0, pm, len, NULL, 0);
     pw = SysAllocStringLen(NULL, size - 1);
-    MultiByteToWideChar(CP_ACP, 0, pm, len, pw, size);
+    MultiByteToWideChar(cWIN32OLE_cp, 0, pm, len, pw, size);
     return pw;
 }
 
@@ -831,14 +841,28 @@ ole_val2variant(val, var)
         V_BOOL(var) = VARIANT_FALSE;
         break;
     case T_NIL:
-        V_VT(var) = VT_ERROR;
-        V_ERROR(var) = DISP_E_PARAMNOTFOUND;
+        if (g_nil_to == VT_ERROR) {
+            V_VT(var) = VT_ERROR;
+            V_ERROR(var) = DISP_E_PARAMNOTFOUND;
+        }else {
+            V_VT(var) = VT_EMPTY;
+        }
         break;
     default:
         V_VT(var) = VT_DISPATCH;
         V_DISPATCH(var) = val2dispatch(val);
         break;
     }
+}
+
+static void
+ole_val2variant2(val, var)
+    VALUE val;
+    VARIANT *var;
+{
+    g_nil_to = VT_EMPTY;
+    ole_val2variant(val, var);
+    g_nil_to = VT_ERROR;
 }
 
 static VALUE
@@ -897,8 +921,13 @@ ole_variant2val(pvar)
         VARIANT variant;
         VALUE val;
         VALUE val2;
+        int dim = 0;
 
-        int dim = SafeArrayGetDim(psa);
+        if (!psa) {
+            return obj;
+        }
+        dim = SafeArrayGetDim(psa);
+
         VariantInit(&variant);
         V_VT(&variant) = (V_VT(pvar) & ~VT_ARRAY) | VT_BYREF;
 
@@ -1086,6 +1115,7 @@ ole_variant2val(pvar)
     }
     return obj;
 }
+
 
 static LONG reg_open_key(hkey, name, phkey)
     HKEY hkey;
@@ -1364,12 +1394,12 @@ ole_create_dcom(argc, argv, self)
     if (!gole32)
         gole32 = LoadLibrary("OLE32");
     if (!gole32)
-        rb_raise(rb_eRuntimeError, "Failed to load OLE32");
+        rb_raise(rb_eRuntimeError, "failed to load OLE32");
     if (!gCoCreateInstanceEx)
         gCoCreateInstanceEx = (FNCOCREATEINSTANCEEX*)
             GetProcAddress(gole32, "CoCreateInstanceEx");
     if (!gCoCreateInstanceEx)
-        rb_raise(rb_eRuntimeError, "CoCreateInstanceEx is not supported in this environment.");
+        rb_raise(rb_eRuntimeError, "CoCreateInstanceEx is not supported in this environment");
     rb_scan_args(argc, argv, "2*", &ole, &host, &others);
 
     pbuf  = ole_mb2wc(StringValuePtr(ole), -1);
@@ -1381,7 +1411,7 @@ ole_create_dcom(argc, argv, self)
     SysFreeString(pbuf);
     if (FAILED(hr))
         ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, 
-                  "Unknown OLE server: `%s'",
+                  "unknown OLE server: `%s'",
                   StringValuePtr(ole));
     memset(&serverinfo, 0, sizeof(COSERVERINFO));    
     serverinfo.pwszName = ole_mb2wc(StringValuePtr(host), -1);
@@ -1391,7 +1421,7 @@ ole_create_dcom(argc, argv, self)
     SysFreeString(serverinfo.pwszName);
     if (FAILED(hr))
         ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, 
-                  "Failed to create DCOM server `%s' in `%s'",
+                  "failed to create DCOM server `%s' in `%s'",
                   StringValuePtr(ole),
                   StringValuePtr(host));
 
@@ -1418,7 +1448,7 @@ ole_bind_obj(moniker, argc, argv, self)
     hr = CreateBindCtx(0, &pBindCtx);
     if(FAILED(hr)) {
         ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, 
-                  "Failed to create bind context");
+                  "failed to create bind context");
     }
 
     pbuf  = ole_mb2wc(StringValuePtr(moniker), -1);
@@ -1427,7 +1457,7 @@ ole_bind_obj(moniker, argc, argv, self)
     if(FAILED(hr)) {
         OLE_RELEASE(pBindCtx);
         ole_raise(hr, eWIN32OLE_RUNTIME_ERROR,
-                  "Failed to parse display name of moniker `%s'",
+                  "failed to parse display name of moniker `%s'",
                   StringValuePtr(moniker));
     }
     hr = pMoniker->lpVtbl->BindToObject(pMoniker, pBindCtx, NULL, 
@@ -1438,17 +1468,20 @@ ole_bind_obj(moniker, argc, argv, self)
 
     if(FAILED(hr)) {
         ole_raise(hr, eWIN32OLE_RUNTIME_ERROR,
-                  "Failed to bind moniker `%s'",
+                  "failed to bind moniker `%s'",
                   StringValuePtr(moniker));
     }
     return create_win32ole_object(self, pDispatch, argc, argv);
 }
 
 /*
- * WIN32OLE.connect( ole ) --> aWIN32OLE
- * ----
- * Returns running OLE Automation object or WIN32OLE object from moniker.
- * 1st argument should be OLE program id or class id or moniker.
+ *  call-seq:
+ *     WIN32OLE.connect( ole ) --> aWIN32OLE
+ * 
+ *  Returns running OLE Automation object or WIN32OLE object from moniker.
+ *  1st argument should be OLE program id or class id or moniker.
+ *     
+ *     WIN32OLE.connect('Excel.Application') # => WIN32OLE object which represents running Excel.
  */
 static VALUE
 fole_s_connect(argc, argv, self)
@@ -1495,7 +1528,7 @@ fole_s_connect(argc, argv, self)
     if(FAILED(hr)) {
         OLE_RELEASE(pUnknown);
         ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, 
-                  "Failed to create WIN32OLE server `%s'", 
+                  "failed to create WIN32OLE server `%s'", 
                   StringValuePtr(svr_name));
     }
 
@@ -1505,10 +1538,33 @@ fole_s_connect(argc, argv, self)
 }
 
 /* 
- * WIN32OLE.const_load( ole, mod = WIN32OLE)
- * ----
- * Defines the constants of OLE Automation server as mod's constants.
- * If 2nd argument is omitted, the default is WIN32OLE.
+ *  call-seq:
+ *     WIN32OLE.const_load( ole, mod = WIN32OLE)
+ * 
+ *  Defines the constants of OLE Automation server as mod's constants.
+ *  The first argument is WIN32OLE object or type library name.
+ *  If 2nd argument is omitted, the default is WIN32OLE.
+ *  The first letter of Ruby's constant variable name is upper case,
+ *  so constant variable name of WIN32OLE object is capitalized.
+ *  For example, the 'xlTop' constant of Excel is changed to 'XlTop' 
+ *  in WIN32OLE.
+ *  If the first letter of constant variabl is not [A-Z], then
+ *  the constant is defined as CONSTANTS hash element.
+ *
+ *     module EXCEL_CONST
+ *     end
+ *     excel = WIN32OLE.new('Excel.Application')
+ *     WIN32OLE.const_load(excel, EXCEL_CONST)
+ *     puts EXCEL_CONST::XlTop # => -4160
+ *     puts EXCEL_CONST::CONSTANTS['_xlDialogChartSourceData'] # => 541
+ *     
+ *     WIN32OLE.const_load(excel)
+ *     puts WIN32OLE::XlTop # => -4160
+ *
+ *     module MSO
+ *     end
+ *     WIN32OLE.const_load('Microsoft Office 9.0 Object Library', MSO)
+ *     puts MSO::MsoLineSingle # => 1
  */
 static VALUE
 fole_s_const_load(argc, argv, self)
@@ -1532,19 +1588,19 @@ fole_s_const_load(argc, argv, self)
     if (TYPE(klass) != T_CLASS &&
         TYPE(klass) != T_MODULE &&
         TYPE(klass) != T_NIL) {
-        rb_raise(rb_eTypeError, "2nd paramator must be Class or Module.");
+        rb_raise(rb_eTypeError, "2nd parameter must be Class or Module");
     }
     if (rb_obj_is_kind_of(ole, cWIN32OLE)) {
         OLEData_Get_Struct(ole, pole);
         hr = pole->pDispatch->lpVtbl->GetTypeInfo(pole->pDispatch,
                                                   0, lcid, &pTypeInfo);
         if(FAILED(hr)) {
-            ole_raise(hr, rb_eRuntimeError, "Failed to GetTypeInfo");
+            ole_raise(hr, rb_eRuntimeError, "failed to GetTypeInfo");
         }
         hr = pTypeInfo->lpVtbl->GetContainingTypeLib(pTypeInfo, &pTypeLib, &index);
         if(FAILED(hr)) {
             OLE_RELEASE(pTypeInfo);
-            ole_raise(hr, rb_eRuntimeError, "Failed to GetContainingTypeLib");
+            ole_raise(hr, rb_eRuntimeError, "failed to GetContainingTypeLib");
         }
         OLE_RELEASE(pTypeInfo);
         if(TYPE(klass) != T_NIL) {
@@ -1564,7 +1620,7 @@ fole_s_const_load(argc, argv, self)
         hr = LoadTypeLibEx(pBuf, REGKIND_NONE, &pTypeLib);
         SysFreeString(pBuf);
         if (FAILED(hr))
-            ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to LoadTypeLibEx");
+            ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to LoadTypeLibEx");
         if(TYPE(klass) != T_NIL) {
             ole_const_load(pTypeLib, klass, self);
         }
@@ -1574,7 +1630,7 @@ fole_s_const_load(argc, argv, self)
         OLE_RELEASE(pTypeLib);
     }
     else {
-        rb_raise(rb_eTypeError, "1st paramator must be WIN32OLE instance");
+        rb_raise(rb_eTypeError, "1st parameter must be WIN32OLE instance");
     }
     return Qnil;
 }
@@ -1626,11 +1682,12 @@ reference_count(pole)
 }
 
 /*
- * WIN32OLE.ole_reference_count(aWIN32OLE) --> number
- * ----
- * Returns reference counter of Dispatch interface of WIN32OLE object. 
- * You should not use this method because this method
- * exists only for debugging WIN32OLE.
+ *  call-seq:
+ *     WIN32OLE.ole_reference_count(aWIN32OLE) --> number
+ * 
+ *  Returns reference counter of Dispatch interface of WIN32OLE object. 
+ *  You should not use this method because this method
+ *  exists only for debugging WIN32OLE.
  */
 static VALUE
 fole_s_reference_count(self, obj)
@@ -1643,12 +1700,13 @@ fole_s_reference_count(self, obj)
 }
 
 /*
- * WIN32OLE.ole_free(aWIN32OLE) --> number
- * ----
- * Invokes Release method of Dispatch interface of WIN32OLE object. 
- * You should not use this method because this method
- * exists only for debugging WIN32OLE.
- * The return value is reference counter of OLE object.
+ *  call-seq:
+ *     WIN32OLE.ole_free(aWIN32OLE) --> number
+ * 
+ *  Invokes Release method of Dispatch interface of WIN32OLE object. 
+ *  You should not use this method because this method
+ *  exists only for debugging WIN32OLE.
+ *  The return value is reference counter of OLE object.
  */
 static VALUE
 fole_s_free(self, obj)
@@ -1690,10 +1748,15 @@ ole_show_help(helpfile, helpcontext)
 }
 
 /*
- * WIN32OLE.ole_show_help(obj [,helpcontext])
- * ----
- * Displays helpfile. The 1st argument specifies WIN32OLE_TYPE
- * object or WIN32OLE_METHOD object or helpfile.
+ *  call-seq:
+ *     WIN32OLE.ole_show_help(obj [,helpcontext])
+ * 
+ *  Displays helpfile. The 1st argument specifies WIN32OLE_TYPE
+ *  object or WIN32OLE_METHOD object or helpfile.
+ *
+ *     excel = WIN32OLE.new('Excel.Application')
+ *     typeobj = excel.ole_type
+ *     WIN32OLE.ole_show_help(typeobj)
  */
 static VALUE
 fole_s_show_help(argc, argv, self)
@@ -1720,16 +1783,84 @@ fole_s_show_help(argc, argv, self)
         helpfile = target;
     }
     if (TYPE(helpfile) != T_STRING) {
-        rb_raise(rb_eTypeError, "1st parameter must be (String|WIN32OLE_TYPE|WIN32OLE_METHOD).");
+        rb_raise(rb_eTypeError, "1st parameter must be (String|WIN32OLE_TYPE|WIN32OLE_METHOD)");
     }
     hwnd = ole_show_help(helpfile, helpcontext);
     if(hwnd == 0) {
-        rb_raise(rb_eRuntimeError, "Failed to open help file `%s'",
+        rb_raise(rb_eRuntimeError, "failed to open help file `%s'",
                  StringValuePtr(helpfile));
     }
     return Qnil;
 }
 
+/* 
+ *  call-seq:
+ *     WIN32OLE.codepage
+ * 
+ *  Returns current codepage.
+ *     WIN32OLE.codepage # => WIN32OLE::CP_ACP
+ */
+static VALUE
+fole_s_get_code_page(self)
+    VALUE self;
+{
+    return INT2FIX(cWIN32OLE_cp);
+}
+
+/* 
+ *  call-seq:
+ *     WIN32OLE.codepage = CP
+ * 
+ *  Sets current codepage.
+ *     WIN32OLE.codepage = WIN32OLE::CP_UTF8
+ */
+static VALUE
+fole_s_set_code_page(self, vcp)
+    VALUE self;
+    VALUE vcp;
+{
+    UINT cp = FIX2INT(vcp);
+
+    switch(cp) {
+    case CP_ACP:
+    case CP_OEMCP:
+    case CP_MACCP:
+    case CP_THREAD_ACP:
+    case CP_SYMBOL:
+    case CP_UTF7:
+    case CP_UTF8:
+        cWIN32OLE_cp = cp;
+        break;
+    default:
+        rb_raise(eWIN32OLE_RUNTIME_ERROR, "codepage should be WIN32OLE::CP_ACP, WIN32OLE::CP_OEMCP, WIN32OLE::CP_MACCP, WIN32OLE::CP_THREAD_ACP, WIN32OLE::CP_SYMBOL, WIN32OLE::CP_UTF7, WIN32OLE::CP_UTF8");
+        break;
+    }
+
+    /*
+     * Should this method return old codepage?
+     */
+    return Qnil;
+}
+
+/*
+ * Document-class: WIN32OLE
+ *
+ *   <code>WIN32OLE</code> objects represent OLE Automation object in Ruby.
+ */
+
+/*
+ *  call-seq:
+ *     WIN32OLE.new(server, [host]) -> WIN32OLE object
+ * 
+ *  Returns a new WIN32OLE object(OLE Automation object).
+ *  The first argument server specifies OLE Automation server.
+ *  The first argument should be CLSID or PROGID.
+ *  If second argument host specified, then returns OLE Automation 
+ *  object on host. 
+ *
+ *      WIN32OLE.new('Excel.Application') # => Excel OLE Automation WIN32OLE object.
+ *      WIN32OLE.new('{00024500-0000-0000-C000-000000000046}') # => Excel OLE Automation WIN32OLE object.
+ */
 static VALUE
 fole_initialize(argc, argv, self)
     int argc;
@@ -1769,7 +1900,7 @@ fole_initialize(argc, argv, self)
     SysFreeString(pBuf);
     if(FAILED(hr)) {
         ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, 
-                  "Unknown OLE server: `%s'",
+                  "unknown OLE server: `%s'",
                   StringValuePtr(svr_name));
     }
 
@@ -1778,7 +1909,7 @@ fole_initialize(argc, argv, self)
                           &IID_IDispatch, (void**)&pDispatch);
     if(FAILED(hr)) {
         ole_raise(hr, eWIN32OLE_RUNTIME_ERROR,
-                  "Failed to create WIN32OLE object from `%s'",
+                  "failed to create WIN32OLE object from `%s'",
                   StringValuePtr(svr_name));
     }
     
@@ -1879,7 +2010,7 @@ ole_invoke(argc, argv, self, wFlags)
     rb_scan_args(argc, argv, "1*", &cmd, &paramS);
     OLEData_Get_Struct(self, pole);
     if(!pole->pDispatch) {
-        rb_raise(rb_eRuntimeError, "Failed to get dispatch interface");
+        rb_raise(rb_eRuntimeError, "failed to get dispatch interface");
     }
     wcmdname = ole_mb2wc(StringValuePtr(cmd), -1);
     hr = pole->pDispatch->lpVtbl->GetIDsOfNames( pole->pDispatch, &IID_NULL,
@@ -1887,7 +2018,7 @@ ole_invoke(argc, argv, self, wFlags)
     SysFreeString(wcmdname);
     if(FAILED(hr)) {
         ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, 
-                  "Unknown property or method `%s'",
+                  "unknown property or method `%s'",
                   StringValuePtr(cmd));
     }
 
@@ -1924,7 +2055,7 @@ ole_invoke(argc, argv, self, wFlags)
                 VariantClear(&op.dp.rgvarg[i]);
             }
             ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, 
-                      "Failed to get named argument info: `%s'",
+                      "failed to get named argument info: `%s'",
                       StringValuePtr(cmd));
         }
         op.dp.rgdispidNamedArgs = &(pDispID[1]);
@@ -1981,24 +2112,44 @@ ole_invoke(argc, argv, self, wFlags)
                                                  &IID_NULL, lcid, wFlags,
                                                  &op.dp, &result,
                                                  &excepinfo, &argErr);
+
+            /* mega kludge. if a method in WORD is called and we ask
+             * for a result when one is not returned then
+             * hResult == DISP_E_EXCEPTION. this only happens on
+             * functions whose DISPID > 0x8000 */
+            if ((hr == DISP_E_EXCEPTION || hr == DISP_E_MEMBERNOTFOUND) && DispID > 0x8000) {
+                memset(&excepinfo, 0, sizeof(EXCEPINFO));
+                hr = pole->pDispatch->lpVtbl->Invoke(pole->pDispatch, DispID, 
+                        &IID_NULL, lcid, wFlags,
+                        &op.dp, NULL,
+                        &excepinfo, &argErr);
+            }
             for(i = cNamedArgs; i < op.dp.cArgs; i++) {
                 n = op.dp.cArgs - i + cNamedArgs - 1;
                 VariantClear(&op.dp.rgvarg[n]);
             }
         }
-        /* mega kludge. if a method in WORD is called and we ask
-         * for a result when one is not returned then
-         * hResult == DISP_E_EXCEPTION. this only happens on
-         * functions whose DISPID > 0x8000 */
-        if (hr == DISP_E_EXCEPTION && DispID > 0x8000) {
-            memset(&excepinfo, 0, sizeof(EXCEPINFO));
-            VariantInit(&result);
-            hr = pole->pDispatch->lpVtbl->Invoke(pole->pDispatch, DispID, 
-                                                 &IID_NULL, lcid, wFlags,
-                                                 &op.dp, &result,
-                                                 &excepinfo, &argErr);
-
+        if (FAILED(hr)) {
+            /* retry after converting nil to VT_EMPTY */
+            if (op.dp.cArgs > cNamedArgs) {
+                for(i = cNamedArgs; i < op.dp.cArgs; i++) {
+                    n = op.dp.cArgs - i + cNamedArgs - 1;
+                    param = rb_ary_entry(paramS, i-cNamedArgs);
+                    ole_val2variant2(param, &op.dp.rgvarg[n]);
+                }
+                memset(&excepinfo, 0, sizeof(EXCEPINFO));
+                VariantInit(&result);
+                hr = pole->pDispatch->lpVtbl->Invoke(pole->pDispatch, DispID, 
+                        &IID_NULL, lcid, wFlags,
+                        &op.dp, &result,
+                        &excepinfo, &argErr);
+                for(i = cNamedArgs; i < op.dp.cArgs; i++) {
+                    n = op.dp.cArgs - i + cNamedArgs - 1;
+                    VariantClear(&op.dp.rgvarg[n]);
+                }
+            }
         }
+
     }
     /* clear dispatch parameter */
     if(op.dp.cArgs > cNamedArgs) {
@@ -2020,6 +2171,19 @@ ole_invoke(argc, argv, self, wFlags)
     return obj;
 }
 
+/*
+ *  call-seq:
+ *     WIN32OLE#invoke(method, [arg1,...])  => return value of method.
+ *
+ *  Runs OLE method. 
+ *  The first argument specifies the method name of OLE Automation object.
+ *  The others specify argument of the <i>method</i>.
+ *  If you can not execute <i>method</i> directly, then use this method instead.
+ *
+ *    excel = WIN32OLE.new('Excel.Application')
+ *    excel.invoke('Quit')  # => same as excel.Quit
+ *
+ */
 static VALUE
 fole_invoke(argc, argv, self)
     int argc;
@@ -2201,7 +2365,7 @@ ole_invoke2(self, dispid, args, types, dispkind)
         dispParams.rgdispidNamedArgs[0] = DISPID_PROPERTYPUT;
     }
 
-    hr = pole->pDispatch->lpVtbl->Invoke(pole->pDispatch, FIX2INT(dispid),
+    hr = pole->pDispatch->lpVtbl->Invoke(pole->pDispatch, NUM2INT(dispid),
                                          &IID_NULL, LOCALE_SYSTEM_DEFAULT,
                                          dispkind,
                                          &dispParams, &result,
@@ -2224,12 +2388,16 @@ ole_invoke2(self, dispid, args, types, dispkind)
 }
 
 /*
- * WIN32OLE#_invoke(dispid, args, types)
- * ----
- * Runs the early binding method.
- * The 1st argument specifies dispatch ID, 
- * the 2nd argument specifies the array of arguments,
- * the 3rd argument specifies the array of the type of arguments.
+ *   call-seq:
+ *      WIN32OLE#_invoke(dispid, args, types)
+ * 
+ *   Runs the early binding method.
+ *   The 1st argument specifies dispatch ID, 
+ *   the 2nd argument specifies the array of arguments,
+ *   the 3rd argument specifies the array of the type of arguments.
+ *
+ *      excel = WIN32OLE.new('Excel.Application')
+ *      excel._invoke(302, [], []) #  same effect as excel.Quit
  */
 static VALUE
 fole_invoke2(self, dispid, args, types)
@@ -2242,12 +2410,16 @@ fole_invoke2(self, dispid, args, types)
 }
 
 /*
- * WIN32OLE#_getproperty(dispid, args, types)
- * ----
- * Runs the early binding method to get property.
- * The 1st argument specifies dispatch ID, 
- * the 2nd argument specifies the array of arguments,
- * the 3rd argument specifies the array of the type of arguments.
+ *  call-seq:
+ *     WIN32OLE#_getproperty(dispid, args, types)
+ * 
+ *  Runs the early binding method to get property.
+ *  The 1st argument specifies dispatch ID, 
+ *  the 2nd argument specifies the array of arguments,
+ *  the 3rd argument specifies the array of the type of arguments.
+ *
+ *     excel = WIN32OLE.new('Excel.Application')
+ *     puts excel._getproperty(558, [], []) # same effect as puts excel.visible
  */
 static VALUE
 fole_getproperty2(self, dispid, args, types)
@@ -2260,12 +2432,16 @@ fole_getproperty2(self, dispid, args, types)
 }
 
 /*
- * WIN32OLE#_setproperty(dispid, args, types)
- * ----
- * Runs the early binding method to set property.
- * The 1st argument specifies dispatch ID, 
- * the 2nd argument specifies the array of arguments,
- * the 3rd argument specifies the array of the type of arguments.
+ *   call-seq:
+ *      WIN32OLE#_setproperty(dispid, args, types)
+ * 
+ *   Runs the early binding method to set property.
+ *   The 1st argument specifies dispatch ID, 
+ *   the 2nd argument specifies the array of arguments,
+ *   the 3rd argument specifies the array of the type of arguments.
+ *
+ *      excel = WIN32OLE.new('Excel.Application')
+ *      excel._setproperty(558, [true], [WIN32OLE::VARIANT::VT_BOOL]) # same effect as excel.visible = true
  */
 static VALUE
 fole_setproperty2(self, dispid, args, types)
@@ -2278,12 +2454,18 @@ fole_setproperty2(self, dispid, args, types)
 }
 
 /*
- * WIN32OLE['property']=val 
+ *  call-seq:
+ *     WIN32OLE['property']=val 
+ *     WIN32OLE.setproperty('property', [arg1, arg2,...] val)
+ * 
+ *  Sets property of OLE object.
+ *  When you want to set property with argument, you can use this method.
  *
- * WIN32OLE.setproperty('property', [arg1, arg2,] val)
- * -----
- * Sets property of OLE object.
- * When you want to set property with argument, you can use setproperty method.
+ *     excel = WIN32OLE.new('Excel.Application')
+ *     excel['Visible'] = true
+ *     book = excel.workbooks.add
+ *     sheet = book.worksheets(1)
+ *     sheet.setproperty('Cells', 1, 2, 10) # => The B1 cell value is 10.
  */
 static VALUE
 fole_setproperty(argc, argv, self)
@@ -2295,15 +2477,21 @@ fole_setproperty(argc, argv, self)
 }
 
 /*
- * WIN32OLE['property'] 
- * -----
- * Returns property of OLE object.
+ *  call-seq:
+ *     WIN32OLE['property'] 
+ * 
+ *  Returns property of OLE object.
+ *
+ *     excel = WIN32OLE.new('Excel.Application')
+ *     puts excel['Visible'] # => false
  */
 static VALUE
-fole_getproperty(self, property)
-    VALUE self, property;
+fole_getproperty(argc, argv, self)
+    int argc;
+    VALUE *argv;
+    VALUE self;
 {
-    return ole_invoke(1, &property, self, DISPATCH_PROPERTYGET);
+    return ole_invoke(argc, argv, self, DISPATCH_PROPERTYGET);
 }
 
 static VALUE
@@ -2317,7 +2505,7 @@ ole_propertyput(self, property, value)
     EXCEPINFO excepinfo;
     DISPID dispID = DISPID_VALUE;
     DISPID dispIDParam = DISPID_PROPERTYPUT;
-    USHORT wFlags = DISPATCH_PROPERTYPUT;
+    USHORT wFlags = DISPATCH_PROPERTYPUT|DISPATCH_PROPERTYPUTREF;
     DISPPARAMS dispParams;
     VARIANTARG propertyValue[2];
     OLECHAR* pBuf[1];
@@ -2343,7 +2531,7 @@ ole_propertyput(self, property, value)
 
     if(FAILED(hr)) {
         ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, 
-                  "Unknown property or method: `%s'",
+                  "unknown property or method: `%s'",
                   StringValuePtr(property));
     }
     /* set property value */
@@ -2362,6 +2550,15 @@ ole_propertyput(self, property, value)
     return Qnil;
 }
 
+/*
+ *  call-seq:
+ *     WIN32OLE#ole_free
+ *
+ *  invokes Release method of Dispatch interface of WIN32OLE object.
+ *  Usually, you do not need to call this method because Release method
+ *  called automatically when WIN32OLE object garbaged.
+ *
+ */
 static VALUE
 fole_free(self)
     VALUE self;
@@ -2401,9 +2598,18 @@ ole_ienum_free(pEnumV)
 }
 
 /*
- * WIN32OLE#each {|i|...}
- * -----
- * Iterates over each item of OLE collection which has IEnumVARIANT interface.
+ *  call-seq:
+ *     WIN32OLE#each {|i|...}
+ * 
+ *  Iterates over each item of OLE collection which has IEnumVARIANT interface.
+ *
+ *     excel = WIN32OLE.new('Excel.Application')
+ *     book = excel.workbooks.add
+ *     sheets = book.worksheets(1)
+ *     cells = sheets.cells("A1:A5")
+ *     cells.each do |cell|
+ *       cell.value = 10
+ *     end
  */
 static VALUE
 fole_each(self)
@@ -2436,7 +2642,7 @@ fole_each(self)
 
     if (FAILED(hr)) {
         VariantClear(&result);
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to get IEnum Interface");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to get IEnum Interface");
     }
 
     if (V_VT(&result) == VT_UNKNOWN)
@@ -2449,7 +2655,7 @@ fole_each(self)
                                                          (void**)&pEnum);
     if (FAILED(hr) || !pEnum) {
         VariantClear(&result);
-        ole_raise(hr, rb_eRuntimeError, "Failed to get IEnum Interface");
+        ole_raise(hr, rb_eRuntimeError, "failed to get IEnum Interface");
     }
 
     VariantClear(&result);
@@ -2458,9 +2664,10 @@ fole_each(self)
 }
 
 /*
- * WIN32OLE#method_missing(id [,arg1, arg2, ...])
- * ----
- * Calls WIN32OLE#invoke method.
+ *  call-seq:
+ *     WIN32OLE#method_missing(id [,arg1, arg2, ...])
+ * 
+ *  Calls WIN32OLE#invoke method.
  */
 static VALUE
 fole_missing(argc, argv, self)
@@ -2474,7 +2681,7 @@ fole_missing(argc, argv, self)
     id = rb_to_id(argv[0]);
     mname = rb_id2name(id);
     if(!mname) {
-        rb_raise(rb_eRuntimeError, "Fail: unknown method or property");
+        rb_raise(rb_eRuntimeError, "fail: unknown method or property");
     }
     n = strlen(mname);
     if(mname[n-1] == '=') {
@@ -2504,7 +2711,7 @@ ole_method_sub(self, pOwnerTypeInfo, pTypeInfo, name)
     VALUE method = Qnil;
     hr = OLE_GET_TYPEATTR(pTypeInfo, &pTypeAttr);
     if (FAILED(hr)) {
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetTypeAttr");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetTypeAttr");
     }
     for(i = 0; i < pTypeAttr->cFuncs && method == Qnil; i++) {
         hr = pTypeInfo->lpVtbl->GetFuncDesc(pTypeInfo, i, &pFuncDesc);
@@ -2543,7 +2750,7 @@ olemethod_from_typeinfo(self, pTypeInfo, name)
     VALUE method = Qnil;
     hr = OLE_GET_TYPEATTR(pTypeInfo, &pTypeAttr);
     if (FAILED(hr)) {
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetTypeAttr");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetTypeAttr");
     }
     method = ole_method_sub(self, 0, pTypeInfo, name);
     if (method != Qnil) {
@@ -2579,7 +2786,7 @@ ole_methods_sub(pOwnerTypeInfo, pTypeInfo, methods, mask)
     WORD i;
     hr = OLE_GET_TYPEATTR(pTypeInfo, &pTypeAttr);
     if (FAILED(hr)) {
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetTypeAttr");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetTypeAttr");
     }
     for(i = 0; i < pTypeAttr->cFuncs; i++) {
         pstr = NULL;
@@ -2620,7 +2827,7 @@ ole_methods_from_typeinfo(pTypeInfo, mask)
     VALUE methods = rb_ary_new();
     hr = OLE_GET_TYPEATTR(pTypeInfo, &pTypeAttr);
     if (FAILED(hr)) {
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetTypeAttr");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetTypeAttr");
     }
 
     ole_methods_sub(0, pTypeInfo, methods, mask);
@@ -2653,7 +2860,7 @@ typeinfo_from_ole(pole, ppti)
     HRESULT hr = pole->pDispatch->lpVtbl->GetTypeInfo(pole->pDispatch,
                                                       0, lcid, &pTypeInfo);
     if(FAILED(hr)) {
-        ole_raise(hr, rb_eRuntimeError, "Failed to GetTypeInfo");
+        ole_raise(hr, rb_eRuntimeError, "failed to GetTypeInfo");
     }
     hr = pTypeInfo->lpVtbl->GetDocumentation(pTypeInfo,
                                              -1,
@@ -2663,7 +2870,7 @@ typeinfo_from_ole(pole, ppti)
     hr = pTypeInfo->lpVtbl->GetContainingTypeLib(pTypeInfo, &pTypeLib, &i);
     OLE_RELEASE(pTypeInfo);
     if (FAILED(hr)) {
-        ole_raise(hr, rb_eRuntimeError, "Failed to GetContainingTypeLib");
+        ole_raise(hr, rb_eRuntimeError, "failed to GetContainingTypeLib");
     }
     count = pTypeLib->lpVtbl->GetTypeInfoCount(pTypeLib);
     for (i = 0; i < count; i++) {
@@ -2703,21 +2910,32 @@ ole_methods(self,mask)
 }
 
 /*
- * WIN32OLE#ole_methods
- * ----
- * Returns OLE methods
+ *  call-seq:
+ *     WIN32OLE#ole_methods
+ * 
+ *  Returns the array of WIN32OLE_METHOD object. 
+ *  The element is OLE method of WIN32OLE object.
+ *
+ *     excel = WIN32OLE.new('Excel.Application')
+ *     methods = excel.ole_methods
+ *     
  */
 static VALUE
 fole_methods( self )
     VALUE self;
 {
-    return ole_methods( self, INVOKE_FUNC | INVOKE_PROPERTYGET | INVOKE_PROPERTYPUT);
+    return ole_methods( self, INVOKE_FUNC | INVOKE_PROPERTYGET | INVOKE_PROPERTYPUT | INVOKE_PROPERTYPUTREF);
 }
 
 /*
- * WIN32OLE#ole_get_methods
- * ----
- * Returns get properties.
+ *  call-seq:
+ *     WIN32OLE#ole_get_methods
+ * 
+ *  Returns the array of WIN32OLE_METHOD object .
+ *  The element of the array is property (gettable) of WIN32OLE object.
+ *
+ *     excel = WIN32OLE.new('Excel.Application')
+ *     properties = excel.ole_get_methods
  */
 static VALUE
 fole_get_methods( self )
@@ -2727,21 +2945,32 @@ fole_get_methods( self )
 }
 
 /*
- * WIN32OLE#ole_put_methods
- * ----
- * Returns put properties.
+ *  call-seq:
+ *     WIN32OLE#ole_put_methods
+ * 
+ *  Returns the array of WIN32OLE_METHOD object .
+ *  The element of the array is property (settable) of WIN32OLE object.
+ *
+ *     excel = WIN32OLE.new('Excel.Application')
+ *     properties = excel.ole_put_methods
  */
 static VALUE
 fole_put_methods( self )
     VALUE self;
 {
-    return ole_methods( self, INVOKE_PROPERTYPUT);
+    return ole_methods( self, INVOKE_PROPERTYPUT | INVOKE_PROPERTYPUTREF);
 }
 
 /*
- * WIN32OLE#ole_func_methods
- * ---
- * Returns OLE func methods.
+ *  call-seq:
+ *     WIN32OLE#ole_func_methods
+ * 
+ *  Returns the array of WIN32OLE_METHOD object .
+ *  The element of the array is functional method of WIN32OLE object.
+ *
+ *     excel = WIN32OLE.new('Excel.Application')
+ *     properties = excel.ole_func_methods
+ *
  */
 static VALUE
 fole_func_methods( self )
@@ -2751,9 +2980,13 @@ fole_func_methods( self )
 }
 
 /*
- * WIN32OLE#ole_obj_help
- * ----
- * Returns WIN32OLE_TYPE object.
+ *   call-seq:
+ *      WIN32OLE#ole_obj_help
+ * 
+ *   Returns WIN32OLE_TYPE object.
+ *
+ *      excel = WIN32OLE.new('Excel.Application')
+ *      tobj = excel.ole_obj_help
  */
 static VALUE
 fole_obj_help( self )
@@ -2772,12 +3005,12 @@ fole_obj_help( self )
 
     hr = pole->pDispatch->lpVtbl->GetTypeInfo( pole->pDispatch, 0, lcid, &pTypeInfo );
     if(FAILED(hr)) {
-        ole_raise(hr, rb_eRuntimeError, "Failed to GetTypeInfo");
+        ole_raise(hr, rb_eRuntimeError, "failed to GetTypeInfo");
     }
     hr = pTypeInfo->lpVtbl->GetContainingTypeLib( pTypeInfo, &pTypeLib, &index );
     if(FAILED(hr)) {
         OLE_RELEASE(pTypeInfo);
-        ole_raise(hr, rb_eRuntimeError, "Failed to GetContainingTypeLib");
+        ole_raise(hr, rb_eRuntimeError, "failed to GetContainingTypeLib");
     }
     hr = pTypeLib->lpVtbl->GetDocumentation( pTypeLib, index,
                                              &bstr, NULL, NULL, NULL);
@@ -2990,10 +3223,15 @@ ole_typedesc2val(pTypeInfo, pTypeDesc, typedetails)
 }
 
 /*
- * WIN32OLE#ole_method_help(method)
- * -----
- * Returns WIN32OLE_METHOD object corresponding with method 
- * specified by 1st argument.
+ *   call-seq:
+ *      WIN32OLE#ole_method_help(method)
+ * 
+ *   Returns WIN32OLE_METHOD object corresponding with method 
+ *   specified by 1st argument.
+ *
+ *      excel = WIN32OLE.new('Excel.Application')
+ *      method = excel.ole_method_help('Quit')
+ *
  */
 static VALUE
 fole_method_help( self, cmdname )
@@ -3010,20 +3248,21 @@ fole_method_help( self, cmdname )
     OLEData_Get_Struct(self, pole);
     hr = typeinfo_from_ole(pole, &pTypeInfo);
     if(FAILED(hr))
-        ole_raise(hr, rb_eRuntimeError, "Failed to get ITypeInfo");
+        ole_raise(hr, rb_eRuntimeError, "failed to get ITypeInfo");
     method = folemethod_s_allocate(cWIN32OLE_METHOD);
     obj = olemethod_from_typeinfo(method, pTypeInfo, cmdname);
     OLE_RELEASE(pTypeInfo);
     if (obj == Qnil)
-        rb_raise(eWIN32OLE_RUNTIME_ERROR, "Not found %s",
+        rb_raise(eWIN32OLE_RUNTIME_ERROR, "not found %s",
                  StringValuePtr(cmdname));
     return obj;
 }
 
 /*
- * WIN32OLE.ole_classes(typelibrary)
- * ----
- * Returns array of WIN32OLE_TYPE objects defined by type library.
+ *   call-seq:
+ *      WIN32OLE_TYPE.ole_classes(typelib)
+ * 
+ *   Returns array of WIN32OLE_TYPE objects defined by the <i>typelib</i> type library.
  */
 static VALUE
 foletype_s_ole_classes(self, typelib)
@@ -3045,7 +3284,7 @@ foletype_s_ole_classes(self, typelib)
         pbuf = ole_mb2wc(StringValuePtr(file), -1);
         hr = LoadTypeLibEx(pbuf, REGKIND_NONE, &pTypeLib);
         if (FAILED(hr))
-          ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to LoadTypeLibEx");
+          ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to LoadTypeLibEx");
         SysFreeString(pbuf);
         ole_classes_from_typelib(pTypeLib, classes);
         OLE_RELEASE(pTypeLib);
@@ -3056,9 +3295,11 @@ foletype_s_ole_classes(self, typelib)
 }
 
 /*
- * WIN32OLE_TYPE.typelibs
- * ----
- * Returns array of type libraries.
+ *  call-seq:
+ *     WIN32OLE_TYPE.typelibs
+ * 
+ *  Returns array of type libraries.
+ *
  */
 static VALUE
 foletype_s_typelibs(self)
@@ -3103,9 +3344,10 @@ foletype_s_typelibs(self)
 }
 
 /*
- * WIN32OLE_TYPE.progids
- * ---
- * Returns array of ProgID.
+ *  call-seq:
+ *     WIN32OLE_TYPE.progids
+ * 
+ *  Returns array of ProgID.
  */
 static VALUE
 foletype_s_progids(self)
@@ -3200,6 +3442,23 @@ oleclass_from_typelib(self, pTypeLib, oleclass)
     return found;
 }
 
+/*
+ * Document-class: WIN32OLE_TYPE
+ *
+ *   <code>WIN32OLE_TYPE</code> objects represent OLE type libarary information.
+ */
+
+/*
+ *  call-seq:
+ *     WIN32OLE_TYPE.new(typelib, ole_class) -> WIN32OLE_TYPE object
+ *
+ *  Returns a new WIN32OLE_TYPE object.
+ *  The first argument <i>typelib</i> specifies OLE type library name.
+ *  The second argument specifies OLE class name.
+ *
+ *      WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Application') 
+ *          # => WIN32OLE_TYPE object of Application class of Excel. 
+ */
 static VALUE
 foletype_initialize(self, typelib, oleclass)
     VALUE self;
@@ -3220,11 +3479,11 @@ foletype_initialize(self, typelib, oleclass)
     pbuf = ole_mb2wc(StringValuePtr(file), -1);
     hr = LoadTypeLibEx(pbuf, REGKIND_NONE, &pTypeLib);
     if (FAILED(hr))
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to LoadTypeLibEx");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to LoadTypeLibEx");
     SysFreeString(pbuf);
     if (oleclass_from_typelib(self, pTypeLib, oleclass) == Qfalse) {
         OLE_RELEASE(pTypeLib);
-        rb_raise(eWIN32OLE_RUNTIME_ERROR, "Not found `%s` in `%s`",
+        rb_raise(eWIN32OLE_RUNTIME_ERROR, "not found `%s` in `%s`",
                  StringValuePtr(oleclass), StringValuePtr(typelib));
     }
     OLE_RELEASE(pTypeLib);
@@ -3232,9 +3491,12 @@ foletype_initialize(self, typelib, oleclass)
 }
 
 /*
- * WIN32OLE_TYPE#name
- * ---
- * Returns name.
+ * call-seq:
+ *    WIN32OLE_TYPE#name #=> OLE type name
+ *
+ * Returns OLE type name.
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Application') 
+ *    puts tobj.name  # => Application
  */
 static VALUE
 foletype_name(self)
@@ -3291,9 +3553,12 @@ ole_ole_type(pTypeInfo)
 }
 
 /*
- * WIN32OLE_TYPE#ole_type
- * ----
- * returns type of class.
+ *  call-seq:
+ *     WIN32OLE_TYPE#ole_type #=> OLE type string.
+ * 
+ *  returns type of OLE class.
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Application') 
+ *    puts tobj.ole_type  # => Class
  */
 static VALUE
 foletype_ole_type(self)
@@ -3325,9 +3590,12 @@ ole_type_guid(pTypeInfo)
 }
 
 /*
- * WIN32OLE_TYPE#guid
- * ----
- * Returns GUID.
+ *  call-seq:
+ *     WIN32OLE_TYPE#guid  #=> GUID
+ * 
+ *  Returns GUID.
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Application') 
+ *    puts tobj.guid  # => {00024500-0000-0000-C000-000000000046}
  */
 static VALUE
 foletype_guid(self)
@@ -3357,9 +3625,12 @@ ole_type_progid(pTypeInfo)
 }
 
 /*
- * WIN32OLE_TYPE#progid
- * ----
+ * call-seq:
+ *    WIN32OLE_TYPE#progid  #=> ProgID
+ * 
  * Returns ProgID if it exists. If not found, then returns nil.
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Application')
+ *    puts tobj.progid  # =>   Excel.Application.9
  */
 static VALUE
 foletype_progid(self)
@@ -3391,9 +3662,12 @@ ole_type_visible(pTypeInfo)
 }
 
 /*
- * WIN32OLE_TYPE#visible
- * ----
- * returns true if the OLE class is public.
+ *  call-seq:
+ *    WIN32OLE_TYPE#visible  #=> true or false
+ * 
+ *  Returns true if the OLE class is public.
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Application')
+ *    puts tobj.visible  # => true
  */
 static VALUE
 foletype_visible(self)
@@ -3413,16 +3687,19 @@ ole_type_major_version(pTypeInfo)
     HRESULT hr;
     hr = OLE_GET_TYPEATTR(pTypeInfo, &pTypeAttr);
     if (FAILED(hr))
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetTypeAttr");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetTypeAttr");
     ver = INT2FIX(pTypeAttr->wMajorVerNum);
     OLE_RELEASE_TYPEATTR(pTypeInfo, pTypeAttr);
     return ver;
 }
 
 /*
- * WIN32OLE_TYPE#major_version
- * ----
- * Returns major version.
+ *  call-seq:
+ *     WIN32OLE_TYPE#major_version
+ * 
+ *  Returns major version.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Word 10.0 Object Library', 'Documents')
+ *     puts tobj.major_version # => 8
  */
 static VALUE
 foletype_major_version(self)
@@ -3442,16 +3719,19 @@ ole_type_minor_version(pTypeInfo)
     HRESULT hr;
     hr = OLE_GET_TYPEATTR(pTypeInfo, &pTypeAttr);
     if (FAILED(hr))
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetTypeAttr");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetTypeAttr");
     ver = INT2FIX(pTypeAttr->wMinorVerNum);
     OLE_RELEASE_TYPEATTR(pTypeInfo, pTypeAttr);
     return ver;
 }
 
 /*
- * WIN32OLE_TYPE#minor_version
- * ----
- * Returns minor version.
+ *  call-seq:
+ *    WIN32OLE_TYPE#minor_version #=> OLE minor version
+ * 
+ *  Returns minor version.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Word 10.0 Object Library', 'Documents')
+ *     puts tobj.minor_version # => 2
  */
 static VALUE
 foletype_minor_version(self)
@@ -3471,16 +3751,20 @@ ole_type_typekind(pTypeInfo)
     HRESULT hr;
     hr = OLE_GET_TYPEATTR(pTypeInfo, &pTypeAttr);
     if (FAILED(hr))
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetTypeAttr");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetTypeAttr");
     typekind = INT2FIX(pTypeAttr->typekind);
     OLE_RELEASE_TYPEATTR(pTypeInfo, pTypeAttr);
     return typekind;
 }
 
 /*
- * WIN32OLE_TYPE#typekind
- * ----
- * Returns number which represents type.
+ *  call-seq:
+ *    WIN32OLE_TYPE#typekind #=> number of type.
+ * 
+ *  Returns number which represents type.
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Word 10.0 Object Library', 'Documents')
+ *    puts tobj.typekind # => 4
+ *
  */
 static VALUE 
 foletype_typekind(self)
@@ -3505,9 +3789,12 @@ ole_type_helpstring(pTypeInfo)
 }
 
 /*
- * WIN32OLE_TYPE#helpstring
- * ---
- * Returns help string.
+ *  call-seq:
+ *    WIN32OLE_TYPE#helpstring #=> help string.
+ * 
+ *  Returns help string.
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Internet Controls', 'IWebBrowser')
+ *    puts tobj.helpstring # => Web Browser interface
  */
 static VALUE 
 foletype_helpstring(self)
@@ -3538,9 +3825,13 @@ ole_type_src_type(pTypeInfo)
 }
 
 /*
- * WIN32OLE_TYPE#src_type
- * ----
- * Returns source class when the OLE class is 'Alias'.
+ *  call-seq:
+ *     WIN32OLE_TYPE#src_type #=> OLE source class
+ * 
+ *  Returns source class when the OLE class is 'Alias'.
+ *     tobj =  WIN32OLE_TYPE.new('Microsoft Office 9.0 Object Library', 'MsoRGBType')
+ *     puts tobj.src_type # => I4
+ *
  */
 static VALUE
 foletype_src_type(self)
@@ -3565,9 +3856,13 @@ ole_type_helpfile(pTypeInfo)
 }
 
 /*
- * WIN32OLE_TYPE#helpfile
- * ----
- * Returns helpfile
+ *  call-seq:
+ *     WIN32OLE_TYPE#helpfile
+ * 
+ *  Returns helpfile path. If helpfile is not found, then returns nil.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Worksheet')
+ *     puts tobj.helpfile # => C:\...\VBAXL9.CHM
+ *
  */
 static VALUE
 foletype_helpfile(self)
@@ -3592,9 +3887,12 @@ ole_type_helpcontext(pTypeInfo)
 }
 
 /*
- * WIN32OLE_TYPE#helpcontext
- * ---
- * Returns helpcontext.
+ *  call-seq:
+ *     WIN32OLE_TYPE#helpcontext
+ * 
+ *  Returns helpcontext. If helpcontext is not found, then returns nil.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Worksheet')
+ *     puts tobj.helpfile # => 131185
  */
 static VALUE
 foletype_helpcontext(self)
@@ -3621,7 +3919,7 @@ ole_variables(pTypeInfo)
     VALUE variables = rb_ary_new();
     hr = OLE_GET_TYPEATTR(pTypeInfo, &pTypeAttr);
     if (FAILED(hr)) {
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetTypeAttr");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetTypeAttr");
     }
     
     for(i = 0; i < pTypeAttr->cVars; i++) {
@@ -3651,9 +3949,24 @@ ole_variables(pTypeInfo)
 }
 
 /*
- * WIN32OLE_TYPE#variables
- * ----
- * Returns array of variables defined in OLE class.
+ *  call-seq:
+ *     WIN32OLE_TYPE#variables
+ * 
+ *  Returns array of WIN32OLE_VARIABLE objects which represent variables 
+ *  defined in OLE class.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'XlSheetType')
+ *     vars = tobj.variables
+ *     vars.each do |v|
+ *       puts "#{v.name} = #{v.value}"
+ *     end
+ *     
+ *     The result of above sample script is follows:
+ *       xlChart = -4109
+ *       xlDialogSheet = -4116
+ *       xlExcel4IntlMacroSheet = 4
+ *       xlExcel4MacroSheet = 3
+ *       xlWorksheet = -4167
+ *
  */
 static VALUE
 foletype_variables(self)
@@ -3665,9 +3978,16 @@ foletype_variables(self)
 }
 
 /*
- * WIN32OLE_TYPE#ole_methods
- * ----
- * Returns array of WIN32OLE_METHOD objects.
+ *  call-seq:
+ *     WIN32OLE_TYPE#ole_methods # the array of WIN32OLE_METHOD objects.
+ * 
+ *  Returns array of WIN32OLE_METHOD objects which represent OLE method defined in 
+ *  OLE type library.
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Worksheet')
+ *    methods = tobj.ole_methods.collect{|m|
+ *      m.name
+ *    }                                       
+ *    # => ['Activate', 'Copy', 'Delete',....]
  */
 static VALUE
 foletype_methods(argc, argv, self)
@@ -3681,9 +4001,30 @@ foletype_methods(argc, argv, self)
 }
 
 /*
- * WIN32OLE_VARIABLE#name
- * ---
- * Returns the name.
+ * Document-class: WIN32OLE_VARIABLE
+ *
+ *   <code>WIN32OLE_VARIABLE</code> objects represent OLE variable information.
+ */
+
+/*
+ *  call-seq:
+ *     WIN32OLE_VARIABLE#name
+ * 
+ *  Returns the name of variable.
+ *
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'XlSheetType')
+ *     variables = tobj.variables
+ *     variables.each do |variable|
+ *       puts "#{variable.name}"
+ *     end
+ *
+ *     The result of above script is following:
+ *       xlChart
+ *       xlDialogSheet
+ *       xlExcel4IntlMacroSheet
+ *       xlExcel4MacroSheet
+ *       xlWorksheet
+ *
  */
 static VALUE
 folevariable_name(self)
@@ -3701,16 +4042,31 @@ static ole_variable_ole_type(pTypeInfo, var_index)
     VALUE type;
     hr = pTypeInfo->lpVtbl->GetVarDesc(pTypeInfo, var_index, &pVarDesc);
     if (FAILED(hr))
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetVarDesc");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetVarDesc");
     type = ole_typedesc2val(pTypeInfo, &(pVarDesc->elemdescVar.tdesc), Qnil);
     pTypeInfo->lpVtbl->ReleaseVarDesc(pTypeInfo, pVarDesc);
     return type;
 }
 
 /*
- * WIN32OLE_VARIABLE#ole_type
- * ----
- * Returns type.
+ *   call-seq:
+ *      WIN32OLE_VARIABLE#ole_type
+ * 
+ *   Returns OLE type string.
+ *
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'XlSheetType')
+ *     variables = tobj.variables
+ *     variables.each do |variable|
+ *       puts "#{variable.ole_type} #{variable.name}"
+ *     end
+ *
+ *     The result of above script is following:
+ *       INT xlChart
+ *       INT xlDialogSheet
+ *       INT xlExcel4IntlMacroSheet
+ *       INT xlExcel4MacroSheet
+ *       INT xlWorksheet
+ *
  */
 static VALUE
 folevariable_ole_type(self)
@@ -3730,16 +4086,23 @@ static ole_variable_ole_type_detail(pTypeInfo, var_index)
     VALUE type = rb_ary_new();
     hr = pTypeInfo->lpVtbl->GetVarDesc(pTypeInfo, var_index, &pVarDesc);
     if (FAILED(hr))
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetVarDesc");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetVarDesc");
     ole_typedesc2val(pTypeInfo, &(pVarDesc->elemdescVar.tdesc), type);
     pTypeInfo->lpVtbl->ReleaseVarDesc(pTypeInfo, pVarDesc);
     return type;
 }
 
 /*
- * WIN32OLE_VARIABLE#ole_type_detail
- * ---
- * Returns detail information of type. The information is array of type.
+ *  call-seq:
+ *     WIN32OLE_VARIABLE#ole_type_detail
+ * 
+ *  Returns detail information of type. The information is array of type.
+ *
+ *     tobj = WIN32OLE_TYPE.new('DirectX 7 for Visual Basic Type Library', 'D3DCLIPSTATUS')
+ *     variable = tobj.variables.find {|variable| variable.name == 'lFlags'}
+ *     tdetail  = variable.ole_type_detail
+ *     p tdetail # => ["USERDEFINED", "CONST_D3DCLIPSTATUSFLAGS"]
+ *
  */
 static VALUE
 folevariable_ole_type_detail(self)
@@ -3767,10 +4130,25 @@ static ole_variable_value(pTypeInfo, var_index)
 }
 
 /*
- * WIN32OLE_VARIABLE#value
- * ----
- * Returns value if value is exists. If the value does not exist, 
- * this method returns nil.
+ *  call-seq:
+ *     WIN32OLE_VARIABLE#value
+ * 
+ *  Returns value if value is exists. If the value does not exist, 
+ *  this method returns nil.
+ *
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'XlSheetType')
+ *     variables = tobj.variables
+ *     variables.each do |variable|
+ *       puts "#{variable.name} = #{variable.value}"
+ *     end
+ *
+ *     The result of above script is following:
+ *       xlChart = -4109
+ *       xlDialogSheet = -4116
+ *       xlExcel4IntlMacroSheet = 4
+ *       xlExcel4MacroSheet = 3
+ *       xlWorksheet = -4167
+ *
  */    
 static VALUE
 folevariable_value(self)
@@ -3801,9 +4179,24 @@ static ole_variable_visible(pTypeInfo, var_index)
 }
 
 /*
- * WIN32OLE_VARIABLE#visible?
- * ----
- * Returns true if the variable is public.
+ *  call-seq:
+ *     WIN32OLE_VARIABLE#visible?
+ * 
+ *  Returns true if the variable is public.
+ *
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'XlSheetType')
+ *     variables = tobj.variables
+ *     variables.each do |variable|
+ *       puts "#{variable.name} #{variable.visible?}"
+ *     end
+ *
+ *     The result of above script is following:
+ *       xlChart true
+ *       xlDialogSheet true
+ *       xlExcel4IntlMacroSheet true
+ *       xlExcel4MacroSheet true
+ *       xlWorksheet true
+ *       
  */
 static VALUE
 folevariable_visible(self)
@@ -3846,9 +4239,23 @@ ole_variable_kind(pTypeInfo, var_index)
 }
 
 /*
- * WIN32OLE_VARIABLE#variable_kind
- * ----
+ * call-seq:
+ *   WIN32OLE_VARIABLE#variable_kind
+ * 
  * Returns variable kind string.
+ *
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'XlSheetType')
+ *    variables = tobj.variables
+ *    variables.each do |variable|
+ *      puts "#{variable.name} #{variable.variable_kind}"
+ *    end
+ *
+ *    The result of above script is following:
+ *      xlChart CONSTANT
+ *      xlDialogSheet CONSTANT
+ *      xlExcel4IntlMacroSheet CONSTANT
+ *      xlExcel4MacroSheet CONSTANT
+ *      xlWorksheet CONSTANT
  */
 static VALUE
 folevariable_variable_kind(self)
@@ -3876,9 +4283,22 @@ ole_variable_varkind(pTypeInfo, var_index)
 }
 
 /*
- * WIN32OLE_VARIABLE#varkind
- * ----
- * Returns the number which represents variable kind.
+ *  call-seq:
+ *     WIN32OLE_VARIABLE#varkind
+ * 
+ *  Returns the number which represents variable kind.
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'XlSheetType')
+ *    variables = tobj.variables
+ *    variables.each do |variable|
+ *      puts "#{variable.name} #{variable.varkind}"
+ *    end
+ *
+ *    The result of above script is following:
+ *       xlChart 2
+ *       xlDialogSheet 2
+ *       xlExcel4IntlMacroSheet 2
+ *       xlExcel4MacroSheet 2
+ *       xlWorksheet 2
  */
 static VALUE
 folevariable_varkind(self)
@@ -3888,6 +4308,12 @@ folevariable_varkind(self)
     Data_Get_Struct(self, struct olevariabledata, pvar);
     return ole_variable_varkind(pvar->pTypeInfo, pvar->index);
 }
+
+/*
+ * Document-class: WIN32OLE_METHOD
+ *
+ *   <code>WIN32OLE_METHOD</code> objects represent OLE method information.
+ */
 
 static VALUE
 olemethod_set_member(self, pTypeInfo, pOwnerTypeInfo, index, name)
@@ -3923,6 +4349,19 @@ folemethod_s_allocate(klass)
     return obj;
 }
 
+/*
+ *  call-seq:
+ *     WIN32OLE_METHOD.new(ole_type,  method) -> WIN32OLE_METHOD object
+ * 
+ *  Returns a new WIN32OLE_METHOD object which represents the information
+ *  about OLE method.
+ *  The first argument <i>ole_type</i> specifies WIN32OLE_TYPE object.
+ *  The second argument <i>method</i> specifies OLE method name defined OLE class
+ *  which represents WIN32OLE_TYPE object.
+ *
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SaveAs')
+ */
 static VALUE
 folemethod_initialize(self, oletype, method)
     VALUE self;
@@ -3936,20 +4375,26 @@ folemethod_initialize(self, oletype, method)
         Data_Get_Struct(oletype, struct oletypedata, ptype);
         obj = olemethod_from_typeinfo(self, ptype->pTypeInfo, method);
         if (obj == Qnil) {
-            rb_raise(eWIN32OLE_RUNTIME_ERROR, "Not found %s",
+            rb_raise(eWIN32OLE_RUNTIME_ERROR, "not found %s",
                      StringValuePtr(method));
         }
     }
     else {
-        rb_raise(rb_eTypeError, "1st argument should be WIN32OLE_TYPE object.");
+        rb_raise(rb_eTypeError, "1st argument should be WIN32OLE_TYPE object");
     }
     return obj;
 }
 
 /*
- * WIN32OLE_METHOD#name
- * ----
- * Returns the name of the method.
+ *  call-seq
+ *     WIN32OLE_METHOD#name
+ *
+ *  Returns the name of the method.
+ *
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SaveAs')
+ *     puts method.name # => SaveAs
+ *     
  */
 static VALUE
 folemethod_name(self)
@@ -3969,7 +4414,7 @@ ole_method_return_type(pTypeInfo, method_index)
 
     hr = pTypeInfo->lpVtbl->GetFuncDesc(pTypeInfo, method_index, &pFuncDesc);
     if (FAILED(hr)) 
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetFuncDesc");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetFuncDesc");
     
     type = ole_typedesc2val(pTypeInfo, &(pFuncDesc->elemdescFunc.tdesc), Qnil);
     pTypeInfo->lpVtbl->ReleaseFuncDesc(pTypeInfo, pFuncDesc);
@@ -3977,9 +4422,14 @@ ole_method_return_type(pTypeInfo, method_index)
 }
 
 /*
- * WIN32OLE_METHOD#return_type
- * ----
- * Returns string of return value type of method.
+ *  call-seq:
+ *     WIN32OLE_METHOD#return_type
+ * 
+ *  Returns string of return value type of method.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbooks')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Add')
+ *     puts method.return_type # => Workbook
+ *
  */
 static VALUE
 folemethod_return_type(self)
@@ -4001,7 +4451,7 @@ ole_method_return_vtype(pTypeInfo, method_index)
 
     hr = pTypeInfo->lpVtbl->GetFuncDesc(pTypeInfo, method_index, &pFuncDesc);
     if (FAILED(hr)) 
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetFuncDesc");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetFuncDesc");
     
     vt = INT2FIX(pFuncDesc->elemdescFunc.tdesc.vt);
     pTypeInfo->lpVtbl->ReleaseFuncDesc(pTypeInfo, pFuncDesc);
@@ -4009,9 +4459,14 @@ ole_method_return_vtype(pTypeInfo, method_index)
 }
 
 /*
- * WIN32OLE_METHOD#return_vtype
- * ----
- * Returns number of return value type of method.
+ *  call-seq:
+ *     WIN32OLE_METHOD#return_vtype
+ * 
+ *  Returns number of return value type of method.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbooks')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Add')
+ *     puts method.return_vtype # => 26
+ *
  */
 static VALUE
 folemethod_return_vtype(self)
@@ -4041,10 +4496,14 @@ ole_method_return_type_detail(pTypeInfo, method_index)
 }
 
 /*
- * WIN32OLE_METHOD#return_type_detail
- * -----
- * Returns detail information of return value type of method.
- * The information is array.
+ *  call-seq:
+ *     WIN32OLE_METHOD#return_type_detail
+ * 
+ *  Returns detail information of return value type of method.
+ *  The information is array.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbooks')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Add')
+ *     p method.return_type_detail # => ["PTR", "USERDEFINED", "Workbook"]
  */
 static VALUE
 folemethod_return_type_detail(self)
@@ -4065,7 +4524,7 @@ ole_method_invkind(pTypeInfo, method_index)
     VALUE invkind;
     hr = pTypeInfo->lpVtbl->GetFuncDesc(pTypeInfo, method_index, &pFuncDesc);
     if(FAILED(hr)) 
-        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "Failed to GetFuncDesc");
+        ole_raise(hr, eWIN32OLE_RUNTIME_ERROR, "failed to GetFuncDesc");
     invkind = INT2FIX(pFuncDesc->invkind);
     pTypeInfo->lpVtbl->ReleaseFuncDesc(pTypeInfo, pFuncDesc);
     return invkind;
@@ -4094,9 +4553,14 @@ ole_method_invoke_kind(pTypeInfo, method_index)
 }
 
 /*
- * WIN32OLE_MTHOD#invkind
- * ----
- * Returns invkind.
+ *   call-seq:
+ *      WIN32OLE_MTHOD#invkind
+ * 
+ *   Returns the method invoke kind. 
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbooks')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Add')
+ *     puts method.invkind # => 1
+ *
  */
 static VALUE
 folemethod_invkind(self)
@@ -4108,9 +4572,15 @@ folemethod_invkind(self)
 }
 
 /*
- * WIN32OLE_METHOD#invoke_kind
- * ----
- * Returns invoke kind string.
+ *  call-seq:
+ *     WIN32OLE_METHOD#invoke_kind
+ * 
+ *  Returns the method kind string. The string is "UNKNOWN" or "PROPERTY" 
+ *  or "PROPERTY" or "PROPERTYGET" or "PROPERTYPUT" or "PROPERTYPPUTREF" 
+ *  or "FUNC".
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbooks')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Add')
+ *     puts method.invoke_kind # => "FUNC"
  */
 static VALUE
 folemethod_invoke_kind(self)
@@ -4144,9 +4614,13 @@ ole_method_visible(pTypeInfo, method_index)
 }
 
 /*
- * WIN32OLE_METHOD#visible?
- * ----
- * Returns true if the method is public.
+ *  call-seq:
+ *     WIN32OLE_METHOD#visible?
+ * 
+ *  Returns true if the method is public.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbooks')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Add')
+ *     puts method.visible? # => true
  */
 static VALUE
 folemethod_visible(self) 
@@ -4224,9 +4698,14 @@ static ole_method_event(pTypeInfo, method_index, method_name)
 }
 
 /*
- * WIN32OLE_METHOD#event?
- * ----
- * Returns true if the method is event.
+ *  call-seq:
+ *     WIN32OLE_METHOD#event?
+ * 
+ *  Returns true if the method is event.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SheetActivate')
+ *     puts method.event? # => true
+ *
  */
 static VALUE
 folemethod_event(self)
@@ -4241,6 +4720,15 @@ folemethod_event(self)
                             rb_ivar_get(self, rb_intern("name")));
 }
 
+/*
+ *  call-seq:
+ *     WIN32OLE_METHOD#event_interface
+ *
+ *  Returns event interface name if the method is event.
+ *    tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *    method = WIN32OLE_METHOD.new(tobj, 'SheetActivate')
+ *    puts method.event_interface # =>  WorkbookEvents
+ */
 static VALUE
 folemethod_event_interface(self)
     VALUE self;
@@ -4293,6 +4781,17 @@ ole_method_helpstring(pTypeInfo, method_index)
     return WC2VSTR(bhelpstring);
 }
 
+/*
+ *  call-seq:
+ *     WIN32OLE_METHOD#helpstring
+ *
+ *  Returns help string of OLE method. If the help string is not found, 
+ *  then the method returns nil.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Internet Controls', 'IWebBrowser')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Navigate')
+ *     puts method.helpstring # => Navigates to a URL or file.
+ *
+ */
 static VALUE
 folemethod_helpstring(self)
     VALUE self;
@@ -4317,9 +4816,14 @@ ole_method_helpfile(pTypeInfo, method_index)
 }
 
 /*
- * WIN32OLE_METHOD#helpfile
- * ---
- * Returns help file.
+ *  call-seq:
+ *     WIN32OLE_METHOD#helpfile
+ * 
+ *  Returns help file. If help file is not found, then 
+ *  the method returns nil.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbooks')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Add')
+ *     puts method.helpfile # => C:\...\VBAXL9.CHM
  */
 static VALUE
 folemethod_helpfile(self)
@@ -4346,9 +4850,13 @@ ole_method_helpcontext(pTypeInfo, method_index)
 }
 
 /* 
- * WIN32OLE_METHOD#helpcontext
- * -----
- * Returns help context.
+ *  call-seq:
+ *     WIN32OLE_METHOD#helpcontext
+ * 
+ *  Returns help context.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbooks')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Add')
+ *     puts method.helpcontext # => 65717
  */
 static VALUE
 folemethod_helpcontext(self)
@@ -4370,15 +4878,19 @@ ole_method_dispid(pTypeInfo, method_index)
     hr = pTypeInfo->lpVtbl->GetFuncDesc(pTypeInfo, method_index, &pFuncDesc);
     if (FAILED(hr))
         return dispid;
-    dispid = INT2FIX(pFuncDesc->memid); 
+    dispid = INT2NUM(pFuncDesc->memid); 
     pTypeInfo->lpVtbl->ReleaseFuncDesc(pTypeInfo, pFuncDesc);
     return dispid;
 }
 
 /*
- * WIN32OLE_METHOD#dispid
- * ----
- * Returns dispatch ID.
+ *  call-seq:
+ *     WIN32OLE_METHOD#dispid
+ * 
+ *  Returns dispatch ID.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbooks')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Add')
+ *     puts method.dispid # => 181
  */
 static VALUE
 folemethod_dispid(self)
@@ -4406,9 +4918,13 @@ ole_method_offset_vtbl(pTypeInfo, method_index)
 }
 
 /*
- * WIN32OLE_METHOD#offset_vtbl
- * ----
- * Returns the offset ov VTBL.
+ *  call-seq:
+ *     WIN32OLE_METHOD#offset_vtbl
+ * 
+ *  Returns the offset ov VTBL.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbooks')
+ *     method = WIN32OLE_METHOD.new(tobj, 'Add')
+ *     puts method.offset_vtbl # => 40
  */
 static VALUE
 folemethod_offset_vtbl(self)
@@ -4436,9 +4952,14 @@ ole_method_size_params(pTypeInfo, method_index)
 }
 
 /*
- * WIN32OLE_METHOD#size_params
- * ----
- * Returns the size of arguments.
+ *  call-seq:
+ *     WIN32OLE_METHOD#size_params
+ * 
+ *  Returns the size of arguments of the method.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SaveAs')
+ *     puts method.size_params # => 11
+ *  
  */
 static VALUE
 folemethod_size_params(self)
@@ -4449,11 +4970,6 @@ folemethod_size_params(self)
     return ole_method_size_params(pmethod->pTypeInfo, pmethod->index);
 }
 
-/*
- * WIN32OLE_METHOD#size_opt_params
- * ----
- * Returns the size of optional parameters.
- */
 static VALUE
 ole_method_size_opt_params(pTypeInfo, method_index)
     ITypeInfo *pTypeInfo;
@@ -4470,6 +4986,15 @@ ole_method_size_opt_params(pTypeInfo, method_index)
     return size_opt_params;
 }
 
+/*
+ *  call-seq:
+ *     WIN32OLE_METHOD#size_opt_params
+ * 
+ *  Returns the size of optional parameters.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SaveAs')
+ *     puts method.size_opt_params # => 4
+ */
 static VALUE
 folemethod_size_opt_params(self)
     VALUE self;
@@ -4522,9 +5047,16 @@ ole_method_params(pTypeInfo, method_index)
 }
 
 /*
- * WIN32OLE_METHOD#params
- * ----
- * returns array of WIN32OLE_PARAM object corresponding with method parameters.
+ *  call-seq:
+ *     WIN32OLE_METHOD#params
+ * 
+ *  returns array of WIN32OLE_PARAM object corresponding with method parameters.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SaveAs')
+ *     p method.params # => [Filename, FileFormat, Password, WriteResPassword, 
+ *                           ReadOnlyRecommended, CreateBackup, AccessMode, 
+ *                           ConflictResolution, AddToMru, TextCodepage, 
+ *                           TextVisualLayout]
  */
 static VALUE
 folemethod_params(self)
@@ -4536,9 +5068,21 @@ folemethod_params(self)
 }
 
 /*
- * WIN32OLE_PARAM#name
- * ----
- * Returns name.
+ * Document-class: WIN32OLE_PARAM
+ *
+ *   <code>WIN32OLE_PARAM</code> objects represent param information of 
+ *   the OLE method.
+ */
+
+/*
+ *  call-seq:
+ *     WIN32OLE_PARAM#name
+ * 
+ *  Returns name.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SaveAs')
+ *     param1 = method.params[0]
+ *     puts param1.name # => Filename
  */
 static VALUE
 foleparam_name(self)
@@ -4565,6 +5109,16 @@ ole_param_ole_type(pTypeInfo, method_index, index)
     return type;
 }
 
+/*
+ *  call-seq:
+ *     WIN32OLE_PARAM#ole_type
+ *
+ *  Returns OLE type of WIN32OLE_PARAM object(parameter of OLE method).
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SaveAs')
+ *     param1 = method.params[0]
+ *     puts param1.ole_type # => VARIANT
+ */
 static VALUE 
 foleparam_ole_type(self)
     VALUE self;
@@ -4593,6 +5147,16 @@ ole_param_ole_type_detail(pTypeInfo, method_index, index)
     return typedetail;
 }
 
+/*
+ *  call-seq:
+ *     WIN32OLE_PARAM#ole_type_detail
+ *
+ *  Returns detail information of type of argument.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'IWorksheetFunction')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SumIf')
+ *     param1 = method.params[0]
+ *     p param1.ole_type_detail # => ["PTR", "USERDEFINED", "Range"]
+ */
 static VALUE 
 foleparam_ole_type_detail(self)
     VALUE self;
@@ -4623,9 +5187,14 @@ ole_param_flag_mask(pTypeInfo, method_index, index, mask)
 }
 
 /*
- * WIN32OLE_PARAM#input?
- * ----
- * Returns true if the parameter is input.
+ *  call-seq:
+ *     WIN32OLE_PARAM#input?
+ * 
+ *  Returns true if the parameter is input.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SaveAs')
+ *     param1 = method.params[0]
+ *     puts param1.input? # => true
  */
 static VALUE foleparam_input(self)
     VALUE self;
@@ -4637,9 +5206,23 @@ static VALUE foleparam_input(self)
 }
 
 /*
- * WIN32OLE#output?
- * ----
- * Returns true if argument is output.
+ *  call-seq:
+ *     WIN32OLE#output?
+ * 
+ *  Returns true if argument is output.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Internet Controls', 'DWebBrowserEvents')
+ *     method = WIN32OLE_METHOD.new(tobj, 'NewWindow')
+ *     method.params.each do |param|
+ *       puts "#{param.name} #{param.output?}"
+ *     end
+ *
+ *     The result of above script is following:
+ *       URL false
+ *       Flags false
+ *       TargetFrameName false
+ *       PostData false
+ *       Headers false
+ *       Processed true
  */
 static VALUE foleparam_output(self)
     VALUE self;
@@ -4651,9 +5234,14 @@ static VALUE foleparam_output(self)
 }
 
 /*
- * WIN32OLE_PARAM#optional?
- * -----
- * Returns true if argument is output.
+ *  call-seq:
+ *     WIN32OLE_PARAM#optional?
+ * 
+ *  Returns true if argument is optional.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SaveAs')
+ *     param1 = method.params[0]
+ *     puts "#{param1.name} #{param1.optional?}" # => Filename true
  */
 static VALUE foleparam_optional(self)
     VALUE self;
@@ -4664,6 +5252,17 @@ static VALUE foleparam_optional(self)
                                pparam->index, PARAMFLAG_FOPT);
 }
 
+/*
+ *  call-seq:
+ *     WIN32OLE_PARAM#retval?
+ *
+ *  Returns true if argument is return value.
+ *     tobj = WIN32OLE_TYPE.new('DirectX 7 for Visual Basic Type Library', 
+ *                              'DirectPlayLobbyConnection')
+ *     method = WIN32OLE_METHOD.new(tobj, 'GetPlayerShortName')
+ *     param = method.params[0]
+ *     puts "#{param.name} #{param.retval?}"  # => name true
+ */
 static VALUE foleparam_retval(self)
     VALUE self;
 {
@@ -4700,10 +5299,33 @@ ole_param_default(pTypeInfo, method_index, index)
 }
 
 /*
- * WIN32OLE_PARAM#default
- * ----
- * Returns default value. If the default value does not exist, 
- * this method returns nil.
+ *  call-seq:
+ *     WIN32OLE_PARAM#default
+ * 
+ *  Returns default value. If the default value does not exist, 
+ *  this method returns nil.
+ *     tobj = WIN32OLE_TYPE.new('Microsoft Excel 9.0 Object Library', 'Workbook')
+ *     method = WIN32OLE_METHOD.new(tobj, 'SaveAs')
+ *     method.params.each do |param|
+ *       if param.default
+ *         puts "#{param.name} (= #{param.default})"
+ *       else
+ *         puts "#{param}"
+ *       end
+ *     end
+ *
+ *     The above script result is following:
+ *         Filename
+ *         FileFormat
+ *         Password
+ *         WriteResPassword
+ *         ReadOnlyRecommended
+ *         CreateBackup
+ *         AccessMode (= 1)
+ *         ConflictResolution
+ *         AddToMru
+ *         TextCodepage
+ *         TextVisualLayout
  */
 static VALUE foleparam_default(self)
     VALUE self;
@@ -4713,6 +5335,13 @@ static VALUE foleparam_default(self)
     return ole_param_default(pparam->pTypeInfo, pparam->method_index,
                              pparam->index);
 }
+
+
+/*
+ * Document-class: WIN32OLE_EVENT
+ *
+ *   <code>WIN32OLE_EVENT</code> objects controls OLE event.
+ */
 
 static IEventSinkVtbl vtEventSink;
 static BOOL g_IsEventSinkVtblInitialized = FALSE;
@@ -4786,6 +5415,35 @@ STDMETHODIMP EVENTSINK_GetIDsOfNames(
     return DISP_E_UNKNOWNNAME;
 }
 
+static long
+ole_search_event_at(ary, ev)
+    VALUE ary;
+    VALUE ev;
+{
+    VALUE event;
+    VALUE def_event;
+    VALUE event_name;
+    long i, len; 
+    long ret = -1;
+    def_event = Qnil;
+    len = RARRAY(ary)->len;
+    for(i = 0; i < len; i++) {
+        event = rb_ary_entry(ary, i);
+        event_name = rb_ary_entry(event, 1);
+        if(NIL_P(event_name) && NIL_P(ev)) {
+            ret = i;
+            break;
+        }
+        else if (TYPE(ev) == T_STRING &&
+                 TYPE(event_name) == T_STRING &&
+                 rb_str_cmp(ev, event_name) == 0) {
+            ret = i;
+            break;
+        }
+    }
+    return ret;
+}
+
 static VALUE
 ole_search_event(ary, ev, is_default)
     VALUE ary;
@@ -4795,7 +5453,7 @@ ole_search_event(ary, ev, is_default)
     VALUE event;
     VALUE def_event;
     VALUE event_name;
-    int i, len;
+    long i, len;
     *is_default = FALSE;
     def_event = Qnil;
     len = RARRAY(ary)->len;
@@ -4993,6 +5651,7 @@ EVENTSINK_Constructor() {
     pEv->m_dwCookie = 0;
     pEv->pConnectionPoint = NULL;
     pEv->pTypeInfo = NULL;
+    pEv->ptr_freed = NULL;
     return pEv;
 }
 
@@ -5000,6 +5659,7 @@ void EVENTSINK_Destructor(
     PIEVENTSINKOBJ pEVObj
     ) {
     if(pEVObj != NULL) {
+        *(pEVObj->ptr_freed) = 1;
         free(pEVObj);
     }
 }
@@ -5221,6 +5881,14 @@ ole_event_free(poleev)
     ITypeInfo *pti = NULL;
     IConnectionPoint *pcp = NULL;
 
+    if (poleev->freed == 1) {
+        /* 
+         * this return create memory leak.
+         * but poleev->pEvent->pConnectionPoint shoul'd not be freed
+         * until poleev-> freed == 0.
+         */
+        return;
+    }
     if(poleev->pEvent) {
         pti = poleev->pEvent->pTypeInfo;
         if(pti) OLE_RELEASE(pti);
@@ -5229,6 +5897,7 @@ ole_event_free(poleev)
             pcp->lpVtbl->Unadvise(pcp, poleev->pEvent->m_dwCookie);
             OLE_RELEASE(pcp);
         }
+        free(poleev);
     }
 }
 
@@ -5244,6 +5913,16 @@ fev_s_allocate(klass)
     return obj;
 }
 
+/*
+ *  call-seq:
+ *     WIN32OLE_EVENT.new(ole, event) #=> WIN32OLE_EVENT object.
+ *
+ *  Returns OLE event object.
+ *  The first argument specifies WIN32OLE object.
+ *  The second argument specifies OLE event name.
+ *     ie = WIN32OLE.new('InternetExplorer.Application')
+ *     ev = WIN32OLE_EVENT.new(ie, 'DWebBrowserEvents')
+ */     
 static VALUE
 fev_initialize(argc, argv, self)
     int argc;
@@ -5260,14 +5939,14 @@ fev_initialize(argc, argv, self)
     IConnectionPointContainer *pContainer;
     IConnectionPoint *pConnectionPoint;
     IEVENTSINKOBJ *pIEV;
-    DWORD dwCookie;
+    DWORD dwCookie = 0;
     struct oleeventdata *poleev;
 
     rb_secure(4);
     rb_scan_args(argc, argv, "11", &ole, &itf);
 
     if (!rb_obj_is_kind_of(ole, cWIN32OLE)) {
-        rb_raise(rb_eTypeError, "1st parameter must be WIN32OLE object.");
+        rb_raise(rb_eTypeError, "1st parameter must be WIN32OLE object");
     }
 
     if(TYPE(itf) != T_NIL) {
@@ -5294,7 +5973,7 @@ fev_initialize(argc, argv, self)
     if (FAILED(hr)) {
         OLE_RELEASE(pTypeInfo);
         ole_raise(hr, rb_eRuntimeError,
-                  "Failed to query IConnectionPointContainer");
+                  "failed to query IConnectionPointContainer");
     }
 
     hr = pContainer->lpVtbl->FindConnectionPoint(pContainer,
@@ -5303,7 +5982,7 @@ fev_initialize(argc, argv, self)
     OLE_RELEASE(pContainer);
     if (FAILED(hr)) {
         OLE_RELEASE(pTypeInfo);
-        ole_raise(hr, rb_eRuntimeError, "Failed to query IConnectionPoint");
+        ole_raise(hr, rb_eRuntimeError, "failed to query IConnectionPoint");
     }
     pIEV = EVENTSINK_Constructor();
     pIEV->m_iid = iid;
@@ -5321,15 +6000,17 @@ fev_initialize(argc, argv, self)
     poleev->pEvent->pConnectionPoint = pConnectionPoint;
     poleev->pEvent->pTypeInfo = pTypeInfo;
     poleev->pEvent->m_dwCookie = dwCookie;
-
+    poleev->freed = 0;
+    poleev->pEvent->ptr_freed = &(poleev->freed);
     rb_ary_push(ary_ole_event, self);
     return self;
 }
 
 /*
- * WIN32OLE_EVENT.message_loop
- * ---
- * Translates and dispatches Windows message.
+ *  call-seq:
+ *     WIN32OLE_EVENT.message_loop
+ * 
+ *  Translates and dispatches Windows message.
  */
 static VALUE
 fev_s_msg_loop(klass)
@@ -5341,16 +6022,22 @@ fev_s_msg_loop(klass)
 
 
 static void
-add_event_call_back(obj, data)
+add_event_call_back(obj, event, data)
     VALUE obj;
+    VALUE event;
     VALUE data;
 {
-    VALUE ary = rb_ivar_get(obj, id_events);
-    if (NIL_P(ary) || TYPE(ary) != T_ARRAY) {
-        ary = rb_ary_new();
-        rb_ivar_set(obj, id_events, ary);
+    long at;
+    VALUE events = rb_ivar_get(obj, id_events);
+    if (NIL_P(events) || TYPE(events) != T_ARRAY) {
+        events = rb_ary_new();
+        rb_ivar_set(obj, id_events, events);
     }
-    rb_ary_push(ary, data);
+    at = ole_search_event_at(events, event);
+    if (at > -1) {
+        rb_ary_delete_at(events, at);
+    }
+    rb_ary_push(events, data);
 }
 
 static VALUE
@@ -5366,15 +6053,19 @@ ev_on_event(argc, argv, self, is_ary_arg)
         Check_SafeStr(event);
     }
     data = rb_ary_new3(4, rb_block_proc(), event, args, is_ary_arg);
-    add_event_call_back(self, data);
+    add_event_call_back(self, event, data);
     return Qnil;
 }
 
 /*
- * WIN32OLE_EVENT#on_event([event]){...}
- * ----
- * defines the callback event.
- * If argument is omitted, this method defines the callback of all events.
+ *  call-seq:
+ *     WIN32OLE_EVENT#on_event([event]){...}
+ * 
+ *  Defines the callback event.
+ *  If argument is omitted, this method defines the callback of all events.
+ *    ie = WIN32OLE.new('InternetExplorer.Application')
+ *    ev = WIN32OLE_EVENT.new(ie, 'DWebBrowserEvents')
+ *    ev.on_event("NavigateComplete") {|url| puts url}
  */
 static VALUE
 fev_on_event(argc, argv, self)
@@ -5386,11 +6077,12 @@ fev_on_event(argc, argv, self)
 }
 
 /*
- * WIN32OLE_EVENT#on_event_with_outargs([event]){...}
- * ----
- * defines the callback of event.
- * If you want modify argument in callback, 
- * you should use this method instead of WIN32OLE_EVENT#on_event.
+ *  call-seq:
+ *     WIN32OLE_EVENT#on_event_with_outargs([event]){...}
+ * 
+ *  Defines the callback of event.
+ *  If you want modify argument in callback, 
+ *  you should use this method instead of WIN32OLE_EVENT#on_event.
  */
 static VALUE
 fev_on_event_with_outargs(argc, argv, self)
@@ -5405,10 +6097,11 @@ fev_on_event_with_outargs(argc, argv, self)
 void
 Init_win32ole()
 {
-    ary_ole_event = rb_ary_new();
     rb_global_variable(&ary_ole_event);
+    ary_ole_event = rb_ary_new();
     id_events = rb_intern("events");
 
+    rb_global_variable(&com_hash);
     com_vtbl.QueryInterface = QueryInterface;
     com_vtbl.AddRef = AddRef;
     com_vtbl.Release = Release;
@@ -5417,7 +6110,6 @@ Init_win32ole()
     com_vtbl.GetIDsOfNames = GetIDsOfNames;
     com_vtbl.Invoke = Invoke;
     com_hash = Data_Wrap_Struct(rb_cData, rb_mark_hash, st_free_table, st_init_numtable());
-    rb_global_variable(&com_hash);
 
     cWIN32OLE = rb_define_class("WIN32OLE", rb_cObject);
 
@@ -5431,10 +6123,12 @@ Init_win32ole()
     rb_define_singleton_method(cWIN32OLE, "ole_free", fole_s_free, 1);
     rb_define_singleton_method(cWIN32OLE, "ole_reference_count", fole_s_reference_count, 1);
     rb_define_singleton_method(cWIN32OLE, "ole_show_help", fole_s_show_help, -1);
+    rb_define_singleton_method(cWIN32OLE, "codepage", fole_s_get_code_page, 0);
+    rb_define_singleton_method(cWIN32OLE, "codepage=", fole_s_set_code_page, 1);
 
 
     rb_define_method(cWIN32OLE, "invoke", fole_invoke, -1);
-    rb_define_method(cWIN32OLE, "[]", fole_getproperty, 1);
+    rb_define_method(cWIN32OLE, "[]", fole_getproperty, -1);
     rb_define_method(cWIN32OLE, "_invoke", fole_invoke2, 3);
     rb_define_method(cWIN32OLE, "_getproperty", fole_getproperty2, 3);
     rb_define_method(cWIN32OLE, "_setproperty", fole_setproperty2, 3);
@@ -5461,6 +6155,13 @@ Init_win32ole()
 
     rb_define_const(cWIN32OLE, "VERSION", rb_str_new2(WIN32OLE_VERSION));
     rb_define_const(cWIN32OLE, "ARGV", rb_ary_new());
+    rb_define_const(cWIN32OLE, "CP_ACP"       ,INT2FIX(CP_ACP));
+    rb_define_const(cWIN32OLE, "CP_OEMCP"     ,INT2FIX(CP_OEMCP));
+    rb_define_const(cWIN32OLE, "CP_MACCP"     ,INT2FIX(CP_MACCP));
+    rb_define_const(cWIN32OLE, "CP_THREAD_ACP",INT2FIX(CP_THREAD_ACP));
+    rb_define_const(cWIN32OLE, "CP_SYMBOL"    ,INT2FIX(CP_SYMBOL));
+    rb_define_const(cWIN32OLE, "CP_UTF7"      ,INT2FIX(CP_UTF7));
+    rb_define_const(cWIN32OLE, "CP_UTF8"      ,INT2FIX(CP_UTF8));
 
     mWIN32OLE_VARIANT = rb_define_module_under(cWIN32OLE, "VARIANT");
     rb_define_const(mWIN32OLE_VARIANT, "VT_I2", INT2FIX(VT_I2));

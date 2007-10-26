@@ -125,8 +125,7 @@ static void define_colon(void)
     
     GDB_ADDRESS start = (GDB_ADDRESS)-1, pc;
     
-    gdb_get_register("$pc", &pc);
-    if (pc) {
+    if (gdb_get_register("$pc", &pc)) {
     	start = gdb_get_function_start(pc);
         if (!start)
             start = -1;

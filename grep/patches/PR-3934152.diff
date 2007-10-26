@@ -1,0 +1,19 @@
+--- src/dfa.c.orig	2005-05-11 09:45:10.000000000 -0700
++++ src/dfa.c	2005-05-11 09:46:50.000000000 -0700
+@@ -1065,7 +1065,7 @@
+ 		  if (!match) {
+ 		    dfaerror(_("invalid collating element or class"));
+ 		  } else {
+-		      if (*match && !match[1]) {
++		      if (*match && !match[1] && *match != ']') {
+ 			c1 = *match;
+ 			lexptr += used;
+ 			lexleft -= used;
+@@ -1122,6 +1122,7 @@
+ 			char *match = try_collating_thing(lexptr, lexleft, &used);
+ 			if (match && *match && !match[1]) {
+ 			    c2 = *match;
++			    backslash = *match == ']';
+ 			    lexptr += used;
+ 			    lexleft -= used;
+ 			}

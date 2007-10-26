@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1988, 1989, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 1988, 1989 by Adam de Boor
@@ -37,34 +37,48 @@
  * SUCH DAMAGE.
  *
  *	@(#)lst.h	8.2 (Berkeley) 4/28/95
- * $FreeBSD: src/usr.bin/make/lst.h,v 1.15 2002/09/17 21:29:06 jmallett Exp $
+ * $FreeBSD: src/usr.bin/make/lst.h,v 1.37 2005/05/18 06:50:39 harti Exp $
  */
+
+#ifndef lst_h_38f3ead1
+#define	lst_h_38f3ead1
 
 /*-
  * lst.h --
  *	Header for using the list library
  */
-#ifndef _LST_H_
-#define	_LST_H_
 
-#include	<sys/param.h>
-#include	<stdlib.h>
-#include	"sprite.h"
+#include "util.h"
 
 /*
- * basic typedef. This is what the Lst_ functions handle
+ * Structure of a list node.
  */
+struct LstNode {
+	struct LstNode	*prevPtr;   /* previous element in list */
+	struct LstNode	*nextPtr;   /* next in list */
+	void		*datum;	    /* datum associated with this element */
+};
+typedef	struct	LstNode	LstNode;
 
-typedef	struct	Lst	*Lst;
-typedef	struct	LstNode	*LstNode;
+/*
+ * The list itself
+ */
+struct Lst {
+	LstNode  	*firstPtr; /* first node in list */
+	LstNode  	*lastPtr;  /* last node in list */
+};
+typedef	struct	Lst Lst;
+
+typedef	void *DuplicateProc(void *);
+typedef	void FreeProc(void *);
 
 /*
  * NOFREE can be used as the freeProc to Lst_Destroy when the elements are
  *	not to be freed.
  * NOCOPY performs similarly when given as the copyProc to Lst_Duplicate.
  */
-#define	NOFREE		((void (*)(void *)) 0)
-#define	NOCOPY		((void * (*)(void *)) 0)
+#define	NOFREE		((FreeProc *)NULL)
+#define	NOCOPY		((DuplicateProc *)NULL)
 
 #define	LST_CONCNEW	0   /* create new LstNode's when using Lst_Concat */
 #define	LST_CONCLINK	1   /* relink LstNode's when using Lst_Concat */
@@ -73,84 +87,91 @@ typedef	struct	LstNode	*LstNode;
  * Creation/destruction functions
  */
 /* Create a new list */
-Lst		Lst_Init(Boolean);
+#define	Lst_Init(LST)	do {						\
+				(LST)->firstPtr = NULL;			\
+				(LST)->lastPtr = NULL;			\
+			} while (0)
+#define	Lst_Initializer(NAME)	{ NULL, NULL }
+
 /* Duplicate an existing list */
-Lst		Lst_Duplicate(Lst, void * (*)(void *));
+void	Lst_Duplicate(Lst *, Lst *, DuplicateProc *);
+
 /* Destroy an old one */
-void		Lst_Destroy(Lst, void (*)(void *));
-/* True if list is empty */
-Boolean		Lst_IsEmpty(Lst);
+void	Lst_Destroy(Lst *, FreeProc *);
 
 /*
  * Functions to modify a list
  */
 /* Insert an element before another */
-ReturnStatus	Lst_Insert(Lst, LstNode, void *);
+void		Lst_Insert(Lst *, LstNode *, void *);
 /* Insert an element after another */
-ReturnStatus	Lst_Append(Lst, LstNode, void *);
+void		Lst_Append(Lst *, LstNode *, void *);
 /* Place an element at the front of a lst. */
-ReturnStatus	Lst_AtFront(Lst, void *);
+#define	Lst_AtFront(LST, D)	(Lst_Insert((LST), Lst_First(LST), (D)))
 /* Place an element at the end of a lst. */
-ReturnStatus	Lst_AtEnd(Lst, void *);
+#define	Lst_AtEnd(LST, D) 	(Lst_Append((LST), Lst_Last(LST), (D)))
 /* Remove an element */
-ReturnStatus	Lst_Remove(Lst, LstNode);
+void		Lst_Remove(Lst *, LstNode *);
 /* Replace a node with a new value */
-ReturnStatus	Lst_Replace(LstNode, void *);
+#define	Lst_Replace(NODE, D)	((void)((NODE)->datum = (D)))
 /* Concatenate two lists */
-ReturnStatus	Lst_Concat(Lst, Lst, int);
+void	Lst_Concat(Lst *, Lst *, int);
 
 /*
  * Node-specific functions
  */
 /* Return first element in list */
-LstNode		Lst_First(Lst);
+#define	Lst_First(LST)	((Lst_Valid(LST) && !Lst_IsEmpty(LST)) \
+			    ? (LST)->firstPtr : NULL)
 /* Return last element in list */
-LstNode		Lst_Last(Lst);
+#define	Lst_Last(LST)	((Lst_Valid(LST) && !Lst_IsEmpty(LST)) \
+			    ? (LST)->lastPtr : NULL)
 /* Return successor to given element */
-LstNode		Lst_Succ(LstNode);
+#define	Lst_Succ(NODE)	(((NODE) == NULL) ? NULL : (NODE)->nextPtr)
+#define	LST_NEXT(NODE)	((NODE)->nextPtr)
 /* Get datum from LstNode */
-void *	Lst_Datum(LstNode);
+#define	Lst_Datum(NODE)	((NODE)->datum)
 
 /*
  * Functions for entire lists
  */
-/* Find an element in a list */
-LstNode		Lst_Find(Lst, void *, int (*)(void *, void *));
-/* Find an element starting from somewhere */
-LstNode		Lst_FindFrom(Lst, LstNode, void *, int (*cProc)(void *, void *));
+
 /*
  * See if the given datum is on the list. Returns the LstNode containing
  * the datum
  */
-LstNode		Lst_Member(Lst, void *);
-/* Apply a function to all elements of a lst */
-void		Lst_ForEach(Lst, int (*)(void *, void *), void *);
-/*
- * Apply a function to all elements of a lst starting from a certain point.
- * If the list is circular, the application will wrap around to the
- * beginning of the list again.
- */
-void		Lst_ForEachFrom(Lst, LstNode, int (*)(void *, void *), void *);
-/*
- * these functions are for dealing with a list as a table, of sorts.
- * An idea of the "current element" is kept and used by all the functions
- * between Lst_Open() and Lst_Close().
- */
-/* Open the list */
-ReturnStatus	Lst_Open(Lst);
-/* Next element please */
-LstNode		Lst_Next(Lst);
-/* Done yet? */
-Boolean		Lst_IsAtEnd(Lst);
-/* Finish table access */
-void		Lst_Close(Lst);
+LstNode		*Lst_Member(Lst *, void *);
+
+/* Loop through a list. Note, that you may not delete the list element. */
+#define	LST_FOREACH(PTR, LST)						\
+	for ((PTR) = (LST)->firstPtr; (PTR) != NULL; (PTR) = (PTR)->nextPtr)
 
 /*
  * for using the list as a queue
  */
 /* Place an element at tail of queue */
-ReturnStatus	Lst_EnQueue(Lst, void *);
+#define	Lst_EnQueue(LST, D)	(Lst_Valid(LST) \
+				    ? Lst_Append((LST), Lst_Last(LST), (D)) \
+				    : (void)0)
 /* Remove an element from head of queue */
-void *	Lst_DeQueue(Lst);
+void		*Lst_DeQueue(Lst *);
 
-#endif /* _LST_H_ */
+/*
+ * LstValid (L) --
+ *	Return TRUE if the list L is valid
+ */
+#define Lst_Valid(L)	(((L) == NULL) ? FALSE : TRUE)
+
+/*
+ * LstNodeValid (LN, L) --
+ *	Return TRUE if the LstNode LN is valid with respect to L
+ */
+#define Lst_NodeValid(LN, L)	(((LN) == NULL) ? FALSE : TRUE)
+
+/*
+ * Lst_IsEmpty(L) --
+ *	TRUE if the list L is empty.
+ */
+#define Lst_IsEmpty(L)	(!Lst_Valid(L) || (L)->firstPtr == NULL)
+
+#endif /* lst_h_38f3ead1 */

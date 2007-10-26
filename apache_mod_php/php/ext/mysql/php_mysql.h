@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
 */
 
 
-/* $Id: php_mysql.h,v 1.33.2.2.4.2 2007/01/01 09:46:45 sebastian Exp $ */
+/* $Id: php_mysql.h,v 1.37.2.1.2.2 2007/05/14 17:10:47 scottmac Exp $ */
 
 #ifndef PHP_MYSQL_H
 #define PHP_MYSQL_H
@@ -91,6 +91,9 @@ PHP_FUNCTION(mysql_stat);
 PHP_FUNCTION(mysql_thread_id);
 PHP_FUNCTION(mysql_client_encoding);
 PHP_FUNCTION(mysql_ping);
+#if (MYSQL_VERSION_ID >= 40113 && MYSQL_VERSION_ID < 50000) || MYSQL_VERSION_ID >= 50007
+PHP_FUNCTION(mysql_set_charset);
+#endif
 
 ZEND_BEGIN_MODULE_GLOBALS(mysql)
 	long default_link;

@@ -5,6 +5,9 @@
 all:	Makefile conf_script source manpages %messages
 	@echo; echo 'You can now do "make install"'
 
+# On a machine with time before distribution time
+# it may be necessary to touch all distributed files
+
 Makefile: Makefile.in configure
 	@echo "Please run configure first"
 	exit 1
@@ -30,13 +33,13 @@ makefiles: src/Makefile man2html/Makefile man/Makefile msgs/Makefile
 source:	src/Makefile
 	cd src; $(MAKE)
 
-manhtml: man2html/Makefile
+manhtml: man2html/Makefile source
 	cd man2html; $(MAKE)
 
 manpages: man/Makefile
 	cd man; $(MAKE) subdirs
 
-%messages: gencat/gencat msgs/Makefile
+%messages: gencat/gencat msgs/Makefile source
 %	cd msgs; $(MAKE)
 
 %gencat/gencat:
@@ -70,11 +73,3 @@ spotless distclean reallyclean: clean
 
 DISTR = COPYING README README.HP README.RedHat README.GNU-WIN32 INSTALL \
 	Makefile.in configure src man2html man msgs gencat catopen misc
-
-dist:	spotless
-	echo man-`grep "static char version" src/version.h | \
-		sed -e 's/.*"\([0-9.a-z]*\)".*/\1/'` > .fname
-	rm -rf `cat .fname`; mkdir `cat .fname`
-	cd `cat .fname`; for i in $(DISTR); do ln -s ../$$i $$i; done
-	tar chzf `cat .fname`.tar.gz `cat .fname`
-	rm -rf `cat .fname` .fname 

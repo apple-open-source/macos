@@ -31,15 +31,17 @@ class IOUSBWorkLoop : public IOWorkLoop
     OSDeclareDefaultStructors(IOUSBWorkLoop)
     
 protected:
-    void *fSleepToken;
-
+    void *			fSleepToken;
+	bool init ( const char * controllerLocation );
+	void free ( void );
+	
     // Overrides to check for sleeping
     virtual void closeGate();
     virtual bool tryCloseGate();
     
 public:
     // Create a workloop
-    static IOUSBWorkLoop * workLoop();
+    static IOUSBWorkLoop * workLoop(const char * controllerLocation);
     
     // Put workloop to sleep (Must have gate closed, opens gate if successful)
     virtual IOReturn sleep(void *token);

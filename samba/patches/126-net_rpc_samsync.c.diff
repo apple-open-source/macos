@@ -1,6 +1,8 @@
---- samba/source/utils/net_rpc_samsync.c.orig	2005/01/06 23:23:26	1.1.1.11
-+++ samba/source/utils/net_rpc_samsync.c	2005/03/24 00:56:31
-@@ -402,7 +402,7 @@
+Index: samba/source/utils/net_rpc_samsync.c
+===================================================================
+--- samba/source/utils/net_rpc_samsync.c.orig
++++ samba/source/utils/net_rpc_samsync.c
+@@ -477,7 +477,7 @@ static NTSTATUS fetch_account_info(uint3
  	struct group *grp;
  	DOM_SID user_sid;
  	DOM_SID group_sid;
@@ -9,29 +11,29 @@
  	fstring sid_string;
  
  	fstrcpy(account, unistr2_static(&delta->uni_acct_name));
-@@ -441,12 +441,21 @@
+@@ -513,11 +513,16 @@ static NTSTATUS fetch_account_info(uint3
+ 			}
  		}
  		
- 		/* try and find the possible unix account again */
-+#ifdef WITH_OPENDIRECTORY
-+		if (lp_opendirectory() && !strchr_m(account, '$')) { 
-+#endif
- 		if ( !(passwd = Get_Pwnam(account)) ) {
- 			d_printf("Could not create posix account info for '%s'\n", account);
- 			nt_ret = NT_STATUS_NO_SUCH_USER;
- 			goto done;
+-		/* try and find the possible unix account again */
+-		if ( !(passwd = Get_Pwnam(account)) ) {
+-			d_fprintf(stderr, "Could not create posix account info for '%s'\n", account);
+-			nt_ret = NT_STATUS_NO_SUCH_USER;
+-			goto done;
++		/* Try and find the possible unix account again, unless we are
++		 * in Open Directory mode and it's a machine account.
++		 */
++		if (lp_opendirectory() && !strchr_m(account, '$')) {
++			if ( !(passwd = Get_Pwnam(account)) ) {
++				d_fprintf(stderr, "Could not create posix account info for '%s'\n",
++					account);
++				nt_ret = NT_STATUS_NO_SUCH_USER;
++				goto done;
++			}
  		}
-+#ifdef WITH_OPENDIRECTORY
  	}
-+#endif
-+	} else {
-+		fprintf(stderr, "Skipping  exists account (%s)\n", account);	
-+		goto done;
-+	}
  	
- 	sid_copy(&user_sid, get_global_sam_sid());
- 	sid_append_rid(&user_sid, delta->user_rid);
-@@ -479,7 +488,7 @@
+@@ -556,7 +561,7 @@ static NTSTATUS fetch_account_info(uint3
  		DEBUG(0, ("Primary group of %s has no mapping!\n",
  			  pdb_get_username(sam_account)));
  	} else {

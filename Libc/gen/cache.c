@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,16 +26,27 @@
 #include <stddef.h>
 #include <errno.h>
 #include <sys/types.h>
+#include <libkern/OSCacheControl.h>
 
-static const unsigned int kCacheOptionsSyncForExecution = 0x1;
-extern void sys_icache_invalidate(void *, size_t);
 
 int
-sys_cache_control(unsigned int options, caddr_t start, size_t len)
+sys_cache_control(int function, void *start, size_t len)
 {
-     if (options == kCacheOptionsSyncForExecution) {
-	  sys_icache_invalidate(start, len);
-	  return 0;
-     }
-     return ENOTSUP;
+	int	status = 0;
+	
+	switch( function ) {
+	
+	case kCacheFunctionPrepareForExecution:
+		sys_icache_invalidate(start, len);
+		break;
+		
+	case kCacheFunctionFlushDcache:
+		sys_dcache_flush(start, len);
+		break;
+		
+	default:
+		status = ENOTSUP;
+	}
+	
+	return	status;
 }

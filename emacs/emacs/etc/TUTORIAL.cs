@@ -1,4 +1,4 @@
-Copyright (c) 1985 Free Software Foundation, Inc;  podmínky viz na konci.
+Tutoriál k Emacsu.  Podmínky viz na konci.
 Do èe¹tiny pøelo¾il Milan Zamazal <pdm@zamazal.org>.
 
 Máte pøed sebou tutoriál k Emacsu.
@@ -18,6 +18,7 @@ Dùle¾itá poznámka: práci s Emacsem ukonèíte stiskem C-x C-c (dva znaky).
 Znaky ">>" na levém okraji znaèí místa, kde si máte vyzkou¹et pøíkaz.
 Napøíklad:
 <<Blank lines inserted here by startup of help-with-tutorial>>
+[Prostøední èást obrazovky je prázdná zámìrnì. Text pokraèuje ní¾e.]
 >>  Nyní stisknìte C-v (view next screen) pro posun na dal¹í obrazovku.
         (Smìle do toho, proveïte to pøidr¾ením klávesy CONTROL a stiskem v.)
 	Od této chvíle byste toto mìli provádìt kdykoliv doètete zobrazenou
@@ -63,7 +64,7 @@ pou¾ití pøíkazù C-p, C-b, C-f a C-n.  Ka¾dý z tìchto pøíkazù pøesune
 kurzor na obrazovce o jeden øádek nebo sloupec v daném smìru.
 Zde je tabulka znázoròující smìr posuvu kurzoru vyvolaný tìmito ètyømi
 pøíkazy:
- 
+
 			  Pøedchozí øádek, C-p
 				  :
 				  :
@@ -258,7 +259,7 @@ Pokud opravdu chcete pøíkaz vyzkou¹et, stisknìte mezerník jako odpovìï
 na tuto otázku.  Obyèejnì, jestli¾e nechcete deaktivovaný pøíkaz
 provést, odpovìzte na tuto otázku pomocí "n".
 
->> Stisknìte <ESC> : (co¾ je deaktivovaný pøíkaz),
+>> Stisknìte C-x C-l (co¾ je deaktivovaný pøíkaz),
    pak na otázku odpovìzte n.
 
 
@@ -487,7 +488,7 @@ vyvoláte pøíkaz
 	C-x C-f   Vyhledání souboru
 
 Emacs se vás zeptá na jméno souboru.  Jméno souboru, které pí¹ete, se
-objevuje ve spodním øádku obrazovky, který se v této situaci nazývá
+objevuje ve spodním øádku obrazovky, který se v této situaci nazývá
 minibuffer.  Pro editaci jména souboru mù¾ete pou¾ívat obvyklé editaèní
 pøíkazy Emacsu.
 
@@ -768,7 +769,7 @@ numerický argument.
    C-x f.
 
 Jestli¾e provedete zmìny uprostøed odstavce, Auto Fill mód jej
-nepøeformátuje. 
+nepøeformátuje.
 Pro pøeformátování odstavce stisknìte M-q (META-q) s kurzorem uvnitø
 odstavce.
 
@@ -794,7 +795,7 @@ Kdy¾ stisknete C-s, uvidíte v echo oblasti prompt "I-search".  To vám
 a èeká, a¾ mu zadáte, co chcete hledat.  <RET> hledání ukonèí.
 
 >> Nyní zahajte hledání stiskem C-s.  POMALU, písmeno po písmenu, pi¹te
-   slovo 'kurzor'.  Po ka¾dém písmenu si v¹imnìte, co se dìje s kurzorem.  
+   slovo 'kurzor'.  Po ka¾dém písmenu si v¹imnìte, co se dìje s kurzorem.
    Teï jste vyhledali "kurzor" poprvé.
 >> Stisknìte C-s znovu, abyste nalezli dal¹í výskyt "kurzor".
 >> Nyní ètyøikrát stisknìte <Delete> a pozorujte, jak se kurzor
@@ -1021,7 +1022,8 @@ tutoriálem napsaným Stuartem Cracraftem pro pùvodní Emacs.
 Tato verze tutoriálu je, podobnì jako GNU Emacs, chránìna copyrightem a
 je ¹íøena se svolením distribuovat kopie za jistých podmínek:
 
-Copyright (c) 1985, 1996 Free Software Foundation
+Copyright (C) 1985, 1996, 1998, 2001, 2002, 2003, 2004,
+   2005, 2006, 2007  Free Software Foundation, Inc.
 
    Ka¾dému je zaruèeno právo vytváøet a distribuovat pøesné kopie tohoto
    dokumentu tak, jak jej obdr¾el, na jakémkoliv médiu, s tím, ¾e bude
@@ -1041,3 +1043,5 @@ GNU Emacsu svým pøátelùm.  Pomáhejte potírat softwarovou obstrukci
 ;;; Local Variables:
 ;;; coding: iso-latin-2
 ;;; End:
+
+;;; arch-tag: 479ef577-3d4d-4384-aeea-9fe79d5e89ca

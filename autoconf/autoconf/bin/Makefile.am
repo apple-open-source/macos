@@ -1,7 +1,9 @@
 ## Process this file with automake to create Makefile.in. -*-Makefile-*-
 
 ## Makefile for Autoconf.
-## Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+
+## Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+## Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -15,20 +17,19 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
 include ../lib/freeze.mk
 
 bin_SCRIPTS = autom4te \
 	      autoconf autoheader autoreconf ifnames autoscan autoupdate
 
-EXTRA_DIST = autoconf.in autoheader.in autoreconf.in autoupdate.in ifnames.in \
-	     autoscan.in autom4te.in \
-	     autoconf.as
+EXTRA_DIST = autoconf.as autoheader.in autoreconf.in autoupdate.in ifnames.in \
+	     autoscan.in autom4te.in
 
 # Files that should be removed, but which Automake does not know.
-CLEANFILES = $(bin_SCRIPTS)
+MOSTLYCLEANFILES = $(bin_SCRIPTS) autoconf.in *.tmp
 
 
 ## ------------- ##
@@ -36,79 +37,46 @@ CLEANFILES = $(bin_SCRIPTS)
 ## ------------- ##
 
 edit = sed \
-	-e 's,@SHELL\@,$(SHELL),g' \
-	-e 's,@PERL\@,$(PERL),g' \
-	-e 's,@bindir\@,$(bindir),g' \
-	-e 's,@datadir\@,$(pkgdatadir),g' \
-	-e 's,@prefix\@,$(prefix),g' \
-	-e 's,@autoconf-name\@,'`echo autoconf | sed '$(transform)'`',g' \
-	-e 's,@autoheader-name\@,'`echo autoheader | sed '$(transform)'`',g' \
-	-e 's,@autom4te-name\@,'`echo autom4te | sed '$(transform)'`',g' \
-	-e 's,@M4\@,$(M4),g' \
-	-e 's,@AWK\@,$(AWK),g' \
-	-e 's,@VERSION\@,$(VERSION),g' \
-	-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g' \
-	-e 's,@configure_input\@,Generated from $<; do not edit by hand.,g'
+	-e 's|@SHELL[@]|$(SHELL)|g' \
+	-e 's|@PERL[@]|$(PERL)|g' \
+	-e 's|@bindir[@]|$(bindir)|g' \
+	-e 's|@datadir[@]|$(pkgdatadir)|g' \
+	-e 's|@prefix[@]|$(prefix)|g' \
+	-e 's|@autoconf-name[@]|'`echo autoconf | sed '$(transform)'`'|g' \
+	-e 's|@autoheader-name[@]|'`echo autoheader | sed '$(transform)'`'|g' \
+	-e 's|@autom4te-name[@]|'`echo autom4te | sed '$(transform)'`'|g' \
+	-e 's|@M4[@]|$(M4)|g' \
+	-e 's|@M4_DEBUGFILE[@]|$(M4_DEBUGFILE)|g' \
+	-e 's|@AWK[@]|$(AWK)|g' \
+	-e 's|@VERSION[@]|$(VERSION)|g' \
+	-e 's|@PACKAGE_NAME[@]|$(PACKAGE_NAME)|g' \
+	-e 's|@configure_input[@]|Generated from $@.in; do not edit by hand.|g'
 
 # autoconf is written in M4sh.
-AUTOM4SH = $(top_builddir)/tests/autom4te --language M4sh --cache ''
-$(srcdir)/autoconf.in: $(srcdir)/autoconf.as # FIXME: $(m4sh_m4f_dependencies)
-	$(AUTOM4SH) $(srcdir)/autoconf.as -o $@
+# FIXME: this target should depend on the frozen files below lib/m4sugar,
+# otherwise autom4te may pick up a frozen m4sh.m4f from an earlier
+# installation below the same $(prefix); work around this with --melt.
+autoconf.in: $(srcdir)/autoconf.as $(m4sh_m4f_dependencies)
+	$(MY_AUTOM4TE) --language M4sh --cache '' --melt $(srcdir)/autoconf.as -o $@
 
-## All the files below depend on Makefile so that they are rebuilt
-## when the prefix etc. changes.  It took quite a while to have these
-## rules correct, don't break them!  In particular, we believe there is
-## no solution to factor the code.
+## All the scripts depend on Makefile so that they are rebuilt when the
+## prefix etc. changes.  It took quite a while to have the rule correct,
+## don't break it!
 ## Use chmod -w to prevent people from editing the wrong file by accident.
-autoconf: $(srcdir)/autoconf.in Makefile
-	rm -f autoconf autoconf.tmp
-	$(edit) $(srcdir)/autoconf.in >autoconf.tmp
-	chmod +x autoconf.tmp
-	chmod -w autoconf.tmp
-	mv -f autoconf.tmp autoconf
+$(bin_SCRIPTS): Makefile
+	rm -f $@ $@.tmp
+	$(edit) `test -f ./$@.in || echo $(srcdir)/`$@.in >$@.tmp
+	chmod +x $@.tmp
+	chmod a-w $@.tmp
+	mv $@.tmp $@
 
-autoheader: $(srcdir)/autoheader.in Makefile
-	rm -f autoheader autoheader.tmp
-	$(edit) $(srcdir)/autoheader.in >autoheader.tmp
-	chmod +x autoheader.tmp
-	chmod -w autoheader.tmp
-	mv -f autoheader.tmp autoheader
-
-autom4te: $(srcdir)/autom4te.in Makefile
-	rm -f autom4te autom4te.tmp
-	$(edit) $(srcdir)/autom4te.in >autom4te.tmp
-	chmod +x autom4te.tmp
-	chmod -w autom4te.tmp
-	mv -f autom4te.tmp autom4te
-
-autoreconf: $(srcdir)/autoreconf.in Makefile
-	rm -f autoreconf autoreconf.tmp
-	$(edit) $(srcdir)/autoreconf.in >autoreconf.tmp
-	chmod +x autoreconf.tmp
-	chmod -w autoreconf.tmp
-	mv -f autoreconf.tmp autoreconf
-
-autoscan: $(srcdir)/autoscan.in Makefile
-	rm -f autoscan autoscan.tmp
-	$(edit) $(srcdir)/autoscan.in >autoscan.tmp
-	chmod +x autoscan.tmp
-	chmod -w autoscan.tmp
-	mv -f autoscan.tmp autoscan
-
-autoupdate: $(srcdir)/autoupdate.in Makefile
-	rm -f autoupdate autoupdate.tmp
-	$(edit) $(srcdir)/autoupdate.in >autoupdate.tmp
-	chmod +x autoupdate.tmp
-	chmod -w autoupdate.tmp
-	mv -f autoupdate.tmp autoupdate
-
-ifnames: $(srcdir)/ifnames.in Makefile
-	rm -f ifnames ifnames.tmp
-	$(edit) $(srcdir)/ifnames.in >ifnames.tmp
-	chmod +x ifnames.tmp
-	chmod -w ifnames.tmp
-	mv -f ifnames.tmp ifnames
-
+autoconf: autoconf.in
+autoheader: $(srcdir)/autoheader.in
+autom4te: $(srcdir)/autom4te.in
+autoreconf: $(srcdir)/autoreconf.in
+autoscan: $(srcdir)/autoscan.in
+autoupdate: $(srcdir)/autoupdate.in
+ifnames: $(srcdir)/ifnames.in
 
 
 ## --------------- ##

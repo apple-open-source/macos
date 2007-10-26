@@ -1,0 +1,32 @@
+# Copyright 2006 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+if $tracelevel then {
+        strace $tracelevel
+        }
+
+# Start with a fresh gdb
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+
+send_gdb "set width 0\n"
+gdb_expect -re "$gdb_prompt $"
+
+
+gdb_test "help open" "Open the named source file.*" "test that the open command still exists"
+gdb_test "help op" "Open the named source file.*" "test that the open abbrevation still exists"
+

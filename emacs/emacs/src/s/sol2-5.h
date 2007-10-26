@@ -2,6 +2,10 @@
 
 #include "sol2-4.h"
 
+#if 0 /* Klaus Zeitler <kzeitler@lucent.com> says SIGIO still fails.  */
+#undef BROKEN_SIGIO
+#endif
+
 /* -lgen is needed for the regex and regcmp functions
    which are used by Motif.  In the future we can try changing
    regex.c to provide them in Emacs, but this is safer for now.  */
@@ -24,24 +28,9 @@
 
 #undef USE_MMAP_FOR_BUFFERS
 
-/* This prevents crashes in "M-x shell".  */
-#ifndef HAVE_VFORK
-#define HAVE_VFORK 1
-#endif
+/* Probably OK also on earlier versions.  */
+#define GC_SETJMP_WORKS 1
+#define GC_MARK_STACK GC_MAKE_GCPROS_NOOPS
 
-#if 0 /* A recent patch in unexelf.c should eliminate the need for this.  */
-/* Don't use the shared libraries for -lXt and -lXaw,
-   to work around a linker bug in Solaris 2.5.
-   (This also affects the other libraries used specifically for
-   the X toolkit, which may not be necessary.)  */
-#define LIBXT_STATIC
-
-#ifdef __GNUC__
-#define STATIC_OPTION -Xlinker -Bstatic
-#define DYNAMIC_OPTION -Xlinker -Bdynamic
-#else
-#define STATIC_OPTION -Bstatic
-#define DYNAMIC_OPTION -Bdynamic
-#endif
-
-#endif /* 0 */
+/* arch-tag: 96d65526-21c9-4547-a797-2bd575c05be7
+   (do not change this comment) */

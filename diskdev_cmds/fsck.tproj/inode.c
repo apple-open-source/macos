@@ -54,7 +54,7 @@
  * SUCH DAMAGE.
  */
 
-
+#include <time.h>
 #include <sys/param.h>
 #include <sys/time.h>
 
@@ -174,8 +174,8 @@ iblock(idesc, ilevel, isize)
 		for (ap = &bp->b_un.b_indir[nif]; ap < aplim; ap++,rr++) {
 			if (*ap == 0)
 				continue;
-			(void)sprintf(buf, "PARTIALLY TRUNCATED INODE I=%lu and nif=%lu and rr=*lu",
-				idesc->id_number,nif,rr);
+			(void)sprintf(buf, "PARTIALLY TRUNCATED INODE I=%u and nif=%d and rr=%d",
+				idesc->id_number, nif,rr);
 			if (dofix(idesc, buf)) {
 				*ap = 0;
 				dirty(bp);
@@ -219,20 +219,20 @@ chkrange(blk, cnt)
 	if (blk < cgdmin(&sblock, c)) {
 		if ((blk + cnt) > cgsblock(&sblock, c)) {
 			if (debug) {
-				printf("blk %ld < cgdmin %ld;",
+				printf("blk %u < cgdmin %u;",
 				    blk, cgdmin(&sblock, c));
-				printf(" blk + cnt %ld > cgsbase %ld\n",
-				    blk + cnt, cgsblock(&sblock, c));
+				printf(" blk + cnt %u > cgsbase %u\n",
+				    (blk + cnt), cgsblock(&sblock, c));
 			}
 			return (1);
 		}
 	} else {
 		if ((blk + cnt) > cgbase(&sblock, c+1)) {
 			if (debug)  {
-				printf("blk %ld >= cgdmin %ld;",
+				printf("blk %u >= cgdmin %u;",
 				    blk, cgdmin(&sblock, c));
-				printf(" blk + cnt %ld > sblock.fs_fpg %ld\n",
-				    blk+cnt, sblock.fs_fpg);
+				printf(" blk + cnt %u > sblock.fs_fpg %u\n",
+				    (blk+cnt), sblock.fs_fpg);
 			}
 			return (1);
 		}
@@ -376,9 +376,9 @@ cacheino(dp, inumber)
 	memmove(&inp->i_blks[0], &dp->di_db[0], (size_t)inp->i_numblks);
 	if (inplast == listmax) {
 		listmax += 100;
-		if ((size_t)listmax > SIZE_T_MAX / sizeof(struct inoinfo *)) 
+		if ((size_t)listmax > SIZE_T_MAX / sizeof(struct inoinfo *)) {
 			errx(EEXIT, "integer overflow detected reallocating directory list");
-
+		}
 		inpsort = (struct inoinfo **)realloc((char *)inpsort,
 		    (unsigned)listmax * sizeof(struct inoinfo *));
 		if (inpsort == NULL)
@@ -489,9 +489,9 @@ pinode(ino)
 	register struct dinode *dp;
 	register char *p;
 	struct passwd *pw;
-	char *ctime();
+	time_t t;
 
-	printf(" I=%lu ", ino);
+	printf(" I=%u ", ino);
 	if (ino < ROOTINO || ino > maxino)
 		return;
 	dp = ginode(ino);
@@ -504,7 +504,8 @@ pinode(ino)
 	if (preen)
 		printf("%s: ", cdevname);
 	printf("SIZE=%qu ", dp->di_size);
-	p = ctime(&dp->di_mtime);
+	p = ctime(&t);
+	dp->di_mtime = (int32_t)t;
 	printf("MTIME=%12.12s %4.4s ", &p[4], &p[20]);
 }
 
@@ -547,6 +548,7 @@ allocino(request, type)
 {
 	register ino_t ino;
 	register struct dinode *dp;
+	time_t t;
 
 	if (request == 0)
 		request = ROOTINO;
@@ -575,7 +577,8 @@ allocino(request, type)
 		return (0);
 	}
 	dp->di_mode = type;
-	(void)time(&dp->di_atime);
+	(void)time(&t);
+	dp->di_atime = (int32_t)t;
 	dp->di_mtime = dp->di_ctime = dp->di_atime;
 	dp->di_size = sblock.fs_fsize;
 #ifdef __APPLE__

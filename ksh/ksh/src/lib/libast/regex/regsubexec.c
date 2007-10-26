@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -153,6 +149,7 @@ regsubexec(const regex_t* p, const char* s, size_t nmatch, regmatch_t* match)
 {
 	register int		c;
 	register regsub_t*	b;
+	const char*		e;
 	int			m;
 
 	if (!p->env->sub || (p->env->flags & REG_NOSUB) || !nmatch)
@@ -160,6 +157,7 @@ regsubexec(const regex_t* p, const char* s, size_t nmatch, regmatch_t* match)
 	b = p->re_sub;
 	m = b->re_min;
 	b->re_cur = b->re_buf;
+	e = (const char*)p->env->end;
 	for (;;)
 	{
 		if (--m > 0)
@@ -173,15 +171,18 @@ regsubexec(const regex_t* p, const char* s, size_t nmatch, regmatch_t* match)
 		s += match->rm_eo;
 		if (m <= 0 && !(b->re_flags & REG_SUB_ALL))
 			break;
-		if (c = regexec(p, s, nmatch, match, p->env->flags|(match->rm_so == match->rm_eo ? REG_ADVANCE : 0)))
+		if (c = regnexec(p, s, e - s, nmatch, match, p->env->flags|(match->rm_so == match->rm_eo ? REG_ADVANCE : 0)))
 		{
 			if (c != REG_NOMATCH)
 				return fatal(p->env->disc, c, NiL);
 			break;
 		}
 	}
-	while (c = *s++)
+	while (s < e)
+	{
+		c = *s++;
 		PUTC(p, b, c, return fatal(p->env->disc, c, NiL));
+	}
 	NEED(p, b, 1, return fatal(p->env->disc, c, NiL));
 	*b->re_cur = 0;
 	b->re_len = b->re_cur - b->re_buf;

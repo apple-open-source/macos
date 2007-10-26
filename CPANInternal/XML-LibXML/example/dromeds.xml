@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dromedaries>
+    <species name="Camel">
+      <humps>1 or 2</humps>
+      <disposition>Cranky</disposition>
+    </species>
+    <species name="Llama">
+      <humps>1 (sort of)</humps>
+      <disposition>Aloof</disposition>
+    </species>
+    <species name="Alpaca">
+      <humps>(see Llama)</humps>
+      <disposition>Friendly</disposition>
+    </species>
+</dromedaries>

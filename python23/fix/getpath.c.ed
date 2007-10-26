@@ -1,0 +1,18 @@
+/mach-o\/dyld\.h/c
+#include <dlfcn.h>
+.
+/NSModule pythonModule/c
+    Dl_info addrinfo;
+.
+/__APPLE__/a
+.
+.,/^#endif$/d
+/__APPLE__/a
+.
+.,/\/\/ __APPLE__$/d
+/NSModuleForSymbol/a
+.
+.,/NSLibraryNameForModule/c
+    buf = dladdr("_Py_Initialize", &addrinfo) ? (char *)addrinfo.dli_fname : NULL;
+.
+w

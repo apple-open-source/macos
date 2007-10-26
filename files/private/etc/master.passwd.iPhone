@@ -1,0 +1,11 @@
+##
+# User Database
+# 
+# This file is the authoritative user database.
+##
+nobody:*:-2:-2::0:0:Unprivileged User:/var/empty:/usr/bin/false
+root:/smx7MYTQIi2M:0:0::0:0:System Administrator:/var/root:/bin/sh
+mobile:/smx7MYTQIi2M:501:501::0:0:Mobile User:/var/root:/bin/sh
+daemon:*:1:1::0:0:System Services:/var/root:/usr/bin/false
+_mdnsresponder:*:65:65::0:0:mDNSResponder:/var/empty:/usr/bin/false
+_unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false

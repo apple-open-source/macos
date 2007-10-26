@@ -12,9 +12,9 @@ NAME = mount_hfs
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = hfs_endian.h
+HFILES = hfs_endian.h optical.h
 
-CFILES = mount_hfs.c
+CFILES = mount_hfs.c optical.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble mount_hfs.8
 
@@ -23,7 +23,7 @@ MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /sbin
-LIBS = -ldisk
+LIBS = -lutil
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

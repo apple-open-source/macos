@@ -1,5 +1,5 @@
 # GDBMenuBar
-# Copyright 2000 Red Hat, Inc.
+# Copyright 2000, 2004 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -138,10 +138,19 @@ itcl::class GDBMenuBar {
   #                underline - which element to underline for shortcuts
   #  RETURNS:      Nothing
   # ------------------------------------------------------------------
-  private method menubar_add_cascade {menu_name label underline} {
+  private method menubar_add_cascade {menu_name class label underline} {
     set m [menu $current_menu.$menu_name -tearoff false]
     $current_menu add cascade -menu $m -label $label \
       -underline $underline
+    incr item_number
+    switch $class {
+      None {}
+      default {
+        foreach elem $class {
+	  lappend menu_classes($elem) [list $current_menu $item_number]
+	}
+      }
+    }
     set current_menu $m
   }
 
@@ -278,6 +287,14 @@ itcl::class GDBMenuBar {
     set saved_menu $current_menu
     set current_menu $menup
     return $saved_menu
+  }
+
+  # ------------------------------------------------------------------
+  # METHOD:  menubar_get_current_menu - Get the current_menu pointer.
+  #          Returns the current value so it can be restored.
+  # ------------------------------------------------------------------
+  method menubar_get_current_menu {} {
+    return $current_menu
   }
 
   ####################################################################

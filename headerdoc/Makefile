@@ -5,6 +5,9 @@
 
 
 bindir  = /usr/bin
+confdir = /Library/Preferences/
+conffile = com.apple.headerDoc2HTML.config
+templatefile = com.apple.headerdoc.exampletocteplate.html
 # docsDir = /Developer/Documentation/DeveloperTools
 program1 = headerdoc2html
 program2 = gatherheaderdoc
@@ -20,7 +23,7 @@ endif
 startperl   := $(shell perl -e 'require Config; print "$$Config::Config{'startperl'}\n";')
 
 all:
-	cd xmlman ; make all
+	cd xmlman ; make all ARCH=`uname` VERS=`sw_vers -productVersion`
 
 clean:
 	cd xmlman ; make clean
@@ -71,6 +74,9 @@ installsub:
 	fi
 	umask 022 && install -d $(DSTROOT)$(bindir)
 	umask 022 && install -d $(DSTROOT)$(perl_libdir)/HeaderDoc/bin
+	umask 022 && install -d $(DSTROOT)$(confdir)
+	install -c -m 755 headerDoc2HTML.config-xcodecolors $(DSTROOT)$(confdir)$(conffile)
+	install -c -m 444 exampletoctemplate.html $(DSTROOT)$(confdir)$(templatefile)
 	install -c -m 755 xmlman/xml2man $(DSTROOT)$(bindir)/xml2man
 	install -c -m 755 xmlman/hdxml2manxml $(DSTROOT)$(bindir)/hdxml2manxml
 	install -c -m 755 xmlman/resolveLinks $(DSTROOT)$(perl_libdir)/HeaderDoc//bin/resolveLinks
@@ -85,5 +91,7 @@ installsub:
 	# install -c -m 444 Documentation/*.html $(DSTROOT)$(docsDir)/HeaderDoc
 	umask 022 && install -d $(DSTROOT)/usr/share/man/man1
 	install -c -m 444 Documentation/man/*.1 $(DSTROOT)/usr/share/man/man1
+	umask 022 && install -d $(DSTROOT)/usr/share/man/man5
+	install -c -m 444 Documentation/man/*.5 $(DSTROOT)/usr/share/man/man5
 	cd xmlman ; make clean ; cd ..
 

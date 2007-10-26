@@ -19,7 +19,6 @@
 # files in the "cfg" directory, but then the make file
 # in \src would need to be changed.
 #
-# $Id: Makefile.vc6,v 1.17 2004/01/13 08:57:01 bagder Exp $
 ##############################################################
 
 #
@@ -42,6 +41,28 @@ OPENSSL_PATH   = ../../openssl-0.9.7e
 ZLIB_PATH  = ../../zlib-1.2.1
 !ENDIF
 
+!IFNDEF MACHINE
+MACHINE  = X86
+!ENDIF
+
+# USE_WINDOWS_SSPI uses windows libraries to allow NTLM authentication
+# without an openssl installation and offers the ability to authenticate
+# using the "current logged in user".  It does however require that the
+# Windows SDK be installed.
+#
+# If, for some reason the Windows SDK is installed but not installed
+# in the default location, you can specify WINDOWS_SDK_PATH.
+# It can be downloaded from:
+# http://www.microsoft.com/msdownload/platformsdk/sdkupdate/
+
+# USE_WINDOWS_SSPI = 1
+
+!IFDEF WINDOWS_SSPI
+!IFNDEF WINDOWS_SDK_PATH
+WINDOWS_SDK_PATH = "C:\Program Files\Microsoft SDK"
+!ENDIF
+!ENDIF
+
 # Use the high resolution time by default.  Comment this out to use low
 # resolution time and not require winmm.lib
 USEMM_LIBS = YES
@@ -49,14 +70,15 @@ USEMM_LIBS = YES
 #############################################################
 ## Nothing more to do below this line!
 
-CCNODBG    = cl.exe /MD /O2 /DNDEBUG
-CCDEBUG    = cl.exe /MDd /Od /Gm /Zi /D_DEBUG /GZ
+CCNODBG    = cl.exe /O2 /DNDEBUG
+CCDEBUG    = cl.exe /Od /Gm /Zi /D_DEBUG /GZ
 CFLAGSSSL  = /DUSE_SSLEAY /I "$(OPENSSL_PATH)/inc32" /I "$(OPENSSL_PATH)/inc32/openssl"
 CFLAGSZLIB = /DHAVE_ZLIB_H /DHAVE_ZLIB /DHAVE_LIBZ /I "$(ZLIB_PATH)"
 CFLAGS     = /I. /I../include /nologo /W3 /GX /DWIN32 /YX /FD /c /DBUILDING_LIBCURL
+CFLAGSLIB  = /DCURL_STATICLIB
 LNKDLL     = link.exe /DLL
 LNKLIB     = link.exe /lib
-LFLAGS     = /nologo
+LFLAGS     = /nologo /machine:$(MACHINE)
 SSLLIBS    = libeay32.lib ssleay32.lib
 ZLIBLIBSDLL= zdll.lib
 ZLIBLIBS   = zlib.lib
@@ -69,6 +91,22 @@ CFLAGS     = $(CFLAGS) /DWITHOUT_MM_LIB
 #  RSAglue.lib was formerly needed in the SSLLIBS
 CFGSET     = FALSE
 
+!IFDEF WINDOWS_SSPI
+CFLAGS = $(CFLAGS) /DUSE_WINDOWS_SSPI /I$(WINDOWS_SDK_PATH)\include
+!ENDIF
+
+##############################################################
+# Runtime library configuration
+
+RTLIB   = /MD
+RTLIBD  = /MDd
+
+!IF "$(RTLIBCFG)" == "static"
+RTLIB  = /MT
+RTLIBD = /MTd
+!ENDIF
+
+
 ######################
 # release
 
@@ -76,7 +114,7 @@ CFGSET     = FALSE
 TARGET = $(LIB_NAME).lib
 DIROBJ = $(CFG)
 LNK    = $(LNKLIB) /out:$(DIROBJ)\$(TARGET)
-CC     = $(CCNODBG)
+CC     = $(CCNODBG) $(RTLIB) $(CFLAGSLIB)
 CFGSET = TRUE
 !ENDIF
 
@@ -88,7 +126,7 @@ TARGET   = $(LIB_NAME).lib
 DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LNK      = $(LNKLIB) $(ZLIBLIBS) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCNODBG) $(CFLAGSZLIB)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSZLIB) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -99,7 +137,7 @@ CFGSET   = TRUE
 TARGET = $(LIB_NAME).dll
 DIROBJ = $(CFG)
 LNK    = $(LNKDLL) $(WINLIBS) /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(IMPLIB_NAME).lib
-CC     = $(CCNODBG)
+CC     = $(CCNODBG) $(RTLIB)
 CFGSET = TRUE
 RESOURCE = $(DIROBJ)\libcurl.res
 !ENDIF
@@ -112,7 +150,7 @@ TARGET   = $(LIB_NAME).lib
 DIROBJ   = $(CFG)
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32"
 LNK      = $(LNKLIB) $(LFLAGSSSL) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCNODBG) $(CFLAGSSSL)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSSSL) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -124,7 +162,7 @@ TARGET   = $(LIB_NAME).lib
 DIROBJ   = $(CFG)
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32dll"
 LNK      = $(LNKLIB) $(WINLIBS) $(SSLLIBS) $(LFLAGSSSL) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCNODBG) $(CFLAGSSSL)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSSSL)
 CFGSET   = TRUE
 !ENDIF
 
@@ -137,7 +175,7 @@ DIROBJ   = $(CFG)
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32"
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LNK      = $(LNKLIB) $(LFLAGSSSL) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCNODBG) $(CFLAGSSSL) $(CFLAGSZLIB)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSSSL) $(CFLAGSZLIB) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -149,7 +187,7 @@ TARGET   = $(LIB_NAME).dll
 DIROBJ   = $(CFG)
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32dll"
 LNK      = $(LNKDLL) $(WINLIBS) $(SSLLIBS) $(LFLAGSSSL) /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(IMPLIB_NAME).lib
-CC       = $(CCNODBG) $(CFLAGSSSL)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSSSL)
 CFGSET   = TRUE
 RESOURCE = $(DIROBJ)\libcurl.res
 !ENDIF
@@ -162,7 +200,7 @@ TARGET   = $(LIB_NAME).lib
 DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LNK      = $(LNKLIB) $(WINLIBS) $(ZLIBLIBSDLL) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCNODBG) $(CFLAGSZLIB)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSZLIB) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -175,7 +213,7 @@ DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32dll"
 LNK      = $(LNKLIB) $(WINLIBS) $(SSLLIBS) $(ZLIBLIBSDLL) $(LFLAGSSSL) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCNODBG) $(CFLAGSSSL) $(CFLAGSZLIB)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSSSL) $(CFLAGSZLIB) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -187,7 +225,7 @@ TARGET   = $(LIB_NAME).dll
 DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LNK      = $(LNKDLL) $(WINLIBS) $(ZLIBLIBSDLL) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(IMPLIB_NAME).lib
-CC       = $(CCNODBG) $(CFLAGSZLIB)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSZLIB)
 CFGSET   = TRUE
 RESOURCE = $(DIROBJ)\libcurl.res
 !ENDIF
@@ -201,7 +239,7 @@ DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32dll"
 LNK      = $(LNKDLL) $(WINLIBS) $(SSLLIBS) $(ZLIBLIBSDLL) $(LFLAGSSSL) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(IMPLIB_NAME).lib
-CC       = $(CCNODBG) $(CFLAGSSSL) $(CFLAGSZLIB)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSSSL) $(CFLAGSZLIB)
 CFGSET   = TRUE
 RESOURCE = $(DIROBJ)\libcurl.res
 !ENDIF
@@ -213,7 +251,7 @@ RESOURCE = $(DIROBJ)\libcurl.res
 TARGET = $(LIB_NAME_DEBUG).lib
 DIROBJ = $(CFG)
 LNK    = $(LNKLIB) /out:$(DIROBJ)\$(TARGET)
-CC     = $(CCDEBUG)
+CC     = $(CCDEBUG) $(RTLIBD) $(CFLAGSLIB)
 CFGSET = TRUE
 !ENDIF
 
@@ -224,8 +262,8 @@ CFGSET = TRUE
 TARGET   = $(LIB_NAME_DEBUG).lib
 DIROBJ   = $(CFG)
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32"
-LNK      = $(LNKLIB) $(SSLLIBS) $(LFLAGSSSL) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCDEBUG) $(CFLAGSSSL)
+LNK      = $(LNKLIB) $(LFLAGSSSL) /out:$(DIROBJ)\$(TARGET)
+CC       = $(CCDEBUG) $(RTLIBD) $(CFLAGSSSL) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -237,7 +275,7 @@ TARGET   = $(LIB_NAME_DEBUG).lib
 DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LNK      = $(LNKLIB) $(ZLIBLIBS) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCDEBUG) $(CFLAGSZLIB)
+CC       = $(CCDEBUG) $(RTLIBD) $(CFLAGSZLIB) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -249,7 +287,7 @@ TARGET   = $(LIB_NAME_DEBUG).lib
 DIROBJ   = $(CFG)
 LFLAGSSSL = /LIBPATH:$(OPENSSL_PATH)\out32dll
 LNK      = $(LNKLIB) $(WINLIBS) $(SSLLIBS) $(LFLAGSSSL) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCDEBUG) $(CFLAGSSSL)
+CC       = $(CCDEBUG) $(RTLIBD) $(CFLAGSSSL) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -261,8 +299,8 @@ TARGET   = $(LIB_NAME_DEBUG).lib
 DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32"
-LNK      = $(LNKLIB) $(SSLLIBS) $(ZLIBLIBS) $(LFLAGSSSL) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCDEBUG) $(CFLAGSSSL) $(CFLAGSZLIB)
+LNK      = $(LNKLIB) $(ZLIBLIBS) $(LFLAGSSSL) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
+CC       = $(CCDEBUG) $(RTLIBD) $(CFLAGSSSL) $(CFLAGSZLIB) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -274,7 +312,7 @@ TARGET   = $(LIB_NAME_DEBUG).lib
 DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LNK      = $(LNKLIB) $(WINLIBS) $(ZLIBLIBSDLL) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCDEBUG) $(CFLAGSZLIB)
+CC       = $(CCDEBUG) $(RTLIBD) $(CFLAGSZLIB) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -287,7 +325,7 @@ DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32dll"
 LNK      = $(LNKLIB) $(WINLIBS) $(SSLLIBS) $(ZLIBLIBSDLL) $(LFLAGSSSL) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
-CC       = $(CCDEBUG) $(CFLAGSSSL) $(CFLAGSZLIB)
+CC       = $(CCDEBUG) $(RTLIBD) $(CFLAGSSSL) $(CFLAGSZLIB) $(CFLAGSLIB)
 CFGSET   = TRUE
 !ENDIF
 
@@ -297,8 +335,8 @@ CFGSET   = TRUE
 !IF "$(CFG)" == "debug-dll"
 TARGET = $(LIB_NAME_DEBUG).dll
 DIROBJ = $(CFG)
-LNK    = $(LNKDLL) $(WINLIBS) /DEBUG /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(LIB_NAME_DEBUG).lib /PDB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).pdb
-CC     = $(CCDEBUG)
+LNK    = $(LNKDLL) $(WINLIBS) /DEBUG /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).lib /PDB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).pdb
+CC     = $(CCDEBUG) $(RTLIBD) 
 CFGSET = TRUE
 RESOURCE = $(DIROBJ)\libcurl.res
 !ENDIF
@@ -310,8 +348,8 @@ RESOURCE = $(DIROBJ)\libcurl.res
 TARGET   = $(LIB_NAME_DEBUG).dll
 DIROBJ   = $(CFG)
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32dll"
-LNK      = $(LNKDLL) $(WINLIBS) $(SSLLIBS) $(LFLAGSSSL) /DEBUG /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(LIB_NAME_DEBUG).lib /PDB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).pdb
-CC       = $(CCDEBUG) $(CFLAGSSSL)
+LNK      = $(LNKDLL) $(WINLIBS) $(SSLLIBS) $(LFLAGSSSL) /DEBUG /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).lib /PDB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).pdb
+CC       = $(CCDEBUG) $(RTLIBD) $(CFLAGSSSL)
 CFGSET   = TRUE
 RESOURCE = $(DIROBJ)\libcurl.res
 !ENDIF
@@ -323,8 +361,8 @@ RESOURCE = $(DIROBJ)\libcurl.res
 TARGET   = $(LIB_NAME_DEBUG).dll
 DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
-LNK      = $(LNKDLL) $(WINLIBS) $(ZLIBLIBSDLL) $(LFLAGSZLIB) /DEBUG /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(LIB_NAME_DEBUG).lib /PDB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).pdb
-CC       = $(CCDEBUG) $(CFLAGSZLIB)
+LNK      = $(LNKDLL) $(WINLIBS) $(ZLIBLIBSDLL) $(LFLAGSZLIB) /DEBUG /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).lib /PDB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).pdb
+CC       = $(CCDEBUG) $(RTLIBD) $(CFLAGSZLIB)
 CFGSET   = TRUE
 RESOURCE = $(DIROBJ)\libcurl.res
 !ENDIF
@@ -337,8 +375,8 @@ TARGET   = $(LIB_NAME_DEBUG).dll
 DIROBJ   = $(CFG)
 LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
 LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32dll"
-LNK      = $(LNKDLL) $(WINLIBS) $(SSLLIBS) $(ZLIBLIBSDLL) $(LFLAGSSSL) $(LFLAGSZLIB) /DEBUG /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(LIB_NAME_DEBUG).lib /PDB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).pdb
-CC       = $(CCDEBUG) $(CFLAGSSSL) $(CFLAGSZLIB)
+LNK      = $(LNKDLL) $(WINLIBS) $(SSLLIBS) $(ZLIBLIBSDLL) $(LFLAGSSSL) $(LFLAGSZLIB) /DEBUG /out:$(DIROBJ)\$(TARGET) /IMPLIB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).lib /PDB:$(DIROBJ)\$(IMPLIB_NAME_DEBUG).pdb
+CC       = $(CCDEBUG) $(RTLIBD) $(CFLAGSSSL) $(CFLAGSZLIB)
 CFGSET   = TRUE
 RESOURCE = $(DIROBJ)\libcurl.res
 !ENDIF
@@ -405,6 +443,7 @@ X_OBJS= \
 	$(DIROBJ)\telnet.obj \
 	$(DIROBJ)\parsedate.obj \
 	$(DIROBJ)\getenv.obj \
+	$(DIROBJ)\gtls.obj \
 	$(DIROBJ)\inet_pton.obj \
 	$(DIROBJ)\hostip.obj \
 	$(DIROBJ)\hostasyn.obj \
@@ -420,6 +459,7 @@ X_OBJS= \
 	$(DIROBJ)\progress.obj \
 	$(DIROBJ)\sendf.obj \
 	$(DIROBJ)\speedcheck.obj \
+	$(DIROBJ)\sslgen.obj \
 	$(DIROBJ)\ssluse.obj \
 	$(DIROBJ)\timeval.obj \
 	$(DIROBJ)\url.obj \
@@ -443,6 +483,9 @@ X_OBJS= \
 	$(DIROBJ)\strerror.obj \
 	$(DIROBJ)\select.obj \
 	$(DIROBJ)\content_encoding.obj \
+	$(DIROBJ)\tftp.obj \
+	$(DIROBJ)\splay.obj \
+	$(DIROBJ)\socks.obj \
 	$(RESOURCE)
 
 all : $(TARGET)
@@ -454,7 +497,7 @@ $(TARGET): $(X_OBJS)
 	-xcopy $(DIROBJ)\$(LIB_NAME_DEBUG).dll . /y
 	-xcopy $(DIROBJ)\$(LIB_NAME_DEBUG).lib . /y
 	-xcopy $(DIROBJ)\$(IMPLIB_NAME).lib    . /y
-	-xcopy $(DIROBJ)\$(IMPLIB_NAME).lib    . /y
+	-xcopy $(DIROBJ)\$(IMPLIB_NAME_DEBUG).lib . /y
 	-xcopy $(DIROBJ)\*.exp                 . /y
 	-xcopy $(DIROBJ)\*.pdb                 . /y
 

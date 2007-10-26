@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,29 +34,31 @@ typedef malloc_zone_t NXZone;
 
 #include <sys/cdefs.h>
 
+#warning All the routines in objc/zone.h are deprecated and will be removed in the future
+
 __BEGIN_DECLS
-extern NXZone *NXDefaultMallocZone(void);
+extern NXZone *NXDefaultMallocZone(void) __deprecated;
     // Returns the default zone used by the malloc(3) calls
 
-extern NXZone *NXCreateZone(size_t startSize, size_t granularity, int canFree);
+extern NXZone *NXCreateZone(size_t startSize, size_t granularity, int canFree) __deprecated;
     // Create a new zone with its own memory pool.
     // canfree: if 0 the allocator will never free memory and mallocing will be fast
 
-extern void NXNameZone(NXZone *z, const char *name);
+extern void NXNameZone(NXZone *z, const char *name) __deprecated;
     // name a zone; The string will be copied
 
-extern void *NXZoneMalloc(malloc_zone_t *zone, size_t size);
+extern void *NXZoneMalloc(malloc_zone_t *zone, size_t size) __deprecated;
 
-extern void *NXZoneRealloc(malloc_zone_t *zone, void *ptr, size_t size);
+extern void *NXZoneRealloc(malloc_zone_t *zone, void *ptr, size_t size) __deprecated;
 
-extern void *NXZoneCalloc(NXZone *zonep, size_t numElems, size_t byteSize);
+extern void *NXZoneCalloc(NXZone *zonep, size_t numElems, size_t byteSize) __deprecated;
     // Allocates and then clears
 
-extern void NXZoneFree(malloc_zone_t *zone, void *ptr);
+extern void NXZoneFree(malloc_zone_t *zone, void *ptr) __deprecated;
 
-extern void NXDestroyZone(malloc_zone_t *zone);
+extern void NXDestroyZone(malloc_zone_t *zone) __deprecated;
 
-extern NXZone *NXZoneFromPtr(void *ptr);
+extern NXZone *NXZoneFromPtr(void *ptr) __deprecated;
     // Returns the zone for a pointer, or NX_NOZONE if not in any zone.
     // The ptr must have been returned from a malloc or realloc call.
 __END_DECLS

@@ -47,6 +47,10 @@ extern void prf(const char *fmt, unsigned int *adx, int (*putfn_p)(int ch),
 
 // printf.c
 extern int printf(const char *format, ...);
+#if DEBUG
+extern unsigned OSBacktrace_ppc(void **bt, unsigned maxAddrs);
+extern void dump_backtrace(char *ctx, int id);   // ctx and id optional
+#endif	// DEBUG
 
 // sprintf.c
 extern int sprintf(char *str, const char *fmt, ...);

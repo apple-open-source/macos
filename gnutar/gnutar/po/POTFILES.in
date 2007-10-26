@@ -24,6 +24,9 @@ lib/getopt.c
 lib/human.c
 lib/quotearg.c
 lib/xmalloc.c
+lib/rtapelib.c
+lib/argp-help.c
+rmt/rmt.c
 
 # Package source files
 src/buffer.c
@@ -37,8 +40,6 @@ src/list.c
 src/mangle.c
 src/misc.c
 src/names.c
-src/rmt.c
-src/rtapelib.c
 src/tar.c
 src/update.c
 src/xheader.c

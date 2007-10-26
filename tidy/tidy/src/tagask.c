@@ -1,13 +1,13 @@
 /* tagask.c -- Interrogate node type
 
-  (c) 1998-2004 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
 
   CVS Info :
 
-    $Author: rbraun $ 
-    $Date: 2004/05/04 20:05:14 $ 
-    $Revision: 1.1.1.1 $ 
+    $Author: jkahn $ 
+    $Date: 2007/07/13 23:35:45 $ 
+    $Revision: 1.5 $ 
 
 */
 
@@ -15,263 +15,281 @@
 #include "tags.h"
 #include "tidy.h"
 
-Bool tidyNodeIsText( TidyNode tnod )
-{ return nodeIsText( tidyNodeToImpl(tnod) );
+/* Apple Changes:
+   2007-02-20 iccir Export for binary compatibility.
+*/
+#if defined(TIDY_APPLE_CHANGES) && !defined(WIN32)
+#define TIDY_APPLE_EXPORT __attribute__((visibility("default")))
+#else
+#define TIDY_APPLE_EXPORT
+#endif
+
+Bool TIDY_CALL tidyNodeIsText( TidyNode tnod )
+{ return TY_(nodeIsText)( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeCMIsBlock( TidyNode tnod ); /* not exported yet */
+TIDY_APPLE_EXPORT Bool tidyNodeCMIsBlock( TidyNode tnod ); /* not exported yet */
 Bool tidyNodeCMIsBlock( TidyNode tnod )
-{ return nodeCMIsBlock( tidyNodeToImpl(tnod) );
+{ return TY_(nodeCMIsBlock)( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeCMIsInline( TidyNode tnod ); /* not exported yet */
+TIDY_APPLE_EXPORT Bool tidyNodeCMIsInline( TidyNode tnod ); /* not exported yet */
 Bool tidyNodeCMIsInline( TidyNode tnod )
-{ return nodeCMIsInline( tidyNodeToImpl(tnod) );
+{ return TY_(nodeCMIsInline)( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeCMIsEmpty( TidyNode tnod ); /* not exported yet */
+TIDY_APPLE_EXPORT Bool tidyNodeCMIsEmpty( TidyNode tnod ); /* not exported yet */
 Bool tidyNodeCMIsEmpty( TidyNode tnod )
-{ return nodeCMIsEmpty( tidyNodeToImpl(tnod) );
+{ return TY_(nodeCMIsEmpty)( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsHeader( TidyNode tnod )
-{ return nodeIsHeader( tidyNodeToImpl(tnod) );
+Bool TIDY_CALL tidyNodeIsHeader( TidyNode tnod )
+{ return TY_(nodeIsHeader)( tidyNodeToImpl(tnod) );
 }
 
-Bool tidyNodeIsHTML( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsHTML( TidyNode tnod )
 { return nodeIsHTML( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsHEAD( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsHEAD( TidyNode tnod )
 { return nodeIsHEAD( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsTITLE( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsTITLE( TidyNode tnod )
 { return nodeIsTITLE( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsBASE( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsBASE( TidyNode tnod )
 { return nodeIsBASE( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsMETA( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsMETA( TidyNode tnod )
 { return nodeIsMETA( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsBODY( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsBODY( TidyNode tnod )
 { return nodeIsBODY( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsFRAMESET( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsFRAMESET( TidyNode tnod )
 { return nodeIsFRAMESET( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsFRAME( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsFRAME( TidyNode tnod )
 { return nodeIsFRAME( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsIFRAME( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsIFRAME( TidyNode tnod )
 { return nodeIsIFRAME( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsNOFRAMES( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsNOFRAMES( TidyNode tnod )
 { return nodeIsNOFRAMES( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsHR( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsHR( TidyNode tnod )
 { return nodeIsHR( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsH1( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsH1( TidyNode tnod )
 { return nodeIsH1( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsH2( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsH2( TidyNode tnod )
 { return nodeIsH2( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsPRE( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsPRE( TidyNode tnod )
 { return nodeIsPRE( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsLISTING( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsLISTING( TidyNode tnod )
 { return nodeIsLISTING( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsP( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsP( TidyNode tnod )
 { return nodeIsP( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsUL( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsUL( TidyNode tnod )
 { return nodeIsUL( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsOL( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsOL( TidyNode tnod )
 { return nodeIsOL( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsDL( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsDL( TidyNode tnod )
 { return nodeIsDL( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsDIR( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsDIR( TidyNode tnod )
 { return nodeIsDIR( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsLI( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsLI( TidyNode tnod )
 { return nodeIsLI( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsDT( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsDT( TidyNode tnod )
 { return nodeIsDT( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsDD( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsDD( TidyNode tnod )
 { return nodeIsDD( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsTABLE( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsTABLE( TidyNode tnod )
 { return nodeIsTABLE( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsCAPTION( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsCAPTION( TidyNode tnod )
 { return nodeIsCAPTION( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsTD( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsTD( TidyNode tnod )
 { return nodeIsTD( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsTH( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsTH( TidyNode tnod )
 { return nodeIsTH( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsTR( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsTR( TidyNode tnod )
 { return nodeIsTR( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsCOL( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsCOL( TidyNode tnod )
 { return nodeIsCOL( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsCOLGROUP( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsCOLGROUP( TidyNode tnod )
 { return nodeIsCOLGROUP( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsBR( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsBR( TidyNode tnod )
 { return nodeIsBR( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsA( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsA( TidyNode tnod )
 { return nodeIsA( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsLINK( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsLINK( TidyNode tnod )
 { return nodeIsLINK( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsB( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsB( TidyNode tnod )
 { return nodeIsB( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsI( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsI( TidyNode tnod )
 { return nodeIsI( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsSTRONG( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsSTRONG( TidyNode tnod )
 { return nodeIsSTRONG( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsEM( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsEM( TidyNode tnod )
 { return nodeIsEM( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsBIG( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsBIG( TidyNode tnod )
 { return nodeIsBIG( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsSMALL( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsSMALL( TidyNode tnod )
 { return nodeIsSMALL( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsPARAM( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsPARAM( TidyNode tnod )
 { return nodeIsPARAM( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsOPTION( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsOPTION( TidyNode tnod )
 { return nodeIsOPTION( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsOPTGROUP( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsOPTGROUP( TidyNode tnod )
 { return nodeIsOPTGROUP( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsIMG( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsIMG( TidyNode tnod )
 { return nodeIsIMG( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsMAP( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsMAP( TidyNode tnod )
 { return nodeIsMAP( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsAREA( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsAREA( TidyNode tnod )
 { return nodeIsAREA( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsNOBR( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsNOBR( TidyNode tnod )
 { return nodeIsNOBR( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsWBR( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsWBR( TidyNode tnod )
 { return nodeIsWBR( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsFONT( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsFONT( TidyNode tnod )
 { return nodeIsFONT( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsLAYER( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsLAYER( TidyNode tnod )
 { return nodeIsLAYER( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsSPACER( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsSPACER( TidyNode tnod )
 { return nodeIsSPACER( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsCENTER( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsCENTER( TidyNode tnod )
 { return nodeIsCENTER( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsSTYLE( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsSTYLE( TidyNode tnod )
 { return nodeIsSTYLE( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsSCRIPT( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsSCRIPT( TidyNode tnod )
 { return nodeIsSCRIPT( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsNOSCRIPT( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsNOSCRIPT( TidyNode tnod )
 { return nodeIsNOSCRIPT( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsFORM( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsFORM( TidyNode tnod )
 { return nodeIsFORM( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsTEXTAREA( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsTEXTAREA( TidyNode tnod )
 { return nodeIsTEXTAREA( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsBLOCKQUOTE( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsBLOCKQUOTE( TidyNode tnod )
 { return nodeIsBLOCKQUOTE( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsAPPLET( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsAPPLET( TidyNode tnod )
 { return nodeIsAPPLET( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsOBJECT( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsOBJECT( TidyNode tnod )
 { return nodeIsOBJECT( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsDIV( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsDIV( TidyNode tnod )
 { return nodeIsDIV( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsSPAN( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsSPAN( TidyNode tnod )
 { return nodeIsSPAN( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsINPUT( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsINPUT( TidyNode tnod )
 { return nodeIsINPUT( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsQ( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsQ( TidyNode tnod )
 { return nodeIsQ( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsLABEL( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsLABEL( TidyNode tnod )
 { return nodeIsLABEL( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsH3( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsH3( TidyNode tnod )
 { return nodeIsH3( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsH4( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsH4( TidyNode tnod )
 { return nodeIsH4( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsH5( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsH5( TidyNode tnod )
 { return nodeIsH5( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsH6( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsH6( TidyNode tnod )
 { return nodeIsH6( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsADDRESS( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsADDRESS( TidyNode tnod )
 { return nodeIsADDRESS( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsXMP( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsXMP( TidyNode tnod )
 { return nodeIsXMP( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsSELECT( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsSELECT( TidyNode tnod )
 { return nodeIsSELECT( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsBLINK( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsBLINK( TidyNode tnod )
 { return nodeIsBLINK( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsMARQUEE( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsMARQUEE( TidyNode tnod )
 { return nodeIsMARQUEE( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsEMBED( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsEMBED( TidyNode tnod )
 { return nodeIsEMBED( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsBASEFONT( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsBASEFONT( TidyNode tnod )
 { return nodeIsBASEFONT( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsISINDEX( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsISINDEX( TidyNode tnod )
 { return nodeIsISINDEX( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsS( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsS( TidyNode tnod )
 { return nodeIsS( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsSTRIKE( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsSTRIKE( TidyNode tnod )
 { return nodeIsSTRIKE( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsU( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsU( TidyNode tnod )
 { return nodeIsU( tidyNodeToImpl(tnod) );
 }
-Bool tidyNodeIsMENU( TidyNode tnod )
+Bool TIDY_CALL tidyNodeIsMENU( TidyNode tnod )
 { return nodeIsMENU( tidyNodeToImpl(tnod) );
 }
 
+
+/*
+ * local variables:
+ * mode: c
+ * indent-tabs-mode: nil
+ * c-basic-offset: 4
+ * eval: (c-set-offset 'substatement-open 0)
+ * end:
+ */

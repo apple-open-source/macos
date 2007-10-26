@@ -41,7 +41,7 @@
 #include "AppleCSPContext.h"
 #include "BlockCryptor.h"
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
-#include <openssl/cast.h>
+#include <CommonCrypto/cast.h>
 
 class CastContext : public BlockCryptor {
 public:
@@ -69,6 +69,7 @@ public:
 		bool			final);
 	void decryptBlock(
 		const void		*cipherText,	// length implied (one cipher block)
+		size_t			cipherTextLen,
 		void			*plainText,	
 		size_t			&plainTextLen,	// in/out, throws on overflow
 		bool			final);

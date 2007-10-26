@@ -246,10 +246,29 @@ int fill_size,
 int max_bytes_to_fill)
 {
     void *fr_literal;
+    int max_chars;
+#ifdef I386
+	/*
+	 * For x86 architecures in sections containing only instuctions being
+	 * padded with nops that are aligned to 16 bytes or less and are
+	 * assembled -dynamic we will actually end up padding with the optimal
+	 * nop sequence.  So for that make sure there is the maximum number of
+	 * bytes allocated in the frag to use for this.
+	 */
+	if((frchain_now->frch_section.flags & S_ATTR_PURE_INSTRUCTIONS) != 0 &&
+	   fill_size == 1 && *fill == (char)0x90 && flagseen['k'] == TRUE){
+	    if(power_of_2_alignment > 4)
+		max_chars = 15;
+	    else
+		max_chars = (1 << power_of_2_alignment) - 1;
+	}
+	else
+#endif /* 386 */
+	max_chars = fill_size + (fill_size - 1);
 
 	fr_literal = (void *)
 	    frag_var(rs_align,				/* type */
-		     fill_size + (fill_size - 1),	/* max_chars */
+		     max_chars,				/* max_chars */
 		     fill_size,				/* var */
 		     (relax_substateT)max_bytes_to_fill,/* subtype */
 		     (symbolS *)0,			/* symbol */

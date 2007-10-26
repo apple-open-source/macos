@@ -28,11 +28,159 @@
 #include "TPCrlInfo.h"
 #include "tpPolicies.h"
 #include "tpdebugging.h"
-#include "rootCerts.h"
 #include "tpCrlVerify.h"
 #include <Security/oidsalg.h>
 #include <Security/cssmapple.h>
-#include <Security/cssmapplePriv.h>
+
+/*
+ * This is a temporary hack to allow verification of PKINIT server certs
+ * which are self-signed and not in the system anchors list. If the self-
+ * signed cert is in a magic keychain (whose location is not published),
+ * we'll allow it as if it were indeed a full-fledged anchor cert. 
+ */
+#define TP_PKINIT_SERVER_HACK	1
+#if		TP_PKINIT_SERVER_HACK
+
+#include <Security/SecKeychain.h>
+#include <Security/SecKeychainSearch.h>
+#include <Security/SecCertificate.h>
+#include <Security/oidscert.h>
+#include <sys/types.h>
+#include <pwd.h>
+
+#define CFRELEASE(cf)	if(cf) { CFRelease(cf); }
+
+/* 
+ * Returns true if we are to allow/trust the specified
+ * cert as a PKINIT-only anchor.
+ */
+static bool tpCheckPkinitServerCert(
+	TPCertGroup &certGroup)
+{
+	/* 
+	 * Basic requirement: exactly one cert, self-signed.
+	 * The numCerts == 1 requirement might change...
+	 */
+	unsigned numCerts = certGroup.numCerts();
+	if(numCerts != 1) {
+		tpDebug("tpCheckPkinitServerCert: too many certs");
+		return false;
+	}
+	/* end of chain... */
+	TPCertInfo *theCert = certGroup.certAtIndex(numCerts - 1);
+	if(!theCert->isSelfSigned()) {
+		tpDebug("tpCheckPkinitServerCert: 1 cert, not self-signed");
+		return false;
+	}
+	const CSSM_DATA *subjectName = theCert->subjectName();
+	
+	/* 
+	 * Open the magic keychain.
+	 * We're going up and over the Sec layer here, not generally 
+	 * kosher, but this is a temp hack.
+	 */
+	OSStatus ortn;
+	SecKeychainRef kcRef = NULL;
+	string fullPathName;
+	const char *homeDir = getenv("HOME");
+	if (homeDir == NULL)
+	{
+		// If $HOME is unset get the current user's home directory
+		// from the passwd file.
+		uid_t uid = geteuid();
+		if (!uid) uid = getuid();
+		struct passwd *pw = getpwuid(uid);
+		if (!pw) {
+			return false;
+		}
+		homeDir = pw->pw_dir;
+	}
+	fullPathName = homeDir;
+	fullPathName += "/Library/Application Support/PKINIT/TrustedServers.keychain";
+	ortn = SecKeychainOpen(fullPathName.c_str(), &kcRef);
+	if(ortn) {
+		tpDebug("tpCheckPkinitServerCert: keychain not found (1)");
+		return false;
+	}
+	/* subsequent errors to errOut: */
+	
+	bool ourRtn = false;
+	SecKeychainStatus kcStatus;
+	CSSM_DATA_PTR subjSerial = NULL;
+	CSSM_RETURN crtn;
+	SecKeychainSearchRef		srchRef = NULL;
+	SecKeychainAttributeList	attrList;
+	SecKeychainAttribute		attrs[2];
+	SecKeychainItemRef			foundItem = NULL;
+	
+	ortn = SecKeychainGetStatus(kcRef, &kcStatus);
+	if(ortn) {
+		tpDebug("tpCheckPkinitServerCert: keychain not found (2)");
+		goto errOut;
+	}
+	
+	/*
+	 * We already have this cert's normalized name; get its
+	 * serial number.
+	 */
+	crtn = theCert->fetchField(&CSSMOID_X509V1SerialNumber, &subjSerial);
+	if(crtn) {
+		/* should never happen */
+		tpDebug("tpCheckPkinitServerCert: error fetching serial number");
+		goto errOut;
+	}
+	
+	attrs[0].tag    = kSecSubjectItemAttr;
+	attrs[0].length = subjectName->Length;
+	attrs[0].data   = subjectName->Data;
+	attrs[1].tag    = kSecSerialNumberItemAttr;
+	attrs[1].length = subjSerial->Length;
+	attrs[1].data   = subjSerial->Data;
+	attrList.count  = 2;
+	attrList.attr   = attrs;
+	
+	ortn = SecKeychainSearchCreateFromAttributes(kcRef,
+		kSecCertificateItemClass,
+		&attrList,
+		&srchRef);
+	if(ortn) {
+		tpDebug("tpCheckPkinitServerCert: search failure");
+		goto errOut;
+	}
+	for(;;) {
+		ortn = SecKeychainSearchCopyNext(srchRef, &foundItem);
+		if(ortn) {
+			tpDebug("tpCheckPkinitServerCert: end search");
+			break;
+		}
+		
+		/* found a matching cert; do byte-for-byte compare */
+		CSSM_DATA certData;
+		ortn = SecCertificateGetData((SecCertificateRef)foundItem, &certData);
+		if(ortn) {
+			tpDebug("tpCheckPkinitServerCert: SecCertificateGetData failure");
+			continue;
+		}
+		if(tpCompareCssmData(&certData, theCert->itemData())){
+			tpDebug("tpCheckPkinitServerCert: FOUND CERT");
+			ourRtn = true;
+			break;
+		}
+		tpDebug("tpCheckPkinitServerCert: skipping matching cert");
+		CFRelease(foundItem);
+		foundItem = NULL;
+	}
+errOut:
+	CFRELEASE(kcRef);
+	CFRELEASE(srchRef);
+	CFRELEASE(foundItem);
+	if(subjSerial != NULL) {
+		theCert->freeField(&CSSMOID_X509V1SerialNumber, subjSerial);
+	}
+	return ourRtn;
+}
+#endif	/* TP_PKINIT_SERVER_HACK */
+
 
 /*-----------------------------------------------------------------------------
  * CertGroupConstruct
@@ -104,6 +252,7 @@ void AppleTPSession::CertGroupConstruct(CSSM_CL_HANDLE clHand,
 	CSSM_RETURN constructReturn = CSSM_OK;
 	CSSM_BOOL verifiedToRoot;		// not used
 	CSSM_BOOL verifiedToAnchor;		// not used
+	CSSM_BOOL verifiedViaTrustSetting;	// not used
 		
 	try {
 		CertGroupConstructPriv(clHand,
@@ -114,9 +263,12 @@ void AppleTPSession::CertGroupConstruct(CSSM_CL_HANDLE clHand,
 			/* no anchors */
 			0, NULL,
 			0,					// actionFlags
+			/* no user trust */
+			NULL, NULL, 0, 0,
 			gatheredCerts,
 			verifiedToRoot,
 			verifiedToAnchor,
+			verifiedViaTrustSetting,
 			outCertGroup);
 	}
 	catch(const CssmError &cerr) {
@@ -127,6 +279,9 @@ void AppleTPSession::CertGroupConstruct(CSSM_CL_HANDLE clHand,
 		}
 	}
 	CertGroup = outCertGroup.buildCssmCertGroup();
+	/* caller of this function never gets evidence... */
+	outCertGroup.freeDbRecords();
+	
 	if(constructReturn) {
 		CssmError::throwMe(constructReturn);
 	}
@@ -156,20 +311,27 @@ void AppleTPSession::CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
 		uint32 					numAnchorCerts,
 		const CSSM_DATA			*anchorCerts,
 		
-		/* currently, only CSSM_TP_ACTION_FETCH_CERT_FROM_NET is 
-		 * interesting */
+		/* CSSM_TP_ACTION_FETCH_CERT_FROM_NET, CSSM_TP_ACTION_TRUST_SETTINGS */
 		CSSM_APPLE_TP_ACTION_FLAGS	actionFlags,
+
+		/* optional user trust parameters */
+		const CSSM_OID			*policyOid,
+		const char				*policyStr,
+		uint32					policyStrLen,
+		SecTrustSettingsKeyUsage	keyUse,
+		
 		/* 
 		 * Certs to be freed by caller (i.e., TPCertInfo which we allocate
-		 * as a result of using a cert from anchorCerts of dbList) are added
+		 * as a result of using a cert from anchorCerts or dbList) are added
 		 * to this group.
 		 */
 		TPCertGroup				&certsToBeFreed,
 
 		/* returned */
-		CSSM_BOOL				&verifiedToRoot,	// end of chain self-verifies
-		CSSM_BOOL				&verifiedToAnchor,	// end of chain in anchors
-		TPCertGroup 			&outCertGroup)		// RETURNED
+		CSSM_BOOL				&verifiedToRoot,		// end of chain self-verifies
+		CSSM_BOOL				&verifiedToAnchor,		// end of chain in anchors
+		CSSM_BOOL				&verifiedViaTrustSetting,	// chain ends per User Trust setting
+		TPCertGroup 			&outCertGroup)			// RETURNED
 {
 	TPCertInfo			*subjectCert;				// the one we're working on
 	CSSM_RETURN			outErr = CSSM_OK;
@@ -182,6 +344,7 @@ void AppleTPSession::CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
 	subjectCert->isLeaf(true);
 	subjectCert->isFromInputCerts(true);
 	outCertGroup.setAllUnused();
+	subjectCert->used(true);
 	
 	outErr = outCertGroup.buildCertGroup(
 		*subjectCert,	
@@ -197,12 +360,83 @@ void AppleTPSession::CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
 		CSSM_TRUE,			// subjectIsInGroup - enables root check on
 							//    subject cert
 		actionFlags,
+		policyOid,
+		policyStr,
+		policyStrLen,
+		keyUse,
+		
 		verifiedToRoot,	
-		verifiedToAnchor);
+		verifiedToAnchor,
+		verifiedViaTrustSetting);
 	if(outErr) {
 		CssmError::throwMe(outErr);
 	}
 }
+
+/*
+ * Map a policy OID to one of the standard (non-revocation) policies.
+ * Returns true if it's a standard policy.
+ */
+static bool checkPolicyOid(
+	const CSSM_OID	&oid,
+	TPPolicy		&tpPolicy)		/* RETURNED */
+{
+	if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_SSL)) {
+		tpPolicy = kTP_SSL;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_X509_BASIC)) {
+		tpPolicy = kTPx509Basic;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_SMIME)) {
+		tpPolicy = kTP_SMIME;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_EAP)) {
+		tpPolicy = kTP_EAP;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_SW_UPDATE_SIGNING)) {
+		/* note: this was CSSMOID_APPLE_TP_CODE_SIGN until 8/15/06 */
+		tpPolicy = kTP_SWUpdateSign;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_RESOURCE_SIGN)) {
+		tpPolicy = kTP_ResourceSign;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_IP_SEC)) {
+		tpPolicy = kTP_IPSec;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_ICHAT)) {
+		tpPolicy = kTP_iChat;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_ISIGN)) {
+		tpPolicy = kTPiSign;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_PKINIT_CLIENT)) {
+		tpPolicy = kTP_PKINIT_Client;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_PKINIT_SERVER)) {
+		tpPolicy = kTP_PKINIT_Server;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_CODE_SIGNING)) {
+		tpPolicy = kTP_CodeSigning;
+		return true;
+	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_PACKAGE_SIGNING)) {
+		tpPolicy = kTP_PackageSigning;
+		return true;
+	}
+	return false;
+}
+
 /*-----------------------------------------------------------------------------
  * CertGroupVerify
  *
@@ -277,6 +511,7 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 {
 	CSSM_BOOL				verifiedToRoot = CSSM_FALSE;
 	CSSM_BOOL				verifiedToAnchor = CSSM_FALSE;
+	CSSM_BOOL				verifiedViaTrustSetting = CSSM_FALSE;
 	CSSM_RETURN				constructReturn = CSSM_OK;
 	CSSM_RETURN				policyReturn = CSSM_OK;
 	const CSSM_TP_CALLERAUTH_CONTEXT *cred;
@@ -289,6 +524,14 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 	/* keep track of whether we did policy checking; if not, we do defaults */
 	bool					didCertPolicy = false;
 	bool					didRevokePolicy = false;
+	
+	/* user trust parameters */
+	CSSM_OID				utNullPolicy = {0, NULL};
+	const CSSM_OID			*utPolicyOid = NULL;
+	const char				*utPolicyStr = NULL;
+	uint32					utPolicyStrLen = 0;
+	SecTrustSettingsKeyUsage	utKeyUse = 0;
+	bool					utTrustSettingEnabled = false;
 	
 	if(VerifyContextResult) {
 		memset(VerifyContextResult, 0, sizeof(*VerifyContextResult));
@@ -316,6 +559,9 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 				CssmError::throwMe(CSSMERR_TP_INVALID_ACTION_DATA);
 		}
 		actionFlags = actionData->ActionFlags;
+		if(actionFlags & CSSM_TP_ACTION_TRUST_SETTINGS) {
+			utTrustSettingEnabled = true;
+		}
 	}
 	
 	/* optional, may be NULL */
@@ -341,6 +587,33 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 	}
 	/* ...any others? */
 	
+	/* set up for optional user trust evaluation */
+	if(utTrustSettingEnabled) {
+		const CSSM_TP_POLICYINFO *pinfo = &cred->Policy;
+		TPPolicy utPolicy = kTPx509Basic;
+		
+		/* default policy OID in case caller hasn't specified one */
+		utPolicyOid = &utNullPolicy;
+		if(pinfo->NumberOfPolicyIds == 0) {
+			tpTrustSettingsDbg("CertGroupVerify: User trust enabled but no policies (1)");
+			/* keep going, I guess - no policy-specific info - use kTPx509Basic */
+		}
+		else {
+			CSSM_FIELD_PTR utPolicyField = &pinfo->PolicyIds[0];
+			utPolicyOid = &utPolicyField->FieldOid;
+			bool foundPolicy = checkPolicyOid(*utPolicyOid, utPolicy);
+			if(!foundPolicy) {
+				tpTrustSettingsDbg("CertGroupVerify: User trust enabled but no policies");
+				/* keep going, I guess - no policy-specific info - use kTPx509Basic */
+			}
+			else {
+				/* get policy-specific info */
+				tp_policyTrustSettingParams(utPolicy, &utPolicyField->FieldValue,
+					&utPolicyStr, &utPolicyStrLen, &utKeyUse);
+			}
+		}	
+	}
+	
 	/* get verified (possibly partial) outCertGroup - error is fatal */
 	/* BUT: we still return partial evidence if asked to...from now on. */
 	TPCertGroup outCertGroup(*this, 
@@ -363,9 +636,14 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 			cred->NumberOfAnchorCerts,
 			cred->AnchorCerts,
 			actionFlags,
+			utPolicyOid,
+			utPolicyStr,
+			utPolicyStrLen,
+			utKeyUse,
 			gatheredCerts,
 			verifiedToRoot, 
 			verifiedToAnchor,
+			verifiedViaTrustSetting,
 			outCertGroup);
 	}
 	catch(const CssmError &cerr) {
@@ -380,56 +658,43 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 	assert(outCertGroup.numCerts() >= 1);
 	
 	/* Infer interim status from return values */
-	if((constructReturn != CSSMERR_TP_CERTIFICATE_CANT_OPERATE) && 
-	   (constructReturn != CSSMERR_TP_INVALID_CERT_AUTHORITY)) {
-		/* these returns do not get overridden */
-		if(verifiedToAnchor) {
-			/* full success; anchor doesn't have to be root */
-			constructReturn = CSSM_OK;
-		}
-		else if(verifiedToRoot) {
-			/* verified to root which is not an anchor */
-			constructReturn = CSSMERR_TP_INVALID_ANCHOR_CERT;
-		}
-		else {
-			/* partial chain, no root, not verifiable by anchor */
-			constructReturn = CSSMERR_TP_NOT_TRUSTED;
-		}
-	}
-	
-	/* 
-	 * CSSMERR_TP_NOT_TRUSTED and CSSMERR_TP_INVALID_ANCHOR_CERT
-	 * are both special cases which can result in full success
-	 * when CSSM_TP_USE_INTERNAL_ROOT_CERTS is enabled. 
-	 */
-	#if 	TP_ROOT_CERT_ENABLE
-	if(actionFlags & CSSM_TP_USE_INTERNAL_ROOT_CERTS) {
-	   // The secret "enable root cert check" flag
-	   
-		TPCertInfo *lastCert = outCertGroup.lastCert();
-		if(constructReturn == CSSMERR_TP_NOT_TRUSTED) {
+	switch(constructReturn) {
+		/* these values do not get overridden */
+		case CSSMERR_TP_CERTIFICATE_CANT_OPERATE:
+		case CSSMERR_TP_INVALID_CERT_AUTHORITY:
+		case CSSMERR_APPLETP_TRUST_SETTING_DENY:
+		case errSecInvalidTrustSettings:
+			break;
+		default:
+			/* infer status from these values... */
+			if(verifiedToAnchor || verifiedViaTrustSetting) {
+				/* full success; anchor doesn't have to be root */
+				constructReturn = CSSM_OK;
+			}
+			else if(verifiedToRoot) {
+				if(actionFlags & CSSM_TP_ACTION_IMPLICIT_ANCHORS) {
+					constructReturn = CSSM_OK;
+				}
+				else {
+					/* verified to root which is not an anchor */
+					constructReturn = CSSMERR_TP_INVALID_ANCHOR_CERT;
+				}
+			}
+			else {
+				/* partial chain, no root, not verifiable by anchor */
+				constructReturn = CSSMERR_TP_NOT_TRUSTED;
+			}
+
 			/* 
-			 * See if last (non-root) cert can be verified by 
-			 * an embedded root */
-			assert(lastCert != NULL);
-			CSSM_BOOL brtn = tp_verifyWithKnownRoots(clHand, 
-				cspHand, 
-				lastCert);
-			if(brtn) {
-				/* success with no incoming root, actually common (successful) case */
+ 			 * Those errors can be allowed, cert-chain-wide, per individual
+			 * certs' allowedErrors
+			 */
+			if((constructReturn != CSSM_OK) && 
+			    outCertGroup.isAllowedError(constructReturn)) {
 				constructReturn = CSSM_OK;
 			}
-		}
-		else if(constructReturn == CSSMERR_TP_INVALID_ANCHOR_CERT) {
-			/* is the end cert the same as one of our trusted roots? */
-			assert(lastCert != NULL);
-			bool brtn = tp_isKnownRootCert(lastCert, clHand);
-			if(brtn) {
-				constructReturn = CSSM_OK;
-			}
-		}
+			break;
 	}
-	#endif	/* TP_ROOT_CERT_ENABLE */
 	
 	/*
 	 * Parameters passed to tp_policyVerify() and which vary per policy
@@ -474,8 +739,12 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 		kRevokeNone,		// policy
 		actionFlags,
 		NULL,				// CRL options
-		NULL);				// OCSP options
-
+		NULL,				// OCSP options
+		utPolicyOid,
+		utPolicyStr,
+		utPolicyStrLen,
+		utKeyUse);
+		
 	/* true if we're to execute tp_policyVerify at end of loop */
 	bool doPolicyVerify;
 	/* true if we're to execute a revocation policy at end of loop */
@@ -496,56 +765,37 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 		sslOpts = NULL;
 		
 		/* first the basic cert policies */
-		if(tpCompareOids(oid, &CSSMOID_APPLE_TP_SSL)) {
-			tpPolicy = kTP_SSL;
-			doPolicyVerify = true;
-			/* and do the tp_policyVerify() call below */
-		}
-
-		else if(tpCompareOids(oid, &CSSMOID_APPLE_X509_BASIC)) {
-			/* no options */
-			if(fieldVal->Data != NULL) {
-				policyReturn = CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
+		doPolicyVerify = checkPolicyOid(*oid, tpPolicy);
+		if(doPolicyVerify) {
+			/* some basic checks... */
+			bool policyAbort = false;
+			switch(tpPolicy) {
+				case kTPx509Basic:
+				case kTPiSign:
+				case kTP_PKINIT_Client:
+				case kTP_PKINIT_Server:
+					if(fieldVal->Data != NULL) {
+						policyReturn = CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
+						policyAbort = true;
+						break;
+					}
+					break;
+				default:
+					break;
+			}
+			if(policyAbort) {
 				break;
 			}
-			tpPolicy = kTPx509Basic;
-			doPolicyVerify = true;
-		}
-
-		else if(tpCompareOids(oid, &CSSMOID_APPLE_TP_SMIME)) {
-			tpPolicy = kTP_SMIME;
-			doPolicyVerify = true;
-		}
-
-		else if(tpCompareOids(oid, &CSSMOID_APPLE_TP_EAP)) {
-			tpPolicy = kTP_EAP;
-			doPolicyVerify = true;
-		}
-		else if(tpCompareOids(oid, &CSSMOID_APPLE_TP_CODE_SIGN)) {
-			tpPolicy = kTP_CodeSign;
-			doPolicyVerify = true;
-		}
-		else if(tpCompareOids(oid, &CSSMOID_APPLE_TP_RESOURCE_SIGN)) {
-			tpPolicy = kTP_ResourceSign;
-			doPolicyVerify = true;
-		}
-		else if(tpCompareOids(oid, &CSSMOID_APPLE_TP_IP_SEC)) {
-			tpPolicy = kTP_IPSec;
-			doPolicyVerify = true;
-		}
-		else if(tpCompareOids(oid, &CSSMOID_APPLE_TP_ICHAT)) {
-			tpPolicy = kTP_iChat;
-			doPolicyVerify = true;
-		}
-		
-		else if(tpCompareOids(oid, &CSSMOID_APPLE_ISIGN)) {
-			/* no options */
-			if(fieldVal->Data != NULL) {
-				policyReturn = CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
-				break;
+			#if		TP_PKINIT_SERVER_HACK
+			if(tpPolicy == kTP_PKINIT_Server) {
+				/* possible override of "root not in anchors" */
+				if(constructReturn == CSSMERR_TP_INVALID_ANCHOR_CERT) {
+					if(tpCheckPkinitServerCert(outCertGroup)) {
+						constructReturn = CSSM_OK;
+					}
+				}
 			}
-			tpPolicy = kTPiSign;
-			doPolicyVerify = true;
+			#endif	/* TP_PKINIT_SERVER_HACK */
 		}
 		
 		/* 
@@ -626,6 +876,7 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 				cspHand,
 				&outCertGroup,
 				verifiedToRoot,
+				verifiedViaTrustSetting,
 				actionFlags,
 				fieldVal,
 				cred->Policy.PolicyControl);	// not currently used
@@ -637,9 +888,14 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 			thisPolicyRtn = tpRevocationPolicyVerify(revokeVfyContext, outCertGroup);
 			didRevokePolicy = true;
 		}
+		/* See if possible error is allowed, cert-chain-wide. */
+		if((thisPolicyRtn != CSSM_OK) &&
+		    outCertGroup.isAllowedError(thisPolicyRtn)) {
+			thisPolicyRtn = CSSM_OK;
+		}
 		if(thisPolicyRtn) {
-			/* Policy error. First remember the error if it's the first policy
-			 * error we'veÊseen. */
+			/* Now remember the error if it's the first policy
+			 * error we've seen. */
 			if(policyReturn == CSSM_OK) {
 				policyReturn = thisPolicyRtn;
 			}
@@ -663,9 +919,15 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 				cspHand,
 				&outCertGroup,
 				verifiedToRoot,
+				verifiedViaTrustSetting,
 				actionFlags,
 				NULL,							// policyFieldData
 				cred->Policy.PolicyControl);	// not currently used
+			/* See if error is allowed, cert-chain-wide. */
+			if((policyReturn != CSSM_OK) &&
+				outCertGroup.isAllowedError(policyReturn)) {
+				policyReturn = CSSM_OK;
+			}
 		}
 		if( !didRevokePolicy &&							// no revoke policy yet
 			( (policyReturn == CSSM_OK || 				// default cert policy OK
@@ -675,6 +937,10 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 			revokeVfyContext.policy = TP_CRL_POLICY_DEFAULT;
 			CSSM_RETURN thisPolicyRtn = tpRevocationPolicyVerify(revokeVfyContext, 
 				outCertGroup);
+			if((thisPolicyRtn != CSSM_OK) &&
+				outCertGroup.isAllowedError(thisPolicyRtn)) {
+				thisPolicyRtn = CSSM_OK;
+			}
 			if((thisPolicyRtn != CSSM_OK) && (policyReturn == CSSM_OK)) {
 				policyReturn = thisPolicyRtn;
 			}
@@ -710,7 +976,10 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 		ev = &VerifyContextResult->Evidence[2];
 		ev->EvidenceForm = CSSM_EVIDENCE_FORM_APPLE_CERT_INFO;
 		ev->Evidence = outCertGroup.buildCssmEvidenceInfo();
-
+	}
+	else {
+		/* caller responsible for freeing these if they are for evidence.... */
+		outCertGroup.freeDbRecords();
 	}
 	CSSM_RETURN outErr = outCertGroup.getReturnCode(constructReturn, policyReturn,
 		actionFlags);

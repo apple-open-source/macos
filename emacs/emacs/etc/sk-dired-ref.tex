@@ -1,5 +1,6 @@
 % Reference Card for Dired
-% Copyright (C) 2000 Free Software Foundation, Inc.
+% Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005,
+%   2006, 2007  Free Software Foundation, Inc.
 
 % Slovak hyphenation rules applied
 \shyph
@@ -18,8 +19,8 @@
 
 % You should have received a copy of the GNU General Public License
 % along with GNU Emacs; see the file COPYING.  If not, write to
-% the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-% Boston, MA 02111-1307, USA.
+% the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+% Boston, MA 02110-1301, USA.
 
 % This file can be printed with 1, 2, or 3 columns per page (see below).
 % Specify how many you want here.  Nothing else needs to be changed.
@@ -48,8 +49,9 @@
 % e.g. in the TeX Live CD).
 
 \def\versionnumber{0.1}
-\def\year{2000}
-\def\version{May \year\ v\versionnumber}
+\def\versionemacs{22}
+\def\year{2007}
+\def\version{May 2006\ v\versionnumber}
 
 \def\shortcopyrightnotice{\vskip 1ex plus 2 fill
   \centerline{\small \copyright\ \year\ Free Software Foundation, Inc.
@@ -59,7 +61,7 @@
 \vskip 1ex plus 2 fill\begingroup\small
 \centerline{Copyright \copyright\ \year\ Free Software Foundation, Inc.}
 \centerline{designed by Stephen Gildea, \version}
-\centerline{for GNU Emacs version 21 on Unix systems}
+\centerline{for GNU Emacs version \versionemacs{} on Unix systems}
 \centerline{Updated for Dired in May 2000 by Evgeny Roubinchtein}
 
 Permission is granted to make and distribute copies of
@@ -67,7 +69,8 @@ this card provided the copyright notice and this permission notice
 are preserved on all copies.
 
 For copies of the GNU Emacs manual, write to the Free Software
-Foundation, Inc., 675 Massachusetts Ave, Cambridge MA 02139.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.
 
 \endgroup}
 
@@ -101,7 +104,7 @@ Foundation, Inc., 675 Massachusetts Ave, Cambridge MA 02139.
   \def\makefootline{\baselineskip10pt\hsize6.5in\line{\the\footline}}
 \else                           %2 or 3 columns uses prereduced size
   \hsize 3.4in
-  \vsize 7.95in
+  \vsize 9.2in
   \hoffset -.75in
   \voffset -.745in
   \font\titlefont=csbx10 \scaledmag2
@@ -249,12 +252,14 @@ Foundation, Inc., 675 Massachusetts Ave, Cambridge MA 02139.
 % commands fit on a page in two-column format
 \def\dx{{\bf (DX)}}
 
+\nopagenumbers
+
 %**end of header
 
 
 \title{Referenèná karta pre Dired}
 
-\centerline{(urèené pre Dired v GNU Emacse 21.x)}
+\centerline{(urèené pre Dired v GNU Emacse \versionemacs.x)}
 \centerline{Príkazy oznaèené \dx{} vy¾adujú dired-x}
 
 % trim this down to fit everything on one page
@@ -332,10 +337,17 @@ Foundation, Inc., 675 Massachusetts Ave, Cambridge MA 02139.
 \key{zmeò znaèku na iné písmeno}{* c}
 \key{oznaè súbory, pre ktoré elispový výraz vrací t}{* ( \dx}
 
-\section{Nápoveda}
+\section{Modifikácia Dired bufferu}
 
-\key{zobraz nápovedu}{h}
-\key{prehµad príkazov dired}{?}
+\key{vlo¾ do tohto bufferu podadresár}{i}
+\key{odstráò oznaèené súbory z bufferu}{k}
+\key{odstráò z bufferu výpis podadresára}{C-u k}
+\key{znovu naèítaj adresár (znaèky sa zachovajú)}{g}
+\key{prepni triedenie adresára podµa mena/dátumu}{s}
+\key{uprav voµby príkazu ls}{C-u s}
+\key{obnov znaèky, skryté riadky a~pod.}{C-_}
+\key{skry v¹etky podadresáre}{M-\$}
+\key{skry alebo odkry v¹etky podadresáre}{\$}
 
 \section{Príkazy nad oznaèenými súbormi}
 
@@ -372,18 +384,6 @@ Foundation, Inc., 675 Massachusetts Ave, Cambridge MA 02139.
 \key{vyma¾ súbory oznaèené na zmazanie}{x}
 \key{oznaè súbory vyhovujúce regulárnemu výrazu}{\% d}
 
-\section{Modifikácia Dired bufferu}
-
-\key{vlo¾ do tohto bufferu podadresár}{i}
-\key{odstráò oznaèené súbory z bufferu}{k}
-\key{odstráò z bufferu výpis podadresára}{C-u k}
-\key{znovu naèítaj adresár (znaèky sa zachovajú)}{g}
-\key{prepni triedenie adresára podµa mena/dátumu}{s}
-\key{uprav voµby príkazu ls}{C-u s}
-\key{obnov znaèky, skryté riadky a~pod.}{C-_}
-\key{skry v¹etky podadresáre}{M-\$}
-\key{skry alebo odkry v¹etky podadresáre}{\$}
-
 \section{Príkazy s regulárnymi výrazmi}
 
 \key{oznaè súbory vyhovujúce regulárnemu výrazu}{\% m}
@@ -399,10 +399,17 @@ Foundation, Inc., 675 Massachusetts Ave, Cambridge MA 02139.
 \metax{otvor v dired súbory obsahujúce vzorku}{M-x find-grep-dired}
 \metax{otvor v dired súbory podµa výstupu \kbd{find}}{M-x find-dired}
 
-%\copyrightnotice
+\section{Nápoveda}
+
+\key{zobraz nápovedu}{h}
+\key{prehµad príkazov dired}{?}
+
+\copyrightnotice
 
 \bye
 
 % Local variables:
 % compile-command: "csplain sk-dired-ref"
 % End:
+
+% arch-tag: d5b57e24-16ec-4981-9315-14d3d16d3062

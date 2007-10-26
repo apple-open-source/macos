@@ -87,4 +87,3 @@ public:
 
 #endif /* !_CACTOKEN_H_ */
 
-/* arch-tag: 3714259E-0DBC-11D9-8D58-000A9595DEEE */

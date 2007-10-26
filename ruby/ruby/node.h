@@ -2,8 +2,8 @@
 
   node.h -
 
-  $Author: nobu $
-  $Date: 2004/10/02 11:34:29 $
+  $Author: shyouhei $
+  $Date: 2007-05-23 00:01:22 +0900 (Wed, 23 May 2007) $
   created at: Fri May 28 15:14:02 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -115,9 +115,7 @@ enum node_type {
     NODE_DEFINED,
     NODE_NEWLINE,
     NODE_POSTEXE,
-#ifdef C_ALLOCA
     NODE_ALLOCA,
-#endif
     NODE_DMETHOD,
     NODE_BMETHOD,
     NODE_MEMO,
@@ -152,6 +150,9 @@ typedef struct RNode {
 	VALUE value;
     } u3;
 } NODE;
+
+extern NODE *ruby_cref;
+extern NODE *ruby_top_cref;
 
 #define RNODE(obj)  (R_CAST(RNode)(obj))
 
@@ -201,7 +202,7 @@ typedef struct RNode {
 #define nd_lit   u1.value
 
 #define nd_frml  u1.node
-#define nd_rest  u2.argc
+#define nd_rest  u2.node
 #define nd_opt   u1.node
 
 #define nd_recv  u1.node
@@ -210,9 +211,6 @@ typedef struct RNode {
 
 #define nd_noex  u1.id
 #define nd_defn  u3.node
-
-#define nd_old   u1.id
-#define nd_new   u2.id
 
 #define nd_cfnc  u1.cfunc
 #define nd_argc  u2.argc
@@ -313,8 +311,8 @@ typedef struct RNode {
 #define NEW_SVALUE(a) NEW_NODE(NODE_SVALUE,a,0,0)
 #define NEW_BLOCK_ARG(v) NEW_NODE(NODE_BLOCK_ARG,v,0,local_cnt(v))
 #define NEW_BLOCK_PASS(b) NEW_NODE(NODE_BLOCK_PASS,0,b,0)
-#define NEW_ALIAS(n,o) NEW_NODE(NODE_ALIAS,o,n,0)
-#define NEW_VALIAS(n,o) NEW_NODE(NODE_VALIAS,o,n,0)
+#define NEW_ALIAS(n,o) NEW_NODE(NODE_ALIAS,n,o,0)
+#define NEW_VALIAS(n,o) NEW_NODE(NODE_VALIAS,n,o,0)
 #define NEW_UNDEF(i) NEW_NODE(NODE_UNDEF,0,i,0)
 #define NEW_CLASS(n,b,s) NEW_NODE(NODE_CLASS,n,NEW_SCOPE(b),(s))
 #define NEW_SCLASS(r,b) NEW_NODE(NODE_SCLASS,r,NEW_SCOPE(b),0)
@@ -340,8 +338,8 @@ typedef struct RNode {
 #define NOEX_PUBLIC    0
 #define NOEX_NOSUPER   1
 #define NOEX_PRIVATE   2
-#define NOEX_PROTECTED 4 
-#define NOEX_MASK      6 
+#define NOEX_PROTECTED 4
+#define NOEX_MASK      6
 
 #define NOEX_UNDEF     NOEX_NOSUPER
 
@@ -358,6 +356,116 @@ struct global_entry *rb_global_entry _((ID));
 VALUE rb_gvar_get _((struct global_entry *));
 VALUE rb_gvar_set _((struct global_entry *, VALUE));
 VALUE rb_gvar_defined _((struct global_entry *));
+
+typedef unsigned int rb_event_t;
+
+#define RUBY_EVENT_NONE     0x00
+#define RUBY_EVENT_LINE     0x01
+#define RUBY_EVENT_CLASS    0x02
+#define RUBY_EVENT_END      0x04
+#define RUBY_EVENT_CALL     0x08
+#define RUBY_EVENT_RETURN   0x10
+#define RUBY_EVENT_C_CALL   0x20
+#define RUBY_EVENT_C_RETURN 0x40
+#define RUBY_EVENT_RAISE    0x80
+#define RUBY_EVENT_ALL      0xff
+
+typedef void (*rb_event_hook_func_t) _((rb_event_t,NODE*,VALUE,ID,VALUE));
+void rb_add_event_hook _((rb_event_hook_func_t,rb_event_t));
+int rb_remove_event_hook _((rb_event_hook_func_t));
+
+#if defined(HAVE_GETCONTEXT) && defined(HAVE_SETCONTEXT)
+#include <ucontext.h>
+#define USE_CONTEXT
+#endif
+#include <setjmp.h>
+#include "st.h"
+
+#ifdef USE_CONTEXT
+typedef struct {
+    ucontext_t context;
+    volatile int status;
+} rb_jmpbuf_t[1];
+#else
+typedef jmp_buf rb_jmpbuf_t;
+#endif
+
+enum rb_thread_status {
+    THREAD_TO_KILL,
+    THREAD_RUNNABLE,
+    THREAD_STOPPED,
+    THREAD_KILLED,
+};
+
+typedef struct rb_thread *rb_thread_t;
+
+struct rb_thread {
+    rb_thread_t next, prev;
+    rb_jmpbuf_t context;
+#if (defined _WIN32 && !defined _WIN32_WCE) || defined __CYGWIN__
+    unsigned long win32_exception_list;
+#endif
+
+    VALUE result;
+
+    long   stk_len;
+    long   stk_max;
+    VALUE *stk_ptr;
+    VALUE *stk_pos;
+#ifdef __ia64
+    long   bstr_len;
+    long   bstr_max;
+    VALUE *bstr_ptr;
+    VALUE *bstr_pos;
+#endif
+
+    struct FRAME *frame;
+    struct SCOPE *scope;
+    struct RVarmap *dyna_vars;
+    struct BLOCK *block;
+    struct iter *iter;
+    struct tag *tag;
+    VALUE klass;
+    VALUE wrapper;
+    NODE *cref;
+
+    int flags;		/* misc. states (vmode/rb_trap_immediate/raised) */
+
+    NODE *node;
+
+    int tracing;
+    VALUE errinfo;
+    VALUE last_status;
+    VALUE last_line;
+    VALUE last_match;
+
+    int safe;
+
+    enum rb_thread_status status;
+    int wait_for;
+    int fd;
+    fd_set readfds;
+    fd_set writefds;
+    fd_set exceptfds;
+    int select_value;
+    double delay;
+    rb_thread_t join;
+
+    int abort;
+    int priority;
+    VALUE thgroup;
+
+    struct st_table *locals;
+
+    VALUE thread;
+
+    VALUE sandbox;
+};
+
+extern VALUE (*ruby_sandbox_save)_((rb_thread_t));
+extern VALUE (*ruby_sandbox_restore)_((rb_thread_t));
+extern rb_thread_t rb_curr_thread;
+extern rb_thread_t rb_main_thread;
 
 #if defined(__cplusplus)
 }  /* extern "C" { */

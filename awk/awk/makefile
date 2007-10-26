@@ -48,7 +48,7 @@ SHIP = README FIXES $(SOURCE) ytab[ch].bak makefile makefile.win \
 	vcvars32.bat buildwin.bat mac.code awk.1
 
 a.out:	ytab.o $(OFILES)
-	$(CC) $(CFLAGS) ytab.o $(OFILES) $(ALLOC)  -lm
+	$(CC) $(CFLAGS) ytab.o $(OFILES) $(ALLOC)  -lm -o a.out
 
 $(OFILES):	awk.h ytab.h proto.h
 

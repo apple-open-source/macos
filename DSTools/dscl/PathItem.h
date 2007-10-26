@@ -27,6 +27,7 @@
 
 
 #import <Foundation/Foundation.h>
+#import <DSObjCWrappers/DSoNode.h>
 #import "PathItemProtocol.h"
 
 #define DS_EXCEPTION_STATUS_IS(S) ([localException isKindOfClass:[DSoException class]] && [(DSoException*)localException status] == S)
@@ -37,7 +38,11 @@ extern BOOL gURLEncode;
 /* printValue()
  * Print an attribute value, but url encoded if appropriate
  */
-void printValue(NSString *inValue);
+void printValue(NSString *inValue, BOOL hasSpaces);
+NSString* stripDSPrefixOffValue(NSString* inValue);
+void printAttribute(NSString *key, NSArray *values, NSString *prefixString);
+void printPlist(NSString *plistPath, id currentElement);
+NSArray* prefixedAttributeKeysWithNode(DSoNode* inNode, NSArray* inKeys);
 
 @interface PathItem : NSObject <PathItemProtocol>
 {

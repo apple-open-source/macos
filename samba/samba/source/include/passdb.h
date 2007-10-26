@@ -34,8 +34,8 @@
 #define ACCT_FULL_NAME		0x00000002
 #define ACCT_RID		0x00000004
 #define ACCT_PRIMARY_GID	0x00000008
-#define ACCT_ADMIN_DESC		0x00000010
-#define ACCT_DESCRIPTION	0x00000020
+#define ACCT_DESCRIPTION	0x00000010
+#define ACCT_COMMENT		0x00000020
 #define ACCT_HOME_DIR		0x00000040
 #define ACCT_HOME_DRIVE		0x00000080
 #define ACCT_LOGON_SCRIPT	0x00000100
@@ -62,7 +62,7 @@
 #define ACCT_OWF_PWD		0x20000000
 
 /*
- * bit flags representing initialized fields in SAM_ACCOUNT
+ * bit flags representing initialized fields in struct samu
  */
 enum pdb_elements {
 	PDB_UNINIT,
@@ -90,7 +90,7 @@ enum pdb_elements {
 	PDB_UNIXHOMEDIR,
 	PDB_ACCTDESC,
 	PDB_WORKSTATIONS,
-	PDB_UNKNOWNSTR,
+	PDB_COMMENT,
 	PDB_MUNGEDDIAL,
 	PDB_HOURS,
 	PDB_FIELDS_PRESENT,
@@ -128,108 +128,105 @@ enum pdb_value_state {
 #define IS_SAM_DEFAULT(x, flag)	(pdb_get_init_flags(x, flag) == PDB_DEFAULT)
 
 /* cache for bad password lockout data, to be used on replicated SAMs */
-typedef struct logon_cache_struct 
-{
+typedef struct logon_cache_struct {
 	time_t entry_timestamp;
-	uint16 acct_ctrl;
+	uint32 acct_ctrl;
 	uint16 bad_password_count;
 	time_t bad_password_time;
 } LOGIN_CACHE;
 		
-typedef struct sam_passwd
-{
-	TALLOC_CTX *mem_ctx;
-	
-	void (*free_fn)(struct sam_passwd **);
-
+struct samu {
 	struct pdb_methods *methods;
 
-	struct user_data {
-		/* initialization flags */
-		struct bitmap *change_flags;
-		struct bitmap *set_flags;
+	/* initialization flags */
+	struct bitmap *change_flags;
+	struct bitmap *set_flags;
 
-		time_t logon_time;            /* logon time */
-		time_t logoff_time;           /* logoff time */
-		time_t kickoff_time;          /* kickoff time */
-		time_t bad_password_time;     /* last bad password entered */
-		time_t pass_last_set_time;    /* password last set time */
-		time_t pass_can_change_time;  /* password can change time */
-		time_t pass_must_change_time; /* password must change time */
+	time_t logon_time;            /* logon time */
+	time_t logoff_time;           /* logoff time */
+	time_t kickoff_time;          /* kickoff time */
+	time_t bad_password_time;     /* last bad password entered */
+	time_t pass_last_set_time;    /* password last set time */
+	time_t pass_can_change_time;  /* password can change time */
+	time_t pass_must_change_time; /* password must change time */
 		
-		const char * username;     /* UNIX username string */
-		const char * domain;       /* Windows Domain name */
-		const char * nt_username;  /* Windows username string */
-		const char * full_name;    /* user's full name string */
-		const char * unix_home_dir;     /* UNIX home directory string */
-		const char * home_dir;     /* home directory string */
-		const char * dir_drive;    /* home directory drive string */
-		const char * logon_script; /* logon script string */
-		const char * profile_path; /* profile path string */
-		const char * acct_desc;    /* user description string */
-		const char * workstations; /* login from workstations string */
-		const char * unknown_str;  /* don't know what this is, yet. */
-		const char * munged_dial;  /* munged path name and dial-back tel number */
+	const char *username;     /* UNIX username string */
+	const char *domain;       /* Windows Domain name */
+	const char *nt_username;  /* Windows username string */
+	const char *full_name;    /* user's full name string */
+	const char *home_dir;     /* home directory string */
+	const char *dir_drive;    /* home directory drive string */
+	const char *logon_script; /* logon script string */
+	const char *profile_path; /* profile path string */
+	const char *acct_desc;    /* user description string */
+	const char *workstations; /* login from workstations string */
+	const char *comment;
+	const char *munged_dial;  /* munged path name and dial-back tel number */
 		
-		DOM_SID user_sid;    /* Primary User SID */
-		DOM_SID group_sid;   /* Primary Group SID */
+	DOM_SID user_sid;  
+	DOM_SID *group_sid;
 		
-		DATA_BLOB lm_pw; /* .data is Null if no password */
-		DATA_BLOB nt_pw; /* .data is Null if no password */
-		DATA_BLOB nt_pw_his; /* nt hashed password history .data is Null if not available */
-		char* plaintext_pw; /* is Null if not available */
+	DATA_BLOB lm_pw; /* .data is Null if no password */
+	DATA_BLOB nt_pw; /* .data is Null if no password */
+	DATA_BLOB nt_pw_his; /* nt hashed password history .data is Null if not available */
+	char* plaintext_pw; /* is Null if not available */
 		
-		uint16 acct_ctrl; /* account info (ACB_xxxx bit-mask) */
-		uint32 fields_present; /* 0x00ff ffff */
+	uint32 acct_ctrl; /* account info (ACB_xxxx bit-mask) */
+	uint32 fields_present; /* 0x00ff ffff */
 		
-		uint16 logon_divs; /* 168 - number of hours in a week */
-		uint32 hours_len; /* normally 21 bytes */
-		uint8 hours[MAX_HOURS_LEN];
-		
-		/* Was unknown_5. */
-		uint16 bad_password_count;
-		uint16 logon_count;
-
-		uint32 unknown_6; /* 0x0000 04ec */
-		/* a tag for who added the private methods */
-		const struct pdb_methods *backend_private_methods;
-		void *backend_private_data; 
-		void (*backend_private_data_free_fn)(void **);
-	} private;
-
-	/* Lets see if the remaining code can get the hint that you
-	   are meant to use the pdb_...() functions. */
+	uint16 logon_divs; /* 168 - number of hours in a week */
+	uint32 hours_len; /* normally 21 bytes */
+	uint8 hours[MAX_HOURS_LEN];
 	
-} SAM_ACCOUNT;
+	/* Was unknown_5. */
+	uint16 bad_password_count;
+	uint16 logon_count;
 
-typedef struct sam_group {
+	uint32 unknown_6; /* 0x0000 04ec */
+
+	/* a tag for who added the private methods */
+
+	const struct pdb_methods *backend_private_methods;
+	void *backend_private_data; 
+	void (*backend_private_data_free_fn)(void **);
+	
+	/* maintain a copy of the user's struct passwd */
+
+	struct passwd *unix_pw;
+};
+
+struct acct_info {
+	fstring acct_name; /* account name */
+	fstring acct_desc; /* account name */
+	uint32 rid; /* domain-relative RID */
+};
+
+struct samr_displayentry {
+	uint32 idx;
+	uint32 rid;
+	uint32 acct_flags;
+	const char *account_name;
+	const char *fullname;
+	const char *description;
+};
+
+enum pdb_search_type {
+	PDB_USER_SEARCH,
+	PDB_GROUP_SEARCH,
+	PDB_ALIAS_SEARCH
+};
+
+struct pdb_search {
 	TALLOC_CTX *mem_ctx;
-	
-	void (*free_fn)(struct sam_group **);
-
-	struct pdb_methods *methods;
-
-	struct group_data {
-		/* initialization flags */
-		struct bitmap *change_flags;
-		struct bitmap *set_flags;
-
-		const char *name;		/* Windows group name string */
-
-		DOM_SID sid;			/* Group SID */
-		enum SID_NAME_USE sid_name_use;	/* Group type */
-
-		uint32 mem_num;			/* Number of member SIDs */
-		DOM_SID *members;		/* SID array */
-	} private;
-
-} SAM_GROUP;
-
-struct acct_info
-{
-    fstring acct_name; /* account name */
-    fstring acct_desc; /* account name */
-    uint32 rid; /* domain-relative RID */
+	enum pdb_search_type type;
+	struct samr_displayentry *cache;
+	uint32 num_entries;
+	ssize_t cache_size;
+	BOOL search_ended;
+	void *private_data;
+	BOOL (*next_entry)(struct pdb_search *search,
+			   struct samr_displayentry *entry);
+	void (*search_end)(struct pdb_search *search);
 };
 
 /*****************************************************************
@@ -239,130 +236,59 @@ struct acct_info
 /*
  * This next constant specifies the version number of the PASSDB interface
  * this SAMBA will load. Increment this if *ANY* changes are made to the interface. 
+ * Changed interface to fix int -> size_t problems. JRA.
+ * There's no point in allocating arrays in
+ * samr_lookup_rids twice. It was done in the srv_samr_nt.c code as well as in
+ * the pdb module. Remove the latter, this might happen more often. VL.
+ * changed to version 14 to move lookup_rids and lookup_names to return
+ * enum lsa_SidType rather than uint32.
  */
 
-#define PASSDB_INTERFACE_VERSION 5
+#define PASSDB_INTERFACE_VERSION 15
 
-typedef struct pdb_context 
-{
-	struct pdb_methods *pdb_methods;
-	struct pdb_methods *pwent_methods;
-	
-	/* These functions are wrappers for the functions listed above.
-	   They may do extra things like re-reading a SAM_ACCOUNT on update */
-
-	NTSTATUS (*pdb_setsampwent)(struct pdb_context *, BOOL update);
-	
-	void (*pdb_endsampwent)(struct pdb_context *);
-	
-	NTSTATUS (*pdb_getsampwent)(struct pdb_context *, SAM_ACCOUNT *user);
-	
-	NTSTATUS (*pdb_getsampwnam)(struct pdb_context *, SAM_ACCOUNT *sam_acct, const char *username);
-	
-	NTSTATUS (*pdb_getsampwsid)(struct pdb_context *, SAM_ACCOUNT *sam_acct, const DOM_SID *sid);
-
-	NTSTATUS (*pdb_add_sam_account)(struct pdb_context *, SAM_ACCOUNT *sampass);
-	
-	NTSTATUS (*pdb_update_sam_account)(struct pdb_context *, SAM_ACCOUNT *sampass);
-	
-	NTSTATUS (*pdb_delete_sam_account)(struct pdb_context *, SAM_ACCOUNT *username);
-
-	NTSTATUS (*pdb_getgrsid)(struct pdb_context *context, GROUP_MAP *map, DOM_SID sid);
-	
-	NTSTATUS (*pdb_getgrgid)(struct pdb_context *context, GROUP_MAP *map, gid_t gid);
-	
-	NTSTATUS (*pdb_getgrnam)(struct pdb_context *context, GROUP_MAP *map, const char *name);
-	
-	NTSTATUS (*pdb_add_group_mapping_entry)(struct pdb_context *context,
-						GROUP_MAP *map);
-	
-	NTSTATUS (*pdb_update_group_mapping_entry)(struct pdb_context *context,
-						   GROUP_MAP *map);
-	
-	NTSTATUS (*pdb_delete_group_mapping_entry)(struct pdb_context *context,
-						   DOM_SID sid);
-	
-	NTSTATUS (*pdb_enum_group_mapping)(struct pdb_context *context,
-					   enum SID_NAME_USE sid_name_use,
-					   GROUP_MAP **rmap, int *num_entries,
-					   BOOL unix_only);
-
-	NTSTATUS (*pdb_find_alias)(struct pdb_context *context,
-				   const char *name, DOM_SID *sid);
-
-	NTSTATUS (*pdb_create_alias)(struct pdb_context *context,
-				     const char *name, uint32 *rid);
-
-	NTSTATUS (*pdb_delete_alias)(struct pdb_context *context,
-				     const DOM_SID *sid);
-
-	NTSTATUS (*pdb_enum_aliases)(struct pdb_context *context,
-				     const DOM_SID *domain_sid,
-				     uint32 start_idx, uint32 num_entries,
-				     uint32 *num_aliases,
-				     struct acct_info **aliases);
-
-	NTSTATUS (*pdb_get_aliasinfo)(struct pdb_context *context,
-				      const DOM_SID *sid,
-				      struct acct_info *info);
-
-	NTSTATUS (*pdb_set_aliasinfo)(struct pdb_context *context,
-				      const DOM_SID *sid,
-				      struct acct_info *info);
-
-	NTSTATUS (*pdb_add_aliasmem)(struct pdb_context *context,
-				     const DOM_SID *alias,
-				     const DOM_SID *member);
-
-	NTSTATUS (*pdb_del_aliasmem)(struct pdb_context *context,
-				     const DOM_SID *alias,
-				     const DOM_SID *member);
-
-	NTSTATUS (*pdb_enum_aliasmem)(struct pdb_context *context,
-				      const DOM_SID *alias,
-				      DOM_SID **members, int *num_members);
-
-	NTSTATUS (*pdb_enum_alias_memberships)(struct pdb_context *context,
-					       const DOM_SID *alias,
-					       DOM_SID **aliases,
-					       int *num);
-
-	void (*free_fn)(struct pdb_context **);
-	
-	TALLOC_CTX *mem_ctx;
-	
-} PDB_CONTEXT;
-
-typedef struct pdb_methods 
+struct pdb_methods 
 {
 	const char *name; /* What name got this module */
-	struct pdb_context *parent;
 
-	/* Use macros from dlinklist.h on these two */
-	struct pdb_methods *next;
-	struct pdb_methods *prev;
-
-	NTSTATUS (*setsampwent)(struct pdb_methods *, BOOL update);
+	NTSTATUS (*setsampwent)(struct pdb_methods *, BOOL update, uint32 acb_mask);
 	
 	void (*endsampwent)(struct pdb_methods *);
 	
-	NTSTATUS (*getsampwent)(struct pdb_methods *, SAM_ACCOUNT *user);
+	NTSTATUS (*getsampwent)(struct pdb_methods *, struct samu *user);
 	
-	NTSTATUS (*getsampwnam)(struct pdb_methods *, SAM_ACCOUNT *sam_acct, const char *username);
+	NTSTATUS (*getsampwnam)(struct pdb_methods *, struct samu *sam_acct, const char *username);
 	
-	NTSTATUS (*getsampwsid)(struct pdb_methods *, SAM_ACCOUNT *sam_acct, const DOM_SID *sid);
+	NTSTATUS (*getsampwsid)(struct pdb_methods *, struct samu *sam_acct, const DOM_SID *sid);
+
+	NTSTATUS (*create_user)(struct pdb_methods *, TALLOC_CTX *tmp_ctx,
+				const char *name, uint32 acct_flags,
+				uint32 *rid);
+
+	NTSTATUS (*delete_user)(struct pdb_methods *, TALLOC_CTX *tmp_ctx,
+				struct samu *sam_acct);
 	
-	NTSTATUS (*add_sam_account)(struct pdb_methods *, SAM_ACCOUNT *sampass);
+	NTSTATUS (*add_sam_account)(struct pdb_methods *, struct samu *sampass);
 	
-	NTSTATUS (*update_sam_account)(struct pdb_methods *, SAM_ACCOUNT *sampass);
+	NTSTATUS (*update_sam_account)(struct pdb_methods *, struct samu *sampass);
 	
-	NTSTATUS (*delete_sam_account)(struct pdb_methods *, SAM_ACCOUNT *username);
+	NTSTATUS (*delete_sam_account)(struct pdb_methods *, struct samu *username);
 	
+	NTSTATUS (*rename_sam_account)(struct pdb_methods *, struct samu *oldname, const char *newname);
+	
+	NTSTATUS (*update_login_attempts)(struct pdb_methods *methods, struct samu *sam_acct, BOOL success);
+
 	NTSTATUS (*getgrsid)(struct pdb_methods *methods, GROUP_MAP *map, DOM_SID sid);
 
 	NTSTATUS (*getgrgid)(struct pdb_methods *methods, GROUP_MAP *map, gid_t gid);
 
 	NTSTATUS (*getgrnam)(struct pdb_methods *methods, GROUP_MAP *map, const char *name);
+
+	NTSTATUS (*create_dom_group)(struct pdb_methods *methods,
+				     TALLOC_CTX *mem_ctx, const char *name,
+				     uint32 *rid);
+
+	NTSTATUS (*delete_dom_group)(struct pdb_methods *methods,
+				     TALLOC_CTX *mem_ctx, uint32 rid);
 
 	NTSTATUS (*add_group_mapping_entry)(struct pdb_methods *methods,
 					    GROUP_MAP *map);
@@ -374,9 +300,33 @@ typedef struct pdb_methods
 					       DOM_SID sid);
 
 	NTSTATUS (*enum_group_mapping)(struct pdb_methods *methods,
-				       enum SID_NAME_USE sid_name_use,
-				       GROUP_MAP **rmap, int *num_entries,
+				       const DOM_SID *sid, enum lsa_SidType sid_name_use,
+				       GROUP_MAP **pp_rmap, size_t *p_num_entries,
 				       BOOL unix_only);
+
+	NTSTATUS (*enum_group_members)(struct pdb_methods *methods,
+				       TALLOC_CTX *mem_ctx,
+				       const DOM_SID *group,
+				       uint32 **pp_member_rids,
+				       size_t *p_num_members);
+
+	NTSTATUS (*enum_group_memberships)(struct pdb_methods *methods,
+					   TALLOC_CTX *mem_ctx,
+					   struct samu *user,
+					   DOM_SID **pp_sids, gid_t **pp_gids,
+					   size_t *p_num_groups);
+
+	NTSTATUS (*set_unix_primary_group)(struct pdb_methods *methods,
+					   TALLOC_CTX *mem_ctx,
+					   struct samu *user);
+
+	NTSTATUS (*add_groupmem)(struct pdb_methods *methods,
+				 TALLOC_CTX *mem_ctx,
+				 uint32 group_rid, uint32 member_rid);
+
+	NTSTATUS (*del_groupmem)(struct pdb_methods *methods,
+				 TALLOC_CTX *mem_ctx,
+				 uint32 group_rid, uint32 member_rid);
 
 	NTSTATUS (*find_alias)(struct pdb_methods *methods,
 			       const char *name, DOM_SID *sid);
@@ -386,11 +336,6 @@ typedef struct pdb_methods
 
 	NTSTATUS (*delete_alias)(struct pdb_methods *methods,
 				 const DOM_SID *sid);
-
-	NTSTATUS (*enum_aliases)(struct pdb_methods *methods,
-				 const DOM_SID *domain_sid,
-				 uint32 start_idx, uint32 max_entries,
-				 uint32 *num_aliases, struct acct_info **info);
 
 	NTSTATUS (*get_aliasinfo)(struct pdb_methods *methods,
 				  const DOM_SID *sid,
@@ -406,28 +351,72 @@ typedef struct pdb_methods
 				 const DOM_SID *alias, const DOM_SID *member);
 	NTSTATUS (*enum_aliasmem)(struct pdb_methods *methods,
 				  const DOM_SID *alias, DOM_SID **members,
-				  int *num_members);
+				  size_t *p_num_members);
 	NTSTATUS (*enum_alias_memberships)(struct pdb_methods *methods,
-					   const DOM_SID *sid,
-					   DOM_SID **aliases, int *num);
+					   TALLOC_CTX *mem_ctx,
+					   const DOM_SID *domain_sid,
+					   const DOM_SID *members,
+					   size_t num_members,
+					   uint32 **pp_alias_rids,
+					   size_t *p_num_alias_rids);
+
+	NTSTATUS (*lookup_rids)(struct pdb_methods *methods,
+				const DOM_SID *domain_sid,
+				int num_rids,
+				uint32 *rids,
+				const char **pp_names,
+				enum lsa_SidType *attrs);
+
+	NTSTATUS (*lookup_names)(struct pdb_methods *methods,
+				 const DOM_SID *domain_sid,
+				 int num_names,
+				 const char **pp_names,
+				 uint32 *rids,
+				 enum lsa_SidType *attrs);
+
+	NTSTATUS (*get_account_policy)(struct pdb_methods *methods,
+				       int policy_index, uint32 *value);
+
+	NTSTATUS (*set_account_policy)(struct pdb_methods *methods,
+				       int policy_index, uint32 value);
+
+	NTSTATUS (*get_seq_num)(struct pdb_methods *methods, time_t *seq_num);
+
+	BOOL (*search_users)(struct pdb_methods *methods,
+			     struct pdb_search *search,
+			     uint32 acct_flags);
+	BOOL (*search_groups)(struct pdb_methods *methods,
+			      struct pdb_search *search);
+	BOOL (*search_aliases)(struct pdb_methods *methods,
+			       struct pdb_search *search,
+			       const DOM_SID *sid);
+
+	BOOL (*uid_to_rid)(struct pdb_methods *methods, uid_t uid,
+			   uint32 *rid);
+	BOOL (*uid_to_sid)(struct pdb_methods *methods, uid_t uid,
+			   DOM_SID *sid);
+	BOOL (*gid_to_sid)(struct pdb_methods *methods, gid_t gid,
+			   DOM_SID *sid);
+	BOOL (*sid_to_id)(struct pdb_methods *methods, const DOM_SID *sid,
+			  union unid_t *id, enum lsa_SidType *type);
+
+	BOOL (*rid_algorithm)(struct pdb_methods *methods);
+	BOOL (*new_rid)(struct pdb_methods *methods, uint32 *rid);
 
 	void *private_data;  /* Private data of some kind */
 	
 	void (*free_private_data)(void **);
+};
 
-} PDB_METHODS;
-
-typedef NTSTATUS (*pdb_init_function)(struct pdb_context *, 
-			 struct pdb_methods **, 
-			 const char *);
+typedef NTSTATUS (*pdb_init_function)(struct pdb_methods **, const char *);
 
 struct pdb_init_function_entry {
 	const char *name;
+
 	/* Function to create a member of the pdb_methods list */
 	pdb_init_function init;
+
 	struct pdb_init_function_entry *prev, *next;
 };
-
-enum sql_search_field { SQL_SEARCH_NONE = 0, SQL_SEARCH_USER_SID = 1, SQL_SEARCH_USER_NAME = 2};
 
 #endif /* _PASSDB_H */

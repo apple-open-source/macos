@@ -41,7 +41,8 @@ struct arch_flag *p)
 	arch_flag = get_arch_flags();
 	while(arch_flag->name != NULL){
 	    if(arch_flag->cputype == p->cputype &&
-	       arch_flag->cpusubtype == p->cpusubtype){
+	       (arch_flag->cpusubtype & ~CPU_SUBTYPE_MASK) ==
+	       (p->cpusubtype & ~CPU_SUBTYPE_MASK)){
 		p->name = savestr(arch_flag->name);
 		break;
 	    }

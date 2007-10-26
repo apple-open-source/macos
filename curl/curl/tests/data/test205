@@ -1,9 +1,10 @@
+<testcase>
 # no Server-side
 
 # Client-side
 <client>
 <server>
-none
+file
 </server>
  <name>
 "upload" with file://
@@ -27,3 +28,4 @@ write
 23
 </errorcode>
 </verify>
+</testcase>

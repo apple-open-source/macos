@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2006, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: llist.c,v 1.16 2005/01/25 00:06:29 bagder Exp $
+ * $Id: llist.c,v 1.18 2006-10-25 07:19:45 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -129,4 +129,10 @@ Curl_llist_destroy(struct curl_llist *list, void *user)
 
     free(list);
   }
+}
+
+size_t
+Curl_llist_count(struct curl_llist *list)
+{
+  return list->size;
 }

@@ -320,7 +320,9 @@ IOReturn AppleVIAInterruptController::initInterruptController(IOService *provide
 
 IOInterruptAction AppleVIAInterruptController::getInterruptHandlerAddress(void)
 {
-  return (IOInterruptAction)&AppleVIAInterruptController::handleInterrupt;
+
+  return (OSMemberFunctionCast(IOInterruptAction, this, &AppleVIAInterruptController::handleInterrupt));   //4092033
+  //return (IOInterruptAction)&AppleVIAInterruptController::handleInterrupt;
 }
 
 IOReturn AppleVIAInterruptController::handleInterrupt(void */*refCon*/,

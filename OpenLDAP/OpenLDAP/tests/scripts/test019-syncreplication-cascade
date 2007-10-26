@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test019-syncreplication-cascade,v 1.6.2.6 2004/01/01 18:16:43 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test019-syncreplication-cascade,v 1.13.2.5 2006/01/03 22:16:29 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2004 The OpenLDAP Foundation.
+## Copyright 1998-2006 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -13,7 +13,7 @@
 ## top-level directory of the distribution or, alternatively, at
 ## <http://www.OpenLDAP.org/license.html>.
 
-if test "$BACKEND" != "bdb" -a "$BACKEND" != "hdb" ; then
+if test "$BACKEND" != "bdb" && test "$BACKEND" != "hdb" ; then
 	echo "Test does not support $BACKEND"
 	exit 0
 fi
@@ -21,7 +21,12 @@ fi
 echo "running defines.sh"
 . $SRCDIR/scripts/defines.sh
 
-mkdir $TESTDIR $DBDIR1 $DBDIR2 $DBDIR3 $DBDIR4 $DBDIR5 $DBDIR6
+if test $SYNCPROV = syncprovno; then 
+	echo "Syncrepl provider overlay not available, test skipped"
+	exit 0
+fi 
+
+mkdir -p $TESTDIR $DBDIR1 $DBDIR2 $DBDIR3 $DBDIR4 $DBDIR5 $DBDIR6
 
 #
 # Test replication:
@@ -41,6 +46,8 @@ if test $WAIT != 0 ; then
     read foo
 fi
 KILLPIDS="$PID"
+
+sleep 1
 
 echo "Using ldapsearch to check that master slapd (pid=$PID) is running..."
 for i in 0 1 2 3 4 5; do
@@ -80,7 +87,9 @@ if test $WAIT != 0 ; then
 fi
 KILLPIDS="$KILLPIDS $SLAVEPID"
 
-echo "Using ldapsearch to check that R1 slave slapd(pid=$SLAVEPID) is running..."
+sleep 1
+
+echo "Using ldapsearch to check that R1 slave slapd (pid=$SLAVEPID) is running..."
 for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT2 \
 		'objectclass=*' > /dev/null 2>&1
@@ -108,7 +117,9 @@ if test $WAIT != 0 ; then
 fi
 KILLPIDS="$KILLPIDS $SLAVEPID"
 
-echo "Using ldapsearch to check that R2 slave slapd(pid=$SLAVEPID) is running..."
+sleep 1
+
+echo "Using ldapsearch to check that R2 slave slapd (pid=$SLAVEPID) is running..."
 for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT3 \
 		'objectclass=*' > /dev/null 2>&1
@@ -136,7 +147,9 @@ if test $WAIT != 0 ; then
 fi
 KILLPIDS="$KILLPIDS $SLAVEPID"
 
-echo "Using ldapsearch to check that P1 slave slapd(pid=$SLAVEPID) is running..."
+sleep 1
+
+echo "Using ldapsearch to check that P1 slave slapd (pid=$SLAVEPID) is running..."
 for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT4 \
 		'objectclass=*' > /dev/null 2>&1
@@ -164,7 +177,9 @@ if test $WAIT != 0 ; then
 fi
 KILLPIDS="$KILLPIDS $SLAVEPID"
 
-echo "Using ldapsearch to check that P2 slave slapd(pid=$SLAVEPID) is running..."
+sleep 1
+
+echo "Using ldapsearch to check that P2 slave slapd (pid=$SLAVEPID) is running..."
 for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT5 \
 		'objectclass=*' > /dev/null 2>&1
@@ -192,7 +207,9 @@ if test $WAIT != 0 ; then
 fi
 KILLPIDS="$KILLPIDS $SLAVEPID"
 
-echo "Using ldapsearch to check that P3 slave slapd(pid=$SLAVEPID) is running..."
+sleep 1
+
+echo "Using ldapsearch to check that P3 slave slapd (pid=$SLAVEPID) is running..."
 for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT6 \
 		'objectclass=*' > /dev/null 2>&1
@@ -231,7 +248,7 @@ echo "Using ldapmodify to modify master directory..."
 
 $LDAPMODIFY -v -D "$MANAGERDN" -h $LOCALHOST -p $PORT1 -w $PASSWD > \
 	$TESTOUT 2>&1 << EOMODS
-dn: cn=James A Jones 1, ou=Alumni Association, ou=People, o=University of Michigan, c=US
+dn: cn=James A Jones 1, ou=Alumni Association, ou=People, dc=example,dc=com
 changetype: modify
 add: drink
 drink: Orange Juice
@@ -242,27 +259,27 @@ sn: Jones
 add: sn
 sn: Jones
 
-dn: cn=Bjorn Jensen, ou=Information Technology Division, ou=People, o=University of Michigan, c=US
+dn: cn=Bjorn Jensen, ou=Information Technology Division, ou=People, dc=example,dc=com
 changetype: modify
 replace: drink
 drink: Iced Tea
 drink: Mad Dog 20/20
 
-dn: cn=ITD Staff,ou=Groups,o=University of Michigan,c=US
+dn: cn=ITD Staff,ou=Groups,dc=example,dc=com
 changetype: modify
 delete: uniquemember
-uniquemember: cn=James A Jones 2, ou=Information Technology Division, ou=People, o=University of Michigan, c=US
-uniquemember: cn=Bjorn Jensen, ou=Information Technology Division, ou=People, o=University of Michigan, c=US
+uniquemember: cn=James A Jones 2, ou=Information Technology Division, ou=People, dc=example,dc=com
+uniquemember: cn=Bjorn Jensen, ou=Information Technology Division, ou=People, dc=example,dc=com
 -
 add: uniquemember
-uniquemember: cn=Dorothy Stevens, ou=Alumni Association, ou=People, o=University of Michigan, c=US
-uniquemember: cn=James A Jones 1, ou=Alumni Association, ou=People, o=University of Michigan, c=US
+uniquemember: cn=Dorothy Stevens, ou=Alumni Association, ou=People, dc=example,dc=com
+uniquemember: cn=James A Jones 1, ou=Alumni Association, ou=People, dc=example,dc=com
 
-dn: cn=All Staff,ou=Groups,o=University of Michigan,c=US
+dn: cn=All Staff,ou=Groups,dc=example,dc=com
 changetype: modify
 delete: description
 
-dn: cn=Gern Jensen, ou=Information Technology Division, ou=People, o=University of Michigan, c=US
+dn: cn=Gern Jensen, ou=Information Technology Division, ou=People, dc=example,dc=com
 changetype: add
 objectclass: OpenLDAPperson
 cn: Gern Jensen
@@ -270,7 +287,7 @@ sn: Jensen
 uid: gjensen
 title: Chief Investigator, ITD
 postaladdress: ITD $ 535 W. William St $ Ann Arbor, MI 48103
-seealso: cn=All Staff, ou=Groups, o=University of Michigan, c=US
+seealso: cn=All Staff, ou=Groups, dc=example,dc=com
 drink: Coffee
 homepostaladdress: 844 Brown St. Apt. 4 $ Ann Arbor, MI 48104
 description: Very odd
@@ -279,25 +296,25 @@ telephonenumber: +1 313 555 8343
 mail: gjensen@mailgw.example.com
 homephone: +1 313 555 8844
 
-dn: ou=Retired, ou=People, o=University of Michigan, c=US
+dn: ou=Retired, ou=People, dc=example,dc=com
 changetype: add
 objectclass: organizationalUnit
 ou: Retired
 
-dn: cn=Rosco P. Coltrane, ou=Information Technology Division, ou=People, o=University of Michigan, c=US
+dn: cn=Rosco P. Coltrane, ou=Information Technology Division, ou=People, dc=example,dc=com
 changetype: add
 objectclass: OpenLDAPperson
 cn: Rosco P. Coltrane
 sn: Coltrane
 uid: rosco
 
-dn: cn=Rosco P. Coltrane, ou=Information Technology Division, ou=People, o=University of Michigan, c=US
+dn: cn=Rosco P. Coltrane, ou=Information Technology Division, ou=People, dc=example,dc=com
 changetype: modrdn
 newrdn: cn=Rosco P. Coltrane
 deleteoldrdn: 1
-newsuperior: ou=Retired, ou=People, o=University of Michigan, c=US
+newsuperior: ou=Retired, ou=People, dc=example,dc=com
 
-dn: cn=James A Jones 2, ou=Information Technology Division, ou=People, o=University of Michigan, c=US
+dn: cn=James A Jones 2, ou=Information Technology Division, ou=People, dc=example,dc=com
 changetype: delete
 
 EOMODS

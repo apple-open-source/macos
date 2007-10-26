@@ -1,0 +1,42 @@
+--- _SB/Libc/string/FreeBSD/strerror.3	2004-11-25 11:38:47.000000000 -0800
++++ _SB/Libc/string/FreeBSD/strerror.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -51,18 +51,26 @@
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft void
+-.Fn perror "const char *string"
++.Fo perror
++.Fa "const char *s"
++.Fc
+ .Vt extern const char * const sys_errlist[] ;
+ .Vt extern const int sys_nerr ;
+ .In string.h
+ .Ft "char *"
+-.Fn strerror "int errnum"
++.Fo strerror
++.Fa "int errnum"
++.Fc
+ .Ft int
+-.Fn strerror_r "int errnum" "char *strerrbuf" "size_t buflen"
++.Fo strerror_r
++.Fa "int errnum"
++.Fa "char *strerrbuf"
++.Fa "size_t buflen"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn strerror ,
+-.Fn strerror_r
++.Fn strerror_r ,
+ and
+ .Fn perror
+ functions look up the error message string corresponding to an
+@@ -92,7 +100,7 @@
+ and writes it, followed by a newline, to the
+ standard error file descriptor.
+ If the argument
+-.Fa string
++.Fa s
+ is
+ .Pf non- Dv NULL
+ and does not point to the null character,

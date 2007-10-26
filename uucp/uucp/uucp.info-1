@@ -1,0 +1,1318 @@
+This is uucp.info, produced by makeinfo version 4.1 from uucp.texi.
+
+START-INFO-DIR-ENTRY
+* UUCP: (uucp).                 Transfer mail and news across phone lines.
+END-INFO-DIR-ENTRY
+
+   This file documents Taylor UUCP, version 1.07.
+
+   Copyright (C) 1992, 1993, 1994, 1995, 2002 Ian Lance Taylor
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "Copying" are included exactly as in the
+original, and provided that the entire resulting derived work is
+distributed under the terms of a permission notice identical to this
+one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the section entitled "Copying" may be included in
+a translation approved by the author instead of in the original English.
+
+
+File: uucp.info,  Node: Top,  Next: Copying,  Prev: (dir),  Up: (dir)
+
+Taylor UUCP 1.07
+****************
+
+   This is the documentation for the Taylor UUCP package, version 1.07.
+The programs were written by Ian Lance Taylor.  The author can be
+reached at <ian@airs.com>.
+
+   There is a mailing list for discussion of the package.  The list is
+hosted by Eric Schnoebelen at <cirr.com>.  To join (or get off) the
+list, send mail to <taylor-uucp-request@gnu.org>.  Mail to this address
+is answered by the majordomo program.  To join the list, send the
+message `subscribe ADDRESS' where ADDRESS is your e-mail address.  To
+send a message to the list, send it to <taylor-uucp@gnu.org>.  There is
+an archive of all messages sent to the mailing list at
+<http://lists.cirr.com>.
+
+* Menu:
+
+* Copying::                     Taylor UUCP Copying Conditions
+* Introduction::                Introduction to Taylor UUCP
+* Invoking the UUCP Programs::  Invoking the UUCP Programs
+* Installing Taylor UUCP::      Installing Taylor UUCP
+* Using Taylor UUCP::           Using Taylor UUCP
+* Configuration Files::         Taylor UUCP Configuration Files
+* Protocols::                   UUCP Protocol Descriptions
+* Hacking::                     Hacking Taylor UUCP
+* Acknowledgements::            Acknowledgements
+
+* Index (concepts)::            Concept Index
+* Index (configuration file)::  Index to New Configuration Files
+
+ --- The Detailed Node Listing ---
+
+Invoking the UUCP Programs
+
+* Standard Options::            Standard Options for the UUCP Programs
+* Invoking uucp::               Invoking uucp
+* Invoking uux::                Invoking uux
+* Invoking uustat::             Invoking uustat
+* Invoking uuname::             Invoking uuname
+* Invoking uulog::              Invoking uulog
+* Invoking uuto::               Invoking uuto
+* Invoking uupick::             Invoking uupick
+* Invoking cu::                 Invoking cu
+* Invoking uucico::             Invoking uucico
+* Invoking uuxqt::              Invoking uuxqt
+* Invoking uuchk::              Invoking uuchk
+* Invoking uuconv::             Invoking uuconv
+* Invoking uusched::            Invoking uusched
+
+Invoking uucp
+
+* uucp Description::            Description of uucp
+* uucp Options::                Options Supported by uucp
+
+Invoking uux
+
+* uux Description::             Description of uux
+* uux Options::                 Options Supported by uux
+* uux Examples::                Examples of uux Usage
+
+Invoking uustat
+
+* uustat Description::          Description of uustat
+* uustat Options::              Options Supported by uustat
+* uustat Examples::             Examples of uustat Usage
+
+Invoking cu
+
+* cu Description::              Description of cu
+* cu Commands::                 Commands Supported by cu
+* cu Variables::                Variables Supported by cu
+* cu Options::                  Options Supported by cu
+
+Invoking uucico
+
+* uucico Description::          Description of uucico
+* uucico Options::              Options Supported by uucico
+
+Installing Taylor UUCP
+
+* Compilation::                 Compiling Taylor UUCP
+* Testing the Compilation::     Testing the Compilation
+* Installing the Binaries::     Installing the Binaries
+* Configuration::               Configuring Taylor UUCP
+* Testing the Installation::    Testing the Installation
+
+Using Taylor UUCP
+
+* Calling Other Systems::       Calling Other Systems
+* Accepting Calls::             Accepting Calls
+* Mail and News::               Using UUCP for Mail and News
+* The Spool Directory Layout::  The Spool Directory Layout
+* Spool Directory Cleaning::    Cleaning the UUCP Spool Directory
+
+Using UUCP for Mail and News.
+
+* Sending mail or news::        Sending mail or news via UUCP
+* Receiving mail or news::      Receiving mail or news via UUCP
+
+The Spool Directory Layout
+
+* System Spool Directories::    System Spool Directories
+* Status Directory::            Status Spool Directory
+* Execution Subdirectories::    Execution Spool Subdirectories
+* Other Spool Subdirectories::  Other Spool Subdirectories
+* Spool Lock Files::            Spool Directory Lock Files
+
+Taylor UUCP Configuration Files
+
+* Configuration Overview::      Configuration File Overview
+* Configuration File Format::   Configuration File Format
+* Configuration Examples::      Examples of Configuration Files
+* Time Strings::                How to Write Time Strings
+* Chat Scripts::                How to Write Chat Scripts
+* config File::                 The Main Configuration File
+* sys File::                    The System Configuration File
+* port File::                   The Port Configuration Files
+* dial File::                   The Dialer Configuration Files
+* UUCP Over TCP::               UUCP Over TCP
+* Security::                    Security Issues
+
+Examples of Configuration Files
+
+* config File Examples::        Examples of the Main Configuration File
+* Leaf Example::                Call a Single Remote Site
+* Gateway Example::             The Gateway for Several Local Systems
+
+The Main Configuration File
+
+* Miscellaneous (config)::      Miscellaneous config File Commands
+* Configuration File Names::    Using Different Configuration Files
+* Log File Names::              Using Different Log Files
+* Debugging Levels::            Debugging Levels
+
+The System Configuration File
+
+* Defaults and Alternates::     Using Defaults and Alternates
+* Naming the System::           Naming the System
+* Calling Out::                 Calling Out
+* Accepting a Call::            Accepting a Call
+* Protocol Selection::          Protocol Selection
+* File Transfer Control::       File Transfer Control
+* Miscellaneous (sys)::         Miscellaneous sys File Commands
+* Default sys File Values::     Default Values
+
+Calling Out
+
+* When to Call::                When to Call
+* Placing the Call::            Placing the Call
+* Logging In::                  Logging In
+
+UUCP Over TCP
+
+* TCP Client::                  Connecting to Another System Over TCP
+* TCP Server::                  Running a TCP Server
+
+UUCP Protocol Internals
+
+* UUCP Protocol Sources::       Sources for UUCP Protocol Information
+* UUCP Grades::                 UUCP Grades
+* UUCP Lock Files::             UUCP Lock Files
+* Execution File Format::       Execution File Format
+* UUCP Protocol::               UUCP Protocol
+* g Protocol::                  g protocol
+* f Protocol::                  f protocol
+* t Protocol::                  t protocol
+* e Protocol::                  e protocol
+* Big G Protocol::              G protocol
+* i Protocol::                  i protocol
+* j Protocol::                  j protocol
+* x Protocol::                  x protocol
+* y Protocol::                  y protocol
+* d Protocol::                  d protocol
+* h Protocol::                  h protocol
+* v Protocol::                  v protocol
+
+UUCP Protocol
+
+* The Initial Handshake::       The Initial Handshake
+* UUCP Protocol Commands::      UUCP Protocol Commands
+* The Final Handshake::         The Final Handshake
+
+UUCP Protocol Commands
+
+* The S Command::               The S Command
+* The R Command::               The R Command
+* The X Command::               The X Command
+* The E Command::               The E Command
+* The H Command::               The H Command
+
+Hacking Taylor UUCP
+
+* System Dependence::           System Dependence
+* Naming Conventions::          Naming Conventions
+* Patches::                     Patches
+
+
+File: uucp.info,  Node: Copying,  Next: Introduction,  Prev: Top,  Up: Top
+
+Taylor UUCP Copying Conditions
+******************************
+
+   This package is covered by the GNU Public License.  See the file
+`COPYING' for details.  If you would like to do something with this
+package that you feel is reasonable, but you feel is prohibited by the
+license, contact me to see if we can work it out.
+
+   The rest of this section is some descriptive text from the Free
+Software Foundation.
+
+   All the programs, scripts and documents relating to Taylor UUCP are
+"free"; this means that everyone is free to use them and free to
+redistribute them on a free basis.  The Taylor UUCP-related programs are
+not in the public domain; they are copyrighted and there are
+restrictions on their distribution, but these restrictions are designed
+to permit everything that a good cooperating citizen would want to do.
+What is not allowed is to try to prevent others from further sharing any
+version of these programs that they might get from you.
+
+   Specifically, we want to make sure that you have the right to give
+away copies of the programs that relate to Taylor UUCP, that you receive
+source code or else can get it if you want it, that you can change these
+programs or use pieces of them in new free programs, and that you know
+you can do these things.
+
+   To make sure that everyone has such rights, we have to forbid you to
+deprive anyone else of these rights.  For example, if you distribute
+copies of the Taylor UUCP related programs, you must give the recipients
+all the rights that you have.  You must make sure that they, too,
+receive or can get the source code.  And you must tell them their
+rights.
+
+   Also, for our own protection, we must make certain that everyone
+finds out that there is no warranty for the programs that relate to
+Taylor UUCP.  If these programs are modified by someone else and passed
+on, we want their recipients to know that what they have is not what we
+distributed, so that any problems introduced by others will not reflect
+on our reputation.
+
+   The precise conditions of the licenses for the programs currently
+being distributed that relate to Taylor UUCP are found in the General
+Public Licenses that accompany them.
+
+
+File: uucp.info,  Node: Introduction,  Next: Invoking the UUCP Programs,  Prev: Copying,  Up: Top
+
+Introduction to Taylor UUCP
+***************************
+
+   General introductions to UUCP are available, and perhaps one day I
+will write one.  In the meantime, here is a very brief one that
+concentrates on the programs provided by Taylor UUCP.
+
+   Taylor UUCP is a complete UUCP package.  It is covered by the GNU
+Public License, which means that the source code is always available.
+It is composed of several programs; most of the names of these programs
+are based on earlier UUCP packages.
+
+`uucp'
+     The `uucp' program is used to copy file between systems.  It is
+     similar to the standard Unix `cp' program, except that you can
+     refer to a file on a remote system by using `system!' before the
+     file name.  For example, to copy the file `notes.txt' to the system
+     `airs', you would say `uucp notes.txt airs!~/notes.txt'.  In this
+     example `~' is used to name the UUCP public directory on `airs'.
+     For more details, see *Note uucp: Invoking uucp.
+
+`uux'
+     The `uux' program is used to request the execution of a program on
+     a remote system.  This is how mail and news are transferred over
+     UUCP.  As with `uucp', programs and files on remote systems may be
+     named by using `system!'.  For example, to run the `rnews' program
+     on `airs', passing it standard input, you would say `uux -
+     airs!rnews'.  The `-' means to read standard input and set things
+     up such that when `rnews' runs on `airs' it will receive the same
+     standard input.  For more details, see *Note uux: Invoking uux.
+
+   Neither `uucp' nor `uux' actually do any work immediately.  Instead,
+they queue up requests for later processing.  They then start a daemon
+process which processes the requests and calls up the appropriate
+systems.  Normally the system will also start the daemon periodically
+to check if there is any work to be done.  The advantage of this
+approach is that it all happens automatically.  You don't have to sit
+around waiting for the files to be transferred.  The disadvantage is
+that if anything goes wrong it might be a while before anybody notices.
+
+`uustat'
+     The `uustat' program does many things.  By default it will simply
+     list all the jobs you have queued with `uucp' or `uux' that have
+     not yet been processed.  You can use `uustat' to remove any of
+     your jobs from the queue.  You can also it use it to show the
+     status of the UUCP system in various ways, such as showing the
+     connection status of all the remote systems your system knows
+     about.  The system administrator can use `uustat' to automatically
+     discard old jobs while sending mail to the user who requested
+     them.  For more details, see *Note uustat: Invoking uustat.
+
+`uuname'
+     The `uuname' program by default lists all the remote systems your
+     system knows about.  You can also use it to get the name of your
+     local system.  It is mostly useful for shell scripts.  For more
+     details, see *Note uuname: Invoking uuname.
+
+`uulog'
+     The `uulog' program can be used to display entries in the UUCP log
+     file.  It can select the entries for a particular system or a
+     particular user.  You can use it to see what has happened to your
+     queued jobs in the past.  For more details, see *Note uulog:
+     Invoking uulog.
+
+`uuto'
+
+`uupick'
+     `uuto' is a simple shell script interface to `uucp'.  It will
+     transfer a file, or the contents of a directory, to a remote
+     system, and notify a particular user on the remote system when it
+     arrives.  The remote user can then retrieve the file(s) with
+     `uupick'.  For more details, see *Note uuto: Invoking uuto, and
+     see *Note uupick: Invoking uupick.
+
+`cu'
+     The `cu' program can be used to call up another system and
+     communicate with it as though you were directly connected.  It can
+     also do simple file transfers, though it does not provide any
+     error checking.  For more details, *Note cu: Invoking cu.
+
+   These eight programs just described, `uucp', `uux', `uuto',
+`uupick', `uustat', `uuname', `uulog', and `cu' are the user programs
+provided by Taylor UUCP.  `uucp', `uux', and `uuto' add requests to the
+work queue, `uupick' extracts files from the UUCP public directory,
+`uustat' examines the work queue, `uuname' examines the configuration
+files, `uulog' examines the log files, and `cu' just uses the UUCP
+configuration files.
+
+   The real work is actually done by two daemon processes, which are
+normally run automatically rather than by a user.
+
+`uucico'
+     The `uucico' daemon is the program which actually calls the remote
+     system and transfers files and requests.  `uucico' is normally
+     started automatically by `uucp' and `uux'.  Most systems will also
+     start it periodically to make sure that all work requests are
+     handled.  `uucico' checks the queue to see what work needs to be
+     done, and then calls the appropriate systems.  If the call fails,
+     perhaps because the phone line is busy, `uucico' leaves the
+     requests in the queue and goes on to the next system to call.  It
+     is also possible to force `uucico' to call a remote system even if
+     there is no work to be done for it, so that it can pick up any
+     work that may be queued up remotely.  For more details, see *Note
+     uucico: Invoking uucico.
+
+`uuxqt'
+     The `uuxqt' daemon processes execution requests made by the `uux'
+     program on remote systems.  It also processes requests made on the
+     local system which require files from a remote system.  It is
+     normally started by `uucico'.  For more details, see *Note uuxqt:
+     Invoking uuxqt.
+
+   Suppose you, on the system `bantam', want to copy a file to the
+system `airs'.  You would run the `uucp' command locally, with a
+command like `uucp notes.txt airs!~/notes.txt'.  This would queue up a
+request on `bantam' for `airs', and would then start the `uucico'
+daemon.  `uucico' would see that there was a request for `airs' and
+attempt to call it.  When the call succeeded, another copy of `uucico'
+would be started on `airs'.  The two copies of `uucico' would tell each
+other what they had to do and transfer the file from `bantam' to
+`airs'.  When the file transfer was complete the `uucico' on `airs'
+would move it into the UUCP public directory.
+
+   UUCP is often used to transfer mail.  This is normally done
+automatically by mailer programs.  When `bantam' has a mail message to
+send to `ian' at `airs', it executes `uux - airs!rmail ian' and writes
+the mail message to the `uux' process as standard input.  The `uux'
+program, running on `bantam', will read the standard input and store
+it, as well as the `rmail' request itself, on the work queue for `airs'.
+`uux' will then start the `uucico' daemon.  The `uucico' daemon will
+call up `airs', just as in the `uucp' example, and transfer the work
+request and the mail message.  The `uucico' daemon on `airs' will put
+the files on a local work queue.  When the communication session is
+over, the `uucico' daemon on `airs' will start the `uuxqt' daemon.
+`uuxqt' will see the request on the work queue, and will run `rmail
+ian' with the mail message as standard input.  The `rmail' program,
+which is not part of the UUCP package, is then responsible for either
+putting the message in the right mailbox on `airs' or forwarding the
+message on to another system.
+
+   Taylor UUCP comes with a few other programs that are useful when
+installing and configuring UUCP.
+
+`uuchk'
+     The `uuchk' program reads the UUCP configuration files and
+     displays a rather lengthy description of what it finds.  This is
+     useful when configuring UUCP to make certain that the UUCP package
+     will do what you expect it to do.  For more details, see *Note
+     uuchk: Invoking uuchk.
+
+`uuconv'
+     The `uuconv' program can be used to convert UUCP configuration
+     files from one format to another.  This can be useful for
+     administrators converting from an older UUCP package.  Taylor UUCP
+     is able to read and use old configuration file formats, but some
+     new features can not be selected using the old formats.  For more
+     details, see *Note uuconv: Invoking uuconv.
+
+`uusched'
+     The `uusched' script is provided for compatibility with older UUCP
+     releases.  It starts `uucico' to call, one at a time, all the
+     systems for which work has been queued.  For more details, see
+     *Note uusched: Invoking uusched.
+
+`tstuu'
+     The `tstuu' program is a test harness for the UUCP package; it can
+     help check that the package has been configured and compiled
+     correctly.  However, it uses pseudo-terminals, which means that it
+     is less portable than the rest of the package.  If it works, it
+     can be useful when initially installing Taylor UUCP.  For more
+     details, see *Note tstuu: Testing the Compilation.
+
+
+File: uucp.info,  Node: Invoking the UUCP Programs,  Next: Installing Taylor UUCP,  Prev: Introduction,  Up: Top
+
+Invoking the UUCP Programs
+**************************
+
+   This chapter describes how to run the UUCP programs.
+
+* Menu:
+
+* Standard Options::            Standard Options for the UUCP Programs
+* Invoking uucp::               Invoking uucp
+* Invoking uux::                Invoking uux
+* Invoking uustat::             Invoking uustat
+* Invoking uuname::             Invoking uuname
+* Invoking uulog::              Invoking uulog
+* Invoking uuto::               Invoking uuto
+* Invoking uupick::             Invoking uupick
+* Invoking cu::                 Invoking cu
+* Invoking uucico::             Invoking uucico
+* Invoking uuxqt::              Invoking uuxqt
+* Invoking uuchk::              Invoking uuchk
+* Invoking uuconv::             Invoking uuconv
+* Invoking uusched::            Invoking uusched
+
+
+File: uucp.info,  Node: Standard Options,  Next: Invoking uucp,  Prev: Invoking the UUCP Programs,  Up: Invoking the UUCP Programs
+
+Standard Options
+================
+
+   All of the UUCP programs support a few standard options.
+
+`-x type'
+`--debug type'
+     Turn on particular debugging types.  The following types are
+     recognized: `abnormal', `chat', `handshake', `uucp-proto',
+     `proto', `port', `config', `spooldir', `execute', `incoming',
+     `outgoing'.  Not all types of debugging are effective for all
+     programs.  See the `debug' configuration command for details
+     (*note Debugging Levels::).
+
+     Multiple types may be given, separated by commas, and the
+     `--debug' option may appear multiple times.  A number may also be
+     given, which will turn on that many types from the foregoing list;
+     for example, `--debug 2' is equivalent to `--debug abnormal,chat'.
+     To turn on all types of debugging, use `-x all'.
+
+     The `uulog' program uses `-X' rather than `-x' to select the
+     debugging type; for `uulog', `-x' has a different meaning, for
+     reasons of historical compatibility.
+
+`-I file'
+`--config file'
+     Set the main configuration file to use.  *Note config File::.
+     When this option is used, the programs will revoke any setuid
+     privileges.
+
+`-v'
+`--version'
+     Report version information and exit.
+
+`--help'
+     Print a help message and exit.
+
+
+File: uucp.info,  Node: Invoking uucp,  Next: Invoking uux,  Prev: Standard Options,  Up: Invoking the UUCP Programs
+
+Invoking uucp
+=============
+
+* Menu:
+
+* uucp Description::            Description of uucp
+* uucp Options::                Options Supported by uucp
+
+
+File: uucp.info,  Node: uucp Description,  Next: uucp Options,  Prev: Invoking uucp,  Up: Invoking uucp
+
+uucp Description
+----------------
+
+     uucp [options] `source-file' `destination-file'
+     uucp [options] `source-file'... `destination-directory'
+
+   The `uucp' command copies files between systems.  Each `file'
+argument is either a file name on the local machine or is of the form
+`system!file'.  The latter is interpreted as being on a remote system.
+
+   When `uucp' is used with two non-option arguments, the contents of
+the first file are copied to the second.  With more than two non-option
+arguments, each source file is copied into the destination directory.
+
+   A file may be transferred to or from `system2' via `system1' by
+using `system1!system2!file'.
+
+   Any file name that does not begin with `/' or `~' will be prepended
+with the current directory (unless the `-W' or `--noexpand' options are
+used).  For example, if you are in the directory `/home/ian', then
+`uucp foo remote!bar' is equivalent to `uucp /home/ian/foo
+remote!/home/ian/bar'.  Note that the resulting file name may not be
+valid on a remote system.
+
+   A file name beginning with a simple `~' starts at the UUCP public
+directory; a file name beginning with `~name' starts at the home
+directory of the named user.  The `~' is interpreted on the appropriate
+system.  Note that some shells will interpret an initial `~' before
+`uucp' sees it; to avoid this the `~' must be quoted.
+
+   The shell metacharacters `?' `*' `[' and `]' are interpreted on the
+appropriate system, assuming they are quoted to prevent the shell from
+interpreting them first.
+
+   The file copy does not take place immediately, but is queued up for
+the `uucico' daemon; the daemon is started immediately unless the `-r'
+or `--nouucico' option is given.  The next time the remote system is
+called, the file(s) will be copied.  *Note Invoking uucico::.
+
+   The file mode is not preserved, except for the execute bit.  The
+resulting file is owned by the uucp user.
+
+
+File: uucp.info,  Node: uucp Options,  Prev: uucp Description,  Up: Invoking uucp
+
+uucp Options
+------------
+
+   The following options may be given to `uucp'.
+
+`-c'
+`--nocopy'
+     Do not copy local source files to the spool directory.  If they are
+     removed before being processed by the `uucico' daemon, the copy
+     will fail.  The files must be readable by the `uucico' daemon, and
+     by the invoking user.
+
+`-C'
+`--copy'
+     Copy local source files to the spool directory.  This is the
+     default.
+
+`-d'
+`--directories'
+     Create all necessary directories when doing the copy.  This is the
+     default.
+
+`-f'
+`--nodirectories'
+     If any necessary directories do not exist for the destination file
+     name, abort the copy.
+
+`-R'
+`--recursive'
+     If any of the source file names are directories, copy their
+     contents recursively to the destination (which must itself be a
+     directory).
+
+`-g grade'
+`--grade grade'
+     Set the grade of the file transfer command.  Jobs of a higher
+     grade are executed first.  Grades run `0' to `9', `A' to `Z', `a'
+     to `z', from high to low.  *Note When to Call::.
+
+`-m'
+`--mail'
+     Report completion or failure of the file transfer by sending mail.
+
+`-n user'
+`--notify user'
+     Report completion or failure of the file transfer by sending mail
+     to the named user on the destination system.
+
+`-r'
+`--nouucico'
+     Do not start the `uucico' daemon immediately; merely queue up the
+     file transfer for later execution.
+
+`-j'
+`--jobid'
+     Print the jobid on standard output.  The job may be later
+     cancelled by passing this jobid to the `-kill' switch of `uustat'.
+     *Note Invoking uustat::.
+
+     It is possible for some complex operations to produce more than one
+     jobid, in which case each will be printed on a separate line.  For
+     example
+          uucp sys1!~user1/file1 sys2!~user2/file2 ~user3
+     will generate two separate jobs, one for the system `sys1' and one
+     for the system `sys2'.
+
+`-W'
+`--noexpand'
+     Do not prepend remote relative file names with the current
+     directory.
+
+`-t'
+`--uuto'
+     This option is used by the `uuto' shell script; see *Note Invoking
+     uuto::.  It causes `uucp' to interpret the final argument as
+     `system!user'.  The file(s) are sent to `~/receive/USER/LOCAL' on
+     the remote system, where USER is from the final argument and LOCAL
+     is the local UUCP system name.  Also, `uucp' will act as though
+     `--notify user' were specified.
+
+`-x type'
+`--debug type'
+`-I file'
+`--config file'
+`-v'
+`--version'
+`--help'
+     *Note Standard Options::.
+
+
+File: uucp.info,  Node: Invoking uux,  Next: Invoking uustat,  Prev: Invoking uucp,  Up: Invoking the UUCP Programs
+
+Invoking uux
+============
+
+* Menu:
+
+* uux Description::             Description of uux
+* uux Options::                 Options Supported by uux
+* uux Examples::                Examples of uux Usage
+
+
+File: uucp.info,  Node: uux Description,  Next: uux Options,  Prev: Invoking uux,  Up: Invoking uux
+
+uux Description
+---------------
+
+     uux [options] command
+
+   The `uux' command is used to execute a command on a remote system,
+or to execute a command on the local system using files from remote
+systems.  The command is not executed immediately; the request is
+queued until the `uucico' daemon calls the system and transfers the
+necessary files.  The daemon is started automatically unless one of the
+`-r' or `--nouucico' options is given.
+
+   The actual command execution is done by the `uuxqt' daemon on the
+appropriate system.
+
+   File arguments can be gathered from remote systems to the execution
+system, as can standard input.  Standard output may be directed to a
+file on a remote system.
+
+   The command name may be preceded by a system name followed by an
+exclamation point if it is to be executed on a remote system.  An empty
+system name is taken as the local system.
+
+   Each argument that contains an exclamation point is treated as
+naming a file.  The system which the file is on is before the
+exclamation point, and the file name on that system follows it.  An
+empty system name is taken as the local system; this form must be used
+to transfer a file to a command being executed on a remote system.  If
+the file name is not absolute, the current working directory will be
+prepended to it; the result may not be meaningful on the remote system.
+A file name may begin with `~/', in which case it is relative to the
+UUCP public directory on the appropriate system.  A file name may begin
+with `~name/', in which case it is relative to the home directory of the
+named user on the appropriate system.
+
+   Standard input and output may be redirected as usual; the file names
+used may contain exclamation points to indicate that they are on remote
+systems.  Note that the redirection characters must be quoted so that
+they are passed to `uux' rather than interpreted by the shell.  Append
+redirection (`>>') does not work.
+
+   All specified files are gathered together into a single directory
+before execution of the command begins.  This means that each file must
+have a distinct name.  For example,
+     uux 'sys1!diff sys2!~user1/foo sys3!~user2/foo >!foo.diff'
+   will fail because both files will be copied to `sys1' and stored
+under the name `foo'.
+
+   Arguments may be quoted by parentheses to avoid interpretation of
+exclamation points.  This is useful when executing the `uucp' command
+on a remote system.
+
+   Most systems restrict the commands which may be executed using
+`uux'.  Many permit only the execution of `rmail' and `rnews'.
+
+   A request to execute an empty command (e.g., `uux sys!') will create
+a poll file for the specified system; see *Note Calling Other Systems::
+for an example of why this might be useful.
+
+   The exit status of `uux' is one of the codes found in the header
+file `sysexits.h'.  In particular, `EX_OK' (`0') indicates success, and
+`EX_TEMPFAIL' (`75') indicates a temporary failure.
+
+
+File: uucp.info,  Node: uux Options,  Next: uux Examples,  Prev: uux Description,  Up: Invoking uux
+
+uux Options
+-----------
+
+   The following options may be given to `uux'.
+
+`-'
+`-p'
+`--stdin'
+     Read standard input up to end of file, and use it as the standard
+     input for the command to be executed.
+
+`-c'
+`--nocopy'
+     Do not copy local files to the spool directory.  This is the
+     default.  If they are removed before being processed by the
+     `uucico' daemon, the copy will fail.  The files must be readable
+     by the `uucico' daemon, as well as the by the invoker of `uux'.
+
+`-C'
+`--copy'
+     Copy local files to the spool directory.
+
+`-l'
+`--link'
+     Link local files into the spool directory.  If a file can not be
+     linked because it is on a different device, it will be copied
+     unless one of the `-c' or `--nocopy' options also appears (in
+     other words, use of `--link' switches the default from `--nocopy'
+     to `--copy').  If the files are changed before being processed by
+     the `uucico' daemon, the changed versions will be used.  The files
+     must be readable by the `uucico' daemon, as well as by the invoker
+     of `uux'.
+
+`-g grade'
+`--grade grade'
+     Set the grade of the file transfer command.  Jobs of a higher
+     grade are executed first.  Grades run `0' to `9', `A' to `Z', `a'
+     to `z', from high to low.  *Note When to Call::.
+
+`-n'
+`--notification=no'
+     Do not send mail about the status of the job, even if it fails.
+
+`-z'
+`--notification=error'
+     Send mail about the status of the job if an error occurs.  For many
+     `uuxqt' daemons, including the Taylor UUCP `uuxqt', this is the
+     default action; for those, `--notification=error' will have no
+     effect.  However, some `uuxqt' daemons will send mail if the job
+     succeeds, unless the `--notification=error' option is used.  Some
+     other `uuxqt' daemons will not send mail even if the job fails,
+     unless the `--notification=error' option is used.
+
+`-a address'
+`--requestor address'
+     Report job status, as controlled by the `--notification' option, to
+     the specified mail address.
+
+`-r'
+`--nouucico'
+     Do not start the `uucico' daemon immediately; merely queue up the
+     execution request for later processing.
+
+`-j'
+`--jobid'
+     Print the jobid on standard output.  A jobid will be generated for
+     each file copy operation required to execute the command.  These
+     file copies may be later cancelled by passing the jobid to the
+     `-kill' switch of `uustat'.  *Note Invoking uustat::.  Cancelling
+     any file copies will make it impossible to complete execution of
+     the job.
+
+`-x type'
+`--debug type'
+`-v'
+`--version'
+`--help'
+     *Note Standard Options::.
+
+
+File: uucp.info,  Node: uux Examples,  Prev: uux Options,  Up: Invoking uux
+
+uux Examples
+------------
+
+   Here are some examples of using `uux'.
+
+     uux -z - sys1!rmail user1
+   This will execute the command `rmail user1' on the system `sys1',
+giving it as standard input whatever is given to `uux' as standard
+input.  If a failure occurs, mail will be sent to the user who ran the
+command.
+
+     uux 'diff -c sys1!~user1/file1 sys2!~user2/file2 >!file.diff'
+   This will fetch the two named files from system `sys1' and system
+`sys2' and execute `diff', putting the result in `file.diff' in the
+current directory on the local system.  The current directory must be
+writable by the `uuxqt' daemon for this to work.
+
+     uux 'sys1!uucp ~user1/file1 (sys2!~user2/file2)'
+   Execute `uucp' on the system `sys1' copying `file1' (on system
+`sys1') to `sys2'.  This illustrates the use of parentheses for quoting.
+
+
+File: uucp.info,  Node: Invoking uustat,  Next: Invoking uuname,  Prev: Invoking uux,  Up: Invoking the UUCP Programs
+
+Invoking uustat
+===============
+
+* Menu:
+
+* uustat Description::          Description of uustat
+* uustat Options::              Options Supported by uustat
+* uustat Examples::             Examples of uustat Usage
+
+
+File: uucp.info,  Node: uustat Description,  Next: uustat Options,  Prev: Invoking uustat,  Up: Invoking uustat
+
+uustat Description
+------------------
+
+     uustat -a
+     uustat --all
+     uustat [-eKRiMNQ] [-sS system] [-uU user] [-cC command] [-oy hours]
+            [-B lines] [--executions] [--kill-all] [--rejuvenate-all]
+            [--prompt] [--mail] [--notify] [--no-list] [--system system]
+            [--not-system system] [--user user] [--not-user user]
+            [--command command] [--not-command command] [--older-than hours]
+            [--younger-than hours] [--mail-lines lines]
+     uustat [-kr jobid] [--kill jobid] [--rejuvenate jobid]
+     uustat -q [-sS system] [-oy hours] [--system system]
+            [--not-system system ] [--older-than hours] [--younger-than hours]
+     uustat --list [-sS system] [-oy hours] [--system system ]
+            [--not-system system] [--older-than hours] [--younger-than hours]
+     uustat -m
+     uustat --status
+     uustat -p
+     uustat --ps
+
+   The `uustat' command can display various types of status information
+about the UUCP system.  It can also be used to cancel or rejuvenate
+requests made by `uucp' or `uux'.
+
+   With no options, `uustat' displays all jobs queued up for the
+invoking user, as if given the `--user' option with the appropriate
+argument.
+
+   If any of the `-a', `--all', `-e', `--executions', `-s', `--system',
+`-S', `--not-system', `-u', `--user', `-U', `--not-user', `-c',
+`--command', `-C', `--not-command', `-o', `--older-than', `-y', or
+`--younger-than' options are given, then all jobs which match the
+combined specifications are displayed.
+
+   The `-K' or `--kill-all' option may be used to kill off a selected
+group of jobs, such as all jobs more than 7 days old.
+
+
+File: uucp.info,  Node: uustat Options,  Next: uustat Examples,  Prev: uustat Description,  Up: Invoking uustat
+
+uustat Options
+--------------
+
+   The following options may be given to `uustat'.
+
+`-a'
+`--all'
+     List all queued file transfer requests.
+
+`-e'
+`--executions'
+     List queued execution requests rather than queued file transfer
+     requests.  Queued execution requests are processed by `uuxqt'
+     rather than `uucico'.  Queued execution requests may be waiting for
+     some file to be transferred from a remote system.  They are
+     created by an invocation of `uux'.
+
+`-s system'
+`--system system'
+     List all jobs queued up for the named system.  These options may be
+     specified multiple times, in which case all jobs for all the named
+     systems will be listed.  If used with `--list', only the systems
+     named will be listed.
+
+`-S system'
+`--not-system system'
+     List all jobs queued for systems other than the one named.  These
+     options may be specified multiple times, in which case no jobs
+     from any of the specified systems will be listed.  If used with
+     `--list', only the systems not named will be listed.  These
+     options may not be used with `-s' or `--system'.
+
+`-u user'
+`--user user'
+     List all jobs queued up for the named user.  These options may be
+     specified multiple times, in which case all jobs for all the named
+     users will be listed.
+
+`-U user'
+`--not-user user'
+     List all jobs queued up for users other than the one named.  These
+     options may be specified multiple times, in which case no jobs
+     from any of the specified users will be listed.  These options may
+     not be used with `-u' or `--user'.
+
+`-c command'
+`--command command'
+     List all jobs requesting the execution of the named command.  If
+     `command' is `ALL' this will list all jobs requesting the
+     execution of some command (as opposed to simply requesting a file
+     transfer).  These options may be specified multiple times, in
+     which case all jobs requesting any of the commands will be listed.
+
+`-C command'
+`--not-command command'
+     List all jobs requesting execution of some command other than the
+     named command, or, if `command' is `ALL', list all jobs that simply
+     request a file transfer (as opposed to requesting the execution of
+     some command).  These options may be specified multiple times, in
+     which case no job requesting one of the specified commands will be
+     listed.  These options may not be used with `-c' or `--command'.
+
+`-o hours'
+`--older-than hours'
+     List all queued jobs older than the given number of hours.  If
+     used with `--list', only systems whose oldest job is older than
+     the given number of hours will be listed.
+
+`-y hours'
+`--younger-than hours'
+     List all queued jobs younger than the given number of hours.  If
+     used with `--list', only systems whose oldest job is younger than
+     the given number of hours will be listed.
+
+`-k jobid'
+`--kill jobid'
+     Kill the named job.  The job id is shown by the default output
+     format, as well as by the `-j' or `--jobid' options to `uucp' or
+     `uux'.  A job may only be killed by the user who created the job,
+     or by the UUCP administrator, or the superuser.  The `-k' or
+     `--kill' options may be used multiple times on the command line to
+     kill several jobs.
+
+`-r jobid'
+`--rejuvenate jobid'
+     Rejuvenate the named job.  This will mark it as having been
+     invoked at the current time, affecting the output of the `-o',
+     `--older-than', `-y', or `--younger-than' options, possibly
+     preserving it from any automated cleanup daemon.  The job id is
+     shown by the default output format, as well as by the `-j' or
+     `--jobid' options to `uucp' or `uux'.  A job may only be
+     rejuvenated by the user who created the job, or by the UUCP
+     administrator, or the superuser.  The `-r' or `--rejuvenate'
+     options may be used multiple times on the command line to
+     rejuvenate several jobs.
+
+`-q'
+`--list'
+     Display the status of commands, executions and conversations for
+     all remote systems for which commands or executions are queued.
+     The `-s', `--system', `-S', `--not-system', `-o', `--older-than',
+     `-y', and `--younger-than' options may be used to restrict the
+     systems which are listed.  Systems for which no commands or
+     executions are queued will never be listed.
+
+`-m'
+`--status'
+     Display the status of conversations for all remote systems.
+
+`-p'
+`--ps'
+     Display the status of all processes holding UUCP locks on systems
+     or ports.
+
+`-i'
+`--prompt'
+     For each listed job, prompt whether to kill the job or not.  If the
+     first character of the input line is `y' or `Y', the job will be
+     killed.
+
+`-K'
+`--kill-all'
+     Automatically kill each listed job.  This can be useful for
+     automatic cleanup scripts, in conjunction with the `--mail' and
+     `--notify' options.
+
+`-R'
+`--rejuvenate-all'
+     Automatically rejuvenate each listed job.  This may not be used
+     with `--kill-all'.
+
+`-M'
+`--mail'
+     For each listed job, send mail to the UUCP administrator.  If the
+     job is killed (due to `--kill-all', or `--prompt' with an
+     affirmative response) the mail will indicate that.  A comment
+     specified by the `--comment' option may be included.  If the job
+     is an execution, the initial portion of its standard input will be
+     included in the mail message; the number of lines to include may
+     be set with the `--mail-lines' option (the default is 100).  If
+     the standard input contains null characters, it is assumed to be a
+     binary file and is not included.
+
+`-N'
+`--notify'
+     For each listed job, send mail to the user who requested the job.
+     The mail is identical to that sent by the `-M' or `--mail' options.
+
+`-W comment'
+`--comment comment'
+     Specify a comment to be included in mail sent with the `-M',
+     `--mail', `-N', or `--notify' options.
+
+`-B lines'
+`--mail-lines lines'
+     When the `-M', `--mail', `-N', or `--notify' options are used to
+     send mail about an execution with standard input, this option
+     controls the number of lines of standard input to include in the
+     message.  The default is 100.
+
+`-Q'
+`--no-list'
+     Do not actually list the job, but only take any actions indicated
+     by the `-i', `--prompt', `-K', `--kill-all', `-M', `--mail', `-N'
+     or `--notify' options.
+
+`-x type'
+`--debug type'
+`-I file'
+`--config file'
+`-v'
+`--version'
+`--help'
+     *Note Standard Options::.
+
+
+File: uucp.info,  Node: uustat Examples,  Prev: uustat Options,  Up: Invoking uustat
+
+uustat Examples
+---------------
+
+     uustat --all
+   Display status of all jobs.  A sample output line is as follows:
+     bugsA027h bugs ian 04-01 13:50 Executing rmail ian@airs.com (sending 12 bytes)
+   The format is
+     jobid system user queue-date command (size)
+   The jobid may be passed to the `--kill' or `--rejuvenate' options.
+The size indicates how much data is to be transferred to the remote
+system, and is absent for a file receive request.  The `--system',
+`--not-system', `--user', `--not-user', `--command', `--not-command',
+`--older-than', and `--younger-than' options may be used to control
+which jobs are listed.
+
+     uustat --executions
+   Display status of queued up execution requests.  A sample output line
+is as follows:
+     bugs bugs!ian 05-20 12:51 rmail ian
+   The format is
+     system requestor queue-date command
+   The `--system', `--not-system', `--user', `--not-user', `--command',
+`--not-command', `--older-than', and `--younger-than' options may be
+used to control which requests are listed.
+
+     uustat --list
+   Display status for all systems with queued up commands.  A sample
+output line is as follows:
+     bugs            4C (1 hour)   0X (0 secs) 04-01 14:45 Dial failed
+   This indicates the system, the number of queued commands, the age of
+the oldest queued command, the number of queued local executions, the
+age of the oldest queued execution, the date of the last conversation,
+and the status of that conversation.
+
+     uustat --status
+   Display conversation status for all remote systems.  A sample output
+line is as follows:
+     bugs           04-01 15:51 Conversation complete
+   This indicates the system, the date of the last conversation, and the
+status of that conversation.  If the last conversation failed, `uustat'
+will indicate how many attempts have been made to call the system.  If
+the retry period is currently preventing calls to that system, `uustat'
+also displays the time when the next call will be permitted.
+
+     uustat --ps
+   Display the status of all processes holding UUCP locks.  The output
+format is system dependent, as `uustat' simply invokes `ps' on each
+process holding a lock.
+
+     uustat -c rmail -o 168 -K -Q -M -N -W "Queued for over 1 week"
+   This will kill all `rmail' commands that have been queued up waiting
+for delivery for over 1 week (168 hours).  For each such command, mail
+will be sent both to the UUCP administrator and to the user who
+requested the rmail execution.  The mail message sent will include the
+string given by the `-W' option.  The `-Q' option prevents any of the
+jobs from being listed on the terminal, so any output from the program
+will be error messages.
+
+
+File: uucp.info,  Node: Invoking uuname,  Next: Invoking uulog,  Prev: Invoking uustat,  Up: Invoking the UUCP Programs
+
+Invoking uuname
+===============
+
+     uuname [-a] [--aliases]
+     uuname -l
+     uuname --local
+
+   By default, the `uuname' program simply lists the names of all the
+remote systems mentioned in the UUCP configuration files.
+
+   The `uuname' program may also be used to print the UUCP name of the
+local system.
+
+   The `uuname' program is mainly for use by shell scripts.
+
+   The following options may be given to `uuname'.
+
+`-a'
+`--aliases'
+     List all aliases for remote systems, as well as their canonical
+     names.  Aliases may be specified in the `sys' file (*note Naming
+     the System::).
+
+`-l'
+`--local'
+     Print the UUCP name of the local system, rather than listing the
+     names of all the remote systems.
+
+`-x type'
+`--debug type'
+`-I file'
+`--config file'
+`-v'
+`--version'
+`--help'
+     *Note Standard Options::.
+
+
+File: uucp.info,  Node: Invoking uulog,  Next: Invoking uuto,  Prev: Invoking uuname,  Up: Invoking the UUCP Programs
+
+Invoking uulog
+==============
+
+     uulog [-#] [-n lines] [-sf system] [-u user] [-DSF] [--lines lines]
+           [--system system] [--user user] [--debuglog] [--statslog]
+           [--follow] [--follow=system]
+
+   The `uulog' program may be used to display the UUCP log file.
+Different options may be used to select which parts of the file to
+display.
+
+`-#'
+`-n lines'
+`--lines lines'
+     Here `#' is a number; e.g., `-10'.  The specified number of lines
+     is displayed from the end of the log file.  The default is to
+     display the entire log file, unless the `-f', `-F', or `--follow'
+     options are used, in which case the default is to display 10 lines.
+
+`-s system'
+`--system system'
+     Display only log entries pertaining to the specified system.
+
+`-u user'
+`--user user'
+     Display only log entries pertaining to the specified user.
+
+`-D'
+`--debuglog'
+     Display the debugging log file.
+
+`-S'
+`--statslog'
+     Display the statistics log file.
+
+`-F'
+`--follow'
+     Keep displaying the log file forever, printing new lines as they
+     are appended to the log file.
+
+`-f system'
+`--follow=system'
+     Keep displaying the log file forever, displaying only log entries
+     pertaining to the specified system.
+
+`-X type'
+`--debug type'
+`-I file'
+`--config file'
+`-v'
+`--version'
+`--help'
+     *Note Standard Options::.  Note that `uulog' specifies the
+     debugging type using `-X' rather than the usual `-x'.
+
+   The operation of `uulog' depends to some degree upon the type of log
+files generated by the UUCP programs.  This is a compile time option.
+If the UUCP programs have been compiled to use HDB style log files,
+`uulog' changes in the following ways:
+
+   * The new options `-x' and `--uuxqtlog' may be used to list the
+     `uuxqt' log file.
+
+   * It is no longer possible to omit all arguments: one of `-s',
+     `--system', `-f', `--follow=system', `-D', `--debuglog', `-S',
+     `--statslog', `-x', or `--uuxqtlog' must be used.
+
+   * The option `--system ANY' may be used to list log file entries
+     which do not pertain to any particular system.
+
+
+File: uucp.info,  Node: Invoking uuto,  Next: Invoking uupick,  Prev: Invoking uulog,  Up: Invoking the UUCP Programs
+
+Invoking uuto
+=============
+
+     uuto files... system!user
+
+   The `uuto' program may be used to conveniently send files to a
+particular user on a remote system.  It will arrange for mail to be sent
+to the remote user when the files arrive on the remote system, and he or
+she may easily retrieve the files using the `uupick' program (*note
+Invoking uupick::).  Note that `uuto' does not provide any
+security--any user on the remote system can examine the files.
+
+   The last argument specifies the system and user name to which to send
+the files.  The other arguments are the files or directories to be sent.
+
+   The `uuto' program is actually just a trivial shell script which
+invokes the `uucp' program with the appropriate arguments.  Any option
+which may be given to `uucp' may also be given to `uuto'.  *Note
+Invoking uucp::.
+
+
+File: uucp.info,  Node: Invoking uupick,  Next: Invoking cu,  Prev: Invoking uuto,  Up: Invoking the UUCP Programs
+
+Invoking uupick
+===============
+
+     uupick [-s system] [--system system]
+
+   The `uupick' program is used to conveniently retrieve files
+transferred by the `uuto' program.
+
+   For each file transferred by `uuto', `uupick' will display the
+source system, the file name, and whether the name refers to a regular
+file or a directory.  It will then wait for the user to specify an
+action to take.  One of the following commands must be entered:
+
+`q'
+     Quit out of `uupick'.
+
+`RETURN'
+     Skip the file.
+
+`m [directory]'
+     Move the file or directory to the specified directory.  If no
+     directory is specified, the file is moved to the current directory.
+
+`a [directory]'
+     Move all files from this system to the specified directory.  If no
+     directory is specified, the files are moved to the current
+     directory.
+
+`p'
+     List the file on standard output.
+
+`d'
+     Delete the file.
+
+`! [command]'
+     Execute `command' as a shell escape.
+
+   The `-s' or `--system' option may be used to restrict `uupick' to
+only present files transferred from a particular system.  The `uupick'
+program also supports the standard UUCP program options; see *Note
+Standard Options::.
+

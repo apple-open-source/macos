@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Reading and writing message objects and message metadata.
 """
@@ -59,11 +60,14 @@ except NameError:
 # (when False).  Pickles are more efficient because the message doesn't need
 # to be re-parsed every time it's unqueued, but pickles are not human readable.
 SAVE_MSGS_AS_PICKLES = True
+# Small increment to add to time in case two entries have the same time.  This
+# prevents skipping one of two entries with the same time until the next pass.
+DELTA = .0001
 
 
 
 class Switchboard:
-    def __init__(self, whichq, slice=None, numslices=1):
+    def __init__(self, whichq, slice=None, numslices=1, recover=False):
         self.__whichq = whichq
         # Create the directory if it doesn't yet exist.
         # FIXME
@@ -82,6 +86,8 @@ class Switchboard:
         if numslices <> 1:
             self.__lower = ((shamax+1) * slice) / numslices
             self.__upper = (((shamax+1) * (slice+1)) / numslices) - 1
+        if recover:
+            self.recover_backup_files()
 
     def whichq(self):
         return self.__whichq
@@ -139,9 +145,16 @@ class Switchboard:
     def dequeue(self, filebase):
         # Calculate the filename from the given filebase.
         filename = os.path.join(self.__whichq, filebase + '.pck')
+        backfile = os.path.join(self.__whichq, filebase + '.bak')
         # Read the message object and metadata.
         fp = open(filename)
-        os.unlink(filename)
+        # Move the file to the backup file name for processing.  If this
+        # process crashes uncleanly the .bak file will be used to re-instate
+        # the .pck file in order to try again.  XXX what if something caused
+        # Python to constantly crash?  Is it possible that we'd end up mail
+        # bombing recipients or crushing the archiver?  How would we defend
+        # against that?
+        os.rename(filename, backfile)
         try:
             msg = cPickle.load(fp)
             data = cPickle.load(fp)
@@ -151,22 +164,42 @@ class Switchboard:
             msg = email.message_from_string(msg, Message.Message)
         return msg, data
 
-    def files(self):
+    def finish(self, filebase):
+        bakfile = os.path.join(self.__whichq, filebase + '.bak')
+        try:
+            os.unlink(bakfile)
+        except EnvironmentError, e:
+            syslog('error', 'Failed to unlink backup file: %s', bakfile)
+
+    def files(self, extension='.pck'):
         times = {}
         lower = self.__lower
         upper = self.__upper
         for f in os.listdir(self.__whichq):
             # By ignoring anything that doesn't end in .pck, we ignore
             # tempfiles and avoid a race condition.
-            if not f.endswith('.pck'):
+            filebase, ext = os.path.splitext(f)
+            if ext <> extension:
                 continue
-            filebase = os.path.splitext(f)[0]
             when, digest = filebase.split('+')
             # Throw out any files which don't match our bitrange.  BAW: test
-            # performance and end-cases of this algorithm.
-            if not lower or (lower <= long(digest, 16) < upper):
-                times[float(when)] = filebase
+            # performance and end-cases of this algorithm.  MAS: both
+            # comparisons need to be <= to get complete range.
+            if lower is None or (lower <= long(digest, 16) <= upper):
+                key = float(when)
+                while times.has_key(key):
+                    key += DELTA
+                times[key] = filebase
         # FIFO sort
         keys = times.keys()
         keys.sort()
         return [times[k] for k in keys]
+
+    def recover_backup_files(self):
+        # Move all .bak files in our slice to .pck.  It's impossible for both
+        # to exist at the same time, so the move is enough to ensure that our
+        # normal dequeuing process will handle them.
+        for filebase in self.files('.bak'):
+            src = os.path.join(self.__whichq, filebase + '.bak')
+            dst = os.path.join(self.__whichq, filebase + '.pck')
+            os.rename(src, dst)

@@ -15,7 +15,7 @@ deny rule: this is always denied
 
 user rule: successful authentication as a user in the specified group(5) allows the associated right.
 
-The shared property specifies whether a credential generated on success is shared with other apps (same "session"). This property defaults to false if not specified.
+The shared property specifies whether a credential generated on success is shared with other apps (i.e., those in the same "session"). This property defaults to false if not specified.
 
 The timeout property specifies the maximum age of a (cached/shared) credential accepted for this rule.
 
@@ -30,7 +30,7 @@ See remaining rules for examples.
 			<key>class</key>
 			<string>rule</string>
 			<key>comment</key>
-			<string>All other rights will be matched by this rule.</string>
+			<string>Matches otherwise unmatched rights (i.e., is a default).</string>
 			<key>rule</key>
 			<string>default</string>
 		</dict>
@@ -39,21 +39,21 @@ See remaining rules for examples.
 			<key>class</key>
 			<string>allow</string>
 			<key>comment</key>
-			<string>wildcard right for adding rights.  Anyone is allowed to add any (non-wildcard) rights</string>
+			<string>Wildcard right for adding rights.  Anyone is allowed to add any (non-wildcard) rights.</string>
 		</dict>
 		<key>config.config.</key>
 		<dict>
 			<key>class</key>
 			<string>deny</string>
 			<key>comment</key>
-			<string>wildcard right for any change to meta-rights for db modification.  Not allowed programmatically (just edit this file)</string>
+			<string>Wildcard right for any change to meta-rights for db modification.  Not allowed programmatically (just edit this file).</string>
 		</dict>
 		<key>config.modify.</key>
 		<dict>
 			<key>class</key>
 			<string>rule</string>
 			<key>comment</key>
-			<string>wildcard right for modifying rights.  Admins are allowed to modify any (non-wildcard) rights.  Root does not require authentication.</string>
+			<string>Wildcard right for modifying rights.  Admins are allowed to modify any (non-wildcard) rights.  Root does not require authentication.</string>
 			<key>k-of-n</key>
 			<integer>1</integer>
 			<key>rule</key>
@@ -67,7 +67,7 @@ See remaining rules for examples.
 			<key>class</key>
 			<string>rule</string>
 			<key>comment</key>
-			<string>wildcard right for deleting rights.  Admins are allowed to delete any (non-wildcard) rights.  Root does not require authentication.</string>
+			<string>Wildcard right for deleting rights.  Admins are allowed to delete any (non-wildcard) rights.  Root does not require authentication.</string>
 			<key>k-of-n</key>
 			<integer>1</integer>
 			<key>rule</key>
@@ -81,7 +81,7 @@ See remaining rules for examples.
 			<key>class</key>
 			<string>deny</string>
 			<key>comment</key>
-			<string>wildcard right for deleting system rights.</string>
+			<string>Wildcard right for deleting system rights.</string>
 		</dict>
 		<key>com.apple.</key>
 		<dict>
@@ -111,9 +111,7 @@ See remaining rules for examples.
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>Used by the dvd player to set the regioncode the first time.  Note that changed the region code after it has been set requires a different right (system.device.dvd.setregion.change)
-Credentials remain valid indefinitely after they've been obtained.
-An acquired credential is shared amongst all clients.</string>
+			<string>Used by the DVD player to set the region code the first time.  Note that changing the region code after it has been set requires a different right (system.device.dvd.setregion.change).</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -124,44 +122,27 @@ An acquired credential is shared amongst all clients.</string>
 			<key>class</key>
 			<string>evaluate-mechanisms</string>
 			<key>comment</key>
-			<string>Login mechanism based rule.  Not for general use, yet.
-builtin:krb5authenticate can be used to hinge local authentication on a successful kerberos authentication and kdc verification.
-builtin:krb5authnoverify skips the kdc verification.  Both fall back on local authentication.</string>
+			<string>Login mechanism based rule.  Not for general use, yet.</string>
 			<key>mechanisms</key>
 			<array>
-				<string>builtin:auto-login,privileged</string>
-				<string>loginwindow_builtin:login</string>
+				<string>builtin:smartcard-sniffer,privileged</string>
+				<string>loginwindow:login</string>
 				<string>builtin:reset-password,privileged</string>
-				<string>authinternal</string>
-				<string>builtin:getuserinfo,privileged</string>
-				<string>builtin:sso,privileged</string>
+				<string>builtin:auto-login,privileged</string>
+				<string>builtin:authenticate,privileged</string>
 				<string>HomeDirMechanism:login,privileged</string>
 				<string>HomeDirMechanism:status</string>
 				<string>MCXMechanism:login</string>
-				<string>loginwindow_builtin:success</string>
-				<string>loginwindow_builtin:done</string>
+				<string>loginwindow:success</string>
+				<string>loginwindow:done</string>
 			</array>
 		</dict>
 		<key>system.login.done</key>
 		<dict>
 			<key>class</key>
 			<string>evaluate-mechanisms</string>
-			<key>comment</key>
-			<string>builtin:krb5login can be used to do kerberos authentication as a side-effect of logging in.  Local username/password will be used.</string>
 			<key>mechanisms</key>
 			<array>
-			</array>
-		</dict>
-		<key>system.login.pam</key>
-		<dict>
-			<key>class</key>
-			<string>evaluate-mechanisms</string>
-			<key>tries</key>
-			<integer>1</integer>
-			<key>mechanisms</key>
-			<array>
-				<string>push_hints_to_context</string>
-				<string>authinternal</string>
 			</array>
 		</dict>
 		<key>system.login.screensaver</key>
@@ -169,7 +150,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>rule</string>
 			<key>comment</key>
-			<string>the owner as well as any admin can unlock the screensaver;modify the group key to change this.</string>
+			<string>The owner or any administrator can unlock the screensaver.</string>
 			<key>rule</key>
 			<string>authenticate-session-owner-or-admin</string>
 		</dict>
@@ -192,7 +173,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>evaluate-mechanisms</string>
 			<key>comment</key>
-			<string>Used by Security framework when you add an item to a unconfigured default keychain</string>
+			<string>Used by the Security framework when you add an item to an unconfigured default keychain.</string>
 			<key>mechanisms</key>
 			<array>
 				<string>loginKC:queryCreate</string>
@@ -224,7 +205,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>This right is checked by the Admin framework when making changes to the system preferences.</string>
+			<string>Checked by the Admin framework when making changes to certain System Preferences.</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -237,20 +218,22 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>This right is checked by the Admin framework when making changes to the accounts preference pane</string>
+			<string>Checked by the Admin framework when making changes to the Accounts preference pane.</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
 			<false/>
 		</dict>
-		<key>system.printingmanager</key>
+		<key>system.preferences.parental-controls</key>
 		<dict>
 			<key>class</key>
-			<string>rule</string>
+			<string>user</string>
 			<key>comment</key>
-			<string>The following right is checked for printing to locked printers.</string>
-			<key>rule</key>
-			<string>authenticate-admin</string>
+			<string>Checked when making changes to the Parental Controls preference pane.</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>shared</key>
+			<false/>
 		</dict>
 		<key>system.preferences.accessibility</key>
 		<dict>
@@ -259,7 +242,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>This right is checked by the Admin framework when enabling or disabling the Accessibility APIs</string>
+			<string>Checked by the Admin framework when enabling or disabling the Accessibility APIs.</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -267,12 +250,93 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>timeout</key>
 			<integer>0</integer>
 		</dict>
+		<key>system.printingmanager</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>For printing to locked printers.</string>
+			<key>rule</key>
+			<string>authenticate-admin</string>
+		</dict>
+		<key>system.print.admin</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-lpadmin</string>
+				<string>is-admin</string>
+				<string>default</string>
+			</array>
+		</dict>
+		<key>system.identity.write.</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>For creating, changing or deleting local user accounts and groups.</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-admin</string>
+				<string>authenticate-admin</string>
+			</array>
+		</dict>
+		<key>system.identity.write.credential</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>Checked when changing authentication credentials (password or certificate) for a local user account.</string>
+			<key>rule</key>
+			<string>default</string>
+		</dict>
+		<key>system.identity.write.self</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Checked when changing authentication credentials (password or certificate) for the current user's account.</string>
+			<key>authenticate-user</key>
+			<false/>
+			<key>session-owner</key>
+			<true/>
+		</dict>
+		<key>system.global-login-items.</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-admin</string>
+				<string>default</string>
+			</array>
+		</dict>
+		<key>system.sharepoints.</key>
+		<dict>
+			<key>allow-root</key>
+			<true/>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Checked when making changes to the Sharepoints.</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>shared</key>
+			<true/>
+		</dict>
 		<key>com.apple.activitymonitor.kill</key>
 		<dict>
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>Used by Activity Monitor to authorize killing processes not owned by the user</string>
+			<string>Used by Activity Monitor to authorize killing processes not owned by the user.</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -287,13 +351,24 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>This right is checked when changing parental controls for Safari</string>
+			<string>Checked when changing parental controls for Safari.</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
 			<false/>
 			<key>timeout</key>
 			<integer>0</integer>
+		</dict>
+		<key>com.apple.docset.install</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Used by Xcode to restrict access to a daemon it uses to install and update documentation sets.</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>shared</key>
+			<false/>
 		</dict>
 		<key>system.privilege.admin</key>
 		<dict>
@@ -302,13 +377,9 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>Used by AuthorizationExecuteWithPrivileges(...)
-		AuthorizationExecuteWithPrivileges is used by programs requesting
-		to run a tool as root (ie. some installers).
-		Credentials remain valid 5 minutes after they've been obtained.
-		An acquired credential isn't shared with other clients.
-		Clients running as root will be granted this right automatically.
-			</string>
+			<string>Used by AuthorizationExecuteWithPrivileges(...).  
+		AuthorizationExecuteWithPrivileges() is used by programs requesting
+		to run a tool as root (e.g., some installers).</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -316,12 +387,29 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>timeout</key>
 			<integer>300</integer>
 		</dict>
+		<key>system.privilege.taskport</key>
+		<dict>
+			<key>allow-root</key>
+			<false/>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Used by task_for_pid(...).
+		Task_for_pid is called by programs requesting full control over another program
+		for things like debugging or performance analysis. This authorization only applies
+		if the requesting and target programs are run by the same user; it will never
+		authorize access to the program of another user.</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>shared</key>
+			<true/>
+		</dict>
 		<key>system.restart</key>
 		<dict>
 			<key>class</key>
 			<string>evaluate-mechanisms</string>
 			<key>comment</key>
-			<string>Multisession restart mechanisms</string>
+			<string>Checked if the foreground console user tries to restart the system while other users are logged in via fast-user switching.</string>
 			<key>mechanisms</key>
 			<array>
 				<string>RestartAuthorization:restart</string>
@@ -334,7 +422,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>evaluate-mechanisms</string>
 			<key>comment</key>
-			<string>Multisession shutdown mechanisms</string>
+			<string>Checked if the foreground console user tries to shut down the system while other users are logged in via fast-user switching.</string>
 			<key>mechanisms</key>
 			<array>
 					<string>RestartAuthorization:shutdown</string>
@@ -347,7 +435,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>allow</string>
 			<key>comment</key>
-			<string>authorization to burn media</string>
+			<string>For burning media.</string>
 		</dict>
 		<key>system.services.directory.configure</key>
 		<dict>
@@ -362,14 +450,14 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>timeout</key>
 			<integer>300</integer>
 			<key>comment</key>
-			<string>authorization to make directory service changes</string>
+			<string>For making Directory Services changes.</string>
 		</dict>
 		<key>com.apple.server.admin.streaming</key>
 		<dict>
 			<key>class</key>
 			<string>user</string>	
 			<key>comment</key>
-			<string>Used for admin requests with the QuickTime Streaming Server.</string>
+			<string>For making administrative requests to the QuickTime Streaming Server.</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -379,12 +467,30 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>timeout</key>
 			<integer>0</integer>
 		</dict>
+		<key>com.apple.trust-settings.admin</key>
+		<dict>
+			<key>comment</key>
+			<string>For modifying Trust Settings in the Local Admin domain.</string>
+			<key>allow-root</key>
+			<true/>
+			<key>class</key>
+			<string>user</string>
+			<key>group</key>
+			<string>admin</string>
+		</dict>
+		<key>com.apple.trust-settings.user</key>
+		<dict>
+			<key>rule</key>
+			<string>authenticate-session-owner</string>
+			<key>comment</key>
+			<string>For modifying per-user Trust Settings.</string>
+		</dict>
 		<key>system.install.admin.user</key>
 		<dict>
 			<key>class</key>
 			<string>user</string>	
 			<key>comment</key>
-			<string>Used by installer tool: user installling in admin domain (/Applications)</string>	
+			<string>Checked when user is installing in admin domain (/Applications).</string>	
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -397,7 +503,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>user</string>	
 			<key>comment</key>
-			<string>Used by installer tool: user installling in root domain (/System)</string>	
+			<string>Checked when user is installing in root domain (/System).</string>	
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -410,7 +516,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>user</string>	
 			<key>comment</key>
-			<string>Used by installer tool: admin installling in root domain (/System)</string>	
+			<string>Checked when admin is installing in root domain (/System).</string>	
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -423,7 +529,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>rule</string>
 			<key>comment</key>
-			<string>Used to determine administrative access to the Application Server management tool.</string>
+			<string>For administrative access to the Application Server management tool.</string>
 			<key>rule</key>
 			<string>appserver-admin</string>
 		</dict>
@@ -432,7 +538,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>rule</string>
 			<key>comment</key>
-			<string>Used to determine user access to the Application Server management tool.</string>
+			<string>For user access to the Application Server management tool.</string>
 			<key>k-of-n</key>
 			<integer>1</integer>
 			<key>rule</key>
@@ -441,12 +547,23 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 				<string>appserver-user</string>
 			</array>
 		</dict>
+		<key>com.apple.dashboard.advisory.allow</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>shared</key>
+			<false/>
+			<key>timeout</key>
+			<integer>300</integer>
+		</dict>
 		<key>com.apple.desktopservices</key>
 		<dict>
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>authorize privileged file operations from the finder</string>
+			<string>For privileged file operations from within the Finder.</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -476,6 +593,8 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 		<dict>
 			<key>class</key>
 			<string>evaluate-mechanisms</string>
+			<key>tries</key>
+			<integer>1</integer>
 			<key>mechanisms</key>
 			<array>
 				<string>builtin:confirm-access</string>
@@ -498,14 +617,14 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>allow</string>
 			<key>comment</key>
-			<string>allow anyone</string>
+			<string>Allow anyone.</string>
 		</dict>
 		<key>authenticate-admin</key>
 		<dict>
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>require the user asking for authorization to authenticate as an admin</string>
+			<string>Authenticate as an administrator.</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
@@ -513,21 +632,12 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>timeout</key>
 			<integer>0</integer>
 		</dict>
-		<key>authenticate-session-user</key>
-		<dict>
-			<key>class</key>
-			<string>user</string>
-			<key>comment</key>
-			<string>authenticate session owner</string>
-			<key>session-owner</key>
-			<true/>
-		</dict>
 		<key>authenticate-session-owner</key>
 		<dict>
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>authenticate session owner</string>
+			<string>Authenticate as the session owner.</string>
 			<key>session-owner</key>
 			<true/>
 		</dict>
@@ -538,7 +648,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>the owner as well as any admin can authorize</string>
+			<string>Authenticate either as the owner or as an administrator.</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>session-owner</key>
@@ -551,13 +661,24 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>verify the user asking for authorization is an admin</string>
+			<string>Verify that the user asking for authorization is an administrator.</string>
 			<key>group</key>
 			<string>admin</string>
 			<key>authenticate-user</key>
 			<false/>
 			<key>shared</key>
 			<string>true</string>
+		</dict>
+		<key>is-lpadmin</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Verify that the user asking for authorization is an lp administrator.</string>
+			<key>group</key>
+			<string>lpadmin</string>
+			<key>authenticate-user</key>
+			<false/>
 		</dict>
 		<key>is-root</key>
 		<dict>
@@ -568,7 +689,7 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>authenticate-user</key>
 			<false/>
 			<key>comment</key>
-			<string>verify the process that created this authref is root</string>
+			<string>Verify that the process that created this AuthorizationRef is running as root.</string>
 		</dict>
 		<key>appserver-user</key>
 		<dict>
@@ -589,8 +710,9 @@ builtin:krb5authnoverify skips the kdc verification.  Both fall back on local au
 			<key>class</key>
 			<string>user</string>
 			<key>comment</key>
-			<string>All other rights will be matched by this rule.	Credentials remain valid 5 minutes after they've been obtained.
-An acquired credential is shared amongst all clients.
+			<string>Default rule.	
+            Credentials remain valid for 5 minutes after they've been obtained. 
+            An acquired credential is shared by all clients.
 			</string>
 			<key>group</key>
 			<string>admin</string>
@@ -605,8 +727,9 @@ An acquired credential is shared amongst all clients.
 			<string>evaluate-mechanisms</string>
 			<key>mechanisms</key>
 			<array>
+				<string>builtin:smartcard-sniffer,privileged</string>
 				<string>builtin:authenticate</string>
-				<string>authinternal</string>
+				<string>builtin:authenticate,privileged</string>
 			</array>
 		</dict>
 	</dict>

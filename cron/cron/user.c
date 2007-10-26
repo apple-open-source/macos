@@ -50,8 +50,9 @@ log_error(msg)
 }
 
 user *
-load_user(crontab_fd, name)
+load_user(crontab_fd, pw, name)
 	int		crontab_fd;
+	struct passwd	*pw;		/* NULL implies syscrontab */
 	char		*name;
 {
 	char	envstr[MAX_ENVSTR];
@@ -61,6 +62,9 @@ load_user(crontab_fd, name)
 	int	status;
 	char	**envp, **tenvp;
 
+#ifdef __APPLE__
+	pw = pw;	// avoid unused parameter warning
+#endif
 	if (!(file = fdopen(crontab_fd, "r"))) {
 		warn("fdopen on crontab_fd in load_user");
 		return NULL;
@@ -101,7 +105,11 @@ load_user(crontab_fd, name)
 			goto done;
 		case FALSE:
 			User_name = u->name;    /* for log_error */
+#ifdef __APPLE__
 			e = load_entry(file, log_error, strcmp(name, "*system*") ? name : NULL, envp);
+#else
+			e = load_entry(file, log_error, pw, envp);
+#endif
 			if (e) {
 				e->next = u->crontab;
 				u->crontab = e;

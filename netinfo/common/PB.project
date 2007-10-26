@@ -73,12 +73,10 @@
             "Makefile.preamble", 
             Makefile, 
             "Makefile.postamble", 
-            "lookup.defs", 
             "mk_version", 
             "nibind_prot.x", 
-            "ni_prot.x", 
-            "_lu_types.x"
-        ); 
+            "ni_prot.x"
+		); 
         "PROJECT_HEADERS" = (
             "clib.h", 
             "config.h", 

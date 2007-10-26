@@ -1,4 +1,4 @@
-*hebrew.txt*    For Vim version 6.2.  Last change: 2003 May 11
+*hebrew.txt*    For Vim version 7.0.  Last change: 2003 May 11
 
 
 	   VIM REFERENCE MANUAL    by Ron Aaron (and Avner Lottem)
@@ -11,7 +11,7 @@ Lottem:
    E-mail: alottem@iil.intel.com
    Phone:  +972-4-8307322
 
-Ron Aaron <ronaharon@yahoo.com> is currently helping support these features.
+Ron Aaron <ron@ronware.org> is currently helping support these features.
 
 {Vi does not have any of these commands}
 

@@ -1,0 +1,593 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0544C53506A8718D00F54E48 /* ocspRequest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0544C52D06A8718D00F54E48 /* ocspRequest.cpp */; };
+		0544C53606A8718D00F54E48 /* ocspRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = 0544C52E06A8718D00F54E48 /* ocspRequest.h */; };
+		0544C53706A8718D00F54E48 /* tpOcspCache.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0544C52F06A8718D00F54E48 /* tpOcspCache.cpp */; };
+		0544C53806A8718D00F54E48 /* tpOcspCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 0544C53006A8718D00F54E48 /* tpOcspCache.h */; };
+		0544C53906A8718D00F54E48 /* tpOcspCertVfy.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0544C53106A8718D00F54E48 /* tpOcspCertVfy.cpp */; };
+		0544C53A06A8718D00F54E48 /* tpOcspCertVfy.h in Headers */ = {isa = PBXBuildFile; fileRef = 0544C53206A8718D00F54E48 /* tpOcspCertVfy.h */; };
+		0544C53B06A8718D00F54E48 /* tpOcspVerify.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0544C53306A8718D00F54E48 /* tpOcspVerify.cpp */; };
+		0544C53C06A8718D00F54E48 /* tpOcspVerify.h in Headers */ = {isa = PBXBuildFile; fileRef = 0544C53406A8718D00F54E48 /* tpOcspVerify.h */; };
+		4CCB01000580130F00981D43 /* tp_common.mdsinfo in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4094B069057EA5B000B44BCC /* tp_common.mdsinfo */; };
+		4CCB01010580130F00981D43 /* tp_policyOids.mdsinfo in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4094B06A057EA5B000B44BCC /* tp_policyOids.mdsinfo */; };
+		4CCB01020580130F00981D43 /* tp_primary.mdsinfo in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4094B06B057EA5B000B44BCC /* tp_primary.mdsinfo */; };
+		4CCB01030580131200981D43 /* tp_common.mdsinfo in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4094B069057EA5B000B44BCC /* tp_common.mdsinfo */; };
+		4CCB01040580131200981D43 /* tp_policyOids.mdsinfo in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4094B06A057EA5B000B44BCC /* tp_policyOids.mdsinfo */; };
+		4CCB01050580131200981D43 /* tp_primary.mdsinfo in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4094B06B057EA5B000B44BCC /* tp_primary.mdsinfo */; };
+		C2196B77053B5A2B005808D4 /* AppleX509TPBuiltin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196B76053B5A2B005808D4 /* AppleX509TPBuiltin.cpp */; };
+		C2B5C4F00534C6AA00AF53F5 /* AppleTP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4D40534C6AA00AF53F5 /* AppleTP.cpp */; };
+		C2B5C4F10534C6AA00AF53F5 /* AppleTP.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4D50534C6AA00AF53F5 /* AppleTP.h */; };
+		C2B5C4F20534C6AA00AF53F5 /* AppleTPSession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4D60534C6AA00AF53F5 /* AppleTPSession.cpp */; };
+		C2B5C4F30534C6AA00AF53F5 /* AppleTPSession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4D70534C6AA00AF53F5 /* AppleTPSession.h */; };
+		C2B5C4F50534C6AA00AF53F5 /* certGroupUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4D90534C6AA00AF53F5 /* certGroupUtils.cpp */; };
+		C2B5C4F60534C6AA00AF53F5 /* certGroupUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4DA0534C6AA00AF53F5 /* certGroupUtils.h */; };
+		C2B5C4FB0534C6AA00AF53F5 /* tpCertGroup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4DF0534C6AA00AF53F5 /* tpCertGroup.cpp */; };
+		C2B5C4FC0534C6AA00AF53F5 /* TPCertInfo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4E00534C6AA00AF53F5 /* TPCertInfo.cpp */; };
+		C2B5C4FD0534C6AA00AF53F5 /* TPCertInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4E10534C6AA00AF53F5 /* TPCertInfo.h */; };
+		C2B5C4FE0534C6AA00AF53F5 /* tpCredRequest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4E20534C6AA00AF53F5 /* tpCredRequest.cpp */; };
+		C2B5C4FF0534C6AA00AF53F5 /* TPCrlInfo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4E30534C6AA00AF53F5 /* TPCrlInfo.cpp */; };
+		C2B5C5000534C6AA00AF53F5 /* TPCrlInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4E40534C6AA00AF53F5 /* TPCrlInfo.h */; };
+		C2B5C5010534C6AA00AF53F5 /* tpCrlVerify.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4E50534C6AA00AF53F5 /* tpCrlVerify.cpp */; };
+		C2B5C5020534C6AA00AF53F5 /* tpCrlVerify.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4E60534C6AA00AF53F5 /* tpCrlVerify.h */; };
+		C2B5C5030534C6AA00AF53F5 /* TPDatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4E70534C6AA00AF53F5 /* TPDatabase.cpp */; };
+		C2B5C5040534C6AA00AF53F5 /* TPDatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4E80534C6AA00AF53F5 /* TPDatabase.h */; };
+		C2B5C5050534C6AA00AF53F5 /* tpdebugging.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4E90534C6AA00AF53F5 /* tpdebugging.h */; };
+		C2B5C5060534C6AA00AF53F5 /* TPNetwork.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4EA0534C6AA00AF53F5 /* TPNetwork.cpp */; };
+		C2B5C5070534C6AA00AF53F5 /* TPNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4EB0534C6AA00AF53F5 /* TPNetwork.h */; };
+		C2B5C5080534C6AA00AF53F5 /* tpPolicies.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4EC0534C6AA00AF53F5 /* tpPolicies.cpp */; };
+		C2B5C5090534C6AA00AF53F5 /* tpPolicies.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4ED0534C6AA00AF53F5 /* tpPolicies.h */; };
+		C2B5C50A0534C6AA00AF53F5 /* tpTime.c in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4EE0534C6AA00AF53F5 /* tpTime.c */; };
+		C2B5C50B0534C6AA00AF53F5 /* tpTime.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4EF0534C6AA00AF53F5 /* tpTime.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4094B05A057EA55E00B44BCC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C58E3A10540C16500B89535;
+			remoteInfo = security_apple_x509_tp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4CCB00FA058012C200981D43 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = SecurityPieces/Resources/Security;
+			dstSubfolderSpec = 16;
+			files = (
+				4CCB01030580131200981D43 /* tp_common.mdsinfo in CopyFiles */,
+				4CCB01040580131200981D43 /* tp_policyOids.mdsinfo in CopyFiles */,
+				4CCB01050580131200981D43 /* tp_primary.mdsinfo in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CCB00FB058012C500981D43 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/local/SecurityPieces/Resources/Security;
+			dstSubfolderSpec = 0;
+			files = (
+				4CCB01000580130F00981D43 /* tp_common.mdsinfo in CopyFiles */,
+				4CCB01010580130F00981D43 /* tp_policyOids.mdsinfo in CopyFiles */,
+				4CCB01020580130F00981D43 /* tp_primary.mdsinfo in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0544C52D06A8718D00F54E48 /* ocspRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ocspRequest.cpp; sourceTree = "<group>"; };
+		0544C52E06A8718D00F54E48 /* ocspRequest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ocspRequest.h; sourceTree = "<group>"; };
+		0544C52F06A8718D00F54E48 /* tpOcspCache.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpOcspCache.cpp; sourceTree = "<group>"; };
+		0544C53006A8718D00F54E48 /* tpOcspCache.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tpOcspCache.h; sourceTree = "<group>"; };
+		0544C53106A8718D00F54E48 /* tpOcspCertVfy.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpOcspCertVfy.cpp; sourceTree = "<group>"; };
+		0544C53206A8718D00F54E48 /* tpOcspCertVfy.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tpOcspCertVfy.h; sourceTree = "<group>"; };
+		0544C53306A8718D00F54E48 /* tpOcspVerify.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpOcspVerify.cpp; sourceTree = "<group>"; };
+		0544C53406A8718D00F54E48 /* tpOcspVerify.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tpOcspVerify.h; sourceTree = "<group>"; };
+		4094B069057EA5B000B44BCC /* tp_common.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = tp_common.mdsinfo; sourceTree = "<group>"; };
+		4094B06A057EA5B000B44BCC /* tp_policyOids.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = tp_policyOids.mdsinfo; sourceTree = "<group>"; };
+		4094B06B057EA5B000B44BCC /* tp_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = tp_primary.mdsinfo; sourceTree = "<group>"; };
+		4C58E3A20540C16500B89535 /* security_apple_x509_tp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_apple_x509_tp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_apple_x509_tp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_apple_x509_tp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2196B76053B5A2B005808D4 /* AppleX509TPBuiltin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleX509TPBuiltin.cpp; path = lib/AppleX509TPBuiltin.cpp; sourceTree = "<group>"; };
+		C2B5C4D40534C6AA00AF53F5 /* AppleTP.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleTP.cpp; sourceTree = "<group>"; };
+		C2B5C4D50534C6AA00AF53F5 /* AppleTP.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleTP.h; sourceTree = "<group>"; };
+		C2B5C4D60534C6AA00AF53F5 /* AppleTPSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleTPSession.cpp; sourceTree = "<group>"; };
+		C2B5C4D70534C6AA00AF53F5 /* AppleTPSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleTPSession.h; sourceTree = "<group>"; };
+		C2B5C4D80534C6AA00AF53F5 /* AppleX509TPPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleX509TPPlugin.cpp; sourceTree = "<group>"; };
+		C2B5C4D90534C6AA00AF53F5 /* certGroupUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = certGroupUtils.cpp; sourceTree = "<group>"; };
+		C2B5C4DA0534C6AA00AF53F5 /* certGroupUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = certGroupUtils.h; sourceTree = "<group>"; };
+		C2B5C4DF0534C6AA00AF53F5 /* tpCertGroup.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpCertGroup.cpp; sourceTree = "<group>"; };
+		C2B5C4E00534C6AA00AF53F5 /* TPCertInfo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TPCertInfo.cpp; sourceTree = "<group>"; };
+		C2B5C4E10534C6AA00AF53F5 /* TPCertInfo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPCertInfo.h; sourceTree = "<group>"; };
+		C2B5C4E20534C6AA00AF53F5 /* tpCredRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpCredRequest.cpp; sourceTree = "<group>"; };
+		C2B5C4E30534C6AA00AF53F5 /* TPCrlInfo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TPCrlInfo.cpp; sourceTree = "<group>"; };
+		C2B5C4E40534C6AA00AF53F5 /* TPCrlInfo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPCrlInfo.h; sourceTree = "<group>"; };
+		C2B5C4E50534C6AA00AF53F5 /* tpCrlVerify.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpCrlVerify.cpp; sourceTree = "<group>"; };
+		C2B5C4E60534C6AA00AF53F5 /* tpCrlVerify.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tpCrlVerify.h; sourceTree = "<group>"; };
+		C2B5C4E70534C6AA00AF53F5 /* TPDatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TPDatabase.cpp; sourceTree = "<group>"; };
+		C2B5C4E80534C6AA00AF53F5 /* TPDatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPDatabase.h; sourceTree = "<group>"; };
+		C2B5C4E90534C6AA00AF53F5 /* tpdebugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tpdebugging.h; sourceTree = "<group>"; };
+		C2B5C4EA0534C6AA00AF53F5 /* TPNetwork.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TPNetwork.cpp; sourceTree = "<group>"; };
+		C2B5C4EB0534C6AA00AF53F5 /* TPNetwork.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPNetwork.h; sourceTree = "<group>"; };
+		C2B5C4EC0534C6AA00AF53F5 /* tpPolicies.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpPolicies.cpp; sourceTree = "<group>"; };
+		C2B5C4ED0534C6AA00AF53F5 /* tpPolicies.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tpPolicies.h; sourceTree = "<group>"; };
+		C2B5C4EE0534C6AA00AF53F5 /* tpTime.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = tpTime.c; sourceTree = "<group>"; };
+		C2B5C4EF0534C6AA00AF53F5 /* tpTime.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tpTime.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworkTarget section */
+		4C58E3A10540C16500B89535 /* security_apple_x509_tp */ = {
+			isa = PBXFrameworkTarget;
+			buildConfigurationList = C27AD2930987FCDD001272E0 /* Build configuration list for PBXFrameworkTarget "security_apple_x509_tp" */;
+			buildPhases = (
+				4C58E39C0540C16500B89535 /* Headers */,
+				4CCB00FA058012C200981D43 /* CopyFiles */,
+				4CCB00FB058012C500981D43 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = security_apple_x509_tp;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_apple_x509_tp;
+			productReference = 4C58E3A20540C16500B89535 /* security_apple_x509_tp.framework */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict/>
+</plist>
+";
+		};
+/* End PBXFrameworkTarget section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4094B068057EA5B000B44BCC /* mds */ = {
+			isa = PBXGroup;
+			children = (
+				4094B069057EA5B000B44BCC /* tp_common.mdsinfo */,
+				4094B06A057EA5B000B44BCC /* tp_policyOids.mdsinfo */,
+				4094B06B057EA5B000B44BCC /* tp_primary.mdsinfo */,
+			);
+			path = mds;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				C2B5C4D30534C6AA00AF53F5 /* lib */,
+				4094B068057EA5B000B44BCC /* mds */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+				C2196B76053B5A2B005808D4 /* AppleX509TPBuiltin.cpp */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* security_apple_x509_tp */,
+				4C58E3A20540C16500B89535 /* security_apple_x509_tp.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C2B5C4D30534C6AA00AF53F5 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				C2B5C4D40534C6AA00AF53F5 /* AppleTP.cpp */,
+				C2B5C4D50534C6AA00AF53F5 /* AppleTP.h */,
+				C2B5C4D60534C6AA00AF53F5 /* AppleTPSession.cpp */,
+				C2B5C4D70534C6AA00AF53F5 /* AppleTPSession.h */,
+				C2B5C4D80534C6AA00AF53F5 /* AppleX509TPPlugin.cpp */,
+				C2B5C4D90534C6AA00AF53F5 /* certGroupUtils.cpp */,
+				C2B5C4DA0534C6AA00AF53F5 /* certGroupUtils.h */,
+				C2B5C4DF0534C6AA00AF53F5 /* tpCertGroup.cpp */,
+				C2B5C4E00534C6AA00AF53F5 /* TPCertInfo.cpp */,
+				C2B5C4E10534C6AA00AF53F5 /* TPCertInfo.h */,
+				C2B5C4E20534C6AA00AF53F5 /* tpCredRequest.cpp */,
+				C2B5C4E30534C6AA00AF53F5 /* TPCrlInfo.cpp */,
+				C2B5C4E40534C6AA00AF53F5 /* TPCrlInfo.h */,
+				C2B5C4E50534C6AA00AF53F5 /* tpCrlVerify.cpp */,
+				C2B5C4E60534C6AA00AF53F5 /* tpCrlVerify.h */,
+				C2B5C4E70534C6AA00AF53F5 /* TPDatabase.cpp */,
+				C2B5C4E80534C6AA00AF53F5 /* TPDatabase.h */,
+				C2B5C4E90534C6AA00AF53F5 /* tpdebugging.h */,
+				C2B5C4EA0534C6AA00AF53F5 /* TPNetwork.cpp */,
+				C2B5C4EB0534C6AA00AF53F5 /* TPNetwork.h */,
+				0544C52D06A8718D00F54E48 /* ocspRequest.cpp */,
+				0544C52E06A8718D00F54E48 /* ocspRequest.h */,
+				0544C52F06A8718D00F54E48 /* tpOcspCache.cpp */,
+				0544C53006A8718D00F54E48 /* tpOcspCache.h */,
+				0544C53106A8718D00F54E48 /* tpOcspCertVfy.cpp */,
+				0544C53206A8718D00F54E48 /* tpOcspCertVfy.h */,
+				0544C53306A8718D00F54E48 /* tpOcspVerify.cpp */,
+				0544C53406A8718D00F54E48 /* tpOcspVerify.h */,
+				C2B5C4EC0534C6AA00AF53F5 /* tpPolicies.cpp */,
+				C2B5C4ED0534C6AA00AF53F5 /* tpPolicies.h */,
+				C2B5C4EE0534C6AA00AF53F5 /* tpTime.c */,
+				C2B5C4EF0534C6AA00AF53F5 /* tpTime.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4C58E39C0540C16500B89535 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB9052A3C8100F22E42 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2B5C4F10534C6AA00AF53F5 /* AppleTP.h in Headers */,
+				C2B5C4F30534C6AA00AF53F5 /* AppleTPSession.h in Headers */,
+				C2B5C4F60534C6AA00AF53F5 /* certGroupUtils.h in Headers */,
+				C2B5C4FD0534C6AA00AF53F5 /* TPCertInfo.h in Headers */,
+				C2B5C5000534C6AA00AF53F5 /* TPCrlInfo.h in Headers */,
+				C2B5C5020534C6AA00AF53F5 /* tpCrlVerify.h in Headers */,
+				C2B5C5040534C6AA00AF53F5 /* TPDatabase.h in Headers */,
+				C2B5C5050534C6AA00AF53F5 /* tpdebugging.h in Headers */,
+				C2B5C5070534C6AA00AF53F5 /* TPNetwork.h in Headers */,
+				C2B5C5090534C6AA00AF53F5 /* tpPolicies.h in Headers */,
+				C2B5C50B0534C6AA00AF53F5 /* tpTime.h in Headers */,
+				0544C53606A8718D00F54E48 /* ocspRequest.h in Headers */,
+				0544C53806A8718D00F54E48 /* tpOcspCache.h in Headers */,
+				0544C53A06A8718D00F54E48 /* tpOcspCertVfy.h in Headers */,
+				0544C53C06A8718D00F54E48 /* tpOcspVerify.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLibraryTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_x509_tp */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = C27AD2970987FCDD001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_apple_x509_tp" */;
+			buildPhases = (
+				4CA1FEB9052A3C8100F22E42 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+				4C789C73055AF89D00B6FC95 /* ShellScript */,
+				4CD0D4ED055B10B4001715CB /* ShellScript */,
+			);
+			dependencies = (
+				4C58E3A30540C16900B89535 /* PBXTargetDependency */,
+			);
+			name = libsecurity_apple_x509_tp;
+			productInstallPath = /usr/local/lib;
+			productName = libsecurity_apple_x509_tp;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* security_apple_x509_tp */;
+		};
+/* End PBXLibraryTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD29B0987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_apple_x509_tp" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_x509_tp */,
+				4C58E3A10540C16500B89535 /* security_apple_x509_tp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4C789C73055AF89D00B6FC95 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+		};
+		4CD0D4ED055B10B4001715CB /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework/Versions/A\"\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/Security/${PRODUCT_NAME}.framework\"\ndone";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2B5C4F00534C6AA00AF53F5 /* AppleTP.cpp in Sources */,
+				C2B5C4F20534C6AA00AF53F5 /* AppleTPSession.cpp in Sources */,
+				C2B5C4F50534C6AA00AF53F5 /* certGroupUtils.cpp in Sources */,
+				C2B5C4FB0534C6AA00AF53F5 /* tpCertGroup.cpp in Sources */,
+				C2B5C4FC0534C6AA00AF53F5 /* TPCertInfo.cpp in Sources */,
+				C2B5C4FE0534C6AA00AF53F5 /* tpCredRequest.cpp in Sources */,
+				C2B5C4FF0534C6AA00AF53F5 /* TPCrlInfo.cpp in Sources */,
+				C2B5C5010534C6AA00AF53F5 /* tpCrlVerify.cpp in Sources */,
+				C2B5C5030534C6AA00AF53F5 /* TPDatabase.cpp in Sources */,
+				C2B5C5060534C6AA00AF53F5 /* TPNetwork.cpp in Sources */,
+				C2B5C5080534C6AA00AF53F5 /* tpPolicies.cpp in Sources */,
+				C2B5C50A0534C6AA00AF53F5 /* tpTime.c in Sources */,
+				C2196B77053B5A2B005808D4 /* AppleX509TPBuiltin.cpp in Sources */,
+				0544C53506A8718D00F54E48 /* ocspRequest.cpp in Sources */,
+				0544C53706A8718D00F54E48 /* tpOcspCache.cpp in Sources */,
+				0544C53906A8718D00F54E48 /* tpOcspCertVfy.cpp in Sources */,
+				0544C53B06A8718D00F54E48 /* tpOcspVerify.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4C58E3A30540C16900B89535 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C58E3A10540C16500B89535 /* security_apple_x509_tp */;
+			targetProxy = 4094B05A057EA55E00B44BCC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD2940987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
+				PRODUCT_NAME = security_apple_x509_tp;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD2950987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
+				PRODUCT_NAME = security_apple_x509_tp;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD2960987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = /usr/local/SecurityPieces/Components/Security;
+				PRODUCT_NAME = security_apple_x509_tp;
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Default;
+		};
+		C27AD2980987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CURRENT_PROJECT_VERSION = 32578;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Components/Security,
+					/usr/local/SecurityPieces/Frameworks,
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_apple_x509_tp;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD2990987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32578;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Components/Security,
+					/usr/local/SecurityPieces/Frameworks,
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_apple_x509_tp;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD29A0987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32578;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Components/Security,
+					/usr/local/SecurityPieces/Frameworks,
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_apple_x509_tp;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD29C0987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD29D0987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD29E0987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				UNSTRIPPED_PRODUCT = YES;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD2930987FCDD001272E0 /* Build configuration list for PBXFrameworkTarget "security_apple_x509_tp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2940987FCDD001272E0 /* Development */,
+				C27AD2950987FCDD001272E0 /* Deployment */,
+				C27AD2960987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD2970987FCDD001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_apple_x509_tp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2980987FCDD001272E0 /* Development */,
+				C27AD2990987FCDD001272E0 /* Deployment */,
+				C27AD29A0987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD29B0987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_apple_x509_tp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD29C0987FCDD001272E0 /* Development */,
+				C27AD29D0987FCDD001272E0 /* Deployment */,
+				C27AD29E0987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

@@ -213,13 +213,21 @@ struct IOPCIPhysicalAddress {
 #define kIOPMPCIConfigSpaceVolatileKey	"IOPMPCIConfigSpaceVolatile"
 
 // pci express link status
-#define kIOPCIExpressLinkStatusKey	"IOPCIExpressLinkStatus"
+#define kIOPCIExpressLinkStatusKey	 "IOPCIExpressLinkStatus"
+// pci express link capabilities
+#define kIOPCIExpressLinkCapabilitiesKey "IOPCIExpressLinkCapabilities"
 
 enum {
     kIOPCIDevicePowerStateCount = 3,
     kIOPCIDeviceOffState	= 0,
     kIOPCIDeviceDozeState	= 1,
     kIOPCIDeviceOnState		= 2,
+};
+
+enum
+{
+    // bits getInterruptType result
+    kIOInterruptTypePCIMessaged = 0x00010000
 };
 
 /*! @class IOPCIDevice : public IOService
@@ -293,24 +301,16 @@ class IOPCIDevice : public IOService
 
     friend class IOPCIBridge;
     friend class IOPCI2PCIBridge;
+    friend class IOPCIMessagedInterruptController;
 
 protected:
     IOPCIBridge *	parent;
     IOMemoryMap *	ioMap;
     OSObject *          slotNameProperty;
 
-/*! @struct ExpansionData
-    @discussion This structure will be used to expand the capablilties of the IOWorkLoop in the future.
-    */    
-    struct ExpansionData {
-	bool					PMsleepEnabled;		// T if a client has enabled PCI Power Management
-	UInt8					PMcontrolStatus;	// if >0 this device supports PCI Power Management
-	UInt16					sleepControlBits;	// bits to set the control/status register to for sleep
-    };
-
 /*! @var reserved
     Reserved for future use.  (Internal use only)  */
-    ExpansionData *reserved;
+    struct IOPCIDeviceExpansionData * reserved;
 
 public:
     IOPCIAddressSpace	space;
@@ -326,11 +326,13 @@ public:
     virtual bool attach( IOService * provider );
     virtual void detach( IOService * provider );
     virtual IOReturn setPowerState( unsigned long, IOService * );
+
     virtual bool compareName( OSString * name, OSString ** matched = 0 ) const;
     virtual bool matchPropertyTable( OSDictionary *	table,
                                      SInt32       *	score );
     virtual IOService * matchLocation( IOService * client );
     virtual IOReturn getResources( void );
+    virtual IOReturn setProperties(OSObject * properties);
 
     /* Config space accessors */
 
@@ -587,6 +589,7 @@ public:
     OSMetaClassDeclareReservedUnused(IOPCIDevice, 14);
     OSMetaClassDeclareReservedUnused(IOPCIDevice, 15);
 
+public:
 
 /*! @function extendedConfigRead32
     @abstract Reads a 32-bit value from the PCI device's configuration space.

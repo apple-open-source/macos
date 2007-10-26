@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <mntopts.h>
 #include <mach/mach_init.h>
 #include <servers/netname.h>
 #include <sys/types.h>
@@ -42,6 +43,7 @@
 #include <sys/sysctl.h>
 #include <sys/disk.h>
 #include <sys/errno.h>
+#include <sys/param.h>
 #include <sys/paths.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -62,7 +64,6 @@
 
 // Project includes
 #include "cddafs_util.h"
-#include "mntopts.h"
 #include "AppleCDDAFileSystemDefines.h"
 
 	#include "CDDATrackName.h"
@@ -637,8 +638,10 @@ int
 ParseMountArgs ( int * argc, const char ** argv[], int * mountFlags )
 {
 	
-	int		error = 0;
-	int		ch;
+	int				error		= 0;
+	int				ch			= 0;
+	int				altFlags	= 0;
+	mntoptparse_t	parse		= NULL;
 	
 	*mountFlags = 0;
 	
@@ -656,9 +659,18 @@ ParseMountArgs ( int * argc, const char ** argv[], int * mountFlags )
 		{
 			
             case 'o':
-				getmntopts ( optarg, gMountOptions, mountFlags, 0 );
+				parse = getmntopts ( optarg, gMountOptions, mountFlags, &altFlags );
+				if ( parse != NULL )
+				{
+					freemntopts ( parse );
+				}
+				
+				else
+				{
+					error = 1;
+				}
 				break;
-			
+				
             default:
 				error = 1;
 				break;
@@ -750,6 +762,8 @@ Mount ( const char * 	deviceNamePtr,
 	UInt32					size		= 0;
 	QTOCDataFormat10Ptr		TOCDataPtr 	= NULL;
 	UInt8 *					xmlDataPtr 	= NULL;
+	char					realMountPoint[PATH_MAX];
+	char *					realMountPointPtr;
 	
 	DebugLog ( ( "Mount('%s','%s')\n", deviceNamePtr, mountPointPtr ) );
 	
@@ -804,6 +818,7 @@ Mount ( const char * 	deviceNamePtr,
 	
 	// Copy the raw data from the CFData object to our mount args
 	memcpy ( args.xmlData, xmlDataPtr, args.xmlFileSize );
+	CFRelease ( xmlDataRef );
 	
 	#if ( DEBUG_LEVEL > 3 )
 	{
@@ -835,11 +850,15 @@ Mount ( const char * 	deviceNamePtr,
 	DebugLog ( ( "DeviceName = %s\n", deviceNamePtr ) );
 	DebugLog ( ( "numTracks = %d\n", args.numTracks ) );
 	
-	require ( ( args.nameData != NULL ), Exit );
-	require ( ( args.nameDataSize != 0 ), Exit );
+	require ( ( args.nameData != NULL ), ReleaseXMLData );
+	require ( ( args.nameDataSize != 0 ), ReleaseXMLData );
+
+	// Obtain the real path.
+	realMountPointPtr = realpath ( mountPointPtr, realMountPoint );
+	require ( ( realMountPointPtr != NULL ), ReleaseXMLData );
 	
 	// Issue the system mount command
-	result = mount ( vfc.vfc_name, mountPointPtr, mountFlags, &args );
+	result = mount ( vfc.vfc_name, realMountPoint, mountFlags, &args );
 	require ( ( result == 0 ), ReleaseXMLData );
 	
 	result = FSUR_IO_SUCCESS;
@@ -1161,6 +1180,8 @@ CreateXMLFileInPListFormat ( QTOCDataFormat10Ptr TOCDataPtr )
 								CFSTR ( kRawTOCDataString ),
 								theRawTOCDataRef );
 		
+		CFRelease ( theRawTOCDataRef );
+		
 		length -= ( sizeof ( TOCDataPtr->firstSessionNumber ) +
 					sizeof ( TOCDataPtr->lastSessionNumber ) );
 		
@@ -1175,7 +1196,7 @@ CreateXMLFileInPListFormat ( QTOCDataFormat10Ptr TOCDataPtr )
 		}
 		
 		// Create the array of sessions
-		theSessionArrayRef 		= CFArrayCreateMutable ( kCFAllocatorDefault, numSessions, NULL );
+		theSessionArrayRef 		= CFArrayCreateMutable ( kCFAllocatorDefault, numSessions, &kCFTypeArrayCallBacks );
 		trackDescriptorPtr 		= TOCDataPtr->trackDescriptors;
 		lastTrackDescriptorPtr	= TOCDataPtr->trackDescriptors + numberOfDescriptors - 1;
 		
@@ -1367,7 +1388,7 @@ CreateXMLFileInPListFormat ( QTOCDataFormat10Ptr TOCDataPtr )
 				
 				// Add the dictionary to the array
 				CFArraySetValueAtIndex ( theTrackArrayRef, trackIndex, theTrackRef );
-
+				
 				CFRelease ( theTrackRef );
 				trackIndex++;
 				
@@ -1383,6 +1404,9 @@ nextIteration:
 			// Set the array inside of the dictionary for the session
 			CFDictionarySetValue ( theSessionDictionaryRef, CFSTR ( kTrackArrayString ), theTrackArrayRef );
 			CFArraySetValueAtIndex ( theSessionArrayRef, index, theSessionDictionaryRef );
+			
+			CFRelease ( theSessionDictionaryRef );
+			CFRelease ( theTrackArrayRef );
 			
 		}
 		

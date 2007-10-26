@@ -60,10 +60,18 @@ static char sccsid[] = "@(#)mkglue.c	5.6 (Berkeley) 6/18/88";
 #include "y.tab.h"
 #include <ctype.h>
 
+void dump_mb_handler(FILE *fp, struct idlst *vec, int number);
+void dump_ubavec(FILE *fp, char *vector, int number);
+void dump_std(FILE *fp, FILE *gp);
+void dump_intname(FILE *fp, char *vector, int number);
+void dump_ctrs(FILE *fp);
+void glue(FILE *fp, void (*dump_handler)(FILE *, struct idlst *, int));
+
 /*
  * Create the UNIBUS interrupt vector glue file.
  */
-ubglue()
+void
+ubglue(void)
 {
 	register FILE *fp, *gp;
 	register struct device *dp, *mp;
@@ -127,10 +135,8 @@ static int cntcnt = 0;		/* number of interrupt counters allocated */
 /*
  * Print a UNIBUS interrupt vector.
  */
-dump_ubavec(fp, vector, number)
-	register FILE *fp;
-	char *vector;
-	int number;
+void
+dump_ubavec(FILE *fp, char *vector, int number)
 {
 	char nbuf[80];
 	register char *v = nbuf;
@@ -174,13 +180,13 @@ dump_ubavec(fp, vector, number)
 
 }
 
-static	char *vaxinames[] = {
+static	const char *vaxinames[] = {
 	"clock", "cnr", "cnx", "tur", "tux",
 	"mba0", "mba1", "mba2", "mba3",
 	"uba0", "uba1", "uba2", "uba3"
 };
 static	struct stdintrs {
-	char	**si_names;	/* list of standard interrupt names */
+	const char	**si_names;	/* list of standard interrupt names */
 	int	si_n;		/* number of such names */
 } stdintrs[] = {
 	{ vaxinames, sizeof (vaxinames) / sizeof (vaxinames[0]) },
@@ -192,11 +198,11 @@ static	struct stdintrs {
  * reference the associated counters into a separate
  * file which is prepended to locore.s.
  */
-dump_std(fp, gp)
-	register FILE *fp, *gp;
+void
+dump_std(FILE *fp, FILE *gp)
 {
 	register struct stdintrs *si = &stdintrs[machine-1];
-	register char **cpp;
+	register const char **cpp;
 	register int i;
 
 	fprintf(fp, "\n\t.globl\t_intrnames\n");
@@ -205,7 +211,8 @@ dump_std(fp, gp)
 	fprintf(fp, "_intrnames:\n");
 	cpp = si->si_names;
 	for (i = 0; i < si->si_n; i++) {
-		register char *cp, *tp;
+		const char *cp;
+		char *tp;
 		char buf[80];
 
 		cp = *cpp;
@@ -220,16 +227,14 @@ dump_std(fp, gp)
 			else
 				*tp++ = *cp;
 		*tp = '\0';
-		fprintf(gp, "#define\tI_%s\t%d\n", buf, i*sizeof (long));
+		fprintf(gp, "#define\tI_%s\t%lu\n", buf, i*sizeof (long));
 		fprintf(fp, "\t.asciz\t\"%s\"\n", *cpp);
 		cpp++;
 	}
 }
 
-dump_intname(fp, vector, number)
-	register FILE *fp;
-	char *vector;
-	int number;
+void
+dump_intname(FILE *fp, char *vector, int number)
 {
 	register char *cp = vector;
 
@@ -252,8 +257,8 @@ dump_intname(fp, vector, number)
 /*
  * Reserve space for the interrupt counters.
  */
-dump_ctrs(fp)
-	register FILE *fp;
+void
+dump_ctrs(FILE *fp)
 {
 	struct stdintrs *si = &stdintrs[machine-1];
 
@@ -276,19 +281,18 @@ dump_ctrs(fp)
 /*
  * print an interrupt handler for mainbus
  */
-dump_mb_handler(fp, vec, number)
-	register FILE *fp;
-	register struct idlst *vec;
-	int number;
+void
+dump_mb_handler(FILE *fp, struct idlst *vec, int number)
 {
 	fprintf(fp, "\tVECINTR(_X%s%d, _%s, _V%s%d)\n",
 		vec->id, number, vec->id, vec->id, number);
 }
 
-mbglue()
+void
+mbglue(void)
 {
 	register FILE *fp;
-	char *name = "mbglue.s";
+	const char *name = "mbglue.s";
 
 	fp = fopen(path(name), "w");
 	if (fp == 0) {
@@ -300,9 +304,8 @@ mbglue()
 	(void) fclose(fp);
 }
 
-glue(fp, dump_handler)
-	register FILE *fp;
-	register int (*dump_handler)();
+void
+glue(FILE *fp, void (*dump_handler)(FILE *, struct idlst *, int))
 {
 	register struct device *dp, *mp;
 

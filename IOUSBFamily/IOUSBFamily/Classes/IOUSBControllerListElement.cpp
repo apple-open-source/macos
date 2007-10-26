@@ -26,6 +26,19 @@
 #include <IOKit/usb/IOUSBControllerListElement.h>
 #include <IOKit/usb/IOUSBLog.h>
 
+#define IOUSBCONTROLLERLISTELEMENT_USE_KPRINTF 0
+
+// Convert USBLog to use kprintf debugging
+// The switch is in the header file, but the work is done here because the header is included by the companion controllers
+#if IOUSBCONTROLLERLISTELEMENT_USE_KPRINTF
+#undef USBLog
+#undef USBError
+void kprintf(const char *format, ...)
+__attribute__((format(printf, 1, 2)));
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= IOUSBCONTROLLERLISTELEMENT_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+#endif
+
 #define super OSObject
 // -----------------------------------------------------------------
 //		IOUSBControllerListElement
@@ -62,6 +75,7 @@ IOUSBControllerIsochListElement::print(int level)
     USBLog(level, "IOUSBControllerIsochListElement::print - completion[%p, %p, %p]", _completion.action, _completion.target, _completion.parameter);
     USBLog(level, "IOUSBControllerIsochListElement::print - _lowLatency[%s]", _lowLatency ? "true" : "false");
     USBLog(level, "IOUSBControllerIsochListElement::print - frameNumber[%Ld]", _frameNumber);
+    USBLog(level, "IOUSBControllerIsochListElement::print - frameIndex[%ld]", _frameIndex);
 }
 
 

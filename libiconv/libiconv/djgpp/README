@@ -1,4 +1,4 @@
-This is a port of GNU Libiconv 1.8 to MSDOS/DJGPP.
+This is a port of GNU Libiconv 1.11 to MSDOS/DJGPP.
 
 1.:     DJGPP specific changes.
         =======================
@@ -14,9 +14,9 @@ This is a port of GNU Libiconv 1.8 to MSDOS/DJGPP.
 2.1.:   Copy the binary distribution into the top DJGPP installation
         directory and unzip the binary distribution running *ONE* of
         the following commands:
-          unzip32 licv18b.zip      or
-          djtarx licv18b.zip       or
-          pkunzip -d licv18b.zip
+          unzip32 licv111b.zip      or
+          djtarx licv111b.zip       or
+          pkunzip -d licv111b.zip
 
 
 
@@ -41,13 +41,13 @@ This is a port of GNU Libiconv 1.8 to MSDOS/DJGPP.
         Previuos and/or later versions of this packages may do the job as well but
         I have not tested this.
 
-3.2.:   Create a temporary directory and copy the source package: licv18s.zip
+3.2.:   Create a temporary directory and copy the source package: licv111s.zip
         into the temporary directory. If you download the source distribution
         from one of the DJGPP archives, just unzip it preserving the directory
         structure, runnig ONE of the following commands:
-          unzip32 licv18s.zip      or
-          djtarx licv18s.zip       or
-          pkunzip -d licv18s.zip
+          unzip32 licv111s.zip      or
+          djtarx licv111s.zip       or
+          pkunzip -d licv111s.zip
 
         Source distributions downloaded from one of the GNU FTP sites need
         some more work to unpack.  First, you MUST use the `djtar' program to
@@ -97,7 +97,7 @@ This is a port of GNU Libiconv 1.8 to MSDOS/DJGPP.
         To build the programs in a directory other than where the sources are,
         you must add the parameter that specifies the source directory,
         e.g:
-          x:\src\gnu\libiconv.18\djgpp\config x:/src/gnu/libiconv.18
+          x:\src\gnu\libiconv.111\djgpp\config x:/src/gnu/libiconv.111
 
         Lets assume you want to build the binaries in a directory placed on a 
         different drive (z:\build in this case) from where the sources are,
@@ -105,7 +105,7 @@ This is a port of GNU Libiconv 1.8 to MSDOS/DJGPP.
           z:
           md \build
           cd \build
-          x:\src\gnu\libiconv.18\djgpp\config x:/src/gnu/libiconv.18
+          x:\src\gnu\libiconv.111\djgpp\config x:/src/gnu/libiconv.111
 
         You *MUST* use forward slashes to specify the source directory.
         After having configured the package run the folowing commands to create

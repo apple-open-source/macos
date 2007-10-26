@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,7 +51,9 @@
 #include "pthread_internals.h"
 #include <sys/time.h>              /* For struct timespec and getclock(). */
 #include <stdio.h>
-    
+
+#include "plockstat.h"
+        
 extern void _pthread_mutex_remove(pthread_mutex_t *, pthread_t);
 extern int __unix_conforming;
 
@@ -67,7 +69,7 @@ pthread_cond_destroy(pthread_cond_t *cond)
 	int sig = cond->sig;
 
 	/* to provide backwards compat for apps using united condtn vars */
-	if((sig != _PTHREAD_COND_SIG) && (sig !=_PTHREAD_COND_SIG_init))
+	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init) && (sig != _PTHREAD_KERN_COND_SIG))
 		return(EINVAL);
 
 	LOCK(cond->lock);
@@ -76,44 +78,22 @@ pthread_cond_destroy(pthread_cond_t *cond)
 		if (cond->busy == (pthread_mutex_t *)NULL)
 		{
 			cond->sig = _PTHREAD_NO_SIG;
-			ret = ESUCCESS;
+			ret = 0;
 		} else
 			ret = EBUSY;
+	} else if (cond->sig == _PTHREAD_KERN_COND_SIG) {
+			int condid = cond->_pthread_cond_kernid;
+			UNLOCK(cond->lock);
+			if (__pthread_cond_destroy(condid) == -1)
+				return(errno);
+			cond->sig = _PTHREAD_NO_SIG;
+			return(0);
 	} else
 		ret = EINVAL; /* Not an initialized condition variable structure */
 	UNLOCK(cond->lock);
 	return (ret);
 }
 
-/*
- * Initialize a condition variable.  Note: 'attr' is ignored.
- */
-static int       
-_pthread_cond_init(pthread_cond_t *cond,
-		  const pthread_condattr_t *attr)
-{
-	cond->next = (pthread_cond_t *)NULL;
-	cond->prev = (pthread_cond_t *)NULL;
-	cond->busy = (pthread_mutex_t *)NULL;
-	cond->waiters = 0;
-	cond->sigspending = 0;
-	cond->sem = SEMAPHORE_NULL;
-	cond->sig = _PTHREAD_COND_SIG;
-	return (ESUCCESS);
-}
-
-/*
- * Initialize a condition variable.  This is the public interface.
- * We can't trust the lock, so initialize it first before taking
- * it.
- */
-int       
-pthread_cond_init(pthread_cond_t *cond,
-		  const pthread_condattr_t *attr)
-{
-	LOCK_INIT(cond->lock);
-	return (_pthread_cond_init(cond, attr));
-}
 
 /*
  * Signal a condition variable, waking up all threads waiting for it.
@@ -126,7 +106,7 @@ pthread_cond_broadcast(pthread_cond_t *cond)
 	int sig = cond->sig;
 
 	/* to provide backwards compat for apps using united condtn vars */
-	if((sig != _PTHREAD_COND_SIG) && (sig !=_PTHREAD_COND_SIG_init))
+	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init) && (sig != _PTHREAD_KERN_COND_SIG))
 		return(EINVAL);
 
 	LOCK(cond->lock);
@@ -136,8 +116,14 @@ pthread_cond_broadcast(pthread_cond_t *cond)
 
 		if (cond->sig == _PTHREAD_COND_SIG_init)
 		{
-			_pthread_cond_init(cond, NULL);
-			res = ESUCCESS;
+			_pthread_cond_init(cond, NULL, 0);
+			res = 0;
+		} else if (cond->sig == _PTHREAD_KERN_COND_SIG) {
+			int condid = cond->_pthread_cond_kernid;
+			UNLOCK(cond->lock);
+			if (__pthread_cond_broadcast(condid) == -1)
+				return(errno);
+			return(0);
 		} else 
 			res = EINVAL;  /* Not a condition variable */
 		UNLOCK(cond->lock);
@@ -147,7 +133,7 @@ pthread_cond_broadcast(pthread_cond_t *cond)
 	{
 		/* Avoid kernel call since there are no waiters... */
 		UNLOCK(cond->lock);
-		return (ESUCCESS);
+		return (0);
 	}
 	cond->sigspending++;
 	UNLOCK(cond->lock);
@@ -164,7 +150,7 @@ pthread_cond_broadcast(pthread_cond_t *cond)
 	UNLOCK(cond->lock);
 	if (kern_res != KERN_SUCCESS)
 		return (EINVAL);
-	return (ESUCCESS);
+	return (0);
 }
 
 /*
@@ -178,9 +164,9 @@ pthread_cond_signal_thread_np(pthread_cond_t *cond, pthread_t thread)
 	int sig = cond->sig;
 
 	/* to provide backwards compat for apps using united condtn vars */
-	if((sig != _PTHREAD_COND_SIG) && (sig !=_PTHREAD_COND_SIG_init))
-		return(EINVAL);
 
+	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init) && (sig != _PTHREAD_KERN_COND_SIG))
+		return(EINVAL);
 	LOCK(cond->lock);
 	if (cond->sig != _PTHREAD_COND_SIG)
 	{
@@ -188,10 +174,15 @@ pthread_cond_signal_thread_np(pthread_cond_t *cond, pthread_t thread)
 
 		if (cond->sig == _PTHREAD_COND_SIG_init) 
 		{
-			_pthread_cond_init(cond, NULL);
-			ret = ESUCCESS;
-		}
-		else
+			_pthread_cond_init(cond, NULL, 0);
+			ret = 0;
+		} else if (cond->sig == _PTHREAD_KERN_COND_SIG) {
+			int condid = cond->_pthread_cond_kernid;
+			UNLOCK(cond->lock);
+			if (__pthread_cond_signal(condid) == -1)
+				return(errno);
+			return(0);
+		} else 
 			ret = EINVAL; /* Not a condition variable */
 		UNLOCK(cond->lock);
 		return (ret);
@@ -200,7 +191,7 @@ pthread_cond_signal_thread_np(pthread_cond_t *cond, pthread_t thread)
 	{
 		/* Avoid kernel call since there are not enough waiters... */
 		UNLOCK(cond->lock);
-		return (ESUCCESS);
+		return (0);
 	}
 	cond->sigspending++;
 	UNLOCK(cond->lock);
@@ -229,7 +220,7 @@ pthread_cond_signal_thread_np(pthread_cond_t *cond, pthread_t thread)
 	UNLOCK(cond->lock);
 	if (kern_res != KERN_SUCCESS)
 		return (EINVAL);
-	return (ESUCCESS);
+	return (0);
 }
 
 /*
@@ -292,6 +283,18 @@ static void cond_cleanup(void *arg)
 {
     pthread_cond_t *cond = (pthread_cond_t *)arg;
     pthread_mutex_t *mutex;
+// 4597450: begin
+    pthread_t thread = pthread_self();
+	int thcanceled = 0;
+
+	LOCK(thread->lock);
+	thcanceled = (thread->detached & _PTHREAD_WASCANCEL);
+	UNLOCK(thread->lock);
+
+	if (thcanceled == 0)
+		return;
+
+// 4597450: end
     LOCK(cond->lock);
     mutex = cond->busy;
     cond->waiters--;
@@ -300,6 +303,7 @@ static void cond_cleanup(void *arg)
         cond->busy = (pthread_mutex_t *)NULL;
     }
     UNLOCK(cond->lock);
+
     /*
     ** Can't do anything if this fails -- we're on the way out
     */
@@ -310,6 +314,8 @@ static void cond_cleanup(void *arg)
  * Suspend waiting for a condition variable.
  * Note: we have to keep a list of condition variables which are using
  * this same mutex variable so we can detect invalid 'destroy' sequences.
+ * If isconforming < 0, we skip the _pthread_testcancel(), but keep the
+ * remaining conforming behavior..
  */
 __private_extern__ int       
 _pthread_cond_wait(pthread_cond_t *cond, 
@@ -318,26 +324,80 @@ _pthread_cond_wait(pthread_cond_t *cond,
 		   int isRelative,
 		    int isconforming)
 {
-	int res;
+	int res, saved_error;
 	kern_return_t kern_res;
 	int wait_res;
 	pthread_mutex_t *busy;
 	mach_timespec_t then;
 	struct timespec cthen = {0,0};
 	int sig = cond->sig;
+	int msig = mutex->sig;
+extern void _pthread_testcancel(pthread_t thread, int isconforming);
 
 	/* to provide backwards compat for apps using united condtn vars */
-	if((sig != _PTHREAD_COND_SIG) && (sig !=_PTHREAD_COND_SIG_init))
+	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init) && (sig != _PTHREAD_KERN_COND_SIG))
 		return(EINVAL);
+
+	if (isconforming) {
+		if((msig != _PTHREAD_MUTEX_SIG) && (msig != _PTHREAD_MUTEX_SIG_init) && (msig != _PTHREAD_KERN_MUTEX_SIG))
+			return(EINVAL);
+		if (isconforming > 0)
+			_pthread_testcancel(pthread_self(), 1);
+	}
 	LOCK(cond->lock);
 	if (cond->sig != _PTHREAD_COND_SIG)
 	{
 		if (cond->sig != _PTHREAD_COND_SIG_init)
 		{
-			UNLOCK(cond->lock);
-			return (EINVAL);        /* Not a condition variable */
+			if ((cond->sig == _PTHREAD_KERN_COND_SIG) && (mutex->sig == _PTHREAD_KERN_MUTEX_SIG)) {
+				int condid = cond->_pthread_cond_kernid;
+				int mutexid = mutex->_pthread_mutex_kernid;
+				UNLOCK(cond->lock);
+
+		if (abstime) {
+                	struct timespec now;
+                	struct timeval tv;
+                	gettimeofday(&tv, NULL);
+                	TIMEVAL_TO_TIMESPEC(&tv, &now);
+
+                	/* Compute relative time to sleep */
+                	then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
+                	then.tv_sec = abstime->tv_sec - now.tv_sec;
+                	if (then.tv_nsec < 0)
+                	{
+                    	then.tv_nsec += NSEC_PER_SEC;
+                    	then.tv_sec--;
+                	}
+                	if (((int)then.tv_sec < 0) ||
+                    	((then.tv_sec == 0) && (then.tv_nsec == 0)))
+                	{
+                    	UNLOCK(cond->lock);
+                    	return ETIMEDOUT;
+                	}
+			if ((res = pthread_mutex_unlock(mutex)) != 0)
+				return (res);
+
+			if ((__pthread_cond_timedwait(condid, mutexid, &then)) == -1)
+				saved_error = errno;
+			else
+				saved_error = 0;
+		} else {
+			if ((res = pthread_mutex_unlock(mutex)) != 0)
+				return (res);
+			if(( __pthread_cond_wait(condid, mutexid)) == -1)
+				saved_error = errno;
+			else
+				saved_error = 0;
 		}
-		_pthread_cond_init(cond, NULL);
+		if ((res = pthread_mutex_lock(mutex)) != 0)
+			return (res);
+		return(saved_error);
+			} else {
+				UNLOCK(cond->lock);
+				return (EINVAL);        /* Not a condition variable */
+			}
+		}
+		_pthread_cond_init(cond, NULL, 0);
 	}
 
 	if (abstime) {
@@ -372,6 +432,36 @@ _pthread_cond_wait(pthread_cond_t *cond,
 				return EINVAL;
 			}
 		} else {
+			if (isRelative == 0) {
+				/* preflight the checks for failures */
+				struct timespec now;
+				struct timeval tv;
+				gettimeofday(&tv, NULL);
+				TIMEVAL_TO_TIMESPEC(&tv, &now);
+
+				/* Compute relative time to sleep */
+				then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
+				then.tv_sec = abstime->tv_sec - now.tv_sec;
+				if (then.tv_nsec < 0)
+				{
+					then.tv_nsec += NSEC_PER_SEC;
+					then.tv_sec--;
+				}
+				if (((int)then.tv_sec < 0) ||
+					((then.tv_sec == 0) && (then.tv_nsec == 0)))
+				{
+					UNLOCK(cond->lock);
+					return ETIMEDOUT;
+				}
+				if (then.tv_nsec >= NSEC_PER_SEC) {
+					UNLOCK(cond->lock);
+					return EINVAL;
+				}
+			}
+			/* we can cleanup this code and pass the calculated time
+			 * to the kernel. But kernel is going to do the same. TILL
+			 * we change the kernel do this anyway
+			 */
 			cthen.tv_sec = abstime->tv_sec;
             cthen.tv_nsec = abstime->tv_nsec;
             if ((cthen.tv_sec < 0) || (cthen.tv_nsec < 0)) {
@@ -405,6 +495,8 @@ _pthread_cond_wait(pthread_cond_t *cond,
 	LOCK(mutex->lock);
 	if (--mutex->lock_count == 0)
 	{
+		PLOCKSTAT_MUTEX_RELEASE(mutex, (mutex->type == PTHREAD_MUTEX_RECURSIVE)? 1:0);
+
 		if (mutex->sem == SEMAPHORE_NULL)
 			mutex->sem = new_sem_from_pool();
 		mutex->owner = _PTHREAD_MUTEX_OWNER_SWITCHING;
@@ -423,6 +515,7 @@ _pthread_cond_wait(pthread_cond_t *cond,
             pthread_cleanup_pop(0);
 		}
 	} else {
+		PLOCKSTAT_MUTEX_RELEASE(mutex, (mutex->type == PTHREAD_MUTEX_RECURSIVE)? 1:0);
 		UNLOCK(mutex->lock);
 		if (!isconforming) {
 			if (abstime) {
@@ -447,13 +540,13 @@ _pthread_cond_wait(pthread_cond_t *cond,
 		cond->busy = (pthread_mutex_t *)NULL;
 	}
 	UNLOCK(cond->lock);
-	if ((res = pthread_mutex_lock(mutex)) != ESUCCESS)
+	if ((res = pthread_mutex_lock(mutex)) != 0)
 		return (res);
 
 	if (!isconforming) {
 		/* KERN_ABORTED can be treated as a spurious wakeup */
 		if ((kern_res == KERN_SUCCESS) || (kern_res == KERN_ABORTED))
-			return (ESUCCESS);
+			return (0);
 		else if (kern_res == KERN_OPERATION_TIMED_OUT)
 			return (ETIMEDOUT);
 		return (EINVAL);
@@ -486,14 +579,15 @@ int
 pthread_condattr_init(pthread_condattr_t *attr)
 {
         attr->sig = _PTHREAD_COND_ATTR_SIG;
-        return (ESUCCESS);
+        attr->pshared = _PTHREAD_DEFAULT_PSHARED;
+        return (0);
 }
 
 int       
 pthread_condattr_destroy(pthread_condattr_t *attr)
 {
         attr->sig = _PTHREAD_NO_SIG;  /* Uninitialized */
-        return (ESUCCESS);
+        return (0);
 }
 
 int
@@ -502,24 +596,70 @@ pthread_condattr_getpshared(const pthread_condattr_t *attr,
 {
         if (attr->sig == _PTHREAD_COND_ATTR_SIG)
         {
-                *pshared = (int)PTHREAD_PROCESS_PRIVATE;
-                return (ESUCCESS);
+                *pshared = (int)attr->pshared;
+                return (0);
         } else
         {
                 return (EINVAL); /* Not an initialized 'attribute' structure */
         }
 }
 
+#ifdef PR_5243343
+/* 5243343 - temporary hack to detect if we are running the conformance test */
+extern int PR_5243343_flag;
+#endif /* PR_5243343 */
 
+__private_extern__ int       
+_pthread_cond_init(pthread_cond_t *cond,
+		  const pthread_condattr_t *attr,
+		  int conforming)
+{
+	cond->next = (pthread_cond_t *)NULL;
+	cond->prev = (pthread_cond_t *)NULL;
+	cond->busy = (pthread_mutex_t *)NULL;
+	cond->waiters = 0;
+	cond->sigspending = 0;
+	if (conforming) {
+		if (attr) {
+			cond->pshared = attr->pshared;
+			if (cond->pshared == PTHREAD_PROCESS_SHARED) {
+				cond->sem = SEMAPHORE_NULL;
+				cond->sig = 0;
+				if( __pthread_cond_init(cond, attr) == -1)
+					return(errno);
+				cond->sig = _PTHREAD_KERN_COND_SIG;
+				return(0);
+			}
+		}
+		else
+			cond->pshared = _PTHREAD_DEFAULT_PSHARED;
+	} else
+		cond->pshared = _PTHREAD_DEFAULT_PSHARED;
+	cond->sem = SEMAPHORE_NULL;
+	cond->sig = _PTHREAD_COND_SIG;
+	return (0);
+}
+
+
+/* temp home till pshared is fixed correctly */
 int
 pthread_condattr_setpshared(pthread_condattr_t * attr, int pshared)
 {
+
         if (attr->sig == _PTHREAD_COND_ATTR_SIG)
         {
+#if __DARWIN_UNIX03
+#ifdef PR_5243343
+                if (( pshared == PTHREAD_PROCESS_PRIVATE) || (pshared == PTHREAD_PROCESS_SHARED && PR_5243343_flag))
+#else /* !PR_5243343 */
+                if (( pshared == PTHREAD_PROCESS_PRIVATE) || (pshared == PTHREAD_PROCESS_SHARED))
+#endif /* PR_5243343 */
+#else /* __DARWIN_UNIX03 */
                 if ( pshared == PTHREAD_PROCESS_PRIVATE)
+#endif /* __DARWIN_UNIX03 */
                 {
-			/* attr->pshared = pshared */
-                        return (ESUCCESS);
+						attr->pshared = pshared;
+                        return (0);
                 } else
                 {
                         return (EINVAL); /* Invalid parameter */
@@ -531,6 +671,7 @@ pthread_condattr_setpshared(pthread_condattr_t * attr, int pshared)
 
 }
 
+
 #else /* !BUILDING_VARIANT */
 extern int _pthread_cond_wait(pthread_cond_t *cond, 
 			pthread_mutex_t *mutex,
@@ -538,40 +679,46 @@ extern int _pthread_cond_wait(pthread_cond_t *cond,
 			int isRelative,
 			int isconforming);
 
+extern int 
+_pthread_cond_init(pthread_cond_t *cond,
+		  const pthread_condattr_t *attr,
+		  int conforming);
+
 #endif /* !BUILDING_VARIANT ] */
+/*
+ * Initialize a condition variable.  Note: 'attr' is ignored.
+ */
 
+/*
+ * Initialize a condition variable.  This is the public interface.
+ * We can't trust the lock, so initialize it first before taking
+ * it.
+ */
 int       
-pthread_cond_wait(pthread_cond_t *cond, 
-		  pthread_mutex_t *mutex)
+pthread_cond_init(pthread_cond_t *cond,
+		  const pthread_condattr_t *attr)
 {
 	int conforming;
+
 #if __DARWIN_UNIX03
-
-	if (__unix_conforming == 0)
-		__unix_conforming = 1;
-
-	conforming = 1;
-#else /* __DARWIN_UNIX03 */
-	conforming = 0;
-#endif /* __DARWIN_UNIX03 */
-	return (_pthread_cond_wait(cond, mutex, (struct timespec *)NULL, 0, conforming));
-}
-
-int       
-pthread_cond_timedwait(pthread_cond_t *cond, 
-		       pthread_mutex_t *mutex,
-		       const struct timespec *abstime)
-{
-	int conforming;
-#if __DARWIN_UNIX03
-	if (__unix_conforming == 0)
-		__unix_conforming = 1;
-
         conforming = 1;
 #else /* __DARWIN_UNIX03 */
         conforming = 0;
 #endif /* __DARWIN_UNIX03 */
 
-	return (_pthread_cond_wait(cond, mutex, abstime, 0, conforming));
+
+	LOCK_INIT(cond->lock);
+	return (_pthread_cond_init(cond, attr, conforming));
 }
 
+/*
+int       
+pthread_cond_wait(pthread_cond_t *cond, 
+		  pthread_mutex_t *mutex)
+
+int       
+pthread_cond_timedwait(pthread_cond_t *cond, 
+		       pthread_mutex_t *mutex,
+		       const struct timespec *abstime)
+
+moved to pthread_cancelable.c */

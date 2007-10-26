@@ -1,22 +1,4143 @@
+2007-10-01  Caroline Tice  (ctice@apple.com)
+
+	* inlining.c (add_item_to_inlined_subroutine):  Move code that updates
+	max_array_size fields  to right after the re-sizing code.
+
+2007-09-28  Jason Molenda  (jmolenda@apple.com)
+
+	* symfile.h: Add prototype for 
+	symbol_file_add_with_addrs_or_offsets_using_objfile.
+
+2007-09-28  Caroline Tice  (ctice@apple.com)
+
+	* inlining.c (add_item_to_inlined_subroutine_stack):  Fix off-by-one
+	error when deciding whether or not to re-alloc the records array.
+
+2007-09-14  Caroline Tice  (ctice@apple.com)
+
+	* inlining.c (add_item_to_inlined_subroutine_stack):  Check to see if
+	new item belongs at very bottom of stack & put it there if so; make
+	sure function name fields always contain a string (a dummy string if 
+	not the proper function names).
+
+2007-09-12  Jim Ingham (jingham@apple.com)
+
+	* varobj.c (get_join_type): Follow possibly typedef'ed type to
+	actual type before processing it.
+
+2007-09-12  Jason Molenda  (jmolenda@apple.com)
+
+        * symfile.c (add_symbol_file_command): If the symbol file is a dSYM
+        bundle, redirect to add-dsym.
+
+2007-09-12  Caroline Tice  <ctice@apple.com>
+
+        * inlining.c (at_inlined_call_site_p):  Remove code that attempted
+	to detect when the first line the inferior stopped at, in an inlined
+	subroutine, is beyond the official start of the inlined subroutine.
+
+2007-09-08  Caroline Tice  <ctice@apple.com>
+
+        * inlining.c (inlined_function_add_function_names):  Instead of
+	sharing the ranges pointer, malloc new ranges records for the rb tree
+	and copy the ranges contents into the new records.
+
+2007-09-07  Caroline Tice  <ctice@apple.com>
+
+        * dwarf2read.c (read_inlined_subroutine_scope): Remove code that
+	used DWARF lexical blocks to find address ranges of inlined
+	subroutines.
+
+2007-09-04  Caroline Tice  <ctice@apple.com>
+
+        * inlining.c (update_inlined_data_addresses): Change type of offset
+	from 'int' to 'CORE_ADDR'.
+	(inlined_subroutine_objfile_relocate): Change type of offset from
+	'int' to 'CORE_ADDR'.
+
+2007-08-31  Caroline Tice  <ctice@apple.com>
+
+        * symtab.c (find_pc_sect_line): Free temp_list and re-initialize
+          inlined_entries_found if temp_list->pc does not match best->pc
+          or prev->pc; only allow 'prev' to be a non-NORMAL entry if
+          prev->pc exactly matches the search pc, otherwise assign prev to
+          the first NORMAL entry preceding it in the line table; initialize
+          final_val to zeros & warn if does not get updated later.
+
+2007-08-31  Jim Ingham  <jingham@apple.com>
+
+	* infcmd.c (step_once): Catch the error in find_function_start_sal and
+	turn it into a more helpful error message.
+	
+2007-08-24  Caroline Tice  <ctice@apple.com>
+
+	* symtab.c (find_pc_sect_line): Remove check that forced prev to be
+	a NORMAL_LT_ENTRY before assigning to 'best'; allow change '>'
+	to '>=' when comparing prev->pc to best->pc, when finding the NORMAL
+	entry to assign to best from a list of entries with identical pc's.
+
+2007-08-17  Caroline Tice  <ctice@apple.com>
+
+	* infcmd.c (step_once) Make sure 
+	current_inlined_subroutine_function_name () is not null before
+	attempting to do a lookup_symbol on it.
+
+
+2007-08-17  Caroline Tice  <ctice@apple.com>
+
+	* dwarf2read.c (check_inlined_function_calls) Determine current
+	objfile and pass it to calls to inlined_function_add_function_names.
+	* inlining.c (function_name_records): Remove global variable.
+	(inlined_function_address_ranges_properly_contained): Remove all_fit 
+	from for-condition; change < to <= when comparing start addresses.
+	(find_function_names_and_address_ranges):  Add new parameter, objfile;
+	use objfile->inlined_subroutine_data to lookup up function name 
+	records.
+	(add_item_to_inlined_subroutine_stack):  Make sure there is a 
+	symbol table, get the objfile from the symbol table, and pass the
+	objfile to find_function_names_and_address_ranges.
+	(update_function_names_and_address_ranges): Delete function.
+	(tree_fix_up_inlined_function_line_table_entries): Delete function.
+	(fix_up_inlined_function_line_table_entries): Delete function.
+	(inlined_function_add_function_names):  Add new parameter, objfile;
+	look up for existing records in objfile->inlined_subroutine_data;
+	add new records to objfile->inlined_subroutine_data.
+	(check_for_additional_inlined_breakpoint_locations): Now that each
+	objfile has its own inlined data, search through all the inlined
+	data of all the objfiles for name matches, for setting breakpoints.
+	(inlined_subroutine_free_objfile_data): New function.
+	(update_inlined_data_addresses): New function.
+	(inlined_subroutine_objfile_relocate): New function.
+	* inlining.h (inlined_function_add_function_names):  Add objfile 
+	parameter to extern declaration.
+	(inlined_subroutine_free_objfile_data): New extern declaration.
+	(inlined_subroutine_objfile_relocate): New extern declaration.
+	* objfiles.c (free_objfile_internal):  Add call to 
+	inlined_subroutine_free_objfile_data & make sure the 
+	inlined_subroutine_data field is free'd.
+	(objfile_relocate):  Add call to inlined_subroutine_objfile_relocate.
+	* objfiles.h (inlining.h) New include statement.
+	(struct objfile):  Add new field, inlined_subroutine_data.
+
+2007-08-07  Jason Molenda  (jmolenda@apple.com)
+
+	* inlining.c (in_inlined_function_call_p): Don't examine call stack
+	records that we haven't stepped into, instead of recording them and
+	then trying to elide them after the fact.
+
+2007-08-07  Jim Ingham  <jingham@apple.com>
+
+	* objc-lang.c (find_implementation_from_class): Abort the method
+	lookup after objc_class_method_limit lookups.
+	(_initialize_objc_language): Add set command for 
+	objc_class_method_limit.
+	
+2007-08-03  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2expr.c (execute_stack_op): Detect and work around bogus
+	expression emitted by gcc-4.0.
+
+2007-08-01  Jason Molenda  (jmolenda@apple.com)
+
+        * rs6000-tdep.c (rs6000_stab_reg_to_regnum): Recognize and map
+        gcc 4.0's incorrect register numbering for AltiVec regs when 
+        unambiguous.
+
+2007-08-01  Jim Ingham  <jingham@apple.com>
+
+	* objfiles.c (objfile_relocate): Relocate the new "end_pc"
+	field in the linetable_items.
+	
+2007-07-30  Greg Clayton  <gclayton@apple.com>
+
+	* dbxread.c (dbx_symfile_read): Handle in memory shared cache symbol
+	table reading.
+	* objfiles.c (objfile_section_offset): Handle in memory shared cache
+	section offsets correctly.
+
+2007-07-31  Jim Ingham  <jingham@apple.com>
+
+	* varobj.c (varobj_create): Suppress the warning when trying
+	to make a varobj from a type.
+	
+	* linespec.c (minsyms_found): Use the correct index when
+	adding equivalence elements to the "canonical" array.
+	
+	* breakpoint.c (do_enable_breakpoint): Change the bp_set_state
+	when the breakpoint gets enabled.
+	
+2007-07-27  Jim Ingham (jingham@apple.com)
+
+	* breakpoint.c (remove_breakpoints): If we can't remove a breakpoint,
+	issue a warning and continue to remove the other breakpoints.
+	(tell_breakpoints_objfile_changed): Renamed to 
+	tell_breakpoints_objfile_changed_internal, generalized to allow removed
+	breakpoints to be marked as pending.
+	(tell_breakpoints_objfile_changed): Old behavior.
+	(tell_breakpoints_objfile_removed): New behavior - mark removed 
+	breakpoints as pending.
+	* breakpoint.h (tell_breakpoints_objfile_removed): Prototype.
+
+2007-07-27  Caroline Tice  <ctice@apple.com>
+
+        * infcmd.c (step_once): Add some tests to make sure stepping ranges is
+	only set if stop_pc is actually in an inlined function; remove an
+	assert that I discovered is not necessarily going to be true.
+
+2007-07-25  Jim Ingham (jingham@apple.com)
+
+        * varobj.c (enum varobj_join_type): New enumeration to track how
+        to build varobj paths between parents/children.
+        (struct varobj): Add join_in_expr, elide_in_expr fields.
+        (get_join_type): New func; logic from c_path_expr_of_child.
+        (varobj_create): Initialize the join_in_expr field.
+        (create_child): Set up the join_in_expr/elide_in_expr fields.
+        (new_variable): Initialize new fields.
+        (path_expr_of_variable): Use new fields.
+        (c_path_expr_of_child): Ditto.
+        (cplus_path_expr_of_child): Ditto.
+
+2007-07-25  Jason Molenda  (jmolenda@apple.com)
+
+        * i386-tdep.c (i386_frame_this_id): If saved PC value for
+        the frame we're creating an id for is 0x0 and it's not
+        the 0th frame, we're past the end of the stack.
+        * amd64-tdep.c (amd64_frame_this_id): Ditto.
+
+2007-07-17  Jason Molenda  (jmolenda@apple.com), Jim Ingham (jingham@apple.com)
+
+	* dwarf2read.c (read_structure_type): In C++/ObjC++ translation units,
+	try to determine if a class is an ObjC class or a C++ class and mark
+	the results.
+	* gdbtypes.h (enum runtime_type): New.
+	(struct cplus_struct_type): New runtime_type field.
+	* objc-exp.y: If in a C++/ObjC++ file and class is marked as being
+	a C++ class, pus OP_THIS instead of OP_OBJC_SELF so we get the
+	correct "this" vs. "self" name when we evaluate the expression.
+
+2007-07-17  Caroline Tice  <ctice@apple.com>
+
+	* dwarf2loc.c (print_single_dwarf_location):  Make sure results of
+	SLEB 128 tranlations are written out as signed ints.
+
+2007-07-10  Jim Ingham  <jingham@apple.com>
+
+	* buildsym.c (finish_block): Expand the global block if one of
+	the pending functions is outside its range rather than the other
+	way round.
+	
+2007-07-10  Caroline Tice  <ctice@apple.com>
+
+        * inlining.c (inlined_function_add_function_names):  Fix function 
+	comments.  Also allow for nested inlined functions with completely 
+	overlapping addresses (i.e. same start & end pc, but different
+	call sites).
+
+2007-07-10  Caroline Tice  <ctice@apple.com>
+
+        * inlining.c (inlined_function_add_function_names):  Fix function 
+	comments.
+
+2007-07-09  Caroline Tice  <ctice@apple.com>
+
+        * dwarf2read.c (enum rb_tree_colors): Remove definition; move it to
+        inlining.h
+        (struct rb_tree_node): Remove definition; move it to inlining.h
+        (rb_tree_find_node):  Remove static declaration; remove 'static' from
+        function definition.
+        (rb_tree_insert): Likewise.
+        (rb_tree_find_node_all_keys): New function.
+        * inlining.c (struct record_list): Make 'record' field a pointer.
+        (function_name_records):  Change type of global data structure from
+        linked list of record_list structs to red-black tree.
+        (rb_tree_find_next_node): New function.
+        (add_to_list): New function.
+        (search_tree_for_name): New function.
+        (find_function_names_and_address_ranges):  Modify to use red-black
+        tree functions to find correct records.
+        (update_function_names_and_address_ranges):  Likewise.
+        (tree_fix_up_inlined_function_line_table_entries): New function.
+        (fix_up_inlined_function_line_table_entries):  Call new recursive
+        function, tree_fix_up_inlined_function_line_table_entries, to
+        traverse the red-black tree fixing up each record.
+        (inlined_function_add_function_names):  Store and look up data in
+        red-black tree rather than linked list.
+        (check_for_additional_inlined_breakpoint_locations):  Use tree
+        functions to look up function names in red-black tree instead of in
+        linked list.
+        * inlining.h (enum rb_tree_colors):  Definition moved here from
+        dwarf2read.c
+        (struct rb_tree_node): Definition moved here from dwarf2read.c
+        (rb_tree_find_node): Add extern function declaration.
+        (rb_tree_find_node_all_keys):  Add extern function declaration.
+        (rb_tree_insert):  Add extern function declaration.
+
+2007-07-06  Caroline Tice  <ctice@apple.com
+
+	* dwarf2read.c (_initialize_dwarf2_read):   Change set-show variable from
+	debug_inlined_stepping to inlined-stepping, and add it to the debug
+	set/show list rather than to the global set/show list.  Also, change
+	the global set/show variable from inlined_stepping to inlined-stepping, to
+	be more consistent with gdb standards.
+
+2007-07-05  Caroline Tice  <ctice@apple.com>
+
+	* dwarf2read.c (dwarf2_debug_inlined_stepping):   New global variable.
+	(_initialize_dwarf2_read): Add new set-show variable, 
+	debug_inlined_stepping, which controls the new global variable 
+	dwarf2_debug_inlined_stepping.
+	(rb_tree_remove_node):  Condition the calls to verify_rb_tree, inside
+	gdb_assert statements, on dwarf2_debug_inlined_stepping.
+	* inlining.h (dwarf2_debug_inlined_stepping): Add extern declaration 
+	for new global variable.
+
+
+2007-07-02  Jim Ingham  <jingham@apple.com>
+
+	* linespec.c (decode_objc): Don't throw away section info when you
+	do find_pc_function.
+	
+2007-06-29  Jason Molenda  (jmolenda@apple.com)
+
+	* amd64-tdep.c (amd64_register_type): Initialize amd64_sse_type here
+	if it hasn't been already.  Use the build_builtin_type_vec128i_big
+	function from i386-tdep.c.
+	(swapped_regcache_raw_write_part, swapped_regcache_raw_read_part): New
+	functions to switch the registers from the user's view of the bytes
+	to the machine byte order for ABI purposes.
+	(amd64_return_value): Use the new byte swapping calls when accessing
+	the XMM regs.
+	(amd64_push_arguments): Ditto.
+	* i386-tdep.c (init_vector_type, build_builtin_type_vec128i_big): Move
+	from here...
+	* i386-amd64-shared-tdep.c (init_vector_type, 
+	build_builtin_type_vec128i_big): To here.
+	* i386-amd64-shared-tdep.h (build_builtin_type_vec128i_big): Prototype.
+
+2007-06-28  Jason Molenda  (jmolenda@apple.com)
+
+	* symfile.c (check_bfd_for_matching_uuid): Fix "exec_bfd" vs "exec_bfd"
+	confusion.
+
+2007-06-26  Jim Ingham  <jingham@apple.com>
+
+	* infcall.c (hand_function_call): Report the type of the function
+	call's return value as the type the function is defined to have.
+	
+2007-06-25  Caroline Tice  <ctice@apple.com>
+
+        * inlining.c (print_inlined_frame):  Make sure sal has a symtab before
+        attempting to print the symtab->filename; otherwise get it from the
+        inlined call stack record.
+
+2007-06-25  Caroline Tice  <ctice@apple.com>
+
+	* breakpoint.c (set_raw_breakpoint): Initialize new field, 
+	bp_objfile_name.
+	(delete_breakpoint): Free new field, bp_objfile_name.
+	(breakpoint_re_set_one):  If bp_objfile_name is set, use that to narrow
+	the search as to where to re-set the breakpoint.
+	(tell_breakpoint_objfile_changed):  Set bp_objfile_name before setting 
+	bp_objfile to NULL.
+	* breakpoint.h (struct breakpoint): Add new field, bp_objfile_name.
+	* minsyms.c (lookup_minimal_symbol_all):  Don't stop looping as soon 
+	as a symbol is found; loop through all objfiles no matter what.
+	* objfiles.c (find_objfile_by_name):  New function.
+	(make_cleanup_restrict_to_objfile_by_name): New function.
+	* objfiles.h (make_cleanup_restrict_to_objfile_by_name): Externally 
+	visible declaration of new function.
+
+2007-06-22  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2loc.c (find_location_expression): Add in the base_offset
+	(the slide of the dylib, if any) correctly.
+	(loclist_describe_location): Ditto.
+
+2007-06-22  Greg Clayton	<gclayton@apple.com>
+
+	* dwarf2read.c (dwarf_decode_lines): Deal with missing end
+	sequence without crashing.
+
+2007-06-22  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (set_cu_language): Recognize DW_LANG_Pascal83.
+	Patch from Jonas Maebe.
+
+2007-06-22  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2loc.c (loclist_describe_location): Reorder the printing
+	a bit so the address ranges are primary and the locations are
+	secondary.
+
+2007-06-22  Jason Molenda  (jmolenda@apple.com)
+
+        * dwarf2read.c (struct comp_unit_head): Rename 'base_address'
+        to 'base_address_untranslated' to make its value clear.
+        (free_address_map): Remove.
+        (process_full_comp_unit): Don't translate the compile unit
+        start addr.
+        (dwarf2_get_pc_bounds): Return the lowest & highest addresses
+        seen when parsing a DW_AT_ranges list instead of returning
+        the low/high value of the first element in the range list.
+        Update to use an untranslated compile_unit base address.
+        (dwarf2_symbol_mark_computed): Update the base_address variable
+        names.
+        * dwarf2loc.h (struct dwarf2_loclist_baton): Rename 'base_address'
+        to 'base_address_untranslated' to make its value clear.
+        * dwarf2loc.c (find_location_expression): Change the address
+        computations to take into account the compile_unit's base address 
+        value being an untranslated address for non-dSYM uses.
+        (print_single_dwarf_location): Ditto.  Clean up printings to not leak
+        memory and work correctly for 64-bit values.
+        (dwarf_expr_read_reg): Remove unused variables.
+        (loclist_describe_location): Mirror updates to find_location_expression
+        to keep these two routines in sync.
+
+2007-06-22  Jim Ingham  <jingham@apple.com>
+
+	* infcall.c (get_hand_call_ptid, do_reset_hand_call_ptid):
+	New functions.
+	(hand_function_call): Set the hand_call_ptid.
+	* infrun.c (struct inferior_status): Add a field for the
+	stored inferior_ptid.
+	(save_inferior_status): Save off same.
+	(restore_inferior_status): Restore same.
+	
+2007-06-21  Greg Clayton  <gclayton@apple.com>
+
+	* configure.ac: Link test for HAVE_64_BIT_STACK_LOGGING
+	 and HAVE_32_BIT_STACK_LOGGING.
+	* config.in, configure: Regenerated.
+
+2007-06-19  Greg Clayton  <gclayton@apple.com>
+
+	* dbxread.c (dbx_psymtab_to_symtab_1): Emit warning instead
+	of error when we can't open OSO.
+	* symtab.c (find_pc_sect_symtab): Only warn about pc being in
+	psymtab yet not in symtab when we do not have an OSO.
+
+2007-06-18  Jim Ingham  <jingham@apple.com>
+
+	* (symfile.c) find_separate_debug_file: Add an override so we can 
+	slip the objfile adding code a dSYM file behind our own backs.
+	(add_dsym_command): New function.
+	(_initialize_symfile): Register add-dsym command.
+	
+2007-06-18  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (record_minimal_symbol): Don't assume that static symbol
+	names are at least eight chars long.
+
+2007-06-07  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (create_kext_addr_map): Initialize new address
+	map structure's values.
+	(dwarf2_kext_psymtab_to_symtab): Don't free address map.  We'll
+	use it to translate location expression addresses on-demand later on.
+
+2006-06-07  Caroline Tice  <ctice@apple.com>
+
+        * gdbthread.h (struct thread_info): New field, stepping_ranges.
+        (save_infrun_state): New parameter, stepping_ranges.
+        (load_infrun_state): New parameter, stepping_ranges.
+        * infcmd.c (finishing_inlined_subroutine):  New global variable.
+        (stepping_ranges): New global variable.
+        (step_once):  Remove some unused variables; initialize stepping_ranges
+        when stepping over an inlined subroutine.
+        (finish_inlined_subroutine_command_continuation): New function.
+        (finish_inlined_subroutine_command): New function.
+        (finish_command):  Remove the old code that was added for finishing
+        out of inlined subroutines; make it call 
+        finish_inlined_subroutine_command instead.
+        (registers_info): Comment out unsed variables, to eliminate warning.
+        * infrun.c (follow_exec): Initialize finishing_inlined_subroutine and
+        stepping_ranges; add comments.
+        (clear_proceed_status):  Likewise.
+        (context_switch): Add stepping_ranges as an argument to
+        save_infrun_state and load_infrun_state.
+        (handle_inferior_event): When checking to see if stop_pc is
+        between step_range_start & step_range end, also call 
+        is_within_stepping_ranges, to see if it falls within any of the
+        valid stepping ranges; when checking to see if stop_pc is equal
+        to step_range_end, also call is_at_stepping_ranges_end to see if
+        it is equal to the end of any valid stepping range.
+        (print_stop_reason):  If stopped at end of stepping range, check to
+        see if user was finishing out of inlined subroutine, and if so
+        us EXEC_ASYNC_FUNCTION_FINISHED for reason, rather than
+        EXEC_ASYNC_END_STEPPING_RANGE; also, if finishing out of inlined
+        subroutine, make sure source_flag is SRC_AND_LOC.
+        (struct inferior_status): New field, stepping_ranges.
+        (save_inferior_status):  Save stepping_ranges.
+        (restore_inferior_status): Restore stepping_ranges.
+        * inlining.c (is_within_stepping_ranges): New function.
+        (is_at_stepping_ranges_end): New function.
+        * inlining.h  (stepping_ranges): Declaration for new global variable.
+        (finishing_inlined_subroutine): Likewise.
+        (is_within_stepping_ranges): Extern function declaration.
+        (is_at_stepping_ranges_end): Likewise.
+        * thread.c (load_infrun_state): New parameter, stepping_ranges; load
+        saved value into new parameter.
+        (save_infrun_state): New parameter, stepping_ranges; save the new
+        parameter in the new field.
+
+2007-06-07  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (translate_debug_map_address): Add a check that there
+	are translation entries before we try to translate the address.
+	(translate_common_symbol_debug_map_address): Ditto.
+
+2007-06-07  Jason Molenda  (jmolenda@apple.com)
+
+	* symfile.c (add_kext_command): Warn user if .sym file architecture
+	doesn't match gdb's architecture.
+
+2007-06-06  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (free_address_map): Set freed tuples/final_addr_index
+	to NULL after they have been xfreed.
+	(compare_translation_final_addr): Check the array index passed in to
+	verify that it is within the bounds of the array.  Should always be
+	true.
+	(translate_debug_map_address): Check the returned array index to
+	verify that it is within the bounds of the array.  Should always be
+	true.
+
+2007-06-06  Jason Molenda  (jmolenda@apple.com)
+
+        * dwarf2read.c (compare_map_entries_final_addr_index): Use CORE_ADDRs
+        to store addresses instead of ints.
+
+2007-06-05  Jim Ingham  <jingham@apple.com>
+
+	* linespec.c (decode_line_1): Handle the case where a
+	filename has a parenthesis in it.
+	
+2007-06-04  Jim Ingham  <jingham@apple.com>
+
+	* symtab.c (lookup_symtab_all): Remove unnecessary check for
+	readin.
+
+	* symfile.c (check_for_matching_uuid): Delete in favor of:
+	(check_bfd_for_matching_uuid): New function.
+	(symbol_file_add_with_addrs_or_offsets_using_objfile): Check the
+	bfd's for the matching UUID BEFORE making the objfile.
+	(reread_separate_symbols): Ditto.
+	
+	* inf-loop.c (inferior_event_handler): Switch to TRY_CATCH.  Print
+	an error message if the fetch_inferior_event didn't work.
+	
+2007-06-01  Jason Molenda  (jmolenda@apple.com)
+
+	* objc-lang.c (find_implementation_from_class): Reapply changes.
+
+2007-06-01  Jason Molenda  (jmolenda@apple.com)
+
+	* objc-lang.c (find_implementation_from_class): Revert previous
+	change to isolate Caroline's dwarf2read change for a minute.
+
+2007-05-31  Jason Molenda  (jmolenda@apple.com)
+
+	* objc-lang.c (find_implementation_from_class): Print the
+	class name we're looking up if 'verbose' is enabled.
+
+2007-05-31  Caroline Tice  <ctice@apple.com>
+
+	* dwarf2read.c (new_symbol):  Do not mark a variable as
+	optimized away (LOC_OPTIMIZED_OUT) even if it does not have
+	a location attribute, if it has DW_AT_declaration.
+
+2007-05-23  Caroline Tice  <ctice@apple.com>
+
+	* ax-gdb.c (agent_command): Initialize innermost_block before
+	calling parse_expression.
+	* eval.c (parse_and_eval_address): Move assignments to expr and
+	old_chain out of declarations; initialize innermost_block before
+	calling parse_expression.
+	(parse_and_eval_address_1): Likewise.
+	(parse_ande_eval_long): Likewise. 
+	(parse_and_eval): Likewise.
+	(parse_to_comma_and_eval): Move assignments to expr and old_chain
+	out of declarations. Initialize innermost_block before calling
+	parse_exp_1.
+	(parse_and_eval_type): Initialize innermost_block before calling
+	parse_expression.
+	* objc-lang.c (print_object_command): Move assignments to expr and
+	old_chain out of declarations; initialize innermost_block before
+	calling parse_expression.
+	* printcmd.c (print_command_1): Initialize innermost_block before
+	calling parse_expression.
+	(output_command): Likewise.
+	(set_command):  Move assignments to expr and old_chain out of
+	declarations; initialize innermost_block before calling
+	parse_expression.
+	(x_command): Initialize innermost_block before calling 
+	parse_expression.
+	* typeprint.c (whatis_exp):  Likewise.
+	(ptype_command): Likewise.
+	(maintenance_print_type): Likewise.
+
+2007-05-23  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c: Rename final_addr_indexes to final_addr_index.
+	Use 'int' as the type of the index values instead of uint32_t.
+	(create_kext_addr_map): Create a final_addr_index array.
+	Initialize the pst_filename member as well.
+	* dwarf2read.h: Rename final_addr_indexes to final_addr_index.
+	It is now an array of int instead of uint32_t's.
+
+	* dbxread.c (clear_containing_archive_cache): Comment touchup.
+	* inlining.h: Include frame.h to pick up enum print_what defn.
+
+2007-05-23  Greg Clayton  <gclayton@apple.com>
+
+	* buildsym.c (finish_block): If we have block ranges, fix the 
+	start and end address to be the min and max of the ranges.
+	* objfiles.c (objfile_relocate): Always relocate the block
+	start and end even if we have ranges so they don't get out of
+	date when something is slid.
+
+2007-05-23  Jim Ingham  <jingham@apple.com>
+
+	* objfiles.h: Added a comment.
+	
+2007-05-23  Caroline Tice  <ctice@apple.com>
+
+	* inlining.c (print_inlined_frame): Add check for null function names,
+	to prevent gdb crashing.
+
+2007-05-21  Jim Ingham  <jingham@apple.com>
+
+	* varobj.c (cplus_value_of_variable): References to scalars 
+	should fall through to c_value_of_variable.
+
+2007-05-16  Jim Ingham  <jingham@apple.com>
+
+	* objc-exp.y (yylex): Initialize the "first char" variable.
+	
+2007-05-15  Derek Kumar <drk@apple.com>
+
+	* config/i386/macosx.mh: Add darwin-kernel.o
+	* config/powerpc/macosx.mh: Add darwin-kernel.o
+
+2007-05-14  Jim Ingham  <jingham@apple.com>
+
+	* config/i386/nm-i386-macosx.h: undef the watchpoint functions
+	that were defined in nm-i386.h.  We'll put them in the target
+	vector where they belong later.
+	
+2007-05-14  Jason Molenda  (jmolenda@apple.com)
+
+	* fix-and-continue.c (get_dlerror_message): New function.
+	(get_fixed_file): Call get_dlerror_message to get the error string.
+	(load_fixed_objfile): Switch over to using dlopen to load the bundle.
+
+2007-05-14  Jason Molenda  (jmolenda@apple.com)
+
+	* fix-and-continue.c (get_fixed_file): Correct dlerror() usage.
+	(encode_lo16, encode_hi16, decode_lohi16, updatedatum): ifdef out
+	on non-PPC systems to suppress unused func warnings.
+
+2007-05-11  Jason Molenda  (jmolenda@apple.com)
+
+	* fix-and-continue.c (get_fixed_file): Correct symbol name for dlerror.
+	Check that the dlerror string is 7-bit clean before printing it; it may
+	just contain uninitialized data.
+	(do_final_fix_fixups_static_syms): Make sure the symbol has a type
+	defined before dereferencing it.
+
+2007-05-11  Jason Molenda  (jmolenda@apple.com)
+
+	* fix-and-continue.c (redirect_statics): Use the minimal symbol's
+	address; we may pick up a sym that has been optimized away.
+
+2007-05-11  Jim Ingham  <jingham@apple.com>
+
+	* Makefile.in: Add codesign-gdb rule.
+	
+2007-05-10  Jason Molenda  (jmolenda@apple.com)
+
+	* fix-and-continue.c (get_fixed_file): Try to print out dyld's dlerror
+	string when there is an error loading a bundle.
+	(redirect_statics): Check that both the original and new symbol have
+	an address not equal to zero before redirecting from/to them.
+	(find_and_parse_nonlazy_ptr_sect): Don't assume addresses will map
+	to a section - if we get a bogus address it may map to nothing.
+
+2007-05-10  Jason Molenda  (jmolenda@apple.com)
+
+	* Info.plist: Add the SecTaskAccess key.
+
+2007-05-10  Jason Molenda  (jmolenda@apple.com)
+
+	* fix-and-continue.c (check_restriction_cxx_zerolink): Remove.
+	(do_pre_load_checks): Don't call check_restriction_cxx_zerolink.
+
+2007-05-09  Jim Ingham  <jingham@apple.com>
+
+	* gdbthread.h: Changed a comment on gdb_suspend_count.
+	
+2007-05-07  Caroline Tice  <ctice@apple.com>
+
+	* infrun.c (handle_inferior_event):  Add clause to handle
+	'next'ing over an inlined subroutine, where the step_end_range
+	instruction is hopped over (inferior doesn't stop there), and
+	the stop_pc is actually on the beginning of ANOTHER inlined
+	subroutine.
+	* inlining.c (inlined_function_address_ranges_properly_contained):
+	Fix bad assumption about how inlined subroutine address ranges
+	must fit into calling routine's ranges.
+	* inlining.h (print_inlined_frame): Add extern function declaration.
+	* stack.c (print_frame_info): Add code to fix sal passed to
+	identify_source_line when user is at an inlined subroutine call
+	site and the annotation level is greater than 0.
+	(frame_info): Change type of 'optimized' from int to enum opt_state.
+	(print_frame_label_vars): Fix typo for type of containing_block;
+	add cast to call to 'contained_in', to eliminate warning.
+
+2007-05-07  Jim Ingham  <jingham@apple.com>
+
+	* defs.h: Declare the hand_call_function_hook.
+	* top.c: Define the hand_call_function_hook.
+	* infcall.c (hand_function_call): Call the new hook.
+	
+2007-05-03  Jim Ingham  <jingham@apple.com>
+
+	* infcall.c (hand_function_call): Add symbol name to "Unable to
+	call..." output, and use paddr_nz for the address.
+
+2007-05-01  Caroline Tice  <ctice@apple.com>
+
+	* infcmd.c (step_once): Get inlined stack pos from 
+	at_inlined_call_site_pc; use start_pc of current inlined subroutine
+	to get sal for setting step range when stepping over inlined
+	subroutines.
+	* inlining.h (struct inlined_function_data):  Add new field,
+	last_inlined_pc, to global_inlined_call_stack, to keep track of
+	the last stop_pc that was inside an inlined subroutine.
+	* inlining.c (inlined_function_initialize_call_stack): Initialize
+	new field, last_inlined_pc.
+	(reset_saved_call_stack): Likewise.
+	(inlined_function_reinitialize_call_stack): Likewise.
+	(inlined_function_update_call_stack): Add code to update last_pc and
+	last_inlined_pc fields appropriately;  if stop_pc is the first pc
+	within the current inlined subroutine, set stepped_into for the
+	subroutine to false.
+	(at_inlined_call_site_p):  Modify to return stack position for
+	inlined call site record; also deal with situation where first
+	instruction in the inlined subroutine that the inferior stops at
+	is beyond the first instruction of inlining.
+	(inlined_subroutine_restore_after_dummy_call): Copy new field,
+	last_inlined_pc, appropriately.
+	(inlined_subroutine_save_before_dummy_call): Likewise.
+	* stack.c (print_frame_info): If printing the call site of an
+	inlined subroutine, make sure we use the correct symtab.
+
+2007-04-30  Jim Ingham  <jingham@apple.com>
+
+	* dbxread.c (add_to_containing_archive_cache): Don't use a fixed
+	size cache, since we can't do the right thing with the ones we
+	drop off the end.  Use a growable cache instead.
+
+	* valops.c (do_check_is_thread_unsafe): Moved here from 
+	macosx-nat-inferior.c.
+	(safe_check_is_thread_unsafe): Ditto.
+	(check_safe_call): Ditto.
+	* value.h: Declare check_safe_call.
+
+2007-04-26  Jim Ingham  <jingham@apple.com>
+
+	* c-exp.y (parse_number): Don't return an error if we scanned
+	both the number & the modifier character.
+	* objc-exp.y (parse_number): Sync up with the c-exp.y version,
+	there were inessential differences.
+	(yylex): Replace the number handling portion with the c-exp.y 
+	version.
+	
+2007-04-25  Greg Clayton  <gclayton@apple.com>
+
+	* dwarf2read.c (compare_map_entries_final_addr_indexes): New 
+	function.
+	(convert_oso_map_to_final_map): Initialize and sort final_addr_indexes
+	member of the oso_to_final_addr_map structure.
+	(create_kext_addr_map): Use safer objfile_text_section_offset function
+	in place of ANOFFSET macro.
+	(free_address_map): Free memory for final_addr_indexes member of
+	struct oso_to_final_addr_map.
+	(compare_translation_final_addr): New function for binary searches
+	by final address.
+	(final_addr_key): New structure for compare_translation_final_addr.
+	(translate_debug_map_address): When we are fixing a HIGHPC address,
+	check to see if we need to trim the end address.
+	* dwarf2read.h (struct oso_to_final_addr_map): New member 
+	final_addr_indexes with lots of comments.
+
+2007-04-25  Jim Ingham  <jingham@apple.com>
+
+	* dwarf2read.c (read_func_scope): ObjC++ should be handled the
+	same as C++ here.
+	(read_structure_type): Ditto.
+	(read_subroutine_type): Ditto.
+	(new_sybol): Ditto.
+	(determine_prefix): Ditto.
+	
+2007-04-24  Greg Clayton  <gclayton@apple.com>
+
+	* objfiles.c (objfile_add_to_ordered_sections): Use segment_mark
+	member in 'struct bfd_section' instead of counting dots in section
+	name.
+	* symtab.c (fixup_section): Compute SECTION_OFFSETS index for 
+	statics correctly and use safer objfile_section_offset function
+	in place of ANOFFSET macro that doesn't check bounds. 
+
+2007-04-24  Jim Ingham  <jingham@apple.com>
+
+	* breakpoint.c (set_raw_breakpoint): Add pending_p argument,
+	and don't try to get the bp_objfile is the breakpoint is pending.
+	(create_internal_breakpoint): Pass 0 for pending_p.
+	(solib_load_unload_1): Ditto
+	(create_fork_vfork_event_catchpoint): Ditto
+	(create_exec_event_catchpoint): Ditto
+	(set_momentary_breakpoint): Ditto
+	(watch_command_1): Ditto
+	(create_exception_catchpoint): Ditto
+	(set_breakpoint_sal): Ditto
+	(create_breakpoints): Pass appropriate pending_p value.
+	
+2007-04-19  Caroline Tice <ctice@apple.com>
+
+	* value.h (enum opt_state):  Move this declaration to be before the include
+	statement for frame.h.
+
+2007-04-19  Jim Ingham  <jingham@apple.com>
+
+	* dbxread.c (open_bfd_from_oso): Fix thinko from rearranging the
+	read fat archive section.
+	
+2007-04-18  Greg Clayton  (gclayton@apple.com)
+
+	* coff-pe-read.c (read_pe_exported_syms): Use new objfile section 
+	offset functions.
+	* coffread.c (coff_symtab_read): Ditto.
+	(enter_linenos): Ditto.
+	(process_coff_symbol): Ditto.
+	* dbxread.c (read_dbx_dynamic_symtab): Ditto.
+	(read_dbx_symtab): Ditto.
+	(read_ofile_symtab_from_oso): Ditto.
+	* dwarf2-frame.c (dwarf2_frame_find_fde): Ditto.
+	* dwarf2loc.c (find_location_expression): Ditto.
+	(loclist_describe_location): Ditto.
+	* dwarf2read.c (dwarf2_build_psymtabs_hard): Ditto.
+	(add_partial_symbol): Ditto.
+	(convert_oso_map_to_final_map): Ditto.
+	(convert_oso_map_to_final_map): Ditto.
+	(process_full_comp_unit): Ditto.
+	(read_file_scope): Ditto.
+	(read_inlined_subroutine_scope): Ditto.
+	(read_func_scope): Ditto.
+	(read_lexical_block_scope): Ditto.
+	(dwarf_decode_line_header): Ditto.
+	(dwarf_decode_lines): Ditto.
+	(var_decode_location): Ditto.
+	(new_symbol): Ditto.
+	* elfread.c (elf_symtab_read): Ditto.
+	* hppa-tdep.c (read_unwind_info): Ditto.
+	* hppabsd-tdep.c (hppabsd_find_global_pointer): Ditto.
+	* hpread.c (scan_procs):  Ditto.
+	(hpread_build_psymtabs): Ditto.
+	(hpread_start_psymtab): Ditto.
+	* ia64-tdep.c (ia64_find_unwind_table): Ditto.
+	* mips-mdebug-tdep.c (non_heuristic_proc_desc): Ditto.
+	(non_heuristic_proc_desc): Ditto.
+	* nlmread.c (nlm_symfile_read): Ditto.
+	* objfiles.c (executable_objfile): New function.
+	(separate_debug_objfile): New function.
+	(objfile_section_offset): New function.
+	(objfile_text_section_offset): New function.
+	(objfile_data_section_offset): New function.
+	(objfile_rodata_section_offset): New function.
+	(objfile_bss_section_offset): New function.
+	* objfiles.h (SECT_OFF_DATA): Always use executable objfile
+	when tracking down section indexes.
+	(SECT_OFF_RODATA): Ditto.
+	(SECT_OFF_TEXT): Ditto.
+	(SECT_OFF_BSS): Ditto.
+	(objfile_section_offset): Added prototype.
+	(objfile_text_section_offset): Added prototype.
+	(objfile_data_section_offset): Added prototype.
+	(objfile_rodata_section_offset): Added prototype.
+	(objfile_bss_section_offset): Added prototype.
+	* symfile.c (syms_from_objfile): Use new objfile section offset 
+	functions.
+	* symtab.c (fixup_section): Always use the executable when finding 
+	section information, not the dSYM.
+	* symtab.h (objfile_section_offset): Added prototype.
+
+2007-04-18  Jim Ingham  <jingham@apple.com>
+
+	* fork-child.c (fork_inferior): Remove debug printf.
+	
+2007-04-17  Jim Ingham  <jingham@apple.com>
+
+	* Makefile.in: Do HAVE_64_BIT_MACH_EXCEPTIONS through config.h.
+	* config.in: Add HAVE_64_BIT_MACH_EXCEPTIONS, USE_ARCH_FOR_EXEC and
+	USE_POSIX_SPAWN
+	* configure.ac: Test for USE_ARCH_FOR_EXEC and USE_POSIX_SPAWN.
+	* config/powerpc/macosx.mh: Fix call to mig so it doesn't need
+	@HAVE_64_BIT_MACH_EXCEPTIONS@.
+	* config/i386/macosx.mh: Ditto.
+	
+	* fork-child.c (fork_inferior): Use "arch" instead of just exec, and
+	use "posix_spawn" instead of execvp so we can set which side of a
+	Universal file runs.
+	(startup_inferior): Remove Apple Local patch that nixed the value
+	passed in ntraps.
+	* main.c (captured_main): Add an option for --arch.
+	* osabi.c (gdbarch_lookup_osabi_from_bfd): New function, does
+	NOT return the current_gdbarch if user selected.
+	(gdbarch_lookup_osabi): Use gdbarch_lookup_osabi_from_bfd.
+	(set_osabi_from_string): New function.
+	* osabi.h: Declare set_osabi_from_string and 
+	gdbarch_lookup_osabi_from_bfd.
+	* symfile.c (open_bfd_matching_arch): Use gdbarch_lookup_osabi_from_bfd.
+	* arch-utils.c (set_architecture_from_string): New function.
+	(gdbarch_from_bfd): Remove unused variables.
+	(set_gdbarch_from_file): Error if the file doesn't match the current
+	gdbarch - but only if the user selected an architecture.
+	(gdbarch_info_fill): If the info passed in has a bfd, use that instead
+	of the default gdbarch to get the arch_info.
+	* arch-utils.h: Declare set_architecture_from_string.
+
+	* buildsym.h: Forward declare enum line_table_entry_type.
+
+	* linespec.c (decode_line_1): Zero out the final_result.sals before
+	setting the fields we know about.
+	
+2007-04-12  Caroline Tice  <ctice@apple.com>
+
+	* alpha-mdebug-tdep.c (alpha_mdebug_frame_prev_register): Change type
+	of "optmizedp" from int to enum opt_state; assign it "opt_okay"
+	instead of 0.
+	* alpha-tdep.c (alpha_sigtramp_frame_prev_register): Likewise.
+	(alpha_heuristic_frame_prev_register):  Likewise.
+	* amd64-tdep.c (amd64_frame_prev_register): Likewise.
+	(amd64_sigtramp_frame_prev_register): Change type of "optimizedp" from
+	int to enum opt_state.
+	* avr-tdep.c (avr_frame_prev_register): Change type of "optimizedp"
+	from int to enum opt_state; assign it "opt_okay" instead of 0.
+	* cris-tdep.c (cris_frame_prev_register): Change type of "optimizedp" 
+	from int to enum opt_state.
+	* dwarf2-frame.c (dwarf2_frame_prev_register): Change type of 
+	"optimizedp" from int to enum opt_state; assign it appropriate new
+	state values.
+	* dwarf2expr.c (execute_stack_op): Add default case to switch statement
+	to eliminate warning.
+	* dwarf2loc.c (dwarf2_evaluate_loc_desc): Use 'opt_away' instead of '1'
+	for variables that are missing a location description.
+	(loclist_read_variable): Use 'opt_evicted' instead of '1' for
+	variables whose location lists don't have an entry for the current
+	stop_pc.
+	* dwarf2read.c (new_symbol):  Add else clause to add symbols that
+	are missing locations to the symbol lists.
+	* findvar.c (value_of_register): Change type of "optim" from int to
+	enum opt_state.
+	(read_var_value): For cases LOC_OPTIMIZED_OUT, pass 'opt_away' to
+	set_value_optimized_out (instead of '1').
+	* frame.c (frame_register_unwind): Change type of "optimizedp" from
+	int to enum opt_state.
+	(frame_unwind_register): Change type of "optimized" from int to
+	enum opt_state.
+	* frame.h (value.h): New include statement.
+	(frame_register_unwind): Change type of "optimizedp" from int to
+	enum opt_state.
+	(frame_register): Likewise.
+	* frv-linux-tdep.c (frv_linux_sigtramp_frame_prev_register): Likewise
+	* h8300-tdep.c (h8300_frame_pref_register): Likewise; also assign 
+	'opt_okay' rather than '0'.
+	* hppa-hpux-tdep.c (hppa-hpux_sigtramp_frame_prev_register): Change
+	type of "optimizedp" from int to enum opt_state.
+	* hppa-linux-tdep.c (hppa_linux_sigtramp_frame_prev_register): Likewise
+	* hppa-tdep.c (value.h): New include statement.
+	(hppa_frame_prev_register): Change type of "optimizedp" from int to
+	enum opt_state.
+	(hppa_fallback_frame_prev_register): Likewise.
+	(hppa_stub_frame_prev_register): Likewise.
+	(hppa_frame_prev_register_helper): Likewise; also assign "opt_other"
+	rather than '0'.
+	* hppa-tdep.h (hppa_frame_prev_register_helper): Change type of
+	"optimizedp" from int to enum opt_state.
+	* i386-tdep.c (i386_frame_prev_register): Likewise; also assign
+	opt_okay instead of 0.
+	(i386_sigtramp_frame_prev_register): Change type of "optimizedp" from 
+	int to enum opt_state.
+	* ia64-tdep.c (ia64_frame_prev_register): Likewise; also assign
+	opt_okay instead of 0.
+	(ia64_sigtramp_frame_prev_register): Likewise.
+	(ia64_libunwind_frame_prev_register):  Change type of "optimizedp" 
+	from int to enum opt_state.
+	(ia64_libunwind_sigtramp_frame_prev_register): Likewise.
+	* iq2000-tdep.c (iq2000_frame_prev_register): Likewise; also assign
+	opt_okay instead of 0.
+	* libunwind-frame.c (libunwind_frame_prev_register):  Change type of
+	"optimizedp" from int to enum opt_state; assign appropriate new
+	state values.
+	* libunwind-frame.h (libunwind_frame_prev_register):  Change type of
+	"optimizedp" from int to enum opt_state.
+	* m32r-linux-tdep.c (m32r_linux_sigtramp_frame_prev_register): Likewise
+	* m32r-tdep.c (m32r_frame_prev_register): Likewise.
+	* m68hc11-tdep.c (m68hc11_frame_prev_register): Likewise.
+	* m68k-tdep.c (m68k_frame_prev_register): Likewise; also assign
+	opt_okay instead of 0.
+	* m68klinux-tdep.c (m68k_linux_sigtramp_frame_prev_register):  Change 
+	type of "optimizedp" from int to enum opt_state.
+	* m88k-tdep.c (m88k_frame_prev_register): Likewise.
+	* mips-mdebug-tdep.c (mips_mdebug_frame_prev_register):  Change type of
+	"optimizedp" from int to enum opt_state.
+	* mips-tdep.c (mips_insn16_frame_prev_register): Likewise.
+	(mips_insn32_frame_prev_register): Likewise.
+	(mips_stub_frame_prev_register): Likewise.
+	* mn10300-tdep.c (mn10300_frame_prev_register): Likewise.
+	* rs6000-tdep.c (fs6000_frame_prev_resgister): Likewise.
+	* s390-tdep.c (s390_frame_prev_register): Likewise.
+	(s390_stub_frame_prev_register): Likewise.
+	(s390_sigtramp_frame_prev_register): Likewise.
+	* sh-tdep.c (sh_frame_prev_register): Likewise; also assign opt_okay
+	instead of 0.
+	* sh64-tdep.c (sh64_frame_prev_register): Likewise.
+	* sparc_sol2-tdep.c (sparc32_sol2_sigtramp_frame_prev_register):  
+	Change type of "optimizedp" from int to enum opt_state.
+	* sparc-tdep.c (sparc32_frame_prev_register): Likewise; also assign
+	opt_okay instead of 0. 
+	* sparc64_sol2-tdep.c (sparc64_sol2_sigtramp_frame_prev_register):  
+	Change type of "optimizedp" from int to enum opt_state.
+	* sparc64-tdep.c (sparc64_frame_prev_register): Likewise; also assign
+	opt_okay instead of 0.
+	* sparc64fbsd-tdep.c (sparc64fbsd_sigtramp_frame_prev_register):
+	 Change type of "optimizedp" from int to enum opt_state.
+	* sparc64nbsd-tdep.c (sparc64nbsd_sigcontext_frame_prev_register):
+	Likewise.
+	* sparc64obsd-tdep.c (sparc64obsd_frame_prev_register): Likewise.
+	* sparcnbsd-tdep.c (sparc32nbsd_sigcontext_frame_prev_register): 
+	Likewise.
+	* sparcobsd-tdep.c (sparc32obsd_frame_prev_register): Likewise.
+	* trad_frame.c (value.h): New include statement.
+	(trad_frame_get_prev_register):  Change type of	"optimizedp" from int 
+	to enum opt_state; assign opt_okay instead of 0.
+	(trad_frame_get_register):  Change type of "optimizedp" from int to 
+	enum opt_state.
+	* trad_frame.h (trad_frame_get_register): Likewise.
+	(trad_frame_get_prev_register): Likewise.
+	* tramp_frame.c (tramp_frame_prev_register): Likewise.
+	* v850-tdep.c (v850_frame_prev_register): Likewise.
+	* valprint (value_check_printable): Add switch statement to test
+	value's opt state and possible print appropriate message.
+	* value.c (struc value): Change type of "optimized_out" field from
+	'char' to 'enum opt_state'.
+	(value_optimized_out): Change return type from int to enum opt_state.
+	(set_value_optimized_out): Change type of 'val' parameter from
+	int to enum opt_state.
+	* value.h (enum opt_state): New enum type.
+	(value_optimized_out): Change return type to enum opt_state.
+	(set_value_optimized_out): Change parameter type to enum opt_state.
+	* vax-tdep.c (vax_frame_prev_register):  Change type of	"optimizedp" 
+	from int to enum opt_state.
+	* xstormy16-tdep.c (xstormy16_frame_prev_regsiter): Likewise; assign
+	opt_okay instead of 0.
+
+2007-04-10  Jim Ingham  <jingham@apple.com>
+
+	* symmisc.c (equivalence_table_build): If the table already
+	exists, delete and remake it.
+	
+2007-04-10  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-amd64-shared-tdep.c (i386_picbase_setup_pattern_p): New function.
+	* i386-amd64-shared-tdep.h: Prototype.
+	* i386-tdep.c (i386_find_esp_adjustments): Use it.
+	* inlining.c: A little comment reformatting.
+
+2007-04-10  Jim	Ingham	<jingham@apple.com>
+
+        * dwarf2read.c (process_die): Handle DW_TAG_typedef
+	separately.  We	need to	pass the typedef type into
+	new_symbol so we don't dereference it in making	the
+	symbol for the type.
+	(read_tag_pointer_type): Handle	the odd-ball
+	named pointer dies gcc emits for ObjC's "id" and
+	"Class".
+
+	* objc-lang.c (objc_target_type_from_object): return the
+	class name if you can't find the full type information for
+	the dynamic type.
+	* objc-lang.h: Adjust declaration for change above.
+	* varobj.c: Add "dynamic_type_name" field to the varobj.
+	(varobj_fixup_value): Return the dynamic_type_name if we
+	can't find the full type info for the dynamic type.
+	(varobj_create, value_of_child, value_of_root): Add the
+	dynamic_type_name if we get it back from varobj_fixup_value.
+	(varobj_get_dynamic_type): Report the dynamic_type_name
+	if we don't have the full dynamic_type.
+	(new_variable): Initialize dynamic_type_name.
+	(free_variable): Free dynamic_type_name.
+	* wrapper.c (safe_value_objc_target_type): Adjust for changes
+	to value_objc_target_type.
+	* wrapper.h: Ditto.
+	
+2007-04-03  Jim Ingham  <jingham@apple.com>
+
+	* dbxread.c (read_dbx_symtab): clear archive cache.
+	(close_containing_archive_and_cntents): New function.
+	(find_in_containing_archive_cache): New function.
+	(add_to_containing_archive_cache): New function.
+	(clear_containing_archive_cache): New function.
+	(open_bfd_from_oso): Manage the containing archives internally,
+	and just return whether you cached the returned bfd or not.
+	(oso_scan_partial_symtab): Mutatis mutandi for changes to
+	open_bfd_from_oso.
+	(dbx_psymtab_to_symtab_1): Ditto.
+	* dwarf2read.c (dwarf2_scan_pubtype_for_psymbols): Ditto.
+	(dwarf2_debug_map_psymtab_to_symtab): Ditto.  Take advantage
+	of the change to reuse the .a files we might need to open.
+	* symfile.h: Declare changes to open_bfd_from_oso and declare
+	clear_containing_archive_cache.
+	
+2007-04-02  Caroline Tice <ctice@apple.com>
+
+	* inlining.c (copy_inlined_call_stack_record): New function.
+	(add_item_to_inlined_subroutine_stack):  Add code to shift array
+	and allow inserting item into middle of stack if that's where it
+	belongs.
+
+2007-03-29  Greg Clayton  <gclayton@apple.com>
+
+	* utils.c (query): Handle case where user hits ^C during
+	query by resetting QUIT_FLAG to zero.
+
+2007-03-29  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_find_picbase_setup): Correctly mask off the
+	register number from a push instruction.
+
+2007-03-29  Jason Molenda  (jmolenda@apple.com)
+
+	* Info.plist: New file.
+	* Makefile.in: Add the Info.plist to the gdb binary in the
+	__TEXT,__info_plist section.
+
+2007-03-28  Jason Molenda  (jmolenda@apple.com)
+
+	* config/i386/nm-i386-macosx.h: Definitions needed to activate
+	hardware watchpoint support from i386-nat.c.
+	* config/i386/macosx.mh: Build i386-nat.c.
+	* config/nm-macosx.h: Comment out the page-protection style
+	watchpoints if real hardware watchpoints are available.
+
+	* configure.ac: Check to see if the x86_debug_state32_t type is 
+	available on the build system.
+	* config.in, configure: Regenerated.
+
+2007-03-27  Jason Molenda  (jmolenda@apple.com)
+
+	* symfile.c (add_kext_command): Fix typeo in usage string.
+
+2007-03-23  Jim Ingham  <jingham@apple.com>
+
+	* Makefile.in: Add HAVE_64_BIT_MACH_EXCEPTIONS & MACH_EXC_SERVER_PREFACE
+	variables, and use them to select the 64 bit mig interfaces if 
+	available.
+	* configure.ac: Test for the existance of 
+	/usr/include/mach/mach_exc.defs, and set the above flags so it 
+	will get used.
+	* config/i386/macosx.mh: The name of the generated mig files is 
+	different between the 32 & 64 bit versions.  Adjust for that.
+	* config/powerpc/macosx.mh: Ditto.
+	
+	* symfile.c (syms_from_objfile): When applying the offset, 
+	remember that not all bfd_sections become objfile sections.
+	(symbol_file_add_bfd_safe): num_offsets is not equal to the number
+	of bfd sections, but to the number of bfd sections that end up in
+	the objfile.
+	
+2007-03-23  Caroline Tice  <ctice@apple.com>
+
+        * dwarf2loc.c (print_single_dwarf_location): Comment out unnecessary
+        some unnecessary code.
+        * dwarf2read.c (read_inlined_subroutine_scope):  Add push_context,
+        pop_context, and finish_block to get scope for inlined parameters 
+        correct.
+        (new_symbol): Look for DW_AT_location in abstract origin dies ofr
+        formal parameters of inlined subroutines.
+
+2007-03-22  Jason Molenda  (jmolenda@apple.com)
+
+	* symmisc.c (equivalence_table_build): Formatting typeo.
+	* symfile.c (add_kext_command): Check for flat bundle formatted
+	kext bundles in addition to traditional kext bundle layouts.
+
+2007-03-21  Caroline Tice  <ctice@apple.com>
+
+	* c-valprint.c (c_value_print): Output "[uninitialized]" before a
+	variable's value, if the variable is uninitialized.
+	* dwarf2expr.c (add_piece): Make function not static.
+	(unsigned_address_type): Likewise.
+	(signed_address_type): Likewise.
+	(execute_stack_op): Initialized var_status field of context struct;
+	allow DW_OP_APPLE_uninit to follow at DW_OP_reg operation.
+	* dwarf2expr.h (struct dwarf_expr_context): New field, var_status.
+	(unsigned_address_type): Declare  function to be extern.
+	(signed_address_type): Likewise.
+	(add_piece): Likewise.
+	* dwarf2loc.c (dwarf2_evaluate_loc_desc): Set var_status field in
+	return value to var_status field in context struct.
+	(print_single_dwarf_location): New function.
+	(loclist_describe_location): Modify to actually print out list of 
+	locations based on Dwarf location list.
+	* dwarf2read.c (dwarf_stack_op_name): Add case for DW_OP_APPLE_uninit.
+	(decode_locdesc): Likewise.
+	* value.c (struct value): New field, var_status.
+	(set_var_status): New function.
+	(value_var_status): New function.
+	(allocation_value): Initialize var_status field.
+	* value.h (set_var_status, value_var_status): New extern declarations.
+
+2007-03-19  Greg Clayton <gclayton@apple.com>
+
+	* dwarf2read.c (peek_die_abbrev): Return NULL and zero BYTES_READ
+	if the DIE is past the end of the compilation unit.
+
+2007-03-19  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (peek_die_abbrev): Revert last change; it is not 
+	sufficient either.
+
+2007-03-19  Greg Clayton (gclayton@apple.com)
+
+	* dwarf2read.c (peek_die_abbrev): Return NULL if the DIE is past the
+	end of the compilation unit.
+
+2007-03-19  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (load_partial_dies): Revert previous change.
+
+2007-03-19  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (load_partial_dies): Stop parsing DIEs if we hit the
+	end of a compile_unit's length even if the debug_info did not properly
+	end.
+
+2007-03-16  Jason Molenda  (jmolenda@apple.com)
+
+	* buildsym.c (finish_block): Properly cap a block whose scope
+	is incorrect so that the block list addresses aren't incorrect.
+	* block.c (blockvector_for_pc_sect): Don't search back into the
+	static/global blocks.  Don't stop searching if the current block's
+	addresses are lower than the searching PC if this is a sub-block;
+	an earlier block may be what we're looking for.
+
+2007-03-16  Jim Ingham  <jingham@apple.com>
+
+	* breakpoint.c (detect_location_arg): Handle the no argument
+	case.
+	
+2007-03-16  Jim Ingham  <jingham@apple.com>
+
+	* varobj.c (c_path_expr_of_child): If the child is anonymous,
+	return the parent expression.
+	(cplus_path_expr_of_child): Ditto.
+	
+2007-03-16  Caroline Tice  <ctice@apple.com>
+
+	* infcmd.c (step_once): Check for the existence of a function symbol
+	before trying to call find_function_start_sal; use alternate method
+	for finding first line if function symbol does not exist.
+
+2007-03-15  Jim Ingham  <jingham@apple.com>
+
+	* breakpoint.c (watch_command_1): Added by_location argument, and
+	if set, only watch the resolved location.
+	(detect_location_arg): New function.
+	(watch_command, rwatch_command, awatch_command): Parse out the
+	location argument.
+	(watch_command_wrapper, rwatch_command_wrapper, 
+	awatch_command_wrapper): Accept the by_location argument.
+	(_initialize_breakpoint): Add "-location" to the doc strings.
+	* breakpoint.h: Change declaration of the _wrapper functions above.
+	
+2007-03-15  Jason Molenda  (jmolenda@apple.com)
+
+	* inlining.c (address_range_ending_pc): Add comment about this
+	function's performance impact.
+
+2007-03-14  Jason Molenda  (jmolenda@apple.com)
+
+	* ada-lang.c (ada_lookup_symbol): Use BLOCK_HIGHEST_PC.
+	* block.c (address_range_ending_pc): Moved to inlining.c
+	(block_highest_pc): New function.  Return the highest pc value of
+	a block.
+	(contained_in): Return early when possible.
+	(block_starts_and_ends): Ditto.
+	(blockvector_for_pc_sect): Fix second loop so we don't iterate
+	back to the static block when looking for a match.
+	* block.h: Define BLOCK_HIGHEST_PC.
+	Prototype for block_highest_pc.
+	* blockframe.c (addr_inside_main_func, find_pc_partial_function):
+	Use BLOCK_HIGHEST_PC.
+	* buildsym.c: Typeo.
+	* inlining.c (address_range_ending_pc): Function moved here from 
+	block.c.
+
+2007-03-14  Greg Clayton  <gclayton@apple.com>
+
+	* dbxread.c (read_dbx_symtab): Use TM_NEXTSTEP instead of
+	NM_NEXTSTEP.
+	* elfread.c (elf_symtab_read): Ditto.
+	* exec.c: Use new MACOSX_DYLD instead of NM_NEXTSTEP so we can
+	enable and disable dyld support and use it for remote targets.
+	(exec_file_attach): Look for app bundles when Mac OS X is the 
+	target instead of only for native builds, and only init dyld
+	if MACOSX_DYLD is defined.
+	* fix-and-continue.c (get_fixed_file): Use new MACOSX_DYLD 
+	instead of NM_NEXTSTEP.
+	* minsyms.c (lookup_minimal_symbol_all): Use TM_NEXTSTEP 
+	instead of NM_NEXTSTEP.
+	(lookup_minimal_symbol): Ditto.
+	(prim_record_minimal_symbol_and_info): Ditto.
+	* objfiles.c (objfile_get_next): Use new MACOSX_DYLD instead 
+	of NM_NEXTSTEP.
+	(objfile_set_load_state): Ditto.
+	* remote.c (remote_open_1): Keep dyld informed when creating
+	a remote target.
+	(remote_mourn_1): Keep dyld informed when our inferior dies.
+	(init_remote_ops): Register dyld functions for remote ops.
+	* source.c (pathname_substitutions): Changed global to static.
+	(pathname_substitutions_argv): New static variable.
+	(open_source_file_fullpath): Use new pathname_substitutions_argv
+	static variable to avoid recomputing and leaking PSUBS every time.
+	(set_pathname_substitution): Now caches the arg list for the
+	open_source_file_fullpath function.
+	(show_pathname_substitutions): New function to display the
+	current pathname substitutions.
+	(_initialize_source): Updated help text for the set/show
+	"pathname-substitutions" command and supply the function callback
+	show_pathname_substitutions.
+	* symfile.c (syms_from_objfile): Use new MACOSX_DYLD instead of
+	NM_NEXTSTEP
+	(new_symfile_objfile): Ditto
+	(symbol_file_add_with_addrs_or_offsets_us): Ditto
+	(symbol_file_add_main_1): Ditto
+	(symbol_file_clear): Ditto
+	(add_symbol_file_command): Ditto
+	(symfile_bfd_open): Use TM_NEXTSTEP instead of NM_NEXTSTEP.
+	* symmisc.c (dump_msymbols): Use TM_NEXTSTEP instead of NM_NEXTSTEP.
+	* symtab.h: Use TM_NEXTSTEP instead of NM_NEXTSTEP.
+	* config/nm-macosx.h (macosx_solib_add): Removed.
+	(SOLIB_ADD): Removed.
+	(SOLIB_IN_DYNAMIC_LINKER): Removed.
+	(SOLIB_UNLOADED_LIBRARY_PATHNAME): Removed.
+	(SOLIB_LOADED_LIBRARY_PATHNAME): Removed.
+	(SOLIB_CREATE_CATCH_LOAD_HOOK): Removed.
+	(SOLIB_CREATE_CATCH_UNLOAD_HOOK): Removed.
+	(macosx_add_shared_symbol_files): Removed.
+	(ADD_SHARED_SYMBOL_FILES): Removed.
+	(macosx_pc_solib): Removed.
+	(PC_SOLIB): Removed.
+	(macosx_filename_in_bundle): Removed.
+	* config/tm-macosx.h (MACOSX_DYLD): New define that can be used
+	to enable/disable Mac OS X dyld support.
+	(SOLIB_ADD): Moved here from nm-macosx.h.
+	(SOLIB_IN_DYNAMIC_LINKER): Ditto.
+	(SOLIB_UNLOADED_LIBRARY_PATHNAME): Ditto.
+	(SOLIB_LOADED_LIBRARY_PATHNAME): Ditto.
+	(SOLIB_CREATE_CATCH_LOAD_HOOK): Ditto.
+	(SOLIB_CREATE_CATCH_UNLOAD_HOOK): Ditto.
+	(macosx_add_shared_symbol_files): Ditto.
+	(ADD_SHARED_SYMBOL_FILES): Ditto.
+	(macosx_pc_solib): Ditto.
+	(PC_SOLIB): Ditto.
+	* config/i386/macosx.mt: Add dyld object files to support
+	dyld on cross targets.
+	* config/powerpc/macosx.mt: Add dyld object files to support
+	dyld on cross targets.
+
+2007-03-13  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_analyze_frame_setup): Stop scanning for a prologue
+	insn after 256 instructions.  Stop scanning for a prologue insn if
+	we hit a return insn.
+
+2007-03-13  Jim Ingham  <jingham@apple.com>
+
+	* frame.h: Declare backtrace_past_main here, since we're going to
+	use it in other modules.
+	
+2007-03-13  Caroline Tice  <ctice@apple.com>
+
+	* inlining.c (add_item_to_inlined_subroutine_stack): Initialize
+	new call stack records after they get malloc'd or realloc'd.
+
+2007-03-09  Jason Molenda  (jmolenda@apple.com)
+
+	* config/i386/macosx.mh: Don't build CFM support code.
+
+2007-03-08  Jim Ingham  <jingham@apple.com>
+
+	* objc-lang.c (objc_target_type_from_object): New function, extracted
+	from value_objc_target_type.
+	(value_objc_target_type): Use objc_target_type_from_object.
+	* objc-lang.h: Declare objc_target_type_from_object.
+	
+2007-03-07  Jason Molenda  (jmolenda@apple.com)
+
+	* cp-support.c (cp_lookup_rtti_type): Downgrade 
+	"RTTI symbol not found for class" from warning to complaint.
+
+2007-03-07  Greg Clayton  (gclayton@apple.com)
+
+	* infrun.c (handle_inferior_event): HW watchpoints now work
+	for targets that use software single stepping.
+
+2007-03-06  Jason Molenda  (jmolenda@apple.com)
+
+	* infrun.c (metrowerks_stepping): Remove.
+	(fetch_inferior_event): Remove CodeWarrior support.
+	(macosx_print_extra_stop_info): Ditto.
+	* linespec.c (metrowerks_ignore_breakpoint_errors_flag): Remove.
+	(decode_variable): Remove CodeWarrior support.
+	* symtab.c (metrowerks_ignore_breakpoint_errors_flag): Remove.
+	(_initialize_symtab): Don't add metrowerks-ignore-breakpoint-errors
+	setting.
+	* config/i386/macosx.mh: Don't include macosx-metrowerks.o.
+	* config/powerpc/macosx.mh: Don't include macosx-metrowerks.o.
+
+2007-03-05  Jason Molenda  (jmolenda@apple.com)
+
+	* symfile.c (kext_symbol_file_path): New global.
+	(add_kext_command): If the .sym file isn't found, and 
+	kext_symbol_file_path is set, look for the .sym file there as well.
+	(_initialize_symfile): Register the 'set kext-symbol-file-path' command.
+
+2007-03-02  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (dwarf2_debug_map_psymtab_to_symtab): Print the name
+	of the source file when verbose is set.
+	* linespec.c: Whitespace fixes.
+
+2007-03-01  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.h:  New file.  Definition of oso_to_final_addr_map from
+	dwarf2read.c.
+	* dwarf2read.c: Remove defn of oso_to_final_addr_map.
+	(translate_debug_map_address): Make extern.  Take the addr map
+	as the first argument instead of the dwarf2_cu.  Callers updated.
+	(dwarf2_debug_map_psymtab_to_symtab): Don't free addr translation
+	map.  Should probably add to objfile's obstack.
+	(dwarf2_symbol_mark_computed): Save pointer to address map in
+	location list batons.
+	* dwarf2loc.h: Include dwarf2read.h.  Add addr_map field to
+	dwarf2_locexpr_baton and dwarf2_loclist_baton.
+	* dwarf2loc.c (find_location_expression): Use address translation
+	map if one is available.
+
+2007-03-01  Caroline Tice  <ctice@apple.com>
+
+	* infcmd.c (stepping_over_inlined_subroutine): New global variable.
+	(step_once):  Change code for stepping over inlined subroutines to
+	NOT use breakpointes (which can cause continue-like behavior
+	at times), and to use stepping_over_inlined_subroutine flag;
+	Change code for stepping into inlined subroutine to display
+	first line of function code rather than first line of
+	function declaration.
+	* infrun.c (follow_exec):  Initialize
+	stepping_over_inlined_subroutine to 0.
+	(clear_proceed_status): Likewise.
+	(handle_inferior_event): Check stepping_over_inlined_subroutine
+	flag when determining whether or not to stop inside an
+	apparently different subroutine.
+	(insert_step_resume_breakpoint): Use step_frame_id for
+	setting frame breakpoint if stepping_over_inlined_subroutine
+	is on.
+	* inlining.c (inlined_function_update_call_stack):  In
+	special situations, turn off stepping_over_inlined_subroutine.
+	(rest_of_line_contains_inlined_subroutine): Do nothing if
+	inlined_stepping flag is turned off; fix various small bugs.
+	* inlining.h (stepping_over_inlined_subroutine): Declare
+	new global variable.
+
+2007-02-26  Jason Molenda  (jmolenda@apple.com)
+
+	* frame.c (backtrace_sanity_checks): Renamed the setting of the last
+	checking.  It's now 'sanity-checks' in the backtrace set list.
+	(get_prev_frame_1): Ditto.
+	(_initialize_frame): Ditto.
+
+2007-02-26  Jason Molenda  (jmolenda@apple.com)
+
+	* frame.c (ignore_stack_sanity_checks): New parameter for tweaking by
+	people who want a backtrace in spite of the sanity check heuristics.
+	(get_prev_frame_1): Don't error out when ignore_stack_sanity_checks is
+	set.
+	(_initialize_frame): Add trust-me-keep-backtracing to the 
+	'set backtrace' chain of settings.
+
+2007-02-23  Caroline Tice  <ctice@apple.com>
+
+	* inlining.c (insert_pending_node):  Fix typo comparing end_pc fields
+	(was accidentally comparing end_pc to pc field).
+
+2007-02-22  Jason Molenda  (jmolenda@apple.com)
+
+	* disasm.c (find_pc_offset): Return the earliest address of a function
+	even if it is less than the offset limiter.
+
+2007-02-22  Jim Ingham  <jingham@apple.com>
+
+	* objfiles.c (objfile_keeps_section): Extract this logic
+	from build_objfile_section_table.
+	* (build_objfile_section_table): Use objfile_keeps_section.
+	* objfiles.h: Declare objfile_keeps_section.
+	
+2007-02-21  Jim Ingham  <jingham@apple.com>
+
+	* symfile.c (init_objfile_sect_indices): Copy paste error.  Also
+	add a break when we find the segment we're looking for.
+	* (symbol_file_add_with_addrs_or_offsets_using_objfile): NM_NEXTSTEP->
+	TM_NEXTSTEP, and also handle the case where we don't have a 
+	"calculate_offsets_for_dsym" somehow.
+	(reread_separate_symbols): Ditto.
+	
+2007-02-20  Jason Molenda  (jmolenda@apple.com)
+
+	* macosx-nat-cmds-load.c (load_plugin): Require that the plugin 
+	pathname be an absolute path.
+
+2007-02-20  Jim Ingham  <jingham@apple.com>
+
+	This change is to better propagate "offsets" when we build
+	the objfiles & separate_debug_files.  
+
+	* objfiles.{c,h}: changed some comments, added a FIXME.
+	* symfiles.c (init_objfile_sect_indices): Can't use the bfd section
+	indices, since we don't make sections for bfd_sections of 0 length,
+	and thus the count may not be the same.  Also arrange for the text,
+	data & bss indices for separate debug objfiles to be 0 if we couldn't
+	find them elsewhere.
+	* (syms_from_objfile): Don't look at addrs if we get offsets!
+	Also do the "delete & reinsert" in ordered sections here, and apply
+	the offsets if they were provided.
+	* (symbol_file_add_with_addrs_or_offsets_using_objfile): Don't try
+	to make a separate_debug_file FOR a separate_debug_file.  Also,
+	check for the dSYM offset if appropriate.  And pass through
+	offsets appropriately.
+	* (reread_symbols): Make sure we recreate the objfile & separate
+	objfile in the same order we originally made them.  There are some
+	order dependencies that don't work otherwise.
+	* (symbol_file_add_bfd_using_objfile): Let this take both addrs & 
+	offsets.
+	* (symbol_file_add_bfd_safe): Ditto.
+	* symfile.h: Changes to symbol_file_add_bfd_using_objfile and
+	symbol_file_add_bfd_safe.
+	* fix-and-continue.c (pre_load_and_check_file): Mutatis mutandi for
+	symbol_file_add_bfd_safe.
+	
+2007-02-15  Jason Molenda  (jmolenda@apple.com)
+
+	* interps.c (interp_complete): Accept & pass along an optional limit 
+	for the number of matches to be returned.
+	* interps.h (interp_complete_ftype): Prototype updated.
+	* cli/cli-cmds.c (complete_command): Don't limit matches from the 
+	command line.
+	(cli_interpreter_complete): Accept & honor a limit on the number of 
+	matches to be printed.
+	* cli/cli-cmds.h (cli_interpreter_complete): Prototype updated.
+	* mi/mi-interp.c (mi_cmd_interpreter_complete): Enforce a hard limit 
+	of 200 matches returned for completions in the MI for now.
+
+2007-02-12  Jason Molenda  (jmolenda@apple.com)
+
+	* buildsym.c (finish_block): Add more information to the inner block
+	not inside outer block complaint.
+
+2007-02-09  Jason Molenda  (jmolenda@apple.com)
+
+	* symfile.c (add_kext_command): More verbose error messages.
+
+2007-02-07  Jason Molenda  (jmolenda@apple.com)
+
+	* config/i386/macosx.mt: Build macosx-self-backtrace.
+	* config/powerpc/macosx.mt: Build macosx-self-backtrace.
+	* utils.c (internal_vproblem): Do a stack crawl of how we got to
+	the internal error.
+
+2007-02-06  Jason Molenda  (jmolenda@apple.com)
+
+	* block.c (blockvector_for_pc_sect): Only return a matched block if
+	the pc is less than the block's end_pc.
+
+2007-02-06  Jason Molenda  (jmolenda@apple.com)
+
+	* infrun.c (set_scheduler_locking_mode): Add cast to fix printf
+	formatting warning.
+	(macosx_print_extra_stop_info): Add comment to spot where we seem to
+	have lots of problems.  Fix unterminated comment mistake.
+
+2007-02-05  Jason Molenda  (jmolenda@apple.com)
+
+	* objc-lang.c (resolve_newruntime_objc_msgsend): New unified function
+	for determining the target of an ObjC dispatch in the new runtime.
+	(resolve_msgsend_fixup, resolve_msgsend_fixedup, 
+         resolve_msgsend_stret_fixup, resolve_msgsend_stret_fixedup): Call it.
+	(resolve_newruntime_objc_msgsendsuper): New unified function for
+        determining the target of an ObjC super dispatch in the new runtime.
+	(resolve_msgsendsuper2_fixup, resolve_msgsendsuper2_fixedup,
+	resolve_msgsendsuper2_stret_fixup, resolve_msgsendsuper2_stret_fixedup):
+	Call it.
+	(methcalls): Updated to call the correct variations.
+
+2007-02-02  Jason Molenda  (jmolenda@apple.com)
+
+	* amd64-tdep.c (amd64_fetch_pointer_argument): Return zero for
+	an unsupported argument number.
+	* objc-lang.h (find_implementation):  Take a third argument.
+	* eval.c (evaluate_subexp_standard): Update call to find_implementation.
+	* objc-lang.c (lookup_objc_class): Whitespace cleanup.
+	(methcalls): Add entries for new 64-bit Objective C runtime's
+	entry functions.
+	(find_objc_msgsend): Fix formatting.  Use find_pc_partial_function to
+	find the end address of functions instead of the incorrect method
+	that was being used.
+	(new_objc_runtime_internals): Detect the new Objective C runtime.
+	(new_objc_runtime_find_impl): Find the implementation of a given
+	class and selector in the new Objective C runtime.
+	(find_implementation_from_class): Call new_objc_runtime_find_impl if
+	the new runtime is being used.
+	(find_implementation): Ditto.
+	(resolve_msgsend_fixedup): New function to correctly interpret
+	the arguments when we stepi into the new runtime's message dispatch
+	function.
+	(resolve_msgsend_stret_fixedup): Variant of the above func.
+	(resolve_msgsendsuper2_fixedup): Call to an object's super class;
+	not yet correctly resolving to a function address.
+	(resolve_msgsendsuper2_stret_fixedup): Variant of above, also not
+	yet correct.
+
+2007-02-01  Caroline Tice  <ctice@apple.com>
+
+	* breakpoint.c (solib_load_unload_1): Add new argument to call to 
+	decode_line_1. The new argument indicates whether or not to look for 
+	all occurrences of a symbol rather than just the first one.
+	(parse_breakpoint_sals):  Likewise.
+	(until_break_command): Likewise.
+	(breakpoint_re_set_one): Likewise.
+	(decode_line_spec_1): Likewise.
+	* linespec.c (gdb_assert.h): New include statement.
+	(decode_all_variables):  New function.
+	(symbols_found): New function.
+	(minsyms_found): New function.
+	(decode_line_1): Add new paramenter, find_all_occurrences; add call to 
+	decode_all_variables, predicated on find_all_occurrences.
+	* linespec.h (decode_line_1): Add new paramenter to function 
+	declaration.
+	* minsyms.c (lookup_minimal_symbol_all): New function.
+	* symtab.c (lookup_symbol_aux_symtabs): Add new parameters, sym_list 
+	and find_all_occurrences; Modify to find all the matching symbols 
+	if find_all_occurrences is set.  Do this via calling 
+	lookup_block_symbol_all.  If returning multiple symbols, put them into
+ 	new parameter sym_list.
+	(lookup_symbol_aux_psymtabs): Likewise.
+	(lookup_symbol_all): New function.
+	(lookup_symbol_aux):  Add new arguments to calls to 
+	lookup_symbol_aux_symtabs and lookup_symbol_aux_psymtabs.
+	(lookup_symbol_global):  Add new arguments to calls to 
+	lookup_symbol_aux_symtabs and lookup_symbols_aux_psymtabs.
+	(lookup_block_symbol_all): New function.
+	(decode_line_spec):  Add new argument to call to decode_line_1.
+	* symtab.h (lookup_block_symbol_all): New function decl.
+	(lookup_symbol_all): New function decl.
+	* tracepoint.c (trace_command): Add new argument to call to 
+	decode_line_1.
+	(scope_info): Likewise.
+	* cli/cli-cmds.c (edit_command): Likewise.
+	(list_command): Likewise.
+
+2007-01-31  Greg Clayton <gclayton@apple.com>
+
+	* configure.ac: Check for DebugSymbols.framework and export 
+	DEBUG_SYMBOLS_LIBS and define HAVE_DEBUG_SYMBOLS_FRAMEWORK.
+	* Makefile.in (DEBUG_SYMBOLS_LDFLAGS): Added.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* symfile.c (APPLE_DSYM_EXT_AND_SUBDIRECTORY): Removed.
+	(find_separate_debug_file): Moved contents to macosx_locate_dsym
+	in macosx/macosx-tdep.c.
+	
+2007-01-29  Jim Ingham  <jingham@apple.com>
+
+	* amd64-tdep.c (amd64_analyze_prologue): Remove errant +1's that
+	came from converting the FSF code.
+	
+2007-01-29  Jim Ingham  <jingham@apple.com>
+
+	* symfile.c (check_for_matching_uuid): Add an async notification
+	if we're running the MI.
+	
+2007-01-26  Jim Ingham  <jingham@apple.com>
+
+	* varobj.c (cplus_value_of_variable): For references, just
+	return "{...}" like we do for structures, classes & unions.
+	
+2007-01-26  Caroline Tice  <ctice@apple.com>
+
+	* dwarf2read.c (rb_delete_fixup): Add tests to cope with children of 'w'
+	being NULL; Add lots of comments.
+	(rb_tree_remove_node):  Add y_parent and x_child_pos vars; copy first iteration
+	of loop from rb_delete_fixup to cope with a null 'x'.  Add calls to 
+	rb_verify_tree.
+	(num_nodes_in_tree): New function (for debuggging rb-trees).
+	(tree_height):  Likewise.
+	(verify_tree_colors): Likewise.
+	(verify_tree_heights): Likewise.
+	(verify_rb_tree): Likewise.
+	(rb_print_node): Likewise.
+	(rb_print_tree): Likewise.
+	* inlining.c (insert_pending_node):  Modify to sort by start pc as well as by
+	end pc.
+
+
+2007-01-25  Caroline Tice  <ctice@apple.com>
+
+	* dwarf2read.c (_initialize_dwarf2_read):  Modify text messages for
+	setshow variable "inlined_stepping", to make them clearer and more 
+	grammatical.
+	* infcmd.c (step_1): Modify to not perform inlined subroutine stuff if
+	single_inst is true.
+	(step_once): Likewise.
+	* infrun.c (handle_inferior_event):  Modified condition near line 3108
+	to not consider do something special for INLINED_FRAME types if 
+	step_range_end is one (i.e. if the user is doing instruction-level
+	stepping).
+
+2007-01-24  Jason Molenda  (jmolenda@apple.com)
+
+	* amd64-tdep.c (amd64_fetch_pointer_argument): Function to retrieve
+	the first few function arguments out of the registers.
+	(amd64_init_abi): Add it to the current gdbarch.
+
+2007-01-24  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile.in (gdb): Remove an old dSYM for gdb binary if present.
+
+2007-01-23  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_find_picbase_setup): Switch over to using
+	new libopcodes-disassembler based instruction parsing.
+	(i386_find_esp_adjustments): Ditto.
+	* i386-amd64-shared-tdep.c (i386_frame_setup_skip_insns): Removed.
+	(i386_frame_setup_insns): Removed.
+	(i386_match_insn): Removed.
+	* i386-amd64-shared-tdep.h (i386_match_insn): Removed.
+
+2007-01-22  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_skip_prologue): Look up the end addr
+	of the function that we're analyzing the prologue of and
+	limit our instruction scanning to that addr.
+
+2007-01-18  Jim Ingham  <jingham@apple.com>
+
+	* checkpoint.c (_initialize_checkpoint): Don't register the
+	sigterm handler here, only do it when you use it.
+	(collect_checkpoint): Don't reinitialize the checkpoint stuff
+	every time you make one.  Also register the SIGTERM handler here.
+	(checkpoint_clear_inferior): New function.
+	* checkpoint.h: Declare checkpoint_clear_inferior.
+	* target.c (generic_mourn_inferior): Reset the checkpoint state.
+	
+2007-01-19  Caroline Tice  <ctice@apple.com>
+
+	* inlining.c (struct pending_node): New struct.
+	(find_function_names_and_addresses): Modify to check to
+	non-initialized lines.  
+	(add_item_to_inlined_subroutine_stack): Modify to cope with
+	entirely overlapping address ranges for distinct inlining
+	cases (distinguish by call site line).  
+	(insert_pending_node): New function.
+	(inlined_function_update_call_stack): Modified to collect
+	all records for a pc and sort them before calling
+	add_item_to_inlined_subroutine_stack.
+	(inlined_function_add_function_names):  Add check for call
+	site line.  
+	(print_inlined_frame): Modified to use sal symtab if call
+	stack symtab is NULL.
+
+2007-01-19  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (follow_die_ref): Account for initial Length of
+	Compilation Unit field when determining if a ref is contained
+	within this compilation unit or not.
+
+2007-01-17  Jason Molenda  (jmolenda@apple.com)
+
+        * dbxread.c (oso_scan_partial_symtab): Whitespace fixes to stay under
+        80 columns.
+
+2007-01-17  Caroline Tice  <ctice@apple.com>
+
+        * dwarf2read.c (plain_tree_insert):  Change "else if" to "else" so
+        everything gets inserted.
+
+2007-01-17  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (dwarf2_kext_psymtab_to_symtab): Add sanity check
+	when finding a particular compilation unit's dwarf in a dSYM.
+	(process_full_comp_unit): For the non-dSYM case, trust the high/low
+	addresses from the debug map (i.e. in the psymtab) over the
+	DWARF's high/low pc values - those first/last functions may have
+	been reordered during linking.
+
+2007-01-17  Jim Ingham  <jingham@apple.com>
+
+	* objc-lang.c (value_objc_target_type): Get it to work for
+	real inheritance.
+	
+2007-01-17  Caroline Tice  <ctice@apple.com.
+
+	* dwarf2read.c (enum rb_tree_colors):  Moved declaration.
+	(struct rb_repository_data): New struct.
+	(struct rb_tree_node): Added third key field; made data field a void*,
+	to allow generic use of red-black trees.
+	Added forward declarations for red-black tree functions, as well as more
+	red-black tree comments.
+	(inlined_call_sites):  Changed type of this global variable from linked
+	list to red-black tree.
+	(convert_oso_map_to_final_map):  Commented out unused var to avoid
+	warnings.
+	(create_kext_addr_map): Likewise.
+	(dwarf2_kext_psymtab_to_symtab): Likewise.
+	(find_debug_info_for_pst): Likewise.
+	(dwarf2_add_to_list_of_inlined_calls): Modified to use red-black tree
+	instead of linked list.
+	(read_inlined_subroutine_scope):  Deleted unused local vars.
+	(read_partial_die):  Added calls to DW_STRING on results returned by
+	get_repository_name.
+	(check_inlined_funcion_calls): Rewrote function to use red-black tree 
+	version of inlined_call_sites, rather than linked list.
+	(rb_find_tree_node):  Modified to search on secondary_key if primary
+	keys are equal.
+	(rb_tree_find_and_remove_node): New function.
+	(rb_tree_minimum): New function.
+	(rb_tree_successor): New function.
+	(rb_delete_fixup): New function.
+	(rb_tree_remove_node): New function.
+	(plain_tree_insert): Modified to do correct thing if keys are equal, and
+	to use the third key if appropriate.
+	(lookup_repository_type): Modified to use changed rb_tree_node 
+	definition.
+
+2007-01-15  Jim Ingham  <jingham@apple.com>
+
+	* gdbthread.h: Declare prune threads here.
+	* thread.c: Don't declare it here.
+	
+2007-01-10  Jason Molenda  (jmolenda@apple.com)
+
+	* symtab.c (lookup_symbol_aux_psymtabs): Print error message if
+	the expansion of a psymtab to symtab results in a null symtab instead
+	of dereferencing the null symtab pointer.
+
+2007-01-08  Jason Molenda  (jmolenda@apple.com)
+
+	* c-exp.y (OP_OBJC_MSGCALL): Address of ObjC class data structure
+	is a pointer value.
+	* objc-exp.y (OP_OBJC_MSGCALL): Ditto.
+	* eval.c (evaluate_subexp_standard): Don't mask off high 32-bits
+	when inferior is a 64-bit program.  Address of selector is a pointer
+	value.
+	* expression.h (enum exp_opcode): Fix formatting.
+	* objc-lang.c (value_nsstring): Fix formatting.
+
+2006-12-19  Jason Molenda  (jmolenda@apple.com)
+
+	* amd64-tdep.c (amd64_analyze_prologue): Add a next_frame parameter
+	which may optionally be null.  If this frame can't be frameless,
+	set the sensible frame defaults.  Use i386_ret_pattern_p() to 
+	detect the end of a function.
+	(amd64_frame_cache): Pass the next_frame to amd64_analyze_prologue.
+	(amd64_skip_prologue): Update call to amd64_analyze_prologue.
+	* i386-amd64-shared-tdep.c (i386_ret_pattern_p): New function.
+	* i386-amd64-shared-tdep.h (i386_ret_pattern_p): Prototype.
+
+2006-12-19  Jason Molenda  (jmolenda@apple.com)
+
+	* amd64-tdep.c (amd64_analyze_prologue): Ah, don't have a frame_info
+	pointer yet - temporarily back out the previous change.
+
+2006-12-19  Jason Molenda  (jmolenda@apple.com)
+
+	* amd64-tdep.c (amd64_analyze_prologue): If this frame must have
+	a frame on the stack, salt some sensible default values ahead of
+	time in case we fail to parse the prologue correctly.
+
+2006-12-19  Jason Molenda  (jmolenda@apple.com)
+
+	* amd64-tdep.c (amd64_analyze_prologue): Add a limit for how many
+	non-prologue instructions to skip over when analyzing a prologue.
+	Limit value picked at random.
+
+2006-12-13  Caroline Tice  <ctice@apple.com
+
+	* dwarf2read.c (read_inlined_subroutine_scope):  Initialize "ranges" 
+	to NULL.
+	(read_func_scope):  Likewise.
+	(read_lexical_block_scope):  Likewise.
+	(get_pc_scope_bounds): Likewise.
+	(check_inlined_function_calls):  Add condition to if statement, to
+	make sure current->file_index is within the bounds of lh. 
+
+2006-12-13  Jim Ingham  <jingham@apple.com>
+
+	* objfiles.c (free_objfile_internal): Don't null out
+	the separate_debug_objfile of our backlink file here,
+	it's only appropriate to do that when freeing the objfile.
+	(free_objfile): So do it here instead.
+
+	* symfile.c (symbol_file_add_with_addrs_or_offsets_using_objfile):
+	Thinko in setting the separate_debug_objfile, sense of the 
+	using_orig_objfile test was reversed.
+	
+2006-12-12  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-amd64-shared-tdep.c (i386_mov_esp_ebp_pattern_p): Recognize
+	x86-64 version of mov %esp, %ebp.
+	* amd64-tdep.c (amd64_analyze_prologue): Use libopcodes instruction
+	length function to step through instructions in the prologue.
+
+2006-12-12  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_match_insn): Move this function and the
+	supporting instruction tables to i386-amd64-shared-tdep.c.
+	(i386_analyze_frame_setup): Use i386_push_ebp_pattern_p,
+	i386_length_of_this_instruction, and i386_mov_esp_ebp_pattern_p 
+	functions instead of hardcoding the opcode values.
+	* i386-amd64-shared-tdep.c: New file with shared code to analyze 
+	prologues that will be used by both i386-tdep.c and amd64-tdep.c.
+	Add support for using the libopcodes disassembler to step over
+	instructions.
+	* i386-amd64-shared-tdep.h: Ditto.
+	* Makefile.in: Build the new file.
+
+2006-12-12  Jim Ingham  <jingham@apple.com>
+
+	* disasm.c (dump_insns): Don't truncate assembly names
+	here, this isn't used for the 'x' command.
+	* printcmd.c (build_address_symbolic): Do it here.
+	
+2006-12-08  Greg Clayton  <gclayton@apple.com>
+
+	* amd64-tdep.c (amd64_init_abi): Set the frame pointer
+	register to be AMD64_RBP_REGNUM.
+	* frame.c (frame_next_hack): Cleanup whitespace.
+	(frame_cache_hack): Ditto.
+	* i386-tdep.c (i386_gdbarch_init): Set the frame pointer
+	register to be I386_EBP_REGNUM.
+	* user-regs.c (replace_user_reg): New function.
+	(user_reg_replace): New function.
+ 	(value_of_user_reg): Fill in the frame ID member of the value
+ 	for user registers.
+	* user-regs.h (user_reg_replace): Added prototype.
+	* valops.c (value_assign): Only find and refind the frame by 
+	ID if we have a frame that is not the first frame and protect
+	refinding the frame by ID with try/catch block.
+	* ppc-macosx-tdep.c (ppc_value_of_builtin_frame_fp_reg) New
+	function.
+ 	(ppc_frame_unwind_sp_for_dereferencing): Fix whitespace.
+	(ppc_macosx_init_abi): Call new user_reg_replace with "fp" new
+	ppc_value_of_builtin_frame_fp_reg function as new callback.
+	(ppc_macosx_init_abi_64): Ditto.
+
+2006-12-05  Jim Ingham  <jingham@apple.com>
+
+	* i386-tdep.c (i386_frame_this_id): Don't see if the 0th
+	frame is the terminating frame.  Just read it from the sentinel.
+	
+2006-12-04  Jason Molenda  (jmolenda@apple.com)
+
+	* frame.c (get_prev_frame_1): Replace the "corrupt stack?" error
+	messages with phrase that puts the blame more on gdb.
+
+2006-12-01  Jim Ingham  <jingham@apple.com>
+
+	* dbxread.c (stabsect_read_strtab_from_oso): Don't throw an
+	error if there's no stabs or stabsstr, just return empty
+	data.
+	
+2006-11-30  Jason Molenda  (jmolenda@apple.com)
+
+	* symfile.c (replace_psymbols_with_correct_psymbols): Don't strdup
+	null psymtab oso name.
+
+2006-11-30  Jason Molenda  (jmolenda@apple.com)
+
+	* symfile.c (replace_psymbols_with_correct_psymbols): Correctly
+	handle objfiles with more than one psymtab.
+	* dwarf2read.c (convert_oso_map_to_final_map): Remove kext support.
+	(create_kext_addr_map): New function, mostly taken from
+	convert_oso_map_to_final_map, to create address translation map
+	for kext + dSYM objfiles.
+	(dwarf2_kext_psymtab_to_symtab): Call create_kext_addr_map.
+
+2006-11-28  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.ac: Remove tests for libxml.
+	* configure: Regenerated.
+	* Makefile.in (LIBXML2_CFLAGS, LIBXML2_LDFLAGS): Removed.
+
+2006-11-27  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_dbx_symtab): Read the debug map out of a kext
+	symbol (kextload-output) binary even though it has a dSYM file.
+	(open_bfd_from_oso): Remove code to issue an informative error
+	for "gcc -gdwarf-2 foo.c" uses because the compiler creates a dSYM
+	now.
+	* dwarf2read.c (convert_oso_map_to_final_map): Handle kext + dSYM
+	case specially.
+	(dwarf2_kext_psymtab_to_symtab): New psymtab expander, largely
+	ripped off from dwarf2_debug_map_psymtab_to_symtab.
+	(find_debug_info_for_pst): New function to iterate over the
+	DWARF debug info compilaton units in a dSYM looking for a specific
+	one that we're expanding from a psymtab to a symtab.
+	* fix-and-continue.c (pre_load_and_check_file): Update call to
+	symbol_file_add_bfd_safe.
+	* objfiles.c (allocate_objfile_internal): Initialize new 
+	not_loaded_kext_filename field.
+	* objfiles.h (struct objfile): New not_loaded_kext_filename field.
+	* symfile.c (check_for_matching_uuid): Don't insist on a matching
+	uuid for kext + dSYMs quite yet.
+	(struct dbxread_symloc): Private data structure definition copied over
+	from dbxread.c so I can copy these.  Maybe this psymtab copying
+	function would be better off in dbxread.c so I don't get burned by 
+	changes in the future...
+	(replace_psymbols_with_correct_psymbols): Function to copy the
+	psymtabs derived from the debug map of the kextload'ed symbol file
+	into the dSYM file so the actual loaded addresses are used for
+	psymtab expansion.
+	(symbol_file_add_with_addrs_or_offsets_using_objfile): In the
+	kext + dSYM case set the not_loaded_kext_filename field appropriately
+	and copy the partial symbol table entries over to the dSYM.
+	(symbol_file_add_with_addrs_or_offsets): Pass the kext bundle name
+	down.
+	(symbol_file_add_name_with_addrs_or_offsets): Ditto.
+	(symbol_file_add_from_bfd): Update call to 
+	symbol_file_add_name_with_addrs_or_offsets.
+	(symbol_file_add): Ditto.
+	(symbol_file_add_using_objfile): Ditto.
+	(symbol_file_add_main_1): Ditto.
+	(add_symbol_file_command): Ditto.
+	(symbol_file_add_bfd_helper): Ditto.
+	(symbol_file_add_bfd_safe): Ditto.
+	(find_separate_debug_file): Update to handle kext + dSYMs.
+	(add_kext_command): New user command for loading a kext's symbols.
+	(_initialize_symfile): Initialize new add-kext command.
+	* symfile.h: Expose prototype for dwarf2_kext_psymtab_to_symtab.
+	Update prototype for symbol_file_add_bfd_safe.
+
+2006-11-15  Jim Ingham  <jingham@apple.com>
+
+	* symtab.c (basic_lookup_transparent_type): Replace error's about
+	"found in psymtab not in symtab" with complaints.  This failure can
+	be caused by reading names from the pubtypes and not knowing whether
+	they are structure names or typedef's.
+	
+2006-11-06  Jim Ingham  <jingham@apple.com>
+
+	Add the ability to "edit an objfile in place".  This allows you
+	to gang the deletion of objfiles and not make ALL_OBJFILES_SAFE
+	unsafe.
+	* objfiles.c (create_objfile_using_objfile): New function, factors out
+	most of create_objfile except mallocing it.
+	(create_objfile): Use create_objfile_using_objfile.
+	(allocate_objfile_internal): Factor out common parts of 
+	allocate_objfile.
+	(allocate_objfile): Rework to use allocate_objfile_internal.
+	(allocate_objfile_using_objfile): The version that doesn't allocate or
+	link in the objfile.
+	(free_objfile_internal): Factor out bits common to free_objfile and
+	clear_objfile.
+	(free_objfile): Use free_objfile_internal, also deallocate & unlink.
+	(clear_objfile): New function.
+	* objfiles.h: declare new functions.
+	* symfiles.c (symbol_file_add_with_addrs_or_offsets_using_objfile): 
+	New function.  Reuse the passed in objfile.
+	(symbol_file_add_name_with_addrs_or_offsets_using_objfile): Ditto.
+	(symbol_file_add_using_objfile): Ditto
+	* symfile.h: Declare new functions.
+	
+2006-11-02  Caroline Tice <ctice@apple.com>
+
+	Add ability to deal with multiple non-contiguous address ranges.
+	* ada-lang.c (ada_lookup_symbol): Replace BLOCK_START and BLOCK_END
+	tests with code to deal with possible multiple address ranges.
+	* alpha-mdebug-tdep.c (find_proc_desc): Replace BLOCK_START with
+	BLOCK_LOWEST_PC.
+	* ax-gdb.c (gen_var_ref):  Likekwise.
+	* block.c (address_range_ending_pc): New function.
+	(contained_in): Modified to deal correctly with address ranges, if 
+	present.
+	(block_starts_and_ends): New function.
+	(block_contains_pc): New function.
+	(blockvector_for_pc_sect): Replace BLOCK_START with BLOCK_LOWEST_PC;
+	replace BLOCK_END test with appropriate code for dealing with possible
+	address ranges.
+	(allocate_block): Initialize new ranges field in block struct.
+	* block.h (struct address_range): New struct.
+	(struct address_range_list): New struct.
+	(struct block):  Add new field, ranges, to contain multiple address 
+	ranges.
+	(BLOCK_RANGES): New macro.
+	(BLOCK_RANGE_START): New macro.
+	(BLOCK_RANGE_END): New macro.
+	(BLOCK_LOWEST_PC): New macro.
+	(block_contains_pc): New extern function declaration.
+	(block_starts_and_ends): New extern function declaration.
+	(address_range_ending_pc): New extern function declaration.
+	* blockframe.c (addr_inside_main_func): Replace BLOCK_START and BLOCK_END
+	tests with appropriate code for dealing with possibly multiple ranges
+	of addresses.
+	(find_pc_partial_function): Likewise.
+	(block_innermost_frame):  Replace block start & end tests with call to
+	block_contains_pc.
+	* buildsym.c (finish_block): Add new parameter, ranges; Add code to 
+	properly test for and deal with multiple address ranges.
+	(make_blockvector): Replace BLOCK_START with BLOCK_LOWEST_PC.
+	(end_symtab): Add ranges argument to calls to finish_block.
+	* buildsym.h (finish_block): Add new parameter, ranges, to declaration.
+	* coffread.c  (coff_symtab_read): Add (null) ranges parameter to calls to
+	finish block.
+	* dbxread.c (process_one_symbol): Likewise.
+	* dwarf2read.c (block.h): New include statement.
+	(struct inlined_call_record): Add new field, ranges.
+	(dwarf2_get_pc_bounds): Add new parameter to contain address ranges
+	parsed from die info; Modify to store address ranges into new
+	ranges parameter (for returning); to add the correct offset to the
+	ranges addresses; to store the first range values in lowpc and highpc
+	(dwarf2_add_to_list-of_inlined_calls): Add new parameter, ranges; use
+	new parameter to initialize new field in inlined_call_record struct.
+	(read_inlined_subroutine_scope): Add new ranges argument to call to 
+	dwarf2_get_pc_bounds; check children for lexical block; if found, parse
+	IT for address ranges of inlined subroutine; add new argument, ranges,
+	to call to dwarf2_add_to_list_of_inlined_calls.
+	(read_func_scope): Add ranges argument to calls to dwarf2_get_pc_bounds
+	and finish_block; fix up address ranges, if any.
+	(read_lexical_block_scope): Likewise.
+	(get_scope_pc_bounds): Add ranges argument to calls to 
+	dwarf2_get_pc_bounds.
+	(check_inlined_function_calls):  Add ranges arguemnt to call to 
+	inlined_function_add_function_names.
+	* dwarfread.c (read_lexical_block_scope): Add (null) ranges parameter to
+	call to finish_block.
+	(read_func_scope): Likewise.
+	* f-valprint.c (info_common_command): Replace BLOCK_START with 
+	BLOCK_LOWEST_PC.
+	(there_is_a_visible_common_named): Likewise.
+	* findvar.c (read_var_value): Likewise.
+	* fix-and-continue.c (do_final_fixups_global_syms): Likewise.
+	(redirect_old_function): Add error condition on detecting multiple
+	address ranges.
+	(update_picbase_register): Likewise.
+	* hpread.c (hpread_process_one_debug_symbol): Add null ranges parameter
+	to calls to finish_block.
+	* infcmd.c (until_next_command): Replace BLOCK_START with 
+	BLOCK_LOWEST_PC.
+	* inlining.c (find_function_names):  Rename function to
+	find_function_names_and_address_ranges.
+	(record_end_pc): New function.
+	(find_correct_current_position): Modify to deal with address ranges.
+	(inlined_function_address_ranges_properly_contained): New function.
+	(verify_stack):  Modify to deal with address ranges.
+	(find_function_names_and_address_ranges): Renamed from 
+	find_function_names; add code to find/record address ranges.
+	(add_item_to_inlined_subroutine_stack): Change function call to use
+	new name for find_function_names_and_address_ranges.
+	(inlined_function_update_call_stack):  Add code to check value of
+	dwarf2_allow_inlined_stepping; add code to properly handle address
+	ranges.
+	(update_function_names_and_address_ranges): New function.
+	(fix_up_inlined_function_line_table_entries): New function.
+	(inlined_function_add_function_names): Update function comments; add
+	code to set ranges field.
+	(current_inlined_subroutine_call_stack_eof_pc): New function.
+	(in_inlined_function_call_p): Add code to properly handle address
+	ranges.
+	(inlined_function_end_of_inlined_code_p): Change end_pc test into call
+	to record_end_pc.
+	(inlined_frame_this_id): Likewise.
+	(inlined_subroutine_restore_after_dummy_call): Add code to restore
+	ranges field.
+	(inlined_subroutine_save_before_dummy_call):  Add code to save ranges
+	field.
+	(rest_of_line_contains_inlined_subroutine): Change end_pc test into call
+	to record_end_pc.
+	* inlining.h (block.h): New include statement.
+	(struct inlined_call_stack_record): Add new field, ranges.
+	(inlined_function_add_function_names): Add new ranges parameter.
+	(extern int dwarf2_allow_inlined_stepping): New global variable.
+	* mdebugread.c (new_block):  Initialize ranges field.
+	* mips-mdebug-tdep.c (non_heuristic_proc_desc): Replace BLOCK_START
+	with BLOCK_LOWEST_PC.
+	*  objc-lang.c (find_methods): Replace BLOCK_START and BLOCK_END with
+	block_contains_pc.
+	* objfiles.c (objfile_relocate): Add code to deal appropriately with
+	multiple address ranges.
+	* parse.c (parse_exp_in_context): Replace BLOCK_START with
+	BLOCK_LOWESET_PC.
+	* printcmd.c (build_address_symbolic): Likewise.
+	(address_info): Likewise.
+	* stack.c (print_frame): Likewise.
+	(print_frame_label_vars): Modify code to deal appropriately with
+	multiple address ranges.
+	* symmisc.c (dump_symtab_1): Modify to deal appropriately with multiple
+	address ranges.
+	(print_symbol): Likewise.
+	(maintenance_check_symtabs): Replace BLOCK_START and BLOCK_END tests
+	with calls to block_contains_pc; Add code to deal appropriately with
+	multiple address ranges.
+	* symtab.c (lookup_symbol_aux_block): Replace  BLOCK_START with
+	BLOCK_LOWEST_PC.
+	(block_size): New function.
+	(find_pc_sect_symtab): Replace BLOCK_START and BLOCK end tests with
+	call to block_contains_pc; Replace BLOCK_END minus BLOCK_START with call
+	to block_size.
+	(find_function_start_sal): Replace BLOCK_START with BLOCK_LOWEST_PC;
+	replace BLOCK_START and BLOCK_END tests with call to block_contains_pc.
+	(update_inlined_function_line_table_entry): New function.
+	* symtab.h (update_inlined_function_line_table_entry): New declaration.
+	* tracepoint.c (scope_info): Replace BLOCK_START with BLOCK_LOWEST_PC.
+	* value.c (value_fn_field): Likewise.
+	* xcoffread.c (read_xcoff_symtab): Add null ranges argument to calls to
+	finish_block.
+	* gdbtk/generic/gdbtk-stack.c (gdb_block_vars): Replace BLOCK_START 
+	BLOCK_END tests with call to block_starts_and_ends.
+	(gdb_get_blocks): Add code to deal appropriately with multiple
+	address ranges.
+	(gdb_seleted_block):  Return an error if dealing with multiple address
+	ranges.
+	(get_frame_name): Replace BLOCK_START with BLOCK_LOWEST_PC.
+	* macosx/macosx-tdep.c (dyld_symbol_stub_function_address): Likewise.
+	* macosx/symread.c (sym_symfile_read): Add code to properly handle
+	multiple address ranges.
+	   
+2006-11-01  Caroline Tice  <ctice@apple.com>
+
+	* symtab.c (find_pc_sect_line):  Make sure outer_call_site has a value,
+	even if symtabs don't match.
+
+2006-10-30  Jim Ingham  <jingham@apple.com>
+
+	* interps.c (interp_set_ui_out): New function.
+	* interps.h: Declare it.
+
+2006-10-20  Jim Ingham  <jingham@apple.com>
+
+	* dbxread.c (parse_archive_name): New function.
+	(read_dbx_symtab): Use parse_archive_name.
+	(open_bfd_from_oso): Ditto.
+
+2006-10-19  Jim Ingham  <jingham@apple.com>
+
+	* dbxread.c (read_dbx_symtab): handle the case where we
+	have an OSO record, but the file it points to is missing.
+	
+2006-10-18  Jason Molenda  (jmolenda@apple.com)
+
+        * dbxread.c (read_oso_nlists): Initialize processing_objfile
+        instead of picking up whatever (possibly invalidated) value
+        it might contain.
+
+2006-10-16  Jim Ingham  <jingham@apple.com>
+
+	* objc-lang.c (lookup_objc_class): If you can't call
+	functions in the target, return zero (instead of crashing).
+	
+2006-10-12  Jim Ingham  <jingham@apple.com>
+
+	* objc-lang.c (find_methods): Fix a thinko in the code
+	added to support separate_debug_objfiles.
+	
+2006-10-12  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (process_die): Handle DW_TAG_const_type
+	DIEs here.
+
+2006-10-11  Greg Clayton  <gclayton@apple.com>
+	
+	* main.c (captured_main): Add missing break in switch 
+	statement for OPT_WAITFOR case.
+
+2006-10-11  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.ac: Report results of test for Carbon framework.
+	* configure: Regenerated.
+	* doc/configure: Regenerated with autoconf 2.60.
+	* gdbserver/configure: Ditto.
+	* testsuite/configure: Ditto.
+	* testsuite/gdb.apple/configure: Ditto.
+	* testsuite/gdb.stabs/configure: Ditto.
+
+2006-10-11  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.ac (MIG_CHECKING): New makefile variable to enable
+	MIG type checking.
+	* Makefile.in (MIG_CHECKING): Same.
+	* configure: Regenerated.
+
+2006-10-11  Jim Ingham  <jingham@apple.com>
+
+	* infrun.c (handle_inferior_event): Raise the load level
+	of the stop_pc objfile so we have access to the relevant
+        symbols & debug info before we try to do backtracing type
+        tests.
+
+2006-10-11  Jason Molenda  (jmolenda@apple.com)
+
+	* symtab.c (search_symbols): Add yet another pass over
+	the objfiles to raise the load level of any objfiles
+        with minimal symbols that match the regexp.
+
+2006-10-11  Jim Ingham  <jingham@apple.com>
+
+	* disasm.c (dump_insns): Use disassembly_name_length to 
+	truncate the symbol name.
+	* disasm.h: Define disassembly_name_length.
+	* printcmd.c (_initialize_printcmd): Add the set-show
+	for disassembly-name-length.
+
+	* mem-break.c (default_memory_remove_breakpoint): If the
+	instruction has changed since we wrote our trap, store the
+	new instruction (probably self-modifying code) rather than
+	restoring the old value.
+	
+2006-10-10  Jason Molenda  (jmolenda@apple.com)
+
+	* rs6000-tdep.c (rs6000_dwarf2_reg_to_regnum): Make linkage global.
+	Warn when an invalid register number is received.
+	* ppc-tdep.h: Prototype for rs6000_dwarf2_reg_to_regnum.
+
+2006-10-09  Greg Clayton (gclayton@apple.com)
+
+	* dwarf2read.c (new_symbol): Create a typedef symbol for
+	objective C/C++ classes.
+
+2006-10-05  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (decode_locdesc): Ditch the original patch for
+	CVE-2006-4146 and handle the array bounds checking in a more
+	natural form.
+
+2006-10-04  Jason Molenda  (jmolenda@apple.com)
+
+	* objc-lang.c (find_implementation_from_class): Return immediately
+	if the selector we're inspecting is the 0xfffeb010 bit pattern.
+
+2006-10-03  Jason Molenda  (jmolenda@apple.com)
+
+	* objc-lang.c (find_implementation_from_class): Ignore selectors
+	where the address of the name is 0xfffeb010 - it's a bit pattern
+	with special meaning to the runtime on little-endian systems.
+
+2006-09-29  Jim Ingham  <jingham@apple.com>
+
+	* dwarf2read.c (dwarf2_locate_sections): add support for pubtypes.
+	(find_pubtypes): New function.
+	(dwarf2_scan_pubtype_for_psymbols): New function.
+	* symfile.h: define dwarf2_scan_pubtype_for_psymbols.
+	* symtab.c (lookup_symbol_aux_psymtabs): Change found in psymtab but not
+	in symtab from error->complaint.  This will happen in Dwarf because we
+	don't know whether the names in the pubtypes table are tag names or
+	typedef names.
+	* dbxread.c (read_dbx_symtab): Call dwarf2_scan_pubtype_for_psymbols
+	on the OSO files.
+	
+2006-09-28  Jim Ingham  <jingham@apple.com>
+
+	* maint.c (maintenance_interval_display, init_timer, push_timer,
+	pop_timer, stop_timer, report_timer_interval, 
+	maintenance_report_interval_command, stop_report_timer,
+	make_cleanup_start_report_timer, find_timer, start_timer): New functions
+	implementing "interval timers".
+	(_initialize_maint_cmds): Add the "interval" and "report-interval"
+	commands.
+	* defs.h: Defines for start_timer & maint_use_timers.
+	* dbxread.c (dbx_symfile_add): Add a timer.
+	* objc-lang.c (lookup_objc_class): Add timer, also lock the scheduler
+	when calling into the inferior to lookup the class.
+	* symfile.c (psymtab_to_symtab): Add a timer.
+	* value.c (value_fn_field): Check for NULL block.
+	
+2006-09-26  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_oso_nlists): Ignore symbols with a '.' in their name
+	except for function static vars and, now, functions in a C++ anonymous
+	namespace.
+
+2006-09-20  Jason Molenda  (jmolenda@apple.com)
+
+	* cli/cli-cmds.c (edit_command): Don't cast addresses to 32-bits 
+	before printing.
+	(list_command): Ditto.
+
+2006-09-14  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_dbx_symtab): Linewrapping whitespace fix.
+	* dwarf2read.c (EH_FRAME_SECTION): Use the MachO segment/section name.
+	(decode_locdesc): Update to final patch form of CVE-2006-4146.
+
+2006-09-13  Jason Molenda  (jmolenda@apple.com)
+
+	* symfile.c (find_separate_debug_file): Fix conditional
+	preprocessor usage as per Greg's intended change.
+
+2006-09-05  Jim Ingham  <jingham@apple.com>
+
+	* valops.c (value_cast_1): New functions, wrap value_cast so
+	I can fix up typedefs.
+	(value_cast): Don't remove typedef from value_cast.
+
+2006-09-01  Jim Ingham  <jingham@apple.com>
+
+	* dbxread.c (read_dbx_symtab): Demangle the vtable symbol name
+	to get the classname.  Otherwise we miss classes in namespaces.
+
+	* valops.c: (check_field_in): If the baseclass type is a stub,
+	call CHECK_TYPEDEF on it before searching in it.
+	
+2006-08-29  Caroline Tice  <ctice@apple.com>
+
+	* i386-tdep.c (i386_skip_prologue):  Remove erroneous ';' at the end of
+	a condition on an if statement.  It was causing incorrect parsing of
+	i386 prologues with gcc 1518.
+
+2006-08-25  Stan Shebs  <shebs@apple.com>
+
+	* checkpoint.c (forking_checkpoint): New global.
+	(collect_checkpoint): Reorg to use it.
+	(_init_checkpoint): Add command to set it.
+	(maybe_create_checkpoint): Catch an unusual situation.
+	(print_checkpoint_info): Print memory statistics for in-GDB
+	checkpoints.
+	(clear_all_checkpoints): Clear collecting_checkpoint too.
+	* checkpoint.h: Declare memcache_get.
+
+2006-08-24  Caroline Tice  <ctice@apple.com>
+
+        * top.c (execute_command): Rename "line" to be "tmp_line", to avoid
+	potential further confusion in the future.
+
+2006-08-24  Caroline Tice  <ctice@apple.com>
+
+        * top.c (execute_command): Make "line" into a local variable
+	again (local definition had been accidentally deleted); Re-undo change 
+	from 2006-08-04, restoring original pointer assignment of p into line 
+	(now the local variable version). 
+
+2006-08-22  Jason Molenda  (jmolenda@apple.com)
+
+        * top.c (execute_command): Reapply change from 2006-08-04; simple
+        removal causes crashes in break.exp and commands.exp.
+
+2006-08-22  Caroline Tice  <ctice@apple.com>
+
+	* infcmd.c (step_once):  Fix code for finding sal for stepping into
+	inlined subroutine; also don't adjust global_inlined_call_stack until
+	correct sal has been found.
+	(finish_command):  When finishing from an inlined function, set 
+	step_frame_id, so gdb will stop in correct frame.
+	* infrun.c (handle_inferior_event):  Allow stepping to stop within a
+	line if the line contains an inlined subroutine.
+	* inlining.c (add_item_to_inlined_subroutine_stack):  Don't take symtab
+	from call_site;  Use current symtab rather than original one when
+	calling add_item_to_inlined_subroutine_stack.
+	(at_inlined_call_site_p): Add valid case if there's only a single
+	possible record (low == high).
+	(print_inlined_frame):  Take file name from sal rather than 
+	global_inlined_call_stack.
+	(step_into_current_inlined_subroutine):  Add loop to step into/through
+	multiple levels of inlining, if necessary, to reach appropriate record.
+	(rest_of_line_contains_inlined_subroutine):  Modify to check entire 
+	line, from begining of line, not just from current position within line.
+	* stack.c (print_frame_info): Use symtab from sal rather than from
+	global_inlined_call_stack.
+	(print_frame):  Fix code for finding symtab, for printing filename,
+	if inside inlined subroutine.
+	(backtrace_command_1):  Add code to demangle C++ names, when reporting
+	inlined subroutines.
+	* symtab.c (find_pc_sect_line): Remove erroneous code that attempted to
+	adjust line number for first line of inlined subroutine.
+
+2006-08-22  Caroline Tice  <ctice@apple.com>
+
+	* top.c (execute_command):  Undo change from 2006-08-04: revert
+	the strcpy back to a pointer assignment.
+	  
+2006-08-21  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarfread.c (locval): A stack of zero elements is legal.
+	* dwarf2read.c (decode_locdesc): Ditto.
+
+2006-08-21  Jason Molenda  (jmolenda@apple.com)
+
+        Patch from Will Drewry <wad@google.com> and 
+        Tavis Ormandy <taviso@google.com> to address CVE-2006-4146.
+
+        * dwarfread.c (locval): Don't walk off the location description stack.
+	* dwarf2read.c (decode_locdesc): Don't walk off the location 
+	description stack.
+
+2008-08-21  Caroline Tice  <ctice@apple.com>
+
+	* dwarf2read.c (read_inlined_subroutine_scope):  Make sure the compiler
+	generated the call site information before attempting to use it.
+	   
+2006-08-04  Caroline Tice  <ctice@apple.com>
+
+	* infcmd.c (step_omce): Remove unnecessary call to 
+	inferior_event_handler.
+	* thread.c (do_captured_thread_select): If inside and inlined
+	function, make sure deprecated_selected_frame has a valid value.
+	* top.c (execute_command):  do strcpy of p into line rather than
+	pointer assignment.
+
+2006-08-03  Jason Molenda  (jmolenda@apple.com)
+
+	* infcall.c (_initialize_infcall): 
+	inferior_function_calls_disabled_p is only defined for
+	native gdb's.
+
+2006-08-03  Jason Molenda  (jmolenda@apple.com)
+
+	* infcall.c (_initialize_infcall): Add set/show for
+	inferior_function_calls_disabled_p.  Need to add function
+	to note if the user set this or the target so the error
+	message can be better than "no inf func calls for translated
+	apps".
+
+2006-08-02  Jim Ingham  <jingham@apple.com>
+
+	* source.c (convert_sal): Add explanatory comment.
+	* symtab.c (find_pc_sect_line): Change a huh? comment to 
+	an explanatory one.
+	
+2006-08-02  Caroline Tice  <ctice@apple.com>
+
+	* inlining.c (rest_of_line_contains_inlined_subroutine):  If the
+	sal could not find a line number (i.e. line is 0), return a 0
+	immediately.
+
+2006-08-01  Jim Ingham  <jingham@apple.com>
+
+	* (Makefile.in): Turn off the tui, since if you use it it
+	crashes, and we don't intend to make it work.
+	
+2006-08-01  Caroline Tice  <ctice@apple.com>
+
+	* infcmd.c (annotate.h): New include statement.
+	(mi-common.h, mi-cmds.h, mi-main.h): Remove include statements.
+	(step_1): Don't call async_disable_stdin if we're stepping into an
+	inlined function (i.e. not executing the inferior).
+	(step_once): Move all the code for handling stepping into an inlined
+	subroutine from execute_command into step_once.  Also, remove code
+	that calls mi routines and forces gdb_prompt, and add call to
+	inferior_event_handler.
+	* top.c (mi-common.h, mi-cmds.h, mi-main.h): Remove include statements.
+	(execute_command): Remove code for handling stepping into inlined
+	subroutine; move it to step_once.
+
+2006-07-27  Caroline Tice  <ctice@apple.com>
+
+        * dwarf2read.c (struct inlined_call_record): Add two new fields, 
+        decl_file_index and decl_line, to record actual decl location of
+        inlined subroutine (before it got inlined).
+        (dwarf2_add_to_list_of_inlined_calls):  Add two new parameters, 
+	decl_file and decl_line; use those to fill in new fields in 
+	inlined_call_records.
+        (read_inlined_subroutine_scope): Get the decl location for inlined 
+        subroutine from its abstract_origin die, and pass the information to 
+        dwarf2_add_to_list_of_inlined_calls.
+	(check_inlined_function_calls):  Add two new parameters,
+	cu and comp_dir; check to see if required subfile has not
+	been created yet, and if not, create it.  Also, if inlined
+	subroutine is declared in one file but inlined in a different
+	file, make sure the INLINED_SUBROUTINE_LT_ENTRY goes into
+	the linetable for the declaration file, and the
+	INLINED_CALL_SITE_LT_ENTRY goes into the linetable for the
+	call site file.
+        (dwarf_decode_lines):  Add two new arguments, cu and comp_dir, to calls
+        to check_inlined_function_calls.
+        * infcmd.c (step_once): Look for INLINED_CALL_SITE sal entry, rather
+        than INLINED_SUBROUTINE sal entry, when stepping into an inlined 
+        subroutine.
+        * inlining.c (print_inlined_frame): Use line number from sal rather than
+        trying to get line number from previous frame.
+        (rest_of_line_contains_inlined_subroutine): Fix while loop to not skip
+        last iteration; add check for INLINED_CALL_SITE_LT_ENTRY.
+        * symtab.c (gdb_assert.h): Add new include statement.
+        (find_pc_sect_line):  Completely re-write the portion of this dealing
+        with finding and returning line table entries for inlined subroutines,
+        so it can properly deal with multiple entries across multiple line 
+        tables from different symbol tables (files).
+
+2006-07-27  Stan Shebs  <shebs@apple.com>
+
+	* checkpoint.c (subsystem_checkpointing): New global.
+	(collect_checkpoint, rollback_to_checkpoint): Use it.
+	(_initialize_checkpoint): New settable variable
+	subsystem-checkpointing.
+
+2006-07-26  Stan Shebs  <shebs@apple.com>
+
+	Fixes from Jim Ingham:
+	* checkpoint.c (load_helpers): Terminate string properly, warn about
+	dlopen results.
+	(sigterm_handler): New function, clears checkpoint forks.
+	(_initialize_checkpoint): Install it.
+
+2006-07-21  Stan Shebs  <shebs@apple.com>
+
+	* checkpoint.c (inferior_call_checkpoints): New global.
+	(maybe_create_checkpoint): Test it.
+	(begin_inferior_call_checkpoints, end_inferior_call_checkpoints):
+	New functions.
+	(rollback_to_checkpoint): Move rolling_back outside of external
+	subsystem rollbacks.
+	* infcall.c (hand_function_call): Call the begin and end
+	functions above.
+
+2006-21-2006  Jim Ingham  <jingham@apple.com>
+
+	* symfile.c (check_for_matching_uuid): Fix a warning message.
+	
+2006-07-18  Jason Molenda  (jmolenda@apple.com)
+
+	* amd64-tdep.c (amd64_analyze_prologue): Skip over fix-and-continue
+	generated nop insns when looking for the prologue.
+
+2006-07-18  Stan Shebs  <shebs@apple.com>
+
+	* checkpoint.c (max_checkpoints): New global.
+	(prune_checkpoint_list): New function.
+	(finish_checkpoint): Call it.
+	(collect_checkpoint): Use correct checkpoint id in CG call.
+	(delete_checkpoint): Update last_checkpoint correctly.
+	(delete_checkpoint_command): Better looping for mass deletion.
+	(set_max_checkpoints): New function.
+	(_initialize_checkpoint): New command "set max-checkpoints".
+	* checkpoint.h (struct checkpoint *): New field "keep".
+
+2006-07-18  Jim Ingham  <jingham@apple.com>
+
+	* inferior.h: Declare make_cleanup_suppress_hook_stop.
+	* infrun.c: (make_cleanup_suppress_hook_stop, 
+	do_cleanup_suppress_hook_stop): New functions.
+	(hook_stop_stub): Check whether we are suppressing the stop hook.
+	* parse.c (parse_exp_in_context): Disable the stop hook before
+	starting to parse.
+	
+2006-07-17  Jason Molenda  (jmolenda@apple.com)
+
+	* top.c: Include "checkpoint.h"
+	* infcmd.c (rx_cp, active_checkpoint): Declare these as their actual
+	type.
+	* checkpoint.c: Include necessary std header files.
+	* checkpoint.h: Add prototypes for clear_all_checkpoints, 
+	checkpoint_compare.
+
+2006-07-14  Stan Shebs  <shebs@apple.com>
+
+	* checkpoint.c (load_helpers): Change dylib name.
+
+2006-07-13  Jason Molenda  (jmolenda@apple.com)
+
+	* infcmd.c (_initialize_infcmd): Update 'attach' documentation
+	to note Apple local extensions.
+	* main.c (captured_main): Recognize a new --waitfor command line
+	argument.
+
+2006-07-13  Jim Ingham  <jingham@apple.com>
+
+	* varobj.c (new_variable): Initialize path_expr to NULL.
+
+2006-07-13  Stan Shebs  <shebs@apple.com>
+
+	* checkpoint.c (load_helpers): New function.
+	(collect_checkpoint): Call it.
+
+2006-07-12  Caroline Tice  <ctice@apple.com>
+
+        * Makefile.in (SFILES): Add inlining.c
+	(inlining_h): New definition.
+	(BASE_OBS): Add inlining.o
+	(breakpoint.o): Add inlining_h
+	(dwarf2read.o, frame.o, frame_unwind.o, infcmd.o, infrun.o): Likewise.
+	(inlining.o): New definition.
+	(linux-thread_db.o, ocd.o, remote-e7000.o, remote-mips.o): Add 
+	inlining_h.
+	(remote-rdp.o, stack.o, thread.o, top.o, tracepoint.o): Likewise.
+	(mi-cmd-stack.o, mi-main.o): Likewise.
+	* breakpoint.c (inlining.h):  New include statement.
+	(print_it_typical): Add case for bp_inlined_breakpoint.
+	(bpstat_stop_status):  Modify condition comparing frames if an 
+	INLINED_FRAME is involved; call 
+	inlined_subroutine_adjust_position_for_breakpoint if the inferior hit a 
+	bp_inlined_breakpoint breakpoint.
+	(bpstat_what):  Add case for bp_inlined_breakpoint.
+	(print_one_breakpoint):  Add info for bp_inlined_breakpoint.  Add case 
+	for bp_inlined_breakpoint.
+	(user_settable_breakpoint):  Add case for bp_inlined_breakpoint.
+	(allocate_bp_location): Likewise.
+	(disable_breakpoints_in_shlibs):  Add bp_inlined_breakpoint to 
+	condition.
+	(mention):  Add case for bp_inlined_breakpoint.
+	(create_breakpoints):  Add call to 
+	check_for_additional_inlined_breakpoint_locations, and recursive call 
+	to create_breakpoints, if appropriate.
+	(breakpoint_re_set_one):  Add case for bp_inlined_breakpoint.
+	(breakpoint_re_set_all):  Likewise.
+	(disable_command):  Likewise.
+	(enable_command):  Likewise.
+	(write_one_breakpoint):  Likewise.
+	(save_breakpoints_command):  Add check for bp_inlined_breakpoint.
+	* breakpoint.h (enum bptype):  Add new type, bp_inlined_breakpoint.
+	* buildsym.c (record_line):  Add two new parameters to the function,
+	END_PC and ENTRY_TYPE, corresponding to the two new fields in line table
+	entries.   Also use the new values passed in when creating the new line
+	table entry.
+	* buildsym.h (record_line):  Change function declaration to match new 
+	parameters.
+	* coffread.c (coff_symtab_read):  Modify calls to record_line to pass in
+	the two new arguments.
+	(enter_linenos): Likewise.
+	* corelow.c (inlining.h):  New include statement.
+	(core_open):  Add call to clear_inlined_subroutine_print_frames after
+	print_stack_frame.
+	* dbxread.c (process_one_symbol):  Modify calls to record_line to pass 
+	in the two new arguments.
+	* dummy-frame.c (dummy_frame_push):  Add call to 
+	inlined_subroutine_save_before_dummy_call.
+	* dwarf2read.s (inlining.h): New include statement.
+	(struct inlined_call_record):  New struct.
+	(inlined_call_sites): New global variable.
+	(dwarf2_allow_inlined_stepping):  New set/show global variable.
+	(read_inlined_subroutine_scope): New function.
+	(process_die):  Add call to read_inlined_subroutine_scope for 
+	inlined_subroutine dies, if dwarf2_allow_inlined_stepping is set.
+	(dwarf2_add_to_list_of_inlined_calls): New function.
+	(check_inlined_function_calls): New function.
+	(dwarf_decode_lines):  Add call to check_inlined_function_calls after
+	each call to record_line; and add the two new arguments to calls to
+	record_line.
+	(new_symbol): Add case for DW_TAG_inlined_subroutine.
+	(_initialize_dwarf2_read):  Add call to add_setshow_boolean_cmd, to
+	set up dwarf2_allow_inlined_stepping to be a set/show gdb variable.
+	* dwarfread.c (decode_line_numbers):  Add two new arguments to call to 
+	record_line.
+	* frame_unwind.c (inlining.h) New include statement.
+	(frame_unwind_init):  Add inlined_frame_unwind to the table immediately
+	after the dummy_frame_unwind; Make the insertion point fort OSABI
+	sniffers to come after the inlined_frame_unwind.
+	* frame.c  (inlining.h): New include statement.
+	(fprint_frame_type):  Add case for INLINED_FRAME.
+	(frame_unwind_id): Add an extra level of unwinding if the frame type is
+	iNLINED_FRAME.
+	(flush_cached_frames):  Add call to flush_inlined_subroutine_frames.
+	(get_prev_frame_1): Modify conditions of various error checks to
+	take INLINED_FRAMEs properly into account.
+	(get_prev_frame):  Likewise.
+	(find_frame_sal):  Modify to cope properly with the linked list of
+	SALs that may be returned for a PC at an inlined subroutine call.
+	(inlined_frame_prev_register): New function.
+	* frame.h (INLINED_FRAME): New frame type.
+	* hpread (hpread_record_lines):  Modify calls to record_line to pass in
+	the two new arguments.
+	(hp_process_one_debug_symbol):  Likewise.
+	* infcall.c (hand_function_call):  Add call to 
+	inlined_subroutine_restore_after_dummy_call.
+	* infcmd.c (mi/mi-common.h) New include statement.
+	(mi/mi-cmds.h) Likewise.
+	(mi/mi-main.h) Likewise.
+	(inlining.h) Likewise.
+	(run_command_1):  Add code to properly initialize 
+	global_inlined_call_stack.
+	(step_once):  Add code to cope with 'next' over an inlined function
+	or the final 'step' into an inlined subroutine (the step into the
+	innermost inlined subroutine).  Also code to help deal with an
+	inlined subroutine within a larger source line being 'next'ed over or
+	'step'ed into.
+	(finish_command):  Added code to correctly finish from  inside an
+	inlined subroutine.
+	* inferior.h (insert_step_resume_breakpoint_at_sal):  Add extern 
+	function declaration (the function used to be static, inside infrun.c).
+	* infrun.c (inlining.h): New include statement.
+	(prepare_to_proceed):  Check to see if the stop_pc has changed since
+	the last time global_inlined_call_stack was updated, and if so
+	re-update global_inlined_call_stack.
+	(handle_inferior_event): Likewise; also fix struct types for prev_frame
+	declarations (make them frame_info instead of frame);
+	(insert_step_resume_breakpoint_at_sal): Remove "static" qualifier on 
+	function; also check to see if the breakpoint is at the exit of an 
+	inlined subroutine, and if so, adjust the global_inlined_call_stack 
+	appropriately.
+	(normal_stop):  Add call to clear_inlined_subroutine_print_frames after
+	print_stack_frame.  Also, if a dummy call just ended, call 
+	inlined_subroutine_restore_after_dummy_call, then check to see if 
+	stop_pc has changed since last time global_inlined_call_stack was 
+	updated, and if so re-update it
+	* inlining.c : New file.
+	* inlining.h : New file.
+	* linux-thread-db.c (inlining.h): New include statement.
+	(check_event):    Check to see if the stop_pc has changed since
+	the last time global_inlined_call_stack was updated, and if so
+	re-update global_inlined_call_stack.
+	* mdebugread.c (psymtab_to_symtab_1): Modify call to record_line to pass
+	in two new arguments.
+	* ocd.c (inlining.h): New include statement.
+	(ocd_start_remote):   Check to see if the stop_pc has changed since
+	the last time global_inlined_call_stack was updated, and if so
+	re-update global_inlined_call_stack.  Also, call 
+	clear_inlined_subroutine_print_frames after print_stack_frame.
+	* remote-e7000.c (inlining.h): New include statement.
+	(e7000_start_remote):  Check to see if the stop_pc has changed since
+	the last time global_inlined_call_stack was updated, and if so
+	re-update global_inlined_call_stack; also call
+	clear_inlined_subroutine_print_frames after print_stack_frame.
+	* remote-mips.c (inlining.h): New include statement.
+	(common_open):   Check to see if the stop_pc has changed since
+	the last time global_inlined_call_stack was updated, and if so
+	re-update global_inlined_call_stack.  Also call
+	clear_inlined_subroutine_print_frames after print_stack_frame.
+	* remote-rdp.c (inlining.h): New include statement.
+	(remote_rdp_open):   Check to see if the stop_pc has changed since
+	the last time global_inlined_call_stack was updated, and if so
+	re-update global_inlined_call_stack.  Also call
+	clear_inlined_subroutine_print_frames after print_stack_frame.
+	* stack.c (inlining.h): New include statement.
+	(print_frame_info):  Add code to print out correct locations if
+	inside an inlined subroutine.
+	(print_frame):  Check to see if user is inside an inlined subroutine
+	and if the current frame is an INLINED_FRAME.  Call print_inlined_frame
+	if appropriate.  Modify the source line printed if user is inside an
+	inlined subroutine.  For inlined function call sites, get the
+	symtab from the current global_inlined_call_stack record.
+	(backtrace_command_1):  If the user is inside an inlined subroutine,
+	print out information about what was inlined where before printing out
+	normal information.
+	(select_and_print_frame):  Call clear_inlined_subroutine_print_frames
+	after print_stack_frame.
+	(frame_command):  Likewise.
+	(current_frame_command):  Likewise.
+	(up_command):  Likewise.
+	(down_command):  Likewise.
+	(return_command):  Check to see if user is inside inlined subroutine; if
+	so, tell the user what has been inlined into what (for current) 
+	position, before outputting return prompt question; Add call to 
+	inlined_subroutine_restore_after_dummy_call if returning from a dummy 
+	frame.
+	* symtab.c  (init_sal):  Initialize new fields, entry_type and next.
+	(find_pc_sect_line): Modify it to check for inlined subroutine
+	line table entries and returned a linked list of sals if found; 
+	added/moved code so inlined function entries wouldn't be lost if 
+	multiple symbol tables/files are used.
+	* symtab.h (enum line_table_entry_type):  New type, for classifying
+	line table entries.  Current enums are:  NORMAL_LT_ENTRY, 
+	INLINED_SUBROUTINE_LT_ENTRY, INLINED_CALL_SITE_LT_ENTRY.
+	(struct linetable_entry):  Add two new fields, end_pc and entry_type.
+	(struct symtab_and_line): Add two new fields, entry_type and next.
+	* thread.c (inlining.h): New include statement.
+	(info_threads_command): Add calls to 
+	clear_inlined_subroutine_print_frames after print_stack_frame.
+	(switch_to_thread):  Check to see if the stop_pc has changed since
+	the last time global_inlined_call_stack was updated, and if so
+	re-update global_inlined_call_stack.
+	(restore_current_thread):  Add call to 
+	clear_inlined_subroutine_print_frames after print_stack_frame.
+	(do_captured_thread_select):  Likewise.
+	* top.c (mi/mi-common.h): New include statement.
+	(mi/mi-cmds.h): Likewise.
+	(mi/mi-main.h): Likewise.
+	(inlining.h): Likewise.
+	(execute_command):  Check to see if the user requested a 'step' and
+	is at the call site of an inlined subroutine.  If so, change the user's
+	context without actually running the inferior.
+	* tracepoint.c  (inlining.h):  New include statement.
+	(finish_tfind_command):  Add call to 
+	clear_inlined_subroutine_print_frames after print_stack_frame.
+	* xcoffread.c (enter_line_range):  Add two new arguments to call to 
+        record_line.
+
+2006-07-08  Stan Shebs  <shebs@apple.com>
+
+	* checkpoint.c (CP_FORK_NAME): Macrofy fork function name.
+	(collect_checkpoint): Use it, also add call for CG state save.
+	(rollback_to_checkpoint): Add call for CG state restore, use
+	rollback_stop().
+	(warned_cg): New global.
+	(clear_all_checkpoints): Clear rolled_back.
+	* infrun.c (rollback_stop): New function, modified normal_stop.
+	(proceed): Disable resume-from-rollback warning for now.
+
+2006-07-07  Jason Molenda  (jmolenda@apple.com)
+
+	* linespec.c (decode_all_digits_exhaustive): Initialize sal with
+	0x0 addrs so a non-match is correctly detected, e.g. a breakpoint
+        on a source line past the end of the file.
+
+2006-07-05  Jason Molenda  (jmolenda@apple.com)
+
+	* linespec.c (decode_line_1): Fix logic in cond expr that avoids
+	objc method lookups for "main" and "exit".
+
+2006-06-28  Greg Clayton  <gclayton@apple.com>
+
+	* symfile.c (find_separate_debug_file): Use Apple-specific version of
+	this function to find dSYM files when __APPLE__ is defined instead of
+	using NM_NEXTSTEP.  NM_NEXTSTEP isn't defined for cross-gdb's but we
+	still need to look for dSYM files in those cases.
+
+2006-06-23  Jason Molenda  (jmolenda@apple.com)
+
+	* linespec.c (decode_line_1): Also don't look for ObjC methods
+	named "error".
+
+2006-06-23  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.ac: Substitute UNIX03_UGH_CFLAGS in the Makefile.
+	Set __DARWIN_UNIX03 to 0 to use pre-conformant headers/functions.
+	* Makefile.in: Add UNIX03_UGH_CFLAGS to various CFLAGS.
+
+2006-06-13  Jim Ingham  <jingham@apple.com>
+
+	* Makefile.in: Uncomment the LIBXML2 variables
+	* config.in: Put the LIBXML2 defines back (lost
+	in the merge.)
+	
+2006-06-12  Jim Ingham  <jingham@apple.com>
+
+	* charset.c: Add a utf-8 charset.
+	(utf_8_print_literally): New function.
+	(utf_8_to_control): New function.
+	(utf_8_family_charset): New function.
+	(register_charset): Register it.
+	* configure.ac: Make UTF-8 the macosx native
+	default.
+	
+2006-06-11  Stan Shebs  <shebs@apple.com>
+
+	* checkpoint.c (create_checkpoint_command): Add a check.
+	(collect_checkpoint): Improve cpfork lookup, use direct_memcache_get.
+	(delete_checkpoint): New.
+	(map_checkpoint_numbers): New.
+	(clear_all_checkpoints): Rename from clear_checkpoints.
+	(_initialize_checkpoint): Add checkpoint deletion command.
+	* infcmd.c (kill_if_already_running): Clear checkpoints.
+	(attach_command): Ditto.
+	* top.c (quit_target): Ditto.
+	* infrun.c (proceed): Query about proceeding after rollback.
+
+2006-06-05  Jim Ingham  <jingham@apple.com>
+
+	* valops.c (allocate_string_in_inferior): New function.
+	(value_clear_inferior_string_pool): New function.
+	(value_string): use allocate_string_in_inferior.
+	* target.c (generic_mourn_inferior): Clear out string pool.
+	* values.h: define value_clear_inferior_string_pool.
+	
+2006-06-01  Jim Ingham  <jingham@apple.com>
+
+	* source.c (set_pathname_substitution): New function.
+	(_initialize_source): Add set_pathname_substution as
+	the set function.
+
+2006-06-01  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile.in (gdb): Remove MACOSX_DEPLOYMENT_TARGET setting;
+	it was only needed while we were weak linking to Carbon.
+
+2006-06-01  Jim Ingham  (jingham@apple.com)
+
+	* varobj.c (varobj_create): Check the return from
+	gdb_value_fetch_lazy, and set error if it fails.
+	(varobj_update): Call value_fetch_lazy on the new
+	value if necessary, and handle the error if this
+	doesn't work.
+
+2006-05-30  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.ac: Link to Carbon normally, not weak.
+	* configure: Regenerated.
+
+2006-05-30  Jim Ingham  <jingham@apple.com>
+
+	* varobj.c (varobj_get_type_index_from_fake_child): Skip
+	static fields.
+	(cplus_real_type_index_for_fake_child_ind): Ditto.
+
+2006-05-25  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_oso_nlists): Do ingest file static variables
+	which have had a ".[0-9]+" suffix added by the compiler.
+
+2006-05-24  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_dbx_symtab): Only skip the first character
+	of the name if it is the bfd_prefix_char, i.e. don't skip the
+	first char of ObjC method function names.
+	(read_oso_nlists): Don't create OSO nlist records for artifical
+	nlist entries that contain "." in the names.
+
+2006-05-24  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile.in (gdb): Set MACOSX_DEPLOYMENT_TARGET when doing the
+	final app link to avoid weak linking warnings from the static link
+	editor.
+
+2006-05-23  Jim Ingham  <jingham@apple.com>
+
+	* configure.ac: If the carbon framework exists, weak link to it.
+	* Makefile.in: Add the carbon framework weakly to the gdb link.
+	* infrun.c (normal_stop): Move the call to the stop_command to 
+	AFTER the point where the bottom frame is set.  Otherwise the
+	hook-stop commands will get the old version of the cursal, not the
+	current one.
+	
+2006-05-23  Jason Molenda  (jmolenda@apple.com)
+
+	* objc-lang.c: Update for 64-bit objc runtime.
+	(get_addrsize): New function.  May prove to be too inefficient to
+	fetch this every time; possibly cache the value and dirty the cache
+	when exec_bfd is changed.
+	(print_object_command): Whitespace fixes; treat address values as such.
+	(read_objc_method): Updated for 64 bit objc runtime.
+	(read_objc_method_list_nmethods): Ditto.  Renamed from 
+	read_objc_methlist_nmethods to be consistent with the structure
+	name in the objc runtime.
+	(read_objc_method_list_method): Ditto.
+	(read_objc_object): Updated for 64 bit objc runtime.
+	(read_objc_super): Ditto.
+	(read_objc_class): Ditto.
+	(find_implementation_from_class): Ditto.
+	(value_objc_target_type): Ditto.
+
+2006-05-22  Jason Molenda  (jmolenda@apple.com)
+
+	* linespec.c (decode_line_1): Don't do method lookup for
+	"main".
+
+2006-05-17  Jason Molenda  (jmolenda@apple.com)
+
+	* target.c (deprecated_debug_xfer_memory): Use paddr_nz to print
+	addresses, not any of the printf builtin formatters.
+	(debug_to_insert_breakpoint): Ditto.
+	(debug_to_remove_breakpoint): Ditto.
+
+2006-05-15  Jim Ingham <jingham@apple.com>
+
+	* objfiles.c (objfile_set_load_state): Discriminate between
+	real error and the user not requesting auto-loading.
+	(objfile_name_set_load_state): Ditto.
+
+2006-05-11  Jim Ingham <jingham@apple.com>
+
+	* config/xm-macosx.h: Include signal.h.
+	* fork-child.c (startup_inferior): Recognize a crash in the
+	shell instead of in the inferior process and flag it as such.
+
+2006-05-10  Greg Clayton  (gclayton.com)
+
+	* dbxread.c (read_dbx_symtab): Skip adding any debug map symbols
+	when we have a dSYM file.
+
+	* symfile.c (symbol_file_add_with_addrs_or_offsets): Moved the
+	code that locates and parses the dSYM file for a given objfile to
+	happen before syms_from_objfile() gets called. When we know if a
+	dSYM file exists and is that the UUIDs match for a given executable
+	before calling syms_from_objfile(), we will know wether to ignore
+	the debug map entries we may find in the main executable.
+
+	* elfread.c (elf_symtab_read): Change #ifdef condition that
+	surrounds msym->filename code to only be enabled for when
+	SOFUN_ADDRESS_MAYBE_MISSING is defined and NM_NEXTSTEP is NOT
+	defined since we don't need the filename member for OS X
+	development. The only place that sets this member is in elfread.c.
+
+	* symmisc.c (dump_msymbols): Ditto.
+
+	* symtab.h (struct minimal_symbo): Ditto.
+
+	* minsyms.c (lookup_minimal_symbol): Ditto.
+	(prim_record_minimal_symbol_and_info): Added initialization for the
+	filename member of minimal_symbol since it was not getting
+	initialized to NULL.
+
+2006-05-09  Jason Molenda  (jmolenda@apple.com)
+
+	* procfs.c (proc_update_threads): Fix flipped bit in a comment
+	from cosmic ray hitting cvs server or something.
+
+2006-05-02  Jason Molenda  (jmolenda@apple.com)
+
+        * environ.c (smuggle_dyld_settings): dyld no longer truncates
+        DYLD_FRAMEWORK_PATH etc to an empty string; it now excludes it
+        entirely from the child's environment.  Fix logic in this function
+        to handle that correctly.
+
+2006-05-02  Stan Shebs  <shebs@apple.com>
+
+	* checkpoint.h (enum cp_type): New, for types of checkpoints.
+	(struct checkpoint): Add type and logical prev/next fields.
+	* checkpoint.c: General redesign to use new fields, various
+	cleanup.
+	(_initialize_checkpoint): New commands "redo" and "now".
+	* infrun.c (normal_stop): Move auto-checkpointing to end.
+
+2006-03-28  Eric Albert  (ejalbert@apple.com)
+
+	* i386-tdep.h (struct gdbarch_tdep): Update the comment for wordsize to
+	account for x86-64.
+
+2006-03-23  Eric Albert  (ejalbert@apple.com)
+
+	* config/i386/macosx.mt (TDEPFILES): Add amd64-tdep.o.
+
+2006-04-28  Jason Molenda  (jmolenda@apple.com)
+
+	* fix-and-continue.c (create_current_active_funcs_list): Don't xstrdup
+	a NULL char* like we tend to have in DWARF programs.
+
+2006-04-27  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (record_minimal_symbol): Update DBX_TEXT_SECTION et al
+	to use a struct obj_section instead of BFD asection.
+	(dbx_symfile_init): Don't initialize DBX_TEXT_SECTION et al here.
+	We don't use this code path so I'm not updating it to the new
+	behavior.
+	* gdb-stabs.h: (struct dbx_symfile_info): Update text_section et al
+	to struct obj_sections.
+
+2006-04-21  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_dbx_symtab): Add function static data to
+	the psymtab w/ its mangled name; put static data in the 
+	static psymtab table, not the global one.
+	* dwarf2read.c (convert_oso_map_to_final_map): Look up names from
+	the .o file nlist records in the psymtab instead of an unscoped
+	global lookup via minimal_symbol_lookup to get the correct one.
+	(read_file_scope): Prefer the psymtab's textlow/texthigh settings
+	when a debug map was processed - it will have the correct range of
+	addresses that functions are contained within.
+	* symtab.h (lookup_minimal_symbol_by_pc_section_from_objfile): Add
+	prototype.
+
+2006-04-19  Jim Ingham <jingham@apple.com>
+
+	* varobj.c (c_value_of_variable): Ensure the varobj's child count
+	is initialized before printing.
+
+2006-04-17  Jim Ingham <jingham@apple.com>
+
+	* varobj.c (varobj_value_struct_elt_by_index): Do the work of
+	value_struct_elt, but look up by index in the TYPE_FIELDS array
+	instead of by name.
+        (varobj_lookup_struct_elt_type_by_index): Ditto for 
+	lookup_struct_elt_type.	
+	(varobj_get_type_index_from_fake_child): New function.
+	(cplus_make_name_of_child): Use 
+	varobj_get_type_index_from_fake_child.
+	(create_child): Use the index to create the anonymous
+	child names.  This makes testsuites easier to write...
+	(c_value_of_child); Don't use the element name to lookup 
+	the child, it's not unique for anonymous structures & unions.
+	(c_type_of_child): Ditto.
+	(cplus_value_of_child): Ditto.
+	(cplus_type_of_child): Ditto.
+	
+2006-04-17  Jason Molenda  (jmolenda@apple.com)
+
+	* objfiles.c (objfile_relocate): Relocate the deprecated_sym_stab_info
+        (aka DBX_SYMFILE_INFO) member of the struct objfile along with 
+	everything else.
+
+2006-04-  Greg Clayton  (gclayton.com)
+
+	* symfile.c (find_separate_debug_file): We now search for dSYM 
+	files at one extra location for bundles where we do not strip 
+	the executable bundle extension before appending the dSYM 
+	bundle path information.
+
+2006-04-13  Jason Molenda  (jmolenda@apple.com)
+
+	* symtab.c (symbol_set_names): Demangle the symbol name
+	even if a demangled version is found in the cache so that
+	the symbol's language is correctly initialized.
+	* dbxread.c (read_dbx_symtab): Add GSYMs to the psymtab.
+
+2006-04-13  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (struct dwarf2_cu): Add comp_dir field.
+	(read_file_scope): Set comp_dir.
+	(dwarf_decode_lines): Pass cu->comp_dir.
+	(dwarf2_start_subfile): If dirname is relative, prepend
+	comp_dir.
+	(build_dummy_cu): Copy over comp_dir setting.
+
+2006-04-11  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (translate_debug_map_address): Note whether
+	the highpc was set on the failing lookup.
+	(dwarf2_get_pc_bounds): If no address attributes found, don't try
+	to translate the 0's.
+
+2006-04-11  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c: Add "set debug debugmap" switch to get information
+	about how addresses are being translated by the DWARF debug map
+	between the .o file and the executable.
+	(show_debug_debugmap): New function.
+	(translate_debug_map_address): Print translation results when
+	'set debug debugmap 1'.
+	(translate_common_symbol_debug_map_address): Ditto.
+	(dwarf_decode_lines): Indicate start & end of line program
+	processing for easier reading of the output.
+
+2006-04-11  Jason Molenda  (jmolenda@apple.com)
+
+	* objfiles.c (make_cleanup_restrict_to_shlib): Whitespace cleanup.
+	* linespec.c (intersect_sals, decode_line_1): Ditto.
+
+2006-04-05  Stan Shebs  <shebs@apple.com>
+
+	* dwarf2loc.c (dwarf2_evaluate_loc_desc): Handle DW_op_pieces better.
+
+2006-03-31  Greg Clayton  (gclayton@apple.com)
+
+	* objc-lang.c (value_objc_target_type): Modified the function to be
+	able to look into the class heiarchy generated by DWARF for objective C
+	to find the "isa" member for dynamic typing.
+
+2006-03-31  Jim Ingham  <jingham@apple.com>
+
+	* cli/cli-cmds.c (ambiguous_line_spec): Check first to make sure
+	that the linespecs point to different file:lines.  Return whether
+	it was ambiguous or not.
+	(edit_command): Use the return value from ambiguous_line_spec.
+	(list_command): Ditto.
+
+	* linespec.c (decode_line_1): Handle the case where a file:line match
+	generated multiple hits, and some of the hits were on the file:line, 
+	but others were because the file was included, but it didn't get any
+	code from the given line.
+
+2006-03-31  Greg Clayton  (gclayton@apple.com)
+	* symfile.c (check_for_matching_uuid): removed unused variable named
+	'uuid_size'.
+	(add_objfile_prefix): New function for append_psymbols_as_msymbols() 
+	that will correctly prefix minsym names.
+	(find_section_for_addr): New function for append_psymbols_as_msymbols() 
+	that will find the best section in an objfile for a partial symbol 
+	address.
+	(append_psymbols_as_msymbols): New function that appends minsyms to an
+	objfile by translating it's dSYM partial symbols. Debugging fully 
+	stripped executables with a dSYM file now has better stepping abilities.
+	(symbol_file_add_with_addrs_or_offsets): We now generate minsyms for
+	objfiles that have dSYM files in case the executable has been stripped.
+	
+	* ppc-macosx-frameinfo.c (ppc_frame_function_properties): Check 
+	this_frame against NULL before calling get_frame_pc() since that can
+	crash gdb. Both 'this_frame' and 'bounds' can be NULL when an executable
+	has been stripped and when get_prev_frame() determines that we are
+	inside the 'main' function.
+	
+	* dbxread.c (record_minimal_symbol): Fixed address range comparisons
+	to be inclusive of the low address for the __text and __textcoal_nt
+	sections.
+
+2006-03-30  Jason Molenda  (jmolenda@apple.com)
+
+	* gdbtypes.c (make_cv_type): Fix conditional expression for
+	returning builtin_type_error.
+
+2006-03-30  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (dwarf2_get_pc_bounds): Fix double-translating of
+	DW_AT_ranges addresses when processing a debug map.
+
+2006-03-30  Jason Molenda  (jmolenda@apple.com)
+
+	* gdbtypes.c (make_cvs_type): Return builtin_type_error and try
+        to continue instead of asserting and exiting the debugger when
+	our target is an error/invalid type.  Paper over invalid stabs
+	definitions as best we can.
+
+2006-03-28  Stan Shebs  <shebs@apple.com>
+
+        * defs.h (lval_type): Add new enum lval_register_literal.
+        * eval.c (evaluate_subexp_standard): Use it when evaluating
+        literal register references.
+        * valops.c (value_assign): Test it when deciding whether to
+        use CONVERT_REGISTER_P code.
+        * frame.c (put_frame_register): Add lval_register_literal case.
+        * breakpoint.c (can_use_hardware_watchpoint): Ditto.
+
+2006-03-28  Jim Ingham  (jingham@apple.com)
+
+        * cp-abi.c (is_destructor_name): Check for the destructor
+	name being unmangled.
+	* linespec.c (collect_methods): Ditto.
+	
+	* symtab.c (skip_non_matching_bfd): fix up the logic and
+	make it clearer.
+
+2006-03-28  Jason Molenda  (jmolenda@apple.com)
+
+	* frame.h: Provide prototype for inside_main_func.
+	* config/i386/tm-i386-macosx.h: Include tm-i386-macosx.h.
+
+2006-03-28  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (set_cu_language): Recognize DW_LANG_ObjC and 
+	DW_LANG_ObjC_plus_plus.
+
+2006-03-28  Stan Shebs  (shebs@apple.com)
+
+	* checkpoint.c (_initialize_checkpoint): Make rollback command
+	"rollback" instead of "rb".
+
+2006-03-28  Jim Ingham  (jingham@apple.com)
+
+	* configure.ac: Disable TUI by default.
+
+2006-03-28  Eric Albert  (ejalbert@apple.com)
+
+	* i386-tdep.h (struct gdbarch_tdep): Update the comment for wordsize to
+	account for x86-64.
+
+2006-03-23  Eric Albert  (ejalbert@apple.com)
+
+	* config/i386/macosx.mt (TDEPFILES): Add amd64-tdep.o.
+
+2006-03-21  Jason Molenda  (jmolenda@apple.com)
+
+	* objfiles.h (ALL_OBJFILES_SAFE): Update to use new objfile_get_first,
+	objfile_get_next iterator functions.
+	* breakpoint.c (parse_breakpoint_sals): Use ALL_OBJFILES_SAFE because
+	the objfile struct can be freed out from under us when the symbol
+	load level is raised.
+
+2006-03-16  Jason Molenda  (jmolenda@apple.com)
+
+	* blockframe.c (addr_inside_main_func): Revive old function.
+	* symtab.h: Declare it.
+	* objfiles.h (struct entry_info): New fields for main() bounds.
+	* objfiles.c (init_entry_point_info): Init them.
+
+2006-03-15  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c, linespec.c, objc-lang.c, objfiles.c: Make last checkin
+	conform.
+
+2006-03-15  Greg Clayton  (gclayton@apple.com)
+
+	* breakpoint.c (breakpoint_re_set): don't add the separate debug
+	objfile to the restrict list anymore.
+	
+	* dbxread.c (open_bfd_from_oso): replaced the first two arguments with
+	'struct partial_symtab *pst' to allow access to the 'pst->objfile' so
+	we can check if a separate debug file (dSYM) exists and not call the
+	error function if one exists for the pst->objfile.
+	(oso_scan_partial_symtab): fix the call to open_bfd_from_oso to use the
+	new prototype.
+	(dbx_psymtab_to_symtab_1): ditto
+	
+	* dwarf2read.c (dwarf2_debug_map_psymtab_to_symtab): only call error
+	when a .o file for a debug map OSO is missing if there is no dSYM file.
+	(dwarf2_get_pc_bounds): fixup addresses for DW_AT_ranges attributes
+	when using dwarf with debug map.
+	(process_structure_scope): make sure that class constants get parsed *
+
+	* linespec.c (apple_sals_pushback): added new function to append a
+	number of symtab_and_line struct entries to a symtabs_and_lines
+	collection.
+	(apple_intersect_sals): new function that will only add non duplicate
+	symtab_and_line struct entries from	the 'src_sals' list of
+	symtabs_and_lines struct to 'dst_sals'.
+	(decode_line_1): Instead of just appending two symtabs_and_lines
+	structs, we now make sure there are no duplicates. Duplicates can be
+	found due if a dwarf with debug maps executable is used along with a
+	dSYM file. A memory leak was also plugged from the 'this_result.sals'
+	member.
+	(decode_compound): removed unused variables 'values' and 'sym_arr'
+	
+	* objc-lang.c (find_methods): restrict the scope of the search when
+	calling find_pc_sect_function() to the current objfile that we already
+	have else we will get a recursive call that modifies the restrict list
+	and will cause an infinite loop.
+	
+	* objfiles.c (objfile_add_to_restrict_list): stop separate debug
+	objfiles from being able to be added to the restrict list. We will add
+	the main objfile for a separate debug objfile if someone tries to add a
+	separate debug objfile.
+	(make_cleanup_restrict_to_shlib): no longer add the separate debug
+	objfiles to the restrict list as it is no longer necessary.
+	(objfile_get_first): modified this iterator initialization routine to
+	always return the separate debug objfile first if one exists for the
+	first item in the restrict list.
+	(objfile_get_next): modified this iterator function to only increment
+	the restrict list position pointer when we are getting the next objfile
+	for an objfile that isn't a separate debug objfile (dSYM). If the
+	current file is a separate debug objfile (dSYM), then we return the
+	it's original objfile as the next item to search. This helps us to
+	guarantee that separate debug objfiles always get searched first in the
+	restrict list and so we don't get incosistent results when we have both
+	a debug map executable that also has a dSYM file.
+	
+	* symfile.h : changed the prototype for open_bfd_from_oso to match it's
+	new type.
+
+2006-03-15  Jim Ingham  <jingham@apple.com>
+
+        * breakpoint.c (break_command_2): If the not_found_ptr is set,
+        assume the caller meant to return NOT_FOUND_ERROR.
+	* linespec.c (symtab_from_filename): NOT_FOUND_ERROR is the
+        correct error to throw here.
+
+2006-03-15  Jim Ingham  <jingham@apple.com>
+
+        * breakpoint.c (insert_breakpoints): Catch errors in
+	value_fetch_lazy.  Mark the breakpoint as not currently set.
+	(watchpoint_check): Don't try to check the watchpoint if it
+	hasn't been successfully inserted yet.
+
+2006-03-15  Jim Ingham  <jingham@apple.com>
+
+	linespec.c (decode_line_1): Make sure start_here gets set.
+
+2006-03-15  Jim Ingham  <jingham@apple.com>
+
+        * symtab.c (find_pc_sect_psymtab): Break the ALL_PSYMTABS loop
+	into ALL_OBJFILES and ALL_OBJFILE_PSYMTABS so you can migrate
+        the sections test into the outer loop.
+
+2006-03-15  Jason Molenda  (jmolenda@apple.com)
+	* dwarf2read.c (struct oso_final_addr_tuple): Add 'oso_high_addr'
+	and 'present_in_final' fields so each record gives its complete
+	address range and indicates whether it was coalesced/dead-code-stripped
+	or not.
+	(compare_map_entries_oso_addr): Update for new field names.
+	(convert_oso_map_to_final_map): Update for new field names.
+	Add a tuple for functions that were coalesced/DCS'ed instead of
+	skipping them.  Fill in 'oso_high_addr' fields once the array
+	is sorted.
+	(compare_translation_tuples_highpc): New function for bsearch().
+	(compare_translation_tuples_nothighpc): Ditto.
+	(translate_debug_map_address): Update to new field names.
+	Use bsearch() to find the matching tuple.
+
+2006-03-13  Jim Ingham  <jingham@apple.com>
+
+	* dbxread.c (typename_concat): Don't pass NULL prefix/suffix to
+	functions that will crash.
+	
+2006-03-08  Jason Molenda  (jmolenda@apple.com)
+
+	* linespec.c (decode_line_1): Don't try to iterate over the line
+	table if this psymtab doesn't have one.
+
+2006-03-08  Jim Ingham  (jingham@apple.com)
+
+	* symfile.c (reread_symbols): Remove merge mistake of calling
+	clear_symtab_users() all the time.
+
+2006-03-06  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (open_bfd_from_oso): More informative error message
+	when the .o file containing debug info can't be found.
+
+2006-03-06  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_dbx_symtab): Create a psymtab record when we
+	come across a vtable and creating a debug map so we know to expand
+	this psymtab to find a definition of that class.
+
+2006-03-02  Jason Molenda  (jmolenda@apple.com)
+
+        * dbxread.c (process_one_symbol): Ignore N_OSO stabs when creating
+        a symtab.
+
+2006-03-02  Jim Ingham <jingham@apple.com>
+
+	* infrun.c (handle_inferior_event): Check for a null previous
+	frame before passing it to insert_step_resume_breakpoint_at_frame.
+	
+2006-02-24  Greg Clayton  (gclayton@apple.com)
+        
+        * breakpoint.c (set_bp_objfile): set the breakpoint objfile
+        to the actual executable instead of the separate debug
+        objfile to keep the UI and test cases happy, and it also
+        makes more sense.
+        (breakpoint_re_set): add the separate_debug_objfile to the 
+        restrict list when resetting breakpoints to make sure we  
+        can find our breakpoint again.
+        
+        * dwarf2read.c (dwarf_decode_lines): fixed an issue where
+        an extra psymtab was being created for an already existing
+        and valid source file due to a mismatch in relative and
+        absolute paths.
+        
+        * fix-and-continue.c (file_exists_p): made file_exists_p
+        global instead of static so it can be reused by
+        find_separate_debug_file() in symfile.c.
+        
+        * defs.h (file_exists_p): Add prototype.
+        
+        * objfiles.c (objfile_remove_from_restrict): removed unused variables
+        named 'cached_symfile_dir' and 'check_timestamp'.
+        (objfile_delete_from_ordered_sections): return if we run into a separate
+        debug objfile and do not delete since these will never get added in the
+        first place and would cause unnecessary warnings.
+        (objfile_add_to_ordered_sections): return if we run into a separate
+        debug objfile and do not add sections since these are not needed by the
+        program and can cause false matches to non-existent code.
+        (free_objfile): correctly set the separate_debug_objfile
+        member to NULL if the member gets freed to avoid a stale
+        pointer from existing.
+        (find_pc_sect_section): do not check any separate debug objfiles when
+        looking for pc sections as they are not valid code.
+        (push_front_restrict_list): added for make_cleanup_restrict_to_shlib to
+        keep the code common since it is used more than once.
+        (clear_restrict_list): added for make_cleanup_restrict_to_shlib to
+        keep the code common since it is used more than once.
+        (make_cleanup_restrict_to_shlib): always add an objfile and
+        it's separate debug objfile (dSYM) when restricting things
+        to a specific shared library so we can find symbols for 
+        things in our separate debug object files.
+        (_initialize_objfiles): remove unused variable named 'c'.
+        
+        * objfiles.h : added a new objfile->flags bit called
+        OBJF_SEPARATE_DEBUG_FILE so we can stop a separate debug
+        objfile (dSYM) from being added to the ordered section list
+        since it gets added while the separate debug objfile is
+        being created and before the 'separate_debug_objfile_backlink'
+        member can be correctly set.
+
+        * symfile.c (copy_section_addr_info): fixed the copy function
+        to copy all members including the apple local member
+        addrs_are_offsets.
+        (place_section): removed unused variable named 'cur_offset'.
+        (check_for_matching_uuid): added function that can
+        match the UUID of two files (the executable and the separate
+        debub objfile (dSYM)) to make sure we are using the correct
+        debug information for an executable and post a warning if
+        we have a mismatch.
+        (symbol_file_add_with_addrs_or_offsets): add the
+        OBJF_SEPARATE_DEBUG_FILE to the symbol_file_add() function
+        call to make sure we know we are creating a separate debub
+        objfile (dSYM) and so that we don't try to add it's section
+        list to the ordered section lists and check the UUID of the
+        two files to make sure we have the correct files.
+        (get_debug_link_info): remove unused variable named 'p'.
+        (find_separate_debug_file): Created an Apple specific version that looks
+        for a dSYM file.
+        (find_sym_fns): removed an unused variable named 'our_target'.
+        (generic_load): removed unused variables.
+        (reread_separate_symbols): Fixed a stale pointer issue with
+        objfile->separate_debug_objfile after it gets freed and add
+        the OBJF_SEPARATE_DEBUG_FILE flag to the creation args for
+        the new separate debug objfile (dSYM) to make sure it's
+        sections don't get added to our ordered section list. We
+        also check the UUID to ensure proper executable and debug
+        object file matching. Fixed a memory leak with the "debug_file"
+        string.
+
+        * symtab.c (skip_non_matching_bfd): added a function to centralize
+        some code that was being pasted about that got more complex after adding
+        dSYM support.
+        (find_pc_sect_psymtab): now use skip_non_matching_bfd() function
+        to check for matching objfile or separate debug objfile.
+        (find_pc_sect_symtab): ditto.
+
+2006-02-24  Jim Ingham (jingham@apple.com)
+
+	* linespec.c (symtab_from_filename): Set not_found_ptr before
+	throwing an error.
+
+2006-02-24  Jim Ingham (jingham@apple.com)
+
+	* utils.c (internal_vproblem): Print the reason we're exiting
+	when unexpectedly exiting in MI mode.
+	(query): Indicate an auto-answered answer.
+
+2006-02-24  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (translate_common_symbol_debug_map_addres): Correctly
+	handle the case where there is no debug map.
+
+2006-02-24  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (translate_debug_map_address): Return a status
+	value as well as take a new flag indicating whether the address
+	being translated is a DW_AT_high_pc or not.
+	(process_full_comp_unit): Update call to translate_debug_map_address.
+	Handle the case where the function at that address is not in the
+	executable.
+	(read_file_scope): Ditto.
+	(dwarf2_get_pc_bounds): Ditto.
+	(read_partial_die): Ditto.
+	(var_decode_location): Ditto.
+	(new_symbol): Ditto.
+	(dwarf2_const_value): Ditto.
+	(decode_locdesc): Ditto.
+	(dwarf_decode_lines): Don't record lines if the last address
+	seen did not make the final executable.  Assumes we have a
+	DW_LNE_set_address at least at the beginning of functions.
+
+2006-02-22  Jason Molenda  (jmolenda@apple.com)
+
+	* linespec.c (add_matching_methods): If the method name isn't
+	a mangled name prepend the containing class name and do a
+	lookup_symbol on the qualified source function name.
+
+2006-02-22  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (dwarf2_debug_map_psymtab_to_symtab): Mark psymtab
+	as read in once we've read it in.
+	* dbxread.c (read_dbx_symtab): Handle cases where the first function
+	listed in a compilation unit's debug map is not the lowest address
+	function.
+
+2006-02-20  Stan Shebs  <shebs@apple.com>
+
+	* breakpoint.c (do_captured_breakpoint): Update comments, merge
+	issues were resolved.
+
+2006-02-13  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c (i386_follow_jump): Don't follow the jump if
+	we're (unnecessarily, sigh) examining a dyld stub trampoline.
+
+	* dwarf2read.c (convert_oso_map_to_final_map): Don't add
+	the slide for a minsyms that's absolute.
+
+	* objc-lang.c (find_objc_msgsend): Re-enable code which allows
+	for a msgsend function to be the last one in an objfile and 
+	still get the range right.
+
+2006-02-07  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (translate_debug_map_address): Correctly handle the 
+	case where a debug map is not being used.
+
+2006-02-07  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_oso_nlists): Fix off by one error when resizing
+	nlists/common symbols array.
+
+2006-02-07  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_oso_nlists): Create both the nlists array as well
+	as the common_symnames array of common symbol names that were 
+	discovered in the .o file.
+	* symfile.h: Update prototype for read_oso_nlists.
+	* dwarf2read.c (struct oso_to_final_addr_map): In addition to the
+	{name, .o file addr, final addr} tuple array add an array of
+        {name, final addr} pairs for common symbols which have no address
+        in the .o file.
+	(compare_map_entries_name): Callback function for qsort.
+	(convert_oso_map_to_final_map): Create common symbol pairs array in
+        addition to regular address tuple array.
+	(free_address_map): Free the common symbol names as well.
+	(translate_common_symbol_debug_map_address): New function to look up
+	potential common symbols.
+	(dwarf2_debug_map_psymtab_to_symtab): Create the common symbols 
+	array as well.
+	(var_decode_location): If the address of something in the dwarf says
+	it is at 0x0, see if the symbol is in the common symbols array before
+	following the usual DEBUGMAP_XLATE procedure.
+
+2006-02-07  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c: Include mach-o.h
+	(read_dbx_symtab): Don't set up a PSYMTAB_OSO_STATICS list; I ended
+	up not using that in the final implementation.
+	(read_oso_nlists): Remove unused variables.  Don't return anything.
+	* symfile.h: Update read_oso_nlists prototype.
+
+2006-02-06  Jason Molenda  (jmolenda@apple.com)
+
+	* defs.h: Include <stdint.h>.
+
+2006-02-06  Greg Clayton  (gclayton@apple.com)
+
+	* varobj.c (varobj_create): NULL out block_found before evaluating
+	the variable expression to avoid a situation where member variables in
+	objective C may not evaluate correctly when a block is specified due to
+	the expression parser using a stale value from a previous expression.
+
+2006-02-03  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (convert_oso_map_to_final_map): Factor off
+	slide offset when adding address to translation table.
+
+2006-02-01  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (dwarf2_debug_map_psymtab_to_symtab): Need to 
+	initialize the type_hash element or we'll jump into random
+	memory later on.
+
+2006-02-01  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (dwarf2_debug_map_psymtab_to_symtab): Call my own
+	psymtab-to-symtab converter, not the regulard dwarf one.
+
+2006-02-01  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (dwarf2_debug_map_psymtab_to_symtab): Process the
+	dependencies of a pst before trying to process the pst.  Don't
+	try to read an OSO for a header file.
+
+2006-02-01  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (translate_debug_map_address): Handle function as
+	last symbol in file correctly.
+
+2006-02-01  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (convert_oso_map_to_final_map): Don't leak memory.
+	(translate_debug_map_address): Handle a compilation unit with one
+	symbol correctly.
+	(dwarf_decode_lines): Don't re-translate addresses who've had an
+	offset added to them.
+
+2006-01-31  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c: Final part of DWARF debug map support.
+         (DEBUGMAP_XLATE): New macro.
+	(struct oso_final_addr_tuple, oso_to_final_addr_map): New structs.
+	(struct dwarf2_cu): New element, addr_map.
+	(dwarf2_has_info): Move contents into..
+	(dwarf2_has_info_1): Here.
+	(dwarf2_build_psymtabs): Move the section of this function that
+	reads the dwarf sections into memory into..
+	(dwarf2_copy_dwarf_from_file): Here.
+	(compare_map_entries): New.
+	(convert_oso_map_to_final_map): New.
+	(free_address_map): New.
+	(translate_debug_map_address): New.
+	(dwarf2_debug_map_psymtab_to_symtab): New.
+	(load_full_comp_unit): Take an addr_map parameter.
+	(process_full_comp_unit): Pass addresses through DEBUGMAP_XLATE.
+	(dwarf2_get_pc_bounds): Ditto.
+	(dwarf2_read_section): Take a bfd parameter.
+	(read_partial_die): Pass addresses through DEBUGMAP_XLATE.
+	(var_decode_location): Ditto.
+	(new_symbol): Ditto.
+	(dwarf2_const_value): Ditto.
+	(decode_locdesc): Ditto.
+
+	* symfile.h (struct nlist_rec): Unconst name to reduce casting.
+	* dwarf2-frame.c: Update dwarf2_read_section prototype to note
+	new bfd parameter.
+	(dwarf2_build_frame_info): Updated.
+
+2006-01-31  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_oso_nlists): New function to read the nlist
+	records of a dwarf .o file (i.e. read the minsyms).
+	(stabsect_read_strtab_from_oso): Comment cleanup.
+	* symfile.h (struct nlist_rec): Structure used by read_oso_nlists.
+	(open_bfd_from_oso, read_oso_nlists): Add prototypes.
+
+2006-01-25  Stan Shebs  <shebs@apple.com>
+
+	* configure.ac: Move ac_cv_func_mmap_fixed_mapped setting up far
+	enough to actually have an effect.
+	* configure: Regenerate.
+
+	* checkpoint.c (memcache_put): Ifdef a native-only call.
+
+2006-01-23  Greg Clayton  (gclayton@apple.com)
+
+	* cp-support.c (cp_func_name): Added a test for full_name being NULL.
+
+2006-01-19  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (INFO_SECTION, ABBREV_SECTION, etc): DWARF is now
+	in segment "__DWARF", not "__DWARFA".
+	(db_error): Whitespace tweak.
+
+2006-01-19  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c (dwarf_info_vma, dwarf_abbrev_vma, dwarf_line_vma,
+	dwarf_str_vma): Remove.
+	(struct dwarf2_per_objfile): Ditto.
+	(dwarf2_has_info): Don't initialize dwarf section vma's.
+	(dwarf2_build_psymtabs_hard): Ditto.
+	(dwarf2_locate_sections): Don't use dwarf section vma's.
+	(read_comp_unit_head): Ditto.
+	(psymtab_to_symtab_1): Ditto.
+	(read_file_scope): Ditto.
+	(read_indirect_string): Ditto.
+
+2006-01-18  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (struct oso_fun_static, struct oso_fun_list, 
+	struct oso_pst_list): Move these out of the symloc psymtab private
+	struct into the generic partial_symtab struct in symtab.h.
+	(LDSYM_OSO_NAME, LDSYM_OSO_MTIME, LDSYM_OSO_STATICS, LDSYM_OSO_PLIST):
+	rename to PSYMTAB_OSO_* and move to symtab.h.
+	(read_dbx_symtab): Add a new state variable, in_dwarf_debug_map, which
+	notes when the current SO file is a DWARF debug map.  In that case,
+	handle N_FUN and STSYM specially; let the rest be processed as
+	usual.
+	(start_psymtab): Don't initialize the OSO structures in the symloc;
+	the generic psymtab creator does it.
+	(add_oso_pst_to_list): Macro names updated.
+	(end_psymtab): Ditto.
+	(oso_scan_partial_symtab): Ditto.
+	(dbx_psymtab_to_symtab_1): Ditto.
+	(read_ofile_symtab_from_oso): Ditto.
+	* dwarf2read (dwarf2_debug_map_psymtab_to_symtab): A stub function
+	to be defined.
+	* symfile.c (allocate_psymtab): Initialize the OSO fields in the
+	generic partial_symtab struct.
+	* symfile.h: Prototype for dwarf2_debug_map_psymtab_to_symtab.
+	* symtab.h: (struct partial_symtab): Add OSO fields.
+	Add struct oso_fun_static, oso_fun_list, oso_pst_list from
+	dbxread.c.  Add PSYMTAB_OSO_NAME etc accessor macros from
+	dbxread.c
+
+2006-01-17  Stan Shebs  <shebs@apple.com>
+
+	* infrun.c (set_schedlock_func): Clear a merge confusion.
+
+2006-01-16  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_dbx_symtab): Recognize & ignore empty OSO stabs.
+
+2006-01-12  Jim Ingham  <jingham@apple.com>
+
+	* symtab.c (find_function_start_sal): Catch the case where
+	the block is NULL.  Can happen sometimes when the stabs get
+	mangled, for instance.
+	
+	* dbxread.c (read_ofile_symtab_from_oso): Add checks for NULL
+	cur_file_name and oso_static->name to handle some error cases
+	without crashing.
+	
+2006-01-12  Stan Shebs  <shebs@apple.com>
+
+	* ppc-sysv-tdep.c (ppc_push_argument): Use our vector reg count.
+	(ppc_push_arguments): Pad the dummy stack with an extra 32
+	bytes, for luck.
+	
+2006-01-11  Jim Ingham  <jingham@apple.com>
+
+	* gdbtypes.c (create_array_type): If you are creating an array
+	whose elements are another array, make sure the element array's
+	length is > 0.  It might not have gotten correctly calculated
+	yet...
+	
+2006-01-11  Caroline Tice  <ctice@apple.com>
+
+	*dwarf2read.c (read_in_db_abbrev_table): Delete redundant forward 
+	declaration.
+	(dwarf_attr_name): Add case for DW_AT_APPLE_repository_abstract_origin.
+
+2006-01-10  Jim Ingham  <jingham@apple.com>
+
+	* stabsread.c (attach_fields_to_type): If a type is a typedef
+	of an undefined type, add it to the undefined_types list.
+
+	* Makefile.in: Restore the makefile goop that finds runtest so
+	you can run make check from the gdb directory.
+
+2006-01-10  Eric Albert  (ejalbert@apple.com)
+
+	* i386-tdep.c (i386_gdbarch_init): Long double is 128 bits on darwin.
+
+2006-01-10  Eric Albert  (ejalbert@apple.com)
+
+	* valprint.c (print_ostype): Use unpack_long() to get the value
+	instead of assuming it's a memory location.  Take a type parameter.
+	* valprint.h (print_ostype): Prototype updated.
+	* printcmd.c (print_formatted, print_scalar_formatted): Update callers.
+
+2006-01-09  Stan Shebs  <shebs@apple.com>
+
+	* ppc-sysv-tdep.c (ppc_push_argument): Fix a merge mess
+	by using VALUE_REGNUM.
+
+2006-01-06  Jason Molenda  (jmolenda@apple.com)
+
+	* dwarf2read.c: Minor cleanups on Caroline's type repository
+	patch:  Removing commented-out code, clarifying a few
+	comments, removing some unintended whitespace changes that
+	were made in the patch.
+
+2006-01-06  Caroline Tice  <ctice@apple.com>
+
+	* Makefile.in (LIBSQLITE3):  Add new link library option for sqlite3.
+	(INSTALLED_LIBS):  Add LIBSQLITE3 to the list.
+	* db-access-functions.h: New file.
+	* dwarf2read.c (db-access-functions.h):  Add new #include.
+	(struct dwarf2_cu):  Add 2 new fields: repository and repository_name.
+	(struct partial_die_info):  Add 5 new fields: has_repo_specification,
+	has_repository, has_repository_type, repo_spec_id and repo_name..
+	(struct die_info): Add 1 new field: repository_id.
+	(zeroed_partial_die):  Comment it out to eliminate warning.
+	(read_comp_unit_head): Comment out signed_addr to eliminate warning.
+	(open_dwarf_repository): New function.
+	(dwarf2_read_repository_abbrevs): New function.
+	(build_dummy_cu): New function.
+	(build_dummy_objfile): New function.
+	(read_in_db_abbrev_table): New function.
+	(db_error): New function.
+	(db_lookup_type): New function.
+	(fill_in_die_info): New function.
+	(get_uleb128): New function.
+	(db_read_attribute_value): New function.
+	(follow_db_ref): New function.
+	(set_repository_cu_language): New function.
+	(get_repository_name): New function.
+	(finalize_stmts): New function.
+	(find_open_repository): New function.
+	(increment_use_count): New function.
+	(decrement_use_count): New function.
+	(enum db_status): New type.
+	(struct objfile_list_node): New type.
+	(struct database_info): New type.
+	(byte_swap_p): New global variable.
+	(dwarf2_build_psymtabs_hard): Initialize byte_swap_p; add code to call
+	functions to read in the repository abbreviations table if appropriate,
+	and initialize the repository language.  Also fix the stuff to initialize
+	the dwarf_*_vma files in the pst (update it to use dwarf2_per_objfile).
+	(add_partial_symbol):  For variables, add check of  has_repository_type.
+	(skip_one_die):  Add case for DW_FORM_APPLE_db_str.
+	(psymtab_to_symtab_1):  Update the dwarf_*_vma things correctly from 
+	dwarf2_per_objfile.
+	(read_partial_die): Initialize the new fields has_repository, 
+	has_repo_specification and has_repository_type; check possible
+	string attributes for DW_FORM_APPLE_db_str and call get_repository_name
+	if appropriate; add cases to check for DW_AT_APPLE_repository_type and
+	DW_AT_APPLE_repository_specification.  If the partial die uses a
+	repository, call open_dwarf_repository to open the appropriate database.
+	(read_full_die):  Add and initialize repository_name and comp_dir 
+	variables, also update them if die attributes are appropriate; initialize 
+	die->repository_id; call open_dwarf_repository if approriate.
+	(read_attribute_value):  Add case for DW_FORM_APPLE_db_str.
+	(dwarf2_attr):  Add and initialize repository_spec variable; check
+	attributes for a repository string or a repository reference and
+	do the right thing if found.
+	(die_type): Check type attribute to see if it's a repository type 
+	reference, and if so get the appropriate type from the repository data.
+	(copy_die): Initialize repository_id field.
+	(dwarf_attr_name):  Add cases for the 6 new DW_AT_APPLE_repository_*
+	attributes.
+	(dwarf_form_name):  Add case for DW_FORM_APPLE_db_str.
+	(dump_die): Add case for DW_FORM_APPLE_db_str.
+	(dwarf2_get_attr_constant_value):  Add check for DW_FORM_APPLE_db_str.
+	(enum rb_tree_colors): New type.
+	(struct rb_tree_node): New type.
+	(rb_tree-find_node): New function.
+	(left_rotate): New function.
+	(right_rotate): New function.
+	(plain_tree_insert): New function.
+	(rb_tree_insert): New function.
+	(MAX_OPEN_DBS): New constant.
+	(repositories): New global variable.
+	(num_open_dbs): New global variable.
+	(lookup_repository_type): New function.
+	(initialize_repositories): New function.
+	(close_dwarf_repositories): New function.
+	(SELECT_DIE_STR): New constant.
+	(FIND_STRING_STR): New constant.
+	(db_stmt1): New global variable.
+	(db_stmt2): New global variable.
+	(struct attr_pair): New type.
+	(db_read_1_byte): New function.
+	(db_read_2_bytes): New function.
+	(db_read_4_bytes): New function.
+	(db_read_8_bytes): New function.
+	(db_read_n_bytes): New function.
+	(db_read_unsigned_leb128): New function.
+	(db_read_signed_leb128): New function.
+	(Various places):  Add type casts or comment out dead declarations to 
+	eliminate compiler warnings.
+	* objfiles.c (db-access-function.h): Add new include statement.
+	(create_objfile): Initialize uses_sql_repository field.
+	(free_objfile):  If uses_sql_repository field is set call 
+	close_dwarf_repositories.
+	(get_objfile_registry_num_registrations): New function.
+	* objfiles.h (<sqlite3.h>): New include statement.
+	(struct objfile): Add new field uses_sql_repository.
+	Add extern declaration for get_objfile_registry_num_registrations.
+	* ../include/elf/dwarf2.h (DW_FORM_APPLE_db_str): Add new DWARF form.
+	(DW_AT_APPLE_repository_file): Add new DWARF attribute.
+	(DW_AT_APPLE_repository_type): Add new DWARF attribute.
+	(DW_AT_APPLE_repository_name): Add new DWARF attribute.
+	(DW_AT_APPLE_repository_specification): Add new DWARF attribute.
+	(DW_AT_APPLE_repository_import): Add new DWARF attribute.
+	(DW_AT_APPLE_repository_abstract_origin): Add new DWARF attribute.
+
+2006-01-04  Greg Clayton  (gclayton@apple.com)
+
+	* symtab.c (lookup_symtab_all): Safeguarded against null return from 
+	symtab_to_fullname.
+	(lookup_partial_symbol, completion_list_add_name): Removed unused variables
+	and cleaned up a const warning.
+
+2005-12-29  Stan Shebs  <shebs@apple.com>
+
+	Start of checkpoint and undo support.
+	* checkpoint.c: New file, checkpoint support.
+	* checkpoint.h: New file.
+	* Makefile.in (BASE_OBS): Add checkpoint.o.
+	(checkpoint.o): Add dependencies.
+	* infcmd.c (run_command_1): Always clear checkpoints.
+	(re_execute_command, re_exec_1, re_exec_once): New functions,
+	used to create intermediate checkpoints on demand.
+	* infrun.c (normal_stop): Maybe create a checkpoint.
+	* regcache.c (regcache_compare): New function.
+
+2005-12-20  Jason Molenda  (jmolenda@apple.com)
+
+	* varobj.c (varobj_create): Mark some more Apple Local code
+	as such.  Remove APPLE MERGE #if 0'ed code markers.
+	(varobj_update): Remove some now-unused variables to reduce
+	warnings.
+
+2005-12-16  Jim Ingham  <jingham@apple.com>
+
+	* Makefile.in: Set the rc_version in version.c.
+	* version.h: declare rc_version.
+	
+2005-12-15  Jason Molenda  (jmolenda@apple.com)
+
+	* dbxread.c (read_dbx_symtab): Keep marching on if we have bogus
+	stabs debug info and we're looking for OSOs.
+
+2005-12-15  Jim Ingham  <jingham@apple.com>
+
+	* valops.c (value_of_this): Don't error if complain is 0.
+	
+2005-12-13  Jason Molenda  (jmolenda@apple.com)
+
+	* utils.c (error_stream): Remove #if 0'ed APPLE LOCAL change
+	that doesn't belong here any more after the merge.
+	* exceptions.c (print_exception): Add the code here, to suppress
+	console error printing when we're in MI mode.
+
+2005-12-13  Jason Molenda  (jmolenda@apple.com)
+
+	* symtab.c (rbreak_command): Commit Jim's change to rbreak's
+        bp setting to be safe for all ObjC method names.
+
+2005-12-05  Jason Molenda  (jmolenda@apple.com)
+
+	* linespec.c (decode_line_1): symtab_form_filename returns a
+	file_symtab_arr, not a file_symtab.
+	* symtab.c (lookup_symtab_all, add_partial_symtab_to_array): Note
+	some APPLE LOCAL code.
+	(lookup_symtab_all): Don't recompute file basename.
+	* objc-lang.c (lookup_objc_class): Don't complain when we can't look
+	up ObjC classes (which always happens in non-ObjC programs).
+
+2005-11-28  Jason Molenda  (jmolenda@apple.com)
+
+	* disasm.c (gdb_disassemble_info_null): Use gdb_null instead
+	of rolling it ourself.
+	(fprintf_null): Removed.
+
+2005-11-28  Jason Molenda  (jmolenda@apple.com)
+
+	* config/i386/tm-i386-macosx.h: Don't include tm-i386.h.
+	* config/i386/xm-i386-macosx.h: Don't include xm-i386.h.
+	* i386-tdep.c (i386_match_insn): Fix syntax error.
+	(i386_push_dummy_call): VALUE_ENCLOSING_TYPE is a function now.
+
 2005-11-17  Jason Molenda  (jmolenda@apple.com)
 
-	* infcall.c (inferior_function_calls_disabled_p): New global variable
-	to control whether inferior function calls are allowed (should be a
-	target vector entry).
-	(hand_function_call): If inf func calls disabled, throw an error.
-	* infcall.h (inferior_function_calls_disabled_p): Provide extern decl.
-	* objc-lang.h (lookup_objc_class_p): Provide extern decl.
+        * infcall.c (inferior_function_calls_disabled_p): New global variable
+        to control whether inferior function calls are allowed (should be a
+        target vector entry).
+        (hand_function_call): If inf func calls disabled, throw an error.
+        * infcall.h (inferior_function_calls_disabled_p): Provide extern decl.
+        * objc-lang.h (lookup_objc_class_p): Provide extern decl.
 
 2005-11-17  Jason Molenda  (jmolenda@apple.com)
 
-	* fix-and-continue.c (redirect_statics): Also look in the new __IMPORT,
-	__pointers section for non-lazy symbol pointers.
+        * fix-and-continue.c (redirect_statics): Also look in the new __IMPORT,
+        __pointers section for non-lazy symbol pointers.
+
+2005-11-09  Jason Molenda  (jmolenda@apple.com)
+
+	* config/powerpc/xm-ppc-macosx.h: Don't define the host fp
+	formats here.
+	* config/i386/xm-i386-macosx.h: Ditto.
+	* configure.host: Add definitions for the PPC host fp
+	formats.
+
+2005-11-08  Jason Molenda  (jmolenda@apple.com)
+
+	* breakpoint.c (_initialize_breakpoint): Update
+	add_set_cmd to add_setshow_string_cmd calls.
+	* dbxread.c (read_dbx_symtab): Fix merge mistakes.
+	* linespec.c: Update prototype.
+	* objc-lang.c (print_object_command): Use value_type instead of
+	VALUE_TYPE.
+	* source.c (open_source_file_fullpath): Change to work with new
+	style.
+	(find_and_open_source): Update call of same.
+	* symfile.h: Update prototype.
+	* symtab.c (lookup_symtab_all): Change call to symtab_to_filename
+	to call symtab_to_fullname instead.
+	* valops.c (value_of_this): Fix call to get_selected_frame.
 
 2005-10-31  Jim Ingham  <jingham@apple.com>
 
-	* i386-tdep.c (i386_follow_jump): Use 32 bit math to calculate
-	the pc relative offset for the JMP instruction.
-	
+       * i386-tdep.c (i386_follow_jump): Use 32 bit math to calculate
+       the pc relative offset for the JMP instruction.
+
+2005-10-26  Jim Ingham  <jingham@apple.com>
+
+       * dbxread.c (read_ofile_symtab_from_oso): Delete unnecessary
+       warning.
+       (open_bfd_from_oso): pass expected format to open_bfd_matching_arch.
+       exec.c (exec_file_attach): Ditto.
+       symfile.c (symfile_bfd_open): Ditto.
+       (reread_symbols): Ditto.
+       (open_bfd_matching_arch): Take in the expected
+       type of the archive slice.
+       symfile.h: Change def'n of open_bfd_matching_arch to accept format.
+
+2005-10-07  Jim Ingham  <jingham@apple.com>
+
+       * linespec.c (decode_all_digits_exhaustive): New function,
+       same as decode_all_digits, but returns all the matches
+       in the linetable of the input symtab.
+       (symtab_from_filename): Return an array of ALL the symtabs
+       that match the given filename.
+       (decode_line_1): Handle getting ALL the symtabs matching
+       the file name, and all the symtab_and_lines matching the line.
+       * symtab.c (add_symtab_to_array): New function.
+       (lookup_symtab_all): New function.
+       (lookup_partial_symtab): Return all the matches, not just the
+       first match.
+       (add_partial_symtab_to_array): New function.
+       (lookup_partial_symtab_all): New function.
+       * symtab.h: Def'ns of lookup_symtab_all and
+       lookup_partial_symtab_all.
+
+2005-11-04  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.ac: Fix APPLE LOCAL block.
+	* configure: Regenerated.
+
 2005-10-24  Jim Ingham  (jingham@apple.com)
 
 	* dbxread.c (end_psymtab): A psymtab isn't empty if it has an OSO
@@ -475,6 +4596,272 @@
 
 	* i386-tdep.c (i386_frame_setup_skip_insns): Add instructions
 	found in prologues on a Red Hat FedoraCore2 system.
+
+2005-09-12  Jason Molenda  (jmolenda@apple.com)
+
+        * objc-lang.c (print_object_command): Revert last patch until
+        I have a chance to look into why it caused regressions. 
+
+2005-09-12  Eric Albert  (ejalbert@apple.com)
+
+	* objc-lang.c (print_object_command): Add support for calling
+	CFPrintForDebugger() if the dylib with NSPrintForDebugger() isn't 
+	loaded.
+
+2005-09-01  Klee Dienes  <kdienes@apple.com>
+
+	* disasm.c (fprintf_null): New function.
+	(gdb_disassemble_info_null): New function.  Returns a struct
+	disassemble_info that generates no output.
+	(gdb_disassembly): Don't pass in file_string and line_num; they
+	weren't used anyway.
+	(find_pc_offset): New function.
+
+	* disasm.h (gdb_disassembly): Update prototype.
+
+	* cli/cli-cmds.c: Update call to gdb_disassembly.
+
+2005-08-09  Klee Dienes  <kdienes@shark.dienesfamily.org>
+
+	* varobj.c (struct value_rtti_args): Remove.
+	(wrapped_value_rtti_target_type): Remove.
+	(safe_value_rtti_target_type): Fix exception-handling.
+
+2005-08-09  Klee Dienes  <kdienes@shark.dienesfamily.org>
+
+	* objc-lang.c (struct selector_entry): VAL should be a CORE_ADDR,
+	not an int (since it's used to store the address of the selector
+	in memory).
+
+2005-08-03  Klee Dienes  <kdienes@apple.com>
+
+	* breakpoint.c (print_it_typical): Use async_reason_lookup.
+
+2005-08-02  Klee Dienes  <kdienes@apple.com>
+
+	* findvar.c (extract_unsigned_integer): Use
+	extract_unsigned_integer_with_byte_order, not
+	extract_signed_integer_with_byte_order.
+
+2005-08-02  Klee Dienes  <kdienes@apple.com>
+
+	* config/powerpc/macosx.mh (NATDEPFILES): Include gcore.o.
+
+2005-07-26  Stan Shebs  <shebs@apple.com>
+
+	* breakpoint.c (_initialize_breakpoint): Restore a missing
+	line in command help.
+	* infrun.c: Bring back HP-era macros TARGET_DISABLE_HW_WATCHPOINTS
+	and TARGET_ENABLE_HW_WATCHPOINTS.
+	(handle_inferior_event): Use them.
+	* ppc-sysv-tdep.c (ppc_darwin_abi_return_value): Use a ULONGEST
+	to work around truncation problem in 32-bit mode.
+	* config/nm-macosx.h (HAVE_NONSTEPPABLE_WATCHPOINT): Re-enable.
+
+2005-07-11  Klee Dienes <klee@apple.com>
+
+	* ppc-sysv-tdep.c (do_ppc_sysv_return_value): Use
+	ppc_copy_from_greg.
+
+2005-07-11  Klee Dienes <klee@apple.com>
+
+	* breakpoint.c (break_command_2): Propagate the entire exception
+	upward, instead of just the reason.
+	* thread.c (gdb_thread_select): Pass the address of the entire
+	args struct, not just the string.
+	
+2005-07-07  Klee Dienes <klee@apple.com>
+
+	* varobj.c: Clean up various merge messes.
+
+2005-07-07  Klee Dienes <klee@apple.com>
+
+	* interps.c (current_interp): Restore; was omitted from interps.c.
+	* event-loop.c (start_event_loop): Set the global uiout to the
+	uiout for the current interpreter.  This is necessary because the
+	interpreter-switching code is now wrapped in a cleanup handler
+	that resets the uiout.  We should clearly come up with a better
+	way of managing the global interpreter and uiout, in any event,
+	but this appears to work for now.
+
+2005-07-07  Stan Shebs  <shebs@apple.com>
+
+	* eval.c (evaluate_subexp_standard): Resolve a merge
+	standard, fix some local markers.
+	* infcall.c (hand_function_call): Set values_type from
+	check_typedef call.
+	* infcmd.c (default_print_registers_info): Fix a merge mess.
+	* ppc-sysv-tdep.c (ppc_copy_into_greg): Use new API.
+	(ppc_push_argument): Similarly.
+	* printcmd.c (print_formatted): Tweak local markers.
+	* procfs.c: Revert to FSF version.
+	* valops.c (hp_som_som_object_present): Delete leftover decl.
+
+2005-07-05  Stan Shebs  <shebs@apple.com>
+
+	* frame.c (frame_debug): Make globally visible.
+
+2005-06-28  Stan Shebs  <shebs@apple.com>
+
+	* arch-utils.c: Remove our size/offset caching code, now handled
+	in generic machinery.
+	(reg_cache_hack__architecture_changed_hook): Delete.
+	(generic_register_size): Revert to FSF version.
+	(generic_register_byte): Likewise.
+	* arch-utils.h (reg_cache_hack__architecture_changed_hook):
+	Delete decl.
+	* bcache.h: Add a local marker.
+	* breakpoint.c: Likewise.
+	* breakpoint.h: Likewise.
+	* completer.c: Add local markers.
+	* completer.h: Likewise.
+	* frame.c (deprecated_frame_next_hack): Rename to
+	frame_next_hack.
+	(deprecated_frame_cache_hack): Similarly.
+	(default_print_extra_frame_info): Remove, no longer used.
+	* frame.h: Adjust decls to match.
+	* rs6000-tdep.c: Reduce FSF discrepancies.
+	(_initialize_rs6000_tdep): Make usable for non-Darwin
+	configs.
+	* solib.c (symbol_add_stub): Fix merge mess.
+	* solib.h: Reduce FSF discrepancy.
+	* somread.c: Revert to FSF version.
+	* stack.c (frame_info): Revive extra frame info
+	printing, using macro instead of gdbarch.
+	* config/nm-macosx.h (CHILD_PREPARE_TO_STORE): Delete,
+	no longer needed.
+
+2005-06-23  Stan Shebs  <shebs@apple.com>
+
+	* breakpoint.c: Add some local markers.
+	(break_at_finish_command, etc): Delete some old
+	dead code.
+	(condition_command): Clean up merge conflicts.
+	(condition_command_1): Likewise.
+	(do_captured_breakpoint): Likewise.
+	(disable_exception_catch): Likewise.
+	(catch_command_1): Fix FSF discrepancy.
+	* breakpoint.h: Add local markers.
+	* buildsym.c (record_line): Add local marker.
+	* c-exp.y: Add local markers.
+	* frame.c: Add local markers.
+	* frame.h: Delete decls of deleted functions.
+	* infcmd.c: Add local markers.
+	(jump_command): Fix async patch.
+	(print_return_value): Fix FSF discrepancies.
+	(_initialize_infcmd): Fix attach's completer.
+	* infrun.c (handle_inferior_event): Recover
+	local patches in disappeared handle_step_into_function.
+	* inftarg.c: Add local markers.
+	* interps.h: Delete unused decl.
+	* linespec.c: Add local markers.
+	(symtab_from_filename): Fix merge mess.
+	(decode_variable): Likewise.
+	(minsym_found): Likewise.
+	* linespec.h: Add local marker.
+	* stack.c: Add local markers.
+	* target.c: Add local markers, delete
+	unused decls.
+
+2005-06-21  Klee Dienes  <klee@apple.com>
+	
+	* breakpoint.c (do_captured_parse_breakpoint): Now returns void.
+	(watchpoint_equal): Convert to use gdb_byte.
+	(break_command_2): Convert to use the new exception handling
+	mechanism.
+
+2005-06-21  Klee Dienes  <klee@apple.com>
+
+	* cli/cli-setshow.c (do_setshow_command): Re-merge the "always
+	show the options for an enumerated value" patch originally done by
+	Jim.  Revert our removal of an extra declaration, to match the FSF
+	sources.  Add APPLE_LOCAL marker.
+
+2005-06-21  Klee Dienes  <klee@apple.com>
+
+	* minsyms.c (prim_record_minimal_symbol_and_info): Re-factor the
+	mst_file_text check up one level.  Don't modify the symbol name
+	when checking it against __gcc_compiled.  Update comments.
+	(Restoring a patch originally done by Jim that somehow got lost in
+	the merge.)
+
+2005-06-21  Klee Dienes  <klee@apple.com>
+
+	* infcall.c (hand_function_call): Complete the merge.  Rename
+	value_type to values_type, to avoid name conflict.  Replace
+	CHECK_TYPEDEF with check_typedef.  Update comments.
+
+2005-06-21  Klee Dienes  <klee@apple.com>
+
+	* wrapper.c: Convert entire file to the new exception-handling
+	code.  Move Apple-specific #includes to end of the #include list.
+	Remove all wrap_* prototypes and functions.
+	(struct gdb_wrapper_arguments): Remove.
+	(struct captured_value_struct_elt_args): Remove.
+	(gdb_parse_exp_1): Convert to TRY_CATCH.
+	(wrap_parse_exp_1): Remove.
+	(gdb_evaluate_expression): Convert to TRY_CATCH.
+	(wrap_evaluate_expression): Remove.
+	(gdb_print_expression): Convert to TRY_CATCH.
+	(wrap_print_expression): Remove.
+	(gdb_evaluate_type): Convert to TRY_CATCH.
+	(wrap_evaluate_type): Remove.
+	(gdb_value_fetch_lazy): Convert to TRY_CATCH.
+	(wrap_value_fetch_lazy): Remove.
+	(wrap_value_equal): Remove.
+	(wrap_value_subscript): Remove.
+	(wrap_value_ind): Remove.
+	(wrap_value_cast): Remove.
+	(wrap_parse_and_eval_type): Remove.
+	(gdb_value_struct_elt): Convert to TRY_CATCH.
+	(do_captured_value_struct_elt): Remove.
+	(gdb_varobj_get_value): Convert to TRY_CATCH.
+	(wrap_varobj_get_value): Remove.
+	(wrap_value_objc_target_type): Remove.
+	(safe_value_objc_target_type): Convert to TRY_CATCH.
+
+2005-06-20  Stan Shebs  <shebs@apple.com>
+
+	* config/powerpc/macosx.mt: Use DEPRECATED_TM_FILE
+	instead of TM_FILE for the target header.
+	* config/i386/macosx.mt: Likewise.
+
+2005-06-17  Stan Shebs  <shebs@apple.com>
+
+	Reduce hair-tearing differences between Apple and FSF versions
+	of symbol_file_add* functions.
+	* symfile.c (symbol_file_add_with_addrs_or_offsets): Rename to
+	symbol_file_add_name_with_addrs_or_offsets and fix callers.
+	(symbol_file_add_bfd_with_addrs_or_offsets): Rename
+	to symbol_file_add_with_addrs_or_offsets.
+	(symbol_file_add_bfd): Remove, redundant with
+	symbol_file_add_from_bfd.
+	(symbol_file_add_from_bfd): Call symbol_file_add_with_addrs_or_offsets.
+	(symbol_file_add): Call symbol_file_add_name_with_addrs_or_offsets.
+	(symbol_file_add_main_1): Call
+	symbol_file_add_name_with_addrs_or_offsets.
+	* symfile.h (symbol_file_add_bfd): Remove decl.
+
+2005-06-17  Klee Dienes  <kdienes@apple.com>
+
+	symfile.c (reread_symbols): Fix up the Apple-local patches to
+	the stat check --- the FSF folks added their own check, but it's not
+	quite right.
+
+2005-06-15  Klee Dienes  <kdienes@apple.com>
+
+	* configure: Regenerate.
+	* configure.ac: Add AC_PROG_LIBTOOL.
+
+2005-06-07  Jason Molenda  (jmolenda@apple.com)
+
+        * i386-tdep.c (i386_frame_setup_skip_insns): Add instructions
+        found in prologues on a Red Hat FedoraCore2 system.
+
+2005-06-04  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-tdep.c: A little merge cleanup.  Haven't tried compiling yet,
+	just eyeballing.
 
 2005-05-30  Stan Shebs  <shebs@apple.com>
 

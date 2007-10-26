@@ -36,6 +36,10 @@
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_cdsa_utils/cuPem.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreServices/CoreServices.h>
+#include <SystemConfiguration/SCDynamicStoreCopySpecific.h>
+
+#define CFRELEASE(cf)			if(cf != NULL) { CFRelease(cf); }
 
 /*
  * Given an array of name/value pairs, cook up a CSSM_X509_NAME in specified
@@ -109,7 +113,7 @@ void dotMacRefKeyToRaw(
  */
 OSStatus dotMacEncodeRefId(  
 	const CSSM_DATA				&userName,	// UTF8, no NULL
-	DotMacSignType				signType,
+	DotMacCertTypeTag			certTypeTag,
 	SecNssCoder					&coder,		// results mallocd in this address space
 	CSSM_DATA					&refId)		// RETURNED, PEM encoded
 {
@@ -117,24 +121,9 @@ OSStatus dotMacEncodeRefId(
 	
 	/* set up a DotMacTpPendingRequest */
 	req.userName = userName;
-	uint8 reqType;
-	switch(signType) {
-		case DMST_Identity:
-			reqType = RT_Identity;
-			break;
-		case DMST_EmailSigning:
-			reqType = RT_EmailSign;
-			break;
-		case DMST_EmailEncrypting:
-			reqType = RT_EmailEncrypt;
-			break;
-		default:
-			assert(0);
-			dotMacErrorLog("dotMacEncodeRefId: bad signType");
-			return internalComponentErr;
-	}
-	req.reqType.Data = &reqType;
-	req.reqType.Length = 1;
+	uint8 certType = certTypeTag;
+	req.certTypeTag.Data = &certType;
+	req.certTypeTag.Length = 1;
 	
 	/* DER encode */
 	CSSM_DATA tempData = {0, NULL};
@@ -160,10 +149,10 @@ OSStatus dotMacEncodeRefId(
 }
 
 OSStatus dotMacDecodeRefId(
-	SecNssCoder					&coder,		// results mallocd in this address space
-	const CSSM_DATA				&refId,		// PEM encoded
-	CSSM_DATA					&userName,	// RETURNED, UTF8, no NULL
-	DotMacSignType				*signType)  // RETURNED
+	SecNssCoder					&coder,			// results mallocd in this address space
+	const CSSM_DATA				&refId,			// PEM encoded
+	CSSM_DATA					&userName,		// RETURNED, UTF8, no NULL
+	DotMacCertTypeTag			*certTypeTag)	// RETURNED
 {
 	/* PEM decode */
 	unsigned char *unPem;
@@ -190,63 +179,62 @@ OSStatus dotMacDecodeRefId(
 	
 	/* decoded params back to caller */
 	userName = req.userName;
-	if(req.reqType.Length != 1) {
-		dotMacErrorLog("dotMacDecodeRefId: reqType length (%lu) error", req.reqType.Length);
+	if(req.certTypeTag.Length != 1) {
+		dotMacErrorLog("dotMacDecodeRefId: reqType length (%lu) error", req.certTypeTag.Length);
 		return paramErr;
 	}
-	switch(req.reqType.Data[0]) {
-		case RT_Identity:
-			*signType = DMST_Identity;
-			break;
-		case RT_EmailSign:
-			*signType = DMST_EmailSigning;
-			break;
-		case RT_EmailEncrypt:
-			*signType = DMST_EmailEncrypting;
-			break;
-		default:
-			dotMacErrorLog("dotMacDecodeRefId: bad reqType");
-			return paramErr;
-	}
+	*certTypeTag = req.certTypeTag.Data[0];
 	return noErr;
 }
+
+/* SPI to specify timeout on CFReadStream */
+#define _kCFStreamPropertyReadTimeout   CFSTR("_kCFStreamPropertyReadTimeout")
+
+/* the read timeout we set, in seconds */
+#define READ_STREAM_TIMEOUT		15
+
+/* amount of data per CFReadStreamRead() */
+#define READ_FRAGMENT_SIZE		512
 
 /* fetch cert via HTTP */
 CSSM_RETURN dotMacTpCertFetch(
 	const CSSM_DATA		&userName,  // UTF8, no NULL
-	DotMacSignType		signType,
+	DotMacCertTypeTag	certType,
 	Allocator			&alloc,		// results mallocd here
 	CSSM_DATA			&result)	// RETURNED
 {
-	unsigned char *rawUrl;
 	unsigned rawUrlLen;
-	char *path;
+	char *typeArg;
 	CSSM_RETURN crtn = CSSM_OK;
 	
-	switch(signType) {
-		case DMST_Identity:
-			path = DOT_MAC_LOOKUP_ID_PATH;
+	switch(certType) {
+		case CSSM_DOT_MAC_TYPE_ICHAT:
+		case CSSM_DOT_MAC_TYPE_UNSPECIFIED:
+			typeArg = DOT_MAC_CERT_TYPE_ICHAT;
 			break;
-		case DMST_EmailSigning:
-			path = DOT_MAC_LOOKUP_SIGN_PATH;
+		case CSSM_DOT_MAC_TYPE_SHARED_SERVICES:
+			typeArg = DOT_MAC_CERT_TYPE_SHARED_SERVICES;
 			break;
-		case DMST_EmailEncrypting:
-			path = DOT_MAC_LOOKUP_ENCRYPT_PATH;
+		case CSSM_DOT_MAC_TYPE_EMAIL_SIGNING:
+			typeArg = DOT_MAC_CERT_TYPE_EMAIL_SIGNING;
+			break;
+		case CSSM_DOT_MAC_TYPE_EMAIL_ENCRYPT:
+			typeArg = DOT_MAC_CERT_TYPE_EMAIL_ENCRYPT;
 			break;
 		default:
 			dotMacErrorLog("dotMacTpCertFetch: bad signType");
 			return paramErr;
 	}
 
+	/* URL :=  http://certinfo.mac.com/locate?accountName&type=certTypeTag */
 	rawUrlLen = strlen(DOT_MAC_LOOKUP_SCHEMA) +		/* http:// */
 		strlen(DOT_MAC_LOOKUP_HOST) +				/* certmgmt.mac.com */
-		strlen(path) +								/* /lookup/identity? */
+		strlen(DOT_MAC_LOOKUP_PATH) +				/* /locate? */
 		userName.Length +							/* joe */
+		strlen(DOT_MAC_LOOKUP_TYPE) +				/* &type= */
+		strlen(typeArg) +							/* dmSharedServices */
 		1;											/* NULL */
-	rawUrl = (unsigned char *)malloc(rawUrlLen);
-	if(rawUrl == NULL) {
-		return memFullErr;
-	}
+	unsigned char rawUrl[rawUrlLen];
 	unsigned char *cp = rawUrl;
 	
 	unsigned len = strlen(DOT_MAC_LOOKUP_SCHEMA);
@@ -257,13 +245,21 @@ CSSM_RETURN dotMacTpCertFetch(
 	memmove(cp, DOT_MAC_LOOKUP_HOST, len);
 	cp += len;
 	
-	len = strlen(path);
-	memmove(cp, path, len);
+	len = strlen(DOT_MAC_LOOKUP_PATH);
+	memmove(cp, DOT_MAC_LOOKUP_PATH, len);
 	cp += len;
 	
 	memmove(cp, userName.Data, userName.Length);
 	cp += userName.Length;
 	
+	len = strlen(DOT_MAC_LOOKUP_TYPE);
+	memmove(cp, DOT_MAC_LOOKUP_TYPE, len);
+	cp += len;
+
+	len = strlen(typeArg);
+	memmove(cp, typeArg, len);
+	cp += len;
+
 	*cp = '\0';		// for debugging only, actually 
 	dotMacDebug("dotMacTpCertFetch: URL %s", rawUrl);
 	
@@ -271,104 +267,118 @@ CSSM_RETURN dotMacTpCertFetch(
 		rawUrl, rawUrlLen - 1,		// no NULL
 		kCFStringEncodingUTF8,	
 		NULL);						// absolute path 
-	free(rawUrl);
 	if(cfUrl == NULL) {
 		dotMacErrorLog("dotMacTpCertFetch: CFURLCreateWithBytes returned NULL\n");
 		return paramErr;
 	}
-	CFDataRef urlData = NULL;
-	SInt32 errorCode = 0;
+	/* subsequent errors to errOut: */
 	
-	/* Make sure we can see the HTTP status line */
-	CFStringRef statKey = kCFURLHTTPStatusCode;
-	CFArrayRef desiredValues = CFArrayCreate(NULL, (const void **)&statKey, 1, NULL);
-	CFDictionaryRef dict = NULL;
-	Boolean brtn = CFURLCreateDataAndPropertiesFromResource(NULL,
-		cfUrl,
-		&urlData, 
-		&dict,			// properties
-		desiredValues,  
-		&errorCode);
-	CFRelease(cfUrl);
-	CFRelease(desiredValues);
-	if(!brtn || (errorCode != 0)) {
-		dotMacErrorLog("dotMacTpCertFetch: CFURLCreateDataAndPropertiesFromResource "
-				"err: %d\n", (int)errorCode);
-		if(urlData) {
-			CFRelease(urlData);
-		}
-		return CSSMERR_TP_INVALID_NETWORK_ADDR;
-	}
-	if(urlData == NULL) {
-		dotMacErrorLog("dotMacTpCertFetch: CFURLCreateDataAndPropertiesFromResource:"
-			"no data\n");
-		return CSSMERR_TP_INVALID_NETWORK_ADDR;
-	}
-	if(dict == NULL) {
-		dotMacErrorLog("dotMacTpCertFetch: CFURLCreateDataAndPropertiesFromResource:"
-			"no properties\n");
-		return CSSMERR_TP_INVALID_NETWORK_ADDR;
-	}
-	CFNumberRef cfStatNum = 
-		(CFNumberRef)CFDictionaryGetValue(dict, kCFURLHTTPStatusCode);
-	if(cfStatNum == NULL) {
-		dotMacErrorLog("dotMacTpCertFetch: no HTTP status\n");
-		return CSSMERR_TP_INVALID_NETWORK_ADDR;
-	}
-	long statNum;
-	if(!CFNumberGetValue(cfStatNum, kCFNumberLongType, &statNum)) {
-		dotMacErrorLog("dotMacTpCertFetch: error converting HTTP status\n");
-		/* but keep going */
-	}
-	else {
-		if(statNum != 200) {
-			dotMacErrorLog("dotMacTpCertFetch: HTTP status %ld\n", statNum);
-			crtn = dotMacHttpStatToOs(statNum);
-		}
-	}
-	CFIndex resultLen = CFDataGetLength(urlData);
+	CFHTTPMessageRef httpRequestRef = NULL;
+	CFReadStreamRef httpStreamRef = NULL;
+	CFNumberRef cfnTo = NULL;
+	CFDictionaryRef proxyDict = NULL;
+	SInt32 ito = READ_STREAM_TIMEOUT;
+	CFMutableDataRef fetchedData = CFDataCreateMutable(NULL, 0);
+	UInt8 readFrag[READ_FRAGMENT_SIZE];
+	CFIndex bytesRead;
+	CFIndex resultLen;
 	
-	/* Only pass back good data */
-	if(crtn == CSSM_OK) {
+	httpRequestRef = CFHTTPMessageCreateRequest(NULL, 
+		CFSTR("GET"), cfUrl, kCFHTTPVersion1_1);
+	if(!httpRequestRef) {
+		dotMacErrorLog("***Error creating HTTPMessage from '%s'\n", rawUrl);
+		crtn = ioErr;
+		goto errOut;
+	}
+	
+	// open the stream
+	httpStreamRef = CFReadStreamCreateForHTTPRequest(NULL, httpRequestRef);
+	if(!httpStreamRef) {
+		dotMacErrorLog("***Error creating stream for '%s'\n", rawUrl);
+		crtn = ioErr;
+		goto errOut;
+	}
+
+	// set a reasonable timeout
+	cfnTo = CFNumberCreate(NULL, kCFNumberSInt32Type, &ito);
+    if(!CFReadStreamSetProperty(httpStreamRef, _kCFStreamPropertyReadTimeout, cfnTo)) {
+		// oh well - keep going 
+	}
+	
+	// set up possible proxy info 
+	proxyDict = SCDynamicStoreCopyProxies(NULL);
+	if(proxyDict) {
+		CFReadStreamSetProperty(httpStreamRef, kCFStreamPropertyHTTPProxy, proxyDict);
+	}
+
+	if(CFReadStreamOpen(httpStreamRef) == false) {
+		dotMacErrorLog("***Error opening stream for '%s'\n", rawUrl);
+		crtn = ioErr;
+		goto errOut;
+	}
+	
+	// read data from the stream
+	bytesRead = CFReadStreamRead(httpStreamRef, readFrag, sizeof(readFrag)); 
+	while (bytesRead > 0) {
+		CFDataAppendBytes(fetchedData, readFrag, bytesRead);
+		bytesRead = CFReadStreamRead(httpStreamRef, readFrag, sizeof(readFrag));
+	}
+	
+	if (bytesRead < 0) {
+		dotMacErrorLog("***Error reading URL '%s'\n", rawUrl);
+		crtn = ioErr;
+		goto errOut;
+	}
+
+	resultLen = CFDataGetLength(fetchedData);
+	if(resultLen == 0) {
+		dotMacErrorLog("***No data available from URL '%s'\n", rawUrl);
+		/* but don't abort on this one - it means "no cert found" */
+		goto errOut;
+	}
+	
+	/* 
+	 * Only pass back good data.
+	 * FIXME this is a back to workaround nonconforming .Mac server behavior. 
+	 * It currently sends HTML data that is *not* a cert when it wants to 
+	 * indicate "no certs found". It should just return empty data, which 
+	 * we'd detect above. For now we have to determine manually if the data
+	 * contains some PEM-formated stuff.
+	 */
+	{
 		/* Scan for PEM armour */
 		bool isPEM = false;
-		const char *s = "-----BEGIN CERTIFICATE-----";
-		uint8 *p = (uint8 *)CFDataGetBytePtr(urlData);
-		uint32 l = resultLen;
-		uint32 m = strlen(s);
-		while(l > m) {
-			if (*p == 0x2D && !strncmp((const char*)p, s, m)) {
-				isPEM = true;
-				break;
+		const char *srchStr = "-----BEGIN CERTIFICATE-----";
+		unsigned srchStrLen = strlen(srchStr);
+		const char *p = (const char *)CFDataGetBytePtr(fetchedData);
+		if(resultLen > (int)srchStrLen) {
+			/* no sense checking if result is smaller than that search string */
+			unsigned srchLen = resultLen - srchStrLen;
+			for(unsigned dex=0; dex< srchLen; dex++) {
+				if(!strncmp(p, srchStr, srchStrLen)) {
+					isPEM = true;
+					break;
+				}
+				p++;
 			}
-			p++;
-			l--;
 		}
 		if(isPEM) {
-			result.Data = (uint8 *)alloc.malloc(l);
-			result.Length = l;
-			memmove(result.Data, p, l);
+			result.Data = (uint8 *)alloc.malloc(resultLen);
+			result.Length = resultLen;
+			memmove(result.Data, CFDataGetBytePtr(fetchedData), resultLen);
 		}
 		else {
 			result.Data = NULL;
 			result.Length = 0;
 		}
-	#if 0
-		/* Dump raw and filtered data to temporary files for debugging */
-		FILE *rawFile = fopen("/tmp/debug_dotmac_data", "w");\
-		if (resultLen)
-			fwrite(CFDataGetBytePtr(urlData), 1, resultLen, rawFile);
-		fclose(rawFile);
-		FILE *dbgFile = fopen("/tmp/debug_dotmac_result", "w");
-		if (result.Length)
-			fwrite(result.Data, 1, result.Length, dbgFile);
-		fclose(dbgFile);
-	#endif
 	}
-	CFRelease(urlData);
-	if(dict) {
-		CFRelease(dict);
-	}
+errOut:
+	CFRELEASE(cfUrl);
+	CFRELEASE(httpRequestRef);
+	CFRELEASE(httpStreamRef);
+	CFRELEASE(cfnTo);
+	CFRELEASE(proxyDict);
+
 	return crtn;
 }
 

@@ -3,6 +3,8 @@
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-lobjc -Wpadded" } */
 /* { dg-do run } */
+/* APPLE LOCAL radar 4894756 */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 #include <objc/objc.h>
 #include <objc/Object.h>

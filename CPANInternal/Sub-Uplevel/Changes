@@ -1,0 +1,68 @@
+Changes for Sub::Uplevel
+
+0.14 Sun Nov  5 23:38:46 EST 2006
+    - fixed t/99_pod_coverage.t bug
+    - added examples directory
+
+0.13 Thu Jun 22 19:47:26 EDT 2006
+    - fixed bug in Uplevel.t that caused test failure on FreeBSD for 5.8.0
+    - fixed bug in Uplevel.t that caused test failure on bleadperl-5.9.4
+    - removed ancient Test::More provided in t/lib
+    - switched ok(eq_array()) tests to is_deeper() for better diagnostics
+    - added pod/pod coverage checks
+    - numbered tests
+
+0.12 Fri May 12 18:33:40 EDT 2006
+    - official release of the uplevel stack patch (fixes RT#13893)
+    - added Build.PL and switched to boilerplate generated Makefile.PL
+    - removed SIGNATURE due to recently discovered Module::Signature
+      issues with newline handling and sub-key compatible keyservers
+    - updated/added various meta files
+
+0.11_01 Fri Apr 21 00:49:51 EDT 2006
+    - uplevel now keeps a proper stack of uplevel calls allowing
+      nesting of uplevel and non-uplevel calls
+
+0.10 Thu Apr 20 19:15:20 EDT 2006
+    - Stopped warnings about "undefined" on Perl 5.8.8
+    - DAGOLDEN added as co-maintainer
+
+0.09  Wed Jul  7 14:52:08 EDT 2004
+    - Ok, ok.  I'll put a license on this.
+
+0.08  Wed Oct 22 09:02:38 PDT 2003
+    - New die_check.t test was written in a non-portable manner.
+      [Thanks Martin Thurn and cpantesters]
+
+0.07  Tue Mar 18 03:03:22 GMT 2003
+    - Fixed a test bug due to 5.6.0's differing Carp::croak stack output
+
+0.06  Thu Sep 20 08:50:30 EDT 2001
+    * Fixed a bug with deeply nested callers.
+    * Fixed nested uplevel() calls.
+    - Forgot to include Test::More dependency
+    - Added 5.006 dependency to Makefile.PL
+    - Removed unnecessary die and warn overrides
+    - Added DIRE WARNING to the docs.
+
+0.05  Wed Sep 19 06:00:12 EDT 2001
+    * Things were still pretty broken.  I *think* I have the tests
+      sorted out now.
+    * Blows over any CORE::GLOBAL::caller, die or warn you might have
+      set.  I'll fix this soon.
+
+0.04  Wed Sep 19 04:28:19 EDT 2001
+    * Ooops, we'd broken caller().  Turns out the tests were wrong.
+
+0.03  Wed Sep 19 03:41:59 EDT 2001
+    * Greatly simplified the uplevel logic
+
+0.02  Wed Sep 19 03:03:10 EDT 2001
+    * Fools croak()
+
+0.01  Wed Sep 19 00:19:38 EDT 2001
+    * First working version
+    * Fools caller(), die() and warn().
+    - Needs more work against, say, Carp.
+    - Needs more work to check that it doesn't break the
+      subtleties of caller, die and warn.

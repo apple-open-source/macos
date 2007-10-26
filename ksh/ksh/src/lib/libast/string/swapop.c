@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -36,26 +32,26 @@
 
 /*
  * return the swap operation for external to internal conversion
+ * if size<0 then (-size) used and (-size==4)&&(op==3) => op=7
+ * this is a workaround for 4 byte magic predicting 8 byte swap
  */
 
 int
 swapop(const void* internal, const void* external, int size)
 {
 	register int	op;
-	char		tmp[sizeof(int_max)];
+	register int	z;
+	char		tmp[sizeof(intmax_t)];
 
-	if (size <= 1)
+	if ((z = size) < 0)
+		z = -z;
+	if (z <= 1)
 		return 0;
-	if (size <= sizeof(int_max))
-		for (op = 0; op < size; op++)
-			if (!memcmp(internal, swapmem(op, external, tmp, size), size))
+	if (z <= sizeof(intmax_t))
+		for (op = 0; op < z; op++)
+			if (!memcmp(internal, swapmem(op, external, tmp, z), z))
 			{
-				/*
-				 * le on 4 bytes is also le on 8
-				 * nuxi pdp is the anomaly
-				 */
-
-				if (op == 3 && size == 4)
+				if (size < 0 && z == 4 && op == 3)
 					op = 7;
 				return op;
 			}

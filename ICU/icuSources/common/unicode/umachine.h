@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -41,7 +41,9 @@
 /* which are contained in the platform-specific file platform.h             */
 /*==========================================================================*/
 
-#if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
+#if defined(U_PALMOS)
+#   include "unicode/ppalmos.h"
+#elif defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
 #   include "unicode/pwin32.h"
 #else
 #   include "unicode/platform.h"
@@ -201,7 +203,7 @@
 /**
  * Provides a platform independent way to specify a signed 64-bit integer constant.
  * note: may be wrong for some 64 bit platforms - ensure your compiler provides INT64_C
- * @draft ICU 2.8
+ * @stable ICU 2.8
  */
 #   define INT64_C(c) c ## LL
 # endif
@@ -209,7 +211,7 @@
 /**
  * Provides a platform independent way to specify an unsigned 64-bit integer constant.
  * note: may be wrong for some 64 bit platforms - ensure your compiler provides UINT64_C
- * @draft ICU 2.8
+ * @stable ICU 2.8
  */
 #   define UINT64_C(c) c ## ULL
 # endif
@@ -298,7 +300,7 @@ typedef int8_t UBool;
 #       if (U_SIZEOF_WCHAR_T==4)
 #           define U_WCHAR_IS_UTF32
 #       endif
-#   elif defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
+#   elif defined(U_WINDOWS)
 #       define U_WCHAR_IS_UTF16    
 #   endif
 #endif
@@ -352,6 +354,8 @@ typedef int32_t UChar32;
 /*                             the OS in use.                               */
 /*==========================================================================*/
 
+#ifndef U_HIDE_INTERNAL_API
+
 /**
  * \def U_ALIGN_CODE
  * This is used to align code fragments to a specific byte boundary.
@@ -362,8 +366,14 @@ typedef int32_t UChar32;
 #   define U_ALIGN_CODE(n)
 #endif
 
+#endif /* U_HIDE_INTERNAL_API */
+
 #ifndef U_INLINE
-#   define U_INLINE
+#   ifdef XP_CPLUSPLUS
+#       define U_INLINE inline
+#   else
+#       define U_INLINE
+#   endif
 #endif
 
 #include "unicode/urename.h"

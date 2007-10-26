@@ -1,8 +1,8 @@
 " Vim syntax file
 " Language:	Procmail definition file
-" Maintainer:	vacancy [posted by Sonia Heimann, but she didn't feel like
-"		maintaining this]
-" Last Change:	2001 May 10
+" Maintainer:	Melchior FRANZ <mfranz@aon.at>
+" Last Change:	2003 Aug 14
+" Author:	Sonia Heimann
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -16,6 +16,7 @@ syn match   procmailComment      "#.*$" contains=procmailTodo
 syn keyword   procmailTodo      contained Todo TBD
 
 syn region  procmailString       start=+"+  skip=+\\"+  end=+"+
+syn region  procmailString       start=+'+  skip=+\\'+  end=+'+
 
 syn region procmailVarDeclRegion start="^\s*[a-zA-Z0-9_]\+\s*="hs=e-1 skip=+\\$+ end=+$+ contains=procmailVar,procmailVarDecl,procmailString
 syn match procmailVarDecl contained "^\s*[a-zA-Z0-9_]\+"

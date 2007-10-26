@@ -1,0 +1,14 @@
+#!/bin/sh
+PATH=/usr/sbin:/usr/bin:/bin
+
+ipconfig waitall
+ntpdate -bvs
+
+# Un-comment the following line to run ntp with a sandbox profile.
+# Sandbox profiles restrict processes from performing unauthorized
+# operations; so it may be necessary to update the profile
+# (/usr/share/sandbox/ntpd.sb) if any changes are made to the ntp
+# configuration (/etc/ntp.conf).
+#sb=/usr/bin/sandbox-exec -f /usr/share/sandbox/ntpd.sb
+
+exec $sb /usr/sbin/ntpd -n -g -p /var/run/ntpd.pid -f /var/db/ntp.drift

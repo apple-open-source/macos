@@ -1,3 +1,4 @@
+
 /*	BSDI inet.c,v 2.3 1995/10/24 02:19:29 prb Exp	*/
 /*
  * Copyright (c) 1983, 1988, 1993
@@ -68,7 +69,7 @@ static char sccsid[] = "@(#)inet6.c	8.4 (Berkeley) 4/20/94";
 #include <unistd.h>
 #include "netstat.h"
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(__unused)
 #define __unused
 #endif
 
@@ -342,6 +343,7 @@ static	char *ip6nh[] = {
 void
 ip6_stats(u_long off __unused, char *name, int af __unused)
 {
+	static struct ip6stat pip6stat;
 	struct ip6stat ip6stat;
 	int first, i;
 	int mib[4];
@@ -358,10 +360,11 @@ ip6_stats(u_long off __unused, char *name, int af __unused)
 		return;
 	printf("%s:\n", name);
 
-#define	p(f, m) if (ip6stat.f || sflag <= 1) \
-    printf(m, (unsigned long long)ip6stat.f, plural(ip6stat.f))
-#define	p1a(f, m) if (ip6stat.f || sflag <= 1) \
-    printf(m, (unsigned long long)ip6stat.f)
+#define	IP6DIFF(f) (ip6stat.f - pip6stat.f)
+#define	p(f, m) if (IP6DIFF(f) || sflag <= 1) \
+    printf(m, (unsigned long long)IP6DIFF(f), plural(IP6DIFF(f)))
+#define	p1a(f, m) if (IP6DIFF(f) || sflag <= 1) \
+    printf(m, (unsigned long long)IP6DIFF(f))
 
 	p(ip6s_total, "\t%llu total packet%s received\n");
 	p1a(ip6s_toosmall, "\t%llu with size smaller than minimum\n");
@@ -387,32 +390,32 @@ ip6_stats(u_long off __unused, char *name, int af __unused)
 	p(ip6s_badscope, "\t%llu packet%s that violated scope rules\n");
 	p(ip6s_notmember, "\t%llu multicast packet%s which we don't join\n");
 	for (first = 1, i = 0; i < 256; i++)
-		if (ip6stat.ip6s_nxthist[i] != 0) {
+		if (IP6DIFF(ip6s_nxthist[i]) != 0) {
 			if (first) {
 				printf("\tInput histogram:\n");
 				first = 0;
 			}
 			printf("\t\t%s: %llu\n", ip6nh[i],
-			    (unsigned long long)ip6stat.ip6s_nxthist[i]);
+			    (unsigned long long)IP6DIFF(ip6s_nxthist[i]));
 		}
 	printf("\tMbuf statistics:\n");
-	printf("\t\t%llu one mbuf\n", (unsigned long long)ip6stat.ip6s_m1);
+	printf("\t\t%llu one mbuf\n", (unsigned long long)IP6DIFF(ip6s_m1));
 	for (first = 1, i = 0; i < 32; i++) {
 		char ifbuf[IFNAMSIZ];
-		if (ip6stat.ip6s_m2m[i] != 0) {		
+		if (IP6DIFF(ip6s_m2m[i]) != 0) {
 			if (first) {
 				printf("\t\ttwo or more mbuf:\n");
 				first = 0;
 			}
 			printf("\t\t\t%s= %llu\n",
 			    if_indextoname(i, ifbuf),
-			    (unsigned long long)ip6stat.ip6s_m2m[i]);
+			    (unsigned long long)IP6DIFF(ip6s_m2m[i]));
 		}
 	}
 	printf("\t\t%llu one ext mbuf\n",
-	    (unsigned long long)ip6stat.ip6s_mext1);
+	    (unsigned long long)IP6DIFF(ip6s_mext1));
 	printf("\t\t%llu two or more ext mbuf\n",
-	    (unsigned long long)ip6stat.ip6s_mext2m);	
+	    (unsigned long long)IP6DIFF(ip6s_mext2m));
 	p(ip6s_exthdrtoolong,
 	    "\t%llu packet%s whose headers are not continuous\n");
 	p(ip6s_nogif, "\t%llu tunneling packet%s that can't find gif\n");
@@ -436,14 +439,14 @@ ip6_stats(u_long off __unused, char *name, int af __unused)
 			break;\
 		default:\
 			printf("\t\t%llu addresses scope=%x\n",\
-			    (unsigned long long)ip6stat.s, i);\
+			    (unsigned long long)IP6DIFF(s), i);\
 		}\
 	} while (0);
 
 	p(ip6s_sources_none,
 	  "\t%llu failure%s of source address selection\n");
 	for (first = 1, i = 0; i < 16; i++) {
-		if (ip6stat.ip6s_sources_sameif[i]) {
+		if (IP6DIFF(ip6s_sources_sameif[i])) {
 			if (first) {
 				printf("\tsource addresses on an outgoing I/F\n");
 				first = 0;
@@ -452,7 +455,7 @@ ip6_stats(u_long off __unused, char *name, int af __unused)
 		}
 	}
 	for (first = 1, i = 0; i < 16; i++) {
-		if (ip6stat.ip6s_sources_otherif[i]) {
+		if (IP6DIFF(ip6s_sources_otherif[i])) {
 			if (first) {
 				printf("\tsource addresses on a non-outgoing I/F\n");
 				first = 0;
@@ -461,7 +464,7 @@ ip6_stats(u_long off __unused, char *name, int af __unused)
 		}
 	}
 	for (first = 1, i = 0; i < 16; i++) {
-		if (ip6stat.ip6s_sources_samescope[i]) {
+		if (IP6DIFF(ip6s_sources_samescope[i])) {
 			if (first) {
 				printf("\tsource addresses of same scope\n");
 				first = 0;
@@ -470,7 +473,7 @@ ip6_stats(u_long off __unused, char *name, int af __unused)
 		}
 	}
 	for (first = 1, i = 0; i < 16; i++) {
-		if (ip6stat.ip6s_sources_otherscope[i]) {
+		if (IP6DIFF(ip6s_sources_otherscope[i])) {
 			if (first) {
 				printf("\tsource addresses of a different scope\n");
 				first = 0;
@@ -479,7 +482,7 @@ ip6_stats(u_long off __unused, char *name, int af __unused)
 		}
 	}
 	for (first = 1, i = 0; i < 16; i++) {
-		if (ip6stat.ip6s_sources_deprecated[i]) {
+		if (IP6DIFF(ip6s_sources_deprecated[i])) {
 			if (first) {
 				printf("\tdeprecated source addresses\n");
 				first = 0;
@@ -490,6 +493,11 @@ ip6_stats(u_long off __unused, char *name, int af __unused)
 
 	p1a(ip6s_forward_cachehit, "\t%llu forward cache hit\n");
 	p1a(ip6s_forward_cachemiss, "\t%llu forward cache miss\n");
+
+	if (interval > 0)
+		bcopy(&ip6stat, &pip6stat, len);
+
+#undef IP6DIFF
 #undef p
 #undef p1a
 }
@@ -815,6 +823,7 @@ static	char *icmp6names[] = {
 void
 icmp6_stats(u_long off __unused, char *name, int af __unused)
 {
+	static struct icmp6stat picmp6stat;
 	struct icmp6stat icmp6stat;
 	register int i, first;
 	int mib[4];
@@ -831,9 +840,10 @@ icmp6_stats(u_long off __unused, char *name, int af __unused)
 		return;
 	printf("%s:\n", name);
 
-#define	p(f, m) if (icmp6stat.f || sflag <= 1) \
-    printf(m, (unsigned long long)icmp6stat.f, plural(icmp6stat.f))
-#define p_5(f, m) printf(m, (unsigned long long)icmp6stat.f)
+#define	ICMP6DIFF(f) (icmp6stat.f - picmp6stat.f)
+#define	p(f, m) if (ICMP6DIFF(f) || sflag <= 1) \
+    printf(m, (unsigned long long)ICMP6DIFF(f), plural(ICMP6DIFF(f)))
+#define p_5(f, m) printf(m, (unsigned long long)ICMP6DIFF(f))
 
 	p(icp6s_error, "\t%llu call%s to icmp_error\n");
 	p(icp6s_canterror,
@@ -842,13 +852,13 @@ icmp6_stats(u_long off __unused, char *name, int af __unused)
 	  "\t%llu error%s not generated because rate limitation\n");
 #define NELEM (sizeof(icmp6stat.icp6s_outhist)/sizeof(icmp6stat.icp6s_outhist[0]))
 	for (first = 1, i = 0; i < NELEM; i++)
-		if (icmp6stat.icp6s_outhist[i] != 0) {
+		if (ICMP6DIFF(icp6s_outhist[i]) != 0) {
 			if (first) {
 				printf("\tOutput histogram:\n");
 				first = 0;
 			}
 			printf("\t\t%s: %llu\n", icmp6names[i],
-			    (unsigned long long)icmp6stat.icp6s_outhist[i]);
+			    (unsigned long long)ICMP6DIFF(icp6s_outhist[i]));
 		}
 #undef NELEM
 	p(icp6s_badcode, "\t%llu message%s with bad code fields\n");
@@ -857,13 +867,13 @@ icmp6_stats(u_long off __unused, char *name, int af __unused)
 	p(icp6s_badlen, "\t%llu message%s with bad length\n");
 #define NELEM (sizeof(icmp6stat.icp6s_inhist)/sizeof(icmp6stat.icp6s_inhist[0]))
 	for (first = 1, i = 0; i < NELEM; i++)
-		if (icmp6stat.icp6s_inhist[i] != 0) {
+		if (ICMP6DIFF(icp6s_inhist[i]) != 0) {
 			if (first) {
 				printf("\tInput histogram:\n");
 				first = 0;
 			}
 			printf("\t\t%s: %llu\n", icmp6names[i],
-			    (unsigned long long)icmp6stat.icp6s_inhist[i]);
+			    (unsigned long long)ICMP6DIFF(icp6s_inhist[i]));
 		}
 #undef NELEM
 	printf("\tHistogram of error messages to be generated:\n");
@@ -890,6 +900,11 @@ icmp6_stats(u_long off __unused, char *name, int af __unused)
 	p(icp6s_badra, "\t%qu bad router advertisement message%s\n");
 	p(icp6s_badredirect, "\t%qu bad redirect message%s\n");
 	p(icp6s_pmtuchg, "\t%llu path MTU change%s\n");
+
+	if (interval > 0)
+		bcopy(&icmp6stat, &picmp6stat, len);
+
+#undef ICMP6DIFF
 #undef p
 #undef p_5
 }
@@ -966,6 +981,7 @@ icmp6_ifstats(char *ifname)
 void
 pim6_stats(void)
 {
+	static struct pim6stat ppim6stat;
 	struct pim6stat pim6stat;
 	size_t len = sizeof(struct pim6stat);
 
@@ -973,8 +989,9 @@ pim6_stats(void)
 		return;
 	printf("%s:\n", name);
 
-#define	p(f, m) if (pim6stat.f || sflag <= 1) \
-    printf(m, (unsigned long long)pim6stat.f, plural(pim6stat.f))
+#define	PIM6DIFF(f) (pim6stat.f - ppim6stat.f)
+#define	p(f, m) if (PIM6DIFF(f) || sflag <= 1) \
+    printf(m, (unsigned long long)PIM6DIFF(f), plural(PIM6DIFF(f)))
 	p(pim6s_rcv_total, "\t%llu message%s received\n");
 	p(pim6s_rcv_tooshort, "\t%llu message%s received with too few bytes\n");
 	p(pim6s_rcv_badsum, "\t%llu message%s received with bad checksum\n");
@@ -982,6 +999,11 @@ pim6_stats(void)
 	p(pim6s_rcv_registers, "\t%llu register%s received\n");
 	p(pim6s_rcv_badregisters, "\t%llu bad register%s received\n");
 	p(pim6s_snd_registers, "\t%llu register%s sent\n");
+
+	if (interval > 0)
+		bcopy(&pim6stat, &ppim6stat, len);
+
+#undef PIM6DIFF
 #undef p
 }
 #endif
@@ -992,6 +1014,7 @@ pim6_stats(void)
 void
 rip6_stats(u_long off __unused, char *name, int af __unused)
 {
+	static struct rip6stat prip6stat;
 	struct rip6stat rip6stat;
 	u_quad_t delivered;
 	int mib[4];
@@ -1009,8 +1032,9 @@ rip6_stats(u_long off __unused, char *name, int af __unused)
 
 	printf("%s:\n", name);
 
-#define	p(f, m) if (rip6stat.f || sflag <= 1) \
-    printf(m, (unsigned long long)rip6stat.f, plural(rip6stat.f))
+#define	RIP6DIFF(f) (rip6stat.f - prip6stat.f)
+#define	p(f, m) if (RIP6DIFF(f) || sflag <= 1) \
+    printf(m, (unsigned long long)RIP6DIFF(f), plural(RIP6DIFF(f)))
 	p(rip6s_ipackets, "\t%llu message%s received\n");
 	p(rip6s_isum, "\t%llu checksum calcuration%s on inbound\n");
 	p(rip6s_badsum, "\t%llu message%s with bad checksum\n");
@@ -1019,14 +1043,19 @@ rip6_stats(u_long off __unused, char *name, int af __unused)
 	    "\t%llu multicast message%s dropped due to no socket\n");
 	p(rip6s_fullsock,
 	    "\t%llu message%s dropped due to full socket buffers\n");
-	delivered = rip6stat.rip6s_ipackets -
-		    rip6stat.rip6s_badsum -
-		    rip6stat.rip6s_nosock -
-		    rip6stat.rip6s_nosockmcast -
-		    rip6stat.rip6s_fullsock;
+	delivered = RIP6DIFF(rip6s_ipackets) -
+		    RIP6DIFF(rip6s_badsum) -
+		    RIP6DIFF(rip6s_nosock) -
+		    RIP6DIFF(rip6s_nosockmcast) -
+		    RIP6DIFF(rip6s_fullsock);
 	if (delivered || sflag <= 1)
 		printf("\t%llu delivered\n", (unsigned long long)delivered);
 	p(rip6s_opackets, "\t%llu datagram%s output\n");
+
+	if (interval > 0)
+		bcopy(&rip6stat, &prip6stat, l);
+
+#undef RIP6DIFF
 #undef p
 }
 
@@ -1091,6 +1120,9 @@ inet6name(struct in6_addr *in6p)
 	struct hostent *hp;
 	static char domain[MAXHOSTNAMELEN];
 	static int first = 1;
+	char hbuf[NI_MAXHOST];
+	struct sockaddr_in6 sin6;
+	const int niflag = NI_NUMERICHOST;
 
 	if (first && !nflag) {
 		first = 0;
@@ -1113,11 +1145,26 @@ inet6name(struct in6_addr *in6p)
 	if (IN6_IS_ADDR_UNSPECIFIED(in6p))
 		strcpy(line, "*");
 	else if (cp)
-		strcpy(line, cp);
-	else 
-		sprintf(line, "%s",
-			inet_ntop(AF_INET6, (void *)in6p, ntop_buf,
-				sizeof(ntop_buf)));
+		strlcpy(line, cp, sizeof(line));
+	else {
+		memset(&sin6, 0, sizeof(sin6));
+		sin6.sin6_len = sizeof(sin6);
+		sin6.sin6_family = AF_INET6;
+		sin6.sin6_addr = *in6p;
+
+		if (IN6_IS_ADDR_LINKLOCAL(in6p) ||
+		    IN6_IS_ADDR_MC_LINKLOCAL(in6p)) {
+			sin6.sin6_scope_id =
+			    ntohs(*(u_int16_t *)&in6p->s6_addr[2]);
+			sin6.sin6_addr.s6_addr[2] = 0;
+			sin6.sin6_addr.s6_addr[3] = 0;
+		}
+
+		if (getnameinfo((struct sockaddr *)&sin6, sin6.sin6_len,
+				hbuf, sizeof(hbuf), NULL, 0, niflag) != 0)
+			strlcpy(hbuf, "?", sizeof(hbuf));
+		strlcpy(line, hbuf, sizeof(line));
+	}
 	return (line);
 }
 #endif /*INET6*/

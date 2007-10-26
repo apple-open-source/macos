@@ -1,7 +1,0 @@
-/^#if defined(__DARWIN__)/s/__DARWIN__/DARWIN_BEFORE_10_4/
-/^#endif/c
-#else
-#include <dlfcn.h>
-#endif // defined(DARWIN_BEFORE_10_4)
-.
-w

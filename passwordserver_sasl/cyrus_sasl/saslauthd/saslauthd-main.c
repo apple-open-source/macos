@@ -114,7 +114,10 @@
 #include "saslauthd-main.h"
 #include "cache.h"
 #include "utils.h"
- 
+
+/* max login + max realm + '@' */
+#define MAX_LOGIN_REALM_LEN (MAX_REQ_LEN * 2) + 1
+
 /****************************************
  * declarations/protos
  *****************************************/
@@ -164,7 +167,7 @@ int main(int argc, char **argv) {
 	flags |= LOG_USE_STDERR;
 	flags |= AM_MASTER;
 
-	while ((option = getopt(argc, argv, "a:cdhO:lm:n:s:t:vV")) != -1) {
+	while ((option = getopt(argc, argv, "a:cdhO:lm:n:rs:t:vV")) != -1) {
 		switch(option) {
 			case 'a':
 			        /* Only one at a time, please! */
@@ -208,6 +211,10 @@ int main(int argc, char **argv) {
 
 			case 'n':
 				set_max_procs(optarg);
+				break;
+
+			case 'r':
+				flags |= CONCAT_LOGIN_REALM;
 				break;
 
 			case 's':
@@ -360,11 +367,30 @@ int main(int argc, char **argv) {
  * return a pointer to a string to send back to the client.
  * The caller is responsible for freeing the pointer. 
  **************************************************************/
-char *do_auth(const char *login, const char *password, const char *service, const char *realm) {
+char *do_auth(const char *_login, const char *password, const char *service, const char *realm) {
 
 	struct cache_result	lkup_result;
 	char			*response;
 	int			cached = 0;
+	char			login_buff[MAX_LOGIN_REALM_LEN];
+	char			*login;
+
+
+	/***********************************************************
+	 * Check to concat the login and realm into a single login.
+	 * Aka, login: foo realm: bar becomes login: foo@bar.
+	 * We do this because some mechs have no concept of a realm.
+	 * Ie. auth_pam and friends.
+	 ***********************************************************/
+	if ((flags & CONCAT_LOGIN_REALM) && realm && realm[0] != '\0') {
+	    strlcpy(login_buff, _login, sizeof(login_buff));
+	    strlcat(login_buff, "@", sizeof(login_buff));
+	    strlcat(login_buff, realm, sizeof(login_buff));
+
+	    login = login_buff;
+	} else {
+	    login = (char *)_login;
+	}
 
 	if (cache_lookup(login, realm, service, password, &lkup_result) == CACHE_OK) {	
 		response = strdup("OK");
@@ -423,7 +449,7 @@ void set_auth_mech(const char *mech) {
 
 	if (auth_mech->initialize) {
 		if(auth_mech->initialize() != 0) {
-		    logger(L_ERR, L_FUNC, "failed to initilize mechanism %s",
+		    logger(L_ERR, L_FUNC, "failed to initialize mechanism %s",
 			   auth_mech->name);
 		    exit(1);
 		}
@@ -948,6 +974,9 @@ void show_usage() {
     fprintf(stderr, "  -a <authmech>  Selects the authentication mechanism to use.\n");
     fprintf(stderr, "  -c             Enable credential caching.\n");
     fprintf(stderr, "  -d             Debugging (don't detach from tty, implies -V)\n");
+    fprintf(stderr, "  -r             Combine the realm with the login before passing to authentication mechanism\n");
+    fprintf(stderr, "                 Ex. login: \"foo\" realm: \"bar\" will get passed as login: \"foo@bar\"\n");
+    fprintf(stderr, "                 The realm name is passed untouched.\n");
     fprintf(stderr, "  -O <option>    Optional argument to pass to the authentication\n");
     fprintf(stderr, "                 mechanism.\n");
     fprintf(stderr, "  -l             Disable accept() locking. Increases performance, but\n");
@@ -959,7 +988,6 @@ void show_usage() {
     fprintf(stderr, "  -t <seconds>   Timeout for items in the credential cache (in seconds)\n");
     fprintf(stderr, "  -v             Display version information and available mechs\n");
     fprintf(stderr, "  -V             Enable verbose logging\n");
-    fprintf(stderr, "                 authentication mechanisms and exit.\n");
     fprintf(stderr, "  -h             Display this message.\n\n");
 
     show_version();

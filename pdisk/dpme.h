@@ -187,7 +187,7 @@ struct	bzb			/* block zero block format */
     u32  bzb_tumount;		/* time of last umount */
     ABM  bzb_abm;		/* altblk map info */
     u32  bzb_fill2[7];		/* for expansion of ABM (ha!ha!) */
-    u8   bzb_mount_point[64];	/* default mount point name */
+    char bzb_mount_point[64];	/* default mount point name */
 };
 typedef	struct bzb	BZB;
 

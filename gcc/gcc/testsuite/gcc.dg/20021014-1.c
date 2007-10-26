@@ -1,10 +1,7 @@
 /* { dg-do run } */
-/* APPLE LOCAL begin testsuite nested funcs */
-/* { dg-xfail-if "" { *-*-darwin* } } */
-/* { dg-error "" "nested functions" { target *-*-darwin* } 19 } */
-/* APPLE LOCAL end testsuite nested funcs */
 /* { dg-require-profiling "-p" } */
-/* { dg-options "-O2 -p" } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-O2 -p -fnested-functions" } */
 /* { dg-options "-O2 -p -static" { target hppa*-*-hpux* } } */
 /* { dg-error "profiler" "No profiler support" { target xstormy16-*-* } 0 } */
 /* { dg-error "" "consider using `-pg' instead of `-p' with gprof(1)" { target *-*-freebsd* } 0 } */

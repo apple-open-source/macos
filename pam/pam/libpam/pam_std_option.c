@@ -1,4 +1,4 @@
-/*-
+		/*-
  * Copyright 1998 Juniper Networks, Inc.
  * All rights reserved.
  *
@@ -48,6 +48,7 @@ pam_std_option(int *options, const char *name)
 		{ "try_first_pass",	PAM_OPT_TRY_FIRST_PASS },
 		{ "use_mapped_pass",	PAM_OPT_USE_MAPPED_PASS },
 		{ "echo_pass",		PAM_OPT_ECHO_PASS },
+		{ "nullok",		PAM_OPT_NULLOK },
 		{ NULL,			0 }
 	};
 	struct opttab *p;

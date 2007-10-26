@@ -34,6 +34,8 @@
 #include <net/route.h>
 #include <net/if_types.h>
 #include <unistd.h>
+#include <netinet/ip.h>
+#include <netinet/bootp.h>
 #include "pppd.h"
 #include "fsm.h"
 #include "pathnames.h"
@@ -55,6 +57,10 @@ static acsp_ext *ext_list;		// list of acsp_ext structs - one for each option ty
 extern bool	acsp_no_routes;
 extern bool	acsp_no_domains;
 
+extern bool	acsp_use_dhcp;
+extern bool	acsp_intercept_dhcp;
+
+
 extern char *serverid; 	// defined in sys-MacOSX.c
 extern char *serviceid; // defined in sys-MacOSX.c
 
@@ -63,11 +69,17 @@ static void acsp_start_plugin(acsp_ext *ext, int mtu);
 static void acsp_stop_plugin(acsp_ext *ext);
 static void acsp_output(acsp_ext *ext);
 static void acsp_timeout(void *arg);
+static void acsp_ipdata_input(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_int32_t hisaddr);
+static void acsp_ipdata_up(int unit, u_int32_t ouraddr, u_int32_t hisaddr);
+static void acsp_ipdata_down(int unit);
+static void acsp_ipdata_timeout(void *arg);
+static int acsp_ipdata_print(u_char *, int, void (*) __P((void *, char *, ...)), void *);
 
 // ACSP plugin channel functions - will eventually be called thru acsp_channel
 static void acsp_plugin_check_options(void);
 static int acsp_plugin_get_type_count(void);
 static int acsp_plugin_init_type(acsp_ext *ext, int type_index);
+
 
 //------------------------------------------------------------
 //------------------------------------------------------------
@@ -85,7 +97,7 @@ acsp_init_plugins(void *arg, int phase)
     int		i, option_count;
     
     ext_list = 0;
-
+		
     remove_notifier(&phasechange, acsp_init_plugins, 0);
     
     // load each plugin here and call start - is this the right place ???
@@ -123,6 +135,14 @@ acsp_init_plugins(void *arg, int phase)
         ext->next = ext_list;
         ext_list = ext;
     }
+	
+	// add hook for dhcp/ipdata
+	// will use route and domain information from acsp
+	ipdata_input_hook = acsp_ipdata_input;
+	ipdata_up_hook = acsp_ipdata_up;
+	ipdata_down_hook = acsp_ipdata_down;
+	ipdata_print_hook = acsp_ipdata_print;
+
 }
 
 //------------------------------------------------------------
@@ -133,6 +153,9 @@ acsp_start(int mtu)
 {
     acsp_ext	*ext;
     
+	// acscp is negotiated, stop dhcp
+	acsp_ipdata_down(0);
+
     // let the plugins do their thing
     ext = ext_list;    
     while (ext) {
@@ -392,6 +415,7 @@ typedef struct acsp_route {
     struct acsp_route		*next;
     struct in_addr		address;
     struct in_addr		mask;
+    struct in_addr		router;
     u_int16_t			flags;
     int				installed;
 } acsp_route;
@@ -441,6 +465,17 @@ typedef struct acsp_plugin_context {
     int			config_installed;
 } acsp_plugin_context;
 
+typedef struct acsp_dhcp_context {
+    int				state;
+    int				retry_count;
+    void			*route;
+    char			*domain;
+    struct in_addr	netmask;
+    int				config_installed;
+	int				unit;
+    struct in_addr	ouraddr;
+    struct in_addr	hisaddr;
+} acsp_dhcp_context;
 
 //
 // globals
@@ -449,13 +484,16 @@ typedef struct acsp_plugin_context {
 // lists of routes and domains read from the config file
 // these lists are placed in the context for the accociated
 // option type when the context is created and intialized
-static acsp_route 	*routes_list;		
-static acsp_domain 	*domains_list;	
-static struct in_addr	primary_router;		// address of primary router (before PPP connection)
+static acsp_route 	*routes_list = 0;		
+static acsp_domain 	*domains_list = 0;	
+static struct in_addr	primary_router = { 0 };		// address of primary router (before PPP connection)
+static u_int32_t	subnet_mask = 0;
+
+static acsp_dhcp_context *dhcp_context = 0;
 
 extern CFStringRef 		serviceidRef;
 extern SCDynamicStoreRef	cfgCache;
-extern int publish_dns_entry(CFStringRef property1, CFTypeRef ref1, 
+extern int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef ref1, CFTypeRef ref1a, 
 						CFStringRef property2, CFTypeRef ref2,
 						CFStringRef property3, CFTypeRef ref3, int clean);
 extern int route_interface(int cmd, struct in_addr host, struct in_addr mask, char iftype, char *ifname, int is_host);
@@ -481,9 +519,9 @@ static void acsp_plugin_dispose __P((void *context));
 static void acsp_plugin_process __P((void *context, ACSP_Input *acsp_in, ACSP_Output *acsp_out));
 static void acsp_plugin_print_packet __P((void (*printer)(void *, char *, ...), void *arg, u_char code, char *inbuf, int insize));
 
-static void acsp_plugin_add_routes(acsp_plugin_context* context);
-static void acsp_plugin_add_domains(acsp_plugin_context* context);
-static void acsp_plugin_remove_routes(acsp_plugin_context* context);
+static void acsp_plugin_add_routes(acsp_route *route);
+static void acsp_plugin_add_domains(acsp_domain	*domain);
+static void acsp_plugin_remove_routes(acsp_route *route);
 
 //------------------------------------------------------------
 // *** Plugin functions called thru Plugin Channel ***
@@ -523,16 +561,8 @@ static void acsp_plugin_check_options(void)
         if (key) {
             if (dictRef = SCDynamicStoreCopyValue(cfgCache, key)) {
                 strRef = CFDictionaryGetValue(dictRef, kSCPropNetIPv4Router);
-                if (strRef) {
-                    if (CFGetTypeID(strRef) == CFStringGetTypeID()) {
-                        CFStringGetCString((CFStringRef)strRef, sopt, 32, kCFStringEncodingUTF8);
-                    } else if (CFGetTypeID(strRef) == CFDataGetTypeID()) {
-                        string = CFStringCreateWithCharacters(NULL, (UniChar *)CFDataGetBytePtr(strRef), CFDataGetLength(strRef)/sizeof(UniChar));                 
-                        if (string) {
-                            CFStringGetCString(string, sopt, 32, kCFStringEncodingUTF8);
-                            CFRelease(string);
-                        }
-                    }
+                if (strRef && (CFGetTypeID(strRef) == CFStringGetTypeID())) {
+                    CFStringGetCString((CFStringRef)strRef, sopt, 32, kCFStringEncodingUTF8);
                 }
                 CFRelease(dictRef);
             }
@@ -625,7 +655,8 @@ static void acsp_plugin_read_routes(CFPropertyListRef serverRef)
                             error("ACSP plugin: no memory\n");
                             acscp_allowoptions[0].neg_routes = 0;
                             break;
-                        }                            
+                        }         
+						bzero(route, sizeof(acsp_route));                   
                         // convert
                         if (inet_aton(addrStr, &outAddr) == 0 || inet_aton(maskStr, &outMask) == 0) {
                             error("ACSP plugin: invalid ip address or mask specified\n");
@@ -1039,11 +1070,10 @@ static void acsp_plugin_send(acsp_plugin_context* context, ACSP_Input* acsp_in, 
         case CI_ROUTES:
             route_data = (acsp_route_data*)pkt->data;
             while (context->next_to_send && space >= len + sizeof(acsp_route_data)) {
-                /* XXX bytes order may be wrong */
                 route_data->address = ((acsp_route*)context->next_to_send)->address.s_addr;
                 route_data->mask = ((acsp_route*)context->next_to_send)->mask.s_addr;
                 route_data->flags = htons(((acsp_route*)context->next_to_send)->flags);
-                route_data->reserved = 0;
+                route_data->reserved = htons(0);
                 len += sizeof(acsp_route_data);
                 context->next_to_send = ((acsp_route*)(context->next_to_send))->next;
                 route_data++;
@@ -1052,9 +1082,8 @@ static void acsp_plugin_send(acsp_plugin_context* context, ACSP_Input* acsp_in, 
     	case CI_DOMAINS:
             domain_data = (acsp_domain_data*)pkt->data;
             while (context->next_to_send && space >= (len + (slen = strlen(((acsp_domain*)(context->next_to_send))->name)) + 6)) {
-                /* XXX bytes order may be wrong */
                 domain_data->server = ((acsp_domain*)(context->next_to_send))->server.s_addr;
-                domain_data->len = slen;
+                domain_data->len = htons(slen);
                 memcpy(domain_data->name, ((acsp_domain*)(context->next_to_send))->name, slen);
                 len += (slen + 6);
                 context->next_to_send = ((acsp_domain*)(context->next_to_send))->next;
@@ -1133,7 +1162,8 @@ static int acsp_plugin_read(acsp_plugin_context* context, ACSP_Input* acsp_in)
                     error("ACSP plugin: no memory\n");
                     return -1;
                 }
-                route->address.s_addr = route_data->address;
+				bzero(route, sizeof(acsp_route));                   
+                route->address.s_addr = route_data->address & route_data->mask;
                 route->mask.s_addr = route_data->mask;
                 route->flags = ntohs(route_data->flags);
                 route->installed = 0;
@@ -1231,9 +1261,9 @@ static void acsp_plugin_ip_down(void *arg, int phase)
 static void acsp_plugin_install_config(acsp_plugin_context *context)
 {    
     if (context->type == CI_ROUTES)
-        acsp_plugin_add_routes(context);
+        acsp_plugin_add_routes(context->list);
     else
-        acsp_plugin_add_domains(context);
+        acsp_plugin_add_domains(context->list);
     context->config_installed = 1;
 }
 
@@ -1246,7 +1276,7 @@ static void acsp_plugin_remove_config(acsp_plugin_context *context)
 {
     // we don't remove anything - pppd will cleanup the dynamic store
     if (context->type == CI_ROUTES)
-        acsp_plugin_remove_routes(context);
+        acsp_plugin_remove_routes(context->list);
 
     context->config_installed = 0;
 }
@@ -1255,10 +1285,10 @@ static void acsp_plugin_remove_config(acsp_plugin_context *context)
 // acsp_plugin_add_routes
 //	install routes
 //------------------------------------------------------------
-static void acsp_plugin_add_routes(acsp_plugin_context* context)
+static void acsp_plugin_add_routes(acsp_route *route)
 {
-    acsp_route	*route = (acsp_route*)context->list;  
     struct in_addr	addr;
+	int err;
 
     if (route) {	// only if routes are present
         sleep(1);
@@ -1280,15 +1310,27 @@ static void acsp_plugin_add_routes(acsp_plugin_context* context)
         while (route) {
             route->installed = 1;
             if (route->flags & ACSP_ROUTEFLAGS_PRIVATE) {
-                if (route_interface(RTM_ADD, route->address, route->mask, IFT_PPP, ifname, 0) == 0) {
-                    error("ACSP plugin: error installing private net route\n");
-                    route->installed = 0;
-                }
+				if (route->address.s_addr == 0)
+					sifdefaultroute(0, 0, 0);
+				else {	
+					//if (route->router.s_addr)
+					//	err = route_gateway(RTM_ADD, route->address, route->mask, route->router, 1);
+					//else 
+						err = route_interface(RTM_ADD, route->address, route->mask, IFT_PPP, ifname, 0);
+					if (err == 0) {
+						error("ACSP plugin: error installing private net route\n");
+						route->installed = 0;
+					}
+				}
             } else if (route->flags & ACSP_ROUTEFLAGS_PUBLIC) {
-                if (route_gateway(RTM_ADD, route->address, route->mask, primary_router, 1) == 0) {
-                    error("ACSP plugin: error installing public net route\n");
-                    route->installed = 0;
-                }            
+				if (route->address.s_addr == 0)
+					cifdefaultroute(0, 0, 0);
+				else {
+					if (route_gateway(RTM_ADD, route->address, route->mask, primary_router, 1) == 0) {
+						error("ACSP plugin: error installing public net route\n");
+						route->installed = 0;
+					}       
+				}
             }
             route = route->next;
         }
@@ -1299,22 +1341,30 @@ static void acsp_plugin_add_routes(acsp_plugin_context* context)
 // acsp_plugin_remove_routes
 //	remove routes
 //------------------------------------------------------------
-static void acsp_plugin_remove_routes(acsp_plugin_context* context)
+static void acsp_plugin_remove_routes(acsp_route *route)
 {
-    acsp_route	*route = (acsp_route*)context->list;  
 
     while (route) {
         if (route->installed) {
 			route->installed = 0;
 			if (route->flags & ACSP_ROUTEFLAGS_PRIVATE) {
-				if (route_interface(RTM_DELETE, route->address, route->mask, IFT_PPP, ifname, 0) == 0) {
-					error("ACSP plugin: error removing private net route\n");
-					route->installed = 1;
-				} 
+				if (route->address.s_addr == 0)
+					cifdefaultroute(0, 0, 0);
+				else {	
+					if (route_interface(RTM_DELETE, route->address, route->mask, IFT_PPP, ifname, 0) == 0) {
+						error("ACSP plugin: error removing private net route\n");
+						route->installed = 1;
+					} 
+				}
 			} else if (route->flags & ACSP_ROUTEFLAGS_PUBLIC) {
-				if (route_gateway(RTM_DELETE, route->address, route->mask, primary_router, 0) == 0) {
-					error("ACSP plugin: error removing public net route\n");
-					route->installed = 1;
+				if (route->address.s_addr == 0) {
+					// nothing to do
+				}
+				else {	
+					if (route_gateway(RTM_DELETE, route->address, route->mask, primary_router, 0) == 0) {
+						error("ACSP plugin: error removing public net route\n");
+						route->installed = 1;
+					}
 				}
 			}
 		}
@@ -1326,10 +1376,9 @@ static void acsp_plugin_remove_routes(acsp_plugin_context* context)
 // acsp_plugin_add_domains
 //	install search domains
 //------------------------------------------------------------
-static void acsp_plugin_add_domains(acsp_plugin_context* context)
+static void acsp_plugin_add_domains(acsp_domain	*domain)
 {
     CFStringRef	str;
-    acsp_domain	*domain = (acsp_domain*)context->list;    
     int 	err, clean = 1;
 	long	order = 100000;
 	CFNumberRef num;
@@ -1342,7 +1391,7 @@ static void acsp_plugin_add_domains(acsp_plugin_context* context)
 		
     while (domain) {
         if (str = CFStringCreateWithCString(NULL, domain->name, kCFStringEncodingUTF8)) {
-			err = publish_dns_entry(kSCPropNetDNSSearchDomains, str, kSCPropNetDNSSupplementalMatchDomains, str, kSCPropNetDNSSupplementalMatchOrders, num, clean);
+			err = publish_dns_wins_entry(kSCEntNetDNS, kSCPropNetDNSSearchDomains, str, 0, kSCPropNetDNSSupplementalMatchDomains, str, kSCPropNetDNSSupplementalMatchOrders, num, clean);
 			CFRelease(str);
             if (err == 0) {
                 error("ACSP plugin: error adding domain name\n");
@@ -1358,5 +1407,967 @@ static void acsp_plugin_add_domains(acsp_plugin_context* context)
 
 end:
 	CFRelease(num);
+}
+
+#pragma -
+
+/*
+ code to act as a DHCP client and server 
+*/
+
+struct pseudo_udphdr {
+	struct in_addr	src_addr;		/* source address */
+	struct in_addr	dst_addr;		/* source address */
+	u_int8_t		zero;			/* just zero */
+	u_int8_t		proto;			/* destination port */
+	u_int16_t		len;			/* packet len */
+};
+
+struct dhcp {
+    u_char              dp_op;          /* packet opcode type */
+    u_char              dp_htype;       /* hardware addr type */
+    u_char              dp_hlen;        /* hardware addr length */
+    u_char              dp_hops;        /* gateway hops */
+    u_int32_t           dp_xid;         /* transaction ID */
+    u_int16_t           dp_secs;        /* seconds since boot began */  
+    u_int16_t           dp_flags;       /* flags */
+    struct in_addr      dp_ciaddr;      /* client IP address */
+    struct in_addr      dp_yiaddr;      /* 'your' IP address */
+    struct in_addr      dp_siaddr;      /* server IP address */
+    struct in_addr      dp_giaddr;      /* gateway IP address */
+    u_char              dp_chaddr[16];  /* client hardware address */
+    u_char              dp_sname[64];   /* server host name */
+    u_char              dp_file[128];   /* boot file name */
+    u_char              dp_options[0];  /* variable-length options field */
+};
+
+struct dhcp_packet {
+    struct ip           ip;
+    struct udphdr       udp;
+    struct dhcp         dhcp;
+};
+#define DHCP_COOKIE		0x63825363
+
+#define DHCP_OPTION_END				255 
+
+#define DHCP_OPTION_LEASE_TIME			51
+#define DHCP_OPTION_MSG_TYPE			53
+#define DHCP_OPTION_HOST_NAME			12
+#define DHCP_OPTION_SERVER_ID			54
+#define DHCP_OPTION_PARAM_REQUEST_LIST	55
+#define DHCP_OPTION_VENDOR_CLASS_ID		60
+#define DHCP_OPTION_CLIENT_ID			61
+
+#define DHCP_OPTION_MSG_TYPE_ACK		5
+#define DHCP_OPTION_MSG_TYPE_INFORM		8
+
+#define DHCP_OPTION_SUBNET_MASK			1
+#define DHCP_OPTION_DNS					6
+#define DHCP_OPTION_DOMAIN_NAME			15
+#define DHCP_OPTION_WINS				43
+#define DHCP_OPTION_NETBIOS				44
+#define DHCP_OPTION_STATIC_ROUTE		249
+
+#define DHCP_TIMEOUT_VALUE		3	/* seconds */
+#define DHCP_MAX_RETRIES		4
+
+//------------------------------------------------------------
+// cksum
+//------------------------------------------------------------
+static unsigned short
+cksum(unsigned char *data, int len)
+{
+	long sum = 0;
+	
+	while (len > 1) {
+		sum += *((unsigned short *)data);
+		data += sizeof(unsigned short);
+		if (sum & 0x80000000)
+			sum = (sum & 0xFFFF) + (sum >> 16);
+		len -= 2;
+	}
+	if (len)
+		sum += (unsigned short)*data;
+	while (sum >> 16)
+		sum = (sum & 0xFFFF) + (sum >> 16);
+
+	return ~sum;
+}
+
+//------------------------------------------------------------
+// log_dhcp
+//------------------------------------------------------------
+static void
+log_dhcp(u_char *pkt, int len, char *text)
+{
+#if 0
+	u_char *p;
+	int i;
+	u_int32_t cookie;
+	struct dhcp *dp;
+	struct dhcp_packet *packet;
+	u_int32_t masklen, addrlen, addr, mask;
+	char str[2048];
+	
+	/* log only if debug level is super verbose */ 
+	if (debug <= 1)
+		return;
+
+	packet = (struct dhcp_packet *)pkt;
+	dp = (struct dhcp *)&packet->dhcp;
+
+	dbglog("%s\n", text);
+	dbglog(" op = %s\n", dp->dp_op == BOOTREQUEST ? "BOOTREQUEST" : dp->dp_op == BOOTREPLY ? "BOOTREPLY" : "UNKNOWN");
+	dbglog(" htype = %d\n", dp->dp_htype);
+	dbglog(" hlen = %d\n", dp->dp_hlen);
+	dbglog(" hops = %d\n", dp->dp_hops);
+	dbglog(" xid = %d\n", dp->dp_xid);
+	dbglog(" flags = %d\n", dp->dp_flags);
+	dbglog(" client address = %s\n", inet_ntoa(dp->dp_ciaddr));
+	dbglog(" your address = %s\n", inet_ntoa(dp->dp_yiaddr));
+	dbglog(" server address = %s\n", inet_ntoa(dp->dp_siaddr));
+	dbglog(" gateway address = %s\n", inet_ntoa(dp->dp_giaddr));
+
+	dbglog(" hardware address = %X:%X:%X:%X:%X:%X\n", dp->dp_chaddr[0], dp->dp_chaddr[1], dp->dp_chaddr[2], dp->dp_chaddr[3], dp->dp_chaddr[4], dp->dp_chaddr[5]);
+	dbglog(" hardware address = %X:%X:%X:%X:%X:%X\n", dp->dp_chaddr[6], dp->dp_chaddr[7], dp->dp_chaddr[8], dp->dp_chaddr[9], dp->dp_chaddr[10], dp->dp_chaddr[11]);
+	dbglog(" hardware address = %X:%X:%X:%X\n", dp->dp_chaddr[12], dp->dp_chaddr[13], dp->dp_chaddr[14], dp->dp_chaddr[15]);
+	dbglog(" server host name = %s\n", dp->dp_sname);
+	dbglog(" boot file name = %s\n", dp->dp_file);
+	
+	p = dp->dp_options;
+	cookie = ntohl(*(u_int32_t *)p);
+	if (ntohl(*(u_int32_t *)p) != DHCP_COOKIE) {
+		dbglog(" >>> incorrect cookie = %d.%d.%d.%d\n", cookie >> 24, cookie >> 16 & 0xFF, cookie >> 8 & 0xFF,cookie & 0xFF);
+		return;
+	}
+	p+=4;
+
+	if (*p++ != DHCP_OPTION_MSG_TYPE || *p++ != 1 || (*p != DHCP_OPTION_MSG_TYPE_INFORM && *p != DHCP_OPTION_MSG_TYPE_ACK)) {
+		dbglog(" >>> incorrect message type = %d\n", *p);
+		return;
+	}
+	dbglog(" dhcp option msg type = %s\n", *p == DHCP_OPTION_MSG_TYPE_INFORM ? "INFORM" : "ACK");
+	p++;
+
+	len -= sizeof(struct dhcp_packet) + 7;
+	while (*p != DHCP_OPTION_END && len > 0) {
+		u_int8_t optcode, optlen;
+		
+		optcode = *p++;
+		// check for pad option
+		if (optcode == 0) {
+			len--;
+			continue;
+		}
+			
+		optlen = *p++;
+		len-=2;
+		if (len == 0) {
+			warning(">>> incorrect message option\n");
+			return;
+		}
+		
+		str[0] = 0;
+		switch (optcode) {
+			case DHCP_OPTION_HOST_NAME:
+				memcpy(str, p, optlen);
+				str[optlen] = 0;
+				dbglog(" dhcp option host name = %s\n", str);
+				break;
+			case DHCP_OPTION_VENDOR_CLASS_ID:
+				memcpy(str, p, optlen);
+				str[optlen] = 0;
+				dbglog(" dhcp option vendor class id = %s\n", str);
+				break;
+			case DHCP_OPTION_CLIENT_ID:
+				for (i = 0; i < optlen; i++)
+					sprintf(str+strlen(str), "0x%x ", p[i]);
+				dbglog(" dhcp option client id = %s\n", str);
+				break;
+			case DHCP_OPTION_SERVER_ID:
+				for (i = 0; i < optlen; i++)
+					sprintf(str+strlen(str), "0x%x ", p[i]);
+				dbglog(" dhcp option server id = %s\n", str);
+				break;
+			case DHCP_OPTION_LEASE_TIME:
+				dbglog(" dhcp option lease time = %d\n", ntohl(*(u_int32_t*)p));
+				break;
+			case DHCP_OPTION_SUBNET_MASK:
+				dbglog(" dhcp option subnet mask = %d.%d.%d.%d\n", p[0], p[1], p[2], p[3]);
+				break;
+			case DHCP_OPTION_DOMAIN_NAME:
+				memcpy(str, p, optlen);
+				str[optlen] = 0;
+				dbglog(" dhcp option domain name = %s\n", str);
+				break;
+			case DHCP_OPTION_STATIC_ROUTE:
+				dbglog(" dhcp option parameter static routes = \n");
+				i = 0;
+				while (i < optlen) {
+					masklen = p[i];
+					mask = 0xFFFFFFFF << (32 - masklen);
+					addrlen = (masklen / 8);
+					if (masklen % 8)
+						addrlen++;
+					addr = ntohl(*(u_int32_t*)(&p[i+1])) & mask;
+					router = ntohl(*(u_int32_t*)(&p[i+1+addrlen]));
+					i += addrlen + 1 + sizeof(in_addr_t);
+					dbglog("    route %d.%d.%d.%d mask %d.%d.%d.%d router %d.%d.%d.%d\n", 
+						(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF, 
+						(mask >> 24) & 0xFF, (mask >> 16) & 0xFF, (mask >> 8) & 0xFF, mask & 0xFF,
+						(router >> 24) & 0xFF, (router >> 16) & 0xFF, (router >> 8) & 0xFF, router & 0xFF);
+				}
+/*
+				for (i = 0; i < optlen; i++) {
+					sprintf(str+strlen(str), "0x%x ", p[i]);
+				}
+				dbglog(" dhcp option parameter static routes = %s \n", str);
+*/
+				break;
+			case DHCP_OPTION_PARAM_REQUEST_LIST:
+				for (i = 0; i < optlen; i++) {
+					sprintf(str+strlen(str), "0x%x ", p[i]);
+				}
+				dbglog(" dhcp option parameter request list = %s \n", str);
+				break;
+
+			default:
+				dbglog(" dhcp option code = %d, len = %d\n", optcode, optlen);
+				break;
+		}
+		
+		p+=optlen;
+		len-=optlen;
+	}
+	dbglog(" end of options\n");
+#endif
+}
+
+//------------------------------------------------------------
+// acsp_ipdata_send_packet
+//------------------------------------------------------------
+static void
+acsp_ipdata_send_packet(int unit, u_char *data, int len, u_int32_t srcaddr, u_int16_t srcport, u_int32_t dstaddr, u_int16_t dstport, char *text)
+{
+	u_char *outp;
+	u_int16_t checksum;
+static u_int16_t dhcp_ip_id = 1;
+	
+	// build a udp pseudo header for checksum calculation
+	outp = data + PPP_HDRLEN + sizeof(struct ip) - sizeof(struct pseudo_udphdr);
+	PUTLONG(srcaddr, outp);					// source address
+	PUTLONG(dstaddr, outp);		// destination address
+	PUTCHAR(0, outp);						// zero
+	PUTCHAR(IPPROTO_UDP, outp);				// protocol
+	PUTSHORT(len - PPP_HDRLEN - sizeof(struct ip), outp);	// total length (udp data + udp header)
+
+	// build udp header
+	outp = data + PPP_HDRLEN + sizeof(struct ip);
+	PUTSHORT(srcport, outp);			// source port
+	PUTSHORT(dstport, outp);			// dest port
+	PUTSHORT(len - PPP_HDRLEN - sizeof(struct ip), outp);	// total length (udp data + udp header)
+	PUTSHORT(0, outp);						// cksum
+	checksum = cksum(data + PPP_HDRLEN + sizeof(struct ip) - sizeof(struct pseudo_udphdr), 
+						len - PPP_HDRLEN - sizeof(struct ip) + sizeof(struct pseudo_udphdr));
+	if (checksum == 0)
+		checksum =0xffff;
+	outp -= 2;								// back to cksum
+	PUTSHORT(0, outp);						// cksum
+
+	// build ip header
+	outp = data + PPP_HDRLEN;
+	PUTSHORT(0x4500, outp);					// hdr len and service type
+	PUTSHORT(len - PPP_HDRLEN, outp);	// total length
+	PUTSHORT(dhcp_ip_id++, outp);			// identification
+	PUTSHORT(0, outp);						// flags and fragment offset
+	PUTCHAR(0x40, outp);					// ttl
+	PUTCHAR(IPPROTO_UDP, outp);				// protocol
+	PUTSHORT(0, outp);						// cksum
+	PUTLONG(srcaddr, outp);					// source address
+	PUTLONG(dstaddr, outp);		// destination address
+	checksum = cksum(data + PPP_HDRLEN, sizeof(struct ip));
+	outp -= 10;								// back to cksum
+	PUTSHORT(checksum, outp);				// header checksum
+
+	// log the packet
+	log_dhcp(data + PPP_HDRLEN, len - PPP_HDRLEN, text);
+
+	// now it's time to send it...
+	output(unit, data, len);
+}
+
+//------------------------------------------------------------
+// acsp_ipdata_input_server
+//------------------------------------------------------------
+static void
+acsp_ipdata_input_server(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_int32_t hisaddr)
+{
+	struct dhcp_packet *dp;
+	struct	in_addr src;
+	u_char *p, *outp;
+	char str[2048];
+	int i, outlen, pad;
+	int need_subnet_mask = 0, need_domain_name = 0, need_static_route = 0;
+	struct dhcp reply;
+	u_int32_t	l;
+
+	dp = (struct dhcp_packet *)pkt;
+
+	/* basic length sanity check */
+	if (len < (sizeof(struct dhcp_packet) + 7)) {  // dhcp packet + cookie + inform
+		warning("DHCP packet received with incorrect length\n");
+		return;
+	}
+
+	log_dhcp(pkt, len, "DHCP packet received");
+
+	src.s_addr = dp->dhcp.dp_ciaddr.s_addr;
+	
+	p = dp->dhcp.dp_options;
+	if (ntohl(*(u_int32_t *)p) != DHCP_COOKIE) {
+		warning("DHCP packet received with incorrect cookie\n");
+		return;
+	}
+	p+=4;
+
+	if (*p++ != DHCP_OPTION_MSG_TYPE || *p++ != 1 || *p++ != DHCP_OPTION_MSG_TYPE_INFORM) {
+		warning("DHCP packet received with incorrect message type\n");
+		return;
+	}
+
+	len -= sizeof(struct dhcp_packet) + 7;
+	while (*p != DHCP_OPTION_END && len > 0) {
+		u_int8_t optcode, optlen;
+		
+		optcode = *p++;
+		// check for pad option
+		if (optcode == 0) {
+			len--;
+			continue;
+		}
+			
+		optlen = *p++;
+		len-=2;
+		if (optlen >= len) {
+			warning("DHCP packet received with incorrect message option\n");
+			return;
+		}
+		
+		str[0] = 0;
+		switch (optcode) {
+			case DHCP_OPTION_PARAM_REQUEST_LIST:
+				for (i = 0; i < optlen; i++) {
+					if ((p[i] == DHCP_OPTION_SUBNET_MASK) && subnet_mask)
+						need_subnet_mask = 1;
+					else if ((p[i] == DHCP_OPTION_DOMAIN_NAME) && domains_list)
+						need_domain_name = 1;
+					else if ((p[i] == DHCP_OPTION_STATIC_ROUTE) && routes_list)
+						need_static_route = 1;
+				}
+				break;
+
+			default:
+				break;
+		}
+		
+		p+=optlen;
+		len-=optlen;
+	}
+
+	/* build reply dhcp packet */
+	if (need_subnet_mask || need_domain_name || need_static_route) {
+
+		outp = outpacket_buf;
+
+		// ppp
+		MAKEHEADER(outp, PPP_IP);
+		outlen = PPP_HDRLEN;
+
+		// ip
+		bzero(outp, sizeof(struct ip));
+		outp += sizeof(struct ip);
+		outlen += sizeof(struct ip);
+		
+		// udp	
+		bzero(outp, sizeof(struct udphdr));
+		outp += sizeof(struct udphdr);
+		outlen += sizeof(struct udphdr);
+		
+		// bootp	
+		memcpy(&reply, &dp->dhcp, sizeof(struct dhcp));
+		reply.dp_op = BOOTREPLY;
+		reply.dp_htype = 1;
+		reply.dp_secs = 0;
+		memcpy(outp, &reply, sizeof(struct dhcp));
+		outlen += sizeof(struct dhcp);		
+		outp +=  sizeof(struct dhcp);
+
+		// dhcp options
+		PUTLONG(DHCP_COOKIE, outp);	// dhcp cookie
+		outlen += 4;
+
+		PUTCHAR(DHCP_OPTION_MSG_TYPE, outp);	// dhcp message type
+		PUTCHAR(1, outp);		// dhcp message type len
+		PUTCHAR(DHCP_OPTION_MSG_TYPE_ACK, outp);	// dhcp message type ack
+		outlen += 3;
+		
+		PUTCHAR(DHCP_OPTION_SERVER_ID, outp);	// dhcp server id
+		PUTCHAR(4, outp);		// dhcp server id len
+		l = ntohl(ouraddr);
+		PUTLONG(l, outp);	// server id is our source address
+		outlen += 6;
+
+		if (need_subnet_mask) {
+			PUTCHAR(DHCP_OPTION_SUBNET_MASK, outp);	// dhcp subnet mask
+			PUTCHAR(4, outp);		// dhcp subnet mask len
+			PUTLONG(subnet_mask, outp);	// server mask
+			outlen += 6;
+		}
+		
+		if (need_domain_name) {
+			int len;
+			acsp_domain 	*list = domains_list;
+			// domain are reversed in the list use last one.
+			while (list->next) list = list->next;
+				
+			PUTCHAR(DHCP_OPTION_DOMAIN_NAME, outp);	// dhcp domain name
+			len = strlen(list->name);
+			if (outlen + len + 2 >= sizeof(outpacket_buf)) {
+				warning("Domain name too large for DHCP\n");
+				return;
+			}
+			PUTCHAR(len, outp);						// domain name len
+			memcpy(outp, list->name, len);	// the domain
+			outp += len;
+			outlen += len + 2;
+		}
+		
+		if (need_static_route) {
+			acsp_route 	*list = routes_list;
+			u_int32_t mask, addr, masklen, addrlen, totlen = 0;
+			int opdone = 0;
+			
+			while (list) {
+				if (list->flags & ACSP_ROUTEFLAGS_PRIVATE) {
+					if (!opdone) {
+						if (outlen + 2 >= sizeof(outpacket_buf)) {
+							warning("No space for DHCP routes\n");
+							return;
+						}
+						PUTCHAR(DHCP_OPTION_STATIC_ROUTE, outp);	// dhcp static route
+						PUTCHAR(0, outp);	// dhcp static route total len
+						opdone = 1;
+					}
+					mask = list->mask.s_addr;					
+					addr = list->address.s_addr & mask;					
+				
+					for ( masklen = 32; masklen && (mask& 1) == 0; mask = mask >> 1, masklen--);
+					addrlen = (masklen / 8);
+					if (masklen % 8)
+						addrlen++;
+
+					if (outlen + addrlen + 1 + 4 >= sizeof(outpacket_buf)) {
+						warning("Static routes list too large DHCP\n");
+						return;
+					}
+					PUTCHAR(masklen, outp);		// route mask
+					PUTLONG(addr, outp);	// route address
+					outp -= 4 - addrlen;	// move pointer back according to addr len.
+					l = ntohl(hisaddr);
+					PUTLONG(l, outp);	// router address
+					totlen += addrlen + 1 + 4;
+				}
+				list = list->next;
+			}
+			if (opdone) {
+				outp -= totlen + 1;
+				PUTCHAR(totlen, outp);	// move back to update option len
+				outp += totlen;
+				outlen += totlen + 2;
+			}
+		}
+		
+		PUTCHAR(DHCP_OPTION_END, outp);		// end of options
+		outlen ++;
+		
+		pad = outlen%4;
+		for (i = 0; i < pad && outlen < sizeof(outpacket_buf); i++) {
+			PUTCHAR(0, outp);		// byte padding
+			outlen ++;
+		}
+		
+		// build ip/udp header and send it...
+		acsp_ipdata_send_packet(unit, outpacket_buf, outlen, ntohl(ouraddr), IPPORT_BOOTPS, ntohl(src.s_addr), IPPORT_BOOTPC, "DHCP packet replied");
+	}		
+}
+
+//------------------------------------------------------------
+// acsp_ipdata_input_client
+//------------------------------------------------------------
+static void
+acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_int32_t hisaddr)
+{
+	struct dhcp_packet *dp;
+	struct	in_addr src;
+	u_char *p;
+	u_int32_t masklen, addrlen, i;
+	char str[2048];
+	acsp_route *route;
+	acsp_domain domain;
+	
+	dp = (struct dhcp_packet *)pkt;
+
+	/* basic length sanity check */
+	if (len < (sizeof(struct dhcp_packet) + 7)) {  // dhcp packet + cookie + inform
+		warning("DHCP packet received with incorrect length\n");
+		return;
+	}
+
+	log_dhcp(pkt, len, "DHCP packet received");
+
+	if (!dhcp_context) {
+		// we didn't start DHCP or already closed it
+		return;
+	}
+
+	src.s_addr = ntohl(dp->dhcp.dp_ciaddr.s_addr);
+	
+	p = dp->dhcp.dp_options;
+	if (ntohl(*(u_int32_t *)p) != DHCP_COOKIE) {
+		warning("DHCP packet received with incorrect cookie\n");
+		return;
+	}
+	p+=4;
+
+	if (*p++ != DHCP_OPTION_MSG_TYPE || *p++ != 1 || *p++ != DHCP_OPTION_MSG_TYPE_ACK) {
+		warning("DHCP packet received with incorrect message type\n");
+		return;
+	}
+
+	len -= sizeof(struct dhcp_packet) + 7;
+	while (*p != DHCP_OPTION_END && len > 0) {
+		u_int8_t optcode, optlen;
+		
+		optcode = *p++;
+		// check for pad option
+		if (optcode == 0) {
+			len--;
+			continue;
+		}
+			
+		optlen = *p++;
+		len-=2;
+		if (optlen >= len) {
+			warning("DHCP packet received with incorrect message option\n");
+			return;
+		}
+		
+		str[0] = 0;
+		switch (optcode) {
+			case DHCP_OPTION_SUBNET_MASK:
+				//dbglog(" XXX dhcp option subnet mask = %d.%d.%d.%d\n", p[0], p[1], p[2], p[3]);
+				break;
+			case DHCP_OPTION_DOMAIN_NAME:
+				memcpy(str, p, optlen);
+				str[optlen] = 0;
+				domain.next = 0;
+				domain.server.s_addr = 0;
+				domain.name = str;
+				acsp_plugin_add_domains(&domain);
+				break;
+			case DHCP_OPTION_STATIC_ROUTE:
+				i = 0;
+				while (i < optlen) {
+					if ((route = (acsp_route*)malloc(sizeof(acsp_route))) == 0) {
+						error("DHCP: no memory\n");
+						return;
+					}
+					
+					bzero(route, sizeof(acsp_route));                   
+					masklen = p[i];
+					route->mask.s_addr = htonl(0xFFFFFFFF << (32 - masklen));
+					addrlen = (masklen / 8);
+					if (masklen % 8)
+						addrlen++;
+					route->address.s_addr = (*(u_int32_t*)(&p[i+1])) & route->mask.s_addr;
+					route->router.s_addr = *(u_int32_t*)(&p[i+1+addrlen]);
+					route->flags = ACSP_ROUTEFLAGS_PRIVATE;
+					route->installed = 0;
+					route->next = (acsp_route*)dhcp_context->route;
+					dhcp_context->route = route;
+					i += addrlen + 1 + sizeof(in_addr_t);
+				}
+				acsp_plugin_add_routes(dhcp_context->route);
+				break;
+
+			default:
+				break;
+		}
+		
+		p+=optlen;
+		len-=optlen;
+	}
+	
+	/* dhcp is done */
+	UNTIMEOUT(acsp_ipdata_timeout, dhcp_context);
+	dhcp_context->state = PLUGIN_STATE_DONE;
+}
+
+//------------------------------------------------------------
+// acsp_ipdata_start_dhcp_client
+//------------------------------------------------------------
+static void
+acsp_ipdata_start_dhcp_client(int unit, u_int32_t ouraddr, u_int32_t hisaddr)
+{
+	u_char *outp;
+	int i, outlen, pad;
+static u_int16_t dhcp_ip_client_xid = 1;
+	u_int32_t l, clientid = 1; // ??	 
+	
+	outp = outpacket_buf;
+
+	// ppp
+	MAKEHEADER(outp, PPP_IP);
+	outlen = PPP_HDRLEN;
+
+	// ip
+	bzero(outp, sizeof(struct ip));
+	outp += sizeof(struct ip);
+	outlen += sizeof(struct ip);
+	
+	// udp	
+	bzero(outp, sizeof(struct udphdr));
+	outp += sizeof(struct udphdr);
+	outlen += sizeof(struct udphdr);
+	
+	// bootp	
+	bzero(outp, sizeof(struct dhcp));
+	PUTCHAR(BOOTREQUEST, outp);		// dp_op
+	PUTCHAR(8, outp);				// dp_htype
+	PUTCHAR(6, outp);				// dp_hlen
+	PUTCHAR(0, outp);				// dp_hops
+	PUTLONG(dhcp_ip_client_xid++, outp);		// dp_xid
+	PUTSHORT(0, outp);				// dp_secs
+	PUTSHORT(0, outp);				// dp_flags
+	l = ntohl(ouraddr);
+	PUTLONG(l, outp);				// dp_ciaddr
+	PUTLONG(0, outp);				// dp_yiaddr
+	PUTLONG(0, outp);				// dp_siaddr
+	PUTLONG(0, outp);				// dp_giaddr
+	PUTLONG(clientid, outp);		// dp_chaddr[0..3]
+	PUTLONG(0, outp);				// dp_chaddr[4..7]
+	PUTLONG(0, outp);				// dp_chaddr[8..11]
+	PUTLONG(1, outp);				// dp_chaddr[12..15]
+	outp += 64;						// dp_sname
+	outp += 128;					// dp_file
+	outlen += sizeof(struct dhcp);
+	
+	// dhcp options
+	PUTLONG(DHCP_COOKIE, outp);	// dhcp cookie
+	outlen += 4;
+
+	PUTCHAR(DHCP_OPTION_MSG_TYPE, outp);	// dhcp message type
+	PUTCHAR(1, outp);		// dhcp message type len
+	PUTCHAR(DHCP_OPTION_MSG_TYPE_INFORM, outp);	// dhcp message type inform
+	outlen += 3;
+	
+	PUTCHAR(DHCP_OPTION_CLIENT_ID, outp);	// dhcp client id
+	PUTCHAR(7, outp);		// dhcp client id len
+	PUTCHAR(8, outp);		// htype
+	PUTLONG(clientid, outp);	// client id
+	PUTSHORT(0, outp);		// client id end
+	outlen += 9;
+
+	PUTCHAR(DHCP_OPTION_PARAM_REQUEST_LIST, outp);	// dhcp param request list
+	PUTCHAR(6, outp);		// dhcp param request list len
+	PUTCHAR(DHCP_OPTION_DNS, outp);
+	PUTCHAR(DHCP_OPTION_NETBIOS, outp);
+	PUTCHAR(DHCP_OPTION_WINS, outp);
+	PUTCHAR(DHCP_OPTION_SUBNET_MASK, outp);
+	PUTCHAR(DHCP_OPTION_STATIC_ROUTE, outp);
+	PUTCHAR(DHCP_OPTION_DOMAIN_NAME, outp);
+	outlen += 8;
+	
+	PUTCHAR(DHCP_OPTION_END, outp);		// end of options
+	outlen ++;
+	
+	pad = outlen%4;
+	for (i = 0; i < pad && outlen < sizeof(outpacket_buf); i++) {
+		PUTCHAR(0, outp);		// byte padding
+		outlen ++;
+	}
+	
+	// build ip/udp header and send it...
+	acsp_ipdata_send_packet(unit, outpacket_buf, outlen, ntohl(ouraddr), IPPORT_BOOTPC, INADDR_BROADCAST, IPPORT_BOOTPS, "DHCP packet inform");
+
+	dhcp_context->state = PLUGIN_SENDSTATE_WAITING_ACK;
+	TIMEOUT(acsp_ipdata_timeout, dhcp_context, DHCP_TIMEOUT_VALUE);
+}
+
+//------------------------------------------------------------
+// acsp_ipdata_input
+//------------------------------------------------------------
+static void
+acsp_ipdata_input(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_int32_t hisaddr)
+{
+	struct dhcp_packet *dp;
+
+	dp = (struct dhcp_packet *)pkt;
+
+	/* check if we received a DHCP broadcast from a client */
+	if (acsp_intercept_dhcp
+		&& ntohl(dp->ip.ip_dst.s_addr) == INADDR_BROADCAST
+		&& ntohs(dp->udp.uh_sport) == IPPORT_BOOTPC
+		&& ntohs(dp->udp.uh_dport) == IPPORT_BOOTPS) {
+		acsp_ipdata_input_server(unit, pkt, len, ouraddr, hisaddr);
+		return;
+	}
+
+	/* check if we received a DHCP reply from a server */
+	if (acsp_use_dhcp 
+		&& dp->ip.ip_dst.s_addr == ouraddr
+		&& ntohs(dp->udp.uh_sport) == IPPORT_BOOTPS
+		&& ntohs(dp->udp.uh_dport) == IPPORT_BOOTPC) {
+		acsp_ipdata_input_client(unit, pkt, len, ouraddr, hisaddr);
+		return;
+	}
+}
+
+//------------------------------------------------------------
+// acsp_ipdatre_timeout
+//------------------------------------------------------------
+static void
+acsp_ipdata_timeout(void *arg)
+{
+	acsp_dhcp_context *context = (acsp_dhcp_context*)arg;    
+
+	if (context->state == PLUGIN_SENDSTATE_WAITING_ACK) {
+		if (context->retry_count++ < DHCP_MAX_RETRIES)
+			acsp_ipdata_start_dhcp_client(context->unit, context->ouraddr.s_addr, context->hisaddr.s_addr);
+		else {
+			dbglog("No DHCP server replied\n");
+			context->state = PLUGIN_STATE_DONE;
+		}
+	}
+}    
+
+//------------------------------------------------------------
+// acsp_ipdata_up
+//------------------------------------------------------------
+static void
+acsp_ipdata_up(int unit, u_int32_t ouraddr, u_int32_t hisaddr)
+{
+
+	/* check if dhcp is enabled and acsp not running */
+	if (acsp_use_dhcp && (acscp_protent.state(unit) != OPENED)) {
+		/* 
+			allocate dhcp routes context 
+			we don't need to keep a context for the domain
+		*/
+		if ((dhcp_context = (acsp_dhcp_context*)malloc(sizeof(acsp_dhcp_context))) == 0) {
+			error("ACSP plugin: no memory to allocate DHCP routes context\n");
+			return;
+		}
+		bzero(dhcp_context, sizeof(acsp_dhcp_context));
+		dhcp_context->unit = unit;
+		dhcp_context->ouraddr.s_addr = ouraddr;
+		dhcp_context->hisaddr.s_addr = hisaddr;
+		dhcp_context->state = PLUGIN_STATE_INITIAL;
+		
+		/* start dhcp client */
+		acsp_ipdata_start_dhcp_client(unit, ouraddr, hisaddr);
+	}
+}
+
+//------------------------------------------------------------
+// acsp_ipdata_down
+//------------------------------------------------------------
+static void
+acsp_ipdata_down(int unit)
+{
+	if (acsp_use_dhcp) {
+		/* cleanup route */
+		if (dhcp_context) {
+			acsp_plugin_remove_routes(dhcp_context->route);
+			UNTIMEOUT(acsp_ipdata_timeout, dhcp_context);
+			free(dhcp_context);
+			dhcp_context = NULL;
+		}
+
+	}
+}
+
+//------------------------------------------------------------
+// acsp_ipdata_print
+//------------------------------------------------------------
+static int
+acsp_ipdata_print(pkt, plen, printer, arg)
+    u_char *pkt;
+    int plen;
+    void (*printer) __P((void *, char *, ...));
+    void *arg;
+{
+	u_char *p;
+	int i, isbootp = 0, len = plen;
+	struct dhcp *dp;
+	struct dhcp_packet *packet;
+	u_int32_t masklen, addrlen, addr, router, mask;
+	char str[2048];
+	u_int32_t cookie;
+
+	packet = (struct dhcp_packet *)pkt;
+
+	/* check if we received a DHCP broadcast from a client */
+	isbootp = 
+		(ntohs(packet->udp.uh_sport) == IPPORT_BOOTPC || ntohs(packet->udp.uh_sport) == IPPORT_BOOTPS)
+		&& (ntohs(packet->udp.uh_dport) == IPPORT_BOOTPS || ntohs(packet->udp.uh_dport) == IPPORT_BOOTPC);
+
+	if (!isbootp)
+		return 0;
+	
+	dp = (struct dhcp *)&packet->dhcp;
+
+	printer(arg, " <src addr %s>",  inet_ntoa(packet->ip.ip_src));
+	printer(arg, " <dst addr %s>",  inet_ntoa(packet->ip.ip_dst));
+
+	if (dp->dp_op != BOOTREPLY && dp->dp_op != BOOTREQUEST) {
+		printer(arg, " <bootp code invalid!>");
+		return 0;
+	}
+		
+	printer(arg, " <BOOTP %s>", dp->dp_op == BOOTREQUEST ? "Request" : "Reply");
+
+	/* if superverbose debug, perform additional decoding onm the packet */
+	if (debug > 1) {
+		printer(arg, " <htype %d>", dp->dp_htype);
+		printer(arg, " <hlen %d>", dp->dp_hlen);
+		printer(arg, " <hops %d>", dp->dp_hops);
+		printer(arg, " <xid %d>", dp->dp_xid);
+		printer(arg, " <flags %d>", dp->dp_flags);
+		printer(arg, " <client address %s>", inet_ntoa(dp->dp_ciaddr));
+		printer(arg, " <your address %s>", inet_ntoa(dp->dp_yiaddr));
+		printer(arg, " <server address %s>", inet_ntoa(dp->dp_siaddr));
+		printer(arg, " <gateway address %s>", inet_ntoa(dp->dp_giaddr));
+
+		p = &dp->dp_chaddr[0];
+		sprintf(str, "%02x", p[0]);
+		for (i = 1; i < 16; i++)
+			sprintf(str+strlen(str), ":%02x", p[i]);
+		printer(arg, " <hardware address %s>",  str);
+		printer(arg, " <server host name \"%s\">", dp->dp_sname);
+		printer(arg, " <boot file name \"%s\">", dp->dp_file);
+	}
+	
+	p = dp->dp_options;
+	cookie = ntohl(*(u_int32_t *)p);
+	if (ntohl(*(u_int32_t *)p) != DHCP_COOKIE) {
+		printer(arg, " <cookie invalid!>");
+		return 0;
+	}
+	if (debug > 1)
+		printer(arg, " <cookie 0x%x>", DHCP_COOKIE);
+	p+=4;
+
+	if (*p++ != DHCP_OPTION_MSG_TYPE || *p++ != 1 || (*p != DHCP_OPTION_MSG_TYPE_INFORM && *p != DHCP_OPTION_MSG_TYPE_ACK)) {
+		printer(arg, " <type invalid!>");
+		return 0;
+	}
+	
+	printer(arg, " <type %s>",  *p == DHCP_OPTION_MSG_TYPE_INFORM ? "INFORM" : "ACK");
+	p++;
+
+	len = plen - sizeof(struct dhcp_packet) - 7;
+	while (*p != DHCP_OPTION_END && len > 0) {
+		u_int8_t optcode, optlen;
+		
+		optcode = *p++;
+		// check for pad option
+		if (optcode == 0) {
+			len--;
+			continue;
+		}
+			
+		optlen = *p++;
+		len-=2;
+		if (len == 0) {
+			printer(arg, " <option %d zero len!>", optcode);
+			return 0;
+		}
+		
+		str[0] = 0;
+		switch (optcode) {
+			case DHCP_OPTION_HOST_NAME:
+				memcpy(str, p, optlen);
+				str[optlen] = 0;
+				printer(arg, " <host name \"%s\">",  str);
+				break;
+			case DHCP_OPTION_VENDOR_CLASS_ID:
+				memcpy(str, p, optlen);
+				str[optlen] = 0;
+				printer(arg, " <vendor class id \"%s\">",  str);
+				break;
+			case DHCP_OPTION_CLIENT_ID:
+				sprintf(str, "0x");
+				for (i = 0; i < optlen; i++)
+					sprintf(str+strlen(str), "%02x", p[i]);
+				printer(arg, " <client id %s>",  str);
+				break;
+			case DHCP_OPTION_SERVER_ID:
+				sprintf(str, "0x");
+				for (i = 0; i < optlen; i++)
+					sprintf(str+strlen(str), "%02x", p[i]);
+				printer(arg, " <server id %s>",  str);
+				break;
+			case DHCP_OPTION_LEASE_TIME:
+				printer(arg, " <lease time %d sec>",  ntohl(*(u_int32_t*)p));
+				break;
+			case DHCP_OPTION_SUBNET_MASK:
+				printer(arg, " <subnet mask %d.%d.%d.%d>",  p[0], p[1], p[2], p[3]);
+				break;
+			case DHCP_OPTION_DOMAIN_NAME:
+				memcpy(str, p, optlen);
+				str[optlen] = 0;
+				printer(arg, " <domain name \"%s\">",  str);
+				break;
+			case DHCP_OPTION_STATIC_ROUTE:
+				printer(arg, " <static routes");
+				i = 0;
+				while (i < optlen) {
+					masklen = p[i];
+					mask = 0xFFFFFFFF << (32 - masklen);
+					addrlen = (masklen / 8);
+					if (masklen % 8)
+						addrlen++;
+					addr = ntohl(*(u_int32_t*)(&p[i+1])) & mask;
+					router = ntohl(*(u_int32_t*)(&p[i+1+addrlen]));
+					i += addrlen + 1 + sizeof(in_addr_t);
+					printer(arg, " %d.%d.%d.%d/%d.%d.%d.%d/%d.%d.%d.%d", 
+						(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr  >> 8) & 0xFF, addr & 0xFF, 
+						(mask >> 24) & 0xFF, (mask >> 16) & 0xFF, (mask >> 8) & 0xFF, mask & 0xFF,
+						(router >> 24) & 0xFF, (router >> 16) & 0xFF, (router >> 8) & 0xFF, router & 0xFF);
+				}
+				printer(arg, ">");
+				break;
+			case DHCP_OPTION_PARAM_REQUEST_LIST:
+				for (i = 0; i < optlen; i++) {
+					sprintf(str+strlen(str), " 0x%x", p[i]);
+				}
+				printer(arg, " <parameters =%s>", str);
+				break;
+
+			default:
+				printer(arg, " <option %d>", optcode);
+				break;
+		}
+		
+		p+=optlen;
+		len-=optlen;
+	}
+	
+	/* if debug is superverbose, dump raw packet as well */
+	if (debug > 1)
+		return 0;
+		
+	return plen;
 }
 

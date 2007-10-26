@@ -37,18 +37,18 @@
 #include "SharedConsts.h"
 
 // specific to DSTCPEndpoint
-const uInt32	kTCPOpenTimeout			= 120;
+const UInt32	kTCPOpenTimeout			= 120;
 //KW need to revisit
 #ifdef DSSERVERTCP
-const uInt32	kTCPRWTimeout			= 60*60*24; //server 24 hour timeout
+const UInt32	kTCPRWTimeout			= 60*60*24; //server 24 hour timeout
 #else
-const uInt32	kTCPRWTimeout			= 60*5; //client 5 min timeout like mach
+const UInt32	kTCPRWTimeout			= 60*5; //client 5 min timeout like mach
 #endif
-const uInt32	kTCPMaxListenBackLog	= 1024;
-const uInt32	kTCPErrorBufferLen		= 256;
+const UInt32	kTCPMaxListenBackLog	= 1024;
+const UInt32	kTCPErrorBufferLen		= 256;
 
-const uInt32 kDSTCPEndpointMaxMessageSize	= 1024; //used for searching for the TCP message tag
-const uInt32 kDSTCPEndpointMessageTagSize	= 4;	//for "DSPX" tag
+const UInt32 kDSTCPEndpointMaxMessageSize	= 1024; //used for searching for the TCP message tag
+const UInt32 kDSTCPEndpointMessageTagSize	= 4;	//for "DSPX" tag
 
 // ----------------------------------------------------------------------------
 // DSTCPEndpoint: implementation of endpoint based on BSD sockets.
@@ -75,50 +75,50 @@ public:
 		kDefaultTimeoutType
     };
 
-				DSTCPEndpoint			( const uInt32 inSessionID,
-										  const uInt32 inOpenTimeOut = kTCPOpenTimeout,
-										  const uInt32 inRdWrTimeOut = kTCPRWTimeout );
+				DSTCPEndpoint			( const UInt32 inSessionID,
+										  const UInt32 inOpenTimeOut = kTCPOpenTimeout,
+										  const UInt32 inRdWrTimeOut = kTCPRWTimeout );
 
 				DSTCPEndpoint			( const DSTCPEndpoint *inEndpoint,
-										  const uInt32 inSessionID );
+										  const UInt32 inSessionID );
 
     virtual	   ~DSTCPEndpoint			( void );
 
 	// Inline accessors.
-	uInt32		GetSessionID			( void )				{ return mLogMsgSessionID; }
-	uInt32		GetReverseAddress		( void ) const			{ return mRemoteHostIPAddr; }
-	uInt32		GetIPAddress			( void ) const			{ return mMyIPAddr; } //never used
+	UInt32		GetSessionID			( void )				{ return mLogMsgSessionID; }
+	UInt32		GetReverseAddress		( void ) const			{ return mRemoteHostIPAddr; }
+	UInt32		GetIPAddress			( void ) const			{ return mMyIPAddr; } //never used
 	const char *GetReverseAddressString	( void ) const			{ return mRemoteHostIPString; }
 	int			GetCurrentConnection	( void ) const			{ return mConnectFD; }
 
-	sInt32		SendClientReply			( void *inMsg );
+	SInt32		SendClientReply			( void *inMsg );
 	void*		GetClientMessage		( void );
-	sInt32		SyncToMessageBody		( const Boolean inStripLeadZeroes, uInt32 *outBuffLen );
-	sInt32		GetServerReply			( sComData **outMsg );
-	sInt32		SendServerMessage		( void *inMsg );
-	sInt32		SendBuffer				( void *inBuffer, uInt32 inLength );
+	SInt32		SyncToMessageBody		( const Boolean inStripLeadZeroes, UInt32 *outBuffLen );
+	SInt32		GetServerReply			( sComData **outMsg );
+	SInt32		SendServerMessage		( void *inMsg );
+	SInt32		SendBuffer				( void *inBuffer, UInt32 inLength );
 	
-	virtual void	EncryptData			( void *inData, const uInt32 inBuffSize, void *&outData, uInt32 &outBuffSize );
-	virtual void	DecryptData			( void *inData, const uInt32 inBuffSize, void *&outData, uInt32 &outBuffSize );
-	uInt32		WriteData				( const void *inData, const uInt32 inSize );
+	virtual void	EncryptData			( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize );
+	virtual void	DecryptData			( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize );
+	UInt32		WriteData				( const void *inData, const UInt32 inSize );
 	Boolean		Connected				( void ) const ;
     void		Abort					( void );
-	sInt32		ConnectTo ( const uInt32 inIPAddress, const uInt16 inPort ); //for client side
-	void		ListenToPort			( const uInt16 inPort );
-	void		ListenToPortOnAddress	( const uInt16 inPort, const uInt32 inWhichAddr );
+	SInt32		ConnectTo ( const UInt32 inIPAddress, const UInt16 inPort ); //for client side
+	void		ListenToPort			( const UInt16 inPort );
+	void		ListenToPortOnAddress	( const UInt16 inPort, const UInt32 inWhichAddr );
 	Boolean		AcceptConnection		( void );
 	void		CloseConnection			( void );
 	int			CloseListener			( void ); //KW do we need this?
 	void		SetTimeout				( const int inWhichTimeout, const int inSeconds ); //not used now
 	void		GetReverseAddressString	( char *ioBuffer, const int inBufferSize ) const ;
-	uInt32		GetRemoteHostIPAddress	( void );
-	uInt16		GetRemoteHostPort		( void );
+	UInt32		GetRemoteHostIPAddress	( void );
+	UInt16		GetRemoteHostPort		( void );
 
 protected:
 		
 	sComProxyData*  AllocToProxyStruct  ( sComData *inDataMsg );
 	sComData*		AllocFromProxyStruct( sComProxyData *inProxyDataMsg );
-	uInt32		DoTCPRecvFrom			( void *ioBuffer, const uInt32 inBufferSize );
+	UInt32		DoTCPRecvFrom			( void *ioBuffer, const UInt32 inBufferSize );
 
 private:
 		
@@ -133,14 +133,14 @@ private:
 
 
 protected:
-	uInt32				mLogMsgSessionID; //set in constructor and never used for anything
+	UInt32				mLogMsgSessionID; //set in constructor and never used for anything
 	
 	// network information
-	uInt32				mMyIPAddr;		// in host byte order - set but never used
+	UInt32				mMyIPAddr;		// in host byte order - set but never used
 	struct sockaddr_in	mMySockAddr;	
 
 	// remote host network information
-	uInt32				mRemoteHostIPAddr;		// in host byte order
+	UInt32				mRemoteHostIPAddr;		// in host byte order
 	IPAddrStr 			mRemoteHostIPString;	// IP address string
 	struct sockaddr_in	mRemoteSockAddr;
 

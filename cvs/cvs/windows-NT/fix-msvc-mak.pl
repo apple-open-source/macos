@@ -1,3 +1,5 @@
+#! perl -w
+
 use strict;
 
 
@@ -16,8 +18,8 @@ sub save_edit {
 
 
 
-sub fix_cvsnt_dep {
-	my $file_name = "cvsnt.dep";
+sub fix_basetsd_dep {
+	my ($file_name) = @_;
 	my $temp_name = $file_name . ".tmp";
 
 	open FINP, "< " . $file_name or die "open error: ", $file_name;
@@ -91,6 +93,7 @@ sub fix_libdiff_mak {
 
 
 
-fix_cvsnt_dep;
+fix_basetsd_dep "cvsnt.dep";
+fix_basetsd_dep "lib/libcvs.dep";
 fix_cvsnt_mak;
 fix_libdiff_mak;

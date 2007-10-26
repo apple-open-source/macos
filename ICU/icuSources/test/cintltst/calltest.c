@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1996-2004, International Business Machines Corporation and
+ * Copyright (c) 1996-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -28,7 +28,6 @@ void addUTF16Test(TestNode** root);
 void addUTF8Test(TestNode** root);
 void addUTransTest(TestNode** root);
 void addPUtilTest(TestNode** root);
-void addCompactArrayTest(TestNode** root);
 void addTestDeprecatedAPI(TestNode** root);
 void addUCharTransformTest(TestNode** root);
 void addUSetTest(TestNode** root);
@@ -37,6 +36,9 @@ void addIDNATest(TestNode** root);
 void addHeapMutexTest(TestNode **root);
 void addUTraceTest(TestNode** root);
 void addURegexTest(TestNode** root);
+void addUTextTest(TestNode** root);
+void addUCsdetTest(TestNode** root);
+
 
 void addAllTests(TestNode** root)
 {
@@ -48,7 +50,6 @@ void addAllTests(TestNode** root)
     addConvert(root);
     addUCharTransformTest(root);
     addStandardNamesTest(root);
-    addCompactArrayTest(root);
 #if !UCONFIG_NO_FORMATTING
     addFormatTest(root);
 #endif
@@ -73,5 +74,7 @@ void addAllTests(TestNode** root)
 #if !UCONFIG_NO_REGULAR_EXPRESSIONS
     addURegexTest(root);
 #endif
+    addUTextTest(root);
+    addUCsdetTest(root);
 }
 

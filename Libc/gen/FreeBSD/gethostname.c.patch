@@ -1,0 +1,33 @@
+--- gethostname.c.orig	2004-11-25 11:38:01.000000000 -0800
++++ gethostname.c	2005-09-15 09:46:13.000000000 -0700
+@@ -39,6 +39,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/get
+ 
+ #include <sys/param.h>
+ #include <sys/sysctl.h>
++#include <limits.h>
+ 
+ #include <errno.h>
+ 
+@@ -54,10 +55,22 @@ gethostname(name, namelen)
+ 
+ 	mib[0] = CTL_KERN;
+ 	mib[1] = KERN_HOSTNAME;
++	if (namelen < MAXHOSTNAMELEN + 1) {
++		char local_buf[MAXHOSTNAMELEN + 1];
++		size_t local_len = sizeof(local_buf);
++		if (sysctl(mib, 2, local_buf, &local_len, NULL, 0) == -1) {
++			if (errno == ENOMEM)
++				errno = ENAMETOOLONG;
++			return (-1);
++		}
++		strncpy(name, local_buf, namelen);
++		name[namelen - 1] = 0;
++	} else {
+ 	if (sysctl(mib, 2, name, &namelen, NULL, 0) == -1) {
+ 		if (errno == ENOMEM)
+ 			errno = ENAMETOOLONG;
+ 		return (-1);
++		}
+ 	}
+ 	return (0);
+ }

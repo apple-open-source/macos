@@ -188,6 +188,7 @@ yp_match(indomain, inmap, inkey, inkeylen, outval, outvallen)
 	struct timeval  tv;
 	struct ypreq_key yprk;
 	int tries = 0, r;
+	static int proto = YP_BIND_UDP;
 
 	if (indomain == NULL || *indomain == '\0' || 
 	    strlen(indomain) > YPMAXDOMAIN || inmap == NULL ||
@@ -227,14 +228,19 @@ again:
 
 	memset(&yprv, 0, sizeof yprv);
 
-	r = clnt_call(ysd->dom_client, YPPROC_MATCH,
-	    xdr_ypreq_key, &yprk, xdr_ypresp_val, &yprv, tv);
-	if (r != RPC_SUCCESS) {
-		if (tries++)
-			clnt_perror(ysd->dom_client, "yp_match: clnt_call");
-		ysd->dom_vers = -1;
+	r = clnt_call(ysd->dom_client, YPPROC_MATCH, (xdrproc_t)xdr_ypreq_key, &yprk, (xdrproc_t)xdr_ypresp_val, &yprv, tv);
+	if (r != RPC_SUCCESS)
+	{
+		/* call failed - switch protocols and try again */
+		if (tries++) clnt_perror(ysd->dom_client, "yp_match: clnt_call");
+
+		if (proto == YP_BIND_UDP) proto = YP_BIND_TCP;
+		else proto = YP_BIND_UDP;
+		ysd->dom_vers = proto;
+
 		goto again;
 	}
+
 	if (!(r = ypprot_err(yprv.stat))) {
 		*outvallen = yprv.val.valdat_len;
 		if ((*outval = malloc(*outvallen + 1)) == NULL) {
@@ -251,7 +257,7 @@ again:
 #endif
 	}
 out:
-	xdr_free(xdr_ypresp_val, (char *) &yprv);
+	xdr_free((xdrproc_t)xdr_ypresp_val, (char *) &yprv);
 	_yp_unbind(ysd);
 	return r;
 }
@@ -272,6 +278,7 @@ yp_next(indomain, inmap, inkey, inkeylen, outkey, outkeylen, outval, outvallen)
 	struct dom_binding *ysd;
 	struct timeval  tv;
 	int tries = 0, r;
+	static int proto = YP_BIND_UDP;
 
 	if (indomain == NULL || *indomain == '\0' ||
 	    strlen(indomain) > YPMAXDOMAIN || inmap == NULL ||
@@ -294,14 +301,19 @@ again:
 	yprk.key.keydat_len = inkeylen;
 	(void)memset(&yprkv, 0, sizeof yprkv);
 
-	r = clnt_call(ysd->dom_client, YPPROC_NEXT,
-	    xdr_ypreq_key, &yprk, xdr_ypresp_key_val, &yprkv, tv);
-	if (r != RPC_SUCCESS) {
-		if (tries++)
-			clnt_perror(ysd->dom_client, "yp_next: clnt_call");
-		ysd->dom_vers = -1;
+	r = clnt_call(ysd->dom_client, YPPROC_NEXT, (xdrproc_t)xdr_ypreq_key, &yprk, (xdrproc_t)xdr_ypresp_key_val, &yprkv, tv);
+	if (r != RPC_SUCCESS)
+	{
+		/* call failed - switch protocols and try again */
+		if (tries++) clnt_perror(ysd->dom_client, "yp_next: clnt_call");
+
+		if (proto == YP_BIND_UDP) proto = YP_BIND_TCP;
+		else proto = YP_BIND_UDP;
+		ysd->dom_vers = proto;
+
 		goto again;
 	}
+
 	if (!(r = ypprot_err(yprkv.stat))) {
 		*outkeylen = yprkv.key.keydat_len;
 		if ((*outkey = malloc(*outkeylen + 1)) == NULL)
@@ -318,7 +330,7 @@ again:
 			(*outval)[*outvallen] = '\0';
 		}
 	}
-	xdr_free(xdr_ypresp_key_val, (char *) &yprkv);
+	xdr_free((xdrproc_t)xdr_ypresp_key_val, (char *) &yprkv);
 	_yp_unbind(ysd);
 	return r;
 }

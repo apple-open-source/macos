@@ -1,81 +1,100 @@
-<HTML>
-<HEAD>
-<TITLE>sieveshell - remotely manipulate sieve scripts</TITLE>
-<LINK REV="made" HREF="mailto:advisor+@andrew.cmu.edu">
-</HEAD>
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>sieveshell - remotely manipulate sieve scripts</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
 
-<BODY>
+<body style="background-color: white">
 
-<A NAME="__index__"></A>
+<p><a name="__index__"></a></p>
 <!-- INDEX BEGIN -->
 
-<UL>
+<ul>
 
-	<LI><A HREF="#name">NAME</A></LI>
-	<LI><A HREF="#synopsis">SYNOPSIS</A></LI>
-	<LI><A HREF="#description">DESCRIPTION</A></LI>
-	<LI><A HREF="#options">OPTIONS</A></LI>
-	<LI><A HREF="#references">REFERENCES</A></LI>
-	<LI><A HREF="#author">AUTHOR</A></LI>
-</UL>
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#references">REFERENCES</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+</ul>
 <!-- INDEX END -->
 
-<HR>
-<P>
-<H1><A NAME="name">NAME</A></H1>
-<P>sieveshell - remotely manipulate sieve scripts</P>
-<P>
-<HR>
-<H1><A NAME="synopsis">SYNOPSIS</A></H1>
-<P>sieveshell [<STRONG>--user</STRONG>=<EM>user</EM>] [<STRONG>--authname</STRONG>=<EM>authname</EM>] 
-[<STRONG>--realm</STRONG>=<EM>realm</EM>] [<STRONG>--exec</STRONG>=<EM>script</EM>] <EM>server</EM>[<STRONG>:</STRONG><EM>port</EM>]</P>
-<P>sieveshell <STRONG>--help</STRONG></P>
-<P>
-<HR>
-<H1><A NAME="description">DESCRIPTION</A></H1>
-<P><STRONG>sieveshell</STRONG> allows users to manipulate their scripts on a remote
-server.  It works via MANAGESIEVE, a work in progress.</P>
-<P>The following commands are recognized:</P>
-<P><STRONG>list</STRONG> list scripts on server.</P>
-<P><STRONG>put</STRONG> &lt;filename&gt; upload script to server.</P>
-<P><STRONG>get</STRONG> &lt;name&gt; [&lt;filename&gt;] get script. if no filename display to stdout</P>
-<P><STRONG>delete</STRONG> &lt;name&gt; delete script.</P>
-<P><STRONG>activate</STRONG> &lt;name&gt; activate script.</P>
-<P><STRONG>deactivate</STRONG> deactivate all scripts.</P>
-<P>
-<HR>
-<H1><A NAME="options">OPTIONS</A></H1>
-<DL>
-<DT><STRONG><A NAME="item_%2Du_user%2C_%2D%2Duser%3Duser"><STRONG>-u</STRONG> <EM>user</EM>, <STRONG>--user</STRONG>=<EM>user</EM></A></STRONG><BR>
-<DD>
-The authorization name to request; by default, derived from the
-authentication credentials.
-<P></P>
-<DT><STRONG><A NAME="item_%2Da_authname%2C_%2D%2Dauthname%3Dauthname"><STRONG>-a</STRONG> <EM>authname</EM>, <STRONG>--authname</STRONG>=<EM>authname</EM></A></STRONG><BR>
-<DD>
-The user to use for authentication (defaults to current user).
-<P></P>
-<DT><STRONG><A NAME="item_%2Dr_realm%2C_%2D%2Drealm%3Drealm"><STRONG>-r</STRONG> <EM>realm</EM>, <STRONG>--realm</STRONG>=<EM>realm</EM></A></STRONG><BR>
-<DD>
-The realm to attempt authentication in.
-<P></P>
-<DT><STRONG><A NAME="item_%2De_script%2C_%2D%2Dexec%3Dscript"><STRONG>-e</STRONG> <EM>script</EM>, <STRONG>--exec</STRONG>=<EM>script</EM></A></STRONG><BR>
-<DD>
-Instead of working interactively, run commands from <EM>script</EM>, and
-exit when done.
-<P></P></DL>
-<P>
-<HR>
-<H1><A NAME="references">REFERENCES</A></H1>
-<P>[MANAGESIEVE] Martin, T.; ``A Protocol for Remotely Managing Sieve
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>sieveshell - remotely manipulate sieve scripts</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>sieveshell [<strong>--user</strong>=<em>user</em>] [<strong>--authname</strong>=<em>authname</em>] 
+[<strong>--realm</strong>=<em>realm</em>] [<strong>--exec</strong>=<em>script</em>] <em>server</em>[<strong>:</strong><em>port</em>]</p>
+<p>sieveshell <strong>--help</strong></p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p><strong>sieveshell</strong> allows users to manipulate their scripts on a remote
+server.  It works via MANAGESIEVE, a work in progress.</p>
+<p>The following commands are recognized:</p>
+<p><strong>list</strong> list scripts on server.</p>
+<p><strong>put</strong> &lt;filename&gt; upload script to server.</p>
+<p><strong>get</strong> &lt;name&gt; [&lt;filename&gt;] get script. if no filename display to stdout</p>
+<p><strong>delete</strong> &lt;name&gt; delete script.</p>
+<p><strong>activate</strong> &lt;name&gt; activate script.</p>
+<p><strong>deactivate</strong> deactivate all scripts.</p>
+<p>
+</p>
+<hr />
+<h1><a name="options">OPTIONS</a></h1>
+<dl>
+<dt><strong><a name="item__2du_user_2c__2d_2duser_3duser"><strong>-u</strong> <em>user</em>, <strong>--user</strong>=<em>user</em></a></strong>
+
+<dd>
+<p>The authorization name to request; by default, derived from the
+authentication credentials.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2da_authname_2c__2d_2dauthname_3dauthname"><strong>-a</strong> <em>authname</em>, <strong>--authname</strong>=<em>authname</em></a></strong>
+
+<dd>
+<p>The user to use for authentication (defaults to current user).</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dr_realm_2c__2d_2drealm_3drealm"><strong>-r</strong> <em>realm</em>, <strong>--realm</strong>=<em>realm</em></a></strong>
+
+<dd>
+<p>The realm to attempt authentication in.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2de_script_2c__2d_2dexec_3dscript"><strong>-e</strong> <em>script</em>, <strong>--exec</strong>=<em>script</em></a></strong>
+
+<dd>
+<p>Instead of working interactively, run commands from <em>script</em>, and
+exit when done.</p>
+</dd>
+</li>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="references">REFERENCES</a></h1>
+<p>[MANAGESIEVE] Martin, T.; ``A Protocol for Remotely Managing Sieve
 Scripts'', draft-ietf-managesieve-03.txt, Mirapoint, Inc.; May 2001,
-work in progress.</P>
-<P>
-<HR>
-<H1><A NAME="author">AUTHOR</A></H1>
-<P>Tim Martin &lt;<A HREF="mailto:tmartin@mirapoint.com">tmartin@mirapoint.com</A>&gt;, and the rest of the Cyrus
-team &lt;<A HREF="mailto:cyrus-bugs@andrew.cmu.edu">cyrus-bugs@andrew.cmu.edu</A>&gt;.</P>
+work in progress.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Tim Martin &lt;<a href="mailto:tmartin@mirapoint.com">tmartin@mirapoint.com</a>&gt;, and the rest of the Cyrus
+team &lt;<a href="mailto:cyrus-bugs@andrew.cmu.edu">cyrus-bugs@andrew.cmu.edu</a>&gt;.
+</p>
 
-</BODY>
+</body>
 
-</HTML>
+</html>

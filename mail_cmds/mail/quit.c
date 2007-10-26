@@ -75,7 +75,7 @@ void
 quit()
 {
 	int mcount, p, modify, autohold, anystat, holdbit, nohold;
-	FILE *ibuf, *obuf, *fbuf, *rbuf, *readstat, *abuf;
+	FILE *ibuf = NULL, *obuf = NULL, *fbuf, *rbuf, *readstat = NULL, *abuf;
 	struct message *mp;
 	int c, fd;
 	struct stat minfo;
@@ -396,7 +396,7 @@ edstop()
 {
 	int gotcha, c;
 	struct message *mp;
-	FILE *obuf, *ibuf, *readstat;
+	FILE *obuf, *ibuf, *readstat = NULL;
 	struct stat statb;
 	char tempname[PATHSIZE];
 
@@ -490,8 +490,12 @@ edstop()
 	}
 	(void)Fclose(obuf);
 	if (gotcha) {
-		(void)rm(mailname);
-		printf("removed\n");
+		if (value("keep") == NULL) {
+			(void)rm(mailname);
+			printf("removed\n");
+		} else {	/* leave truncated file there */
+			printf("is empty\n");
+		}
 	} else
 		printf("complete\n");
 	(void)fflush(stdout);

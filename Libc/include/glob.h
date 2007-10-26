@@ -40,7 +40,6 @@
 #ifndef _GLOB_H_
 #define	_GLOB_H_
 
-#include <sys/cdefs.h>
 #include <_types.h>
 
 #ifndef _SIZE_T
@@ -48,10 +47,10 @@
 typedef	__darwin_size_t	size_t;
 #endif
 
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 struct dirent;
 struct stat;
-#endif /* _POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 typedef struct {
 	size_t gl_pathc;	/* Count of total paths so far. */
 	int gl_matchc;		/* Count of paths matching pattern. */
@@ -61,20 +60,25 @@ typedef struct {
 				/* Copy of errfunc parameter to glob. */
 	int (*gl_errfunc)(const char *, int);
 
-#ifndef _POSIX_C_SOURCE
 	/*
 	 * Alternate filesystem access methods for glob; replacement
 	 * versions of closedir(3), readdir(3), opendir(3), stat(2)
 	 * and lstat(2).
 	 */
 	void (*gl_closedir)(void *);
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 	struct dirent *(*gl_readdir)(void *);
+#else /* (_POSIX_C_SOURCE && !_DARWIN_C_SOURCE) */
+	void *(*gl_readdir)(void *);
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 	void *(*gl_opendir)(const char *);
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 	int (*gl_lstat)(const char *, struct stat *);
 	int (*gl_stat)(const char *, struct stat *);
-#else /* _POSIX_C_SOURCE */
-	void *_gl_reserved[5];
-#endif /* _POSIX_C_SOURCE */
+#else /* (_POSIX_C_SOURCE && !_DARWIN_C_SOURCE) */
+	int (*gl_lstat)(const char *, void *);
+	int (*gl_stat)(const char *, void *);
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 } glob_t;
 
 /* Believed to have been introduced in 1003.2-1992 */
@@ -99,14 +103,26 @@ typedef struct {
 #define	GLOB_QUOTE	0x0400	/* Quote special chars with \. */
 #define	GLOB_TILDE	0x0800	/* Expand tilde names from the passwd file. */
 #define	GLOB_LIMIT	0x1000	/* limit number of returned paths */
+//Begin-Libc
+#define GLOB_INODE64	0x80000000
+//End-Libc
 
 /* source compatibility, these are the old names */
 #define GLOB_MAXPATH	GLOB_LIMIT
 #define	GLOB_ABEND	GLOB_ABORTED
 
 __BEGIN_DECLS
+//Begin-Libc
+#ifndef LIBC_ALIAS_GLOB
+//End-Libc
 int	glob(const char * __restrict, int, int (*)(const char *, int), 
-	     glob_t * __restrict);
+	     glob_t * __restrict) __DARWIN_INODE64(glob);
+//Begin-Libc
+#else /* LIBC_ALIAS_GLOB */
+int	glob(const char * __restrict, int, int (*)(const char *, int), 
+	     glob_t * __restrict) LIBC_INODE64(glob);
+#endif /* !LIBC_ALIAS_GLOB */
+//End-Libc
 void	globfree(glob_t *);
 __END_DECLS
 

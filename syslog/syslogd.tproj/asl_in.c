@@ -36,10 +36,10 @@
 
 #define forever for(;;)
 
+#define ASL_SOCKET_NAME "AppleSystemLogger"
 #define MY_ID "asl"
 
 static int sock = -1;
-static FILE *aslfile = NULL;
 static asl_msg_t *query = NULL;
 
 extern int asl_log_filter;
@@ -51,188 +51,9 @@ extern int asl_log_filter;
 
 extern int prune;
 
+extern void db_enqueue(asl_msg_t *m);
+
 static int filter_token = -1;
-
-struct prune_query_entry
-{
-	asl_msg_t *query;
-	TAILQ_ENTRY(prune_query_entry) entries;
-};
-
-static TAILQ_HEAD(pql, prune_query_entry) pquery;
-
-static int
-_search_next(FILE *log, char **outstr)
-{
-	char *str;
-	aslmsg m;
-	int match, i;
-	struct prune_query_entry *p;
-
-	*outstr = NULL;
-
-	if (log == NULL) return MATCH_EOF;
-
-	str = get_line_from_file(log);
-	if (str == NULL) return MATCH_EOF;
-
-	m = asl_msg_from_string(str);
-	if (m == NULL)
-	{
-		free(str);
-		return MATCH_NULL;
-	}
-
-	*outstr = str;
-
-	for (i = 0, p = pquery.tqh_first; p != NULL; p = p->entries.tqe_next, i++)
-	{
-		match = asl_msg_cmp(p->query, m);
-		if (match == 1)
-		{
-			asl_free(m);
-			return MATCH_TRUE;
-		}
-	}
-
-	asl_free(m);
-	return MATCH_FALSE;
-}
-
-/*
- * Pruning the main output file (asl.log)
- *
- * The prune file (_PATH_ASL_PRUNE) is set up by the syslog command-line utiliy.
- * It contains a set of queries.  The main output file is read, and each
- * message is matched against these queries.  If any query matches, we save
- * that message.  Anything that doesn't match is discarded.
- *
- */
-int
-asl_prune(asl_msg_t *inq)
-{
-	char *pname, *str;
-	FILE *pfile, *qfile;
-	struct prune_query_entry *p, *n;
-	asl_msg_t *q;
-	int status, incount, outcount;
-
-	asldebug("syslogd: pruning %s\n", _PATH_ASL_OUT);
-
-	if (inq != NULL)
-	{
-		TAILQ_INIT(&pquery);
-		p = (struct prune_query_entry *)calloc(1, sizeof(struct prune_query_entry));
-		if (p == NULL) return -1;
-
-		p->query = inq;
-		TAILQ_INSERT_TAIL(&pquery, p, entries);
-	}
-	else
-	{
-		qfile = fopen(_PATH_ASL_PRUNE, "r");
-		if (qfile == NULL)
-		{
-			asldebug("syslogd: can't read %s: %s\n", _PATH_ASL_PRUNE, strerror(errno));
-			return 0;
-		}
-
-		TAILQ_INIT(&pquery);
-
-		forever
-		{
-			str = get_line_from_file(qfile);
-			if (str == NULL) break;
-
-			q = asl_msg_from_string(str);
-			asldebug("syslogd: prune line %s\n", str);
-
-			free(str);
-			if (q == NULL) continue;
-
-			if (q->type != ASL_TYPE_QUERY)
-			{
-				asl_free(q);
-				continue;
-			}
-
-			p = (struct prune_query_entry *)calloc(1, sizeof(struct prune_query_entry));
-			if (p == NULL) return -1;
-
-			p->query = q;
-			TAILQ_INSERT_TAIL(&pquery, p, entries);
-		}
-	}
-
-	pname = NULL;
-	asprintf(&pname, "%s.%d", _PATH_ASL_OUT, getpid());
-	if (pname == NULL) return -1;
-
-	pfile = fopen(pname, "w");
-	if (pfile == NULL)
-	{
-		asldebug("syslogd: can't write %s: %s\n", pname, strerror(errno));
-		free(pname);
-		return -1;
-	}
-
-	fclose(aslfile);
-	aslfile = fopen(_PATH_ASL_OUT, "r");
-	if (aslfile == NULL)
-	{
-		asldebug("syslogd: can't read %s: %s\n", _PATH_ASL_OUT, strerror(errno));
-		free(pname);
-		aslfile = fopen(_PATH_ASL_OUT, "a");
-		return -1;
-	}
-
-	incount = 0;
-	outcount = 0;
-
-	do
-	{
-		str = NULL;
-		incount++;
-		status = _search_next(aslfile, &str);
-
-		/*
-		 * Pruning deletes records that match the search.
-		 * If the match fails, we keep the record.
-		 */
-		if (status == MATCH_FALSE)
-		{
-			outcount++;
-			fprintf(pfile, "%s\n", str);
-		}
-
-		if (str != NULL) free(str);
-	}
-	while (status != MATCH_EOF);
-
-	fclose(pfile);
-	fclose(aslfile);
-
-	unlink(_PATH_ASL_OUT);
-	rename(pname, _PATH_ASL_OUT);
-	free(pname);
-	unlink(_PATH_ASL_PRUNE);
-	aslfile = fopen(_PATH_ASL_OUT, "a");
-
-	n = NULL;
-	for (p = pquery.tqh_first; p != NULL; p = n)
-	{
-		n = p->entries.tqe_next;
-
-		if (p->query != NULL) asl_free(p->query);
-
-		TAILQ_REMOVE(&pquery, p, entries);
-		free(p);
-	}
-
-	asldebug("syslogd: prune %d records in, %d records out\n", incount, outcount);
-
-	return 0;
-}
 
 asl_msg_t *
 asl_in_getmsg(int fd)
@@ -240,14 +61,24 @@ asl_in_getmsg(int fd)
 	char *out;
 	asl_msg_t *m;
 	uint32_t len, n;
-	char ls[16];
+	char tmp[16];
+	int status;
+	uid_t uid;
+	gid_t gid;
 
-	n = read(fd, ls, 11);
+	n = read(fd, tmp, 11);
 	if (n < 11)
 	{
-		if (n <= 0)
+		if (n == 0)
 		{
-			asldebug("%s: read error (len): %s\n", MY_ID, strerror(errno));
+			close(fd);
+			aslevent_removefd(fd);
+			return NULL;
+		}
+
+		if (n < 0)
+		{
+			asldebug("%s: read error (len=%d): %s\n", MY_ID, n, strerror(errno));
 			if (errno != EINTR)
 			{
 				close(fd);
@@ -259,8 +90,9 @@ asl_in_getmsg(int fd)
 		return NULL;
 	}
 
-	len = atoi(ls);
-	asldebug("%s: expecting message length %d bytes\n", MY_ID, len);
+	len = atoi(tmp);
+	if (len == 0) return NULL;
+
 	out = malloc(len);
 	if (out == NULL) return NULL;
 
@@ -280,7 +112,25 @@ asl_in_getmsg(int fd)
 		}
 	}
 
+	asldebug("asl_in_getmsg: %s\n", (out == NULL) ? "NULL" : out);
+
+	uid = -2;
+	gid = -2;
+
+	status = getpeereid(fd, &uid, &gid);
 	m = asl_msg_from_string(out);
+	if (m == NULL)
+	{
+		free(out);
+		return NULL;
+	}
+
+	snprintf(tmp, sizeof(tmp), "%d", uid);
+	asl_set(m, ASL_KEY_UID, tmp);
+
+	snprintf(tmp, sizeof(tmp), "%d", gid);
+	asl_set(m, ASL_KEY_GID, tmp);
+
 	free(out);
 	return m;
 }
@@ -306,19 +156,17 @@ asl_in_acceptmsg(int fd)
 		return NULL;
 	}
 
-	aslevent_addfd(clientfd, asl_in_getmsg, NULL, NULL);
+	aslevent_addfd(clientfd, ADDFD_FLAGS_LOCAL, asl_in_getmsg, NULL, NULL);
 	return NULL;
 }
 
 int
 aslmod_sendmsg(asl_msg_t *msg, const char *outid)
 {
-	const char *vlevel;
-	char *mstr;
-	uint32_t n, lmask;
-	int status, x, level;
-
-	if (aslfile == NULL) return -1;
+	const char *vlevel, *facility, *ignore;
+	uint32_t lmask;
+	uint64_t v64;
+	int status, x, level, log_me;
 
 	/* set up com.apple.syslog.asl_filter */
 	if (filter_token == -1)
@@ -331,7 +179,11 @@ aslmod_sendmsg(asl_msg_t *msg, const char *outid)
 		else
 		{
 			status = notify_check(filter_token, &x);
-			if (status == NOTIFY_STATUS_OK) status = notify_set_state(filter_token, asl_log_filter);
+			if (status == NOTIFY_STATUS_OK)
+			{
+				v64 = asl_log_filter;
+				status = notify_set_state(filter_token, v64);
+			}
 			if (status != NOTIFY_STATUS_OK)
 			{
 				notify_cancel(filter_token);
@@ -342,29 +194,35 @@ aslmod_sendmsg(asl_msg_t *msg, const char *outid)
 
 	if (filter_token >= 0)
 	{
-		x = 1;
+		x = 0;
 		status = notify_check(filter_token, &x);
 		if ((status == NOTIFY_STATUS_OK) && (x == 1))
 		{
-			x = asl_log_filter;
-			status = notify_get_state(filter_token, &x);
-			if ((status == NOTIFY_STATUS_OK) && (x != 0)) asl_log_filter = x;
+			v64 = 0;
+			status = notify_get_state(filter_token, &v64);
+			if ((status == NOTIFY_STATUS_OK) && (v64 != 0)) asl_log_filter = v64;
 		}
 	}
 
-	vlevel = asl_get(msg, ASL_KEY_LEVEL);
-	level = 7;
-	if (vlevel != NULL) level = atoi(vlevel);
-	lmask = ASL_FILTER_MASK(level);
-	if ((lmask & asl_log_filter) == 0) return 0;
-
-	mstr = asl_msg_to_string(msg, &n);
-	if (mstr != NULL)
+	log_me = 0;
+	facility = asl_get(msg, ASL_KEY_FACILITY);
+	if ((facility != NULL) && (!strcmp(facility, "kern"))) log_me = 1;
+	else
 	{
-		fprintf(aslfile, "%s\n", mstr);
-		fflush(aslfile);
-		free(mstr);
+		vlevel = asl_get(msg, ASL_KEY_LEVEL);
+		level = 7;
+		if (vlevel != NULL) level = atoi(vlevel);
+		lmask = ASL_FILTER_MASK(level);
+		if ((lmask & asl_log_filter) != 0) log_me = 1;
 	}
+
+	if (log_me == 1)
+	{
+		ignore = asl_get(msg, ASL_KEY_IGNORE);
+		if ((ignore != NULL) && (!strcasecmp(ignore, "yes"))) log_me = 0;
+	}
+
+	if (log_me == 1) db_enqueue(msg);
 
 	return 0;
 }
@@ -372,35 +230,52 @@ aslmod_sendmsg(asl_msg_t *msg, const char *outid)
 int
 asl_in_init(void)
 {
-	struct sockaddr_un sun;
 	int rbufsize;
 	int len;
+	launch_data_t sockets_dict, fd_array, fd_dict;
 
 	asldebug("%s: init\n", MY_ID);
 	if (sock >= 0) return sock;
-
-	unlink(_PATH_ASL_IN);
-	sock = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock < 0)
+	if (launch_dict == NULL)
 	{
-		asldebug("%s: couldn't create socket for %s: %s\n", MY_ID, _PATH_ASL_IN, strerror(errno));
+		asldebug("%s: laucnchd dict is NULL\n", MY_ID);
 		return -1;
 	}
 
-	asldebug("%s: creating %s for fd %d\n", MY_ID, _PATH_ASL_IN, sock);
-
-	memset(&sun, 0, sizeof(sun));
-	sun.sun_family = AF_UNIX;
-	strcpy(sun.sun_path, _PATH_ASL_IN);
-
-	len = sizeof(struct sockaddr_un);
-	if (bind(sock, (struct sockaddr *)&sun, len) < 0)
+	sockets_dict = launch_data_dict_lookup(launch_dict, LAUNCH_JOBKEY_SOCKETS);
+	if (sockets_dict == NULL)
 	{
-		asldebug("%s: couldn't bind socket %d for %s: %s\n", MY_ID, sock, _PATH_ASL_IN, strerror(errno));
-		close(sock);
-		sock = -1;
+		asldebug("%s: laucnchd lookup of LAUNCH_JOBKEY_SOCKETS failed\n", MY_ID);
 		return -1;
 	}
+
+	fd_array = launch_data_dict_lookup(sockets_dict, ASL_SOCKET_NAME);
+	if (fd_array == NULL)
+	{
+		asldebug("%s: laucnchd lookup of ASL_SOCKET_NAME failed\n", MY_ID);
+		return -1;
+	}
+
+	len = launch_data_array_get_count(fd_array);
+	if (len <= 0)
+	{
+		asldebug("%s: laucnchd fd array is empty\n", MY_ID);
+		return -1;
+	}
+
+	if (len > 1)
+	{
+		asldebug("%s: warning! laucnchd fd array has %d sockets\n", MY_ID, len);
+	}
+
+	fd_dict = launch_data_array_get_index(fd_array, 0);
+	if (fd_dict == NULL)
+	{
+		asldebug("%s: laucnchd file discriptor array element 0 is NULL\n", MY_ID);
+		return -1;
+	}
+
+	sock = launch_data_get_fd(fd_dict);
 
 	rbufsize = 128 * 1024;
 	len = sizeof(rbufsize);
@@ -412,15 +287,6 @@ asl_in_init(void)
 		sock = -1;
 		return -1;
 	}
-	
-	if (listen(sock, SOMAXCONN) < 0)
-	{
-		asldebug("%s: couldn't listen on socket %d for %s: %s\n", MY_ID, sock, _PATH_ASL_IN, strerror(errno));
-		close(sock);
-		sock = -1;
-		unlink(_PATH_ASL_IN);
-		return -1;
-	}
 
 	if (fcntl(sock, F_SETFL, O_NONBLOCK) < 0)
 	{
@@ -430,18 +296,11 @@ asl_in_init(void)
 		return -1;
 	}
 
-	chmod(_PATH_ASL_IN, 0666);
+	query = asl_new(ASL_TYPE_QUERY);
+	aslevent_addmatch(query, MY_ID);
+	aslevent_addoutput(aslmod_sendmsg, MY_ID);
 
-	/* Add logger routine for main output file */
-	aslfile = fopen(_PATH_ASL_OUT, "a");
-	if (aslfile != NULL)
-	{
-		query = asl_new(ASL_TYPE_QUERY);
-		aslevent_addmatch(query, MY_ID);
-		aslevent_addoutput(aslmod_sendmsg, MY_ID);
-	}
-
-	return aslevent_addfd(sock, asl_in_acceptmsg, NULL, NULL);
+	return aslevent_addfd(sock, ADDFD_FLAGS_LOCAL, asl_in_acceptmsg, NULL, NULL);
 }
 
 int
@@ -461,7 +320,6 @@ asl_in_close(void)
 
 	asl_free(query);
 	close(sock);
-	if (aslfile != NULL) fclose(aslfile);
 	unlink(_PATH_ASL_IN);
 
 	return 0;

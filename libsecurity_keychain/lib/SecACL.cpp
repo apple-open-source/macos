@@ -65,7 +65,7 @@ OSStatus SecACLCreateFromSimpleContents(SecAccessRef accessRef,
 	}
 	access->add(acl.get());
 	Required(newAcl) = acl->handle();
-	END_SECAPI	
+	END_SECAPI2("SecACLCreateFromSimpleContents")
 }
 
 
@@ -75,7 +75,7 @@ OSStatus SecACLRemove(SecACLRef aclRef)
 {
 	BEGIN_SECAPI
 	ACL::required(aclRef)->remove();
-	END_SECAPI	
+	END_SECAPI2("SecACLRemove")
 }
 
 
@@ -110,7 +110,7 @@ OSStatus SecACLCopySimpleContents(SecACLRef aclRef,
 	default:
 		return errSecACLNotSimple;		// custom or unknown
 	}
-	END_SECAPI	
+	END_SECAPI2("SecACLCopySimpleContents")
 }
 
 OSStatus SecACLSetSimpleContents(SecACLRef aclRef,
@@ -130,7 +130,7 @@ OSStatus SecACLSetSimpleContents(SecACLRef aclRef,
 		acl->form(ACL::allowAllForm);
 	}
 	acl->modify();
-	END_SECAPI
+	END_SECAPI2("SecACLSetSimpleContents")
 }
 
 
@@ -163,7 +163,7 @@ OSStatus SecACLGetAuthorizations(SecACLRef acl,
 	}
 	*tagCount = auths.size();
 	copy(auths.begin(), auths.end(), tags);
-	END_SECAPI	
+	END_SECAPI2("SecACLGetAuthorizations")
 }
 
 OSStatus SecACLSetAuthorizations(SecACLRef aclRef,
@@ -177,5 +177,5 @@ OSStatus SecACLSetAuthorizations(SecACLRef aclRef,
 	auths.clear();
 	copy(tags, tags + tagCount, insert_iterator<AclAuthorizationSet>(auths, auths.begin()));
 	acl->modify();
-	END_SECAPI
+	END_SECAPI2("SecACLSetAuthorizations")
 }

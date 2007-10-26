@@ -1,11 +1,20 @@
---- src/funcs.c.orig	2004-08-08 22:43:20.000000000 -0700
-+++ src/funcs.c	2004-08-08 23:38:25.000000000 -0700
-@@ -172,7 +172,7 @@
- 	}
+--- src/funcs.c.orig	2007-02-02 19:30:48.000000000 -0800
++++ src/funcs.c	2007-02-02 19:42:57.000000000 -0800
+@@ -209,7 +209,7 @@
+ 				break;
+ 			}
+ 
+-			if (iswprint(nextchar) ) {
++			if (iswprint(nextchar) || nextchar == L'\t' || nextchar == L'\n') {
+ 				(void)memcpy(np, op, bytesconsumed);
+ 				op += bytesconsumed;
+ 				np += bytesconsumed;
+@@ -227,7 +227,7 @@
+ #endif
  
  	for (np = ms->o.pbuf, op = ms->o.buf; *op; op++) {
 -		if (isprint((unsigned char)*op)) {
 +		if (isprint((unsigned char)*op) || ((unsigned char)*op) == '\t' || ((unsigned char)*op) == '\n') {
  			*np++ = *op;	
  		} else {
- 			*np++ = '\\';
+ 			OCTALIFY(np, op);

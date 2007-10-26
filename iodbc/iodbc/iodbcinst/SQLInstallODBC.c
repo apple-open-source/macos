@@ -1,20 +1,24 @@
 /*
  *  SQLInstallODBC.c
  *
- *  $Id: SQLInstallODBC.c,v 1.2 2004/08/10 22:20:29 luesang Exp $
+ *  $Id: SQLInstallODBC.c,v 1.7 2006/01/20 15:58:35 source Exp $
  *
  *  These functions intentionally left blank
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,8 +74,10 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
+#include <unicode.h>
 
 #include "iodbc_error.h"
 
@@ -106,5 +112,45 @@ SQLInstallODBC (HWND hwndParent, LPCSTR lpszInfFile, LPCSTR lpszSrcPath,
   retcode = InstallODBC (hwndParent, lpszInfFile, lpszSrcPath, lpszDrivers);
 
 quit:
+  return retcode;
+}
+
+BOOL INSTAPI
+SQLInstallODBCW (HWND hwndParent, LPCWSTR lpszInfFile, LPCWSTR lpszSrcPath,
+    LPCWSTR lpszDrivers)
+{
+  char *_inf_u8 = NULL;
+  char *_srcpath_u8 = NULL;
+  char *_drivers_u8 = NULL;
+  BOOL retcode = FALSE;
+
+  _inf_u8 = (char *) dm_SQL_WtoU8 ((SQLWCHAR *) lpszInfFile, SQL_NTS);
+  if (_inf_u8 == NULL && lpszInfFile)
+    {
+      PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+      goto done;
+    }
+
+  _srcpath_u8 = (char *) dm_SQL_WtoU8 ((SQLWCHAR *) lpszSrcPath, SQL_NTS);
+  if (_srcpath_u8 == NULL && lpszSrcPath)
+    {
+      PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+      goto done;
+    }
+
+  _drivers_u8 = (char *) dm_SQL_WtoU8 ((SQLWCHAR *) lpszDrivers, SQL_NTS);
+  if (_drivers_u8 == NULL && lpszDrivers)
+    {
+      PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+      goto done;
+    }
+
+  retcode = SQLInstallODBC (hwndParent, _inf_u8, _srcpath_u8, _drivers_u8);
+
+done:
+  MEM_FREE (_inf_u8);
+  MEM_FREE (_srcpath_u8);
+  MEM_FREE (_drivers_u8);
+
   return retcode;
 }

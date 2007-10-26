@@ -35,8 +35,19 @@
 .Dt RESTORE 8
 .Os BSD 4
 .Sh NAME
-.Nm restore
-.Nd "restore files or file systems from backups made with dump"
+.Nm restore ,
+.Nm rrestore
+.Nd restore files or file systems from backups made with dump
+.Sh ALERT
+UFS SUPPORT IS IN THE PROCESS OF BEING DEPRECATED.
+This copy of
+.Nm
+is supplied only for completeness and is expected to have deficiencies.
+It will likely disappear in the future.
+Earlier versions were shipped with the SUID and SGID bits set; this
+is no longer the case, and
+.Nm
+must be run as root.
 .Sh SYNOPSIS
 .Nm restore
 .Fl i
@@ -70,6 +81,10 @@
 .Op Fl f Ar file
 .Op Fl s Ar fileno
 .Op file ...
+.Pp
+.Nm rrestore
+is an alternate name for
+.Nm .
 .Pp
 .in -\\n(iSu
 (The

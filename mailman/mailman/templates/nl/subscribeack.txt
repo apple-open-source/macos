@@ -1,33 +1,36 @@
-Welkom op de %(real_name)s@%(host_name)s mailinglijst!
+Welkom op de %(real_name)s@%(host_name)s maillijst!
 %(welcome)s
-Om berichten te sturen naar deze lijst, stuur uw e-mails naar
-het volgende adres:
+Berichten naar deze lijst kunt u richten aan het volgende adres:
 
   %(emailaddr)s
 
-Algemene informatie over de mailinglijst kunt u vinden op:
+Algemene informatie over de maillijst kunt u vinden op:
 
   %(listinfo_url)s
 
-Als u ooit wilt uitschrijven of uw opties veranderen (bv. paswoord veranderen,
-digest aan of uitzetten, no-mail etc.), bezoek uw inschrijvingspagina op:
+Als u uzelf ooit wilt afmelden van deze lijst of uw persoonlijke
+instellingen wilt veranderen (bv. verzamelmails i.p.v losse mails
+ontvangen, mail tijdelijk stopzetten, uw e-mailadres of wachtwoord veranderen,
+etc.), bezoek dan uw persoonlijke instellingen-pagina op:
 
   %(optionsurl)s
 %(umbrella)s
-Dergelijke wijzigingen kunt u ook doen via e-mail door een bericht te sturen aan:
+Dergelijke wijzigingen kunt u ook doorgeven door een e-mailbericht te
+sturen aan:
 
   %(real_name)s-request@%(host_name)s
 
-met het woord 'help' in de onderwerp/subject regel of in de tekst zelf. U
-ontvangt dan een bericht terug met aanwijzingen.
+met het woord 'help' (zonder de aanhalingstekens) in de onderwerp-regel
+of de tekst. U ontvangt vervolgens een bericht terug met aanwijzingen.
 
-Voor dergelijke wijzigingen heeft u een paswoord nodig. Deze is:
+Om uw instellingen te veranderen heeft u een wachtwoord nodig.
+Dit is:
 
   %(password)s
 
-Normaal gesproken zal Mailman u iedere maand op de hoogte houden van
-uw %(host_name)s mailinglijst paswoord. Deze mogelijkheid kunt u echter
-ook uitzetten als u dat wilt. Deze maandelijkse berichten zullen ook aanwijzingen
-bevatten over hoe u kunt uitschrijven of hoe u uw opties kunt veranderen.
-Op uw inschrijvingspagina vindt u ook een knop die, als u daarop klikt, uw
-huidige paswoord via e-mail naar u toestuurt.
+Normaal gesproken zal Mailman u iedere maand een herinnering sturen met
+uw %(host_name)s maillijst wachwoord, maar u kunt deze optie desgewenst
+inactiveren. De maandelijkse herinneringen bevatten tevens aanwijzingen
+over hoe u zich kunt afmelden van de lijst en hoe u uw instellingen
+kunt veranderen. Tot slot vindt u op uw persoonlijke instellingen-pagina
+nog een button waarmee u uw wachtwoord aan uzelf kunt toesturen.

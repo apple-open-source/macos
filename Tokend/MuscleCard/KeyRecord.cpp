@@ -36,4 +36,3 @@ KeyRecord::~KeyRecord()
 {
 }
 
-/* arch-tag: BB932012-F573-11D8-A8CC-000A95C4302E */

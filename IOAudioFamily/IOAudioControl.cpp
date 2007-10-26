@@ -36,8 +36,8 @@ OSDefineMetaClassAndStructors(IOAudioControl, IOService)
 OSMetaClassDefineReservedUsed(IOAudioControl, 0);
 OSMetaClassDefineReservedUsed(IOAudioControl, 1);
 OSMetaClassDefineReservedUsed(IOAudioControl, 2);
+OSMetaClassDefineReservedUsed(IOAudioControl, 3);
 
-OSMetaClassDefineReservedUnused(IOAudioControl, 3);
 OSMetaClassDefineReservedUnused(IOAudioControl, 4);
 OSMetaClassDefineReservedUnused(IOAudioControl, 5);
 OSMetaClassDefineReservedUnused(IOAudioControl, 6);
@@ -60,6 +60,24 @@ OSMetaClassDefineReservedUnused(IOAudioControl, 22);
 OSMetaClassDefineReservedUnused(IOAudioControl, 23);
 
 // New code
+
+// OSMetaClassDefineReservedUsed(IOAudioControl, 3);
+IOReturn IOAudioControl::createUserClient(task_t task, void *securityID, UInt32 type, IOAudioControlUserClient **newUserClient, OSDictionary *properties)
+{
+    IOReturn result = kIOReturnSuccess;
+    IOAudioControlUserClient *userClient;
+    
+    userClient = IOAudioControlUserClient::withAudioControl(this, task, securityID, type, properties);
+    
+    if (userClient) {
+        *newUserClient = userClient;
+    } else {
+        result = kIOReturnNoMemory;
+    }
+    
+    return result;
+}
+
 void IOAudioControl::sendChangeNotification(UInt32 notificationType)
 {
     OSCollectionIterator *iterator;
@@ -709,12 +727,57 @@ IOReturn IOAudioControl::createUserClient(task_t task, void *securityID, UInt32 
 
 IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 type, IOUserClient **handler)
 {
+#if __i386__
+	return kIOReturnUnsupported;
+#else
     IOReturn result = kIOReturnSuccess;
     IOAudioControlUserClient *client = NULL;
     
     audioDebugIOLog(3, "IOAudioControl[%p]::newUserClient()", this);
 
     result = createUserClient(task, securityID, type, &client);
+    
+    if ((result == kIOReturnSuccess) && (client != NULL)) {
+        if (!client->attach(this)) {
+            client->release();
+            result = kIOReturnError;
+        } else if (!client->start(this) || !userClients) {
+            client->detach(this);
+            client->release();
+            result = kIOReturnError;
+        } else {
+            IOCommandGate *cg;
+            
+            cg = getCommandGate();
+            
+            if (cg) {
+                result = cg->runAction(addUserClientAction, client);
+    
+                if (result == kIOReturnSuccess) {
+                    *handler = client;
+                }
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+
+    return result;
+#endif
+}
+
+IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 type, OSDictionary *properties, IOUserClient **handler)
+{
+    IOReturn result = kIOReturnSuccess;
+    IOAudioControlUserClient *client = NULL;
+    
+	if (kIOReturnSuccess == newUserClient(task, securityID, type, handler)) {
+		return kIOReturnSuccess;
+	}	
+	
+    audioDebugIOLog(3, "IOAudioControl[%p]::newUserClient()", this);
+
+    result = createUserClient(task, securityID, type, &client, properties);
     
     if ((result == kIOReturnSuccess) && (client != NULL)) {
         if (!client->attach(this)) {

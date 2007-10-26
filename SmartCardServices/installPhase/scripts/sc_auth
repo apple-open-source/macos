@@ -1,0 +1,148 @@
+#!/bin/bash
+#
+# sc_auth - smart card authorization setup script
+#
+# You can log in with a smart card if the authentication_authority field
+# of your user record contains an entry of the form
+#	;pubkeyhash;THEHASH
+# where THEHASH is the hex encoding of the SHA1 of the public key to be used.
+# (In keychains, this is the value in the Label attribute of keys, and of
+# the PublicKeyHash # attribute of certificate records.)
+#
+# This script allows you to get the hash from a smartcard, and to create
+# the appropriate authority entry in a user account. It also lets you list
+# and delete them. It works as is for (local) NetInfo directories. If you
+# use LDAP or more exotic directory sources, you'll have to find your own
+# way to store the authentication_authority information, but the workflow
+# is the same. Feel free to hack.
+#
+# This script assumes the Tiger version of the /usr/bin/security command.
+# It will probably not work (without modification) with future versions.
+#
+# This script has been updated to use the dscl command in place of the
+# deprecated nicl command. To use the standard name in the header file:
+#	/System/Library/Frameworks/DirectoryService.framework/Headers/DirServicesConst.h
+# we have replaced "authentication_authority" with "AuthenticationAuthority"
+
+#set -x
+
+# general functions
+die() { echo "$*" 1>&2; exit 1; }
+note() { [ $verbose = yes ] && echo "$*" 1>&2; }
+
+usage() {
+cat <<EOU
+Usage:	$(basename $0) accept [-v] [-u user] [-d domain] [-k keyname] # by key on inserted card(s)
+	$(basename $0) accept [-v] [-u user] [-d domain] -h hash # by known pubkey hash
+	$(basename $0) remove [-v] [-u user] [-d domain] # remove all public keys for this user
+	$(basename $0) hash [-k keyname] # print hashes for keys on inserted card(s)
+	$(basename $0) list [-v] [-u user] [-d domain] # list pubkey hashes that can authenticate this user
+EOU
+exit 2
+}
+
+# first argument is a command word
+[ -n "$1" ] || usage
+command=$1; shift
+
+# parse options
+user=${USER:-$(logname)}
+keyname=
+hash=
+verbose=no
+domain="."
+while getopts d:h:k:u:v arg; do
+  case $arg in
+  d)	domain="$OPTARG";;
+  h)	hash="$OPTARG";;
+  k)	keyname="$OPTARG";;
+  u)	user="$OPTARG";;
+  v)	verbose=yes;;
+  esac
+done
+shift $(($OPTIND - 1))
+
+
+#
+# Using "security dump-keychain", extract the public key hash for a key
+# on a smartcard and print it to stdout.
+# The optional argument is a regular expression to match against the
+# print name of the key.
+# Prints all matching keys; aborts if none are found.
+#
+hash_for_key() {
+  # hash_for_key [string in name]
+  string=${1:-'.*'}
+  HOME=/no/where /usr/bin/security dump-keychain |
+  awk -v RE="$string" '
+	/^    0x00000001/	{
+		if (matched = ($2 ~ RE)) { name=$0; sub("^.*<blob>=\"", "", name); sub("\"$", "", name); count++; }}
+	/^    0x00000006/	{
+		if (matched) { hash=$2; sub("<blob>=0x", "", hash); print hash, name; }}
+  '
+  HOME=/no/where /usr/bin/security dump-keychain |
+  awk -v RE="$string" '
+	/^    0x01000000/	{
+		if (matched = ($2 ~ RE)) { name=$0; sub("^.*<blob>=\"", "", name); sub("\"$", "", name); count++; }}
+	/^    0x06000000/	{
+		if (matched) { hash=$2; sub("<blob>=0x", "", hash); print hash, name; }}
+  '
+}
+
+
+get_hash() {
+  if [ -n "$hash" ]; then	# passed in
+	echo "$hash"
+  else						# find it
+	hash_for_key "$keyname" |
+	(
+	  read hash rest
+	  [ -n "$hash" ] || die "No matching keys found"
+	  [ $verbose = yes ] && note "Using key \"$rest\""
+	  echo $hash
+	)
+  fi
+}
+
+
+accept_user() {
+  local hash="$1"
+  [ -n "$hash" ] || die "No hash specified"
+  dscl "$domain" -append "/Users/$user" AuthenticationAuthority ";pubkeyhash;$hash"
+}
+
+remove_user() {
+  set -- $(dscl "$domain" -read "/Users/$user" AuthenticationAuthority)
+  shift		# skip authentication_authority: header
+  while [ -n "$1" ]; do
+	case "$1" in
+	\;pubkeyhash\;*)
+	  dscl "$domain" -delete "/Users/$user" AuthenticationAuthority "$1"
+	  [ $verbose = yes ] && note "Removed $1"
+	  ;;
+	esac
+	shift
+  done
+}
+
+list_hashes() {
+  set -- $(dscl "$domain" -read "/Users/$user" AuthenticationAuthority)
+  shift		# skip authentication_authority: header
+  while [ -n "$1" ]; do
+	case "$1" in
+	\;pubkeyhash\;*)
+	  echo $1 | sed -e 's/;pubkeyhash;//'
+	  ;;
+	esac
+	shift
+  done
+}
+
+
+case "$command" in
+  hash)		hash_for_key "$keyname";;
+  accept)	accept_user $(get_hash);;
+  remove)	remove_user;;
+  list)		list_hashes;;
+  *)		usage;;
+esac

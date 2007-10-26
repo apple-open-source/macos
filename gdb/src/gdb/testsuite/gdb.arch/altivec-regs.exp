@@ -32,14 +32,9 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-if [istarget "powerpc-apple-*"] {
-    set vrbase "v"
-    set compile_flags { debug additional_flags=-w additional_flags=-faltivec }
-} elseif [istarget "powerpc-*"] {
-    set vrbase "vr"
-    set compile_flags { debug additional_flags=-w }
-} else {
+if {![istarget "powerpc*"] || [skip_altivec_tests]} then {
     verbose "Skipping altivec register tests."
+    verbose -log "Skipping altivec register tests."
     return
 }
 
@@ -47,7 +42,25 @@ set testfile "altivec-regs"
 set binfile ${objdir}/${subdir}/${testfile}
 set srcfile ${testfile}.c
 
-if  { [gdb_compile ${srcdir}/${subdir}/${srcfile} ${binfile} executable ${compile_flags}] != "" } {
+set compile_flags {debug additional_flags=-w}
+if [get_compiler_info $binfile] {
+    warning "get_compiler failed"
+    return -1
+}
+
+if { [istarget "powerpc-apple-*"] } {
+    set vrbase "v"
+    set compile_flags { debug additional_flags=-w additional_flags=-faltivec }
+} elseif { [test_compiler_info gcc*] } {
+    set compile_flags "$compile_flags additional_flags=-maltivec"
+} elseif { [test_compiler_info xlc*] } {
+    set compile_flags "$compile_flags additional_flags=-qaltivec"
+} else {
+    warning "unknown compiler"
+    return -1
+}
+
+if  { [gdb_compile ${srcdir}/${subdir}/${srcfile} ${binfile} executable $compile_flags] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 

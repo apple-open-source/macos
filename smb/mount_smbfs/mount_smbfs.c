@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved. 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,12 +31,12 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: mount_smbfs.c,v 1.28.44.3 2005/08/12 23:18:35 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/errno.h>
 #include <sys/mount.h>
+#include <URLMount/URLMount.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -45,10 +47,7 @@
 #include <stdlib.h>
 #include <err.h>
 #include <sysexits.h>
-
 #include <cflib.h>
-
-#include <Kerberos/KerberosLogin.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
@@ -57,18 +56,16 @@
 
 #include <fs/smbfs/smbfs.h>
 
-#include "mntopts.h"
+#include <mntopts.h>
 
-static char mount_point[MAXPATHLEN + 1];
 static void usage(void);
 
 static struct mntopt mopts[] = {
 	MOPT_STDOPTS,
+	{ "streams",	0, SMBFS_MNT_STREAMS_ON, 1 },
+	{ "soft",	0, SMBFS_MNT_SOFT, 1 },
 	{ NULL, 0, 0, 0 }
 };
-
-
-extern KLStatus __KLSetHomeDirectoryAccess (KLBoolean inAllowHomeDirectoryAccess);
 
 static char *readstring(int fd)
 {
@@ -79,9 +76,9 @@ static char *readstring(int fd)
 	bytes_read = read(fd, &stringlen, sizeof stringlen);
 	if (bytes_read != sizeof stringlen) {
 		if (bytes_read < 0) {
-			errx(EIO, "error reading from authentication pipe: %s", strerror(errno));
+			err(EX_IOERR, "error reading from authentication pipe: ");
 		} else
-			errx(EINVAL, "error reading from authentication pipe: expected %lu bytes, got %ld",
+			errx(EX_USAGE, "error reading from authentication pipe: expected %lu bytes, got %ld",
 				 (unsigned long)sizeof stringlen, (long)bytes_read);
 	}
 	
@@ -91,14 +88,14 @@ static char *readstring(int fd)
 	stringlen = ntohl(stringlen);
 	string = malloc(stringlen + 1);
 	if (string == NULL)
-		errx(errno, "can't allocate memory for string: %s", strerror(errno));
+		err(EX_UNAVAILABLE, "can't allocate memory for string: ");
 	
 	bytes_read = read(fd, string, stringlen);
-	if (bytes_read != (ssize_t)stringlen) {
+	if (bytes_read != stringlen) {
 		if (bytes_read < 0)
-			errx(EIO, "error reading from authentication pipe: %s", strerror(errno));
+			err(EX_IOERR, "error reading from authentication pipe: ");
 		else
-			errx(EINVAL, "error reading from authentication pipe: expected %u bytes, got %ld",
+			errx(EX_USAGE, "error reading from authentication pipe: expected %u bytes, got %ld",
 				 stringlen, (long)bytes_read);
 	}
 	string[stringlen] = '\0';
@@ -108,210 +105,129 @@ static char *readstring(int fd)
 int
 main(int argc, char *argv[])
 {
-	struct smb_ctx sctx, *ctx = &sctx;
-	struct smbfs_args mdata;
+	CFMutableDictionaryRef mOptions;
+	CFNumberRef numRef;
+	struct smb_ctx *ctx = NULL;
+	char mount_point[MAXPATHLEN];
+	CFStringRef	mountRef = NULL;
 	struct stat st;
-	extern void dropsuid();
-	extern int loadsmbvfs();
-	struct vfsconf vfc;
 	char *next;
-	int opt, error, mntflags, caseopt;
+	const char *cp;
+	int opt;
 	int authpipe = -1;
+	char * url = NULL;
+	int error = 0;
+	int mntflags = 0;
+	int altflags = 0;
+	mode_t	mode;
+	mntoptparse_t mp;
+	int prompt_user = (isatty(STDIN_FILENO)) ? TRUE : FALSE;
 	
-	dropsuid();
-	if (argc == 2) {
-		if (strcmp(argv[1], "-h") == 0) {
-			usage();
-		} else if (strcmp(argv[1], "-v") == 0) {
-			errx(EX_OK, "version %d.%d.%d", SMBFS_VERSION / 100000,
-			    (SMBFS_VERSION % 10000) / 1000,
-			    (SMBFS_VERSION % 1000) / 100);
-		}
-	}
-	if (argc < 3)
-		usage();
-
-	error = getvfsbyname(SMBFS_VFSNAME, &vfc);
-	if (error) {
-		error = loadsmbvfs();
-		error = getvfsbyname(SMBFS_VFSNAME, &vfc);
-	}
-	if (error)
-		errx(EX_OSERR, "SMB filesystem is not available");
-
-	error = smb_lib_init();
-	if (error)
-		exit(error);
-
-	mntflags = error = 0;
-	bzero(&mdata, sizeof(mdata));
-	mdata.uid = (uid_t)-1;
-	mdata.gid = (gid_t)-1;
-	caseopt = SMB_CS_NONE;
-
-	error = smb_ctx_init(ctx, argc, argv, SMBL_SHARE, SMBL_SHARE, SMB_ST_DISK);
-	if (error)
-		exit(error);
-	error = smb_ctx_readrc(ctx);
-	if (error)
-		exit(error);
-	if (smb_rc)
-		rc_close(smb_rc);
-
-	while ((opt = getopt(argc, argv, STDPARAM_OPT"p:c:d:f:g:l:n:o:u:w:x:")) != -1) {
+	mOptions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
+										&kCFTypeDictionaryValueCallBacks);
+	while ((opt = getopt(argc, argv, "Nvhp:d:f:o:")) != -1) {
 		switch (opt) {
-		    case STDPARAM_ARGS:
-			error = smb_ctx_opt(ctx, opt, optarg);
-			if (error)
-				exit(error);
-			break;
 		    case 'p':
-			errno = 0;
-			authpipe = strtol(optarg, &next, 0);
-			if (errno || (next == optarg) || (*next != 0))
-				errx(EX_USAGE, "invalid value for authentication pipe FD");
-			break;
-		    case 'u': {
-			struct passwd *pwd;
-
-			pwd = isdigit(optarg[0]) ?
-			    getpwuid(atoi(optarg)) : getpwnam(optarg);
-			if (pwd == NULL)
-				errx(EX_NOUSER, "unknown user '%s'", optarg);
-			mdata.uid = pwd->pw_uid;
-			break;
-		    }
-		    case 'g': {
-			struct group *grp;
-
-			grp = isdigit(optarg[0]) ?
-			    getgrgid(atoi(optarg)) : getgrnam(optarg);
-			if (grp == NULL)
-				errx(EX_NOUSER, "unknown group '%s'", optarg);
-			mdata.gid = grp->gr_gid;
-			break;
-		    }
-		    case 'd':
-			errno = 0;
-			mdata.dir_mode = strtol(optarg, &next, 8);
-			if (errno || *next != 0)
-				errx(EX_DATAERR, "invalid value for directory mode");
-			break;
-		    case 'f':
-			errno = 0;
-			mdata.file_mode = strtol(optarg, &next, 8);
-			if (errno || *next != 0)
-				errx(EX_DATAERR, "invalid value for file mode");
-			break;
-		    case '?':
-			usage();
-			/*NOTREACHED*/
-		    case 'n': {
-			char *inp, *nsp;
-
-			nsp = inp = optarg;
-			while ((nsp = strsep(&inp, ",;:")) != NULL) {
-				if (strcasecmp(nsp, "LONG") == 0)
-					mdata.flags |= SMBFS_MOUNT_NO_LONG;
-				else
-					errx(EX_DATAERR, "unknown suboption '%s'", nsp);
-			}
-			break;
-		    };
-		    case 'o':
-			getmntopts(optarg, mopts, &mntflags, 0);
-			break;
-		    case 'c':
-			switch (optarg[0]) {
-			    case 'l':
-				caseopt |= SMB_CS_LOWER;
+				errno = 0;
+				authpipe = strtol(optarg, &next, 0);
+				if (errno || (next == optarg) || (*next != 0))
+					errx(EX_NOUSER, "invalid value for authentication pipe FD");
 				break;
-			    case 'u':
-				caseopt |= SMB_CS_UPPER;
+		    case 'd':	/* XXX Not sure we should even support this anymore */
+				errno = 0;
+				mode = strtol(optarg, &next, 8);
+				if (errno || *next != 0)
+					errx(EX_DATAERR, "invalid value for directory mode");
+				numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt16Type, &mode);
+				if ((mOptions == NULL) || (numRef == NULL))
+					errx(EX_NOUSER, "option failed '%s'", optarg);
+				CFDictionarySetValue (mOptions, kdirModeKey, numRef);
+				CFRelease(numRef);
 				break;
-			    default:
-                                errx(EX_DATAERR, "invalid suboption '%c' for -c",
-				    optarg[0]);
-			}
+		    case 'f':	/* XXX Not sure we should even support this anymore */
+				errno = 0;
+				mode = strtol(optarg, &next, 8);
+				if (errno || *next != 0)
+					errx(EX_DATAERR, "invalid value for file mode");
+				numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt16Type, &mode);
+				if ((mOptions == NULL) || (numRef == NULL))
+					errx(EX_NOUSER, "option failed '%s'", optarg);
+				CFDictionarySetValue (mOptions, kfileModeKey, numRef);
+				CFRelease(numRef);
+				break;
+			case 'N':
+				prompt_user = FALSE;
+				break;
+			case 'o':
+				mp = getmntopts(optarg, mopts, &mntflags, &altflags);
+				if (mp == NULL)
+					err(1, NULL);
+				freemntopts(mp);
 			break;
-		    /*
-		     * XXX FIXME TODO HACK
-		     * Ill advised temporary hack, for automount feature
-		     * freeze only.  Design is seriously flawed.
-		     * This implements a mount-all.  Unfortunately,
-		     * servers have been known to have >15000 users, and
-		     * the common practice is one sharepoint per user.
-		     * Use of this hack with more than a small number of
-		     * sharepoints per server will at best make the client
-		     * hang up for a while, and at worst it will crash
-		     * servers. 
-		     * A better design involves automount "triggers"
-		     * for each sharepoint, so mounts are only attempted
-		     * when actually needed.
-		     */
-		    case 'x':
-			if (!isdigit(optarg[0]))
-				errx(EX_USAGE, "non-numeric mount count '%s'",
-				     optarg);
-			ctx->ct_maxxxx = atoi(optarg);
-			ctx->ct_flags |= SMBCF_XXX;
-			ctx->ct_minlevel = SMBL_VC;
-			ctx->ct_maxlevel = SMBL_VC;
-			if (mdata.file_mode == 0)
-				mdata.file_mode = S_IRWXU;
-			if (mdata.dir_mode == 0)
-				mdata.dir_mode = S_IRWXU;
-			break;
+			case 'v':
+				errx(EX_OK, "version %d.%d.%d", 
+					SMBFS_VERSION / 100000, (SMBFS_VERSION % 10000) / 1000, (SMBFS_VERSION % 1000) / 100);
+				break;
+			case '?':
+			case 'h':
 		    default:
-			usage();
+				usage();
+				break;
 		}
 	}
+	/* We now have the mount flags and alternative mount flags add them to the mount options */
+	if (mOptions) {
+		CFNumberRef numRef = CFNumberCreate (NULL, kCFNumberSInt32Type, &mntflags);
 
-	if (optind == argc - 2)
+		if (numRef) {
+			CFDictionarySetValue (mOptions, kMountFlagsKey, numRef);
+			CFRelease(numRef);
+		}
+		if (altflags & SMBFS_MNT_STREAMS_ON)
+			CFDictionarySetValue (mOptions, kStreamstMountKey, kCFBooleanTrue);
+		if (altflags & SMBFS_MNT_SOFT)
+			CFDictionarySetValue (mOptions, kSoftMountKey, kCFBooleanTrue);
+	}
+
+	/* Read in all the arguments, now get the URL */
+	for (opt = 1; opt < argc; opt++) {
+		cp = argv[opt];
+		if (strncmp(cp, "//", 2) != 0)
+			continue;
+		url = (char *)cp;
 		optind++;
+		break;
+	}
 	
-	if (optind != argc - 1)
+	/* At this point we need a URL and a Mount Point  */
+	if ((!url) || (optind != (argc - 1)))
 		usage();
+	
+	/* Make sure everything is correct */
 	realpath(unpercent(argv[optind]), mount_point);
-
 	if (stat(mount_point, &st) == -1)
 		err(EX_OSERR, "could not find mount point %s", mount_point);
+	
 	if (!S_ISDIR(st.st_mode)) {
 		errno = ENOTDIR;
 		err(EX_OSERR, "can't mount on %s", mount_point);
 	}
-/*
-	if (smb_getextattr(mount_point, &einfo) == 0)
-		errx(EX_OSERR, "can't mount on %s twice", mount_point);
-*/
-	if (mdata.uid == (uid_t)-1)
-		mdata.uid = st.st_uid;
-	if (mdata.gid == (gid_t)-1)
-		mdata.gid = st.st_gid;
-	if (mdata.file_mode == 0 )
-		mdata.file_mode = st.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
-	if (mdata.dir_mode == 0) {
-		mdata.dir_mode = mdata.file_mode;
-		if (mdata.dir_mode & S_IRUSR)
-			mdata.dir_mode |= S_IXUSR;
-		if (mdata.dir_mode & S_IRGRP)
-			mdata.dir_mode |= S_IXGRP;
-		if (mdata.dir_mode & S_IROTH)
-			mdata.dir_mode |= S_IXOTH;
-	}
-
-	/*
-	 * If this is being done for the automounter, do *NOT* let
-	 * Kerberos touch the user's home directory, as we might be
-	 * trying to mount the user's home directory, and any attempt
-	 * by Kerberos to touch the user's home directory in the
-	 * process will cause it, and thus us, to stall waiting for
-	 * the automounter to mount the user's home directory, but
-	 * the automounter is waiting for *us* to finish mounting
-	 * it....
-	 */
-	if (mntflags & MNT_AUTOMOUNTED)
-		__KLSetHomeDirectoryAccess(0);
+	
+	mountRef = CFStringCreateWithCString(NULL, mount_point, kCFStringEncodingUTF8);
+	if (mountRef == NULL)
+		err(EX_NOPERM, "couldn't create mount point reference");
+	
+	/* We should have all our arguments by now load the kernel and initialize the library */
+	if ((errno = smb_load_library(NULL)) != 0)
+		err(EX_UNAVAILABLE, "failed to load the smb library");
+	
+	/* Initialize the context structure */
+	if ((errno = smb_ctx_init(&ctx, url, SMBL_SHARE, SMB_ST_DISK, (mntflags & MNT_AUTOMOUNTED))) != 0)
+		err(EX_UNAVAILABLE, "failed to intitialize the smb library");
+	
+	/* Force a private session, if being automounted */
+	if (mntflags & (MNT_DONTBROWSE | MNT_AUTOMOUNTED))
+		ctx->ct_ssn.ioc_opt |= SMBV_PRIVATE_VC;
 
  	/*
 	 * If "-p" was specified, read the user name and password from the pipe; If 
@@ -336,166 +252,60 @@ main(int argc, char *argv[])
 		}
 		close(authpipe);
 	}
-
-	/*
-	 * For now, let connection be private for this mount
-	 */
-	ctx->ct_ssn.ioc_opt |= SMBVOPT_PRIVATE;
-	ctx->ct_ssn.ioc_owner = ctx->ct_sh.ioc_owner = st.st_uid;
-	ctx->ct_ssn.ioc_group = ctx->ct_sh.ioc_group = mdata.gid;
-	opt = 0;
-	if (mdata.dir_mode & S_IXGRP)
-		opt |= SMBM_EXECGRP;
-	if (mdata.dir_mode & S_IXOTH)
-		opt |= SMBM_EXECOTH;
-	ctx->ct_ssn.ioc_rights |= opt;
-	ctx->ct_sh.ioc_rights |= opt;
-	/*
-	 * If we got our password from the keychain and get an
-	 * authorization error, we come back here to obtain a new
-	 * password from user input.
-	 */
-reauth:
-	error = smb_ctx_resolve(ctx);
-	if (error)
-		exit(error);
-	if (!(ctx->ct_flags & SMBCF_XXX)) {
-again:
-		error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
-		if (error == ENOENT && ctx->ct_origshare) {
-			strcpy(ctx->ct_sh.ioc_share, ctx->ct_origshare);
-			free(ctx->ct_origshare);
-			ctx->ct_origshare = NULL;
-			goto again; /* try again using share name as given */
-		}
-		if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
-			ctx->ct_ssn.ioc_password[0] = '\0';
-			smb_error("main(lookup): bad keychain entry", 0);
-			ctx->ct_flags |= SMBCF_KCBAD;
-			goto reauth;
-		}
-	}
-	if (error)
-		exit(error);
-	strcpy(mdata.mount_point, mount_point);
-	mdata.version = SMBFS_VERSION;
-	mdata.dev = ctx->ct_fd;
-	mdata.caseopt = caseopt;
-	if (ctx->ct_flags & SMBCF_XXX) {
-		char **cpp = ctx->ct_xxx;
-
-		if (!cpp) { /* no sharepoints found? */
-			smb_ctx_done(ctx);
-			return 0;
-		}
-		/*
-		 * Loop thru shares, creating directories, if needed,
-		 * before mounting.  Directories created are not deleted.
-		 * Authentication and other errors are expected & ignored
-		 */
-		for ( ; *cpp; cpp++) {
-			if ((unsigned int)snprintf(mdata.mount_point,
-				     sizeof mdata.mount_point, "%s/%s",
-				     mount_point, *cpp) >=
-			    sizeof mdata.mount_point) {
-				smb_error("buffer overflow (attack?) on %s", 0,
-					  mdata.mount_point);
-				continue;
-			}
-			error = smb_ctx_setshare(ctx, *cpp, SMB_ST_DISK);
-			if (error) {
-				smb_error("x setshare error %d on %s", 0,
-					  error, mdata.mount_point);
-				continue;
-			}
-lookup:
-			error = smb_ctx_lookup(ctx, SMBL_SHARE, SMBLK_CREATE);
-			if (error) {
-				smb_error("x lookup error: %s", error,
-					  mdata.mount_point);
-				if (error == ENOENT && ctx->ct_origshare) {
-					strcpy(ctx->ct_sh.ioc_share, ctx->ct_origshare);
-					free(ctx->ct_origshare);
-					ctx->ct_origshare = NULL;
-				       
-					goto lookup; /* retry with share name as given */
-				}
-
-				continue;
-			}
-			mdata.dev = ctx->ct_fd;
-			(void)rmdir(mdata.mount_point);
-			error = mkdir(mdata.mount_point, mdata.dir_mode);
-			if (error) {
-				smb_error("x mkdir error: %s", error,
-					  mdata.mount_point);
-				/*
-				 * Most mkdir errors will recur.  For those
-				 * we could break rather than continue.
-				 */
-				error = smb_ctx_tdis(ctx);
-				if (error)	/* unable to clean up?! */
-					exit(error);
-				continue;
-			}
-	                /*      
-                	 * Name + null  must fit in mdata.utf8_servname.
-			 * strncpy() won't work because a truncated 
-			 * server name will cause problems. If the 
-			 * string is null smbfs_mount will use the 
-			 * netbios name instead. 
-                 	 */      
-			mdata.utf8_servname[0] = 0;
-                	if (strlen(ctx->ct_utf8_servname) < sizeof(mdata.utf8_servname))
-				strcpy (mdata.utf8_servname, ctx->ct_utf8_servname);
-			else
-				smb_error("warning: server name too long: %s", 0, ctx->ct_utf8_servname);
-			error = mount(SMBFS_VFSNAME, mdata.mount_point,
-				      mntflags, (void*)&mdata);
-			if (error) {
-				smb_error("mount error: %s", error,
-					  mdata.mount_point);
-				error = smb_ctx_tdis(ctx);
-				if (error)	/* unable to clean up?! */
-					exit(error);
-				continue;
-			}
-		}
-		cpp++;
-		free(*cpp);
-		free(ctx->ct_xxx);
-		ctx->ct_xxx = NULL;
-		smb_ctx_done(ctx);
-		return error;
+	
+	error  = smb_connect(ctx);
+	if (error) {
+		errno = error;
+		err(EX_NOHOST, "server connection failed");
 	}
 	
-        /*      
-         * Name + null  must fit in mdata.utf8_servname.
-	 * strncpy() won't work because a truncated 
-	 * server name will cause problems. If the 
-	 * string is null smbfs_mount will use the 
-	 * netbios name instead. 
-         */      
-	mdata.utf8_servname[0] = 0;
-        if (strlen(ctx->ct_utf8_servname) < sizeof(mdata.utf8_servname))
-		strcpy (mdata.utf8_servname, ctx->ct_utf8_servname);
-	else
-		smb_error("warning: server name too long: %s", 0, ctx->ct_utf8_servname);
-	error = mount(SMBFS_VFSNAME, mdata.mount_point, mntflags,
-		      (void*)&mdata);
-	if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
-		ctx->ct_ssn.ioc_password[0] = '\0';
-		smb_error("main(mount): bad keychain entry", 0);
-		ctx->ct_flags |= SMBCF_KCBAD;
-		goto reauth;
-	}
-	if (!error)
-		smb_save2keychain(ctx);
-	smb_ctx_done(ctx);
+	/* The server supports Kerberos then see we can connect */
+	if (ctx->ct_vc_flags & SMBV_KERBEROS_SUPPORT)
+		error = smb_session_security(ctx, NULL, NULL);
+	else if (ctx->ct_ssn.ioc_opt & SMBV_EXT_SEC)
+		error = ENOTSUP;
+	else 
+		error = smb_session_security(ctx, NULL, NULL);
+		
+	
+	/* Either Kerberos failed or they do extended security, but not Kerberos */ 
 	if (error) {
-		smb_error("mount error: %s", error, mdata.mount_point);
-		exit(errno);
+	    	if (error < 0) /* Could be an expired password error */
+		    error = EAUTH;
+		ctx->ct_ssn.ioc_opt &= ~SMBV_EXT_SEC;	
+		ctx->ct_flags &= ~SMBCF_CONNECT_STATE;		
+		error  = smb_connect(ctx);
+		if (error) {
+			errno = error;
+			err(EX_NOHOST, "server connection failed");
+		}
+		/* need to command-line prompting for the password */
+		if (prompt_user && ((ctx->ct_flags & SMBCF_EXPLICITPWD) != SMBCF_EXPLICITPWD)) {
+			char passwd[SMB_MAXPASSWORDLEN + 1];
+
+			strncpy(passwd, getpass(SMB_PASSWORD_KEY ":"), SMB_MAXPASSWORDLEN);
+			smb_ctx_setpassword(ctx, passwd);
+		}
+		error = smb_session_security(ctx, NULL, NULL);
+		if (error) {
+	    		if (error < 0) /* Could be an expired password error */
+		    		error = EAUTH;
+			errno = error;
+			err(EX_NOPERM, "server rejected the connection");
+		}
 	}
+		
+	error = smb_mount(ctx, mountRef, mOptions, NULL);
+	if (error) {
+		errno = error;
+		err(error, "mount error: %s", mount_point);
+	}
+	/* We are done clean up anything left around */
+	if (mountRef)
+		CFRelease(mountRef);
+	if (mOptions)
+		CFRelease(mOptions);
+	smb_ctx_done(ctx);
 	return 0;
 }
 
@@ -503,14 +313,9 @@ static void
 usage(void)
 {
 	fprintf(stderr, "%s\n",
-	"usage: mount_smbfs [-Nh]"
-	"  [-I host]\n"
-	"                   [-M cmode[/smode]] [-O cuid[:cgid]/suid[:sgid]]\n"
-	"                   [-R retrycount] [-T timeout]\n"
-	"                   [-U user] [-W workgroup]\n"
-	"                   [-d mode] [-f mode] [-g gid] [-n long] [-u uid]\n"
+	"usage: mount_smbfs [-Nh] [-d mode] [-f mode]\n"
 	"                   //"
-	"[workgroup;][user[:password]@]server[/share]"
+	"[domain;][user[:password]@]server[/share]"
 	" path");
 
 	exit (EX_USAGE);

@@ -1,0 +1,13 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -1852,6 +1852,8 @@ SHLIBEXT="so"
+ 			LDSHFLAGS="-bundle -flat_namespace -undefined suppress"
+ 			SHLIBEXT="dylib"
+ 			AC_DEFINE(STAT_ST_BLOCKSIZE,512)
++			AC_DEFINE(WITH_DARWIN_STATS, 1,
++			    [Whether Darwin stats are available])
+ 			;;
+ 
+ 		*)

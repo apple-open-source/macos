@@ -1,0 +1,36 @@
+--- /SourceCache/vim/vim-32/vim/src/ops.c	2006-04-30 08:13:44.000000000 -0700
++++ src/ops.c	2007-01-07 18:13:46.000000000 -0800
+@@ -57,6 +57,7 @@ static struct yankreg
+     char_u	**y_array;	/* pointer to array of line pointers */
+     linenr_T	y_size;		/* number of lines in y_array */
+     char_u	y_type;		/* MLINE, MCHAR or MBLOCK */
++    char_u	y_op_change;
+ #ifdef FEAT_VISUAL
+     colnr_T	y_width;	/* only set if y_type == MBLOCK */
+ #endif
+@@ -1102,6 +1103,7 @@ stuff_yank(regname, p)
+ 	y_current->y_array[0] = p;
+ 	y_current->y_size = 1;
+ 	y_current->y_type = MCHAR;  /* used to be MLINE, why? */
++	y_current->y_op_change = 0;
+     }
+     return OK;
+ }
+@@ -2767,6 +2769,7 @@ op_yank(oap, deleting, mess)
+ 
+     y_current->y_size = yanklines;
+     y_current->y_type = yanktype;   /* set the yank register type */
++    y_current->y_op_change = (oap->op_type == OP_CHANGE) && inindent(0);
+ #ifdef FEAT_VISUAL
+     y_current->y_width = 0;
+ #endif
+@@ -3219,6 +3222,9 @@ do_put(regname, dir, count, flags)
+ 	y_width = y_current->y_width;
+ #endif
+ 	y_size = y_current->y_size;
++	if (Unix2003_compat && y_size > 1 && y_type == MCHAR && curwin->w_cursor.col == 0 && y_current->y_op_change) {
++	    y_type = MLINE;
++	}
+ 	y_array = y_current->y_array;
+     }
+ 

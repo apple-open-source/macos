@@ -2,8 +2,8 @@
 
   util.h -
 
-  $Author: matz $
-  $Date: 2004/09/21 09:35:28 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Thu Mar  9 11:55:53 JST 1995
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -61,6 +61,7 @@ char *ruby_getcwd _((void));
 #define my_getcwd() ruby_getcwd()
 
 double ruby_strtod _((const char*, char **));
+#undef strtod
 #define strtod(s,e) ruby_strtod(s,e)
 
 #endif /* UTIL_H */

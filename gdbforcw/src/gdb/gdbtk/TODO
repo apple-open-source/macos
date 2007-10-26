@@ -1,0 +1,113 @@
+If you find inaccuracies in this list, please send mail to
+insight@sources.redhat.com.  If you would like to work on any
+of these, you should consider sending mail to the same address, to
+find out whether anyone else is working on it.
+
+                New Features and Enhancements
+                =============================
+
+Display of the target program output.  Perhaps use the XTerm hack created
+by Tom.
+
+--
+
+Support for inserting breakpoints at arbitrary locations, perhaps adding an
+entry widget to the breakpoints window.
+
+--
+
+Support for hardware breakpoints and watchpoints (will need fixes in gdb).
+
+--
+
+"Disassembly from Memory" Window. Perhaps as a pane in place of the source
+code one.
+
+--
+
+Register Window capable of handling large number of registers, typed
+registers, registers organized in groups that can be shown/hidden and
+that provide for better screen organization.
+
+--
+
+Per-project preferences so that one can have a preferred target settings
+for each project (and environment variable and the current directory would
+be searched for the project preference file -- global preferences would
+still come from the users's home directory).
+
+--
+
+Reactivate the "Use this target?" confirmation box.  Do it independently of
+the above?
+
+--
+
+Add option to activate the Source Window from the signal popup box when
+the inferior program is signaled.
+
+                     Code Cleanups
+                     =============
+
+Reorganize the Source Memory code.
+
+--
+
+Clean up the class hierarchy.
+
+--
+
+Migrate to Tcl/Tk 8.3.2
+
+--
+
+Try BLT tree as an alternative to the Tix Tree, so we can drop Tix altogether.
+
+--
+
+Optional use of installed Tcl/Tk (keeping it available on the distribution)
+
+--
+
+Fix the gdbtk testsuite.
+
+--
+
+Enhance the test harness, perhaps migrating to the new SourceNavigator testing
+system.
+
+                 Architectural Improvements
+                 ==========================
+
+Decouple the GUI from gdb, running them as separate processes.
+
+--
+
+Separate the Tcl part from the Tk part to facilitate scripting.
+
+                        Bug Fixes
+                        =========
+
+Fix process attach, specially the process listing code.
+
+Fix Source Window so that Key shortcuts work (may not be possible without
+rewritting).
+
+Fix info popup annoyances (like trying to show a large array without even
+adding line breaks and showing up over right click menus).
+
+Fix command window command line recall that misses the arguments of
+commands that autoincrement their arguments.
+
+Fix function browser window problems.
+
+Maximization of a window affects preference sizing but forgets that maximized
+state was set.
+
+Taskbar "always on top" hides funcxtion combobox.
+
+-- 
+Fernando Nasser
+Red Hat Canada Ltd.                     E-Mail:  fnasser@cygnus.com
+2323 Yonge Street, Suite #300
+Toronto, Ontario   M4P 2C9

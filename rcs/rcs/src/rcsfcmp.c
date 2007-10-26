@@ -39,8 +39,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: rcsfcmp.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:38  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:38  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:32  wsanchez
  * Import of RCS 5.7
@@ -125,7 +125,7 @@ Report problems and direct all questions to:
 
 #include  "rcsbase.h"
 
-libId(fcmpId, "$Id: rcsfcmp.c,v 1.1.1.1 1999/04/23 01:43:38 wsanchez Exp $")
+libId(fcmpId, "$Id: rcsfcmp.c,v 1.1 1999/04/23 01:43:38 wsanchez Exp $")
 
 	static int discardkeyval P((int,RILE*));
 	static int

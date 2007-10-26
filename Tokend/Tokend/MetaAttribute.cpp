@@ -92,14 +92,14 @@ MetaAttribute::attribute(TokenContext *tokenContext, Record &record) const
 		if (!mCoder)
 		{
 			secdebug("coder",
-				"No coder for r: %p rid: 0x%08lX aid: %lu aix: %lu",
+				"No coder for r: %p rid: 0x%08X aid: %u aix: %u",
 				&record, mMetaRecord.relationId(), mAttributeId,
 				mAttributeIndex);
 			CssmError::throwMe(CSSMERR_DL_MISSING_VALUE);
 		}
 
 		secdebug("coder",
-			"Asking coder %p for r: %p rid: 0x%08lX aid: %lu aix: %lu",
+			"Asking coder %p for r: %p rid: 0x%08X aid: %u aix: %u",
 			mCoder, &record, mMetaRecord.relationId(), mAttributeId,
 			mAttributeIndex);
 		mCoder->decode(tokenContext, *this, record);
@@ -108,7 +108,7 @@ MetaAttribute::attribute(TokenContext *tokenContext, Record &record) const
 		if (!record.hasAttributeAtIndex(mAttributeIndex))
 		{
 			secdebug("coder",
-				"Coder %p did not set r: %p rid: 0x%08lX aid: %lu aix: %lu",
+				"Coder %p did not set r: %p rid: 0x%08X aid: %u aix: %u",
 				mCoder, &record, mMetaRecord.relationId(), mAttributeId,
 				mAttributeIndex);
 			CssmError::throwMe(CSSMERR_DL_MISSING_VALUE);
@@ -119,12 +119,12 @@ MetaAttribute::attribute(TokenContext *tokenContext, Record &record) const
 #ifndef NDEBUG
 	if (attribute.size() == 1)
 		secdebug("mscread",
-			"r: %p rid: 0x%08lX aid: %lu aix: %lu has: 1 value of length: %lu",
+			"r: %p rid: 0x%08X aid: %u aix: %u has: 1 value of length: %lu",
 			&record, mMetaRecord.relationId(), mAttributeId, mAttributeIndex,
 			attribute[0].Length);
 	else
 		secdebug("mscread",
-			"r: %p rid: 0x%08lX aid: %lu aix: %lu has: %lu values",
+			"r: %p rid: 0x%08X aid: %u aix: %u has: %u values",
 			&record, mMetaRecord.relationId(), mAttributeId, mAttributeIndex,
 			attribute.size());
 #endif		
@@ -134,4 +134,4 @@ MetaAttribute::attribute(TokenContext *tokenContext, Record &record) const
 
 
 }	// end namespace Tokend
-/* arch-tag: E959F780-DF80-11D8-B2A9-000A95C4302E */
+

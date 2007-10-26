@@ -1,0 +1,48 @@
+AOLserver README ($Id: README,v 1.5.14.1 2003/05/02 18:25:39 sas Exp $)
+
+PHP 4 supports AOLserver 3.0+ and AOLserver 4 out-of-the-box.
+
+Note that there might be thread-safety issues with thread-unsafe
+libraries/extensions.  Test thoroughly before you put anything
+into production.
+
+
+1.) Installing AOLserver
+
+    For AOLserver 4, ./configure; make; make install seems to be enough.
+
+2.) Install PHP
+
+    $ ./configure \
+        --with-aolserver=/path/to/installed/aolserver \
+        <other options>
+    $ make
+    $ make install
+
+3.) Enabling PHP in your config.tcl
+
+    Required steps:
+
+    Locate the modules section:
+
+        ns_section "ns/server/${servername}/modules"
+
+    Under that, add this line:
+
+        ns_param php ${bindir}/libphp4.so
+
+    Add a new section at the end of config.tcl to enable PHP support:
+
+        ns_section "ns/server/${servername}/module/php"
+        ns_param map *.php
+    
+    Now, all *.php files will be handled by PHP.
+
+    You can also configure INI variables. E.g.
+
+        ns_param php_value "session.auto_start 1"
+    
+=============================================================================
+This has been tested with AOLserver release 3.1/4.0.
+
+AOLserver support has been written by Sascha Schumann <sascha@schumann.cx>.

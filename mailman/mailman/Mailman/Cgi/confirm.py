@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Confirm a pending action via URL."""
 
@@ -308,8 +309,12 @@ def subscription_prompt(mlist, doc, cookie, userdesc):
 
 
 def subscription_cancel(mlist, doc, cookie):
-    # Discard this cookie
-    userdesc = mlist.pend_confirm(cookie)[1]
+    mlist.Lock()
+    try:
+        # Discard this cookie
+        userdesc = mlist.pend_confirm(cookie)[1]
+    finally:
+        mlist.Unlock()
     lang = userdesc.language
     i18n.set_language(lang)
     doc.set_language(lang)
@@ -366,6 +371,11 @@ def subscription_confirm(mlist, doc, cookie, cgidata):
             address that has already been unsubscribed.'''))
         except Errors.MMAlreadyAMember:
             doc.addError(_("You are already a member of this mailing list!"))
+        except Errors.MembershipIsBanned:
+            owneraddr = mlist.GetOwnerEmail()
+            doc.addError(_("""You are currently banned from subscribing to
+            this list.  If you think this restriction is erroneous, please
+            contact the list owners at %(owneraddr)s."""))
         except Errors.HostileSubscriptionError:
             doc.addError(_("""\
             You were not invited to this mailing list.  The invitation has
@@ -513,6 +523,12 @@ def addrchange_confirm(mlist, doc, cookie):
             bad_confirmation(doc, _('''Invalid confirmation string.  It is
             possible that you are attempting to confirm a request for an
             address that has already been unsubscribed.'''))
+        except Errors.MembershipIsBanned:
+            owneraddr = mlist.GetOwnerEmail()
+            realname = mlist.real_name
+            doc.addError(_("""%(newaddr)s is banned from subscribing to the
+            %(realname)s list.  If you think this restriction is erroneous,
+            please contact the list owners at %(owneraddr)s."""))
         else:
             # The response
             listname = mlist.real_name
@@ -777,7 +793,8 @@ def reenable_prompt(mlist, doc, cookie, list, member):
         <a href="%(listinfourl)s">list information page</a>.""")])
         return
 
-    date = time.strftime('%A, %B %d, %Y', info.date + (0,) * 6)
+    date = time.strftime('%A, %B %d, %Y',
+                         time.localtime(time.mktime(info.date + (0,)*6)))
     daysleft = int(info.noticesleft *
                    mlist.bounce_you_are_disabled_warnings_interval /
                    mm_cfg.days(1))

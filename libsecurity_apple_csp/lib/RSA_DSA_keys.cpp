@@ -36,13 +36,17 @@
 
 #define rsaKeyDebug(args...)	secdebug("rsaKey", ## args)
 
+
 /***
  *** RSA-style BinaryKey
  ***/
  
 /* constructor with optional existing RSA key */
+/* FIXME how to transmit OAEP params? */
 RSABinaryKey::RSABinaryKey(RSA *rsaKey)
-	: mRsaKey(rsaKey)
+	: mRsaKey(rsaKey),
+	  mOaep(false),
+	  mLabel(Allocator::standard())
 {
 }
 
@@ -54,8 +58,15 @@ RSABinaryKey::~RSABinaryKey()
 	}
 }
 
+void RSABinaryKey::setOaep(
+	const CSSM_DATA		&label)
+{
+	mLabel.copy(label);
+	mOaep = true;
+}
+
 void RSABinaryKey::generateKeyBlob(
-	Allocator 		&allocator,
+	Allocator			&allocator,
 	CssmData			&blob,
 	CSSM_KEYBLOB_FORMAT	&format,	/* IN/OUT */
 	AppleCSPSession		&session,
@@ -64,6 +75,8 @@ void RSABinaryKey::generateKeyBlob(
 {
 	bool			isPub;
 	CSSM_RETURN		crtn;
+	
+	/* FIXME get label from context here for OAEP */
 	
 	/* 
 	 * Here, the incoming default of CSSM_KEYBLOB_RAW_FORMAT_NONE
@@ -77,11 +90,19 @@ void RSABinaryKey::generateKeyBlob(
 					format = RSA_PUB_KEY_FORMAT;	// default
 					break;
 				case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
-					/* calculate digest on PKCS1 blob */
-					format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;	
+					if(mOaep) {
+						/* have to take digest of the whole thing including label */
+						format = CSSM_KEYBLOB_RAW_FORMAT_X509;
+					}
+					else {
+						/* calculate digest on PKCS1 blob */
+						format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;	
+					}
 					break;
 				case CSSM_KEYBLOB_RAW_FORMAT_PKCS1:
 				case CSSM_KEYBLOB_RAW_FORMAT_X509:
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSH:
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSH2:
 					break;
 				default:
 					CssmError::throwMe(CSSMERR_CSP_UNSUPPORTED_KEY_FORMAT);
@@ -94,12 +115,19 @@ void RSABinaryKey::generateKeyBlob(
 					format = RSA_PRIV_KEY_FORMAT;	
 					break;
 				case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
-					/* calculate digest on Public PKCS1 blob */
-					format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;	
+					if(mOaep) {
+						/* have to take digest of the whole thing including label */
+						format = CSSM_KEYBLOB_RAW_FORMAT_X509;
+					}
+					else {
+						/* calculate digest on PKCS1 blob */
+						format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;	
+					}
 					isPub = true;
 					break;
 				case CSSM_KEYBLOB_RAW_FORMAT_PKCS1:
 				case CSSM_KEYBLOB_RAW_FORMAT_PKCS8:
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSH:
 					break;
 				default:
 					CssmError::throwMe(CSSMERR_CSP_UNSUPPORTED_KEY_FORMAT);
@@ -110,11 +138,22 @@ void RSABinaryKey::generateKeyBlob(
 	}
 
 	CssmAutoData encodedKey(allocator);
-	if(isPub) {
-		crtn = RSAPublicKeyEncode(mRsaKey, format, encodedKey);
+	if(mOaep) {
+		CSSM_DATA label = mLabel;
+		if(isPub) {
+			crtn = RSAOAEPPublicKeyEncode(mRsaKey, &label, encodedKey);
+		}
+		else {
+			crtn = RSAOAEPPrivateKeyEncode(mRsaKey, &label, encodedKey);
+		}
 	}
 	else {
-		crtn = RSAPrivateKeyEncode(mRsaKey, format, encodedKey);
+		if(isPub) {
+			crtn = RSAPublicKeyEncode(mRsaKey, format, descData(), encodedKey);
+		}
+		else {
+			crtn = RSAPrivateKeyEncode(mRsaKey, format, descData(), encodedKey);
+		}
 	}
 	if(crtn) {
 		CssmError::throwMe(crtn);
@@ -181,7 +220,7 @@ void RSAKeyPairGenContext::generate(
 	if(keyBits > rsaMaxKeySize()) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY_LENGTH);
 	}
-				
+	
 	/* generate the private key */
 	rPrivBinKey.mRsaKey = RSA_generate_key(keyBits,
 		RSA_PUB_EXPONENT,
@@ -223,6 +262,7 @@ CSPKeyInfoProvider *RSAKeyInfoProvider::provider(
 {
 	switch(cssmKey.algorithm()) {
 		case CSSM_ALGID_RSA:
+		case CSSM_ALGMODE_PKCS1_EME_OAEP:
 			break;
 		default:
 			return NULL;
@@ -246,11 +286,18 @@ void RSAKeyInfoProvider::CssmKeyToBinary(
 {
 	*binKey = NULL;
 	RSA *rsaKey = NULL;
+	CSSM_DATA label = {0, NULL};
 	
-	/* first cook up an RSA key, then drop that into a BinaryKey */
-	rsaKey = rawCssmKeyToRsa(mKey);
+	/* first cook up an RSA key */
+	rsaKey = rawCssmKeyToRsa(mKey, label);
+	
+	/* now drop that into a BinaryKey */
 	RSABinaryKey *rsaBinKey = new RSABinaryKey(rsaKey);
 	*binKey = rsaBinKey;
+	if(label.Data) {
+		rsaBinKey->setOaep(label);
+		free(label.Data);
+	}
 }
 		
 /* 
@@ -260,14 +307,18 @@ void RSAKeyInfoProvider::QueryKeySizeInBits(
 	CSSM_KEY_SIZE &keySize)
 {
 	RSA *rsaKey = NULL;
+	CSSM_DATA label = {0, NULL};
 	
 	if(mKey.blobType() != CSSM_KEYBLOB_RAW) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_FORMAT);
 	}
-	rsaKey = rawCssmKeyToRsa(mKey);
+	rsaKey = rawCssmKeyToRsa(mKey, label);
 	keySize.LogicalKeySizeInBits = RSA_size(rsaKey) * 8;
 	keySize.EffectiveKeySizeInBits = keySize.LogicalKeySizeInBits;
 	RSA_free(rsaKey);
+	if(label.Data) {
+		free(label.Data);
+	}	
 }
 
 /* 
@@ -356,6 +407,7 @@ void DSABinaryKey::generateKeyBlob(
 				case CSSM_KEYBLOB_RAW_FORMAT_FIPS186:
 				case CSSM_KEYBLOB_RAW_FORMAT_X509:
 				case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSH2:
 					break;
 				default:
 					CssmError::throwMe(CSSMERR_CSP_UNSUPPORTED_KEY_FORMAT);
@@ -426,10 +478,10 @@ void DSABinaryKey::generateKeyBlob(
 	
 	CssmAutoData 	encodedKey(allocator);
 	if(isPub) {
-		crtn = DSAPublicKeyEncode(dsaToEncode, format, encodedKey);
+		crtn = DSAPublicKeyEncode(dsaToEncode, format, descData(), encodedKey);
 	}
 	else {
-		crtn = DSAPrivateKeyEncode(dsaToEncode, format, encodedKey);
+		crtn = DSAPrivateKeyEncode(dsaToEncode, format, descData(), encodedKey);
 	}
 	if(dsaUpgrade != NULL) {
 		/* temp key, get rid of it */

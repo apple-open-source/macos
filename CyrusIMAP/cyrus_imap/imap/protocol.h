@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: protocol.h,v 1.4 2005/03/05 00:37:02 dasenbro Exp $ */
+/* $Id: protocol.h,v 1.7 2006/11/30 17:11:19 murch Exp $ */
 
 #ifndef _INCLUDED_PROTOCOL_H
 #define _INCLUDED_PROTOCOL_H
@@ -55,13 +55,15 @@ enum {
     CAPA_IDLE		= (1 << 2),
     CAPA_MUPDATE	= (1 << 3),
     CAPA_MULTIAPPEND	= (1 << 4),
+    CAPA_LISTSUBSCRIBED	= (1 << 5),
+    CAPA_ACLRIGHTS	= (1 << 6),
 
     /* LMTP capabilities */
     CAPA_PIPELINING	= (1 << 2),
     CAPA_IGNOREQUOTA	= (1 << 3)
 };
 
-#define MAX_CAPA 5
+#define MAX_CAPA 7
 
 struct capa_t {
     const char *str;
@@ -70,9 +72,13 @@ struct capa_t {
 
 struct protocol_t;
 
+struct banner_t {
+    int is_capa;		/* banner is capability response */
+    char *resp;			/* end of banner response */
+};
+
 struct capa_cmd_t {
-    const char *cmd;		/* [OPTIONAL] capability command string
-				   (NULL = capabilities in banner) */
+    const char *cmd;		/* [OPTIONAL] capability command string */
     const char *resp;		/* end of capability response */
     char *(*parse_mechlist)(const char *str, struct protocol_t *prot);
 				/* [OPTIONAL] parse capability string,
@@ -89,12 +95,14 @@ struct tls_cmd_t {
 
 struct simple_cmd_t {
     const char *cmd;		/* command string */
-    const char *resp;		/* success response */
+    const char *unsol;		/* unsolicited response */
+    const char *ok;		/* success response */
 };
 
 struct protocol_t {
     const char *service;	/* INET service name */
     const char *sasl_service;	/* SASL service name */
+    struct banner_t banner;
     struct capa_cmd_t capa_cmd;
     struct tls_cmd_t tls_cmd;
     struct sasl_cmd_t sasl_cmd;
@@ -109,7 +117,9 @@ enum {
     PROTOCOL_POP3,
     PROTOCOL_NNTP,
     PROTOCOL_LMTP,
-    PROTOCOL_MUPDATE
+    PROTOCOL_MUPDATE,
+    PROTOCOL_SIEVE,
+    PROTOCOL_CSYNC
 };
 
 #endif /* _INCLUDED_PROTOCOL_H */

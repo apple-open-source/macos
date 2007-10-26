@@ -1,7 +1,7 @@
-# $FreeBSD: src/share/mk/bsd.libnames.mk,v 1.90 2004/09/24 22:10:34 trhodes Exp $
+# $FreeBSD: src/share/mk/bsd.libnames.mk,v 1.95 2005/07/17 18:38:40 rwatson Exp $
 
-# The include file <bsd.libnames.mk> define library names. 
-# Other include files (e.g. bsd.prog.mk, bsd.lib.mk) include this 
+# The include file <bsd.libnames.mk> define library names.
+# Other include files (e.g. bsd.prog.mk, bsd.lib.mk) include this
 # file where necessary.
 
 .if !target(__<bsd.init.mk>__)
@@ -73,6 +73,7 @@ LIBLWRES?=	${DESTDIR}${LIBDIR}/liblwres.a
 LIBM?=		${DESTDIR}${LIBDIR}/libm.a
 LIBMAGIC?=	${DESTDIR}${LIBDIR}/libmagic.a
 LIBMD?=		${DESTDIR}${LIBDIR}/libmd.a
+LIBMEMSTAT?=	${DESTDIR}${LIBDIR}/libmemstat.a
 LIBMENU?=	${DESTDIR}${LIBDIR}/libmenu.a
 .if !defined(NO_SENDMAIL)
 LIBMILTER?=	${DESTDIR}${LIBDIR}/libmilter.a
@@ -91,23 +92,28 @@ LIBOPIE?=	${DESTDIR}${LIBDIR}/libopie.a
 LIBPAM?=	${DESTDIR}${LIBDIR}/libpam.a
 MINUSLPAM=	-lpam
 .if defined(LDFLAGS) && !empty(LDFLAGS:M-static)
-.if !defined(NO_KERBEROS) && !defined(NOCRYPT) && !defined(NO_OPENSSL)
+.if !defined(NO_KERBEROS) && !defined(NO_CRYPT) && !defined(NO_OPENSSL)
 LIBPAM+=	${LIBKRB5} ${LIBASN1} ${LIBCRYPTO} ${LIBCRYPT} \
 		${LIBROKEN} ${LIBCOM_ERR}
 MINUSLPAM+=	-lkrb5 -lasn1 -lcrypto -lcrypt -lroken -lcom_err
 .endif
 LIBPAM+=	${LIBRADIUS} ${LIBTACPLUS} ${LIBCRYPT} \
-		${LIBUTIL} ${LIBOPIE} ${LIBMD} ${LIBYPCLNT}
+		${LIBUTIL} ${LIBOPIE} ${LIBMD}
 MINUSLPAM+=	-lradius -ltacplus -lcrypt \
-		-lutil -lopie -lmd -lypclnt
-.if !defined(NO_OPENSSH) && !defined(NOCRYPT) && !defined(NO_OPENSSL)
+		-lutil -lopie -lmd
+.if !defined(NO_OPENSSH) && !defined(NO_CRYPT) && !defined(NO_OPENSSL)
 LIBPAM+=	${LIBSSH} ${LIBCRYPTO} ${LIBCRYPT}
 MINUSLPAM+=	-lssh -lcrypto -lcrypt
+.endif
+.if !defined(NO_NIS)
+LIBPAM+=	${LIBYPCLNT}
+MINUSLPAM+=	-lypclnt
 .endif
 .endif
 
 LIBPANEL?=	${DESTDIR}${LIBDIR}/libpanel.a
 LIBPCAP?=	${DESTDIR}${LIBDIR}/libpcap.a
+LIBPMC?=	${DESTDIR}${LIBDIR}/libpmc.a
 LIBPTHREAD?=	${DESTDIR}${LIBDIR}/libpthread.a
 LIBRADIUS?=	${DESTDIR}${LIBDIR}/libradius.a
 LIBREADLINE?=	${DESTDIR}${LIBDIR}/libreadline.a

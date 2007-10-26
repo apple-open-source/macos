@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: output.c,v 1.142.2.16.2.6 2007/02/12 17:13:22 tony2001 Exp $ */
+/* $Id: output.c,v 1.167.2.3.2.3 2007/04/16 02:25:24 shire Exp $ */
 
 #include "php.h"
 #include "ext/standard/head.h"
@@ -32,8 +32,6 @@
 #define OB_DEFAULT_HANDLER_NAME "default output handler"
 
 /* output functions */
-static int php_ub_body_write(const char *str, uint str_length TSRMLS_DC);
-static int php_ub_body_write_no_header(const char *str, uint str_length TSRMLS_DC);
 static int php_b_body_write(const char *str, uint str_length TSRMLS_DC);
 
 static int php_ob_init(uint initial_size, uint block_size, zval *output_handler, uint chunk_size, zend_bool erase TSRMLS_DC);
@@ -114,7 +112,7 @@ void php_output_register_constants(TSRMLS_D)
 /* }}} */
 
 
-/* {{{ php_body_wirte
+/* {{{ php_body_write
  * Write body part */
 PHPAPI int php_body_write(const char *str, uint str_length TSRMLS_DC)
 {
@@ -122,7 +120,7 @@ PHPAPI int php_body_write(const char *str, uint str_length TSRMLS_DC)
 }
 /* }}} */
 
-/* {{{ php_header_wirte
+/* {{{ php_header_write
  * Write HTTP header */
 PHPAPI int php_header_write(const char *str, uint str_length TSRMLS_DC)
 {
@@ -296,7 +294,7 @@ PHPAPI void php_end_ob_buffer(zend_bool send_buffer, zend_bool just_flush TSRMLS
 	OG(ob_nesting_level)--;
 
 	if (send_buffer) {
-		if (just_flush && final_buffer[0] != '\0') { /* if flush is called prior to proper end, ensure presence of NUL */
+		if (just_flush) { /* if flush is called prior to proper end, ensure presence of NUL */
 			final_buffer[final_buffer_length] = '\0';
 		}
 		OG(php_body_write)(final_buffer, final_buffer_length TSRMLS_CC);
@@ -418,9 +416,23 @@ PHPAPI int php_ob_init_conflict(char *handler_new, char *handler_set TSRMLS_DC)
  */
 static int php_ob_init_named(uint initial_size, uint block_size, char *handler_name, zval *output_handler, uint chunk_size, zend_bool erase TSRMLS_DC)
 {
+	php_ob_buffer tmp_buf;
+
 	if (output_handler && !zend_is_callable(output_handler, 0, NULL)) {
 		return FAILURE;
 	}
+	
+	tmp_buf.block_size = block_size;
+	tmp_buf.size = initial_size;
+	tmp_buf.buffer = (char *) emalloc(initial_size+1);
+	tmp_buf.text_length = 0;
+	tmp_buf.output_handler = output_handler;
+	tmp_buf.chunk_size = chunk_size;
+	tmp_buf.status = 0;
+	tmp_buf.internal_output_handler = NULL;
+	tmp_buf.handler_name = estrdup(handler_name&&handler_name[0]?handler_name:OB_DEFAULT_HANDLER_NAME);
+	tmp_buf.erase = erase;
+
 	if (OG(ob_nesting_level)>0) {
 #if HAVE_ZLIB && !defined(COMPILE_DL_ZLIB)
 		if (!strncmp(handler_name, "ob_gzhandler", sizeof("ob_gzhandler")) && php_ob_gzhandler_check(TSRMLS_C)) {
@@ -433,16 +445,7 @@ static int php_ob_init_named(uint initial_size, uint block_size, char *handler_n
 		zend_stack_push(&OG(ob_buffers), &OG(active_ob_buffer), sizeof(php_ob_buffer));
 	}
 	OG(ob_nesting_level)++;
-	OG(active_ob_buffer).block_size = block_size;
-	OG(active_ob_buffer).size = initial_size;
-	OG(active_ob_buffer).buffer = (char *) emalloc(initial_size+1);
-	OG(active_ob_buffer).text_length = 0;
-	OG(active_ob_buffer).output_handler = output_handler;
-	OG(active_ob_buffer).chunk_size = chunk_size;
-	OG(active_ob_buffer).status = 0;
-	OG(active_ob_buffer).internal_output_handler = NULL;
-	OG(active_ob_buffer).handler_name = estrdup(handler_name&&handler_name[0]?handler_name:OB_DEFAULT_HANDLER_NAME);
-	OG(active_ob_buffer).erase = erase;
+	OG(active_ob_buffer) = tmp_buf;
 	OG(php_body_write) = php_b_body_write;
 	return SUCCESS;
 }
@@ -549,10 +552,7 @@ PHP_FUNCTION(ob_list_handlers)
 		RETURN_FALSE;
 	}
 
-	if (array_init(return_value) == FAILURE) {
-		php_error_docref("ref.outcontrol" TSRMLS_CC, E_ERROR, "Unable to initialize array");
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 	if (OG(ob_nesting_level)) {
 		if (OG(ob_nesting_level)>1) {
 			zend_stack_apply_with_argument(&OG(ob_buffers), ZEND_STACK_APPLY_BOTTOMUP, (int (*)(void *element, void *)) php_ob_list_each, return_value);
@@ -611,11 +611,7 @@ static inline void php_ob_append(const char *text, uint text_length TSRMLS_DC)
  	/* If implicit_flush is On or chunked buffering, send contents to next buffer and return. */
 	if (OG(active_ob_buffer).chunk_size
 		&& OG(active_ob_buffer).text_length >= OG(active_ob_buffer).chunk_size) {
-		zval *output_handler = OG(active_ob_buffer).output_handler;
 		
-		if (output_handler) {
-			output_handler->refcount++;
-		}
 		php_end_ob_buffer(1, 1 TSRMLS_CC);
 		return;
 	}
@@ -681,7 +677,7 @@ static int php_b_body_write(const char *str, uint str_length TSRMLS_DC)
 
 /* {{{ php_ub_body_write_no_header
  */
-static int php_ub_body_write_no_header(const char *str, uint str_length TSRMLS_DC)
+PHPAPI int php_ub_body_write_no_header(const char *str, uint str_length TSRMLS_DC)
 {
 	int result;
 
@@ -701,7 +697,7 @@ static int php_ub_body_write_no_header(const char *str, uint str_length TSRMLS_D
 
 /* {{{ php_ub_body_write
  */
-static int php_ub_body_write(const char *str, uint str_length TSRMLS_DC)
+PHPAPI int php_ub_body_write(const char *str, uint str_length TSRMLS_DC)
 {
 	int result = 0;
 
@@ -709,10 +705,10 @@ static int php_ub_body_write(const char *str, uint str_length TSRMLS_DC)
 		if(SG(headers_sent)) {
 			return 0;
 		}
-		php_header();
+		php_header(TSRMLS_C);
 		zend_bailout();
 	}
-	if (php_header()) {
+	if (php_header(TSRMLS_C)) {
 		if (zend_is_compiling(TSRMLS_C)) {
 			OG(output_start_filename) = zend_get_compiled_filename(TSRMLS_C);
 			OG(output_start_lineno) = zend_get_compiled_lineno(TSRMLS_C);
@@ -919,7 +915,7 @@ PHP_FUNCTION(ob_get_level)
 }
 /* }}} */
 
-/* {{{ proto string ob_get_length(void)
+/* {{{ proto int ob_get_length(void)
    Return the length of the output buffer */
 PHP_FUNCTION(ob_get_length)
 {
@@ -939,9 +935,7 @@ static int php_ob_buffer_status(php_ob_buffer *ob_buffer, zval *result)
 	zval *elem;
 
 	MAKE_STD_ZVAL(elem);
-	if (array_init(elem) == FAILURE) {
-		return FAILURE;
-	}
+	array_init(elem);
 
 	add_assoc_long(elem, "chunk_size", ob_buffer->chunk_size);
 	if (!ob_buffer->chunk_size) {
@@ -975,9 +969,7 @@ PHP_FUNCTION(ob_get_status)
 	if (zend_parse_parameters(argc TSRMLS_CC, "|b", &full_status) == FAILURE )
 		RETURN_FALSE;
 	
-	if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 
 	if (full_status) {
 		if (OG(ob_nesting_level)>1) {

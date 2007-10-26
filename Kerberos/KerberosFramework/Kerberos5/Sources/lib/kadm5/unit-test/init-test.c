@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <krb5.h>
+#include <string.h>
 
 int main()
 {
@@ -14,7 +15,7 @@ int main()
      memset(&params, 0, sizeof(params));
      params.mask |= KADM5_CONFIG_NO_AUTH;
      ret = kadm5_init("admin", "admin", NULL, &params,
-		      KADM5_STRUCT_VERSION, KADM5_API_VERSION_2,
+		      KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL,
 		      &server_handle);
      if (ret == KADM5_RPC_ERROR)
 	  exit(0);

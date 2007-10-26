@@ -1,9 +1,9 @@
 /* win32tc.c -- Interface to Win32 transcoding routines
 
-  (c) 1998-2004 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
 
-  $Id: win32tc.c,v 1.1.1.2 2004/08/16 23:45:24 swilkin Exp $
+  $Id: win32tc.c,v 1.3 2007/01/30 23:46:52 iccir Exp $
 */
 
 /* keep these here to keep file non-empty */
@@ -472,18 +472,18 @@ static struct _nameWinCPMap
   { NULL,                                                0,  no }
 };
 
-uint Win32MLangGetCPFromName(ctmbstr encoding)
+uint TY_(Win32MLangGetCPFromName)(ctmbstr encoding)
 {
     uint i;
     tmbstr enc;
 
     /* ensure name is in lower case */
-    enc = tmbstrdup(encoding);
-    enc = tmbstrtolower(enc);
+    enc = TY_(tmbstrdup)(encoding);
+    enc = TY_(tmbstrtolower)(enc);
 
     for (i = 0; NameWinCPMap[i].name; ++i)
     {
-        if (tmbstrcmp(NameWinCPMap[i].name, enc) == 0)
+        if (TY_(tmbstrcmp)(NameWinCPMap[i].name, enc) == 0)
         {
             IMLangConvertCharset * p = NULL;
             uint wincp = NameWinCPMap[i].wincp;
@@ -524,7 +524,7 @@ uint Win32MLangGetCPFromName(ctmbstr encoding)
     return 0;
 }
 
-Bool Win32MLangInitInputTranscoder(StreamIn * in, uint wincp)
+Bool TY_(Win32MLangInitInputTranscoder)(StreamIn * in, uint wincp)
 {
     IMLangConvertCharset * p = NULL;
     HRESULT hr;
@@ -560,7 +560,7 @@ Bool Win32MLangInitInputTranscoder(StreamIn * in, uint wincp)
     return yes;
 }
 
-void Win32MLangUninitInputTranscoder(StreamIn * in)
+void TY_(Win32MLangUninitInputTranscoder)(StreamIn * in)
 {
     IMLangConvertCharset * p;
 
@@ -587,7 +587,7 @@ Bool Win32MLangInitOutputTranscoder(StreamOut * out, tmbstr encoding)
 
     CoInitialize(NULL);
 
-    wincp = Win32MLangGetCPFromName(encoding);
+    wincp = TY_(Win32MLangGetCPFromName)(encoding);
     if (wincp == 0)
     {
         /* no codepage found for this encoding */
@@ -632,7 +632,7 @@ void Win32MLangUninitOutputTranscoder(StreamOut * out)
     CoUninitialize();
 }
 
-int Win32MLangGetChar(byte firstByte, StreamIn * in, uint * bytesRead)
+int TY_(Win32MLangGetChar)(byte firstByte, StreamIn * in, uint * bytesRead)
 {
     IMLangConvertCharset * p;
     TidyInputSource * source;
@@ -782,3 +782,12 @@ void Win32MLangPutChar(tchar c, StreamOut * out, uint * bytesWritten)
 }
 
 #endif /* TIDY_WIN32_MLANG_SUPPORT */
+
+/*
+ * local variables:
+ * mode: c
+ * indent-tabs-mode: nil
+ * c-basic-offset: 4
+ * eval: (c-set-offset 'substatement-open 0)
+ * end:
+ */

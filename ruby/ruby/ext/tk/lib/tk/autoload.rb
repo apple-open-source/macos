@@ -47,8 +47,10 @@ autoload :TkConsole,          'tk/console'
 
 autoload :TkDialog,           'tk/dialog'
 autoload :TkDialog2,          'tk/dialog'
+autoload :TkDialogObj,        'tk/dialog'
 autoload :TkWarning,          'tk/dialog'
 autoload :TkWarning2,         'tk/dialog'
+autoload :TkWarningObj,       'tk/dialog'
 
 autoload :TkEntry,            'tk/entry'
 
@@ -148,6 +150,7 @@ autoload :TkTextWindow,       'tk/textwindow'
 
 autoload :TkAfter,            'tk/timer'
 autoload :TkTimer,            'tk/timer'
+autoload :TkRTTimer,          'tk/timer'
 
 autoload :TkToplevel,         'tk/toplevel'
 
@@ -159,6 +162,7 @@ autoload :TkVariable,         'tk/variable'
 autoload :TkVarAccess,        'tk/variable'
 
 autoload :TkVirtualEvent,     'tk/virtevent'
+autoload :TkNamedVirtualEvent,'tk/virtevent'
 
 autoload :TkWinfo,            'tk/winfo'
 

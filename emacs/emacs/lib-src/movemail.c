@@ -1,6 +1,7 @@
 /* movemail foo bar -- move file foo to file bar,
    locking file foo the way /bin/mail respects.
-   Copyright (C) 1986, 92, 93, 94, 96, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1992, 1993, 1994, 1996, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -16,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Important notice: defining MAIL_USE_FLOCK or MAIL_USE_LOCKF *will
    cause loss of mail* if you do it on a system that does not normally
@@ -39,11 +40,11 @@ Boston, MA 02111-1307, USA.  */
  * "po:username".  This will cause movemail to open a connection to
  * a pop server running on $MAILHOST (environment variable).  Movemail
  * must be setuid to root in order to work with POP.
- * 
+ *
  * New module: popmail.c
  * Modified routines:
  *	main - added code within #ifdef MAIL_USE_POP; added setuid (getuid ())
- *		after POP code. 
+ *		after POP code.
  * New routines in movemail.c:
  *	get_errmsg - return pointer to system error message
  *
@@ -129,7 +130,8 @@ extern int lk_open (), lk_close ();
 #endif
 
 #if !defined (MAIL_USE_SYSTEM_LOCK) && !defined (MAIL_USE_MMDF) && \
-	defined (HAVE_LIBMAIL) && defined (HAVE_MAILLOCK_H)
+	(defined (HAVE_LIBMAIL) || defined (HAVE_LIBLOCKFILE)) && \
+        defined (HAVE_MAILLOCK_H)
 #include <maillock.h>
 /* We can't use maillock unless we know what directory system mail
    files appear in. */
@@ -215,7 +217,7 @@ main (argc, argv)
 	preserve_mail++;
 	break;
       default:
-	exit(1);
+	exit (EXIT_FAILURE);
       }
     }
 
@@ -227,14 +229,13 @@ main (argc, argv)
 #endif
       )
     {
-      fprintf (stderr, "Usage: movemail [-p] inbox destfile%s\n",
 #ifdef MAIL_USE_POP
-	       " [POP-password]"
+      fprintf (stderr, "Usage: movemail [-p] inbox destfile%s\n",
+	       " [POP-password]");
 #else
-	       ""
+      fprintf (stderr, "Usage: movemail [-p] inbox destfile%s\n", "");
 #endif
-	       );
-      exit (1);
+      exit (EXIT_FAILURE);
     }
 
   inname = argv[optind];
@@ -245,7 +246,7 @@ main (argc, argv)
 #endif
 
   if (*outname == 0)
-    fatal ("Destination file name is empty", 0);
+    fatal ("Destination file name is empty", 0, 0);
 
   /* Check access to output file.  */
   if (access (outname, F_OK) == 0 && access (outname, W_OK) != 0)
@@ -458,13 +459,15 @@ main (argc, argv)
 
 	  pfatal_with_name (inname);
 	}
-  
+
       {
 	char buf[1024];
 
 	while (1)
 	  {
 	    nread = read (indesc, buf, sizeof buf);
+	    if (nread < 0)
+	      pfatal_with_name (inname);
 	    if (nread != write (outdesc, buf, nread))
 	      {
 		int saved_errno = errno;
@@ -536,12 +539,12 @@ main (argc, argv)
       if (spool_name)
 	mailunlock ();
 #endif
-      exit (0);
+      exit (EXIT_SUCCESS);
     }
 
   wait (&status);
   if (!WIFEXITED (status))
-    exit (1);
+    exit (EXIT_FAILURE);
   else if (WRETCODE (status) != 0)
     exit (WRETCODE (status));
 
@@ -554,7 +557,7 @@ main (argc, argv)
 
 #endif /* ! DISABLE_DIRECT_ACCESS */
 
-  return 0;
+  return EXIT_SUCCESS;
 }
 
 #ifdef MAIL_USE_MAILLOCK
@@ -601,13 +604,13 @@ mail_spool_name (inname)
 /* Print error message and exit.  */
 
 void
-fatal (s1, s2)
-     char *s1, *s2;
+fatal (s1, s2, s3)
+     char *s1, *s2, *s3;
 {
   if (delete_lockname)
     unlink (delete_lockname);
-  error (s1, s2, 0);
-  exit (1);
+  error (s1, s2, s3);
+  exit (EXIT_FAILURE);
 }
 
 /* Print error message.  `s1' is printf control string, `s2' and `s3'
@@ -631,17 +634,16 @@ void
 pfatal_with_name (name)
      char *name;
 {
-  char *s = concat ("", strerror (errno), " for %s");
-  fatal (s, name);
+  fatal ("%s for %s", strerror (errno), name);
 }
 
 void
 pfatal_and_delete (name)
      char *name;
 {
-  char *s = concat ("", strerror (errno), " for %s");
+  char *s = strerror (errno);
   unlink (name);
-  fatal (s, name);
+  fatal ("%s for %s", s, name);
 }
 
 /* Return a newly-allocated string whose contents concatenate those of s1, s2, s3.  */
@@ -669,7 +671,7 @@ xmalloc (size)
 {
   long *result = (long *) malloc (size);
   if (!result)
-    fatal ("virtual memory exhausted", 0);
+    fatal ("virtual memory exhausted", 0, 0);
   return result;
 }
 
@@ -709,6 +711,8 @@ char Errmsg[200];		/* POP errors, at least, can exceed
  * If the mailbox is in the form "po:username:hostname", then it is
  * modified by this function -- the second colon is replaced by a
  * null.
+ *
+ * Return a value suitable for passing to `exit'.
  */
 
 int
@@ -736,19 +740,19 @@ popmail (mailbox, outfile, preserve, password, reverse_order)
   if (! server)
     {
       error ("Error connecting to POP server: %s", pop_error, 0);
-      return (1);
+      return EXIT_FAILURE;
     }
 
   if (pop_stat (server, &nmsgs, &nbytes))
     {
       error ("Error getting message count from POP server: %s", pop_error, 0);
-      return (1);
+      return EXIT_FAILURE;
     }
 
   if (!nmsgs)
     {
       pop_close (server);
-      return (0);
+      return EXIT_SUCCESS;
     }
 
   mbfi = open (outfile, O_WRONLY | O_CREAT | O_EXCL, 0666);
@@ -756,7 +760,7 @@ popmail (mailbox, outfile, preserve, password, reverse_order)
     {
       pop_close (server);
       error ("Error in open: %s, %s", strerror (errno), outfile);
-      return (1);
+      return EXIT_FAILURE;
     }
   fchown (mbfi, getuid (), -1);
 
@@ -766,7 +770,7 @@ popmail (mailbox, outfile, preserve, password, reverse_order)
       error ("Error in fdopen: %s", strerror (errno), 0);
       close (mbfi);
       unlink (outfile);
-      return (1);
+      return EXIT_FAILURE;
     }
 
   if (reverse_order)
@@ -787,9 +791,9 @@ popmail (mailbox, outfile, preserve, password, reverse_order)
       mbx_delimit_begin (mbf);
       if (pop_retr (server, i, mbf) != OK)
 	{
-	  error (Errmsg, 0, 0);
+	  error ("%s", Errmsg, 0);
 	  close (mbfi);
-	  return (1);
+	  return EXIT_FAILURE;
 	}
       mbx_delimit_end (mbf);
       fflush (mbf);
@@ -798,7 +802,7 @@ popmail (mailbox, outfile, preserve, password, reverse_order)
 	  error ("Error in fflush: %s", strerror (errno), 0);
 	  pop_close (server);
 	  close (mbfi);
-	  return (1);
+	  return EXIT_FAILURE;
 	}
     }
 
@@ -812,14 +816,14 @@ popmail (mailbox, outfile, preserve, password, reverse_order)
   if (fsync (mbfi) < 0)
     {
       error ("Error in fsync: %s", strerror (errno), 0);
-      return (1);
+      return EXIT_FAILURE;
     }
 #endif
 
   if (close (mbfi) == -1)
     {
       error ("Error in close: %s", strerror (errno), 0);
-      return (1);
+      return EXIT_FAILURE;
     }
 
   if (! preserve)
@@ -829,22 +833,23 @@ popmail (mailbox, outfile, preserve, password, reverse_order)
 	  {
 	    error ("Error from POP server: %s", pop_error, 0);
 	    pop_close (server);
-	    return (1);
+	    return EXIT_FAILURE;
 	  }
       }
 
   if (pop_quit (server))
     {
       error ("Error from POP server: %s", pop_error, 0);
-      return (1);
+      return EXIT_FAILURE;
     }
-    
-  return (0);
+
+  return EXIT_SUCCESS;
 }
 
 int
 pop_retr (server, msgno, arg)
      popserver server;
+     int msgno;
      FILE *arg;
 {
   extern char *strerror ();
@@ -912,7 +917,7 @@ mbx_write (line, len, mbf)
       line++;
       len--;
     }
-  if (fwrite (line, 1, len, mbf) != len) 
+  if (fwrite (line, 1, len, mbf) != len)
     return (NOTOK);
   if (fputc (0x0a, mbf) == EOF)
     return (NOTOK);
@@ -953,3 +958,8 @@ strerror (errnum)
 }
 
 #endif /* ! HAVE_STRERROR */
+
+/* arch-tag: 1c323112-41fe-4fe5-8de9-494de631f73f
+   (do not change this comment) */
+
+/* movemail.c ends here */

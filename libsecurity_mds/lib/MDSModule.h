@@ -42,6 +42,9 @@ public:
 	void					getDbPath(char *path);
 	void					setDbPath(const char *path);
 	
+	bool					serverMode() const	{ return mServerMode; }
+	void					setServerMode();
+	
 private:
     static ModuleNexus<MDSModule> mModuleNexus;
 
@@ -55,6 +58,7 @@ private:
 	char 					mDbPath[MAXPATHLEN + 1];
 	Time::Absolute			mLastScanTime;
 	Mutex					mDbPathLock;
+	bool					mServerMode;
 };
 
 } // end namespace Security

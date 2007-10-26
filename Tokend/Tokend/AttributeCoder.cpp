@@ -289,4 +289,3 @@ void DataAttributeCoder::decode(TokenContext *tokenContext,
 
 }	// end namespace Tokend
 
-/* arch-tag: BA054F22-F13E-11D8-B797-000A95C4302E */

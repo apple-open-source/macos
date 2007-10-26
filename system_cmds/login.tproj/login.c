@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -85,7 +84,11 @@ static char copyright[] =
 #include <ttyent.h>
 #include <tzfile.h>
 #include <unistd.h>
+#ifdef USE_PAM
+#include <utmpx.h>
+#else /* !USE_PAM */
 #include <utmp.h>
+#endif /* USE_PAM */
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -93,13 +96,21 @@ static char copyright[] =
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#include <TargetConditionals.h>
+
+#ifdef USE_BSM
 #include <bsm/libbsm.h>
 #include <bsm/audit_uevents.h>
+#endif
 
 #ifdef USE_PAM
 #include <pam/pam_appl.h>
 #include <pam/pam_misc.h>
 #endif
+
+#include <mach/mach_types.h>
+
+#include <servers/bootstrap.h>
 
 #include "pathnames.h"
 
@@ -120,7 +131,9 @@ void  au_success();
 void  au_fail(char *, int);
 
 
+#ifndef USE_PAM
 extern void login __P((struct utmp *));
+#endif /* !USE_PAM */
 static void bail(int, int);
 static void refused(const char *, const char *, int);
 
@@ -151,11 +164,14 @@ static int pam_err;
 static int pam_silent = PAM_SILENT;
 static int pam_cred_established;
 static int pam_session_established;
+static struct lastlogx lastlog;
 #endif /* USE_PAM */
 int hflag;
 
+#ifdef USE_BSM
 #define NA_EVENT_STR_SIZE 25
 au_tid_t tid;
+#endif
 
 int
 main(argc, argv)
@@ -165,8 +181,11 @@ main(argc, argv)
 	extern char **environ;
 	struct group *gr;
 	struct stat st;
+#ifndef USE_PAM
 	struct utmp utmp;
-	int ask, ch, cnt, oflag = 0, fflag, pflag, quietlog, rootlogin = 0;
+#endif /* USE_PAM */
+	int ask, ch, cnt, oflag = 0, fflag, lflag, pflag;
+	int quietlog = 0, rootlogin = 0;
 	uid_t uid;
 	uid_t euid;
 	gid_t egid;
@@ -194,8 +213,11 @@ main(argc, argv)
 	/*
 	 * -p is used by getty to tell login not to destroy the environment
 	 * -f is used to skip a second login authentication
+	 *    -l is used to indicate a login session to the command that
+	 *    follows username
 	 * -h is used by other servers to pass the name of the remote
 	 *    host to login so that it may be placed in utmp and wtmp
+	 * -q is used to force hushlogin
 	 */
 	domain = NULL;
 	if (gethostname(localhost, sizeof(localhost)) < 0)
@@ -206,9 +228,9 @@ main(argc, argv)
 	euid = geteuid();
 	egid = getegid();
 
-	fflag = hflag = pflag = 0;
+	fflag = hflag = lflag = pflag = 0;
 	uid = getuid();
-	while ((ch = getopt(argc, argv, "1fh:p")) != EOF)
+	while ((ch = getopt(argc, argv, "1fh:lpq")) != EOF)
 		switch (ch) {
 		case '1':
 			oflag = 1;
@@ -225,22 +247,30 @@ main(argc, argv)
 				*p = 0;
 			hostname = optarg;
 			break;
+		case 'l':
+			lflag = 1;
+			break;
 		case 'p':
 			pflag = 1;
+			break;
+		case 'q':
+			quietlog = 1;
 			break;
 		case '?':
 		default:
 			if (!uid)
 				syslog(LOG_ERR, "invalid flag %c", ch);
 			(void)fprintf(stderr,
-			    "usage: login [-fp] [-h hostname] [username]\n");
+			    "usage: login [-pq] [-h hostname] [username]\n");
+			(void)fprintf(stderr,
+			    "       login -f [-lpq] [-h hostname] [username [prog [arg ...]]]\n");
 			exit(1);
 		}
 	argc -= optind;
 	argv += optind;
 
 	if (*argv) {
-		username = *argv;
+		username = *argv++;
 		ask = 0;
 	} else
 		ask = 1;
@@ -258,6 +288,7 @@ main(argc, argv)
 	else
 		tty = ttyn;
 
+#ifdef USE_BSM
 	/* Set the terminal id */
 	audit_set_terminal_id(&tid);
 	if (fstat(STDIN_FILENO, &st) < 0) {
@@ -270,31 +301,32 @@ main(argc, argv)
 	} else {
 		tid.port = 0;
 	}
+#endif
 
 #ifdef USE_PAM
 	pam_err = pam_start("login", username, &conv, &pamh);
 	if( pam_err != PAM_SUCCESS ) {
-		fprintf(stderr, "login: PAM Error:  %s\n", pam_strerror(pamh, pam_err));
+		fprintf(stderr, "login: PAM Error (line %d):  %s\n", __LINE__, pam_strerror(pamh, pam_err));
 		au_fail("PAM Error", 1);
 		exit(1);
 	}
 	pam_err = pam_set_item(pamh, PAM_TTY, tty);
 	if( pam_err != PAM_SUCCESS ) {
-		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, pam_err));
+		fprintf(stderr, "login: PAM Error (line %d): %s\n", __LINE__, pam_strerror(pamh, pam_err));
 		au_fail("PAM Error", 1);
 		exit(1);
 	}
 
 	pam_err = pam_set_item(pamh, PAM_RHOST, hostname);
 	if( pam_err != PAM_SUCCESS ) {
-		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, pam_err));
+		fprintf(stderr, "login: PAM Error (line %d): %s\n", __LINE__, pam_strerror(pamh, pam_err));
 		au_fail("PAM Error", 1);
 		exit(1);
 	}
 
 	pam_err = pam_set_item(pamh, PAM_USER_PROMPT, "login: ");
 	if( pam_err != PAM_SUCCESS ) {
-		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, pam_err));
+		fprintf(stderr, "login: PAM Error (line %d): %s\n", __LINE__, pam_strerror(pamh, pam_err));
 		au_fail("PAM Error", 1);
 		exit(1);
 	}
@@ -345,7 +377,7 @@ main(argc, argv)
 			pam_err = pam_chauthtok(pamh, PAM_CHANGE_EXPIRED_AUTHTOK);
 		}
 		if( pam_err != PAM_SUCCESS ) {
-			fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, pam_err));
+			fprintf(stderr, "login: PAM Error (line %d): %s\n", __LINE__, pam_strerror(pamh, pam_err));
 			au_fail("PAM error", 1);
 			exit(1);
 		}
@@ -355,16 +387,20 @@ main(argc, argv)
 	if( (pam_err == PAM_SUCCESS) && username && *username) 
 		pwd = getpwnam(username);
 
+	/* get lastlog info before PAM make a new entry */
+	if (!quietlog)
+		getlastlogxbyname(username, &lastlog);
+
 	pam_err = pam_open_session(pamh, 0);
 	if( pam_err != PAM_SUCCESS ) {
-		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, pam_err));
+		fprintf(stderr, "login: PAM Error (line %d): %s\n", __LINE__, pam_strerror(pamh, pam_err));
 		au_fail("PAM error", 1);
 		exit(1);
 	}
 
 	pam_err = pam_setcred(pamh, PAM_ESTABLISH_CRED);
 	if( pam_err != PAM_SUCCESS ) {
-		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, pam_err));
+		fprintf(stderr, "login: PAM Error (line %d): %s\n", __LINE__, pam_strerror(pamh, pam_err));
 		au_fail("PAM error", 1);
 		exit(1);
 	}
@@ -485,6 +521,11 @@ main(argc, argv)
 
 	endpwent();
 
+	if (!pwd) {
+		fprintf(stderr, "login: Unable to find user: %s\n", username);
+		exit(1);
+	}
+
 	/* if user not super-user, check for disabled logins */
 	if (!rootlogin)
 		checknologin();
@@ -496,27 +537,30 @@ main(argc, argv)
 	setegid(pwd->pw_gid);
 	seteuid(rootlogin ? 0 : pwd->pw_uid);
 
-      	/* First do a stat in case the homedir is automounted */
-      	stat(pwd->pw_dir,&st);
+	if (!lflag) {
+		/* First do a stat in case the homedir is automounted */
+		stat(pwd->pw_dir,&st);
 
-	if (!*pwd->pw_dir || chdir(pwd->pw_dir) < 0) {
-		printf("No home directory %s!\n", pwd->pw_dir);
-		if (chdir("/")) {
-			refused("Cannot find root directory", "HOMEDIR", 1);
+		if (!*pwd->pw_dir || chdir(pwd->pw_dir) < 0) {
+	    		printf("No home directory %s!\n", pwd->pw_dir);
+	    		if (chdir("/")) 
+	      			refused("Cannot find root directory", "HOMEDIR", 1);
+	   	 	pwd->pw_dir = strdup("/");
+	    		if (pwd->pw_dir == NULL) {
+				syslog(LOG_NOTICE, "strdup(): %m");
+				bail(SLEEP_EXIT, 1);
+			}
+			printf("Logging in with home = \"/\".\n");
 		}
-		pwd->pw_dir = strdup("/");
-		if (pwd->pw_dir == NULL) {
-			syslog(LOG_NOTICE, "strdup(): %m");
-			bail(SLEEP_EXIT, 1);
-		}
-		printf("Logging in with home = \"/\".\n");
 	}
 	seteuid(euid);
 	setegid(egid);
 
-	quietlog = access(_PATH_HUSHLOGIN, F_OK) == 0;
+	if (!quietlog)
+		quietlog = access(_PATH_HUSHLOGIN, F_OK) == 0;
 
 	/* Nothing else left to fail -- really log in. */
+#ifndef USE_PAM
 	memset((void *)&utmp, 0, sizeof(utmp));
 	(void)time(&utmp.ut_time);
 	(void)strncpy(utmp.ut_name, username, sizeof(utmp.ut_name));
@@ -524,6 +568,7 @@ main(argc, argv)
 		(void)strncpy(utmp.ut_host, hostname, sizeof(utmp.ut_host));
 	(void)strncpy(utmp.ut_line, tty, sizeof(utmp.ut_line));
 	login(&utmp);
+#endif /* USE_PAM */
 
 	dolastlog(quietlog);
 
@@ -541,6 +586,16 @@ main(argc, argv)
                 syslog(LOG_NOTICE, "strdup(): %m");
                 bail(SLEEP_EXIT, 1);
         }
+
+#if TARGET_OS_EMBEDDED
+	/* on embedded, allow a shell to live in /var/debug_mount/bin/sh */
+#define _PATH_DEBUGSHELL	"/var/debug_mount/bin/sh"
+        if (stat(pwd->pw_shell, &st) != 0) {
+        	if (stat(_PATH_DEBUGSHELL, &st) == 0) {
+        		pwd->pw_shell = strdup(_PATH_DEBUGSHELL);
+        	}
+        }
+#endif
 
 	/* Destroy environment unless user has requested its preservation. */
 	if (!pflag) {
@@ -565,6 +620,10 @@ main(argc, argv)
 	for( cnt = 0; pmenv && pmenv[cnt]; cnt++ ) 
 		putenv(pmenv[cnt]);
 
+	/* Ignore SIGHUP so that the parent's call to waitpid will
+	   succeed and the tty ownership can be reset. */
+	(void)signal(SIGHUP, SIG_IGN);
+
 	pid = fork();
 	if ( pid < 0 ) {
 		err(1, "fork");
@@ -577,6 +636,9 @@ main(argc, argv)
 		chmod(ttyn, 0666);
 		exit(0);
 	}
+
+	/* Restore the default SIGHUP handler for the child. */
+	(void)signal(SIGHUP, SIG_DFL);
 
 #endif
 
@@ -610,10 +672,6 @@ main(argc, argv)
 	(void)signal(SIGINT, SIG_DFL);
 	(void)signal(SIGTSTP, SIG_IGN);
 
-	tbuf[0] = '-';
-	(void)strcpy(tbuf + 1, (p = strrchr(pwd->pw_shell, '/')) ?
-	    p + 1 : pwd->pw_shell);
-
 	if (setlogin(pwd->pw_name) < 0)
 		syslog(LOG_ERR, "setlogin() failure: %m");
 
@@ -623,8 +681,67 @@ main(argc, argv)
 	else
 		(void) setuid(pwd->pw_uid);
 
-	execlp(pwd->pw_shell, tbuf, 0);
-	err(1, "%s", pwd->pw_shell);
+	/* Re-enable crash reporter */
+	do {
+		kern_return_t kr;
+		mach_port_t bp, ep, mts;
+		thread_state_flavor_t flavor = 0;
+
+#if defined(__ppc__)
+		flavor = PPC_THREAD_STATE64;
+#elif defined(__i386__)
+		flavor = x86_THREAD_STATE;
+#endif
+
+		mts = mach_task_self();
+
+		kr = task_get_bootstrap_port(mts, &bp);
+		if (kr != KERN_SUCCESS) {
+		  syslog(LOG_ERR, "task_get_bootstrap_port() failure: %s (%d)",
+			bootstrap_strerror(kr), kr);
+		  break;
+		}
+
+		const char* bs = "com.apple.ReportCrash";
+		kr = bootstrap_look_up(bp, (char*)bs, &ep);
+		if (kr != KERN_SUCCESS) {
+		  syslog(LOG_ERR, "bootstrap_look_up(%s) failure: %s (%d)",
+			bs, bootstrap_strerror(kr), kr);
+		  break;
+		}
+
+		kr = task_set_exception_ports(mts, EXC_MASK_CRASH, ep, EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES, flavor);
+		if (kr != KERN_SUCCESS) {
+		  syslog(LOG_ERR, "task_set_exception_ports() failure: %d", kr);
+		  break;
+		}
+	} while (0);
+
+	if (fflag && *argv) {
+		char *arg0 = *argv;
+		if (lflag)
+			(void)strlcpy(tbuf, (p = strrchr(*argv, '/')) ?
+			    p + 1 : *argv, sizeof(tbuf));
+		else {
+			tbuf[0] = '-';
+			(void)strlcpy(tbuf + 1, (p = strrchr(*argv, '/')) ?
+			    p + 1 : *argv, sizeof(tbuf) - 1);
+		}
+		*argv = tbuf;
+		execvp(arg0, argv);
+		err(1, "%s", arg0);
+	} else {
+		if (lflag)
+			(void)strlcpy(tbuf, (p = strrchr(pwd->pw_shell, '/')) ?
+			    p + 1 : pwd->pw_shell, sizeof(tbuf));
+		else {
+			tbuf[0] = '-';
+			(void)strlcpy(tbuf + 1, (p = strrchr(pwd->pw_shell, '/')) ?
+			    p + 1 : pwd->pw_shell, sizeof(tbuf) - 1);
+		}
+		execlp(pwd->pw_shell, tbuf, (char *)NULL);
+		err(1, "%s", pwd->pw_shell);
+	}
 }
 
 #ifdef	KERBEROS
@@ -641,6 +758,7 @@ main(argc, argv)
  */ 
 void au_success()
 {
+#ifdef USE_BSM
 	token_t *tok;
 	int aufd;
 	au_mask_t aumask;
@@ -697,6 +815,7 @@ void au_success()
 		fprintf(stderr, "login: Audit Record was not committed.\n");
 		exit(1);
 	}
+#endif
 }
 
 /*
@@ -708,6 +827,7 @@ void au_success()
  */ 
 void au_fail(char *errmsg, int na)
 {
+#ifdef USE_BSM
 	token_t *tok;
 	int aufd;
 	long au_cond;
@@ -767,6 +887,7 @@ void au_fail(char *errmsg, int na)
 		fprintf(stderr, "login: Audit Error: au_close()  was not committed\n");
 		exit(1);
 	}
+#endif
 }
 
 void
@@ -864,6 +985,22 @@ void
 dolastlog(quiet)
 	int quiet;
 {
+#ifdef USE_PAM
+	if (quiet)
+		return;
+	if (*lastlog.ll_line) {
+		(void)printf("Last login: %.*s ",
+		    24-5, (char *)ctime(&lastlog.ll_tv.tv_sec));
+		if (*lastlog.ll_host != '\0')
+			(void)printf("from %.*s\n",
+			    (int)sizeof(lastlog.ll_host),
+			    lastlog.ll_host);
+		else
+			(void)printf("on %.*s\n",
+			    (int)sizeof(lastlog.ll_line),
+			    lastlog.ll_line);
+	}
+#else /* !USE_PAM */
 	struct lastlog ll;
 	int fd;
 
@@ -903,6 +1040,7 @@ dolastlog(quiet)
 		(void)write(fd, (char *)&ll, sizeof(ll));
 		(void)close(fd);
 	}
+#endif /* USE_PAM */
 }
 
 void
@@ -1005,8 +1143,9 @@ pam_cleanup()
 void
 bail(int sec, int eval)
 {
-
+#ifdef USE_PAM
         pam_cleanup();
+#endif
         (void)sleep(sec);
         exit(eval);
 }

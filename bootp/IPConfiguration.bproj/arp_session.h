@@ -39,14 +39,29 @@
 #include "FDSet.h"
 #include "interfaces.h"
 
+typedef struct arp_client arp_client_t;
+
+typedef struct {
+    struct in_addr		sender_ip;
+    struct in_addr		target_ip;
+    uint8_t			target_hardware[MAX_LINK_ADDR_LEN];
+} arp_address_info_t;
+
+typedef struct {
+    arp_client_t *		client;	
+    boolean_t			error;
+    boolean_t			in_use;
+    arp_address_info_t		addr;
+} arp_result_t;
+
 /*
  * Type: arp_result_func_t
  * Purpose:
  *   Called to send results back to the caller.  The first two args are
- *   supplied by the client, the third is a pointer to an arp_result_t.
+ *   supplied by the client.
  */
 typedef void (arp_result_func_t)(void * arg1, void * arg2, 
-				 void * result);
+				 const arp_result_t * result);
 
 /*
  * Type: arp_our_address_func_t
@@ -60,22 +75,17 @@ typedef void (arp_result_func_t)(void * arg1, void * arg2,
 typedef boolean_t (arp_our_address_func_t)(interface_t * if_p, 
 					   int hwtype, void * hwaddr,
 					   int hwlen);
+
 typedef struct arp_session arp_session_t;
-typedef struct arp_client arp_client_t;
-
-typedef struct {
-    boolean_t			error;
-    boolean_t			in_use;
-    const void *		hwaddr;
-} arp_result_t;
-
 
 arp_session_t *
 arp_session_init(FDSet_t * readers,
 		 arp_our_address_func_t * func, 
 		 const struct timeval * retry_p,
 		 const int * probe_count, 
-		 const int * gratuitous_count);
+		 const int * gratuitous_count,
+		 const int * detect_count,
+		 const struct timeval * detect_retry_p);
 
 void
 arp_session_free(arp_session_t * * session_p);
@@ -97,6 +107,9 @@ arp_client_init(arp_session_t * session, interface_t * if_p);
 void
 arp_client_free(arp_client_t * * client_p);
 
+const char *
+arp_client_errmsg(arp_client_t * client);
+
 void
 arp_client_set_probe_info(arp_client_t * client, 
 			  const struct timeval * retry_interval,
@@ -105,15 +118,28 @@ arp_client_set_probe_info(arp_client_t * client,
 void 
 arp_client_restore_default_probe_info(arp_client_t * client);
 
-const char *
-arp_client_errmsg(arp_client_t * client);
-
 void
 arp_client_probe(arp_client_t * client,
 		 arp_result_func_t * func, void * arg1, void * arg2,
 		 struct in_addr sender_ip, struct in_addr target_ip);
 
 void
-arp_client_cancel_probe(arp_client_t * client);
+arp_client_resolve(arp_client_t * client,
+		   arp_result_func_t * func, void * arg1, void * arg2,
+		   struct in_addr sender_ip, struct in_addr target_ip,
+		   uint32_t resolve_secs);
+
+void
+arp_client_detect(arp_client_t * client,
+		  arp_result_func_t * func, void * arg1, void * arg2,
+		  const arp_address_info_t * list, int list_count);
+void
+arp_client_cancel(arp_client_t * client);
+
+void
+arp_client_defend(arp_client_t * client, struct in_addr our_ip);
+
+boolean_t
+arp_client_is_active(arp_client_t * client);
 
 #endif _S_ARP_SESSION_H

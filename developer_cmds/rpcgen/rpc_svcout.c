@@ -441,9 +441,7 @@ write_program(def, storage)
 		if (!nullproc(vp->procs)) {
 			f_print(fout, "\tcase NULLPROC:\n");
 			f_print(fout,
-			    Cflag
-			    ? "\t\t(void) svc_sendreply(%s, (xdrproc_t) xdr_void, (char *)NULL);\n"
-			    : "\t\t(void) svc_sendreply(%s, xdr_void, (char *)NULL);\n",
+			    "\t\t(void) svc_sendreply(%s, (xdrproc_t) xdr_void, (char *)NULL);\n",
 			    TRANSP);
 			print_return("\t\t");
 			f_print(fout, "\n");
@@ -491,7 +489,7 @@ write_program(def, storage)
 			f_print(fout, "\t%s = (*%s)(&%s, %s);\n",
 			    RESULT, ROUTINE, ARG, RQSTP);
 		f_print(fout,
-		    "\tif (%s != NULL && !svc_sendreply(%s, xdr_%s, %s)) {\n",
+		    "\tif (%s != NULL && !svc_sendreply(%s, (xdrproc_t) xdr_%s, %s)) {\n",
 		    RESULT, TRANSP, RESULT, RESULT);
 		printerr("systemerr", TRANSP);
 		f_print(fout, "\t}\n");

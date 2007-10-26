@@ -1,5 +1,5 @@
 /* Native debugging support for Intel x86 running DJGPP.
-   Copyright 1997, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright 1997, 1999, 2000, 2001, 2005 Free Software Foundation, Inc.
    Written by Robert Hoehne.
 
    This file is part of GDB.
@@ -34,6 +34,7 @@
 #include "value.h"
 #include "regcache.h"
 #include "gdb_string.h"
+#include "top.h"
 
 #include <stdio.h>		/* might be required for __DJGPP_MINOR__ */
 #include <stdlib.h>
@@ -183,7 +184,7 @@ static int go32_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len,
 static void go32_files_info (struct target_ops *target);
 static void go32_stop (void);
 static void go32_kill_inferior (void);
-static void go32_create_inferior (char *exec_file, char *args, char **env);
+static void go32_create_inferior (char *exec_file, char *args, char **env, int from_tty);
 static void go32_mourn_inferior (void);
 static int go32_can_run (void);
 
@@ -307,9 +308,9 @@ go32_close (int quitting)
 static void
 go32_attach (char *args, int from_tty)
 {
-  error ("\
+  error (_("\
 You cannot attach to a running program on this platform.\n\
-Use the `run' command to run DJGPP programs.");
+Use the `run' command to run DJGPP programs."));
 }
 
 static void
@@ -466,12 +467,13 @@ static void
 fetch_register (int regno)
 {
   if (regno < FP0_REGNUM)
-    supply_register (regno, (char *) &a_tss + regno_mapping[regno].tss_ofs);
+    regcache_raw_supply (current_regcache, regno,
+			 (char *) &a_tss + regno_mapping[regno].tss_ofs);
   else if (i386_fp_regnum_p (regno) || i386_fpc_regnum_p (regno))
     i387_supply_fsave (current_regcache, regno, &npx);
   else
     internal_error (__FILE__, __LINE__,
-		    "Invalid register no. %d in fetch_register.", regno);
+		    _("Invalid register no. %d in fetch_register."), regno);
 }
 
 static void
@@ -491,12 +493,13 @@ static void
 store_register (int regno)
 {
   if (regno < FP0_REGNUM)
-    regcache_collect (regno, (char *) &a_tss + regno_mapping[regno].tss_ofs);
+    regcache_raw_collect (current_regcache, regno,
+			  (char *) &a_tss + regno_mapping[regno].tss_ofs);
   else if (i386_fp_regnum_p (regno) || i386_fpc_regnum_p (regno))
     i387_fill_fsave ((char *) &npx, regno);
   else
     internal_error (__FILE__, __LINE__,
-		    "Invalid register no. %d in store_register.", regno);
+		    _("Invalid register no. %d in store_register."), regno);
 }
 
 static void
@@ -574,7 +577,7 @@ go32_kill_inferior (void)
 }
 
 static void
-go32_create_inferior (char *exec_file, char *args, char **env)
+go32_create_inferior (char *exec_file, char *args, char **env, int from_tty)
 {
   extern char **environ;
   jmp_buf start_state;
@@ -602,7 +605,7 @@ go32_create_inferior (char *exec_file, char *args, char **env)
   /* Init command line storage.  */
   if (redir_debug_init (&child_cmd) == -1)
     internal_error (__FILE__, __LINE__,
-		    "Cannot allocate redirection storage: not enough memory.\n");
+		    _("Cannot allocate redirection storage: not enough memory.\n"));
 
   /* Parse the command line and create redirections.  */
   if (strpbrk (args, "<>"))
@@ -610,7 +613,7 @@ go32_create_inferior (char *exec_file, char *args, char **env)
       if (redir_cmdline_parse (args, &child_cmd) == 0)
 	args = child_cmd.command;
       else
-	error ("Syntax error in command line.");
+	error (_("Syntax error in command line."));
     }
   else
     child_cmd.command = xstrdup (args);
@@ -619,7 +622,7 @@ go32_create_inferior (char *exec_file, char *args, char **env)
   /* v2loadimage passes command lines via DOS memory, so it cannot
      possibly handle commands longer than 1MB.  */
   if (cmdlen > 1024*1024)
-    error ("Command line too long.");
+    error (_("Command line too long."));
 
   cmdline = xmalloc (cmdlen + 4);
   strcpy (cmdline + 1, args);
@@ -693,7 +696,7 @@ go32_set_dr (int i, CORE_ADDR addr)
 {
   if (i < 0 || i > 3)
     internal_error (__FILE__, __LINE__, 
-		    "Invalid register %d in go32_set_dr.\n", i);
+		    _("Invalid register %d in go32_set_dr.\n"), i);
   D_REGS[i] = addr;
 }
 
@@ -803,7 +806,7 @@ go32_terminal_inferior (void)
   if (redir_to_child (&child_cmd) == -1)
   {
     redir_to_debugger (&child_cmd);
-    error ("Cannot redirect standard handles for program: %s.",
+    error (_("Cannot redirect standard handles for program: %s."),
 	   safe_strerror (errno));
   }
   /* set the console device of the inferior to whatever mode
@@ -837,7 +840,7 @@ go32_terminal_ours (void)
     if (redir_to_debugger (&child_cmd) == -1)
     {
       redir_to_child (&child_cmd);
-      error ("Cannot redirect standard handles for debugger: %s.",
+      error (_("Cannot redirect standard handles for debugger: %s."),
 	     safe_strerror (errno));
     }
   }
@@ -859,7 +862,7 @@ init_go32_ops (void)
   go32_ops.to_fetch_registers = go32_fetch_registers;
   go32_ops.to_store_registers = go32_store_registers;
   go32_ops.to_prepare_to_store = go32_prepare_to_store;
-  go32_ops.to_xfer_memory = go32_xfer_memory;
+  go32_ops.deprecated_xfer_memory = go32_xfer_memory;
   go32_ops.to_files_info = go32_files_info;
   go32_ops.to_insert_breakpoint = memory_insert_breakpoint;
   go32_ops.to_remove_breakpoint = memory_remove_breakpoint;
@@ -888,10 +891,13 @@ init_go32_ops (void)
   /* Initialize child's command line storage.  */
   if (redir_debug_init (&child_cmd) == -1)
     internal_error (__FILE__, __LINE__,
-		    "Cannot allocate redirection storage: not enough memory.\n");
+		    _("Cannot allocate redirection storage: not enough memory.\n"));
 
   /* We are always processing GCC-compiled programs.  */
   processing_gcc_compilation = 2;
+
+  /* Override the default name of the GDB init file.  */
+  strcpy (gdbinit, "gdb.ini");
 }
 
 unsigned short windows_major, windows_minor;
@@ -1515,7 +1521,7 @@ go32_sldt (char *arg, int from_tty)
 	  if (ldt_entry < 0
 	      || (ldt_entry & 4) == 0
 	      || (ldt_entry & 3) != (cpl & 3))
-	    error ("Invalid LDT entry 0x%03lx.", (unsigned long)ldt_entry);
+	    error (_("Invalid LDT entry 0x%03lx."), (unsigned long)ldt_entry);
 	}
     }
 
@@ -1553,7 +1559,7 @@ go32_sldt (char *arg, int from_tty)
       if (ldt_entry >= 0)
 	{
 	  if (ldt_entry > limit)
-	    error ("Invalid LDT entry %#lx: outside valid limits [0..%#x]",
+	    error (_("Invalid LDT entry %#lx: outside valid limits [0..%#x]"),
 		   (unsigned long)ldt_entry, limit);
 
 	  display_descriptor (ldt_descr.stype, base, ldt_entry / 8, 1);
@@ -1584,7 +1590,7 @@ go32_sgdt (char *arg, int from_tty)
 	{
 	  gdt_entry = parse_and_eval_long (arg);
 	  if (gdt_entry < 0 || (gdt_entry & 7) != 0)
-	    error ("Invalid GDT entry 0x%03lx: not an integral multiple of 8.",
+	    error (_("Invalid GDT entry 0x%03lx: not an integral multiple of 8."),
 		   (unsigned long)gdt_entry);
 	}
     }
@@ -1595,7 +1601,7 @@ go32_sgdt (char *arg, int from_tty)
   if (gdt_entry >= 0)
     {
       if (gdt_entry > gdtr.limit)
-	error ("Invalid GDT entry %#lx: outside valid limits [0..%#x]",
+	error (_("Invalid GDT entry %#lx: outside valid limits [0..%#x]"),
 	       (unsigned long)gdt_entry, gdtr.limit);
 
       display_descriptor (0, gdtr.base, gdt_entry / 8, 1);
@@ -1625,7 +1631,7 @@ go32_sidt (char *arg, int from_tty)
 	{
 	  idt_entry = parse_and_eval_long (arg);
 	  if (idt_entry < 0)
-	    error ("Invalid (negative) IDT entry %ld.", idt_entry);
+	    error (_("Invalid (negative) IDT entry %ld."), idt_entry);
 	}
     }
 
@@ -1637,7 +1643,7 @@ go32_sidt (char *arg, int from_tty)
   if (idt_entry >= 0)
     {
       if (idt_entry > idtr.limit)
-	error ("Invalid IDT entry %#lx: outside valid limits [0..%#x]",
+	error (_("Invalid IDT entry %#lx: outside valid limits [0..%#x]"),
 	       (unsigned long)idt_entry, idtr.limit);
 
       display_descriptor (1, idtr.base, idt_entry, 1);
@@ -1796,7 +1802,7 @@ go32_pde (char *arg, int from_tty)
 	{
 	  pde_idx = parse_and_eval_long (arg);
 	  if (pde_idx < 0 || pde_idx >= 1024)
-	    error ("Entry %ld is outside valid limits [0..1023].", pde_idx);
+	    error (_("Entry %ld is outside valid limits [0..1023]."), pde_idx);
 	}
     }
 
@@ -1845,7 +1851,7 @@ go32_pte (char *arg, int from_tty)
 	{
 	  pde_idx = parse_and_eval_long (arg);
 	  if (pde_idx < 0 || pde_idx >= 1024)
-	    error ("Entry %ld is outside valid limits [0..1023].", pde_idx);
+	    error (_("Entry %ld is outside valid limits [0..1023]."), pde_idx);
 	}
     }
 
@@ -1873,7 +1879,7 @@ go32_pte_for_address (char *arg, int from_tty)
 	addr = parse_and_eval_address (arg);
     }
   if (!addr)
-    error_no_arg ("linear address");
+    error_no_arg (_("linear address"));
 
   pdbr = get_cr3 ();
   if (!pdbr)
@@ -1904,43 +1910,43 @@ _initialize_go32_nat (void)
   init_go32_ops ();
   add_target (&go32_ops);
 
-  add_prefix_cmd ("dos", class_info, go32_info_dos_command,
-		  "Print information specific to DJGPP (aka MS-DOS) debugging.",
+  add_prefix_cmd ("dos", class_info, go32_info_dos_command, _("\
+Print information specific to DJGPP (aka MS-DOS) debugging."),
 		  &info_dos_cmdlist, "info dos ", 0, &infolist);
 
-  add_cmd ("sysinfo", class_info, go32_sysinfo,
-	    "Display information about the target system, including CPU, OS, DPMI, etc.",
+  add_cmd ("sysinfo", class_info, go32_sysinfo, _("\
+Display information about the target system, including CPU, OS, DPMI, etc."),
 	   &info_dos_cmdlist);
-  add_cmd ("ldt", class_info, go32_sldt,
-	   "Display entries in the LDT (Local Descriptor Table).\n"
-	   "Entry number (an expression) as an argument means display only that entry.",
+  add_cmd ("ldt", class_info, go32_sldt, _("\
+Display entries in the LDT (Local Descriptor Table).\n\
+Entry number (an expression) as an argument means display only that entry."),
 	   &info_dos_cmdlist);
-  add_cmd ("gdt", class_info, go32_sgdt,
-	   "Display entries in the GDT (Global Descriptor Table).\n"
-	   "Entry number (an expression) as an argument means display only that entry.",
+  add_cmd ("gdt", class_info, go32_sgdt, _("\
+Display entries in the GDT (Global Descriptor Table).\n\
+Entry number (an expression) as an argument means display only that entry."),
 	   &info_dos_cmdlist);
-  add_cmd ("idt", class_info, go32_sidt,
-	   "Display entries in the IDT (Interrupt Descriptor Table).\n"
-	   "Entry number (an expression) as an argument means display only that entry.",
+  add_cmd ("idt", class_info, go32_sidt, _("\
+Display entries in the IDT (Interrupt Descriptor Table).\n\
+Entry number (an expression) as an argument means display only that entry."),
 	   &info_dos_cmdlist);
-  add_cmd ("pde", class_info, go32_pde,
-	   "Display entries in the Page Directory.\n"
-	   "Entry number (an expression) as an argument means display only that entry.",
+  add_cmd ("pde", class_info, go32_pde, _("\
+Display entries in the Page Directory.\n\
+Entry number (an expression) as an argument means display only that entry."),
 	   &info_dos_cmdlist);
-  add_cmd ("pte", class_info, go32_pte,
-	   "Display entries in Page Tables.\n"
-	   "Entry number (an expression) as an argument means display only entries\n"
-	   "from the Page Table pointed to by the specified Page Directory entry.",
+  add_cmd ("pte", class_info, go32_pte, _("\
+Display entries in Page Tables.\n\
+Entry number (an expression) as an argument means display only entries\n\
+from the Page Table pointed to by the specified Page Directory entry."),
 	   &info_dos_cmdlist);
-  add_cmd ("address-pte", class_info, go32_pte_for_address,
-	   "Display a Page Table entry for a linear address.\n"
-	   "The address argument must be a linear address, after adding to\n"
-	   "it the base address of the appropriate segment.\n"
-	   "The base address of variables and functions in the debuggee's data\n"
-	   "or code segment is stored in the variable __djgpp_base_address,\n"
-	   "so use `__djgpp_base_address + (char *)&var' as the argument.\n"
-	   "For other segments, look up their base address in the output of\n"
-	   "the `info dos ldt' command.",
+  add_cmd ("address-pte", class_info, go32_pte_for_address, _("\
+Display a Page Table entry for a linear address.\n\
+The address argument must be a linear address, after adding to\n\
+it the base address of the appropriate segment.\n\
+The base address of variables and functions in the debuggee's data\n\
+or code segment is stored in the variable __djgpp_base_address,\n\
+so use `__djgpp_base_address + (char *)&var' as the argument.\n\
+For other segments, look up their base address in the output of\n\
+the `info dos ldt' command."),
 	   &info_dos_cmdlist);
 }
 

@@ -19,7 +19,7 @@
 
 # Load library routines
 SYSCONFDIR=${SYSCONFDIR-@sysconfdir@}
-. ${LIBPATH-@libexecdir@}/backup.sh
+. ${LIBDIR-@libexecdir@}/backup.sh
 
 DUMP_LEVEL=0
 TIME=
@@ -187,7 +187,7 @@ message 20 "BACKUP_FILES=$BACKUP_FILES"
      backup_host ${remotehost} \
                 "--listed=`level_log_name temp`" \
                 "--label='`print_level` backup of ${fs} on ${remotehost} at ${NOW}'" \
-		-C ${fs} .
+		-C ${ROOT_FS}${fs} .
 
      # `rsh' doesn't exit with the exit status of the remote command.  What
      # stupid lossage.  TODO: think of a reliable workaround.
@@ -247,7 +247,9 @@ message 20 "BACKUP_FILES=$BACKUP_FILES"
  echo "."
 ) 2>&1 | tee -a "${LOGFILE}"
 
-echo "Sending the dump log to ${ADMINISTRATOR}"
-mail -s "Results of backup started ${startdate}" ${ADMINISTRATOR} < "${LOGFILE}"
+if test "${ADMINISTRATOR}" != NONE; then
+     echo "Sending the dump log to ${ADMINISTRATOR}"
+     mail -s "Results of backup started ${startdate}" ${ADMINISTRATOR} < "${LOGFILE}"
+fi
 
 # EOF

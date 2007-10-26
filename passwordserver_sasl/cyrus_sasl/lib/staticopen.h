@@ -1,7 +1,7 @@
 /* staticopen.h
  * Rob Siemborski
  * Howard Chu
- * $Id: staticopen.h,v 1.3 2004/07/07 22:48:35 snsimon Exp $
+ * $Id: staticopen.h,v 1.4 2005/05/17 21:56:44 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -122,6 +122,9 @@ extern SPECIFIC_AUXPROP_PLUG_INIT_PROTO( sasldb );
 #ifdef STATIC_SQL
 extern SPECIFIC_AUXPROP_PLUG_INIT_PROTO( sql );
 #endif
+#ifdef STATIC_LDAPDB
+extern SPECIFIC_AUXPROP_PLUG_INIT_PROTO( ldapdb );
+#endif
 
 _sasl_plug_rec _sasl_static_plugins[] = {
 #ifdef STATIC_ANONYMOUS
@@ -169,6 +172,9 @@ _sasl_plug_rec _sasl_static_plugins[] = {
 #endif
 #ifdef STATIC_SQL
 	SPECIFIC_AUXPROP_PLUG_INIT( sql, "SQL" ),
+#endif
+#ifdef STATIC_LDAPDB
+    SPECIFIC_AUXPROP_PLUG_INIT( ldapdb, "LDAPDB" ),
 #endif
 	{ UNKNOWN, NULL, NULL }
 };

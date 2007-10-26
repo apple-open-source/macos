@@ -1,8 +1,8 @@
 /* backend.c - deals with backend subsystem */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/backend.c,v 1.23.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/backend.c,v 1.33.2.4 2006/01/03 22:16:21 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Copyright 2001-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -33,81 +33,87 @@
  */
 int
 monitor_subsys_backend_init(
-	BackendDB	*be
+	BackendDB		*be,
+	monitor_subsys_t	*ms
 )
 {
-	struct monitorinfo	*mi;
-	Entry			*e, *e_backend, *e_tmp;
+	monitor_info_t		*mi;
+	Entry			*e_backend, **ep;
 	int			i;
-	struct monitorentrypriv	*mp;
+	monitor_entry_t		*mp;
+	monitor_subsys_t	*ms_database;
+	BackendInfo			*bi;
 
-	mi = ( struct monitorinfo * )be->be_private;
+	mi = ( monitor_info_t * )be->be_private;
 
-	if ( monitor_cache_get( mi, 
-				&monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn, 
-				&e_backend ) ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, CRIT,
-			"monitor_subsys_backend_init: "
-			"unable to get entry '%s'\n",
-			monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val, 0, 0 );
-#else
+	ms_database = monitor_back_get_subsys( SLAPD_MONITOR_DATABASE_NAME );
+	if ( ms_database == NULL ) {
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_backend_init: "
-			"unable to get entry '%s'\n%s%s",
-			monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val, 
-			"", "" );
-#endif
+			"unable to get "
+			"\"" SLAPD_MONITOR_DATABASE_NAME "\" "
+			"subsystem\n",
+			0, 0, 0 );
+		return -1;
+	}
+
+	if ( monitor_cache_get( mi, &ms->mss_ndn, &e_backend ) ) {
+		Debug( LDAP_DEBUG_ANY,
+			"monitor_subsys_backend_init: "
+			"unable to get entry \"%s\"\n",
+			ms->mss_ndn.bv_val, 0, 0 );
 		return( -1 );
 	}
 
-	e_tmp = NULL;
-	for ( i = nBackendInfo; i--; ) {
+	mp = ( monitor_entry_t * )e_backend->e_private;
+	mp->mp_children = NULL;
+	ep = &mp->mp_children;
+
+	i = -1;
+	LDAP_STAILQ_FOREACH( bi, &backendInfo, bi_next ) {
 		char 		buf[ BACKMONITOR_BUFSIZE ];
-		BackendInfo 	*bi;
+		BackendDB	*be;
 		struct berval 	bv;
 		int		j;
+		Entry		*e;
 
-		bi = &backendInfo[i];
+		i++;
 
 		snprintf( buf, sizeof( buf ),
 				"dn: cn=Backend %d,%s\n"
 				"objectClass: %s\n"
 				"structuralObjectClass: %s\n"
 				"cn: Backend %d\n"
+				"%s: %s\n"
+				"%s: %s\n"
+				"creatorsName: %s\n"
+				"modifiersName: %s\n"
 				"createTimestamp: %s\n"
 				"modifyTimestamp: %s\n",
 				i,
-				monitor_subsys[SLAPD_MONITOR_BACKEND].mss_dn.bv_val,
+				ms->mss_dn.bv_val,
 				mi->mi_oc_monitoredObject->soc_cname.bv_val,
 				mi->mi_oc_monitoredObject->soc_cname.bv_val,
 				i,
+				mi->mi_ad_monitoredInfo->ad_cname.bv_val,
+					bi->bi_type,
+				mi->mi_ad_monitorRuntimeConfig->ad_cname.bv_val,
+					bi->bi_cf_ocs == NULL ? "FALSE" : "TRUE",
+				mi->mi_creatorsName.bv_val,
+				mi->mi_creatorsName.bv_val,
 				mi->mi_startTime.bv_val,
 				mi->mi_startTime.bv_val );
 		
 		e = str2entry( buf );
 		if ( e == NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, CRIT,
-				"monitor_subsys_backend_init: "
-				"unable to create entry 'cn=Backend %d,%s'\n",
-				i, monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 				"monitor_subsys_backend_init: "
-				"unable to create entry 'cn=Backend %d,%s'\n%s",
-				i, 
-				monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val,
-				"" );
-#endif
+				"unable to create entry \"cn=Backend %d,%s\"\n",
+				i, ms->mss_ndn.bv_val, 0 );
 			return( -1 );
 		}
 		
-		bv.bv_val = bi->bi_type;
-		bv.bv_len = strlen( bv.bv_val );
-
-		attr_merge_normalize_one( e, mi->mi_ad_monitoredInfo,
-				&bv, NULL );
+		ber_str2bv( bi->bi_type, 0, 0, &bv );
 		attr_merge_normalize_one( e_backend, mi->mi_ad_monitoredInfo,
 				&bv, NULL );
 
@@ -115,61 +121,52 @@ monitor_subsys_backend_init(
 			int j;
 
 			for ( j = 0; bi->bi_controls[ j ]; j++ ) {
-				bv.bv_val = bi->bi_controls[ j ];
-				bv.bv_len = strlen( bv.bv_val );
-				attr_merge_one( e, slap_schema.si_ad_supportedControl, &bv, NULL );
+				ber_str2bv( bi->bi_controls[ j ], 0, 0, &bv );
+				attr_merge_one( e, slap_schema.si_ad_supportedControl,
+						&bv, &bv );
 			}
 		}
 
-		for ( j = 0; j < nBackendDB; j++ ) {
-			BackendDB	*be = &backendDB[j];
+		j = -1;
+		LDAP_STAILQ_FOREACH( be, &backendDB, be_next ) {
 			char		buf[ SLAP_LDAPDN_MAXLEN ];
 			struct berval	dn;
 			
+			j++;
+
 			if ( be->bd_info != bi ) {
 				continue;
 			}
 
 			snprintf( buf, sizeof( buf ), "cn=Database %d,%s",
-					j, monitor_subsys[SLAPD_MONITOR_DATABASE].mss_dn.bv_val );
-			dn.bv_val = buf;
-			dn.bv_len = strlen( buf );
+					j, ms_database->mss_dn.bv_val );
 
-			attr_merge_normalize_one( e, mi->mi_ad_seeAlso,
+			ber_str2bv( buf, 0, 0, &dn );
+			attr_merge_normalize_one( e, slap_schema.si_ad_seeAlso,
 					&dn, NULL );
 		}
 		
-		mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
+		mp = monitor_entrypriv_create();
+		if ( mp == NULL ) {
+			return -1;
+		}
 		e->e_private = ( void * )mp;
-		mp->mp_next = e_tmp;
-		mp->mp_children = NULL;
-		mp->mp_info = &monitor_subsys[SLAPD_MONITOR_BACKEND];
-		mp->mp_flags = monitor_subsys[SLAPD_MONITOR_BACKEND].mss_flags
-			| MONITOR_F_SUB;
+		mp->mp_info = ms;
+		mp->mp_flags = ms->mss_flags | MONITOR_F_SUB;
 
 		if ( monitor_cache_add( mi, e ) ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, CRIT,
-				"monitor_subsys_backend_init: "
-				"unable to add entry 'cn=Backend %d,%s'\n",
-				i, monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 				"monitor_subsys_backend_init: "
-				"unable to add entry 'cn=Backend %d,%s'\n%s",
+				"unable to add entry \"cn=Backend %d,%s\"\n",
 				i,
-			       	monitor_subsys[SLAPD_MONITOR_BACKEND].mss_ndn.bv_val,
-			    	"" );
-#endif
+			       	ms->mss_ndn.bv_val, 0 );
 			return( -1 );
 		}
 
-		e_tmp = e;
+		*ep = e;
+		ep = &mp->mp_next;
 	}
 	
-	mp = ( struct monitorentrypriv * )e_backend->e_private;
-	mp->mp_children = e_tmp;
-
 	monitor_cache_release( mi, e_backend );
 
 	return( 0 );

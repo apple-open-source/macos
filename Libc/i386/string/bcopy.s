@@ -25,7 +25,6 @@
  * Call the comm page routines
  */
 
-#define __APPLE_API_PRIVATE
 #include <machine/cpu_capabilities.h>
 
 #include <architecture/i386/asm_help.h>
@@ -36,13 +35,13 @@
 #if defined(MEMCOPY)
 LEAF(_memcpy,0)
 	movl	$(_COMM_PAGE_MEMCPY), %eax
-	jmpl	%eax
+	jmpl	*%eax
 #elif defined(MEMMOVE)
 LEAF(_memmove,0)
 	movl	$(_COMM_PAGE_MEMMOVE), %eax
-	jmpl	%eax
+	jmpl	*%eax
 #else
 LEAF(_bcopy,0)
 	movl	$(_COMM_PAGE_BCOPY), %eax
-	jmpl	%eax
+	jmpl	*%eax
 #endif

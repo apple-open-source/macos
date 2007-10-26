@@ -5,7 +5,7 @@
  |                          MacsBug SET/SHOW Option Processing                          |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2005                       |
+ |                       Copyright Apple Computer, Inc. 2000-2006                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -31,6 +31,8 @@ int wrap_lines 	   = 1;				/* wrap history lines			*/
 int show_so_si_src = 1;				/* show source with so/si commands	*/
 int dx_state	   = 1;				/* breakpoints enabled state		*/
 int sidebar_state  = 1;				/* display reg sidebar in scroll mode	*/
+int show_selectors = 1;				/* display objc selectors at pc		*/
+int comment_insns  = 0;				/* comment selected instructions	*/
 int tab_value 	   = DEFAULT_TAB_VALUE;		/* history display tab value		*/
 int pc_area_lines  = DEFAULT_PC_LINES;		/* user controlled pc area max lines	*/
 int cmd_area_lines = DEFAULT_CMD_LINES;		/* user controlled cmd area max lines	*/
@@ -58,6 +60,8 @@ static char *wrap_args;
 static char *sosi_args;
 static char *dx_args;
 static char *sidebar_args;
+static char *selector_args;
+static char *insns_args;
 static int  new_tab_value      = DEFAULT_TAB_VALUE;
 static int  new_pc_area_lines  = DEFAULT_PC_LINES;
 static int  new_cmd_area_lines = DEFAULT_CMD_LINES;
@@ -115,7 +119,7 @@ static void check_all_sets(char *theSetting, Gdb_Set_Type type, void *value, int
    value	      pointer to int switch to be set according to option
    meaning            string to prefix "is [still] {en|dis}abled" messages
    confirm	      1 if SET/SHOW is entered from terminal and SET confirm on
-   additiona_stuff    NULL or function to call to do additional stuff when state changes
+   additional_stuff   NULL or function to call to do additional stuff when state changes
    		      The prototype for this function is:
    		      	additiona_stuff(int state, int confirm);
     
@@ -139,26 +143,26 @@ static void macsbug_set(char *cmd, char **arg, int *value, char *meaning, int co
 	    if (additional_stuff)
 	    	additional_stuff(0, confirm);
 	    if (confirm)
-	    	gdb_printf("%s is disabled\n", meaning);
+	    	gdb_printf("%s is disabled.\n", meaning);
 	} else {
 	    *value = 1;
 	    if (additional_stuff)
 	    	additional_stuff(1, confirm);
 	    if (confirm)
-	    	gdb_printf("%s is enabled\n", meaning);
+	    	gdb_printf("%s is enabled.\n", meaning);
 	}
     } else if (argc == 2) {
 	switch (gdb_keyword(argv[1], options)) {
 	    case 0: /* on   */
 		if (*value) {
 		    if (confirm)
-		    	gdb_printf("%s is still enabled\n", meaning);
+		    	gdb_printf("%s is still enabled.\n", meaning);
 		} else {
 		    *value = 1;
 		    if (additional_stuff)
 		    	additional_stuff(1, confirm);
 		    if (confirm)
-		    	gdb_printf("%s is enabled\n", meaning);
+		    	gdb_printf("%s is enabled.\n", meaning);
 		}
 		break;
 	    case 1: /* off  */
@@ -167,16 +171,16 @@ static void macsbug_set(char *cmd, char **arg, int *value, char *meaning, int co
 		    if (additional_stuff)
 		    	additional_stuff(0, confirm);
 		    if (confirm)
-		    	gdb_printf("%s is disabled\n", meaning);
+		    	gdb_printf("%s is disabled.\n", meaning);
 		} else if (confirm)
-		    gdb_printf("%s is still disabled\n", meaning);
+		    gdb_printf("%s is still disabled.\n", meaning);
 		break;
 	    case 2: /* now  */
 	    case 3: /* show */
 		if (*value)
-		    gdb_printf("%s is still enabled\n", meaning);
+		    gdb_printf("%s is still enabled.\n", meaning);
 		else
-		    gdb_printf("%s is still disabled\n", meaning);
+		    gdb_printf("%s is still disabled.\n", meaning);
 		break;
 	    default:
 		err = 1;
@@ -202,6 +206,19 @@ static void macsbug_set(char *cmd, char **arg, int *value, char *meaning, int co
  
 /*--------------------------------------------------------------------------------------*/
 
+/*------------------------------------------------------------------*
+ | update_pc_area - update pc-area for SETs that affect the display |
+ *------------------------------------------------------------------*/
+
+static void update_pc_area(int state, int confirm)
+{
+    GDB_ADDRESS pc;
+    
+    gdb_get_register("$pc", &pc);
+    fix_pc_area_if_necessary(pc);
+}
+
+
 /*--------------------------------------------------------------*
  | set_gdb_demangle - "additional stuff" to do for SET UNMANGLE |
  *--------------------------------------------------------------*
@@ -218,6 +235,8 @@ static void set_gdb_demangle(int state, int confirm)
 	gdb_execute_command("set print demangle off");
 	gdb_execute_command("set print asm-demangle off");
     }
+    
+    update_pc_area(state, confirm);
 }
 
 
@@ -365,14 +384,19 @@ SET_ON_OFF_NOW(set_wrap,         wrap_lines,     wrap_args, 	"Wrapping history l
 SET_ON_OFF_NOW(set_so_si_source, show_so_si_src, sosi_args, 	"Source with SO/SI",                NULL);
 SET_ON_OFF_NOW(set_dx,           dx_state,     	 dx_args, 	"Breakpoints",           	    control_breakpoints);
 SET_ON_OFF_NOW(set_sidebar,      sidebar_state,  sidebar_args, 	"Displaying register side-bar",     NULL);
+SET_ON_OFF_NOW(set_objc_selectors,show_selectors, selector_args,"Showing Objective C selector at PC", update_pc_area);
+SET_ON_OFF_NOW(set_comment_insns,comment_insns,  insns_args,    "Showing comments for selected instructions", update_pc_area);
 
-#define DITTO_DESCRIPTION 	"Set ditto marks for DM and DMA repeated lines"
-#define UNMANGLE_DESCRIPTION 	"Set C++ symbol unmangling"
-#define ECHO_DESCRIPTION 	"Set echoing commands to history area"
-#define WRAP_DESCRIPTION 	"Set history area line wrapping"
-#define SOSI_DESCRIPTION 	"Set source display with SO/SI"
-#define DX_DESCRIPTION 		"Set stopping on breakpoints"
-#define SIDEBAR_DESCRIPTION 	"Set displaying register side-bar (for ID, IL, IP, SO, SI)"
+#define DITTO_DESCRIPTION 	"Set ditto marks for DM and DMA repeated lines."
+#define UNMANGLE_DESCRIPTION 	"Set C++ symbol unmangling."
+#define ECHO_DESCRIPTION 	"Set echoing commands to history area."
+#define WRAP_DESCRIPTION 	"Set line wrapping (history area or non-MacsBug screen asm code)."
+#define SOSI_DESCRIPTION 	"Set source display with SO/SI."
+#define DX_DESCRIPTION 		"Set stopping on breakpoints."
+#define SIDEBAR_DESCRIPTION 	"Set displaying register side-bar (for ID, IL, IP, SO, SI)."
+#define SELECTOR_DESCRIPTION	"Set displaying of Objective C selector at PC in disassemblies."
+#define INSNS_DESCRIPTION	"Set adding comments to selected instructions.\n" \
+				"THIS COMMAND IS STILL EXPERIMENTAL!  Use at your own risk."
 
 
 /*------------------------------------------------------------------------*
@@ -388,7 +412,7 @@ static void set_tab(char *theSetting, Gdb_Set_Type type, void *value, int show,
     	tab_value = new_tab_value;
 }
 
-#define TAB_DESCRIPTION "Set history area source line tab interpretation"
+#define TAB_DESCRIPTION "Set history area source line tab interpretation."
 
 
 /*--------------------------------------------------------*
@@ -409,7 +433,7 @@ static void set_pc_area(char *theSetting, Gdb_Set_Type type, void *value, int sh
     }
 }
 
-#define PC_AREA_DESCRIPTION "Set number of lines in pc area"
+#define PC_AREA_DESCRIPTION "Set number of lines in pc area."
 
 
 /*---------------------------------------------------------------*
@@ -430,7 +454,7 @@ static void set_cmd_area(char *theSetting, Gdb_Set_Type type, void *value, int s
     }
 }
 
-#define CMD_AREA_DESCRIPTION "Set number of lines in command line area"
+#define CMD_AREA_DESCRIPTION "Set number of lines in command line area."
 
 
 /*--------------------------------------------------------------*
@@ -451,7 +475,7 @@ static void set_history_size(char *theSetting, Gdb_Set_Type type, void *value, i
     }
 }
 
-#define HISTORY_DESCRIPTION "Set number of remembered history lines"
+#define HISTORY_DESCRIPTION "Set number of remembered history lines."
 
 
 /*-------------------------------------------------------------------*
@@ -469,7 +493,7 @@ static void set_hexdump_width(char *theSetting, Gdb_Set_Type type, void *value, 
     	hexdump_width = new_hexdump_width;
 }
 
-#define HEXDUMP_WIDTH_DESCRIPTION "Set hexdump number of bytes per line"
+#define HEXDUMP_WIDTH_DESCRIPTION "Set hexdump number of bytes per line."
 
 
 /*-----------------------------------------------------------------*
@@ -487,7 +511,7 @@ static void set_hexdump_group(char *theSetting, Gdb_Set_Type type, void *value, 
     	hexdump_group = new_hexdump_group;
 }
 
-#define HEXDUMP_GROUP_DESCRIPTION "Set number of bytes grouped together without intervening spaces"
+#define HEXDUMP_GROUP_DESCRIPTION "Set number of bytes grouped together without intervening spaces."
 
 
 /*----------------------------------*
@@ -507,7 +531,7 @@ static void set_arch(char *theSetting, Gdb_Set_Type type, void *value, int show,
     	    else
     	    	define_macsbug_screen_positions(pc_area_lines, cmd_area_lines);
     	    strcpy(prev_arch, new_arch);
-    	    gdb_printf("Display architecture always assumes 32-bit\n");
+    	    gdb_printf("Display architecture always assumes 32-bit.\n");
     	} else if (strcmp(new_arch, "64") == 0) {
     	    target_arch = force_arch = 8;
     	   need_CurApName = 1;
@@ -516,7 +540,7 @@ static void set_arch(char *theSetting, Gdb_Set_Type type, void *value, int show,
     	    else
     	    	define_macsbug_screen_positions(pc_area_lines, cmd_area_lines);
     	    strcpy(prev_arch, new_arch);
-    	    gdb_printf("Display architecture always assumes 64-bit\n");
+    	    gdb_printf("Display architecture always assumes 64-bit.\n");
     	} else {
     	    new_arch = (char *)gdb_realloc(new_arch, strlen(prev_arch) + 1);
     	    strcpy(new_arch, prev_arch);
@@ -534,11 +558,11 @@ static void set_arch(char *theSetting, Gdb_Set_Type type, void *value, int show,
 	    define_macsbug_screen_positions(pc_area_lines, cmd_area_lines);
 	strcpy(prev_arch, new_arch);
 
-    	gdb_printf("Display architecture is set according to inferior\n");
+    	gdb_printf("Display architecture is set according to inferior.\n");
     }
 }
 
-#define SET_ARCH_DESCRIPTION "Set display for architecture, i.e., 32, 64, or inferior's (default)"
+#define SET_ARCH_DESCRIPTION "Set display for architecture, i.e., 32, 64, or inferior's (default)."
 
 
 /*-----------------------------------------------------*
@@ -559,7 +583,7 @@ static void set_mb_testing(char *theSetting, Gdb_Set_Type type, void *value, int
     }
 }
 
-#define TESTING_DESCRIPTION "Private debugging value";
+#define TESTING_DESCRIPTION "Private debugging value.";
 
 
 /*----------------------------------------------------*
@@ -585,7 +609,12 @@ void init_macsbug_set(void)
     gdb_define_set("mb-so-si-source", set_so_si_source, Set_String, &sosi_args,          0, SOSI_DESCRIPTION);
     gdb_define_set("mb-dx",  	      set_dx,           Set_String, &dx_args,            0, DX_DESCRIPTION);
     gdb_define_set("mb-sidebar",      set_sidebar,      Set_String, &sidebar_args,       0, SIDEBAR_DESCRIPTION);
-   
+    
+    gdb_define_set("mb-objc-selectors",set_objc_selectors,Set_String, &selector_args,    0, SELECTOR_DESCRIPTION);
+    #ifndef not_ready_for_prime_time_but_keep_enabled_for_private_testing
+    gdb_define_set("mb-comment-insns" ,set_comment_insns, Set_String, &insns_args,       0, INSNS_DESCRIPTION);
+    #endif
+    
     gdb_define_set("mb-tab",          set_tab,          Set_Int,    &new_tab_value,      0, TAB_DESCRIPTION);
     gdb_define_set("mb-pc-area",      set_pc_area,      Set_Int,    &new_pc_area_lines,  0, PC_AREA_DESCRIPTION);
     gdb_define_set("mb-cmd-area",     set_cmd_area,     Set_Int,    &new_cmd_area_lines, 0, CMD_AREA_DESCRIPTION);
@@ -613,6 +642,8 @@ void init_macsbug_set(void)
     INIT_ENABLED_DISABLED(sosi_args, 	 show_so_si_src);
     INIT_ENABLED_DISABLED(dx_args, 	 dx_state);
     INIT_ENABLED_DISABLED(sidebar_args,  sidebar_state);
+    INIT_ENABLED_DISABLED(selector_args, show_selectors);
+    INIT_ENABLED_DISABLED(insns_args,    comment_insns);
     
     new_arch = strcpy((char *)gdb_malloc(sizeof(DEFAULT_TARGET_ARCH) + 1), DEFAULT_TARGET_ARCH);
     strcpy(prev_arch, new_arch);

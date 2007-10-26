@@ -106,7 +106,7 @@ intermediate positions."
 ;;;
 ;;;###autoload
 (defun hanoi (nrings)
-  "Towers of Hanoi diversion.  Use NRINGS rings." 
+  "Towers of Hanoi diversion.  Use NRINGS rings."
   (interactive
    (list (if (null current-prefix-arg)
 	     3
@@ -132,8 +132,8 @@ Repent before ring 31 moves."
 
 ;;;###autoload
 (defun hanoi-unix-64 ()
-  "Like hanoi-unix, but pretend to have a 64-bit clock.  
-This is, necessarily (as of emacs 20.3), a crock.  When the
+  "Like hanoi-unix, but pretend to have a 64-bit clock.
+This is, necessarily (as of Emacs 20.3), a crock.  When the
 current-time interface is made s2G-compliant, hanoi.el will need
 to be updated."
   (interactive)
@@ -152,7 +152,7 @@ BITS must be of length nrings.  Start at START-TIME."
   (buffer-disable-undo (current-buffer))
   (unwind-protect
       (let*
-	  (;; These lines can cause emacs to crash if you ask for too
+	  (;; These lines can cause Emacs to crash if you ask for too
 	   ;; many rings.  If you uncomment them, on most systems you
 	   ;; can get 10,000+ rings.
 	   ;;(max-specpdl-size (max max-specpdl-size (* nrings 15)))
@@ -399,9 +399,8 @@ BITS must be of length nrings.  Start at START-TIME."
 ;; update display and pause, quitting with a pithy comment if the user
 ;; hits a key.
 (defun hanoi-sit-for (seconds)
-  (sit-for seconds)
-  (if (input-pending-p)
-      (signal 'quit '("I can tell you've had enough"))))
+  (unless (sit-for seconds)
+    (signal 'quit '("I can tell you've had enough"))))
 
 ;; move ring to a given buffer position and update ring's car.
 (defun hanoi-ring-to-pos (ring pos)
@@ -447,4 +446,5 @@ BITS must be of length nrings.  Start at START-TIME."
 
 (provide 'hanoi)
 
+;;; arch-tag: 7a901659-4346-495c-8883-14cbf540610c
 ;;; hanoi.el ends here

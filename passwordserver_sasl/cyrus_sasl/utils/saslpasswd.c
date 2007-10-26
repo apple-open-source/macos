@@ -437,7 +437,7 @@ main(int argc, char *argv[])
       if (!ret) {
 	  ret = prop_set(propctx, "cmusaslsecretCRAM-MD5", NULL, 0);
 	  ret = prop_set(propctx, "cmusaslsecretDIGEST-MD5", NULL, 0);
-	  ret = prop_set(propctx, "cmusaslsecretPLAIN-MD5", NULL, 0);
+	  ret = prop_set(propctx, "cmusaslsecretPLAIN", NULL, 0);
 	  ret = sasl_auxprop_store(conn, propctx, userid);
       }
       if (propctx) prop_dispose(&propctx);

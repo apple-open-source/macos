@@ -4,22 +4,28 @@
 # Remove components of the previous KfM (if present):
 #
 
+# The client framework, which can have a different layout
+CLIENTFRAMEWORK=${3}/System/Library/PrivateFrameworks/KerberosClient.framework
+if [ -d "${CLIENTFRAMEWORK}" ]
+    then "${3}/bin/rm" -rf "${CLIENTFRAMEWORK}"
+fi
+
+# The server framework, which can have a different layout
+SERVERFRAMEWORK=${3}/System/Library/PrivateFrameworks/KerberosServer.framework
+if [ -d "${SERVERFRAMEWORK}" ]
+    then "${3}/bin/rm" -rf "${SERVERFRAMEWORK}"
+fi
+
 # The framework, which can have a different layout
 FRAMEWORK=${3}/System/Library/Frameworks/Kerberos.framework
 if [ -d "${FRAMEWORK}" ]
     then "${3}/bin/rm" -rf "${FRAMEWORK}"
 fi
 
-# Bogus des dylib name
-DES524=${3}/usr/lib/libdes524.dylib
-if [ -f "${DES524}" ]
-    then "${3}/bin/rm" -rf "${DES524}"
-fi
-
-# SymLink to umbrella framework support headers
-INCLUDELINK=${3}/usr/include/KerberosSupport
-if [ -L "${INCLUDELINK}" ]
-    then "${3}/bin/rm" -rf "${INCLUDELINK}"
+# The db plugin, which can have a different layout
+DBPLUGIN=${3}/System/Library/KerberosPlugins/KerberosDatabasePlugins/db2.bundle
+if [ -d "${DBPLUGIN}" ]
+    then "${3}/bin/rm" -rf "${DBPLUGIN}"
 fi
 
 # The KerberosAgent, which can have a different layout
@@ -38,6 +44,18 @@ fi
 APP=${3}/System/Library/CoreServices/Kerberos.app
 if [ -d "${APP}" ]
     then "${3}/bin/rm" -rf "${APP}"
+fi
+
+# Bogus des dylib name
+DES524=${3}/usr/lib/libdes524.dylib
+if [ -f "${DES524}" ]
+    then "${3}/bin/rm" -rf "${DES524}"
+fi
+
+# SymLink to umbrella framework support headers
+INCLUDELINK=${3}/usr/include/KerberosSupport
+if [ -L "${INCLUDELINK}" ]
+    then "${3}/bin/rm" -rf "${INCLUDELINK}"
 fi
 
 OLDAPP1=${3}/Applications/Kerberos.app

@@ -54,4 +54,7 @@ extern int Gdbtk_Breakpoint_Init (Tcl_Interp *interp);
 extern int Gdbtk_Stack_Init (Tcl_Interp *interp);
 extern int Gdbtk_Register_Init (Tcl_Interp *interp);
 
+/* replacement for removed gdb function */
+char *symtab_to_filename (struct symtab *s);
+
 #endif /* GDBTK_CMDS_H */

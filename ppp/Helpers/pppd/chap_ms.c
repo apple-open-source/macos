@@ -96,7 +96,7 @@
  *
  */
 
-#define RCSID	"$Id: chap_ms.c,v 1.8 2005/01/25 00:20:57 lindak Exp $"
+#define RCSID	"$Id: chap_ms.c,v 1.9 2005/08/30 22:53:50 lindak Exp $"
 
 #ifdef CHAPMS
 
@@ -112,13 +112,13 @@
 #include "pppd.h"
 #include "chap-new.h"
 #include "chap_ms.h"
-#include "md4.h"
 #ifdef __APPLE__
-#include "openssl/sha.h"
 #define SHA1_CTX SHA_CTX
 #define SHA1_SIGNATURE_SIZE SHA_DIGEST_LENGTH
+#include "CommonCrypto/CommonDigest.h"
 #else
 #include "sha1.h"
+#include "md4.h"
 #endif
 #include "pppcrypt.h"
 #include "magic.h"
@@ -706,20 +706,22 @@ chapms_handle_failure(unsigned char *inp, int len, char *message, int message_ma
 	 */
 	if (!strncmp(p, "E=", 2))
 		err = strtol(p + 2, NULL, 10); /* Remember the error code. */
-	else
+	else {
+#ifdef __APPLE__
+		p += len;
+#endif
 		goto print_msg; /* Message is badly formatted. */
+	}
 
 	if (len && ((p1 = strstr(p, " R=")) != NULL)) {
 		/* R=x field found. */
 		p1 += 3;
-		/* XXX for now, only handle retry password for token card authentication */
-		if (tokencard && *p1 == '1' && retry_password_hook)
+		if (*p1 == '1' && retry_password_hook)
 			ret = 2;
 	}
 
 #ifdef __APPLE__
-	/* XXX for now, only handle change password for token card authentication */
-	if (tokencard && err == MS_CHAP_ERROR_PASSWD_EXPIRED && change_password_hook)
+	if (err == MS_CHAP_ERROR_PASSWD_EXPIRED && change_password_hook)
 		ret = 1;
 #endif
 
@@ -728,7 +730,7 @@ chapms_handle_failure(unsigned char *inp, int len, char *message, int message_ma
 		p += 3;
 #ifdef __APPLE__
 		strncpy(message, p, message_max_len-1); 
-		msg[message_max_len] = 0;
+		message[message_max_len] = 0;
 #endif
 	} else {
 		/* No M=<message>; use the error code. */
@@ -847,6 +849,10 @@ ascii2unicode(char ascii[], int ascii_len, u_char unicode[])
 static void
 NTPasswordHash(char *secret, int secret_len, u_char hash[MD4_SIGNATURE_SIZE])
 {
+#ifdef __APPLE__
+	CC_MD4(secret, secret_len, hash);
+
+#else
 #ifdef __NetBSD__
     /* NetBSD uses the libc md4 routines which take bytes instead of bits */
     int			mdlen = secret_len;
@@ -856,8 +862,15 @@ NTPasswordHash(char *secret, int secret_len, u_char hash[MD4_SIGNATURE_SIZE])
     MD4_CTX		md4Context;
 
     MD4Init(&md4Context);
+    /* MD4Update can take at most 64 bytes at a time */
+    while (mdlen > 512) {
+	MD4Update(&md4Context, secret, 512);
+	secret += 64;
+	mdlen -= 512;
+    }
     MD4Update(&md4Context, secret, mdlen);
     MD4Final(hash, &md4Context);
+#endif
 
 }
 

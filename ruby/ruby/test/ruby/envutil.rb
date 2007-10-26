@@ -1,11 +1,18 @@
 module EnvUtil
   def rubybin
-    miniruby = "miniruby"
+    if ruby = ENV["RUBY"]
+      return ruby
+    end
+    ruby = "ruby"
+    rubyexe = ruby+".exe"
     3.times do
-      if File.exist? miniruby or File.exist? miniruby+".exe"
-        return File.expand_path(miniruby)
+      if File.exist? ruby and File.executable? ruby and !File.directory? ruby
+        return File.expand_path(ruby)
       end
-      miniruby = File.join("..", miniruby)
+      if File.exist? rubyexe and File.executable? rubyexe
+        return File.expand_path(ruby)
+      end
+      ruby = File.join("..", ruby)
     end
     begin
       require "rbconfig"

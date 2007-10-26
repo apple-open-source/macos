@@ -110,6 +110,7 @@
 		<integer>1400</integer>
 		<integer>1600</integer>
 		<integer>1920</integer>
+		<integer>100665344</integer>
 		<integer>2304</integer>
 	</array>
 	<key>gtf-resolutions-wide</key>
@@ -123,6 +124,7 @@
 		<integer>50333008</integer>
 		<integer>1600</integer>
 		<integer>1920</integer>
+		<integer>100665344</integer>
 		<integer>2304</integer>
 	</array>
 	<key>irb-timing-ids</key>

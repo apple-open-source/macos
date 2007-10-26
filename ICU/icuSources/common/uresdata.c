@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *                                                                             *
-* Copyright (C) 1999-2004, International Business Machines Corporation        *
+* Copyright (C) 1999-2006, International Business Machines Corporation        *
 *               and others. All Rights Reserved.                              *
 *                                                                             *
 *******************************************************************************
@@ -119,72 +119,79 @@ static Resource
 _res_findTableItem(const Resource *pRoot, const Resource res, const char *key,
                    int32_t *index, const char **realKey) {
     const uint16_t *p=(const uint16_t *)RES_GET_POINTER(pRoot, res);
-    int32_t i, start, limit;
+    uint32_t mid, start, limit;
+    uint32_t lastMid;
+    int result;
 
     limit=*p++; /* number of entries */
 
-    if(limit == 0) { /* this table is empty */
-        *index=URESDATA_ITEM_NOT_FOUND;
-        return RES_BOGUS;
-    }
+    if(limit != 0) {
+        /* do a binary search for the key */
+        start=0;
+        lastMid = UINT32_MAX;
+        for (;;) {
+            mid = (uint32_t)((start + limit) / 2);
+            if (lastMid == mid) {   /* Have we moved? */
+                break;  /* We haven't moved, and it wasn't found. */
+            }
+            lastMid = mid;
+            result = uprv_strcmp(key, RES_GET_KEY(pRoot, p[mid]));
 
-    /* do a binary search for the key */
-    start=0;
-    while(start<limit-1) {
-        i=(int32_t)((start+limit)/2);
-        if(uprv_strcmp(key, RES_GET_KEY(pRoot, p[i]))<0) {
-            limit=i;
-        } else {
-            start=i;
+            if (result < 0) {
+                limit = mid;
+            } else if (result > 0) {
+                start = mid;
+            } else {
+                /* We found it! */
+                *index=mid;
+                *realKey=RES_GET_KEY(pRoot, p[mid]);
+                limit=*(p-1);   /* itemCount */
+                return ((const Resource *)(p+limit+(~limit&1)))[mid];
+            }
         }
     }
 
-    /* did we really find it? */
-    if(uprv_strcmp(key, RES_GET_KEY(pRoot, p[start]))==0) {
-        *index=start;
-        *realKey=RES_GET_KEY(pRoot, p[start]);
-        limit=*(p-1);   /* itemCount */
-        return ((const Resource *)(p+limit+(~limit&1)))[start];
-    } else {
-        *index=URESDATA_ITEM_NOT_FOUND;
-        return RES_BOGUS;   /* not found */
-    }
+    *index=URESDATA_ITEM_NOT_FOUND;
+    return RES_BOGUS;   /* not found or table is empty. */
 }
 
 static Resource
 _res_findTable32Item(const Resource *pRoot, const Resource res, const char *key,
                      int32_t *index, const char **realKey) {
     const int32_t *p=(const int32_t *)RES_GET_POINTER(pRoot, res);
-    int32_t i, start, limit;
+    int32_t mid, start, limit;
+    int32_t lastMid;
+    int result;
 
     limit=*p++; /* number of entries */
 
-    if(limit == 0) { /* this table is empty */
-        *index=URESDATA_ITEM_NOT_FOUND;
-        return RES_BOGUS;
-    }
+    if(limit != 0) {
+        /* do a binary search for the key */
+        start=0;
+        lastMid = INT32_MAX;
+        for (;;) {
+            mid = (uint32_t)((start + limit) / 2);
+            if (lastMid == mid) {   /* Have we moved? */
+                break;  /* We haven't moved, and it wasn't found. */
+            }
+            lastMid = mid;
+            result = uprv_strcmp(key, RES_GET_KEY(pRoot, p[mid]));
 
-    /* do a binary search for the key */
-    start=0;
-    while(start<limit-1) {
-        i=(int32_t)((start+limit)/2);
-        if(uprv_strcmp(key, RES_GET_KEY(pRoot, p[i]))<0) {
-            limit=i;
-        } else {
-            start=i;
+            if (result < 0) {
+                limit = mid;
+            } else if (result > 0) {
+                start = mid;
+            } else {
+                /* We found it! */
+                *index=mid;
+                *realKey=RES_GET_KEY(pRoot, p[mid]);
+                return ((const Resource *)(p+(*(p-1))))[mid];
+            }
         }
     }
 
-    /* did we really find it? */
-    if(uprv_strcmp(key, RES_GET_KEY(pRoot, p[start]))==0) {
-        *index=start;
-        *realKey=RES_GET_KEY(pRoot, p[start]);
-        limit=*(p-1);   /* itemCount */
-        return ((const Resource *)(p+limit))[start];
-    } else {
-        *index=URESDATA_ITEM_NOT_FOUND;
-        return RES_BOGUS;   /* not found */
-    }
+    *index=URESDATA_ITEM_NOT_FOUND;
+    return RES_BOGUS;   /* not found or table is empty. */
 }
 
 /* helper for res_load() ---------------------------------------------------- */
@@ -193,6 +200,7 @@ static UBool U_CALLCONV
 isAcceptable(void *context,
              const char *type, const char *name,
              const UDataInfo *pInfo) {
+    uprv_memcpy(context, pInfo->formatVersion, 4);
     return (UBool)(
         pInfo->size>=20 &&
         pInfo->isBigEndian==U_IS_BIG_ENDIAN &&
@@ -210,10 +218,11 @@ isAcceptable(void *context,
 U_CFUNC UBool
 res_load(ResourceData *pResData,
          const char *path, const char *name, UErrorCode *errorCode) {
+    UVersionInfo formatVersion;
     UResType rootType;
 
     /* load the ResourceBundle file */
-    pResData->data=udata_openChoice(path, "res", name, isAcceptable, NULL, errorCode);
+    pResData->data=udata_openChoice(path, "res", name, isAcceptable, formatVersion, errorCode);
     if(U_FAILURE(*errorCode)) {
         return FALSE;
     }
@@ -221,6 +230,7 @@ res_load(ResourceData *pResData,
     /* get its memory and root resource */
     pResData->pRoot=(Resource *)udata_getMemory(pResData->data);
     pResData->rootRes=*pResData->pRoot;
+    pResData->noFallback=FALSE;
 
     /* currently, we accept only resources that have a Table as their roots */
     rootType=RES_GET_TYPE(pResData->rootRes);
@@ -229,6 +239,14 @@ res_load(ResourceData *pResData,
         udata_close(pResData->data);
         pResData->data=NULL; 
         return FALSE;
+    }
+
+    if(formatVersion[0]>1 || (formatVersion[0]==1 && formatVersion[1]>=1)) {
+        /* bundles with formatVersion 1.1 and later contain an indexes[] array */
+        const int32_t *indexes=(const int32_t *)pResData->pRoot+1;
+        if(indexes[URES_INDEX_LENGTH]>URES_INDEX_ATTRIBUTES) {
+            pResData->noFallback=(UBool)(indexes[URES_INDEX_ATTRIBUTES]&URES_ATT_NO_FALLBACK);
+        }
     }
 
     return TRUE;
@@ -244,8 +262,16 @@ res_unload(ResourceData *pResData) {
 
 U_CFUNC const UChar *
 res_getString(const ResourceData *pResData, const Resource res, int32_t *pLength) {
+    /*
+     * The data structure is documented as supporting res==0 for empty strings.
+     * Return a fixed pointer in such a case.
+     * This was dropped in uresdata.c 1.17 as part of Jitterbug 1005 work
+     * on code coverage for ICU 2.0.
+     * Re-added for consistency with the design and with other code.
+     */
+    static const int32_t emptyString[2]={ 0, 0 };
     if(res!=RES_BOGUS && RES_GET_TYPE(res)==URES_STRING) {
-        const int32_t *p=(const int32_t *)RES_GET_POINTER(pResData->pRoot, res);
+        const int32_t *p= res==0 ? emptyString : (const int32_t *)RES_GET_POINTER(pResData->pRoot, res);
         if (pLength) {
             *pLength=*p;
         }
@@ -432,7 +458,7 @@ res_findResource(const ResourceData *pResData, Resource r, char** path, const ch
 
 U_CFUNC Resource 
 res_getTableItemByKey(const ResourceData *pResData, Resource table,
-                      int32_t *indexR, const char **key) {
+                      int32_t *indexR, const char **key ){
     if(key != NULL && *key != NULL) {
         if(RES_GET_TYPE(table)==URES_TABLE) {
             return _res_findTableItem(pResData->pRoot, table, *key, indexR, key);
@@ -611,8 +637,8 @@ ures_preflightResource(const UDataSwapper *ds,
                                            pBottom, pTop, pMaxTableLength,
                                            pErrorCode);
                     if(U_FAILURE(*pErrorCode)) {
-                        udata_printError(ds, "ures_preflightResource(table res=%08x)[%d].recurse(%08x) failed - %s\n",
-                                         res, i, item, u_errorName(*pErrorCode));
+                        udata_printError(ds, "ures_preflightResource(table res=%08x)[%d].recurse(%08x) failed\n",
+                                         res, i, item);
                         break;
                     }
                 }
@@ -636,8 +662,8 @@ ures_preflightResource(const UDataSwapper *ds,
                                            pBottom, pTop, pMaxTableLength,
                                            pErrorCode);
                     if(U_FAILURE(*pErrorCode)) {
-                        udata_printError(ds, "ures_preflightResource(array res=%08x)[%d].recurse(%08x) failed - %s\n",
-                                         res, i, item, u_errorName(*pErrorCode));
+                        udata_printError(ds, "ures_preflightResource(array res=%08x)[%d].recurse(%08x) failed\n",
+                                         res, i, item);
                         break;
                     }
                 }
@@ -785,8 +811,8 @@ ures_swapResource(const UDataSwapper *ds,
                 item=ds->readUInt32(p[i]);
                 ures_swapResource(ds, inBundle, outBundle, item, specialType, pTempTable, pErrorCode);
                 if(U_FAILURE(*pErrorCode)) {
-                    udata_printError(ds, "ures_swapResource(table res=%08x)[%d].recurse(%08x) failed - %s\n",
-                                     res, i, item, u_errorName(*pErrorCode));
+                    udata_printError(ds, "ures_swapResource(table res=%08x)[%d].recurse(%08x) failed\n",
+                                     res, i, item);
                     return;
                 }
             }
@@ -826,8 +852,8 @@ ures_swapResource(const UDataSwapper *ds,
                            ures_compareRows, pTempTable->keyChars,
                            FALSE, pErrorCode);
             if(U_FAILURE(*pErrorCode)) {
-                udata_printError(ds, "ures_swapResource(table res=%08x).uprv_sortArray(%d items) failed - %s\n",
-                                 res, count, u_errorName(*pErrorCode));
+                udata_printError(ds, "ures_swapResource(table res=%08x).uprv_sortArray(%d items) failed\n",
+                                 res, count);
                 return;
             }
 
@@ -905,8 +931,8 @@ ures_swapResource(const UDataSwapper *ds,
                 item=ds->readUInt32(p[i]);
                 ures_swapResource(ds, inBundle, outBundle, item, URES_NO_SPECIAL_TYPE, pTempTable, pErrorCode);
                 if(U_FAILURE(*pErrorCode)) {
-                    udata_printError(ds, "ures_swapResource(array res=%08x)[%d].recurse(%08x) failed - %s\n",
-                                     res, i, item, u_errorName(*pErrorCode));
+                    udata_printError(ds, "ures_swapResource(array res=%08x)[%d].recurse(%08x) failed\n",
+                                     res, i, item);
                     return;
                 }
             }
@@ -995,8 +1021,8 @@ ures_swap(const UDataSwapper *ds,
                                &bottom, &top, &maxTableLength,
                                pErrorCode);
         if(U_FAILURE(*pErrorCode)) {
-            udata_printError(ds, "ures_preflightResource(root res=%08x) failed - %s\n",
-                             rootRes, u_errorName(*pErrorCode));
+            udata_printError(ds, "ures_preflightResource(root res=%08x) failed\n",
+                             rootRes);
             return 0;
         }
     } else {
@@ -1030,8 +1056,7 @@ ures_swap(const UDataSwapper *ds,
         udata_swapInvStringBlock(ds, inBundle+stringsBottom, 4*(bottom-stringsBottom),
                                     outBundle+stringsBottom, pErrorCode);
         if(U_FAILURE(*pErrorCode)) {
-            udata_printError(ds, "ures_swap().udata_swapInvStringBlock(keys[%d]) failed - %s\n", 4*(bottom-1),
-                             u_errorName(*pErrorCode));
+            udata_printError(ds, "ures_swap().udata_swapInvStringBlock(keys[%d]) failed\n", 4*(bottom-1));
             return 0;
         }
 
@@ -1054,8 +1079,8 @@ ures_swap(const UDataSwapper *ds,
         /* swap the resources */
         ures_swapResource(ds, inBundle, outBundle, rootRes, URES_NO_SPECIAL_TYPE, &tempTable, pErrorCode);
         if(U_FAILURE(*pErrorCode)) {
-            udata_printError(ds, "ures_swapResource(root res=%08x) failed - %s\n",
-                             rootRes, u_errorName(*pErrorCode));
+            udata_printError(ds, "ures_swapResource(root res=%08x) failed\n",
+                             rootRes);
         }
 
         if(tempTable.rows!=rows) {

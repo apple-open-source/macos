@@ -1,7 +1,13 @@
 !INCLUDE ..\win32\common.mak
 
+# WS2tcpip.h included in Visual Studio 7 provides getaddrinfo, ...
+# emulation on Windows, so there is no need to build getaddrinfo.c
+
+!IF "$(VCVER)" == "6"
 compat_sources = getaddrinfo.c
 compat_objs = getaddrinfo.obj
+!ENDIF
+
 
 libsasl_sources = auxprop.c canonusr.c checkpw.c client.c common.c config.c external.c md5.c saslutil.c server.c seterror.c windlopen.c getsubopt.c plugin_common.c plugin_common.h $(compat_sources)
 libsasl_objs = auxprop.obj canonusr.obj checkpw.obj client.obj common.obj config.obj external.obj md5.obj saslutil.obj server.obj seterror.obj windlopen.obj getsubopt.obj plugin_common.obj $(compat_objs)
@@ -9,6 +15,10 @@ libsasl_res = libsasl.res
 libsasl_out = libsasl.dll libsasl.exp libsasl.lib $(libsasl_res)
 
 CPPFLAGS = /D NEED_GETOPT /I "..\win32\include" /I "." /I "..\include" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LIBSASL_EXPORTS"
+
+!IF $(TARGET_WIN_SYSTEM) >= 51
+CPPFLAGS = /D TARGET_WIN_SYSTEM=$(TARGET_WIN_SYSTEM) $(CPPFLAGS)
+!ENDIF 
 
 all_objs = $(libsasl_objs)
 all_out = $(libsasl_out)
@@ -29,6 +39,7 @@ all: all-recursive
 install: libsasl.dll
 	@echo libsasl.exp > $(exclude_list)
 	@echo libsasl.lib >> $(exclude_list)
+	@echo libsasl.res >> $(exclude_list)
 	@xcopy libsasl.* $(bindir) /I /F /Y /EXCLUDE:$(exclude_list)
 	@xcopy libsasl.l* $(libdir) /I /F /Y
 
@@ -80,7 +91,7 @@ BEGIN
             VALUE "FileDescription", "CMU SASL API v2\0"
             VALUE "FileVersion", "$(SASL_VERSION_MAJOR).$(SASL_VERSION_MINOR).$(SASL_VERSION_STEP).0\0"
             VALUE "InternalName", "libsasl\0"
-            VALUE "LegalCopyright", "Copyright (c) Carnegie Mellon University 2004\0"
+            VALUE "LegalCopyright", "Copyright (c) Carnegie Mellon University 2005\0"
             VALUE "OriginalFilename", "libsasl.dll\0"
             VALUE "ProductName", "Carnegie Mellon University SASL\0"
             VALUE "ProductVersion", "$(SASL_VERSION_MAJOR).$(SASL_VERSION_MINOR).$(SASL_VERSION_STEP)-0"

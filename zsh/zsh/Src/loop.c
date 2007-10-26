@@ -245,7 +245,7 @@ execselect(Estate state, UNUSED(int do_exec))
 		    int oef = errflag;
 
 		    isfirstln = 1;
-		    str = (char *)zleread(&prompt3, NULL, 0, ZLCON_SELECT);
+		    str = zlereadptr(&prompt3, NULL, 0, ZLCON_SELECT);
 		    if (errflag)
 			str = NULL;
 		    errflag = oef;
@@ -314,7 +314,7 @@ selectlist(LinkList l, size_t start)
     LinkNode n;
     char **arr, **ap;
 
-    trashzle();
+    trashzleptr();
     ct = countlinknodes(l);
     ap = arr = (char **) zhalloc((countlinknodes(l) + 1) * sizeof(char **));
 
@@ -590,7 +590,7 @@ execcase(Estate state, int do_exec)
 	    }
 	    if (!(pprog = patcompile(pat, (save ? PAT_ZDUP : PAT_STATIC),
 				     NULL)))
-		zerr("bad pattern: %s", pat, 0);
+		zerr("bad pattern: %s", pat);
 	    else if (save)
 		*spprog = pprog;
 	}
@@ -606,9 +606,10 @@ execcase(Estate state, int do_exec)
 		execlist(state, 1, ((WC_CASE_TYPE(code) == WC_CASE_OR) &&
 				    do_exec));
 	    }
-	    break;
-	} else
-	    state->pc = next;
+	    if (WC_CASE_TYPE(code) != WC_CASE_TESTAND)
+		break;
+	}
+	state->pc = next;
     }
     cmdpop();
 
@@ -627,13 +628,17 @@ zlong
 try_errflag = -1;
 
 /**/
+zlong
+try_tryflag = 0;
+
+/**/
 int
 exectry(Estate state, int do_exec)
 {
     Wordcode end, always;
     int endval;
     int save_retflag, save_breaks, save_loops, save_contflag;
-    zlong save_try_errflag;
+    zlong save_try_errflag, save_try_tryflag;
 
     end = state->pc + WC_TRY_SKIP(state->pc[-1]);
     always = state->pc + 1 + WC_TRY_SKIP(*state->pc);
@@ -642,7 +647,12 @@ exectry(Estate state, int do_exec)
     cmdpush(CS_CURSH);
 
     /* The :try clause */
+    save_try_tryflag = try_tryflag;
+    try_tryflag = 1;
+
     execlist(state, 1, do_exec);
+
+    try_tryflag = save_try_tryflag;
 
     /* Don't record errflag here, may be reset. */
     endval = lastval;

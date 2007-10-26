@@ -1,12 +1,13 @@
 /*
  * b2m - a filter for Babyl -> Unix mail files
+ * The copyright on this file has been disclaimed.
  *
  * usage:	b2m < babyl > mailbox
  *
  * I find this useful whenever I have to use a
  * system which - shock horror! - doesn't run
- * Gnu emacs. At least now I can read all my
- * Gnumacs Babyl format mail files!
+ * GNU Emacs. At least now I can read all my
+ * GNU Emacs Babyl format mail files!
  *
  * it's not much but it's free!
  *
@@ -38,19 +39,19 @@
 #undef FALSE
 #define FALSE	0
 
-/* Exit codes for success and failure.  */
-#ifdef VMS
-#define	GOOD	1
-#define BAD	0
-#else
-#define	GOOD	0
-#define	BAD	1
-#endif
-
 #define streq(s,t)	(strcmp (s, t) == 0)
 #define strneq(s,t,n)	(strncmp (s, t, n) == 0)
 
 typedef int logical;
+
+#define TM_YEAR_BASE 1900
+
+/* Nonzero if TM_YEAR is a struct tm's tm_year value that causes
+   asctime to have well-defined behavior.  */
+#ifndef TM_YEAR_IN_ASCTIME_RANGE
+# define TM_YEAR_IN_ASCTIME_RANGE(tm_year) \
+    (1000 - TM_YEAR_BASE <= (tm_year) && (tm_year) <= 9999 - TM_YEAR_BASE)
+#endif
 
 /*
  * A `struct linebuffer' is a structure which holds a line of text.
@@ -95,6 +96,7 @@ main (argc, argv)
 {
   logical labels_saved, printing, header;
   time_t ltoday;
+  struct tm *tm;
   char *labels, *p, *today;
   struct linebuffer data;
 
@@ -123,23 +125,29 @@ main (argc, argv)
 	case 'V':
 	  printf ("%s (GNU Emacs %s)\n", "b2m", VERSION);
 	  puts ("b2m is in the public domain.");
-	  exit (GOOD);
+	  exit (EXIT_SUCCESS);
 
 	case 'h':
 	  fprintf (stderr, "Usage: %s <babylmailbox >unixmailbox\n", progname);
-	  exit (GOOD);
+	  exit (EXIT_SUCCESS);
 	}
     }
 
   if (optind != argc)
     {
       fprintf (stderr, "Usage: %s <babylmailbox >unixmailbox\n", progname);
-      exit (GOOD);
+      exit (EXIT_SUCCESS);
     }
 
   labels_saved = printing = header = FALSE;
   ltoday = time (0);
-  today = ctime (&ltoday);
+  /* Convert to a string, checking for out-of-range time stamps.
+     Don't use 'ctime', as that might dump core if the hardware clock
+     is set to a bizarre value.  */
+  tm = localtime (&ltoday);
+  if (! (tm && TM_YEAR_IN_ASCTIME_RANGE (tm->tm_year)
+	 && (today = asctime (tm))))
+    fatal ("current time is out of range");
   data.size = 200;
   data.buffer = xnew (200, char);
 
@@ -167,7 +175,7 @@ main (argc, argv)
 	      p = strtok (data.buffer, " ,\r\n\t");
 	      labels = "X-Babyl-Labels: ";
 
-	      while (p = strtok (NULL, " ,\r\n\t"))
+	      while ((p = strtok (NULL, " ,\r\n\t")))
 		labels = concat (labels, p, ", ");
 
 	      p = &labels[strlen (labels) - 2];
@@ -190,7 +198,7 @@ main (argc, argv)
 	puts (data.buffer);
     }
 
-  return 0;
+  return EXIT_SUCCESS;
 }
 
 
@@ -297,6 +305,10 @@ fatal (message)
      char *message;
 {
   fprintf (stderr, "%s: %s\n", progname, message);
-  exit (BAD);
+  exit (EXIT_FAILURE);
 }
 
+/* arch-tag: 5a3ad2af-a802-408f-83cc-e7cf5e98653e
+   (do not change this comment) */
+
+/* b2m.c ends here */

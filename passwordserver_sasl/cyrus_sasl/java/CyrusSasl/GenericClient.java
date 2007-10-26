@@ -8,6 +8,7 @@ public class GenericClient extends GenericCommon implements SaslClient
 
     private byte[]initial_response;
     private String mechanism;
+    private boolean hasinitresp;
     private javax.security.auth.callback.CallbackHandler cbh;
 
     GenericClient(int cptr, String mechlist,
@@ -19,8 +20,8 @@ public class GenericClient extends GenericCommon implements SaslClient
 
 	/* set properties */
 	super.setcommonproperties(props);
-
-	initial_response=jni_sasl_client_start(cptr, mechlist);	
+	
+	initial_response = jni_sasl_client_start(cptr, mechlist);
     }
 
     private native byte[] jni_sasl_client_start(int ptr,
@@ -41,7 +42,14 @@ public class GenericClient extends GenericCommon implements SaslClient
     
     public byte[] evaluateChallenge(byte[] challenge) throws SaslException
     {
+	/* xxx this should check for empty challenge & existing initial
+	   sasl challenge */
 	byte[] out=null;
+
+	if (complete && challenge == null) {
+	    /* we're already done and there's no challenge */
+	    return null;
+	}
 
 	if (challenge==null) {
 	    out=jni_sasl_client_step(ptr, null, 0);
@@ -59,8 +67,7 @@ public class GenericClient extends GenericCommon implements SaslClient
 
     public boolean hasInitialResponse()
     {
-	/* xxx */
-	return false;
+	return hasinitresp;
     }
 	
     /**
@@ -77,9 +84,10 @@ public class GenericClient extends GenericCommon implements SaslClient
     }
 
     /* called from C layer */
-    private void callback_setmechanism(String mech)
+    private void callback_setmechanism(String mech, int initresp)
     {
-	mechanism=mech;
+	mechanism = mech;
+	hasinitresp = initresp != 0;
     }
 
     private String userid;
@@ -100,19 +108,19 @@ public class GenericClient extends GenericCommon implements SaslClient
 	RealmCallback rc = null;
 
 	if (wantuid==1) {
-	    nc = new NameCallback("Please enter your userid");
+	    nc = new NameCallback("Please enter your authorization id");
 	    cbs[pos] = nc;
 	    pos++;
 	}
 
 	if (wantaid==1) {
-	    nc2 = new NameCallback("Please enter your authid");
+	    nc2 = new NameCallback("Please enter your authentication id");
 	    cbs[pos] = nc2;
 	    pos++;
 	}
 
 	if (wantpass==1) {
-	    pc = new PasswordCallback("Please enter your password");
+	    pc = new PasswordCallback("Please enter your password", false);
 	    cbs[pos] = pc;
 	    pos++;
 	}
@@ -124,7 +132,7 @@ public class GenericClient extends GenericCommon implements SaslClient
 	}
 	
 	try {
-	    cbh.invokeCallback(cbs);
+	    cbh.handle(cbs);
 	} catch (UnsupportedCallbackException e) {
 	    throw new SaslException("Unsupported callback",null);
 	} catch (IOException e) {
@@ -138,7 +146,7 @@ public class GenericClient extends GenericCommon implements SaslClient
 	    this.authid = nc2.getName();
 	}
 	if (pc!=null) {
-	    this.password = pc.getPassword();
+	    this.password = new String(pc.getPassword());
 	}
 	if (rc!=null) {
 	    this.realm = rc.getRealm();
@@ -183,6 +191,7 @@ public class GenericClient extends GenericCommon implements SaslClient
     }
 
     public byte[] createInitialResponse(){
+	/* xxx this is deprecated */
 	return initial_response;
     }
 }

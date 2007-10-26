@@ -517,6 +517,11 @@ split_nonconstant_init_1 (tree dest, tree init)
     default:
       gcc_unreachable ();
     }
+
+  /* APPLE LOCAL begin mainline */
+  /* The rest of the initializer is now a constant. */
+  TREE_CONSTANT (init) = 1;
+  /* APPLE LOCAL end mainline */
 }
 
 /* A subroutine of store_init_value.  Splits non-constant static 

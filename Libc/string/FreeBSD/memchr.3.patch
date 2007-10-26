@@ -1,0 +1,32 @@
+--- _SB/Libc/string/FreeBSD/memchr.3	2003-05-20 15:23:54.000000000 -0700
++++ _SB/Libc/string/FreeBSD/memchr.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -47,7 +47,11 @@
+ .Sh SYNOPSIS
+ .In string.h
+ .Ft void *
+-.Fn memchr "const void *b" "int c" "size_t len"
++.Fo memchr
++.Fa "const void *s"
++.Fa "int c"
++.Fa "size_t n"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn memchr
+@@ -56,14 +60,14 @@
+ .Fa c
+ (converted to an unsigned char)
+ in string
+-.Fa b .
++.Fa s .
+ .Sh RETURN VALUES
+ The
+ .Fn memchr
+ function
+ returns a pointer to the byte located,
+ or NULL if no such byte exists within
+-.Fa len
++.Fa n
+ bytes.
+ .Sh SEE ALSO
+ .Xr strchr 3 ,

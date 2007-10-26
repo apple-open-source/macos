@@ -129,6 +129,11 @@ special devices for architectures other than its own.
 Do not allow execution of any binaries on the mounted file system.
 This option is useful for a server that has file systems containing
 binaries for architectures other than its own.
+.It noowners
+Ignore the ownership field for the entire volume.
+This causes all objects to appear as owned by user ID 99 and group ID 99.
+User ID 99 is interpreted as the current effective user ID, while group ID 99
+is used directly and translates to ``unknown''.
 .It nosuid
 Do not allow set-user-identifier or set-group-identifier bits to take effect.
 .It rdonly
@@ -150,6 +155,11 @@ Lookups will be done in the mounted filesystem first.
 If those operations fail due to a non-existent file the underlying
 directory is then accessed.
 All creates are done in the mounted filesystem.
+.It noatime
+Do not update the file access time when reading from a file.
+This option is useful on file systems where there are large numbers of files
+and performance is more critical than updating the file access time (which
+is rarely ever important).
 .El
 .Pp
 Any additional options specific to a filesystem type that is not
@@ -262,15 +272,12 @@ file system table
 .Xr mount_afp 8 ,
 .Xr mount_cd9660 8 ,
 .Xr mount_cddafs 8 ,
-.Xr mount_devfs 8 ,
 .Xr mount_fdesc 8 ,
 .Xr mount_hfs 8 ,
 .Xr mount_msdos 8 ,
 .Xr mount_nfs 8 ,
 .Xr mount_smbfs 8 ,
-.Xr mount_synthfs 8 ,
 .Xr mount_udf 8 ,
-.Xr mount_volfs 8 ,
 .Xr mount_webdav 8 ,
 .Xr umount 8
 .Sh BUGS

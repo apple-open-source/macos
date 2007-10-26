@@ -123,6 +123,360 @@
     return nError;
 }
 
+- (tDirStatus) delete:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath values:(NSArray*)inValues
+{
+    NSAutoreleasePool      *pool	= [[NSAutoreleasePool alloc] init];
+    NSDictionary		   *attribs = nil;
+    NSMutableArray         *values = nil;
+    NSString               *value = nil;
+    NSMutableDictionary    *plist = nil;
+    NSArray                *pathElements = nil;
+    NSEnumerator           *pathEnum = nil;
+    NSString               *currentPathElement = nil;
+    NSString               *previousPathElement = nil;
+    id                      currentElement = nil;
+    id                      previousElement = nil;
+    NSPropertyListFormat	format = NSPropertyListXMLFormat_v1_0;
+    BOOL                    changed = NO;
+    tDirStatus              status = eDSNoErr;
+    NS_DURING
+        
+    attribs = [self getDictionary:[NSArray arrayWithObject:inKey]];
+    if([attribs count] == 0)
+    {
+        printf("Invalid key.\n");
+        NS_VALUERETURN(eDSEmptyAttribute,tDirStatus);
+    }
+    NSString *attrib;
+    if (!([inKey hasPrefix:@kDSStdAttrTypePrefix] || [inKey hasPrefix:@kDSNativeAttrTypePrefix]))
+    {
+        attrib = [@kDSStdAttrTypePrefix stringByAppendingString:inKey];
+        if([attribs objectForKey:attrib] != nil)
+            inKey = attrib;
+        
+        attrib = [@kDSNativeAttrTypePrefix stringByAppendingString:inKey];
+        if([attribs objectForKey:attrib] != nil)
+            inKey = attrib;
+    }
+    values = [[[attribs objectForKey:inKey] mutableCopy] autorelease];
+    if([values count] < 1)
+    {
+        printf("There is no value for attribute %s\n", [inKey UTF8String]);
+        NS_VALUERETURN(eDSEmptyAttribute,tDirStatus);
+    }
+    else if(index >= [values count])
+    {
+        printf("Value index out of range\n");
+        NS_VALUERETURN(eDSIndexOutOfRange,tDirStatus);
+    }
+    else
+    {
+        value = [values objectAtIndex:index];
+    }
+    plist = [NSPropertyListSerialization propertyListFromData:[value dataUsingEncoding:NSUTF8StringEncoding] 
+                                             mutabilityOption:NSPropertyListMutableContainersAndLeaves format:&format errorDescription:nil];
+    pathElements = [inPlistPath componentsSeparatedByString:@":"];
+    pathEnum = [pathElements objectEnumerator];
+    currentElement = plist;
+    
+    while (currentElement != nil && ((currentPathElement = (NSString*)[pathEnum nextObject]) != nil))
+    {
+        previousPathElement = currentPathElement;
+        previousElement = currentElement;
+        if ([currentElement isKindOfClass:[NSDictionary class]])
+        {
+            currentElement = [currentElement objectForKey:currentPathElement];
+        }
+        else if([currentElement isKindOfClass:[NSArray class]])
+        {
+            NSString* intString = [[NSString alloc] initWithFormat:@"%d",[currentPathElement intValue]];
+            
+            if([currentPathElement intValue] >= [currentElement count] || ![currentPathElement isEqualToString:intString])
+            {
+                break; // index out of range
+            }
+            else
+            {
+                currentElement = [currentElement objectAtIndex:[currentPathElement intValue]];
+            }
+            [intString release];
+        }
+        else
+        {
+            break; // not a valid path
+        }
+    }
+    
+    inValues = [inValues sortedArrayUsingSelector:@selector(compare:)];
+    
+    int c;
+    for(c = [inValues count] - 1; c >= 0; c--)
+    {
+        if (currentPathElement == nil && currentElement != nil)
+        {
+            // found something
+            if([currentElement isKindOfClass:[NSDictionary class]])
+            {
+                [currentElement removeObjectForKey:[inValues objectAtIndex:c]];
+                changed = YES;
+            }
+            else if([currentElement isKindOfClass:[NSArray class]])
+            {
+                NSString* intString = [[NSString alloc] initWithFormat:@"%d",[[inValues objectAtIndex:c] intValue]];
+                if(![[inValues objectAtIndex:c] isEqualToString:intString])
+                {
+                    printf("Invalid index %s\n", [[inValues objectAtIndex:c] UTF8String]);
+                }
+                else if([[inValues objectAtIndex:c] intValue] >= [currentElement count])
+                {
+                    printf("Index out of range\n");
+                }
+                else
+                {
+                    [currentElement removeObjectAtIndex:[[inValues objectAtIndex:c] intValue]];
+                    changed = YES;
+                }
+                [intString release];
+            }
+        }
+        else
+        {
+            // bogus path
+            printf("No such plist path: %s\n", [inPlistPath UTF8String]);
+            NS_VALUERETURN(eDSUnknownMatchType, tDirStatus);
+        }
+    }
+    if([inValues count] == 0)
+    {
+        if(previousPathElement && previousElement)
+        {
+            if([previousElement isKindOfClass:[NSDictionary class]])
+            {
+                [previousElement removeObjectForKey:previousPathElement];
+                changed = YES;
+            }
+            else if([previousElement isKindOfClass:[NSArray class]])
+            {
+                NSString* intString = [[NSString alloc] initWithFormat:@"%d",[previousPathElement intValue]];
+                if(![previousPathElement isEqualToString:intString])
+                {
+                    printf("Invalid index %s\n", [previousPathElement UTF8String]);
+                }
+                else if([previousPathElement intValue] >= [previousElement count])
+                {
+                    printf("Index out of range\n");
+                }
+                else
+                {
+                    [previousElement removeObjectAtIndex:[previousPathElement intValue]];
+                    changed = YES;
+                }
+            }
+        }
+    }
+    if(changed)
+    {
+        NSData *data = [NSPropertyListSerialization dataFromPropertyList:plist format:format errorDescription:nil];
+        NSString *dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        [values replaceObjectAtIndex:index withObject:dataString];
+        [dataString release];
+        status = [self modify:ATTR_CREATE withKey:inKey withValues:values];
+    }
+    
+    NS_HANDLER
+        [localException retain];
+        [pool release];
+        [[localException autorelease] raise];
+    NS_ENDHANDLER
+    
+    [pool release];
+    
+    return status;
+}
+
+- (tDirStatus) delete:(NSString*)inKey plistPath:(NSString*)inPlistPath values:(NSArray*)inValues
+{
+    return [self delete:inKey atIndex:0 plistPath:inPlistPath values:inValues];
+}
+
+- (tDirStatus) create:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath values:(NSArray*)inValues
+{
+    NSAutoreleasePool      *pool	= [[NSAutoreleasePool alloc] init];
+    NSDictionary		   *attribs = nil;
+    NSMutableArray         *values = nil;
+    NSString               *value = nil;
+    NSMutableDictionary    *plist = nil;
+    NSArray                *pathElements = nil;
+    NSEnumerator           *pathEnum = nil;
+    NSString               *currentPathElement = nil;
+    NSString               *previousPathElement = nil;
+    id                      currentElement = nil;
+    id                      previousElement = nil;
+    NSPropertyListFormat	format = NSPropertyListXMLFormat_v1_0;
+    BOOL                    changed = NO;
+    tDirStatus              status = eDSNoErr;
+    NS_DURING
+        
+    attribs = [self getDictionary:[NSArray arrayWithObject:inKey]];
+    if([attribs count] == 0)
+    {
+        printf("Invalid key.\n");
+    }
+    NSString *attrib;
+    if (!([inKey hasPrefix:@kDSStdAttrTypePrefix] || [inKey hasPrefix:@kDSNativeAttrTypePrefix]))
+    {
+        attrib = [@kDSStdAttrTypePrefix stringByAppendingString:inKey];
+        if([attribs objectForKey:attrib] != nil)
+            inKey = attrib;
+        
+        attrib = [@kDSNativeAttrTypePrefix stringByAppendingString:inKey];
+        if([attribs objectForKey:attrib] != nil)
+            inKey = attrib;
+    }
+    values = [[[attribs objectForKey:inKey] mutableCopy] autorelease];
+    if([values count] < 1)
+    {
+        printf("There is no value for attribute %s\n", [inKey UTF8String]);
+        NS_VALUERETURN(eDSEmptyAttribute,tDirStatus);
+    }
+    else if(index >= [values count])
+    {
+        printf("Value index out of range\n");
+        NS_VALUERETURN(eDSIndexOutOfRange,tDirStatus);
+    }
+    else
+    {
+        value = [values objectAtIndex:index];
+    }
+    plist = [NSPropertyListSerialization propertyListFromData:[value dataUsingEncoding:NSUTF8StringEncoding] 
+                                             mutabilityOption:NSPropertyListMutableContainersAndLeaves format:&format errorDescription:nil];
+    pathElements = [inPlistPath componentsSeparatedByString:@":"];
+    pathEnum = [pathElements objectEnumerator];
+    currentElement = plist;
+    
+    while (currentElement != nil && ((currentPathElement = (NSString*)[pathEnum nextObject]) != nil))
+    {
+        previousPathElement = currentPathElement;
+        previousElement = currentElement;
+        if ([currentElement isKindOfClass:[NSDictionary class]])
+        {
+            currentElement = [currentElement objectForKey:currentPathElement];
+        }
+        else if([currentElement isKindOfClass:[NSArray class]])
+        {
+            NSString* intString = [[NSString alloc] initWithFormat:@"%d",[currentPathElement intValue]];
+            
+            if([currentPathElement intValue] > [currentElement count] || ![currentPathElement isEqualToString:intString])
+            {
+                currentPathElement = nil;
+                currentElement = nil;
+                printf("Index out of range\n");
+                break; // index out of range
+            }
+            else if([currentPathElement intValue] == [currentElement count])
+            {
+                currentElement = nil;
+                break;
+            }
+            else
+            {
+                currentElement = [currentElement objectAtIndex:[currentPathElement intValue]];
+            }
+            [intString release];
+        }
+        else
+        {
+            currentPathElement = [pathEnum nextObject];
+            if (currentPathElement != nil)
+            {
+                break; // not a valid path
+            }
+        }
+    }
+    
+    id container = nil;
+    id key = nil;
+    
+    if((currentPathElement == nil && currentElement != nil) || 
+       (currentPathElement != nil && previousElement != nil && [pathEnum nextObject] == nil))
+    {
+        container = previousElement;
+        key = previousPathElement;
+    }
+    else
+    {
+        container = nil;
+        key = nil;
+        printf("No such plist path: %s\n", [inPlistPath UTF8String]);
+        NS_VALUERETURN(eDSUnknownMatchType, tDirStatus);
+    }
+    
+    if([container isKindOfClass:[NSArray class]])
+    {
+        // Adding to an array
+        printf("Changing an array\n");
+        if([inValues count] == 1)
+        {
+            //[container removeAllObjects];
+            //[container addObject:[inValues objectAtIndex:0]];
+            if([key intValue] < [container count])
+                [container replaceObjectAtIndex:[key intValue] withObject:[inValues objectAtIndex:0]];
+            else
+                [container addObject:[inValues objectAtIndex:0]];
+        }
+        else
+        {
+            if([key intValue] < [container count])
+                [container replaceObjectAtIndex:[key intValue] withObject:inValues];
+            else
+                [container addObject:inValues];
+        }
+        changed = YES;
+    }
+    else if([container isKindOfClass:[NSDictionary class]])
+    {
+        // Adding to a dictionary
+        printf("Changing a dictionary\n");
+        if([inValues count] == 1)
+        {
+            [container setObject:[inValues objectAtIndex:0] forKey:key];
+        }
+        else
+        {
+            [container setObject:inValues forKey:key];
+        }
+        changed = YES;
+    }
+    else
+    {
+        printf("No such plist path: %s\n", [inPlistPath UTF8String]);
+        NS_VALUERETURN(eDSUnknownMatchType, tDirStatus);
+    }
+    if(changed)
+    {
+        NSData *data = [NSPropertyListSerialization dataFromPropertyList:plist format:format errorDescription:nil];
+        NSString *dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        [values replaceObjectAtIndex:index withObject:dataString];
+        [dataString release];
+        status = [self modify:ATTR_CREATE withKey:inKey withValues:values];
+    }
+    
+    NS_HANDLER
+        [localException retain];
+        [pool release];
+        [[localException autorelease] raise];
+    NS_ENDHANDLER
+    
+    [pool release];
+    
+    return status;
+}
+
+- (tDirStatus) create:(NSString*)inKey plistPath:(NSString*)inPlistPath values:(NSArray*)inValues
+{
+    return [self create:inKey atIndex:0 plistPath:inPlistPath values:inValues];
+}
+
 - (tDirStatus) deleteKey:(NSString*)inKey withValues:(NSArray*)inValues
 {
     return [self modify:ATTR_DELETE withKey:inKey withValues:inValues];
@@ -148,85 +502,21 @@
     return [[_record node] getName];
 }
 
-- (tDirStatus) read:(NSArray*)inKeys
+- (NSDictionary*)getDictionary:(NSArray*)inKeys
 {
     NSAutoreleasePool      *pool	= [[NSAutoreleasePool alloc] init];
-    NSDictionary		   *attribs;
-    id						key;
-    NSString               *attrib;
-	id						values;
-	id						value;
-    unsigned long			i		= 0;
-	unsigned long			j		= 0;
+    NSDictionary		   *attribs = nil;
     
     NS_DURING
     
     if (inKeys == nil || [inKeys count] == 0)
     {
-        id keys;
         attribs = [_record getAllAttributesAndValues];
-        keys = [[attribs allKeys] sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
-		unsigned long cnt = [keys count];
-        for(i = 0; i < cnt; i++)
-        {
-            key = [keys objectAtIndex:i];
-            values = [attribs objectForKey:key];
-            key = [self stripDSPrefixOffValue:key];
-            printf("%s:", [key UTF8String]);
-			unsigned long cntLimit = [values count];
-            for (j = 0; j < cntLimit; j++)
-            {
-                value = [values objectAtIndex:j];
-				printValue(value);
-            }
-            printf("\n");
-        }
     }
     else
     {
-        BOOL			success		= NO;
-        unsigned long   valueCount  = 0;
-		unsigned long   cntLimit	= 0;
-        
-		cntLimit = [inKeys count];
-        for (i = 0; i < cntLimit; i++)
-        {
-            key = [inKeys objectAtIndex:i];
-            if ([key hasPrefix:@kDSStdAttrTypePrefix] || [key hasPrefix:@kDSNativeAttrTypePrefix])
-            {
-                attrib = key;
-            }
-            else
-            {
-                attrib = [@kDSStdAttrTypePrefix stringByAppendingString:key];
-                if (![[[[_record node] directory] standardAttributeTypes] containsObject:attrib])
-                    attrib = [@kDSNativeAttrTypePrefix stringByAppendingString:key];
-            }
-            NS_DURING
-                valueCount = [_record getAttributeValueCount:[attrib UTF8String]];
-                if (gRawMode)
-                    printf("%s:", [attrib UTF8String]);
-                else
-                    printf("%s:", [key UTF8String]);
-                for (j = 1; j <= valueCount; j++)
-                {
-                    value = [_record getAttribute:[attrib UTF8String] index:j];
-                    printValue(value);
-                }
-                printf("\n");
-                success = YES;
-            NS_HANDLER
-                if (!DS_EXCEPTION_STATUS_IS(eDSAttributeNotFound) &&
-                    !DS_EXCEPTION_STATUS_IS(eDSInvalidAttributeType))
-                {
-                    [localException raise];
-                }
-            NS_ENDHANDLER    
-            if (!success)
-                printf("No such key: %s\n", [key UTF8String]);
-            else
-                success = NO;
-        }
+        NSArray* niceKeys    = prefixedAttributeKeysWithNode([_record node], inKeys);
+        attribs = [_record getAttributes:niceKeys];
     }
     
     NS_HANDLER
@@ -235,9 +525,10 @@
     [[localException autorelease] raise];
     NS_ENDHANDLER
     
+    [attribs retain];
     [pool release];
 	
-    return eDSNoErr;
+    return [attribs autorelease];
 }
 
 - (tDirStatus) setPassword:(NSArray*)inParams
@@ -331,6 +622,12 @@
         NS_ENDHANDLER
 		
 	return nError;
+}
+
+-(DSoRecord*) record
+{
+	// ATM - give PlugInManager access to record instance
+	return _record;
 }
 
 @end

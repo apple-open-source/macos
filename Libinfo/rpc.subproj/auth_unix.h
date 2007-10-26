@@ -78,7 +78,11 @@
  * Unix style credentials.
  */
 struct authunix_parms {
+#ifdef __LP64__
+	unsigned int	 aup_time;
+#else
 	unsigned long	 aup_time;
+#endif
 	char	*aup_machname;
 	int	 aup_uid;
 	int	 aup_gid;

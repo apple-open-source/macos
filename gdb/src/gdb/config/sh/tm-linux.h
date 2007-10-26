@@ -26,7 +26,3 @@
 /* Pull in sh-target defs */
 #include "sh/tm-sh.h"
 
-/* Use target_specific function to define link map offsets.  */
-extern struct link_map_offsets *sh_linux_svr4_fetch_link_map_offsets (void);
-#define SVR4_FETCH_LINK_MAP_OFFSETS() sh_linux_svr4_fetch_link_map_offsets ()
-

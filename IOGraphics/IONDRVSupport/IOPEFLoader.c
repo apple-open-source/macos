@@ -547,8 +547,8 @@ SatisfyImports( InstanceVars * inst )
         }
         else if (inst->undefinedHandler)
             symAddr = (*inst->undefinedHandler)(inst->undefHandlerSelf,
-                                                curLib->info.libraryName.nameText,
-                                                symInfo.symbolName.nameText );
+                                                (const char *) curLib->info.libraryName.nameText,
+                                                (const char *) symInfo.symbolName.nameText );
         if (symAddr == NULL)
         {
             LOG("Undefined %s:%s ", curLib->info.libraryName.nameText, symInfo.symbolName.nameText );
@@ -557,7 +557,7 @@ SatisfyImports( InstanceVars * inst )
             symAddr = (IOTVector *) &stub->pc;
             stub->pc = IONDRVUnimplementedVector;
             stub->toc = &stub->name[0];
-            strncpy( stub->name, symInfo.symbolName.nameText, 60);
+            strncpy( stub->name, (char *) symInfo.symbolName.nameText, 60);
         }
 
         err = PEF_SetImportedSymbolAddress( cRef, index, (IOTVector *) symAddr );

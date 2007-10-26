@@ -20,6 +20,11 @@ module Tk
 
     LIBRARY = TkVarAccess.new('::itk::library')
 
+    PACKAGE_NAME = 'Itk'.freeze
+    def self.package_name
+      PACKAGE_NAME
+    end
+
     def self.package_version
       begin
         TkPackage.require('Itk')
@@ -110,6 +115,11 @@ module Tk
 
       include Wm
       include TkMenuSpec
+
+      def __strval_optkeys
+        super() << 'title'
+      end
+      private :__strval_optkeys
     end
 
     ############################
@@ -279,7 +289,8 @@ module Tk
         end
 
         # unknown method
-        fail RuntimeError, "unknown method '#{name}' for #{self.inspect}"
+        super(id, *args)
+        # fail RuntimeError, "unknown method '#{name}' for #{self.inspect}"
       end
 
       def tk_send(cmd, *rest)
@@ -351,7 +362,7 @@ module Tk
           end
         end
         # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-        if TkComm._callback_entry?(args[0])
+        if TkComm._callback_entry?(args[0]) || !block_given?
           cmd = args.shift
         else
           cmd = Proc.new
@@ -380,7 +391,7 @@ module Tk
           end
         end
         # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-        if TkComm._callback_entry?(args[0])
+        if TkComm._callback_entry?(args[0]) || !block_given?
           cmd = args.shift
         else
           cmd = Proc.new

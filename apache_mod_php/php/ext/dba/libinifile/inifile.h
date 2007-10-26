@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: inifile.h,v 1.1.2.1.6.2 2007/01/01 09:46:41 sebastian Exp $ */
+/* $Id: inifile.h,v 1.5.2.1.2.1 2007/01/01 09:36:00 sebastian Exp $ */
 
 #ifndef PHP_LIB_INIFILE_H
 #define PHP_LIB_INIFILE_H
@@ -40,7 +40,6 @@ typedef struct {
 	char *lockfn;
 	int lockfd;
 	php_stream *fp;
-	int fd;
 	int readonly;
 	line_type curr;
 	line_type next;

@@ -1,7 +1,9 @@
 #ifndef __GDB_MACOSX_NAT_INFERIOR_UTIL_H__
 #define __GDB_MACOSX_NAT_INFERIOR_UTIL_H__
 
+#include <mach/mach.h>
 #include "macosx-nat-inferior.h"
+#include "inferior.h"
 
 struct macosx_exception_info;
 
@@ -11,7 +13,7 @@ const char *ptrace_request_unparse (int request);
 
 /* Call system ptrace(), logging debugging information as appropriate. */
 
-int call_ptrace (int request, int pid, int arg3, int arg4);
+int call_ptrace (int request, int pid, PTRACE_ARG3_TYPE arg3, int arg4);
 
 /* Clear all values in a macosx_inferior_status structure. */
 

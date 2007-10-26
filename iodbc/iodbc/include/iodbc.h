@@ -2,21 +2,25 @@
  *
  *  iodbc.h
  *
- *  $Id: iodbc.h,v 1.2 2004/11/11 01:52:36 luesang Exp $
+ *  $Id: iodbc.h,v 1.11 2006/12/11 16:19:20 source Exp $
  *
  *  Configuration
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -30,8 +34,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -40,7 +44,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -71,6 +75,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef	_IODBC_H
 #define _IODBC_H
 
@@ -79,11 +84,13 @@
 #endif
 
 #ifndef VERSION
-#define VERSION	"3.52.1"
+#define VERSION		"3.52.5"
+#define MAJ_VERSION	"3"
+#define MIN_VERSION	"52"
 #endif
 
 #ifndef IODBC_BUILD
-#define IODBC_BUILD 10928	/* 0001.0928 */
+#define IODBC_BUILD 4061211	/* 0001.0928 */
 #endif
 
 #if	!defined(WINDOWS) && !defined(WIN32_SYSTEM)

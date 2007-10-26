@@ -64,7 +64,7 @@ void AppleCSPSession::DeriveKey_PBKDF2(
 	
 	/* Get passphrase from either baseKey or from CSSM_PKCS5_PBKDF2_PARAMS */
 	CssmKey *passKey = context.get<CssmKey>(CSSM_ATTRIBUTE_KEY);
-	uint32	passphraseLen = 0;
+	CSSM_SIZE	passphraseLen = 0;
 	uint8 	*passphrase = NULL;
 	if(passKey != NULL) {
 		AppleCSPContext::symmetricKeyBits(context, *this,
@@ -313,6 +313,7 @@ void AppleCSPSession::DeriveKey(
 		case CSSM_ALGID_PKCS5_PBKDF1_MD2:
 		case CSSM_ALGID_PKCS5_PBKDF1_SHA1:
 		case CSSM_ALGID_PBE_OPENSSL_MD5:
+		case CSSM_ALGID_OPENSSH1:
 			break;
 		/* maybe more here, later */
 		default:
@@ -380,6 +381,12 @@ void AppleCSPSession::DeriveKey(
 		case CSSM_ALGID_PKCS5_PBKDF1_SHA1:
 		case CSSM_ALGID_PBE_OPENSSL_MD5:
 			DeriveKey_PKCS5_V1_5(context,
+				context.algorithm(),
+				Param,
+				keyData);
+			break;
+		case CSSM_ALGID_OPENSSH1:
+			DeriveKey_OpenSSH1(context,
 				context.algorithm(),
 				Param,
 				keyData);

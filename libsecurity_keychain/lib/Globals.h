@@ -56,10 +56,11 @@ private:
 
 	// Other "globals"
 	bool mUI;
-	CssmClient::AclFactory mACLFactory;  
+	CssmClient::AclFactory mACLFactory;
 };
 
 extern ModuleNexus<Globals> globals;
+extern bool gServerMode;
 
 } // end namespace KeychainCore
 

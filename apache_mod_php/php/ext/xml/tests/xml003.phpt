@@ -1,7 +1,10 @@
 --TEST--
 XML parser test, xml_set_object callbacks
 --SKIPIF--
-<?php include("skipif.inc"); ?>
+<?php
+require_once("skipif.inc");
+XML_SAX_IMPL == 'libxml' && die('skip this test is not intended for libxml SAX parser');
+?>
 --INI--
 magic_quotes_runtime=0
 --FILE--
@@ -12,37 +15,37 @@ class myclass
 {
 	function startElement($parser, $name, $attribs) 
 	{
-		print "\{$name";
+		print '{'.$name;
 		if (sizeof($attribs)) {
 			while (list($k, $v) = each($attribs)) {
 				print " $k=\"$v\"";
 			}
 		}
-		print "}";
+		print '}';
 	}
 	function endElement($parser, $name)
 	{
-		print "\{/$name}";
+		print '{/'.$name.'}';
 	}
 	function characterData($parser, $data)
 	{
-		print "\{CDATA[$data]}";
+		print '{CDATA['.$data.']}';
 	}
 	function PIHandler($parser, $target, $data)
 	{
-		print "\{PI[$target,$data]}";
+		print '{PI['.$target.','.$data.']}';
 	}
 	function defaultHandler($parser, $data)
 	{
 		if (substr($data, 0, 1) == "&" && substr($data, -1, 1) == ";") {
-			print "\{ENTREF[$data]}";
+			print '{ENTREF['.$data.']}';
 		} else {
-			print "\{?[$data]}";
+			print '{?['.$data.']}';
 		}
 	}
 	function externalEntityRefHandler($parser, $openEntityNames, $base,	$systemId, $publicId)
 	{
-		print "\{EXTENTREF[$openEntityNames,$base,$systemId,$publicId]}\n";
+		print '{EXTENTREF['.$openEntityNames.','.$base.','.$systemId.','.$publicId."]}\n";
 		return true;
 	}
 }

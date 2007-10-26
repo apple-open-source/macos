@@ -90,7 +90,7 @@ typedef enum {
 	@discussion An NSBox object is a simple NSView that can do two things: It can draw a border around itself, and it can title itself. 
 */
 
-@interface ObjCClassDeux : NSObject
+@interface ObjCClassDeux : ObjCClassUn
 {
     /*All instance variables are private*/
     struct __bFlags {

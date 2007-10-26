@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Thread Safe Resource Manager                                         |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1999, 2000, Andi Gutmans, Sascha Schumann, Zeev Suraski|
+   | Copyright (c) 1999-2007, Andi Gutmans, Sascha Schumann, Zeev Suraski |
    | This source file is subject to the TSRM license, that is bundled     |
    | with this package in the file LICENSE                                |
    +----------------------------------------------------------------------+
@@ -13,14 +13,11 @@
 #ifndef TSRM_H
 #define TSRM_H
 
-/* #ifndef WIN32 */
-#if !defined(WIN32)
-# include <tsrm_config.h>
-#endif
-
-#ifdef WIN32
+#if !defined(__CYGWIN__) && defined(WIN32)
 # define TSRM_WIN32
 # include "tsrm_config.w32.h"
+#else
+# include <tsrm_config.h>
 #endif
 
 #ifdef TSRM_WIN32
@@ -33,11 +30,23 @@
 #	define TSRM_API
 #endif
 
+#ifdef _WIN64
+typedef __int64 tsrm_intptr_t;
+typedef unsigned __int64 tsrm_uintptr_t;
+#else
+typedef long tsrm_intptr_t;
+typedef unsigned long tsrm_uintptr_t;
+#endif
+
 /* Only compile multi-threading functions if we're in ZTS mode */
 #ifdef ZTS
 
 #ifdef TSRM_WIN32
+# ifndef TSRM_INCLUDE_FULL_WINDOWS_HEADERS
+#  define WIN32_LEAN_AND_MEAN
+# endif
 # include <windows.h>
+# include <shellapi.h>
 #elif defined(GNUPTH)
 # include <pth.h>
 #elif defined(PTHREADS)
@@ -102,6 +111,9 @@ TSRM_API void *ts_resource_ex(ts_rsrc_id id, THREAD_T *th_id);
 /* frees all resources allocated for the current thread */
 TSRM_API void ts_free_thread(void);
 
+/* frees all resources allocated for all threads except current */
+void ts_free_worker_threads(void);
+
 /* deallocates all occurrences of a given id */
 TSRM_API void ts_free_id(ts_rsrc_id id);
 
@@ -128,10 +140,18 @@ TSRM_API int tsrm_mutex_unlock(MUTEX_T mutexp);
 TSRM_API void *tsrm_set_new_thread_begin_handler(tsrm_thread_begin_func_t new_thread_begin_handler);
 TSRM_API void *tsrm_set_new_thread_end_handler(tsrm_thread_end_func_t new_thread_end_handler);
 
+/* these 3 APIs should only be used by people that fully understand the threading model
+ * used by PHP/Zend and the selected SAPI. */
+TSRM_API void *tsrm_new_interpreter_context(void);
+TSRM_API void *tsrm_set_interpreter_context(void *new_ctx);
+TSRM_API void tsrm_free_interpreter_context(void *context);
+
 #define TSRM_SHUFFLE_RSRC_ID(rsrc_id)		((rsrc_id)+1)
 #define TSRM_UNSHUFFLE_RSRC_ID(rsrc_id)		((rsrc_id)-1)
 
 #define TSRMLS_FETCH()			void ***tsrm_ls = (void ***) ts_resource_ex(0, NULL)
+#define TSRMLS_FETCH_FROM_CTX(ctx)	void ***tsrm_ls = (void ***) ctx
+#define TSRMLS_SET_CTX(ctx)		ctx = (void ***) tsrm_ls
 #define TSRMG(id, type, element)	(((type) (*((void ***) tsrm_ls))[TSRM_UNSHUFFLE_RSRC_ID(id)])->element)
 #define TSRMLS_D	void ***tsrm_ls
 #define TSRMLS_DC	, TSRMLS_D
@@ -145,6 +165,8 @@ TSRM_API void *tsrm_set_new_thread_end_handler(tsrm_thread_end_func_t new_thread
 #else /* non ZTS */
 
 #define TSRMLS_FETCH()
+#define TSRMLS_FETCH_FROM_CTX(ctx)
+#define TSRMLS_SET_CTX(ctx)
 #define TSRMLS_D	void
 #define TSRMLS_DC
 #define TSRMLS_C

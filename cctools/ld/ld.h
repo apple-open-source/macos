@@ -82,8 +82,7 @@ enum weak_reference_mismatches_handling {
     WEAK_REFS_MISMATCH_NON_WEAK
 };
 
-__private_extern__ enum macosx_deployment_target_value macosx_deployment_target;
-__private_extern__ const char *macosx_deployment_target_name;
+__private_extern__ struct macosx_deployment_target macosx_deployment_target;
 
 /* name of this program as executed (argv[0]) */
 __private_extern__ char *progname;

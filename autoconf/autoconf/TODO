@@ -78,11 +78,11 @@ Harlan:
    I'm starting to use "modules" at more places to handle software
    installation, and it would be helpful to set general things like:
 
-   	prefix=/opt/pkg/@PACKAGE@/@VERSION@
+	prefix=/opt/pkg/@PACKAGE@/@VERSION@
 
    once at a global level, and then, for example, have things like:
 
-   	--with-etcdir=$prefix/etc
+	--with-etcdir=$prefix/etc
 
    stuffed "above" the various versions of SSH so I wouldn't have to hunt for
    these things every time it was time to recompile a new version of a
@@ -188,9 +188,9 @@ Hi Robert,
 > documentation, the entry for AC_PATH_XTRA, in particular.
 
 > The documentation says that AC_PATH_XTRA
-> 	... adds the C compiler flags that X needs to output variable
-> 	`X_CFLAGS', and the X linker flags to `X_LIBS'.  If X is not
-> 	available, adds `-DX_DISPLAY_MISSING' to `X_CFLAGS'.
+>	... adds the C compiler flags that X needs to output variable
+>	`X_CFLAGS', and the X linker flags to `X_LIBS'.  If X is not
+>	available, adds `-DX_DISPLAY_MISSING' to `X_CFLAGS'.
 
 > It doesn't seem to add -DX_DISPLAY_MISSING to X_CFLAGS.  X_DISPLAY_MISSING
 > ends up defined in config.h, instead.
@@ -359,10 +359,6 @@ require a specific AC_ tests, but a specialized AS_ macro.
 
 ------------------------------------------------------------------------------
 
-* Support creating both config.h and DEFS in the same configure.
-
-------------------------------------------------------------------------------
-
 * Select the right CONFIG_SHELL automatically (for Ultrix, Lynx especially.)
 
 ------------------------------------------------------------------------------
@@ -395,6 +391,11 @@ config.site.
 
 ------------------------------------------------------------------------------
 
+* Provide a way to create a config.h *and* set the DEFS variable from within
+the same configure script.
+
+------------------------------------------------------------------------------
+
 For AC_TYPE_SIGNAL signal handlers, provide a way for code to know
 whether to do "return 0" or "return" (int vs void) to avoid compiler
 warnings.  (Roland McGrath)
@@ -405,43 +406,10 @@ In config.status comment, put the host/target/build types, if used.
 
 ------------------------------------------------------------------------------
 
-on hal.gnu.ai.mit.edu, configure is getting the wrong answer for
-AC_CHECK_FUNCS(select).
-
-The problem here is that there's severe name space pollution: when
-conftest.c includes <ctype.h> to pick up any __stub macro definitions,
-it's getting a prototype declaration for select(), which collides
-with the dummy declaration in conftest.c.  (The chain of includes
-is conftest.c -> <ctype.h> -> <sys/localedef.h> -> <sys/lc_core.h>
--> <sys/types.h> -> <sys/select.h>.)
-
-	#define $ac_func __dummy_$ac_func
-	#include <ctype.h>
-	#undef $ac_func
-From: kwzh@gnu.ai.mit.edu (Karl Heuer)
-
-The test for the isascii function was failing because that function is
-also a macro.  He proposed that the test file look like this:
-
-/* Remove any macro definition. */
-#undef isascii
-/* Override any gcc2 internal prototype to avoid an error.  */
-char isascii(); isascii();
-
-Andreas Schwab
-
-------------------------------------------------------------------------------
-
-It would be nice if I could (in the Makefile.in files) set
-the path to config.h. You have config.h ../config.h ../../config.h's all
-over the place, in the findutils-4.1 directory.
+It would be nice if I could (in the Makefile.in files) set the
+relative name of config.h. You have config.h ../config.h
+../../config.h's all over the place, in the findutils-4.1 directory.
 From: "Randall S. Winchester" <rsw@eng.umd.edu>
-
-------------------------------------------------------------------------------
-
-In a future version (after 2.2), make AC_PROG_{CC,RANLIB,anything else}
-use AC_CHECK_TOOL.
-From Roland McGrath.
 
 ------------------------------------------------------------------------------
 
@@ -468,7 +436,7 @@ AC_PKG_WITH(hesiod,
 ,,-lhesiod,HESIOD,,)
 AC_PKG_WITH(glue,,,-lglue,GLUE,,)
 AC_PKG_WITH(bind,,/usr/local/bind, [lib/resolv.a lib/lib44bsd.a], ,include)
-After the appropriate checks, the existence of the paths, and libs and such
+After the appropriate checks, the existence of the files, and libs and such
 LIBS=$LIBS $PKG-LIBS
 DEFS=$DEFS $PKG-DEFS
 CPPFLAGS=$PKG-CPPFLAGS $CPPFLAGS
@@ -481,7 +449,7 @@ as order matters.
 
 also an AC_PKG_CHK_HEADER
 and an AC_PKG_CHK_FUNCTION
-so one can give alternate paths to check for stuff ($PKG-ROOT/lib for
+so one can give alternate names to check for stuff ($PKG-ROOT/lib for
 example)
 From: Randall Winchester
 
@@ -506,17 +474,18 @@ etc. with GCC_FOR_TARGET instead of CC
 Here is one simple test
 
 if test "x$host" != "x$target"; then
-AC_PROGRAMS_CHECK(AR_FOR_TARGET, $target-ar, $target-ar, ar)
-AC_PROGRAMS_CHECK(RANLIB_FOR_TARGET, $target-ranlib, $target-ranlib, ranlib)
-AC_PROGRAMS_CHECK(GCC_FOR_TARGET, $target-gcc, $target-gcc, gcc)
+AC_CHECK_PROGS(AR_FOR_TARGET,
+	       [$target-ar, $prefix/$target/bin/ar], $target-ar)
+AC_CHECK_PROGS(RANLIB_FOR_TARGET, $target-ranlib, $target-ranlib)
+	       [$target-ranlib, $prefix/$target/bin/ranlib], $target-ranlib)
+AC_CHECK_PROGS(GCC_FOR_TARGET, $target-gcc, $target-gcc)
+	       [$target-gcc, $prefix/$target/bin/gcc], $target-gcc)
 fi
 
-This could be improved to also look for gcc in PATH, but require the
-prefix to contain the target e.g.:
-
-target=m68k-coff -->GCC_FOR_TARGET = /usr/gnu/m68k-coff/bin/gcc
-
 From: nennker@cs.tu-berlin.DE (Axel Nennker)
+
+(also look in the autoconf mailing list archives for the proposed
+CHECK_TARGET_TOOL macro from Natanael Nerode, a gcc configury guru).
 
 ------------------------------------------------------------------------------
 
@@ -558,12 +527,12 @@ Timezone calculations checks.
 
 ------------------------------------------------------------------------------
 
-Support different default filesystem layouts, e.g. SVR4, Linux.
+Support different default file system layouts, e.g. SVR4, Linux.
 Of course, this can be done locally with config.site.
 
 ------------------------------------------------------------------------------
 
-I wonder if it is possible to get the path for X11's app-defaults
+I wonder if it is possible to get the name of X11's app-defaults
 directory by autoconf. Moreover, I'd like to have a general way of
 accessing imake variables by autoconf, something like
 
@@ -699,5 +668,5 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with autoconf; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.

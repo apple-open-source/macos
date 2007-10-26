@@ -13,7 +13,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /*
  * Generates Unicode variants table from Koichi Yasuoka's UniVariants file.
@@ -50,8 +50,8 @@ int main (int argc, char *argv[])
   printf(" *\n");
   printf(" * You should have received a copy of the GNU Library General Public\n");
   printf(" * License along with the GNU LIBICONV Library; see the file COPYING.LIB.\n");
-  printf(" * If not, write to the Free Software Foundation, Inc., 59 Temple Place -\n");
-  printf(" * Suite 330, Boston, MA 02111-1307, USA.\n");
+  printf(" * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,\n");
+  printf(" * Fifth Floor, Boston, MA 02110-1301, USA.\n");
   printf(" */\n");
   printf("\n");
   printf("/*\n");

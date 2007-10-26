@@ -47,6 +47,7 @@
 #include <IOKit/hidsystem/IOHIDSystem.h>
 #include <libkern/OSByteOrder.h>
 #include "IOHIDKeyboardDevice.h"
+#include "IOHIDevicePrivateKeys.h"
 
 // Define expansion data here
 #define _f12Eject_State 			_reserved->f12Eject_State
@@ -264,10 +265,10 @@ bool IOHIKeyboardMapper::init( IOHIKeyboard * delegate,
 
         // If keys are defined, check the device type to determine 
         // if we should support F12 eject.
-         if ((_delegate->interfaceID() == NX_EVS_DEVICE_INTERFACE_ADB) &&
-             (((_delegate->deviceType() >= 0xc3) && (_delegate->deviceType() <= 0xc9)) ||
-              ((_delegate->deviceType() >= 0x28) && (_delegate->deviceType() <= 0x2a)) ||
-              ((_delegate->deviceType() >= 0x00) && (_delegate->deviceType() <= 0x1e))))
+        if ((_delegate->interfaceID() == NX_EVS_DEVICE_INTERFACE_ADB) &&
+            (((_delegate->deviceType() >= 0xc3) && (_delegate->deviceType() <= 0xc9)) ||
+             ((_delegate->deviceType() >= 0x28) && (_delegate->deviceType() <= 0x2a)) ||
+             ((_delegate->deviceType() >= 0x00) && (_delegate->deviceType() <= 0x1e))))
         {
         
             IORegistryEntry *   devicetreeRegEntry = IORegistryEntry::fromPath("/", gIODTPlane);
@@ -923,6 +924,15 @@ void IOHIKeyboardMapper::doModCalc(int key, kbdBitVector keyBits)
 		 /* charSet */          0,
 		 /* originalCharCode */ 0,
 		 /* originalCharSet */  0);
+#ifdef NEW_HID         
+        _delegate->keyboardEvent(EVK_IS_KEYDOWN(key, keyBits) ? NX_KEYDOWN : NX_KEYUP,
+		 /* flags */            _delegate->eventFlags(),
+         /* keyCode */          key,
+         /* charCode */         0,
+         /* charSet */          0,
+         /* originalCharCode */ 0,
+         /* originalCharSet */  0);
+#endif
 	}
 	else	/* Update, but don't generate an event */
 		_delegate->updateEventFlags(_delegate->eventFlags());
@@ -1115,6 +1125,16 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 		     /* charSet */          0,
 		     /* originalCharCode */ 0,
 		     /* originalCharSet */  0);
+             
+#ifdef NEW_HID         
+            _delegate->keyboardEvent(alphaLock ? NX_KEYDOWN : NX_KEYUP,
+             /* flags */            myFlags,
+             /* keyCode */          keyCode,
+             /* charCode */         0,
+             /* charSet */          0,
+             /* originalCharCode */ 0,
+             /* originalCharSet */  0);
+#endif
 		} 
 		else 	if (i == NX_KEYTYPE_NUM_LOCK
 		    && down == true
@@ -1208,27 +1228,6 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
     } 
     
     // Check for fkey mode property
-    if (((dict != _offFnParamDict) && (dict != _onFnParamDict)) &&
-		(number = OSDynamicCast(OSNumber,
-                              dict->getObject(kIOHIDFKeyModeKey))) ||
-        (data = OSDynamicCast(OSData,
-                              dict->getObject(kIOHIDFKeyModeKey))))
-    {
-		value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
-
-		// if set, then set the bit in our state
-		if (value)
-				_stickyKeys_State |= kState_PrefFnKeyStateOn;
-		// otherwise clear the bit in our state
-		else
-				_stickyKeys_State &= ~kState_PrefFnKeyStateOn;
-						
-		// we changed something
-		updated = true;
-    } 
-    
-    
-    // Check for fkey mode property
     if ((number = OSDynamicCast(OSNumber,
                               dict->getObject(kIOHIDMouseKeysOnKey))) ||
         (data = OSDynamicCast(OSData,
@@ -1309,6 +1308,26 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
         // we changed something
         updated = true;
     }
+	
+    // Check for fkey mode property
+    if ((dict->getObject(kIOHIDTemporaryParametersKey) == NULL) &&
+		(number = OSDynamicCast(OSNumber,
+                              dict->getObject(kIOHIDFKeyModeKey))) ||
+        (data = OSDynamicCast(OSData,
+                              dict->getObject(kIOHIDFKeyModeKey))))
+    {
+		value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
+
+		// if set, then set the bit in our state
+		if (value)
+				_stickyKeys_State |= kState_PrefFnKeyStateOn;
+		// otherwise clear the bit in our state
+		else
+				_stickyKeys_State &= ~kState_PrefFnKeyStateOn;
+						
+		// we changed something
+		updated = true;
+    } 
 
     // check for shift toggles property in the dictionary
     if ((number = OSDynamicCast(OSNumber,
@@ -1446,7 +1465,7 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
             myFlags |= NX_ALPHASHIFTMASK;
 
             _delegate->setDeviceFlags(myFlags);
-            _delegate->setAlphaLock(true);            
+            _delegate->setAlphaLock(true);  
         }
         else
         {
@@ -1474,6 +1493,16 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
          /* originalCharCode */ 0,
          /* originalCharSet */  0);
 
+
+#ifdef NEW_HID         
+        _delegate->keyboardEvent(alphaState ? NX_KEYDOWN : NX_KEYUP,
+         /* flags */            myFlags,
+         /* keyCode */          keyCode,
+         /* charCode */         0,
+         /* charSet */          0,
+         /* originalCharCode */ 0,
+         /* originalCharSet */  0);
+#endif
     }
 
 	// right now updateProperties does nothing interesting
@@ -1641,6 +1670,8 @@ bool IOHIKeyboardMapper::createParamDicts ( void )
 		// off
 		makeNumberParamProperty( _onFnParamDict, kIOHIDFKeyModeKey,
 					1, 32 );
+
+        _onFnParamDict->setObject(kIOHIDTemporaryParametersKey, kOSBooleanTrue);
 	}
 	else
 		ok = false;
@@ -1653,6 +1684,8 @@ bool IOHIKeyboardMapper::createParamDicts ( void )
 		// off
 		makeNumberParamProperty( _offFnParamDict, kIOHIDFKeyModeKey,
 					0, 32 );
+
+        _offFnParamDict->setObject(kIOHIDTemporaryParametersKey, kOSBooleanTrue);
 	}
 	else
 		ok = false;

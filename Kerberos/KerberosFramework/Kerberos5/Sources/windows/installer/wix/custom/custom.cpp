@@ -23,7 +23,9 @@ DLLEXPORTS =\
     -EXPORT:AbortMsiImmediate \
     -EXPORT:UninstallNsisInstallation \
     -EXPORT:KillRunningProcesses \
-    -EXPORT:ListRunningProcesses
+    -EXPORT:ListRunningProcesses \
+    -EXPORT:InstallNetProvider \
+    -EXPORT:UninstallNetProvider
 
 $(DLLFILE): $(OUTPATH)\custom.obj
     $(LINK) /OUT:$@ /DLL $** $(DLLEXPORTS)
@@ -42,7 +44,7 @@ clean:
 #else
 /*
 
-Copyright 2004 by the Massachusetts Institute of Technology
+Copyright 2004,2005 by the Massachusetts Institute of Technology
 
 All rights reserved.
 
@@ -73,7 +75,7 @@ SOFTWARE.
 *         are noted in the comments section of each of the
 *         functions.
 *
-* rcsid: $Id: custom.cpp 16675 2004-08-20 23:42:59Z jaltman $
+* rcsid: $Id: custom.cpp 19314 2007-03-30 00:33:19Z tlyu $
 **************************************************************/
 
 #pragma unmanaged
@@ -434,16 +436,25 @@ UINT KillRunningProcessesSlave( MSIHANDLE hInstall, BOOL bKill )
                     // try to kill the process
                     HANDLE hProcess = NULL;
 
+                    // If we encounter an error, instead of bailing
+                    // out, we continue on to the next process.  We
+                    // may not have permission to kill all the
+                    // processes we want to kill anyway.  If there are
+                    // any files that we want to replace that is in
+                    // use, Windows Installer will schedule a reboot.
+                    // Also, it's not like we have an exhaustive list
+                    // of all the programs that use Kerberos anyway.
+
                     hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe.th32ProcessID);
                     if(hProcess == NULL) {
                         rv = GetLastError();
-                        goto _cleanup;
+                        break;
                     }
 
                     if(!TerminateProcess(hProcess, 0)) {
                         rv = GetLastError();
                         CloseHandle(hProcess);
-                        goto _cleanup;
+                        break;
                     }
 
                     CloseHandle(hProcess);
@@ -621,6 +632,111 @@ _cleanup:
 	}
 	return rv;
 }
+
+/* Check and add or remove networkprovider key value
+        str : target string
+        str2: string to add/remove
+        bInst: == 1 if string should be added to target if not already there, 
+	otherwise remove string from target if present.
+*/
+int npi_CheckAndAddRemove( LPTSTR str, LPTSTR str2, int bInst ) {
+
+    LPTSTR target, charset, match;
+    int ret=0;
+
+    target = new TCHAR[lstrlen(str)+3];
+    lstrcpy(target,_T(","));
+    lstrcat(target,str);
+    lstrcat(target,_T(","));
+    charset = new TCHAR[lstrlen(str2)+3];
+    lstrcpy(charset,_T(","));
+    lstrcat(charset,str2);
+    lstrcat(charset,_T(","));
+
+    match = _tcsstr(target, charset);
+
+    if ((match) && (bInst)) {
+        ret = INP_ERR_PRESENT;
+        goto cleanup;
+    }
+
+    if ((!match) && (!bInst)) {
+        ret = INP_ERR_ABSENT;
+        goto cleanup;
+    }
+
+    if (bInst) // && !match
+    {
+       lstrcat(str, _T(","));
+       lstrcat(str, str2);
+       ret = INP_ERR_ADDED;
+       goto cleanup;
+    }
+
+    // if (!bInst) && (match)
+    {
+       lstrcpy(str+(match-target),match+lstrlen(str2)+2);
+       str[lstrlen(str)-1]=_T('\0');
+       ret = INP_ERR_REMOVED;
+       goto cleanup;
+    }
+
+cleanup:
+
+    delete target;
+    delete charset;
+    return ret;
+}
+
+/* Sets the registry keys required for the functioning of the network provider */
+
+DWORD InstNetProvider(MSIHANDLE hInstall, int bInst) {
+    LPTSTR strOrder;
+    HKEY hkOrder;
+    LONG rv;
+    DWORD dwSize;
+    HANDLE hProcHeap;
+
+    strOrder = (LPTSTR) 0;
+
+    CHECK(rv = RegOpenKeyEx( HKEY_LOCAL_MACHINE, STR_KEY_ORDER, 0, KEY_READ | KEY_WRITE, &hkOrder ));
+
+    dwSize = 0;
+    CHECK(rv = RegQueryValueEx( hkOrder, STR_VAL_ORDER, NULL, NULL, NULL, &dwSize ) );
+
+    strOrder = new TCHAR[ (dwSize + STR_SERVICE_LEN + 4) * sizeof(TCHAR) ];
+
+    CHECK(rv = RegQueryValueEx( hkOrder, STR_VAL_ORDER, NULL, NULL, (LPBYTE) strOrder, &dwSize));
+
+    strOrder[dwSize] = '\0';	/* reg strings are not always nul terminated */
+
+    npi_CheckAndAddRemove( strOrder, STR_SERVICE , bInst);
+
+    dwSize = (lstrlen( strOrder ) + 1) * sizeof(TCHAR);
+
+    CHECK(rv = RegSetValueEx( hkOrder, STR_VAL_ORDER, NULL, REG_SZ, (LPBYTE) strOrder, dwSize ));
+
+    /* everything else should be set by the MSI tables */
+    rv = ERROR_SUCCESS;
+_cleanup:
+
+    if( rv != ERROR_SUCCESS ) {
+        ShowMsiError( hInstall, ERR_NPI_FAILED, rv );
+    }
+
+    if(strOrder) delete strOrder;
+
+    return rv;
+}
+
+MSIDLLEXPORT InstallNetProvider( MSIHANDLE hInstall ) {
+    return InstNetProvider( hInstall, 1 );
+}
+
+MSIDLLEXPORT UninstallNetProvider( MSIHANDLE hInstall) {
+    return InstNetProvider( hInstall, 0 );
+}
+
 #endif
 #ifdef __NMAKE__
 !ENDIF

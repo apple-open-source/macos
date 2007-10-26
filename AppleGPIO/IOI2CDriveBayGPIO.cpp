@@ -1,9 +1,12 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDriveBayGPIO.cpp,v 1.2 2005/02/09 02:21:40 jlehrer Exp $
+ *	File: $Id: IOI2CDriveBayGPIO.cpp,v 1.3 2007/07/07 19:37:03 raddog Exp $
  *
  *		$Log: IOI2CDriveBayGPIO.cpp,v $
+ *		Revision 1.3  2007/07/07 19:37:03  raddog
+ *		[5127355]9A410: Q63: Panic in PowerMac11_2_PlatformPlugin3.0.0d0 during cold boot test.
+ *		
  *		Revision 1.2  2005/02/09 02:21:40  jlehrer
  *		Updated interrupt processing for mac-io gpio-16
  *		
@@ -270,7 +273,7 @@ IOI2CDriveBayGPIO::registerGPIOClient(
 	{
 		if (fClient[id].self != 0)
 		{
-			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient id:%d already open\n", getI2CAddress(), id);
+			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient id:%ld already open\n", getI2CAddress(), id);
 			status = kIOReturnStillOpen;
 		}
 		else
@@ -278,14 +281,14 @@ IOI2CDriveBayGPIO::registerGPIOClient(
 			fClient[id].handler		= handler;
 			fClient[id].isEnabled	= false;
 			fClient[id].self		= client;
-			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient id:%d registered\n", getI2CAddress(), id);
+			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient id:%ld registered\n", getI2CAddress(), id);
 		}
 	}
 	else // unregister
 	{
 		if (fClient[id].self == 0)
 		{
-			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient - unregister id:%d not open\n", getI2CAddress(), id);
+			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient - unregister id:%ld not open\n", getI2CAddress(), id);
 			status = kIOReturnNotOpen;
 		}
 		else
@@ -293,7 +296,7 @@ IOI2CDriveBayGPIO::registerGPIOClient(
 			fClient[id].self = 0;
 			fClient[id].isEnabled = false;
 			fClient[id].handler = 0;
-			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient id:%d un-registered\n", getI2CAddress(), id);
+			DLOG ("IOI2CDriveBayGPIO@%lx::registerGPIOClient id:%ld un-registered\n", getI2CAddress(), id);
 		}
 	}
 	UNLOCK;
@@ -310,7 +313,7 @@ IOI2CDriveBayGPIO::enableGPIOClient(
 
 	if ( (id >= kNumGPIOs) || (fClient[id].self == 0) )
 	{
-		DLOG("IOI2CDriveBayGPIO@%lx::enableClient - error %d not registered\n", getI2CAddress(), id);
+		DLOG("IOI2CDriveBayGPIO@%lx::enableClient - error %ld not registered\n", getI2CAddress(), id);
 		return kIOReturnBadArgument;
 	}
 
@@ -319,7 +322,7 @@ IOI2CDriveBayGPIO::enableGPIOClient(
 
 	LOCK;
 
-	DLOG("IOI2CDriveBayGPIO@%lx::enableGPIOClient %s client %d\n", getI2CAddress(), isEnable?"enable":"disable", id);
+	DLOG("IOI2CDriveBayGPIO@%lx::enableGPIOClient %s client %ld\n", getI2CAddress(), isEnable?"enable":"disable", id);
 
 	fClient[id].isEnabled = isEnable;
 	if (isEnable)
@@ -336,7 +339,7 @@ IOI2CDriveBayGPIO::enableGPIOClient(
 			status = fPCA9554M->callPlatformFunction("enable9554MInterruptClient", false, (void *)fReg, (void *)0, (void *)0, (void *)false);
 	}
 
-	DLOG("IOI2CDriveBayGPIO@%lx::enableGPIOClient %s client %d (%x)\n", getI2CAddress(), isEnable?"enable":"disable", id, (int)status);
+	DLOG("IOI2CDriveBayGPIO@%lx::enableGPIOClient %s client %ld (%x)\n", getI2CAddress(), isEnable?"enable":"disable", id, (int)status);
 
 	UNLOCK;
 
@@ -362,7 +365,7 @@ IOI2CDriveBayGPIO::process9554MInterrupt(
 
 	if (eventMask & (1 << kSwitch))
 	{
-		DLOG("IOI2CDriveBayGPIO 0x%02x got switch event\n", getI2CAddress());
+		DLOG("IOI2CDriveBayGPIO 0x%02lx got switch event\n", getI2CAddress());
 
 		// I got a button event.  Pass it up.
 		if (fClient[kSwitch].self && fClient[kSwitch].handler && fClient[kSwitch].isEnabled)
@@ -375,7 +378,7 @@ IOI2CDriveBayGPIO::process9554MInterrupt(
 
 	if (eventMask & (1 << kPresent))
 	{
-		DLOG("IOI2CDriveBayGPIO 0x%02x got insertion/removal event\n", getI2CAddress());
+		DLOG("IOI2CDriveBayGPIO 0x%02lx got insertion/removal event\n", getI2CAddress());
 
 		// I got a insertion event.  Pass it up.
 		if (fClient[kPresent].self && fClient[kPresent].handler && fClient[kPresent].isEnabled)

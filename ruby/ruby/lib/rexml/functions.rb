@@ -7,41 +7,33 @@ module REXML
   # Therefore, in XML, "local-name()" is identical (and actually becomes)
   # "local_name()"
   module Functions
-    @@node = nil
-    @@index = nil
-    @@size = nil
-    @@variables = {}
+    @@context = nil
     @@namespace_context = {}
+    @@variables = {}
 
-    def Functions::node=(value); @@node = value; end
-    def Functions::index=(value); @@index = value; end
-    def Functions::size=(value); @@size = value; end
-    def Functions::variables=(value); @@variables = value; end
-    def Functions::namespace_context=(value)
-      @@namespace_context = value
-    end
-    def Functions::node; @@node; end
-    def Functions::index; @@index; end
-    def Functions::size; @@size; end
-    def Functions::variables; @@variables; end
-    def Functions::namespace_context; @@namespace_context; end
+    def Functions::namespace_context=(x) ; @@namespace_context=x ; end
+    def Functions::variables=(x) ; @@variables=x ; end
+    def Functions::namespace_context ; @@namespace_context ; end
+    def Functions::variables ; @@variables ; end
+
+    def Functions::context=(value); @@context = value; end
 
     def Functions::text( )
-      if @@node.node_type == :element
-        return @@node.text
-      elsif @@node.node_type == :text
-        return @@node.value
+      if @@context[:node].node_type == :element
+        return @@context[:node].find_all{|n| n.node_type == :text}.collect{|n| n.value}
+      elsif @@context[:node].node_type == :text
+        return @@context[:node].value
       else
         return false
       end
     end
 
     def Functions::last( )
-      @@size
+      @@context[:size]
     end
 
     def Functions::position( )
-      @@index
+      @@context[:index]
     end
 
     def Functions::count( node_set )
@@ -73,13 +65,12 @@ module REXML
     # Helper method.
     def Functions::get_namespace( node_set = nil )
       if node_set == nil
-        yield @@node if defined? @@node.namespace
+        yield @@context[:node] if defined? @@context[:node].namespace
       else  
-        if node_set.namespace
-          yield node_set
-        else
-          return unless node_set.kind_of? Enumerable
+        if node_set.respond_to? :each
           node_set.each { |node| yield node if defined? node.namespace }
+        elsif node_set.respond_to? :namespace
+          yield node_set
         end
       end
     end
@@ -126,14 +117,28 @@ module REXML
       elsif defined? object.node_type
         if object.node_type == :attribute
           object.value
-        elsif object.node_type == :element
-          object.text
+        elsif object.node_type == :element || object.node_type == :document
+          string_value(object)
         else
           object.to_s
         end
+      elsif object.nil?
+        return ""
       else
         object.to_s
       end
+    end
+
+    def Functions::string_value( o )
+      rv = ""
+      o.children.each { |e|
+        if e.node_type == :text
+          rv << e.to_s
+        elsif e.node_type == :element
+          rv << string_value( e )
+        end
+      }
+      rv
     end
 
     # UNTESTED
@@ -148,7 +153,7 @@ module REXML
 
     # Fixed by Mike Stok
     def Functions::contains( string, test )
-      string(string).include? string(test)
+      string(string).include?(string(test))
     end
 
     # Kouhei fixed this 
@@ -165,12 +170,9 @@ module REXML
     # Kouhei fixed this too
     def Functions::substring_after( string, test )
       ruby_string = string(string)
-      ruby_index = ruby_string.index(string(test))
-      if ruby_index.nil?
-        ""
-      else
-        ruby_string[ ruby_index+1..-1 ]
-      end
+      test_string = string(test)
+      return $1 if ruby_string =~ /#{test}(.*)/
+      ""
     end
 
     # Take equal portions of Mike Stok and Sean Russell; mix 
@@ -214,7 +216,7 @@ module REXML
 
     # UNTESTED
     def Functions::normalize_space( string=nil )
-      string = string(@@node) if string.nil?
+      string = string(@@context[:node]) if string.nil?
       if string.kind_of? Array
         string.collect{|x| string.to_s.strip.gsub(/\s+/um, ' ') if string}
       else
@@ -291,7 +293,7 @@ module REXML
     # UNTESTED
     def Functions::lang( language )
       lang = false
-      node = @@node
+      node = @@context[:node]
       attr = nil
       until node.nil?
         if node.node_type == :element
@@ -325,20 +327,23 @@ module REXML
     # an object of a type other than the four basic types is converted to a
     # number in a way that is dependent on that type
     def Functions::number( object=nil )
-      object = @@node unless object
-      if object == true
+      object = @@context[:node] unless object
+      case object
+      when true
         Float(1)
-      elsif object == false
+      when false
         Float(0)
-      elsif object.kind_of? Array
+      when Array
         number(string( object ))
-      elsif object.kind_of? Float
-        object
+      when Numeric
+        object.to_f
       else
         str = string( object )
         #puts "STRING OF #{object.inspect} = #{str}"
-        if str =~ /^\d+/
-          object.to_s.to_f
+        # If XPath ever gets scientific notation...
+        #if str =~ /^\s*-?(\d*\.?\d+|\d+\.)([Ee]\d*)?\s*$/
+        if str =~ /^\s*-?(\d*\.?\d+|\d+\.)\s*$/
+          str.to_f
         else
           (0.0 / 0.0)
         end
@@ -346,6 +351,8 @@ module REXML
     end
 
     def Functions::sum( nodes )
+      nodes = [nodes] unless nodes.kind_of? Array
+      nodes.inject(0) { |r,n| r += number(string(n)) }
     end
     
     def Functions::floor( number )
@@ -364,9 +371,13 @@ module REXML
       end
     end
 
+    def Functions::processing_instruction( node )
+      node.node_type == :processing_instruction
+    end
+
     def Functions::method_missing( id )
       puts "METHOD MISSING #{id.id2name}"
-      XPath.match( @@node, id.id2name )
+      XPath.match( @@context[:node], id.id2name )
     end
   end
 end

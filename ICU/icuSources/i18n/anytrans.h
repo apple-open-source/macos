@@ -1,11 +1,11 @@
 /*
-*****************************************************************
-* Copyright (c) 2002-2004, International Business Machines Corporation
+***********************************************************************
+* Copyright (c) 2002-2006, International Business Machines Corporation
 * and others.  All Rights Reserved.
-*****************************************************************
+***********************************************************************
 * Date        Name        Description
 * 06/06/2002  aliu        Creation.
-*****************************************************************
+***********************************************************************
 */
 #ifndef _ANYTRANS_H_
 #define _ANYTRANS_H_
@@ -74,15 +74,11 @@ public:
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
-     *
-     * @draft ICU 2.2
      */
     virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
-     *
-     * @draft ICU 2.2
      */
     static UClassID U_EXPORT2 getStaticClassID();
 
@@ -124,12 +120,6 @@ private:
     static void registerIDs();
 
     friend class Transliterator; // for registerIDs()
-
-    /**
-     * Return the script code for a given name, or
-     * USCRIPT_INVALID_CODE if not found.
-     */
-    static UScriptCode scriptNameToCode(const UnicodeString& name);
 };
 
 U_NAMESPACE_END

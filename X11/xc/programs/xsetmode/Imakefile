@@ -1,8 +1,0 @@
-XCOMM $XFree86: xc/programs/xsetmode/Imakefile,v 3.0 1995/12/23 09:41:16 dawes Exp $
-
-        DEPLIBS = $(DEPXILIB) $(DEPXLIB)
-LOCAL_LIBRARIES = $(XILIB) $(XLIB)
-           SRCS = xsetmode.c
-           OBJS = xsetmode.o
-
-ComplexProgramTarget(xsetmode)

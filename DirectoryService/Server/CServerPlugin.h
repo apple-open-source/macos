@@ -35,8 +35,13 @@
 #include "ServerModule.h"
 #include "PrivateTypes.h"
 
-static	const	uInt32		kBuffPad					= 16;
-static	const	uInt32		kNumStaticPlugins			= 4;
+enum eDSPluginLevel {
+	/*  1 */ kStaticPlugin			= 1,
+	/*    */ kAppleLoadedPlugin
+};
+
+static	const	UInt32		kBuffPad					= 16;
+static	const	UInt32		kNumStaticPlugins			= 7;
 
 //-----------------------------------------------------------------------------
 //	* CServerPlugin Class Definition
@@ -47,8 +52,8 @@ static	const	uInt32		kNumStaticPlugins			= 4;
 
 class CServerPlugin {
 public:
-	static	sInt32	ProcessURL				(	CFURLRef urlPlugin );
-    static	sInt32	ProcessStaticPlugin		(	const char* inPluginName,
+	static	SInt32	ProcessURL				(	CFURLRef urlPlugin );
+    static	SInt32	ProcessStaticPlugin		(	const char* inPluginName,
                                                 const char* inPluginVersion );
 
 public:
@@ -56,24 +61,24 @@ public:
 	// ctor and dtor.
 				CServerPlugin	( void );
                 CServerPlugin	( FourCharCode inSig, const char *inName );
-				CServerPlugin	( CFPlugInRef inThis, CFUUIDRef inFactoryID, FourCharCode inSig, uInt32 inVers, const char *inName );
+				CServerPlugin	( CFPlugInRef inThis, CFUUIDRef inFactoryID, FourCharCode inSig, UInt32 inVers, const char *inName );
 	virtual	   ~CServerPlugin	( void );
 
 	// New methods.
 		// Pass-thru functions to CFPlugin function table.
-	virtual sInt32	Validate		( const char *inVersionStr, const uInt32 inSignature );
-	virtual sInt32	Initialize		( void );
-	virtual sInt32	Configure		( void );
-	virtual sInt32	SetPluginState	( const uInt32 inState );
-	virtual sInt32	PeriodicTask	( void );
-	virtual sInt32	ProcessRequest	( void *inData );
-	virtual sInt32	Shutdown		( void );
+	virtual SInt32	Validate		( const char *inVersionStr, const UInt32 inSignature );
+	virtual SInt32	Initialize		( void );
+	virtual SInt32	Configure		( void );
+	virtual SInt32	SetPluginState	( const UInt32 inState );
+	virtual SInt32	PeriodicTask	( void );
+	virtual SInt32	ProcessRequest	( void *inData );
+	virtual SInt32	Shutdown		( void );
 
 	char*			GetPluginName	( void );
 	FourCharCode	GetSignature	( void );
-	static sInt32	_RegisterNode	( const uInt32, tDataList *, eDirNodeType );
-	static sInt32	InternalRegisterNode ( const uInt32 inToken, tDataList *inNodeList, eDirNodeType inNodeType, bool isProxyRegistration = false );
-    static sInt32	_UnregisterNode	( const uInt32, tDataList * );
+	static SInt32	_RegisterNode	( const UInt32, tDataList *, eDirNodeType );
+	static SInt32	InternalRegisterNode ( const UInt32 inToken, tDataList *inNodeList, eDirNodeType inNodeType, bool isProxyRegistration = false );
+    static SInt32	_UnregisterNode	( const UInt32, tDataList * );
     
 protected:
 	FourCharCode	fPlugInSignature;
@@ -84,7 +89,7 @@ private:
 	DSServerPlugin::ModuleFtbl	*mInstance;
 
 	CFPlugInRef		fPlugInRef;
-	uInt32			fPlugInVers;
+	UInt32			fPlugInVers;
 };
 
 #endif	// __CServerPlugin_h__

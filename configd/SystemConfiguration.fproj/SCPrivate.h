@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,13 +31,27 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
+/* SCDynamicStore SPIs */
 #include <SystemConfiguration/SCDynamicStorePrivate.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
 #include <SystemConfiguration/SCDynamicStoreSetSpecificPrivate.h>
 
+/* SCPreferences SPIs */
 #include <SystemConfiguration/SCPreferencesPrivate.h>
 #include <SystemConfiguration/SCPreferencesGetSpecificPrivate.h>
 #include <SystemConfiguration/SCPreferencesSetSpecificPrivate.h>
+
+/* [private] Schema Definitions (for SCDynamicStore and SCPreferences) */
+#include <SystemConfiguration/SCSchemaDefinitionsPrivate.h>
+
+/* SCNetworkConfiguration SPIs */
+#include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
+
+/* SCNetworkConnection SPIs */
+#include <SystemConfiguration/SCNetworkConnectionPrivate.h>
+
+/* Keychain SPIs */
+#include <SystemConfiguration/SCPreferencesKeychainPrivate.h>
 
 /*!
 	@header SCPrivate
@@ -110,7 +124,7 @@ Boolean		_SCSerializeString		(CFStringRef		str,
 	@function _SCUnserializeString
 	@discussion Unserialize a stream of bytes passed from/to configd
 		into a CFString object.
-	@param str A pointer to memory that will be filled with the CFPropertyList
+	@param str A pointer to memory that will be filled with the CFString
 		associated with the stream of bytes.
 	@param utf8 CFDataRef with the serialized data
 	@param dataRef A pointer to the serialized data
@@ -140,7 +154,7 @@ Boolean		_SCSerializeData		(CFDataRef		data,
 	@function _SCUnserializeData
 	@discussion Unserialize a stream of bytes passed from/to configd
 		into a CFData object.
-	@param data A pointer to memory that will be filled with the CFPropertyList
+	@param data A pointer to memory that will be filled with the CFData
 		associated with the stream of bytes.
 	@param dataRef A pointer to the serialized data
 	@param dataLen A pointer to the length of the serialized data
@@ -163,7 +177,7 @@ CFDictionaryRef	_SCSerializeMultiple		(CFDictionaryRef	dict);
 	@function _SCUnserializeMultiple
 	@discussion Convert a CFDictionary containing a set of CFData
 		values into a CFDictionary containing a set of serialized
-		CFPropertlyList  values.
+		CFPropertlyList values.
 	@param dict The CFDictionary with CFData values.
 	@result The serialized CFDictionary with CFPropertyList values
  */
@@ -185,7 +199,7 @@ CFDictionaryRef	_SCUnserializeMultiple		(CFDictionaryRef	dict);
  */
 char *		_SC_cfstring_to_cstring		(CFStringRef		cfstr,
 						 char			*buf,
-						 int			bufLen,
+						 CFIndex		bufLen,
 						 CFStringEncoding	encoding);
 
 /*!
@@ -198,6 +212,17 @@ char *		_SC_cfstring_to_cstring		(CFStringRef		cfstr,
 void		_SC_sockaddr_to_string		(const struct sockaddr  *address,
 						 char			*buf,
 						 size_t			bufLen);
+
+/*!
+	@function _SC_sendMachMessage
+	@discussion Sends a trivial mach message (one with just a
+		message ID) to the specified port.
+	@param port The mach port.
+	@param msg_id The message id.
+ */
+void		_SC_sendMachMessage		(mach_port_t		port,
+						 mach_msg_id_t		msg_id);
+
 
 /*!
 	@function SCLog
@@ -242,6 +267,20 @@ void		SCTrace				(Boolean		condition,
 						 ...);
 
 /*
+ * DOS encoding/codepage
+ */
+void
+_SC_dos_encoding_and_codepage			(CFStringEncoding	macEncoding,
+						 UInt32			macRegion,
+						 CFStringEncoding	*dosEncoding,
+						 UInt32			*dosCodepage);
+
+CFDataRef
+_SC_dos_copy_string				(CFStringRef		str,
+						 CFStringEncoding	dosEncoding,
+						 UInt32			dosCodepage);
+
+/*
  * object / CFRunLoop  management
  */
 void
@@ -267,6 +306,33 @@ _SC_unschedule					(CFTypeRef		obj,
 						 CFStringRef		runLoopMode,
 						 CFMutableArrayRef      rlList,
 						 Boolean		all);
+
+/*
+ * bundle access
+ */
+CFBundleRef
+_SC_CFBundleGet					(void);
+
+CFStringRef
+_SC_CFBundleCopyNonLocalizedString		(CFBundleRef		bundle,
+						 CFStringRef		key,
+						 CFStringRef		value,
+						 CFStringRef		tableName);
+
+/*
+ * misc
+ */
+static __inline__ Boolean
+_SC_CFEqual(CFTypeRef val1, CFTypeRef val2)
+{
+	if (val1 == val2) {
+	    return TRUE;
+	}
+	if (val1 != NULL && val2 != NULL) {
+		return CFEqual(val1, val2);
+	}
+	return FALSE;
+}
 
 __END_DECLS
 

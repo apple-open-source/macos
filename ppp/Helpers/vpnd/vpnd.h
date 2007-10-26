@@ -30,6 +30,8 @@
  */
 int  ppp_available __P((void));		/* Test whether ppp kernel support exists */
 CFStringRef CopyDefaultIPAddress(); 	/* Copy the IPAddress of the default interface */
+int get_route_interface(struct sockaddr *src, const struct sockaddr *dst, char *if_name); /* get the interface for a given address */
+int find_address(const struct sockaddr_in *address, char *interface); /* check if an interface has a given address */
 
 
 /*
@@ -48,3 +50,7 @@ CFStringRef CopyDefaultIPAddress(); 	/* Copy the IPAddress of the default interf
 void vpnlog(int nSyslogPriority, char *format_str, ...);
 int update_prefs(void);
 void toggle_debug(void);
+void set_terminate(void);
+
+int readn(int ref, void *data, int len);
+int writen(int ref, void *data, int len);

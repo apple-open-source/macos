@@ -8,14 +8,7 @@
  */
 
 /*
- * (C) 1998,1999 by Marcin Dalecki <dalecki@cs.net.pl>
- *
- *	"I'm a one-man software company. If you have anything UNIX, net or
- *	embedded systems related, which seems to cause some serious trouble for
- *	your's in-house developers, maybe we need to talk badly with each other
- *	:-) <dalecki@cs.net.pl> (My native language is polish and I speak
- *	native grade german too. I'm living in Göttingen.de.)
- *	--mdcki"
+ * (C) 1998,1999 by Marcin Dalecki <martin@dalecki.de>
  *
  * Support for GTK+ 2 was added by:
  *
@@ -32,7 +25,11 @@
 			   runtime! */
 #include "gui_gtk_f.h"
 #include <gtk/gtksignal.h>
-#include <gdk/gdkx.h>
+#ifdef WIN3264
+# include <gdk/gdkwin32.h>
+#else
+# include <gdk/gdkx.h>
+#endif
 
 typedef struct _GtkFormChild GtkFormChild;
 
@@ -119,6 +116,7 @@ gtk_form_put(GtkForm	*form,
 
     g_return_if_fail(GTK_IS_FORM(form));
 
+    /* LINTED: avoid warning: conversion to 'unsigned long' */
     child = g_new(GtkFormChild, 1);
 
     child->widget = child_widget;

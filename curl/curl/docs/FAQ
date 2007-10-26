@@ -1,4 +1,4 @@
-Updated: December 21, 2004 (http://curl.haxx.se/docs/faq.html)
+Updated: February 11, 2007 (http://curl.haxx.se/docs/faq.html)
                                   _   _ ____  _
                               ___| | | |  _ \| |
                              / __| | | | |_) | |
@@ -16,6 +16,8 @@ FAQ
   1.6 What do you get for making curl?
   1.7 What about CURL from curl.com?
   1.8 I have a problem who do I mail?
+  1.9 Where do I buy commercial support for curl?
+  1.10 How many are using curl?
 
  2. Install Related Problems
   2.1 configure doesn't find OpenSSL even when it is installed
@@ -43,6 +45,7 @@ FAQ
   3.15 Can I do recursive fetches with curl?
   3.16 What certificates do I need when I use SSL?
   3.17 How do I list the root dir of an FTP server?
+  3.18 Can I use curl to send a POST/PUT and not wait for a response?
 
  4. Running Problems
   4.1 Problems connecting to SSL servers.
@@ -63,6 +66,8 @@ FAQ
   4.10 My HTTP request using HEAD, PUT or DELETE doesn't work!
   4.11 Why does my HTTP range requests return the full document?
   4.12 Why do I get "certificate verify failed" ?
+  4.13 Why is curl -R on Windows one hour off?
+  4.14 Redirects work in browser but not with curl!
 
  5. libcurl Issues
   5.1 Is libcurl thread-safe?
@@ -74,6 +79,9 @@ FAQ
   5.7 Link errors when building libcurl on Windows!
   5.8 libcurl.so.3: open failed: No such file or directory
   5.9 How does libcurl resolve host names?
+  5.10 How do I prevent libcurl from writing the response to stdout?
+  5.11 How do I make libcurl not receive the whole HTTP response?
+  5.12 Can I make libcurl fake or hide my real IP address?
 
  6. License Issues
   6.1 I have a GPL program, can I use the libcurl library?
@@ -82,6 +90,7 @@ FAQ
   6.4 I have a program that uses LGPL libraries, can I use libcurl?
   6.5 Can I modify curl/libcurl for my program and keep the changes secret?
   6.6 Can you please change the curl/libcurl license to XXXX?
+  6.7 What are my obligations when using libcurl in my commerical apps?
 
  7. PHP/CURL Issues
   7.1 What is PHP/CURL?
@@ -97,7 +106,7 @@ FAQ
   cURL is the name of the project. The name is a play on 'Client for URLs',
   originally with URL spelled in uppercase to make it obvious it deals with
   URLs. The fact it can also be pronounced 'see URL' also helped, it works as
-  an abbrivation for "Client URL Request Library" or why not the recursive
+  an abbreviation for "Client URL Request Library" or why not the recursive
   version: "Curl URL Request Library".
 
   The cURL project produces two products:
@@ -105,10 +114,10 @@ FAQ
   libcurl
 
     A free and easy-to-use client-side URL transfer library, supporting FTP,
-    FTPS, HTTP, HTTPS, GOPHER, TELNET, DICT, FILE and LDAP.  libcurl supports
-    HTTPS certificates, HTTP POST, HTTP PUT, FTP uploading, kerberos, HTTP
-    form based upload, proxies, cookies, user+password authentication, file
-    transfer resume, http proxy tunneling and more!
+    FTPS, HTTP, HTTPS, SCP, SFTP, TFTP, TELNET, DICT, FILE and LDAP.  libcurl
+    supports HTTPS certificates, HTTP POST, HTTP PUT, FTP uploading, kerberos,
+    HTTP form based upload, proxies, cookies, user+password authentication,
+    file transfer resume, http proxy tunneling and more!
 
     libcurl is highly portable, it builds and works identically on numerous
     platforms, including Solaris, NetBSD, FreeBSD, OpenBSD, Darwin, HPUX,
@@ -123,16 +132,16 @@ FAQ
     A command line tool for getting or sending files using URL syntax.
 
     Since curl uses libcurl, it supports a range of common Internet protocols,
-    currently including HTTP, HTTPS, FTP, FTPS, GOPHER, LDAP, DICT, TELNET and
-    FILE.
+    currently including HTTP, HTTPS, FTP, FTPS, SCP, SFTP, TFTP, LDAP, DICT,
+    TELNET and FILE.
 
   We pronounce curl and cURL with an initial k sound: [kurl].
 
-  NOTE: there are numerous sub-projects and related projects that also use the
-  word curl in the project names in various combinations, but you should take
+  There are numerous sub-projects and related projects that also use the word
+  curl in the project names in various combinations, but you should take
   notice that this FAQ is directed at the command-line tool named curl (and
   libcurl the library), and may therefore not be valid for other curl-related
-  projects.
+  projects. (There is however a small section for the PHP/CURL in this FAQ.)
 
   1.2 What is libcurl?
 
@@ -142,9 +151,13 @@ FAQ
   You can use libcurl for free in your application, be it open source,
   commercial or closed-source.
 
+  libcurl is most probably the most portable, most powerful and most often
+  used C-based multi-platform file transfer library on this planet - be it
+  open source or commercial.
+
   1.3 What is curl not?
 
-  Curl is *not* a wget clone. That is a common misconception.  Never, during
+  Curl is not a wget clone. That is a common misconception.  Never, during
   curl's development, have we intended curl to replace wget or compete on its
   market. Curl is targeted at single-shot file transfers.
 
@@ -159,9 +172,10 @@ FAQ
   Curl is not a PHP tool, even though it works perfectly well when used from
   or with PHP (when using the PHP/CURL module).
 
-  Curl is not a single-OS program. Curl exists, compiles, builds and runs
-  under a wide range of operating systems, including all modern Unixes (and a
-  bunch of older ones too), Windows, Amiga, BeOS, OS/2, OS X, QNX etc.
+  Curl is not a program for a single operating system. Curl exists, compiles,
+  builds and runs under a wide range of operating systems, including all
+  modern Unixes (and a bunch of older ones too), Windows, Amiga, BeOS, OS/2,
+  OS X, QNX etc.
 
   1.4 When will you make curl do XXXX ?
 
@@ -193,15 +207,14 @@ FAQ
 
   1.5 Who makes curl?
 
-  curl and libcurl are not made by any single individual. Sure, Daniel
-  Stenberg writes the major parts, but other persons' submissions are
+  curl and libcurl are not made by any single individual. Daniel Stenberg is
+  project leader and main developer, but other persons' submissions are
   important and crucial. Anyone can contribute and post their changes and
   improvements and have them inserted in the main sources (of course on the
   condition that developers agree on that the fixes are good).
 
-  The list of contributors in the docs/THANKS file is only a small part of all
-  the people that every day provide us with bug reports, suggestions, ideas
-  and source code.
+  The full list of the more than 530 contributors is found in the docs/THANKS
+  file.
 
   curl is developed by a community, with Daniel at the wheel.
 
@@ -216,12 +229,8 @@ FAQ
   have sponsored certain parts of the development in the past and I hope some
   will continue to do so in the future.
 
-  If you want to support our project with a donation or similar, one way of
-  doing that would be to buy "gift certificates" at useful online shopping
-  sites, such as amazon.com or thinkgeek.com. Another way would be to sponsor
-  us through a banner-program or even better: by helping us coding,
-  documenting, testing etc. You're welcome to send us a buck using paypal, as
-  described here: http://curl.haxx.se/donation.html
+  If you want to support our project, consider a donation or a banner-program
+  or even better: by helping us coding, documenting, testing etc.
 
   1.7 What about CURL from curl.com?
 
@@ -252,6 +261,61 @@ FAQ
   users thanks to the web based archives of the mailing lists), thus saving us
   from having to repeat ourselves even more. Thanks for respecting this.
 
+  If you have found or simply suspect a security problem in curl or libcurl,
+  mail curl-security at haxx.se (closed list of receivers, mails are not
+  disclosed) and tell. Then we can produce a fix in a timely manner before the
+  flaw is announced to the world, thus lessen the impact the problem will have
+  on existing users.
+
+  1.9 Where do I buy commercial support for curl?
+
+  curl is fully open source. It means you can hire any skilled engineer to fix
+  your curl-related problems.
+
+  We list available alternatives on the curl web site:
+  http://curl.haxx.se/support.html
+
+  1.10 How many are using curl?
+
+  It is impossible to tell.
+
+  We don't know how many users that knowingly have installed and use curl.
+
+  We don't know how many users that use curl without knowing that they are in
+  fact using it.
+
+  We don't know how many users that downloaded or installed curl and then
+  never use it.
+
+  Some facts to use as input to the math:
+
+  curl packages are downloaded from the curl.haxx.se and mirrors almost one
+  million times per year. curl is installed by default with most Linux
+  distributions. curl is installed by default with Mac OS X. curl and libcurl
+  as used by numerous applications that include libcurl binaries in their
+  distribution packages (like Adobe Acrobat Reader and Google Earth).
+
+  More than 60 known named companies use curl in commercial environments and
+  products. More than 100 known named open source projects depend on
+  (lib)curl.
+
+  In a poll on the curl web site mid-2005, more than 50% of the 300+ answers
+  estimated a user base of one million users or more.
+
+  In March 2005, the "Linux Counter project" estimated a total Linux user base
+  of some 29 millions, while Netcraft detected some 4 million "active" Linux
+  based web servers. A guess is that a fair amount of these Linux
+  installations have curl installed.
+
+  All this taken together, there is no doubt that there are millions of
+  (lib)curl users.
+
+  http://curl.haxx.se/docs/companies.html
+  http://curl.haxx.se/docs/programs.html
+  http://curl.haxx.se/libcurl/using/apps.html
+  http://counter.li.org/estimates.php
+  http://news.netcraft.com/archives/2005/03/14/fedora_makes_rapid_progress.html
+
 
 2. Install Related Problems
 
@@ -279,8 +343,6 @@ FAQ
     ./configure places the -L/usr/local/ssl/lib early enough in the command
     line to make things work
 
-    Solution submitted by: Bob Allison <allisonb@users.sourceforge.net>
-
     2.1.2 only the libssl lib is missing
 
     If all include files and the libcrypto lib is present, with only the
@@ -296,10 +358,10 @@ FAQ
 
   2.2 Does curl work/build with other SSL libraries?
 
-  Curl has been written to use OpenSSL, although there should not be much
-  problems using a different library. If anyone does "port" curl to use a
-  different SSL library, we are of course very interested in getting the
-  patch!
+  Curl has been written to use OpenSSL, GnuTLS, yassl or NSS, although there
+  should not be many problems using a different library. If anyone does "port"
+  curl to use a different SSL library, we are of course very interested in
+  getting the patch!
 
   2.3 Where can I find a copy of LIBEAY32.DLL?
 
@@ -392,6 +454,8 @@ FAQ
 
      curl -L http://redirector.com
 
+  Not all redirects are HTTP ones, see 4.14
+
   3.9 How do I use curl in my favorite programming language?
 
   There exist many language interfaces/bindings for curl that integrates it
@@ -403,10 +467,12 @@ FAQ
   install and use them, in the libcurl section of the curl web site:
   http://curl.haxx.se/libcurl/
 
-  In February 2003, there are interfaces available for the following
-  languages: Basic, C, C++, Cocoa, Dylan, Euphoria, Java, Lua, Object-Pascal,
-  Pascal, Perl, PHP, PostgreSQL, Python, Rexx, Ruby, Scheme and Tcl. By the
-  time you read this, additional ones may have appeared!
+  In February 2007, there are interfaces available for the following
+  languages: Ada95, Basic, C, C++, Ch, Cocoa, D, Dylan, Euphoria, Ferite,
+  Gambas, glib/GTK+, Java, Lisp, Lua, Mono, .NET, Object-Pascal, O'Caml,
+  Pascal, Perl, PHP, PostgreSQL, Python, R, Rexx, Ruby, Scheme, S-Lang,
+  Smalltalk, SPL, Tcl, Visual Basic, Q, wxwidgets and XBLite. By the time you
+  read this, additional ones may have appeared!
 
   3.10 What about SOAP, WebDAV, XML-RPC or similar protocols over HTTP?
 
@@ -503,23 +569,25 @@ FAQ
     If the server doesn't require this, you don't need a client certificate.
 
   - Server certificate. The server you communicate with has a server
-    certificate. You can and should verify this certficate to make sure that
+    certificate. You can and should verify this certificate to make sure that
     you are truly talking to the real server and not a server impersonating
-    it. The server certificate verifaction process is made by using a
-    Certificate Authority certificate ("CA cert") that was used to sign the
-    server certificate. Server certificate verification is enabled by default
-    in curl and libcurl and is often the reason for problems as explained in
-    FAQ entry 4.12 and the SSLCERTS document
-    (http://curl.haxx.se/docs/sslcerts.html). Server certificates that are
-    "self-signed" or otherwise signed by a CA that you do not have a CA cert
-    for, cannot be verified. If the verification during a connect fails, you
-    are refused access. You then need to explicitly disable the verification
-    to connect to the server.
+    it.
 
   - Certificate Authority certificate ("CA cert"). You often have several CA
     certs in a CA cert bundle that can be used to verify a server certificate
     that was signed by one of the authorities in the bundle. curl comes with a
     default CA cert bundle. You can override the default.
+
+    The server certificate verification process is made by using a Certificate
+    Authority certificate ("CA cert") that was used to sign the server
+    certificate. Server certificate verification is enabled by default in curl
+    and libcurl and is often the reason for problems as explained in FAQ entry
+    4.12 and the SSLCERTS document
+    (http://curl.haxx.se/docs/sslcerts.html). Server certificates that are
+    "self-signed" or otherwise signed by a CA that you do not have a CA cert
+    for, cannot be verified. If the verification during a connect fails, you
+    are refused access. You then need to explicitly disable the verification
+    to connect to the server.
 
   3.17 How do I list the root dir of an FTP server?
 
@@ -532,6 +600,12 @@ FAQ
   section of the URL with a slash:
 
      curl ftp://ftp.sunet.se//tmp/
+
+  3.18 Can I use curl to send a POST/PUT and not wait for a response?
+ 
+  No.
+
+  But you could easily write your own program using libcurl to do such stunts.
 
 
 4. Running Problems
@@ -681,7 +755,9 @@ FAQ
   4.9 Curl can't authenticate to the server that requires NTLM?
 
   This is supported in curl 7.10.6 or later. No earlier curl version knows
-  of this magic.
+  of this magic. Later versions require the OpenSSL or Microsoft Windows 
+  libraries to provide this functionality. Using GnuTLS or NSS libraries will 
+  not provide NTLM authentication functionality in curl.
 
   NTLM is a Microsoft proprietary protocol. Proprietary formats are evil. You
   should not use such ones.
@@ -726,6 +802,28 @@ FAQ
   Details are also in the SSLCERTS file in the release archives, found online
   here: http://curl.haxx.se/docs/sslcerts.html
 
+  4.13 Why is curl -R on Windows one hour off?
+
+  During daylight savings time, when -R is used, curl will set a time that
+  appears one hour off. This happens due to a flaw in how Windows stores and
+  uses file modification times and it is not easily worked around. For details
+  on this problem, read this: http://www.codeproject.com/datetime/dstbugs.asp
+
+  4.14 Redirects work in browser but not with curl!
+
+  curl supports HTTP redirects fine (see item 3.8). Browsers generally support
+  at least two other ways to perform directs that curl does not:
+
+  - Meta tags. You can write a HTML tag that will cause the browser to
+    redirect to another given URL after a certain time.
+
+  - Javascript. You can write a javascript program embeded in a HTML page
+    that redirects the browser to another given URL.
+
+  There is no way to make curl follow these redirects. You must either
+  manually figure out what the page is set to do, or you write a script that
+  parses the results and fetches the new URL.
+
 
 5. libcurl Issues
 
@@ -733,12 +831,22 @@ FAQ
 
   Yes.
 
-  We have written the libcurl code specificly adjusted for multi-threaded
+  We have written the libcurl code specifically adjusted for multi-threaded
   programs. libcurl will use thread-safe functions instead of non-safe ones if
   your system has such.
 
-  We would appreciate some kind of report or README file from those who have
-  used libcurl in a threaded environment.
+  If you use a OpenSSL-powered libcurl in a multi-threaded environment, you
+  need to provide one or two locking functions:
+
+    http://www.openssl.org/docs/crypto/threads.html#DESCRIPTION
+
+  If you use a GnuTLS-powered libcurl in a multi-threaded environment, you
+  need to provide locking function(s) for libgcrypt (which is used by GnuTLS
+  for the crypto functions).
+
+    http://www.gnu.org/software/gnutls/manual/html_node/Multi_002dthreaded-applications.html
+
+  No special locking is needed with a NSS-powered libcurl. NSS is thread-safe.
 
   5.2 How can I receive all data into a large memory chunk?
 
@@ -750,8 +858,8 @@ FAQ
 
   One solution to this problem could be to have a pointer to a struct that you
   pass to the callback function. You set the pointer using the
-  curl_easy_setopt(CURLOPT_FILE) function. Then that pointer will be passed to
-  the callback instead of a FILE * to a file:
+  CURLOPT_WRITEDATA option. Then that pointer will be passed to the callback
+  instead of a FILE * to a file:
 
         /* imaginary struct */
         struct MemoryStruct {
@@ -797,8 +905,6 @@ FAQ
   Similarly, if you use CURLOPT_READDATA you must also specify
   CURLOPT_READFUNCTION.
 
-  (Provided by Joel DeYoung and Bob Schader)
-
   5.6 What about Keep-Alive or persistent connections?
 
   curl and libcurl have excellent support for persistent connections when
@@ -816,8 +922,6 @@ FAQ
   This is determined by the /MD, /ML, /MT (and their corresponding /M?d)
   options to the command line compiler. /MD (linking against MSVCRT dll) seems
   to be the most commonly used option.
-
-  (Provided by Andrew Francis)
 
   When building an application that uses the static libcurl library, you must
   add -DCURL_STATICLIB to your CFLAGS. Otherwise the linker will look for
@@ -858,7 +962,10 @@ FAQ
 
   5.9 How does libcurl resolve host names?
 
-  libcurl includes a number of different name resolve functions:
+  libcurl supports a large a number of different name resolve functions. One
+  of them is picked at build-time and will be used unconditionally. Thus, if
+  you want to change name resolver function you must rebuild libcurl and tell
+  it to use a different function.
 
   - The non-ipv6 resolver that can use one out of four host name resolve calls
     (depending on what your system supports):
@@ -871,11 +978,42 @@ FAQ
   - The ipv6-resolver that uses getaddrinfo()
 
   - The c-ares based name resolver that uses the c-ares library for resolves.
+    Using this offers asynchronous name resolves but it currently has no IPv6
+    support.
 
   - The Windows threaded resolver. It use:
 
     A - gethostbyname() on plain ipv4 windows hosts
     B - getaddrinfo() on ipv6-enabled windows hosts
+
+  Also note that libcurl never resolves or reverse-lookups addresses given as
+  pure numbers, such as 127.0.0.1 or ::1.
+
+  5.10 How do I prevent libcurl from writing the response to stdout?
+
+  libcurl provides a default built-in write function that writes received data
+  to stdout. Set the CURLOPT_WRITEFUNCTION to receive the data, or possibly
+  set CURLOPT_WRITEDATA to a different FILE * handle.
+
+  5.11 How do I make libcurl not receive the whole HTTP response?
+
+  You make the write callback (or progress callback) return an error and
+  libcurl will then abort the transfer.
+
+  5.12 Can I make libcurl fake or hide my real IP address?
+
+  No. libcurl operates on a higher level than so. Besides, faking IP address
+  would imply sending IP packages with a made-up source address, and then you
+  normally get a problem with intercepting the packages sent back as they
+  would then not be routed to you!
+
+  If you use a proxy to access remote sites, the sites will not see your local
+  IP address but instead the address of the proxy.
+
+  Also note that on many networks NATs or other IP-munging techniques are used
+  that makes you see and use a different IP address locally than what the
+  remote server will see you coming from.
+
 
 6. License Issues
 
@@ -883,6 +1021,9 @@ FAQ
   very liberal and should not impose a problem for your project. This section
   is just a brief summary for the cases we get the most questions. (Parts of
   this section was much enhanced by Bjorn Reese.)
+
+  We are not lawyers and this is not legal advice. You should probably consult
+  one if you want true and accurate legal insights without our prejudice.
 
   6.1 I have a GPL program, can I use the libcurl library?
 
@@ -928,13 +1069,38 @@ FAQ
   libraries that use it. It should be possible for everyone to use libcurl or
   curl in their projects, no matter what license they already have in use.
 
+  6.7 What are my obligations when using libcurl in my commerical apps?
+
+  Next to none. All you need to adhere to is the MIT-style license (stated in
+  the COPYING file) which basically says you have to include the copyright
+  notice in "all copies" and that you may not use the copyright holder's name
+  when promoting your software.
+
+  You do not have to release any of your source code.
+
+  You do not have to reveal or make public any changes to the libcurl source
+  code.
+
+  You do not have to reveal or make public that you are using libcurl within
+  your app.
+
+  As can be seen here: http://curl.haxx.se/docs/companies.html and
+  elsewhere, more and more companies are dicovering the power
+  of libcurl and take advantage of it even in commercial environments.
+
+
 7. PHP/CURL Issues
 
   7.1 What is PHP/CURL?
 
   The module for PHP that makes it possible for PHP programs to access curl-
-  functions from within PHP. We often call it PHP/CURL to differentiate from
-  curl the command line tool and libcurl the library.
+  functions from within PHP.
+
+  In the cURL project we call this module PHP/CURL to differentiate it from
+  curl the command line tool and libcurl the library. The PHP team however
+  does not refer to it like this (for unknown reasons). They call it plain
+  CURL (often using all caps) which causes much confusion to users which in
+  turn gives us a higher question load.
 
   7.2 Who write PHP/CURL?
 

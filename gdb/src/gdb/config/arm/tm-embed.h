@@ -41,12 +41,8 @@
 #define THUMB_BE_BREAKPOINT {0xbe,0xbe}       
 
 /* Functions for dealing with Thumb call thunks.  */
-#define IN_SOLIB_CALL_TRAMPOLINE(pc, name)	arm_in_call_stub (pc, name)
 #define SKIP_TRAMPOLINE_CODE(pc)		arm_skip_stub (pc)
 extern int arm_in_call_stub (CORE_ADDR pc, char *name);
 extern CORE_ADDR arm_skip_stub (CORE_ADDR pc);
-
-#undef  IN_SIGTRAMP
-#define IN_SIGTRAMP(pc, name) 0
 
 #endif /* TM_ARMEMBED_H */

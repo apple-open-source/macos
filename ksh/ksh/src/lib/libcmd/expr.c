@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -31,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: expr (AT&T Labs Research) 2003-07-28 $\n]"
+"[-?\n@(#)$Id: expr (AT&T Research) 2004-05-27 $\n]"
 USAGE_LICENSE
 "[+NAME?expr - evaluate arguments as an expression]"
 "[+DESCRIPTION?\bexpr\b evaluates an expression given as arguments and writes "
@@ -144,10 +140,10 @@ USAGE_LICENSE
 
 #define numeric(np)	((np)->type&T_NUM)
 
-static struct Optable_s
+static const struct Optable_s
 {
-	char	opname[3];
-	int	op;
+	const char	opname[3];
+	int		op;
 }
 optable[] =
 {
@@ -315,23 +311,24 @@ static int expr_cond(State_t* state, Node_t *np)
 		np->type = T_NUM;
 		if (n = regcomp(&re, rp.str, REG_LEFT|REG_LENIENT))
 			regfatal(&re, ERROR_exit(2), n);
-		if (re.re_nsub>1)
-		{
-			regfree(&re);
-			error(ERROR_exit(2),"too many re sub-expressions");
-		}
 		if (!(n = regexec(&re, cp, elementsof(match), match, 0)))
 		{
-			if (match[1].rm_so != -1)
+			if (re.re_nsub > 0)
 			{
-				np->str = cp + match[1].rm_so;
-				np->str[match[1].rm_eo - match[1].rm_so] = 0;
 				np->type = T_STR;
-				np->num = strtol(np->str,&cp,10);
-				if (cp!=np->str && *cp==0)
-					np->type |= T_NUM;
+				if (match[1].rm_so >= 0)
+				{
+					np->str = cp + match[1].rm_so;
+					np->str[match[1].rm_eo - match[1].rm_so] = 0;
+					np->num = strtol(np->str,&cp,10);
+					if (cp!=np->str && *cp==0)
+						np->type |= T_NUM;
+				}
+				else
+					np->str = "";
 			}
-			else np->num = match[0].rm_eo - match[0].rm_so;
+			else
+				np->num = match[0].rm_eo - match[0].rm_so;
 		}
 		else if (n != REG_NOMATCH)
 			regfatal(&re, ERROR_exit(2), n);
@@ -498,8 +495,7 @@ b_expr(int argc, char *argv[], void *context)
 	Node_t	node;
 	int	n;
 
-	NoP(argc);
-	cmdinit(argv,context, ERROR_CATALOG, 0);
+	cmdinit(argc, argv,context, ERROR_CATALOG, 0);
 	state.standard = !strcmp(astconf("CONFORMANCE", NiL, NiL), "standard");
 #if 0
 	if (state.standard)
@@ -537,4 +533,3 @@ b_expr(int argc, char *argv[], void *context)
 		sfprintf(sfstdout,"%d\n",node.num);
 	return numeric(&node)?node.num==0:*node.str==0;
 }
-

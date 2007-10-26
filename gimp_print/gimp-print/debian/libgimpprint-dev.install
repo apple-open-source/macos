@@ -1,6 +1,0 @@
-debian/install/usr/lib/libgimpprint.so         usr/lib
-debian/install/usr/lib/libgimpprint.la         usr/lib
-debian/install/usr/lib/libgimpprint.a          usr/lib
-debian/install/usr/lib/pkgconfig/gimpprint.pc  usr/lib/pkgconfig
-debian/install/usr/include/gimp-print          usr/include
-debian/install/usr/share/man/man3/gimpprint.3  usr/share/man/man3

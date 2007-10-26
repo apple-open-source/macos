@@ -60,4 +60,3 @@ private:
 
 #endif /* !_BELPICSCHEMA_H_ */
 
-/* arch-tag: 8A998081-124C-11D9-B324-000A9595DEEE */

@@ -27,6 +27,7 @@
  * 29-Aug-02 ebold created
  *
 */
+#include "PrivateLib.h"
  
 #ifndef _BatteryTimeRemaining_h_
 #define _BatteryTimeRemaining_h_
@@ -35,6 +36,6 @@ __private_extern__ void BatteryTimeRemaining_prime(void);
 
 __private_extern__ void BatteryTimeRemainingSleepWakeNotification(natural_t messageType);
 
-__private_extern__ void BatteryTimeRemainingBatteriesHaveChanged(CFArrayRef battery_info);
+__private_extern__ void BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **battery_info);
 
 #endif _BatteryTimeRemaining_h_

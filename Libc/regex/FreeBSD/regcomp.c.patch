@@ -1,5 +1,5 @@
 --- regcomp.c.orig	2004-11-25 11:38:32.000000000 -0800
-+++ regcomp.c	2005-02-24 13:46:56.000000000 -0800
++++ regcomp.c	2005-04-05 14:46:18.000000000 -0700
 @@ -43,6 +43,8 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/regex/regcomp.c,v 1.34 2004/10/03 15:42:59 stefanf Exp $");
@@ -129,8 +129,34 @@
  }
  
  /*
-@@ -639,7 +661,7 @@
+@@ -609,12 +631,22 @@
+ 		i = (c&~BACKSL) - '0';
+ 		assert(i < NPAREN);
+ 		if (p->pend[i] != 0) {
++#if __DARWIN_UNIX03
++			int skip = 1;
++#endif /* __DARWIN_UNIX03 */
+ 			assert(i <= p->g->nsub);
+ 			EMIT(OBACK_, i);
+ 			assert(p->pbegin[i] != 0);
+ 			assert(OP(p->strip[p->pbegin[i]]) == OLPAREN);
+ 			assert(OP(p->strip[p->pend[i]]) == ORPAREN);
++#if __DARWIN_UNIX03
++			if (OP(p->strip[p->pbegin[i]+skip]) == OBOL) {
++				skip++;		/* don't dup anchor in subexp */
++			}
++			(void) dupl(p, p->pbegin[i]+skip, p->pend[i]);
++#else  /* !__DARWIN_UNIX03 */
+ 			(void) dupl(p, p->pbegin[i]+1, p->pend[i]);
++#endif /* __DARWIN_UNIX03 */
+ 			EMIT(O_BACK, i);
+ 		} else
+ 			SETERROR(REG_ESUBREG);
+@@ -637,9 +669,10 @@
+ 		INSERT(OQUEST_, pos);
+ 		ASTERN(O_QUEST, pos);
  	} else if (EATTWO('\\', '{')) {
++		(void)REQUIRE(MORE(), REG_EBRACE);
  		count = p_count(p);
  		if (EAT(',')) {
 -			if (MORE() && isdigit((uch)PEEK())) {
@@ -138,7 +164,7 @@
  				count2 = p_count(p);
  				(void)REQUIRE(count <= count2, REG_BADBR);
  			} else		/* single number with comma */
-@@ -670,7 +692,7 @@
+@@ -670,7 +703,7 @@
  	int count = 0;
  	int ndigits = 0;
  
@@ -147,29 +173,30 @@
  		count = count*10 + (GETNEXT() - '0');
  		ndigits++;
  	}
-@@ -709,10 +731,21 @@
+@@ -709,10 +742,22 @@
  		cs->icase = 1;
  	if (EAT('^'))
  		cs->invert = 1;
 +#if __DARWIN_UNIX03
-+	if (PEEK2() != '-') {	/* Don't eat '-' or ']' if they're part of ranges */
-+		if (EAT(']'))
-+			CHadd(p, cs, ']');
-+		else if (EAT('-'))
-+			CHadd(p, cs, '-');
-+	}
-+	if (MORE() && !SEETWO('-',']')) /* Parse RE []-'] */
-+		p_b_term(p, cs);
-+#else /* !__DARWIN_UNIX03 */
++	if (PEEK2() != '-' && PEEK2() != ']') {	/* Don't eat '-' or ']' if they're part of ranges
++						 * but do process [^-] */
  	if (EAT(']'))
  		CHadd(p, cs, ']');
  	else if (EAT('-'))
  		CHadd(p, cs, '-');
++	}
++	if (MORE() && !SEETWO('-',']')) /* Parse RE []-'] */
++		p_b_term(p, cs);
++#else /* !__DARWIN_UNIX03 */
++	if (EAT(']'))
++		CHadd(p, cs, ']');
++	else if (EAT('-'))
++		CHadd(p, cs, '-');
 +#endif /* __DARWIN_UNIX03 */
  	while (MORE() && PEEK() != ']' && !SEETWO('-', ']'))
  		p_b_term(p, cs);
  	if (EAT('-'))
-@@ -725,7 +758,7 @@
+@@ -725,7 +770,7 @@
  	if (cs->invert && p->g->cflags&REG_NEWLINE)
  		cs->bmp['\n' >> 3] |= 1 << ('\n' & 7);
  
@@ -178,14 +205,14 @@
  		ordinary(p, ch);
  		freeset(p, cs);
  	} else
-@@ -751,8 +784,16 @@
+@@ -751,8 +796,16 @@
  		c = (MORE2()) ? PEEK2() : '\0';
  		break;
  	case '-':
 +#if __DARWIN_UNIX03
 + 		if (PEEK2() != '-') { /* Allow [---] */
-+			SETERROR(REG_ERANGE);
-+			return;			/* NOTE RETURN */
++		SETERROR(REG_ERANGE);
++		return;			/* NOTE RETURN */
 +		} else
 +			c = '-';
 +#else  /* !__DARWIN_UNIX03 */
@@ -195,7 +222,7 @@
  		break;
  	default:
  		c = '\0';
-@@ -773,7 +814,11 @@
+@@ -773,7 +826,11 @@
  		NEXT2();
  		(void)REQUIRE(MORE(), REG_EBRACK);
  		c = PEEK();
@@ -207,7 +234,7 @@
  		p_b_eclass(p, cs);
  		(void)REQUIRE(MORE(), REG_EBRACK);
  		(void)REQUIRE(EATTWO('=', ']'), REG_ECOLLATE);
-@@ -792,14 +837,14 @@
+@@ -792,14 +849,14 @@
  		if (start == finish)
  			CHadd(p, cs, start);
  		else {
@@ -226,7 +253,7 @@
  					   )
  						CHadd(p, cs, i);
  				}
-@@ -823,7 +868,7 @@
+@@ -823,7 +880,7 @@
  	wctype_t wct;
  	char clname[16];
  
@@ -235,7 +262,7 @@
  		NEXT();
  	len = p->next - sp;
  	if (len >= sizeof(clname) - 1) {
-@@ -832,7 +877,7 @@
+@@ -832,7 +889,7 @@
  	}
  	memcpy(clname, sp, len);
  	clname[len] = '\0';
@@ -244,16 +271,75 @@
  		SETERROR(REG_ECTYPE);
  		return;
  	}
-@@ -903,7 +948,7 @@
+@@ -842,16 +899,40 @@
+ /*
+  - p_b_eclass - parse an equivalence-class name and deal with it
+  == static void p_b_eclass(struct parse *p, cset *cs);
+- *
+- * This implementation is incomplete. xxx
+  */
+ static void
+ p_b_eclass(p, cs)
+ struct parse *p;
+ cset *cs;
+ {
+-	wint_t c;
+-
++	char *sp = p->next;
++	int len, ec;
++	mbstate_t mbs;
++	int *newequiv_classes;
++ 	wint_t c;
++ 
++	while (MORE() && !SEETWO('=', ']'))
++		NEXT();
++	if (!MORE()) {
++		SETERROR(REG_EBRACK);
++		return;
++	}
++	len = p->next - sp;
++	memset(&mbs, 0, sizeof(mbs));
++	ec = __collate_equiv_class(sp, len, &mbs, p->g->loc);
++	if (ec > 0) {
++		newequiv_classes = realloc(cs->equiv_classes,
++		    (cs->nequiv_classes + 1) * sizeof(*cs->equiv_classes));
++		if (newequiv_classes == NULL) {
++			SETERROR(REG_ESPACE);
++			return;
++		}
++		cs->equiv_classes = newequiv_classes;
++		cs->equiv_classes[cs->nequiv_classes++] = ec;
++		return;
++	}
++	/* not an equivalence class, so fallback to a collating element */
++	p->next = sp;
+ 	c = p_b_coll_elem(p, '=');
+ 	CHadd(p, cs, c);
+ }
+@@ -889,7 +970,7 @@
+ 	struct cname *cp;
+ 	int len;
+ 	mbstate_t mbs;
+-	wchar_t wc;
++	wchar_t wbuf[16];
+ 	size_t clen;
+ 
+ 	while (MORE() && !SEETWO(endc, ']'))
+@@ -903,9 +984,10 @@
  		if (strncmp(cp->name, sp, len) == 0 && cp->name[len] == '\0')
  			return(cp->code);	/* known name */
  	memset(&mbs, 0, sizeof(mbs));
 -	if ((clen = mbrtowc(&wc, sp, len, &mbs)) == len)
-+	if ((clen = mbrtowc_l(&wc, sp, len, &mbs, p->g->loc)) == len)
- 		return (wc);			/* single character */
- 	else if (clen == (size_t)-1 || clen == (size_t)-2)
+-		return (wc);			/* single character */
+-	else if (clen == (size_t)-1 || clen == (size_t)-2)
++	clen = __collate_collating_symbol(wbuf, 16, sp, len, &mbs, p->g->loc);
++	if (clen == 1)
++		return (*wbuf);			/* single character */
++	else if (clen == (size_t)-1)
  		SETERROR(REG_ILLSEQ);
-@@ -914,17 +959,18 @@
+ 	else
+ 		SETERROR(REG_ECOLLATE);		/* neither */
+@@ -914,17 +996,18 @@
  
  /*
   - othercase - return the case counterpart of an alphabetic
@@ -279,7 +365,7 @@
  	else			/* peculiar, but could happen */
  		return(ch);
  }
-@@ -946,10 +992,10 @@
+@@ -946,10 +1029,10 @@
  	size_t n;
  	mbstate_t mbs;
  
@@ -292,7 +378,7 @@
  	assert(n != (size_t)-1);
  	bracket[n] = ']';
  	bracket[n + 1] = '\0';
-@@ -971,7 +1017,7 @@
+@@ -971,7 +1054,7 @@
  {
  	cset *cs;
  
@@ -301,7 +387,7 @@
  		bothcases(p, ch);
  	else if ((ch & OPDMASK) == ch)
  		EMIT(OCHAR, ch);
-@@ -1039,6 +1085,9 @@
+@@ -1039,10 +1122,22 @@
  	switch (REP(MAP(from), MAP(to))) {
  	case REP(0, 0):			/* must be user doing this */
  		DROP(finish-start);	/* drop the operand */
@@ -309,9 +395,42 @@
 +		p->zerorepeats++;
 +#endif /* __DARWIN_UNIX03 */
  		break;
++	case REP(0, INF):		/* as x{1,}? */
++#if __DARWIN_UNIX03
++		/* this case does not require the (y|) trick, noKLUDGE */
++		/* Just like * =+?  */
++		INSERT(OPLUS_, start);
++		ASTERN(O_PLUS, start);
++		INSERT(OQUEST_, start);
++		ASTERN(O_QUEST, start);
++		break;
++#endif /* __DARWIN_UNIX03 */
  	case REP(0, 1):			/* as x{1,1}? */
  	case REP(0, N):			/* as x{1,n}? */
-@@ -1099,7 +1148,7 @@
+-	case REP(0, INF):		/* as x{1,}? */
+ 		/* KLUDGE: emit y? as (y|) until subtle bug gets fixed */
+ 		INSERT(OCH_, start);		/* offset is wrong... */
+ 		repeat(p, start+1, 1, to);
+@@ -1056,6 +1151,10 @@
+ 		/* done */
+ 		break;
+ 	case REP(1, N):			/* as x?x{1,n-1} */
++#if __DARWIN_UNIX03
++		INSERT(OQUEST_, start);
++		ASTERN(O_QUEST, start);
++#else /* !__DARWIN_UNIX03 */
+ 		/* KLUDGE: emit y? as (y|) until subtle bug gets fixed */
+ 		INSERT(OCH_, start);
+ 		ASTERN(OOR1, start);
+@@ -1063,6 +1162,7 @@
+ 		EMIT(OOR2, 0);			/* offset very wrong... */
+ 		AHEAD(THERE());			/* ...so fix it */
+ 		ASTERN(O_CH, THERETHERE());
++#endif /* __DARWIN_UNIX03 */
+ 		copy = dupl(p, start+1, finish+1);
+ 		assert(copy == finish+4);
+ 		repeat(p, copy, 1, to-1);
+@@ -1099,7 +1199,7 @@
  	size_t n;
  
  	memset(&mbs, 0, sizeof(mbs));
@@ -320,7 +439,7 @@
  	if (n == (size_t)-1 || n == (size_t)-2) {
  		SETERROR(REG_ILLSEQ);
  		return (0);
-@@ -1172,13 +1221,14 @@
+@@ -1172,13 +1272,14 @@
   - returning it if so, otherwise returning OUT.
   */
  static wint_t
@@ -337,7 +456,7 @@
  			n++;
  			s = i;
  		}
-@@ -1215,9 +1265,9 @@
+@@ -1215,9 +1316,9 @@
  		cs->wides[cs->nwides++] = ch;
  	}
  	if (cs->icase) {
@@ -349,7 +468,7 @@
  			cs->bmp[nch >> 3] |= 1 << (nch & 7);
  	}
  }
-@@ -1262,7 +1312,7 @@
+@@ -1262,7 +1363,7 @@
  	wctype_t *newtypes;
  
  	for (i = 0; i < NC; i++)
@@ -358,7 +477,7 @@
  			CHadd(p, cs, i);
  	newtypes = realloc(cs->types, (cs->ntypes + 1) *
  	    sizeof(*cs->types));
-@@ -1451,6 +1501,7 @@
+@@ -1451,6 +1552,7 @@
  	char buf[MB_LEN_MAX];
  	size_t clen;
  	mbstate_t mbs;
@@ -366,7 +485,7 @@
  
  	/* avoid making error situations worse */
  	if (p->error != 0)
-@@ -1461,8 +1512,8 @@
+@@ -1461,8 +1563,8 @@
  	 * multibyte character strings, but it's safe for at least
  	 * UTF-8 (see RFC 3629).
  	 */
@@ -377,7 +496,7 @@
  		return;
  
  	/* find the longest OCHAR sequence in strip */
-@@ -1478,7 +1529,7 @@
+@@ -1478,7 +1580,7 @@
  				memset(&mbs, 0, sizeof(mbs));
  				newstart = scan - 1;
  			}
@@ -386,7 +505,7 @@
  			if (clen == (size_t)-1)
  				goto toohard;
  			newlen += clen;
-@@ -1597,7 +1648,7 @@
+@@ -1597,7 +1699,7 @@
  	while (cp < g->must + g->mlen) {
  		while (OP(s = *scan++) != OCHAR)
  			continue;

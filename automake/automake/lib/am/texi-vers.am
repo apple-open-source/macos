@@ -1,6 +1,6 @@
 ## automake - create Makefile.in from Makefile.am
-## Copyright 1994, 1995, 1996, 1998, 1999, 2000, 2001
-## Free Software Foundation, Inc.
+## Copyright (C) 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002, 2003,
+## 2004, 2005  Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -14,18 +14,29 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
-DIST_COMMON += %VTEXI% stamp-%VTI%
+DIST_COMMON += %VTEXI% %STAMPVTI%
 
-$(srcdir)/%VTEXI%: %MAINTAINER-MODE% $(srcdir)/stamp-%VTI%
-	@:
+## Don't give this rule a command (even `@:').
+## %STAMPVTI% is always newer than %VTEXI%, so this rule is always
+## triggered.  If you equip this rule with a command, GNU make will
+## assume %VTEXI% has been rebuild in the current directory and
+## discard any %VTEXI% file found in a VPATH search.
+%VTEXI%: %MAINTAINER-MODE% %STAMPVTI%
 
-## Depend on %CONFIGURE-AC% so that version number updates cause a
-## rebuild.
-$(srcdir)/stamp-%VTI%: %TEXI% $(top_srcdir)/%CONFIGURE-AC%
-	@(set `$(SHELL) %MDDIR%mdate-sh $(srcdir)/%TEXI%`; \
+## Depend on configure so that version number updates cause a rebuild.
+## (Not configure.ac, because not all setups define the version number
+## in this file.)
+%STAMPVTI%: %TEXI% $(top_srcdir)/configure
+## It is wrong to have %STAMPVTI% dependent on %DIRSTAMP%, because
+## %STAMPVTI% is distributed and %DIRSTAMP% isn't: a distributed file
+## should never be dependent upon a non-distributed built file.
+## Therefore we ensure that %DIRSTAMP% exists in the rule.
+?DIRSTAMP?	test -f %DIRSTAMP% || $(MAKE) $(AM_MAKEFLAGS) %DIRSTAMP%
+	@(dir=.; test -f ./%TEXI% || dir=$(srcdir); \
+	set `$(SHELL) %MDDIR%mdate-sh $$dir/%TEXI%`; \
 	echo "@set UPDATED $$1 $$2 $$3"; \
 	echo "@set UPDATED-MONTH $$2 $$3"; \
 	echo "@set EDITION $(VERSION)"; \
@@ -33,11 +44,11 @@ $(srcdir)/stamp-%VTI%: %TEXI% $(top_srcdir)/%CONFIGURE-AC%
 ## Use cp and rm here because some older "mv"s can't move across
 ## filesystems.  Furthermore, GNU "mv" in the AmigaDOS environment
 ## can't handle this.
-	@cmp -s %VTI%.tmp $(srcdir)/%VTEXI% \
-	  || (echo "Updating $(srcdir)/%VTEXI%"; \
-	      cp %VTI%.tmp $(srcdir)/%VTEXI%)
+	@cmp -s %VTI%.tmp %VTEXI% \
+	  || (echo "Updating %VTEXI%"; \
+	      cp %VTI%.tmp %VTEXI%)
 	-@rm -f %VTI%.tmp
-	@cp $(srcdir)/%VTEXI% $@
+	@cp %VTEXI% $@
 
 mostlyclean-am: mostlyclean-%VTI%
 mostlyclean-%VTI%:
@@ -45,6 +56,6 @@ mostlyclean-%VTI%:
 
 maintainer-clean-am: maintainer-clean-%VTI%
 maintainer-clean-%VTI%:
-%MAINTAINER-MODE%	-rm -f $(srcdir)/stamp-%VTI% $(srcdir)/%VTEXI%
+%MAINTAINER-MODE%	-rm -f %STAMPVTI% %VTEXI%
 
 .PHONY: mostlyclean-%VTI% maintainer-clean-%VTI%

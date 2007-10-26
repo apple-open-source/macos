@@ -1,49 +1,27 @@
 #	from: @(#)bsd.lib.mk	5.26 (Berkeley) 5/2/91
-# $FreeBSD: src/share/mk/bsd.lib.mk,v 1.161 2004/10/01 07:57:02 ru Exp $
+# $FreeBSD: src/share/mk/bsd.lib.mk,v 1.169 2005/08/05 09:55:04 phk Exp $
 #
 
 .include <bsd.init.mk>
-
-.if ${OBJFORMAT} == mach-o
-STRIP_OFILE=true
-.else
-STRIP_OFILE=@strip
-.endif
 
 # Set up the variables controlling shared libraries.  After this section,
 # SHLIB_NAME will be defined only if we are to create a shared library.
 # SHLIB_LINK will be defined only if we are to create a link to it.
 # INSTALL_PIC_ARCHIVE will be defined only if we are to create a PIC archive.
-.if defined(NOPIC)
+.if defined(NO_PIC)
 .undef SHLIB_NAME
 .undef INSTALL_PIC_ARCHIVE
 .else
 .if !defined(SHLIB) && defined(LIB)
 SHLIB=		${LIB}
 .endif
-.if ${OBJFORMAT} == mach-o
-.if !defined(SHLIB_NAME) && defined(SHLIB_MAJOR)
-SHLIB_NAME=	lib${LIB}.${SHLIB_MAJOR}.dylib
-SHLIB_LINK?=	lib${LIB}.dylib
-.endif
-SONAME?=	${SHLIB_NAME}
-.else
 .if !defined(SHLIB_NAME) && defined(SHLIB) && defined(SHLIB_MAJOR)
-SHLIB_NAME=	lib${SHLIB}.so.${SHLIB_MAJOR}
+SHLIB_NAME=	lib${SHLIB}.${SHLIB_MAJOR}.dylib
 .endif
-.if defined(SHLIB_NAME) && !empty(SHLIB_NAME:M*.so.*)
-SHLIB_LINK?=	${SHLIB_NAME:R}
+.if defined(SHLIB_NAME) && !empty(SHLIB_NAME:M*.dylib)
+SHLIB_LINK?=	lib${SHLIB}.dylib
 .endif
 SONAME?=	${SHLIB_NAME}
-.endif
-.endif
-
-.if defined(ARCH_FLAGS)
-CFLAGS+= ${ARCH_FLAGS}
-.endif
-
-.if defined(COPTS)
-CFLAGS+= ${COPTS}
 .endif
 
 .if defined(CRUNCH_CFLAGS)
@@ -81,56 +59,43 @@ PO_FLAG=-pg
 
 .c.po:
 	${CC} ${PO_FLAG} ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	${STRIP_OFILE} -X ${.TARGET}
 
 .c.So:
 	${CC} ${PICFLAG} -DPIC ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	${STRIP_OFILE} -x ${.TARGET}
 
 .cc.po .C.po .cpp.po .cxx.po:
 	${CXX} ${PO_FLAG} ${CXXFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	${STRIP_OFILE} -X ${.TARGET}
 
 .cc.So .C.So .cpp.So .cxx.So:
 	${CXX} ${PICFLAG} -DPIC ${CXXFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	${STRIP_OFILE} -x ${.TARGET}
 
 .f.po:
 	${FC} -pg ${FFLAGS} -o ${.TARGET} -c ${.IMPSRC}
-	${STRIP_OFILE} -X ${.TARGET}
 
 .f.So:
 	${FC} ${PICFLAG} -DPIC ${FFLAGS} -o ${.TARGET} -c ${.IMPSRC}
-	${STRIP_OFILE} -x ${.TARGET}
 
 .m.po:
 	${OBJC} ${OBJCFLAGS} -pg -c ${.IMPSRC} -o ${.TARGET}
-	${STRIP_OFILE} -X ${.TARGET}
 
 .m.So:
 	${OBJC} ${PICFLAG} -DPIC ${OBJCFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	${STRIP_OFILE} -x ${.TARGET}
 
 .s.po .s.So:
 	${AS} ${AFLAGS} -o ${.TARGET} ${.IMPSRC}
-	${STRIP_OFILE} -X ${.TARGET}
 
 .asm.po:
 	${CC} -x assembler-with-cpp -DPROF ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	${STRIP_OFILE} -X ${.TARGET}
 
 .asm.So:
 	${CC} -x assembler-with-cpp ${PICFLAG} -DPIC ${CFLAGS} \
 	    -c ${.IMPSRC} -o ${.TARGET}
-	${STRIP_OFILE} -x ${.TARGET}
 
 .S.po:
 	${CC} -DPROF ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	${STRIP_OFILE} -X ${.TARGET}
 
 .S.So:
 	${CC} ${PICFLAG} -DPIC ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
-	${STRIP_OFILE} -x ${.TARGET}
 
 all: objwarn
 
@@ -150,7 +115,7 @@ lib${LIB}.a: ${OBJS} ${STATICOBJS}
 
 .if !defined(INTERNALLIB)
 
-.if !defined(NOPROFILE) && defined(LIB) && !empty(LIB)
+.if !defined(NO_PROFILE) && defined(LIB) && !empty(LIB)
 _LIBS+=		lib${LIB}_p.a
 POBJS+=		${OBJS:.o=.po} ${STATICOBJS:.o=.po}
 
@@ -175,18 +140,12 @@ ${SHLIB_NAME}: ${SOBJS}
 .if defined(SHLIB_LINK)
 	@ln -fs ${.TARGET} ${SHLIB_LINK}
 .endif
-.if ${OBJFORMAT} == mach-o
-	@${CC} -dynamiclib \
-	    -o ${.TARGET} \
-	    ${SOBJS} ${LDADD}
-.else
-	@${CC} ${LDFLAGS} -shared -Wl,-x \
-	    -o ${.TARGET} -Wl,-soname,${SONAME} \
+	@${CC} ${LDFLAGS} -dynamiclib \
+	    -o ${.TARGET} -install_name ${SONAME} \
 	    `lorder ${SOBJS} | tsort -q` ${LDADD}
 .endif
-.endif
 
-.if defined(INSTALL_PIC_ARCHIVE) && defined(LIB) && !empty(LIB)
+.if defined(INSTALL_PIC_ARCHIVE) && defined(LIB) && !empty(LIB) && !defined(NO_TOOLCHAIN)
 _LIBS+=		lib${LIB}_pic.a
 
 lib${LIB}_pic.a: ${SOBJS}
@@ -196,7 +155,7 @@ lib${LIB}_pic.a: ${SOBJS}
 	${RANLIB} ${.TARGET}
 .endif
 
-.if defined(WANT_LINT) && !defined(NOLINT) && defined(LIB) && !empty(LIB)
+.if defined(WANT_LINT) && !defined(NO_LINT) && defined(LIB) && !empty(LIB)
 LINTLIB=	llib-l${LIB}.ln
 _LIBS+=		${LINTLIB}
 LINTOBJS+=	${SRCS:M*.c:.c=.ln}
@@ -207,11 +166,11 @@ ${LINTLIB}: ${LINTOBJS}
 	${LINT} ${LINTLIBFLAGS} ${CFLAGS:M-[DIU]*} ${.ALLSRC}
 .endif
 
-.endif !defined(INTERNALLIB)
+.endif # !defined(INTERNALLIB)
 
 all: ${_LIBS}
 
-.if !defined(NOMAN)
+.if !defined(NO_MAN)
 all: _manpages
 .endif
 
@@ -220,7 +179,7 @@ _EXTRADEPEND:
 	sed -e 's/^\([^\.]*\).o[ ]*:/\1.o \1.po \1.So:/' < ${DEPENDFILE} \
 	    > $$TMP; \
 	mv $$TMP ${DEPENDFILE}
-.if !defined(NOEXTRADEPEND) && defined(SHLIB_NAME)
+.if !defined(NO_EXTRADEPEND) && defined(SHLIB_NAME)
 .if defined(DPADD) && !empty(DPADD)
 	echo ${SHLIB_NAME}: ${DPADD} >> ${DEPENDFILE}
 .endif
@@ -229,13 +188,13 @@ _EXTRADEPEND:
 .if !target(install)
 
 .if defined(PRECIOUSLIB)
-.if !defined(NOFSCHG)
+.if !defined(NO_FSCHG)
 SHLINSTALLFLAGS+= -fschg
 .endif
 SHLINSTALLFLAGS+= -S
 .endif
 
-_INSTALLFLAGS:=	${INSTALLFLAGS} -p
+_INSTALLFLAGS:=	${INSTALLFLAGS}
 .for ie in ${INSTALLFLAGS_EDIT}
 _INSTALLFLAGS:=	${_INSTALLFLAGS${ie}}
 .endfor
@@ -248,21 +207,20 @@ _SHLINSTALLFLAGS:=	${_SHLINSTALLFLAGS${ie}}
 realinstall: _libinstall
 .ORDER: beforeinstall _libinstall
 _libinstall:
-.if defined(LIB) && !empty(LIB) && !defined(NOINSTALLLIB)
+.if defined(LIB) && !empty(LIB) && !defined(NO_INSTALLLIB)
 	${INSTALL} -C -o ${LIBOWN} -g ${LIBGRP} -m ${LIBMODE} \
 	    ${_INSTALLFLAGS} lib${LIB}.a ${DESTDIR}${LIBDIR}
 	${RANLIB} ${DESTDIR}${LIBDIR}/lib${LIB}.a
 .endif
-.if !defined(NOPROFILE) && defined(LIB) && !empty(LIB)
+.if !defined(NO_PROFILE) && defined(LIB) && !empty(LIB)
 	${INSTALL} -C -o ${LIBOWN} -g ${LIBGRP} -m ${LIBMODE} \
 	    ${_INSTALLFLAGS} lib${LIB}_p.a ${DESTDIR}${LIBDIR}
 	${RANLIB} ${DESTDIR}${LIBDIR}/lib${LIB}_p.a
 .endif
 .if defined(SHLIB_NAME)
-	${INSTALL} -o ${LIBOWN} -g ${LIBGRP} -m ${LIBMODE} \
+	${INSTALL} ${STRIP} -o ${LIBOWN} -g ${LIBGRP} -m ${LIBMODE} \
 	    ${_INSTALLFLAGS} ${_SHLINSTALLFLAGS} \
 	    ${SHLIB_NAME} ${DESTDIR}${SHLIBDIR}
-	${STRIP_OFILE} -x ${DESTDIR}${SHLIBDIR}/${SHLIB_NAME}
 .if defined(SHLIB_LINK)
 .if ${SHLIBDIR} == ${LIBDIR}
 	ln -fs ${SHLIB_NAME} ${DESTDIR}${LIBDIR}/${SHLIB_LINK}
@@ -276,21 +234,22 @@ _libinstall:
 .endif
 .endif
 .endif
-.if defined(INSTALL_PIC_ARCHIVE) && defined(LIB) && !empty(LIB)
+.if defined(INSTALL_PIC_ARCHIVE) && defined(LIB) && !empty(LIB) && !defined(NO_TOOLCHAIN)
 	${INSTALL} -o ${LIBOWN} -g ${LIBGRP} -m ${LIBMODE} \
 	    ${_INSTALLFLAGS} lib${LIB}_pic.a ${DESTDIR}${LIBDIR}
 .endif
-.if defined(WANT_LINT) && !defined(NOLINT) && defined(LIB) && !empty(LIB)
+.if defined(WANT_LINT) && !defined(NO_LINT) && defined(LIB) && !empty(LIB)
 	${INSTALL} -o ${LIBOWN} -g ${LIBGRP} -m ${LIBMODE} \
 	    ${_INSTALLFLAGS} ${LINTLIB} ${DESTDIR}${LINTLIBDIR}
 .endif
-.endif !defined(INTERNALLIB)
+.endif # !defined(INTERNALLIB)
 
+.include <bsd.nls.mk>
 .include <bsd.files.mk>
 .include <bsd.incs.mk>
 .include <bsd.links.mk>
 
-.if !defined(NOMAN)
+.if !defined(NO_MAN)
 realinstall: _maninstall
 .ORDER: beforeinstall _maninstall
 .endif
@@ -302,7 +261,7 @@ lint: ${SRCS:M*.c}
 	${LINT} ${LINTFLAGS} ${CFLAGS:M-[DIU]*} ${.ALLSRC}
 .endif
 
-.if !defined(NOMAN)
+.if !defined(NO_MAN)
 .include <bsd.man.mk>
 .endif
 
@@ -333,7 +292,7 @@ clean:
 	rm -f a.out ${OBJS} ${OBJS:S/$/.tmp/} ${STATICOBJS}
 .endif
 .if !defined(INTERNALLIB)
-.if !defined(NOPROFILE) && defined(LIB) && !empty(LIB)
+.if !defined(NO_PROFILE) && defined(LIB) && !empty(LIB)
 	rm -f ${POBJS} ${POBJS:S/$/.tmp/}
 .endif
 .if defined(SHLIB_NAME) || \
@@ -345,13 +304,13 @@ clean:
 	rm -f ${SHLIB_LINK}
 .endif
 .if defined(LIB) && !empty(LIB)
-	rm -f lib${LIB}.dylib.* lib${LIB}.dylib
+	rm -f lib${LIB}.*.dylib lib${LIB}.dylib
 .endif
 .endif
 .if defined(WANT_LINT) && defined(LIB) && !empty(LIB)
 	rm -f ${LINTOBJS}
 .endif
-.endif !defined(INTERNALLIB)
+.endif # !defined(INTERNALLIB)
 .if defined(_LIBS) && !empty(_LIBS)
 	rm -f ${_LIBS}
 .endif

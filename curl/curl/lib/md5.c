@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: md5.c,v 1.9 2004/12/15 01:38:25 danf Exp $
+ * $Id: md5.c,v 1.11 2005/05/02 14:33:07 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -333,8 +333,13 @@ static void Decode (UINT4 *output,
 }
 
 #else
+#ifdef __APPLE__
+#define COMMON_DIGEST_FOR_OPENSSL
+#include <CommonCrypto/CommonDigest.h>
+#else
 /* If OpenSSL is present */
 #include <openssl/md5.h>
+#endif
 #include <string.h>
 #endif
 
@@ -345,7 +350,7 @@ void Curl_md5it(unsigned char *outbuffer, /* 16 bytes */
 {
   MD5_CTX ctx;
   MD5_Init(&ctx);
-  MD5_Update(&ctx, input, strlen((char *)input));
+  MD5_Update(&ctx, input, (unsigned int)strlen((char *)input));
   MD5_Final(outbuffer, &ctx);
 }
 

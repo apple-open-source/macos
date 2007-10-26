@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/search.c,v 1.57.2.5 2004/03/17 20:10:49 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/search.c,v 1.64.2.7 2006/01/03 22:16:09 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,8 +36,11 @@
  *
  *	ld		LDAP descriptor
  *	base		DN of the base object
- *	scope		the search scope - one of LDAP_SCOPE_BASE,
- *			    LDAP_SCOPE_ONELEVEL, LDAP_SCOPE_SUBTREE
+ *	scope		the search scope - one of
+ *				LDAP_SCOPE_BASE (baseObject),
+ *			    LDAP_SCOPE_ONELEVEL (oneLevel),
+ *				LDAP_SCOPE_SUBTREE (subtree), or
+ *				LDAP_SCOPE_SUBORDINATE (children) -- OpenLDAP extension
  *	filter		a string containing the search filter
  *			(e.g., "(|(cn=bob)(sn=bob))")
  *	attrs		list of attribute types to return for matches
@@ -68,11 +71,7 @@ ldap_search_ext(
 	int timelimit;
 	ber_int_t id;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_search_ext\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_search_ext\n", 0, 0, 0 );
-#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
@@ -160,8 +159,11 @@ ldap_search_ext_s(
  *
  *	ld		LDAP descriptor
  *	base		DN of the base object
- *	scope		the search scope - one of LDAP_SCOPE_BASE,
- *			    LDAP_SCOPE_ONELEVEL, LDAP_SCOPE_SUBTREE
+ *	scope		the search scope - one of
+ *				LDAP_SCOPE_BASE (baseObject),
+ *			    LDAP_SCOPE_ONELEVEL (oneLevel),
+ *				LDAP_SCOPE_SUBTREE (subtree), or
+ *				LDAP_SCOPE_SUBORDINATE (children) -- OpenLDAP extension
  *	filter		a string containing the search filter
  *			(e.g., "(|(cn=bob)(sn=bob))")
  *	attrs		list of attribute types to return for matches
@@ -180,11 +182,7 @@ ldap_search(
 	BerElement	*ber;
 	ber_int_t	id;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_search\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_search\n", 0, 0, 0 );
-#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
@@ -300,6 +298,23 @@ ldap_build_search_req(
 		return( NULL );
 	}
 
+#ifdef LDAP_DEBUG
+	if ( ldap_debug & LDAP_DEBUG_ARGS ) {
+		if ( attrs == NULL ) {
+			Debug( LDAP_DEBUG_ARGS, "ldap_build_search_req ATTRS: *\n", 0, 0, 0 );
+			
+		} else {
+			int	i;
+
+			Debug( LDAP_DEBUG_ARGS, "ldap_build_search_req ATTRS:\n", 0, 0, 0 );
+
+			for ( i = 0; attrs[ i ]; i++ ) {
+				Debug( LDAP_DEBUG_ARGS, "    %s\n", attrs[ i ], 0, 0 );
+			}
+		}
+	}
+#endif /* LDAP_DEBUG */
+
 	if ( ber_printf( ber, /*{*/ "{v}N}", attrs ) == -1 ) {
 		ld->ld_errno = LDAP_ENCODING_ERROR;
 		ber_free( ber, 1 );
@@ -365,5 +380,108 @@ ldap_search_s(
 		return( ld->ld_errno );
 
 	return( ldap_result2error( ld, *res, 0 ) );
+}
+
+static char escape[128] = {
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1,
+
+	0, 0, 0, 0, 0, 0, 0, 0,
+	1, 1, 1, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 1, 0, 0, 0,
+
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 1
+};
+#define	NEEDFLTESCAPE(c)	((c) & 0x80 || escape[ (unsigned)(c) ])
+
+/*
+ * compute the length of the escaped value;
+ * returns ((ber_len_t)(-1)) if no escaping is required.
+ */
+ber_len_t
+ldap_bv2escaped_filter_value_len( struct berval *in )
+{
+	ber_len_t	i, l;
+
+	assert( in != NULL );
+
+	if ( in->bv_len == 0 ) {
+		return 0;
+	}
+
+	/* assume we'll escape everything */
+	for( l = 0, i = 0; i < in->bv_len; l++, i++ ) {
+		char c = in->bv_val[ i ];
+		if ( NEEDFLTESCAPE( c ) ) {
+			l += 2;
+		}
+	}
+
+	return l;
+}
+
+int
+ldap_bv2escaped_filter_value( struct berval *in, struct berval *out )
+{
+	return ldap_bv2escaped_filter_value_x( in, out, 0, NULL );
+}
+
+int
+ldap_bv2escaped_filter_value_x( struct berval *in, struct berval *out, int inplace, void *ctx )
+{
+	ber_len_t	i, l;
+
+	assert( in != NULL );
+	assert( out != NULL );
+
+	BER_BVZERO( out );
+
+	if ( in->bv_len == 0 ) {
+		return 0;
+	}
+
+	/* assume we'll escape everything */
+	l = ldap_bv2escaped_filter_value_len( in );
+	if ( l == in->bv_len ) {
+		if ( inplace ) {
+			*out = *in;
+		} else {
+			ber_dupbv( out, in );
+		}
+		return 0;
+	}
+	out->bv_val = LDAP_MALLOCX( l + 1, ctx );
+	if ( out->bv_val == NULL ) {
+		return -1;
+	}
+
+	for ( i = 0; i < in->bv_len; i++ ) {
+		char c = in->bv_val[ i ];
+		if ( NEEDFLTESCAPE( c ) ) {
+			assert( out->bv_len < l - 2 );
+			out->bv_val[out->bv_len++] = '\\';
+			out->bv_val[out->bv_len++] = "0123456789ABCDEF"[0x0f & (c>>4)];
+			out->bv_val[out->bv_len++] = "0123456789ABCDEF"[0x0f & c];
+
+		} else {
+			assert( out->bv_len < l );
+			out->bv_val[out->bv_len++] = c;
+		}
+	}
+
+	out->bv_val[out->bv_len] = '\0';
+
+	return 0;
 }
 

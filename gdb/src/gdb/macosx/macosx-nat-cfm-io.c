@@ -21,16 +21,16 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "macosx-nat-inferior.h"
-#include "macosx-nat-mutils.h"
-#include "macosx-nat-dyld-io.h"
-
 #include "defs.h"
 #include "inferior.h"
 #include "symfile.h"
 #include "symtab.h"
 #include "gdbcmd.h"
 #include "objfiles.h"
+
+#include "macosx-nat-inferior.h"
+#include "macosx-nat-mutils.h"
+#include "macosx-nat-dyld-io.h"
 
 #include <string.h>
 
@@ -110,7 +110,7 @@ pef_load_library (const struct dyld_path_info *d,
         }
       else
         {
-          symbol_file_add_bfd_safe (pbfd, 0, addrs, 0, 0, e->load_flag, 0, 0);
+          symbol_file_add_bfd_safe (pbfd, 0, addrs, 0, 0, 0, e->load_flag, 0, 0, NULL);
         }
     }
 
@@ -139,7 +139,7 @@ pef_load_library (const struct dyld_path_info *d,
         }
       else
         {
-          symbol_file_add_bfd_safe (sbfd, 0, addrs, 0, 0, e->load_flag, 0, 0);
+          symbol_file_add_bfd_safe (sbfd, 0, addrs, 0, 0, 0, e->load_flag, 0, 0, NULL);
         }
     }
 }

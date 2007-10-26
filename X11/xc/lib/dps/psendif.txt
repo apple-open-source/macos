@@ -1,6 +1,0 @@
-
-#if defined(__cplusplus) || defined(c_plusplus)
-}
-#endif
-
-#endif /* PSOPS_H */

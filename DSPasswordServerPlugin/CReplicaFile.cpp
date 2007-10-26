@@ -35,7 +35,9 @@
 #include <time.h>
 #include <syslog.h>
 
+#include "AuthFile.h"
 #include "CReplicaFile.h"
+#include "CPSUtilities.h"
 
 #define errmsg(A, args...)			syslog(LOG_ALERT,(A),##args)
 
@@ -330,10 +332,8 @@ CReplicaFile::GetSelfName( char *outName )
 void
 CReplicaFile::SetSelfName( const char *inSelfName )
 {
-	if ( inSelfName != NULL ) {
-		strncpy( mSelfName, inSelfName, sizeof(mSelfName) );
-		mSelfName[sizeof(mSelfName) - 1] = '\0';
-	}
+	if ( inSelfName != NULL )
+		strlcpy( mSelfName, inSelfName, sizeof(mSelfName) );
 }
 
 		
@@ -406,7 +406,22 @@ CReplicaFile::ReplicaCount( void )
 	UInt32 result = 0;
 	
 	if ( mReplicaArray == NULL )
+	{
 		mReplicaArray = GetArrayForKey( CFSTR(kPWReplicaReplicaKey) );
+		if ( mReplicaArray == NULL )
+		{
+			CFDictionaryRef parentDict = this->GetParent();
+			if ( parentDict != NULL )
+			{
+				CFMutableArrayRef theArray = NULL;
+				if ( CFDictionaryGetValueIfPresent( parentDict, CFSTR(kPWReplicaReplicaKey), (const void **)&theArray ) &&
+					 CFGetTypeID(theArray) == CFArrayGetTypeID() )
+				{
+					mReplicaArray = theArray;
+				}
+			}
+		}
+	}
 	
 	if ( mReplicaArray != NULL )
 		result = CFArrayGetCount( mReplicaArray );
@@ -426,7 +441,7 @@ CReplicaFile::GetReplica( UInt32 index )
 	if ( mReplicaArray != NULL )
 	{
 		replicaDict = (CFDictionaryRef) CFArrayGetValueAtIndex( mReplicaArray, index );
-		if ( CFGetTypeID(replicaDict) != CFDictionaryGetTypeID() )
+		if ( replicaDict != NULL && CFGetTypeID(replicaDict) != CFDictionaryGetTypeID() )
 			return NULL;
 	}
 	
@@ -456,13 +471,30 @@ CReplicaFile::GetUniqueID( char *outIDStr )
 		
 	*outIDStr = '\0';
 	
-	if ( ! CFDictionaryGetValueIfPresent( mReplicaDict, CFSTR("ID"), (const void **)&idString ) )
+	if ( ! CFDictionaryGetValueIfPresent( mReplicaDict, CFSTR(kPWReplicaIDKey), (const void **)&idString ) )
 		return false;
 	
 	if ( CFGetTypeID(idString) != CFStringGetTypeID() )
 		return false;
 	
 	return CFStringGetCString( idString, outIDStr, 33, kCFStringEncodingUTF8 );
+}
+
+
+CFStringRef
+CReplicaFile::CurrentServerForLDAP( void )
+{
+	CFStringRef idString = NULL;
+	
+	if ( mReplicaDict != NULL &&
+		 CFDictionaryGetValueIfPresent(mReplicaDict, CFSTR(kPWReplicaCurrentServerForLDAPKey), (const void **)&idString) &&
+		 CFGetTypeID(idString) != CFStringGetTypeID() )
+	{
+		CFRetain( idString );
+		return idString;
+	}
+	
+	return NULL;
 }
 
 
@@ -555,7 +587,7 @@ CReplicaFile::RefreshIfNeeded( void )
 	
 	refresh = this->FileHasChanged();
 	
-	if ( refresh && this->Dirty() )
+	if ( refresh && mDirty )
 	{
 		// need to resolve conflict between file and memory copies
 		// SaveXMLData handles merging
@@ -626,14 +658,14 @@ CReplicaFile::GetIDRangeForReplica( const char *inReplicaName, UInt32 *outStart,
 	
 	if ( CFDictionaryGetValueIfPresent( replicaDict, CFSTR(kPWReplicaIDRangeBeginKey), (const void **)&rangeString ) &&
 		 CFStringGetCString( rangeString, rangeStr, sizeof(rangeStr), kCFStringEncodingUTF8 ) &&
-		 this->stringToPasswordRecRef( rangeStr, &passRec ) )
+		 pwsf_stringToPasswordRecRef( rangeStr, &passRec ) )
 	{
 		*outStart = passRec.slot;
 	}
 	
 	if ( CFDictionaryGetValueIfPresent( replicaDict, CFSTR(kPWReplicaIDRangeEndKey), (const void **)&rangeString ) &&
 		 CFStringGetCString( rangeString, rangeStr, sizeof(rangeStr), kCFStringEncodingUTF8 ) &&
-		 this->stringToPasswordRecRef( rangeStr, &passRec ) )
+		 pwsf_stringToPasswordRecRef( rangeStr, &passRec ) )
 	{
 		*outEnd = passRec.slot;
 	}
@@ -1183,7 +1215,7 @@ CReplicaFile::StatReplicaFileAndGetModDate( const char *inFilePath, struct times
 		outModDate->tv_nsec = 0;
 	}
 	
-	result = stat( inFilePath, &sb );
+	result = lstat( inFilePath, &sb );
 	if ( result == 0 && outModDate != NULL )
 		*outModDate = sb.st_mtimespec;
 		
@@ -1317,15 +1349,27 @@ CReplicaFile::SaveXMLData( CFPropertyListRef inListToWrite, const char *inSaveFi
 	int err;
     struct stat sb;
 	
-	err = stat( kPWReplicaDir, &sb );
-	if ( err != 0 )
-	{
-		// make sure the directory exists
-		err = mkdir( kPWReplicaDir, S_IRWXU );
-		if ( err != 0 )
-			return -1;
+	// make sure the directory path exists
+	char *dirPath = strdup( inSaveFile );
+	if ( dirPath == NULL )
+		return -1;
+	
+	char *pos = rindex( dirPath, '/' );
+	if ( pos != NULL ) 
+		*pos = '\0';
+	
+	err = lstat( dirPath, &sb );
+	if ( err != 0 ) {
+		err = pwsf_mkdir_p( dirPath, S_IRWXU );
+		err = lstat( dirPath, &sb );
 	}
 	
+	free( dirPath );
+	
+	if ( err != 0 )
+		return -1;
+	
+	// write the file
 	myReplicaDataFilePathRef = CFStringCreateWithCString( kCFAllocatorDefault, inSaveFile, kCFStringEncodingUTF8 );
 	if ( myReplicaDataFilePathRef == NULL )
 		return -1;
@@ -1656,7 +1700,7 @@ CReplicaFile::GetIDRange( const char *inMyLastID, UInt32 inCount, char *outFirst
 	
 	if ( inMyLastID != NULL )
 	{
-		this->stringToPasswordRecRef( inMyLastID, &passRec );
+		pwsf_stringToPasswordRecRef( inMyLastID, &passRec );
 		endPassRec.slot = passRec.slot;
 	}
 	
@@ -1672,7 +1716,7 @@ CReplicaFile::GetIDRange( const char *inMyLastID, UInt32 inCount, char *outFirst
 		if ( ! CFStringGetCString( rangeString, rangeStr, sizeof(rangeStr), kCFStringEncodingUTF8 ) )
 			continue;
 		
-		if ( this->stringToPasswordRecRef( rangeStr, &passRec ) == 0 )
+		if ( pwsf_stringToPasswordRecRef( rangeStr, &passRec ) == 0 )
 			continue;
 		
 		if ( passRec.slot > endPassRec.slot )
@@ -1684,7 +1728,7 @@ CReplicaFile::GetIDRange( const char *inMyLastID, UInt32 inCount, char *outFirst
 	{
 		if ( CFDictionaryGetValueIfPresent( replicaDict, CFSTR(kPWReplicaIDRangeEndKey), (const void **)&rangeString ) &&
 			 CFStringGetCString( rangeString, rangeStr, sizeof(rangeStr), kCFStringEncodingUTF8 ) &&
-			 this->stringToPasswordRecRef( rangeStr, &passRec ) == 1
+			 pwsf_stringToPasswordRecRef( rangeStr, &passRec ) == 1
 		   )
 		{
 			if ( passRec.slot > endPassRec.slot )
@@ -1693,10 +1737,10 @@ CReplicaFile::GetIDRange( const char *inMyLastID, UInt32 inCount, char *outFirst
 	}
 	
 	endPassRec.slot += (endPassRec.slot > 0) ? 20 : 1;
-	this->passwordRecRefToString( &endPassRec, outFirstID );
+	pwsf_passwordRecRefToString( &endPassRec, outFirstID );
 	
 	endPassRec.slot += inCount;
-	this->passwordRecRefToString( &endPassRec, outLastID );
+	pwsf_passwordRecRefToString( &endPassRec, outLastID );
 }
 
 
@@ -1805,72 +1849,6 @@ CReplicaFile::FindMatchToKey( const char *inKey, const char *inValue )
 }
 
 
-//----------------------------------------------------------------------------------------------------
-//	passwordRecRefToString
-//
-//	Copied from CAuthFile.cpp to avoid excess class interdependence.
-//----------------------------------------------------------------------------------------------------
-
-void
-CReplicaFile::passwordRecRefToString(PWFileEntry *inPasswordRec, char *outRefStr)
-{
-    sprintf( outRefStr, "0x%.8lx%.8lx%.8lx%.8lx",
-                inPasswordRec->time,
-                inPasswordRec->rnd,
-                inPasswordRec->sequenceNumber,
-                inPasswordRec->slot );
-}
-
-
-//----------------------------------------------------------------------------------------------------
-//	stringToPasswordRecRef
-//
-//	Returns: Boolean (1==valid ref, 0==fail)
-//
-//	Copied from CAuthFile.cpp to avoid excess class interdependence.
-//----------------------------------------------------------------------------------------------------
-
-int
-CReplicaFile::stringToPasswordRecRef(const char *inRefStr, PWFileEntry *outPasswordRec)
-{
-    char tempStr[9];
-    const char *sptr;
-    int result = false;
-    
-    // invalid slot value
-    outPasswordRec->slot = 0;
-    
-    if ( strncmp( inRefStr, "0x", 2 ) == 0 && strlen(inRefStr) == 2+8*4 )
-    {
-        sptr = inRefStr + 2;
-        
-        memcpy( tempStr, sptr, 8 );
-        tempStr[8] = 0;
-        sscanf( tempStr, "%lx", &outPasswordRec->time );
-        sptr += 8;
-        
-        memcpy( tempStr, sptr, 8 );
-        tempStr[8] = 0;
-        sscanf( tempStr, "%lx", &outPasswordRec->rnd );
-        sptr += 8;
-        
-        memcpy( tempStr, sptr, 8 );
-        tempStr[8] = 0;
-        sscanf( tempStr, "%lx", &outPasswordRec->sequenceNumber );
-        sptr += 8;
-        
-        memcpy( tempStr, sptr, 8 );
-        tempStr[8] = 0;
-        sscanf( tempStr, "%lx", &outPasswordRec->slot );
-        //sptr += 8;
-        
-        result = true;
-    }
-    
-    return result;
-}
-
-
 bool CReplicaFile::Dirty( void )
 {
 	return mDirty;
@@ -1952,7 +1930,7 @@ void pwsf_AddReplicaStatus( CReplicaFile *inReplicaFile, CFDictionaryRef inDict,
 {
 	CFArrayRef ipArray;
 	CFStringRef nameString;
-	CFStringRef valueString;
+	CFStringRef valueString = NULL;
 	ReplicaStatus replicaStatus;
 	CFIndex index, count;
 	
@@ -1961,6 +1939,37 @@ void pwsf_AddReplicaStatus( CReplicaFile *inReplicaFile, CFDictionaryRef inDict,
 		return;
 	
 	replicaStatus = inReplicaFile->GetReplicaStatus( inDict );
+	if ( replicaStatus == kReplicaActive )
+	{
+		// not so fast, make sure it's syncing too
+		CFDateRef lastSyncDate = NULL;
+		CFDateRef lastFailedDate = NULL;
+		
+		bool hasLastSyncDate = ( CFDictionaryGetValueIfPresent( inDict, CFSTR(kPWReplicaSyncDateKey), (const void **)&lastSyncDate ) && CFGetTypeID(lastSyncDate) == CFDateGetTypeID() );
+		bool hasFailedSyncDate = ( CFDictionaryGetValueIfPresent( inDict, CFSTR(kPWReplicaSyncAttemptKey), (const void **)&lastFailedDate ) && CFGetTypeID(lastFailedDate) == CFDateGetTypeID() );
+		if ( hasFailedSyncDate && hasLastSyncDate )
+		{
+			if ( CFDateCompare(lastFailedDate, lastSyncDate, NULL) == kCFCompareGreaterThan )
+			{
+				// last sync was not successful but previous sessions were successful
+				valueString = CFStringCreateWithCString( kCFAllocatorDefault, "Warning: The most recent replication failed.", kCFStringEncodingUTF8 );
+			}
+		}
+		else
+		if ( hasFailedSyncDate && (!hasLastSyncDate) )
+		{
+			// has failed all attempts
+			valueString = CFStringCreateWithCString( kCFAllocatorDefault, "Warning: Replication has failed all attempts.", kCFStringEncodingUTF8 );
+		}
+		else if ( (!hasFailedSyncDate) && (!hasLastSyncDate) )
+		{
+			// has not completed a session yet
+			valueString = CFStringCreateWithCString( kCFAllocatorDefault, "Warning: Replication has not completed yet.", kCFStringEncodingUTF8 );
+		}
+	}
+	
+	// if no special string, report status.
+	if ( valueString == NULL )
 	valueString = pwsf_GetReplicaStatusString( replicaStatus );
 	
 	count = CFArrayGetCount( ipArray );

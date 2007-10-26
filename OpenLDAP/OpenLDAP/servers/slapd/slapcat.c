@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapcat.c,v 1.1.2.1 2004/03/17 20:59:57 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapcat.c,v 1.2.2.4 2006/01/03 22:16:16 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * Portions Copyright 2003 IBM Corporation.
  * All rights reserved.
@@ -30,6 +30,15 @@
 #include <ac/string.h>
 
 #include "slapcommon.h"
+#include "ldif.h"
+
+static int gotsig;
+
+static RETSIGTYPE
+slapcat_sig( int sig )
+{
+	gotsig=1;
+}
 
 int
 slapcat( int argc, char **argv )
@@ -40,6 +49,15 @@ slapcat( int argc, char **argv )
 	const char *progname = "slapcat";
 
 	slap_tool_init( progname, SLAPCAT, argc, argv );
+
+#ifdef SIGPIPE
+	(void) SIGNAL( SIGPIPE, slapcat_sig );
+#endif
+#ifdef SIGHUP
+	(void) SIGNAL( SIGHUP, slapcat_sig );
+#endif
+	(void) SIGNAL( SIGINT, slapcat_sig );
+	(void) SIGNAL( SIGTERM, slapcat_sig );
 
 	if( !be->be_entry_open ||
 		!be->be_entry_close ||
@@ -58,15 +76,19 @@ slapcat( int argc, char **argv )
 		exit( EXIT_FAILURE );
 	}
 
+	op.o_bd = be;
 	for ( id = be->be_entry_first( be );
 		id != NOID;
 		id = be->be_entry_next( be ) )
 	{
 		char *data;
 		int len;
-		Entry* e = be->be_entry_get( be, id );
-		op.o_bd = be;
+		Entry* e;
 
+		if ( gotsig )
+			break;
+
+		e = be->be_entry_get( be, id );
 		if ( e == NULL ) {
 			printf("# no data for entry id=%08lx\n\n", (long) id );
 			rc = EXIT_FAILURE;
@@ -79,15 +101,9 @@ slapcat( int argc, char **argv )
 			continue;
 		}
 
-		if ( retrieve_ctxcsn == 0 ) {
-			if ( is_entry_syncProviderSubentry( e ) ) {
-				be_entry_release_r( &op, e );
-				continue;
-			}
-		}
-
-		if ( retrieve_synccookie == 0 ) {
-			if ( is_entry_syncConsumerSubentry( e ) ) {
+		if( filter != NULL ) {
+			int rc = test_filter( NULL, e, filter );
+			if( rc != LDAP_COMPARE_TRUE ) {
 				be_entry_release_r( &op, e );
 				continue;
 			}
@@ -107,8 +123,8 @@ slapcat( int argc, char **argv )
 			break;
 		}
 
-		fputs( data, ldiffp );
-		fputs( "\n", ldiffp );
+		fputs( data, ldiffp->fp );
+		fputs( "\n", ldiffp->fp );
 	}
 
 	be->be_entry_close( be );

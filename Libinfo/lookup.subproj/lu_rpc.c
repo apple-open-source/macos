@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,11 +32,9 @@
 #include <mach/mach.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <netinet/in.h>
 #include <pthread.h>
-
-#include "_lu_types.h"
-#include "lookup.h"
 #include "lu_utils.h"
 #include "lu_overrides.h"
 
@@ -46,400 +44,147 @@ static pthread_mutex_t _rpc_lock = PTHREAD_MUTEX_INITIALIZER;
 #define RPC_GET_NUM 2
 #define RPC_GET_ENT 3
 
-static void
-free_rpc_data(struct rpcent *r)
-{
-	char **aliases;
-
-	if (r == NULL) return;
-
-	if (r->r_name != NULL) free(r->r_name);
-
-	aliases = r->r_aliases;
-	if (aliases != NULL)
-	{
-		while (*aliases != NULL) free(*aliases++);
-		free(r->r_aliases);
-	}
-}
-
-static void
-free_rpc(struct rpcent *r)
-{
-	if (r == NULL) return;
-	free_rpc_data(r);
-	free(r);
-}
-
-static void
-free_lu_thread_info_rpc(void *x)
-{
-	struct lu_thread_info *tdata;
-
-	if (x == NULL) return;
-
-	tdata = (struct lu_thread_info *)x;
-	
-	if (tdata->lu_entry != NULL)
-	{
-		free_rpc((struct rpcent *)tdata->lu_entry);
-		tdata->lu_entry = NULL;
-	}
-
-	_lu_data_free_vm_xdr(tdata);
-
-	free(tdata);
-}
-
-static struct rpcent *
-extract_rpc(XDR *xdr)
-{
-	struct rpcent *r;
-	int i, j, nvals, nkeys, status;
-	char *key, **vals;
-
-	if (xdr == NULL) return NULL;
-
-	if (!xdr_int(xdr, &nkeys)) return NULL;
-
-	r = (struct rpcent *)calloc(1, sizeof(struct rpcent));
-
-	for (i = 0; i < nkeys; i++)
-	{
-		key = NULL;
-		vals = NULL;
-		nvals = 0;
-
-		status = _lu_xdr_attribute(xdr, &key, &vals, &nvals);
-		if (status < 0)
-		{
-			free_rpc(r);
-			return NULL;
-		}
-
-		if (nvals == 0)
-		{
-			free(key);
-			continue;
-		}
-
-		j = 0;
-
-		if ((r->r_name == NULL) && (!strcmp("name", key)))
-		{
-			r->r_name = vals[0];
-			if (nvals > 1)
-			{
-				r->r_aliases = (char **)calloc(nvals, sizeof(char *));
-				for (j = 1; j < nvals; j++) r->r_aliases[j-1] = vals[j];
-			}
-			j = nvals;
-		}		
-		else if (!strcmp("number", key))
-		{
-			r->r_number= atoi(vals[0]);
-		}
-
-		free(key);
-		if (vals != NULL)
-		{
-			for (; j < nvals; j++) free(vals[j]);
-			free(vals);
-		}
-	}
-
-	if (r->r_name == NULL) r->r_name = strdup("");
-	if (r->r_aliases == NULL) r->r_aliases = (char **)calloc(1, sizeof(char *));
-
-	return r;
-}
+#define ENTRY_SIZE sizeof(struct rpcent)
+#define ENTRY_KEY _li_data_key_rpc
 
 static struct rpcent *
 copy_rpc(struct rpcent *in)
 {
-	int i, len;
-	struct rpcent *r;
+	if (in == NULL) return NULL;
+
+	return (struct rpcent *)LI_ils_create("s*4", in->r_name, in->r_aliases, in->r_number);
+}
+
+/*
+ * Extract the next rpc entry from a kvarray.
+ */
+static void *
+extract_rpc(kvarray_t *in)
+{
+	struct rpcent tmp;
+	uint32_t d, k, kcount;
+	char *empty[1];
 
 	if (in == NULL) return NULL;
 
-	r = (struct rpcent *)calloc(1, sizeof(struct rpcent));
+	d = in->curr;
+	in->curr++;
 
-	r->r_name = LU_COPY_STRING(in->r_name);
+	if (d >= in->count) return NULL;
 
-	len = 0;
-	if (in->r_aliases != NULL)
+	empty[0] = NULL;
+	memset(&tmp, 0, ENTRY_SIZE);
+
+	kcount = in->dict[d].kcount;
+
+	for (k = 0; k < kcount; k++)
 	{
-		for (len = 0; in->r_aliases[len] != NULL; len++);
+		if (!strcmp(in->dict[d].key[k], "r_name"))
+		{
+			if (tmp.r_name != NULL) continue;
+			if (in->dict[d].vcount[k] == 0) continue;
+
+			tmp.r_name = (char *)in->dict[d].val[k][0];
+		}
+		else if (!strcmp(in->dict[d].key[k], "r_number"))
+		{
+			if (in->dict[d].vcount[k] == 0) continue;
+			tmp.r_number = atoi(in->dict[d].val[k][0]);
+		}
+		else if (!strcmp(in->dict[d].key[k], "r_aliases"))
+		{
+			if (tmp.r_aliases != NULL) continue;
+			if (in->dict[d].vcount[k] == 0) continue;
+
+			tmp.r_aliases = (char **)in->dict[d].val[k];
+		}
 	}
 
-	r->r_aliases = (char **)calloc(len + 1, sizeof(char *));
-	for (i = 0; i < len; i++)
-	{
-		r->r_aliases[i] = strdup(in->r_aliases[i]);
-	}
+	if (tmp.r_name == NULL) tmp.r_name = "";
+	if (tmp.r_aliases == NULL) tmp.r_aliases = empty;
 
-	r->r_number = in->r_number;
+	return copy_rpc(&tmp);
+}
 
-	return r;
+/*
+ * Send a query to the system information daemon.
+ */
+static struct rpcent *
+ds_getrpcbynumber(uint32_t number)
+{
+	static int proc = -1;
+	char val[16];
+
+	snprintf(val, sizeof(val), "%u", number);
+	return (struct rpcent *)LI_getone("getrpcbynumber", &proc, extract_rpc, "number", val);
+}
+
+/*
+ * Send a query to the system information daemon.
+ */
+static struct rpcent *
+ds_getrpcbyname(const char *name)
+{
+	static int proc = -1;
+
+	return (struct rpcent *)LI_getone("getrpcbyname", &proc, extract_rpc, "name", name);
+}
+
+/*
+ * Clean up / initialize / reinitialize the kvarray used to hold a list of all rpc entries.
+ */
+static void
+ds_endrpcent(void)
+{
+	LI_data_free_kvarray(LI_data_find_key(ENTRY_KEY));
 }
 
 static void
-recycle_rpc(struct lu_thread_info *tdata, struct rpcent *in)
+ds_setrpcent(void)
 {
-	struct rpcent *r;
-
-	if (tdata == NULL) return;
-	r = (struct rpcent *)tdata->lu_entry;
-
-	if (in == NULL)
-	{
-		free_rpc(r);
-		tdata->lu_entry = NULL;
-	}
-
-	if (tdata->lu_entry == NULL)
-	{
-		tdata->lu_entry = in;
-		return;
-	}
-
-	free_rpc_data(r);
-
-	r->r_name = in->r_name;
-	r->r_aliases = in->r_aliases;
-	r->r_number = in->r_number;
-
-	free(in);
+	ds_endrpcent();
 }
 
+/*
+ * Get an entry from the getrpcent kvarray.
+ * Calls the system information daemon if the list doesn't exist (first call),
+ * or extracts the next entry if the list has been fetched.
+ */
 static struct rpcent *
-lu_getrpcbynumber(long number)
+ds_getrpcent(void)
 {
-	struct rpcent *r;
-	unsigned datalen;
-	XDR inxdr;
 	static int proc = -1;
-	char *lookup_buf;
-	int count;
 
-	if (proc < 0)
-	{
-		if (_lookup_link(_lu_port, "getrpcbynumber", &proc) != KERN_SUCCESS)
-		{
-			return NULL;
-		}
-	}
-
-	number = htonl(number);
-	datalen = 0;
-	lookup_buf = NULL;
-
-	if (_lookup_all(_lu_port, proc, (unit *)&number, 1, &lookup_buf, &datalen)
-		!= KERN_SUCCESS)
-	{
-		return NULL;
-	}
-
-	datalen *= BYTES_PER_XDR_UNIT;
-	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
-
-	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
-
-	count = 0;
-	if (!xdr_int(&inxdr, &count))
-	{
-		xdr_destroy(&inxdr);
-		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-		return NULL;
-	}
-
-	if (count == 0)
-	{
-		xdr_destroy(&inxdr);
-		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-		return NULL;
-	}
-
-	r = extract_rpc(&inxdr);
-	xdr_destroy(&inxdr);
-	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-
-	return r;
+	return (struct rpcent *)LI_getent("getrpcent", &proc, extract_rpc, ENTRY_KEY, ENTRY_SIZE);
 }
 
+/*
+ * Checks if the system information daemon is running.
+ * If so, calls the appropriate fetch routine.
+ * If not, calls the appropriate "_old" routine.
+ * Places the result in thread-specific memory.
+ */
 static struct rpcent *
-lu_getrpcbyname(const char *name)
-{
-	struct rpcent *r;
-	unsigned datalen;
-	char namebuf[_LU_MAXLUSTRLEN + BYTES_PER_XDR_UNIT];
-	XDR outxdr, inxdr;
-	static int proc = -1;
-	char *lookup_buf;
-	int count;
-
-	if (proc < 0)
-	{
-		if (_lookup_link(_lu_port, "getrpcbyname", &proc) != KERN_SUCCESS)
-		{
-			return NULL;
-		}
-	}
-
-	xdrmem_create(&outxdr, namebuf, sizeof(namebuf), XDR_ENCODE);
-	if (!xdr__lu_string(&outxdr, (_lu_string *)&name))
-	{
-		xdr_destroy(&outxdr);
-		return NULL;
-	}
-
-	datalen = 0;
-	lookup_buf = NULL;
-
-	if (_lookup_all(_lu_port, proc, (unit *)namebuf,
-		xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen)
-		!= KERN_SUCCESS)
-	{
-		xdr_destroy(&outxdr);
-		return NULL;
-	}
-
-	xdr_destroy(&outxdr);
-
-	datalen *= BYTES_PER_XDR_UNIT;
-	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
-
-	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
-
-	count = 0;
-	if (!xdr_int(&inxdr, &count))
-	{
-		xdr_destroy(&inxdr);
-		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-		return NULL;
-	}
-
-	if (count == 0)
-	{
-		xdr_destroy(&inxdr);
-		vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-		return NULL;
-	}
-
-	r = extract_rpc(&inxdr);
-	xdr_destroy(&inxdr);
-	vm_deallocate(mach_task_self(), (vm_address_t)lookup_buf, datalen);
-
-	return r;
-}
-
-static void
-lu_endrpcent(void)
-{
-	struct lu_thread_info *tdata;
-
-	tdata = _lu_data_create_key(_lu_data_key_rpc, free_lu_thread_info_rpc);
-	_lu_data_free_vm_xdr(tdata);
-}
-
-static void
-lu_setrpcent()
-{
-	lu_endrpcent();
-}
-
-static struct rpcent *
-lu_getrpcent()
-{
-	struct rpcent *r;
-	static int proc = -1;
-	struct lu_thread_info *tdata;
-
-	tdata = _lu_data_create_key(_lu_data_key_rpc, free_lu_thread_info_rpc);
-	if (tdata == NULL)
-	{
-		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
-		_lu_data_set_key(_lu_data_key_rpc, tdata);
-	}
-
-	if (tdata->lu_vm == NULL)
-	{
-		if (proc < 0)
-		{
-			if (_lookup_link(_lu_port, "getrpcent", &proc) != KERN_SUCCESS)
-			{
-				lu_endrpcent();
-				return NULL;
-			}
-		}
-
-		if (_lookup_all(_lu_port, proc, NULL, 0, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
-		{
-			lu_endrpcent();
-			return NULL;
-		}
-
-		/* mig stubs measure size in words (4 bytes) */
-		tdata->lu_vm_length *= 4;
-
-		if (tdata->lu_xdr != NULL)
-		{
-			xdr_destroy(tdata->lu_xdr);
-			free(tdata->lu_xdr);
-		}
-		tdata->lu_xdr = (XDR *)calloc(1, sizeof(XDR));
-
-		xdrmem_create(tdata->lu_xdr, tdata->lu_vm, tdata->lu_vm_length, XDR_DECODE);
-		if (!xdr_int(tdata->lu_xdr, &tdata->lu_vm_cursor))
-		{
-			lu_endrpcent();
-			return NULL;
-		}
-	}
-
-	if (tdata->lu_vm_cursor == 0)
-	{
-		lu_endrpcent();
-		return NULL;
-	}
-
-	r = extract_rpc(tdata->lu_xdr);
-	if (r == NULL)
-	{
-		lu_endrpcent();
-		return NULL;
-	}
-
-	tdata->lu_vm_cursor--;
-	
-	return r;
-}
-
-static struct rpcent *
-getrpc(const char *name, long number, int source)
+getrpc(const char *name, uint32_t number, int source)
 {
 	struct rpcent *res = NULL;
-	struct lu_thread_info *tdata;
+	struct li_thread_info *tdata;
 
-	tdata = _lu_data_create_key(_lu_data_key_rpc, free_lu_thread_info_rpc);
-	if (tdata == NULL)
-	{
-		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
-		_lu_data_set_key(_lu_data_key_rpc, tdata);
-	}
+	tdata = LI_data_create_key(ENTRY_KEY, ENTRY_SIZE);
+	if (tdata == NULL) return NULL;
 
-	if (_lu_running())
+	if (_ds_running())
 	{
 		switch (source)
 		{
 			case RPC_GET_NAME:
-				res = lu_getrpcbyname(name);
+				res = ds_getrpcbyname(name);
 				break;
 			case RPC_GET_NUM:
-				res = lu_getrpcbynumber(number);
+				res = ds_getrpcbynumber(number);
 				break;
 			case RPC_GET_ENT:
-				res = lu_getrpcent();
+				res = ds_getrpcent();
 				break;
 			default: res = NULL;
 		}
@@ -447,6 +192,7 @@ getrpc(const char *name, long number, int source)
 	else
 	{
 		pthread_mutex_lock(&_rpc_lock);
+
 		switch (source)
 		{
 			case RPC_GET_NAME:
@@ -460,11 +206,12 @@ getrpc(const char *name, long number, int source)
 				break;
 			default: res = NULL;
 		}
+
 		pthread_mutex_unlock(&_rpc_lock);
 	}
 
-	recycle_rpc(tdata, res);
-	return (struct rpcent *)tdata->lu_entry;
+	LI_data_recycle(tdata, res, ENTRY_SIZE);
+	return (struct rpcent *)tdata->li_entry;
 }
 
 struct rpcent *
@@ -474,9 +221,16 @@ getrpcbyname(const char *name)
 }
 
 struct rpcent *
+#ifdef __LP64__
+getrpcbynumber(int number)
+#else
 getrpcbynumber(long number)
+#endif
 {
-	return getrpc(NULL, number, RPC_GET_NUM);
+	uint32_t n;
+
+	n = number;
+	return getrpc(NULL, n, RPC_GET_NUM);
 }
 
 struct rpcent *
@@ -488,13 +242,13 @@ getrpcent(void)
 void
 setrpcent(int stayopen)
 {
-	if (_lu_running()) lu_setrpcent();
+	if (_ds_running()) ds_setrpcent();
 	else _old_setrpcent(stayopen);
 }
 
 void
 endrpcent(void)
 {
-	if (_lu_running()) lu_endrpcent();
+	if (_ds_running()) ds_endrpcent();
 	else _old_endrpcent();
 }

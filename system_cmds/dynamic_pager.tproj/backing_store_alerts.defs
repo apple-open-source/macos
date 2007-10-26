@@ -10,6 +10,10 @@ subsystem
 
 	backing_store_alerts 1000;
 
+#ifndef __MigTypeCheck
+#define __MigTypeCheck 1
+#endif
+
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
 

@@ -28,7 +28,6 @@
 #define __private_extern__ __declspec(private_extern)
 #endif
 
-#include "stuff/target_arch.h"
 #import <ar.h>
 #ifndef AR_EFMT1
 #define	AR_EFMT1	"#1/"		/* extended format #1 */
@@ -94,6 +93,8 @@ struct ofile {
     /* If this structure is currently referencing an object file these are
        valid and filled in.  The mach_header and load commands have been 
        converted to the host byte sex if needed */
+    enum bool headers_swapped;	    /* true if the headers have already been
+				       swapped to host byte sex */
     char *object_addr;		    /* the address of the object file */
     unsigned long object_size;	    /* the size of the object file */
     enum byte_sex object_byte_sex;  /* the byte sex of the object file */
@@ -164,8 +165,8 @@ __private_extern__ void ofile_print(
 __private_extern__ unsigned long size_ar_name(
     const struct ar_hdr *ar_hdr);
 __private_extern__ long ofile_get_word(
-    unsigned long addr,
-    unsigned long *word,
+    uint64_t addr,
+    uint32_t *word,
     void *get_word_data /* struct ofile *ofile */);
 __private_extern__ void archive_error(
     struct ofile *ofile,

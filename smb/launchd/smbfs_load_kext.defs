@@ -1,0 +1,14 @@
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+import "load_smbfs.h";
+
+type string_t = c_string[*:1024];
+
+subsystem smbfs_load_kext 7564642;
+
+serverprefix do_;
+
+routine load_kext(
+				test_port	: mach_port_t;
+				kextname	: string_t;
+				codepage 	: string_t);

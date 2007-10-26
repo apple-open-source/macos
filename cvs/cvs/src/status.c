@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -10,11 +15,11 @@
 
 #include "cvs.h"
 
-static Dtype status_dirproc PROTO ((void *callerdat, const char *dir,
-				    const char *repos, const char *update_dir,
-				    List *entries));
-static int status_fileproc PROTO ((void *callerdat, struct file_info *finfo));
-static int tag_list_proc PROTO((Node * p, void *closure));
+static Dtype status_dirproc (void *callerdat, const char *dir,
+                             const char *repos, const char *update_dir,
+                             List *entries);
+static int status_fileproc (void *callerdat, struct file_info *finfo);
+static int tag_list_proc (Node * p, void *closure);
 
 static int local = 0;
 static int long_format = 0;
@@ -31,9 +36,7 @@ static const char *const status_usage[] =
 };
 
 int
-cvsstatus (argc, argv)
-    int argc;
-    char **argv;
+cvsstatus (int argc, char **argv)
 {
     int c;
     int err = 0;
@@ -104,11 +107,9 @@ cvsstatus (argc, argv)
 #endif
 
     /* start the recursion processor */
-    err = start_recursion (status_fileproc, (FILESDONEPROC) NULL,
-			   status_dirproc, (DIRLEAVEPROC) NULL, NULL,
-			   argc, argv, local,
-			   W_LOCAL, 0, CVS_LOCK_READ, (char *) NULL, 1,
-			   (char *) NULL);
+    err = start_recursion (status_fileproc, NULL, status_dirproc,
+			   NULL, NULL, argc, argv, local, W_LOCAL,
+			   0, CVS_LOCK_READ, NULL, 1, NULL);
 
     return (err);
 }
@@ -118,16 +119,14 @@ cvsstatus (argc, argv)
  */
 /* ARGSUSED */
 static int
-status_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+status_fileproc (void *callerdat, struct file_info *finfo)
 {
     Ctype status;
     char *sstat;
     Vers_TS *vers;
+    Node *node;
 
-    status = Classify_File (finfo, (char *) NULL, (char *) NULL, (char *) NULL,
-			    1, 0, &vers, 0);
+    status = Classify_File (finfo, NULL, NULL, NULL, 1, 0, &vers, 0);
     sstat = "Classify Error";
     switch (status)
     {
@@ -141,9 +140,15 @@ status_fileproc (callerdat, finfo)
 	    sstat = "Needs Patch";
 	    break;
 	case T_CONFLICT:
-	    /* I _think_ that "unresolved" is correct; that if it has
-	       been resolved then the status will change.  But I'm not
-	       sure about that.  */
+	    /* FIXME - This message could be clearer.  It comes up
+	     * when a file exists or has been added in the local sandbox
+	     * and a file of the same name has been committed indepenently to
+	     * the repository from a different sandbox, as well as when a
+	     * timestamp hasn't changed since a merge resulted in conflicts.
+	     * It also comes up whether an update has been attempted or not, so
+	     * technically, I think the double-add case is not actually a
+	     * conflict yet.
+	     */
 	    sstat = "Unresolved Conflict";
 	    break;
 	case T_ADDED:
@@ -153,9 +158,7 @@ status_fileproc (callerdat, finfo)
 	    sstat = "Locally Removed";
 	    break;
 	case T_MODIFIED:
-	    if ( vers->ts_conflict
-		 && ( file_has_conflict ( finfo, vers->ts_conflict )
-		       || file_has_markers ( finfo ) ) )
+	    if (file_has_markers (finfo))
 		sstat = "File had conflicts on merge";
 	    else
 		/* Note that we do not re Register() the file when we spot
@@ -192,8 +195,7 @@ status_fileproc (callerdat, finfo)
     else
     {
 	char *buf;
-	buf = xmalloc (strlen (finfo->file) + strlen (sstat) + 80);
-	sprintf (buf, "File: %-17s\tStatus: %s\n\n", finfo->file, sstat);
+	buf = Xasprintf ("File: %-17s\tStatus: %s\n\n", finfo->file, sstat);
 	cvs_output (buf, 0);
 	free (buf);
     }
@@ -206,20 +208,24 @@ status_fileproc (callerdat, finfo)
     }
     else if (vers->vn_user[0] == '0' && vers->vn_user[1] == '\0')
 	cvs_output ("   Working revision:\tNew file!\n", 0);
-#ifdef SERVER_SUPPORT
-    else if (server_active)
-    {
-	cvs_output ("   Working revision:\t", 0);
-	cvs_output (vers->vn_user, 0);
-	cvs_output ("\n", 0);
-    }
-#endif
     else
     {
 	cvs_output ("   Working revision:\t", 0);
 	cvs_output (vers->vn_user, 0);
-	cvs_output ("\t", 0);
-	cvs_output (vers->ts_rcs, 0);
+
+	/* Only add the UTC timezone if there is a time to use. */
+	if (!server_active && strlen (vers->ts_rcs) > 0)
+	{
+	    /* Convert from the asctime() format to ISO 8601 */
+	    char *buf;
+
+	    cvs_output ("\t", 0);
+
+	    /* Allow conversion from CVS/Entries asctime() to ISO 8601 */
+	    buf = Xasprintf ("%s UTC", vers->ts_rcs);
+	    cvs_output_tagged ("date", buf);
+	    free (buf);
+	}
 	cvs_output ("\n", 0);
     }
 
@@ -230,8 +236,22 @@ status_fileproc (callerdat, finfo)
 	cvs_output ("   Repository revision:\t", 0);
 	cvs_output (vers->vn_rcs, 0);
 	cvs_output ("\t", 0);
-	cvs_output (vers->srcfile->path, 0);
+	cvs_output (vers->srcfile->print_path, 0);
 	cvs_output ("\n", 0);
+
+	node = findnode(vers->srcfile->versions,vers->vn_rcs);
+	if (node)
+	{
+	    RCSVers *v;
+	    v=(RCSVers*)node->data;
+	    node = findnode(v->other_delta,"commitid");
+	    cvs_output("   Commit Identifier:\t", 0);
+	    if(node && node->data)
+	        cvs_output(node->data, 0);
+	    else
+	        cvs_output("(none)",0);
+	    cvs_output("\n",0);
+	}
     }
 
     if (vers->entdata)
@@ -316,30 +336,28 @@ status_fileproc (callerdat, finfo)
     return (0);
 }
 
+
+
 /*
  * Print a warm fuzzy message
  */
 /* ARGSUSED */
 static Dtype
-status_dirproc (callerdat, dir, repos, update_dir, entries)
-    void *callerdat;
-    const char *dir;
-    const char *repos;
-    const char *update_dir;
-    List *entries;
+status_dirproc (void *callerdat, const char *dir, const char *repos,
+                const char *update_dir, List *entries)
 {
     if (!quiet)
 	error (0, 0, "Examining %s", update_dir);
     return (R_PROCESS);
 }
 
+
+
 /*
  * Print out a tag and its type
  */
 static int
-tag_list_proc (p, closure)
-    Node *p;
-    void *closure;
+tag_list_proc (Node *p, void *closure)
 {
     char *branch = NULL;
     char *buf;
@@ -347,11 +365,9 @@ tag_list_proc (p, closure)
     if (RCS_nodeisbranch (xrcsnode, p->key))
 	branch = RCS_whatbranch(xrcsnode, p->key) ;
 
-    buf = xmalloc (80 + strlen (p->key)
-		   + (branch ? strlen (branch) : strlen (p->data)));
-    sprintf (buf, "\t%-25s\t(%s: %s)\n", p->key,
-	     branch ? "branch" : "revision",
-	     branch ? branch : (char *)p->data);
+    buf = Xasprintf ("\t%-25s\t(%s: %s)\n", p->key,
+		     branch ? "branch" : "revision",
+		     branch ? branch : (char *)p->data);
     cvs_output (buf, 0);
     free (buf);
 

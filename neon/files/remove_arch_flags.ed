@@ -1,0 +1,2 @@
+g/-arch/s/-arch [a-z0-9_]* *//g
+w

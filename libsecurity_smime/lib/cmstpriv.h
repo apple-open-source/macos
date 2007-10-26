@@ -201,6 +201,7 @@ struct SecCmsSignerInfoStr {
     SecCmsAttribute **		unAuthAttr;
     /* --------- local; not part of encoding --------- */
     SecCmsMessageRef 		cmsg;			/* back pointer to message */
+    SecCmsSignedDataRef		sigd;			/* back pointer to SignedData */
     SecCertificateRef		cert;
     CFArrayRef			certList;
     CFAbsoluteTime		signingTime;

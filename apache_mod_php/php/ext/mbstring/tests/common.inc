@@ -18,7 +18,9 @@ function test_error_handler($err_no, $err_msg, $filename, $linenum, $vars) {
 				128 => "Compile Warning",	// E_COMPILE_WARNING
 				256 => "User Error",		// E_USER_ERROR
 				512 => "User Warning",		// E_USER_WARMING
-				1024=> "User Notice"		// E_USER_NOTICE
+				1024=> "User Notice",		// E_USER_NOTICE
+				2048=> "Strict Notice",      // E_STRICT
+				4096=> "Catchable fatal error",      // E_RECOVERABLE_ERROR
 				);
 	
 	if (!empty($debug)) {
@@ -40,8 +42,8 @@ $t_ary = array(
 
 class tc
 {
-	var $s1 = '日本語EUC-JPの文字列';
-	var $s2 = 'English Text';
+	public $s1 = '日本語EUC-JPの文字列';
+	public $s2 = 'English Text';
 
 	function tc() 
 	{

@@ -31,6 +31,8 @@
 #include <security_utilities/utilities.h>
 #include <exception>
 
+#undef check
+
 
 namespace Security
 {
@@ -56,7 +58,7 @@ protected:
 	virtual void debugDiagnose(const void *id) const;	// used internally for debug logging
 	
 private:
-	IFDEBUG(mutable bool mCarrier);	// primary carrier of exception flow
+	mutable bool mCarrier;	// primary carrier of exception flow
 };
 
 

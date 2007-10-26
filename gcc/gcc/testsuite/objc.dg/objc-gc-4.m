@@ -6,7 +6,8 @@
 /* { dg-do compile { target *-*-darwin* } } */
 /* { dg-options "-fobjc-gc" } */
 
-#include <objc/Object.h>
+/* APPLE LOCAL radar 4894756 */
+#include "../objc/execute/Object2.h"
 
 @class MyWindow;
 

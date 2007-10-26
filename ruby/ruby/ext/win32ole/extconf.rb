@@ -1,11 +1,22 @@
 #----------------------------------
 # extconf.rb
-# $Revision: 1.5.2.1 $
-# $Date: 2004/01/26 02:35:30 $
+# $Revision: 11708 $
+# $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
 #----------------------------------
 require 'mkmf'
 
 dir_config("win32")
+
+SRCFILES=<<SRC
+win32ole.c
+SRC
+
+def create_docfile(src)
+  open(File.expand_path($srcdir) + "/.document", "w") {|ofs|
+    ofs.print src
+  }
+end
+
 def create_win32ole_makefile
   if have_library("ole32") and
      have_library("oleaut32") and
@@ -15,6 +26,9 @@ def create_win32ole_makefile
      have_library("advapi32") and
      have_header("windows.h")
     create_makefile("win32ole")
+    create_docfile(SRCFILES)
+  else
+    create_docfile("")
   end
 end
 

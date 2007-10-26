@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002-2004, International Business Machines
+*   Copyright (C) 2002-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -13,6 +13,11 @@
 #include "unicode/uobject.h"
 #include "unicode/unistr.h"
 
+/**
+ * \file 
+ * \brief C++ API: String Enumeration
+ */
+ 
 U_NAMESPACE_BEGIN
 
 /**
@@ -68,7 +73,7 @@ public:
      * @return a clone of this object
      *
      * @see getDynamicClassID
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     virtual StringEnumeration *clone() const;
 
@@ -179,32 +184,49 @@ public:
      */
     virtual void reset(UErrorCode& status) = 0;
 
+    /**
+     * Compares this enumeration to other to check if both are equal
+     *
+     * @param that The other string enumeration to compare this object to
+     * @return TRUE if the enumerations are equal. FALSE if not.
+     * @draft ICU 3.6 
+     */
+    virtual UBool operator==(const StringEnumeration& that)const;
+    /**
+     * Compares this enumeration to other to check if both are not equal
+     *
+     * @param that The other string enumeration to compare this object to
+     * @return TRUE if the enumerations are equal. FALSE if not.
+     * @draft ICU 3.6 
+     */
+    virtual UBool operator!=(const StringEnumeration& that)const;
+
 protected:
     /**
      * UnicodeString field for use with default implementations and subclasses.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     UnicodeString unistr;
     /**
      * char * default buffer for use with default implementations and subclasses.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     char charsBuffer[32];
     /**
      * char * buffer for use with default implementations and subclasses.
      * Allocated in constructor and in ensureCharsCapacity().
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     char *chars;
     /**
      * Capacity of chars, for use with default implementations and subclasses.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     int32_t charsCapacity;
 
     /**
      * Default constructor for use with default implementations and subclasses.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     StringEnumeration();
 
@@ -214,7 +236,7 @@ protected:
      *
      * @param capacity Requested capacity.
      * @param status ICU in/out error code.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     void ensureCharsCapacity(int32_t capacity, UErrorCode &status);
 
@@ -238,7 +260,7 @@ protected:
      * @param length Length of the string.
      * @param status ICU in/out error code.
      * @return A pointer to unistr.
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     UnicodeString *setChars(const char *s, int32_t length, UErrorCode &status);
 };

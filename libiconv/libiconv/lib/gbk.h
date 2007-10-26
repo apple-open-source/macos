@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2001, 2005 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -14,8 +14,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
- * If not, write to the Free Software Foundation, Inc., 59 Temple Place -
- * Suite 330, Boston, MA 02111-1307, USA.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 /*
@@ -31,34 +31,28 @@
  * GBK/3   0x{81-A0}{40-7E,80-FE}  6080 new characters, all in Unicode
  * GBK/4   0x{AA-FE}{40-7E,80-A0}  8160 new characters, 8080 in Unicode
  * GBK/5   0x{A8-A9}{40-7E,80-A0}  166 new characters, 153 in Unicode
- */
-
-/*
- * CP936 is nearly identical to GBK. It differs as follows:
+ *
+ * Furthermore, all four tables I have looked at
+ *   - the CP936 table by Microsoft, found on ftp.unicode.org in 1999,
+ *   - the GBK table by Sun, investigated on a Solaris 2.7 machine,
+ *   - the GBK tables by CWEX, found in the Big5+ package,
+ *   - the GB18030 standard (second printing),
+ * agree in the following extensions. (Ken Lunde must have overlooked these
+ * differences between GB2312 and GBK. Also, the CWEX tables have additional
+ * differences.)
  *
  * 1. Some characters in the GB2312 range are defined differently:
  *
- *     code    GB2312                         CP936.TXT
+ *     code    GB2312                         GBK
  *    0xA1A4   0x30FB # KATAKANA MIDDLE DOT   0x00B7 # MIDDLE DOT
  *    0xA1AA   0x2015 # HORIZONTAL BAR        0x2014 # EM DASH
  *
  * 2. 19 characters added in the range 0xA6E0-0xA6F5.
  *
  * 3. 4 characters added in the range 0xA8BB-0xA8C0.
- */
-
-/*
- * Since all three tables I have looked at
- *   - the CP936 table by Microsoft, found on ftp.unicode.org,
- *   - the GBK table by Sun, investigated on a Solaris 2.7 machine,
- *   - the GBK tables by CWEX, found in the Big5+ package,
- * all include these CP936 extensions (the CWEX tables have additional
- * differences), I conclude that either Ken Lunde has overlooked some of
- * the differences between GB2312 and GBK, or he is right but the major
- * vendors don't care about it. In either case, CP936 is the de facto
- * standard under the name "GBK", and we should better support it.
  *
- * So in what follows, when we write "GBK" we always mean "CP936".
+ * CP936 as of 1999 was identical to GBK. However, since 1999, Microsoft has
+ * added new mappings to CP936...
  */
 
 #include "gbkext1.h"

@@ -1,20 +1,24 @@
 /*
  *  SQLRemoveDSNFromIni.c
  *
- *  $Id: SQLRemoveDSNFromIni.c,v 1.2 2004/08/10 22:20:29 luesang Exp $
+ *  $Id: SQLRemoveDSNFromIni.c,v 1.10 2006/01/20 15:58:35 source Exp $
  *
  *  Remove a DSN
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,26 +74,49 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
+#include <unicode.h>
 
 #include "inifile.h"
 #include "misc.h"
 #include "iodbc_error.h"
 
-extern BOOL ValidDSN(LPCSTR);
+extern BOOL ValidDSN (LPCSTR);
+extern BOOL ValidDSNW (LPCSTR);
 
 BOOL
-RemoveDSNFromIni (LPCSTR lpszDSN)
+RemoveDSNFromIni (SQLPOINTER lpszDSN, SQLCHAR waMode)
 {
   BOOL retcode = FALSE;
+  char *_dsn_u8 = NULL;
   PCONFIG pCfg;
 
   /* Check dsn */
-  if (!lpszDSN || !ValidDSN (lpszDSN) || !STRLEN (lpszDSN))
+  if (waMode == 'A')
     {
-      PUSH_ERROR (ODBC_ERROR_INVALID_DSN);
-      goto quit;
+      if (!lpszDSN || !ValidDSN (lpszDSN) || !STRLEN (lpszDSN))
+	{
+	  PUSH_ERROR (ODBC_ERROR_INVALID_DSN);
+	  goto quit;
+	}
+      _dsn_u8 = lpszDSN;
+    }
+  else
+    {
+      if (!lpszDSN || !ValidDSNW (lpszDSN) || !WCSLEN (lpszDSN))
+	{
+	  PUSH_ERROR (ODBC_ERROR_INVALID_DSN);
+	  goto quit;
+	}
+
+      _dsn_u8 = (char *) dm_SQL_WtoU8 ((SQLWCHAR *) lpszDSN, SQL_NTS);
+      if (_dsn_u8 == NULL && lpszDSN)
+	{
+	  PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+	  goto quit;
+	}
     }
 
   if (_iodbcdm_cfg_search_init (&pCfg, "odbc.ini", TRUE))
@@ -98,19 +125,19 @@ RemoveDSNFromIni (LPCSTR lpszDSN)
       goto quit;
     }
 
-  if (strcmp (lpszDSN, "Default"))
+  if (strcmp (_dsn_u8, "Default"))
     {
       /* deletes a DSN from [ODBC data sources] section */
 #ifdef WIN32
-      _iodbcdm_cfg_write (pCfg, "ODBC 32 bit Data Sources", (LPSTR) lpszDSN,
+      _iodbcdm_cfg_write (pCfg, "ODBC 32 bit Data Sources", (LPSTR) _dsn_u8,
 	  NULL);
 #else
-      _iodbcdm_cfg_write (pCfg, "ODBC Data Sources", (LPSTR) lpszDSN, NULL);
+      _iodbcdm_cfg_write (pCfg, "ODBC Data Sources", (LPSTR) _dsn_u8, NULL);
 #endif
     }
 
   /* deletes the DSN section in odbc.ini */
-  _iodbcdm_cfg_write (pCfg, (LPSTR) lpszDSN, NULL, NULL);
+  _iodbcdm_cfg_write (pCfg, (LPSTR) _dsn_u8, NULL, NULL);
 
   if (_iodbcdm_cfg_commit (pCfg))
     {
@@ -124,6 +151,9 @@ done:
   _iodbcdm_cfg_done (pCfg);
 
 quit:
+  if (_dsn_u8 != lpszDSN)
+    MEM_FREE (_dsn_u8);
+
   return retcode;
 }
 
@@ -139,25 +169,65 @@ SQLRemoveDSNFromIni (LPCSTR lpszDSN)
     {
     case ODBC_USER_DSN:
       wSystemDSN = USERDSN_ONLY;
-      retcode = RemoveDSNFromIni (lpszDSN);
+      retcode = RemoveDSNFromIni ((SQLPOINTER) lpszDSN, 'A');
       goto quit;
 
     case ODBC_SYSTEM_DSN:
       wSystemDSN = SYSTEMDSN_ONLY;
-      retcode = RemoveDSNFromIni (lpszDSN);
+      retcode = RemoveDSNFromIni ((SQLPOINTER) lpszDSN, 'A');
       goto quit;
 
     case ODBC_BOTH_DSN:
       wSystemDSN = USERDSN_ONLY;
-      retcode = RemoveDSNFromIni (lpszDSN);
+      retcode = RemoveDSNFromIni ((SQLPOINTER) lpszDSN, 'A');
       if (!retcode)
 	{
 	  CLEAR_ERROR ();
 	  wSystemDSN = SYSTEMDSN_ONLY;
-	  retcode = RemoveDSNFromIni (lpszDSN);
+	  retcode = RemoveDSNFromIni ((SQLPOINTER) lpszDSN, 'A');
 	}
       goto quit;
-    };
+    }
+
+  PUSH_ERROR (ODBC_ERROR_GENERAL_ERR);
+  goto quit;
+
+quit:
+  wSystemDSN = USERDSN_ONLY;
+  configMode = ODBC_BOTH_DSN;
+  return retcode;
+}
+
+BOOL INSTAPI
+SQLRemoveDSNFromIniW (LPCWSTR lpszDSN)
+{
+  BOOL retcode = FALSE;
+
+  CLEAR_ERROR ();
+
+  switch (configMode)
+    {
+    case ODBC_USER_DSN:
+      wSystemDSN = USERDSN_ONLY;
+      retcode = RemoveDSNFromIni ((SQLPOINTER) lpszDSN, 'W');
+      goto quit;
+
+    case ODBC_SYSTEM_DSN:
+      wSystemDSN = SYSTEMDSN_ONLY;
+      retcode = RemoveDSNFromIni ((SQLPOINTER) lpszDSN, 'W');
+      goto quit;
+
+    case ODBC_BOTH_DSN:
+      wSystemDSN = USERDSN_ONLY;
+      retcode = RemoveDSNFromIni ((SQLPOINTER) lpszDSN, 'W');
+      if (!retcode)
+	{
+	  CLEAR_ERROR ();
+	  wSystemDSN = SYSTEMDSN_ONLY;
+	  retcode = RemoveDSNFromIni ((SQLPOINTER) lpszDSN, 'W');
+	}
+      goto quit;
+    }
 
   PUSH_ERROR (ODBC_ERROR_GENERAL_ERR);
   goto quit;

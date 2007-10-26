@@ -39,22 +39,23 @@
  * - cleanly separated functions that deal with existing option areas
  *   (dhcpol_*) from those that create new option areas (dhpoa_*).
  */
-#import "dhcp.h"
+#include "dhcp.h"
 
-#import <unistd.h>
-#import <stdlib.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <netinet/in.h>
-#import <arpa/inet.h>
-#import <strings.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <strings.h>
 
-#import "rfc_options.h"
-#import "gen_dhcp_types.h"
+#include "rfc_options.h"
+#include "gen_dhcp_types.h"
 
-#import "dhcp_options.h"
-#import "gen_dhcp_parse_table.h"
-#import "util.h"
+#include "dhcp_options.h"
+#include "gen_dhcp_parse_table.h"
+#include "util.h"
+#include "DNSNameList.h"
 
 /*
  * Module: dhcpoa (dhcp options area)
@@ -67,7 +68,9 @@
 
 
 #define MAX_TAG (sizeof(dhcptag_info_table) / sizeof(dhcptag_info_table[0]))
-static const unsigned char	rfc_magic[] = RFC_OPTIONS_MAGIC;
+
+
+__private_extern__ const uint8_t	rfc_magic[] = RFC_OPTIONS_MAGIC;
 
 
 /*
@@ -99,8 +102,8 @@ dhcptype_info(dhcptype_t type)
  *   for the given type.  Calls the appropriate strto<type> function.
  */
 boolean_t
-dhcptype_from_str(unsigned char * str, int type, void * buf, int * len_p,
-		  unsigned char * err)
+dhcptype_from_str(const char * str, int type, void * buf, int * len_p,
+		  char * err)
 {
     const dhcptype_info_t * 	type_info = dhcptype_info(type);
 
@@ -126,7 +129,7 @@ dhcptype_from_str(unsigned char * str, int type, void * buf, int * len_p,
       case dhcptype_bool_e: {
 	  long l = strtol(str, 0, 0);
 	  *len_p = type_info->size;
-	  *((unsigned char *)buf) = ((l == 0) ? 0 : 1);
+	  *((uint8_t *)buf) = ((l == 0) ? 0 : 1);
 	  break;
       }
       case dhcptype_uint8_e: {
@@ -139,7 +142,7 @@ dhcptype_from_str(unsigned char * str, int type, void * buf, int * len_p,
 	      }
 	      return (FALSE);
 	  }
-	  *((unsigned char *)buf) = ul;
+	  *((uint8_t *)buf) = ul;
 	  break;
       }
       case dhcptype_uint16_e: {
@@ -159,13 +162,13 @@ dhcptype_from_str(unsigned char * str, int type, void * buf, int * len_p,
       }
       case dhcptype_int32_e: {
 	  long l = strtol(str, 0, 0);
-	  *((long *)buf) = htonl(l);
+	  *((int32_t *)buf) = htonl(l);
 	  *len_p = type_info->size;
 	  break;
       }
       case dhcptype_uint32_e: {
 	  unsigned long ul = strtoul(str, 0, 0);
-	  *((unsigned long *)buf) = htonl(ul);
+	  *((uint32_t *)buf) = htonl(ul);
 	  *len_p = type_info->size;
 	  break;
       }
@@ -196,6 +199,14 @@ dhcptype_from_str(unsigned char * str, int type, void * buf, int * len_p,
 	  *len_p = len;
 	  break;
       }
+      case dhcptype_dns_namelist_e: {
+	  (void)DNSNameListBufferCreate(&str, 1, buf, len_p);
+	  if (*len_p == 0) {
+	      strcpy(err, "no DNS names added");
+	      return (FALSE);
+	  }
+	  break;
+      }
       default:
 	  if (err) {
 	      sprintf(err, "type %s not yet supported",
@@ -208,30 +219,68 @@ dhcptype_from_str(unsigned char * str, int type, void * buf, int * len_p,
 }
 
 /*
+ * Function: dhcptype_from_strlist
+ *
+ * Purpose:
+ *   Convert from a string list to the appropriate internal representation
+ *   for the given type.
+ */
+boolean_t
+dhcptype_from_strlist(const char * * strlist, int strlist_count,
+		      int type, void * buf, int * len_p,
+		      char * err)
+{
+    if (err != NULL) {
+	err[0] = '\0';
+    }
+
+    switch (type) {
+      case dhcptype_dns_namelist_e: {
+	  (void)DNSNameListBufferCreate(strlist, strlist_count, buf, len_p);
+	  if (*len_p == 0) {
+	      strcpy(err, "no DNS names added");
+	      return (FALSE);
+	  }
+	  break;
+      }
+      default:
+	  if (err != NULL) {
+	      sprintf(err, "type %d not yet supported",
+		      type);
+	  }
+	  return (FALSE);
+    }
+    return (TRUE);
+}
+
+/*
  * Function: dhcptype_to_str
  *
  * Purpose:
  *   Give a string representation to the given type.
+ *
+ * Note:
+ *   Warning: this routine does not guard against over-running "tmp".
  */
 boolean_t
-dhcptype_to_str(unsigned char * tmp, void * opt, int len, int type,
-		unsigned char * err)
+dhcptype_to_str(char * tmp, const void * opt, int len, int type,
+		char * err)
 {
     switch (type) {
       case dhcptype_bool_e:
 	sprintf(tmp, "%d", *((boolean_t *)opt));
 	break;
       case dhcptype_uint8_e:
-	sprintf(tmp, "%d", *((u_char *)opt));
+	sprintf(tmp, "%d", *((uint8_t *)opt));
 	break;
       case dhcptype_uint16_e:
-	sprintf(tmp, "%d", *((u_int16_t *)opt));
+	sprintf(tmp, "%d", ntohs(*((u_int16_t *)opt)));
 	break;
       case dhcptype_int32_e:
-	sprintf(tmp, "%d", *((int32_t *)opt));
+	sprintf(tmp, "%d", ntohl(*((int32_t *)opt)));
 	break;
       case dhcptype_uint32_e:
-	sprintf(tmp, "%u", *((u_int32_t *)opt));
+	sprintf(tmp, "%u", ntohl(*((u_int32_t *)opt)));
 	break;
       case dhcptype_ip_e:
 	sprintf(tmp, IP_FORMAT, IP_LIST((struct in_addr *)opt));
@@ -251,9 +300,10 @@ dhcptype_to_str(unsigned char * tmp, void * opt, int len, int type,
 }
 
 void
-dhcptype_fprint_simple(FILE * f, dhcptype_t type, void * opt, int option_len)
+dhcptype_fprint_simple(FILE * f, dhcptype_t type,
+		       const void * opt, int option_len)
 {
-    u_char *		option = opt;
+    const uint8_t *	option = opt;
 
     switch (type) {
       case dhcptype_bool_e:
@@ -279,13 +329,32 @@ dhcptype_fprint_simple(FILE * f, dhcptype_t type, void * opt, int option_len)
 	break;
 
       case dhcptype_uint16_e:
-	fprintf(f, "0x%x", ntohs(*((unsigned short *)option)));
+	fprintf(f, "0x%x", ntohs(*((uint16_t *)option)));
 	break;
 
+      case dhcptype_int32_e:
       case dhcptype_uint32_e:
-	fprintf(f, "0x%lx", ntohl(*((unsigned long *)option)));
+	fprintf(f, "0x%x", (unsigned int)ntohl(*((uint32_t *)option)));
 	break;
 
+      case dhcptype_dns_namelist_e: {
+	  int			i;
+	  const char * *	namelist;
+	  int			namelist_length = 0;
+
+	  namelist = DNSNameListCreate(option, option_len, &namelist_length);
+	  fprintf(f, "{");
+	  if (namelist != NULL) {
+	      for (i = 0; i < namelist_length; i++) {
+		  fprintf(f, "%s%s", (i == 0) ? "" : ", ",
+			  namelist[i]);
+	      }
+	      free(namelist);
+	  }
+	  fprintf(f, "}");
+	  break;
+      }
+	
       case dhcptype_none_e:
       default:
 	break;
@@ -299,28 +368,27 @@ dhcptype_fprint_simple(FILE * f, dhcptype_t type, void * opt, int option_len)
  *   Display (to stdout) an option with a simple type.
  */
 void
-dhcptype_print_simple(dhcptype_t type, void * opt, int option_len)
+dhcptype_print_simple(dhcptype_t type, const void * opt, int option_len)
 {
     dhcptype_fprint_simple(stdout, type, opt, option_len);
     return;
 }
 
 void
-dhcptype_fprint(FILE * f, dhcptype_t type, void * option, int option_len)
+dhcptype_fprint(FILE * f, dhcptype_t type, const void * option, int option_len)
 {
     const dhcptype_info_t * 	type_info = dhcptype_info(type);
 
     if (type_info && type_info->multiple_of != dhcptype_none_e) {
 	int 			i;
 	int 			number;
-	void *			offset;
+	const void *		offset;
 	int 			size;
 	const dhcptype_info_t * subtype_info;
 
 	subtype_info = dhcptype_info(type_info->multiple_of);
 	if (subtype_info == NULL)
 	    return;
-
 	size = subtype_info->size;
 	number = option_len / size;
 	fprintf(f, "{");
@@ -343,20 +411,20 @@ dhcptype_fprint(FILE * f, dhcptype_t type, void * option, int option_len)
  *   Display (to stdout) an option with the given type.
  */
 void
-dhcptype_print(dhcptype_t type, void * option, int option_len)
+dhcptype_print(dhcptype_t type, const void * option, int option_len)
 {
     dhcptype_fprint(stdout, type, option, option_len);
     return;
 }
 
 boolean_t
-dhcptag_fprint(FILE * f, void * vopt)
+dhcptag_fprint(FILE * f, const void * vopt)
 {
-    u_char *    opt = vopt;
-    u_char 	tag = opt[TAG_OFFSET];
-    u_char 	option_len = opt[LEN_OFFSET];
-    u_char * 	option = opt + OPTION_OFFSET;
     const dhcptag_info_t * entry;
+    const uint8_t *	opt = vopt;
+    uint8_t 		tag = opt[TAG_OFFSET];
+    uint8_t 		option_len = opt[LEN_OFFSET];
+    const uint8_t * 	option = opt + OPTION_OFFSET;
 
     entry = dhcptag_info(tag);
     if (entry == NULL)
@@ -385,7 +453,7 @@ dhcptag_fprint(FILE * f, void * vopt)
  *   TRUE it could be displayed, FALSE otherwise.
  */
 boolean_t
-dhcptag_print(void * vopt)
+dhcptag_print(const void * vopt)
 {
     return (dhcptag_fprint(stdout, vopt));
 }
@@ -413,9 +481,10 @@ dhcptag_info(dhcptag_t tag)
  */
 
 dhcptag_t
-dhcptag_with_name(unsigned char * name)
+dhcptag_with_name(const char * name)
 {
-    dhcptag_t i;
+    dhcptag_t 		i;
+    unsigned int 	v;
 
     for (i = 0; i < MAX_TAG; i++) {
 	if (dhcptag_info_table[i].name) {
@@ -423,10 +492,14 @@ dhcptag_with_name(unsigned char * name)
 		return (i);
 	}
     }
-    {
-	unsigned int v = strtoul(name, 0, 0);
-	if (v <= MAX_TAG)
-	    return (v);
+    if (strncmp(name, "option_", 7) == 0) {
+	v = strtoul(name + 7, NULL, 10);
+    }
+    else {
+	v = strtoul(name, NULL, 10);
+    }
+    if (v <= MAX_TAG) {
+	return (v);
     }
     return (-1);
 }
@@ -455,9 +528,9 @@ dhcptag_name(int tag)
  *   type conversion for the tag's type.
  */
 boolean_t
-dhcptag_from_strlist(unsigned char * * slist, int num, 
+dhcptag_from_strlist(const char * * slist, int num, 
 		     int tag, void * buf, int * len_p,
-		     unsigned char * err)
+		     char * err)
 {
     int				i;
     int				n_per_type;
@@ -482,10 +555,14 @@ dhcptag_from_strlist(unsigned char * * slist, int num,
 	return (FALSE);
     }
 
-    if (type_info->multiple_of == dhcptype_none_e)
+    if (type_info->string_list == FALSE) {
 	return (dhcptype_from_str(slist[0], tag_info->type, 
-				  buf, len_p,err));
-
+				  buf, len_p, err));
+    }
+    if (type_info->multiple_of == dhcptype_none_e) {
+	return (dhcptype_from_strlist(slist, num, tag_info->type, 
+				      buf, len_p, err));
+    }
     base_type_info = dhcptype_info(type_info->multiple_of);
     if (base_type_info == NULL) {
 	if (err)
@@ -529,8 +606,8 @@ dhcptag_from_strlist(unsigned char * * slist, int num,
  *   occurrence.
  */
 boolean_t
-dhcptag_to_str(unsigned char * tmp, int tag, void * opt,
-	       int len, unsigned char * err)
+dhcptag_to_str(char * tmp, int tag, const void * opt,
+	       int len, char * err)
 {
     const dhcptag_info_t * 	tag_info;
     const dhcptype_info_t * 	type_info;
@@ -600,11 +677,11 @@ dhcpol_concat(dhcpol_t * list, dhcpol_t * extra)
  */
 boolean_t
 dhcpol_parse_buffer(dhcpol_t * list, void * buffer, int length,
-		    unsigned char * err)
+		    char * err)
 {
-    int			len;
-    unsigned char *	scan;
-    unsigned char	tag;
+    int		len;
+    uint8_t *	scan;
+    uint8_t	tag;
 
     if (err)
 	err[0] = '\0';
@@ -613,7 +690,7 @@ dhcpol_parse_buffer(dhcpol_t * list, void * buffer, int length,
 
     len = length;
     tag = dhcptag_pad_e;
-    for (scan = (unsigned char *)buffer; tag != dhcptag_end_e && len > 0; ) {
+    for (scan = (uint8_t *)buffer; tag != dhcptag_end_e && len > 0; ) {
 
 	tag = scan[TAG_OFFSET];
 
@@ -628,7 +705,7 @@ dhcpol_parse_buffer(dhcpol_t * list, void * buffer, int length,
 	      len--;
 	      break;
 	  default: {
-	      unsigned char	option_len = scan[LEN_OFFSET];
+	      uint8_t	option_len = scan[LEN_OFFSET];
 	    
 	      dhcpol_add(list, scan);
 	      len -= (option_len + 2);
@@ -671,7 +748,7 @@ dhcpol_find(dhcpol_t * list, int tag, int * len_p, int * start)
 	i = *start;
 
     for (; i < dhcpol_count(list); i++) {
-	unsigned char * option = dhcpol_element(list, i);
+	uint8_t * option = dhcpol_element(list, i);
 	
 	if (option[TAG_OFFSET] == tag) {
 	    if (len_p)
@@ -682,6 +759,29 @@ dhcpol_find(dhcpol_t * list, int tag, int * len_p, int * start)
 	}
     }
     return (NULL);
+}
+
+/*
+ * Function: dhcpol_find_with_length
+ * Purpose:
+ *   Find a DHCP option with the specified tag that is at least as long
+ *   as the passed in min_length value.  Return NULL if such an option
+ *   does not exist.
+ */
+void *
+dhcpol_find_with_length(dhcpol_t * options, dhcptag_t tag, int min_length)
+{
+    int		real_length;
+    void * 	val;
+
+    val = dhcpol_find(options, tag, &real_length, NULL);
+    if (val == NULL) {
+	return (NULL);
+    }
+    if (real_length < min_length) {
+	return (NULL);
+    }
+    return (val);
 }
 
 /*
@@ -706,7 +806,7 @@ dhcpol_get(dhcpol_t * list, int tag, int * len_p)
 	return (NULL);
 
     for (i = 0; i < dhcpol_count(list); i++) {
-	unsigned char * option = dhcpol_element(list, i);
+	uint8_t * option = dhcpol_element(list, i);
 	
 	if (option[TAG_OFFSET] == tag) {
 	    int len = option[LEN_OFFSET];
@@ -738,7 +838,7 @@ dhcpol_get(dhcpol_t * list, int tag, int * len_p)
  */
 boolean_t
 dhcpol_parse_packet(dhcpol_t * options, struct dhcp * pkt, int len,
-		    unsigned char * err)
+		    char * err)
 {
     dhcpol_init(options);	/* make sure it's empty */
 
@@ -761,12 +861,11 @@ dhcpol_parse_packet(dhcpol_t * options, struct dhcp * pkt, int len,
 			    len - sizeof(*pkt) - RFC_MAGIC_SIZE, err) == FALSE)
 	return (FALSE);
     { /* get overloaded options */
-	unsigned char *	overload;
+	uint8_t *	overload;
 	int		overload_len;
 
-	overload = (unsigned char *)
-	    dhcpol_find(options, dhcptag_option_overload_e, 
-				&overload_len, NULL);
+	overload = (uint8_t *)dhcpol_find(options, dhcptag_option_overload_e, 
+					  &overload_len, NULL);
 	if (overload && overload_len == 1) { /* has overloaded options */
 	    dhcpol_t	extra;
 
@@ -805,7 +904,7 @@ dhcpol_parse_packet(dhcpol_t * options, struct dhcp * pkt, int len,
  */
 boolean_t
 dhcpol_parse_vendor(dhcpol_t * vendor, dhcpol_t * options,
-		    unsigned char * err)
+		    char * err)
 {
     dhcpol_t		extra;
     boolean_t		ret = FALSE;
@@ -857,7 +956,7 @@ dhcpol_fprint(FILE * f, dhcpol_t * list)
 
     fprintf(f, "Options count is %d\n", dhcpol_count(list));
     for (i = 0; i < dhcpol_count(list); i++) {
-	unsigned char * option = dhcpol_element(list, i);
+	uint8_t * option = dhcpol_element(list, i);
 
 	if (dhcptag_fprint(f, option) == FALSE) {
 	    fprintf(f, "undefined tag %d len %d\n", option[TAG_OFFSET], 
@@ -997,7 +1096,7 @@ dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, const void * option)
 		    oa_p->oa_offset + oa_p->oa_reserve, oa_p->oa_size);
 	    return (dhcpoa_failed_e);
 	}
-	((u_char *)oa_p->oa_buffer)[oa_p->oa_offset + TAG_OFFSET] = tag;
+	((uint8_t *)oa_p->oa_buffer)[oa_p->oa_offset + TAG_OFFSET] = tag;
 	oa_p->oa_offset++;
 	oa_p->oa_end_tag = TRUE;
 	break;
@@ -1021,8 +1120,8 @@ dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, const void * option)
 		    oa_p->oa_size);
 	    return (dhcpoa_full_e);
 	}
-	((u_char *)oa_p->oa_buffer)[oa_p->oa_offset + TAG_OFFSET] = tag;
-	((u_char *)oa_p->oa_buffer)[oa_p->oa_offset + LEN_OFFSET] = len;
+	((uint8_t *)oa_p->oa_buffer)[oa_p->oa_offset + TAG_OFFSET] = tag;
+	((uint8_t *)oa_p->oa_buffer)[oa_p->oa_offset + LEN_OFFSET] = len;
 	if (len) {
 	    bcopy(option, (u_char *)oa_p->oa_buffer 
 		  + (OPTION_OFFSET + oa_p->oa_offset), len);
@@ -1046,7 +1145,7 @@ dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, const void * option)
  */
 dhcpoa_ret_t
 dhcpoa_add_from_strlist(dhcpoa_t * oa_p, dhcptag_t tag, 
-			 unsigned char * * strlist, int strlist_len)
+			const char * * strlist, int strlist_len)
 {
     int 		len;
     char		tmp[DHCP_OPTION_SIZE_MAX];
@@ -1068,7 +1167,7 @@ dhcpoa_add_from_strlist(dhcpoa_t * oa_p, dhcptag_t tag,
  */
 dhcpoa_ret_t
 dhcpoa_add_from_str(dhcpoa_t * oa_p, dhcptag_t tag, 
-		     unsigned char * str)
+		    const char * str)
 {
     return (dhcpoa_add_from_strlist(oa_p, tag, &str, 1));
 }
@@ -1082,7 +1181,7 @@ dhcpoa_add_from_str(dhcpoa_t * oa_p, dhcptag_t tag,
 dhcpoa_ret_t
 dhcpoa_add_dhcpmsg(dhcpoa_t * oa_p, dhcp_msgtype_t msgtype)
 {
-    unsigned char m = (unsigned char)msgtype;
+    char m = (char)msgtype;
     return (dhcpoa_add(oa_p, dhcptag_dhcp_message_type_e,
 			sizeof(m), &m));
 }
@@ -1093,7 +1192,7 @@ dhcpoa_add_dhcpmsg(dhcpoa_t * oa_p, dhcp_msgtype_t msgtype)
  * Purpose:
  *   Return an error message for the last error that occcurred.
  */
-unsigned char *
+char *
 dhcpoa_err(dhcpoa_t * oa_p)
 {
     if (oa_p == NULL || oa_p->oa_magic != DHCPOA_MAGIC)
@@ -1162,6 +1261,21 @@ char test_vendor[] = {
     43, 6, 1, 4, 1, 2, 3, 4,
     255,
 };
+char test_overload_sname[] = {
+    99, 130, 83, 99,
+    dhcptag_option_overload_e, 1, DHCP_OVERLOAD_SNAME,
+    255,
+};
+char test_overload_file[] = {
+    99, 130, 83, 99,
+    dhcptag_option_overload_e, 1, DHCP_OVERLOAD_FILE,
+    255,
+};
+char test_overload_both[] = {
+    99, 130, 83, 99,
+    dhcptag_option_overload_e, 1, DHCP_OVERLOAD_BOTH,
+    255,
+};
 
 char test_no_end[] = {
     0x63, 0x82, 0x53, 0x63, 0x35, 0x01, 0x05, 0x36, 
@@ -1193,6 +1307,12 @@ struct test tests[] = {
     { NULL, NULL, 0, FALSE },
 };
 
+struct test overload_tests[] = {
+    { "overload sname", test_overload_sname, sizeof(test_overload_sname),TRUE },
+    { "overload file", test_overload_file, sizeof(test_overload_file), TRUE },
+    { "overload both", test_overload_both, sizeof(test_overload_both), TRUE },
+    { NULL, NULL, 0, FALSE },
+};
 
 char test_string_253[253] = "test string 253 characters long (zero padded)";
 
@@ -1212,18 +1332,18 @@ main()
     dhcpol_init(&vendor_options);
 
     for (i = 0; tests[i].name; i++) {
-	printf("\nTest %d: ", i);
+	printf("\nTest %d: %s: ", i, tests[i].name);
 	bcopy(tests[i].data, pkt->dp_options, tests[i].len);
 	if (dhcpol_parse_packet(&options, pkt, 
 				sizeof(*pkt) + tests[i].len,
 				error) != tests[i].result) {
-	    printf("test '%s' FAILED\n", tests[i].name);
+	    printf("FAILED\n");
 	    if (tests[i].result == TRUE) {
 		printf("error message returned was %s\n", error);
 	    }
 	}
 	else {
-	    printf("test '%s' PASSED\n", tests[i].name);
+	    printf("PASSED\n");
 	    if (tests[i].result == FALSE) {
 		printf("error message returned was %s\n", error);
 	    }
@@ -1231,12 +1351,39 @@ main()
 	dhcpol_print(&options);
 	dhcpol_free(&options);
     }
+    bcopy(test_simple + RFC_MAGIC_SIZE, pkt->dp_sname,
+	  sizeof(test_simple) - RFC_MAGIC_SIZE);
+    bcopy(test_no_end + RFC_MAGIC_SIZE, pkt->dp_file, 
+	  sizeof(test_no_end) - RFC_MAGIC_SIZE);
+    for (i = 0; overload_tests[i].name; i++) {
+	bcopy(overload_tests[i].data, pkt->dp_options,
+	      overload_tests[i].len);
+	printf("\nOption overload test %d: %s: ", i, overload_tests[i].name);
+	if (dhcpol_parse_packet(&options, pkt, 
+				sizeof(*pkt) + overload_tests[i].len,
+				error) != tests[i].result) {
+	    printf("FAILED\n");
+	    if (overload_tests[i].result == TRUE) {
+		printf("error message returned was %s\n", error);
+	    }
+	}
+	else {
+	    printf("PASSED\n");
+	    if (overload_tests[i].result == FALSE) {
+		printf("error message returned was %s\n", error);
+	    }
+	}
+	dhcpol_print(&options);
+	dhcpol_free(&options);
+    }
+
+    printf("\nTesting dhcpoa\n");
     {
 	struct in_addr	iaddr;
 	dhcpoa_t	opts;
 	dhcpoa_t	vend_opts;
 	char		err[256];
-	unsigned char * str;
+	char *		str;
 
 	dhcpoa_init(&opts, buf, sizeof(buf));
 	dhcpoa_init_no_end(&vend_opts, vend_buf, sizeof(vend_buf));
@@ -1263,9 +1410,33 @@ main()
 	    printf("couldn't add domain name tag, %s\n", dhcpoa_err(&opts));
 	    exit(1);
 	}
+	{
+	    const char * 	domain_names[] = {
+		"euro.apple.com", 
+		"eng.apple.com",
+		"foo.bar",
+		"thisisprettylongdontyouthink.foo.bar",
+		"thisisprettylongdontyouthink.foo.bar.apple.com",
+		"thisisprettylongdontyouthink.foo.bar.com",
+		"a.foo.bar"
+	    };
+	    uint8_t		search_buf[DHCP_OPTION_SIZE_MAX];
+	    int			len = sizeof(search_buf);
+
+	    if (dhcptag_from_strlist(domain_names, 7, 
+				     dhcptag_domain_search_e, search_buf,
+				     &len, err)	== FALSE) {
+		printf("couldn't get domain search option: %s", err);
+	    }
+	    else if (dhcpoa_add(&opts, dhcptag_domain_search_e,
+				len, search_buf) != dhcpoa_success_e) {
+		printf("couldn't add domain search tag, %s\n",
+		       dhcpoa_err(&opts));
+		exit(1);
+	    }
+	}
 	for (i = 0; i < 253; i++) {
-	    if (dhcpoa_vendor_add(&opts, &vend_opts, i+1, 
-				  i,
+	    if (dhcpoa_vendor_add(&opts, &vend_opts, i+1, i,
 				  test_string_253) != dhcpoa_success_e) {
 		printf("couldn't add vendor option, %s\n", 
 		       dhcpoa_err(&vend_opts));
@@ -1289,7 +1460,6 @@ main()
 	    printf("parse buffer failed, %s\n", err);
 	    exit(1);
 	}
-	printf("\nTesting dhcpoa\n");
 	dhcpol_print(&options);
 	{
 	    struct in_addr * iaddr;

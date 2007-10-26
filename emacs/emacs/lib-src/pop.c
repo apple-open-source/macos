@@ -1,5 +1,6 @@
 /* pop.c: client routines for talking to a POP3-protocol post-office server
-   Copyright (c) 1991, 1993, 1996, 1997, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1993, 1996, 1997, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
    Written by Jonathan Kamens, jik@security.ov.com.
 
 This file is part of GNU Emacs.
@@ -16,12 +17,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifdef HAVE_CONFIG_H
 #define NO_SHORTNAMES	/* Tell config not to load remap.h */
-#include <../src/config.h>
+#include <config.h>
 #else
 #define MAIL_USE_POP
 #endif
@@ -76,17 +77,6 @@ extern struct servent *hes_getservbyname (/* char *, char * */);
 # ifdef HAVE_KRB5_H
 #  include <krb5.h>
 # endif
-# ifdef HAVE_DES_H
-#  include <des.h>
-# else
-#  ifdef HAVE_KERBEROSIV_DES_H
-#   include <kerberosIV/des.h>
-#  else
-#   ifdef HAVE_KERBEROS_DES_H
-#    include <kerberos/des.h>
-#   endif
-#  endif
-# endif
 # ifdef HAVE_KRB_H
 #  include <krb.h>
 # else
@@ -119,24 +109,24 @@ extern int h_errno;
 #endif
 #endif
 
-#ifndef _P
+#ifndef __P
 # ifdef __STDC__
-#  define _P(a) a
+#  define __P(a) a
 # else
-#  define _P(a) ()
+#  define __P(a) ()
 # endif /* __STDC__ */
 #endif /* ! __P */
 
-static int socket_connection _P((char *, int));
-static int pop_getline _P((popserver, char **));
-static int sendline _P((popserver, char *));
-static int fullwrite _P((int, char *, int));
-static int getok _P((popserver));
+static int socket_connection __P((char *, int));
+static int pop_getline __P((popserver, char **));
+static int sendline __P((popserver, char *));
+static int fullwrite __P((int, char *, int));
+static int getok __P((popserver));
 #if 0
-static int gettermination _P((popserver));
+static int gettermination __P((popserver));
 #endif
-static void pop_trash _P((popserver));
-static char *find_crlf _P((char *, int));
+static void pop_trash __P((popserver));
+static char *find_crlf __P((char *, int));
 
 #define ERROR_MAX 160		/* a pretty arbitrary size, but needs
 				   to be bigger than the original
@@ -145,7 +135,7 @@ static char *find_crlf _P((char *, int));
 #define KPOP_PORT 1109
 #define POP_SERVICE "pop3"	/* we don't want the POP2 port! */
 #ifdef KERBEROS
-#define KPOP_SERVICE "kpop"
+#define KPOP_SERVICE "kpop"	/* never used: look for 20060515 to see why */
 #endif
 
 char pop_error[ERROR_MAX];
@@ -261,7 +251,7 @@ pop_open (host, username, password, flags)
 #else
 #define DONT_NEED_PASSWORD 0
 #endif
- 
+
   if ((! password) && (! DONT_NEED_PASSWORD))
     {
       if (! (flags & POP_NO_GETPASS))
@@ -274,10 +264,11 @@ pop_open (host, username, password, flags)
 	  return (0);
 	}
     }
-  if (password)
+  if (password)			/* always true, detected 20060515 */
     flags |= POP_NO_KERBEROS;
   else
-    password = username;
+    password = username;	/* dead code, detected 20060515 */
+  /** "kpop" service is  never used: look for 20060515 to see why **/
 
   sock = socket_connection (host, flags);
   if (sock == -1)
@@ -296,7 +287,7 @@ pop_open (host, username, password, flags)
       free ((char *) server);
       return (0);
     }
-	  
+
   server->file = sock;
   server->data = 0;
   server->buffer_index = 0;
@@ -367,7 +358,7 @@ pop_stat (server, count, size)
       strcpy (pop_error, "In multi-line query in pop_stat");
       return (-1);
     }
-     
+
   if (sendline (server, "STAT") || (pop_getline (server, &fromserver) < 0))
     return (-1);
 
@@ -387,7 +378,7 @@ pop_stat (server, count, size)
     }
 
   *count = atoi (&fromserver[4]);
-     
+
   fromserver = index (&fromserver[4], ' ');
   if (! fromserver)
     {
@@ -560,7 +551,7 @@ pop_list (server, message, IDs, sizes)
  * 		of lines with '>'.
  *	msg_buf	Output parameter to which a buffer containing the
  * 		message is assigned.
- * 
+ *
  * Return value: The number of bytes in msg_buf, which may contain
  * 	embedded nulls, not including its final null, or -1 on error
  * 	with pop_error set.
@@ -643,7 +634,7 @@ pop_retrieve (server, message, markfrom, msg_buf)
 
   free (ptr);
   return (-1);
-}     
+}
 
 int
 pop_retrieve_first (server, message, response)
@@ -896,7 +887,7 @@ pop_last (server)
      popserver server;
 {
   char *fromserver;
-     
+
   if (server->in_multi)
     {
       strcpy (pop_error, "In multi-line query in pop_last");
@@ -1009,7 +1000,7 @@ static int have_winsock = 0;
  * Arguments:
  * 	host	The host to which to connect.
  *	flags	Option flags.
- * 	
+ *
  * Return value: A file descriptor indicating the connection, or -1
  * 	indicating failure, in which case an error has been copied
  * 	into pop_error.
@@ -1054,20 +1045,10 @@ socket_connection (host, flags)
   }
 #endif
 
-  do
-    {
-      hostent = gethostbyname (host);
-      try_count++;
-      if ((! hostent) && ((h_errno != TRY_AGAIN) || (try_count == 5)))
-	{
-	  strcpy (pop_error, "Could not determine POP server's address");
-	  return (-1);
-	}
-    } while (! hostent);
-
   bzero ((char *) &addr, sizeof (addr));
   addr.sin_family = AF_INET;
 
+  /** "kpop" service is  never used: look for 20060515 to see why **/
 #ifdef KERBEROS
   service = (flags & POP_NO_KERBEROS) ? POP_SERVICE : KPOP_SERVICE;
 #else
@@ -1094,6 +1075,7 @@ socket_connection (host, flags)
 	}
       else
 	{
+  /** "kpop" service is  never used: look for 20060515 to see why **/
 #ifdef KERBEROS
 	  addr.sin_port = htons ((flags & POP_NO_KERBEROS) ?
 				POP_PORT : KPOP_PORT);
@@ -1112,8 +1094,19 @@ socket_connection (host, flags)
       strncat (pop_error, strerror (errno),
 	       ERROR_MAX - sizeof (POP_SOCKET_ERROR));
       return (-1);
-	  
+
     }
+
+  do
+    {
+      hostent = gethostbyname (host);
+      try_count++;
+      if ((! hostent) && ((h_errno != TRY_AGAIN) || (try_count == 5)))
+	{
+	  strcpy (pop_error, "Could not determine POP server's address");
+	  return (-1);
+	}
+    } while (! hostent);
 
   while (*hostent->h_addr_list)
     {
@@ -1125,7 +1118,7 @@ socket_connection (host, flags)
     }
 
 #define CONNECT_ERROR "Could not connect to POP server: "
-     
+
   if (! *hostent->h_addr_list)
     {
       CLOSESOCKET (sock);
@@ -1133,7 +1126,7 @@ socket_connection (host, flags)
       strncat (pop_error, strerror (errno),
 	       ERROR_MAX - sizeof (CONNECT_ERROR));
       return (-1);
-	  
+
     }
 
 #ifdef KERBEROS
@@ -1157,7 +1150,7 @@ socket_connection (host, flags)
 
       if ((rem = krb5_auth_con_init (kcontext, &auth_context)))
 	goto krb5error;
-      
+
       if (rem = krb5_cc_default (kcontext, &ccdef))
 	goto krb5error;
 
@@ -1215,7 +1208,7 @@ socket_connection (host, flags)
 	  CLOSESOCKET (sock);
 	  return (-1);
 	}
-#else  /* ! KERBEROS5 */	  
+#else  /* ! KERBEROS5 */
       ticket = (KTEXT) malloc (sizeof (KTEXT_ST));
       realhost = strdup (hostent->h_name);
       rem = krb_sendauth (0L, sock, ticket, "pop", realhost,
@@ -1285,7 +1278,7 @@ pop_getline (server, line)
 
 	  found = server->buffer_index;
 	  data_used = (cp + 2) - server->buffer - found;
-	       
+
 	  *cp = '\0';		/* terminate the string to be returned */
 	  server->data -= data_used;
 	  server->buffer_index += data_used;
@@ -1354,7 +1347,7 @@ pop_getline (server, line)
 	  char *cp;
 	  server->data += ret;
 	  server->buffer[server->data] = '\0';
-	       
+
 	  cp = find_crlf (server->buffer + search_offset,
 			  server->data - search_offset);
 	  if (cp)
@@ -1403,12 +1396,24 @@ sendline (server, line)
 {
 #define SENDLINE_ERROR "Error writing to POP server: "
   int ret;
+  char *buf;
 
-  ret = fullwrite (server->file, line, strlen (line));
-  if (ret >= 0)
-    {				/* 0 indicates that a blank line was written */
-      ret = fullwrite (server->file, "\r\n", 2);
-    }
+  /* Combine the string and the CR-LF into one buffer.  Otherwise, two
+     reasonable network stack optimizations, Nagle's algorithm and
+     delayed acks, combine to delay us a fraction of a second on every
+     message we send.  (Movemail writes line without \r\n, client
+     kernel sends packet, server kernel delays the ack to see if it
+     can combine it with data, movemail writes \r\n, client kernel
+     waits because it has unacked data already in its outgoing queue,
+     client kernel eventually times out and sends.)
+
+     This can be something like 0.2s per command, which can add up
+     over a few dozen messages, and is a big chunk of the time we
+     spend fetching mail from a server close by.  */
+  buf = alloca (strlen (line) + 3);
+  strcpy (buf, line);
+  strcat (buf, "\r\n");
+  ret = fullwrite (server->file, buf, strlen (buf));
 
   if (ret < 0)
     {
@@ -1461,7 +1466,7 @@ fullwrite (fd, buf, nbytes)
  *
  * Arguments:
  * 	server	The server to read from.
- * 
+ *
  * Returns: 0 for success, else for failure and puts error in pop_error.
  *
  * Side effects: On failure, may make the connection unusable.
@@ -1492,7 +1497,7 @@ getok (server)
       pop_trash (server);
       return (-1);
     }
-}	  
+}
 
 #if 0
 /*
@@ -1538,7 +1543,7 @@ gettermination (server)
  * 	Changes made to the maildrop since the session was started (or
  * 	since the last pop_reset) may be lost.
  */
-void 
+void
 pop_close (server)
      popserver server;
 {
@@ -1607,3 +1612,6 @@ find_crlf (in_string, len)
 }
 
 #endif /* MAIL_USE_POP */
+
+/* arch-tag: ceb37041-b7ad-49a8-a63d-286618b8367d
+   (do not change this comment) */

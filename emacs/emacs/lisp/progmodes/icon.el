@@ -1,6 +1,7 @@
 ;;; icon.el --- mode for editing Icon code
 
-;; Copyright (C) 1989 Free Software Foundation, Inc.
+;; Copyright (C) 1989, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;; Free Software Foundation, Inc.
 
 ;; Author: Chris Smith <csmith@convex.com>
 ;; Created: 15 Feb 89
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -46,7 +47,7 @@
     (define-key icon-mode-map "\e\C-e" 'end-of-icon-defun)
     (define-key icon-mode-map "\e\C-q" 'indent-icon-exp)
     (define-key icon-mode-map "\177" 'backward-delete-char-untabify)
-  
+
     (define-key icon-mode-map [menu-bar] (make-sparse-keymap "Icon"))
     (define-key icon-mode-map [menu-bar icon]
       (cons "Icon" map))
@@ -83,6 +84,7 @@
 
 (defgroup icon nil
   "Mode for editing Icon code."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :group 'languages)
 
 (defcustom icon-indent-level 4
@@ -177,7 +179,7 @@ with no args, if that value is non-nil."
   (make-local-variable 'indent-line-function)
   (setq indent-line-function 'icon-indent-line)
   (make-local-variable 'require-final-newline)
-  (setq require-final-newline t)
+  (setq require-final-newline mode-require-final-newline)
   (make-local-variable 'comment-start)
   (setq comment-start "# ")
   (make-local-variable 'comment-end)
@@ -188,7 +190,7 @@ with no args, if that value is non-nil."
   (setq comment-indent-function 'icon-comment-indent)
   (set (make-local-variable 'indent-line-function) 'icon-indent-line)
   ;; font-lock support
-  (setq font-lock-defaults  
+  (setq font-lock-defaults
 	'((icon-font-lock-keywords
 	   icon-font-lock-keywords-1 icon-font-lock-keywords-2)
 	  nil nil ((?_ . "w")) beginning-of-defun
@@ -202,10 +204,10 @@ with no args, if that value is non-nil."
   ;; we start from the assertion that `hs-special-modes-alist' is autoloaded.
   (unless (assq 'icon-mode hs-special-modes-alist)
     (setq hs-special-modes-alist
-	  (cons '(icon-mode  "\\<procedure\\>" "\\<end\\>" nil 
+	  (cons '(icon-mode  "\\<procedure\\>" "\\<end\\>" nil
 			     icon-forward-sexp-function)
 		hs-special-modes-alist)))
-  (run-hooks 'icon-mode-hook))
+  (run-mode-hooks 'icon-mode-hook))
 
 ;; This is used by indent-for-comment to decide how much to
 ;; indent a comment in Icon code based on its context.
@@ -243,7 +245,6 @@ with no args, if that value is non-nil."
       (self-insert-command (prefix-numeric-value arg)))))
 
 (defun icon-indent-command (&optional whole-exp)
-  (interactive "P")
   "Indent current line as Icon code, or in some cases insert a tab character.
 If `icon-tab-always-indent' is non-nil (the default), always indent current
 line.  Otherwise, indent the current line only if point is at the left margin
@@ -253,6 +254,7 @@ A numeric argument, regardless of its value, means indent rigidly all the
 lines of the expression starting after point so that this line becomes
 properly indented.  The relative indentation among the lines of the
 expression are preserved."
+  (interactive "P")
   (if whole-exp
       ;; If arg, always indent this line as Icon
       ;; and shift remaining lines of expression the same amount.
@@ -613,7 +615,7 @@ Returns nil if line starts inside a string, t if in a comment."
   "Subdued level highlighting for Icon mode.")
 
 (defconst icon-font-lock-keywords-2
-  (append 
+  (append
    icon-font-lock-keywords-1
    (eval-when-compile
      (list
@@ -624,31 +626,31 @@ Returns nil if line starts inside a string, t if in a comment."
        'font-lock-type-face)
       ;; Fontify all keywords.
       ;;
-      (cons 
-       (regexp-opt 
-	'("break" "do" "next" "repeat" "to" "by" "else" "if" "not" "return" 
-	  "until" "case" "of" "while" "create" "every" "suspend" "default" 
+      (cons
+       (regexp-opt
+	'("break" "do" "next" "repeat" "to" "by" "else" "if" "not" "return"
+	  "until" "case" "of" "while" "create" "every" "suspend" "default"
 	  "fail" "record" "then") 'words)
        'font-lock-keyword-face)
-      ;; "end" "initial" 
+      ;; "end" "initial"
       (cons (regexp-opt '("end" "initial") 'words)
 	    'font-lock-builtin-face)
       ;; Fontify all system variables.
-      (cons 
-       (regexp-opt 
-	'("&allocated" "&ascii" "&clock" "&col" "&collections" "&column" 
+      (cons
+       (regexp-opt
+	'("&allocated" "&ascii" "&clock" "&col" "&collections" "&column"
 	  "&control" "&cset" "&current" "&date" "&dateline" "&digits" "&dump"
-	  "&e" "&error" "&errornumber" "&errortext" "&errorvalue" "&errout" 
-	  "&eventcode" "&eventsource" "&eventvalue" "&fail" "&features" 
-	  "&file" "&host" "&input" "&interval" "&lcase" "&ldrag" "&letters" 
-	  "&level" "&line" "&lpress" "&lrelease" "&main" "&mdrag" "&meta" 
-	  "&mpress" "&mrelease" "&null" "&output" "&phi" "&pi" "&pos" 
-	  "&progname" "&random" "&rdrag" "&regions" "&resize" "&row" 
-	  "&rpress" "&rrelease" "&shift" "&source" "&storage" "&subject" 
+	  "&e" "&error" "&errornumber" "&errortext" "&errorvalue" "&errout"
+	  "&eventcode" "&eventsource" "&eventvalue" "&fail" "&features"
+	  "&file" "&host" "&input" "&interval" "&lcase" "&ldrag" "&letters"
+	  "&level" "&line" "&lpress" "&lrelease" "&main" "&mdrag" "&meta"
+	  "&mpress" "&mrelease" "&null" "&output" "&phi" "&pi" "&pos"
+	  "&progname" "&random" "&rdrag" "&regions" "&resize" "&row"
+	  "&rpress" "&rrelease" "&shift" "&source" "&storage" "&subject"
 	  "&time" "&trace" "&ucase" "&version" "&window" "&x" "&y") t)
        'font-lock-constant-face)
       (cons      ;; global local static declarations and link files
-       (concat 
+       (concat
 	"^[ \t]*"
 	(regexp-opt '("global" "link" "local" "static") t)
 	"\\(\\sw+\\>\\)*")
@@ -660,13 +662,13 @@ Returns nil if line starts inside a string, t if in a comment."
 	       font-lock-variable-name-face)))))
 
       (cons      ;; $define $elif $ifdef $ifndef $undef
-       (concat "^" 
+       (concat "^"
 	       (regexp-opt'("$define" "$elif" "$ifdef" "$ifndef" "$undef") t)
 	       "\\>[ \t]*\\([^ \t\n]+\\)?")
-	    '((1 font-lock-builtin-face) 
+	    '((1 font-lock-builtin-face)
 	      (4 font-lock-variable-name-face nil t)))
-      (cons      ;; $dump $endif $else $include 
-       (concat 
+      (cons      ;; $dump $endif $else $include
+       (concat
 	"^" (regexp-opt'("$dump" "$endif" "$else" "$include") t) "\\>" )
        'font-lock-builtin-face)
       (cons      ;; $warning $error
@@ -687,4 +689,5 @@ Returns nil if line starts inside a string, t if in a comment."
 
 (provide 'icon)
 
+;;; arch-tag: 8abf8c99-e7df-44af-a58f-ef5ed2ee52cb
 ;;; icon.el ends here

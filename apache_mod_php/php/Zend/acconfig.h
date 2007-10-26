@@ -1,5 +1,27 @@
+/*
+   +----------------------------------------------------------------------+
+   | Zend Engine                                                          |
+   +----------------------------------------------------------------------+
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   +----------------------------------------------------------------------+
+   | This source file is subject to version 2.00 of the Zend license,     |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available through the world-wide-web at the following url:           |
+   | http://www.zend.com/license/2_00.txt.                                |
+   | If you did not receive a copy of the Zend license and are unable to  |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@zend.com so we can mail you a copy immediately.              |
+   +----------------------------------------------------------------------+
+   | Authors: Andi Gutmans <andi@zend.com>                                |
+   |          Zeev Suraski <zeev@zend.com>                                |
+   +----------------------------------------------------------------------+
+*/
+
+/* $Id: acconfig.h,v 1.40.2.1.2.1 2007/01/01 09:35:45 sebastian Exp $ */
+
 #define ZEND_API
 #define ZEND_DLEXPORT
+#define ZEND_DLIMPORT
 
 @TOP@
 
@@ -11,6 +33,8 @@
 
 @BOTTOM@
 
+#ifndef ZEND_ACCONFIG_H_NO_C_PROTOS
+
 #ifdef HAVE_STDLIB_H
 # include <stdlib.h>
 #endif
@@ -19,8 +43,8 @@
 # include <sys/types.h>
 #endif
 
-#ifdef HAVE_SYS_SELECT_H 
-#include <sys/select.h> 
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
 #endif
 
 #ifdef HAVE_IEEEFP_H
@@ -33,9 +57,20 @@
 # include <strings.h>
 #endif
 
+#if ZEND_BROKEN_SPRINTF
 int zend_sprintf(char *buffer, const char *format, ...);
+#else
+# define zend_sprintf sprintf
+#endif
 
 #include <math.h>
+
+/* To enable the is_nan, is_infinite and is_finite PHP functions */
+#ifdef NETWARE
+	#define HAVE_ISNAN 1
+	#define HAVE_ISINF 1
+	#define HAVE_ISFINITE 1
+#endif
 
 #ifndef zend_isnan
 #ifdef HAVE_ISNAN
@@ -68,6 +103,8 @@ int zend_sprintf(char *buffer, const char *format, ...);
 #define zend_finite(a) (zend_isnan(a) ? 0 : zend_isinf(a) ? 0 : 1)
 #endif
 
+#endif /* ifndef ZEND_ACCONFIG_H_NO_C_PROTOS */
+
 #ifdef NETWARE
 #ifdef USE_WINSOCK
 #/*This detection against winsock is of no use*/ undef HAVE_SOCKLEN_T
@@ -79,5 +116,6 @@ int zend_sprintf(char *buffer, const char *format, ...);
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
+ * indent-tabs-mode: t
  * End:
  */

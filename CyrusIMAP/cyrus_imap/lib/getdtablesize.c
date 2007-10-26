@@ -1,5 +1,5 @@
 /* getdtablesize.c -- Returns the maximum number of file descriptors allowed.
- $Id: getdtablesize.c,v 1.5 2005/03/05 00:37:13 dasenbro Exp $
+ $Id: getdtablesize.c,v 1.7 2003/02/13 20:15:40 rjs3 Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

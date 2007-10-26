@@ -1,0 +1,49 @@
+#! /bin/bash
+
+# Copyright (C) 2007 Apple Inc. All rights reserved.
+# Push the current tree to the named server and build and install it.
+
+SCRIPTBASE=$(cd $(dirname $0) && pwd )
+
+.  $SCRIPTBASE/common.sh
+
+SERVER="$1"
+USERNAME=local
+PASSWORD=local
+
+TREE=$(pwd)
+BUILDDIR=$(basename $TREE)
+
+SSH_CONFIG=$(create_temp_file $0)
+trap "rm -f $SSH_CONFIG 2>/dev/null" 0 1 2 3 15
+
+cat >$SSH_CONFIG <<EOF
+Host *
+    CheckHostIP no
+    VerifyHostKeyDNS no
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+EOF
+
+BUILDIT=${BUILDIT:-"/usr/local/bin/buildit"}
+ARCHS=${ARCHS:-"-arch ppc -arch i386"}
+
+BUILD="sudo env BUILDIT_DIR=/var/tmp /usr/bin/time -l $BUILDIT $BUILDDIR $ARCHS -othercflags=-g -merge / "
+
+die()
+{
+    echo $* 1>&2
+    exit 1
+}
+
+rm -rf $TREE/samba/source/test.dir
+rm -rf $TREE/samba/source/a.out.dSYM
+
+RSYNC_PASSWORD=$PASSWORD rsync \
+    --rsh="ssh -F $SSH_CONFIG" \
+    --archive --cvs-exclude --delete-excluded --exclude=.git --compress \
+    $TREE $USERNAME@$SERVER:~ || die rsync failed
+
+ssh -F $SSH_CONFIG \
+    $USERNAME@$SERVER $BUILD || die build failed
+

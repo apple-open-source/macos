@@ -271,9 +271,8 @@ __private_extern__ enum weak_reference_mismatches_handling
     weak_reference_mismatches = WEAK_REFS_MISMATCH_ERROR;
 
 /* The Mac OS X deployment target */
-__private_extern__ enum macosx_deployment_target_value
-	macosx_deployment_target = 0;
-__private_extern__ const char *macosx_deployment_target_name = NULL;
+__private_extern__ struct macosx_deployment_target
+	macosx_deployment_target = { 0 };
 
 /* The prebinding optimization */
 #ifndef RLD
@@ -794,16 +793,12 @@ char *envp[])
 		    else if(strcmp(p, "dylib_install_name") == 0){
 			if(i + 1 >= argc)
 			    fatal("-dylib_install_name: argument missing");
-			if(dylib_install_name != NULL)
-			    fatal("-dylib_install_name multiply specified");
 			dylib_install_name = argv[i + 1];
 			i += 1;
 		    }
-		    else if(strcmp(p, "dylib_current_version") == 0){
+  		    else if(strcmp(p, "dylib_current_version") == 0){
 			if(i + 1 >= argc)
 			    fatal("-dylib_current_version: argument missing");
-			if(dylib_current_version != 0)
-			    fatal("-dylib_current_version multiply specified");
 			if(get_version_number("-dylib_current_version",
 			    argv[i+1], &dylib_current_version) == FALSE)
 			    cleanup();
@@ -816,9 +811,6 @@ char *envp[])
 			if(i + 1 >= argc)
 			    fatal("-dylib_compatibility_version: argument "
 				  "missing");
-			if(dylib_compatibility_version != 0)
-			    fatal("-dylib_compatibility_version multiply "
-				  "specified");
 			if(get_version_number("-dylib_compatibility_version",
 			    argv[i+1], &dylib_compatibility_version) == FALSE)
 			    cleanup();
@@ -917,6 +909,10 @@ char *envp[])
 		    }
 		    else if(strcmp(p, "no_uuid") == 0){
 			 output_uuid_info.suppress = TRUE;
+		    }
+		    else if(strcmp(p, "noall_load") == 0){
+		      /* Ignore the flag.  */
+		      ;
 		    }
 		    else
 			goto unknown_flag;
@@ -1454,6 +1450,31 @@ char *envp[])
 			i += 1;
 			break;
 		    }
+		    else if(strcmp(p, "compatibility_version") == 0){
+		        if(i + 1 >= argc)
+			    fatal("-compatibility_version: argument "
+				  "missing");
+			if(get_version_number("-compatibility_version",
+			    argv[i+1], &dylib_compatibility_version) == FALSE)
+			    cleanup();
+			if(dylib_compatibility_version == 0)
+			    fatal("-compatibility_version must be "
+				  "greater than zero");
+			i += 1;
+			break;
+		    }
+		    else if(strcmp(p, "current_version") == 0){
+		        if(i + 1 >= argc)
+			    fatal("-current_version: argument missing");
+			if(get_version_number("-current_version",
+			    argv[i+1], &dylib_current_version) == FALSE)
+			    cleanup();
+			if(dylib_current_version == 0)
+			    fatal("-current_version must be greater than "
+				  "zero");
+			i += 1;
+			break;
+		    }
 		    if(p[1] != '\0')
 			goto unknown_flag;
 		    break;
@@ -1480,6 +1501,12 @@ char *envp[])
 			if(++i >= argc)
 			    fatal("-init: argument missing");
 			init_name = argv[i];
+		    }
+		    else if(strcmp(p, "install_name") == 0){
+		        if(i + 1 >= argc)
+			    fatal("-install_name: argument missing");
+			dylib_install_name = argv[i + 1];
+			i += 1;
 		    }
 		    else{
 			/* create an indirect symbol, symbol_name, to be an
@@ -2023,12 +2050,10 @@ unknown_flag:
 	if(arch_flag.name != NULL){
 
 	    /*
-	     * 64-bit architectures are handled by ld64
+	     * 64-bit architectures are an error.
 	     */
-	    if(arch_flag.cputype & CPU_ARCH_ABI64) {
-	        argv[0] = "/usr/bin/ld64";
-	        ld_exit(!execute(argv, 0));
-	    }
+	    if(arch_flag.cputype & CPU_ARCH_ABI64)
+		fatal("does not support 64-bit architectures");
 
 	    family_arch_flag = get_arch_family_from_cputype(arch_flag.cputype);
 	    if(family_arch_flag == NULL)
@@ -2038,9 +2063,7 @@ unknown_flag:
 	    /*
 	     * Pick up the Mac OS X deployment target.
 	     */
-	    get_macosx_deployment_target(&macosx_deployment_target,
-					 &macosx_deployment_target_name,
-					 arch_flag.cputype);
+	    get_macosx_deployment_target(&macosx_deployment_target);
 	    /*
 	     * If for this cputype we are to always output the ALL cpusubtype
 	     * then set force_cpusubtype_ALL.
@@ -2080,9 +2103,8 @@ unknown_flag:
 	     * target architecture is not yet known so we can check to see if
 	     * the flags specified are valid.
 	     */
-	    get_macosx_deployment_target(&macosx_deployment_target,
-					 &macosx_deployment_target_name,
-					 CPU_TYPE_ANY);
+	    if(macosx_deployment_target.major == 0)
+		get_macosx_deployment_target(&macosx_deployment_target);
 	}
 
 	/*
@@ -2435,7 +2457,7 @@ unknown_flag:
 	 * shared libraries. So if this is not a split library then turn off
 	 * prebinding.
 	 */
-	if(macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_4){
+	if(macosx_deployment_target.major >= 4){
 	    if(filetype != MH_DYLIB){
 		if(prebinding_via_LD_PREBIND == FALSE &&
 		   prebinding_flag_specified == TRUE &&
@@ -2456,7 +2478,7 @@ unknown_flag:
 		 * If this library was not in the seg_addr_table see if it is
 		 * on the list of libraries not to be prebound. And if so turn
 		 * off prebinding.  Note this list is only ever used when
-		 * macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_4 .
+		 * macosx_deployment_target.major >= 4 .
 		 */
 		if(seg_addr_table_entry == NULL &&
 		   unprebound_library(dylib_install_name,
@@ -2576,7 +2598,7 @@ unknown_flag:
 	   undefined_flag != UNDEFINED_ERROR &&
 	   undefined_flag != UNDEFINED_DYNAMIC_LOOKUP &&
 	   undefined_flag != UNDEFINED_DEFINE_A_WAY){
-	    if(macosx_deployment_target >=MACOSX_DEPLOYMENT_TARGET_10_3)
+	    if(macosx_deployment_target.major >= 3)
 		fatal("-undefined error, -undefined dynamic_lookup or "
 		      "-undefined define_a_way must be used when "
 		      "-twolevel_namespace is in effect");
@@ -2588,10 +2610,10 @@ unknown_flag:
 	    if(dynamic == FALSE)
 		fatal("incompatible flag -undefined dynamic_lookup used (must "
 		      "specify \"-dynamic\" to be used)");
-	    if(macosx_deployment_target < MACOSX_DEPLOYMENT_TARGET_10_3)
+	    if(macosx_deployment_target.major < 3)
 		fatal("flag: -undefined dynamic_lookup can't be used with "
 		      "MACOSX_DEPLOYMENT_TARGET environment variable set to: "
-		      "%s", macosx_deployment_target_name);
+		      "%s", macosx_deployment_target.name);
 	}
 	if(twolevel_namespace == TRUE && nundef_syms != 0){
 	    fatal("can't use -U flags when -twolevel_namespace is in effect");
@@ -2794,6 +2816,10 @@ unknown_flag:
 			i++;
 			break;
 		    }
+		    else if(strcmp(p, "install_name") == 0){
+		        i++;
+			break;
+		    }
 		    /* create an indirect symbol, symbol_name, to be an indirect
 		       symbol for indr_symbol_name */
 		    symbol_name = p + 1;
@@ -2911,12 +2937,11 @@ unknown_flag:
 
  	/*
 	 * If the architecture was not specified, and was inferred
-	 * from the object files, see again if ld64 must be invoked.
+	 * from the object files, if it is a 64-bit architecture it is an error.
 	 */
 	if(arch_flag.cputype != 0 &&
 	    arch_flag.cputype & CPU_ARCH_ABI64){
-	    argv[0] = "/usr/bin/ld64";
-	    ld_exit(!execute(argv, 0));
+	    fatal("does not support 64-bit architectures");
 	}
 
 	/*

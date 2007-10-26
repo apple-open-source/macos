@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: offset.h,v 1.2.206.2 2004/03/11 05:58:43 marka Exp $ */
+/* $Id: offset.h,v 1.4 2004/03/16 05:52:23 marka Exp $ */
 
 #ifndef ISC_OFFSET_H
 #define ISC_OFFSET_H 1

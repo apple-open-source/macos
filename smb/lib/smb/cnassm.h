@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -76,7 +79,7 @@
 /*
  * R P C _ C N _ A S S O C _ S M _ T R C
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_CN_ASSOC_SM_TRC(assoc, event_id)\
 {\
     if ((assoc)->assoc_flags & RPC_C_CN_ASSOC_CLIENT)\
@@ -98,14 +101,14 @@
 }
 #else
 #define RPC_CN_ASSOC_SM_TRC(assoc, event_id)
-#endif /* DEBUG */
+#endif /* DEBUG_DCE_RPC */
 
 
 /***********************************************************************/
 /*
  * R P C _ C N _ A S S O C _ S M _ T R C _ S T A T E
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_CN_ASSOC_SM_TRC_STATE(assoc)\
 {\
     if ((assoc)->assoc_flags & RPC_C_CN_ASSOC_CLIENT)\
@@ -125,7 +128,7 @@
 }
 #else
 #define RPC_CN_ASSOC_SM_TRC_STATE(assoc)
-#endif /* DEBUG */
+#endif /* DEBUG_DCE_RPC */
 
 
 /***********************************************************************/

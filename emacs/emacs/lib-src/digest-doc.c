@@ -1,7 +1,8 @@
-/* Give this program DOCSTR.mm.nn as standard input and it outputs to
+/* Give this program DOC-mm.nn.oo as standard input and it outputs to
    standard output a file of nroff output containing the doc strings.
 
-   Copyright (C) 1987, 1994, 2001  Free Software Foundation Inc.
+   Copyright (C) 1987, 1994, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
    This file is part of GNU Emacs.
 
@@ -16,19 +17,31 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU Emacs; see the file COPYING.  If not, write to
-   the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
-   
+   along with GNU Emacs; see the file COPYING.  If not, write to the
+   Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.
+
    See also sorted-doc.c, which produces similar output
    but in texinfo format and sorted by function/variable name.  */
 
 #include <stdio.h>
+
+#ifdef DOS_NT
+#include <fcntl.h>		/* for O_BINARY */
+#include <io.h>			/* for setmode */
+#endif
 
 int
 main ()
 {
   register int ch;
   register int notfirst = 0;
+
+#ifdef DOS_NT
+  /* DOC is a binary file.  */
+  if (!isatty (fileno (stdin)))
+    setmode (fileno (stdin), O_BINARY);
+#endif
 
   printf (".TL\n");
   printf ("Command Summary for GNU Emacs\n");
@@ -64,3 +77,6 @@ main ()
     }
   return 0;
 }
+
+/* arch-tag: 2ba2c9b0-4157-4eba-bd9f-967e3677e35f
+   (do not change this comment) */

@@ -32,6 +32,17 @@
 
 extern BOOL doVerbose;
 
+void
+print_as_hex( void *bin, int len )
+{
+	int idx;
+	
+	for ( idx = 0; idx < len; idx++ )
+		printf( "%.2X ", ((unsigned char *)bin)[idx] );
+
+	printf("\n");
+}
+
 @implementation DSAuthenticateNT
 
 - (tDirStatus)authenticateInNode:(tDirNodeReference)userNode username:(NSString*)inUsername
@@ -56,7 +67,8 @@ extern BOOL doVerbose;
 	RAND_bytes(challenge, 8);
     if(doVerbose)
 	{
-		printf("---> challenge generated(): %s ............... ",challenge);
+		printf("---> challenge generated(): ");
+		print_as_hex( challenge, 8 );
 		fflush(stdout);
 	}
 	
@@ -64,14 +76,16 @@ extern BOOL doVerbose;
 	bzero( hash+16, 5);
     if(doVerbose)
 	{
-		printf("---> hash generated(): %s ............... ",hash);
+		printf("---> hash generated(): ");
+		print_as_hex( hash, 16 );
 		fflush(stdout);
 	}
 	
 	CalculateP24( hash, challenge, p24 );	// pick a random challenge, can be anything.
     if(doVerbose)
 	{
-		printf("---> p24 generated(): %s ............... ",p24);
+		printf("---> p24 generated(): ");
+		print_as_hex( p24, 24 );
 		fflush(stdout);
 	}
 		

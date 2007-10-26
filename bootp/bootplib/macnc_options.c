@@ -120,9 +120,9 @@ macNCtag_info(int tag)
 }
 
 boolean_t
-macNCopt_str_to_type(unsigned char * str, 
+macNCopt_str_to_type(const char * str, 
 		     int type, void * buf, int * len_p,
-		     unsigned char * err)
+		     char * err)
 {
     const dhcptype_info_t * 	type_info = macNCtype_info(type);
 
@@ -146,7 +146,7 @@ macNCopt_str_to_type(unsigned char * str,
 	  }
 	  *len_p = AFP_PASSWORD_LEN;
 	  bzero(buf, AFP_PASSWORD_LEN);
-	  strncpy((u_char *)buf, str, len);
+	  strncpy((char *)buf, str, len);
         }
 	break;
       case macNCtype_pstring_e: {
@@ -187,11 +187,11 @@ S_replace_separators(u_char * buf, int len, u_char sep, u_char new_sep)
 }
 
 boolean_t
-macNCopt_encodeAFPPath(struct in_addr iaddr, u_short port,
-		       u_char * volname, unsigned long dirID,
-		       u_char pathtype, u_char * pathname,
-		       u_char separator, void * buf,
-		       int * len_p, u_char * err)
+macNCopt_encodeAFPPath(struct in_addr iaddr, uint16_t port,
+		       const char * volname, uint32_t dirID,
+		       uint8_t pathtype, const char * pathname,
+		       char separator, void * buf,
+		       int * len_p, char * err)
 {
     void * 	buf_p = buf;
     int 	l;
@@ -225,14 +225,14 @@ macNCopt_encodeAFPPath(struct in_addr iaddr, u_short port,
 	bcopy(volname, (u_char *)buf_p, l);
     buf_p += l;
 
-    *((u_long *)buf_p) = dirID;			/* DirID */
+    *((uint32_t *)buf_p) = dirID;			/* DirID */
     buf_p += sizeof(dirID);
 
-    *((u_char *)buf_p) = pathtype;		/* AFPPathType */
+    *((uint8_t *)buf_p) = pathtype;		/* AFPPathType */
     buf_p += sizeof(pathtype);
 
     l = strlen(pathname);			/* PathName */
-    *((u_char *)buf_p) = l;
+    *((uint8_t *)buf_p) = l;
     buf_p++;
     if (l) {
 	bcopy(pathname, (u_char *)buf_p, l);
@@ -243,13 +243,14 @@ macNCopt_encodeAFPPath(struct in_addr iaddr, u_short port,
 }
 
 static void
-print_pstring(unsigned char * option)
+print_pstring(const uint8_t * option)
 
 {
-    int i;
+    int 	i;
+    int		len = option[0];
 
-    for (i = 0; i < option[0]; i++) {
-	u_char ch = option[1 + i];
+    for (i = 0; i < len; i++) {
+	char ch = option[1 + i];
 	printf("%c", ch ? ch : '.');
     }
 }
@@ -257,16 +258,16 @@ print_pstring(unsigned char * option)
 static void
 macNC_print_type(dhcptype_t type, void * opt, int option_len)
 {
-    int offset;
-    unsigned char * option = opt;
+    int 	offset;
+    uint8_t * 	option = opt;
 
     switch (type) {
       case macNCtype_afp_password_e:
 	if (option_len != AFP_PASSWORD_LEN)
 	    printf("bad password field\n");
 	else {
-	    u_char buf[9];
-	    strncpy(buf, (u_char *)opt, AFP_PASSWORD_LEN);
+	    char buf[9];
+	    strncpy(buf, (char *)opt, AFP_PASSWORD_LEN);
 	    buf[8] = '\0';
 	    printf(buf);
 	}

@@ -137,7 +137,7 @@ USRSBINDIR            = $(USRDIR)/sbin
 VARDIR                = /private/var
 VARTMPDIR             = $(VARDIR)/tmp
 
-SYSTEM_DEVELOPER_TOOLS_DOC_DIR = $(NSDEVELOPERDIR)/ADC Reference Library/documentation/DeveloperTools
+SYSTEM_DEVELOPER_TOOLS_DOC_DIR = $(NSDEVELOPERDIR)/Documentation/DocSets/com.apple.ADC_Reference_Library.DeveloperTools.docset/Contents/Resources/Documents/documentation/DeveloperTools
 
 ##
 # Targets

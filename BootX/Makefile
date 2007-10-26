@@ -14,7 +14,7 @@ PROJECT_TYPE = Aggregate
 
 TOOLS = macho-to-xcoff.tproj fcode-to-c.tproj bootx.tproj
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble BootX.plist BootX.txt
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

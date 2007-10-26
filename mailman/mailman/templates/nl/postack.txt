@@ -1,7 +1,8 @@
-Uw bericht getiteld
+Uw bericht met het onderwerp
 
     %(subject)s
 
-is goed ontvangen door de %(listname)s mailing lijst.
+is in goede orde ontvangen door de %(listname)s maillijst.
 
-Lijst info pagina: %(listinfo_url)s
+Lijst-info pagina: %(listinfo_url)s
+Uw instellingen: %(optionsurl)s

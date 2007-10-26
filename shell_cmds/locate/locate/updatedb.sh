@@ -51,7 +51,7 @@ PATH=$LIBEXECDIR:/bin:/usr/bin:$PATH; export PATH
 : ${mklocatedb:=locate.mklocatedb}	 # make locate database program
 : ${FCODES:=/var/db/locate.database}	 # the database
 : ${SEARCHPATHS:="/"}		# directories to be put in the database
-: ${PRUNEPATHS:="/tmp /var/tmp"} # unwanted directories
+: ${PRUNEPATHS:="/tmp /var/tmp */Backups.backupdb"} # unwanted directories
 : ${FILESYSTEMS:="hfs ufs"}			 # allowed filesystems 
 : ${find:=find}
 

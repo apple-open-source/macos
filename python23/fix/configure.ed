@@ -1,0 +1,36 @@
+g/ -arch_only ppc/s///
+/^#define _BSD_TYPES 1/+1a
+
+
+# The later defininition of _XOPEN_SOURCE and _POSIX_C_SOURCE disables
+# certain features on Mac OS X, so we need _DARWIN_C_SOURCE to re-enable
+# them.
+
+cat >>confdefs.h <<\_ACEOF
+#define _DARWIN_C_SOURCE 1
+_ACEOF
+.
+/Some systems cannot stand _XOPEN_SOURCE/a
+.
+/| Darwin\/6\*/s,,| Darwin/[6-8]*,
+/^if test -z "$LDSHARED"/a
+.
+g/-current_version $(VERSION)/s//-current_version $(PYTHON_CURRENT_VERSION)/
+/DYNLOADFILE="dynload_next.o"/s,Darwin/\*,Darwin/[1-7].*,
+/ RANLIB /s//&LIBTOOL /
+/@RANLIB@/a
+s,@LIBTOOL@,$LIBTOOL,;t t
+.
+/LIBTOOL_CRUFT=/a
+.
+.-1c
+  Darwin/[1-7].*)
+    LIBTOOL="libtool"
+.
+/Darwin\/\*/+1c
+    LIBTOOL='gcc -dynamiclib -all_load $(CFLAGS)'
+    LIBTOOL_CRUFT=""
+.
+g/-O3/s//-Os/g
+g/__dummy/s//__objcInit/
+w

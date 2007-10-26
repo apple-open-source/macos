@@ -1,7 +1,44 @@
-{
-  Description     = "Printing Services";
-  Provides        = ("PrintingServices");
-  Requires        = ("Resolver");
-  Uses            = ("Network Time");
-  OrderPreference = "Late";
-}
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2007-09-28</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>LICENSE.txt</string>
+		<key>OpenSourceMD5</key>
+		<string></string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Imported CUPS 1.3.3</string>
+			<string>Imported CUPS 1.3.2</string>
+			<string>Imported CUPS 1.3.1</string>
+			<string>Imported CUPS 1.3.0</string>
+			<string>Imported CUPS 1.3svn-r6781</string>
+			<string>Imported CUPS 1.3svn-r6758</string>
+			<string>Imported CUPS 1.3svn-r6739</string>
+			<string>Imported CUPS 1.3svn-r6695</string>
+			<string>pap backend fixes</string>
+			<string>Move to cups 1.2svn</string>
+			<string>Updated Makefiles</string>
+			<string>Imported CUPS 1.2.5</string>
+			<string>Imported CUPS 1.2.6</string>
+			<string>Imported CUPS 1.2.7</string>
+			<string>Imported CUPS 1.2.8</string>
+			<string>Imported CUPS 1.3svn-r6446</string>
+			<string>Imported CUPS 1.3svn-r6686</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>CUPS</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.cups.org/software.php#SVN</string>
+		<key>OpenSourceVersion</key>
+		<string>1.3.3</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.cups.org/</string>
+	</dict>
+</array>
+</plist>

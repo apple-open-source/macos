@@ -40,51 +40,48 @@ class IOFireWireController;
 
 typedef void * IOFWRequestRefCon;
 
-/*
- * Callback called when a write request packet is received for
- * a 'virtual' firewire address.
- * device is the node originating the request
- * speed is the FireWire speed of the request, update it if you need to control
- * the speed of the reply, otherwise the response will be the same speed.
- * addr is the address the device is requesting to write to
- * len is the number of bytes to write
- * buf contains the packet data
- * requestRefcon refcon Can be queried for extra info about the request,
- * using IOFireWireController::isLockRequest(), isQuadRequest()
- * return:
-	kFWResponseComplete			= 0,	// OK!
-	kFWResponseConflictError	= 4,	// Resource conflict, may retry
-	kFWResponseDataError		= 5,	// Data not available
-	kFWResponseTypeError		= 6,	// Operation not supported
-	kFWResponseAddressError		= 7		// Address not valid in target device
- */
-
+/*!	@function	FWWriteCallback
+	@abstract	Callback called when a write request packet is received for
+				a 'virtual' firewire address.
+	@param		device	is the node originating the request
+	@param		speed	is the FireWire speed of the request, update it if you need to control
+						the speed of the reply, otherwise the response will be the same speed.
+	@param		addr	is the address the device is requesting to write to
+	@param		len		is the number of bytes to write
+	@param		buf		contains the packet data
+	@param		requestRefcon	refcon Can be queried for extra info about the request,
+								using IOFireWireController::isLockRequest(), isQuadRequest()
+	@result		return:
+				kFWResponseComplete			= 0,	OK
+				kFWResponseConflictError	= 4,	Resource conflict, may retry
+				kFWResponseDataError		= 5,	Data not available
+				kFWResponseTypeError		= 6,	Operation not supported
+				kFWResponseAddressError		= 7		Address not valid in target device */
 typedef UInt32 (*FWWriteCallback)(void *refcon, UInt16 nodeID, IOFWSpeed &speed,
                                   FWAddress addr, UInt32 len, const void *buf, IOFWRequestRefCon requestRefcon);
 
-/*
- * Callback called when a read request packet is received for
- * a 'virtual' firewire address.
- * nodeID is the node originating the request
- * speed is the FireWire speed of the request, update it if you need to control
- * the speed of the reply, otherwise the response will be the same speed.
- * addr is the address the device is requesting to write to
- * len is the number of bytes to write
- * buf on return points to a memory descriptor containing the packet data
- * offset on return points to the offset into *buf of the packet data
- * requestRefcon refcon to pass back if sending a delayed response. Also can be queried for extra info about the request
- * return:
-    kFWResponsePending			= -1,	// Pseudo response, real response sent later.
-	kFWResponseComplete			= 0,	// OK!
-	kFWResponseConflictError	= 4,	// Resource conflict, may retry
-	kFWResponseDataError		= 5,	// Data not available
-	kFWResponseTypeError		= 6,	// Operation not supported
-	kFWResponseAddressError		= 7		// Address not valid in target device
- *
- * A return of kFWResponsePending should be followed at some later time by a call to
- * IOFireWireController::asyncReadResponse
- */
- 
+/*!	@function	FWReadCallback
+	@abstract	Callback called when a read request packet is received for
+				a 'virtual' firewire address.
+	@param		 nodeID is the node originating the request
+	@param		speed is the FireWire speed of the request, update it if you need to control
+						the speed of the reply, otherwise the response will be the same speed.
+	@param		addr is the address the device is requesting to read from
+	@param		len is the number of bytes to read
+	@param		buf contains the packet data
+	@param		offset on return points to the offset into *buf of the packet data
+	@param		requestRefcon   refcon to pass back if sending a delayed response. Also can be queried 
+								for extra info about the request
+	@result		return:
+    kFWResponsePending			= -1,	Pseudo response, real response sent later.
+	kFWResponseComplete			= 0,	OK!
+	kFWResponseConflictError	= 4,	Resource conflict, may retry
+	kFWResponseDataError		= 5,	Data not available
+	kFWResponseTypeError		= 6,	Operation not supported
+	kFWResponseAddressError		= 7		Address not valid in target device 
+
+	A return of kFWResponsePending should be followed at some later time by a call to
+	IOFireWireController::asyncReadResponse	*/ 
 typedef UInt32 (*FWReadCallback)(void *refcon, UInt16 nodeID, IOFWSpeed &speed,
                                 FWAddress addr, UInt32 len, IOMemoryDescriptor **buf,
                                  IOByteCount * offset, IOFWRequestRefCon requestRefcon);
@@ -92,10 +89,6 @@ typedef UInt32 (*FWReadCallback)(void *refcon, UInt16 nodeID, IOFWSpeed &speed,
 class IOFWAddressSpace;
 
 #pragma mark -
-
-/*! 
-	@class IOFWAddressSpaceAux
-*/
 
 class IOFWAddressSpaceAux : public OSObject
 {
@@ -110,6 +103,8 @@ protected:
 	
 	OSSet *					fTrustedNodeSet;
     OSIterator *			fTrustedNodeSetIterator;
+	
+	bool					fExclusive;
 	
 	/*! 
 		@struct ExpansionData
@@ -132,9 +127,14 @@ protected:
 	virtual void addTrustedNode( IOFireWireDevice * device );
 	virtual void removeTrustedNode( IOFireWireDevice * device );
 	virtual void removeAllTrustedNodes( void );
+
+	bool isExclusive( void );
+	void setExclusive( bool exclusive );
 	
+	virtual bool intersects( IOFWAddressSpace * space );
+		
 private:
-    OSMetaClassDeclareReservedUnused(IOFWAddressSpaceAux, 0);
+    OSMetaClassDeclareReservedUsed(IOFWAddressSpaceAux, 0);
     OSMetaClassDeclareReservedUnused(IOFWAddressSpaceAux, 1);
     OSMetaClassDeclareReservedUnused(IOFWAddressSpaceAux, 2);
     OSMetaClassDeclareReservedUnused(IOFWAddressSpaceAux, 3);
@@ -188,32 +188,124 @@ protected:
 	virtual	void free();
   
 public:
-    virtual UInt32 doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len, 
+
+	/*!	@function	doRead
+		@abstract	An abstract method for processing an address space read request
+		@param		nodeID	FireWire Read from nodeID.
+		@param		speed	at this 'speed'.
+		@param		addr	with FireWire address 'addr'.
+		@param		len		read 'len' bytes from nodeID.
+		@param		buf		points to a memory descriptor containing the packet data.
+		@param		offset	start from this 'offset' in 'buf'.
+		@param		refcon  Can be queried for extra info about the request.
+		@result		UIn32	returns kFWResponseComplete on success */
+	virtual UInt32 doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len, 
 					IOMemoryDescriptor **buf, IOByteCount * offset,
                           IOFWRequestRefCon refcon) = 0;
+						  
+	/*!	@function	doWrite
+		@abstract	An abstract method for processing an address space write request
+		@param		nodeID	FireWire Write to nodeID.
+		@param		speed	at this 'speed'.
+		@param		addr	with FireWire address 'addr'.
+		@param		len		write 'len' bytes to nodeID.
+		@param		buf		obtain bytes from location given by 'buf'.
+		@param		refcon  Can be queried for extra info about the request.
+		@result		UIn32	returns kFWResponseComplete on success */
     virtual UInt32 doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
                            const void *buf, IOFWRequestRefCon refcon) = 0;
+
+	/*!	@function	doLock
+		@abstract	A method for processing a lock request.
+		@param		nodeID	FireWire Lock request for nodeID.
+		@param		speed	at this 'speed'.
+		@param		addr	with FireWire address 'addr'.
+		@param		inlen	'inlen' bytes to use.
+		@param		newVal	new value to write at 'addr' location .
+		@param		outLen	'outLen' bytes for result.
+		@param		oldVal	old value read from 'addr' location.
+		@param		extType	Type like kFWExtendedTCodeCompareSwap.
+		@param		refcon  Can be queried for extra info about the request.
+		@result		UIn32	returns kFWResponseComplete on success */
     virtual UInt32 doLock(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 inlen,
                           const UInt32 *newVal, UInt32 &outLen, UInt32 *oldVal,
                           UInt32 extType, IOFWRequestRefCon refcon);
-    
+
+	/*!	@function	activate
+		@abstract	Address space is ready for handling requests.
+		@result		IOReturn
+		*/
     virtual IOReturn activate();
+	
+	/*!	@function	deactivate
+		@abstract	Address space request handler is disabled.
+		@result		none
+		*/
     virtual void deactivate();
     
-    // returns number of bytes starting at addr in this space (0 if not in it)
+	/*!	@function	contains
+		@abstract	returns number of bytes starting at addr in this space
+		@result		0 if it doesn't contain the address
+		*/
     virtual UInt32 contains(FWAddress addr);
 
+	/*!	@function	isTrustedNode
+		@abstract	returns true if the node is added as a trusted node
+		@param		nodeID is the nodeID to verify whether its trusted.
+		@result		false if nodeID is not trusted
+		*/
 	inline bool isTrustedNode( UInt16 nodeID ) 
-		{ return fIOFWAddressSpaceExpansion->fAuxiliary->isTrustedNode( nodeID ); }
+				{ return fIOFWAddressSpaceExpansion->fAuxiliary->isTrustedNode( nodeID ); }
 
+	/*!	@function	addTrustedNode
+		@abstract	Add a trusted node.
+		@param		device object pointing to a FireWire node on the bus.
+		@result		none
+		*/
 	inline void addTrustedNode( IOFireWireDevice * device )
-		{ fIOFWAddressSpaceExpansion->fAuxiliary->addTrustedNode( device ); }
+				{ fIOFWAddressSpaceExpansion->fAuxiliary->addTrustedNode( device ); }
 	
+	/*!	@function	removeTrustedNode
+		@abstract	Remove a trusted node.
+		@param		device object pointing to a FireWire node on the bus.
+		@result		none
+		*/
 	inline void removeTrustedNode( IOFireWireDevice * device )
-		{ fIOFWAddressSpaceExpansion->fAuxiliary->removeTrustedNode( device ); }
+				{ fIOFWAddressSpaceExpansion->fAuxiliary->removeTrustedNode( device ); }
 		
+	/*!	@function	removeAllTrustedNodes
+		@abstract	Remove all trusted nodes.
+		@result		none
+		*/
 	inline void removeAllTrustedNodes( void )
-		{ fIOFWAddressSpaceExpansion->fAuxiliary->removeAllTrustedNodes(); }
+				{ fIOFWAddressSpaceExpansion->fAuxiliary->removeAllTrustedNodes(); }
+
+	/*!	@function	isExclusive
+		@abstract	Checks if an address space wants exclusive control of its address range
+		@result		True if the address space is marked exclusive false otherwise
+		*/
+
+	inline bool isExclusive( void )
+		{ return fIOFWAddressSpaceExpansion->fAuxiliary->isExclusive(); }
+
+	/*!	@function	setExclusive
+		@abstract	Sets if this address space requires exclusive control of its address range. Exclusivity should be set before an address space is activated.
+		@param		exclusive  True if address space should be exclusive, false otherwise
+		@result		none
+	*/
+		
+	inline void setExclusive( bool exclusive )
+		{ fIOFWAddressSpaceExpansion->fAuxiliary->setExclusive( exclusive ); }
+
+	/*!	@function	intersects
+		@abstract	Checks this address space intersects with the given address range. Currently only supports IOFWPsuedoAddressSpaces.
+		@param		space  An address space to compare against
+		@result		True if the address spaces intersect false otherwise
+	*/
+		
+	inline bool intersects( IOFWAddressSpace * space )
+		{ return fIOFWAddressSpaceExpansion->fAuxiliary->intersects( space ); }
+
 		
 protected:
 	

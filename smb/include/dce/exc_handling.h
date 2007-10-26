@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2005 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -17,8 +20,6 @@
  * representations about the suitability of this software for any
  * purpose.
  * 
- */
-/*
  */
 #ifndef EXC_HANDLING_H
 #define EXC_HANDLING_H

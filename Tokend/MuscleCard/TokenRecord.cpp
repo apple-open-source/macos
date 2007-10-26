@@ -39,5 +39,4 @@ TokenRecord::~TokenRecord()
 {
 }
 
-/* arch-tag: 57065DCC-E707-11D8-AF7F-000A95C4302E */
 

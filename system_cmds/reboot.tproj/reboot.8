@@ -36,21 +36,21 @@
 .Dt REBOOT 8
 .Os
 .Sh NAME
-.Nm reboot ,
-.Nm halt 
+.Nm halt ,
+.Nm reboot
 .Nd stopping and restarting the system
 .Sh SYNOPSIS
 .Nm halt
-.Op Fl lnq
-.Nm
+.Op Fl lnqu
+.Nm reboot
 .Op Fl lnq
 .Sh DESCRIPTION
 The
 .Nm halt
 and
-.Nm
-utilities flush the file system cache to disk, send all running processes
-a
+.Nm reboot
+utilities flush the file system cache to disk,
+send all running processes a
 .Dv SIGTERM
 (and subsequently a
 .Dv SIGKILL )
@@ -66,11 +66,11 @@ The options are as follows:
 .It Fl l
 The halt or reboot is
 .Em not
-logged to the system log.
+recorded in the system log.
 This option is intended for applications such as
 .Xr shutdown 8 ,
 that call
-.Nm
+.Nm reboot
 or
 .Nm halt
 and log this themselves.
@@ -83,6 +83,12 @@ the flushing of the file system cache is performed (if the
 .Fl n
 option is not specified).
 This option should probably not be used.
+.It Fl u
+The system is halted up until the point of removing system power, but waits 
+before removing power for 5 minutes so that an external UPS 
+(uninterruptible power supply) can forcibly remove power. 
+This simulates a dirty shutdown to permit a later automatic power on. OS X uses
+this mode automatically with supported UPSs in emergency shutdowns.
 .El
 .Pp
 Normally, the
@@ -90,12 +96,20 @@ Normally, the
 utility is used when the system needs to be halted or restarted, giving
 users advance warning of their impending doom and cleanly terminating
 specific programs.
+.Sh SIGTERM TO SIGKILL INTERVAL
+The
+.Dv SIGKILL
+will follow the
+.Dv SIGTERM
+by an intentionally indeterminate period of time.
+Programs are expected to take only enough time to flush all dirty data and exit.
+Developers are encouraged to file a bug with the OS vendor, should they encounter an issue with this functionality.
 .Sh SEE ALSO
 .Xr wtmp 5 ,
 .Xr shutdown 8 ,
 .Xr sync 8
 .Sh HISTORY
 A
-.Nm
+.Nm reboot
 utility appeared in
 .At v6 .

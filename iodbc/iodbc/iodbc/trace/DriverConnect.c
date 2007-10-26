@@ -1,20 +1,24 @@
 /*
  *  DriverConnect.c
  *
- *  $Id: DriverConnect.c,v 1.2 2004/11/11 01:52:38 luesang Exp $
+ *  $Id: DriverConnect.c,v 1.6 2006/01/20 15:58:35 source Exp $
  *
  *  SQLDriverConnect trace functions
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1996-2003 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -69,6 +73,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "trace.h"
 
 
@@ -94,21 +99,21 @@ _trace_connstr_hidepwd (SQLCHAR *str)
 	  break;
 
 	case 0:
-	  if (*ptr == 'P')
+	  if (toupper(*ptr) == 'P')
 	    state = 1;
 	  else if (strchr ("\'\"{", *ptr))
 	    state = -1;		/* in string */
 	  break;
 
 	case 1:
-	  if (*ptr == 'W')
+	  if (toupper(*ptr) == 'W')
 	    state = 2;
 	  else
 	    state = 0;
 	  break;
 
 	case 2:
-	  if (*ptr == 'D')
+	  if (toupper(*ptr) == 'D')
 	    state = 3;
 	  else
 	    state = 0;
@@ -270,6 +275,7 @@ trace_SQLDriverConnect (int trace_leave, int retcode,
 }
 
 
+#if ODBCVER >= 0x0300
 void 
 trace_SQLDriverConnectW (int trace_leave, int retcode,
   SQLHDBC		  hdbc,
@@ -295,3 +301,4 @@ trace_SQLDriverConnectW (int trace_leave, int retcode,
   _trace_smallint_p (pcbConnStrOut, TRACE_OUTPUT_SUCCESS);
   _trace_drvcn_completion (fDriverCompletion);
 }
+#endif

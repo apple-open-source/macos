@@ -166,31 +166,34 @@ HIDOpenReportDescriptor	   (void *					hidReportDescriptor,
  *	  and initialize the counters there
 */
 	iStatus = HIDCountDescriptorItems(&tDescriptor,ptPreparsedData);
-	if (iStatus != kHIDSuccess)
-		return iStatus;
-/*
- *	Parse the Descriptor
- *	  filling in the structures in the PreparsedData structure
-*/
-	iStatus = HIDParseDescriptor(&tDescriptor,ptPreparsedData);
-/*
- *	Mark the PreparsedData initialized, maybe
-*/
-	if (iStatus == kHIDSuccess && ptPreparsedData->rawMemPtr != NULL)
-	{
-		ptPreparsedData->hidTypeIfValid = kHIDOSType;
-		*preparsedDataRef = (HIDPreparsedDataRef) ptPreparsedData;
-	}
-	else	// something failed, deallocate everything, and make sure we return an error
-	{
-		if (ptPreparsedData->rawMemPtr != NULL)
-			PoolDeallocate (ptPreparsedData->rawMemPtr, ptPreparsedData->numBytesAllocated);
-			
-		PoolDeallocate (ptPreparsedData, sizeof(HIDPreparsedData));
-		
-		if (iStatus == kHIDSuccess)
-			iStatus = kHIDNotEnoughMemoryErr;
-	}
-	
+    
+    /*
+     *	Parse the Descriptor
+     *	  filling in the structures in the PreparsedData structure
+    */
+	if (iStatus == kHIDSuccess)
+    {
+        iStatus = HIDParseDescriptor(&tDescriptor,ptPreparsedData);
+    /*
+     *	Mark the PreparsedData initialized, maybe
+    */
+        if (iStatus == kHIDSuccess && ptPreparsedData->rawMemPtr != NULL)
+        {
+            ptPreparsedData->hidTypeIfValid = kHIDOSType;
+            *preparsedDataRef = (HIDPreparsedDataRef) ptPreparsedData;
+        
+            return kHIDSuccess;
+        }
+    }
+    
+	// something failed, deallocate everything, and make sure we return an error
+    if (ptPreparsedData->rawMemPtr != NULL)
+        PoolDeallocate (ptPreparsedData->rawMemPtr, ptPreparsedData->numBytesAllocated);
+        
+    PoolDeallocate (ptPreparsedData, sizeof(HIDPreparsedData));
+    
+    if (iStatus == kHIDSuccess)
+        iStatus = kHIDNotEnoughMemoryErr;
+
 	return iStatus;
 }

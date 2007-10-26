@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,7 +54,7 @@ __SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 	/*
 	 * cleanup any file based notifications.
 	 */
-	if (storePrivate->notifyFile >= 0) {
+	if (storePrivate->notifyFile != -1) {
 		// close (notification) fd
 		(void) close(storePrivate->notifyFile);
 		storePrivate->notifyFile = -1;
@@ -97,7 +97,7 @@ _notifycancel(mach_port_t	server,
 {
 	serverSessionRef	mySession = getSession(server);
 
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
 	}

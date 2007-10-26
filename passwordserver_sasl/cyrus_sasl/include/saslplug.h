@@ -186,8 +186,11 @@ typedef struct sasl_out_params {
     int (*decode)(void *context, const char *input, unsigned inputlen,
 		  const char **output, unsigned *outputlen);
     
+    /* Pointer to delegated (client's) credentials, if supported by
+       the SASL mechanism */
+    void *client_creds;
+
     /* for additions which don't require a version upgrade; set to 0 */
-    void *spare_ptr1;
     void *spare_ptr2;
     void *spare_ptr3;
     void *spare_ptr4;
@@ -204,6 +207,17 @@ typedef struct sasl_out_params {
      */
     int param_version;
 } sasl_out_params_t;
+
+
+
+/* Used by both client and server side plugins */
+typedef enum  {
+    SASL_INFO_LIST_START = 0,
+    SASL_INFO_LIST_MECH,
+    SASL_INFO_LIST_END
+} sasl_info_callback_stage_t;
+
+
 
 /******************************
  * Client Mechanism Functions *
@@ -411,10 +425,29 @@ typedef int sasl_client_plug_init_t(const sasl_utils_t *utils,
 				    sasl_client_plug_t **pluglist,
 				    int *plugcount);
 
+
 /* add a client plug-in
  */
 LIBSASL_API int sasl_client_add_plugin(const char *plugname,
 				       sasl_client_plug_init_t *cplugfunc);
+
+typedef struct client_sasl_mechanism
+{
+    int version;
+
+    char *plugname;
+    const sasl_client_plug_t *plug;
+} client_sasl_mechanism_t;
+
+typedef void sasl_client_info_callback_t (client_sasl_mechanism_t *m,
+					  sasl_info_callback_stage_t stage,
+					  void *rock);
+
+/* Dump information about available client plugins */
+LIBSASL_API int sasl_client_plugin_info (char *mech_list,
+	sasl_client_info_callback_t *info_cb,
+	void *info_cb_rock);
+
 
 /********************
  * Server Functions *
@@ -735,6 +768,29 @@ typedef int sasl_server_plug_init_t(const sasl_utils_t *utils,
  */
 LIBSASL_API int sasl_server_add_plugin(const char *plugname,
 				       sasl_server_plug_init_t *splugfunc);
+
+
+typedef struct server_sasl_mechanism
+{
+    int version;
+    int condition; /* set to SASL_NOUSER if no available users;
+		      set to SASL_CONTINUE if delayed plugin loading */
+    char *plugname; /* for AUTHSOURCE tracking */
+    const sasl_server_plug_t *plug;
+    char *f;       /* where should i load the mechanism from? */
+} server_sasl_mechanism_t;
+
+typedef void sasl_server_info_callback_t (server_sasl_mechanism_t *m,
+					  sasl_info_callback_stage_t stage,
+					  void *rock);
+
+
+/* Dump information about available server plugins (separate functions should be
+   used for canon and auxprop plugins */
+LIBSASL_API int sasl_server_plugin_info (char *mech_list,
+	sasl_server_info_callback_t *info_cb,
+	void *info_cb_rock);
+
 
 /*********************************************************
  * user canonicalization plug-in -- added cjn 1999-09-29 *

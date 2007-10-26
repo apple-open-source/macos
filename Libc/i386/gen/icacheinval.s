@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,10 +21,25 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+ 
+ 
+ #include <machine/cpu_capabilities.h>
+
+
     .text
     .align 4, 0x00
 
 /* void sys_icache_invalidate(addr_t start, int length) */
+
 .globl	_sys_icache_invalidate
 _sys_icache_invalidate:
-  ret
+	movl	$(_COMM_PAGE_FLUSH_ICACHE), %eax
+	jmpl	*%eax
+
+
+/* void sys_dcache_flush(addr_t start, int length)  */
+
+.globl	_sys_dcache_flush
+_sys_dcache_flush:
+	movl	$(_COMM_PAGE_FLUSH_DCACHE), %eax
+	jmpl	*%eax

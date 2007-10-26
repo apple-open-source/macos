@@ -152,7 +152,9 @@ set_winsize (tty)
 #endif /* TIOCGWINSZ */
 }
 
-#if defined (NEW_TTY_DRIVER)
+#if defined (NO_TTY_DRIVER)
+/* Nothing */
+#elif defined (NEW_TTY_DRIVER)
 
 /* Values for the `flags' field of a struct bsdtty.  This tells which
    elements of the struct bsdtty have been fetched from the system and
@@ -636,6 +638,22 @@ prepare_terminal_settings (meta_flag, oldtio, tiop)
 }
 #endif  /* NEW_TTY_DRIVER */
 
+/* Put the terminal in CBREAK mode so that we can detect key
+   presses. */
+#if defined (NO_TTY_DRIVER)
+void
+rl_prep_terminal (meta_flag)
+     int meta_flag;
+{
+  readline_echoing_p = 1;
+}
+
+void
+rl_deprep_terminal ()
+{
+}
+
+#else /* ! NO_TTY_DRIVER */
 /* Put the terminal in CBREAK mode so that we can detect key presses. */
 void
 rl_prep_terminal (meta_flag)
@@ -710,6 +728,7 @@ rl_deprep_terminal ()
 
   release_sigint ();
 }
+#endif /* !NO_TTY_DRIVER */
 
 /* **************************************************************** */
 /*								    */
@@ -721,6 +740,10 @@ int
 rl_restart_output (count, key)
      int count, key;
 {
+#if defined (__MINGW32__)
+  return 0;
+#else /* !__MING32__ */
+
   int fildes = fileno (rl_outstream);
 #if defined (TIOCSTART)
 #if defined (apollo)
@@ -748,12 +771,17 @@ rl_restart_output (count, key)
 #endif /* !TIOCSTART */
 
   return 0;
+#endif /* !__MINGW32__ */
 }
 
 int
 rl_stop_output (count, key)
      int count, key;
 {
+#if defined (__MINGW32__)
+  return 0;
+#else
+
   int fildes = fileno (rl_instream);
 
 #if defined (TIOCSTOP)
@@ -776,6 +804,7 @@ rl_stop_output (count, key)
 #endif /* !TIOCSTOP */
 
   return 0;
+#endif /* !__MINGW32__ */
 }
 
 /* **************************************************************** */
@@ -790,6 +819,7 @@ void
 rltty_set_default_bindings (kmap)
      Keymap kmap;
 {
+#if !defined (NO_TTY_DRIVER)
   TIOTYPE ttybuff;
   int tty = fileno (rl_instream);
 
@@ -848,6 +878,7 @@ rltty_set_default_bindings (kmap)
 #  endif /* VWERASE && TERMIOS_TTY_DRIVER */
     }
 #endif /* !NEW_TTY_DRIVER */
+#endif
 }
 
 /* New public way to set the system default editing chars to their readline
@@ -861,7 +892,7 @@ rl_tty_set_default_bindings (kmap)
 
 #if defined (HANDLE_SIGNALS)
 
-#if defined (NEW_TTY_DRIVER)
+#if defined (NEW_TTY_DRIVER) || defined (NO_TTY_DRIVER)
 int
 _rl_disable_tty_signals ()
 {

@@ -1,13 +1,16 @@
 ;;; quail.el --- provides simple input method for multilingual text
 
-;; Copyright (C) 1995, 2000 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
-;; Copyright (C) 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007  Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Author: Kenichi HANDA <handa@etl.go.jp>
 ;;	   Naoto TAKAHASHI <ntakahas@etl.go.jp>
 ;; Maintainer: Kenichi HANDA <handa@etl.go.jp>
-;; Keywords: mule, multilingual, input method
+;; Keywords: mule, multilingual, input method, i18n
 
 ;; This file is part of GNU Emacs.
 
@@ -23,8 +26,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -42,7 +45,17 @@
 ;; Kanji-and-Kana mixed text or Katakana text by commands specified in
 ;; CONVERSION-KEYS argument of the Quail package.
 
+;; [There was an input method for Mule 2.3 called `Tamago' from the
+;; Japanese `TAkusan MAtasete GOmenasai', or `Sorry for having you
+;; wait so long'; this couldn't be included in Emacs 20.  `Tamago' is
+;; Japanese for `egg' (implicitly a hen's egg).  Handa-san made a
+;; smaller and simpler system; the smaller quail egg is also eaten in
+;; Japan.  Maybe others will be egged on to write more sorts of input
+;; methods.]
+
 ;;; Code:
+
+(require 'help-mode)
 
 (defgroup quail nil
   "Quail: multilingual input method."
@@ -56,20 +69,19 @@ See the documentation of `quail-package-alist' for the format.")
 (make-variable-buffer-local 'quail-current-package)
 (put 'quail-current-package 'permanent-local t)
 
-;; Quail uses the following two buffers to assist users.
-;; A buffer to show available key sequence or translation list.
-(defvar quail-guidance-buf nil)
+;; Quail uses the following variables to assist users.
+;; A string containing available key sequences or translation list.
+(defvar quail-guidance-str nil)
 ;; A buffer to show completion list of the current key sequence.
 (defvar quail-completion-buf nil)
+;; We may display the guidance string in a buffer on a one-line frame.
+(defvar quail-guidance-buf nil)
+(defvar quail-guidance-frame nil)
 
 ;; Each buffer in which Quail is activated should use different
-;; guidance buffers.
-(make-variable-buffer-local 'quail-guidance-buf)
-(put 'quail-guidance-buf 'permanent-local t)
-
-;; A main window showing Quail guidance buffer.
-(defvar quail-guidance-win nil)
-(make-variable-buffer-local 'quail-guidance-win)
+;; guidance string.
+(make-variable-buffer-local 'quail-guidance-str)
+(put 'quail-guidance-str 'permanent-local t)
 
 (defvar quail-overlay nil
   "Overlay which covers the current translation region of Quail.")
@@ -137,7 +149,7 @@ See the documentation of `quail-define-package' for the other elements.")
 	title
       (condition-case nil
 	  (mapconcat
-	   (lambda (x) 
+	   (lambda (x)
 	     (cond ((stringp x) x)
 		   ((and (listp x) (symbolp (car x)) (= (length x) 3))
 		    (if (symbol-value (car x))
@@ -504,7 +516,7 @@ non-Quail commands."
   (let ((pos (point)))
     (if (overlayp quail-overlay)
 	(move-overlay quail-overlay pos pos)
-      (setq quail-overlay (make-overlay pos pos nil nil t))
+      (setq quail-overlay (make-overlay pos pos))
       (if input-method-highlight-flag
 	  (overlay-put quail-overlay 'face 'underline))
       (let ((l (quail-overlay-plist)))
@@ -515,7 +527,7 @@ non-Quail commands."
 	(if (overlayp quail-conv-overlay)
 	    (if (not (overlay-start quail-conv-overlay))
 		(move-overlay quail-conv-overlay pos pos))
-	  (setq quail-conv-overlay (make-overlay pos pos nil nil t))
+	  (setq quail-conv-overlay (make-overlay pos pos))
 	  (if input-method-highlight-flag
 	      (overlay-put quail-conv-overlay 'face 'underline))))))
 
@@ -525,11 +537,6 @@ non-Quail commands."
       (delete-overlay quail-overlay))
   (if (and (overlayp quail-conv-overlay) (overlay-start quail-conv-overlay))
       (delete-overlay quail-conv-overlay)))
-
-;; Kill Quail guidance buffer.  Set in kill-buffer-hook.
-(defun quail-kill-guidance-buf ()
-  (if (buffer-live-p quail-guidance-buf)
-      (kill-buffer quail-guidance-buf)))
 
 (defun quail-inactivate ()
   "Inactivate Quail input method.
@@ -552,9 +559,10 @@ While this input method is active, the variable
       ;; Let's inactivate Quail input method.
       (unwind-protect
 	  (progn
-	    (quail-hide-guidance-buf)
 	    (quail-delete-overlays)
 	    (setq describe-current-input-method-function nil)
+	    (quail-hide-guidance)
+	    (remove-hook 'post-command-hook 'quail-show-guidance t)
 	    (run-hooks 'quail-inactivate-hook))
 	(kill-local-variable 'input-method-function))
     ;; Let's activate Quail input method.
@@ -568,12 +576,13 @@ While this input method is active, the variable
     (setq inactivate-current-input-method-function 'quail-inactivate)
     (setq describe-current-input-method-function 'quail-help)
     (quail-delete-overlays)
-    (quail-show-guidance-buf)
+    (setq quail-guidance-str "")
+    (quail-show-guidance)
     ;; If we are in minibuffer, turn off the current input method
     ;; before exiting.
-    (if (eq (selected-window) (minibuffer-window))
-	(add-hook 'minibuffer-exit-hook 'quail-exit-from-minibuffer))
-    (add-hook 'kill-buffer-hook 'quail-kill-guidance-buf nil t)
+    (when (eq (selected-window) (minibuffer-window))
+      (add-hook 'minibuffer-exit-hook 'quail-exit-from-minibuffer)
+      (add-hook 'post-command-hook 'quail-show-guidance nil t))
     (run-hooks 'quail-activate-hook)
     (make-local-variable 'input-method-function)
     (setq input-method-function 'quail-input-method)))
@@ -608,24 +617,10 @@ This layout is almost the same as that of VT100,
  but the location of key \\ (backslash) is just right of key ' (single-quote),
  not right of RETURN key.")
 
-(defvar quail-keyboard-layout quail-keyboard-layout-standard
-  "A string which represents physical key layout of a particular keyboard.
-We assume there are six rows and each row has 15 keys (columns),
-	the first row is above the `1' - `0' row,
-	the first column of the second row is left of key `1',
-	the first column of the third row is left of key `q',
-	the first column of the fourth row is left of key `a',
-	the first column of the fifth row is left of key `z',
-	the sixth row is below the `z' - `/' row.
-Nth (N is even) and (N+1)th characters in the string are non-shifted
-and shifted characters respectively at the same location.
-The location of Nth character is row (N / 30) and column ((N mod 30) / 2).
-The command `quail-set-keyboard-layout' usually sets this variable.")
-
 (defconst quail-keyboard-layout-len 180)
 
 ;; Here we provide several examples of famous keyboard layouts.
-
+;; This is a candidate for a language environment-dependent setting.
 (defvar quail-keyboard-layout-alist
   (list
    (cons "standard" quail-keyboard-layout-standard)
@@ -659,10 +654,37 @@ The command `quail-set-keyboard-layout' usually sets this variable.")
   aAsSdDfFgGhHjJkKlL;+:*]}    \
   zZxXcCvVbBnNmM,<.>/?\\_      \
                               ")
+   '("pc105-uk" . "\
+                              \
+`\2541!2\"3\2434$5%6^7&8*9(0)-_=+     \
+  qQwWeErRtTyYuUiIoOpP[{]}    \
+  aAsSdDfFgGhHjJkKlL;:'@#~    \
+\\|zZxXcCvVbBnNmM,<.>/?        \
+                              ")
    )
   "Alist of keyboard names and corresponding layout strings.
 See the documentation of `quail-keyboard-layout' for the format of
 the layout string.")
+
+(defcustom quail-keyboard-layout quail-keyboard-layout-standard
+  "A string which represents physical key layout of a particular keyboard.
+We assume there are six rows and each row has 15 keys (columns),
+	the first row is above the `1' - `0' row,
+	the first column of the second row is left of key `1',
+	the first column of the third row is left of key `q',
+	the first column of the fourth row is left of key `a',
+	the first column of the fifth row is left of key `z',
+	the sixth row is below the `z' - `/' row.
+Nth (N is even) and (N+1)th characters in the string are non-shifted
+and shifted characters respectively at the same location.
+The location of Nth character is row (N / 30) and column ((N mod 30) / 2).
+The command `quail-set-keyboard-layout' usually sets this variable."
+  :group 'quail
+  :type `(choice
+	  ,@(mapcar (lambda (pair)
+		      (list 'const :tag (car pair) (cdr pair)))
+		    quail-keyboard-layout-alist)
+	  (string :tag "Other")))
 
 ;; A non-standard keyboard layout may miss some key locations of the
 ;; standard layout while having additional key locations not in the
@@ -703,7 +725,9 @@ the layout string.")
   "Type of keyboard layout used in Quail base input method.
 Available types are listed in the variable `quail-keyboard-layout-alist'."
   :group 'quail
-  :type 'string
+  :type (cons 'choice (mapcar (lambda (elt)
+				(list 'const (car elt)))
+			      quail-keyboard-layout-alist))
   :set #'(lambda (symbol value)
 	   (quail-update-keyboard-layout value)
 	   (set symbol value)))
@@ -875,7 +899,7 @@ The format of KBD-LAYOUT is the same as `quail-keyboard-layout'."
 The variable `quail-keyboard-layout-type' holds the currently selected
 keyboard type."
   (interactive
-   (list (completing-read "Keyboard type (default, current choise): "
+   (list (completing-read "Keyboard type (default current choice): "
 			  quail-keyboard-layout-alist
 			  nil t)))
   (or (and keyboard-type (> (length keyboard-type) 0))
@@ -884,8 +908,7 @@ keyboard type."
     (or layout
 	(error "Unknown keyboard type: %s" keyboard-type))
     (with-output-to-temp-buffer "*Help*"
-      (save-excursion
-	(set-buffer standard-output)
+      (with-current-buffer standard-output
 	(insert "Keyboard layout (keyboard type: "
 		keyboard-type
 		")\n")
@@ -1023,9 +1046,13 @@ which to install MAP.
 The installed decode map can be referred by the function `quail-decode-map'."
   (if (null quail-current-package)
       (error "No current Quail package"))
-  (if (not (and (consp decode-map) (eq (car decode-map) 'decode-map)))
-      (error "Invalid Quail decode map `%s'" decode-map))
-  (setcar (nthcdr 10 quail-current-package) decode-map))
+  (if (if (consp decode-map)
+	  (eq (car decode-map) 'decode-map)
+	(if (char-table-p decode-map)
+	    (eq (char-table-subtype decode-map) 'quail-decode-map)))
+      (setcar (nthcdr 10 quail-current-package) decode-map)
+    (error "Invalid Quail decode map `%s'" decode-map)))
+
 
 ;;;###autoload
 (defun quail-defrule (key translation &optional name append)
@@ -1070,8 +1097,8 @@ Optional 5th arg DECODE-MAP is a Quail decode map.
 
 Optional 6th arg PROPS is a property list annotating TRANS.  See the
 function `quail-define-rules' for the detail."
-  (if (null (stringp key))
-      "Invalid Quail key `%s'" key)
+  (if (not (or (stringp key) (vectorp key)))
+      (error "Invalid Quail key `%s'" key))
   (if (not (or (numberp trans) (stringp trans) (vectorp trans)
 	       (consp trans)
 	       (symbolp trans)
@@ -1198,7 +1225,7 @@ selected translation."
    (t
     (error "Invalid object in Quail map: %s" def))))
 
-(defun quail-lookup-key (key &optional len)
+(defun quail-lookup-key (key &optional len not-reset-indices)
   "Lookup KEY of length LEN in the current Quail map and return the definition.
 The returned value is a Quail map specific to KEY."
   (or len
@@ -1236,7 +1263,7 @@ The returned value is a Quail map specific to KEY."
 	  (if (and (consp translation) (vectorp (cdr translation)))
 	      (progn
 		(setq quail-current-translations translation)
-		(if (quail-forget-last-selection)
+		(if (and (not not-reset-indices) (quail-forget-last-selection))
 		    (setcar (car quail-current-translations) 0))))))
     ;; We may have to reform cdr part of MAP.
     (if (and (cdr map) (functionp (cdr map)))
@@ -1247,13 +1274,19 @@ The returned value is a Quail map specific to KEY."
 (defun quail-error (&rest args)
   (signal 'quail-error (apply 'format args)))
 
-
 (defun quail-input-string-to-events (str)
   "Convert input string STR to a list of events.
 Do so while interleaving with the following special events:
 \(compose-last-chars LEN COMPONENTS)
 \(quail-advice INPUT-STRING)"
-  (let* ((events (string-to-list str))
+  (let* ((events (mapcar
+		  (lambda (c)
+		    ;; This gives us the chance to unify on input
+		    ;; (e.g. using ucs-tables.el).
+		    (or (and translation-table-for-input
+			     (aref translation-table-for-input c))
+			c))
+		  str))
 	 (len (length str))
 	 (idx len)
 	 composition from to)
@@ -1282,27 +1315,19 @@ Do so while interleaving with the following special events:
       (list key)
     (quail-setup-overlays (quail-conversion-keymap))
     (let ((modified-p (buffer-modified-p))
-	  (buffer-undo-list t))
-      (or (and quail-guidance-win
-	       (window-live-p quail-guidance-win)
-	       (eq (window-buffer quail-guidance-win) quail-guidance-buf)
-	       (not input-method-use-echo-area))
-	  (quail-show-guidance-buf))
+	  (buffer-undo-list t)
+	  (inhibit-modification-hooks t))
       (unwind-protect
 	  (let ((input-string (if (quail-conversion-keymap)
 				  (quail-start-conversion key)
 				(quail-start-translation key))))
+	    (setq quail-guidance-str "")
 	    (when (and (stringp input-string)
 		       (> (length input-string) 0))
 	      (if input-method-exit-on-first-char
 		  (list (aref input-string 0))
 		(quail-input-string-to-events input-string))))
 	(quail-delete-overlays)
-	(if (buffer-live-p quail-guidance-buf)
-	    (save-excursion
-	      (set-buffer quail-guidance-buf)
-	      (erase-buffer)))
-	(quail-hide-guidance-buf)
 	(set-buffer-modified-p modified-p)
 	;; Run this hook only when the current input method doesn't require
 	;; conversion.  When conversion is required, the conversion function
@@ -1349,11 +1374,13 @@ Return the input string."
 	    (setq unread-command-events (cons key unread-command-events)))
 	(while quail-translating
 	  (set-buffer-modified-p modified-p)
-	  (let* ((keyseq (read-key-sequence
-			  (and input-method-use-echo-area
-			       (concat input-method-previous-message
-				       quail-current-str))
-			  nil nil t))
+	  (quail-show-guidance)
+	  (let* ((prompt (if input-method-use-echo-area
+			     (format "%s%s %s" 
+				     (or input-method-previous-message "")
+				     quail-current-str
+				     quail-guidance-str)))
+		 (keyseq (read-key-sequence prompt nil nil t))
 		 (cmd (lookup-key (quail-translation-keymap) keyseq)))
 	    (if (if key
 		    (and (commandp cmd) (not (eq cmd 'quail-other-command)))
@@ -1413,14 +1440,14 @@ Return the input string."
 		      quail-current-str ""
 		      quail-translating t)
 		(quail-setup-overlays nil)))
-	  ;; Hide '... loaded' message.
-	  (message nil)
-	  (let* ((keyseq (read-key-sequence
-			  (and input-method-use-echo-area
-			       (concat input-method-previous-message
-				       quail-conversion-str
-				       quail-current-str))
-			  nil nil t))
+	  (quail-show-guidance)
+	  (let* ((prompt (if input-method-use-echo-area
+			     (format "%s%s%s %s" 
+				     (or input-method-previous-message "")
+				     quail-conversion-str
+				     quail-current-str
+				     quail-guidance-str)))
+		 (keyseq (read-key-sequence prompt nil nil t))
 		 (cmd (lookup-key (quail-conversion-keymap) keyseq)))
 	    (if (if key (commandp cmd) (eq cmd 'quail-self-insert-command))
 		(progn
@@ -1463,10 +1490,7 @@ Return the input string."
 (defun quail-terminate-translation ()
   "Terminate the translation of the current key."
   (setq quail-translating nil)
-  (if (buffer-live-p quail-guidance-buf)
-      (save-excursion
-	(set-buffer quail-guidance-buf)
-	(erase-buffer))))
+  (setq quail-guidance-str " "))
 
 (defun quail-select-current ()
   "Accept the currently selected translation."
@@ -1507,9 +1531,40 @@ with more keys."
 			(quail-simple))
 		   (setq control-flag t)))))))
   (or input-method-use-echo-area
-      (progn
+      (let (pos)
 	(quail-delete-region)
-	(insert quail-current-str)))
+	(setq pos (point))
+	(or enable-multibyte-characters
+	    (let (char)
+	      (if (stringp quail-current-str)
+		  (catch 'tag
+		    (mapc #'(lambda (ch)
+			      (when (/= (unibyte-char-to-multibyte
+					 (multibyte-char-to-unibyte ch))
+					ch)
+				  (setq char ch)
+				  (throw 'tag nil)))
+			  quail-current-str))
+		(if (/= (unibyte-char-to-multibyte
+			 (multibyte-char-to-unibyte quail-current-str))
+			quail-current-str)
+		    (setq char quail-current-str)))
+	      (when char
+		(message "Can't input %c in the current unibyte buffer" char)
+		(ding)
+		(sit-for 2)
+		(message nil)
+		(setq quail-current-str nil)
+		(throw 'quail-tag nil))))
+	(insert quail-current-str)
+	(move-overlay quail-overlay pos (point))
+	(if (overlayp quail-conv-overlay)
+	    (if (not (overlay-start quail-conv-overlay))
+		(move-overlay quail-conv-overlay pos (point))
+	      (if (< (overlay-end quail-conv-overlay) (point))
+		  (move-overlay quail-conv-overlay
+				(overlay-start quail-conv-overlay)
+				(point)))))))
   (let (quail-current-str)
     (quail-update-guidance))
   (or (stringp quail-current-str)
@@ -1545,13 +1600,21 @@ Quail map for the sequence."
   (or (and (consp def) (aref (cdr def) (car (car def))))
       def
       (and (> len 1)
-	   (let ((str (quail-get-current-str
-		       (1- len)
-		       (quail-map-definition (quail-lookup-key
-					      quail-current-key (1- len))))))
+	   (let* ((str (quail-get-current-str
+			(1- len)
+			(quail-map-definition (quail-lookup-key
+					       quail-current-key (1- len)))))
+		  (substr1 (substring quail-current-key (1- len) len))
+		  (str1 (and (quail-deterministic)
+			     (quail-get-current-str
+			      1
+			      (quail-map-definition (quail-lookup-key
+						     substr1 1))))))
 	     (if str
 		 (concat (if (stringp str) str (char-to-string str))
-			 (substring quail-current-key (1- len) len)))))))
+			 (if str1
+			     (if (stringp str1) str1 (char-to-string str1))
+			   substr1)))))))
 
 (defvar quail-guidance-translations-starting-column 20)
 
@@ -1573,7 +1636,7 @@ Make RELATIVE-INDEX the current translation."
 	    (< cur start)		; We moved to the previous block.
 	    (>= cur end))		; We moved to the next block.
 	(let ((len (length (cdr quail-current-translations)))
-	      (maxcol (- (window-width quail-guidance-win)
+	      (maxcol (- (window-width)
 			 quail-guidance-translations-starting-column))
 	      (block (nth 3 indices))
 	      col idx width trans num-items blocks)
@@ -1667,8 +1730,26 @@ sequence counting from the head."
 	     ;; And, we can terminate the current translation.
 	     t)
 
+	    ((quail-deterministic)
+	     ;; No way to handle the last character in this context.
+	     ;; Commit the longest successfully translated characters, and
+	     ;; handle the remaining characters in a new loop.
+	     (setq def nil)
+	     (while (and (not def) (> len 1))
+	       (setq len (1- len))
+	       (setq def (quail-map-definition
+			  (quail-lookup-key quail-current-key len))))
+	     (if def (setq quail-current-str
+			   (quail-get-current-str len def))
+	       (setq quail-current-str (aref quail-current-key 0)))
+	     len)
+
 	    (t
 	     ;; No way to handle the last character in this context.
+	     (setq def (quail-map-definition
+			(quail-lookup-key quail-current-key (1- len))))
+	     (if def (setq quail-current-str
+			   (quail-get-current-str (1- len) def)))
 	     (1- len))))))
 
 (defun quail-next-translation ()
@@ -1835,8 +1916,8 @@ Remaining args are for FUNC."
 
 ;; Guidance, Completion, and Help buffer handlers.
 
-(defun quail-make-guidance-frame (buf)
-  "Make a new one-line frame for Quail guidance buffer."
+(defun quail-make-guidance-frame ()
+  "Make a new one-line frame for Quail guidance."
   (let* ((fparam (frame-parameters))
 	 (top (cdr (assq 'top fparam)))
 	 (border (cdr (assq 'border-width fparam)))
@@ -1844,22 +1925,19 @@ Remaining args are for FUNC."
 	 (newtop (- top
 		    (frame-char-height) (* internal-border 2) (* border 2))))
     (if (< newtop 0)
-	(setq newtop (+ top (frame-pixel-height))))
-    (let* ((frame (make-frame (append '((user-position . t) (height . 1)
-					(minibuffer) (menu-bar-lines . 0))
-				      (cons (cons 'top newtop) fparam))))
-	   (win (frame-first-window frame)))
-      (set-window-buffer win buf)
-      ;;(set-window-dedicated-p win t)
-      )))
+	(setq newtop (+ top (frame-pixel-height) internal-border border)))
+    (make-frame (append '((user-position . t) (height . 1)
+			  (minibuffer)
+			  (menu-bar-lines . 0) (tool-bar-lines . 0))
+			(cons (cons 'top newtop) fparam)))))
 
 (defun quail-setup-completion-buf ()
   "Setup Quail completion buffer."
   (unless (buffer-live-p quail-completion-buf)
     (let ((default-enable-multibyte-characters enable-multibyte-characters))
       (setq quail-completion-buf (get-buffer-create "*Quail Completions*")))
-    (save-excursion
-      (set-buffer quail-completion-buf)
+    (with-current-buffer quail-completion-buf
+      (setq buffer-read-only t)
       (setq quail-overlay (make-overlay 1 1))
       (overlay-put quail-overlay 'face 'highlight))))
 
@@ -1873,127 +1951,96 @@ Remaining args are for FUNC."
 	     (not (quail-simple))
 	   t))))
 
-(defun quail-show-guidance-buf ()
-  "Display a guidance buffer for Quail input method in some window.
-Create the buffer if it does not exist yet.
-The buffer is normally displayed at the echo area,
-but if the current buffer is a minibuffer, it is shown in
-the bottom-most ordinary window of the same frame,
-or in a newly created frame (if the selected frame has no other windows)."
-  (when (quail-require-guidance-buf)
-    ;; At first, setup a guidance buffer.
-    (let ((default-enable-multibyte-characters enable-multibyte-characters))
-      (or (buffer-live-p quail-guidance-buf)
-	  (setq quail-guidance-buf (generate-new-buffer " *Quail-guidance*"))))
-    (let ((name (quail-name))
-	  (title (quail-title)))
-      (save-excursion
-	(set-buffer quail-guidance-buf)
-	;; To show the title of Quail package.
-	(setq current-input-method name
-	      current-input-method-title title)
-	(erase-buffer)
-	(or (overlayp quail-overlay)
-	    (progn
-	      (setq quail-overlay (make-overlay 1 1))
-	      (overlay-put quail-overlay 'face 'highlight)))
-	(delete-overlay quail-overlay)
-	(set-buffer-modified-p nil)))
-    (bury-buffer quail-guidance-buf)
 
-    ;; Assign the buffer " *Minibuf-N*" to all windows which are now
-    ;; displaying quail-guidance-buf.
-    (let ((win-list (get-buffer-window-list quail-guidance-buf t t)))
-      (while win-list
-	(set-window-buffer (car win-list)
-			   (format " *Minibuf-%d*" (minibuffer-depth)))
-	(setq win-list (cdr win-list))))
+;; Quail specific version of minibuffer-message.  It displays STRING
+;; with timeout 1000000 seconds instead of two seconds.
 
-    ;; Then, display it in an appropriate window.
-    (let ((win (minibuffer-window)))
-      (if (or (eq (selected-window) win)
-	      input-method-use-echo-area)
-	  ;; Since we are in minibuffer, we can't use it for guidance.
-	  (if (eq win (frame-root-window))
-	      ;; Create a frame.  It is sure that we are using some
-	      ;; window system.
-	      (quail-make-guidance-frame quail-guidance-buf)
-	    ;; Find the bottom window and split it if necessary.
-	    (setq win (window-at
-		       0 (1- (- (frame-height) (window-height win)))))
-	    (let ((height (window-height win))
-		  (window-min-height 2))
-	      ;; If WIN is tall enough, split it vertically and use
-	      ;; the lower one.
-	      (when (>= height 4)
-		;; Here, `split-window' returns a lower window
-		;; which is what we wanted.
-		(setq win (split-window win (- height 2))))
-	      (set-window-buffer win quail-guidance-buf)
+(defun quail-minibuffer-message (string)
+  (message nil)
+  (let ((point-max (point-max))
+	(inhibit-quit t))
+    (save-excursion
+      (goto-char point-max)
+      (insert string))
+    (sit-for 1000000)
+    (delete-region point-max (point-max))
+    (when quit-flag
+      (setq quit-flag nil
+	    unread-command-events '(7)))))
+
+(defun quail-show-guidance ()
+  "Display a guidance for Quail input method in some window.
+The guidance is normally displayed at the echo area,
+or in a newly created frame (if the current buffer is a
+minibuffer and the selected frame has no other windows)."
+  ;; At first, setup a buffer for completion.
+  (quail-setup-completion-buf)
+  (bury-buffer quail-completion-buf)
+
+  ;; Then, show the guidance.
+  (when (and (quail-require-guidance-buf)
+	     (not input-method-use-echo-area)
+	     (null unread-command-events)
+	     (null unread-post-input-method-events))
+    (if (eq (selected-window) (minibuffer-window))
+	(if (eq (minibuffer-window) (frame-root-window))
+	    ;; Use another frame.  It is sure that we are using some
+	    ;; window system.
+	    (let ((guidance quail-guidance-str))
+	      (or (frame-live-p quail-guidance-frame)
+		  (setq quail-guidance-frame 
+			(quail-make-guidance-frame)))
+	      (or (buffer-live-p quail-guidance-buf)
+		  (setq quail-guidance-buf
+			(get-buffer-create " *Quail-guidance*")))
 	      (save-excursion
 		(set-buffer quail-guidance-buf)
-		(fit-window-to-buffer win nil (window-height win)))))
-	(set-window-buffer win quail-guidance-buf)
-	(set-minibuffer-window win))
-      (setq quail-guidance-win win)))
+		(erase-buffer)
+		(setq cursor-type nil)
+		(insert guidance))
+	      (set-window-buffer (frame-root-window quail-guidance-frame)
+				 quail-guidance-buf)
+	      (quail-minibuffer-message
+	       (format " [%s]" current-input-method-title)))
+	  ;; Show the guidance in the next line of the currrent
+	  ;; minibuffer.
+	  (quail-minibuffer-message
+	   (format "  [%s]\n%s" 
+		   current-input-method-title quail-guidance-str)))
+      ;; Show the guidance in echo area without logging.
+      (let ((message-log-max nil))
+	(message "%s" quail-guidance-str)))))
 
-  ;; And, create a buffer for completion.
-  (quail-setup-completion-buf)
-  (bury-buffer quail-completion-buf))
-
-(defun quail-hide-guidance-buf ()
-  "Hide the Quail guidance buffer."
-  (if (buffer-live-p quail-guidance-buf)
-      (let ((win-list (get-buffer-window-list quail-guidance-buf t t))
-	    win)
-	(while win-list
-	  (setq win (car win-list) win-list (cdr win-list))
-	  (if (window-minibuffer-p win)
-	      ;; We are using echo area for the guidance buffer.
-	      ;; Vacate it to the deepest minibuffer.
-	      (set-window-buffer win
-				 (format " *Minibuf-%d*" (minibuffer-depth)))
-	    (if (eq win (frame-root-window (window-frame win)))
-		(progn
-		  ;; We are using a separate frame for guidance buffer.
-		  ;;(set-window-dedicated-p win nil)
-		  (delete-frame (window-frame win)))
-	      ;;(set-window-dedicated-p win nil)
-	      (delete-window win))))
-	(setq quail-guidance-win nil))))
+(defun quail-hide-guidance ()
+  "Hide the Quail guidance."
+  (when (and (quail-require-guidance-buf)
+	     (or (eq (selected-window) (minibuffer-window))
+		 input-method-use-echo-area)
+	     (eq (minibuffer-window) (frame-root-window)))
+    ;; We are using another frame for the guidance.
+    (if (frame-live-p quail-guidance-frame)
+	(delete-frame quail-guidance-frame))
+    (if (buffer-live-p quail-guidance-buf)
+	(kill-buffer quail-guidance-buf))))
 
 (defun quail-update-guidance ()
   "Update the Quail guidance buffer and completion buffer (if displayed now)."
-  ;; Update guidance buffer.
-  (if (quail-require-guidance-buf)
-      (let ((guidance (quail-guidance)))
-	(unless (and (eq (selected-frame) (window-frame (minibuffer-window)))
-		     (eq (selected-frame) (window-frame quail-guidance-win)))
-	  ;; The guidance window is not shown in this frame, show it.
-	  (quail-show-guidance-buf))
-	(cond ((or (eq guidance t)
-		   (consp guidance))
-	       ;; Show the current possible translations.
-	       (quail-show-translations))
-	      ((null guidance)
-	       ;; Show the current input keys.
-	       (let ((key quail-current-key))
-		 (if (quail-kbd-translate)
-		     (setq key (quail-keyseq-translate key)))
-		 (save-excursion
-		   (set-buffer quail-guidance-buf)
-		   (erase-buffer)
-		   (insert key)))))
-	;; Make sure the height of the guidance window is OK --
-	;; sometimes, if the minibuffer window expands due to user
-	;; input (for instance if the newly inserted character is in a
-	;; different font), it will cause the guidance window to be
-	;; only partially visible.  We force a redisplay first because
-	;; this automatic expansion doesn't happen until then, and we
-	;; want to see the window sizes after the expansion.
-	(sit-for 0)
-	(fit-window-to-buffer quail-guidance-win nil
-			      (window-height quail-guidance-win))))
+  ;; Update the guidance string.
+  (when (quail-require-guidance-buf)
+    (let ((guidance (quail-guidance)))
+      (cond ((or (eq guidance t)
+		 (consp guidance))
+	     ;; Show the current possible translations.
+	     (setq quail-guidance-str
+		   (quail-get-translations)))
+	    ((null guidance)
+	     ;; Show the current input keys.
+	     (let ((key quail-current-key))
+	       (if (quail-kbd-translate)
+		   (setq key (quail-keyseq-translate key)))
+	       (setq quail-guidance-str (if (stringp key) key (string key)))))
+	    (t
+	     (setq quail-guidance-str " ")))))
 
   ;; Update completion buffer if displayed now.  We highlight the
   ;; selected candidate string in *Completion* buffer if any.
@@ -2012,8 +2059,8 @@ or in a newly created frame (if the selected frame has no other windows)."
 	      (delete-overlay quail-overlay)
 	    (setq pos (point))
 	    (if (and str (search-forward (concat "." str) nil t))
-		  (move-overlay quail-overlay (1+ (match-beginning 0)) (point))
-		(move-overlay quail-overlay (match-beginning 0) (point)))
+		(move-overlay quail-overlay (1+ (match-beginning 0)) (point))
+	      (move-overlay quail-overlay (match-beginning 0) (point)))
 	    ;; Now POS points end of KEY and (point) points end of STR.
 	    (if (pos-visible-in-window-p (point) win)
 		;; STR is already visible.
@@ -2027,64 +2074,67 @@ or in a newly created frame (if the selected frame has no other windows)."
 		  (set-window-start win pos))
 	      ))))))
 
-(defun quail-show-translations ()
-  "Show the current possible translations."
-  (let* ((key quail-current-key)
-	 (map (quail-lookup-key quail-current-key))
-	 (current-translations quail-current-translations))
+(defun quail-get-translations ()
+  "Return a string containing the current possible translations."
+  (let ((map (quail-lookup-key quail-current-key nil t))
+	(str (copy-sequence quail-current-key)))
     (if quail-current-translations
 	(quail-update-current-translations))
-    (save-excursion
-      (set-buffer quail-guidance-buf)
-      (erase-buffer)
 
-      ;; Show the current key.
-      (let ((guidance (quail-guidance)))
-	(if (listp guidance)
-	    ;; We must show the specified PROMPTKEY instead of the
-	    ;; actual typed keys.
-	    (let ((i 0)
-		  (len (length key))
-		  prompt-key)
-	      (while (< i len)
-		(setq prompt-key (cdr (assoc (aref key i) guidance)))
-		(insert (or prompt-key (aref key i)))
-		(setq i (1+ i))))
-	  (insert key)))
+    ;; Show the current key.
+    (let ((guidance (quail-guidance)))
+      (if (listp guidance)
+	  ;; We must replace thetyped key with the specified PROMPTKEY.
+	  (dotimes (i (length str))
+	    (let ((prompt-key (cdr (assoc (aref str i) guidance))))
+	      (if prompt-key
+		  (aset str i (aref prompt-key 0)))))))
 
       ;; Show followable keys.
-      (if (and (> (length key) 0) (cdr map))
-	  (let ((keys (mapcar (function (lambda (x) (car x)))
-			      (cdr map))))
-	    (setq keys (sort keys '<))
-	    (insert "[")
-	    (while keys
-	      (insert (car keys))
-	      (setq keys (cdr keys)))
-	    (insert "]")))
-
+      (if (and (> (length quail-current-key) 0) (cdr map))
+	  (setq str
+		(format "%s[%s]"
+			str
+			(concat (sort (mapcar (function (lambda (x) (car x)))
+					      (cdr map))
+				      '<)))))
       ;; Show list of translations.
-      (if (and current-translations
+      (if (and quail-current-translations
 	       (not (quail-deterministic)))
-	  (let* ((indices (car current-translations))
+	  (let* ((indices (car quail-current-translations))
 		 (cur (car indices))
 		 (start (nth 1 indices))
 		 (end (nth 2 indices))
 		 (idx start))
-	    (indent-to (- quail-guidance-translations-starting-column 7))
-	    (insert (format "(%02d/"(nth 3 indices))
-		    (if (nth 4 indices)
-			(format "%02d)" (nth 4 indices))
-		      "??)"))
+	    (if (< (string-width str)
+		   (- quail-guidance-translations-starting-column 7))
+		(setq str
+		      (concat str
+			      (make-string
+			       (- quail-guidance-translations-starting-column
+				  7 (string-width str))
+			       32))))
+	    (setq str (format "%s(%02d/%s)" 
+			      str (nth 3 indices)
+			      (if (nth 4 indices)
+				  (format "%02d" (nth 4 indices))
+				"??")))
 	    (while (< idx end)
-	      (insert (format " %d." (if (= (- idx start) 9) 0
-				       (1+ (- idx start)))))
-	      (let ((pos (point)))
-		(insert (aref (cdr current-translations) idx))
+	      (let ((len (length str))
+		    (trans (aref (cdr quail-current-translations) idx)))
+		(or (stringp trans)
+		    (setq trans (string trans)))
+		(setq str (format "%s %d.%s" 
+				  str
+				  (if (= (- idx start) 9) 0
+				    (1+ (- idx start)))
+				  trans))
 		(if (= idx cur)
-		    (move-overlay quail-overlay pos (point))))
-	      (setq idx (1+ idx)))))
-      )))
+		    (put-text-property (+ len 3) (length str)
+				      'face 'highlight str))
+		(setq idx (1+ idx))))))
+
+      str))
 
 (defvar quail-completion-max-depth 5
   "The maximum depth of Quail completion list.")
@@ -2097,10 +2147,9 @@ are shown (at most to the depth specified `quail-completion-max-depth')."
   (quail-setup-completion-buf)
   (let ((win (get-buffer-window quail-completion-buf 'visible))
 	(key quail-current-key)
-	(map (quail-lookup-key quail-current-key))
+	(map (quail-lookup-key quail-current-key nil t))
 	(require-update nil))
-    (save-excursion
-      (set-buffer quail-completion-buf)
+    (with-current-buffer quail-completion-buf
       (if (and win
 	       (equal key quail-current-key)
 	       (eq last-command 'quail-completion))
@@ -2108,12 +2157,17 @@ are shown (at most to the depth specified `quail-completion-max-depth')."
 	  ;; shown.  We just scroll it appropriately.
 	  (if (pos-visible-in-window-p (point-max) win)
 	      (set-window-start win (point-min))
-	    (let ((other-window-scroll-buffer quail-completion-buf))
+	    (let ((other-window-scroll-buffer quail-completion-buf)
+		  ;; This nil binding is necessary to surely scroll
+		  ;; quail-completion-buf.
+		  (minibuffer-scroll-window nil))
 	      (scroll-other-window)))
 	(setq quail-current-key key)
-	(erase-buffer)
-	(insert "Possible completion and corresponding translations are:\n")
-	(quail-completion-1 key map 1)
+	(let ((inhibit-read-only t))
+	  (erase-buffer)
+	  (insert "Possible completion and corresponding characters are:\n")
+	  (quail-completion-1 key map 1)
+	  (set-buffer-modified-p nil))
 	(goto-char (point-min))
 	(display-buffer (current-buffer))
 	(setq require-update t)))
@@ -2183,8 +2237,6 @@ are shown (at most to the depth specified `quail-completion-max-depth')."
 	  (setq i (1+ i)))
 	(insert "\n")))))
 
-;; Choose a completion in *Quail Completions* buffer with mouse-2.
-
 (defun quail-mouse-choose-completion (event)
   "Click on an alternative in the `*Quail Completions*' buffer to choose it."
   (interactive "e")
@@ -2192,15 +2244,14 @@ are shown (at most to the depth specified `quail-completion-max-depth')."
   ;; `mouse-choose-completion' except that we:
   ;; 1) add two lines from `choose-completion' in simple.el to give
   ;;    the `mouse-2' click a little more leeway.
-  ;; 2) don't bury *Quail Completions* buffer so comment a section, and 
+  ;; 2) don't bury *Quail Completions* buffer, so comment a section, and
   ;; 3) delete/terminate the current quail selection here.
   ;; Give temporary modes such as isearch a chance to turn off.
   (run-hooks 'mouse-leave-buffer-hook)
   (let ((buffer (window-buffer))
         choice
 	base-size)
-    (save-excursion
-      (set-buffer (window-buffer (posn-window (event-start event))))
+    (with-current-buffer (window-buffer (posn-window (event-start event)))
       (if completion-reference-buffer
 	  (setq buffer completion-reference-buffer))
       (setq base-size completion-base-size)
@@ -2230,40 +2281,11 @@ are shown (at most to the depth specified `quail-completion-max-depth')."
     (quail-choose-completion-string choice buffer base-size)
     (quail-terminate-translation)))
 
-;; Modify the simple.el function `choose-completion-string', because
-;; the simple.el function `choose-completion-delete-max-match' breaks
-;; on Mule data, since the semantics of `forward-char' have changed.
-
+;; BASE-SIZE here is for compatibility with an (unused) arg of a
+;; previous implementation.
 (defun quail-choose-completion-string (choice &optional buffer base-size)
-  (let ((buffer (or buffer completion-reference-buffer)))
-    ;; If BUFFER is a minibuffer, barf unless it's the currently
-    ;; active minibuffer.
-    (if (and (string-match "\\` \\*Minibuf-[0-9]+\\*\\'" (buffer-name buffer))
-	     (or (not (active-minibuffer-window))
-		 (not (equal buffer
-			     (window-buffer (active-minibuffer-window))))))
-	(quail-error "Minibuffer is not active for completion")
-      ;; Store the completion in `quail-current-str', which will later
-      ;; be converted to a character event list, then inserted into
-      ;; the buffer where completion was requested.
-      (set-buffer buffer)
-;      (if base-size
-;	  (delete-region (+ base-size (point-min)) (point))
-;	(choose-completion-delete-max-match choice))
-      (setq quail-current-str choice)
-      ;; Update point in the window that BUFFER is showing in.
-      (let ((window (get-buffer-window buffer t)))
-	(set-window-point window (point)))
-      ;; If completing for the minibuffer, exit it with this choice.
-      (and (not completion-no-auto-exit)
-	   (equal buffer (window-buffer (minibuffer-window)))
-	   minibuffer-completion-table
-	   ;; If this is reading a file name, and the file name chosen
-	   ;; is a directory, don't exit the minibuffer.
-	   (if (and (eq minibuffer-completion-table 'read-file-name-internal)
-		    (file-directory-p (buffer-string)))
-	       (select-window (active-minibuffer-window))
-	     (exit-minibuffer))))))
+  (setq quail-current-str choice)
+  (choose-completion-string choice buffer))
 
 (defun quail-build-decode-map (map-list key decode-map num
 					&optional maxnum ignores)
@@ -2324,8 +2346,8 @@ should be made by `quail-build-decode-map' (which see)."
 			  (or (> (length x) (length y))
 			      (and (= (length x) (length y))
 				   (not (string< x y))))))))
-  (let ((frame-width (frame-width (window-frame (get-buffer-window
-						 (current-buffer) 'visible))))
+  (let ((window-width (window-width (get-buffer-window
+                                     (current-buffer) 'visible)))
 	(single-key-width 3)
 	(single-trans-width 4)
 	(multiple-key-width 3)
@@ -2354,7 +2376,7 @@ should be made by `quail-build-decode-map' (which see)."
 	  (setq multiple-key-width width)))
     (when single-list
       (setq col-width (+ single-key-width 1 single-trans-width 1)
-	    cols (/ frame-width col-width)
+	    cols (/ window-width col-width)
 	    rows (/ (length single-list) cols))
       (if (> (% (length single-list) cols) 0)
 	  (setq rows (1+ rows)))
@@ -2400,7 +2422,7 @@ should be made by `quail-build-decode-map' (which see)."
 		   (lambda (x)
 		     (let ((width (if (integerp x) (char-width x)
 				    (string-width x))))
-		       (when (> (+ (current-column) 1 width) frame-width)
+		       (when (> (+ (current-column) 1 width) window-width)
 			 (insert "\n")
 			 (indent-to multiple-key-width))
 		       (insert " " x))))
@@ -2409,25 +2431,36 @@ should be made by `quail-build-decode-map' (which see)."
 	(insert ?\n))
       (insert ?\n))))
 
+(define-button-type 'quail-keyboard-layout-button
+  :supertype 'help-xref
+  'help-function '(lambda (layout)
+		    (help-setup-xref `(quail-keyboard-layout-button ,layout) nil)
+		    (quail-show-keyboard-layout layout))
+  'help-echo (purecopy "mouse-2, RET: show keyboard layout"))
+
+(define-button-type 'quail-keyboard-customize-button
+  :supertype 'help-customize-variable
+  'help-echo (purecopy "mouse-2, RET: customize keyboard layout"))
+
 (defun quail-help (&optional package)
   "Show brief description of the current Quail package.
-Optional 2nd arg PACKAGE specifies the name of alternative Quail
+Optional arg PACKAGE specifies the name of alternative Quail
 package to describe."
   (interactive)
-  (if package
-      (setq package (assoc package quail-package-alist))
-    (setq package quail-current-package))
   (let ((help-xref-mule-regexp help-xref-mule-regexp-template)
-	(default-enable-multibyte-characters enable-multibyte-characters))
+	(default-enable-multibyte-characters enable-multibyte-characters)
+	(package-def
+	 (if package
+	     (assoc package quail-package-alist)
+	   quail-current-package)))
     ;; At first, make sure that the help buffer has window.
-    (with-output-to-temp-buffer "*Help*"
-      (save-excursion
-	(set-buffer standard-output)
-	(setq quail-current-package package)))
+    (let ((temp-buffer-show-hook nil))
+      (with-output-to-temp-buffer (help-buffer)
+	(with-current-buffer standard-output
+	  (setq quail-current-package package-def))))
     ;; Then, insert text in the help buffer while paying attention to
-    ;; the width of the frame in which the buffer displayed.
-    (save-excursion
-      (set-buffer (get-buffer "*Help*"))
+    ;; the width of the window in which the buffer displayed.
+    (with-current-buffer (help-buffer)
       (setq buffer-read-only nil)
       (insert "Input method: " (quail-name)
 	      " (mode line indicator:"
@@ -2460,8 +2493,8 @@ This input method works by translating individual input characters.
 Assuming that your actual keyboard has the `")
 	  (help-insert-xref-button
 	   quail-keyboard-layout-type
-	   #'quail-show-keyboard-layout quail-keyboard-layout-type
-	   "mouse-2, RET: show this layout")
+	   'quail-keyboard-layout-button
+	   quail-keyboard-layout-type)
 	  (insert "' layout,
 translation results in the following \"virtual\" keyboard layout:
 ")
@@ -2471,8 +2504,7 @@ translation results in the following \"virtual\" keyboard layout:
 `")
 	  (help-insert-xref-button
 	   "standard"
-	   #'quail-show-keyboard-layout "standard"
-	   "mouse-2, RET: show this layout")
+	   'quail-keyboard-layout-button "standard")
 	  (insert "', the \"virtual\" keyboard you get with this input method
 will be rearranged in the same way.
 
@@ -2483,8 +2515,7 @@ physical keyboard layout as specified with that variable.
 ")
 	  (help-insert-xref-button
 	   "[customize keyboard layout]"
-	   #'customize-variable 'quail-keyboard-layout-type
-	   "mouse-2, RET: set keyboard layout type")
+	   'quail-keyboard-customize-button 'quail-keyboard-layout-type)
 	  (insert "\n"))
 
 	;; Show key sequences.
@@ -2515,12 +2546,10 @@ KEY BINDINGS FOR TRANSLATION
 	   "\
 KEY BINDINGS FOR CONVERSION
 ---------------------------\n"))
-      (help-setup-xref (list #'quail-help (quail-name))
-		       (interactive-p))
       (setq quail-current-package nil)
       ;; Resize the help window again, now that it has all its contents.
       (save-selected-window
- 	(select-window (get-buffer-window (current-buffer)))
+ 	(select-window (get-buffer-window (current-buffer) t))
 	(run-hooks 'temp-buffer-show-hook)))))
 
 (defun quail-help-insert-keymap-description (keymap &optional header)
@@ -2568,12 +2597,12 @@ KEY BINDINGS FOR CONVERSION
 			quail-current-key (quail-name))
 		keymap (quail-translation-keymap)))
 	(with-output-to-temp-buffer "*Help*"
-	  (save-excursion
-	    (set-buffer standard-output)
+	  (with-current-buffer standard-output
 	    (insert state-msg)
 	    (quail-help-insert-keymap-description
 	     keymap
 	     "-----------------------\n")
+	    ;; Isn't this redundant ?  -stef
 	    (help-mode)))))
   (let (scroll-help)
     (save-selected-window
@@ -2595,6 +2624,171 @@ KEY BINDINGS FOR CONVERSION
 	  (message nil)
 	  (quail-update-guidance)
 	  ))))
+
+;; Add KEY (string) to the element of TABLE (char-table) for CHAR if
+;; it is not yet stored.  As a result, the element is a string or a
+;; list of strings.
+
+(defsubst quail-store-decode-map-key (table char key)
+  (let ((elt (aref table char)))
+    (if elt
+	(if (consp elt)
+	    (or (member key elt)
+		(aset table char (cons key elt)))
+	  (or (string= key elt)
+	      (aset table char (list key elt))))
+      (aset table char key))
+    (if (and translation-table-for-input
+	     (setq char (aref translation-table-for-input char)))
+	(let ((translation-table-for-input nil))
+	  (quail-store-decode-map-key table char key)))))
+
+;; Helper function for quail-gen-decode-map.  Store key strings to
+;; type each character under MAP in TABLE (char-table).  MAP is an
+;; element of the current Quail map reached by typing keys in KEY
+;; (string).
+
+(defun quail-gen-decode-map1 (map key table)
+  (when (and (consp map) (listp (cdr map)))
+    (let ((trans (car map)))
+      (cond ((integerp trans)
+	     (quail-store-decode-map-key table trans key))
+	    ((stringp trans)
+	     (dotimes (i (length trans))
+	       (quail-store-decode-map-key table (aref trans i) key)))
+	    ((or (vectorp trans)
+		 (and (consp trans)
+		      (setq trans (cdr trans))))
+	     (dotimes (i (length trans))
+	       (let ((elt (aref trans i)))
+		 (if (stringp elt)
+		     (if (= (length elt) 1)
+			 (quail-store-decode-map-key table (aref elt 0) key))
+		   (quail-store-decode-map-key table elt key)))))))
+    (if (> (length key) 1)
+	(dolist (elt (cdr map))
+	  (quail-gen-decode-map1 (cdr elt) key table))
+      (dolist (elt (cdr map))
+	(quail-gen-decode-map1 (cdr elt) (format "%s%c" key (car elt))
+				 table)))))
+
+(put 'quail-decode-map 'char-table-extra-slots 0)
+
+;; Generate a halfly-cooked decode map (char-table) for the current
+;; Quail map.  An element for a character C is a key string or a list
+;; of a key strings to type to input C.  The lenth of key string is at
+;; most 2.  If it is 2, more keys may be required to input C.
+
+(defun quail-gen-decode-map ()
+  (let ((table (make-char-table 'quail-decode-map nil)))
+    (dolist (elt (cdr (quail-map)))
+      (quail-gen-decode-map1 (cdr elt) (string (car elt)) table))
+    table))
+
+;; Check if CHAR equals to TARGET while also trying to translate CHAR
+;; by translation-table-for-input.
+
+(defsubst quail-char-equal-p (char target)
+  (or (= char target)
+      (and translation-table-for-input
+	   (setq char (aref translation-table-for-input char))
+	   (= char target))))
+
+;; Helper function for quail-find-key.  Prepend key strings to type
+;; for inputting CHAR by the current input method to KEY-LIST and
+;; return the result.  MAP is an element of the current Quail map
+;; reached by typing keys in KEY.
+
+(defun quail-find-key1 (map key char key-list)
+  (let ((trans (car map))
+	(found-here nil))
+    (cond ((stringp trans)
+	   (setq found-here
+		 (and (= (length trans) 1)
+		      (quail-char-equal-p (aref trans 0) char))))
+	  ((or (vectorp trans) (consp trans))
+	   (if (consp trans)
+	       (setq trans (cdr trans)))
+	   (setq found-here
+		 (catch 'tag
+		   (dotimes (i (length trans))
+		     (let ((target (aref trans i)))
+		       (if (integerp target)
+			   (if (quail-char-equal-p target char)
+			       (throw 'tag t))
+			 (if (and (= (length target) 1)
+				  (quail-char-equal-p (aref target 0) char))
+			     (throw 'tag t))))))))
+	    ((integerp trans)
+	     (setq found-here (quail-char-equal-p trans char))))
+    (if found-here
+	(setq key-list (cons key key-list)))
+    (if (> (length key) 1)
+	(dolist (elt (cdr map))
+	  (setq key-list
+		(quail-find-key1 (cdr elt) (format "%s%c" key (car elt))
+				     char key-list))))
+    key-list))
+
+;; If non-nil, the value has the form (QUAIL-MAP . CODING-SYSTEM)
+;; where QUAIL-MAP is a quail-map of which decode map was generated
+;; while buffer-file-coding-system was CODING-SYSTEM.
+
+(defvar quail-decode-map-generated nil)
+
+(defun quail-find-key (char)
+  "Return a list of keys to type to input CHAR in the current input method.
+If CHAR is an ASCII character and can be input by typing itself, return t."
+  (let ((decode-map (or (and (or (not quail-decode-map-generated)
+				 (and (eq (car quail-decode-map-generated) (quail-map))
+				      (eq (cdr quail-decode-map-generated)
+					  (or buffer-file-coding-system t))))
+			     (quail-decode-map))
+			(let ((map (quail-gen-decode-map)))
+			  (setq quail-decode-map-generated
+				(cons (quail-map) (or buffer-file-coding-system t)))
+			  (setcar (nthcdr 10 quail-current-package) map)
+			  map)))
+	(key-list nil))
+    (if (consp decode-map)
+	(let ((str (string char)))
+	  (mapc #'(lambda (elt)
+		    (if (string= str (car elt))
+			(setq key-list (cons (cdr elt) key-list))))
+		(cdr decode-map)))
+      (let ((key-head (aref decode-map char)))
+	(if (stringp key-head)
+	    (setq key-list (quail-find-key1 
+			    (quail-lookup-key key-head nil t)
+			    key-head char nil))
+	  (mapc #'(lambda (elt)
+		    (setq key-list
+			  (quail-find-key1
+			   (quail-lookup-key elt nil t) elt char key-list)))
+		key-head))))
+    (or key-list
+	(and (< char 128)
+	     (not (quail-lookup-key (string char) 1))))))
+
+(defun quail-show-key ()
+  "Show a list of key strings to type for inputting a character at point."
+  (interactive)
+  (or current-input-method
+      (error "No input method is activated"))
+  (or (assoc current-input-method quail-package-alist)
+      (error "The current input method does not use Quail"))
+  (let* ((char (following-char))
+	 (key-list (quail-find-key char)))
+    (cond ((consp key-list)
+	   (message "To input `%c', type \"%s\""
+		    char
+		    (mapconcat 'identity key-list "\", \"")))
+	  ((eq key-list t)
+	   (message "To input `%s', just type it"
+		    (single-key-description char)))
+	  (t
+	   (message "%c can't be input by the current input method" char)))))
+
 
 ;; Quail map generator from state transition table.
 
@@ -2701,7 +2895,7 @@ function `quail-install-map' (which see)."
 	 (translation-list nil)
 	 map)
     (while (> len 0)
-      (setq map (quail-lookup-key key len)
+      (setq map (quail-lookup-key key len t)
 	    len (1- len))
       (if map
 	  (let* ((def (quail-map-definition map))
@@ -2740,8 +2934,7 @@ of each directory."
     (setq list-buf (find-file-noselect leim-list))
 
     ;; At first, clean up the file.
-    (save-excursion
-      (set-buffer list-buf)
+    (with-current-buffer list-buf
       (goto-char 1)
 
       ;; Insert the correct header.
@@ -2796,12 +2989,12 @@ of each directory."
 	  (with-temp-buffer
 	    (insert-file-contents (car pkg-list))
 	    (goto-char (point-min))
-	    (while (search-forward "(quail-define-package" nil t)
+	    ;; Don't get fooled by commented-out code.
+	    (while (re-search-forward "^[ \t]*(quail-define-package" nil t)
 	      (goto-char (match-beginning 0))
 	      (condition-case nil
 		  (let ((form (read (current-buffer))))
-		    (save-excursion
-		      (set-buffer list-buf)
+		    (with-current-buffer list-buf
 		      (insert
 		       (format "(register-input-method
  %S %S '%s
@@ -2820,13 +3013,12 @@ of each directory."
 		(error
 		 ;; Ignore the remaining contents of this file.
 		 (goto-char (point-max))
-		 (message "Some part of \"%s\" is broken" dirname)))))
+		 (message "Some part of \"%s\" is broken" (car pkg-list))))))
 	  (setq pkg-list (cdr pkg-list)))
 	(setq quail-dirs (cdr quail-dirs) dirnames (cdr dirnames))))
 
     ;; At last, write out LEIM list file.
-    (save-excursion
-      (set-buffer list-buf)
+    (with-current-buffer list-buf
       (setq buffer-file-coding-system 'iso-2022-7bit)
       (save-buffer 0))
     (kill-buffer list-buf)
@@ -2850,4 +3042,5 @@ call it with one argument STRING."
 ;;
 (provide 'quail)
 
+;;; arch-tag: 46d7db54-5467-42c4-a2a9-53ca90a1e886
 ;;; quail.el ends here

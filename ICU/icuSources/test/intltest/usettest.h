@@ -1,7 +1,7 @@
 
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************
 **********************************************************************
@@ -47,6 +47,8 @@ private:
 
     void TestAPI(void);
 
+    void TestIteration(void);
+
     void TestStrings(void);
 
     void TestScriptSet(void);
@@ -71,6 +73,8 @@ private:
     void TestSymbolTable(void);
 
     void TestSurrogate();
+
+    void TestPosixClasses();
 
 private:
 

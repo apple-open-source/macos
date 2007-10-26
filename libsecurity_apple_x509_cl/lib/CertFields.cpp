@@ -658,6 +658,8 @@ static const oidToFieldFuncs fieldFuncTable[] = {
 		&setFieldAuthInfoAccess, &freeFieldInfoAccess },
 	{   &CSSMOID_SubjectInfoAccess, &getFieldSubjInfoAccess,
 		&setFieldAuthInfoAccess, &freeFieldInfoAccess },
+	{	&CSSMOID_QC_Statements, &getFieldQualCertStatements,
+		&setFieldQualCertStatements, &freeFieldQualCertStatements }
 };
 
 #define NUM_KNOWN_FIELDS		(sizeof(fieldFuncTable) / sizeof(oidToFieldFuncs))

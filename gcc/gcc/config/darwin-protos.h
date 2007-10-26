@@ -21,6 +21,8 @@ Boston, MA 02111-1307, USA.  */
 
 extern int name_needs_quotes (const char *);
 
+/* APPLE LOCAL ARM pic support */
+extern int machopic_lookup_stub_or_non_lazy_ptr (const char *);
 extern void machopic_validate_stub_or_non_lazy_ptr (const char *);
 
 extern const char *machopic_function_base_name (void);
@@ -36,8 +38,12 @@ extern void machopic_symbol_stub_section (void);
 extern void machopic_symbol_stub1_section (void);
 /* APPLE LOCAL deep branch prediction */
 extern void machopic_symbol_stub2_section (void);
+/* APPLE LOCAL ARM pic support */
+extern void machopic_symbol_stub4_section (void);
 /* APPLE LOCAL AT&T-style stub 4164563 */
 extern void machopic_picsymbol_stub3_section (void);
+/* APPLE LOCAL ARM pic support */
+extern void machopic_picsymbol_stub4_section (void);
 extern void machopic_lazy_symbol_ptr_section (void);
 /* APPLE LOCAL begin -mdynamic-no-pic */
 extern void machopic_lazy_symbol_ptr2_section (void);
@@ -57,19 +63,25 @@ extern int machopic_operand_p (rtx);
 extern enum machopic_addr_class machopic_classify_symbol (rtx);
 
 extern rtx machopic_indirect_data_reference (rtx, rtx);
+/* APPLE LOCAL 4380289 */
+extern rtx machopic_force_indirect_call_target (rtx);
 extern rtx machopic_indirect_call_target (rtx);
 extern rtx machopic_legitimize_pic_address (rtx, enum machine_mode, rtx);
 
 extern void machopic_asm_out_constructor (rtx, int);
 extern void machopic_asm_out_destructor (rtx, int);
+/* APPLE LOCAL ARM pic support */
+extern int machopic_data_defined_p (rtx sym_ref);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
 
 extern void machopic_define_symbol (rtx);
 extern void darwin_encode_section_info (tree, rtx, int);
+/* APPLE LOCAL mainline */
+extern void darwin_set_default_type_attributes (tree);
 /* APPLE LOCAL CW asm blocks */
-extern tree darwin_cw_asm_special_label (tree);
+extern tree darwin_iasm_special_label (tree);
 
 #endif /* TREE_CODE */
 
@@ -86,10 +98,14 @@ extern void darwin_asm_named_section (const char *, unsigned int, tree);
 extern void darwin_non_lazy_pcrel (FILE *, rtx);
 
 extern void darwin_emit_unwind_label (FILE *, tree, int, int);
+/* APPLE LOCAL mainline */
+extern void darwin_emit_except_table_label (FILE *);
 
 extern void darwin_pragma_ignore (struct cpp_reader *);
 extern void darwin_pragma_options (struct cpp_reader *);
 extern void darwin_pragma_unused (struct cpp_reader *);
+/* APPLE LOCAL mainline */
+extern void darwin_pragma_ms_struct (struct cpp_reader *);
 /* APPLE LOCAL pragma fenv */
 extern void darwin_pragma_fenv (struct cpp_reader *);
 /* APPLE LOCAL pragma reverse_bitfields */
@@ -111,15 +127,17 @@ extern void darwin_pragma_call_on_unload (struct cpp_reader *);
 extern int darwin_set_section_for_var_p (tree, int, int);
 /* APPLE LOCAL end darwin_set_section_for_var_p  */
 
-/* APPLE LOCAL  double destructor  */
-extern tree darwin_handle_odd_attribute (tree *, tree, tree, int, bool *);
 /* APPLE LOCAL ObjC GC */
 extern tree darwin_handle_objc_gc_attribute (tree *, tree, tree, int, bool *);
 
+/* APPLE LOCAL dwarf 4383509 */
+extern void darwin_file_start (void);
 extern void darwin_file_end (void);
 
 extern void darwin_mark_decl_preserved (const char *);
 
+/* APPLE LOCAL mainline */
+extern tree darwin_handle_kext_attribute (tree *, tree, tree, int, bool *);
 extern tree darwin_handle_weak_import_attribute (tree *node, tree name,
 						 tree args, int flags,
 						 bool * no_add_attrs);
@@ -136,6 +154,8 @@ extern void data_coal_section (void);
 extern void cstring_section (void);
 extern void literal4_section (void);
 extern void literal8_section (void);
+/* APPLE LOCAL x86_64 */
+extern void literal16_section (void);
 extern void constructor_section (void);
 extern void mod_init_section (void);
 extern void mod_term_section (void);
@@ -155,6 +175,26 @@ extern void objc_symbols_section (void);
 extern void objc_module_info_section (void);
 extern void objc_image_info_section (void);
 extern void objc_protocol_section (void);
+/* APPLE LOCAL begin ObjC new abi - radar 4792158*/
+extern void objc_v2_classlist_section (void);
+extern void objc_v2_categorylist_section (void);
+extern void objc_data_section (void);
+extern void objc_v2_message_refs_section (void);
+extern void objc_v2_classrefs_section (void);
+extern void objc_v2_nonlazy_class_section (void);
+extern void objc_v2_nonlazy_category_section (void);
+extern void objc_v2_selector_refs_section (void);
+extern void objc_v2_super_classrefs_section (void);
+extern void objc_v2_protocollist_section (void);
+extern void objc_v2_protocolrefs_section (void);
+extern void objc_v2_image_info_section (void);
+extern void objc_v2_constant_string_object_section (void);
+/* APPLE LOCAL end ObjC new abi - radar 4792158 */
+/* APPLE LOCAL begin radar 4585769 - Objective-C 1.0 extensions */
+extern void objc_class_ext_section (void);
+extern void objc_prop_list_section (void);
+extern void objc_protocol_ext_section (void);
+/* APPLE LOCAL end radar 4585769 - Objective-C 1.0 extensions */
 extern void objc_string_object_section (void);
 extern void objc_constant_string_object_section (void);
 extern void objc_class_names_section (void);
@@ -176,9 +216,18 @@ extern void darwin_globalize_label (FILE *, const char *);
 extern void darwin_assemble_visibility (tree, int);
 extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
 					   const char *);
-/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
+/* APPLE LOCAL begin dwarf 4383509 */
+extern void darwin_asm_output_dwarf_offset (FILE *, int, const char *,
+					    const char *);
+/* APPLE LOCAL end dwarf 4383509 */
+/* APPLE LOCAL begin mainline */
+extern bool darwin_binds_local_p (tree);
 extern void darwin_cpp_builtins (struct cpp_reader *);
-/* APPLE LOCAL end mainline 2005-09-01 3449986 */
+/* APPLE LOCAL iframework for 4.3 4094959 */
+extern bool darwin_handle_c_option (size_t code, const char *arg, int value);
+extern bool darwin_kextabi_p (void);
+extern void darwin_override_options (void);
+/* APPLE LOCAL end mainline */
 /* APPLE LOCAL optimization pragmas 3124235/3420242 */
 extern void reset_optimization_options (int, int);
 /* APPLE LOCAL C++ EH */
@@ -190,11 +239,14 @@ extern tree darwin_expand_tree_builtin (tree, tree, tree);
 extern tree darwin_construct_objc_string (tree);
 /* APPLE LOCAL end constant cfstrings */
 
-/* APPLE LOCAL CW asm blocks */
-#define CW_ASM_SPECIAL_LABEL(ID) darwin_cw_asm_special_label (ID)
+/* APPLE LOCAL begin radar 4985544 */
+extern bool darwin_cfstring_type_node (tree);
+extern bool objc_check_format_cfstring (tree, unsigned HOST_WIDE_INT, bool *);
+/* APPLE LOCAL end radar 4985544 */
 
-/* APPLE LOCAL begin KEXT */
-#ifdef TREE_CODE
-extern bool flag_apple_kext_p (void);
-#endif
-/* APPLE LOCAL end KEXT */
+/* APPLE LOCAL CW asm blocks */
+#define IASM_SPECIAL_LABEL(ID) darwin_iasm_special_label (ID)
+/* APPLE LOCAL begin radar 2996215 */
+extern tree objc_create_init_utf16_var (const unsigned char *, size_t, size_t *);
+extern bool objc_cvt_utf8_utf16 (const unsigned char *, size_t, unsigned char **, size_t *);
+/* APPLE LOCAL end radar 2996215 */

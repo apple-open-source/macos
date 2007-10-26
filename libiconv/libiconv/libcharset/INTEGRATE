@@ -7,10 +7,10 @@ Integration of this library into your package:
 * Add the m4/ files (codeset.m4, glibc21.m4) to your aclocal.m4 file or, if
   you are using automake, to your m4/ directory.
 
-* Add the following lines to your configure.in file:
+* Add the following lines to your configure.ac file:
 
     AC_CANONICAL_HOST
-    jm_LANGINFO_CODESET
+    AM_LANGINFO_CODESET
     jm_GLIBC21
     AC_CHECK_HEADERS(stddef.h stdlib.h string.h)
     AC_CHECK_FUNCS(setlocale)

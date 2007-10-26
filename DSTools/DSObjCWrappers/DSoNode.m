@@ -137,10 +137,10 @@
     DSoDataList            *attr        = nil;
     DSoBuffer              *bufAttrList = nil;
     tAttributeListRef       listRef     = 0;
-    tContextData            context     = NULL;
+    tContextData            context     = 0;
     tDirStatus              err         = eDSNoErr;
     NSMutableDictionary    *attributes  = [[NSMutableDictionary alloc] init];
-    unsigned long           count       = 0;
+    UInt32                  count       = 0;
     unsigned int            baseSize    = 1024;
     
     @try
@@ -157,7 +157,7 @@
         do
         {
             err = dsGetDirNodeInfo(mNodeRef, [attr dsDataList], [bufAttrList dsDataBuffer],
-                                   FALSE, (unsigned long *)&count, (tAttributeListRef *)&listRef, (tContextData *)&context);
+                                   FALSE, (UInt32 *)&count, (tAttributeListRef *)&listRef, (tContextData *)&context);
             if (err == eDSBufferTooSmall)
             {
                 [bufAttrList grow:[bufAttrList getBufferSize] + baseSize];
@@ -174,7 +174,7 @@
                 listRef = 0;
             }
         } 
-        while (  (err == eDSNoErr && context != NULL) || (err == eDSBufferTooSmall));
+        while (  (err == eDSNoErr && context != 0) || (err == eDSBufferTooSmall));
         
         [pool drain];
         
@@ -185,6 +185,12 @@
     } @finally {
         [attr release];
         [bufAttrList release];
+    }
+
+	if (listRef != 0)
+    {
+        dsCloseAttributeList(listRef);
+        listRef = 0;
     }
 
     if (err)
@@ -583,8 +589,7 @@
 			}
 	
 			// Node size is: struct size + string length + null term byte
-			string = (NSString*)CFMakeCollectable(CFStringCreateWithBytes(NULL,cpBuff,ulCurrentLength,
-														kCFStringEncodingUTF8,false));
+			string = (NSString*)CFMakeCollectable(CFStringCreateWithBytes(NULL,(const UInt8 *)cpBuff,(CFIndex)ulCurrentLength, kCFStringEncodingUTF8,false));
 			cpBuff += ulCurrentLength;
 			offset += ulCurrentLength;
 			if (string == nil) {
@@ -802,7 +807,7 @@
                                         cStrings:kDSNAttrMetaNodeLocation, kDSNAttrRecordName, 0] ;
 	DSoBuffer          *dbData      = [[DSoBuffer alloc] initWithDir:mDirectory bufferSize:1024];
 	tDirStatus			nError      = eDSNoErr;
-	unsigned long		ulCount     = 1 ;
+	UInt32              ulCount     = 1 ;
 	tAttributeListRef	refAttrs    = 0 ;
 	tRecordEntryPtr		recInfo     = NULL ;
 	NSString           *sNode       = nil;
@@ -812,7 +817,7 @@
 	DSoDataNode        *dnType      = nil;
 	tRecordReference	rrTemp      = 0;
     RecID				retValue;
-	tContextData		context     = NULL;
+	tContextData		context     = 0;
 
 	do
 	{
@@ -820,7 +825,7 @@
 							[dlTypes dsDataList], [dlAttrs dsDataList], false, &ulCount, &context);
 		if (nError == eDSBufferTooSmall)
 			[dbData grow:[dbData getBufferSize]*2];
-	} while ( (nError == eDSBufferTooSmall) || (nError == eDSNoErr && ulCount == 0 && context != nil) );
+	} while ( (nError == eDSBufferTooSmall) || (nError == eDSNoErr && ulCount == 0 && context != 0) );
 
     [dlNames release];
     [dlTypes release];
@@ -968,8 +973,9 @@
 	tAttributeListRef   refAttrs            = 0;
 	tRecordEntryPtr		recInfo             = nil ;
 	unsigned long       i                   = 0;
-    unsigned long       ulCount             = 0;
+    UInt32              ulCount             = 0;
 	NSMutableArray     *results             = [NSMutableArray array];
+    BOOL                shouldAddRecName    = NO;
 
 	if (inAttrib != nil)
 	{
@@ -983,6 +989,11 @@
 		dlAttribsToRetrieve = [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory cString:kDSNAttrRecordName];
 	else
 		dlAttribsToRetrieve = [[DSoDataList alloc] initWithDir:mDirectory strings:inAttribsToRetrieve];
+        
+    shouldAddRecName = ( inAttribsToRetrieve == nil 
+                         || [inAttribsToRetrieve containsObject:@kDSNAttrRecordName]
+                         || [inAttribsToRetrieve containsObject:@kDSAttributesAll] 
+                         || [inAttribsToRetrieve containsObject:@kDSAttributesStandardAll] );
 	
 	@try
     {
@@ -990,15 +1001,15 @@
 			if (inAttrib == nil)
 				status = dsGetRecordList(mNodeRef, [dbData dsDataBuffer], [dnSearchValue dsDataList], inMatchType,
                                 [dlRecordTypes dsDataList], [dlAttribsToRetrieve dsDataList], (inAttribsToRetrieve == nil),
-                                (unsigned long *)&ulCount, (tContextData*) &context);
+                                (UInt32 *)&ulCount, (tContextData*) &context);
 			else if (dlAttribsToRetrieve == nil)
 				status = dsDoAttributeValueSearch(mNodeRef, [dbData dsDataBuffer], [dlRecordTypes dsDataList],
                                 [dnAttribType dsDataNode], inMatchType, [dnSearchValue dsDataNode],
-                                (unsigned long *)&ulCount, (tContextData*) &context);
+                                (UInt32 *)&ulCount, (tContextData*) &context);
 			else
 				status = dsDoAttributeValueSearchWithData(mNodeRef, [dbData dsDataBuffer], [dlRecordTypes dsDataList],
                                 [dnAttribType dsDataNode], inMatchType, [dnSearchValue dsDataNode],
-                                [dlAttribsToRetrieve dsDataList], NO, (unsigned long *)&ulCount, (tContextData*) &context);
+                                [dlAttribsToRetrieve dsDataList], NO, (UInt32 *)&ulCount, (tContextData*) &context);
 			
 			if (status == eDSBufferTooSmall)
 			{
@@ -1041,6 +1052,13 @@
                                 [recType release];
                                 free(cRecType);
                             }
+                            if (shouldAddRecName && [attribsAndValues objectForKey:@kDSNAttrRecordName] == nil) {
+                                char *recName = nil;
+                                dsGetRecordNameFromEntry(recInfo, &recName);
+                                [(NSMutableDictionary*)attribsAndValues setObject:[NSArray arrayWithObject:[NSString stringWithUTF8String:recName]]
+                                                                           forKey:@kDSNAttrRecordName];
+                                free(recName);
+                            }
                             [results addObject:attribsAndValues];
                         }
                     } @catch( NSException *exception ) {
@@ -1082,8 +1100,8 @@
 	DSoDataList        *dlAttrs     = [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory cString:kDSNAttrRecordName] ;
 	DSoBuffer          *dbData      = [(DSoBuffer*)[DSoBuffer alloc] initWithDir:mDirectory bufferSize:256];
 	tDirStatus			nError      = eDSNoErr;
-	unsigned long		ulCount     = 1;
-	tContextData		context     = NULL;
+	UInt32              ulCount     = 1;
+	tContextData		context     = 0;
 	BOOL				bHasType    = NO;
 
 	@try
@@ -1092,7 +1110,7 @@
 		do {
 
 			nError = dsGetRecordList (mNodeRef, [dbData dsDataBuffer], [dlNames dsDataList], eDSExact,
-								[dlTypes dsDataList], [dlAttrs dsDataList], TRUE, (unsigned long *)&ulCount, (tContextData *)&context);
+								[dlTypes dsDataList], [dlAttrs dsDataList], TRUE, (UInt32 *)&ulCount, (tContextData *)&context);
 			if (nError == eDSBufferTooSmall)
 			{
 				[dbData grow:[dbData getBufferSize]*2];
@@ -1108,12 +1126,12 @@
 				break;
 			}
 
-		} while ( (nError == eDSBufferTooSmall) || (context != nil) );
+		} while ( (nError == eDSBufferTooSmall) || (context != 0) );
 
 	} @catch( NSException *exception ) {
         @throw;
     } @finally {
-		if (context != nil)
+		if (context != 0)
 		{
 			dsReleaseContinueData(mNodeRef, context);
 			context = 0;

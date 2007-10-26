@@ -19,7 +19,7 @@ Provided that both your client and your server are recent (for
 example, CVS 1.9.27 or later), you shouldn't need GNU patch or any
 other executables other than CVS.EXE.
 
-Please send bug reports to bug-cvs@gnu.org.
+Please send bug reports to bug-cvs@nongnu.org.
 
 As of CVS 1.5.something, this port passed most of the tests in
 [.src]sanity.sh.  I say "most" because some tests to not apply to the

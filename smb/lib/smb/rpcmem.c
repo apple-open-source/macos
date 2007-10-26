@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -50,7 +53,7 @@ PRIVATE pointer_t rpc__mem_alloc
 
     RPC_MEM_ALLOC_IL(addr, char *, size, type, flags);
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
     if ((type & 0xff) == rpc_g_dbg_switches[rpc_es_dbg_mem_type])
     {
         RPC_DBG_PRINTF(rpc_e_dbg_mem, 1,
@@ -78,7 +81,7 @@ PRIVATE pointer_t rpc__mem_realloc
 {
     RPC_MEM_REALLOC_IL(addr, pointer_t, size, type, flags);
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
     if ((type & 0xff) == rpc_g_dbg_switches[rpc_es_dbg_mem_type])
     {
         RPC_DBG_PRINTF(rpc_e_dbg_mem, 1,
@@ -103,7 +106,7 @@ PRIVATE void rpc__mem_free
 )
 {
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
     if ((type & 0xff) == rpc_g_dbg_switches[rpc_es_dbg_mem_type])
     {
         RPC_DBG_PRINTF(rpc_e_dbg_mem, 1,

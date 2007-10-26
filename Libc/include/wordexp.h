@@ -42,7 +42,7 @@ WITH THE ACCESS, USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
 
-/* $Id: wordexp.h,v 1.4 2004/11/25 19:38:10 emoy Exp $ */
+/* $Id: wordexp.h,v 1.5 1994/05/12 20:46:40 davis Exp $ */
 #ifndef _WORDEXP_H
 #define _WORDEXP_H
 
@@ -76,13 +76,13 @@ typedef struct {
 #define WRDE_BADVAL	2
 #define WRDE_CMDSUB	3
 #define WRDE_NOSPACE	4 
-#define WRDE_NOYS	5 
+#define WRDE_NOSYS	5 
 #define WRDE_SYNTAX	6
 
 
 __BEGIN_DECLS
-int wordexp(const char *words, wordexp_t *pwordexp, int flags);
-void wordfree(wordexp_t *pwordexp);
+int wordexp(const char * __restrict, wordexp_t * __restrict, int);
+void wordfree(wordexp_t *);
 __END_DECLS
 
 #endif  /* _WORDEXP_H */

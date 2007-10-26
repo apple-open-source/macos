@@ -1,13 +1,13 @@
-Dig selv, eller en som udgiver sig for at være dig har bedt om
-at få tilsendt password for maillisten %(fqdn_lname)s. Du skal
-bruge dette password for at ændre på dine indstillinger på listen
-(f. eks. ændre password, at få tilsendt sammendrag med jævne
-mellemrum i stedet osv.). Password skal du også bruge til at 
-framelde dig fra listen, hvis dette skulle blive aktuelt.
+Du selv, eller en som udgiver sig for at være dig har bedt om
+at få tilsendt adgangskode til maillisten %(fqdn_lname)s. Du skal
+bruge denne adgangskode for at ændre på dine indstillinger på listen
+(f. eks. ændre adgangskode, få tilsendt sammendrag med jævne
+mellemrum osv.). Du skal også bruge din Adgangskode for at
+afmelde dig listen, hvis dette skulle blive aktuelt.
 
-Du er medlem med e-mail adressen: %(user)s
+Du er medlem med e-mail adressen:  %(user)s
 
-Dit password på maillisten %(listname)s er: %(password)s
+Din adgangskode på maillisten %(listname)s er:  %(password)s
 
 For at ændre dine indstillinger på denne liste, kan du logge
 ind på din personlige web-side for listen:
@@ -19,8 +19,8 @@ ved at sende en e-mail til:
 
     %(requestaddr)s
 
-Med ordet "help" i Subject feltet i din e-mail. Du vil så modtage
-et automatisk svar fra systemet med nærmere instrukioner.
+med ordet "help" i Emne feltet i din e-mail. Du vil så modtage
+et automatisk svar fra systemet med nærmere instruktioner.
 
-Har du spørsmål eller kommentarer? Kontakt listeadministratoren for
-%(listname)s på %(owneraddr)s.
+Har du spørgsmål eller kommentarer? Kontakt listeadministrator for
+%(listname)s på adressen %(owneraddr)s.

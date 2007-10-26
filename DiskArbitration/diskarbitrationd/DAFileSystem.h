@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,6 +47,8 @@ extern const CFStringRef kDAFileSystemUnmountArgumentForce;
 typedef void ( *DAFileSystemCallback )( int status, void * context );
 
 typedef void ( *DAFileSystemProbeCallback )( int status, CFBooleanRef clean, CFStringRef name, CFUUIDRef uuid, void * context );
+
+extern CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoint );
 
 extern CFUUIDRef _DAFileSystemCreateUUIDFromString( CFAllocatorRef allocator, CFStringRef string );
 

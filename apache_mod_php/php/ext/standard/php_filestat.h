@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_filestat.h,v 1.17.4.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: php_filestat.h,v 1.24.2.4.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
 #ifndef PHP_FILESTAT_H
 #define PHP_FILESTAT_H
@@ -36,9 +36,7 @@ PHP_FUNCTION(filesize);
 PHP_FUNCTION(filetype);
 PHP_FUNCTION(is_writable);
 PHP_FUNCTION(is_readable);
-#ifndef PHP_WIN32
 PHP_FUNCTION(is_executable);
-#endif
 PHP_FUNCTION(is_file);
 PHP_FUNCTION(is_dir);
 PHP_FUNCTION(is_link);
@@ -49,6 +47,12 @@ PHP_FUNCTION(disk_total_space);
 PHP_FUNCTION(disk_free_space);
 PHP_FUNCTION(chown);
 PHP_FUNCTION(chgrp);
+#if HAVE_LCHOWN
+PHP_FUNCTION(lchown);
+#endif
+#if HAVE_LCHOWN
+PHP_FUNCTION(lchgrp);
+#endif
 PHP_FUNCTION(chmod);
 #if HAVE_UTIME
 PHP_FUNCTION(touch);
@@ -76,5 +80,33 @@ PHP_FUNCTION(clearstatcache);
 #define getgid() 1
 #define getuid() 1
 #endif
+
+#ifdef PHP_WIN32
+typedef unsigned int php_stat_len;
+#else
+typedef int php_stat_len;
+#endif
+
+PHPAPI void php_stat(const char *filename, php_stat_len filename_length, int type, zval *return_value TSRMLS_DC);
+
+/* Switches for various filestat functions: */
+#define FS_PERMS    0
+#define FS_INODE    1
+#define FS_SIZE     2
+#define FS_OWNER    3
+#define FS_GROUP    4
+#define FS_ATIME    5
+#define FS_MTIME    6
+#define FS_CTIME    7
+#define FS_TYPE     8
+#define FS_IS_W     9
+#define FS_IS_R    10
+#define FS_IS_X    11
+#define FS_IS_FILE 12
+#define FS_IS_DIR  13
+#define FS_IS_LINK 14
+#define FS_EXISTS  15
+#define FS_LSTAT   16
+#define FS_STAT    17
 
 #endif /* PHP_FILESTAT_H */

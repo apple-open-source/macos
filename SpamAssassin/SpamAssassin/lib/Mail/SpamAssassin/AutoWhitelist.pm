@@ -1,9 +1,10 @@
 # <@LICENSE>
-# Copyright 2004 Apache Software Foundation
-# 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to you under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at:
 # 
 #     http://www.apache.org/licenses/LICENSE-2.0
 # 
@@ -41,9 +42,11 @@ documentation for public interfaces.
 package Mail::SpamAssassin::AutoWhitelist;
 
 use strict;
+use warnings;
 use bytes;
 
 use Mail::SpamAssassin;
+use Mail::SpamAssassin::Logger;
 
 use vars	qw{
   	@ISA
@@ -64,11 +67,33 @@ sub new {
 
   $self->{factor} = $main->{conf}->{auto_whitelist_factor};
 
-  if (!defined $self->{main}->{pers_addr_list_factory}) {
+  my $factory;
+  if ($main->{pers_addr_list_factory}) {
+    $factory = $main->{pers_addr_list_factory};
+  }
+  else {
+    my $type = $main->{conf}->{auto_whitelist_factory};
+    if ($type =~ /^([_A-Za-z0-9:]+)$/) {
+      $type = $1;
+      eval '
+  	    require '.$type.';
+            $factory = '.$type.'->new();
+           ';
+      if ($@) { 
+	warn "auto-whitelist: $@";
+	undef $factory;
+      }
+      $main->set_persistent_address_list_factory($factory) if $factory;
+    }
+    else {
+      warn "auto-whitelist: illegal auto_whitelist_factory setting\n";
+    }
+  }
+
+  if (!defined $factory) {
     $self->{checker} = undef;
   } else {
-    $self->{checker} =
-  	$self->{main}->{pers_addr_list_factory}->new_checker ($self->{main});
+    $self->{checker} = $factory->new_checker($self->{main});
   }
 
   bless ($self, $class);
@@ -106,7 +131,7 @@ sub check_address {
       my $noipent = $self->{checker}->get_addr_entry ($noipaddr);
 
       if (defined $noipent->{count} && $noipent->{count} > 0) {
-	dbg ("AWL: found entry w/o IP address for $addr: replacing with $origip");
+	dbg("auto-whitelist: found entry w/o IP address for $addr: replacing with $origip");
 	$self->{checker}->remove_entry($noipent);
         # Now assign proper entry the count and totscore values of the no ip entry
         # instead of assigning the whole value to avoid wiping out any information added
@@ -121,6 +146,21 @@ sub check_address {
 
   return $self->{entry}->{totscore}/$self->{entry}->{count};
 }
+
+###########################################################################
+
+=item awl->count();
+
+This method will return the count of messages used in determining the
+whitelist correction.
+
+=cut
+
+sub count {
+  my $self = shift;
+  return $self->{entry}->{count};
+}
+
 
 ###########################################################################
 
@@ -157,6 +197,7 @@ sub add_known_good_address {
 
   return $self->modify_address($addr, -100);
 }
+
 
 ###########################################################################
 
@@ -205,7 +246,7 @@ sub modify_address {
   $entry = $self->{checker}->get_addr_entry ($fulladdr);
   $self->{checker}->add_score($entry, $score);
 
-  return 0;
+  return 1;
 }
 
 ###########################################################################
@@ -239,6 +280,8 @@ sub pack_addr {
 
 ###########################################################################
 
-sub dbg { Mail::SpamAssassin::dbg (@_); }
-
 1;
+
+=back
+
+=cut

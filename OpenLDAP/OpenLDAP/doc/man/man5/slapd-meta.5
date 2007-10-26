@@ -1,8 +1,8 @@
 .TH SLAPD-META 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 1998-2004 The OpenLDAP Foundation, All Rights Reserved.
+.\" Copyright 1998-2006 The OpenLDAP Foundation, All Rights Reserved.
 .\" Copying restrictions apply.  See the COPYRIGHT file.
 .\" Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-meta.5,v 1.15.2.7 2004/04/12 18:21:07 kurt Exp $
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-meta.5,v 1.29.2.12 2006/05/09 20:00:36 ando Exp $
 .\"
 .\" Portions of this document should probably be moved to slapd-ldap(5)
 .\" and maybe manual pages for librewrite.
@@ -10,7 +10,7 @@
 .SH NAME
 slapd-meta \- metadirectory backend
 .SH SYNOPSIS
-/etc/openldap/slapd.conf
+ETCDIR/slapd.conf
 .SH DESCRIPTION
 The
 .B meta
@@ -37,6 +37,16 @@ These features, although useful in many scenarios, may result in
 excessive overhead for some applications, so its use should be
 carefully considered.
 In the examples section, some typical scenarios will be discussed.
+
+.LP
+Note: When looping back to the same instance of \fBslapd\fP(8), 
+each connection requires a new thread; as a consequence, \fBslapd\fP(8)
+must be compiled with thread support, and the \fBthreads\fP parameter 
+may need some tuning; in those cases, unless the multiple target feature
+is required, one may consider using \fBslapd-relay\fP(5) instead, 
+which performs the relayed operation internally and thus reuses 
+the same connection.
+
 .SH EXAMPLES
 There are examples in various places in this document, as well as in the
 slapd/back-meta/data/ directory in the OpenLDAP source tree.
@@ -50,31 +60,33 @@ Other database options are described in the
 .BR slapd.conf (5)
 manual page.
 .LP
-Note: as with the
-.B ldap
-backend, operational attributes related to entry creation/modification
-should not be used, as they would be passed to the target servers,
-generating an error.
-Moreover, it makes little sense to use such attributes in proxying, as
-the proxy server doesn't actually store data, so it should have no
-knowledge of such attributes.
-While code to strip the modification attributes has been put in place
-(and #ifdef'd), it implies unmotivated overhead.
-So it is strongly recommended to set
+Note: In early versions of back-ldap and back-meta it was recommended to always set
+.LP
 .RS
+.nf
 lastmod  off
+.fi
 .RE
+.LP
 for every
 .B ldap
 and
 .B meta
-backend.
+database.
+This is because operational attributes related to entry creation and
+modification should not be proxied, as they could be mistakenly written
+to the target server(s), generating an error.
+The current implementation automatically sets lastmod to off, so its use
+is redundant and should be omitted, because the lastmod directive will
+be deprecated in the future.
+
 .SH SPECIAL CONFIGURATION DIRECTIVES
 Target configuration starts with the "uri" directive.
 All the configuration directives that are not specific to targets
 should be defined first for clarity, including those that are common
 to all backends.
 They are:
+
 .TP
 .B default-target none
 This directive forces the backend to reject all those operations
@@ -86,23 +98,68 @@ matches an attempt is made to perform the operation on any candidate
 target, with the constraint that at most one must succeed.
 This directive can also be used when processing targets to mark a
 specific target as default.
+
 .TP
-.B dncache-ttl {forever|disabled|<ttl>}
+.B dncache-ttl {DISABLED|forever|<ttl>}
 This directive sets the time-to-live of the DN cache.
 This caches the target that holds a given DN to speed up target
 selection in case multiple targets would result from an uncached
 search; forever means cache never expires; disabled means no DN
-caching; otherwise a valid ( > 0 ) ttl in seconds is required.
+caching; otherwise a valid ( > 0 ) ttl is required, in the format
+illustrated for the 
+.B idle-timeout
+directive.
+
+.TP
+.B conn-ttl <time>
+This directive causes a cached connection to be dropped an recreated
+after a given ttl, regardless of being idle or not.
+
+.TP
+.B onerr {CONTINUE|stop}
+This directive allows to select the behavior in case an error is returned
+by one target during a search.
+The default, \fBcontinue\fP, consists in continuing the operation, 
+trying to return as much data as possible.
+If this statement is set to \fBstop\fP, the search is terminated as soon 
+as an error is returned by one target, and the error is immediately 
+propagated to the client.
+
+.TP
+.B protocol\-version {0,2,3}
+This directive indicates what protocol version must be used to contact
+the remote server.
+If set to 0 (the default), the proxy uses the same protocol version 
+used by the client, otherwise the requested protocol is used.
+The proxy returns \fIunwillingToPerform\fP if an operation that is 
+incompatible with the requested protocol is attempted.
+If set before any target specification, it affects all targets, unless
+overridden by any per-target directive.
+
+.TP
+.B pseudoroot-bind-defer {NO|yes}
+This directive, when set to 
+.BR yes ,
+causes the authentication to the remote servers with the pseudo-root
+identity to be deferred until actually needed by subsequent operations.
+
+.TP
+.B rebind-as-user {NO|yes}
+If this option is given, the client's bind credentials are remembered
+for rebinds when chasing referrals.
+
 .SH TARGET SPECIFICATION
 Target specification starts with a "uri" directive:
+
 .TP
 .B uri <protocol>://[<host>[:<port>]]/<naming context>
 The "server" directive that was allowed in the LDAP backend (although
-deprecated) has been discarded in the Meta backend.
+deprecated) has been completely discarded in the Meta backend.
 The <protocol> part can be anything
 .BR ldap_initialize (3)
 accepts ({ldap|ldaps|ldapi} and variants); <host> and <port> may be
-omitted, defaulting to whatever is set in /etc/ldap.conf.
+omitted, defaulting to whatever is set in
+.BR ldap.conf (5).
 The <naming context> part is mandatory.
 It must end with one of the naming contexts defined for the backend,
 e.g.:
@@ -112,14 +169,71 @@ e.g.:
 suffix "\fBdc=foo,dc=com\fP"
 uri    "ldap://x.foo.com/dc=x,\fBdc=foo,dc=com\fP"
 .fi
+
 .RE
-.LP
+.RS
 The <naming context> part doesn't need to be unique across the targets;
 it may also match one of the values of the "suffix" directive.
 Multiple URIs may be defined in a single argument.  The URIs must
-be separated by TABs (e.g. '\\t'), and the additional URIs must have
+be separated by TABs (e.g. '\\t'; commas or spaces, unlike back-ldap,
+will not work,
+because they are legal in the <naming context>, and we don't want to use
+URL-encoded <naming context>s), and the additional URIs must have
 no <naming context> part.  This causes the underlying library
 to contact the first server of the list that responds.
+For example, if \fIl1.foo.com\fP and \fIl2.foo.com\fP are shadows
+of the same server, the directive
+.LP
+.nf
+suffix "\fBdc=foo,dc=com\fP"
+uri    "ldap://l1.foo.com/\fBdc=foo,dc=com\fP	ldap://l2.foo.com/"
+.fi
+
+.RE
+.RS
+causes \fIl2.foo.com\fP to be contacted whenever \fIl1.foo.com\fP
+does not respond.
+.RE
+
+.TP
+.B acl-authcDN "<administrative DN for access control purposes>"
+DN which is used to query the target server for acl checking,
+as in the LDAP backend; it is supposed to have read access 
+on the target server to attributes used on the proxy for acl checking.
+There is no risk of giving away such values; they are only used to
+check permissions.
+.B The acl-authcDN identity is by no means implicitly used by the proxy 
+.B when the client connects anonymously.
+
+.TP
+.B acl-passwd <password>
+Password used with the
+.B 
+acl-authcDN
+above.
+
+.TP
+.B bind-timeout <microseconds>
+This directive defines the timeout, in microseconds, used when polling
+for response after an asynchronous bind connection.  The initial call
+to ldap_result(3) is performed with a trade-off timeout of 100000 us;
+if that results in a timeout exceeded, subsequent calls use the value
+provided with
+.BR bind-timeout .
+The default value is used also for subsequent calls if
+.B bind-timeout
+is not specified.
+If set before any target specification, it affects all targets, unless
+overridden by any per-target directive.
+
+.TP
+.B chase-referrals {YES|no}
+enable/disable automatic referral chasing, which is delegated to the
+underlying libldap, with rebinding eventually performed if the
+\fBrebind-as-user\fP directive is used.  The default is to chase referrals.
+If set before any target specification, it affects all targets, unless
+overridden by any per-target directive.
+
 .TP
 .B default-target [<target>]
 The "default-target" directive can also be used during target specification.
@@ -127,39 +241,65 @@ With no arguments it marks the current target as the default.
 The optional number marks target <target> as the default one, starting
 from 1.
 Target <target> must be defined.
+
 .TP
-.B binddn "<administrative DN for access control purposes>"
-This directive, as in the LDAP backend, allows to define the DN that is
-used to query the target server for acl checking; it should have read
-access on the target server to attributes used on the proxy for acl
-checking.
-There is no risk of giving away such values; they are only used to
-check permissions.
+.B idle-timeout <time>
+This directive causes a cached connection to be dropped an recreated
+after it has been idle for the specified time.
+The value can be specified as
+
+[<d>d][<h>h][<m>m][<s>[s]]
+
+where <d>, <h>, <m> and <s> are respectively treated as days, hours, 
+minutes and seconds.
+If set before any target specification, it affects all targets, unless
+overridden by any per-target directive.
+
 .TP
-.B bindpw <password for access control purposes>
-This directive sets the password for acl checking in conjunction
-with the above mentioned "binddn" directive.
+.B map "{attribute|objectclass} [<local name>|*] {<foreign name>|*}"
+This maps object classes and attributes as in the LDAP backend.
+See
+.BR slapd-ldap (5).
+
 .TP
-.B rebind-as-user
-If this option is given, the client's bind credentials are remembered
-for rebinds when chasing referrals.
+.B nretries {forever|never|<nretries>}
+This directive defines how many times a bind should be retried
+in case of temporary failure in contacting a target.  If defined
+before any target specification, it applies to all targets (by default,
+.BR 3
+times);
+the global value can be overridden by redefinitions inside each target
+specification.
+
 .TP
 .B pseudorootdn "<substitute DN in case of rootdn bind>"
 This directive, if present, sets the DN that will be substituted to
 the bind DN if a bind with the backend's "rootdn" succeeds.
 The true "rootdn" of the target server ought not be used; an arbitrary
 administrative DN should used instead.
+
 .TP
 .B pseudorootpw "<substitute password in case of rootdn bind>"
 This directive sets the credential that will be used in case a bind
 with the backend's "rootdn" succeeds, and the bind is propagated to
 the target using the "pseudorootdn" DN.
-.LP
+
 Note: cleartext credentials must be supplied here; as a consequence,
 using the pseudorootdn/pseudorootpw directives is inherently unsafe.
+
 .TP
 .B rewrite* ...
 The rewrite options are described in the "REWRITING" section.
+
+.TP
+.B subtree-exclude "<DN>"
+This directive instructs back-meta to ignore the current target
+for operations whose requestDN is subordinate to
+.BR DN .
+There may be multiple occurrences of the
+.B subtree-exclude
+directive for each of the targets.
+
 .TP
 .B suffixmassage "<virtual naming context>" "<real naming context>"
 All the directives starting with "rewrite" refer to the rewrite engine
@@ -172,17 +312,46 @@ when simple suffix massage is required, it has been preserved.
 It wraps the basic rewriting instructions that perform suffix
 massaging.  See the "REWRITING" section for a detailed list 
 of the rewrite rules it implies.
-.LP
-Note: this also fixes a flaw in suffix massaging, which operated
-on (case insensitive) DNs instead of normalized DNs,
-so "dc=foo, dc=com" would not match "dc=foo,dc=com".
-.LP
-See the "REWRITING" section.
+
 .TP
-.B map "{attribute|objectclass} [<local name>|*] {<foreign name>|*}"
-This maps object classes and attributes as in the LDAP backend.
-See
-.BR slapd-ldap (5).
+.B t-f-support {NO|yes|discover}
+enable if the remote server supports absolute filters
+(see \fIdraft-zeilenga-ldap-t-f\fP for details).
+If set to
+.BR discover ,
+support is detected by reading the remote server's root DSE.
+If set before any target specification, it affects all targets, unless
+overridden by any per-target directive.
+
+.TP
+.B timeout [{add|delete|modify|modrdn}=]<seconds> [...]
+This directive allows to set per-database, per-target and per-operation
+timeouts.
+If no operation is specified, it affects all.
+Currently, only write operations are addressed, because searches
+can already be limited by means of the
+.B limits
+directive (see 
+.BR slapd.conf (5)
+for details), and other operations are not supposed to incur into the
+need for timeouts.
+Note: if the timelimit is exceeded, the operation is abandoned;
+the protocol does not provide any means to rollback the operation,
+so the client will not know if the operation eventually succeeded or not.
+If set before any target specification, it affects all targets, unless
+overridden by any per-target directive.
+
+.TP
+.B tls {[try-]start|[try-]propagate}
+execute the StartTLS extended operation when the connection is initialized;
+only works if the URI directive protocol scheme is not \fBldaps://\fP.
+\fBpropagate\fP issues the StartTLS operation only if the original
+connection did.
+The \fBtry-\fP prefix instructs the proxy to continue operations
+if the StartTLS operation failed; its use is highly deprecated.
+If set before any target specification, it affects all targets, unless
+overridden by any per-target directive.
+
 .SH SCENARIOS
 A powerful (and in some sense dangerous) rewrite engine has been added
 to both the LDAP and Meta backends.
@@ -332,8 +501,8 @@ server will possibly enforce additional restrictions to "foo".
 .SH REWRITING
 A string is rewritten according to a set of rules, called a `rewrite
 context'.
-The rules are based on Regular Expressions (POSIX regex) with
-substring matching; basic variable substitution and map resolution 
+The rules are based on POSIX (''extended'') regular expressions (regex)
+with substring matching; basic variable substitution and map resolution 
 of substrings is allowed by specific mechanisms detailed in the following.
 The behavior of pattern matching/substitution can be altered by a set
 of flags.
@@ -341,7 +510,7 @@ of flags.
 The underlying concept is to build a lightweight rewrite module
 for the slapd server (initially dedicated to the LDAP backend).
 .SH Passes
-An incoming string is matched agains a set of rules.
+An incoming string is matched against a set of rules.
 Rules are made of a regex match pattern, a substitution pattern
 and a set of actions, described by a set of flags.
 In case of match a string rewriting is performed according to the
@@ -351,7 +520,7 @@ The actions, if any, are finally performed.
 The substitution pattern allows map resolution of substrings.
 A map is a generic object that maps a substitution pattern to a value.
 The flags are divided in "Pattern matching Flags" and "Action Flags";
-the former alter the regex match pattern behaviorm while the latter
+the former alter the regex match pattern behavior while the latter
 alter the action that is taken after substitution.
 .SH "Pattern Matching Flags"
 .TP
@@ -359,7 +528,7 @@ alter the action that is taken after substitution.
 honors case in matching (default is case insensitive)
 .TP
 .B `R'
-use POSIX Basic Regular Expressions (default is Extended)
+use POSIX ''basic'' regular expressions (default is ''extended'')
 .TP
 .B `M{n}'
 allow no more than
@@ -416,15 +585,16 @@ errors, but jump two lines ahead only in case of match.
 More flags (mainly Action Flags) will be added as needed.
 .SH "Pattern matching:"
 See
-.BR regex (7).
+.BR regex (7)
+and/or
+.BR re_format (7).
 .SH "Substitution Pattern Syntax:"
 Everything starting with `%' requires substitution;
 .LP
 the only obvious exception is `%%', which is left as is;
 .LP
 the basic substitution is `%d', where `d' is a digit;
-0 means the whole string, while 1-9 is a submatch, as discussed in 
-.BR regex (7);
+0 means the whole string, while 1-9 is a submatch;
 .LP
 a `%' followed by a `{' invokes an advanced substitution.
 The pattern is:
@@ -462,7 +632,7 @@ operation structure which can be dereferenced later; operator
 assigns a variable in the rewrite context scope; operator
 .B &&
 assigns a variable that scopes the entire session, e.g. its value
-can be derefenced later by other rewrite contexts
+can be dereferenced later by other rewrite contexts
 .TP
 .B *
 variable dereferencing; <name> must refer to a variable that is
@@ -490,10 +660,8 @@ directive.
 Substitution escaping has been delegated to the `%' symbol, 
 which is used instead of `\e' in string substitution patterns
 because `\e' is already escaped by slapd's low level parsing routines;
-as a consequence, 
-.BR regex (7)
-escaping requires two `\e' symbols, e.g. `\fB.*\e.foo\e.bar\fP' must
-be written as `\fB.*\e\e.foo\e\e.bar\fP'.
+as a consequence, regex escaping requires two `\e' symbols,
+e.g. `\fB.*\e.foo\e.bar\fP' must be written as `\fB.*\e\e.foo\e\e.bar\fP'.
 .\"
 .\" The symbol can be altered at will by redefining the related macro in
 .\" "rewrite-int.h".
@@ -529,7 +697,7 @@ modifyAttrDN         modify AVA
 modrDN               modrdn
 newSuperiorDN        modrdn
 deleteDN             delete
-exopPasswdDN         passwd exop DN if proxy
+exopPasswdDN         password modify extended operation DN if proxy
 .fi
 .RE
 .LP
@@ -556,7 +724,7 @@ altering too much the configuration file).
 <Context name> is the name that identifies the context, i.e. the name
 used by the application to refer to the set of rules it contains.
 It is used also to reference sub contexts in string rewriting.
-A context may aliase another one.
+A context may alias another one.
 In this case the alias context contains no rule, and any reference to
 it will result in accessing the aliased one.
 .TP
@@ -732,92 +900,38 @@ been written:
 .fi
 .LP
 with the advantage of saving one rewrite pass ...)
+
+.SH ACCESS CONTROL
+The
+.B meta
+backend does not honor all ACL semantics as described in
+.BR slapd.access (5).
+In general, access checking is delegated to the remote server(s).
+Only
+.B read (=r)
+access to the
+.B entry
+pseudo-attribute and to the other attribute values of the entries
+returned by the
+.B search
+operation is honored, which is performed by the frontend.
+
 .SH PROXY CACHE OVERLAY
 The proxy cache overlay 
 allows caching of LDAP search requests (queries) in a local database.
-For an incoming query, the
-proxy cache determines its corresponding \fBtemplate\fP. If the template was
-specified as cacheable using the \fBproxytemplate\fP directive and the request is
-contained in a cached request, it is answered from the proxy cache. Otherwise,
-the search is performed as usual and cacheable search results are saved in the
-cache for use in future queries.
-.LP
-
-A template is defined by a filter string and an index identifying a set of
-attributes. The \fBtemplate string\fP for a query can be obtained by
-removing assertion values from the RFC 2254 representation of its search
-filter. A query belongs to a template if its template string and set of
-projected attributes correspond to a cacheable template. Examples of template strings are (mail=), (|(sn=)(cn=)), (&(sn=)(givenName=)).    
-
-.LP 
-The following cache specific directives can be used to configure the proxy
-cache: 
-.TP
-.B overlay proxycache
-This directive adds the proxycache overlay to the current backend. The
-proxycache overlay may be used with any backend but is intended for use
-with the
-.B ldap
-and
-.B meta
-backends.
-.TP
-.B proxycache <database> <max_entries> <numattrsets> <entry_limit> <cc_period> 
-The directive enables proxy caching in the current backend and sets general
-cache parameters. A <database> backend will be used internally to maintain
-the cached entries. The chosen database will need to be configured as well,
-as shown below. Cache replacement is invoked when the cache size grows to 
-<max_entries> entries and continues till the cache size drops below this size.
-<numattrsets> should be equal to the number of following \fBproxyattrset\fP
-directives. Queries are cached only if they correspond to a cacheable template
-(specified by the \fBproxytemplate\fP directive) and the number of entries
-returned is less than <entry_limit>. Consistency check is performed every
-<cc_period> duration (specified in secs). In each cycle queries with expired
-"time to live(\fBTTL\fP)" are removed. A sample cache configuration is: 
-.LP
-.RS
-proxycache \fBbdb 10000 1 50 100\fP
-.RE
-.TP
-.B proxyattrset <index> <attrs...>
-Used to associate a set of attributes <attrs..> with an <index>. Each attribute
-set is associated with an integer from 0 to <numattrsets>-1. These indices are
-used by the \fBproxytemplate\fP directive to define cacheable templates. 
-
-.TP
-.B proxytemplate <template_string> <attrset_index> <ttl> 
-Specifies a cacheable template and "time to live" (in sec) <ttl> of queries 
-belonging to the template. 
-
-.LP
-The following adds a template with filter string (&sn=)(givenName=)) and attributes mail, postaladdress, telephonenumber and a TTL of 1 hour. 
-.LP
-.RS
-.nf
-proxyattrset \fB0 mail postaladdress telephonenumber\fP
-proxytemplate \fB(&(sn=)(givenName=)) 0 3600\fP
-.fi
-.RE
-.LP
-Directives for configuring the underlying database must also be given, as
-shown here:
-.LP
-.RS
-.nf
-directory /var/tmp/cache
-cachesize 100
-.fi
-.RE
-.LP
-Any valid directives for the chosen database type may be used.
+See 
+.BR slapo-pcache (5)
+for details.
 .SH FILES
 .TP
-/etc/openldap/slapd.conf
+ETCDIR/slapd.conf
 default slapd configuration file
 .SH SEE ALSO
 .BR slapd.conf (5),
 .BR slapd\-ldap (5),
+.BR slapo\-pcache (5),
 .BR slapd (8),
-.BR regex (7).
+.BR regex (7),
+.BR re_format (7).
 .SH AUTHOR
 Pierangelo Masarati, based on back-ldap by Howard Chu

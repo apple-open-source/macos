@@ -93,6 +93,10 @@ SOURCE=.\cmpbuf.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\cmpbuf.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\context.c
 # End Source File
 # Begin Source File
@@ -141,10 +145,6 @@ SOURCE=.\version.c
 # PROP Default_Filter "h;hpp;hxx;hm;inl;fi;fd"
 # Begin Source File
 
-SOURCE=.\cmpbuf.h
-# End Source File
-# Begin Source File
-
 SOURCE="..\windows-NT\config.h"
 # End Source File
 # Begin Source File
@@ -174,6 +174,18 @@ SOURCE=..\lib\regex.h
 # Begin Source File
 
 SOURCE=.\system.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\lib\timespec.h
+# End Source File
+# Begin Source File
+
+SOURCE="..\windows-NT\unistd.h"
+# End Source File
+# Begin Source File
+
+SOURCE="..\windows-NT\woe32.h"
 # End Source File
 # End Group
 # End Target

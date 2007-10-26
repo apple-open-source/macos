@@ -1,3 +1,47 @@
+man-1.6c
+- Corrected missing format string, but no privilege escalation was involved (flc, Ville-Skyttä).
+- pscan format string audit run - nothing further found (flc).
+- Updated Bulgarian locale man pages translation (Alexander Shopov). 
+- makewhatis and other minor changes to support BG locale (Alexander Shopov, flc).
+- Updated Italian locale message catalog translation (flc).
+- Updated French man pages, with new man2html page (Alain Portal).
+
+man-1.6b
+- Additional changes for parallel Make (Octavio Ruiz).
+- New French locale man pages translation (Alain Portal).
+- New French locale message catalog translation (Alain Portal).
+- Minor changes in manual pages (Giorgos Keramidas, flc).
+- Minor corrections in the docs (flc).
+
+man-1.6a
+
+- Fixes to support parallel Make (Mike Frysinger).
+- Fixes in mess.en message catalog (Martin von Gagern).
+- Corrections and updates to the manual (flc).
+
+man-1.6
+
+- New Maintainer Federico Lucifredi (flucifredi@acm.org).
+- Ability to hand HTML man pages off to a browser added (Eric S. Raymond).
+
+man-1.5p
+
+- Chinese messages (CHAO, Wei-Lun) - unused
+- Russian messages
+- Set DEFAULT_NLSPATH to "/usr/share/locale/%L/%N"
+- Prefer LC_MESSAGES over LANG
+- Don't (potentially) use a pager with apropos and whatis
+- Superfluous security fix
+- Filter .iX macros out when constructing whatis database
+- Allow globbed MANPATH items like /opt/*/man
+- Return a correct status
+- Continue search when an appropriate page was found to be inaccessible
+
+man-1.5o2:
+
+- Fixed man -k segfault
+- Allow man -k "text with spaces"
+
 man-1.5o1:
 
 - Fixed man2html array overflow

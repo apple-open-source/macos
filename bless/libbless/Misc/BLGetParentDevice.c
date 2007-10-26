@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,78 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Mon Jun 25 2001.
- *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLGetParentDevice.c,v 1.18 2005/08/22 20:49:24 ssen Exp $
- *
- *  $Log: BLGetParentDevice.c,v $
- *  Revision 1.18  2005/08/22 20:49:24  ssen
- *  Change functions to take "char *foo" instead of "char foo[]".
- *  It should be semantically identical, and be more consistent with
- *  other system APIs
- *
- *  Revision 1.17  2005/08/22 20:28:21  ssen
- *  Use explicitly sized types for SPIs, in preparation of
- *  LP64
- *
- *  Revision 1.16  2005/06/24 16:39:51  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.15  2005/06/08 16:03:33  ssen
- *  Merge
- *  <rdar://problem/4045837> [bless] bless has issues with GPT maps
- *
- *  Revision 1.14  2005/02/03 00:42:27  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.13  2004/04/20 21:40:44  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.12  2003/10/24 22:46:35  ssen
- *  don't try to compare IOKit objects to NULL, since they are really mach port integers
- *
- *  Revision 1.11  2003/10/17 00:10:39  ssen
- *  add more const
- *
- *  Revision 1.10  2003/07/22 22:35:04  ssen
- *  Add function to get pmap type as well as parent device
- *
- *  Revision 1.9  2003/07/22 15:58:34  ssen
- *  APSL 2.0
- *
- *  Revision 1.8  2003/04/19 00:11:12  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.7  2003/04/16 23:57:33  ssen
- *  Update Copyrights
- *
- *  Revision 1.6  2002/09/24 21:05:46  ssen
- *  Eliminate use of deprecated constants
- *
- *  Revision 1.5  2002/06/11 00:50:49  ssen
- *  All function prototypes need to use BLContextPtr. This is really
- *  a minor change in all of the files.
- *
- *  Revision 1.4  2002/02/23 04:13:06  ssen
- *  Update to context-based API
- *
- *  Revision 1.3  2002/02/04 04:21:28  ssen
- *  Dont freak out with unpartitioned volumes
- *
- *  Revision 1.2  2001/11/17 05:45:02  ssen
- *  fix parent lookup
- *
- *  Revision 1.1  2001/11/16 05:36:47  ssen
- *  Add libbless files
- *
- *  Revision 1.7  2001/11/11 06:20:59  ssen
- *  readding files
- *
- *  Revision 1.5  2001/10/26 04:19:41  ssen
- *  Add dollar Id and dollar Log
- *
+ *  $Id: BLGetParentDevice.c,v 1.19 2006/02/20 22:49:56 ssen Exp $
  *
  */
 

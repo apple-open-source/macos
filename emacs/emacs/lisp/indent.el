@@ -1,6 +1,7 @@
 ;;; indent.el --- indentation commands for Emacs
 
-;; Copyright (C) 1985, 1995, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1995, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -29,7 +30,7 @@
 ;;; Code:
 
 (defgroup indent nil
-  "Indentation commands"
+  "Indentation commands."
   :group 'editing)
 
 (defcustom standard-indent 4
@@ -37,23 +38,46 @@
   :group 'indent
   :type 'integer)
 
-(defvar indent-line-function 'indent-to-left-margin
-  "Function to indent current line.")
+(defvar indent-line-function 'indent-relative
+  "Function to indent the current line.
+This function will be called with no arguments.
+If it is called somewhere where auto-indentation cannot be done
+\(f.ex. inside a string), the function should simply return `noindent'.
+Setting this function is all you need to make TAB indent appropriately.
+Don't rebind TAB unless you really need to.")
 
 (defcustom tab-always-indent t
   "*Controls the operation of the TAB key.
 If t, hitting TAB always just indents the current line.
 If nil, hitting TAB indents the current line if point is at the left margin
-  or in the line's indentation, otherwise it insert a `real' tab character."
+or in the line's indentation, otherwise it insert a \"real\" TAB character.
+Most programming language modes have their own variable to control this,
+e.g., `c-tab-always-indent', and do not respect this variable."
   :group 'indent
-  :type 'boolean)
+  :type '(choice (const nil) (const t) (const always)))
 
 (defun indent-according-to-mode ()
-  "Indent line in proper way for current major mode."
+  "Indent line in proper way for current major mode.
+The buffer-local variable `indent-line-function' determines how to do this,
+but the functions `indent-relative' and `indent-relative-maybe' are
+special; we don't actually use them here."
   (interactive)
-  (funcall indent-line-function))
+  (if (memq indent-line-function
+	    '(indent-relative indent-relative-maybe))
+      ;; These functions are used for tabbing, but can't be used for
+      ;; indenting.  Replace with something ad-hoc.
+      (let ((column (save-excursion
+		      (beginning-of-line)
+		      (skip-chars-backward "\n \t")
+		      (beginning-of-line)
+		      (current-indentation))))
+	(if (<= (current-column) (current-indentation))
+	    (indent-line-to column)
+	  (save-excursion (indent-line-to column))))
+    ;; The normal case.
+    (funcall indent-line-function)))
 
-(defun indent-for-tab-command (&optional prefix-arg)
+(defun indent-for-tab-command (&optional arg)
   "Indent line in proper way for current major mode or insert a tab.
 Depending on `tab-always-indent', either insert a tab or indent.
 If initial point was within line's indentation, position after
@@ -61,14 +85,23 @@ the indentation.  Else stay at same point in text.
 The function actually called to indent is determined by the value of
 `indent-line-function'."
   (interactive "P")
-  (if (or (eq indent-line-function 'indent-to-left-margin)
-	  (and (not tab-always-indent)
-	       (> (current-column) (current-indentation))))
-      (insert-tab prefix-arg)
-    (funcall indent-line-function)))
+  (cond
+   ((or ;; indent-to-left-margin is only meant for indenting,
+	;; so we force it to always insert a tab here.
+	(eq indent-line-function 'indent-to-left-margin)
+	(and (not tab-always-indent)
+	     (or (> (current-column) (current-indentation))
+		 (eq this-command last-command))))
+    (insert-tab arg))
+   ;; Those functions are meant specifically for tabbing and not for
+   ;; indenting, so we can't pass them to indent-according-to-mode.
+   ((memq indent-line-function '(indent-relative indent-relative-maybe))
+    (funcall indent-line-function))
+   (t ;; The normal case.
+    (indent-according-to-mode))))
 
-(defun insert-tab (&optional prefix-arg)
-  (let ((count (prefix-numeric-value prefix-arg)))
+(defun insert-tab (&optional arg)
+  (let ((count (prefix-numeric-value arg)))
     (if (and abbrev-mode
 	     (eq (char-syntax (preceding-char)) ?w))
 	(expand-abbrev))
@@ -78,7 +111,8 @@ The function actually called to indent is determined by the value of
 
 (defun indent-rigidly (start end arg)
   "Indent all lines starting in the region sideways by ARG columns.
-Called from a program, takes three arguments, START, END and ARG."
+Called from a program, takes three arguments, START, END and ARG.
+You can remove all indentation from a region by giving a large negative ARG."
   (interactive "r\np")
   (save-excursion
     (goto-char end)
@@ -133,16 +167,20 @@ interactively or with optional argument FORCE, it will be fixed."
   (interactive (list (prefix-numeric-value current-prefix-arg) t))
   (beginning-of-line n)
   (skip-chars-forward " \t")
-  (let ((lm (current-left-margin))
-	(cc (current-column)))
-    (cond ((> cc lm)
-	   (if (> (move-to-column lm force) lm)
-	       ;; If lm is in a tab and we are not forcing, move before tab
-	       (backward-char 1)))
-	  ((and force (< cc lm))
-	   (indent-to-left-margin)))))
+  (if (minibufferp (current-buffer))
+      (if (save-excursion (beginning-of-line) (bobp))
+	  (goto-char (minibuffer-prompt-end))
+	(beginning-of-line))
+    (let ((lm (current-left-margin))
+	  (cc (current-column)))
+      (cond ((> cc lm)
+	     (if (> (move-to-column lm force) lm)
+		 ;; If lm is in a tab and we are not forcing, move before tab
+		 (backward-char 1)))
+	    ((and force (< cc lm))
+	     (indent-to-left-margin))))))
 
-;; This is the default indent-line-function,
+;; This used to be the default indent-line-function,
 ;; used in Fundamental Mode, Text Mode, etc.
 (defun indent-to-left-margin ()
   "Indent current line to the column given by `current-left-margin'."
@@ -163,11 +201,13 @@ Args FROM and TO are optional; default is the whole buffer."
       (forward-line 1))
     (move-marker to nil)))
 
-(defun set-left-margin (from to lm)
+(defun set-left-margin (from to width)
   "Set the left margin of the region to WIDTH.
-If `auto-fill-mode' is active, re-fill the region to fit the new margin."
+If `auto-fill-mode' is active, re-fill the region to fit the new margin.
+
+Interactively, WIDTH is the prefix argument, if specified.
+Without prefix argument, the command prompts for WIDTH."
   (interactive "r\nNSet left margin to column: ")
-  (if (interactive-p) (setq lm (prefix-numeric-value lm)))
   (save-excursion
     ;; If inside indentation, start from BOL.
     (goto-char from)
@@ -179,21 +219,23 @@ If `auto-fill-mode' is active, re-fill the region to fit the new margin."
     (setq to (point-marker)))
   ;; Delete margin indentation first, but keep paragraph indentation.
   (delete-to-left-margin from to)
-  (put-text-property from to 'left-margin lm)
-  (indent-rigidly from to lm)
+  (put-text-property from to 'left-margin width)
+  (indent-rigidly from to width)
   (if auto-fill-function (save-excursion (fill-region from to nil t t)))
   (move-marker to nil))
 
-(defun set-right-margin (from to lm)
+(defun set-right-margin (from to width)
   "Set the right margin of the region to WIDTH.
-If `auto-fill-mode' is active, re-fill the region to fit the new margin."
+If `auto-fill-mode' is active, re-fill the region to fit the new margin.
+
+Interactively, WIDTH is the prefix argument, if specified.
+Without prefix argument, the command prompts for WIDTH."
   (interactive "r\nNSet right margin to width: ")
-  (if (interactive-p) (setq lm (prefix-numeric-value lm)))
   (save-excursion
     (goto-char from)
     (skip-chars-backward " \t")
     (if (bolp) (setq from (point))))
-  (put-text-property from to 'right-margin lm)
+  (put-text-property from to 'right-margin width)
   (if auto-fill-function (save-excursion (fill-region from to nil t t))))
 
 (defun alter-text-property (from to prop func &optional object)
@@ -248,12 +290,10 @@ to change the margin by, in characters.  A negative argument decreases
 the right margin width.
 If `auto-fill-mode' is active, re-fill the region to fit the new margin."
   (interactive "r\nP")
-  (if (interactive-p)
-      (setq inc (if inc (prefix-numeric-value current-prefix-arg)
-		  standard-indent)))
+  (setq inc (if inc (prefix-numeric-value inc) standard-indent))
   (save-excursion
     (alter-text-property from to 'right-margin
-       (lambda (v) (+ inc (or v 0))))
+			 (lambda (v) (+ inc (or v 0))))
     (if auto-fill-function
 	(fill-region from to nil t t))))
 
@@ -273,16 +313,16 @@ If `auto-fill-mode' is active, re-fills region to fit in new margin."
 With optional argument, move forward N-1 lines first.
 From the beginning of the line, moves past the left-margin indentation, the
 fill-prefix, and any indentation used for centering or right-justifying the
-line, but does not move past any whitespace that was explicitly inserted 
+line, but does not move past any whitespace that was explicitly inserted
 \(such as a tab used to indent the first line of a paragraph)."
   (interactive "p")
   (beginning-of-line n)
   (skip-chars-forward " \t")
   ;; Skip over fill-prefix.
-  (if (and fill-prefix 
+  (if (and fill-prefix
 	   (not (string-equal fill-prefix "")))
       (if (equal fill-prefix
-		 (buffer-substring 
+		 (buffer-substring
 		  (point) (min (point-max) (+ (length fill-prefix) (point)))))
 	  (forward-char (length fill-prefix)))
     (if (and adaptive-fill-mode adaptive-fill-regexp
@@ -296,16 +336,23 @@ line, but does not move past any whitespace that was explicitly inserted
   "Short cut function to indent region using `indent-according-to-mode'.
 A value of nil means really run `indent-according-to-mode' on each line.")
 
-(defun indent-region (start end column)
+(defun indent-region (start end &optional column)
   "Indent each nonblank line in the region.
-With prefix no argument, indent each line using `indent-according-to-mode',
-or use `indent-region-function' to do the whole region if that's non-nil.
-If there is a fill prefix, make each line start with the fill prefix.
-With argument COLUMN, indent each line to that column.
+A numeric prefix argument specifies a column: indent each line to that column.
 
-When you call this from a program, START and END specify
-the region to indent, and COLUMN specifies the indentation column.
-If COLUMN is nil, then indent each line according to the mode."
+With no prefix argument, the command chooses one of these methods and
+indents all the lines with it:
+
+  1) If `fill-prefix' is non-nil, insert `fill-prefix' at the
+     beginning of each line in the region that does not already begin
+     with it.
+  2) If `indent-region-function' is non-nil, call that function
+     to indent the region.
+  3) Indent each line as specified by the variable `indent-line-function'.
+
+Called from a program, START and END specify the region to indent.
+If the third argument COLUMN is an integer, it specifies the
+column to indent to; if it is nil, use one of the three methods above."
   (interactive "r\nP")
   (if (null column)
       (if fill-prefix
@@ -322,10 +369,8 @@ If COLUMN is nil, then indent each line according to the mode."
 	(if indent-region-function
 	    (funcall indent-region-function start end)
 	  (save-excursion
-	    (goto-char end)
-	    (setq end (point-marker))
+	    (setq end (copy-marker end))
 	    (goto-char start)
-	    (or (bolp) (forward-line 1))
 	    (while (< (point) end)
 	      (or (and (bolp) (eolp))
 		  (funcall indent-line-function))
@@ -385,7 +430,6 @@ See also `indent-relative-maybe'."
 	    (or (= (point) end) (setq indent (current-column))))))
     (if indent
 	(let ((opoint (point-marker)))
-	  (delete-region (point) (progn (skip-chars-backward " \t") (point)))
 	  (indent-to indent 0)
 	  (if (> opoint (point))
 	      (goto-char opoint))
@@ -399,16 +443,16 @@ This should be a list of integers, ordered from smallest to largest."
   :group 'indent
   :type '(repeat integer))
 
-(defvar edit-tab-stops-map nil "Keymap used in `edit-tab-stops'.")
-(if edit-tab-stops-map
-    nil
-  (setq edit-tab-stops-map (make-sparse-keymap))
-  (define-key edit-tab-stops-map "\C-x\C-s" 'edit-tab-stops-note-changes)
-  (define-key edit-tab-stops-map "\C-c\C-c" 'edit-tab-stops-note-changes))
+(defvar edit-tab-stops-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-x\C-s" 'edit-tab-stops-note-changes)
+    (define-key map "\C-c\C-c" 'edit-tab-stops-note-changes)
+    map)
+  "Keymap used in `edit-tab-stops'.")
 
 (defvar edit-tab-stops-buffer nil
-  "Buffer whose tab stops are being edited--in case
-the variable `tab-stop-list' is local in that buffer.")
+  "Buffer whose tab stops are being edited.
+This matters if the variable `tab-stop-list' is local in that buffer.")
 
 (defun edit-tab-stops ()
   "Edit the tab stops used by `tab-to-tab-stop'.
@@ -470,7 +514,7 @@ Use \\[edit-tab-stops] to edit them interactively."
 	(let ((opoint (point)))
 	  (delete-horizontal-space t)
 	  (indent-to (car tabs)))
-      (insert ?\ ))))
+      (insert ?\s))))
 
 (defun move-to-tab-stop ()
   "Move point to next defined tab-stop column.
@@ -487,17 +531,18 @@ Use \\[edit-tab-stops] to edit them interactively."
 	    (goto-char before)
 	    ;; If we just added a tab, or moved over one,
 	    ;; delete any superfluous spaces before the old point.
-	    (if (and (eq (preceding-char) ?\ )
+	    (if (and (eq (preceding-char) ?\s)
 		     (eq (following-char) ?\t))
 		(let ((tabend (* (/ (current-column) tab-width) tab-width)))
 		  (while (and (> (current-column) tabend)
-			      (eq (preceding-char) ?\ ))
+			      (eq (preceding-char) ?\s))
 		    (forward-char -1))
 		  (delete-region (point) before))))))))
 
 (define-key global-map "\t" 'indent-for-tab-command)
-(define-key esc-map "\034" 'indent-region)
+(define-key esc-map "\C-\\" 'indent-region)
 (define-key ctl-x-map "\t" 'indent-rigidly)
 (define-key esc-map "i" 'tab-to-tab-stop)
 
+;;; arch-tag: f402b2a7-e44f-492f-b5b8-38996020b7c3
 ;;; indent.el ends here

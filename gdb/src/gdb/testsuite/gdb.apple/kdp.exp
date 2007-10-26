@@ -1,0 +1,50 @@
+# Copyright 2006 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+if $tracelevel then {
+        strace $tracelevel
+        }
+
+# Start with a fresh gdb
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+
+send_gdb "set width 0\n"
+gdb_expect -re "$gdb_prompt $"
+
+# Test the user-settable variables.
+
+gdb_test "set kdp-default-host-type powerpc" "" "Set kdp default host type"
+gdb_test "show kdp-default-host-type" "CPU type to be used for hosts providing incorrect information \\(powerpc/ia32\\) is .powerpc.\\." "Show kdp default host type"
+
+gdb_test "set kdp-timeout 123" "" "Set kdp timeout"
+gdb_test "show kdp-timeout" "UDP timeout in milliseconds for \\(non-exception\\) KDP transactions is 123\\." "Show kdp timeout"
+
+gdb_test "set kdp-retries 321" "" "Set kdp retries"
+gdb_test "show kdp-retries" "Number of UDP retries for \\(non-exception\\) KDP transactions is 321\\." "Show kdp retries"
+
+gdb_test "set kdp-default-port 5551212" "" "Set kdp default port"
+gdb_test "show kdp-default-port" "Default UDP port on which to attempt to contact KDP is 5551212\\." "Show kdp "
+
+gdb_test "set kdp-debug-level 42" "" "Set kdp debug level"
+gdb_test "show kdp-debug-level" "Level of verbosity for KDP debugging information is 42\\." "Show kdp debug level "
+
+gdb_test "set kdp-sequence-number 9876" "" "Set kdp sequence number "
+gdb_test "show kdp-sequence-number" "Current sequence number for KDP transactions is 9876\\." "Show kdp sequence number"
+
+gdb_test "set kdp-exception-sequence-number 6789" "" "Set kdp exception sequence number"
+gdb_test "show kdp-exception-sequence-number" "Current sequence number for KDP exception transactions is 6789\\." "Show kdp exception sequence number"

@@ -1,6 +1,7 @@
-# This file is part of Autoconf.                       -*- Autoconf -*-
+# This file is part of Autoconf.			-*- Autoconf -*-
 # Checking for functions.
-# Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+# Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,8 +15,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 #
 # As a special exception, the Free Software Foundation gives unlimited
 # permission to copy, distribute and modify the configure scripts that
@@ -65,21 +66,27 @@
 # -----------------------------------------------------------------
 AC_DEFUN([AC_CHECK_FUNC],
 [AS_VAR_PUSHDEF([ac_var], [ac_cv_func_$1])dnl
-AC_CACHE_CHECK([for $1], ac_var,
+AC_CACHE_CHECK([for $1], [ac_var],
 [AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([$1])],
-		[AS_VAR_SET(ac_var, yes)],
-		[AS_VAR_SET(ac_var, no)])])
-AS_IF([test AS_VAR_GET(ac_var) = yes], [$2], [$3])dnl
+		[AS_VAR_SET([ac_var], [yes])],
+		[AS_VAR_SET([ac_var], [no])])])
+AS_IF([test AS_VAR_GET([ac_var]) = yes], [$2], [$3])dnl
 AS_VAR_POPDEF([ac_var])dnl
 ])# AC_CHECK_FUNC
+
+
+# _AH_CHECK_FUNCS(FUNCTION...)
+# ----------------------------
+m4_define([_AH_CHECK_FUNCS],
+[m4_foreach_w([AC_Func], [$1],
+   [AH_TEMPLATE(AS_TR_CPP([HAVE_]m4_defn([AC_Func])),
+      [Define to 1 if you have the `]m4_defn([AC_Func])[' function.])])])
 
 
 # AC_CHECK_FUNCS(FUNCTION..., [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
 # ---------------------------------------------------------------------
 AC_DEFUN([AC_CHECK_FUNCS],
-[AC_FOREACH([AC_Func], [$1],
-  [AH_TEMPLATE(AS_TR_CPP(HAVE_[]AC_Func),
-	       [Define to 1 if you have the `]AC_Func[' function.])])dnl
+[_AH_CHECK_FUNCS([$1])dnl
 for ac_func in $1
 do
 AC_CHECK_FUNC($ac_func,
@@ -89,10 +96,30 @@ done
 ])
 
 
+# AC_CHECK_FUNCS_ONCE(FUNCTION...)
+# --------------------------------
+AC_DEFUN([AC_CHECK_FUNCS_ONCE],
+[
+  _AH_CHECK_FUNCS([$1])
+  m4_foreach_w([AC_Func], [$1],
+    [AC_DEFUN([_AC_Func_]m4_defn([AC_Func]),
+       [m4_divert_text([INIT_PREPARE],
+	  [ac_func_list="$ac_func_list AC_Func"])
+	_AC_FUNCS_EXPANSION])
+     AC_REQUIRE([_AC_Func_]m4_defn([AC_Func]))])
+])
+m4_define([_AC_FUNCS_EXPANSION],
+[
+  m4_divert_text([DEFAULTS], [ac_func_list=])
+  AC_CHECK_FUNCS([$ac_func_list])
+  m4_define([_AC_FUNCS_EXPANSION], [])
+])
+
+
 # AC_REPLACE_FUNCS(FUNCTION...)
 # -----------------------------
 AC_DEFUN([AC_REPLACE_FUNCS],
-[AC_FOREACH([AC_Func], [$1], [AC_LIBSOURCE(AC_Func.c)])dnl
+[m4_foreach_w([AC_Func], [$1], [AC_LIBSOURCE(AC_Func.c)])dnl
 AC_CHECK_FUNCS([$1], , [_AC_LIBOBJ($ac_func)])
 ])
 
@@ -253,12 +280,12 @@ m4_define([_AC_LIBOBJ_ALLOCA],
 # contain a buggy version.  If you still want to use their alloca,
 # use ar to extract alloca.o from them instead of compiling alloca.c.
 AC_LIBSOURCES(alloca.c)
-AC_SUBST(ALLOCA, alloca.$ac_objext)dnl
+AC_SUBST([ALLOCA], [\${LIBOBJDIR}alloca.$ac_objext])dnl
 AC_DEFINE(C_ALLOCA, 1, [Define to 1 if using `alloca.c'.])
 
 AC_CACHE_CHECK(whether `alloca.c' needs Cray hooks, ac_cv_os_cray,
 [AC_EGREP_CPP(webecray,
-[#if defined(CRAY) && ! defined(CRAY2)
+[#if defined CRAY && ! defined CRAY2
 webecray
 #else
 wenotbecray
@@ -279,7 +306,8 @@ fi
 AC_CACHE_CHECK([stack direction for C alloca],
 	       [ac_cv_c_stack_direction],
 [AC_RUN_IFELSE([AC_LANG_SOURCE(
-[int
+[AC_INCLUDES_DEFAULT
+int
 find_stack_direction ()
 {
   static char *addr = 0;
@@ -296,7 +324,7 @@ find_stack_direction ()
 int
 main ()
 {
-  exit (find_stack_direction () < 0);
+  return find_stack_direction () < 0;
 }])],
 	       [ac_cv_c_stack_direction=1],
 	       [ac_cv_c_stack_direction=-1],
@@ -304,7 +332,7 @@ main ()
 AH_VERBATIM([STACK_DIRECTION],
 [/* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be
-   automatically deduced at run-time.
+   automatically deduced at runtime.
 	STACK_DIRECTION > 0 => grows toward higher addresses
 	STACK_DIRECTION < 0 => grows toward lower addresses
 	STACK_DIRECTION = 0 => direction of growth unknown */
@@ -323,7 +351,8 @@ AC_DEFUN([AC_FUNC_ALLOCA],
 AC_CACHE_CHECK([for working alloca.h], ac_cv_working_alloca_h,
 [AC_LINK_IFELSE(
        [AC_LANG_PROGRAM([[@%:@include <alloca.h>]],
-			[[char *p = (char *) alloca (2 * sizeof (int));]])],
+			[[char *p = (char *) alloca (2 * sizeof (int));
+			  if (p) return 0;]])],
 		[ac_cv_working_alloca_h=yes],
 		[ac_cv_working_alloca_h=no])])
 if test $ac_cv_working_alloca_h = yes; then
@@ -341,7 +370,7 @@ AC_CACHE_CHECK([for alloca], ac_cv_func_alloca_works,
 #  include <malloc.h>
 #  define alloca _alloca
 # else
-#  if HAVE_ALLOCA_H
+#  ifdef HAVE_ALLOCA_H
 #   include <alloca.h>
 #  else
 #   ifdef _AIX
@@ -354,7 +383,8 @@ char *alloca ();
 #  endif
 # endif
 #endif
-]],                               [[char *p = (char *) alloca (1);]])],
+]],                               [[char *p = (char *) alloca (1);
+				    if (p) return 0;]])],
 		[ac_cv_func_alloca_works=yes],
 		[ac_cv_func_alloca_works=no])])
 
@@ -387,15 +417,14 @@ AC_CACHE_CHECK([for working chown], ac_cv_func_chown_works,
   struct stat before, after;
 
   if (creat (f, 0600) < 0)
-    exit (1);
+    return 1;
   if (stat (f, &before) < 0)
-    exit (1);
+    return 1;
   if (chown (f, (uid_t) -1, (gid_t) -1) == -1)
-    exit (1);
+    return 1;
   if (stat (f, &after) < 0)
-    exit (1);
-  exit ((before.st_uid == after.st_uid
-	 && before.st_gid == after.st_gid) ? 0 : 1);
+    return 1;
+  return ! (before.st_uid == after.st_uid && before.st_gid == after.st_gid);
 ]])],
 	       [ac_cv_func_chown_works=yes],
 	       [ac_cv_func_chown_works=no],
@@ -424,7 +453,7 @@ AC_CACHE_CHECK([whether closedir returns void],
 int closedir ();
 #endif
 ],
-				[[exit (closedir (opendir (".")) != 0);]])],
+				[[return closedir (opendir (".")) != 0;]])],
 	       [ac_cv_func_closedir_void=no],
 	       [ac_cv_func_closedir_void=yes],
 	       [ac_cv_func_closedir_void=yes])])
@@ -443,8 +472,8 @@ AN_FUNCTION([error_at_line], [AC_FUNC_ERROR_AT_LINE])
 AC_DEFUN([AC_FUNC_ERROR_AT_LINE],
 [AC_LIBSOURCES([error.h, error.c])dnl
 AC_CACHE_CHECK([for error_at_line], ac_cv_lib_error_at_line,
-[AC_LINK_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],
-				 [error_at_line (0, 0, "", 0, "");])],
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <error.h>],
+				 [error_at_line (0, 0, "", 0, "an error occurred");])],
 		[ac_cv_lib_error_at_line=yes],
 		[ac_cv_lib_error_at_line=no])])
 if test $ac_cv_lib_error_at_line = no; then
@@ -476,7 +505,7 @@ AC_DEFUN([_AC_FUNC_FNMATCH_IF],
 #	   define y(a, b, c) (fnmatch (a, b, c) == 0)
 #	   define n(a, b, c) (fnmatch (a, b, c) == FNM_NOMATCH)
 	 ],
-	 [exit
+	 [return
 	   (!(y ("a*", "abc", 0)
 	      && n ("d*/*1", "d/s/1", FNM_PATHNAME)
 	      && y ("a\\\\bc", "abc", 0)
@@ -530,7 +559,7 @@ AC_DEFINE(fnmatch, rpl_fnmatch,
 AN_FUNCTION([fnmatch], [AC_REPLACE_FNMATCH])
 AC_DEFUN([AC_REPLACE_FNMATCH],
 [_AC_FUNC_FNMATCH_IF([POSIX], [ac_cv_func_fnmatch_works],
-		     [rm -f $ac_config_libobj_dir/fnmatch.h],
+		     [rm -f "$ac_config_libobj_dir/fnmatch.h"],
 		     [_AC_LIBOBJ_FNMATCH])
 ])# AC_REPLACE_FNMATCH
 
@@ -540,7 +569,7 @@ AC_DEFUN([AC_REPLACE_FNMATCH],
 AC_DEFUN([AC_FUNC_FNMATCH_GNU],
 [AC_REQUIRE([AC_GNU_SOURCE])
 _AC_FUNC_FNMATCH_IF([GNU], [ac_cv_func_fnmatch_gnu],
-		    [rm -f $ac_config_libobj_dir/fnmatch.h],
+		    [rm -f "$ac_config_libobj_dir/fnmatch.h"],
 		    [_AC_LIBOBJ_FNMATCH])
 ])# AC_FUNC_FNMATCH_GNU
 
@@ -560,17 +589,13 @@ AC_DEFUN([AC_FUNC_FSEEKO],
 [_AC_SYS_LARGEFILE_MACRO_VALUE(_LARGEFILE_SOURCE, 1,
    [ac_cv_sys_largefile_source],
    [Define to 1 to make fseeko visible on some hosts (e.g. glibc 2.2).],
-   [@%:@include <stdio.h>], [return !fseeko;])
+   [@%:@include <stdio.h>],
+   [[return fseeko (stdin, 0, 0) && (fseeko) (stdin, 0, 0);]])
 
 # We used to try defining _XOPEN_SOURCE=500 too, to work around a bug
 # in glibc 2.1.3, but that breaks too many other things.
 # If you want fseeko and ftello with glibc, upgrade to a fixed glibc.
-AC_CACHE_CHECK([for fseeko], [ac_cv_func_fseeko],
-[AC_LINK_IFELSE([AC_LANG_PROGRAM([@%:@include <stdio.h>],
-				 [[return fseeko && fseeko (stdin, 0, 0);]])],
-		[ac_cv_func_fseeko=yes],
-		[ac_cv_func_fseeko=no])])
-if test $ac_cv_func_fseeko = yes; then
+if test $ac_cv_sys_largefile_source != unknown; then
   AC_DEFINE(HAVE_FSEEKO, 1,
     [Define to 1 if fseeko (and presumably ftello) exists and is declared.])
 fi
@@ -600,7 +625,7 @@ if test $ac_cv_func_getgroups = yes; then
   AC_CACHE_CHECK([for working getgroups], ac_cv_func_getgroups_works,
    [AC_RUN_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],
       [[/* On Ultrix 4.3, getgroups (0, 0) always fails.  */
-       exit (getgroups (0, 0) == -1 ? 1 : 0);]])],
+       return getgroups (0, 0) == -1;]])],
 		  [ac_cv_func_getgroups_works=yes],
 		  [ac_cv_func_getgroups_works=no],
 		  [ac_cv_func_getgroups_works=no])
@@ -770,11 +795,13 @@ AU_ALIAS([AC_GETLOADAVG], [AC_FUNC_GETLOADAVG])
 # -----------------
 AN_FUNCTION([getmntent], [AC_FUNC_GETMNTENT])
 AC_DEFUN([AC_FUNC_GETMNTENT],
-[# getmntent is in -lsun on Irix 4, -lseq on Dynix/PTX, -lgen on Unixware.
-AC_CHECK_LIB(sun, getmntent, LIBS="-lsun $LIBS",
-  [AC_CHECK_LIB(seq, getmntent, LIBS="-lseq $LIBS",
-    [AC_CHECK_LIB(gen, getmntent, LIBS="-lgen $LIBS")])])
-AC_CHECK_FUNCS(getmntent)
+[# getmntent is in the standard C library on UNICOS, in -lsun on Irix 4,
+# -lseq on Dynix/PTX, -lgen on Unixware.
+AC_SEARCH_LIBS(getmntent, [sun seq gen],
+	       [ac_cv_func_getmntent=yes
+		AC_DEFINE([HAVE_GETMNTENT], [],
+			  [Define to 1 if you have the `getmntent' function.])],
+	       [ac_cv_func_getmntent=no])
 ])
 
 
@@ -815,7 +842,7 @@ if test "$as_ln_s" = "ln -s" && ln -s conftest.file conftest.sym; then
      /* Linux will dereference the symlink and fail.
 	That is better in the sense that it means we will not
 	have to compile and use the lstat wrapper.  */
-     exit (lstat ("conftest.sym/", &sbuf) ? 0 : 1);])],
+     return lstat ("conftest.sym/", &sbuf) == 0;])],
 		[ac_cv_func_lstat_dereferences_slashed_symlink=yes],
 		[ac_cv_func_lstat_dereferences_slashed_symlink=no],
 		[ac_cv_func_lstat_dereferences_slashed_symlink=no])
@@ -847,13 +874,13 @@ AC_CHECK_HEADERS(stdlib.h)
 AC_CACHE_CHECK([for GNU libc compatible malloc], ac_cv_func_malloc_0_nonnull,
 [AC_RUN_IFELSE(
 [AC_LANG_PROGRAM(
-[[#if STDC_HEADERS || HAVE_STDLIB_H
+[[#if defined STDC_HEADERS || defined HAVE_STDLIB_H
 # include <stdlib.h>
 #else
 char *malloc ();
 #endif
 ]],
-		 [exit (malloc (0) ? 0 : 1);])],
+		 [return ! malloc (0);])],
 	       [ac_cv_func_malloc_0_nonnull=yes],
 	       [ac_cv_func_malloc_0_nonnull=no],
 	       [ac_cv_func_malloc_0_nonnull=no])])
@@ -888,7 +915,11 @@ AC_DEFUN([AC_FUNC_MBRTOWC],
     [AC_LINK_IFELSE(
        [AC_LANG_PROGRAM(
 	    [[@%:@include <wchar.h>]],
-	    [[mbstate_t state; return ! (sizeof state && mbrtowc);]])],
+	    [[wchar_t wc;
+	      char const s[] = "";
+	      size_t n = 1;
+	      mbstate_t state;
+	      return ! (sizeof state && (mbrtowc) (&wc, s, n, &state));]])],
        ac_cv_func_mbrtowc=yes,
        ac_cv_func_mbrtowc=no)])
   if test $ac_cv_func_mbrtowc = yes; then
@@ -905,9 +936,9 @@ AC_DEFUN([AC_FUNC_MEMCMP],
 [AC_CACHE_CHECK([for working memcmp], ac_cv_func_memcmp_working,
 [AC_RUN_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT], [[
   /* Some versions of memcmp are not 8-bit clean.  */
-  char c0 = 0x40, c1 = 0x80, c2 = 0x81;
+  char c0 = '\100', c1 = '\200', c2 = '\201';
   if (memcmp(&c0, &c2, 1) >= 0 || memcmp(&c1, &c2, 1) >= 0)
-    exit (1);
+    return 1;
 
   /* The Next x86 OpenStep bug shows up only when comparing 16 bytes
      or more and with at least one buffer not starting on a 4-byte boundary.
@@ -923,9 +954,9 @@ AC_DEFUN([AC_FUNC_MEMCMP],
 	strcpy (a, "--------01111111");
 	strcpy (b, "--------10000000");
 	if (memcmp (a, b, 16) >= 0)
-	  exit (1);
+	  return 1;
       }
-    exit (0);
+    return 0;
   }
 ]])],
 	       [ac_cv_func_memcmp_working=yes],
@@ -940,31 +971,29 @@ test $ac_cv_func_memcmp_working = no && AC_LIBOBJ([memcmp])
 AN_FUNCTION([mktime], [AC_FUNC_MKTIME])
 AC_DEFUN([AC_FUNC_MKTIME],
 [AC_REQUIRE([AC_HEADER_TIME])dnl
-AC_CHECK_HEADERS(stdlib.h sys/time.h unistd.h)
-AC_CHECK_FUNCS(alarm)
+AC_CHECK_HEADERS_ONCE(sys/time.h unistd.h)
+AC_CHECK_FUNCS_ONCE(alarm)
 AC_CACHE_CHECK([for working mktime], ac_cv_func_working_mktime,
 [AC_RUN_IFELSE([AC_LANG_SOURCE(
 [[/* Test program from Paul Eggert and Tony Leneis.  */
-#if TIME_WITH_SYS_TIME
+#ifdef TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# if HAVE_SYS_TIME_H
+# ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>
 # endif
 #endif
 
-#if HAVE_STDLIB_H
-# include <stdlib.h>
-#endif
+#include <stdlib.h>
 
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
 
-#if !HAVE_ALARM
+#ifndef HAVE_ALARM
 # define alarm(X) /* empty */
 #endif
 
@@ -981,9 +1010,9 @@ static char *tz_strings[] = {
 };
 #define N_STRINGS (sizeof (tz_strings) / sizeof (tz_strings[0]))
 
-/* Fail if mktime fails to convert a date in the spring-forward gap.
+/* Return 0 if mktime fails to convert a date in the spring-forward gap.
    Based on a problem report from Andreas Jaeger.  */
-static void
+static int
 spring_forward_gap ()
 {
   /* glibc (up to about 1998-10-07) failed this test. */
@@ -1002,29 +1031,27 @@ spring_forward_gap ()
   tm.tm_min = 0;
   tm.tm_sec = 0;
   tm.tm_isdst = -1;
-  if (mktime (&tm) == (time_t)-1)
-    exit (1);
+  return mktime (&tm) != (time_t) -1;
 }
 
-static void
+static int
 mktime_test1 (now)
      time_t now;
 {
   struct tm *lt;
-  if ((lt = localtime (&now)) && mktime (lt) != now)
-    exit (1);
+  return ! (lt = localtime (&now)) || mktime (lt) == now;
 }
 
-static void
+static int
 mktime_test (now)
      time_t now;
 {
-  mktime_test1 (now);
-  mktime_test1 ((time_t) (time_t_max - now));
-  mktime_test1 ((time_t) (time_t_min + now));
+  return (mktime_test1 (now)
+	  && mktime_test1 ((time_t) (time_t_max - now))
+	  && mktime_test1 ((time_t) (time_t_min + now)));
 }
 
-static void
+static int
 irix_6_4_bug ()
 {
   /* Based on code from Ariel Faigon.  */
@@ -1037,11 +1064,10 @@ irix_6_4_bug ()
   tm.tm_sec = 0;
   tm.tm_isdst = -1;
   mktime (&tm);
-  if (tm.tm_mon != 2 || tm.tm_mday != 31)
-    exit (1);
+  return tm.tm_mon == 2 && tm.tm_mday == 31;
 }
 
-static void
+static int
 bigtime_test (j)
      int j;
 {
@@ -1063,8 +1089,39 @@ bigtime_test (j)
 	     && lt->tm_wday == tm.tm_wday
 	     && ((lt->tm_isdst < 0 ? -1 : 0 < lt->tm_isdst)
 		  == (tm.tm_isdst < 0 ? -1 : 0 < tm.tm_isdst))))
-	exit (1);
+	return 0;
     }
+  return 1;
+}
+
+static int
+year_2050_test ()
+{
+  /* The correct answer for 2050-02-01 00:00:00 in Pacific time,
+     ignoring leap seconds.  */
+  unsigned long int answer = 2527315200UL;
+
+  struct tm tm;
+  time_t t;
+  tm.tm_year = 2050 - 1900;
+  tm.tm_mon = 2 - 1;
+  tm.tm_mday = 1;
+  tm.tm_hour = tm.tm_min = tm.tm_sec = 0;
+  tm.tm_isdst = -1;
+
+  /* Use the portable POSIX.1 specification "TZ=PST8PDT,M4.1.0,M10.5.0"
+     instead of "TZ=America/Vancouver" in order to detect the bug even
+     on systems that don't support the Olson extension, or don't have the
+     full zoneinfo tables installed.  */
+  putenv ("TZ=PST8PDT,M4.1.0,M10.5.0");
+
+  t = mktime (&tm);
+
+  /* Check that the result is either a failure, or close enough
+     to the correct answer that we can assume the discrepancy is
+     due to leap seconds.  */
+  return (t == (time_t) -1
+	  || (0 < t && answer - 120 <= t && t <= answer + 120));
 }
 
 int
@@ -1091,18 +1148,20 @@ main ()
 	putenv (tz_strings[i]);
 
       for (t = 0; t <= time_t_max - delta; t += delta)
-	mktime_test (t);
-      mktime_test ((time_t) 1);
-      mktime_test ((time_t) (60 * 60));
-      mktime_test ((time_t) (60 * 60 * 24));
+	if (! mktime_test (t))
+	  return 1;
+      if (! (mktime_test ((time_t) 1)
+	     && mktime_test ((time_t) (60 * 60))
+	     && mktime_test ((time_t) (60 * 60 * 24))))
+	return 1;
 
       for (j = 1; 0 < j; j *= 2)
-	bigtime_test (j);
-      bigtime_test (j - 1);
+	if (! bigtime_test (j))
+	  return 1;
+      if (! bigtime_test (j - 1))
+	return 1;
     }
-  irix_6_4_bug ();
-  spring_forward_gap ();
-  exit (0);
+  return ! (irix_6_4_bug () && spring_forward_gap () && year_2050_test ());
 }]])],
 	       [ac_cv_func_working_mktime=yes],
 	       [ac_cv_func_working_mktime=no],
@@ -1154,21 +1213,21 @@ AC_CACHE_CHECK(for working mmap, ac_cv_func_mmap_fixed_mapped,
 #include <fcntl.h>
 #include <sys/mman.h>
 
-#if !STDC_HEADERS && !HAVE_STDLIB_H
+#if !defined STDC_HEADERS && !defined HAVE_STDLIB_H
 char *malloc ();
 #endif
 
 /* This mess was copied from the GNU getpagesize.h.  */
-#if !HAVE_GETPAGESIZE
+#ifndef HAVE_GETPAGESIZE
 /* Assume that all systems that can run configure have sys/param.h.  */
-# if !HAVE_SYS_PARAM_H
+# ifndef HAVE_SYS_PARAM_H
 #  define HAVE_SYS_PARAM_H 1
 # endif
 
 # ifdef _SC_PAGESIZE
 #  define getpagesize() sysconf(_SC_PAGESIZE)
 # else /* no _SC_PAGESIZE */
-#  if HAVE_SYS_PARAM_H
+#  ifdef HAVE_SYS_PARAM_H
 #   include <sys/param.h>
 #   ifdef EXEC_PAGESIZE
 #    define getpagesize() EXEC_PAGESIZE
@@ -1207,15 +1266,15 @@ main ()
   /* First, make a file with some known garbage in it. */
   data = (char *) malloc (pagesize);
   if (!data)
-    exit (1);
+    return 1;
   for (i = 0; i < pagesize; ++i)
     *(data + i) = rand ();
   umask (0);
   fd = creat ("conftest.mmap", 0600);
   if (fd < 0)
-    exit (1);
+    return 1;
   if (write (fd, data, pagesize) != pagesize)
-    exit (1);
+    return 1;
   close (fd);
 
   /* Next, try to mmap the file at a fixed address which already has
@@ -1223,17 +1282,17 @@ main ()
      we see the same garbage.  */
   fd = open ("conftest.mmap", O_RDWR);
   if (fd < 0)
-    exit (1);
+    return 1;
   data2 = (char *) malloc (2 * pagesize);
   if (!data2)
-    exit (1);
-  data2 += (pagesize - ((long) data2 & (pagesize - 1))) & (pagesize - 1);
+    return 1;
+  data2 += (pagesize - ((long int) data2 & (pagesize - 1))) & (pagesize - 1);
   if (data2 != mmap (data2, pagesize, PROT_READ | PROT_WRITE,
 		     MAP_PRIVATE | MAP_FIXED, fd, 0L))
-    exit (1);
+    return 1;
   for (i = 0; i < pagesize; ++i)
     if (*(data + i) != *(data2 + i))
-      exit (1);
+      return 1;
 
   /* Finally, make sure that changes to the mapped area do not
      percolate back to the file as seen by read().  (This is a bug on
@@ -1242,14 +1301,14 @@ main ()
     *(data2 + i) = *(data2 + i) + 1;
   data3 = (char *) malloc (pagesize);
   if (!data3)
-    exit (1);
+    return 1;
   if (read (fd, data3, pagesize) != pagesize)
-    exit (1);
+    return 1;
   for (i = 0; i < pagesize; ++i)
     if (*(data + i) != *(data3 + i))
-      exit (1);
+      return 1;
   close (fd);
-  exit (0);
+  return 0;
 }]])],
 	       [ac_cv_func_mmap_fixed_mapped=yes],
 	       [ac_cv_func_mmap_fixed_mapped=no],
@@ -1276,8 +1335,13 @@ AC_DEFUN([AC_FUNC_OBSTACK],
 [AC_LIBSOURCES([obstack.h, obstack.c])dnl
 AC_CACHE_CHECK([for obstacks], ac_cv_func_obstack,
 [AC_LINK_IFELSE(
-    [AC_LANG_PROGRAM([[@%:@include "obstack.h"]],
-		     [[struct obstack *mem; obstack_free(mem,(char *) 0)]])],
+    [AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT
+		      [@%:@include "obstack.h"]],
+		     [[struct obstack mem;
+		       @%:@define obstack_chunk_alloc malloc
+		       @%:@define obstack_chunk_free free
+		       obstack_init (&mem);
+		       obstack_free (&mem, 0);]])],
 		[ac_cv_func_obstack=yes],
 		[ac_cv_func_obstack=no])])
 if test $ac_cv_func_obstack = yes; then
@@ -1296,20 +1360,20 @@ AU_ALIAS([AM_FUNC_OBSTACK], [AC_FUNC_OBSTACK])
 
 # _AC_FUNC_REALLOC_IF(IF-WORKS, IF-NOT)
 # -------------------------------------
-# If `realloc (0, 0)' properly handled, run IF-WORKS, otherwise, IF-NOT.
+# If `realloc (0, 0)' is properly handled, run IF-WORKS, otherwise, IF-NOT.
 AC_DEFUN([_AC_FUNC_REALLOC_IF],
 [AC_REQUIRE([AC_HEADER_STDC])dnl
 AC_CHECK_HEADERS(stdlib.h)
 AC_CACHE_CHECK([for GNU libc compatible realloc], ac_cv_func_realloc_0_nonnull,
 [AC_RUN_IFELSE(
 [AC_LANG_PROGRAM(
-[[#if STDC_HEADERS || HAVE_STDLIB_H
+[[#if defined STDC_HEADERS || defined HAVE_STDLIB_H
 # include <stdlib.h>
 #else
 char *realloc ();
 #endif
 ]],
-		 [exit (realloc (0, 0) ? 0 : 1);])],
+		 [return ! realloc (0, 0);])],
 	       [ac_cv_func_realloc_0_nonnull=yes],
 	       [ac_cv_func_realloc_0_nonnull=no],
 	       [ac_cv_func_realloc_0_nonnull=no])])
@@ -1319,7 +1383,7 @@ AS_IF([test $ac_cv_func_realloc_0_nonnull = yes], [$1], [$2])
 
 # AC_FUNC_REALLOC
 # ---------------
-# Report whether `realloc (0, 0)' properly handled, and replace realloc if
+# Report whether `realloc (0, 0)' is properly handled, and replace realloc if
 # needed.
 AN_FUNCTION([realloc], [AC_FUNC_REALLOC])
 AC_DEFUN([AC_FUNC_REALLOC],
@@ -1345,15 +1409,15 @@ AC_DEFUN([AC_FUNC_SELECT_ARGTYPES],
 AC_CACHE_CHECK([types of arguments for select],
 [ac_cv_func_select_args],
 [for ac_arg234 in 'fd_set *' 'int *' 'void *'; do
- for ac_arg1 in 'int' 'size_t' 'unsigned long' 'unsigned'; do
+ for ac_arg1 in 'int' 'size_t' 'unsigned long int' 'unsigned int'; do
   for ac_arg5 in 'struct timeval *' 'const struct timeval *'; do
    AC_COMPILE_IFELSE(
        [AC_LANG_PROGRAM(
 [AC_INCLUDES_DEFAULT
-#if HAVE_SYS_SELECT_H
+#ifdef HAVE_SYS_SELECT_H
 # include <sys/select.h>
 #endif
-#if HAVE_SYS_SOCKET_H
+#ifdef HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
 #endif
 ],
@@ -1387,15 +1451,11 @@ AN_FUNCTION([setpgrp], [AC_FUNC_SETPGRP])
 AC_DEFUN([AC_FUNC_SETPGRP],
 [AC_CACHE_CHECK(whether setpgrp takes no argument, ac_cv_func_setpgrp_void,
 [AC_RUN_IFELSE(
-[AC_LANG_PROGRAM(
-[#if HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-],
+[AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],
 [/* If this system has a BSD-style setpgrp which takes arguments,
   setpgrp(1, 1) will fail with ESRCH and return -1, in that case
   exit successfully. */
-  exit (setpgrp (1,1) == -1 ? 0 : 1);])],
+  return setpgrp (1,1) != -1;])],
 	       [ac_cv_func_setpgrp_void=no],
 	       [ac_cv_func_setpgrp_void=yes],
 	       [AC_MSG_ERROR([cannot check setpgrp when cross compiling])])])
@@ -1421,9 +1481,9 @@ AC_CACHE_CHECK([whether $1 accepts an empty string],
 	       [ac_cv_func_$1_empty_string_bug],
 [AC_RUN_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],
 [[struct stat sbuf;
-  exit ($1 ("", &sbuf) ? 1 : 0);]])],
-	    [ac_cv_func_$1_empty_string_bug=yes],
+  return $1 ("", &sbuf) == 0;]])],
 	    [ac_cv_func_$1_empty_string_bug=no],
+	    [ac_cv_func_$1_empty_string_bug=yes],
 	    [ac_cv_func_$1_empty_string_bug=yes])])
 if test $ac_cv_func_$1_empty_string_bug = yes; then
   AC_LIBOBJ([$1])
@@ -1462,7 +1522,10 @@ AC_DEFUN([AC_FUNC_STRTOD],
 [AC_SUBST(POW_LIB)dnl
 AC_CACHE_CHECK(for working strtod, ac_cv_func_strtod,
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[
+]AC_INCLUDES_DEFAULT[
+#ifndef strtod
 double strtod ();
+#endif
 int
 main()
 {
@@ -1473,7 +1536,7 @@ main()
     double value;
     value = strtod (string, &term);
     if (value != 69 || term != (string + 4))
-      exit (1);
+      return 1;
   }
 
   {
@@ -1483,9 +1546,9 @@ main()
     char *term;
     strtod (string, &term);
     if (term != string && *(term - 1) == 0)
-      exit (1);
+      return 1;
   }
-  exit (0);
+  return 0;
 }
 ]])],
 	       ac_cv_func_strtod=yes,
@@ -1495,6 +1558,36 @@ if test $ac_cv_func_strtod = no; then
   _AC_LIBOBJ_STRTOD
 fi
 ])
+
+
+# AC_FUNC_STRTOLD
+# ---------------
+AC_DEFUN([AC_FUNC_STRTOLD],
+[
+  AC_CACHE_CHECK([whether strtold conforms to C99],
+    [ac_cv_func_strtold],
+    [AC_COMPILE_IFELSE(
+       [AC_LANG_PROGRAM(
+	  [[/* On HP-UX before 11.23, strtold returns a struct instead of
+		long double.  Reject implementations like that, by requiring
+		compatibility with the C99 prototype.  */
+#	     include <stdlib.h>
+	     static long double (*p) (char const *, char **) = strtold;
+	     static long double
+	     test (char const *nptr, char **endptr)
+	     {
+	       long double r;
+	       r = strtold (nptr, endptr);
+	       return r;
+	     }]],
+	   [[return test ("1.0", NULL) != 1 || p ("1.0", NULL) != 1;]])],
+       [ac_cv_func_strtold=yes],
+       [ac_cv_func_strtold=no])])
+  if test $ac_cv_func_strtold = yes; then
+    AC_DEFINE([HAVE_STRTOLD], 1,
+      [Define to 1 if strtold exists and conforms to C99.])
+  fi
+])# AC_FUNC_STRTOLD
 
 
 # AU::AM_FUNC_STRTOD
@@ -1518,6 +1611,7 @@ AC_CACHE_CHECK([whether strerror_r returns char *],
 	  char buf[100];
 	  char x = *strerror_r (0, buf, sizeof buf);
 	  char *p = strerror_r (0, buf, sizeof buf);
+	  return !p || x;
 	]])],
 			ac_cv_func_strerror_r_char_p=yes)
     else
@@ -1531,7 +1625,7 @@ AC_CACHE_CHECK([whether strerror_r returns char *],
 	extern char *strerror_r ();],
 	[[char buf[100];
 	  char x = *strerror_r (0, buf, sizeof buf);
-	  exit (!isalpha (x));]])],
+	  return ! isalpha (x);]])],
 		    ac_cv_func_strerror_r_char_p=yes, , :)
     fi
   ])
@@ -1555,10 +1649,11 @@ LIBS="-lintl $LIBS"])])dnl
 
 
 # AC_FUNC_STRNLEN
-# --------------
+# ---------------
 AN_FUNCTION([strnlen], [AC_FUNC_STRNLEN])
 AC_DEFUN([AC_FUNC_STRNLEN],
-[AC_CACHE_CHECK([for working strnlen], ac_cv_func_strnlen_working,
+[AC_REQUIRE([AC_USE_SYSTEM_EXTENSIONS])dnl
+AC_CACHE_CHECK([for working strnlen], ac_cv_func_strnlen_working,
 [AC_RUN_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT], [[
 #define S "foobar"
 #define S_LEN (sizeof S - 1)
@@ -1571,9 +1666,9 @@ AC_DEFUN([AC_FUNC_STRNLEN],
     {
       int expected = i <= S_LEN ? i : S_LEN;
       if (strnlen (S, i) != expected)
-	exit (1);
+	return 1;
     }
-  exit (0);
+  return 0;
 ]])],
 	       [ac_cv_func_strnlen_working=yes],
 	       [ac_cv_func_strnlen_working=no],
@@ -1593,14 +1688,14 @@ AC_CACHE_CHECK(whether setvbuf arguments are reversed,
    AC_LINK_IFELSE(
      [AC_LANG_PROGRAM(
 	[[#include <stdio.h>
-#	  if PROTOTYPES
+#	  ifdef PROTOTYPES
 	   int (setvbuf) (FILE *, int, char *, size_t);
 #	  endif]],
 	[[char buf; return setvbuf (stdout, _IOLBF, &buf, 1);]])],
      [AC_LINK_IFELSE(
 	[AC_LANG_PROGRAM(
 	   [[#include <stdio.h>
-#	     if PROTOTYPES
+#	     ifdef PROTOTYPES
 	      int (setvbuf) (FILE *, int, char *, size_t);
 #	     endif]],
 	   [[char buf; return setvbuf (stdout, &buf, _IOLBF, 1);]])],
@@ -1609,17 +1704,17 @@ AC_CACHE_CHECK(whether setvbuf arguments are reversed,
 	 # Try running it.
 	 AC_RUN_IFELSE(
 	   [AC_LANG_PROGRAM(
-	      [[#include <stdio.h>]],
+	      [AC_INCLUDES_DEFAULT],
 	      [[/* This call has the arguments reversed.
 		   A reversed system may check and see that the address of buf
 		   is not _IOLBF, _IONBF, or _IOFBF, and return nonzero.  */
 		char buf;
 		if (setvbuf (stdout, _IOLBF, &buf, 1) != 0)
-		  exit (1);
+		  return 1;
 		putchar ('\r');
-		exit (0); /* Non-reversed systems SEGV here.  */]])],
+		return 0; /* Non-reversed systems SEGV here.  */]])],
 	   [ac_cv_func_setvbuf_reversed=yes],
-	   [rm -f core *.core],
+	   [],
 	   [[: # Assume setvbuf is not reversed when cross-compiling.]])]
 	ac_cv_func_setvbuf_reversed=yes)])])
 if test $ac_cv_func_setvbuf_reversed = yes; then
@@ -1642,7 +1737,7 @@ AN_FUNCTION([strcoll], [AC_FUNC_STRCOLL])
 AC_DEFUN([AC_FUNC_STRCOLL],
 [AC_CACHE_CHECK(for working strcoll, ac_cv_func_strcoll_works,
 [AC_RUN_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],
-  [[exit (strcoll ("abc", "def") >= 0 ||
+  [[return (strcoll ("abc", "def") >= 0 ||
 	 strcoll ("ABC", "DEF") >= 0 ||
 	 strcoll ("123", "456") >= 0)]])],
 	       ac_cv_func_strcoll_works=yes,
@@ -1665,20 +1760,23 @@ AU_ALIAS([AC_STRCOLL], [AC_FUNC_STRCOLL])
 # ------------------
 AN_FUNCTION([utime], [AC_FUNC_UTIME_NULL])
 AC_DEFUN([AC_FUNC_UTIME_NULL],
-[AC_CACHE_CHECK(whether utime accepts a null argument, ac_cv_func_utime_null,
+[AC_CHECK_HEADERS_ONCE(utime.h)
+AC_CACHE_CHECK(whether utime accepts a null argument, ac_cv_func_utime_null,
 [rm -f conftest.data; >conftest.data
 # Sequent interprets utime(file, 0) to mean use start of epoch.  Wrong.
-AC_RUN_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],
+AC_RUN_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT
+	       #ifdef HAVE_UTIME_H
+	       # include <utime.h>
+	       #endif],
 [[struct stat s, t;
-  exit (!(stat ("conftest.data", &s) == 0
-	  && utime ("conftest.data", (long *)0) == 0
-	  && stat ("conftest.data", &t) == 0
-	  && t.st_mtime >= s.st_mtime
-	  && t.st_mtime - s.st_mtime < 120));]])],
+  return ! (stat ("conftest.data", &s) == 0
+	    && utime ("conftest.data", 0) == 0
+	    && stat ("conftest.data", &t) == 0
+	    && t.st_mtime >= s.st_mtime
+	    && t.st_mtime - s.st_mtime < 120);]])],
 	      ac_cv_func_utime_null=yes,
 	      ac_cv_func_utime_null=no,
-	      ac_cv_func_utime_null=no)
-rm -f core *.core])
+	      ac_cv_func_utime_null=no)])
 if test $ac_cv_func_utime_null = yes; then
   AC_DEFINE(HAVE_UTIME_NULL, 1,
 	    [Define to 1 if `utime(file, NULL)' sets file's timestamp to the
@@ -1699,7 +1797,7 @@ AN_FUNCTION([fork],  [AC_FUNC_FORK])
 AN_FUNCTION([vfork], [AC_FUNC_FORK])
 AC_DEFUN([AC_FUNC_FORK],
 [AC_REQUIRE([AC_TYPE_PID_T])dnl
-AC_CHECK_HEADERS(unistd.h vfork.h)
+AC_CHECK_HEADERS(vfork.h)
 AC_CHECK_FUNCS(fork vfork)
 if test "x$ac_cv_func_fork" = xyes; then
   _AC_FUNC_FORK
@@ -1742,21 +1840,15 @@ fi
 # -------------
 AC_DEFUN([_AC_FUNC_FORK],
   [AC_CACHE_CHECK(for working fork, ac_cv_func_fork_works,
-    [AC_RUN_IFELSE([/* By Ruediger Kuhlmann. */
-      #include <sys/types.h>
-      #if HAVE_UNISTD_H
-      # include <unistd.h>
-      #endif
-      /* Some systems only have a dummy stub for fork() */
-      int main ()
-      {
-	if (fork() < 0)
-	  exit (1);
-	exit (0);
-      }],
-    [ac_cv_func_fork_works=yes],
-    [ac_cv_func_fork_works=no],
-    [ac_cv_func_fork_works=cross])])]
+    [AC_RUN_IFELSE(
+      [AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT],
+	[
+	  /* By Ruediger Kuhlmann. */
+	  return fork () < 0;
+	])],
+      [ac_cv_func_fork_works=yes],
+      [ac_cv_func_fork_works=no],
+      [ac_cv_func_fork_works=cross])])]
 )# _AC_FUNC_FORK
 
 
@@ -1765,15 +1857,9 @@ AC_DEFUN([_AC_FUNC_FORK],
 AC_DEFUN([_AC_FUNC_VFORK],
 [AC_CACHE_CHECK(for working vfork, ac_cv_func_vfork_works,
 [AC_RUN_IFELSE([AC_LANG_SOURCE([[/* Thanks to Paul Eggert for this test.  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+]AC_INCLUDES_DEFAULT[
 #include <sys/wait.h>
-#if HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-#if HAVE_VFORK_H
+#ifdef HAVE_VFORK_H
 # include <vfork.h>
 #endif
 /* On some sparc systems, changes by the child to local and incoming
@@ -1844,7 +1930,7 @@ main ()
 
     while (wait(&status) != child)
       ;
-    exit(
+    return (
 	 /* Was there some problem with vforking?  */
 	 child < 0
 
@@ -1904,15 +1990,15 @@ AU_ALIAS([AC_VPRINTF], [AC_FUNC_VPRINTF])
 AN_FUNCTION([wait3], [AC_FUNC_WAIT3])
 AC_DEFUN([AC_FUNC_WAIT3],
 [AC_DIAGNOSE([obsolete],
-[$0: `wait3' is being removed from the Open Group standards.
+[$0: `wait3' has been removed from POSIX.
 Remove this `AC_FUNC_WAIT3' and adjust your code to use `waitpid' instead.])dnl
 AC_CACHE_CHECK([for wait3 that fills in rusage],
 	       [ac_cv_func_wait3_rusage],
 [AC_RUN_IFELSE([AC_LANG_SOURCE(
-[[#include <sys/types.h>
+[AC_INCLUDES_DEFAULT[
 #include <sys/time.h>
 #include <sys/resource.h>
-#include <stdio.h>
+#include <sys/wait.h>
 /* HP-UX has wait3 but does not fill in rusage at all.  */
 int
 main ()
@@ -1940,8 +2026,8 @@ main ()
       wait3(&i, 0, &r);
       /* Avoid "text file busy" from rm on fast HP-UX machines.  */
       sleep(2);
-      exit (r.ru_nvcsw == 0 && r.ru_majflt == 0 && r.ru_minflt == 0
-	    && r.ru_stime.tv_sec == 0 && r.ru_stime.tv_usec == 0);
+      return (r.ru_nvcsw == 0 && r.ru_majflt == 0 && r.ru_minflt == 0
+	      && r.ru_stime.tv_sec == 0 && r.ru_stime.tv_usec == 0);
     }
 }]])],
 	       [ac_cv_func_wait3_rusage=yes],

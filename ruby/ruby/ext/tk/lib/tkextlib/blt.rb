@@ -38,7 +38,11 @@ module Tk
       lib = ''
     end
     LIB_PATH = TkVarAccess.new('blt_libPath', lib)
-    
+
+    PACKAGE_NAME = 'BLT'.freeze
+    def self.package_name
+      PACKAGE_NAME
+    end
 
     def self.package_version
       begin
@@ -64,7 +68,7 @@ module Tk
 
       params.concat(hash_kv(args.shift, true)) if args[0].kind_of?(Hash)
 
-      params << '--'
+      params << '--' if args[0] =~ /^\s*-[^-]/
       params.concat(args)
 
       tk_call('::blt::bgexec', *params)
@@ -81,7 +85,7 @@ module Tk
 
       params.concat(hash_kv(args.shift, true)) if args[0].kind_of?(Hash)
 
-      params << '--'
+      params << '--' if args[0] =~ /^\s*-[^-]/
       params.concat(args)
       params << '&'
 
@@ -101,6 +105,47 @@ module Tk
     end
     def self.crc32_data(dat)
       tk_call_without_enc('::blt::crc32', '-data', dat)
+    end
+
+    ####################################################
+
+    def self.active_legend(graph)
+      tk_call_without_enc('Blt_ActiveLegend', graph)
+    end
+    def self.crosshairs(graph)
+      tk_call_without_enc('Blt_Crosshairs', graph)
+    end
+    def self.zoom_stack(graph)
+      tk_call_without_enc('Blt_ZoomStack', graph)
+    end
+    def self.print_key(graph)
+      tk_call_without_enc('Blt_PrintKey', graph)
+    end
+    def self.closest_point(graph)
+      tk_call_without_enc('Blt_ClosestPoint', graph)
+    end
+
+    module GraphCommand
+      def active_legend
+        tk_call_without_enc('Blt_ActiveLegend', @path)
+        self
+      end
+      def crosshairs
+        tk_call_without_enc('Blt_Crosshairs', @path)
+        self
+      end
+      def zoom_stack
+        tk_call_without_enc('Blt_ZoomStack', @path)
+        self
+      end
+      def print_key
+        tk_call_without_enc('Blt_PrintKey', @path)
+        self
+      end
+      def closest_point
+        tk_call_without_enc('Blt_ClosestPoint', @path)
+        self
+      end
     end
 
     ####################################################

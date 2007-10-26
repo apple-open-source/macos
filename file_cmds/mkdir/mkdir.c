@@ -113,7 +113,7 @@ main(int argc, char *argv[])
 				warn("%s", *argv);
 			success = 0;
 		} else if (vflag)
-			(void)printf("%s\n", *argv);
+			(void)printf("mkdir: created directory '%s'\n", *argv);
 		
 		if (!success)
 			exitval = 1;

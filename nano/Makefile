@@ -6,7 +6,7 @@
 Project         = nano
 UserType        = Administration
 ToolType        = Commands
-GnuAfterInstall = remove-dir install-plist link-pico install-nanorc
+GnuAfterInstall = remove-junk install-plist link-pico install-nanorc
 
 Extra_CC_Flags        = -mdynamic-no-pic
 Extra_Configure_Flags = --sysconfdir="$(ETCDIR)" --enable-all
@@ -17,11 +17,11 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.2.4
+AEP_Version    = 2.0.1
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = 
+AEP_Patches    = configure.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -40,8 +40,11 @@ ifeq ($(AEP),YES)
 	done
 endif
 
-remove-dir:
-	rm $(DSTROOT)/usr/share/info/dir
+remove-junk:
+	$(RM) $(DSTROOT)/usr/share/info/dir
+	$(RM) $(DSTROOT)/usr/bin/rnano
+	$(RM) $(DSTROOT)/usr/share/man/man1/rnano.1
+	$(RMDIR) $(DSTROOT)/usr/share/nano
 
 OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
 OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses

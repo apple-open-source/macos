@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -101,7 +101,7 @@ PromptedAclSubject *PromptedAclSubject::Maker::make(const TypedList &list) const
 PromptedAclSubject *PromptedAclSubject::Maker::make(Version, Reader &pub, Reader &priv) const
 {
     Allocator &alloc = Allocator::standard(Allocator::sensitive);
-    const void *data; uint32 length; priv.countedData(data, length);
+    const void *data; size_t length; priv.countedData(data, length);
 	return new PromptedAclSubject(alloc, CssmAutoData(alloc, data, length), true);
 }
 

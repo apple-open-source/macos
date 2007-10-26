@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,14 +57,14 @@ typedef struct __DASession * DASessionRef;
 ///w:start
 extern const char * _DASessionGetName( DASessionRef session );
 ///w:stop
-extern DASessionRef      DASessionCreate( CFAllocatorRef allocator, mach_port_t _client, const char * _name, pid_t _pid, AuthorizationExternalForm _rights );
+extern DASessionRef      DASessionCreate( CFAllocatorRef allocator, mach_port_t _client, const char * _name, pid_t _pid );
+extern AuthorizationRef  DASessionGetAuthorization( DASessionRef session );
 extern CFMutableArrayRef DASessionGetCallbackQueue( DASessionRef session );
 extern CFMutableArrayRef DASessionGetCallbackRegister( DASessionRef session );
 extern mach_port_t       DASessionGetClientPort( DASessionRef session );
 extern mach_port_t       DASessionGetID( DASessionRef session );
 extern Boolean           DASessionGetOption( DASessionRef session, DASessionOption option );
 extern DASessionOptions  DASessionGetOptions( DASessionRef session );
-extern AuthorizationRef  DASessionGetRights( DASessionRef session );
 extern mach_port_t       DASessionGetServerPort( DASessionRef session );
 extern Boolean           DASessionGetState( DASessionRef session, DASessionState state );
 extern CFTypeID          DASessionGetTypeID( void );
@@ -72,6 +72,7 @@ extern void              DASessionInitialize( void );
 extern void              DASessionQueueCallback( DASessionRef session, DACallbackRef callback );
 extern void              DASessionRegisterCallback( DASessionRef session, DACallbackRef callback );
 extern void              DASessionScheduleWithRunLoop( DASessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode );
+extern void              DASessionSetAuthorization( DASessionRef session, AuthorizationRef authorization );
 extern void              DASessionSetOption( DASessionRef session, DASessionOption option, Boolean value );
 extern void              DASessionSetOptions( DASessionRef session, DASessionOptions options, Boolean value );
 extern void              DASessionSetState( DASessionRef session, DASessionState state, Boolean value );

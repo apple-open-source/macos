@@ -54,13 +54,27 @@ make_external_lucid_ctx_v1(
     unsigned int version,
     void **out_ptr);
 
+static krb5_error_code
+apple_make_external_authdata_if_relevant(
+    krb5_gss_ctx_id_rec * gctx,
+    unsigned int version,
+    void **out_ptr);
+
+static krb5_error_code
+apple_copy_authdata_if_relevant_to_authdata_if_relevant_key(
+    krb5_authdata *k5data,
+    apple_gss_krb5_authdata_if_relevant **ldata);
+
+static void
+apple_gss_free_authdata_if_relevant(apple_gss_krb5_authdata_if_relevant *key);
+
 
 /*
  * Exported routines
  */
 
 OM_uint32 KRB5_CALLCONV
-gss_krb5_export_lucid_sec_context(
+gss_krb5int_export_lucid_sec_context(
     OM_uint32		*minor_status,
     gss_ctx_id_t	*context_handle,
     OM_uint32		version,
@@ -129,6 +143,115 @@ error_out:
 	    *minor_status = (OM_uint32) kret;
     return(retval);
 }
+
+
+OM_uint32 KRB5_CALLCONV
+apple_gss_krb5int_export_authdata_if_relevant_context(
+    OM_uint32		*minor_status,
+    gss_ctx_id_t	*context_handle,
+    OM_uint32		version,
+    void		**kctx)
+{
+    krb5_error_code	kret = 0;
+    OM_uint32		retval;
+    krb5_gss_ctx_id_t	ctx;
+    void		*lctx = NULL;
+
+    /* Assume failure */
+    retval = GSS_S_FAILURE;
+    *minor_status = 0;
+
+    if (kctx)
+	*kctx = NULL;
+    else {
+	kret = EINVAL;
+    	goto error_out;
+    }
+
+    if (!kg_validate_ctx_id(*context_handle)) {
+	    kret = (OM_uint32) G_VALIDATE_FAILED;
+	    retval = GSS_S_NO_CONTEXT;
+	    goto error_out;
+    }
+	
+    ctx = (krb5_gss_ctx_id_t) *context_handle;
+    if (kret)
+	goto error_out;
+
+    /* Externalize a structure of the right version */
+    switch (version) {
+    case 1:
+	kret = apple_make_external_authdata_if_relevant((krb5_pointer)ctx,
+					      version, &lctx);
+        break;
+    default:
+	kret = (OM_uint32) APPLE_KG_AUTHDATA_VERSION;
+	break;
+    }
+
+    if (kret)
+	goto error_out;
+
+    /* Success!  Record the context and return the buffer */
+    if (! kg_save_lucidctx_id((void *)lctx)) {
+		kret = G_VALIDATE_FAILED;
+		goto error_out;
+    }
+    *kctx = lctx;
+    *minor_status = 0;
+    retval = GSS_S_COMPLETE;
+    return (retval);
+
+error_out:
+    if (*minor_status == 0) 
+	    *minor_status = (OM_uint32) kret;
+	if(kret == ENODATA)
+		retval = GSS_S_COMPLETE;
+    return(retval);
+}
+
+/*
+ * Frees the storage associated with an
+ * exported lucid context structure.
+ */
+OM_uint32 KRB5_CALLCONV
+apple_gss_krb5_free_authdata_if_relevant(
+			OM_uint32 *minor_status,
+			void *kctx)
+{
+    OM_uint32		retval;
+    krb5_error_code	kret = 0;
+	
+    /* Assume failure */
+    retval = GSS_S_FAILURE;
+    *minor_status = 0;
+	
+    if (!kctx) {
+		kret = EINVAL;
+		goto error_out;
+    }
+	
+    /* Verify pointer is valid lucid context */
+    if (! kg_validate_lucidctx_id(kctx)) {
+		kret = G_VALIDATE_FAILED;
+		goto error_out;
+    }
+	
+    apple_gss_free_authdata_if_relevant((apple_gss_krb5_authdata_if_relevant*)kctx);
+	
+    /* Success! */
+    (void)kg_delete_lucidctx_id(kctx);
+    *minor_status = 0;
+    retval = GSS_S_COMPLETE;
+	
+    return (retval);
+
+error_out:
+    if (*minor_status == 0) 
+	    *minor_status = (OM_uint32) kret;
+    return(retval);
+}
+
 
 /*
  * Frees the storage associated with an
@@ -253,6 +376,72 @@ error_out:
 
 }
 
+static krb5_error_code
+apple_make_external_authdata_if_relevant(
+    krb5_gss_ctx_id_rec * gctx,
+    unsigned int version,
+    void **out_ptr)
+{
+    apple_gss_krb5_authdata_if_relevant *lctx = NULL;
+    krb5_error_code retval;
+	
+	if((gctx->apple_authdata_if_relevant != NULL) && (*(gctx->apple_authdata_if_relevant) != NULL)) {
+		if((retval = apple_copy_authdata_if_relevant_to_authdata_if_relevant_key(*(gctx->apple_authdata_if_relevant),&lctx)))
+			goto error_out;
+    }
+    else {
+		retval = ENODATA;
+		goto error_out;	/* XXX better error code? */
+    }
+    /* Success! */
+    *out_ptr = lctx;
+	
+    return 0;
+
+error_out:
+    if (lctx != NULL) {
+		apple_gss_free_authdata_if_relevant(lctx);
+    }
+    return retval;
+
+}
+
+
+/* Copy the contents of a krb5_authdata to a apple_gss_krb5_authdata_if_relevant structure */
+static krb5_error_code
+apple_copy_authdata_if_relevant_to_authdata_if_relevant_key(
+    krb5_authdata *k5data,
+    apple_gss_krb5_authdata_if_relevant **ldata)
+{
+	if(*ldata != NULL) {
+		apple_gss_free_authdata_if_relevant(*ldata);
+		*ldata = NULL;
+	}
+	
+    if (!k5data || !k5data->contents || k5data->length == 0)
+		return ENODATA;
+
+	unsigned int bufsize = sizeof(apple_gss_krb5_authdata_if_relevant);
+	apple_gss_krb5_authdata_if_relevant *authdataptr = NULL;
+
+    /* Allocate the structure */
+    if ((authdataptr = xmalloc(bufsize)) == NULL) {
+    	return ENOMEM;
+    }
+    memset(authdataptr, 0, sizeof(apple_gss_krb5_authdata_if_relevant));
+
+	if ((authdataptr->data = xmalloc(k5data->length)) == NULL) {
+		return ENOMEM;
+    }
+	memcpy(authdataptr->data,k5data->contents,k5data->length);
+	authdataptr->type = k5data->ad_type;
+	authdataptr->length = k5data->length;
+	
+	*ldata = authdataptr;
+    return 0;
+}
+
+
 /* Copy the contents of a krb5_keyblock to a gss_krb5_lucid_key_t structure */
 static krb5_error_code
 copy_keyblock_to_lucid_key(
@@ -305,5 +494,19 @@ free_external_lucid_ctx_v1(
 	}
 	xfree(ctx);
 	ctx = NULL;
+    }
+}
+
+/* Free any storage associated with a authdata_if_relevant structure */
+static void
+apple_gss_free_authdata_if_relevant(apple_gss_krb5_authdata_if_relevant *key)
+{
+    if (key!= NULL) {
+		if ((key->data!= NULL) && (key->length > 0)) {
+			memset(key->data, 0, key->length);
+			memset(key, 0, sizeof(apple_gss_krb5_authdata_if_relevant));
+		}
+		if(key->data != NULL)
+			xfree(key->data);
     }
 }

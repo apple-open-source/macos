@@ -313,6 +313,8 @@ build_cplus_new (tree type, tree init)
     rval = init;
 
   rval = build_target_expr (slot, rval);
+  /* APPLE LOCAL mainline 2006-09-08 4658012 */
+  TARGET_EXPR_IMPLICIT_P (rval) = 1;
 
   return rval;
 }

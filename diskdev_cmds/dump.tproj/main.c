@@ -489,6 +489,7 @@ main(argc, argv)
 	msg("DUMP IS DONE\n");
 	Exit(X_FINOK);
 	/* NOTREACHED */
+	return (X_FINOK);
 }
 
 static void
@@ -496,7 +497,7 @@ usage()
 {
 
 	(void)fprintf(stderr, "usage: dump [-0123456789cnu] [-B records] [-b blocksize] [-d density] [-f file]\n            [-h level] [-s feet] [-T date] filesystem\n");
-	(void)fprintf(stderr, "       dump [-W | -w]\n");
+	(void)fprintf(stderr, "       dump -W | -w\n");
 	exit(1);
 }
 
@@ -632,7 +633,7 @@ obsolete(argcp, argvp)
 	}
 
 	/* Copy remaining arguments. */
-	while (*nargv++ = *argv++);
+	while ((*nargv++ = *argv++));
 
 	/* Update argument count. */
 	*argcp = nargv - *argvp - 1;

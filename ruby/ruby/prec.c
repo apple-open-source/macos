@@ -2,8 +2,8 @@
 
   prec.c -
 
-  $Author: nobu $
-  $Date: 2004/04/14 04:06:52 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Tue Jan 26 02:40:41 2000
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -57,9 +57,9 @@ prec_prec_i(x)
 
 /*
  *  call-seq:
- *    num.prec_f  =>  Integer
+ *    num.prec_f  =>  Float
  *
- *  Returns an +Float+ converted from _num_. It is equivalent 
+ *  Returns a +Float+ converted from _num_. It is equivalent 
  *  to <code>prec(Float)</code>.
  */
 

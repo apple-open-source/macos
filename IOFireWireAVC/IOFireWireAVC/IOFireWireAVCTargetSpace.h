@@ -69,11 +69,11 @@ class AVCCommandHandlerInfo : public OSObject
 public:
 	IOFireWireAVCProtocolUserClient * userClient;
 	IOFireWireAVCTargetCommandHandlerCallback callBack;
-	OSAsyncReference asyncRef;
+	OSAsyncReference64 asyncRef;
 	UInt32 subUnitTypeAndID;
 	UInt32 opCode;
-	UInt32 userCallBack;
-	UInt32 userRefCon;
+	uint64_t userCallBack;
+	uint64_t userRefCon;
 };
 
 typedef struct _AVCSubunitPlugRecord
@@ -95,12 +95,12 @@ public:
 	static AVCSubunitInfo *create();
 	IOFireWireAVCProtocolUserClient * userClient;
 	IOFireWireAVCSubunitPlugHandlerCallback callBack;
-	OSAsyncReference asyncRef;
+	OSAsyncReference64 asyncRef;
 	UInt32 subunitTypeAndID;
 	UInt32 numSourcePlugs;
 	UInt32 numDestPlugs;
-	UInt32 userCallBack;
-	UInt32 userRefCon;
+	uint64_t userCallBack;
+	uint64_t userRefCon;
 	AVCSubunitPlugRecord *sourcePlugRecords;
 	AVCSubunitPlugRecord *destPlugRecords;
 };
@@ -231,20 +231,20 @@ public:
 
 	virtual IOReturn installAVCCommandHandler(IOFireWireAVCProtocolUserClient *userClient,
 										   IOFireWireAVCTargetCommandHandlerCallback callBack,
-										   OSAsyncReference asyncRef,
+										   OSAsyncReference64 asyncRef,
 										   UInt32 subUnitTypeAndID,
 										   UInt32 opCode,
-										   UInt32 userCallBack,
-										   UInt32 userRefCon);
+										   uint64_t userCallBack,
+										   uint64_t userRefCon);
 
 	virtual IOReturn addSubunit(IOFireWireAVCProtocolUserClient *userClient,
 							 IOFireWireAVCSubunitPlugHandlerCallback callBack,
-							 OSAsyncReference asyncRef,
+							 OSAsyncReference64 asyncRef,
 							 UInt32 subunitType,
 							 UInt32 numSourcePlugs,
 							 UInt32 numDestPlugs,
-							 UInt32 userCallBack,
-							 UInt32 userRefCon,
+							 uint64_t userCallBack,
+							 uint64_t userRefCon,
 							 UInt32 *subUnitID);
 
 	virtual IOReturn setSubunitPlugSignalFormat(IOFireWireAVCProtocolUserClient *userClient,

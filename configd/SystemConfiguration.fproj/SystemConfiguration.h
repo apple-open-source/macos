@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -104,27 +104,43 @@ enum {
 };
 
 
-/* store access APIs */
+/* SCDynamicStore APIs */
 #include <SystemConfiguration/SCDynamicStore.h>
 #include <SystemConfiguration/SCDynamicStoreKey.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecific.h>
 
-/* preference access APIs */
+/* SCPreferences APIs */
 #include <SystemConfiguration/SCPreferences.h>
 #include <SystemConfiguration/SCPreferencesPath.h>
+#include <SystemConfiguration/SCPreferencesSetSpecific.h>
 
-/* network configuration */
-#include <SystemConfiguration/SCNetworkConfiguration.h>
-
-/* store and preference scheme definitions */
+/* Schema Definitions (for SCDynamicStore and SCPreferences) */
 #include <SystemConfiguration/SCSchemaDefinitions.h>
 
-/* network reachability / connection APIs */
+/* SCNetworkConfiguration APIs */
+#include <SystemConfiguration/SCNetworkConfiguration.h>
+
+/* SCNetworkReachability and SCNetworkConnection APIs */
 #include <SystemConfiguration/SCNetwork.h>
 #include <SystemConfiguration/SCNetworkReachability.h>
 #include <SystemConfiguration/SCNetworkConnection.h>
 
+/*!
+	@const kCFErrorDomainSystemConfiguration
+	@discussion CFError domain associated with errors reported by
+		the SystemConfiguration.framework.
+ */
+extern const CFStringRef	kCFErrorDomainSystemConfiguration	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
 __BEGIN_DECLS
+
+/*!
+	@function SCCopyLastError
+	@discussion Returns the most recent status or error code generated
+		as the result of calling a System Configuration framework API.
+	@result Returns the last error encountered.
+ */
+CFErrorRef	SCCopyLastError		(void);
 
 /*!
 	@function SCError
@@ -132,7 +148,7 @@ __BEGIN_DECLS
 		as the result of calling a System Configuration framework API.
 	@result Returns the last error encountered.
  */
-int	SCError				();
+int		SCError			(void);
 
 /*!
 	@function SCErrorString

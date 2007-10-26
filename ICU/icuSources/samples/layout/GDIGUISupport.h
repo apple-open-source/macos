@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 1999-2001, International Business Machines
+ *   Copyright (C) 1999-2005, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -20,7 +20,7 @@ class GDIGUISupport : public GUISupport
 {
 public:
     GDIGUISupport() {};
-    ~GDIGUISupport() {};
+    virtual ~GDIGUISupport() {};
 
     virtual void postErrorMessage(const char *message, const char *title);
 };

@@ -45,6 +45,7 @@
 
 #include <msg.h>
 #include <posix_signals.h>
+#include <killme_after.h>
 
 /* Application-specific. */
 
@@ -164,20 +165,46 @@ static void master_sigchld(int sig)
 #endif
 #endif
 
+#ifdef __APPLE_OS_X_SERVER__
+
+static void sigusr1_handler(int sig)
+{
+    char   *myname = "sigusr1_handler";
+	char	pData[1024];
+	int file_fd = -1;
+
+	file_fd = open( SRVR_MGR_COM_FILE, O_CREAT|O_TRUNC|O_RDWR, 0600 );
+	if( file_fd == -1 )
+	{
+	    msg_fatal( "can't open com file: %s (%m)", SRVR_MGR_COM_FILE );
+	}
+	else
+	{
+		sprintf( pData, SRVR_MGR_DATA, smtp_count, smtpd_count );
+
+		if ( lseek(file_fd, 0, SEEK_SET) == -1 ||
+			ftruncate(file_fd, 0) == -1 ||
+			write(file_fd, pData, strlen(pData)) == -1 )
+		{
+			msg_fatal("%s: can't write to file: %m", myname);
+		}
+		close( file_fd );
+	}
+}
+#endif
+
 /* master_sigdeath - die, women and children first */
 
 static void master_sigdeath(int sig)
 {
-    char   *myname = "master_sigdeath";
+    const char *myname = "master_sigdeath";
     struct sigaction action;
     pid_t   pid = getpid();
 
     /*
-     * XXX We're running from a signal handler, and really should not call
-     * any msg() routines at all, but it would be even worse to silently
-     * terminate without informing the sysadmin.
+     * Set alarm clock here for suicide after 5s.
      */
-    msg_info("terminating on signal %d", sig);
+    killme_after(5);
 
     /*
      * Terminate all processes in our process group, except ourselves.
@@ -189,6 +216,14 @@ static void master_sigdeath(int sig)
 	msg_fatal("%s: sigaction: %m", myname);
     if (kill(-pid, SIGTERM) < 0)
 	msg_fatal("%s: kill process group: %m", myname);
+
+    /*
+     * XXX We're running from a signal handler, and should not call complex
+     * routines at all, but it would be even worse to silently terminate
+     * without informing the sysadmin. For this reason, msg(3) was made safe
+     * for usage by signal handlers that terminate the process.
+     */
+    msg_info("terminating on signal %d", sig);
 
     /*
      * Deliver the signal to ourselves and clean up. XXX We're running as a
@@ -207,7 +242,7 @@ static void master_sigdeath(int sig)
 
 void    master_sigsetup(void)
 {
-    char   *myname = "master_sigsetup";
+    const char *myname = "master_sigsetup";
     struct sigaction action;
     static int sigs[] = {
 	SIGINT, SIGQUIT, SIGILL, SIGBUS, SIGSEGV, SIGTERM,
@@ -249,4 +284,10 @@ void    master_sigsetup(void)
     action.sa_handler = master_sigchld;
     if (sigaction(SIGCHLD, &action, (struct sigaction *) 0) < 0)
 	msg_fatal("%s: sigaction(%d): %m", myname, SIGCHLD);
+
+#ifdef __APPLE_OS_X_SERVER__
+    action.sa_handler = sigusr1_handler;
+    if (sigaction(SIGUSR1, &action, (struct sigaction *) 0) < 0)
+	msg_fatal("%s: sigaction(%d): %m", myname, SIGUSR1);
+#endif
 }

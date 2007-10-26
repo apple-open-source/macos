@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,9 +57,9 @@ __SCDynamicStoreCopyDescription(CFTypeRef cf) {
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)cf;
 
 	result = CFStringCreateMutable(allocator, 0);
-	CFStringAppendFormat(result, NULL, CFSTR("<SCDynamicStore %p [%p]> { "), cf, allocator);
+	CFStringAppendFormat(result, NULL, CFSTR("<SCDynamicStore %p [%p]> {"), cf, allocator);
 	if (storePrivate->server != MACH_PORT_NULL) {
-		CFStringAppendFormat(result, NULL, CFSTR("server port=%d"), storePrivate->server);
+		CFStringAppendFormat(result, NULL, CFSTR("server port = %p"), storePrivate->server);
 	} else {
 		CFStringAppendFormat(result, NULL, CFSTR("server not (no longer) available"));
 	}
@@ -83,26 +83,26 @@ __SCDynamicStoreCopyDescription(CFTypeRef cf) {
 		case Using_NotifierInformViaCallback :
 			if (storePrivate->notifyStatus == Using_NotifierInformViaRunLoop) {
 				CFStringAppendFormat(result, NULL, CFSTR(", runloop notifications"));
-				CFStringAppendFormat(result, NULL, CFSTR(" (func=0x%8.8x"), storePrivate->rlsFunction);
-				CFStringAppendFormat(result, NULL, CFSTR(", info=0x%8.8x"), storePrivate->rlsContext.info);
-				CFStringAppendFormat(result, NULL, CFSTR(", rls=0x%8.8x" ), storePrivate->rls);
-				CFStringAppendFormat(result, NULL, CFSTR(", refs=%d"     ), storePrivate->rlsRefs);
+				CFStringAppendFormat(result, NULL, CFSTR(" {callout = %p"), storePrivate->rlsFunction);
+				CFStringAppendFormat(result, NULL, CFSTR(", info = %p"), storePrivate->rlsContext.info);
+				CFStringAppendFormat(result, NULL, CFSTR(", rls = %p"), storePrivate->rls);
+				CFStringAppendFormat(result, NULL, CFSTR(", refs = %d"), storePrivate->rlsRefs);
 			} else {
 				CFStringAppendFormat(result, NULL, CFSTR(", mach port/callback notifications"));
-				CFStringAppendFormat(result, NULL, CFSTR(" (func=0x%8.8x"), storePrivate->callbackFunction);
-				CFStringAppendFormat(result, NULL, CFSTR(", info=0x%8.8x"), storePrivate->callbackArgument);
+				CFStringAppendFormat(result, NULL, CFSTR(" {callout = %p"), storePrivate->callbackFunction);
+				CFStringAppendFormat(result, NULL, CFSTR(", info = %p"), storePrivate->callbackArgument);
 			}
 			if (storePrivate->callbackRLS != NULL) {
-				CFStringAppendFormat(result, NULL, CFSTR(", notify rls=%@" ), storePrivate->callbackRLS);
+				CFStringAppendFormat(result, NULL, CFSTR(", notify rls = %@" ), storePrivate->callbackRLS);
 			}
-			CFStringAppendFormat(result, NULL, CFSTR(")"));
+			CFStringAppendFormat(result, NULL, CFSTR("}"));
 			break;
 		default :
 			CFStringAppendFormat(result, NULL, CFSTR(", notification delivery not requested%s"),
 					     storePrivate->rlsFunction ? " (yet)" : "");
 			break;
 	}
-	CFStringAppendFormat(result, NULL, CFSTR(" }"));
+	CFStringAppendFormat(result, NULL, CFSTR("}"));
 
 	return result;
 }
@@ -185,7 +185,7 @@ static void
 childForkHandler()
 {
 	/* the process has forked (and we are the child process) */
-	
+
 	_sc_active = 0;
 	_sc_server = MACH_PORT_NULL;
 
@@ -245,6 +245,7 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 
 	/* initialize runtime */
 	pthread_once(&initialized, __SCDynamicStoreInitialize);
+
 
 	/* allocate session */
 	size  = sizeof(SCDynamicStorePrivate) - sizeof(CFRuntimeBase);
@@ -397,7 +398,7 @@ SCDynamicStoreCreateWithOptions(CFAllocatorRef		allocator,
 	CFRelease(name);
 
 	/* serialize the options */
-	if (storeOptions) {
+	if (storeOptions != NULL) {
 		if (!_SCSerialize(storeOptions, &xmlOptions, (void **)&myOptionsRef, &myOptionsLen)) {
 			CFRelease(utfName);
 			goto done;

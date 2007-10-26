@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: util_ordering.c 16040 2004-02-09 22:10:40Z raeburn $
+ * $Id: util_ordering.c 19310 2007-03-29 21:36:38Z tlyu $
  */
 
 /*
@@ -95,6 +95,12 @@ g_order_init(void **vqueue, gssint_uint64 seqnum,
 
    if ((q = (queue *) malloc(sizeof(queue))) == NULL)
       return(ENOMEM);
+
+   /* This stops valgrind from complaining about writing uninitialized
+      data if the caller exports the context and writes it to a file.
+      We don't actually use those bytes at all, but valgrind still
+      complains.  */
+   memset(q, 0xfe, sizeof(*q));
 
    q->do_replay = do_replay;
    q->do_sequence = do_sequence;

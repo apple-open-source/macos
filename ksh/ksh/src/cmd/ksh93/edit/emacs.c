@@ -1,39 +1,28 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
-/* Adapted for ksh by David Korn */
+/* Original version by Michael T. Veach 
+ * Adapted for ksh by David Korn */
 /* EMACS_MODES: c tabstop=4 
 
 One line screen editor for any program
-
-
-Questions and comments should be
-directed to 
-
-	Michael T. Veach
-	IX 1C-341 X1614
-	ihuxl!veach
 
 */
 
@@ -74,6 +63,7 @@ directed to
 
 #include	<ast.h>
 #include	<ctype.h>
+#include	"FEATURE/cmds"
 #if KSHELL
 #   include	"defs.h"
 #endif	/* KSHELL */
@@ -136,6 +126,7 @@ typedef struct _emacs_
 #define hloff		editb.e_hloff
 #define hismin		editb.e_hismin
 #define usrkill		editb.e_kill
+#define usrlnext	editb.e_lnext
 #define usreof		editb.e_eof
 #define usrerase	editb.e_erase
 #define crallowed	editb.e_crlf
@@ -156,6 +147,7 @@ typedef struct _emacs_
 #define KILLCHAR	UKILL
 #define ERASECHAR	UERASE
 #define EOFCHAR		UEOF
+#define LNEXTCHAR		ULNEXT
 #define DELETE		('a'==97?0177:7)
 
 /**********************
@@ -181,7 +173,7 @@ static void setcursor(Emacs_t*,int, int);
 static void show_info(Emacs_t*,const char*);
 static void xcommands(Emacs_t*,int);
 
-ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
+int ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 {
 	Edit_t *ed = (Edit_t*)context;
 	register int c;
@@ -193,7 +185,7 @@ ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 	char backslash;
 	genchar *kptr;
 	char prompt[PRSIZE];
-	genchar Screen[MAXWINDOW];
+	genchar Screen[MAXLINE];
 	if(!ep)
 	{
 		ep = ed->e_emacs = newof(0,Emacs_t,1,0);
@@ -201,18 +193,8 @@ ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 		ep->prevdirection =  1;
 		location.hist_command =  -5;
 	}
-#if KSHELL && (2*CHARSIZE*MAXLINE)<IOBSIZE
-	kstack = (genchar*)(buff + MAXLINE*sizeof(genchar));
-#else
-	if(kstack==0)
-	{
-		kstack = (genchar*)malloc(sizeof(genchar)*(MAXLINE));
-		kstack[0] = '\0';
-	}
-#endif
 	Prompt = prompt;
 	ep->screen = Screen;
-	drawbuff = out = (genchar*)buff;
 	if(tty_raw(ERRIO,0) < 0)
 	{
 		 return(reedit?reedit:ed_read(context, fd,buff,scend,0));
@@ -221,9 +203,17 @@ ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 	/* This mess in case the read system call fails */
 	
 	ed_setup(ep->ed,fd,reedit);
+	out = (genchar*)buff;
 #if SHOPT_MULTIBYTE
+	out = (genchar*)roundof((char*)out-(char*)0,sizeof(genchar));
 	ed_internal(buff,out);
 #endif /* SHOPT_MULTIBYTE */
+	if(!kstack)
+	{
+		kstack = (genchar*)malloc(CHARSIZE*MAXLINE);
+		kstack[0] = '\0';
+	}
+	drawbuff = out;
 #ifdef ESH_NFIRST
 	if (location.hist_command == -5)		/* to be initialized */
 	{
@@ -299,6 +289,10 @@ ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 		{
 			c = ERASECHAR ;
 		} 
+		else if (c == usrlnext)
+		{
+			c = LNEXTCHAR ;
+		}
 		else if ((c == usreof)&&(eol == 0))
 		{
 			c = EOFCHAR;
@@ -314,6 +308,9 @@ ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 		i = cur;
 		switch(c)
 		{
+		case LNEXTCHAR:
+			c = ed_getchar(ep->ed,2);
+			goto do_default_processing;
 		case cntl('V'):
 			show_info(ep,fmtident(e_version));
 			continue;
@@ -333,13 +330,24 @@ ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 			continue;
 #endif	/* u370 */
 		case '\t':
-			if(cur>0 && cur>=eol && out[cur-1]!='\t' && out[cur-1]!=' ' && ep->ed->sh->nextprompt)
+			if(cur>0  && ep->ed->sh->nextprompt)
 			{
-				ed_ungetchar(ep->ed,ESC);
-				ed_ungetchar(ep->ed,ESC);
-				continue;
+				if(ep->ed->e_tabcount==0)
+				{
+					ep->ed->e_tabcount=1;
+					ed_ungetchar(ep->ed,ESC);
+					goto do_escape;
+				}
+				else if(ep->ed->e_tabcount==1)
+				{
+					ed_ungetchar(ep->ed,'=');
+					goto do_escape;
+				}
+				ep->ed->e_tabcount = 0;
 			}
+		do_default_processing:
 		default:
+
 			if ((eol+1) >= (scend)) /*  will not fit on line */
 			{
 				ed_ungetchar(ep->ed,c); /* save character for next line */
@@ -584,6 +592,7 @@ update:
 			draw(ep,REFRESH);
 			continue;
 		case cntl('[') :
+		do_escape:
 			adjust = escape(ep,out,oadjust);
 			continue;
 		case cntl('R') :
@@ -741,6 +750,9 @@ static int escape(register Emacs_t* ep,register genchar *out,int count)
 		value = 1;
 	switch(ch=i)
 	{
+		case cntl('V'):
+			show_info(ep,fmtident(e_version));
+			return(-1);
 		case ' ':
 			ep->mark = cur;
 			return(-1);
@@ -916,11 +928,34 @@ static int escape(register Emacs_t* ep,register genchar *out,int count)
 		case '=':	/* escape = - list all matching file names */
 			ep->mark = cur;
 			if(ed_expand(ep->ed,(char*)out,&cur,&eol,i,count) < 0)
+			{
+				if(ep->ed->e_tabcount==1)
+				{
+					ep->ed->e_tabcount=2;
+					ed_ungetchar(ep->ed,cntl('\t'));
+					return(-1);
+				}
 				beep();
+			}
 			else if(i=='=')
+			{
 				draw(ep,REFRESH);
+				if(count>0)
+					ep->ed->e_tabcount=0;
+				else
+				{
+					i=ed_getchar(ep->ed,0);
+					ed_ungetchar(ep->ed,i);
+					if(isdigit(i))
+						ed_ungetchar(ep->ed,ESC);
+				}
+			}
 			else
+			{
+				if(i=='\\' && cur>ep->mark && (out[cur-1]=='/' || out[cur-1]==' '))
+					ep->ed->e_tabcount=0;
 				draw(ep,UPDATE);
+			}
 			return(-1);
 
 		/* search back for character */
@@ -955,6 +990,12 @@ static int escape(register Emacs_t* ep,register genchar *out,int count)
 			draw(ep,UPDATE);
 			return(-1);
 
+#ifdef _cmd_tput
+		case cntl('L'): /* clear screen */
+			sh_trap("tput clear", 0);
+			draw(ep,REFRESH);
+			return(-1);
+#endif
 		case '[':	/* feature not in book */
 			switch(i=ed_getchar(ep->ed,1))
 			{
@@ -1365,6 +1406,8 @@ static void draw(register Emacs_t *ep,Draw_t option)
 	}
 	i = (ncursor-nscreen) - ep->offset;
 	setcursor(ep,i,0);
+	if(option==FINAL && ep->ed->e_multiline)
+		setcursor(ep,nscend-nscreen,0);
 	ep->scvalid = 1;
 	return;
 }
@@ -1378,23 +1421,7 @@ static void draw(register Emacs_t *ep,Draw_t option)
 static void setcursor(register Emacs_t *ep,register int newp,int c)
 {
 	register int oldp = ep->cursor - ep->screen;
-	if (oldp > newp)
-	{
-		if (!ep->cr_ok || (2*(newp+plen)>(oldp+plen)))
-		{
-			while (oldp > newp)
-			{
-				putchar(ep->ed,'\b');
-				oldp--;
-			}
-			goto skip;
-		}
-		putstring(ep,Prompt);
-		oldp = 0;
-	}
-	while (newp > oldp)
-		putchar(ep->ed,ep->screen[oldp++]);
-skip:
+	newp  = ed_setcursor(ep->ed, ep->screen, oldp, newp, 0);
 	if(c)
 	{
 		putchar(ep->ed,c);

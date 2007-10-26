@@ -5,7 +5,7 @@
 # Copyright (c) 2003 Internet Programming with Ruby writers. All rights
 # reserved.
 #
-# $Id: cgi.rb,v 1.4.2.2 2004/09/16 09:14:27 gotoyuzo Exp $
+# $Id: cgi.rb 11708 2007-02-12 23:01:19Z shyouhei $
 
 require "webrick/httprequest"
 require "webrick/httpresponse"
@@ -15,6 +15,8 @@ require "stringio"
 module WEBrick
   class CGI
     CGIError = Class.new(StandardError)
+
+    attr_reader :config, :logger
 
     def initialize(*args)
       if defined?(MOD_RUBY)
@@ -26,7 +28,7 @@ module WEBrick
         httpv = $1
       end
       @config = WEBrick::Config::HTTP.dup.update(
-        :ServerSoftware => ENV["SERVER_SOFTWARE"],
+        :ServerSoftware => ENV["SERVER_SOFTWARE"] || "null",
         :HTTPVersion    => HTTPVersion.new(httpv || "1.0"),
         :RunOnCGI       => true,   # to detect if it runs on CGI.
         :NPH            => false   # set true to run as NPH script.
@@ -39,13 +41,20 @@ module WEBrick
       @options = args
     end
 
+    def [](key)
+      @config[key]
+    end
+
     def start(env=ENV, stdin=$stdin, stdout=$stdout)
       sock = WEBrick::CGI::Socket.new(@config, env, stdin, stdout)
       req = HTTPRequest.new(@config)
       res = HTTPResponse.new(@config)
       unless @config[:NPH] or defined?(MOD_RUBY)
         def res.setup_header
-          @header["status"] ||= @status
+          unless @header["status"]
+            phrase = HTTPStatus::reason_phrase(@status)
+            @header["status"] = "#{@status} #{phrase}"
+          end
           super
         end
         def res.status_line
@@ -55,12 +64,9 @@ module WEBrick
 
       begin
         req.parse(sock)
-        req.script_name = (env["SCRIPT_NAME"] || "").dup
-        if env["PATH_INFO"].nil? || env["PATH_INFO"].empty?
-          req.path_info = nil
-        else
-          req.path_info = env["PATH_INFO"].dup
-        end
+        req.script_name = (env["SCRIPT_NAME"] || File.expand_path($0)).dup
+        req.path_info = (env["PATH_INFO"] || "").dup
+        req.query_string = env["QUERY_STRING"]
         req.user = env["REMOTE_USER"]
         res.request_method = req.request_method
         res.request_uri = req.request_uri
@@ -123,6 +129,7 @@ module WEBrick
         @header_part = StringIO.new
         @body_part = stdin
         @out_port = stdout
+        @out_port.binmode
   
         @server_addr = @env["SERVER_ADDR"] || "0.0.0.0"
         @server_name = @env["SERVER_NAME"]
@@ -142,19 +149,20 @@ module WEBrick
       end
 
       def request_line
-        meth = @env["REQUEST_METHOD"]
-        url = @env["SCRIPT_NAME"].dup
-        if path_info = @env["PATH_INFO"]
-          url << path_info
-        end
-        if query_string = @env["QUERY_STRING"]
-          unless query_string.empty?
-            url << "?" << query_string
+        meth = @env["REQUEST_METHOD"] || "GET"
+        unless url = @env["REQUEST_URI"]
+          url = (@env["SCRIPT_NAME"] || File.expand_path($0)).dup
+          url << @env["PATH_INFO"].to_s
+          url = WEBrick::HTTPUtils.escape_path(url)
+          if query_string = @env["QUERY_STRING"]
+            unless query_string.empty?
+              url << "?" << query_string
+            end
           end
         end
         # we cannot get real HTTP version of client ;)
         httpv = @config[:HTTPVersion]
-        "#{meth} #{url} HTTP/#{httpv}"
+        return "#{meth} #{url} HTTP/#{httpv}"
       end
   
       def setup_header

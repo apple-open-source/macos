@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,19 +24,23 @@
 #define _APPLEINTELICHXSATA_H
 
 #include "AppleIntelPIIXPATA.h"
+#include <IOKit/IOPolledInterface.h>
 
 class AppleIntelICHxSATA : public AppleIntelPIIXPATA
 {
     OSDeclareDefaultStructors( AppleIntelICHxSATA )
 
+    class AppleIntelICHxSATAPolledAdapter* polledAdapter;
+
 protected:
     bool             _initPortEnable;
 
-    virtual void     setSATAPortEnable( UInt32 driveUnit, bool enable );
-    
-    virtual bool     getSATAPortPresentStatus( UInt32 driveUnit );
-
     virtual IOReturn selectDevice( ataUnitID unit );
+
+    //override for polling
+    virtual void executeEventCallouts(  ataEventCode event, ataUnitID unit);
+    virtual IOReturn startTimer( UInt32 inMS);
+    virtual void stopTimer( void );
 
 public:
     virtual bool     start( IOService * provider );
@@ -47,6 +51,37 @@ public:
 
     virtual IOReturn setPowerState( unsigned long stateIndex,
                                     IOService *   whatDevice );
+
+public:
+    void pollEntry( void );
+    void transitionFixup( void );
+};
+
+class AppleIntelICHxSATAPolledAdapter : public IOPolledInterface
+
+{
+    OSDeclareDefaultStructors(AppleIntelICHxSATAPolledAdapter)
+
+protected:
+    AppleIntelICHxSATA* owner;
+    bool pollingActive;
+
+public:
+    virtual IOReturn probe(IOService * target);
+    virtual IOReturn open( IOOptionBits state, IOMemoryDescriptor * buffer);
+    virtual IOReturn close(IOOptionBits state);
+
+    virtual IOReturn startIO(uint32_t 	        operation,
+                             uint32_t           bufferOffset,
+                             uint64_t	        deviceOffset,
+                             uint64_t	        length,
+                             IOPolledCompletion completion) ;
+
+    virtual IOReturn checkForWork(void);
+	
+    bool isPolling( void );
+    
+    void setOwner( AppleIntelICHxSATA* owner );
 };
 
 #endif /* !_APPLEINTELICHXSATA_H */

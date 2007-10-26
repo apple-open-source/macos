@@ -3,7 +3,7 @@
 ##
 
 Project               = python
-Extra_Configure_Flags = --enable-ipv6 --with-threads --enable-framework=/System/Library/Frameworks --enable-toolbox-glue
+Extra_Configure_Flags = --enable-ipv6 --with-threads --enable-framework=/System/Library/Frameworks --enable-toolbox-glue --enable-dtrace --with-system-ffi
 
 ##---------------------------------------------------------------------
 # Extra_CC_Flags and Extra_LD_Flags are needed because CFLAGS gets overridden
@@ -13,17 +13,18 @@ Extra_Configure_Flags = --enable-ipv6 --with-threads --enable-framework=/System/
 # Workaround for 3281234 (test_coercion failure due to non IEEE-754 in
 # optimizer): add -mno-fused-madd flag
 ##---------------------------------------------------------------------
-Extra_CC_Flags += -fno-common -Wno-long-double -mno-fused-madd
+Extra_CC_Flags += -fno-common -Wno-long-double -mno-fused-madd -DENABLE_DTRACE
 Extra_LD_Flags += -Wl,-F.
-Extra_Install_Flags   = DESTDIR=${DSTROOT}
-GnuAfterInstall       = fixup-after-install
+Extra_Install_Flags   = DESTDIR='$(DSTROOT)'
+GnuAfterInstall       = fixup-after-install install-plist
+Extra_Environment     = CCSHARED='$(RC_CFLAGS)' EXTRA_CFLAGS='-DMACOSX -I/usr/include/ffi'
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 Install_Flags := $(shell echo $(Install_Flags) | sed 's/prefix=[^ ]* *//')
 Install_Target = frameworkinstall
-FIX = $(SRCROOT)/fix
+FIX = '$(SRCROOT)/fix'
 
 ##---------------------------------------------------------------------
 # Patch Makefiles and pyconfig.h just after running configure
@@ -33,11 +34,9 @@ ConfigStamp2 = $(ConfigStamp)2
 configure:: $(ConfigStamp2)
 
 $(ConfigStamp2): $(ConfigStamp)
-	$(_v) ed - ${OBJROOT}/Makefile < $(FIX)/Makefile.ed
-	$(_v) ed - ${OBJROOT}/pyconfig.h < $(FIX)/pyconfig.ed
-	$(_v) patch ${OBJROOT}/Lib/plat-mac/applesingle.py \
-		$(FIX)/applesingle.py.patch
-	$(_v) $(TOUCH) $(ConfigStamp2)
+	ed - '$(OBJROOT)/Makefile' < $(FIX)/Makefile.ed
+	ed - '$(OBJROOT)/pyconfig.h' < $(FIX)/pyconfig.ed
+	$(TOUCH) $(ConfigStamp2)
 
 ##---------------------------------------------------------------------
 # Fixup a lot of problems after the install
@@ -45,144 +44,154 @@ $(ConfigStamp2): $(ConfigStamp)
 APPS = /Applications
 DEVAPPS = /Developer/Applications/Utilities
 USRBIN = /usr/bin
-BUILDAPPLETNAME = BuildApplet.app
+BUILDAPPLETNAME = Build Applet.app
 PYTHONAPPNAME = Python.app
-PYTHONLAUNCHERNAME = PythonLauncher.app
+PYTHONLAUNCHERNAME = Python Launcher.app
 FRAMEWORKS = /System/Library/Frameworks
 PYFRAMEWORK = $(FRAMEWORKS)/Python.framework
-VERSIONSVER = $(PYFRAMEWORK)/Versions/$(VERS)
-RESOURCESVERS = $(VERSIONSVER)/Resources
-ENGLISHLPROJVERS = $(RESOURCESVERS)/English.lproj
-LIBPYTHONVERS = $(VERSIONSVER)/lib/python$(VERS)
+VERSIONSVERS = $(PYFRAMEWORK)/Versions/$(VERS)
+RESOURCESVERS = $(VERSIONSVERS)/Resources
+LIBPYTHONVERS = $(VERSIONSVERS)/lib/python$(VERS)
 PYTHONAPP = $(RESOURCESVERS)/$(PYTHONAPPNAME)
 PACONTENTS = $(PYTHONAPP)/Contents
 PAMACOS = $(PACONTENTS)/MacOS
-PARESOURCES = $(PACONTENTS)/Resources
-PAENGLISHLPROJ = $(PARESOURCES)/English.lproj
-MACPYTHON = $(APPS)/MacPython-$(VERS)
-DEVMACPYTHON = $(DEVAPPS)/MacPython-$(VERS)
+MACPYTHON = $(APPS)/MacPython $(VERS)
+DEVMACPYTHON = $(DEVAPPS)/MacPython $(VERS)
 PYTHONLAUNCHER = $(RESOURCESVERS)/$(PYTHONLAUNCHERNAME)
 PLCONTENTS = $(PYTHONLAUNCHER)/Contents
-PLRESOURCES = $(PLCONTENTS)/Resources
-PLENGLISHLPROJ = $(PLRESOURCES)/English.lproj
 BUILDAPPLET = $(DEVMACPYTHON)/$(BUILDAPPLETNAME)
 BACONTENTS = $(BUILDAPPLET)/Contents
 BAMACOS = $(BACONTENTS)/MacOS
-RUNPYTHON = DYLD_FRAMEWORK_PATH=$(OBJROOT) $(OBJROOT)/python.exe
+RUNPYTHON = DYLD_FRAMEWORK_PATH='$(OBJROOT)' '$(OBJROOT)/python.exe'
 BYTE2UTF16 = $(RUNPYTHON) $(FIX)/byte2utf16.py
 UTF162BYTE = $(RUNPYTHON) $(FIX)/utf162byte.py
 
 fixup-after-install: delete-stuff \
 		     move-things-around \
+		     strip-64-bit \
 		     strip-installed-files \
-		     fix-empty-file \
 		     fix-BAInfo \
 		     fix-PAInfo \
-		     fix-PLInfo \
-		     fix-CFBundleIdentifier \
 		     fix-CFBundleShortVersionString \
 		     fix-paths \
-		     fix-buildapplet \
 		     fix-usr-local-bin \
-		     make-usr-bin \
-		     make-Library-Python \
+		     fix-usr-bin \
 		     fix-permissions \
-		     macpython-examples
+		     fix-config-Makefile \
+		     additional-man-pages
 
 delete-stuff:
-	rm -rf $(DSTROOT)/usr/local
+	rm -rf '$(DSTROOT)/usr/local'
 
 move-things-around:
-	install -d $(DSTROOT)$(DEVMACPYTHON)
-	mv -f $(DSTROOT)$(MACPYTHON)/$(BUILDAPPLETNAME) $(DSTROOT)$(BUILDAPPLET)
-	mv -f $(DSTROOT)$(MACPYTHON)/$(PYTHONLAUNCHERNAME) $(DSTROOT)$(RESOURCESVERS)
-	rm -rf $(DSTROOT)$(APPS)
-
-strip-installed-files:
-	strip -x $(DSTROOT)$(VERSIONSVER)/Python
-	strip -x $(DSTROOT)$(VERSIONSVER)/bin/python*
-	strip -x $(DSTROOT)$(LIBPYTHONVERS)/config/python.o
-	strip -x $(DSTROOT)$(LIBPYTHONVERS)/lib-dynload/*.so
-
-fix-empty-file:
-	echo '#' > $(DSTROOT)$(LIBPYTHONVERS)/bsddb/test/__init__.py
-
-fix-BAInfo:
-	ed - $(DSTROOT)$(BACONTENTS)/Info.plist < $(FIX)/bainfo.ed
-
-fix-PAInfo:
-	ed - $(DSTROOT)$(PACONTENTS)/Info.plist < $(FIX)/painfo.ed
-
-fix-PLInfo:
-	ed - $(DSTROOT)$(PLCONTENTS)/Info.plist < $(FIX)/plinfo.ed
-
-fix-CFBundleIdentifier:
-	ed - $(DSTROOT)$(RESOURCESVERS)/Info.plist < $(FIX)/pfinfo.ed
-
-fix-CFBundleShortVersionString:
-	$(UTF162BYTE) $(DSTROOT)$(PLENGLISHLPROJ)/InfoPlist.strings $(DSTROOT)$(PLENGLISHLPROJ)/temp.ip.strings
-	ed - $(DSTROOT)$(PLENGLISHLPROJ)/temp.ip.strings < $(FIX)/plsvs.ed
-	$(BYTE2UTF16) $(DSTROOT)$(PLENGLISHLPROJ)/temp.ip.strings $(DSTROOT)$(PLENGLISHLPROJ)/InfoPlist.strings
-	rm -f $(DSTROOT)$(PLENGLISHLPROJ)/temp.ip.strings
-	$(UTF162BYTE) $(DSTROOT)$(ENGLISHLPROJVERS)/InfoPlist.strings $(DSTROOT)$(ENGLISHLPROJVERS)/temp.ip.strings
-	ed - $(DSTROOT)$(ENGLISHLPROJVERS)/temp.ip.strings < $(FIX)/2.3svs.ed
-	$(BYTE2UTF16) $(DSTROOT)$(ENGLISHLPROJVERS)/temp.ip.strings $(DSTROOT)$(ENGLISHLPROJVERS)/InfoPlist.strings
-	rm -f $(DSTROOT)$(ENGLISHLPROJVERS)/temp.ip.strings
-	$(UTF162BYTE) $(DSTROOT)$(PAENGLISHLPROJ)/InfoPlist.strings $(DSTROOT)$(PAENGLISHLPROJ)/temp.ip.strings
-	ed - $(DSTROOT)$(PAENGLISHLPROJ)/temp.ip.strings < $(FIX)/pasvs.ed
-	$(BYTE2UTF16) $(DSTROOT)$(PAENGLISHLPROJ)/temp.ip.strings $(DSTROOT)$(PAENGLISHLPROJ)/InfoPlist.strings
-	rm -f $(DSTROOT)$(PAENGLISHLPROJ)/temp.ip.strings
-
-PYDOC = $(USRBIN)/pydoc
-PYDOCORIG = $(PYFRAMEWORK)/Versions/$(VERS)/bin/pydoc
-EXAMPLES = $(DSTROOT)/Developer/Examples/Python/MacPython
+	install -d '$(DSTROOT)$(DEVMACPYTHON)'
+	mv -f '$(DSTROOT)$(MACPYTHON)/$(BUILDAPPLETNAME)' '$(DSTROOT)$(BUILDAPPLET)'
+	mv -f '$(DSTROOT)$(MACPYTHON)/$(PYTHONLAUNCHERNAME)' '$(DSTROOT)$(RESOURCESVERS)'
+	rm -rf '$(DSTROOT)$(APPS)'
 
 ##---------------------------------------------------------------------
-# adjustSLF.ed removes -arch xxx flags.  fixusrbin.ed makes the exec
-# path /usr/bin.
+# Force python, pythonw and Python Launcher to be 32-bit only
+# (python will have previously been forced)
 ##---------------------------------------------------------------------
-fix-paths:
-	ed - $(DSTROOT)$(LIBPYTHONVERS)/config/Makefile < $(FIX)/adjustSLF.ed
-	ed - $(DSTROOT)$(PYDOCORIG) < $(FIX)/fixusrbin.ed
-
-fix-buildapplet:
-	ed - $(DSTROOT)$(BAMACOS)/BuildApplet < $(FIX)/buildapplet.ed
-
-fix-usr-local-bin:
-	cd $(DSTROOT)$(VERSIONSVER) && patch -p0 < $(FIX)/usrlocalbin.patch
-	@for i in `find $(DSTROOT)$(VERSIONSVER) -type f | xargs grep -l /usr/local/bin/python`; do \
-	    echo ed - $$i \< $(FIX)/usrlocalbin.ed; \
-	    ed - $$i < $(FIX)/usrlocalbin.ed; \
+Python_Launcher = $(DSTROOT)$(PLCONTENTS)/MacOS/Python Launcher
+PYTHON = $(DSTROOT)$(VERSIONSVERS)/bin/python$(VERS)
+PYTHONW = $(DSTROOT)$(VERSIONSVERS)/bin/pythonw$(VERS)
+strip-64-bit:
+	@set -x && a='' && \
+	for i in '$(PYTHON)' '$(PYTHONW)' '$(Python_Launcher)'; do \
+	    ditto "$$i" $(SYMROOT) || exit 1; \
+	done && \
+	for i in ppc64 x86_64; do \
+	    lipo '$(PYTHONW)' -verify_arch $$i && a="$$a -remove $$i"; \
+	done; \
+	test -z "$$a" || \
+	for i in '$(PYTHON)' '$(PYTHONW)' '$(Python_Launcher)'; do \
+	    lipo  "$$i" $$a -output "$$i" || exit 1; \
 	done
 
-make-usr-bin:
-	install -d $(DSTROOT)$(USRBIN)
-	ln -sf python$(VERS) $(DSTROOT)$(USRBIN)/python
-	ln -sf ../../System/Library/Frameworks/Python.framework/Versions/$(VERS)/bin/python $(DSTROOT)$(USRBIN)/python$(VERS)
-	ln -sf pythonw$(VERS) $(DSTROOT)$(USRBIN)/pythonw
-	cc $(RC_CFLAGS) -Os -Wl,-x $(FIX)/pythonw.c -o $(DSTROOT)$(USRBIN)/pythonw$(VERS)
-	install -p $(DSTROOT)$(PYDOCORIG) $(DSTROOT)$(PYDOC)
+strip-installed-files:
+	$(CP) '$(DSTROOT)$(VERSIONSVERS)/Python' '$(SYMROOT)'
+	strip -x '$(DSTROOT)$(VERSIONSVERS)/Python'
+	strip -x '$(Python_Launcher)'
+	ditto '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so '$(SYMROOT)/lib-dynload/'
+	strip -x '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so
+
+fix-BAInfo:
+	ed - '$(DSTROOT)$(BACONTENTS)/Info.plist' < $(FIX)/bainfo.ed
+
+fix-PAInfo:
+	ed - '$(DSTROOT)$(PACONTENTS)/Info.plist' < $(FIX)/painfo.ed
+
+fix-CFBundleShortVersionString:
+	@set -x && \
+	cd '$(DSTROOT)$(RESOURCESVERS)' && \
+	for s in `find . -name InfoPlist.strings`; do \
+	    $(UTF162BYTE) "$$s" '$(OBJROOT)/temp.ip.strings' && \
+	    ed - '$(OBJROOT)/temp.ip.strings' < $(FIX)/removeCFkeys.ed && \
+	    $(BYTE2UTF16) '$(OBJROOT)/temp.ip.strings' "$$s"; \
+	done
+
+MAN1 = /usr/share/man/man1
+additional-man-pages:
+	install -m 0644 $(FIX)/pydoc.1 '$(DSTROOT)$(MAN1)'
+	install -m 0644 $(FIX)/pythonw.1 '$(DSTROOT)$(MAN1)'
+	ln -sf pydoc.1 '$(DSTROOT)$(MAN1)/pydoc$(VERS).1'
+	ln -sf python.1 '$(DSTROOT)$(MAN1)/python$(VERS).1'
+	ln -sf pythonw.1 '$(DSTROOT)$(MAN1)/pythonw$(VERS).1'
+
+PYDOC = $(USRBIN)/pydoc
+PYDOCORIG = $(VERSIONSVERS)/bin/pydoc
+
+##---------------------------------------------------------------------
+# fixusrbin.ed makes the exec path /usr/bin.
+##---------------------------------------------------------------------
+fix-paths:
+	ed - '$(DSTROOT)$(PYDOCORIG)' < $(FIX)/fixusrbin.ed
+
+CGIPY = $(LIBPYTHONVERS)/cgi.py
+fix-usr-local-bin:
+	@set -x && \
+	cd '$(DSTROOT)$(VERSIONSVERS)' && \
+	patch -p0 < $(FIX)/usrlocalbin.patch && \
+	$(RUNPYTHON) -c "from py_compile import compile;compile('$(DSTROOT)$(CGIPY)', dfile='$(CGIPY)', doraise=True)" && \
+	$(RUNPYTHON) -O -c "from py_compile import compile;compile('$(DSTROOT)$(CGIPY)', dfile='$(CGIPY)', doraise=True)"
+
+##---------------------------------------------------------------------
+# config/Makefile needs the following changes:
+# remove -arch xxx flags
+# 4144521 - correct LINKFORSHARED
+# 3488297 - point BINDIR to /usr/local/bin
+##---------------------------------------------------------------------
+INSTALLPY = $(LIBPYTHONVERS)/distutils/command/install.py
+fix-config-Makefile:
+	ed - '$(DSTROOT)$(LIBPYTHONVERS)/config/Makefile' < $(FIX)/config_Makefile.ed
+
+fix-usr-bin:
+	@set -x && \
+	cd '$(DSTROOT)$(USRBIN)' && \
+	rm -f idle* && \
+	for i in *; do \
+	    rm -f $$i && \
+	    ln -s ../..$(VERSIONSVERS)/bin/$$i || exit 1; \
+	done
 
 LIBRARYPYTHON = /Library/Python
 LIBRARYPYTHONVERS = $(LIBRARYPYTHON)/$(VERS)
-ORIGSITEPACKAGES = $(LIBRARYPYTHONVERS)/site-packages
-SITEPACKAGES = $(LIBPYTHONVERS)/site-packages
-
-make-Library-Python:
-	install -d $(DSTROOT)$(LIBRARYPYTHONVERS)
-	mv -f $(DSTROOT)$(SITEPACKAGES) $(DSTROOT)$(LIBRARYPYTHONVERS)
-	ln -sf ../../../../../../../..$(ORIGSITEPACKAGES) $(DSTROOT)$(SITEPACKAGES)
 
 fix-permissions:
-	@for i in Applications Developer Library; do \
-	    echo chgrp -Rf admin $(DSTROOT)/$$i; \
-	    chgrp -Rf admin $(DSTROOT)/$$i; \
-	    echo chmod -Rf g+w $(DSTROOT)/$$i; \
+ifeq ($(shell id -u), 0)
+	@set -x && \
+	for i in Applications Developer Library; do \
+	    chgrp -Rf admin $(DSTROOT)/$$i && \
 	    chmod -Rf g+w $(DSTROOT)/$$i; \
 	done
+endif
 
-macpython-examples:
-	install -d -g admin -m 0775 $(EXAMPLES)
-	rsync -rlt $(OBJROOT)/Mac/Demo/ $(EXAMPLES)
-	-chown -R root:admin $(EXAMPLES)
-	-chmod -R g+w $(EXAMPLES)
+OSV = $(DSTROOT)/usr/local/OpenSourceVersions
+OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
+
+install-plist:
+	$(MKDIR) '$(OSV)'
+	$(INSTALL_FILE) '$(SRCROOT)/$(Project).plist' '$(OSV)/$(Project).plist'
+	$(MKDIR) '$(OSL)'
+	$(INSTALL_FILE) '$(OBJROOT)/LICENSE' '$(OSL)/$(Project).txt'

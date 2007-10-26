@@ -36,35 +36,47 @@
 .Dt TCSENDBREAK 3
 .Os
 .Sh NAME
-.Nm tcsendbreak ,
 .Nm tcdrain ,
+.Nm tcflow ,
 .Nm tcflush ,
-.Nm tcflow
+.Nm tcsendbreak
 .Nd line control functions
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In termios.h
 .Ft int
-.Fn tcdrain "int fd"
+.Fo tcdrain
+.Fa "int fildes"
+.Fc
 .Ft int
-.Fn tcflow "int fd" "int action"
+.Fo tcflow
+.Fa "int fildes"
+.Fa "int action"
+.Fc
 .Ft int
-.Fn tcflush "int fd" "int action"
+.Fo tcflush
+.Fa "int fildes"
+.Fa "int action"
+.Fc
 .Ft int
-.Fn tcsendbreak "int fd" "int len"
+.Fo tcsendbreak
+.Fa "int fildes"
+.Fa "int duration"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn tcdrain
 function waits until all output written to the terminal referenced by
-.Fa fd
+.Fa fildes
 has been transmitted to the terminal.
 .Pp
 The
 .Fn tcflow
-function suspends transmission of data to or the reception of data from
+function suspends transmission of data to,
+or the reception of data from,
 the terminal referenced by
-.Fa fd
+.Fa fildes ,
 depending on the value of
 .Fa action .
 The value of
@@ -94,7 +106,7 @@ section of
 The
 .Fn tcflush
 function discards any data written to the terminal referenced by
-.Fa fd
+.Fa fildes
 which has not been transmitted to the terminal, or any data received
 from the terminal but not yet read, depending on the value of
 .Fa action .
@@ -114,9 +126,9 @@ The
 .Fn tcsendbreak
 function transmits a continuous stream of zero-valued bits for four-tenths
 of a second to the terminal referenced by
-.Fa fd .
+.Fa fildes .
 The
-.Fa len
+.Fa duration
 parameter is ignored in this implementation.
 .Sh RETURN VALUES
 Upon successful completion, all of these functions return a value of zero.
@@ -127,20 +139,20 @@ is set to indicate the error, as follows:
 .Bl -tag -width Er
 .It Bq Er EBADF
 The
-.Fa fd
+.Fa fildes
 argument is not a valid file descriptor.
+.It Bq Er EINTR
+A signal interrupted the
+.Fn tcdrain
+function.
 .It Bq Er EINVAL
 The
 .Fa action
 argument is not a proper value.
 .It Bq Er ENOTTY
 The file associated with
-.Fa fd
+.Fa fildes
 is not a terminal.
-.It Bq Er EINTR
-A signal interrupted the
-.Fn tcdrain
-function.
 .El
 .Sh SEE ALSO
 .Xr tcsetattr 3 ,

@@ -1,22 +1,24 @@
 /* A general interface to the widgets of different toolkits.
-   Copyright (C) 1992, 1993 Lucid, Inc.
+Copyright (C) 1992, 1993 Lucid, Inc.
+Copyright (C) 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2003, 2004,
+  2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of the Lucid Widget Library.
 
-The Lucid Widget Library is free software; you can redistribute it and/or 
+The Lucid Widget Library is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
 The Lucid Widget Library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of 
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifdef NeXT
 #undef __STRICT_BSD__ /* ick */
@@ -26,14 +28,14 @@ Boston, MA 02111-1307, USA.  */
 #include <config.h>
 #endif
 
+#include "../src/lisp.h"
+
 #include <sys/types.h>
 #include <stdio.h>
 #include <ctype.h>
 #include "lwlib-int.h"
 #include "lwlib-utils.h"
 #include <X11/StringDefs.h>
-
-extern long *xmalloc();
 
 #if defined (USE_LUCID)
 #include "lwlib-Xlw.h"
@@ -45,20 +47,13 @@ extern long *xmalloc();
 #define USE_XAW
 #endif /* not USE_MOTIF && USE_LUCID */
 #endif
-#if defined (USE_OLIT)
-#include "lwlib-Xol.h"
-#endif
 #if defined (USE_XAW)
 #include <X11/Xaw/Paned.h>
 #include "lwlib-Xaw.h"
 #endif
 
-#if !defined (USE_LUCID) && !defined (USE_MOTIF) && !defined (USE_OLIT)
-ERROR!  At least one of USE_LUCID, USE_MOTIF or USE_OLIT must be defined.
-#endif
-
-#if defined (USE_MOTIF) && defined (USE_OLIT)
-ERROR! no more than one of USE_MOTIF and USE_OLIT may be defined.
+#if !defined (USE_LUCID) && !defined (USE_MOTIF)
+ #error  At least one of USE_LUCID or USE_MOTIF must be defined.
 #endif
 
 #ifndef max
@@ -73,12 +68,6 @@ all_widget_info = NULL;
 char *lwlib_toolkit_type = "motif";
 #else
 char *lwlib_toolkit_type = "lucid";
-#endif
-
-#if defined __STDC__ || defined PROTOTYPES
-#define P_(x)	x
-#else
-#define P_(x)	()
 #endif
 
 static widget_value *merge_widget_value P_ ((widget_value *,
@@ -110,17 +99,16 @@ static void update_all_widget_values P_ ((widget_info *, Boolean));
 static void initialize_widget_instance P_ ((widget_instance *));
 static widget_creation_function find_in_table P_ ((char *, widget_creation_entry *));
 static Boolean dialog_spec_p P_ ((char *));
-static void instantiate_widget_instance P_ ((widget_instance *));
 static void destroy_one_instance P_ ((widget_instance *));
 static void lw_pop_all_widgets P_ ((LWLIB_ID, Boolean));
 static Boolean get_one_value P_ ((widget_instance *, widget_value *));
 static void show_one_widget_busy P_ ((Widget, Boolean));
-     
+
 void
 lwlib_memset (address, value, length)
      char *address;
      int value;
-     int length;
+     size_t length;
 {
   int i;
 
@@ -199,12 +187,12 @@ malloc_widget_value ()
       wv = (widget_value *) malloc (sizeof (widget_value));
       malloc_cpt++;
     }
-  lwlib_memset (wv, 0, sizeof (widget_value));
+  lwlib_memset ((void*) wv, 0, sizeof (widget_value));
   return wv;
 }
 
 /* this is analogous to free().  It frees only what was allocated
-   by malloc_widget_value(), and no substructures. 
+   by malloc_widget_value(), and no substructures.
  */
 void
 free_widget_value (wv)
@@ -237,9 +225,8 @@ free_widget_value_tree (wv)
   if (wv->name) free (wv->name);
   if (wv->value) free (wv->value);
   if (wv->key) free (wv->key);
-  if (wv->help) free (wv->help);
 
-  wv->name = wv->value = wv->key = wv->help = (char *) 0xDEADBEEF;
+  wv->name = wv->value = wv->key = (char *) 0xDEADBEEF;
 
   if (wv->toolkit_data && wv->free_toolkit_data)
     {
@@ -266,7 +253,7 @@ copy_widget_value_tree (val, change)
      change_type change;
 {
   widget_value* copy;
-  
+
   if (!val)
     return NULL;
   if (val == (widget_value *) 1)
@@ -276,7 +263,7 @@ copy_widget_value_tree (val, change)
   copy->name = safe_strdup (val->name);
   copy->value = safe_strdup (val->value);
   copy->key = safe_strdup (val->key);
-  copy->help = safe_strdup (val->help);
+  copy->help = val->help;
   copy->enabled = val->enabled;
   copy->button_type = val->button_type;
   copy->selected = val->selected;
@@ -345,11 +332,18 @@ mark_widget_destroyed (widget, closure, call_data)
     instance->widget = NULL;
 }
 
+/* The messy #ifdef PROTOTYPES here and elsewhere are prompted by a
+   flood of warnings about argument promotion from proprietary ISO C
+   compilers.  (etags still only makes one entry for each function.)  */
 static widget_instance *
+#ifdef PROTOTYPES
+allocate_widget_instance (widget_info* info, Widget parent, Boolean pop_up_p)
+#else
 allocate_widget_instance (info, parent, pop_up_p)
      widget_info* info;
      Widget parent;
      Boolean pop_up_p;
+#endif
 {
   widget_instance* instance =
     (widget_instance*)malloc (sizeof (widget_instance));
@@ -376,9 +370,13 @@ free_widget_instance (instance)
 }
 
 static widget_info *
+#ifdef PROTOTYPES
+get_widget_info (LWLIB_ID id, Boolean remove_p)
+#else
 get_widget_info (id, remove_p)
      LWLIB_ID id;
      Boolean remove_p;
+#endif
 {
   widget_info* info;
   widget_info* prev;
@@ -409,9 +407,13 @@ lw_get_widget_info (id)
 }
 
 static widget_instance *
+#ifdef PROTOTYPES
+get_widget_instance (Widget widget, Boolean remove_p)
+#else
 get_widget_instance (widget, remove_p)
      Widget widget;
      Boolean remove_p;
+#endif
 {
   widget_info* info;
   widget_instance* instance;
@@ -445,10 +447,14 @@ lw_get_widget_instance (widget)
 }
 
 static widget_instance*
+#ifdef PROTOTYPES
+find_instance (LWLIB_ID id, Widget parent, Boolean pop_up_p)
+#else
 find_instance (id, parent, pop_up_p)
      LWLIB_ID id;
      Widget parent;
      Boolean pop_up_p;
+#endif
 {
   widget_info* info = get_widget_info (id, False);
   widget_instance* instance;
@@ -519,7 +525,7 @@ merge_widget_value (val1, val2, level, change_p)
       free_widget_value_tree (val1);
       return NULL;
     }
-  
+
   change = NO_CHANGE;
 
   if (safe_strcmp (val1->name, val2->name))
@@ -546,13 +552,12 @@ merge_widget_value (val1, val2, level, change_p)
       safe_free_str (val1->key);
       val1->key = safe_strdup (val2->key);
     }
-  if (safe_strcmp (val1->help, val2->help))
+  if (! EQ (val1->help, val2->help))
     {
       EXPLAIN (val1->name, change, VISIBLE_CHANGE, "help change",
 	       val1->help, val2->help);
       change = max (change, VISIBLE_CHANGE);
-      safe_free_str (val1->help);
-      val1->help = safe_strdup (val2->help);
+      val1->help = val2->help;
     }
   if (val1->enabled != val2->enabled)
     {
@@ -588,7 +593,7 @@ merge_widget_value (val1, val2, level, change_p)
       merged_contents =
 	merge_widget_value (val1->contents, val2->contents, level - 1,
 			    change_p);
-      
+
       if (val1->contents && !merged_contents)
 	{
 	  /* This used to say INVISIBLE_CHANGE,
@@ -611,7 +616,7 @@ merge_widget_value (val1, val2, level, change_p)
 #endif
 #endif
 	}
-      
+
       val1->contents = merged_contents;
     }
 
@@ -637,7 +642,7 @@ merge_widget_value (val1, val2, level, change_p)
 
   val1->this_one_change = this_one_change;
   val1->change = change;
-  
+
   if (change > NO_CHANGE && val1->toolkit_data)
     {
       *change_p = 1;
@@ -669,7 +674,7 @@ name_to_widget (instance, name)
       char* real_name = (char *) xmalloc (length);
       real_name [0] = '*';
       strcpy (real_name + 1, name);
-      
+
       widget = XtNameToWidget (instance->widget, real_name);
 
       free (real_name);
@@ -678,13 +683,17 @@ name_to_widget (instance, name)
 }
 
 static void
+#ifdef PROTOTYPES
+set_one_value (widget_instance* instance, widget_value* val, Boolean deep_p)
+#else
 set_one_value (instance, val, deep_p)
      widget_instance* instance;
      widget_value* val;
      Boolean deep_p;
+#endif
 {
   Widget widget = name_to_widget (instance, val->name);
-  
+
   if (widget)
     {
 #if defined (USE_LUCID)
@@ -695,10 +704,6 @@ set_one_value (instance, val, deep_p)
       if (lw_motif_widget_p (instance->widget))
 	xm_update_one_widget (instance, widget, val, deep_p);
 #endif
-#if defined (USE_OLIT)
-      if (lw_olit_widget_p (instance->widget))
-	xol_update_one_widget (instance, widget, val, deep_p);
-#endif
 #if defined (USE_XAW)
       if (lw_xaw_widget_p (instance->widget))
 	xaw_update_one_widget (instance, widget, val, deep_p);
@@ -707,9 +712,13 @@ set_one_value (instance, val, deep_p)
 }
 
 static void
+#ifdef PROTOTYPES
+update_one_widget_instance (widget_instance* instance, Boolean deep_p)
+#else
 update_one_widget_instance (instance, deep_p)
      widget_instance* instance;
      Boolean deep_p;
+#endif
 {
   widget_value *val;
 
@@ -723,9 +732,13 @@ update_one_widget_instance (instance, deep_p)
 }
 
 static void
+#ifdef PROTOTYPES
+update_all_widget_values (widget_info* info, Boolean deep_p)
+#else
 update_all_widget_values (info, deep_p)
      widget_info* info;
      Boolean deep_p;
+#endif
 {
   widget_instance* instance;
   widget_value* val;
@@ -738,10 +751,14 @@ update_all_widget_values (info, deep_p)
 }
 
 int
+#ifdef PROTOTYPES
+lw_modify_all_widgets (LWLIB_ID id, widget_value* val, Boolean deep_p)
+#else
 lw_modify_all_widgets (id, val, deep_p)
      LWLIB_ID id;
      widget_value* val;
      Boolean deep_p;
+#endif
 {
   widget_info* info = get_widget_info (id, False);
   widget_value* new_val;
@@ -827,11 +844,11 @@ static Boolean
 dialog_spec_p (name)
      char* name;
 {
-  /* return True if name matches [EILPQeilpq][1-9][Bb] or 
+  /* return True if name matches [EILPQeilpq][1-9][Bb] or
      [EILPQeilpq][1-9][Bb][Rr][1-9] */
   if (!name)
     return False;
-  
+
   switch (name [0])
     {
     case 'E': case 'I': case 'L': case 'P': case 'Q':
@@ -851,7 +868,7 @@ dialog_spec_p (name)
 	}
       else
 	return False;
-    
+
     default:
       return False;
     }
@@ -870,10 +887,6 @@ instantiate_widget_instance (instance)
 #if defined(USE_MOTIF)
   if (!function)
     function = find_in_table (instance->info->type, xm_creation_table);
-#endif
-#if defined (USE_OLIT)
-  if (!function)
-    function = find_in_table (instance->info->type, xol_creation_table);
 #endif
 #if defined (USE_XAW)
   if (!function)
@@ -895,12 +908,9 @@ instantiate_widget_instance (instance)
 	  if (!function)
 	    function = xaw_create_dialog;
 #endif
-#if defined (USE_OLIT)
-	  /* not yet */
-#endif
 	}
     }
-  
+
   if (!function)
     {
       printf ("No creation function for widget type %s\n",
@@ -916,7 +926,7 @@ instantiate_widget_instance (instance)
   /*   XtRealizeWidget (instance->widget);*/
 }
 
-void 
+void
 lw_register_widget (type, name, id, val, pre_activate_cb,
 		    selection_cb, post_activate_cb, highlight_cb)
      char* type;
@@ -934,26 +944,34 @@ lw_register_widget (type, name, id, val, pre_activate_cb,
 }
 
 Widget
+#ifdef PROTOTYPES
+lw_get_widget (LWLIB_ID id, Widget parent, Boolean pop_up_p)
+#else
 lw_get_widget (id, parent, pop_up_p)
      LWLIB_ID id;
      Widget parent;
      Boolean pop_up_p;
+#endif
 {
   widget_instance* instance;
-  
+
   instance = find_instance (id, parent, pop_up_p);
   return instance ? instance->widget : NULL;
 }
 
 Widget
+#ifdef PROTOTYPES
+lw_make_widget (LWLIB_ID id, Widget parent, Boolean pop_up_p)
+#else
 lw_make_widget (id, parent, pop_up_p)
      LWLIB_ID id;
      Widget parent;
      Boolean pop_up_p;
+#endif
 {
   widget_instance* instance;
   widget_info* info;
-  
+
   instance = find_instance (id, parent, pop_up_p);
   if (!instance)
     {
@@ -969,6 +987,12 @@ lw_make_widget (id, parent, pop_up_p)
 }
 
 Widget
+#ifdef PROTOTYPES
+lw_create_widget (char* type, char* name, LWLIB_ID id, widget_value* val,
+		  Widget parent, Boolean pop_up_p,
+		  lw_callback pre_activate_cb, lw_callback selection_cb,
+		  lw_callback post_activate_cb, lw_callback highlight_cb)
+#else
 lw_create_widget (type, name, id, val, parent, pop_up_p, pre_activate_cb,
 		  selection_cb, post_activate_cb, highlight_cb)
      char* type;
@@ -981,12 +1005,13 @@ lw_create_widget (type, name, id, val, parent, pop_up_p, pre_activate_cb,
      lw_callback selection_cb;
      lw_callback post_activate_cb;
      lw_callback highlight_cb;
+#endif
 {
   lw_register_widget (type, name, id, val, pre_activate_cb, selection_cb,
 		      post_activate_cb, highlight_cb);
   return lw_make_widget (id, parent, pop_up_p);
 }
-		  
+
 
 /* destroying the widgets */
 static void
@@ -1020,15 +1045,10 @@ destroy_one_instance (instance)
 	xm_destroy_instance (instance);
       else
 #endif
-#if defined (USE_OLIT)
-      if (lw_olit_widget_p (instance->widget))
-	xol_destroy_instance (instance);
-      else
-#endif
 #if defined (USE_XAW)
       if (lw_xaw_widget_p (instance->widget))
 	xaw_destroy_instance (instance);
-      else 
+      else
 #endif
 	/* do not remove the empty statement */
 	;
@@ -1042,7 +1062,7 @@ lw_destroy_widget (w)
      Widget w;
 {
   widget_instance* instance = get_widget_instance (w, True);
-  
+
   if (instance)
     {
       widget_info *info = instance->info;
@@ -1135,9 +1155,13 @@ lw_raise_all_pop_up_widgets ()
 }
 
 static void
+#ifdef PROTOTYPES
+lw_pop_all_widgets (LWLIB_ID id, Boolean up)
+#else
 lw_pop_all_widgets (id, up)
      LWLIB_ID id;
      Boolean up;
+#endif
 {
   widget_info* info = get_widget_info (id, False);
   widget_instance* instance;
@@ -1158,13 +1182,6 @@ lw_pop_all_widgets (id, up)
 	    {
 	      XtRealizeWidget (instance->widget);
 	      xm_pop_instance (instance, up);
-	    }
-#endif
-#if defined (USE_OLIT)
-	  if (lw_olit_widget_p (instance->widget))
-	    {
-	      XtRealizeWidget (instance->widget);
-	      xol_pop_instance (instance, up);
 	    }
 #endif
 #if defined (USE_XAW)
@@ -1205,10 +1222,6 @@ lw_popup_menu (widget, event)
   if (lw_motif_widget_p (widget))
     xm_popup_menu (widget, event);
 #endif
-#if defined (USE_OLIT)
-  if (lw_olit_widget_p (widget))
-    xol_popup_menu (widget, event);
-#endif
 #if defined (USE_XAW)
   if (lw_xaw_widget_p (widget))
     xaw_popup_menu (widget, event);
@@ -1222,7 +1235,7 @@ get_one_value (instance, val)
      widget_value* val;
 {
   Widget widget = name_to_widget (instance, val->name);
-      
+
   if (widget)
     {
 #if defined (USE_LUCID)
@@ -1232,10 +1245,6 @@ get_one_value (instance, val)
 #if defined (USE_MOTIF)
       if (lw_motif_widget_p (instance->widget))
 	xm_update_one_value (instance, widget, val);
-#endif
-#if defined (USE_OLIT)
-      if (lw_olit_widget_p (instance->widget))
-	xol_update_one_value (instance, widget, val);
 #endif
 #if defined (USE_XAW)
       if (lw_xaw_widget_p (instance->widget))
@@ -1303,7 +1312,7 @@ lw_get_widget_value_for_widget (instance, w)
 /* To forbid recursive calls */
 static Boolean lwlib_updating;
 
-/* This function can be used as a an XtCallback for the widgets that get 
+/* This function can be used as a an XtCallback for the widgets that get
   modified to update other instances of the widgets.  Closure should be the
   widget_instance. */
 void
@@ -1370,16 +1379,20 @@ lw_set_keyboard_focus (parent, w)
 
 /* Show busy */
 static void
+#ifdef PROTOTYPES
+show_one_widget_busy (Widget w, Boolean flag)
+#else
 show_one_widget_busy (w, flag)
      Widget w;
      Boolean flag;
+#endif
 {
   Pixel foreground = 0;
   Pixel background = 1;
   Widget widget_to_invert = XtNameToWidget (w, "*sheet");
   if (!widget_to_invert)
     widget_to_invert = w;
-  
+
   XtVaGetValues (widget_to_invert,
 		 XtNforeground, &foreground,
 		 XtNbackground, &background,
@@ -1391,9 +1404,13 @@ show_one_widget_busy (w, flag)
 }
 
 void
+#ifdef PROTOTYPES
+lw_show_busy (Widget w, Boolean busy)
+#else
 lw_show_busy (w, busy)
      Widget w;
      Boolean busy;
+#endif
 {
   widget_instance* instance = get_widget_instance (w, False);
   widget_info* info;
@@ -1415,11 +1432,15 @@ lw_show_busy (w, busy)
 /* This hack exists because Lucid/Athena need to execute the strange
    function below to support geometry management. */
 void
+#ifdef PROTOTYPES
+lw_refigure_widget (Widget w, Boolean doit)
+#else
 lw_refigure_widget (w, doit)
      Widget w;
      Boolean doit;
+#endif
 {
-#if defined (USE_XAW)  
+#if defined (USE_XAW)
   XawPanedSetRefigureMode (w, doit);
 #endif
 #if defined (USE_MOTIF)
@@ -1464,9 +1485,13 @@ lw_set_main_areas (parent, menubar, work_area)
 /* Manage resizing for Motif.  This disables resizing when the menubar
    is about to be modified. */
 void
+#ifdef PROTOTYPES
+lw_allow_resizing (Widget w, Boolean flag)
+#else
 lw_allow_resizing (w, flag)
      Widget w;
      Boolean flag;
+#endif
 {
 #if defined (USE_MOTIF)
   xm_manage_resizing (w, flag);
@@ -1497,21 +1522,21 @@ lw_separator_p (label, type, motif_p)
       }
       separator_names[] =
       {
-	"space",		     SEPARATOR_NO_LINE,
-	"noLine",		     SEPARATOR_NO_LINE,
-	"singleLine",		     SEPARATOR_SINGLE_LINE,
-	"doubleLine",		     SEPARATOR_DOUBLE_LINE,
-	"singleDashedLine",	     SEPARATOR_SINGLE_DASHED_LINE,
-	"doubleDashedLine",	     SEPARATOR_DOUBLE_DASHED_LINE,
-	"shadowEtchedIn",	     SEPARATOR_SHADOW_ETCHED_IN,
-	"shadowEtchedOut",	     SEPARATOR_SHADOW_ETCHED_OUT,
-	"shadowEtchedInDash",	     SEPARATOR_SHADOW_ETCHED_IN_DASH,
-	"shadowEtchedOutDash",	     SEPARATOR_SHADOW_ETCHED_OUT_DASH,
-	"shadowDoubleEtchedIn",	     SEPARATOR_SHADOW_DOUBLE_ETCHED_IN,
-	"shadowDoubleEtchedOut",     SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT,
-	"shadowDoubleEtchedInDash",  SEPARATOR_SHADOW_DOUBLE_ETCHED_IN_DASH,
-	"shadowDoubleEtchedOutDash", SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT_DASH,
-	0
+	{"space",		      SEPARATOR_NO_LINE},
+	{"noLine",		      SEPARATOR_NO_LINE},
+	{"singleLine",		      SEPARATOR_SINGLE_LINE},
+	{"doubleLine",		      SEPARATOR_DOUBLE_LINE},
+	{"singleDashedLine",	      SEPARATOR_SINGLE_DASHED_LINE},
+	{"doubleDashedLine",	      SEPARATOR_DOUBLE_DASHED_LINE},
+	{"shadowEtchedIn",	      SEPARATOR_SHADOW_ETCHED_IN},
+	{"shadowEtchedOut",	      SEPARATOR_SHADOW_ETCHED_OUT},
+	{"shadowEtchedInDash",	      SEPARATOR_SHADOW_ETCHED_IN_DASH},
+	{"shadowEtchedOutDash",	      SEPARATOR_SHADOW_ETCHED_OUT_DASH},
+	{"shadowDoubleEtchedIn",      SEPARATOR_SHADOW_DOUBLE_ETCHED_IN},
+	{"shadowDoubleEtchedOut",     SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT},
+	{"shadowDoubleEtchedInDash",  SEPARATOR_SHADOW_DOUBLE_ETCHED_IN_DASH},
+	{"shadowDoubleEtchedOutDash", SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT_DASH},
+	{0,0}
       };
 
       int i;
@@ -1542,21 +1567,21 @@ lw_separator_p (label, type, motif_p)
       }
       separator_names[] =
       {
-	"space",			SEPARATOR_NO_LINE,
-	"no-line",			SEPARATOR_NO_LINE,
-	"single-line",			SEPARATOR_SINGLE_LINE,
-	"double-line",			SEPARATOR_DOUBLE_LINE,
-	"single-dashed-line",		SEPARATOR_SINGLE_DASHED_LINE,
-	"double-dashed-line",		SEPARATOR_DOUBLE_DASHED_LINE,
-	"shadow-etched-in",		SEPARATOR_SHADOW_ETCHED_IN,
-	"shadow-etched-out",		SEPARATOR_SHADOW_ETCHED_OUT,
-	"shadow-etched-in-dash",	SEPARATOR_SHADOW_ETCHED_IN_DASH,
-	"shadow-etched-out-dash",	SEPARATOR_SHADOW_ETCHED_OUT_DASH,
-	"shadow-double-etched-in",	SEPARATOR_SHADOW_DOUBLE_ETCHED_IN,
-	"shadow-double-etched-out",     SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT,
-	"shadow-double-etched-in-dash", SEPARATOR_SHADOW_DOUBLE_ETCHED_IN_DASH,
-	"shadow-double-etched-out-dash",SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT_DASH,
-	0
+	{"space",			 SEPARATOR_NO_LINE},
+	{"no-line",			 SEPARATOR_NO_LINE},
+	{"single-line",			 SEPARATOR_SINGLE_LINE},
+	{"double-line",			 SEPARATOR_DOUBLE_LINE},
+	{"single-dashed-line",		 SEPARATOR_SINGLE_DASHED_LINE},
+	{"double-dashed-line",		 SEPARATOR_DOUBLE_DASHED_LINE},
+	{"shadow-etched-in",		 SEPARATOR_SHADOW_ETCHED_IN},
+	{"shadow-etched-out",		 SEPARATOR_SHADOW_ETCHED_OUT},
+	{"shadow-etched-in-dash",	 SEPARATOR_SHADOW_ETCHED_IN_DASH},
+	{"shadow-etched-out-dash",	 SEPARATOR_SHADOW_ETCHED_OUT_DASH},
+	{"shadow-double-etched-in",	 SEPARATOR_SHADOW_DOUBLE_ETCHED_IN},
+	{"shadow-double-etched-out",     SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT},
+	{"shadow-double-etched-in-dash", SEPARATOR_SHADOW_DOUBLE_ETCHED_IN_DASH},
+	{"shadow-double-etched-out-dash",SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT_DASH},
+	{0,0}
       };
 
       int i;
@@ -1588,3 +1613,5 @@ lw_separator_p (label, type, motif_p)
   return separator_p;
 }
 
+/* arch-tag: 3d730f36-a441-4a71-9971-48ef3b5a4d9f
+   (do not change this comment) */

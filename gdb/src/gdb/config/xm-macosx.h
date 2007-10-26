@@ -23,6 +23,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include <mach/mach.h>
 
+/* Need this for NSIG */
+#include <signal.h>
+
 #if (!defined (_NSIG) && defined (NSIG))
 #define _NSIG NSIG
 #endif

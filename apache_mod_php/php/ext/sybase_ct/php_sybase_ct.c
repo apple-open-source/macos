@@ -1,13 +1,13 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | http://www.php.net/license/3_0.txt.                                  |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sybase_ct.c,v 1.73.2.18.2.3 2007/01/01 09:46:49 sebastian Exp $ */
+/* $Id: php_sybase_ct.c,v 1.103.2.5.2.13 2007/04/10 15:56:31 helly Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -37,7 +37,11 @@ static int le_link, le_plink, le_result;
 
 #if HAVE_SYBASE_CT
 
-function_entry sybase_functions[] = {
+ZEND_DECLARE_MODULE_GLOBALS(sybase)
+static PHP_GINIT_FUNCTION(sybase);
+static PHP_GSHUTDOWN_FUNCTION(sybase);
+
+zend_function_entry sybase_functions[] = {
 	PHP_FE(sybase_connect, NULL)
 	PHP_FE(sybase_pconnect, NULL)
 	PHP_FE(sybase_close, NULL)
@@ -62,6 +66,7 @@ function_entry sybase_functions[] = {
 	PHP_FE(sybase_set_message_handler, NULL)
 	PHP_FE(sybase_deadlock_retry_count, NULL)
 
+#if !defined(PHP_WIN32) && !defined(HAVE_MSSQL)
 	PHP_FALIAS(mssql_connect, sybase_connect, NULL)
 	PHP_FALIAS(mssql_pconnect, sybase_pconnect, NULL)
 	PHP_FALIAS(mssql_close, sybase_close, NULL)
@@ -85,16 +90,28 @@ function_entry sybase_functions[] = {
 	PHP_FALIAS(mssql_min_server_severity, sybase_min_server_severity, NULL)
 	PHP_FALIAS(mssql_set_message_handler, sybase_set_message_handler, NULL)
 	PHP_FALIAS(mssql_deadlock_retry_count, sybase_deadlock_retry_count, NULL)
+#endif
 
 	{NULL, NULL, NULL}
 };
 
 zend_module_entry sybase_module_entry = {
 	STANDARD_MODULE_HEADER,
-	"sybase_ct", sybase_functions, PHP_MINIT(sybase), PHP_MSHUTDOWN(sybase), PHP_RINIT(sybase), PHP_RSHUTDOWN(sybase), PHP_MINFO(sybase), NO_VERSION_YET, STANDARD_MODULE_PROPERTIES
+	"sybase_ct",
+	sybase_functions,
+	PHP_MINIT(sybase),
+	PHP_MSHUTDOWN(sybase),
+	PHP_RINIT(sybase),
+	PHP_RSHUTDOWN(sybase),
+	PHP_MINFO(sybase),
+	NO_VERSION_YET,
+	PHP_MODULE_GLOBALS(sybase),
+	PHP_GINIT(sybase),
+	PHP_GSHUTDOWN(sybase),
+	NULL,
+	STANDARD_MODULE_PROPERTIES_EX
 };
 
-ZEND_DECLARE_MODULE_GLOBALS(sybase)
 /* static CS_CONTEXT *context; */
 
 #ifdef COMPILE_DL_SYBASE_CT
@@ -106,7 +123,7 @@ ZEND_DECLARE_MODULE_GLOBALS(sybase)
 #define CHECK_LINK(link) { if (link==-1) { php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  A link to the server could not be established"); RETURN_FALSE; } }
 
 
-static int _clean_invalid_results(list_entry *le TSRMLS_DC)
+static int _clean_invalid_results(zend_rsrc_list_entry *le TSRMLS_DC)
 {
 	if (Z_TYPE_P(le) == le_result) {
 		sybase_link *sybase_ptr = ((sybase_result *) le->ptr)->sybase_ptr;
@@ -117,6 +134,9 @@ static int _clean_invalid_results(list_entry *le TSRMLS_DC)
 	}
 	return 0;
 }
+
+#define efree_n(x)  { efree(x); x = NULL; }
+#define efree_if(x) if (x) efree_n(x)
 
 static void _free_sybase_result(sybase_result *result)
 {
@@ -140,11 +160,24 @@ static void _free_sybase_result(sybase_result *result)
 		efree(result->fields);
 	}
 
+	if (result->tmp_buffer) {
+		for (i=0; i<result->num_fields; i++) {
+			efree(result->tmp_buffer[i]);
+		}
+		efree(result->tmp_buffer);
+	}
+
+	efree_if(result->lengths);
+	efree_if(result->indicators);
+	efree_if(result->datafmt);
+	efree_if(result->numerics);
+	efree_if(result->types);
+
 	efree(result);
 }
 
 /* Forward declaration */
-static int php_sybase_finish_results (sybase_result *result);
+static int php_sybase_finish_results (sybase_result *result TSRMLS_DC);
 
 static void php_free_sybase_result(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
@@ -155,7 +188,7 @@ static void php_free_sybase_result(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 		if (result->sybase_ptr->cmd) {
 			ct_cancel(NULL, result->sybase_ptr->cmd, CS_CANCEL_ALL);
 		}
-		php_sybase_finish_results(result);
+		php_sybase_finish_results(result TSRMLS_CC);
 	}
 
 	_free_sybase_result(result);
@@ -190,6 +223,7 @@ static void _close_sybase_link(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 		}
 	}
 
+	ct_cmd_drop(sybase_ptr->cmd);
 	ct_con_drop(sybase_ptr->connection);
 	efree(sybase_ptr);
 	SybCtG(num_links)--;
@@ -228,7 +262,7 @@ static CS_RETCODE CS_PUBLIC _client_message_handler(CS_CONTEXT *context, CS_CONN
 	TSRMLS_FETCH();
 
 	if (CS_SEVERITY(errmsg->msgnumber) >= SybCtG(min_client_severity)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Client message:  %s (severity %d)", errmsg->msgstring, CS_SEVERITY(errmsg->msgnumber));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Client message:  %s (severity %ld)", errmsg->msgstring, CS_SEVERITY(errmsg->msgnumber));
 	}
 	STR_FREE(SybCtG(server_message));
 	SybCtG(server_message) = estrdup(errmsg->msgstring);
@@ -333,8 +367,8 @@ static CS_RETCODE CS_PUBLIC _server_message_handler(CS_CONTEXT *context, CS_CONN
 
 	/* Spit out a warning if neither of them has handled this message */
 	if (!handled) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Server message:  %s (severity %d, procedure %s)",
-				srvmsg->text, srvmsg->severity, ((srvmsg->proclen>0) ? srvmsg->proc : "N/A"));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Server message:  %s (severity %ld, procedure %s)",
+				srvmsg->text, (long)srvmsg->severity, ((srvmsg->proclen>0) ? srvmsg->proc : "N/A"));
 	}
 
 	return CS_SUCCEED;
@@ -342,21 +376,20 @@ static CS_RETCODE CS_PUBLIC _server_message_handler(CS_CONTEXT *context, CS_CONN
 
 
 PHP_INI_BEGIN()
-	STD_PHP_INI_BOOLEAN("sybct.allow_persistent", "1", PHP_INI_SYSTEM, OnUpdateInt, allow_persistent, zend_sybase_globals, sybase_globals)
-	STD_PHP_INI_ENTRY_EX("sybct.max_persistent", "-1", PHP_INI_SYSTEM, OnUpdateInt, max_persistent, zend_sybase_globals, sybase_globals, display_link_numbers)
-	STD_PHP_INI_ENTRY_EX("sybct.max_links", "-1", PHP_INI_SYSTEM, OnUpdateInt, max_links, zend_sybase_globals, sybase_globals, display_link_numbers)
-	STD_PHP_INI_ENTRY("sybct.min_server_severity", "10", PHP_INI_ALL, OnUpdateInt, min_server_severity, zend_sybase_globals, sybase_globals)
-	STD_PHP_INI_ENTRY("sybct.min_client_severity", "10", PHP_INI_ALL, OnUpdateInt, min_client_severity, zend_sybase_globals, sybase_globals)
-	STD_PHP_INI_ENTRY("sybct.login_timeout", "-1", PHP_INI_ALL, OnUpdateInt, login_timeout, zend_sybase_globals, sybase_globals)
+	STD_PHP_INI_BOOLEAN("sybct.allow_persistent", "1", PHP_INI_SYSTEM, OnUpdateLong, allow_persistent, zend_sybase_globals, sybase_globals)
+	STD_PHP_INI_ENTRY_EX("sybct.max_persistent", "-1", PHP_INI_SYSTEM, OnUpdateLong, max_persistent, zend_sybase_globals, sybase_globals, display_link_numbers)
+	STD_PHP_INI_ENTRY_EX("sybct.max_links", "-1", PHP_INI_SYSTEM, OnUpdateLong, max_links, zend_sybase_globals, sybase_globals, display_link_numbers)
+	STD_PHP_INI_ENTRY("sybct.min_server_severity", "10", PHP_INI_ALL, OnUpdateLong, min_server_severity, zend_sybase_globals, sybase_globals)
+	STD_PHP_INI_ENTRY("sybct.min_client_severity", "10", PHP_INI_ALL, OnUpdateLong, min_client_severity, zend_sybase_globals, sybase_globals)
+	STD_PHP_INI_ENTRY("sybct.login_timeout", "-1", PHP_INI_ALL, OnUpdateLong, login_timeout, zend_sybase_globals, sybase_globals)
 	STD_PHP_INI_ENTRY("sybct.hostname", NULL, PHP_INI_ALL, OnUpdateString, hostname, zend_sybase_globals, sybase_globals)
-	STD_PHP_INI_ENTRY_EX("sybct.deadlock_retry_count", "-1", PHP_INI_ALL, OnUpdateInt, deadlock_retry_count, zend_sybase_globals, sybase_globals, display_link_numbers)
+	STD_PHP_INI_ENTRY_EX("sybct.deadlock_retry_count", "0", PHP_INI_ALL, OnUpdateLong, deadlock_retry_count, zend_sybase_globals, sybase_globals, display_link_numbers)
 PHP_INI_END()
 
 
-static void php_sybase_init_globals(zend_sybase_globals *sybase_globals)
+static PHP_GINIT_FUNCTION(sybase)
 {
 	long opt;
-	TSRMLS_FETCH();
 
 	if (cs_ctx_alloc(CTLIB_VERSION, &sybase_globals->context)!=CS_SUCCEED || ct_init(sybase_globals->context, CTLIB_VERSION)!=CS_SUCCEED) {
 		return;
@@ -399,20 +432,12 @@ static void php_sybase_init_globals(zend_sybase_globals *sybase_globals)
 		}
 	}
 
-	/* Set the packet size, which is also per context */
-	if (cfg_get_long("sybct.packet_size", &opt)==SUCCESS) {
-		CS_INT cs_packet_size = opt;
-		if (ct_config(sybase_globals->context, CS_SET, CS_PACKETSIZE, &cs_packet_size, CS_UNUSED, NULL)!=CS_SUCCEED) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Unable to update the packet size");
-		}
-	}
-
 	sybase_globals->num_persistent=0;
 	sybase_globals->callback_name = NULL;
 }
 
 
-static void php_sybase_destroy_globals(zend_sybase_globals *sybase_globals)
+static PHP_GSHUTDOWN_FUNCTION(sybase)
 {
 	ct_exit(sybase_globals->context, CS_UNUSED);
 	cs_ctx_drop(sybase_globals->context);
@@ -420,8 +445,6 @@ static void php_sybase_destroy_globals(zend_sybase_globals *sybase_globals)
 
 PHP_MINIT_FUNCTION(sybase)
 {
-	ZEND_INIT_MODULE_GLOBALS(sybase, php_sybase_init_globals, php_sybase_destroy_globals);
-
 	REGISTER_INI_ENTRIES();
 
 	le_link = zend_register_list_destructors_ex(_close_sybase_link, NULL, "sybase-ct link", module_number);
@@ -438,7 +461,7 @@ PHP_RINIT_FUNCTION(sybase)
 	SybCtG(default_link)=-1;
 	SybCtG(num_links) = SybCtG(num_persistent);
 	SybCtG(appname) = estrndup("PHP " PHP_VERSION, sizeof("PHP " PHP_VERSION));
-	SybCtG(server_message) = empty_string;
+	SybCtG(server_message) = STR_EMPTY_ALLOC();
 	return SUCCESS;
 }
 
@@ -469,10 +492,10 @@ PHP_RSHUTDOWN_FUNCTION(sybase)
 }
 
 
-static int php_sybase_do_connect_internal(sybase_link *sybase, char *host, char *user, char *passwd, char *charset, char *appname)
+static int php_sybase_do_connect_internal(sybase_link *sybase, char *host, char *user, char *passwd, char *charset, char *appname TSRMLS_DC)
 {
 	CS_LOCALE *tmp_locale;
-	TSRMLS_FETCH();
+	long packetsize;
 
 	/* set a CS_CONNECTION record */
 	if (ct_con_alloc(SybCtG(context), &sybase->connection)!=CS_SUCCEED) {
@@ -505,19 +528,25 @@ static int php_sybase_do_connect_internal(sybase_link *sybase, char *host, char 
 
 	if (charset) {
 		if (cs_loc_alloc(SybCtG(context), &tmp_locale)!=CS_SUCCEED) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase: Unable to allocate locale information.");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase: Unable to allocate locale information");
 		} else {
 			if (cs_locale(SybCtG(context), CS_SET, tmp_locale, CS_LC_ALL, NULL, CS_NULLTERM, NULL)!=CS_SUCCEED) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase: Unable to load default locale data.");
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase: Unable to load default locale data");
 			} else {
 				if (cs_locale(SybCtG(context), CS_SET, tmp_locale, CS_SYB_CHARSET, charset, CS_NULLTERM, NULL)!=CS_SUCCEED) {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase: Unable to update character set.");
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase: Unable to update character set");
 				} else {
 					if (ct_con_props(sybase->connection, CS_SET, CS_LOC_PROP, tmp_locale, CS_UNUSED, NULL)!=CS_SUCCEED) {
-						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase: Unable to update connection properties.");
+						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase: Unable to update connection properties");
 					}
 				}
 			}
+		}
+	}
+	
+	if (cfg_get_long("sybct.packet_size", &packetsize) == SUCCESS) {
+		if (ct_con_props(sybase->connection, CS_SET, CS_PACKETSIZE, (CS_VOID *)&packetsize, CS_UNUSED, NULL) != CS_SUCCEED) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase: Unable to update connection packetsize");
 		}
 	}
 
@@ -586,9 +615,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				convert_to_string_ex(yyhost);
 				host = Z_STRVAL_PP(yyhost);
 				user=passwd=charset=appname=NULL;
-				hashed_details_length = Z_STRLEN_PP(yyhost)+6+5;
-				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details, "sybase_%s____", Z_STRVAL_PP(yyhost));
+				hashed_details_length = spprintf(&hashed_details, 0, "sybase_%s____", Z_STRVAL_PP(yyhost));
 			}
 			break;
 		case 2: {
@@ -602,9 +629,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				host = Z_STRVAL_PP(yyhost);
 				user = Z_STRVAL_PP(yyuser);
 				passwd=charset=appname=NULL;
-				hashed_details_length = Z_STRLEN_PP(yyhost)+Z_STRLEN_PP(yyuser)+6+5;
-				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details, "sybase_%s_%s___", Z_STRVAL_PP(yyhost), Z_STRVAL_PP(yyuser));
+				hashed_details_length = spprintf(&hashed_details, 0, "sybase_%s_%s___", Z_STRVAL_PP(yyhost), Z_STRVAL_PP(yyuser));
 			}
 			break;
 		case 3: {
@@ -620,9 +645,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				user = Z_STRVAL_PP(yyuser);
 				passwd = Z_STRVAL_PP(yypasswd);
 				charset=appname=NULL;
-				hashed_details_length = Z_STRLEN_PP(yyhost)+Z_STRLEN_PP(yyuser)+Z_STRLEN_PP(yypasswd)+6+5;
-				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details, "sybase_%s_%s_%s__", Z_STRVAL_PP(yyhost), Z_STRVAL_PP(yyuser), Z_STRVAL_PP(yypasswd));
+				hashed_details_length = spprintf(&hashed_details, 0, "sybase_%s_%s_%s__", Z_STRVAL_PP(yyhost), Z_STRVAL_PP(yyuser), Z_STRVAL_PP(yypasswd));
 			}
 			break;
 		case 4: {
@@ -640,9 +663,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				passwd = Z_STRVAL_PP(yypasswd);
 				charset = Z_STRVAL_PP(yycharset);
 				appname=NULL;
-				hashed_details_length = Z_STRLEN_PP(yyhost)+Z_STRLEN_PP(yyuser)+Z_STRLEN_PP(yypasswd)+Z_STRLEN_PP(yycharset)+6+5;
-				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details, "sybase_%s_%s_%s_%s_", Z_STRVAL_PP(yyhost), Z_STRVAL_PP(yyuser), Z_STRVAL_PP(yypasswd), Z_STRVAL_PP(yycharset));
+				hashed_details_length = spprintf(&hashed_details, 0, "sybase_%s_%s_%s_%s_", Z_STRVAL_PP(yyhost), Z_STRVAL_PP(yyuser), Z_STRVAL_PP(yypasswd), Z_STRVAL_PP(yycharset));
 			}
 			break;
 		case 5: {
@@ -661,9 +682,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				passwd = Z_STRVAL_PP(yypasswd);
 				charset = Z_STRVAL_PP(yycharset);
 				appname = Z_STRVAL_PP(yyappname);
-				hashed_details_length = Z_STRLEN_PP(yyhost)+Z_STRLEN_PP(yyuser)+Z_STRLEN_PP(yypasswd)+Z_STRLEN_PP(yycharset)+Z_STRLEN_PP(yyappname)+6+5;
-				hashed_details = (char *) emalloc(hashed_details_length+1);
-				sprintf(hashed_details, "sybase_%s_%s_%s_%s_%s", Z_STRVAL_PP(yyhost), Z_STRVAL_PP(yyuser), Z_STRVAL_PP(yypasswd), Z_STRVAL_PP(yycharset), Z_STRVAL_PP(yyappname));
+				hashed_details_length = spprintf(&hashed_details, 0, "sybase_%s_%s_%s_%s_%s", Z_STRVAL_PP(yyhost), Z_STRVAL_PP(yyuser), Z_STRVAL_PP(yypasswd), Z_STRVAL_PP(yycharset), Z_STRVAL_PP(yyappname));
 			}
 			break;
 		default:
@@ -675,11 +694,11 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		persistent=0;
 	}
 	if (persistent) {
-		list_entry *le;
+		zend_rsrc_list_entry *le;
 
 		/* try to find if we already have this link in our persistent list */
 		if (zend_hash_find(&EG(persistent_list), hashed_details, hashed_details_length+1, (void **) &le)==FAILURE) {  /* we don't */
-			list_entry new_le;
+			zend_rsrc_list_entry new_le;
 
 			if (SybCtG(max_links)!=-1 && SybCtG(num_links)>=SybCtG(max_links)) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Too many open links (%ld)", SybCtG(num_links));
@@ -693,7 +712,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			}
 
 			sybase_ptr = (sybase_link *) malloc(sizeof(sybase_link));
-			if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset, appname)) {
+			if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset, appname TSRMLS_CC)) {
 				free(sybase_ptr);
 				efree(hashed_details);
 				RETURN_FALSE;
@@ -702,7 +721,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			/* hash it up */
 			Z_TYPE(new_le) = le_plink;
 			new_le.ptr = sybase_ptr;
-			if (zend_hash_update(&EG(persistent_list), hashed_details, hashed_details_length+1, (void *) &new_le, sizeof(list_entry), NULL)==FAILURE) {
+			if (zend_hash_update(&EG(persistent_list), hashed_details, hashed_details_length+1, (void *) &new_le, sizeof(zend_rsrc_list_entry), NULL)==FAILURE) {
 				ct_close(sybase_ptr->connection, CS_UNUSED);
 				ct_con_drop(sybase_ptr->connection);
 				free(sybase_ptr);
@@ -747,7 +766,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				 * NULL before trying to use it elsewhere . . .)
 				 */
 				memcpy(&sybase, sybase_ptr, sizeof(sybase_link));
-				if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset, appname)) {
+				if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset, appname TSRMLS_CC)) {
 					memcpy(sybase_ptr, &sybase, sizeof(sybase_link));
 					efree(hashed_details);
 					RETURN_FALSE;
@@ -757,7 +776,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		}
 		ZEND_REGISTER_RESOURCE(return_value, sybase_ptr, le_plink);
 	} else { /* non persistent */
-		list_entry *index_ptr, new_index_ptr;
+		zend_rsrc_list_entry *index_ptr, new_index_ptr;
 
 		/* first we check the hash for the hashed_details key.  if it exists,
 		 * it should point us to the right offset where the actual sybase link sits.
@@ -791,7 +810,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		}
 
 		sybase_ptr = (sybase_link *) emalloc(sizeof(sybase_link));
-		if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset, appname)) {
+		if (!php_sybase_do_connect_internal(sybase_ptr, host, user, passwd, charset, appname TSRMLS_CC)) {
 			efree(sybase_ptr);
 			efree(hashed_details);
 			RETURN_FALSE;
@@ -803,7 +822,7 @@ static void php_sybase_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		/* add it to the hash */
 		new_index_ptr.ptr = (void *) Z_LVAL_P(return_value);
 		Z_TYPE(new_index_ptr) = le_index_ptr;
-		if (zend_hash_update(&EG(regular_list), hashed_details, hashed_details_length+1, (void *) &new_index_ptr, sizeof(list_entry), NULL)==FAILURE) {
+		if (zend_hash_update(&EG(regular_list), hashed_details, hashed_details_length+1, (void *) &new_index_ptr, sizeof(zend_rsrc_list_entry), NULL)==FAILURE) {
 			ct_close(sybase_ptr->connection, CS_UNUSED);
 			ct_con_drop(sybase_ptr->connection);
 			efree(sybase_ptr);
@@ -993,8 +1012,7 @@ PHP_FUNCTION(sybase_select_db)
 	ZEND_FETCH_RESOURCE2(sybase_ptr, sybase_link *, sybase_link_index, id, "Sybase-Link", le_link, le_plink);
 
 	convert_to_string_ex(db);
-	cmdbuf = (char *) emalloc(sizeof("use ")+Z_STRLEN_PP(db)+1);
-	sprintf(cmdbuf, "use %s", Z_STRVAL_PP(db)); /* SAFE */
+	spprintf(&cmdbuf, 0, "use %s", Z_STRVAL_PP(db)); /* SAFE */
 
 	if (exec_cmd(sybase_ptr, cmdbuf)==FAILURE) {
 		efree(cmdbuf);
@@ -1007,22 +1025,21 @@ PHP_FUNCTION(sybase_select_db)
 
 /* }}} */
 
-static int php_sybase_finish_results (sybase_result *result) 
+static int php_sybase_finish_results(sybase_result *result TSRMLS_DC) 
 {
 	int i, fail;
 	CS_RETCODE retcode;
 	CS_INT restype;
-	TSRMLS_FETCH();
 	
-	efree(result->datafmt);
-	efree(result->lengths);
-	efree(result->indicators);
-	efree(result->numerics);
-	efree(result->types);
+	efree_n(result->datafmt);
+	efree_n(result->lengths);
+	efree_n(result->indicators);
+	efree_n(result->numerics);
+	efree_n(result->types);
 	for (i=0; i<result->num_fields; i++) {
 		efree(result->tmp_buffer[i]);
 	}
-	efree(result->tmp_buffer);
+	efree_n(result->tmp_buffer);
 
 	/* Indicate we have read all rows */
 	result->sybase_ptr->active_result_index= 0;
@@ -1104,7 +1121,7 @@ static int php_sybase_finish_results (sybase_result *result)
 #define RETURN_DOUBLE_VAL(result, buf, length)          \
 	if ((length - 1) <= EG(precision)) {                \
 		errno = 0;                                      \
-		Z_DVAL(result) = strtod(buf, NULL);             \
+		Z_DVAL(result) = zend_strtod(buf, NULL);        \
 		if (errno != ERANGE) {                          \
 			Z_TYPE(result) = IS_DOUBLE;                 \
 		} else {                                        \
@@ -1114,7 +1131,7 @@ static int php_sybase_finish_results (sybase_result *result)
 		ZVAL_STRINGL(&result, buf, length- 1, 1);       \
 	}
 
-static int php_sybase_fetch_result_row (sybase_result *result, int numrows) 
+static int php_sybase_fetch_result_row (sybase_result *result, int numrows)
 {
 	int i, j;
 	CS_INT retcode;
@@ -1126,18 +1143,11 @@ static int php_sybase_fetch_result_row (sybase_result *result, int numrows)
 	}
 	
 	if (numrows!=-1) numrows+= result->num_rows;
-	while ((retcode=ct_fetch(result->sybase_ptr->cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, NULL))==CS_SUCCEED
-			|| retcode==CS_ROW_FAIL) {
-		/*
-		if (retcode==CS_ROW_FAIL) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Error reading row %d", result->num_rows);
-		}
-		*/
-		
+	while ((retcode=ct_fetch(result->sybase_ptr->cmd, CS_UNUSED, CS_UNUSED, CS_UNUSED, NULL))==CS_SUCCEED) {
 		result->num_rows++;
 		i= result->store ? result->num_rows- 1 : 0;
 		if (i >= result->blocks_initialized*SYBASE_ROWS_BLOCK) {
-			result->data = (zval **) erealloc(result->data, sizeof(zval *)*SYBASE_ROWS_BLOCK*(++result->blocks_initialized));
+			result->data = (zval **) safe_erealloc(result->data, SYBASE_ROWS_BLOCK*(++result->blocks_initialized), sizeof(zval *), 0);
 		}
 		if (result->store || 1 == result->num_rows) {
 			result->data[i] = (zval *) safe_emalloc(sizeof(zval), result->num_fields, 0);
@@ -1190,11 +1200,15 @@ static int php_sybase_fetch_result_row (sybase_result *result, int numrows)
 		}
 		if (numrows!=-1 && result->num_rows>=numrows) break;
 	}
-	
+
+	if (retcode==CS_ROW_FAIL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Error reading row %d", result->num_rows);
+		return retcode;
+	}
 	result->last_retcode= retcode;
 	switch (retcode) {
 		case CS_END_DATA:
-			retcode = php_sybase_finish_results(result);
+			retcode = php_sybase_finish_results(result TSRMLS_CC);
 			break;
 			
 		case CS_ROW_FAIL:
@@ -1321,7 +1335,7 @@ static sybase_result * php_sybase_fetch_result_set (sybase_link *sybase_ptr, int
 			result->fields[i].name = estrdup(computed_buf);
 			j++;
 		}
-		result->fields[i].column_source = empty_string;
+		result->fields[i].column_source = STR_EMPTY_ALLOC();
 		result->fields[i].max_length = result->datafmt[i].maxlength-1;
 		result->fields[i].numeric = result->numerics[i];
 		Z_TYPE(result->fields[i]) = result->types[i];
@@ -1419,7 +1433,7 @@ static void php_sybase_query (INTERNAL_FUNCTION_PARAMETERS, int buffered)
 		*/
 		#if O_TIMM
 		if (result) {
-			php_sybase_finish_results(result);
+			php_sybase_finish_results(result TSRMLS_CC);
 		}
 		#endif
 		
@@ -1506,7 +1520,6 @@ static void php_sybase_query (INTERNAL_FUNCTION_PARAMETERS, int buffered)
 		/* Check for left-over results */
 		if (!buffered && status != Q_RESULT) {
 			while ((retcode = ct_results(sybase_ptr->cmd, &restype))==CS_SUCCEED) {
-
 				switch ((int) restype) {
 					case CS_CMD_SUCCEED:
 					case CS_CMD_DONE:
@@ -1576,7 +1589,7 @@ static void php_sybase_query (INTERNAL_FUNCTION_PARAMETERS, int buffered)
 
 		/* Retry deadlocks up until deadlock_retry_count times */		
 		if (sybase_ptr->deadlock && SybCtG(deadlock_retry_count) != -1 && ++deadlock_count > SybCtG(deadlock_retry_count)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Retried deadlock %d times [max: %ld], giving up\n", deadlock_count- 1, SybCtG(deadlock_retry_count));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Retried deadlock %d times [max: %ld], giving up", deadlock_count- 1, SybCtG(deadlock_retry_count));
 			if (result != NULL) {
 				_free_sybase_result(result);
 			}
@@ -1634,7 +1647,6 @@ PHP_FUNCTION(sybase_unbuffered_query)
 	php_sybase_query(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
 }
 
-
 /* {{{ proto bool sybase_free_result(int result)
    Free result memory */
 PHP_FUNCTION(sybase_free_result)
@@ -1654,9 +1666,9 @@ PHP_FUNCTION(sybase_free_result)
 	
 	/* Did we fetch up until the end? */
 	if (result->last_retcode != CS_END_DATA && result->last_retcode != CS_END_RESULTS) {
-		/* php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Cancelling the rest of the results\n"); */
+		/* php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Cancelling the rest of the results"); */
 		ct_cancel(NULL, result->sybase_ptr->cmd, CS_CANCEL_ALL);
-		php_sybase_finish_results(result);
+		php_sybase_finish_results(result TSRMLS_CC);
 	}
 	
 	zend_list_delete(Z_LVAL_PP(sybase_result_index));
@@ -1822,10 +1834,13 @@ PHP_FUNCTION(sybase_fetch_object)
 			case IS_NULL:
 				break;
 			default: {
+				zend_class_entry **pce = NULL;
+
 				convert_to_string_ex(object);
-				zend_str_tolower(Z_STRVAL_PP(object), Z_STRLEN_PP(object));
-				if (zend_hash_find(EG(class_table), Z_STRVAL_PP(object), Z_STRLEN_PP(object)+1, (void **)&ce) == FAILURE) {
+				if (zend_lookup_class(Z_STRVAL_PP(object), Z_STRLEN_PP(object), &pce TSRMLS_CC) == FAILURE) {
 					php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Sybase:  Class %s has not been declared", Z_STRVAL_PP(object));
+				} else {
+					ce = *pce;
 				}
 			}
 		}
@@ -2005,11 +2020,6 @@ PHP_FUNCTION(sybase_field_seek)
 	convert_to_long_ex(offset);
 	field_offset = Z_LVAL_PP(offset);
 	
-	/* Unbuffered ? */
-	if (result->last_retcode != CS_END_DATA && result->last_retcode != CS_END_RESULTS && field_offset>=result->num_rows) {
-		php_sybase_fetch_result_row(result, field_offset);
-	}
-
 	if (field_offset<0 || field_offset >= result->num_fields) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Sybase:  Bad column offset");
 		RETURN_FALSE;
@@ -2117,16 +2127,16 @@ PHP_MINFO_FUNCTION(sybase)
 
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Sybase_CT Support", "enabled" );
-	sprintf(buf, "%ld", SybCtG(num_persistent));
+	snprintf(buf, sizeof(buf), "%ld", SybCtG(num_persistent));
 	php_info_print_table_row(2, "Active Persistent Links", buf);
-	sprintf(buf, "%ld", SybCtG(num_links));
+	snprintf(buf, sizeof(buf), "%ld", SybCtG(num_links));
 	php_info_print_table_row(2, "Active Links", buf);
-	sprintf(buf, "%ld", SybCtG(min_server_severity));
+	snprintf(buf, sizeof(buf), "%ld", SybCtG(min_server_severity));
 	php_info_print_table_row(2, "Min server severity", buf);
-	sprintf(buf, "%ld", SybCtG(min_client_severity));
+	snprintf(buf, sizeof(buf), "%ld", SybCtG(min_client_severity));
 	php_info_print_table_row(2, "Min client severity", buf);	
 	php_info_print_table_row(2, "Application Name", SybCtG(appname));
-	sprintf(buf, "%ld", SybCtG(deadlock_retry_count));
+	snprintf(buf, sizeof(buf), "%ld", SybCtG(deadlock_retry_count));
 	php_info_print_table_row(2, "Deadlock retry count", buf);
 	php_info_print_table_end();
 

@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: mutex.h,v 1.16.206.1 2004/03/06 08:15:15 marka Exp $ */
+/* $Id: mutex.h,v 1.17 2004/03/05 05:12:05 marka Exp $ */
 
 #ifndef ISC_MUTEX_H
 #define ISC_MUTEX_H 1

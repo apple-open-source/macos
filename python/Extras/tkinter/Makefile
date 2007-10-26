@@ -17,8 +17,10 @@ ifneq ($(TKINTER),)
 	@echo tkinter was installed as part of python
 	install -d -g admin -m 0775 $(EXAMPLES)
 	rsync -rlt $(OBJROOT)/../python/Demo/tkinter/ $(EXAMPLES)
+ifeq ($(shell id -u), 0)
 	-chown -R root:admin $(EXAMPLES)
 	-chmod -R g+w $(EXAMPLES)
+endif
 else
 	@echo tkinter was not installed as part of python
 endif

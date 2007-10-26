@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (c) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (c) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -24,10 +29,10 @@ static char *date = NULL;
 
 static int is_rannotate;
 
-static int annotate_fileproc PROTO ((void *callerdat, struct file_info *));
-static int rannotate_proc PROTO((int argc, char **argv, char *xwhere,
+static int annotate_fileproc (void *callerdat, struct file_info *);
+static int rannotate_proc (int argc, char **argv, char *xwhere,
 				 char *mwhere, char *mfile, int shorten,
-				 int local, char *mname, char *msg));
+				 int local, char *mname, char *msg);
 
 static const char *const annotate_usage[] =
 {
@@ -46,9 +51,7 @@ static const char *const annotate_usage[] =
    file was modified.  */
 
 int
-annotate (argc, argv)
-    int argc;
-    char **argv;
+annotate (int argc, char **argv)
 {
     int local = 0;
     int err = 0;
@@ -71,9 +74,10 @@ annotate (argc, argv)
 		local = 0;
 		break;
 	    case 'r':
-	        tag = optarg;
+		parse_tagdate (&tag, &date, optarg);
 		break;
 	    case 'D':
+		if (date) free (date);
 	        date = Make_Date (optarg);
 		break;
 	    case 'f':
@@ -136,15 +140,14 @@ annotate (argc, argv)
 	for (i = 0; i < argc; i++)
 	{
 	    err += do_module (db, argv[i], MISC, "Annotating", rannotate_proc,
-			     (char *) NULL, 0, local, 0, 0, (char *) NULL);
+			      NULL, 0, local, 0, 0, NULL);
 	}
 	close_module (db);
     }
     else
     {
-	err = rannotate_proc (argc + 1, argv - 1, (char *) NULL,
-			 (char *) NULL, (char *) NULL, 0, local, (char *) NULL,
-			 (char *) NULL);
+	err = rannotate_proc (argc + 1, argv - 1, NULL, NULL, NULL, 0,
+			      local, NULL, NULL);
     }
 
     return err;
@@ -152,16 +155,8 @@ annotate (argc, argv)
     
 
 static int
-rannotate_proc (argc, argv, xwhere, mwhere, mfile, shorten, local, mname, msg)
-    int argc;
-    char **argv;
-    char *xwhere;
-    char *mwhere;
-    char *mfile;
-    int shorten;
-    int local;
-    char *mname;
-    char *msg;
+rannotate_proc (int argc, char **argv, char *xwhere, char *mwhere,
+		char *mfile, int shorten, int local, char *mname, char *msg)
 {
     /* Begin section which is identical to patch_proc--should this
        be abstracted out somehow?  */
@@ -198,8 +193,7 @@ rannotate_proc (argc, argv, xwhere, mwhere, mfile, shorten, local, mname, msg)
 	    }
 
 	    /* take care of the rest */
-	    path = xmalloc (strlen (repository) + strlen (mfile) + 5);
-	    (void) sprintf (path, "%s/%s", repository, mfile);
+	    path = Xasprintf ("%s/%s", repository, mfile);
 	    if (isdir (path))
 	    {
 		/* directory means repository gets the dir tacked on */
@@ -218,11 +212,12 @@ rannotate_proc (argc, argv, xwhere, mwhere, mfile, shorten, local, mname, msg)
 	}
 
 	/* cd to the starting repository */
-	if ( CVS_CHDIR (repository) < 0)
+	if (CVS_CHDIR (repository) < 0)
 	{
 	    error (0, errno, "cannot chdir to %s", repository);
 	    free (repository);
-	    return (1);
+	    free (where);
+	    return 1;
 	}
 	/* End section which is identical to patch_proc.  */
 
@@ -240,38 +235,34 @@ rannotate_proc (argc, argv, xwhere, mwhere, mfile, shorten, local, mname, msg)
 
     if (tag != NULL && !tag_validated)
     {
-	tag_check_valid (tag, argc - 1, argv + 1, local, 0, repository);
+	tag_check_valid (tag, argc - 1, argv + 1, local, 0, repository, false);
 	tag_validated = 1;
     }
 
-    err = start_recursion (annotate_fileproc, (FILESDONEPROC) NULL,
-			   (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
+    err = start_recursion (annotate_fileproc, NULL, NULL, NULL, NULL,
 			   argc - 1, argv + 1, local, which, 0, CVS_LOCK_READ,
 			   where, 1, repository);
-    if ( which & W_REPOS )
-	free ( repository );
-    if ( where != NULL )
+    if (which & W_REPOS)
+	free (repository);
+    if (where != NULL)
 	free (where);
     return err;
 }
 
 
 static int
-annotate_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+annotate_fileproc (void *callerdat, struct file_info *finfo)
 {
     char *expand, *version;
 
     if (finfo->rcs == NULL)
-        return (1);
+        return 1;
 
     if (finfo->rcs->flags & PARTIAL)
-        RCS_reparsercsfile (finfo->rcs, (FILE **) NULL, (struct rcsbuffer *) NULL);
+        RCS_reparsercsfile (finfo->rcs, NULL, NULL);
 
     expand = RCS_getexpand (finfo->rcs);
-    version = RCS_getversion (finfo->rcs, tag, date, force_tag_match,
-			      (int *) NULL);
+    version = RCS_getversion (finfo->rcs, tag, date, force_tag_match, NULL);
 
     if (version == NULL)
         return 0;
@@ -288,7 +279,7 @@ annotate_fileproc (callerdat, finfo)
     }
     else
     {
-	RCS_deltas (finfo->rcs, (FILE *) NULL, (struct rcsbuffer *) NULL,
+	RCS_deltas (finfo->rcs, NULL, NULL,
 		    version, RCS_ANNOTATE, NULL, NULL, NULL, NULL);
     }
     free (version);

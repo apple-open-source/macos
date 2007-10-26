@@ -1,34 +1,46 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please
- * obtain a copy of the License at http://www.apple.com/publicsource and
- * read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please
- * see the License for the specific language governing rights and
- * limitations under the License.
+ *  Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * 
+ *  @APPLE_LICENSE_HEADER_START@
+ *  
+ *  This file contains Original Code and/or Modifications of Original Code
+ *  as defined in and that are subject to the Apple Public Source License
+ *  Version 2.0 (the 'License'). You may not use this file except in
+ *  compliance with the License. Please obtain a copy of the License at
+ *  http://www.opensource.apple.com/apsl/ and read it before using this
+ *  file.
+ *  
+ *  The Original Code and all software distributed under the License are
+ *  distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *  EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ *  INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ *  Please see the License for the specific language governing rights and
+ *  limitations under the License.
+ *  
+ *  @APPLE_LICENSE_HEADER_END@
  */
 
-/******************************************************************
+/*
+ *  sys_unix.c
+ *  SmartCardServices
+ */
 
-	MUSCLE SmartCard Development ( http://www.linuxnet.com )
-	Title  : sys_unix.c
-	Package: pcsc lite
-	Author : David Corcoran
-	Date   : 11/8/99
-	License: Copyright (C) 1999 David Corcoran
-			<corcoran@linuxnet.com>
-	Purpose: This handles abstract system level calls. 
+/*
+ * This handles abstract system level calls.
+ *
+ * MUSCLE SmartCard Development ( http://www.linuxnet.com )
+ *
+ * Copyright (C) 1999
+ *  David Corcoran <corcoran@linuxnet.com>
+ *
+ * $Id: sys_unix.c 2353 2007-01-23 10:31:50Z rousseau $
+ */
 
-$Id: sys_unix.c,v 1.2.80.1 2005/06/17 22:40:12 mb Exp $
-
-********************************************************************/
+/**
+ * @file
+ * @brief This handles abstract system level calls.
+ */
 
 #include <sys_generic.h>
 #include <sys/types.h>
@@ -44,10 +56,21 @@ $Id: sys_unix.c,v 1.2.80.1 2005/06/17 22:40:12 mb Exp $
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
+#include <string.h>
+#include "debug.h"
 
 #include "config.h"
+#include "pcscexport.h"
 
-int SYS_Initialize()
+#include <security_utilities/debugging.h>
+
+/**
+ * @brief Make system wide initialization.
+ *
+ * @return Eror code.
+ * @retval 0 Success.
+ */
+INTERNAL int SYS_Initialize(void)
 {
 	/*
 	 * Nothing special for OS X and Linux 
@@ -55,120 +78,173 @@ int SYS_Initialize()
 	return 0;
 }
 
-int SYS_Mkdir(char *path, int perms)
+/**
+ * @brief Attempts to create a directory with some permissions.
+ *
+ * @param[in] path Path of the directory to be created.
+ * @param[in] perms Permissions to the new directory.
+ *
+ * @return Eror code.
+ * @retval 0 Success.
+ * @retval -1 An error occurred.
+ */
+INTERNAL int SYS_Mkdir(const char *path, int perms)
 {
 	return mkdir(path, perms);
 }
 
-int SYS_GetPID()
+/**
+ * @brief Gets the running process's ID.
+ *
+ * @return PID.
+ */
+INTERNAL int SYS_GetPID(void)
 {
 	return getpid();
 }
 
-int SYS_Sleep(int iTimeVal)
+/**
+ * @brief Makes the current process sleep for some seconds.
+ *
+ * @param[in] iTimeVal Number of seconds to sleep.
+ */
+INTERNAL int SYS_Sleep(int iTimeVal)
 {
+#ifdef HAVE_NANOSLEEP
+	struct timespec mrqtp;
+	mrqtp.tv_sec = iTimeVal;
+	mrqtp.tv_nsec = 0;
+
+	return nanosleep(&mrqtp, NULL);
+#else
 	return sleep(iTimeVal);
+#endif
 }
 
-int SYS_USleep(int iTimeVal)
+/**
+ * @brief Makes the current process sleep for some microseconds.
+ *
+ * @param[in] iTimeVal Number of microseconds to sleep.
+ */
+INTERNAL int SYS_USleep(int iTimeVal)
 {
+#ifdef HAVE_NANOSLEEP
+	struct timespec mrqtp;
+	mrqtp.tv_sec = iTimeVal/1000000;
+	mrqtp.tv_nsec = (iTimeVal - (mrqtp.tv_sec * 1000000)) * 1000;
+
+	return nanosleep(&mrqtp, NULL);
+#else
 	usleep(iTimeVal);
 	return iTimeVal;
+#endif
 }
 
-int SYS_OpenFile(char *pcFile, int flags, int mode)
+/**
+ * @brief Opens/creates a file.
+ *
+ * @param[in] pcFile path to the file.
+ * @param[in] flags Open and read/write choices.
+ * @param[in] mode Permissions to the file.
+ *
+ * @return File descriptor.
+ * @retval >0 The file descriptor.
+ * @retval -1 An error ocurred.
+ */
+INTERNAL int SYS_OpenFile(const char *pcFile, int flags, int mode)
 {
 	return open(pcFile, flags, mode);
 }
 
-int SYS_CloseFile(int iHandle)
+/**
+ * @brief Opens/creates a file.
+ *
+ * @param[in] iHandle File descriptor.
+ *
+ * @return Error code.
+ * @retval 0 Success.
+ * @retval -1 An error ocurred.
+ */
+INTERNAL int SYS_CloseFile(int iHandle)
 {
 	return close(iHandle);
 }
 
-int SYS_RemoveFile(char *pcFile)
+/**
+ * @brief Removes a file.
+ *
+ * @param[in] pcFile path to the file.
+ *
+ * @return Error code.
+ * @retval 0 Success.
+ * @retval -1 An error ocurred.
+ */
+INTERNAL int SYS_RemoveFile(const char *pcFile)
 {
 	return remove(pcFile);
 }
 
-int SYS_Chmod(const char *path, int mode)
+INTERNAL int SYS_Chmod(const char *path, int mode)
 {
 	return chmod(path, mode);
 }
 
-int SYS_Chdir(const char *path)
+INTERNAL int SYS_Chdir(const char *path)
 {
 	return chdir(path);
 }
 
-int SYS_Mkfifo(const char *path, int mode)
-{
-	return mkfifo(path, mode);
-}
-
-int SYS_Mknod(const char *path, int mode, int dev)
-{
-	return mknod(path, mode, dev);
-}
-
-int SYS_GetUID()
+INTERNAL int SYS_GetUID(void)
 {
 	return getuid();
 }
 
-int SYS_GetGID()
+INTERNAL int SYS_GetGID(void)
 {
 	return getgid();
 }
 
-int SYS_Chown(const char *fname, int uid, int gid)
-{
-	return chown(fname, uid, gid);
-}
-
-int SYS_ChangePermissions(char *pcFile, int mode)
-{
-	return chmod(pcFile, mode);
-}
-
-int SYS_LockFile(int iHandle)
-{
-	return flock(iHandle, LOCK_EX | LOCK_NB);
-}
-
-int SYS_LockAndBlock(int iHandle)
-{
-	return flock(iHandle, LOCK_EX);
-}
-
-int SYS_UnlockFile(int iHandle)
-{
-	return flock(iHandle, LOCK_UN);
-}
-
-int SYS_SeekFile(int iHandle, int iSeekLength)
+INTERNAL int SYS_SeekFile(int iHandle, int iSeekLength)
 {
 	int iOffset;
 	iOffset = lseek(iHandle, iSeekLength, SEEK_SET);
 	return iOffset;
 }
 
-int SYS_ReadFile(int iHandle, char *pcBuffer, int iLength)
+INTERNAL int SYS_ReadFile(int iHandle, char *pcBuffer, int iLength)
 {
 	return read(iHandle, pcBuffer, iLength);
 }
 
-int SYS_WriteFile(int iHandle, char *pcBuffer, int iLength)
+INTERNAL int SYS_WriteFile(int iHandle, const char *pcBuffer, int iLength)
 {
 	return write(iHandle, pcBuffer, iLength);
 }
 
-int SYS_GetPageSize(void)
+/**
+ * @brief Gets the memory page size.
+ *
+ * The page size is used when calling the \c SYS_MemoryMap() and
+ * \c SYS_PublicMemoryMap() functions.
+ *
+ * @return Number of bytes per page.
+ */
+INTERNAL int SYS_GetPageSize(void)
 {
 	return getpagesize();
 }
 
-void *SYS_MemoryMap(int iSize, int iFid, int iOffset)
+/**
+ * @brief Map the file \p iFid in memory for reading and writing.
+ *
+ * @param[in] iSize Size of the memmory mapped.
+ * @param[in] iFid File which will be mapped in memory.
+ * @param[in] iOffset Start point of the file to be mapped in memory.
+ *
+ * @return Address of the memory map.
+ * @retval MAP_FAILED in case of error
+ */
+INTERNAL void *SYS_MemoryMap(int iSize, int iFid, int iOffset)
 {
 
 	void *vAddress;
@@ -180,41 +256,88 @@ void *SYS_MemoryMap(int iSize, int iFid, int iOffset)
 	/*
 	 * Here are some common error types: switch( errno ) { case EINVAL:
 	 * printf("EINVAL"); case EBADF: printf("EBADF"); break; case EACCES:
-	 * printf("EACCES"); break; case EAGAIN: printf("EAGAIN"); break; case 
-	 * ENOMEM: printf("ENOMEM"); break; } 
+	 * printf("EACCES"); break; case EAGAIN: printf("EAGAIN"); break; case
+	 * ENOMEM: printf("ENOMEM"); break; }
 	 */
 
 	return vAddress;
 }
 
-void *SYS_PublicMemoryMap(int iSize, int iFid, int iOffset)
+/**
+ * @brief Map the file \p iFid in memory only for reading.
+ *
+ * @param[in] iSize Size of the memmory mapped.
+ * @param[in] iFid File which will be mapped in memory.
+ * @param[in] iOffset Start point of the file to be mapped in memory.
+ *
+ * @return Address of the memory map.
+ */
+INTERNAL void *SYS_PublicMemoryMap(int iSize, int iFid, int iOffset)
 {
 
 	void *vAddress;
 
 	vAddress = 0;
 	vAddress = mmap(0, iSize, PROT_READ, MAP_SHARED, iFid, iOffset);
+	if (vAddress == (void*)-1) /* mmap returns -1 on error */
+	{
+		Log2(PCSC_LOG_CRITICAL, "SYS_PublicMemoryMap() failed: %s",
+			strerror(errno));
+		vAddress = NULL;
+	}
+
 	return vAddress;
 }
 
-int SYS_MMapSynchronize(void *begin, int length)
+/**
+ * @brief Unmap a memory segment
+ *
+ * @param ptr pointer returned by SYS_PublicMemoryMap()
+ * @param iSize size of the memory segment
+ */
+INTERNAL void SYS_PublicMemoryUnmap(void * ptr, int iSize)
 {
-	return msync(begin, length, MS_SYNC | MS_INVALIDATE);
+	munmap(ptr, iSize);
 }
 
-int SYS_MUnmap(void *begin, int length)
+/**
+ * @brief Writes the changes made in a memory map to the disk mapped file.
+ *
+ * @param[in] begin Start of the block to be written
+ * @param[in] length Lenght of the block to be written
+ *
+ * @return Error code.
+ * @retval 0 Success.
+ * @retval -1 An error ocurred.
+ */
+INTERNAL int SYS_MMapSynchronize(void *begin, int length)
 {
-	return munmap(begin, length);
+	int flags = 0;
+
+#ifdef MS_INVALIDATE
+	flags |= MS_INVALIDATE;
+#endif
+	return msync(begin, length, MS_SYNC | flags);
 }
 
-int SYS_Fork()
+INTERNAL int SYS_Fork(void)
 {
 	return fork();
 }
 
-#ifdef HAVE_DAEMON
-int SYS_Daemon(int nochdir, int noclose)
+/**
+ * @brief put the process to run in the background.
+ *
+ * @param[in] nochdir if zero, change the current directory to "/".
+ * @param[in] noclose if zero, redirect standard imput/output/error to /dev/nulll.
+ *
+ * @return error code.
+ * @retval 0 success.
+ * @retval -1 an error ocurred.
+ */
+INTERNAL int SYS_Daemon(int nochdir, int noclose)
 {
+#ifdef HAVE_DAEMON
 	return daemon(nochdir, noclose);
 }
 #endif
@@ -224,7 +347,7 @@ int SYS_Wait(int iPid, int iWait)
 	return waitpid(-1, 0, WNOHANG);
 }
 
-int SYS_Stat(char *pcFile, struct stat *psStatus)
+INTERNAL int SYS_Stat(const char *pcFile, struct stat *psStatus)
 {
 	return stat(pcFile, psStatus);
 }
@@ -251,7 +374,7 @@ int SYS_Random(int iSeed, float fStart, float fEnd)
 	return iRandNum;
 }
 
-int SYS_GetSeed()
+INTERNAL int SYS_GetSeed(void)
 {
 	struct timeval tv;
 	struct timezone tz;
@@ -269,17 +392,12 @@ int SYS_GetSeed()
 	return myseed;
 }
 
-void SYS_Exit(int iRetVal)
+INTERNAL void SYS_Exit(int iRetVal)
 {
 	_exit(iRetVal);
 }
 
-int SYS_Rmdir(char *pcFile)
-{
-	return rmdir(pcFile);
-}
-
-int SYS_Unlink(char *pcFile)
+INTERNAL int SYS_Unlink(const char *pcFile)
 {
 	return unlink(pcFile);
 }

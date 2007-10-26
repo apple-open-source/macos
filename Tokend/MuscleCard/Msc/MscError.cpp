@@ -141,6 +141,3 @@ const char *MscError::mscerrorstr(int err) const
 }
 #endif //NDEBUG
 
-
-
-/* arch-tag: 95229D9A-BE68-11D8-A2C6-000A95C4302E */

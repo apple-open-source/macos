@@ -1,21 +1,12 @@
-# Copyright 2001 Free Software Foundation, Inc.             -*- Autoconf -*-
+# Check to see how 'make' treats includes.	            -*- Autoconf -*-
 
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
+# Copyright (C) 2001, 2002, 2003, 2005  Free Software Foundation, Inc.
+#
+# This file is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
-
-# serial 2
+# serial 3
 
 # AM_MAKE_INCLUDE()
 # -----------------
@@ -23,8 +14,9 @@
 AC_DEFUN([AM_MAKE_INCLUDE],
 [am_make=${MAKE-make}
 cat > confinc << 'END'
-doit:
+am__doit:
 	@echo done
+.PHONY: am__doit
 END
 # If we don't find an include directive, just comment out the code.
 AC_MSG_CHECKING([for style of include used by $am_make])
@@ -38,7 +30,7 @@ echo "include confinc" > confmf
 # In particular we don't look at `^make:' because GNU make might
 # be invoked under some other name (usually "gmake"), in which
 # case it prints its new name instead of `make'.
-if test "`$am_make -s -f confmf 2> /dev/null | fgrep -v 'ing directory'`" = "done"; then
+if test "`$am_make -s -f confmf 2> /dev/null | grep -v 'ing directory'`" = "done"; then
    am__include=include
    am__quote=
    _am_result=GNU
@@ -52,8 +44,8 @@ if test "$am__include" = "#"; then
       _am_result=BSD
    fi
 fi
-AC_SUBST(am__include)
-AC_SUBST(am__quote)
-AC_MSG_RESULT($_am_result)
+AC_SUBST([am__include])
+AC_SUBST([am__quote])
+AC_MSG_RESULT([$_am_result])
 rm -f confinc confmf
 ])

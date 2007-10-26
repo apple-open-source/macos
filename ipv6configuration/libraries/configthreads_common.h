@@ -85,7 +85,7 @@ struct ServiceState {
     void *				serviceID;
     void *				user_notification;
     void *				user_rls;
-    inet6_addrinfo_t	info;
+    inet6_addrinfo_t		info;
     void * 			private;
 };
 
@@ -192,8 +192,9 @@ IFState_t *		IFStateList_service_with_ip(IFStateList_t * list, struct in6_addr *
 
 CFDictionaryRef	my_SCDynamicStoreCopyValue(SCDynamicStoreRef session, CFStringRef key);
 
-int		service_set_address(Service_t * service_p, struct in6_addr * addr, int prefixLen);
-int		service_remove_address(Service_t * service_p);
+int		service_set_addresses(Service_t * service_p, ip6_addrinfo_list_t * addr_list);
+int		service_set_address(Service_t * service_p, struct in6_addr * addr, int prefixLen, int flags);
+int		service_remove_addresses(Service_t * service_p);
 
 void		service_publish_success(Service_t * service_p);
 

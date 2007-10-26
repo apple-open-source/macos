@@ -3,15 +3,15 @@
 	<key>OpenSourceProject</key>
 	<string>zsh</string>
 	<key>OpenSourceVersion</key>
-	<string>4.2.3</string>
+	<string>4.3.4</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://zsh.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.zsh.org/pub/zsh-4.2.3.tar.bz2</string>
+	<string>http://www.zsh.org/pub/zsh-4.3.4.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>ebeb991bb4783e95bd6f4aeb1218cd94d035a1fa</string>
+	<string>6bd905c4bf61bf3df5e5bb78f64be68366ad7517</string>
 	<key>OpenSourceImportDate</key>
-	<string>2005-01-15</string>
+	<string>2007-05-14</string>
 	<key>OpenSourceModifications</key>
 	<array>
 	</array>

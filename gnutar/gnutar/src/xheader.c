@@ -16,7 +16,7 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
+#include <system.h>
 
 #include <fnmatch.h>
 #include <hash.h>
@@ -220,10 +220,10 @@ to_decimal (uintmax_t value, char *where, size_t size)
      %d                       The directory name of the file,
                               equivalent to the result of the
                               dirname utility on the translated
-                              pathname.
+                              file name.
      %f                       The filename of the file, equivalent
                               to the result of the basename
-                              utility on the translated pathname.
+                              utility on the translated file name.
      %p                       The process ID of the pax process.
      %%                       A '%' character. */
 

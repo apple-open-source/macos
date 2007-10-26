@@ -35,22 +35,10 @@
 #include "som.h"
 #include "libhppa.h"
 
-/* Various things we might complain about... */
+#include "solib-som.h"
 
+/* Prototypes for local functions.  */
 static int init_import_symbols (struct objfile *objfile);
-
-static void som_symfile_init (struct objfile *);
-
-static void som_new_init (struct objfile *);
-
-static void som_symfile_read (struct objfile *, int);
-
-static void som_symfile_finish (struct objfile *);
-
-static void som_symtab_read (bfd *, struct objfile *,
-			     struct section_offsets *);
-
-static void som_symfile_offsets (struct objfile *, struct section_addr_info *);
 
 /* FIXME: These should really be in a common header somewhere */
 
@@ -105,14 +93,14 @@ som_symtab_read (bfd *abfd, struct objfile *objfile,
   bfd_seek (abfd, obj_som_sym_filepos (abfd), SEEK_SET);
   val = bfd_bread (buf, symsize * number_of_symbols, abfd);
   if (val != symsize * number_of_symbols)
-    error ("Couldn't read symbol dictionary!");
+    error (_("Couldn't read symbol dictionary!"));
 
   /* FIXME (alloca): could be quite large. */
   stringtab = alloca (obj_som_stringtab_size (abfd));
   bfd_seek (abfd, obj_som_str_filepos (abfd), SEEK_SET);
   val = bfd_bread (stringtab, obj_som_stringtab_size (abfd), abfd);
   if (val != obj_som_stringtab_size (abfd))
-    error ("Can't read in HP string table.");
+    error (_("Can't read in HP string table."));
 
   /* We need to determine if objfile is a dynamic executable (so we
      can do the right thing for ST_ENTRY vs ST_CODE symbols).
@@ -219,6 +207,7 @@ som_symtab_read (bfd *abfd, struct objfile *objfile,
 	      if ((symname[0] == 'L' && symname[1] == '$')
 	      || (symname[0] == '$' && symname[strlen (symname) - 1] == '$')
 		  || (symname[0] == 'D' && symname[1] == '$')
+		  || (strncmp (symname, "L0\001", 3) == 0)
 		  || (strncmp (symname, "$PIC", 4) == 0))
 		continue;
 	      break;
@@ -288,7 +277,7 @@ som_symtab_read (bfd *abfd, struct objfile *objfile,
 	}
 
       if (bufp->name.n_strx > obj_som_stringtab_size (abfd))
-	error ("Invalid symbol data; bad HP string table offset: %d",
+	error (_("Invalid symbol data; bad HP string table offset: %d"),
 	       bufp->name.n_strx);
 
       prim_record_minimal_symbol (symname, bufp->symbol_value, ms_type,
@@ -331,7 +320,10 @@ som_symfile_read (struct objfile *objfile, int mainline)
   bfd *abfd = objfile->obfd;
   struct cleanup *back_to;
 
-  do_pxdb (symfile_bfd_open (objfile->name, 0));
+  do_pxdb (symfile_bfd_open (objfile->name));
+
+  init_minimal_symbol_collection ();
+  back_to = make_cleanup_discard_minimal_symbols ();
 
   /* Read in the import list and the export list.  Currently
      the export list isn't used; the import list is used in
@@ -350,7 +342,6 @@ som_symfile_read (struct objfile *objfile, int mainline)
      actually scan the DNTT. It does scan the linker symbol
      table and thus build up a "minimal symbol table". */
 
-  init_minimal_symbol_collection ();
   som_symtab_read (abfd, objfile, objfile->section_offsets);
 
   /* Install any minimal symbols that have been collected as the current
@@ -365,21 +356,17 @@ som_symfile_read (struct objfile *objfile, int mainline)
      This is a no-op for SOM.
      Perhaps it is intended for some kind of mixed STABS/SOM
      situation? */
-  init_minimal_symbol_collection ();
   stabsect_build_psymtabs (objfile, mainline,
-			   "$GDB_SYMBOLS$", "$GDB_STRINGS$", "$TEXT$", "$DATA", "$BSS$");
-  install_minimal_symbols (objfile);
+			   "$GDB_SYMBOLS$", "$GDB_STRINGS$", "$TEXT$");
 
   /* Now read the native debug information. 
      This builds the psymtab. This used to be done via a scan of
      the DNTT, but is now done via the PXDB-built quick-lookup tables
      together with a scan of the GNTT. See hp-psymtab-read.c. */
-  init_minimal_symbol_collection ();
   hpread_build_psymtabs (objfile, mainline);
-  install_minimal_symbols (objfile);
 
   /* Force hppa-tdep.c to re-read the unwind descriptors.  */
-  objfile->obj_private = NULL;
+  objfile->deprecated_obj_private = NULL;
 }
 
 /* Initialize anything that needs initializing when a completely new symbol
@@ -403,9 +390,9 @@ som_new_init (struct objfile *ignore)
 static void
 som_symfile_finish (struct objfile *objfile)
 {
-  if (objfile->sym_stab_info != NULL)
+  if (objfile->deprecated_sym_stab_info != NULL)
     {
-      xmfree (objfile->md, objfile->sym_stab_info);
+      xfree (objfile->deprecated_sym_stab_info);
     }
   hpread_symfile_finish (objfile);
 }

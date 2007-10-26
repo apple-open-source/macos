@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: global.c,v 1.7 2005/06/17 20:16:29 dasenbro Exp $ */
+/* $Id: global.c,v 1.21 2007/02/05 18:41:46 jeaton Exp $ */
 
 #include <config.h>
 
@@ -62,16 +62,26 @@
 #include "exitcodes.h"
 #include "gmtoff.h"
 #include "hash.h"
+#ifdef APPLE_OS_X_SERVER
 #include "imap_error.h"
+#else
+#include "imap_err.h"
+#endif
 #include "global.h"
 #include "libconfig.h"
 #include "libcyr_cfg.h"
 #include "mboxlist.h"
+#ifdef APPLE_OS_X_SERVER
 #include "mupdate_error.h"
+#else
+#include "mupdate_err.h"
+#endif
 #include "mutex.h"
 #include "prot.h" /* for PROT_BUFSIZE */
 #include "util.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 
 static enum {
     NOT_RUNNING = 0,
@@ -82,16 +92,16 @@ static enum {
 static int cyrus_init_nodb = 0;
 
 int config_implicitrights;        /* "lca" */
+unsigned long config_metapartition_files;    /* 0 */
 struct cyrusdb_backend *config_mboxlist_db;
 struct cyrusdb_backend *config_quota_db;
 struct cyrusdb_backend *config_subscription_db;
 struct cyrusdb_backend *config_annotation_db;
 struct cyrusdb_backend *config_seenstate_db;
+struct cyrusdb_backend *config_mboxkey_db;
 struct cyrusdb_backend *config_duplicate_db;
 struct cyrusdb_backend *config_tlscache_db;
-#ifdef WITH_PTS
 struct cyrusdb_backend *config_ptscache_db;
-#endif
 
 /* Called before a cyrus application starts (but after command line parameters
  * are read) */
@@ -113,8 +123,10 @@ int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
     initialize_imap_error_table();
     initialize_mupd_error_table();
 
+#ifdef APPLE_OS_X_SERVER
     add_error_table( &et_imap_error_table );
     add_error_table( &et_mupd_error_table );
+#endif
 
     if(!ident)
 	fatal("service name was not specified to cyrus_init", EC_CONFIG);
@@ -166,6 +178,8 @@ int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
     config_implicitrights =
 	cyrus_acl_strtomask(config_getstring(IMAPOPT_IMPLICIT_OWNER_RIGHTS));
 
+    config_metapartition_files = config_getbitfield(IMAPOPT_METAPARTITION_FILES);
+
     if (!cyrus_init_nodb) {
 	/* lookup the database backends */
 	config_mboxlist_db =
@@ -178,14 +192,14 @@ int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
 	    cyrusdb_fromname(config_getstring(IMAPOPT_ANNOTATION_DB));
 	config_seenstate_db =
 	    cyrusdb_fromname(config_getstring(IMAPOPT_SEENSTATE_DB));
+	config_mboxkey_db =
+	    cyrusdb_fromname(config_getstring(IMAPOPT_MBOXKEY_DB));
 	config_duplicate_db =
 	    cyrusdb_fromname(config_getstring(IMAPOPT_DUPLICATE_DB));
 	config_tlscache_db =
 	    cyrusdb_fromname(config_getstring(IMAPOPT_TLSCACHE_DB));
-#ifdef WITH_PTS
 	config_ptscache_db =
 	    cyrusdb_fromname(config_getstring(IMAPOPT_PTSCACHE_DB));
-#endif
 
 	/* configure libcyrus as needed */
 	libcyrus_config_setstring(CYRUSOPT_CONFIG_DIR, config_dir);
@@ -209,10 +223,14 @@ int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
 				  config_getenum(IMAPOPT_VIRTDOMAINS));
 	libcyrus_config_setint(CYRUSOPT_BERKELEY_CACHESIZE,
 			       config_getint(IMAPOPT_BERKELEY_CACHESIZE));
+	libcyrus_config_setstring(CYRUSOPT_AUTH_MECH,
+				  config_getstring(IMAPOPT_AUTH_MECH));
 	libcyrus_config_setint(CYRUSOPT_BERKELEY_LOCKS_MAX,
 			       config_getint(IMAPOPT_BERKELEY_LOCKS_MAX));
 	libcyrus_config_setint(CYRUSOPT_BERKELEY_TXNS_MAX,
 			       config_getint(IMAPOPT_BERKELEY_TXNS_MAX));
+	libcyrus_config_setstring(CYRUSOPT_DELETERIGHT,
+				  config_getstring(IMAPOPT_DELETERIGHT));
 
 	/* Not until all configuration parameters are set! */
 	libcyrus_init();
@@ -246,12 +264,18 @@ void global_sasl_init(int client, int server, const sasl_callback_t *callbacks)
 	fatal("could not init sasl (client)", EC_SOFTWARE);
     }
 
+#ifdef APPLE_OS_X_SERVER
     if(server){
     int r=sasl_server_init_alt(callbacks, "Cyrus");
     if((r!=SASL_NOMECH)&&(r!=SASL_OK)){
         fatal("could not init sasl (client)", EC_SOFTWARE);
     }
     } 
+#else
+    if(server && sasl_server_init(callbacks, "Cyrus")) {
+	fatal("could not init sasl (server)", EC_SOFTWARE);
+    }
+#endif
 }
 
 /* this is a wrapper to call the cyrus configuration from SASL */
@@ -494,7 +518,7 @@ static int acl_ok(const char *user, struct auth_state *authstate)
 					     bufuser, inboxname);
 
     if (r || !authstate ||
-	mboxlist_lookup(inboxname, NULL, &acl, NULL)) {
+	mboxlist_lookup(inboxname, &acl, NULL)) {
 	r = 0;  /* Failed so assume no proxy access */
     }
     else {
@@ -608,7 +632,10 @@ void cyrus_ctime(time_t date, char *datebuf)
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
     if (date == 0 || tm->tm_year < 69) {
-    syslog( LOG_CRIT, "ERROR: invaldi date/time: %d (year = %d)", date, tm->tm_year );
+#ifdef APPLE_OS_X_SERVER
+	/* really a good idea to log if we are going to abort session */
+    syslog( LOG_CRIT, "ERROR: invalid date/time: %d (year = %d)", date, tm->tm_year );
+#endif
 	abort();
     }
 

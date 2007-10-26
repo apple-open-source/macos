@@ -8,7 +8,7 @@
  *
  */
 /* 
- $Id: acl_afs.c,v 1.5 2005/03/05 00:37:11 dasenbro Exp $
+ $Id: acl_afs.c,v 1.26 2006/11/30 17:11:22 murch Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -114,6 +114,7 @@ int access;
 cyrus_acl_canonproc_t *canonproc;
 void *canonrock;
 {
+    const char *canonid;
     char *newidentifier = 0;
     char *newacl;
     char *thisid, *nextid;
@@ -122,9 +123,14 @@ void *canonrock;
 
     /* Convert 'identifier' into canonical form */
     if (*identifier == '-') {
-	char *canonid = auth_canonifyid(identifier+1, 0);
+	canonid = auth_canonifyid(identifier+1, 0);
 	if (!canonid) {
-	    return -1;
+	    if (access != 0L) {
+		return -1;
+	    } else {
+		/* trying to delete invalid/non-existent identifier */
+		canonid = identifier+1;
+	    }
 	}
 	newidentifier = xmalloc(strlen(canonid)+2);
 	newidentifier[0] = '-';
@@ -135,9 +141,13 @@ void *canonrock;
 	}
     }
     else {
-	identifier = auth_canonifyid(identifier, 0);
-	if (!identifier) {
+	canonid = auth_canonifyid(identifier, 0);
+	if (canonid) {
+	    identifier = canonid;
+	} else if (access != 0L) {
 	    return -1;
+	} else {
+	    /* trying to delete invalid/non-existent identifier */
 	}
 	if (canonproc) {
 	    access = canonproc(canonrock, identifier, access);

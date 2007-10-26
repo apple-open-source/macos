@@ -43,22 +43,25 @@
 .Nm mkfifo
 .Nd make fifos
 .Sh SYNOPSIS
-.Nm
+.Nm mkfifo
 .Op Fl m Ar mode
 .Ar fifo_name  ...
 .Sh DESCRIPTION
-.Nm
-creates the fifos requested, in the order specified,
-using mode
-.Li \&0666 
-modified by the current
+.Nm mkfifo
+creates the fifos requested, in the order specified.
+By default,
+the resulting fifos have mode
+.Li \&0666
+(rw-rw-rw-), limited by the current
 .Xr umask 2 .
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
 .It Fl m
-Set the file permission bits of newly-created directories to
-.Ar mode .
+Set the file permission bits of newly-created fifos to
+.Ar mode ,
+without respect to the current umask.
+.Pp
 The mode is specified as in 
 .Xr chmod 1 .
 In symbolic mode strings, the 
@@ -69,23 +72,29 @@ operators are interpreted relative to an assumed initial mode of
 .Dq a=rw
 .El
 .Pp
-.Nm
+.Nm mkfifo
 requires write permission in the parent directory.
 .Pp
-.Nm
-exits 0 if successful, and >0 if an error occurred.
+.Nm mkfifo
+exits with 0 if successful, and with >0 if an error occurred.
+.Sh LEGACY DESCRIPTION
+In legacy mode, the fifo's file permission bits
+are always limited by the current umask.
 .Sh SEE ALSO
 .Xr mkdir 1 ,
 .Xr rm 1 ,
+.Xr umask 1 ,
 .Xr mkfifo 2 ,
+.Xr umask 2 ,
+.Xr compat 5 ,
 .Xr mknod 8
 .Sh STANDARDS
 The
-.Nm
+.Nm mkfifo
 utility is expected to be
 .St -p1003.2-92
 compliant.
 .Sh HISTORY
-.Nm
+.Nm mkfifo
 command appeared in
 .Bx 4.4 .

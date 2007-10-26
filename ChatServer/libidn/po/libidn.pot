@@ -1,0 +1,181 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Simon Josefsson
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
+"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Success"
+msgstr ""
+
+msgid "String preparation failed"
+msgstr ""
+
+msgid "Punycode failed"
+msgstr ""
+
+msgid "Non-digit/letter/hyphen in input"
+msgstr ""
+
+msgid "Forbidden leading or trailing minus sign (`-')"
+msgstr ""
+
+msgid "Output would be too large or too small"
+msgstr ""
+
+msgid "Input does not start with ACE prefix (`xn--')"
+msgstr ""
+
+msgid "String not idempotent under ToASCII"
+msgstr ""
+
+msgid "Input already contain ACE prefix (`xn--')"
+msgstr ""
+
+msgid "System iconv failed"
+msgstr ""
+
+msgid "Cannot allocate memory"
+msgstr ""
+
+msgid "System dlopen failed"
+msgstr ""
+
+msgid "Unknown error"
+msgstr ""
+
+msgid "String not idempotent under Unicode NFKC normalization"
+msgstr ""
+
+msgid "Invalid input"
+msgstr ""
+
+msgid "Output would exceed the buffer space provided"
+msgstr ""
+
+msgid "String size limit exceeded"
+msgstr ""
+
+msgid "Forbidden unassigned code points in input"
+msgstr ""
+
+msgid "Prohibited code points in input"
+msgstr ""
+
+msgid "Conflicting bidirectional properties in input"
+msgstr ""
+
+msgid "Malformed bidirectional string"
+msgstr ""
+
+msgid "Prohibited bidirectional code points in input"
+msgstr ""
+
+msgid "Error in stringprep profile definition"
+msgstr ""
+
+msgid "Flag conflict with profile"
+msgstr ""
+
+msgid "Unknown profile"
+msgstr ""
+
+msgid "Unicode normalization failed (internal error)"
+msgstr ""
+
+msgid "Code points prohibited by top-level domain"
+msgstr ""
+
+msgid "Missing input"
+msgstr ""
+
+msgid "No top-level domain found in input"
+msgstr ""
+
+msgid "Only one of -s, -e, -d, -a or -u can be specified."
+msgstr ""
+
+#, c-format
+msgid "Charset `%s'.\n"
+msgstr ""
+
+#, c-format
+msgid ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+msgstr ""
+
+msgid "Input error"
+msgstr ""
+
+#, c-format
+msgid "Could not convert from %s to UTF-8."
+msgstr ""
+
+msgid "Could not convert from UTF-8 to UCS-4."
+msgstr ""
+
+#, c-format
+msgid "input[%d] = U+%04x\n"
+msgstr ""
+
+#, c-format
+msgid "stringprep_profile: %s"
+msgstr ""
+
+#, c-format
+msgid "output[%d] = U+%04x\n"
+msgstr ""
+
+#, c-format
+msgid "Could not convert from UTF-8 to %s."
+msgstr ""
+
+#, c-format
+msgid "punycode_encode: %s"
+msgstr ""
+
+msgid "malloc"
+msgstr ""
+
+#, c-format
+msgid "punycode_decode: %s"
+msgstr ""
+
+msgid "Could not convert from UCS-4 to UTF-8."
+msgstr ""
+
+#, c-format
+msgid "idna_to_ascii_4z: %s"
+msgstr ""
+
+#, c-format
+msgid "idna_to_unicode_8z4z (TLD): %s"
+msgstr ""
+
+#, c-format
+msgid "tld[%d] = U+%04x\n"
+msgstr ""
+
+#, c-format
+msgid "tld_check_4z (position %d): %s"
+msgstr ""
+
+#, c-format
+msgid "tld_check_4z: %s"
+msgstr ""
+
+#, c-format
+msgid "idna_to_unicode_8z4z: %s"
+msgstr ""

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,58 +44,58 @@ __BEGIN_DECLS
 // ----------
 
 Boolean
-IsVLANSupported			(CFStringRef		device);	// e.g. "en0", "en1", ...
+IsVLANSupported			(CFStringRef		device)		AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// e.g. "en0", "en1", ...
 
 // ----------
 
 CFTypeID
-VLANInterfaceGetTypeID		(void);
+VLANInterfaceGetTypeID		(void)					AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 CFStringRef
-VLANInterfaceGetInterface	(VLANInterfaceRef	vlan);	// returns "vlan0", "vlan1", ...
+VLANInterfaceGetInterface	(VLANInterfaceRef	vlan)		AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// returns "vlan0", "vlan1", ...
 
 CFStringRef
-VLANInterfaceGetDevice		(VLANInterfaceRef	vlan);	// returns "en0", "en1, ...
+VLANInterfaceGetDevice		(VLANInterfaceRef	vlan)		AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// returns "en0", "en1, ...
 
 CFNumberRef
-VLANInterfaceGetTag		(VLANInterfaceRef	vlan);	// returns 1 <= tag <= 4094
+VLANInterfaceGetTag		(VLANInterfaceRef	vlan)		AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// returns 1 <= tag <= 4094
 
 CFDictionaryRef
-VLANInterfaceGetOptions		(VLANInterfaceRef	vlan);	// e.g. UserDefinedName, ...
+VLANInterfaceGetOptions		(VLANInterfaceRef	vlan)		AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// e.g. UserDefinedName, ...
 
 // ----------
 
 CFTypeID
-VLANPreferencesGetTypeID	(void);
+VLANPreferencesGetTypeID	(void)					AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 VLANPreferencesRef
-VLANPreferencesCreate		(CFAllocatorRef		allocator);
+VLANPreferencesCreate		(CFAllocatorRef		allocator)	AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 CFArrayRef /* of VLANInterfaceRef's */
-VLANPreferencesCopyInterfaces	(VLANPreferencesRef	prefs);
+VLANPreferencesCopyInterfaces	(VLANPreferencesRef	prefs)		AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 VLANInterfaceRef
 VLANPreferencesAddInterface	(VLANPreferencesRef	prefs,
 				 CFStringRef		device,		// e.g. "en0", "en1", ...
 				 CFNumberRef		tag,		// e.g. 1 <= tag <= 4094
-				 CFDictionaryRef	options);	// e.g. UserDefinedName, ...
+				 CFDictionaryRef	options)	AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;	// e.g. UserDefinedName, ...
 
 Boolean
 VLANPreferencesUpdateInterface	(VLANPreferencesRef	prefs,
 				 VLANInterfaceRef	vlan,
 				 CFStringRef		newDevice,
 				 CFNumberRef		newTag,
-				 CFDictionaryRef	newOptions);
+				 CFDictionaryRef	newOptions)	AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 Boolean
 VLANPreferencesRemoveInterface	(VLANPreferencesRef	prefs,
-				 VLANInterfaceRef	vlan);
+				 VLANInterfaceRef	vlan)		AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 Boolean
-VLANPreferencesCommitChanges	(VLANPreferencesRef	prefs);
+VLANPreferencesCommitChanges	(VLANPreferencesRef	prefs)		AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 Boolean
-VLANPreferencesApplyChanges	(VLANPreferencesRef	prefs);
+VLANPreferencesApplyChanges	(VLANPreferencesRef	prefs)		AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
 
 // ----------
 

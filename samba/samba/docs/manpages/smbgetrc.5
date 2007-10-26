@@ -18,77 +18,80 @@
 .IP "\\$1" \\$2
 ..
 .TH "SMBGETRC" 5 "" "" ""
-.SH NAME
-smbgetrc \- configuration file for smbget
+.SH "NAME"
+smbgetrc - configuration file for smbget
 .SH "SYNOPSIS"
-
 .PP
 \fIsmbgetrc\fR
-
 .SH "DESCRIPTION"
-
 .PP
-This manual page documents the format and options of the \fBsmbgetrc\fR file\&. This is the configuration file used by the \fBsmbget\fR(1) utility\&. The file contains of key\-value pairs, one pair on each line\&. The key and value should be separated by a space\&.
-
+This manual page documents the format and options of the
+\fBsmbgetrc\fR
+file. This is the configuration file used by the
+\fBsmbget\fR(1)
+utility. The file contains of key-value pairs, one pair on each line. The key and value should be separated by a space.
 .PP
-By default, smbget reads its configuration from \fB$HOME/\&.smbgetrc\fR, though other locations can be specified using the command\-line options\&.
-
+By default, smbget reads its configuration from
+\fB$HOME/.smbgetrc\fR, though other locations can be specified using the command-line options.
 .SH "OPTIONS"
-
 .PP
 The following keys can be set:
-
-.TP
+.PP
 resume on|off
-Whether aborted downloads should be automatically resumed\&.
-
-.TP
+.RS 3n
+Whether aborted downloads should be automatically resumed.
+.RE
+.PP
 recursive on|off
+.RS 3n
 Whether directories should be downloaded recursively
-
-.TP
+.RE
+.PP
 username \fIname\fR
-Username to use when logging in to the remote server\&. Use an empty string for anonymous access\&.
-
-.TP
+.RS 3n
+Username to use when logging in to the remote server. Use an empty string for anonymous access.
+.RE
+.PP
 password \fIpass\fR
-Password to use when logging in\&.
-
-.TP
+.RS 3n
+Password to use when logging in.
+.RE
+.PP
 workgroup \fIwg\fR
+.RS 3n
 Workgroup to use when logging in
-
-.TP
+.RE
+.PP
 nonprompt on|off
-Turns off asking for username and password\&. Useful for scripts\&.
-
-.TP
+.RS 3n
+Turns off asking for username and password. Useful for scripts.
+.RE
+.PP
 debuglevel \fIint\fR
-(Samba) debuglevel to run at\&. Useful for tracking down protocol level problems\&.
-
-.TP
+.RS 3n
+(Samba) debuglevel to run at. Useful for tracking down protocol level problems.
+.RE
+.PP
 dots on|off
-Whether a single dot should be printed for each block that has been downloaded, instead of the default progress indicator\&.
-
-.TP
+.RS 3n
+Whether a single dot should be printed for each block that has been downloaded, instead of the default progress indicator.
+.RE
+.PP
 blocksize \fIint\fR
-Number of bytes to put in a block\&.
-
+.RS 3n
+Number of bytes to put in a block.
+.RE
 .SH "VERSION"
-
 .PP
-This man page is correct for version 3\&.0 of the Samba suite\&.
-
+This man page is correct for version 3.0 of the Samba suite.
 .SH "SEE ALSO"
-
 .PP
-\fBsmbget\fR(1) and \fBSamba\fR(7)\&.
-
+\fBsmbget\fR(1)
+and
+\fBSamba\fR(7).
 .SH "AUTHOR"
-
 .PP
-The original Samba software and related utilities were created by Andrew Tridgell\&. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed\&.
-
+The original Samba software and related utilities were created by Andrew Tridgell. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed.
 .PP
 This manual page was written by Jelmer Vernooij
 

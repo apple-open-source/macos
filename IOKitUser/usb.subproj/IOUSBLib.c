@@ -40,9 +40,6 @@
 //#include <IOKit/usb/IOUSBUserClient.h>
 
 //#include <mach/mach_interface.h>
-//#include <IOKit/iokitmig.h> 	// mig generated
-//#include <IOKit/IOKitLibPrivate.h>
-
 
 __private_extern__
 const char _IOKIT_USB_IOUSBLIB_C_subproj_workaround[] = "_IOKIT_USB_IOUSBLIB_C_";

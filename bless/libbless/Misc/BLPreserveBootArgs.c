@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,7 @@
  *  bless
  *
  *  Created by Shantonu Sen on 11/16/05.
- *  Copyright 2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2005-2007 Apple Inc. All Rights Reserved.
  *
  */
 
@@ -36,7 +36,12 @@
 #include "bless.h"
 #include "bless_private.h"
 
-#include "preserve_bootargs.h"
+static const char *remove_boot_args[] = {
+	"rd",	/* rd=(enet|disk0|md0) */
+	"rp",	/* rp=nfs:1.2.3.4:/foo:bar.dmg, netboot */
+	"boot-uuid",	/* UUID of filesystem/partition for rooting */
+	NULL
+};
 
 int BLPreserveBootArgs(BLContextPtr context,
                        const char *input,
@@ -58,23 +63,23 @@ int BLPreserveBootArgs(BLContextPtr context,
     
     restargs = oldbootargs;
     while((token = strsep(&restargs, " ")) != NULL) {
-        int shouldbesaved = 0, i;
+        int shouldbesaved = 1, i;
         contextprintf(context, kBLLogLevelVerbose, "\tGot token: %s\n", token);
-        for(i=0; i < sizeof(preserve_boot_args)/sizeof(preserve_boot_args[0]); i++) {
+        for(i=0; remove_boot_args[i]; i++) {
             // see if it's something we want
-            if(preserve_boot_args[i][0] == '-') {
+            if(remove_boot_args[i][0] == '-') {
                 // -v style
-                if(strcmp(preserve_boot_args[i], token) == 0) {
-                    shouldbesaved = 1;
+                if(strcmp(remove_boot_args[i], token) == 0) {
+                    shouldbesaved = 0;
                     break;
                 }
             } else {
                 // debug= style
-                int keylen = strlen(preserve_boot_args[i]);
+                int keylen = strlen(remove_boot_args[i]);
                 if(strlen(token) >= keylen+1
-                   && strncmp(preserve_boot_args[i], token, keylen) == 0
+                   && strncmp(remove_boot_args[i], token, keylen) == 0
                    && token[keylen] == '=') {
-                    shouldbesaved = 1;
+                    shouldbesaved = 0;
                     break;
                 }
             }

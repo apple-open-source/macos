@@ -128,9 +128,9 @@ static unsigned htable_hash(const char *s, unsigned size)
      */
 
     while (*s) {
-	h = (h << 4) + *s++;
+	h = (h << 4U) + *s++;
 	if ((g = (h & 0xf0000000)) != 0) {
-	    h ^= (g >> 24);
+	    h ^= (g >> 24U);
 	    h ^= g;
 	}
     }
@@ -140,11 +140,11 @@ static unsigned htable_hash(const char *s, unsigned size)
 /* htable_link - insert element into table */
 
 #define htable_link(table, element) { \
-     HTABLE_INFO **h = table->data + htable_hash(element->key, table->size);\
+     HTABLE_INFO **_h = table->data + htable_hash(element->key, table->size);\
     element->prev = 0; \
-    if ((element->next = *h) != 0) \
-	(*h)->prev = element; \
-    *h = element; \
+    if ((element->next = *_h) != 0) \
+	(*_h)->prev = element; \
+    *_h = element; \
     table->used++; \
 }
 
@@ -352,7 +352,7 @@ int main(int unused_argc, char **unused_argv)
      */
     hash = htable_create(10);
     while (vstring_get(buf, VSTREAM_IN) != VSTREAM_EOF)
-	htable_enter(hash, vstring_str(buf), (void *) count++);
+	htable_enter(hash, vstring_str(buf), CAST_INT_TO_CHAR_PTR(count++));
     ht_info = htable_list(hash);
     for (i = 0; i < hash->used; i++) {
 	r = myrand() % hash->used;
@@ -364,6 +364,9 @@ int main(int unused_argc, char **unused_argv)
 	htable_delete(hash, ht[0]->key, (void (*) (char *)) 0);
     if (hash->used > 0)
 	msg_panic("%d entries not deleted", hash->used);
+    myfree((char *) ht_info);
+    htable_free(hash, (void (*) (char *)) 0);
+    vstring_free(buf);
     return (0);
 }
 

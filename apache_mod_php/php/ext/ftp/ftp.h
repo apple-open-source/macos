@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ftp.h,v 1.30.2.3.4.3 2007/01/01 09:46:42 sebastian Exp $ */
+/* $Id: ftp.h,v 1.43.2.1.2.2 2007/01/01 09:36:01 sebastian Exp $ */
 
 #ifndef	FTP_H
 #define	FTP_H
@@ -46,10 +46,10 @@ typedef enum ftptype {
 typedef struct databuf
 {
 	int		listener;		/* listener socket */
-	int		fd;			/* data connection */
+	php_socket_t		fd;			/* data connection */
 	ftptype_t	type;			/* transfer type */
 	char		buf[FTP_BUFSIZE];	/* data buffer */
-#ifdef HAVE_OPENSSL_EXT
+#if HAVE_OPENSSL_EXT
 	SSL		*ssl_handle;	/* ssl handle */
 	int		ssl_active;		/* flag if ssl is active or not */
 #endif
@@ -57,7 +57,7 @@ typedef struct databuf
 
 typedef struct ftpbuf
 {
-	int		fd;			/* control connection */
+	php_socket_t		fd;			/* control connection */
 	php_sockaddr_storage	localaddr;	/* local address */
 	int		resp;			/* last response code */
 	char		inbuf[FTP_BUFSIZE];	/* last response text */
@@ -78,7 +78,7 @@ typedef struct ftpbuf
 	int				lastch;		/* last char of previous call */
 	int				direction;	/* recv = 0 / send = 1 */
 	int				closestream;/* close or not close stream */
-#ifdef HAVE_OPENSSL_EXT
+#if HAVE_OPENSSL_EXT
 	int				use_ssl; /* enable(1) or disable(0) ssl */
 	int				use_ssl_for_data; /* en/disable ssl for the dataconnection */
 	int				old_ssl;	/* old mode = forced data encryption */
@@ -121,6 +121,9 @@ const char*	ftp_pwd(ftpbuf_t *ftp);
 /* exec a command [special features], return true on success, false on error */
 int 	ftp_exec(ftpbuf_t *ftp, const char *cmd);
 
+/* send a raw ftp command, return response as a hashtable, NULL on error */
+void	ftp_raw(ftpbuf_t *ftp, const char *cmd, zval *return_value);
+
 /* changes directories, return true on success, false on error */
 int		ftp_chdir(ftpbuf_t *ftp, const char *dir);
 
@@ -134,6 +137,16 @@ char*		ftp_mkdir(ftpbuf_t *ftp, const char *dir);
 
 /* removes a directory, return true on success, false on error */
 int		ftp_rmdir(ftpbuf_t *ftp, const char *dir);
+
+/* Set permissions on a file */
+int		ftp_chmod(ftpbuf_t *ftp, const int mode, const char *filename, const int filename_len);
+
+/* Allocate space on remote server with ALLO command
+ * Many servers will respond with 202 Allocation not necessary,
+ * however some servers will not accept STOR or APPE until ALLO is confirmed. 
+ * If response is passed, it is estrdup()ed from ftp->inbuf and must be freed
+ * or assigned to a zval returned to the user */
+int		ftp_alloc(ftpbuf_t *ftp, const int size, char **response);
 
 /* returns a NULL-terminated array of filenames in the given path
  * or NULL on error.  the return array must be freed (but don't
@@ -156,13 +169,12 @@ int		ftp_pasv(ftpbuf_t *ftp, int pasv);
 /* retrieves a file and saves its contents to outfp
  * returns true on success, false on error
  */
-int		ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path,
-			ftptype_t type, int resumepos);
+int		ftp_get(ftpbuf_t *ftp, php_stream *outstream, const char *path, ftptype_t type, int resumepos TSRMLS_DC);
 
 /* stores the data from a file, socket, or process as a file on the remote server
  * returns true on success, false on error
  */
-int		ftp_put(ftpbuf_t *ftp, const char *path, php_stream *instream, ftptype_t type, int startpos);
+int		ftp_put(ftpbuf_t *ftp, const char *path, php_stream *instream, ftptype_t type, int startpos TSRMLS_DC);
 
 /* returns the size of the given file, or -1 on error */
 int		ftp_size(ftpbuf_t *ftp, const char *path);
@@ -191,11 +203,11 @@ int		ftp_nb_put(ftpbuf_t *ftp, const char *path, php_stream *instream, ftptype_t
 
 /* continues a previous nb_(f)get command
  */
-int		ftp_nb_continue_read(ftpbuf_t *ftp);
+int		ftp_nb_continue_read(ftpbuf_t *ftp TSRMLS_DC);
 
 /* continues a previous nb_(f)put command
  */
-int		ftp_nb_continue_write(ftpbuf_t *ftp);
+int		ftp_nb_continue_write(ftpbuf_t *ftp TSRMLS_DC);
 
 
 #endif

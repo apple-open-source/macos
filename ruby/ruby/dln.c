@@ -2,8 +2,8 @@
 
   dln.c -
 
-  $Author: matz $
-  $Date: 2004/12/25 10:56:41 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Tue Jan 18 17:05:06 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -25,10 +25,6 @@
 
 #ifdef USE_DLN_A_OUT
 char *dln_argv0;
-#endif
-
-#ifdef _AIX
-#pragma alloca
 #endif
 
 #if defined(HAVE_ALLOCA_H)
@@ -89,15 +85,15 @@ char *getenv();
 # include <image.h>
 #endif
 
-int eaccess();
+#ifndef NO_DLN_LOAD
 
-#if defined(HAVE_DLOPEN) && !defined(USE_DLN_A_OUT) && !defined(_AIX) && !defined(__APPLE__) && !defined(_UNICOSMP)
+#if defined(HAVE_DLOPEN) && !defined(USE_DLN_A_OUT) && !defined(_AIX) && !defined(_UNICOSMP)
 /* dynamic load with dlopen() */
 # define USE_DLN_DLOPEN
 #endif
 
 #ifndef FUNCNAME_PATTERN
-# if defined(__hp9000s300) ||  (defined(__NetBSD__) && !defined(__ELF__)) || defined(__BORLANDC__) || (defined(__FreeBSD__) && !defined(__ELF__)) || (defined(__OpenBSD__) && !defined(__ELF__)) || defined(NeXT) || defined(__WATCOMC__) || defined(__APPLE__)
+# if defined(__hp9000s300) ||  (defined(__NetBSD__) && !defined(__ELF__)) || defined(__BORLANDC__) || (defined(__FreeBSD__) && !defined(__ELF__)) || (defined(__OpenBSD__) && !defined(__ELF__)) || defined(NeXT) || defined(__WATCOMC__)
 #  define FUNCNAME_PATTERN "_Init_%s"
 # else
 #  define FUNCNAME_PATTERN "Init_%s"
@@ -160,7 +156,7 @@ static int dln_errno;
 
 #define DLN_ENOEXEC	ENOEXEC	/* Exec format error */
 #define DLN_ECONFL	1201	/* Symbol name conflict */
-#define DLN_ENOINIT	1202	/* No inititalizer given */
+#define DLN_ENOINIT	1202	/* No initializer given */
 #define DLN_EUNDEF	1203	/* Undefine symbol remains */
 #define DLN_ENOTLIB	1204	/* Not a library file */
 #define DLN_EBADLIB	1205	/* Malformed library file */
@@ -395,7 +391,7 @@ dln_init(prog)
 	if (c != '!') goto err_noexec;
 
 	p = buf;
-	/* skip forwading spaces */
+	/* skip forwarding spaces */
 	while (read(fd, &c, 1) == 1) {
 	    if (c == '\n') goto err_noexec;
 	    if (c != '\t' && c != ' ') {
@@ -960,8 +956,9 @@ load_lib(lib)
     dln_errno = DLN_EBADLIB;
 
     if (lib[0] == '-' && lib[1] == 'l') {
-	char *p = alloca(strlen(lib) + 4);
-	sprintf(p, "lib%s.a", lib+2);
+	long len = strlen(lib) + 4;
+	char *p = alloca(len);
+	snprintf(p, len, "lib%s.a", lib+2);
 	lib = p;
     }
 
@@ -1143,10 +1140,6 @@ dln_sym(name)
 #define NSLINKMODULE_OPTION_BINDNOW 1
 #endif
 #endif
-#else
-#ifdef __APPLE__
-#include <mach-o/dyld.h>
-#endif
 #endif
 
 #if defined _WIN32 && !defined __CYGWIN__
@@ -1274,10 +1267,16 @@ static int vms_fileact(char *filespec, int type);
 static long vms_fisexh(long *sigarr, long *mecarr);
 #endif
 
+#endif /* NO_DLN_LOAD */
+
 void*
 dln_load(file)
     const char *file;
 {
+#ifdef NO_DLN_LOAD
+    rb_raise(rb_eLoadError, "this executable file can't load extension libraries");
+#else
+
 #if !defined(_AIX) && !defined(NeXT)
     const char *error = 0;
 #define DLN_ERROR() (error = dln_strerror(), strcpy(ALLOCA_N(char, strlen(error) + 1), error))
@@ -1400,7 +1399,7 @@ dln_load(file)
     }
 #endif /* _AIX */
 
-#if defined(NeXT) || defined(__APPLE__)
+#if defined(NeXT)
 #define DLN_DEFINED
 /*----------------------------------------------------
    By SHIROYAMA Takayuki Psi@fortune.nest.or.jp
@@ -1633,6 +1632,8 @@ dln_load(file)
   failed:
     rb_loaderror("%s - %s", error, file);
 #endif
+
+#endif /* NO_DLN_LOAD */
     return 0;			/* dummy return */
 }
 
@@ -1682,6 +1683,7 @@ conv_to_posix_path(win32, posix, len)
     char *p = win32;
     char *dst = posix;
 
+    posix[0] = '\0';
     for (p = win32; *p; p++)
 	if (*p == ';') {
 	    *p = 0;

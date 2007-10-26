@@ -44,14 +44,14 @@ static int clipfind(char **aret, int ret, char *tok);
 typedef struct file_info_struct file_info2;
 
 struct file_info_struct {
-	SMB_BIG_UINT size;
+	SMB_OFF_T size;
 	uint16 mode;
 	uid_t uid;
 	gid_t gid;
 	/* These times are normally kept in GMT */
-	time_t mtime;
-	time_t atime;
-	time_t ctime;
+	struct timespec mtime_ts;
+	struct timespec atime_ts;
+	struct timespec ctime_ts;
 	char *name;     /* This is dynamically allocate */
 
 	file_info2 *next, *prev;  /* Used in the stack ... */
@@ -63,6 +63,7 @@ typedef struct {
 } stack;
 
 #define SEPARATORS " \t\n\r"
+extern time_t newer_than;
 extern struct cli_state *cli;
 
 /* These defines are for the do_setrattr routine, to indicate
@@ -87,9 +88,6 @@ static BOOL tar_reset=False;
 static BOOL tar_excl=True;
 /* use regular expressions for search on file names */
 static BOOL tar_re_search=False;
-#ifdef HAVE_REGEX_H
-regex_t *preg;
-#endif
 /* Do not dump anything, just calculate sizes */
 static BOOL dry_run=False;
 /* Dump files with System attribute */
@@ -203,7 +201,11 @@ static void writetarheader(int f, const char *aname, SMB_BIG_UINT size, time_t m
 	oct_it((SMB_BIG_UINT)0, 8, hb.dbuf.uid);
 	oct_it((SMB_BIG_UINT)0, 8, hb.dbuf.gid);
 	oct_it((SMB_BIG_UINT) size, 13, hb.dbuf.size);
+#ifdef HAVE_LONGLONG
 	if (size > (SMB_BIG_UINT)077777777777LL) {    
+#else
+	if (size > (SMB_BIG_UINT)077777777777) {    
+#endif
 
 		/* This is a non-POSIX compatible extention to store files
 			greater than 8GB. */
@@ -310,8 +312,9 @@ of link other than a GNUtar Longlink - ignoring\n"));
 	 * We only get the modification time of the file; set the creation time
 	 * from the mod. time, and the access time to current time
 	 */
-	finfo->mtime = finfo->ctime = strtol(hb->dbuf.mtime, NULL, 8);
-	finfo->atime = time(NULL);
+	finfo->mtime_ts = finfo->ctime_ts =
+		convert_time_t_to_timespec((time_t)strtol(hb->dbuf.mtime, NULL, 8));
+	finfo->atime_ts = convert_time_t_to_timespec(time(NULL));
 	finfo->size = unoct(hb->dbuf.size, sizeof(hb->dbuf.size));
 
 	return True;
@@ -385,7 +388,7 @@ static void initarbuf(void)
 {
 	/* initialize tar buffer */
 	tbufsiz=blocksize*TBLOCK;
-	tarbuf=SMB_MALLOC(tbufsiz);      /* FIXME: We might not get the buffer */
+	tarbuf=(char *)SMB_MALLOC(tbufsiz);      /* FIXME: We might not get the buffer */
 
 	/* reset tar buffer pointer and tar file counter and total dumped */
 	tp=0; ntarf=0; ttarf=0;
@@ -484,7 +487,7 @@ static int strslashcmp(char *s1, char *s2)
 {
 	char *s1_0=s1;
 
-	while(*s1 && *s2 && (*s1 == *s2 || tolower(*s1) == tolower(*s2) ||
+	while(*s1 && *s2 && (*s1 == *s2 || tolower_ascii(*s1) == tolower_ascii(*s2) ||
 				(*s1 == '\\' && *s2=='/') || (*s1 == '/' && *s2=='\\'))) {
 		s1++; s2++;
 	}
@@ -525,6 +528,8 @@ static BOOL ensurepath(char *fname)
 
 	if ((partpath == NULL) || (ffname == NULL)){
 		DEBUG(0, ("Out of memory in ensurepath: %s\n", fname));
+		SAFE_FREE(partpath);
+		SAFE_FREE(ffname);
 		return(False);
 	}
 
@@ -561,15 +566,15 @@ static BOOL ensurepath(char *fname)
 	return True;
 }
 
-static int padit(char *buf, int bufsize, int padsize)
+static int padit(char *buf, SMB_BIG_UINT bufsize, SMB_BIG_UINT padsize)
 {
 	int berr= 0;
 	int bytestowrite;
   
-	DEBUG(5, ("Padding with %d zeros\n", padsize));
-	memset(buf, 0, bufsize);
+	DEBUG(5, ("Padding with %0.f zeros\n", (double)padsize));
+	memset(buf, 0, (size_t)bufsize);
 	while( !berr && padsize > 0 ) {
-		bytestowrite= MIN(bufsize, padsize);
+		bytestowrite= (int)MIN(bufsize, padsize);
 		berr = dotarbuf(tarhandle, buf, bytestowrite) != bytestowrite;
 		padsize -= bytestowrite;
 	}
@@ -621,18 +626,18 @@ static void do_atar(char *rname,char *lname,file_info *finfo1)
 		finfo.mode  = finfo1 -> mode;
 		finfo.uid   = finfo1 -> uid;
 		finfo.gid   = finfo1 -> gid;
-		finfo.mtime = finfo1 -> mtime;
-		finfo.atime = finfo1 -> atime;
-		finfo.ctime = finfo1 -> ctime;
+		finfo.mtime_ts = finfo1 -> mtime_ts;
+		finfo.atime_ts = finfo1 -> atime_ts;
+		finfo.ctime_ts = finfo1 -> ctime_ts;
 		finfo.name  = finfo1 -> name;
 	} else {
 		finfo.size  = def_finfo.size;
 		finfo.mode  = def_finfo.mode;
 		finfo.uid   = def_finfo.uid;
 		finfo.gid   = def_finfo.gid;
-		finfo.mtime = def_finfo.mtime;
-		finfo.atime = def_finfo.atime;
-		finfo.ctime = def_finfo.ctime;
+		finfo.mtime_ts = def_finfo.mtime_ts;
+		finfo.atime_ts = def_finfo.atime_ts;
+		finfo.ctime_ts = def_finfo.ctime_ts;
 		finfo.name  = def_finfo.name;
 	}
 
@@ -647,7 +652,7 @@ static void do_atar(char *rname,char *lname,file_info *finfo1)
 
 	fnum = cli_open(cli, rname, O_RDONLY, DENY_NONE);
 
-	dos_clean_name(rname);
+	clean_name(rname);
 
 	if (fnum == -1) {
 		DEBUG(0,("%s opening remote file %s (%s)\n",
@@ -663,11 +668,14 @@ static void do_atar(char *rname,char *lname,file_info *finfo1)
 
 	safe_strcpy(finfo.name,rname, strlen(rname));
 	if (!finfo1) {
-		if (!cli_getattrE(cli, fnum, &finfo.mode, &finfo.size, NULL, &finfo.atime, &finfo.mtime)) {
+		time_t atime, mtime;
+		if (!cli_getattrE(cli, fnum, &finfo.mode, &finfo.size, NULL, &atime, &mtime)) {
 			DEBUG(0, ("getattrE: %s\n", cli_errstr(cli)));
 			return;
 		}
-		finfo.ctime = finfo.mtime;
+		finfo.atime_ts = convert_time_t_to_timespec(atime);
+		finfo.mtime_ts = convert_time_t_to_timespec(mtime);
+		finfo.ctime_ts = finfo.mtime_ts;
 	}
 
 	DEBUG(3,("file %s attrib 0x%X\n",finfo.name,finfo.mode));
@@ -682,12 +690,11 @@ static void do_atar(char *rname,char *lname,file_info *finfo1)
 		DEBUG(4, ("skipping %s - hidden bit is set\n", finfo.name));
 		shallitime=0;
 	} else {
+		BOOL wrote_tar_header = False;
+
 		DEBUG(3,("getting file %s of size %.0f bytes as a tar file %s",
 			finfo.name, (double)finfo.size, lname));
       
-		/* write a tar header, don't bother with mode - just set to 100644 */
-		writetarheader(tarhandle, rname, finfo.size, finfo.mtime, "100644 \0", ftype);
-
 		while (nread < finfo.size && !close_done) {
 	      
 			DEBUG(3,("nread=%.0f\n",(double)nread));
@@ -700,6 +707,14 @@ static void do_atar(char *rname,char *lname,file_info *finfo1)
 			}
 	      
 			nread += datalen;
+
+			/* Only if the first read succeeds, write out the tar header. */
+			if (!wrote_tar_header) {
+				/* write a tar header, don't bother with mode - just set to 100644 */
+				writetarheader(tarhandle, rname, finfo.size,
+					finfo.mtime_ts.tv_sec, "100644 \0", ftype);
+				wrote_tar_header = True;
+			}
 
 			/* if file size has increased since we made file size query, truncate
 				read so tar header for this file will be correct.
@@ -727,20 +742,25 @@ static void do_atar(char *rname,char *lname,file_info *finfo1)
 			datalen=0;
 		}
 
-		/* pad tar file with zero's if we couldn't get entire file */
-		if (nread < finfo.size) {
-			DEBUG(0, ("Didn't get entire file. size=%.0f, nread=%d\n",
-						(double)finfo.size, (int)nread));
-			if (padit(data, sizeof(data), finfo.size - nread))
-				DEBUG(0,("Error writing tar file - %s\n", strerror(errno)));
-		}
+		if (wrote_tar_header) {
+			/* pad tar file with zero's if we couldn't get entire file */
+			if (nread < finfo.size) {
+				DEBUG(0, ("Didn't get entire file. size=%.0f, nread=%d\n",
+							(double)finfo.size, (int)nread));
+				if (padit(data, (SMB_BIG_UINT)sizeof(data), finfo.size - nread))
+					DEBUG(0,("Error writing tar file - %s\n", strerror(errno)));
+			}
 
-		/* round tar file to nearest block */
-		if (finfo.size % TBLOCK)
-			dozerobuf(tarhandle, TBLOCK - (finfo.size % TBLOCK));
+			/* round tar file to nearest block */
+			if (finfo.size % TBLOCK)
+				dozerobuf(tarhandle, TBLOCK - (finfo.size % TBLOCK));
       
-		ttarf+=finfo.size + TBLOCK - (finfo.size % TBLOCK);
-		ntarf++;
+			ttarf+=finfo.size + TBLOCK - (finfo.size % TBLOCK);
+			ntarf++;
+		} else {
+			DEBUG(4, ("skipping %s - initial read failed (file was locked ?)\n", finfo.name));
+			shallitime=0;
+		}
 	}
   
 	cli_close(cli, fnum);
@@ -797,11 +817,7 @@ static void do_tar(file_info *finfo)
 		DEBUG(5, ("...tar_re_search: %d\n", tar_re_search));
 
 		if ((!tar_re_search && clipfind(cliplist, clipn, exclaim)) ||
-#ifdef HAVE_REGEX_H
-				(tar_re_search && !regexec(preg, exclaim, 0, NULL, 0))) {
-#else
 				(tar_re_search && mask_match_list(exclaim, cliplist, clipn, True))) {
-#endif
 			DEBUG(3,("Skipping file %s\n", exclaim));
 			return;
 		}
@@ -825,7 +841,7 @@ strlen(finfo->name)=%d\nname=%s,cur_dir=%s\n",
 
 		/* write a tar directory, don't bother with mode - just set it to
 			* 40755 */
-		writetarheader(tarhandle, cur_dir, 0, finfo->mtime, "040755 \0", '5');
+		writetarheader(tarhandle, cur_dir, 0, finfo->mtime_ts.tv_sec, "040755 \0", '5');
 		if (tar_noisy) {
 			DEBUG(0,("                directory %s\n", cur_dir));
 		}
@@ -1023,7 +1039,7 @@ static int get_file(file_info2 finfo)
 	/* Now we update the creation date ... */
 	DEBUG(5, ("Updating creation date on %s\n", finfo.name));
 
-	if (!cli_setatr(cli, finfo.name, finfo.mode, finfo.mtime)) {
+	if (!cli_setatr(cli, finfo.name, finfo.mode, finfo.mtime_ts.tv_sec)) {
 		if (tar_real_noisy) {
 			DEBUG(0, ("Could not set time on file: %s\n", finfo.name));
 			/*return(False); */ /* Ignore, as Win95 does not allow changes */
@@ -1059,7 +1075,7 @@ static char *get_longfilename(file_info2 finfo)
 	/* finfo.size here is the length of the filename as written by the "/./@LongLink" name
 	 * header call. */
 	int namesize = finfo.size + strlen(cur_dir) + 2;
-	char *longname = SMB_MALLOC(namesize);
+	char *longname = (char *)SMB_MALLOC(namesize);
 	int offset = 0, left = finfo.size;
 	BOOL first = True;
 
@@ -1083,6 +1099,7 @@ static char *get_longfilename(file_info2 finfo)
 	while (left > 0) {
 		if (next_block(tarbuf, &buffer_p, tbufsiz) <= 0) {
 			DEBUG(0, ("Empty file, short tar file, or read error: %s\n", strerror(errno)));
+			SAFE_FREE(longname);
 			return(NULL);
 		}
 
@@ -1103,6 +1120,8 @@ static void do_tarput(void)
 	char *longfilename = NULL, linkflag;
 	int skip = False;
 
+	ZERO_STRUCT(finfo);
+
 	GetTimeOfDay(&tp_start);
 	DEBUG(5, ("RJS do_tarput called ...\n"));
 
@@ -1113,6 +1132,7 @@ static void do_tarput(void)
 		/* Get us to the next block, or the first block first time around */
 		if (next_block(tarbuf, &buffer_p, tbufsiz) <= 0) {
 			DEBUG(0, ("Empty file, short tar file, or read error: %s\n", strerror(errno)));
+			SAFE_FREE(longfilename);
 			return;
 		}
 
@@ -1150,11 +1170,7 @@ static void do_tarput(void)
 		/* Well, now we have a header, process the file ...            */
 		/* Should we skip the file? We have the long name as well here */
 		skip = clipn && ((!tar_re_search && clipfind(cliplist, clipn, finfo.name) ^ tar_excl) ||
-#ifdef HAVE_REGEX_H
-					(tar_re_search && !regexec(preg, finfo.name, 0, NULL, 0)));
-#else
 					(tar_re_search && mask_match_list(finfo.name, cliplist, clipn, True)));
-#endif
 
 		DEBUG(5, ("Skip = %i, cliplist=%s, file=%s\n", skip, (cliplist?cliplist[0]:NULL), finfo.name));
 		if (skip) {
@@ -1188,6 +1204,7 @@ static void do_tarput(void)
 				}
 				break;
 			case 'L':
+				SAFE_FREE(longfilename);
 				longfilename = get_longfilename(finfo);
 				if (!longfilename) {
 					DEBUG(0, ("abandoning restore\n"));
@@ -1506,7 +1523,7 @@ static int read_inclusion_file(char *filename)
 	while ((! error) && (x_fgets(buf, sizeof(buf)-1, inclusion))) {
 		if (inclusion_buffer == NULL) {
 			inclusion_buffer_size = 1024;
-			if ((inclusion_buffer = SMB_MALLOC(inclusion_buffer_size)) == NULL) {
+			if ((inclusion_buffer = (char *)SMB_MALLOC(inclusion_buffer_size)) == NULL) {
 				DEBUG(0,("failure allocating buffer to read inclusion file\n"));
 				error = 1;
 				break;
@@ -1518,16 +1535,13 @@ static int read_inclusion_file(char *filename)
 		}
     
 		if ((strlen(buf) + 1 + inclusion_buffer_sofar) >= inclusion_buffer_size) {
-			char *ib;
 			inclusion_buffer_size *= 2;
-			ib = SMB_REALLOC(inclusion_buffer,inclusion_buffer_size);
-			if (! ib) {
+			inclusion_buffer = (char *)SMB_REALLOC(inclusion_buffer,inclusion_buffer_size);
+			if (!inclusion_buffer) {
 				DEBUG(0,("failure enlarging inclusion buffer to %d bytes\n",
 						inclusion_buffer_size));
 				error = 1;
 				break;
-			} else {
-				inclusion_buffer = ib;
 			}
 		}
     
@@ -1632,12 +1646,11 @@ int tar_parseargs(int argc, char *argv[], const char *Optarg, int Optind)
 					return 0;
 				} else {
 					SMB_STRUCT_STAT stbuf;
-					extern time_t newer_than;
 	
 					if (sys_stat(argv[Optind], &stbuf) == 0) {
 						newer_than = stbuf.st_mtime;
 						DEBUG(1,("Getting files newer than %s",
-							asctime(LocalTime(&newer_than))));
+							time_to_asc(newer_than)));
 						newOptind++;
 						Optind++;
 					} else {
@@ -1707,8 +1720,8 @@ int tar_parseargs(int argc, char *argv[], const char *Optarg, int Optind)
 			return 0;
 		}
 		newOptind++;
-		Optind++;
-		if (! read_inclusion_file(argv[Optind])) {
+		/* Optind points at the tar output file, Optind+1 at the inclusion file. */
+		if (! read_inclusion_file(argv[Optind+1])) {
 			return 0;
 		}
 	} else if (Optind+1<argc && !tar_re_search) { /* For backwards compatibility */
@@ -1731,6 +1744,7 @@ int tar_parseargs(int argc, char *argv[], const char *Optarg, int Optind)
 
 			if ((tmpstr = (char *)SMB_MALLOC(strlen(cliplist[clipcount])+1)) == NULL) {
 				DEBUG(0, ("Could not allocate space for a cliplist item, # %i\n", clipcount));
+				SAFE_FREE(tmplist);
 				return 0;
 			}
 
@@ -1747,26 +1761,8 @@ int tar_parseargs(int argc, char *argv[], const char *Optarg, int Optind)
 		newOptind += clipn;
 	}
 
-	if (Optind+1<argc && tar_re_search) {  /* Doing regular expression seaches */
-#ifdef HAVE_REGEX_H
-		int errcode;
-
-		if ((preg = (regex_t *)SMB_MALLOC(65536)) == NULL) {
-
-			DEBUG(0, ("Could not allocate buffer for regular expression search\n"));
-			return;
-		}
-
-		if (errcode = regcomp(preg, argv[Optind + 1], REG_EXTENDED)) {
-			char errstr[1024];
-			size_t errlen;
-
-			errlen = regerror(errcode, preg, errstr, sizeof(errstr) - 1);
-			DEBUG(0, ("Could not compile pattern buffer for re search: %s\n%s\n", argv[Optind + 1], errstr));
-			return;
-		}
-#endif
-
+	if (Optind+1<argc && tar_re_search && tar_clipfl != 'F') {
+		/* Doing regular expression seaches not from an inclusion file. */
 		clipn=argc-Optind-1;
 		cliplist=argv+Optind+1;
 		newOptind += clipn;
@@ -1791,11 +1787,7 @@ int tar_parseargs(int argc, char *argv[], const char *Optarg, int Optind)
 		}
 
 	} else {
-		if (tar_type=='c' && (dry_run || strcmp(argv[Optind], "/dev/null")==0)) {
-			if (!dry_run) {
-				DEBUG(0,("Output is /dev/null, assuming dry_run\n"));
-				dry_run = True;
-			}
+		if (tar_type=='c' && dry_run) {
 			tarhandle=-1;
 		} else if ((tar_type=='x' && (tarhandle = sys_open(argv[Optind], O_RDONLY, 0)) == -1)
 					|| (tar_type=='c' && (tarhandle=sys_creat(argv[Optind], 0644)) < 0)) {

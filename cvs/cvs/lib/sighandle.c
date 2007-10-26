@@ -37,15 +37,6 @@
 #include <stdio.h>
 #include <signal.h>
 
-/* Add prototype support.  */
-#ifndef PROTO
-#if defined (USE_PROTOTYPES) ? USE_PROTOTYPES : defined (__STDC__)
-#define PROTO(ARGS) ARGS
-#else
-#define PROTO(ARGS) ()
-#endif
-#endif
-
 #ifdef STDC_HEADERS
 #include <stdlib.h>
 #else
@@ -84,7 +75,7 @@ static	struct sigaction	*SIG_defaults;
 #ifdef BSD_SIGNALS
 static	struct sigvec		*SIG_defaults;
 #else
-static	RETSIGTYPE		(**SIG_defaults) PROTO ((int));
+static	RETSIGTYPE		(**SIG_defaults) (int);
 #endif
 #endif
 
@@ -129,8 +120,8 @@ static int SIG_init()
 			calloc(i, sizeof(struct sigvec));
 #else
 	if (!SIG_defaults)
-		SIG_defaults = (RETSIGTYPE (**) PROTO ((int)) )
-			calloc(i, sizeof(RETSIGTYPE (**) PROTO ((int)) ));
+		SIG_defaults = ( RETSIGTYPE (**) (int) )
+			calloc( i, sizeof( RETSIGTYPE (**) (int) ) );
 #endif
 	SIG_crSectMask = 0;
 #endif
@@ -139,25 +130,84 @@ static int SIG_init()
 			calloc(i, sizeof(struct SIG_hlist *));
 	return (!SIG_defaults || !SIG_handlers);
 }
-
+
+
+
+/*
+ * The following begins a critical section.
+ */
+void SIG_beginCrSect (void)
+{
+	if (SIG_init() == 0)
+	{
+		if (SIG_crSectNest == 0)
+		{
+#ifdef POSIX_SIGNALS
+			sigset_t sigset_mask;
+
+			(void) sigfillset(&sigset_mask);
+			(void) sigprocmask(SIG_SETMASK,
+					   &sigset_mask, &SIG_crSectMask);
+#else
+#ifdef BSD_SIGNALS
+			SIG_crSectMask = sigblock(~0);
+#else
+			/* TBD */
+#endif
+#endif
+		}
+		SIG_crSectNest++;
+	}
+}
+
+
+
+/*
+ * The following ends a critical section.
+ */
+void SIG_endCrSect (void)
+{
+	if (SIG_init() == 0)
+	{
+		SIG_crSectNest--;
+		if (SIG_crSectNest == 0)
+		{
+#ifdef POSIX_SIGNALS
+			(void) sigprocmask(SIG_SETMASK, &SIG_crSectMask, NULL);
+#else
+#ifdef BSD_SIGNALS
+			(void) sigsetmask(SIG_crSectMask);
+#else
+			/* TBD */
+#endif
+#endif
+		}
+	}
+}
+
+
+
 /*
  * The following invokes each signal handler in the reverse order in which
  * they were registered.
  */
-static RETSIGTYPE SIG_handle PROTO ((int));
-
-static RETSIGTYPE SIG_handle(sig)
-int			sig;
+static RETSIGTYPE SIG_handle (int sig)
 {
 	struct SIG_hlist	*this;
 
 	/* Dispatch signal handlers */
+	/* This crit section stuff is a CVSism - we know that our interrupt
+	 * handlers will always end up exiting and we don't want them to be
+	 * interrupted themselves.
+	 */
+	SIG_beginCrSect();
 	this = SIG_handlers[sig];
 	while (this != (struct SIG_hlist *) NULL)
 	{
 		(*this->handler)(sig);
 		this = this->next;
 	}
+	SIG_endCrSect();
 
 	return;
 }
@@ -170,9 +220,7 @@ int			sig;
  * restoration later.
  */
 
-int SIG_register(sig,fn)
-int	sig;
-RETSIGTYPE	(*fn)();
+int SIG_register(int sig, RETSIGTYPE (*fn)())
 {
 	int			val;
 	struct SIG_hlist	*this;
@@ -267,15 +315,15 @@ RETSIGTYPE	(*fn)();
 
 	return val;
 }
-
+
+
+
 /*
  * The following deregisters a signal handler.  If the last signal handler for
  * a given signal is deregistered, the default sigvec information is restored.
  */
 
-int SIG_deregister(sig,fn)
-int	sig;
-RETSIGTYPE	(*fn)();
+int SIG_deregister(int sig, RETSIGTYPE (*fn)())
 {
 	int			val;
 	struct SIG_hlist	*this;
@@ -354,65 +402,15 @@ RETSIGTYPE	(*fn)();
 
 	return val;
 }
-
-/*
- * The following begins a critical section.
- */
 
-void SIG_beginCrSect()
-{
-	if (SIG_init() == 0)
-	{
-		if (SIG_crSectNest == 0)
-		{
-#ifdef POSIX_SIGNALS
-			sigset_t sigset_mask;
 
-			(void) sigfillset(&sigset_mask);
-			(void) sigprocmask(SIG_SETMASK,
-					   &sigset_mask, &SIG_crSectMask);
-#else
-#ifdef BSD_SIGNALS
-			SIG_crSectMask = sigblock(~0);
-#else
-			/* TBD */
-#endif
-#endif
-		}
-		SIG_crSectNest++;
-	}
-}
-
+
 /*
  * Return nonzero if currently in a critical section.
  * Otherwise return zero.
  */
 
-int SIG_inCrSect()
+int SIG_inCrSect (void)
 {
 	return SIG_crSectNest > 0;
-}
-
-/*
- * The following ends a critical section.
- */
-
-void SIG_endCrSect()
-{
-	if (SIG_init() == 0)
-	{
-		SIG_crSectNest--;
-		if (SIG_crSectNest == 0)
-		{
-#ifdef POSIX_SIGNALS
-			(void) sigprocmask(SIG_SETMASK, &SIG_crSectMask, NULL);
-#else
-#ifdef BSD_SIGNALS
-			(void) sigsetmask(SIG_crSectMask);
-#else
-			/* TBD */
-#endif
-#endif
-		}
-	}
 }

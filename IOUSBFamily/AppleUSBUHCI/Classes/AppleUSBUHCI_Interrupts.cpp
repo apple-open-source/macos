@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,7 +28,7 @@
 #include "AppleUSBUHCI.h"
 #include "AppleUHCIListElement.h"
 
-#define super IOUSBControllerV2
+#define super IOUSBControllerV3
 #define self this
 
 // ========================================================================
@@ -43,6 +43,29 @@ AppleUSBUHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 }
 
 
+void 
+AppleUSBUHCI::UpdateFrameNumberWithTime(void)
+{
+	
+	// 
+	// This routine is called at software interrupt time(DPC to me) to update the anchor values returned
+	// for GetFrameNumberWithTime. These values are calculated at the time of the actual hardware 
+	// interrupt in (FilterInterrupt) and stored in shadow registers.
+	// 
+		
+	// update when we detect a change to irq cached values
+    if (_anchorFrame != _tempAnchorFrame)
+    {
+		
+		// copy the temporary variables over to the real thing, 
+		// we do this because this method is protected by the workloop gate whereas the FilterInterrupt one is not
+		_anchorTime = _tempAnchorTime;
+		_anchorFrame = _tempAnchorFrame;
+	}
+
+}
+
+
 
 //Called at hardware interrupt time.
 bool 
@@ -54,9 +77,14 @@ AppleUSBUHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
     // If we our controller has gone away, or it's going away, or if we're on a PC Card and we have been ejected,
     // then don't process this interrupt.
     //
-    // if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_uhciAvailable)
-    if (!controller || controller->isInactive() || !controller->_uhciAvailable)
+    // if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_controllerAvailable)
+    if (!controller || controller->isInactive() || !controller->_controllerAvailable)
+	{
+#if UHCI_USE_KPRINTF
+		kprintf("AppleUSBUHCI[%p]::PrimaryInterruptFilter - not available - ignoring\n", controller);
+#endif
         return false;
+	}
 
     // Process this interrupt
     //
@@ -85,15 +113,97 @@ AppleUSBUHCI::InterruptHandler(OSObject *owner, IOInterruptEventSource *source, 
     // while in suspend state to prevent an interrupt storm.
     //
 	
-    if (controller && !controller->isInactive() && controller->_uhciAvailable) 
+    if (controller && !controller->isInactive() && controller->_controllerAvailable) 
 	{
         controller->HandleInterrupt();
     }
+#if UHCI_USE_KPRINTF
+	else
+	{
+		kprintf("AppleUSBUHCI[%p]::InterruptHandler - not available - ignoring\n", controller);
+	}
+#endif
 }
 
 
 
 // ========= Interrupt handling ================
+
+//
+// This is similar to the code in GetFrameNumber that is only called at hw irq time.  It uses separate vars since it can preempt the 
+// real GetFrameNumber function.  It does not use the _frameLock mutex because filterinterrupt cannot be preempted.
+//
+UInt64
+AppleUSBUHCI::GetFrameNumberInternal(void)
+{
+    UInt32				lastIrqFrameLow;
+	UInt32				currentIrqFrameLow;
+    UInt64				lastIrqFrameHi;
+	UInt64              currentFrame;
+	
+	//	
+	// ** only call this function from FilterInterrupt or if the UHCI interrupts are disabled ** 
+	//
+	// This code attempts to record the time of the SOF. According to the UHCI 1.1 spec
+	// the IRQ happens at EOF (end of frame) time but we will treat this like SOF time for our purposes.  
+	//
+	// *NOTE: debug log messages are disabled. The debug messages can only be enabled if we are using kprintf or some 
+	// logging feature that is safe to call at FilterInterrupt time.
+
+	// If the controller is halted, then we should just bail out
+	if (ioRead16(kUHCI_STS) & kUHCI_STS_HCH)
+	{
+		if (_myPowerState == kUSBPowerStateOn)
+		{
+			USBLog(1, "AppleUSBUHCI[%p]::GetFrameNumber called but controller is halted",  this);
+		}
+		return 0;
+	}
+	
+	//USBLog(7, "AppleUSBUHCI[%p]::GetFrameNumberInternal - check frame number", this);
+	
+	// _lastIrqFrame preserves the last 64 bit frame number we recorded
+	lastIrqFrameLow = _lastIrqFrameLow;
+	lastIrqFrameHi = _lastIrqFrame & ~0x7ff;
+	
+	currentIrqFrameLow = ReadFrameNumberRegister();
+	
+	// check for overflow bit(10) change
+	if (currentIrqFrameLow <= lastIrqFrameLow) 
+	{
+		uint64_t		tempTime;
+		
+		// 11 bit overflow (bit 10 changed)
+		// bump high part
+			
+		lastIrqFrameHi += 0x800;
+		
+		//
+		// if the frame list rolled over or we don't have a value yet then update our cached copy of frame_with_time
+		// the frame counter is 11 bits wide, bit 10 will change every 1000ms (1 sec). 
+		//
+		// note: we may make an extra update if we happen to take an interrupt when the 64 bit value rolls over but 
+		// this is once in a blue moon and won't cause a problem. 
+		//
+		
+		currentFrame = lastIrqFrameHi + ((UInt64) currentIrqFrameLow);
+			
+		_tempAnchorFrame = currentFrame;
+		clock_get_uptime(&_tempAnchorTime);
+
+	} else 
+	{
+		currentFrame = lastIrqFrameHi + ((UInt64) currentIrqFrameLow);
+	}
+	
+	_lastIrqFrameLow = currentIrqFrameLow;
+	_lastIrqFrame = currentFrame;
+		
+    // USBLog(7, "AppleUSBUHCI[%p]:: GetFrameNumberInternal - frame number is %qx (%qd) %qd .sec", this, currentFrame, currentFrame, currentFrame/1000);
+	
+    return (currentFrame);
+}
+
 
 
 // Called at hardware interrupt time
@@ -103,6 +213,7 @@ AppleUSBUHCI::FilterInterrupt(void)
 	UInt16						activeInterrupts;
 	AbsoluteTime				timeStamp;
     Boolean						needSignal = false;
+	UInt64						currentFrame;
 	
 	// we leave all interrupts enabled, so see which ones are active
 	activeInterrupts = ioRead16(kUHCI_STS) & kUHCI_STS_INTR_MASK;
@@ -146,6 +257,11 @@ AppleUSBUHCI::FilterInterrupt(void)
 			_usbCompletionInterrupt = kUHCI_STS_INT;
 			ioWrite16(kUHCI_STS, kUHCI_STS_INT);
 			needSignal = true;
+						
+			// This function will give us the current frame number and check for rollover at the same time
+			// since we are calling from filterInterrupts we will not be preempted, it will also update the 
+			// cached copy of the frame_number_with_time 
+			GetFrameNumberInternal();
 			
 			// we need to check the periodic list to see if there are any Isoch TDs which need to come off
 			// and potentially have their frame lists updated (for Low Latency) we will place them in reverse
@@ -236,7 +352,6 @@ AppleUSBUHCI::HandleInterrupt(void)
 	UInt16					status;
 	UInt32					intrStatus;
 	bool					needReset = false;
-	UHCIAlignmentBuffer		*bp;
 		
 	status = ioRead16(kUHCI_STS);
 
@@ -254,12 +369,9 @@ AppleUSBUHCI::HandleInterrupt(void)
 	}
 	if (_resumeDetectInterrupt & kUHCI_STS_RD) 
 	{
+		USBLog(2, "AppleUSBUHCI[%p]::HandleInterrupt - Host controller resume detected - calling EnsureUsability", this);
+		EnsureUsability();		
 		_resumeDetectInterrupt = 0;
-		USBLog(2, "AppleUSBUHCI[%p]::HandleInterrupt - Host controller resume detected", this);
-		if (_uhciBusState == kUHCIBusStateSuspended) 
-		{
-			ResumeController();
-		}
 	}
 	if (_usbErrorInterrupt & kUHCI_STS_EI) 
 	{
@@ -269,6 +381,10 @@ AppleUSBUHCI::HandleInterrupt(void)
 	if (_usbCompletionInterrupt & kUHCI_STS_INT)
 	{
 		_usbCompletionInterrupt = 0;
+		
+		// updates hardware interrupt time from shadow vars that are se in the real irq handler
+		UpdateFrameNumberWithTime();
+
 		USBLog(7, "AppleUSBUHCI[%p]::HandleInterrupt - Normal interrupt", this);
 		if (_consumerCount != _producerCount)
 		{	
@@ -276,6 +392,7 @@ AppleUSBUHCI::HandleInterrupt(void)
 		}
 	}
 	
+	// this code probably doesn't work
 	if (needReset) 
 	{
 		IOSleep(1000);
@@ -284,10 +401,17 @@ AppleUSBUHCI::HandleInterrupt(void)
 		Run(true);
 	}
 
-	ProcessCompletedTransactions();
+	if (_myPowerState == kUSBPowerStateOn)
+	{
+		ProcessCompletedTransactions();
 	
-	// Check for root hub status change
-	RHCheckStatus();
+		// Check for root hub status change
+		RHCheckStatus();
+	}
+	else
+	{
+		USBLog(1, "AppleUSBUHCI[%p]::HandleInterrupt - deferring further processing until we are running again", this);
+	}
 }
 
 

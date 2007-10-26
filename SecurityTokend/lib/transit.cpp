@@ -73,7 +73,7 @@ void DataRetrieval::returnData(KeyHandle &hKey, RecordHandle &hRecord,
 	}
 	hKey = this->keyhandle;
 	hRecord = this->record;
-	server.freeRetrievedData(this);
+	server->freeRetrievedData(this);
 	//@@@ deferred-release outAttributes == Copier
 }
 

@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: browscap.c,v 1.60.2.18.2.2 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: browscap.c,v 1.85.2.2.2.3 2007/03/07 00:52:40 iliaa Exp $ */
 
 #include "php.h"
 #include "php_regex.h"
@@ -33,17 +33,17 @@ static zval *current_section;
 
 /* OBJECTS_FIXME: This whole extension needs going through. The use of objects looks pretty broken here */
 
-static void browscap_entry_dtor(zval **pvalue)
+static void browscap_entry_dtor(zval **zvalue)
 {
-	if (Z_TYPE_PP(pvalue) == IS_ARRAY) {
-		zend_hash_destroy(Z_ARRVAL_PP(pvalue));
-		free(Z_ARRVAL_PP(pvalue));
-	} else if (Z_TYPE_PP(pvalue) == IS_STRING) {
-		if (Z_STRVAL_PP(pvalue) && Z_STRVAL_PP(pvalue) != empty_string) {
-			free(Z_STRVAL_PP(pvalue));
+	if (Z_TYPE_PP(zvalue) == IS_ARRAY) {
+		zend_hash_destroy(Z_ARRVAL_PP(zvalue));
+		free(Z_ARRVAL_PP(zvalue));
+	} else if (Z_TYPE_PP(zvalue) == IS_STRING) {
+		if (Z_STRVAL_PP(zvalue)) {
+			free(Z_STRVAL_PP(zvalue));
 		}
 	}
-	free(*pvalue);
+	free(*zvalue);
 }
 
 /* {{{ convert_browscap_pattern
@@ -55,7 +55,7 @@ static void convert_browscap_pattern(zval *pattern)
 
 	php_strtolower(Z_STRVAL_P(pattern), Z_STRLEN_P(pattern));
 
-	t = (char *) malloc(Z_STRLEN_P(pattern)*2 + 3);
+	t = (char *) safe_pemalloc(Z_STRLEN_P(pattern), 2, 3, 1);
 
 	t[0] = '^';
 
@@ -100,9 +100,9 @@ static void php_browscap_parser_cb(zval *arg1, zval *arg2, int callback_type, vo
 				zval *new_property;
 				char *new_key;
 
-				new_property = (zval *) malloc(sizeof(zval));
+				new_property = (zval *) pemalloc(sizeof(zval), 1);
 				INIT_PZVAL(new_property);
-				Z_STRVAL_P(new_property) = Z_STRLEN_P(arg2)?zend_strndup(Z_STRVAL_P(arg2), Z_STRLEN_P(arg2)):empty_string;
+				Z_STRVAL_P(new_property) = zend_strndup(Z_STRVAL_P(arg2), Z_STRLEN_P(arg2));
 				Z_STRLEN_P(new_property) = Z_STRLEN_P(arg2);
 				Z_TYPE_P(new_property) = IS_STRING;
 
@@ -118,14 +118,14 @@ static void php_browscap_parser_cb(zval *arg1, zval *arg2, int callback_type, vo
 				HashTable *section_properties;
 
 				/*printf("'%s' (%d)\n",$1.value.str.val,$1.value.str.len+1);*/
-				current_section = (zval *) malloc(sizeof(zval));
+				current_section = (zval *) pemalloc(sizeof(zval), 1);
 				INIT_PZVAL(current_section);
-				processed = (zval *) malloc(sizeof(zval));
+				processed = (zval *) pemalloc(sizeof(zval), 1);
 				INIT_PZVAL(processed);
-				unprocessed = (zval *) malloc(sizeof(zval));
+				unprocessed = (zval *) pemalloc(sizeof(zval), 1);
 				INIT_PZVAL(unprocessed);
 
-				section_properties = (HashTable *) malloc(sizeof(HashTable));
+				section_properties = (HashTable *) pemalloc(sizeof(HashTable), 1);
 				zend_hash_init(section_properties, 0, NULL, (dtor_func_t) browscap_entry_dtor, 1);
 				current_section->value.ht = section_properties;
 				current_section->type = IS_ARRAY;
@@ -299,6 +299,7 @@ PHP_FUNCTION(get_browser)
 	}
 
 	if (agent_name == NULL || Z_TYPE_PP(agent_name) == IS_NULL) {
+		zend_is_auto_global("_SERVER", sizeof("_SERVER")-1 TSRMLS_CC);
 		if (!PG(http_globals)[TRACK_VARS_SERVER]
 			|| zend_hash_find(PG(http_globals)[TRACK_VARS_SERVER]->value.ht, "HTTP_USER_AGENT", sizeof("HTTP_USER_AGENT"), (void **) &agent_name)==FAILURE) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "HTTP_USER_AGENT variable is not set, cannot determine user agent name");
@@ -349,9 +350,7 @@ PHP_FUNCTION(get_browser)
 		}
 	}
 
-	if (lookup_browser_name) {
-		efree(lookup_browser_name);
-	}
+	efree(lookup_browser_name);
 }
 /* }}} */
 

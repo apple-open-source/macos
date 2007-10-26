@@ -35,7 +35,8 @@
 #include <arpa/nameser.h>	// DNS 
 #include <resolv.h>			// resolver global state
 
-#include "DSMutexSemaphore.h"
+#include <DirectoryServiceCore/DSMutexSemaphore.h>
+#include <DirectoryServiceCore/PrivateTypes.h>
 
 #define	 MAXIPADDRSTRLEN	 32
 
@@ -48,8 +49,8 @@ typedef char		IPAddrStr[ MAXIPADDRSTRLEN ]; // define a type for "ddd.ddd.ddd.dd
 
 enum { kMaxHostNameLength = 255 };
 
-typedef	 u_short	InetPort;
-typedef	 u_long		InetHost;
+typedef	 UInt16		InetPort;
+typedef	 UInt32		InetHost;
 typedef	 char		InetDomainName[ kMaxHostNameLength + 1 ];
 
 typedef	 struct MSInetHostInfo
@@ -79,8 +80,8 @@ typedef struct IPAddressInfo {
 const	short	kPrimaryIPAddr	= 0;
 const	short	kMaxIPAddrs		= 32;
 
-const	OSStatus kMAPRBLKnownSpammerResult = -10101;
-const	OSStatus kNoValidIPAddress4ThisName = -10102;
+const	SInt32 kMAPRBLKnownSpammerResult = -10101;
+const	SInt32 kNoValidIPAddress4ThisName = -10102;
 
 class DSNetworkUtilities 
 {
@@ -91,7 +92,7 @@ public:
 			kTCPNotAvailable
 	};
 	
-	static OSStatus		Initialize				( void );
+	static SInt32		Initialize				( void );
 	static void			DeInitialize			( void );
 
 	// local host information
@@ -109,12 +110,12 @@ public:
 	static int			IPAddrToString			( const InetHost inAddr, char *ioNameBuffer, const int inBufferSize);
 	static int			StringToIPAddr			( const char *inAddrStr, InetHost *ioIPAddr );
 
-	static OSStatus		ResolveToIPAddress 		( const InetDomainName inDomainName, InetHost* outInetHost );
+	static SInt32		ResolveToIPAddress 		( const InetDomainName inDomainName, InetHost* outInetHost );
 
 protected:
 	static int				InitializeTCP		( void );
 	static void		 		Signal				( void );
-	static long				Wait				( sInt32 milliSecs = DSSemaphore::kForever );
+	static void             Wait				( void );
 
 
 	// Data members

@@ -1,6 +1,6 @@
-# $FreeBSD: src/share/mk/bsd.man.mk,v 1.53 2003/09/07 12:59:22 ru Exp $
+# $FreeBSD: src/share/mk/bsd.man.mk,v 1.56 2005/01/06 11:12:43 krion Exp $
 #
-# The include file <bsd.man.mk> handles installing manual pages and 
+# The include file <bsd.man.mk> handles installing manual pages and
 # their links.
 #
 #
@@ -26,14 +26,14 @@
 #		stdout. [${COMPRESS_CMD}]
 #
 # MLINKS	List of manual page links (using a suffix). The
-#		linked-to file must come first, the linked file 
-#		second, and there may be multiple pairs. The files 
+#		linked-to file must come first, the linked file
+#		second, and there may be multiple pairs. The files
 #		are hard-linked.
 #
-# NOMANCOMPRESS	If you do not want unformatted manual pages to be 
+# NO_MANCOMPRESS	If you do not want unformatted manual pages to be
 #		compressed when they are installed. [not set]
 #
-# NOMLINKS	If you do not want install manual page links. [not set]
+# NO_MLINKS	If you do not want install manual page links. [not set]
 #
 # MANFILTER	command to pipe the raw man page through before compressing
 #		or installing.  Can be used to do sed substitution.
@@ -77,10 +77,10 @@ MAN+=	${MAN${sect}}
 _manpages:
 all-man: _manpages
 
-.if defined(NOMANCOMPRESS)
+.if defined(NO_MANCOMPRESS)
 
 # Make special arrangements to filter to a temporary file at build time
-# for NOMANCOMPRESS.
+# for NO_MANCOMPRESS.
 .if defined(MANFILTER)
 FILTEXTENSION=		.filt
 .else
@@ -162,7 +162,7 @@ maninstall: _maninstall
 _maninstall:
 .if defined(MAN) && !empty(MAN)
 _maninstall: ${MAN}
-.if defined(NOMANCOMPRESS)
+.if defined(NO_MANCOMPRESS)
 .if defined(MANFILTER)
 .for page in ${MAN}
 	${MINSTALL} ${page:T:S/$/${FILTEXTENSION}/g} \
@@ -203,7 +203,7 @@ _maninstall: ${MAN}
 .endif
 .endif
 
-.if !defined(NOMLINKS) && defined(MLINKS) && !empty(MLINKS)
+.if !defined(NO_MLINKS) && defined(MLINKS) && !empty(MLINKS)
 	@set ${MLINKS:C/\.([^.]*)$/.\1 \1/}; \
 	while : ; do \
 		case $$# in \

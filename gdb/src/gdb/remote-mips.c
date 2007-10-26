@@ -1,7 +1,7 @@
 /* Remote debugging interface for MIPS remote debugging protocol.
 
    Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002 Free Software Foundation, Inc.
+   2002, 2003, 2004 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support.  Written by Ian Lance Taylor
    <ian@cygnus.com>.
@@ -31,12 +31,15 @@
 #include "gdbcore.h"
 #include "serial.h"
 #include "target.h"
+#include "exceptions.h"
 #include "remote-utils.h"
 #include "gdb_string.h"
 #include "gdb_stat.h"
 #include "regcache.h"
 #include <ctype.h>
 #include "mips-tdep.h"
+/* APPLE LOCAL - subroutine inlining  */
+#include "inlining.h"
 
 
 /* Breakpoint types.  Values 0, 1, and 2 must agree with the watch
@@ -113,8 +116,6 @@ static int mips_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len,
 			     struct target_ops *target);
 
 static void mips_files_info (struct target_ops *ignore);
-
-static void mips_create_inferior (char *execfile, char *args, char **env);
 
 static void mips_mourn_inferior (void);
 
@@ -498,7 +499,7 @@ mips_error (char *string,...)
   printf_unfiltered ("Ending remote MIPS debugging.\n");
   target_mourn_inferior ();
 
-  throw_exception (RETURN_ERROR);
+  deprecated_throw_reason (RETURN_ERROR);
 }
 
 /* putc_readable - print a character, displaying non-printable chars in
@@ -1214,7 +1215,7 @@ mips_request (int cmd,
     {
       if (mips_need_reply)
 	internal_error (__FILE__, __LINE__,
-			"mips_request: Trying to send command before reply");
+			_("mips_request: Trying to send command before reply"));
       sprintf (buff, "0x0 %c 0x%s 0x%s", cmd, paddr_nz (addr), paddr_nz (data));
       mips_send_packet (buff, 1);
       mips_need_reply = 1;
@@ -1225,7 +1226,7 @@ mips_request (int cmd,
 
   if (!mips_need_reply)
     internal_error (__FILE__, __LINE__,
-		    "mips_request: Trying to get reply before command");
+		    _("mips_request: Trying to get reply before command"));
 
   mips_need_reply = 0;
 
@@ -1588,7 +1589,18 @@ device is attached to the target board (e.g., /dev/ttya).\n"
   flush_cached_frames ();
   registers_changed ();
   stop_pc = read_pc ();
-  print_stack_frame (get_selected_frame (), -1, 1);
+  /* APPLE LOCAL begin subroutine inlining  */
+  /* If the PC has changed since the last time we updated the
+     global_inlined_call_stack data, we need to verify the current
+     data and possibly update it.  */
+  if (stop_pc != inlined_function_call_stack_pc ())
+    inlined_function_update_call_stack (stop_pc);
+  /* APPLE LOCAL end subroutine inlining  */
+
+  print_stack_frame (get_selected_frame (NULL), 0, SRC_AND_LOC);
+  /* APPLE LOCAL begin subroutine inlining  */
+  clear_inlined_subroutine_print_frames ();
+  /* APPLE LOCAL end subroutine inlining  */
   xfree (serial_port_name);
 }
 
@@ -1759,17 +1771,17 @@ mips_wait (ptid_t ptid, struct target_waitstatus *status)
     {
       char buf[MAX_REGISTER_SIZE];
 
-      store_unsigned_integer (buf, DEPRECATED_REGISTER_RAW_SIZE (PC_REGNUM), rpc);
-      supply_register (PC_REGNUM, buf);
+      store_unsigned_integer (buf, register_size (current_gdbarch, PC_REGNUM), rpc);
+      regcache_raw_supply (current_regcache, PC_REGNUM, buf);
 
-      store_unsigned_integer (buf, DEPRECATED_REGISTER_RAW_SIZE (PC_REGNUM), rfp);
-      supply_register (30, buf);	/* This register they are avoiding and so it is unnamed */
+      store_unsigned_integer (buf, register_size (current_gdbarch, PC_REGNUM), rfp);
+      regcache_raw_supply (current_regcache, 30, buf);	/* This register they are avoiding and so it is unnamed */
 
-      store_unsigned_integer (buf, DEPRECATED_REGISTER_RAW_SIZE (SP_REGNUM), rsp);
-      supply_register (SP_REGNUM, buf);
+      store_unsigned_integer (buf, register_size (current_gdbarch, SP_REGNUM), rsp);
+      regcache_raw_supply (current_regcache, SP_REGNUM, buf);
 
-      store_unsigned_integer (buf, DEPRECATED_REGISTER_RAW_SIZE (DEPRECATED_FP_REGNUM), 0);
-      supply_register (DEPRECATED_FP_REGNUM, buf);
+      store_unsigned_integer (buf, register_size (current_gdbarch, DEPRECATED_FP_REGNUM), 0);
+      regcache_raw_supply (current_regcache, DEPRECATED_FP_REGNUM, buf);
 
       if (nfields == 9)
 	{
@@ -1862,8 +1874,7 @@ mips_wait (ptid_t ptid, struct target_waitstatus *status)
 }
 
 /* We have to map between the register numbers used by gdb and the
-   register numbers used by the debugging protocol.  This function
-   assumes that we are using tm-mips.h.  */
+   register numbers used by the debugging protocol.  */
 
 #define REGNO_OFFSET 96
 
@@ -1907,7 +1918,7 @@ mips_fetch_registers (int regno)
       return;
     }
 
-  if (regno == DEPRECATED_FP_REGNUM || regno == ZERO_REGNUM)
+  if (regno == DEPRECATED_FP_REGNUM || regno == MIPS_ZERO_REGNUM)
     /* DEPRECATED_FP_REGNUM on the mips is a hack which is just
        supposed to read zero (see also mips-nat.c).  */
     val = 0;
@@ -1940,8 +1951,8 @@ mips_fetch_registers (int regno)
 
     /* We got the number the register holds, but gdb expects to see a
        value in the target byte ordering.  */
-    store_unsigned_integer (buf, DEPRECATED_REGISTER_RAW_SIZE (regno), val);
-    supply_register (regno, buf);
+    store_unsigned_integer (buf, register_size (current_gdbarch, regno), val);
+    regcache_raw_supply (current_regcache, regno, buf);
   }
 }
 
@@ -2150,7 +2161,7 @@ Give up (and stop debugging it)? "))
 	  printf_unfiltered ("Ending remote MIPS debugging.\n");
 	  target_mourn_inferior ();
 
-	  throw_exception (RETURN_QUIT);
+	  deprecated_throw_reason (RETURN_QUIT);
 	}
 
       target_terminal_inferior ();
@@ -2178,7 +2189,7 @@ Give up (and stop debugging it)? "))
 /* Start running on the target board.  */
 
 static void
-mips_create_inferior (char *execfile, char *args, char **env)
+mips_create_inferior (char *execfile, char *args, char **env, int from_tty)
 {
   CORE_ADDR entry_pt;
 
@@ -2227,7 +2238,7 @@ static int
 mips_insert_breakpoint (CORE_ADDR addr, char *contents_cache)
 {
   if (monitor_supports_breakpoints)
-    return set_breakpoint (addr, MIPS_INSTLEN, BREAK_FETCH);
+    return set_breakpoint (addr, MIPS_INSN32_SIZE, BREAK_FETCH);
   else
     return memory_insert_breakpoint (addr, contents_cache);
 }
@@ -2236,7 +2247,7 @@ static int
 mips_remove_breakpoint (CORE_ADDR addr, char *contents_cache)
 {
   if (monitor_supports_breakpoints)
-    return clear_breakpoint (addr, MIPS_INSTLEN, BREAK_FETCH);
+    return clear_breakpoint (addr, MIPS_INSN32_SIZE, BREAK_FETCH);
   else
     return memory_remove_breakpoint (addr, contents_cache);
 }
@@ -2542,7 +2553,7 @@ common_breakpoint (int set, CORE_ADDR addr, int len, enum break_type type)
 	      flags = "f";
 	      break;
 	    default:
-	      internal_error (__FILE__, __LINE__, "failed internal consistency check");
+	      internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 	    }
 
 	  cmd = 'B';
@@ -2650,20 +2661,21 @@ mips_load_srec (char *args)
 	  /* FIXME!  vma too small????? */
 	  printf_filtered ("%s\t: 0x%4lx .. 0x%4lx  ", s->name,
 			   (long) s->vma,
-			   (long) (s->vma + s->_raw_size));
+			   (long) (s->vma + bfd_get_section_size (s)));
 	  gdb_flush (gdb_stdout);
 
-	  for (i = 0; i < s->_raw_size; i += numbytes)
+	  for (i = 0; i < bfd_get_section_size (s); i += numbytes)
 	    {
-	      numbytes = min (srec_frame, s->_raw_size - i);
+	      numbytes = min (srec_frame, bfd_get_section_size (s) - i);
 
 	      bfd_get_section_contents (abfd, s, buffer, i, numbytes);
 
-	      reclen = mips_make_srec (srec, '3', s->vma + i, buffer, numbytes);
+	      reclen = mips_make_srec (srec, '3', s->vma + i, 
+				       buffer, numbytes);
 	      send_srec (srec, reclen, s->vma + i);
 
-	      if (ui_load_progress_hook)
-		ui_load_progress_hook (s->name, i);
+	      if (deprecated_ui_load_progress_hook)
+		deprecated_ui_load_progress_hook (s->name, i);
 
 	      if (hashmark)
 		{
@@ -3137,11 +3149,11 @@ pmon_load_fast (char *file)
   for (s = abfd->sections; s && !finished; s = s->next)
     if (s->flags & SEC_LOAD)	/* only deal with loadable sections */
       {
-	bintotal += s->_raw_size;
-	final = (s->vma + s->_raw_size);
+	bintotal += bfd_get_section_size (s);
+	final = (s->vma + bfd_get_section_size (s));
 
 	printf_filtered ("%s\t: 0x%4x .. 0x%4x  ", s->name, (unsigned int) s->vma,
-			 (unsigned int) (s->vma + s->_raw_size));
+			 (unsigned int) (s->vma + bfd_get_section_size (s)));
 	gdb_flush (gdb_stdout);
 
 	/* Output the starting address */
@@ -3162,11 +3174,13 @@ pmon_load_fast (char *file)
 
 	    reclen = 0;
 
-	    for (i = 0; ((i < s->_raw_size) && !finished); i += binamount)
+	    for (i = 0;
+		 i < bfd_get_section_size (s) && !finished;
+		 i += binamount)
 	      {
 		int binptr = 0;
 
-		binamount = min (BINCHUNK, s->_raw_size - i);
+		binamount = min (BINCHUNK, bfd_get_section_size (s) - i);
 
 		bfd_get_section_contents (abfd, s, binbuf, i, binamount);
 
@@ -3174,7 +3188,8 @@ pmon_load_fast (char *file)
 		   the line: */
 		for (; ((binamount - binptr) > 0);)
 		  {
-		    pmon_make_fastrec (&bp, binbuf, &binptr, binamount, &reclen, &csum, &zerofill);
+		    pmon_make_fastrec (&bp, binbuf, &binptr, binamount, 
+				       &reclen, &csum, &zerofill);
 		    if (reclen >= (MAXRECSIZE - CHECKSIZE))
 		      {
 			reclen = pmon_checkset (reclen, &bp, &csum);
@@ -3186,8 +3201,8 @@ pmon_load_fast (char *file)
 			    break;
 			  }
 
-			if (ui_load_progress_hook)
-			  ui_load_progress_hook (s->name, i);
+			if (deprecated_ui_load_progress_hook)
+			  deprecated_ui_load_progress_hook (s->name, i);
 
 			if (hashmark)
 			  {
@@ -3306,7 +3321,7 @@ _initialize_remote_mips (void)
   mips_ops.to_fetch_registers = mips_fetch_registers;
   mips_ops.to_store_registers = mips_store_registers;
   mips_ops.to_prepare_to_store = mips_prepare_to_store;
-  mips_ops.to_xfer_memory = mips_xfer_memory;
+  mips_ops.deprecated_xfer_memory = mips_xfer_memory;
   mips_ops.to_files_info = mips_files_info;
   mips_ops.to_insert_breakpoint = mips_insert_breakpoint;
   mips_ops.to_remove_breakpoint = mips_remove_breakpoint;
@@ -3368,54 +3383,60 @@ of the TFTP temporary file, if it differs from the filename seen by the board.";
   add_target (&ddb_ops);
   add_target (&lsi_ops);
 
-  add_show_from_set (
-		      add_set_cmd ("timeout", no_class, var_zinteger,
-				   (char *) &mips_receive_wait,
-		       "Set timeout in seconds for remote MIPS serial I/O.",
-				   &setlist),
-		      &showlist);
+  add_setshow_zinteger_cmd ("timeout", no_class, &mips_receive_wait, _("\
+Set timeout in seconds for remote MIPS serial I/O."), _("\
+Show timeout in seconds for remote MIPS serial I/O."), NULL,
+			    NULL,
+			    NULL, /* FIXME: i18n: */
+			    &setlist, &showlist);
 
-  add_show_from_set (
-		  add_set_cmd ("retransmit-timeout", no_class, var_zinteger,
-			       (char *) &mips_retransmit_wait,
-			       "Set retransmit timeout in seconds for remote MIPS serial I/O.\n\
+  add_setshow_zinteger_cmd ("retransmit-timeout", no_class,
+			    &mips_retransmit_wait, _("\
+Set retransmit timeout in seconds for remote MIPS serial I/O."), _("\
+Show retransmit timeout in seconds for remote MIPS serial I/O."), _("\
 This is the number of seconds to wait for an acknowledgement to a packet\n\
-before resending the packet.", &setlist),
-		      &showlist);
+before resending the packet."),
+			    NULL,
+			    NULL, /* FIXME: i18n: */
+			    &setlist, &showlist);
 
-  add_show_from_set (
-		   add_set_cmd ("syn-garbage-limit", no_class, var_zinteger,
-				(char *) &mips_syn_garbage,
-				"Set the maximum number of characters to ignore when scanning for a SYN.\n\
+  add_setshow_zinteger_cmd ("syn-garbage-limit", no_class,
+			    &mips_syn_garbage,  _("\
+Set the maximum number of characters to ignore when scanning for a SYN."), _("\
+Show the maximum number of characters to ignore when scanning for a SYN."), _("\
 This is the maximum number of characters GDB will ignore when trying to\n\
-synchronize with the remote system.  A value of -1 means that there is no limit\n\
-(Note that these characters are printed out even though they are ignored.)",
-				&setlist),
-		      &showlist);
+synchronize with the remote system.  A value of -1 means that there is no\n\
+limit. (Note that these characters are printed out even though they are\n\
+ignored.)"),
+			    NULL,
+			    NULL, /* FIXME: i18n: */
+			    &setlist, &showlist);
 
-  add_show_from_set
-    (add_set_cmd ("monitor-prompt", class_obscure, var_string,
-		  (char *) &mips_monitor_prompt,
-		  "Set the prompt that GDB expects from the monitor.",
-		  &setlist),
-     &showlist);
+  add_setshow_string_cmd ("monitor-prompt", class_obscure,
+			  &mips_monitor_prompt, _("\
+Set the prompt that GDB expects from the monitor."), _("\
+Show the prompt that GDB expects from the monitor."), NULL,
+			  NULL,
+			  NULL, /* FIXME: i18n: */
+			  &setlist, &showlist);
 
-  add_show_from_set (
-	       add_set_cmd ("monitor-warnings", class_obscure, var_zinteger,
-			    (char *) &monitor_warnings,
-			    "Set printing of monitor warnings.\n"
-		"When enabled, monitor warnings about hardware breakpoints "
-			    "will be displayed.",
-			    &setlist),
-		      &showlist);
+  add_setshow_zinteger_cmd ("monitor-warnings", class_obscure,
+			    &monitor_warnings, _("\
+Set printing of monitor warnings."), _("\
+Show printing of monitor warnings."), _("\
+When enabled, monitor warnings about hardware breakpoints will be displayed."),
+			    NULL,
+			    NULL, /* FIXME: i18n: */
+			    &setlist, &showlist);
 
-  add_com ("pmon <command>", class_obscure, pmon_command,
-	   "Send a packet to PMON (must be in debug mode).");
+  add_com ("pmon", class_obscure, pmon_command,
+	   _("Send a packet to PMON (must be in debug mode)."));
 
-  add_show_from_set (add_set_cmd ("mask-address", no_class,
-				  var_boolean, &mask_address_p,
-				  "Set zeroing of upper 32 bits of 64-bit addresses when talking to PMON targets.\n\
-Use \"on\" to enable the masking and \"off\" to disable it.\n",
-				  &setlist),
-		     &showlist);
+  add_setshow_boolean_cmd ("mask-address", no_class, &mask_address_p, _("\
+Set zeroing of upper 32 bits of 64-bit addresses when talking to PMON targets."), _("\
+Show zeroing of upper 32 bits of 64-bit addresses when talking to PMON targets."), _("\
+Use \"on\" to enable the masking and \"off\" to disable it."),
+			   NULL,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 }

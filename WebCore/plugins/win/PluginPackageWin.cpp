@@ -26,7 +26,6 @@
 #include "config.h"
 #include "PluginPackageWin.h"
 
-#include "Timer.h"
 #include "DeprecatedString.h"
 #include "npruntime_impl.h"
 #include "PluginDebug.h"
@@ -81,35 +80,17 @@ static Vector<String> splitString(const String& str, char delimiter, int padTo)
     return result;
 }
 
-void PluginPackageWin::freeLibrarySoon()
-{
-    ASSERT(!m_freeLibraryTimer.isActive());
-    ASSERT(m_module);
-    ASSERT(m_loadCount == 0);
-
-    m_freeLibraryTimer.startOneShot(0);
-}
-
-void PluginPackageWin::freeLibraryTimerFired(Timer<PluginPackageWin>* /*timer*/)
-{
-    ASSERT(m_module);
-    ASSERT(m_loadCount == 0);
-
-    ::FreeLibrary(m_module);
-    m_module = 0;
-}
-
 PluginPackageWin::PluginPackageWin(const String& path, const FILETIME& lastModified)
     : m_path(path)
     , m_module(0)
     , m_lastModified(lastModified)
     , m_isLoaded(false)
     , m_loadCount(0)
-    , m_freeLibraryTimer(this, &PluginPackageWin::freeLibraryTimerFired)
 {
     int pos = m_path.deprecatedString().findRev('\\');
 
     m_fileName = m_path.right(m_path.length() - pos - 1);
+
 }
 
 bool PluginPackageWin::fetchInfo()
@@ -162,31 +143,28 @@ bool PluginPackageWin::fetchInfo()
 
 bool PluginPackageWin::load()
 {
-    if (m_freeLibraryTimer.isActive()) {
-        ASSERT(m_module);
-        m_freeLibraryTimer.stop();
-    } else if (m_isLoaded) {
+    if (m_isLoaded) {
         m_loadCount++;
         return true;
-    } else {
-        WCHAR currentPath[MAX_PATH];
+    }
 
-        if (!::GetCurrentDirectoryW(MAX_PATH, currentPath))
-            return false;
+    WCHAR currentPath[MAX_PATH];
 
-        String path = m_path.substring(0, m_path.reverseFind('\\'));
+    if (!::GetCurrentDirectoryW(MAX_PATH, currentPath))
+        return false;
 
-        if (!::SetCurrentDirectoryW(path.charactersWithNullTermination()))
-            return false;
+    String path = m_path.substring(0, m_path.reverseFind('\\'));
 
-        // Load the library
-        m_module = ::LoadLibraryW(m_path.charactersWithNullTermination());
+    if (!::SetCurrentDirectoryW(path.charactersWithNullTermination()))
+        return false;
 
-        if (!::SetCurrentDirectoryW(currentPath)) {
-            if (m_module)
-                ::FreeLibrary(m_module);
-            return false;
-        }
+    // Load the library
+    m_module = ::LoadLibraryW(m_path.charactersWithNullTermination());
+
+    if (!::SetCurrentDirectoryW(currentPath)) {
+        if (m_module)
+            ::FreeLibrary(m_module);
+        return false;
     }
 
     if (!m_module)
@@ -213,7 +191,6 @@ bool PluginPackageWin::load()
     if (npErr != NPERR_NO_ERROR)
         goto abort;
 
-    memset(&m_browserFuncs, 0, sizeof(m_browserFuncs));
     m_browserFuncs.size = sizeof (m_browserFuncs);
     m_browserFuncs.version = NP_VERSION_MINOR;
     m_browserFuncs.geturl = NPN_GetURL;
@@ -246,7 +223,6 @@ bool PluginPackageWin::load()
     m_browserFuncs.getintidentifier = _NPN_GetIntIdentifier;
     m_browserFuncs.identifierisstring = _NPN_IdentifierIsString;
     m_browserFuncs.utf8fromidentifier = _NPN_UTF8FromIdentifier;
-    m_browserFuncs.intfromidentifier = _NPN_IntFromIdentifier;
     m_browserFuncs.createobject = _NPN_CreateObject;
     m_browserFuncs.retainobject = _NPN_RetainObject;
     m_browserFuncs.releaseobject = _NPN_ReleaseObject;
@@ -295,13 +271,7 @@ void PluginPackageWin::unloadWithoutShutdown()
     ASSERT(m_loadCount == 0);
     ASSERT(m_module);
 
-    // <rdar://5530519>: Crash when closing tab with pdf file (Reader 7 only)
-    // If the plugin has subclassed its parent window, as with Reader 7, we may have
-    // gotten here by way of the plugin's internal window proc forwarding a message to our
-    // original window proc. If we free the plugin library from here, we will jump back
-    // to code we just freed when we return, so delay calling FreeLibrary at least until
-    // the next message loop
-    freeLibrarySoon();
+    FreeLibrary(m_module);
 
     m_isLoaded = false;
 }

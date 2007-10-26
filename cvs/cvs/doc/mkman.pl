@@ -36,12 +36,22 @@ use IO::File;
 ###
 my $texi_num = 0; # Keep track of how many texinfo files have been encountered.
 my @parent;       # This needs to be global to be used inside of a regex later.
+my $nk;           # Ditto.
+my $ret;          # The RE match Type, used in debug prints.
+my $debug = 0;    # Debug mode?
 
 
 
 ###
 ### FUNCTIONS
 ###
+sub debug_print
+{
+	print @_ if $debug;
+}
+
+
+
 sub keyword_mode
 {
 	my ($keyword, $file) = @_;
@@ -187,6 +197,9 @@ for my $file (@ARGV)
 		# Remove comments
 		next if /^\@c(omment)?\b/;
 
+		# Ignore includes.
+		next if /^\@include\b/;
+
 		# It's okay to ignore this keyword - we're not using any
 		# first-line indent commands at all.
 		next if s/^\@noindent\s*$//;
@@ -264,36 +277,78 @@ for my $file (@ARGV)
 		undef $last;
 
 		# Trap keywords
-		my $nk = qr/
+		$nk = qr/
 				\@(\w+)\{
-				(?{ push @parent, $1 })       # Keep track of the last keyword
+				(?{ debug_print "$ret MATCHED $&\nPUSHING $1\n";
+				    push @parent, $1; })      # Keep track of the last keyword
 				                              # keyword we encountered.
-				((?:
-					(?> (?:[^{}]|(?<=\@)[{}])*) # Non-braces without backtracking
-						|
-					(??{ $nk })                 # Nested keywords
-				)*)
+				((?>
+					[^{}]|(?<=\@)[{}]     # Non-braces...
+						|             #    ...or...
+					(??{ $nk })           # ...nested keywords...
+				)*)                           # ...without backtracking.
 				\}
-				(?{ pop (@parent) })            # Lose track of the current keyword.
+				(?{ debug_print "$ret MATCHED $&\nPOPPING ",
+				                pop (@parent), "\n"; })            # Lose track of the current keyword.
 			/x;
 
+		$ret = "m//";
+		if (/\@\w+\{(?:[^{}]|(?<=\@)[{}]|(??{ $nk }))*$/)
+		{
+			# If there is an opening keyword on this line without a
+			# close bracket, we need to find the close bracket
+			# before processing the line.  Set $last to append the
+			# next line in the next pass.
+			$last = $_;
+			next;
+		}
+
+		# Okay, the following works somewhat counter-intuitively.  $nk
+		# processes the whole line, so @parent gets loaded properly,
+		# then, since no closing brackets have been found for the
+		# outermost matches, the innermost matches match and get
+		# replaced first.
+		#
+		# For example:
+		#
+		# Processing the line:
+		#
+		#   yadda yadda @code{yadda @var{foo} yadda @var{bar} yadda}
+		#
+		# Happens something like this:
+		#
+		# 1. Ignores "yadda yadda "
+		# 2. Sees "@code{" and pushes "code" onto @parent.
+		# 3. Ignores "yadda " (backtracks and ignores "yadda yadda
+		#                      @code{yadda "?)
+		# 4. Sees "@var{" and pushes "var" onto @parent.
+		# 5. Sees "foo}", pops "var", and realizes that "@var{foo}"
+		#    matches the overall pattern ($nk).
+		# 6. Replaces "@var{foo}" with the result of:
+		#
+		#      do_keyword $file, $parent[$#parent], $1, $2;
+		#
+		#    which would be "\Ifoo\B", in this case, because "var"
+		#    signals a request for italics, or "\I", and "code" is
+		#    still on the stack, which means the previous style was
+		#    bold, or "\B".
+		#
+		# Then the while loop restarts and a similar series of events
+		# replaces "@var{bar}" with "\Ibar\B".
+		#
+		# Then the while loop restarts and a similar series of events
+		# replaces "@code{yadda \Ifoo\B yadda \Ibar\B yadda}" with
+		# "\Byadda \Ifoo\B yadda \Ibar\B yadda\R".
+		#
+		$ret = "s///";
 		@parent = ("");
 		while (s/$nk/do_keyword $file, $parent[$#parent], $1, $2/e)
 		{
-			# Do nothing except replace our last-replacement
+			# Do nothing except reset our last-replacement
 			# tracker - the replacement regex above is handling
 			# everything else.
+			debug_print "FINAL MATCH $&\n";
 			@parent = ("");
-		}
-		s/$nk/do_keyword $file, $parent[$#parent], $1, $2/ge;
-
-		if (/\@\w+\{/)
-		{
-			# If there is still an opening keyword left, we need to
-			# find the close bracket.  Set $last to append the next
-			# line in the next pass.
-			$last = $_;
-			next;
 		}
 
 		# Finally, unprotect texinfo special characters.

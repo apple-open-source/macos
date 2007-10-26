@@ -81,6 +81,7 @@ yp_maplist(indomain, outmaplist)
 	struct ypresp_maplist ypml;
 	struct timeval  tv;
 	int tries = 0, r;
+	static int proto = YP_BIND_UDP;
 
 again:
 	if (_yp_dobind(indomain, &ysd) != 0)
@@ -91,14 +92,18 @@ again:
 
 	memset(&ypml, 0, sizeof ypml);
 
-	r = clnt_call(ysd->dom_client, YPPROC_MAPLIST,
-	    xdr_domainname, &indomain, xdr_ypresp_maplist, &ypml, tv);
-	if (r != RPC_SUCCESS) {
-		if (tries++)
-			clnt_perror(ysd->dom_client, "yp_maplist: clnt_call");
-		ysd->dom_vers = -1;
+	r = clnt_call(ysd->dom_client, YPPROC_MAPLIST, (xdrproc_t)xdr_domainname, &indomain, (xdrproc_t)xdr_ypresp_maplist, &ypml, tv);
+	if (r != RPC_SUCCESS)
+	{
+		if (tries++) clnt_perror(ysd->dom_client, "yp_maplist: clnt_call");
+
+		if (proto == YP_BIND_UDP) proto = YP_BIND_TCP;
+		else proto = YP_BIND_UDP;
+		ysd->dom_vers = proto;
+
 		goto again;
 	}
+
 	*outmaplist = ypml.maps;
 	/* NO: xdr_free(xdr_ypresp_maplist, &ypml); */
 	_yp_unbind(ysd);

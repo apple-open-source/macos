@@ -1,24 +1,26 @@
-U, of iemand anders, heeft een paswoord opgevraagd voor uw lidmaatschap
-van de mailinglijst %(fqdn_lname)s.  U heeft dit paswoord nodig om
-wijzigingen in uw lidmaatschap opties aan te brengen (bv. aan/uitzetten van
-de digest etc.), met dit paswoord kunt u ook makkelijker uitschrijven van
-deze mailinglijst.
+U, of iemand die zich voordoet als u, heeft een wachtwoord-herinnering
+aangevraagd voor uw lidmaatschap van de mailinglijst %(fqdn_lname)s.
+U heeft dit wachtwoord nodig om wijzigingen in uw persoonlijke
+instellingen aan te brengen (bv. aan- en uitzetten van de ontvangst
+van verzamelmails), en met dit wachtwoord kunt u zich gemakkelijker
+afmelden van deze maillijst.
 
-U bent ingeschreven met het adres: %(user)s
+U bent aangemeld met het adres: %(user)s
 
-Uw %(listname)s paswoord is: %(password)s
+Uw %(listname)s wachtwoord is: %(password)s
 
-Om wijzigingen aan te brengen in uw lidmaatschap opties, kunt u
-de volgende pagina bezoeken:
+Om wijzigingen aan te brengen in uw persoonlijke instellingen, kunt u
+inloggen op de volgende pagina:
 
     %(options_url)s
 
-U kunt deze wijzigingen ook via e-mail doen, door een bericht te sturen aan:
+U kunt dergelijke wijzigingen ook via e-mail maken, door een bericht
+te sturen aan:
 
     %(requestaddr)s
 
-Met de tekst 'help' in het onderwerp (subject) of in het tekstgedeelte.
-U krijgt dan automatisch een bericht terug met verdere aanwijzingen.
+met de tekst "help" in de onderwerp-regel of de tekst. Het
+automatische antwoord zal u meer gedetailleerde aanwijzingen geven.
 
-Vragen of opmerkingen kunt u sturen aan %(listname)s mailinglijst
-administrator op %(owneraddr)s.
+Vragen of opmerkingen kunt u sturen aan de %(listname)s
+lijstbeheerder op %(owneraddr)s.

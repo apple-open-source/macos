@@ -23,6 +23,6 @@ un mensaje a:
 con el texto "help" en el asunto (subject) o en el cuerpo del mensaje.
 El mensaje automático que se le enviará tiene información más detallada.
 
-Si tiene alguna pregunta o algun comentario, por favor, envielo al
+Si tiene alguna pregunta o algun comentario, por favor, envíelo al
 administrador de la lista de distribución %(listname)s a la
 dirección %(owneraddr)s

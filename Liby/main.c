@@ -31,9 +31,14 @@
  * SUCH DAMAGE.
  */
 
+#include <locale.h>
+#include <stdlib.h>
+
 extern int yyparse(void);
 
-void main()
+int main()
 {
+	setlocale(LC_ALL, "");
 	exit(yyparse());
+	return 1; /* NOT REACHED */
 }

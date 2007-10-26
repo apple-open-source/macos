@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: ntservice.c,v 1.3.2.1.10.3 2004/03/08 04:04:22 marka Exp $ */
+/* $Id: ntservice.c,v 1.8 2004/03/05 04:58:08 marka Exp $ */
 
 #include <config.h>
 #include <stdio.h>

@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -31,6 +27,7 @@
  * SUCH DAMAGE.
  */
 
+#if 0
 #ifndef lint
 static char const copyright[] =
 "@(#) Copyright (c) 1989, 1993\n\
@@ -38,32 +35,66 @@ static char const copyright[] =
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)echo.c	8.1 (Berkeley) 5/31/93";
-#endif
 #endif /* not lint */
+#endif
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/echo/echo.c,v 1.13 2002/06/30 05:13:53 obrien Exp $");
+__FBSDID("$FreeBSD: src/bin/echo/echo.c,v 1.18 2005/01/10 08:39:22 imp Exp $");
 
-#include <stdio.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+
+#include <assert.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
-/* ARGSUSED */
+/*
+ * Report an error and exit.
+ * Use it instead of err(3) to avoid linking-in stdio.
+ */
+static void
+errexit(const char *prog, const char *reason)
+{
+	char *errstr = strerror(errno);
+	write(STDERR_FILENO, prog, strlen(prog));
+	write(STDERR_FILENO, ": ", 2);
+	write(STDERR_FILENO, reason, strlen(reason));
+	write(STDERR_FILENO, ": ", 2);
+	write(STDERR_FILENO, errstr, strlen(errstr));
+	write(STDERR_FILENO, "\n", 1);
+	exit(1);
+}
+	
 int
 main(int argc, char *argv[])
 {
 	int nflag;	/* if not set, output a trailing newline. */
+	int veclen;	/* number of writev arguments. */
+	struct iovec *iov, *vp; /* Elements to write, current element. */
+	char space[] = " ";
+	char newline[] = "\n";
+	char *progname = argv[0];
 
 	/* This utility may NOT do getopt(3) option parsing. */
 	if (*++argv && !strcmp(*argv, "-n")) {
 		++argv;
+		--argc;
 		nflag = 1;
-	}
-	else
+	} else
 		nflag = 0;
 
+	veclen = (argc >= 2) ? (argc - 2) * 2 + 1 : 0;
+
+	if ((vp = iov = malloc((veclen + 1) * sizeof(struct iovec))) == NULL)
+		errexit(progname, "malloc");
+
 	while (argv[0] != NULL) {
+		size_t len;
+		
+		len = strlen(argv[0]);
 
 		/*
 		 * If the next argument is NULL then this is this
@@ -71,23 +102,36 @@ main(int argc, char *argv[])
 		 * for a trailing \c.
 		 */
 		if (argv[1] == NULL) {
-			size_t len;
-			
-			len = strlen(argv[0]);
 			/* is there room for a '\c' and is there one? */
 			if (len >= 2 &&
 			    argv[0][len - 2] == '\\' &&
 			    argv[0][len - 1] == 'c') {
 				/* chop it and set the no-newline flag. */
-				argv[0][len - 2] = '\0';
+				len -= 2;
 				nflag = 1;
 			}
 		}
-		(void)printf("%s", argv[0]);
-		if (*++argv)
-			putchar(' ');
+		vp->iov_base = *argv;
+		vp++->iov_len = len;
+		if (*++argv) {
+			vp->iov_base = space;
+			vp++->iov_len = 1;
+		}
 	}
-	if (!nflag)
-		putchar('\n');
+	if (!nflag) {
+		veclen++;
+		vp->iov_base = newline;
+		vp++->iov_len = 1;
+	}
+	/* assert(veclen == (vp - iov)); */
+	while (veclen) {
+		int nwrite;
+
+		nwrite = (veclen > IOV_MAX) ? IOV_MAX : veclen;
+		if (writev(STDOUT_FILENO, iov, nwrite) == -1)
+			errexit(progname, "write");
+		iov += nwrite;
+		veclen -= nwrite;
+	}
 	return 0;
 }

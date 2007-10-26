@@ -36,6 +36,7 @@
 /*
  *	Flush the specified buffer.
  */
+__private_extern__
 int NXFlush(register NXStream *stream)
 {
     int flushSize;
@@ -58,6 +59,7 @@ int NXFlush(register NXStream *stream)
  *	Fill the specified buffer. Returns number of characters read.
  */
 
+__private_extern__
 int NXFill(register NXStream *stream)
 {
     volatile int    actual = 0;		/* initted for clean -Wall */
@@ -86,6 +88,7 @@ int NXFill(register NXStream *stream)
 }
 
 
+__private_extern__
 void NXChangeBuffer(register NXStream *s)
 {
     int reading = (s->flags & NX_READFLAG);

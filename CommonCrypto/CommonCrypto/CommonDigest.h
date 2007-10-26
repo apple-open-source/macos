@@ -25,8 +25,8 @@
  * CommonDigest.h - common digest routines: MD2, MD4, MD5, SHA1.
  */
  
-#ifndef	_SECURITY_COMMON_DIGEST_H_
-#define _SECURITY_COMMON_DIGEST_H_
+#ifndef	_CC_COMMON_DIGEST_H_
+#define _CC_COMMON_DIGEST_H_
 
 #include <stdint.h>
 
@@ -35,12 +35,19 @@ extern "C" {
 #endif
 
 /*
- * For compatibility with legacy implementations, all of the functions
- * declared here *always* return a value of 1 (one). This corresponds 
- * to "success" in the similar openssl implementations. There are no 
- * errors of any kind which can be, or are, reported here, so you can 
- * safely ignore the return values of all of these functions if you 
- * are implementing new code.
+ * For compatibility with legacy implementations, the *Init(), *Update(),
+ * and *Final() functions declared here *always* return a value of 1 (one). 
+ * This corresponds to "success" in the similar openssl implementations. 
+ * There are no errors of any kind which can be, or are, reported here, 
+ * so you can safely ignore the return values of all of these functions 
+ * if you are implementing new code.
+ *
+ * The one-shot functions (CC_MD2(), CC_SHA1(), etc.) perform digest
+ * calculation and place the result in the caller-supplied buffer
+ * indicated by the md parameter. They return the md parameter.
+ * Unlike the opensssl counterparts, these one-shot functions require
+ * a non-NULL md pointer. Passing in NULL for the md parameter 
+ * results in a NULL return and no digest calculation. 
  */
  
 typedef uint32_t CC_LONG;		/* 32 bit unsigned integer */
@@ -63,6 +70,7 @@ typedef struct CC_MD2state_st
 extern int CC_MD2_Init(CC_MD2_CTX *c);
 extern int CC_MD2_Update(CC_MD2_CTX *c, const void *data, CC_LONG len);
 extern int CC_MD2_Final(unsigned char *md, CC_MD2_CTX *c);
+extern unsigned char *CC_MD2(const void *data, CC_LONG len, unsigned char *md);
 
 /*** MD4 ***/
 
@@ -81,6 +89,7 @@ typedef struct CC_MD4state_st
 extern int CC_MD4_Init(CC_MD4_CTX *c);
 extern int CC_MD4_Update(CC_MD4_CTX *c, const void *data, CC_LONG len);
 extern int CC_MD4_Final(unsigned char *md, CC_MD4_CTX *c);
+extern unsigned char *CC_MD4(const void *data, CC_LONG len, unsigned char *md);
 
 /*** MD5 ***/
 
@@ -99,6 +108,7 @@ typedef struct CC_MD5state_st
 extern int CC_MD5_Init(CC_MD5_CTX *c);
 extern int CC_MD5_Update(CC_MD5_CTX *c, const void *data, CC_LONG len);
 extern int CC_MD5_Final(unsigned char *md, CC_MD5_CTX *c);
+extern unsigned char *CC_MD5(const void *data, CC_LONG len, unsigned char *md);
 
 /*** SHA1 ***/
 
@@ -117,21 +127,33 @@ typedef struct CC_SHA1state_st
 extern int CC_SHA1_Init(CC_SHA1_CTX *c);
 extern int CC_SHA1_Update(CC_SHA1_CTX *c, const void *data, CC_LONG len);
 extern int CC_SHA1_Final(unsigned char *md, CC_SHA1_CTX *c);
+extern unsigned char *CC_SHA1(const void *data, CC_LONG len, unsigned char *md);
 
-/*** SHA256 ***/
+/*** SHA224 ***/
+#define CC_SHA224_DIGEST_LENGTH		28			/* digest length in bytes */
+#define CC_SHA224_BLOCK_BYTES		64			/* block size in bytes */
 
-#define CC_SHA256_DIGEST_LENGTH		32			/* digest length in bytes */
-#define CC_SHA256_BLOCK_BYTES		64			/* block size in bytes */
-
+/* same context struct is used for SHA224 and SHA256 */
 typedef struct CC_SHA256state_st
 {   CC_LONG count[2];
     CC_LONG hash[8];
     CC_LONG wbuf[16];
 } CC_SHA256_CTX;
 
+extern int CC_SHA224_Init(CC_SHA256_CTX *c);
+extern int CC_SHA224_Update(CC_SHA256_CTX *c, const void *data, CC_LONG len);
+extern int CC_SHA224_Final(unsigned char *md, CC_SHA256_CTX *c);
+extern unsigned char *CC_SHA224(const void *data, CC_LONG len, unsigned char *md);
+
+/*** SHA256 ***/
+
+#define CC_SHA256_DIGEST_LENGTH		32			/* digest length in bytes */
+#define CC_SHA256_BLOCK_BYTES		64			/* block size in bytes */
+
 extern int CC_SHA256_Init(CC_SHA256_CTX *c);
 extern int CC_SHA256_Update(CC_SHA256_CTX *c, const void *data, CC_LONG len);
 extern int CC_SHA256_Final(unsigned char *md, CC_SHA256_CTX *c);
+extern unsigned char *CC_SHA256(const void *data, CC_LONG len, unsigned char *md);
 
 /*** SHA384 ***/
 
@@ -148,6 +170,7 @@ typedef struct CC_SHA512state_st
 extern int CC_SHA384_Init(CC_SHA512_CTX *c);
 extern int CC_SHA384_Update(CC_SHA512_CTX *c, const void *data, CC_LONG len);
 extern int CC_SHA384_Final(unsigned char *md, CC_SHA512_CTX *c);
+extern unsigned char *CC_SHA384(const void *data, CC_LONG len, unsigned char *md);
 
 /*** SHA512 ***/
 
@@ -157,13 +180,14 @@ extern int CC_SHA384_Final(unsigned char *md, CC_SHA512_CTX *c);
 extern int CC_SHA512_Init(CC_SHA512_CTX *c);
 extern int CC_SHA512_Update(CC_SHA512_CTX *c, const void *data, CC_LONG len);
 extern int CC_SHA512_Final(unsigned char *md, CC_SHA512_CTX *c);
+extern unsigned char *CC_SHA512(const void *data, CC_LONG len, unsigned char *md);
 
 /*
  * To use the above digest functions with existing code which uses
  * the corresponding openssl functions, #define the symbol 
  * COMMON_DIGEST_FOR_OPENSSL in your client code (BEFORE including
- * this file), and simply link against Security.framework instead 
- * of libcrypto.
+ * this file), and simply link against libSystem (or System.framework)
+ * instead of libcrypto.
  *
  * You can *NOT* mix and match functions operating on a given data
  * type from the two implementations; i.e., if you do a CC_MD5_Init()
@@ -197,6 +221,29 @@ extern int CC_SHA512_Final(unsigned char *md, CC_SHA512_CTX *c);
 #define SHA1_Update(c,d,l)			CC_SHA1_Update(c,d,l)
 #define SHA1_Final(m, c)			CC_SHA1_Final(m,c)
 
+#define SHA224_DIGEST_LENGTH		CC_SHA224_DIGEST_LENGTH
+#define SHA256_CTX					CC_SHA256_CTX
+#define SHA224_Init(c)				CC_SHA224_Init(c)
+#define SHA224_Update(c,d,l)		CC_SHA224_Update(c,d,l)
+#define SHA224_Final(m, c)			CC_SHA224_Final(m,c)
+
+#define SHA256_DIGEST_LENGTH		CC_SHA256_DIGEST_LENGTH
+#define SHA256_Init(c)				CC_SHA256_Init(c)
+#define SHA256_Update(c,d,l)		CC_SHA256_Update(c,d,l)
+#define SHA256_Final(m, c)			CC_SHA256_Final(m,c)
+
+#define SHA384_DIGEST_LENGTH		CC_SHA384_DIGEST_LENGTH
+#define SHA512_CTX					CC_SHA512_CTX
+#define SHA384_Init(c)				CC_SHA384_Init(c)
+#define SHA384_Update(c,d,l)		CC_SHA384_Update(c,d,l)
+#define SHA384_Final(m, c)			CC_SHA384_Final(m,c)
+
+#define SHA512_DIGEST_LENGTH		CC_SHA512_DIGEST_LENGTH
+#define SHA512_Init(c)				CC_SHA512_Init(c)
+#define SHA512_Update(c,d,l)		CC_SHA512_Update(c,d,l)
+#define SHA512_Final(m, c)			CC_SHA512_Final(m,c)
+
+
 #endif	/* COMMON_DIGEST_FOR_OPENSSL */
 
 /*
@@ -219,4 +266,4 @@ extern int CC_SHA512_Final(unsigned char *md, CC_SHA512_CTX *c);
 }
 #endif
 
-#endif	/* _SECURITY_COMMON_DIGEST_H_ */
+#endif	/* _CC_COMMON_DIGEST_H_ */

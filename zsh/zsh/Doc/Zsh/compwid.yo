@@ -11,9 +11,9 @@ features is described in
 ifzman(zmanref(zshcompsys))\
 ifnzman(the next chapter, noderef(Completion System)),
 and users with no interest in adding to that system (or, potentially,
-writing their own --- see dictionary entry for `hubris') should skip this
-section.  The older system based on the tt(compctl) builtin command is
-described in
+writing their own DASH()- see dictionary entry for `hubris') should skip
+the current section.  The older system based on the tt(compctl) builtin
+command is described in
 ifzman(zmanref(zshcompctl))\
 ifnzman(noderef(Completion Using compctl)).
 
@@ -140,8 +140,9 @@ on one of those words, that word will be completed, possibly invoking
 types of quoted strings which are currently broken into parts in this
 fashion.  Its value contains one character for each quoting level.  The
 characters are a single quote or a double quote for strings quoted with
-these characters and a backslash for strings not starting with a quote
-character.  The first character in the value always corresponds to the
+these characters, a dollars sign for strings quoted with
+tt($')var(...)tt(') and a backslash for strings not starting with a
+quote character.  The first character in the value always corresponds to the
 innermost quoting level.
 )
 vindex(context, compstate)
@@ -436,7 +437,7 @@ sect(Builtin Commands)
 startitem()
 findex(compadd)
 cindex(completion widgets, adding specified matches)
-xitem(tt(compadd) [ tt(-akqQfenUl12C) ] [ tt(-F) var(array) ])
+xitem(tt(compadd) [ tt(-akqQfenUld12C) ] [ tt(-F) var(array) ])
 xitem([ tt(-P) var(prefix) ] [ tt(-S) var(suffix) ])
 xitem([ tt(-p) var(hidden-prefix) ] [ tt(-s) var(hidden-suffix) ])
 xitem([ tt(-i) var(ignored-prefix) ] [ tt(-I) var(ignored-suffix) ])
@@ -445,11 +446,11 @@ xitem([ tt(-J) var(name) ] [ tt(-V) var(name) ] [ tt(-X) var(explanation) ] [ tt
 xitem([ tt(-r) var(remove-chars) ] [ tt(-R) var(remove-func) ])
 xitem([ tt(-D) var(array) ] [ tt(-O) var(array) ] [ tt(-A) var(array) ])
 xitem([ tt(-E) var(number) ])
-item([ tt(-M) var(match-spec) ] [ tt(--) ] [ var(words) ... ])(
+item([ tt(-M) var(match-spec) ] [ tt(-)tt(-) ] [ var(words) ... ])(
 
 This builtin command can be used to add matches directly and control
 all the information the completion code stores with each possible
-match. The return value is zero if at least one match was added and
+match. The return status is zero if at least one match was added and
 non-zero if no matches were added.
 
 The completion code breaks the string to complete into seven fields in
@@ -529,6 +530,12 @@ item(tt(-l))(
 This option only has an effect if used together with the tt(-d)
 option. If it is given, the display strings are listed one per line,
 not arrayed in columns.
+)
+item(tt(-o))(
+This option only has an effect if used together with the tt(-d)
+option.  If it is given, the order of the output is determined by the
+match strings;  otherwise it is determined by the display strings
+(i.e. the strings given by the tt(-d) option).
 )
 item(tt(-J) var(name))(
 Gives the name of the group of matches the words should be stored in.
@@ -704,7 +711,7 @@ xitem(tt(compset -n) var(begin) [ var(end) ])
 xitem(tt(compset -N) var(beg-pat) [ var(end-pat) ])
 item(tt(compset -q))(
 This command simplifies modification of the special parameters,
-while its return value allows tests on them to be carried out.
+while its return status allows tests on them to be carried out.
 
 The options are:
 
@@ -775,7 +782,7 @@ reflect the word part that is completed.
 )
 enditem()
 
-In all the above cases the return value is zero if the test succeeded
+In all the above cases the return status is zero if the test succeeded
 and the parameters were modified and non-zero otherwise. This allows
 one to use this builtin in tests such as:
 
@@ -794,7 +801,7 @@ option of tt(compctl) and/or the default completion (whether defined by
 tt(compctl -D) or the builtin default) in the appropriate places, the
 tt(-T) and/or tt(-D) flags can be passed to tt(compcall).
 
-The return value can be used to test if a matching tt(compctl)
+The return status can be used to test if a matching tt(compctl)
 definition was found. It is non-zero if a tt(compctl) was found and
 zero otherwise.
 
@@ -925,7 +932,7 @@ The pattern var(tpat) may also be one or two stars, `tt(*)' or
 any number of characters in the trial completion. In this case the
 pattern must be anchored (on either side); in the case of a single
 star, the var(anchor) then determines how much of the trial completion
-is to be included --- only the characters up to the next appearance of
+is to be included DASH()- only the characters up to the next appearance of
 the anchor will be matched. With two stars, substrings matched by the
 anchor can be matched, too.
 
@@ -983,7 +990,7 @@ A nice example for the use of tt(*) patterns is partial word
 completion. Sometimes you would like to make strings like `tt(c.s.u)'
 complete to strings like `tt(comp.source.unix)', i.e. the word on the
 command line consists of multiple parts, separated by a dot in this
-example, where each part should be completed separately --- note,
+example, where each part should be completed separately DASH()- note,
 however, that the case where each part of the word, i.e. `tt(comp)',
 `tt(source)' and `tt(unix)' in this example, is to be completed from
 separate sets of matches

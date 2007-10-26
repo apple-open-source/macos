@@ -1,11 +1,12 @@
 ;;; ps-mode.el --- PostScript mode for GNU Emacs
 
-;; Copyright (C) 1999, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;; Free Software Foundation, Inc.
 
-;; Author:     Peter Kleiweg <kleiweg@let.rug.nl>
-;; Maintainer: Peter Kleiweg <kleiweg@let.rug.nl>
+;; Author:     Peter Kleiweg <p.c.j.kleiweg@rug.nl>
+;; Maintainer: Peter Kleiweg <p.c.j.kleiweg@rug.nl>
 ;; Created:    20 Aug 1997
-;; Version:    1.1f, 25 Oct 2001
+;; Version:    1.1h, 16 Jun 2005
 ;; Keywords:   PostScript, languages
 
 ;; This file is part of GNU Emacs.
@@ -22,16 +23,16 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 
 ;;; Code:
 
-(defconst ps-mode-version "1.1f, 25 Oct 2001")
-(defconst ps-mode-maintainer-address "Peter Kleiweg <kleiweg@let.rug.nl>")
+(defconst ps-mode-version "1.1h, 16 Jun 2005")
+(defconst ps-mode-maintainer-address "Peter Kleiweg <p.c.j.kleiweg@rug.nl>")
 
 (require 'easymenu)
 
@@ -42,6 +43,7 @@
 
 (defgroup PostScript-edit nil
   "PostScript editing."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :prefix "ps-mode-"
   :group 'PostScript)
 
@@ -256,9 +258,12 @@ If nil, the following are tried in turn, until success:
    ps-mode-font-lock-keywords-1
    (list
     '("//\\w+" . font-lock-type-face)
-    '("^\\(/\\w+\\)\\>[[ \t]*\\(%.*\\)?\r?$"
-      . (1 font-lock-function-name-face))
-    '("^\\(/\\w+\\)\\>\\([ \t]*{\\|[ \t]*<<\\|.*\\<def\\>\\|[ \t]+[0-9]+[ \t]+dict\\>\\)"
+    `(,(concat
+	"^\\(/\\w+\\)\\>"
+	"\\([[ \t]*\\(%.*\\)?\r?$"	; Nothing but `[' or comment after the name.
+	"\\|[ \t]*\\({\\|<<\\)"		; `{' or `<<' following the name.
+	"\\|[ \t]+[0-9]+[ \t]+dict\\>"	; `[0-9]+ dict' following the name.
+	"\\|.*\\<def\\>\\)")		; `def' somewhere on the same line.
       . (1 font-lock-function-name-face))
     '("/\\w+" . font-lock-variable-name-face)
     (cons ps-mode-operators 'font-lock-keyword-face)))
@@ -478,8 +483,7 @@ If nil, the following are tried in turn, until success:
 
 ;; PostScript mode.
 
-;;;###autoload (autoload (quote ps-mode) "ps-mode" "Major mode for editing PostScript with GNU Emacs.\n" t)
-
+;;;###autoload
 (define-derived-mode ps-mode fundamental-mode "PostScript"
   "Major mode for editing PostScript with GNU Emacs.
 
@@ -523,7 +527,10 @@ Typing \\<ps-run-mode-map>\\[ps-run-goto-error] when the cursor is at the number
  	  ps-mode-font-lock-keywords-1
  	  ps-mode-font-lock-keywords-2
  	  ps-mode-font-lock-keywords-3)
- 	 t)))
+	 t))
+  (set (make-local-variable 'comment-start) "%")
+  ;; NOTE: `\' has a special meaning in strings only
+  (set (make-local-variable 'comment-start-skip) "%+[ \t]*"))
 
 (defun ps-mode-show-version ()
   "Show current version of PostScript mode."
@@ -573,15 +580,13 @@ Typing \\<ps-run-mode-map>\\[ps-run-goto-error] when the cursor is at the number
       ;; Search next bracket, stepping over escaped brackets.
       (if (not (looking-at "\\([^()\\\n]\\|\\\\.\\)*\\([()]\\)"))
           (setq level -1)
-        (if (string= "(" (match-string 2))
-	    (setq level (1+ level))
-          (setq level (1- level)))
-        (goto-char (setq pos (match-end 0)))))
+	(setq level (+ level (if (string= "(" (match-string 2)) 1 -1)))
+	(goto-char (setq pos (match-end 0)))))
     (if (not (= level 0))
         nil
       ;; Found string with nested brackets, now set match data nr 2.
-      (goto-char first)
-      (re-search-forward "\\(%\\)\\|\\((.*\\)" pos))))
+      (set-match-data (list first pos nil nil first pos))
+      pos)))
 
 ;; This function should search for a string or comment
 ;; If comment, return as match data nr 1
@@ -626,7 +631,7 @@ defines the beginning of a group. These tokens are:  {  [  <<"
 	      (current-column))
 	  (error
 	   (ding)
-	   (message (error-message-string err))
+	   (message "%s" (error-message-string err))
 	   0))
       (let (target)
 	(if (not (re-search-backward "[^ \t\n\r\f][ \t\n\r\f]*\\=" nil t))
@@ -1121,7 +1126,7 @@ grestore
     (unless ps-run-tmp-dir
       (setq ps-run-tmp-dir "/tmp"))
     (setq ps-mode-tmp-file
-	  (make-temp-name
+	  (make-temp-file
 	   (concat
 	    (if ps-run-tmp-dir
 		(file-name-as-directory ps-run-tmp-dir)
@@ -1170,7 +1175,7 @@ Use line numbers if `ps-run-error-line-numbers' is not nil"
 	(let (i)
 	  (setq
 	   i
-	   (string-to-int
+	   (string-to-number
 	    (buffer-substring (match-beginning 0) (match-end 0))))
 	  (goto-char p)
 	  (pop-to-buffer ps-run-parent)
@@ -1187,4 +1192,5 @@ Use line numbers if `ps-run-error-line-numbers' is not nil"
 
 (provide 'ps-mode)
 
+;;; arch-tag: dce13d2d-69fb-4ec4-9d5d-6dd29c3f0e6e
 ;;; ps-mode.el ends here

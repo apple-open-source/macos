@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,7 +28,7 @@
 #include <security_cdsa_utilities/cssmerrors.h>
 #include <security_utilities/mach++.h>
 #include <Security/cssmapple.h>
-
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 namespace Security {
 
@@ -49,6 +49,7 @@ extern "C" const char *cssmErrorString(OSStatus status);
 
 void CssmError::debugDiagnose(const void *id) const
 {
+	putenv("CFBundleDisableStringsSharing=yes");
 	secdebug("exception", "%p CSSM %s (0x%lx)", id, cssmErrorString(error), error);
 }
 #endif //NDEBUG
@@ -56,6 +57,11 @@ void CssmError::debugDiagnose(const void *id) const
 
 OSStatus CssmError::osStatus() const
 {
+	if (error == CSSM_ERRCODE_INVALID_POINTER)
+	{
+		return paramErr;
+	}
+	
 	return error;
 }
 

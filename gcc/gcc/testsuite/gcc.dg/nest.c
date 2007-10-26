@@ -1,10 +1,10 @@
 /* PR 5967, PR 7114 */
 /* { dg-do run } */
-/* APPLE LOCAL testsuite nested functions */
-/* { dg-skip-if "" { "*-*-darwin*" } { "*" } { "" } } */
 /* { dg-require-profiling "-pg" } */
-/* { dg-options "-O2 -pg" } */
-/* { dg-options "-O2 -pg -static" { target hppa*-*-hpux* } } */
+/* APPLE LOCAL begin testsuite nested functions */
+/* { dg-options "-O2 -pg -fnested-functions" } */
+/* { dg-options "-O2 -pg -static -fnested-functions" { target hppa*-*-hpux* } } */
+/* APPLE LOCAL end testsuite nested functions */
 /* { dg-error "profiler" "No profiler support" { target xstormy16-*-* } 0 } */
 /* { dg-error "-pg not supported" "Profiler support missing" { target *-*-sco3.2v5* } 0 } */
 /* { dg-bogus "\[Uu\]nresolved symbol ._mcount" "Profiling unsupported" { xfail *-*-netware* } 0 } */

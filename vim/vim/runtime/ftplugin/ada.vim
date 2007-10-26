@@ -1,8 +1,8 @@
 " Vim Ada plugin file
 " Language:	Ada
 " Maintainer:	Neil Bird <neil@fnxweb.com>
-" Last Change:	2003 May 11
-" Version:	$Id$
+" Last Change:	2006 Apr 21
+" Version:	$Id: ada.vim,v 1.2 2006/04/21 21:53:03 vimboss Exp $
 " Look for the latest version at http://vim.sourceforge.net/
 "
 " Perform Ada specific completion & tagging.
@@ -13,7 +13,6 @@
 " Similarly allows <Ctrl-N> matching of full-length ada entities from tags.
 " Exports 'AdaWord()' function to return full name of Ada entity under the
 " cursor( or at given line/column), stripping whitespace/newlines as necessary.
-
 
 " Only do this when not done yet for this buffer
 if exists("b:did_ftplugin")
@@ -27,10 +26,8 @@ let b:did_ftplugin = 1
 let s:cpoptions = &cpoptions
 set cpo-=C
 
-
 " Ada comments
 setlocal comments+=O:--
-
 
 " Make local tag mappings for this buffer (if not already set)
 if mapcheck('<C-]>','n') == ''

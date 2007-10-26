@@ -1,14 +1,14 @@
-Copyright (c) 2002, International Business Machines Corporation and others. All Rights Reserved.
+Copyright (c) 2002-2005, International Business Machines Corporation and others. All Rights Reserved.
 This is an exercise for the ICU Workshop (September 2000).
 ** Workshop homepage is:  
-  http://oss.software.ibm.com/icu/docs/workshop_2000/agenda.html
+  http://icu.sourceforge.net/docs/workshop_2000/agenda.html
 
   Day 2: September 12th 2000
   Pre-requsit:
   1. All the hardware and software requirements from Day 1.
   2. Attended or fully understand Day 1 material.
   3. Read through the ICU user's guide at
-  http://oss.software.ibm.com/icu/userguide/.
+  http://icu.sourceforge.net/userguide/.
 
   #Date/Time/Number Formatting Support
   9:30am - 10:30am
@@ -29,7 +29,7 @@ Microsoft Visual C++ 6.0.  It should work on other ICU releases and
 other platforms as well.
 
  MSVC:
-   Open the file "datefmt.dsw" in Microsoft Visual C++.
+   Open the file "datefmt.sln" in Microsoft Visual C++.
 
  Unix:
    - Build and install ICU with a prefix, for example '--prefix=/home/srl/ICU'

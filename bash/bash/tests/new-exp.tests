@@ -212,9 +212,9 @@ recho ${av[1]/??/za}
 expect '<zaza>'
 recho ${av[1]//??/za}
 expect '<zagh>'
-recho ${av[1]//#??/za}
+recho ${av[1]/#??/za}
 expect '<efza>'
-recho ${av[1]//%??/za}
+recho ${av[1]/%??/za}
 
 expect '<yyy> <yyy> <yyy> <yyy> <yyy> <yyy>'
 recho ${av[@]/*/yyy}
@@ -238,17 +238,17 @@ recho ${@/%??/xx}
 expect '<zaza>'
 recho ${3//??/za}
 expect '<efza>'
-recho ${3//%??/za}
+recho ${3/%??/za}
 expect '<zaza> <zaza> <zaza> <zaza> <zaza> <zaza>'
 recho ${@//??/za}
 expect '<zacd> <zagh> <zakl> <zaop> <zast> <zawx>'
-recho ${@//#??/za}
+recho ${@/#??/za}
 expect '<yyy> <yyy> <yyy> <yyy> <yyy> <yyy>'
 recho ${@//*/yyy}
 expect '<yyy> <efgh> <ijkl> <mnop> <qrst> <uvwx>'
 recho ${@//a*/yyy}
 expect '<abcd> <efgh> <ijkl> <mnop> <qrst> <uvwyyy>'
-recho ${@//%x*/yyy}
+recho ${@/%x*/yyy}
 
 expect a newline
 echo $abmcde
@@ -498,6 +498,9 @@ recho "${RECEIVED:$((${#RECEIVED}-1)):1}"
 # tests of new prefix expansion ${!prefix*}
 ${THIS_SH} ./new-exp3.sub
 
+# bug with indirect expansion through bash-2.05b
+${THIS_SH} ./new-exp4.sub
+
 # these caused errors and core dumps in versions before bash-2.04
 c=""
 echo ${c//${$(($#-1))}/x/}
@@ -536,6 +539,21 @@ recho ${1%/*}
 recho ${1%%[!/]*}
 recho ${1#*/}
 recho ${1##*/}
+
+${THIS_SH} ./new-exp5.sub
+
+unset var
+var=blah
+
+# these had better agree
+echo ${var[@]:3}
+echo ${var:3}
+echo ${var[@]/#/--}
+echo ${var/#/--}
+echo ${var[@]##?}
+echo ${var##?}
+
+${THIS_SH} ./new-exp6.sub
 
 # this must be last!
 expect $0: 'ABXD: parameter unset'

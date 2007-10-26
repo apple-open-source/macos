@@ -1,4 +1,4 @@
-enviar inscrições da lista de discussão Send %(real_name)s para 
+Enviar submissões para a lista de discussão %(real_name)s para 
 	%(got_list_email)s
 
 Para se cadastrar ou descadastrar via WWW, visite o endereço

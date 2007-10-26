@@ -1,5 +1,6 @@
 /* profile.c --- generate periodic events for profiling of Emacs Lisp code.
- Copyright (C) 1992, 1994, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1994, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
  Author: Boaz Ben-Zvi <boaz@lcs.mit.edu>
 
@@ -17,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /**
@@ -30,9 +31,9 @@ Boston, MA 02111-1307, USA.  */
  **  abstraction : a stopwatch
  **  operations: reset_watch, get_time
  */
-#include <../src/config.h>
+#include <config.h>
 #include <stdio.h>
-#include <../src/systime.h>
+#include <systime.h>
 
 static EMACS_TIME TV1, TV2;
 static int watch_not_started = 1; /* flag */
@@ -48,14 +49,14 @@ reset_watch ()
 }
 
 /* This call returns the time since the last reset_watch call.  The time
-   is returned as a string with the format  <seconds>.<micro-seconds> 
+   is returned as a string with the format  <seconds>.<micro-seconds>
    If reset_watch was not called yet, exit.  */
 
 char *
 get_time ()
 {
   if (watch_not_started)
-    exit (1);  /* call reset_watch first ! */
+    exit (EXIT_FAILURE);  /* call reset_watch first ! */
   EMACS_GET_TIME (TV2);
   EMACS_SUB_TIME (TV2, TV2, TV1);
   sprintf (time_string, "%lu.%06lu", (unsigned long)EMACS_SECS (TV2), (unsigned long)EMACS_USECS (TV2));
@@ -63,7 +64,7 @@ get_time ()
 }
 
 #if ! defined (HAVE_GETTIMEOFDAY) && defined (HAVE_TIMEVAL)
- 
+
 /* ARGSUSED */
 gettimeofday (tp, tzp)
      struct timeval *tp;
@@ -71,12 +72,12 @@ gettimeofday (tp, tzp)
 {
   extern long time ();
 
-  tp->tv_sec = time ((long *)0);    
+  tp->tv_sec = time ((long *)0);
   tp->tv_usec = 0;
   if (tzp != 0)
     tzp->tz_minuteswest = -1;
 }
- 
+
 #endif
 
 int
@@ -94,11 +95,16 @@ main ()
 	  puts (get_time ());
 	  break;
 	case 'q':
-	  exit (0);
+	  exit (EXIT_SUCCESS);
 	}
       /* Anything remaining on the line is ignored.  */
       while (c != '\n' && c != EOF)
 	c = getchar ();
     }
-  exit (1);
+  exit (EXIT_FAILURE);
 }
+
+/* arch-tag: 8db68f7e-2322-4944-a315-dba349bdbf39
+   (do not change this comment) */
+
+/* profile.c ends here */

@@ -1,0 +1,498 @@
+diff -up -pr ../ntp-4.2.2/include/ntpd.h ./include/ntpd.h
+--- ../ntp-4.2.2/include/ntpd.h	2006-06-06 13:16:20.000000000 -0700
++++ ./include/ntpd.h	2006-06-08 11:10:47.000000000 -0700
+@@ -88,6 +88,7 @@ extern	void	wait_for_signal P((void));
+ extern	void	unblock_io_and_alarm P((void));
+ extern	void	block_io_and_alarm P((void));
+ #endif
++extern	int	rebind_interfaces P((void));
+ 
+ /* ntp_leap.c */
+ extern	void	init_leap	P((void));
+@@ -202,6 +203,7 @@ extern	void	init_timer	P((void));
+ extern	void	reinit_timer	P((void));
+ extern	void	timer		P((void));
+ extern	void	timer_clr_stats P((void));
++extern	u_long	rebind_timer;
+ #ifdef OPENSSL
+ extern	char	*sys_hostname;
+ extern	l_fp	sys_revoketime;
+diff -up -pr ../ntp-4.2.2/ntpd/ntp_io.c ./ntpd/ntp_io.c
+--- ../ntp-4.2.2/ntpd/ntp_io.c	2006-06-06 13:16:41.000000000 -0700
++++ ./ntpd/ntp_io.c	2006-06-08 11:11:34.000000000 -0700
+@@ -590,6 +590,165 @@ convert_isc_if(isc_interface_t *isc_if, 
+ 		itf->flags |= INT_MULTICAST;
+ 
+ }
++
++static int
++find_isc_if(isc_interface_t *result_isc_if, char *name, int family,
++	    struct sockaddr_storage *addr) {
++	isc_mem_t *mctx = NULL;
++	isc_interfaceiter_t *iter = NULL;
++	isc_result_t result;
++
++	result = isc_interfaceiter_create(mctx, &iter);
++	if (result != ISC_R_SUCCESS)
++		return (result);
++
++	for (result = isc_interfaceiter_first(iter);
++	     result == ISC_R_SUCCESS;
++	     result = isc_interfaceiter_next(iter))
++	{
++		result = isc_interfaceiter_current(iter, result_isc_if);
++		if (result != ISC_R_SUCCESS)
++			break;
++		if (strcmp(result_isc_if->name, name))
++			continue;
++		if (result_isc_if->af != family)
++			continue;
++		if (SOCKCMP(&result_isc_if->address.type.in, addr))
++			continue;
++		break;	/* found it */
++	}
++	isc_interfaceiter_destroy(&iter);
++	return result;
++}
++
++static int
++disable_interface(struct interface *inter)
++{
++	int fd = inter->fd;
++	if (fd != INVALID_SOCKET) {
++		msyslog(LOG_INFO, "Interface %s %s unavailable", inter->name, stoa(&inter->sin));
++		inter->fd = INVALID_SOCKET;
++		if (inter->bfd == fd)
++			inter->bfd = INVALID_SOCKET;
++		BLOCKIO();
++		close_socket(fd);
++		UNBLOCKIO();
++		if (inter->bfd != INVALID_SOCKET) {
++			fd = inter->bfd;
++			inter->bfd = INVALID_SOCKET;
++			BLOCKIO();
++			close_socket(fd);
++			UNBLOCKIO();
++		}
++		inter->flags = 0;
++		inter->num_mcast = inter->received = inter->sent = inter->notsent = 0;
++		inter->ignore_packets = ISC_TRUE;
++		return 1;
++	}
++	return 0;
++}
++
++/* Call when sendto has EADDRNOTAVAIL */
++static int
++rebind_interface(struct interface *inter, isc_interface_t *isc_if, int *changed) {
++	isc_interface_t isc_if_local;
++	int fd;
++
++	if ((inter == any_interface) || /* never kill wildcards */
++	    (inter == any6_interface))
++		return 0;
++	if (isc_if == NULL) {
++		isc_if = &isc_if_local;
++		if (ISC_R_SUCCESS != find_isc_if(isc_if, inter->name, inter->family, &inter->sin)) {
++			/* Interface is gone */
++			if (disable_interface(inter))
++				*changed = TRUE; /* rebind all clients */
++			return 0;
++		}
++	}
++	/* Did state or IP address change? */
++	if (((inter->family == AF_INET) &&
++	    memcmp(&(((struct sockaddr_in*)&inter->sin)->sin_addr),
++		    &(isc_if->address.type.in),
++		   sizeof(struct in_addr))) ||
++	    ((inter->family == AF_INET6) && 
++	     memcmp(&(((struct sockaddr_in6 *)&inter->sin)->sin6_addr),
++		    &(isc_if->address.type.in6),
++		    sizeof(struct in6_addr)))) {
++		*changed = TRUE;
++		msyslog(LOG_DEBUG, "Address %s is going away", stoa(&inter->sin));
++	}
++	if (((isc_if->flags & INTERFACE_F_UP)!=0) != ((inter->flags & INT_UP)!=0)) {
++		*changed = TRUE;
++		msyslog(LOG_DEBUG, "Interface state toggled");
++	}
++	if (*changed) {
++		inter->flags = 0;
++		convert_isc_if(isc_if, inter, htons(NTP_PORT));
++		/*
++		 * Calculate the address hash for each interface address.
++		 */
++		inter->addr_refid = addr2refid(&inter->sin);
++		fd = inter->fd;
++		if (fd != INVALID_SOCKET) {
++			msyslog(LOG_DEBUG, "Closing socket for interface %s", isc_if->name);
++			inter->fd = INVALID_SOCKET;
++			if (fd == inter->bfd)
++				inter->bfd = INVALID_SOCKET;
++			BLOCKIO();
++			close_socket(fd);
++			UNBLOCKIO();
++		}
++		if (inter->bfd != INVALID_SOCKET) {
++			fd = inter->bfd;
++			inter->bfd = INVALID_SOCKET;
++			BLOCKIO();
++			close_socket(inter->bfd);
++			UNBLOCKIO();
++		}
++		if (inter->flags & INT_UP) {
++			set_reuseaddr(1);
++			inter->fd = open_socket(&inter->sin, inter->flags, 0, inter, inter->ifindex);
++			set_reuseaddr(0);
++			if (inter->fd != INVALID_SOCKET) {
++				inter->ignore_packets = ISC_FALSE;
++				msyslog(LOG_INFO, "Listening on interface %s, %s#%d %s",
++					inter->name,
++					stoa((&inter->sin)),
++					NTP_PORT,
++					(inter->ignore_packets == ISC_FALSE) ?
++					"Enabled": "Disabled");
++			} else {
++				msyslog(LOG_ERR, "Interface %s %s failed to bind", inter->name, stoa(&inter->sin));
++				return 1;
++			}
++		} else {
++			msyslog(LOG_ERR, "%s: should not get here %s:%d", __FUNCTION__, __FILE__, __LINE__);
++			return 1;
++		}
++	}
++	return 0;
++}
++
++/* refresh interface of peers using inter */
++static void
++rebind_peers(struct interface *inter)
++{
++	struct peer *peer, *next_peer;
++	int n;
++
++	for (n = 0; n < NTP_HASH_SIZE; n++) {
++		for (peer = peer_hash[n]; peer != 0; peer = next_peer) {
++			next_peer = peer->next;
++			if (peer->dstadr == inter || inter == 0) { /* inter==0 rebind all peers */
++				char *src = stoa(&peer->srcadr); /* stoa cycles thru buffers */
++				peer->dstadr = findinterface(&peer->srcadr);
++				msyslog(LOG_DEBUG, "Peer %s using interface %s %s", src, peer->dstadr->name, stoa(&peer->dstadr->sin));
++			}
++		}
++	}
++}
++
+ /*
+  * create_sockets - create a socket for each interface plus a default
+  *			socket for when we don't know where to send
+@@ -1977,6 +2136,28 @@ sendpkt(
+ 
+ 			netsyslog(LOG_ERR, "sendto(%s) (fd=%d): %m",
+ 				  stoa(dest), inter->fd);
++#ifdef __APPLE__
++			switch (errno) { /* interface probably changed address or disconnected */
++			case ENETDOWN:
++				/* just ignore */
++				break;
++
++			case EADDRNOTAVAIL:
++			case EHOSTUNREACH:
++			case ENETUNREACH:
++			{
++				int changed = FALSE;
++				rebind_interface(inter, NULL, &changed);
++				if (changed)
++					rebind_peers(inter); /* refresh all peers using this interface */
++				break;
++			}
++
++			default:
++				msyslog(LOG_DEBUG, "rebind_interface not triggered on errno %d", errno);
++				break;
++			}
++#endif	/* __APPLE__ */
+ 		}
+ 	}
+ 	else
+@@ -2111,7 +2292,7 @@ read_refclock_packet(SOCKET fd, struct r
+ static inline int
+ read_network_packet(SOCKET fd, struct interface *itf, l_fp ts)
+ {
+-	int fromlen;
++	socklen_t fromlen;
+ 	int buflen;
+ 	register struct recvbuf *rb;
+ 
+@@ -2397,7 +2578,7 @@ findlocalinterface(
+ 	SOCKET s;
+ 	int rtn, i, idx;
+ 	struct sockaddr_storage saddr;
+-	int saddrlen = SOCKLEN(addr);
++	socklen_t saddrlen = SOCKLEN(addr);
+ #ifdef DEBUG
+ 	if (debug>2)
+ 	    printf("Finding interface for addr %s in list of addresses\n",
+@@ -2957,3 +3138,146 @@ find_flagged_addr_in_list(struct sockadd
+ 	}
+ 	return (-1); /* Not found */
+ }
++
++static int
++add_interface(isc_interface_t *new_isc_if)
++{
++	/* Any free slots? */
++	int i;
++	struct interface *itf = inter_list+nwilds;
++	for (i = nwilds; i < ninterfaces; i++, itf++) {
++		if (itf->fd == INVALID_SOCKET &&
++		    itf->bfd == INVALID_SOCKET)
++			break;
++	}
++	if (i >= MAXINTERFACES) {
++		msyslog(LOG_ERR, "Too many interfaces %d", i);
++		return 1;
++	} else {
++		struct sockaddr_storage resmask;
++		memset(itf, 0, sizeof(*itf));
++		itf->fd = INVALID_SOCKET;
++		itf->bfd = INVALID_SOCKET;
++		convert_isc_if(new_isc_if, itf, htons(NTP_PORT));
++		itf->addr_refid = addr2refid(&itf->sin);
++		itf->ignore_packets = !address_okay(new_isc_if);
++		if (i == ninterfaces) {
++			ninterfaces++;
++		}
++		SET_HOSTMASK(&resmask, itf->sin.ss_family);
++		hack_restrict(RESTRICT_FLAGS, &itf->sin, &resmask,
++			      RESM_NTPONLY|RESM_INTERFACE, RES_IGNORE);
++		if (itf->flags & INT_UP) {
++			itf->ignore_packets = FALSE;
++			set_reuseaddr(1);
++			itf->fd = open_socket(&itf->sin, itf->flags, 0, itf, itf->ifindex);
++			set_reuseaddr(0);
++			if (itf->fd != INVALID_SOCKET) {
++				itf->ignore_packets = ISC_FALSE;
++				msyslog(LOG_INFO, "Listening on interface %s, %s#%d %s",
++					itf->name,
++					stoa((&itf->sin)),
++					NTP_PORT,
++					(itf->ignore_packets == ISC_FALSE) ?
++					"Enabled": "Disabled");
++				return 0;
++			} else {
++				msyslog(LOG_ERR, "Interface %s %s failed to bind", itf->name, stoa((&itf->sin)));
++				return 1;
++			}
++		} else {
++			msyslog(LOG_ERR, "Error: Adding down interface %s %s",
++				itf->name, stoa((&itf->sin)));
++			itf->ignore_packets = TRUE;
++		}
++		return 0;
++	}
++}
++
++int
++rebind_interfaces(void)
++{
++	int changed = FALSE;
++	isc_mem_t *mctx = NULL;
++	isc_interfaceiter_t *iter = NULL;
++	int adds = 0;
++	isc_interface_t *isc_if_add = NULL;
++	isc_result_t result;
++	int i;
++
++	result = isc_interfaceiter_create(mctx, &iter);
++	if (result != ISC_R_SUCCESS)
++		return (result);
++
++	int *still_alive = (int *)calloc(sizeof(int), ninterfaces);
++	if (!still_alive)
++		return -1;
++
++	for (result = isc_interfaceiter_first(iter);
++	     result == ISC_R_SUCCESS;
++	     result = isc_interfaceiter_next(iter))
++	{
++		isc_interface_t isc_if;
++
++		result = isc_interfaceiter_current(iter, &isc_if);
++		if (result != ISC_R_SUCCESS) {
++			msyslog(LOG_ERR, "isc_interfaceiter_current failed");
++			break;
++		}
++
++		if (0 == (isc_if.flags & INTERFACE_F_UP)) /* delete disabled interfaces */
++			continue;
++		/* First process known interfaces */
++		for (i = nwilds; i < ninterfaces; i++) { /* skip wilds */
++			if (inter_list[i].fd == INVALID_SOCKET)
++				continue;
++			if (isc_if.af != inter_list[i].family)
++				continue;
++			if (strcmp(isc_if.name, inter_list[i].name))
++				continue;
++			if ((inter_list[i].family == AF_INET) &&
++			    memcmp(&(((struct sockaddr_in*)&inter_list[i].sin)->sin_addr),
++				   &(isc_if.address.type.in),
++				   sizeof(struct in_addr)))
++				continue;
++			if ((inter_list[i].family == AF_INET6) && 
++			    memcmp(&(((struct sockaddr_in6 *)&inter_list[i].sin)->sin6_addr),
++				   &(isc_if.address.type.in6),
++				   sizeof(struct in6_addr)))
++				continue;
++			
++			int c = FALSE;
++			rebind_interface(inter_list+i, &isc_if, &c);
++			changed |= c;
++			still_alive[i] = TRUE; /* don't disable this interface */
++			break;
++		}
++		if (0 == (isc_if.flags & INTERFACE_F_UP))
++			continue; /* down interfaces are not useful */
++
++		if (i == ninterfaces) {	/* new interface/address */
++			changed = TRUE;
++			isc_if_add = reallocf(isc_if_add, sizeof(isc_interface_t) * (adds+1));
++			if (isc_if_add) {
++				isc_if_add[adds] = isc_if;
++				adds++;
++			}
++		}
++	}
++	isc_interfaceiter_destroy(&iter);
++
++	for (i = nwilds; i < ninterfaces; i++) {
++		if (!still_alive[i])
++			if (disable_interface(inter_list+i))
++				changed = TRUE;
++	}
++	free(still_alive);
++	for (i = 0; i < adds; i++) {
++		add_interface(isc_if_add+i);
++	}
++	realloc(isc_if_add, 0);
++
++	if (changed)
++		rebind_peers(0);
++	return result;
++}
+diff -up -pr ../ntp-4.2.2/ntpd/ntp_proto.c ./ntpd/ntp_proto.c
+--- ../ntp-4.2.2/ntpd/ntp_proto.c	2006-06-06 13:16:43.000000000 -0700
++++ ./ntpd/ntp_proto.c	2006-06-08 11:10:47.000000000 -0700
+@@ -2053,6 +2053,7 @@ clock_select(void)
+ 				    msyslog(LOG_INFO,
+ 				    "no servers reachable");
+ 				report_event(EVNT_PEERSTCHG, NULL);
++				rebind_interfaces();
+ 			}
+ 		}
+ 	}
+diff -up -pr ../ntp-4.2.2/ntpd/ntp_timer.c ./ntpd/ntp_timer.c
+--- ../ntp-4.2.2/ntpd/ntp_timer.c	2006-06-06 13:16:46.000000000 -0700
++++ ./ntpd/ntp_timer.c	2006-06-08 11:10:47.000000000 -0700
+@@ -46,6 +46,7 @@ static	u_long adjust_timer;		/* second t
+ static	u_long keys_timer;		/* minute timer */
+ static	u_long stats_timer;		/* stats timer */
+ static	u_long huffpuff_timer;		/* huff-n'-puff timer */
++u_long rebind_timer;
+ #ifdef OPENSSL
+ static	u_long revoke_timer;		/* keys revoke timer */
+ u_char	sys_revoke = KEY_REVOKE;	/* keys revoke timeout (log2 s) */
+@@ -154,7 +155,7 @@ init_timer(void)
+ 	timer_overflows = 0;
+ 	timer_xmtcalls = 0;
+ 	timer_timereset = 0;
+-
++	rebind_timer = 0;
+ #if !defined(SYS_WINNT)
+ 	/*
+ 	 * Set up the alarm interrupt.	The first comes 2**EVENT_TIMEOUT
+@@ -343,6 +344,10 @@ timer(void)
+ 		  write_stats();
+ 	     stats_timer += stats_write_period;
+ 	}
++	if (rebind_timer != 0 && rebind_timer <= current_time) {
++		rebind_timer = 0;
++		rebind_interfaces();
++	}
+ }
+ 
+ 
+diff -up -pr ../ntp-4.2.2/ntpd/ntpd.c ./ntpd/ntpd.c
+--- ../ntp-4.2.2/ntpd/ntpd.c	2006-06-06 13:16:46.000000000 -0700
++++ ./ntpd/ntpd.c	2006-06-08 11:10:47.000000000 -0700
+@@ -114,6 +114,9 @@
+ #endif
+ #endif
+ 
++#ifdef __APPLE__
++#include <notify.h>
++#endif	/* __APPLE__ */
+ /*
+  * Signals we catch for debugging.	If not debugging we ignore them.
+  */
+@@ -149,6 +152,7 @@ int priority_done = 2;		/* 0 - Set prior
+  * Debugging flag
+  */
+ volatile int debug;
++volatile int info_flag;
+ 
+ /*
+  * Set the processing not to be in the forground
+@@ -206,6 +210,7 @@ static	RETSIGTYPE	lessdebug	P((int));
+ static	RETSIGTYPE	no_debug	P((int));
+ #endif	/* not DEBUG */
+ 
++static RETSIGTYPE info P((int));
+ int 		ntpdmain		P((int, char **));
+ static void	set_process_priority	P((void));
+ static void init_logging P((char *));
+@@ -707,6 +712,11 @@ ntpdmain(
+ 	(void) signal_no_reset(SIGPIPE, SIG_IGN);
+ #endif	/* SIGPIPE */
+ 
++#ifdef __APPLE__
++	int token;
++	(void) signal_no_reset(SIGINFO, info);
++	notify_register_signal("com.apple.system.config.network_change", SIGINFO, &token);
++#endif	/* __APPLE__ */
+ 	/*
+ 	 * Call the init_ routines to initialize the data structures.
+ 	 */
+@@ -895,6 +905,11 @@ getgroup:	
+ 			alarm_flag = 0;
+ 		}
+ 
++		if (info_flag) {
++			info_flag = 0;
++			/* 6 is too short for ipv6 duplicate address detection */
++			rebind_timer = current_time + 10; /* let all changes settle down */
++		}
+ 		if (!was_alarmed && has_full_recv_buffer() == ISC_FALSE)
+ 		{
+ 			/*
+@@ -1080,3 +1095,11 @@ no_debug(
+ }
+ #endif  /* not SYS_WINNT */
+ #endif	/* not DEBUG */
++
++static RETSIGTYPE
++info(
++	int sig
++	)
++{
++	info_flag = 1;
++}
+diff -up -pr ../ntp-4.2.2/ntpdc/nl.pl ./ntpdc/nl.pl
+--- ../ntp-4.2.2/ntpdc/nl.pl	2006-06-06 14:11:24.000000000 -0700
++++ ./ntpdc/nl.pl	2006-06-08 11:10:47.000000000 -0700
+@@ -1,4 +1,4 @@
+-#! /usr/local/bin/perl -w
++#! /usr/bin/perl -w
+ 
+ $found = 0;
+ $last = 0;

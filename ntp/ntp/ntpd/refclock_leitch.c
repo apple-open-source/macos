@@ -166,7 +166,7 @@ leitch_poll(
 	if (debug)
 	    fprintf(stderr, "leitch_poll()\n");
 #endif
-	if (unit > MAXUNITS) {
+	if (unit >= MAXUNITS) {
 		/* XXXX syslog it */
 		return;
 	}
@@ -446,6 +446,7 @@ leitch_receive(
 			leitch->state = STATE_IDLE;
 			break;
 		}
+		leitch->reftime1.l_uf = 0;
 #ifdef DEBUG
 		if (debug)
 		    fprintf(stderr, "%lu\n", (u_long)leitch->reftime1.l_ui);

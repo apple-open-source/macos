@@ -163,7 +163,7 @@ int smbc_open(const char *furl, int flags, mode_t mode)
 
 	fd = add_fd(file);
 	if (fd == -1) 
-		statcont->close(statcont, file);
+		statcont->close_fn(statcont, file);
 	return fd;
 }
 
@@ -180,7 +180,7 @@ int smbc_creat(const char *furl, mode_t mode)
 	fd = add_fd(file);
 	if (fd == -1) {
 		/* Hmm... should we delete the file too ? I guess we could try */
-		statcont->close(statcont, file);
+		statcont->close_fn(statcont, file);
 		statcont->unlink(statcont, furl);
 	}
 	return fd;
@@ -209,7 +209,7 @@ int smbc_close(int fd)
 {
 	SMBCFILE * file = find_fd(fd);
 	del_fd(fd);
-	return statcont->close(statcont, file);
+	return statcont->close_fn(statcont, file);
 }
 
 int smbc_unlink(const char *fname)
@@ -303,14 +303,16 @@ int smbc_utimes(const char *fname, struct timeval *tbuf)
 #ifdef HAVE_UTIME_H
 int smbc_utime(const char *fname, struct utimbuf *utbuf)
 {
-        struct timeval tv;
+        struct timeval tv[2];
 
         if (utbuf == NULL)
                 return statcont->utimes(statcont, fname, NULL);
 
-        tv.tv_sec = utbuf->modtime;
-        tv.tv_usec = 0;
-        return statcont->utimes(statcont, fname, &tv);
+        tv[0].tv_sec = utbuf->actime;
+        tv[1].tv_sec = utbuf->modtime;
+        tv[0].tv_usec = tv[1].tv_usec = 0;
+
+        return statcont->utimes(statcont, fname, tv);
 }
 #endif
 
@@ -339,6 +341,10 @@ int smbc_fsetxattr(int fd,
                    int flags)
 {
 	SMBCFILE * file = find_fd(fd);
+	if (file == NULL) {
+		errno = EBADF;
+		return -1;
+	}
         return statcont->setxattr(statcont, file->fname,
                                   name, value, size, flags);
 }
@@ -365,6 +371,10 @@ int smbc_fgetxattr(int fd,
                    size_t size)
 {
 	SMBCFILE * file = find_fd(fd);
+	if (file == NULL) {
+		errno = EBADF;
+		return -1;
+	}
         return statcont->getxattr(statcont, file->fname, name, value, size);
 }
 
@@ -384,6 +394,10 @@ int smbc_fremovexattr(int fd,
                       const char *name)
 {
 	SMBCFILE * file = find_fd(fd);
+	if (file == NULL) {
+		errno = EBADF;
+		return -1;
+	}
         return statcont->removexattr(statcont, file->fname, name);
 }
 
@@ -406,6 +420,10 @@ int smbc_flistxattr(int fd,
                     size_t size)
 {
 	SMBCFILE * file = find_fd(fd);
+	if (file == NULL) {
+		errno = EBADF;
+		return -1;
+	}
         return statcont->listxattr(statcont, file->fname, list, size);
 }
 
@@ -418,7 +436,7 @@ int smbc_open_print_job(const char *fname)
 {
 	SMBCFILE * file = statcont->open_print_job(statcont, fname);
 	if (!file) return -1;
-	return (int) file;
+	return file->cli_fd;
 }
 
 int smbc_list_print_jobs(const char *purl, smbc_list_print_job_fn fn)

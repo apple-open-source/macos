@@ -1,8 +1,8 @@
 /* delete.c - ldap backend delete function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/delete.c,v 1.27.2.5 2004/04/12 16:00:58 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/delete.c,v 1.37.2.8 2006/04/05 21:53:26 ando Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2003-2004 The OpenLDAP Foundation.
+ * Copyright 2003-2006 The OpenLDAP Foundation.
  * Portions Copyright 1999-2003 Howard Chu.
  * Portions Copyright 2000-2003 Pierangelo Masarati.
  * All rights reserved.
@@ -33,76 +33,49 @@
 
 int
 ldap_back_delete(
-    Operation	*op,
-    SlapReply	*rs )
+		Operation	*op,
+		SlapReply	*rs )
 {
-	struct ldapinfo	*li = (struct ldapinfo *) op->o_bd->be_private;
-	struct ldapconn *lc;
-	ber_int_t msgid;
-	dncookie dc;
-#ifdef LDAP_BACK_PROXY_AUTHZ 
-	LDAPControl **ctrls = NULL;
-	int rc = LDAP_SUCCESS;
-#endif /* LDAP_BACK_PROXY_AUTHZ */
+	ldapinfo_t	*li = (ldapinfo_t *)op->o_bd->be_private;
 
-	struct berval mdn = BER_BVNULL;
+	ldapconn_t	*lc;
+	ber_int_t	msgid;
+	LDAPControl	**ctrls = NULL;
+	int		do_retry = 1;
+	int		rc = LDAP_SUCCESS;
 
-	lc = ldap_back_getconn( op, rs );
+	lc = ldap_back_getconn( op, rs, LDAP_BACK_SENDERR );
 	
-	if ( !lc || !ldap_back_dobind( lc, op, rs ) ) {
-		return( -1 );
+	if ( !lc || !ldap_back_dobind( lc, op, rs, LDAP_BACK_SENDERR ) ) {
+		return rs->sr_err;
 	}
 
-	/*
-	 * Rewrite the request dn, if needed
-	 */
-	dc.rwmap = &li->rwmap;
-#ifdef ENABLE_REWRITE
-	dc.conn = op->o_conn;
-	dc.rs = rs;
-	dc.ctx = "deleteDN";
-#else
-	dc.tofrom = 1;
-	dc.normalized = 0;
-#endif
-	if ( ldap_back_dn_massage( &dc, &op->o_req_ndn, &mdn ) ) {
-		send_ldap_result( op, rs );
-		return -1;
-	}
-
-#ifdef LDAP_BACK_PROXY_AUTHZ
+	ctrls = op->o_ctrls;
 	rc = ldap_back_proxy_authz_ctrl( lc, op, rs, &ctrls );
 	if ( rc != LDAP_SUCCESS ) {
+		send_ldap_result( op, rs );
+		rc = rs->sr_err;
 		goto cleanup;
 	}
-#endif /* LDAP_BACK_PROXY_AUTHZ */
 
-	rs->sr_err = ldap_delete_ext( lc->ld, mdn.bv_val,
-#ifdef LDAP_BACK_PROXY_AUTHZ
-			ctrls,
-#else /* ! LDAP_BACK_PROXY_AUTHZ */
-			op->o_ctrls,
-#endif /* ! LDAP_BACK_PROXY_AUTHZ */
-			NULL, &msgid );
+retry:
+	rs->sr_err = ldap_delete_ext( lc->lc_ld, op->o_req_dn.bv_val,
+			ctrls, NULL, &msgid );
+	rc = ldap_back_op_result( lc, op, rs, msgid,
+		li->li_timeout[ LDAP_BACK_OP_DELETE], LDAP_BACK_SENDRESULT );
+	if ( rs->sr_err == LDAP_SERVER_DOWN && do_retry ) {
+		do_retry = 0;
+		if ( ldap_back_retry( &lc, op, rs, LDAP_BACK_SENDERR ) ) {
+			goto retry;
+		}
+	}
 
-#ifdef LDAP_BACK_PROXY_AUTHZ
 cleanup:
-	if ( ctrls && ctrls != op->o_ctrls ) {
-		free( ctrls[ 0 ] );
-		free( ctrls );
-	}
-#endif /* LDAP_BACK_PROXY_AUTHZ */
+	(void)ldap_back_proxy_authz_ctrl_free( op, &ctrls );
 
-	if ( mdn.bv_val != op->o_req_ndn.bv_val ) {
-		free( mdn.bv_val );
+	if ( lc != NULL ) {
+		ldap_back_release_conn( op, rs, lc );
 	}
 
-#ifdef LDAP_BACK_PROXY_AUTHZ
-	if ( rc != LDAP_SUCCESS ) {
-		send_ldap_result( op, rs );
-		return -1;
-	}
-#endif /* LDAP_BACK_PROXY_AUTHZ */
-
-	return( ldap_back_op_result( lc, op, rs, msgid, 1 ) );
+	return rc;
 }

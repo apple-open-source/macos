@@ -39,14 +39,11 @@ extern "C" {
 #endif /* __cplusplus */
 
 #if TARGET_OS_MAC
-#	pragma options align=mac68k
+#	pragma pack(push,2)
 #endif
 
 #if defined(_MSDOS) || defined(_WIN32)
 #include <win-mac.h>
-#define GSS_SIZEOF_SHORT SIZEOF_SHORT
-#define GSS_SIZEOF_LONG  SIZEOF_LONG
-#define GSS_SIZEOF_INT   SIZEOF_INT
 #endif
 
 #ifndef KRB5_CALLCONV
@@ -65,31 +62,28 @@ extern "C" {
 #include <sys/types.h>
 
 /*
- * $Id: gssapi.hin 17241 2005-06-15 02:28:30Z  $
+ * $Id: gssapi.hin 18396 2006-07-25 20:29:43Z lxs $
  */
 
 /*
  * First, define the three platform-dependent pointer types.
  */
 
-typedef void * gss_name_t;
-typedef void * gss_cred_id_t;
-typedef void * gss_ctx_id_t;
+struct gss_name_struct;
+typedef struct gss_name_struct * gss_name_t;
+
+struct gss_cred_id_struct;
+typedef struct gss_cred_id_struct * gss_cred_id_t;
+
+struct gss_ctx_id_struct;
+typedef struct gss_ctx_id_struct * gss_ctx_id_t;
 
 /*
  * The following type must be defined as the smallest natural unsigned integer
  * supported by the platform that has at least 32 bits of precision.
  */
-#if (GSS_SIZEOF_SHORT == 4)
-typedef unsigned short gss_uint32;
-typedef short gss_int32;
-#elif (GSS_SIZEOF_INT == 4)
-typedef unsigned int gss_uint32;
-typedef int gss_int32;
-#elif (GSS_SIZEOF_LONG == 4)
-typedef unsigned long gss_uint32;
-typedef long gss_int32;
-#endif
+typedef uint32_t gss_uint32;
+typedef int32_t gss_int32;
 
 #ifdef	OM_STRING
 /*
@@ -702,6 +696,13 @@ OM_uint32 KRB5_CALLCONV gss_inquire_names_for_mech
 	    gss_OID_set *		/* name_types */
 	   );
 
+/* New for V2 */
+OM_uint32 KRB5_CALLCONV gss_inquire_mechs_for_name(
+    OM_uint32 *,		/* minor_status */
+    const gss_name_t,		/* input_name */
+    gss_OID_set *		/* mech_types */
+);
+
 /*
  * The following routines are obsolete variants of gss_get_mic, gss_wrap,
  * gss_verify_mic and gss_unwrap.  They should be provided by GSSAPI V2
@@ -767,7 +768,7 @@ OM_uint32 KRB5_CALLCONV gss_canonicalize_name
 	);
 
 #if TARGET_OS_MAC
-#  pragma options align=reset
+#	pragma pack(pop)
 #endif
 
 #ifdef __cplusplus

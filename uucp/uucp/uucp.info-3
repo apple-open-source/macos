@@ -1,0 +1,1182 @@
+This is uucp.info, produced by makeinfo version 4.1 from uucp.texi.
+
+START-INFO-DIR-ENTRY
+* UUCP: (uucp).                 Transfer mail and news across phone lines.
+END-INFO-DIR-ENTRY
+
+   This file documents Taylor UUCP, version 1.07.
+
+   Copyright (C) 1992, 1993, 1994, 1995, 2002 Ian Lance Taylor
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "Copying" are included exactly as in the
+original, and provided that the entire resulting derived work is
+distributed under the terms of a permission notice identical to this
+one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the section entitled "Copying" may be included in
+a translation approved by the author instead of in the original English.
+
+
+File: uucp.info,  Node: Execution Subdirectories,  Next: Other Spool Subdirectories,  Prev: Status Directory,  Up: The Spool Directory Layout
+
+Execution Subdirectories
+------------------------
+
+`.Xqtdir'
+     When `uuxqt' executes a job requested by `uux', it first changes
+     the working directory to the `.Xqtdir' subdirectory.  This permits
+     the job to create any sort of temporary file without worrying
+     about overwriting other files in the spool directory.  Any files
+     left in the `.Xqtdir' subdirectory are removed after each
+     execution is complete.
+
+`.XqtdirNNNN'
+     When several instances of `uuxqt' are executing simultaneously,
+     each one executes jobs in a separate directory.  The first uses
+     `.Xqtdir', the second uses `.Xqtdir0001', the third uses
+     `.Xqtdir0002', and so forth.
+
+`.Corrupt'
+     If `uuxqt' encounters an execution file which it is unable to
+     parse, it saves it in the `.Corrupt' directory, and sends mail
+     about it to the UUCP administrator.
+
+`.Failed'
+     If `uuxqt' executes a job, and the job fails, and there is enough
+     disk space to hold the command file and all the data files, then
+     `uuxqt' saves the files in the `.Failed' directory, and sends mail
+     about it to the UUCP administrator.
+
+
+File: uucp.info,  Node: Other Spool Subdirectories,  Next: Spool Lock Files,  Prev: Execution Subdirectories,  Up: The Spool Directory Layout
+
+Other Spool Subdirectories
+--------------------------
+
+`.Sequence'
+     This directory holds conversation sequence number files.  These
+     are used if the `sequence' command is used for a system (*note
+     Miscellaneous (sys)::).  The sequence number for the system SYSTEM
+     is stored in the file `.Sequence/SYSTEM'.  It is simply stored as
+     a printable number.
+
+`.Temp'
+     This directory holds data files as they are being received from a
+     remote system, before they are moved to their final destination.
+     For file send requests which use a valid temporary file name in
+     the TEMP field of the `S' or `E' command (*note The S Command::),
+     `uucico' receives the file into `.Temp/SYSTEM/TEMP', where SYSTEM
+     is the name of the remote system, and TEMP is the temporary file
+     name.  If a conversation fails during a file transfer, these files
+     are used to automatically restart the file transfer from the point
+     of failure.
+
+     If the `S' or `E' command does not include a temporary file name,
+     automatic restart is not possible.  In this case, the files are
+     received into a randomly named file in the `.Temp' directory
+     itself.
+
+`.Preserve'
+     This directory holds data files which could not be transferred to a
+     remote system for some reason (for example, the data file might be
+     large, and exceed size restrictions imposed by the remote system).
+     When a locally requested file transfer fails, `uucico' will store
+     the data file in the `.Preserve' directory, and send mail to the
+     requestor describing the failure and naming the saved file.
+
+`.Received'
+     This directory records which files have been received.  If a
+     conversation fails just after `uucico' acknowledges receipt of a
+     file, it is possible for the acknowledgement to be lost.  If this
+     happens, the remote system will resend the file.  If the file were
+     an execution request, and `uucico' did not keep track of which
+     files it had already received, this could lead to the execution
+     being performed twice.
+
+     To avoid this problem, when a conversation fails, `uucico' records
+     each file that has been received, but for which the remote system
+     may not have received the acknowledgement.  It records this
+     information by creating an empty file with the name
+     `.Received/SYSTEM/TEMP', where SYSTEM is the name of the remote
+     system, and TEMP is the TEMP field of the `S' or `E' command from
+     the remote system (*note The S Command::).  Then, if the remote
+     system offers the file again in the next conversation, `uucico'
+     refuses the send request and deletes the record in the `.Received'
+     directory.  This approach only works for file sends which use a
+     temporary file name, but this is true of all execution requests.
+
+
+File: uucp.info,  Node: Spool Lock Files,  Prev: Other Spool Subdirectories,  Up: The Spool Directory Layout
+
+Lock Files in the Spool Directory
+---------------------------------
+
+   Lock files for devices and systems are stored in the lock directory,
+which may or may not be the same as the spool directory.  The lock
+directory is set at compilation time by `LOCKDIR' in `policy.h', which
+may be overridden by the `lockdir' command in the `config' file (*note
+Miscellaneous (config)::).
+
+   For a description of the names used for device lock files, and the
+format of the contents of a lock file, see *Note UUCP Lock Files::.
+
+`LCK..SYS'
+     A lock file for a system, where SYS is the system name.  As noted
+     above, these lock files are kept in the lock directory, which may
+     not be the spool directory.  These lock files are created by
+     `uucico' while talking to a remote system, and are used to prevent
+     multiple simultaneous conversations with a system.
+
+     On systems which limit file names to 14 characters, only the first
+     eight characters of the system name are used in the lock file
+     name.  This requires that the names of each directly connected
+     remote system be unique in the first eight characters.
+
+`LCK.XQT.NN'
+     When `uuxqt' starts up, it uses lock files to determine how many
+     other `uuxqt' daemons are currently running.  It first tries to
+     lock `LCK.XQT.0', then `LCK.XQT.1', and so forth.  This is used to
+     implement the `max-uuxqts' command (*note Miscellaneous
+     (config)::).  It is also used to parcel out the `.Xqtdir'
+     subdirectories (*note Execution Subdirectories::).
+
+`LXQ.CMD'
+     When `uuxqt' is invoked with the `-c' or `--command' option (*note
+     Invoking uuxqt::), it creates a lock file named after the command
+     it is executing.  For example, `uuxqt -c rmail' will create the
+     lock file `LXQ.rmail'.  This prevents other `uuxqt' daemons from
+     executing jobs of the specified type.
+
+`SYSTEM/X./L.XXX'
+     While `uuxqt' is executing a particular job, it creates a lock file
+     with the same name as the `X.' file describing the job, but
+     replacing the initial `X' with `L'.  This ensures that if multiple
+     `uuxqt' daemons are running, they do not simultaneously execute
+     the same job.
+
+`LCK..SEQ'
+     This lock file is used to control access to the sequence files for
+     each system (*note System Spool Directories::).  It is only used
+     on systems which do not support POSIX file locking using the
+     `fcntl' system call.
+
+
+File: uucp.info,  Node: Spool Directory Cleaning,  Prev: The Spool Directory Layout,  Up: Using Taylor UUCP
+
+Cleaning the Spool Directory
+============================
+
+   The spool directory may need to be cleaned up periodically.  Under
+some circumstances, files may accumulate in various subdirectories,
+such as `.Preserve' (*note Other Spool Subdirectories::) or `.Corrupt'
+(*note Execution Subdirectories::).
+
+   Also, if a remote system stops calling in, you may want to arrange
+for any queued up mail to be returned to the sender.  This can be done
+using the `uustat' command (*note Invoking uustat::).
+
+   The `contrib' directory includes a simple `uuclean' script which may
+be used as an example of a clean up script.  It can be run daily out of
+`crontab'.
+
+   You should periodically trim the UUCP log files, as they will
+otherwise grow without limit.  The names of the log files are set in
+`policy.h', and may be overridden in the configuration file (*note
+config File::).  By default they are are `/usr/spool/uucp/Log' and
+`/usr/spool/uucp/Stats'.  You may find the `savelog' program in the
+`contrib' directory to be of use.  There is a manual page for it in
+`contrib' as well.
+
+
+File: uucp.info,  Node: Configuration Files,  Next: Protocols,  Prev: Using Taylor UUCP,  Up: Top
+
+Taylor UUCP Configuration Files
+*******************************
+
+   This chapter describes the configuration files accepted by the Taylor
+UUCP package if compiled with `HAVE_TAYLOR_CONFIG' set to 1 in
+`policy.h'.
+
+   The configuration files are normally found in the directory
+NEWCONFIGDIR, which is defined by the `configure' option
+`--with-newconfigdir'; by default NEWCONFIGDIR is
+`/usr/local/conf/uucp'.  However, the main configuration file,
+`config', is the only one which must be in that directory, since it may
+specify a different location for any or all of the other files.  You
+may run any of the UUCP programs with a different main configuration
+file by using the `-I' or `--config' option; this can be useful when
+testing a new configuration.  When you use the `-I' option the programs
+will revoke any setuid privileges.
+
+* Menu:
+
+* Configuration Overview::      Configuration File Overview
+* Configuration File Format::   Configuration File Format
+* Configuration Examples::      Examples of Configuration Files
+* Time Strings::                How to Write Time Strings
+* Chat Scripts::                How to Write Chat Scripts
+* config File::                 The Main Configuration File
+* sys File::                    The System Configuration File
+* port File::                   The Port Configuration Files
+* dial File::                   The Dialer Configuration Files
+* UUCP Over TCP::               UUCP Over TCP
+* Security::                    Security Issues
+
+
+File: uucp.info,  Node: Configuration Overview,  Next: Configuration File Format,  Prev: Configuration Files,  Up: Configuration Files
+
+Configuration File Overview
+===========================
+
+   UUCP uses several different types of configuration files, each
+describing a different kind of information.  The commands permitted in
+each file are described in detail below.  This section is a brief
+description of some of the different types of files.
+
+   The `config' file is the main configuration file.  It describes
+general information not associated with a particular remote system, such
+as the location of various log files.  There are reasonable defaults for
+everything that may be specified in the `config' file, so you may not
+actually need one on your system.
+
+   There may be only one `config' file, but there may be one or more of
+each other type of file.  The default is one file for each type, but
+more may be listed in the `config' file.
+
+   The `sys' files are used to describe remote systems.  Each remote
+system to which you connect must be listed in a `sys' file.  A `sys'
+file will include information for a system, such as the speed (baud
+rate) to use, or when to place calls.
+
+   For each system you wish to call, you must describe one or more
+ports; these ports may be defined directly in the `sys' file, or they
+may be defined in a `port' file.
+
+   The `port' files are used to describe ports.  A port is a particular
+hardware connection on your computer.  You would normally define as
+many ports as there are modems attached to your computer.  A TCP
+connection is also described using a port.
+
+   The `dial' files are used to describe dialers.  Dialer is
+essentially another word for modem.  The `dial' file describes the
+commands UUCP should use to dial out on a particular type of modem.  You
+would normally define as many dialers as there are types of modems
+attached to your computer.  For example, if you have three Telebit
+modems used for UUCP, you would probably define three ports and one
+dialer.
+
+   There are other types of configuration files, but these are the
+important ones.  The other types are described below.
+
+
+File: uucp.info,  Node: Configuration File Format,  Next: Configuration Examples,  Prev: Configuration Overview,  Up: Configuration Files
+
+Configuration File Format
+=========================
+
+   All the configuration files follow a simple line-oriented `KEYWORD
+VALUE' format.  Empty lines are ignored, as are leading spaces; unlike
+HDB, lines with leading spaces are read.  The first word on each line
+is a keyword.  The rest of the line is interpreted according to the
+keyword.  Most keywords are followed by numbers, boolean values or
+simple strings with no embedded spaces.
+
+   The `#' character is used for comments.  Everything from a `#' to
+the end of the line is ignored unless the `#' is preceded by a `\'
+(backslash); if the `#' is preceeded by a `\', the `\' is removed but
+the `#' remains in the line.  This can be useful for a phone number
+containing a `#'.  To enter the sequence `\#', use `\\#'.
+
+   The backslash character may be used to continue lines.  If the last
+character in a line is a backslash, the backslash is removed and the
+line is continued by the next line.  The second line is attached to the
+first with no intervening characters; if you want any whitespace between
+the end of the first line and the start of the second line, you must
+insert it yourself.
+
+   However, the backslash is not a general quoting character.  For
+example, you cannot use it to get an embedded space in a string
+argument.
+
+   Everything after the keyword must be on the same line.  A BOOLEAN
+may be specified as `y', `Y', `t', or `T' for true and `n', `N', `f',
+or `F' for false; any trailing characters are ignored, so `true',
+`false', etc., are also acceptable.
+
+
+File: uucp.info,  Node: Configuration Examples,  Next: Time Strings,  Prev: Configuration File Format,  Up: Configuration Files
+
+Examples of Configuration Files
+===============================
+
+   This section provides few typical examples of configuration files.
+There are also sample configuration files in the `sample' subdirectory
+of the distribution.
+
+* Menu:
+
+* config File Examples::        Examples of the Main Configuration File
+* Leaf Example::                Call a Single Remote Site
+* Gateway Example::             The Gateway for Several Local Systems
+
+
+File: uucp.info,  Node: config File Examples,  Next: Leaf Example,  Prev: Configuration Examples,  Up: Configuration Examples
+
+config File Examples
+--------------------
+
+   To start with, here are some examples of uses of the main
+configuration file, `config'.  For a complete description of the
+commands that are permitted in `config', see *Note config File::.
+
+   In many cases you will not need to create a `config' file at all.
+The most common reason to create one is to give your machine a special
+UUCP name.  Other reasons might be to change the UUCP spool directory,
+or to permit any remote system to call in.
+
+   If you have an internal network of machines, then it is likely that
+the internal name of your UUCP machine is not the name you want to use
+when calling other systems.  For example, here at `airs.com' our
+mail/news gateway machine is named `elmer.airs.com' (it is one of
+several machines all named `LOCALNAME.airs.com').  If we did not
+provide a `config' file, then our UUCP name would be `elmer'; however,
+we actually want it to be `airs'.  Therefore, we use the following line
+in `config':
+
+     nodename airs
+
+   The UUCP spool directory name is set in `policy.h' when the code is
+compiled.  You might at some point decide that it is appropriate to move
+the spool directory, perhaps to put it on a different disk partition.
+You would use the following commands in `config' to change to
+directories on the partition `/uucp':
+
+     spool /uucp/spool
+     pubdir /uucp/uucppublic
+     logfile /uucp/spool/Log
+     debugfile /uucp/spool/Debug
+
+   You would then move the contents of the current spool directory to
+`/uucp/spool'.  If you do this, make sure that no UUCP processes are
+running while you change `config' and move the spool directory.
+
+   Suppose you wanted to permit any system to call in to your system and
+request files.  This is generally known as "anonymous UUCP", since the
+systems which call in are effectively anonymous.  By default, unknown
+systems are not permitted to call in.  To permit this you must use the
+`unknown' command in `config'.  The `unknown' command is followed by
+any command that may appear in the system file; for full details, see
+*Note sys File::.
+
+   I will show two possible anonymous UUCP configurations.  The first
+will let any system call in and download files, but will not permit
+them to upload files to your system.
+
+     # No files may be transferred to this system
+     unknown receive-request no
+     # The public directory is /usr/spool/anonymous
+     unknown pubdir /usr/spool/anonymous
+     # Only files in the public directory may be sent (the default anyhow)
+     unknown remote-send ~
+
+Setting the public directory is convenient for the systems which call
+in.  It permits to request a file by prefixing it with `~/'.  For
+example, assuming your system is known as `server', then to retrieve
+the file `/usr/spool/anonymous/INDEX' a user on a remote site could
+just enter `uucp server!~/INDEX ~'; this would transfer `INDEX' from
+`server''s public directory to the user's local public directory.  Note
+that when using `csh' or `bash' the `!' and the second `~' must be
+quoted.
+
+   The next example will permit remote systems to upload files to a
+special directory named `/usr/spool/anonymous/upload'.  Permitting a
+remote system to upload files permits it to send work requests as well;
+this example is careful to prohibit commands from unknown systems.
+
+     # No commands may be executed (the list of permitted commands is empty)
+     unknown commands
+     # The public directory is /usr/spool/anonymous
+     unknown pubdir /usr/spool/anonymous
+     # Only files in the public directory may be sent; users may not download
+     # files from the upload directory
+     unknown remote-send ~ !~/upload
+     # May only upload files into /usr/spool/anonymous/upload
+     unknown remote-receive ~/upload
+
+
+File: uucp.info,  Node: Leaf Example,  Next: Gateway Example,  Prev: config File Examples,  Up: Configuration Examples
+
+Leaf Example
+------------
+
+   A relatively common simple case is a "leaf site", a system which
+only calls or is called by a single remote site.  Here is a typical
+`sys' file that might be used in such a case.  For full details on what
+commands can appear in the `sys' file, see *Note sys File::.
+
+   This is the `sys' file that is used at `airs.com'.  We use a single
+modem to dial out to `uunet'.  This example shows how you can specify
+the port and dialer information directly in the `sys' file for simple
+cases.  It also shows the use of the following:
+
+`call-login'
+     Using `call-login' and `call-password' allows the default login
+     chat script to be used.  In this case, the login name is specified
+     in the call-out login file (*note Configuration File Names::).
+
+`call-timegrade'
+     `uunet' is requested to not send us news during the daytime.
+
+`chat-fail'
+     If the modem returns `BUSY' or `NO CARRIER' the call is
+     immediately aborted.
+
+`protocol-parameter'
+     Since `uunet' tends to be slow, the default timeout has been
+     increased.
+
+   This `sys' file relies on certain defaults.  It will allow `uunet'
+to queue up `rmail' and `rnews' commands.  It will allow users to
+request files from `uunet' into the UUCP public directory.  It will
+also allow `uunet' to request files from the UUCP public directory; in
+fact `uunet' never requests files, but for additional security we could
+add the line `request false'.
+
+     # The following information is for uunet
+     system uunet
+     
+     # The login name and password are kept in the callout password file
+     call-login *
+     call-password *
+     
+     # We can send anything at any time.
+     time any
+     
+     # During the day we only accept grade `Z' or above; at other times
+     # (not mentioned here) we accept all grades.  uunet queues up news
+     # at grade `d', which is lower than `Z'.
+     call-timegrade Z Wk0755-2305,Su1655-2305
+     
+     # The phone number.
+     phone 7389449
+     
+     # uunet tends to be slow, so we increase the timeout
+     chat-timeout 120
+     
+     # We are using a preconfigured Telebit 2500.
+     port type modem
+     port device /dev/ttyd0
+     port speed 19200
+     port carrier true
+     port dialer chat "" ATZ\r\d\c OK ATDT\D CONNECT
+     port dialer chat-fail BUSY
+     port dialer chat-fail NO\sCARRIER
+     port dialer complete \d\d+++\d\dATH\r\c
+     port dialer abort \d\d+++\d\dATH\r\c
+     
+     # Increase the timeout and the number of retries.
+     protocol-parameter g timeout 20
+     protocol-parameter g retries 10
+
+
+File: uucp.info,  Node: Gateway Example,  Prev: Leaf Example,  Up: Configuration Examples
+
+Gateway Example
+---------------
+
+   Many organizations have several local machines which are connected by
+UUCP, and a single machine which connects to the outside world.  This
+single machine is often referred to as a "gateway" machine.
+
+   For this example I will assume a fairly simple case.  It should still
+provide a good general example.  There are three machines, `elmer',
+`comton' and `bugs'.  `elmer' is the gateway machine for which I will
+show the configuration file.  `elmer' calls out to `uupsi'.  As an
+additional complication, `uupsi' knows `elmer' as `airs'; this will
+show how a machine can have one name on an internal network but a
+different name to the external world.  `elmer' has two modems.  It also
+has an TCP connection to `uupsi', but since that is supposed to be
+reserved for interactive work (it is, perhaps, only a 9600 baud SLIP
+line) it will only use it if the modems are not available.
+
+   A network this small would normally use a single `sys' file.
+However, for pedagogical purposes I will show two separate `sys' files,
+one for the local systems and one for `uupsi'.  This is done with the
+`sysfile' command in the `config' file.  Here is the `config' file.
+
+     # This is config
+     # The local sys file
+     sysfile /usr/local/lib/uucp/sys.local
+     # The remote sys file
+     sysfile /usr/local/lib/uucp/sys.remote
+
+   Using the defaults feature of the `sys' file can greatly simplify
+the listing of local systems.  Here is `sys.local'.  Note that this
+assumes that the local systems are trusted; they are permited to request
+any world readable file and to write files into any world writable
+directory.
+
+     # This is sys.local
+     # Get the login name and password to use from the call-out file
+     call-login *
+     call-password *
+     
+     # The systems must use a particular login
+     called-login Ulocal
+     
+     # Permit sending any world readable file
+     local-send /
+     remote-send /
+     
+     # Permit receiving into any world writable directory
+     local-receive /
+     remote-receive /
+     
+     # Call at any time
+     time any
+     
+     # Use port1, then port2
+     port port1
+     
+     alternate
+     
+     port port2
+     
+     # Now define the systems themselves.  Because of all the defaults we
+     # used, there is very little to specify for the systems themselves.
+     
+     system comton
+     phone 5551212
+     
+     system bugs
+     phone 5552424
+
+   The `sys.remote' file describes the `uupsi' connection.  The
+`myname' command is used to change the UUCP name to `airs' when talking
+to `uupsi'.
+
+     # This is sys.remote
+     # Define uupsi
+     system uupsi
+     
+     # The login name and password are in the call-out file
+     call-login *
+     call-password *
+     
+     # We can call out at any time
+     time any
+     
+     # uupsi uses a special login name
+     called-login Uuupsi
+     
+     # uuspi thinks of us as `airs'
+     myname airs
+     
+     # The phone number
+     phone 5554848
+     
+     # We use port2 first, then port1, then TCP
+     
+     port port2
+     
+     alternate
+     
+     port port1
+     
+     alternate
+     
+     # We don't bother to make a special entry in the port file for TCP, we
+     # just describe the entire port right here.  We use a special chat
+     # script over TCP because the usual one confuses some TCP servers.
+     port type TCP
+     address uu.psi.com
+     chat ogin: \L word: \P
+
+   The ports are defined in the file `port' (*note port File::).  For
+this example they are both connected to the same type of 2400 baud
+Hayes-compatible modem.
+
+     # This is port
+     
+     port port1
+     type modem
+     device /dev/ttyd0
+     dialer hayes
+     speed 2400
+     
+     port port2
+     type modem
+     device /dev/ttyd1
+     dialer hayes
+     speed 2400
+
+   Dialers are described in the `dial' file (*note dial File::).
+
+     # This is dial
+     
+     dialer hayes
+     
+     # The chat script used to dial the phone.  \D is the phone number.
+     chat "" ATZ\r\d\c OK ATDT\D CONNECT
+     
+     # If we get BUSY or NO CARRIER we abort the dial immediately
+     chat-fail BUSY
+     chat-fail NO\sCARRIER
+     
+     # When the call is over we make sure we hangup the modem.
+     complete \d\d+++\d\dATH\r\c
+     abort \d\d+++\d\dATH\r\c
+
+
+File: uucp.info,  Node: Time Strings,  Next: Chat Scripts,  Prev: Configuration Examples,  Up: Configuration Files
+
+Time Strings
+============
+
+   Several commands use time strings to specify a range of times.  This
+section describes how to write time strings.
+
+   A time string may be a list of simple time strings separated with a
+vertical bar `|' or a comma `,'.
+
+   Each simple time string must begin with `Su', `Mo', `Tu', `We',
+`Th', `Fr', or `Sa', or `Wk' for any weekday, or `Any' for any day.
+
+   Following the day may be a range of hours separated with a hyphen
+using 24 hour time.  The range of hours may cross 0; for example
+`2300-0700' means any time except 7 AM to 11 PM.  If no time is given,
+calls may be made at any time on the specified day(s).
+
+   The time string may also be the single word `Never', which does not
+match any time.  The time string may also be a single word with a name
+defined in a previous `timetable' command (*note Miscellaneous
+(config)::).
+
+   Here are a few sample time strings with an explanation of what they
+mean.
+
+`Wk2305-0855,Sa,Su2305-1655'
+     This means weekdays before 8:55 AM or after 11:05 PM, any time
+     Saturday, or Sunday before 4:55 PM or after 11:05 PM.  These are
+     approximately the times during which night rates apply to phone
+     calls in the U.S.A.  Note that this time string uses, for example,
+     `2305' rather than `2300'; this will ensure a cheap rate phone
+     call even if the computer clock is running up to five minutes
+     ahead of the real time.
+
+`Wk0905-2255,Su1705-2255'
+     This means weekdays from 9:05 AM to 10:55 PM, or Sunday from 5:05
+     PM to 10:55 PM.  This is approximately the opposite of the
+     previous example.
+
+`Any'
+     This means any day.  Since no time is specified, it means any time
+     on any day.
+
+
+File: uucp.info,  Node: Chat Scripts,  Next: config File,  Prev: Time Strings,  Up: Configuration Files
+
+Chat Scripts
+============
+
+   Chat scripts are used in several different places, such as dialing
+out on modems or logging in to remote systems.  Chat scripts are made
+up of pairs of strings.  The program waits until it sees the first
+string, known as the "expect" string, and then sends out the second
+string, the "send" string.
+
+   Each chat script is defined using a set of commands.  These commands
+always end in a string beginning with `chat', but may start with
+different strings.  For example, in the `sys' file there is one set of
+commands beginning with `chat' and another set beginning with
+`called-chat'.  The prefixes are only used to disambiguate different
+types of chat scripts, and this section ignores the prefixes when
+describing the commands.
+
+`chat STRINGS'
+     Specify a chat script.  The arguments to the `chat' command are
+     pairs of strings separated by whitespace.  The first string of
+     each pair is an expect string, the second is a send string.  The
+     program will wait for the expect string to appear; when it does,
+     the program will send the send string.  If the expect string does
+     not appear within a certain number of seconds (as set by the
+     `chat-timeout' command), the chat script fails and, typically, the
+     call is aborted.  If the final expect string is seen (and the
+     optional final send string has been sent), the chat script is
+     successful.
+
+     An expect string may contain additional subsend and subexpect
+     strings, separated by hyphens.  If the expect string is not seen,
+     the subsend string is sent and the chat script continues by
+     waiting for the subexpect string.  This means that a hyphen may
+     not appear in an expect string; on an ASCII system, use `\055'
+     instead.
+
+     An expect string may simply be `""', meaning to skip the expect
+     phase.  Otherwise, the following escape characters may appear in
+     expect strings:
+
+    `\b'
+          a backspace character
+
+    `\n'
+          a newline or line feed character
+
+    `\N'
+          a null character (for HDB compatibility)
+
+    `\r'
+          a carriage return character
+
+    `\s'
+          a space character
+
+    `\t'
+          a tab character
+
+    `\\'
+          a backslash character
+
+    `\DDD'
+          character DDD, where DDD are up to three octal digits
+
+    `\xDDD'
+          character DDD, where DDD are hexadecimal digits.
+
+     As in C, there may be up to three octal digits following a
+     backslash, but the hexadecimal escape sequence continues as far as
+     possible.  To follow a hexadecimal escape sequence with a hex
+     digit, interpose a send string of `""'.
+
+     A chat script expect string may also specify a timeout.  This is
+     done by using the escape sequence `\WSECONDS'.  This escape
+     sequence may only appear at the very end of the expect string.  It
+     temporarily overrides the timeout set by `chat-timeout' (described
+     below) only for the expect string to which it is attached.
+
+     A send string may simply be `""' to skip the send phase.
+     Otherwise, all of the escape characters legal for expect strings
+     may be used, and the following escape characters are also
+     permitted:
+
+    `EOT'
+          send an end of transmission character (`^D')
+
+    `BREAK'
+          send a break character (may not work on all systems)
+
+    `\c'
+          suppress trailing carriage return at end of send string
+
+    `\d'
+          delay sending for 1 or 2 seconds
+
+    `\e'
+          disable echo checking
+
+    `\E'
+          enable echo checking
+
+    `\K'
+          same as `BREAK'
+
+    `\p'
+          pause sending for a fraction of a second
+
+    `\M'
+          do not require carrier signal
+
+    `\m'
+          require carrier signal (fail if not present)
+
+     Some specific types of chat scripts also define additional escape
+     sequences that may appear in the send string.  For example, the
+     login chat script defines `\L' and `\P' to send the login name and
+     password, respectively.
+
+     A carriage return will be sent at the end of each send string,
+     unless the `\c' escape sequence appears in the string.  Note that
+     some UUCP packages use `\b' for break, but here it means backspace.
+
+     Echo checking means that after writing each character the program
+     will wait until the character is echoed.  Echo checking must be
+     turned on separately for each send string for which it is desired;
+     it will be turned on for characters following `\E' and turned off
+     for characters following `\e'.
+
+     When used with a port which does not support the carrier signal,
+     as set by the `carrier' command in the port file, `\M' and `\m'
+     are ignored.  Similarly, when used in a dialer chat script with a
+     dialer which does not support the carrier signal, as set by the
+     `carrier' command in the dial file, `\M' and `\m' are ignored.
+
+`chat-timeout NUMBER'
+     The number of seconds to wait for an expect string in the chat
+     script, before timing out and sending the next subsend, or failing
+     the chat script entirely.  The default value is 10 for a login
+     chat or 60 for any other type of chat.
+
+`chat-fail STRING'
+     If the STRING is seen at any time during a chat script, the chat
+     script is aborted.  The string may not contain any whitespace
+     characters: escape sequences must be used for them.  Multiple
+     `chat-fail' commands may appear in a single chat script.  The
+     default is to have none.
+
+     This permits a chat script to be quickly aborted if an error
+     string is seen.  For example, a script used to dial out on a modem
+     might use the command `chat-fail BUSY' to stop the chat script
+     immediately if the string `BUSY' was seen.
+
+     The `chat-fail' strings are considered in the order they are
+     listed, so if one string is a suffix of another the longer one
+     should be listed first.  This affects the error message which will
+     be logged.  Of course, if one string is contained within another,
+     but is not a suffix, the smaller string will always be found
+     before the larger string could match.
+
+`chat-seven-bit BOOLEAN'
+     If the argument is true, all incoming characters are stripped to
+     seven bits when being compared to the expect string.  Otherwise
+     all eight bits are used in the comparison.  The default is true,
+     because some Unix systems generate parity bits during the login
+     prompt which must be ignored while running a chat script.  This
+     has no effect on any `chat-program', which must ignore parity by
+     itself if necessary.
+
+`chat-program STRINGS'
+     Specify a program to run before executing the chat script.  This
+     program could run its own version of a chat script, or it could do
+     whatever it wants.  If both `chat-program' and `chat' are
+     specified, the program is executed first followed by the chat
+     script.
+
+     The first argument to the `chat-program' command is the program
+     name to run.  The remaining arguments are passed to the program.
+     The following escape sequences are recognized in the arguments:
+
+    `\Y'
+          port device name
+
+    `\S'
+          port speed
+
+    `\\'
+          backslash
+
+     Some specific uses of `chat-program' define additional escape
+     sequences.
+
+     Arguments other than escape sequences are passed exactly as they
+     appear in the configuration file, except that sequences of
+     whitespace are compressed to a single space character (this
+     exception may be removed in the future).
+
+     If the `chat-program' command is not used, no program is run.
+
+     On Unix, the standard input and standard output of the program
+     will be attached to the port in use.  Anything the program writes
+     to standard error will be written to the UUCP log file.  No other
+     file descriptors will be open.  If the program does not exit with
+     a status of 0, it will be assumed to have failed.  This means that
+     the dialing programs used by some versions of HDB may not be used
+     directly, but you may be able to run them via the `dialHDB'
+     program in the `contrib' directory.
+
+     The program will be run as the `uucp' user, and the environment
+     will be that of the process that started `uucico', so care must be
+     taken to maintain security.
+
+     No search path is used to find the program; a full file name must
+     be given.  If the program is an executable shell script, it will
+     be passed to `/bin/sh' even on systems which are unable to execute
+     shell scripts.
+
+   Here is a simple example of a chat script that might be used to
+reset a Hayes compatible modem.
+
+     chat "" ATZ OK-ATZ-OK
+
+   The first expect string is `""', so it is ignored.  The chat script
+then sends `ATZ'.  If the modem responds with `OK', the chat script
+finishes.  If 60 seconds (the default timeout) pass before seeing `OK',
+the chat script sends another `ATZ'.  If it then sees `OK', the chat
+script succeeds.  Otherwise, the chat script fails.
+
+   For a more complex chat script example, see *Note Logging In::.
+
+
+File: uucp.info,  Node: config File,  Next: sys File,  Prev: Chat Scripts,  Up: Configuration Files
+
+The Main Configuration File
+===========================
+
+   The main configuration file is named `config'.
+
+   Since all the values that may be specified in the main configuration
+file also have defaults, there need not be a main configuration file at
+all.
+
+   Each command in `config' may have a program prefix, which is a
+separate word appearing at the beginning of the line.  The currently
+supported prefixes are `uucp' and `cu'.  Any command prefixed by `uucp'
+will not be read by the `cu' program.  Any command prefixed by `cu'
+will only be read by the `cu' program.  For example, to use a list of
+systems known only to `cu', list them in a separate file `FILE' and put
+`cu sysfile `FILE'' in `config'.
+
+* Menu:
+
+* Miscellaneous (config)::      Miscellaneous config File Commands
+* Configuration File Names::    Using Different Configuration Files
+* Log File Names::              Using Different Log Files
+* Debugging Levels::            Debugging Levels
+
+
+File: uucp.info,  Node: Miscellaneous (config),  Next: Configuration File Names,  Prev: config File,  Up: config File
+
+Miscellaneous config File Commands
+----------------------------------
+
+`nodename STRING'
+`hostname STRING'
+`uuname STRING'
+     These keywords are equivalent.  They specify the UUCP name of the
+     local host.  If there is no configuration file, an appropriate
+     system function will be used to get the host name, if possible.
+
+`spool STRING'
+     Specify the spool directory.  The default is from `policy.h'.  This
+     is where UUCP files are queued.  Status files and various sorts of
+     temporary files are also stored in this directory and
+     subdirectories of it.
+
+`pubdir STRING'
+     Specify the public directory.  The default is from `policy.h'.
+     When a file is named using a leading `~/', it is taken from or to
+     the public directory.  Each system may use a separate public
+     directory by using the `pubdir' command in the system
+     configuration file; see *Note Miscellaneous (sys)::.
+
+`lockdir STRING'
+     Specify the directory to place lock files in.  The default is from
+     `policy.h'; see the information in that file.  Normally the lock
+     directory should be set correctly in `policy.h', and not changed
+     here.  However, changing the lock directory is sometimes useful for
+     testing purposes.  This only affects lock files for devices and
+     systems; it does not affect certain internal lock files which are
+     stored in the spool directory (*note Spool Lock Files::).
+
+`unknown STRING ...'
+     The STRING and subsequent arguments are treated as though they
+     appeared in the system file (*note sys File::).  They are used to
+     apply to any unknown systems that may call in, probably to set
+     file transfer permissions and the like.  If the `unknown' command
+     is not used, unknown systems are not permitted to call in.
+
+`strip-login BOOLEAN'
+     If the argument is true, then, when `uucico' is doing its own
+     login prompting with the `-e', `-l', or `-w' switches, it will
+     strip the parity bit when it reads the login name and password.
+     Otherwise all eight bits will be used when checking the strings
+     against the UUCP password file.  The default is true, since some
+     other UUCP packages send parity bits with the login name and
+     password, and few systems use eight bit characters in the password
+     file.
+
+`strip-proto BOOLEAN'
+     If the argument is true, then `uucico' will strip the parity bit
+     from incoming UUCP protocol commands.  Otherwise all eight bits
+     will be used.  This only applies to commands which are not
+     encapsulated in a link layer protocol.  The default is true, which
+     should always be correct unless your UUCP system names use eight
+     bit characters.
+
+`max-uuxqts NUMBER'
+     Specify the maximum number of `uuxqt' processes which may run at
+     the same time.  Having several `uuxqt' processes running at once
+     can significantly slow down a system, but, since `uuxqt' is
+     automatically started by `uucico', it can happen quite easily.  The
+     default for `max-uuxqts' is 0, which means that there is no limit.
+     If HDB configuration files are being read and the code was compiled
+     without `HAVE_TAYLOR_CONFIG', then, if the file `Maxuuxqts' in the
+     configuration directory contains a readable number, it will be used
+     as the value for `max-uuxqts'.
+
+`run-uuxqt STRING or NUMBER'
+     Specify when `uuxqt' should be run by `uucico'.  This may be a
+     positive number, in which case `uucico' will start a `uuxqt'
+     process whenever it receives the given number of execution files
+     from the remote system, and, if necessary, at the end of the call.
+     The argument may also be one of the strings `once', `percall', or
+     `never'.  The string `once' means that `uucico' will start `uuxqt'
+     once at the end of execution.  The string `percall' means that
+     `uucico' will start `uuxqt' once per call that it makes (this is
+     only different from `once' when `uucico' is invoked in a way that
+     causes it to make multiple calls, such as when the `-r1' option is
+     used without the `-s' option).  The string `never' means that
+     `uucico' will never start `uuxqt', in which case `uuxqt' should be
+     periodically run via some other mechanism.  The default depends
+     upon which type of configuration files are being used; if
+     `HAVE_TAYLOR_CONFIG' is used the default is `once', otherwise if
+     `HAVE_HDB_CONFIG' is used the default is `percall', and otherwise,
+     for `HAVE_V2_CONFIG', the default is `10'.
+
+`timetable STRING STRING'
+     The `timetable' defines a timetable that may be used in
+     subsequently appearing time strings; see *Note Time Strings::.
+     The first string names the timetable entry; the second is a time
+     string.
+
+     The following `timetable' commands are predefined.  The NonPeak
+     timetable is included for compatibility.  It originally described
+     the offpeak hours of Tymnet and Telenet, but both have since
+     changed their schedules.
+
+          timetable Evening Wk1705-0755,Sa,Su
+          timetable Night Wk2305-0755,Sa,Su2305-1655
+          timetable NonPeak Wk1805-0655,Sa,Su
+
+     If this command does not appear, then, obviously, no additional
+     timetables will be defined.
+
+`v2-files BOOLEAN'
+     If the code was compiled to be able to read V2 configuration
+     files, a false argument to this command will prevent them from
+     being read.  This can be useful while testing.  The default is
+     true.
+
+`hdb-files BOOLEAN'
+     If the code was compiled to be able to read HDB configuration
+     files, a false argument to this command will prevent them from
+     being read.  This can be useful while testing.  The default is
+     true.
+
+
+File: uucp.info,  Node: Configuration File Names,  Next: Log File Names,  Prev: Miscellaneous (config),  Up: config File
+
+Configuration File Names
+------------------------
+
+`sysfile STRINGS'
+     Specify the system file(s).  The default is the file `sys' in the
+     directory NEWCONFIGDIR.  These files hold information about other
+     systems with which this system communicates; see *Note sys File::.
+     Multiple system files may be given on the line, and the `sysfile'
+     command may be repeated; each system file has its own set of
+     defaults.
+
+`portfile STRINGS'
+     Specify the port file(s).  The default is the file `port' in the
+     directory NEWCONFIGDIR.  These files describe ports which are used
+     to call other systems and accept calls from other systems; see
+     *Note port File::.  No port files need be named at all.  Multiple
+     port files may be given on the line, and the `portfile' command
+     may be repeated.
+
+`dialfile STRINGS'
+     Specify the dial file(s).  The default is the file `dial' in the
+     directory NEWCONFIGDIR.  These files describe dialing devices
+     (modems); see *Note dial File::.  No dial files need be named at
+     all.  Multiple dial files may be given on the line, and the
+     `dialfile' command may be repeated.
+
+`dialcodefile STRINGS'
+     Specify the dialcode file(s).  The default is the file `dialcode'
+     in the directory NEWCONFIGDIR.  These files specify dialcodes that
+     may be used when sending phone numbers to a modem.  This permits
+     using the same set of phone numbers in different area-codes or
+     with different phone systems, by using dialcodes to specify the
+     calling sequence.  When a phone number goes through dialcode
+     translation, the leading alphabetic characters are stripped off.
+     The dialcode files are read line by line, just like any other
+     configuration file, and when a line is found whose first word is
+     the same as the leading characters from the phone number, the
+     second word on the line (which would normally consist of numbers)
+     replaces the dialcode in the phone number.  No dialcode file need
+     be used.  Multiple dialcode files may be specified on the line,
+     and the `dialcodefile' command may be repeated; all the dialcode
+     files will be read in turn until a dialcode is located.
+
+`callfile STRINGS'
+     Specify the call out login name and password file(s).  The default
+     is the file `call' in the directory NEWCONFIGDIR.  If the call out
+     login name or password for a system are given as `*' (*note
+     Logging In::), these files are read to get the real login name or
+     password.  Each line in the file(s) has three words: the system
+     name, the login name, and the password.  The login name and
+     password may contain escape sequences like those in a chat script
+     expect string (*note Chat Scripts::).  This file is only used when
+     placing calls to remote systems; the password file described under
+     `passwdfile' below is used for incoming calls.  The intention of
+     the call out file is to permit the system file to be publically
+     readable; the call out files must obviously be kept secure.  These
+     files need not be used.  Multiple call out files may be specified
+     on the line, and the `callfile' command may be repeated; all the
+     files will be read in turn until the system is found.
+
+`passwdfile STRINGS'
+     Specify the password file(s) to use for login names when `uucico'
+     is doing its own login prompting, which it does when given the
+     `-e', `-l' or `-w' switches.  The default is the file `passwd' in
+     the directory NEWCONFIGDIR.  Each line in the file(s) has two
+     words: the login name and the password (e.g., `Ufoo foopas').
+     They may contain escape sequences like those in a chat script
+     expect string (*note Chat Scripts::).  The login name is accepted
+     before the system name is known, so these are independent of which
+     system is calling in; a particular login may be required for a
+     system by using the `called-login' command in the system file
+     (*note Accepting a Call::).  These password files are optional,
+     although one must exist if `uucico' is to present its own login
+     prompts.
+
+     As a special exception, a colon may be used to separate the login
+     name from the password, and a colon may be used to terminate the
+     password.  This means that the login name and password may not
+     contain a colon.  This feature, in conjunction with the
+     `HAVE_ENCRYPTED_PASSWORDS' macro in `policy.h', permits using a
+     standard Unix `/etc/passwd' as a UUCP password file, providing the
+     same set of login names and passwords for both `getty' and
+     `uucico'.
+
+     Multiple password files may be specified on the line, and the
+     `passwdfile' command may be repeated; all the files will be read in
+     turn until the login name is found.
+
+
+File: uucp.info,  Node: Log File Names,  Next: Debugging Levels,  Prev: Configuration File Names,  Up: config File
+
+Log File Names
+--------------
+
+`logfile STRING'
+     Name the log file.  The default is from `policy.h'.  Logging
+     information is written to this file.  If `HAVE_HDB_LOGGING' is
+     defined in `policy.h', then by default a separate log file is used
+     for each system; using this command to name a log file will cause
+     all the systems to use it.
+
+`statfile STRING'
+     Name the statistics file.  The default is from `policy.h'.
+     Statistical information about file transfers is written to this
+     file.
+
+`debugfile STRING'
+     Name the file to which all debugging information is written.  The
+     default is from `policy.h'.  This command is only effective if the
+     code has been compiled to include debugging (this is controlled by
+     the `DEBUG' macro in `policy.h').  If debugging is on, messages
+     written to the log file are also written to the debugging file to
+     make it easier to keep the order of actions straight.  The
+     debugging file is different from the log file because information
+     such as passwords can appear in it, so it must be not be
+     publically readable.
+

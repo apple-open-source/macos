@@ -10,4 +10,4 @@ Wejd¼ na stronê:
 
     %(admindb_url)s
         
-¿eby potwierdziæ lub odrzuciæ t± wiadomo¶æ.
+¿eby potwierdziæ lub odrzuciæ tê wiadomo¶æ.

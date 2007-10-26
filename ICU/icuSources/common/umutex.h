@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2005, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -36,6 +36,14 @@
  */ 
 #ifndef ICU_USE_THREADS
 # define ICU_USE_THREADS 1
+#endif
+
+/**
+ * By default assume that we are on a machine with a weak memory model,
+ * and the double check lock won't work reliably.
+ */
+#if !defined(UMTX_STRONG_MEMORY_MODEL)
+#define UMTX_STRONG_MEMORY_MODEL 0
 #endif
 
 /**

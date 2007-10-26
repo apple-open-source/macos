@@ -1,0 +1,1 @@
+ShrinkAllNotification = "ShrinkAllNotification"

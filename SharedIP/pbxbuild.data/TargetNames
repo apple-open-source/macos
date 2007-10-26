@@ -1,5 +1,0 @@
-if [ "${Target}" = "SharedIP (Kernel Extension)" ]; then
-	Targets='SharedIP (Kernel Extension)'
-else
-	Targets='SharedIP (Kernel Extension)'
-fi

@@ -1,7 +1,7 @@
 /*
  * International and national calendar files
  *
- * $FreeBSD: src/usr.bin/calendar/calendars/calendar.all,v 1.8 2002/11/19 00:29:36 grog Exp $
+ * $FreeBSD: src/usr.bin/calendar/calendars/calendar.all,v 1.9 2004/08/16 09:31:09 dwmalone Exp $
  */
 
 #ifndef _calendar_all_
@@ -11,6 +11,7 @@
 #include <calendar.croatian>
 #include <calendar.french>
 #include <calendar.german>
+#include <calendar.hungarian>
 #include <calendar.southafrica>
 #include <calendar.russian>
 #include <calendar.usholiday>

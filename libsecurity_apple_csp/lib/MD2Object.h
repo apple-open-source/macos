@@ -39,7 +39,7 @@ public:
 	virtual void digestFinal(
 		void 		*digest);
 	virtual DigestObject *digestClone() const;
-	virtual size_t digestSizeInBytes() const;
+	virtual CSSM_SIZE digestSizeInBytes() const;
 private:
 	CC_MD2_CTX 		mCtx;
 };

@@ -1,7 +1,7 @@
 /* CRAM-MD5 SASL plugin
  * Rob Siemborski
  * Tim Martin 
- * $Id: cram.c,v 1.6 2005/01/10 19:01:37 snsimon Exp $
+ * $Id: cram.c,v 1.9 2006/02/03 22:33:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -65,7 +65,7 @@
 
 /*****************************  Common Section  *****************************/
 
-//static const char plugin_id[] = "$Id: cram.c,v 1.6 2005/01/10 19:01:37 snsimon Exp $";
+//static const char plugin_id[] = "$Id: cram.c,v 1.9 2006/02/03 22:33:14 snsimon Exp $";
 
 /* convert a string of 8bit chars to it's representation in hex
  * using lowercase letters
@@ -223,7 +223,7 @@ crammd5_server_mech_step1(server_context_t *text,
     }
     
     *serverout = text->challenge;
-    *serveroutlen = strlen(text->challenge);
+    *serveroutlen = (unsigned) strlen(text->challenge);
     
     /* free stuff */
     sparams->utils->free(time);    
@@ -246,7 +246,7 @@ crammd5_server_mech_step2(server_context_t *text,
     char *userid = NULL;
     sasl_secret_t *sec = NULL;
     int pos;
-    unsigned len;
+    size_t len;
     int result = SASL_FAIL;
     const char *password_request[] = { SASL_AUX_PASSWORD,
 				       "*cmusaslsecretCRAM-MD5",
@@ -311,8 +311,8 @@ crammd5_server_mech_step2(server_context_t *text,
 	sec = sparams->utils->malloc(sizeof(sasl_secret_t) + len);
 	if (!sec) goto done;
 	
-	sec->len = len;
-	strncpy(sec->data, auxprop_values[0].values[0], len + 1);   
+	sec->len = (unsigned) len;
+	strncpy((char *)sec->data, auxprop_values[0].values[0], len + 1);   
 	
 	clear_md5state = 1;
 	/* Do precalculation on plaintext secret */
@@ -342,7 +342,7 @@ crammd5_server_mech_step2(server_context_t *text,
     sparams->utils->hmac_md5_import(&tmphmac, (HMAC_MD5_STATE *) &md5state);
     sparams->utils->MD5Update(&(tmphmac.ictx),
 			      (const unsigned char *) text->challenge,
-			      strlen(text->challenge));
+			      (unsigned) strlen(text->challenge));
     sparams->utils->hmac_md5_final((unsigned char *) &digest, &tmphmac);
     
     /* convert to base 16 with lower case letters */
@@ -542,13 +542,13 @@ static int crammd5_client_mech_step(void *conn_context,
 				    sasl_out_params_t *oparams)
 {
     client_context_t *text = (client_context_t *) conn_context;
-    const char *authid;
+    const char *authid = NULL;
     sasl_secret_t *password = NULL;
     unsigned int free_password = 0; /* set if we need to free password */
     int auth_result = SASL_OK;
     int pass_result = SASL_OK;
     int result;
-    int maxsize;
+    size_t maxsize;
     char *in16 = NULL;
 
     *clientout = NULL;
@@ -664,14 +664,14 @@ static int crammd5_client_mech_step(void *conn_context,
     }
     
     maxsize = 32+1+strlen(oparams->authid)+30;
-    result = _plug_buf_alloc(params->utils, &(text->out_buf),
-			     &(text->out_buf_len), maxsize);
+    result = _plug_buf_alloc(params->utils, (unsigned char **)&(text->out_buf),
+			     &(text->out_buf_len), (unsigned) maxsize);
     if (result != SASL_OK) goto cleanup;
     
     snprintf(text->out_buf, maxsize, "%s %s", oparams->authid, in16);
     
     *clientout = text->out_buf;
-    *clientoutlen = strlen(*clientout);
+    *clientoutlen = (unsigned) strlen(*clientout);
     
     /* set oparams */
     oparams->doneflag = 1;

@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_bio.c,v 1.2 2003/09/17 09:05:01 gotoyuzo Exp $
+ * $Id: ossl_bio.c 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' team members
  * Copyright (C) 2003
  * All rights reserved.
@@ -9,6 +9,9 @@
  * (See the file 'LICENCE'.)
  */
 #include "ossl.h"
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 BIO *
 ossl_obj2bio(VALUE obj)

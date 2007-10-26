@@ -54,6 +54,13 @@ DESCRIPTION
 
      -x      Lock the agent with a password.
 
+     -K      When adding identities, each passphrase will also be stored in
+             your keychain.  When removing identities with -d, each passphrase
+             will be removed from your keychain.
+
+     -k      Add identities to the agent using any passphrases stored in your
+             keychain.
+
 ENVIRONMENT
      DISPLAY and SSH_ASKPASS
              If ssh-add needs a passphrase, it will read the passphrase from
@@ -99,4 +106,4 @@ AUTHORS
      ated OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 4.0                   September 25, 1999                             2
+BSD                           September 25, 1999                           BSD

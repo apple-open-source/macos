@@ -2,9 +2,8 @@
 
 PROG=	dmesg
 MAN8=	dmesg.0
-BINGRP=	kmem
-BINMODE=2555
-LDADD=	-lkvm
-DPADD=	${LIBKVM}
+
+CFLAGS += -I/System/Library/Frameworks/System.framework/PrivateHeaders/
+LDADD=	-lproc
 
 .include <bsd.prog.mk>

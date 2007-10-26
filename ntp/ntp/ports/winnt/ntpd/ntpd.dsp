@@ -42,7 +42,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
-# ADD CPP /nologo /MT /W4 /GX /O2 /I "..\..\..\include" /I "..\include" /D "NDEBUG" /D "_CONSOLE" /D "WIN32" /D "_MBCS" /D "SYS_WINNT" /D "HAVE_CONFIG_H" /D _WIN32_WINNT=0x400 /YX"windows.h" /FD /c
+# ADD CPP /nologo /MD /W4 /GX /O2 /I "." /I "..\include" /I "..\..\..\include" /I "\openssl-0.9.7d\inc32" /D "NDEBUG" /D "_CONSOLE" /D "WIN32" /D "_MBCS" /D "__STDC__" /D "SYS_WINNT" /D "HAVE_CONFIG_H" /D _WIN32_WINNT=0x400 /FR /YX"windows.h" /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -50,7 +50,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib \openssl-0.9.7d\out32dll\libeay32.lib /nologo /subsystem:console /machine:I386 /out:"../bin/Release/ntpd.exe"
 
 !ELSEIF  "$(CFG)" == "ntpd - Win32 Debug"
 
@@ -66,7 +66,8 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
-# ADD CPP /nologo /MTd /W4 /Gm /GX /ZI /Od /I "..\..\..\include" /I "..\include" /FI"windows.h" /D "_DEBUG" /D "_CONSOLE" /D "WIN32" /D "_MBCS" /D "SYS_WINNT" /D "HAVE_CONFIG_H" /D _WIN32_WINNT=0x400 /FR /YX"windows.h" /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "." /I "..\include" /I "..\..\..\include" /I "\openssl-0.9.7d\inc32" /D "_DEBUG" /D "_CONSOLE" /D "WIN32" /D "_MBCS" /D "__STDC__" /D "SYS_WINNT" /D "HAVE_CONFIG_H" /D _WIN32_WINNT=0x400 /FR /FD /GZ /c
+# SUBTRACT CPP /YX
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -74,7 +75,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
+# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib \openssl-0.9.7d\out32dll\libeay32.lib /nologo /subsystem:console /debug /machine:I386 /out:"../bin/Debug/ntpd.exe" /pdbtype:sept
 
 !ENDIF 
 
@@ -88,86 +89,106 @@ LINK32=link.exe
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\cmd_args.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\..\ntpd\map_vme.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=.\nt_clockstuff.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_config.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_control.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_crypto.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_filegen.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_intres.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_io.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=.\ntp_iocompletionport.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_loopfilter.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_monitor.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_peer.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_proto.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_refclock.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_request.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_restrict.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_timer.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntp_util.c
+# SUBTRACT CPP /YX
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\ntpd.c
+# SUBTRACT CPP /YX
+# End Source File
+# Begin Source File
+
+SOURCE=.\ntservice.c
 # End Source File
 # Begin Source File
 
 SOURCE=.\win32_io.c
+# SUBTRACT CPP /YX
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -256,6 +277,10 @@ SOURCE=..\..\..\include\ntp_malloc.h
 # Begin Source File
 
 SOURCE=..\..\..\include\ntp_proto.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\include\ntp_random.h
 # End Source File
 # Begin Source File
 
@@ -432,7 +457,6 @@ SOURCE=..\..\..\ntpd\refclock_irig.c
 # Begin Source File
 
 SOURCE=..\..\..\ntpd\refclock_jupiter.c
-# PROP Exclude_From_Build 1
 # End Source File
 # Begin Source File
 

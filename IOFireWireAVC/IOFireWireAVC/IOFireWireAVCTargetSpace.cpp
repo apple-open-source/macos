@@ -532,7 +532,7 @@ void IOFireWireAVCTargetSpace::deactivateWithUserClient(IOFireWireAVCProtocolUse
 	AVCTARGETMUTEX_UNLOCK;
 
 	// If we are down to no activations, or if we have one remaining activation
-	// and it is the IOFireWireAVCLocalNode's activation, remove the AVC unit
+	// and it is the IOFireWirePCRSpace's activation, remove the AVC unit
 	// directory, if it exists.
 	if ((fActivations == 0) || ((fActivations == 1) && (uc->fUserClient == (IOFireWireAVCProtocolUserClient*)0xFFFFFFFF)))
 	{
@@ -647,11 +647,11 @@ IOFireWireAVCTargetSpace::targetSendAVCResponse(UInt32 generation, UInt16 nodeID
 //////////////////////////////////////////////////////
 IOReturn IOFireWireAVCTargetSpace::installAVCCommandHandler(IOFireWireAVCProtocolUserClient *userClient,
 															IOFireWireAVCTargetCommandHandlerCallback callBack,
-															OSAsyncReference asyncRef,
+															OSAsyncReference64 asyncRef,
 															UInt32 subUnitTypeAndID,
 															UInt32 opCode,
-															UInt32 userCallBack,
-															UInt32 userRefCon)
+															uint64_t userCallBack,
+															uint64_t userRefCon)
 {
     IOReturn res = kIOReturnSuccess;
 	AVCCommandHandlerInfo *cmdInfo;
@@ -664,7 +664,7 @@ IOReturn IOFireWireAVCTargetSpace::installAVCCommandHandler(IOFireWireAVCProtoco
 	
 	cmdInfo->userClient = userClient;
 	cmdInfo->callBack = callBack;
-	bcopy(asyncRef, cmdInfo->asyncRef, sizeof(OSAsyncReference));
+	bcopy(asyncRef, cmdInfo->asyncRef, sizeof(OSAsyncReference64));
 	cmdInfo->subUnitTypeAndID = subUnitTypeAndID;
 	cmdInfo->opCode = opCode;
 	cmdInfo->userCallBack = userCallBack;
@@ -692,12 +692,12 @@ IOReturn IOFireWireAVCTargetSpace::installAVCCommandHandler(IOFireWireAVCProtoco
 //////////////////////////////////////////////////////
 IOReturn IOFireWireAVCTargetSpace::addSubunit(IOFireWireAVCProtocolUserClient *userClient,
 											  IOFireWireAVCSubunitPlugHandlerCallback callBack,
-											  OSAsyncReference asyncRef,
+											  OSAsyncReference64 asyncRef,
 											  UInt32 subunitType,
 											  UInt32 numSourcePlugs,
 											  UInt32 numDestPlugs,
-											  UInt32 userCallBack,
-											  UInt32 userRefCon,
+											  uint64_t userCallBack,
+											  uint64_t userRefCon,
 											  UInt32 *subUnitID)
 {
     IOReturn res = kIOReturnSuccess;
@@ -728,7 +728,7 @@ IOReturn IOFireWireAVCTargetSpace::addSubunit(IOFireWireAVCProtocolUserClient *u
 			// Initialize the new object's parameters
 			subUnitInfo->userClient = userClient;
 			subUnitInfo->callBack = callBack;
-			bcopy(asyncRef, subUnitInfo->asyncRef, sizeof(OSAsyncReference));
+			bcopy(asyncRef, subUnitInfo->asyncRef, sizeof(OSAsyncReference64));
 			subUnitInfo->numSourcePlugs = numSourcePlugs;
 			subUnitInfo->numDestPlugs = numDestPlugs;
 			subUnitInfo->userCallBack = userCallBack;

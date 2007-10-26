@@ -61,4 +61,3 @@ Decode (input DSK, DEK, KB output PRIVATE_KEY_BYTES, PUBLIC_KEY_BYTES)
 5. Reverse the order of the octects in TEMP3 and call the result TEMP2.
 6. Split TEMP2 in IV (first 8 bytes) and TEMP1 (rest).
 7. Decrypt TEMP1 using DEK (3DES) and IV in CBC mode with PKCS1 padding.  Call the plaintext PRIVATE_KEY_BYTES.
-

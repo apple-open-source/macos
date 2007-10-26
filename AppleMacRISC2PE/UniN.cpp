@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@ OSDefineMetaClassAndStructors(AppleUniN,ApplePlatformExpert)
 bool AppleUniN::start ( IOService * nub )
 {
     UInt32			uniNArbCtrl, uniNMPCIMemTimeout;
-	IOInterruptState 		intState;
+	IOInterruptState 		intState = NULL;
 	IOPlatformFunction		*func;
 	const OSSymbol			*functionSymbol = OSSymbol::withCString(kInstantiatePlatformFunctions);
 	SInt32					retval;
@@ -259,7 +259,7 @@ IOReturn AppleUniN::setupUATAforSleep ()
 IOReturn AppleUniN::readIntrepidClockStopStatus (UInt32 *status0, UInt32 *status1)
 {
 	if (IsThisAnIntrepid(uniNVersion) && (status0 || status1)) {
-		IOInterruptState intState;
+		IOInterruptState intState = NULL;
 	
 		if ( mutex  != NULL )
 			intState = IOSimpleLockLockDisableInterrupt(mutex);
@@ -306,7 +306,7 @@ void AppleUniN::writeUniNReg(UInt32 offset, UInt32 data)
 // **********************************************************************************
 UInt32 AppleUniN::safeReadRegUInt32(UInt32 offset)
 {
-	IOInterruptState intState;
+	IOInterruptState intState = NULL;
 
 	if ( mutex  != NULL )
 		intState = IOSimpleLockLockDisableInterrupt(mutex);
@@ -325,7 +325,7 @@ UInt32 AppleUniN::safeReadRegUInt32(UInt32 offset)
 // **********************************************************************************
 void AppleUniN::safeWriteRegUInt32(UInt32 offset, UInt32 mask, UInt32 data)
 {
-	IOInterruptState	intState;
+	IOInterruptState	intState = NULL;
 	UInt32 				currentReg;
 
 	if ( mutex  != NULL )
@@ -522,29 +522,47 @@ IOReturn AppleUniN::accessUniN15PerformanceRegister(bool write, long regNumber, 
 bool AppleUniN::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 			void *cpfParam2, void *cpfParam3, void *cpfParam4)
 {
+	static IOLock				*pfLock;
 	bool						ret;
 	IOPlatformFunctionIterator 	*iter;
-	UInt32 						offset, value, valueLen, mask, maskLen, data, writeLen, 
-									cmd, cmdLen, result, pHandle, lastCmd,
+	UInt32 						offset, value, valueLen, mask, maskLen, data = 0, writeLen, 
+									cmd, cmdLen, result, pHandle, lastCmd = 0,
 									param1, param2, param3, param4, param5, 
 									param6, param7, param8, param9, param10;
 
-	IOPCIDevice					*nub;
+	IOPCIDevice					*nub = NULL;
 	
 	if (func == 0) return(false);
 
-	if (!(iter = ((IOPlatformFunction *)func)->getCommandIterator()))
-		return false;
+	if (!pfLock)
+		// Use a static lock here as there is only ever one instance of UniN
+		pfLock = IOLockAlloc();
 	
+	if (pfLock)
+		IOLockLock (pfLock);
+
+	if (!(iter = ((IOPlatformFunction *)func)->getCommandIterator())) {
+		if (pfLock)
+			IOLockUnlock (pfLock);
+
+		return false;
+	}
+	
+	pHandle = func->getCommandPHandle();
+
 	ret = true;
 	while (iter->getNextCommand (&cmd, &cmdLen, &param1, &param2, &param3, &param4, 
 		&param5, &param6, &param7, &param8, &param9, &param10, &result)  && ret) {
 		if (result != kIOPFNoError)
 			ret = false;
 		else
+		{
 			// Examine the command - not all commands are supported
-			switch (cmd) {
+			switch (cmd)
+			{
 				case kCommandWriteReg32:
+					// IOLog( "AppleUniN::%s - processing platformFunction kCommandWriteReg32 (%ld)\n", __FUNCTION__, cmd );
+
 					offset = param1;
 					value = param2;
 					mask  = param3;
@@ -564,40 +582,47 @@ bool AppleUniN::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 		
 				// Currently only handle config reads of 4 bytes or less
 				case kCommandReadConfig:
+					// IOLog( "AppleUniN::%s - processing platformFunction kCommandReadReg32 (%ld)\n", __FUNCTION__, cmd );
 					offset = param1;
 					valueLen = param2;
 					
-					if (valueLen != 4) {
-						IOLog ("AppleUniN::performFunction config reads cannot handle anything other than 4 bytes, found length %ld\n", valueLen);
+					if (valueLen != sizeof(UInt32)) {
+						IOLog ("AppleUniN::%s config reads cannot handle anything other than %ld bytes, found length %ld\n", __FUNCTION__, sizeof(UInt32), valueLen);
 						ret = false;
 					}
 		
 					if (!nub) {
 						if (!pHandle) {
-							IOLog ("AppleUniN::performFunction config read requires pHandle to locate nub\n");
+							IOLog ("AppleUniN::%s config read requires pHandle to locate nub\n", __FUNCTION__);
 							ret = false;
 						}
 						nub = findNubForPHandle (pHandle);
 						if (!nub) {
-							IOLog ("AppleUniN::performFunction config read cannot find nub for pHandle 0x%08lx\n", pHandle);
+							IOLog ("AppleUniN::%s config read cannot find nub for pHandle 0x%08lx\n", __FUNCTION__, pHandle);
 							ret = false;
+							// break; ??
 						}
 					}
-					
-					// NOTE - code below assumes read of 4 bytes, i.e., valueLen == 4!!
-					data = nub->configRead32 (offset);
-					if (cpfParam1)
-						*(UInt32 *)cpfParam1 = data;
+
+					if ( nub )		// don't execute the read if you don't have a nub to send the configRead32 to
+					{
+						// NOTE - code below assumes read of 4 bytes, i.e., valueLen == 4!!
+						data = nub->configRead32 (offset);
+						if (cpfParam1)
+							*(UInt32 *)cpfParam1 = data;
+					}
 					
 					lastCmd = kCommandReadConfig;
 					break;
 					
 				// Currently only handle config reads/writes of 4 bytes
 				case kCommandRMWConfig:
+					// IOLog( "AppleUniN::%s - processing platformFunction kCommandRMWConfig (%ld)\n", __FUNCTION__, cmd );
 					// data must have been read above
 					if (lastCmd != kCommandReadConfig) {
 						IOLog ("AppleUniN::performFunction - config modify/write requires prior read\n");
 						ret = false;
+						// break; ??
 					}
 					
 					offset = param1;
@@ -605,8 +630,9 @@ bool AppleUniN::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 					valueLen = param3;
 					writeLen = param4;
 	
-					if (writeLen != 4) {
-						IOLog ("AppleUniN::performFunction config read/modify/write cannot handle anything other than 4 bytes, found length %ld\n", writeLen);
+					if (writeLen != sizeof(UInt32)) {
+						IOLog ("AppleUniN::%s config read/modify/write cannot handle anything other than %ld bytes, found length %ld\n",
+						             __FUNCTION__, sizeof(UInt32), writeLen);
 						ret = false;
 					}
 					
@@ -616,32 +642,38 @@ bool AppleUniN::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 		
 					if (!nub) {
 						if (!pHandle) {
-							IOLog ("AppleUniN::performFunction config read/modify/write requires pHandle to locate nub\n");
+							IOLog ("AppleUniN::%s config read/modify/write requires pHandle to locate nub\n", __FUNCTION__);
 							ret = false;
 						}
 						nub = findNubForPHandle (pHandle);
 						if (!nub) {
-							IOLog ("AppleUniN::performFunction config read/modify/write cannot find nub for pHandle 0x%08lx\n", pHandle);
+							IOLog ("AppleUniN::%s config read/modify/write cannot find nub for pHandle 0x%08lx\n", __FUNCTION__, pHandle);
 							ret = false;
+							// break; ??
 						}
 					}
 					
 					// data must have been previously read (i.e., using kCommandReadConfig with result in data)
 					data &= mask;
 					data |= value;
-					
-					nub->configWrite32 (offset, data);
-		
+					if ( nub )	// don't try to do the write unless you have a nub to send the configWrite32 to
+						nub->configWrite32 (offset, data);
+
 					break;
 		
 				default:
-					IOLog("AppleUniN::performFunction got unsupported command %08lx\n", cmd);
+					IOLog("AppleUniN::%s -- unsupported command %08lx\n", __FUNCTION__, cmd);
 					ret = false;
 					break;
-		}
-	}
+			}	// -switch-
+		}	// -if- / -else-
+	}	// -while-
 	
 	iter->release();
+
+	if (pfLock)
+		IOLockUnlock (pfLock);
+
 	return(ret);
 }
 

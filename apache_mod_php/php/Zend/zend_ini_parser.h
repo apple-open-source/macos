@@ -41,17 +41,21 @@
    enum yytokentype {
      TC_STRING = 258,
      TC_ENCAPSULATED_STRING = 259,
-     SECTION = 260,
-     CFG_TRUE = 261,
-     CFG_FALSE = 262
+     BRACK = 260,
+     SECTION = 261,
+     CFG_TRUE = 262,
+     CFG_FALSE = 263,
+     TC_DOLLAR_CURLY = 264
    };
 #endif
 /* Tokens.  */
 #define TC_STRING 258
 #define TC_ENCAPSULATED_STRING 259
-#define SECTION 260
-#define CFG_TRUE 261
-#define CFG_FALSE 262
+#define BRACK 260
+#define SECTION 261
+#define CFG_TRUE 262
+#define CFG_FALSE 263
+#define TC_DOLLAR_CURLY 264
 
 
 

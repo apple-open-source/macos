@@ -72,7 +72,7 @@ EventTraceCauseDesc gTraceEvents[] = {
     {kLogDataRead,          "IrComm: read data"}
 };
 
-#define XTRACE(x, y, z)  IrDALogAdd( x, y, z, gTraceEvents, true )  
+#define XTRACE(x, y, z)  IrDALogAdd( x, y, (int)z & 0xffff, gTraceEvents, true )  
 #else
 #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -105,7 +105,7 @@ IrComm::irComm(TIrGlue *irda, IrDAComm *irdacomm)
 {
     IrComm *obj = new IrComm;
     
-    XTRACE(kLogNew, (int)obj >> 16, (short)obj);
+    XTRACE(kLogNew, (int)obj >> 16, obj);
     
     if (obj && !obj->Init(irda, irdacomm)) {
 	obj->release();
@@ -118,7 +118,7 @@ IrComm::irComm(TIrGlue *irda, IrDAComm *irdacomm)
 void
 IrComm::free(void)
 {
-    XTRACE(kLogFree, (int)this >>16, (short)this);
+    XTRACE(kLogFree, (int)this >>16, this);
     
     ///xxx;
 
@@ -128,7 +128,7 @@ IrComm::free(void)
 Boolean
 IrComm::Init(TIrGlue *irda, IrDAComm *irdacomm)
 {
-    XTRACE(kLogInit, (int)this >> 16, (short)this);
+    XTRACE(kLogInit, (int)this >> 16, this);
     UInt8 *classname = (UInt8 *)"IrDA:IrCOMM";  // same lsap for client and server!
     
     fIrDAComm = irdacomm;
@@ -158,7 +158,7 @@ IrComm::TxBufferAvailable(void)
     if (fConnected) {
 	UInt32  count;
 	count = TTPXmitQueueSize(fMaxPacketSize) * fMaxPacketSize;
-	XTRACE(kLogTxAvail, count >> 16, (short)count);
+	XTRACE(kLogTxAvail, count >> 16, count);
 	return count;
     }
     XTRACE(kLogTxAvail, 0xffff, 0xffff);
@@ -174,7 +174,7 @@ IrComm::Write(UInt8 *buf, UInt32 length)
 {
     UInt32 written = 0;
     
-    XTRACE(kLogWrite, length >> 16, (short)length);
+    XTRACE(kLogWrite, length >> 16, length);
     
     require(buf, Done);
     require(length > 0, Done);
@@ -221,7 +221,7 @@ Done:
 void
 IrComm::ReturnCredit(UInt32 bytecount)
 {
-    XTRACE(kLogReturnCredit, bytecount >> 16, (short)bytecount);
+    XTRACE(kLogReturnCredit, bytecount >> 16, bytecount);
     short x;
     
     while (bytecount > 0) {         // loop until we've "processed" what's been returned
@@ -606,12 +606,12 @@ void IrDALogData(int msg, UInt8 *buf, int count)    // log data into irdalog
 	x = x << 8;
 	x |= *buf++;
 	if (++i == 4) {
-	    XTRACE(msg, x >> 16, (short)x);
+	    XTRACE(msg, x >> 16, x);
 	    i = 0;
 	    x = 0;
 	}
     }
-    if (i) XTRACE(msg, x >> 16, (short)x);
+    if (i) XTRACE(msg, x >> 16, x);
 }
     
 #endif  

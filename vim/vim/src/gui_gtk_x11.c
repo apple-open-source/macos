@@ -10,7 +10,7 @@
 /*
  * Porting to GTK+ was done by:
  *
- * (C) 1998,1999,2000 by Marcin Dalecki <dalecki@evision.ag>
+ * (C) 1998,1999,2000 by Marcin Dalecki <martin@dalecki.de>
  *
  * With GREAT support and continuous encouragements by Andy Kahn and of
  * course Bram Moolenaar!
@@ -41,6 +41,10 @@
 # endif
 # include <gnome.h>
 # include "version.h"
+#  ifdef HAVE_GTK2
+/* missing prototype in bonobo-dock-item.h */
+extern void bonobo_dock_item_set_behavior(BonoboDockItem *dock_item, BonoboDockItemBehavior beh);
+#  endif
 #endif
 
 #if !defined(FEAT_GUI_GTK) && defined(PROTO)
@@ -68,7 +72,11 @@
 #else
 # include <gdk/gdkkeysyms.h>
 # include <gdk/gdk.h>
-# include <gdk/gdkx.h>
+# ifdef WIN3264
+#  include <gdk/gdkwin32.h>
+# else
+#  include <gdk/gdkx.h>
+# endif
 
 # include <gtk/gtk.h>
 # include "gui_gtk_f.h"
@@ -98,7 +106,8 @@ enum
     TARGET_TEXT,
     TARGET_TEXT_URI_LIST,
     TARGET_TEXT_PLAIN,
-    TARGET_VIM
+    TARGET_VIM,
+    TARGET_VIMENC
 };
 
 /*
@@ -107,6 +116,7 @@ enum
  */
 static const GtkTargetEntry selection_targets[] =
 {
+    {VIMENC_ATOM_NAME,	0, TARGET_VIMENC},
     {VIM_ATOM_NAME,	0, TARGET_VIM},
 #ifdef FEAT_MBYTE
     {"UTF8_STRING",	0, TARGET_UTF8_STRING},
@@ -171,6 +181,9 @@ static GdkAtom compound_text_atom = GDK_NONE;
 static GdkAtom text_atom = GDK_NONE;
 #endif
 static GdkAtom vim_atom = GDK_NONE;	/* Vim's own special selection format */
+#ifdef FEAT_MBYTE
+static GdkAtom vimenc_atom = GDK_NONE;	/* Vim's extended selection format */
+#endif
 
 /*
  * Keycodes recognized by vim.
@@ -294,6 +307,8 @@ const special_keys[] =
 #define ARG_NEEDS_GUI	0x0200	/* need to initialize the GUI for this	  */
 #define ARG_FOR_GTK	0x0400	/* argument is handled by GTK+ or GNOME   */
 #define ARG_COMPAT_LONG	0x0800	/* accept -foo but substitute with --foo  */
+#define ARG_KEEP	0x1000	/* don't remove argument from argv[] */
+
 /*
  * This table holds all the X GUI command line options allowed.  This includes
  * the standard ones so that we can skip them when Vim is started without the
@@ -375,7 +390,7 @@ static const cmdline_option_T cmdline_options[] =
     {"--disable-sound",		ARG_FOR_GTK},
     {"--espeaker",		ARG_FOR_GTK|ARG_HAS_VALUE},
     {"-?",			ARG_FOR_GTK|ARG_NEEDS_GUI},
-    {"--help",			ARG_FOR_GTK|ARG_NEEDS_GUI},
+    {"--help",			ARG_FOR_GTK|ARG_NEEDS_GUI|ARG_KEEP},
     {"--usage",			ARG_FOR_GTK|ARG_NEEDS_GUI},
 # if 0 /* conflicts with Vim's own --version argument */
     {"--version",		ARG_FOR_GTK|ARG_NEEDS_GUI},
@@ -469,7 +484,7 @@ gui_mch_prepare(int *argc, char **argv)
 		    break;
 #ifdef FEAT_NETBEANS_INTG
 		/* darn, -nb has non-standard syntax */
-		if (argv[i][len] == ':'
+		if (vim_strchr((char_u *)":=", argv[i][len]) != NULL
 			&& (option->flags & ARG_INDEX_MASK) == ARG_NETBEANS)
 		    break;
 #endif
@@ -556,31 +571,44 @@ gui_mch_prepare(int *argc, char **argv)
 	if (option->flags & ARG_NEEDS_GUI)
 	    gui.starting = TRUE;
 
-	/* Now remove the flag from the argument vector. */
-	if (--*argc > i)
+	if (option->flags & ARG_KEEP)
+	    ++i;
+	else
 	{
-	    int n_strip = 1;
-
-	    /* Move the argument's value as well, if there is one. */
-	    if ((option->flags & ARG_HAS_VALUE)
-		    && argv[i][len] != '='
-		    && strcmp(argv[i + 1], "--") != 0)
+	    /* Remove the flag from the argument vector. */
+	    if (--*argc > i)
 	    {
-		++n_strip;
-		--*argc;
-		if (option->flags & ARG_FOR_GTK)
-		    gui_argv[gui_argc++] = argv[i + 1];
-	    }
+		int n_strip = 1;
 
-	    if (*argc > i)
-		mch_memmove(&argv[i], &argv[i + n_strip],
-			    (*argc - i) * sizeof(char *));
+		/* Move the argument's value as well, if there is one. */
+		if ((option->flags & ARG_HAS_VALUE)
+			&& argv[i][len] != '='
+			&& strcmp(argv[i + 1], "--") != 0)
+		{
+		    ++n_strip;
+		    --*argc;
+		    if (option->flags & ARG_FOR_GTK)
+			gui_argv[gui_argc++] = argv[i + 1];
+		}
+
+		if (*argc > i)
+		    mch_memmove(&argv[i], &argv[i + n_strip],
+						(*argc - i) * sizeof(char *));
+	    }
+	    argv[*argc] = NULL;
 	}
-	argv[*argc] = NULL;
     }
 
     gui_argv[gui_argc] = NULL;
 }
+
+#if defined(EXITFREE) || defined(PROTO)
+    void
+gui_mch_free_all()
+{
+    vim_free(gui_argv);
+}
+#endif
 
 /*
  * This should be maybe completely removed.
@@ -782,8 +810,8 @@ focus_in_event(GtkWidget *widget, GdkEventFocus *event, gpointer data)
     if (blink_state == BLINK_NONE)
 	gui_mch_start_blink();
 
-    /* make sure keyboard input goes there */
-    if (gtk_socket_id == 0)
+    /* make sure keyboard input goes to the draw area (if this is focus for a window) */
+    if (widget != gui.drawarea)
 	gtk_widget_grab_focus(gui.drawarea);
 
     return TRUE;
@@ -864,7 +892,7 @@ keyval_to_string(unsigned int keyval, unsigned int state, char_u *string)
 		string[0] = NL;
 		break;
 	    case GDK_Return: case GDK_ISO_Enter: case GDK_3270_Enter:
-		string[0] = CR;
+		string[0] = CAR;
 		break;
 	    case GDK_Escape:
 		string[0] = ESC;
@@ -879,6 +907,38 @@ keyval_to_string(unsigned int keyval, unsigned int state, char_u *string)
     return len;
 }
 #endif /* HAVE_GTK2 */
+
+    static int
+modifiers_gdk2vim(guint state)
+{
+    int modifiers = 0;
+
+    if (state & GDK_SHIFT_MASK)
+	modifiers |= MOD_MASK_SHIFT;
+    if (state & GDK_CONTROL_MASK)
+	modifiers |= MOD_MASK_CTRL;
+    if (state & GDK_MOD1_MASK)
+	modifiers |= MOD_MASK_ALT;
+    if (state & GDK_MOD4_MASK)
+	modifiers |= MOD_MASK_META;
+
+    return modifiers;
+}
+
+    static int
+modifiers_gdk2mouse(guint state)
+{
+    int modifiers = 0;
+
+    if (state & GDK_SHIFT_MASK)
+	modifiers |= MOUSE_SHIFT;
+    if (state & GDK_CONTROL_MASK)
+	modifiers |= MOUSE_CTRL;
+    if (state & GDK_MOD1_MASK)
+	modifiers |= MOUSE_ALT;
+
+    return modifiers;
+}
 
 /*
  * Main keyboard handler:
@@ -926,7 +986,7 @@ key_press_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
 #endif
 
 #ifdef FEAT_XIM
-    if (xim_queue_key_press_event(event))
+    if (xim_queue_key_press_event(event, TRUE))
 	return TRUE;
 #endif
 
@@ -1027,12 +1087,18 @@ key_press_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
 
     /* Check for Alt/Meta key (Mod1Mask), but not for a BS, DEL or character
      * that already has the 8th bit set.
-     * Don't do this for <S-M-Tab>, that should become K_S_TAB with ALT. */
+     * Don't do this for <S-M-Tab>, that should become K_S_TAB with ALT.
+     * Don't do this for double-byte encodings, it turns the char into a lead
+     * byte. */
     if (len == 1
 	    && (state & GDK_MOD1_MASK)
 	    && !(key_sym == GDK_BackSpace || key_sym == GDK_Delete)
 	    && (string[0] & 0x80) == 0
-	    && !(key_sym == GDK_Tab && (state & GDK_SHIFT_MASK)))
+	    && !(key_sym == GDK_Tab && (state & GDK_SHIFT_MASK))
+#ifdef FEAT_MBYTE
+	    && !enc_dbcs
+#endif
+	    )
     {
 	string[0] |= 0x80;
 	state &= ~GDK_MOD1_MASK;	/* don't use it again */
@@ -1073,19 +1139,24 @@ key_press_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
     if (len == 0)   /* Unrecognized key */
 	return TRUE;
 
-    /* Special keys (and a few others) may have modifiers */
+#if defined(FEAT_XIM) && defined(FEAT_GUI_GTK) && !defined(HAVE_GTK2)
+    /* Cancel or type backspace. For GTK2, im_commit_cb() does the same. */
+    preedit_start_col = MAXCOL;
+    xim_changed_while_preediting = TRUE;
+#endif
+
+    /* Special keys (and a few others) may have modifiers. Also when using a
+     * double-byte encoding (can't set the 8th bit). */
     if (len == -3 || key_sym == GDK_space || key_sym == GDK_Tab
 	    || key_sym == GDK_Return || key_sym == GDK_Linefeed
 	    || key_sym == GDK_Escape || key_sym == GDK_KP_Tab
-	    || key_sym == GDK_ISO_Enter || key_sym == GDK_3270_Enter)
+	    || key_sym == GDK_ISO_Enter || key_sym == GDK_3270_Enter
+#ifdef FEAT_MBYTE
+	    || (enc_dbcs && len == 1 && (state & GDK_MOD1_MASK))
+#endif
+	    )
     {
-	modifiers = 0;
-	if (state & GDK_SHIFT_MASK)
-	    modifiers |= MOD_MASK_SHIFT;
-	if (state & GDK_CONTROL_MASK)
-	    modifiers |= MOD_MASK_CTRL;
-	if (state & GDK_MOD1_MASK)
-	    modifiers |= MOD_MASK_ALT;
+	modifiers = modifiers_gdk2vim(state);
 
 	/*
 	 * For some keys a shift modifier is translated into another key
@@ -1150,7 +1221,7 @@ key_release_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
      * With the default IM for instance, you can enter any UCS code point
      * by holding down CTRL-SHIFT and typing hexadecimal digits.
      */
-    return xim_queue_key_press_event(event);
+    return xim_queue_key_press_event(event, FALSE);
 }
 #endif
 
@@ -1222,6 +1293,34 @@ selection_received_cb(GtkWidget		*widget,
 	motion_type = *text++;
 	--len;
     }
+
+#ifdef FEAT_MBYTE
+    else if (data->type == vimenc_atom)
+    {
+	char_u		*enc;
+	vimconv_T	conv;
+
+	motion_type = *text++;
+	--len;
+
+	enc = text;
+	text += STRLEN(text) + 1;
+	len -= text - enc;
+
+	/* If the encoding of the text is different from 'encoding', attempt
+	 * converting it. */
+	conv.vc_type = CONV_NONE;
+	convert_setup(&conv, enc, p_enc);
+	if (conv.vc_type != CONV_NONE)
+	{
+	    tmpbuf = string_convert(&conv, text, &len);
+	    if (tmpbuf != NULL)
+		text = tmpbuf;
+	    convert_setup(&conv, NULL, NULL);
+	}
+    }
+#endif
+
 #ifdef HAVE_GTK2
     /* gtk_selection_data_get_text() handles all the nasty details
      * and targets and encodings etc.  This rocks so hard. */
@@ -1329,6 +1428,7 @@ selection_get_cb(GtkWidget	    *widget,
     if (info != (guint)TARGET_STRING
 #ifdef FEAT_MBYTE
 	    && info != (guint)TARGET_UTF8_STRING
+	    && info != (guint)TARGET_VIMENC
 #endif
 	    && info != (guint)TARGET_VIM
 	    && info != (guint)TARGET_COMPOUND_TEXT
@@ -1360,6 +1460,27 @@ selection_get_cb(GtkWidget	    *widget,
 	string = tmpbuf;
 	type = vim_atom;
     }
+
+#ifdef FEAT_MBYTE
+    else if (info == (guint)TARGET_VIMENC)
+    {
+	int l = STRLEN(p_enc);
+
+	/* contents: motion_type 'encoding' NUL text */
+	tmpbuf = alloc((unsigned)length + l + 2);
+	if (tmpbuf != NULL)
+	{
+	    tmpbuf[0] = motion_type;
+	    STRCPY(tmpbuf + 1, p_enc);
+	    mch_memmove(tmpbuf + l + 2, string, (size_t)length);
+	}
+	length += l + 2;
+	vim_free(string);
+	string = tmpbuf;
+	type = vimenc_atom;
+    }
+#endif
+
 #ifdef HAVE_GTK2
     /* gtk_selection_data_set_text() handles everything for us.  This is
      * so easy and simple and cool, it'd be insane not to use it. */
@@ -1515,13 +1636,7 @@ process_motion_notify(int x, int y, GdkModifierType state)
     }
 
     /* translate modifier coding between the main engine and GTK */
-    vim_modifiers = 0x0;
-    if (state & GDK_SHIFT_MASK)
-	vim_modifiers |= MOUSE_SHIFT;
-    if (state & GDK_CONTROL_MASK)
-	vim_modifiers |= MOUSE_CTRL;
-    if (state & GDK_MOD1_MASK)
-	vim_modifiers |= MOUSE_ALT;
+    vim_modifiers = modifiers_gdk2mouse(state);
 
     /* inform the editor engine about the occurence of this event */
     gui_send_mouse_event(button, x, y, FALSE, vim_modifiers);
@@ -1709,17 +1824,11 @@ button_press_event(GtkWidget *widget, GdkEventButton *event, gpointer data)
 
 #ifdef FEAT_XIM
     /* cancel any preediting */
-    if (preedit_start_col != MAXCOL)
+    if (im_is_preediting())
 	xim_reset();
 #endif
 
-    vim_modifiers = 0x0;
-    if (event->state & GDK_SHIFT_MASK)
-	vim_modifiers |= MOUSE_SHIFT;
-    if (event->state & GDK_CONTROL_MASK)
-	vim_modifiers |= MOUSE_CTRL;
-    if (event->state & GDK_MOD1_MASK)
-	vim_modifiers |= MOUSE_ALT;
+    vim_modifiers = modifiers_gdk2mouse(event->state);
 
     gui_send_mouse_event(button, x, y, repeated_click, vim_modifiers);
     if (gtk_main_level() > 0)
@@ -1738,7 +1847,7 @@ button_press_event(GtkWidget *widget, GdkEventButton *event, gpointer data)
 scroll_event(GtkWidget *widget, GdkEventScroll *event, gpointer data)
 {
     int	    button;
-    int_u   vim_modifiers = 0;
+    int_u   vim_modifiers;
 
     if (gtk_socket_id != 0 && !GTK_WIDGET_HAS_FOCUS(widget))
 	gtk_widget_grab_focus(widget);
@@ -1757,16 +1866,11 @@ scroll_event(GtkWidget *widget, GdkEventScroll *event, gpointer data)
 
 # ifdef FEAT_XIM
     /* cancel any preediting */
-    if (preedit_start_col != MAXCOL)
+    if (im_is_preediting())
 	xim_reset();
 # endif
 
-    if (event->state & GDK_SHIFT_MASK)
-	vim_modifiers |= MOUSE_SHIFT;
-    if (event->state & GDK_CONTROL_MASK)
-	vim_modifiers |= MOUSE_CTRL;
-    if (event->state & GDK_MOD1_MASK)
-	vim_modifiers |= MOUSE_ALT;
+    vim_modifiers = modifiers_gdk2mouse(event->state);
 
     gui_send_mouse_event(button, (int)event->x, (int)event->y,
 							FALSE, vim_modifiers);
@@ -1798,13 +1902,7 @@ button_release_event(GtkWidget *widget, GdkEventButton *event, gpointer data)
     x = event->x;
     y = event->y;
 
-    vim_modifiers = 0x0;
-    if (event->state & GDK_SHIFT_MASK)
-	vim_modifiers |= MOUSE_SHIFT;
-    if (event->state & GDK_CONTROL_MASK)
-	vim_modifiers |= MOUSE_CTRL;
-    if (event->state & GDK_MOD1_MASK)
-	vim_modifiers |= MOUSE_ALT;
+    vim_modifiers = modifiers_gdk2mouse(event->state);
 
     gui_send_mouse_event(MOUSE_RELEASE, x, y, FALSE, vim_modifiers);
     if (gtk_main_level() > 0)
@@ -1819,159 +1917,115 @@ button_release_event(GtkWidget *widget, GdkEventButton *event, gpointer data)
  * Drag aNd Drop support handlers.
  */
 
+/*
+ * Count how many items there may be and separate them with a NUL.
+ * Apparently the items are separated with \r\n.  This is not documented,
+ * thus be careful not to go past the end.	Also allow separation with
+ * NUL characters.
+ */
+    static int
+count_and_decode_uri_list(char_u *out, char_u *raw, int len)
+{
+    int		i;
+    char_u	*p = out;
+    int		count = 0;
+
+    for (i = 0; i < len; ++i)
+    {
+	if (raw[i] == NUL || raw[i] == '\n' || raw[i] == '\r')
+	{
+	    if (p > out && p[-1] != NUL)
+	    {
+		++count;
+		*p++ = NUL;
+	    }
+	}
+	else if (raw[i] == '%' && i + 2 < len && hexhex2nr(raw + i + 1) > 0)
+	{
+	    *p++ = hexhex2nr(raw + i + 1);
+	    i += 2;
+	}
+	else
+	    *p++ = raw[i];
+    }
+    if (p > out && p[-1] != NUL)
+    {
+	*p = NUL;	/* last item didn't have \r or \n */
+	++count;
+    }
+    return count;
+}
+
+/*
+ * Parse NUL separated "src" strings.  Make it an array "outlist" form.  On
+ * this process, URI which protocol is not "file:" are removed.  Return
+ * length of array (less than "max").
+ */
+    static int
+filter_uri_list(char_u **outlist, int max, char_u *src)
+{
+    int	i, j;
+
+    for (i = j = 0; i < max; ++i)
+    {
+	outlist[i] = NULL;
+	if (STRNCMP(src, "file:", 5) == 0)
+	{
+	    src += 5;
+	    if (STRNCMP(src, "//localhost", 11) == 0)
+		src += 11;
+	    while (src[0] == '/' && src[1] == '/')
+		++src;
+	    outlist[j++] = vim_strsave(src);
+	}
+	src += STRLEN(src) + 1;
+    }
+    return j;
+}
+
+    static char_u **
+parse_uri_list(int *count, char_u *data, int len)
+{
+    int	    n	    = 0;
+    char_u  *tmp    = NULL;
+    char_u  **array = NULL;;
+
+    if (data != NULL && len > 0 && (tmp = (char_u *)alloc(len + 1)) != NULL)
+    {
+	n = count_and_decode_uri_list(tmp, data, len);
+	if (n > 0 && (array = (char_u **)alloc(n * sizeof(char_u *))) != NULL)
+	    n = filter_uri_list(array, n, tmp);
+    }
+    vim_free(tmp);
+    *count = n;
+    return array;
+}
+
     static void
 drag_handle_uri_list(GdkDragContext	*context,
 		     GtkSelectionData	*data,
 		     guint		time_,
-		     GdkModifierType	state)
+		     GdkModifierType	state,
+		     gint		x,
+		     gint		y)
 {
     char_u  **fnames;
-    int	    redo_dirs = FALSE;
-    int	    i;
-    int	    n;
-    char_u  *start;
-    char_u  *copy;
-    char_u  *names;
     int	    nfiles = 0;
-    int	    url = FALSE;
 
-    names = data->data;
-    copy = alloc((unsigned)(data->length + 1));
-    if (copy == NULL)
-	return;
-    /*
-     * Count how many items there may be and separate them with a NUL.
-     * Apparently the items are separated with \r\n.  This is not documented,
-     * thus be careful not to go past the end.	Also allow separation with NUL
-     * characters.
-     */
-    start = copy;
-    for (i = 0; i < data->length; ++i)
+    fnames = parse_uri_list(&nfiles, data->data, data->length);
+
+    if (fnames != NULL && nfiles > 0)
     {
-	if (names[i] == NUL || names[i] == '\n' || names[i] == '\r')
-	{
-	    if (start > copy && start[-1] != NUL)
-	    {
-		++nfiles;
-		*start++ = NUL;
-	    }
-	}
-	else if (names[i] == '%' && i + 2 < data->length
-					      && hexhex2nr(names + i + 1) > 0)
-	{
-	    *start++ = hexhex2nr(names + i + 1);
-	    i += 2;
-	}
-	else
-	    *start++ = names[i];
+	int_u   modifiers;
+
+	gtk_drag_finish(context, TRUE, FALSE, time_); /* accept */
+
+	modifiers = modifiers_gdk2mouse(state);
+
+	gui_handle_drop(x, y, modifiers, fnames, nfiles);
     }
-    if (start > copy && start[-1] != NUL)
-    {
-	*start = NUL;	/* last item didn't have \r or \n */
-	++nfiles;
-    }
-
-    fnames = (char_u **)alloc((unsigned)(nfiles * sizeof(char_u *)));
-    if (fnames == NULL)
-    {
-	vim_free(copy);
-	return;
-    }
-    url = FALSE;	/* Set when a non-file URL was found. */
-    start = copy;
-    for (n = 0; n < nfiles; ++n)
-    {
-	if (STRNCMP(start, "file://localhost", 16) == 0)
-	    start += 16;
-	else
-	{
-	    if (STRNCMP(start, "file:", 5) != 0)
-		url = TRUE;
-	    else
-	    {
-		start += 5;
-		while (start[0] == '/' && start[1] == '/')
-		    ++start;
-	    }
-	}
-	fnames[n] = vim_strsave(start);
-	start += STRLEN(start) + 1;
-    }
-
-    /* accept */
-    gtk_drag_finish(context, TRUE, FALSE, time_);
-
-    /* Special handling when all items are real files. */
-    if (url == FALSE)
-    {
-	if (nfiles == 1)
-	{
-	    if (fnames[0] != NULL && mch_isdir(fnames[0]))
-	    {
-		/* Handle dropping a directory on Vim. */
-		if (mch_chdir((char *)fnames[0]) == 0)
-		{
-		    vim_free(fnames[0]);
-		    fnames[0] = NULL;
-		    redo_dirs = TRUE;
-		}
-	    }
-	}
-	else
-	{
-	    /* Ignore any directories */
-	    for (i = 0; i < nfiles; ++i)
-	    {
-		if (fnames[i] != NULL && mch_isdir(fnames[i]))
-		{
-		    vim_free(fnames[i]);
-		    fnames[i] = NULL;
-		}
-	    }
-	}
-
-	if (state & GDK_SHIFT_MASK)
-	{
-	    /* Shift held down, change to first file's directory */
-	    if (fnames[0] != NULL && vim_chdirfile(fnames[0]) == OK)
-		redo_dirs = TRUE;
-	}
-	else
-	{
-	    char_u	dirname[MAXPATHL];
-	    char_u	*s;
-
-	    /* Shorten dropped file names. */
-	    if (mch_dirname(dirname, MAXPATHL) == OK)
-		for (i = 0; i < nfiles; ++i)
-		    if (fnames[i] != NULL)
-		    {
-			s = shorten_fname(fnames[i], dirname);
-			if (s != NULL && (s = vim_strsave(s)) != NULL)
-			{
-			    vim_free(fnames[i]);
-			    fnames[i] = s;
-			}
-		    }
-	}
-    }
-    vim_free(copy);
-
-    /* Handle the drop, :edit or :split to get to the file */
-    handle_drop(nfiles, fnames, (state & GDK_CONTROL_MASK) != 0);
-
-    if (redo_dirs)
-	shorten_fnames(TRUE);
-
-    /* Update the screen display */
-    update_screen(NOT_VALID);
-# ifdef FEAT_MENU
-    gui_update_menus(0);
-# endif
-    setcursor();
-    out_flush();
-    gui_update_cursor(FALSE, FALSE);
-    gui_mch_flush();
+    else
+	vim_free(fnames);
 }
 
     static void
@@ -2019,12 +2073,7 @@ drag_handle_text(GdkDragContext	    *context,
     vim_free(tmpbuf);
 # endif
 
-    if (state & GDK_SHIFT_MASK)
-	dropkey[2] |= MOD_MASK_SHIFT;
-    if (state & GDK_CONTROL_MASK)
-	dropkey[2] |= MOD_MASK_CTRL;
-    if (state & GDK_MOD1_MASK)
-	dropkey[2] |= MOD_MASK_ALT;
+    dropkey[2] = modifiers_gdk2vim(state);
 
     if (dropkey[2] != 0)
 	add_to_input_buf(dropkey, (int)sizeof(dropkey));
@@ -2067,7 +2116,7 @@ drag_data_received_cb(GtkWidget		*widget,
 
     /* Not sure about the role of "text/plain" here... */
     if (info == (guint)TARGET_TEXT_URI_LIST)
-	drag_handle_uri_list(context, data, time_, state);
+	drag_handle_uri_list(context, data, time_, state, x, y);
     else
 	drag_handle_text(context, data, time_, state);
 
@@ -2152,7 +2201,7 @@ write_session_file(char_u *filename)
     do_cmdline_cmd((char_u *)"let Save_VV_this_session = v:this_session");
     failed = (do_cmdline_cmd((char_u *)mksession_cmdline) == FAIL);
     do_cmdline_cmd((char_u *)"let v:this_session = Save_VV_this_session");
-    do_unlet((char_u *)"Save_VV_this_session");
+    do_unlet((char_u *)"Save_VV_this_session", TRUE);
 
     ssop_flags = save_ssop_flags;
     g_free(mksession_cmdline);
@@ -2282,9 +2331,9 @@ sm_client_die(GnomeClient *client, gpointer data)
     /* Don't write messages to the GUI anymore */
     full_screen = FALSE;
 
-    STRNCPY(IObuff, _("Vim: Received \"die\" request from session manager\n"),
-	    IOSIZE);
-    IObuff[IOSIZE - 1] = NUL;
+    vim_strncpy(IObuff,
+		    _("Vim: Received \"die\" request from session manager\n"),
+	    IOSIZE - 1);
     preserve_exit();
 }
 
@@ -2680,8 +2729,8 @@ mainwin_screen_changed_cb(GtkWidget  *widget,
 
     if (gui.norm_font != NULL)
     {
-	gui_mch_init_font(p_guifont, 0);
-	gui_set_shellsize(FALSE, FALSE);
+	gui_mch_init_font(p_guifont, FALSE);
+	gui_set_shellsize(FALSE, FALSE, RESIZE_BOTH);
     }
 }
 #endif /* HAVE_GTK_MULTIHEAD */
@@ -2784,6 +2833,198 @@ delete_event_cb(GtkWidget *widget, GdkEventAny *event, gpointer data)
     return TRUE;
 }
 
+#if defined(FEAT_MENU) || defined(FEAT_TOOLBAR) || defined(FEAT_GUI_TABLINE)
+    static int
+get_item_dimensions(GtkWidget *widget, GtkOrientation orientation)
+{
+    GtkOrientation item_orientation = GTK_ORIENTATION_HORIZONTAL;
+
+#ifdef FEAT_GUI_GNOME
+    if (using_gnome && widget != NULL)
+    {
+# ifdef HAVE_GTK2
+	GtkWidget *parent;
+	BonoboDockItem *dockitem;
+
+	parent	 = gtk_widget_get_parent(widget);
+	if (G_TYPE_FROM_INSTANCE(parent) == BONOBO_TYPE_DOCK_ITEM)
+	{
+	    /* Only menu & toolbar are dock items.  Could tabline be?
+	     * Seem to be only the 2 defined in GNOME */
+	    widget = parent;
+	    dockitem = BONOBO_DOCK_ITEM(widget);
+
+	    if (dockitem == NULL || dockitem->is_floating)
+		return 0;
+	    item_orientation = bonobo_dock_item_get_orientation(dockitem);
+	}
+# else
+	GnomeDockItem *dockitem;
+
+	widget	 = widget->parent;
+	dockitem = GNOME_DOCK_ITEM(widget);
+
+	if (dockitem == NULL || dockitem->is_floating)
+	    return 0;
+	item_orientation = gnome_dock_item_get_orientation(dockitem);
+# endif
+    }
+#endif
+    if (widget != NULL
+	    && item_orientation == orientation
+	    && GTK_WIDGET_REALIZED(widget)
+	    && GTK_WIDGET_VISIBLE(widget))
+    {
+	if (orientation == GTK_ORIENTATION_HORIZONTAL)
+	    return widget->allocation.height;
+	else
+	    return widget->allocation.width;
+    }
+    return 0;
+}
+#endif
+
+    static int
+get_menu_tool_width(void)
+{
+    int width = 0;
+
+#ifdef FEAT_GUI_GNOME /* these are never vertical without GNOME */
+# ifdef FEAT_MENU
+    width += get_item_dimensions(gui.menubar, GTK_ORIENTATION_VERTICAL);
+# endif
+# ifdef FEAT_TOOLBAR
+    width += get_item_dimensions(gui.toolbar, GTK_ORIENTATION_VERTICAL);
+# endif
+# ifdef FEAT_GUI_TABLINE
+    if (gui.tabline != NULL)
+	width += get_item_dimensions(gui.tabline, GTK_ORIENTATION_VERTICAL);
+# endif
+#endif
+
+    return width;
+}
+
+    static int
+get_menu_tool_height(void)
+{
+    int height = 0;
+
+#ifdef FEAT_MENU
+    height += get_item_dimensions(gui.menubar, GTK_ORIENTATION_HORIZONTAL);
+#endif
+#ifdef FEAT_TOOLBAR
+    height += get_item_dimensions(gui.toolbar, GTK_ORIENTATION_HORIZONTAL);
+#endif
+#ifdef FEAT_GUI_TABLINE
+    if (gui.tabline != NULL)
+	height += get_item_dimensions(gui.tabline, GTK_ORIENTATION_HORIZONTAL);
+#endif
+
+    return height;
+}
+
+/* This controls whether we can set the real window hints at
+ * start-up when in a GtkPlug.
+ * 0 = normal processing (default)
+ * 1 = init. hints set, no-one's tried to reset since last check
+ * 2 = init. hints set, attempt made to change hints
+ */
+static int init_window_hints_state = 0;
+
+    static void
+update_window_manager_hints(int force_width, int force_height)
+{
+    static int old_width  = 0;
+    static int old_height = 0;
+    static int old_min_width  = 0;
+    static int old_min_height = 0;
+    static int old_char_width  = 0;
+    static int old_char_height = 0;
+
+    int width;
+    int height;
+    int min_width;
+    int min_height;
+
+    /* At start-up, don't try to set the hints until the initial
+     * values have been used (those that dictate our initial size)
+     * Let forced (i.e., correct) values thruogh always.
+     */
+    if (!(force_width && force_height)  &&  init_window_hints_state > 0)
+    {
+	/* Don't do it! */
+	init_window_hints_state = 2;
+	return;
+    }
+
+    /* This also needs to be done when the main window isn't there yet,
+     * otherwise the hints don't work. */
+    width  = gui_get_base_width();
+    height = gui_get_base_height();
+# ifdef FEAT_MENU
+    height += tabline_height() * gui.char_height;
+# endif
+# ifdef HAVE_GTK2
+    width  += get_menu_tool_width();
+    height += get_menu_tool_height();
+# endif
+
+    /* GtkSockets use GtkPlug's [gui,mainwin] min-size hints to determine
+     * their actual widget size.  When we set our size ourselve (e.g.,
+     * 'set columns=' or init. -geom) we briefly set the min. to the size
+     * we wish to be instead of the legitimate minimum so that we actually
+     * resize correctly.
+     */
+    if (force_width && force_height)
+    {
+	min_width  = force_width;
+	min_height = force_height;
+    }
+    else
+    {
+	min_width  = width  + MIN_COLUMNS * gui.char_width;
+	min_height = height + MIN_LINES   * gui.char_height;
+    }
+
+    /* Avoid an expose event when the size didn't change. */
+    if (width != old_width
+	    || height != old_height
+	    || min_width != old_min_width
+	    || min_height != old_min_height
+	    || gui.char_width != old_char_width
+	    || gui.char_height != old_char_height)
+    {
+	GdkGeometry	geometry;
+	GdkWindowHints	geometry_mask;
+
+	geometry.width_inc   = gui.char_width;
+	geometry.height_inc  = gui.char_height;
+	geometry.base_width  = width;
+	geometry.base_height = height;
+	geometry.min_width   = min_width;
+	geometry.min_height  = min_height;
+	geometry_mask	     = GDK_HINT_BASE_SIZE|GDK_HINT_RESIZE_INC
+			       |GDK_HINT_MIN_SIZE;
+# ifdef HAVE_GTK2
+	/* Using gui.formwin as geometry widget doesn't work as expected
+	 * with GTK+ 2 -- dunno why.  Presumably all the resizing hacks
+	 * in Vim confuse GTK+. */
+	gtk_window_set_geometry_hints(GTK_WINDOW(gui.mainwin), gui.mainwin,
+				      &geometry, geometry_mask);
+# else
+	gtk_window_set_geometry_hints(GTK_WINDOW(gui.mainwin), gui.formwin,
+				      &geometry, geometry_mask);
+# endif
+	old_width       = width;
+	old_height      = height;
+	old_min_width   = min_width;
+	old_min_height  = min_height;
+	old_char_width  = gui.char_width;
+	old_char_height = gui.char_height;
+    }
+}
+
 #ifdef FEAT_TOOLBAR
 
 # ifdef HAVE_GTK2
@@ -2877,6 +3118,272 @@ set_toolbar_style(GtkToolbar *toolbar)
 
 #endif /* FEAT_TOOLBAR */
 
+#if defined(FEAT_GUI_TABLINE) || defined(PROTO)
+static int ignore_tabline_evt = FALSE;
+static GtkWidget *tabline_menu;
+static GtkTooltips *tabline_tooltip;
+static int clicked_page;	    /* page clicked in tab line */
+
+/*
+ * Handle selecting an item in the tab line popup menu.
+ */
+/*ARGSUSED*/
+    static void
+tabline_menu_handler(GtkMenuItem *item, gpointer user_data)
+{
+    /* Add the string cmd into input buffer */
+    send_tabline_menu_event(clicked_page, (int)(long)user_data);
+
+    if (gtk_main_level() > 0)
+	gtk_main_quit();
+}
+
+    static void
+add_tabline_menu_item(GtkWidget *menu, char_u *text, int resp)
+{
+    GtkWidget	*item;
+    char_u	*utf_text;
+
+    utf_text = CONVERT_TO_UTF8(text);
+    item = gtk_menu_item_new_with_label((const char *)utf_text);
+    gtk_widget_show(item);
+    CONVERT_TO_UTF8_FREE(utf_text);
+
+    gtk_container_add(GTK_CONTAINER(menu), item);
+    gtk_signal_connect(GTK_OBJECT(item), "activate",
+	    GTK_SIGNAL_FUNC(tabline_menu_handler),
+	    (gpointer)resp);
+}
+
+/*
+ * Create a menu for the tab line.
+ */
+    static GtkWidget *
+create_tabline_menu(void)
+{
+    GtkWidget *menu;
+
+    menu = gtk_menu_new();
+    add_tabline_menu_item(menu, (char_u *)_("Close"), TABLINE_MENU_CLOSE);
+    add_tabline_menu_item(menu, (char_u *)_("New tab"), TABLINE_MENU_NEW);
+    add_tabline_menu_item(menu, (char_u *)_("Open Tab..."), TABLINE_MENU_OPEN);
+
+    return menu;
+}
+
+    static gboolean
+on_tabline_menu(GtkWidget *widget, GdkEvent *event)
+{
+    /* Was this button press event ? */
+    if (event->type == GDK_BUTTON_PRESS)
+    {
+	GdkEventButton *bevent = (GdkEventButton *)event;
+	int		x = bevent->x;
+	int		y = bevent->y;
+	GtkWidget	*tabwidget;
+	GdkWindow	*tabwin;
+
+	/* When ignoring events return TRUE so that the selected page doesn't
+	 * change. */
+	if (hold_gui_events
+# ifdef FEAT_CMDWIN
+		|| cmdwin_type != 0
+# endif
+	   )
+	    return TRUE;
+
+	tabwin = gdk_window_at_pointer(&x, &y);
+	gdk_window_get_user_data(tabwin, (gpointer)&tabwidget);
+	clicked_page = (int)(long)gtk_object_get_user_data(
+						       GTK_OBJECT(tabwidget));
+
+	/* If the event was generated for 3rd button popup the menu. */
+	if (bevent->button == 3)
+	{
+	    gtk_menu_popup(GTK_MENU(widget), NULL, NULL, NULL, NULL,
+						bevent->button, bevent->time);
+	    /* We handled the event. */
+	    return TRUE;
+	}
+	else if (bevent->button == 1)
+	{
+	    if (clicked_page == 0)
+	    {
+		/* Click after all tabs moves to next tab page. */
+		if (send_tabline_event(0) && gtk_main_level() > 0)
+		    gtk_main_quit();
+	    }
+#ifndef HAVE_GTK2
+	    else
+		gtk_notebook_set_page(GTK_NOTEBOOK(gui.tabline),
+							    clicked_page - 1);
+#endif
+	}
+    }
+
+    /* We didn't handle the event. */
+    return FALSE;
+}
+
+/*
+ * Handle selecting one of the tabs.
+ */
+/*ARGSUSED*/
+    static void
+on_select_tab(
+	GtkNotebook	*notebook,
+	GtkNotebookPage *page,
+	gint		index,
+	gpointer	data)
+{
+    if (!ignore_tabline_evt)
+    {
+	if (send_tabline_event(index + 1) && gtk_main_level() > 0)
+	    gtk_main_quit();
+    }
+}
+
+#ifndef HAVE_GTK2
+static int showing_tabline = 0;
+#endif
+
+/*
+ * Show or hide the tabline.
+ */
+    void
+gui_mch_show_tabline(int showit)
+{
+    if (gui.tabline == NULL)
+	return;
+
+#ifdef HAVE_GTK2
+    /* gtk_notebook_get_show_tabs does not exist in gtk+-1.2.10 */
+    if (!showit != !gtk_notebook_get_show_tabs(GTK_NOTEBOOK(gui.tabline)))
+#else
+    if (!showit != !showing_tabline)
+#endif
+    {
+	/* Note: this may cause a resize event */
+	gtk_notebook_set_show_tabs(GTK_NOTEBOOK(gui.tabline), showit);
+	update_window_manager_hints(0, 0);
+#ifndef HAVE_GTK2
+	showing_tabline = showit;
+#endif
+	if (showit)
+	    GTK_WIDGET_UNSET_FLAGS(GTK_WIDGET(gui.tabline), GTK_CAN_FOCUS);
+    }
+
+    gui_mch_update();
+}
+
+/*
+ * Return TRUE when tabline is displayed.
+ */
+    int
+gui_mch_showing_tabline(void)
+{
+    return gui.tabline != NULL
+#ifdef HAVE_GTK2
+	    /* gtk_notebook_get_show_tabs does not exist in gtk+-1.2.10 */
+		     && gtk_notebook_get_show_tabs(GTK_NOTEBOOK(gui.tabline))
+#else
+		     && showing_tabline
+#endif
+		     ;
+}
+
+/*
+ * Update the labels of the tabline.
+ */
+    void
+gui_mch_update_tabline(void)
+{
+    GtkWidget	    *page;
+    GtkWidget	    *event_box;
+    GtkWidget	    *label;
+    tabpage_T	    *tp;
+    int		    nr = 0;
+    int		    tab_num;
+    int		    curtabidx = 0;
+    char_u	    *labeltext;
+
+    if (gui.tabline == NULL)
+	return;
+
+    ignore_tabline_evt = TRUE;
+
+    /* Add a label for each tab page.  They all contain the same text area. */
+    for (tp = first_tabpage; tp != NULL; tp = tp->tp_next, ++nr)
+    {
+	if (tp == curtab)
+	    curtabidx = nr;
+
+	tab_num = nr + 1;
+
+	page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(gui.tabline), nr);
+	if (page == NULL)
+	{
+	    /* Add notebook page */
+	    page = gtk_vbox_new(FALSE, 0);
+	    gtk_widget_show(page);
+	    event_box = gtk_event_box_new();
+	    gtk_widget_show(event_box);
+	    label = gtk_label_new("-Empty-");
+	    gtk_misc_set_padding(GTK_MISC(label), 2, 2);
+	    gtk_container_add(GTK_CONTAINER(event_box), label);
+	    gtk_widget_show(label);
+	    gtk_notebook_insert_page(GTK_NOTEBOOK(gui.tabline),
+		    page,
+		    event_box,
+		    nr++);
+	}
+
+	event_box = gtk_notebook_get_tab_label(GTK_NOTEBOOK(gui.tabline), page);
+	gtk_object_set_user_data(GTK_OBJECT(event_box), (gpointer)tab_num);
+	label = GTK_BIN(event_box)->child;
+	get_tabline_label(tp, FALSE);
+	labeltext = CONVERT_TO_UTF8(NameBuff);
+	gtk_label_set_text(GTK_LABEL(label), (const char *)labeltext);
+	CONVERT_TO_UTF8_FREE(labeltext);
+
+	get_tabline_label(tp, TRUE);
+	labeltext = CONVERT_TO_UTF8(NameBuff);
+	gtk_tooltips_set_tip(GTK_TOOLTIPS(tabline_tooltip), event_box,
+			     (const char *)labeltext, NULL);
+	CONVERT_TO_UTF8_FREE(labeltext);
+    }
+
+    /* Remove any old labels. */
+    while (gtk_notebook_get_nth_page(GTK_NOTEBOOK(gui.tabline), nr) != NULL)
+	gtk_notebook_remove_page(GTK_NOTEBOOK(gui.tabline), nr);
+
+    if (gtk_notebook_current_page(GTK_NOTEBOOK(gui.tabline)) != curtabidx)
+	gtk_notebook_set_page(GTK_NOTEBOOK(gui.tabline), curtabidx);
+
+    /* Make sure everything is in place before drawing text. */
+    gui_mch_update();
+
+    ignore_tabline_evt = FALSE;
+}
+
+/*
+ * Set the current tab to "nr".  First tab is 1.
+ */
+    void
+gui_mch_set_curtab(nr)
+    int		nr;
+{
+    if (gui.tabline == NULL)
+	return;
+
+    ignore_tabline_evt = TRUE;
+    if (gtk_notebook_current_page(GTK_NOTEBOOK(gui.tabline)) != nr - 1)
+	gtk_notebook_set_page(GTK_NOTEBOOK(gui.tabline), nr - 1);
+    ignore_tabline_evt = FALSE;
+}
+
+#endif /* FEAT_GUI_TABLINE */
+
 /*
  * Initialize the GUI.	Create all the windows, set up all the callbacks etc.
  * Returns OK for success, FAIL when the GUI can't be started.
@@ -2927,8 +3434,12 @@ gui_mch_init(void)
     gui.border_width = 2;
     gui.scrollbar_width = SB_DEFAULT_WIDTH;
     gui.scrollbar_height = SB_DEFAULT_WIDTH;
+    /* LINTED: avoid warning: conversion to 'unsigned long' */
     gui.fgcolor = g_new0(GdkColor, 1);
+    /* LINTED: avoid warning: conversion to 'unsigned long' */
     gui.bgcolor = g_new0(GdkColor, 1);
+    /* LINTED: avoid warning: conversion to 'unsigned long' */
+    gui.spcolor = g_new0(GdkColor, 1);
 
     /* Initialise atoms */
 #ifdef FEAT_MBYTE
@@ -3013,6 +3524,7 @@ gui_mch_init(void)
     gui.accel_group = gtk_accel_group_get_default();
 #endif
 
+    /* A vertical box holds the menubar, toolbar and main text window. */
     vbox = gtk_vbox_new(FALSE, 0);
 
 #ifdef FEAT_GUI_GNOME
@@ -3038,6 +3550,17 @@ gui_mch_init(void)
     gui.menubar = gtk_menu_bar_new();
     gtk_widget_set_name(gui.menubar, "vim-menubar");
 
+# ifdef HAVE_GTK2
+    /* Avoid that GTK takes <F10> away from us. */
+    {
+	GtkSettings *gtk_settings;
+
+	gtk_settings = gtk_settings_get_for_screen(gdk_screen_get_default());
+	g_object_set(gtk_settings, "gtk-menu-bar-accel", NULL, NULL);
+    }
+# endif
+
+
 # ifdef FEAT_GUI_GNOME
     if (using_gnome)
     {
@@ -3047,6 +3570,10 @@ gui_mch_init(void)
 	gnome_app_set_menus(GNOME_APP(gui.mainwin), GTK_MENU_BAR(gui.menubar));
 	dockitem = gnome_app_get_dock_item_by_name(GNOME_APP(gui.mainwin),
 						   GNOME_APP_MENUBAR_NAME);
+	/* We don't want the menu to float. */
+	bonobo_dock_item_set_behavior(dockitem,
+		bonobo_dock_item_get_behavior(dockitem)
+				       | BONOBO_DOCK_ITEM_BEH_NEVER_FLOATING);
 	gui.menubar_h = GTK_WIDGET(dockitem);
 #  else
 	gui.menubar_h = gnome_dock_item_new("VimMainMenu",
@@ -3067,8 +3594,9 @@ gui_mch_init(void)
     else
 # endif	/* FEAT_GUI_GNOME */
     {
-	if (vim_strchr(p_go, GO_MENUS) != NULL)
-	    gtk_widget_show(gui.menubar);
+	/* Always show the menubar, otherwise <F10> doesn't work.  It may be
+	 * disabled in gui_init() later. */
+	gtk_widget_show(gui.menubar);
 	gtk_box_pack_start(GTK_BOX(vbox), gui.menubar, FALSE, FALSE, 0);
     }
 #endif	/* FEAT_MENU */
@@ -3103,6 +3631,11 @@ gui_mch_init(void)
 	dockitem = gnome_app_get_dock_item_by_name(GNOME_APP(gui.mainwin),
 						   GNOME_APP_TOOLBAR_NAME);
 	gui.toolbar_h = GTK_WIDGET(dockitem);
+	/* When the toolbar is floating it gets stuck.  So long as that isn't
+	 * fixed let's disallow floating. */
+	bonobo_dock_item_set_behavior(dockitem,
+		bonobo_dock_item_get_behavior(dockitem)
+				       | BONOBO_DOCK_ITEM_BEH_NEVER_FLOATING);
 	gtk_container_set_border_width(GTK_CONTAINER(gui.toolbar), 0);
 #  else
 	GtkWidget *dockitem;
@@ -3135,6 +3668,48 @@ gui_mch_init(void)
 	gtk_box_pack_start(GTK_BOX(vbox), gui.toolbar, FALSE, FALSE, 0);
     }
 #endif /* FEAT_TOOLBAR */
+
+#ifdef FEAT_GUI_TABLINE
+    /*
+     * Use a Notebook for the tab pages labels.  The labels are hidden by
+     * default.
+     */
+    gui.tabline = gtk_notebook_new();
+    gtk_widget_show(gui.tabline);
+    gtk_box_pack_start(GTK_BOX(vbox), gui.tabline, FALSE, FALSE, 0);
+    gtk_notebook_set_show_border(GTK_NOTEBOOK(gui.tabline), FALSE);
+    gtk_notebook_set_show_tabs(GTK_NOTEBOOK(gui.tabline), FALSE);
+    gtk_notebook_set_scrollable(GTK_NOTEBOOK(gui.tabline), TRUE);
+    gtk_notebook_set_tab_border(GTK_NOTEBOOK(gui.tabline), FALSE);
+
+    tabline_tooltip = gtk_tooltips_new();
+    gtk_tooltips_enable(GTK_TOOLTIPS(tabline_tooltip));
+
+    {
+	GtkWidget *page, *label, *event_box;
+
+	/* Add the first tab. */
+	page = gtk_vbox_new(FALSE, 0);
+	gtk_widget_show(page);
+	gtk_container_add(GTK_CONTAINER(gui.tabline), page);
+	label = gtk_label_new("-Empty-");
+	gtk_widget_show(label);
+	event_box = gtk_event_box_new();
+	gtk_widget_show(event_box);
+	gtk_object_set_user_data(GTK_OBJECT(event_box), (gpointer)1);
+	gtk_misc_set_padding(GTK_MISC(label), 2, 2);
+	gtk_container_add(GTK_CONTAINER(event_box), label);
+	gtk_notebook_set_tab_label(GTK_NOTEBOOK(gui.tabline), page, event_box);
+    }
+
+    gtk_signal_connect(GTK_OBJECT(gui.tabline), "switch_page",
+		       GTK_SIGNAL_FUNC(on_select_tab), NULL);
+
+    /* Create a popup menu for the tab line and connect it. */
+    tabline_menu = create_tabline_menu();
+    gtk_signal_connect_object(GTK_OBJECT(gui.tabline), "button_press_event",
+	    GTK_SIGNAL_FUNC(on_tabline_menu), GTK_OBJECT(tabline_menu));
+#endif
 
     gui.formwin = gtk_form_new();
     gtk_container_border_width(GTK_CONTAINER(gui.formwin), 0);
@@ -3199,6 +3774,9 @@ gui_mch_init(void)
      * Set clipboard specific atoms
      */
     vim_atom = gdk_atom_intern(VIM_ATOM_NAME, FALSE);
+#ifdef FEAT_MBYTE
+    vimenc_atom = gdk_atom_intern(VIMENC_ATOM_NAME, FALSE);
+#endif
     clip_star.gtk_sel_atom = GDK_SELECTION_PRIMARY;
     clip_plus.gtk_sel_atom = gdk_atom_intern("CLIPBOARD", FALSE);
 
@@ -3224,10 +3802,30 @@ gui_mch_init(void)
 			   GTK_SIGNAL_FUNC(enter_notify_event), NULL);
     }
 
-    gtk_signal_connect(GTK_OBJECT(gui.mainwin), "focus_out_event",
-			   GTK_SIGNAL_FUNC(focus_out_event), NULL);
-    gtk_signal_connect(GTK_OBJECT(gui.mainwin), "focus_in_event",
-			   GTK_SIGNAL_FUNC(focus_in_event), NULL);
+    /* Real windows can get focus ... GtkPlug, being a mere container can't,
+     * only its widgets.  Arguably, this could be common code and we not use
+     * the window focus at all, but let's be safe.
+     */
+    if (gtk_socket_id == 0)
+    {
+	gtk_signal_connect(GTK_OBJECT(gui.mainwin), "focus_out_event",
+			       GTK_SIGNAL_FUNC(focus_out_event), NULL);
+	gtk_signal_connect(GTK_OBJECT(gui.mainwin), "focus_in_event",
+			       GTK_SIGNAL_FUNC(focus_in_event), NULL);
+    }
+    else
+    {
+	gtk_signal_connect(GTK_OBJECT(gui.drawarea), "focus_out_event",
+			       GTK_SIGNAL_FUNC(focus_out_event), NULL);
+	gtk_signal_connect(GTK_OBJECT(gui.drawarea), "focus_in_event",
+			       GTK_SIGNAL_FUNC(focus_in_event), NULL);
+#ifdef FEAT_GUI_TABLINE
+	gtk_signal_connect(GTK_OBJECT(gui.tabline), "focus_out_event",
+			       GTK_SIGNAL_FUNC(focus_out_event), NULL);
+	gtk_signal_connect(GTK_OBJECT(gui.tabline), "focus_in_event",
+			       GTK_SIGNAL_FUNC(focus_in_event), NULL);
+#endif /* FEAT_GUI_TABLINE */
+    }
 
     gtk_signal_connect(GTK_OBJECT(gui.drawarea), "motion_notify_event",
 		       GTK_SIGNAL_FUNC(motion_notify_event), NULL);
@@ -3263,11 +3861,6 @@ gui_mch_init(void)
 
     /* Pretend we don't have input focus, we will get an event if we do. */
     gui.in_focus = FALSE;
-
-#ifdef FEAT_NETBEANS_INTG
-    if (usingNetbeans)
-	netbeans_gtk_connect();
-# endif
 
     return OK;
 }
@@ -3309,136 +3902,6 @@ gui_mch_new_colors(void)
     }
 }
 
-#if defined(FEAT_MENU) || defined(FEAT_TOOLBAR)
-    static int
-get_item_dimensions(GtkWidget *widget, GtkOrientation orientation)
-{
-    GtkOrientation item_orientation = GTK_ORIENTATION_HORIZONTAL;
-
-#ifdef FEAT_GUI_GNOME
-    if (using_gnome && widget != NULL)
-    {
-# ifdef HAVE_GTK2
-	BonoboDockItem *dockitem;
-
-	widget	 = gtk_widget_get_parent(widget);
-	dockitem = BONOBO_DOCK_ITEM(widget);
-
-	if (dockitem == NULL || dockitem->is_floating)
-	    return 0;
-	item_orientation = bonobo_dock_item_get_orientation(dockitem);
-# else
-	GnomeDockItem *dockitem;
-
-	widget	 = widget->parent;
-	dockitem = GNOME_DOCK_ITEM(widget);
-
-	if (dockitem == NULL || dockitem->is_floating)
-	    return 0;
-	item_orientation = gnome_dock_item_get_orientation(dockitem);
-# endif
-    }
-#endif
-    if (widget != NULL
-	    && item_orientation == orientation
-	    && GTK_WIDGET_REALIZED(widget)
-	    && GTK_WIDGET_VISIBLE(widget))
-    {
-	if (orientation == GTK_ORIENTATION_HORIZONTAL)
-	    return widget->allocation.height;
-	else
-	    return widget->allocation.width;
-    }
-    return 0;
-}
-#endif
-
-    static int
-get_menu_tool_width(void)
-{
-    int width = 0;
-
-#ifdef FEAT_GUI_GNOME /* these are never vertical without GNOME */
-# ifdef FEAT_MENU
-    width += get_item_dimensions(gui.menubar, GTK_ORIENTATION_VERTICAL);
-# endif
-# ifdef FEAT_TOOLBAR
-    width += get_item_dimensions(gui.toolbar, GTK_ORIENTATION_VERTICAL);
-# endif
-#endif
-
-    return width;
-}
-
-    static int
-get_menu_tool_height(void)
-{
-    int height = 0;
-
-#ifdef FEAT_MENU
-    height += get_item_dimensions(gui.menubar, GTK_ORIENTATION_HORIZONTAL);
-#endif
-#ifdef FEAT_TOOLBAR
-    height += get_item_dimensions(gui.toolbar, GTK_ORIENTATION_HORIZONTAL);
-#endif
-
-    return height;
-}
-
-    static void
-update_window_manager_hints(void)
-{
-    static int old_width  = 0;
-    static int old_height = 0;
-    static int old_char_width  = 0;
-    static int old_char_height = 0;
-
-    int width;
-    int height;
-
-    /* This also needs to be done when the main window isn't there yet,
-     * otherwise the hints don't work. */
-    width  = gui_get_base_width();
-    height = gui_get_base_height();
-# ifdef HAVE_GTK2
-    width  += get_menu_tool_width();
-    height += get_menu_tool_height();
-# endif
-
-    /* Avoid an expose event when the size didn't change. */
-    if (width != old_width
-	    || height != old_height
-	    || gui.char_width != old_char_width
-	    || gui.char_height != old_char_height)
-    {
-	GdkGeometry	geometry;
-	GdkWindowHints	geometry_mask;
-
-	geometry.width_inc   = gui.char_width;
-	geometry.height_inc  = gui.char_height;
-	geometry.base_width  = width;
-	geometry.base_height = height;
-	geometry.min_width   = width  + MIN_COLUMNS * gui.char_width;
-	geometry.min_height  = height + MIN_LINES   * gui.char_height;
-	geometry_mask	     = GDK_HINT_BASE_SIZE|GDK_HINT_RESIZE_INC
-			       |GDK_HINT_MIN_SIZE;
-# ifdef HAVE_GTK2
-	/* Using gui.formwin as geometry widget doesn't work as expected
-	 * with GTK+ 2 -- dunno why.  Presumably all the resizing hacks
-	 * in Vim confuse GTK+. */
-	gtk_window_set_geometry_hints(GTK_WINDOW(gui.mainwin), gui.mainwin,
-				      &geometry, geometry_mask);
-# else
-	gtk_window_set_geometry_hints(GTK_WINDOW(gui.mainwin), gui.formwin,
-				      &geometry, geometry_mask);
-# endif
-	old_width  = width;
-	old_height = height;
-	old_char_width	= gui.char_width;
-	old_char_height = gui.char_height;
-    }
-}
-
 /*
  * This signal informs us about the need to rearrange our sub-widgets.
  */
@@ -3447,8 +3910,17 @@ update_window_manager_hints(void)
 form_configure_event(GtkWidget *widget, GdkEventConfigure *event,
 		     gpointer data)
 {
+    int usable_height = event->height;
+
+    /* When in a GtkPlug, we can't guarantee valid heights (as a round
+     * no. of char-heights), so we have to manually sanitise them.
+     * Widths seem to sort themselves out, don't ask me why.
+     */
+    if (gtk_socket_id != 0)
+	usable_height -= (gui.char_height - (gui.char_height/2)); /* sic. */
+
     gtk_form_freeze(GTK_FORM(gui.formwin));
-    gui_resize_shell(event->width, event->height);
+    gui_resize_shell(event->width, usable_height);
     gtk_form_thaw(GTK_FORM(gui.formwin));
 
     return TRUE;
@@ -3471,12 +3943,43 @@ mainwin_destroy_cb(GtkObject *object, gpointer data)
 
     if (!exiting) /* only do anything if the destroy was unexpected */
     {
-	STRNCPY(IObuff, _("Vim: Main window unexpectedly destroyed\n"),
-		IOSIZE);
-	IObuff[IOSIZE - 1] = NUL;
+	vim_strncpy(IObuff,
+		(char_u *)_("Vim: Main window unexpectedly destroyed\n"),
+		IOSIZE - 1);
 	preserve_exit();
     }
 }
+
+
+/*
+ * Bit of a hack to ensure we start GtkPlug windows with the correct window
+ * hints (and thus the required size from -geom), but that after that we
+ * put the hints back to normal (the actual minimum size) so we may
+ * subsequently be resized smaller.  GtkSocket (the parent end) uses the
+ * plug's window 'min hints to set *it's* minum size, but that's also the
+ * only way we have of making ourselves bigger (by set lines/columns).
+ * Thus set hints at start-up to ensure correct init. size, then a
+ * second after the final attempt to reset the real minimum hinst (done by
+ * scrollbar init.), actually do the sttandard hinst and stop the timer.
+ * We'll not let the default hints be set while this timer's active.
+ */
+/*ARGSUSED*/
+    static gboolean
+check_startup_plug_hints(gpointer data)
+{
+    if (init_window_hints_state == 1)
+    {
+	/* Safe to use normal hints now */
+	init_window_hints_state = 0;
+	update_window_manager_hints(0, 0);
+	return FALSE;   /* stop timer */
+    }
+
+    /* Keep on trying */
+    init_window_hints_state = 1;
+    return TRUE;
+}
+
 
 /*
  * Open the GUI window which was created by a call to gui_mch_init().
@@ -3532,7 +4035,11 @@ gui_mch_open(void)
 	if (mask & WidthValue)
 	    Columns = w;
 	if (mask & HeightValue)
+	{
+	    if (p_window > h - 1 || !option_was_set((char_u *)"window"))
+		p_window = h - 1;
 	    Rows = h;
+	}
 	if (mask & (XValue | YValue))
 #ifdef HAVE_GTK2
 	    gtk_window_move(GTK_WINDOW(gui.mainwin), x, y);
@@ -3541,12 +4048,32 @@ gui_mch_open(void)
 #endif
 	vim_free(gui.geom);
 	gui.geom = NULL;
+
+	/* From now until everyone's stopped trying to set the window hints
+	 * to their correct minimum values, stop them being set as we need
+	 * them to remain at our required size for the parent GtkSocket to
+	 * give us the right initial size.
+	 */
+	if (gtk_socket_id != 0  &&  (mask & WidthValue || mask & HeightValue))
+	{
+	    guint pixel_width = (guint)(gui_get_base_width() + Columns * gui.char_width);
+	    guint pixel_height = (guint)(gui_get_base_height() + Rows * gui.char_height);
+
+#ifdef HAVE_GTK2
+	    pixel_width  += get_menu_tool_width();
+	    pixel_height += get_menu_tool_height();
+#endif
+
+	    update_window_manager_hints(pixel_width, pixel_height);
+	    init_window_hints_state = 1;
+	    g_timeout_add(1000, check_startup_plug_hints, NULL);
+	}
     }
 
     gtk_form_set_size(GTK_FORM(gui.formwin),
 	    (guint)(gui_get_base_width() + Columns * gui.char_width),
 	    (guint)(gui_get_base_height() + Rows * gui.char_height));
-    update_window_manager_hints();
+    update_window_manager_hints(0, 0);
 
     if (foreground_argument != NULL)
 	fg_pixel = gui_get_color((char_u *)foreground_argument);
@@ -3714,6 +4241,7 @@ gui_mch_set_winpos(int x, int y)
 }
 
 #ifdef HAVE_GTK2
+#if 0
 static int resize_idle_installed = FALSE;
 /*
  * Idle handler to force resize.  Used by gui_mch_set_shellsize() to ensure
@@ -3721,7 +4249,12 @@ static int resize_idle_installed = FALSE;
  * ignored our size request.  Usually this happens if the window is maximized.
  *
  * FIXME: It'd be nice if we could find a little more orthodox solution.
- * See also the rant below in gui_mch_set_shellsize().
+ * See also the remark below in gui_mch_set_shellsize().
+ *
+ * DISABLED: When doing ":set lines+=1" this function would first invoke
+ * gui_resize_shell() with the old size, then the normal callback would
+ * report the new size through form_configure_event().  That caused the window
+ * layout to be messed up.
  */
 /*ARGSUSED0*/
     static gboolean
@@ -3745,6 +4278,7 @@ force_shell_resize_idle(gpointer data)
     resize_idle_installed = FALSE;
     return FALSE; /* don't call me again */
 }
+#endif
 #endif /* HAVE_GTK2 */
 
 /*
@@ -3754,7 +4288,8 @@ force_shell_resize_idle(gpointer data)
     void
 gui_mch_set_shellsize(int width, int height,
 		      int min_width,  int min_height,
-		      int base_width, int base_height)
+		      int base_width, int base_height,
+		      int direction)
 {
 #ifndef HAVE_GTK2
     /* Hack: When the form already is at the desired size, the window might
@@ -3772,34 +4307,40 @@ gui_mch_set_shellsize(int width, int height,
     /* give GTK+ a chance to put all widget's into place */
     gui_mch_update();
 
+#ifndef HAVE_GTK2
     /* this will cause the proper resizement to happen too */
-    update_window_manager_hints();
+    update_window_manager_hints(0, 0);
 
-#ifdef HAVE_GTK2
+#else  /* HAVE_GTK2 */
+    /* this will cause the proper resizement to happen too */
+    if (gtk_socket_id == 0)
+	update_window_manager_hints(0, 0);
+
     /* With GTK+ 2, changing the size of the form widget doesn't resize
-     * the window.  So lets do it the other way around and resize the
+     * the window.  So let's do it the other way around and resize the
      * main window instead. */
     width  += get_menu_tool_width();
     height += get_menu_tool_height();
 
-    gtk_window_resize(GTK_WINDOW(gui.mainwin), width, height);
+    if (gtk_socket_id == 0)
+	gtk_window_resize(GTK_WINDOW(gui.mainwin), width, height);
+    else
+	update_window_manager_hints(width, height);
 
+#if 0
     if (!resize_idle_installed)
     {
 	g_idle_add_full(GDK_PRIORITY_EVENTS + 10,
 			&force_shell_resize_idle, NULL, NULL);
 	resize_idle_installed = TRUE;
     }
+#endif
     /*
      * Wait until all events are processed to prevent a crash because the
      * real size of the drawing area doesn't reflect Vim's internal ideas.
      *
-     * This is obviously a hack and only necessary because the entire GUI
-     * code of Vim is a hack as well.  The root cause of the problem is that
-     * Vim tries really hard to ignore the asynchronous nature of X.  The
-     * whole *concept* of the GUI code is badly broken beyond repair.  It's
-     * almost a philosophical issue: instead of trying to control everything
-     * Vim should rather try to cooperate for a change.
+     * This is a bit of a hack, since Vim is a terminal application with a GUI
+     * on top, while the GUI expects to be the boss.
      */
     gui_mch_update();
 #endif
@@ -3873,14 +4414,15 @@ gui_mch_enable_menu(int showit)
 # endif
 	widget = gui.menubar;
 
-    if (!showit != !GTK_WIDGET_VISIBLE(widget))
+    /* Do not disable the menu while starting up, otherwise F10 doesn't work. */
+    if (!showit != !GTK_WIDGET_VISIBLE(widget) && !gui.starting)
     {
 	if (showit)
 	    gtk_widget_show(widget);
 	else
 	    gtk_widget_hide(widget);
 
-	update_window_manager_hints();
+	update_window_manager_hints(0, 0);
     }
 }
 #endif /* FEAT_MENU */
@@ -3911,7 +4453,7 @@ gui_mch_show_toolbar(int showit)
 	else
 	    gtk_widget_hide(widget);
 
-	update_window_manager_hints();
+	update_window_manager_hints(0, 0);
     }
 }
 #endif /* FEAT_TOOLBAR */
@@ -4005,8 +4547,11 @@ is_cjk_font(PangoFontDescription *font_desc)
 }
 #endif /* HAVE_GTK2 */
 
+/*
+ * Adjust gui.char_height (after 'linespace' was changed).
+ */
     int
-gui_mch_adjust_charsize(void)
+gui_mch_adjust_charheight(void)
 {
 #ifdef HAVE_GTK2
     PangoFontMetrics	*metrics;
@@ -4021,13 +4566,14 @@ gui_mch_adjust_charsize(void)
     pango_font_metrics_unref(metrics);
 
     gui.char_height = (ascent + descent + PANGO_SCALE - 1) / PANGO_SCALE
-		      + p_linespace;
+								+ p_linespace;
+    /* LINTED: avoid warning: bitwise operation on signed value */
     gui.char_ascent = PANGO_PIXELS(ascent + p_linespace * PANGO_SCALE / 2);
 
 #else /* !HAVE_GTK2 */
 
     gui.char_height = gui.current_font->ascent + gui.current_font->descent
-		      + p_linespace;
+								+ p_linespace;
     gui.char_ascent = gui.current_font->ascent + p_linespace / 2;
 
 #endif /* !HAVE_GTK2 */
@@ -4127,7 +4673,9 @@ gui_mch_font_dialog(char_u *oldval)
 
     if (gui.fontname != NULL)
     {
-	fontname = vim_strsave(gui.fontname);
+	/* Apparently some font names include a comma, need to escape that,
+	 * because in 'guifont' it separates names. */
+	fontname = vim_strsave_escaped(gui.fontname, (char_u *)",");
 	g_free(gui.fontname);
 	gui.fontname = NULL;
     }
@@ -4151,6 +4699,7 @@ gui_mch_font_dialog(char_u *oldval)
     GtkWidget	*dialog;
     int		response;
     char_u	*fontname = NULL;
+    char_u	*oldname;
 
     dialog = gtk_font_selection_dialog_new(NULL);
 
@@ -4160,13 +4709,30 @@ gui_mch_font_dialog(char_u *oldval)
     if (oldval != NULL && oldval[0] != NUL)
     {
 	if (output_conv.vc_type != CONV_NONE)
-	    oldval = string_convert(&output_conv, oldval, NULL);
+	    oldname = string_convert(&output_conv, oldval, NULL);
+	else
+	    oldname = oldval;
+
+	/* Annoying bug in GTK (or Pango): if the font name does not include a
+	 * size, zero is used.  Use default point size ten. */
+	if (!vim_isdigit(oldname[STRLEN(oldname) - 1]))
+	{
+	    char_u	*p = vim_strnsave(oldname, STRLEN(oldname) + 3);
+
+	    if (p != NULL)
+	    {
+		STRCPY(p + STRLEN(p), " 10");
+		if (oldname != oldval)
+		    vim_free(oldname);
+		oldname = p;
+	    }
+	}
 
 	gtk_font_selection_dialog_set_font_name(
-		GTK_FONT_SELECTION_DIALOG(dialog), (const char *)oldval);
+		GTK_FONT_SELECTION_DIALOG(dialog), (const char *)oldname);
 
-	if (output_conv.vc_type != CONV_NONE)
-	    vim_free(oldval);
+	if (oldname != oldval)
+	    vim_free(oldname);
     }
 
     response = gtk_dialog_run(GTK_DIALOG(dialog));
@@ -4179,11 +4745,19 @@ gui_mch_font_dialog(char_u *oldval)
 			    GTK_FONT_SELECTION_DIALOG(dialog));
 	if (name != NULL)
 	{
-	    if (input_conv.vc_type != CONV_NONE)
-		fontname = string_convert(&input_conv, (char_u *)name, NULL);
-	    else
-		fontname = vim_strsave((char_u *)name);
+	    char_u  *p;
+
+	    /* Apparently some font names include a comma, need to escape
+	     * that, because in 'guifont' it separates names. */
+	    p = vim_strsave_escaped((char_u *)name, (char_u *)",");
 	    g_free(name);
+	    if (p != NULL && input_conv.vc_type != CONV_NONE)
+	    {
+		fontname = string_convert(&input_conv, p, NULL);
+		vim_free(p);
+	    }
+	    else
+		fontname = p;
 	}
     }
 
@@ -4333,6 +4907,8 @@ get_styled_font_variants(char_u * font_name)
 #endif /* !HAVE_GTK2 */
 
 #ifdef HAVE_GTK2
+static PangoEngineShape *default_shape_engine = NULL;
+
 /*
  * Create a map from ASCII characters in the range [32,126] to glyphs
  * of the current font.  This is used by gui_gtk2_draw_string() to skip
@@ -4372,6 +4948,9 @@ ascii_glyph_table_init(void)
 
 	item  = (PangoItem *)item_list->data;
 	width = gui.char_width * PANGO_SCALE;
+
+	/* Remember the shape engine used for ASCII. */
+	default_shape_engine = item->analysis.shape_engine;
 
 	gui.ascii_font = item->analysis.font;
 	g_object_ref(gui.ascii_font);
@@ -4468,7 +5047,7 @@ gui_mch_init_font(char_u *font_name, int fontset)
     if (gui.char_width <= 0)
 	gui.char_width = 8;
 
-    gui_mch_adjust_charsize();
+    gui_mch_adjust_charheight();
 
     /* Set the fontname, which will be used for information purposes */
     hl_set_font_name(font_name);
@@ -4572,7 +5151,7 @@ gui_mch_init_font(char_u *font_name, int fontset)
 #endif /* !HAVE_GTK2 */
 
     /* Preserve the logical dimensions of the screen. */
-    update_window_manager_hints();
+    update_window_manager_hints(0, 0);
 
     return OK;
 }
@@ -4713,6 +5292,36 @@ gui_mch_get_font(char_u *name, int report_error)
     return font;
 }
 
+#if defined(FEAT_EVAL) || defined(PROTO)
+/*
+ * Return the name of font "font" in allocated memory.
+ */
+/*ARGSUSED*/
+    char_u *
+gui_mch_get_fontname(GuiFont font, char_u *name)
+{
+# ifdef HAVE_GTK2
+    if (font != NOFONT)
+    {
+	char	*name = pango_font_description_to_string(font);
+
+	if (name != NULL)
+	{
+	    char_u	*s = vim_strsave((char_u *)name);
+
+	    g_free(name);
+	    return s;
+	}
+    }
+# else
+    /* Don't know how to get the name, return what we got. */
+    if (name != NULL)
+	return vim_strsave(name);
+# endif
+    return NULL;
+}
+#endif
+
 #if !defined(HAVE_GTK2) || defined(PROTO)
 /*
  * Set the current text font.
@@ -4776,15 +5385,33 @@ gui_mch_get_color(char_u *name)
     /* A number of colors that some X11 systems don't have */
     static const char *const vimnames[][2] =
     {
-	{"LightRed",	 "#FFBBBB"},
-	{"LightGreen",	 "#88FF88"},
-	{"LightMagenta", "#FFBBFF"},
-	{"DarkCyan",	 "#008888"},
-	{"DarkBlue",	 "#0000BB"},
-	{"DarkRed",	 "#BB0000"},
-	{"DarkMagenta",  "#BB00BB"},
-	{"DarkGrey",	 "#BBBBBB"},
-	{"DarkYellow",	 "#BBBB00"},
+	{"LightRed",	"#FFBBBB"},
+	{"LightGreen",	"#88FF88"},
+	{"LightMagenta","#FFBBFF"},
+	{"DarkCyan",	"#008888"},
+	{"DarkBlue",	"#0000BB"},
+	{"DarkRed",	"#BB0000"},
+	{"DarkMagenta", "#BB00BB"},
+	{"DarkGrey",	"#BBBBBB"},
+	{"DarkYellow",	"#BBBB00"},
+	{"Gray10",	"#1A1A1A"},
+	{"Grey10",	"#1A1A1A"},
+	{"Gray20",	"#333333"},
+	{"Grey20",	"#333333"},
+	{"Gray30",	"#4D4D4D"},
+	{"Grey30",	"#4D4D4D"},
+	{"Gray40",	"#666666"},
+	{"Grey40",	"#666666"},
+	{"Gray50",	"#7F7F7F"},
+	{"Grey50",	"#7F7F7F"},
+	{"Gray60",	"#999999"},
+	{"Grey60",	"#999999"},
+	{"Gray70",	"#B3B3B3"},
+	{"Grey70",	"#B3B3B3"},
+	{"Gray80",	"#CCCCCC"},
+	{"Grey80",	"#CCCCCC"},
+	{"Gray90",	"#E5E5E5"},
+	{"Grey90",	"#E5E5E5"},
 	{NULL, NULL}
     };
 
@@ -4879,6 +5506,15 @@ gui_mch_set_bg_color(guicolor_T color)
     gui.bgcolor->pixel = (unsigned long)color;
 }
 
+/*
+ * Set the current text special color.
+ */
+    void
+gui_mch_set_sp_color(guicolor_T color)
+{
+    gui.spcolor->pixel = (unsigned long)color;
+}
+
 #ifdef HAVE_GTK2
 /*
  * Function-like convenience macro for the sake of efficiency.
@@ -4905,10 +5541,10 @@ apply_wide_font_attr(char_u *s, int len, PangoAttrList *attr_list)
 
 	if (start == NULL)
 	{
-	    if (uc >= 0x100 && utf_char2cells(uc) == 2)
+	    if (uc >= 0x80 && utf_char2cells(uc) == 2)
 		start = p;
 	}
-	else if (uc < 0x100 /* optimization shortcut */
+	else if (uc < 0x80 /* optimization shortcut */
 		 || (utf_char2cells(uc) != 2 && !utf_iscomposing(uc)))
 	{
 	    INSERT_PANGO_ATTR(pango_attr_font_desc_new(gui.wide_font),
@@ -4952,7 +5588,7 @@ count_cluster_cells(char_u *s, PangoItem *item,
     for (p = s + start; p < s + end; p += utf_byte2len(*p))
     {
 	uc = utf_ptr2char(p);
-	if (uc < 0x100)
+	if (uc < 0x80)
 	    ++cellcount;
 	else if (!utf_iscomposing(uc))
 	    cellcount += utf_char2cells(uc);
@@ -5058,15 +5694,55 @@ draw_glyph_string(int row, int col, int num_cells, int flags,
 
 #endif /* HAVE_GTK2 */
 
+/*
+ * Draw underline and undercurl at the bottom of the character cell.
+ */
+    static void
+draw_under(int flags, int row, int col, int cells)
+{
+    int			i;
+    int			offset;
+    const static int	val[8] = {1, 0, 0, 0, 1, 2, 2, 2 };
+    int			y = FILL_Y(row + 1) - 1;
+
+    /* Undercurl: draw curl at the bottom of the character cell. */
+    if (flags & DRAW_UNDERC)
+    {
+	gdk_gc_set_foreground(gui.text_gc, gui.spcolor);
+	for (i = FILL_X(col); i < FILL_X(col + cells); ++i)
+	{
+	    offset = val[i % 8];
+	    gdk_draw_point(gui.drawarea->window, gui.text_gc, i, y - offset);
+	}
+	gdk_gc_set_foreground(gui.text_gc, gui.fgcolor);
+    }
+
+    /* Underline: draw a line at the bottom of the character cell. */
+    if (flags & DRAW_UNDERL)
+    {
+	/* When p_linespace is 0, overwrite the bottom row of pixels.
+	 * Otherwise put the line just below the character. */
+	if (p_linespace > 1)
+	    y -= p_linespace - 1;
+	gdk_draw_line(gui.drawarea->window, gui.text_gc,
+		      FILL_X(col), y,
+		      FILL_X(col + cells) - 1, y);
+    }
+}
+
 #if defined(HAVE_GTK2) || defined(PROTO)
     int
 gui_gtk2_draw_string(int row, int col, char_u *s, int len, int flags)
 {
     GdkRectangle	area;		    /* area for clip mask	  */
-    char_u		*conv_buf = NULL;   /* result of UTF-8 conversion */
     PangoGlyphString	*glyphs;	    /* glyphs of current item	  */
     int			column_offset = 0;  /* column offset in cells	  */
     int			i;
+    char_u		*conv_buf = NULL;   /* result of UTF-8 conversion */
+    char_u		*new_conv_buf;
+    int			convlen;
+    char_u		*sp, *bp;
+    int			plen;
 
     if (gui.text_context == NULL || gui.drawarea->window == NULL)
 	return len;
@@ -5079,10 +5755,37 @@ gui_gtk2_draw_string(int row, int col, char_u *s, int len, int flags)
 	 * prohibits changing this to something else than UTF-8 if the GUI is
 	 * in use.
 	 */
-	conv_buf = string_convert(&output_conv, s, &len);
-	s = conv_buf;
-
+	convlen = len;
+	conv_buf = string_convert(&output_conv, s, &convlen);
 	g_return_val_if_fail(conv_buf != NULL, len);
+
+	/* Correct for differences in char width: some chars are
+	 * double-wide in 'encoding' but single-wide in utf-8.  Add a space to
+	 * compensate for that. */
+	for (sp = s, bp = conv_buf; sp < s + len && bp < conv_buf + convlen; )
+	{
+	    plen = utf_ptr2len(bp);
+	    if ((*mb_ptr2cells)(sp) == 2 && utf_ptr2cells(bp) == 1)
+	    {
+		new_conv_buf = alloc(convlen + 2);
+		if (new_conv_buf == NULL)
+		    return len;
+		plen += bp - conv_buf;
+		mch_memmove(new_conv_buf, conv_buf, plen);
+		new_conv_buf[plen] = ' ';
+		mch_memmove(new_conv_buf + plen + 1, conv_buf + plen,
+							  convlen - plen + 1);
+		vim_free(conv_buf);
+		conv_buf = new_conv_buf;
+		++convlen;
+		bp = conv_buf + plen;
+		plen = 1;
+	    }
+	    sp += (*mb_ptr2len)(sp);
+	    bp += plen;
+	}
+	s = conv_buf;
+	len = convlen;
     }
 
     /*
@@ -5111,7 +5814,8 @@ gui_gtk2_draw_string(int row, int col, char_u *s, int len, int flags)
 	char_u *p;
 
 	for (p = s; p < s + len; ++p)
-	    if (*p & 0x80) goto not_ascii;
+	    if (*p & 0x80)
+		goto not_ascii;
 
 	pango_glyph_string_set_size(glyphs, len);
 
@@ -5133,6 +5837,17 @@ not_ascii:
 	int		cluster_width;
 	int		last_glyph_rbearing;
 	int		cells = 0;  /* cells occupied by current cluster */
+#if 0
+	int		monospace13 = STRICMP(p_guifont, "monospace 13") == 0;
+#endif
+
+	/* Safety check: pango crashes when invoked with invalid utf-8
+	 * characters. */
+	if (!utf_valid_string(s, s + len))
+	{
+	    column_offset = len;
+	    goto skipitall;
+	}
 
 	/* original width of the current cluster */
 	cluster_width = PANGO_SCALE * gui.char_width;
@@ -5183,6 +5898,10 @@ not_ascii:
 	     */
 	    item->analysis.level = (item->analysis.level + 1) & (~1U);
 
+	    /* HACK: Overrule the shape engine, we don't want shaping to be
+	     * done, because drawing the cursor would change the display. */
+	    item->analysis.shape_engine = default_shape_engine;
+
 	    pango_shape((const char *)s + item->offset, item->length,
 			&item->analysis, glyphs);
 	    /*
@@ -5231,7 +5950,7 @@ not_ascii:
 		    item_cells += cellcount;
 		    cells = cellcount;
 		}
-		else if (i > 0) /* i == 0 "cannot happen" */
+		else if (i > 0)
 		{
 		    int width;
 
@@ -5239,13 +5958,20 @@ not_ascii:
 		     * characters the canonical way.  That is, setting the
 		     * width of the previous glyph to 0. */
 		    glyphs->glyphs[i - 1].geometry.width = 0;
-
 		    width = cells * gui.char_width * PANGO_SCALE;
 		    glyph->geometry.x_offset +=
 					    MAX(0, width - cluster_width) / 2;
+#if 0
+		    /* Dirty hack: for "monospace 13" font there is a bug that
+		     * draws composing chars in the wrong position.  Add
+		     * "width" to the offset to work around that. */
+		    if (monospace13)
+			glyph->geometry.x_offset = width;
+#endif
+
 		    glyph->geometry.width = width;
 		}
-		else
+		else /* i == 0 "cannot happen" */
 		{
 		    glyph->geometry.width = 0;
 		}
@@ -5263,13 +5989,9 @@ not_ascii:
 	pango_attr_list_unref(attr_list);
     }
 
-    if (flags & DRAW_UNDERL)
-	gdk_draw_line(gui.drawarea->window,
-		      gui.text_gc,
-		      FILL_X(col),
-		      FILL_Y(row + 1) - 1,
-		      FILL_X(col + column_offset) - 1,
-		      FILL_Y(row + 1) - 1);
+skipitall:
+    /* Draw underline and undercurl. */
+    draw_under(flags, row, col, column_offset);
 
     pango_glyph_string_free(glyphs);
     vim_free(conv_buf);
@@ -5338,7 +6060,7 @@ gui_mch_draw_string(int row, int col, char_u *s, int len, int flags)
 		    c = 0xbf;
 		buf[textlen].byte1 = c >> 8;
 		buf[textlen].byte2 = c;
-		p += utf_ptr2len_check(p);
+		p += utf_ptr2len(p);
 		width += utf_char2cells(c);
 	    }
 	    else
@@ -5362,7 +6084,7 @@ gui_mch_draw_string(int row, int col, char_u *s, int len, int flags)
 	if (has_mbyte)
 	{
 	    width = 0;
-	    for (p = s; p < s + len; p += (*mb_ptr2len_check)(p))
+	    for (p = s; p < s + len; p += (*mb_ptr2len)(p))
 		width += (*mb_ptr2cells)(p);
 	}
 	else
@@ -5394,12 +6116,8 @@ gui_mch_draw_string(int row, int col, char_u *s, int len, int flags)
 		      TEXT_X(col) + 1, TEXT_Y(row),
 		      (const gchar *)text, textlen);
 
-    if (flags & DRAW_UNDERL)
-    {
-	gdk_draw_line(gui.drawarea->window,
-		      gui.text_gc, FILL_X(col),
-	FILL_Y(row + 1) - 1, FILL_X(col + width) - 1, FILL_Y(row + 1) - 1);
-    }
+    /* Draw underline and undercurl. */
+    draw_under(flags, row, col, width);
 }
 #endif /* !HAVE_GTK2 */
 
@@ -5736,8 +6454,11 @@ gui_mch_wait_for_chars(long wtime)
 
 	/*
 	 * Loop in GTK+ processing  until a timeout or input occurs.
+	 * Skip this if input is available anyway (can happen in rare
+	 * situations, sort of race condition).
 	 */
-	gtk_main();
+	if (!input_available())
+	    gtk_main();
 
 	/* Got char, return immediately */
 	if (input_available())
@@ -5941,7 +6662,11 @@ clip_mch_request_selection(VimClipboard *cbd)
 	/* Got something */
 	clip_yank_selection(MCHAR, buffer, (long)nbytes, cbd);
 	if (p_verbose > 0)
+	{
+	    verbose_enter();
 	    smsg((char_u *)_("Used CUT_BUFFER0 instead of empty selection"));
+	    verbose_leave();
+	}
     }
     if (buffer != NULL)
 	XFree(buffer);
@@ -6061,7 +6786,7 @@ gui_mch_enable_scrollbar(scrollbar_T *sb, int flag)
     else
 	gtk_widget_hide(sb->id);
 
-    update_window_manager_hints();
+    update_window_manager_hints(0, 0);
 }
 
 
@@ -6092,25 +6817,12 @@ gui_mch_get_rgb(guicolor_T pixel)
 }
 
 /*
- * Get current y mouse coordinate in text window.
- * Return -1 when unknown.
+ * Get current mouse coordinates in text window.
  */
-    int
-gui_mch_get_mouse_x(void)
+    void
+gui_mch_getmouse(int *x, int *y)
 {
-    int win_x;
-
-    gdk_window_get_pointer(gui.drawarea->window, &win_x, NULL, NULL);
-    return win_x;
-}
-
-    int
-gui_mch_get_mouse_y(void)
-{
-    int win_y;
-
-    gdk_window_get_pointer(gui.drawarea->window, NULL, &win_y, NULL);
-    return win_y;
+    gdk_window_get_pointer(gui.drawarea->window, x, y, NULL);
 }
 
     void
@@ -6202,13 +6914,15 @@ mch_set_mouse_shape(int shape)
 	    else
 		id &= ~1;	/* they are always even (why?) */
 	}
-	else
+	else if (shape < sizeof(mshape_ids) / sizeof(int))
 	    id = mshape_ids[shape];
+	else
+	    return;
 # ifdef HAVE_GTK_MULTIHEAD
 	c = gdk_cursor_new_for_display(
-		gtk_widget_get_display(gui.drawarea), id);
+		gtk_widget_get_display(gui.drawarea), (GdkCursorType)id);
 # else
-	c = gdk_cursor_new(id);
+	c = gdk_cursor_new((GdkCursorType)id);
 # endif
 	gdk_window_set_cursor(gui.drawarea->window, c);
 	gdk_cursor_destroy(c); /* Unref, actually.  Bloody GTK+ 1. */
@@ -6477,4 +7191,3 @@ gui_mch_destroy_sign(void *sign)
 # endif /* !HAVE_GTK2 */
 
 #endif /* FEAT_SIGN_ICONS */
-

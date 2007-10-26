@@ -567,9 +567,7 @@ variable_value (Tcl_Interp *interp, int objc,
 	  s = Tcl_GetStringFromObj (objv[2], NULL);
 	  if (!varobj_set_value (var, s))
             {
-	      r = error_last_message();
-	      gdbtk_set_result (interp, "%s", r);
-	      xfree (r);
+	      gdbtk_set_result (interp, "Could not assign expression to variable object");
 	      return TCL_ERROR;
             }
 	}
@@ -582,9 +580,7 @@ variable_value (Tcl_Interp *interp, int objc,
 
   if (r == NULL)
     {
-      char *err = error_last_message ();
-      gdbtk_set_result (interp, "%s", err);
-      xfree (err);
+      gdbtk_set_result (interp, "Could not read variable object value after assignment");
       return TCL_ERROR;
     }
   else

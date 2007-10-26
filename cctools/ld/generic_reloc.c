@@ -812,6 +812,12 @@ update_reloc:
 			sreloc = (struct scattered_relocation_info *)reloc;
 			r_scattered = 1;
 			sreloc->r_scattered = r_scattered;
+			if((r_address & 0x00ffffff) != r_address)
+			    error_with_cur_obj("Can't create valid output "
+				"file (r_address field of relocation "
+				"entry %lu in section (%.16s,%.16s) would "
+				"overflow)", i, section_map->s->segname,
+				section_map->s->sectname);
 			sreloc->r_address = r_address;
 			sreloc->r_pcrel = r_pcrel;
 			sreloc->r_length = r_length;
@@ -865,6 +871,13 @@ update_reloc:
 					 reloc;
 				r_scattered = 1;
 				sreloc->r_scattered = r_scattered;
+				if((r_address & 0x00ffffff) != r_address)
+				    error_with_cur_obj("Can't create valid "
+					"output file (r_address field of "
+					"relocation entry %lu in section "
+					"(%.16s,%.16s) would overflow)", i,
+					section_map->s->segname,
+					section_map->s->sectname);
 				sreloc->r_address = r_address;
 				sreloc->r_pcrel = r_pcrel;
 				sreloc->r_length = r_length;
@@ -893,6 +906,12 @@ update_reloc:
 			sreloc = (struct scattered_relocation_info *)reloc;
 			r_scattered = 1;
 			sreloc->r_scattered = r_scattered;
+			if((r_address & 0x00ffffff) != r_address)
+			    error_with_cur_obj("Can't create valid output "
+				"file (r_address field of relocation "
+				"entry %lu in section (%.16s,%.16s) would "
+				"overflow)", i, section_map->s->segname,
+				section_map->s->sectname);
 			sreloc->r_address = r_address;
 			sreloc->r_pcrel = r_pcrel;
 			sreloc->r_length = r_length;
@@ -977,11 +996,26 @@ update_reloc:
 		}
 		else{
 		    if(section_map->nfine_relocs == 0){
+			if(((sreloc->r_address + section_map->offset) &
+			    0x00ffffff) !=
+			    sreloc->r_address + section_map->offset)
+			    error_with_cur_obj("Can't create valid output "
+				"file (r_address field of relocation "
+				"entry %lu in section (%.16s,%.16s) would "
+				"overflow)", i, section_map->s->segname,
+				section_map->s->sectname);
 			sreloc->r_address += section_map->offset;
 		    }
 		    else{
-			sreloc->r_address =fine_reloc_output_offset(section_map,
-								    r_address);
+			r_address = fine_reloc_output_offset(section_map,
+							     r_address);
+			if((r_address & 0x00ffffff) != r_address)
+			    error_with_cur_obj("Can't create valid output "
+				"file (r_address field of relocation "
+				"entry %lu in section (%.16s,%.16s) would "
+				"overflow)", i, section_map->s->segname,
+				section_map->s->sectname);
+			sreloc->r_address = r_address;
 		    }
 		}
 		/*

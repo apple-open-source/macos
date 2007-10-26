@@ -1,4 +1,4 @@
-.TH LIPO 1 "July 28, 2005" "Apple Computer, Inc."
+.TH LIPO 1 "September 12, 2006" "Apple Computer, Inc."
 .SH NAME
 lipo \- create or operate on universal files
 .SH SYNOPSIS
@@ -22,6 +22,8 @@ lipo \- create or operate on universal files
 .IR arch_type "] ..."
 [\-extract_family
 .IR arch_type "] ..."
+[\-verify_arch 
+.IR arch_type " ...] "
 [\-output
 .IR output_file ]
 [\-segalign
@@ -135,6 +137,12 @@ for the family that
 is in from that universal file into an output file containing
 only those architectures.  The file will be thin if only one architecture is
 found or universal otherwise.
+.TP
+.BI \-verify_arch " arch_type ..."
+Take one input file and verify the specified
+.IR arch_type s
+are present in the file.  If so then exit with a status of 0 else exit with a
+status of 1.
 .TP
 .BI \-segalign " arch_type value"
 Set the segment alignment of the specified

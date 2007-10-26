@@ -31,7 +31,7 @@
 const SecAsn1Template DotMacTpPendingRequestTemplate[] = {
     { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(DotMacTpPendingRequest) },
     { SEC_ASN1_UTF8_STRING, offsetof(DotMacTpPendingRequest, userName) },
-    { SEC_ASN1_INTEGER,		offsetof(DotMacTpPendingRequest, reqType) },
+    { SEC_ASN1_INTEGER,		offsetof(DotMacTpPendingRequest, certTypeTag) },
     { 0 }
 };
 

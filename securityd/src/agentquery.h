@@ -48,6 +48,7 @@ public:
 	SecurityAgentQuery(const AuthHostType type = securityAgent, Session &session = Server::session());
 	
 	void inferHints(Process &thisProcess);
+    void addHint(const char *name, const void *value = NULL, UInt32 valueLen = 0, UInt32 flags = 0);
 
 	virtual ~SecurityAgentQuery();
 
@@ -185,8 +186,6 @@ class QueryDBBlobSecret : public SecurityAgentQuery {
 public:
     QueryDBBlobSecret()    { }
     Reason operator () (DatabaseCryptoCore &dbCore, const DbBlob *secretsBlob);
-    
-    void addHint(const char *name, const void *value = NULL, UInt32 valueLen = 0, UInt32 flags = 0);
     
 protected:
     Reason query(DatabaseCryptoCore &dbCore, const DbBlob *secretsBlob);

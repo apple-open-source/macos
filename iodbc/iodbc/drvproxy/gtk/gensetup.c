@@ -1,18 +1,22 @@
 /*
  *  gensetup.c
  *
- *  $Id: gensetup.c,v 1.2 2004/08/10 22:20:22 luesang Exp $
+ *  $Id: gensetup.c,v 1.6 2006/01/20 15:58:34 source Exp $
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -26,8 +30,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,7 +40,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -68,20 +72,23 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include "gui.h"
+
 
 static char* STRCONN = "DSN=%s\0Description=%s\0\0";
 static int STRCONN_NB_TOKENS = 2;
 
-char *szKeysColumnNames[] = {
+static char *szKeysColumnNames[] = {
   "Keyword",
   "Value"
 };
 
-char *szKeysButtons[] = {
+static char *szKeysButtons[] = {
   "_Add",
   "_Update"
 };
+
 
 static void
 addkeywords_to_list(GtkWidget* widget, LPCSTR attrs, TGENSETUP *gensetup_t)
@@ -105,18 +112,18 @@ addkeywords_to_list(GtkWidget* widget, LPCSTR attrs, TGENSETUP *gensetup_t)
 	continue;
 
       if ((cour = strchr (curr, '=')))
-	     {
-		    *cour = '\0';
-          data[0] = curr;
-	       data[1] = cour + 1;
-	       gtk_clist_append (GTK_CLIST (widget), data);
-		    *cour = '=';
-	     }
+	{
+	  *cour = '\0';
+	  data[0] = curr;
+	  data[1] = cour + 1;
+	  gtk_clist_append (GTK_CLIST (widget), data);
+	  *cour = '=';
+	}
       else
-	    {
-	      data[0] = "";
-	      gtk_clist_append (GTK_CLIST (widget), data);
-	    }
+	{
+	  data[0] = "";
+	  gtk_clist_append (GTK_CLIST (widget), data);
+	}
     }
 
   if (GTK_CLIST (widget)->rows > 0)
@@ -127,15 +134,13 @@ addkeywords_to_list(GtkWidget* widget, LPCSTR attrs, TGENSETUP *gensetup_t)
 static void
 parse_attribute_line(TGENSETUP *gensetup_t, LPCSTR dsn, LPCSTR attrs, BOOL add)
 {
-  char *curr, *cour;
-
   if (dsn)
     {
       gtk_entry_set_text (GTK_ENTRY (gensetup_t->dsn_entry), dsn);
       if (add)
-	gtk_entry_set_editable (GTK_ENTRY (gensetup_t->dsn_entry), FALSE);
+	gtk_widget_set_sensitive (gensetup_t->dsn_entry, TRUE);
       else
-	gtk_entry_set_editable (GTK_ENTRY (gensetup_t->dsn_entry), TRUE);
+	gtk_widget_set_sensitive (gensetup_t->dsn_entry, FALSE);
     }
 
   addkeywords_to_list (gensetup_t->key_list, attrs, gensetup_t);
@@ -153,29 +158,31 @@ gensetup_add_clicked(GtkWidget* widget, TGENSETUP *gensetup_t)
     {
       data[0] = gtk_entry_get_text (GTK_ENTRY (gensetup_t->key_entry));
       if (STRLEN (data[0]))
-        {
-		    data[1] = gtk_entry_get_text (GTK_ENTRY (gensetup_t->value_entry));
+	{
+	  data[1] = gtk_entry_get_text (GTK_ENTRY (gensetup_t->value_entry));
 
-          /* Try to see if the keyword already exists */
-			 for (i = 0 ; i < GTK_CLIST (gensetup_t->key_list)->rows ; i++)
-			   {
-              gtk_clist_get_text (GTK_CLIST (gensetup_t->key_list), i, 0, &szKey);
-	           if(STREQ(data[0], szKey))
-				    goto done;
-				}
+	  /* Try to see if the keyword already exists */
+	  for (i = 0; i < GTK_CLIST (gensetup_t->key_list)->rows; i++)
+	    {
+	      gtk_clist_get_text (GTK_CLIST (gensetup_t->key_list), i, 0,
+		  &szKey);
+	      if (STREQ (data[0], szKey))
+		goto done;
+	    }
 
-          /* An update operation */
-			 if (i < GTK_CLIST (gensetup_t->key_list)->rows)
-			   {
-				  gtk_clist_set_text (GTK_CLIST (gensetup_t->key_list), i, 1, data[1]);
-				}
-			 else if (STRLEN(data[1]))
-			   {
-              gtk_clist_append (GTK_CLIST (gensetup_t->key_list), data);
-				}
-		  }
+	  /* An update operation */
+	  if (i < GTK_CLIST (gensetup_t->key_list)->rows)
+	    {
+	      gtk_clist_set_text (GTK_CLIST (gensetup_t->key_list), i, 1,
+		  data[1]);
+	    }
+	  else if (STRLEN (data[1]))
+	    {
+	      gtk_clist_append (GTK_CLIST (gensetup_t->key_list), data);
+	    }
+	}
 
-	   gtk_clist_sort (GTK_CLIST (gensetup_t->key_list));
+      gtk_clist_sort (GTK_CLIST (gensetup_t->key_list));
 
     done:
       gtk_entry_set_text (GTK_ENTRY (gensetup_t->key_entry), "");
@@ -187,28 +194,31 @@ gensetup_add_clicked(GtkWidget* widget, TGENSETUP *gensetup_t)
 static void
 gensetup_update_clicked(GtkWidget* widget, TGENSETUP *gensetup_t)
 {
-  char *szKey;
   char *data[2];
   int i;
 
   if (gensetup_t)
     {
       data[0] = gtk_entry_get_text (GTK_ENTRY (gensetup_t->key_entry));
-		if (STRLEN (data[0]))
-		  {
-          data[1] = gtk_entry_get_text (GTK_ENTRY (gensetup_t->value_entry));
+      if (STRLEN (data[0]))
+	{
+	  data[1] = gtk_entry_get_text (GTK_ENTRY (gensetup_t->value_entry));
 
-          if (GTK_CLIST (gensetup_t->key_list)->selection != NULL)
-		      i = GPOINTER_TO_INT (GTK_CLIST (gensetup_t->key_list)->selection->data);
-		    else i = 0;
+	  if (GTK_CLIST (gensetup_t->key_list)->selection != NULL)
+	    i = GPOINTER_TO_INT (GTK_CLIST (gensetup_t->key_list)->selection->
+		data);
+	  else
+	    i = 0;
 
-          /* An update operation */
-          if (i < GTK_CLIST (gensetup_t->key_list)->rows)
-		      {
-				  gtk_clist_set_text (GTK_CLIST (gensetup_t->key_list), i, 0, data[0]);
-				  gtk_clist_set_text (GTK_CLIST (gensetup_t->key_list), i, 1, data[1]);
-		      }
-		  }
+	  /* An update operation */
+	  if (i < GTK_CLIST (gensetup_t->key_list)->rows)
+	    {
+	      gtk_clist_set_text (GTK_CLIST (gensetup_t->key_list), i, 0,
+		  data[0]);
+	      gtk_clist_set_text (GTK_CLIST (gensetup_t->key_list), i, 1,
+		  data[1]);
+	    }
+	}
 
       gtk_entry_set_text (GTK_ENTRY (gensetup_t->key_entry), "");
       gtk_entry_set_text (GTK_ENTRY (gensetup_t->value_entry), "");
@@ -256,50 +266,64 @@ gensetup_ok_clicked(GtkWidget* widget, TGENSETUP *gensetup_t)
 
   if (gensetup_t)
     {
-	   /* What is the size of the block to malloc */
-      size += STRLEN (gtk_entry_get_text (GTK_ENTRY (gensetup_t->dsn_entry))) + STRLEN ("DSN=") + 1;
-      size += STRLEN (gtk_entry_get_text (GTK_ENTRY (gensetup_t->comment_entry))) + STRLEN ("Description=") + 1;
-      /* Malloc it */
-		if ((gensetup_t->connstr = (char*) malloc (++size)))
-		  {
-		    for (curr = STRCONN, cour = gensetup_t->connstr ;
-			   i < STRCONN_NB_TOKENS ; i++, curr += (STRLEN(curr) + 1))
-			   switch (i)
-				  {
-				    case 0:
-					   sprintf (cour, curr, gtk_entry_get_text (GTK_ENTRY (gensetup_t->dsn_entry)));
-						cour += (STRLEN (cour) + 1);
-					   break;
-					 case 1:
-					   sprintf (cour, curr, gtk_entry_get_text (GTK_ENTRY (gensetup_t->comment_entry)));
-						cour += (STRLEN (cour) + 1);
-					   break;
-				  };
+      /* What is the size of the block to malloc */
+      size +=
+	  STRLEN (gtk_entry_get_text (GTK_ENTRY (gensetup_t->dsn_entry))) +
+	  STRLEN ("DSN=") + 1;
+      size +=
+	  STRLEN (gtk_entry_get_text (GTK_ENTRY (gensetup_t->
+		  comment_entry))) + STRLEN ("Description=") + 1;
+      /* Malloc it (+1 for list-terminating NUL) */
+      if ((gensetup_t->connstr = (char *) malloc (size + 1)))
+	{
+	  for (curr = STRCONN, cour = gensetup_t->connstr;
+	      i < STRCONN_NB_TOKENS; i++, curr += (STRLEN (curr) + 1))
+	    switch (i)
+	      {
+	      case 0:
+		sprintf (cour, curr,
+		    gtk_entry_get_text (GTK_ENTRY (gensetup_t->dsn_entry)));
+		cour += (STRLEN (cour) + 1);
+		break;
+	      case 1:
+		sprintf (cour, curr,
+		    gtk_entry_get_text (GTK_ENTRY (gensetup_t->
+			    comment_entry)));
+		cour += (STRLEN (cour) + 1);
+		break;
+	      };
 
-	       for (i = 0; i < GTK_CLIST (gensetup_t->key_list)->rows; i++)
-	        {
-	          gtk_clist_get_text (GTK_CLIST (gensetup_t->key_list), i, 0, &szKey);
-	          gtk_clist_get_text (GTK_CLIST (gensetup_t->key_list), i, 1, &szValue);
+	  for (i = 0; i < GTK_CLIST (gensetup_t->key_list)->rows; i++)
+	    {
+	      gtk_clist_get_text (GTK_CLIST (gensetup_t->key_list), i, 0,
+		  &szKey);
+	      gtk_clist_get_text (GTK_CLIST (gensetup_t->key_list), i, 1,
+		  &szValue);
 
-             cour = gensetup_t->connstr;
-				 gensetup_t->connstr = (char*)malloc (size + STRLEN (szKey) + STRLEN(szValue) + 2);
-             if (gensetup_t->connstr)
-				   {
-					  memcpy (gensetup_t->connstr, cour, size);
-					  sprintf (gensetup_t->connstr + size - 1, "%s=%s", szKey, szValue);
-					  free (cour);
-					  size += STRLEN (szKey) + STRLEN (szValue) + 2;
-					}
-				 else
-				   gensetup_t->connstr = cour;
-			  }
-		  }
+	      cour = gensetup_t->connstr;
+	      gensetup_t->connstr =
+		  (char *) malloc (size + STRLEN (szKey) + STRLEN (szValue) +
+		  2);
+	      if (gensetup_t->connstr)
+		{
+		  memcpy (gensetup_t->connstr, cour, size);
+		  sprintf (gensetup_t->connstr + size, "%s=%s", szKey, szValue);
+		  free (cour);
+		  size += STRLEN (szKey) + STRLEN (szValue) + 2;
+		}
+	      else
+		gensetup_t->connstr = cour;
+	    }
+
+	  /* add list-terminating NUL */
+	  gensetup_t->connstr[size] = '\0';
+	}
 
       gensetup_t->dsn_entry = gensetup_t->comment_entry = NULL;
       gensetup_t->key_list = NULL;
 
       gtk_signal_disconnect_by_func (GTK_OBJECT (gensetup_t->mainwnd),
-	    GTK_SIGNAL_FUNC (gtk_main_quit), NULL);
+	  GTK_SIGNAL_FUNC (gtk_main_quit), NULL);
       gtk_main_quit ();
       gtk_widget_destroy (gensetup_t->mainwnd);
     }
@@ -317,7 +341,7 @@ gensetup_cancel_clicked(GtkWidget* widget, TGENSETUP *gensetup_t)
       gensetup_t->key_list = NULL;
 
       gtk_signal_disconnect_by_func (GTK_OBJECT (gensetup_t->mainwnd),
-	     GTK_SIGNAL_FUNC (gtk_main_quit), NULL);
+	  GTK_SIGNAL_FUNC (gtk_main_quit), NULL);
       gtk_main_quit ();
       gtk_widget_destroy (gensetup_t->mainwnd);
     }
@@ -544,9 +568,10 @@ create_gensetup (HWND hwnd, LPCSTR dsn, LPCSTR attrs, BOOL add)
   gtk_button_box_set_spacing (GTK_BUTTON_BOX (hbuttonbox1), 10);
 
   b_ok = gtk_button_new_with_label ("");
-  button_key = gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_ok)->child), "_Ok");
-  gtk_widget_add_accelerator (b_ok, "clicked", accel_group,
-      button_key, GDK_MOD1_MASK, 0);
+  button_key =
+      gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_ok)->child), "_Ok");
+  gtk_widget_add_accelerator (b_ok, "clicked", accel_group, button_key,
+      GDK_MOD1_MASK, 0);
   gtk_widget_ref (b_ok);
   gtk_object_set_data_full (GTK_OBJECT (gensetup), "b_ok", b_ok,
       (GtkDestroyNotify) gtk_widget_unref);

@@ -1,6 +1,6 @@
 --- file.c.orig	Fri Oct 29 17:26:18 2004
 +++ file.c	Fri Oct 29 17:26:56 2004
-@@ -202,6 +202,9 @@
+@@ -207,6 +207,9 @@
    rehash_file (from_file, to_hname);
    while (from_file)
      {

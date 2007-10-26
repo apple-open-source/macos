@@ -35,7 +35,6 @@
 #ifndef _DEV_EV_KEYMAP_H
 #define _DEV_EV_KEYMAP_H
 
-//#define	NX_NUMKEYCODES	128	/* Highest key code is 0x7f */
 #define	NX_NUMKEYCODES	256	/* Highest key code is 0xff. ADB used to use 0x80 for keydown state, but who the heck uses adb anymore. */
 #define NX_NUMSEQUENCES	128	/* Maximum possible number of sequences */
 #define	NX_NUMMODIFIERS	16	/* Maximum number of modifier bits */

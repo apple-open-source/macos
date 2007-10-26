@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@
 #include <security_keychain/KeyItem.h>
 #include <security_keychain/KCCursor.h>
 #include <vector>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 //#include "CLFieldsCommon.h"
 
 
@@ -53,29 +54,35 @@ Certificate::Certificate(const CSSM_DATA &data, CSSM_CERT_TYPE type, CSSM_CERT_E
     mEncoding(encoding),
     mCL(clForType(type)),
 	mCertHandle(0),
-	mV1SubjectPublicKeyCStructValue(NULL)
+	mV1SubjectPublicKeyCStructValue(NULL),
+    mV1SubjectNameCStructValue(NULL),
+    mV1IssuerNameCStructValue(NULL)
 {
 }
 
-// db item contstructor
+// db item constructor
 Certificate::Certificate(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId) :
 	ItemImpl(keychain, primaryKey, uniqueId),
 	mHaveTypeAndEncoding(false),
 	mPopulated(false),
     mCL(NULL),
 	mCertHandle(0),
-	mV1SubjectPublicKeyCStructValue(NULL)
+	mV1SubjectPublicKeyCStructValue(NULL),
+    mV1SubjectNameCStructValue(NULL),
+    mV1IssuerNameCStructValue(NULL)
 {
 }
 
-// PrimaryKey item contstructor
+// PrimaryKey item constructor
 Certificate::Certificate(const Keychain &keychain, const PrimaryKey &primaryKey) :
 	ItemImpl(keychain, primaryKey),
 	mHaveTypeAndEncoding(false),
 	mPopulated(false),
     mCL(NULL),
 	mCertHandle(0),
-	mV1SubjectPublicKeyCStructValue(NULL)
+	mV1SubjectPublicKeyCStructValue(NULL),
+    mV1SubjectNameCStructValue(NULL),
+    mV1IssuerNameCStructValue(NULL)
 {
 	// @@@ In this case we don't know the type...
 }
@@ -88,7 +95,9 @@ Certificate::Certificate(Certificate &certificate) :
     mEncoding(certificate.mEncoding),
     mCL(certificate.mCL),
 	mCertHandle(0),
-	mV1SubjectPublicKeyCStructValue(NULL)
+	mV1SubjectPublicKeyCStructValue(NULL),
+    mV1SubjectNameCStructValue(NULL),
+    mV1IssuerNameCStructValue(NULL)
 {
 }
 
@@ -99,6 +108,12 @@ Certificate::~Certificate() throw()
 
 	if (mCertHandle && mCL)
 		CSSM_CL_CertAbortCache(mCL->handle(), mCertHandle);
+    
+    if (mV1SubjectNameCStructValue)
+        releaseFieldValue(CSSMOID_X509V1SubjectNameCStruct, mV1SubjectNameCStructValue);
+
+    if (mV1IssuerNameCStructValue)
+        releaseFieldValue(CSSMOID_X509V1IssuerNameCStruct, mV1IssuerNameCStructValue);
 }
 
 CSSM_HANDLE
@@ -147,6 +162,8 @@ Certificate::copyFieldValues(const CSSM_OID &field)
 			break; // No point in continuing really.
 		}
 	}
+
+	CSSM_CL_CertAbortQuery(clh, resultsHandle);
 
 	if (result)
 	{
@@ -306,12 +323,14 @@ Certificate::publicKeyHash()
 /*
  * Given an CSSM_X509_NAME, Find the first name/value pair with 
  * a printable value which matches the specified OID (e.g., CSSMOID_CommonName). 
+ * Returns the CFString-style encoding associated with name component's BER tag.
  * Returns NULL if none found. 
  */
 static const CSSM_DATA *
 findPrintableField(
 	const CSSM_X509_NAME &x509Name,
-	const CSSM_OID *tvpType)			// NULL means "any printable field"
+	const CSSM_OID *tvpType,				// NULL means "any printable field"
+	CFStringBuiltInEncodings *encoding)		// RETURNED
 {
 	for(uint32 rdnDex=0; rdnDex<x509Name.numberOfRDNs; rdnDex++) {
 		const CSSM_X509_RDN *rdnPtr = 
@@ -331,11 +350,17 @@ findPrintableField(
 			switch(tvpPtr->valueType) {
 				case BER_TAG_PRINTABLE_STRING:
 				case BER_TAG_IA5_STRING:
-				case BER_TAG_T61_STRING:
 				case BER_TAG_PKIX_UTF8_STRING:
-					/* success */
+					*encoding = kCFStringEncodingUTF8;
+					return &tvpPtr->value;
+				case BER_TAG_T61_STRING:
+					*encoding = kCFStringEncodingISOLatin1;
+					return &tvpPtr->value;
+				case BER_TAG_PKIX_BMP_STRING:
+					*encoding = kCFStringEncodingUnicode;
 					return &tvpPtr->value;
 				default:
+					/* not printable */
 					break;
 			}
 		}	/* for each pair */
@@ -346,11 +371,17 @@ findPrintableField(
 }
 
 /*
- * Infer printable label for a given an CSSM_X509_NAME. Returns NULL
- * if no appropriate printable name found.
+ * Infer printable label for a given CSSM_X509_NAME. Returns NULL
+ * if no appropriate printable name found. Returns the CFString-style
+ * encoding associated with name component's BER tag. Also optionally 
+ * returns Description component and its encoding if present and the 
+ * returned name component was from CommonName.
  */
-const CSSM_DATA *SecInferLabelFromX509Name(
-	const CSSM_X509_NAME *x509Name)
+static const CSSM_DATA *inferLabelFromX509Name(
+	const CSSM_X509_NAME *x509Name,
+	CFStringBuiltInEncodings *encoding,			// RETURNED
+	const CSSM_DATA **description,				// optionally RETURNED
+	CFStringBuiltInEncodings *descrEncoding)	// RETURNED if description != NULL
 {
 	const CSSM_DATA	*printValue;
 	/*
@@ -361,21 +392,37 @@ const CSSM_DATA *SecInferLabelFromX509Name(
 	 *  -- Organization
 	 *  -- field of any kind
 	 */
-	printValue = findPrintableField(*x509Name, &CSSMOID_CommonName);
+	printValue = findPrintableField(*x509Name, &CSSMOID_CommonName, encoding);
+	if(printValue != NULL) {
+		if(description != NULL) {
+			*description = findPrintableField(*x509Name, &CSSMOID_Description, descrEncoding);
+		}
+		return printValue;
+	}
+	printValue = findPrintableField(*x509Name, &CSSMOID_OrganizationalUnitName, encoding);
 	if(printValue != NULL) {
 		return printValue;
 	}
-	printValue = findPrintableField(*x509Name, &CSSMOID_OrganizationalUnitName);
-	if(printValue != NULL) {
-		return printValue;
-	}
-	printValue = findPrintableField(*x509Name, &CSSMOID_OrganizationName);
+	printValue = findPrintableField(*x509Name, &CSSMOID_OrganizationName, encoding);
 	if(printValue != NULL) {
 		return printValue;
 	}
 	/* take anything */
-	return findPrintableField(*x509Name, NULL);
+	return findPrintableField(*x509Name, NULL, encoding);
 }
+
+/*
+ * Infer printable label for a given an CSSM_X509_NAME. Returns NULL
+ * if no appropriate printable name found.
+ */
+const CSSM_DATA *SecInferLabelFromX509Name(
+	const CSSM_X509_NAME *x509Name)
+{
+	/* callees of this routine don't care about the encoding */
+	CFStringBuiltInEncodings encoding = kCFStringEncodingASCII;
+	return inferLabelFromX509Name(x509Name, &encoding, NULL, &encoding);
+}
+
 
 void
 Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
@@ -383,9 +430,14 @@ Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
 	// Set PrintName and optionally the Alias attribute for this certificate, based on the 
 	// X509 SubjectAltName and SubjectName.
 	const CSSM_DATA *printName = NULL;
+	const CSSM_DATA *description = NULL;
 	std::vector<CssmData> emailAddresses;
 	CSSM_DATA puntData;
-
+	CssmAutoData printPlusDescr(Allocator::standard());
+	CssmData printPlusDescData;
+	CFStringBuiltInEncodings printEncoding = kCFStringEncodingUTF8;
+	CFStringBuiltInEncodings descrEncoding = kCFStringEncodingUTF8;
+	
 	// Find the SubjectAltName fields, if any, and extract all the GNT_RFC822Name entries from all of them
 	const CSSM_OID &sanOid = CSSMOID_SubjectAltName;
 	CSSM_DATA_PTR *sanValues = copyFieldValues(sanOid);
@@ -397,7 +449,8 @@ Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
 	if (snValue && snValue->Data)
 	{
 		const CSSM_X509_NAME &x509Name = *(const CSSM_X509_NAME *)snValue->Data;
-		printName = SecInferLabelFromX509Name(&x509Name);
+		printName = inferLabelFromX509Name(&x509Name, &printEncoding, 
+			&description, &descrEncoding);
         if (printName)
         {
             /* Don't ever use "Thawte Freemail Member" as the label for a cert.  Instead force
@@ -410,6 +463,48 @@ Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
         }
 	}
 
+	/* Do a check to see if a '\0' was at the end of printName and strip it. */
+	CssmData cleanedUpPrintName;
+	if((printName != NULL) && 
+	   (printName->Length != 0) &&
+	   (printEncoding != kCFStringEncodingISOLatin1) &&
+	   (printEncoding != kCFStringEncodingUnicode) &&
+	   (printName->Data[printName->Length - 1] == '\0')) {
+		cleanedUpPrintName.Data = printName->Data;
+		cleanedUpPrintName.Length = printName->Length - 1;
+		printName = &cleanedUpPrintName;
+	}
+	
+	if((printName != NULL) && (description != NULL) && (description->Length != 0)) 
+	{
+		/* 
+		 * Munge Print Name (which in this case is the CommonName) and Description  
+		 * together with the Description in parentheses. We convert from whatever
+		 * format Print Name and Description are in to UTF8 here. 
+		 */
+		CFRef<CFMutableStringRef> combo(CFStringCreateMutable(NULL, 0));
+		CFRef<CFStringRef> cfPrint(CFStringCreateWithBytes(NULL, printName->Data,
+			(CFIndex)printName->Length, printEncoding, true));
+		CssmData cleanedUpDescr(description->Data, description->Length);
+		if ((cleanedUpDescr.Data[cleanedUpDescr.Length - 1] == '\0') &&
+			(descrEncoding != kCFStringEncodingISOLatin1) &&
+			(descrEncoding != kCFStringEncodingUnicode)) {
+			cleanedUpDescr.Length--;
+		}
+		CFRef<CFStringRef> cfDesc(CFStringCreateWithBytes(NULL, cleanedUpDescr.Data,
+			(CFIndex)cleanedUpDescr.Length, descrEncoding, true));
+		CFStringAppend(combo, cfPrint);
+		CFStringAppendCString(combo, " (", kCFStringEncodingASCII);
+		CFStringAppend(combo, cfDesc);
+		CFStringAppendCString(combo, ")", kCFStringEncodingASCII);
+		CFRef<CFDataRef> comboData(CFStringCreateExternalRepresentation(NULL, combo,
+			kCFStringEncodingUTF8, 0));
+		printPlusDescr.copy(CFDataGetBytePtr(comboData), CFDataGetLength(comboData));
+		printPlusDescData = printPlusDescr;
+		printName = &printPlusDescData;
+		printEncoding = kCFStringEncodingUTF8;
+	}
+	
 	if (printName == NULL)
 	{
 		/* If the we couldn't find a label use the emailAddress instead. */
@@ -422,21 +517,17 @@ Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
 			puntData.Length = 16;
 			printName = &puntData;
 		}
+		printEncoding = kCFStringEncodingUTF8;
 	}
 
 	/* If we couldn't find an email address just use the printName which might be the url or something else useful. */
 	if (emailAddresses.empty())
 		emailAddresses.push_back(CssmData::overlay(*printName));
 
-	/* Do a check to see if a '\0' was at the end of printName and strip it. */
-	CssmData cleanedUpPrintName(printName->Data, printName->Length);
-	if (cleanedUpPrintName.Length && cleanedUpPrintName.Data[cleanedUpPrintName.Length - 1] == '\0')
-		cleanedUpPrintName.Length--;
-
 	/* What do we do with the inferred label - return it or add it mDbAttributes? */
 	if (addLabel)
 	{
-		mDbAttributes->add(Schema::kX509CertificatePrintName, cleanedUpPrintName);
+		mDbAttributes->add(Schema::kX509CertificatePrintName, *printName);
 		CssmDbAttributeData &attrData = mDbAttributes->add(Schema::kX509CertificateAlias);
 
 		/* Add the email addresses to attrData and normalize them. */
@@ -452,10 +543,8 @@ Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
 
 	if (rtnString)
 	{
-		/* Encoding is kCFStringEncodingUTF8 since the string is either
-		   PRINTABLE_STRING, IA5_STRING, T61_STRING or PKIX_UTF8_STRING. */
-		*rtnString = CFStringCreateWithBytes(NULL, cleanedUpPrintName.Data,
-			(CFIndex)cleanedUpPrintName.Length, kCFStringEncodingUTF8, true);
+		*rtnString = CFStringCreateWithBytes(NULL, printName->Data,
+			(CFIndex)printName->Length, printEncoding, true);
 	}
 
 	// Clean up
@@ -553,7 +642,7 @@ Certificate::encoding()
 	return mEncoding;
 }
 
-const CSSM_X509_ALGORITHM_IDENTIFIER *
+const CSSM_X509_ALGORITHM_IDENTIFIER_PTR
 Certificate::algorithmID()
 {
 	if (!mV1SubjectPublicKeyCStructValue)
@@ -567,28 +656,30 @@ Certificate::algorithmID()
 CFStringRef
 Certificate::commonName()
 {
-	CFStringRef rtnString;
-	const CSSM_OID &fieldOid = CSSMOID_X509V1SubjectNameCStruct;
-	CSSM_DATA_PTR fieldValue = copyFirstFieldValue(fieldOid);
+	return distinguishedName(&CSSMOID_X509V1SubjectNameCStruct, &CSSMOID_CommonName);
+}
+
+CFStringRef
+Certificate::distinguishedName(const CSSM_OID *sourceOid, const CSSM_OID *componentOid)
+{
+	CFStringRef rtnString = NULL;
+	CSSM_DATA_PTR fieldValue = copyFirstFieldValue(*sourceOid);
 	CSSM_X509_NAME_PTR x509Name = (CSSM_X509_NAME_PTR)fieldValue->Data;
 	const CSSM_DATA	*printValue = NULL;
+	CFStringBuiltInEncodings encoding;
+	
 	if (fieldValue && fieldValue->Data)
-		printValue = findPrintableField(*x509Name, &CSSMOID_CommonName);
+		printValue = findPrintableField(*x509Name, componentOid, &encoding);
 
-	if (printValue == NULL)
-		rtnString = NULL;
-	else
-	{
-		/* Encoding is kCFStringEncodingUTF8 since the string is either
-		   PRINTABLE_STRING, IA5_STRING, T61_STRING or PKIX_UTF8_STRING. */
+	if (printValue)
 		rtnString = CFStringCreateWithBytes(NULL, printValue->Data,
-			(CFIndex)printValue->Length, kCFStringEncodingUTF8, true);
-	}
+			CFIndex(printValue->Length), encoding, true);
 
-	releaseFieldValue(CSSMOID_X509V1SubjectNameCStruct, fieldValue);
+	releaseFieldValue(*sourceOid, fieldValue);
 
 	return rtnString;
 }
+
 
 /*
  * Return a CFString containing the first email addresses for this certificate, based on the 
@@ -662,14 +753,24 @@ Certificate::copyEmailAddresses()
 	return array;
 }
 
-void
-Certificate::getSubject(CSSM_X509_NAME &outSubject)
+const CSSM_X509_NAME_PTR
+Certificate::subjectName()
 {
+	if (!mV1SubjectNameCStructValue)
+		if ((mV1SubjectNameCStructValue = copyFirstFieldValue(CSSMOID_X509V1SubjectNameCStruct)) == NULL)
+            return NULL;
+
+    return (const CSSM_X509_NAME_PTR)mV1SubjectNameCStructValue->Data;
 }
 
-void
-Certificate::getIssuer(CSSM_X509_NAME &outName)
+const CSSM_X509_NAME_PTR
+Certificate::issuerName()
 {
+	if (!mV1IssuerNameCStructValue)
+		if ((mV1IssuerNameCStructValue = copyFirstFieldValue(CSSMOID_X509V1IssuerNameCStruct)) == NULL)
+            return NULL;
+
+    return (const CSSM_X509_NAME_PTR)mV1IssuerNameCStructValue->Data;
 }
 
 CSSM_CL_HANDLE
@@ -988,4 +1089,42 @@ Certificate::getEmailAddresses(CSSM_DATA_PTR *sanValues, CSSM_DATA_PTR snValue, 
 void Certificate::willRead()
 {
 	populateAttributes();
+}
+
+Boolean Certificate::isSelfSigned()
+{	
+	CSSM_DATA_PTR issuer = NULL;
+	CSSM_DATA_PTR subject = NULL;
+	OSStatus ortn = noErr;
+	Boolean brtn = false;
+
+	issuer  = copyFirstFieldValue(CSSMOID_X509V1IssuerNameStd);
+	subject = copyFirstFieldValue(CSSMOID_X509V1SubjectNameStd);
+	if((issuer == NULL) || (subject == NULL)) {
+		ortn = paramErr;
+	}
+	else if((issuer->Length == subject->Length) &&
+		!memcmp(issuer->Data, subject->Data, issuer->Length)) {
+		brtn = true;
+	}
+	if(brtn) {
+		/* names match: verify signature */
+		CSSM_RETURN crtn;
+		CSSM_DATA certData = data();
+		crtn = CSSM_CL_CertVerify(clHandle(), 0,
+			&certData, &certData, NULL, 0);
+		if(crtn) {
+			brtn = false;
+		}
+	}
+	if(issuer) {
+		releaseFieldValue(CSSMOID_X509V1IssuerNameStd,	issuer);
+	}
+	if(subject) {
+		releaseFieldValue(CSSMOID_X509V1SubjectNameStd, subject);
+	}
+	if(ortn) {
+		MacOSError::throwMe(ortn);
+	}
+	return brtn;
 }

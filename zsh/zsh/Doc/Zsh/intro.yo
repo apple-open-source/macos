@@ -1,4 +1,4 @@
-texinode(Introduction)(Invocation)(The Z Shell Manual)(Top)
+texinode(Introduction)(Roadmap)(The Z Shell Manual)(Top)
 chapter(Introduction)
 cindex(introduction)
 ifzman(\
@@ -15,6 +15,7 @@ startlist()
 ifzshone(\
 list(em(zsh)          Zsh overview (this section))
 )\
+list(em(zshroadmap)   Informal introduction to the manual)
 list(em(zshmisc)      Anything not fitting into the other sections)
 list(em(zshexpn)      Zsh command and parameter expansion)
 list(em(zshparam)     Zsh parameters)
@@ -25,7 +26,10 @@ list(em(zshcompwid)   Zsh completion widgets)
 list(em(zshcompsys)   Zsh completion system)
 list(em(zshcompctl)   Zsh completion control)
 list(em(zshmodules)   Zsh loadable modules)
+list(em(zshcalsys)    Zsh built-in calendar functions)
+list(em(zshtcpsys)    Zsh built-in TCP functions)
 list(em(zshzftpsys)   Zsh built-in FTP client)
+list(em(zshcontrib)   Additional zsh functions and utilities)
 ifzshone(\
 list(em(zshall)       Meta-man page containing all of the above)
 )\

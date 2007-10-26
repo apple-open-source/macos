@@ -35,6 +35,7 @@
 #ifndef _SECURITY_SECCMSBASE_H_
 #define _SECURITY_SECCMSBASE_H_  1
 
+#include <sys/types.h>			/* size_t */
 #include <Security/SecKey.h>
 #include <Security/x509defs.h>
 
@@ -148,7 +149,7 @@ typedef struct SecCmsDigestContextStr *SecCmsDigestContextRef;
 
      XXX Should just combine this with SecCmsEncoderContentCallback type and use a simpler, common name.
  */
-typedef void (*SecCmsContentCallback)(void *arg, const char *buf, unsigned long len);
+typedef void (*SecCmsContentCallback)(void *arg, const char *buf, size_t len);
 
 /*!
     @typedef
@@ -457,19 +458,23 @@ typedef enum {
     SEC_OID_AES_192_KEY_WRAP	= 198,
     SEC_OID_AES_256_KEY_WRAP	= 199,
 
+    /* eContentType set by client and not understood by this library; treated 
+     * like SEC_OID_PKCS7_DATA, except the caller's OID is encoded. */
+    SEC_OID_OTHER		= 200,
+    
     SEC_OID_TOTAL
 } SECOidTag;
 
 /*!
     @function
     @abstract Create a new SecArenaPool object.
-    @param chunksize Size of the chunks the pool will use to allocate it's underlying storage.
+    @param chunksize Size of the chunks the pool will use to allocate its underlying storage.
     @param outArena pointer to a SecArenaPoolRef to be created.
     @result On success return 0 and outArena will contain a newly created SecArenaPoolRef.
     @availability 10.4 and later
     @updated 2004-04-23
  */
-OSStatus SecArenaPoolCreate(UInt32 chunksize, SecArenaPoolRef *outArena);
+OSStatus SecArenaPoolCreate(size_t chunksize, SecArenaPoolRef *outArena);
 
 /*!
     @function

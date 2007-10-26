@@ -1,7 +1,7 @@
 /* common.c - Functions that are common to server and clinet
  * Rob Siemborski
  * Tim Martin
- * $Id: common.c,v 1.8 2005/01/20 23:02:33 snsimon Exp $
+ * $Id: common.c,v 1.11 2006/02/03 22:33:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -165,7 +165,7 @@ int _sasl_add_string(char **out, size_t *alloclen,
   if (add==NULL) add = "(null)";
 
   addlen=strlen(add); /* only compute once */
-  if (_buf_alloc(out, alloclen, (*outlen)+addlen)!=SASL_OK)
+  if (_buf_alloc((void **)out, alloclen, (*outlen)+addlen)!=SASL_OK)
     return SASL_NOMEM;
 
   strncpy(*out + *outlen, add, addlen);
@@ -180,6 +180,7 @@ int _sasl_add_string(char **out, size_t *alloclen,
 void sasl_version(const char **implementation, int *version) 
 {
     if(implementation) *implementation = implementation_string;
+    /* NB: the format is not the same as in SASL_VERSION_FULL */
     if(version) *version = (SASL_VERSION_MAJOR << 24) | 
 		           (SASL_VERSION_MINOR << 16) |
 		           (SASL_VERSION_STEP);
@@ -256,15 +257,14 @@ int sasl_encodev(sasl_conn_t *conn,
 	PARAMERROR(conn);
 
     if(conn->oparams.encode == NULL)  {
-	result = _iovec_to_buf(invec, numiov, &conn->encode_buf);
-	if(result != SASL_OK) INTERROR(conn, result);
-       
-	*output = conn->encode_buf->data;
-	*outputlen = (unsigned) conn->encode_buf->curlen;
-
-    } else {
-	result = conn->oparams.encode(conn->context, invec, numiov,
-				      output, outputlen);
+		result = _iovec_to_buf(invec, numiov, &conn->encode_buf);
+		if(result != SASL_OK) INTERROR(conn, result);
+		   
+		*output = (const char *)conn->encode_buf->data;
+		*outputlen = (unsigned) conn->encode_buf->curlen;
+    }
+	else {
+		result = conn->oparams.encode(conn->context, invec, numiov, output, outputlen);
     }
 
     RETURN(conn, result);
@@ -313,13 +313,11 @@ int sasl_decode(sasl_conn_t *conn,
 	
         return SASL_OK;
     } else {
-        result = conn->oparams.decode(conn->context, input, inputlen,
-                                      output, outputlen);
+        result = conn->oparams.decode(conn->context, input, inputlen, output, outputlen);
 
-	/* NULL an empty buffer (for misbehaved applications) */
-	if (*outputlen == 0) *output = NULL;
-
-        RETURN(conn, result);
+		/* NULL an empty buffer (for misbehaved applications) */
+		if (*outputlen == 0) *output = NULL;
+		RETURN(conn, result);
     }
 
     INTERROR(conn, SASL_FAIL);
@@ -411,9 +409,9 @@ int _sasl_conn_init(sasl_conn_t *conn,
   conn->errdetail_buf = conn->error_buf = NULL;
   conn->errdetail_buf_len = conn->error_buf_len = 150;
 
-  result = _buf_alloc(&conn->error_buf, &conn->error_buf_len, 150);     
+  result = _buf_alloc((void **)&conn->error_buf, &conn->error_buf_len, 150);     
   if(result != SASL_OK) MEMERROR(conn);
-  result = _buf_alloc(&conn->errdetail_buf, &conn->errdetail_buf_len, 150);
+  result = _buf_alloc((void **)&conn->errdetail_buf, &conn->errdetail_buf_len, 150);
   if(result != SASL_OK) MEMERROR(conn);
   
   conn->error_buf[0] = '\0';
@@ -580,6 +578,13 @@ int sasl_getprop(sasl_conn_t *conn, int propnum, const void **pvalue)
       else
 	  *((const char **)pvalue) = conn->oparams.authid;
       break;
+  case SASL_APPNAME:
+      /* Currently we only support server side contexts, but we should
+         be able to extend this to support client side contexts as well */
+      if(conn->type != SASL_CONN_SERVER) result = SASL_BADPROT;
+      else
+	  *((const char **)pvalue) = ((sasl_server_conn_t *)conn)->sparams->appname;
+      break;
   case SASL_SERVERFQDN:
       *((const char **)pvalue) = conn->serverFQDN;
       break;
@@ -598,14 +603,14 @@ int sasl_getprop(sasl_conn_t *conn, int propnum, const void **pvalue)
 	      break;
 	  }
 	  *((const char **)pvalue) =
-	      ((sasl_client_conn_t *)conn)->mech->plugname;
+	      ((sasl_client_conn_t *)conn)->mech->m.plugname;
       } else if (conn->type == SASL_CONN_SERVER) {
 	  if(!((sasl_server_conn_t *)conn)->mech) {
 	      result = SASL_NOTDONE;
 	      break;
 	  }
 	  *((const char **)pvalue) =
-	      ((sasl_server_conn_t *)conn)->mech->plugname;
+	      ((sasl_server_conn_t *)conn)->mech->m.plugname;
       } else {
 	  result = SASL_BADPARAM;
       }
@@ -617,14 +622,14 @@ int sasl_getprop(sasl_conn_t *conn, int propnum, const void **pvalue)
 	      break;
 	  }
 	  *((const char **)pvalue) =
-	      ((sasl_client_conn_t *)conn)->mech->plug->mech_name;
+	      ((sasl_client_conn_t *)conn)->mech->m.plug->mech_name;
       } else if (conn->type == SASL_CONN_SERVER) {
 	  if(!((sasl_server_conn_t *)conn)->mech) {
 	      result = SASL_NOTDONE;
 	      break;
 	  }
 	  *((const char **)pvalue) =
-	      ((sasl_server_conn_t *)conn)->mech->plug->mech_name;
+	      ((sasl_server_conn_t *)conn)->mech->m.plug->mech_name;
       } else {
 	  result = SASL_BADPARAM;
       }
@@ -633,6 +638,14 @@ int sasl_getprop(sasl_conn_t *conn, int propnum, const void **pvalue)
       break;
   case SASL_PLUGERR:
       *((const char **)pvalue) = conn->error_buf;
+      break;
+  case SASL_DELEGATEDCREDS:
+      /* We can't really distinguish between "no delegated credentials"
+         and "authentication not finished" */
+      if(! conn->oparams.client_creds)
+	  result = SASL_NOTDONE;
+      else
+	  *((const char **)pvalue) = conn->oparams.client_creds;
       break;
   case SASL_SSF_EXTERNAL:
       *((const sasl_ssf_t **)pvalue) = &conn->external.ssf;
@@ -643,8 +656,16 @@ int sasl_getprop(sasl_conn_t *conn, int propnum, const void **pvalue)
   case SASL_SEC_PROPS:
       *((const sasl_security_properties_t **)pvalue) = &conn->props;
       break;
-  default: 
-      result = SASL_BADPARAM;
+	
+	case SASL_KRB5_AUTHDATA:
+		if (! conn->oparams.spare_ptr3)
+			result = SASL_NOTDONE;
+		else
+			*((const char **)pvalue) = conn->oparams.spare_ptr3;
+		break;
+	
+	default: 
+		result = SASL_BADPARAM;
   }
 
   if(result == SASL_BADPARAM) {
@@ -825,6 +846,35 @@ int sasl_setprop(sasl_conn_t *conn, int propnum, const void *value)
       break;
   }
 
+  case SASL_APPNAME:
+      /* Currently we only support server side contexts, but we should
+         be able to extend this to support client side contexts as well */
+      if(conn->type != SASL_CONN_SERVER) {
+	sasl_seterror(conn, 0, "Tried to set application name on non-server connection");
+	result = SASL_BADPROT;
+	break;
+      }
+
+      if(((sasl_server_conn_t *)conn)->appname) {
+      	  sasl_FREE(((sasl_server_conn_t *)conn)->appname);
+	  ((sasl_server_conn_t *)conn)->appname = NULL;
+      }
+
+      if(value && strlen(value)) {
+	  result = _sasl_strdup(value,
+				&(((sasl_server_conn_t *)conn)->appname),
+				NULL);
+	  if(result != SASL_OK) MEMERROR(conn);
+	  ((sasl_server_conn_t *)conn)->sparams->appname =
+              ((sasl_server_conn_t *)conn)->appname;
+	  ((sasl_server_conn_t *)conn)->sparams->applen =
+	      (unsigned) strlen(((sasl_server_conn_t *)conn)->appname);
+      } else {
+	  ((sasl_server_conn_t *)conn)->sparams->appname = NULL;
+	  ((sasl_server_conn_t *)conn)->sparams->applen = 0;
+      }
+      break;
+
   default:
       sasl_seterror(conn, 0, "Unknown parameter type");
       result = SASL_BADPARAM;
@@ -905,7 +955,7 @@ const char *sasl_errdetail(sasl_conn_t *conn)
 	     sasl_usererr(conn->error_code), errstr);
     
     need_len = (unsigned) (strlen(leader) + strlen(conn->error_buf) + 12);
-    _buf_alloc(&conn->errdetail_buf, &conn->errdetail_buf_len, need_len);
+    _buf_alloc((void **)&conn->errdetail_buf, &conn->errdetail_buf_len, need_len);
 
     snprintf(conn->errdetail_buf, need_len, "%s%s", leader, conn->error_buf);
    
@@ -995,11 +1045,20 @@ _sasl_conn_getopt(void *context,
 
 #ifdef HAVE_SYSLOG
 /* this is the default logging */
-static int _sasl_syslog(void *context __attribute__((unused)),
+static int _sasl_syslog(void *context,
 			int priority,
 			const char *message)
 {
     int syslog_priority;
+    sasl_server_conn_t *sconn;
+
+    if (context) {
+	if (((sasl_conn_t *)context)->type == SASL_CONN_SERVER) {
+	    sconn = (sasl_server_conn_t *)context;
+	    if (sconn->sparams->log_level < priority) 
+		return SASL_OK;
+	}
+    }
 
     /* set syslog priority */
     switch(priority) {
@@ -1256,7 +1315,7 @@ _sasl_log (sasl_conn_t *conn,
   {
     if (fmt[pos]!='%') /* regular character */
     {
-      result = _buf_alloc(&out, &alloclen, outlen+1);
+      result = _buf_alloc((void **)&out, &alloclen, outlen+1);
       if (result != SASL_OK) goto done;
       out[outlen]=fmt[pos];
       outlen++;
@@ -1286,7 +1345,7 @@ _sasl_log (sasl_conn_t *conn,
 	    break;
 
 	  case '%': /* double % output the '%' character */
-	    result = _buf_alloc(&out,&alloclen,outlen+1);
+	    result = _buf_alloc((void **)&out,&alloclen,outlen+1);
 	    if (result != SASL_OK)
 		goto done;
 	    
@@ -1374,7 +1433,7 @@ _sasl_log (sasl_conn_t *conn,
   }
 
   /* put 0 at end */
-  result = _buf_alloc(&out, &alloclen, outlen+1);
+  result = _buf_alloc((void **)&out, &alloclen, outlen+1);
   if (result != SASL_OK) goto done;
   out[outlen]=0;
 
@@ -1557,7 +1616,7 @@ _sasl_find_verifyfile_callback(const sasl_callback_t *callbacks)
 }
 
 /* Basically a conditional call to realloc(), if we need more */
-int _buf_alloc(char **rwbuf, size_t *curlen, size_t newlen) 
+int _buf_alloc(void **rwbuf, size_t *curlen, size_t newlen) 
 {
     if(!(*rwbuf)) {
 	*rwbuf = sasl_ALLOC((unsigned)newlen);
@@ -1599,7 +1658,7 @@ int _iovec_to_buf(const struct iovec *vec,
     unsigned i;
     int ret;
     buffer_info_t *out;
-    char *pos;
+    unsigned char *pos;
 
     if(!vec || !output) return SASL_BADPARAM;
 
@@ -1615,7 +1674,7 @@ int _iovec_to_buf(const struct iovec *vec,
     for(i=0; i<numiov; i++)
 	out->curlen += vec[i].iov_len;
 
-    ret = _buf_alloc(&out->data, &out->reallen, out->curlen);
+    ret = _buf_alloc((void **)&out->data, &out->reallen, out->curlen);
 
     if(ret != SASL_OK) return SASL_NOMEM;
     
@@ -1830,9 +1889,12 @@ _sasl_getpath(void *context __attribute__((unused)),
   if (! path)
     return SASL_BADPARAM;
 
-	/* Honor external variable only in a safe environment */
-	if (getuid() == geteuid() && getgid() == getegid())
-		*path = getenv(SASL_PATH_ENV_VAR);
+  *path = NULL;
+
+  /* Honor external variable only in a safe environment */
+  if (getuid() == geteuid() && getgid() == getegid())
+    *path = getenv(SASL_PATH_ENV_VAR);
+
   if (! *path)
     *path = PLUGINDIR;
 

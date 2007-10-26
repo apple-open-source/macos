@@ -44,6 +44,7 @@ __FBSDID("$FreeBSD: src/usr.bin/hexdump/display.c,v 1.19 2004/07/11 01:11:12 tjr
 
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -387,12 +388,21 @@ doskip(const char *fname, int statok)
 			return;
 		}
 	}
+#ifdef __APPLE__
+	/* try to seek first; fall back on ESPIPE */
+	if (fseeko(stdin, skip, SEEK_SET) == 0) {
+#else /* !__APPLE__ */
 	if (S_ISREG(sb.st_mode)) {
 		if (fseeko(stdin, skip, SEEK_SET))
 			err(1, "%s", fname);
+#endif /* __APPLE__ */
 		address += skip;
 		skip = 0;
 	} else {
+#ifdef __APPLE__
+		if (errno != ESPIPE)
+			err(1, "%s", fname);
+#endif /* __APPLE__ */
 		for (cnt = 0; cnt < skip; ++cnt)
 			if (getchar() == EOF)
 				break;

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: homedir.c,v 1.6 2004/10/06 07:50:18 bagder Exp $
+ * $Id: homedir.c,v 1.9 2005/12/18 15:36:14 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -27,9 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef WIN32
-#include <windows.h>
-#endif
 #ifdef HAVE_PWD_H
 #include <pwd.h>
 #endif
@@ -87,7 +84,13 @@ char *GetEnv(const char *variable, char do_expand)
 /* return the home directory of the current user as an allocated string */
 char *homedir(void)
 {
-  char *home = GetEnv("HOME", FALSE);
+  char *home;
+
+  home = GetEnv("CURL_HOME", FALSE);
+  if(home)
+    return home;
+
+  home = GetEnv("HOME", FALSE);
   if(home)
     return home;
 
@@ -103,6 +106,8 @@ char *homedir(void)
 #endif
      if (home && home[0])
        home = strdup(home);
+     else
+       home = NULL;
    }
  }
 #endif /* PWD-stuff */

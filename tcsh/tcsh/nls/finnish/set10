@@ -1,4 +1,4 @@
-$ $Id: set10,v 1.1.1.1 2001/06/28 23:11:07 bbraun Exp $
+$ $Id: set10,v 1.1 2000/01/14 22:57:31 christos Exp $
 $ ma.setp.c
 $set 10 
 1 setpath: Virheellinen komento '%s'.\n

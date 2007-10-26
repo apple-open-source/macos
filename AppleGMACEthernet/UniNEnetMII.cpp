@@ -44,7 +44,7 @@ bool UniNEnet::miiReadWord( UInt16 *dataPtr, UInt16 reg )
 
 	if ( phyId == 0xFF )
 	{
-		ALRT( 0, phyId << 16 | reg, 'IdR-', "miiReadWord - phyId not established yet." );
+		ALRT( 0, phyId << 16 | reg, 'IdR-', "UniNEnet::miiReadWord - phyId not established yet." );
 		return false;
 	}
 
@@ -61,14 +61,14 @@ bool UniNEnet::miiReadWord( UInt16 *dataPtr, UInt16 reg )
 
         if ( miiReg & kMIFBitBangFrame_Output_TA_LSB )
         {
-			ELG( miiReg, phyId << 16 | reg, 'miiR', "miiReadWord" );
+			ELG( miiReg, phyId << 16 | reg, 'miiR', "UniNEnet::miiReadWord" );
             *dataPtr = (UInt16) miiReg;
             return true;
         }
         IODelay( 10 );
     }
 
-	ELG( miiReg, phyId << 16 | reg, 'miR-', "miiReadWord - failed" );
+	ELG( miiReg, phyId << 16 | reg, 'miR-', "UniNEnet::miiReadWord - failed" );
     return false;
 }/* end miiReadWord */
 
@@ -83,7 +83,7 @@ bool UniNEnet::miiWriteWord( UInt16 data, UInt16 reg )
 
 	if ( phyId == 0xFF )
 	{
-		ALRT( data, phyId << 16 | reg, 'IdW-', "miiWriteWord - phyId not established yet." );
+		ALRT( data, phyId << 16 | reg, 'IdW-', "UniNEnet::miiWriteWord - phyId not established yet." );
 		return false;
 	}
 
@@ -101,13 +101,13 @@ bool UniNEnet::miiWriteWord( UInt16 data, UInt16 reg )
         
         if ( miiReg & kMIFBitBangFrame_Output_TA_LSB )
         {
-			ELG( data, phyId << 16 | reg, 'miiW', "miiWriteWord" );
+			ELG( data, phyId << 16 | reg, 'miiW', "UniNEnet::miiWriteWord" );
             return true;
         }
         IODelay( 10 );
     }
 
-	ELG( data, phyId << 16 | reg, 'miW-', "miiWriteWord - failed" );
+	ELG( data, phyId << 16 | reg, 'miW-', "UniNEnet::miiWriteWord - failed" );
     return false;
 }/* end miiWriteWord */
 
@@ -118,7 +118,7 @@ bool UniNEnet::miiResetPHY()
     UInt16 		mii_control;
 
 
-	ELG( i, phyId, 'RstP', "miiResetPHY" );
+	ELG( i, phyId, 'RstP', "UniNEnet::miiResetPHY" );
 
     miiWriteWord( MII_CONTROL_RESET, MII_CONTROL );	// Set the reset bit
 	IOSleep( MII_RESET_DELAY );
@@ -152,7 +152,7 @@ bool UniNEnet::miiWaitForAutoNegotiation()
 	UInt16		mii_status;
 
 
-	ELG( i, phyId, 'miWA', "miiWaitForAutoNegotiation" );
+	ELG( i, phyId, 'miWA', "UniNEnet::miiWaitForAutoNegotiation" );
 
 	while ( i > 0 ) 
 	{

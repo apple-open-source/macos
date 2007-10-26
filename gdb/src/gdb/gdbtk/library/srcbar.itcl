@@ -1,5 +1,5 @@
 # SrcBar
-# Copyright 2001, 2002 Red Hat, Inc.
+# Copyright 2001, 2002, 2004 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -456,6 +456,34 @@ itcl::class SrcBar {
     
     $Menu add command Other "Source..." \
       "ManagedWin::open SrcPref -transient" -underline 0
+
+    set save_menu [$Menu menubar_get_current_menu]
+
+    set advanced_menu [$Menu add cascade adv Advanced "Advanced" 0]
+
+    $advanced_menu add command -label "Edit Color Schemes..." -underline 0 \
+      -command "ManagedWin::open CSPref -transient" -underline 0
+
+    $advanced_menu add command -label "IPC Support..." -underline 0 \
+      -command "ManagedWin::open IPCPref -transient" -underline 0
+
+    $Menu menubar_set_current_menu $save_menu
+
+    $Menu add separator
+
+    set color_menu [$Menu add cascade use_cs Color "Use Color Scheme" 0]
+    for {set i 0} {$i < 16} {incr i} {
+      set dbg [recolor [pref get gdb/bg/$i] 80]
+      $color_menu add command -label $i -background [pref get gdb/bg/$i] \
+	-activebackground $dbg -command "set_bg_colors $i" -underline 0
+    }
+
+    if {[pref get gdb/use_color_schemes] == "1"} {
+      set cs_state normal
+    } else {
+      set cs_state disabled
+    }
+    $Menu set_class_state "Color $cs_state"
   }
 
   # ------------------------------------------------------------------
@@ -850,6 +878,17 @@ itcl::class SrcBar {
     debug
     _load_src_images 1
     _load_images 1
+
+    if {[pref get gdb/use_color_schemes] == "1"} {
+      set cs_state normal
+    } else {
+      set cs_state disabled
+    }
+    $Menu set_class_state "Color $cs_state"
+    for {set i 0} {$i < 16} {incr i} {
+      set dbg [recolor [pref get gdb/bg/$i] 80]
+      $color_menu entryconfigure $i -activebackground $dbg -background [pref get gdb/bg/$i]
+    }
     # FIXME: Must Check if we are Tracing and set the buttons accordingly.
   }
 
@@ -1144,6 +1183,7 @@ Do you want to continue?" \
 
   # The GdbMenuBar component
   private variable Menu
+  private variable color_menu
 
   # The GdbToolBar component
   private variable Tool

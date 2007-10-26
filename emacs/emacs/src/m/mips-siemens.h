@@ -1,5 +1,6 @@
 /* m- file for Mips machines.
-   Copyright (C) 1987, 1992, 1993, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1992, 1993, 1995, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
    This file contains some changes for our SVR4 based SINIX-Mips 5.4.
    I hope this is helpful to port the emacs to our RM?00 series and
@@ -20,11 +21,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="note"
 
@@ -104,19 +105,6 @@ NOTE-END  */
 
 /* #define VIRT_ADDR_VARIES */
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#ifdef __GNUC__
-#define HAVE_ALLOCA
-#else
-#define C_ALLOCA
-#endif
-
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
    when Emacs is dumped.  If you define this, the preloaded Lisp
@@ -153,15 +141,11 @@ NOTE-END  */
 
 #ifdef __GNUC__
 #define C_DEBUG_SWITCH
-#define LD_SWITCH_MACHINE 
+#define LD_SWITCH_MACHINE
 #else
 #define C_DEBUG_SWITCH -DSYSV
-#define C_OPTIMIZE_SWITCH -DSYSV 
+#define C_OPTIMIZE_SWITCH -DSYSV
 #define LD_SWITCH_MACHINE
-#endif
-
-#if defined(HAVE_X_WINDOWS) && defined(HAVE_X11)
-#define HAVE_VFORK		/* Graciously provided by libX.a */
 #endif
 
 
@@ -175,12 +159,5 @@ NOTE-END  */
    ((int)(type) << VALBITS)						\
    + (((unsigned) (ptr) << (BITS_PER_INT-VALBITS)) >> (BITS_PER_INT-VALBITS)))
 
-#define XSETINT(a, b)  XSET(a, XTYPE(a), b)
-#define XSETUINT(a, b) XSET(a, XTYPE(a), b)
-#define XSETPNTR(a, b) XSET(a, XTYPE(a), b)
-
-#define XUNMARK(a)							\
-  ((a) =								\
-   (((unsigned)(a) << (BITS_PER_INT-GCTYPEBITS-VALBITS))		\
-    >> (BITS_PER_INT-GCTYPEBITS-VALBITS)))
-
+/* arch-tag: a4f5c090-0bd5-48f0-9724-b7d531f9b6c8
+   (do not change this comment) */

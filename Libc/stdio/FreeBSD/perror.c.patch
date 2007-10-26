@@ -1,0 +1,10 @@
+--- perror.c.orig	2003-05-20 15:22:43.000000000 -0700
++++ perror.c	2005-04-29 17:06:52.000000000 -0700
+@@ -73,6 +73,7 @@
+ 	v->iov_base = "\n";
+ 	v->iov_len = 1;
+ 	FLOCKFILE(stderr);
++	ORIENT(stderr, -1);
+ 	__sflush(stderr);
+ 	(void)_writev(stderr->_file, iov, (v - iov) + 1);
+ 	stderr->_flags &= ~__SOFF;

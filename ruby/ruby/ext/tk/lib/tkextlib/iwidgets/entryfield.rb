@@ -18,6 +18,11 @@ class Tk::Iwidgets::Entryfield
   WidgetClassName = 'Entryfield'.freeze
   WidgetClassNames[WidgetClassName] = self
 
+  def __font_optkeys
+    super() << 'textfont'
+  end
+  private :__font_optkeys
+
   ####################################
 
   include Tk::ValidateConfigure
@@ -46,7 +51,7 @@ class Tk::Iwidgets::Entryfield
   end
 
   def __validation_class_list
-    super << EntryfieldValidate
+    super() << EntryfieldValidate
   end
 
   Tk::ValidateConfigure.__def_validcmd(binding, EntryfieldValidate)

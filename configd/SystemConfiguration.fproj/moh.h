@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2003, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,12 +47,12 @@ MOHDispose	(
 
 int
 MOHExec		(int		ref,
-		u_long		link,
+		uint32_t	link,
 		uint32_t	cmd,
 		void		*request,
-		u_long		requestLen,
+		size_t		requestLen,
 		void		**reply,
-		u_long		*replyLen
+		size_t		*replyLen
 		);
 
 __END_DECLS

@@ -1,5 +1,5 @@
-# Utilities for GDBtk.
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Utilities for Insight.
+# Copyright 1997, 1998, 1999, 2004 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -272,4 +272,60 @@ proc gdbtk_endian {} {
   }
   return $result
 }
+
+# ------------------------------------------------------------------
+#  PROC:  set_bg_colors - set background and text background for
+#                        all windows.
+# ------------------------------------------------------------------
+proc set_bg_colors {{num ""}} {
+  debug $num
+
+  if {$num != ""} {
+    set ::gdb_bg_num $num
+  }
+  set ::Colors(textbg) [pref get gdb/bg/$::gdb_bg_num]
+
+  # calculate background as 80% of textbg
+  set ::Colors(bg) [recolor $::Colors(textbg) 80]
+
+  # calculate trough and activebackground as 90% of background
+  set dbg [recolor $::Colors(bg) 90]
+
+  r_setcolors . -background $::Colors(bg)
+  r_setcolors . -highlightbackground $::Colors(bg)
+  r_setcolors . -textbackground $::Colors(textbg)
+  r_setcolors . -troughcolor $dbg
+  r_setcolors . -activebackground $dbg
+
+  pref_set_option_db 1
+  ManagedWin::restart
+}
+
+# ------------------------------------------------------------------
+#  PROC:  r_setcolors - recursively set background and text background for
+#                        all windows.
+# ------------------------------------------------------------------
+proc r_setcolors {w option color} {
+  debug "$w $option $color"
+
+  # exception(s)
+  if {![catch {$w isa Balloon} result] && $result == "1"} {
+    return
+  }
+  catch {$w config $option $color}
+  
+  foreach child [winfo children $w] {
+    r_setcolors $child $option $color
+  }
+}
+
+# ------------------------------------------------------------------
+#  PROC:  recolor - returns a darker or lighter color
+# ------------------------------------------------------------------
+proc recolor {color percent} {
+  set c [winfo rgb . $color]
+  return [format #%02x%02x%02x [expr {($percent * [lindex $c 0]) / 25600}]  \
+	    [expr {($percent * [lindex $c 1]) / 25600}] [expr {($percent * [lindex $c 2]) / 25600}]]
+}
+
 

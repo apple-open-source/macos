@@ -23,18 +23,15 @@
 .Os "Mac OS X"
 .Sh NAME                 \" Section Header - required - don't modify 
 .Nm sar
-.\" The following lines are read in generating the apropos(man -k) database. Use only key
-.\" words here as the database is built based on the words here and in the .ND line. 
-.\" Use .Nm macro to designate other names for the documented program.
 .Nd system activity reporter
 .Sh SYNOPSIS             \" Section Header - required - don't modify
-.Nm
+.Nm sar
 .Op Fl dgpu              \" [-dgpu]
 .Op Fl n Ar mode         \" [-n mode]
 .Op Fl o Ar filename     \" [-o filename]
 t                        \" t
 .Op Ar n                 \" [ n ]
-.Nm
+.Nm sar
 .Op Fl dgpu              \" [-dgpu]
 .Op Fl n Ar mode         \" [-n mode]
 .Op Fl e Ar time         \" [-e time]
@@ -43,9 +40,10 @@ t                        \" t
 .Op Fl s Ar time         \" [-s time]
 .Sh DESCRIPTION          \" Section Header - required - don't modify
 The
-.Nm
+.Nm sar
 command is used to sample and report various cumulative statistic counters
-maintained by the operating system.  It can be invoked in two different ways.
+maintained by the operating system.
+It can be invoked in two different ways.
 .Pp
 In the first usage instance,
 .Ar n
@@ -56,41 +54,55 @@ If
 .Ar n
 is not specified, only one sample will be captured.
 When the -o option is specified,
-.Nm
+.Nm sar
 will write the binary sampling data to the output file specified by
 .Ar filename .
 .Pp
-In the second usage instance, there is no on-going sample interval to specify.
-This is because the sampling input comes from a previously recorded, binary activity file.
-The binary activity file can be specified using the -f
-.Ar filename
+In the second usage instance,
+there is no on-going sample interval to specify.
+This is because the sampling input comes
+from a previously recorded, binary activity file.
+The binary activity file can be specified using the
+.Fl f Ar filename
 option.
-When the -f option isn't used,
-.Nm
+When the
+.Fl f
+option isn't used,
+.Nm sar
 attempts to open a default binary activity file,
 /var/log/sa/sadd, where
 .Ar dd
 represents the current day of the month.
-The starting and ending time of the report can be restricted using the -e
-and -s options.  Here, the
+.Pp
+The starting and ending time of the report can be restricted using the
+.Fl e
+and
+.Fl s
+options.  Here, the
 .Ar time
 field is specified in the form hh[:mm[:ss]].
-Finally, the -i option can be used to select the sampling interval.  
+.Pp
+Finally, the
+.Fl i
+option can be used to select the sampling interval.  
 Only records at least
 .Ar seconds
 apart will be reported.
-When the -i option is not used, all of the previously recorded
-interval samples are reported.
+When the
+.Fl i
+option is not used,
+all of the previously recorded interval samples are reported.
 .Pp
-Due to the nature of on-going sample collection, the data is reported in a
-verbose mode when more than one sampling option is specified.
-Column headers are printed at the beginning of the report and averages are
-printed when the 
-.Nm
+Due to the nature of on-going sample collection,
+the data is reported in a verbose mode
+when more than one sampling option is specified.
+Column headers are printed at the beginning of the report;
+averages are printed when the 
+.Nm sar
 command terminates.
 .Sh OPTIONS
 The following options restrict the sample set that
-.Nm
+.Nm sar
 reports.
 .Pp                      \" Inserts a space
 .Bl -tag -width -indent  \" Differs from above in tag removed
@@ -199,13 +211,13 @@ are digits that represent the day of the month.
 .El
 .Sh SEE ALSO 
 .\" List links in ascending order by section, alphabetically within a section.
+.Xr fs_usage 1 ,
+.Xr netstat 1 ,
+.Xr sc_usage 1 ,
+.Xr top 1 , 
+.Xr vm_stat 1 ,
+.Xr iostat 8 ,
 .Xr sa1 8 , 
 .Xr sa2 8 ,
-.Xr sadc 8 ,
-.Xr iostat 8 ,
-.Xr vm_stat 1 ,
-.Xr netstat 1 ,
-.Xr top 1 , 
-.Xr sc_usage 1 ,
-.Xr fs_usage 1
+.Xr sadc 8
 .\" .Sh BUGS              \" Document known, unremedied bugs 

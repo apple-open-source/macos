@@ -73,14 +73,14 @@ static int wrap_saved_tempcount=0;
 
 #define WRAPPER_GROW	8
 
-void wrap_add_entry PROTO((WrapperEntry *e,int temp));
-void wrap_kill PROTO((void));
-void wrap_kill_temp PROTO((void));
-void wrap_free_entry PROTO((WrapperEntry *e));
-void wrap_free_entry_internal PROTO((WrapperEntry *e));
-void wrap_restore_saved PROTO((void));
+void wrap_add_entry (WrapperEntry *e,int temp);
+void wrap_kill (void);
+void wrap_kill_temp (void);
+void wrap_free_entry (WrapperEntry *e);
+void wrap_free_entry_internal (WrapperEntry *e);
+void wrap_restore_saved (void);
 
-void wrap_setup()
+void wrap_setup(void)
 {
     /* FIXME-reentrancy: if we do a multithreaded server, will need to
        move this to a per-connection data structure, or better yet
@@ -93,19 +93,13 @@ void wrap_setup()
     else
         wrap_setup_already_done = 1;
 
-#ifdef CLIENT_SUPPORT
     if (!current_parsed_root->isremote)
-#endif
     {
 	char *file;
 
-	file = xmalloc (strlen (current_parsed_root->directory)
-			+ sizeof (CVSROOTADM)
-			+ sizeof (CVSROOTADM_WRAPPER)
-			+ 3);
 	/* Then add entries found in repository, if it exists.  */
-	(void) sprintf (file, "%s/%s/%s", current_parsed_root->directory, CVSROOTADM,
-			CVSROOTADM_WRAPPER);
+	file = Xasprintf ("%s/%s/%s", current_parsed_root->directory,
+			  CVSROOTADM, CVSROOTADM_WRAPPER);
 	if (isfile (file))
 	{
 	    wrap_add_file(file,0);
@@ -156,7 +150,7 @@ void wrap_setup()
 /* Send -W arguments for the wrappers to the server.  The command must
    be one that accepts them (e.g. update, import).  */
 void
-wrap_send ()
+wrap_send (void)
 {
     int i;
 
@@ -198,9 +192,7 @@ wrap_send ()
  *
  * If first_call_p is nonzero, then start afresh.  */
 void
-wrap_unparse_rcs_options (line, first_call_p)
-    char **line;
-    int first_call_p;
+wrap_unparse_rcs_options (char **line, int first_call_p)
 {
     /* FIXME-reentrancy: we should design a reentrant interface, like
        a callback which gets handed each wrapper (a multithreaded
@@ -216,22 +208,10 @@ wrap_unparse_rcs_options (line, first_call_p)
         return;
     }
 
-    *line = xmalloc (strlen (wrap_list[i]->wildCard)
-                     + strlen ("\t")
-                     + strlen (" -k '")
-                     + (wrap_list[i]->rcsOption != NULL ? 
-                           strlen (wrap_list[i]->rcsOption) : 2)
-                     + strlen ("'")
-                     + 1);  /* leave room for '\0' */
-
-    strcpy (*line, wrap_list[i]->wildCard);
-    strcat (*line, " -k '");
-    if (wrap_list[i]->rcsOption != NULL)
-        strcat (*line, wrap_list[i]->rcsOption);
-    else
-        strcat (*line, "kv");
-    strcat (*line, "'");
-
+    *line = Xasprintf ("%s -k '%s'",
+		       wrap_list[i]->wildCard,
+		       wrap_list[i]->rcsOption
+		       ? wrap_list[i]->rcsOption : "kv");
     ++i;
 }
 #endif /* SERVER_SUPPORT || CLIENT_SUPPORT */
@@ -240,7 +220,7 @@ wrap_unparse_rcs_options (line, first_call_p)
  * Remove fmt str specifier other than %% or %s. And allow
  * only max_s %s specifiers
  */
-void
+static void
 wrap_clean_fmt_str(char *fmt, int max_s)
 {
     while (*fmt) {
@@ -266,9 +246,7 @@ wrap_clean_fmt_str(char *fmt, int max_s)
  * argument is set.
  */
 void
-wrap_add_file (file, temp)
-    const char *file;
-    int temp;
+wrap_add_file (const char *file, int temp)
 {
     FILE *fp;
     char *line = NULL;
@@ -296,7 +274,7 @@ wrap_add_file (file, temp)
 }
 
 void
-wrap_kill()
+wrap_kill(void)
 {
     wrap_kill_temp();
     while(wrap_count)
@@ -304,7 +282,7 @@ wrap_kill()
 }
 
 void
-wrap_kill_temp()
+wrap_kill_temp(void)
 {
     WrapperEntry **temps=wrap_list+wrap_count;
 
@@ -313,16 +291,14 @@ wrap_kill_temp()
 }
 
 void
-wrap_free_entry(e)
-     WrapperEntry *e;
+wrap_free_entry(WrapperEntry *e)
 {
     wrap_free_entry_internal(e);
     free(e);
 }
 
 void
-wrap_free_entry_internal(e)
-    WrapperEntry *e;
+wrap_free_entry_internal(WrapperEntry *e)
 {
     free (e->wildCard);
     if (e->tocvsFilter)
@@ -334,7 +310,7 @@ wrap_free_entry_internal(e)
 }
 
 void
-wrap_restore_saved()
+wrap_restore_saved(void)
 {
     if(!wrap_saved_list)
 	return;
@@ -353,9 +329,7 @@ wrap_restore_saved()
 }
 
 void
-wrap_add (line, isTemp)
-   char *line;
-   int         isTemp;
+wrap_add (char *line, int isTemp)
 {
     char *temp;
     char ctemp;
@@ -418,7 +392,8 @@ wrap_add (line, isTemp)
 	switch(opt){
 	case 'f':
 	    /* Before this is reenabled, need to address the problem in
-	       commit.c (see http://www.cvshome.org/docs/infowrapper.html).  */
+	       commit.c (see
+	       <http://ximbiot.com/cvs/cvshome/docs/infowrapper.html>).  */
 	    error (1, 0,
 		   "-t/-f wrappers not supported by this version of CVS\nA legacy version of cvs with -t/-f wrapper support is available as: /usr/bin/ocvs.");
 
@@ -426,13 +401,16 @@ wrap_add (line, isTemp)
 		free(e.fromcvsFilter);
 	    /* FIXME: error message should say where the bad value
 	       came from.  */
-	    e.fromcvsFilter=expand_path (temp, "<wrapper>", 0);
+	    e.fromcvsFilter =
+	      expand_path (temp, current_parsed_root->directory, false,
+			   "<wrapper>", 0);
             if (!e.fromcvsFilter)
 		error (1, 0, "Correct above errors first");
 	    break;
 	case 't':
 	    /* Before this is reenabled, need to address the problem in
-	       commit.c (see http://www.cvshome.org/docs/infowrapper.html).  */
+	       commit.c (see
+	       <http://ximbiot.com/cvs/cvshome/docs/infowrapper.html>).  */
 	    error (1, 0,
 		   "-t/-f wrappers not supported by this version of CVS\nA legacy version of cvs with -t/-f wrapper support is available as: /usr/bin/ocvs.");
 
@@ -440,7 +418,8 @@ wrap_add (line, isTemp)
 		free(e.tocvsFilter);
 	    /* FIXME: error message should say where the bad value
 	       came from.  */
-	    e.tocvsFilter=expand_path (temp, "<wrapper>", 0);
+	    e.tocvsFilter = expand_path (temp, current_parsed_root->directory,
+					 false, "<wrapper>", 0);
             if (!e.tocvsFilter)
 		error (1, 0, "Correct above errors first");
 	    break;
@@ -467,33 +446,29 @@ wrap_add (line, isTemp)
 }
 
 void
-wrap_add_entry(e, temp)
-    WrapperEntry *e;
-    int temp;
+wrap_add_entry (WrapperEntry *e, int temp)
 {
     int x;
-    if(wrap_count+wrap_tempcount>=wrap_size){
+    if (wrap_count + wrap_tempcount >= wrap_size)
+    {
 	wrap_size += WRAPPER_GROW;
-	wrap_list = (WrapperEntry **) xrealloc ((char *) wrap_list,
-						wrap_size *
-						sizeof (WrapperEntry *));
+	wrap_list = xnrealloc (wrap_list, wrap_size, sizeof (WrapperEntry *));
     }
 
-    if(!temp && wrap_tempcount){
-	for(x=wrap_count+wrap_tempcount-1;x>=wrap_count;--x)
-	    wrap_list[x+1]=wrap_list[x];
+    if (!temp && wrap_tempcount)
+    {
+	for (x = wrap_count + wrap_tempcount - 1; x >= wrap_count; --x)
+	    wrap_list[x + 1] = wrap_list[x];
     }
 
-    x=(temp ? wrap_count+(wrap_tempcount++):(wrap_count++));
-    wrap_list[x]=(WrapperEntry *)xmalloc(sizeof(WrapperEntry));
-    *wrap_list[x]=*e;
+    x = (temp ? wrap_count + (wrap_tempcount++) : (wrap_count++));
+    wrap_list[x] = xmalloc (sizeof (WrapperEntry));
+    *wrap_list[x] = *e;
 }
 
 /* Return 1 if the given filename is a wrapper filename */
 int
-wrap_name_has (name,has)
-    const char   *name;
-    WrapMergeHas  has;
+wrap_name_has (const char *name, WrapMergeHas has)
 {
     int x,count=wrap_count+wrap_tempcount;
     char *temp;
@@ -521,50 +496,35 @@ wrap_name_has (name,has)
     return (0);
 }
 
-static WrapperEntry *wrap_matching_entry PROTO ((const char *));
+static WrapperEntry *wrap_matching_entry (const char *);
 
 static WrapperEntry *
-wrap_matching_entry (name)
-    const char *name;
+wrap_matching_entry (const char *name)
 {
     int x,count=wrap_count+wrap_tempcount;
 
     for(x=0;x<count;++x)
 	if (CVS_FNMATCH (wrap_list[x]->wildCard, name, 0) == 0)
 	    return wrap_list[x];
-    return (WrapperEntry *)NULL;
+    return NULL;
 }
 
 /* Return the RCS options for FILENAME in a newly malloc'd string.  If
    ASFLAG, then include "-k" at the beginning (e.g. "-kb"), otherwise
    just give the option itself (e.g. "b").  */
 char *
-wrap_rcsoption (filename, asflag)
-    const char *filename;
-    int asflag;
+wrap_rcsoption (const char *filename, int asflag)
 {
     WrapperEntry *e = wrap_matching_entry (filename);
-    char *buf;
 
     if (e == NULL || e->rcsOption == NULL || (*e->rcsOption == '\0'))
 	return NULL;
 
-    buf = xmalloc (strlen (e->rcsOption) + 3);
-    if (asflag)
-    {
-	strcpy (buf, "-k");
-	strcat (buf, e->rcsOption);
-    }
-    else
-    {
-	strcpy (buf, e->rcsOption);
-    }
-    return buf;
+    return Xasprintf ("%s%s", asflag ? "-k" : "", e->rcsOption);
 }
 
 char *
-wrap_tocvs_process_file(fileName)
-    const char *fileName;
+wrap_tocvs_process_file(const char *fileName)
 {
     WrapperEntry *e=wrap_matching_entry(fileName);
     static char *buf = NULL;
@@ -577,22 +537,17 @@ wrap_tocvs_process_file(fileName)
 	free (buf);
     buf = cvs_temp_name ();
 
-    args = xmalloc (strlen (e->tocvsFilter)
-		    + strlen (fileName)
-		    + strlen (buf));
-
-    wrap_clean_fmt_str(e->tocvsFilter, 2);
-    sprintf (args, e->tocvsFilter, fileName, buf);
+    wrap_clean_fmt_str (e->tocvsFilter, 2);
+    args = Xasprintf (e->tocvsFilter, fileName, buf);
     run_setup (args);
-    run_exec(RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL|RUN_REALLY );
+    run_exec (RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL | RUN_REALLY );
     free (args);
 
     return buf;
 }
 
 int
-wrap_merge_is_copy (fileName)
-    const char *fileName;
+wrap_merge_is_copy (const char *fileName)
 {
     WrapperEntry *e=wrap_matching_entry(fileName);
     if(e==NULL || e->mergeMethod==WRAP_MERGE)
@@ -602,22 +557,18 @@ wrap_merge_is_copy (fileName)
 }
 
 void
-wrap_fromcvs_process_file(fileName)
-    const char *fileName;
+wrap_fromcvs_process_file(const char *fileName)
 {
     char *args;
-    WrapperEntry *e=wrap_matching_entry(fileName);
+    WrapperEntry *e = wrap_matching_entry(fileName);
 
-    if(e==NULL || e->fromcvsFilter==NULL)
-	return;
-
-    args = xmalloc (strlen (e->fromcvsFilter)
-		    + strlen (fileName));
-
-    wrap_clean_fmt_str(e->fromcvsFilter, 1);
-    sprintf (args, e->fromcvsFilter, fileName);
-    run_setup (args);
-    run_exec(RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL );
-    free (args);
+    if (e != NULL && e->fromcvsFilter != NULL)
+    {
+	wrap_clean_fmt_str (e->fromcvsFilter, 1);
+	args = Xasprintf (e->fromcvsFilter, fileName);
+	run_setup (args);
+	run_exec (RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL);
+	free (args);
+    }
     return;
 }

@@ -1,6 +1,7 @@
 ;;; bib-mode.el --- major mode for editing bib files
 
-;; Copyright (C) 1989 Free Software Foundation, Inc.
+;; Copyright (C) 1989, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: bib
@@ -19,13 +20,13 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;;   GNU Emacs code to help maintain databases compatible with (troff)
-;;   refer and lookbib.  The file bib-file should be set to your 
+;;   refer and lookbib.  The file bib-file should be set to your
 ;;   bibliography file.  Keys are automagically inserted as you type,
 ;;   and appropriate keys are presented for various kinds of entries.
 
@@ -34,6 +35,7 @@
 (defgroup bib nil
   "Major mode for editing bib files."
   :prefix "bib-"
+  :group 'external
   :group 'wp)
 
 (defcustom bib-file "~/my-bibliography.bib"
@@ -51,26 +53,24 @@
 (define-key bib-mode-map "\C-c\C-u" 'unread-bib)
 (define-key bib-mode-map "\C-c\C-@" 'mark-bib)
 (define-key bib-mode-map "\e`" 'abbrev-mode)
-(defvar bib-mode-abbrev-table nil
-   "Abbrev table used in Bib mode")
 
 (defun addbib ()
-   "Set up editor to add to troff bibliography file specified 
+   "Set up editor to add to troff bibliography file specified
 by global variable `bib-file'.  See description of `bib-mode'."
    (interactive)
    (find-file bib-file)
    (goto-char (point-max))
    (bib-mode)
    )
-   
-(defun bib-mode ()
-   "Mode for editing `lookbib' style bibliographies.  
+
+(define-derived-mode bib-mode text-mode "Bib"
+   "Mode for editing `lookbib' style bibliographies.
 Hit RETURN to get next % field key.
 If you want to ignore this field, just hit RETURN again.
 Use `text-mode' to turn this feature off.
 
  journal papers:                    A* T D J V N P K W X
- articles in books & proceedings:   A* T D B E* I C P K W X 
+ articles in books & proceedings:   A* T D B E* I C P K W X
  tech reports:                      A* T D R I C K W X
  books:                             A* T D I C K W X
 
@@ -80,7 +80,7 @@ A uthor		T itle		D ate  		J ournal
 V olume		N umber		P age		K eywords
 B in book or proceedings	E ditor		C ity & state
 I nstitution, school, or publisher
-R eport number or 'phd thesis' or 'masters thesis' or 'draft' or 
+R eport number or 'phd thesis' or 'masters thesis' or 'draft' or
      'unnumbered' or 'unpublished'
 W here can be found locally (login name, or ailib, etc.)
 X comments (not used in indexing)
@@ -94,45 +94,33 @@ Hook can be stored in `bib-mode-hook'.
 Field keys given by variable `bib-assoc'.
 
 Commands:
-\\{bib-mode-map}
-"
-   (interactive)
-   (text-mode)
-   (use-local-map bib-mode-map)
-   (setq mode-name "Bib")
-   (setq major-mode 'bib-mode)
-   (define-abbrev-table 'bib-mode-abbrev-table ())
-   (setq local-abbrev-table bib-mode-abbrev-table)
-   (abbrev-mode 1)
-   (run-hooks 'bib-mode-hook)
-   )
+\\{bib-mode-map}"
+   (abbrev-mode 1))
 
-(defconst bib-assoc '(
-		   (" *$" . "%A ")
-		   ("%A ." . "%A ")
-		   ("%A $" . "%T ")
-		   ("%T " . "%D ")
-		   ("%D " . "%J ")
-		   ("%J ." . "%V ")
-		   ("%V " . "%N ")
-		   ("%N " . "%P ")
-		   ("%P " . "%K ")
-		   ("%K " . "%W ")
-		   ("%W " . "%X ")
-		   ("%X " . "")
-		   ("%J $" . "%B ")
-		   ("%B ." . "%E ")
-		   ("%E ." . "%E ")
-		   ("%E $" . "%I ")
-		   ("%I " . "%C ")
-		   ("%C " . "%P ")
-		   ("%B $" . "%R ")
-		   ("%R " . "%I ")
-		   )
-		   
-"Describes bibliographic database format.  A line beginning with
-the car of an entry is followed by one beginning with the cdr.
-")
+(defconst bib-assoc
+  '((" *$" . "%A ")
+    ("%A ." . "%A ")
+    ("%A $" . "%T ")
+    ("%T " . "%D ")
+    ("%D " . "%J ")
+    ("%J ." . "%V ")
+    ("%V " . "%N ")
+    ("%N " . "%P ")
+    ("%P " . "%K ")
+    ("%K " . "%W ")
+    ("%W " . "%X ")
+    ("%X " . "")
+    ("%J $" . "%B ")
+    ("%B ." . "%E ")
+    ("%E ." . "%E ")
+    ("%E $" . "%I ")
+    ("%I " . "%C ")
+    ("%C " . "%P ")
+    ("%B $" . "%R ")
+    ("%R " . "%I "))
+  "Describes bibliographic database format.
+A line beginning with the car of an entry is followed by one beginning
+with the cdr.")
 
 (defun bib-find-key (slots)
    (cond
@@ -180,7 +168,7 @@ the car of an entry is followed by one beginning with the cdr.
 	(kill-line nil)
 	(forward-line 1)
 	)
-      (insert-string new-key))
+      (insert new-key))
     (newline)))
 
 (defun mark-bib ()
@@ -249,4 +237,5 @@ named by variable `unread-bib-file'."
 
 (provide 'bib-mode)
 
+;;; arch-tag: e3a97958-3c2c-487f-9557-fafc3c98452d
 ;;; bib-mode.el ends here

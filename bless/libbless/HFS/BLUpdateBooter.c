@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,36 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen on 2/2/05.
- *  Copyright 2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2005-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLUpdateBooter.c,v 1.7 2005/08/22 20:49:23 ssen Exp $
- *
- *  $Log: BLUpdateBooter.c,v $
- *  Revision 1.7  2005/08/22 20:49:23  ssen
- *  Change functions to take "char *foo" instead of "char foo[]".
- *  It should be semantically identical, and be more consistent with
- *  other system APIs
- *
- *  Revision 1.6  2005/06/24 16:51:06  ssen
- *  add includes for sys/param.h
- *
- *  Revision 1.5  2005/06/24 16:39:50  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.4  2005/02/23 17:19:32  ssen
- *  initialize variables to 0
- *
- *  Revision 1.3  2005/02/04 13:11:46  ssen
- *  Convert OF label code to using generic booter updating code.
- *
- *  Revision 1.2  2005/02/04 01:43:55  ssen
- *  Move RAID plist code over to common booter update code. Hopefully
- *  this is the last time this code has to be copied.
- *
- *  Revision 1.1  2005/02/03 00:34:09  ssen
- *  start work on generic booter update code
+ *  $Id: BLUpdateBooter.c,v 1.8 2006/02/20 22:49:55 ssen Exp $
  *
  */
 

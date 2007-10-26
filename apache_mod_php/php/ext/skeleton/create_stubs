@@ -67,7 +67,7 @@ BEGIN {
 			
 
 	xmlhead = "<?xml version='1.0' encoding='iso-8859-1'?>\n" \
-    "<!-- $Revision: 1.24 $ -->\n" \
+    "<!-- $Revision: 1.27 $ -->\n" \
     " <reference id=\"ref." extname "\">\n" \
 		"  <title> functions</title>\n" \
 		"  <titleabbrev></titleabbrev>\n\n" \
@@ -153,7 +153,7 @@ BEGIN {
 	}
 
 #	if (x = gobble("\\)")) {
-		gobble("\\]* *)")
+		gobble("\\]* *\\)")
 		sub(/^[ \t]+/, "", line)
 		fcomments[num_funcs] = line
 #	}

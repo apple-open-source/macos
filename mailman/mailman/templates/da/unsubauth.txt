@@ -1,4 +1,4 @@
-Følgende har ansøgt om at blive frameldt fra listen og du skal
+Følgende har anmodet om at blive afmeldt listen og du skal
 nu godkende:
 
     Fra:   %(username)s
@@ -8,4 +8,4 @@ Du bør snarest besøge:
 
     %(admindb_url)s
 
-for at godkende eller afvise ønsket om udmeldelse.
+for at godkende eller afvise ønsket om afmelding.

@@ -1,0 +1,48 @@
+--- Makefile.in.orig	2005-11-15 16:56:15.000000000 -0800
++++ Makefile.in	2006-05-30 14:58:04.000000000 -0700
+@@ -162,8 +162,8 @@
+ LINK_APACHE_MOD = $(LIBTOOL) $(LTFLAGS) --mode=link $(CC) $(LT_LDFLAGS) $(CFLAGS) $(LDFLAGS) -rpath $(APACHE_LIBEXECDIR) -avoid-version -module $(APACHE_LDFLAGS)
+ 
+ # Compilation of SWIG-generated C source code
+-COMPILE_PY_WRAPPER = $(LIBTOOL) $(LTFLAGS) --mode=compile $(SWIG_PY_COMPILE) $(CPPFLAGS) $(SWIG_INCLUDES) $(SWIG_PY_INCLUDES) -prefer-pic -c -o $@
+-COMPILE_RB_WRAPPER = $(LIBTOOL) $(LTFLAGS) --mode=compile $(SWIG_RB_COMPILE) $(CPPFLAGS) $(SWIG_INCLUDES) $(SWIG_RB_INCLUDES) -prefer-pic -c -o $@
++COMPILE_PY_WRAPPER = $(LIBTOOL) $(LTFLAGS) --mode=compile $(SWIG_PY_COMPILE) $(CPPFLAGS) $(CFLAGS) $(SWIG_INCLUDES) $(SWIG_PY_INCLUDES) -prefer-pic -c -o $@
++COMPILE_RB_WRAPPER = $(LIBTOOL) $(LTFLAGS) --mode=compile $(SWIG_RB_COMPILE) $(CPPFLAGS) $(CFLAGS) $(SWIG_INCLUDES) $(SWIG_RB_INCLUDES) -prefer-pic -c -o $@
+ 
+ # these commands link the wrapper objects into an extension library/module
+ LINK_PY_WRAPPER = $(LIBTOOL) $(LTFLAGS) --mode=link $(SWIG_PY_LINK) $(SWIG_LDFLAGS) -rpath $(swig_pydir) -avoid-version -module
+@@ -606,7 +606,7 @@
+ 	./config.status subversion/bindings/swig/perl/native/Makefile.PL
+ 
+ $(SWIG_PL_DIR)/native/Makefile: $(SWIG_PL_DIR)/native/Makefile.PL
+-	cd $(SWIG_PL_DIR)/native; $(PERL) Makefile.PL
++	cd $(SWIG_PL_DIR)/native; $(PERL) Makefile.PL $(PLARGS)
+ 
+ swig-pl_DEPS = autogen-swig-pl libsvn_client libsvn_delta libsvn_diff \
+   libsvn_fs libsvn_ra libsvn_repos libsvn_subr libsvn_wc libsvn_swig_perl \
+@@ -615,13 +615,13 @@
+ 	if test "$(SWIG_PL_DIR)" != "$(SWIG_PL_SRC_DIR)"; then \
+ 	  ln -sf $(SWIG_PL_SRC_DIR)/native/*.c $(SWIG_PL_DIR)/native; \
+ 	fi
+-	cd $(SWIG_PL_DIR)/native; $(MAKE)
++	cd $(SWIG_PL_DIR)/native; $(MAKE) $(MAKEARGS)
+ 
+ check-swig-pl: swig-pl swig-pl-lib
+-	cd $(SWIG_PL_DIR)/native; $(MAKE) test
++	cd $(SWIG_PL_DIR)/native; $(MAKE) test $(MAKEARGS)
+ 
+ install-swig-pl: swig-pl install-swig-pl-lib
+-	cd $(SWIG_PL_DIR)/native; $(MAKE) install
++	cd $(SWIG_PL_DIR)/native; $(MAKE) install $(MAKEARGS)
+ 
+ EXTRACLEAN_SWIG_PL=rm -f $(SWIG_PL_SRC_DIR)/native/svn_*.c \
+                          $(SWIG_PL_SRC_DIR)/native/core.c
+@@ -639,7 +639,7 @@
+ 	  rm -rf *.lo *.la *.o .libs; \
+ 	done
+ 	if [ -f "$(SWIG_PL_DIR)/native/Makefile" ]; then \
+-	  cd $(SWIG_PL_DIR)/native; $(MAKE) clean; \
++	  cd $(SWIG_PL_DIR)/native; $(MAKE) clean $(MAKEARGS); \
+ 	fi
+ 
+ extraclean-swig-pl: clean-swig-pl

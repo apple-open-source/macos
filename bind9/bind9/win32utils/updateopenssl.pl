@@ -14,7 +14,7 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: updateopenssl.pl,v 1.3.10.3 2006/10/11 03:48:29 marka Exp $
+# $Id: updateopenssl.pl,v 1.3.12.3 2006/10/11 03:49:20 marka Exp $
 
 # updateopenssl.pl
 # This script locates the latest version of OpenSSL in the grandparent

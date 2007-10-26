@@ -59,11 +59,11 @@ static char_u *menutrans_lookup __ARGS((char_u *name, int len));
 #endif
 
 /* The character for each menu mode */
-static char_u	menu_mode_chars[] = {'n', 'v', 'o', 'i', 'c', 't'};
+static char_u	menu_mode_chars[] = {'n', 'v', 's', 'o', 'i', 'c', 't'};
 
 static char_u e_notsubmenu[] = N_("E327: Part of menu-item path is not sub-menu");
 static char_u e_othermode[] = N_("E328: Menu only exists in another mode");
-static char_u e_nomenu[] = N_("E329: No menu of that name");
+static char_u e_nomenu[] = N_("E329: No menu \"%s\"");
 
 #ifdef FEAT_TOOLBAR
 static const char *toolbar_names[] =
@@ -91,6 +91,7 @@ ex_menu(eap)
     char_u	*map_to;
     int		noremap;
     int		silent = FALSE;
+    int		special = FALSE;
     int		unmenu;
     char_u	*map_buf;
     char_u	*arg;
@@ -131,6 +132,12 @@ ex_menu(eap)
 	    arg = skipwhite(arg + 8);
 	    continue;
 	}
+	if (STRNCMP(arg, "<special>", 9) == 0)
+	{
+	    special = TRUE;
+	    arg = skipwhite(arg + 9);
+	    continue;
+	}
 	break;
     }
 
@@ -146,12 +153,7 @@ ex_menu(eap)
 	{
 	    if (*arg == '\\')
 		mch_memmove(arg, arg + 1, STRLEN(arg));
-#ifdef FEAT_MBYTE
-	    if (has_mbyte)
-		arg += (*mb_ptr2len_check)(arg);
-	    else
-#endif
-		++arg;
+	    mb_ptr_adv(arg);
 	}
 	if (*arg != NUL)
 	{
@@ -164,7 +166,7 @@ ex_menu(eap)
      * Fill in the priority table.
      */
     for (p = arg; *p; ++p)
-	if (!isdigit(*p) && *p != '.')
+	if (!VIM_ISDIGIT(*p) && *p != '.')
 	    break;
     if (vim_iswhite(*p))
     {
@@ -331,10 +333,26 @@ ex_menu(eap)
     {
 	/*
 	 * Change sensitivity of the menu.
+	 * For the PopUp menu, remove a menu for each mode separately.
 	 * Careful: menu_nable_recurse() changes menu_path.
 	 */
 	if (STRCMP(menu_path, "*") == 0)	/* meaning: do all menus */
 	    menu_path = (char_u *)"";
+
+	if (menu_is_popup(menu_path))
+	{
+	    for (i = 0; i < MENU_INDEX_TIP; ++i)
+		if (modes & (1 << i))
+		{
+		    p = popup_mode_name(menu_path, i);
+		    if (p != NULL)
+		    {
+			menu_nable_recurse(root_menu, p, MENU_ALL_MODES,
+								      enable);
+			vim_free(p);
+		    }
+		}
+	}
 	menu_nable_recurse(root_menu, menu_path, modes, enable);
     }
     else if (unmenu)
@@ -376,8 +394,10 @@ ex_menu(eap)
 	    map_to = (char_u *)"";
 	    map_buf = NULL;
 	}
+	else if (modes & MENU_TIP_MODE)
+	    map_buf = NULL;	/* Menu tips are plain text. */
 	else
-	    map_to = replace_termcodes(map_to, &map_buf, FALSE, TRUE);
+	    map_to = replace_termcodes(map_to, &map_buf, FALSE, TRUE, special);
 	menuarg.modes = modes;
 #ifdef FEAT_TOOLBAR
 	menuarg.iconfile = icon;
@@ -421,7 +441,7 @@ ex_menu(eap)
 	vim_free(map_buf);
     }
 
-#if defined(FEAT_GUI) && !defined(FEAT_GUI_GTK)
+#if defined(FEAT_GUI) && !(defined(FEAT_GUI_GTK))
     /* If the menubar height changed, resize the window */
     if (gui.in_use
 	    && (gui.menu_height != old_menu_height
@@ -429,7 +449,7 @@ ex_menu(eap)
 		|| gui.toolbar_height != old_toolbar_height
 # endif
 	    ))
-	gui_set_shellsize(FALSE, FALSE);
+	gui_set_shellsize(FALSE, FALSE, RESIZE_VERT);
 #endif
 
 theend:
@@ -663,17 +683,13 @@ add_menu_path(menu_path, menuarg, pri_tab, call_data
 
 		    STRCPY(tearpath, menu_path);
 		    idx = (int)(next_name - path_name - 1);
-		    for (s = tearpath; *s && s < tearpath + idx; ++s)
+		    for (s = tearpath; *s && s < tearpath + idx; mb_ptr_adv(s))
 		    {
 			if ((*s == '\\' || *s == Ctrl_V) && s[1])
 			{
 			    ++idx;
 			    ++s;
 			}
-#  ifdef FEAT_MBYTE
-			if (has_mbyte)
-			    s += (*mb_ptr2len_check)(s) - 1;
-#  endif
 		    }
 		    tearpath[idx] = NUL;
 		    gui_add_tearoff(tearpath, pri_tab, pri_idx);
@@ -730,6 +746,7 @@ add_menu_path(menu_path, menuarg, pri_tab, call_data
 		    switch (1 << i)
 		    {
 			case MENU_VISUAL_MODE:
+			case MENU_SELECT_MODE:
 			case MENU_OP_PENDING_MODE:
 			case MENU_CMDLINE_MODE:
 			    c = Ctrl_C;
@@ -749,7 +766,7 @@ add_menu_path(menu_path, menuarg, pri_tab, call_data
 			STRCPY(menu->strings[i] + 1, call_data);
 			if (c == Ctrl_C)
 			{
-			    int	    len = STRLEN(menu->strings[i]);
+			    int	    len = (int)STRLEN(menu->strings[i]);
 
 			    /* Append CTRL-\ CTRL-G to obey 'insertmode'. */
 			    menu->strings[i][len] = Ctrl_BSL;
@@ -764,7 +781,8 @@ add_menu_path(menu_path, menuarg, pri_tab, call_data
 		menu->silent[i] = menuarg->silent[0];
 	    }
 	}
-#if defined(FEAT_TOOLBAR) && (defined(FEAT_BEVAL) || defined(FEAT_GUI_GTK))
+#if defined(FEAT_TOOLBAR) && !defined(FEAT_GUI_W32) \
+	&& (defined(FEAT_BEVAL) || defined(FEAT_GUI_GTK))
 	/* Need to update the menu tip. */
 	if (modes & MENU_TIP_MODE)
 	    gui_mch_menu_set_tip(menu);
@@ -831,7 +849,7 @@ menu_nable_recurse(menu, name, modes, enable)
     }
     if (*name != NUL && *name != '*' && menu == NULL)
     {
-	EMSG(_(e_nomenu));
+	EMSG2(_(e_nomenu), name);
 	return FAIL;
     }
 
@@ -924,7 +942,7 @@ remove_menu(menup, name, modes, silent)
 	if (menu == NULL)
 	{
 	    if (!silent)
-		EMSG(_(e_nomenu));
+		EMSG2(_(e_nomenu), name);
 	    return FAIL;
 	}
 
@@ -942,7 +960,8 @@ remove_menu(menup, name, modes, silent)
 	if (modes & MENU_TIP_MODE)
 	{
 	    free_menu_string(menu, MENU_INDEX_TIP);
-#if defined(FEAT_TOOLBAR) && (defined(FEAT_BEVAL) || defined(FEAT_GUI_GTK))
+#if defined(FEAT_TOOLBAR) && !defined(FEAT_GUI_W32) \
+	    && (defined(FEAT_BEVAL) || defined(FEAT_GUI_GTK))
 	    /* Need to update the menu tip. */
 	    if (gui.in_use)
 		gui_mch_menu_set_tip(menu);
@@ -990,6 +1009,9 @@ free_menu(menup)
     vim_free(menu->actext);
 #ifdef FEAT_TOOLBAR
     vim_free(menu->iconfile);
+# ifdef FEAT_GUI_MOTIF
+    vim_free(menu->xpm_fname);
+# endif
 #endif
     for (i = 0; i < MENU_MODES; i++)
 	free_menu_string(menu, i);
@@ -1065,7 +1087,7 @@ show_menus(path_name, modes)
 	}
 	if (menu == NULL)
 	{
-	    EMSG(_(e_nomenu));
+	    EMSG2(_(e_nomenu), name);
 	    vim_free(path_name);
 	    return FAIL;
 	}
@@ -1194,7 +1216,7 @@ set_context_in_menu_cmd(xp, cmd, arg, forceit)
 
     /* Check for priority numbers, enable and disable */
     for (p = arg; *p; ++p)
-	if (!isdigit(*p) && *p != '.')
+	if (!VIM_ISDIGIT(*p) && *p != '.')
 	    break;
 
     if (!vim_iswhite(*p))
@@ -1244,8 +1266,7 @@ set_context_in_menu_cmd(xp, cmd, arg, forceit)
 	    path_name = alloc((unsigned)(after_dot - arg));
 	    if (path_name == NULL)
 		return NULL;
-	    STRNCPY(path_name, arg, after_dot - arg - 1);
-	    path_name[after_dot - arg - 1] = NUL;
+	    vim_strncpy(path_name, arg, after_dot - arg - 1);
 	}
 	name = path_name;
 	while (name != NULL && *name)
@@ -1279,6 +1300,7 @@ set_context_in_menu_cmd(xp, cmd, arg, forceit)
 	    name = p;
 	    menu = menu->children;
 	}
+	vim_free(path_name);
 
 	xp->xp_context = expand_menus ? EXPAND_MENUNAMES : EXPAND_MENUS;
 	xp->xp_pattern = after_dot;
@@ -1383,6 +1405,7 @@ get_menu_names(xp, idx)
 /*
  * Skip over this element of the menu path and return the start of the next
  * element.  Any \ and ^Vs are removed from the current element.
+ * "name" may be modified.
  */
     char_u *
 menu_name_skip(name)
@@ -1390,7 +1413,7 @@ menu_name_skip(name)
 {
     char_u  *p;
 
-    for (p = name; *p && *p != '.'; p++)
+    for (p = name; *p && *p != '.'; mb_ptr_adv(p))
     {
 	if (*p == '\\' || *p == Ctrl_V)
 	{
@@ -1398,10 +1421,6 @@ menu_name_skip(name)
 	    if (*p == NUL)
 		break;
 	}
-#ifdef FEAT_MBYTE
-	if (has_mbyte)
-	    p += (*mb_ptr2len_check)(p) - 1;	/* skip multibyte char */
-#endif
     }
     if (*p)
 	*p++ = NUL;
@@ -1454,7 +1473,13 @@ get_menu_cmd_modes(cmd, forceit, noremap, unmenu)
     switch (*cmd++)
     {
 	case 'v':			/* vmenu, vunmenu, vnoremenu */
+	    modes = MENU_VISUAL_MODE | MENU_SELECT_MODE;
+	    break;
+	case 'x':			/* xmenu, xunmenu, xnoremenu */
 	    modes = MENU_VISUAL_MODE;
+	    break;
+	case 's':			/* smenu, sunmenu, snoremenu */
+	    modes = MENU_SELECT_MODE;
 	    break;
 	case 'o':			/* omenu */
 	    modes = MENU_OP_PENDING_MODE;
@@ -1470,10 +1495,11 @@ get_menu_cmd_modes(cmd, forceit, noremap, unmenu)
 	    break;
 	case 'a':			/* amenu */
 	    modes = MENU_INSERT_MODE | MENU_CMDLINE_MODE | MENU_NORMAL_MODE
-				    | MENU_VISUAL_MODE | MENU_OP_PENDING_MODE;
+				    | MENU_VISUAL_MODE | MENU_SELECT_MODE
+				    | MENU_OP_PENDING_MODE;
 	    break;
 	case 'n':
-	    if (cmd[1] != 'o')		/* nmenu */
+	    if (*cmd != 'o')		/* nmenu, not noremenu */
 	    {
 		modes = MENU_NORMAL_MODE;
 		break;
@@ -1484,7 +1510,7 @@ get_menu_cmd_modes(cmd, forceit, noremap, unmenu)
 	    if (forceit)		/* menu!! */
 		modes = MENU_INSERT_MODE | MENU_CMDLINE_MODE;
 	    else			/* menu */
-		modes = MENU_NORMAL_MODE | MENU_VISUAL_MODE
+		modes = MENU_NORMAL_MODE | MENU_VISUAL_MODE | MENU_SELECT_MODE
 						       | MENU_OP_PENDING_MODE;
     }
 
@@ -1535,7 +1561,12 @@ get_menu_index(menu, state)
 	idx = MENU_INDEX_CMDLINE;
 #ifdef FEAT_VISUAL
     else if (VIsual_active)
-	idx = MENU_INDEX_VISUAL;
+    {
+	if (VIsual_select)
+	    idx = MENU_INDEX_SELECT;
+	else
+	    idx = MENU_INDEX_VISUAL;
+    }
 #endif
     else if (state == HITRETURN || state == ASKMORE)
 	idx = MENU_INDEX_CMDLINE;
@@ -1578,12 +1609,16 @@ menu_text(str, mnemonic, actext)
     }
     else
 	text = vim_strsave(str);
-    if (text != NULL)
+
+    /* Find mnemonic characters "&a" and reduce "&&" to "&". */
+    for (p = text; p != NULL; )
     {
-	p = vim_strchr(text, '&');
+	p = vim_strchr(p, '&');
 	if (p != NULL)
 	{
-	    if (mnemonic != NULL)
+	    if (p[1] == NUL)	    /* trailing "&" */
+		break;
+	    if (mnemonic != NULL && p[1] != '&')
 #if !defined(__MVS__) || defined(MOTIF390_MNEMONIC_FIXED)
 		*mnemonic = p[1];
 #else
@@ -1600,6 +1635,7 @@ menu_text(str, mnemonic, actext)
 	    }
 #endif
 	    mch_memmove(p, p + 1, STRLEN(p));
+	    p = p + 1;
 	}
     }
     return text;
@@ -1627,9 +1663,9 @@ menu_is_popup(name)
     return (STRNCMP(name, "PopUp", 5) == 0);
 }
 
-#if defined(FEAT_GUI_MOTIF) || defined(PROTO)
+#if (defined(FEAT_GUI_MOTIF) && (XmVersion <= 1002)) || defined(PROTO)
 /*
- * Return TRUE if "name" is part of a poup menu.
+ * Return TRUE if "name" is part of a popup menu.
  */
     int
 menu_is_child_of_popup(menu)
@@ -1697,7 +1733,11 @@ get_menu_mode()
 {
 #ifdef FEAT_VISUAL
     if (VIsual_active)
+    {
+	if (VIsual_select)
+	    return MENU_INDEX_SELECT;
 	return MENU_INDEX_VISUAL;
+    }
 #endif
     if (State & INSERT)
 	return MENU_INDEX_INSERT;
@@ -1820,8 +1860,8 @@ gui_update_menus(modes)
     }
 }
 
-#if defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_GTK) \
-    || defined(FEAT_GUI_PHOTON) || defined(PROTO)
+#if defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_MOTIF) \
+    || defined(FEAT_GUI_GTK) || defined(FEAT_GUI_PHOTON) || defined(PROTO)
 /*
  * Check if a key is used as a mnemonic for a toplevel menu.
  * Case of the key is ignored.
@@ -1857,6 +1897,16 @@ gui_show_popupmenu()
     if (mode == MENU_INDEX_INVALID)
 	return;
     mode = menu_mode_chars[mode];
+
+#ifdef FEAT_AUTOCMD
+    {
+	char_u	    ename[2];
+
+	ename[0] = mode;
+	ename[1] = NUL;
+	apply_autocmds(EVENT_MENUPOPUP, ename, NULL, FALSE, curbuf);
+    }
+#endif
 
     for (menu = root_menu; menu != NULL; menu = menu->next)
 	if (STRNCMP("PopUp", menu->name, 5) == 0 && menu->name[5] == mode)
@@ -2082,8 +2132,13 @@ ex_emenu(eap)
 	return;
     }
 
-    /* Found the menu, so execute. */
-    if (restart_edit)
+    /* Found the menu, so execute.
+     * Use the Insert mode entry when returning to Insert mode. */
+    if (restart_edit
+#ifdef FEAT_EVAL
+	    && !current_SID
+#endif
+	    )
     {
 	mode = (char_u *)"Insert";
 	idx = MENU_INDEX_INSERT;
@@ -2098,16 +2153,15 @@ ex_emenu(eap)
 	/* GEDDES: This is not perfect - but it is a
 	 * quick way of detecting whether we are doing this from a
 	 * selection - see if the range matches up with the visual
-	 * select start and end.
-	 */
-	if ((curbuf->b_visual_start.lnum == eap->line1)
-		&& (curbuf->b_visual_end.lnum) == eap->line2)
+	 * select start and end.  */
+	if ((curbuf->b_visual.vi_start.lnum == eap->line1)
+		&& (curbuf->b_visual.vi_end.lnum) == eap->line2)
 	{
 	    /* Set it up for visual mode - equivalent to gv.  */
-	    VIsual_mode = curbuf->b_visual_mode;
-	    tpos = curbuf->b_visual_end;
-	    curwin->w_cursor = curbuf->b_visual_start;
-	    curwin->w_curswant = curbuf->b_visual_curswant;
+	    VIsual_mode = curbuf->b_visual.vi_mode;
+	    tpos = curbuf->b_visual.vi_end;
+	    curwin->w_cursor = curbuf->b_visual.vi_start;
+	    curwin->w_curswant = curbuf->b_visual.vi_curswant;
 	}
 	else
 	{
@@ -2117,10 +2171,12 @@ ex_emenu(eap)
 	    curwin->w_cursor.col = 1;
 	    tpos.lnum = eap->line2;
 	    tpos.col = MAXCOL;
+#ifdef FEAT_VIRTUALEDIT
+	    tpos.coladd = 0;
+#endif
 	}
 
-	/* Activate visual mode
-	 */
+	/* Activate visual mode */
 	VIsual_active = TRUE;
 	VIsual_reselect = TRUE;
 	check_cursor();
@@ -2130,8 +2186,7 @@ ex_emenu(eap)
 	check_cursor();
 
 	/* Adjust the cursor to make sure it is in the correct pos
-	 * for exclusive mode
-	 */
+	 * for exclusive mode */
 	if (*p_sel == 'e' && gchar_cursor() != NUL)
 	    ++curwin->w_cursor.col;
     }
@@ -2143,7 +2198,15 @@ ex_emenu(eap)
 
     if (idx != MENU_INDEX_INVALID && menu->strings[idx] != NULL)
     {
-	ins_typebuf(menu->strings[idx], menu->noremap[idx], 0,
+	/* When executing a script or function execute the commands right now.
+	 * Otherwise put them in the typeahead buffer. */
+#ifdef FEAT_En
+	if (current_SID != 0)
+	    exec_normal_cmd(menu->strings[idx], menu->noremap[idx],
+							   menu->silent[idx]);
+	else
+#endif
+	    ins_typebuf(menu->strings[idx], menu->noremap[idx], 0,
 						     TRUE, menu->silent[idx]);
     }
     else
@@ -2221,6 +2284,7 @@ theend:
 typedef struct
 {
     char_u	*from;		/* English name */
+    char_u	*from_noamp;	/* same, without '&' */
     char_u	*to;		/* translated name */
 } menutrans_T;
 
@@ -2241,7 +2305,7 @@ ex_menutranslate(eap)
     char_u		*arg = eap->arg;
     menutrans_T		*tp;
     int			i;
-    char_u		*from, *to;
+    char_u		*from, *from_noamp, *to;
 
     if (menutrans_ga.ga_itemsize == 0)
 	ga_init2(&menutrans_ga, (int)sizeof(menutrans_T), 5);
@@ -2255,6 +2319,7 @@ ex_menutranslate(eap)
 	for (i = 0; i < menutrans_ga.ga_len; ++i)
 	{
 	    vim_free(tp[i].from);
+	    vim_free(tp[i].from_noamp);
 	    vim_free(tp[i].to);
 	}
 	ga_clear(&menutrans_ga);
@@ -2279,13 +2344,23 @@ ex_menutranslate(eap)
 	    {
 		tp = (menutrans_T *)menutrans_ga.ga_data;
 		from = vim_strsave(from);
-		to = vim_strnsave(to, (int)(arg - to));
-		if (from != NULL && to != NULL)
+		if (from != NULL)
 		{
-		    tp[menutrans_ga.ga_len].from = from;
-		    tp[menutrans_ga.ga_len].to = to;
-		    ++menutrans_ga.ga_len;
-		    --menutrans_ga.ga_room;
+		    from_noamp = menu_text(from, NULL, NULL);
+		    to = vim_strnsave(to, (int)(arg - to));
+		    if (from_noamp != NULL && to != NULL)
+		    {
+			tp[menutrans_ga.ga_len].from = from;
+			tp[menutrans_ga.ga_len].from_noamp = from_noamp;
+			tp[menutrans_ga.ga_len].to = to;
+			++menutrans_ga.ga_len;
+		    }
+		    else
+		    {
+			vim_free(from);
+			vim_free(from_noamp);
+			vim_free(to);
+		    }
 		}
 	    }
 	}
@@ -2323,10 +2398,28 @@ menutrans_lookup(name, len)
 {
     menutrans_T		*tp = (menutrans_T *)menutrans_ga.ga_data;
     int			i;
+    char_u		*dname;
 
     for (i = 0; i < menutrans_ga.ga_len; ++i)
 	if (STRNCMP(name, tp[i].from, len) == 0 && tp[i].from[len] == NUL)
 	    return tp[i].to;
+
+    /* Now try again while ignoring '&' characters. */
+    i = name[len];
+    name[len] = NUL;
+    dname = menu_text(name, NULL, NULL);
+    name[len] = i;
+    if (dname != NULL)
+    {
+	for (i = 0; i < menutrans_ga.ga_len; ++i)
+	    if (STRCMP(dname, tp[i].from_noamp) == 0)
+	    {
+		vim_free(dname);
+		return tp[i].to;
+	    }
+	vim_free(dname);
+    }
+
     return NULL;
 }
 #endif /* FEAT_MULTI_LANG */

@@ -95,11 +95,11 @@ struct type *builtin_type_v8hi;
 struct type *builtin_type_v4hi;
 struct type *builtin_type_v2si;
 struct type *builtin_type_vec64;
-struct type *builtin_type_vec64i;
 struct type *builtin_type_vec128;
-struct type *builtin_type_vec128i;
+struct type *builtin_type_ieee_single[BFD_ENDIAN_UNKNOWN];
 struct type *builtin_type_ieee_single_big;
 struct type *builtin_type_ieee_single_little;
+struct type *builtin_type_ieee_double[BFD_ENDIAN_UNKNOWN];
 struct type *builtin_type_ieee_double_big;
 struct type *builtin_type_ieee_double_little;
 struct type *builtin_type_ieee_double_littlebyte_bigword;
@@ -108,10 +108,13 @@ struct type *builtin_type_m68881_ext;
 struct type *builtin_type_i960_ext;
 struct type *builtin_type_m88110_ext;
 struct type *builtin_type_m88110_harris_ext;
+struct type *builtin_type_arm_ext[BFD_ENDIAN_UNKNOWN];
 struct type *builtin_type_arm_ext_big;
 struct type *builtin_type_arm_ext_littlebyte_bigword;
+struct type *builtin_type_ia64_spill[BFD_ENDIAN_UNKNOWN];
 struct type *builtin_type_ia64_spill_big;
 struct type *builtin_type_ia64_spill_little;
+struct type *builtin_type_ia64_quad[BFD_ENDIAN_UNKNOWN];
 struct type *builtin_type_ia64_quad_big;
 struct type *builtin_type_ia64_quad_little;
 struct type *builtin_type_void_data_ptr;
@@ -121,10 +124,26 @@ struct type *builtin_type_bfd_vma;
 struct type *builtin_type_voidptrfuncptr;
 
 int opaque_type_resolution = 1;
-int overload_debug = 0;
 
 /* APPLE LOCAL: referenced by get_array_bounds */
 int use_stride = 1;
+
+static void
+show_opaque_type_resolution (struct ui_file *file, int from_tty,
+			     struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Resolution of opaque struct/class/union types (if set before loading symbols) is %s.\n"),
+		    value);
+}
+
+int overload_debug = 0;
+static void
+show_overload_debug (struct ui_file *file, int from_tty,
+		     struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Debugging of C++ overloading is %s.\n"), value);
+}
 
 struct extra
   {
@@ -418,7 +437,7 @@ address_space_name_to_int (char *space_identifier)
 							&type_flags))
     return type_flags;
   else
-    error ("Unknown address space specifier: \"%s\"", space_identifier);
+    error (_("Unknown address space specifier: \"%s\""), space_identifier);
 }
 
 /* Identify address space identifier by integer flag as defined in 
@@ -440,7 +459,9 @@ address_space_int_to_name (int space_flag)
 }
 
 /* Create a new type with instance flags NEW_FLAGS, based on TYPE.
-   If STORAGE is non-NULL, create the new type instance there.  */
+
+   If STORAGE is non-NULL, create the new type instance there.
+   STORAGE must be in the same obstack as TYPE.  */
 
 static struct type *
 make_qualified_type (struct type *type, int new_flags,
@@ -461,6 +482,12 @@ make_qualified_type (struct type *type, int new_flags,
     ntype = alloc_type_instance (type);
   else
     {
+      /* If STORAGE was provided, it had better be in the same objfile as
+	 TYPE.  Otherwise, we can't link it into TYPE's cv chain: if one
+	 objfile is freed and the other kept, we'd have dangling
+	 pointers.  */
+      gdb_assert (TYPE_OBJFILE (type) == TYPE_OBJFILE (storage));
+
       ntype = storage;
       /* APPLE LOCAL: This will get done down below, so it's not
 	 necessary here.  */
@@ -557,11 +584,12 @@ make_type_with_address_space (struct type *type, int space_flag)
    CNST is a flag for setting the const attribute
    VOLTL is a flag for setting the volatile attribute
    TYPE is the base type whose variant we are creating.
-   TYPEPTR, if nonzero, points
-   to a pointer to memory where the reference type should be stored.
-   If *TYPEPTR is zero, update it to point to the reference type we return.
-   We allocate new memory if needed.  */
 
+   If TYPEPTR and *TYPEPTR are non-zero, then *TYPEPTR points to
+   storage to hold the new qualified type; *TYPEPTR and TYPE must be
+   in the same objfile.  Otherwise, allocate fresh memory for the new
+   type whereever TYPE lives.  If TYPEPTR is non-zero, set it to the
+   new type we construct.  */
 struct type *
 make_cv_type (int cnst, int voltl, struct type *type, struct type **typeptr)
 {
@@ -587,24 +615,44 @@ make_cv_type (int cnst, int voltl, struct type *type, struct type **typeptr)
 
   if (typeptr && *typeptr != NULL)
     {
-      /* Objfile is per-core-type.  This const-qualified type had best
-	 belong to the same objfile as the type it is qualifying, unless
-	 we are overwriting a stub type, in which case the safest thing
-	 to do is to copy the core type into the new objfile.  */
+
+      /* APPLE LOCAL if we somehow ended up with a type code error
+         over at *TYPEPTR, return a type error and in the hopes 
+         that we can continue operation instead of asserting out
+         and stopping the debugger.  */
+
+      if (TYPE_CODE (*typeptr) == TYPE_CODE_ERROR)
+        {
+          return builtin_type_error;
+        }
+
+      /* TYPE and *TYPEPTR must be in the same objfile.  We can't have
+	 a C-V variant chain that threads across objfiles: if one
+	 objfile gets freed, then the other has a broken C-V chain.
+
+	 This code used to try to copy over the main type from TYPE to
+	 *TYPEPTR if they were in different objfiles, but that's
+	 wrong, too: TYPE may have a field list or member function
+	 lists, which refer to types of their own, etc. etc.  The
+	 whole shebang would need to be copied over recursively; you
+	 can't have inter-objfile pointers.  The only thing to do is
+	 to leave stub types as stub types, and look them up afresh by
+	 name each time you encounter them.  */
 
       /* APPLE LOCAL: Added a check for TYPE_IS_OPAQUE here, since we
 	 can get called with an opaque type as well as a stub type here,
 	 and the former may be in another objfile just like the latter.  */
 
+      /* APPLE LOCAL: Instead of asserting out and exiting the debugger,
+         return an error type.  */
+#if 0
       gdb_assert (TYPE_OBJFILE (*typeptr) == TYPE_OBJFILE (type)
 		  || (TYPE_STUB (*typeptr) || TYPE_IS_OPAQUE (*typeptr)));
-      if (TYPE_OBJFILE (*typeptr) != TYPE_OBJFILE (type))
-	{
-	  TYPE_MAIN_TYPE (*typeptr)
-	    = TYPE_ALLOC (*typeptr, sizeof (struct main_type));
-	  *TYPE_MAIN_TYPE (*typeptr)
-	    = *TYPE_MAIN_TYPE (type);
-	}
+#else
+      if (TYPE_OBJFILE (*typeptr) != TYPE_OBJFILE (type) 
+          && !TYPE_STUB (*typeptr) && !TYPE_IS_OPAQUE (*typeptr))
+        return builtin_type_error;
+#endif
     }
   
   ntype = make_qualified_type (type, new_flags, typeptr ? *typeptr : NULL);
@@ -628,6 +676,12 @@ void
 replace_type (struct type *ntype, struct type *type)
 {
   struct type *chain;
+
+  /* These two types had better be in the same objfile.  Otherwise,
+     the assignment of one type's main type structure to the other
+     will produce a type with references to objects (names; field
+     lists; etc.) allocated on an objfile other than its own.  */
+  gdb_assert (TYPE_OBJFILE (ntype) == TYPE_OBJFILE (ntype));
 
   *TYPE_MAIN_TYPE (ntype) = *TYPE_MAIN_TYPE (type);
 
@@ -733,7 +787,7 @@ create_range_type (struct type *result_type, struct type *index_type,
 }
 
 /* Set *LOWP and *HIGHP to the lower and upper bounds of discrete type TYPE.
-   Return 1 of type is a range type, 0 if it is discrete (and bounds
+   Return 1 if type is a range type, 0 if it is discrete (and bounds
    will fit in LONGEST), or -1 otherwise. */
 
 int
@@ -926,9 +980,16 @@ create_array_type (struct type *result_type, struct type *element_type,
   /* APPLE LOCAL: If the element type is undefined, then we are going
      to set the length to zero here.  Add this to the list of undefined
      arrays, then in end_symtab we'll come back and see if we know the
-     element type then.  */
+     element type then.  
+     Another possibility is the element type is an array type that
+     WAS undef'ed, but has now been defined.  Since we haven't done
+     the cleanup_undefined_arrays yet, the length won't be set on 
+     this yet.  So we need to add array's of this array to the 
+     undefined arrays, and do it on cleanup.  */
 
-  if (TYPE_CODE (element_type) == TYPE_CODE_UNDEF)
+  if (TYPE_CODE (element_type) == TYPE_CODE_UNDEF
+      || (TYPE_CODE (element_type) == TYPE_CODE_ARRAY
+	  && TYPE_LENGTH (element_type) == 0))
       add_undefined_array (result_type);
 
   TYPE_LENGTH (result_type) =
@@ -961,8 +1022,12 @@ create_array_type (struct type *result_type, struct type *element_type,
 struct type *
 create_string_type (struct type *result_type, struct type *range_type)
 {
+  struct type *string_char_type;
+      
+  string_char_type = language_string_char_type (current_language,
+						current_gdbarch);
   result_type = create_array_type (result_type,
-				   *current_language->string_char_type,
+				   string_char_type,
 				   range_type);
   TYPE_CODE (result_type) = TYPE_CODE_STRING;
   return (result_type);
@@ -1067,34 +1132,6 @@ build_builtin_type_vec64 (void)
 }
 
 static struct type *
-build_builtin_type_vec64i (void)
-{
-  /* Construct a type for the 64 bit registers.  The type we're
-     building is this: */
-#if 0
-  union __gdb_builtin_type_vec64i 
-  {
-    int64_t uint64;
-    int32_t v2_int32[2];
-    int16_t v4_int16[4];
-    int8_t v8_int8[8];
-  };
-#endif
-
-  struct type *t;
-
-  t = init_composite_type ("__gdb_builtin_type_vec64i", TYPE_CODE_UNION);
-  append_composite_type_field (t, "uint64", builtin_type_int64);
-  append_composite_type_field (t, "v2_int32", builtin_type_v2_int32);
-  append_composite_type_field (t, "v4_int16", builtin_type_v4_int16);
-  append_composite_type_field (t, "v8_int8", builtin_type_v8_int8);
-
-  TYPE_FLAGS (t) |= TYPE_FLAG_VECTOR;
-  TYPE_NAME (t) = "builtin_type_vec64i";
-  return t;
-}
-
-static struct type *
 build_builtin_type_vec128 (void)
 {
   /* Construct a type for the 128 bit registers.  The type we're
@@ -1121,26 +1158,6 @@ build_builtin_type_vec128 (void)
 
   TYPE_FLAGS (t) |= TYPE_FLAG_VECTOR;
   TYPE_NAME (t) = "builtin_type_vec128";
-  return t;
-}
-
-static struct type *
-build_builtin_type_vec128i (void)
-{
-  /* 128-bit Intel SIMD registers */
-  struct type *t;
-
-  t = init_composite_type ("__gdb_builtin_type_vec128i", TYPE_CODE_UNION);
-  append_composite_type_field (t, "v4_float", builtin_type_v4_float);
-  append_composite_type_field (t, "v2_double", builtin_type_v2_double);
-  append_composite_type_field (t, "v16_int8", builtin_type_v16_int8);
-  append_composite_type_field (t, "v8_int16", builtin_type_v8_int16);
-  append_composite_type_field (t, "v4_int32", builtin_type_v4_int32);
-  append_composite_type_field (t, "v2_int64", builtin_type_v2_int64);
-  append_composite_type_field (t, "uint128", builtin_type_int128);
-
-  TYPE_FLAGS (t) |= TYPE_FLAG_VECTOR;
-  TYPE_NAME (t) = "builtin_type_vec128i";
   return t;
 }
 
@@ -1213,24 +1230,6 @@ type_name_no_tag (const struct type *type)
   return TYPE_NAME (type);
 }
 
-/* Lookup a primitive type named NAME. 
-   Return zero if NAME is not a primitive type. */
-
-struct type *
-lookup_primitive_typename (char *name)
-{
-  struct type **const *p;
-
-  for (p = current_language->la_builtin_type_vector; *p != NULL; p++)
-    {
-      if (strcmp (TYPE_NAME (**p), name) == 0)
-	{
-	  return (**p);
-	}
-    }
-  return (NULL);
-}
-
 /* Lookup a typedef or primitive type named NAME,
    visible in lexical block BLOCK.
    If NOERR is nonzero, return zero if NAME is not suitably defined.  */
@@ -1244,7 +1243,9 @@ lookup_typename (char *name, struct block *block, int noerr)
   sym = lookup_symbol (name, block, VAR_DOMAIN, 0, (struct symtab **) NULL);
   if (sym == NULL || SYMBOL_CLASS (sym) != LOC_TYPEDEF)
     {
-      tmp = lookup_primitive_typename (name);
+      tmp = language_lookup_primitive_type_by_name (current_language,
+						    current_gdbarch,
+						    name);
       if (tmp)
 	{
 	  return (tmp);
@@ -1255,7 +1256,7 @@ lookup_typename (char *name, struct block *block, int noerr)
 	}
       else
 	{
-	  error ("No type named %s.", name);
+	  error (_("No type named %s."), name);
 	}
     }
   return (SYMBOL_TYPE (sym));
@@ -1299,11 +1300,11 @@ lookup_struct (char *name, struct block *block)
 
   if (sym == NULL)
     {
-      error ("No struct type named %s.", name);
+      error (_("No struct type named %s."), name);
     }
   if (TYPE_CODE (SYMBOL_TYPE (sym)) != TYPE_CODE_STRUCT)
     {
-      error ("This context has class, union or enum %s, not a struct.", name);
+      error (_("This context has class, union or enum %s, not a struct."), name);
     }
   return (SYMBOL_TYPE (sym));
 }
@@ -1346,7 +1347,7 @@ lookup_union (char *name, struct block *block)
 		       (struct symtab **) NULL);
 
   if (sym == NULL)
-    error ("No union type named %s.", name);
+    error (_("No union type named %s."), name);
 
   t = SYMBOL_TYPE (sym);
 
@@ -1361,7 +1362,7 @@ lookup_union (char *name, struct block *block)
       return (t);
 
   /* If we get here, it's not a union */
-  error ("This context has class, struct or enum %s, not a union.", name);
+  error (_("This context has class, struct or enum %s, not a union."), name);
 }
 
 
@@ -1377,11 +1378,11 @@ lookup_enum (char *name, struct block *block)
 		       (struct symtab **) NULL);
   if (sym == NULL)
     {
-      error ("No enum type named %s.", name);
+      error (_("No enum type named %s."), name);
     }
   if (TYPE_CODE (SYMBOL_TYPE (sym)) != TYPE_CODE_ENUM)
     {
-      error ("This context has class, struct or union %s, not an enum.", name);
+      error (_("This context has class, struct or union %s, not an enum."), name);
     }
   return (SYMBOL_TYPE (sym));
 }
@@ -1403,11 +1404,11 @@ lookup_template_type (char *name, struct type *type, struct block *block)
 
   if (sym == NULL)
     {
-      error ("No template type named %s.", name);
+      error (_("No template type named %s."), name);
     }
   if (TYPE_CODE (SYMBOL_TYPE (sym)) != TYPE_CODE_STRUCT)
     {
-      error ("This context has class, union or enum %s, not a struct.", name);
+      error (_("This context has class, union or enum %s, not a struct."), name);
     }
   return (SYMBOL_TYPE (sym));
 }
@@ -1556,6 +1557,12 @@ get_destructor_fn_field (struct type *t, int *method_indexp, int *field_indexp)
   return 0;
 }
 
+static void
+stub_noname_complaint (void)
+{
+  complaint (&symfile_complaints, _("stub type has NULL name"));
+}
+
 /* Added by Bryan Boreham, Kewill, Sun Sep 17 18:07:17 1989.
 
    If this is a stubbed struct (i.e. declared as struct foo *), see if
@@ -1569,11 +1576,10 @@ get_destructor_fn_field (struct type *t, int *method_indexp, int *field_indexp)
    This used to be coded as a macro, but I don't think it is called 
    often enough to merit such treatment.  */
 
-static void
-stub_noname_complaint (void)
-{
-  complaint (&symfile_complaints, "stub type has NULL name");
-}
+/* Find the real type of TYPE.  This function returns the real type, after
+   removing all layers of typedefs and completing opaque or stub types.
+   Completion changes the TYPE argument, but stripping of typedefs does
+   not.  */
 
 struct type *
 check_typedef (struct type *type)
@@ -1645,8 +1651,24 @@ check_typedef (struct type *type)
 	  return type;
 	}
       newtype = lookup_transparent_type (name);
+
       if (newtype)
-	make_cv_type (is_const, is_volatile, newtype, &type);
+	{
+	  /* If the resolved type and the stub are in the same objfile,
+	     then replace the stub type with the real deal.  But if
+	     they're in separate objfiles, leave the stub alone; we'll
+	     just look up the transparent type every time we call
+	     check_typedef.  We can't create pointers between types
+	     allocated to different objfiles, since they may have
+	     different lifetimes.  Trying to copy NEWTYPE over to TYPE's
+	     objfile is pointless, too, since you'll have to move over any
+	     other types NEWTYPE refers to, which could be an unbounded
+	     amount of stuff.  */
+	  if (TYPE_OBJFILE (newtype) == TYPE_OBJFILE (type))
+	    make_cv_type (is_const, is_volatile, newtype, &type);
+	  else
+	    type = newtype;
+	}
     }
   /* Otherwise, rely on the stub flag being set for opaque/stubbed types */
   else if (TYPE_STUB (type) && !currently_reading_symtab)
@@ -1771,7 +1793,7 @@ check_stub_method (struct type *type, int method_id, int signature_id)
     p = NULL;
 
   if (demangled_name == NULL || p == NULL)
-    error ("Internal: Cannot demangle mangled name `%s'.", mangled_name);
+    error (_("Internal: Cannot demangle mangled name `%s'."), mangled_name);
 
   /* Now, read in the parameters that define this type.  */
   p += 1;
@@ -2048,7 +2070,7 @@ lookup_fundamental_type (struct objfile *objfile, int typeid)
 
   if (typeid < 0 || typeid >= FT_NUM_MEMBERS)
     {
-      error ("internal error - invalid fundamental type id %d", typeid);
+      error (_("internal error - invalid fundamental type id %d"), typeid);
     }
 
   /* If this is the first time we need a fundamental type for this objfile
@@ -2931,13 +2953,9 @@ print_bit_vector (B_TYPE *bits, int nbits)
 	  puts_filtered (" ");
 	}
       if (B_TST (bits, bitno))
-	{
-	  printf_filtered ("1");
-	}
+	printf_filtered (("1"));
       else
-	{
-	  printf_filtered ("0");
-	}
+	printf_filtered (("0"));
     }
 }
 
@@ -2974,7 +2992,7 @@ dump_fn_fieldlists (struct type *type, int spaces)
 			TYPE_FN_FIELDLIST_NAME (type, method_idx));
       gdb_print_host_address (TYPE_FN_FIELDLIST_NAME (type, method_idx),
 			      gdb_stdout);
-      printf_filtered (") length %d\n",
+      printf_filtered (_(") length %d\n"),
 		       TYPE_FN_FIELDLIST_LENGTH (type, method_idx));
       for (overload_idx = 0;
 	   overload_idx < TYPE_FN_FIELDLIST_LENGTH (type, method_idx);
@@ -3094,7 +3112,7 @@ print_bound_type (int bt)
       printf_filtered ("(BOUND_SIMPLE)");
       break;
     default:
-      printf_filtered ("(unknown bound type)");
+      printf_filtered (_("(unknown bound type)"));
       break;
     }
 }
@@ -3184,7 +3202,7 @@ recursive_dump_type (struct type *type, int spaces)
 	    {
 	      printfi_filtered (spaces, "type node ");
 	      gdb_print_host_address (type, gdb_stdout);
-	      printf_filtered (" <same as already seen type>\n");
+	      printf_filtered (_(" <same as already seen type>\n"));
 	      return;
 	    }
 	}
@@ -3357,7 +3375,7 @@ recursive_dump_type (struct type *type, int spaces)
       gdb_print_host_address (TYPE_CPLUS_SPECIFIC (type), gdb_stdout);
       if (TYPE_CPLUS_SPECIFIC (type) != NULL)
 	{
-	  printf_filtered (" (unknown data form)");
+	  printf_filtered (_(" (unknown data form)"));
 	}
       printf_filtered ("\n");
       break;
@@ -3467,61 +3485,19 @@ build_gdbtypes (void)
     init_type (TYPE_CODE_STRING, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
 	       0,
 	       "string", (struct objfile *) NULL);
-  builtin_type_int0 =
-    init_type (TYPE_CODE_INT, 0 / 8,
-	       0,
-	       "int0_t", (struct objfile *) NULL);
-  builtin_type_int8 =
-    init_type (TYPE_CODE_INT, 8 / 8,
-	       0,
-	       "int8_t", (struct objfile *) NULL);
-  builtin_type_uint8 =
-    init_type (TYPE_CODE_INT, 8 / 8,
-	       TYPE_FLAG_UNSIGNED,
-	       "uint8_t", (struct objfile *) NULL);
-  builtin_type_int16 =
-    init_type (TYPE_CODE_INT, 16 / 8,
-	       0,
-	       "int16_t", (struct objfile *) NULL);
-  builtin_type_uint16 =
-    init_type (TYPE_CODE_INT, 16 / 8,
-	       TYPE_FLAG_UNSIGNED,
-	       "uint16_t", (struct objfile *) NULL);
-  builtin_type_int32 =
-    init_type (TYPE_CODE_INT, 32 / 8,
-	       0,
-	       "int32_t", (struct objfile *) NULL);
-  builtin_type_uint32 =
-    init_type (TYPE_CODE_INT, 32 / 8,
-	       TYPE_FLAG_UNSIGNED,
-	       "uint32_t", (struct objfile *) NULL);
-  builtin_type_int64 =
-    init_type (TYPE_CODE_INT, 64 / 8,
-	       0,
-	       "int64_t", (struct objfile *) NULL);
-  builtin_type_uint64 =
-    init_type (TYPE_CODE_INT, 64 / 8,
-	       TYPE_FLAG_UNSIGNED,
-	       "uint64_t", (struct objfile *) NULL);
-  builtin_type_int128 =
-    init_type (TYPE_CODE_INT, 128 / 8,
-	       0,
-	       "int128_t", (struct objfile *) NULL);
-  builtin_type_uint128 =
-    init_type (TYPE_CODE_INT, 128 / 8,
-	       TYPE_FLAG_UNSIGNED,
-	       "uint128_t", (struct objfile *) NULL);
   builtin_type_bool =
     init_type (TYPE_CODE_BOOL, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
 	       0,
 	       "bool", (struct objfile *) NULL);
 
   /* Add user knob for controlling resolution of opaque types */
-  add_show_from_set
-    (add_set_cmd ("opaque-type-resolution", class_support, var_boolean, (char *) &opaque_type_resolution,
-		  "Set resolution of opaque struct/class/union types (if set before loading symbols).",
-		  &setlist),
-     &showlist);
+  add_setshow_boolean_cmd ("opaque-type-resolution", class_support,
+			   &opaque_type_resolution, _("\
+Set resolution of opaque struct/class/union types (if set before loading symbols)."), _("\
+Show resolution of opaque struct/class/union types (if set before loading symbols)."), NULL,
+			   NULL,
+			   show_opaque_type_resolution,
+			   &setlist, &showlist);
   opaque_type_resolution = 1;
 
   /* Build SIMD types.  */
@@ -3555,9 +3531,7 @@ build_gdbtypes (void)
 
   /* Vector types.  */
   builtin_type_vec64 = build_builtin_type_vec64 ();
-  builtin_type_vec64i = build_builtin_type_vec64i ();
   builtin_type_vec128 = build_builtin_type_vec128 ();
-  builtin_type_vec128i = build_builtin_type_vec128i ();
 
   /* Pointer/Address types. */
 
@@ -3602,12 +3576,222 @@ build_gdbtypes (void)
     lookup_pointer_type (lookup_function_type (lookup_pointer_type (builtin_type_void)));
 }
 
+static struct gdbarch_data *gdbtypes_data;
+
+const struct builtin_type *
+builtin_type (struct gdbarch *gdbarch)
+{
+  return gdbarch_data (gdbarch, gdbtypes_data);
+}
+
+
+static struct type *
+build_flt (int bit, char *name, const struct floatformat *floatformat)
+{
+  struct type *t;
+  if (bit <= 0 || floatformat == NULL)
+    {
+      gdb_assert (builtin_type_error != NULL);
+      return builtin_type_error;
+    }
+  t = init_type (TYPE_CODE_FLT, bit / TARGET_CHAR_BIT,
+		 0, name, (struct objfile *) NULL);
+  TYPE_FLOATFORMAT (t) = floatformat;
+  return t;
+}
+
+static struct type *
+build_complex (int bit, char *name, struct type *target_type)
+{
+  struct type *t;
+  if (bit <= 0 || target_type == builtin_type_error)
+    {
+      gdb_assert (builtin_type_error != NULL);
+      return builtin_type_error;
+    }
+  t = init_type (TYPE_CODE_COMPLEX, 2 * bit / TARGET_CHAR_BIT,
+		 0, name, (struct objfile *) NULL);
+  TYPE_TARGET_TYPE (t) = target_type;
+  return t;
+}
+
+static void *
+gdbtypes_post_init (struct gdbarch *gdbarch)
+{
+  struct builtin_type *builtin_type
+    = GDBARCH_OBSTACK_ZALLOC (gdbarch, struct builtin_type);
+
+  builtin_type->builtin_void =
+    init_type (TYPE_CODE_VOID, 1,
+	       0,
+	       "void", (struct objfile *) NULL);
+  builtin_type->builtin_char =
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       (TYPE_FLAG_NOSIGN
+                | (TARGET_CHAR_SIGNED ? 0 : TYPE_FLAG_UNSIGNED)),
+	       "char", (struct objfile *) NULL);
+  builtin_type->builtin_true_char =
+    init_type (TYPE_CODE_CHAR, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "true character", (struct objfile *) NULL);
+  builtin_type->builtin_signed_char =
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "signed char", (struct objfile *) NULL);
+  builtin_type->builtin_unsigned_char =
+    init_type (TYPE_CODE_INT, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned char", (struct objfile *) NULL);
+  builtin_type->builtin_short =
+    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "short", (struct objfile *) NULL);
+  builtin_type->builtin_unsigned_short =
+    init_type (TYPE_CODE_INT, TARGET_SHORT_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned short", (struct objfile *) NULL);
+  builtin_type->builtin_int =
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "int", (struct objfile *) NULL);
+  builtin_type->builtin_unsigned_int =
+    init_type (TYPE_CODE_INT, TARGET_INT_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned int", (struct objfile *) NULL);
+  builtin_type->builtin_long =
+    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "long", (struct objfile *) NULL);
+  builtin_type->builtin_unsigned_long =
+    init_type (TYPE_CODE_INT, TARGET_LONG_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned long", (struct objfile *) NULL);
+  builtin_type->builtin_long_long =
+    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "long long", (struct objfile *) NULL);
+  builtin_type->builtin_unsigned_long_long =
+    init_type (TYPE_CODE_INT, TARGET_LONG_LONG_BIT / TARGET_CHAR_BIT,
+	       TYPE_FLAG_UNSIGNED,
+	       "unsigned long long", (struct objfile *) NULL);
+  builtin_type->builtin_float
+    = build_flt (gdbarch_float_bit (gdbarch), "float",
+		 gdbarch_float_format (gdbarch));
+  builtin_type->builtin_double
+    = build_flt (gdbarch_double_bit (gdbarch), "double",
+		 gdbarch_double_format (gdbarch));
+  builtin_type->builtin_long_double
+    = build_flt (gdbarch_long_double_bit (gdbarch), "long double",
+		 gdbarch_long_double_format (gdbarch));
+  builtin_type->builtin_complex
+    = build_complex (gdbarch_float_bit (gdbarch), "complex",
+		     builtin_type->builtin_float);
+  builtin_type->builtin_double_complex
+    = build_complex (gdbarch_double_bit (gdbarch), "double complex",
+		     builtin_type->builtin_double);
+  builtin_type->builtin_string =
+    init_type (TYPE_CODE_STRING, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "string", (struct objfile *) NULL);
+  builtin_type->builtin_bool =
+    init_type (TYPE_CODE_BOOL, TARGET_CHAR_BIT / TARGET_CHAR_BIT,
+	       0,
+	       "bool", (struct objfile *) NULL);
+
+  /* Pointer/Address types. */
+
+  /* NOTE: on some targets, addresses and pointers are not necessarily
+     the same --- for example, on the D10V, pointers are 16 bits long,
+     but addresses are 32 bits long.  See doc/gdbint.texinfo,
+     ``Pointers Are Not Always Addresses''.
+
+     The upshot is:
+     - gdb's `struct type' always describes the target's
+       representation.
+     - gdb's `struct value' objects should always hold values in
+       target form.
+     - gdb's CORE_ADDR values are addresses in the unified virtual
+       address space that the assembler and linker work with.  Thus,
+       since target_read_memory takes a CORE_ADDR as an argument, it
+       can access any memory on the target, even if the processor has
+       separate code and data address spaces.
+
+     So, for example:
+     - If v is a value holding a D10V code pointer, its contents are
+       in target form: a big-endian address left-shifted two bits.
+     - If p is a D10V pointer type, TYPE_LENGTH (p) == 2, just as
+       sizeof (void *) == 2 on the target.
+
+     In this context, builtin_type->CORE_ADDR is a bit odd: it's a
+     target type for a value the target will never see.  It's only
+     used to hold the values of (typeless) linker symbols, which are
+     indeed in the unified virtual address space.  */
+  builtin_type->builtin_data_ptr
+    = make_pointer_type (builtin_type->builtin_void, NULL);
+  builtin_type->builtin_func_ptr
+    = lookup_pointer_type (lookup_function_type (builtin_type->builtin_void));
+  builtin_type->builtin_core_addr =
+    init_type (TYPE_CODE_INT, TARGET_ADDR_BIT / 8,
+	       TYPE_FLAG_UNSIGNED,
+	       "__CORE_ADDR", (struct objfile *) NULL);
+
+  return builtin_type;
+}
+
 extern void _initialize_gdbtypes (void);
 void
 _initialize_gdbtypes (void)
 {
   struct cmd_list_element *c;
+
+  builtin_type_int0 =
+    init_type (TYPE_CODE_INT, 0 / 8,
+	       0,
+	       "int0_t", (struct objfile *) NULL);
+  builtin_type_int8 =
+    init_type (TYPE_CODE_INT, 8 / 8,
+	       0,
+	       "int8_t", (struct objfile *) NULL);
+  builtin_type_uint8 =
+    init_type (TYPE_CODE_INT, 8 / 8,
+	       TYPE_FLAG_UNSIGNED,
+	       "uint8_t", (struct objfile *) NULL);
+  builtin_type_int16 =
+    init_type (TYPE_CODE_INT, 16 / 8,
+	       0,
+	       "int16_t", (struct objfile *) NULL);
+  builtin_type_uint16 =
+    init_type (TYPE_CODE_INT, 16 / 8,
+	       TYPE_FLAG_UNSIGNED,
+	       "uint16_t", (struct objfile *) NULL);
+  builtin_type_int32 =
+    init_type (TYPE_CODE_INT, 32 / 8,
+	       0,
+	       "int32_t", (struct objfile *) NULL);
+  builtin_type_uint32 =
+    init_type (TYPE_CODE_INT, 32 / 8,
+	       TYPE_FLAG_UNSIGNED,
+	       "uint32_t", (struct objfile *) NULL);
+  builtin_type_int64 =
+    init_type (TYPE_CODE_INT, 64 / 8,
+	       0,
+	       "int64_t", (struct objfile *) NULL);
+  builtin_type_uint64 =
+    init_type (TYPE_CODE_INT, 64 / 8,
+	       TYPE_FLAG_UNSIGNED,
+	       "uint64_t", (struct objfile *) NULL);
+  builtin_type_int128 =
+    init_type (TYPE_CODE_INT, 128 / 8,
+	       0,
+	       "int128_t", (struct objfile *) NULL);
+  builtin_type_uint128 =
+    init_type (TYPE_CODE_INT, 128 / 8,
+	       TYPE_FLAG_UNSIGNED,
+	       "uint128_t", (struct objfile *) NULL);
+
   build_gdbtypes ();
+
+  gdbtypes_data = gdbarch_data_register_post_init (gdbtypes_post_init);
 
   /* FIXME - For the moment, handle types by swapping them in and out.
      Should be using the per-architecture data-pointer and a large
@@ -3630,16 +3814,6 @@ _initialize_gdbtypes (void)
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_complex);
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_double_complex);
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_string);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_int8);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_uint8);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_int16);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_uint16);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_int32);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_uint32);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_int64);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_uint64);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_int128);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_uint128);
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_v4sf);
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_v4si);
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_v16qi);
@@ -3658,7 +3832,6 @@ _initialize_gdbtypes (void)
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_v8_int8);
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_v4_int16);
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_vec128);
-  DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_vec128i);
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_void_data_ptr);
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_void_func_ptr);
   DEPRECATED_REGISTER_GDBARCH_SWAP (builtin_type_CORE_ADDR);
@@ -3675,6 +3848,14 @@ _initialize_gdbtypes (void)
     init_type (TYPE_CODE_FLT, floatformat_ieee_single_little.totalsize / 8,
 	       0, "builtin_type_ieee_single_little", NULL);
   TYPE_FLOATFORMAT (builtin_type_ieee_single_little) = &floatformat_ieee_single_little;
+  builtin_type_ieee_single[BFD_ENDIAN_BIG]
+    = build_flt (floatformat_ieee_single_big.totalsize,
+		 "builtin_type_ieee_single_big",
+		 &floatformat_ieee_single_big);
+  builtin_type_ieee_single[BFD_ENDIAN_LITTLE]
+    = build_flt (floatformat_ieee_single_little.totalsize,
+		 "builtin_type_ieee_single_little",
+		 &floatformat_ieee_single_little);
   builtin_type_ieee_double_big =
     init_type (TYPE_CODE_FLT, floatformat_ieee_double_big.totalsize / 8,
 	       0, "builtin_type_ieee_double_big", NULL);
@@ -3683,6 +3864,14 @@ _initialize_gdbtypes (void)
     init_type (TYPE_CODE_FLT, floatformat_ieee_double_little.totalsize / 8,
 	       0, "builtin_type_ieee_double_little", NULL);
   TYPE_FLOATFORMAT (builtin_type_ieee_double_little) = &floatformat_ieee_double_little;
+  builtin_type_ieee_double[BFD_ENDIAN_BIG]
+    = build_flt (floatformat_ieee_double_big.totalsize,
+		 "builtin_type_ieee_double_big",
+		 &floatformat_ieee_double_big);
+  builtin_type_ieee_double[BFD_ENDIAN_LITTLE]
+    = build_flt (floatformat_ieee_double_little.totalsize,
+		 "builtin_type_ieee_double_little",
+		 &floatformat_ieee_double_little);
   builtin_type_ieee_double_littlebyte_bigword =
     init_type (TYPE_CODE_FLT, floatformat_ieee_double_littlebyte_bigword.totalsize / 8,
 	       0, "builtin_type_ieee_double_littlebyte_bigword", NULL);
@@ -3715,6 +3904,14 @@ _initialize_gdbtypes (void)
     init_type (TYPE_CODE_FLT, floatformat_arm_ext_littlebyte_bigword.totalsize / 8,
 	       0, "builtin_type_arm_ext_littlebyte_bigword", NULL);
   TYPE_FLOATFORMAT (builtin_type_arm_ext_littlebyte_bigword) = &floatformat_arm_ext_littlebyte_bigword;
+  builtin_type_arm_ext[BFD_ENDIAN_BIG]
+    = build_flt (floatformat_arm_ext_big.totalsize,
+		 "builtin_type_arm_ext_big",
+		 &floatformat_arm_ext_big);
+  builtin_type_arm_ext[BFD_ENDIAN_LITTLE]
+    = build_flt (floatformat_arm_ext_littlebyte_bigword.totalsize,
+		 "builtin_type_arm_ext_littlebyte_bigword",
+		 &floatformat_arm_ext_littlebyte_bigword);
   builtin_type_ia64_spill_big =
     init_type (TYPE_CODE_FLT, floatformat_ia64_spill_big.totalsize / 8,
 	       0, "builtin_type_ia64_spill_big", NULL);
@@ -3723,6 +3920,14 @@ _initialize_gdbtypes (void)
     init_type (TYPE_CODE_FLT, floatformat_ia64_spill_little.totalsize / 8,
 	       0, "builtin_type_ia64_spill_little", NULL);
   TYPE_FLOATFORMAT (builtin_type_ia64_spill_little) = &floatformat_ia64_spill_little;
+  builtin_type_ia64_spill[BFD_ENDIAN_BIG]
+    = build_flt (floatformat_ia64_spill_big.totalsize,
+		 "builtin_type_ia64_spill_big",
+		 &floatformat_ia64_spill_big);
+  builtin_type_ia64_spill[BFD_ENDIAN_LITTLE]
+    = build_flt (floatformat_ia64_spill_little.totalsize,
+		 "builtin_type_ia64_spill_little",
+		 &floatformat_ia64_spill_little);
   builtin_type_ia64_quad_big =
     init_type (TYPE_CODE_FLT, floatformat_ia64_quad_big.totalsize / 8,
 	       0, "builtin_type_ia64_quad_big", NULL);
@@ -3731,20 +3936,31 @@ _initialize_gdbtypes (void)
     init_type (TYPE_CODE_FLT, floatformat_ia64_quad_little.totalsize / 8,
 	       0, "builtin_type_ia64_quad_little", NULL);
   TYPE_FLOATFORMAT (builtin_type_ia64_quad_little) = &floatformat_ia64_quad_little;
+  builtin_type_ia64_quad[BFD_ENDIAN_BIG]
+    = build_flt (floatformat_ia64_quad_big.totalsize,
+		 "builtin_type_ia64_quad_big",
+		 &floatformat_ia64_quad_big);
+  builtin_type_ia64_quad[BFD_ENDIAN_LITTLE]
+    = build_flt (floatformat_ia64_quad_little.totalsize,
+		 "builtin_type_ia64_quad_little",
+		 &floatformat_ia64_quad_little);
 
-  add_show_from_set (
-		     add_set_cmd ("overload", no_class, var_zinteger, (char *) &overload_debug,
-				  "Set debugging of C++ overloading.\n\
-			  When enabled, ranking of the functions\n\
-			  is displayed.", &setdebuglist),
-		     &showdebuglist);
+  add_setshow_zinteger_cmd ("overload", no_class, &overload_debug, _("\
+Set debugging of C++ overloading."), _("\
+Show debugging of C++ overloading."), _("\
+When enabled, ranking of the functions is displayed."),
+			    NULL,
+			    show_overload_debug,
+			    &setdebuglist, &showdebuglist);
+  /* APPLE LOCAL begin array stride */
+  add_setshow_zinteger_cmd ("use-array-stride", no_class,
+			    &use_stride, _("\
+Set if GDB should honor the 'stride' parameter of array types."), _("\
+Show if GDB should honor the 'stride' parameter of array types."), NULL,
+			    NULL, NULL,
+			    &setlist, &showlist);
+  /* APPLE LOCAL end array stride */
 
-  /* APPLE LOCAL: referenced by get_array_bounds */
-  add_show_from_set
-    (add_set_cmd ("use-array-stride", no_class, var_zinteger, (char *) &use_stride,
-		  "Set if GDB should honor the 'stride' parameter of array types.",
-		  &setlist),
-     &showlist);
   /* APPLE LOCAL: This list holds the arrays whose element type was unknown
      when the array type was created.  */
   undef_arrays_allocated = 20;

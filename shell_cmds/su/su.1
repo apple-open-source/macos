@@ -40,9 +40,9 @@
 .Nd substitute user identity
 .Sh SYNOPSIS
 .Nm
+.Op Fl
 .Op Fl flm
-.Op Ar login 
-.Op Ar -c shell arguments
+.Op Ar login Op Ar args
 .Sh DESCRIPTION
 .Nm
 requests the password for
@@ -60,8 +60,6 @@ with the appropriate user ID is executed.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
-.It Fl c
-Invoke the following command in a subshell as the specified user.
 .It Fl f
 If the invoked shell is
 .Xr csh 1 ,

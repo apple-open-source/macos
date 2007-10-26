@@ -1,6 +1,7 @@
 ;;; ooutline.el --- outline mode commands for Emacs
 
-;; Copyright (C) 1986, 1993, 1994, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1986, 1993, 1994, 1997, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: outlines
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -33,7 +34,7 @@
 ;; Jan '86, Some new features added by Peter Desnoyers and rewritten by RMS.
 
 (defgroup outlines nil
-  "Support for hierarchical outlining"
+  "Support for hierarchical outlining."
   :prefix "outline-"
   :group 'editing)
 
@@ -50,7 +51,7 @@ in the file it applies to.  See also outline-heading-end-regexp."
 ;; already assigned a local value to it.
 (or (default-value 'outline-regexp)
     (setq-default outline-regexp "[*\^L]+"))
-  
+
 (defcustom outline-heading-end-regexp "[\n\^M]"
   "*Regular expression to match the end of a heading line.
 You can assume that point is at the beginning of a heading when this
@@ -166,10 +167,10 @@ in the file it applies to."
 (defun outline-mode ()
   "Set major mode for editing outlines with selective display.
 Headings are lines which start with asterisks: one for major headings,
-two for subheadings, etc.  Lines not starting with asterisks are body lines. 
+two for subheadings, etc.  Lines not starting with asterisks are body lines.
 
 Body text or subheadings under a heading can be made temporarily
-invisible, or visible again.  Invisible lines are attached to the end 
+invisible, or visible again.  Invisible lines are attached to the end
 of the heading, so they move with it, if the line is killed and yanked
 back.  A heading with text hidden under it is marked with an ellipsis (...).
 
@@ -224,7 +225,7 @@ Turning on outline mode calls the value of `text-mode-hook' and then of
   (setq font-lock-defaults '(outline-font-lock-keywords t))
   (make-local-variable 'change-major-mode-hook)
   (add-hook 'change-major-mode-hook 'show-all)
-  (run-hooks 'text-mode-hook 'outline-mode-hook))
+  (run-mode-hooks 'text-mode-hook 'outline-mode-hook))
 
 (defcustom outline-minor-mode-prefix "\C-c@"
   "*Prefix key to use for Outline commands in Outline minor mode.
@@ -533,7 +534,7 @@ Stop at the first and last subheadings of a superior heading."
   (outline-back-to-heading)
   (while (> arg 0)
     (let ((point-to-move-to (save-excursion
-			      (outline-get-next-sibling))))  
+			      (outline-get-next-sibling))))
       (if point-to-move-to
 	  (progn
 	    (goto-char point-to-move-to)
@@ -552,7 +553,7 @@ Stop at the first and last subheadings of a superior heading."
     (if (< (funcall outline-level) level)
 	nil
       (point))))
-	
+
 (defun outline-backward-same-level (arg)
   "Move backward to the ARG'th subheading at same level as this one.
 Stop at the first and last subheadings of a superior heading."
@@ -582,4 +583,5 @@ Stop at the first and last subheadings of a superior heading."
 
 (provide 'outline)
 
+;;; arch-tag: 14ed00e1-bd40-4db8-86e5-3b82ce326e45
 ;;; ooutline.el ends here

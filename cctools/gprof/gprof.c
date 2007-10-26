@@ -121,7 +121,7 @@ unsigned long grld_nloaded_states = 0;
 /*
  * The dyld images from the gmon.out file.
  */
-unsigned long image_count = 0;
+uint32_t image_count = 0;
 struct dyld_image *dyld_images = NULL;
 
 unsigned char *textspace = NULL;/* text space of a.out in core */
@@ -184,35 +184,48 @@ static void getpfile(
 static void read_rld_state(
     int fd,
     char *filename,
-    unsigned long nbytes);
+    uint32_t nbytes);
 #endif
 
 static void read_dyld_state(
+    uint32_t type,
     int fd,
     char *filename,
-    unsigned long nbytes);
+    uint32_t nbytes,
+    uint32_t magic);
 
 static unsigned long new_sample_set(
     int fd,
     char *filename,
-    unsigned long nbytes,
-    enum bool old_style);
+    uint32_t nbytes,
+    enum bool old_style,
+    uint32_t magic);
 
 static void readarcs(
     int fd,
     char *filename,
-    unsigned long nbytes);
+    uint32_t nbytes);
+
+static void readarcs_64(
+    int fd,
+    char *filename,
+    uint32_t nbytes);
 
 static void readarcs_orders(
     int fd,
     char *filename,
-    unsigned long nbytes);
+    uint32_t nbytes);
+
+static void readarcs_orders_64(
+    int fd,
+    char *filename,
+    uint32_t nbytes);
 
 static void tally(
-    unsigned long frompc,
-    unsigned long selfpc,
-    unsigned long count,
-    unsigned long order);
+    uint64_t frompc,
+    uint64_t selfpc,
+    uint32_t count,
+    uint32_t order);
 
 static void dumpsum(
     char *sumfile);
@@ -338,6 +351,8 @@ char **envp)
 	 * Get information about a.out file.
 	 */
 	getnfile();
+	if(errors != 0)
+	    exit(1);
 
 	/*
 	 * Get information about mon.out file(s).
@@ -412,8 +427,8 @@ void
 getpfile(
 char *filename)
 {
-    unsigned long magic, left;
-    struct gmon_data data;
+    uint32_t magic, left;
+    gmon_data_t data;
     int fd;
     struct stat stat;
 
@@ -425,10 +440,16 @@ char *filename)
 	 * See if this gmon.out file is an old format or new format by looking
 	 * for the magic number of the new format.
 	 */
-	if(read(fd, &magic, sizeof(unsigned long)) != sizeof(unsigned long))
+	if(read(fd, &magic, sizeof(uint32_t)) != sizeof(uint32_t))
 	    system_fatal("malformed gmon.out file: %s (can't read magic "
 			 "number)", filename);
-	if(magic == GMON_MAGIC){
+	if(magic == GMON_MAGIC || magic == GMON_MAGIC_64){
+#ifdef DEBUG_GMON_OUT
+	    if(magic == GMON_MAGIC)
+		printf("GMON_MAGIC\n");
+	    else
+		printf("GMON_MAGIC_64\n");
+#endif
 	    /*
 	     * This is a new format gmon.out file.  After the magic number comes
 	     * any number of pairs of gmon_data structs and some typed data.
@@ -444,22 +465,40 @@ char *filename)
 		    fatal("truncated or malformed gmon.out file: %s (value in "
 			  "size field in gmon_data struct more than left in "
 			  "file)", filename);
+#ifdef DEBUG_GMON_OUT
+		printf("gmon_data struct: type = %u size = %u\n", data.type,
+		       data.size);
+#endif
 		switch(data.type){
 		case GMONTYPE_SAMPLES:
- /* printf("GMONTYPE_SAMPLES\n"); */
-		    new_sample_set(fd, filename, data.size, FALSE);
+#ifdef DEBUG_GMON_OUT
+		    printf("GMONTYPE_SAMPLES\n");
+#endif
+		    new_sample_set(fd, filename, data.size, FALSE, magic);
 		    break;
 		case GMONTYPE_RAWARCS:
- /* printf("GMONTYPE_RAWARCS\n"); */
-		    readarcs(fd, filename, data.size);
+#ifdef DEBUG_GMON_OUT
+		    printf("GMONTYPE_RAWARCS\n");
+#endif
+		    if(magic == GMON_MAGIC)
+			readarcs(fd, filename, data.size);
+		    else
+			readarcs_64(fd, filename, data.size);
 		    break;
 		case GMONTYPE_ARCS_ORDERS:
- /* printf("GMONTYPE_ARCS_ORDERS\n"); */
-		    readarcs_orders(fd, filename, data.size);
+#ifdef DEBUG_GMON_OUT
+		    printf("GMONTYPE_ARCS_ORDERS\n");
+#endif
+		    if(magic == GMON_MAGIC)
+			readarcs_orders(fd, filename, data.size);
+		    else
+			readarcs_orders_64(fd, filename, data.size);
 		    break;
 #ifdef __OPENSTEP__
 		case GMONTYPE_RLD_STATE:
- /* printf("GMONTYPE_RLD_STATE\n"); */
+#ifdef DEBUG_GMON_OUT
+		    printf("GMONTYPE_RLD_STATE\n");
+#endif
 		    if(grld_nloaded_states == 0){
 			read_rld_state(fd, filename, data.size);
 			get_rld_state_symbols();
@@ -472,9 +511,18 @@ char *filename)
 		    break;
 #endif
 		case GMONTYPE_DYLD_STATE:
- /* printf("GMONTYPE_DYLD_STATE\n"); */
+#ifdef DEBUG_GMON_OUT
+		    printf("GMONTYPE_DYLD_STATE\n");
+#endif
+		    goto setup_dyld_state;
+		case GMONTYPE_DYLD2_STATE:
+#ifdef DEBUG_GMON_OUT
+		    printf("GMONTYPE_DYLD2_STATE\n");
+#endif
+setup_dyld_state:
 		    if(image_count == 0){
-			read_dyld_state(fd, filename, data.size);
+			read_dyld_state(data.type, fd, filename, data.size,
+					magic);
 			get_dyld_state_symbols();
 		    }
 		    else{
@@ -484,7 +532,9 @@ char *filename)
 		    }
 		    break;
 		default:
- /* printf("Unknown data.type = %d\n", data.type); */
+#ifdef DEBUG_GMON_OUT
+		    printf("Unknown data.type = %u\n", data.type);
+#endif
 		    fatal("truncated or malformed gmon.out file: %s (value in "
 			  "type field in gmon_data struct unknown)", filename);
 		}
@@ -492,7 +542,7 @@ char *filename)
 	    }
 	    if(left != 0)
 		fatal("truncated or malformed gmon.out file: %s (file end in "
-		      "the middle of a gmon_data struct %lu)", filename, left);
+		      "the middle of a gmon_data struct %u)", filename, left);
 	}
 	else{
 	    /*
@@ -501,7 +551,7 @@ char *filename)
 	     */
 	    lseek(fd, 0, L_SET);
 	    left = stat.st_size;
-	    left -= new_sample_set(fd, filename, left, TRUE);
+	    left -= new_sample_set(fd, filename, left, TRUE, GMON_MAGIC);
 	    readarcs(fd, filename, left);
 	}
 	close(fd);
@@ -605,11 +655,14 @@ unsigned long nbytes)
 static
 void
 read_dyld_state(
+uint32_t type,
 int fd,
 char *filename,
-unsigned long nbytes)
+uint32_t nbytes,
+uint32_t magic)
 {
-    unsigned long i, offset;
+    uint32_t i, offset, sizeof_vmaddr, vmaddr32;
+    uint64_t vmaddr64;
     char *buf;
 
 	buf = malloc(nbytes);
@@ -621,25 +674,44 @@ unsigned long nbytes)
 			 filename);
 
 	offset = 0;
-	if(offset + sizeof(unsigned long) > nbytes)
+	if(offset + sizeof(uint32_t) > nbytes)
 	    fatal("truncated or malformed gmon.out file: %s (image count "
 		  "extends past the end of the dyld state)", filename);
-	memcpy(&image_count, buf + offset, sizeof(unsigned long));
-	offset += sizeof(unsigned long);
+	memcpy(&image_count, buf + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
 
 	dyld_images = (struct dyld_image *)malloc(sizeof(struct dyld_image) *
 						  image_count);
 	if(dyld_images == NULL)
 	    fatal("no room for dyld images (malloc failed)");
 
+	if(magic == GMON_MAGIC)
+	    sizeof_vmaddr = sizeof(uint32_t);
+	else
+	    sizeof_vmaddr = sizeof(uint64_t);
 	for(i = 0; i < image_count; i++){
-	    if(offset + sizeof(unsigned long) > nbytes)
-		fatal("truncated or malformed gmon.out file: %s (vmaddr_slide "
-		      "for image %lu extends past the end of the dyld state)",
+	    if(offset + sizeof_vmaddr > nbytes)
+		fatal("truncated or malformed gmon.out file: %s (vmaddr "
+		      "for image %u extends past the end of the dyld state)",
 		      filename, i);
-	    memcpy(&(dyld_images[i].vmaddr_slide), buf + offset,
-		   sizeof(unsigned long));
-	    offset += sizeof(unsigned long);
+
+	    if(magic == GMON_MAGIC){
+		memcpy(&vmaddr32, buf + offset, sizeof_vmaddr);
+		vmaddr64 = vmaddr32;
+	    }
+	    else{
+		memcpy(&vmaddr64, buf + offset, sizeof_vmaddr);
+	    }
+	    offset += sizeof_vmaddr;
+	
+	    if(type == GMONTYPE_DYLD_STATE){
+		dyld_images[i].vmaddr_slide = vmaddr64;
+		dyld_images[i].image_header = 0;
+	    }
+	    else{
+		dyld_images[i].image_header = vmaddr64;
+		dyld_images[i].vmaddr_slide = 0;
+	    }
 
 	    dyld_images[i].name = buf + offset;
 	    while(buf[offset] != '\0' && offset < nbytes)
@@ -648,16 +720,18 @@ unsigned long nbytes)
 		offset++;
 	    if(offset > nbytes)
 		fatal("truncated or malformed gmon.out file: %s (name "
-		      "for image %lu extends past the end of the dyld state)",
+		      "for image %u extends past the end of the dyld state)",
 		      filename, i);
 	}
 #ifdef DEBUG
 	if(debug & DYLDDEBUG){
-	    printf("image_count = %lu\n", image_count);
+	    printf("image_count = %u\n", image_count);
 	    for(i = 0; i < image_count; i++){
-		printf("dyld_image[%lu].name = %s\n", i, dyld_images[i].name);
-		printf("dyld_image[%lu].vmaddr_slide = 0x%x\n", i,
-			(unsigned int)dyld_images[i].vmaddr_slide);
+		printf("dyld_image[%u].name = %s\n", i, dyld_images[i].name);
+		printf("dyld_image[%u].vmaddr_slide = 0x%llx\n", i,
+			dyld_images[i].vmaddr_slide);
+		printf("dyld_image[%u].image_header = 0x%llx\n", i,
+			dyld_images[i].image_header);
 	    }
 	}
 #endif
@@ -668,41 +742,66 @@ unsigned long
 new_sample_set(
 int fd,
 char *filename,
-unsigned long nbytes,
-enum bool old_style)
+uint32_t nbytes,
+enum bool old_style,
+uint32_t magic)
 {
 #ifdef __OPENSTEP__
     struct phdr header;
 #else
-    struct gmonhdr header;
+    struct gmonhdr header32;
+    struct gmonhdr_64 header;
 #endif
-    unsigned long i, j, size;
+    uint64_t i, j, size;
+    uint32_t sizeof_header;
     unsigned UNIT sample, *samples;
 
-	if(nbytes < sizeof(header))
+	if(magic == GMON_MAGIC)
+	    sizeof_header = sizeof(struct gmonhdr);
+	else
+	    sizeof_header = sizeof(struct gmonhdr_64);
+
+	if(nbytes < sizeof_header)
 	    fatal("gmon.out file: %s malformed (byte count less than the "
 		  "size of the expected header)", filename);
 	/*
 	 * Read the profile header and check to see if it is valid.
 	 */
-	if(read(fd, &header, sizeof(header)) != sizeof(header))
+	if(magic == GMON_MAGIC)
+	    size = read(fd, &header32, sizeof_header);
+	else
+	    size = read(fd, &header, sizeof_header);
+
+	if(size != sizeof_header)
 	    system_fatal("malformed gmon.out file: %s (can't read header)",
 			 filename);
+
+	if(magic == GMON_MAGIC){
+	    header.lpc = header32.lpc;
+	    header.hpc = header32.hpc;
+	    header.ncnt = header32.ncnt;
+	    header.version = header32.version;
+	    header.profrate = header32.profrate;
+	    header.spare[0] = header32.spare[0];
+	    header.spare[1] = header32.spare[1];
+	    header.spare[2] = header32.spare[2];
+	}
+
 	/*
 	 * The ncnt field is a byte count of the header and the number of
 	 * bytes of the 2byte samples that follow it.  Try to make sure this
 	 * is reasonable and that what's left in the file is at least that big.
 	 */
-	if((size_t)header.ncnt < sizeof(header))
+	if(header.ncnt < sizeof_header)
 	    fatal("gmon.out file: %s malformed (ncnt field less than the "
 		  "size of the expected header)", filename);
-	if((unsigned long)header.ncnt > nbytes)
+	if(header.ncnt > nbytes)
 	    fatal("gmon.out file: %s malformed (ncnt field greater than "
 		  "the byte count for it in the file)", filename);
 	if(header.hpc < header.lpc)
 	    fatal("gmon.out file: %s malformed (high pc less than low pc "
 		  "in header)", filename);
-	if(((header.ncnt - sizeof(header)) % sizeof(unsigned short)) != 0)
+	if(((header.ncnt - sizeof_header) % sizeof(unsigned short)) != 0)
 	    warning("gmon.out file: %s malformed (number of sample bytes "
 		    "not a multiple of sizeof(unsigned short))", filename);
 #ifndef __OPENSTEP__
@@ -726,9 +825,9 @@ enum bool old_style)
 	 * See if this sample range matches another range
 	 */
 	for(i = 0; i < nsample_sets; i++){
-	    if(sample_sets[i].s_lowpc == (unsigned long)header.lpc &&
-	       sample_sets[i].s_highpc == (unsigned long)header.hpc &&
-	       sample_sets[i].sampbytes == header.ncnt - sizeof(header))
+	    if(sample_sets[i].s_lowpc == header.lpc &&
+	       sample_sets[i].s_highpc == header.hpc &&
+	       sample_sets[i].sampbytes == header.ncnt - sizeof_header)
 		break;
 	}
 	/*
@@ -752,11 +851,11 @@ enum bool old_style)
 	    nsample_sets++;
 	    memset(sample_sets + i, '\0', sizeof(struct sample_set));
 
-	    sample_sets[i].s_lowpc = (unsigned long)header.lpc;
-	    sample_sets[i].s_highpc = (unsigned long)header.hpc;
-	    sample_sets[i].lowpc = (unsigned long)header.lpc / sizeof(UNIT);
-	    sample_sets[i].highpc = (unsigned long)header.hpc / sizeof(UNIT);
-	    sample_sets[i].sampbytes = header.ncnt - sizeof(header);
+	    sample_sets[i].s_lowpc = header.lpc;
+	    sample_sets[i].s_highpc = header.hpc;
+	    sample_sets[i].lowpc = header.lpc / sizeof(UNIT);
+	    sample_sets[i].highpc = header.hpc / sizeof(UNIT);
+	    sample_sets[i].sampbytes = header.ncnt - sizeof_header;
 	    sample_sets[i].nsamples = sample_sets[i].sampbytes /
 				      sizeof(unsigned UNIT);
 	    sample_sets[i].scale = ((double)(sample_sets[i].highpc) -
@@ -765,7 +864,7 @@ enum bool old_style)
 	    sample_sets[i].samples = calloc(sample_sets[i].sampbytes,
 					    sizeof(unsigned UNIT));
 	    if(sample_sets[i].samples == NULL)
-		fatal("no room for %lu sample pc's\n", 
+		fatal("no room for %llu sample pc's\n", 
 		      sample_sets[i].sampbytes / sizeof(unsigned UNIT));
 #ifndef __OPENSTEP__
 	    sample_sets[i].version = header.version;
@@ -777,16 +876,13 @@ enum bool old_style)
 	}
 #ifdef DEBUG
 	if(debug & SAMPLEDEBUG){
-	    printf("[new_sample_set] header.lpc 0x%x header.hpc 0x%x "
-		   "header.ncnt %d\n", (unsigned int)header.lpc,
-		   (unsigned int)header.hpc, header.ncnt);
-	    printf("[new_sample_set]   s_lowpc 0x%x   s_highpc 0x%x\n",
-		   (unsigned int)sample_sets[i].s_lowpc,
-		   (unsigned int)sample_sets[i].s_highpc);
-	    printf("[new_sample_set]     lowpc 0x%x     highpc 0x%x\n" ,
-		   (unsigned int)sample_sets[i].lowpc,
-		   (unsigned int)sample_sets[i].highpc);
-	    printf("[new_sample_set] sampbytes %u nsamples %lu\n" ,
+	    printf("[new_sample_set] header.lpc 0x%llx header.hpc 0x%llx "
+		   "header.ncnt %u\n", header.lpc, header.hpc, header.ncnt);
+	    printf("[new_sample_set]   s_lowpc 0x%llx   s_highpc 0x%llx\n",
+		   sample_sets[i].s_lowpc, sample_sets[i].s_highpc);
+	    printf("[new_sample_set]     lowpc 0x%llx     highpc 0x%llx\n" ,
+		   sample_sets[i].lowpc, sample_sets[i].highpc);
+	    printf("[new_sample_set] sampbytes %llu nsamples %llu\n" ,
 		   sample_sets[i].sampbytes, sample_sets[i].nsamples);
 #ifndef __OPENSTEP__
 	    printf("[new_sample_set] version 0x%x\n",
@@ -804,17 +900,17 @@ enum bool old_style)
 	size = sample_sets[i].nsamples * sizeof(unsigned UNIT);
 	samples = malloc(size);
 	if(samples == NULL)
-	    system_fatal("can't allocate buffer of size: %lu for samples from "
+	    system_fatal("can't allocate buffer of size: %llu for samples from "
 			 "gmon.out file: %s", size, filename);
-	if(read(fd, samples, size) != (int)size)
+	if(read(fd, samples, size) != size)
 	    system_fatal("can't read samples from gmon.out file: %s", filename);
 	for(j = 0; j < sample_sets[i].nsamples; j++){
 	    sample = samples[j];
 #ifdef DEBUG
-if(debug & 8192){
-if(sample != 0)
-printf("sample[%ld] = %u\n", j, sample);
-}
+	if(debug & 8192){
+	    if(sample != 0)
+		printf("sample[%llu] = %u\n", j, sample);
+	}
 #endif
 	    sample_sets[i].samples[j] += sample;
 	}
@@ -827,9 +923,9 @@ void
 readarcs(
 int fd,
 char *filename,
-unsigned long nbytes)
+uint32_t nbytes)
 {
-    unsigned long i;
+    uint32_t i;
     struct rawarc arc;
 
 	/*
@@ -841,9 +937,39 @@ unsigned long nbytes)
 			     filename);
 #ifdef DEBUG
 	    if(debug & SAMPLEDEBUG){
-		printf("[readarcs] frompc 0x%x selfpc 0x%x count %lu\n" ,
-		       (unsigned int)arc.raw_frompc,
-		       (unsigned int)arc.raw_selfpc, arc.raw_count);
+		printf("[readarcs] frompc 0x%x selfpc 0x%x count %u\n",
+		       arc.raw_frompc, arc.raw_selfpc, arc.raw_count);
+	    }
+#endif
+	    /*
+	     * Add this arc.
+	     */
+	    tally(arc.raw_frompc, arc.raw_selfpc, arc.raw_count, 0);
+	}
+}
+
+static
+void
+readarcs_64(
+int fd,
+char *filename,
+uint32_t nbytes)
+{
+    uint32_t i;
+    struct rawarc_64 arc;
+
+	/*
+	 * Arcs consists of a bunch of <from,self,count> tuples.
+	 */
+	for(i = 0; i < nbytes; i += sizeof(struct rawarc_64)){
+	    if(read(fd, &arc, sizeof(struct rawarc_64)) !=
+	       sizeof(struct rawarc_64))
+		system_fatal("malformed gmon.out file: %s (can't read arcs)",
+			     filename);
+#ifdef DEBUG
+	    if(debug & SAMPLEDEBUG){
+		printf("[readarcs] frompc 0x%llx selfpc 0x%llx count %u\n",
+		       arc.raw_frompc, arc.raw_selfpc, arc.raw_count);
 	    }
 #endif
 	    /*
@@ -858,9 +984,9 @@ void
 readarcs_orders(
 int fd,
 char *filename,
-unsigned long nbytes)
+uint32_t nbytes)
 {
-    unsigned long i;
+    uint32_t i;
     struct rawarc_order arc_order;
 
 	/*
@@ -873,10 +999,43 @@ unsigned long nbytes)
 			     filename);
 #ifdef DEBUG
 	    if(debug & SAMPLEDEBUG){
-		printf("[readarcs_order] frompc 0x%x selfpc 0x%x count %lu "
-		       "order %lu\n" , (unsigned int)arc_order.raw_frompc,
-		       (unsigned int)arc_order.raw_selfpc, arc_order.raw_count,
-		       arc_order.raw_order);
+		printf("[readarcs_order] frompc 0x%x selfpc 0x%x count %u "
+		       "order %u\n", arc_order.raw_frompc, arc_order.raw_selfpc,
+		       arc_order.raw_count, arc_order.raw_order);
+	    }
+#endif
+
+	    /*
+	     * Add this arc.
+	     */
+	    tally(arc_order.raw_frompc, arc_order.raw_selfpc,
+		  arc_order.raw_count, arc_order.raw_order);
+	}
+}
+
+static
+void
+readarcs_orders_64(
+int fd,
+char *filename,
+uint32_t nbytes)
+{
+    uint32_t i;
+    struct rawarc_order_64 arc_order;
+
+	/*
+	 * Arcs consists of a bunch of <from,self,count> tuples.
+	 */
+	for(i = 0; i < nbytes; i += sizeof(struct rawarc_order_64)){
+	    if(read(fd, &arc_order, sizeof(struct rawarc_order_64)) !=
+					sizeof(struct rawarc_order_64))
+		system_fatal("malformed gmon.out file: %s (can't read arcs)",
+			     filename);
+#ifdef DEBUG
+	    if(debug & SAMPLEDEBUG){
+		printf("[readarcs_order] frompc 0x%llx selfpc 0x%llx count %u "
+		       "order %u\n" , arc_order.raw_frompc,arc_order.raw_selfpc,
+		       arc_order.raw_count, arc_order.raw_order);
 	    }
 #endif
 
@@ -891,10 +1050,10 @@ unsigned long nbytes)
 static
 void
 tally(
-unsigned long frompc,
-unsigned long selfpc,
-unsigned long count,
-unsigned long order)
+uint64_t frompc,
+uint64_t selfpc,
+uint32_t count,
+uint32_t order)
 {
     unsigned long i;
     nltype *parentp;
@@ -904,8 +1063,8 @@ unsigned long order)
 	childp = nllookup(selfpc);
 
 	if(childp == NULL || parentp == NULL){
-	    fprintf(stderr, "bad arc from 0x%x to 0x%x, count %lu (ignored).\n",
-		    (unsigned int)frompc, (unsigned int)selfpc, count);
+	    fprintf(stderr, "bad arc from 0x%llx to 0x%llx, count %u "
+		    "(ignored).\n", frompc, selfpc, count);
 	    return;
 	}
 
@@ -921,9 +1080,8 @@ unsigned long order)
 	   nshlib_text_ranges != 0 && i != nshlib_text_ranges){
 #ifdef DEBUG
 	    if(debug & SAMPLEDEBUG){
-		printf("[tally] tossing arc frompc 0x%x selfpc 0x%x "
-		       "count %lu order %lu\n", (unsigned int)frompc,
-		       (unsigned int)selfpc, count, order);
+		printf("[tally] tossing arc frompc 0x%llx selfpc 0x%llx "
+		       "count %u order %u\n", frompc, selfpc, count, order);
 	    }
 #endif
 	    return;
@@ -945,7 +1103,7 @@ unsigned long order)
 
 #ifdef DEBUG
 	if(debug & TALLYDEBUG){
-	    printf("[tally] arc from %s to %s traversed %lu times\n",
+	    printf("[tally] arc from %s to %s traversed %u times\n",
 		   parentp->name, childp->name, count);
 	}
 #endif /* DEBUG */
@@ -1098,8 +1256,8 @@ char *sumfile)
 		    fatal("can't write arc to gmon.sum file: %s", sumfile);
 #ifdef DEBUG
 		if(debug & SAMPLEDEBUG){
-		    printf("[dumpsum] frompc 0x%x selfpc 0x%x count %lu "
-			   "order %lu\n" ,
+		    printf("[dumpsum] frompc 0x%x selfpc 0x%x count %u "
+			   "order %u\n" ,
 			   (unsigned int)arc_order.raw_frompc,
 			   (unsigned int)arc_order.raw_selfpc,
 			   arc_order.raw_count,

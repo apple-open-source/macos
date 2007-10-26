@@ -1,9 +1,0 @@
-# Makefile for ttfbanner
-
-all: ttfbanner.exe
-
-ttfbanner.exe: ttfbanner.o
-	gcc -O -o ttfbanner.exe ttfbanner.o -lttf
-
-ttfbanner.o: ttfbanner.c
-	gcc -O -c ttfbanner.c

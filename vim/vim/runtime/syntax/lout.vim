@@ -1,10 +1,10 @@
 " Vim syntax file
 " Language:    Lout
 " Maintainer:  Christian V. J. Brüssow <cvjb@cvjb.de>
-" Last Change: Son 22 Sep 2002 00:13:37 CEST
+" Last Change: Son 22 Jun 2003 20:43:26 CEST
 " Filenames:   *.lout,*.lt
 " URL:			http://www.cvjb.de/comp/vim/lout.vim
-" $Id$
+" $Id: lout.vim,v 1.1 2004/06/13 17:52:18 vimboss Exp $
 "
 " Lout: Basser Lout document formatting system.
 
@@ -136,4 +136,4 @@ endif
 
 let b:current_syntax = "lout"
 
-" vim:ts=3:sw=3:
+" vim:ts=8:sw=4:nocindent:smartindent:

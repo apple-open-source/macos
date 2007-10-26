@@ -7,6 +7,7 @@
 # else /* SYS_WINNT */
 #  define	CONFIG_FILE	"%windir%\\system32\\drivers\\etc\\ntp.conf"
 #  define	ALT_CONFIG_FILE "%windir%\\ntp.conf"
+#  define	NTP_KEYSDIR	"%windir%\\system32\\drivers\\etc"
 # endif /* SYS_WINNT */
 #endif /* not CONFIG_FILE */
 
@@ -27,7 +28,7 @@
 #define CONFIG_AUTHENTICATE	7
 #define CONFIG_KEYS		8
 #define CONFIG_REVOKE		9
-#define CONFIG_PPS		10
+#define CONFIG_CDELAY		10
 #define CONFIG_RESTRICT		11
 #define CONFIG_BDELAY		12
 #define CONFIG_TRUSTEDKEY	13
@@ -41,8 +42,8 @@
 #define CONFIG_STATISTICS	21
 #define CONFIG_PIDFILE		22
 #define CONFIG_SETVAR		23
-#define CONFIG_CLIENTLIMIT	24
-#define CONFIG_CLIENTPERIOD	25
+#define CONFIG_DISCARD		24
+#define CONFIG_ADJ		25
 #define CONFIG_MULTICASTCLIENT	26
 #define CONFIG_ENABLE		27
 #define CONFIG_DISABLE		28
@@ -51,11 +52,14 @@
 #define CONFIG_LOGCONFIG	31
 #define CONFIG_MANYCASTCLIENT	32
 #define CONFIG_MANYCASTSERVER	33
-#ifdef PUBKEY
-#define CONFIG_CRYPTO		34
-#define CONFIG_KEYSDIR		35
-#endif /* PUBKEY */
-#define CONFIG_INCLUDEFILE	36
+#define CONFIG_TOS		34
+#define CONFIG_TTL		35
+#define CONFIG_INCLUDEFILE      36
+#define CONFIG_KEYSDIR		37
+#define CONFIG_END		38
+#ifdef OPENSSL
+#define CONFIG_CRYPTO		39
+#endif /* OPENSSL */
 
 /*
  * "peer", "server", "broadcast" modifier keywords
@@ -71,9 +75,8 @@
 #define CONF_MOD_TTL		9
 #define CONF_MOD_MODE		10
 #define CONF_MOD_NOSELECT 	11
-#ifdef PUBKEY
-#define CONF_MOD_PUBLICKEY	12
-#endif /* PUBKEY */
+#define CONF_MOD_TRUE		12
+#define	CONF_MOD_PREEMPT	13
 
 /*
  * "restrict" modifier keywords
@@ -121,11 +124,11 @@
 #define CONF_FGEN_FLAG_DISABLE	6
 
 /*
- * "pps" modifier keywords
+ * "discard" modifier keywords
  */
-#define CONF_PPS_ASSERT		1
-#define CONF_PPS_CLEAR		2
-#define CONF_PPS_HARDPPS	3
+#define CONF_DISCARD_AVERAGE	1
+#define CONF_DISCARD_MINIMUM	2
+#define	CONF_DISCARD_MONITOR	3
 
 /*
  * "tinker" modifier keywords
@@ -134,18 +137,44 @@
 #define CONF_CLOCK_PANIC	2
 #define CONF_CLOCK_PHI		3
 #define CONF_CLOCK_MINSTEP	4
-#define CONF_CLOCK_MINPOLL	5
-#define CONF_CLOCK_ALLAN	6
-#define CONF_CLOCK_HUFFPUFF	7
+#define CONF_CLOCK_ALLAN	5
+#define CONF_CLOCK_HUFFPUFF	6
+#define CONF_CLOCK_FREQ		7
 
-#ifdef PUBKEY
+/*
+ * "tos" modifier keywords
+ */
+#define CONF_TOS_MINCLOCK	1
+#define	CONF_TOS_MAXCLOCK	2
+#define CONF_TOS_MINSANE	3
+#define CONF_TOS_FLOOR		4
+#define CONF_TOS_CEILING	5
+#define CONF_TOS_COHORT		6
+#define CONF_TOS_MINDISP	7
+#define CONF_TOS_MAXDIST	8
+#define	CONF_TOS_MAXHOP		9
+#define	CONF_TOS_BEACON		10
+#define	CONF_TOS_ORPHAN		11
+
+#ifdef OPENSSL
 /*
  * "crypto" modifier keywords
  */
-#define CONF_CRYPTO_DH		1
-#define	CONF_CRYPTO_PRIVATEKEY	2
-#define	CONF_CRYPTO_PUBLICKEY	3
-#define CONF_CRYPTO_LEAP	4
-#define CONF_CRYPTO_FLAGS	5
-#define CONF_CRYPTO_CERT	6
-#endif /* PUBKEY */
+#define	CONF_CRYPTO_RSA		1	
+#define	CONF_CRYPTO_SIGN	2
+#define CONF_CRYPTO_LEAP	3
+#define CONF_CRYPTO_CERT	4
+#define CONF_CRYPTO_RAND	5
+#define CONF_CRYPTO_KEYS	6
+#define	CONF_CRYPTO_IDENT	7
+#define	CONF_CRYPTO_IFFPAR	8
+#define CONF_CRYPTO_GQPAR	9
+#define CONF_CRYPTO_MVPAR	10
+#define CONF_CRYPTO_PW		11
+#endif /* OPENSSL */
+
+/*
+ * Address selection, IPv4 or IPv6
+ */
+#define	CONF_ADDR_IPV4		1
+#define	CONF_ADDR_IPV6		2

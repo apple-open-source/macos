@@ -66,14 +66,23 @@
 #include <sys/cdefs.h>
 
 struct rmtcallargs {
+#ifdef __LP64__
+	unsigned int prog, vers, proc, arglen;
+#else
 	unsigned long prog, vers, proc, arglen;
+#endif
 	caddr_t args_ptr;
 	xdrproc_t xdr_args;
 };
 
 struct rmtcallres {
+#ifdef __LP64__
+	unsigned int *port_ptr;
+	unsigned int resultslen;
+#else
 	unsigned long *port_ptr;
 	unsigned long resultslen;
+#endif
 	caddr_t results_ptr;
 	xdrproc_t xdr_results;
 };

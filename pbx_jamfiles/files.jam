@@ -140,8 +140,8 @@ rule BeginProduct
     # set up CC, CPLUSPLUS, LD, and LDPLUSPLUS appropriately (this logic is temporary, and is
     # expected to be phased out once we have per-build-phase compiler choices)
     if $(GCC_VERSION) = 4.0 {
-        CC default = /usr/bin/gcc-4.0 ;
-        CPLUSPLUS default = /usr/bin/g++-4.0 ;
+        CC default = "$(DEVELOPER_BIN_DIR)/gcc-4.0" ;
+        CPLUSPLUS default = "$(DEVELOPER_BIN_DIR)/g++-4.0" ;
     }
     else if $(GCC_VERSION) = 3.5 {
         CC default = /usr/bin/gcc-3.5 ;
@@ -160,8 +160,8 @@ rule BeginProduct
         CPLUSPLUS default = /usr/bin/g++2 ;
     }
     else {
-        CC default = /usr/bin/cc ;
-        CPLUSPLUS default = /usr/bin/c++ ;
+        CC default = "$(DEVELOPER_BIN_DIR)/cc" ;
+        CPLUSPLUS default = "$(DEVELOPER_BIN_DIR)/c++" ;
     }
     LD default = $(CC) ;
     LDPLUSPLUS default = $(CPLUSPLUS) ;

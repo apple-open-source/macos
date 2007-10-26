@@ -12,10 +12,16 @@ require 'tkextlib/setup.rb'
 require 'tkextlib/winico/setup.rb'
 
 # TkPackage.require('winico', '0.5')
+# TkPackage.require('winico', '0.6')
 TkPackage.require('winico')
 
 module Tk
   class Winico < TkObject
+    PACKAGE_NAME = 'winico'.freeze
+    def self.package_name
+      PACKAGE_NAME
+    end
+
     def self.package_version
       begin
         TkPackage.require('winico')

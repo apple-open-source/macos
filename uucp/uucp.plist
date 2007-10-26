@@ -1,0 +1,29 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>uucp</string>
+        <key>OpenSourceVersion</key>
+        <string>1.07</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://directory.fsf.org/uucp.html</string>
+        <key>OpenSourceURL</key>
+        <string>http://ftp.gnu.org/pub/gnu/uucp/uucp-1.07.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+	<string>e7c93c3aa6468f1b26dd4d9104dbbe8c2949e9ee</string>
+        <key>OpenSourceImportDate</key>
+        <string>2005-04-05</string>
+        <key>OpenSourceLicense</key>
+        <string>GNU General Public License, Version 2, June 1991</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>uucp.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>PR-3996371-conf.diff</string>
+		<string>PR-4883535.patch</string>
+		<string>PR-4383204.patch</string>
+		<string>PR-4905054.manpages.patch</string>
+	</array>
+</dict>
+</array>
+</plist>

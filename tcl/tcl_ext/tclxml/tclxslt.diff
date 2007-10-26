@@ -20,7 +20,7 @@ RCS file: configure
 diff -N configure
 --- /dev/null	1 Jan 1970 00:00:00 -0000
 +++ configure	2 Jun 2004 11:21:32 -0000
-@@ -0,0 +1,7032 @@
+@@ -0,0 +1,7001 @@
 +#! /bin/sh
 +# From configure.in Id: configure.in.
 +# Guess values for system-dependent variables and create Makefiles.
@@ -1884,38 +1884,7 @@ diff -N configure
 +echo "$as_me:1861: result: $cross_compiling" >&5
 +echo "${ECHO_T}$cross_compiling" >&6
 +
-+echo "$as_me:1864: checking for executable suffix" >&5
-+echo $ECHO_N "checking for executable suffix... $ECHO_C" >&6
-+if { (eval echo "$as_me:1866: \"$ac_link\"") >&5
-+  (eval $ac_link) 2>&5
-+  ac_status=$?
-+  echo "$as_me:1869: \$? = $ac_status" >&5
-+  (exit $ac_status); }; then
-+  # If both `conftest.exe' and `conftest' are `present' (well, observable)
-+# catch `conftest.exe'.  For instance with Cygwin, `ls conftest' will
-+# work properly (i.e., refer to `conftest.exe'), while it won't with
-+# `rm'.
-+for ac_file in `(ls conftest.exe; ls conftest; ls conftest.*) 2>/dev/null`; do
-+  case $ac_file in
-+    *.$ac_ext | *.o | *.obj | *.xcoff | *.tds | *.d | *.pdb ) ;;
-+    *.* ) ac_cv_exeext=`expr "$ac_file" : '[^.]*\(\..*\)'`
-+          export ac_cv_exeext
-+          break;;
-+    * ) break;;
-+  esac
-+done
-+else
-+  { { echo "$as_me:1885: error: cannot compute EXEEXT: cannot compile and link" >&5
-+echo "$as_me: error: cannot compute EXEEXT: cannot compile and link" >&2;}
-+   { (exit 1); exit 1; }; }
-+fi
-+
-+rm -f conftest$ac_cv_exeext
-+echo "$as_me:1891: result: $ac_cv_exeext" >&5
-+echo "${ECHO_T}$ac_cv_exeext" >&6
-+
-+rm -f conftest.$ac_ext
-+EXEEXT=$ac_cv_exeext
++EXEEXT=
 +ac_exeext=$EXEEXT
 +echo "$as_me:1897: checking for object suffix" >&5
 +echo $ECHO_N "checking for object suffix... $ECHO_C" >&6
@@ -7228,9 +7197,9 @@ diff -N docs/tclxslt.n
 +++ docs/tclxslt.n	2 Jun 2004 11:21:32 -0000
 @@ -0,0 +1,398 @@
 +'\"
-+Steve Ball'\" Copyright (c) 2002 Zveno Pty Ltd
++'\"Steve Ball'\" Copyright (c) 2002 Zveno Pty Ltd
 +'\"
-+
++'\"
 +'\" 
 +'\" RCS: @(#) $Id: tclxslt.diff,v 1.2 2004/08/20 18:39:36 tpeterso Exp $
 +'\" 

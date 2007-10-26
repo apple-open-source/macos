@@ -6,6 +6,7 @@
             LANGUAGE = ObjC; 
             OUTLETS = {
                 clientPrincipalTextField = NSTextField; 
+                encryptionTabViewItem = NSTabViewItem; 
                 expirationTimeTextField = NSTextField; 
                 flagsTabViewItem = NSTabViewItem; 
                 forwardableTextField = NSTextField; 
@@ -29,11 +30,7 @@
                 sessionKeyEnctypeTextField = NSTextField; 
                 startTimeTextField = NSTextField; 
                 statusTextField = NSTextField; 
-                stringToKeyTypeTextField = NSTextField; 
                 ticketTabView = NSTabView; 
-                v4EncryptionTabViewItem = NSTabViewItem; 
-                v5EncryptionTabViewItem = NSTabViewItem; 
-                versionTextField = NSTextField; 
             }; 
             SUPERCLASS = NSWindowController; 
         }

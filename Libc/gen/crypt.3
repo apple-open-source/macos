@@ -36,23 +36,26 @@
 .Os "FreeSec 1.0"
 .Sh NAME
 .Nm crypt ,
-.Nm setkey ,
 .Nm encrypt ,
-.Nm des_setkey ,
-.Nm des_cipher ,
+.Nm setkey
 .Nd DES encryption
 .Sh SYNOPSIS
 .Fd #include <unistd.h>
-.Ft char
-.Fn *crypt "const char *key" "const char *setting"
+.Ft char *
+.Fo crypt
+.Fa "const char *key"
+.Fa "const char *salt"
+.Fc
 .Ft void
-.Fn setkey "char *key"
+.Fo encrypt
+.Fa "char *block"
+.Fa "int edflag"
+.Fc
+.Fd #include <stdlib.h>
 .Ft void
-.Fn encrypt "char *block" "int flag"
-.Ft int
-.Fn des_setkey "const char *key"
-.Ft int
-.Fn des_cipher "const char *in" "char *out" "long salt" "int count"
+.Fo setkey
+.Fa "const char *key"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn crypt
@@ -66,8 +69,8 @@ is a
 .Dv null Ns -terminated
 string, typically a user's typed password.
 The second is in one of two forms:
-if it begins with an underscore (``_'') then an extended format is used
-in interpreting both the key and the setting, as outlined below.
+if it begins with an underscore (``_''), an extended format is used
+in interpreting both the key and the salt value, as outlined below.
 .Ss Extended crypt:
 .Pp
 The
@@ -79,7 +82,9 @@ the first group of 56 bits becomes the initial DES key.
 For each additional group, the XOR of the encryption of the current DES
 key with itself and the group bits becomes the next DES key.
 .Pp
-The setting is a 9-character array consisting of an underscore followed
+The
+.Ar salt
+is a 9-character array consisting of an underscore, followed
 by 4 bytes of iteration count and 4 bytes of salt.
 These are encoded as printable characters, 6 bits per character,
 least significant character first.
@@ -95,10 +100,10 @@ each character is used to form the 56-bit
 .Tn DES
 key.
 .Pp
-The setting is a 2-character array of the ASCII-encoded salt.
-Thus only 12 bits of
+The
 .Fa salt
-are used.
+is a 2-character array of the ASCII-encoded salt.
+Thus, only 12 bits of salt are used.
 .Fa count
 is set to 25.
 .Ss Algorithm:
@@ -120,29 +125,27 @@ are swapped in the
 .Tn DES
 E-box output).
 .Pp
-The DES key is used to encrypt a 64-bit constant using
+The DES key is used to encrypt a 64-bit constant, using
 .Ar count
 iterations of
 .Tn DES .
 The value returned is a
 .Dv null Ns -terminated
 string, 20 or 13 bytes (plus null) in length, consisting of the
-.Ar setting
+.Ar salt ,
 followed by the encoded 64-bit encryption.
 .Pp
 The functions,
-.Fn encrypt ,
-.Fn setkey ,
-.Fn des_setkey
+.Fn encrypt
 and
-.Fn des_cipher
+.Fn setkey
 provide access to the
 .Tn DES
 algorithm itself.
 .Fn setkey
 is passed a 64-byte array of binary values (numeric 0 or 1).
 A 56-bit key is extracted from this array by dividing the
-array into groups of 8, and ignoring the last bit in each group.
+array into groups of 8 and ignoring the last bit in each group.
 That bit is reserved for a byte parity check by DES, but is ignored
 by these functions.
 .Pp
@@ -152,66 +155,56 @@ argument to
 .Fn encrypt
 is also a 64-byte array of binary values.
 If the value of
-.Fa flag
+.Fa edflag
 is 0,
 .Fa block
-is encrypted otherwise it is decrypted.
+is encrypted; otherwise, it is decrypted.
 The result is returned in the original array
-.Fa block
+.Fa block ,
 after using the key specified by
 .Fn setkey
 to process it.
 .Pp
-The argument to
-.Fn des_setkey
-is a character array of length 8.
-The least significant bit (the parity bit) in each character is ignored,
-and the remaining bits are concatenated to form a 56-bit key.
-The function
-.Fn des_cipher
-encrypts (or decrypts if
-.Fa count
-is negative) the 64-bits stored in the 8 characters at
-.Fa in
-using
-.Xr abs 3
-of
-.Fa count
-iterations of
-.Tn DES
-and stores the 64-bit result in the 8 characters at
-.Fa out
-(which may be the same as
-.Fa in
-).
-The
-.Fa salt
-specifies perturbations to the
-.Tn DES
-E-box output as described above.
-.Pp
 The function
 .Fn crypt
 returns a pointer to the encrypted value on success, and NULL on failure.
-The functions
-.Fn setkey ,
-.Fn encrypt ,
-.Fn des_setkey ,
-and
-.Fn des_cipher
-return 0 on success and 1 on failure.
 .Pp
 The
-.Fn crypt ,
-.Fn setkey
+.Fn crypt
 and
-.Fn des_setkey
+.Fn setkey
 functions all manipulate the same key space.
 .Sh SEE ALSO
 .Xr login 1 ,
 .Xr passwd 1 ,
 .Xr getpass 3 ,
+.Xr compat 5 ,
 .Xr passwd 5
+.Sh LEGACY SYNOPSIS
+.Fd #include <unistd.h>
+.Pp
+.Ft int
+.br
+.Fo encrypt
+.Fa "char *block"
+.Fa "int edflag"
+.Fc ;
+.Pp
+The function
+.Fn encrypt
+returns 0 on success and 1 on failure.
+.Pp
+.Ft void
+.br
+.Fo setkey
+.Fa "const char *key"
+.Fc ;
+.Pp
+The include file
+.In unistd.h
+is necessary and sufficient for the
+.Fn setkey
+function.
 .Sh BUGS
 The
 .Fn crypt

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2003-10-14</string>
+		<key>OpenSourceLicense</key>
+		<string>Artistic/GPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>procmail.txt</string>
+		<key>OpenSourceProject</key>
+		<string>procmail</string>
+		<key>OpenSourceSHA1</key>
+		<string>cd4e44c15559816453fd60349e5a32289f6f2965</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.procmail.org/procmail-3.22.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>3.22</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.procmail.org/</string>
+	</dict>
+</array>
+</plist>

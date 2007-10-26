@@ -15,7 +15,7 @@ mandir = $(datadir)/man
 #### End of system configuration section. ####
 
 all : force
-	sed -e 's/@ICONV_CONST@/const/g' < include/iconv.h.in > include/iconv.h
+	sed -e 's/@ICONV_CONST@/const/g' -e 's/@HAVE_WCHAR_T@/1/g' < include/iconv.h.in > include/iconv.h
 	(cd lib   && $(MAKE) -f Makefile.os2 all && cd ..)
 	(cd src   && $(MAKE) -f Makefile.os2 all && cd ..)
 	(cd man   && $(MAKE) -f Makefile.os2 all && cd ..)

@@ -30,6 +30,8 @@
 #include "bashansi.h"
 #include <stdio.h>
 
+#include "bashintl.h"
+
 #include "shell.h"
 #include "flags.h"
 #include "trap.h"
@@ -61,8 +63,9 @@ int
 reader_loop ()
 {
   int our_indirection_level;
-  COMMAND * volatile current_command = (COMMAND *)NULL;
+  COMMAND * volatile current_command;
 
+  current_command = (COMMAND *)NULL;
   USE_VAR(current_command);
 
   our_indirection_level = ++indirection_level;
@@ -88,6 +91,7 @@ reader_loop ()
 	    {
 	      /* Some kind of throw to top_level has occured. */
 	    case FORCE_EOF:
+	    case ERREXIT:
 	    case EXITPROG:
 	      current_command = (COMMAND *)NULL;
 	      if (exit_immediately_on_error)
@@ -143,13 +147,13 @@ reader_loop ()
 	      execute_command (current_command);
 
 	    exec_done:
+	      QUIT;
+
 	      if (current_command)
 		{
 		  dispose_command (current_command);
 		  current_command = (COMMAND *)NULL;
 		}
-
-	      QUIT;
 	    }
 	}
       else
@@ -169,7 +173,8 @@ static sighandler
 alrm_catcher(i)
      int i;
 {
-  printf ("\007timed out waiting for input: auto-logout\n");
+  printf (_("\007timed out waiting for input: auto-logout\n"));
+  bash_logout ();	/* run ~/.bash_logout if this is a login shell */
   jump_to_top_level (EXITPROG);
   SIGRETURN (0);
 }
@@ -207,7 +212,7 @@ parse_command ()
     {
       command_to_execute = get_string_value ("PROMPT_COMMAND");
       if (command_to_execute)
-	execute_prompt_command (command_to_execute);
+	execute_variable_command (command_to_execute, "PROMPT_COMMAND");
 
       if (running_under_emacs == 2)
 	send_pwd_to_eterm ();	/* Yuck */

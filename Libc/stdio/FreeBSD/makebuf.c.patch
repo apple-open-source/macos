@@ -1,0 +1,33 @@
+--- makebuf.c.orig	2006-10-11 20:54:06.000000000 -0700
++++ makebuf.c	2006-10-12 10:09:09.000000000 -0700
+@@ -49,6 +49,8 @@
+ #include "local.h"
+ #include "un-namespace.h"
+ 
++#define TTYBUFSIZE	4096
++
+ /*
+  * Allocate a file buffer, or switch to unbuffered I/O.
+  * Per the ANSI C standard, ALL tty devices default to line buffered.
+@@ -71,6 +73,12 @@
+ 		return;
+ 	}
+ 	flags = __swhatbuf(fp, &size, &couldbetty);
++	if (couldbetty && isatty(fp->_file)) {
++		flags |= __SLBF;
++		/* st_blksize for ttys is 128K, so make it more reasonable */
++		if (size > TTYBUFSIZE)
++			fp->_blksize = size = TTYBUFSIZE;
++	}
+ 	if ((p = malloc(size)) == NULL) {
+ 		fp->_flags |= __SNBF;
+ 		fp->_bf._base = fp->_p = fp->_nbuf;
+@@ -81,8 +89,6 @@
+ 	flags |= __SMBF;
+ 	fp->_bf._base = fp->_p = p;
+ 	fp->_bf._size = size;
+-	if (couldbetty && isatty(fp->_file))
+-		flags |= __SLBF;
+ 	fp->_flags |= flags;
+ }
+ 

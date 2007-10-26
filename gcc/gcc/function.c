@@ -61,6 +61,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "cfglayout.h"
 #include "tree-gimple.h"
+/* APPLE LOCAL mainline */
+#include "predict.h"
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -356,11 +358,12 @@ free_after_compilation (struct function *f)
 HOST_WIDE_INT
 get_func_frame_size (struct function *f)
 {
-#ifdef FRAME_GROWS_DOWNWARD
+  /* APPLE LOCAL begin mainline */
+  if (FRAME_GROWS_DOWNWARD)
   return -f->x_frame_offset;
-#else
+  else
   return f->x_frame_offset;
-#endif
+  /* APPLE LOCAL end mainline */
 }
 
 /* Return size needed for stack frame based on slots so far allocated.
@@ -421,9 +424,10 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   else
     alignment = align / BITS_PER_UNIT;
 
-#ifdef FRAME_GROWS_DOWNWARD
+  /* APPLE LOCAL begin mainline */
+  if (FRAME_GROWS_DOWNWARD)
   function->x_frame_offset -= size;
-#endif
+  /* APPLE LOCAL end mainline */
 
   /* Ignore alignment we can't do with expected alignment of the boundary.  */
   if (alignment * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
@@ -449,17 +453,18 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 	  division with a negative dividend isn't as well defined as we might
 	  like.  So we instead assume that ALIGNMENT is a power of two and
 	  use logical operations which are unambiguous.  */
-#ifdef FRAME_GROWS_DOWNWARD
+      /* APPLE LOCAL begin mainline */
+      if (FRAME_GROWS_DOWNWARD)
       function->x_frame_offset
 	= (FLOOR_ROUND (function->x_frame_offset - frame_phase,
 			(unsigned HOST_WIDE_INT) alignment)
 	   + frame_phase);
-#else
+      else
       function->x_frame_offset
 	= (CEIL_ROUND (function->x_frame_offset - frame_phase,
 		       (unsigned HOST_WIDE_INT) alignment)
 	   + frame_phase);
-#endif
+      /* APPLE LOCAL end mainline */
     }
 
   /* On a big-endian machine, if we are allocating more space than we will use,
@@ -480,9 +485,10 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 			  (function->x_frame_offset + bigend_correction,
 			   Pmode));
 
-#ifndef FRAME_GROWS_DOWNWARD
+  /* APPLE LOCAL begin mainline */
+  if (!FRAME_GROWS_DOWNWARD)
   function->x_frame_offset += size;
-#endif
+  /* APPLE LOCAL end mainline */
 
   x = gen_rtx_MEM (mode, addr);
 
@@ -724,20 +730,24 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
 	 can be either above or below this stack slot depending on which
 	 way the frame grows.  We include the extra space if and only if it
 	 is above this slot.  */
-#ifdef FRAME_GROWS_DOWNWARD
+      /* APPLE LOCAL begin mainline */
+      if (FRAME_GROWS_DOWNWARD)
       p->size = frame_offset_old - frame_offset;
-#else
+      else
       p->size = size;
-#endif
 
       /* Now define the fields used by combine_temp_slots.  */
-#ifdef FRAME_GROWS_DOWNWARD
+      if (FRAME_GROWS_DOWNWARD)
+	{
       p->base_offset = frame_offset;
       p->full_size = frame_offset_old - frame_offset;
-#else
+	}
+      else
+	{
       p->base_offset = frame_offset_old;
       p->full_size = frame_offset - frame_offset_old;
-#endif
+	}
+      /* APPLE LOCAL end mainline */
       p->address = 0;
 
       selected = p;
@@ -2521,6 +2531,15 @@ assign_parm_adjust_stack_rtl (struct assign_parm_data_one *data)
 	   && data->nominal_mode != BLKmode
 	   && data->nominal_mode != data->passed_mode)
     stack_parm = NULL;
+  /* APPLE LOCAL begin mainline */
+  /* If stack protection is in effect for this function, don't leave any
+     pointers in their passed stack slots.  */
+  else if (cfun->stack_protect_guard
+	   && (flag_stack_protect == 2
+	       || data->passed_pointer
+	       || POINTER_TYPE_P (data->nominal_type)))
+    stack_parm = NULL;
+  /* APPLE LOCAL end mainline */
 
   data->stack_parm = stack_parm;
 }
@@ -2740,6 +2759,17 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
   promoted_nominal_mode
     = promote_mode (data->nominal_type, data->nominal_mode, &unsignedp, 0);
 
+  /* APPLE LOCAL begin CW asm blocks */
+  /* In asm functions with no stack frame, leave it in the register.  */
+  if (cfun->iasm_frame_size == -2
+      && cfun->iasm_noreturn)
+    {
+      parmreg = DECL_INCOMING_RTL (parm);
+      if (promoted_nominal_mode != GET_MODE (parmreg))
+	warning ("wrong mode for arg %qD", parm);
+    }
+  else
+  /* APPLE LOCAL end CW asm blocks */
   parmreg = gen_reg_rtx (promoted_nominal_mode);
 
   if (!DECL_ARTIFICIAL (parm))
@@ -3061,24 +3091,14 @@ assign_parms (tree fndecl)
 {
   struct assign_parm_data_all all;
   tree fnargs, parm;
-  rtx internal_arg_pointer;
+  /* APPLE LOCAL deletion mainline 2006-02-17 4356747 stack realign */
   /* APPLE LOCAL AltiVec */
   int pass, last_pass;
 
-  /* If the reg that the virtual arg pointer will be translated into is
-     not a fixed reg or is the stack pointer, make a copy of the virtual
-     arg pointer, and address parms via the copy.  The frame pointer is
-     considered fixed even though it is not marked as such.
-
-     The second time through, simply use ap to avoid generating rtx.  */
-
-  if ((ARG_POINTER_REGNUM == STACK_POINTER_REGNUM
-       || ! (fixed_regs[ARG_POINTER_REGNUM]
-	     || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
-    internal_arg_pointer = copy_to_reg (virtual_incoming_args_rtx);
-  else
-    internal_arg_pointer = virtual_incoming_args_rtx;
-  current_function_internal_arg_pointer = internal_arg_pointer;
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  current_function_internal_arg_pointer
+    = targetm.calls.internal_arg_pointer ();
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);
@@ -3211,10 +3231,6 @@ assign_parms (tree fndecl)
 
   current_function_args_info = all.args_so_far;
 
-  /* APPLE LOCAL begin CW asm blocks */
-  if (cfun->cw_asm_function)
-   return;
-  /* APPLE LOCAL end CW asm blocks */
   /* Set the rtx used for the function return value.  Put this in its
      own variable so any optimizers that need this information don't have
      to include tree.h.  Do this here so it gets done when an inlined
@@ -4048,11 +4064,11 @@ init_function_start (tree subr)
   prepare_function_start (subr);
 
   /* APPLE LOCAL begin CW asm blocks */
-  if (DECL_CW_ASM_FUNCTION (subr))
+  if (DECL_IASM_ASM_FUNCTION (subr))
     {
-      cfun->cw_asm_function = 1;
-      cfun->cw_asm_noreturn = DECL_CW_ASM_NORETURN (subr);
-      cfun->cw_asm_frame_size = DECL_CW_ASM_FRAME_SIZE (subr);
+      cfun->iasm_asm_function = true;
+      cfun->iasm_noreturn = DECL_IASM_NORETURN (subr);
+      cfun->iasm_frame_size = DECL_IASM_FRAME_SIZE (subr);
     }
   /* APPLE LOCAL end CW asm blocks */
   /* Prevent ever trying to delete the first instruction of a
@@ -4097,47 +4113,107 @@ init_function_for_compilation (void)
 void
 expand_main_function (void)
 {
-#ifdef FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
-  if (FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN)
-    {
-      int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-      rtx tmp, seq;
-
-      start_sequence ();
-      /* Forcibly align the stack.  */
-#ifdef STACK_GROWS_DOWNWARD
-      tmp = expand_simple_binop (Pmode, AND, stack_pointer_rtx, GEN_INT(-align),
-				 stack_pointer_rtx, 1, OPTAB_WIDEN);
-#else
-      tmp = expand_simple_binop (Pmode, PLUS, stack_pointer_rtx,
-				 GEN_INT (align - 1), NULL_RTX, 1, OPTAB_WIDEN);
-      tmp = expand_simple_binop (Pmode, AND, tmp, GEN_INT (-align),
-				 stack_pointer_rtx, 1, OPTAB_WIDEN);
-#endif
-      if (tmp != stack_pointer_rtx)
-	emit_move_insn (stack_pointer_rtx, tmp);
-
-      /* Enlist allocate_dynamic_stack_space to pick up the pieces.  */
-      tmp = force_reg (Pmode, const0_rtx);
-      allocate_dynamic_stack_space (tmp, NULL_RTX, BIGGEST_ALIGNMENT);
-      seq = get_insns ();
-      end_sequence ();
-
-      for (tmp = get_last_insn (); tmp; tmp = PREV_INSN (tmp))
-	if (NOTE_P (tmp) && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_FUNCTION_BEG)
-	  break;
-      if (tmp)
-	emit_insn_before (seq, tmp);
-      else
-	emit_insn (seq);
-    }
-#endif
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  /* deletion */
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
+/* APPLE LOCAL begin mainline */
 
 #ifndef HAS_INIT_SECTION
   emit_library_call (init_one_libfunc (NAME__MAIN), LCT_NORMAL, VOIDmode, 0);
 #endif
 }
 
+/* Expand code to initialize the stack_protect_guard.  This is invoked at
+   the beginning of a function to be protected.  */
+
+#ifndef HAVE_stack_protect_set
+# define HAVE_stack_protect_set         0
+# define gen_stack_protect_set(x,y)     (gcc_unreachable (), NULL_RTX)
+#endif
+
+void
+stack_protect_prologue (void)
+{
+  tree guard_decl = targetm.stack_protect_guard ();
+  rtx x, y;
+
+  /* Avoid expand_expr here, because we don't want guard_decl pulled
+     into registers unless absolutely necessary.  And we know that
+     cfun->stack_protect_guard is a local stack slot, so this skips
+     all the fluff.  */
+  x = validize_mem (DECL_RTL (cfun->stack_protect_guard));
+  y = validize_mem (DECL_RTL (guard_decl));
+
+  /* Allow the target to copy from Y to X without leaking Y into a
+     register.  */
+  if (HAVE_stack_protect_set)
+    {
+      rtx insn = gen_stack_protect_set (x, y);
+      if (insn)
+        {
+          emit_insn (insn);
+          return;
+        }
+    }
+
+  /* Otherwise do a straight move.  */
+  emit_move_insn (x, y);
+}
+
+/* Expand code to verify the stack_protect_guard.  This is invoked at
+   the end of a function to be protected.  */
+
+#ifndef HAVE_stack_protect_test
+# define HAVE_stack_protect_test                0
+# define gen_stack_protect_test(x, y, z)        (gcc_unreachable (), NULL_RTX)
+#endif
+
+void
+stack_protect_epilogue (void)
+{
+  tree guard_decl = targetm.stack_protect_guard ();
+  rtx label = gen_label_rtx ();
+  rtx x, y, tmp;
+
+  /* Avoid expand_expr here, because we don't want guard_decl pulled
+     into registers unless absolutely necessary.  And we know that
+     cfun->stack_protect_guard is a local stack slot, so this skips
+     all the fluff.  */
+  x = validize_mem (DECL_RTL (cfun->stack_protect_guard));
+  y = validize_mem (DECL_RTL (guard_decl));
+
+  /* Allow the target to compare Y with X without leaking either into
+     a register.  */
+  switch (HAVE_stack_protect_test != 0)
+    {
+    case 1:
+      tmp = gen_stack_protect_test (x, y, label);
+      if (tmp)
+        {
+          emit_insn (tmp);
+          break;
+        }
+      /* FALLTHRU */
+
+    default:
+      emit_cmp_and_jump_insns (x, y, EQ, NULL_RTX, ptr_mode, 1, label);
+      break;
+    }
+
+  /* The noreturn predictor has been moved to the tree level.  The rtl-level
+     predictors estimate this branch about 20%, which isn't enough to get
+     things moved out of line.  Since this is the only extant case of adding
+     a noreturn function at the rtl level, it doesn't seem worth doing ought
+     except adding the prediction by hand.  */
+  tmp = get_last_insn ();
+  if (JUMP_P (tmp))
+    predict_insn_def (tmp, PRED_NORETURN, TAKEN);
+
+  expand_expr_stmt (targetm.stack_protect_fail ());
+  emit_label (label);
+}
+
+/* APPLE LOCAL end mainline */
 /* Start the RTL for a new function, and set variables used for
    emitting RTL.
    SUBR is the FUNCTION_DECL node.
@@ -4203,7 +4279,10 @@ expand_function_start (tree subr)
 	  SET_DECL_RTL (DECL_RESULT (subr), x);
 	}
     }
-  else if (DECL_MODE (DECL_RESULT (subr)) == VOIDmode)
+  /* APPLE LOCAL begin CW asm blocks */
+  else if (DECL_MODE (DECL_RESULT (subr)) == VOIDmode
+	   || cfun->iasm_asm_function)
+  /* APPLE LOCAL end CW asm blocks */
     /* If return mode is void, this decl rtl should not be used.  */
     SET_DECL_RTL (DECL_RESULT (subr), NULL_RTX);
   else
@@ -4445,6 +4524,11 @@ expand_function_end (void)
   clear_pending_stack_adjust ();
   do_pending_stack_adjust ();
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cfun->iasm_asm_function)
+    expand_naked_return ();
+  /* APPLE LOCAL end CW asm blocks */ 
+
   /* @@@ This is a kludge.  We want to ensure that instructions that
      may trap are not moved into the epilogue by scheduling, because
      we don't always emit unwind information for the epilogue.
@@ -4489,10 +4573,6 @@ expand_function_end (void)
   if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
     sjlj_emit_function_exit_after (get_last_insn ());
 
-  /* APPLE LOCAL begin CW asm blocks */
-  if (cfun->cw_asm_function)
-    return;
-  /* APPLE LOCAL end CW asm blocks */ 
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
      return register.  */
@@ -4619,6 +4699,12 @@ expand_function_end (void)
 
   /* Output the label for the naked return from the function.  */
   emit_label (naked_return_label);
+
+  /* APPLE LOCAL begin mainline */
+  /* If stack protection is enabled for this function, check the guard.  */
+  if (cfun->stack_protect_guard)
+    stack_protect_epilogue ();
+  /* APPLE LOCAL end mainline */
 
   /* If we had calls to alloca, and this machine needs
      an accurate stack pointer to exit the function,

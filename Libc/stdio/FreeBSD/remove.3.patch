@@ -1,0 +1,11 @@
+--- _SB/Libc/stdio/FreeBSD/remove.3	2003-05-20 15:22:43.000000000 -0700
++++ _SB/Libc/stdio/FreeBSD/remove.3.edit	2006-06-28 16:55:52.000000000 -0700
+@@ -72,7 +72,7 @@
+ .Va errno
+ for any of the errors specified for the routines
+ .Xr lstat 2 ,
+-.Xr rmdir 2
++.Xr rmdir 2 ,
+ or
+ .Xr unlink 2 .
+ .Sh SEE ALSO

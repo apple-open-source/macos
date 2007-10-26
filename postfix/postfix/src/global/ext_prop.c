@@ -1,16 +1,16 @@
 /*++
 /* NAME
-/*	exp_prop 3
+/*	ext_prop 3
 /* SUMMARY
 /*	address extension propagation control
 /* SYNOPSIS
-/*	#include <exp_prop.h>
+/*	#include <ext_prop.h>
 /*
 /*	int	ext_prop_mask(param_name, pattern)
 /*	const char *param_name;
 /*	const char *pattern;
 /* DESCRIPTION
-/*	This module controld address extension propagation.
+/*	This module controls address extension propagation.
 /*
 /*	ext_prop_mask() takes a comma-separated list of names and
 /*	computes the corresponding mask. The following names are
@@ -31,6 +31,9 @@
 /* .IP "include (EXT_PROP_INCLUDE)"
 /*	Propagate unmatched address extensions to the right-hand side
 /*	of :include: file entries.
+/* .IP "generic (EXT_PROP_GENERIC)"
+/*	Propagate unmatched address extensions to the right-hand side
+/*	of smtp_generic_maps entries.
 /* DIAGNOSTICS
 /*	Panic: inappropriate use.
 /* LICENSE
@@ -67,6 +70,7 @@ int     ext_prop_mask(const char *param_name, const char *pattern)
 	"alias", EXT_PROP_ALIAS,
 	"forward", EXT_PROP_FORWARD,
 	"include", EXT_PROP_INCLUDE,
+	"generic", EXT_PROP_GENERIC,
 	0,
     };
 

@@ -1,0 +1,20 @@
+--- config.layout.orig	2005-09-30 21:48:30.000000000 -0700
++++ config.layout	2005-09-30 21:48:58.000000000 -0700
+@@ -92,7 +92,7 @@
+     libexecdir:    ${exec_prefix}/libexec+
+     mandir:        ${prefix}/share/man
+     datadir:       /Library/WebServer
+-    sysconfdir:    /etc+
++    sysconfdir:    /private/etc+
+     installbuilddir: ${prefix}/share/httpd/build
+     errordir:      ${prefix}/share/httpd/error
+     iconsdir:      ${prefix}/share/httpd/icons
+@@ -100,7 +100,7 @@
+     manualdir:     ${datadir}/share/httpd/manual
+     cgidir:        ${datadir}/CGI-Executables
+     includedir:    ${prefix}/include+
+-    localstatedir: /var
++    localstatedir: /private/var
+     runtimedir:    ${localstatedir}/run
+     logfiledir:    ${localstatedir}/log+
+     proxycachedir: ${runtimedir}/proxy

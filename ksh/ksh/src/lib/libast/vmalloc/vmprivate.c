@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #if defined(_UWIN) && defined(_BLD_ast)
 
 void _STUB_vmprivate(){}
@@ -31,8 +27,18 @@ void _STUB_vmprivate(){}
 
 #include	"vmhdr.h"
 
-static char*	Version = "\n@(#)$Id: Vmalloc (AT&T Labs - Research) 2004-02-06 $\0\n";
+static char*	Version = "\n@(#)$Id: Vmalloc (AT&T Research) 2005-09-28 $\0\n";
 
+#if _sys_stat
+#include	<sys/stat.h>
+#endif
+#include	<fcntl.h>
+
+#ifdef S_IRUSR
+#define CREAT_MODE	(S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
+#else
+#define CREAT_MODE	0644
+#endif
 
 /*	Private code used in the vmalloc library
 **
@@ -65,7 +71,7 @@ Vmsearch_f	searchf;	/* tree search function		*/
 		int	fd;
 		vd->mode = (vd->mode&~VM_TRUST)|VM_TRACE;
 		if((fd = vmtrace(-1)) >= 0 ||
-		   ((env = getenv("VMTRACE")) && (fd = creat(env, 0666)) >= 0 ) )
+		   ((env = getenv("VMTRACE")) && (fd = creat(env, CREAT_MODE)) >= 0 ) )
 			vmtrace(fd);
 	}
 #endif
@@ -79,6 +85,10 @@ Vmsearch_f	searchf;	/* tree search function		*/
 		return NIL(Block_t*);
 	if((size = ROUND(s,vd->incr)) < s)
 		return NIL(Block_t*);
+
+	/* increase the rounding factor to reduce # of future extensions */
+	if(size > 2*vd->incr && vm->disc->round < vd->incr)
+		vd->incr *= 2;
 
 	/* see if we can extend the current segment */
 	if(!(seg = vd->seg) )

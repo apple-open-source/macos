@@ -1,0 +1,3 @@
+inet_pton.lo .libs/inet_pton.o: inet_pton.c ../config.h
+
+../config.h:

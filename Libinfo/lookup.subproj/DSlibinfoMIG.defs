@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*!
+ * @header DSLookupMIG.defs
+ */
+
+/*
+ * Warning!
+ * Do not re-order this file as it will cause MIG API number
+ * changes.  Always add to the end of the file for new defs.
+ */
+
+subsystem DSlibinfoMIG 50000;
+
+userprefix libinfoDSmig_;
+serverprefix libinfoDSmig_do_;
+
+import <sys/types.h>;
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+import <DSlibinfoMIG_types.h>;
+
+type proc_name_t = c_string [* : 256];
+type inline_data_t = array [* : 16384] of char;
+
+routine GetProcedureNumber
+(
+	server : mach_port_t;
+	name : proc_name_t;
+	out procno : int32_t;
+	ServerAuditToken bsmtoken : audit_token_t;
+	UserSecToken usertoken : security_token_t
+);
+
+routine Query
+(
+	server : mach_port_t;
+	proc : int32_t;
+	request : inline_data_t;
+	out reply : inline_data_t;
+	out ooreply : pointer_t, Dealloc;
+	ServerAuditToken bsmtoken : audit_token_t;
+	UserSecToken usertoken : security_token_t
+);
+
+simpleroutine Query_async
+(
+	server : mach_port_t;
+	replyToPort : mach_port_make_send_once_t;
+	proc : int32_t;
+	request : inline_data_t;
+	callbackAddr : mach_vm_address_t;
+	ServerAuditToken bsmtoken : audit_token_t
+);

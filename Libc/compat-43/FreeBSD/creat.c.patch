@@ -1,0 +1,30 @@
+--- creat.c.orig	2006-09-16 19:12:44.000000000 -0700
++++ creat.c	2006-09-17 00:17:18.000000000 -0700
+@@ -37,14 +37,26 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/compat-43/creat.c,v 1.7 2002/03/22 21:51:56 obrien Exp $");
+ 
++
+ #include "namespace.h"
+ #include <fcntl.h>
+ #include "un-namespace.h"
+ 
++#ifdef VARIANT_CANCELABLE
++int __open(const char *path, int flags, mode_t mode);
++#else /* !VARIANT_CANCELABLE */
++int __open_nocancel(const char *path, int flags, mode_t mode);
++#endif /* VARIANT_CANCELABLE */
++
++
+ int
+ __creat(const char *path, mode_t mode)
+ {
+-	return(_open(path, O_WRONLY|O_CREAT|O_TRUNC, mode));
++#ifdef VARIANT_CANCELABLE
++	return(__open(path, O_WRONLY|O_CREAT|O_TRUNC, mode));
++#else /* !VARIANT_CANCELABLE */
++	return(__open_nocancel(path, O_WRONLY|O_CREAT|O_TRUNC, mode));
++#endif /* VARIANT_CANCELABLE */
+ }
+ __weak_reference(__creat, creat);
+ __weak_reference(__creat, _creat);

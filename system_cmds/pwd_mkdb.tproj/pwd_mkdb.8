@@ -43,7 +43,7 @@
 .Op Fl u Ar username
 .Ar file
 .Sh DESCRIPTION
-.Nm
+.Nm pwd_mkdb
 creates
 .Xr db 3
 style secure and insecure databases for the specified file.
@@ -61,22 +61,11 @@ different from the historic Version 7 style format.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
+.\" ==========
 .It Fl c
 Check if the password file is in the correct format.
 Do not change, add, or remove any files.
-.It Fl p
-Create a Version 7 style password file and install it into
-.Pa /etc/passwd .
-.It Fl s
-Only update the secure version of the database.
-This is most commonly used in conjunction with the
-.Fl u
-flag during a password change.
-Because the insecure database doesn't contain the password there
-is no reason to update it if the only change is in the password field.
-Cannot be used in conjunction with the
-.Fl p
-flag.
+.\" ==========
 .It Fl d Ar directory
 Operate in a base directory other than the default of
 .Pa /etc .
@@ -93,6 +82,22 @@ other than
 for instance in a
 .Xr chroot 8
 jail.
+.\" ==========
+.It Fl p
+Create a Version 7 style password file and install it into
+.Pa /etc/passwd .
+.\" ==========
+.It Fl s
+Only update the secure version of the database.
+This is most commonly used in conjunction with the
+.Fl u
+flag during a password change.
+Because the insecure database doesn't contain the password there
+is no reason to update it if the only change is in the password field.
+Cannot be used in conjunction with the
+.Fl p
+flag.
+.\" ==========
 .It Fl u Ar username
 Only update the record for the specified user.
 Utilities that operate on a single user can use this option to avoid the
@@ -100,6 +105,7 @@ overhead of rebuilding the entire database.
 This option must never be used if the line number of the user's record in
 .Pa /etc/master.passwd
 has changed.
+.\" ==========
 .It Ar file
 The absolute path to a file in
 .Ar master.passwd
@@ -114,7 +120,7 @@ encrypted password and the insecure version has an asterisk
 The databases are used by the C library password routines (see
 .Xr getpwent 3 ) .
 .Pp
-.Nm
+.Nm pwd_mkdb
 exits zero on success, non-zero on failure.
 .Sh FILES
 .Bl -tag -width /etc/master.passwd -compact
@@ -150,7 +156,7 @@ The program was renamed in order that previous users of the program
 not be surprised by the changes in functionality.
 .Sh BUGS
 Because of the necessity for atomic update of the password files,
-.Nm
+.Nm pwd_mkdb
 uses
 .Xr rename 2
 to install them.
@@ -160,7 +166,7 @@ on the same file system as the
 directory.
 .Pp
 There are the obvious races with multiple people running
-.Nm
+.Nm pwd_mkdb
 on different password files at the same time.
 The front-ends to
 .Nm pwd_mkdb ,

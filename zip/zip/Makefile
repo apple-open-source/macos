@@ -1,46 +1,55 @@
-##
-# CoreOS Makefile for zip
-##
-
-Project		= zip
-UserType	= Developer
-ToolType	= Commands
-
-GnuNoConfigure	= YES
-GnuNoBuild	= YES
-
-GnuAfterInstall	= destroot manpages ossinfo
+PROJECT		= zip
+VERSION		= 2.32
+DISTFILE	= $(PROJECT)$(shell echo $(VERSION)  | tr -d '.').tar.gz
 
 OSLICENSES	= /usr/local/OpenSourceLicenses
-PATCHFILES	= zip23-CAN-2004-1010-patch.txt canversion-patch.txt
+PATCHFILES	= 
 
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+SRCROOT		?= $(shell pwd)
+OBJROOT		?= $(SRCROOT)/obj
+SYMROOT		?= $(SRCROOT)/sym
+DSTROOT		?= $(SRCROOT)/dst
 
-Install_Target	= -f unix/Makefile generic
-Extra_CC_Flags  = -mdynamic-no-pic
-CC_Optimize     =       # project handles this
-Extra_Install_Flags	=	LOCAL_ZIP="$(CC_Flags)" \
-		BIND="$(CC) $(LDFLAGS)" CC="$(CC) -fno-builtin"
-Environment		=	$(Extra_Environment)
+ifndef CoreOSMakefiles
+CoreOSMakefiles = $(MAKEFILEPATH)/CoreOS
+endif
 
-build:: install_source_local patch_source_local
+include $(MAKEFILEPATH)/CoreOS/Standard/Standard.make
 
-destroot:
-	$(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) \
-		-f unix/Makefile install \
-		MANDIR=$(RC_Install_Man)/'man$$(manext)'
+all: install
 
-manpages:
-	$(INSTALL_FILE) $(SRCROOT)/manpage_alias $(RC_Install_Man)/man1/zipcloak.1
-	$(INSTALL_FILE) $(SRCROOT)/manpage_alias $(RC_Install_Man)/man1/zipnote.1
-	$(INSTALL_FILE) $(SRCROOT)/manpage_alias $(RC_Install_Man)/man1/zipsplit.1
+installhdrs:
 
-ossinfo:
+clean:
+	rm -rf $(SYMROOT) $(OBJROOT)
+
+install: destroot manpages ossinfo
+
+installsrc:
+	pax -rw . $(SRCROOT)
+
+destroot: unpacksrc
+	$(MAKE) -C $(OBJROOT)/$(PROJECT)-$(VERSION) \
+		-f unix/Makefile generic install \
+		prefix=$(DSTROOT)/usr \
+		MANDIR=$(DSTROOT)/usr/share/man/'man$$(manext)' \
+		LOCAL_ZIP="-Os -mdynamic-no-pic $(RC_CFLAGS)" BIND="$(CC) $(RC_CFLAGS)" \
+		CC="$(CC) -fno-builtin -x c"  INSTALL="$(INSTALL)" DESTDIR=$(DSTROOT)
+
+manpages: destroot
+	mkdir -p $(DSTROOT)/usr/share/man
+	$(LN) $(DSTROOT)/usr/share/man/man1/zip.1 $(DSTROOT)/usr/share/man/man1/zipcloak.1
+	$(LN) $(DSTROOT)/usr/share/man/man1/zip.1 $(DSTROOT)/usr/share/man/man1/zipnote.1
+	$(LN) $(DSTROOT)/usr/share/man/man1/zip.1 $(DSTROOT)/usr/share/man/man1/zipsplit.1
+	$(COMPRESSMANPAGES) /usr/share/man
+
+ossinfo: unpacksrc
 	$(MKDIR) $(DSTROOT)/$(OSLICENSES)
-	$(INSTALL_FILE) $(SRCROOT)/$(Project)/LICENSE $(DSTROOT)/$(OSLICENSES)/$(Project).txt
+	$(INSTALL_FILE) $(OBJROOT)/$(PROJECT)-$(VERSION)/LICENSE $(DSTROOT)/$(OSLICENSES)/$(PROJECT).txt
 
-install_source_local:
-	cd $(Project) && $(PAX) -rw . $(BuildDirectory)
+unpacksrc:
+	mkdir -p $(OBJROOT)
+	tar zxvf $(SRCROOT)/$(DISTFILE) -C $(OBJROOT)
 
 patch_source_local: install_source_local
 	for p in $(PATCHFILES); do						\

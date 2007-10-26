@@ -1,0 +1,17 @@
+--- lib/md5.c.orig      2006-04-11 18:24:25.000000000 -0700
++++ lib/md5.c   2006-04-11 18:26:18.000000000 -0700
+@@ -333,8 +333,13 @@
+ }
+ 
+ #else
++#ifdef __APPLE__
++#define COMMON_DIGEST_FOR_OPENSSL
++#include <CommonCrypto/CommonDigest.h>
++#else
+ /* If OpenSSL is present */
+ #include <openssl/md5.h>
++#endif
+ #include <string.h>
+ #endif
+ 
+

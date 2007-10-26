@@ -182,15 +182,16 @@ again:
 
 			case 'f':
 				name = "average file size";
+				argc--, argv++;
 				i = atoi(*argv);
 				if (i < 1)
 					errx(10, "%s must be >= 1 (was %s)",
 					    name, *argv);
 				if (sblock.fs_avgfilesize == i) {
 					warnx("%s remains unchanged as %d",
-					    name, *argv);
+					    name, i);
 				} else {
-					warn("%s changes from %d to %d",
+					warnx("%s changes from %d to %d",
 					    name, sblock.fs_avgfilesize, i);
 					sblock.fs_avgfilesize = i;
 				}
@@ -245,6 +246,7 @@ again:
 
 			case 's':
 				name = "expected number of files per directory";
+				argc--, argv++;
 				i = atoi(*argv);
 				if (i < 1)
 					errx(10, "%s must be >= 1 (was %s)",

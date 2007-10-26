@@ -1,13 +1,13 @@
 /* entities.c -- recognize HTML ISO entities
 
-  (c) 1998-2004 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
 
   CVS Info :
 
-    $Author: swilkin $ 
-    $Date: 2004/08/16 23:45:24 $ 
-    $Revision: 1.1.1.2 $ 
+    $Author: iccir $ 
+    $Date: 2007/01/30 23:46:51 $ 
+    $Revision: 1.3 $ 
 
   Entity handling can be static because there are no config or
   document-specific values.  Lookup table is 100% defined at 
@@ -316,11 +316,12 @@ static const entity* lookup( ctmbstr s )
     tmbchar ch = (tmbchar)( s ? *s : 0 );
     const entity *np;
     for ( np = entities; ch && np && np->name; ++np )
-        if ( ch == *np->name && tmbstrcmp(s, np->name) == 0 )
+        if ( ch == *np->name && TY_(tmbstrcmp)(s, np->name) == 0 )
             return np;
     return NULL;
 }
 
+#if 0
 /* entity starting with "&" returns zero on error */
 uint EntityCode( ctmbstr name, uint versions )
 {
@@ -352,8 +353,9 @@ uint EntityCode( ctmbstr name, uint versions )
 
     return 0;   /* zero signifies unknown entity name */
 }
+#endif
 
-Bool EntityInfo( ctmbstr name, Bool isXml, uint* code, uint* versions )
+Bool TY_(EntityInfo)( ctmbstr name, Bool isXml, uint* code, uint* versions )
 {
     const entity* np;
     assert( name && name[0] == '&' );
@@ -390,7 +392,7 @@ Bool EntityInfo( ctmbstr name, Bool isXml, uint* code, uint* versions )
 }
 
 
-ctmbstr EntityName( uint ch, uint versions )
+ctmbstr TY_(EntityName)( uint ch, uint versions )
 {
     ctmbstr entnam = NULL;
     const entity *ep;
@@ -406,3 +408,12 @@ ctmbstr EntityName( uint ch, uint versions )
     }
     return entnam;
 }
+
+/*
+ * local variables:
+ * mode: c
+ * indent-tabs-mode: nil
+ * c-basic-offset: 4
+ * eval: (c-set-offset 'substatement-open 0)
+ * end:
+ */

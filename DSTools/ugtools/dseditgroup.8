@@ -47,6 +47,8 @@ type of the record to add or delete
 gid to add/replace
 .It Fl g Ar guid
 GUID to add/replace
+.It Fl S Ar sid
+SID to add/replace
 .It Fl r Ar realname
 realname to add/replace
 .It Fl k Ar keyword
@@ -61,16 +63,20 @@ change the group's format - 'n' for the new group format and 'l' for the legacy 
 .Pp
 .Sh DESCRIPTION          \" Section Header - required - don't modify
 .Nm
-allows manipulation of a single named group record on either the default local node or the specified DirectoryService node. Default behaviour is presented below after a discussion of options and possible parameters.
+allows manipulation of a single named group record on either the default local node or the specified DirectoryService node. For the "read" operation the authentication search policy (/Search node) is consulted. Default behaviour is presented below after a discussion of each operation and the possible parameters.
 .Pp                      \" Inserts a space
-Options list and their descriptions:
+Options and their descriptions:
 .Bl -tag -width -indent  \" Differs from above in tag removed 
 .It Fl o Ar operation
-If "read" then the parameters of the specified groupname will be displayed. This is the default option.
-If "create" then create a group with the specified groupname.
-If "delete" then delete a group with the specified groupname.
-If "edit" then edit a group with the specified groupname.
-If "checkmember" then check if the user specified with -m or current logged in user is a member of the specified groupname.
+If "read" then the parameters of the specified groupname will be displayed. This is the default option. The authentication search policy (/Search node) will be used.
+.Pp
+If "create" then create a group with the specified groupname on either the default local node or the specified DirectoryService node.
+.Pp
+If "delete" then delete a group with the specified groupname on either the default local node or the specified DirectoryService node.
+.Pp
+If "edit" then edit a group with the specified groupname on either the default local node or the specified DirectoryService node.
+.Pp
+If "checkmember" then check if the user specified with -m or current logged in user is a member of the specified groupname. The authentication search policy (/Search node) is used to find the member. The specified node (defaults to the authentication search policy) is used to find the group. If the specified node is not on the authentication search policy the behaviour is undefined. 
 .It Fl p
 You will be prompted for a password to use in conjunction with the specified username.
 .It Fl q
@@ -79,14 +85,14 @@ This disables interactive verification of replace or delete operations.
 This enables the logging of the DirectoryService API calls and their return codes.
 .El                      \" Ends the list
 .Pp                      \" Inserts a space
-Parameters list and their descriptions:
+Parameters and their descriptions:
 .Bl -tag -width -indent  \" Differs from above in tag removed 
 .It Fl m Ar member
-The username of the account you wish to verify group membership when using 
+The username of the account to verify group membership when using 
 .Fl o Ar checkmember
-option.
+.option
 .It Fl n Ar nodename
-Directory Service node name such as /LDAPv3/ldap.company.com and whose default value is the local node /NetInfo/DefaultLocalNode.
+Directory Service node name such as /LDAPv3/ldap.company.com and whose default value is the local node. "." can also be used to specify the local node. 
 .It Fl u Ar username
 Username of a user that has administrative privileges on this computer.
 .It Fl P Ar password
@@ -117,9 +123,9 @@ dseditgroup mygroup
 .Pp
 This simple version of the command will default to:
 .Pp
-dseditgroup -o read -d /NetInfo/DefaultLocalNode -u $USER mygroup
+dseditgroup -o read -n . -u $USER mygroup
 .Pp
-The output will be the parameters of the "mygroup" group record if the shell user has read access to the local node's group record of name "mygroup". TBU:
+The output will be the parameters of the "mygroup" group record if the shell user has read access to the local node's group record of name "mygroup".
 .Pp
 .Sh EXAMPLES
 .Pp
@@ -146,6 +152,15 @@ The output will be the parameters of the "mygroup" group record if the shell use
 .It Nm Fl o Ar edit Fl n Ar /LDAPv3/ldap.company.com Fl u Ar myusername Fl p Fl d Ar username Fl t Ar user Ar extragroup
 .Pp
 .D1 The group "extragroup" from the node "/LDAPv3/ldap.company.com" will have the username deleted if the correct password is presented interactively for the user "myusername" which also need to have write access.
+.It Nm Fl o Ar checkmember Ar extragroup
+.Pp
+.D1 Will write out a message specifying if the current user is a member of "extragroup" on the authentication search policy. 
+.It Nm Fl o Ar checkmember Fl n Ar \ . Ar extragroup
+.Pp
+.D1 Will write out a message specifying if the current user is a member of "extragroup" on the local node. 
+.It Nm Fl n Ar /LDAPv3/ldap.company.com Fl o Ar checkmember Fl m Ar user Ar extragroup
+.Pp
+.D1 Will write out a message specifying if "user" (found in /Search) is a member of "extragroup" on the specified node "/LDAPv3/ldap.company.com". The specified node "/LDAPv3/ldap.company.com" needs to be on the authentication search policy for a valid answer.
 .El                      \" Ends the list
 .Pp
 .Pp

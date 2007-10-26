@@ -1,9 +1,9 @@
 " Vim syntax file
 " Language:	DCL (Digital Command Language - vms)
-" Maintainer:	Dr. Charles E. Campbell, Jr. <Charles.E.Campbell.1@nasa.gov>
-" Last Change:	Nov 18, 2002
-" Version:	2
-" URL:	http://www.erols.com/astronaut/vim/index.html#vimlinks_syntax
+" Maintainer:	Dr. Charles E. Campbell, Jr. <NdrOchipS@PcampbellAfamily.Mbiz>
+" Last Change:	Apr 12, 2006
+" Version:	5
+" URL:	http://mysite.verizon.net/astronaut/vim/index.html#vimlinks_syntax
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -78,12 +78,12 @@ syn match   dclDirSep	"[[\].;]"
 syn region  dclString	start='"'	skip='""'	end='"'
 
 " $ stuff and comments
-syn cluster dclCommentGroup	contains=dclStart,dclTodo
+syn cluster dclCommentGroup	contains=dclStart,dclTodo,@Spell
 syn match   dclStart	"^\$"	skipwhite nextgroup=dclExe
 syn match   dclContinue	"-$"
 syn match   dclComment	"^\$!.*$"	contains=@dclCommentGroup
 syn match   dclExe	"\I\i*"	contained
-syn match   dclTodo	"DEBUG\|TODO"	contained
+syn keyword dclTodo contained	COMBAK	DEBUG	FIXME	TODO	XXX
 
 " Assignments and Operators
 syn match   dclAssign	":==\="

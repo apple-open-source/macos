@@ -21,7 +21,6 @@ processes the header
 or files and generates HTML documentation based
 on specially-formatted comments.
 .Pp
-
 The options are as follows:
 .Bl -tag -width flag
 .It Fl H
@@ -42,6 +41,10 @@ The
 option causes headerdoc to output an XML
 file containing metadata about the resulting
 document.
+.It Fl p
+The
+.Fl p
+option turns on the C preprocessor.
 .It Fl q
 The
 .Fl q
@@ -71,15 +74,9 @@ containing its standard HTML output.
 .Sh SEE ALSO
 .Xr gatherheaderdoc 1
 .Pp
-
 For more information, see the headerdoc documentation.
 It can be found in
-
 .Pa /Developer/Documentation/DeveloperTools
-
 if you have the developer tools package installed, or at
-
 .Pa http://developer.apple.com
-
 in the developer tools documentation section.
-

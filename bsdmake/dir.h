@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1988, 1989, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 1988, 1989 by Adam de Boor
@@ -37,37 +37,35 @@
  * SUCH DAMAGE.
  *
  *	@(#)dir.h	8.2 (Berkeley) 4/28/95
- * $FreeBSD: src/usr.bin/make/dir.h,v 1.11 2003/09/14 12:31:33 ru Exp $
+ * $FreeBSD: src/usr.bin/make/dir.h,v 1.21 2005/03/23 12:56:15 harti Exp $
  */
 
-/* dir.h --
- */
+#ifndef dir_h_6002e3b8
+#define	dir_h_6002e3b8
 
-#ifndef	_DIR
-#define	_DIR
+#include <sys/queue.h>
+#include "hash.h"
 
-typedef struct Path {
-    char         *name;	    	/* Name of directory */
-    int	    	  refCount; 	/* Number of paths with this directory */
-    int		  hits;	    	/* the number of times a file in this
-				 * directory has been found */
-    Hash_Table    files;    	/* Hash table of files in directory */
-} Path;
+struct GNode;
+struct Lst;
+struct Dir;
+
+struct PathElement;
+TAILQ_HEAD(Path, PathElement);
 
 void Dir_Init(void);
 void Dir_InitDot(void);
-void Dir_End(void);
-Boolean Dir_HasWildcards(char *);
-void Dir_Expand(char *, Lst, Lst);
-char *Dir_FindFile(char *, Lst);
-int Dir_MTime(GNode *);
-void Dir_AddDir(Lst, char *);
-char *Dir_MakeFlags(char *, Lst);
-void Dir_ClearPath(Lst);
-void Dir_Concat(Lst, Lst);
+Boolean Dir_HasWildcards(const char *);
+int Dir_MTime(struct GNode *);
 void Dir_PrintDirectories(void);
-void Dir_PrintPath(Lst);
-void Dir_Destroy(void *);
-void * Dir_CopyDir(void *);
 
-#endif /* _DIR */
+struct Dir *Path_AddDir(struct Path *, const char *);
+void Path_Clear(struct Path *);
+void Path_Concat(struct Path *, const struct Path *);
+void Path_Duplicate(struct Path *, const struct Path *);
+void Path_Expand(char *, struct Path *, struct Lst *);
+char *Path_FindFile(char *, struct Path *);
+char *Path_MakeFlags(const char *, const struct Path *);
+void Path_Print(const struct Path *);
+
+#endif /* dir_h_6002e3b8 */

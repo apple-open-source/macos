@@ -78,7 +78,7 @@ protected:
 	void *					fMessageCallbackRefCon;
 	IUnknownVTbl **			fLoginInterface;
 	
-	UInt32			fRefCon;
+	void *			fRefCon;
 
 	// utility function to get "this" pointer from interface
 	static inline IOFireWireSBP2LibLUN *getThis( void *self )
@@ -138,11 +138,11 @@ protected:
 	static IUnknownVTbl ** staticCreateLogin( void * self, REFIID iid );
 	virtual IUnknownVTbl ** createLogin( REFIID iid );
 
-	static void staticSetRefCon( void * self, UInt32 refCon );
-	virtual void setRefCon( UInt32 refCon );
+	static void staticSetRefCon( void * self, void * refCon );
+	virtual void setRefCon( void * refCon );
 
-	static UInt32 staticGetRefCon( void * self );
-	virtual UInt32 getRefCon( void );
+	static void * staticGetRefCon( void * self );
+	virtual void * getRefCon( void );
 
 	static IUnknownVTbl ** staticCreateMgmtORB( void * self, REFIID iid );
 	virtual IUnknownVTbl ** createMgmtORB( REFIID iid );
@@ -151,8 +151,8 @@ protected:
 	// callback static methods
 	
 	static void staticMessageCallback( void *refcon, IOReturn result, 
-													void **args, int numArgs );
-	virtual void messageCallback( IOReturn result, void **args, int numArgs );
+													io_user_reference_t *args, int numArgs );
+	virtual void messageCallback( IOReturn result, io_user_reference_t *args, int numArgs );
 	
 public:
 

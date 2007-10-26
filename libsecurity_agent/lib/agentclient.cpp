@@ -6,7 +6,6 @@
  *
  */
 
-#include "agentclient.h"
 
 #include <stdio.h>
 
@@ -42,6 +41,8 @@ using Security::DataWalkers::walk;
 using Authorization::AuthItemSet;
 using Authorization::AuthItemRef;
 using Authorization::AuthValueOverlay;
+
+#include "agentclient.h"
 
 namespace SecurityAgent {
     
@@ -114,9 +115,6 @@ void Client::checkResult()
 }
 
 
-
-extern "C" boolean_t secagentreply_server(mach_msg_header_t *, mach_msg_header_t *);
-//extern "C" struct sa_reply_server_secagentreply_subsystem sa_reply_server_secagentreply_subsystem;
 
 #pragma mark administrative operations
 
@@ -429,7 +427,7 @@ Clients::receive()
 
         // got the message, now demux it; call secagentreply_server to handle any call
         // this is asynchronous, so no reply message, although not apparent
-        if (!secagentreply_server(in, out))
+        if (!::secagentreply_server(in, out))
         {
     		// port death notification
             if (MACH_NOTIFY_DEAD_NAME == in.msgId())
@@ -462,11 +460,10 @@ Clients::receive()
        return false; 
 }
 
-
+} /* end namesapce SecurityAgent */
 
 #pragma mark demux requests replies
 // external C symbols for the mig message handling code to call into
-extern "C" {
 
 #define COPY_IN(type,name)	type *name, mach_msg_type_number_t name##Length, type *name##Base
 
@@ -475,55 +472,52 @@ extern "C" {
 
 // they make the data readable to the receiver (relocate internal references)
 	
-	kern_return_t sa_reply_server_didCreate(mach_port_t instanceReplyPort, mach_port_t instanceRequestPort)
-	{
-		secdebug("agentclient", "got didCreate at port %u; requests go to port %u", instanceReplyPort, instanceRequestPort);
-		Clients::gClients().find(instanceReplyPort).didCreate(instanceRequestPort);
-		return KERN_SUCCESS;
-	}
-	
-	kern_return_t sa_reply_server_setResult(mach_port_t instanceReplyPort, AuthorizationResult result,
-        COPY_IN(AuthorizationItemSet,inHints) ,
-        COPY_IN(AuthorizationItemSet,inContext) )
-	{
-		secdebug("agentclient", "got setResult at port %u; result %ld", instanceReplyPort, result);
+kern_return_t sa_reply_server_didCreate(mach_port_t instanceReplyPort, mach_port_t instanceRequestPort)
+{
+	secdebug("agentclient", "got didCreate at port %u; requests go to port %u", instanceReplyPort, instanceRequestPort);
+	SecurityAgent::Clients::gClients().find(instanceReplyPort).didCreate(instanceRequestPort);
+	return KERN_SUCCESS;
+}
 
-		// relink internal references according to current place in memory
-		try { relocate(inHints, inHintsBase, inHintsLength); }
-		catch (MacOSError &e) {	return e.osStatus(); }
-		catch (...) { return errAuthorizationInternal; }
+kern_return_t sa_reply_server_setResult(mach_port_t instanceReplyPort, AuthorizationResult result,
+	COPY_IN(AuthorizationItemSet,inHints) ,
+	COPY_IN(AuthorizationItemSet,inContext) )
+{
+	secdebug("agentclient", "got setResult at port %u; result %ld", instanceReplyPort, result);
 
-		try { relocate(inContext, inContextBase, inContextLength); }
-		catch (MacOSError &e) {	return e.osStatus(); }
-		catch (...) { return errAuthorizationInternal; }
+	// relink internal references according to current place in memory
+	try { SecurityAgent::relocate(inHints, inHintsBase, inHintsLength); }
+	catch (MacOSError &e) {	return e.osStatus(); }
+	catch (...) { return errAuthorizationInternal; }
 
-		Clients::gClients().find(instanceReplyPort).setResult(result, inHints, inContext);
-        		
-		return KERN_SUCCESS;
-	}
-	
-	kern_return_t sa_reply_server_requestInterrupt(mach_port_t instanceReplyPort)
-	{
-		secdebug("agentclient", "got requestInterrupt at port %u", instanceReplyPort);
-		Clients::gClients().find(instanceReplyPort).requestInterrupt();
-		return KERN_SUCCESS;
-	}
-	
-	kern_return_t sa_reply_server_didDeactivate(mach_port_t instanceReplyPort)
-	{
-		secdebug("agentclient", "got didDeactivate at port %u", instanceReplyPort);
-		Clients::gClients().find(instanceReplyPort).didDeactivate();
-		return KERN_SUCCESS;
-	}
-	
-	kern_return_t sa_reply_server_reportError(mach_port_t instanceReplyPort, OSStatus status)
-	{
-		secdebug("agentclient", "got reportError at port %u; error is %ld", instanceReplyPort, status);
-		Clients::gClients().find(instanceReplyPort).setError(status);
-		return KERN_SUCCESS;
-	}
+	try { SecurityAgent::relocate(inContext, inContextBase, inContextLength); }
+	catch (MacOSError &e) {	return e.osStatus(); }
+	catch (...) { return errAuthorizationInternal; }
 
-} /* end extern "C" */
+	SecurityAgent::Clients::gClients().find(instanceReplyPort).setResult(result, inHints, inContext);
+			
+	return KERN_SUCCESS;
+}
 
-} /* end namesapce Authorization */
+kern_return_t sa_reply_server_requestInterrupt(mach_port_t instanceReplyPort)
+{
+	secdebug("agentclient", "got requestInterrupt at port %u", instanceReplyPort);
+	SecurityAgent::Clients::gClients().find(instanceReplyPort).requestInterrupt();
+	return KERN_SUCCESS;
+}
+
+kern_return_t sa_reply_server_didDeactivate(mach_port_t instanceReplyPort)
+{
+	secdebug("agentclient", "got didDeactivate at port %u", instanceReplyPort);
+	SecurityAgent::Clients::gClients().find(instanceReplyPort).didDeactivate();
+	return KERN_SUCCESS;
+}
+
+kern_return_t sa_reply_server_reportError(mach_port_t instanceReplyPort, OSStatus status)
+{
+	secdebug("agentclient", "got reportError at port %u; error is %ld", instanceReplyPort, status);
+	SecurityAgent::Clients::gClients().find(instanceReplyPort).setError(status);
+	return KERN_SUCCESS;
+}
+
 

@@ -5,7 +5,7 @@
 
 @c This is a dir.info fragment to support semi-automated addition of
 @c manuals to an info tree.
-@dircategory Programming & development tools.
+@dircategory Software development
 @direntry
 * Stabs: (stabs).                 The "stabs" debugging information format.   
 @end direntry
@@ -35,7 +35,7 @@ Free Documentation License''.
 @page
 @tex
 \def\$#1${{#1}}  % Kluge: collect RCS revision info without $...$
-\xdef\manvers{\1.14}  % For use in headers, footers too
+\xdef\manvers{\1.16}  % For use in headers, footers too
 {\parskip=0pt
 \hfill Cygnus Support\par
 \hfill \manvers\par

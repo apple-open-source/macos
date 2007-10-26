@@ -58,6 +58,14 @@ CSSM_RETURN tpRevocationPolicyVerify(
  * cache. Currently the only time we add a CRL to this cache is
  * when we fetch one from the net. We ref count CRLs in this cache
  * to allow multi-threaded access.
+ * Entries do not persist past the tpVerifyCertGroupWithCrls() in
+ * which they were created unless another thread in the same 
+ * process snags a refcount (also from tpVerifyCertGroupWithCrls()). 
+ * I.e. when cert verification is complete the cache will be empty. 
+ * This is a change from Tiger and previous. CRLs get pretty big, 
+ * up to a megabyte or so, and it's just not worth it to keep those 
+ * around in memory. (OCSP responses, which are much smaller than 
+ * CRLs, are indeed cached in memory. See tpOcspCache.cpp.)
  */
 class TPCRLCache : private TPCrlGroup
 {
@@ -95,6 +103,10 @@ TPCrlInfo *TPCRLCache::search(
 		/* reevaluate validity */
 		crl->calculateCurrent(vfyCtx.verifyTime);
 		crl->mRefCount++;
+		tpCrlDebug("TPCRLCache hit");
+	}
+	else {
+		tpCrlDebug("TPCRLCache miss");
 	}
 	return crl;
 }
@@ -104,36 +116,25 @@ void TPCRLCache::add(
 	TPCrlInfo 			&crl)
 {
 	StLock<Mutex> _(mLock);
+	tpCrlDebug("TPCRLCache add");
 	crl.mRefCount++;
 	appendCrl(crl);
 }
 
-/* we delete on this one if --refCount == 0 */
-void TPCRLCache::remove(
-	TPCrlInfo 			&crl)
-{
-	StLock<Mutex> _(mLock);
-	removeCrl(crl);
-	assert(crl.mRefCount > 0);
-	crl.mRefCount--;
-	if(crl.mRefCount == 0) {
-		delete &crl;
-	}
-	else {
-		/* in use, flag for future delete */
-		crl.mToBeDeleted = true;
-	}
-}
-
-/* only delete if refCount zero AND flagged for deletion  */
+/* delete and remove from cache if refCount zero */
 void TPCRLCache::release(
 	TPCrlInfo 			&crl)
 {
 	StLock<Mutex> _(mLock);
 	assert(crl.mRefCount > 0);
 	crl.mRefCount--;
-	if(crl.mToBeDeleted & (crl.mRefCount == 0)) {
+	if(crl.mRefCount == 0) {
+		tpCrlDebug("TPCRLCache release; deleting");
+		removeCrl(crl);
 		delete &crl;
+	}
+	else {
+		tpCrlDebug("TPCRLCache release; in use");
 	}
 }
 
@@ -181,7 +182,7 @@ static CSSM_RETURN tpFindCrlForCert(
 			return CSSM_OK;
 		}
 		else {
-			tpGlobalCrlCache().remove(*crl);
+			tpGlobalCrlCache().release(*crl);
 		}
 	}
 	
@@ -205,9 +206,13 @@ static CSSM_RETURN tpFindCrlForCert(
 	}
 	
 	if(crtn) {
-		subject.addStatusCode(crtn);
 		tpCrlDebug("   ...tpFindCrlForCert: CRL not found");
-		return crtn;
+		if(subject.addStatusCode(crtn)) {
+			return crtn;
+		}
+		else {
+			return CSSM_OK;
+		}
 	}
 	
 	/* got one from net - add to global cache */
@@ -216,21 +221,6 @@ static CSSM_RETURN tpFindCrlForCert(
 	crl->mFromWhere = CFW_Net;
 	tpCrlDebug("   ...CRL found from net");
 	
-#if 	WRITE_FETCHED_CRLS_TO_DB
-	/* and to DLDB if enabled */
-	if((vfyCtx.crlOpts != NULL) && (vfyCtx.crlOpts->crlStore != NULL)) {
-		crtn = tpDbStoreCrl(*crl, *vfyCtx.crlOpts->crlStore);
-		if(crtn) {
-			/* let's not let this affect the CRL verification...just log
-			 * the per-cert error. */
-			subject.addStatusCode(crtn);
-		}
-		else {
-			tpCrlDebug("   ...CRL written to DB");
-		}
-	}
-#endif	/* WRITE_FETCHED_CRLS_TO_DB */
-
 	foundCrl = crl;
 	return CSSM_OK;
 }
@@ -318,8 +308,8 @@ CSSM_RETURN tpVerifyCertGroupWithCrls(
 
 			tpCrlDebug("...verifying %s cert %u", 
 				cert->isAnchor() ? "anchor " : "", cert->index());
-			if(cert->isSelfSigned()) {
-				/* CRL meaningless for a root cert */
+			if(cert->isSelfSigned() || cert->trustSettingsFound()) {
+				/* CRL meaningless for a root or trusted cert */
 				continue;
 			}
 			if(cert->revokeCheckComplete()) {

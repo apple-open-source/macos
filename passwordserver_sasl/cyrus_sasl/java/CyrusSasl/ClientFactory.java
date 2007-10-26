@@ -15,7 +15,7 @@ class ClientFactory implements SaslClientFactory
     private native int jni_sasl_client_init(String appname);
     private native int jni_sasl_client_new(String service,
 					   String serverFQDN,
-					   int secflags);
+					   int secflags, boolean successdata);
 
 
     private boolean init_client(String appname)
@@ -33,9 +33,10 @@ class ClientFactory implements SaslClientFactory
 	return true;
     }
 
-
-    private static boolean client_initialized = false;
-
+    /* initialize the client when the class is loaded */
+    {
+	init_client("javasasl application");
+    }
 
     public SaslClient createSaslClient(String[] mechanisms,
 				       String authorizationId,
@@ -46,16 +47,16 @@ class ClientFactory implements SaslClientFactory
 	throws SaslException
     {
 	int cptr;
+	boolean successdata = true;
 
-	if (client_initialized == false) {
-	    /* TODO: This should only be done once, even if called in
-	     * multiple threads... */
-	    client_initialized = init_client("javasasl application");
+	// here's a list of protocols we know don't have success data
+	if (protocol.equals("imap") ||
+	    protocol.equals("pop3") ||
+	    protocol.equals("smtp")) {
+	    successdata = false;
 	}
 
-	cptr = jni_sasl_client_new(protocol,
-				   serverName,
-				   0);
+	cptr = jni_sasl_client_new(protocol, serverName, 0, successdata);
 
 	if (cptr == 0) {
 	    throw new SaslException("Unable to create new Client connection object", new Throwable());

@@ -1,7 +1,5 @@
 --TEST--
 wordwrap() function
---POST--
---GET--
 --FILE--
 <?php
 
@@ -28,6 +26,8 @@ $tests = <<<TESTS
 "12345|12345|67890" === wordwrap("12345 1234567890", 5, "|", 1)
 
 "123|==1234567890|==123" === wordwrap("123 1234567890 123", 10, "|==", 1)
+
+FALSE === @wordwrap(chr(0), 0, "")
 
 TESTS;
 

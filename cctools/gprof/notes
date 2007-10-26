@@ -3,6 +3,22 @@ TODO:
   stuff).
 - Add multi-arch support for findcalls() and make work better (use disasm).
 
+Changes for the 5.24 release (the cctools-653 release):
+- Maded changes to deal with dyld shared cache.  Radar bug #4960162.
+  - Added the image_header field to the dyld_image struct in gprof.h .
+  - Changed getpfile() to have a case for GMONTYPE_DYLD2_STATE can call
+    read_dyld_state().
+  - Changed read_dyld_state() in gprof.c to take the type of the dyld
+    data (GMONTYPE_DYLD_STATE or GMONTYPE_DYLD2_STATE).  And changed
+    read_dyld_state() to fill in either the vmaddr_slide or image_header
+    in the dyld_image struct from the dyld state based on the type.
+  - Changed get_dyld_state_symbols() in getnfile.c to calculate the
+    vmaddr_slide if the image_header is non-zero.
+
+Changes for the 5.24 release (the cctools-649 release):
+- Ported gprof(1) to work with 64-bit Mach-O files and 64-bit gmon.out files.
+  Radar bug #4601274.
+
 Changes for the 5.21 release (the cctools-590.39 release):
 - Removed the -I flag for private headers as it would no longer compile with it.
 

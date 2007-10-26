@@ -1,8 +1,11 @@
 ;;; japan-util.el --- utilities for Japanese -*- coding: iso-2022-7bit; -*-
 
-;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
-;; Copyright (C) 2001 Free SOftware Foundation, Inc.
+;; Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Keywords: mule, multilingual, Japanese
 
@@ -20,26 +23,20 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;;; Code:
 
-(defvar sentence-end-save nil)
-
 ;;;###autoload
 (defun setup-japanese-environment-internal ()
-  (cond ((eq system-type 'ms-dos)
-	 (prefer-coding-system 'japanese-shift-jis))
-	((eq system-type 'usg-unix-v)
-	 (prefer-coding-system 'japanese-iso-8bit)))
-  (setq sentence-end-save sentence-end)
-  (setq sentence-end (concat sentence-end "\\|[。？！]")))
-
-(defun exit-japanese-environment ()
-  (setq sentence-end sentence-end-save))
+  ;; By default, we use 'japanese-iso-8bit for file names.  But, the
+  ;; following prefer-coding-system will override it.
+  (if (memq system-type '(windows-nt ms-dos cygwin))
+      (prefer-coding-system 'japanese-shift-jis)
+    (prefer-coding-system 'japanese-iso-8bit)))
 
 (defconst japanese-kana-table
   '((?あ ?ア ?ｱ) (?い ?イ ?ｲ) (?う ?ウ ?ｳ) (?え ?エ ?ｴ) (?お ?オ ?ｵ)
@@ -107,7 +104,8 @@ HANKAKU-KATAKANA belongs to `japanese-jisx0201-kana'.")
     (?´ ?') (?｀ ?`) (?＾ ?^) (?＿ ?_) (?ー ?- ?ｰ) (?― ?-) (?‐ ?-)
     (?／ ?/) (?＼ ?\\) (?〜 ?~)  (?｜ ?|) (?‘ ?`) (?’ ?') (?“ ?\") (?” ?\")
     (?\（ ?\() (?\） ?\)) (?\［ ?[) (?\］ ?]) (?\｛ ?{) (?\｝ ?})
-    (?〈 ?<) (?〉 ?>) (?＋ ?+) (?− ?-) (?＝ ?=) (?＜ ?<) (?＞ ?>)
+    (?〈 ?<) (?〉 ?>) (?\「 nil ?\｢) (?\」 nil ?\｣) 
+    (?＋ ?+) (?− ?-) (?＝ ?=) (?＜ ?<) (?＞ ?>)
     (?′ ?') (?″ ?\") (?￥ ?\\) (?＄ ?$) (?％ ?%) (?＃ ?#) (?＆ ?&) (?＊ ?*)
     (?＠ ?@))
   "Japanese JISX0208 symbol character table.
@@ -135,7 +133,7 @@ belongs to `japanese-jisx0201-kana'.")
 (defconst japanese-alpha-numeric-table
   '((?０ . ?0) (?１ . ?1) (?２ . ?2) (?３ . ?3) (?４ . ?4)
     (?５ . ?5) (?６ . ?6) (?７ . ?7) (?８ . ?8) (?９ . ?9)
-    (?Ａ . ?A) (?Ｂ . ?B) (?Ｃ . ?C) (?Ｄ . ?D) (?Ｅ . ?E) 
+    (?Ａ . ?A) (?Ｂ . ?B) (?Ｃ . ?C) (?Ｄ . ?D) (?Ｅ . ?E)
     (?Ｆ . ?F) (?Ｇ . ?G) (?Ｈ . ?H) (?Ｉ . ?I) (?Ｊ . ?J)
     (?Ｋ . ?K) (?Ｌ . ?L) (?Ｍ . ?M) (?Ｎ . ?N) (?Ｏ . ?O)
     (?Ｐ . ?P) (?Ｑ . ?Q) (?Ｒ . ?R) (?Ｓ . ?S) (?Ｔ . ?T)
@@ -325,4 +323,5 @@ If non-nil, second arg INITIAL-INPUT is a string to insert before reading."
 ;;
 (provide 'japan-util)
 
+;;; arch-tag: b579595c-c9ad-4b57-9314-98cd8b214f89
 ;;; japan-util.el ends here

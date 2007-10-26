@@ -1,9 +1,7 @@
-This is tar.info, produced by makeinfo version 4.6 from tar.texi.
+This is tar.info, produced by makeinfo version 4.7 from tar.texi.
 
-
-
-   This manual is for GNU `tar' (version 1.14, 10 May 2004), which
-creates and extracts files from archives.
+   This manual is for GNU `tar' (version 1.15.1, 18 December 2004),
+which creates and extracts files from archives.
 
    Copyright (C) 1992, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2003,
 2004 Free Software Foundation, Inc.
@@ -20,7 +18,7 @@ creates and extracts files from archives.
      (a) The FSF's Back-Cover Text is: "You are free to copy and modify
      this GNU Manual.  Buying copies from GNU Press supports the FSF in
      developing GNU and promoting software freedom."
-   
+
 INFO-DIR-SECTION Archiving
 START-INFO-DIR-ENTRY
 * Tar: (tar).                   Making tape (or disk) archives.
@@ -37,9 +35,7 @@ File: tar.info,  Node: Top,  Next: Introduction,  Up: (dir)
 GNU tar: an archiver tool
 *************************
 
-
-
-   This manual is for GNU `tar' (version 1.14, 10 May 2004), which
+This manual is for GNU `tar' (version 1.15.1, 18 December 2004), which
 creates and extracts files from archives.
 
    Copyright (C) 1992, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2003,
@@ -57,8 +53,8 @@ creates and extracts files from archives.
      (a) The FSF's Back-Cover Text is: "You are free to copy and modify
      this GNU Manual.  Buying copies from GNU Press supports the FSF in
      developing GNU and promoting software freedom."
-   
-The first part of this master menu lists the major nodes in this Info
+
+   The first part of this master menu lists the major nodes in this Info
 document.  The rest of the menu lists all the lower level nodes.
 
 * Menu:
@@ -320,8 +316,8 @@ Copying This Manual
 
 File: tar.info,  Node: Introduction,  Next: Tutorial,  Prev: Top,  Up: Top
 
-Introduction
-************
+1 Introduction
+**************
 
 GNU `tar' creates and manipulates "archives" which are actually
 collections of many other files; the program provides users with an
@@ -342,8 +338,8 @@ archives need not (and these days, typically do not) reside on tapes.
 
 File: tar.info,  Node: Book Contents,  Next: Definitions,  Up: Introduction
 
-What this Book Contains
-=======================
+1.1 What this Book Contains
+===========================
 
 The first part of this chapter introduces you to various terms that will
 recur throughout the book.  It also tells you who has worked on GNU
@@ -388,8 +384,8 @@ this.)
 
 File: tar.info,  Node: Definitions,  Next: What tar Does,  Prev: Book Contents,  Up: Introduction
 
-Some Definitions
-================
+1.2 Some Definitions
+====================
 
 The `tar' program is used to create and manipulate `tar' archives.  An
 "archive" is a single file which contains the contents of many files,
@@ -422,8 +418,8 @@ can be performed using `tar'.
 
 File: tar.info,  Node: What tar Does,  Next: Naming tar Archives,  Prev: Definitions,  Up: Introduction
 
-What `tar' Does
-===============
+1.3 What `tar' Does
+===================
 
 The `tar' program provides the ability to create `tar' archives, as
 well as various other kinds of manipulation.  For example, you can use
@@ -478,8 +474,8 @@ Transportation
 
 File: tar.info,  Node: Naming tar Archives,  Next: Current status,  Prev: What tar Does,  Up: Introduction
 
-How `tar' Archives are Named
-============================
+1.4 How `tar' Archives are Named
+================================
 
 Conventionally, `tar' archives are given names ending with `.tar'.
 This is not necessary for `tar' to operate properly, but this manual
@@ -495,8 +491,8 @@ make learning to use `tar' easier for novice users.
 
 File: tar.info,  Node: Current status,  Next: Authors,  Prev: Naming tar Archives,  Up: Introduction
 
-Current development status of GNU `tar'
-=======================================
+1.5 Current development status of GNU `tar'
+===========================================
 
 GNU `tar' is currently in the process of active development, whose
 primary aims are:
@@ -549,8 +545,8 @@ Use of option `--posix'
 
 File: tar.info,  Node: Authors,  Next: Reports,  Prev: Current status,  Up: Introduction
 
-GNU `tar' Authors
-=================
+1.6 GNU `tar' Authors
+=====================
 
 GNU `tar' was originally written by John Gilmore, and modified by many
 people.  The GNU enhancements were written by Jay Fenlason, then Joy
@@ -576,18 +572,18 @@ to create version 1.12.
 technical consulting.  In particular, he is the primary author of *Note
 Backups::.
 
-   In July, 2003 GNU `tar' was put on CVS at <savannah.gnu.org>, and an
-active development and maintenance work has started again. Currently
-GNU `tar' is being maintained by Paul Eggert, Sergey Poznyakoff and
-Jeff Bailey.
+   In July, 2003 GNU `tar' was put on CVS at savannah.gnu.org (see
+`http://savannah.gnu.org/projects/tar'), and active development and
+maintenance work has started again. Currently GNU `tar' is being
+maintained by Paul Eggert, Sergey Poznyakoff and Jeff Bailey.
 
    Support for POSIX archives was added by Sergey Poznyakoff.
 
 
 File: tar.info,  Node: Reports,  Prev: Authors,  Up: Introduction
 
-Reporting bugs or suggestions
-=============================
+1.7 Reporting bugs or suggestions
+=================================
 
 If you find problems or have suggestions about this program or manual,
 please report them to `bug-tar@gnu.org'.
@@ -598,8 +594,8 @@ possible, in order to reproduce it. .
 
 File: tar.info,  Node: Tutorial,  Next: tar invocation,  Prev: Introduction,  Up: Top
 
-Tutorial Introduction to `tar'
-******************************
+2 Tutorial Introduction to `tar'
+********************************
 
 This chapter guides you through some basic examples of three `tar'
 operations: `--create', `--list', and `--extract'.  If you already know
@@ -622,8 +618,8 @@ this chapter.  This chapter omits most complicated details about how
 
 File: tar.info,  Node: assumptions,  Next: stylistic conventions,  Up: Tutorial
 
-Assumptions this Tutorial Makes
-===============================
+2.1 Assumptions this Tutorial Makes
+===================================
 
 This chapter is paced to allow beginners to learn about `tar' slowly.
 At the same time, we will try to cover all the basic aspects of these
@@ -668,8 +664,8 @@ manual, and the hardware you will be using:
 
 File: tar.info,  Node: stylistic conventions,  Next: basic tar options,  Prev: assumptions,  Up: Tutorial
 
-Stylistic Conventions
-=====================
+2.2 Stylistic Conventions
+=========================
 
 In the examples, `$' represents a typical shell prompt.  It precedes
 lines you should type; to make this more clear, those lines are shown
@@ -680,8 +676,8 @@ this'.
 
 File: tar.info,  Node: basic tar options,  Next: frequent operations,  Prev: stylistic conventions,  Up: Tutorial
 
-Basic `tar' Operations and Options
-==================================
+2.3 Basic `tar' Operations and Options
+======================================
 
 `tar' can take a wide variety of arguments which specify and define the
 actions it will have on the particular set of files or the archive.
@@ -752,8 +748,8 @@ out which of the meanings the speaker intends.
 
 File: tar.info,  Node: frequent operations,  Next: Two Frequent Options,  Prev: basic tar options,  Up: Tutorial
 
-The Three Most Frequently Used Operations
-=========================================
+2.4 The Three Most Frequently Used Operations
+=============================================
 
 Here are the three most frequently used operations (both short and long
 forms), as well as a brief description of their meanings.  The rest of
@@ -775,8 +771,8 @@ present the rest of the operations in the next chapter.
 
 File: tar.info,  Node: Two Frequent Options,  Next: create,  Prev: frequent operations,  Up: Tutorial
 
-Two Frequently Used Options
-===========================
+2.5 Two Frequently Used Options
+===============================
 
 To understand how to run `tar' in the three operating modes listed
 previously, you also need to understand how to use two of the options to
@@ -878,8 +874,8 @@ Getting Help: Using the `--help' Option
 
 File: tar.info,  Node: create,  Next: list,  Prev: Two Frequent Options,  Up: Tutorial
 
-How to Create Archives
-======================
+2.6 How to Create Archives
+==========================
 
      _(This message will disappear, once this node revised.)_
 
@@ -916,8 +912,8 @@ slowly to allow beginning users to understand how `tar' works.
 
 File: tar.info,  Node: prepare for examples,  Next: Creating the archive,  Up: create
 
-Preparing a Practice Directory for Examples
--------------------------------------------
+2.6.1 Preparing a Practice Directory for Examples
+-------------------------------------------------
 
 To follow along with this and future examples, create a new directory
 called `practice' containing files called `blues', `folk' and `jazz'.
@@ -949,8 +945,8 @@ see *Note append:: for information on how to do this.
 
 File: tar.info,  Node: Creating the archive,  Next: create verbose,  Prev: prepare for examples,  Up: create
 
-Creating the Archive
---------------------
+2.6.2 Creating the Archive
+--------------------------
 
 To place the files `blues', `folk', and `jazz' into an archive named
 `collection.tar', use the following command:
@@ -1012,8 +1008,8 @@ Use `--append' (`-r') instead.  *Note append::.
 
 File: tar.info,  Node: create verbose,  Next: short create,  Prev: Creating the archive,  Up: create
 
-Running `--create' with `--verbose'
------------------------------------
+2.6.3 Running `--create' with `--verbose'
+-----------------------------------------
 
 If you include the `--verbose' (`-v') option on the command line, `tar'
 will list the files it is acting on as it is working.  In verbose mode,
@@ -1034,8 +1030,8 @@ otherwise not see, and which are important for you to understand.
 
 File: tar.info,  Node: short create,  Next: create dir,  Prev: create verbose,  Up: create
 
-Short Forms with `create'
--------------------------
+2.6.4 Short Forms with `create'
+-------------------------------
 
 As we said before, the `--create' (`-c') operation is one of the most
 basic uses of `tar', and you will use it countless times.  Eventually,
@@ -1100,8 +1096,8 @@ error if you have set the shell environment variable `POSIXLY_CORRECT'.)
 
 File: tar.info,  Node: create dir,  Prev: short create,  Up: create
 
-Archiving Directories
----------------------
+2.6.5 Archiving Directories
+---------------------------
 
 You can archive a directory by specifying its directory name as a file
 name argument to `tar'.  The files in the directory will be archived
@@ -1162,8 +1158,8 @@ certain you are running GNU `tar'.)
 
 File: tar.info,  Node: list,  Next: extract,  Prev: create,  Up: Tutorial
 
-How to List Archives
-====================
+2.7 How to List Archives
+========================
 
 Frequently, you will find yourself wanting to determine exactly what a
 particular archive contains.  You can use the `--list' (`-t') operation
@@ -1256,8 +1252,8 @@ all the files (including sub-directories) in that directory.
 
 File: tar.info,  Node: extract,  Next: going further,  Prev: list,  Up: Tutorial
 
-How to Extract Members from an Archive
-======================================
+2.8 How to Extract Members from an Archive
+==========================================
 
      _(This message will disappear, once this node revised.)_
 
@@ -1287,8 +1283,8 @@ long form of the operation without affecting the performance.
 
 File: tar.info,  Node: extracting archives,  Next: extracting files,  Up: extract
 
-Extracting an Entire Archive
-----------------------------
+2.8.1 Extracting an Entire Archive
+----------------------------------
 
 To extract an entire archive, specify the archive file name only, with
 no individual file names as arguments.  For example,
@@ -1304,8 +1300,8 @@ produces this:
 
 File: tar.info,  Node: extracting files,  Next: extract dir,  Prev: extracting archives,  Up: extract
 
-Extracting Specific Files
--------------------------
+2.8.2 Extracting Specific Files
+-------------------------------
 
 To extract specific archive members, give their exact member names as
 arguments, as printed by `--list' (`-t').  If you had mistakenly deleted
@@ -1350,8 +1346,8 @@ extracts them.
 
 File: tar.info,  Node: extract dir,  Next: extracting untrusted archives,  Prev: extracting files,  Up: extract
 
-Extracting Files that are Directories
--------------------------------------
+2.8.3 Extracting Files that are Directories
+-------------------------------------------
 
 Extracting directories which are members of an archive is similar to
 extracting other files.  The main difference to be aware of is that if
@@ -1399,8 +1395,8 @@ extract those files from the archive.
 
 File: tar.info,  Node: extracting untrusted archives,  Next: failing commands,  Prev: extract dir,  Up: extract
 
-Extracting Archives from Untrusted Sources
-------------------------------------------
+2.8.4 Extracting Archives from Untrusted Sources
+------------------------------------------------
 
 Extracting files from archives can overwrite files that already exist.
 If you receive an archive from an untrusted source, you should make a
@@ -1415,14 +1411,14 @@ it as follows:
      $ tar -xvf ../untrusted.tar
 
    It is also a good practice to examine contents of the archive before
-extracting it, using `op-list' option, possibly combined with
-`op-verbose'.
+extracting it, using `--list' (`-t') option, possibly combined with
+`--verbose' (`-v').
 
 
 File: tar.info,  Node: failing commands,  Prev: extracting untrusted archives,  Up: extract
 
-Commands That Will Fail
------------------------
+2.8.5 Commands That Will Fail
+-----------------------------
 
 Here are some sample commands you might try which will not work, and why
 they won't work.
@@ -1460,14 +1456,14 @@ use `tar --list --verbose' to list them correctly.
 
 File: tar.info,  Node: going further,  Prev: extract,  Up: Tutorial
 
-Going Further Ahead in this Manual
-==================================
+2.9 Going Further Ahead in this Manual
+======================================
 
 
 File: tar.info,  Node: tar invocation,  Next: operations,  Prev: Tutorial,  Up: Top
 
-Invoking GNU `tar'
-******************
+3 Invoking GNU `tar'
+********************
 
      _(This message will disappear, once this node revised.)_
 
@@ -1505,8 +1501,8 @@ receives about what is going on.  These are the `--help' and
 
 File: tar.info,  Node: Synopsis,  Next: using tar options,  Up: tar invocation
 
-General Synopsis of `tar'
-=========================
+3.1 General Synopsis of `tar'
+=============================
 
 The GNU `tar' program is invoked as either one of:
 
@@ -1590,8 +1586,8 @@ operations, where it may be 128.
 
 File: tar.info,  Node: using tar options,  Next: Styles,  Prev: Synopsis,  Up: tar invocation
 
-Using `tar' Options
-===================
+3.2 Using `tar' Options
+=======================
 
 GNU `tar' has a total of eight operating modes which allow you to
 perform a variety of tasks.  You are required to choose one operating
@@ -1640,8 +1636,8 @@ styles.
 
 File: tar.info,  Node: Styles,  Next: All Options,  Prev: using tar options,  Up: tar invocation
 
-The Three Option Styles
-=======================
+3.3 The Three Option Styles
+===========================
 
 There are three styles for writing operations and options to the command
 line invoking `tar'.  The different styles were developed at different
@@ -1677,8 +1673,8 @@ specifying mandatory arguments. Please, pay special attention to them.
 
 File: tar.info,  Node: Mnemonic Options,  Next: Short Options,  Up: Styles
 
-Mnemonic Option Style
----------------------
+3.3.1 Mnemonic Option Style
+---------------------------
 
 Each option has at least one long (or mnemonic) name starting with two
 dashes in a row, e.g. `--list'.  The long names are more clear than
@@ -1722,8 +1718,8 @@ argument specifying backup type. It must be used as
 
 File: tar.info,  Node: Short Options,  Next: Old Options,  Prev: Mnemonic Options,  Up: Styles
 
-Short Option Style
-------------------
+3.3.2 Short Option Style
+------------------------
 
 Most options also have a short option name.  Short options start with a
 single dash, and are followed by a single character, e.g. `-t' (which
@@ -1770,8 +1766,8 @@ not even be made helpful enough for considering such usages as invalid.
 
 File: tar.info,  Node: Old Options,  Next: Mixing,  Prev: Short Options,  Up: Styles
 
-Old Option Style
-----------------
+3.3.3 Old Option Style
+----------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -1844,8 +1840,8 @@ short options are decoded differently.
 
 File: tar.info,  Node: Mixing,  Prev: Old Options,  Up: Styles
 
-Mixing Option Styles
---------------------
+3.3.4 Mixing Option Styles
+--------------------------
 
 All three styles may be intermixed in a single `tar' command, so long
 as the rules for each style are fully respected(1).  Old style options
@@ -1910,8 +1906,8 @@ style options with mnemonic options in some cases.
 
 File: tar.info,  Node: All Options,  Next: help,  Prev: Styles,  Up: tar invocation
 
-All `tar' Options
-=================
+3.4 All `tar' Options
+=====================
 
 The coming manual sections contain an alphabetical listing of all `tar'
 operations and options, with brief descriptions and cross references to
@@ -1929,8 +1925,8 @@ for deciphering `tar' commands in scripts.
 
 File: tar.info,  Node: Operation Summary,  Next: Option Summary,  Up: All Options
 
-Operations
-----------
+3.4.1 Operations
+----------------
 
 `--append'
 `-r'
@@ -1986,8 +1982,8 @@ Operations
 
 File: tar.info,  Node: Option Summary,  Next: Short Option Summary,  Prev: Operation Summary,  Up: All Options
 
-`tar' Options
--------------
+3.4.2 `tar' Options
+-------------------
 
 `--absolute-names'
 `-P'
@@ -2078,6 +2074,10 @@ File: tar.info,  Node: Option Summary,  Next: Short Option Summary,  Prev: Opera
 `-X FILE'
      Similar to `--exclude', except `tar' will use the list of patterns
      in the file FILE.
+
+`--exclude-caches'
+     Automatically excludes all directories containing a cache
+     directory tag.
 
 `--file=ARCHIVE'
 `-f ARCHIVE'
@@ -2219,6 +2219,13 @@ File: tar.info,  Node: Option Summary,  Next: Short Option Summary,  Prev: Opera
 
 `--new-volume-script'
      (see -info-script)
+
+`-n'
+`--seek'
+     Assume that the archive media supports seeks to arbitrary
+     locations. Usually `tar' determines automatically whether the
+     archive can be seeked or not. This option is intended for use in
+     cases when such recognition fails.
 
 `--newer=DATE'
 `--after-date=DATE'
@@ -2519,12 +2526,12 @@ File: tar.info,  Node: Option Summary,  Next: Short Option Summary,  Prev: Opera
      files in the archive until it finds one that matches NAME.  *Note
      Scarce::.
 
-`--strip-path=NUMBER'
+`--strip-components=NUMBER'
      Strip given NUMBER of leading components from file names before
-     extraction. For example, if archive `archive.tar' contained
+     extraction.(1) For example, if archive `archive.tar' contained
      `/some/file/name', then running
 
-          tar --extract --file archive.tar --strip-path=2
+          tar --extract --file archive.tar --strip-components=2
 
      would extracted this file to file `name'.
 
@@ -2597,11 +2604,15 @@ File: tar.info,  Node: Option Summary,  Next: Short Option Summary,  Prev: Opera
      Wildcards match `/' when excluding files.
 
 
+   ---------- Footnotes ----------
+
+   (1) This option was called `--strip-path' in version 1.14.
+
 
 File: tar.info,  Node: Short Option Summary,  Prev: Option Summary,  Up: All Options
 
-Short Options Cross Reference
------------------------------
+3.4.3 Short Options Cross Reference
+-----------------------------------
 
 Here is an alphabetized list of all of the short option forms, matching
 them with the equivalent long option.
@@ -2739,8 +2750,8 @@ them with the equivalent long option.
 
 File: tar.info,  Node: help,  Next: verbose,  Prev: All Options,  Up: tar invocation
 
-GNU `tar' documentation
-=======================
+3.5 GNU `tar' documentation
+===========================
 
 Being careful, the first thing is really checking that you are using
 GNU `tar', indeed.  The `--version' option will generate a message
@@ -2750,7 +2761,7 @@ the version number to the standard output, then immediately exits
 successfully, without doing anything else, ignoring all other options.
 For example, `tar --version' might return:
 
-     tar (GNU tar) 1.14
+     tar (GNU tar) 1.15.1
 
 The first occurrence of `tar' in the result above is the program name
 in the package (for example, `rmt' is another program), while the
@@ -2814,8 +2825,8 @@ this days, the `--version' would not yield `tar (GNU paxutils) 3.2'
 
 File: tar.info,  Node: verbose,  Next: interactive,  Prev: help,  Up: tar invocation
 
-Checking `tar' progress
-=======================
+3.6 Checking `tar' progress
+===========================
 
 Typically, `tar' performs most operations without reporting any
 information to the user except error messages.  When using `tar' with
@@ -2862,10 +2873,11 @@ FILE rather than to standard output or standard error.
 the archive, after it has been fully created.
 
    The `--checkpoint' option prints an occasional message as `tar'
-reads or writes the archive.  In fact, it print directory names while
-reading the archive.  It is designed for those who don't need the more
-detailed (and voluminous) output of `--block-number' (`-R'), but do
-want visual confirmation that `tar' is actually making forward progress.
+reads or writes the archive. In fact, it prints a message each 10
+records read or written. It is designed for those who don't need the
+more detailed (and voluminous) output of `--block-number' (`-R'), but
+do want visual confirmation that `tar' is actually making forward
+progress.
 
    The `--show-omitted-dirs' option, when reading an archive--with
 `--list' (`-t') or `--extract' (`--get', `-x'), for example--causes a
@@ -2895,8 +2907,8 @@ of the tape).
 
 File: tar.info,  Node: interactive,  Prev: verbose,  Up: tar invocation
 
-Asking for Confirmation During Operations
-=========================================
+3.7 Asking for Confirmation During Operations
+=============================================
 
 Typically, `tar' carries out a command without stopping for further
 instructions.  In some situations however, you may want to exclude some
@@ -2934,8 +2946,8 @@ receive verbose output, all separate from errors.
 
 File: tar.info,  Node: operations,  Next: Backups,  Prev: tar invocation,  Up: Top
 
-GNU `tar' Operations
-********************
+4 GNU `tar' Operations
+**********************
 
 * Menu:
 
@@ -2950,8 +2962,8 @@ GNU `tar' Operations
 
 File: tar.info,  Node: Basic tar,  Next: Advanced tar,  Up: operations
 
-Basic GNU `tar' Operations
-==========================
+4.1 Basic GNU `tar' Operations
+==============================
 
 The basic `tar' operations, `--create' (`-c'), `--list' (`-t') and
 `--extract' (`--get', `-x'), are currently presented and described in
@@ -3009,7 +3021,7 @@ complementary notes for these operations.
      being localizable for dates should prefer international dates,
      that's really the way to go.
 
-     Look up <http://www.ft.uni-erlangen.de/~mskuhn/iso-time.html> if
+     Look up `http://www.ft.uni-erlangen.de/~mskuhn/iso-time.html' if
      you are curious, it contains a detailed explanation of the ISO
      8601 standard.
 
@@ -3023,8 +3035,8 @@ Garfinkel, Daniel Weise & Steven Strassmann, IDG Books, ISBN
 
 File: tar.info,  Node: Advanced tar,  Next: create options,  Prev: Basic tar,  Up: operations
 
-Advanced GNU `tar' Operations
-=============================
+4.2 Advanced GNU `tar' Operations
+=================================
 
 Now that you have learned the basics of using GNU `tar', you may want
 to learn about further ways in which `tar' can help you.
@@ -3049,8 +3061,8 @@ error correction in special circumstances.
 
 File: tar.info,  Node: Operations,  Next: append,  Up: Advanced tar
 
-The Five Advanced `tar' Operations
-----------------------------------
+4.2.1 The Five Advanced `tar' Operations
+----------------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -3104,8 +3116,8 @@ where the last chapter left them.)
 
 File: tar.info,  Node: append,  Next: update,  Prev: Operations,  Up: Advanced tar
 
-How to Add Files to Existing Archives: `--append'
--------------------------------------------------
+4.2.2 How to Add Files to Existing Archives: `--append'
+-------------------------------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -3173,8 +3185,8 @@ is newer than the the one in the archive and you invoke `tar' with
 
 File: tar.info,  Node: appending files,  Next: multiple,  Up: append
 
-Appending Files to an Archive
-.............................
+4.2.2.1 Appending Files to an Archive
+.....................................
 
      _(This message will disappear, once this node revised.)_
 
@@ -3213,8 +3225,8 @@ has been added to the archive:
 
 File: tar.info,  Node: multiple,  Prev: appending files,  Up: append
 
-Multiple Files with the Same Name
-.................................
+4.2.2.2 Multiple Files with the Same Name
+.........................................
 
 You can use `--append' (`-r') to add copies of files which have been
 updated since the archive was created.  (However, we do not recommend
@@ -3273,8 +3285,8 @@ and *Note -occurrence: Option Summary, for the description of
 
 File: tar.info,  Node: update,  Next: concatenate,  Prev: append,  Up: Advanced tar
 
-Updating an Archive
--------------------
+4.2.3 Updating an Archive
+-------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -3301,8 +3313,8 @@ stored last will wind up in the file system, unless you use the
 
 File: tar.info,  Node: how to update,  Up: update
 
-How to Update an Archive Using `--update'
-.........................................
+4.2.3.1 How to Update an Archive Using `--update'
+.................................................
 
 You must use file name arguments with the `--update' (`-u') operation.
 If you don't specify any files, `tar' won't act on any files and won't
@@ -3341,8 +3353,8 @@ backups, please consult *Note Backups::.
 
 File: tar.info,  Node: concatenate,  Next: delete,  Prev: update,  Up: Advanced tar
 
-Combining Archives with `--concatenate'
----------------------------------------
+4.2.4 Combining Archives with `--concatenate'
+---------------------------------------------
 
 Sometimes it may be convenient to add a second archive onto the end of
 an archive rather than adding individual files to the archive.  To add
@@ -3420,8 +3432,8 @@ if this has not been set, the default archive name.
 
 File: tar.info,  Node: delete,  Next: compare,  Prev: concatenate,  Up: Advanced tar
 
-Removing Archive Members Using `--delete'
------------------------------------------
+4.2.5 Removing Archive Members Using `--delete'
+-----------------------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -3473,8 +3485,8 @@ acts as a filter from `stdin' to `stdout'.
 
 File: tar.info,  Node: compare,  Prev: delete,  Up: Advanced tar
 
-Comparing Archive Members with the File System
-----------------------------------------------
+4.2.6 Comparing Archive Members with the File System
+----------------------------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -3515,8 +3527,8 @@ this later goal, *Note verify::.
 
 File: tar.info,  Node: create options,  Next: extract options,  Prev: Advanced tar,  Up: operations
 
-Options Used by `--create'
-==========================
+4.3 Options Used by `--create'
+==============================
 
 The previous chapter described the basics of how to use `--create'
 (`-c') to create an archive from a set of files.  *Note create::.  This
@@ -3529,8 +3541,8 @@ section described advanced options to be used with `--create'.
 
 File: tar.info,  Node: Ignore Failed Read,  Up: create options
 
-Ignore Fail Read
-----------------
+4.3.1 Ignore Fail Read
+----------------------
 
 `--ignore-failed-read'
      Do not exit with nonzero on unreadable files or directories.
@@ -3538,8 +3550,8 @@ Ignore Fail Read
 
 File: tar.info,  Node: extract options,  Next: backup,  Prev: create options,  Up: operations
 
-Options Used by `--extract'
-===========================
+4.4 Options Used by `--extract'
+===============================
 
      _(This message will disappear, once this node revised.)_
 
@@ -3561,8 +3573,8 @@ operation.
 
 File: tar.info,  Node: Reading,  Next: Writing,  Up: extract options
 
-Options to Help Read Archives
------------------------------
+4.4.1 Options to Help Read Archives
+-----------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -3634,8 +3646,8 @@ compatiblity among archiving utilities.
 
 File: tar.info,  Node: Writing,  Next: Scarce,  Prev: Reading,  Up: extract options
 
-Changing How `tar' Writes Files
--------------------------------
+4.4.2 Changing How `tar' Writes Files
+-------------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -3688,7 +3700,7 @@ maybe the site removed the link and renamed the whole hierarchy from
 `/usr/local2' to `/usr/local'.  Such things happen all the time.  I
 guess it would not be welcome at all that GNU `tar' removes the whole
 hierarchy just to make room for the link to be reinstated (unless it
-_also_ simultaneously restores the full `/usr/local2', of course!  GNU
+_also_ simultaneously restores the full `/usr/local2', of course!)  GNU
 `tar' is indeed able to remove a whole hierarchy to reestablish a
 symbolic link, for example, but _only if_ `--recursive-unlink' is
 specified to allow this behavior.  In any case, single files are
@@ -3869,8 +3881,8 @@ Removing Files
 
 File: tar.info,  Node: Scarce,  Prev: Writing,  Up: extract options
 
-Coping with Scarce Resources
-----------------------------
+4.4.3 Coping with Scarce Resources
+----------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -3926,8 +3938,8 @@ editing its output.
 
 File: tar.info,  Node: backup,  Next: Applications,  Prev: extract options,  Up: operations
 
-Backup options
-==============
+4.5 Backup options
+==================
 
 GNU `tar' offers options for making backups of files before writing new
 versions.  These options control the details of these backups.  They
@@ -4009,8 +4021,8 @@ resort to using something like (a Bourne shell function here):
 
 File: tar.info,  Node: Applications,  Next: looking ahead,  Prev: backup,  Up: operations
 
-Notable `tar' Usages
-====================
+4.6 Notable `tar' Usages
+========================
 
      _(This message will disappear, once this node revised.)_
 
@@ -4039,8 +4051,8 @@ This is one of the easiest methods to transfer a `tar' archive.
 
 File: tar.info,  Node: looking ahead,  Prev: Applications,  Up: operations
 
-Looking Ahead: The Rest of this Manual
-======================================
+4.7 Looking Ahead: The Rest of this Manual
+==========================================
 
 You have now seen how to use all eight of the operations available to
 `tar', and a number of the possible options.  The next chapter explains
@@ -4059,8 +4071,8 @@ not archive them.  *Note Choosing::.
 
 File: tar.info,  Node: Backups,  Next: Choosing,  Prev: operations,  Up: Top
 
-Performing Backups and Restoring Files
-**************************************
+5 Performing Backups and Restoring Files
+****************************************
 
      _(This message will disappear, once this node revised.)_
 
@@ -4085,27 +4097,27 @@ backuping scripts which are provided within the GNU `tar' distribution.
 
      .* dumps
      . + what are dumps
-     
+
      . + different levels of dumps
      .  - full dump = dump everything
      .  - level 1, level 2 dumps etc, -
              A level n dump dumps everything changed since the last level
              n-1 dump (?)
-     
+
      . + how to use scripts for dumps  (ie, the concept)
      .  - scripts to run after editing backup specs (details)
-     
+
      . + Backup Specs, what is it.
      .  - how to customize
      .  - actual text of script  [/sp/dump/backup-specs]
-     
+
      . + Problems
      .  - rsh doesn't work
      .  - rtape isn't installed
      .  - (others?)
-     
+
      . + the --incremental option of tar
-     
+
      . + tapes
      .  - write protection
      .  - types of media
@@ -4116,7 +4128,7 @@ backuping scripts which are provided within the GNU `tar' distribution.
           MT writes two at end of write,
             backspaces over one when writing again.
 
-   This chapter documents both the provided FSF scripts and `tar'
+   This chapter documents both the provided shell scripts and `tar'
 options which are more specific to usage as a backup tool.
 
    To "back up" a file system means to create archives that contain all
@@ -4138,8 +4150,8 @@ file is accidentally deleted).  File system "backups" are also called
 
 File: tar.info,  Node: Full Dumps,  Next: Inc Dumps,  Up: Backups
 
-Using `tar' to Perform Full Dumps
-=================================
+5.1 Using `tar' to Perform Full Dumps
+=====================================
 
      _(This message will disappear, once this node revised.)_
 
@@ -4247,8 +4259,8 @@ determined, but before the new archive is actually created.
 
 File: tar.info,  Node: Inc Dumps,  Next: incremental and listed-incremental,  Prev: Full Dumps,  Up: Backups
 
-Using `tar' to Perform Incremental Dumps
-========================================
+5.2 Using `tar' to Perform Incremental Dumps
+============================================
 
      _(This message will disappear, once this node revised.)_
 
@@ -4282,8 +4294,8 @@ largest blocking factor that can be used.
 
 File: tar.info,  Node: incremental and listed-incremental,  Next: Backup Levels,  Prev: Inc Dumps,  Up: Backups
 
-The Incremental Options
-=======================
+5.3 The Incremental Options
+===========================
 
      _(This message will disappear, once this node revised.)_
 
@@ -4357,8 +4369,8 @@ over time.  So `tar' now considers all NFS devices as being equal when
 it comes to comparing directories; this is fairly gross, but there does
 not seem to be a better way to go.
 
-   `tar' doesn't access SNAPSHOT-FILE when `--create' (`-c') or
-`--list' (`-t') are specified, but the
+   `tar' doesn't access SNAPSHOT-FILE when `--extract' (`--get', `-x')
+or `--list' (`-t') are specified, but the
 `--listed-incremental=SNAPSHOT-FILE' (`-g SNAPSHOT-FILE') option must
 still be given.  A placeholder SNAPSHOT-FILE can be specified, e.g.,
 `/dev/null'.
@@ -4366,8 +4378,8 @@ still be given.  A placeholder SNAPSHOT-FILE can be specified, e.g.,
 
 File: tar.info,  Node: Backup Levels,  Next: Backup Parameters,  Prev: incremental and listed-incremental,  Up: Backups
 
-Levels of Backups
-=================
+5.4 Levels of Backups
+=====================
 
 An archive containing all the files in the file system is called a
 "full backup" or "full dump".  You could insure your data by creating a
@@ -4415,8 +4427,8 @@ it is easier to use the scripts. *Note Inc Dumps::, and
 
 File: tar.info,  Node: Backup Parameters,  Next: Scripted Backups,  Prev: Backup Levels,  Up: Backups
 
-Setting Parameters for Backups and Restoration
-==============================================
+5.5 Setting Parameters for Backups and Restoration
+==================================================
 
 The file `backup-specs' specifies backup parameters for the backup and
 restoration scripts provided with `tar'.  You must edit `backup-specs'
@@ -4427,10 +4439,10 @@ scripts.
 variable assignments. However, any valid shell construct is allowed in
 this file. Particularly, you may wish to define functions within that
 script (e.g. see `RESTORE_BEGIN' below).  For more information about
-shell script syntax, please refer to
-<http://www.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#ta
-g_02, the definition of the Shell Command Language>. See also *Note
-Bash Features: (bashref)Top.
+shell script syntax, please refer to the definition of the Shell
+Command Language
+(http://www.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#ta
+g_02). See also *Note Bash Features: (bashref)Top.
 
    The shell variables controlling behavior of `backup' and `restore'
 are described in the following subsections.
@@ -4445,14 +4457,14 @@ are described in the following subsections.
 
 File: tar.info,  Node: General-Purpose Variables,  Next: Magnetic Tape Control,  Up: Backup Parameters
 
-General-Purpose Variables
--------------------------
+5.5.1 General-Purpose Variables
+-------------------------------
 
- - Backup variable: ADMINISTRATOR
+ -- Backup variable: ADMINISTRATOR
      The user name of the backup administrator. `Backup' scripts sends
      a backup report to this address.
 
- - Backup variable: BACKUP_HOUR
+ -- Backup variable: BACKUP_HOUR
      The hour at which the backups are done. This can be a number from 0
      to 23, or the time specification in form HOURS:MINUTES, or the
      string `now'.
@@ -4460,15 +4472,15 @@ General-Purpose Variables
      This variable is used by `backup'. Its value may be overridden
      using `--time' option (*note Scripted Backups::).
 
- - Backup variable: TAPE_FILE
+ -- Backup variable: TAPE_FILE
      The device `tar' writes the archive to.  This device should be
      attached to the host on which the dump scripts are run.
 
- - Backup variable: BLOCKING
+ -- Backup variable: BLOCKING
      The blocking factor `tar' will use when writing the dump archive.
      *Note Blocking Factor::.
 
- - Backup variable: BACKUP_DIRS
+ -- Backup variable: BACKUP_DIRS
      A list of file systems to be dumped (for `backup'), or restored
      (for `restore'). You can include any directory name in the list --
      subdirectories on that file system will be included, regardless of
@@ -4490,11 +4502,11 @@ General-Purpose Variables
      but this name may be overridden in `backup-specs' using `DIRLIST'
      variable.
 
- - Backup variable: DIRLIST
+ -- Backup variable: DIRLIST
      A path to the file containing the list of the filesystems to backup
      or restore. By default it is `/etc/backup/dirs'.
 
- - Backup variable: BACKUP_FILES
+ -- Backup variable: BACKUP_FILES
      A list of individual files to be dumped (for `backup'), or restored
      (for `restore'). These should be accessible from the machine on
      which the backup script is run.
@@ -4504,100 +4516,100 @@ General-Purpose Variables
      `/etc/backup/files', but this name may be overridden in
      `backup-specs' using `FILELIST' variable.
 
- - Backup variable: FILELIST
+ -- Backup variable: FILELIST
      A path to the file containing the list of the individual files to
      backup or restore. By default it is `/etc/backup/files'.
 
- - Backup variable: RSH
+ -- Backup variable: RSH
      Path to `rsh' binary or its equivalent. You may wish to set it to
      `ssh', to improve security. In this case you will have to use
      public key authentication.
 
- - Backup variable: RSH_COMMAND
+ -- Backup variable: RSH_COMMAND
      Path to rsh binary on remote mashines. This will be passed via
      `--rsh-command' option to the remote invocation of GNU `tar'.
 
- - Backup variable: VOLNO_FILE
+ -- Backup variable: VOLNO_FILE
      Name of temporary file to hold volume numbers.  This needs to be
      accessible by all the machines which have filesystems to be dumped.
 
- - Backup variable: XLIST
+ -- Backup variable: XLIST
      Name of "exclude file list". An "exclude file list" is a file
      located on the remote machine and containing the list of files to
      be excluded from the backup. Exclude file lists are searched in
      /etc/tar-backup directory. A common use for exclude file lists is
      to exclude files containing security-sensitive information (e.g.
-     `/etc/shadow' from backups.
+     `/etc/shadow' from backups).
 
      This variable affects only `backup'.
 
- - Backup variable: SLEEP_TIME
+ -- Backup variable: SLEEP_TIME
      Time to sleep between dumps of any two successive filesystems
 
      This variable affects only `backup'.
 
- - Backup variable: DUMP_REMIND_SCRIPT
+ -- Backup variable: DUMP_REMIND_SCRIPT
      Script to be run when it's time to insert a new tape in for the
      next volume. Administrators may want to tailor this script for
      their site.  If this variable isn't set, GNU `tar' will display
      its built-in prompt , and will expect confirmation from the
      console.
 
- - Backup variable: SLEEP_MESSAGE
+ -- Backup variable: SLEEP_MESSAGE
      Message to display on the terminal while waiting for dump time.
      Usually this will just be some literal text.
 
- - Backup variable: TAR
+ -- Backup variable: TAR
      Pathname of the GNU `tar' executable. If this is not set, backup
      scripts will search `tar' in the current shell path.
 
 
 File: tar.info,  Node: Magnetic Tape Control,  Next: User Hooks,  Prev: General-Purpose Variables,  Up: Backup Parameters
 
-Magnetic Tape Control
----------------------
+5.5.2 Magnetic Tape Control
+---------------------------
 
 Backup scripts access tape device using special "hook functions".
 These functions take a single argument - the name of the tape device.
 Their names are kept in the following variables:
 
- - Backup variable: MT_BEGIN
+ -- Backup variable: MT_BEGIN
      The name of "begin" function. This function is called before
      accessing the drive. By default it retensions the tape:
 
           MT_BEGIN=mt_begin
-          
+
           mt_begin() {
               mt -f "$1" retension
           }
 
- - Backup variable: MT_REWIND
-     THe name of "rewind" function. The default definition is as
+ -- Backup variable: MT_REWIND
+     The name of "rewind" function. The default definition is as
      follows:
 
           MT_REWIND=mt_rewind
-          
+
           mt_rewind() {
               mt -f "$1" rewind
           }
 
 
- - Backup variable: MT_OFFLINE
+ -- Backup variable: MT_OFFLINE
      The name of the function switching the tape off line. By default
      it is defined as follows:
 
           MT_OFFLINE=mt_offline
-          
+
           mt_offline() {
               mt -f "$1" offl
           }
 
- - Backup variable: MT_STATUS
+ -- Backup variable: MT_STATUS
      The name of the function used to obtain the status of the archive
      device, including error count. Default definition:
 
           MT_STATUS=mt_status
-          
+
           mt_status() {
               mt -f "$1" status
           }
@@ -4605,17 +4617,17 @@ Their names are kept in the following variables:
 
 File: tar.info,  Node: User Hooks,  Next: backup-specs example,  Prev: Magnetic Tape Control,  Up: Backup Parameters
 
-User Hooks
-----------
+5.5.3 User Hooks
+----------------
 
 "User hooks" are shell functions executed before and after each `tar'
-invocations. Thus, there are "backup hooks", which are executed before
+invocation. Thus, there are "backup hooks", which are executed before
 and after dumping each file system, and "restore hooks", executed
 before and after restoring a file system. Each user hook is a shell
 function taking four arguments:
 
- - User Hook Function: hook LEVEL HOST FS FSNAME
-     The arguments are:
+ -- User Hook Function: hook LEVEL HOST FS FSNAME
+     Its arguments are:
 
     LEVEL
           Current backup or restore level.
@@ -4633,45 +4645,45 @@ function taking four arguments:
 
    Following variables keep the names of user hook functions
 
- - Backup variable: DUMP_BEGIN
+ -- Backup variable: DUMP_BEGIN
      Dump begin function. It is executed before dumping the filesystem.
 
- - Backup variable: DUMP_END
+ -- Backup variable: DUMP_END
      Executed after dumping the filesystem.
 
- - Backup variable: RESTORE_BEGIN
+ -- Backup variable: RESTORE_BEGIN
      Executed before restoring the filesystem.
 
- - Backup variable: RESTORE_END
+ -- Backup variable: RESTORE_END
      Executed after restoring the filesystem.
 
 
 File: tar.info,  Node: backup-specs example,  Prev: User Hooks,  Up: Backup Parameters
 
-An Example Text of `Backup-specs'
----------------------------------
+5.5.4 An Example Text of `Backup-specs'
+---------------------------------------
 
-The following is the text of `backup-specs' as it appears at FSF:
+The following is an example of `backup-specs':
 
      # site-specific parameters for file system backup.
-     
+
      ADMINISTRATOR=friedman
      BACKUP_HOUR=1
      TAPE_FILE=/dev/nrsmt0
-     
+
      # Use `ssh' instead of the less secure `rsh'
      RSH=/usr/bin/ssh
      RSH_COMMAND=/usr/bin/ssh
-     
+
      # Override MT_STATUS function:
      my_status() {
            mts -t $TAPE_FILE
      }
      MT_STATUS=my_status
-     
+
      # Disable MT_OFFLINE function
      MT_OFFLINE=:
-     
+
      BLOCKING=124
      BACKUP_DIRS="
              albert:/fs/fsf
@@ -4688,14 +4700,14 @@ The following is the text of `backup-specs' as it appears at FSF:
              gnu:/u
              apple-gunkies:/com/mailer/gnu
              apple-gunkies:/com/archive/gnu"
-     
+
      BACKUP_FILES="/com/mailer/aliases /com/mailer/league*[a-z]"
 
 
 File: tar.info,  Node: Scripted Backups,  Next: Scripted Restoration,  Prev: Backup Parameters,  Up: Backups
 
-Using the Backup Scripts
-========================
+5.6 Using the Backup Scripts
+============================
 
 The syntax for running a backup script is:
 
@@ -4737,8 +4749,8 @@ systems and files dumped, what time the backup was made, and any error
 messages that were generated, as well as how much space was left in the
 media volume after the last volume of the archive was written.  You
 should check this log file after every backup.  The file name is
-`log-MMM-DDD-YYYY-level-N', where N represents current dump level
-number.
+`log-MM-DD-YYYY-level-N', where MM-DD-YYYY represents current date, and
+N represents current dump level number.
 
    The script also prints the name of each system being dumped to the
 standard output.
@@ -4753,7 +4765,7 @@ standard output.
 `--force'
      Force backup even if today's log file already exists.
 
-`-vLEVEL'
+`-v[LEVEL]'
 `--verbose[=LEVEL]'
      Set verbosity level. The higher the level is, the more debugging
      information will be output during execution. Devault LEVEL is 100,
@@ -4787,13 +4799,13 @@ need to create a level one dump.
 
 File: tar.info,  Node: Scripted Restoration,  Prev: Scripted Backups,  Up: Backups
 
-Using the Restore Script
-========================
+5.7 Using the Restore Script
+============================
 
 To restore files that were archived using a scripted backup, use the
 `restore' script. Its usage is quite straightforward. In the simplest
-form, invoke `restore' without options, it will then restore all the
-filesystems and files specified in `backup-specs' (*note BACKUP_DIRS:
+form, invoke `restore --all', it will then restore all the filesystems
+and files specified in `backup-specs' (*note BACKUP_DIRS:
 General-Purpose Variables.).
 
    You may select the filesystems (and/or files) to restore by giving
@@ -4820,12 +4832,16 @@ as shown in the example below:
 
    The full list of options accepted by `restore' follows:
 
+`-a'
+`--all'
+     Restore all filesystems and files specified in `backup-specs'
+
 `-l LEVEL'
 `--level=LEVEL'
      Start restoring from the given backup level, instead of the
      default 0.
 
-`-vLEVEL'
+`-v[LEVEL]'
 `--verbose[=LEVEL]'
      Set verbosity level. The higher the level is, the more debugging
      information will be output during execution. Devault LEVEL is 100,
@@ -4860,8 +4876,8 @@ the script makes that determination.
 
 File: tar.info,  Node: Choosing,  Next: Date input formats,  Prev: Backups,  Up: Top
 
-Choosing Files and Names for `tar'
-**********************************
+6 Choosing Files and Names for `tar'
+************************************
 
      _(This message will disappear, once this node revised.)_
 
@@ -4885,8 +4901,8 @@ in specified directories.
 
 File: tar.info,  Node: file,  Next: Selecting Archive Members,  Up: Choosing
 
-Choosing and Naming Archive Files
-=================================
+6.1 Choosing and Naming Archive Files
+=====================================
 
      _(This message will disappear, once this node revised.)_
 
@@ -4963,8 +4979,8 @@ used with GNU `tar', has an initial sizing pass which uses this feature.
 
 File: tar.info,  Node: Selecting Archive Members,  Next: files,  Prev: file,  Up: Choosing
 
-Selecting Archive Members
-=========================
+6.2 Selecting Archive Members
+=============================
 
 "File Name arguments" specify which files in the file system `tar'
 operates on, when creating or adding to an archive, or which archive
@@ -4994,8 +5010,8 @@ of files and archive members.
 
 File: tar.info,  Node: files,  Next: exclude,  Prev: Selecting Archive Members,  Up: Choosing
 
-Reading Names from a File
-=========================
+6.3 Reading Names from a File
+=============================
 
      _(This message will disappear, once this node revised.)_
 
@@ -5028,6 +5044,7 @@ the files from that file, `small-files', to create the archive
      $ find . -size -400 -print > small-files
      $ tar -c -v -z -T small-files -f little.tgz
 
+
 * Menu:
 
 * nul::
@@ -5035,8 +5052,8 @@ the files from that file, `small-files', to create the archive
 
 File: tar.info,  Node: nul,  Up: files
 
-`NUL' Terminated File Names
----------------------------
+6.3.1 `NUL' Terminated File Names
+---------------------------------
 
 The `--null' option causes `--files-from=FILE-OF-NAMES' (`-T
 FILE-OF-NAMES') to read file names terminated by a `NUL' instead of a
@@ -5068,8 +5085,8 @@ create the archive `big.tgz'.  The `--null' option to `tar' will cause
 
 File: tar.info,  Node: exclude,  Next: Wildcards,  Prev: files,  Up: Choosing
 
-Excluding Some Files
-====================
+6.4 Excluding Some Files
+========================
 
      _(This message will disappear, once this node revised.)_
 
@@ -5098,6 +5115,19 @@ patterns, one per line, from FILE; `tar' will ignore files matching
 those patterns.  Thus if `tar' is called as `tar -c -X foo .' and the
 file `foo' contains a single line `*.o', no files whose names end in
 `.o' will be added to the archive.
+
+`--exclude-caches'
+     Causes `tar' to ignore directories containing a cache directory
+     tag.
+
+   When creating an archive, the `--exclude-caches' option causes `tar'
+to exclude all directories that contain a "cache directory tag".  A
+cache directory tag is a short file with the well-known name
+`CACHEDIR.TAG' and having a standard header specified in
+`http://www.brynosaurus.com/cachedir/spec.html'.  Various applications
+write cache directory tags into directories they use to hold
+regenerable, non-precious data, so that such data can be more easily
+excluded from backups.
 
 * Menu:
 
@@ -5130,9 +5160,9 @@ below.  These options accumulate.  For example:
 
 `--anchored'
 `--no-anchored'
-     If anchored (the default), a pattern must match an initial
-     subsequence of the name's components.  Otherwise, the pattern can
-     match any subsequence.
+     If anchored, a pattern must match an initial subsequence of the
+     name's components. Otherwise, the pattern can match any
+     subsequence. Default is `--no-anchored'.
 
 `--ignore-case'
 `--no-ignore-case'
@@ -5214,8 +5244,8 @@ pitfalls:
 
 File: tar.info,  Node: Wildcards,  Next: after,  Prev: exclude,  Up: Choosing
 
-Wildcards Patterns and Matching
-===============================
+6.5 Wildcards Patterns and Matching
+===================================
 
 "Globbing" is the operation by which "wildcard" characters, `*' or `?'
 for example, are replaced and expanded into all existing files matching
@@ -5262,8 +5292,8 @@ string: excluding a directory also excludes all the files beneath it.
 
 File: tar.info,  Node: after,  Next: recurse,  Prev: Wildcards,  Up: Choosing
 
-Operating Only on New Files
-===========================
+6.6 Operating Only on New Files
+===============================
 
      _(This message will disappear, once this node revised.)_
 
@@ -5329,11 +5359,12 @@ separate arguments.
      properly by these options.  *Note incremental and
      listed-incremental::.
 
+
 
 File: tar.info,  Node: recurse,  Next: one,  Prev: after,  Up: Choosing
 
-Descending into Directories
-===========================
+6.7 Descending into Directories
+===============================
 
      _(This message will disappear, once this node revised.)_
 
@@ -5392,8 +5423,8 @@ contents of `grape/concord', but no entries under `grape' other than
 
 File: tar.info,  Node: one,  Prev: recurse,  Up: Choosing
 
-Crossing Filesystem Boundaries
-==============================
+6.8 Crossing Filesystem Boundaries
+==================================
 
      _(This message will disappear, once this node revised.)_
 
@@ -5434,8 +5465,8 @@ standard error.
 
 File: tar.info,  Node: directory,  Next: absolute,  Up: one
 
-Changing the Working Directory
-------------------------------
+6.8.1 Changing the Working Directory
+------------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -5492,15 +5523,33 @@ the original current working directory of `tar', due to a previous
 `--directory' option.
 
    When using `--files-from' (*note files::), you can put `-C' options
-in the file list.  Unfortunately, you cannot put `--directory' options
-in the file list.  (This interpretation can be disabled by using the
-`--null' option.)
+in the file list. Notice, however, that in this case the option and its
+argument must occupy two consecutive lines. For instance, the file list
+for the above example will be:
+
+     -C
+     /etc
+     passwd
+     hosts
+     -C
+     /lib
+     libc.a
+
+To use it, you would invoke `tar' as follows:
+
+     $ tar -c -f foo.tar --files-from list
+
+   Notice also that you can only use the short option variant in the
+file list, i.e. always use `-C', not `--directory'.
+
+   The interpretation of `--directory=DIRECTORY' (`-C DIRECTORY') is
+disabled by `--null' option.
 
 
 File: tar.info,  Node: absolute,  Prev: directory,  Up: one
 
-Absolute File Names
--------------------
+6.8.2 Absolute File Names
+-------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -5575,8 +5624,8 @@ directory first, and then avoid absolute notation.  For example:
 
 File: tar.info,  Node: Date input formats,  Next: Formats,  Prev: Choosing,  Up: Top
 
-Date input formats
-******************
+7 Date input formats
+********************
 
 First, a quote:
 
@@ -5614,18 +5663,19 @@ function) is not described here.
 * General date syntax::            Common rules.
 * Calendar date items::            19 Dec 1994.
 * Time of day items::              9:20pm.
-* Time zone items::                EST, PDT, GMT, ...
+* Time zone items::                EST, PDT, GMT.
 * Day of week items::              Monday and others.
 * Relative items in date strings:: next tuesday, 2 years ago.
 * Pure numbers in date strings::   19931219, 1440.
 * Seconds since the Epoch::        @1078100502.
+* Specifying time zone rules::     TZ="America/New_York", TZ="UTC0".
 * Authors of get_date::            Bellovin, Eggert, Salz, Berets, et al.
 
 
 File: tar.info,  Node: General date syntax,  Next: Calendar date items,  Up: Date input formats
 
-General date syntax
-===================
+7.1 General date syntax
+=======================
 
 A "date" is a string, possibly empty, containing many items separated
 by whitespace.  The whitespace may be omitted when no ambiguity arises.
@@ -5635,7 +5685,7 @@ items:
 
    * calendar date items
 
-   * time of the day items
+   * time of day items
 
    * time zone items
 
@@ -5647,12 +5697,15 @@ items:
 
 We describe each of these item types in turn, below.
 
-   A few numbers may be written out in words in most contexts.  This is
-most useful for specifying day of the week items or relative items (see
-below).  Here is the list: `first' for 1, `next' for 2, `third' for 3,
-`fourth' for 4, `fifth' for 5, `sixth' for 6, `seventh' for 7, `eighth'
-for 8, `ninth' for 9, `tenth' for 10, `eleventh' for 11 and `twelfth'
-for 12.  Also, `last' means exactly -1.
+   A few ordinal numbers may be written out in words in some contexts.
+This is most useful for specifying day of the week items or relative
+items (see below).  Among the most commonly used ordinal numbers, the
+word `last' stands for -1, `this' stands for 0, and `first' and `next'
+both stand for 1.  Because the word `second' stands for the unit of
+time there is no way to write the ordinal number 2, but for convenience
+`third' stands for 3, `fourth' for 4, `fifth' for 5, `sixth' for 6,
+`seventh' for 7, `eighth' for 8, `ninth' for 9, `tenth' for 10,
+`eleventh' for 11 and `twelfth' for 12.
 
    When a month is written this way, it is still considered to be
 written numerically, instead of being "spelled in full"; this changes
@@ -5662,12 +5715,12 @@ the allowed strings.
 and abbreviations like `AM', `DST', `EST', `first', `January',
 `Sunday', `tomorrow', and `year'.
 
-   The output of `date' is not always acceptable as a date string, not
-only because of the language problem, but also because there is no
-standard meaning for time zone items like `IST'.  When using `date' to
-generate a date string intended to be parsed later, specify a date
-format that is independent of language and that does not use time zone
-items other than `UTC' and `Z'.  Here are some ways to do this:
+   The output of the `date' command is not always acceptable as a date
+string, not only because of the language problem, but also because
+there is no standard meaning for time zone items like `IST'.  When using
+`date' to generate a date string intended to be parsed later, specify a
+date format that is independent of language and that does not use time
+zone items other than `UTC' and `Z'.  Here are some ways to do this:
 
      $ LC_ALL=C TZ=UTC0 date
      Mon Mar  1 00:21:42 UTC 2004
@@ -5690,8 +5743,8 @@ ignored.  Leading zeros on numbers are ignored.
 
 File: tar.info,  Node: Calendar date items,  Next: Time of day items,  Prev: General date syntax,  Up: Date input formats
 
-Calendar date items
-===================
+7.2 Calendar date items
+=======================
 
 A "calendar date item" specifies a day of the year.  It is specified
 differently, depending on whether the month is specified numerically or
@@ -5746,8 +5799,8 @@ any of the following:
 
 File: tar.info,  Node: Time of day items,  Next: Time zone items,  Prev: Calendar date items,  Up: Date input formats
 
-Time of day items
-=================
+7.3 Time of day items
+=====================
 
 A "time of day item" in date strings specifies the time on a given day.
 Here are some examples, all of which represent the same time:
@@ -5757,7 +5810,7 @@ Here are some examples, all of which represent the same time:
      8:02pm
      20:02-0500      # In EST (U.S. Eastern Standard Time).
 
-   More generally, the time of the day may be given as
+   More generally, the time of day may be given as
 `HOUR:MINUTE:SECOND', where HOUR is a number between 0 and 23, MINUTE
 is a number between 0 and 59, and SECOND is a number between 0 and 59
 possibly followed by `.' or `,' and a fraction containing one or more
@@ -5774,13 +5827,15 @@ derived from Latin which uses `12m' for noon and `12pm' for midnight.)
 
    The time may alternatively be followed by a time zone correction,
 expressed as `SHHMM', where S is `+' or `-', HH is a number of zone
-hours and MM is a number of zone minutes.  When a time zone correction
-is given this way, it forces interpretation of the time relative to
-Coordinated Universal Time (UTC), overriding any previous specification
-for the time zone or the local time zone.  The MINUTE part of the time
-of the day may not be elided when a time zone correction is used.  This
-is the best way to specify a time zone correction by fractional parts
-of an hour.
+hours and MM is a number of zone minutes.  You can also separate HH
+from MM with a colon.  When a time zone correction is given this way, it
+forces interpretation of the time relative to Coordinated Universal
+Time (UTC), overriding any previous specification for the time zone or
+the local time zone.  For example, `+0530' and `+05:30' both stand for
+the time zone 5.5 hours ahead of UTC (e.g., India).  The MINUTE part of
+the time of day may not be elided when a time zone correction is used.
+This is the best way to specify a time zone correction by fractional
+parts of an hour.
 
    Either `am'/`pm' or a time zone correction may be specified, but not
 both.
@@ -5788,15 +5843,18 @@ both.
 
 File: tar.info,  Node: Time zone items,  Next: Day of week items,  Prev: Time of day items,  Up: Date input formats
 
-Time zone items
-===============
+7.4 Time zone items
+===================
 
 A "time zone item" specifies an international time zone, indicated by a
 small set of letters, e.g., `UTC' or `Z' for Coordinated Universal
 Time.  Any included periods are ignored.  By following a
 non-daylight-saving time zone by the string `DST' in a separate word
 (that is, separated by some white space), the corresponding daylight
-saving time zone may be specified.
+saving time zone may be specified.  Alternatively, a
+non-daylight-saving time zone can be followed by a time zone
+correction, to add the two values.  This is normally done only for
+`UTC'; for example, `UTC+05:30' is equivalent to `+05:30'.
 
    Time zone items other than `UTC' and `Z' are obsolescent and are not
 recommended, because they are ambiguous; for example, `EST' has a
@@ -5804,11 +5862,15 @@ different meaning in Australia than in the United States.  Instead,
 it's better to use unambiguous numeric time zone corrections like
 `-0500', as described in the previous section.
 
+   If neither a time zone item nor a time zone correction is supplied,
+time stamps are interpreted using the rules of the default time zone
+(*note Specifying time zone rules::).
+
 
 File: tar.info,  Node: Day of week items,  Next: Relative items in date strings,  Prev: Time zone items,  Up: Date input formats
 
-Day of week items
-=================
+7.5 Day of week items
+=====================
 
 The explicit mention of a day of the week will forward the date (only
 if necessary) to reach that day of the week in the future.
@@ -5830,8 +5892,8 @@ represent.
 
 File: tar.info,  Node: Relative items in date strings,  Next: Pure numbers in date strings,  Prev: Day of week items,  Up: Date input formats
 
-Relative items in date strings
-==============================
+7.6 Relative items in date strings
+==================================
 
 "Relative items" adjust a date (or the current date if none) forward or
 backward.  The effects of relative items accumulate.  Here are some
@@ -5869,7 +5931,7 @@ of a zero-valued time displacement, but is preferred in date strings
 like `this thursday'.
 
    When a relative item causes the resulting date to cross a boundary
-where the clocks were adjusted, typically for daylight-saving time, the
+where the clocks were adjusted, typically for daylight saving time, the
 resulting date and time are adjusted accordingly.
 
    The fuzz in units can cause problems with relative items.  For
@@ -5894,8 +5956,8 @@ before embarking on calendrical calculations.
 
 File: tar.info,  Node: Pure numbers in date strings,  Next: Seconds since the Epoch,  Prev: Relative items in date strings,  Up: Date input formats
 
-Pure numbers in date strings
-============================
+7.7 Pure numbers in date strings
+================================
 
 The precise interpretation of a pure decimal number depends on the
 context in the date string.
@@ -5908,22 +5970,24 @@ the day of the month, for the specified calendar date.
    If the decimal number is of the form HHMM and no other time of day
 item appears before it in the date string, then HH is read as the hour
 of the day and MM as the minute of the hour, for the specified time of
-the day.  MM can also be omitted.
+day.  MM can also be omitted.
 
    If both a calendar date and a time of day appear to the left of a
 number in the date string, but no relative item, then the number
 overrides the year.
 
 
-File: tar.info,  Node: Seconds since the Epoch,  Next: Authors of get_date,  Prev: Pure numbers in date strings,  Up: Date input formats
+File: tar.info,  Node: Seconds since the Epoch,  Next: Specifying time zone rules,  Prev: Pure numbers in date strings,  Up: Date input formats
 
-Seconds since the Epoch
-=======================
+7.8 Seconds since the Epoch
+===========================
 
 If you precede a number with `@', it represents an internal time stamp
 as a count of seconds.  The number can contain an internal decimal
 point (either `.' or `,'); any excess precision not supported by the
-internal representation is truncated toward minus infinity.
+internal representation is truncated toward minus infinity.  Such a
+number cannot be combined with any other date item, as it specifies a
+complete time stamp.
 
    Internally, computer times are represented as a count of seconds
 since an epoch--a well-defined point of time.  On GNU and POSIX
@@ -5946,10 +6010,58 @@ there is no way to represent the intervening leap second 1998-12-31
 23:59:60 UTC.
 
 
-File: tar.info,  Node: Authors of get_date,  Prev: Seconds since the Epoch,  Up: Date input formats
+File: tar.info,  Node: Specifying time zone rules,  Next: Authors of get_date,  Prev: Seconds since the Epoch,  Up: Date input formats
 
-Authors of `get_date'
-=====================
+7.9 Specifying time zone rules
+==============================
+
+Normally, dates are interpreted using the rules of the current time
+zone, which in turn are specified by the `TZ' environment variable, or
+by a system default if `TZ' is not set.  To specify a different set of
+default time zone rules that apply just to one date, start the date
+with a string of the form `TZ="RULE"'.  The two quote characters (`"')
+must be present in the date, and any quotes or backslashes within RULE
+must be escaped by a backslash.
+
+   For example, with the GNU `date' command you can answer the question
+"What time is it in New York when a Paris clock shows 6:30am on October
+31, 2004?" by using a date beginning with `TZ="Europe/Paris"' as shown
+in the following shell transcript:
+
+     $ export TZ="America/New_York"
+     $ date --date='TZ="Europe/Paris" 2004-10-31 06:30'
+     Sun Oct 31 01:30:00 EDT 2004
+
+   In this example, the `--date' operand begins with its own `TZ'
+setting, so the rest of that operand is processed according to
+`Europe/Paris' rules, treating the string `2004-10-31 06:30' as if it
+were in Paris.  However, since the output of the `date' command is
+processed according to the overall time zone rules, it uses New York
+time.  (Paris was normally six hours ahead of New York in 2004, but
+this example refers to a brief Halloween period when the gap was five
+hours.)
+
+   A `TZ' value is a rule that typically names a location in the `tz'
+database (http://www.twinsun.com/tz/tz-link.htm).  A recent catalog of
+location names appears in the TWiki Date and Time Gateway
+(http://twiki.org/cgi-bin/xtra/tzdate).  A few non-GNU hosts require a
+colon before a location name in a `TZ' setting, e.g.,
+`TZ=":America/New_York"'.
+
+   The `tz' database includes a wide variety of locations ranging from
+`Arctic/Longyearbyen' to `Antarctica/South_Pole', but if you are at sea
+and have your own private time zone, or if you are using a non-GNU host
+that does not support the `tz' database, you may need to use a POSIX
+rule instead.  Simple POSIX rules like `UTC0' specify a time zone
+without daylight saving time; other rules can specify simple daylight
+saving regimes.  *Note Specifying the Time Zone with `TZ': (libc)TZ
+Variable.
+
+
+File: tar.info,  Node: Authors of get_date,  Prev: Specifying time zone rules,  Up: Date input formats
+
+7.10 Authors of `get_date'
+==========================
 
 `get_date' was originally implemented by Steven M. Bellovin
 (<smb@research.att.com>) while at the University of North Carolina at
@@ -5966,8 +6078,8 @@ edited by K. Berry (<kb@cs.umb.edu>).
 
 File: tar.info,  Node: Formats,  Next: Media,  Prev: Date input formats,  Up: Top
 
-Controlling the Archive Format
-******************************
+8 Controlling the Archive Format
+********************************
 
 Due to historical reasons, there are several formats of tar archives.
 All of them are based on the same principles, but have some subtle
@@ -6012,7 +6124,7 @@ v7
      Makefiles. This practice will change in the future, in the
      meantime, however this means that projects containing filenames
      more than 99 characters long will not be able to use GNU `tar'
-     1.14 and Automake prior to 1.9.
+     1.15.1 and Automake prior to 1.9.
 
 ustar
      Archive format defined by POSIX.1-1988 specification. It stores
@@ -6083,8 +6195,8 @@ its output. Usually, GNU `tar' is configured to create archives in
 
 File: tar.info,  Node: Portability,  Next: Compression,  Up: Formats
 
-Making `tar' Archives More Portable
-===================================
+8.1 Making `tar' Archives More Portable
+=======================================
 
 Creating a `tar' archive on a particular system that is meant to be
 useful later on many other machines and with other versions of `tar' is
@@ -6113,8 +6225,8 @@ contiguous files as such.  Let's discuss a few more problems, in turn.
 
 File: tar.info,  Node: Portable Names,  Next: dereference,  Up: Portability
 
-Portable Names
---------------
+8.1.1 Portable Names
+--------------------
 
 Use portable file and member names.  A name is portable if it contains
 only ASCII letters and digits, `/', `.', `_', and `-'; it cannot be
@@ -6130,8 +6242,8 @@ MSDOS names, which are even more limited than System V's.
 
 File: tar.info,  Node: dereference,  Next: old,  Prev: Portable Names,  Up: Portability
 
-Symbolic Links
---------------
+8.1.2 Symbolic Links
+--------------------
 
 Normally, when `tar' archives a symbolic link, it writes a block to the
 archive naming the target of the link.  In that way, the `tar' archive
@@ -6160,8 +6272,8 @@ unresolved symbolic links.
 
 File: tar.info,  Node: old,  Next: ustar,  Prev: dereference,  Up: Portability
 
-Old V7 Archives
----------------
+8.1.3 Old V7 Archives
+---------------------
 
 Certain old versions of `tar' cannot handle additional information
 recorded by newer `tar' programs.  To create an archive in V7 format
@@ -6184,8 +6296,8 @@ format archives, so it might be safer for you to always use
 
 File: tar.info,  Node: ustar,  Next: gnu,  Prev: old,  Up: Portability
 
-Ustar Archive Format
---------------------
+8.1.4 Ustar Archive Format
+--------------------------
 
 Archive format defined by POSIX.1-1988 specification is called `ustar'.
 Although it is more flexible than the V7 format, it still has many
@@ -6199,8 +6311,8 @@ conjunction with the `--create' (`-c').
 
 File: tar.info,  Node: gnu,  Next: posix,  Prev: ustar,  Up: Portability
 
-GNU and old GNU `tar' format
-----------------------------
+8.1.5 GNU and old GNU `tar' format
+----------------------------------
 
 GNU `tar' was based on an early draft of the POSIX 1003.1 `ustar'
 standard.  GNU extensions to `tar', such as the support for file names
@@ -6233,10 +6345,10 @@ in the future.
 
 File: tar.info,  Node: posix,  Next: Checksumming,  Prev: gnu,  Up: Portability
 
-GNU `tar' and POSIX `tar'
--------------------------
+8.1.6 GNU `tar' and POSIX `tar'
+-------------------------------
 
-The version 1.14 of GNU `tar' is able to read and create archives
+The version 1.15.1 of GNU `tar' is able to read and create archives
 conforming to POSIX.1-2001 standard.
 
    A POSIX conformant archive will be created if `tar' was given
@@ -6256,8 +6368,8 @@ be used with `--format=posix':
 
 File: tar.info,  Node: Checksumming,  Next: Large or Negative Values,  Prev: posix,  Up: Portability
 
-Checksumming Problems
----------------------
+8.1.7 Checksumming Problems
+---------------------------
 
 SunOS and HP-UX `tar' fail to accept archives created using GNU `tar'
 and containing non-ASCII file names, that is, file names having
@@ -6292,8 +6404,8 @@ they receive.
 
 File: tar.info,  Node: Large or Negative Values,  Prev: Checksumming,  Up: Portability
 
-Large or Negative Values
-------------------------
+8.1.8 Large or Negative Values
+------------------------------
 
 POSIX `tar' format uses fixed-sized unsigned octal strings to represent
 numeric values.  User and group IDs and device major and minor numbers
@@ -6331,8 +6443,8 @@ are nonstandard and unportable.
 
 File: tar.info,  Node: Compression,  Next: Attributes,  Prev: Portability,  Up: Formats
 
-Using Less Space through Compression
-====================================
+8.2 Using Less Space through Compression
+========================================
 
 * Menu:
 
@@ -6342,67 +6454,90 @@ Using Less Space through Compression
 
 File: tar.info,  Node: gzip,  Next: sparse,  Up: Compression
 
-Creating and Reading Compressed Archives
-----------------------------------------
+8.2.1 Creating and Reading Compressed Archives
+----------------------------------------------
 
-     _(This message will disappear, once this node revised.)_
+GNU `tar' is able to create and read compressed archives. It supports
+`gzip' and `bzip2' compression programms. For backward compatibilty, it
+also supports `compress' command, although we strongly recommend
+against using it, since there is a patent covering the algorithm it
+uses and you could be sued for patent infringement merely by running
+`compress'! Besides, it is less effective than `gzip' and `bzip2'.
+
+   Creating a compressed archive is simple: you just specify a
+"compression option" along with the usual archive creation commands.
+The compression option is `-z' (`--gzip') to create a `gzip' compressed
+archive, `-j' (`--bzip2') to create a `bzip2' compressed archive, and
+`-Z' (`--compress') to use `compress' program.  For example:
+
+     $ tar cfz archive.tar.gz .
+
+   Reading compressed archive is even simpler: you don't need to specify
+any additional options as GNU `tar' recognizes its format
+automatically. Thus, the following commands will list and extract the
+archive created in previous example:
+
+     # List the compressed archive
+     $ tar tf archive.tar.gz
+     # Extract the compressed archive
+     $ tar xf archive.tar.gz
+
+   The only case when you have to specify a decompression option while
+reading the archive is when reading from a pipe or from a tape drive
+that does not support random access. However, in this case GNU `tar'
+will indicate which option you should use. For example:
+
+     $ cat archive.tar.gz | tar tf -
+     tar: Archive is compressed. Use -z option
+     tar: Error is not recoverable: exiting now
+
+   If you see such diagnostics, just add the suggested option to the
+invocation of GNU `tar':
+
+     $ cat archive.tar.gz | tar tfz -
+
+   Notice also, that there are several restrictions on operations on
+compressed archives. First of all, compressed archives cannot be
+modified, i.e. you cannot update (`--update' (`-u')) them or delete
+(`--delete') members from them. Likewise, you cannot append another
+`tar' archive to a compressed archive using `--append' (`-r')).
+Secondly, multi-volume archives cannot be compressed.
+
+   The following table summarizes compression options used by GNU `tar'.
 
 `-z'
 `--gzip'
 `--ungzip'
      Filter the archive through `gzip'.
 
-   Some format parameters must be taken into consideration when
-modifying an archive.  Compressed archives cannot be modified.
+     You can use `--gzip' and `--gunzip' on physical devices (tape
+     drives, etc.) and remote files as well as on normal files; data to
+     or from such devices or remote files is reblocked by another copy
+     of the `tar' program to enforce the specified (or default) record
+     size.  The default compression parameters are used; if you need to
+     override them, set `GZIP' environment variable, e.g.:
 
-   You can use `--gzip' and `--gunzip' on physical devices (tape
-drives, etc.) and remote files as well as on normal files; data to or
-from such devices or remote files is reblocked by another copy of the
-`tar' program to enforce the specified (or default) record size.  The
-default compression parameters are used; if you need to override them,
-avoid the `--gzip' (`--gunzip', `--ungzip', `-z') option and run `gzip'
-explicitly.  (Or set the `GZIP' environment variable.)
+          $ GZIP=--best tar cfz archive.tar.gz subdir
 
-   The `--gzip' (`--gunzip', `--ungzip', `-z') option does not work
-with the `--multi-volume' (`-M') option, or with the `--update' (`-u'),
-`--append' (`-r'), `--concatenate' (`--catenate', `-A'), or `--delete'
-operations.
+     Another way would be to avoid the `--gzip' (`--gunzip',
+     `--ungzip', `-z') option and run `gzip' explicitly:
 
-   It is not exact to say that GNU `tar' is to work in concert with
-`gzip' in a way similar to `zip', say.  Surely, it is possible that
-`tar' and `gzip' be done with a single call, like in:
+          $ tar cf - subdir | gzip --best -c - > archive.tar.gz
 
-     $ tar cfz archive.tar.gz subdir
+     About corrupted compressed archives: `gzip''ed files have no
+     redundancy, for maximum compression.  The adaptive nature of the
+     compression scheme means that the compression tables are implicitly
+     spread all over the archive.  If you lose a few blocks, the dynamic
+     construction of the compression tables becomes unsynchronized, and
+     there is little chance that you could recover later in the archive.
 
-to save all of `subdir' into a `gzip''ed archive.  Later you can do:
-
-     $ tar xfz archive.tar.gz
-
-to explode and unpack.
-
-   The difference is that the whole archive is compressed.  With `zip',
-archive members are archived individually.  `tar''s method yields
-better compression.  On the other hand, one can view the contents of a
-`zip' archive without having to decompress it.  As for the `tar' and
-`gzip' tandem, you need to decompress the archive to see its contents.
-However, this may be done without needing disk space, by using pipes
-internally:
-
-     $ tar tfz archive.tar.gz
-
-   About corrupted compressed archives: `gzip''ed files have no
-redundancy, for maximum compression.  The adaptive nature of the
-compression scheme means that the compression tables are implicitly
-spread all over the archive.  If you lose a few blocks, the dynamic
-construction of the compression tables becomes unsynchronized, and there
-is little chance that you could recover later in the archive.
-
-   There are pending suggestions for having a per-volume or per-file
-compression in GNU `tar'.  This would allow for viewing the contents
-without decompression, and for resynchronizing decompression at every
-volume or file, in case of corrupted archives.  Doing so, we might lose
-some compressibility.  But this would have make recovering easier.  So,
-there are pros and cons.  We'll see!
+     There are pending suggestions for having a per-volume or per-file
+     compression in GNU `tar'.  This would allow for viewing the
+     contents without decompression, and for resynchronizing
+     decompression at every volume or file, in case of corrupted
+     archives.  Doing so, we might lose some compressibility.  But this
+     would have make recovering easier.  So, there are pros and cons.
+     We'll see!
 
 `-j'
 `--bzip2'
@@ -6415,58 +6550,27 @@ there are pros and cons.  We'll see!
      Filter the archive through `compress'.  Otherwise like `--gzip'
      (`--gunzip', `--ungzip', `-z').
 
+     The GNU Project recommends you not use `compress', because there
+     is a patent covering the algorithm it uses.  You could be sued for
+     patent infringement merely by running `compress'.
+
 `--use-compress-program=PROG'
-     Filter through PROG (must accept `-d').
+     Use external compression program PROG. Use this option if you have
+     a compression program that GNU `tar' does not support. There are
+     two requirements to which PROG should comply:
 
-   `--compress' (`--uncompress', `-Z') stores an archive in compressed
-format.  This option is useful in saving time over networks and space
-in pipes, and when storage space is at a premium.  `--compress'
-(`--uncompress', `-Z') causes `tar' to compress when writing the
-archive, or to uncompress when reading the archive.
+     First, when called without options, it should read data from
+     standard input, compress it and output it on standard output.
 
-   To perform compression and uncompression on the archive, `tar' runs
-the `compress' utility.  `tar' uses the default compression parameters;
-if you need to override them, avoid the `--compress' (`--uncompress',
-`-Z') option and run the `compress' utility explicitly.  It is useful
-to be able to call the `compress' utility from within `tar' because the
-`compress' utility by itself cannot access remote tape drives.
-
-   The `--compress' (`--uncompress', `-Z') option will not work in
-conjunction with the `--multi-volume' (`-M') option or the `--append'
-(`-r'), `--update' (`-u') and `--delete' operations.  *Note
-Operations::, for more information on these operations.
-
-   If there is no compress utility available, `tar' will report an
-error.  *Please note* that the `compress' program may be covered by a
-patent, and therefore we recommend you stop using it.
-
-   `--bzip2' (`-j') acts like `--compress' (`--uncompress', `-Z'),
-except that it uses the `bzip2' utility.
-
-`--compress'
-`--uncompress'
-`-z'
-`-Z'
-     When this option is specified, `tar' will compress (when writing
-     an archive), or uncompress (when reading an archive).  Used in
-     conjunction with the `--create' (`-c'), `--extract' (`--get',
-     `-x'), `--list' (`-t') and `--compare' (`--diff', `-d') operations.
-
-   You can have archives be compressed by using the `--gzip'
-(`--gunzip', `--ungzip', `-z') option.  This will arrange for `tar' to
-use the `gzip' program to be used to compress or uncompress the archive
-wren writing or reading it.
-
-   To use the older, obsolete, `compress' program, use the `--compress'
-(`--uncompress', `-Z') option.  The GNU Project recommends you not use
-`compress', because there is a patent covering the algorithm it uses.
-You could be sued for patent infringement merely by running `compress'.
+     Secondly, if called with `-d' argument, it should do exactly the
+     opposite, i.e. read the compressed data from the standard input
+     and produce uncompressed data on the standard output.
 
 
 File: tar.info,  Node: sparse,  Prev: gzip,  Up: Compression
 
-Archiving Sparse Files
-----------------------
+8.2.2 Archiving Sparse Files
+----------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -6578,8 +6682,8 @@ will be sufficient.
 
 File: tar.info,  Node: Attributes,  Next: Standard,  Prev: Compression,  Up: Formats
 
-Handling File Attributes
-========================
+8.3 Handling File Attributes
+============================
 
      _(This message will disappear, once this node revised.)_
 
@@ -6697,8 +6801,8 @@ they were before they were read, use the `--atime-preserve' option.
 
 File: tar.info,  Node: Standard,  Next: Extensions,  Prev: Attributes,  Up: Formats
 
-Basic Tar Format
-================
+8.4 Basic Tar Format
+====================
 
      _(This message will disappear, once this node revised.)_
 
@@ -6753,28 +6857,28 @@ or which contains garbage records after a zero block.
 distribution, this is part of file `src/tar.h':
 
      /* GNU tar Archive Format description.
-     
+
         Copyright (C) 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
         2000, 2001, 2003 Free Software Foundation, Inc.
-     
+
         This program is free software; you can redistribute it and/or modify it
         under the terms of the GNU General Public License as published by the
         Free Software Foundation; either version 2, or (at your option) any later
         version.
-     
+
         This program is distributed in the hope that it will be useful, but
         WITHOUT ANY WARRANTY; without even the implied warranty of
         MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
         Public License for more details.
-     
+
         You should have received a copy of the GNU General Public License along
         with this program; if not, write to the Free Software Foundation, Inc.,
         59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
-     
+
      /* tar Header Block, from POSIX 1003.1-1990.  */
-     
+
      /* POSIX header.  */
-     
+
      struct posix_header
      {                               /* byte offset */
        char name[100];               /*   0 */
@@ -6795,12 +6899,12 @@ distribution, this is part of file `src/tar.h':
        char prefix[155];             /* 345 */
                                      /* 500 */
      };
-     
+
      #define TMAGIC   "ustar"        /* ustar and a null */
      #define TMAGLEN  6
      #define TVERSION "00"           /* 00 and no null */
      #define TVERSLEN 2
-     
+
      /* Values used in typeflag field.  */
      #define REGTYPE  '0'            /* regular file */
      #define AREGTYPE '\0'           /* regular file */
@@ -6811,11 +6915,11 @@ distribution, this is part of file `src/tar.h':
      #define DIRTYPE  '5'            /* directory */
      #define FIFOTYPE '6'            /* FIFO special */
      #define CONTTYPE '7'            /* reserved */
-     
+
      #define XHDTYPE  'x'            /* Extended header referring to the
                                         next file in the archive */
      #define XGLTYPE  'g'            /* Global extended header */
-     
+
      /* Bits used in the mode field, values in octal.  */
      #define TSUID    04000          /* set UID on execution */
      #define TSGID    02000          /* set GID on execution */
@@ -6830,14 +6934,14 @@ distribution, this is part of file `src/tar.h':
      #define TOREAD   00004          /* read by other */
      #define TOWRITE  00002          /* write by other */
      #define TOEXEC   00001          /* execute/search by other */
-     
+
      /* tar Header Block, GNU extensions.  */
-     
+
      /* In GNU tar, SYMTYPE is for to symbolic links, and CONTTYPE is for
         contiguous files, so maybe disobeying the `reserved' comment in POSIX
         header description.  I suspect these were meant to be used this way, and
         should not have really been `reserved' in the published standards.  */
-     
+
      /* *BEWARE* *BEWARE* *BEWARE* that the following information is still
         boiling, and may change.  Even if the OLDGNU format description should be
         accurate, the so-called GNU format is not yet fully decided.  It is
@@ -6846,16 +6950,16 @@ distribution, this is part of file `src/tar.h':
         go away.  Sparse files should be saved in such a way that they do *not*
         require two passes at archive creation time.  Huge files get some POSIX
         fields to overflow, alternate solutions have to be sought for this.  */
-     
+
      /* Descriptor for a single file hole.  */
-     
+
      struct sparse
      {                               /* byte offset */
        char offset[12];              /*   0 */
        char numbytes[12];            /*  12 */
                                      /*  24 */
      };
-     
+
      /* Sparse files are not supported in POSIX ustar format.  For sparse files
         with a POSIX header, a GNU extra header is provided which holds overall
         sparse information and a few sparse descriptors.  When an old GNU header
@@ -6864,16 +6968,16 @@ distribution, this is part of file `src/tar.h':
         are still needed, they are put into as many successive sparse headers as
         necessary.  The following constants tell how many sparse descriptors fit
         in each kind of header able to hold them.  */
-     
+
      #define SPARSES_IN_EXTRA_HEADER  16
      #define SPARSES_IN_OLDGNU_HEADER 4
      #define SPARSES_IN_SPARSE_HEADER 21
-     
+
      /* Extension header for sparse files, used immediately after the GNU extra
         header, and used only if all sparse information cannot fit into that
         extra header.  There might even be many such extension headers, one after
         the other, until all sparse information has been recorded.  */
-     
+
      struct sparse_header
      {                               /* byte offset */
        struct sparse sp[SPARSES_IN_SPARSE_HEADER];
@@ -6881,7 +6985,7 @@ distribution, this is part of file `src/tar.h':
        char isextended;              /* 504 */
                                      /* 505 */
      };
-     
+
      /* The old GNU format header conflicts with POSIX format in such a way that
         POSIX archives may fool old GNU tar's, and POSIX tar's might well be
         fooled by old GNU tar archives.  An old GNU format header uses the space
@@ -6889,7 +6993,7 @@ distribution, this is part of file `src/tar.h':
         normally found in a GNU extra header.  With an old GNU tar header, we
         never see any POSIX header nor GNU extra header.  Supplementary sparse
         headers are allowed, however.  */
-     
+
      struct oldgnu_header
      {                               /* byte offset */
        char unused_pad1[345];        /*   0 */
@@ -6906,46 +7010,46 @@ distribution, this is part of file `src/tar.h':
        char realsize[12];            /* 483 Sparse file: Real size*/
                                      /* 495 */
      };
-     
+
      /* OLDGNU_MAGIC uses both magic and version fields, which are contiguous.
         Found in an archive, it indicates an old GNU header format, which will be
         hopefully become obsolescent.  With OLDGNU_MAGIC, uname and gname are
         valid, though the header is not truly POSIX conforming.  */
      #define OLDGNU_MAGIC "ustar  "  /* 7 chars and a null */
-     
+
      /* The standards committee allows only capital A through capital Z for
         user-defined expansion.  Other letters in use include:
-     
+
         'A' Solaris Access Control List
         'E' Solaris Extended Attribute File
         'I' Inode only, as in 'star'
         'X' POSIX 1003.1-2001 eXtended (VU version)  */
-     
+
      /* This is a dir entry that contains the names of files that were in the
         dir at the time the dump was made.  */
      #define GNUTYPE_DUMPDIR 'D'
-     
+
      /* Identifies the *next* file on the tape as having a long linkname.  */
      #define GNUTYPE_LONGLINK 'K'
-     
+
      /* Identifies the *next* file on the tape as having a long name.  */
      #define GNUTYPE_LONGNAME 'L'
-     
+
      /* This is the continuation of a file that began on another volume.  */
      #define GNUTYPE_MULTIVOL 'M'
-     
+
      /* For storing filenames that do not fit into the main header.  */
      #define GNUTYPE_NAMES 'N'
-     
+
      /* This is for sparse files.  */
      #define GNUTYPE_SPARSE 'S'
-     
+
      /* This file is a tape/volume header.  Ignore it on extraction.  */
      #define GNUTYPE_VOLHDR 'V'
-     
+
      
      /* Jörg Schilling star header */
-     
+
      struct star_header
      {                               /* byte offset */
        char name[100];               /*   0 */
@@ -6968,10 +7072,10 @@ distribution, this is part of file `src/tar.h':
        char ctime[12];               /* 488 */
                                      /* 500 */
      };
-     
+
      #define SPARSES_IN_STAR_HEADER      4
      #define SPARSES_IN_STAR_EXT_HEADER  21
-     
+
      struct star_in_header {
        char fill[345];       /*   0  Everything that is before t_prefix */
        char prefix[1];       /* 345  t_name prefix */
@@ -6986,19 +7090,19 @@ distribution, this is part of file `src/tar.h':
        char mfill[8];        /* 500  */
        char xmagic[4];       /* 508  "tar" */
      };
-     
+
      struct star_ext_header {
        struct sparse sp[SPARSES_IN_STAR_EXT_HEADER];
        char isextended;
      };
-     
+
      
-     
+
      /* tar Header Block, overall structure.  */
-     
+
      /* tar files are made in basic blocks of this size.  */
      #define BLOCKSIZE 512
-     
+
      enum archive_format
      {
        DEFAULT_FORMAT,               /* format to be decided later */
@@ -7011,14 +7115,14 @@ distribution, this is part of file `src/tar.h':
                                         see FIXME note for to_chars() function
                                         (create.c:189) */
      };
-     
+
      /* Information about a sparse file.  */
      struct sp_array
        {
          off_t offset;
          size_t numbytes;
        };
-     
+
      struct tar_stat_info
      {
        char *orig_file_name;     /* name of file read from the archive header */
@@ -7027,30 +7131,30 @@ distribution, this is part of file `src/tar.h':
        int had_trailing_slash;   /* nonzero if the current archive entry had a
                                     trailing slash before it was normalized. */
        char *link_name;          /* name of link for the current archive entry.  */
-     
+
        unsigned int  devminor;   /* device minor number */
        unsigned int  devmajor;   /* device major number */
        char          *uname;     /* user name of owner */
        char          *gname;     /* group name of owner */
        struct stat   stat;       /* regular filesystem stat */
-     
+
        /* Nanosecond parts of file timestamps (if available) */
        unsigned long atime_nsec;
        unsigned long mtime_nsec;
        unsigned long ctime_nsec;
-     
+
        off_t archive_file_size;  /* Size of file as stored in the archive.
                                     Equals stat.st_size for non-sparse files */
-     
+
        bool   is_sparse;         /* Is the file sparse */
-     
+
        size_t sparse_map_avail;  /* Index to the first unused element in
                                     sparse_map array. Zero if the file is
                                     not sparse */
        size_t sparse_map_size;   /* Size of the sparse map */
        struct sp_array *sparse_map;
      };
-     
+
      union block
      {
        char buffer[BLOCKSIZE];
@@ -7061,7 +7165,7 @@ distribution, this is part of file `src/tar.h':
        struct star_in_header star_in_header;
        struct star_ext_header star_ext_header;
      };
-     
+
      /* End of Format description.  */
 
    All characters in header blocks are represented by using 8-bit
@@ -7248,8 +7352,8 @@ IEEE Std 1003.2-1992, pages 380-388 (section 4.48) and pages 936-940
 
 File: tar.info,  Node: Extensions,  Next: cpio,  Prev: Standard,  Up: Formats
 
-GNU Extensions to the Archive Format
-====================================
+8.5 GNU Extensions to the Archive Format
+========================================
 
      _(This message will disappear, once this node revised.)_
 
@@ -7305,8 +7409,8 @@ the most likely one being a checksum error.
 
 File: tar.info,  Node: cpio,  Prev: Extensions,  Up: Formats
 
-Comparison of `tar' and `cpio'
-==============================
+8.6 Comparison of `tar' and `cpio'
+==================================
 
      _(This message will disappear, once this node revised.)_
 
@@ -7409,8 +7513,8 @@ longer read it).
 
 File: tar.info,  Node: Media,  Next: Free Software Needs Free Documentation,  Prev: Formats,  Up: Top
 
-Tapes and Other Archive Media
-*****************************
+9 Tapes and Other Archive Media
+*******************************
 
      _(This message will disappear, once this node revised.)_
 
@@ -7457,8 +7561,8 @@ not a good idea.
 
 File: tar.info,  Node: Device,  Next: Remote Tape Server,  Up: Media
 
-Device Selection and Switching
-==============================
+9.1 Device Selection and Switching
+==================================
 
      _(This message will disappear, once this node revised.)_
 
@@ -7567,8 +7671,8 @@ could also check for `DEFTAPE' in `<sys/mtio.h>'.
 
 File: tar.info,  Node: Remote Tape Server,  Next: Common Problems and Solutions,  Prev: Device,  Up: Media
 
-The Remote Tape Server
-======================
+9.2 The Remote Tape Server
+==========================
 
 In order to access the tape drive on a remote machine, `tar' uses the
 remote tape server written at the University of California at Berkeley.
@@ -7639,8 +7743,8 @@ instead of directories archived with the `--incremental' (`-G') option.
 
 File: tar.info,  Node: Common Problems and Solutions,  Next: Blocking,  Prev: Remote Tape Server,  Up: Media
 
-Some Common Problems and their Solutions
-========================================
+9.3 Some Common Problems and their Solutions
+============================================
 
 errors from system:
 permission denied
@@ -7658,8 +7762,8 @@ device busy
 
 File: tar.info,  Node: Blocking,  Next: Many,  Prev: Common Problems and Solutions,  Up: Media
 
-Blocking
-========
+9.4 Blocking
+============
 
      _(This message will disappear, once this node revised.)_
 
@@ -7780,8 +7884,8 @@ physical characteristics of the tape device.
 
 File: tar.info,  Node: Format Variations,  Next: Blocking Factor,  Up: Blocking
 
-Format Variations
------------------
+9.4.1 Format Variations
+-----------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -7802,8 +7906,8 @@ format parameter considerations.
 
 File: tar.info,  Node: Blocking Factor,  Prev: Format Variations,  Up: Blocking
 
-The Blocking Factor of an Archive
----------------------------------
+9.4.2 The Blocking Factor of an Archive
+---------------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -8036,8 +8140,8 @@ the error rates observed at rewriting time.
 
 File: tar.info,  Node: Many,  Next: Using Multiple Tapes,  Prev: Blocking,  Up: Media
 
-Many Archives on One Tape
-=========================
+9.5 Many Archives on One Tape
+=============================
 
 Most tape devices have two entries in the `/dev' directory, or entries
 that come in pairs, which differ only in the minor number for this
@@ -8119,8 +8223,8 @@ but you should do the proper things for that as well.  *Note Blocking::.
 
 File: tar.info,  Node: Tape Positioning,  Next: mt,  Up: Many
 
-Tape Positions and Tape Marks
------------------------------
+9.5.1 Tape Positions and Tape Marks
+-----------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -8146,7 +8250,7 @@ archive, you should make sure that no data on the tape will be
 overwritten (unless it is no longer needed).  Before reading an
 archive, you should make sure the tape head is at the beginning of the
 archive you want to read.  (The `restore' script will find the archive
-automatically.  *Note mt::, for an explanation of the tape moving
+automatically. *Note mt::, for an explanation of the tape moving
 utility.
 
    If you want to add new archive file entries to a tape, you should
@@ -8160,8 +8264,8 @@ following:
 
 File: tar.info,  Node: mt,  Prev: Tape Positioning,  Up: Many
 
-The `mt' Utility
-----------------
+9.5.2 The `mt' Utility
+----------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -8219,8 +8323,8 @@ match, `tar' extracts the archive.  *Note label::.  `tar --list
 
 File: tar.info,  Node: Using Multiple Tapes,  Next: label,  Prev: Many,  Up: Media
 
-Using Multiple Tapes
-====================
+9.6 Using Multiple Tapes
+========================
 
      _(This message will disappear, once this node revised.)_
 
@@ -8332,8 +8436,8 @@ to the first tape, etc., just do either of:
 
 File: tar.info,  Node: Multi-Volume Archives,  Next: Tape Files,  Up: Using Multiple Tapes
 
-Archives Longer than One Tape or Disk
--------------------------------------
+9.6.1 Archives Longer than One Tape or Disk
+-------------------------------------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -8413,8 +8517,8 @@ between which you know exchange of files is possible.
 
 File: tar.info,  Node: Tape Files,  Prev: Multi-Volume Archives,  Up: Using Multiple Tapes
 
-Tape Files
-----------
+9.6.2 Tape Files
+----------------
 
      _(This message will disappear, once this node revised.)_
 
@@ -8446,8 +8550,8 @@ files, see *Note mt::.
 
 File: tar.info,  Node: label,  Next: verify,  Prev: Using Multiple Tapes,  Up: Media
 
-Including a Label in the Archive
-================================
+9.7 Including a Label in the Archive
+====================================
 
      _(This message will disappear, once this node revised.)_
 
@@ -8533,8 +8637,8 @@ uniform matching device through `tar'.
 
 File: tar.info,  Node: verify,  Next: Write Protection,  Prev: label,  Up: Media
 
-Verifying Data as It is Stored
-==============================
+9.8 Verifying Data as It is Stored
+==================================
 
 `-W'
 `--verify'
@@ -8603,8 +8707,8 @@ archive.
 
 File: tar.info,  Node: Write Protection,  Prev: verify,  Up: Media
 
-Write Protection
-================
+9.9 Write Protection
+====================
 
 Almost all tapes and diskettes, and in a few rare cases, even disks can
 be "write protected", to protect data on them from being changed.  Once
@@ -8622,8 +8726,8 @@ changeable feature.
 
 File: tar.info,  Node: Free Software Needs Free Documentation,  Next: Copying This Manual,  Prev: Media,  Up: Top
 
-Free Software Needs Free Documentation
-**************************************
+Appendix A Free Software Needs Free Documentation
+*************************************************
 
 The biggest deficiency in the free software community today is not in
 the software--it is the lack of good free documentation that we can
@@ -8709,13 +8813,13 @@ paid or pay the authors to work on it.
 
    The Free Software Foundation maintains a list of free documentation
 published by other publishers, at
-<http://www.fsf.org/doc/other-free-books.html>.
+`http://www.fsf.org/doc/other-free-books.html'.
 
 
 File: tar.info,  Node: Copying This Manual,  Next: Index,  Prev: Free Software Needs Free Documentation,  Up: Top
 
-Copying This Manual
-*******************
+Appendix B Copying This Manual
+******************************
 
 * Menu:
 
@@ -8724,13 +8828,14 @@ Copying This Manual
 
 File: tar.info,  Node: GNU Free Documentation License,  Up: Copying This Manual
 
-GNU Free Documentation License
-==============================
+B.1 GNU Free Documentation License
+==================================
 
                       Version 1.2, November 2002
+
      Copyright (C) 2000,2001,2002 Free Software Foundation, Inc.
      59 Temple Place, Suite 330, Boston, MA  02111-1307, USA
-     
+
      Everyone is permitted to copy and distribute verbatim copies
      of this license document, but changing it is not allowed.
 
@@ -9121,8 +9226,8 @@ GNU Free Documentation License
      you may choose any version ever published (not as a draft) by the
      Free Software Foundation.
 
-ADDENDUM: How to use this License for your documents
-----------------------------------------------------
+B.1.1 ADDENDUM: How to use this License for your documents
+----------------------------------------------------------
 
 To use this License in a document you have written, include a copy of
 the License in the document and put the following copyright and license
@@ -9155,424 +9260,477 @@ permit their use in free software.
 
 File: tar.info,  Node: Index,  Prev: Copying This Manual,  Up: Top
 
-Index
-*****
+Appendix C Index
+****************
 
+ [index ]
 * Menu:
 
-* --list with file name arguments:       list.
-* -backup:                               backup.
-* -suffix:                               backup.
-* abbreviations for months:              Calendar date items.
-* absolute file names:                   Remote Tape Server.
-* Adding archives to an archive:         concatenate.
-* Adding files to an Archive:            appending files.
+* --list with file name arguments:       list.                (line  40)
+* -backup:                               backup.              (line  41)
+* -suffix:                               backup.              (line  68)
+* abbreviations for months:              Calendar date items. (line  38)
+* absolute file names:                   Remote Tape Server.  (line  17)
+* Adding archives to an archive:         concatenate.         (line   6)
+* Adding files to an Archive:            appending files.     (line   8)
 * ADMINISTRATOR:                         General-Purpose Variables.
-* Age, excluding files by:               after.
+                                                              (line   7)
+* Age, excluding files by:               after.               (line   6)
 * ago in date strings:                   Relative items in date strings.
-* am in date strings:                    Time of day items.
-* Appending files to an Archive:         appending files.
-* archive:                               Definitions.
-* Archive creation:                      file.
-* archive member:                        Definitions.
-* Archive Name:                          file.
-* Archives, Appending files to:          appending files.
-* Archiving Directories:                 create dir.
-* archiving files:                       Top.
-* authors of get_date:                   Authors of get_date.
-* Avoiding recursion in directories:     recurse.
-* backup options:                        backup.
-* backup suffix:                         backup.
+                                                              (line  23)
+* am in date strings:                    Time of day items.   (line  21)
+* Appending files to an Archive:         appending files.     (line   8)
+* archive:                               Definitions.         (line   6)
+* Archive creation:                      file.                (line  36)
+* archive member:                        Definitions.         (line  15)
+* Archive Name:                          file.                (line   6)
+* Archives, Appending files to:          appending files.     (line   8)
+* Archiving Directories:                 create dir.          (line   6)
+* archiving files:                       Top.                 (line  25)
+* authors of get_date:                   Authors of get_date. (line   6)
+* Avoiding recursion in directories:     recurse.             (line   6)
+* backup options:                        backup.              (line   6)
+* backup suffix:                         backup.              (line  68)
 * BACKUP_DIRS:                           General-Purpose Variables.
+                                                              (line  27)
 * BACKUP_FILES:                          General-Purpose Variables.
+                                                              (line  53)
 * BACKUP_HOUR:                           General-Purpose Variables.
-* backups:                               backup.
+                                                              (line  11)
+* backups:                               backup.              (line  41)
 * beginning of time, for POSIX:          Seconds since the Epoch.
-* Bellovin, Steven M.:                   Authors of get_date.
-* Berets, Jim:                           Authors of get_date.
-* Berry, K.:                             Authors of get_date.
-* Block number where error occurred:     verbose.
+                                                              (line  13)
+* Bellovin, Steven M.:                   Authors of get_date. (line   6)
+* Berets, Jim:                           Authors of get_date. (line   6)
+* Berry, K.:                             Authors of get_date. (line  14)
+* Block number where error occurred:     verbose.             (line   6)
 * BLOCKING:                              General-Purpose Variables.
-* blocking factor:                       Blocking Factor.
-* Blocking Factor:                       Blocking Factor.
-* Blocks per record:                     Blocking Factor.
-* bug reports:                           Reports.
-* Bytes per record:                      Blocking Factor.
-* calendar date item:                    Calendar date items.
-* case, ignored in dates:                General date syntax.
-* cat vs concatenate:                    concatenate.
-* Changing directory mid-stream:         directory.
-* Character class, excluding characters from: Wildcards.
-* Choosing an archive file:              file.
-* comments, in dates:                    General date syntax.
-* Compressed archives:                   gzip.
-* concatenate vs cat:                    concatenate.
-* Concatenating Archives:                concatenate.
-* corrupted archives <1>:                gzip.
-* corrupted archives:                    Full Dumps.
-* DAT blocking:                          Blocking Factor.
-* date format, ISO 8601:                 Calendar date items.
-* date input formats:                    Date input formats.
+                                                              (line  23)
+* blocking factor:                       Blocking Factor.     (line 194)
+* Blocking Factor:                       Blocking Factor.     (line   6)
+* Blocks per record:                     Blocking Factor.     (line   6)
+* bug reports:                           Reports.             (line   6)
+* Bytes per record:                      Blocking Factor.     (line   6)
+* calendar date item:                    Calendar date items. (line   6)
+* case, ignored in dates:                General date syntax. (line  64)
+* cat vs concatenate:                    concatenate.         (line  60)
+* Changing directory mid-stream:         directory.           (line   6)
+* Character class, excluding characters from: Wildcards.      (line  34)
+* Choosing an archive file:              file.                (line   6)
+* comments, in dates:                    General date syntax. (line  64)
+* Compressed archives:                   gzip.                (line   6)
+* concatenate vs cat:                    concatenate.         (line  60)
+* Concatenating Archives:                concatenate.         (line   6)
+* corrupted archives <1>:                gzip.                (line  73)
+* corrupted archives:                    Full Dumps.          (line   8)
+* DAT blocking:                          Blocking Factor.     (line 204)
+* date format, ISO 8601:                 Calendar date items. (line  30)
+* date input formats:                    Date input formats.  (line   6)
 * day in date strings:                   Relative items in date strings.
-* day of week item:                      Day of week items.
-* Deleting files from an archive:        delete.
-* Deleting from tape archives:           delete.
-* Descending directories, avoiding:      recurse.
-* Directing output:                      file.
-* Directories, Archiving:                create dir.
-* Directories, avoiding recursion:       recurse.
-* Directory, changing mid-stream:        directory.
+                                                              (line  15)
+* day of week item:                      Day of week items.   (line   6)
+* Deleting files from an archive:        delete.              (line   8)
+* Deleting from tape archives:           delete.              (line  20)
+* Descending directories, avoiding:      recurse.             (line   6)
+* Directing output:                      file.                (line   6)
+* Directories, Archiving:                create dir.          (line   6)
+* Directories, avoiding recursion:       recurse.             (line   6)
+* Directory, changing mid-stream:        directory.           (line   6)
 * DIRLIST:                               General-Purpose Variables.
-* Disk space, running out of:            Scarce.
+                                                              (line  49)
+* Disk space, running out of:            Scarce.              (line   6)
 * displacement of dates:                 Relative items in date strings.
-* Double-checking a write operation:     verify.
-* DUMP_BEGIN:                            User Hooks.
-* DUMP_END:                              User Hooks.
+                                                              (line   6)
+* Double-checking a write operation:     verify.              (line   6)
+* DUMP_BEGIN:                            User Hooks.          (line  32)
+* DUMP_END:                              User Hooks.          (line  35)
 * DUMP_REMIND_SCRIPT:                    General-Purpose Variables.
-* dumps, full:                           Full Dumps.
-* dumps, incremental:                    Inc Dumps.
-* Eggert, Paul:                          Authors of get_date.
-* End-of-archive entries, ignoring:      Reading.
-* entry:                                 Naming tar Archives.
+                                                              (line  95)
+* dumps, full:                           Full Dumps.          (line   8)
+* dumps, incremental:                    Inc Dumps.           (line   8)
+* Eggert, Paul:                          Authors of get_date. (line   6)
+* End-of-archive entries, ignoring:      Reading.             (line   6)
+* entry:                                 Naming tar Archives. (line  11)
 * epoch, for POSIX:                      Seconds since the Epoch.
-* Error message, block number of:        verbose.
-* Exabyte blocking:                      Blocking Factor.
-* exclude:                               exclude.
-* exclude-from:                          exclude.
-* Excluding characters from a character class: Wildcards.
-* Excluding file by age:                 after.
-* Excluding files by file system:        exclude.
-* Excluding files by name and pattern:   exclude.
-* existing backup method:                backup.
-* exit status:                           Synopsis.
-* Extraction:                            extract.
-* extraction:                            Definitions.
+                                                              (line  13)
+* Error message, block number of:        verbose.             (line   6)
+* Exabyte blocking:                      Blocking Factor.     (line 204)
+* exclude:                               exclude.             (line  15)
+* exclude-caches:                        exclude.             (line  38)
+* exclude-from:                          exclude.             (line  28)
+* Excluding characters from a character class: Wildcards.     (line  34)
+* Excluding file by age:                 after.               (line   6)
+* Excluding files by file system:        exclude.             (line   6)
+* Excluding files by name and pattern:   exclude.             (line   6)
+* existing backup method:                backup.              (line  59)
+* exit status:                           Synopsis.            (line  67)
+* Extraction:                            extract.             (line   8)
+* extraction:                            Definitions.         (line  22)
 * FDL, GNU Free Documentation License:   GNU Free Documentation License.
-* Feedback from tar:                     verbose.
-* file archival:                         Top.
-* file name:                             Definitions.
-* File Name arguments, alternatives:     files.
-* File name arguments, using --list with: list.
-* File names, excluding files by:        exclude.
-* File names, terminated by NUL:         nul.
-* File names, using symbolic links:      dereference.
-* File system boundaries, not crossing:  one.
+                                                              (line   6)
+* Feedback from tar:                     verbose.             (line   6)
+* file archival:                         Top.                 (line  25)
+* file name:                             Definitions.         (line  15)
+* File Name arguments, alternatives:     files.               (line   8)
+* File name arguments, using --list with: list.               (line  40)
+* File names, excluding files by:        exclude.             (line   6)
+* File names, terminated by NUL:         nul.                 (line   6)
+* File names, using symbolic links:      dereference.         (line   6)
+* File system boundaries, not crossing:  one.                 (line   6)
 * FILELIST:                              General-Purpose Variables.
-* first in date strings:                 General date syntax.
-* Format Options:                        Format Variations.
-* Format Parameters:                     Format Variations.
-* Format, old style:                     old.
+                                                              (line  63)
+* first in date strings:                 General date syntax. (line  26)
+* Format Options:                        Format Variations.   (line   6)
+* Format Parameters:                     Format Variations.   (line   6)
+* Format, old style:                     old.                 (line   6)
 * fortnight in date strings:             Relative items in date strings.
+                                                              (line  15)
 * free documentation:                    Free Software Needs Free Documentation.
-* full dumps:                            Full Dumps.
+                                                              (line   6)
+* full dumps:                            Full Dumps.          (line   8)
 * future time stamps:                    Large or Negative Values.
-* general date syntax:                   General date syntax.
-* get_date:                              Date input formats.
-* Getting more information during the operation: verbose.
-* hook:                                  User Hooks.
+                                                              (line   6)
+* general date syntax:                   General date syntax. (line   6)
+* get_date:                              Date input formats.  (line   6)
+* Getting more information during the operation: verbose.     (line   6)
+* hook:                                  User Hooks.          (line  13)
 * hour in date strings:                  Relative items in date strings.
-* Ignoring end-of-archive entries:       Reading.
-* incremental dumps:                     Inc Dumps.
-* Information during operation:          verbose.
-* Information on progress and status of operations: verbose.
-* Interactive operation:                 interactive.
-* ISO 8601 date format:                  Calendar date items.
-* items in date strings:                 General date syntax.
-* Labeling an archive:                   label.
+                                                              (line  15)
+* Ignoring end-of-archive entries:       Reading.             (line   6)
+* incremental dumps:                     Inc Dumps.           (line   8)
+* Information during operation:          verbose.             (line   6)
+* Information on progress and status of operations: verbose.  (line   6)
+* Interactive operation:                 interactive.         (line   6)
+* ISO 8601 date format:                  Calendar date items. (line  30)
+* items in date strings:                 General date syntax. (line   6)
+* Labeling an archive:                   label.               (line   6)
 * Labeling multi-volume archives:        Multi-Volume Archives.
-* Labels on the archive media:           label.
-* language, in dates:                    General date syntax.
-* Large lists of file names on small machines: Reading.
+                                                              (line  58)
+* Labels on the archive media:           label.               (line   6)
+* language, in dates:                    General date syntax. (line  40)
+* Large lists of file names on small machines: Reading.       (line   6)
 * large values:                          Large or Negative Values.
-* last DAY:                              Day of week items.
-* last in date strings:                  General date syntax.
-* Lists of file names:                   files.
-* MacKenzie, David:                      Authors of get_date.
-* member:                                Definitions.
-* member name:                           Definitions.
-* Members, replacing with other members: append.
-* Meyering, Jim:                         Authors of get_date.
-* Middle of the archive, starting in the: Scarce.
-* midnight in date strings:              Time of day items.
+                                                              (line   6)
+* last DAY:                              Day of week items.   (line  15)
+* last in date strings:                  General date syntax. (line  26)
+* Lists of file names:                   files.               (line   8)
+* MacKenzie, David:                      Authors of get_date. (line   6)
+* member:                                Definitions.         (line  15)
+* member name:                           Definitions.         (line  15)
+* Members, replacing with other members: append.              (line  49)
+* Meyering, Jim:                         Authors of get_date. (line   6)
+* Middle of the archive, starting in the: Scarce.             (line   6)
+* midnight in date strings:              Time of day items.   (line  21)
 * minute in date strings:                Relative items in date strings.
-* minutes, time zone correction by:      Time of day items.
-* Modes of extracted files:              Writing.
-* Modification time, excluding files by: after.
-* Modification times of extracted files: Writing.
+                                                              (line  15)
+* minutes, time zone correction by:      Time of day items.   (line  29)
+* Modes of extracted files:              Writing.             (line   6)
+* Modification time, excluding files by: after.               (line   6)
+* Modification times of extracted files: Writing.             (line   6)
 * month in date strings:                 Relative items in date strings.
-* month names in date strings:           Calendar date items.
-* months, written-out:                   General date syntax.
+                                                              (line  15)
+* month names in date strings:           Calendar date items. (line  38)
+* months, written-out:                   General date syntax. (line  36)
 * MT_BEGIN:                              Magnetic Tape Control.
+                                                              (line  11)
 * MT_OFFLINE:                            Magnetic Tape Control.
+                                                              (line  32)
 * MT_REWIND:                             Magnetic Tape Control.
+                                                              (line  21)
 * MT_STATUS:                             Magnetic Tape Control.
+                                                              (line  42)
 * Multi-volume archives:                 Multi-Volume Archives.
-* Naming an archive:                     file.
+                                                              (line   6)
+* Naming an archive:                     file.                (line   6)
 * negative time stamps:                  Large or Negative Values.
-* next DAY:                              Day of week items.
-* next in date strings:                  General date syntax.
-* noon in date strings:                  Time of day items.
+                                                              (line   6)
+* next DAY:                              Day of week items.   (line  15)
+* next in date strings:                  General date syntax. (line  26)
+* noon in date strings:                  Time of day items.   (line  21)
 * now in date strings:                   Relative items in date strings.
-* ntape device:                          Many.
-* NUL terminated file names:             nul.
-* Number of blocks per record:           Blocking Factor.
-* Number of bytes per record:            Blocking Factor.
-* numbered backup method:                backup.
-* numbers, written-out:                  General date syntax.
-* Old style archives:                    old.
-* Old style format:                      old.
-* option syntax, traditional:            Old Options.
-* Options when reading archives:         Reading.
-* Options, archive format specifying:    Format Variations.
-* Options, format specifying:            Format Variations.
-* ordinal numbers:                       General date syntax.
-* Overwriting old files, prevention:     Writing.
-* Permissions of extracted files:        Writing.
-* Pinard, F.:                            Authors of get_date.
-* pm in date strings:                    Time of day items.
-* Progress information:                  verbose.
-* Protecting old files:                  Writing.
+                                                              (line  33)
+* ntape device:                          Many.                (line   6)
+* NUL terminated file names:             nul.                 (line   6)
+* Number of blocks per record:           Blocking Factor.     (line   6)
+* Number of bytes per record:            Blocking Factor.     (line   6)
+* numbered backup method:                backup.              (line  55)
+* numbers, written-out:                  General date syntax. (line  26)
+* Old style archives:                    old.                 (line   6)
+* Old style format:                      old.                 (line   6)
+* option syntax, traditional:            Old Options.         (line  60)
+* Options when reading archives:         Reading.             (line   6)
+* Options, archive format specifying:    Format Variations.   (line   6)
+* Options, format specifying:            Format Variations.   (line   6)
+* ordinal numbers:                       General date syntax. (line  26)
+* Overwriting old files, prevention:     Writing.             (line   6)
+* Permissions of extracted files:        Writing.             (line   6)
+* Pinard, F.:                            Authors of get_date. (line  14)
+* pm in date strings:                    Time of day items.   (line  21)
+* Progress information:                  verbose.             (line   6)
+* Protecting old files:                  Writing.             (line   6)
 * pure numbers in date strings:          Pure numbers in date strings.
-* Reading file names from a file:        files.
-* Reading incomplete records:            Reading.
-* Record Size:                           Blocking Factor.
-* Records, incomplete:                   Reading.
-* Recursion in directories, avoiding:    recurse.
+                                                              (line   6)
+* Reading file names from a file:        files.               (line   8)
+* Reading incomplete records:            Reading.             (line   6)
+* Record Size:                           Blocking Factor.     (line   6)
+* Records, incomplete:                   Reading.             (line   6)
+* Recursion in directories, avoiding:    recurse.             (line   6)
 * relative items in date strings:        Relative items in date strings.
-* remote tape drive:                     Remote Tape Server.
-* Removing files from an archive:        delete.
-* Replacing members with other members:  append.
-* reporting bugs:                        Reports.
-* RESTORE_BEGIN:                         User Hooks.
-* RESTORE_END:                           User Hooks.
-* Resurrecting files from an archive:    extract.
-* Retrieving files from an archive:      extract.
-* return status:                         Synopsis.
-* rmt:                                   Remote Tape Server.
+                                                              (line   6)
+* remote tape drive:                     Remote Tape Server.  (line   6)
+* Removing files from an archive:        delete.              (line   8)
+* Replacing members with other members:  append.              (line  49)
+* reporting bugs:                        Reports.             (line   6)
+* RESTORE_BEGIN:                         User Hooks.          (line  38)
+* RESTORE_END:                           User Hooks.          (line  41)
+* Resurrecting files from an archive:    extract.             (line   8)
+* Retrieving files from an archive:      extract.             (line   8)
+* return status:                         Synopsis.            (line  67)
+* rmt:                                   Remote Tape Server.  (line   6)
 * RSH:                                   General-Purpose Variables.
+                                                              (line  67)
 * RSH_COMMAND:                           General-Purpose Variables.
-* Running out of space:                  Reading.
-* Running out of space during extraction: Scarce.
-* Salz, Rich:                            Authors of get_date.
-* simple backup method:                  backup.
-* SIMPLE_BACKUP_SUFFIX:                  backup.
+                                                              (line  72)
+* Running out of space:                  Reading.             (line   6)
+* Running out of space during extraction: Scarce.             (line   6)
+* Salz, Rich:                            Authors of get_date. (line   6)
+* simple backup method:                  backup.              (line  64)
+* SIMPLE_BACKUP_SUFFIX:                  backup.              (line  68)
 * SLEEP_MESSAGE:                         General-Purpose Variables.
+                                                              (line 102)
 * SLEEP_TIME:                            General-Purpose Variables.
-* Small memory:                          Reading.
-* Space on the disk, recovering from lack of: Scarce.
-* Sparse Files:                          sparse.
+                                                              (line  90)
+* Small memory:                          Reading.             (line   6)
+* Space on the disk, recovering from lack of: Scarce.         (line   6)
+* Sparse Files:                          sparse.              (line   6)
 * Specifying archive members:            Selecting Archive Members.
+                                                              (line   6)
 * Specifying files to act on:            Selecting Archive Members.
-* Standard input and output:             file.
-* Standard output, writing extracted files to: Writing.
-* Status information:                    verbose.
-* Storing archives in compressed format: gzip.
-* Symbolic link as file name:            dereference.
-* tape blocking:                         Blocking Factor.
-* tape marks:                            Many.
-* tape positioning:                      Many.
+                                                              (line   6)
+* Standard input and output:             file.                (line  51)
+* Standard output, writing extracted files to: Writing.       (line   6)
+* Status information:                    verbose.             (line   6)
+* Storing archives in compressed format: gzip.                (line   6)
+* Symbolic link as file name:            dereference.         (line   6)
+* tape blocking:                         Blocking Factor.     (line 194)
+* tape marks:                            Many.                (line  44)
+* tape positioning:                      Many.                (line  26)
 * TAPE_FILE:                             General-Purpose Variables.
-* Tapes, using --delete and:             delete.
+                                                              (line  19)
+* Tapes, using --delete and:             delete.              (line  20)
 * TAR:                                   General-Purpose Variables.
-* tar:                                   What tar Does.
-* tar archive:                           Definitions.
-* tar entry:                             Naming tar Archives.
-* tar file:                              Naming tar Archives.
-* tar to standard input and output:      file.
+                                                              (line 106)
+* tar:                                   What tar Does.       (line   6)
+* tar archive:                           Definitions.         (line   6)
+* tar entry:                             Naming tar Archives. (line  11)
+* tar file:                              Naming tar Archives. (line  11)
+* tar to standard input and output:      file.                (line  51)
 * this in date strings:                  Relative items in date strings.
-* time of day item:                      Time of day items.
-* time zone correction:                  Time of day items.
-* time zone item <1>:                    Time zone items.
-* time zone item:                        General date syntax.
+                                                              (line  33)
+* time of day item:                      Time of day items.   (line   6)
+* time zone correction:                  Time of day items.   (line  29)
+* time zone item <1>:                    Time zone items.     (line   6)
+* time zone item:                        General date syntax. (line  44)
 * today in date strings:                 Relative items in date strings.
+                                                              (line  33)
 * tomorrow in date strings:              Relative items in date strings.
-* Ultrix 3.1 and write failure:          Remote Tape Server.
-* unpacking:                             Definitions.
-* Updating an archive:                   update.
-* uuencode:                              Applications.
-* Verbose operation:                     verbose.
-* Verifying a write operation:           verify.
-* Verifying the currency of an archive:  compare.
-* Version of the tar program:            verbose.
-* version-control Emacs variable:        backup.
-* VERSION_CONTROL:                       backup.
+                                                              (line  29)
+* TZ:                                    Specifying time zone rules.
+                                                              (line   6)
+* Ultrix 3.1 and write failure:          Remote Tape Server.  (line  40)
+* unpacking:                             Definitions.         (line  22)
+* Updating an archive:                   update.              (line   8)
+* uuencode:                              Applications.        (line   8)
+* Verbose operation:                     verbose.             (line   6)
+* Verifying a write operation:           verify.              (line   6)
+* Verifying the currency of an archive:  compare.             (line   6)
+* Version of the tar program:            verbose.             (line   6)
+* version-control Emacs variable:        backup.              (line  49)
+* VERSION_CONTROL:                       backup.              (line  41)
 * VOLNO_FILE:                            General-Purpose Variables.
+                                                              (line  76)
 * week in date strings:                  Relative items in date strings.
-* Where is the archive?:                 file.
-* Working directory, specifying:         directory.
-* Writing extracted files to standard output: Writing.
-* Writing new archives:                  file.
+                                                              (line  15)
+* Where is the archive?:                 file.                (line   6)
+* Working directory, specifying:         directory.           (line   6)
+* Writing extracted files to standard output: Writing.        (line   6)
+* Writing new archives:                  file.                (line  36)
 * XLIST:                                 General-Purpose Variables.
+                                                              (line  80)
 * year in date strings:                  Relative items in date strings.
+                                                              (line  15)
 * yesterday in date strings:             Relative items in date strings.
+                                                              (line  29)
 
 
 
 Tag Table:
-Node: Top1262
-Node: Introduction9085
-Node: Book Contents9940
-Node: Definitions12104
-Node: What tar Does13897
-Node: Naming tar Archives16654
-Node: Current status17373
-Node: Authors19423
-Node: Reports21080
-Node: Tutorial21431
-Node: assumptions22240
-Node: stylistic conventions24711
-Node: basic tar options25146
-Node: frequent operations28777
-Node: Two Frequent Options29421
-Node: file tutorial30044
-Node: verbose tutorial31127
-Node: help tutorial32861
-Node: create33215
-Node: prepare for examples34708
-Node: Creating the archive36410
-Node: create verbose39197
-Node: short create40006
-Node: create dir42891
-Node: list45485
-Node: list dir47998
-Node: extract48987
-Node: extracting archives50181
-Node: extracting files50659
-Node: extract dir52747
-Node: extracting untrusted archives55118
-Node: failing commands55973
-Node: going further57046
-Node: tar invocation57188
-Node: Synopsis58681
-Node: using tar options63092
-Node: Styles65689
-Node: Mnemonic Options67490
-Node: Short Options69678
-Ref: Short Options-Footnote-171474
-Node: Old Options71691
-Ref: Old Options-Footnote-174631
-Node: Mixing74801
-Ref: Mixing-Footnote-177155
-Node: All Options77279
-Node: Operation Summary77876
-Node: Option Summary79125
-Node: Short Option Summary100485
-Node: help102249
-Ref: help-Footnote-1105683
-Node: verbose105892
-Node: interactive110151
-Node: operations112222
-Node: Basic tar112477
-Ref: Basic tar-Footnote-1115782
-Node: Advanced tar115926
-Node: Operations116763
-Node: append118709
-Ref: append-Footnote-1121877
-Node: appending files122043
-Node: multiple123805
-Node: update126490
-Node: how to update127486
-Node: concatenate129253
-Node: delete132517
-Node: compare134495
-Node: create options136137
-Node: Ignore Failed Read136531
-Node: extract options136722
-Node: Reading137625
-Node: read full records139200
-Node: Ignore Zeros139536
-Node: Writing140547
-Node: Dealing with Old Files141003
-Node: Overwrite Old Files143428
-Node: Keep Old Files144885
-Node: Keep Newer Files145403
-Node: Unlink First145692
-Node: Recursive Unlink146096
-Node: Modification Times146644
-Node: Setting Access Permissions147422
-Node: Writing to Standard Output148046
-Node: remove files149478
-Node: Scarce149667
-Node: Starting File149903
-Node: Same Order150733
-Node: backup151569
-Node: Applications155243
-Node: looking ahead156497
-Node: Backups157314
-Node: Full Dumps160344
-Node: Inc Dumps165849
-Node: incremental and listed-incremental167126
-Node: Backup Levels171560
-Node: Backup Parameters173909
-Node: General-Purpose Variables175079
-Node: Magnetic Tape Control179729
-Node: User Hooks181085
-Node: backup-specs example182380
-Node: Scripted Backups183560
-Ref: Scripted Backups-Footnote-1186253
-Node: Scripted Restoration186635
-Node: Choosing189051
-Node: file189989
-Node: Selecting Archive Members193630
-Node: files194965
-Node: nul196560
-Node: exclude197930
-Node: controlling pattern-patching with exclude199229
-Node: problems with exclude201264
-Node: Wildcards203475
-Node: after206000
-Node: recurse209099
-Node: one211714
-Node: directory213342
-Node: absolute216004
-Node: Date input formats219137
-Node: General date syntax221384
-Node: Calendar date items223877
-Node: Time of day items225866
-Node: Time zone items227769
-Node: Day of week items228611
-Node: Relative items in date strings229592
-Node: Pure numbers in date strings232386
-Node: Seconds since the Epoch233363
-Node: Authors of get_date234874
-Node: Formats235613
-Node: Portability240323
-Node: Portable Names241615
-Node: dereference242308
-Node: old243689
-Node: ustar244754
-Node: gnu245332
-Node: posix246607
-Node: Checksumming247297
-Node: Large or Negative Values249209
-Node: Compression251183
-Node: gzip251487
-Node: sparse256664
-Ref: sparse-Footnote-1261932
-Node: Attributes262228
-Node: Standard267633
-Node: Extensions293763
-Node: cpio296307
-Node: Media301047
-Node: Device303004
-Node: Remote Tape Server308035
-Node: Common Problems and Solutions311852
-Node: Blocking312236
-Node: Format Variations318840
-Node: Blocking Factor319765
-Node: Many331433
-Node: Tape Positioning335219
-Node: mt337067
-Node: Using Multiple Tapes338895
-Node: Multi-Volume Archives343990
-Node: Tape Files348040
-Node: label349504
-Ref: label-Footnote-1353295
-Node: verify353530
-Node: Write Protection356901
-Node: Free Software Needs Free Documentation357723
-Node: Copying This Manual362670
-Node: GNU Free Documentation License362906
-Node: Index385296
+Node: Top1264
+Node: Introduction9089
+Node: Book Contents9948
+Node: Definitions12120
+Node: What tar Does13921
+Node: Naming tar Archives16686
+Node: Current status17413
+Node: Authors19471
+Node: Reports21176
+Node: Tutorial21535
+Node: assumptions22348
+Node: stylistic conventions24827
+Node: basic tar options25270
+Node: frequent operations28909
+Node: Two Frequent Options29561
+Node: file tutorial30192
+Node: verbose tutorial31275
+Node: help tutorial33009
+Node: create33363
+Node: prepare for examples34864
+Node: Creating the archive36578
+Node: create verbose39377
+Node: short create40198
+Node: create dir43095
+Node: list45701
+Node: list dir48222
+Node: extract49211
+Node: extracting archives50413
+Node: extracting files50903
+Node: extract dir53003
+Node: extracting untrusted archives55386
+Node: failing commands56265
+Node: going further57350
+Node: tar invocation57500
+Node: Synopsis58997
+Node: using tar options63416
+Node: Styles66021
+Node: Mnemonic Options67830
+Node: Short Options70030
+Ref: Short Options-Footnote-171838
+Node: Old Options72055
+Ref: Old Options-Footnote-175007
+Node: Mixing75177
+Ref: Mixing-Footnote-177543
+Node: All Options77667
+Node: Operation Summary78272
+Node: Option Summary79533
+Ref: Option Summary-Footnote-1101314
+Node: Short Option Summary101377
+Node: help103153
+Ref: help-Footnote-1106597
+Node: verbose106806
+Node: interactive111072
+Node: operations113151
+Node: Basic tar113410
+Ref: Basic tar-Footnote-1116723
+Node: Advanced tar116867
+Node: Operations117712
+Node: append119670
+Ref: append-Footnote-1122850
+Node: appending files123016
+Node: multiple124794
+Node: update127495
+Node: how to update128503
+Node: concatenate130286
+Node: delete133562
+Node: compare135552
+Node: create options137206
+Node: Ignore Failed Read137608
+Node: extract options137811
+Node: Reading138722
+Node: read full records140309
+Node: Ignore Zeros140645
+Node: Writing141656
+Node: Dealing with Old Files142124
+Node: Overwrite Old Files144550
+Node: Keep Old Files146007
+Node: Keep Newer Files146525
+Node: Unlink First146814
+Node: Recursive Unlink147218
+Node: Modification Times147766
+Node: Setting Access Permissions148544
+Node: Writing to Standard Output149168
+Node: remove files150600
+Node: Scarce150789
+Node: Starting File151037
+Node: Same Order151867
+Node: backup152703
+Node: Applications156385
+Node: looking ahead157647
+Node: Backups158472
+Node: Full Dumps161478
+Node: Inc Dumps166991
+Node: incremental and listed-incremental168276
+Node: Backup Levels172728
+Node: Backup Parameters175085
+Node: General-Purpose Variables176262
+Node: Magnetic Tape Control180941
+Node: User Hooks182273
+Node: backup-specs example183584
+Node: Scripted Backups184727
+Ref: Scripted Backups-Footnote-1187468
+Node: Scripted Restoration187850
+Node: Choosing190347
+Node: file191289
+Node: Selecting Archive Members194938
+Node: files196281
+Node: nul197885
+Node: exclude199267
+Node: controlling pattern-patching with exclude201156
+Node: problems with exclude203204
+Node: Wildcards205415
+Node: after207948
+Node: recurse211056
+Node: one213679
+Node: directory215315
+Node: absolute218390
+Node: Date input formats221535
+Node: General date syntax223851
+Node: Calendar date items226556
+Node: Time of day items228553
+Node: Time zone items230605
+Node: Day of week items231839
+Node: Relative items in date strings232828
+Node: Pure numbers in date strings235630
+Node: Seconds since the Epoch236611
+Node: Specifying time zone rules238236
+Node: Authors of get_date240600
+Node: Formats241352
+Node: Portability246068
+Node: Portable Names247368
+Node: dereference248073
+Node: old249466
+Node: ustar250543
+Node: gnu251133
+Node: posix252420
+Node: Checksumming253124
+Node: Large or Negative Values255048
+Node: Compression257034
+Node: gzip257346
+Node: sparse262234
+Ref: sparse-Footnote-1267514
+Node: Attributes267810
+Node: Standard273223
+Node: Extensions299111
+Node: cpio301663
+Node: Media306411
+Node: Device308372
+Node: Remote Tape Server313411
+Node: Common Problems and Solutions317236
+Node: Blocking317628
+Node: Format Variations324240
+Node: Blocking Factor325177
+Node: Many336857
+Node: Tape Positioning340651
+Node: mt342510
+Node: Using Multiple Tapes344350
+Node: Multi-Volume Archives349453
+Node: Tape Files353515
+Node: label354991
+Ref: label-Footnote-1358790
+Node: verify359025
+Node: Write Protection362404
+Node: Free Software Needs Free Documentation363234
+Node: Copying This Manual368203
+Node: GNU Free Documentation License368461
+Node: Index390867
 
 End Tag Table

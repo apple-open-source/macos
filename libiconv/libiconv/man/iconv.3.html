@@ -16,8 +16,8 @@
 <a href="#SEE ALSO">SEE ALSO</a><br>
 
 <hr>
-<!-- Creator     : groff version 1.17 -->
-<!-- CreationDate: Fri Feb 14 19:23:41 2003 -->
+<!-- Creator     : groff version 1.17.2 -->
+<!-- CreationDate: Wed Jan  5 19:32:25 2005 -->
 <a name="NAME"></a>
 <h2>NAME</h2>
 <table width="100%" border=0 rules="none" frame="void"
@@ -147,7 +147,7 @@ state.</td></table>
 The <b>iconv</b> function returns the number of characters
 converted in a non-reversible way during this call;
 reversible conversions are not counted. In case of error, it
-sets <b>errno</b> and returns (iconv_t)(-1).</td></table>
+sets <b>errno</b> and returns (size_t)(-1).</td></table>
 <a name="ERRORS"></a>
 <h2>ERRORS</h2>
 
@@ -209,7 +209,8 @@ UNIX98</td></table>
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td><td width="90%">
-<b>iconv_open</b>(3), <b>iconv_close</b>(3)</td></table>
+<b>iconv_open</b>(3), <b>iconvctl</b>(3),
+<b>iconv_close</b>(3)</td></table>
 <hr>
 </body>
 </html>

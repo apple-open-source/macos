@@ -2,6 +2,8 @@
  * Copyright (c) 2000, 2001 Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,22 +31,19 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/sys/kern/subr_mchain.c,v 1.1 2001/02/24 15:44:29 bp Exp $
  */
 
 
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/errno.h>
-#include <sys/mbuf.h>
+#include <sys/kpi_mbuf.h>
 #include <sys/uio.h>
 
 #include <sys/smb_apple.h>
 #include <sys/mchain.h>
 
 #include <netsmb/smb_compat4.h>
-
-MODULE_VERSION(libmchain, 1);
 
 #define MBERROR(format, args...) printf("%s(%d): "format, __FUNCTION__ , \
 				    __LINE__ ,## args)
@@ -56,54 +55,52 @@ MODULE_VERSION(libmchain, 1);
  * Various helper functions
  */
 PRIVSYM int
-m_fixhdr(struct mbuf *m0)
+m_fixhdr(mbuf_t m0)
 {
-	struct mbuf *m = m0;
+	mbuf_t m = m0;
 	int len = 0;
 
 	while (m) {
-		len += m->m_len;
-		m = m->m_next;
+		len += mbuf_len(m);
+		m = mbuf_next(m);
 	}
-	m0->m_pkthdr.len = len;
+	mbuf_pkthdr_setlen(m0, len);
 	return len;
 }
 
 PRIVSYM int
 mb_init(struct mbchain *mbp)
 {
-	struct mbuf *m;
-
-	m = m_gethdr(M_TRYWAIT, MT_DATA);
-	if (m == NULL) 
+	mbuf_t m;
+	
+	/* mbuf_gethdr now intialize all of the fields */
+	if (mbuf_gethdr(MBUF_WAITOK, MBUF_TYPE_DATA, &m))
 		return ENOBUFS;
-	m->m_pkthdr.rcvif = NULL;
-	m->m_len = 0;
 	mb_initm(mbp, m);
 	return 0;
 }
 
 PRIVSYM void
-mb_initm(struct mbchain *mbp, struct mbuf *m)
+mb_initm(struct mbchain *mbp, mbuf_t m)
 {
 	bzero(mbp, sizeof(*mbp));
 	mbp->mb_top = mbp->mb_cur = m;
-	mbp->mb_mleft = M_TRAILINGSPACE(m);
+	mbp->mb_mleft = mbuf_trailingspace(m);
 }
 
 PRIVSYM void
 mb_done(struct mbchain *mbp)
 {
 	if (mbp->mb_top) {
-		m_freem(mbp->mb_top);
+		mbuf_freem(mbp->mb_top);
 		mbp->mb_top = NULL;
 	}
 }
 
-PRIVSYM struct mbuf *
+PRIVSYM mbuf_t 
 mb_detach(struct mbchain *mbp)
 {
-	struct mbuf *m;
+	mbuf_t m;
 
 	m = mbp->mb_top;
 	mbp->mb_top = NULL;
@@ -113,7 +110,9 @@ mb_detach(struct mbchain *mbp)
 PRIVSYM int
 mb_fixhdr(struct mbchain *mbp)
 {
-	return mbp->mb_top->m_pkthdr.len = m_fixhdr(mbp->mb_top);
+	mbuf_pkthdr_setlen(mbp->mb_top, m_fixhdr(mbp->mb_top));
+	
+	return mbuf_pkthdr_len(mbp->mb_top);
 }
 
 /*
@@ -125,25 +124,26 @@ mb_fixhdr(struct mbchain *mbp)
 PRIVSYM caddr_t
 mb_reserve(struct mbchain *mbp, int size)
 {
-	struct mbuf *m, *mn;
+	mbuf_t m, mn;
 	caddr_t bpos;
 
-	if (size > (int)MLEN)
-		panic("mb_reserve: size = %d\n", size);
 	m = mbp->mb_cur;
 	if (mbp->mb_mleft < size) {
-		mn = m_get(M_TRYWAIT, MT_DATA);
-		if (mn == NULL)
+		if (mbuf_get(MBUF_WAITOK, MBUF_TYPE_DATA, &mn))
 			return NULL;
-		mbp->mb_cur = m->m_next = mn;
+		/* This check was done up above before KPI code */
+		if (size > mbuf_maxlen(mn))
+			panic("mb_reserve: size = %d\n", size);
+		mbuf_setnext(m, mn);
+		mbp->mb_cur = mn;
 		m = mn;
-		m->m_len = 0;
-		mbp->mb_mleft = M_TRAILINGSPACE(m);
+		mbuf_setlen(m, 0);
+		mbp->mb_mleft = mbuf_trailingspace(m);
 	}
 	mbp->mb_mleft -= size;
 	mbp->mb_count += size;
-	bpos = mtod(m, caddr_t) + m->m_len;
-	m->m_len += size;
+	bpos = mbuf_data(m) + mbuf_len(m);
+	mbuf_setlen(m, mbuf_len(m)+size);
 	return bpos;
 }
 
@@ -153,7 +153,7 @@ mb_put_padbyte(struct mbchain *mbp)
 	caddr_t dst;
 	char x = 0;
 
-	dst = mtod(mbp->mb_cur, caddr_t) + mbp->mb_cur->m_len;
+	dst = mbuf_data(mbp->mb_cur) + mbuf_len(mbp->mb_cur);
 
 	/* only add padding if address is odd */
 	if ((long)dst & 1)
@@ -213,7 +213,7 @@ mb_put_uint64le(struct mbchain *mbp, u_int64_t x)
 PRIVSYM int
 mb_put_mem(struct mbchain *mbp, c_caddr_t source, int size, int type)
 {
-	struct mbuf *m;
+	mbuf_t m;
 	caddr_t dst;
 	c_caddr_t src;
 	int cplen, error, mleft, count;
@@ -223,42 +223,37 @@ mb_put_mem(struct mbchain *mbp, c_caddr_t source, int size, int type)
 
 	while (size > 0) {
 		if (mleft == 0) {
-			if (m->m_next == NULL) {
-				m = m_getm(m, size, M_TRYWAIT, MT_DATA);
+			if (mbuf_next(m) == NULL) {
+				m = smb_mbuf_getm(m, size, MBUF_WAITOK, MBUF_TYPE_DATA);
 				if (m == NULL)
 					return ENOBUFS;
 			}
-			m = m->m_next;
-			mleft = M_TRAILINGSPACE(m);
+			m = mbuf_next(m);
+			mleft = mbuf_trailingspace(m);
 			continue;
 		}
 		cplen = mleft > size ? size : mleft;
-		dst = mtod(m, caddr_t) + m->m_len;
+		dst = mbuf_data(m) + mbuf_len(m);
 		switch (type) {
-		    case MB_MCUSTOM:
+		case MB_MCUSTOM:
 			error = mbp->mb_copy(mbp, source, dst, cplen);
 			if (error)
 				return error;
 			break;
-		    case MB_MINLINE:
+		case MB_MINLINE:
 			for (src = source, count = cplen; count; count--)
 				*dst++ = *src++;
 			break;
-		    case MB_MSYSTEM:
+		case MB_MSYSTEM:
 			bcopy(source, dst, cplen);
 			break;
-		    case MB_MUSER:
-			error = copyin(CAST_USER_ADDR_T(source), dst, cplen);
-			if (error)
-				return error;
-			break;
-		    case MB_MZERO:
+		case MB_MZERO:
 			bzero(dst, cplen);
 			break;
 		}
 		size -= cplen;
 		source += cplen;
-		m->m_len += cplen;
+		mbuf_setlen(m, mbuf_len(m)+cplen);
 		mleft -= cplen;
 		mbp->mb_count += cplen;
 	}
@@ -268,16 +263,16 @@ mb_put_mem(struct mbchain *mbp, c_caddr_t source, int size, int type)
 }
 
 PRIVSYM int
-mb_put_mbuf(struct mbchain *mbp, struct mbuf *m)
+mb_put_mbuf(struct mbchain *mbp, mbuf_t m)
 {
-	mbp->mb_cur->m_next = m;
+	mbuf_setnext(mbp->mb_cur, m);
 	while (m) {
-		mbp->mb_count += m->m_len;
-		if (m->m_next == NULL)
+		mbp->mb_count += mbuf_len(m);
+		if (mbuf_next(m) == NULL)
 			break;
-		m = m->m_next;
+		m = mbuf_next(m);
 	}
-	mbp->mb_mleft = M_TRAILINGSPACE(m);
+	mbp->mb_mleft = mbuf_trailingspace(m);
 	mbp->mb_cur = m;
 	return 0;
 }
@@ -288,29 +283,65 @@ mb_put_mbuf(struct mbchain *mbp, struct mbuf *m)
 PRIVSYM int
 mb_put_uio(struct mbchain *mbp, uio_t uiop, int size)
 {
-	user_size_t left;
-	int mtype, error;
-
-	mtype = (uio_isuserspace(uiop) ? MB_MUSER : MB_MSYSTEM);
-
-	while (size > 0 && uio_resid(uiop)) {
-		if (uio_iovcnt(uiop) <= 0 || uio_curriovbase(uiop) == USER_ADDR_NULL)
-			return EFBIG;
-		left = uio_curriovlen(uiop);
-		if (left > size)
-			left = size;
-		// LP64todo - address could be 64-bit value
-#ifdef __ppc__
-		if (uio_curriovbase(uiop) > 0xFFFFFFFFULL)
-			panic("%s - need LP64 support\n", __FUNCTION__);
-#endif /* __ppc__ */
-		error = mb_put_mem(mbp, CAST_DOWN(caddr_t, uio_curriovbase(uiop)), left, mtype);
+	int cplen, error, mleft;
+	void  *dst;
+	mbuf_t m;
+	
+	m = mbp->mb_cur;	/* Mbuf to start copying the data into */
+	mleft = mbp->mb_mleft;	/* How much space is left in this mbuf */
+	
+	while ((size > 0) && (uio_resid(uiop))) {
+		/* Do we need another mbuf, is this one full */
+		if (mleft == 0) {
+			if (mbuf_next(m) == NULL) {
+				m = smb_mbuf_getm(m, size, MBUF_WAITOK, MBUF_TYPE_DATA);
+				if (m == NULL)
+					return ENOBUFS;
+			}
+			m = mbuf_next(m);
+			mleft = mbuf_trailingspace(m);
+			continue;
+		}
+		/* Get the amount of data to copy and a pointer to the mbuf location */
+		cplen = mleft > size ? size : mleft;
+		dst = mbuf_data(m) + mbuf_len(m);
+		/* Copy the data into the mbuf */
+		error = uiomove(dst, cplen, uiop);
 		if (error)
 			return error;
-		uio_update(uiop, left);
-		size -= left;
+		
+		size -= cplen;
+		mbuf_setlen(m, mbuf_len(m)+cplen);
+		mbp->mb_count += cplen;
+		mleft -= cplen;
 	}
+	mbp->mb_cur = m;
+	mbp->mb_mleft = mleft;
 	return 0;
+}
+
+/*
+ * Given a user land pointer place the data in a mbuf chain.
+ */
+PRIVSYM int
+mb_put_user_mem(struct mbchain *mbp, user_addr_t bufp, int size, off_t offset, vfs_context_t context)
+{
+	user_size_t nbyte = size;
+	uio_t auio;
+	int error;
+
+	if (vfs_context_is64bit(context))
+		auio = uio_create(1, offset, UIO_USERSPACE64, UIO_WRITE);
+	else
+		auio = uio_create(1, offset, UIO_USERSPACE32, UIO_WRITE);
+
+	if (! auio )
+		return ENOMEM;
+		
+	uio_addiov(auio, bufp, nbyte);
+	error = mb_put_uio(mbp, auio, size);
+	uio_free(auio);
+	return error;
 }
 
 /*
@@ -319,30 +350,28 @@ mb_put_uio(struct mbchain *mbp, uio_t uiop, int size)
 PRIVSYM int
 md_init(struct mdchain *mdp)
 {
-	struct mbuf *m;
+	mbuf_t m;
 
-	m = m_gethdr(M_TRYWAIT, MT_DATA);
-	if (m == NULL) 
+	/* mbuf_gethdr now intialize all of the fields */
+	if (mbuf_gethdr(MBUF_WAITOK, MBUF_TYPE_DATA, &m))
 		return ENOBUFS;
-	m->m_pkthdr.rcvif = NULL;
-	m->m_len = 0;
 	md_initm(mdp, m);
 	return 0;
 }
 
 PRIVSYM void
-md_initm(struct mdchain *mdp, struct mbuf *m)
+md_initm(struct mdchain *mdp, mbuf_t m)
 {
 	bzero(mdp, sizeof(*mdp));
 	mdp->md_top = mdp->md_cur = m;
-	mdp->md_pos = mtod(m, u_char*);
+	mdp->md_pos = mbuf_data(m);
 }
 
 PRIVSYM void
 md_done(struct mdchain *mdp)
 {
 	if (mdp->md_top) {
-		m_freem(mdp->md_top);
+		mbuf_freem(mdp->md_top);
 		mdp->md_top = NULL;
 	}
 }
@@ -352,19 +381,19 @@ md_done(struct mdchain *mdp)
  * multiple calls to fetch/record routines.
  */
 PRIVSYM void
-md_append_record(struct mdchain *mdp, struct mbuf *top)
+md_append_record(struct mdchain *mdp, mbuf_t top)
 {
-	struct mbuf *m;
+	mbuf_t m;
 
 	if (mdp->md_top == NULL) {
 		md_initm(mdp, top);
 		return;
 	}
 	m = mdp->md_top;
-	while (m->m_nextpkt)
-		m = m->m_nextpkt;
-	m->m_nextpkt = top;
-	top->m_nextpkt = NULL;
+	while (mbuf_nextpkt(m))
+		m = mbuf_nextpkt(m);
+	mbuf_setnextpkt(m, top);
+	mbuf_setnextpkt(top, NULL);
 	return;
 }
 
@@ -374,11 +403,11 @@ md_append_record(struct mdchain *mdp, struct mbuf *top)
 PRIVSYM int
 md_next_record(struct mdchain *mdp)
 {
-	struct mbuf *m;
+	mbuf_t m;
 
 	if (mdp->md_top == NULL)
 		return ENOENT;
-	m = mdp->md_top->m_nextpkt;
+	m = mbuf_nextpkt(mdp->md_top);
 	md_done(mdp);
 	if (m == NULL)
 		return ENOENT;
@@ -482,8 +511,7 @@ md_get_uint64le(struct mdchain *mdp, u_int64_t *x)
 PRIVSYM int
 md_get_mem(struct mdchain *mdp, caddr_t target, int size, int type)
 {
-	struct mbuf *m = mdp->md_cur;
-	int error;
+	mbuf_t m = mdp->md_cur;
 	u_int count;
 	u_char *s;
 	
@@ -493,11 +521,11 @@ md_get_mem(struct mdchain *mdp, caddr_t target, int size, int type)
 			return EBADRPC;
 		}
 		s = mdp->md_pos;
-		count = mtod(m, u_char*) + m->m_len - s;
+		count = (u_int)mbuf_data(m) + (u_int)mbuf_len(m) - (u_int)s;
 		if (count == 0) {
-			mdp->md_cur = m = m->m_next;
+			mdp->md_cur = m = mbuf_next(m);
 			if (m)
-				s = mdp->md_pos = (u_char *)mtod(m, caddr_t);
+				s = mdp->md_pos = mbuf_data(m);
 			continue;
 		}
 		if ((int)count > size)
@@ -507,15 +535,10 @@ md_get_mem(struct mdchain *mdp, caddr_t target, int size, int type)
 		if (target == NULL)
 			continue;
 		switch (type) {
-		    case MB_MUSER:
-			error = copyout(s, CAST_USER_ADDR_T(target), count);
-			if (error)
-				return error;
-			break;
-		    case MB_MSYSTEM:
+		case MB_MSYSTEM:
 			bcopy(s, target, count);
 			break;
-		    case MB_MINLINE:
+		case MB_MINLINE:
 			while (count--)
 				*target++ = *s++;
 			continue;
@@ -526,12 +549,12 @@ md_get_mem(struct mdchain *mdp, caddr_t target, int size, int type)
 }
 
 PRIVSYM int
-md_get_mbuf(struct mdchain *mdp, int size, struct mbuf **ret)
+md_get_mbuf(struct mdchain *mdp, int size, mbuf_t *ret)
 {
-	struct mbuf *m = mdp->md_cur, *rm;
+	mbuf_t m = mdp->md_cur, rm;
+	size_t offset = (size_t)mdp->md_pos - (size_t)mbuf_data(m);
 
-	rm = m_copym(m, mdp->md_pos - mtod(m, u_char*), size, M_TRYWAIT);
-	if (rm == NULL)
+	if (mbuf_copym(m, offset, size, MBUF_WAITOK, &rm))
 		return EBADRPC;
 	md_get_mem(mdp, NULL, size, MB_MZERO);
 	*ret = rm;
@@ -541,26 +564,60 @@ md_get_mbuf(struct mdchain *mdp, int size, struct mbuf **ret)
 PRIVSYM int
 md_get_uio(struct mdchain *mdp, uio_t uiop, int size)
 {
-	user_size_t left;
-	int mtype, error;
-
-	mtype = (uio_isuserspace(uiop) ? MB_MUSER : MB_MSYSTEM);
-	while (size > 0 && uio_resid(uiop)) {
-		if (uio_iovcnt(uiop) <= 0 || uio_curriovbase(uiop) == USER_ADDR_NULL)
-			return EFBIG;
-		left = uio_curriovlen(uiop);
-		if (left > size)
-			left = size;
-		// LP64todo - address could be 64-bit value
-#ifdef __ppc__
-		if (uio_curriovbase(uiop) > 0xFFFFFFFFULL)
-			panic("%s - need LP64 support\n", __FUNCTION__);
-#endif /* __ppc__ */
-		error = md_get_mem(mdp, CAST_DOWN(caddr_t, uio_curriovbase(uiop)), left, mtype);
+	user_size_t count;
+	int error;
+	mbuf_t m = mdp->md_cur;
+	void *src;
+	
+	/* Read in the data into the the uio */
+	while ((size > 0) && (uio_resid(uiop))) {
+		
+		if (m == NULL) {
+			MBERROR("incomplete copy\n");
+			return EBADRPC;
+		}
+		/* Get a pointer to the mbuf data */
+		src = mdp->md_pos;
+		count = (u_int)mbuf_data(m) + (u_int)mbuf_len(m) - (u_int)src;
+		if (count == 0) {
+			mdp->md_cur = m = mbuf_next(m);
+			if (m)
+				src = mdp->md_pos = mbuf_data(m);
+			continue;
+		}
+		if ((int)count > size)
+			count = size;
+		size -= count;
+		mdp->md_pos += count;
+		error = uiomove(src, count, uiop);
 		if (error)
 			return error;
-		uio_update(uiop, left);
-		size -= left;
 	}
 	return 0;
 }
+
+
+/*
+ * Given a user land pointer place the data in a mbuf chain.
+ */
+PRIVSYM int
+md_get_user_mem(struct mdchain *mdp, user_addr_t bufp, int size, off_t offset, vfs_context_t context)
+{
+	user_size_t nbyte = size;
+	uio_t auio;
+	int error;
+	
+	if (vfs_context_is64bit(context))
+		auio = uio_create(1, offset, UIO_USERSPACE64, UIO_READ);
+	else
+		auio = uio_create(1, offset, UIO_USERSPACE32, UIO_READ);
+	
+	if (! auio )
+		return ENOMEM;
+	
+	uio_addiov(auio, bufp, nbyte);
+	error = md_get_uio(mdp, auio, size);
+	uio_free(auio);
+	return error;
+}
+

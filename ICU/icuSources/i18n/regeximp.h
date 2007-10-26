@@ -1,5 +1,5 @@
 // 
-//   Copyright (C) 2002-2004 International Business Machines Corporation 
+//   Copyright (C) 2002-2005 International Business Machines Corporation 
 //   and others. All rights reserved.  
 //
 //   file:  regeximp.h
@@ -318,15 +318,15 @@ inline Regex8BitSet::Regex8BitSet() {
 inline UBool Regex8BitSet::contains(UChar32 c) {
     // No bounds checking!  This is deliberate.
     return ((d[c>>3] & 1 <<(c&7)) != 0);
-};
+}
 
 inline void  Regex8BitSet::add(UChar32 c) {
     d[c>>3] |= 1 << (c&7);
-};
+}
 
 inline void Regex8BitSet::init(const UnicodeSet *s) {
     if (s != NULL) {
-        for (int i=0; i<=255; i++) {
+        for (int32_t i=0; i<=255; i++) {
             if (s->contains(i)) {
                 this->add(i);
             }

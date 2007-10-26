@@ -1,5 +1,24 @@
-/RANLIB=/a
+/^RANLIB=/a
 LIBTOOL=	@LIBTOOL@
 .
+/^OPT=/a
+EXTRA_CFLAGS=	@EXTRA_CFLAGS@
+.
+/^$(BUILDPYTHON):/i
+# Strip 64-bit architectures from $(BUILDPYTHON), because Tcl and Tk are
+# not 64-bit yet, and _tkinter will fail.
+.
+/^$/i
+		ditto $(BUILDPYTHON) $(SYMROOT)/$(BUILDPYTHON)
+		@set -x && a='' && \
+		for i in ppc64 x86_64; do \
+		    lipo $(BUILDPYTHON) -verify_arch $$i && a="$$a -remove $$i"; \
+		done; \
+		test -z "$$a" || \
+		lipo $(BUILDPYTHON) $$a -output $(BUILDPYTHON)
+.
 /libtool/s//$(LIBTOOL)/
+/Terminal/d
+.-1s/ \\$//
+g/cd Mac /s/$/ BUILDEXE=$(BUILDEXE)/
 w

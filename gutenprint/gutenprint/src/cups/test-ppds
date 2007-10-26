@@ -1,0 +1,56 @@
+#!/bin/sh
+
+status=0
+verbose=0
+strict=0
+
+usage() {
+    echo "Usage: run-testpattern [-v] [-s]"
+    exit
+}
+
+set_args() {
+    while true ; do
+	case "$1" in
+	    -h*|--h*) usage ;;
+	    -v) verbose=1 ;;
+	    -s) strict=1 ;;
+	    --) shift; args="$@"; return ;;
+	    *) return ;;
+	esac
+    shift
+    done
+}
+
+set_args `getopt vhs "$@"`
+
+
+if [ -d ppd ] ; then
+    for f in ppd/* ; do
+	echo -n "$f..."
+	cupstestppd -r -q $f/*
+	if [ $? -ne 0 ] ; then
+	    echo -n "FAILED"
+	    if [ $verbose -ne 0 ] ; then
+		cupstestppd $f/* 2>&1 | grep FAIL
+	    fi
+	    status=1
+	else
+	    cupstestppd -q $f/*
+	    if [ $? -ne 0 ] ; then
+		# Don't actually error if strict checks fail.
+		# These errors are less important, and we'll accept them.
+		echo -n "WARNING: strict checks failed"
+		if [ $verbose -ne 0 ] ; then
+		    cupstestppd $f/* 2>&1 | grep FAIL
+		fi
+		if [ $strict -ne 0 ] ; then
+		    status=1
+		fi
+	    fi
+	fi
+	echo
+    done
+fi
+
+exit $status

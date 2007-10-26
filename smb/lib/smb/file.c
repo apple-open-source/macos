@@ -2,6 +2,8 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -47,7 +49,6 @@
 #include <unistd.h>
 
 #include <sys/types.h>
-extern uid_t real_uid, eff_uid;
 
 #include <netsmb/smb_lib.h>
 #include <netsmb/smb_conn.h>
@@ -62,12 +63,9 @@ smb_read(struct smb_ctx *ctx, smbfh fh, off_t offset, size_t count, char *dst)
 	rwrq.ioc_base = dst;
 	rwrq.ioc_cnt = count;
 	rwrq.ioc_offset = offset;
-	seteuid(eff_uid);
 	if (ioctl(ctx->ct_fd, SMBIOC_READ, &rwrq) == -1) {
-		seteuid(real_uid); /* and back to real user */
 		return -1;
 	}
-	seteuid(real_uid); /* and back to real user */
 	return rwrq.ioc_cnt;
 }
 
@@ -81,11 +79,8 @@ smb_write(struct smb_ctx *ctx, smbfh fh, off_t offset, size_t count,
 	rwrq.ioc_base = (char *)src;
 	rwrq.ioc_cnt = count;
 	rwrq.ioc_offset = offset;
-	seteuid(eff_uid);
 	if (ioctl(ctx->ct_fd, SMBIOC_WRITE, &rwrq) == -1) {
-		seteuid(real_uid); /* and back to real user */
 		return -1;
 	}
-	seteuid(real_uid); /* and back to real user */
 	return rwrq.ioc_cnt;
 }

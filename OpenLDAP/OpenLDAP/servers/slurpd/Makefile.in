@@ -1,8 +1,8 @@
 # Makefile.in for slurpd
-# $OpenLDAP: pkg/ldap/servers/slurpd/Makefile.in,v 1.31.2.3 2004/01/01 18:16:42 kurt Exp $
+# $OpenLDAP: pkg/ldap/servers/slurpd/Makefile.in,v 1.36.2.3 2006/01/03 22:16:26 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2004 The OpenLDAP Foundation.
+## Copyright 1998-2006 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -60,7 +60,7 @@ install-local-srv: FORCE
 	@-$(INSTALL) -m 700 -d $(DESTDIR)$(localstatedir)/openldap-slurp
 	@(								\
 	    for prg in $(PROGRAMS); do					\
-		$(LTINSTALL) $(INSTALLFLAGS) -s -m 755 $$prg$(EXEEXT)	\
+		$(LTINSTALL) $(INSTALLFLAGS) $(STRIP) -m 755 $$prg$(EXEEXT)	\
 		    $(DESTDIR)$(libexecdir);				\
 	    done							\
 	)

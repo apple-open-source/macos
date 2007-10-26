@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -32,7 +28,7 @@
  *
  * each expression term must match
  *
- *	[ugoa]*[-&+|=]?[rwxst0-7]*
+ *	[ugoa]*[-&+|^=]?[rwxst0-7]*
  *
  * terms may be combined using ,
  *
@@ -55,7 +51,14 @@ strperm(const char* aexpr, char** e, register int perm)
 	int		mask;
 	int		masked;
 
-	masked = 0;
+	if (perm == -1)
+	{
+		perm = 0;
+		masked = 1;
+		mask = ~0;
+	}
+	else
+		masked = 0;
 	for (;;)
 	{
 		op = num = who = typ = 0;
@@ -76,14 +79,25 @@ strperm(const char* aexpr, char** e, register int perm)
 				who = S_ISVTX|S_ISUID|S_ISGID|S_IRWXU|S_IRWXG|S_IRWXO;
 				continue;
 			default:
-				if (c >= '0' && c <= '7') c = '=';
+				if (c >= '0' && c <= '7')
+				{
+					if (!who)
+						who = S_ISVTX|S_ISUID|S_ISGID|S_IRWXU|S_IRWXG|S_IRWXO;
+					c = '=';
+				}
 				expr--;
 				/*FALLTHROUGH*/
 			case '=':
+				if (who)
+					perm &= ~who;
+				else
+					perm = 0;
+				/*FALLTHROUGH*/
 			case '+':
 			case '|':
 			case '-':
 			case '&':
+			case '^':
 				op = c;
 				for (;;)
 				{
@@ -96,7 +110,8 @@ strperm(const char* aexpr, char** e, register int perm)
 						typ |= S_IWUSR|S_IWGRP|S_IWOTH;
 						continue;
 					case 'X':
-						if (op != '+' || !S_ISDIR(perm) && !(perm & (S_IXUSR|S_IXGRP|S_IXOTH))) continue;
+						if (!S_ISDIR(perm) && !(perm & (S_IXUSR|S_IXGRP|S_IXOTH)))
+							continue;
 						/*FALLTHROUGH*/
 					case 'x':
 						typ |= S_IXUSR|S_IXGRP|S_IXOTH;
@@ -110,8 +125,9 @@ strperm(const char* aexpr, char** e, register int perm)
 					case 'l':
 						if (perm & S_IXGRP)
 						{
-							if (e) *e = expr - 1;
-							return perm;
+							if (e)
+								*e = expr - 1;
+							return perm & S_IPERM;
 						}
 						typ |= S_ISGID;
 						continue;
@@ -120,28 +136,35 @@ strperm(const char* aexpr, char** e, register int perm)
 					case '|':
 					case '-':
 					case '&':
+					case '^':
 					case ',':
 					case 0:
-						if (who) typ &= who;
-						else switch (op)
-						{
-						case '+':
-						case '|':
-						case '-':
-						case '&':
-							if (!masked)
+						if (who)
+							typ &= who;
+						else
+							switch (op)
 							{
-								umask(mask = umask(0));
-								mask = ~mask;
+							case '=':
+							case '+':
+							case '|':
+							case '-':
+							case '&':
+								if (!masked)
+								{
+									masked = 1;
+									umask(mask = umask(0));
+									mask = ~mask;
+								}
+								typ &= mask;
+								break;
 							}
-							typ &= mask;
-							break;
-						}
 						switch (op)
 						{
 						default:
-							if (who) perm &= ~who;
-							else perm = 0;
+							if (who)
+								perm &= ~who;
+							else
+								perm = 0;
 							/*FALLTHROUGH*/
 						case '+':
 						case '|':
@@ -156,6 +179,42 @@ strperm(const char* aexpr, char** e, register int perm)
 							perm &= typ;
 							typ = 0;
 							break;
+						case '^':
+							if (typ &= perm)
+							{
+								/*
+								 * propagate least restrictive to most restrictive
+								 */
+
+								if (typ & S_IXOTH)
+									perm |= who & (S_IXUSR|S_IXGRP);
+								if (typ & S_IWOTH)
+									perm |= who & (S_IWUSR|S_IWGRP);
+								if (typ & S_IROTH)
+									perm |= who & (S_IRUSR|S_IRGRP);
+								if (typ & S_IXGRP)
+									perm |= who & S_IXUSR;
+								if (typ & S_IWGRP)
+									perm |= who & S_IWUSR;
+								if (typ & S_IRGRP)
+									perm |= who & S_IRUSR;
+
+								/*
+								 * if any execute then read => execute
+								 */
+
+								if ((typ |= perm) & (S_IXUSR|S_IXGRP|S_IXOTH))
+								{
+									if (typ & S_IRUSR)
+										perm |= who & S_IXUSR;
+									if (typ & S_IRGRP)
+										perm |= who & S_IXGRP;
+									if (typ & S_IROTH)
+										perm |= who & S_IXOTH;
+								}
+								typ = 0;
+							}
+							break;
 						}
 						switch (c)
 						{
@@ -164,16 +223,19 @@ strperm(const char* aexpr, char** e, register int perm)
 						case '|':
 						case '-':
 						case '&':
+						case '^':
 							op = c;
 							typ = 0;
 							continue;
 						}
-						if (c) break;
+						if (c)
+							break;
 						/*FALLTHROUGH*/
 					default:
 						if (c < '0' || c > '7')
 						{
-							if (e) *e = expr - 1;
+							if (e)
+								*e = expr - 1;
 							if (typ)
 							{
 								if (who)
@@ -183,9 +245,11 @@ strperm(const char* aexpr, char** e, register int perm)
 								}
 								perm |= typ;
 							}
-							return perm;
+							return perm & S_IPERM;
 						}
 						num = (num << 3) | (c - '0');
+						if (!who && (op == '+' || op == '-'))
+							who = S_ISVTX|S_ISUID|S_ISGID|S_IRWXU|S_IRWXG|S_IRWXO;
 						if (*expr < '0' || *expr > '7')
 						{
 							typ |= modei(num);

@@ -1,8 +1,8 @@
 /* sort.c -- LDAP library entry and value sort routines */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/sort.c,v 1.22.2.3 2004/01/01 18:16:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/sort.c,v 1.25.2.3 2006/05/11 18:33:31 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -158,7 +158,8 @@ ldap_sort_entries(
 		LDAP_VFREE( et[i].et_vals );
 	}
 	*ep = ohead;
-		
+	(*chain)->lm_chain_tail = otail ? otail : etail;
+
 	LDAP_FREE( (char *) et );
 
 	return( 0 );

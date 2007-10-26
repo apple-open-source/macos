@@ -1,24 +1,26 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Script which implements admin editing of the list's html templates."""
 
 import os
 import cgi
 import errno
+import re
 
 from Mailman import Utils
 from Mailman import MailList
@@ -43,6 +45,7 @@ def main():
         ('listinfo.html',    _('General list information page')),
         ('subscribe.html',   _('Subscribe results page')),
         ('options.html',     _('User specific options page')),
+        ('subscribeack.txt', _('Welcome email text file')),
         )
 
     _ = i18n._
@@ -140,7 +143,8 @@ def FormatHTML(mlist, doc, template_name, template_info):
     doc.AddItem('<p>')
     doc.AddItem('<hr>')
     form = Form(mlist.GetScriptURL('edithtml') + '/' + template_name)
-    text = Utils.websafe(Utils.maketext(template_name, raw=1, mlist=mlist))
+    text = Utils.maketext(template_name, raw=1, mlist=mlist)
+    # MAS: Don't websafe twice.  TextArea does it.
     form.AddItem(TextArea('html_code', text, rows=40, cols=75))
     form.AddItem('<p>' + _('When you are done making changes...'))
     form.AddItem(SubmitButton('submit', _('Submit Changes')))
@@ -155,12 +159,17 @@ def ChangeHTML(mlist, cgi_info, template_name, doc):
         doc.AddItem('<hr>')
         return
     code = cgi_info['html_code'].value
+    code = re.sub(r'<([/]?script.*?)>', r'&lt;\1&gt;', code)
     langdir = os.path.join(mlist.fullpath(), mlist.preferred_language)
     # Make sure the directory exists
+    omask = os.umask(0)
     try:
-        os.mkdir(langdir, 02775)
-    except OSError, e:
-        if e.errno <> errno.EEXIST: raise
+        try:
+            os.mkdir(langdir, 02775)
+        except OSError, e:
+            if e.errno <> errno.EEXIST: raise
+    finally:
+        os.umask(omask)
     fp = open(os.path.join(langdir, template_name), 'w')
     try:
         fp.write(code)

@@ -21,15 +21,17 @@
 #include "includes.h"
 #include "printing.h"
 
+extern struct current_user current_user;
+extern userdom_struct current_user_info;
 
 /****************************************************************************
 run a given print command 
 a null terminated list of value/substitute pairs is provided
 for local substitution strings
 ****************************************************************************/
-static int print_run_command(int snum, const char* printername, BOOL do_sub, char *command, int *outfd, ...)
+static int print_run_command(int snum, const char* printername, BOOL do_sub,
+			     const char *command, int *outfd, ...)
 {
-
 	pstring syscmd;
 	char *arg;
 	int ret;
@@ -55,7 +57,12 @@ static int print_run_command(int snum, const char* printername, BOOL do_sub, cha
 	pstring_sub( syscmd, "%p", printername );
 
 	if ( do_sub && snum != -1 )
-		standard_sub_snum(snum,syscmd,sizeof(syscmd));
+		standard_sub_advanced(lp_servicename(snum),
+				      current_user_info.unix_name, "",
+				      current_user.ut.gid,
+				      get_current_username(),
+				      current_user_info.domain,
+				      syscmd, sizeof(syscmd));
 		
 	ret = smbrun_no_sanitize(syscmd,outfd);
 
@@ -68,14 +75,13 @@ static int print_run_command(int snum, const char* printername, BOOL do_sub, cha
 /****************************************************************************
 delete a print job
 ****************************************************************************/
-static int generic_job_delete(int snum, struct printjob *pjob)
+static int generic_job_delete( const char *sharename, const char *lprm_command, struct printjob *pjob)
 {
 	fstring jobstr;
 
 	/* need to delete the spooled entry */
 	slprintf(jobstr, sizeof(jobstr)-1, "%d", pjob->sysjob);
-	return print_run_command(snum, PRINTERNAME(snum), True,
-		   lp_lprmcommand(snum), NULL,
+	return print_run_command( -1, sharename, False, lprm_command, NULL,
 		   "%j", jobstr,
 		   "%T", http_timestring(pjob->starttime),
 		   NULL);
@@ -187,17 +193,21 @@ static int generic_queue_get(const char *printer_name,
 	}
 	
 	numlines = 0;
-	qlines = fd_lines_load(fd, &numlines);
+	qlines = fd_lines_load(fd, &numlines,0);
 	close(fd);
 
 	/* turn the lpq output into a series of job structures */
 	qcount = 0;
 	ZERO_STRUCTP(status);
-	if (numlines)
+	if (numlines && qlines) {
 		queue = SMB_MALLOC_ARRAY(print_queue_struct, numlines+1);
-
-	if (queue) {
+		if (!queue) {
+			file_lines_free(qlines);
+			*q = NULL;
+			return 0;
+		}
 		memset(queue, '\0', sizeof(print_queue_struct)*(numlines+1));
+
 		for (i=0; i<numlines; i++) {
 			/* parse the line */
 			if (parse_lpq_entry(printing_type,qlines[i],
@@ -206,8 +216,8 @@ static int generic_queue_get(const char *printer_name,
 			}
 		}		
 	}
-	file_lines_free(qlines);
 
+	file_lines_free(qlines);
         *q = queue;
 	return qcount;
 }

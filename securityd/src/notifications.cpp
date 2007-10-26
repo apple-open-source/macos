@@ -23,32 +23,34 @@
 
 
 //
-// EntropyManager - manage entropy on the system.
+// notifications - handling of securityd-gated notification messages
 //
+#include <notify.h>
+
 #include "notifications.h"
 #include "server.h"
+#include "connection.h"
 #include <securityd_client/ucspNotify.h>
 
 
 Listener::ListenerMap Listener::listeners;
-Mutex Listener::setLock;
+Mutex Listener::setLock(Mutex::recursive);
 
 
-Listener::Listener(Port port, NotificationDomain dom, NotificationMask evs)
-	: domain(dom), events(evs), mPort(port)
-{ setup(); }
-
-Listener::Listener(NotificationDomain dom, NotificationMask evs)
+//
+// Listener basics
+//
+Listener::Listener(NotificationDomain dom, NotificationMask evs, mach_port_t port)
 	: domain(dom), events(evs)
-{ setup(); }
-
-void Listener::setup()
 {
 	assert(events);		// what's the point?
-    
+	
     // register in listener set
     StLock<Mutex> _(setLock);
-    listeners.insert(ListenerMap::value_type(mPort, this));
+    listeners.insert(ListenerMap::value_type(port, this));
+	
+	secdebug("notify", "%p created for domain 0x%x events 0x%x port %d",
+		this, dom, evs, port);
 }
 
 Listener::~Listener()
@@ -63,11 +65,31 @@ Listener::~Listener()
 void Listener::notify(NotificationDomain domain,
 	NotificationEvent event, const CssmData &data)
 {
+	RefPointer<Notification> message = new Notification(domain, event, 0, data);
+	StLock<Mutex> _(setLock);
+	sendNotification(message);
+}
+
+void Listener::notify(NotificationDomain domain,
+	NotificationEvent event, uint32 sequence, const CssmData &data)
+{
+	Connection &current = Server::active().connection();
+	RefPointer<Notification> message = new Notification(domain, event, sequence, data);
+	if (current.inSequence(message)) {
+		StLock<Mutex> _(setLock);
+		sendNotification(message);
+		while (RefPointer<Notification> next = current.popNotification())
+			sendNotification(next);
+	}
+}
+
+void Listener::sendNotification(Notification *message)
+{
     for (ListenerMap::const_iterator it = listeners.begin();
             it != listeners.end(); it++) {
 		Listener *listener = it->second;
-		if (listener->domain == domain && listener->wants(event))
-			listener->notifyMe(domain, event, data);
+		if (listener->domain == kNotificationDomainAll || (message->domain == listener->domain && listener->wants(message->event)))
+			listener->notifyMe(message);
 	}
 }
 
@@ -78,15 +100,20 @@ void Listener::notify(NotificationDomain domain,
 //
 bool Listener::remove(Port port)
 {
-	assert(port);  // Listeners with null ports are eternal
     typedef ListenerMap::iterator Iterator;
     StLock<Mutex> _(setLock);
     pair<Iterator, Iterator> range = listeners.equal_range(port);
     if (range.first == range.second)
         return false;	// not one of ours
 
-    for (Iterator it = range.first; it != range.second; it++)
-        delete it->second;
+	assert(range.first != listeners.end());
+	secdebug("notify", "remove port %d", port.port());
+#if !defined(NDEBUG)
+    for (Iterator it = range.first; it != range.second; it++) {
+		assert(it->first == port);
+		secdebug("notify", "%p listener removed", it->second.get());
+	}
+#endif //NDEBUG
     listeners.erase(range.first, range.second);
 	port.destroy();
     return true;	// got it
@@ -94,32 +121,91 @@ bool Listener::remove(Port port)
 
 
 //
-// Construct a new Listener and hook it up
+// Notification message objects
 //
-ProcessListener::ProcessListener(Process &proc, Port receiver,
-	NotificationDomain dom, NotificationMask evs)
-    : Listener(receiver, dom, evs), process(proc)
+Listener::Notification::Notification(NotificationDomain inDomain,
+	NotificationEvent inEvent, uint32 seq, const CssmData &inData)
+	: domain(inDomain), event(inEvent), sequence(seq), data(Allocator::standard(), inData)
 {
-    // let's get told when the receiver port dies
-    Server::active().notifyIfDead(mPort);
-    
-    secdebug("notify", "%p created domain %ld events 0x%lx port %d",
-        this, domain, events, mPort.port());
+	secdebug("notify", "%p notification created domain 0x%lx event %ld seq %ld",
+		this, domain, event, sequence);
+}
+
+Listener::Notification::~Notification()
+{
+	secdebug("notify", "%p notification done domain 0x%lx event %ld seq %ld",
+		this, domain, event, sequence);
 }
 
 
 //
-// Send a single notification for this listener
+// Jitter buffering
 //
-void ProcessListener::notifyMe(NotificationDomain domain,
-	NotificationEvent event, const CssmData &data)
+bool Listener::JitterBuffer::inSequence(Notification *message)
 {
-    secdebug("notify", "%p sending domain %ld event 0x%lx to port %d process %d",
-        this, domain, event, mPort.port(), process.pid());
-    
-    // send mach message (via MIG simpleroutine)
-    if (IFDEBUG(kern_return_t rc =) ucsp_notify_sender_notify(mPort,
-        domain, event, data.data(), data.length(),
-        0 /*@@@ placeholder for sender ID */))
-        secdebug("notify", "%p send failed (error=%d)", this, rc);
+	if (message->sequence == mNotifyLast + 1) {	// next in sequence
+		mNotifyLast++;			// record next sequence
+		return true;			// go ahead
+	} else {
+		secdebug("notify-jit", "%p out of sequence (last %ld got %ld); buffering",
+			message, mNotifyLast, message->sequence);
+		mBuffer[message->sequence] = message;	// save for later
+		return false;			// hold your fire
+	}
+}
+
+RefPointer<Listener::Notification> Listener::JitterBuffer::popNotification()
+{
+	JBuffer::iterator it = mBuffer.find(mNotifyLast + 1);	// have next message?
+	if (it == mBuffer.end())
+		return NULL;			// nothing here
+	else {
+		RefPointer<Notification> result = it->second;	// save value
+		mBuffer.erase(it);		// remove from buffer
+		secdebug("notify-jit", "%p retrieved from jitter buffer", result.get());
+		return result;			// return it
+	}
+}
+
+/*
+ * Shared memory listener
+ */
+
+
+SharedMemoryListener::SharedMemoryListener(const char* segmentName, SegmentOffsetType segmentSize) :
+	Listener (kNotificationDomainAll, kNotificationAllEvents),
+	SharedMemoryServer (segmentName, segmentSize),
+	mActive (false)
+{
+	if (segmentName == NULL)
+	{
+		secdebug("notify", "Attempted to start securityd with a NULL segmentName");
+		exit(1);
+	}
+}
+
+SharedMemoryListener::~SharedMemoryListener ()
+{
+}
+
+const double kServerWait = 0.005; // time in seconds before clients will be notified that data is available
+
+void SharedMemoryListener::notifyMe(Notification* notification)
+{
+	const void* data = notification->data.data();
+	UInt32 length = notification->data.length();
+	WriteMessage (notification->domain, notification->event, data, length);
+	
+	if (!mActive)
+	{
+		Server::active().setTimer (this, Time::Interval(kServerWait));
+		mActive = true;
+	}
+}
+
+void SharedMemoryListener::action ()
+{
+	secdebug("notify", "Posted notification to clients.");
+	notify_post (mSegmentName.c_str ());
+	mActive = false;
 }

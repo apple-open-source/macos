@@ -31,6 +31,7 @@
 #include "protos.h"
 #include "extvars.h"
 #include "config.h"
+#include <machine/endian.h>
 
 char divider[50] = "-------------------------------------------------";
 move_s dummy = {0,0,0,0,0};
@@ -90,6 +91,47 @@ FILE *lrn_zh;
 FILE *lrn_suicide;
 FILE *lrn_losers;
 
+/*
+ * sjeng expects to get away with calling fclose(NULL), which crashes 
+ * on MacOS X
+ */
+void safe_fclose(FILE * f)
+{
+  if (f) fclose(f);
+}
+
+/*
+ * We'll keep different learning files on big endian and little endian machines.
+ */
+FILE * learn_open(const char * name, const char * label)
+{
+	FILE *lrn;
+	char fname[30];
+	
+	sprintf(fname, "%s_%cE.lrn", label, 
+#if __DARWIN_BYTE_ORDER == __DARWIN_BIG_ENDIAN
+			'B'
+#elif __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN
+			'L'
+#else
+#error Unknown Byte Order
+#endif
+			);
+
+	if ((lrn = fopen (fname, "rb+")) == NULL) {
+		printf("No %s learn file.\n", name);
+      
+		if ((lrn = fopen (fname, "wb+")) == NULL) {
+			printf("Error creating %s learn file.\n", name);
+		} else {
+			fclose(lrn);
+			lrn = fopen (fname, "rb+");
+		}
+    }
+	return lrn;
+}
+
+
 int main (int argc, char *argv[]) {
 
   char input[STR_BUFF], *p, output[STR_BUFF];
@@ -120,62 +162,10 @@ int main (int argc, char *argv[]) {
   if (!init_book())
     printf("No .OPN opening book found.\n");
 
-  if ((lrn_standard = fopen ("standard.lrn", "rb+")) == NULL)
-    {
-      printf("No standard learn file.\n");
-      
-      if ((lrn_standard = fopen ("standard.lrn", "wb+")) == NULL)
-	{
-	  printf("Error creating standard learn file.\n");
-	}
-      else
-	{
-	  fclose(lrn_standard);
-	  lrn_standard = fopen ("standard.lrn", "rb+");
-	}
-    }
-  if ((lrn_zh = fopen ("bug.lrn", "rb+")) == NULL)
-    {
-      printf("No crazyhouse learn file.\n");
-
-      if ((lrn_zh = fopen ("bug.lrn", "wb+")) == NULL)
-	{
-	  printf("Error creating crazyhouse learn file.\n");
-	}
-      else
-	{
-	  fclose(lrn_zh);
-	  lrn_zh = fopen ("bug.lrn", "rb+");
-	}
-    }
-  if ((lrn_suicide = fopen ("suicide.lrn", "rb+")) == NULL)
-    {
-      printf("No suicide learn file.\n");
-
-      if ((lrn_suicide = fopen ("suicide.lrn", "wb+")) == NULL)
-	{
-	  printf("Error creating suicide learn file.\n");
-	}
-      else
-	{
-	  fclose(lrn_suicide);
-	  lrn_suicide = fopen ("suicide.lrn", "rb+");
-	}
-    }
-  if ((lrn_losers = fopen ("losers.lrn", "rb+")) == NULL)
-    {
-      printf("No losers learn file.\n");
-
-      if ((lrn_losers = fopen ("losers.lrn", "wb+")) == NULL)
-	{
-	  printf("Error creating losers learn file.\n");
-	}
-      else
-	{
-	  fclose(lrn_losers);
-	  lrn_losers = fopen ("losers.lrn", "rb+");
-	}
-    }
+  lrn_standard = learn_open("standard", "standard");
+  lrn_zh	   = learn_open("crazyhouse", "bug");
+  lrn_suicide  = learn_open("suicide", "suicide");
+  lrn_losers   = learn_open("losers", "losers");
 
   start_up ();
   init_game ();
@@ -337,9 +327,9 @@ int main (int argc, char *argv[]) {
 	    printf("Move ordering : %f%%\n", (((float)FHF*100)/(float)(FH+1)));
 	    
 	    printf("Material score: %d   Eval : %d  White hand: %d  Black hand : %d\n", 
-		Material, eval(), white_hand_eval, black_hand_eval);
+		   Material, (int)eval(), white_hand_eval, black_hand_eval);
 	    
-	    printf("Hash : %X  HoldHash : %X\n", hash, hold_hash);
+	    printf("Hash : %X  HoldHash : %X\n", (unsigned)hash, (unsigned)hold_hash);
 
 	    /* check to see if we mate our opponent with our current move: */
 	    if (!result) {
@@ -483,10 +473,10 @@ int main (int argc, char *argv[]) {
 
       /* command parsing: */
       if (!strcmp (input, "quit") || (!input[0] && feof(stdin))) {
-	fclose(lrn_standard);
-	fclose(lrn_zh);
-	fclose(lrn_suicide);
-	fclose(lrn_losers);
+	safe_fclose(lrn_standard);
+	safe_fclose(lrn_zh);
+	safe_fclose(lrn_suicide);
+	safe_fclose(lrn_losers);
 	free_hash();
 	free_ecache();
 	exit (EXIT_SUCCESS);
@@ -501,10 +491,10 @@ int main (int argc, char *argv[]) {
 	    }
 	  else
 	    {
-	      fclose(lrn_standard);
-	      fclose(lrn_zh);
-	      fclose(lrn_suicide);
-	      fclose(lrn_losers);
+	      safe_fclose(lrn_standard);
+	      safe_fclose(lrn_zh);
+	      safe_fclose(lrn_suicide);
+	      safe_fclose(lrn_losers);
 	      free_hash();
 	      free_ecache();
 	      exit (EXIT_SUCCESS);
@@ -643,7 +633,7 @@ int main (int argc, char *argv[]) {
       }
       else if (!strcmp (input, "eval")) {
 	check_phase();
-	printf("Eval: %d\n", eval());
+	printf("Eval: %d\n", (int)eval());
       }
       else if (!strcmp (input, "go")) {
 	comp_color = white_to_move;
@@ -675,7 +665,7 @@ int main (int argc, char *argv[]) {
 	 time_cushion = 0; 
       }
       else if (!strncmp (input, "rating", 6)) {
-	sscanf (input+7, "%ld %ld", &my_rating, &opp_rating);
+	sscanf (input+7, "%d %d", &my_rating, &opp_rating);
 	if (my_rating == 0) my_rating = 2000;
 	if (opp_rating == 0) opp_rating = 2000;
       }
@@ -799,7 +789,7 @@ int main (int argc, char *argv[]) {
 	run_epd_testsuite();
       }
       else if (!strncmp (input, "st", 2)) {
-	sscanf(input+3, "%d", &fixed_time);
+	sscanf(input+3, "%ld", &fixed_time);
 	fixed_time = fixed_time * 100;
       }
       else if (!strncmp (input, "book", 4)) {

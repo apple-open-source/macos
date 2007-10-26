@@ -9,7 +9,7 @@
 .fi
 .ft 1
 .RE
-.PP
+.Pp
 ..
 .de BL
 .TP
@@ -21,31 +21,31 @@ crlrefresh \- update and maintain system-wide CRL cache
 .SH SYNOPSIS
 .B crlrefresh
 command [command-args] [options]
-.PP
+.Pp
 .B crlrefresh
 r [options]
-.PP
+.Pp
 .B crlrefresh
 f URL [options]
-.PP
+.Pp
 .B crlrefresh
 F URI [options]
-.PP
+.Pp
 .SH CRLREFRESH COMMAND SUMMARY
-.PP
+.Pp
 .B r
 Refresh the entire CRL cache
-.PP
+.Pp
 .B f
 Fetch a CRL from specified URL
-.PP
+.Pp
 .B F
 Fetch a Certificate from specified URL
-.PP
+.Pp
 .SH "DESCRIPTION"
 .B Crlrefresh
 is a UNIX command-line program which is used to refresh and update the contents of the system-wide cache of Certificate Revocation Lists (CRLs). CRLs, which are optionally used as part of the procedure for verifying X.509 certificates, are typically fetched from the network using a URL which appears in (some) certificates. Caching CRLs is an optimization to avoid costs of network latency and/or unavailability. Each CRL has a finite validity time which is specified in the CRL itself. This validity time may be as short as one day, or it may be much longer. Crlrefresh examines the contents of the CRL cache and updates - via network fetch - all CRLs which are currently, or will soon be, invalid. 
-.PP
+.Pp
 Crlrefresh is also use to fetch specific CRLs and certificates from the network; CRLs fetched via 
 .B crlrefresh
 will be added to the CRL cache as well as provided to the specified output file (or to stdout if no output file is provided). The URL specified in the 
@@ -53,13 +53,13 @@ will be added to the CRL cache as well as provided to the specified output file 
 and 
 .B F
 commands must have schema "http:" or "ldap:".
-.PP
+.Pp
 Typically,
 .B crlrefresh
 would be run on a regular basis via one of the configuration files used by the 
 .B cron(8)
 program.
-.PP
+.Pp
 .SH "CRLREFRESH OPTION SUMMARY"
 .TP
 .B s=stale_period
@@ -88,7 +88,7 @@ When fetching a CRL, this inhibits the addition of the fetched CRL to the syste
 .TP
 .B v
 Execute in verbose mode.
-.PP
+.Pp
 .SH FILES
 .B /var/db/crls/crlcache.db
 System CRL cache database

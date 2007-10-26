@@ -43,6 +43,7 @@
 #include "defs.h"
 #include "gdbcore.h"
 #include "target.h"
+#include "exceptions.h"
 #include <signal.h>
 #include <ctype.h>
 #include "gdb_string.h"
@@ -153,7 +154,7 @@ static void monitor_debug (const char *fmt, ...) ATTR_FORMAT(printf, 1, 2);
 static int monitor_debug_p = 0;
 
 /* NOTE: This file alternates between monitor_debug_p and remote_debug
-   when determining if debug information is printed.  Perhaphs this
+   when determining if debug information is printed.  Perhaps this
    could be simplified. */
 
 static void
@@ -244,9 +245,9 @@ monitor_error (char *function, char *message,
   monitor_printable_string (safe_string, string, real_len);
 
   if (final_char)
-    error ("%s (0x%s): %s: %s%c", function, paddr_nz (memaddr), message, safe_string, final_char);
+    error (_("%s (0x%s): %s: %s%c"), function, paddr_nz (memaddr), message, safe_string, final_char);
   else
-    error ("%s (0x%s): %s: %s", function, paddr_nz (memaddr), message, safe_string);
+    error (_("%s (0x%s): %s: %s"), function, paddr_nz (memaddr), message, safe_string);
 }
 
 /* Convert hex digit A to a number.  */
@@ -261,7 +262,7 @@ fromhex (int a)
   else if (a >= 'A' && a <= 'F')
     return a - 'A' + 10;
   else
-    error ("Invalid hex digit %d", a);
+    error (_("Invalid hex digit %d"), a);
 }
 
 /* monitor_vsprintf - similar to vsprintf but handles 64-bit addresses
@@ -345,7 +346,7 @@ monitor_printf_noecho (char *pattern,...)
 
   len = strlen (sndbuf);
   if (len + 1 > sizeof sndbuf)
-    internal_error (__FILE__, __LINE__, "failed internal consistency check");
+    internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 
   if (monitor_debug_p)
     {
@@ -373,7 +374,7 @@ monitor_printf (char *pattern,...)
 
   len = strlen (sndbuf);
   if (len + 1 > sizeof sndbuf)
-    internal_error (__FILE__, __LINE__, "failed internal consistency check");
+    internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 
   if (monitor_debug_p)
     {
@@ -428,9 +429,9 @@ monitor_readchar (void)
     return c;
 
   if (c == SERIAL_TIMEOUT)
-    error ("Timeout reading from remote system.");
+    error (_("Timeout reading from remote system."));
 
-  perror_with_name ("remote-monitor");
+  perror_with_name (_("remote-monitor"));
 }
 
 
@@ -499,13 +500,13 @@ readchar (int timeout)
     if (in_monitor_wait)	/* Watchdog went off */
       {
 	target_mourn_inferior ();
-	error ("GDB serial timeout has expired.  Target detached.\n");
+	error (_("GDB serial timeout has expired.  Target detached."));
       }
     else
 #endif
-      error ("Timeout reading from remote system.");
+      error (_("Timeout reading from remote system."));
 
-  perror_with_name ("remote-monitor");
+  perror_with_name (_("remote-monitor"));
 }
 
 /* Scan input from the remote system, until STRING is found.  If BUF is non-
@@ -716,7 +717,7 @@ compile_pattern (char *pattern, struct re_pattern_buffer *compiled_pattern,
   re_set_syntax (tmp);
 
   if (val)
-    error ("compile_pattern: Can't compile pattern string `%s': %s!", pattern, val);
+    error (_("compile_pattern: Can't compile pattern string `%s': %s!"), pattern, val);
 
   if (fastmap)
     re_compile_fastmap (compiled_pattern);
@@ -732,14 +733,14 @@ monitor_open (char *args, struct monitor_ops *mon_ops, int from_tty)
   char **p;
 
   if (mon_ops->magic != MONITOR_OPS_MAGIC)
-    error ("Magic number of monitor_ops struct wrong.");
+    error (_("Magic number of monitor_ops struct wrong."));
 
   targ_ops = mon_ops->target;
   name = targ_ops->to_shortname;
 
   if (!args)
-    error ("Use `target %s DEVICE-NAME' to use a serial port, or \n\
-`target %s HOST-NAME:PORT-NUMBER' to use a network connection.", name, name);
+    error (_("Use `target %s DEVICE-NAME' to use a serial port, or \n\
+`target %s HOST-NAME:PORT-NUMBER' to use a network connection."), name, name);
 
   target_preopen (from_tty);
 
@@ -838,7 +839,7 @@ monitor_open (char *args, struct monitor_ops *mon_ops, int from_tty)
     }
 
   if (from_tty)
-    printf_unfiltered ("Remote target %s connected to %s\n", name, dev_name);
+    printf_unfiltered (_("Remote target %s connected to %s\n"), name, dev_name);
 
   push_target (targ_ops);
 
@@ -878,7 +879,7 @@ monitor_detach (char *args, int from_tty)
 {
   pop_target ();		/* calls monitor_close to do the real work */
   if (from_tty)
-    printf_unfiltered ("Ending remote %s debugging\n", target_shortname);
+    printf_unfiltered (_("Ending remote %s debugging\n"), target_shortname);
 }
 
 /* Convert VALSTR into the target byte-ordered value of REGNO and store it.  */
@@ -916,14 +917,14 @@ monitor_supply_register (int regno, char *valstr)
   monitor_debug ("Supplying Register %d %s\n", regno, valstr);
 
   if (val == 0 && valstr == p)
-    error ("monitor_supply_register (%d):  bad value from monitor: %s.",
+    error (_("monitor_supply_register (%d):  bad value from monitor: %s."),
 	   regno, valstr);
 
   /* supply register stores in target byte order, so swap here */
 
-  store_unsigned_integer (regbuf, DEPRECATED_REGISTER_RAW_SIZE (regno), val);
+  store_unsigned_integer (regbuf, register_size (current_gdbarch, regno), val);
 
-  supply_register (regno, regbuf);
+  regcache_raw_supply (current_regcache, regno, regbuf);
 
   return p;
 }
@@ -1029,7 +1030,7 @@ monitor_interrupt_query (void)
 Give up (and stop debugging it)? "))
     {
       target_mourn_inferior ();
-      throw_exception (RETURN_QUIT);
+      deprecated_throw_reason (RETURN_QUIT);
     }
 
   target_terminal_inferior ();
@@ -1184,7 +1185,7 @@ monitor_fetch_register (int regno)
   if (!name || (*name == '\0'))
     {
       monitor_debug ("No register known for %d\n", regno);
-      supply_register (regno, zerobuf);
+      regcache_raw_supply (current_regcache, regno, zerobuf);
       return;
     }
 
@@ -1219,7 +1220,7 @@ monitor_fetch_register (int regno)
       if ((c == '0') && ((c = readchar (timeout)) == 'x'))
 	;
       else
-	error ("Bad value returned from monitor while fetching register %x.",
+	error (_("Bad value returned from monitor while fetching register %x."),
 	       regno);
     }
 
@@ -1227,7 +1228,7 @@ monitor_fetch_register (int regno)
      spaces, but stop reading if something else is seen.  Some monitors
      like to drop leading zeros.  */
 
-  for (i = 0; i < DEPRECATED_REGISTER_RAW_SIZE (regno) * 2; i++)
+  for (i = 0; i < register_size (current_gdbarch, regno) * 2; i++)
     {
       int c;
       c = readchar (timeout);
@@ -1299,7 +1300,7 @@ monitor_dump_regs (void)
       parse_register_dump (buf, resp_len);
     }
   else
-    internal_error (__FILE__, __LINE__, "failed internal consistency check");			/* Need some way to read registers */
+    internal_error (__FILE__, __LINE__, _("failed internal consistency check"));			/* Need some way to read registers */
 }
 
 static void
@@ -1344,7 +1345,7 @@ monitor_store_register (int regno)
 
   val = read_register (regno);
   monitor_debug ("MON storeg %d %s\n", regno,
-		 phex (val, DEPRECATED_REGISTER_RAW_SIZE (regno)));
+		 phex (val, register_size (current_gdbarch, regno)));
 
   /* send the register deposit command */
 
@@ -1410,7 +1411,7 @@ monitor_prepare_to_store (void)
 static void
 monitor_files_info (struct target_ops *ops)
 {
-  printf_unfiltered ("\tAttached to %s at %d baud.\n", dev_name, baud_rate);
+  printf_unfiltered (_("\tAttached to %s at %d baud.\n"), dev_name, baud_rate);
 }
 
 static int
@@ -1935,7 +1936,7 @@ monitor_read_memory (CORE_ADDR memaddr, char *myaddr, int len)
 	  c = *p;
 	}
       if (fetched == 0)
-	error ("Failed to read via monitor");
+	error (_("Failed to read via monitor"));
       if (monitor_debug_p || remote_debug)
 	fprintf_unfiltered (gdb_stdlog, "\n");
       return fetched;		/* Return the number of bytes actually read */
@@ -2011,10 +2012,11 @@ monitor_kill (void)
    the program at that point.  */
 
 static void
-monitor_create_inferior (char *exec_file, char *args, char **env)
+monitor_create_inferior (char *exec_file, char *args, char **env,
+			 int from_tty)
 {
   if (args && (*args != '\000'))
-    error ("Args are not supported by the monitor.");
+    error (_("Args are not supported by the monitor."));
 
   first_time = 1;
   clear_proceed_status ();
@@ -2044,7 +2046,7 @@ monitor_insert_breakpoint (CORE_ADDR addr, char *shadow)
 
   monitor_debug ("MON inst bkpt %s\n", paddr (addr));
   if (current_monitor->set_break == NULL)
-    error ("No set_break defined for this monitor");
+    error (_("No set_break defined for this monitor"));
 
   if (current_monitor->flags & MO_ADDR_BITS_REMOVE)
     addr = ADDR_BITS_REMOVE (addr);
@@ -2064,7 +2066,7 @@ monitor_insert_breakpoint (CORE_ADDR addr, char *shadow)
 	}
     }
 
-  error ("Too many breakpoints (> %d) for monitor.", current_monitor->num_breakpoints);
+  error (_("Too many breakpoints (> %d) for monitor."), current_monitor->num_breakpoints);
 }
 
 /* Tell the monitor to remove a breakpoint.  */
@@ -2076,7 +2078,7 @@ monitor_remove_breakpoint (CORE_ADDR addr, char *shadow)
 
   monitor_debug ("MON rmbkpt %s\n", paddr (addr));
   if (current_monitor->clr_break == NULL)
-    error ("No clr_break defined for this monitor");
+    error (_("No clr_break defined for this monitor"));
 
   if (current_monitor->flags & MO_ADDR_BITS_REMOVE)
     addr = ADDR_BITS_REMOVE (addr);
@@ -2206,7 +2208,7 @@ monitor_rcmd (char *command,
   char buf[1000];
 
   if (monitor_desc == NULL)
-    error ("monitor target not open.");
+    error (_("monitor target not open."));
 
   p = current_monitor->prompt;
 
@@ -2233,7 +2235,7 @@ from_hex (int a)
   if (a >= 'A' && a <= 'F')
     return a - 'A' + 10;
 
-  error ("Reply contains invalid hex digit 0x%x", a);
+  error (_("Reply contains invalid hex digit 0x%x"), a);
 }
 #endif
 
@@ -2255,7 +2257,7 @@ init_base_monitor_ops (void)
   monitor_ops.to_fetch_registers = monitor_fetch_registers;
   monitor_ops.to_store_registers = monitor_store_registers;
   monitor_ops.to_prepare_to_store = monitor_prepare_to_store;
-  monitor_ops.to_xfer_memory = monitor_xfer_memory;
+  monitor_ops.deprecated_xfer_memory = monitor_xfer_memory;
   monitor_ops.to_files_info = monitor_files_info;
   monitor_ops.to_insert_breakpoint = monitor_insert_breakpoint;
   monitor_ops.to_remove_breakpoint = monitor_remove_breakpoint;
@@ -2293,18 +2295,20 @@ void
 _initialize_remote_monitors (void)
 {
   init_base_monitor_ops ();
-  add_show_from_set (add_set_cmd ("hash", no_class, var_boolean,
-				  (char *) &hashmark,
-				  "Set display of activity while downloading a file.\n\
-When enabled, a hashmark \'#\' is displayed.",
-				  &setlist),
-		     &showlist);
+  add_setshow_boolean_cmd ("hash", no_class, &hashmark, _("\
+Set display of activity while downloading a file."), _("\
+Show display of activity while downloading a file."), _("\
+When enabled, a hashmark \'#\' is displayed."),
+			   NULL,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 
-  add_show_from_set
-    (add_set_cmd ("monitor", no_class, var_zinteger,
-		  (char *) &monitor_debug_p,
-		  "Set debugging of remote monitor communication.\n\
+  add_setshow_zinteger_cmd ("monitor", no_class, &monitor_debug_p, _("\
+Set debugging of remote monitor communication."), _("\
+Show debugging of remote monitor communication."), _("\
 When enabled, communication between GDB and the remote monitor\n\
-is displayed.", &setdebuglist),
-     &showdebuglist);
+is displayed."),
+			    NULL,
+			    NULL, /* FIXME: i18n: */
+			    &setdebuglist, &showdebuglist);
 }

@@ -1,0 +1,2 @@
+%(member)s 已从 %(listname)s 中移除。
+

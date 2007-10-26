@@ -1,0 +1,23 @@
+.\" -*- coding: us-ascii -*-
+.TH xmore __appmansuffix__ "1 February 2005"  
+.SH NAME
+xmore \- plain text display program for the X Window System
+.SH SYNOPSIS
+.ad l
+\fBxmore\fR \kx
+.if (\nxu > (\n(.lu / 2)) .nr x (\n(.lu / 5)
+'in \n(.iu+\nxu
+[\fB\fBfilename\fR\fR]
+'in \n(.iu-\nxu
+.ad b
+.SH DESCRIPTION
+xmore is a plain text browser.
+.SH ENVIRONMENT
+.TP 
+\fBXPSERVERLIST\fR 
+\fB${XPSERVERLIST}\fR must be set,
+identifying the available Xprint servers.
+See \fBXprint\fR(__miscmansuffix__)
+for more details.
+.SH "SEE ALSO"
+\fBX11\fR(__miscmansuffix__), \fBxman\fR(__appmansuffix__)

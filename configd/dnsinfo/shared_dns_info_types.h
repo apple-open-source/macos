@@ -32,6 +32,9 @@
 #endif
 #define mig_external __private_extern__
 
+/* Turn MIG type checking on by default */
+#define __MigTypeCheck	1
+
 /*
  * Mach server port name
  */
@@ -48,4 +51,4 @@ typedef const char * dnsData_t;
  */
 typedef char * dnsDataOut_t;
 
-#endif /* !_SHARED_DNS_INFO_TYPES_H */
+#endif	/* !_SHARED_DNS_INFO_TYPES_H */

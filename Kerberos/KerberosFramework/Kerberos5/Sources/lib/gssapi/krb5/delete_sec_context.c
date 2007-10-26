@@ -23,7 +23,7 @@
 #include "gssapiP_krb5.h"
 
 /*
- * $Id: delete_sec_context.c 16465 2004-06-16 02:37:23Z tlyu $
+ * $Id: delete_sec_context.c 18396 2006-07-25 20:29:43Z lxs $
  */
 
 OM_uint32
@@ -53,7 +53,7 @@ krb5_gss_delete_sec_context(minor_status, context_handle, output_token)
       return(GSS_S_NO_CONTEXT);
    }
 
-   ctx = (gss_ctx_id_t) *context_handle;
+   ctx = (krb5_gss_ctx_id_t) *context_handle;
    context = ctx->k5_context;
 
    /* construct a delete context token if necessary */
@@ -92,6 +92,9 @@ krb5_gss_delete_sec_context(minor_status, context_handle, output_token)
       krb5_free_keyblock(context, ctx->subkey);
    if (ctx->acceptor_subkey)
        krb5_free_keyblock(context, ctx->acceptor_subkey);
+
+   if (ctx->apple_authdata_if_relevant)
+		krb5_free_authdata(context, ctx->apple_authdata_if_relevant);
 
    if (ctx->auth_context) {
        if (ctx->cred_rcache)

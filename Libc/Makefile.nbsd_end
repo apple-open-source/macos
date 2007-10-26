@@ -13,32 +13,46 @@
 NBSDSECTIONS= 1 2 3 4 5 6 7 8 9
 
 .for _src in ${NBSDSRCS}
-${SYMROOT}/${_src:R}-nbsd.${_src:E}: NetBSD/${_src} _AUTOPATCHSYM
+.ifmake autopatch
+${_src:R}-nbsd.${_src:E}: NetBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHSRCS+= ${_src:R}-nbsd.${_src:E}
+.else # !autopatch
 SRCS+= ${_src}
-AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-nbsd.${_src:E}
+.endif # autopatch
 .endfor
 
 .for _src in ${NBSDMDSRCS}
-${SYMROOT}/${_src:R}-nbsd.${_src:E}: NetBSD/${_src} _AUTOPATCHSYM
+.ifmake autopatch
+${_src:R}-nbsd.${_src:E}: NetBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHSRCS+= ${_src:R}-nbsd.${_src:E}
+.else # !autopatch
 MDSRCS+= ${_src}
-AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-nbsd.${_src:E}
+.endif # autopatch
 .endfor
 
 .for _src in ${NBSDMISRCS}
-${SYMROOT}/${_src:R}-nbsd.${_src:E}: NetBSD/${_src} _AUTOPATCHSYM
+.ifmake autopatch
+${_src:R}-nbsd.${_src:E}: NetBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHSRCS+= ${_src:R}-nbsd.${_src:E}
+.else # !autopatch
 MISRCS+= ${_src}
-AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-nbsd.${_src:E}
+.endif # autopatch
 .endfor
 
+.ifmake autopatch
 .for _src in ${NBSDHDRS}
-${SYMROOT}/${_src}: NetBSD/${_src} _AUTOPATCHSYM
-AUTOPATCHHDRS+= ${SYMROOT}/${_src}
+${_src}: NetBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHHDRS+= ${_src}
 .endfor
+.endif # autopatch
 
 .for _sect in ${NBSDSECTIONS}
 .for _src in ${NBSDMAN${_sect}}
+.ifmake autopatch
 ${_src}: NetBSD/${_src} _AUTOPATCH
-MAN${_sect}+= ${_src}
 AUTOPATCHMAN+= ${_src}
+.else # !autopatch
+MAN${_sect}+= ${_src}
+.endif # autopatch
 .endfor
 .endfor

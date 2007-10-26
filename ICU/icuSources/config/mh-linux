@@ -1,6 +1,6 @@
 ## -*-makefile-*-
 ## Linux-specific setup
-## Copyright (c) 1999-2004, International Business Machines Corporation and
+## Copyright (c) 1999-2006, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 ## Commands to generate dependency files
@@ -13,12 +13,15 @@ SHAREDLIBCXXFLAGS = -fPIC
 SHAREDLIBCPPFLAGS = -DPIC
 
 ## Additional flags when building libraries and with threads
-LIBCPPFLAGS = -D_REENTRANT
 THREADSCPPFLAGS = -D_REENTRANT
+LIBCPPFLAGS =
 
 ## Compiler switch to embed a runtime search path
 LD_RPATH=	
 LD_RPATH_PRE = -Wl,-rpath,
+
+## These are the library specific LDFLAGS
+LDFLAGSICUDT=-nodefaultlibs -nostdlib
 
 ## Compiler switch to embed a library name
 # The initial tab in the next line is to prevent icu-config from reading it.
@@ -67,9 +70,6 @@ STATIC_O = ao
 
 # LDflags that pkgdata will use
 BIR_LDFLAGS= -Wl,-Bsymbolic
-
-# CPPflags for genccode/gencmn
-BIR_CPPFLAGS= -DU_HAVE_BIND_INTERNAL_REFERENCES
 
 # Dependencies [i.e. map files] for the final library
 BIR_DEPS=

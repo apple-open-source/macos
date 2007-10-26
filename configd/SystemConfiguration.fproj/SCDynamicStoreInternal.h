@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -101,7 +101,7 @@ __SCDynamicStoreCreatePrivate		(CFAllocatorRef			allocator,
 					 SCDynamicStoreContext		*context);
 
 void
-__showMachPortStatus			();
+__showMachPortStatus			(void);
 
 void
 __showMachPortReferences		(mach_port_t			port);

@@ -693,35 +693,37 @@ int getreply(int expecteof)
 			    n = '5';
 			}
 #ifdef KRB5_KRB4_COMPAT
-			else if (strcmp(auth_type, "KERBEROS_V4") == 0)
-				if ((kerror = safe ?
-				  krb_rd_safe((unsigned char *)ibuf, 
-					      (unsigned int) len,
-					      &cred.session,
-					      &hisctladdr, 
-					      &myctladdr, &msg_data)
-				: krb_rd_priv((unsigned char *)ibuf, 
-					      (unsigned int) len,
-					      schedule, &cred.session,
-					      &hisctladdr, &myctladdr,
-					      &msg_data))
-				!= KSUCCESS) {
-				  printf("%d reply %s! (krb_rd_%s: %s)\n", code,
-					safe ? "modified" : "garbled",
-					safe ? "safe" : "priv",
-					krb_get_err_text(kerror));
-				  n = '5';
-				} else {
-				  if (debug) printf("%c:", safe ? 'S' : 'P');
-				  if(msg_data.app_length < sizeof(ibuf) - 2) {
-				    memcpy(ibuf, msg_data.app_data,
-					   msg_data.app_length);
+			else if (strcmp(auth_type, "KERBEROS_V4") == 0) {
+			    if (safe)
+				kerror = krb_rd_safe((unsigned char *)ibuf,
+						     (unsigned int) len,
+						     &cred.session,
+						     &hisctladdr,
+						     &myctladdr, &msg_data);
+			    else
+				kerror = krb_rd_priv((unsigned char *)ibuf,
+						     (unsigned int) len,
+						     schedule, &cred.session,
+						     &hisctladdr, &myctladdr,
+						     &msg_data);
+			    if (kerror != KSUCCESS) {
+				printf("%d reply %s! (krb_rd_%s: %s)\n", code,
+				       safe ? "modified" : "garbled",
+				       safe ? "safe" : "priv",
+				       krb_get_err_text(kerror));
+				n = '5';
+			    } else {
+				if (debug) printf("%c:", safe ? 'S' : 'P');
+				if(msg_data.app_length < sizeof(ibuf) - 2) {
+				    memmove(ibuf, msg_data.app_data,
+					    msg_data.app_length);
 				    strcpy(&ibuf[msg_data.app_length], "\r\n");
-				  } else {
+				} else {
 			            printf("Message too long!");
-				  }
-				  continue;
 				}
+				continue;
+			    }
+			}
 #endif
 #ifdef GSSAPI
 			else if (strcmp(auth_type, "GSSAPI") == 0) {
@@ -1684,7 +1686,8 @@ void pswitch(int flag)
 	ip->connect = connected;
 	connected = op->connect;
 	if (hostname) {
-		(void) strncpy(ip->name, hostname, sizeof(ip->name) - 1);
+		if (ip->name != hostname)
+			(void) strncpy(ip->name, hostname, sizeof(ip->name) - 1);
 		ip->name[strlen(ip->name)] = '\0';
 	} else
 		ip->name[0] = 0;

@@ -1,0 +1,45 @@
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem asl_ipc 1;
+serverprefix _;
+
+import <sys/types.h>;
+
+type ooline_data = ^ array [] of MACH_MSG_TYPE_BYTE
+	ctype : caddr_t;
+
+routine _asl_server_query
+(
+	server : mach_port_t;
+	request : ooline_data, dealloc;
+	startid : uint64_t;
+	count : int;
+	flags : int;
+	out reply : ooline_data, dealloc;
+	out lastid : uint64_t;
+	out status : int;
+	SecToken token : security_token_t
+);
+
+routine _asl_server_query_timeout
+(
+	server : mach_port_t;
+	request : ooline_data, dealloc;
+	startid : uint64_t;
+	count : int;
+	flags : int;
+	WaitTime timeout: natural_t;
+	out reply : ooline_data, dealloc;
+	out lastid : uint64_t;
+	out status : int;
+	SecToken token : security_token_t
+);
+
+routine _asl_server_prune
+(
+	server : mach_port_t;
+	request : ooline_data, dealloc;
+	out status : int;
+	SecToken token : security_token_t
+);

@@ -8,6 +8,9 @@
 
 #ifndef _h_config
 #define _h_config
+
+#undef _FILE_OFFSET_BITS
+
 /****************** System dependant compilation flags ****************/
 /*
  * POSIX	This system supports IEEE Std 1003.1-1988 (POSIX).
@@ -44,7 +47,7 @@
  * BSDJOBS	You have BSD-style job control (both process groups and
  *		a tty that deals correctly
  */
-#undef BSDJOBS
+#define BSDJOBS
 
 /*
  * BSDSIGS	You have 4.2-style signals, rather than USG style.
@@ -58,18 +61,12 @@
  *		This may or may not be true.  For example, Apple Unix
  *		(OREO) has BSDJOBS and BSDSIGS but not BSDTIMES.
  */
-#undef BSDTIMES
+#define BSDTIMES
 
 /*
  * BSDLIMIT	You have BSD-style resource limit stuff (getrlimit/setrlimit)
  */
-#undef BSDLIMIT
-
-/*
- * BSDNICE	Your system uses setpriority() instead of nice, to
- *		change a processes scheduling priority
- */
-#undef BSDNICE
+#define BSDLIMIT
 
 /*
  * TERMIO	You have struct termio instead of struct sgttyb.
@@ -101,37 +98,6 @@
 #undef NISPLUS
 
 /*
- * SIGVOID	Define this if your signal handlers return void.  On older
- *		systems, signal returns int, but on newer ones, it returns void.
- */
-#define SIGVOID 
-
-/*
- * HAVEDUP2	Define this if your system supports dup2().
- */
-#define HAVEDUP2
-
-/*
- * HAVEUTMPX	Define if you have extended utmp (utmpx).
- *		(common for svr4 systems)
- */
-#undef HAVEUTMPX
-
-/*
- * UTHOST	Does the utmp file have a host field?
- */
-#ifdef HAVEUTMPX
-# define UTHOST
-#else
-# undef UTHOST
-#endif /* HAVEUTMPX */
-
-/*
- * DIRENT	Your system has <dirent.h> instead of <sys/dir.h>
- */
-#define DIRENT
-
-/*
  * ECHO_STYLE	Optionally change the behavior of the builtin echo
  *		BOTH_ECHO: Support both bsd options (-n) and sysv escapes (\nnn)
  *		BSD_ECHO:  Support only -n
@@ -141,14 +107,6 @@
 #define ECHO_STYLE BOTH_ECHO
 
 /****************** local defines *********************/
-#ifndef BSDTIMES
-# define NEEDgethostname
-#endif
-/*
- * Shadow passwd file
- */
-#undef PW_SHADOW
-
 /*
  * From: peter@zeus.dialix.oz.au (Peter Wemm)
  * If exec() fails look first for a #! [word] [word]...
@@ -156,8 +114,6 @@
  */
 #define HASHBANG
 
-/****************** configurable hacks ****************/
-/* have been moved to config_f.h */
-#include "config_f.h"
+#define setmode(fd,mode) /*nothing*/
 
 #endif /* _h_config */

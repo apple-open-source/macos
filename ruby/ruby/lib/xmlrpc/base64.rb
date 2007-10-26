@@ -77,5 +77,5 @@ end # module XMLRPC
 
 =begin
 = History
-    $Id: base64.rb,v 1.1 2003/07/19 10:05:54 matz Exp $
+    $Id: base64.rb 11708 2007-02-12 23:01:19Z shyouhei $
 =end

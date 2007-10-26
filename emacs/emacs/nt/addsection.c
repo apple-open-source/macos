@@ -1,5 +1,6 @@
 /* Add an uninitialized data section to an executable.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005,
+      2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
    Andrew Innes <andrewi@harlequin.co.uk>       04-Jan-1999
      based on code from unexw32.c
@@ -67,17 +68,17 @@ open_input_file (file_data *p_file, char *filename)
 
   file = CreateFile (filename, GENERIC_READ, FILE_SHARE_READ, NULL,
 		     OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-  if (file == INVALID_HANDLE_VALUE) 
+  if (file == INVALID_HANDLE_VALUE)
     return FALSE;
 
   size = GetFileSize (file, &upper_size);
-  file_mapping = CreateFileMapping (file, NULL, PAGE_READONLY, 
+  file_mapping = CreateFileMapping (file, NULL, PAGE_READONLY,
 				    0, size, NULL);
-  if (!file_mapping) 
+  if (!file_mapping)
     return FALSE;
 
   file_base = MapViewOfFile (file_mapping, FILE_MAP_READ, 0, 0, size);
-  if (file_base == 0) 
+  if (file_base == 0)
     return FALSE;
 
   p_file->name = filename;
@@ -98,18 +99,18 @@ open_output_file (file_data *p_file, char *filename, unsigned long size)
 
   file = CreateFile (filename, GENERIC_READ | GENERIC_WRITE, 0, NULL,
 		     CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
-  if (file == INVALID_HANDLE_VALUE) 
+  if (file == INVALID_HANDLE_VALUE)
     return FALSE;
 
-  file_mapping = CreateFileMapping (file, NULL, PAGE_READWRITE, 
+  file_mapping = CreateFileMapping (file, NULL, PAGE_READWRITE,
 				    0, size, NULL);
-  if (!file_mapping) 
+  if (!file_mapping)
     return FALSE;
-  
+
   file_base = MapViewOfFile (file_mapping, FILE_MAP_WRITE, 0, 0, size);
-  if (file_base == 0) 
+  if (file_base == 0)
     return FALSE;
-  
+
   p_file->name = filename;
   p_file->size = size;
   p_file->file = file;
@@ -270,7 +271,7 @@ relocate_offset (DWORD offset,
 
 
 static void
-copy_executable_and_add_section (file_data *p_infile, 
+copy_executable_and_add_section (file_data *p_infile,
 				 file_data *p_outfile,
 				 char *new_section_name,
 				 DWORD new_section_size)
@@ -283,15 +284,19 @@ copy_executable_and_add_section (file_data *p_infile,
   PIMAGE_SECTION_HEADER dst_section;
   DWORD offset;
   int i;
+  int be_verbose = GetEnvironmentVariable ("DEBUG_DUMP", NULL, 0) > 0;
 
-#define COPY_CHUNK(message, src, size)						\
+#define COPY_CHUNK(message, src, size, verbose)					\
   do {										\
     unsigned char *s = (void *)(src);						\
     unsigned long count = (size);						\
-    printf ("%s\n", (message));							\
-    printf ("\t0x%08x Offset in input file.\n", s - p_infile->file_base);	\
-    printf ("\t0x%08x Offset in output file.\n", dst - p_outfile->file_base);	\
-    printf ("\t0x%08x Size in bytes.\n", count);				\
+    if (verbose)								\
+      {										\
+	printf ("%s\n", (message));						\
+	printf ("\t0x%08x Offset in input file.\n", s - p_infile->file_base); 	\
+	printf ("\t0x%08x Offset in output file.\n", dst - p_outfile->file_base); \
+	printf ("\t0x%08x Size in bytes.\n", count);				\
+      }										\
     memcpy (dst, s, count);							\
     dst += count;								\
   } while (0)
@@ -314,20 +319,21 @@ copy_executable_and_add_section (file_data *p_infile,
      Note that dst is updated implicitly by each COPY_CHUNK.  */
 
   dos_header = (PIMAGE_DOS_HEADER) p_infile->file_base;
-  nt_header = (PIMAGE_NT_HEADERS) (((unsigned long) dos_header) + 
+  nt_header = (PIMAGE_NT_HEADERS) (((unsigned long) dos_header) +
 				   dos_header->e_lfanew);
   section = IMAGE_FIRST_SECTION (nt_header);
- 
+
   dst = (unsigned char *) p_outfile->file_base;
 
   COPY_CHUNK ("Copying DOS header...", dos_header,
-	      (DWORD) nt_header - (DWORD) dos_header);
+	      (DWORD) nt_header - (DWORD) dos_header, be_verbose);
   dst_nt_header = (PIMAGE_NT_HEADERS) dst;
   COPY_CHUNK ("Copying NT header...", nt_header,
-	      (DWORD) section - (DWORD) nt_header);
+	      (DWORD) section - (DWORD) nt_header, be_verbose);
   dst_section = (PIMAGE_SECTION_HEADER) dst;
   COPY_CHUNK ("Copying section table...", section,
-	      nt_header->FileHeader.NumberOfSections * sizeof (*section));
+	      nt_header->FileHeader.NumberOfSections * sizeof (*section),
+	      be_verbose);
 
   /* To improve the efficiency of demand loading, make the file
      alignment match the section alignment (VC++ 6.0 does this by
@@ -351,7 +357,9 @@ copy_executable_and_add_section (file_data *p_infile,
   for (i = 0; i < nt_header->FileHeader.NumberOfSections; i++)
     {
       char msg[100];
-      sprintf (msg, "Copying raw data for %s...", section->Name);
+      /* Windows section names are fixed 8-char strings, only
+	 zero-terminated if the name is shorter than 8 characters.  */
+      sprintf (msg, "Copying raw data for %.8s...", section->Name);
 
       /* Update the file-relative offset for this section's raw data (if
          it has any) in case things have been relocated; we will update
@@ -362,7 +370,7 @@ copy_executable_and_add_section (file_data *p_infile,
       /* Can always copy the original raw data.  */
       COPY_CHUNK
 	(msg, OFFSET_TO_PTR (section->PointerToRawData, p_infile),
-	 section->SizeOfRawData);
+	 section->SizeOfRawData, be_verbose);
 
       /* Round up the raw data size to the new alignment.  */
       dst_section->SizeOfRawData =
@@ -402,7 +410,7 @@ copy_executable_and_add_section (file_data *p_infile,
   COPY_CHUNK
     ("Copying remainder of executable...",
      OFFSET_TO_PTR (offset, p_infile),
-     p_infile->size - offset);
+     p_infile->size - offset, be_verbose);
 
   /* Final size for new image.  */
   p_outfile->size = DST_TO_OFFSET ();
@@ -477,7 +485,7 @@ main (int argc, char **argv)
   /* Open the undumped executable file.  */
   if (!open_input_file (&in_file, in_filename))
     {
-      printf ("Failed to open %s (%d)...bailing.\n", 
+      printf ("Failed to open %s (%d)...bailing.\n",
 	      in_filename, GetLastError ());
       exit (1);
     }
@@ -491,7 +499,7 @@ main (int argc, char **argv)
     * nt_header->FileHeader.NumberOfSections;
   if (!open_output_file (&out_file, out_filename, size))
     {
-      printf ("Failed to open %s (%d)...bailing.\n", 
+      printf ("Failed to open %s (%d)...bailing.\n",
 	      out_filename, GetLastError ());
       exit (1);
     }
@@ -534,3 +542,6 @@ main (int argc, char **argv)
 }
 
 /* eof */
+
+/* arch-tag: 17e2b0aa-8c17-4bd1-b24b-1cda689245fa
+   (do not change this comment) */

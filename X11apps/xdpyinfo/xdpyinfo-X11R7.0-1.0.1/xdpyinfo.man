@@ -1,0 +1,66 @@
+.\" $Xorg: xdpyinfo.man,v 1.4 2001/02/09 02:05:41 xorgcvs Exp $
+.\" Copyright 1988, 1989, 1994, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\"
+.\" $XFree86: xc/programs/xdpyinfo/xdpyinfo.man,v 3.7 2001/01/27 18:21:11 dawes Exp $
+.\"
+.TH XDPYINFO 1 __xorgversion__
+.SH NAME
+xdpyinfo \- display information utility for X
+.SH SYNOPSIS
+.B "xdpyinfo"
+[\-display \fIdisplayname\fP]
+[\-queryExtensions]
+[\-ext \fIextension-name\fP]
+.SH DESCRIPTION
+.PP
+.I Xdpyinfo
+is a utility for displaying information about an X server.  It is used to 
+examine the
+capabilities of a server, the predefined values for various parameters used
+in communicating between clients and the server, and the different types of
+screens and visuals that are available.
+.PP
+By default, numeric information (opcode, base event, base error) about
+protocol extensions is not displayed.  This information can be obtained
+with the \fB\-queryExtensions\fP option.  Use of this option on servers
+that dynamically load extensions will likely cause all possible extensions
+to be loaded, which can be slow and can consume significant server resources.
+.PP
+Detailed information about a particular extension is displayed with the
+\fB\-ext\fP \fIextensionName\fP option.  If \fIextensionName\fP is
+\fBall\fP, information about all extensions supported by both \fIxdpyinfo\fP
+and the server is displayed.
+.SH ENVIRONMENT
+.PP
+.TP 8
+.B DISPLAY
+To get the default host, display number, and screen.
+.SH "SEE ALSO"
+X(__miscmansuffix__), xwininfo(1), xprop(1), xrdb(1)
+.SH AUTHOR
+Jim Fulton, MIT X Consortium
+.br
+Support for the XFree86-VidModeExtension, XFree86-DGA, XFree86-Misc,
+and XKB extensions added by Joe Moss

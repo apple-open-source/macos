@@ -1,0 +1,18 @@
+--- _SB/Libc/stdlib/FreeBSD/labs.3	2003-05-20 15:23:24.000000000 -0700
++++ _SB/Libc/stdlib/FreeBSD/labs.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -47,13 +47,13 @@
+ .Sh SYNOPSIS
+ .In stdlib.h
+ .Ft long
+-.Fn labs "long j"
++.Fn labs "long i"
+ .Sh DESCRIPTION
+ The
+ .Fn labs
+ function
+ returns the absolute value of the long integer
+-.Fa j .
++.Fa i .
+ .Sh SEE ALSO
+ .Xr abs 3 ,
+ .Xr cabs 3 ,

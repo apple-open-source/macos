@@ -42,6 +42,7 @@ itcl::class DebugWin {
     method _clear {}
     method _mark_old {}
     method _save_contents {}
+    method reconfig {}
   }
 
   protected {

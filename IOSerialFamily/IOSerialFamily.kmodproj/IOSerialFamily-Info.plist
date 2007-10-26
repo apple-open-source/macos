@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>9.0</string>
+	<string>9.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>9.0.0d30</string>
+	<string>9.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSerialBSDClient</key>
@@ -58,15 +58,15 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kpi.bsd</key>
-		<string>8.0.0</string>
+		<string>9.0.0b2</string>
 		<key>com.apple.kpi.iokit</key>
-		<string>8.0.0</string>
+		<string>9.0.0b2</string>
 		<key>com.apple.kpi.libkern</key>
-		<string>8.0.0</string>
+		<string>9.0.0b2</string>
 		<key>com.apple.kpi.mach</key>
-		<string>8.0.0</string>
+		<string>9.0.0b2</string>
 		<key>com.apple.kpi.unsupported</key>
-		<string>8.0.0</string>
+		<string>9.0.0b2</string>
 	</dict>
 </dict>
 </plist>

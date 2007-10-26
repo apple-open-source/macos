@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,6 +19,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 #ifndef _IOKIT_IOUSBDEVICE_H
 #define _IOKIT_IOUSBDEVICE_H
@@ -102,10 +103,12 @@ protected:
 		bool					_suspendCommand;
 		IOCommandGate *			_commandGate;
 		OSSet *					_openInterfaces;
+		bool					_resetCommand;
+		IOReturn				_resetError;
+		IOReturn				_suspendError;
+        thread_call_t			_doMessageClientsThread;
     };
     ExpansionData * _expansionData;
-
-   virtual void free();	
 
     const IOUSBConfigurationDescriptor *FindConfig(UInt8 configValue, UInt8 *configIndex=0);
 
@@ -124,26 +127,24 @@ protected:
     virtual bool matchPropertyTable(OSDictionary * table, SInt32 *score);
     
 public:
+    // IOService methods
+    virtual bool		init( void );
+    virtual bool		start( IOService *provider );	
+	virtual bool		handleIsOpen(const IOService *forClient) const;
+	virtual bool		handleOpen(IOService *forClient, IOOptionBits options, void *arg);
+	virtual void		handleClose(IOService *forClient, IOOptionBits options);
+    virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
+    virtual bool		terminate( IOOptionBits options = 0 );
+    virtual bool		requestTerminate( IOService * provider, IOOptionBits options );
+    virtual void		stop( IOService *provider );
+    virtual bool		finalize(IOOptionBits options);
+	virtual void		free( void );	
+
+	// IOUSBDevice methods
     virtual void SetProperties();
     
     static IOUSBDevice *NewDevice(void);
     
-    // IOService methods
-    virtual bool 	init();
-    virtual bool 	attach(IOService *provider);
-    virtual bool 	start( IOService *provider );
-    virtual void 	stop( IOService *provider );
-    virtual bool 	finalize(IOOptionBits options);
-    virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
-    virtual bool 	willTerminate( IOService * provider, IOOptionBits options );
-    virtual bool 	didTerminate( IOService * provider, IOOptionBits options, bool * defer );
-	
-	virtual bool	handleIsOpen(const IOService *forClient) const;
-	virtual bool	handleOpen(IOService *forClient, IOOptionBits options, void *arg);
-	virtual void	handleClose(IOService *forClient, IOOptionBits options);
-    virtual bool	terminate( IOOptionBits options = 0 );
-    virtual bool	requestTerminate( IOService * provider, IOOptionBits options );
-
     virtual void SetPort(void *port);			// Obsolete, do NOT use
 
     /*!
@@ -284,12 +285,8 @@ public:
         returns a pointer to the device's default control pipe
     */
     virtual IOUSBPipe * GetPipeZero(void);
-    /*!
-        @function MakePipe
-        @abstract build a pipe on a given endpoint
-        @param ep A description of the endpoint
-        returns the desired IOUSBPipe object
-    */
+
+	// Deprecated but needed for binary compatibility
     virtual IOUSBPipe*	MakePipe(const IOUSBEndpointDescriptor *ep);
     
     // this method is deprecated. use the other DeviceRequest methods
@@ -340,6 +337,7 @@ public:
     // this is a non-virtual function so that we don't have to take up a binary compatibility slot.
     UInt16	GetbcdUSB(void);
     UInt8	GetProtocol(void);
+	void	SetBusPowerAvailable(UInt32 newPower);
 
     OSMetaClassDeclareReservedUsed(IOUSBDevice,  0);
     /*!
@@ -398,6 +396,7 @@ public:
         @function MakePipe
 	 @abstract build a pipe on a given endpoint
 	 @param ep A description of the endpoint
+	 @param interface The IOUSBInterface object requesting the pipe
 	 returns the desired IOUSBPipe object
 	 */
     virtual IOUSBPipe*	MakePipe(const IOUSBEndpointDescriptor *ep, IOUSBInterface *interface);
@@ -430,7 +429,10 @@ private:
    
     static void 	ProcessPortReEnumerateEntry(OSObject *target, thread_call_param_t options);
     void 		ProcessPortReEnumerate(UInt32 options);
-
+	
+    static void 	DoMessageClientsEntry(OSObject *target, thread_call_param_t messageStruct);
+    void 		DoMessageClients( void * messageStructPtr);
+	
     static void 	DisplayUserNotificationForDeviceEntry (OSObject *owner, IOTimerEventSource *sender);
     void		DisplayUserNotificationForDevice( );
     

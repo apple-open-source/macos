@@ -1,19 +1,19 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/ar_SY.xml
+// * Source File:<path>/common/main/ar_SY.xml
 // *
 // ***************************************************************************
 ar_SY{
     NumberPatterns{
-        "###0.###;###0.###-",
-        "¤###0.00;-¤###0.00",
+        "#0.###;#0.###-",
+        "¤#0.00",
         "#,##0%",
         "#E0",
     }
-    Version{"1.2"}
+    Version{"1.40"}
     calendar{
         gregorian{
             DateTimeElements:intvector{

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -108,6 +108,9 @@ static struct opt {
 	{ MNT_AUTOMOUNTED,	"automounted" },
 	{ MNT_JOURNALED,	"journaled" },
 	{ MNT_DEFWRITE, 	"defwrite" },
+	{ MNT_IGNORE_OWNERSHIP,	"noowners" },
+	{ MNT_NOATIME,		"noatime" },
+	{ MNT_QUARANTINE,	"quarantine" },
 	{ 0, 				NULL }
 };
 
@@ -119,11 +122,8 @@ main(argc, argv)
 	const char *mntfromname, **vfslist, *vfstype;
 	struct fstab *fs;
 	struct statfs *mntbuf;
-	FILE *mountdfp;
-	pid_t pid;
 	int all, ch, i, init_flags, mntsize, rval;
 	char *options;
-	int hup = 0; /* controls whether mountd will be signalled */
 
 	all = init_flags = 0;
 	options = NULL;
@@ -190,7 +190,9 @@ main(argc, argv)
 					if (hasopt(fs->fs_mntops, "net"))
 						continue;
 					/* check if already mounted */
-					if (ismounted(fs->fs_spec, fs->fs_file))
+					if (fs->fs_spec == NULL || 
+					    fs->fs_file == NULL ||
+					    ismounted(fs->fs_spec, fs->fs_file))
 						continue;
 				}
 				if (mountfs(fs->fs_vfstype, fs->fs_spec,
@@ -224,16 +226,6 @@ main(argc, argv)
 				mntfromname = mntbuf->f_mntfromname;
 			rval = mountfs(mntbuf->f_fstypename, mntfromname,
 			    mntbuf->f_mntonname, init_flags, options, 0);
-			/*
-			   TBD: This could be generalized by calling getattrlist() on the
-			   filesystem in question to see if it supports NFS export,
-			   instead of explicitly special-casing all filesystems for
-			   which that's known to be true:
-			 */
-			if (!rval && (!strcmp(mntbuf->f_fstypename, "ufs") ||
-				      !strcmp(mntbuf->f_fstypename, "hfs") ||
-				      !strcmp(mntbuf->f_fstypename, "cd9660")))
-				hup = 1;
 			break;
 		}
 		if ((fs = getfsfile(*argv)) == NULL &&
@@ -252,10 +244,6 @@ main(argc, argv)
 		}
 		rval = mountfs(fs->fs_vfstype, fs->fs_spec, fs->fs_file,
 		    init_flags, options, fs->fs_mntops);
-		if (!rval && (!strcmp(fs->fs_vfstype, "ufs") ||
-                              !strcmp(fs->fs_vfstype, "hfs") ||
-			      !strcmp(fs->fs_vfstype, "cd9660")))
-			hup = 1;
 		break;
 	case 2:
 		/*
@@ -272,27 +260,10 @@ main(argc, argv)
 		}
 		rval = mountfs(vfstype,
 		    argv[0], argv[1], init_flags, options, NULL);
-		if (!rval && (!strcmp(vfstype, "ufs") ||
-                              !strcmp(vfstype, "hfs") ||
-			      !strcmp(vfstype, "cd9660")))
-			hup = 1;
 		break;
 	default:
 		usage();
 		/* NOTREACHED */
-	}
-
-	/*
-	 * If the mount was successfull, done by root, and mountd supports
-	 * the fs type (ufs, hfs, cd9660), then tell mountd the
-	 * good news.  Pid checks are probably unnecessary, but don't hurt.
-	 */
-	if (rval == 0 && getuid() == 0 && hup &&
-	    (mountdfp = fopen(_PATH_MOUNTDPID, "r")) != NULL) {
-		if (fscanf(mountdfp, "%d", &pid) == 1 &&
-		     pid > 0 && kill(pid, SIGHUP) == -1 && errno != ESRCH)
-			err(1, "signal mountd");
-		(void)fclose(mountdfp);
 	}
 
 	exit(rval);
@@ -468,24 +439,24 @@ prmount(sfp)
 	int flags;
 	struct opt *o;
 	struct passwd *pw;
-	int f;
 
-	(void)printf("%s on %s", sfp->f_mntfromname, sfp->f_mntonname);
+	(void)printf("%s on %s (%s", sfp->f_mntfromname, sfp->f_mntonname,
+	    sfp->f_fstypename);
 
 	flags = sfp->f_flags & MNT_VISFLAGMASK;
-	for (f = 0, o = optnames; flags && o->o_opt; o++)
+	for (o = optnames; flags && o->o_opt; o++)
 		if (flags & o->o_opt) {
-			(void)printf("%s%s", !f++ ? " (" : ", ", o->o_name);
+			(void)printf(", %s", o->o_name);
 			flags &= ~o->o_opt;
 		}
 	if (sfp->f_owner) {
-		(void)printf("%smounted by ", !f++ ? " (" : ", ");
+		(void)printf(", mounted by ");
 		if ((pw = getpwuid(sfp->f_owner)) != NULL)
 			(void)printf("%s", pw->pw_name);
 		else
 			(void)printf("%d", sfp->f_owner);
 	}
-	(void)printf(f ? ")\n" : "\n");
+	(void)printf(")\n");
 }
 
 struct statfs *

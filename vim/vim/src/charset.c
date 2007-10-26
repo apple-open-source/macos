@@ -130,12 +130,13 @@ buf_init_chartab(buf, global)
      */
     vim_memset(buf->b_chartab, 0, (size_t)32);
 #ifdef FEAT_MBYTE
-    for (c = 0; c < 256; ++c)
-    {
-	/* double-byte characters are probably word characters */
-	if (enc_dbcs != 0 && MB_BYTE2LEN(c) == 2)
-	    SET_CHARTAB(buf, c);
-    }
+    if (enc_dbcs != 0)
+	for (c = 0; c < 256; ++c)
+	{
+	    /* double-byte characters are probably word characters */
+	    if (MB_BYTE2LEN(c) == 2)
+		SET_CHARTAB(buf, c);
+	}
 #endif
 
 #ifdef FEAT_LISP
@@ -170,7 +171,7 @@ buf_init_chartab(buf, global)
 		tilde = TRUE;
 		++p;
 	    }
-	    if (isdigit(*p))
+	    if (VIM_ISDIGIT(*p))
 		c = getdigits(&p);
 	    else
 		c = *p++;
@@ -178,7 +179,7 @@ buf_init_chartab(buf, global)
 	    if (*p == '-' && p[1] != NUL)
 	    {
 		++p;
-		if (isdigit(*p))
+		if (VIM_ISDIGIT(*p))
 		    c2 = getdigits(&p);
 		else
 		    c2 = *p++;
@@ -274,8 +275,6 @@ buf_init_chartab(buf, global)
     return OK;
 }
 
-#if defined(FEAT_TITLE) || defined(FEAT_STL_OPT) || defined(FEAT_WINDOWS) \
-	|| defined(PROTO)
 /*
  * Translate any special characters in buf[bufsize] in-place.
  * The result is a string with only printable characters, but if there is not
@@ -297,7 +296,7 @@ trans_characters(buf, bufsize)
     {
 # ifdef FEAT_MBYTE
 	/* Assume a multi-byte character doesn't need translation. */
-	if (has_mbyte && (trs_len = (*mb_ptr2len_check)(buf)) > 1)
+	if (has_mbyte && (trs_len = (*mb_ptr2len)(buf)) > 1)
 	    len -= trs_len;
 	else
 # endif
@@ -317,7 +316,6 @@ trans_characters(buf, bufsize)
 	buf += trs_len;
     }
 }
-#endif
 
 #if defined(FEAT_EVAL) || defined(FEAT_TITLE) || defined(PROTO)
 /*
@@ -344,7 +342,7 @@ transstr(s)
 	p = s;
 	while (*p != NUL)
 	{
-	    if ((l = (*mb_ptr2len_check)(p)) > 1)
+	    if ((l = (*mb_ptr2len)(p)) > 1)
 	    {
 		c = (*mb_ptr2char)(p);
 		p += l;
@@ -353,7 +351,7 @@ transstr(s)
 		else
 		{
 		    transchar_hex(hexbuf, c);
-		    len += STRLEN(hexbuf);
+		    len += (int)STRLEN(hexbuf);
 		}
 	    }
 	    else
@@ -377,7 +375,7 @@ transstr(s)
 	while (*p != NUL)
 	{
 #ifdef FEAT_MBYTE
-	    if (has_mbyte && (l = (*mb_ptr2len_check)(p)) > 1)
+	    if (has_mbyte && (l = (*mb_ptr2len)(p)) > 1)
 	    {
 		c = (*mb_ptr2char)(p);
 		if (vim_isprintc(c))
@@ -397,41 +395,59 @@ transstr(s)
 
 #if defined(FEAT_SYN_HL) || defined(FEAT_INS_EXPAND) || defined(PROTO)
 /*
- * Convert the string "p[len]" to do ignore-case comparing.  Uses the current
- * locale.  Returns an allocated string (NULL for out-of-memory).
+ * Convert the string "str[orglen]" to do ignore-case comparing.  Uses the
+ * current locale.
+ * When "buf" is NULL returns an allocated string (NULL for out-of-memory).
+ * Otherwise puts the result in "buf[buflen]".
  */
     char_u *
-str_foldcase(str, len)
+str_foldcase(str, orglen, buf, buflen)
     char_u	*str;
-    int		len;
+    int		orglen;
+    char_u	*buf;
+    int		buflen;
 {
     garray_T	ga;
     int		i;
+    int		len = orglen;
 
 #define GA_CHAR(i)  ((char_u *)ga.ga_data)[i]
 #define GA_PTR(i)   ((char_u *)ga.ga_data + i)
+#define STR_CHAR(i)  (buf == NULL ? GA_CHAR(i) : buf[i])
+#define STR_PTR(i)   (buf == NULL ? GA_PTR(i) : buf + i)
 
-    /* Copy "str" into allocated memory, unmodified. */
-    ga_init2(&ga, 1, 10);
-    if (ga_grow(&ga, len + 1) == FAIL)
-	return NULL;
-    mch_memmove(ga.ga_data, str, (size_t)len);
-    GA_CHAR(len) = NUL;
-    ga.ga_len = len;
-    ga.ga_room -= len;
+    /* Copy "str" into "buf" or allocated memory, unmodified. */
+    if (buf == NULL)
+    {
+	ga_init2(&ga, 1, 10);
+	if (ga_grow(&ga, len + 1) == FAIL)
+	    return NULL;
+	mch_memmove(ga.ga_data, str, (size_t)len);
+	ga.ga_len = len;
+    }
+    else
+    {
+	if (len >= buflen)	    /* Ugly! */
+	    len = buflen - 1;
+	mch_memmove(buf, str, (size_t)len);
+    }
+    if (buf == NULL)
+	GA_CHAR(len) = NUL;
+    else
+	buf[len] = NUL;
 
     /* Make each character lower case. */
     i = 0;
-    while (GA_CHAR(i) != NUL)
+    while (STR_CHAR(i) != NUL)
     {
 #ifdef FEAT_MBYTE
-	if (enc_utf8 || (has_mbyte && MB_BYTE2LEN(GA_CHAR(i)) > 1))
+	if (enc_utf8 || (has_mbyte && MB_BYTE2LEN(STR_CHAR(i)) > 1))
 	{
 	    if (enc_utf8)
 	    {
 		int	c, lc;
 
-		c = utf_ptr2char(GA_PTR(i));
+		c = utf_ptr2char(STR_PTR(i));
 		lc = utf_tolower(c);
 		if (c != lc)
 		{
@@ -443,35 +459,51 @@ str_foldcase(str, len)
 		    if (ol != nl)
 		    {
 			if (nl > ol)
-			    if (ga_grow(&ga, nl - ol) == FAIL)
+			{
+			    if (buf == NULL ? ga_grow(&ga, nl - ol + 1) == FAIL
+						    : len + nl - ol >= buflen)
 			    {
 				/* out of memory, keep old char */
 				lc = c;
 				nl = ol;
 			    }
+			}
 			if (ol != nl)
 			{
-			    mch_memmove(GA_PTR(i) + nl, GA_PTR(i) + ol,
+			    if (buf == NULL)
+			    {
+				mch_memmove(GA_PTR(i) + nl, GA_PTR(i) + ol,
 						  STRLEN(GA_PTR(i) + ol) + 1);
-			    ga.ga_len += nl - ol;
-			    ga.ga_room -= nl - ol;
+				ga.ga_len += nl - ol;
+			    }
+			    else
+			    {
+				mch_memmove(buf + i + nl, buf + i + ol,
+						    STRLEN(buf + i + ol) + 1);
+				len += nl - ol;
+			    }
 			}
 		    }
-		    (void)utf_char2bytes(lc, GA_PTR(i));
+		    (void)utf_char2bytes(lc, STR_PTR(i));
 		}
 	    }
 	    /* skip to next multi-byte char */
-	    i += (*mb_ptr2len_check)(GA_PTR(i));
+	    i += (*mb_ptr2len)(STR_PTR(i));
 	}
 	else
 #endif
 	{
-	    GA_CHAR(i) = TOLOWER_LOC(GA_CHAR(i));
+	    if (buf == NULL)
+		GA_CHAR(i) = TOLOWER_LOC(GA_CHAR(i));
+	    else
+		buf[i] = TOLOWER_LOC(buf[i]);
 	    ++i;
 	}
     }
 
-    return (char_u *)ga.ga_data;
+    if (buf == NULL)
+	return (char_u *)ga.ga_data;
+    return buf;
 }
 #endif
 
@@ -550,7 +582,7 @@ transchar_nonprint(buf, c)
 {
     if (c == NL)
 	c = NUL;		/* we use newline in place of a NUL */
-    else if (c == CR && get_fileformat(curbuf) == EOL_MAC)
+    else if (c == CAR && get_fileformat(curbuf) == EOL_MAC)
 	c = NL;			/* we use CR in place of  NL in this case */
 
     if (dy_flags & DY_UHEX)		/* 'display' has "uhex" */
@@ -714,28 +746,43 @@ ptr2cells(p)
 }
 
 /*
- * Return the number of characters string 's' will take on the screen,
+ * Return the number of characters string "s" will take on the screen,
  * counting TABs as two characters: "^I".
  */
     int
 vim_strsize(s)
     char_u	*s;
 {
-    int		len = 0;
+    return vim_strnsize(s, (int)MAXCOL);
+}
 
-    while (*s != NUL)
+/*
+ * Return the number of characters string "s[len]" will take on the screen,
+ * counting TABs as two characters: "^I".
+ */
+    int
+vim_strnsize(s, len)
+    char_u	*s;
+    int		len;
+{
+    int		size = 0;
+
+    while (*s != NUL && --len >= 0)
     {
 #ifdef FEAT_MBYTE
 	if (has_mbyte)
 	{
-	    len += ptr2cells(s);
-	    s += (*mb_ptr2len_check)(s);
+	    int	    l = (*mb_ptr2len)(s);
+
+	    size += ptr2cells(s);
+	    s += l;
+	    len -= l - 1;
 	}
 	else
 #endif
-	    len += byte2cells(*s++);
+	    size += byte2cells(*s++);
     }
-    return len;
+    return size;
 }
 
 /*
@@ -804,22 +851,14 @@ win_linetabsize(wp, p, len)
     colnr_T	col = 0;
     char_u	*s;
 
-    for (s = p; *s != NUL && (len == MAXCOL || s < p + len); )
-    {
+    for (s = p; *s != NUL && (len == MAXCOL || s < p + len); mb_ptr_adv(s))
 	col += win_lbr_chartabsize(wp, s, col, NULL);
-#ifdef FEAT_MBYTE
-	if (has_mbyte)
-	    s += (*mb_ptr2len_check)(s);
-	else
-#endif
-	    ++s;
-    }
     return (int)col;
 }
 
 /*
- * return TRUE if 'c' is a normal identifier character
- * letters and characters from 'isident' option.
+ * Return TRUE if 'c' is a normal identifier character:
+ * Letters and characters from the 'isident' option.
  */
     int
 vim_isIDc(c)
@@ -955,12 +994,7 @@ lbr_chartabsize_adv(s, col)
     int		retval;
 
     retval = lbr_chartabsize(*s, col);
-#ifdef FEAT_MBYTE
-    if (has_mbyte)
-	*s += (*mb_ptr2len_check)(*s);
-    else
-#endif
-	++*s;
+    mb_ptr_adv(*s);
     return retval;
 }
 
@@ -993,6 +1027,7 @@ win_lbr_chartabsize(wp, s, col, headp)
     int		numberextra;
     char_u	*ps;
     int		tab_corr = (*s == TAB);
+    int		n;
 
     /*
      * No 'linebreak' and 'showbreak': return quickly.
@@ -1036,18 +1071,16 @@ win_lbr_chartabsize(wp, s, col, headp)
 	col2 = col;
 	colmax = W_WIDTH(wp) - numberextra;
 	if (col >= colmax)
-	    colmax += (((col - colmax)
-			/ (colmax + win_col_off2(wp))) + 1)
-			* (colmax + win_col_off2(wp));
+	{
+	    n = colmax + win_col_off2(wp);
+	    if (n > 0)
+		colmax += (((col - colmax) / n) + 1) * n;
+	}
+
 	for (;;)
 	{
 	    ps = s;
-# ifdef FEAT_MBYTE
-	    if (has_mbyte)
-		s += (*mb_ptr2len_check)(s);
-	    else
-# endif
-		++s;
+	    mb_ptr_adv(s);
 	    c = *s;
 	    if (!(c != NUL
 		    && (vim_isbreak(c)
@@ -1251,12 +1284,7 @@ getvcol(wp, pos, start, cursor, end)
 		break;
 
 	    vcol += incr;
-#ifdef FEAT_MBYTE
-	    if (has_mbyte)
-		ptr += (*mb_ptr2len_check)(ptr);
-	    else
-#endif
-		++ptr;
+	    mb_ptr_adv(ptr);
 	}
     }
     else
@@ -1277,12 +1305,7 @@ getvcol(wp, pos, start, cursor, end)
 		break;
 
 	    vcol += incr;
-#ifdef FEAT_MBYTE
-	    if (has_mbyte)
-		ptr += (*mb_ptr2len_check)(ptr);
-	    else
-#endif
-		++ptr;
+	    mb_ptr_adv(ptr);
 	}
     }
     if (start != NULL)
@@ -1296,7 +1319,8 @@ getvcol(wp, pos, start, cursor, end)
 		&& !wp->w_p_list
 		&& !virtual_active()
 #ifdef FEAT_VISUAL
-		&& !(VIsual_active && *p_sel == 'e')
+		&& !(VIsual_active
+				   && (*p_sel == 'e' || ltoreq(*pos, VIsual)))
 #endif
 		)
 	    *cursor = vcol + incr - 1;	    /* cursor at end */
@@ -1352,13 +1376,13 @@ getvvcol(wp, pos, start, cursor, end)
 	ptr = ml_get_buf(wp->w_buffer, pos->lnum, FALSE);
 	if (pos->col < STRLEN(ptr))
 	{
-	    int c = (*mb_ptr2char)(ptr);
+	    int c = (*mb_ptr2char)(ptr + pos->col);
 
 	    if (c != TAB && vim_isprintc(c))
 	    {
 		endadd = char2cells(c) - 1;
-		if (coladd >= endadd)
-		    coladd -= endadd;
+		if (coladd > endadd)	/* past end of line */
+		    endadd = 0;
 		else
 		    coladd = 0;
 	    }
@@ -1429,26 +1453,199 @@ skipwhite(p)
 }
 
 /*
- * skipdigits: skip over digits;
+ * skip over digits
  */
     char_u *
 skipdigits(p)
     char_u	*p;
 {
-    while (isdigit(*p))	/* skip to next non-digit */
+    while (VIM_ISDIGIT(*p))	/* skip to next non-digit */
+	++p;
+    return p;
+}
+
+#if defined(FEAT_SYN_HL) || defined(FEAT_SPELL) || defined(PROTO)
+/*
+ * skip over digits and hex characters
+ */
+    char_u *
+skiphex(p)
+    char_u	*p;
+{
+    while (vim_isxdigit(*p))	/* skip to next non-digit */
+	++p;
+    return p;
+}
+#endif
+
+#if defined(FEAT_EX_EXTRA) || defined(PROTO)
+/*
+ * skip to digit (or NUL after the string)
+ */
+    char_u *
+skiptodigit(p)
+    char_u	*p;
+{
+    while (*p != NUL && !VIM_ISDIGIT(*p))	/* skip to next digit */
 	++p;
     return p;
 }
 
 /*
- * vim_isdigit: version of isdigit() that can handle characters > 0x100.
+ * skip to hex character (or NUL after the string)
+ */
+    char_u *
+skiptohex(p)
+    char_u	*p;
+{
+    while (*p != NUL && !vim_isxdigit(*p))	/* skip to next digit */
+	++p;
+    return p;
+}
+#endif
+
+/*
+ * Variant of isdigit() that can handle characters > 0x100.
+ * We don't use isdigit() here, because on some systems it also considers
+ * superscript 1 to be a digit.
+ * Use the VIM_ISDIGIT() macro for simple arguments.
  */
     int
 vim_isdigit(c)
+    int		c;
+{
+    return (c >= '0' && c <= '9');
+}
+
+/*
+ * Variant of isxdigit() that can handle characters > 0x100.
+ * We don't use isxdigit() here, because on some systems it also considers
+ * superscript 1 to be a digit.
+ */
+    int
+vim_isxdigit(c)
+    int		c;
+{
+    return (c >= '0' && c <= '9')
+	|| (c >= 'a' && c <= 'f')
+	|| (c >= 'A' && c <= 'F');
+}
+
+#if defined(FEAT_MBYTE) || defined(PROTO)
+/*
+ * Vim's own character class functions.  These exist because many library
+ * islower()/toupper() etc. do not work properly: they crash when used with
+ * invalid values or can't handle latin1 when the locale is C.
+ * Speed is most important here.
+ */
+#define LATIN1LOWER 'l'
+#define LATIN1UPPER 'U'
+
+/*                                                                 !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]%_'abcdefghijklmnopqrstuvwxyz{|}~                                  ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖ×ØÙÚÛÜİŞßàáâãäåæçèéêëìíîïğñòóôõö÷øùúûüışÿ */
+static char_u latin1flags[257] = "                                                                 UUUUUUUUUUUUUUUUUUUUUUUUUU      llllllllllllllllllllllllll                                                                     UUUUUUUUUUUUUUUUUUUUUUU UUUUUUUllllllllllllllllllllllll llllllll";
+static char_u latin1upper[257] = "                                 !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`ABCDEFGHIJKLMNOPQRSTUVWXYZ{|}~€‚ƒ„…†‡ˆ‰Š‹Œ‘’“”•–—˜™š›œŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖ×ØÙÚÛÜİŞßÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖ÷ØÙÚÛÜİŞÿ";
+static char_u latin1lower[257] = "                                 !\"#$%&'()*+,-./0123456789:;<=>?@abcdefghijklmnopqrstuvwxyz[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~€‚ƒ„…†‡ˆ‰Š‹Œ‘’“”•–—˜™š›œŸ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿àáâãäåæçèéêëìíîïğñòóôõö×øùúûüışßàáâãäåæçèéêëìíîïğñòóôõö÷øùúûüışÿ";
+
+    int
+vim_islower(c)
     int	    c;
 {
-    return (c > 0 && c < 0x100 && isdigit(c));
+    if (c <= '@')
+	return FALSE;
+    if (c >= 0x80)
+    {
+	if (enc_utf8)
+	    return utf_islower(c);
+	if (c >= 0x100)
+	{
+#ifdef HAVE_ISWLOWER
+	    if (has_mbyte)
+		return iswlower(c);
+#endif
+	    /* islower() can't handle these chars and may crash */
+	    return FALSE;
+	}
+	if (enc_latin1like)
+	    return (latin1flags[c] & LATIN1LOWER) == LATIN1LOWER;
+    }
+    return islower(c);
 }
+
+    int
+vim_isupper(c)
+    int	    c;
+{
+    if (c <= '@')
+	return FALSE;
+    if (c >= 0x80)
+    {
+	if (enc_utf8)
+	    return utf_isupper(c);
+	if (c >= 0x100)
+	{
+#ifdef HAVE_ISWUPPER
+	    if (has_mbyte)
+		return iswupper(c);
+#endif
+	    /* islower() can't handle these chars and may crash */
+	    return FALSE;
+	}
+	if (enc_latin1like)
+	    return (latin1flags[c] & LATIN1UPPER) == LATIN1UPPER;
+    }
+    return isupper(c);
+}
+
+    int
+vim_toupper(c)
+    int	    c;
+{
+    if (c <= '@')
+	return c;
+    if (c >= 0x80)
+    {
+	if (enc_utf8)
+	    return utf_toupper(c);
+	if (c >= 0x100)
+	{
+#ifdef HAVE_TOWUPPER
+	    if (has_mbyte)
+		return towupper(c);
+#endif
+	    /* toupper() can't handle these chars and may crash */
+	    return c;
+	}
+	if (enc_latin1like)
+	    return latin1upper[c];
+    }
+    return TOUPPER_LOC(c);
+}
+
+    int
+vim_tolower(c)
+    int	    c;
+{
+    if (c <= '@')
+	return c;
+    if (c >= 0x80)
+    {
+	if (enc_utf8)
+	    return utf_tolower(c);
+	if (c >= 0x100)
+	{
+#ifdef HAVE_TOWLOWER
+	    if (has_mbyte)
+		return towlower(c);
+#endif
+	    /* tolower() can't handle these chars and may crash */
+	    return c;
+	}
+	if (enc_latin1like)
+	    return latin1lower[c];
+    }
+    return TOLOWER_LOC(c);
+}
+#endif
 
 /*
  * skiptowhite: skip over text until ' ' or '\t' or NUL.
@@ -1516,7 +1713,7 @@ vim_isblankline(lbuf)
 
 /*
  * Convert a string into a long and/or unsigned long, taking care of
- * hexadecimal and octal numbers.
+ * hexadecimal and octal numbers.  Accepts a '-' sign.
  * If "hexp" is not NULL, returns a flag to indicate the type of the number:
  *  0	    decimal
  *  '0'	    octal
@@ -1525,6 +1722,11 @@ vim_isblankline(lbuf)
  * If "len" is not NULL, the length of the number in characters is returned.
  * If "nptr" is not NULL, the signed result is returned in it.
  * If "unptr" is not NULL, the unsigned result is returned in it.
+ * If "unptr" is not NULL, the unsigned result is returned in it.
+ * If "dooct" is non-zero recognize octal numbers, when > 1 always assume
+ * octal number.
+ * If "dohex" is non-zero recognize hex numbers, when > 1 always assume
+ * hex number.
  */
     void
 vim_str2nr(start, hexp, len, dooct, dohex, nptr, unptr)
@@ -1540,8 +1742,8 @@ vim_str2nr(start, hexp, len, dooct, dohex, nptr, unptr)
     char_u	    *ptr = start;
     int		    hex = 0;		/* default is decimal */
     int		    negative = FALSE;
-    long	    n = 0;
     unsigned long   un = 0;
+    int		    n;
 
     if (ptr[0] == '-')
     {
@@ -1549,66 +1751,74 @@ vim_str2nr(start, hexp, len, dooct, dohex, nptr, unptr)
 	++ptr;
     }
 
-    if (ptr[0] == '0')			/* could be hex or octal */
+    /* Recognize hex and octal. */
+    if (ptr[0] == '0' && ptr[1] != '8' && ptr[1] != '9')
     {
 	hex = ptr[1];
-	if (dohex && (hex == 'X' || hex == 'x') && isxdigit(ptr[2]))
+	if (dohex && (hex == 'X' || hex == 'x') && vim_isxdigit(ptr[2]))
 	    ptr += 2;			/* hexadecimal */
 	else
 	{
-	    if (dooct && isdigit(hex))
-		hex = '0';		/* octal */
-	    else
-		hex = 0;		/* 0 by itself is decimal */
+	    hex = 0;			/* default is decimal */
+	    if (dooct)
+	    {
+		/* Don't interpret "0", "08" or "0129" as octal. */
+		for (n = 1; VIM_ISDIGIT(ptr[n]); ++n)
+		{
+		    if (ptr[n] > '7')
+		    {
+			hex = 0;	/* can't be octal */
+			break;
+		    }
+		    if (ptr[n] > '0')
+			hex = '0';	/* assume octal */
+		}
+	    }
 	}
     }
 
     /*
      * Do the string-to-numeric conversion "manually" to avoid sscanf quirks.
      */
-    if (hex)
+    if (hex == '0' || dooct > 1)
     {
-	if (hex == '0')
+	/* octal */
+	while ('0' <= *ptr && *ptr <= '7')
 	{
-	    /* octal */
-	    while ('0' <= *ptr && *ptr <= '7')
-	    {
-		n = 8 * n + (long)(*ptr - '0');
-		un = 8 * un + (unsigned long)(*ptr - '0');
-		++ptr;
-	    }
+	    un = 8 * un + (unsigned long)(*ptr - '0');
+	    ++ptr;
 	}
-	else
+    }
+    else if (hex != 0 || dohex > 1)
+    {
+	/* hex */
+	while (vim_isxdigit(*ptr))
 	{
-	    /* hex */
-	    while (isxdigit(*ptr))
-	    {
-		n = 16 * n + (long)hex2nr(*ptr);
-		un = 16 * un + (unsigned long)hex2nr(*ptr);
-		++ptr;
-	    }
+	    un = 16 * un + (unsigned long)hex2nr(*ptr);
+	    ++ptr;
 	}
     }
     else
     {
 	/* decimal */
-	while (isdigit(*ptr))
+	while (VIM_ISDIGIT(*ptr))
 	{
-	    n = 10 * n + (long)(*ptr - '0');
 	    un = 10 * un + (unsigned long)(*ptr - '0');
 	    ++ptr;
 	}
     }
-
-    if (!hex && negative)   /* account for leading '-' for decimal numbers */
-	n = -n;
 
     if (hexp != NULL)
 	*hexp = hex;
     if (len != NULL)
 	*len = (int)(ptr - start);
     if (nptr != NULL)
-	*nptr = n;
+    {
+	if (negative)   /* account for leading '-' for decimal numbers */
+	    *nptr = -(long)un;
+	else
+	    *nptr = (long)un;
+    }
     if (unptr != NULL)
 	*unptr = un;
 }
@@ -1638,7 +1848,7 @@ hex2nr(c)
 hexhex2nr(p)
     char_u	*p;
 {
-    if (!isxdigit(p[0]) || !isxdigit(p[1]))
+    if (!vim_isxdigit(p[0]) || !vim_isxdigit(p[1]))
 	return -1;
     return (hex2nr(p[0]) << 4) + hex2nr(p[1]);
 }

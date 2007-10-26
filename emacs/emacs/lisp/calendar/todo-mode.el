@@ -1,11 +1,11 @@
 ;;; todo-mode.el --- major mode for editing TODO list files
 
-;; Copyright (C) 1997, 1999, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1999, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
 
 ;; Author: Oliver Seidel <os10000@seidel-space.de>
 ;;   [Not clear the above works, July 2000]
 ;; Created: 2 Aug 1997
-;; Version: $Id: todo-mode.el,v 1.1.1.2 2002/09/10 23:33:24 jevans Exp $
 ;; Keywords: calendar, todo
 
 ;; This file is part of GNU Emacs.
@@ -22,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; ---------------------------------------------------------------------------
 
@@ -92,12 +92,6 @@
 ;;      the whole source code for autoloads, because there are several
 ;;      extensions that are not explicitly listed in the above quick
 ;;      installation.
-;;
-;;  Version
-;;
-;;      Which version of todo-mode.el does this documentation refer to?
-;;
-;;      $Id: todo-mode.el,v 1.1.1.2 2002/09/10 23:33:24 jevans Exp $
 ;;
 ;;  Pre-Requisites
 ;;
@@ -211,11 +205,11 @@
 ;;     	by the binary insertion algorithm.  However, you may not
 ;;     	really have a need for such accurate priorities amongst your
 ;;     	TODO items.  If you now think about the binary insertion
-;;     	halfing the size of the window each time, then the threshhold
+;;     	halving the size of the window each time, then the threshold
 ;;     	is the window size at which it will stop.  If you set the
-;;     	threshhold to zero, the upper and lower bound will coincide at
+;;     	threshold to zero, the upper and lower bound will coincide at
 ;;     	the end of the loop and you will insert your item just before
-;;     	that point.  If you set the threshhold to, e.g. 8, it will stop
+;;     	that point.  If you set the threshold to, e.g. 8, it will stop
 ;;     	as soon as the window size drops below that amount and will
 ;;     	insert the item in the approximate centre of that window.  I
 ;;     	got the idea for this feature after reading a very helpful
@@ -237,7 +231,7 @@
 ;;          an event (unless marked by &)
 ;;      o   The optional COUNT variable of todo-forward-item should be
 ;;          applied to the other functions performing similar tasks
-;;      o   Modularization could be done for repeaded elements of
+;;      o   Modularization could be done for repeated elements of
 ;;          the code, like the completing-read lines of code.
 ;;	o   license / version function
 ;;	o   export to diary file
@@ -247,7 +241,7 @@
 ;;          outline mode)
 ;;	o   rewrite complete package to store data as lisp objects
 ;;          and have display modes for display, for diary export,
-;;          etc. (Richard Stallman pointed out this is a bad idea)
+;;          etc.  (Richard Stallman pointed out this is a bad idea)
 ;;      o   so base todo-mode.el on generic-mode.el instead
 ;;
 ;;  History and Gossip
@@ -260,9 +254,12 @@
 ;;	things to my parents' address!
 ;;
 ;;	Oliver Seidel
-;;	(Lessingstr. 8, 65760 Eschborn, Federal Republic of Germany)
+;;	(Lessingstr.  8, 65760 Eschborn, Federal Republic of Germany)
 
 ;;; Code:
+
+(require 'time-stamp)
+
 
 ;; User-configurable variables:
 
@@ -283,7 +280,7 @@ in your diary file to include your todo list file as part of your
 diary.  With the default value \"*/*\" the diary displays each entry
 every day and it may also be marked on every day of the calendar.
 Using \"&%%(equal (calendar-current-date) date)\" instead will only
-show and mark todo entreis for today, but may slow down processing of
+show and mark todo entries for today, but may slow down processing of
 the diary file somewhat."
   :type 'string
   :group 'todo)
@@ -309,13 +306,13 @@ the diary file somewhat."
 If you have 8 items in your TODO list, then you may get asked 4
 questions by the binary insertion algorithm.  However, you may not
 really have a need for such accurate priorities amongst your TODO
-items.  If you now think about the binary insertion halfing the size
-of the window each time, then the threshhold is the window size at
-which it will stop.  If you set the threshhold to zero, the upper and
+items.  If you now think about the binary insertion halving the size
+of the window each time, then the threshold is the window size at
+which it will stop.  If you set the threshold to zero, the upper and
 lower bound will coincide at the end of the loop and you will insert
-your item just before that point.  If you set the threshhold to,
+your item just before that point.  If you set the threshold to,
 e.g. 8, it will stop as soon as the window size drops below that
-amount and will insert the item in the approximate centre of that
+amount and will insert the item in the approximate center of that
 window."
   :type 'integer
   :group 'todo)
@@ -371,8 +368,6 @@ For details see the variable `time-stamp-format'."
   "*Initials of todo item author."
   :type 'string
   :group 'todo)
-
-(autoload 'time-stamp-string "time-stamp")
 
 (defun todo-entry-timestamp-initials ()
   "Prepend timestamp and your initials to the head of a TODO entry."
@@ -496,9 +491,8 @@ Use `todo-categories' instead.")
   (interactive)
   (save-excursion
     (save-restriction
-      (save-buffer)
-      (if todo-save-top-priorities-too (todo-save-top-priorities))
-      )))
+      (save-buffer)))
+  (if todo-save-top-priorities-too (todo-save-top-priorities)))
 (defalias 'todo-cmd-save 'todo-save)
 
 (defun todo-quit ()
@@ -911,11 +905,12 @@ Number of entries for each category is given by `todo-print-priorities'."
 
 \\{todo-mode-map}"
   (interactive)
+  (kill-all-local-variables)
   (setq major-mode 'todo-mode)
   (setq mode-name "TODO")
   (use-local-map todo-mode-map)
   (easy-menu-add todo-menu)
-  (run-hooks 'todo-mode-hook))
+  (run-mode-hooks 'todo-mode-hook))
 
 (eval-when-compile
   (defvar date)
@@ -961,4 +956,5 @@ Number of entries for each category is given by `todo-print-priorities'."
 
 (provide 'todo-mode)
 
+;;; arch-tag: 6fd91be5-776e-4464-a109-da4ea0e4e497
 ;;; todo-mode.el ends here

@@ -161,3 +161,6 @@ _kSecAsn1OCSPDRequestTemplate
 _kSecAsn1OCSPDRequestsTemplate
 _kSecAsn1OCSPDReplyTemplate
 _kSecAsn1OCSPDRepliesTemplate
+_kSecAsn1SemanticsInformationTemplate
+_kSecAsn1QC_StatementTemplate
+_kSecAsn1QC_StatementsTemplate

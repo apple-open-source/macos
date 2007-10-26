@@ -54,13 +54,14 @@ Dictionary::Dictionary(
 
 Dictionary::Dictionary(
 	const char		*domain,		// e.g., com.apple.security
-	UserOrSystem	userSys)		// US_User  : ~/Library/Preferences/domain.plist
+	UserOrSystem	userSys,		// US_User  : ~/Library/Preferences/domain.plist
 									// US_System: /Library/Preferences/domain.plist
+	bool			loose)			// accept failure due to missing file, leave NULL
 		: mDict(NULL)
 {
 	char path[MAXPATHLEN];
 	pathForDomain(domain, userSys, path);
-	initFromFile(path);
+	initFromFile(path, loose);
 }
 
 Dictionary::Dictionary(
@@ -200,7 +201,8 @@ void Dictionary::setDict(
 
 /* fundamental routine to init from a plist file; throws a UnixError on error */
 void Dictionary::initFromFile(
-	const char *path)
+	const char *path,
+	bool		loose /* = false */)
 {
 	if(mDict != NULL) {
 		CFRelease(mDict);
@@ -249,7 +251,10 @@ void Dictionary::initFromFile(
 		CFRelease(errorString);
 	}
 	if(!success) {
-        UnixError::throwMe(EIO);
+		if (loose)
+			return;
+		else
+			UnixError::throwMe(EIO);
 	}
 	prefsDebug("Dictionary::initFromFile(%s) dict %p this %p", path, mDict, this);
 }
@@ -262,10 +267,13 @@ void Dictionary::pathForDomain(
 {
 	if(userSys == US_User) {
 		char *home = getenv("HOME");
-		sprintf(path, "%s/%s/%s.plist", home, kSecUserPrefsDir, domain);
+		if(home == NULL) {
+			home = "";
+		}
+		snprintf(path, MAXPATHLEN, "%s/%s/%s.plist", home, kSecUserPrefsDir, domain);
 	}
 	else {
-		sprintf(path, "%s/%s.plist", kSecSystemPrefsDir, domain);
+		snprintf(path, MAXPATHLEN, "%s/%s.plist", kSecSystemPrefsDir, domain);
 	}
 }
 
@@ -451,5 +459,7 @@ void MutableDictionary::makeMutable()
 		throw std::bad_alloc();
 	}
 	setDict(mutDict);
+	/* we own the dictionary now */
+	CFRelease(mutDict);
 }
 

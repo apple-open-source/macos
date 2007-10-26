@@ -1,53 +1,316 @@
---- utmpx.c.orig	2004-07-13 13:02:37.000000000 -0700
-+++ utmpx.c	2004-08-05 15:25:10.000000000 -0700
-@@ -50,7 +50,6 @@
+--- utmpx.c.orig	2006-02-06 00:43:57.000000000 -0800
++++ utmpx.c	2006-02-06 00:51:52.000000000 -0800
+@@ -49,34 +49,27 @@
+ #include <sys/time.h>
  #include <sys/wait.h>
  
- #include <assert.h>
+-#include <assert.h>
 -#include <db.h>
- #include <errno.h>
+-#include <errno.h>
  #include <fcntl.h>
  #include <stdio.h>
-@@ -63,6 +62,13 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <unistd.h>
+ #include <utmp.h>
+-/* don't define earlier, has side effects in fcntl.h */
+-#define __LIBC12_SOURCE__
  #include <utmpx.h>
++#include <utmpx-darwin.h>
++#include <errno.h>
  #include <vis.h>
+-
+-__warn_references(getlastlogx,
+-    "warning: reference to compatibility getlastlogx(); include <utmpx.h> for correct reference")
+-__warn_references(lastlogxname,
+-    "warning: reference to deprecated lastlogxname()")
++#include <notify.h>
  
-+#ifdef UTMP_COMPAT
-+#include <utmp.h>
-+#include <ttyent.h>
-+
-+static void _utmp_compat(const struct utmpx *);
-+#endif /* UTMP_COMPAT */
-+
- __warn_references(getlastlogx,
-     "warning: reference to compatibility getlastlogx(); include <utmpx.h> for correct reference")
- __warn_references(lastlogxname,
-@@ -72,7 +78,6 @@
+ static FILE *fp;
  static int readonly = 0;
  static struct utmpx ut;
  static char utfile[MAXPATHLEN] = _PATH_UTMPX;
 -static char llfile[MAXPATHLEN] = _PATH_LASTLOGX;
++__private_extern__ int utfile_system = 1; /* are we using _PATH_UTMPX? */
  
- static struct utmpx *utmp_update(const struct utmpx *);
+-static struct utmpx *utmp_update(const struct utmpx *);
++static struct utmpx *_getutxid(const struct utmpx *);
  
-@@ -270,6 +275,9 @@
- 		goto fail;
+-static const char vers[] = "utmpx-1.00";
++__private_extern__ const char _utmpx_vers[] = "utmpx-1.00";
  
- 	u = memcpy(&ut, &temp, sizeof(ut));
-+#ifdef UTMP_COMPAT
-+	_utmp_compat(u);
-+#endif /* UTMP_COMPAT */
- fail:
- 	if (gotlock) {
- 		if (lockf(fileno(fp), F_ULOCK, (off_t)0) == -1)
-@@ -308,185 +316,50 @@
- 
+ void
+ setutxent()
+@@ -85,7 +78,11 @@
+ 	(void)memset(&ut, 0, sizeof(ut));
+ 	if (fp == NULL)
+ 		return;
++#ifdef __LP64__
++	(void)fseeko(fp, (off_t)sizeof(struct utmpx32), SEEK_SET);
++#else /* __LP64__ */
+ 	(void)fseeko(fp, (off_t)sizeof(ut), SEEK_SET);
++#endif /* __LP64__ */
  }
  
--/*
-- * The following are extensions and not part of the X/Open spec.
-- */
--int
+ 
+@@ -105,6 +102,9 @@
+ struct utmpx *
+ getutxent()
+ {
++#ifdef __LP64__
++	struct utmpx32 ut32;
++#endif /* __LP64__ */
+ 
+ 	if (fp == NULL) {
+ 		struct stat st;
+@@ -124,42 +124,80 @@
+ 
+ 		if (st.st_size == 0) {
+ 			/* new file, add signature record */
++#ifdef __LP64__
++			(void)memset(&ut32, 0, sizeof(ut32));
++			ut32.ut_type = SIGNATURE;
++			(void)memcpy(ut32.ut_user, _utmpx_vers, sizeof(_utmpx_vers));
++			if (fwrite(&ut32, sizeof(ut32), 1, fp) != 1)
++#else /* __LP64__ */
+ 			(void)memset(&ut, 0, sizeof(ut));
+ 			ut.ut_type = SIGNATURE;
+-			(void)memcpy(ut.ut_user, vers, sizeof(vers));
++			(void)memcpy(ut.ut_user, _utmpx_vers, sizeof(_utmpx_vers));
+ 			if (fwrite(&ut, sizeof(ut), 1, fp) != 1)
++#endif /* __LP64__ */
+ 				goto failclose;
+ 		} else {
+ 			/* old file, read signature record */
++#ifdef __LP64__
++			if (fread(&ut32, sizeof(ut32), 1, fp) != 1)
++#else /* __LP64__ */
+ 			if (fread(&ut, sizeof(ut), 1, fp) != 1)
++#endif /* __LP64__ */
+ 				goto failclose;
+-			if (memcmp(ut.ut_user, vers, sizeof(vers)) != 0 ||
++#ifdef __LP64__
++			if (memcmp(ut32.ut_user, _utmpx_vers, sizeof(_utmpx_vers)) != 0 ||
++			    ut32.ut_type != SIGNATURE)
++#else /* __LP64__ */
++			if (memcmp(ut.ut_user, _utmpx_vers, sizeof(_utmpx_vers)) != 0 ||
+ 			    ut.ut_type != SIGNATURE)
++#endif /* __LP64__ */
+ 				goto failclose;
+ 		}
+ 	}
+ 
++#ifdef __LP64__
++	if (fread(&ut32, sizeof(ut32), 1, fp) != 1)
++#else /* __LP64__ */
+ 	if (fread(&ut, sizeof(ut), 1, fp) != 1)
++#endif /* __LP64__ */
+ 		goto fail;
+ 
++#ifdef __LP64__
++	_utmpx32_64(&ut32, &ut);
++#endif /* __LP64__ */
+ 	return &ut;
+ failclose:
+ 	(void)fclose(fp);
++	fp = NULL;
+ fail:
+ 	(void)memset(&ut, 0, sizeof(ut));
+ 	return NULL;
+ }
+ 
+-
+ struct utmpx *
+ getutxid(const struct utmpx *utx)
+ {
++	struct utmpx temp;
++	const struct utmpx *ux;
+ 
+ 	_DIAGASSERT(utx != NULL);
+ 
+ 	if (utx->ut_type == EMPTY)
+ 		return NULL;
+ 
++	/* make a copy as needed, and auto-fill if requested */
++	ux = _utmpx_working_copy(utx, &temp, 1);
++	if (!ux)
++		return NULL;
++
++	return _getutxid(ux);
++}
++
++
++static struct utmpx *
++_getutxid(const struct utmpx *utx)
++{
++
+ 	do {
+ 		if (ut.ut_type == EMPTY)
+ 			continue;
+@@ -225,30 +263,68 @@
+ struct utmpx *
+ pututxline(const struct utmpx *utx)
+ {
+-	struct utmpx temp, *u = NULL;
+-	int gotlock = 0;
++	struct utmpx *ux;
+ 
+ 	_DIAGASSERT(utx != NULL);
+ 
+-	if (utx == NULL)
++	if (utx == NULL) {
++		errno = EINVAL;
+ 		return NULL;
++	}
+ 
+-	if (strcmp(_PATH_UTMPX, utfile) == 0)
+-		if ((fp != NULL && readonly) || (fp == NULL && geteuid() != 0))
+-			return utmp_update(utx);
++	if ((ux = _pututxline(utx)) != NULL && utfile_system) {
++		_utmpx_asl(ux);	/* the equivalent of wtmpx and lastlogx */
++#ifdef UTMP_COMPAT
++		_write_utmp_compat(ux);
++#endif /* UTMP_COMPAT */
++	}
++	return ux;
++}
+ 
++__private_extern__ struct utmpx *
++_pututxline(const struct utmpx *utx)
++{
++	struct utmpx temp, *u = NULL, *x;
++	const struct utmpx *ux;
++#ifdef __LP64__
++	struct utmpx32 ut32;
++#endif /* __LP64__ */
++	int gotlock = 0;
+ 
+-	(void)memcpy(&temp, utx, sizeof(temp));
++	if (utfile_system)
++		if ((fp != NULL && readonly) || (fp == NULL && geteuid() != 0)) {
++			errno = EPERM;
++			return NULL;
++		}
+ 
+ 	if (fp == NULL) {
+ 		(void)getutxent();
+-		if (fp == NULL || readonly)
++		if (fp == NULL || readonly) {
++			errno = EPERM;
+ 			return NULL;
++		}
+ 	}
+ 
+-	if (getutxid(&temp) == NULL) {
++	/* make a copy as needed, and auto-fill if requested */
++	ux = _utmpx_working_copy(utx, &temp, 0);
++	if (!ux)
++		return NULL;
++
++	if ((x = _getutxid(ux)) == NULL) {
+ 		setutxent();
+-		if (getutxid(&temp) == NULL) {
++		if ((x = _getutxid(ux)) == NULL) {
++			/*
++			 * utx->ut_type has any original mask bits, while
++			 * ux->ut_type has those mask bits removed.  If we
++			 * are trying to record a dead process, and
++			 * UTMPX_DEAD_IF_CORRESPONDING_MASK is set, then since
++			 * there is no matching entry, we return NULL.
++			 */
++			if (ux->ut_type == DEAD_PROCESS &&
++			    (utx->ut_type & UTMPX_DEAD_IF_CORRESPONDING_MASK)) {
++				errno = EINVAL;
++				return NULL;
++			}
+ 			if (lockf(fileno(fp), F_LOCK, (off_t)0) == -1)
+ 				return NULL;
+ 			gotlock++;
+@@ -258,99 +334,66 @@
+ 	}
+ 
+ 	if (!gotlock) {
++		/*
++		 * utx->ut_type has any original mask bits, while
++		 * ux->ut_type has those mask bits removed.  If we
++		 * are trying to record a dead process, if
++		 * UTMPX_DEAD_IF_CORRESPONDING_MASK is set, but the found
++		 * entry is not a (matching) USER_PROCESS, then return NULL.
++		 */
++		if (ux->ut_type == DEAD_PROCESS &&
++		    (utx->ut_type & UTMPX_DEAD_IF_CORRESPONDING_MASK) &&
++		    x->ut_type != USER_PROCESS) {
++			errno = EINVAL;
++			return NULL;
++		}
+ 		/* we are not appending */
++#ifdef __LP64__
++		if (fseeko(fp, -(off_t)sizeof(ut32), SEEK_CUR) == -1)
++#else /* __LP64__ */
+ 		if (fseeko(fp, -(off_t)sizeof(ut), SEEK_CUR) == -1)
++#endif /* __LP64__ */
+ 			return NULL;
+ 	}
+ 
+-	if (fwrite(&temp, sizeof (temp), 1, fp) != 1)
++#ifdef __LP64__
++	_utmpx64_32(ux, &ut32);
++	if (fwrite(&ut32, sizeof (ut32), 1, fp) != 1)
++#else /* __LP64__ */
++	if (fwrite(ux, sizeof (*ux), 1, fp) != 1)
++#endif /* __LP64__ */
+ 		goto fail;
+ 
+ 	if (fflush(fp) == -1)
+ 		goto fail;
+ 
+-	u = memcpy(&ut, &temp, sizeof(ut));
++	u = memcpy(&ut, ux, sizeof(ut));
++	notify_post(UTMPX_CHANGE_NOTIFICATION);
+ fail:
+ 	if (gotlock) {
++		int save = errno;
+ 		if (lockf(fileno(fp), F_ULOCK, (off_t)0) == -1)
+ 			return NULL;
++		errno = save;
+ 	}
+ 	return u;
+ }
+ 
+ 
+-static struct utmpx *
+-utmp_update(const struct utmpx *utx)
+-{
+-	char buf[sizeof(*utx) * 4 + 1];
+-	pid_t pid;
+-	int status;
+-
+-	_DIAGASSERT(utx != NULL);
+-
+-	(void)strvisx(buf, (const char *)(const void *)utx, sizeof(*utx),
+-	    VIS_WHITE);
+-	switch (pid = fork()) {
+-	case 0:
+-		(void)execl(_PATH_UTMP_UPDATE,
+-		    strrchr(_PATH_UTMP_UPDATE, '/') + 1, buf, NULL);
+-		exit(1);
+-		/*NOTREACHED*/
+-	case -1:
+-		return NULL;
+-	default:
+-		if (waitpid(pid, &status, 0) == -1)
+-			return NULL;
+-		if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+-			return memcpy(&ut, utx, sizeof(ut));
+-		return NULL;
+-	}
+-
+-}
+-
+ /*
+  * The following are extensions and not part of the X/Open spec.
+  */
+ int
 -updwtmpx(const char *file, const struct utmpx *utx)
 -{
 -	int fd;
@@ -66,25 +329,7 @@
 -		(void)memcpy(ut.ut_user, vers, sizeof(vers));
 -		if (write(fd, &ut, sizeof(ut)) == -1)
 -			goto failed;
-+#ifdef UTMP_COMPAT
-+static void
-+_utmp_compat(const struct utmpx *ux)
-+{
-+	struct utmp u;
-+	int fd, slot;
-+	struct ttyent *ttyp;
-+
-+	switch (ux->ut_type) {
-+	case INIT_PROCESS:
-+	case LOGIN_PROCESS:
-+	case USER_PROCESS:
-+		break;
-+	case DEAD_PROCESS:
-+		logout(ux->ut_line);
-+		return;
-+	default:
-+		return;
- 	}
+-	}
 -	if (write(fd, utx, sizeof(*utx)) == -1)
 -		goto failed;
 -	if (close(fd) == -1)
@@ -100,55 +345,62 @@
 -
 -
 -int
--utmpxname(const char *fname)
--{
--	size_t len;
--
+ utmpxname(const char *fname)
+ {
+ 	size_t len;
+ 
 -	_DIAGASSERT(fname != NULL);
--
--	len = strlen(fname);
--
--	if (len >= sizeof(utfile))
--		return 0;
--
--	/* must end in x! */
--	if (fname[len - 1] != 'x')
--		return 0;
--
--	(void)strlcpy(utfile, fname, sizeof(utfile));
--	endutxent();
--	return 1;
--}
--
--
--void
--getutmp(const struct utmpx *ux, struct utmp *u)
--{
--
++	if (fname == NULL) {
++		strcpy(utfile, _PATH_UTMPX);
++		utfile_system = 1;
++		endutxent();
++		return 1;
++	}
+ 
+ 	len = strlen(fname);
+ 
+@@ -363,6 +406,7 @@
+ 
+ 	(void)strlcpy(utfile, fname, sizeof(utfile));
+ 	endutxent();
++	utfile_system = 0;
+ 	return 1;
+ }
+ 
+@@ -371,10 +415,8 @@
+ getutmp(const struct utmpx *ux, struct utmp *u)
+ {
+ 
 -	_DIAGASSERT(ux != NULL);
 -	_DIAGASSERT(u != NULL);
 -
 -	(void)memcpy(u->ut_name, ux->ut_name, sizeof(u->ut_name));
--	(void)memcpy(u->ut_line, ux->ut_line, sizeof(u->ut_line));
--	(void)memcpy(u->ut_host, ux->ut_host, sizeof(u->ut_host));
--	u->ut_time = ux->ut_tv.tv_sec;
--}
--
--void
--getutmpx(const struct utmp *u, struct utmpx *ux)
--{
--
++	bzero(u, sizeof(*u));
++	(void)memcpy(u->ut_name, ux->ut_user, sizeof(u->ut_name));
+ 	(void)memcpy(u->ut_line, ux->ut_line, sizeof(u->ut_line));
+ 	(void)memcpy(u->ut_host, ux->ut_host, sizeof(u->ut_host));
+ 	u->ut_time = ux->ut_tv.tv_sec;
+@@ -384,109 +426,15 @@
+ getutmpx(const struct utmp *u, struct utmpx *ux)
+ {
+ 
 -	_DIAGASSERT(ux != NULL);
 -	_DIAGASSERT(u != NULL);
 -
 -	(void)memcpy(ux->ut_name, u->ut_name, sizeof(u->ut_name));
--	(void)memcpy(ux->ut_line, u->ut_line, sizeof(u->ut_line));
--	(void)memcpy(ux->ut_host, u->ut_host, sizeof(u->ut_host));
--	ux->ut_tv.tv_sec = u->ut_time;
--	ux->ut_tv.tv_usec = 0;
++	bzero(ux, sizeof(*ux));
++	(void)memcpy(ux->ut_user, u->ut_name, sizeof(u->ut_name));
++	ux->ut_user[sizeof(u->ut_name)] = 0;
+ 	(void)memcpy(ux->ut_line, u->ut_line, sizeof(u->ut_line));
++	ux->ut_line[sizeof(u->ut_line)] = 0;
+ 	(void)memcpy(ux->ut_host, u->ut_host, sizeof(u->ut_host));
++	ux->ut_host[sizeof(u->ut_host)] = 0;
+ 	ux->ut_tv.tv_sec = u->ut_time;
+ 	ux->ut_tv.tv_usec = 0;
 -	(void)memset(&ux->ut_ss, 0, sizeof(ux->ut_ss));
 -	ux->ut_pid = 0;
--	ux->ut_type = USER_PROCESS;
++	ux->ut_pid = getpid();
+ 	ux->ut_type = USER_PROCESS;
 -	ux->ut_session = 0;
 -	ux->ut_exit.e_termination = 0;
 -	ux->ut_exit.e_exit = 0;
@@ -204,21 +456,8 @@
 -	if (data.size != sizeof(*ll)) {
 -		errno = EFTYPE;
 -		goto error;
-+	/* do equivalent of ttyslot(), but using ux->ut_slot */
-+	setttyent();
-+	slot = 1;
-+	for(;;) {
-+		if ((ttyp = getttyent()) == NULL) {
-+			endttyent();
-+			return;
-+		}
-+		if (!strcmp(ttyp->ty_name, ux->ut_line)) {
-+			endttyent();
-+			break;
-+		}
-+		slot++;
- 	}
- 
+-	}
+-
 -	if (ll == NULL)
 -		if ((ll = malloc(sizeof(*ll))) == NULL)
 -			goto done;
@@ -256,16 +495,4 @@
 -
 -	(db->close)(db);
 -	return error;
-+	/* now write utmp */
-+	(void)memset(&u, 0, sizeof(u));
-+	strncpy(u.ut_line, ux->ut_line, UT_LINESIZE);
-+	strncpy(u.ut_name, ux->ut_user, UT_NAMESIZE);
-+	strncpy(u.ut_host, ux->ut_host, UT_HOSTSIZE);
-+	u.ut_time = ux->ut_tv.tv_sec;
-+	if ((fd = open(_PATH_UTMP, O_WRONLY|O_CREAT, 0644)) >= 0) {
-+		(void)lseek(fd, (off_t)(slot * sizeof(struct utmp)), L_SET);
-+		(void)write(fd, &u, sizeof(struct utmp));
-+		(void)close(fd);
-+	}
  }
-+#endif /* UTMP_COMPAT */

@@ -68,8 +68,17 @@ rm="rm -f"
 # metacharacters that are still active within double-quoted strings.
 Xsed='sed -e 1s/^X//'
 sed_quote_subst='s/\([\\`\\"$\\\\]\)/\\\1/g'
-SP2NL='tr \040 \012'
-NL2SP='tr \015\012 \040\040'
+# test EBCDIC or ASCII
+case `echo '' | od -x` in
+*15*) # EBCDIC based system
+  SP2NL='tr \100 \025'
+  NL2SP='tr \025 \100'
+  ;;
+*) # Assume ASCII based system
+  SP2NL='tr \040 \012'
+  NL2SP='tr \015\012 \040\040'
+  ;;
+esac
 
 # NLS nuisances.
 # Only set LANG and LC_ALL to C if already set.
@@ -1885,7 +1894,7 @@ EOF
 	  if test $? -eq 0 ; then
 	    ldd_output=`ldd conftest`
 	    for i in $deplibs; do
-	      name="`expr $i : '-l\(.*\)'`"
+	      name="`expr X$i : 'X-l\(.*\)'`"
 	      # If $name is empty we are operating on a -L argument.
 	      if test "$name" != "" ; then
 		libname=`eval \\$echo \"$libname_spec\"`
@@ -1910,7 +1919,7 @@ EOF
 	    # Error occured in the first compile.  Let's try to salvage the situation:
 	    # Compile a seperate program for each library.
 	    for i in $deplibs; do
-	      name="`expr $i : '-l\(.*\)'`"
+	      name="`expr X$i : 'X-l\(.*\)'`"
 	     # If $name is empty we are operating on a -L argument.
 	      if test "$name" != "" ; then
 		$rm conftest
@@ -1950,7 +1959,7 @@ EOF
 	  set dummy $deplibs_check_method
 	  file_magic_regex="`expr \"$deplibs_check_method\" : \"$2 \(.*\)\"`"
 	  for a_deplib in $deplibs; do
-	    name="`expr $a_deplib : '-l\(.*\)'`"
+	    name="`expr X$a_deplib : 'X-l\(.*\)'`"
 	    # If $name is empty we are operating on a -L argument.
 	    if test "$name" != "" ; then
 	      libname=`eval \\$echo \"$libname_spec\"`
@@ -2172,6 +2181,11 @@ EOF
 	if test -n "$export_symbols" && test -n "$archive_expsym_cmds"; then
 	  eval cmds=\"$archive_expsym_cmds\"
 	else
+	  if test "x$verstring" = "x0.0"; then
+	    tmp_verstring=
+	  else
+	    tmp_verstring="$verstring"
+	  fi
 	  eval cmds=\"$archive_cmds\"
 	fi
 	IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'

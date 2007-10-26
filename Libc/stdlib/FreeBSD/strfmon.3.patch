@@ -1,6 +1,6 @@
---- strfmon.3.orig	Fri Mar 11 10:06:33 2005
-+++ strfmon.3	Fri Mar 11 10:20:51 2005
-@@ -28,14 +28,18 @@
+--- _SB/Libc/stdlib/FreeBSD/strfmon.3	2003-05-20 15:23:25.000000000 -0700
++++ _SB/Libc/stdlib/FreeBSD/strfmon.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -28,25 +28,49 @@
  .Dt STRFMON 3
  .Os
  .Sh NAME
@@ -14,14 +14,31 @@
  .In monetary.h
  .Ft ssize_t
 -.Fn strfmon "char * restrict s" "size_t maxsize" "const char * restrict format" "..."
-+.Fn strfmon "char * s" "size_t maxsize" "const char *format" "..."
++.Fo strfmon
++.Fa "char *restrict s"
++.Fa "size_t maxsize"
++.Fa "const char *restrict format"
++.Fa "..."
++.Fc
++.In monetary.h
 +.In xlocale.h
 +.Ft ssize_t
-+.Fn strfmon_l "char * s" "size_t maxsize" "locale_t loc" "const char *format" "..."
++.Fo strfmon_l
++.Fa "char *restrict s"
++.Fa "size_t maxsize"
++.Fa "locale_t loc"
++.Fa "const char *restrict format"
++.Fa "..."
++.Fc
  .Sh DESCRIPTION
  The
  .Fn strfmon
-@@ -47,6 +51,14 @@
+ function places characters into the array pointed to by
+-.Fa s
++.Fa s ,
+ as controlled by the string pointed to by
+ .Fa format .
+ No more than
  .Fa maxsize
  bytes are placed into the array.
  .Pp
@@ -36,7 +53,19 @@
  The format string is composed of zero or more directives:
  ordinary characters (not
  .Cm % ) ,
-@@ -142,7 +154,8 @@
+@@ -114,9 +138,9 @@
+ .El
+ .El
+ .Sh RETURN VALUES
+-If the total number of resulting bytes including the terminating
++If the total number of resulting bytes, including the terminating
+ .Dv NULL
+-byte is not more than
++byte, is not more than
+ .Fa maxsize ,
+ .Fn strfmon
+ returns the number of bytes placed into the array pointed to by
+@@ -142,7 +166,8 @@
  Not enough memory for temporary buffers.
  .El
  .Sh SEE ALSO

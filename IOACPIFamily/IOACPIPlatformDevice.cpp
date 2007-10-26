@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -87,9 +87,10 @@ static IOPMPowerState powerStates[ kIOACPIPlatformDevicePMStateCount ] =
 // Power flags.
 
 enum {
-    kPowerManagementInited = 0x01,
-    kSystemWakeCapability  = 0x02,
-    kInRushCurrentLoad     = 0x04
+    kPowerManagementInited   = 0x01,
+    kSystemWakeCapability    = 0x02,
+    kInRushCurrentLoad       = 0x04,
+    kPowerManagementDisabled = 0x08
 };
 
 // Per state power flags that describe the features of each supported
@@ -100,7 +101,6 @@ enum {
     kPowerStateHas_PRx = 0x02
 };
 
-//static const char * _SxD[4] = { "_S0D", "_S1D", "_S2D", "_S3D" };
 static const char * _PRx[4] = { "_PR0", "_PR1", "_PR2", "_PR3" };
 static const char * _PSx[4] = { "_PS0", "_PS1", "_PS2", "_PS3" };
 
@@ -541,7 +541,16 @@ IOReturn IOACPIPlatformDevice::setACPIPowerManagementEnable(
                                       UInt32       powerState,
                                       IOOptionBits options )
 {
-    return kIOReturnUnsupported;
+    lockForArbitration();
+
+    if (enable)
+         _powerFlags &= ~kPowerManagementDisabled;
+    else
+        _powerFlags |= kPowerManagementDisabled;
+
+    unlockForArbitration();
+
+    return kIOReturnSuccess;
 }
 
 //---------------------------------------------------------------------------
@@ -552,6 +561,9 @@ IOReturn IOACPIPlatformDevice::setPowerState( unsigned long stateIndex,
     UInt32 powerState;
 
     //kprintf("%s: setPowerState %d (%p)\n", getName(), stateIndex, whatDevice);
+
+    if (_powerFlags & kPowerManagementDisabled)
+        return IOPMAckImplied;
 
     switch ( stateIndex )
     {

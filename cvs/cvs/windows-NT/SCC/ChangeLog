@@ -1,6 +1,34 @@
+2005-09-01  Derek Price  <derek@ximbiot.com>
+
+	* README: Update links and email addresses.
+
+2005-03-22  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regnerated.
+
+2003-11-25  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerate for new configure.in.
+
+2003-06-11  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerate for new configure.in.
+
 2003-05-21  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.in: Regenerate with Automake version 1.7.5.
+
+2003-05-20  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2003-05-09  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2003-04-30  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
 
 2003-04-10  Larry Jones  <lawrence.jones@eds.com>
 
@@ -9,6 +37,14 @@
 2003-03-24  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.am: Update copyright notice.
+
+	* Makefile.in: Regenerated.
+
+2003-03-19  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerated.
+
+2003-03-19  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.in: Regenerated.
 

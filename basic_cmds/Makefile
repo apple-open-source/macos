@@ -25,8 +25,11 @@ install:: builddirs
 
 install clean installhdrs::
 	for proj in $(COMPONENTS) ; do			\
-		( cd $${proj} && $(MAKE) $@ $(MAKEFLAGS) SRCROOT=$(SRCROOT)/$${proj} \
-			OBJROOT=$(OBJROOT)/$${proj} SYMROOT=$(SYMROOT)/$${proj} \
+		( cd $${proj} && $(MAKE) $@ \
+			Extra_CC_Flags=-mdynamic-no-pic \
+			SRCROOT=$(SRCROOT)/$${proj} \
+			OBJROOT=$(OBJROOT)/$${proj} \
+			SYMROOT=$(SYMROOT)/$${proj} \
 			DSTROOT=$(DSTROOT) ) || exit 1; \
 	done
 

@@ -46,9 +46,11 @@
 #include <process.h> // for _beginthread()
 
 #include <CFNetwork/CFNetwork.h>
-#include <WebKitSystemInterface/WebKitSystemInterface.h>
 
 namespace WebCore {
+
+static CFHTTPCookieStorageAcceptPolicy defaultAcceptPolicy = CFHTTPCookieStorageAcceptPolicyOnlyFromMainDocumentDomain;
+static CFHTTPCookieStorageRef defaultStorage;
 
 static HashSet<String>& allowsAnyHTTPSCertificateHosts()
 {
@@ -232,8 +234,10 @@ static CFURLRequestRef makeFinalRequest(const ResourceRequest& request)
         CFURLRequestSetSSLProperties(newRequest, sslProps);
     }
 
-    if (CFHTTPCookieStorageRef defaultCookieStorage = wkGetDefaultHTTPCookieStorage())
-        CFURLRequestSetHTTPCookieStorageAcceptPolicy(newRequest, CFHTTPCookieStorageGetCookieAcceptPolicy(defaultCookieStorage));
+#ifdef CFNETWORK_HAS_NEW_COOKIE_FUNCTIONS
+    CFURLRequestSetHTTPCookieStorage(newRequest, defaultStorage);
+    CFURLRequestSetHTTPCookieStorageAcceptPolicy(newRequest, defaultAcceptPolicy);
+#endif
 
     return newRequest;
 }
@@ -368,6 +372,34 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, R
         vector.append(CFDataGetBytePtr(data), CFDataGetLength(data));
         CFRelease(data);
     }
+}
+
+CFHTTPCookieStorageAcceptPolicy ResourceHandle::cookieStorageAcceptPolicy()
+{
+    return defaultAcceptPolicy;
+}
+
+void ResourceHandle::setCookieStorageAcceptPolicy(CFHTTPCookieStorageAcceptPolicy acceptPolicy)
+{
+    defaultAcceptPolicy = acceptPolicy;
+    if (defaultStorage)
+        CFHTTPCookieStorageSetCookieAcceptPolicy(defaultStorage, defaultAcceptPolicy);
+}
+
+CFHTTPCookieStorageRef ResourceHandle::cookieStorage()
+{
+    return defaultStorage;
+}
+
+void ResourceHandle::setCookieStorage(CFHTTPCookieStorageRef storage)
+{
+    if (storage)
+        CFRetain(storage);
+    if (defaultStorage)
+        CFRelease(defaultStorage);
+    defaultStorage = storage;
+    if (defaultStorage)
+        CFHTTPCookieStorageSetCookieAcceptPolicy(defaultStorage, defaultAcceptPolicy);
 }
 
 void ResourceHandle::setHostAllowsAnyHTTPSCertificate(const String& host)

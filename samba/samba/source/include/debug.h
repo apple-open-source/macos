@@ -43,6 +43,12 @@ int  Debug1( const char *, ... ) PRINTF_ATTRIBUTE(1,2);
 BOOL dbgtext( const char *, ... ) PRINTF_ATTRIBUTE(1,2);
 BOOL dbghdr( int level, const char *file, const char *func, int line );
 
+#if defined(sgi) && (_COMPILER_VERSION >= 730)
+#pragma mips_frequency_hint NEVER Debug1
+#pragma mips_frequency_hint NEVER dbgtext
+#pragma mips_frequency_hint NEVER dbghdr
+#endif
+
 extern XFILE *dbf;
 extern pstring debugf;
 
@@ -63,8 +69,8 @@ extern pstring debugf;
  * still be through a macro still called DEBUGLEVEL. This cannot be done now
  * because some references would expand incorrectly.
  */
-#define SAMBA_DEBUGLEVEL *debug_level
-extern int SAMBA_DEBUGLEVEL;
+#define DEBUGLEVEL *debug_level
+extern int DEBUGLEVEL;
 
 /*
  * Define all new debug classes here. A class is represented by an entry in
@@ -94,6 +100,9 @@ extern int SAMBA_DEBUGLEVEL;
 #define DBGC_IDMAP		13
 #define DBGC_QUOTA		14
 #define DBGC_ACLS		15
+#define DBGC_LOCKING		16
+#define DBGC_MSDFS		17
+#define DBGC_DMAPI		18
 
 /* So you can define DBGC_CLASS before including debug.h */
 #ifndef DBGC_CLASS
@@ -198,5 +207,9 @@ extern BOOL *DEBUGLEVEL_CLASS_ISSET;
            (!DEBUGLEVEL_CLASS_ISSET[ dbgc_class ] && \
             DEBUGLEVEL_CLASS[ DBGC_ALL   ] >= (level))  ) \
        && (dbgtext body) )
+
+/* Print a separator to the debug log. */
+#define DEBUGSEP(level)\
+	DEBUG((level),("===============================================================\n"))
 
 #endif

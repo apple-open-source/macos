@@ -20,7 +20,6 @@ EXPORT_ONLY_FILES = 		\
 	machine_routines.h	\
 	mappings.h		\
 	savearea.h		\
-	pms.h			\
 	simple_lock.h
 
 INSTALL_MD_DIR = ppc

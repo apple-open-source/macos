@@ -33,6 +33,7 @@
 #include <security_utilities/refcount.h>
 #include <memory>
 #include <vector>
+#include <CoreFoundation/CFDate.h>
 
 namespace Security
 {
@@ -437,7 +438,7 @@ public:
 	Cursor *createCursor(const CSSM_QUERY *inQuery);
 protected:
     void modifyDatabase();
-    const RefPointer<const DbVersion> getDbVersion();
+    const RefPointer<const DbVersion> getDbVersion(bool force);
 
     ModifiedTable *createTable(MetaRecord *inMetaRecord); // Takes over ownership of inMetaRecord
 	
@@ -455,8 +456,14 @@ protected:
 
 private:
 	
-	// Current DbVersion of this database before any changes we are going to make.
+	/* mDbVersion is the current DbVersion of this database before any changes
+       we are going to make.  mNotifyCount holds the value of gNotifyCount at
+       the time mDbVersion was created.  mDbLastRead is the time at which we
+       last checked if the file from which mDbVersion was read has changed.
+       mDbVersionLock protects the other 3 fields.  */
 	RefPointer<const DbVersion> mDbVersion;
+    int32_t mNotifyCount;
+    CFAbsoluteTime mDbLastRead;
 	Mutex mDbVersionLock;
 
     AtomicFile &mAtomicFile;

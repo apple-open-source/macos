@@ -2,7 +2,7 @@
 /*
  * HanLayoutEngine.h: OpenType processing for Han fonts.
  *
- * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved.
+ * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved.
  */
 
 #ifndef __HANLAYOUTENGINE_H
@@ -47,7 +47,7 @@ public:
      * @internal
      */
     HanOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode,
-                            const GlyphSubstitutionTableHeader *gsubTable);
+                            le_int32 typoFlags, const GlyphSubstitutionTableHeader *gsubTable);
 
 
     /**

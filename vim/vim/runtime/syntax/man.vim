@@ -2,8 +2,12 @@
 " Language:	Man page
 " Maintainer:	Nam SungHyun <namsh@kldp.org>
 " Previous Maintainer:	Gautam H. Mudunuri <gmudunur@informatica.com>
-" Last Change:	2003 May 04
 " Version Info:
+" Last Change:	2004 May 16
+
+" Additional highlighting by Johannes Tanzler <johannes.tanzler@aon.at>:
+"	* manSubHeading
+"	* manSynopsis (only for sections 2 and 3)
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -24,8 +28,17 @@ syn case ignore
 syn match  manReference       "\f\+([1-9][a-z]\=)"
 syn match  manTitle	      "^\f\+([0-9]\+[a-z]\=).*"
 syn match  manSectionHeading  "^[a-z][a-z ]*[a-z]$"
+syn match  manSubHeading      "^\s\{3\}[a-z][a-z ]*[a-z]$"
 syn match  manOptionDesc      "^\s*[+-][a-z0-9]\S*"
+syn match  manLongOptionDesc  "^\s*--[a-z0-9-]\S*"
 " syn match  manHistory		"^[a-z].*last change.*$"
+
+if getline(1) =~ '^[a-zA-Z_]\+([23])'
+  syntax include @cCode <sfile>:p:h/c.vim
+  syn match manCFuncDefinition  display "\<\h\w*\>\s*("me=e-1 contained
+  syn region manSynopsis start="^SYNOPSIS"hs=s+8 end="^\u\+\s*$"he=e-12 keepend contains=manSectionHeading,@cCode,manCFuncDefinition
+endif
+
 
 " Define the default highlighting.
 " For version 5.7 and earlier: only when not done already
@@ -41,8 +54,10 @@ if version >= 508 || !exists("did_man_syn_inits")
   HiLink manTitle	    Title
   HiLink manSectionHeading  Statement
   HiLink manOptionDesc	    Constant
-  " HiLink manHistory	    Comment
+  HiLink manLongOptionDesc  Constant
   HiLink manReference	    PreProc
+  HiLink manSubHeading      Function
+  HiLink manCFuncDefinition Function
 
   delcommand HiLink
 endif

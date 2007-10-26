@@ -36,6 +36,7 @@
 
 #include <sys/cdefs.h>
 
+__FBSDID("$FreeBSD: src/usr.bin/tail/tail.c,v 1.21 2005/06/01 20:34:06 eivind Exp $");
 
 #ifndef lint
 static const char copyright[] =
@@ -59,8 +60,10 @@ static const char sccsid[] = "@(#)tail.c	8.1 (Berkeley) 6/6/93";
 
 #include "extern.h"
 
-int Fflag, fflag, rflag, rval;
+int Fflag, fflag, rflag, rval, no_files;
 const char *fname;
+
+file_info_t *files;
 
 static void obsolete(char **);
 static void usage(void);
@@ -72,7 +75,8 @@ main(int argc, char *argv[])
 	FILE *fp;
 	off_t off;
 	enum STYLE style;
-	int ch, first;
+	int i, ch, first;
+	file_info_t *file;
 	char *p;
 
 	/*
@@ -137,8 +141,7 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (fflag && argc > 1)
-		errx(1, "-f option only appropriate for a single file");
+	no_files = argc ? argc : 1;
 
 	/*
 	 * If displaying in reverse, don't permit follow option, and convert
@@ -167,9 +170,46 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (*argv)
+	if (!argc && fflag) {
+		/*
+		 * Determine if input is a pipe.  4.4BSD will set the SOCKET
+		 * bit in the st_mode field for pipes.  Fix this then.
+		 */
+		if (lseek(fileno(stdin), (off_t)0, SEEK_CUR) == -1 &&
+		    errno == ESPIPE) {
+			errno = 0;
+			fflag = 0;		/* POSIX.2 requires this. */
+		}
+	}
+
+	if (fflag) {
+		files = (struct file_info *) malloc(no_files * sizeof(struct file_info));
+		if (! files)
+			err(1, "Couldn't malloc space for file descriptors.");
+
+		for (file = files; (fname = (argc ? *argv++ : "stdin")); file++) {
+			file->file_name = malloc(strlen(fname)+1);
+			if (! file->file_name)
+				errx(1, "Couldn't malloc space for file name.");
+			strncpy(file->file_name, fname, strlen(fname)+1);
+			if ((file->fp = (argc ? fopen(file->file_name, "r") : stdin)) == NULL ||
+			    fstat(fileno(file->fp), &file->st)) {
+				file->fp = NULL;
+				ierr();
+				continue;
+			}
+			if (!argc)
+				break;
+		}
+		follow(files, style, off);
+		for (i = 0, file = files; i < no_files; i++, file++) {
+		    free(file->file_name);
+		}
+		free(files);
+	} else if (*argv) {
 		for (first = 1; (fname = *argv++);) {
-			if ((fp = fopen(fname, "r")) == NULL || fstat(fileno(fp), &sb)) {
+			if ((fp = fopen(fname, "r")) == NULL ||
+			    fstat(fileno(fp), &sb)) {
 				ierr();
 				continue;
 			}
@@ -180,31 +220,23 @@ main(int argc, char *argv[])
 				(void)fflush(stdout);
 			}
 
-			/* only try to read the file if it's not a directory */
-			if (S_IFDIR != (sb.st_mode & S_IFMT)) {
-				if (rflag)
-					reverse(fp, style, off, &sb);
-				else
-					forward(fp, style, off, &sb);
-			}
-			(void)fclose(fp);
+#ifdef __APPLE__
+			/* 3849683: don't read a directory */
+			if (S_IFDIR == (sb.st_mode & S_IFMT))
+				continue;
+#endif /* __APPLE__ */
+
+			if (rflag)
+				reverse(fp, style, off, &sb);
+			else
+				forward(fp, style, off, &sb);
 		}
-	else {
+	} else {
 		fname = "stdin";
 
 		if (fstat(fileno(stdin), &sb)) {
 			ierr();
 			exit(1);
-		}
-
-		/*
-		 * Determine if input is a pipe.  4.4BSD will set the SOCKET
-		 * bit in the st_mode field for pipes.  Fix this then.
-		 */
-		if (lseek(fileno(stdin), (off_t)0, SEEK_CUR) == -1 &&
-		    errno == ESPIPE) {
-			errno = 0;
-			fflag = 0;		/* POSIX.2 requires this. */
 		}
 
 		if (rflag)

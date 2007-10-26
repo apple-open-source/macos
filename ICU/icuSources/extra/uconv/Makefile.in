@@ -1,6 +1,6 @@
 ## ******************************************************************************
 ## *
-## *   Copyright (C) 1999-2004, International Business Machines
+## *   Copyright (C) 1999-2006, International Business Machines
 ## *   Corporation and others.  All Rights Reserved.
 ## *
 ## *******************************************************************************
@@ -26,7 +26,7 @@ FILESEPCHAR=/
 include $(srcdir)/resfiles.mk
 
 RESDIR=$(MSGNAME)
-RESFILES=$(RESSRC:$(RESOURCESDIR)$(FILESEPCHAR)%.txt=$(RESDIR)/$(RESOURCESDIR)$(FILESEPCHAR)$(MSGNAME)_%.res)
+RESFILES=$(RESSRC:$(RESOURCESDIR)$(FILESEPCHAR)%.txt=$(RESDIR)/%.res)
 
 ##
 
@@ -106,7 +106,7 @@ clean-local: resclean
 	$(RMV) $(OBJECTS) $(TARGET)
 
 resclean:
-	#-$(INVOKE) $(BINDIR)/pkgdata --clean -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
+	@#-$(INVOKE) $(BINDIR)/pkgdata --clean -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
 	$(RMV) pkgdata.inc $(RESDIR)
 
 distclean-local: clean-local
@@ -114,17 +114,17 @@ distclean-local: clean-local
 
 check-local:
 
-Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	cd $(top_builddir) \
 	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-pkgdata.inc: $(srcdir)/pkgdata.inc.in  $(top_builddir)/config.status
+pkgdata.inc: $(srcdir)/pkgdata.inc.in $(top_builddir)/config.status
 	cd $(top_builddir) \
 	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-%.$(SECTION): $(srcdir)/%.$(SECTION).in $(srcdir)/pkgdata.inc.in
+$(TARGET_STUB_NAME).$(SECTION): $(srcdir)/$(TARGET_STUB_NAME).$(SECTION).in pkgdata.inc
 	cd $(top_builddir) \
-	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+	 && CONFIG_FILES=$(subdir)/$(TARGET_STUB_NAME).$(SECTION) CONFIG_HEADERS= $(SHELL) ./config.status
 
 $(TARGET) : $(OBJECTS)  $(UCONVMSG_LIB)
 	$(LINK.cc) $(OUTOPT)$@ $(OBJECTS) $(LIBS)
@@ -137,13 +137,13 @@ endif
 
 
 package-resfiles: $(RESDIR)/$(RESDIR).lst pkgdata.inc
-	$(INVOKE) $(PKGDATA_INVOKE_OPTS) $(BINDIR)/pkgdata -p $(RESDIR) $(PKGDATA_OPTS) -m $(PKGMODE) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
+	$(INVOKE) $(PKGDATA_INVOKE_OPTS) $(BINDIR)/pkgdata -p $(MSGNAME) $(PKGDATA_OPTS) -m $(PKGMODE) -s $(RESDIR) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
 
-$(RESDIR)/$(RESDIR).lst: Makefile pkgdata.inc $(srcdir)/resfiles.mk
+$(RESDIR)/$(RESDIR).lst: Makefile $(srcdir)/resfiles.mk
 	@$(MKINSTALLDIRS) $(RESDIR)
 	@-$(RMV) $@
-	@for file in $(RESFILES); do \
-	  echo $(CURR_FULL_DIR)/$$file >> $@; \
+	@for file in $(RESFILES:$(RESDIR)/%.res=%.res); do \
+	  echo $$file >> $@; \
 	done;
 
 # no install for static mode
@@ -151,14 +151,16 @@ ifneq ($(UCONVMSG_MODE),static)
 install-resfiles: $(RESFILES)
 	$(MKINSTALLDIRS) $(DESTDIR)$(ICUDATA_DIR)
 	$(INVOKE) $(BINDIR)/pkgdata -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -I $(INSTALLTO) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
+else
+install-resfiles:
 endif
 
 ##
 $(UCONVMSG_LIB): resfiles
 
-$(RESDIR)/$(RESOURCESDIR)/$(MSGNAME)_%.res: $(srcdir)/$(RESOURCESDIR)/%.txt
+$(MSGNAME)/%.res: $(srcdir)/$(RESOURCESDIR)/%.txt
 	$(MKINSTALLDIRS) $(@D)
-	$(INVOKE) $(BINDIR)/genrb -p $(MSGNAME) -e UTF-8 -s $(^D) -d $(@D) $(^F)
+	$(INVOKE) $(BINDIR)/genrb -e UTF-8 -s $(^D) -d $(@D) $(^F)
 
 install-man: $(ALL_MAN_FILES)
 	$(MKINSTALLDIRS) $(DESTDIR)$(mandir)/man$(SECTION)

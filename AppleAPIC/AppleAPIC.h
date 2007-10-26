@@ -133,6 +133,7 @@ class AppleAPIC : public IOInterruptController
 
 protected:
     const OSSymbol *      _handleSleepWakeFunction;
+	const OSSymbol *      _setVectorPhysicalDestination;
 
     // APIC registers are memory mapped.
 
@@ -212,6 +213,9 @@ protected:
     void             prepareForSleep( void );
 
     void             resumeFromSleep( void );
+
+    IOReturn         setVectorPhysicalDestination( UInt32 vectorNumber,
+                                                   UInt32 apicID );
 
     virtual void     free( void );
 

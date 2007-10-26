@@ -1,6 +1,7 @@
-;;; dos-w32.el --- Functions shared among MS-DOS and W32 (NT/95) platforms
+;; dos-w32.el --- Functions shared among MS-DOS and W32 (NT/95) platforms
 
-;; Copyright (C) 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: Geoff Voelker <voelker@cs.washington.edu>
 ;; Keywords: internal
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -52,10 +53,9 @@
 					; Packers
     ("\\.\\(a\\|o\\|tar\\|z\\|gz\\|taz\\|jar\\)$" . t)
 					; Unix stuff
-    ("\\.tp[ulpw]$" . t)
-					; Borland Pascal stuff
-    ("[:/]tags$" . nil)
-					; Emacs TAGS file
+    ("\\.sx[dmicw]$" . t)		; OpenOffice.org
+    ("\\.tp[ulpw]$" . t)		; borland Pascal stuff
+    ("[:/]tags$" . nil)			; emacs TAGS file
     )
   "*Alist for distinguishing text files from binary files.
 Each element has the form (REGEXP . TYPE), where REGEXP is matched
@@ -74,6 +74,9 @@ against the file name, and TYPE is nil for text, t for binary.")
 	(setq alist (cdr alist)))
       found)))
 
+;; Silence compiler. Defined in src/buffer.c on DOS_NT.
+(defvar default-buffer-file-type)
+
 ;; Don't check for untranslated file systems here.
 (defun find-buffer-file-type (filename)
   (let ((match (find-buffer-file-type-match filename))
@@ -88,10 +91,13 @@ against the file name, and TYPE is nil for text, t for binary.")
 (setq-default buffer-file-coding-system 'undecided-dos)
 
 (defun find-buffer-file-type-coding-system (command)
-  "Choose a coding system for a file operation.
-If COMMAND is `insert-file-contents', the coding system is chosen based
-upon the filename, the contents of `untranslated-filesystem-list' and
-`file-name-buffer-file-type-alist', and whether the file exists:
+  "Choose a coding system for a file operation in COMMAND.
+COMMAND is a list that specifies the operation, an I/O primitive, as its
+CAR, and the arguments that might be given to that operation as its CDR.
+If operation is `insert-file-contents', the coding system is chosen based
+upon the filename (the CAR of the arguments beyond the operation), the contents
+of `untranslated-filesystem-list' and `file-name-buffer-file-type-alist',
+and whether the file exists:
 
   If it matches in `untranslated-filesystem-list':
     If the file exists:					`undecided'
@@ -103,7 +109,11 @@ upon the filename, the contents of `untranslated-filesystem-list' and
     If the file exists:					`undecided'
     If the file does not exist:	       default-buffer-file-coding-system
 
-If COMMAND is `write-region', the coding system is chosen based upon
+Note that the CAR of arguments to `insert-file-contents' operation could
+be a cons cell of the form \(FILENAME . BUFFER\), where BUFFER is a buffer
+into which the file's contents were already read, but not yet decoded.
+
+If operation is `write-region', the coding system is chosen based upon
 the value of `buffer-file-coding-system' and `buffer-file-type'. If
 `buffer-file-coding-system' is non-nil, its value is used.  If it is
 nil and `buffer-file-type' is t, the coding system is `no-conversion'.
@@ -124,8 +134,15 @@ set to the appropriate coding system, and the value of
 	(target)
 	(binary nil) (text nil)
 	(undecided nil) (undecided-unix nil))
-    (cond ((eq op 'insert-file-contents) 
+    (cond ((eq op 'insert-file-contents)
 	   (setq target (nth 1 command))
+	   ;; If TARGET is a cons cell, it has the form (FILENAME . BUFFER),
+	   ;; where BUFFER is a buffer into which the file was already read,
+	   ;; but its contents were not yet decoded.  (This form of the
+	   ;; arguments is used, e.g., in arc-mode.el.)  This function
+	   ;; doesn't care about the contents, it only looks at the file's
+	   ;; name, which is the CAR of the cons cell.
+	   (if (consp target) (setq target (car target)))
 	   ;; First check for a file name that indicates
 	   ;; it is truly binary.
 	   (setq binary (find-buffer-file-type target))
@@ -158,13 +175,13 @@ set to the appropriate coding system, and the value of
 
 (modify-coding-system-alist 'file "" 'find-buffer-file-type-coding-system)
 
-(defun find-file-binary (filename) 
+(defun find-file-binary (filename)
   "Visit file FILENAME and treat it as binary."
   (interactive "FFind file binary: ")
   (let ((file-name-buffer-file-type-alist '(("" . t))))
     (find-file filename)))
 
-(defun find-file-text (filename) 
+(defun find-file-text (filename)
   "Visit file FILENAME and treat it as a text file."
   (interactive "FFind file text: ")
   (let ((file-name-buffer-file-type-alist '(("" . nil))))
@@ -186,24 +203,24 @@ set to the appropriate coding system, and the value of
       (setq buffer-file-type (eq buffer-file-coding-system 'no-conversion)))))
 
 ;;; To set the default coding system on new files.
-(add-hook 'find-file-not-found-hooks 
+(add-hook 'find-file-not-found-functions
 	  'find-file-not-found-set-buffer-file-coding-system)
 
 ;;; To accomodate filesystems that do not require CR/LF translation.
 (defvar untranslated-filesystem-list nil
-  "List of filesystems that require no CR/LF translation when reading 
+  "List of filesystems that require no CR/LF translation when reading
 and writing files.  Each filesystem in the list is a string naming
 the directory prefix corresponding to the filesystem.")
 
 (defun untranslated-canonical-name (filename)
   "Return FILENAME in a canonicalized form for use with the functions
 dealing with untranslated filesystems."
-  (if (memq system-type '(ms-dos windows-nt))
+  (if (memq system-type '(ms-dos windows-nt cygwin))
       ;; The canonical form for DOS/W32 is with A-Z downcased and all
       ;; directory separators changed to directory-sep-char.
       (let ((name nil))
-	(setq name (mapconcat 
-		    '(lambda (char) 
+	(setq name (mapconcat
+		    '(lambda (char)
 		       (if (and (<= ?A char) (<= char ?Z))
 			   (char-to-string (+ (- char ?A) ?a))
 			 (char-to-string char)))
@@ -219,7 +236,7 @@ dealing with untranslated filesystems."
     filename))
 
 (defun untranslated-file-p (filename)
-  "Return t if FILENAME is on a filesystem that does not require 
+  "Return t if FILENAME is on a filesystem that does not require
 CR/LF translation, and nil otherwise."
   (let ((fs (untranslated-canonical-name filename))
 	(ufs-list untranslated-filesystem-list)
@@ -233,7 +250,7 @@ CR/LF translation, and nil otherwise."
 (defun add-untranslated-filesystem (filesystem)
   "Add FILESYSTEM to the list of filesystems that do not require
 CR/LF translation.  FILESYSTEM is a string containing the directory
-prefix corresponding to the filesystem.  For example, for a Unix 
+prefix corresponding to the filesystem.  For example, for a Unix
 filesystem mounted on drive Z:, FILESYSTEM could be \"Z:\"."
   ;; We use "D", not "f", to avoid confusing the user: "f" prompts
   ;; with a directory, but RET returns the current buffer's file, not
@@ -246,12 +263,12 @@ filesystem mounted on drive Z:, FILESYSTEM could be \"Z:\"."
 	    (cons fs untranslated-filesystem-list)))))
 
 (defun remove-untranslated-filesystem (filesystem)
-  "Remove FILESYSTEM from the list of filesystems that do not require 
+  "Remove FILESYSTEM from the list of filesystems that do not require
 CR/LF translation.  FILESYSTEM is a string containing the directory
-prefix corresponding to the filesystem.  For example, for a Unix 
+prefix corresponding to the filesystem.  For example, for a Unix
 filesystem mounted on drive Z:, FILESYSTEM could be \"Z:\"."
   (interactive "fUntranslated file system: ")
-  (setq untranslated-filesystem-list 
+  (setq untranslated-filesystem-list
 	(delete (untranslated-canonical-name filesystem)
 		untranslated-filesystem-list)))
 
@@ -379,7 +396,8 @@ indicates a specific program should be invoked."
 	 (printer (or (and (boundp 'dos-printer)
 			   (stringp (symbol-value 'dos-printer))
 			   (symbol-value 'dos-printer))
-		      printer-name)))
+		      printer-name
+		      (default-printer-name))))
     (or (eq coding-system-for-write 'no-conversion)
 	(setq coding-system-for-write
 	      (aref eol-type 1)))	; force conversion to DOS EOLs
@@ -412,7 +430,8 @@ indicates a specific program should be invoked."
   (let ((printer (or (and (boundp 'dos-ps-printer)
 			  (stringp (symbol-value 'dos-ps-printer))
 			  (symbol-value 'dos-ps-printer))
-		     ps-printer-name)))
+		     ps-printer-name
+		     (default-printer-name))))
     (direct-print-region-helper printer start end lpr-prog
 				delete-text buf display rest)))
 
@@ -425,4 +444,5 @@ indicates a specific program should be invoked."
 
 (provide 'dos-w32)
 
+;;; arch-tag: dcfefdd2-362f-4fbc-9141-9634f5f4d6a7
 ;;; dos-w32.el ends here

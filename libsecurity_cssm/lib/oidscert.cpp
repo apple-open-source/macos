@@ -32,8 +32,8 @@
 
  */
 
-#include <Security/oidscert.h>
-#include <Security/cssmapplePriv.h>
+#include "oidsbase.h"
+#include "oidscert.h"
 
 /* required until PR-3347430 Security/cdsa/cdsa/oidscert.h is checked
  * into TOT - pending public API review */
@@ -192,6 +192,8 @@ static const uint8
 	OID_PolicyConstraints[]     		= { OID_EXTENSION, 36 },
 	OID_ExtendedKeyUsage[] 				= { OID_EXTENSION, 37 },
 	OID_AuthorityInfoAccess[]			= { OID_PE, 1 },
+	OID_BiometricInfo[]					= { OID_PE, 2 },
+	OID_QC_Statements[]					= { OID_PE, 3 },
 	OID_SubjectInfoAccess[]				= { OID_PE, 11 },
 	
 	/* Individual OIDS appearing in an ExtendedKeyUsage extension */
@@ -202,8 +204,12 @@ static const uint8
 	OID_KP_EmailProtection[]			= { OID_KP, 4 },
 	OID_KP_TimeStamping[]				= { OID_KP, 8 },
 	OID_KP_OCSPSigning[]				= { OID_KP, 9 },
+	/* Kerberos PKINIT Extended Key Use values */
+	OID_KERBv5_PKINIT_KP_CLIENT_AUTH[]	= { OID_KERBv5_PKINIT, 4 },
+	OID_KERBv5_PKINIT_KP_KDC[]			= { OID_KERBv5_PKINIT, 5 },
 	/* IPSec */
 	OID_EKU_IPSec[]						= { 0x2B, 0x06, 0x01, 0x05, 0x05, 0x08, 0x02, 0x02 },
+	
 	/* .mac Certificate Extended Key Use values */
 	OID_DOTMAC_CERT_EXTENSION[]		= { APPLE_DOTMAC_CERT_EXTEN_OID },
 	OID_DOTMAC_CERT_IDENTITY[]		= { APPLE_DOTMAC_CERT_EXTEN_OID, 1 },
@@ -215,6 +221,7 @@ static const uint8
 	OID_APPLE_EKU_RESOURCE_SIGNING[]	= { APPLE_EKU_CODE_SIGNING, 4 },
 	OID_APPLE_EKU_ICHAT_SIGNING[]		= { APPLE_EKU_OID, 2 },
 	OID_APPLE_EKU_ICHAT_ENCRYPTION[]	= { APPLE_EKU_OID, 3 },
+	OID_APPLE_EKU_SYSTEM_IDENTITY[]		= { APPLE_EKU_OID, 4 },
 	/* Apple cert policies */
 	OID_APPLE_CERT_POLICY[]				= { APPLE_CERT_POLICIES, 1 },
 	OID_DOTMAC_CERT_POLICY[]			= { APPLE_CERT_POLICIES, 2 }
@@ -247,6 +254,8 @@ CSSMOID_PolicyConstraints  		= { OID_PKCS_CE_LENGTH, (uint8 *)OID_PolicyConstrai
 CSSMOID_AuthorityKeyIdentifier  = { OID_PKCS_CE_LENGTH, (uint8 *)OID_AuthorityKeyIdentifier},
 CSSMOID_ExtendedKeyUsage  		= { OID_PKCS_CE_LENGTH, (uint8 *)OID_ExtendedKeyUsage},
 CSSMOID_AuthorityInfoAccess		= { OID_PE_LENGTH+1, (uint8 *)OID_AuthorityInfoAccess},
+CSSMOID_BiometricInfo			= { OID_PE_LENGTH+1, (uint8 *)OID_BiometricInfo},
+CSSMOID_QC_Statements			= { OID_PE_LENGTH+1, (uint8 *)OID_QC_Statements},
 CSSMOID_SubjectInfoAccess		= { OID_PE_LENGTH+1, (uint8 *)OID_SubjectInfoAccess},
 CSSMOID_ExtendedKeyUsageAny		= { OID_PKCS_CE_LENGTH+1, (uint8 *)OID_ExtendedKeyUsageAny},
 CSSMOID_ServerAuth				= { OID_KP_LENGTH+1, (uint8 *)OID_KP_ServerAuth},
@@ -255,7 +264,11 @@ CSSMOID_ExtendedUseCodeSigning	= { OID_KP_LENGTH+1, (uint8 *)OID_KP_ExtendedUseC
 CSSMOID_EmailProtection			= { OID_KP_LENGTH+1, (uint8 *)OID_KP_EmailProtection},
 CSSMOID_TimeStamping			= { OID_KP_LENGTH+1, (uint8 *)OID_KP_TimeStamping},
 CSSMOID_OCSPSigning				= { OID_KP_LENGTH+1, (uint8 *)OID_KP_OCSPSigning},
-CSSMOID_EKU_IPSec				= { 8, (uint8 *)OID_EKU_IPSec },
+CSSMOID_KERBv5_PKINIT_KP_CLIENT_AUTH = { OID_KERBv5_PKINIT_LEN + 1,
+										(uint8 *)OID_KERBv5_PKINIT_KP_CLIENT_AUTH },
+CSSMOID_KERBv5_PKINIT_KP_KDC		= { OID_KERBv5_PKINIT_LEN + 1,
+										(uint8 *)OID_KERBv5_PKINIT_KP_KDC },
+CSSMOID_EKU_IPSec					= { 8, (uint8 *)OID_EKU_IPSec },
 CSSMOID_DOTMAC_CERT_EXTENSION		= { APPLE_DOTMAC_CERT_EXTEN_OID_LENGTH,
 										(uint8 *)OID_DOTMAC_CERT_EXTENSION },
 CSSMOID_DOTMAC_CERT_IDENTITY		= { APPLE_DOTMAC_CERT_EXTEN_OID_LENGTH + 1,
@@ -277,7 +290,9 @@ CSSMOID_APPLE_EKU_RESOURCE_SIGNING	= { APPLE_EKU_CODE_SIGNING_LENGTH + 1,
 CSSMOID_APPLE_EKU_ICHAT_SIGNING		= { APPLE_EKU_OID_LENGTH + 1,
 										(uint8 *)OID_APPLE_EKU_ICHAT_SIGNING },
 CSSMOID_APPLE_EKU_ICHAT_ENCRYPTION	= { APPLE_EKU_OID_LENGTH + 1,
-										(uint8 *)OID_APPLE_EKU_ICHAT_ENCRYPTION }
+										(uint8 *)OID_APPLE_EKU_ICHAT_ENCRYPTION },
+CSSMOID_APPLE_EKU_SYSTEM_IDENTITY	= { APPLE_EKU_OID_LENGTH + 1,
+										(uint8 *)OID_APPLE_EKU_SYSTEM_IDENTITY}
 ;
 
 /*

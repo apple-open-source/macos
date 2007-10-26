@@ -1,9 +1,39 @@
+/*
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <CoreFoundation/CoreFoundation.h>
 #include <libc.h>
 #include <IOKit/IOTypes.h>
+#include <sys/sysctl.h>
+#include <servers/bootstrap.h>    // bootstrap mach ports
 
 #include <IOKit/kext/KXKextManager.h>
 #include <IOKit/kext/KextManagerPriv.h>
+#include <IOKit/kext/kextmanager_types.h>
+#include <IOKit/kext/fat_util.h>
+#include <IOKit/kext/macho_util.h>
+#include <bootfiles.h>
+
+#include "utility.h"
 
 #define ALLOW_PATCH_OUTPUT  0
 #define ALLOW_NO_START      0
@@ -12,26 +42,21 @@
 * Global variables.
 *******************************************************************************/
 
-static char * progname = "(unknown)";
-static int verbose_level = kKXKextManagerLogLevelDefault;  // -v, -q options set this
+const char * progname = "(unknown)";
+int g_verbose_level = kKXKextManagerLogLevelDefault;  // -v, -q options set this
+
+static mach_port_t sKextdPort = MACH_PORT_NULL;
+static mach_port_t sLockPort = MACH_PORT_NULL;
+static int sLockStatus = 0;
+static bool sLockTaken = false;
+#define LOCK_MAXTRIES 90
+#define LOCK_DELAY     1
 
 
 /*******************************************************************************
 * Utility and callback functions.
 *******************************************************************************/
 
-static Boolean check_file(const char * filename);
-static Boolean check_dir(const char * dirname, int writeable);
-static void qerror(const char * format, ...);
-static void verbose_log(const char * format, ...);
-static void error_log(const char * format, ...);
-static int user_approve(int default_answer, const char * format, ...);
-static const char * user_input(const char * format, ...);
-static int addKextsToManager(
-    KXKextManagerRef aManager,
-    CFArrayRef kextNames,
-    CFMutableArrayRef kextArray,
-    Boolean do_tests);
 static void usage(int level);
 
 extern KXKextManagerError _KXKextManagerPrepareKextForLoading(
@@ -59,10 +84,19 @@ extern KXKextManagerError _KXKextManagerLoadKextUsingOptions(
 
 extern const char * _KXKextCopyCanonicalPathnameAsCString(KXKextRef aKext);
 
+extern kern_return_t kextmanager_lock_kextload(
+    mach_port_t server,
+    mach_port_t client,
+    int * lockstatus);
+kern_return_t kextmanager_unlock_kextload(
+    mach_port_t server,
+    mach_port_t client);
+
 /*******************************************************************************
 *******************************************************************************/
 
-int main(int argc, const char *argv[]) {
+int main(int argc, const char *argv[])
+{
     int exit_code = 0;
     int failure_code = 0;  // if any kext load fails during the loop
     int add_kexts_result = 1;  // assume success here
@@ -118,7 +152,6 @@ int main(int argc, const char *argv[]) {
     CFMutableArrayRef inauthenticKexts = NULL;       // must release
     KXKextRef theKext = NULL;                        // don't release
 
-    const char * default_kernel_file = "/mach";
     const char * kernel_file = NULL;  // overriden by -k option
     const char * symbol_dir = NULL;   // set by -s option;
                                       // for writing debug files for kmods
@@ -266,7 +299,7 @@ int main(int argc, const char *argv[]) {
                 goto finish;
             }
             optArg = CFStringCreateWithCString(kCFAllocatorDefault,
-                optarg, kCFStringEncodingMacRoman);
+                optarg, kCFStringEncodingUTF8);
             if (!optArg) {
                 qerror("memory allocation failure\n");
                 exit_code = 1;
@@ -289,7 +322,7 @@ int main(int argc, const char *argv[]) {
                 goto finish;
             }
             optArg = CFStringCreateWithCString(kCFAllocatorDefault,
-                optarg, kCFStringEncodingMacRoman);
+                optarg, kCFStringEncodingUTF8);
             if (!optArg) {
                 qerror("memory allocation failure\n");
                 exit_code = 1;
@@ -381,7 +414,7 @@ int main(int argc, const char *argv[]) {
                 goto finish;
             }
             optArg = CFStringCreateWithCString(kCFAllocatorDefault,
-                optarg, kCFStringEncodingMacRoman);
+                optarg, kCFStringEncodingUTF8);
             if (!optArg) {
                 qerror("memory allocation failure\n");
                 exit_code = 1;
@@ -410,13 +443,13 @@ int main(int argc, const char *argv[]) {
 #endif
 
           case 'q':
-            if (verbose_level != kKXKextManagerLogLevelDefault) {
+            if (g_verbose_level != kKXKextManagerLogLevelDefault) {
                 qerror("duplicate use of -v and/or -q option\n\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
             }
-            verbose_level = kKXKextManagerLogLevelSilent;
+            g_verbose_level = kKXKextManagerLogLevelSilent;
             break;
 
           case 'r':
@@ -429,7 +462,7 @@ int main(int argc, const char *argv[]) {
                 goto finish;
             }
             optArg = CFStringCreateWithCString(kCFAllocatorDefault,
-               optarg, kCFStringEncodingMacRoman);
+               optarg, kCFStringEncodingUTF8);
             if (!optArg) {
                 qerror("memory allocation failure\n");
                 exit_code = 1;
@@ -464,14 +497,14 @@ int main(int argc, const char *argv[]) {
             {
                 const char * next;
 
-                if (verbose_level != kKXKextManagerLogLevelDefault) {
+                if (g_verbose_level != kKXKextManagerLogLevelDefault) {
                     qerror("duplicate use of -v and/or -q option\n\n");
                     usage(0);
                     exit_code = 1;
                     goto finish;
                 }
                 if (optind >= argc) {
-                    verbose_level = kKXKextManagerLogLevelBasic;
+                    g_verbose_level = kKXKextManagerLogLevelBasic;
                 } else {
                     next = argv[optind];
                     if ((next[0] == '0' || next[0] == '1' ||
@@ -480,13 +513,13 @@ int main(int argc, const char *argv[]) {
                          next[0] == '6') && next[1] == '\0') {
 
                         if (next[0] == '0') {
-                            verbose_level = kKXKextManagerLogLevelErrorsOnly;
+                            g_verbose_level = kKXKextManagerLogLevelErrorsOnly;
                         } else {
-                            verbose_level = atoi(next);
+                            g_verbose_level = atoi(next);
                         }
                         optind++;
                     } else {
-                        verbose_level = kKXKextManagerLogLevelBasic;
+                        g_verbose_level = kKXKextManagerLogLevelBasic;
                     }
                 }
             }
@@ -604,7 +637,7 @@ int main(int argc, const char *argv[]) {
    /* If running in quiet mode and the invocation might require
     * interaction, just exit with an error.
     */
-    if (verbose_level == kKXKextManagerLogLevelSilent) {
+    if (g_verbose_level == kKXKextManagerLogLevelSilent) {
         if (interactive_level > 0 ||
             (flag_n && num_addresses == 0 && get_addrs_from_kernel == 0)) {
 
@@ -663,7 +696,7 @@ else if (!do_load) {
     */
     for (i = 0; i < argc_mod; i++) {
         CFStringRef kextName = CFStringCreateWithCString(kCFAllocatorDefault,
-              argv_mod[i], kCFStringEncodingMacRoman);
+              argv_mod[i], kCFStringEncodingUTF8);
         if (!kextName) {
             qerror("memory allocation failure\n");
             exit_code = 1;
@@ -689,25 +722,24 @@ else if (!do_load) {
             kKXSystemExtensionsFolder);
     }
 
-   /*****
-    * Make sure the kernel file, symbol directory, and patch directory
-    * exist and are readable/writable.
-    */
     if (!kernel_file) {
-        kernel_file = default_kernel_file;
-        if (!do_load && verbose_level >= kKXKextManagerLogLevelBasic) {
-            verbose_log("no kernel file specified; using %s", kernel_file);
+        if (!do_load && g_verbose_level >= kKXKextManagerLogLevelBasic) {
+            verbose_log("no kernel file specified; using running kernel");
         }
     }
 
-    if (!check_file(kernel_file)) {
+   /*****
+    * Make sure the symbol directory and patch directory exist and are
+    * readable/writable.
+    */
+    if (kernel_file && !check_file(kernel_file)) {
         // check_file() prints an error message
         exit_code = 1;
         goto finish;
     }
 
     if (symbol_dir) {
-        if (!check_dir(symbol_dir, 1)) {
+        if (!check_dir(symbol_dir, 1, 1 /* print error */)) {
             // check_dir() prints an error message
             exit_code = 1;
             goto finish;
@@ -715,10 +747,73 @@ else if (!do_load) {
     }
 
     if (patch_dir) {
-        if (!check_dir(patch_dir, 1)) {
+        if (!check_dir(patch_dir, 1, 1 /* print error */)) {
             // check_dir() prints an error message
             exit_code = 1;
             goto finish;
+        }
+    }
+
+    /*****
+    * Serialize running kextload processes that are actually loading. Note
+    * that we can't bail on failing to contact kextd, we can only print
+    * warnings, since kextload may need to be run in single-user mode. We
+    * do bail on hard OS errors though.
+    */
+    if (do_load) {
+        mach_port_t bootstrap_port;
+        kern_return_t kern_result;
+        int lock_retries = LOCK_MAXTRIES;
+
+        kern_result = task_get_bootstrap_port(mach_task_self(),
+            &bootstrap_port);
+        if (kern_result != KERN_SUCCESS && 
+            g_verbose_level >= kKXKextManagerLogLevelBasic) {
+
+            verbose_log("can't get bootstrap port to contact kextd "
+                "(continuing anyway)");
+        } else {
+            kern_result = bootstrap_look_up(bootstrap_port,
+                KEXTD_SERVER_NAME, &sKextdPort);
+            if (kern_result != KERN_SUCCESS && 
+                g_verbose_level >= kKXKextManagerLogLevelBasic) {
+
+                verbose_log("can't contact kextd (continuing anyway)");
+            }
+        }
+        if (sKextdPort != MACH_PORT_NULL) {
+            kern_result = mach_port_allocate(mach_task_self(),
+                MACH_PORT_RIGHT_RECEIVE, &sLockPort);
+            if (kern_result != KERN_SUCCESS) {
+                qerror("can't allocate kextload serialization mach port\n");
+                exit_code = 1;
+                goto finish;
+            }
+            do {
+                kern_result = kextmanager_lock_kextload(sKextdPort, sLockPort,
+                    &sLockStatus);
+                if (kern_result != KERN_SUCCESS) {
+                    qerror("can't acquire kextload serialization lock; bailing\n");
+                    exit_code = 1;
+                    goto finish;
+                }
+                
+                if (sLockStatus == EBUSY) {
+                    --lock_retries;
+                    qerror("kextload serialization lock busy; "
+                        "sleeping (%d retries left)\n",
+                        lock_retries);
+                    sleep(LOCK_DELAY);
+                }
+            } while (sLockStatus == EBUSY && lock_retries > 0);
+
+            if (sLockStatus != 0) {
+                qerror("can't acquire kextload serialization lock; bailing\n");
+                exit_code = 1;
+                goto finish;
+            } else {
+                sLockTaken = true;
+            }
         }
     }
 
@@ -743,7 +838,7 @@ else if (!do_load) {
 
     KXKextManagerSetPerformsFullTests(theKextManager, do_tests);
     KXKextManagerSetPerformsStrictAuthentication(theKextManager, strict_auth);
-    KXKextManagerSetLogLevel(theKextManager, verbose_level);
+    KXKextManagerSetLogLevel(theKextManager, g_verbose_level);
     KXKextManagerSetLogFunction(theKextManager, &verbose_log);
     KXKextManagerSetErrorLogFunction(theKextManager, &error_log);
     KXKextManagerSetUserVetoFunction(theKextManager, &user_approve);
@@ -859,13 +954,13 @@ else if (!do_load) {
         char name_buffer[255];
 
         if (!CFStringGetCString(thisKextID,
-            name_buffer, sizeof(name_buffer) - 1, kCFStringEncodingMacRoman)) {
+            name_buffer, sizeof(name_buffer) - 1, kCFStringEncodingUTF8)) {
 
             qerror("internal error; no memory?\n");
             exit_code = 1;
             goto finish;
         }
-        if (verbose_level >= kKXKextManagerLogLevelBasic) {
+        if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
             verbose_log("looking up extension with identifier %s",
                 name_buffer);
         }
@@ -873,7 +968,7 @@ else if (!do_load) {
         if (!theKext) {
             if (!CFStringGetCString(thisKextID,
                 name_buffer, sizeof(name_buffer) - 1,
-                kCFStringEncodingMacRoman)) {
+                kCFStringEncodingUTF8)) {
 
                 qerror("internal error; no memory?\n");
                 exit_code = 1;
@@ -891,13 +986,13 @@ else if (!do_load) {
             goto finish;
         }
         if (!CFStringGetCString(kextName,
-            name_buffer, sizeof(name_buffer) - 1, kCFStringEncodingMacRoman)) {
+            name_buffer, sizeof(name_buffer) - 1, kCFStringEncodingUTF8)) {
 
             qerror("internal error; no memory?\n");
             exit_code = 1;
             goto finish;
         }
-        if (verbose_level >= kKXKextManagerLogLevelBasic) {
+        if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
             verbose_log("found extension bundle %s", name_buffer);
         }
         CFArrayAppendValue(kextNamesToUse, kextName);
@@ -908,10 +1003,20 @@ else if (!do_load) {
     * Get busy loading kexts.
     */
     count = CFArrayGetCount(kextNamesToUse);
+    
+   /* If we have more than one kext, make the manager fork to do each load
+    * so we don't run out of VM address space due to the never-freeing linker.
+    */
+    if (count > 1) {
+        KXKextManagerSetPerformLoadsInTask(theKextManager, false);
+    }
+
     for (i = 0; i < count; i++) {
         CFStringRef kextName = NULL; // don't release
         char kext_name[MAXPATHLEN];
         unsigned short cache_retry_count = 1;
+        bool has_executable = false;
+        bool has_personalities = false;
 
        /*****
         * If the last iteration flipped failure_code, make the exit_code
@@ -944,7 +1049,7 @@ retry:
 
         kextName = CFArrayGetValueAtIndex(kextNamesToUse, i);
         if (!CFStringGetCString(kextName,
-            kext_name, sizeof(kext_name) - 1, kCFStringEncodingMacRoman)) {
+            kext_name, sizeof(kext_name) - 1, kCFStringEncodingUTF8)) {
 
             qerror("memory allocation or string conversion failure\n");
             exit_code = 1;
@@ -991,9 +1096,10 @@ retry:
            ))) {
 
             qerror("kernel extension %s has problems", kext_name);
-            if (do_tests && verbose_level >= kKXKextManagerLogLevelErrorsOnly) {
+            if (do_tests && g_verbose_level>=kKXKextManagerLogLevelErrorsOnly) {
                 qerror(":\n");
                 KXKextPrintDiagnostics(theKext, stderr);
+                qerror("\n");
             } else {
                 qerror(" (run %s with -t for diagnostic output)\n",
                     progname);
@@ -1005,13 +1111,25 @@ retry:
             continue;
         }
 
-        if (do_tests || verbose_level > kKXKextManagerLogLevelDefault) {
-            verbose_log("extension %s appears to be valid", kext_name);
+        if ((do_tests && g_verbose_level > kKXKextManagerLogLevelErrorsOnly) ||
+            g_verbose_level >= kKXKextManagerLogLevelBasic) {
+
+            CFMutableDictionaryRef warnings = KXKextGetWarnings(theKext);
+
+            if (warnings && CFDictionaryGetCount(warnings)) {
+                qerror("extension %s has potential problems:\n", kext_name);
+                KXKextPrintWarnings(theKext, stderr);
+                qerror("\n");
+            }
         }
 
         if (KXKextHasDebugProperties(theKext)) {
             verbose_log("notice: extension %s has debug properties set",
                 kext_name);
+        }
+
+        if (do_tests || g_verbose_level > kKXKextManagerLogLevelDefault) {
+            verbose_log("extension %s appears to be loadable", kext_name);
         }
 
        /* If there's nothing else to do for this kext, then move on
@@ -1046,15 +1164,59 @@ retry:
             check_loaded_for_dependencies, do_load,
             inauthenticKexts);
 
-        if (result == kKXKextManagerErrorAlreadyLoaded ||
-            result == kKXKextManagerErrorLoadedVersionDiffers) {
+        if (result == kKXKextManagerErrorAlreadyLoaded) {
 
             // this is not considered a failure
             verbose_log("extension %s is already loaded", kext_name);
             continue;
+        } else if (result == kKXKextManagerErrorLoadedVersionDiffers) {
+
+            // the library logged a message about it
+            failure_code = 1;
+            exit_code = 1;
+            continue;
+        } else if (result == kKXKextManagerErrorLoadKernelComponent) {
+            qerror("extension %s is a kernel component\n",
+                kext_name);
+            failure_code = 1;
+            exit_code = 1;
+            continue;
+        } else if (result == kKXKextManagerErrorLoadExecutableNoArch) {
+
+            qerror("extension %s does not contain code for this architecture\n",
+                kext_name);
+            failure_code = 1;
+            exit_code = 1;
+            continue;
+        } else if (result == kKXKextManagerErrorCache) {
+            if (cache_retry_count == 0) {
+                qerror("multiple cache errors for %s; try using -c\n",
+                    kext_name);
+                continue;
+            }
+            if (interactive_level > 0 ) {
+                approve = user_approve(1,
+                    "Cache inconsistency for %s; rescan and try again",
+                    kext_name);
+                if (approve < 0) {
+                    qerror("error reading response\n");
+                    failure_code = 1;
+                    goto finish;
+                } else if (approve == 0) {
+                    qerror("skipping extension %s\n", kext_name);
+                    continue;
+                }
+            } else {
+                qerror("rescanning all kexts due to cache inconsistency\n");
+            }
+            KXKextManagerResetAllRepositories(theKextManager);
+            cache_retry_count--;
+            goto retry;
         } else if (result != kKXKextManagerErrorNone &&
             result != kKXKextManagerErrorAuthentication) {
 
+            qerror("error loading extension %s\n",
+                kext_name);
             failure_code = 1;
             exit_code = 1;
             continue;
@@ -1077,14 +1239,13 @@ retry:
                     exit_code = 1;
                     goto finish;
                 }
-                error_log("extension %s is not authentic (check ownership and permissions)", kext_path);
+                error_log("extension %s is not authentic (check ownership and permissions; run with -t for details)", kext_path);
                 rpc_data = kext_path;
                 data_length = 1 + strlen(kext_path);
                 _KextManagerRecordNonsecureKextload(rpc_data, data_length);
                 if (kext_path) free((char *)kext_path);
                 if (xmlData) CFRelease(xmlData);
                 failure_code = 1;
-                exit_code = 1;
             }
         }
 
@@ -1092,83 +1253,125 @@ retry:
             continue;
         }
 
+       has_executable = KXKextGetDeclaresExecutable(theKext);
+       has_personalities = KXKextHasPersonalities(theKext);
+
        /*****
-        * We can't load a kext that has no code (or can we?).
+        * Catch a kext that has nothing whatever to load and flag as an error.
         */
-        if ( (do_load || patch_dir || symbol_dir) &&
-             KXKextGetDeclaresExecutable(theKext)) {
+        if (do_load && do_start_matching &&
+            !has_executable && !has_personalities) {
 
-            result = _KXKextManagerLoadKextUsingOptions(
-                theKextManager, theKext, kext_name, kernel_file,
-                patch_dir, symbol_dir,
-                do_load, do_start_kmod,
-                interactive_level,
-                (interactive_level > 0) /* ask overwrite symbols */,
-                overwrite_symbols,
-                get_addrs_from_kernel, num_addresses, addresses);
+            error_log("extension %s has no executable and no personalities",
+                kext_name);
+            failure_code = 1;
+            continue;
+        }
 
-            if (result == kKXKextManagerErrorInvalidArgument) {
-                failure_code = 1;
-                continue;
-            } else if (result == kKXKextManagerErrorAlreadyLoaded ||
-                result == kKXKextManagerErrorLoadedVersionDiffers) {
+       /*****
+        * Handle loading or patch/symbol genration of the executable.
+        */
+        if (do_load || patch_dir || symbol_dir) {
+            if (has_executable) {
+                result = _KXKextManagerLoadKextUsingOptions(
+                    theKextManager, theKext, kext_name, kernel_file,
+                    patch_dir, symbol_dir,
+                    do_load, do_start_kmod,
+                    interactive_level,
+                    (interactive_level > 0) /* ask overwrite symbols */,
+                    overwrite_symbols,
+                    get_addrs_from_kernel, num_addresses, addresses);
 
-                // this is not considered a failure
-                verbose_log("extension %s is already loaded", kext_name);
-                continue;
-            } else if (result == kKXKextManagerErrorUserAbort) {
-                if (do_load) {
-                    qerror("load aborted for extension %s\n",
-                        kext_name);
-                }
-                // user abort is not a failure
-                continue;
-            } else if (result == kKXKextManagerErrorCache) {
-                if (cache_retry_count == 0) {
+                if (result == kKXKextManagerErrorNone) {
+                    if (do_load) {
+                        CFStringRef kextBundleID = KXKextGetBundleIdentifier(theKext);
+                        CFStringRef kextPath = KXKextCopyAbsolutePath(theKext);
+                        _KextManagerRecordPathForBundleID(kextBundleID, kextPath);
+                        if (kextPath) {
+                            CFRelease(kextPath);
+                        }
+
+                        verbose_log("%s loaded successfully", kext_name);
+                    }
+                } else if (result == kKXKextManagerErrorInvalidArgument) {
+                    failure_code = 1;
                     continue;
-                }
-                if (interactive_level > 0 ) {
-                    approve = user_approve(1,
-                        "Cache inconsistency for %s; rescan and try again",
-                        kext_name);
-                    if (approve < 0) {
-                        qerror("error reading response\n");
-                        failure_code = 1;
-                        goto finish;
-                    } else if (approve == 0) {
-                        qerror("skipping extension %s\n", kext_name);
+                } else if (result == kKXKextManagerErrorAlreadyLoaded) {
+
+                    // this is not considered a failure
+                    verbose_log("extension %s is already loaded", kext_name);
+                    continue;
+                } else if (result == kKXKextManagerErrorLoadedVersionDiffers) {
+
+                    // the library logged a message about it
+                    failure_code = 1;
+                    continue;
+                } else if (result == kKXKextManagerErrorUserAbort) {
+                    if (do_load) {
+                        qerror("load aborted for extension %s\n", kext_name);
+                    }
+                    // user abort is not a failure
+                    continue;
+                } else if (result == kKXKextManagerErrorCache) {
+                    if (cache_retry_count == 0) {
+                        qerror("multiple cache errors for %s; try using -c\n",
+                            kext_name);
                         continue;
                     }
-                } else {
-                    qerror("rescanning all kexts due to cache inconsistency\n");
-                }
-                KXKextManagerResetAllRepositories(theKextManager);
-                cache_retry_count--;
-                goto retry;
-            } else if (result != kKXKextManagerErrorNone) {
-                if (do_load) {
-                    qerror("load failed for extension %s\n",
+                    if (interactive_level > 0 ) {
+                        approve = user_approve(1,
+                            "Cache inconsistency for %s; rescan and try again",
+                            kext_name);
+                        if (approve < 0) {
+                            qerror("error reading response\n");
+                            failure_code = 1;
+                            goto finish;
+                        } else if (approve == 0) {
+                            qerror("skipping extension %s\n", kext_name);
+                            continue;
+                        }
+                    } else {
+                        qerror("rescanning all kexts due to cache inconsistency\n");
+                    }
+                    KXKextManagerResetAllRepositories(theKextManager);
+                    cache_retry_count--;
+                    goto retry;
+                } else if (result == kKXKextManagerErrorLoadKernelComponent) {
+                    qerror("extension %s is a kernel component\n",
                         kext_name);
-                }
-                if (do_tests && !KXKextIsLoadable(theKext, safe_boot_mode) &&
-                    verbose_level >= kKXKextManagerLogLevelErrorsOnly) {
+                    continue;
+                } else if (result != kKXKextManagerErrorNone) {
+                    if (do_load) {
+                        qerror("link/load failed for extension %s\n",
+                            kext_name);
+                    }
+                    if (!KXKextIsLoadable(theKext, safe_boot_mode) &&
+                        g_verbose_level >= kKXKextManagerLogLevelErrorsOnly) {
 
-                    qerror("kernel extension problems:\n");
-                    KXKextPrintDiagnostics(theKext, stderr);
-                } else {
-                    qerror(" (run %s with -t for diagnostic output)\n",
-                        progname);
+                        qerror("kernel extension problems:\n");
+                        KXKextPrintDiagnostics(theKext, stderr);
+                        qerror("\n");
+                    } else {
+                        qerror(" (run %s with -t for diagnostic output)\n",
+                            progname);
+                    }
+                    failure_code = 1;
+                    continue;
                 }
-                failure_code = 1;
-                continue;
-            }
+            } else if ( (do_load && (g_verbose_level >= kKXKextManagerLogLevelBasic)) ||
+                symbol_dir || patch_dir) {
 
-            if (do_load) {
-                verbose_log("%s loaded successfully", kext_name);
+                verbose_log("extension %s has no executable", kext_name);
+
+               /* XXX: Setting the failure code here means that -m combined with
+                * -s/-P will *not* send personalities to the kernel. Now,
+                * combining those options is flat-out silly, but it is
+                * technically allowed.
+                */
+                if (!do_load && (symbol_dir || patch_dir)) {
+                    failure_code = 1;
+                }
             }
-        } else if (do_load && verbose_level >= kKXKextManagerLogLevelBasic) {
-            verbose_log("extension %s has no executable", kext_name);
-            // FIXME: Is this an error?
         }
 
         if (failure_code) {
@@ -1178,19 +1381,24 @@ retry:
        /*****
         * Send the personalities down to the kernel.
         */
-        if (do_start_matching && KXKextHasPersonalities(theKext)) {
-            result = KXKextManagerSendKextPersonalitiesToCatalog(
-                theKextManager, theKext, personalityNames,
-                (interactive_level > 0), safe_boot_mode);
+        if (do_start_matching) {
+            if (has_personalities) {
+                result = KXKextManagerSendKextPersonalitiesToCatalog(
+                    theKextManager, theKext, personalityNames,
+                    true /* include_dependencies */,
+                    interactive_level, safe_boot_mode);
 
-            if (result == kKXKextManagerErrorNone &&
-                (interactive_level || verbose_level >= kKXKextManagerLogLevelBasic) ) {
-                verbose_log("matching started for %s", kext_name);
-            } else if (result != kKXKextManagerErrorNone) {
-                failure_code = 1;
-                if (interactive_level || verbose_level >= kKXKextManagerLogLevelBasic) {
-                    verbose_log("start matching failed for %s", kext_name);
+                if (result == kKXKextManagerErrorNone &&
+                    (interactive_level || g_verbose_level >= kKXKextManagerLogLevelBasic) ) {
+                    verbose_log("matching started for %s", kext_name);
+                } else if (result != kKXKextManagerErrorNone) {
+                    failure_code = 1;
+                    if (interactive_level || g_verbose_level >= kKXKextManagerLogLevelBasic) {
+                        verbose_log("start matching failed for %s", kext_name);
+                    }
                 }
+            } else if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
+                verbose_log("extension %s has no personalities", kext_name);
             }
         }
 
@@ -1208,6 +1416,12 @@ finish:
    /*****
     * Clean everything up.
     */
+    if (sLockTaken) {
+        kextmanager_unlock_kextload(sKextdPort, sLockPort);
+        mach_port_deallocate(mach_task_self(), sKextdPort);
+        mach_port_deallocate(mach_task_self(), sLockPort);
+    }
+
     if (addresses)             free(addresses);
     if (repositoryDirectories) CFRelease(repositoryDirectories);
     if (dependencyNames)       CFRelease(dependencyNames);
@@ -1218,390 +1432,9 @@ finish:
     if (inauthenticKexts)      CFRelease(inauthenticKexts);
 
     if (theKextManager)        CFRelease(theKextManager);
-
+    
     exit(exit_code);
     return exit_code;
-}
-
-/*******************************************************************************
-* check_file()
-*
-* This function makes sure that a given file exists, is a regular file, and
-* is readable.
-*******************************************************************************/
-static Boolean check_file(const char * filename)
-{
-    Boolean result = true;  // assume success
-    struct stat stat_buf;
-
-    if (stat(filename, &stat_buf) != 0) {
-        perror(filename);
-        result = false;
-        goto finish;
-    }
-
-    if ( !(stat_buf.st_mode & S_IFREG) ) {
-        qerror("%s is not a regular file\n", filename);
-        result = false;
-        goto finish;
-    }
-
-    if (access(filename, R_OK) != 0) {
-        qerror("%s is not readable\n", filename);
-        result = false;
-        goto finish;
-    }
-
-finish:
-    return result;
-}
-
-/*******************************************************************************
-* check_dir()
-*
-* This function makes sure that a given directory exists, and is writeable.
-*******************************************************************************/
-static Boolean check_dir(const char * dirname, int writeable)
-{
-    int result = true;  // assume success
-    struct stat stat_buf;
-
-    if (stat(dirname, &stat_buf) != 0) {
-        perror(dirname);
-        result = false;
-        goto finish;
-    }
-
-    if ( !(stat_buf.st_mode & S_IFDIR) ) {
-        qerror("%s is not a directory\n", dirname);
-        result = false;
-        goto finish;
-    }
-
-    if (writeable) {
-        if (access(dirname, W_OK) != 0) {
-            qerror("%s is not writeable\n", dirname);
-            result = false;
-            goto finish;
-        }
-    }
-finish:
-    return result;
-}
-
-/*******************************************************************************
-* qerror()
-*
-* Quick wrapper over printing that checks verbose level.
-*******************************************************************************/
-static void qerror(const char * format, ...)
-{
-    va_list ap;
-
-    if (verbose_level <= kKXKextManagerLogLevelSilent) return;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    return;
-}
-
-/*******************************************************************************
-* verbose_log()
-*
-* Print a log message prefixed with the name of the program.
-*******************************************************************************/
-static void verbose_log(const char * format, ...)
-{
-    va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
-
-    if (verbose_level < kKXKextManagerLogLevelDefault) return;
-
-    va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
-    va_end(ap);
-
-    output_string = (char *)malloc(output_length + 1);
-    if (!output_string) {
-        qerror("memory allocation failure\n");
-        return;
-    }
-
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
-
-    va_start(ap, format);
-    fprintf(stdout, "%s: %s\n", progname, output_string);
-    va_end(ap);
-
-    fflush(stdout);
-
-    free(output_string);
-
-    return;
-}
-
-/*******************************************************************************
-* error_log()
-*
-* Print an error message prefixed with the name of the program.
-*******************************************************************************/
-static void error_log(const char * format, ...)
-{
-    va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
-
-    if (verbose_level <= kKXKextManagerLogLevelSilent) return;
-
-    va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
-    va_end(ap);
-
-    output_string = (char *)malloc(output_length + 1);
-    if (!output_string) {
-        qerror("memory allocation failure\n");
-        return;
-    }
-
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
-
-    va_start(ap, format);
-    qerror("%s: %s\n", progname, output_string);
-    va_end(ap);
-
-    fflush(stderr);
-
-    free(output_string);
-
-    return;
-}
-
-/*******************************************************************************
-* user_approve()
-*
-* Ask the user a question and wait for a yes/no answer.
-*******************************************************************************/
-static int user_approve(int default_answer, const char * format, ...)
-{
-    int result = 1;
-    va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
-    char * prompt_string = NULL;
-    int c, x;
-
-    va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
-    va_end(ap);
-
-    output_string = (char *)malloc(output_length + 1);
-    if (!output_string) {
-        qerror("memory allocation failure\n");
-        result = -1;
-        goto finish;
-    }
-
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
-
-    prompt_string = default_answer ? " [Y/n]" : " [y/N]";
-    
-    while ( 1 ) {
-        fprintf(stdout, "%s%s%s", output_string, prompt_string, "? ");
-        fflush(stdout);
-
-        c = fgetc(stdin);
-
-        if (c == EOF) {
-            result = -1;
-            goto finish;
-        }
-
-       /* Make sure we get a newline.
-        */
-        if ( c != '\n' ) {
-            do {
-                x = fgetc(stdin);
-            } while (x != '\n' && x != EOF);
-
-            if (x == EOF) {
-                result = -1;
-                goto finish;
-            }
-        }
-
-        if (c == '\n') {
-            result = default_answer ? 1 : 0;
-            goto finish;
-        } else if (tolower(c) == 'y') {
-            result = 1;
-            goto finish;
-        } else if (tolower(c) == 'n') {
-            result = 0;
-            goto finish;
-        }
-    }
-
-finish:
-    if (output_string) free(output_string);
-
-    return result;
-}
-
-/*******************************************************************************
-* user_input()
-*
-* Ask the user for input.
-*******************************************************************************/
-static const char * user_input(const char * format, ...)
-{
-    char * result = NULL;  // return value
-    va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string = NULL;
-    unsigned index;
-    size_t size = 80;  // more than enough to input a hex address
-    int c;
-
-    result = (char *)malloc(size);
-    if (!result) {
-        goto finish;
-    }
-    index = 0;
-
-    va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
-    va_end(ap);
-
-    output_string = (char *)malloc(output_length + 1);
-    if (!output_string) {
-        qerror("memory allocation failure\n");
-        result = NULL;
-        goto finish;
-    }
-
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
-
-    fprintf(stdout, "%s ", output_string);
-    fflush(stdout);
-
-    c = fgetc(stdin);
-    while (c != '\n' && c != EOF) {
-        if (index >= (size - 1)) {
-            qerror("input line too long\n");
-            if (result) free(result);
-            result = NULL;
-            goto finish;
-        }
-        result[index++] = (char)c;
-        c = fgetc(stdin);
-    }
-
-    result[index] = '\0';
-
-    if (c == EOF) {
-        if (result) free(result);
-        result = NULL;
-        goto finish;
-    }
-
-finish:
-    if (output_string) free(output_string);
-
-    return result;
-}
-
-/*******************************************************************************
-* addKextsToManager()
-*
-* Add the kexts named in the kextNames array to the given kext manager, and
-* put their names into the kextNamesToUse.
-*
-* Return values:
-*   1: all kexts added successfully
-*   0: one or more could not be added
-*  -1: program-fatal error; exit as soon as possible
-*******************************************************************************/
-static int addKextsToManager(
-    KXKextManagerRef aManager,
-    CFArrayRef kextNames,
-    CFMutableArrayRef kextNamesToUse,
-    Boolean do_tests)
-{
-    int result = 1;     // assume success
-    KXKextManagerError kxresult = kKXKextManagerErrorNone;
-    CFIndex i, count;
-    KXKextRef theKext = NULL;  // don't release
-    CFURLRef kextURL = NULL;   // must release
-
-   /*****
-    * Add each kext named to the manager.
-    */
-    count = CFArrayGetCount(kextNames);
-    for (i = 0; i < count; i++) {
-        char name_buffer[MAXPATHLEN];
-
-        CFStringRef kextName = (CFStringRef)CFArrayGetValueAtIndex(
-            kextNames, i);
-
-        if (kextURL) {
-            CFRelease(kextURL);
-            kextURL = NULL;
-        }
-
-        kextURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
-            kextName, kCFURLPOSIXPathStyle, true);
-        if (!kextURL) {
-            qerror("memory allocation failure\n");
-            result = -1;
-            goto finish;
-        }
-
-        if (!CFStringGetCString(kextName,
-            name_buffer, sizeof(name_buffer) - 1, kCFStringEncodingMacRoman)) {
-
-            qerror("memory allocation or string conversion error\n");
-            result = -1;
-            goto finish;
-        }
-
-        kxresult = KXKextManagerAddKextWithURL(aManager, kextURL, true, &theKext);
-        if (kxresult != kKXKextManagerErrorNone) {
-            result = 0;
-            qerror("can't add kernel extension %s (%s)",
-                name_buffer, KXKextManagerErrorStaticCStringForError(kxresult));
-            qerror(" (run %s on this kext with -t for diagnostic output)\n",
-                progname);
-#if 0
-            if (do_tests && theKext && verbose_level >= kKXKextManagerLogLevelErrorsOnly) {
-                qerror("kernel extension problems:\n");
-                KXKextPrintDiagnostics(theKext, stderr);
-            }
-            continue;
-#endif 0
-        }
-        if (kextNamesToUse && theKext &&
-            (kxresult == kKXKextManagerErrorNone || do_tests)) {
-
-            CFArrayAppendValue(kextNamesToUse, kextName);
-        }
-    }
-
-finish:
-    if (kextURL) CFRelease(kextURL);
-    return result;
 }
 
 /*******************************************************************************
@@ -1654,7 +1487,7 @@ static void usage(int level)
         "  -j: just load; don't even start the extension running\n");
 #endif
     qerror(
-        "  -k kernel_file: link against kernel_file (default is /mach)\n");
+        "  -k kernel_file: link against kernel_file (default is running kernel)\n");
     qerror(
         "  -l: load & start only; don't start matching\n");
     qerror(

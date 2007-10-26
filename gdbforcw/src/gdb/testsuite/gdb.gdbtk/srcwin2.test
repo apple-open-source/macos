@@ -1,0 +1,899 @@
+#   Copyright (C) 1999, 2001 Red Hat, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# This file was written by Martin Hunt (hunt@cygnus.com)
+
+
+# same as srcwin.test, except test debugging executables
+# when source files are missing.
+
+# Read in the standard defs file
+
+if {![gdbtk_read_defs]} {
+  break
+}
+
+global objdir srcdir
+
+#####                 #####
+#                         #
+#  SECTION 1: Mode Tests  #
+#                         #
+#####                 #####
+
+# Load the test executable
+set program [file join $objdir list]
+if {[catch {gdbtk_test_file $program} t]} {
+  # This isn't a test case, since if this fails, we're hosed.
+  gdbtk_test_error "loading \"$program\": $t"
+}
+
+set srcwin [ManagedWin::open SrcWin]
+set stw [$srcwin test_get twin]
+set twin [$stw test_get twin]
+set statbar [$srcwin test_get _statbar]
+
+# get things started
+gdb_cmd "break main"
+gdbtk_test_run
+
+# Test: srcwin2-1.1
+# Desc: Check for something in source window
+gdbtk_test srcwin2-1.1 "source window has contents" {
+  set r 0
+  set file1(source) [$twin get 1.0 end]
+  if {$file1(source) == ""} {set r -1}
+  if {[$statbar.mode get] != "ASSEMBLY"} {set r -2}
+  set r
+} {0}
+
+# Test: srcwin2-1.2
+# Desc: source->assembly mode change
+gdbtk_test srcwin2-1.2 "source->assembly mode change" {
+  $srcwin mode "" ASSEMBLY
+  set twin [$stw test_get twin]
+  set file1(assembly) [$twin get 1.0 end]
+  # source == assembly because for there is no source
+  string compare $file1(source) $file1(assembly)
+} {0}
+
+# Test: srcwin2-1.3
+# Desc: assembly->mixed mode change
+gdbtk_test srcwin2-1.3 "assembly->mixed mode change" {
+  set r 0
+  $srcwin mode "" MIXED
+  set twin [$stw test_get twin]
+  set file1(mixed) [$twin get 1.0 end]
+  # mixed != assembly because the lines with source should
+  # be noted, even if source in unavailable. This behaviour is
+  # different for different debug formats, so we accept either.
+  if {$file1(mixed) == ""} {set r -1}
+  if {[$statbar.mode get] != "MIXED"} {set r -2}
+  set r	
+} {0}
+
+# Test: srcwin2-1.4
+# Desc: mixed->src+asm mode change
+gdbtk_test srcwin2-1.4 "mixed->src+asm mode change" {
+  set r 0
+  # mode change may fail if fallover to ASSEMBLY fails
+  if {[catch {$srcwin mode "" SRC+ASM}]} { set r -5 }
+  set twin [$stw test_get twin]
+  if {[$twin get 1.0 end] != $file1(assembly)} {set r -1}
+  if {[$statbar.mode get] != "ASSEMBLY"} {set r -2}
+  set r
+} {0}
+
+# Test: srcwin2-1.5
+# Desc: src+asm->source mode change
+gdbtk_test srcwin2-1.5 "src+asm->source mode change" {
+  set r 0
+  $srcwin mode "" SOURCE
+  set twin [$stw test_get twin]
+  if {[$stw test_get bwin] != ""} {set r -2}
+  if {[$twin get 1.0 end] != $file1(assembly)} {set r -1}
+  if {[$statbar.mode get] != "ASSEMBLY"} {set r -3}
+  set r
+} {0}
+
+# Test: srcwin2-1.6
+# Desc: source->mixed mode change
+gdbtk_test srcwin2-1.6 "source->mixed mode change" {
+  set r 0
+  $srcwin mode "" MIXED
+  set twin [$stw test_get twin]
+  if {[$twin get 1.0 end] != $file1(mixed)} {set r -1}
+  if {[$statbar.mode get] != "MIXED"} {set r -2}
+  set r
+} {0}
+
+# Test: srcwin2-1.7
+# Desc: mixed->source mode change
+gdbtk_test srcwin2-1.7 "mixed->source mode change" {
+  set r 0
+  $srcwin mode "" SOURCE
+  set twin [$stw test_get twin]
+  if {[$twin get 1.0 end] != $file1(source)} {set r -1}
+  if {[$statbar.mode get] != "ASSEMBLY"} {set r -2}
+  set r
+} {0}
+
+# Test: srcwin2-1.8
+# Desc: source->src+asm mode change
+gdbtk_test srcwin2-1.8 "source->src+asm mode change" {
+  set r 0
+  # mode change may fail if fallover to ASSEMBLY fails
+  if {[catch {$srcwin mode "" SRC+ASM}]} { set r -5 }
+  set twin [$stw test_get twin]
+  set bwin [$stw test_get bwin]
+  if {[$twin get 1.0 end] != $file1(assembly)} {set r -1}
+  if {$bwin != ""} {set r -2}
+  if {[$statbar.mode get] != "ASSEMBLY"} {set r -3}
+  set r
+} {0}
+
+# Test: srcwin2-1.9
+# Desc: src+asm->assembly mode change
+gdbtk_test srcwin2-1.9 "src+asm->assembly mode change" {
+  set r 0
+  $srcwin mode "" ASSEMBLY
+  set twin [$stw test_get twin]
+  if {[$twin get 1.0 end] != $file1(assembly)} {set r -1}
+  if {[$statbar.mode get] != "ASSEMBLY"} {set r -2}
+  set r
+} {0}
+
+# Test: srcwin2-1.10
+# Desc: assembly->src+asm mode change
+gdbtk_test srcwin2-1.10 "assembly->src+asm mode change" {
+  set r 0
+  # mode change may fail if fallover to ASSEMBLY fails
+  if {[catch {$srcwin mode "" SRC+ASM}]} { set r -5 }
+  set twin [$stw test_get twin]
+  set bwin [$stw test_get bwin]
+  if {[$twin get 1.0 end] != $file1(assembly)} {set r -1}
+  if {$bwin != ""} {set r -2}
+  if {[$statbar.mode get] != "ASSEMBLY"} {set r -3}
+  set r
+} {0}
+
+# Test: srcwin2-1.11
+# Desc: src+asm->mixed mode change
+gdbtk_test srcwin2-1.11 "src+asm->mixed mode change" {
+  set r 0
+  $srcwin mode "" MIXED
+  set twin [$stw test_get twin]
+  if {[$twin get 1.0 end] != $file1(mixed)} {set r -1}
+  if {[$statbar.mode get] != "MIXED"} {set r -2}
+  set r
+} {0}
+
+# Test: srcwin2-1.12
+# Desc: mixed->assembly mode change
+gdbtk_test srcwin2-1.12 "mixed->assembly mode change" {
+  set r 0
+  $srcwin mode "" ASSEMBLY
+  set twin [$stw test_get twin]
+  if {[$twin get 1.0 end] != $file1(assembly)} {set r -1}
+  if {[$statbar.mode get] != "ASSEMBLY"} {set r -2}
+  set r
+} {0}
+
+# Test: srcwin2-1.13
+# Desc: assembly->source mode change
+gdbtk_test srcwin2-1.13 "assembly->source mode change" {
+  set r 0
+  $srcwin mode "" SOURCE
+  set twin [$stw test_get twin]
+  if {[$twin get 1.0 end] != $file1(source)} {set r -1}
+  if {[$statbar.mode get] != "ASSEMBLY"} {set r -2}
+  set r
+} {0}
+
+
+#####                       #####
+#                               #
+#  SECTION 2: Basic Operations  #
+#                               #
+#####                       #####
+
+# Test: srcwin2-2.1
+# Desc: check contents of filename combobox
+gdbtk_test srcwin2-2.1 "check contents of filename combobox" {
+  set names [$statbar.name list get 0 end]
+  set r 0
+  foreach f {list0.c list1.c} {
+    if {[lsearch $names $f] != -1} {
+      incr r
+    }
+  }
+  set r
+} {2}
+
+# Test: srcwin2-2.2
+# Desc: check contents of function combobox
+gdbtk_test srcwin2-2.2 "check contents of function combobox" {
+  set names [$statbar.func list get 0 end]
+  set r 0
+  foreach f {main foo unused} {
+    if {[lsearch $names $f] != -1} {
+      incr r
+    }
+  }
+  set r
+} {3}
+
+# Test: srcwin2-2.3
+# Desc: goto filename
+gdbtk_test srcwin2-2.3 "goto filename" {
+  set func [$srcwin test_get _name 1]
+  $func "" list1.c
+  set twin [$stw test_get twin]
+  set file2(source) [$twin get 1.0 end]
+  expr {![string compare $file1(source) $file2(source)]}
+} {0}
+
+# Test: srcwin2-2.4
+# Desc: check contents of function combobox
+gdbtk_test srcwin2-2.4 "check contents of function combobox" {
+  set names [$statbar.func list get 0 end]
+  set r 0
+  foreach f {bar long_line oof unused} {
+    if {[lsearch $names $f] != -1} {
+      incr r
+    }
+  }
+  set r
+} {4}
+
+# Test: srcwin2-2.5
+# Desc: function combobox entry field should be empty after switching to a new file
+gdbtk_test srcwin2-2.5 "function combobox entry field should be empty" {
+  set names [$statbar.func get]
+  string length $names
+} {0}
+
+# Test: srcwin2-2.6
+# Desc: goto function
+gdbtk_test srcwin2-2.6 "goto function bar" {
+  $srcwin goto_func "" bar
+  set r 0
+
+  # now get a dump of all tags and check that only one line is
+  # marked BROWSE_TAG and no lines are STACK_TAG or PC_TAG.
+
+  # We know that list1.c should have BROWSE_TAG set at index 10.2
+  # for function "bar".  If list1.c is changed or the layout of the source
+  # window is changed, this must be updated.
+  if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+    foreach {k v i} $z {
+      if {$k == "tagon"} {
+	if {$v == "BROWSE_TAG"} {
+	  if {$i == "10.2"} {
+	    incr r
+	  } else {
+	    incr r 5
+	  }
+	}
+	if {$v == "STACK_TAG"} { incr r 10}
+	if {$v == "PC_TAG"} { incr r 100}
+      }
+    }
+  } else {
+    set r -1
+  }
+
+  if {$r == 1} {
+    # things are OK so far, so just verify the function name is displayed
+    # in the combobox entry field.
+    set names [$statbar.func get]
+    if {[string compare $names "bar"]} {set r -2}
+  }
+  set r
+} {1}
+
+# Test: srcwin2-2.7
+# Desc: goto function "oof". This tests that the correct line is highlighted
+# with BROWSE_TAG and no other lines are highlighted. It also checks that
+# the combobox has the correct function name in it.  Finally, list1.c
+# has an extremely long line, line 32, that breaks some functions.  We verify 
+# that the GDBtk has the correct line number.
+
+gdbtk_test srcwin2-2.7 "goto function oof" {
+  $srcwin goto_func "" oof
+  set r 0
+
+  # now get a dump of all tags and check that only one line is
+  # marked BROWSE_TAG and no lines are STACK_TAG or PC_TAG.
+
+  # We know that list1.c should have BROWSE_TAG set at index 38.2
+  # for function "oof".  If list1.c is changed or the layout of the source
+  # window is changed, this must be updated.
+  if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+    foreach {k v i} $z {
+      if {$k == "tagon"} {
+	if {$v == "BROWSE_TAG"} {
+	  if {$i == "38.2"} {
+	    set line_number [$twin get "$i wordstart" "$i wordend"]
+	    if {$line_number == "38"} {
+	      incr r
+	    } else {
+	      incr r -100
+	    }
+	  } else {
+	    incr r 5
+	  }
+	}
+	if {$v == "STACK_TAG"} {incr r 10}
+	if {$v == "PC_TAG"} {incr r 100}
+      }
+    }
+  } else {
+    set r -1
+  }
+
+  if {$r == 1} {
+    # things are OK so far, so just verify the function name is displayed
+    # in the combobox entry field.
+    set names [$statbar.func get]
+    if {[string compare $names "oof"]} {set r -2}
+  }
+  set r
+} {1}
+
+# Test: srcwin2-2.8
+# Desc: This test issues a next command while browsing list1.c.
+# It should display list0.c and highlight the correct line.
+gdbtk_test srcwin2-2.8 "step while browsing" {
+  gdb_immediate "next" 1
+  set r 0
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+  if {$name != "list0.c"} {set r -1}
+  if {$func != "main"} {set r -2}
+
+  # check that correct file is displayed
+  set twin [$stw test_get twin]
+  set a [$twin get 1.0 end]
+  if {[string compare $file1(source) $a]} {set r -3}
+
+  # check for PC_TAG
+  if {$r == 0} {
+    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "PC_TAG"} {
+	    incr r
+	  }
+	  if {$v == "STACK_TAG"} {incr r 10}
+	  if {$v == "BROWSE_TAG"} {incr r 100}
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  set r
+} {1}
+
+# Test: srcwin2-2.11
+# Desc: This test issues a break and a continue
+gdbtk_test srcwin2-2.11 "set BP and continue" {
+  gdb_immediate "break oof" 1
+  gdb_immediate "continue" 1
+  set r 0
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+  if {$name != "list1.c"} {set r -1}
+  if {$func != "oof"} {set r -2}
+
+  # check that the correct file is displayed
+  # we must clear the breakpoint first so it doesn't mess up the
+  # comparison...
+  gdb_immediate "clear oof" 1  
+  set twin [$stw test_get twin]
+  set a [$twin get 1.0 end]
+  if {[string compare $file2(source) $a]} {set r -3}
+  
+  # check for PC_TAG on correct line
+  if {$r == 0} {
+    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "PC_TAG"} {
+	    if {$i == "38.2"} {
+	      incr r
+	    } else {
+	      incr r 5
+	    }
+	  }
+	  if {$v == "STACK_TAG"} {incr r 10}
+	  if {$v == "BROWSE_TAG"} {incr r 100}
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  set r
+} {1}
+
+#####                       #####
+#                               #
+#  SECTION 3: Stack Operations  #
+#                               #
+#####                       #####
+
+# Test: srcwin2-3.1
+# Desc: This tests "stack up" 
+gdbtk_test srcwin2-3.1 "stack up (1)" {
+  $srcwin stack up
+  set r 0
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+  if {$name != "list1.c"} {set r -1}
+  if {$func != "long_line"} {set r -2}
+
+  # check that the correct file is displayed
+  set twin [$stw test_get twin]
+  set a [$twin get 1.0 end]
+  if {[string compare $file2(source) $a]} {set r -3}
+  
+  # check for PC_TAG and STACK_TAG on correct lines
+  if {$r == 0} {
+    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "PC_TAG"} {
+	    if {$i == "38.2"} {
+	      incr r
+	    } else {
+	      incr r 5
+	    }
+	  }
+	  if {$v == "STACK_TAG"} {
+	    if {$i == "26.2"} {
+	      incr r
+	    } else {
+	      incr r 10
+	    }
+	  }
+	  if {$v == "BROWSE_TAG"} {incr r 100}
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  set r
+} {2}
+
+# Test: srcwin2-3.2
+# Desc: Another "stack up"  test
+gdbtk_test srcwin2-3.2 "stack up (2)" {
+  $srcwin stack up
+  set r 0
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+  if {$name != "list1.c"} {set r -1}
+  if {$func != "bar"} {set r -2}
+
+  # check that the correct file is displayed
+  set twin [$stw test_get twin]
+  set a [$twin get 1.0 end]
+  if {[string compare $file2(source) $a]} {set r -3}
+  
+  # check for PC_TAG and STACK_TAG on correct lines
+  if {$r == 0} {
+    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "PC_TAG"} {
+	    if {$i == "38.2"} {
+	      incr r
+	    } else {
+	      incr r 5
+	    }
+	  }
+	  if {$v == "STACK_TAG"} {
+	    if {$i == "12.2"} {
+	      incr r
+	    } else {
+	      incr r 10
+	    }
+	  }
+	  if {$v == "BROWSE_TAG"} {incr r 100}
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  set r
+} {2}
+
+# Test: srcwin2-3.3
+# Desc: Another "stack up"  test
+gdbtk_test srcwin2-3.3 "stack up (3)" {
+  $srcwin stack up
+  set r 0
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+  if {$name != "list0.h"} {set r -1}
+  if {$func != "foo"} {set r -2}
+
+  # check that the correct file is displayed
+  set twin [$stw test_get twin]
+  set file3(source) [$twin get 1.0 end]
+  if {![string compare $file2(source) $file3(source)]} {set r -3}
+  
+  # check for PC_TAG and STACK_TAG on correct lines
+  if {$r == 0} {
+    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "STACK_TAG"} {
+	    if {$i == "9.2"} {
+	      incr r
+	    } else {
+	      incr r 5
+	    }
+	  }
+	  if {$v == "PC_TAG"} {incr r 10}
+	  if {$v == "BROWSE_TAG"} {incr r 100}
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  set r
+} {1}
+
+# Test: srcwin2-3.4
+# Desc: Another "stack up"  test
+gdbtk_test srcwin2-3.4 "stack up (4)" {
+  $srcwin stack up
+  set r 0
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+  if {$name != "list0.c"} {set r -1}
+  if {$func != "main"} {set r -2}
+
+  # check that the correct file is displayed
+  set twin [$stw test_get twin]
+  set a [$twin get 1.0 end]
+  if {[string compare $file1(source) $a]} {set r -3}
+  
+  # check for STACK_TAG
+  if {$r == 0} {
+    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "STACK_TAG"} {
+	    incr r
+	  }
+	  if {$v == "PC_TAG"} {incr r 10}
+	  if {$v == "BROWSE_TAG"} {incr r 100}
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  set r
+} {1}
+
+
+# Disabled for now because there are different correct results.
+# Test should be rewritten to include those.
+# Test: srcwin2-3.5
+# Desc: "stack up" when we are at the top
+#gdbtk_test srcwin2-3.5 "stack up when at the top" {
+# $srcwin stack up
+#  set r 0
+#  set name [$statbar.name get]
+#  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+#  if {$name != "list0.c"} {set r -1}
+#  if {$func != "main"} {set r -2}
+
+  # check that the correct file is displayed
+#  set twin [$stw test_get twin]
+#  set a [$twin get 1.0 end]
+#  if {[string compare $file1(source) $a]} {set r -3}
+  
+  # check for STACK_TAG
+#  if {$r == 0} {
+#    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+#      foreach {k v i} $z {
+#	if {$k == "tagon"} {
+#	  if {$v == "STACK_TAG"} {
+#	    incr r
+#	  }
+#	  if {$v == "PC_TAG"} {incr r 10}
+#	  if {$v == "BROWSE_TAG"} {incr r 100}
+#	}
+#      }
+#    } else {
+#      set r -4
+#    }
+#  }
+#  set r
+#} {1}
+
+# Test: srcwin2-3.6
+# Desc: "stack down"  test
+gdbtk_test srcwin2-3.6 "stack down" {
+  $srcwin stack down
+  set r 0
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+  if {$name != "list0.h"} {set r -1}
+  if {$func != "foo"} {set r -2}
+
+  # check that the correct file is displayed
+  set twin [$stw test_get twin]
+  set a [$twin get 1.0 end]
+  if {![string compare $file2(source) $a]} {set r -3}
+  
+  # check for PC_TAG and STACK_TAG on correct lines
+  if {$r == 0} {
+    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "STACK_TAG"} {
+	    if {$i == "9.2"} {
+	      incr r
+	    } else {
+	      incr r 5
+	    }
+	  }
+	  if {$v == "PC_TAG"} {incr r 10}
+	  if {$v == "BROWSE_TAG"} {incr r 100}
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  set r
+} {1}
+
+# Test: srcwin2-3.7
+# Desc: "stack bottom"  test
+gdbtk_test srcwin2-3.7 "stack bottom" {
+  $srcwin stack bottom
+  set r 0
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+  if {$name != "list1.c"} {set r -1}
+  if {$func != "oof"} {set r -2}
+
+  # check that the correct file is displayed
+  set twin [$stw test_get twin]
+  set a [$twin get 1.0 end]
+  if {[string compare $file2(source) $a]} {set r -3}
+  
+  # check for PC_TAG on correct line
+  if {$r == 0} {
+    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "PC_TAG"} {
+	    if {$i == "38.2"} {
+	      incr r
+	    } else {
+	      incr r 5
+	    }
+	  }
+	  if {$v == "STACK_TAG"} {incr r 10}
+	  if {$v == "BROWSE_TAG"} {incr r 100}
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  set r
+} {1}
+
+# Test: srcwin2-3.8
+# Desc: "stack down" when at bottom
+gdbtk_test srcwin2-3.8 "stack down when at bottom" {
+  $srcwin stack down
+  set r 0
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+  if {$name != "list1.c"} {set r -1}
+  if {$func != "oof"} {set r -2}
+
+  # check that the correct file is displayed
+  set twin [$stw test_get twin]
+  set a [$twin get 1.0 end]
+  if {[string compare $file2(source) $a]} {set r -3}
+  
+  # check for PC_TAG on correct line
+  if {$r == 0} {
+    if {![catch {set z [$twin dump -tag 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "PC_TAG"} {
+	    if {$i == "38.2"} {
+	      incr r
+	    } else {
+	      incr r 5
+	    }
+	  }
+	  if {$v == "STACK_TAG"} {incr r 10}
+	  if {$v == "BROWSE_TAG"} {incr r 100}
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  set r
+} {1}
+
+# 4.1 bp, multiple, balloon, etc
+
+# Test: srcwin2-4.1
+# Desc: Set BP in another file. Tests bp and cache functions
+gdbtk_test srcwin2-4.1 "set BP in another file" {
+  gdb_immediate "break foo" 1
+  $srcwin goto_func "" foo
+  set r 0
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+
+  # check contents of name and function comboboxes
+  if {$name != "list0.h"} {set r -1}
+  if {$func != "foo"} {set r -2}
+
+  set twin [$stw test_get twin]
+  
+  # check for BROWSE_TAG and BP image on correct line
+  if {$r == 0} {
+    if {![catch {set z [$twin dump 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "BROWSE_TAG"} {
+	    if {$i == "9.2"} {
+	      incr r
+	    } else {
+	      incr r 5
+	    }
+	  }
+	  if {$v == "STACK_TAG"} {incr r 10}
+	  if {$v == "PC_TAG"} {incr r 100}
+	} elseif {$k == "image"} {
+	  if {$i == "9.0"} {
+	    incr r
+	  } else {
+	    set r -200
+	  }
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  
+  if {$r == 2} {
+    # clear BP and compare with previous contents. This should succeed,
+    gdb_immediate "clear foo" 1
+    set a [$twin get 1.0 end]
+    if {[string compare $file3(source) $a]} {set r -3}
+  }
+  
+  set r
+} {2}
+
+# Test: srcwin2-4.2
+# Desc: Test temporary BP
+gdbtk_test srcwin2-4.2 "temporary BP" {
+  set r 0
+  if {[catch {gdb_immediate "tbreak foo" 1} msg]} {
+    set r -500
+  }
+  set name [$statbar.name get]
+  set func [$statbar.func get]
+  
+  # check contents of name and function comboboxes
+  if {$name != "list0.h"} {set r -1}
+  if {$func != "foo"} {set r -2}
+
+  set twin [$stw test_get twin]
+  
+  # check for BROWSE_TAG and BP image on correct line
+  if {$r == 0} {
+    if {![catch {set z [$twin dump 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "BROWSE_TAG"} {
+	    if {$i == "9.2"} {
+	      incr r
+	    } else {
+	      incr r 5
+	    }
+	  }
+	  if {$v == "STACK_TAG"} {incr r 10}
+	  if {$v == "PC_TAG"} {incr r 100}
+	} elseif {$k == "image"} {
+	  if {$i == "9.0"} {
+	    incr r
+	  } else {
+	    set r -200
+	  }
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  
+  gdb_immediate "continue" 1
+  
+  # now check for PC_TAG and no image
+  if {$r == 2} {
+    if {![catch {set z [$twin dump 1.0 end]}]} {
+      foreach {k v i} $z {
+	if {$k == "tagon"} {
+	  if {$v == "PC_TAG"} {
+	    if {$i == "9.2"} {
+	      incr r
+	    } else {
+	      incr r 5
+	    }
+	  }
+	  if {$v == "STACK_TAG"} {incr r 10}
+	  if {$v == "BROWSE_TAG"} {incr r 100}
+	} elseif {$k == "image"} {
+	  set r -200
+	}
+      }
+    } else {
+      set r -4
+    }
+  }
+  
+  set r
+} {3}
+
+gdbtk_test_done

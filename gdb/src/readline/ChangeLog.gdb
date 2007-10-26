@@ -1,3 +1,50 @@
+2005-07-25  Mark Mitchell <mark@codesourcery.com>
+
+	* input.c (rl_getc): Use getch to read console input on
+	Windows.
+	* readline.c (bind_arrow_keys_internal): Translate
+	Windows keysequences into ANSI key sequences.
+	* rldefs.h (NO_TTY_DRIVER): Define on MinGW.
+	* rltty.c: Conditionalize on NO_TTY_DRIVER throughout.
+	
+2005-07-03  Mark Kettenis <kettenis@gnu.org>
+
+	From Martin Simmons:
+	* configure.in: Check for getpwnam instead of getpwname.
+	* configure: Regenerate.
+
+2005-05-09  Mark Mitchell <mark@codesourcery.com>
+
+	* aclocal.m4: Use AC_TRY_LINK to check for mbstate_t.
+	* complete.c (pwd.h): Guard with HAVE_PWD_H.
+	(getpwent): Guard with HAVE_GETPWENT.
+	(rl_username_completion_function): Guard use of getpwent.
+	(endpwent): Likewise.
+	* config.h.in (HAVE_FCNTL): New macro.
+	(HAVE_GETPWENT): Likewise.
+	(HAVE_GETPWNAM): Likewise.
+	(HAVE_GETPWUID): Likewise.
+	(HAVE_KILL): Likewise.
+	(HAVE_PWD_H): Likewise.
+	* configure: Regenerated.
+	* configure.in: Handle MinGW when cross compiling.  Check for
+	getpwnam, getpwent, getpwuid, kill, and pwd.h.
+	* display.c (rl_clear_screen): Treat Windows like DOS.
+	(insert_some_chars): Likewise.
+	(delete_chars): Likewise.
+	* shell.c (pwd.h): Guard with HAVE_PWD_H.
+	(getpwuid): Guard with HAVE_GETPWUID.
+	(sh_unset_nodelay_mode): Guard use of fnctl with HAVE_FNCTL_H.
+	* signals.c (rl_signal_handler): Don't use SIGALRM or
+	SIGQUIT if not defined.  Use "raise" if "kill" is not available.
+	(rl_set_signals): Don't set handlers for SIGQUIT or SIGALRM if
+	they are not defined.
+	(rl_clear_signals): Likewise.
+	* tilde.c (pwd.h): Guard with HAVE_PWD_H.
+	(getpwuid): Guard declaration with HAVE_GETPWUID.
+	(getpwnam): Guard declaration with HAVE_GETPWNAM.
+	(tilde_expand_word): Guard use of getpwnam with HAVE_GETPWNAM.
+
 2004-02-19  Andrew Cagney  <cagney@redhat.com>
 
 	* config.guess: Update from version 2003-06-12 to 2004-02-16.

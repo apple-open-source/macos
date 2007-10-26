@@ -1,0 +1,36 @@
+--- memmove.3	2003-05-20 15:23:54.000000000 -0700
++++ memmove.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -47,24 +47,28 @@
+ .Sh SYNOPSIS
+ .In string.h
+ .Ft void *
+-.Fn memmove "void *dst" "const void *src" "size_t len"
++.Fo memmove
++.Fa "void *s1"
++.Fa "const void *s2"
++.Fa "size_t n"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn memmove
+ function
+ copies
+-.Fa len
++.Fa n
+ bytes from string
+-.Fa src
++.Fa s2
+ to string
+-.Fa dst .
++.Fa s1 .
+ The two strings may overlap;
+ the copy is always done in a non-destructive manner.
+ .Sh RETURN VALUES
+ The
+ .Fn memmove
+ function returns the original value of
+-.Fa dst .
++.Fa s1 .
+ .Sh SEE ALSO
+ .Xr bcopy 3 ,
+ .Xr memccpy 3 ,

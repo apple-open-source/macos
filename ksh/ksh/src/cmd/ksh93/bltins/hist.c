@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #include	"defs.h"
 #include	<stak.h>
@@ -35,6 +31,8 @@
 #if SHOPT_HISTEXPAND
 #   include	"edit.h"
 #endif
+
+#define HIST_RECURSE	5
 
 static void hist_subst(const char*, int fd, char*);
 
@@ -265,7 +263,10 @@ int	b_hist(int argc,char *argv[], void *extra)
 		char buff[IOBSIZE+1];
 		Sfio_t *iop = sfnew(NIL(Sfio_t*),buff,IOBSIZE,fdo,SF_READ);
 		/* read in and run the command */
+		if(shp->hist_depth++ > HIST_RECURSE)
+			errormsg(SH_DICT,ERROR_exit(1),e_toodeep,"history");
 		sh_eval(iop,1);
+		shp->hist_depth--;
 	}
 	else
 	{

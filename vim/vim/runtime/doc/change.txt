@@ -1,4 +1,4 @@
-*change.txt*    For Vim version 6.2.  Last change: 2003 May 24
+*change.txt*    For Vim version 7.0.  Last change: 2006 May 05
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -13,8 +13,13 @@ commands with the "." command.
 2. Delete and insert		|delete-insert|
 3. Simple changes		|simple-change|		*changing*
 4. Complex changes		|complex-change|
+   4.1 Filter commands		   |filter|
+   4.2 Substitute		   |:substitute|
+   4.3 Search and replace	   |search-replace|
+   4.4 Changing tabs		   |change-tabs|
 5. Copying and moving text	|copy-move|
 6. Formatting text		|formatting|
+7. Sorting text			|sorting|
 
 For inserting text see |insert.txt|.
 
@@ -23,7 +28,7 @@ For inserting text see |insert.txt|.
 
 ["x]<Del>	or					*<Del>* *x* *dl*
 ["x]x			Delete [count] characters under and after the cursor
-			[into register x] (not linewise).  Does the same as
+			[into register x] (not |linewise|).  Does the same as
 			"dl".
 			The <Del> key does not take a [count].  Instead, it
 			deletes the last character of the count.
@@ -33,7 +38,7 @@ For inserting text see |insert.txt|.
 
 							*X* *dh*
 ["x]X			Delete [count] characters before the cursor [into
-			register x] (not linewise).  Does the same as "dh".
+			register x] (not |linewise|).  Does the same as "dh".
 			Also see |'whichwrap'|.
 
 							*d*
@@ -41,13 +46,15 @@ For inserting text see |insert.txt|.
 			x].  See below for exceptions.
 
 							*dd*
-["x]dd			Delete [count] lines [into register x] (linewise).
+["x]dd			Delete [count] lines [into register x] |linewise|.
 
 							*D*
 ["x]D			Delete the characters under the cursor until the end
 			of the line and [count]-1 more lines [into register
 			x]; synonym for "d$".
-			(not linewise)
+			(not |linewise|)
+			When the '#' flag is in 'cpoptions' the count is
+			ignored.
 
 {Visual}["x]x	or					*v_x* *v_d* *v_<Del>*
 {Visual}["x]d   or
@@ -106,19 +113,22 @@ gJ			Join [count] lines, with a minimum of two lines.
 			Vi}
 
 							*:j* *:join*
-:[range]j[oin][!]	Join [range] lines.  Same as "J", except with [!]
+:[range]j[oin][!] [flags]
+			Join [range] lines.  Same as "J", except with [!]
 			the join does not insert or delete any spaces.
 			If a [range] has equal start and end values, this
 			command does nothing.  The default behavior is to
 			join the current line with the line below it.
 			{not in Vi: !}
+			See |ex-flags| for [flags].
 
-:[range]j[oin][!] {count}
+:[range]j[oin][!] {count} [flags]
 			Join {count} lines, starting with [range] (default:
 			current line |cmdline-ranges|).  Same as "J", except
 			with [!] the join does not insert or delete any
 			spaces.
 			{not in Vi: !}
+			See |ex-flags| for [flags].
 
 These commands delete the <EOL> between lines.  This has the effect of joining
 multiple lines into one line.  You can repeat these commands (except ":j") and
@@ -164,22 +174,22 @@ gR			Enter Virtual Replace mode: Each character you type
 
 							*cc*
 ["x]cc			Delete [count] lines [into register x] and start
-			insert (linewise).  If 'autoindent' is on, preserve
+			insert |linewise|.  If 'autoindent' is on, preserve
 			the indent of the first line.
 
 							*C*
 ["x]C			Delete from the cursor position to the end of the
 			line and [count]-1 more lines [into register x], and
-			start insert.  Synonym for c$ (not linewise).
+			start insert.  Synonym for c$ (not |linewise|).
 
 							*s*
 ["x]s			Delete [count] characters [into register x] and start
 			insert (s stands for Substitute).  Synonym for "cl"
-			(not linewise).
+			(not |linewise|).
 
 							*S*
 ["x]S			Delete [count] lines [into register x] and start
-			insert.  Synonym for "cc" (linewise).
+			insert.  Synonym for "cc" |linewise|.
 
 {Visual}["x]c	or					*v_c* *v_s*
 {Visual}["x]s		Delete the highlighted text [into register x] and
@@ -230,10 +240,12 @@ If you prefer "cw" to include the space after a word, use this mapping: >
 	:map cw dwi
 <
 							*:c* *:ch* *:change*
-:{range}c[hange]	Replace lines of text with some different text.
+:{range}c[hange][!]	Replace lines of text with some different text.
 			Type a line containing only "." to stop replacing.
 			Without {range}, this command changes only the current
 			line.
+			Adding [!] toggles 'autoindent' for the time this
+			command is executed.
 
 ==============================================================================
 3. Simple changes					*simple-change*
@@ -346,29 +358,35 @@ CTRL-X			Subtract [count] from the number or alphabetic
 The CTRL-A and CTRL-X commands work for (signed) decimal numbers, unsigned
 octal and hexadecimal numbers and alphabetic characters.  This depends on the
 'nrformats' option.
-- When 'nrformats' includes "alpha", Vim will change the alphabetic character
-  under or after the cursor.  This is useful to make lists with an alphabetic
-  index.
+- When 'nrformats' includes "octal", Vim considers numbers starting with a '0'
+  to be octal, unless the number includes a '8' or '9'.  Other numbers are
+  decimal and may have a preceding minus sign.
+  If the cursor is on a number, the commands apply to that number; otherwise
+  Vim uses the number to the right of the cursor.
 - When 'nrformats' includes "hex", Vim assumes numbers starting with '0x' or
   '0X' are hexadecimal.  The case of the rightmost letter in the number
   determines the case of the resulting hexadecimal number.  If there is no
   letter in the current number, Vim uses the previously detected case.
-- When 'nrformats' includes "octal", Vim considers numbers starting with a '0'
-  to be octal.  Other numbers are decimal and may have a preceding minus sign.
-  If the cursor is on a number, the commands apply to that number; otherwise
-  Vim uses the number to the right of the cursor.
+- When 'nrformats' includes "alpha", Vim will change the alphabetic character
+  under or after the cursor.  This is useful to make lists with an alphabetic
+  index.
 
 For numbers with leading zeros (including all octal and hexadecimal numbers),
 Vim preserves the number of characters in the number when possible.  CTRL-A on
-"0077" results in "0100", CTRL-X on "0x100" results in "0x0ff".  Note that
-when 'nrformats' includes "octal", decimal numbers with leading zeros are
-impossible because they are indistinguishable from octal numbers.
+"0077" results in "0100", CTRL-X on "0x100" results in "0x0ff".
+There is one exception: When a number that starts with a zero is found not to
+be octal (it contains a '8' or '9'), but 'nrformats' does include "octal",
+leading zeros are removed to avoid that the result may be recognized as an
+octal number.
+
+Note that when 'nrformats' includes "octal", decimal numbers with leading
+zeros cause mistakes, because they can be confused with octal numbers.
 
 The CTRL-A command is very useful in a macro.  Example: Use the following
 steps to make a numbered list.
 
 1. Create the first list entry, make sure it starts with a number.
-2. qa	     - start recording into buffer 'a'
+2. qa	     - start recording into register 'a'
 3. Y	     - yank the entry
 4. p	     - put a copy of the entry below the first one
 5. CTRL-A    - increment the number
@@ -412,12 +430,15 @@ SHIFTING LINES LEFT OR RIGHT				*shift-left-right*
 			lines to [indent] (default 0).  {not in Vi}
 
 							*:>*
-:[range]>		Shift {count} [range] lines one 'shiftwidth' right.
+:[range]> [flags]	Shift {count} [range] lines one 'shiftwidth' right.
 			Repeat '>' for shifting multiple 'shiftwidth's.
+			See |ex-flags| for [flags].
 
-:[range]> {count}	Shift {count} lines one 'shiftwidth' right, starting
+:[range]> {count} [flags]
+			Shift {count} lines one 'shiftwidth' right, starting
 			with [range] (default current line |cmdline-ranges|).
 			Repeat '>' for shifting multiple 'shiftwidth's.
+			See |ex-flags| for [flags].
 
 The ">" and "<" commands are handy for changing the indentation within
 programs.  Use the 'shiftwidth' option to set the size of the white space
@@ -449,7 +470,19 @@ For example: >
 ==============================================================================
 4. Complex changes					*complex-change*
 
-							*!* *filter*
+4.1 Filter commands					*filter*
+
+A filter is a program that accepts text at standard input, changes it in some
+way, and sends it to standard output.  You can use the commands below to send
+some text through a filter, so that it is replace by the filter output.
+Examples of filters are "sort", which sorts lines alphabetically, and
+"indent", which formats C program files (you need a version of indent that
+works like a filter; not all versions do).  The 'shell' option specifies the
+shell Vim uses to execute the filter command (See also the 'shelltype'
+option).  You can repeat filter commands with ".".  Vim does not recognize a
+comment (starting with '"') after the ":!" command.
+
+							*!*
 !{motion}{filter}	Filter {motion} text lines through the external
 			program {filter}.
 
@@ -470,6 +503,14 @@ For example: >
 			temporary file and then reads the file into the
 			buffer.  Vim uses the 'shellredir' option to redirect
 			the filter output to the temporary file.
+			However, if the 'shelltemp' option is off then pipes
+			are used when possible (on Unix).
+			When the 'R' flag is included in 'cpoptions' marks in
+			the filtered lines are deleted, unless the
+			|:keepmarks| command is used.  Example: >
+				:keepmarks '<,'>!sort
+<			When the number of lines after filtering is less than
+			before, marks in the missing lines are deleted anyway.
 
 							*=*
 ={motion}		Filter {motion} lines through the external program
@@ -486,18 +527,10 @@ For example: >
 {Visual}=		Filter the highlighted lines like with ={motion}.
 			{not in Vi}
 
-A filter is a program that accepts text at standard input, changes it in some
-way, and sends it to standard output.  You can use the commands above to send
-some text through a filter.  Examples of filters are "sort", which sorts lines
-alphabetically, and "indent", which formats C program files (you need a
-version of indent that works like a filter; not all versions do).  The 'shell'
-option specifies the shell Vim uses to execute the filter command (See also
-the 'shelltype' option).  You can repeat filter commands with ".".  Vim does
-not recognize a comment (starting with '"') after the ":!" command.
 
-
-						*:s* *:su* *:substitute*
-:[range]s[ubstitute]/{pattern}/{string}/[&][c][e][g][p][r][i][I] [count]
+4.2 Substitute						*:substitute*
+							*:s* *:su*
+:[range]s[ubstitute]/{pattern}/{string}/[flags] [count]
 			For each line in [range] replace a match of {pattern}
 			with {string}.
 			For the {pattern} see |pattern|.
@@ -509,40 +542,40 @@ not recognize a comment (starting with '"') after the ":!" command.
 			starting with the last line in [range].  When [range]
 			is omitted start in the current line.
 			Also see |cmdline-ranges|.
-			See |:s_flags| for the flags.
+			See |:s_flags| for [flags].
 
-:[range]s[ubstitute] [c][e][g][p][r][i][I] [count]
-:[range]&[&][c][e][g][p][r][i][I] [count]			*:&*
+:[range]s[ubstitute] [flags] [count]
+:[range]&[&][flags] [count]					*:&*
 			Repeat last :substitute with same search pattern and
 			substitute string, but without the same flags.  You
-			may add extra flags (see |:s_flags|).
+			may add [flags], see |:s_flags|.
 			Note that after ":substitute" the '&' flag can't be
 			used, it's recognized as a pattern separator.
 			The space between ":substitute" and the 'c', 'g' and
 			'r' flags isn't required, but in scripts it's a good
 			idea to keep it to avoid confusion.
 
-:[range]~[&][c][e][g][p][r][i][I] [count]			*:~*
+:[range]~[&][flags] [count]					*:~*
 			Repeat last substitute with same substitute string
 			but with last used search pattern.  This is like
-			":&r".  See |:s_flags| for the flags.
+			":&r".  See |:s_flags| for [flags].
 
-						*&*
+								*&*
 &			Synonym for ":s//~/" (repeat last substitute).  Note
 			that the flags are not remembered, thus it might
 			actually work differently.  You can use ":&&" to keep
 			the flags.
 
-						*g&*
+								*g&*
 g&			Synonym for ":%s//~/&" (repeat last substitute on all
 			lines with the same flags).
 			Mnemonic: global substitute. {not in Vi}
 
-						*:snomagic*
+						*:snomagic* *:sno*
 :[range]sno[magic] ...	Same as ":substitute", but always use 'nomagic'.
 			{not in Vi}
 
-						*:smagic*
+						*:smagic* *:sm*
 :[range]sm[agic] ...	Same as ":substitute", but always use 'magic'.
 			{not in Vi}
 
@@ -599,8 +632,15 @@ The flags that you can use for the substitute commands:
 	options are not used.
 	{not in Vi}
 
+[n]	Report the number of matches, do not actually substitute.  The [c]
+	flag is ignored.  The matches are reported as if 'report' is zero.
+	Useful to |count-items|.
+
 [p]	Print the line containing the last substitute.
-	{not in Vi}
+
+[#]	Like [p] and prepend the line number.
+
+[l]	Like [l] but print the text like |:list|.
 
 [r]	Only useful in combination with ":&" or ":s" without arguments.  ":&r"
 	works the same way as ":~":  When the search pattern is empty, use the
@@ -642,23 +682,13 @@ replacement string.  Example: >
 
 For the definition of a pattern, see |pattern|.
 
-						*sub-replace-special*
-When the {string} starts with "\=" it is evaluated as an expression.  The
-special meaning for characters as mentioned below does not apply then, except
-"<CR>", "\<CR>" and "\\".  Thus in the result of the expression you need to
-use two backslashes get one, put a backslash before a <CR> you want to insert
-and use a <CR> without a backslash where you want to break the line.
-   The whole matched text can be accessed with "submatch(0)".  The text
-matched with the first pair of () with "submatch(1)".  Likewise for further
-sub-matches in ().
-   Be careful: The separation character must not appear in the expression!
-Consider using a character like "@" or ":".  There is no problem if the result
-of the expression contains the separation character.
-Example: >
-	:s@\n@\="\r" . expand("$HOME") . "\r"@
-This replaces an end-of-line with a new line containing the value of $HOME.
-
-Some characters in {string} have a special meaning:
+					*sub-replace-special* *:s\=*
+When the {string} starts with "\=" it is evaluated as an expression, see
+|sub-replace-expression|.  You can use that for any special characters.
+Otherwise these characters in {string} have a special meaning:
+								*:s%*
+When {string} is equal to "%" and '/' is included with the 'cpoptions' option,
+then the {string} of the previous substitute command is used. |cpo-/|
 
 magic	nomagic	  action    ~
   &	  \&	  replaced with the whole matched pattern	     *s/\&*
@@ -666,7 +696,7 @@ magic	nomagic	  action    ~
       \0	  replaced with the whole matched pattern	   *\0* *s/\0*
       \1	  replaced with the matched pattern in the first
 		  pair of ()					     *s/\1*
-      \2	  replaced with the matched pattern in the first
+      \2	  replaced with the matched pattern in the second
 		  pair of ()					     *s/\2*
       ..	  ..						     *s/\3*
       \9	  replaced with the matched pattern in the ninth
@@ -698,6 +728,7 @@ Examples: >
   :s/\([abc]\)\([efg]\)/\2\1/g	 modifies "af fa bg" to "fa fa gb"
   :s/abcde/abc^Mde/		 modifies "abcde"    to "abc", "de" (two lines)
   :s/$/\^M/			 modifies "abcde"    to "abcde^M"
+  :s/\w\+/\u\0/g		 modifies "bla bla"  to "Bla Bla"
 
 Note: In previous versions CTRL-V was handled in a special way.  Since this is
 not Vi compatible, this was removed.  Use a backslash instead.
@@ -719,7 +750,45 @@ either the first or second pattern in parentheses did not match, so either
 \1 or \2 is empty.  Example: >
   :s/\([ab]\)\|\([cd]\)/\1x/g   modifies "a b c d"  to "ax bx x x"
 <
-						*:pro* *:promptfind*
+
+Substitute with an expression			*sub-replace-expression*
+						*sub-replace-\=*
+When the substitute string starts with "\=" the remainder is interpreted as an
+expression.  This does not work recursively: a substitute() function inside
+the expression cannot use "\=" for the substitute string.
+
+The special meaning for characters as mentioned at |sub-replace-special| does
+not apply except "<CR>", "\<CR>" and "\\".  Thus in the result of the
+expression you need to use two backslashes get one, put a backslash before a
+<CR> you want to insert and use a <CR> without a backslash where you want to
+break the line.
+
+For convenience a <NL> character is also used as a line break.  Prepend a
+backslash to get a real <NL> character (which will be a NUL in the file).
+
+When the result is a |List| then the items are joined with separating line
+breaks.  Thus each item becomes a line, except that they can contain line
+breaks themselves.
+
+The whole matched text can be accessed with "submatch(0)".  The text matched
+with the first pair of () with "submatch(1)".  Likewise for further
+sub-matches in ().
+
+Be careful: The separation character must not appear in the expression!
+Consider using a character like "@" or ":".  There is no problem if the result
+of the expression contains the separation character.
+
+Examples: >
+	:s@\n@\="\r" . expand("$HOME") . "\r"@
+This replaces an end-of-line with a new line containing the value of $HOME. >
+
+	s/E/\="\<Char-0x20ac>"/g
+This replaces 'E' characters with an euro sign. Read more in |<Char->|.
+
+
+4.3 Search and replace					*search-replace*
+
+							*:pro* *:promptfind*
 :promptf[ind] [string]
 			Put up a Search dialog.  When [string] is given, it is
 			used as the initial search string.
@@ -731,6 +800,8 @@ either the first or second pattern in parentheses did not match, so either
 			given, it is used as the initial search string.
 			{only for Win32, Motif and GTK GUI}
 
+
+4.4 Changing tabs					*change-tabs*
 							*:ret* *:retab*
 :[range]ret[ab][!] [new_tabstop]
 			Replace all sequences of white-space containing a
@@ -794,11 +865,11 @@ inside of strings can change!  Also see 'softtabstop' option. >
 			flag.
 
 							*yy*
-["x]yy			Yank [count] lines [into register x] (linewise).
+["x]yy			Yank [count] lines [into register x] |linewise|.
 
 							*Y*
 ["x]Y			yank [count] lines [into register x] (synonym for
-			yy, linewise).  If you like "Y" to work from the
+			yy, |linewise|).  If you like "Y" to work from the
 			cursor to the end of line (which is more logical,
 			but not Vi-compatible) use ":map Y y$".
 
@@ -829,15 +900,19 @@ inside of strings can change!  Also see 'softtabstop' option. >
 							*<MiddleMouse>*
 ["x]<MiddleMouse>	Put the text from a register before the cursor [count]
 			times.  Uses the "* register, unless another is
-			specified.  Using the mouse only works when 'mouse'
-			contains 'n' or 'a'.
+			specified.
+			Leaves the cursor at the end of the new text.
+			Using the mouse only works when 'mouse' contains 'n'
+			or 'a'.
 			{not in Vi}
 			If you have a scrollwheel and often accidentally paste
 			text, you can use these mappings to disable the
 			pasting with the middle mouse button: >
 				:map <MiddleMouse> <Nop>
 				:imap <MiddleMouse> <Nop>
-<
+<			You might want to disable the multi-click versions
+			too, see |double-click|.
+
 							*gp*
 ["x]gp			Just like "p", but leave the cursor just after the new
 			text.  {not in Vi}
@@ -848,9 +923,11 @@ inside of strings can change!  Also see 'softtabstop' option. >
 
 							*:pu* *:put*
 :[line]pu[t] [x]	Put the text [from register x] after [line] (default
-			current line).  This always works linewise, thus this
-			command can be used to put a yanked block as new
+			current line).  This always works |linewise|, thus
+			this command can be used to put a yanked block as new
 			lines.
+			The cursor is left on the first non-blank in the last
+			new line.
 			The register can also be '=' followed by an optional
 			expression.  The expression continues until the end of
 			the command.  You need to escape the '|' and '"'
@@ -884,8 +961,8 @@ way to toggle between two files).
 
 				*linewise-register* *characterwise-register*
 You can repeat the put commands with "." (except for :put) and undo them.  If
-the command that was used to get the text into the register was linewise, Vim
-inserts the text below ("p") or above ("P") the line where the cursor is.
+the command that was used to get the text into the register was |linewise|,
+Vim inserts the text below ("p") or above ("P") the line where the cursor is.
 Otherwise Vim inserts the text after ("p") or before ("P") the cursor.  With
 the ":put" command, Vim always inserts the text in the next line.  You can
 exchange two characters with the command sequence "xp".  You can exchange two
@@ -900,9 +977,9 @@ When using a put command like |p| or |P| in Visual mode, Vim will try to
 replace the selected text with the contents of the register.  Whether this
 works well depends on the type of selection and the type of the text in the
 register.  With blockwise selection it also depends on the size of the block
-and whether the corners are on an existing character. (implementation detail:
+and whether the corners are on an existing character.  (Implementation detail:
 it actually works by first putting the register after the selection and then
-deleting the selection).
+deleting the selection.)
 
 							*blockwise-register*
 If you use a blockwise Visual mode command to get the text into the register,
@@ -914,13 +991,16 @@ this happen.  However, if the width of the block is not a multiple of a <Tab>
 width and the text after the inserted block contains <Tab>s, that text may be
 misaligned.
 
-Note that after a yank command, Vim leaves the cursor on the first yanked
-character that is closest to the start of the buffer.  This means that "yl"
-doesn't move the cursor, but "yh" moves the cursor one character left.
+Note that after a characterwise yank command, Vim leaves the cursor on the
+first yanked character that is closest to the start of the buffer.  This means
+that "yl" doesn't move the cursor, but "yh" moves the cursor one character
+left.
 Rationale:	In Vi the "y" command followed by a backwards motion would
 		sometimes not move the cursor to the first yanked character,
 		because redisplaying was skipped.  In Vim it always moves to
 		the first character, as specified by Posix.
+With a linewise yank command the cursor is put in the first line, but the
+column is unmodified, thus it may not be on the first yanked character.
 
 There are nine types of registers:			*registers* *E354*
 1. The unnamed register ""
@@ -936,11 +1016,13 @@ There are nine types of registers:			*registers* *E354*
 1. Unnamed register ""				*quote_quote* *quotequote*
 Vim fills this register with text deleted with the "d", "c", "s", "x" commands
 or copied with the yank "y" command, regardless of whether or not a specific
-register was used (e.g.  "xdd).  An exception is the '_' register: "_dd does
-not store the deleted text in any register.  Vim uses the contents of this
-register for any put command (p or P) which does not specify a register.
-Additionally you can access it with the name '"'.  This means you have to type
-two double quotes.  Writing to the "" register writes to register "0.
+register was used (e.g.  "xdd).  This is like the unnamed register is pointing
+to the last used register.  An exception is the '_' register: "_dd does not
+store the deleted text in any register.
+Vim uses the contents of the unnamed register for any put command (p or P)
+which does not specify a register.  Additionally you can access it with the
+name '"'.  This means you have to type two double quotes.  Writing to the ""
+register writes to register "0.
 {Vi: register contents are lost when changing files, no '"'}
 
 2. Numbered registers "0 to "9		*quote_number* *quote0*	*quote1*
@@ -951,9 +1033,9 @@ unless the command specified another register with ["x].
    Numbered register 1 contains the text deleted by the most recent delete or
 change command, unless the command specified another register or the text is
 less than one line (the small delete register is used then).  An exception is
-made for these commands: |%|, |(|, |)|, |`|, |/|, |?|, |n|, |N|, |{| and |}|.
-Register "1 is always used then (this is Vi compatible).  The "- register is
-used as well if the delete is within a line.
+made for the delete operator with these movement commands: |%|, |(|, |)|, |`|,
+|/|, |?|, |n|, |N|, |{| and |}|.  Register "1 is always used then (this is Vi
+compatible).  The "- register is used as well if the delete is within a line.
    With each successive deletion or change, Vim shifts the previous contents
 of register 1 into register 2, 2 into 3, and so forth, losing the previous
 contents of register 9.
@@ -968,7 +1050,8 @@ except when the command specifies a register with ["x].
 4. Named registers "a to "z or "A to "Z			*quote_alpha* *quotea*
 Vim fills these registers only when you say so.  Specify them as lowercase
 letters to replace their previous contents or as uppercase letters to append
-to their previous contents.
+to their previous contents.  When the '>' flag is present in 'cpoptions' then
+a line break is inserted before the appended text.
 
 5. Read-only registers ":, "., "% and "#
 These are '%', '#', ':' and '.'.  You can use them only with the "p", "P",
@@ -1001,14 +1084,18 @@ normal command-line editing commands are available, including a special
 history for expressions.  When you end the command-line by typing <CR>, Vim
 computes the result of the expression.  If you end it with <Esc>, Vim abandons
 the expression.  If you do not enter an expression, Vim uses the previous
-expression (like with the "/" command).  If the "= register is used for the
-"p" command, the string is split up at <NL> characters.  If the string ends in
-a <NL>, it is regarded as a linewise register.  {not in Vi}
+expression (like with the "/" command).  The expression must evaluate to a
+string.  If the result is a number it's turned into a string.  A List,
+Dictionary or FuncRef results in an error message (use string() to convert).
+If the "= register is used for the "p" command, the string is split up at <NL>
+characters.  If the string ends in a <NL>, it is regarded as a linewise
+register.  {not in Vi}
 
 7. Selection and drop registers "*, "+ and "~ 
 Use these register for storing and retrieving the selected text for the GUI.
 See |quotestar| and |quoteplus|.  When the clipboard is not available or not
-working, the unnamed register is used instead.  {not in Vi}
+working, the unnamed register is used instead.  For Unix systems the clipboard
+is only available when the |+xterm_clipboard| feature is present.  {not in Vi}
 
 Note that there is only a distinction between "* and "+ for X11 systems.  For
 an explanation of the difference, see |x11-selection|.  Under MS-Windows, use
@@ -1020,7 +1107,7 @@ operation.  When something has been dropped onto Vim, the "~ register is
 filled in and the <Drop> pseudo key is sent for notification.  You can remap
 this key if you want; the default action (for all modes) is to insert the
 contents of the "~ register at the cursor position.  {not in Vi}
-{only available when compiled with the |+dnd| feature, curently only with the
+{only available when compiled with the |+dnd| feature, currently only with the
 GTK GUI}
 
 Note: The "~ register is only used when dropping plain text onto Vim.
@@ -1085,13 +1172,23 @@ The next three commands always work on whole lines.
 			compile time.
 
 							*gq*
-gq{motion}		Format the lines that {motion} moves over.  The
-			'textwidth' option controls the length of each
-			formatted line (see below).  If the 'textwidth' option
-			is 0, the formatted line length is the screen width
-			(with a maximum width of 79).  {not in Vi}
+gq{motion}		Format the lines that {motion} moves over.
+			Formatting is done with one of three methods:
+			1. If 'formatexpr' is not empty the expression is
+			   evaluated.  This can differ for each buffer.
+			2. If 'formatprg' is not empty an external program
+			   is used.
+			3. Otherwise formatting is done internally.
+
+			In the third case the 'textwidth' option controls the
+			length of each formatted line (see below).
+			If the 'textwidth' option is 0, the formatted line
+			length is the screen width (with a maximum width of
+			79).
 			The 'formatoptions' option controls the type of
 			formatting |fo-table|.
+			The cursor is left on the first non-blank of the last
+			formatted line.
 			NOTE: The "Q" command formerly performed this
 			function.  If you still want to use "Q" for
 			formatting, use this mapping: >
@@ -1104,7 +1201,20 @@ gqq			Format the current line.  {not in Vi}
 {Visual}gq		Format the highlighted text.  (for {Visual} see
 			|Visual-mode|).  {not in Vi}
 
-Example: To format the current paragraph use: >
+							*gw*
+gw{motion}		Format the lines that {motion} moves over.  Similar to
+			|gq| but puts the cursor back at the same position in
+			the text.  However, 'formatprg' and 'formatexpr' are
+			not used.  {not in Vi}
+
+gwgw							*gwgw* *gww*
+gww			Format the current line as with "gw".  {not in Vi}
+
+							*v_gw*
+{Visual}gw		Format the highlighted text as with "gw".  (for
+			{Visual} see |Visual-mode|).  {not in Vi}
+
+Example: To format the current paragraph use:			*gqap*  >
 	gqap
 
 The "gq" command leaves the cursor in the line where the motion command takes
@@ -1112,6 +1222,11 @@ the cursor.  This allows you to repeat formatting repeated with ".".  This
 works well with "gqj" (format current and next line) and "gq}" (format until
 end of paragraph).  Note: When 'formatprg' is set, "gq" leaves the cursor on
 the first formatted line (as with using a filter command).
+
+If you want to format the current paragraph and continue where you were, use: >
+	gwap
+If you always want to keep paragraphs formatted you may want to add the 'a'
+flag to 'formatoptions'.  See |auto-format|.
 
 If the 'autoindent' option is on, Vim uses the indent of the first line for
 the following lines.
@@ -1121,9 +1236,10 @@ white space!).
 
 The 'joinspaces' option is used when lines are joined together.
 
-You can set the 'formatprg' option to the name of an external program for Vim
-to use for text formatting.  The 'textwidth' and other options have no effect
-on formatting by an external program.
+You can set the 'formatexpr' option to an expression or the 'formatprg' option
+to the name of an external program for Vim to use for text formatting.  The
+'textwidth' and other options have no effect on formatting by an external
+program.
 
 							*right-justify*
 There is no command in Vim to right justify text.  You can do it with
@@ -1266,10 +1382,12 @@ a	Automatic formatting of paragraphs.  Every time text is inserted or
 	deleted the paragraph will be reformatted.  See |auto-format|.
 	When the 'c' flag is present this only happens for recognized
 	comments.
-n	When formatting text, recognize numbered lists.  The indent of the
-	text after the number is used for the next line.  The number may
-	optionally be followed by '.', ':', ')', ']' or '}'.  Note that
-	'autoindent' must be set too.  Doesn't work well together with "2".
+n	When formatting text, recognize numbered lists.  This actually uses
+	the 'formatlistpat' option, thus any kind of list can be used.  The
+	indent of the text after the number is used for the next line.  The
+	default is to find a number, optionally be followed by '.', ':', ')',
+	']' or '}'.  Note that 'autoindent' must be set too.  Doesn't work
+	well together with "2".
 	Example: >
 		1. the first item
 		   wraps
@@ -1311,8 +1429,9 @@ value	action	~
 "c"	automatic formatting for comments, but not text (good for C code)
 "tc"	automatic formatting for text and comments
 
-Note that when 'textwidth' is 0, Vim does no formatting anyway (but does
-insert comment leaders according to the 'comments' option).
+Note that when 'textwidth' is 0, Vim does no automatic formatting anyway (but
+does insert comment leaders according to the 'comments' option).  An exception
+is when the 'a' flag is present. |auto-format|
 
 Note that when 'paste' is on, Vim does no formatting at all.
 
@@ -1323,7 +1442,7 @@ If the 'comments' option includes "/*", "*" and/or "*/", then Vim has some
 built in stuff to treat these types of comments a bit more cleverly.
 Opening a new line before or after "/*" or "*/" (with 'r' or 'o' present in
 'formatoptions') gives the correct start of the line automatically.  The same
-happens with formatting and auto-wrapping. Opening a line after a line
+happens with formatting and auto-wrapping.  Opening a line after a line
 starting with "/*" or "*" and containing "*/", will cause no comment leader to
 be inserted, and the indent of the new line is taken from the line containing
 the start of the comment.
@@ -1367,6 +1486,9 @@ editing text paragraphs.  A few hints on how to use this:
 
 - Add the 'c' flag to only auto-format comments.  Useful in source code.
 
+- Set 'textwidth' to the desired width.  If it is zero then 79 is used, or the
+  width of the screen if this is smaller.
+
 And a few warnings:
 
 - When part of the text is not properly separated in paragraphs, making
@@ -1383,5 +1505,75 @@ And a few warnings:
 
 - Formatting a long paragraph and/or with complicated indenting may be slow.
 
+==============================================================================
+7. Sorting text						*sorting*
+
+Vim has a sorting function and a sorting command.  The sorting function can be
+found here: |sort()|.
+
+							*:sor* *:sort*
+:[range]sor[t][!] [i][u][r][n][x][o] [/{pattern}/]
+			Sort lines in [range].  When no range is given all
+			lines are sorted.
+
+			With [!] the order is reversed.
+
+			With [i] case is ignored.
+
+			With [n] sorting is done on the first decimal number
+			in the line (after or inside a {pattern} match).
+
+			With [x] sorting is done on the first hexadecimal
+			number in the line (after or inside a {pattern}
+			match).  A leading "0x" or "0X" is ignored.
+
+			With [o] sorting is done on the first octal number in
+			the line (after or inside a {pattern} match).
+
+			With [u] only keep the first of a sequence of
+			identical lines (ignoring case when [i] is used).
+			Without this flag, a sequence of identical lines
+			will be kept in their original order.
+			Note that leading and trailing white space may cause
+			lines to be different.
+
+			When /{pattern}/ is specified and there is no [r] flag
+			the text matched with {pattern} is skipped, so that
+			you sort on what comes after the match.
+			Instead of the slash any non-letter can be used.
+			For example, to sort on the second comma-separated
+			field: >
+				:sort /[^,]*,/
+<			To sort on the text at virtual column 10 (thus
+			ignoring the difference between tabs and spaces): >
+				:sort /.*\%10v/
+<			To sort on the first number in the line, no matter
+			what is in front of it: >
+				:sort /.*\ze\d/
+
+<			With [r] sorting is done on the matching {pattern}
+			instead of skipping past it as described above.
+			For example, to sort on only the first three letters
+			of each line: >
+				:sort /\a\a\a/ r
+
+<			If a {pattern} is used, any lines which don't have a
+			match for {pattern} are kept in their current order,
+			but separate from the lines which do match {pattern}.
+			If you sorted in reverse, they will be in reverse
+			order after the sorted lines, otherwise they will be
+			in their original order, right before the sorted
+			lines.
+
+Note that using ":sort" with ":global" doesn't sort the matching lines, it's
+quite useless.
+
+The details about sorting depend on the library function used.  There is no
+guarantee that sorting is "stable" or obeys the current locale.  You will have
+to try it out.
+
+The sorting can be interrupted, but if you interrupt it too late in the
+process you may end up with duplicated lines.  This also depends on the system
+library function used.
 
  vim:tw=78:ts=8:ft=help:norl:

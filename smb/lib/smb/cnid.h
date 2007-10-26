@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -57,8 +60,7 @@
  */
 #define RPC_CN_LOCAL_ID_CLEAR(id)\
 {\
-    id.parts.id_seqnum = 0;\
-    id.parts.id_index = 0;\
+	id.all = 0; \
 }
 
 /*

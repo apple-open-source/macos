@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,44 +25,10 @@
  *  bless
  *
  *  Created by Shantonu Sen on 1/13/05.
- *  Copyright 2005-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2005-2007 Apple Inc. All Rights Reserved.
  *
  *
- *  $Id: BLGetRAIDBootDataForDevice.c,v 1.7 2005/08/22 20:49:25 ssen Exp $
- *
- *  $Log: BLGetRAIDBootDataForDevice.c,v $
- *  Revision 1.7  2005/08/22 20:49:25  ssen
- *  Change functions to take "char *foo" instead of "char foo[]".
- *  It should be semantically identical, and be more consistent with
- *  other system APIs
- *
- *  Revision 1.6  2005/06/24 16:39:52  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.5  2005/02/03 00:42:29  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.4  2005/01/26 01:25:30  ssen
- *  Finish v1 booting support. Also prepare for the day that
- *  unbootable RAIDs will not publish IOBoot entries.
- *
- *  Revision 1.3  2005/01/16 00:10:12  ssen
- *  <rdar://problem/3861859> bless needs to try getProperty(kIOBootDeviceKey)
- *  Implement -getBoot and -info functionality. If boot-device is
- *  set to the Apple_Boot for one of the RAID members, we map
- *  this back to the top-level RAID device and print that out. This
- *  enables support in Startup Disk
- *
- *  Revision 1.2  2005/01/14 22:29:59  ssen
- *  <rdar://problem/3861859> bless needs to try getProperty(kIOBootDeviceKey)
- *  When determining the "OF path" for a device, figure out if it's
- *  part of a RAID set, and if so, find the booter for the primary
- *  path. Otherwise, find a normal booter, or else no booter at all
- *
- *  Revision 1.1  2005/01/14 18:28:40  ssen
- *  start RAID work
+ *  $Id: BLGetRAIDBootDataForDevice.c,v 1.8 2006/02/20 22:49:58 ssen Exp $
  *
  */
 
@@ -73,12 +39,15 @@
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitKeys.h>
-#include <IOKit/storage/RAID/AppleRAIDUserLib.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "bless.h"
 #include "bless_private.h"
+
+#if SUPPORT_RAID
+
+#include <IOKit/storage/RAID/AppleRAIDUserLib.h>
 
 int BLGetRAIDBootDataForDevice(BLContextPtr context, const char * device,
 							   CFTypeRef *bootData)
@@ -88,7 +57,7 @@ int BLGetRAIDBootDataForDevice(BLContextPtr context, const char * device,
 	mach_port_t             ourIOKitPort;
 	io_service_t			service;
 	io_iterator_t			serviter;
-	CFTypeRef				isRAID = NULL, data = NULL;
+	CFTypeRef			data = NULL;
 	
 	*bootData = NULL;
 	
@@ -117,25 +86,6 @@ int BLGetRAIDBootDataForDevice(BLContextPtr context, const char * device,
         
 	IOObjectRelease(serviter);
 	
-	isRAID = IORegistryEntrySearchCFProperty( service,
-											  kIOServicePlane,
-											  CFSTR(kAppleRAIDIsRAIDKey),
-											  kCFAllocatorDefault,
-											  kIORegistryIterateRecursively|
-												kIORegistryIterateParents);
-
-	if(isRAID == NULL
-	   || CFGetTypeID(isRAID) != CFBooleanGetTypeID()
-	   || !CFEqual(isRAID, kCFBooleanTrue)) {
-		// no error, but the lack of boot data means it's not a raid
-		if(isRAID) CFRelease(isRAID);
-		IOObjectRelease(service);
-		
-		return 0;
-	}
-
-	CFRelease(isRAID);
-	contextprintf(context, kBLLogLevelVerbose,  "%s is part of a RAID\n", device );
 	
 	// we know this IOService is a RAID member. Now we need to get the boot data
 	data = IORegistryEntrySearchCFProperty( service,
@@ -147,7 +97,7 @@ int BLGetRAIDBootDataForDevice(BLContextPtr context, const char * device,
 	if(data == NULL) {
 		// it's an error for a RAID not to have this information
 		IOObjectRelease(service);
-		return 4;
+		return 0;
 	}
 	
 	IOObjectRelease(service);
@@ -166,3 +116,4 @@ int BLGetRAIDBootDataForDevice(BLContextPtr context, const char * device,
 	return 0;
 }
 
+#endif // SUPPORT_RAID

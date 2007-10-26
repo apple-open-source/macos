@@ -11,11 +11,6 @@ else
 LIBS = 
 endif
 
-LIBS := $(foreach LIB,							\
-		  $(filter $(BSD_LIBS), $(subst -l,,$(LIBS))),		\
-		  $(LIBSYS)/lib$(LIB).a)	\
-	$(filter-out $(addprefix -l, $(BSD_LIBS)), $(LIBS))
-
 # pb_makefiles erroneously omits $(BUILD_TYPE_SUFFIX) from the install name
 DYLIB_INSTALL_NAME = $(LIBRARY_PREFIX)$(NAME).$(VERSION_NAME)$(BUILD_TYPE_SUFFIX)$(LIBRARY_EXT)
 
@@ -36,16 +31,16 @@ compat-next:
 	$(INSTALL_DIRECTORY) "$(DSTROOT)$(SystemFramework)/Versions"
 	$(INSTALL_DIRECTORY) "$(DSTROOT)$(SystemFramework)/$(VersionDir)"
 	$(LN) -fs "$(VERSION_NAME)" "$(DSTROOT)$(SystemFramework)/Versions/Current"
-	for suffix in "" $(DEBUG_SUFFIX) $(PROFILE_SUFFIX); do								\
-		$(LN) -fs "Versions/Current/$(NAME)$${suffix}" "$(DSTROOT)$(SystemFramework)/$(NAME)$${suffix}" ;	\
+	set -x && for suffix in "" $(DEBUG_SUFFIX) $(PROFILE_SUFFIX); do								\
+		$(LN) -fs "Versions/Current/$(NAME)$${suffix}" "$(DSTROOT)$(SystemFramework)/$(NAME)$${suffix}" &&	\
 		$(LN) -fs "../../../../../..$(INSTALLDIR)/$(LIBRARY_PREFIX)$(NAME).$(VERSION_NAME)$${suffix}$(LIBRARY_EXT)" \
-			"$(DSTROOT)$(SystemFramework)/$(VersionDir)/$(NAME)$${suffix}"				;	\
+			"$(DSTROOT)$(SystemFramework)/$(VersionDir)/$(NAME)$${suffix}"				|| exit 1;	\
 	done
 	$(LN) -fs "Versions/Current/PrivateHeaders" "$(DSTROOT)$(SystemFramework)"
 
 compat-bsd:
-	for lib in $(BSD_LIBS) ; do		\
-	  $(LN) -fs libSystem.dylib "$(DSTROOT)$(INSTALLDIR)/lib$${lib}.dylib";	\
+	set -x && for lib in $(BSD_LIBS) ; do		\
+	  $(LN) -fs libSystem.dylib "$(DSTROOT)$(INSTALLDIR)/lib$${lib}.dylib" || exit 1;	\
 	done
 
 copy_plist:
@@ -56,22 +51,21 @@ copy_plist:
 	$(CHMOD) 444 $(DSTROOT)$(SystemFramework)/$(VersionDir)/Resources/Info.plist
 
 .PHONY: comm-page-symbols
-comm-page-symbols: spinlock_stub.o spinlocktry_stub.o spinunlock_stub.o CommPageSymbols.o
+comm-page-symbols: CommPageSymbols.o
 
 .SUFFIXES: .st
 
+ALL_ARCHS = i386 ppc ppc64 x86_64
 SEG1ADDR_i386 = 0xffff0000
 SEG1ADDR_ppc = 0xffff8000
 SEG1ADDR_ppc64 = 0xffffffffffff8000
+SEG1ADDR_x86_64 = 0x00007fffffe00000
 SLFS_F_PH = /System/Library/Frameworks/System.framework/PrivateHeaders
 
-$(OFILE_DIR)/%.ppc.o %.ppc.o $(OFILE_DIR)/%.ppc64.o %.ppc64.o $(OFILE_DIR)/%.i386.o %.i386.o: %.st
+$(foreach A,$(ALL_ARCHS),$(OFILE_DIR)/%.$(A).o %.$(A).o): %.st
 	$(CC) -arch $(CURRENT_ARCH) -x assembler-with-cpp \
 	    -I$(SLFS_F_PH)/$(CURRENT_ARCH) \
 	    $(ALL_CFLAGS) -c -o $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o $<
+	strip -S $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o
 	ld -arch $(CURRENT_ARCH) -r -seg1addr $(SEG1ADDR_$(CURRENT_ARCH)) \
 	    $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o -o $(OFILE_DIR)/$(notdir $@)
-
-#-------------------------------------------------------------------------
-
-LIBGCC = $(shell $(CC) -arch $(RC_ARCHS) -print-file-name=libgcc.a)

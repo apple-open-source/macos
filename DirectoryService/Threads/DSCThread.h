@@ -32,17 +32,17 @@
 #include <DirectoryServiceCore/DSLThread.h>
 #include <DirectoryServiceCore/PrivateTypes.h>
 
-const sInt32 kEventPeriod			= 60;		// ticks
-const sInt32 kLongPeriod			= 10;		// ticks
-const sInt32 kShortPeriod			=  5;		// ticks
+const SInt32 kEventPeriod			= 60;		// ticks
+const SInt32 kLongPeriod			= 10;		// ticks
+const SInt32 kShortPeriod			=  5;		// ticks
 
-const uInt32 kMinPerHour			= 60;
-const uInt32 kSecondsPerMin			= 60;
-const uInt32 kMilliSecsPerSec		= 1000;
-const uInt32 kMicroSecsPerSec		= 1000*1000;
-const uInt32 kNanoSecPerSec			= 1000*1000*1000;
+const UInt32 kMinPerHour			= 60;
+const UInt32 kSecondsPerMin			= 60;
+const UInt32 kMilliSecsPerSec		= 1000;
+const UInt32 kMicroSecsPerSec		= 1000*1000;
+const UInt32 kNanoSecPerSec			= 1000*1000*1000;
 
-const uInt32 kBadValue				= 0xffffffff;
+const UInt32 kBadValue				= 0xffffffff;
 void ** const kThreadIgnoreResult	= NULL;
 
 
@@ -53,15 +53,16 @@ public:
 	enum eSignature {
 		// Normal Threads
 		kTSUndefinedThread			= '----',
-		kTSMainThread				= 'main',
-		kTSAppThread				= 'appt', 
 		kTSMigHandlerThread			= 'mhdl',
 		kTSPlugInHndlrThread		= 'pihn',
+		kTSSearchPlugInHndlrThread	= 'sphn',
+		kTSMemberdKernelHndlrThread	= 'mkhn',
 		kTSLauncherThread			= 'lnch',
 		kTSNodeRegisterThread		= 'ndrg',
 		kTSTCPListenerThread		= 'tcpl',
 		kTSTCPConnectionThread		= 'tcpc',
-		kTSTCPHandlerThread			= 'tcph'
+		kTSPluginRunloopThread		= 'prlt',
+		kTSLibinfoQueueThread		= 'liqt'
 	};
 
 	enum eRunState {
@@ -70,36 +71,36 @@ public:
 		kThreadWait	= 0x00000002
 	};
 
-						DSCThread				( const OSType inThreadSig = 0 );
+						DSCThread				( const UInt32 inThreadSig = 0 );
 	virtual			   ~DSCThread				( void );
 
 public:
 	// Class methods (static)
-	static	uInt32		GetCurThreadRunState	( void );
-	static	sInt32		Count					( void );
+	static	UInt32		GetCurThreadRunState	( void );
+	static	SInt32		Count					( void );
 
 	// Class methods
-	virtual uInt32		GetID					( void ) const;
-	virtual OSType		GetSignature			( void ) const;
+	virtual UInt32		GetID					( void ) const;
+	virtual UInt32		GetSignature			( void ) const;
 
 protected:
 	virtual void*		Run						( void );
-	virtual long		ThreadMain				( void ) = 0;	// pure virtual
+	virtual SInt32		ThreadMain				( void ) = 0;	// pure virtual
 	virtual void		LastChance				( void ) { }
 
-	virtual	uInt32		GetThreadRunState		( void );
+	virtual	UInt32		GetThreadRunState		( void );
 	virtual	void		SetThreadRunState		( eRunState inState );
 
 	virtual	void		SetThreadRunStateFlag	( eRunState inStateFlag );
 	virtual	void		UnSetThreadRunStateFlag	( eRunState inStateFlag );
 
-	static	sInt32		fStatThreadCount;
+	static	SInt32		fStatThreadCount;
 
 protected:
 	FourCharCode		fThreadSignature;
 
 private:
-	uInt32				fStateFlags;
+	UInt32				fStateFlags;
 };
 
 

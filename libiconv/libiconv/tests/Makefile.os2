@@ -9,7 +9,7 @@
 # Programs used by "make":
 CC = gcc
 CFLAGS = -O2 -Zmtd
-INCLUDES = -I. -I../include -I../lib
+INCLUDES = -I. -I../include -I../srclib -I../lib
 
 #### End of system configuration section. ####
 
@@ -19,7 +19,7 @@ srcdir = .
 
 all :
 
-check : all table-from.exe table-to.exe ../src/iconv.exe genutf8.exe
+check : all table-from.exe table-to.exe ../src/iconv.exe genutf8.exe gengb18030z.exe
 	$(srcdir)\check-stateless $(srcdir) ASCII
 #	/* General multi-byte encodings */
 	.\genutf8 > UTF-8.TXT
@@ -46,6 +46,7 @@ check : all table-from.exe table-to.exe ../src/iconv.exe genutf8.exe
 	$(srcdir)\check-stateless $(srcdir) ISO-8859-8
 	$(srcdir)\check-stateless $(srcdir) ISO-8859-9
 	$(srcdir)\check-stateless $(srcdir) ISO-8859-10
+	$(srcdir)\check-stateless $(srcdir) ISO-8859-11
 	$(srcdir)\check-stateless $(srcdir) ISO-8859-13
 	$(srcdir)\check-stateless $(srcdir) ISO-8859-14
 	$(srcdir)\check-stateless $(srcdir) ISO-8859-15
@@ -85,6 +86,7 @@ check : all table-from.exe table-to.exe ../src/iconv.exe genutf8.exe
 	$(srcdir)\check-stateless $(srcdir) Georgian-Academy
 	$(srcdir)\check-stateless $(srcdir) Georgian-PS
 	$(srcdir)\check-stateless $(srcdir) KOI8-T
+	$(srcdir)\check-stateless $(srcdir) PT154
 	$(srcdir)\check-stateless $(srcdir) MuleLao-1
 	$(srcdir)\check-stateless $(srcdir) CP1133
 	$(srcdir)\check-stateless $(srcdir) TIS-620
@@ -110,14 +112,22 @@ check : all table-from.exe table-to.exe ../src/iconv.exe genutf8.exe
 	$(srcdir)\check-stateful $(srcdir) ISO-2022-JP-1
 	$(srcdir)\check-stateless $(srcdir) EUC-CN
 	$(srcdir)\check-stateless $(srcdir) GBK
+	$(srcdir)\check-stateless $(srcdir) CP936
 	$(srcdir)\check-stateless $(srcdir) GB18030
+	.\gengb18030z > GB18030Z.TXT
+	copy /b $(srcdir)\GB18030-BMP.TXT + GB18030Z.TXT GB18030TMP.TXT
+	$(RM) GB18030Z.TXT
+	sort < GB18030TMP.TXT > GB18030.TXT
+	$(RM) GB18030TMP.TXT
+	$(srcdir)\check-stateless . GB18030
 	$(srcdir)\check-stateful $(srcdir) ISO-2022-CN
 	$(srcdir)\check-stateful $(srcdir) ISO-2022-CN-EXT
 	$(srcdir)\check-stateful $(srcdir) HZ
 	$(srcdir)\check-stateless $(srcdir) EUC-TW
 	$(srcdir)\check-stateless $(srcdir) BIG5
 	$(srcdir)\check-stateless $(srcdir) CP950
-	$(srcdir)\check-stateless $(srcdir) BIG5-HKSCS
+#	$(srcdir)\check-stateless $(srcdir) BIG5-HKSCS
+#	$(srcdir)\check-stateful $(srcdir) BIG5-HKSCS
 	$(srcdir)\check-stateless $(srcdir) EUC-KR
 	$(srcdir)\check-stateless $(srcdir) CP949
 	$(srcdir)\check-stateless $(srcdir) JOHAB
@@ -136,12 +146,15 @@ table-to.exe : table-to.c
 	copy ..\lib\iconv.dll iconv.dll
 
 genutf8.exe : genutf8.c
-	$(CC) $(CFLAGS) genutf8.c
+	$(CC) $(INCLUDES) $(CFLAGS) genutf8.c
+
+gengb18030z.exe : gengb18030z.c
+	$(CC) $(INCLUDES) $(CFLAGS) gengb18030z.c
 
 mostlyclean : clean
 
 clean : force
-	rm -f *.obj *.dll *.exe tmp* UTF-8.TXT core
+	rm -f *.obj *.dll *.exe tmp* UTF-8.TXT GB18030Z.TXT GB18030TMP.TXT GB18030.TXT core
 
 distclean : clean
 	rm -f Makefile

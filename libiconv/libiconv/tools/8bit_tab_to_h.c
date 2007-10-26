@@ -13,7 +13,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /*
  * Generates an 8-bit character set table from a .TXT table as found on
@@ -159,8 +159,8 @@ int main (int argc, char *argv[])
     fprintf(f, " *\n");
     fprintf(f, " * You should have received a copy of the GNU Library General Public\n");
     fprintf(f, " * License along with the GNU LIBICONV Library; see the file COPYING.LIB.\n");
-    fprintf(f, " * If not, write to the Free Software Foundation, Inc., 59 Temple Place -\n");
-    fprintf(f, " * Suite 330, Boston, MA 02111-1307, USA.\n");
+    fprintf(f, " * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,\n");
+    fprintf(f, " * Fifth Floor, Boston, MA 02110-1301, USA.\n");
     fprintf(f, " */\n");
     fprintf(f, "\n");
     fprintf(f, "/*\n");

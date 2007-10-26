@@ -113,7 +113,7 @@ NXEventSystemInfoType NXEventSystemInfo(NXEventHandle handle,
     SInt32		val;
 
     // Translate the one existing old case to new format
-    if ( ((int)flavor) == __OLD_NX_EVS_DEVICE_INFO )
+    if ( ((uintptr_t) flavor) == __OLD_NX_EVS_DEVICE_INFO )
             flavor = NX_EVS_DEVICE_INFO;
 
     if( strcmp( flavor, NX_EVS_DEVICE_INFO))
@@ -236,12 +236,12 @@ kern_return_t IOHIDGetParameter( io_connect_t handle, CFStringRef key,
                 IOByteCount maxSize, void * bytes, IOByteCount * actualSize )
 {
     kern_return_t	kr;
-    io_service_t	hidsystem;
+    // io_service_t	hidsystem;
     CFDataRef		data;
     CFNumberRef		number;
     CFNumberType	numberType;
     CFTypeRef		typeRef = NULL;
-    int 		copySize;
+    IOByteCount		copySize;
 
     if (!bytes || !maxSize)
         return kIOReturnBadArgument;
@@ -370,7 +370,7 @@ static inline int NXEvSetParameterInt(	NXEventHandle handle,
     CFMutableArrayRef 	arrayRef;
     CFNumberRef 	numberRef;
     IOReturn		ret;
-    int 		i;
+    unsigned int	i;
 
 
     if (!parameterArray || !count)
@@ -422,7 +422,7 @@ static inline int NXEvGetParameterInt(	NXEventHandle handle,
     CFNumberRef 	numberRef;
     CFTypeRef		typeRef;
     IOReturn		ret;
-    int 		i;
+    unsigned int	i;
 
 
     ret = IOHIDCopyCFTypeParameter(handle, parameterName, &typeRef);
@@ -586,7 +586,7 @@ void NXSetClickSpace(NXEventHandle handle, _NXSize_ *area)
 void NXGetClickSpace(NXEventHandle handle, _NXSize_ *area)
 {
 	unsigned int params[EVSIOCCS_SIZE];
-	IOByteCount rcnt = EVSIOCCS_SIZE;
+	unsigned int rcnt = EVSIOCCS_SIZE;
 
 	NXEvGetParameterInt(handle, CFSTR(EVSIOCCS), EVSIOCCS_SIZE,
 				params, &rcnt );
@@ -684,24 +684,24 @@ kern_return_t IOHIDSetAccelerationWithKey( io_connect_t handle, CFStringRef key,
 }
 
 /* DEPRECATED API */
-void NXSetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling)
+void NXSetMouseScaling(NXEventHandle handle __unused, NXMouseScaling *scaling __unused)
 {
 }
 
-void NXGetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling)
+void NXGetMouseScaling(NXEventHandle handle __unused, NXMouseScaling *scaling __unused)
 {
 }
 
-void NXSetAutoDimThreshold(NXEventHandle handle, double threshold)
+void NXSetAutoDimThreshold(NXEventHandle handle __unused, double threshold __unused)
 {
 }
 
-double NXAutoDimThreshold(NXEventHandle handle)
+double NXAutoDimThreshold(NXEventHandle handle __unused)
 {
     return 0.0;
 }
 
-double NXAutoDimTime(NXEventHandle handle)
+double NXAutoDimTime(NXEventHandle handle __unused)
 {
     return 0.0;
 }
@@ -719,29 +719,29 @@ double NXIdleTime(NXEventHandle handle)
     return packed_nsecs_to_secs( params );
 }
 
-void NXSetAutoDimState(NXEventHandle handle, boolean_t dimmed)
+void NXSetAutoDimState(NXEventHandle handle __unused, boolean_t dimmed __unused)
 {
 }
 
-boolean_t NXAutoDimState(NXEventHandle handle)
+boolean_t NXAutoDimState(NXEventHandle handle __unused)
 {
 	return false;
 }
 
-void NXSetAutoDimBrightness(NXEventHandle handle, double brightness)
+void NXSetAutoDimBrightness(NXEventHandle handle __unused, double brightness __unused)
 {
 }
 
-double NXAutoDimBrightness(NXEventHandle handle)
+double NXAutoDimBrightness(NXEventHandle handle __unused)
 {
     return 1.0;
 }
 
-void NXSetScreenBrightness(NXEventHandle handle, double brightness)
+void NXSetScreenBrightness(NXEventHandle handle __unused, double brightness __unused)
 {
 }
 
-double NXScreenBrightness(NXEventHandle handle)
+double NXScreenBrightness(NXEventHandle handle __unused)
 {
     return 1.0;
 }

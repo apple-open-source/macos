@@ -1,0 +1,5 @@
+include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
+after_install::
+	$(LINKPRODUCT) $(DSTROOT)$(INSTALLDIR)/sum
+	$(LN) -f $(DSTROOT)/usr/share/man/man1/cksum.1 $(DSTROOT)/usr/share/man/man1/sum.1

@@ -52,6 +52,7 @@
 Definitions
 ----------------------------------------------------------------------------- */
 
+SYSCTL_NODE(_net_ppp, PF_PPP, l2tp, CTLFLAG_RW, 0, "");
 
 /* -----------------------------------------------------------------------------
 Forward declarations
@@ -132,6 +133,8 @@ int l2tp_domain_init(int init_arg)
     }
 
     l2tp_wan_init();
+    sysctl_register_oid(&sysctl__net_ppp_l2tp);
+	
     l2tp_domain_inited = 1;
 	log(LOGVAL, "L2TP domain init complete\n");
 
@@ -154,7 +157,7 @@ int l2tp_domain_terminate(int term_arg)
         return(KERN_SUCCESS);
 
 	lck_mtx_lock(ppp_domain_mutex);
-	
+
     ret = l2tp_rfc_dispose();
     if (ret) {
         log(LOGVAL, "L2TP domain is in use and cannot terminate, err : %d\n", ret);
@@ -180,6 +183,8 @@ int l2tp_domain_terminate(int term_arg)
         log(LOGVAL, "L2TP domain terminate : can't del proto from l2tp domain, err : %d\n", ret);
         goto end;
     }
+
+    sysctl_unregister_oid(&sysctl__net_ppp_l2tp);
 
     l2tp_domain_inited = 0;
 	

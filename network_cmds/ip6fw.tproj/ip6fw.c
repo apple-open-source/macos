@@ -16,7 +16,7 @@
  *
  * NEW command line interface for IP firewall facility
  *
- * $Id: ip6fw.c,v 1.2 2003/02/28 07:01:29 mscopp Exp $
+ * $Id: ip6fw.c,v 1.3 2006/02/07 06:22:17 lindak Exp $
  * $FreeBSD: src/sbin/ip6fw/ip6fw.c,v 1.1.2.6 2001/08/01 06:52:18 obrien Exp $
  */
 
@@ -417,7 +417,8 @@ list(ac, av)
 	struct ip6_fw *r, *rules;
 	int l,i;
 	unsigned long rulenum;
-	int nalloc, bytes, maxbytes;
+	int nalloc, maxbytes;
+	socklen_t bytes;
 
 	/* extract rules from kernel, resizing array as necessary */
 	rules = NULL;
@@ -548,7 +549,7 @@ fill_ip6(ipno, mask, acp, avp)
 			*p++ = '\0';
 		}
 
-		if (lookup_host(*av, ipno, AF_INET6) != 0)
+		if (lookup_host(*av, (u_char *)ipno, AF_INET6) != 0)
 			show_usage("hostname ``%s'' unknown", *av);
 		switch (md) {
 			case '/':

@@ -293,7 +293,7 @@ ReadFragmentedBlock (SFCB *file, UInt32 blockNum, BlockDescriptor *block)
 		if (result) goto ErrorExit;
 		
 		if (bufs[i]->Length != fragSize) {
-			printf("ReadFragmentedBlock: cache failure (Length != fragSize)\n");
+		plog("ReadFragmentedBlock: cache failure (Length != fragSize)\n");
 			result = -1;
 			goto ErrorExit;
 		}
@@ -345,7 +345,7 @@ WriteFragmentedBlock( SFCB *file, BlockDescriptor *block, int age, uint32_t writ
 	bufEnd = buffer + file->fcbBlockSize;
 
 	if (bufs == NULL) {
-		printf("WriteFragmentedBlock: NULL bufs list!\n");
+	plog("WriteFragmentedBlock: NULL bufs list!\n");
 		return (-1);
 	}
 	
@@ -389,7 +389,7 @@ ReleaseFragmentedBlock (SFCB *file, BlockDescriptor *block, int age)
 	bufs  = (Buf_t **) block->blockHeader;
 
 	if (bufs == NULL) {
-		printf("ReleaseFragmentedBlock: NULL buf list!\n");
+	plog("ReleaseFragmentedBlock: NULL buf list!\n");
 		return (-1);
 	}
 

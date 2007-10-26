@@ -30,12 +30,22 @@
 
 #import <IOKit/firewire/IOFireWireController.h>
 #import <IOKit/firewire/IOFWCommand.h>
-#import <IOKit/firewire/IOFWIsochPort.h>
+#import <IOKit/firewire/IOFWLocalIsochPort.h>
+#import <IOKit/firewire/IOFWDCLProgram.h>
 
 #import "IOFireWireUserClient.h"
 #import "IOFWUserIsochChannel.h"
 
 OSDefineMetaClassAndStructors(IOFWUserIsochChannel, IOFWIsochChannel)
+
+bool IOFWUserIsochChannel::init(	
+	IOFireWireController *		control, 
+	bool 						doIRM,
+	UInt32 						packetSize, 
+	IOFWSpeed 					prefSpeed )
+{
+	return super::init( control, doIRM, packetSize, prefSpeed, &IOFWUserIsochChannel::isochChannel_ForceStopHandler, this ) ;
+}
 
 IOReturn
 IOFWUserIsochChannel::allocateChannel()
@@ -100,12 +110,33 @@ IOFWUserIsochChannel::allocateTalkerPort()
 }
 
 void
-IOFWUserIsochChannel :: s_exporterCleanup ( IOFWUserIsochChannel * channel )
+IOFWUserIsochChannel::s_exporterCleanup ( IOFWUserIsochChannel * channel )
 {
-	DebugLog( "+IOFWUserIsochChannel :: s_exporterCleanup channel=%p\n", channel) ;
+	DebugLog( "+IOFWUserIsochChannel::s_exporterCleanup channel=%p\n", channel) ;
 	
 	channel->fControl->removeAllocatedChannel( channel ) ;
 
 	channel->stop() ;
 	channel->releaseChannel() ;
+}
+
+IOReturn
+IOFWUserIsochChannel::isochChannel_ForceStopHandler( void * self, IOFWIsochChannel*, UInt32 stopCondition )
+{
+	IOFWUserIsochChannel * me = (IOFWUserIsochChannel*)self;
+	
+#if INFO
+	natural_t userProc = me->fStopRefCon ? ((natural_t*)me->fStopRefCon)[ kIOAsyncCalloutFuncIndex ] : 0 ;
+	natural_t userRef =  me->fStopRefCon ? ((natural_t*)me->fStopRefCon)[ kIOAsyncCalloutRefconIndex ] : 0 ;
+
+	InfoLog("+ IOFireWireUserClient::s_IsochChannel_ForceStopHandler() -- fStopRefCon=%p, userProc=%p, userRef=0x%x\n", me->fStopRefCon, userProc, userRef ) ;
+#endif
+
+
+	if ( !me->getUserAsyncRef() )
+	{
+		return kIOReturnSuccess ;
+	}
+	
+	return IOFireWireUserClient::sendAsyncResult64( (io_user_reference_t *)me->getUserAsyncRef(), stopCondition, NULL, 0 ) ;
 }

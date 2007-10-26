@@ -34,6 +34,8 @@
  * SUCH DAMAGE.
  */
 
+/* $Id: mergesort.c,v 1.15 2004/09/23 15:57:30 hyanantha Exp $ */
+
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)merge.c	8.2 (Berkeley) 2/14/94";
 #endif /* LIBC_SCCS and not lint */
@@ -61,7 +63,7 @@ static char sccsid[] = "@(#)merge.c	8.2 (Berkeley) 2/14/94";
 #include "php.h"
 
 #ifdef PHP_WIN32
-#include <winsock.h> /* Includes definition for u_char */
+#include <winsock2.h> /* Includes definition for u_char */
 #endif
 
 static void setup(u_char *list1, u_char *list2, size_t n, size_t size, int (*cmp)(const void *, const void * TSRMLS_DC) TSRMLS_DC);

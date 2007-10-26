@@ -1,10 +1,9 @@
 " Vim syntax file
 " Language:	DSSSL
 " Maintainer:	Johannes Zellner <johannes@zellner.org>
-" Last Change:	Die, 01 Mai 2001 11:41:51 +0200
+" Last Change:	Tue, 27 Apr 2004 14:54:59 CEST
 " Filenames:	*.dsl
-" URL:		http://www.zellner.org/vim/syntax/dsl.vim
-" $Id$
+" $Id: dsl.vim,v 1.1 2004/06/13 19:13:31 vimboss Exp $
 
 if exists("b:current_syntax") | finish | endif
 

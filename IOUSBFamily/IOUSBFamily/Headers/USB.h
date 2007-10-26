@@ -348,22 +348,22 @@ typedef struct IOUSBLowLatencyIsocCompletion {
 @discussion  Errors specific to the IOUSBFamily.  Note that the iokit_usb_err(x) translates to 0xe0004xxx, where xxx is the value in parenthesis as a hex number.
 */
 #define	iokit_usb_err(return)       (sys_iokit|sub_iokit_usb|return)
-#define kIOUSBUnknownPipeErr        iokit_usb_err(97)  // 0xe0004061  Pipe ref not recognized
-#define kIOUSBTooManyPipesErr       iokit_usb_err(96)  // 0xe0004060  Too many pipes
-#define kIOUSBNoAsyncPortErr        iokit_usb_err(95)  // 0xe000405f  no async port
-#define kIOUSBNotEnoughPipesErr     iokit_usb_err(94)  // 0xe000405e  not enough pipes in interface
-#define kIOUSBNotEnoughPowerErr     iokit_usb_err(93)  // 0xe000405d  not enough power for selected configuration
-#define kIOUSBEndpointNotFound      iokit_usb_err(87)  // 0xe0004057  Endpoint Not found
-#define kIOUSBConfigNotFound        iokit_usb_err(86)  // 0xe0004056  Configuration Not found
-#define kIOUSBTransactionTimeout    iokit_usb_err(81)  // 0xe0004051  Transaction timed out
-#define kIOUSBTransactionReturned   iokit_usb_err(80)  // 0xe0004050  The transaction has been returned to the caller
-#define kIOUSBPipeStalled           iokit_usb_err(79)  // 0xe000404f  Pipe has stalled, error needs to be cleared
-#define kIOUSBInterfaceNotFound     iokit_usb_err(78)  // 0xe000404e  Interface ref not recognized
-#define kIOUSBLowLatencyBufferNotPreviouslyAllocated        iokit_usb_err(77)  // 0xe000404d  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the data buffer) first 
-#define kIOUSBLowLatencyFrameListNotPreviouslyAllocated     iokit_usb_err(76)  // 0xe000404c  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the frame list) first
-#define kIOUSBHighSpeedSplitError     iokit_usb_err(75) // 0xe000404b Error to hub on high speed bus trying to do split transaction
-#define kIOUSBSyncRequestOnWLThread	iokit_usb_err(74)	// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
-#define kIOUSBDeviceNotHighSpeed	iokit_usb_err(73)	// 0xe0004049  The device is not a high speed device, so the EHCI driver returns an error
+#define kIOUSBUnknownPipeErr        iokit_usb_err(0x61)			// 0xe0004061  Pipe ref not recognized
+#define kIOUSBTooManyPipesErr       iokit_usb_err(0x60)			// 0xe0004060  Too many pipes
+#define kIOUSBNoAsyncPortErr        iokit_usb_err(0x5f)			// 0xe000405f  no async port
+#define kIOUSBNotEnoughPipesErr     iokit_usb_err(0x5e)			// 0xe000405e  not enough pipes in interface
+#define kIOUSBNotEnoughPowerErr     iokit_usb_err(0x5d)			// 0xe000405d  not enough power for selected configuration
+#define kIOUSBEndpointNotFound      iokit_usb_err(0x57)			// 0xe0004057  Endpoint Not found
+#define kIOUSBConfigNotFound        iokit_usb_err(0x56)			// 0xe0004056  Configuration Not found
+#define kIOUSBTransactionTimeout    iokit_usb_err(0x51)			// 0xe0004051  Transaction timed out
+#define kIOUSBTransactionReturned   iokit_usb_err(0x50)			// 0xe0004050  The transaction has been returned to the caller
+#define kIOUSBPipeStalled           iokit_usb_err(0x4f)			// 0xe000404f  Pipe has stalled, error needs to be cleared
+#define kIOUSBInterfaceNotFound     iokit_usb_err(0x4e)			// 0xe000404e  Interface ref not recognized
+#define kIOUSBLowLatencyBufferNotPreviouslyAllocated        iokit_usb_err(0x4d)			// 0xe000404d  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the data buffer) first 
+#define kIOUSBLowLatencyFrameListNotPreviouslyAllocated     iokit_usb_err(0x4c)			// 0xe000404c  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the frame list) first
+#define kIOUSBHighSpeedSplitError     iokit_usb_err(0x4b)		// 0xe000404b Error to hub on high speed bus trying to do split transaction
+#define kIOUSBSyncRequestOnWLThread	iokit_usb_err(0x4a)			// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
+#define kIOUSBDeviceNotHighSpeed	iokit_usb_err(0x49)			// 0xe0004049  The device is not a high speed device, so the EHCI driver returns an error
 
 /*!
 @defined IOUSBFamily hardware error codes
@@ -379,36 +379,39 @@ Completion Code         Error Returned              Description
 </pre>
 </tt>
 */
-#define kIOUSBLinkErr           iokit_usb_err(16)  // 0xe0004010
-#define kIOUSBNotSent2Err       iokit_usb_err(15)  // 0xe000400f Transaction not sent
-#define kIOUSBNotSent1Err       iokit_usb_err(14)  // 0xe000400e Transaction not sent
-#define kIOUSBBufferUnderrunErr iokit_usb_err(13)  // 0xe000400d Buffer Underrun (Host hardware failure on data out, PCI busy?)
-#define kIOUSBBufferOverrunErr  iokit_usb_err(12)  // 0xe000400c Buffer Overrun (Host hardware failure on data out, PCI busy?)
-#define kIOUSBReserved2Err      iokit_usb_err(11)  // 0xe000400b Reserved
-#define kIOUSBReserved1Err      iokit_usb_err(10)  // 0xe000400a Reserved
-#define kIOUSBWrongPIDErr       iokit_usb_err(7)   // 0xe0004007 Pipe stall, Bad or wrong PID
-#define kIOUSBPIDCheckErr       iokit_usb_err(6)   // 0xe0004006 Pipe stall, PID CRC error
-#define kIOUSBDataToggleErr     iokit_usb_err(3)   // 0xe0004003 Pipe stall, Bad data toggle
-#define kIOUSBBitstufErr        iokit_usb_err(2)   // 0xe0004002 Pipe stall, bitstuffing
-#define kIOUSBCRCErr            iokit_usb_err(1)   // 0xe0004001 Pipe stall, bad CRC
+#define kIOUSBLinkErr           iokit_usb_err(0x10)		// 0xe0004010
+#define kIOUSBNotSent2Err       iokit_usb_err(0x0f)		// 0xe000400f Transaction not sent
+#define kIOUSBNotSent1Err       iokit_usb_err(0x0e)		// 0xe000400e Transaction not sent
+#define kIOUSBBufferUnderrunErr iokit_usb_err(0x0d)		// 0xe000400d Buffer Underrun (Host hardware failure on data out, PCI busy?)
+#define kIOUSBBufferOverrunErr  iokit_usb_err(0x0c)		// 0xe000400c Buffer Overrun (Host hardware failure on data out, PCI busy?)
+#define kIOUSBReserved2Err      iokit_usb_err(0x0b)		// 0xe000400b Reserved
+#define kIOUSBReserved1Err      iokit_usb_err(0x0a)		// 0xe000400a Reserved
+#define kIOUSBWrongPIDErr       iokit_usb_err(0x07)		// 0xe0004007 Pipe stall, Bad or wrong PID
+#define kIOUSBPIDCheckErr       iokit_usb_err(0x06)		// 0xe0004006 Pipe stall, PID CRC error
+#define kIOUSBDataToggleErr     iokit_usb_err(0x03)		// 0xe0004003 Pipe stall, Bad data toggle
+#define kIOUSBBitstufErr        iokit_usb_err(0x02)		// 0xe0004002 Pipe stall, bitstuffing
+#define kIOUSBCRCErr            iokit_usb_err(0x01)		// 0xe0004001 Pipe stall, bad CRC
 
 /*!
 @defined IOUSBFamily message codes
 @discussion  Messages specific to the IOUSBFamily.  Note that the iokit_usb_msg(x) translates to 0xe0004xxx, where xxx is the value in parenthesis as a hex number.
 */
-#define iokit_usb_msg(message)              (UInt32)(sys_iokit|sub_iokit_usb|message)
-#define kIOUSBMessageHubResetPort           iokit_usb_msg(1)   // 0xe00004001  Message sent to a hub to reset a particular port
-#define kIOUSBMessageHubSuspendPort         iokit_usb_msg(2)   // 0xe00004002  Message sent to a hub to suspend a particular port
-#define kIOUSBMessageHubResumePort          iokit_usb_msg(3)   // 0xe00004003  Message sent to a hub to resume a particular port
-#define kIOUSBMessageHubIsDeviceConnected   iokit_usb_msg(4)   // 0xe00004004  Message sent to a hub to inquire whether a particular port has a device connected or not
-#define kIOUSBMessageHubIsPortEnabled       iokit_usb_msg(5)   // 0xe00004005  Message sent to a hub to inquire whether a particular port is enabled or not
-#define kIOUSBMessageHubReEnumeratePort     iokit_usb_msg(6)   // 0xe00004006  Message sent to a hub to reenumerate the device attached to a particular port
-#define kIOUSBMessagePortHasBeenReset       iokit_usb_msg(10)  // 0xe0000400a  Message sent to a device indicating that the port it is attached to has been reset
-#define kIOUSBMessagePortHasBeenResumed     iokit_usb_msg(11)  // 0xe0000400b  Message sent to a device indicating that the port it is attached to has been resumed
-#define kIOUSBMessageHubPortClearTT         iokit_usb_msg(12)  // 0xe0000400c  Message sent to a hub to clear the transaction translator
-#define kIOUSBMessagePortHasBeenSuspended   iokit_usb_msg(13)  // 0xe0000400d  Message sent to a device indicating that the port it is attached to has been suspended
-#define kIOUSBMessageFromThirdParty         iokit_usb_msg(14)  // 0xe0000400e  Message sent from a third party.  Uses IOUSBThirdPartyParam to encode the sender's ID
-#define kIOUSBMessagePortWasNotSuspended    iokit_usb_msg(15)  // 0xe0000400f  Message indicating that the hub driver received a resume request for a port that was not suspended
+#define iokit_usb_msg(message)						(UInt32)(sys_iokit|sub_iokit_usb|message)
+#define kIOUSBMessageHubResetPort					iokit_usb_msg(0x01)		// 0xe00004001  Message sent to a hub to reset a particular port
+#define kIOUSBMessageHubSuspendPort					iokit_usb_msg(0x02)		// 0xe00004002  Message sent to a hub to suspend a particular port
+#define kIOUSBMessageHubResumePort					iokit_usb_msg(0x03)		// 0xe00004003  Message sent to a hub to resume a particular port
+#define kIOUSBMessageHubIsDeviceConnected			iokit_usb_msg(0x04)		// 0xe00004004  Message sent to a hub to inquire whether a particular port has a device connected or not
+#define kIOUSBMessageHubIsPortEnabled				iokit_usb_msg(0x05)		// 0xe00004005  Message sent to a hub to inquire whether a particular port is enabled or not
+#define kIOUSBMessageHubReEnumeratePort				iokit_usb_msg(0x06)		// 0xe00004006  Message sent to a hub to reenumerate the device attached to a particular port
+#define kIOUSBMessagePortHasBeenReset				iokit_usb_msg(0x0a)		// 0xe0000400a  Message sent to a device indicating that the port it is attached to has been reset
+#define kIOUSBMessagePortHasBeenResumed				iokit_usb_msg(0x0b)		// 0xe0000400b  Message sent to a device indicating that the port it is attached to has been resumed
+#define kIOUSBMessageHubPortClearTT					iokit_usb_msg(0x0c)		// 0xe0000400c  Message sent to a hub to clear the transaction translator
+#define kIOUSBMessagePortHasBeenSuspended			iokit_usb_msg(0x0d)		// 0xe0000400d  Message sent to a device indicating that the port it is attached to has been suspended
+#define kIOUSBMessageFromThirdParty					iokit_usb_msg(0x0e)		// 0xe0000400e  Message sent from a third party.  Uses IOUSBThirdPartyParam to encode the sender's ID
+#define kIOUSBMessagePortWasNotSuspended			iokit_usb_msg(0x0f)		// 0xe0000400f  Message indicating that the hub driver received a resume request for a port that was not suspended
+#define kIOUSBMessageExpressCardCantWake			iokit_usb_msg(0x10)		// 0xe00004010  Message from a driver to a bus that an express card will disconnect on sleep and thus shouldn't wake
+#define kIOUSBMessageCompositeDriverReconfigured    iokit_usb_msg(0x11)		// 0xe00004011  Message from the composite driver indicating that it has finished re-configuring the device after a reset
+#define kIOUSBMessageHubSetPortRecoveryTime			iokit_usb_msg(0x12)		// 0xe00004012  Message sent to a hub to set the # of ms required when resuming a particular port
 
 // Obsolete
 //
@@ -860,8 +863,8 @@ typedef struct IOUSBLowLatencyIsocStruct IOUSBLowLatencyIsocStruct;
     @field timeStamp  AbsoluteTime when the frame was updated
 */
 typedef struct {
-    UInt64	 frame;
-    AbsoluteTime timeStamp;
+    UInt64			frame;
+    AbsoluteTime	timeStamp;
 } IOUSBGetFrameStruct;
 
 
@@ -985,7 +988,10 @@ enum {
 #define kUSBProductIDMask						"idProductMask"
 #define kUSBPreferredConfiguration				"Preferred Configuration"
 #define kUSBSuspendPort							"kSuspendPort"
+#define kUSBExpressCardCantWake					"ExpressCardCantWake"
 #define kUSBControllerNeedsContiguousMemoryForIsoch	"Need contiguous memory for isoch"
+#define kUSBHubDontAllowLowPower				"kUSBHubDontAllowLowPower"
+#define kUSBDeviceResumeRecoveryTime			"kUSBDeviceResumeRecoveryTime"
 /*!
 @enum USBReEnumerateOptions
  @discussion Options used when calling ReEnumerateDevice. 

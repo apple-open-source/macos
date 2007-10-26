@@ -1,6 +1,6 @@
 /* Generic SASL plugin utility functions
  * Rob Siemborski
- * $Id: plugin_common.c,v 1.1 2002/05/22 17:56:56 snsimon Exp $
+ * $Id: plugin_common.c,v 1.3 2006/02/03 22:33:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
@@ -171,7 +171,7 @@ int _plug_iovec_to_buf(const sasl_utils_t *utils, const struct iovec *vec,
     unsigned i;
     int ret;
     buffer_info_t *out;
-    char *pos;
+    unsigned char *pos;
 
     if(!utils || !vec || !output) {
 	if(utils) PARAMERROR( utils );
@@ -204,16 +204,16 @@ int _plug_iovec_to_buf(const sasl_utils_t *utils, const struct iovec *vec,
     pos = out->data;
     
     for(i=0; i<numiov; i++) {
-	memcpy(pos, vec[i].iov_base, vec[i].iov_len);
-	pos += vec[i].iov_len;
+		memcpy(pos, vec[i].iov_base, vec[i].iov_len);
+		pos += vec[i].iov_len;
     }
-
+	
     return SASL_OK;
 }
 
 /* Basically a conditional call to realloc(), if we need more */
-int _plug_buf_alloc(const sasl_utils_t *utils, char **rwbuf,
-		    unsigned *curlen, unsigned newlen) 
+int _plug_buf_alloc(const sasl_utils_t *utils, unsigned char **rwbuf,
+		    unsigned int *curlen, unsigned int newlen) 
 {
     if(!utils || !rwbuf || !curlen) {
 	PARAMERROR(utils);
@@ -289,7 +289,7 @@ void _plug_free_secret(const sasl_utils_t *utils, sasl_secret_t **secret)
 {
     if(!utils || !secret || !(*secret)) return;
 
-    utils->erasebuffer((*secret)->data, (*secret)->len);
+    utils->erasebuffer((char *)(*secret)->data, (*secret)->len);
     utils->free(*secret);
     *secret = NULL;
 }
@@ -600,15 +600,15 @@ int _plug_make_prompts(const sasl_utils_t *utils,
  */
 int _plug_decode(const sasl_utils_t *utils,
 		 void *context,
-		 const char *input, unsigned inputlen,
-		 char **output,		/* output buffer */
-		 unsigned *outputsize,	/* current size of output buffer */
-		 unsigned *outputlen,	/* length of data in output buffer */
+		 const unsigned char *input, unsigned inputlen,
+		 unsigned char **output,		/* output buffer */
+		 unsigned int *outputsize,	/* current size of output buffer */
+		 unsigned int *outputlen,	/* length of data in output buffer */
 		 int (*decode_pkt)(void *context,
-				   const char **input, unsigned *inputlen,
-				   char **output, unsigned *outputlen))
+				   const unsigned char **input, unsigned int *inputlen,
+				   unsigned char **output, unsigned int *outputlen))
 {
-    char *tmp = NULL;
+    unsigned char *tmp = NULL;
     unsigned tmplen = 0;
     int ret;
     
@@ -623,8 +623,7 @@ int _plug_decode(const sasl_utils_t *utils,
 
       if (tmp!=NULL) /* if received 2 packets merge them together */
       {
-	  ret = _plug_buf_alloc(utils, output, outputsize,
-				*outputlen + tmplen + 1);
+	  ret = _plug_buf_alloc(utils, (unsigned char **)output, outputsize, *outputlen + tmplen + 1);
 	  if(ret != SASL_OK) return ret;
 
 	  memcpy(*output + *outputlen, tmp, tmplen);

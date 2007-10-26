@@ -1,0 +1,18 @@
+Index: basename.c
+===================================================================
+RCS file: /cvs/root/Libc/gen/FreeBSD/basename.c,v
+retrieving revision 1.2
+diff -u -d -b -w -p -u -r1.2 basename.c
+--- basename.c	2003/05/20 22:21:01	1.2
++++ basename.c	2004/12/10 18:48:36
+@@ -39,6 +39,10 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/bas
+ #include <string.h>
+ #include <sys/param.h>
+ 
++#if __DARWIN_UNIX03
++#define const /**/
++#endif
++
+ char *
+ basename(path)
+ 	const char *path;

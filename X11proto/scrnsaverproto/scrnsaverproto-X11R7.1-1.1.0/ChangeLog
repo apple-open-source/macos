@@ -1,0 +1,18 @@
+2006-03-31  Fredrik Höglund  <fredrik@kde.org>
+
+	* configure.ac:
+	Update the package version number to 1.1.
+
+	* saver.h:
+	Increase the minor version to 1.
+
+	* saverproto.h:
+	Add the ScreenSaverSuspend request.
+
+	* scrnsaver.h:
+	Add the prototype for XScreenSaverSuspend.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.

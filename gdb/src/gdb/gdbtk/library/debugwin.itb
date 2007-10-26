@@ -43,6 +43,21 @@ itcl::body DebugWin::destructor {} {
 }
 
 # -----------------------------------------------------------------------------
+# NAME:		DebugWin::reconfig
+#	
+# SYNOPSIS:	Reconfigure callback
+#
+# DESC:		Fixes up window colors
+#
+# ARGS:		None
+# -----------------------------------------------------------------------------
+itcl::body DebugWin::reconfig {} {
+  # This keeps the Debug window using its unique black background.
+  # Otherwise, a reconfigure event will color it to match the other windows
+  $itk_interior.s configure -textbackground black
+}
+
+# -----------------------------------------------------------------------------
 # NAME:		DebugWin::build_win
 #
 # SYNOPSIS:	build_win

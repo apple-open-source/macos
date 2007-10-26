@@ -26,6 +26,7 @@
 #include "gdbcmd.h"
 #include "gdbcore.h"
 #include "symfile.h"
+#include "symtab.h"
 
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-inferior-util.h"
@@ -90,7 +91,6 @@ cfm_init (void)
       parser->section_total_length_offset = 12;
       parser->instance_length = 24;
       parser->instance_address_offset = 12;
-      macosx_status->cfm_status.breakpoint_offset = 956;
     }
   else if (offset == 104)
     {
@@ -112,7 +112,6 @@ cfm_init (void)
       parser->section_total_length_offset = 12;
       parser->instance_length = 24;
       parser->instance_address_offset = 12;
-      macosx_status->cfm_status.breakpoint_offset = 864;
     }
   else if (offset == 120)
     {
@@ -134,7 +133,6 @@ cfm_init (void)
       parser->section_total_length_offset = 12;
       parser->instance_length = 24;
       parser->instance_address_offset = 12;
-      macosx_status->cfm_status.breakpoint_offset = 864;
     }
   else
     {
@@ -157,6 +155,7 @@ cfm_update (task_t task, struct dyld_objfile_info *info)
   unsigned long nread_container_ids;
   unsigned long *container_ids;
   ULONGEST tmpbuf;
+  struct minimal_symbol *doublecheck;
 
   unsigned long container_index;
 
@@ -173,16 +172,51 @@ cfm_update (task_t task, struct dyld_objfile_info *info)
   cfm_cookie = macosx_status->cfm_status.info_api_cookie;
   cfm_parser = &macosx_status->cfm_status.parser;
 
+  /* The cfm_status was initialized with a set of symbol addresses but
+     if CarbonCore slid since then, or the slide wasn't yet seen when
+     the cfm_status was initialized, then we will be reading CFM information
+     from an incorrect location.  
+     So this is a double-check that the address seen when we initialized the
+     cfm_status remain the same.  This should be true, of course... but we're
+     still seeing cases (unreproducible by us) where gdb is getting a bogus CFM 
+     runtime address and crashing on non-CFM apps.  */
+
+  doublecheck = lookup_minimal_symbol_by_pc (cfm_cookie);
+  if (strcmp (SYMBOL_LINKAGE_NAME (doublecheck), "gPCFMInfoHooks") != 0)
+    {
+      warning ("CFM runtime slid since cfm_status initialized; disregarding.");
+      return -1;
+    }
+
   if (!safe_read_memory_unsigned_integer (cfm_cookie, 4, &tmpbuf))
     return -1;
 
   cfm_context = tmpbuf;
+
+  /* No valid context - don't give the following code a chance to do 
+     something wrong.  */
+  if (cfm_context == 0)
+    return -1;
 
   ret =
     cfm_fetch_context_containers (cfm_parser, cfm_context, 0, 0,
                                   &n_container_ids, NULL);
   if (ret != CFM_NO_ERROR)
     return ret;
+
+  /* More than 10,000 containers?  I distrust you.  We're getting
+     cases where gdb, when attaching to a process, reads
+     invalid-but-almost-plausible CFM information from the executing
+     process and we die trying to allocate an insane amount of
+     memory.  Instead of figuring out what the heck is happening
+     with the CFM runtime layout, let's just add this sanity check
+     this before we try to allocate a huge chunk of memory.  */
+  if (n_container_ids > 10000)
+    {
+      warning ("gdb tried to read %d CFM container IDs; disregarding", 
+               (int) n_container_ids);
+      return -1;
+    }
 
   container_ids =
     (unsigned long *) xmalloc (n_container_ids * sizeof (unsigned long));
@@ -193,7 +227,21 @@ cfm_update (task_t task, struct dyld_objfile_info *info)
   if (ret != CFM_NO_ERROR)
     return ret;
 
-  CHECK (n_container_ids == nread_container_ids);
+  /* This used to be an assertion but we started getting spurrious cases
+     for non-CFM debugging where this condition would somehow be triggered.
+     Given that CFM debugging is a rare thing under gdb at this point I'm
+     changing this to warn the user about the nature of the problem and
+     bail without trying to read the fragment containers.  For real CFM
+     debugging users I don't expect this code section to be hit - and I'd
+     really like to know why it's getting here at all for non-CFM
+     debugging... */
+  if (n_container_ids != nread_container_ids)
+    {
+      warning (
+              "gdb expected to read %d CFM container IDs, but actually read %d",
+               (int) n_container_ids, (int) nread_container_ids);
+      return -1;
+    }
 
   for (container_index = 0; container_index < n_container_ids;
        container_index++)

@@ -33,9 +33,9 @@
 .Sh DESCRIPTION
 The named semaphore named
 .Fa name
-is removed.  If the semaphore is in use my other processes, then
+is removed.  If the semaphore is in use by other processes, then
 .Fa name
-is immeditately dissasociated with the semaphore, but the semaphore
+is immediately disassociated with the semaphore, but the semaphore
 itself will not be removed until all references to it have been
 closed.  Subsequent calls to
 .Fn sem_open
@@ -64,11 +64,11 @@ characters.
 The named semaphore does not exist.
 .El
 .Sh SEE ALSO
+.Xr sem_close 2 ,
+.Xr sem_open 2 ,
 .Xr semctl 2 ,
 .Xr semget 2 ,
-.Xr semop 2 ,
-.Xr sem_close 2 ,
-.Xr sem_open 2
+.Xr semop 2
 .Sh HISTORY
 .Fn sem_unlink
 is specified in the POSIX Realtime Extension (1003.1b-1993/1003.1i-1995).

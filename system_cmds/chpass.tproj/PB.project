@@ -3,11 +3,11 @@
     FILESTABLE = {
         CLASSES = (); 
         C_FILES = (); 
-        HEADERSEARCH = (../pwd_mkdb.tproj, ../vipw.tproj); 
-        H_FILES = (chpass.h, pathnames.h, pw_copy.h); 
+        HEADERSEARCH = (); 
+        H_FILES = (chpass.h, pw_copy.h, open_directory.h); 
         OTHER_LIBS = (); 
-        OTHER_LINKED = (chpass.c, edit.c, field.c, pw_copy.c, table.c, util.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, chpass.1, Makefile.dist); 
+        OTHER_LINKED = (chpass.c, edit.c, field.c, pw_copy.c, table.c, util.c, open_directory.c); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, chpass.1); 
         PROJECT_HEADERS = (pw_copy.h); 
         SUBPROJECTS = (); 
     }; 

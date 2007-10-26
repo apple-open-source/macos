@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -49,6 +49,12 @@ static void TestNonExistentCurrency(void);
  * Test RBNF access through unumfmt APIs.
  **/
 static void TestRBNFFormat(void);
+
+/**
+ * Test some Currency stuff
+ **/
+static void TestCurrencyRegression(void);
+
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

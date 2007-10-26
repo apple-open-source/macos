@@ -23,21 +23,31 @@
 #define _AUTHDATA_H 
 
 #include "rpc_misc.h"
+#include "rpc_netlogon.h"
 
 #define PAC_TYPE_LOGON_INFO 1
 #define PAC_TYPE_SERVER_CHECKSUM 6
 #define PAC_TYPE_PRIVSVR_CHECKSUM 7
-#define PAC_TYPE_UNKNOWN_10 10
+#define PAC_TYPE_LOGON_NAME 10
 
-typedef struct unknown_type_10 {
-	NTTIME unknown_time;
+#ifndef KRB5_AUTHDATA_WIN2K_PAC
+#define KRB5_AUTHDATA_WIN2K_PAC 128
+#endif
+
+#ifndef KRB5_AUTHDATA_IF_RELEVANT
+#define KRB5_AUTHDATA_IF_RELEVANT 1
+#endif
+
+
+typedef struct pac_logon_name {
+	NTTIME logon_time;
 	uint16 len;
-	uint16 *username; /* might not be null terminated, so not UNISTR */
-} UNKNOWN_TYPE_10;
+	uint8 *username; /* Actually always little-endian. might not be null terminated, so not UNISTR */
+} PAC_LOGON_NAME;
 
 typedef struct pac_signature_data {
 	uint32 type;
-	uint8 *signature;
+	RPC_DATA_BLOB signature; /* this not the on-wire-format (!) */
 } PAC_SIGNATURE_DATA;
 
 typedef struct group_membership {
@@ -49,6 +59,8 @@ typedef struct group_membership_array {
 	uint32 count;
 	GROUP_MEMBERSHIP *group_membership;
 } GROUP_MEMBERSHIP_ARRAY;
+
+#if 0 /* Unused, replaced by NET_USER_INFO_3 - Guenther */
 
 typedef struct krb_sid_and_attrs {
 	uint32 sid_ptr;
@@ -82,7 +94,7 @@ typedef struct pac_logon_info {
 	UNIHDR hdr_dir_drive;   
 
 	uint16 logon_count; /* number of times user has logged onto domain */
-	uint16 reserved12;
+	uint16 bad_password_count;	/* samba4 idl */
 
 	uint32 user_rid;
 	uint32 group_rid;
@@ -90,15 +102,15 @@ typedef struct pac_logon_info {
 	uint32 group_membership_ptr;
 	uint32 user_flags;
 
-	uint32 reserved13[4];
+	uint8 session_key[16];		/* samba4 idl */
 	UNIHDR hdr_dom_controller;
 	UNIHDR hdr_dom_name;
 
 	uint32 ptr_dom_sid;
-	
-	uint32 reserved16[2];
-	uint32 reserved17;      /* looks like it may be acb_info */
-	uint32 reserved18[7];
+
+	uint8 lm_session_key[8];	/* samba4 idl */
+	uint32 acct_flags;		/* samba4 idl */
+	uint32 unknown[7];
 
 	uint32 sid_count;
 	uint32 ptr_extra_sids;
@@ -122,6 +134,14 @@ typedef struct pac_logon_info {
 	GROUP_MEMBERSHIP_ARRAY res_groups;
 
 } PAC_LOGON_INFO;
+#endif
+
+typedef struct pac_logon_info {	
+	NET_USER_INFO_3 info3;
+	DOM_SID2 res_group_dom_sid;
+	GROUP_MEMBERSHIP_ARRAY res_groups;
+
+} PAC_LOGON_INFO;
 
 typedef struct pac_info_ctr
 {
@@ -130,22 +150,23 @@ typedef struct pac_info_ctr
 		PAC_LOGON_INFO *logon_info;
 		PAC_SIGNATURE_DATA *srv_cksum;
 		PAC_SIGNATURE_DATA *privsrv_cksum;
-		UNKNOWN_TYPE_10 *type_10;
+		PAC_LOGON_NAME *logon_name;
 	} pac;
 } PAC_INFO_CTR;
 
-typedef struct pac_info_hdr {
+typedef struct pac_buffer {
 	uint32 type;
 	uint32 size;
 	uint32 offset;
 	uint32 offsethi;
 	PAC_INFO_CTR *ctr;
-} PAC_INFO_HDR;
+	uint32 pad;
+} PAC_BUFFER;
 
 typedef struct pac_data {
 	uint32 num_buffers;
 	uint32 version;
-	PAC_INFO_HDR *pac_info_hdr_ptr;
+	PAC_BUFFER *pac_buffer;
 } PAC_DATA;
 
 

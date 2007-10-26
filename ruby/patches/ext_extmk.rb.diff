@@ -1,0 +1,16 @@
+--- ext/extmk.rb.old	2006-07-17 15:09:53.000000000 +0200
++++ ext/extmk.rb	2006-07-17 15:09:03.000000000 +0200
+@@ -142,8 +142,11 @@
+ 	  $extupdate = true
+ 	  ok = File.exist?(makefile)
+ 	end
+-      rescue SystemExit
+-	# ignore
++      rescue SystemExit => e
++        unless e.success?
++          STDERR.puts "Cannot configure module #{$mdir} : status #{e.status}"
++          exit 1
++        end
+       ensure
+ 	rm_f "conftest*"
+ 	config = $0

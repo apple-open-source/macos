@@ -26,7 +26,7 @@ extern int c1, c20 ;		/* use class 1/class 2.0 */
 extern int c2 ;			/* force class 2 */
 extern int cmdpause ;		/* delay before each init command */
 extern int vfc ;		/* virtual flow control */
-extern uchar startchar ;	/* character to start reception */
+extern char startchar ;		/* character to start reception */
 extern int lockpolldelay ;	/* milliseconds between checks of lock files */
 
 				/* response detector lookup tables */

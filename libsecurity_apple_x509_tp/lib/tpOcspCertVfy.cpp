@@ -364,6 +364,7 @@ OcspRespStatus tpVerifyOcspResp(
 	TPCertGroup	ocspCerts(vfyCtx.alloc, TGO_Caller);
 	CSSM_BOOL verifiedToRoot;
 	CSSM_BOOL verifiedToAnchor;
+	CSSM_BOOL verifiedViaTrustSetting;
 	
 	const CSSM_APPLE_TP_OCSP_OPTIONS *ocspOpts = vfyCtx.ocspOpts;
 	OcspIssuerStatus issuerStat;
@@ -490,9 +491,17 @@ OcspRespStatus tpVerifyOcspResp(
 	}
 		
 	if(signerInfo == NULL) {
-		tpOcspDebug("tpVerifyOcspResp: no signer found");
-		ourRtn = ORS_Unknown;
-		cssmErr = CSSMERR_APPLETP_OCSP_NO_SIGNER;
+		if((issuer != NULL) && !issuer->isStatusFatal(CSSMERR_APPLETP_OCSP_NO_SIGNER)) {
+			/* user wants to proceed without verifying! */
+			tpOcspDebug("tpVerifyOcspResp: no signer found, user allows!");
+			ourRtn = ORS_Good;
+		}
+		else {
+			tpOcspDebug("tpVerifyOcspResp: no signer found");
+			ourRtn = ORS_Unknown;
+			/* caller adds to per-cert status */
+			cssmErr = CSSMERR_APPLETP_OCSP_NO_SIGNER;
+		}
 		goto errOut;
 	}
 	
@@ -517,8 +526,13 @@ OcspRespStatus tpVerifyOcspResp(
 			&gatheredCerts,			// accumulate gathered certs here
 			CSSM_FALSE,				// subjectIsInGroup
 			vfyCtx.actionFlags,
+			vfyCtx.policyOid,
+			vfyCtx.policyStr,
+			vfyCtx.policyStrLen,
+			kSecTrustSettingsKeyUseSignRevocation,
 			verifiedToRoot,	
-			verifiedToAnchor);
+			verifiedToAnchor,
+			verifiedViaTrustSetting);
 	if(crtn) {
 		tpOcspDebug("tpVerifyOcspResp buildCertGroup failure");
 		cssmErr = crtn;
@@ -526,7 +540,7 @@ OcspRespStatus tpVerifyOcspResp(
 		goto errOut;
 	}
 
-	if(!verifiedToAnchor) {
+	if(!verifiedToAnchor && !verifiedViaTrustSetting) {
 		/* required */
 		ourRtn = ORS_Unknown;
 		if(verifiedToRoot) {
@@ -539,7 +553,13 @@ OcspRespStatus tpVerifyOcspResp(
 			tpOcspDebug("tpVerifyOcspResp no root, no anchor");
 			cssmErr = CSSMERR_APPLETP_OCSP_NOT_TRUSTED;
 		}
-		ourRtn = ORS_Unknown;
+		if((issuer != NULL) && !issuer->isStatusFatal(cssmErr)) {
+			tpOcspDebug("...ignoring last error per trust setting");
+			ourRtn = ORS_Good;
+		}
+		else {
+			ourRtn = ORS_Unknown;
+		}
 	}
 	else {
 		tpOcspDebug("tpVerifyOcspResp SUCCESS");

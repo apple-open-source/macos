@@ -1,0 +1,89 @@
+# $OpenLDAP: pkg/openldap-guide/admin/master.sdf,v 1.16.2.2 2006/01/03 22:16:03 kurt Exp $
+# Copyright 1999-2006 The OpenLDAP Foundation, All Rights Reserved.
+# COPYING RESTRICTIONS APPLY, see COPYRIGHT.
+#
+# master file for the OpenLDAP Administrator's Guide
+#
+#
+# To generate guide for distribution:
+#   sdf -2html guide.sdf
+#   sdf -2txt guide.sdf
+#   cp guide.{html,txt} $distribution/doc/guide
+#
+# To generate pages for web
+#	sdf -2topics index.sdf
+#
+!include "../preamble.sdf"; plain
+
+# title information
+!include "title.sdf"
+PB:
+
+# Document copyright, publishing info, acknowledgements, preface
+!include "preface.sdf"; about
+PB:
+
+# Chapters
+!include "intro.sdf"; chapter
+PB:
+
+!include "quickstart.sdf"; chapter
+PB:
+
+!include "config.sdf"; chapter
+PB:
+
+!include "install.sdf"; chapter
+PB:
+
+!include "slapdconf2.sdf"; chapter
+PB:
+
+!include "slapdconfig.sdf"; chapter
+PB:
+
+!include "runningslapd.sdf"; chapter
+PB:
+
+!include "dbtools.sdf"; chapter
+PB:
+
+!include "schema.sdf"; chapter
+PB:
+
+!include "security.sdf"; chapter
+PB:
+
+!include "sasl.sdf"; chapter
+PB:
+
+!include "tls.sdf"; chapter
+PB:
+
+#!include "monitoringslapd.sdf"; chapter
+#PB:
+
+#!include "tuning.sdf"; chapter
+#PB:
+
+!include "referrals.sdf"; chapter
+PB:
+
+!include "replication.sdf"; chapter
+PB:
+
+!include "syncrepl.sdf"; chapter
+PB:
+
+!include "proxycache.sdf"; chapter
+PB:
+
+# Appendices 
+!include "../release/autoconf.sdf"; appendix
+PB:
+
+# Software Copyright/License
+!include "../release/copyright.sdf"; appendix
+PB:
+
+!include "../release/license.sdf"; appendix

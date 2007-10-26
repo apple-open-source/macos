@@ -2,7 +2,7 @@
  * Definitions that user level programs might need to know to interact
  * with serial line IP (slip) lines.
  *
- * @(#) $Header: /cvs/root/tcpdump/tcpdump/slip.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $
+ * @(#) $Header: /tcpdump/master/tcpdump/slip.h,v 1.1 2000/10/09 01:53:21 guy Exp $
  *
  * Copyright (c) 1990 Regents of the University of California.
  * All rights reserved.

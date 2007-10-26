@@ -1,5 +1,6 @@
 /* R2 AIX machine/system dependent defines
-   Copyright (C) 1988 Free Software Foundation, Inc.
+   Copyright (C) 1988, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="aix3-1"  */
 
@@ -43,7 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #define IBMR2AIX
 
 /* Use type int rather than a union, to represent Lisp_Object */
-/* This is desirable for most machines.	 */
+/* This is desirable for most machines.  */
 
 #define NO_UNION_TYPE
 
@@ -71,7 +72,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* The data segment in this machine always starts at address 0x20000000.
    An address of data cannot be stored correctly in a Lisp object;
-   we always lose the high bits.  We must tell XPNTR to add them back.	*/
+   we always lose the high bits.  We must tell XPNTR to add them back.  */
 
 #ifndef USG5_4
 #define DATA_SEG_BITS 0x20000000
@@ -85,7 +86,7 @@ Boston, MA 02111-1307, USA.  */
 #define PURE_SEG_BITS 0x30000000
 
 /* Use shared memory.  */
-/* This is turned off because it does not always work.	See etc/AIX.DUMP.  */
+/* This is turned off because it does not always work.  See etc/AIX.DUMP.  */
 /* #define HAVE_SHM */
 #define SHMKEY 5305035		/* used for shared memory code segments */
 #endif /* CANNOT_DUMP */
@@ -101,19 +102,6 @@ Boston, MA 02111-1307, USA.  */
 #undef ADDR_CORRECT
 #define ADDR_CORRECT(x) ((int)(x))
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.	 */
-
-/* Note: aix3-2.h defines HAVE_ALLOCA; aix3-1.h doesn't.  */
-#ifndef HAVE_ALLOCA
-#define C_ALLOCA
-#define STACK_DIRECTION -1 /* tell alloca.c which way it grows */
-#endif
-
 /* Specify the font for X to use.
    This used to be Rom14.500; that's nice on the X server shipped with
    the RS/6000, but it's not available on other servers.  */
@@ -125,7 +113,7 @@ Boston, MA 02111-1307, USA.  */
 #define OBJECTS_MACHINE hftctl.o
 #endif
 
-#ifndef USG5_4
+#ifndef USG5
 #define C_SWITCH_MACHINE -D_BSD
 #endif
 
@@ -195,3 +183,6 @@ Boston, MA 02111-1307, USA.  */
 #define NLIST_STRUCT
 #endif
 #endif /* USG5_4 */
+
+/* arch-tag: 028318ee-a7ae-4a08-804d-cc1e6588d003
+   (do not change this comment) */

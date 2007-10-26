@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2002  Mark Nudelman
+ * Copyright (C) 1984-2004  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -23,6 +23,7 @@
 #include "less.h"
 
 extern IFILE	curr_ifile;
+extern int	unix2003_compat;
 
 struct ifile {
 	struct ifile *h_next;		/* Links for command line list */
@@ -229,8 +230,13 @@ get_ifile(filename, prev)
 {
 	register struct ifile *p;
 
-	if ((p = find_ifile(filename)) == NULL)
+	if (unix2003_compat) {
+		/* don't exclude duplicates in list */
 		p = new_ifile(filename, int_ifile(prev));
+	} else {
+		if ((p = find_ifile(filename)) == NULL)
+			p = new_ifile(filename, int_ifile(prev));
+	}
 	return (ext_ifile(p));
 }
 

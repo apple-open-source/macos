@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -48,7 +51,7 @@
 
 /*
  * A few macros for dealing with debugging code / printfs.  In general,
- * code is generated only if DEBUG is defined.
+ * code is generated only if DEBUG_DCE_RPC is defined.
  *
  * The model here is that there are a number of debug "switches", each one
  * of which can be set to some debug "level".  The switches are represented
@@ -109,7 +112,7 @@ typedef enum {
 
 #define RPC_C_DBG_SWITCHES      40      /* size of rpc_g_dbg_switches[] */
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 
 /*
  * Debug table
@@ -127,44 +130,44 @@ EXTERNAL unsigned8 rpc_g_dbg_switches[];
  * Tests whether a particular debug switch is set at a particular level (or
  * higher).
  */
-#ifdef DEBUG 
+#ifdef DEBUG_DCE_RPC 
 
 #define RPC_DBG(switch, level) (rpc_g_dbg_switches[(int) (switch)] >= (level))
 
-#else /* DEBUG */
+#else /* DEBUG_DCE_RPC */
 
 #define RPC_DBG(switch, level) (0)
 
-#endif /* DEBUG */
+#endif /* DEBUG_DCE_RPC */
 
 /*
  * R P C _ D B G _ E X A C T
  *
  * Tests whether a particular debug switch is set at exactly a particular level
  */
-#ifdef DEBUG 
+#ifdef DEBUG_DCE_RPC 
 
 #define RPC_DBG_EXACT(switch, level) (rpc_g_dbg_switches[(int) (switch)] == (level))
 
-#else /* DEBUG */
+#else /* DEBUG_DCE_RPC */
 
 #define RPC_DBG_EXACT(switch, level) (0)
 
-#endif /* DEBUG */
+#endif /* DEBUG_DCE_RPC */
 
 
 /*
  * a macro to set *status rpc_s_coding_error
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 
 #define CODING_ERROR(status)        *(status) = rpc_s_coding_error
 
-#else /* DEBUG */
+#else /* DEBUG_DCE_RPC */
 
 #define CODING_ERROR(status)
 
-#endif /* DEBUG */
+#endif /* DEBUG_DCE_RPC */
 
 #ifndef DCE_RPC_SVC
 /*
@@ -177,10 +180,10 @@ EXTERNAL unsigned8 rpc_g_dbg_switches[];
  *
  * I.e. the third parameter is the argument list to "printf" and must be
  * enclosed in parens.  The macro is designed this way to allow us to 
- * eliminate all debug code when DEBUG is not defined.
+ * eliminate all debug code when DEBUG_DCE_RPC is not defined.
  *
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 
 #define RPC_DBG_PRINTF(switch, level, pargs) \
 ( \
@@ -191,13 +194,13 @@ EXTERNAL unsigned8 rpc_g_dbg_switches[];
 #define RPC_DBG_GPRINTF(pargs) \
     RPC_DBG_PRINTF(rpc_es_dbg_general, 1, pargs)
 
-#else /* DEBUG */
+#else /* DEBUG_DCE_RPC */
 
 #define RPC_DBG_PRINTF(switch, level, pargs) 
 
 #define RPC_DBG_GPRINTF(pargs) 
 
-#endif /* DEBUG */
+#endif /* DEBUG_DCE_RPC */
 
 #else	/* !DCE_RPC_SVC */
 

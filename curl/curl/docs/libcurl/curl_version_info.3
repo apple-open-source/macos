@@ -1,8 +1,27 @@
-.\" You can view this file with:
-.\" nroff -man [file]
-.\" $Id: curl_version_info.3,v 1.7 2004/05/11 14:15:49 bagder Exp $
+.\" **************************************************************************
+.\" *                                  _   _ ____  _
+.\" *  Project                     ___| | | |  _ \| |
+.\" *                             / __| | | | |_) | |
+.\" *                            | (__| |_| |  _ <| |___
+.\" *                             \___|\___/|_| \_\_____|
+.\" *
+.\" * Copyright (C) 1998 - 2006, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" *
+.\" * This software is licensed as described in the file COPYING, which
+.\" * you should have received as part of this distribution. The terms
+.\" * are also available at http://curl.haxx.se/docs/copyright.html.
+.\" *
+.\" * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+.\" * copies of the Software, and permit persons to whom the Software is
+.\" * furnished to do so, under the terms of the COPYING file.
+.\" *
+.\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+.\" * KIND, either express or implied.
+.\" *
+.\" * $Id: curl_version_info.3,v 1.11 2006-11-02 21:56:43 bagder Exp $
+.\" **************************************************************************
 .\"
-.TH curl_version_info 3 "11 May 2004" "libcurl 7.12" "libcurl Manual"
+.TH curl_version_info 3 "2 Nov 2006" "libcurl 7.16.1" "libcurl Manual"
 .SH NAME
 curl_version_info - returns run-time libcurl version info
 .SH SYNOPSIS
@@ -36,7 +55,7 @@ typedef struct {
   const char *host;         /* human readable string */
   int features;             /* bitmask, see below */
   char *ssl_version;        /* human readable string */
-  long ssl_version_num;     /* number */
+  long ssl_version_num;     /* not used, always zero */
   const char *libz_version; /* human readable string */
   const char **protocols;   /* list of protocols */
 
@@ -46,6 +65,11 @@ typedef struct {
 
   /* when 'age' is 2 or higher, the member below also exists: */
   const char *libidn;       /* human readable string */
+
+  /* when 'age' is 3 or higher, the members below also exist: */
+  int iconv_ver_num;       /* '_libiconv_version' if iconv support enabled */
+
+  const char *libssh_version; /* human readable string */
 
 } curl_version_info_data;
 .fi
@@ -73,9 +97,9 @@ supports IPv6
 .IP CURL_VERSION_KERBEROS4
 supports kerberos4 (when using FTP)
 .IP CURL_VERSION_SSL
-supports SSL (HTTPS/FTPS)
+supports SSL (HTTPS/FTPS) (Added in 7.10)
 .IP CURL_VERSION_LIBZ
-supports HTTP deflate using libz
+supports HTTP deflate using libz (Added in 7.10)
 .IP CURL_VERSION_NTLM
 supports HTTP NTLM (added in 7.10.6)
 .IP CURL_VERSION_GSSNEGOTIATE
@@ -91,10 +115,18 @@ interface. (added in 7.10.7)
 libcurl was built with support for SPNEGO authentication (Simple and Protected
 GSS-API Negotiation Mechanism, defined in RFC 2478.) (added in 7.10.8)
 .IP CURL_VERSION_LARGEFILE
-libcurl was built with support for large files.
+libcurl was built with support for large files. (Added in 7.11.1)
 .IP CURL_VERSION_IDN
 libcurl was built with support for IDNA, domain names with international
-letters.
+letters. (Added in 7.12.0)
+.IP CURL_VERSION_SSPI
+libcurl was built with support for SSPI. This is only available on Windows and
+makes libcurl use Windows-provided functions for NTLM authentication. It also
+allows libcurl to use the current user and the current user's password without
+the app having to pass them on. (Added in 7.13.2)
+.IP CURL_VERSION_CONV
+libcurl was built with support for character conversions, as provided by the
+CUURLOPT_CONV_* callbacks. (Added in 7.15.4)
 .RE
 \fIssl_version\fP is an ascii string for the OpenSSL version used. If libcurl
 has no SSL support, this is NULL.

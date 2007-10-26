@@ -1,7 +1,6 @@
-## Process this file with automake to create Makefile.in -*-Makefile-*-
+# Make Autoconf man pages.
 
-## Makefile for Autoconf.
-## Copyright 2001 Free Software Foundation, Inc.
+## Copyright (C) 2001, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -15,40 +14,65 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
-dist_man_MANS = autoconf.1 autoreconf.1 autoheader.1 autoupdate.1 ifnames.1 \
-autoscan.1 autom4te.1 config.guess.1 config.sub.1
+dist_man_MANS = \
+	$(srcdir)/autoconf.1 \
+	$(srcdir)/autoheader.1 \
+	$(srcdir)/autom4te.1 \
+	$(srcdir)/autoreconf.1 \
+	$(srcdir)/autoscan.1 \
+	$(srcdir)/autoupdate.1 \
+	$(srcdir)/ifnames.1 \
+	$(srcdir)/config.guess.1 \
+	$(srcdir)/config.sub.1
 
-man_aux = autoconf.x autoreconf.x autoheader.x autoupdate.x ifnames.x \
-autoscan.x autom4te.x config.guess.x config.sub.x
-
-EXTRA_DIST = $(man_aux) common.x
+EXTRA_DIST = $(dist_man_MANS:.1=.x) common.x
 MAINTAINERCLEANFILES = $(dist_man_MANS)
 
 # Depend on configure.ac to get version number changes.
 common_dep = $(top_srcdir)/configure.ac $(srcdir)/common.x
 binsrcdir = $(top_srcdir)/bin
-autoconf.1:   $(common_dep) $(srcdir)/autoconf.x   $(binsrcdir)/autoconf.in
-autoheader.1: $(common_dep) $(srcdir)/autoheader.x $(binsrcdir)/autoheader.in
-autom4te.1:   $(common_dep) $(srcdir)/autom4te.x   $(binsrcdir)/autom4te.in
-autoreconf.1: $(common_dep) $(srcdir)/autoreconf.x $(binsrcdir)/autoreconf.in
-autoscan.1:   $(common_dep) $(srcdir)/autoscan.x   $(binsrcdir)/autoscan.in
-autoupdate.1: $(common_dep) $(srcdir)/autoupdate.x $(binsrcdir)/autoupdate.in
-ifnames.1:    $(common_dep) $(srcdir)/ifnames.x    $(binsrcdir)/ifnames.in
+$(srcdir)/autoconf.1:   $(common_dep) $(binsrcdir)/autoconf.as
+$(srcdir)/autoheader.1: $(common_dep) $(binsrcdir)/autoheader.in
+$(srcdir)/autom4te.1:   $(common_dep) $(binsrcdir)/autom4te.in
+$(srcdir)/autoreconf.1: $(common_dep) $(binsrcdir)/autoreconf.in
+$(srcdir)/autoscan.1:   $(common_dep) $(binsrcdir)/autoscan.in
+$(srcdir)/autoupdate.1: $(common_dep) $(binsrcdir)/autoupdate.in
+$(srcdir)/ifnames.1:    $(common_dep) $(binsrcdir)/ifnames.in
 
 # Independent from this package.
-config.guess.1: $(srcdir)/config.guess.x  $(top_srcdir)/config/config.guess
-config.sub.1:   $(srcdir)/config.sub.x    $(top_srcdir)/config/config.sub
+$(srcdir)/config.guess.1: $(top_srcdir)/build-aux/config.guess
+$(srcdir)/config.sub.1:   $(top_srcdir)/build-aux/config.sub
+
+remove_time_stamp = 's/^\(\.TH[^"]*"[^"]*"[^"]*\)"[^"]*"/\1/'
+
+MOSTLYCLEANFILES = $(srcdir)/*.t
 
 SUFFIXES = .x .1
 
 .x.1:
+	@program=`expr "/$*" : '.*/\(.*\)'` && \
+	case $$program in \
+	config.*) ;; \
+	*) \
+	  for dir in $(top_builddir)/bin $(top_builddir)/tests; do \
+	    echo cd $$dir '&&' $(MAKE) $(AM_MAKEFLAGS) $$program && \
+	    (cd $$dir && $(MAKE) $(AM_MAKEFLAGS) $$program) || exit; \
+	  done;; \
+	esac
 	echo "Updating man page $@"
-	PATH="$(top_builddir)/tests@PATH_SEPARATOR@$(top_srcdir)/config@PATH_SEPARATOR@$$PATH"; \
+	PATH="$(top_builddir)/tests$(PATH_SEPARATOR)$(top_srcdir)/build-aux$(PATH_SEPARATOR)$$PATH"; \
 	export PATH; \
 	$(HELP2MAN) \
-	    --include=$(srcdir)/$*.x \
+	    --include=$*.x \
 	    --include=$(srcdir)/common.x \
-	    --output=$@ $*
+	    --output=$@.t `echo '$*' | sed 's,.*/,,'`
+	if sed $(remove_time_stamp) $@ >$@a.t 2>/dev/null && \
+	   sed $(remove_time_stamp) $@.t | cmp $@a.t - >/dev/null 2>&1; then \
+		touch $@; \
+	else \
+		mv $@.t $@; \
+	fi
+	rm -f $@*.t

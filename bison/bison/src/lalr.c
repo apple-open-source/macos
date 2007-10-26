@@ -1,764 +1,463 @@
-/* Compute look-ahead criteria for bison,
-   Copyright (C) 1984, 1986, 1989 Free Software Foundation, Inc.
+/* Compute look-ahead criteria for Bison.
 
-This file is part of Bison, the GNU Compiler Compiler.
+   Copyright (C) 1984, 1986, 1989, 2000, 2001, 2002, 2003, 2004, 2005,
+   2006 Free Software Foundation, Inc.
 
-Bison is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   This file is part of Bison, the GNU Compiler Compiler.
 
-Bison is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   Bison is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-You should have received a copy of the GNU General Public License
-along with Bison; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   Bison is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with Bison; see the file COPYING.  If not, write to
+   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 
-/* Compute how to make the finite state machine deterministic;
- find which rules need lookahead in each state, and which lookahead tokens they accept.
+/* Compute how to make the finite state machine deterministic; find
+   which rules need look-ahead in each state, and which look-ahead
+   tokens they accept.  */
 
-lalr(), the entry point, builds these data structures:
-
-goto_map, from_state and to_state 
- record each shift transition which accepts a variable (a nonterminal).
-ngotos is the number of such transitions.
-from_state[t] is the state number which a transition leads from
-and to_state[t] is the state number it leads to.
-All the transitions that accept a particular variable are grouped together and
-goto_map[i - ntokens] is the index in from_state and to_state of the first of them.
-
-consistent[s] is nonzero if no lookahead is needed to decide what to do in state s.
-
-LAruleno is a vector which records the rules that need lookahead in various states.
-The elements of LAruleno that apply to state s are those from
- lookaheads[s] through lookaheads[s+1]-1.
-Each element of LAruleno is a rule number.
-
-If lr is the length of LAruleno, then a number from 0 to lr-1 
-can specify both a rule and a state where the rule might be applied.
-
-LA is a lr by ntokens matrix of bits.
-LA[l, i] is 1 if the rule LAruleno[l] is applicable in the appropriate state
- when the next token is symbol i.
-If LA[l, i] and LA[l, j] are both 1 for i != j, it is a conflict.
-*/
-
-#include <stdio.h>
+#include <config.h>
 #include "system.h"
-#include "machine.h"
-#include "types.h"
-#include "state.h"
-#include "alloc.h"
+
+#include <bitset.h>
+#include <bitsetv.h>
+#include <quotearg.h>
+
+#include "LR0.h"
+#include "complain.h"
+#include "derives.h"
+#include "getargs.h"
 #include "gram.h"
+#include "lalr.h"
+#include "nullable.h"
+#include "reader.h"
+#include "relation.h"
+#include "symtab.h"
 
+goto_number *goto_map;
+static goto_number ngotos;
+state_number *from_state;
+state_number *to_state;
 
-extern short **derives;
-extern char *nullable;
-
-
-int tokensetsize;
-short *lookaheads;
-short *LAruleno;
-unsigned *LA;
-short *accessing_symbol;
-char *consistent;
-core **state_table;
-shifts **shift_table;
-reductions **reduction_table;
-short *goto_map;
-short *from_state;
-short *to_state;
-
-void lalr PARAMS((void));
-short **transpose PARAMS((short **, int));
-void set_state_table PARAMS((void));
-void set_accessing_symbol PARAMS((void));
-void set_shift_table PARAMS((void));
-void set_reduction_table PARAMS((void));
-void set_maxrhs PARAMS((void));
-void initialize_LA PARAMS((void));
-void set_goto_map PARAMS((void));
-int map_goto PARAMS((int, int));
-void initialize_F PARAMS((void));
-void build_relations PARAMS((void));
-void add_lookback_edge PARAMS((int, int, int));
-void compute_FOLLOWS PARAMS((void));
-void compute_lookaheads PARAMS((void));
-void digraph PARAMS((short **));
-void traverse PARAMS((register int));
-
-extern void toomany PARAMS((char *));
-extern void berror PARAMS((char *));
-
-static int infinity;
-static int maxrhs;
-static int ngotos;
-static unsigned *F;
-static short **includes;
-static shorts **lookback;
-static short **R;
-static short *INDEX;
-static short *VERTICES;
-static int top;
-
-
-void
-lalr (void)
+/* Linked list of goto numbers.  */
+typedef struct goto_list
 {
-  tokensetsize = WORDSIZE(ntokens);
-
-  set_state_table();
-  set_accessing_symbol();
-  set_shift_table();
-  set_reduction_table();
-  set_maxrhs();
-  initialize_LA();
-  set_goto_map();
-  initialize_F();
-  build_relations();
-  compute_FOLLOWS();
-  compute_lookaheads();
-}
+  struct goto_list *next;
+  goto_number value;
+} goto_list;
 
 
-void
-set_state_table (void)
-{
-  register core *sp;
+/* LA is a LR by NTOKENS matrix of bits.  LA[l, i] is 1 if the rule
+   LArule[l] is applicable in the appropriate state when the next
+   token is symbol i.  If LA[l, i] and LA[l, j] are both 1 for i != j,
+   it is a conflict.  */
 
-  state_table = NEW2(nstates, core *);
-
-  for (sp = first_state; sp; sp = sp->next)
-    state_table[sp->number] = sp;
-}
+static bitsetv LA = NULL;
+size_t nLA;
 
 
-void
-set_accessing_symbol (void)
-{
-  register core *sp;
+/* And for the famous F variable, which name is so descriptive that a
+   comment is hardly needed.  <grin>.  */
+static bitsetv F = NULL;
 
-  accessing_symbol = NEW2(nstates, short);
-
-  for (sp = first_state; sp; sp = sp->next)
-    accessing_symbol[sp->number] = sp->accessing_symbol;
-}
+static goto_number **includes;
+static goto_list **lookback;
 
 
-void
-set_shift_table (void)
-{
-  register shifts *sp;
-
-  shift_table = NEW2(nstates, shifts *);
-
-  for (sp = first_shift; sp; sp = sp->next)
-    shift_table[sp->number] = sp;
-}
 
 
-void
-set_reduction_table (void)
-{
-  register reductions *rp;
-
-  reduction_table = NEW2(nstates, reductions *);
-
-  for (rp = first_reduction; rp; rp = rp->next)
-    reduction_table[rp->number] = rp;
-}
-
-
-void
-set_maxrhs (void)
-{
-  register short *itemp;
-  register int length;
-  register int max;
-
-  length = 0;
-  max = 0;
-  for (itemp = ritem; *itemp; itemp++)
-    {
-      if (*itemp > 0)
-	{
-	  length++;
-	}
-      else
-	{
-	  if (length > max) max = length;
-	  length = 0;
-	}
-    }
-
-  maxrhs = max;
-}
-
-
-void
-initialize_LA (void)
-{
-  register int i;
-  register int j;
-  register int count;
-  register reductions *rp;
-  register shifts *sp;
-  register short *np;
-
-  consistent = NEW2(nstates, char);
-  lookaheads = NEW2(nstates + 1, short);
-
-  count = 0;
-  for (i = 0; i < nstates; i++)
-    {
-      register int k;
-
-      lookaheads[i] = count;
-
-      rp = reduction_table[i];
-      sp = shift_table[i];
-      if (rp && (rp->nreds > 1
-          || (sp && ! ISVAR(accessing_symbol[sp->shifts[0]]))))
-	count += rp->nreds;
-      else
-	consistent[i] = 1;
-
-      if (sp)
-	for (k = 0; k < sp->nshifts; k++)
-	  {
-	    if (accessing_symbol[sp->shifts[k]] == error_token_number)
-	      {
-		consistent[i] = 0;
-		break;
-	      }
-	  }
-    }
-
-  lookaheads[nstates] = count;
-
-  if (count == 0)
-    {
-      LA = NEW2(1 * tokensetsize, unsigned);
-      LAruleno = NEW2(1, short);
-      lookback = NEW2(1, shorts *);
-    }
-  else
-    {
-      LA = NEW2(count * tokensetsize, unsigned);
-      LAruleno = NEW2(count, short);
-      lookback = NEW2(count, shorts *);
-    }
-
-  np = LAruleno;
-  for (i = 0; i < nstates; i++)
-    {
-      if (!consistent[i])
-	{
-	  if ((rp = reduction_table[i]))
-	    for (j = 0; j < rp->nreds; j++)
-	      *np++ = rp->rules[j];
-	}
-    }
-}
-
-
-void
+static void
 set_goto_map (void)
 {
-  register shifts *sp;
-  register int i;
-  register int symbol;
-  register int k;
-  register short *temp_map;
-  register int state2;
-  register int state1;
+  state_number s;
+  goto_number *temp_map;
 
-  goto_map = NEW2(nvars + 1, short) - ntokens;
-  temp_map = NEW2(nvars + 1, short) - ntokens;
+  goto_map = xcalloc (nvars + 1, sizeof *goto_map);
+  temp_map = xnmalloc (nvars + 1, sizeof *temp_map);
 
   ngotos = 0;
-  for (sp = first_shift; sp; sp = sp->next)
+  for (s = 0; s < nstates; ++s)
     {
-      for (i = sp->nshifts - 1; i >= 0; i--)
+      transitions *sp = states[s]->transitions;
+      int i;
+      for (i = sp->num - 1; i >= 0 && TRANSITION_IS_GOTO (sp, i); --i)
 	{
-	  symbol = accessing_symbol[sp->shifts[i]];
-
-	  if (ISTOKEN(symbol)) break;
-
-	  if (ngotos == MAXSHORT)
-	    toomany(_("gotos"));
-
 	  ngotos++;
-	  goto_map[symbol]++;
-        }
-    }
 
-  k = 0;
-  for (i = ntokens; i < nsyms; i++)
-    {
-      temp_map[i] = k;
-      k += goto_map[i];
-    }
+	  /* Abort if (ngotos + 1) would overflow.  */
+	  assert (ngotos != GOTO_NUMBER_MAXIMUM);
 
-  for (i = ntokens; i < nsyms; i++)
-    goto_map[i] = temp_map[i];
-
-  goto_map[nsyms] = ngotos;
-  temp_map[nsyms] = ngotos;
-
-  from_state = NEW2(ngotos, short);
-  to_state = NEW2(ngotos, short);
-
-  for (sp = first_shift; sp; sp = sp->next)
-    {
-      state1 = sp->number;
-      for (i = sp->nshifts - 1; i >= 0; i--)
-	{
-	  state2 = sp->shifts[i];
-	  symbol = accessing_symbol[state2];
-
-	  if (ISTOKEN(symbol)) break;
-
-	  k = temp_map[symbol]++;
-	  from_state[k] = state1;
-	  to_state[k] = state2;
+	  goto_map[TRANSITION_SYMBOL (sp, i) - ntokens]++;
 	}
     }
 
-  FREE(temp_map + ntokens);
+  {
+    goto_number k = 0;
+    int i;
+    for (i = ntokens; i < nsyms; i++)
+      {
+	temp_map[i - ntokens] = k;
+	k += goto_map[i - ntokens];
+      }
+
+    for (i = ntokens; i < nsyms; i++)
+      goto_map[i - ntokens] = temp_map[i - ntokens];
+
+    goto_map[nsyms - ntokens] = ngotos;
+    temp_map[nsyms - ntokens] = ngotos;
+  }
+
+  from_state = xcalloc (ngotos, sizeof *from_state);
+  to_state = xcalloc (ngotos, sizeof *to_state);
+
+  for (s = 0; s < nstates; ++s)
+    {
+      transitions *sp = states[s]->transitions;
+      int i;
+      for (i = sp->num - 1; i >= 0 && TRANSITION_IS_GOTO (sp, i); --i)
+	{
+	  goto_number k = temp_map[TRANSITION_SYMBOL (sp, i) - ntokens]++;
+	  from_state[k] = s;
+	  to_state[k] = sp->states[i]->number;
+	}
+    }
+
+  free (temp_map);
 }
 
 
 
-/*  Map_goto maps a state/symbol pair into its numeric representation.	*/
+/*----------------------------------------------------------.
+| Map a state/symbol pair into its numeric representation.  |
+`----------------------------------------------------------*/
 
-int
-map_goto (int state, int symbol)
+static goto_number
+map_goto (state_number s0, symbol_number sym)
 {
-  register int high;
-  register int low;
-  register int middle;
-  register int s;
+  goto_number high;
+  goto_number low;
+  goto_number middle;
+  state_number s;
 
-  low = goto_map[symbol];
-  high = goto_map[symbol + 1] - 1;
+  low = goto_map[sym - ntokens];
+  high = goto_map[sym - ntokens + 1] - 1;
 
-  while (low <= high)
+  for (;;)
     {
+      assert (low <= high);
       middle = (low + high) / 2;
       s = from_state[middle];
-      if (s == state)
-	return (middle);
-      else if (s < state)
+      if (s == s0)
+	return middle;
+      else if (s < s0)
 	low = middle + 1;
       else
 	high = middle - 1;
     }
-
-  berror("map_goto");
-/* NOTREACHED */
-  return 0;
 }
 
 
-void
+static void
 initialize_F (void)
 {
-  register int i;
-  register int j;
-  register int k;
-  register shifts *sp;
-  register short *edge;
-  register unsigned *rowp;
-  register short *rp;
-  register short **reads;
-  register int nedges;
-  register int stateno;
-  register int symbol;
-  register int nwords;
+  goto_number **reads = xnmalloc (ngotos, sizeof *reads);
+  goto_number *edge = xnmalloc (ngotos + 1, sizeof *edge);
+  goto_number nedges = 0;
 
-  nwords = ngotos * tokensetsize;
-  F = NEW2(nwords, unsigned);
+  goto_number i;
 
-  reads = NEW2(ngotos, short *);
-  edge = NEW2(ngotos + 1, short);
-  nedges = 0;
+  F = bitsetv_create (ngotos, ntokens, BITSET_FIXED);
 
-  rowp = F;
   for (i = 0; i < ngotos; i++)
     {
-      stateno = to_state[i];
-      sp = shift_table[stateno];
+      state_number stateno = to_state[i];
+      transitions *sp = states[stateno]->transitions;
 
-      if (sp)
+      int j;
+      FOR_EACH_SHIFT (sp, j)
+	bitset_set (F[i], TRANSITION_SYMBOL (sp, j));
+
+      for (; j < sp->num; j++)
 	{
-	  k = sp->nshifts;
-
-	  for (j = 0; j < k; j++)
-	    {
-	      symbol = accessing_symbol[sp->shifts[j]];
-	      if (ISVAR(symbol))
-		break;
-	      SETBIT(rowp, symbol);
-	    }
-
-	  for (; j < k; j++)
-	    {
-	      symbol = accessing_symbol[sp->shifts[j]];
-	      if (nullable[symbol])
-		edge[nedges++] = map_goto(stateno, symbol);
-	    }
-	
-	  if (nedges)
-	    {
-	      reads[i] = rp = NEW2(nedges + 1, short);
-
-	      for (j = 0; j < nedges; j++)
-		rp[j] = edge[j];
-
-	      rp[nedges] = -1;
-	      nedges = 0;
-	    }
+	  symbol_number sym = TRANSITION_SYMBOL (sp, j);
+	  if (nullable[sym - ntokens])
+	    edge[nedges++] = map_goto (stateno, sym);
 	}
 
-      rowp += tokensetsize;
+      if (nedges == 0)
+	reads[i] = NULL;
+      else
+	{
+	  reads[i] = xnmalloc (nedges + 1, sizeof reads[i][0]);
+	  memcpy (reads[i], edge, nedges * sizeof edge[0]);
+	  reads[i][nedges] = END_NODE;
+	  nedges = 0;
+	}
     }
 
-  digraph(reads);
+  relation_digraph (reads, ngotos, &F);
 
   for (i = 0; i < ngotos; i++)
-    {
-      if (reads[i])
-	FREE(reads[i]);
-    }
+    free (reads[i]);
 
-  FREE(reads);
-  FREE(edge);
+  free (reads);
+  free (edge);
 }
 
 
-void
+static void
+add_lookback_edge (state *s, rule *r, goto_number gotono)
+{
+  int ri = state_reduction_find (s, r);
+  goto_list *sp = xmalloc (sizeof *sp);
+  sp->next = lookback[(s->reductions->look_ahead_tokens - LA) + ri];
+  sp->value = gotono;
+  lookback[(s->reductions->look_ahead_tokens - LA) + ri] = sp;
+}
+
+
+
+static void
 build_relations (void)
 {
-  register int i;
-  register int j;
-  register int k;
-  register short *rulep;
-  register short *rp;
-  register shifts *sp;
-  register int length;
-  register int nedges;
-  register int done;
-  register int state1;
-  register int stateno;
-  register int symbol1;
-  register int symbol2;
-  register short *shortp;
-  register short *edge;
-  register short *states;
-  register short **new_includes;
+  goto_number *edge = xnmalloc (ngotos + 1, sizeof *edge);
+  state_number *states1 = xnmalloc (ritem_longest_rhs () + 1, sizeof *states1);
+  goto_number i;
 
-  includes = NEW2(ngotos, short *);
-  edge = NEW2(ngotos + 1, short);
-  states = NEW2(maxrhs + 1, short);
+  includes = xnmalloc (ngotos, sizeof *includes);
 
   for (i = 0; i < ngotos; i++)
     {
-      nedges = 0;
-      state1 = from_state[i];
-      symbol1 = accessing_symbol[to_state[i]];
+      int nedges = 0;
+      symbol_number symbol1 = states[to_state[i]]->accessing_symbol;
+      rule **rulep;
 
-      for (rulep = derives[symbol1]; *rulep > 0; rulep++)
+      for (rulep = derives[symbol1 - ntokens]; *rulep; rulep++)
 	{
-	  length = 1;
-	  states[0] = state1;
-	  stateno = state1;
+	  bool done;
+	  int length = 1;
+	  item_number const *rp;
+	  state *s = states[from_state[i]];
+	  states1[0] = s->number;
 
-	  for (rp = ritem + rrhs[*rulep]; *rp > 0; rp++)
+	  for (rp = (*rulep)->rhs; ! item_number_is_rule_number (*rp); rp++)
 	    {
-	      symbol2 = *rp;
-	      sp = shift_table[stateno];
-	      k = sp->nshifts;
-
-	      for (j = 0; j < k; j++)
-		{
-		  stateno = sp->shifts[j];
-		  if (accessing_symbol[stateno] == symbol2) break;
-		}
-
-	      states[length++] = stateno;
+	      s = transitions_to (s->transitions,
+				  item_number_as_symbol_number (*rp));
+	      states1[length++] = s->number;
 	    }
 
-	  if (!consistent[stateno])
-	    add_lookback_edge(stateno, *rulep, i);
+	  if (!s->consistent)
+	    add_lookback_edge (s, *rulep, i);
 
 	  length--;
-	  done = 0;
+	  done = false;
 	  while (!done)
 	    {
-	      done = 1;
+	      done = true;
+	      /* Each rhs ends in an item number, and there is a
+		 sentinel before the first rhs, so it is safe to
+		 decrement RP here.  */
 	      rp--;
-			/* JF added rp>=ritem &&   I hope to god its right! */
-	      if (rp>=ritem && ISVAR(*rp))
+	      if (ISVAR (*rp))
 		{
-		  stateno = states[--length];
-		  edge[nedges++] = map_goto(stateno, *rp);
-		  if (nullable[*rp]) done = 0;
+		  /* Downcasting from item_number to symbol_number.  */
+		  edge[nedges++] = map_goto (states1[--length],
+					     item_number_as_symbol_number (*rp));
+		  if (nullable[*rp - ntokens])
+		    done = false;
 		}
 	    }
 	}
 
-      if (nedges)
-	{
-	  includes[i] = shortp = NEW2(nedges + 1, short);
-	  for (j = 0; j < nedges; j++)
-	    shortp[j] = edge[j];
-	  shortp[nedges] = -1;
-	}
-    }
-
-  new_includes = transpose(includes, ngotos);
-
-  for (i = 0; i < ngotos; i++)
-    if (includes[i])
-      FREE(includes[i]);
-
-  FREE(includes);
-
-  includes = new_includes;
-
-  FREE(edge);
-  FREE(states);
-}
-
-
-void
-add_lookback_edge (int stateno, int ruleno, int gotono)
-{
-  register int i;
-  register int k;
-  register int found;
-  register shorts *sp;
-
-  i = lookaheads[stateno];
-  k = lookaheads[stateno + 1];
-  found = 0;
-  while (!found && i < k)
-    {
-      if (LAruleno[i] == ruleno)
-	found = 1;
+      if (nedges == 0)
+	includes[i] = NULL;
       else
-	i++;
+	{
+	  int j;
+	  includes[i] = xnmalloc (nedges + 1, sizeof includes[i][0]);
+	  for (j = 0; j < nedges; j++)
+	    includes[i][j] = edge[j];
+	  includes[i][nedges] = END_NODE;
+	}
     }
 
-  if (found == 0)
-    berror("add_lookback_edge");
+  free (edge);
+  free (states1);
 
-  sp = NEW(shorts);
-  sp->next = lookback[i];
-  sp->value = gotono;
-  lookback[i] = sp;
+  relation_transpose (&includes, ngotos);
 }
 
 
 
-short **
-transpose (short **R_arg, int n)
-{
-  register short **new_R;
-  register short **temp_R;
-  register short *nedges;
-  register short *sp;
-  register int i;
-  register int k;
-
-  nedges = NEW2(n, short);
-
-  for (i = 0; i < n; i++)
-    {
-      sp = R_arg[i];
-      if (sp)
-	{
-	  while (*sp >= 0)
-	    nedges[*sp++]++;
-	}
-    }
-
-  new_R = NEW2(n, short *);
-  temp_R = NEW2(n, short *);
-
-  for (i = 0; i < n; i++)
-    {
-      k = nedges[i];
-      if (k > 0)
-	{
-	  sp = NEW2(k + 1, short);
-	  new_R[i] = sp;
-	  temp_R[i] = sp;
-	  sp[k] = -1;
-	}
-    }
-
-  FREE(nedges);
-
-  for (i = 0; i < n; i++)
-    {
-      sp = R_arg[i];
-      if (sp)
-	{
-	  while (*sp >= 0)
-	    *temp_R[*sp++]++ = i;
-	}
-    }
-
-  FREE(temp_R);
-
-  return (new_R);
-}
-
-
-void
+static void
 compute_FOLLOWS (void)
 {
-  register int i;
+  goto_number i;
 
-  digraph(includes);
+  relation_digraph (includes, ngotos, &F);
 
   for (i = 0; i < ngotos; i++)
-    {
-      if (includes[i]) FREE(includes[i]);
-    }
+    free (includes[i]);
 
-  FREE(includes);
+  free (includes);
 }
 
 
-void
-compute_lookaheads (void)
+static void
+compute_look_ahead_tokens (void)
 {
-  register int i;
-  register int n;
-  register unsigned *fp1;
-  register unsigned *fp2;
-  register unsigned *fp3;
-  register shorts *sp;
-  register unsigned *rowp;
-/*   register short *rulep; JF unused */
-/*  register int count; JF unused */
-  register shorts *sptmp;/* JF */
+  size_t i;
+  goto_list *sp;
 
-  rowp = LA;
-  n = lookaheads[nstates];
-  for (i = 0; i < n; i++)
-    {
-      fp3 = rowp + tokensetsize;
-      for (sp = lookback[i]; sp; sp = sp->next)
-	{
-	  fp1 = rowp;
-	  fp2 = F + tokensetsize * sp->value;
-	  while (fp1 < fp3)
-	    *fp1++ |= *fp2++;
-	}
+  for (i = 0; i < nLA; i++)
+    for (sp = lookback[i]; sp; sp = sp->next)
+      bitset_or (LA[i], LA[i], F[sp->value]);
 
-      rowp = fp3;
-    }
+  /* Free LOOKBACK. */
+  for (i = 0; i < nLA; i++)
+    LIST_FREE (goto_list, lookback[i]);
 
-  for (i = 0; i < n; i++)
-    {/* JF removed ref to freed storage */
-      for (sp = lookback[i]; sp; sp = sptmp) {
-	sptmp=sp->next;
-	FREE(sp);
+  free (lookback);
+  bitsetv_free (F);
+}
+
+
+/*-----------------------------------------------------.
+| Count the number of look-ahead tokens required for S |
+| (N_LOOK_AHEAD_TOKENS member).                        |
+`-----------------------------------------------------*/
+
+static int
+state_look_ahead_tokens_count (state *s)
+{
+  int k;
+  int n_look_ahead_tokens = 0;
+  reductions *rp = s->reductions;
+  transitions *sp = s->transitions;
+
+  /* We need a look-ahead either to distinguish different
+     reductions (i.e., there are two or more), or to distinguish a
+     reduction from a shift.  Otherwise, it is straightforward,
+     and the state is `consistent'.  */
+  if (rp->num > 1
+      || (rp->num == 1 && sp->num &&
+	  !TRANSITION_IS_DISABLED (sp, 0) && TRANSITION_IS_SHIFT (sp, 0)))
+    n_look_ahead_tokens += rp->num;
+  else
+    s->consistent = 1;
+
+  for (k = 0; k < sp->num; k++)
+    if (!TRANSITION_IS_DISABLED (sp, k) && TRANSITION_IS_ERROR (sp, k))
+      {
+	s->consistent = 0;
+	break;
       }
-    }
 
-  FREE(lookback);
-  FREE(F);
+  return n_look_ahead_tokens;
+}
+
+
+/*-----------------------------------------------------.
+| Compute LA, NLA, and the look_ahead_tokens members.  |
+`-----------------------------------------------------*/
+
+static void
+initialize_LA (void)
+{
+  state_number i;
+  bitsetv pLA;
+
+  /* Compute the total number of reductions requiring a look-ahead.  */
+  nLA = 0;
+  for (i = 0; i < nstates; i++)
+    nLA += state_look_ahead_tokens_count (states[i]);
+  /* Avoid having to special case 0.  */
+  if (!nLA)
+    nLA = 1;
+
+  pLA = LA = bitsetv_create (nLA, ntokens, BITSET_FIXED);
+  lookback = xcalloc (nLA, sizeof *lookback);
+
+  /* Initialize the members LOOK_AHEAD_TOKENS for each state whose reductions
+     require look-ahead tokens.  */
+  for (i = 0; i < nstates; i++)
+    {
+      int count = state_look_ahead_tokens_count (states[i]);
+      if (count)
+	{
+	  states[i]->reductions->look_ahead_tokens = pLA;
+	  pLA += count;
+	}
+    }
+}
+
+
+/*----------------------------------------------.
+| Output the look-ahead tokens for each state.  |
+`----------------------------------------------*/
+
+static void
+look_ahead_tokens_print (FILE *out)
+{
+  state_number i;
+  int j, k;
+  fprintf (out, "Look-ahead tokens: BEGIN\n");
+  for (i = 0; i < nstates; ++i)
+    {
+      reductions *reds = states[i]->reductions;
+      bitset_iterator iter;
+      int n_look_ahead_tokens = 0;
+
+      if (reds->look_ahead_tokens)
+	for (k = 0; k < reds->num; ++k)
+	  if (reds->look_ahead_tokens[k])
+	    ++n_look_ahead_tokens;
+
+      fprintf (out, "State %d: %d look-ahead tokens\n",
+	       i, n_look_ahead_tokens);
+
+      if (reds->look_ahead_tokens)
+	for (j = 0; j < reds->num; ++j)
+	  BITSET_FOR_EACH (iter, reds->look_ahead_tokens[j], k, 0)
+	  {
+	    fprintf (out, "   on %d (%s) -> rule %d\n",
+		     k, symbols[k]->tag,
+		     reds->rules[j]->number);
+	  };
+    }
+  fprintf (out, "Look-ahead tokens: END\n");
+}
+
+void
+lalr (void)
+{
+  initialize_LA ();
+  set_goto_map ();
+  initialize_F ();
+  build_relations ();
+  compute_FOLLOWS ();
+  compute_look_ahead_tokens ();
+
+  if (trace_flag & trace_sets)
+    look_ahead_tokens_print (stderr);
 }
 
 
 void
-digraph (short **relation)
+lalr_free (void)
 {
-  register int i;
-
-  infinity = ngotos + 2;
-  INDEX = NEW2(ngotos + 1, short);
-  VERTICES = NEW2(ngotos + 1, short);
-  top = 0;
-
-  R = relation;
-
-  for (i = 0; i < ngotos; i++)
-    INDEX[i] = 0;
-
-  for (i = 0; i < ngotos; i++)
-    {
-      if (INDEX[i] == 0 && R[i])
-	traverse(i);
-    }
-
-  FREE(INDEX);
-  FREE(VERTICES);
-}
-
-
-void
-traverse (register int i)
-{
-  register unsigned *fp1;
-  register unsigned *fp2;
-  register unsigned *fp3;
-  register int j;
-  register short *rp;
-
-  int height;
-  unsigned *base;
-
-  VERTICES[++top] = i;
-  INDEX[i] = height = top;
-
-  base = F + i * tokensetsize;
-  fp3 = base + tokensetsize;
-
-  rp = R[i];
-  if (rp)
-    {
-      while ((j = *rp++) >= 0)
-	{
-	  if (INDEX[j] == 0)
-	    traverse(j);
-
-	  if (INDEX[i] > INDEX[j])
-	    INDEX[i] = INDEX[j];
-
-	  fp1 = base;
-	  fp2 = F + j * tokensetsize;
-
-	  while (fp1 < fp3)
-	    *fp1++ |= *fp2++;
-	}
-    }
-
-  if (INDEX[i] == height)
-    {
-      for (;;)
-	{
-	  j = VERTICES[top--];
-	  INDEX[j] = infinity;
-
-	  if (i == j)
-	    break;
-
-	  fp1 = base;
-	  fp2 = F + j * tokensetsize;
-
-	  while (fp1 < fp3)
-	    *fp2++ = *fp1++;
-	}
-    }
+  state_number s;
+  for (s = 0; s < nstates; ++s)
+    states[s]->reductions->look_ahead_tokens = NULL;
+  bitsetv_free (LA);
 }

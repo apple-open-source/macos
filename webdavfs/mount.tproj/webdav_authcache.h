@@ -43,17 +43,29 @@
 
 /*****************************************************************************/
 
+/*
+ * Structure used to store context
+ * while the mount is being authenticated.
+ *
+ */
+struct authcache_request_ctx {
+	UInt32 count;		/* tracks retries for a request */
+	UInt32 generation;	/* the generation count of the cached entry */
+};
+
+typedef struct authcache_request_ctx AuthRequestContext;
+
 int authcache_apply(
 	uid_t uid,							/* -> uid of the user making the request */
 	CFHTTPMessageRef request,			/* -> the request to apply authentication to */
 	UInt32 statusCode,					/* -> the status code (401, 407), or 0 if no challenge */
 	CFHTTPMessageRef response,			/* -> the response containing the challenge, or NULL if no challenge */
-	UInt32 *generation);				/* <- the generation count of the cache entry */
+	AuthRequestContext *ctx);			/* <- the auth context for this request */
 
 int authcache_valid(
 	uid_t uid,							/* -> uid of the user making the request */
 	CFHTTPMessageRef request,			/* -> the message of the successful request */
-	UInt32 generation);					/* -> the generation count of the cache entry */
+	AuthRequestContext *ctx);			/* -> the auth context for this request */
 
 int authcache_proxy_invalidate(void);
 

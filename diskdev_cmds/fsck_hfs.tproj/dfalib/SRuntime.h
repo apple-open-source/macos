@@ -35,7 +35,6 @@
 #include <stdarg.h>
 
 #include <hfs/hfs_format.h>
-
 #else
 
 #include <MacTypes.h>

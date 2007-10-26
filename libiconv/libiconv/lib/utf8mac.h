@@ -28,6 +28,7 @@
  */
 
 #include <libkern/OSByteOrder.h>
+#include <errno.h>
 
 #define	UTF_REVERSE_ENDIAN	0x01	/* reverse UCS-2 byte order */
 #define	UTF_NO_NULL_TERM	0x02	/* do not add null termination */
@@ -1108,7 +1109,7 @@ char utf_extrabytes[32] = {
  * NOTES:
  *    The resulting UTF-8 string is NULL terminated.
  *
- *    If '/' chars are allowed on disk then an alternate
+ *    If '/' chars are not allowed on disk then an alternate
  *    (replacement) char must be provided in altslash.
  *
  * input flags:
@@ -1220,7 +1221,7 @@ utf8_encodestr(const u_int16_t * ucsp, size_t ucslen, u_int8_t * utf8p,
  *    The input UTF-8 string does not need to be null terminated
  *    if utf8len is set.
  *
- *    If '/' chars are allowed on disk then an alternate
+ *    If '/' chars are not allowed on disk then an alternate
  *    (replacement) char must be provided in altslash.
  *
  * input flags:
@@ -1571,7 +1572,7 @@ utf8mac_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
     flags |= UTF_REVERSE_ENDIAN;
 #endif
 
-    ret = utf8_decodestr(s, n, ucsp, &ucslen, sizeof(ucsp), NULL, flags, &consumed);
+    ret = utf8_decodestr(s, n, ucsp, &ucslen, sizeof(ucsp), 0, flags, &consumed);
 
     if (ret == ENAMETOOLONG)	/* Name didn't fit; only ucslen chars were decoded */
 	return RET_TOOFEW(0);

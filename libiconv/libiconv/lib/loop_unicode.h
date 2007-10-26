@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2003 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2003, 2005-2006 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -14,8 +14,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
- * If not, write to the Free Software Foundation, Inc., 59 Temple Place -
- * Suite 330, Boston, MA 02111-1307, USA.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 /* This file defines the conversion loop via Unicode as a pivot encoding. */
@@ -154,6 +154,118 @@ static int unicode_transliterate (conv_t cd, ucs4_t wc,
   return RET_ILUNI;
 }
 
+#ifndef LIBICONV_PLUG
+
+struct uc_to_mb_fallback_locals {
+  unsigned char* l_outbuf;
+  size_t l_outbytesleft;
+  int l_errno;
+};
+
+static void uc_to_mb_write_replacement (const char *buf, size_t buflen,
+                                        void* callback_arg)
+{
+  struct uc_to_mb_fallback_locals * plocals =
+    (struct uc_to_mb_fallback_locals *) callback_arg;
+  /* Do nothing if already encountered an error in a previous call. */
+  if (plocals->l_errno == 0) {
+    /* Attempt to copy the passed buffer to the output buffer. */
+    if (plocals->l_outbytesleft < buflen)
+      plocals->l_errno = E2BIG;
+    else {
+      memcpy(plocals->l_outbuf, buf, buflen);
+      plocals->l_outbuf += buflen;
+      plocals->l_outbytesleft -= buflen;
+    }
+  }
+}
+
+struct mb_to_uc_fallback_locals {
+  conv_t l_cd;
+  unsigned char* l_outbuf;
+  size_t l_outbytesleft;
+  int l_errno;
+};
+
+static void mb_to_uc_write_replacement (const unsigned int *buf, size_t buflen,
+                                        void* callback_arg)
+{
+  struct mb_to_uc_fallback_locals * plocals =
+    (struct mb_to_uc_fallback_locals *) callback_arg;
+  /* Do nothing if already encountered an error in a previous call. */
+  if (plocals->l_errno == 0) {
+    /* Attempt to convert the passed buffer to the target encoding. */
+    conv_t cd = plocals->l_cd;
+    unsigned char* outptr = plocals->l_outbuf;
+    size_t outleft = plocals->l_outbytesleft;
+    for (; buflen > 0; buf++, buflen--) {
+      ucs4_t wc = *buf;
+      int outcount;
+      if (outleft == 0) {
+        plocals->l_errno = E2BIG;
+        break;
+      }
+      outcount = cd->ofuncs.xxx_wctomb(cd,outptr,wc,outleft);
+      if (outcount != RET_ILUNI)
+        goto outcount_ok;
+      /* Handle Unicode tag characters (range U+E0000..U+E007F). */
+      if ((wc >> 7) == (0xe0000 >> 7))
+        goto outcount_zero;
+      /* Try transliteration. */
+      if (cd->transliterate) {
+        outcount = unicode_transliterate(cd,wc,outptr,outleft);
+        if (outcount != RET_ILUNI)
+          goto outcount_ok;
+      }
+      if (cd->discard_ilseq) {
+        outcount = 0;
+        goto outcount_ok;
+      }
+      #ifndef LIBICONV_PLUG
+      else if (cd->fallbacks.uc_to_mb_fallback != NULL) {
+        struct uc_to_mb_fallback_locals locals;
+        locals.l_outbuf = outptr;
+        locals.l_outbytesleft = outleft;
+        locals.l_errno = 0;
+        cd->fallbacks.uc_to_mb_fallback(wc,
+                                        uc_to_mb_write_replacement,
+                                        &locals,
+                                        cd->fallbacks.data);
+        if (locals.l_errno != 0) {
+          plocals->l_errno = locals.l_errno;
+          break;
+        }
+        outptr = locals.l_outbuf;
+        outleft = locals.l_outbytesleft;
+        outcount = 0;
+        goto outcount_ok;
+      }
+      #endif
+      outcount = cd->ofuncs.xxx_wctomb(cd,outptr,0xFFFD,outleft);
+      if (outcount != RET_ILUNI)
+        goto outcount_ok;
+      plocals->l_errno = EILSEQ;
+      break;
+    outcount_ok:
+      if (outcount < 0) {
+        plocals->l_errno = E2BIG;
+        break;
+      }
+      #ifndef LIBICONV_PLUG
+      if (cd->hooks.uc_hook)
+        (*cd->hooks.uc_hook)(wc, cd->hooks.data);
+      #endif
+      if (!(outcount <= outleft)) abort();
+      outptr += outcount; outleft -= outcount;
+    outcount_zero: ;
+    }
+    plocals->l_outbuf = outptr;
+    plocals->l_outbytesleft = outleft;
+  }
+}
+
+#endif /* !LIBICONV_PLUG */
+
 static size_t unicode_loop_convert (iconv_t icd,
                                     const char* * inbuf, size_t *inbytesleft,
                                     char* * outbuf, size_t *outbytesleft)
@@ -188,6 +300,40 @@ static size_t unicode_loop_convert (iconv_t icd,
           }
           goto outcount_zero;
         }
+        #ifndef LIBICONV_PLUG
+        else if (cd->fallbacks.mb_to_uc_fallback != NULL) {
+          struct mb_to_uc_fallback_locals locals;
+          switch (cd->iindex) {
+            case ei_ucs4: case ei_ucs4be: case ei_ucs4le:
+            case ei_utf32: case ei_utf32be: case ei_utf32le:
+            case ei_ucs4internal: case ei_ucs4swapped:
+              incount = 4; break;
+            case ei_ucs2: case ei_ucs2be: case ei_ucs2le:
+            case ei_utf16: case ei_utf16be: case ei_utf16le:
+            case ei_ucs2internal: case ei_ucs2swapped:
+              incount = 2; break;
+            default:
+              incount = 1; break;
+          }
+          locals.l_cd = cd;
+          locals.l_outbuf = outptr;
+          locals.l_outbytesleft = outleft;
+          locals.l_errno = 0;
+          cd->fallbacks.mb_to_uc_fallback(inptr, incount,
+                                          mb_to_uc_write_replacement,
+                                          &locals,
+                                          cd->fallbacks.data);
+          if (locals.l_errno != 0) {
+            errno = locals.l_errno;
+            result = -1;
+            break;
+          }
+          outptr = locals.l_outbuf;
+          outleft = locals.l_outbytesleft;
+          result += 1;
+          goto outcount_zero;
+        }
+        #endif
         errno = EILSEQ;
         result = -1;
         break;
@@ -221,8 +367,31 @@ static size_t unicode_loop_convert (iconv_t icd,
         if (outcount != RET_ILUNI)
           goto outcount_ok;
       }
-      if (cd->discard_ilseq)
-        goto outcount_zero;
+      if (cd->discard_ilseq) {
+        outcount = 0;
+        goto outcount_ok;
+      }
+      #ifndef LIBICONV_PLUG
+      else if (cd->fallbacks.uc_to_mb_fallback != NULL) {
+        struct uc_to_mb_fallback_locals locals;
+        locals.l_outbuf = outptr;
+        locals.l_outbytesleft = outleft;
+        locals.l_errno = 0;
+        cd->fallbacks.uc_to_mb_fallback(wc,
+                                        uc_to_mb_write_replacement,
+                                        &locals,
+                                        cd->fallbacks.data);
+        if (locals.l_errno != 0) {
+          cd->istate = last_istate;
+          errno = locals.l_errno;
+          return -1;
+        }
+        outptr = locals.l_outbuf;
+        outleft = locals.l_outbytesleft;
+        outcount = 0;
+        goto outcount_ok;
+      }
+      #endif
       outcount = cd->ofuncs.xxx_wctomb(cd,outptr,0xFFFD,outleft);
       if (outcount != RET_ILUNI)
         goto outcount_ok;
@@ -237,6 +406,10 @@ static size_t unicode_loop_convert (iconv_t icd,
         result = -1;
         break;
       }
+      #ifndef LIBICONV_PLUG
+      if (cd->hooks.uc_hook)
+        (*cd->hooks.uc_hook)(wc, cd->hooks.data);
+      #endif
       if (!(outcount <= outleft)) abort();
       outptr += outcount; outleft -= outcount;
     }
@@ -281,8 +454,31 @@ static size_t unicode_loop_reset (iconv_t icd,
           if (outcount != RET_ILUNI)
             goto outcount_ok;
         }
-        if (cd->discard_ilseq)
-          goto outcount_zero;
+        if (cd->discard_ilseq) {
+          outcount = 0;
+          goto outcount_ok;
+        }
+        #ifndef LIBICONV_PLUG
+        else if (cd->fallbacks.uc_to_mb_fallback != NULL) {
+          struct uc_to_mb_fallback_locals locals;
+          locals.l_outbuf = outptr;
+          locals.l_outbytesleft = outleft;
+          locals.l_errno = 0;
+          cd->fallbacks.uc_to_mb_fallback(wc,
+                                          uc_to_mb_write_replacement,
+                                          &locals,
+                                          cd->fallbacks.data);
+          if (locals.l_errno != 0) {
+            cd->istate = last_istate;
+            errno = locals.l_errno;
+            return -1;
+          }
+          outptr = locals.l_outbuf;
+          outleft = locals.l_outbytesleft;
+          outcount = 0;
+          goto outcount_ok;
+        }
+        #endif
         outcount = cd->ofuncs.xxx_wctomb(cd,outptr,0xFFFD,outleft);
         if (outcount != RET_ILUNI)
           goto outcount_ok;
@@ -295,6 +491,10 @@ static size_t unicode_loop_reset (iconv_t icd,
           errno = E2BIG;
           return -1;
         }
+        #ifndef LIBICONV_PLUG
+        if (cd->hooks.uc_hook)
+          (*cd->hooks.uc_hook)(wc, cd->hooks.data);
+        #endif
         if (!(outcount <= outleft)) abort();
         outptr += outcount;
         outleft -= outcount;

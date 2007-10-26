@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.18.2.3 2003/10/03 05:25:43 sniper Exp $
+dnl $Id: config.m4,v 1.25.2.3 2005/11/29 18:26:02 tony2001 Exp $
 dnl
 
 sinclude(ext/xmlrpc/libxmlrpc/acinclude.m4)
@@ -8,39 +8,64 @@ sinclude(libxmlrpc/acinclude.m4)
 sinclude(libxmlrpc/xmlrpc.m4)
 
 PHP_ARG_WITH(xmlrpc, for XMLRPC-EPI support,
-[  --with-xmlrpc[=DIR]     Include XMLRPC-EPI support.])
+[  --with-xmlrpc[=DIR]     Include XMLRPC-EPI support])
 
-PHP_ARG_WITH(expat-dir, libexpat dir for XMLRPC-EPI,
-[  --with-expat-dir=<DIR>    XMLRPC-EPI: libexpat dir for XMLRPC-EPI.],yes,no)
+if test -z "$PHP_LIBXML_DIR"; then
+  PHP_ARG_WITH(libxml-dir, libxml2 install dir,
+  [  --with-libxml-dir=DIR     XMLRPC-EPI: libxml2 install prefix], no, no)
+fi
+
+PHP_ARG_WITH(libexpat-dir, libexpat dir for XMLRPC-EPI,
+[  --with-libexpat-dir=DIR   XMLRPC-EPI: libexpat dir for XMLRPC-EPI (deprecated)],no,no)
 
 PHP_ARG_WITH(iconv-dir, iconv dir for XMLRPC-EPI,
-[  --with-iconv-dir=<DIR>    XMLRPC-EPI: iconv dir for XMLRPC-EPI.],yes,no)
+[  --with-iconv-dir=DIR      XMLRPC-EPI: iconv dir for XMLRPC-EPI],no,no)
 
 if test "$PHP_XMLRPC" != "no"; then
 
+  PHP_ADD_EXTENSION_DEP(xmlrpc, libxml)
   PHP_SUBST(XMLRPC_SHARED_LIBADD)
   AC_DEFINE(HAVE_XMLRPC,1,[ ])
 
-  testval=no
-  for i in $PHP_EXPAT_DIR $XMLRPC_DIR /usr/local /usr; do
-    if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.$SHLIB_SUFFIX_NAME; then
-      AC_DEFINE(HAVE_LIBEXPAT2,1,[ ])
-      PHP_ADD_LIBRARY_WITH_PATH(expat, $i/lib, XMLRPC_SHARED_LIBADD)
-      PHP_ADD_INCLUDE($i/include)
-      testval=yes
-      break
-    fi
-  done
+  dnl
+  dnl Default to libxml2 if --with-libexpat-dir is not used
+  dnl
+  if test "$PHP_LIBEXPAT_DIR" = "no"; then
 
-  if test "$testval" = "no"; then
-    AC_MSG_ERROR(XML-RPC support requires libexpat. Use --with-expat-dir=<DIR>)
+    if test "$PHP_LIBXML" = "no"; then
+      AC_MSG_ERROR([XML-RPC extension requires LIBXML extension, add --enable-libxml])
+    fi
+
+    PHP_SETUP_LIBXML(XMLRPC_SHARED_LIBADD, [
+      if test "$PHP_XML" = "no"; then
+        PHP_ADD_SOURCES(ext/xml, compat.c)
+        PHP_ADD_BUILD_DIR(ext/xml)
+      fi
+    ], [
+      AC_MSG_ERROR([xml2-config not found. Use --with-libxml-dir=<DIR>])
+    ])
+  else
+    testval=no
+    for i in $PHP_LIBEXPAT_DIR $XMLRPC_DIR /usr/local /usr; do
+      if test -f $i/$PHP_LIBDIR/libexpat.a || test -f $i/$PHP_LIBDIR/libexpat.$SHLIB_SUFFIX_NAME; then
+        AC_DEFINE(HAVE_LIBEXPAT,1,[ ])
+        PHP_ADD_LIBRARY_WITH_PATH(expat, $i/$PHP_LIBDIR, XMLRPC_SHARED_LIBADD)
+        PHP_ADD_INCLUDE($i/include)
+        testval=yes
+        break
+      fi
+    done
+
+    if test "$testval" = "no"; then
+      AC_MSG_ERROR([XML-RPC support requires libexpat. Use --with-libexpat-dir=<DIR> (deprecated!)])
+    fi
   fi
 
   if test "$PHP_ICONV_DIR" != "no"; then
     PHP_ICONV=$PHP_ICONV_DIR
   fi
   
-  if test "$PHP_ICONV" = "no"; then
+  if test -z "$PHP_ICONV" || test "$PHP_ICONV" = "no"; then
     PHP_ICONV=yes
   fi
   
@@ -48,7 +73,6 @@ if test "$PHP_XMLRPC" != "no"; then
     AC_MSG_ERROR([iconv not found, in order to build xmlrpc you need the iconv library])
   ])
 fi
-
 
 if test "$PHP_XMLRPC" = "yes"; then
   XMLRPC_CHECKS
@@ -88,5 +112,7 @@ dnl for xmlrpc-epi because of this.
   fi
 
   PHP_ADD_INCLUDE($XMLRPC_DIR)
-  PHP_ADD_LIBRARY_WITH_PATH(xmlrpc, $XMLRPC_DIR/lib, XMLRPC_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_WITH_PATH(xmlrpc, $XMLRPC_DIR/$PHP_LIBDIR, XMLRPC_SHARED_LIBADD)
+  PHP_NEW_EXTENSION(xmlrpc,xmlrpc-epi-php.c, $ext_shared)
+  XMLRPC_MODULE_TYPE=external
 fi

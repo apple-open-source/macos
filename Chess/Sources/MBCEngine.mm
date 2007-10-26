@@ -2,7 +2,7 @@
 	File:		MBCEngine.mm
 	Contains:	An agent representing the sjeng chess engine
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,15 @@
 	Change History (most recent first):
 
 		$Log: MBCEngine.mm,v $
+		Revision 1.21  2007/03/02 20:03:57  neerache
+		Fix undo timing problems <rdar://problem/4139329>
+		
+		Revision 1.20  2007/01/16 08:29:20  neerache
+		Reset search depth when switching to time based level
+		
+		Revision 1.19  2007/01/16 03:55:02  neerache
+		TTS works again in LP64 <rdar://problem/4899456>
+		
 		Revision 1.18  2004/09/11 02:03:23  neerache
 		Implement delays to humanize engine
 		
@@ -117,7 +126,8 @@ using std::max;
 	[fEngineTask setStandardOutput:fFromEnginePipe];
 	[fEngineTask setLaunchPath:
 					 [[NSBundle mainBundle] pathForResource:@"sjeng" 
-											ofType:@""]];
+											ofType:@"ChessEngine"]];
+	[fEngineTask setArguments: [NSArray arrayWithObject:@"sjeng (Chess Engine)"]];
 	[self performSelector:@selector(launchEngine:) withObject:nil afterDelay:0.001];
 	fToEngine		= [fToEnginePipe fileHandleForWriting];
 	fFromEngine		= [fFromEnginePipe fileHandleForReading];
@@ -162,7 +172,7 @@ using std::max;
 		[self writeToEngine:[NSString stringWithFormat:@"sd %d\n", 
 									  4+fSearchTime]];
 	else
-		[self writeToEngine:[NSString stringWithFormat:@"st %d\n", 
+		[self writeToEngine:[NSString stringWithFormat:@"sd 40\nst %d\n", 
 									  fSearchTime]];
 }
 
@@ -222,10 +232,6 @@ using std::max;
 	[[NSNotificationCenter defaultCenter] 
 		postNotificationName:[self notificationForSide]
 		object:move];		
-	if (fTakeback) {
-		fTakeback = false;
-		[self takebackNow];
-	}
 }
 
 - (void) handlePortMessage:(NSPortMessage *)message
@@ -433,6 +439,10 @@ using std::max;
 {
 	[fLastPonder release];
 	fLastPonder = nil;
+	if (fTakeback) {
+		fTakeback = false;
+		[self takebackNow];
+	}
 	[self enableEngineMoves:YES];
 }
 
@@ -444,6 +454,11 @@ using std::max;
 		//
 		fTakeback = true;
 		[self interruptEngine];
+	} else if (!fEngineEnabled) {
+		//
+		// Move yet to be executed
+		//
+		fTakeback = true; 
 	} else 
 		[self takebackNow];
 }

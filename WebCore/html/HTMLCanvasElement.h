@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2004, 2006 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,8 +36,6 @@ typedef struct CGImage* CGImageRef;
 #elif PLATFORM(QT)
 class QImage;
 class QPainter;
-#elif PLATFORM(CAIRO)
-typedef struct _cairo_surface cairo_surface_t;
 #endif
 
 namespace WebCore {
@@ -78,8 +75,6 @@ public:
     CGImageRef createPlatformImage() const;
 #elif PLATFORM(QT)
     QImage createPlatformImage() const;
-#elif PLATFORM(CAIRO)
-    cairo_surface_t* createPlatformImage() const;
 #endif
 
 private:
@@ -100,9 +95,6 @@ private:
 #elif PLATFORM(QT)
     mutable QImage* m_data;
     mutable QPainter* m_painter;
-#elif PLATFORM(CAIRO)
-    mutable void* m_data;
-    mutable cairo_surface_t* m_surface;
 #else
     mutable void* m_data;
 #endif

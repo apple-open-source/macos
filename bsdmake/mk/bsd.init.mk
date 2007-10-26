@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.init.mk,v 1.1 2002/04/17 13:49:28 ru Exp $
+# $FreeBSD: src/share/mk/bsd.init.mk,v 1.5 2005/04/11 07:13:29 harti Exp $
 
 # The include file <bsd.init.mk> includes ../Makefile.inc and
 # <bsd.own.mk>; this is used at the top of all <bsd.*.mk> files
@@ -9,6 +9,7 @@ __<bsd.init.mk>__:
 .if exists(${.CURDIR}/../Makefile.inc)
 .include "${.CURDIR}/../Makefile.inc"
 .endif
+.include <bsd.compat.mk>
 .include <bsd.own.mk>
 .MAIN: all
-.endif !target(__<bsd.init.mk>__)
+.endif	# !target(__<bsd.init.mk>__)

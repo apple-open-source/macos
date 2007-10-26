@@ -4,13 +4,13 @@
         <key>OpenSourceProject</key>
         <string>MySQL</string>
         <key>OpenSourceVersion</key>
-        <string>4.1.22</string>
+        <string>5.0.45</string>
         <key>OpenSourceURL</key>
-        <string>http://mysql.he.net/Downloads/MySQL-4.1/mysql-4.1.22.tar.gz</string>
+        <string>http://mysql.he.net/Downloads/MySQL-5.0/mysql-5.0.45.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>857e942cc3207caf56e2aa48961fc1ed66d932e6</string>
+        <string>a5fba8e004acc43ac1a576d728f10215f54ebe20</string>
         <key>OpenSourceImportDate</key>
-        <string>2006-11-02</string>
+        <string>2007-07-04</string>
         <key>OpenSourceModifications</key>
         <array/>
         <key>OpenSourceLicense</key>

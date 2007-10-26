@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: sysvsem.c,v 1.41.2.4.2.2 2007/01/01 09:46:49 sebastian Exp $ */
+/* $Id: sysvsem.c,v 1.51.2.3.2.2 2007/05/11 15:46:38 tony2001 Exp $ */
 
 /* Latest update build anc tested on Linux 2.2.14
  *
@@ -58,7 +58,7 @@ union semun {
 
 /* {{{ sysvsem_functions[]
  */
-function_entry sysvsem_functions[] = {
+zend_function_entry sysvsem_functions[] = {
 	PHP_FE(sem_get,			NULL)
 	PHP_FE(sem_acquire,		NULL)
 	PHP_FE(sem_release,		NULL)
@@ -70,8 +70,16 @@ function_entry sysvsem_functions[] = {
 /* {{{ sysvsem_module_entry
  */
 zend_module_entry sysvsem_module_entry = {
-    STANDARD_MODULE_HEADER,
-	"sysvsem", sysvsem_functions, PHP_MINIT(sysvsem), NULL, NULL, NULL, NULL, NO_VERSION_YET, STANDARD_MODULE_PROPERTIES
+	STANDARD_MODULE_HEADER,
+	"sysvsem",
+	sysvsem_functions,
+	PHP_MINIT(sysvsem),
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NO_VERSION_YET,
+	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
 
@@ -113,7 +121,7 @@ static void release_sysvsem_sem(zend_rsrc_list_entry *rsrc TSRMLS_DC)
  * Need better way to handle this
  */
 
-	if(sem_ptr->count == -1 || !sem_ptr->auto_release) {
+	if (sem_ptr->count == -1 || !sem_ptr->auto_release) {
 		efree(sem_ptr);
 		return;
 	}
@@ -126,7 +134,6 @@ static void release_sysvsem_sem(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 	/* Release the semaphore if it has been acquired but not released. */
 
 	if (sem_ptr->count) {
-		php_error(E_WARNING, "Releasing SysV semaphore id %d key 0x%x in request cleanup", sem_ptr->id, sem_ptr->key);
 
 		sop[1].sem_num = SYSVSEM_SEM;
 		sop[1].sem_op  = sem_ptr->count;
@@ -134,10 +141,8 @@ static void release_sysvsem_sem(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 
 		opcount++;
 	}
-	if (semop(sem_ptr->semid, sop, opcount) == -1) {
-		php_error(E_WARNING, "semop() failed in release_sysvsem_sem for key 0x%x: %s", sem_ptr->key, strerror(errno));
-	}
 
+	semop(sem_ptr->semid, sop, opcount);
 	efree(sem_ptr);
 }
 /* }}} */
@@ -157,21 +162,15 @@ PHP_MINIT_FUNCTION(sysvsem)
 #undef SETVAL_WANTS_PTR
 #endif
 
-/* {{{ proto int sem_get(int key [, int max_acquire [, int perm [, int auto_release]])
+/* {{{ proto resource sem_get(int key [, int max_acquire [, int perm [, int auto_release]])
    Return an id for the semaphore with the given key, and allow max_acquire (default 1) processes to acquire it simultaneously */
 PHP_FUNCTION(sem_get)
 {
-	long key, max_acquire, perm, auto_release = 1;
-    int semid;
+	long key, max_acquire = 1, perm = 0666, auto_release = 1;
+	int semid;
 	struct sembuf sop[3];
 	int count;
 	sysvsem_sem *sem_ptr;
-#if HAVE_SEMUN
-	union semun un;
-#endif
-
-	max_acquire = 1;
-	perm = 0666;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|lll", &key, &max_acquire, &perm, &auto_release)) {
 		RETURN_FALSE;
@@ -183,9 +182,9 @@ PHP_FUNCTION(sem_get)
 	 * the kernel versions 2.0.x and 2.1.z do in fact zero them.
 	 */
 
-    semid = semget(key, 3, perm|IPC_CREAT);
+	semid = semget(key, 3, perm|IPC_CREAT);
 	if (semid == -1) {
-		php_error(E_WARNING, "semget() failed for key 0x%lx: %s", key, strerror(errno));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed for key 0x%lx: %s", key, strerror(errno));
 		RETURN_FALSE;
 	}
 
@@ -217,19 +216,15 @@ PHP_FUNCTION(sem_get)
 	sop[2].sem_flg = SEM_UNDO;
 	while (semop(semid, sop, 3) == -1) {
 		if (errno != EINTR) {
-			php_error(E_WARNING, "semop() failed acquiring SYSVSEM_SETVAL for key 0x%lx: %s", key, strerror(errno));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed acquiring SYSVSEM_SETVAL for key 0x%lx: %s", key, strerror(errno));
 			break;
 		}
 	}
 
 	/* Get the usage count. */
-#if HAVE_SEMUN
-	count = semctl(semid, SYSVSEM_USAGE, GETVAL, un);
-#else
 	count = semctl(semid, SYSVSEM_USAGE, GETVAL, NULL);
-#endif
 	if (count == -1) {
-		php_error(E_WARNING, "semctl(GETVAL) failed for key 0x%lx: %s", key, strerror(errno));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed for key 0x%lx: %s", key, strerror(errno));
 	}
 
 	/* If we are the only user, then take this opportunity to set the max. */
@@ -240,17 +235,17 @@ PHP_FUNCTION(sem_get)
 		union semun semarg;
 		semarg.val = max_acquire;
 		if (semctl(semid, SYSVSEM_SEM, SETVAL, semarg) == -1) {
-			php_error(E_WARNING, "semctl(SETVAL) failed for key 0x%lx: %s", key, strerror(errno));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed for key 0x%lx: %s", key, strerror(errno));
 		}
 #elif defined(SETVAL_WANTS_PTR)
 		/* This is correct for Solaris 2.6 which does not have union semun. */
 		if (semctl(semid, SYSVSEM_SEM, SETVAL, &max_acquire) == -1) {
-			php_error(E_WARNING, "semctl(SETVAL) failed for key 0x%lx: %s", key, strerror(errno));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed for key 0x%lx: %s", key, strerror(errno));
 		}
 #else
 		/* This works for i.e. AIX */
 		if (semctl(semid, SYSVSEM_SEM, SETVAL, max_acquire) == -1) {
-			php_error(E_WARNING, "semctl(SETVAL) failed for key 0x%lx: %s", key, strerror(errno));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed for key 0x%lx: %s", key, strerror(errno));
 		}
 #endif
 	}
@@ -262,7 +257,7 @@ PHP_FUNCTION(sem_get)
 	sop[0].sem_flg = SEM_UNDO;
 	while (semop(semid, sop, 1) == -1) {
 		if (errno != EINTR) {
-			php_error(E_WARNING, "semop() failed releasing SYSVSEM_SETVAL for key 0x%lx: %s", key, strerror(errno));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed releasing SYSVSEM_SETVAL for key 0x%lx: %s", key, strerror(errno));
 			break;
 		}
 	}
@@ -281,9 +276,9 @@ PHP_FUNCTION(sem_get)
  */
 static void php_sysvsem_semop(INTERNAL_FUNCTION_PARAMETERS, int acquire)
 {
-	pval **arg_id;
+	zval **arg_id;
 	sysvsem_sem *sem_ptr;
-    struct sembuf sop;
+	struct sembuf sop;
 
 	switch(ZEND_NUM_ARGS()) {
 		case 1:
@@ -303,14 +298,13 @@ static void php_sysvsem_semop(INTERNAL_FUNCTION_PARAMETERS, int acquire)
 		RETURN_FALSE;
 	}
 
-    sop.sem_num = SYSVSEM_SEM;
-    sop.sem_op  = acquire ? -1 : 1;
-    sop.sem_flg = SEM_UNDO;
+	sop.sem_num = SYSVSEM_SEM;
+	sop.sem_op  = acquire ? -1 : 1;
+	sop.sem_flg = SEM_UNDO;
 
-    while (semop(sem_ptr->semid, &sop, 1) == -1) {
+	while (semop(sem_ptr->semid, &sop, 1) == -1) {
 		if (errno != EINTR) {
-			php_error(E_WARNING, "semop(%s) failed for key 0x%x: %s",
-					   acquire ? "acquire" : "release",  sem_ptr->key, strerror(errno));
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to %s key 0x%x: %s", acquire ? "acquire" : "release", sem_ptr->key, strerror(errno));
 			RETURN_FALSE;
 		}
 	}
@@ -320,7 +314,7 @@ static void php_sysvsem_semop(INTERNAL_FUNCTION_PARAMETERS, int acquire)
 }
 /* }}} */
 
-/* {{{ proto int sem_acquire(int id)
+/* {{{ proto bool sem_acquire(resource id)
    Acquires the semaphore with the given id, blocking if necessary */
 PHP_FUNCTION(sem_acquire)
 {
@@ -328,7 +322,7 @@ PHP_FUNCTION(sem_acquire)
 }
 /* }}} */
 
-/* {{{ proto int sem_release(int id)
+/* {{{ proto bool sem_release(resource id)
    Releases the semaphore with the given id */
 PHP_FUNCTION(sem_release)
 {
@@ -336,7 +330,7 @@ PHP_FUNCTION(sem_release)
 }
 /* }}} */
 
-/* {{{ proto int sem_remove(int id)
+/* {{{ proto bool sem_remove(resource id)
    Removes semaphore from Unix systems */
 
 /*
@@ -346,14 +340,14 @@ PHP_FUNCTION(sem_release)
 
 PHP_FUNCTION(sem_remove)
 {
-	pval **arg_id;
+	zval **arg_id;
 	sysvsem_sem *sem_ptr;
 #if HAVE_SEMUN
 	union semun un;
 	struct semid_ds buf;
 #endif
 
-	if(ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg_id) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg_id) == FAILURE) {
 			WRONG_PARAM_COUNT;
 	}
 
@@ -361,18 +355,18 @@ PHP_FUNCTION(sem_remove)
 
 #if HAVE_SEMUN
 	un.buf = &buf;
-	if(semctl(sem_ptr->semid, 0, IPC_STAT, un) < 0) {
+	if (semctl(sem_ptr->semid, 0, IPC_STAT, un) < 0) {
 #else
-	if(semctl(sem_ptr->semid, 0, IPC_STAT, NULL) < 0) {
+	if (semctl(sem_ptr->semid, 0, IPC_STAT, NULL) < 0) {
 #endif
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "SysV semaphore %ld does not (any longer) exist", Z_LVAL_PP(arg_id));
 		RETURN_FALSE;
 	}
 
 #if HAVE_SEMUN
-	if(semctl(sem_ptr->semid, 0, IPC_RMID, un) < 0) {
+	if (semctl(sem_ptr->semid, 0, IPC_RMID, un) < 0) {
 #else
-	if(semctl(sem_ptr->semid, 0, IPC_RMID, NULL) < 0) {
+	if (semctl(sem_ptr->semid, 0, IPC_RMID, NULL) < 0) {
 #endif
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed for SysV sempphore %ld: %s", Z_LVAL_PP(arg_id), strerror(errno));
 		RETURN_FALSE;

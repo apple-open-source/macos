@@ -55,6 +55,10 @@ __RCSID("$FreeBSD: src/usr.bin/calendar/calendar.c,v 1.18 2002/08/14 11:28:07 ru
 #include <time.h>
 #include <unistd.h>
 
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+
 #include "pathnames.h"
 #include "calendar.h"
 

@@ -59,7 +59,7 @@ static int vfs_shadow_copy_debug_level = DBGC_VFS;
 typedef struct {
 	int pos;
 	int num;
-	struct dirent *dirs;
+	SMB_STRUCT_DIRENT *dirs;
 } shadow_copy_Dir;
 
 static BOOL shadow_copy_match_name(const char *name)
@@ -72,10 +72,10 @@ static BOOL shadow_copy_match_name(const char *name)
 	return False;
 }
 
-static DIR *shadow_copy_opendir(vfs_handle_struct *handle, connection_struct *conn, const char *fname)
+static SMB_STRUCT_DIR *shadow_copy_opendir(vfs_handle_struct *handle, const char *fname, const char *mask, uint32 attr)
 {
 	shadow_copy_Dir *dirp;
-	DIR *p = SMB_VFS_NEXT_OPENDIR(handle,conn,fname);
+	SMB_STRUCT_DIR *p = SMB_VFS_NEXT_OPENDIR(handle,fname,mask,attr);
 
 	if (!p) {
 		DEBUG(0,("shadow_copy_opendir: SMB_VFS_NEXT_OPENDIR() failed for [%s]\n",fname));
@@ -85,18 +85,16 @@ static DIR *shadow_copy_opendir(vfs_handle_struct *handle, connection_struct *co
 	dirp = SMB_MALLOC_P(shadow_copy_Dir);
 	if (!dirp) {
 		DEBUG(0,("shadow_copy_opendir: Out of memory\n"));
-		SMB_VFS_NEXT_CLOSEDIR(handle,conn,p);
+		SMB_VFS_NEXT_CLOSEDIR(handle,p);
 		return NULL;
 	}
 
 	ZERO_STRUCTP(dirp);
 
 	while (True) {
-		struct dirent *d;
-		struct dirent *r;
+		SMB_STRUCT_DIRENT *d;
 
-
-		d = SMB_VFS_NEXT_READDIR(handle, conn, p);
+		d = SMB_VFS_NEXT_READDIR(handle, p);
 		if (d == NULL) {
 			break;
 		}
@@ -108,21 +106,20 @@ static DIR *shadow_copy_opendir(vfs_handle_struct *handle, connection_struct *co
 
 		DEBUG(10,("shadow_copy_opendir: not hide [%s]\n",d->d_name));
 
-		r = SMB_REALLOC_ARRAY(dirp->dirs, struct dirent, dirp->num+1);
-		if (!r) {
+		dirp->dirs = SMB_REALLOC_ARRAY(dirp->dirs,SMB_STRUCT_DIRENT, dirp->num+1);
+		if (!dirp->dirs) {
 			DEBUG(0,("shadow_copy_opendir: Out of memory\n"));
 			break;
 		}
 
-		dirp->dirs = r;
 		dirp->dirs[dirp->num++] = *d;
 	}
 
-	SMB_VFS_NEXT_CLOSEDIR(handle,conn,p);
-	return((DIR *)dirp);
+	SMB_VFS_NEXT_CLOSEDIR(handle,p);
+	return((SMB_STRUCT_DIR *)dirp);
 }
 
-struct dirent *shadow_copy_readdir(vfs_handle_struct *handle, connection_struct *conn, DIR *_dirp)
+static SMB_STRUCT_DIRENT *shadow_copy_readdir(vfs_handle_struct *handle, SMB_STRUCT_DIR *_dirp)
 {
 	shadow_copy_Dir *dirp = (shadow_copy_Dir *)_dirp;
 
@@ -133,10 +130,32 @@ struct dirent *shadow_copy_readdir(vfs_handle_struct *handle, connection_struct 
 	return NULL;
 }
 
-int shadow_copy_closedir(vfs_handle_struct *handle, connection_struct *conn, DIR *_dirp)
+static void shadow_copy_seekdir(struct vfs_handle_struct *handle, SMB_STRUCT_DIR *_dirp, long offset)
 {
 	shadow_copy_Dir *dirp = (shadow_copy_Dir *)_dirp;
 
+	if (offset < dirp->num) {
+		dirp->pos = offset ;
+	}
+}
+
+static long shadow_copy_telldir(struct vfs_handle_struct *handle, SMB_STRUCT_DIR *_dirp)
+{
+	shadow_copy_Dir *dirp = (shadow_copy_Dir *)_dirp;
+	return( dirp->pos ) ;
+}
+
+static void shadow_copy_rewinddir(struct vfs_handle_struct *handle, SMB_STRUCT_DIR *_dirp)
+{
+	shadow_copy_Dir *dirp = (shadow_copy_Dir *)_dirp;
+	dirp->pos = 0 ;
+}
+
+static int shadow_copy_closedir(vfs_handle_struct *handle, SMB_STRUCT_DIR *_dirp)
+{
+	shadow_copy_Dir *dirp = (shadow_copy_Dir *)_dirp;
+
+	SAFE_FREE(dirp->dirs);
 	SAFE_FREE(dirp);
  
 	return 0;	
@@ -144,7 +163,7 @@ int shadow_copy_closedir(vfs_handle_struct *handle, connection_struct *conn, DIR
 
 static int shadow_copy_get_shadow_copy_data(vfs_handle_struct *handle, files_struct *fsp, SHADOW_COPY_DATA *shadow_copy_data, BOOL labels)
 {
-	DIR *p = SMB_VFS_NEXT_OPENDIR(handle,fsp->conn,fsp->conn->connectpath);
+	SMB_STRUCT_DIR *p = SMB_VFS_NEXT_OPENDIR(handle,fsp->conn->connectpath,NULL,0);
 
 	shadow_copy_data->num_volumes = 0;
 	shadow_copy_data->labels = NULL;
@@ -156,9 +175,9 @@ static int shadow_copy_get_shadow_copy_data(vfs_handle_struct *handle, files_str
 
 	while (True) {
 		SHADOW_COPY_LABEL *tlabels;
-		struct dirent *d;
+		SMB_STRUCT_DIRENT *d;
 
-		d = SMB_VFS_NEXT_READDIR(handle, fsp->conn, p);
+		d = SMB_VFS_NEXT_READDIR(handle, p);
 		if (d == NULL) {
 			break;
 		}
@@ -181,7 +200,7 @@ static int shadow_copy_get_shadow_copy_data(vfs_handle_struct *handle, files_str
 									(shadow_copy_data->num_volumes+1)*sizeof(SHADOW_COPY_LABEL));
 		if (tlabels == NULL) {
 			DEBUG(0,("shadow_copy_get_shadow_copy_data: Out of memory\n"));
-			SMB_VFS_NEXT_CLOSEDIR(handle,fsp->conn,p);
+			SMB_VFS_NEXT_CLOSEDIR(handle,p);
 			return -1;
 		}
 
@@ -190,7 +209,7 @@ static int shadow_copy_get_shadow_copy_data(vfs_handle_struct *handle, files_str
 		shadow_copy_data->labels = tlabels;
 	}
 
-	SMB_VFS_NEXT_CLOSEDIR(handle,fsp->conn,p);
+	SMB_VFS_NEXT_CLOSEDIR(handle,p);
 	return 0;
 }
 
@@ -199,6 +218,9 @@ static int shadow_copy_get_shadow_copy_data(vfs_handle_struct *handle, files_str
 static vfs_op_tuple shadow_copy_ops[] = {
 	{SMB_VFS_OP(shadow_copy_opendir),		SMB_VFS_OP_OPENDIR,		SMB_VFS_LAYER_TRANSPARENT},
 	{SMB_VFS_OP(shadow_copy_readdir),		SMB_VFS_OP_READDIR,		SMB_VFS_LAYER_TRANSPARENT},
+	{SMB_VFS_OP(shadow_copy_seekdir),		SMB_VFS_OP_SEEKDIR,		SMB_VFS_LAYER_TRANSPARENT},
+	{SMB_VFS_OP(shadow_copy_telldir),		SMB_VFS_OP_TELLDIR,		SMB_VFS_LAYER_TRANSPARENT},
+	{SMB_VFS_OP(shadow_copy_rewinddir),		SMB_VFS_OP_REWINDDIR,		SMB_VFS_LAYER_TRANSPARENT},
 	{SMB_VFS_OP(shadow_copy_closedir),		SMB_VFS_OP_CLOSEDIR,		SMB_VFS_LAYER_TRANSPARENT},
 
 	{SMB_VFS_OP(shadow_copy_get_shadow_copy_data),	SMB_VFS_OP_GET_SHADOW_COPY_DATA,SMB_VFS_LAYER_OPAQUE},
@@ -206,6 +228,7 @@ static vfs_op_tuple shadow_copy_ops[] = {
 	{SMB_VFS_OP(NULL),				SMB_VFS_OP_NOOP,		SMB_VFS_LAYER_NOOP}
 };
 
+NTSTATUS vfs_shadow_copy_init(void);
 NTSTATUS vfs_shadow_copy_init(void)
 {
 	NTSTATUS ret = smb_register_vfs(SMB_VFS_INTERFACE_VERSION, "shadow_copy", shadow_copy_ops);

@@ -1,4 +1,5 @@
 OTHER_CFLAGS = \
+	-D__DARWIN_NON_CANCELABLE=1 \
 	-Dsethostent=_res_sethostent \
 	-Dgethostent=_res_gethostent \
 	-Dendhostent=_res_endhostent \

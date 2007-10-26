@@ -1,5 +1,5 @@
 /* addr2line.c -- convert addresses to line number and function name
-   Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Contributed by Ulrich Lauther <Ulrich.Lauther@mchp.siemens.de>
 
@@ -17,7 +17,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Foundation, 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Derived from objdump.c and nm.c by Ulrich.Lauther@mchp.siemens.de
 
@@ -29,6 +29,7 @@
    both forms write results to stdout, the second form reads addresses
    to be converted from stdin.  */
 
+#include "config.h"
 #include <string.h>
 
 #include "bfd.h"
@@ -38,6 +39,7 @@
 #include "bucomm.h"
 #include "budemang.h"
 
+static bfd_boolean unwind_inlines;	/* -i, unwind inlined functions. */
 static bfd_boolean with_functions;	/* -f, show function names.  */
 static bfd_boolean do_demangle;		/* -C, demangle names.  */
 static bfd_boolean base_names;		/* -s, strip directory names.  */
@@ -53,6 +55,7 @@ static struct option long_options[] =
   {"demangle", optional_argument, NULL, 'C'},
   {"exe", required_argument, NULL, 'e'},
   {"functions", no_argument, NULL, 'f'},
+  {"inlines", no_argument, NULL, 'i'},
   {"target", required_argument, NULL, 'b'},
   {"help", no_argument, NULL, 'H'},
   {"version", no_argument, NULL, 'V'},
@@ -76,6 +79,7 @@ usage (FILE *stream, int status)
   fprintf (stream, _(" The options are:\n\
   -b --target=<bfdname>  Set the binary file format\n\
   -e --exe=<executable>  Set the input file name (default is a.out)\n\
+  -i --inlines		 Unwind inlined functions\n\
   -s --basenames         Strip directory names\n\
   -f --functions         Show function names\n\
   -C --demangle[=style]  Demangle function names\n\
@@ -137,7 +141,7 @@ find_address_in_section (bfd *abfd, asection *section,
   if (pc < vma)
     return;
 
-  size = bfd_get_section_size_before_reloc (section);
+  size = bfd_get_section_size (section);
   if (pc >= vma + size)
     return;
 
@@ -182,36 +186,43 @@ translate_addresses (bfd *abfd)
 	}
       else
 	{
-	  if (with_functions)
-	    {
-	      const char *name;
-	      char *alloc = NULL;
+	  do {
+	    if (with_functions)
+	      {
+		const char *name;
+		char *alloc = NULL;
 
-	      name = functionname;
-	      if (name == NULL || *name == '\0')
-		name = "??";
-	      else if (do_demangle)
-		{
-		  alloc = demangle (abfd, name);
-		  name = alloc;
-		}
+		name = functionname;
+		if (name == NULL || *name == '\0')
+		  name = "??";
+		else if (do_demangle)
+		  {
+		    alloc = demangle (abfd, name);
+		    name = alloc;
+		  }
 
-	      printf ("%s\n", name);
+		printf ("%s\n", name);
 
-	      if (alloc != NULL)
-		free (alloc);
-	    }
+		if (alloc != NULL)
+		  free (alloc);
+	      }
 
-	  if (base_names && filename != NULL)
-	    {
-	      char *h;
+	    if (base_names && filename != NULL)
+	      {
+		char *h;
 
-	      h = strrchr (filename, '/');
-	      if (h != NULL)
-		filename = h + 1;
-	    }
+		h = strrchr (filename, '/');
+		if (h != NULL)
+		  filename = h + 1;
+	      }
 
-	  printf ("%s:%u\n", filename ? filename : "??", line);
+	    printf ("%s:%u\n", filename ? filename : "??", line);
+	    if (!unwind_inlines)
+	      found = FALSE;
+	    else
+	      found = bfd_find_inliner_info (abfd, &filename, &functionname, &line);
+	  } while (found);
+
 	}
 
       /* fflush() is essential for using this command as a server
@@ -290,7 +301,7 @@ main (int argc, char **argv)
 
   file_name = NULL;
   target = NULL;
-  while ((c = getopt_long (argc, argv, "b:Ce:sfHhVv", long_options, (int *) 0))
+  while ((c = getopt_long (argc, argv, "b:Ce:sfHhiVv", long_options, (int *) 0))
 	 != EOF)
     {
       switch (c)
@@ -330,6 +341,9 @@ main (int argc, char **argv)
 	case 'h':
 	case 'H':
 	  usage (stdout, 0);
+	  break;
+	case 'i':
+	  unwind_inlines = TRUE;
 	  break;
 	default:
 	  usage (stderr, 1);

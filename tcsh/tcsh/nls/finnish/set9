@@ -1,4 +1,4 @@
-$ $Id: set9,v 1.1.1.1 2001/06/28 23:11:07 bbraun Exp $
+$ $Id: set9,v 1.1 2000/01/14 22:57:34 christos Exp $
 $ ed.xmap.c
 $set 9
 1 AddXkey: Null extended-key not allowed.\n

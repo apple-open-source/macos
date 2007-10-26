@@ -1,6 +1,10 @@
 /* Test errors for constant strings.  */
 /* { dg-do compile } */
-/* { dg-options "-fgnu-runtime" } */
+/* APPLE LOCAL begin radar 4674757 */
+/* { dg-options "-fgnu-runtime -fno-constant-cfstrings" } */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
+/* APPLE LOCAL end radar 4674757 */
+
 
 #ifdef __cplusplus
 extern void baz(...);

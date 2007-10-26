@@ -216,14 +216,25 @@ KCCursorImpl::next(Item &item)
 			continue;
 		}
 
-		// If doing a search for all records skip the db blob added by the
-		// CSP/DL and skip symmetric key items.
-		// @@@ This is wrong since we should only skip symmetric keys that are
-		// group keys and not user generated symmetric keys.
-		if (mDbCursor->recordType() == CSSM_DL_DB_RECORD_ANY &&
-			(dbAttributes.recordType() == 0x80008000
-			 || dbAttributes.recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY))
-			continue;
+        // If doing a search for all records, skip the db blob added by the CSPDL
+        if (dbAttributes.recordType() == 0x80008000 &&
+            mDbCursor->recordType() == CSSM_DL_DB_RECORD_ANY)
+                continue;
+        
+        // Filter out group keys at this layer
+        if (dbAttributes.recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+        {
+            // fetch the key label attribute
+            dbAttributes.add(KeySchema::Label);
+            Db db((*mCurrent)->database());
+            CSSM_DL_DataGetFromUniqueRecordId(db->handle(), uniqueId, &dbAttributes, NULL);
+            CssmDbAttributeData *label = dbAttributes.find(KeySchema::Label);
+            CssmData attrData;
+            if (label)
+                attrData = *label;
+            if (attrData.length() > 4 && !memcmp(attrData.data(), "ssgp", 4))
+                continue;
+        }
 
 		break;
 	}

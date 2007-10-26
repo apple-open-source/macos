@@ -1,6 +1,7 @@
 ;;; midnight.el --- run something every midnight, e.g., kill old buffers
 
-;;; Copyright (C) 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Sam Steingold <sds@usa.net>
 ;; Maintainer: Sam Steingold <sds@usa.net>
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -48,6 +49,11 @@
   :group 'calendar
   :version "20.3")
 
+(defvar midnight-timer nil
+  "Timer running the `midnight-hook' `midnight-delay' seconds after midnight.
+Use `cancel-timer' to stop it and `midnight-delay-set' to change
+the time when it is run.")
+
 (defcustom midnight-mode nil
   "*Non-nil means run `midnight-hook' at midnight.
 Setting this variable outside customize has no effect;
@@ -69,9 +75,9 @@ call `cancel-timer' or `timer-activate' on `midnight-timer' instead."
     (list 1st (floor (- num (* (float div) 1st)))
           (round (* 10000000 (mod num 1))))))
 
-(defun midnight-buffer-display-time (&optional buf)
-  "Return the time-stamp of the given buffer, or current buffer, as float."
-  (with-current-buffer (or buf (current-buffer))
+(defun midnight-buffer-display-time (&optional buffer)
+  "Return the time-stamp of BUFFER, or current buffer, as float."
+  (with-current-buffer (or buffer (current-buffer))
     (when buffer-display-time (float-time buffer-display-time))))
 
 ;;; clean-buffer-list stuff
@@ -122,7 +128,7 @@ See also `clean-buffer-list-kill-regexps',
   :group 'midnight)
 
 (defcustom clean-buffer-list-kill-never-buffer-names
-    '("*scratch*" "*Messages*")
+    '("*scratch*" "*Messages*" "*server*")
   "*List of buffer names which will never be killed by `clean-buffer-list'.
 See also `clean-buffer-list-kill-never-regexps'.
 Note that this does override `clean-buffer-list-kill-regexps' and
@@ -130,7 +136,6 @@ Note that this does override `clean-buffer-list-kill-regexps' and
 two lists will NOT be killed if it is also present in this list."
   :type '(repeat (string :tag "Buffer Name"))
   :group 'midnight)
-
 
 (defcustom clean-buffer-list-kill-never-regexps '("^ \\*Minibuf-.*\\*$")
   "*List of regexp saying which buffers will never be killed at midnight.
@@ -173,20 +178,21 @@ displayed (can be nil if the buffer was never displayed) and its
 lifetime, i.e., its \"age\" when it will be purged."
   (interactive)
   (let ((tm (float-time)) bts (ts (format-time-string "%Y-%m-%d %T"))
-        (bufs (buffer-list)) buf delay cbld bn)
-    (while (setq buf (pop bufs))
-      (setq bts (midnight-buffer-display-time buf) bn (buffer-name buf)
-            delay (if bts (- tm bts) 0) cbld (clean-buffer-list-delay bn))
-      (message "[%s] `%s' [%s %d]" ts bn (if bts (round delay)) cbld)
-      (unless (or (midnight-find bn clean-buffer-list-kill-never-regexps
-                                 'string-match)
-                  (midnight-find bn clean-buffer-list-kill-never-buffer-names
-                                 'string-equal)
-                  (get-buffer-process buf)
-                  (and (buffer-file-name buf) (buffer-modified-p buf))
-                  (get-buffer-window buf 'visible) (< delay cbld))
-        (message "[%s] killing `%s'" ts bn)
-        (kill-buffer buf)))))
+        delay cbld bn)
+    (dolist (buf (buffer-list))
+      (when (buffer-live-p buf)
+	(setq bts (midnight-buffer-display-time buf) bn (buffer-name buf)
+	      delay (if bts (- tm bts) 0) cbld (clean-buffer-list-delay bn))
+	(message "[%s] `%s' [%s %d]" ts bn (if bts (round delay)) cbld)
+	(unless (or (midnight-find bn clean-buffer-list-kill-never-regexps
+				   'string-match)
+		    (midnight-find bn clean-buffer-list-kill-never-buffer-names
+				   'string-equal)
+		    (get-buffer-process buf)
+		    (and (buffer-file-name buf) (buffer-modified-p buf))
+		    (get-buffer-window buf 'visible) (< delay cbld))
+	  (message "[%s] killing `%s'" ts bn)
+	  (kill-buffer buf))))))
 
 ;;; midnight hook
 
@@ -204,18 +210,13 @@ The default value is `clean-buffer-list'."
   (multiple-value-bind (sec min hrs) (decode-time)
     (- (* 24 60 60) (* 60 60 hrs) (* 60 min) sec)))
 
-(defvar midnight-timer nil
-  "Timer running the `midnight-hook' `midnight-delay' seconds after midnight.
-Use `cancel-timer' to stop it and `midnight-delay-set' to change
-the time when it is run.")
-
 ;;;###autoload
 (defun midnight-delay-set (symb tm)
   "Modify `midnight-timer' according to `midnight-delay'.
 Sets the first argument SYMB (which must be symbol `midnight-delay')
 to its second argument TM."
   (assert (eq symb 'midnight-delay) t
-          "Illegal argument to `midnight-delay-set': `%s'" symb)
+          "Invalid argument to `midnight-delay-set': `%s'")
   (set symb tm)
   (when (timerp midnight-timer) (cancel-timer midnight-timer))
   (setq midnight-timer
@@ -234,4 +235,5 @@ first argument to `run-at-time'."
 
 (provide 'midnight)
 
+;;; arch-tag: a5979be9-2890-46a3-ba84-791f0a4a6e80
 ;;; midnight.el ends here

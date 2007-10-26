@@ -34,7 +34,8 @@ static BOOL verbose;
 enum todo_values {NOOP_QUOTA=0,FS_QUOTA,USER_QUOTA,LIST_QUOTA,SET_QUOTA};
 enum exit_values {EXIT_OK, EXIT_FAILED, EXIT_PARSE_ERROR};
 
-static struct cli_state *cli_ipc = NULL;
+static struct cli_state *cli_ipc;
+static struct rpc_pipe_client *global_pipe_hnd;
 static POLICY_HND pol;
 static BOOL got_policy_hnd;
 
@@ -47,8 +48,10 @@ static BOOL cli_open_policy_hnd(void)
 	/* Initialise cli LSA connection */
 
 	if (!cli_ipc) {
+		NTSTATUS ret;
 		cli_ipc = connect_one("IPC$");
-		if (!cli_nt_session_open (cli_ipc, PI_LSARPC)) {
+		global_pipe_hnd = cli_rpc_pipe_open_noauth(cli_ipc, PI_LSARPC, &ret);
+		if (!global_pipe_hnd) {
 				return False;
 		}
 	}
@@ -60,7 +63,7 @@ static BOOL cli_open_policy_hnd(void)
 		/* Some systems don't support SEC_RIGHTS_MAXIMUM_ALLOWED,
 		   but NT sends 0x2000000 so we might as well do it too. */
 
-		if (!NT_STATUS_IS_OK(cli_lsa_open_policy(cli_ipc, cli_ipc->mem_ctx, True, 
+		if (!NT_STATUS_IS_OK(rpccli_lsa_open_policy(global_pipe_hnd, cli_ipc->mem_ctx, True, 
 							 GENERIC_EXECUTE_ACCESS, &pol))) {
 			return False;
 		}
@@ -76,7 +79,7 @@ static void SidToString(fstring str, DOM_SID *sid, BOOL _numeric)
 {
 	char **domains = NULL;
 	char **names = NULL;
-	uint32 *types = NULL;
+	enum lsa_SidType *types = NULL;
 
 	sid_to_string(str, sid);
 
@@ -85,7 +88,7 @@ static void SidToString(fstring str, DOM_SID *sid, BOOL _numeric)
 	/* Ask LSA to convert the sid to a name */
 
 	if (!cli_open_policy_hnd() ||
-	    !NT_STATUS_IS_OK(cli_lsa_lookup_sids(cli_ipc, cli_ipc->mem_ctx,  
+	    !NT_STATUS_IS_OK(rpccli_lsa_lookup_sids(global_pipe_hnd, cli_ipc->mem_ctx,  
 						 &pol, 1, sid, &domains, 
 						 &names, &types)) ||
 	    !domains || !domains[0] || !names || !names[0]) {
@@ -103,7 +106,7 @@ static void SidToString(fstring str, DOM_SID *sid, BOOL _numeric)
 /* convert a string to a SID, either numeric or username/group */
 static BOOL StringToSid(DOM_SID *sid, const char *str)
 {
-	uint32 *types = NULL;
+	enum lsa_SidType *types = NULL;
 	DOM_SID *sids = NULL;
 	BOOL result = True;
 
@@ -112,8 +115,8 @@ static BOOL StringToSid(DOM_SID *sid, const char *str)
 	}
 
 	if (!cli_open_policy_hnd() ||
-	    !NT_STATUS_IS_OK(cli_lsa_lookup_names(cli_ipc, cli_ipc->mem_ctx, 
-						  &pol, 1, &str, &sids, 
+	    !NT_STATUS_IS_OK(rpccli_lsa_lookup_names(global_pipe_hnd, cli_ipc->mem_ctx, 
+						  &pol, 1, &str, NULL, &sids, 
 						  &types))) {
 		result = False;
 		goto done;
@@ -393,7 +396,7 @@ static struct cli_state *connect_one(const char *share)
 	pstring username_str = {0};
 	pstring path = {0};
 	pstring set_str = {0};
-	enum SMB_QUOTA_TYPE qtype;
+	enum SMB_QUOTA_TYPE qtype = SMB_INVALID_QUOTA_TYPE;
 	int cmd = 0;
 	static BOOL test_args = False;
 	struct cli_state *cli;
@@ -418,6 +421,8 @@ FSQFLAGS:QUOTA_ENABLED/DENY_DISK/LOG_SOFTLIMIT/LOG_HARD_LIMIT", "SETSTRING" },
 		{ NULL }
 	};
 
+	load_case_tables();
+
 	ZERO_STRUCT(qt);
 
 	/* set default debug level to 1 regardless of what smb.conf sets */
@@ -430,7 +435,7 @@ FSQFLAGS:QUOTA_ENABLED/DENY_DISK/LOG_SOFTLIMIT/LOG_HARD_LIMIT", "SETSTRING" },
 
 	fault_setup(NULL);
 
-	lp_load(dyn_CONFIGFILE,True,False,False);
+	lp_load(dyn_CONFIGFILE,True,False,False,True);
 	load_interfaces();
 
 	pc = poptGetContext("smbcquotas", argc, argv, long_options, 0);

@@ -167,6 +167,10 @@ void SSSignatureContext::init(const Context &context, bool signing)
 			mDigestAlg = CSSM_ALGID_SHA256;
 			mSigAlg = CSSM_ALGID_RSA;
 			break;
+		case CSSM_ALGID_SHA224WithRSA:
+			mDigestAlg = CSSM_ALGID_SHA224;
+			mSigAlg = CSSM_ALGID_RSA;
+			break;
 		case CSSM_ALGID_SHA384WithRSA:
 			mDigestAlg = CSSM_ALGID_SHA384;
 			mSigAlg = CSSM_ALGID_RSA;

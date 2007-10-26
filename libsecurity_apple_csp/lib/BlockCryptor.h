@@ -43,6 +43,8 @@ public:
 		AppleCSPSession &session) : 
 			AppleCSPContext(session), 
 			mOpStarted(false),
+			mCbcCapable(false),
+			mMultiBlockCapable(false),
 			mInBuf(NULL),
 			mChainBuf(NULL) { }
 	virtual ~BlockCryptor();
@@ -98,6 +100,10 @@ protected:
 	size_t	outBlockSize()		{ return mOutBlockSize; }
 	BC_Mode	mode()				{ return mMode; }
 	bool	opStarted()			{ return mOpStarted; }
+	bool	cbcCapable()		{ return mCbcCapable; }
+	void	cbcCapable(bool c)	{ mCbcCapable = c; }
+	bool	multiBlockCapable()	{ return mMultiBlockCapable; }
+	void	multiBlockCapable(bool c)	{ mMultiBlockCapable = c; }
 	
 	/* 
 	 * Reusable setup functions called from subclass's init.
@@ -153,6 +159,7 @@ protected:
 	 */
 	virtual void decryptBlock(
 		const void		*cipherText,		// length implied (one cipher block)
+		size_t			cipherTextLen,
 		void			*plainText,	
 		size_t			&plainTextLen,		// in/out, subclass throws on overflow
 		bool			final) = 0;
@@ -161,7 +168,9 @@ private:
 	bool				mOpStarted;			// for optional use by subclasses when 
 											//   resuing context after encrypt/decrypt 
 											//   ops occur
-
+	bool				mCbcCapable;		// when true, algorithm can do its own CBC
+	bool				mMultiBlockCapable;	// when true, algorithm can do multi-block ops
+	
 	/* these are all init'd via setup(), called from subclass-specific init */
 	bool				mPkcsPadding;		// PKCS{5,7} padding enabled
 	bool				mNeedFinalData;		// subclass needs an update(final) with

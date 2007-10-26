@@ -38,9 +38,9 @@ public:
 
 
 
-	unsigned long	UPDC32		( register Byte b, register unsigned long c );
-	unsigned short	UPDC16		( Byte *ptr, unsigned long count, unsigned short crc );
-	unsigned short	updcrc		( register Byte b, register unsigned short crc );
+	UInt32	UPDC32		( register unsigned char b, register UInt32 c );
+	unsigned short	UPDC16		( unsigned char *ptr, UInt32 count, unsigned short crc );
+	unsigned short	updcrc		( register unsigned char b, register unsigned short crc );
 
 };
 

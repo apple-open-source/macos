@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,285 +35,524 @@
 #include <pwd.h>
 #include <grp.h>
 #include <stdarg.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <OpenDirectory/OpenDirectory.h>
+#include <SystemConfiguration/SCPrivate.h>	// for _SC_cfstring_to_cstring
 
 #include "netinfo.h"
 #include "NICache.h"
 #include "NICachePrivate.h"
 #include "AFPUsers.h"
 #include "NetBootServer.h"
+#include "cfutil.h"
 
 extern void
 my_log(int priority, const char *message, ...);
 
+#define kAFPUserODRecord		CFSTR("record")
+#define kAFPUserUID			CFSTR("uid")
+#define kAFPUserPassword		CFSTR("passwd")
+#define kAFPUserDatePasswordLastSet	CFSTR("setdate")
 
 #define	BSDPD_CREATOR		"bsdpd"
 #define MAX_RETRY		5
 
-char *
-EncryptPassword(
-    char	*szpPass,
-    char	*szpCrypt)
+static uid_t
+uid_from_odrecord(ODRecordRef record)
 {
-    static const char		*_szpSalts = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./" ;
-    char		szSalt [9] ;
+    uid_t		uid = -2;
+    CFArrayRef		values	= NULL;
 
-    if (!szpCrypt)
-        return "*" ;
-    if (!szpPass) {
-        *szpCrypt = '*' ;
-        szpCrypt[1] = '\0' ;
-        return szpCrypt ;
+    values = ODRecordCopyValues(record, CFSTR(kDS1AttrUniqueID), NULL);
+    if ((values != NULL) && (CFArrayGetCount(values) > 0)) {
+	char		buf[64];
+	char *		end;
+	CFStringRef	uidStr;
+	unsigned long	val;
+
+	uidStr = CFArrayGetValueAtIndex(values, 0);
+	(void) _SC_cfstring_to_cstring(uidStr, buf, sizeof(buf),
+				       kCFStringEncodingASCII);
+	errno = 0;
+	val = strtoul(buf, &end, 0);
+	if ((buf[0] != '\0') && (*end == '\0') && (errno == 0)) {
+	    uid = (uid_t)val;
+	}
     }
+    my_CFRelease(&values);
+    return (uid);
+}
 
-    // If the password is blank, don't hash it.
-    if (!*szpPass) {
-        *szpCrypt = '\0' ;
-        return szpCrypt ;
-    }
+static AFPUserRef
+AFPUser_create(ODRecordRef record)
+{
+    AFPUserRef		user;
+    uid_t		uid;
+    CFNumberRef 	uid_cf;
 
-    // Generate a random salt. (Algorithm from passwd command.)
-    szSalt[0] = _szpSalts[random() % strlen (_szpSalts)] ;
-    szSalt[1] = _szpSalts[random() % strlen (_szpSalts)] ;
-    szSalt[2] = '\0' ;
-
-    strcpy (szpCrypt, crypt (szpPass, szSalt)) ;
-    return szpCrypt ;
+    user = CFDictionaryCreateMutable(NULL, 0,
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(user, kAFPUserODRecord, record);
+    uid = uid_from_odrecord(record);
+    uid_cf = CFNumberCreate(NULL, kCFNumberSInt32Type, &uid);
+    CFDictionarySetValue(user, kAFPUserUID, uid_cf);
+    CFRelease(uid_cf);
+    return (user);
 }
 
 void
-AFPUsers_free(AFPUsers_t * users)
+AFPUserList_free(AFPUserListRef users)
 {
-    PLCache_free(&users->list);
+    my_CFRelease(&users->node);
+    my_CFRelease(&users->list);
     bzero(users, sizeof(*users));
 }
 
-static boolean_t
-S_commit_mods(void * handle, PLCacheEntry_t * entry)
+Boolean
+AFPUserList_init(AFPUserListRef users)
 {
-    int			i;
-    ni_status 		status = NI_OK;
+    CFErrorRef	error;
+    int		i;
+    int		n;
+    CFArrayRef	results;
+    ODQueryRef	query;
 
-    for (i = 0; i < MAX_RETRY; i++) {
-	status = ni_write(handle, &entry->dir, entry->pl);
-	if (status == NI_STALE) { /* refresh and try again */
-	    ni_self(handle, &entry->dir);
-	    continue;
-	}
-	break;
-    }
-    if (status != NI_OK) {
-	my_log(LOG_ERR, "AFPUsers: ni_write failed (attempts %d), %s",
-	       i + 1, ni_error(status));
-	return (FALSE);
-    }
-    return (TRUE);
-}
-
-boolean_t
-AFPUsers_set_password(AFPUsers_t * users, PLCacheEntry_t * entry,
-		      u_char * passwd)
-{
-    char 		crypted_passwd[256];	
-
-    ni_set_prop(&entry->pl, NIPROP_PASSWD, 
-		EncryptPassword(passwd, crypted_passwd), NULL);
-    if (S_commit_mods(NIDomain_handle(users->domain), entry)
-	== FALSE) {
-	return (FALSE);
-    }
-    return (TRUE);
-}
-
-boolean_t
-AFPUsers_init(AFPUsers_t * users, NIDomain_t * domain)
-{
-    int			i;
-    ni_idlist		id_list;
-    ni_status 		status;
-
-    NI_INIT(&id_list);
     bzero(users, sizeof(*users));
-    PLCache_init(&users->list);
-#define ARBITRARILY_LARGE_NUMBER	(100 * 1024 * 1024)
-    PLCache_set_max(&users->list, ARBITRARILY_LARGE_NUMBER);
-    
-    /* make sure the path is there already */
-    status = ni_pathsearch(NIDomain_handle(domain), &users->dir,
-			   NIDIR_USERS);
-    if (status != NI_OK) {
-	my_log(LOG_INFO, "bsdp: netinfo dir '%s', %s",
-	       NIDIR_USERS, ni_error(status));
+
+    users->node = ODNodeCreateWithNodeType(NULL, kODSessionDefault, kODTypeLocalNode, &error);
+    if (users->node == NULL) {
+	my_log(LOG_NOTICE,
+	       "AFPUserList_init: ODNodeCreateWithNodeType() failed");
 	goto failed;
     }
 
-    users->domain = domain;
-    status = ni_lookup(NIDomain_handle(domain), &users->dir,
-		       NIPROP__CREATOR, BSDPD_CREATOR, &id_list);
-    if (status != NI_OK) {
-	/* no entries matched */
+    query = ODQueryCreateWithNode(NULL,
+				  users->node,			// inNode
+				  CFSTR(kDSStdRecordTypeUsers),	// inRecordTypeOrList
+				  CFSTR(NIPROP__CREATOR),	// inAttribute
+				  kODMatchEqualTo,		// inMatchType
+				  CFSTR(BSDPD_CREATOR),		// inQueryValueOrList
+				  CFSTR(kDSAttributesAll),	// inReturnAttributeOrList
+				  0,				// inMaxResults
+				  &error);
+    if (query == NULL) {
+	my_log(LOG_NOTICE, "AFPUserList_init: ODQueryCreateWithNode() failed");
+	my_CFRelease(&error);
+	goto failed;
     }
-    else {
-	for (i = 0; i < id_list.niil_len; i++) {
-	    ni_id		dir;
-	    ni_proplist 	pl;
-	    
-	    NI_INIT(&pl);
-	    dir.nii_object = id_list.niil_val[i];
-	    status = ni_read(NIDomain_handle(domain), &dir, &pl);
-	    if (status == NI_OK)
-		PLCache_append(&users->list, PLCacheEntry_create(dir, pl));
-	    ni_proplist_free(&pl);
-	}
+
+    results = ODQueryCopyResults(query, FALSE, &error);
+    CFRelease(query);
+    if (results == NULL) {
+	my_log(LOG_NOTICE, "AFPUserList_init: ODQueryCopyResults() failed");
+	my_CFRelease(&error);
+	goto failed;
     }
-    ni_idlist_free(&id_list);
+
+    users->list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    n = CFArrayGetCount(results);
+    for (i = 0; i < n; i++) {
+	ODRecordRef		record;
+	AFPUserRef		user;
+
+	record = (ODRecordRef)CFArrayGetValueAtIndex(results, i);
+	user = AFPUser_create(record);
+	CFArrayAppendValue(users->list, user);
+	CFRelease(user);
+    }
+    CFRelease(results);
     return (TRUE);
+
  failed:
-    ni_idlist_free(&id_list);
-    AFPUsers_free(users);
+    AFPUserList_free(users);
     return (FALSE);
 }
 
-static __inline__ boolean_t
-S_uid_taken(ni_entrylist * id_list, uid_t uid)
+static __inline__ Boolean
+S_uid_taken(AFPUserListRef users, CFStringRef uid)
 {
-    int 		i;
+    CFErrorRef	error;
+    Boolean	taken	= FALSE;
+    ODQueryRef	query;
+    CFArrayRef	results;
 
-    for (i = 0; i < id_list->niel_len; i++) {
-	ni_namelist * 	nl_p = id_list->niel_val[i].names;
-	uid_t		user_id;
-
-	if (nl_p == NULL || nl_p->ninl_len == 0)
-	    continue;
-
-	user_id = strtoul(nl_p->ninl_val[0], NULL, 0);
-	if (user_id == uid)
-	    return (TRUE);
-    }
-    return (getpwuid(uid) != NULL);
-}
-
-boolean_t
-AFPUsers_create(AFPUsers_t * users, gid_t gid,
-		uid_t start, int count)
-{
-    char		buf[64];
-    ni_entrylist	id_list;
-    int			need;
-    ni_proplist		pl;
-    boolean_t		ret = FALSE;
-    ni_status		status;
-    uid_t		scan;
-
-    if (PLCache_count(&users->list) >= count)
-	return (TRUE); /* already sufficient users */
-
-    need = count - PLCache_count(&users->list);
-
-    NI_INIT(&id_list);
-    NI_INIT(&pl);
-    status = ni_list(NIDomain_handle(users->domain), &users->dir,
-		     NIPROP_UID, &id_list);
-    if (status != NI_OK) {
-	my_log(LOG_INFO, "bsdp: couldn't get list of user ids, %s",
-	       ni_error(status));
+    query = ODQueryCreateWithNode(NULL,
+				  users->node,			// inNode
+				  CFSTR(kDSStdRecordTypeUsers),	// inRecordTypeOrList
+				  CFSTR(kDS1AttrUniqueID),	// inAttribute
+				  kODMatchEqualTo,		// inMatchType
+				  uid,				// inQueryValueOrList
+				  NULL,				// inReturnAttributeOrList
+				  0,				// inMaxResults
+				  &error);
+    if (query == NULL) {
+	my_log(LOG_NOTICE, "S_uid_taken: ODQueryCreateWithNode() failed");
+	my_CFRelease(&error);
 	goto failed;
     }
-    ni_set_prop(&pl, NIPROP_SHELL, (ni_name)"/bin/false", NULL);
-    snprintf(buf, sizeof(buf), "%d", gid);
-    ni_set_prop(&pl, NIPROP_GID, buf, NULL);
-    ni_set_prop(&pl, NIPROP_PASSWD, "*", NULL);
-    ni_set_prop(&pl, NIPROP__CREATOR, BSDPD_CREATOR, NULL);
 
-    for (scan = start; need > 0; scan++) {
-	ni_id		child;
-	char		user[256];
-
-	if (S_uid_taken(&id_list, scan)) {
-	    continue;
-	}
-
-	snprintf(buf, sizeof(buf), "%d", scan);
-	ni_set_prop(&pl, NIPROP_UID, buf, NULL);
-	snprintf(user, sizeof(user), NETBOOT_USER_PREFIX "%03d", scan);
-	ni_set_prop(&pl, NIPROP_NAME, user, NULL);
-	ni_set_prop(&pl, NIPROP_REALNAME, user, NULL);
-	{
-	    int		i;
-
-	    for (i = 0; i < MAX_RETRY; i++) {
-		status = ni_create(NIDomain_handle(users->domain), 
-				   &users->dir, pl, &child, NI_INDEX_NULL);
-		if (status == NI_STALE) {
-		    ni_self(NIDomain_handle(users->domain), 
-			    &users->dir);
-		    continue;
-		}
-		break;
-	    }
-	}
-	if (status != NI_OK) {
-	    my_log(LOG_INFO, "AFPUsers_create: create %s failed, %s",
-		   user, ni_error(status));
-	    goto failed;
-	}
-	PLCache_append(&users->list, PLCacheEntry_create(child, pl));
-	need--;
+    results = ODQueryCopyResults(query, FALSE, &error);
+    CFRelease(query);
+    if (results == NULL) {
+	my_log(LOG_NOTICE, "S_uid_taken: ODQueryCopyResults() failed");
+	my_CFRelease(&error);
+	goto failed;
     }
-    ret = TRUE;
+
+    if (CFArrayGetCount(results) > 0) {
+	taken = TRUE;
+    }
+    CFRelease(results);
 
  failed:
-    ni_entrylist_free(&id_list);
-    ni_proplist_free(&pl);
+    return (taken);
+}
+
+Boolean
+AFPUserList_create(AFPUserListRef users, gid_t gid,
+		uid_t start, int count)
+{
+    CFMutableDictionaryRef	attributes;
+    char			buf[256];
+    int				need;
+    Boolean			ret = FALSE;
+    uid_t			scan;
+    CFStringRef			gidStr;
+
+    need = count - CFArrayGetCount(users->list);
+    if (need <= 0) {
+	return (TRUE);
+    }
+
+    attributes = CFDictionaryCreateMutable(NULL, 0,
+					   &kCFTypeDictionaryKeyCallBacks,
+					   &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(attributes, CFSTR(kDS1AttrUserShell), CFSTR("/bin/false"));
+    snprintf(buf, sizeof(buf), "%d", gid);
+    gidStr = CFStringCreateWithCString(NULL, buf, kCFStringEncodingASCII);
+    CFDictionarySetValue(attributes, CFSTR(kDS1AttrPrimaryGroupID), gidStr);
+    CFRelease(gidStr);
+    CFDictionarySetValue(attributes, CFSTR(kDS1AttrPassword), CFSTR("*"));
+  { // rdar://4759893
+    CFMutableArrayRef	array;
+    array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(array, CFSTR("*"));
+    CFDictionarySetValue(attributes, CFSTR(kDS1AttrPassword), array);
+    CFRelease(array);
+  }
+    CFDictionarySetValue(attributes, CFSTR(NIPROP__CREATOR), CFSTR(BSDPD_CREATOR));
+
+    for (scan = start; need > 0; scan++) {
+	CFErrorRef	error	= NULL;
+	ODRecordRef	record	= NULL;
+	CFStringRef	uidStr;
+	CFDictionaryRef	user;
+	CFStringRef	userStr	= NULL;
+
+	snprintf(buf, sizeof(buf), "%d", scan);
+	uidStr = CFStringCreateWithCString(NULL, buf, kCFStringEncodingASCII);
+	if (S_uid_taken(users, uidStr)) {
+	    goto nextUid;
+	}
+
+	CFDictionarySetValue(attributes, CFSTR(kDS1AttrUniqueID), uidStr);
+	snprintf(buf, sizeof(buf), NETBOOT_USER_PREFIX "%03d", scan);
+	userStr = CFStringCreateWithCString(NULL, buf, kCFStringEncodingASCII);
+	CFDictionarySetValue(attributes, CFSTR(kDS1AttrDistinguishedName), userStr);
+
+	record = ODNodeCreateRecord(users->node,			// inNode
+				    CFSTR(kDSStdRecordTypeUsers),	// inRecordType
+				    userStr,				// inRecordName
+				    attributes,				// inAttributes
+				    &error);
+	if (record == NULL) {
+	    my_log(LOG_NOTICE,
+		   "AFPUserList_create: ODNodeCreateRecord() failed");
+	    goto nextUid;
+	}
+
+	if (!ODRecordSynchronize(record, &error)) {
+	    my_log(LOG_NOTICE,
+		   "AFPUserList_create: ODRecordSynchronize() failed");
+	    goto nextUid;
+	}
+	user = AFPUser_create(record);
+	CFArrayAppendValue(users->list, user);
+	CFRelease(user);
+	need--;
+
+     nextUid:
+	my_CFRelease(&record);
+	my_CFRelease(&uidStr);
+	my_CFRelease(&userStr);
+	if (error != NULL) {
+	    my_CFRelease(&error);
+	    goto done;
+	}
+    }
+
+    ret = TRUE;
+
+ done:
+    my_CFRelease(&attributes);
     return (ret);
 }
 
-void
-AFPUsers_print(AFPUsers_t * users)
+AFPUserRef
+AFPUserList_lookup(AFPUserListRef users, CFStringRef afp_user)
 {
-    PLCache_print(&users->list);
+    int		i;
+    int		n;
+
+    n = CFArrayGetCount(users->list);
+    for (i = 0; i < n; i++) {
+	CFStringRef	name;
+	AFPUserRef	user;
+	ODRecordRef	record;
+
+	user = (AFPUserRef)CFArrayGetValueAtIndex(users->list, i);
+	record = (ODRecordRef)CFDictionaryGetValue(user, kAFPUserODRecord);
+	name = ODRecordGetRecordName(record);
+	if (CFEqual(name, afp_user)) {
+		return (user);
+	}
+    }
+
+    return (NULL);
+}
+
+uid_t
+AFPUser_get_uid(AFPUserRef user)
+{
+    uid_t	uid = -2;
+
+    CFNumberGetValue(CFDictionaryGetValue(user, kAFPUserUID),
+		     kCFNumberSInt32Type, &uid);
+    return (uid);
+}
+
+char *
+AFPUser_get_user(AFPUserRef user, char *buf, size_t buf_len)
+{
+    CFStringRef	name;
+    ODRecordRef	record;
+
+    record = (ODRecordRef)CFDictionaryGetValue(user, kAFPUserODRecord);
+    name = ODRecordGetRecordName(record);
+    (void) _SC_cfstring_to_cstring(name, buf, buf_len, kCFStringEncodingASCII);
+    return buf;
+}
+
+#define AFPUSER_PASSWORD_CHANGE_INTERVAL	((int)8)
+/*
+ * Function: AFPUser_set_random_password
+ * Purpose:
+ *   Set a random password for the user and returns it in passwd.
+ *   Do not change the password again until AFPUSER_PASSWORD_CHANGE_INTERVAL
+ *   has elapsed.  This overcomes the problem where every client
+ *   request packet is duplicated. In that case, the client tries to use
+ *   a password that subsequently gets changed when the duplicate arrives.
+ */
+Boolean
+AFPUser_set_random_password(AFPUserRef user,
+			    char * passwd, size_t passwd_len)
+{
+    CFDateRef		last_set;
+    Boolean		ok = TRUE;
+    CFDateRef		now;
+    CFStringRef		pw;
+    ODRecordRef		record;
+
+    now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+    pw = CFDictionaryGetValue(user, kAFPUserPassword);
+    last_set = CFDictionaryGetValue(user, kAFPUserDatePasswordLastSet);
+    if (pw != NULL && last_set != NULL
+	&& (CFDateGetTimeIntervalSinceDate(now, last_set) 
+	    < AFPUSER_PASSWORD_CHANGE_INTERVAL)) {
+	/* return what we have */
+#ifdef TEST_AFPUSERS
+	printf("No need to change the password %d < %d\n",
+	       (int)CFDateGetTimeIntervalSinceDate(now, last_set),
+	       AFPUSER_PASSWORD_CHANGE_INTERVAL);
+#endif TEST_AFPUSERS
+	(void)_SC_cfstring_to_cstring(pw, passwd, passwd_len,
+				      kCFStringEncodingASCII);
+	CFDictionarySetValue(user, kAFPUserDatePasswordLastSet, now);
+    }
+    else {
+	snprintf(passwd, passwd_len, "%08lx", random());
+
+	record = (ODRecordRef)CFDictionaryGetValue(user, kAFPUserODRecord);
+	pw = CFStringCreateWithCString(NULL, passwd, kCFStringEncodingASCII);
+	ok = ODRecordChangePassword(record, NULL, pw, NULL);
+	if (ok) {
+	    CFDictionarySetValue(user, kAFPUserPassword, pw);
+	    CFDictionarySetValue(user, kAFPUserDatePasswordLastSet, now);
+	}
+	else {
+	    my_log(LOG_NOTICE, "AFPUser_set_random_password:"
+		   " ODRecordChangePassword() failed");
+	    CFDictionaryRemoveValue(user, kAFPUserPassword);
+	    CFDictionaryRemoveValue(user, kAFPUserDatePasswordLastSet);
+	}
+	CFRelease(pw);
+    }
+    CFRelease(now);
+    return ok;
 }
 
 #ifdef TEST_AFPUSERS
+
+#include "afp.h"
+
+#define USECS_PER_SEC	1000000
+/*
+ * Function: timeval_subtract
+ *
+ * Purpose:
+ *   Computes result = tv1 - tv2.
+ */
+void
+timeval_subtract(struct timeval tv1, struct timeval tv2, 
+		 struct timeval * result)
+{
+    result->tv_sec = tv1.tv_sec - tv2.tv_sec;
+    result->tv_usec = tv1.tv_usec - tv2.tv_usec;
+    if (result->tv_usec < 0) {
+	result->tv_usec += USECS_PER_SEC;
+	result->tv_sec--;
+    }
+    return;
+}
+
+void
+timestamp_printf(char * msg)
+{
+    static struct timeval	tvp = {0,0};
+    struct timeval		tv;
+
+    gettimeofday(&tv, 0);
+    if (tvp.tv_sec) {
+	struct timeval result;
+	
+	timeval_subtract(tv, tvp, &result);
+	printf("%d.%06d (%d.%06d): %s\n", 
+	       (int)tv.tv_sec, 
+	       (int)tv.tv_usec,
+	       (int)result.tv_sec,
+	       (int)result.tv_usec, msg);
+    }
+    else 
+	printf("%d.%06d (%d.%06d): %s\n", 
+	       (int)tv.tv_sec, (int)tv.tv_usec, 0, 0, msg);
+    tvp = tv;
+}
+
+void
+AFPUserList_print(AFPUserListRef users)
+{
+    CFShow(users->list);
+}
+
 int 
 main(int argc, char * argv[])
 {
-    AFPUsers_t 		users;
-    NIDomain_t *	domain;
+    CFIndex		i;
+    CFIndex		n;
+    AFPUserList 	users;
     struct group *	group_ent_p;
     int			count;
     int			start;
+    struct timeval 	tv;
 
-    if (argc < 4) {
-	printf("usage: AFPUsers domain user_count start\n");
+    if (argc < 3) {
+	printf("usage: AFPUsers user_count start\n");
 	exit(1);
     }
+
+    gettimeofday(&tv, 0);
+    srandom(tv.tv_usec);
 
     group_ent_p = getgrnam(NETBOOT_GROUP);
     if (group_ent_p == NULL) {
-	printf("Group '%s' missing\n", NETBOOT_GROUP);
-	exit(1);
+        printf("Group '%s' missing\n", NETBOOT_GROUP);
+        exit(1);
     }
 
-    count = strtol(argv[2], NULL, 0);
+    count = strtol(argv[1], NULL, 0);
     if (count < 0 || count > 100) {
 	printf("invalid user_count\n");
 	exit(1);
     }
-    start = strtol(argv[3], NULL, 0);
+    start = strtol(argv[2], NULL, 0);
     if (start <= 0) {
 	printf("invalid start\n");
 	exit(1);
     }
-    domain = NIDomain_init(argv[1]);
-    if (domain == NULL) {
-	fprintf(stderr, "open %s failed\n", argv[1]);
-	exit(1);
+    timestamp_printf("before processing existing users");
+    AFPUserList_init(&users);
+    timestamp_printf("after processing existing users");
+    //AFPUserList_print(&users);
+
+    timestamp_printf("before creating new users");
+    AFPUserList_create(&users, group_ent_p->gr_gid, start, count);
+    timestamp_printf("after creating new users");
+    //AFPUserList_print(&users);
+
+    timestamp_printf("before setting passwords");
+    n = CFArrayGetCount(users.list);
+    for (i = 0; i < n; i++) {
+	char 		pass_buf[AFP_PASSWORD_LEN + 1];
+	AFPUserRef	user;
+
+	user = (AFPUserRef)CFArrayGetValueAtIndex(users.list, i);
+	AFPUser_set_random_password(user, pass_buf, sizeof(pass_buf));
     }
-    AFPUsers_init(&users, domain);
-    AFPUsers_print(&users);
-    AFPUsers_create(&users, group_ent_p->gr_gid, start, count);
-    AFPUsers_print(&users);
-    AFPUsers_free(&users);
+    timestamp_printf("after setting passwords");
+
+    printf("Sleeping 1 second\n");
+    sleep (1);
+    timestamp_printf("before setting passwords again");
+    n = CFArrayGetCount(users.list);
+    for (i = 0; i < n; i++) {
+	char 		pass_buf[AFP_PASSWORD_LEN + 1];
+	AFPUserRef	user;
+
+	user = (AFPUserRef)CFArrayGetValueAtIndex(users.list, i);
+	AFPUser_set_random_password(user, pass_buf, sizeof(pass_buf));
+    }
+    timestamp_printf("after setting passwords again");
+
+    printf("Sleeping 1 second\n");
+    sleep(1);
+
+    timestamp_printf("before setting passwords for 3rd time");
+    for (i = 0; i < n; i++) {
+	char 		pass_buf[AFP_PASSWORD_LEN + 1];
+	AFPUserRef	user;
+
+	user = (AFPUserRef)CFArrayGetValueAtIndex(users.list, i);
+	AFPUser_set_random_password(user, pass_buf, sizeof(pass_buf));
+    }
+    timestamp_printf("after setting passwords for 3rd time");
+
+    printf("sleeping %d seconds\n", AFPUSER_PASSWORD_CHANGE_INTERVAL);
+    sleep(AFPUSER_PASSWORD_CHANGE_INTERVAL);
+
+    timestamp_printf("before setting passwords for second time");
+    for (i = 0; i < n; i++) {
+	char 		pass_buf[AFP_PASSWORD_LEN + 1];
+	AFPUserRef	user;
+
+	user = (AFPUserRef)CFArrayGetValueAtIndex(users.list, i);
+	AFPUser_set_random_password(user, pass_buf, sizeof(pass_buf));
+    }
+    timestamp_printf("after setting passwords for second time");
+
+    AFPUserList_free(&users);
+    printf("sleeping for 60 seconds, run leaks on %d\n", getpid());
+    sleep(60);
     exit(0);
     return (0);
 }

@@ -36,12 +36,15 @@
 #ifndef _I386_LIMITS_H_
 #define _I386_LIMITS_H_
 
+#include <sys/cdefs.h>
 #include <i386/_limits.h>
 
 #define	CHAR_BIT	8		/* number of bits in a char */
 #define	MB_LEN_MAX	6		/* Allow 31 bit UTF2 */
 
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 #define	CLK_TCK		__DARWIN_CLK_TCK	/* ticks per second */
+#endif /* !_ANSI_SOURCE && (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 /*
  * According to ANSI (section 2.2.4.2), the values below must be usable by
@@ -68,25 +71,37 @@
 #define	INT_MAX		2147483647	/* max value for an int */
 #define	INT_MIN		(-2147483647-1)	/* min value for an int */
 
-#define	ULONG_MAX	0xffffffff	/* max value for an unsigned long */
-#define	LONG_MAX	2147483647	/* max value for a long */
-#define	LONG_MIN	(-2147483647-1)	/* min value for a long */
+#ifdef __LP64__
+#define	ULONG_MAX	0xffffffffffffffffUL	/* max unsigned long */
+#define	LONG_MAX	0x7fffffffffffffffL	/* max signed long */
+#define	LONG_MIN	(-0x7fffffffffffffffL-1) /* min signed long */
+#else /* !__LP64__ */
+#define	ULONG_MAX	0xffffffffUL	/* max unsigned long */
+#define	LONG_MAX	2147483647L	/* max signed long */
+#define	LONG_MIN	(-2147483647L-1) /* min signed long */
+#endif /* __LP64__ */
 
 #define	ULLONG_MAX	0xffffffffffffffffULL	/* max unsigned long long */
 #define	LLONG_MAX	0x7fffffffffffffffLL	/* max signed long long */
 #define	LLONG_MIN	(-0x7fffffffffffffffLL-1) /* min signed long long */
 
 #if !defined(_ANSI_SOURCE)
+#ifdef __LP64__
+#define LONG_BIT	64
+#else /* !__LP64__ */
+#define LONG_BIT	32
+#endif /* __LP64__ */
 #define	SSIZE_MAX	LONG_MAX	/* max value for a ssize_t */
+#define WORD_BIT	32
 
-#if !defined(_POSIX_C_SOURCE)
+#if (!defined(_POSIX_C_SOURCE) && !defined(_XOPEN_SOURCE)) || defined(_DARWIN_C_SOURCE)
 #define	SIZE_T_MAX	ULONG_MAX	/* max value for a size_t */
 
 #define	UQUAD_MAX	ULLONG_MAX
 #define	QUAD_MAX	LLONG_MAX
 #define	QUAD_MIN	LLONG_MIN
 
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE && !_XOPEN_SOURCE) || _DARWIN_C_SOURCE */
 #endif /* !_ANSI_SOURCE */
 
 #endif /* _I386_LIMITS_H_ */

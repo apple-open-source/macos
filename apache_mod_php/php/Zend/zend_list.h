@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_list.h,v 1.48.2.1.2.1 2007/01/01 09:35:46 sebastian Exp $ */
 
 #ifndef ZEND_LIST_H
 #define ZEND_LIST_H
@@ -88,7 +89,7 @@ extern ZEND_API int le_index_ptr;  /* list entry type for index pointers */
 
 #define ZEND_VERIFY_RESOURCE(rsrc)		\
 	if (!rsrc) {						\
-		RETURN_NULL();					\
+		RETURN_FALSE;					\
 	}
 
 #define ZEND_FETCH_RESOURCE(rsrc, rsrc_type, passed_id, default_id, resource_type_name, resource_type)	\
@@ -109,3 +110,11 @@ extern ZEND_API int le_index_ptr;  /* list entry type for index pointers */
 END_EXTERN_C()
 
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

@@ -1,6 +1,6 @@
 /*  
 **********************************************************************
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  ustr_imp.h
@@ -67,8 +67,8 @@ uprv_haveProperties(UErrorCode *pErrorCode);
   * NOT thread safe.
   * @internal
   */
-U_CFUNC int8_t
-uprv_loadPropsData(UErrorCode *errorCode);
+/*U_CFUNC int8_t
+uprv_loadPropsData(UErrorCode *errorCode);*/
 
 /**
  * Type of a function that may be passed to the internal case mapping functions
@@ -102,7 +102,7 @@ u_growBufferFromStatic(void *context,
  * @internal
  */
 U_CFUNC int32_t
-ustr_toLower(UCaseProps *csp,
+ustr_toLower(const UCaseProps *csp,
              UChar *dest, int32_t destCapacity,
              const UChar *src, int32_t srcLength,
              const char *locale,
@@ -112,7 +112,7 @@ ustr_toLower(UCaseProps *csp,
  * @internal
  */
 U_CFUNC int32_t
-ustr_toUpper(UCaseProps *csp,
+ustr_toUpper(const UCaseProps *csp,
              UChar *dest, int32_t destCapacity,
              const UChar *src, int32_t srcLength,
              const char *locale,
@@ -124,7 +124,7 @@ ustr_toUpper(UCaseProps *csp,
  * @internal
  */
 U_CFUNC int32_t
-ustr_toTitle(UCaseProps *csp,
+ustr_toTitle(const UCaseProps *csp,
              UChar *dest, int32_t destCapacity,
              const UChar *src, int32_t srcLength,
              UBreakIterator *titleIter,
@@ -138,7 +138,7 @@ ustr_toTitle(UCaseProps *csp,
  * @internal
  */
 U_CFUNC int32_t
-ustr_foldCase(UCaseProps *csp,
+ustr_foldCase(const UCaseProps *csp,
               UChar *dest, int32_t destCapacity,
               const UChar *src, int32_t srcLength,
               uint32_t options,

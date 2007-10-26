@@ -1,6 +1,6 @@
 /* trace.c - tracing functions for malloc */
 
-/* Copyright (C) 2001 Free Software Foundation, Inc.
+/* Copyright (C) 2001-2003 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -22,6 +22,9 @@
 #endif
 
 #include <stdio.h>
+#ifdef HAVE_UNISTD_H
+#  include <unistd.h>
+#endif
 
 #include "imalloc.h"
 
@@ -30,6 +33,8 @@ extern int malloc_trace;
 static int _mtrace_verbose = 0;
 
 #ifdef MALLOC_TRACE
+
+extern FILE *_imalloc_fopen __P((char *, char *, char *, char *, size_t));
 
 FILE *_mtrace_fp = NULL;
 extern char _malloc_trace_buckets[];
@@ -99,5 +104,22 @@ malloc_trace_bin (n)
 {
 #ifdef MALLOC_TRACE
   _malloc_trace_buckets[n] = 1;
+#endif
+}
+
+#define TRACEROOT "/var/tmp/maltrace/trace."
+
+void
+malloc_set_tracefn (s, fn)
+     char *s;
+     char *fn;
+{
+#ifdef MALLOC_TRACE
+  FILE *fp;
+  char defname[sizeof (TRACEROOT) + 64];
+
+  fp = _imalloc_fopen (s, fn, TRACEROOT, defname, sizeof (defname));
+  if (fp)
+    malloc_set_tracefp (fp);
 #endif
 }

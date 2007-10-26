@@ -6,8 +6,10 @@ after_install::
 	$(LN) -f $(INSTALLED_PRODUCTS) $(DSTROOT)$(INSTALLDIR)/batch
 	install -o daemon -d "$(DSTROOT)/private/var/at/spool"
 	touch "$(DSTROOT)/private/var/at/at.deny"
+	mkdir -p "$(DSTROOT)/usr/lib"
+	ln -sf ../../var/at "$(DSTROOT)/usr/lib/cron"
 	mkdir -p "$(DSTROOT)/usr/share/man/man1"
-	install -c -m 644 at.1 "$(DSTROOT)/usr/share/man/man1/at.1"
+	install -c -m 644 at.man "$(DSTROOT)/usr/share/man/man1/at.1"
 	ln -f "$(DSTROOT)/usr/share/man/man1/at.1" "$(DSTROOT)/usr/share/man/man1/atrm.1"
 	ln -f "$(DSTROOT)/usr/share/man/man1/at.1" "$(DSTROOT)/usr/share/man/man1/atq.1"
 	ln -f "$(DSTROOT)/usr/share/man/man1/at.1" "$(DSTROOT)/usr/share/man/man1/batch.1"

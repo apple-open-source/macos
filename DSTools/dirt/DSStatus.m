@@ -45,12 +45,8 @@
 +(DSStatus*)sharedInstance
 {
     static DSStatus *_sharedInstance = nil;
-	
-    NS_DURING
-        if ([_sharedInstance self] == nil) [NSException raise:@"InvalidObject" format:@"_sharedInstance is invalid."];
-    NS_HANDLER
-        _sharedInstance = [[[self alloc] init] autorelease];
-    NS_ENDHANDLER
+	if ([_sharedInstance self] == nil)
+		_sharedInstance = [[[self alloc] init] autorelease];
     
     return _sharedInstance;
 }

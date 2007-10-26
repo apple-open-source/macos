@@ -65,6 +65,9 @@
 
 #include <_types.h>
 
+#define __need_struct_timespec
+#include <_structs.h>
+
 #ifndef NULL
 #define NULL __DARWIN_NULL
 #endif /* ! NULL */
@@ -84,14 +87,6 @@ typedef	__darwin_size_t		size_t;
 typedef	__darwin_time_t		time_t;
 #endif
 
-#ifndef _TIMESPEC           
-#define _TIMESPEC
-struct timespec {
-        time_t  tv_sec;         /* seconds */
-        long    tv_nsec;        /* and nanoseconds */  
-};
-#endif
-
 struct tm {
 	int	tm_sec;		/* seconds after the minute [0-60] */
 	int	tm_min;		/* minutes after the hour [0-59] */
@@ -106,11 +101,13 @@ struct tm {
 	char	*tm_zone;	/* timezone abbreviation */
 };
 
+#if __DARWIN_UNIX03
+#define CLOCKS_PER_SEC  1000000	/* [XSI] */
+#else /* !__DARWIN_UNIX03 */
 #include <machine/_limits.h>	/* Include file containing CLK_TCK. */
 
 #define CLOCKS_PER_SEC  (__DARWIN_CLK_TCK)
-
-#include <sys/cdefs.h>
+#endif /* __DARWIN_UNIX03 */
 
 #ifndef _ANSI_SOURCE
 extern char *tzname[];
@@ -118,32 +115,74 @@ extern char *tzname[];
 
 extern int getdate_err;
 #if __DARWIN_UNIX03
+//Begin-Libc
+#ifndef LIBC_ALIAS_TIMEZONE
+//End-Libc
 extern long timezone __DARWIN_ALIAS(timezone);
+//Begin-Libc
+#else /* LIBC_ALIAS_TIMEZONE */
+extern long timezone LIBC_ALIAS(timezone);
+#endif /* !LIBC_ALIAS_TIMEZONE */
+//End-Libc
 #endif /* __DARWIN_UNIX03 */
 extern int daylight;
 
 __BEGIN_DECLS
 char *asctime(const struct tm *);
-clock_t clock(void);
+//Begin-Libc
+#ifndef LIBC_ALIAS_CLOCK
+//End-Libc
+clock_t clock(void) __DARWIN_ALIAS(clock);
+//Begin-Libc
+#else /* LIBC_ALIAS_CLOCK */
+clock_t clock(void) LIBC_ALIAS(clock);
+#endif /* !LIBC_ALIAS_CLOCK */
+//End-Libc
 char *ctime(const time_t *);
 double difftime(time_t, time_t);
 struct tm *getdate(const char *);
 struct tm *gmtime(const time_t *);
 struct tm *localtime(const time_t *);
-time_t mktime(struct tm *);
+//Begin-Libc
+#ifndef LIBC_ALIAS_MKTIME
+//End-Libc
+time_t mktime(struct tm *) __DARWIN_ALIAS(mktime);
+//Begin-Libc
+#else /* LIBC_ALIAS_MKTIME */
+time_t mktime(struct tm *) LIBC_ALIAS(mktime);
+#endif /* !LIBC_ALIAS_MKTIME */
+//End-Libc
+//Begin-Libc
+#ifndef LIBC_ALIAS_STRFTIME
+//End-Libc
 size_t strftime(char * __restrict, size_t, const char * __restrict, const struct tm * __restrict) __DARWIN_ALIAS(strftime);
-char *strptime(const char * __restrict, const char * __restrict, struct tm * __restrict);
+//Begin-Libc
+#else /* LIBC_ALIAS_STRFTIME */
+size_t strftime(char * __restrict, size_t, const char * __restrict, const struct tm * __restrict) LIBC_ALIAS(strftime);
+#endif /* !LIBC_ALIAS_STRFTIME */
+//End-Libc
+//Begin-Libc
+#ifndef LIBC_ALIAS_STRPTIME
+//End-Libc
+char *strptime(const char * __restrict, const char * __restrict, struct tm * __restrict) __DARWIN_ALIAS(strptime);
+//Begin-Libc
+#else /* LIBC_ALIAS_STRPTIME */
+char *strptime(const char * __restrict, const char * __restrict, struct tm * __restrict) LIBC_ALIAS(strptime);
+#endif /* !LIBC_ALIAS_STRPTIME */
+//End-Libc
 time_t time(time_t *);
 
 #ifndef _ANSI_SOURCE
 void tzset(void);
 #endif /* not ANSI */
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
-char *asctime_r(const struct tm *, char *);
+/* [TSF] Thread safe functions */
+char *asctime_r(const struct tm * __restrict, char * __restrict);
 char *ctime_r(const time_t *, char *);
-struct tm *gmtime_r(const time_t *, struct tm *);
-struct tm *localtime_r(const time_t *, struct tm *);
+struct tm *gmtime_r(const time_t * __restrict, struct tm * __restrict);
+struct tm *localtime_r(const time_t * __restrict, struct tm * __restrict);
+
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 time_t posix2time(time_t);
 #if !__DARWIN_UNIX03
 char *timezone(int, int);
@@ -155,7 +194,15 @@ time_t timegm(struct tm * const);
 #endif /* neither ANSI nor POSIX */
 
 #if !defined(_ANSI_SOURCE)
-int nanosleep(const struct timespec *, struct timespec *) __DARWIN_ALIAS(nanosleep);
+//Begin-Libc
+#ifndef LIBC_ALIAS_NANOSLEEP
+//End-Libc
+int nanosleep(const struct timespec *, struct timespec *) __DARWIN_ALIAS_C(nanosleep);
+//Begin-Libc
+#else /* LIBC_ALIAS_NANOSLEEP */
+int nanosleep(const struct timespec *, struct timespec *) LIBC_ALIAS_C(nanosleep);
+#endif /* !LIBC_ALIAS_NANOSLEEP */
+//End-Libc
 #endif
 __END_DECLS
 

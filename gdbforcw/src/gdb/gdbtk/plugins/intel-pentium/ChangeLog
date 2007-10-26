@@ -1,0 +1,37 @@
+2002-08-14  Keith Seitz  <keiths@redhat.com>
+
+	Merged from Red Hat internal branch:
+
+	2001-11-30  Keith Seitz  <keith@redhat.com>
+	* Makefile.in: New file.
+	* intel-pentium.tcl: Renamed to intel-pentium.tcl.in.
+	* plugins.tcl: This plugin is only available on non-native targets.
+	Append to ../plugins.tcl and remove.
+
+	2001-11-28  Ian Roxborough  <irox@redhat.com>
+	* cpuinfo.tcl (display_cpu_info): exec the gdb command
+	"info cpu" to get the extra cpuinformation (CPU ID).
+	* library/plugins/intel-pentium/msrselection.itb
+	(MsrSelDlg::build_win): Switch the OK and Cancel buttons
+	around to improve ease of use.
+	* plugins.tcl:	Use "$::GDBStartup" rather than "$GDBStartup".
+	Create a sub menu in the plugins menu called "Intel Pentium"
+	and place the menu items in it.
+
+	2001-11-21  Ian Roxborough  <irox@redhat.com>
+	* msrselection.itb (MsrSelDlg::list_msrs): Use
+	"set msr-pointer" instead of "set msr".
+	(MsrSelDlg::doit): Set the msr-pointer before calling
+	unpost.  Display an error message is we can't set the
+	msr-pointer.
+
+	2001-11-16  Ian Roxborough  <irox@redhat.com>
+	* cpuinfo.tcl: New file.
+	* intel-pentium.tcl: Ditto.
+	* cpuinfo.tcl: Ditto.
+	* msrselection.itb: Ditto.
+	* msrselection.ith: Ditto.
+	* pkgIndex.tcl: Ditto.
+	* plugins.tcl: Ditto.
+	* tclIndex: Ditto.
+

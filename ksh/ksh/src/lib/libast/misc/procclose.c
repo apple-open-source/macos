@@ -1,35 +1,30 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
  * AT&T Research
  *
  * close a proc opened by procopen()
- * -1 returned if procopen() had a problem
  * otherwise exit() status of process is returned
  */
 
@@ -83,11 +78,14 @@ procclose(register Proc_t* p)
 			signal(SIGCHLD, p->sigchld);
 #endif
 		}
-		if (status != -1 && !(p->flags & PROC_FOREGROUND))
-			status = WIFSIGNALED(status) ?
-				EXIT_TERM(WTERMSIG(status)) :
-				EXIT_CODE(WEXITSTATUS(status));
+		status = status == -1 ?
+			 EXIT_QUIT :
+			 WIFSIGNALED(status) ?
+			 EXIT_TERM(WTERMSIG(status)) :
+			 EXIT_CODE(WEXITSTATUS(status));
 		procfree(p);
 	}
+	else
+		status = errno == ENOENT ? EXIT_NOTFOUND : EXIT_NOEXEC;
 	return status;
 }

@@ -1,8 +1,8 @@
 /* shellutil.c - common routines useful when building shell-based backends */
-/* $OpenLDAP: pkg/ldap/servers/slapd/shell-backends/shellutil.c,v 1.12.2.2 2004/01/01 18:16:41 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/shell-backends/shellutil.c,v 1.14.2.3 2006/01/03 22:16:25 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -185,21 +185,32 @@ parse_input( FILE *ifp, FILE *ofp, struct ldop *op )
 	    op->ldop_dn = estrdup( args );
 	    break;
 	case IP_TYPE_SCOPE:
-	    if (( op->ldop_srch.ldsp_scope = atoi( args )) != LDAP_SCOPE_BASE &&
+	    if ( lutil_atoi( &op->ldop_srch.ldsp_scope, args ) != 0 ||
+		( op->ldop_srch.ldsp_scope != LDAP_SCOPE_BASE &&
 		    op->ldop_srch.ldsp_scope != LDAP_SCOPE_ONELEVEL &&
-		    op->ldop_srch.ldsp_scope != LDAP_SCOPE_SUBTREE ) {
+		    op->ldop_srch.ldsp_scope != LDAP_SCOPE_SUBTREE ) )
+	    {
 		write_result( ofp, LDAP_OTHER, NULL, "Bad scope" );
 		return( -1 );
 	    }
 	    break;
 	case IP_TYPE_ALIASDEREF:
-	    op->ldop_srch.ldsp_aliasderef = atoi( args );
+	    if ( lutil_atoi( &op->ldop_srch.ldsp_aliasderef, args ) != 0 ) {
+		write_result( ofp, LDAP_OTHER, NULL, "Bad alias deref" );
+		return( -1 );
+	    }
 	    break;
 	case IP_TYPE_SIZELIMIT:
-	    op->ldop_srch.ldsp_sizelimit = atoi( args );
+	    if ( lutil_atoi( &op->ldop_srch.ldsp_sizelimit, args ) != 0 ) {
+		write_result( ofp, LDAP_OTHER, NULL, "Bad size limit" );
+		return( -1 );
+	    }
 	    break;
 	case IP_TYPE_TIMELIMIT:
-	    op->ldop_srch.ldsp_timelimit = atoi( args );
+	    if ( lutil_atoi( &op->ldop_srch.ldsp_timelimit, args ) != 0 ) {
+		write_result( ofp, LDAP_OTHER, NULL, "Bad time limit" );
+		return( -1 );
+	    }
 	    break;
 	case IP_TYPE_FILTER:
 	    op->ldop_srch.ldsp_filter = estrdup( args );

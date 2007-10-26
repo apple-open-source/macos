@@ -1,0 +1,38 @@
+Revision history for Perl extension DateTime::Format::Pg.
+
+0.09  Fri Sep 03 06:00:00 2005
+    - support infinite, -infinite for parse_timestamp(tz) and format_datetime,
+      format_timestamp (Daisuke Maki)
+
+0.08  Wed Mar 16 16:00:00 2005
+	- fixed parse_time (John Siracusa, bug #8516)
+	- format_interval was missing (CEESHEK, bug #11898)
+	- format_duration did not work as a class method (CEESHEK, bug #11898)
+
+0.07  Sun Aug 08 00:00:00 2004
+	- fixed handling of numerical timezones without minutes
+	  (reported by Daisuke Maki)
+
+0.06  Sun Jun 20 00:00:00 2004
+        - use nanoseconds when formatting times (bug #6557)
+
+0.05  Wed Jul 16 00:00:00 2003
+	- updated for DateTime 0.13 (use nanoseconds instead of
+	  fractional_seconds)
+
+0.04  Fri May 30 00:00:00 2003
+	- runs more happily while warnings are enabled (koschei)
+	- updated for DT::Format::Builder 0.72 (koschei/cfaerber)
+
+0.03  Sun May 11 00:00:00 2003
+	- support for BC dates
+	- automatic tests (not complete)
+	- complete rewrite of time zone handling
+	- added methods to parse/format intervals
+	- make use of DT::Format::Builder's new features in 0.70
+
+0.01  Sat Apr 19 00:00:00 2003
+	- original version; created by h2xs 1.22 with options
+		-X -n DateTime::Format::Pg
+
+$Id: Changes,v 1.8 2005/09/02 21:38:59 lestrrat Exp $

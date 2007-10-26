@@ -139,8 +139,9 @@ extern void gdbtk_restore_result_ptr (void *);
 /* GDB context identifier */
 extern int gdb_context;
 
-/* Internal flag used to tell callers of ui_loop_hook whether they should
-   detach from the target. See explanations before x_event and gdb_stop. */
+/* Internal flag used to tell callers of deprecated_ui_loop_hook
+   whether they should detach from the target. See explanations before
+   x_event and gdb_stop. */
 extern int gdbtk_force_detach;
 
 /*
@@ -158,6 +159,7 @@ extern int gdbtk_two_elem_cmd (char *, char *);
 extern int target_is_native (struct target_ops *t);
 extern void gdbtk_fputs (const char *, struct ui_file *);
 extern struct ui_file *gdbtk_fileopen (void);
+extern struct ui_file *gdbtk_fileopenin (void);
 extern int gdbtk_disable_fputs;
 
 #ifdef _WIN32

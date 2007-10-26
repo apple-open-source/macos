@@ -32,7 +32,7 @@
 .\"     from: @(#)erf.3	6.4 (Berkeley) 4/20/91
 .\"	$Id: tgamma.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
-.Dd July 23, 2003
+.Dd Oct 9, 2006
 .Dt TGAMMA 3
 .Sh NAME
 .Nm tgamma ,
@@ -46,11 +46,13 @@
 .Ft long double
 .Fn tgammal "long double x"
 .Ft float
-.Fn tgamma "float x"
+.Fn tgammaf "float x"
 .Ft double
 .Fn lgamma "double x"
+.Ft long double
+.Fn lgammal "long double x"
 .Ft float
-.Fn lgamma "float x"
+.Fn lgammaf "float x"
 .Ft double
 .Fn gamma "double x"
 .Sh DESCRIPTION
@@ -80,7 +82,7 @@ A range error may occur if the magnitude of x is too large or too small.
 .Pp
 .Fn gamma
 has the same behavior as
-.Fn tgamma
+.Fn tgamma .
 .Pp
 .Fn lgamma "1"
 returns +0.
@@ -98,6 +100,12 @@ returns +infinity.
 generates a range error if x is too large.
 .Pp
 A range error may occur if x is a negative integer or 0.
+.Sh NOTE
+.Fn lgamma "x"
+and its variants have the (non-threadsafe) side-effect of setting the global variable 
+.Fa signgam
+to ±1, equal to the sign of
+.Fn tgamma "x" .
 .Sh SEE ALSO
 .Xr math 3
 .Sh STANDARDS

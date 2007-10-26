@@ -1,11 +1,39 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/sr_Cyrl.xml
+// * Source File:<path>/common/main/sr_Cyrl.xml
 // *
 // ***************************************************************************
+/**
+ *  ICU <specials> source: <path>/xml/main/sr_Cyrl.xml
+ */
 sr_Cyrl{
-    Version{"1.2"}
+    Currencies{
+        BRL{
+            "R$",
+            "Бразилски Реал",
+        }
+    }
+    LocaleScript{
+        "Cyrl",
+    }
+    Version{"1.26"}
+    calendar{
+        gregorian{
+            eras{
+                wide{
+                    "Прије нове ере",
+                    "Нове ере",
+                }
+            }
+        }
+    }
+    zoneStrings{
+        "Europe:Sarajevo"{
+            ec{"Sarajevo"}
+            ls{"Средње Европско Вријеме"}
+        }
+    }
 }

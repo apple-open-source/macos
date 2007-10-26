@@ -13,13 +13,49 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4</string>
+	<string>1.5</string>
 	<key>FSMediaTypes</key>
 	<dict>
+                <key>Apple_Boot</key>
+                <dict>
+                        <key>FSMediaProperties</key>
+                        <dict>
+                                <key>Content Hint</key>
+                                <string>Apple_Boot</string>
+                                <key>Leaf</key>
+                                <true/>
+                        </dict>
+                        <key>FSProbeArguments</key>
+                        <string>-p</string>
+                        <key>FSProbeExecutable</key>
+                        <string>../../hfs.util</string>
+                        <key>FSProbeOrder</key>
+                        <integer>1000</integer>
+                        <key>autodiskmount</key>
+                        <false/>
+                </dict>
+		<key>426F6F74-0000-11AA-AA11-00306543ECAC</key>
+                <dict>
+                        <key>FSMediaProperties</key>
+                        <dict>
+                                <key>Content Hint</key>
+                                <string>426F6F74-0000-11AA-AA11-00306543ECAC</string>
+                                <key>Leaf</key>
+                                <true/>
+                        </dict>
+                        <key>FSProbeArguments</key>
+                        <string>-p</string>
+                        <key>FSProbeExecutable</key>
+                        <string>../../hfs.util</string>
+                        <key>FSProbeOrder</key>
+                        <integer>1000</integer>
+                        <key>autodiskmount</key>
+                        <false/>
+                </dict>
 		<key>48465300-0000-11AA-AA11-00306543ECAC</key>
 		<dict>
 			<key>FSMediaProperties</key>
@@ -131,6 +167,8 @@
 			<string>-n</string>
 			<key>FSVerificationExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
+			<key>FSDoesVerifyLive</key>
+			<false/>
 		</dict>
 		<key>HFS+</key>
 		<dict>
@@ -160,6 +198,8 @@
 			<string>-fn</string>
 			<key>FSVerificationExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
+			<key>FSDoesVerifyLive</key>
+			<false/>
 		</dict>
 		<key>Journaled HFS+</key>
 		<dict>
@@ -170,7 +210,7 @@
 			<key>FSFormatExecutable</key>
 			<string>../../../../../../sbin/newfs_hfs</string>
 			<key>FSFormatMinimumSize</key>
-			<integer>4194304</integer>
+			<integer>9437184</integer>
 			<key>FSFormatMaximumSize</key>
 			<integer>9223372034707292160</integer>
 			<key>FSMountArguments</key>
@@ -182,13 +222,17 @@
 			<key>FSSubType</key>
 			<integer>1</integer>
 			<key>FSRepairArguments</key>
-			<string>-y</string>
+			<string>-fy</string>
 			<key>FSRepairExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
 			<key>FSVerificationArguments</key>
 			<string>-fn</string>
 			<key>FSVerificationExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
+			<key>FSDoesVerifyLive</key>
+			<true/>
+			<key>FSLiveVerificationArguments</key>
+			<string>-l</string>
 		</dict>
 		<key>Case-sensitive HFS+</key>
 		<dict>
@@ -218,6 +262,8 @@
 			<string>-fn</string>
 			<key>FSVerificationExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
+			<key>FSDoesVerifyLive</key>
+			<false/>
 		</dict>
 		<key>Case-sensitive Journaled HFS+</key>
 		<dict>
@@ -228,7 +274,7 @@
 			<key>FSFormatExecutable</key>
 			<string>../../../../../../sbin/newfs_hfs</string>
 			<key>FSFormatMinimumSize</key>
-			<integer>4194304</integer>
+			<integer>9437184</integer>
 			<key>FSFormatMaximumSize</key>
 			<integer>9223372034707292160</integer>
 			<key>FSMountArguments</key>
@@ -240,13 +286,17 @@
 			<key>FSSubType</key>
 			<integer>3</integer>
 			<key>FSRepairArguments</key>
-			<string>-y</string>
+			<string>-fy</string>
 			<key>FSRepairExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
 			<key>FSVerificationArguments</key>
 			<string>-fn</string>
 			<key>FSVerificationExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
+			<key>FSDoesVerifyLive</key>
+			<true/>
+			<key>FSLiveVerificationArguments</key>
+			<string>-l</string>
 		</dict>
 	</dict>
 </dict>

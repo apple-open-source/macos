@@ -1,0 +1,30 @@
+--- _SB/Libc/string/FreeBSD/strcmp.3	2003-05-20 15:23:54.000000000 -0700
++++ _SB/Libc/string/FreeBSD/strcmp.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -48,9 +48,16 @@
+ .Sh SYNOPSIS
+ .In string.h
+ .Ft int
+-.Fn strcmp "const char *s1" "const char *s2"
++.Fo strcmp
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fc
+ .Ft int
+-.Fn strncmp "const char *s1" "const char *s2" "size_t len"
++.Fo strncmp
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fa "size_t n"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn strcmp
+@@ -66,7 +73,7 @@
+ .Fn strncmp
+ function
+ compares not more than
+-.Fa len
++.Fa n
+ characters.
+ Because
+ .Fn strncmp

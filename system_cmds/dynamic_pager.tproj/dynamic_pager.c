@@ -19,8 +19,8 @@
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/gmon.h>
+#include <sys/types.h>
 #include <errno.h>
-#include <kvm.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +29,12 @@
 #include <ctype.h>
 #include <unistd.h> 
 #include <paths.h>
+#include <dirent.h>
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <IOKit/ps/IOPowerSources.h>
+#include <IOKit/ps/IOPowerSourcesPrivate.h>
 
 #include <default_pager/default_pager_types.h>
 #include <default_pager_alerts_server.h>
@@ -443,8 +449,6 @@ paging_setup(flags, size, priority, low, high, encrypted)
 	if(hi_water) {
 		mach_msg_type_name_t    poly;
 
-		daemon(0,0);
-
 		if (mach_port_allocate(mach_task_self(), 
 				MACH_PORT_RIGHT_RECEIVE, 
 				&trigger_port) != KERN_SUCCESS)  {
@@ -467,6 +471,123 @@ paging_setup(flags, size, priority, low, high, encrypted)
 	}
 	exit(EXIT_SUCCESS);
 }
+
+static void
+clean_swap_directory(const char *path)
+{
+	DIR *dir;
+	struct dirent *entry;
+	char buf[1024];
+
+	dir = opendir(path);
+	if (dir == NULL) {
+		fprintf(stderr,"dynamic_pager: cannot open swap directory %s\n", path);
+		exit(EXIT_FAILURE);
+	}
+
+	while ((entry = readdir(dir)) != NULL) {
+		if (entry->d_namlen>= 4 && strncmp(entry->d_name, "swap", 4) == 0) {
+			snprintf(buf, sizeof buf, "%s/%s", path, entry->d_name);
+			unlink(buf);	
+		}
+	}
+
+	closedir(dir);
+}
+
+#define VM_PREFS_PLIST 				"/Library/Preferences/com.apple.virtualMemory.plist"
+#define VM_PREFS_ENCRYPT_SWAP_KEY 	"UseEncryptedSwap"
+
+static boolean_t
+should_encrypt_swap(void)
+{
+	CFPropertyListRef 	propertyList;
+	CFTypeID		propertyListType;	
+	CFStringRef       	errorString;
+	CFDataRef         	resourceData;
+	SInt32            	errorCode;
+	CFURLRef       		fileURL;
+	CFTypeRef		value;
+	boolean_t		should_encrypt;
+	boolean_t		explicit_value;
+	CFTypeRef		snap;
+
+	explicit_value = false;
+
+	fileURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)VM_PREFS_PLIST, strlen(VM_PREFS_PLIST), false);
+	if (fileURL == NULL) {
+		/*fprintf(stderr, "%s: CFURLCreateFromFileSystemRepresentation(%s) failed\n", getprogname(), VM_PREFS_PLIST);*/
+		goto done;
+	}
+	
+	if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, fileURL, &resourceData, NULL, NULL, &errorCode)) {
+		/*fprintf(stderr, "%s: CFURLCreateDataAndPropertiesFromResource(%s) failed: %d\n", getprogname(), VM_PREFS_PLIST, (int)errorCode);*/
+		CFRelease(fileURL);
+		goto done;
+	}
+	
+	CFRelease(fileURL);
+	propertyList = CFPropertyListCreateFromXMLData(kCFAllocatorDefault, resourceData, kCFPropertyListMutableContainers, &errorString);
+	if (propertyList == NULL) {
+		/*fprintf(stderr, "%s: cannot get XML propertyList %s\n", getprogname(), VM_PREFS_PLIST);*/
+		CFRelease(resourceData);
+		goto done;
+	}
+
+	propertyListType = CFGetTypeID(propertyList);
+
+	if (propertyListType == CFDictionaryGetTypeID()) {	
+		value = (CFTypeRef) CFDictionaryGetValue((CFDictionaryRef) propertyList, CFSTR(VM_PREFS_ENCRYPT_SWAP_KEY));
+		if (value == NULL) {
+			/* no value: use the default value */
+		} else if (CFGetTypeID(value) != CFBooleanGetTypeID()) {
+			fprintf(stderr, "%s: wrong type for key \"%s\"\n",
+				getprogname(), VM_PREFS_ENCRYPT_SWAP_KEY);
+			/* bogus value, assume it's "true" for safety's sake */
+			should_encrypt = true;
+			explicit_value = true;
+		} else {
+			should_encrypt = CFBooleanGetValue((CFBooleanRef)value);
+			explicit_value = true;
+		}
+	}
+	else {
+		/*fprintf(stderr, "%s: invalid propertyList type %d (not a dictionary)\n", getprogname(), propertyListType);*/
+	}
+	CFRelease(resourceData);
+	CFRelease(propertyList);
+
+done:
+	if (! explicit_value) {
+		/* by default, encrypt swap on laptops only */
+		mach_timespec_t w;
+		kern_return_t kr;
+
+		/* wait up to 60 seconds for IOKit to quiesce */
+		w.tv_sec = 60;
+		w.tv_nsec = 0;
+		kr = IOKitWaitQuiet(kIOMasterPortDefault, &w);
+		if (kr != kIOReturnSuccess) {
+			/*
+			 * Can't tell if we're on a laptop,
+			 * assume we do want encrypted swap.
+			 */
+			should_encrypt = TRUE;
+			/*fprintf(stderr, "dynamic_pager: IOKitWaitQuiet ret 0x%x (%s)\n", kr, mach_error_string(kr));*/
+		} else {
+			/*
+			 * Look for battery power source.
+			 */
+			snap = IOPSCopyPowerSourcesInfo();
+			should_encrypt = (kCFBooleanTrue == IOPSPowerSourceSupported(snap, CFSTR(kIOPMBatteryPowerKey)));
+			CFRelease(snap);
+			/*fprintf(stderr, "dynamic_pager: battery power source: %d\n", should_encrypt);*/
+		}
+	}
+
+	return should_encrypt;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -475,7 +596,12 @@ main(int argc, char **argv)
 	char default_filename[] = "/private/var/vm/swapfile";
 	int ch;
 	int variable_sized = 1;
-	boolean_t	encrypted_swap = FALSE;
+	boolean_t	encrypted_swap;
+
+/*
+	setlinebuf(stdout);
+	setlinebuf(stderr);
+*/
 
 	seteuid(getuid());
 	strcpy(fileroot, default_filename);
@@ -486,8 +612,9 @@ main(int argc, char **argv)
 	hi_water = 0;
 	local_hi_water = 0;
 
+	encrypted_swap = should_encrypt_swap();
 
-	while ((ch = getopt(argc, argv, "EF:L:H:S:P:O:")) != EOF) {
+	while ((ch = getopt(argc, argv, "EF:L:H:S:P:QO:")) != EOF) {
 		switch((char)ch) {
 
 		case 'E':
@@ -514,6 +641,13 @@ main(int argc, char **argv)
 			priority = atoi(optarg);
 			break;
 
+		case 'Q':
+			/* just query for "encrypted swap" default value */
+			fprintf(stdout,
+				"dynamic_pager: encrypted swap will be %s\n",
+				encrypted_swap ? "ON": "OFF");
+			exit(0);
+
 		default:
 			(void)fprintf(stderr,
 			    "usage: dynamic_pager [-F filename] [-L low water alert trigger] [-H high water alert trigger] [-S file size] [-P priority]\n");
@@ -530,7 +664,7 @@ main(int argc, char **argv)
 		size_t len;
 		unsigned int size;
 		u_int64_t  memsize;
-		u_int64_t  fs_limit;
+		u_int64_t  fs_limit = 0;
 
 		/*
 		 * if we get here, then none of the following options were specified... -L, H, or -S
@@ -562,8 +696,32 @@ main(int argc, char **argv)
 		if (q = strrchr(tmp, '/'))
 		        *q = 0;
 
-	        if (statfs(tmp, &sfs) != -1) {
-		        /*
+	        if (statfs(tmp, &sfs) == -1) {
+			/*
+			 * Setup the swap directory.
+			 */
+		       	if (mkdir(tmp, 0755) == -1) {
+				(void)fprintf(stderr, "dynamic_pager: cannot create swap directory %s\n", tmp); 
+				exit(EXIT_FAILURE);
+			}
+			chown(tmp, 0, 0);
+
+			if (statfs(tmp, &sfs) == -1) {
+				/*
+				 * We really can't get filesystem status,
+				 * so let's not limit the swap files...
+				 */
+				fs_limit = (u_int64_t) -1;
+			}
+		} 
+		
+		/*
+		 * Remove all files in the swap directory.
+		 */
+		clean_swap_directory(tmp);
+		        
+		if (fs_limit != (u_int64_t) -1) {
+			/*
 			 * Limit the maximum size of a swap file to 1/8 the free
 			 * space available on the filesystem where the swap files
 			 * are to reside.  This will allow us to allocate and
@@ -571,11 +729,8 @@ main(int argc, char **argv)
 			 * free space.
 			 */
 		        fs_limit = ((u_int64_t)sfs.f_bfree * (u_int64_t)sfs.f_bsize) / 8;
-
-		} else {
-		        (void)fprintf(stderr, "dynamic_pager: swap directory must exist\n"); 
-			exit(EXIT_FAILURE);
 		}
+
 		mib[0] = CTL_HW;
 		mib[1] = HW_MEMSIZE;
 		len = sizeof(u_int64_t);

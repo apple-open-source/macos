@@ -3,7 +3,7 @@
 # This is a modified version of autoconf's AC_FUNC_FNMATCH.
 # This file should be simplified after Autoconf 2.57 is required.
 
-# Copyright (C) 2000-2003 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,10 +28,10 @@ AC_DEFUN([_AC_FUNC_FNMATCH_IF],
 [AC_CACHE_CHECK(
    [for working $1 fnmatch],
    [$2],
-  [# Some versions of Solaris, SCO, and the GNU C Library
-   # have a broken or incompatible fnmatch.
-   # So we run a test program.  If we are cross-compiling, take no chance.
-   # Thanks to John Oleynick, Franc,ois Pinard, and Paul Eggert for this test.
+  [dnl Some versions of Solaris, SCO, and the GNU C Library
+   dnl have a broken or incompatible fnmatch.
+   dnl So we run a test program.  If we are cross-compiling, take no chance.
+   dnl Thanks to John Oleynick, François Pinard, and Paul Eggert for this test.
    AC_RUN_IFELSE(
       [AC_LANG_PROGRAM(
 	 [
@@ -70,7 +70,7 @@ AC_DEFUN([_AC_LIBOBJ_FNMATCH],
 AC_REQUIRE([AC_FUNC_ALLOCA])dnl
 AC_REQUIRE([AC_TYPE_MBSTATE_T])dnl
 AC_CHECK_DECLS([getenv])
-AC_CHECK_FUNCS([btowc mbsrtowcs mempcpy wmempcpy])
+AC_CHECK_FUNCS([btowc mbsrtowcs mempcpy wmemchr wmemcpy wmempcpy])
 AC_CHECK_HEADERS([wchar.h wctype.h])
 AC_LIBOBJ([fnmatch])
 FNMATCH_H=fnmatch.h

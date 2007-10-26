@@ -74,7 +74,7 @@ given.  Multiple options may be used.
 .B -l \fIid\fP
 set the local identification string to \fIid\fP.  \fIid\fP should
 be the local telephone number in international format (for
-example "+1 800 555 1212").  This is passed to the remote fax
+example "+1 800 555-1212").  This is passed to the remote fax
 machine.  Some fax machines may not accept characters other than
 numbers, space, and '+'.  
 
@@ -193,7 +193,7 @@ outgoing calls to proceed when efax is waiting for an incoming
 call.  If efax detects modem activity it will attempt to re-lock
 the device.  If the modem has been locked by the other program
 efax will exit and return 1 (``busy'').  Normally a new efax
-process is then started by init(8). The new efax process will
+process is then started by launchd(8). The new efax process will
 then check periodically until the lock file disappears and
 then re-initialize the modem.
 
@@ -675,7 +675,11 @@ The program was terminated by a signal.
 
 .TP 9
 6
-The program was terminated by system sleep.
+The program was terminated due to a system power event (i.e. the computer is about to sleep).
+
+.TP 9
+7
+The operator canceled the call.
 
 .SH EXAMPLES
 
@@ -719,7 +723,18 @@ letterhead, signatures, etc.
 
 .B Printing fax files
 
-You can use the efix program to print faxes on Postscript or
+On CUPS based systems you can use lpr(1) to print faxes. For example, to 
+print the received fax file \fBreply.001\fP use the command:
+
+.IP
+.nf
+.ft CW
+lpr reply.001
+.ft P
+.fi
+.LP
+
+On lpd based systems you can use the efix program to print faxes on Postscript or
 HP-PCL (LaserJet) printers.  For example, to print the received
 fax file \fBreply.001\fP on a Postscript printer use the command:
 
@@ -756,13 +771,13 @@ For example, the following command will make the fax modem on
 device \fB/dev/ttyS1\fP answer the phone and attempt to receive a
 fax.  The received fax will be stored in the files
 \fBreply.001\fP, \fBreply.002\fP, and so on.  The modem will
-identify itself as "555 1212" and receive faxes at high or low
+identify itself as "555-1212" and receive faxes at high or low
 resolution (\fIvr\fP=1), at up to 14.4 kbps (\fIbr\fP=5).
 
 .IP
 .nf
 .ft CW
-efax -d /dev/ttyS1 -l "555 1212" \\
+efax -d /dev/ttyS1 -l "555-1212" \\
    -c 1,5 -r reply
 .ft P
 .fi
@@ -898,42 +913,42 @@ required for fax operation.  This prevents full use of 28.8kbps
 modem capabilities.
 
 
-.SH USING INIT TO RUN EFAX
+.SH USING LAUNCHD TO RUN EFAX
 
-efax can answer all incoming calls if you place an entry for efax
-in \fB/etc/inittab\fP (for SysV-like systems) or
-\fB/etc/ttytab\fP (for BSD-like systems). The \fBinit\fP(8)
+efax can answer all incoming calls if you create a launchd.plist(5)
+file in \fB/System/Library/LaunchDaemons\fP. The launchd(8)
 process will run a new copy of efax when the system boots up and
-whenever the previous efax process terminates.  The inittab or
-ttytab entry should invoke efax by running the \fBfax\fP script
-with an \fBanswer\fP argument.
+whenever the previous efax process terminates.  The configuration
+file should invoke efax by running the \fBfax\fP script with an 
+\fBanswer\fP argument.
 
-For example, placing the following line in \fB/etc/inittab\fP
-(and running "kill -1 1") will make init run the \fBfax\fP script
-with the argument \fBanswer\fP every time previous process
-terminates and \fBinit\fP is in runlevel 4 or 5.
+For example, the following XML Property List keeps efax running 
+continuously:
 
 .IP
 .nf
 .ft CW
-s1:45:respawn:/bin/sh /usr/bin/fax answer
-.ft P
-.fi
-.LP
-
-For BSD-like systems (e.g. SunOS), a line such as the following
-in \fB/etc/ttytab\fP will have the same effect:
-
-.IP
-.nf
-.ft CW
-ttya "/usr/local/bin/fax answer" unknown on
+  <?xml version="1.0" encoding="UTF-8"?>
+  <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+  <plist version="1.0">
+  <dict>
+	  <key>Label</key>
+	  <string>com.cce.efax</string>
+	  <key>OnDemand</key>
+	  <false/>
+	  <key>ProgramArguments</key>
+	  <array>
+		  <string>/usr/bin/fax</string>
+		  <string>answer</string>
+	  </array>
+  </dict>
+  </plist>
 .ft P
 .fi
 .LP
 
 You should protect the fax script and configuration files against
-tampering since init will execute them as a privileged (root)
+tampering since launchd will execute them as a privileged (root)
 process.  If you will be allowing data calls via getty and login
 you should ensure that your system is reasonably secure
 (e.g. that all user id's have secure passwords).
@@ -998,59 +1013,13 @@ image/tiff; fax view %s
 .SH SENDING FAXES USING THE PRINT SPOOLER
 
 You can configure a "fax" printer into the lpr print spooler that
-will fax a document out using efax instead of printing it.  This
-allows a network server running efax to send faxes on behalf of
-other machines, including non-Unix clients.  In the following
-steps use the directories specified in the fax script if they are
-different than /usr/bin and /var/spool/fax (FAXDIR).  To set up a
-fax printer do the following as root:
-
-(1) Create a link to the fax script called ``faxlpr'' so the fax
-script can determine when it is being invoked from the print
-spooler:
+will fax a document out using efax instead of printing it. To set up a
+fax printer do the following:
 
 .ft CW
-ln -s /usr/bin/fax /usr/bin/faxlpr
+lpadmin -p fax -E -P /System/Library/Frameworks/ApplicationServices.framework/Frameworks/PrintCore.framework/Resources/English.lproj/Fax.ppd -v fax://dev/cu.modem
 .ft P
 
-
-(2) Edit /etc/printcap and add an entry such as:
-
-.IP
-.nf
-.ft CW
-fax:lp=/dev/null:sd=/var/spool/fax:if=/usr/bin/faxlpr:
-.ft P
-.fi
-.LP
-
-to define a printer called "fax".  Print files will be spooled to
-the /var/spool/fax (sd=) directory and then piped to the
-/usr/bin/faxlpr filter (if=).  Error messages will appear on
-/dev/console.
-
-(3) Create and/or set the permissions to allow anyone to read and
-write in the fax spool directory.  For example:
-
-.IP
-.nf
-.ft CW
-mkdir /var/spool/fax
-chmod 777 /var/spool/fax
-.ft P
-.fi
-.LP
-
-(4) Create a printer daemon lock file that is readable by anyone:
-
-.IP
-.nf
-.ft CW
-touch /var/spool/fax/lock
-chmod 644 /var/spool/fax/lock
-.ft P
-.fi
-.LP
 
 You should now be able to send a fax using the lpr interface by
 using a command such as:
@@ -1058,36 +1027,17 @@ using a command such as:
 .IP
 .nf
 .ft CW
-lpr -P fax -J "555 1212" file.ps
+lpr -P fax -ophone="555-1212" file.ps
 .ft P
 .fi
 .LP
-
-where the -J option is used to specify the phone number or alias
-to be dialed.
-
-Note that if more than one file is given on the command line they
-will be concatenated before being passed to "fax send".  TIFF-G3,
-Postscript or PBM files must therefore be sent one file at a time
-although TIFF and Postscript files may contain multiple pages.
-Only multiple \fItext\fP files can be sent in one command.  Page
-breaks in text files can be marked with form-feed characters.
-Files will be converted and sent at the default (high)
-resolution.
 
 You can use lpq(1) to check the fax queue, lprm(1) to remove fax
 jobs and lpc(8) to control the spooler.  In each case use the
 -Pfax option to specify the fax ``printer.'' A log file will be
 mailed to the user when the fax is sent.
 
-You should also be able to send a fax from any networked computer
-that has lpr-compatible remote printing software and that allows
-you to set the job name (-J option) to an arbitrary string.  Such
-software is available for most computers.
-
-See the lpd(8) and printcap(5) man pages for information on the
-print spooler and for restricting access by host name
-(/etc/host.lpd) or by user group (the `rg' printcap entry).
+See the lpr(1) man page for information on the print spooler.
 
 .SH RESOLVING PROBLEMS
 
@@ -1181,7 +1131,7 @@ A Web Page with pointers to the latest version, known bugs and
 patches is available at:
 .IP
 .ft CW
-http://casas.ee.ubc.ca/efax/
+http://www.cce.com/efax/
 .ft P
 .LP
 
@@ -1269,12 +1219,9 @@ Applications", Second Edition. Artech House, Boston. 1992.
 
 .BR fax(1),
 .BR efix(1),
-.BR gs(1),
-.BR init(8), 
-.BR inittab(5), 
-.BR ttytab(5), 
-.BR printcap(5),
-.BR lpd(8),
+.BR launchd(8), 
+.BR launchd.plist(5), 
+.BR lpr(1),
 .BR printf(3),
 .BR strftime(3).
 

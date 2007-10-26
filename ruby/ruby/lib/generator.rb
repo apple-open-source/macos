@@ -2,7 +2,7 @@
 #--
 # $Idaemons: /home/cvs/rb/generator.rb,v 1.8 2001/10/03 08:54:32 knu Exp $
 # $RoughId: generator.rb,v 1.10 2003/10/14 19:36:58 knu Exp $
-# $Id: generator.rb,v 1.2.2.2 2004/05/07 08:48:23 matz Exp $
+# $Id: generator.rb 11708 2007-02-12 23:01:19Z shyouhei $
 #++
 #
 # = generator.rb: convert an internal iterator to an external one

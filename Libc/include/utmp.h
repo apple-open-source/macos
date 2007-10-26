@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2005, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,6 +63,23 @@
 #ifndef	_UTMP_H_
 #define	_UTMP_H_
 
+/*
+ * This header file is DEPRECATED and only provided for compatibility
+ * with previous releases of Mac OS X.  Use of these structures, especially
+ * in 64-bit computing, may corrupt the utmp, wtmp and lastlog files.
+ *
+ * Use the utmpx APIs instead.
+ */
+
+#include <_types.h>
+#include <available.h>
+
+#ifndef _TIME_T
+#define _TIME_T
+typedef __darwin_time_t	time_t;
+#endif
+
+/* These files no longer exist in 10.5 and later */
 #define	_PATH_UTMP	"/var/run/utmp"
 #define	_PATH_WTMP	"/var/log/wtmp"
 #define	_PATH_LASTLOG	"/var/log/lastlog"
@@ -75,13 +92,13 @@ struct lastlog {
 	time_t	ll_time;
 	char	ll_line[UT_LINESIZE];
 	char	ll_host[UT_HOSTSIZE];
-};
+}					__DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 struct utmp {
 	char	ut_line[UT_LINESIZE];
 	char	ut_name[UT_NAMESIZE];
 	char	ut_host[UT_HOSTSIZE];
 	long	ut_time;
-};
+}					__DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 #endif /* !_UTMP_H_ */

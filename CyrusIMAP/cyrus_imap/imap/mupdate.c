@@ -1,6 +1,6 @@
 /* mupdate.c -- cyrus murder database master 
  *
- * $Id: mupdate.c,v 1.5 2005/03/05 00:37:00 dasenbro Exp $
+ * $Id: mupdate.c,v 1.94 2007/01/31 14:10:05 murch Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,6 +59,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#if !defined(SIOCGIFCONF) && defined(HAVE_SYS_SOCKIO_H)
+# include <sys/sockio.h>
+#endif
+#include <net/if.h>
 
 #include <pthread.h>
 #include <sasl/sasl.h>
@@ -81,6 +87,10 @@
 #include "util.h"
 #include "version.h"
 #include "xmalloc.h"
+
+#ifdef APPLE_OS_X_SERVER
+#include "AppleOD.h"
+#endif
 
 /* Sent to clients that we can't accept a connection for. */
 static const char SERVER_UNABLE_STRING[] = "* BYE \"Server Unable\"\r\n";
@@ -176,7 +186,7 @@ static pthread_mutex_t listener_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t listener_cond = PTHREAD_COND_INITIALIZER;
 static int listener_lock = 0;
 
-/* if you want to lick both listener and either of these two, you
+/* if you want to lock both listener and either of these two, you
  * must lock listener first.  You must have both listener_mutex and
  * idle_connlist_mutex locked to remove anything from the idle_connlist */
 static pthread_mutex_t idle_connlist_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -460,11 +470,94 @@ static int stringlist_contains(struct stringlist *list, const char *str)
     return 0;
 }
 
+
+/*
+ * The auth_*.c backends called by mysasl_proxy_policy()
+ * use static variables which we need to protect with a mutex.
+ */
+static pthread_mutex_t proxy_policy_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static int mupdate_proxy_policy(sasl_conn_t *conn,
+				void *context,
+				const char *requested_user, unsigned rlen,
+				const char *auth_identity, unsigned alen,
+				const char *def_realm,
+				unsigned urlen,
+				struct propctx *propctx)
+{
+    int r;
+
+    pthread_mutex_lock(&proxy_policy_mutex); /* LOCK */
+
+    r = mysasl_proxy_policy(conn, context, requested_user, rlen,
+			    auth_identity, alen, def_realm, urlen, propctx);
+
+    pthread_mutex_unlock(&proxy_policy_mutex); /* UNLOCK */
+
+    return r;
+}
+
 static struct sasl_callback mysasl_cb[] = {
     { SASL_CB_GETOPT, &mysasl_config, NULL },
-    { SASL_CB_PROXY_POLICY, &mysasl_proxy_policy, NULL },
+    { SASL_CB_PROXY_POLICY, &mupdate_proxy_policy, NULL },
     { SASL_CB_LIST_END, NULL, NULL }
 };
+
+/*
+ * Is the IP address of the given hostname local?
+ * Returns 1 if local, 0 otherwise.
+ */
+static int islocalip(const char *hostname)
+{
+    struct hostent *hp;
+    struct in_addr *haddr, *iaddr;
+    struct ifconf ifc;
+    struct ifreq *ifr;
+    char buf[8192]; /* XXX this limits us to 256 interfaces */
+    int sock, islocal = 0;
+
+    if ((hp = gethostbyname(hostname)) == NULL) {
+	fprintf(stderr, "unknown host: %s\n", hostname);
+	return 0;
+    }
+
+    haddr = (struct in_addr *) hp->h_addr;
+
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+	fprintf(stderr, "socket() failed\n");
+	return 0;
+    }
+
+    ifc.ifc_buf = buf;
+    ifc.ifc_len = sizeof(buf);
+    
+    if (ioctl(sock, SIOCGIFCONF, &ifc) != 0) {
+	fprintf(stderr, "ioctl(SIOCGIFCONF) failed: %d\n", errno);
+	close(sock);
+	return 0;
+    }
+
+    for (ifr = ifc.ifc_req; ifr - ifc.ifc_req < ifc.ifc_len; ifr++) {
+	if (ioctl(sock, SIOCGIFADDR, ifr) != 0) continue;
+	if (ioctl(sock, SIOCGIFFLAGS, ifr) != 0) continue;
+
+	/* skip any inactive or loopback interfaces */
+	if (!(ifr->ifr_flags & IFF_UP) || (ifr->ifr_flags & IFF_LOOPBACK))
+	    continue;
+
+	iaddr = &(((struct sockaddr_in *) &ifr->ifr_addr)->sin_addr);
+
+	/* compare the host address to the interface address */
+	if (!memcmp(haddr, iaddr, sizeof(struct in_addr))) {
+	    islocal = 1;
+	    break;
+	}
+    }
+
+    close(sock);
+
+    return islocal;
+}
 
 /*
  * run once when process is forked;
@@ -474,7 +567,7 @@ int service_init(int argc, char **argv,
 		 char **envp __attribute__((unused)))
 {
     int i, r, workers_to_start;
-    int opt;
+    int opt, autoselect = 0;
     pthread_t t;
 
     if (geteuid() == 0) fatal("must run as the Cyrus user", EC_USAGE);
@@ -514,14 +607,29 @@ int service_init(int argc, char **argv,
     global_sasl_init(1, 1, mysasl_cb);
 
     /* see if we're the master or a slave */
-    while ((opt = getopt(argc, argv, "m")) != EOF) {
+    while ((opt = getopt(argc, argv, "ma")) != EOF) {
 	switch (opt) {
 	case 'm':
 	    masterp = 1;
 	    break;
+	case 'a':
+	    autoselect = 1;
+	    break;
 	default:
 	    break;
 	}
+    }
+
+    if (!masterp && autoselect) masterp = islocalip(config_mupdate_server);
+
+    if (masterp &&
+	config_mupdate_config == IMAP_ENUM_MUPDATE_CONFIG_UNIFIED) {
+	/* XXX  We currently prohibit this because mailboxes created
+	 * on the master will cause local mailbox entries to be propagated
+	 * to the slave.  We can probably fix this by prepending
+	 * config_servername onto the entries before updating the slaves.
+	 */
+	fatal("can not run mupdate master on a unified server", EC_USAGE);
     }
 
     if(pipe(conn_pipe) == -1) {
@@ -603,6 +711,12 @@ mupdate_docmd_result_t docmd(struct conn *c)
     int was_blocking = prot_IS_BLOCKING(c->pin);
     char *p;
 
+    /* We know we have input, so skip the check below.
+     * Note that we MUST skip this nonblocking check in order to properly
+     * catch connections that have timed out.
+     */
+    goto cmd;
+
  nextcmd:
     /* First we do a check for input */
     prot_NONBLOCK(c->pin);
@@ -621,6 +735,7 @@ mupdate_docmd_result_t docmd(struct conn *c)
     /* Set it back to blocking so we don't get half a word */
     prot_BLOCK(c->pin);
 
+  cmd:
     ch = getword(c->pin, &(c->tag));
     if (ch == EOF) goto lost_conn;
     
@@ -949,7 +1064,7 @@ int service_main_fd(int fd,
 	close(fd);
 
 	syslog(LOG_ERR,
-	       "Server too busy, droping connection.");
+	       "Server too busy, dropping connection.");
     } else if(write(conn_pipe[1], &fd, sizeof(fd)) == -1) {
 	/* signal that a new file descriptor is available.
 	 * If it fails... */
@@ -972,6 +1087,10 @@ static void dobanner(struct conn *c)
     int ret;
 
     /* send initial the banner + flush pout */
+#ifdef APPLE_OS_X_SERVER
+	if ( config_getswitch( IMAPOPT_APPLE_AUTH ) == 0 )
+	{
+#endif
     ret = sasl_listmech(c->saslconn, NULL,
 			"* AUTH \"", "\" \"", "\"",
 			&mechs, NULL, &mechcount);
@@ -988,6 +1107,14 @@ static void dobanner(struct conn *c)
 	    
     prot_printf(c->pout, "%s\r\n",
 		(ret == SASL_OK && mechcount > 0) ? mechs : "* AUTH");
+
+#ifdef APPLE_OS_X_SERVER
+	}
+	else
+	{
+		prot_printf(c->pout, "* AUTH \"PLAIN\" \"LOGIN\" \"CRAM-MD5\"\r\n");
+	}
+#endif
 
     if (tls_enabled() && !c->tlsconn) {
 	prot_printf(c->pout, "* STARTTLS\r\n");
@@ -1045,10 +1172,7 @@ static void *thread_main(void *rock __attribute__((unused)))
 	if(!max_worker_flag) idle_worker_count++;
 	pthread_mutex_unlock(&idle_worker_mutex);
 
-	if(max_worker_flag) {
-	    pthread_mutex_unlock(&idle_worker_mutex);
-	    goto worker_thread_done;
-	}
+	if(max_worker_flag) goto worker_thread_done;
 
     retry_lock:
 
@@ -1071,12 +1195,13 @@ static void *thread_main(void *rock __attribute__((unused)))
 	pthread_mutex_unlock(&listener_mutex); /* UNLOCK */
 
 	if(ret == ETIMEDOUT) {
+	    pthread_mutex_lock(&idle_worker_mutex); /* LOCK */
 	    if(idle_worker_count <= config_getint(IMAPOPT_MUPDATE_WORKERS_MINSPARE)) {
+		pthread_mutex_unlock(&idle_worker_mutex); /* UNLOCK */
 		/* below number of spare workers, try to get the lock again */
 		goto retry_lock;
 	    } else {
 		/* Decrement Idle Worker Count */
-		pthread_mutex_lock(&idle_worker_mutex); /* LOCK */
 		idle_worker_count--;
 		pthread_mutex_unlock(&idle_worker_mutex); /* UNLOCK */
 		
@@ -1133,7 +1258,7 @@ static void *thread_main(void *rock __attribute__((unused)))
 	if(need_workers > 0) {
 	    too_many = (need_workers + worker_count) - 
 		config_getint(IMAPOPT_MUPDATE_WORKERS_MAX);
-	    need_workers -= too_many;
+	    if (too_many > 0) need_workers -= too_many;
 	}
 	
 	/* Do we need a new worker (or two, or three...)?
@@ -1155,7 +1280,9 @@ static void *thread_main(void *rock __attribute__((unused)))
 	 
 	/* If we've been signaled to be unready, drop all current connections
 	 * in the idle list */
+	pthread_mutex_lock(&ready_for_connections_mutex); /* LOCK */
 	if(!ready_for_connections) {
+	    pthread_mutex_unlock(&ready_for_connections_mutex); /* UNLOCK */
 	    /* Free all connections on idle_connlist.  Note that
 	     * any connection not currently on the idle_connlist will
 	     * instead be freed when they drop out of their docmd() below */
@@ -1172,6 +1299,7 @@ static void *thread_main(void *rock __attribute__((unused)))
 
 	    goto nextlistener;
 	}
+	pthread_mutex_unlock(&ready_for_connections_mutex); /* UNLOCK */
 	
 	if(connflag) {
 	    /* read the fd from the pipe, if needed */
@@ -1239,7 +1367,9 @@ static void *thread_main(void *rock __attribute__((unused)))
 	    }
 
 	    /* Are we allowed to continue serving data? */
+	    pthread_mutex_lock(&ready_for_connections_mutex); /* LOCK */
 	    if(!ready_for_connections) {
+		pthread_mutex_unlock(&ready_for_connections_mutex); /* UNLOCK */
 		prot_printf(C->pout,
 			    "* BYE \"no longer ready for connections\"\r\n");
 		conn_free(currConn);
@@ -1247,11 +1377,12 @@ static void *thread_main(void *rock __attribute__((unused)))
 		 * this back to the idle list */
 		continue;
 	    }
+	    pthread_mutex_unlock(&ready_for_connections_mutex); /* UNLOCK */
 	} /* done handling command */
 
 	if(send_a_banner || do_a_command) {
 	    /* We did work in this thread, so we need to [re-]add the
-	     * connection to the idle list and signal the current listner */
+	     * connection to the idle list and signal the current listener */
 
 	    pthread_mutex_lock(&idle_connlist_mutex); /* LOCK */
 	    currConn->idle = 1;
@@ -1276,9 +1407,11 @@ static void *thread_main(void *rock __attribute__((unused)))
      * in the idle_worker_count */
     pthread_mutex_lock(&worker_count_mutex); /* LOCK */
     worker_count--;
+    pthread_mutex_lock(&idle_worker_mutex); /* LOCK */
     syslog(LOG_DEBUG,
 	   "Worker thread finished, for a total of %d (%d spare)",
 	   worker_count, idle_worker_count);
+    pthread_mutex_unlock(&idle_worker_mutex); /* UNLOCK */
     pthread_mutex_unlock(&worker_count_mutex); /* UNLOCK */
 
     protgroup_free(protin);
@@ -1328,13 +1461,13 @@ void database_log(const struct mbent *mb, struct txn **mytid)
  * a non-null pool implies we should use the mpool functionality */
 struct mbent *database_lookup(const char *name, struct mpool *pool) 
 {
-    char *path, *acl;
+    char *part, *acl;
     int type;
     struct mbent *out;
     
     if(!name) return NULL;
     
-    if(mboxlist_detail(name, &type, &path, NULL, &acl, NULL))
+    if(mboxlist_detail(name, &type, NULL, NULL, &part, &acl, NULL))
 	return NULL;
 
     if(type & MBTYPE_RESERVE) {
@@ -1350,7 +1483,7 @@ struct mbent *database_lookup(const char *name, struct mpool *pool)
     }
 
     out->mailbox = (pool) ? mpool_strdup(pool, name) : xstrdup(name);
-    out->server = (pool) ? mpool_strdup(pool, path) : xstrdup(path);
+    out->server = (pool) ? mpool_strdup(pool, part) : xstrdup(part);
 
     return out;
 }
@@ -1361,6 +1494,51 @@ void cmd_authenticate(struct conn *C,
 {
     int r, sasl_result;
 
+#ifdef APPLE_OS_X_SERVER
+
+	struct od_user_opts	user_opts;
+
+	if ( (config_getswitch( IMAPOPT_APPLE_AUTH ) == 0) ||
+		 (strcasecmp( mech, "GSSAPI" ) == 0) )
+	{
+		syslog( LOG_ERR, "mupdate: GSSAPI not supported" );
+	}
+	else
+	{
+		memset( &user_opts, 0, sizeof( user_opts ) );
+
+		r = odDoAuthenticate( mech, clientstart, "+ ", kXMLIMAP_Principal, C->pin, C->pout, &user_opts );
+		if ( r )
+		{
+			switch ( r )
+			{
+				case eAODAuthCanceled:
+					prot_printf(C->pout, "%s NO Client canceled authentication\r\n", tag );
+					break;
+
+				case eAODProtocolError:
+					prot_printf( C->pout, "%s NO Error reading client response\r\n", tag );
+					break;
+
+				default:
+					syslog(LOG_ERR, "badlogin: %s %s %s", C->clienthost,
+									mech, sasl_errdetail(C->saslconn));
+
+					prot_printf(C->pout, "%s NO \"%s\"\r\n", tag,
+						sasl_errstring((r == SASL_NOUSER ? SASL_BADAUTH : r),
+								   NULL, NULL));
+			}
+			reset_saslconn(C);
+			return;
+		}
+
+		if ( user_opts.fRecNamePtr != NULL )
+		{
+			C->userid = malloc( strlen( user_opts.fRecNamePtr ) + 1 );
+			strcpy( C->userid, user_opts.fRecNamePtr );
+		}
+	}
+#else
     r = saslserver(C->saslconn, mech, clientstart, "", "", "",
 		   C->pin, C->pout, &sasl_result, NULL);
 
@@ -1403,6 +1581,7 @@ void cmd_authenticate(struct conn *C,
 	return;
     }
 
+#endif
     syslog(LOG_NOTICE, "login: %s %s %s%s %s", C->clienthost, C->userid,
 	   mech, C->tlsconn ? "+TLS" : "", "User logged in");
 
@@ -1470,9 +1649,12 @@ void cmd_set(struct conn *C,
 
     m = database_lookup(mailbox, NULL);
     if (m && t == SET_RESERVE) {
-	/* failed; mailbox already exists */
-	msg = EXISTS;
-	goto done;
+	if (config_mupdate_config == IMAP_ENUM_MUPDATE_CONFIG_STANDARD) {
+	    /* failed; mailbox already exists */
+	    msg = EXISTS;
+	    goto done;
+	}
+	/* otherwise do nothing (local create on master) */
     }
 
     if ((!m || m->t != SET_ACTIVE) && t == SET_DEACTIVATE) {
@@ -1485,15 +1667,18 @@ void cmd_set(struct conn *C,
     
     if (t == SET_DELETE) {
 	if (!m) {
-	    /* failed; mailbox doesn't exist */
-	    msg = DOESNTEXIST;
-	    goto done;
+	    if (config_mupdate_config == IMAP_ENUM_MUPDATE_CONFIG_STANDARD) {
+		/* failed; mailbox doesn't exist */
+		msg = DOESNTEXIST;
+		goto done;
+	    }
+	    /* otherwise do nothing (local delete on master) */
+	} else {
+	    oldserver = xstrdup(m->server);
+
+	    /* do the deletion */
+	    m->t = SET_DELETE;
 	}
-
-	oldserver = xstrdup(m->server);
-
-	/* do the deletion */
-	m->t = SET_DELETE;
     } else {
 	if(m)
 	    oldserver = m->server;
@@ -1530,7 +1715,7 @@ void cmd_set(struct conn *C,
     }
 
     /* write to disk */
-    database_log(m, NULL);
+    if (m) database_log(m, NULL);
 
     if(oldserver) {
 	tmp = strchr(oldserver, '!');
@@ -2129,7 +2314,7 @@ int mupdate_synchronize(mupdate_handle *handle)
     rock.pool = pool;
     
     /* ask for updates and set nonblocking */
-    prot_printf(handle->pout, "U01 UPDATE\r\n");
+    prot_printf(handle->conn->out, "U01 UPDATE\r\n");
 
     /* Note that this prevents other people from running an UPDATE against
      * us for the duration.  this is a GOOD THING */
@@ -2158,7 +2343,7 @@ int mupdate_synchronize(mupdate_handle *handle)
     }
 
     /* Make socket nonblocking now */
-    prot_NONBLOCK(handle->pin);
+    prot_NONBLOCK(handle->conn->in);
 
     rock.boxes = &local_boxes;
 
@@ -2240,12 +2425,13 @@ void mupdate_signal_db_synced(void)
 
 void mupdate_ready(void) 
 {
+    pthread_mutex_lock(&ready_for_connections_mutex);
+
     if(ready_for_connections) {
 	syslog(LOG_CRIT, "mupdate_ready called when already ready");
 	fatal("mupdate_ready called when already ready", EC_TEMPFAIL);
     }
 
-    pthread_mutex_lock(&ready_for_connections_mutex);
     ready_for_connections = 1;
     pthread_cond_broadcast(&ready_for_connections_cond);
     pthread_mutex_unlock(&ready_for_connections_mutex);

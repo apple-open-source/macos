@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
  */
 
 #include <sys/errno.h>
+#include <sys/proc.h>
 #include <IOKit/storage/IODVDMediaBSDClient.h>
 
 #define super IOMediaBSDClient
@@ -29,7 +30,84 @@ OSDefineMetaClassAndStructors(IODVDMediaBSDClient, IOMediaBSDClient)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static bool DKIOC_IS_RESERVED(caddr_t data, u_int16_t reserved)
+typedef struct
+{
+    uint8_t     format;
+
+    uint8_t     reserved0008[3];
+
+    uint32_t    address;
+    uint8_t     grantID;
+    uint8_t     layer;
+
+    uint8_t     reserved0080[4];
+
+    uint16_t    bufferLength;
+    user_addr_t buffer;
+} dk_dvd_read_structure_64_t;
+
+typedef struct
+{
+    uint8_t     format;
+    uint8_t     keyClass;
+
+    uint8_t     reserved0016[2];
+
+    uint32_t    address;
+    uint8_t     grantID;
+
+    uint8_t     reserved0072[5];
+
+    uint16_t    bufferLength;
+    user_addr_t buffer;
+} dk_dvd_report_key_64_t;
+
+typedef struct
+{
+    uint8_t     format;
+    uint8_t     keyClass;
+
+    uint8_t     reserved0016[6];
+
+    uint8_t     grantID;
+
+    uint8_t     reserved0072[5];
+
+    uint16_t    bufferLength;
+    user_addr_t buffer;
+} dk_dvd_send_key_64_t;
+
+typedef struct
+{
+    uint8_t     reserved0000[14];
+
+    uint16_t    bufferLength;
+    user_addr_t buffer;
+} dk_dvd_read_disc_info_64_t;
+
+typedef struct
+{
+    uint8_t     reserved0000[4];
+
+    uint32_t    address;
+    uint8_t     addressType;
+
+    uint8_t     reserved0072[5];
+
+    uint16_t    bufferLength;
+    user_addr_t buffer;
+} dk_dvd_read_rzone_info_64_t;
+
+#define DKIOCDVDREADSTRUCTURE64 _IOW('d', 128, dk_dvd_read_structure_64_t)
+#define DKIOCDVDREPORTKEY64     _IOW('d', 129, dk_dvd_report_key_64_t)
+#define DKIOCDVDSENDKEY64       _IOW('d', 130, dk_dvd_send_key_64_t)
+
+#define DKIOCDVDREADDISCINFO64  _IOWR('d', 132, dk_dvd_read_disc_info_64_t)
+#define DKIOCDVDREADRZONEINFO64 _IOWR('d', 133, dk_dvd_read_rzone_info_64_t)
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static bool DKIOC_IS_RESERVED(caddr_t data, uint32_t reserved)
 {
     UInt32 index;
 
@@ -46,19 +124,20 @@ static bool DKIOC_IS_RESERVED(caddr_t data, u_int16_t reserved)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static IOMemoryDescriptor * DKIOC_PREPARE_BUFFER( void *      address,
+static IOMemoryDescriptor * DKIOC_PREPARE_BUFFER( user_addr_t address,
                                                   UInt32      length,
-                                                  IODirection direction )
+                                                  IODirection direction,
+                                                  proc_t      proc )
 {
     IOMemoryDescriptor * buffer = 0;
 
     if ( address && length )
     {
-        buffer = IOMemoryDescriptor::withAddress(         // (create the buffer)
-                                /* address   */ (vm_address_t) address,
-                                /* length    */                length,
-                                /* direction */                direction,
-                                /* task      */                current_task() );
+        buffer = IOMemoryDescriptor::withAddressRange(    // (create the buffer)
+            /* address */ address,
+            /* length  */ length,
+            /* options */ direction,
+            /* task    */ (proc == kernproc) ? kernel_task : current_task() );
     }
 
     if ( buffer )
@@ -121,12 +200,42 @@ int IODVDMediaBSDClient::ioctl( dev_t   dev,
 
             request = (dk_dvd_read_structure_t *) data;
 
-            if ( DKIOC_IS_RESERVED(data, 0x000E) )  { error = EINVAL;  break; }
+            if ( DKIOC_IS_RESERVED(data, 0xE) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
+
+            status = getProvider()->readStructure(
+                       /* buffer    */                      buffer,
+                       /* format    */ (DVDStructureFormat) request->format,
+                       /* address   */                      request->address,
+                       /* layer     */                      request->layer,
+                       /* grantID   */                      request->grantID );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCDVDREADSTRUCTURE64:
+        {
+            dk_dvd_read_structure_64_t * request;
+
+            request = (dk_dvd_read_structure_64_t *) data;
+
+            if ( proc_is64bit(proc) == 0 )  { error = ENOTTY;  break; }
+
+            if ( DKIOC_IS_RESERVED(data, 0x3C0E) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
                        /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
-                       /* direction */ kIODirectionIn );
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
 
             status = getProvider()->readStructure(
                        /* buffer    */                      buffer,
@@ -145,12 +254,40 @@ int IODVDMediaBSDClient::ioctl( dev_t   dev,
         {
             dk_dvd_report_key_t * request = (dk_dvd_report_key_t *) data;
 
-            if ( DKIOC_IS_RESERVED(data, 0x020C) )  { error = EINVAL;  break; }
+            if ( DKIOC_IS_RESERVED(data, 0x20C) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
+
+            status = getProvider()->reportKey(
+                       /* buffer    */                buffer,
+                       /* keyClass  */ (DVDKeyClass)  request->keyClass,
+                       /* address   */                request->address,
+                       /* grantID   */                request->grantID,
+                       /* format    */ (DVDKeyFormat) request->format );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCDVDREPORTKEY64:
+        {
+            dk_dvd_report_key_64_t * request = (dk_dvd_report_key_64_t *) data;
+
+            if ( proc_is64bit(proc) == 0 )  { error = ENOTTY;  break; }
+
+            if ( DKIOC_IS_RESERVED(data, 0x3E0C) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
                        /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
-                       /* direction */ kIODirectionIn );
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
 
             status = getProvider()->reportKey(
                        /* buffer    */                buffer,
@@ -169,12 +306,13 @@ int IODVDMediaBSDClient::ioctl( dev_t   dev,
         {
             dk_dvd_send_key_t * request = (dk_dvd_send_key_t *) data;
 
-            if ( DKIOC_IS_RESERVED(data, 0x02FC) )  { error = EINVAL;  break; }
+            if ( DKIOC_IS_RESERVED(data, 0x2FC) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
-                       /* address   */ request->buffer,
+                       /* address   */ CAST_USER_ADDR_T(request->buffer),
                        /* length    */ request->bufferLength,
-                       /* direction */ kIODirectionOut );
+                       /* direction */ kIODirectionOut,
+                       /* proc      */ proc );
 
             status = getProvider()->sendKey(
                        /* buffer    */                buffer,
@@ -188,15 +326,41 @@ int IODVDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCDVDGETSPEED:                          // getSpeed(u_int16_t *)
+        case DKIOCDVDSENDKEY64:
         {
-            status = getProvider()->getSpeed((u_int16_t *)data);
+            dk_dvd_send_key_64_t * request = (dk_dvd_send_key_64_t *) data;
+
+            if ( proc_is64bit(proc) == 0 )  { error = ENOTTY;  break; }
+
+            if ( DKIOC_IS_RESERVED(data, 0x3EFC) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ request->buffer,
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionOut,
+                       /* proc      */ proc );
+
+            status = getProvider()->sendKey(
+                       /* buffer    */                buffer,
+                       /* keyClass  */ (DVDKeyClass)  request->keyClass,
+                       /* grantID   */                request->grantID,
+                       /* format    */ (DVDKeyFormat) request->format );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
 
         } break;
 
-        case DKIOCDVDSETSPEED:                          // setSpeed(u_int16_t *)
+        case DKIOCDVDGETSPEED:                           // getSpeed(uint16_t *)
         {
-            status = getProvider()->setSpeed(*(u_int16_t *)data);
+            status = getProvider()->getSpeed((uint16_t *)data);
+
+        } break;
+
+        case DKIOCDVDSETSPEED:                           // setSpeed(uint16_t *)
+        {
+            status = getProvider()->setSpeed(*(uint16_t *)data);
 
         } break;
 
@@ -206,12 +370,39 @@ int IODVDMediaBSDClient::ioctl( dev_t   dev,
 
             request = (dk_dvd_read_disc_info_t *) data;
 
-            if ( DKIOC_IS_RESERVED(data, 0x03FF) )  { error = EINVAL;  break; }
+            if ( DKIOC_IS_RESERVED(data, 0x3FF) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
+
+            status = getProvider()->readDiscInfo(
+                       /* buffer          */ buffer,
+                       /* actualByteCount */ &request->bufferLength );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCDVDREADDISCINFO64:
+        {
+            dk_dvd_read_disc_info_64_t * request;
+
+            request = (dk_dvd_read_disc_info_64_t *) data;
+
+            if ( proc_is64bit(proc) == 0 )  { error = ENOTTY;  break; }
+
+            if ( DKIOC_IS_RESERVED(data, 0x3FFF) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
                        /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
-                       /* direction */ kIODirectionIn );
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
 
             status = getProvider()->readDiscInfo(
                        /* buffer          */ buffer,
@@ -229,12 +420,41 @@ int IODVDMediaBSDClient::ioctl( dev_t   dev,
 
             request = (dk_dvd_read_rzone_info_t *) data;
 
-            if ( DKIOC_IS_RESERVED(data, 0x020F) )  { error = EINVAL;  break; }
+            if ( DKIOC_IS_RESERVED(data, 0x20F) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
+
+            status = getProvider()->readRZoneInfo(
+                       /* buffer          */ buffer,
+                       /* address         */ request->address,
+                       /* addressType     */ request->addressType,
+                       /* actualByteCount */ &request->bufferLength );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCDVDREADRZONEINFO64:
+        {
+            dk_dvd_read_rzone_info_64_t * request;
+
+            request = (dk_dvd_read_rzone_info_64_t *) data;
+
+            if ( proc_is64bit(proc) == 0 )  { error = ENOTTY;  break; }
+
+            if ( DKIOC_IS_RESERVED(data, 0x3E0F) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
                        /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
-                       /* direction */ kIODirectionIn );
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
 
             status = getProvider()->readRZoneInfo(
                        /* buffer          */ buffer,

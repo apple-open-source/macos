@@ -1,4 +1,4 @@
-.\" $Id: mount_smbfs.8,v 1.4 2004/09/02 20:24:29 lindak Exp $
+.\" $Id: mount_smbfs.8,v 1.5 2006/01/20 05:35:23 lindak Exp $
 .Dd March 10, 2000
 .Dt MOUNT_SMBFS 8
 .Os FreeBSD
@@ -7,28 +7,16 @@
 .Nd "mount a shared resource from an SMB file server"
 .Sh SYNOPSIS
 .Nm
-.\" ndef APPLE .Op Fl E Ar cs1 : Ns Ar cs2
-.Op Fl I Ar host
-.\" ndef APPLE .Op Fl L Ar locale
-.Op Fl M Ar cmode[/smode]
 .Op Fl N
-.Op Fl O Ar cowner[:cgroup]/sowner[:sgroup]
-.Op Fl R Ar retrycount
-.Op Fl T Ar timeout
-.Op Fl U Ar user
-.Op Fl W Ar workgroup
-.\" ndef APPLE .Op Fl c Ar case
+.Op Fl o Ar options
 .Op Fl d Ar mode
 .Op Fl f Ar mode
-.Op Fl g Ar gid
 .Op Fl h
-.Op Fl n Ar opt
-.Op Fl u Ar uid
-.\" //[workgroup;][user[:password]@]server[/share]
-.Pf // Oo Ar workgroup ;
+.\" //[domain;][user[:password]@]server[/share]
+.Pf // Oo Ar domain ;
 .Oc Ns Oo Ar user Ns Oo
-.Pf \: Ar password
-.Oc Ns @ Ns Oc Ar server Ns Oo
+.Pf : Ar password
+.Oc Ns @ Ns Oc Ns Ar server Ns Oo
 .Pf / Ar share
 .Oc
 .Ar path
@@ -39,68 +27,37 @@ command mounts a share from a remote server using SMB/CIFS protocol.
 .Pp
 The options are as follows:
 .Bl -tag -width indent
-.\" ndef APPLE .It Fl E Ar cs1 : Ns Ar cs2
-.\" ndef APPLE Specifies local
-.\" ndef APPLE .Pq Ar cs1
-.\" ndef APPLE and server's
-.\" ndef APPLE .Pq Ar cs2
-.\" ndef APPLE character sets.
-.It Fl I Ar host
-Do not use NetBIOS name resolver and connect directly to
-.Ar host ,
-which can be either a valid DNS name or an IP address.
-.\" ndef APPLE .It Fl L Ar locale
-.\" ndef APPLE Use
-.\" ndef APPLE .Ar locale
-.\" ndef APPLE for lower/upper case conversion routines.
-.\" ndef APPLE Set the locale for case conversion.
-.\" ndef APPLE By default,
-.\" ndef APPLE .Nm
-.\" ndef APPLE tries to use an environment variable
-.\" ndef APPLE .Ev LC_* 
-.\" ndef APPLE to determine it.
-.It Fl M Ar cmode[/smode]
-Assign access rights to the newly created connection.
 .It Fl N
 Do not ask for a password.
 At run time,
 .Nm
 reads the
-.Pa ~/.nsmbrc
+.Pa ~/Library/Preferences/nsmb.conf
 file for additional configuration parameters and a password.
 If no password is found,
 .Nm
 prompts for it.
-.It Fl O Ar cowner[:cgroup]/sowner[:sgroup]
-Assign owner/group attributes to the newly created connection.
-.\" ndef APPLE See
-.\" ndef APPLE .Xr nsmb 8
-.\" ndef APPLE for theory.
-.It Fl R Ar retrycount
-How many retries should be done before the SMB requester decides to drop
-the connection.
-.It Fl T Ar timeout
-Timeout in seconds for each request.
-.It Fl U Ar user
-Specifies the user name to be used in the authentication request.
-.It Fl W Ar workgroup
-Specifies the workgroup to be used in the authentication request.
-.\" ndef APPLE .It Fl c Ar case
-.\" ndef APPLE Set a
-.\" ndef APPLE .Ar case 
-.\" ndef APPLE option which affects name representation.
-.\" ndef APPLE .Ar case 
-.\" ndef APPLE can be one of the following:
-.\" ndef APPLE .Bl -tag -width ".Em Value"
-.\" ndef APPLE .It Em Value
-.\" ndef APPLE .Em Meaning
-.\" ndef APPLE .It Cm l
-.\" ndef APPLE All existing file names are converted to lower case.
-.\" ndef APPLE Newly created file names are lower case.
-.\" ndef APPLE .It Cm u
-.\" ndef APPLE All existing file names are converted to upper case.
-.\" ndef APPLE Newly created file names are upper case.
-.\" ndef APPLE .El
+.It Fl o 
+Options passed to 
+.Xr mount 2
+are specified with the 
+.Fl o 
+option followed by a comma separated string of options. See the 
+.Xr mount 8 
+man page for possible options and their meanings. Additional options supported 
+by the mount_smbfs are as follows:
+.Bl -tag -width indent
+.It nobrowse
+Indicate to the Carbon subsystem that this volume is not to be displayed 
+to the user.
+.It automounted
+Set flags on the mountpoint to indicate that the volume has been mounted 
+by the automounter.
+.It streams
+Use NTFS Streams if supported by the server.
+.It soft
+Make the mount soft.  Fail file system calls after a number of seconds.
+.El
 .It Fl f Ar mode , Fl d Ar mode
 Specify permissions that should be assigned to files and directories.
 The values must be specified as octal numbers.
@@ -112,25 +69,9 @@ Note that these permissions can differ from the rights granted by SMB
 server. 
 .It Fl h
 Prints a help message, much like the SYNOPSIS above.
-.It Fl n Ar opt
-Set
-.Ar opt 
-option to affect file name lookups.
-.Ar opt 
-can be one of the following:
-.Bl -tag -width "ValueXX"
-.It Em Value
-.Em Meaning
-.It long
-No long names.  Server supports only "8.3" format.
-.El
-.It Fl u Ar uid , Fl g Ar gid
-User ID and group ID assigned to files.
-The defaults are the owner and group IDs from
-the directory where the volume is mounted.
-.\" //[workgroup;][user[:password]@]server[/share]
+.\" //[domain;][user[:password]@]server[/share]
 .It Xo
-.Pf // Oo Ar workgroup ;
+.Pf // Oo Ar domain ;
 .Oc Ns Oo Ar user Ns Oo
 .Pf \: Ar password
 .Oc Ns @ Ns Oc Ar server Ns Oo
@@ -146,7 +87,7 @@ as the NetBIOS name of remote computer,
 as the remote user name and
 .Ar share
 as the resource name on a remote server.
-.Ar Workgroup
+.Ar Domain
 and/or
 .Ar password
 may be specified here.  If
@@ -160,33 +101,33 @@ is run from the command line, otherwise a browsing dialogue is presented.
 Path to mount point.
 .El
 .Sh FILES
-.Bl -tag -width ".Pa ~/.nsmbrc" -compact
-.It Pa ~/.nsmbrc
+.Bl -tag -width ".Pa nsmb.conf" -compact
+.It Pa nsmb.conf
 Keeps static parameters for connections and other information.
 See
-.Pa ./examples/dot.nsmbrc
+.Pa man nsmb.conf
 for details.
 .El
 .Sh EXAMPLES
-The following example illustrates how to connect to SMB server
-.Em SAMBA
-as user
-.Em GUEST
-to mount
-.Em PUBLIC:
-.\" ndef APPLE and
-.\" ndef APPLE .Em TMP :
+This example shows the proper url to use to mount the share PUBLIC from
+the SMB server myserver:
 .Bd -literal -offset indent
-mount_smbfs -I samba.mydomain.com //guest@samba/public /smb/public
-.\" ndef APPLE mount_smbfs -I 192.168.20.3 -E koi8-r:cp866 //guest@samba/tmp /smb/tmp
+mkdir /smb/public
+mount -t smbfs //username:userpass@myserver/PUBLIC /smb/public
+
 .Ed
-.\" ndef APPLE .Pp
-.\" ndef APPLE It is possible to use
-.\" ndef APPLE .Xr fstab 5
-.\" ndef APPLE for smbfs mounts:
-.\" ndef APPLE .Bd -literal -offset indent
-.\" ndef APPLE //guest@samba/public    /smb/public     smbfs  rw,noauto 0   0
-.\" ndef APPLE .Ed
+This example shows the proper url to use to mount the share PUBLIC from
+the SMB server myserver as guest:
+.Bd -literal -offset indent
+mkdir /smb/public
+mount -t smbfs //guest:@myserver/PUBLIC /smb/public
+
+.Ed
+.Sh SEE ALSO
+.Xr mount 2 ,
+.Xr nsmb.conf 5 ,
+.Xr mount 8 ,
+.Xr umount 8
 .Sh BUGS
 Please report bugs to Apple.
 .Sh AUTHORS

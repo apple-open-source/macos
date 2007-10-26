@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,13 +27,13 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)verify.c	8.1 (Berkeley) 6/6/93";
-#endif
-static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/mtree/verify.c,v 1.10.2.2 2001/01/12 19:17:18 phk Exp $";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.sbin/mtree/verify.c,v 1.24 2005/08/11 15:43:55 brian Exp $");
 
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -47,43 +43,39 @@ static const char rcsid[] =
 #include <fts.h>
 #include <fnmatch.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <unistd.h>
 #include "mtree.h"
 #include "extern.h"
 
-extern long int crc_total;
-extern int ftsoptions;
-extern int dflag, eflag, qflag, rflag, sflag, uflag;
-extern char fullpath[MAXPATHLEN];
-extern int lineno;
-
 static NODE *root;
 static char path[MAXPATHLEN];
 
-static void	miss __P((NODE *, char *));
-static int	vwalk __P((void));
+static void	miss(NODE *, char *);
+static int	vwalk(void);
 
 int
-verify()
+mtree_verifyspec(FILE *fi)
 {
 	int rval;
 
-	root = spec();
+	root = mtree_readspec(fi);
 	rval = vwalk();
 	miss(root, path);
 	return (rval);
 }
 
 static int
-vwalk()
+vwalk(void)
 {
-	register FTS *t;
-	register FTSENT *p;
-	register NODE *ep, *level;
+	FTS *t;
+	FTSENT *p;
+	NODE *ep, *level;
 	int specdepth, rval;
 	char *argv[2];
+	char dot[] = ".";
 
-	argv[0] = ".";
+	argv[0] = dot;
 	argv[1] = NULL;
 	if ((t = fts_open(argv, ftsoptions, NULL)) == NULL)
 		err(1, "line %d: fts_open", lineno);
@@ -154,18 +146,17 @@ extra:
 	}
 	(void)fts_close(t);
 	if (sflag)
-		warnx("%s checksum: %lu", fullpath, crc_total);
+		warnx("%s checksum: %lu", fullpath, (unsigned long)crc_total);
 	return (rval);
 }
 
 static void
-miss(p, tail)
-	register NODE *p;
-	register char *tail;
+miss(NODE *p, char *tail)
 {
-	register int create;
-	register char *tp;
-	const char *type;
+	int create;
+	char *tp;
+	const char *type, *what;
+	int serr;
 
 	for (; p; p = p->next) {
 		if (p->type != F_DIR && (dflag || p->flags & F_VISIT))
@@ -175,7 +166,7 @@ miss(p, tail)
 			/* Don't print missing message if file exists as a
 			   symbolic link and the -q flag is set. */
 			struct stat statbuf;
- 
+
 			if (qflag && stat(path, &statbuf) == 0)
 				p->flags |= F_VISIT;
 			else
@@ -202,11 +193,20 @@ miss(p, tail)
 					    strerror(errno));
 				else
 					(void)printf(" (created)\n");
-#if 0 /* lchown() does not exist on Darwin. */
-				if (lchown(path, p->st_uid, p->st_gid))
-					(void)printf("%s: user/group not modified: %s\n",
-					    path, strerror(errno));
-#endif
+				if (lchown(path, p->st_uid, p->st_gid) == -1) {
+					serr = errno;
+					if (p->st_uid == (uid_t)-1)
+						what = "group";
+					else if (lchown(path, (uid_t)-1,
+					    p->st_gid) == -1)
+						what = "user & group";
+					else {
+						what = "user";
+						errno = serr;
+					}
+					(void)printf("%s: %s not modified: %s"
+					    "\n", path, what, strerror(errno));
+				}
 				continue;
 			} else if (!(p->flags & F_MODE))
 			    (void)printf(" (directory not created: mode not specified)");
@@ -228,12 +228,18 @@ miss(p, tail)
 
 		if (!create)
 			continue;
-		if (chown(path, p->st_uid, p->st_gid)) {
-			(void)printf("%s: user/group/mode not modified: %s\n",
-			    path, strerror(errno));
-			(void)printf("%s: warning: file mode %snot set\n", path,
-			    (p->flags & F_FLAGS) ? "and file flags " : "");
-			continue;
+		if (chown(path, p->st_uid, p->st_gid) == -1) {
+			serr = errno;
+			if (p->st_uid == (uid_t)-1)
+				what = "group";
+			else if (chown(path, (uid_t)-1, p->st_gid) == -1)
+				what = "user & group";
+			else {
+				what = "user";
+				errno = serr;
+			}
+			(void)printf("%s: %s not modified: %s\n",
+			    path, what, strerror(errno));
 		}
 		if (chmod(path, p->st_mode))
 			(void)printf("%s: permissions not set: %s\n",

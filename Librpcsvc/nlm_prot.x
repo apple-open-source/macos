@@ -33,7 +33,7 @@
 %#ifndef lint
 %/*static char sccsid[] = "from: @(#)nlm_prot.x 1.8 87/09/21 Copyr 1987 Sun Micro";*/
 %/*static char sccsid[] = "from: * @(#)nlm_prot.x	2.1 88/08/01 4.0 RPCSRC";*/
-%static char rcsid[] = "$Id: nlm_prot.x,v 1.4 2003/03/12 21:12:56 majka Exp $";
+%static char rcsid[] = "$Id: nlm_prot.x,v 1.4.2.1 2005/09/08 17:08:20 majka Exp $";
 %#endif /* not lint */
 #endif
 
@@ -157,7 +157,7 @@ struct	nlm_shareres {
 
 struct	nlm_notify {
 	string name<MAXNAMELEN>;
-	long state;
+	rpc_int state;
 };
 
 #ifdef RPC_HDR

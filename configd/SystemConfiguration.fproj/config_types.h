@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,9 @@
 #undef mig_external
 #endif
 #define mig_external __private_extern__
+
+/* Turn MIG type checking on by default */
+#define __MigTypeCheck	1
 
 /*
  * Mach server port name

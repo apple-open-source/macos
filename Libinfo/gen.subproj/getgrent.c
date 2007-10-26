@@ -124,10 +124,10 @@ start_gr()
 	return((_gr_fp = fopen(_PATH_GROUP, "r")) ? 1 : 0);
 }
 
-int
+void
 setgrent()
 {
-	return(setgroupent(0));
+	setgroupent(0);
 }
 
 int

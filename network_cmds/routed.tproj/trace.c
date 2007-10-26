@@ -78,6 +78,7 @@ static	char *savetracename;
 
 static int iftraceinit();
 
+void
 traceinit(ifp)
 	register struct interface *ifp;
 {
@@ -90,6 +91,7 @@ traceinit(ifp)
 }
 
 
+static int
 iftraceinit(ifp, ifd)
 	struct interface *ifp;
 	register struct ifdebug *ifd;
@@ -110,6 +112,7 @@ iftraceinit(ifp, ifd)
 	return (1);
 }
 
+void
 traceon(file)
 	char *file;
 {
@@ -130,6 +133,7 @@ traceon(file)
 	fprintf(ftrace, "Tracing enabled %s\n", ctime((time_t *)&now.tv_sec));
 }
 
+void
 traceoff()
 {
 	if (!traceactions)
@@ -173,6 +177,7 @@ sigtrace(s)
  *	traceactions + tracehistory (packets and contents after change)
  *	traceactions + tracepackets + tracecontents
  */
+void
 bumploglevel()
 {
 
@@ -206,6 +211,7 @@ bumploglevel()
 		fflush(ftrace);
 }
 
+void
 trace(ifd, who, p, len, m)
 	register struct ifdebug *ifd;
 	struct sockaddr *who;
@@ -238,6 +244,7 @@ trace(ifd, who, p, len, m)
 	t->ift_metric = m;
 }
 
+void
 traceaction(fd, action, rt)
 	FILE *fd;
 	char *action;
@@ -265,7 +272,6 @@ traceaction(fd, action, rt)
 	register struct bits *p;
 	register int first;
 	char *cp;
-	struct interface *ifp;
 
 	if (fd == NULL)
 		return;
@@ -309,6 +315,7 @@ traceaction(fd, action, rt)
 		traceoff();
 }
 
+void
 tracenewmetric(fd, rt, newmetric)
 	FILE *fd;
 	struct rt_entry *rt;
@@ -332,6 +339,7 @@ tracenewmetric(fd, rt, newmetric)
 		traceoff();
 }
 
+void
 dumpif(fd, ifp)
 	FILE *fd;
 	register struct interface *ifp;
@@ -347,6 +355,7 @@ dumpif(fd, ifp)
 	}
 }
 
+void
 dumptrace(fd, dir, ifd)
 	FILE *fd;
 	char *dir;
@@ -370,11 +379,12 @@ dumptrace(fd, dir, ifd)
 			t = ifd->ifd_records;
 		if (t->ift_size == 0)
 			continue;
-		dumppacket(fd, dir, &t->ift_who, t->ift_packet, t->ift_size,
+		dumppacket(fd, dir, (struct sockaddr_in *)&t->ift_who, t->ift_packet, t->ift_size,
 		    &t->ift_stamp);
 	}
 }
 
+void
 dumppacket(fd, dir, who, cp, size, stamp)
 	FILE *fd;
 	struct sockaddr_in *who;		/* should be sockaddr */
@@ -392,9 +402,9 @@ dumppacket(fd, dir, who, cp, size, stamp)
 		    dir, inet_ntoa(who->sin_addr), ntohs(who->sin_port),
 		    ctime((time_t *)&stamp->tv_sec));
 	else {
-		fprintf(fd, "Bad cmd 0x%x %s %x.%d %.19s\n", msg->rip_cmd,
+		fprintf(fd, "Bad cmd 0x%x %s %s.%d\n", msg->rip_cmd,
 		    dir, inet_ntoa(who->sin_addr), ntohs(who->sin_port));
-		fprintf(fd, "size=%d cp=%x packet=%x\n", size, cp, packet,
+		fprintf(fd, "size=%d cp=%s packet=%s %.19s\n", size, cp, packet,
 		    ctime((time_t *)&stamp->tv_sec));
 		fflush(fd);
 		return;

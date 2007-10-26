@@ -3,6 +3,7 @@
    Samba utility functions
    Copyright (C) Andrew Tridgell 1992-1998
    Copyright (C) Tim Potter      2000-2001
+   Copyright (C) Jeremy Allison  1992-2005
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -21,13 +22,18 @@
 
 #include "includes.h"
 
-/* the last IP received from */
-struct in_addr lastip;
+/* the following 3 client_*() functions are nasty ways of allowing
+   some generic functions to get info that really should be hidden in
+   particular modules */
+static int client_fd = -1;
+/* What to print out on a client disconnect error. */
+static char client_ip_string[16];
 
-/* the last port received from */
-int lastport=0;
-
-int smb_read_error = 0;
+void client_setfd(int fd)
+{
+	client_fd = fd;
+	safe_strcpy(client_ip_string, get_peer_addr(client_fd), sizeof(client_ip_string)-1);
+}
 
 static char *get_socket_addr(int fd)
 {
@@ -69,6 +75,47 @@ static int get_socket_port(int fd)
 	return ntohs(sockin->sin_port);
 }
 
+char *client_name(void)
+{
+	return get_peer_name(client_fd,False);
+}
+
+char *client_addr(void)
+{
+	return get_peer_addr(client_fd);
+}
+
+char *client_socket_addr(void)
+{
+	return get_socket_addr(client_fd);
+}
+
+int client_socket_port(void)
+{
+	return get_socket_port(client_fd);
+}
+
+struct in_addr *client_inaddr(struct sockaddr *sa)
+{
+	struct sockaddr_in *sockin = (struct sockaddr_in *) (sa);
+	socklen_t  length = sizeof(*sa);
+	
+	if (getpeername(client_fd, sa, &length) < 0) {
+		DEBUG(0,("getpeername failed. Error was %s\n", strerror(errno) ));
+		return NULL;
+	}
+	
+	return &sockin->sin_addr;
+}
+
+/* the last IP received from */
+struct in_addr lastip;
+
+/* the last port received from */
+int lastport=0;
+
+int smb_read_error = 0;
+
 /****************************************************************************
  Determine if a file descriptor is in fact a socket.
 ****************************************************************************/
@@ -98,6 +145,15 @@ static const smb_socket_option socket_options[] = {
 #ifdef TCP_NODELAY
   {"TCP_NODELAY",       IPPROTO_TCP,   TCP_NODELAY,     0,                 OPT_BOOL},
 #endif
+#ifdef TCP_KEEPCNT
+  {"TCP_KEEPCNT",       IPPROTO_TCP,   TCP_KEEPCNT,     0,                 OPT_INT},
+#endif
+#ifdef TCP_KEEPIDLE
+  {"TCP_KEEPIDLE",      IPPROTO_TCP,   TCP_KEEPIDLE,    0,                 OPT_INT},
+#endif
+#ifdef TCP_KEEPINTVL
+  {"TCP_KEEPINTVL",     IPPROTO_TCP,   TCP_KEEPINTVL,   0,                 OPT_INT},
+#endif
 #ifdef IPTOS_LOWDELAY
   {"IPTOS_LOWDELAY",    IPPROTO_IP,    IP_TOS,          IPTOS_LOWDELAY,    OPT_ON},
 #endif
@@ -125,6 +181,9 @@ static const smb_socket_option socket_options[] = {
 #ifdef SO_RCVTIMEO
   {"SO_RCVTIMEO",       SOL_SOCKET,    SO_RCVTIMEO,     0,                 OPT_INT},
 #endif
+#ifdef TCP_FASTACK
+  {"TCP_FASTACK",       IPPROTO_TCP,   TCP_FASTACK,     0,                 OPT_INT},
+#endif
   {NULL,0,0,0,0}};
 
 /****************************************************************************
@@ -139,7 +198,7 @@ static void print_socket_options(int s)
 
 	/* wrapped in if statement to prevent streams leak in SCO Openserver 5.0 */
 	/* reported on samba-technical  --jerry */
-	if ( SAMBA_DEBUGLEVEL >= 5 ) {
+	if ( DEBUGLEVEL >= 5 ) {
 	for (; p->name != NULL; p++) {
 		if (getsockopt(s, p->level, p->option, (void *)&value, &vlen) == -1) {
 			DEBUG(5,("Could not test socket option %s.\n", p->name));
@@ -219,7 +278,12 @@ ssize_t read_udp_socket(int fd,char *buf,size_t len)
 	memset((char *)&lastip,'\0',sizeof(lastip));
 	ret = (ssize_t)sys_recvfrom(fd,buf,len,0,(struct sockaddr *)&sock,&socklen);
 	if (ret <= 0) {
-		DEBUG(2,("read socket failed. ERRNO=%s\n",strerror(errno)));
+		/* Don't print a low debug error for a non-blocking socket. */
+		if (errno == EAGAIN) {
+			DEBUG(10,("read socket returned EAGAIN. ERRNO=%s\n",strerror(errno)));
+		} else {
+			DEBUG(2,("read socket failed. ERRNO=%s\n",strerror(errno)));
+		}
 		return(0);
 	}
 
@@ -231,6 +295,99 @@ ssize_t read_udp_socket(int fd,char *buf,size_t len)
 
 	return(ret);
 }
+
+#if 0
+
+Socket routines from HEAD - maybe re-enable in future. JRA.
+
+/****************************************************************************
+ Work out if we've timed out.
+****************************************************************************/
+
+static BOOL timeout_until(struct timeval *timeout, const struct timeval *endtime)
+{
+	struct timeval now;
+	SMB_BIG_INT t_dif;
+
+	GetTimeOfDay(&now);
+
+	t_dif = usec_time_diff(endtime, &now);
+	if (t_dif <= 0) {
+		return False;
+	}
+
+	timeout->tv_sec = (t_dif / (SMB_BIG_INT)1000000);
+	timeout->tv_usec = (t_dif % (SMB_BIG_INT)1000000);
+	return True;
+}
+
+/****************************************************************************
+ Read data from the client, reading exactly N bytes, or until endtime timeout.
+ Use with a non-blocking socket if endtime != NULL.
+****************************************************************************/
+
+ssize_t read_data_until(int fd,char *buffer,size_t N, const struct timeval *endtime)
+{
+	ssize_t ret;
+	size_t total=0;
+
+	smb_read_error = 0;
+
+	while (total < N) {
+
+		if (endtime != NULL) {
+			fd_set r_fds;
+			struct timeval timeout;
+			int selrtn;
+
+			if (!timeout_until(&timeout, endtime)) {
+				DEBUG(10,("read_data_until: read timed out\n"));
+				smb_read_error = READ_TIMEOUT;
+				return -1;
+			}
+
+			FD_ZERO(&r_fds);
+			FD_SET(fd, &r_fds);
+
+			/* Select but ignore EINTR. */
+			selrtn = sys_select_intr(fd+1, &r_fds, NULL, NULL, &timeout);
+			if (selrtn == -1) {
+				/* something is wrong. Maybe the socket is dead? */
+				DEBUG(0,("read_data_until: select error = %s.\n", strerror(errno) ));
+				smb_read_error = READ_ERROR;
+				return -1;
+			}
+
+			/* Did we timeout ? */
+			if (selrtn == 0) {
+				DEBUG(10,("read_data_until: select timed out.\n"));
+				smb_read_error = READ_TIMEOUT;
+				return -1;
+			}
+		}
+
+		ret = sys_read(fd,buffer + total,N - total);
+
+		if (ret == 0) {
+			DEBUG(10,("read_data_until: read of %d returned 0. Error = %s\n", (int)(N - total), strerror(errno) ));
+			smb_read_error = READ_EOF;
+			return 0;
+		}
+
+		if (ret == -1) {
+			if (errno == EAGAIN) {
+				/* Non-blocking socket with no data available. Try select again. */
+				continue;
+			}
+			DEBUG(0,("read_data_until: read failure for %d. Error = %s\n", (int)(N - total), strerror(errno) ));
+			smb_read_error = READ_ERROR;
+			return -1;
+		}
+		total += ret;
+	}
+	return (ssize_t)total;
+}
+#endif
 
 /****************************************************************************
  Read data from a socket with a timout in msec.
@@ -254,15 +411,13 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 	smb_read_error = 0;
 	
 	/* Blocking read */
-	if (time_out <= 0) {
-		if (mincnt == 0) mincnt = maxcnt;
+	if (time_out == 0) {
+		if (mincnt == 0) {
+			mincnt = maxcnt;
+		}
 		
 		while (nread < mincnt) {
-		#ifdef USES_RECVFROM
-			readret = sys_recvfrom(fd, buf + nread, maxcnt - nread, MSG_WAITALL, NULL, NULL);
-		#else
 			readret = sys_read(fd, buf + nread, maxcnt - nread);
-		#endif
 			
 			if (readret == 0) {
 				DEBUG(5,("read_socket_with_timeout: blocking read. EOF from client.\n"));
@@ -271,7 +426,13 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 			}
 			
 			if (readret == -1) {
-				DEBUG(0,("read_socket_with_timeout: read error = %s.\n", strerror(errno) ));
+				if (fd == client_fd) {
+					/* Try and give an error message saying what client failed. */
+					DEBUG(0,("read_socket_with_timeout: client %s read error = %s.\n",
+						client_ip_string, strerror(errno) ));
+				} else {
+					DEBUG(0,("read_socket_with_timeout: read error = %s.\n", strerror(errno) ));
+				}
 				smb_read_error = READ_ERROR;
 				return -1;
 			}
@@ -299,7 +460,13 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 		/* Check if error */
 		if (selrtn == -1) {
 			/* something is wrong. Maybe the socket is dead? */
-			DEBUG(0,("read_socket_with_timeout: timeout read. select error = %s.\n", strerror(errno) ));
+			if (fd == client_fd) {
+				/* Try and give an error message saying what client failed. */
+				DEBUG(0,("read_socket_with_timeout: timeout read for client %s. select error = %s.\n",
+					client_ip_string, strerror(errno) ));
+			} else {
+				DEBUG(0,("read_socket_with_timeout: timeout read. select error = %s.\n", strerror(errno) ));
+			}
 			smb_read_error = READ_ERROR;
 			return -1;
 		}
@@ -311,11 +478,7 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 			return -1;
 		}
 		
-	#ifdef USES_RECVFROM
-		readret = sys_recvfrom(fd, buf+nread, maxcnt-nread, MSG_WAITALL, NULL, NULL);
-	#else
 		readret = sys_read(fd, buf+nread, maxcnt-nread);
-	#endif	
 		
 		if (readret == 0) {
 			/* we got EOF on the file descriptor */
@@ -326,7 +489,13 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 		
 		if (readret == -1) {
 			/* the descriptor is probably dead */
-			DEBUG(0,("read_socket_with_timeout: timeout read. read error = %s.\n", strerror(errno) ));
+			if (fd == client_fd) {
+				/* Try and give an error message saying what client failed. */
+				DEBUG(0,("read_socket_with_timeout: timeout read to client %s. read error = %s.\n",
+					client_ip_string, strerror(errno) ));
+			} else {
+				DEBUG(0,("read_socket_with_timeout: timeout read. read error = %s.\n", strerror(errno) ));
+			}
 			smb_read_error = READ_ERROR;
 			return -1;
 		}
@@ -350,11 +519,7 @@ ssize_t read_data(int fd,char *buffer,size_t N)
 	smb_read_error = 0;
 
 	while (total < N) {
-	#ifdef USES_RECVFROM
-		ret = sys_recvfrom(fd,buffer + total,N - total,MSG_WAITALL,NULL,NULL);
-	#else
 		ret = sys_read(fd,buffer + total,N - total);
-	#endif
 
 		if (ret == 0) {
 			DEBUG(10,("read_data: read of %d returned 0. Error = %s\n", (int)(N - total), strerror(errno) ));
@@ -363,41 +528,13 @@ ssize_t read_data(int fd,char *buffer,size_t N)
 		}
 
 		if (ret == -1) {
-			DEBUG(0,("read_data: read failure for %d. Error = %s\n", (int)(N - total), strerror(errno) ));
-			smb_read_error = READ_ERROR;
-			return -1;
-		}
-		total += ret;
-	}
-	return (ssize_t)total;
-}
-
-/****************************************************************************
- Read data from a socket, reading exactly N bytes. 
-****************************************************************************/
-
-static ssize_t read_socket_data(int fd,char *buffer,size_t N)
-{
-	ssize_t ret;
-	size_t total=0;  
- 
-	smb_read_error = 0;
-
-	while (total < N) {
-	#ifdef USES_RECVFROM
-		ret = sys_recvfrom(fd,buffer + total,N - total,MSG_WAITALL,NULL,NULL);
-	#else
-		ret = sys_read(fd,buffer + total,N - total);
-	#endif
-
-		if (ret == 0) {
-			DEBUG(10,("read_socket_data: recv of %d returned 0. Error = %s\n", (int)(N - total), strerror(errno) ));
-			smb_read_error = READ_EOF;
-			return 0;
-		}
-
-		if (ret == -1) {
-			DEBUG(0,("read_socket_data: recv failure for %d. Error = %s\n", (int)(N - total), strerror(errno) ));
+			if (fd == client_fd) {
+				/* Try and give an error message saying what client failed. */
+				DEBUG(0,("read_data: read failure for %d bytes to client %s. Error = %s\n",
+					(int)(N - total), client_ip_string, strerror(errno) ));
+			} else {
+				DEBUG(0,("read_data: read failure for %d. Error = %s\n", (int)(N - total), strerror(errno) ));
+			}
 			smb_read_error = READ_ERROR;
 			return -1;
 		}
@@ -410,7 +547,7 @@ static ssize_t read_socket_data(int fd,char *buffer,size_t N)
  Write data to a fd.
 ****************************************************************************/
 
-ssize_t write_data(int fd,char *buffer,size_t N)
+ssize_t write_data(int fd, const char *buffer, size_t N)
 {
 	size_t total=0;
 	ssize_t ret;
@@ -419,58 +556,23 @@ ssize_t write_data(int fd,char *buffer,size_t N)
 		ret = sys_write(fd,buffer + total,N - total);
 
 		if (ret == -1) {
-			DEBUG(0,("write_data: write failure. Error = %s\n", strerror(errno) ));
+			if (fd == client_fd) {
+				/* Try and give an error message saying what client failed. */
+				DEBUG(0,("write_data: write failure in writing to client %s. Error %s\n",
+					client_ip_string, strerror(errno) ));
+			} else {
+				DEBUG(0,("write_data: write failure. Error = %s\n", strerror(errno) ));
+			}
 			return -1;
 		}
-		if (ret == 0)
+
+		if (ret == 0) {
 			return total;
+		}
 
 		total += ret;
 	}
 	return (ssize_t)total;
-}
-
-/****************************************************************************
- Write data to a socket - use send rather than write.
-****************************************************************************/
-
-static ssize_t write_socket_data(int fd,char *buffer,size_t N)
-{
-	size_t total=0;
-	ssize_t ret;
-
-	while (total < N) {
-		ret = sys_send(fd,buffer + total,N - total,0);
-
-		if (ret == -1) {
-			DEBUG(0,("write_socket_data: write failure. Error = %s\n", strerror(errno) ));
-			return -1;
-		}
-		if (ret == 0)
-			return total;
-
-		total += ret;
-	}
-	return (ssize_t)total;
-}
-
-/****************************************************************************
- Write to a socket.
-****************************************************************************/
-
-ssize_t write_socket(int fd,char *buf,size_t len)
-{
-	ssize_t ret=0;
-
-	DEBUG(6,("write_socket(%d,%d)\n",fd,(int)len));
-	ret = write_socket_data(fd,buf,len);
-      
-	DEBUG(6,("write_socket(%d,%d) wrote %d\n",fd,(int)len,(int)ret));
-	if(ret <= 0)
-		DEBUG(0,("write_socket: Error writing %d bytes to socket %d: ERRNO = %s\n", 
-			(int)len, fd, strerror(errno) ));
-
-	return(ret);
 }
 
 /****************************************************************************
@@ -484,7 +586,7 @@ BOOL send_keepalive(int client)
 	buf[0] = SMBkeepalive;
 	buf[1] = buf[2] = buf[3] = 0;
 
-	return(write_socket_data(client,(char *)buf,4) == 4);
+	return(write_data(client,(char *)buf,4) == 4);
 }
 
 
@@ -496,7 +598,7 @@ BOOL send_keepalive(int client)
  Timeout is in milliseconds.
 ****************************************************************************/
 
-static ssize_t read_smb_length_return_keepalive(int fd,char *inbuf,unsigned int timeout)
+static ssize_t read_smb_length_return_keepalive(int fd, char *inbuf, unsigned int timeout)
 {
 	ssize_t len=0;
 	int msg_type;
@@ -506,7 +608,7 @@ static ssize_t read_smb_length_return_keepalive(int fd,char *inbuf,unsigned int 
 		if (timeout > 0)
 			ok = (read_socket_with_timeout(fd,inbuf,4,4,timeout) == 4);
 		else 
-			ok = (read_socket_data(fd,inbuf,4) == 4);
+			ok = (read_data(fd,inbuf,4) == 4);
 
 		if (!ok)
 			return(-1);
@@ -530,7 +632,7 @@ static ssize_t read_smb_length_return_keepalive(int fd,char *inbuf,unsigned int 
  Timeout is in milliseconds.
 ****************************************************************************/
 
-ssize_t read_smb_length(int fd,char *inbuf,unsigned int timeout)
+ssize_t read_smb_length(int fd, char *inbuf, unsigned int timeout)
 {
 	ssize_t len;
 
@@ -559,13 +661,11 @@ ssize_t read_smb_length(int fd,char *inbuf,unsigned int timeout)
  Doesn't check the MAC on signed packets.
 ****************************************************************************/
 
-BOOL receive_smb_raw(int fd,char *buffer, unsigned int timeout)
+BOOL receive_smb_raw(int fd, char *buffer, unsigned int timeout)
 {
 	ssize_t len,ret;
 
 	smb_read_error = 0;
-
-	memset(buffer,'\0',smb_size + 100);
 
 	len = read_smb_length_return_keepalive(fd,buffer,timeout);
 	if (len < 0) {
@@ -604,10 +704,16 @@ BOOL receive_smb_raw(int fd,char *buffer, unsigned int timeout)
 	}
 
 	if(len > 0) {
-		ret = read_socket_data(fd,buffer+4,len);
+		if (timeout > 0) {
+			ret = read_socket_with_timeout(fd,buffer+4,len,len,timeout);
+		} else {
+			ret = read_data(fd,buffer+4,len);
+		}
+
 		if (ret != len) {
-			if (smb_read_error == 0)
+			if (smb_read_error == 0) {
 				smb_read_error = READ_ERROR;
+			}
 			return False;
 		}
 		
@@ -624,7 +730,7 @@ BOOL receive_smb_raw(int fd,char *buffer, unsigned int timeout)
  Checks the MAC on signed packets.
 ****************************************************************************/
 
-BOOL receive_smb(int fd,char *buffer, unsigned int timeout)
+BOOL receive_smb(int fd, char *buffer, unsigned int timeout)
 {
 	if (!receive_smb_raw(fd, buffer, timeout)) {
 		return False;
@@ -645,7 +751,7 @@ BOOL receive_smb(int fd,char *buffer, unsigned int timeout)
  Send an smb to a fd.
 ****************************************************************************/
 
-BOOL send_smb(int fd,char *buffer)
+BOOL send_smb(int fd, char *buffer)
 {
 	size_t len;
 	size_t nwritten=0;
@@ -657,7 +763,7 @@ BOOL send_smb(int fd,char *buffer)
 	len = smb_len(buffer) + 4;
 
 	while (nwritten < len) {
-		ret = write_socket(fd,buffer+nwritten,len - nwritten);
+		ret = write_data(fd,buffer+nwritten,len - nwritten);
 		if (ret <= 0) {
 			DEBUG(0,("Error writing %d bytes to client. %d. (%s)\n",
 				(int)len,(int)ret, strerror(errno) ));
@@ -814,6 +920,159 @@ int open_socket_out(int type, struct in_addr *addr, int port ,int timeout)
 }
 
 /****************************************************************************
+ Create an outgoing TCP socket to any of the addrs. This is for
+ simultaneous connects to port 445 and 139 of a host or even a variety
+ of DC's all of which are equivalent for our purposes.
+**************************************************************************/
+
+BOOL open_any_socket_out(struct sockaddr_in *addrs, int num_addrs,
+			 int timeout, int *fd_index, int *fd)
+{
+	int i, resulting_index, res;
+	int *sockets;
+	BOOL good_connect;
+
+	fd_set r_fds, wr_fds;
+	struct timeval tv;
+	int maxfd;
+
+	int connect_loop = 10000; /* 10 milliseconds */
+
+	timeout *= 1000; 	/* convert to microseconds */
+
+	sockets = SMB_MALLOC_ARRAY(int, num_addrs);
+
+	if (sockets == NULL)
+		return False;
+
+	resulting_index = -1;
+
+	for (i=0; i<num_addrs; i++)
+		sockets[i] = -1;
+
+	for (i=0; i<num_addrs; i++) {
+		sockets[i] = socket(PF_INET, SOCK_STREAM, 0);
+		if (sockets[i] < 0)
+			goto done;
+		set_blocking(sockets[i], False);
+	}
+
+ connect_again:
+	good_connect = False;
+
+	for (i=0; i<num_addrs; i++) {
+
+		if (sockets[i] == -1)
+			continue;
+
+		if (connect(sockets[i], (struct sockaddr *)&(addrs[i]),
+			    sizeof(*addrs)) == 0) {
+			/* Rather unlikely as we are non-blocking, but it
+			 * might actually happen. */
+			resulting_index = i;
+			goto done;
+		}
+
+		if (errno == EINPROGRESS || errno == EALREADY ||
+#ifdef EISCONN
+			errno == EISCONN ||
+#endif
+		    errno == EAGAIN || errno == EINTR) {
+			/* These are the error messages that something is
+			   progressing. */
+			good_connect = True;
+		} else if (errno != 0) {
+			/* There was a direct error */
+			close(sockets[i]);
+			sockets[i] = -1;
+		}
+	}
+
+	if (!good_connect) {
+		/* All of the connect's resulted in real error conditions */
+		goto done;
+	}
+
+	/* Lets see if any of the connect attempts succeeded */
+
+	maxfd = 0;
+	FD_ZERO(&wr_fds);
+	FD_ZERO(&r_fds);
+
+	for (i=0; i<num_addrs; i++) {
+		if (sockets[i] == -1)
+			continue;
+		FD_SET(sockets[i], &wr_fds);
+		FD_SET(sockets[i], &r_fds);
+		if (sockets[i]>maxfd)
+			maxfd = sockets[i];
+	}
+
+	tv.tv_sec = 0;
+	tv.tv_usec = connect_loop;
+
+	res = sys_select_intr(maxfd+1, &r_fds, &wr_fds, NULL, &tv);
+
+	if (res < 0)
+		goto done;
+
+	if (res == 0)
+		goto next_round;
+
+	for (i=0; i<num_addrs; i++) {
+
+		if (sockets[i] == -1)
+			continue;
+
+		/* Stevens, Network Programming says that if there's a
+		 * successful connect, the socket is only writable. Upon an
+		 * error, it's both readable and writable. */
+
+		if (FD_ISSET(sockets[i], &r_fds) &&
+		    FD_ISSET(sockets[i], &wr_fds)) {
+			/* readable and writable, so it's an error */
+			close(sockets[i]);
+			sockets[i] = -1;
+			continue;
+		}
+
+		if (!FD_ISSET(sockets[i], &r_fds) &&
+		    FD_ISSET(sockets[i], &wr_fds)) {
+			/* Only writable, so it's connected */
+			resulting_index = i;
+			goto done;
+		}
+	}
+
+ next_round:
+
+	timeout -= connect_loop;
+	if (timeout <= 0)
+		goto done;
+	connect_loop *= 1.5;
+	if (connect_loop > timeout)
+		connect_loop = timeout;
+	goto connect_again;
+
+ done:
+	for (i=0; i<num_addrs; i++) {
+		if (i == resulting_index)
+			continue;
+		if (sockets[i] >= 0)
+			close(sockets[i]);
+	}
+
+	if (resulting_index >= 0) {
+		*fd_index = resulting_index;
+		*fd = sockets[*fd_index];
+		set_blocking(*fd, True);
+	}
+
+	free(sockets);
+
+	return (resulting_index >= 0);
+}
+/****************************************************************************
  Open a connected UDP socket to host on port
 **************************************************************************/
 
@@ -844,49 +1103,6 @@ int open_udp_socket(const char *host, int port)
 	return res;
 }
 
-
-/* the following 3 client_*() functions are nasty ways of allowing
-   some generic functions to get info that really should be hidden in
-   particular modules */
-static int client_fd = -1;
-
-void client_setfd(int fd)
-{
-	client_fd = fd;
-}
-
-char *client_name(void)
-{
-	return get_peer_name(client_fd,False);
-}
-
-char *client_addr(void)
-{
-	return get_peer_addr(client_fd);
-}
-
-char *client_socket_addr(void)
-{
-	return get_socket_addr(client_fd);
-}
-
-int client_socket_port(void)
-{
-	return get_socket_port(client_fd);
-}
-
-struct in_addr *client_inaddr(struct sockaddr *sa)
-{
-	struct sockaddr_in *sockin = (struct sockaddr_in *) (sa);
-	socklen_t  length = sizeof(*sa);
-	
-	if (getpeername(client_fd, sa, &length) < 0) {
-		DEBUG(0,("getpeername failed. Error was %s\n", strerror(errno) ));
-		return NULL;
-	}
-	
-	return &sockin->sin_addr;
-}
 
 /*******************************************************************
  Matchname - determine if host name matches IP address. Used to

@@ -27,8 +27,8 @@
 
 #include "cli/cli-decode.h"
 
-/* FIXME: This is needed because of lookup_cmd_1().
-   We should be calling a hook instead so we eliminate the CLI dependency. */
+/* FIXME: This is needed because of lookup_cmd_1 ().  We should be
+   calling a hook instead so we eliminate the CLI dependency.  */
 #include "gdbcmd.h"
 
 /* Needed for rl_completer_word_break_characters() and for
@@ -42,7 +42,8 @@
 
 /* Prototypes for local functions */
 static
-char *line_completion_function (const char *text, int matches, char *line_buffer,
+char *line_completion_function (const char *text, int matches, 
+				char *line_buffer,
 				int point);
 
 /* readline uses the word breaks for two things:
@@ -63,10 +64,12 @@ char *line_completion_function (const char *text, int matches, char *line_buffer
    readline library sees one in any of the current completion strings,
    it thinks that the string needs to be quoted and automatically supplies
    a leading quote. */
-/* APPLE LOCAL: Don't include '/' in this list.  See also the copy of this
-   string in language.c:default_word_break_characters().  */
 static char *gdb_completer_command_word_break_characters =
+/* APPLE LOCAL begin completer */
+/* Don't include '/' in this list.  See also the copy of this string
+   in language.c:default_word_break_characters().  */
 " \t\n!@#$%^&*()+=|~`}{[]\"';:?>.<,";
+/* APPLE LOCAL end completer */
 
 /* When completing on file names, we remove from the list of word
    break characters any characters that are commonly used in file
@@ -80,9 +83,11 @@ static char *gdb_completer_file_name_break_characters = " \t\n*|\"';?><@";
 static char *gdb_completer_file_name_break_characters = " \t\n*|\"';:?><";
 #endif
 
+/* APPLE LOCAL begin completer */
 /* When completing a file name, only a space should be considered a
    word break character. */
 char *gdb_completer_filename_word_break_characters = " ";
+/* APPLE LOCAL end completer */
 
 /* Characters that can be used to quote completion strings.  Note that we
    can't include '"' because the gdb C parser treats such quoted sequences
@@ -579,12 +584,14 @@ complete_line (const char *text, char *line_buffer, int point)
 		{
 		  /* See the commentary above about the specifics
 		     of file-name completion.  */
-		  /* APPLE LOCAL: The net version backs up from word to look
-		     for the string to complete.  That breaks complete_command.
-		     You are supposed to be completing the word ending at the cursor,
-		     so back up from the cursor instead...  */
-		     
+		  /* APPLE LOCAL begin completer */
+		  /* The net version backs up from word to look for
+		     the string to complete.  That breaks
+		     complete_command.  You are supposed to be
+		     completing the word ending at the cursor, so back
+		     up from the cursor instead...  */
 		  for (p = tmp_command + point - 1;
+		       /* APPLE LOCAL end completer */
 		       p > tmp_command
 			 && strchr (gdb_completer_file_name_break_characters, p[-1]) == NULL;
 		       p--)

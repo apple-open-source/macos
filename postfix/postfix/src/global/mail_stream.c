@@ -8,8 +8,9 @@
 /*
 /*	typedef struct {
 /* .in +4
-/*		VSTREAM	*stream;
-/*		char	*id;
+/*		VSTREAM	*stream;	/* read/write stream */
+/*		char	*id;		/* queue ID */
+/*		struct timeval ctime;	/* create time */
 /*		private members...
 /* .in -4
 /*	} MAIL_STREAM;
@@ -33,6 +34,10 @@
 /*	int	mail_stream_finish(info, why)
 /*	MAIL_STREAM *info;
 /*	VSTRING	*why;
+/*
+/*	void	mail_stream_ctl(info, op, ...)
+/*	MAIL_STREAM *info;
+/*	int	op;
 /* DESCRIPTION
 /*	This module provides a generic interface to Postfix queue file
 /*	format messages to file, to Postfix server, or to external command.
@@ -44,7 +49,8 @@
 /*	mail_stream_file() opens a mail stream to a newly-created file and
 /*	arranges for trigger delivery at finish time. This call never fails.
 /*	But it may take forever. The mode argument specifies additional
-/*	file permissions that will be OR-ed in.
+/*	file permissions that will be OR-ed in when the file is finished.
+/*	While embryonic files have mode 0600, finished files have mode 0700.
 /*
 /*	mail_stream_command() opens a mail stream to external command,
 /*	and receives queue ID information from the command. The result
@@ -66,6 +72,30 @@
 /*	The result is any of the status codes defined in <cleanup_user.h>.
 /*	It is up to the caller to remove incomplete file objects.
 /*	The why argument can be a null pointer.
+/*
+/*	mail_stream_ctl() selectively overrides information that
+/*	was specified with mail_stream_file(); none of the attributes
+/*	are applicable for other mail stream types.  The arguments
+/*	are a list of (operation, value) pairs, terminated with
+/*	MAIL_STREAM_CTL_END.  The following lists the operation
+/*	codes and the types of the corresponding value arguments.
+/* .IP "MAIL_STREAM_CTL_QUEUE (char *)"
+/*	The argument specifies an alternate destination queue. The
+/*	queue file is moved to the specified queue before the call
+/*	returns. Failure to rename the queue file results in a fatal
+/*	error.
+/* .IP "MAIL_STREAM_CTL_CLASS (char *)"
+/*	The argument specifies an alternate trigger class.
+/* .IP "MAIL_STREAM_CTL_SERVICE (char *)"
+/*	The argument specifies an alternate trigger service.
+/* .IP "MAIL_STREAM_CTL_MODE (int)"
+/*	The argument specifies alternate permissions that override
+/*	the permissions specified with mail_stream_file().
+/* .IP "MAIL_STREAM_CTL_DELAY (int)"
+/*	Attempt to postpone initial delivery by advancing the queue
+/*	file modification time stamp by this amount.  This has
+/*	effect only within the deferred mail queue.
+/*	This feature may have no effect with remote file systems.
 /* LICENSE
 /* .ad
 /* .fi
@@ -85,6 +115,7 @@
 #include <errno.h>
 #include <utime.h>
 #include <string.h>
+#include <stdarg.h>
 
 /* Utility library. */
 
@@ -94,6 +125,7 @@
 #include <vstream.h>
 #include <stringops.h>
 #include <argv.h>
+#include <sane_fsops.h>
 
 /* Global library. */
 
@@ -108,7 +140,9 @@
 
 static VSTRING *id_buf;
 
-#define FREE_AND_WIPE(free, arg) { if (arg) free(arg); arg = 0; }
+#define FREE_AND_WIPE(free, arg) do { if (arg) free(arg); arg = 0; } while (0)
+
+#define STR(x)	vstring_str(x)
 
 /* mail_stream_cleanup - clean up after success or failure */
 
@@ -122,19 +156,72 @@ void    mail_stream_cleanup(MAIL_STREAM *info)
     myfree((char *) info);
 }
 
+#if defined(HAS_FUTIMES_AT)
+#define CAN_STAMP_BY_STREAM
+
+/* stamp_stream - update open file [am]time stamp */
+
+static int stamp_stream(VSTREAM *fp, time_t when)
+{
+    struct timeval tv;
+
+    if (when != 0) {
+	tv.tv_sec = when;
+	tv.tv_usec = 0;
+	return (futimesat(vstream_fileno(fp), (char *) 0, &tv));
+    } else {
+	return (futimesat(vstream_fileno(fp), (char *) 0, (struct timeval *) 0));
+    }
+}
+
+#elif defined(HAS_FUTIMES)
+#define CAN_STAMP_BY_STREAM
+
+/* stamp_stream - update open file [am]time stamp */
+
+static int stamp_stream(VSTREAM *fp, time_t when)
+{
+    struct timeval tv;
+
+    if (when != 0) {
+	tv.tv_sec = when;
+	tv.tv_usec = 0;
+	return (futimes(vstream_fileno(fp), &tv));
+    } else {
+	return (futimes(vstream_fileno(fp), (struct timeval *) 0));
+    }
+}
+
+#endif
+
+/* stamp_path - update file [am]time stamp by pathname */
+
+static int stamp_path(const char *path, time_t when)
+{
+    struct utimbuf tbuf;
+
+    if (when != 0) {
+	tbuf.actime = tbuf.modtime = when;
+	return (utime(path, &tbuf));
+    } else {
+	return (utime(path, (struct utimbuf *) 0));
+    }
+}
+
 /* mail_stream_finish_file - finish file mail stream */
 
 static int mail_stream_finish_file(MAIL_STREAM *info, VSTRING *unused_why)
 {
-    int     status = 0;
+    int     status = CLEANUP_STAT_OK;
     static char wakeup[] = {TRIGGER_REQ_WAKEUP};
     struct stat st;
-    time_t  now;
-    struct utimbuf tbuf;
     char   *path_to_reset = 0;
     static int incoming_fs_clock_ok = 0;
     static int incoming_clock_warned = 0;
     int     check_incoming_fs_clock;
+    int     err;
+    time_t  want_stamp;
+    time_t  expect_stamp;
 
     /*
      * Make sure the message makes it to file. Set the execute bit when no
@@ -151,16 +238,59 @@ static int mail_stream_finish_file(MAIL_STREAM *info, VSTRING *unused_why)
      * Attempt to detect file system clocks that are ahead of local time, but
      * don't check the file system clock all the time. The effect of file
      * system clock drift can be difficult to understand (Postfix ignores new
-     * mail until the next queue run).
+     * mail until the local clock catches up with the file mtime stamp).
      * 
      * This clock drift detection code may not work with file systems that work
      * on a local copy of the file and that update the server only after the
      * file is closed.
+     * 
+     * Optionally set a cooldown time.
+     * 
+     * XXX: We assume that utime() does control the file modification time even
+     * when followed by an fchmod(), fsync(), close() sequence. This may fail
+     * with remote file systems when fsync() actually updates the file. Even
+     * then, we still delay the average message by 1/2 of the
+     * queue_run_delay.
+     * 
+     * XXX: Victor does not like running utime() after the close(), since this
+     * creates a race even with local filesystems. But Wietse is not
+     * confident that utime() before fsync() and close() will work reliably
+     * with remote file systems.
+     * 
+     * XXX Don't run the clock skew tests with Postfix sendmail submissions.
+     * Don't whine against unsuspecting users or applications.
      */
     check_incoming_fs_clock =
 	(!incoming_fs_clock_ok && !strcmp(info->queue, MAIL_QUEUE_INCOMING));
 
+#ifdef DELAY_ACTION
+    if (strcmp(info->queue, MAIL_QUEUE_DEFERRED) != 0)
+	info->delay = 0;
+    if (info->delay > 0)
+	want_stamp = time((time_t *) 0) + info->delay;
+    else
+#endif
+	want_stamp = 0;
+
+    /*
+     * If we can cheaply set the file time stamp (no pathname lookup) do it
+     * anyway, so that we can avoid whining later about file server/client
+     * clock skew.
+     * 
+     * Otherwise, if we must set the file time stamp for delayed delivery, use
+     * whatever means we have to get the job done, no matter if it is
+     * expensive.
+     * 
+     * XXX Unfortunately, Linux futimes() is not usable because it uses /proc.
+     * This may not be available because of chroot, or because of access
+     * restrictions after a process changes privileges.
+     */
     if (vstream_fflush(info->stream)
+#ifdef CAN_STAMP_BY_STREAM
+	|| stamp_stream(info->stream, want_stamp)
+#else
+	|| (want_stamp && stamp_path(VSTREAM_PATH(info->stream), want_stamp))
+#endif
 	|| fchmod(vstream_fileno(info->stream), 0700 | info->mode)
 #ifdef HAS_FSYNC
 	|| fsync(vstream_fileno(info->stream))
@@ -169,25 +299,32 @@ static int mail_stream_finish_file(MAIL_STREAM *info, VSTRING *unused_why)
 	    && fstat(vstream_fileno(info->stream), &st) < 0)
 	)
 	status = (errno == EFBIG ? CLEANUP_STAT_SIZE : CLEANUP_STAT_WRITE);
-
 #ifdef TEST
     st.st_mtime += 10;
 #endif
 
     /*
-     * Work around file system clocks that are ahead of local time.
+     * Work around file system clock skew. If the file system clock is ahead
+     * of the local clock, Postfix won't deliver mail immediately, which is
+     * bad for performance. If the file system clock falls behind the local
+     * clock, it just looks silly in mail headers.
      */
     if (status == CLEANUP_STAT_OK && check_incoming_fs_clock) {
-	if (st.st_mtime <= time(&now)) {
-	    incoming_fs_clock_ok = 1;
-	} else {
+	/* Do NOT use time() result from before fsync(). */
+	expect_stamp = want_stamp ? want_stamp : time((time_t *) 0);
+	if (st.st_mtime > expect_stamp) {
 	    path_to_reset = mystrdup(VSTREAM_PATH(info->stream));
 	    if (incoming_clock_warned == 0) {
 		msg_warn("file system clock is %d seconds ahead of local clock",
-			 (int) (st.st_mtime - now));
+			 (int) (st.st_mtime - expect_stamp));
 		msg_warn("resetting file time stamps - this hurts performance");
 		incoming_clock_warned = 1;
 	    }
+	} else {
+	    if (st.st_mtime < expect_stamp - 100)
+		msg_warn("file system clock is %d seconds behind local clock",
+			 (int) (expect_stamp - st.st_mtime));
+	    incoming_fs_clock_ok = 1;
 	}
     }
 
@@ -199,17 +336,19 @@ static int mail_stream_finish_file(MAIL_STREAM *info, VSTRING *unused_why)
      * remote file system is not recommended, if only for performance
      * reasons.
      */
-    if (info->close(info->stream))
-	status = (errno == EFBIG ? CLEANUP_STAT_SIZE : CLEANUP_STAT_WRITE);
+    err = info->close(info->stream);
     info->stream = 0;
+    if (status == CLEANUP_STAT_OK && err != 0)
+	status = (errno == EFBIG ? CLEANUP_STAT_SIZE : CLEANUP_STAT_WRITE);
 
     /*
      * Work around file system clocks that are ahead of local time.
      */
     if (path_to_reset != 0) {
-	tbuf.actime = tbuf.modtime = now;
-	if (utime(path_to_reset, &tbuf) < 0 && errno != ENOENT)
-	    msg_fatal("%s: update file time stamps: %m", info->id);
+	if (status == CLEANUP_STAT_OK) {
+	    if (stamp_path(path_to_reset, expect_stamp) < 0 && errno != ENOENT)
+		msg_fatal("%s: update file time stamps: %m", info->id);
+	}
 	myfree(path_to_reset);
     }
 
@@ -217,7 +356,7 @@ static int mail_stream_finish_file(MAIL_STREAM *info, VSTRING *unused_why)
      * When all is well, notify the next service that a new message has been
      * queued.
      */
-    if (status == CLEANUP_STAT_OK)
+    if (status == CLEANUP_STAT_OK && info->class && info->service)
 	mail_trigger(info->class, info->service, wakeup, sizeof(wakeup));
 
     /*
@@ -237,11 +376,11 @@ static int mail_stream_finish_ipc(MAIL_STREAM *info, VSTRING *why)
      * Receive the peer's completion status.
      */
     if ((why && attr_scan(info->stream, ATTR_FLAG_STRICT,
-			  ATTR_TYPE_NUM, MAIL_ATTR_STATUS, &status,
+			  ATTR_TYPE_INT, MAIL_ATTR_STATUS, &status,
 			  ATTR_TYPE_STR, MAIL_ATTR_WHY, why,
 			  ATTR_TYPE_END) != 2)
 	|| (!why && attr_scan(info->stream, ATTR_FLAG_MISSING,
-			      ATTR_TYPE_NUM, MAIL_ATTR_STATUS, &status,
+			      ATTR_TYPE_INT, MAIL_ATTR_STATUS, &status,
 			      ATTR_TYPE_END) != 1))
 	status = CLEANUP_STAT_WRITE;
 
@@ -264,10 +403,11 @@ int     mail_stream_finish(MAIL_STREAM *info, VSTRING *why)
 MAIL_STREAM *mail_stream_file(const char *queue, const char *class,
 			              const char *service, int mode)
 {
+    struct timeval tv;
     MAIL_STREAM *info;
     VSTREAM *stream;
 
-    stream = mail_queue_enter(queue, 0600 | mode);
+    stream = mail_queue_enter(queue, 0600 | mode, &tv);
     if (msg_verbose)
 	msg_info("open %s", VSTREAM_PATH(stream));
 
@@ -280,6 +420,10 @@ MAIL_STREAM *mail_stream_file(const char *queue, const char *class,
     info->class = mystrdup(class);
     info->service = mystrdup(service);
     info->mode = mode;
+#ifdef DELAY_ACTION
+    info->delay = 0;
+#endif
+    info->ctime = tv;
     return (info);
 }
 
@@ -361,5 +505,113 @@ MAIL_STREAM *mail_stream_command(const char *command)
 	info->class = 0;
 	info->service = 0;
 	return (info);
+    }
+}
+
+/* mail_stream_ctl - update file-based mail stream properties */
+
+void    mail_stream_ctl(MAIL_STREAM *info, int op,...)
+{
+    const char *myname = "mail_stream_ctl";
+    va_list ap;
+    char   *new_queue = 0;
+    char   *string_value;
+
+    /*
+     * Sanity check. None of the attributes below are applicable unless the
+     * target is a file-based stream.
+     */
+    if (info->finish != mail_stream_finish_file)
+	msg_panic("%s: attempt to update non-file stream %s",
+		  myname, info->id);
+
+    for (va_start(ap, op); op != MAIL_STREAM_CTL_END; op = va_arg(ap, int)) {
+
+	switch (op) {
+
+	    /*
+	     * Change the queue directory. We do this at the end of this
+	     * call.
+	     */
+	case MAIL_STREAM_CTL_QUEUE:
+	    if ((new_queue = va_arg(ap, char *)) == 0)
+		msg_panic("%s: NULL queue",
+			  myname);
+	    break;
+
+	    /*
+	     * Change the service that needs to be notified.
+	     */
+	case MAIL_STREAM_CTL_CLASS:
+	    FREE_AND_WIPE(myfree, info->class);
+	    if ((string_value = va_arg(ap, char *)) != 0)
+		info->class = mystrdup(string_value);
+	    break;
+
+	case MAIL_STREAM_CTL_SERVICE:
+	    FREE_AND_WIPE(myfree, info->service);
+	    if ((string_value = va_arg(ap, char *)) != 0)
+		info->service = mystrdup(string_value);
+	    break;
+
+	    /*
+	     * Change the (finished) file access mode.
+	     */
+	case MAIL_STREAM_CTL_MODE:
+	    info->mode = va_arg(ap, int);
+	    break;
+
+	    /*
+	     * Advance the (finished) file modification time.
+	     */
+#ifdef DELAY_ACTION
+	case MAIL_STREAM_CTL_DELAY:
+	    if ((info->delay = va_arg(ap, int)) < 0)
+		msg_panic("%s: bad delay time %d", myname, info->delay);
+	    break;
+#endif
+
+	default:
+	    msg_panic("%s: bad op code %d", myname, op);
+	}
+    }
+    va_end(ap);
+
+    /*
+     * Rename the queue file after allocating memory for new information, so
+     * that the caller can still remove an embryonic file when memory
+     * allocation fails (there is no risk of deleting the wrong file).
+     * 
+     * Wietse opposed the idea to update run-time error handler information
+     * here, because this module wasn't designed to defend against internal
+     * concurrency issues with error handlers that attempt to follow dangling
+     * pointers.
+     * 
+     * This code duplicates mail_queue_rename(), except that we need the new
+     * path to update the stream pathname.
+     */
+    if (new_queue != 0 && strcmp(info->queue, new_queue) != 0) {
+	char   *saved_queue = info->queue;
+	char   *saved_path = mystrdup(VSTREAM_PATH(info->stream));
+	VSTRING *new_path = vstring_alloc(100);
+
+	(void) mail_queue_path(new_path, new_queue, info->id);
+	info->queue = mystrdup(new_queue);
+	vstream_control(info->stream, VSTREAM_CTL_PATH, STR(new_path),
+			VSTREAM_CTL_END);
+
+	if (sane_rename(saved_path, STR(new_path)) == 0
+	    || (mail_queue_mkdirs(STR(new_path)) == 0
+		&& sane_rename(saved_path, STR(new_path)) == 0)) {
+	    if (msg_verbose)
+		msg_info("%s: placed in %s queue", info->id, info->queue);
+	} else {
+	    msg_fatal("%s: move to %s queue failed: %m", info->id,
+		      info->queue);
+	}
+
+	myfree(saved_path);
+	myfree(saved_queue);
+	vstring_free(new_path);
     }
 }

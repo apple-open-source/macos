@@ -1,0 +1,205 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {
+                cancelLinkPolicy = id; 
+                getVersionInfo = id; 
+                handleDisconnect = id; 
+                handleLinkPolicyButton = id; 
+                handlePacketTypeButton = id; 
+                handlePacketTypeSendButton = id; 
+                handleViewQuality = id; 
+                setLinkPolicy = id; 
+            }; 
+            CLASS = ActiveConnectionWindow; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                browser = id; 
+                disconnectButton = id; 
+                holdModeButtonCell = NSButtonCell; 
+                linkPolicyButton = NSButton; 
+                linkPolicyPanel = NSPanel; 
+                masterSlaveSwitchButtonCell = NSButtonCell; 
+                packetTypeButton = id; 
+                packetTypeCheckDH1 = NSButton; 
+                packetTypeCheckDH3 = NSButton; 
+                packetTypeCheckDH5 = NSButton; 
+                packetTypeCheckDM1 = NSButton; 
+                packetTypeCheckDM3 = NSButton; 
+                packetTypeCheckDM5 = NSButton; 
+                packetTypePanel = NSPanel; 
+                parkModeButtonCell = NSButtonCell; 
+                sniffModeButtonCell = NSButtonCell; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }, 
+        {CLASS = ActiveConnections; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {controllerItemChanged = id; refreshList = id; switchTo = id; }; 
+            CLASS = BTHWSwitchPanel; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {listOfAvailableControllers = id; switchButton = id; }; 
+            SUPERCLASS = NSPanel; 
+        }, 
+        {
+            ACTIONS = {
+                imageAction = id; 
+                makeKeyAndOrderFront = id; 
+                menuAction = id; 
+                setBluetoothDevice = id; 
+            }; 
+            CLASS = BTVUMeterWindow; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {deviceTextField = id; imageField = id; valueField = id; }; 
+            SUPERCLASS = NSWindow; 
+        }, 
+        {
+            ACTIONS = {clearFoundDevices = id; handleSearchButton = id; }; 
+            CLASS = BluetoothExplorerWindow; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                "_buttonMatrix" = id; 
+                "_matrixView" = id; 
+                "_messageText" = id; 
+                "_progressBar" = id; 
+                "_searchButton" = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {
+                refreshDeviceCacheList = id; 
+                removeAllDevicesFromDeviceCache = id; 
+                removeSelectedDevicesFromDeviceCache = id; 
+            }; 
+            CLASS = DeviceCacheWindowController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {"_dataSource" = id; "_deviceCacheTable" = id; }; 
+            SUPERCLASS = NSWindowController; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                buttonClickedRefreshAllFromHardware = id; 
+                buttonClickedSetClassOfDevice = id; 
+                buttonClickedSetConnectionAcceptTimeout = id; 
+                buttonClickedSetCurrentIACLAP = id; 
+                buttonClickedSetDeviceName = id; 
+                buttonClickedSetEncryptionMode = id; 
+                buttonClickedSetHoldModeActivity = id; 
+                buttonClickedSetHostBufferSizes = id; 
+                buttonClickedSetHostToHostFlowControl = id; 
+                buttonClickedSetInquiryScanActivity = id; 
+                buttonClickedSetNumBroadcastRetransmissions = id; 
+                buttonClickedSetPINType = id; 
+                buttonClickedSetPageScanActivity = id; 
+                buttonClickedSetPageScanMode = id; 
+                buttonClickedSetPageScanPeriodMode = id; 
+                buttonClickedSetPageTimeout = id; 
+                buttonClickedSetRequireAuthentication = id; 
+                buttonClickedSetSCOFlowControl = id; 
+                buttonClickedSetVoiceSetting = id; 
+                compositeCODTextHasChanged = id; 
+                deviceClassControlsHaveChanged = id; 
+            }; 
+            CLASS = LocalBluetoothDeviceWindow; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                mButtonSetCOD = id; 
+                mCheckBoxAudio = id; 
+                mCheckBoxCapturing = id; 
+                mCheckBoxHostToHostFlowControl = id; 
+                mCheckBoxInformation = id; 
+                mCheckBoxLimitedDiscoverable = id; 
+                mCheckBoxNetworking = id; 
+                mCheckBoxObjectTransfer = id; 
+                mCheckBoxPositioning = id; 
+                mCheckBoxRendering = id; 
+                mCheckBoxRequireAuthentication = id; 
+                mCheckBoxReserved1 = id; 
+                mCheckBoxReserved2 = id; 
+                mCheckBoxSCOFlowControl = id; 
+                mCheckBoxTelephony = id; 
+                mPopupButtonEncryptionMode = id; 
+                mPopupButtonHoldModeActivityState = id; 
+                mPopupButtonMajorDeviceClass = id; 
+                mPopupButtonMinorDeviceClass = id; 
+                mPopupButtonPageScanMode = id; 
+                mPopupButtonPageScanPeriodMode = id; 
+                mTextFieldACLPacketNum = id; 
+                mTextFieldACLPacketSize = id; 
+                mTextFieldAFHCapableMaster = id; 
+                mTextFieldAFHCapableSlave = id; 
+                mTextFieldAFHClassificationMaster = id; 
+                mTextFieldAFHClassificationSlave = id; 
+                mTextFieldALawLog = id; 
+                mTextFieldAbsenseMasks = id; 
+                mTextFieldAliasAuthentication = id; 
+                mTextFieldAnonymityMode = id; 
+                mTextFieldBroadcastEncryption = id; 
+                mTextFieldCVSD = id; 
+                mTextFieldChannelQuality = id; 
+                mTextFieldCompositeCOD = id; 
+                mTextFieldConnectionAcceptTimeout = id; 
+                mTextFieldCurrentIACLAP = id; 
+                mTextFieldDeviceAddress = id; 
+                mTextFieldDeviceName = id; 
+                mTextFieldEV4Packets = id; 
+                mTextFieldEV5Packets = id; 
+                mTextFieldEncryption = id; 
+                mTextFieldEnhancedInquiryScan = id; 
+                mTextFieldExtendedSCOLink = id; 
+                mTextFieldFiveSlotPackets = id; 
+                mTextFieldFlowControlLagBit0 = id; 
+                mTextFieldFlowControlLagBit1 = id; 
+                mTextFieldFlowControlLagBit2 = id; 
+                mTextFieldHCIRevision = id; 
+                mTextFieldHCIVersion = id; 
+                mTextFieldHV2Packets = id; 
+                mTextFieldHV3Packets = id; 
+                mTextFieldHoldMode = id; 
+                mTextFieldInquiryScanActivityInterval = id; 
+                mTextFieldInquiryScanActivityWindow = id; 
+                mTextFieldInterlacedInquiryScan = id; 
+                mTextFieldInterlacedPageScan = id; 
+                mTextFieldLMPSubversion = id; 
+                mTextFieldLMPVersion = id; 
+                mTextFieldManufacturerName = id; 
+                mTextFieldNumBroadcastRetransmissions = id; 
+                mTextFieldPINType = id; 
+                mTextFieldPageScanActivityInterval = id; 
+                mTextFieldPageScanActivityWindow = id; 
+                mTextFieldPageTimeout = id; 
+                mTextFieldPagingScheme = id; 
+                mTextFieldParkMode = id; 
+                mTextFieldPowerControl = id; 
+                mTextFieldRSSI = id; 
+                mTextFieldRSSIWithInquiryResult = id; 
+                mTextFieldReserved1 = id; 
+                mTextFieldReserved2 = id; 
+                mTextFieldSCOLink = id; 
+                mTextFieldSCOPacketNum = id; 
+                mTextFieldSCOPacketSize = id; 
+                mTextFieldScatterMode = id; 
+                mTextFieldSlotOffset = id; 
+                mTextFieldSniffMode = id; 
+                mTextFieldStackVersion = id; 
+                mTextFieldSwitchRoles = id; 
+                mTextFieldThreeSlotPackets = id; 
+                mTextFieldTimingAccuracy = id; 
+                mTextFieldTransparentSCOData = id; 
+                mTextFieldULawLog = id; 
+                mTextFieldVoiceSetting = id; 
+                mTextViewSDPText = id; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }, 
+        {CLASS = ObjectTableDataSource; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            CLASS = RemoteBluetoothDeviceWindow; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSWindowController; 
+        }
+    ); 
+    IBVersion = 1; 
+}

@@ -29,7 +29,8 @@ namespace BBB {
     char xyzq (char);
   };
 
-  class Class {
+  // APPLE LOCAL mainline 2006-10-13 3904173
+  class Klasse {
   public:
     char xyzq (char);
     int dummy;
@@ -62,7 +63,8 @@ char BBB::CCC::xyzq (char c)
   return 'z';
 }
 
-char BBB::Class::xyzq (char c)
+// APPLE LOCAL mainline 2006-10-13 3904173
+char BBB::Klasse::xyzq (char c)
 {
   return 'o';
 }
@@ -248,7 +250,8 @@ int main ()
   y = AAA::A_xyzq (33);
   y += B_xyzq (44);
 
-  BBB::Class cl;
+  // APPLE LOCAL mainline 2006-10-13 3904173
+  BBB::Klasse cl;
 
   c1 = cl.xyzq('e');
 

@@ -1,0 +1,162 @@
+                          SOAP::Lite for COM interface
+                          ============================
+
+SOAP::Lite for COM interface gives you ability to access SOAP services
+from your COM applications. Examples in Visual Basic, Excel/VBA, Perl,
+JavaScript and ASP are provided. 
+
+Interface comes in two versions: standalone and minimal.
+Both versions were tested on Windows 2K and XP, but should work on 
+Windows 9x/Me/NT/2K/XP.
+Minimal version requires Perl installation, but comes in a small size.
+Standalone version doesn't require ANYTHING (including Perl), but comes
+as one big dll. Both libraries are compiled using the latest version of
+ActivePerl available (5.8.6 build 811).
+
+Standalone:              http://www.soaplite.com/download/SOAP-Lite-COM-standalone-latest.zip
+Minimal (Perl required): http://www.soaplite.com/download/SOAP-Lite-COM-minimal-latest.zip
+
+You may create your own version (all source code and batch files are provided),
+but it'll require PerlCtrl utility that comes with Perl Development Kit
+from ActiveState (http://activestate.com/). Batch files are written for the 
+latest PDK version (v6). The library can ONLY be created on Windows NT, 2K, or 
+XP, but will work on any Windows platform.
+
+INSTALLATION
+
+To register library:
+
+  regsvr32 Lite.dll
+
+You can now try out the example programs.
+
+To unregister library:
+
+  regsvr32 /u Lite.dll
+
+VISUAL BASIC EXAMPLES
+
+remote.vbs and temper.vbs connect to remote services, delayed stock 
+quotes and temperature conversion.
+
+local.vbs connects to local ASP server.
+
+VISUAL BASIC, PERL AND JAVASCRIPT EXAMPLE
+
+These examples (states.vbs, states.pl, states.html) connect to the local 
+SOAP server and call service that will return name of the state.
+
+C# EXAMPLE
+
+remote.cs example connects to remote service (XMethod.com) which echoes 
+back string 'Hello'.
+
+MICROSOFT EXCEL EXAMPLE
+
+Open the Excel (states.xls) document. Be warned, this document contains
+macroses, so you can get the warning. 
+If you want to run examples you need to enable macroses. For those who
+don't trust anybody code of macroses is provided in states.vba file, so
+they can disable macroses and add them from this file.
+
+By default this example will connect to local SOAP server 
+(see VISUAL BASIC SERVER EXAMPLE). You may alter the address by 
+changing parameter for proxy() method.
+
+Supply a number of state and click 'Get State Name' button.
+
+VISUAL BASIC SERVER EXAMPLE
+
+You may start local SOAP server by running soap.vbs script. By default
+server will accept requests on 'http://localhost/', but you can modify
+this URL. Probably you'll also need to modify dispatch_to() parameters
+where you can specify path to your Perl modules.
+
+ASP SERVER EXAMPLE (VBScript and PerlScript)
+
+Example of ASP SOAP server is provided. This implementation doesn't 
+require ROPE or MSXML dlls, so all that you need is register Lite.dll 
+and put soap.asp and/or soap_perl.asp in appropriate place (for example, 
+c:\inetpub\wwwroot\).
+
+Now you can direct your SOAP requests to http://localhost/soap.asp 
+(VBScript) or http://localhost/soap_perl.asp (PerlScript).
+
+XML-RPC examples (VBScript)
+
+Example of XML-PRC client is provided. You can use XML-RPC in a way you 
+use SOAP protocol, only instead of new() method xmlrpc() method should
+be called to create an object. For example:
+
+  MsgBox CreateObject("SOAP.Lite").xmlrpc( _
+    "proxy", "http://betty.userland.com/RPC2" _
+  ).call("examples.getStateName", 25).result
+
+ISSUES AND LIMITATIONS
+
+HASHES
+
+Since not all languages have primitive data type that is equivalent to Perl's 
+hashes, hashes don't map neatly between Perl and languages like Visual Basic 
+and Visual C++. However, SOAP::Lite derived a way to move hashes around. 
+hash() method allow you create hash and manipulate it. 
+If your Perl program returns a hash reference, it'll be wrapped in object 
+around it. This wrapper object allows you to manipulate the hash in the 
+host language.
+
+Set hash = CreateObject("SOAP.Lite").hash("a", 1, "b", 2)
+hash.c = 3
+
+See hash.vbs for example that moves hashes around.
+
+See hashecho.cvs for hash of hash example.
+
+ARRAYS
+
+COM interface provides a simple way of returning arrays to the host language. 
+Instead of returning an array, return an array reference (such as \@myarray 
+instead of @myarray). when you return an array reference from a subroutine, 
+it is automatically converted into an array in the host language.
+
+Although an array can be passed to a SOAP::Lite COM interface, a reference to 
+the array can not be passed. Therefore any manipulation of the array elements 
+must be returned to the caller.
+
+REFERENCES
+
+When you pass a reference (to an array, scalar, or hash) to, or return a 
+reference from a COM interface, a copy of your data is passed, not a true 
+reference to your data. Thus, when you manipulate the data from within a 
+COM interface, you are not manipulating the calling script's data. 
+The ability to use references in a traditional manner will be addressed 
+in a future versions.
+
+CONTEXT
+
+How do I call a method in a list/array context?
+
+You can coerce any method call into a list context. Instead of invoking:
+
+Dim arrayFoo
+arrayFoo = myPerlObj.some_method()
+
+Use the List property to invoke the method:
+
+Dim arrayFoo
+arrayFoo = myPerlObj.List.some_method()
+
+How do I call a method in a scalar context?
+
+By default, methods are invoked in a scalar context. If, for some reason, 
+you find that you need to explicitly invoke a method in a scalar context, 
+you can invoke the method on the Scalar property of the object. Instead of:
+
+cntFoo = myPerlObj.some_method()
+
+Use the Scalar property to invoke the method:
+
+cntFoo = myPerlObj.Scalar.some_method()
+
+MORE INFORMATION
+
+For more information, see http://aspn.activestate.com/ASPN/docs/PDK/6.0/PerlCtrl_overview.html

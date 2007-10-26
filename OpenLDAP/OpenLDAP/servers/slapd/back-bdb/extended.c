@@ -1,8 +1,8 @@
 /* extended.c - bdb backend extended routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/extended.c,v 1.12.2.3 2004/01/01 18:16:36 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/extended.c,v 1.16.2.2 2006/01/03 22:16:16 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -20,7 +20,6 @@
 #include <ac/string.h>
 
 #include "back-bdb.h"
-#include "external.h"
 #include "lber_pvt.h"
 
 static struct exop {

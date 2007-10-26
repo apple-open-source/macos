@@ -1,0 +1,50 @@
+--- src/option.c.orig	2005-05-18 18:14:11.000000000 -0700
++++ src/option.c	2005-05-18 18:14:36.000000000 -0700
+@@ -530,8 +530,8 @@
+ 			    (char_u *)&p_ai, PV_AI,
+ 			    {(char_u *)FALSE, (char_u *)0L}},
+     {"autoprint",   "ap",   P_BOOL|P_VI_DEF,
+-			    (char_u *)NULL, PV_NONE,
+-			    {(char_u *)FALSE, (char_u *)0L}},
++			    (char_u *)&p_ap, PV_NONE,
++			    {(char_u *)TRUE, (char_u *)1L}},
+     {"autoread",    "ar",   P_BOOL|P_VI_DEF,
+ 			    (char_u *)&p_ar, PV_AR,
+ 			    {(char_u *)FALSE, (char_u *)0L}},
+@@ -599,7 +599,7 @@
+ # endif
+ #endif
+     {"beautify",    "bf",   P_BOOL|P_VI_DEF,
+-			    (char_u *)NULL, PV_NONE,
++			    (char_u *)&p_bf, PV_NONE,
+ 			    {(char_u *)FALSE, (char_u *)0L}},
+     {"binary",	    "bin",  P_BOOL|P_VI_DEF|P_RSTAT,
+ 			    (char_u *)&p_bin, PV_BIN,
+@@ -1974,7 +1974,7 @@
+ #endif
+ 			    },
+     {"readonly",    "ro",   P_BOOL|P_VI_DEF|P_RSTAT|P_NOGLOB,
+-			    (char_u *)&p_ro, PV_RO,
++			    (char_u *)&readonlymode, PV_RO,
+ 			    {(char_u *)FALSE, (char_u *)0L}},
+     {"redraw",	    NULL,   P_BOOL|P_VI_DEF,
+ 			    (char_u *)NULL, PV_NONE,
+@@ -2658,7 +2658,7 @@
+ #endif
+ 			    },
+     {"window",	    "wi",   P_NUM|P_VI_DEF,
+-			    (char_u *)&p_window, PV_NONE,
++			    (char_u *)&p_window_unix2003, PV_NONE,
+ 			    {(char_u *)0L, (char_u *)0L}},
+     {"winheight",   "wh",   P_NUM|P_VI_DEF,
+ #ifdef FEAT_WINDOWS
+@@ -3550,7 +3550,7 @@ set_init_2()
+      */
+     if (!option_was_set((char_u *)"window"))
+ 	p_window = Rows - 1;
+-    set_number_default("window", Rows - 1);
++    set_number_default("window", p_window);
+ 
+     /* For DOS console the default is always black. */
+ #if !((defined(MSDOS) || defined(OS2) || defined(WIN3264)) && !defined(FEAT_GUI))
+     {

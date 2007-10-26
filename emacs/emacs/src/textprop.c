@@ -1,6 +1,6 @@
 /* Interface code for dealing with text properties.
-   Copyright (C) 1993, 1994, 1995, 1997, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 1997, 1999, 2000, 2001, 2002, 2003,
+                 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include <config.h>
 #include "lisp.h"
@@ -70,6 +70,7 @@ Lisp_Object Qfront_sticky, Qrear_nonsticky;
 
 Lisp_Object Vinhibit_point_motion_hooks;
 Lisp_Object Vdefault_text_properties;
+Lisp_Object Vchar_property_alias_alist;
 Lisp_Object Vtext_property_default_nonsticky;
 
 /* verify_interval_modification saves insertion hooks here
@@ -77,14 +78,20 @@ Lisp_Object Vtext_property_default_nonsticky;
 Lisp_Object interval_insert_behind_hooks;
 Lisp_Object interval_insert_in_front_hooks;
 
+static void text_read_only P_ ((Lisp_Object)) NO_RETURN;
+
 
 /* Signal a `text-read-only' error.  This function makes it easier
    to capture that error in GDB by putting a breakpoint on it.  */
 
 static void
-text_read_only ()
+text_read_only (propval)
+     Lisp_Object propval;
 {
-  Fsignal (Qtext_read_only, Qnil);
+  if (STRINGP (propval))
+    xsignal1 (Qtext_read_only, propval);
+
+  xsignal0 (Qtext_read_only);
 }
 
 
@@ -123,9 +130,9 @@ validate_interval_range (object, begin, end, force)
   register INTERVAL i;
   int searchpos;
 
-  CHECK_STRING_OR_BUFFER (object, 0);
-  CHECK_NUMBER_COERCE_MARKER (*begin, 0);
-  CHECK_NUMBER_COERCE_MARKER (*end, 0);
+  CHECK_STRING_OR_BUFFER (object);
+  CHECK_NUMBER_COERCE_MARKER (*begin);
+  CHECK_NUMBER_COERCE_MARKER (*end);
 
   /* If we are asked for a point, but from a subr which operates
      on a range, then return nothing.  */
@@ -157,17 +164,17 @@ validate_interval_range (object, begin, end, force)
     }
   else
     {
-      register struct Lisp_String *s = XSTRING (object);
+      int len = SCHARS (object);
 
       if (! (0 <= XINT (*begin) && XINT (*begin) <= XINT (*end)
-	     && XINT (*end) <= s->size))
+	     && XINT (*end) <= len))
 	args_out_of_range (*begin, *end);
       XSETFASTINT (*begin, XFASTINT (*begin));
       if (begin != end)
 	XSETFASTINT (*end, XFASTINT (*end));
-      i = s->intervals;
+      i = STRING_INTERVALS (object);
 
-      if (s->size == 0)
+      if (len == 0)
 	return NULL_INTERVAL;
 
       searchpos = XINT (*begin);
@@ -175,7 +182,7 @@ validate_interval_range (object, begin, end, force)
 
   if (NULL_INTERVAL_P (i))
     return (force ? create_root_interval (object) : i);
-    
+
   return find_interval (i, searchpos);
 }
 
@@ -263,6 +270,30 @@ interval_has_some_properties (plist, i)
       /* Go through i's plist, looking for tail1 */
       for (tail2 = i->plist; ! NILP (tail2); tail2 = Fcdr (Fcdr (tail2)))
 	if (EQ (sym, Fcar (tail2)))
+	  return 1;
+    }
+
+  return 0;
+}
+
+/* Return nonzero if the plist of interval I has any of the
+   property names in LIST, regardless of their values.  */
+
+static INLINE int
+interval_has_some_properties_list (list, i)
+     Lisp_Object list;
+     INTERVAL i;
+{
+  register Lisp_Object tail1, tail2, sym;
+
+  /* Go through each element of LIST.  */
+  for (tail1 = list; ! NILP (tail1); tail1 = XCDR (tail1))
+    {
+      sym = Fcar (tail1);
+
+      /* Go through i's plist, looking for tail1 */
+      for (tail2 = i->plist; ! NILP (tail2); tail2 = XCDR (XCDR (tail2)))
+	if (EQ (sym, XCAR (tail2)))
 	  return 1;
     }
 
@@ -414,58 +445,69 @@ add_properties (plist, i, object)
   return changed;
 }
 
-/* For any members of PLIST which are properties of I, remove them
-   from I's plist.
+/* For any members of PLIST, or LIST,
+   which are properties of I, remove them from I's plist.
+   (If PLIST is non-nil, use that, otherwise use LIST.)
    OBJECT is the string or buffer containing I.  */
 
 static int
-remove_properties (plist, i, object)
-     Lisp_Object plist;
+remove_properties (plist, list, i, object)
+     Lisp_Object plist, list;
      INTERVAL i;
      Lisp_Object object;
 {
   register Lisp_Object tail1, tail2, sym, current_plist;
   register int changed = 0;
 
-  current_plist = i->plist;
-  /* Go through each element of plist.  */
-  for (tail1 = plist; ! NILP (tail1); tail1 = Fcdr (Fcdr (tail1)))
-    {
-      sym = Fcar (tail1);
+  /* Nonzero means tail1 is a plist, otherwise it is a list.  */
+  int use_plist;
 
-      /* First, remove the symbol if its at the head of the list */
-      while (! NILP (current_plist) && EQ (sym, Fcar (current_plist)))
+  current_plist = i->plist;
+
+  if (! NILP (plist))
+    tail1 = plist, use_plist = 1;
+  else
+    tail1 = list, use_plist = 0;
+
+  /* Go through each element of LIST or PLIST.  */
+  while (CONSP (tail1))
+    {
+      sym = XCAR (tail1);
+
+      /* First, remove the symbol if it's at the head of the list */
+      while (CONSP (current_plist) && EQ (sym, XCAR (current_plist)))
 	{
 	  if (BUFFERP (object))
-	    {
-	      record_property_change (i->position, LENGTH (i),
-				      sym, Fcar (Fcdr (current_plist)),
-				      object);
-	    }
+	    record_property_change (i->position, LENGTH (i),
+				    sym, XCAR (XCDR (current_plist)),
+				    object);
 
-	  current_plist = Fcdr (Fcdr (current_plist));
+	  current_plist = XCDR (XCDR (current_plist));
 	  changed++;
 	}
 
-      /* Go through i's plist, looking for sym */
+      /* Go through I's plist, looking for SYM.  */
       tail2 = current_plist;
       while (! NILP (tail2))
 	{
 	  register Lisp_Object this;
-	  this = Fcdr (Fcdr (tail2));
-	  if (EQ (sym, Fcar (this)))
+	  this = XCDR (XCDR (tail2));
+	  if (CONSP (this) && EQ (sym, XCAR (this)))
 	    {
 	      if (BUFFERP (object))
-		{
-		  record_property_change (i->position, LENGTH (i),
-					  sym, Fcar (Fcdr (this)), object);
-		}
+		record_property_change (i->position, LENGTH (i),
+					sym, XCAR (XCDR (this)), object);
 
-	      Fsetcdr (Fcdr (tail2), Fcdr (Fcdr (this)));
+	      Fsetcdr (XCDR (tail2), XCDR (XCDR (this)));
 	      changed++;
 	    }
 	  tail2 = this;
 	}
+
+      /* Advance thru TAIL1 one way or the other.  */
+      tail1 = XCDR (tail1);
+      if (use_plist && CONSP (tail1))
+	tail1 = XCDR (tail1);
     }
 
   if (changed)
@@ -489,7 +531,7 @@ erase_properties (i)
 }
 #endif
 
-/* Returns the interval of POSITION in OBJECT. 
+/* Returns the interval of POSITION in OBJECT.
    POSITION is BEG-based.  */
 
 INTERVAL
@@ -505,7 +547,7 @@ interval_of (position, object)
   else if (EQ (object, Qt))
     return NULL_INTERVAL;
 
-  CHECK_STRING_OR_BUFFER (object, 0);
+  CHECK_STRING_OR_BUFFER (object);
 
   if (BUFFERP (object))
     {
@@ -517,28 +559,27 @@ interval_of (position, object)
     }
   else
     {
-      register struct Lisp_String *s = XSTRING (object);
-
       beg = 0;
-      end = s->size;
-      i = s->intervals;
+      end = SCHARS (object);
+      i = STRING_INTERVALS (object);
     }
 
   if (!(beg <= position && position <= end))
     args_out_of_range (make_number (position), make_number (position));
   if (beg == end || NULL_INTERVAL_P (i))
     return NULL_INTERVAL;
-    
+
   return find_interval (i, position);
 }
 
 DEFUN ("text-properties-at", Ftext_properties_at,
        Stext_properties_at, 1, 2, 0,
-  "Return the list of properties of the character at POSITION in OBJECT.\n\
-OBJECT is the string or buffer to look for the properties in;\n\
-nil means the current buffer.\n\
-If POSITION is at the end of OBJECT, the value is nil.")
-  (position, object)
+       doc: /* Return the list of properties of the character at POSITION in OBJECT.
+If the optional second argument OBJECT is a buffer (or nil, which means
+the current buffer), POSITION is a buffer position (integer or marker).
+If OBJECT is a string, POSITION is a 0-based index into it.
+If POSITION is at the end of OBJECT, the value is nil.  */)
+     (position, object)
      Lisp_Object position, object;
 {
   register INTERVAL i;
@@ -560,17 +601,17 @@ If POSITION is at the end of OBJECT, the value is nil.")
 }
 
 DEFUN ("get-text-property", Fget_text_property, Sget_text_property, 2, 3, 0,
-  "Return the value of POSITION's property PROP, in OBJECT.\n\
-OBJECT is optional and defaults to the current buffer.\n\
-If POSITION is at the end of OBJECT, the value is nil.")
-  (position, prop, object)
+       doc: /* Return the value of POSITION's property PROP, in OBJECT.
+OBJECT is optional and defaults to the current buffer.
+If POSITION is at the end of OBJECT, the value is nil.  */)
+     (position, prop, object)
      Lisp_Object position, object;
      Lisp_Object prop;
 {
   return textget (Ftext_properties_at (position, object), prop);
 }
 
-/* Return the value of POSITION's property PROP, in OBJECT.
+/* Return the value of char's property PROP, in OBJECT at POSITION.
    OBJECT is optional and defaults to the current buffer.
    If OVERLAY is non-0, then in the case that the returned property is from
    an overlay, the overlay found is returned in *OVERLAY, otherwise nil is
@@ -589,7 +630,7 @@ get_char_property_and_overlay (position, prop, object, overlay)
 {
   struct window *w = 0;
 
-  CHECK_NUMBER_COERCE_MARKER (position, 0);
+  CHECK_NUMBER_COERCE_MARKER (position);
 
   if (NILP (object))
     XSETBUFFER (object, current_buffer);
@@ -601,31 +642,13 @@ get_char_property_and_overlay (position, prop, object, overlay)
     }
   if (BUFFERP (object))
     {
-      int posn = XINT (position);
       int noverlays;
-      Lisp_Object *overlay_vec, tem;
-      int next_overlay;
-      int len;
+      Lisp_Object *overlay_vec;
       struct buffer *obuf = current_buffer;
 
       set_buffer_temp (XBUFFER (object));
 
-      /* First try with room for 40 overlays.  */
-      len = 40;
-      overlay_vec = (Lisp_Object *) alloca (len * sizeof (Lisp_Object));
-
-      noverlays = overlays_at (posn, 0, &overlay_vec, &len,
-			       &next_overlay, NULL, 0);
-
-      /* If there are more than 40,
-	 make enough space for all, and try again.  */
-      if (noverlays > len)
-	{
-	  len = noverlays;
-	  overlay_vec = (Lisp_Object *) alloca (len * sizeof (Lisp_Object));
-	  noverlays = overlays_at (posn, 0, &overlay_vec, &len,
-				   &next_overlay, NULL, 0);
-	}
+      GET_OVERLAYS_AT (XINT (position), overlay_vec, noverlays, NULL, 0);
       noverlays = sort_overlays (overlay_vec, noverlays, w);
 
       set_buffer_temp (obuf);
@@ -633,7 +656,7 @@ get_char_property_and_overlay (position, prop, object, overlay)
       /* Now check the overlays in order of decreasing priority.  */
       while (--noverlays >= 0)
 	{
-	  tem = Foverlay_get (overlay_vec[noverlays], prop);
+	  Lisp_Object tem = Foverlay_get (overlay_vec[noverlays], prop);
 	  if (!NILP (tem))
 	    {
 	      if (overlay)
@@ -654,31 +677,58 @@ get_char_property_and_overlay (position, prop, object, overlay)
 }
 
 DEFUN ("get-char-property", Fget_char_property, Sget_char_property, 2, 3, 0,
-  "Return the value of POSITION's property PROP, in OBJECT.\n\
-OBJECT is optional and defaults to the current buffer.\n\
-If POSITION is at the end of OBJECT, the value is nil.\n\
-If OBJECT is a buffer, then overlay properties are considered as well as\n\
-text properties.\n\
-If OBJECT is a window, then that window's buffer is used, but window-specific\n\
-overlays are considered only if they are associated with OBJECT.")
-  (position, prop, object)
+       doc: /* Return the value of POSITION's property PROP, in OBJECT.
+Both overlay properties and text properties are checked.
+OBJECT is optional and defaults to the current buffer.
+If POSITION is at the end of OBJECT, the value is nil.
+If OBJECT is a buffer, then overlay properties are considered as well as
+text properties.
+If OBJECT is a window, then that window's buffer is used, but window-specific
+overlays are considered only if they are associated with OBJECT.  */)
+     (position, prop, object)
      Lisp_Object position, object;
      register Lisp_Object prop;
 {
   return get_char_property_and_overlay (position, prop, object, 0);
 }
+
+DEFUN ("get-char-property-and-overlay", Fget_char_property_and_overlay,
+       Sget_char_property_and_overlay, 2, 3, 0,
+       doc: /* Like `get-char-property', but with extra overlay information.
+The value is a cons cell.  Its car is the return value of `get-char-property'
+with the same arguments--that is, the value of POSITION's property
+PROP in OBJECT.  Its cdr is the overlay in which the property was
+found, or nil, if it was found as a text property or not found at all.
+
+OBJECT is optional and defaults to the current buffer.  OBJECT may be
+a string, a buffer or a window.  For strings, the cdr of the return
+value is always nil, since strings do not have overlays.  If OBJECT is
+a window, then that window's buffer is used, but window-specific
+overlays are considered only if they are associated with OBJECT.  If
+POSITION is at the end of OBJECT, both car and cdr are nil.  */)
+     (position, prop, object)
+     Lisp_Object position, object;
+     register Lisp_Object prop;
+{
+  Lisp_Object overlay;
+  Lisp_Object val
+    = get_char_property_and_overlay (position, prop, object, &overlay);
+  return Fcons(val, overlay);
+}
+
 
 DEFUN ("next-char-property-change", Fnext_char_property_change,
        Snext_char_property_change, 1, 2, 0,
-  "Return the position of next text property or overlay change.\n\
-This scans characters forward from POSITION till it finds a change in\n\
-some text property, or the beginning or end of an overlay, and returns\n\
-the position of that.\n\
-If none is found, the function returns (point-max).\n\
-\n\
-If the optional third argument LIMIT is non-nil, don't search\n\
-past position LIMIT; return LIMIT if nothing is found before LIMIT.")
-  (position, limit)
+       doc: /* Return the position of next text property or overlay change.
+This scans characters forward in the current buffer from POSITION till
+it finds a change in some text property, or the beginning or end of an
+overlay, and returns the position of that.
+If none is found up to (point-max), the function returns (point-max).
+
+If the optional second argument LIMIT is non-nil, don't search
+past position LIMIT; return LIMIT if nothing is found before LIMIT.
+LIMIT is a no-op if it is greater than (point-max).  */)
+     (position, limit)
      Lisp_Object position, limit;
 {
   Lisp_Object temp;
@@ -686,7 +736,7 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
   temp = Fnext_overlay_change (position);
   if (! NILP (limit))
     {
-      CHECK_NUMBER (limit, 2);
+      CHECK_NUMBER_COERCE_MARKER (limit);
       if (XINT (limit) < XINT (temp))
 	temp = limit;
     }
@@ -695,15 +745,16 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
 
 DEFUN ("previous-char-property-change", Fprevious_char_property_change,
        Sprevious_char_property_change, 1, 2, 0,
-  "Return the position of previous text property or overlay change.\n\
-Scans characters backward from POSITION till it finds a change in some\n\
-text property, or the beginning or end of an overlay, and returns the\n\
-position of that.\n\
-If none is found, the function returns (point-max).\n\
-\n\
-If the optional third argument LIMIT is non-nil, don't search\n\
-past position LIMIT; return LIMIT if nothing is found before LIMIT.")
-  (position, limit)
+       doc: /* Return the position of previous text property or overlay change.
+Scans characters backward in the current buffer from POSITION till it
+finds a change in some text property, or the beginning or end of an
+overlay, and returns the position of that.
+If none is found since (point-min), the function returns (point-min).
+
+If the optional second argument LIMIT is non-nil, don't search
+past position LIMIT; return LIMIT if nothing is found before LIMIT.
+LIMIT is a no-op if it is less than (point-min).  */)
+     (position, limit)
      Lisp_Object position, limit;
 {
   Lisp_Object temp;
@@ -711,7 +762,7 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
   temp = Fprevious_overlay_change (position);
   if (! NILP (limit))
     {
-      CHECK_NUMBER (limit, 2);
+      CHECK_NUMBER_COERCE_MARKER (limit);
       if (XINT (limit) > XINT (temp))
 	temp = limit;
     }
@@ -721,16 +772,22 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
 
 DEFUN ("next-single-char-property-change", Fnext_single_char_property_change,
        Snext_single_char_property_change, 2, 4, 0,
-  "Return the position of next text property or overlay change for a specific property.\n\
-Scans characters forward from POSITION till it finds\n\
-a change in the PROP property, then returns the position of the change.\n\
-The optional third argument OBJECT is the string or buffer to scan.\n\
-The property values are compared with `eq'.\n\
-If the property is constant all the way to the end of OBJECT, return the\n\
-last valid position in OBJECT.\n\
-If the optional fourth argument LIMIT is non-nil, don't search\n\
-past position LIMIT; return LIMIT if nothing is found before LIMIT.")
-  (position, prop, object, limit)
+       doc: /* Return the position of next text property or overlay change for a specific property.
+Scans characters forward from POSITION till it finds
+a change in the PROP property, then returns the position of the change.
+If the optional third argument OBJECT is a buffer (or nil, which means
+the current buffer), POSITION is a buffer position (integer or marker).
+If OBJECT is a string, POSITION is a 0-based index into it.
+
+In a string, scan runs to the end of the string.
+In a buffer, it runs to (point-max), and the value cannot exceed that.
+
+The property values are compared with `eq'.
+If the property is constant all the way to the end of OBJECT, return the
+last valid position in OBJECT.
+If the optional fourth argument LIMIT is non-nil, don't search
+past position LIMIT; return LIMIT if nothing is found before LIMIT.  */)
+     (position, prop, object, limit)
      Lisp_Object prop, position, object, limit;
 {
   if (STRINGP (object))
@@ -739,44 +796,57 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
       if (NILP (position))
 	{
 	  if (NILP (limit))
-	    position = make_number (XSTRING (object)->size);
+	    position = make_number (SCHARS (object));
 	  else
-	    position = limit;
+	    {
+	      CHECK_NUMBER (limit);
+	      position = limit;
+	    }
 	}
     }
   else
     {
       Lisp_Object initial_value, value;
-      int count = specpdl_ptr - specpdl;
+      int count = SPECPDL_INDEX ();
 
       if (! NILP (object))
-	CHECK_BUFFER (object, 0);
-      
+	CHECK_BUFFER (object);
+
       if (BUFFERP (object) && current_buffer != XBUFFER (object))
 	{
 	  record_unwind_protect (Fset_buffer, Fcurrent_buffer ());
 	  Fset_buffer (object);
 	}
 
+      CHECK_NUMBER_COERCE_MARKER (position);
+
       initial_value = Fget_char_property (position, prop, object);
-      
+
       if (NILP (limit))
-	XSETFASTINT (limit, BUF_ZV (current_buffer));
+	XSETFASTINT (limit, ZV);
       else
-	CHECK_NUMBER_COERCE_MARKER (limit, 0);
+	CHECK_NUMBER_COERCE_MARKER (limit);
 
-      for (;;)
+      if (XFASTINT (position) >= XFASTINT (limit))
 	{
-	  position = Fnext_char_property_change (position, limit);
-	  if (XFASTINT (position) >= XFASTINT (limit)) {
-	    position = limit;
-	    break;
-	  }
-
-	  value = Fget_char_property (position, prop, object);
-	  if (!EQ (value, initial_value))
-	    break;
+	  position = limit;
+	  if (XFASTINT (position) > ZV)
+	    XSETFASTINT (position, ZV);
 	}
+      else
+	while (1)
+	  {
+	    position = Fnext_char_property_change (position, limit);
+	    if (XFASTINT (position) >= XFASTINT (limit))
+	      {
+		position = limit;
+		break;
+	      }
+
+	    value = Fget_char_property (position, prop, object);
+	    if (!EQ (value, initial_value))
+	      break;
+	  }
 
       unbind_to (count, Qnil);
     }
@@ -787,16 +857,22 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
 DEFUN ("previous-single-char-property-change",
        Fprevious_single_char_property_change,
        Sprevious_single_char_property_change, 2, 4, 0,
-  "Return the position of previous text property or overlay change for a specific property.\n\
-Scans characters backward from POSITION till it finds\n\
-a change in the PROP property, then returns the position of the change.\n\
-The optional third argument OBJECT is the string or buffer to scan.\n\
-The property values are compared with `eq'.\n\
-If the property is constant all the way to the start of OBJECT, return the\n\
-first valid position in OBJECT.\n\
-If the optional fourth argument LIMIT is non-nil, don't search\n\
-back past position LIMIT; return LIMIT if nothing is found before LIMIT.")
-  (position, prop, object, limit)
+       doc: /* Return the position of previous text property or overlay change for a specific property.
+Scans characters backward from POSITION till it finds
+a change in the PROP property, then returns the position of the change.
+If the optional third argument OBJECT is a buffer (or nil, which means
+the current buffer), POSITION is a buffer position (integer or marker).
+If OBJECT is a string, POSITION is a 0-based index into it.
+
+In a string, scan runs to the start of the string.
+In a buffer, it runs to (point-min), and the value cannot be less than that.
+
+The property values are compared with `eq'.
+If the property is constant all the way to the start of OBJECT, return the
+first valid position in OBJECT.
+If the optional fourth argument LIMIT is non-nil, don't search
+back past position LIMIT; return LIMIT if nothing is found before LIMIT.  */)
+     (position, prop, object, limit)
      Lisp_Object prop, position, object, limit;
 {
   if (STRINGP (object))
@@ -805,38 +881,47 @@ back past position LIMIT; return LIMIT if nothing is found before LIMIT.")
       if (NILP (position))
 	{
 	  if (NILP (limit))
-	    position = make_number (XSTRING (object)->size);
+	    position = make_number (SCHARS (object));
 	  else
-	    position = limit;
+	    {
+	      CHECK_NUMBER (limit);
+	      position = limit;
+	    }
 	}
     }
   else
     {
-      int count = specpdl_ptr - specpdl;
+      int count = SPECPDL_INDEX ();
 
       if (! NILP (object))
-	CHECK_BUFFER (object, 0);
-      
+	CHECK_BUFFER (object);
+
       if (BUFFERP (object) && current_buffer != XBUFFER (object))
 	{
 	  record_unwind_protect (Fset_buffer, Fcurrent_buffer ());
 	  Fset_buffer (object);
 	}
-      
+
+      CHECK_NUMBER_COERCE_MARKER (position);
+
       if (NILP (limit))
-	XSETFASTINT (limit, BUF_BEGV (current_buffer));
+	XSETFASTINT (limit, BEGV);
       else
-	CHECK_NUMBER_COERCE_MARKER (limit, 0);
+	CHECK_NUMBER_COERCE_MARKER (limit);
 
       if (XFASTINT (position) <= XFASTINT (limit))
-	position = limit;
+	{
+	  position = limit;
+	  if (XFASTINT (position) < BEGV)
+	    XSETFASTINT (position, BEGV);
+	}
       else
 	{
-	  Lisp_Object initial_value =
-	    Fget_char_property (make_number (XFASTINT (position) - 1),
-				prop, object);
-      
-	  for (;;)
+	  Lisp_Object initial_value
+	    = Fget_char_property (make_number (XFASTINT (position) - 1),
+				  prop, object);
+
+	  while (1)
 	    {
 	      position = Fprevious_char_property_change (position, limit);
 
@@ -847,9 +932,9 @@ back past position LIMIT; return LIMIT if nothing is found before LIMIT.")
 		}
 	      else
 		{
-		  Lisp_Object value =
-		    Fget_char_property (make_number (XFASTINT (position) - 1),
-					prop, object);
+		  Lisp_Object value
+		    = Fget_char_property (make_number (XFASTINT (position) - 1),
+					  prop, object);
 
 		  if (!EQ (value, initial_value))
 		    break;
@@ -865,15 +950,18 @@ back past position LIMIT; return LIMIT if nothing is found before LIMIT.")
 
 DEFUN ("next-property-change", Fnext_property_change,
        Snext_property_change, 1, 3, 0,
-  "Return the position of next property change.\n\
-Scans characters forward from POSITION in OBJECT till it finds\n\
-a change in some text property, then returns the position of the change.\n\
-The optional second argument OBJECT is the string or buffer to scan.\n\
-Return nil if the property is constant all the way to the end of OBJECT.\n\
-If the value is non-nil, it is a position greater than POSITION, never equal.\n\n\
-If the optional third argument LIMIT is non-nil, don't search\n\
-past position LIMIT; return LIMIT if nothing is found before LIMIT.")
-  (position, object, limit)
+       doc: /* Return the position of next property change.
+Scans characters forward from POSITION in OBJECT till it finds
+a change in some text property, then returns the position of the change.
+If the optional second argument OBJECT is a buffer (or nil, which means
+the current buffer), POSITION is a buffer position (integer or marker).
+If OBJECT is a string, POSITION is a 0-based index into it.
+Return nil if the property is constant all the way to the end of OBJECT.
+If the value is non-nil, it is a position greater than POSITION, never equal.
+
+If the optional third argument LIMIT is non-nil, don't search
+past position LIMIT; return LIMIT if nothing is found before LIMIT.  */)
+     (position, object, limit)
      Lisp_Object position, object, limit;
 {
   register INTERVAL i, next;
@@ -881,8 +969,8 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
   if (NILP (object))
     XSETBUFFER (object, current_buffer);
 
-  if (! NILP (limit) && ! EQ (limit, Qt))
-    CHECK_NUMBER_COERCE_MARKER (limit, 0);
+  if (!NILP (limit) && !EQ (limit, Qt))
+    CHECK_NUMBER_COERCE_MARKER (limit);
 
   i = validate_interval_range (object, &position, &position, soft);
 
@@ -894,10 +982,10 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
 	next = i;
       else
 	next = next_interval (i);
-	
+
       if (NULL_INTERVAL_P (next))
 	XSETFASTINT (position, (STRINGP (object)
-				? XSTRING (object)->size
+				? SCHARS (object)
 				: BUF_ZV (XBUFFER (object))));
       else
 	XSETFASTINT (position, next->position);
@@ -909,17 +997,20 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
 
   next = next_interval (i);
 
-  while (! NULL_INTERVAL_P (next) && intervals_equal (i, next)
+  while (!NULL_INTERVAL_P (next) && intervals_equal (i, next)
 	 && (NILP (limit) || next->position < XFASTINT (limit)))
     next = next_interval (next);
 
-  if (NULL_INTERVAL_P (next))
+  if (NULL_INTERVAL_P (next)
+      || (next->position
+	  >= (INTEGERP (limit)
+	      ? XFASTINT (limit)
+	      : (STRINGP (object)
+		 ? SCHARS (object)
+		 : BUF_ZV (XBUFFER (object))))))
     return limit;
-  if (! NILP (limit) && !(next->position < XFASTINT (limit)))
-    return limit;
-
-  XSETFASTINT (position, next->position);
-  return position;
+  else
+    return make_number (next->position);
 }
 
 /* Return 1 if there's a change in some property between BEG and END.  */
@@ -956,16 +1047,19 @@ property_change_between_p (beg, end)
 
 DEFUN ("next-single-property-change", Fnext_single_property_change,
        Snext_single_property_change, 2, 4, 0,
-  "Return the position of next property change for a specific property.\n\
-Scans characters forward from POSITION till it finds\n\
-a change in the PROP property, then returns the position of the change.\n\
-The optional third argument OBJECT is the string or buffer to scan.\n\
-The property values are compared with `eq'.\n\
-Return nil if the property is constant all the way to the end of OBJECT.\n\
-If the value is non-nil, it is a position greater than POSITION, never equal.\n\n\
-If the optional fourth argument LIMIT is non-nil, don't search\n\
-past position LIMIT; return LIMIT if nothing is found before LIMIT.")
-  (position, prop, object, limit)
+       doc: /* Return the position of next property change for a specific property.
+Scans characters forward from POSITION till it finds
+a change in the PROP property, then returns the position of the change.
+If the optional third argument OBJECT is a buffer (or nil, which means
+the current buffer), POSITION is a buffer position (integer or marker).
+If OBJECT is a string, POSITION is a 0-based index into it.
+The property values are compared with `eq'.
+Return nil if the property is constant all the way to the end of OBJECT.
+If the value is non-nil, it is a position greater than POSITION, never equal.
+
+If the optional fourth argument LIMIT is non-nil, don't search
+past position LIMIT; return LIMIT if nothing is found before LIMIT.  */)
+     (position, prop, object, limit)
      Lisp_Object position, prop, object, limit;
 {
   register INTERVAL i, next;
@@ -975,7 +1069,7 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
     XSETBUFFER (object, current_buffer);
 
   if (!NILP (limit))
-    CHECK_NUMBER_COERCE_MARKER (limit, 0);
+    CHECK_NUMBER_COERCE_MARKER (limit);
 
   i = validate_interval_range (object, &position, &position, soft);
   if (NULL_INTERVAL_P (i))
@@ -983,30 +1077,37 @@ past position LIMIT; return LIMIT if nothing is found before LIMIT.")
 
   here_val = textget (i->plist, prop);
   next = next_interval (i);
-  while (! NULL_INTERVAL_P (next) 
+  while (! NULL_INTERVAL_P (next)
 	 && EQ (here_val, textget (next->plist, prop))
 	 && (NILP (limit) || next->position < XFASTINT (limit)))
     next = next_interval (next);
 
-  if (NULL_INTERVAL_P (next))
+  if (NULL_INTERVAL_P (next)
+      || (next->position
+	  >= (INTEGERP (limit)
+	      ? XFASTINT (limit)
+	      : (STRINGP (object)
+		 ? SCHARS (object)
+		 : BUF_ZV (XBUFFER (object))))))
     return limit;
-  if (! NILP (limit) && !(next->position < XFASTINT (limit)))
-    return limit;
-
-  return make_number (next->position);
+  else
+    return make_number (next->position);
 }
 
 DEFUN ("previous-property-change", Fprevious_property_change,
        Sprevious_property_change, 1, 3, 0,
-  "Return the position of previous property change.\n\
-Scans characters backwards from POSITION in OBJECT till it finds\n\
-a change in some text property, then returns the position of the change.\n\
-The optional second argument OBJECT is the string or buffer to scan.\n\
-Return nil if the property is constant all the way to the start of OBJECT.\n\
-If the value is non-nil, it is a position less than POSITION, never equal.\n\n\
-If the optional third argument LIMIT is non-nil, don't search\n\
-back past position LIMIT; return LIMIT if nothing is found until LIMIT.")
-  (position, object, limit)
+       doc: /* Return the position of previous property change.
+Scans characters backwards from POSITION in OBJECT till it finds
+a change in some text property, then returns the position of the change.
+If the optional second argument OBJECT is a buffer (or nil, which means
+the current buffer), POSITION is a buffer position (integer or marker).
+If OBJECT is a string, POSITION is a 0-based index into it.
+Return nil if the property is constant all the way to the start of OBJECT.
+If the value is non-nil, it is a position less than POSITION, never equal.
+
+If the optional third argument LIMIT is non-nil, don't search
+back past position LIMIT; return LIMIT if nothing is found until LIMIT.  */)
+     (position, object, limit)
      Lisp_Object position, object, limit;
 {
   register INTERVAL i, previous;
@@ -1015,7 +1116,7 @@ back past position LIMIT; return LIMIT if nothing is found until LIMIT.")
     XSETBUFFER (object, current_buffer);
 
   if (!NILP (limit))
-    CHECK_NUMBER_COERCE_MARKER (limit, 0);
+    CHECK_NUMBER_COERCE_MARKER (limit);
 
   i = validate_interval_range (object, &position, &position, soft);
   if (NULL_INTERVAL_P (i))
@@ -1026,30 +1127,35 @@ back past position LIMIT; return LIMIT if nothing is found until LIMIT.")
     i = previous_interval (i);
 
   previous = previous_interval (i);
-  while (! NULL_INTERVAL_P (previous) && intervals_equal (previous, i)
+  while (!NULL_INTERVAL_P (previous) && intervals_equal (previous, i)
 	 && (NILP (limit)
 	     || (previous->position + LENGTH (previous) > XFASTINT (limit))))
     previous = previous_interval (previous);
-  if (NULL_INTERVAL_P (previous))
-    return limit;
-  if (!NILP (limit)
-      && !(previous->position + LENGTH (previous) > XFASTINT (limit)))
-    return limit;
 
-  return make_number (previous->position + LENGTH (previous));
+  if (NULL_INTERVAL_P (previous)
+      || (previous->position + LENGTH (previous)
+	  <= (INTEGERP (limit)
+	      ? XFASTINT (limit)
+	      : (STRINGP (object) ? 0 : BUF_BEGV (XBUFFER (object))))))
+    return limit;
+  else
+    return make_number (previous->position + LENGTH (previous));
 }
 
 DEFUN ("previous-single-property-change", Fprevious_single_property_change,
        Sprevious_single_property_change, 2, 4, 0,
-  "Return the position of previous property change for a specific property.\n\
-Scans characters backward from POSITION till it finds\n\
-a change in the PROP property, then returns the position of the change.\n\
-The optional third argument OBJECT is the string or buffer to scan.\n\
-The property values are compared with `eq'.\n\
-Return nil if the property is constant all the way to the start of OBJECT.\n\
-If the value is non-nil, it is a position less than POSITION, never equal.\n\n\
-If the optional fourth argument LIMIT is non-nil, don't search\n\
-back past position LIMIT; return LIMIT if nothing is found until LIMIT.")
+       doc: /* Return the position of previous property change for a specific property.
+Scans characters backward from POSITION till it finds
+a change in the PROP property, then returns the position of the change.
+If the optional third argument OBJECT is a buffer (or nil, which means
+the current buffer), POSITION is a buffer position (integer or marker).
+If OBJECT is a string, POSITION is a 0-based index into it.
+The property values are compared with `eq'.
+Return nil if the property is constant all the way to the start of OBJECT.
+If the value is non-nil, it is a position less than POSITION, never equal.
+
+If the optional fourth argument LIMIT is non-nil, don't search
+back past position LIMIT; return LIMIT if nothing is found until LIMIT.  */)
      (position, prop, object, limit)
      Lisp_Object position, prop, object, limit;
 {
@@ -1060,12 +1166,12 @@ back past position LIMIT; return LIMIT if nothing is found until LIMIT.")
     XSETBUFFER (object, current_buffer);
 
   if (!NILP (limit))
-    CHECK_NUMBER_COERCE_MARKER (limit, 0);
+    CHECK_NUMBER_COERCE_MARKER (limit);
 
   i = validate_interval_range (object, &position, &position, soft);
 
   /* Start with the interval containing the char before point.  */
-  if (! NULL_INTERVAL_P (i) && i->position == XFASTINT (position))
+  if (!NULL_INTERVAL_P (i) && i->position == XFASTINT (position))
     i = previous_interval (i);
 
   if (NULL_INTERVAL_P (i))
@@ -1073,31 +1179,34 @@ back past position LIMIT; return LIMIT if nothing is found until LIMIT.")
 
   here_val = textget (i->plist, prop);
   previous = previous_interval (i);
-  while (! NULL_INTERVAL_P (previous)
+  while (!NULL_INTERVAL_P (previous)
 	 && EQ (here_val, textget (previous->plist, prop))
 	 && (NILP (limit)
 	     || (previous->position + LENGTH (previous) > XFASTINT (limit))))
     previous = previous_interval (previous);
-  if (NULL_INTERVAL_P (previous))
-    return limit;
-  if (!NILP (limit)
-      && !(previous->position + LENGTH (previous) > XFASTINT (limit)))
-    return limit;
 
-  return make_number (previous->position + LENGTH (previous));
+  if (NULL_INTERVAL_P (previous)
+      || (previous->position + LENGTH (previous)
+	  <= (INTEGERP (limit)
+	      ? XFASTINT (limit)
+	      : (STRINGP (object) ? 0 : BUF_BEGV (XBUFFER (object))))))
+    return limit;
+  else
+    return make_number (previous->position + LENGTH (previous));
 }
 
 /* Callers note, this can GC when OBJECT is a buffer (or nil).  */
 
 DEFUN ("add-text-properties", Fadd_text_properties,
        Sadd_text_properties, 3, 4, 0,
-  "Add properties to the text from START to END.\n\
-The third argument PROPERTIES is a property list\n\
-specifying the property values to add.\n\
-The optional fourth argument, OBJECT,\n\
-is the string or buffer containing the text.\n\
-Return t if any property value actually changed, nil otherwise.")
-  (start, end, properties, object)
+       doc: /* Add properties to the text from START to END.
+The third argument PROPERTIES is a property list
+specifying the property values to add.  If the optional fourth argument
+OBJECT is a buffer (or nil, which means the current buffer),
+START and END are buffer positions (integers or markers).
+If OBJECT is a string, START and END are 0-based indices into it.
+Return t if any property value actually changed, nil otherwise.  */)
+     (start, end, properties, object)
      Lisp_Object start, end, properties, object;
 {
   register INTERVAL i, unchanged;
@@ -1145,7 +1254,7 @@ Return t if any property value actually changed, nil otherwise.")
     }
 
   if (BUFFERP (object))
-    modify_region (XBUFFER (object), XINT (start), XINT (end));
+    modify_region (XBUFFER (object), XINT (start), XINT (end), 1);
 
   /* We are at the beginning of interval I, with LEN chars to scan.  */
   for (;;)
@@ -1199,12 +1308,13 @@ Return t if any property value actually changed, nil otherwise.")
 
 DEFUN ("put-text-property", Fput_text_property,
        Sput_text_property, 4, 5, 0,
-  "Set one property of the text from START to END.\n\
-The third and fourth arguments PROPERTY and VALUE\n\
-specify the property to add.\n\
-The optional fifth argument, OBJECT,\n\
-is the string or buffer containing the text.")
-  (start, end, property, value, object)
+       doc: /* Set one property of the text from START to END.
+The third and fourth arguments PROPERTY and VALUE
+specify the property to add.
+If the optional fifth argument OBJECT is a buffer (or nil, which means
+the current buffer), START and END are buffer positions (integers or
+markers).  If OBJECT is a string, START and END are 0-based indices into it.  */)
+     (start, end, property, value, object)
      Lisp_Object start, end, property, value, object;
 {
   Fadd_text_properties (start, end,
@@ -1215,14 +1325,14 @@ is the string or buffer containing the text.")
 
 DEFUN ("set-text-properties", Fset_text_properties,
        Sset_text_properties, 3, 4, 0,
-  "Completely replace properties of text from START to END.\n\
-The third argument PROPERTIES is the new property list.\n\
-The optional fourth argument, OBJECT,\n\
-is the string or buffer containing the text.\n\
-If OBJECT is omitted or nil, it defaults to the current buffer.\n\
-If PROPERTIES is nil, the effect is to remove all properties from\n\
-the designated part of OBJECT.")
-  (start, end, properties, object)
+       doc: /* Completely replace properties of text from START to END.
+The third argument PROPERTIES is the new property list.
+If the optional fourth argument OBJECT is a buffer (or nil, which means
+the current buffer), START and END are buffer positions (integers or
+markers).  If OBJECT is a string, START and END are 0-based indices into it.
+If PROPERTIES is nil, the effect is to remove all properties from
+the designated part of OBJECT.  */)
+     (start, end, properties, object)
      Lisp_Object start, end, properties, object;
 {
   return set_text_properties (start, end, properties, object, Qt);
@@ -1233,16 +1343,14 @@ the designated part of OBJECT.")
    properties PROPERTIES.  OBJECT is the buffer or string containing
    the text.  OBJECT nil means use the current buffer.
    SIGNAL_AFTER_CHANGE_P nil means don't signal after changes.  Value
-   is non-nil if properties were replaced; it is nil if there weren't
-   any properties to replace.  */
+   is nil if the function _detected_ that it did not replace any
+   properties, non-nil otherwise.  */
 
 Lisp_Object
 set_text_properties (start, end, properties, object, signal_after_change_p)
      Lisp_Object start, end, properties, object, signal_after_change_p;
 {
-  register INTERVAL i, unchanged;
-  register INTERVAL prev_changed = NULL_INTERVAL;
-  register int s, len;
+  register INTERVAL i;
   Lisp_Object ostart, oend;
 
   ostart = start;
@@ -1257,12 +1365,12 @@ set_text_properties (start, end, properties, object, signal_after_change_p)
      get rid of its intervals.  */
   if (NILP (properties) && STRINGP (object)
       && XFASTINT (start) == 0
-      && XFASTINT (end) == XSTRING (object)->size)
+      && XFASTINT (end) == SCHARS (object))
     {
-      if (! XSTRING (object)->intervals)
-	return Qt;
+      if (! STRING_INTERVALS (object))
+	return Qnil;
 
-      XSTRING (object)->intervals = 0;
+      STRING_SET_INTERVALS (object, NULL_INTERVAL);
       return Qt;
     }
 
@@ -1285,11 +1393,45 @@ set_text_properties (start, end, properties, object, signal_after_change_p)
 	return Qnil;
     }
 
+  if (BUFFERP (object))
+    modify_region (XBUFFER (object), XINT (start), XINT (end), 1);
+
+  set_text_properties_1 (start, end, properties, object, i);
+
+  if (BUFFERP (object) && !NILP (signal_after_change_p))
+    signal_after_change (XINT (start), XINT (end) - XINT (start),
+			 XINT (end) - XINT (start));
+  return Qt;
+}
+
+/* Replace properties of text from START to END with new list of
+   properties PROPERTIES.  BUFFER is the buffer containing
+   the text.  This does not obey any hooks.
+   You can provide the interval that START is located in as I,
+   or pass NULL for I and this function will find it.
+   START and END can be in any order.  */
+
+void
+set_text_properties_1 (start, end, properties, buffer, i)
+     Lisp_Object start, end, properties, buffer;
+     INTERVAL i;
+{
+  register INTERVAL prev_changed = NULL_INTERVAL;
+  register int s, len;
+  INTERVAL unchanged;
+
   s = XINT (start);
   len = XINT (end) - s;
+  if (len == 0)
+    return;
+  if (len < 0)
+    {
+      s = s + len;
+      len = - len;
+    }
 
-  if (BUFFERP (object))
-    modify_region (XBUFFER (object), XINT (start), XINT (end));
+  if (i == 0)
+    i = find_interval (BUF_INTERVALS (XBUFFER (buffer)), s);
 
   if (i->position != s)
     {
@@ -1300,24 +1442,14 @@ set_text_properties (start, end, properties, object, signal_after_change_p)
 	{
 	  copy_properties (unchanged, i);
 	  i = split_interval_left (i, len);
-	  set_properties (properties, i, object);
-	  if (BUFFERP (object) && !NILP (signal_after_change_p))
-	    signal_after_change (XINT (start), XINT (end) - XINT (start),
-				 XINT (end) - XINT (start));
-
-	  return Qt;
+	  set_properties (properties, i, buffer);
+	  return;
 	}
 
-      set_properties (properties, i, object);
+      set_properties (properties, i, buffer);
 
       if (LENGTH (i) == len)
-	{
-	  if (BUFFERP (object) && !NILP (signal_after_change_p))
-	    signal_after_change (XINT (start), XINT (end) - XINT (start),
-				 XINT (end) - XINT (start));
-
-	  return Qt;
-	}
+	return;
 
       prev_changed = i;
       len -= LENGTH (i);
@@ -1338,13 +1470,10 @@ set_text_properties (start, end, properties, object, signal_after_change_p)
 	  /* We have to call set_properties even if we are going to
 	     merge the intervals, so as to make the undo records
 	     and cause redisplay to happen.  */
-	  set_properties (properties, i, object);
+	  set_properties (properties, i, buffer);
 	  if (!NULL_INTERVAL_P (prev_changed))
 	    merge_interval_left (i);
-	  if (BUFFERP (object) && !NILP (signal_after_change_p))
-	    signal_after_change (XINT (start), XINT (end) - XINT (start),
-				 XINT (end) - XINT (start));
-	  return Qt;
+	  return;
 	}
 
       len -= LENGTH (i);
@@ -1352,7 +1481,7 @@ set_text_properties (start, end, properties, object, signal_after_change_p)
       /* We have to call set_properties even if we are going to
 	 merge the intervals, so as to make the undo records
 	 and cause redisplay to happen.  */
-      set_properties (properties, i, object);
+      set_properties (properties, i, buffer);
       if (NULL_INTERVAL_P (prev_changed))
 	prev_changed = i;
       else
@@ -1360,23 +1489,21 @@ set_text_properties (start, end, properties, object, signal_after_change_p)
 
       i = next_interval (i);
     }
-
-  if (BUFFERP (object) && !NILP (signal_after_change_p))
-    signal_after_change (XINT (start), XINT (end) - XINT (start),
-			 XINT (end) - XINT (start));
-  return Qt;
 }
 
 DEFUN ("remove-text-properties", Fremove_text_properties,
        Sremove_text_properties, 3, 4, 0,
-  "Remove some properties from text from START to END.\n\
-The third argument PROPERTIES is a property list\n\
-whose property names specify the properties to remove.\n\
-\(The values stored in PROPERTIES are ignored.)\n\
-The optional fourth argument, OBJECT,\n\
-is the string or buffer containing the text.\n\
-Return t if any property was actually removed, nil otherwise.")
-  (start, end, properties, object)
+       doc: /* Remove some properties from text from START to END.
+The third argument PROPERTIES is a property list
+whose property names specify the properties to remove.
+\(The values stored in PROPERTIES are ignored.)
+If the optional fourth argument OBJECT is a buffer (or nil, which means
+the current buffer), START and END are buffer positions (integers or
+markers).  If OBJECT is a string, START and END are 0-based indices into it.
+Return t if any property was actually removed, nil otherwise.
+
+Use set-text-properties if you want to remove all text properties.  */)
+     (start, end, properties, object)
      Lisp_Object start, end, properties, object;
 {
   register INTERVAL i, unchanged;
@@ -1415,7 +1542,7 @@ Return t if any property was actually removed, nil otherwise.")
     }
 
   if (BUFFERP (object))
-    modify_region (XBUFFER (object), XINT (start), XINT (end));
+    modify_region (XBUFFER (object), XINT (start), XINT (end), 1);
 
   /* We are at the beginning of an interval, with len to scan */
   for (;;)
@@ -1430,7 +1557,7 @@ Return t if any property was actually removed, nil otherwise.")
 
 	  if (LENGTH (i) == len)
 	    {
-	      remove_properties (properties, i, object);
+	      remove_properties (properties, Qnil, i, object);
 	      if (BUFFERP (object))
 		signal_after_change (XINT (start), XINT (end) - XINT (start),
 				     XINT (end) - XINT (start));
@@ -1441,7 +1568,7 @@ Return t if any property was actually removed, nil otherwise.")
 	  unchanged = i;
 	  i = split_interval_left (i, len);
 	  copy_properties (unchanged, i);
-	  remove_properties (properties, i, object);
+	  remove_properties (properties, Qnil, i, object);
 	  if (BUFFERP (object))
 	    signal_after_change (XINT (start), XINT (end) - XINT (start),
 				 XINT (end) - XINT (start));
@@ -1449,20 +1576,129 @@ Return t if any property was actually removed, nil otherwise.")
 	}
 
       len -= LENGTH (i);
-      modified += remove_properties (properties, i, object);
+      modified += remove_properties (properties, Qnil, i, object);
+      i = next_interval (i);
+    }
+}
+
+DEFUN ("remove-list-of-text-properties", Fremove_list_of_text_properties,
+       Sremove_list_of_text_properties, 3, 4, 0,
+       doc: /* Remove some properties from text from START to END.
+The third argument LIST-OF-PROPERTIES is a list of property names to remove.
+If the optional fourth argument OBJECT is a buffer (or nil, which means
+the current buffer), START and END are buffer positions (integers or
+markers).  If OBJECT is a string, START and END are 0-based indices into it.
+Return t if any property was actually removed, nil otherwise.  */)
+     (start, end, list_of_properties, object)
+     Lisp_Object start, end, list_of_properties, object;
+{
+  register INTERVAL i, unchanged;
+  register int s, len, modified = 0;
+  Lisp_Object properties;
+  properties = list_of_properties;
+
+  if (NILP (object))
+    XSETBUFFER (object, current_buffer);
+
+  i = validate_interval_range (object, &start, &end, soft);
+  if (NULL_INTERVAL_P (i))
+    return Qnil;
+
+  s = XINT (start);
+  len = XINT (end) - s;
+
+  if (i->position != s)
+    {
+      /* No properties on this first interval -- return if
+         it covers the entire region.  */
+      if (! interval_has_some_properties_list (properties, i))
+	{
+	  int got = (LENGTH (i) - (s - i->position));
+	  if (got >= len)
+	    return Qnil;
+	  len -= got;
+	  i = next_interval (i);
+	}
+      /* Split away the beginning of this interval; what we don't
+	 want to modify.  */
+      else
+	{
+	  unchanged = i;
+	  i = split_interval_right (unchanged, s - unchanged->position);
+	  copy_properties (unchanged, i);
+	}
+    }
+
+  /* We are at the beginning of an interval, with len to scan.
+     The flag `modified' records if changes have been made.
+     When object is a buffer, we must call modify_region before changes are
+     made and signal_after_change when we are done.
+     We call modify_region before calling remove_properties iff modified == 0,
+     and we call signal_after_change before returning iff modified != 0. */
+  for (;;)
+    {
+      if (i == 0)
+	abort ();
+
+      if (LENGTH (i) >= len)
+	{
+	  if (! interval_has_some_properties_list (properties, i))
+	    if (modified)
+	      {
+		if (BUFFERP (object))
+		  signal_after_change (XINT (start), XINT (end) - XINT (start),
+				       XINT (end) - XINT (start));
+		return Qt;
+	      }
+	    else
+	      return Qnil;
+
+	  if (LENGTH (i) == len)
+	    {
+	      if (!modified && BUFFERP (object))
+		modify_region (XBUFFER (object), XINT (start), XINT (end), 1);
+	      remove_properties (Qnil, properties, i, object);
+	      if (BUFFERP (object))
+		signal_after_change (XINT (start), XINT (end) - XINT (start),
+				     XINT (end) - XINT (start));
+	      return Qt;
+	    }
+
+	  /* i has the properties, and goes past the change limit */
+	  unchanged = i;
+	  i = split_interval_left (i, len);
+	  copy_properties (unchanged, i);
+	  if (!modified && BUFFERP (object))
+	    modify_region (XBUFFER (object), XINT (start), XINT (end), 1);
+	  remove_properties (Qnil, properties, i, object);
+	  if (BUFFERP (object))
+	    signal_after_change (XINT (start), XINT (end) - XINT (start),
+				 XINT (end) - XINT (start));
+	  return Qt;
+	}
+
+      if (interval_has_some_properties_list (properties, i))
+	{
+	  if (!modified && BUFFERP (object))
+	    modify_region (XBUFFER (object), XINT (start), XINT (end), 1);
+	  remove_properties (Qnil, properties, i, object);
+	  modified = 1;
+	}
+      len -= LENGTH (i);
       i = next_interval (i);
     }
 }
 
 DEFUN ("text-property-any", Ftext_property_any,
        Stext_property_any, 4, 5, 0,
-  "Check text from START to END for property PROPERTY equalling VALUE.\n\
-If so, return the position of the first character whose property PROPERTY\n\
-is `eq' to VALUE.  Otherwise return nil.\n\
-The optional fifth argument, OBJECT, is the string or buffer\n\
-containing the text.")
-  (start, end, property, value, object)
-       Lisp_Object start, end, property, value, object;
+       doc: /* Check text from START to END for property PROPERTY equalling VALUE.
+If so, return the position of the first character whose property PROPERTY
+is `eq' to VALUE.  Otherwise return nil.
+If the optional fifth argument OBJECT is a buffer (or nil, which means
+the current buffer), START and END are buffer positions (integers or
+markers).  If OBJECT is a string, START and END are 0-based indices into it.  */)
+     (start, end, property, value, object)
+     Lisp_Object start, end, property, value, object;
 {
   register INTERVAL i;
   register int e, pos;
@@ -1492,13 +1728,14 @@ containing the text.")
 
 DEFUN ("text-property-not-all", Ftext_property_not_all,
        Stext_property_not_all, 4, 5, 0,
-  "Check text from START to END for property PROPERTY not equalling VALUE.\n\
-If so, return the position of the first character whose property PROPERTY\n\
-is not `eq' to VALUE.  Otherwise, return nil.\n\
-The optional fifth argument, OBJECT, is the string or buffer\n\
-containing the text.")
-  (start, end, property, value, object)
-       Lisp_Object start, end, property, value, object;
+       doc: /* Check text from START to END for property PROPERTY not equalling VALUE.
+If so, return the position of the first character whose property PROPERTY
+is not `eq' to VALUE.  Otherwise, return nil.
+If the optional fifth argument OBJECT is a buffer (or nil, which means
+the current buffer), START and END are buffer positions (integers or
+markers).  If OBJECT is a string, START and END are 0-based indices into it.  */)
+     (start, end, property, value, object)
+     Lisp_Object start, end, property, value, object;
 {
   register INTERVAL i;
   register int s, e;
@@ -1525,6 +1762,71 @@ containing the text.")
     }
   return Qnil;
 }
+
+
+/* Return the direction from which the text-property PROP would be
+   inherited by any new text inserted at POS: 1 if it would be
+   inherited from the char after POS, -1 if it would be inherited from
+   the char before POS, and 0 if from neither.
+   BUFFER can be either a buffer or nil (meaning current buffer).  */
+
+int
+text_property_stickiness (prop, pos, buffer)
+     Lisp_Object prop, pos, buffer;
+{
+  Lisp_Object prev_pos, front_sticky;
+  int is_rear_sticky = 1, is_front_sticky = 0; /* defaults */
+
+  if (NILP (buffer))
+    XSETBUFFER (buffer, current_buffer);
+
+  if (XINT (pos) > BUF_BEGV (XBUFFER (buffer)))
+    /* Consider previous character.  */
+    {
+      Lisp_Object rear_non_sticky;
+
+      prev_pos = make_number (XINT (pos) - 1);
+      rear_non_sticky = Fget_text_property (prev_pos, Qrear_nonsticky, buffer);
+
+      if (!NILP (CONSP (rear_non_sticky)
+		 ? Fmemq (prop, rear_non_sticky)
+		 : rear_non_sticky))
+	/* PROP is rear-non-sticky.  */
+	is_rear_sticky = 0;
+    }
+  else
+    return 0;
+
+  /* Consider following character.  */
+  /* This signals an arg-out-of-range error if pos is outside the
+     buffer's accessible range.  */
+  front_sticky = Fget_text_property (pos, Qfront_sticky, buffer);
+
+  if (EQ (front_sticky, Qt)
+      || (CONSP (front_sticky)
+	  && !NILP (Fmemq (prop, front_sticky))))
+    /* PROP is inherited from after.  */
+    is_front_sticky = 1;
+
+  /* Simple cases, where the properties are consistent.  */
+  if (is_rear_sticky && !is_front_sticky)
+    return -1;
+  else if (!is_rear_sticky && is_front_sticky)
+    return 1;
+  else if (!is_rear_sticky && !is_front_sticky)
+    return 0;
+
+  /* The stickiness properties are inconsistent, so we have to
+     disambiguate.  Basically, rear-sticky wins, _except_ if the
+     property that would be inherited has a value of nil, in which case
+     front-sticky wins.  */
+  if (XINT (pos) == BUF_BEGV (XBUFFER (buffer))
+      || NILP (Fget_text_property (prev_pos, prop, buffer)))
+    return 1;
+  else
+    return -1;
+}
+
 
 /* I don't think this is the right interface to export; how often do you
    want to do something like this, other than when you're copying objects
@@ -1557,7 +1859,7 @@ copy_text_properties (start, end, src, pos, dest, prop)
   if (NULL_INTERVAL_P (i))
     return Qnil;
 
-  CHECK_NUMBER_COERCE_MARKER (pos, 0);
+  CHECK_NUMBER_COERCE_MARKER (pos);
   {
     Lisp_Object dest_start, dest_end;
 
@@ -1643,23 +1945,23 @@ text_property_list (object, start, end, prop)
   Lisp_Object result;
 
   result = Qnil;
-  
+
   i = validate_interval_range (object, &start, &end, soft);
   if (!NULL_INTERVAL_P (i))
     {
       int s = XINT (start);
       int e = XINT (end);
-      
+
       while (s < e)
 	{
 	  int interval_end, len;
 	  Lisp_Object plist;
-	  
+
 	  interval_end = i->position + LENGTH (i);
 	  if (interval_end > e)
 	    interval_end = e;
 	  len = interval_end - s;
-	  
+
 	  plist = i->plist;
 
 	  if (!NILP (prop))
@@ -1675,14 +1977,14 @@ text_property_list (object, start, end, prop)
 				   Fcons (make_number (s + len),
 					  Fcons (plist, Qnil))),
 			    result);
-	  
+
 	  i = next_interval (i);
 	  if (NULL_INTERVAL_P (i))
 	    break;
 	  s = i->position;
 	}
     }
-  
+
   return result;
 }
 
@@ -1699,18 +2001,18 @@ add_text_properties_from_list (object, list, delta)
 {
   struct gcpro gcpro1, gcpro2;
   int modified_p = 0;
-  
+
   GCPRO2 (list, object);
-  
+
   for (; CONSP (list); list = XCDR (list))
     {
       Lisp_Object item, start, end, plist, tem;
-      
+
       item = XCAR (list);
       start = make_number (XINT (XCAR (item)) + XINT (delta));
       end = make_number (XINT (XCAR (XCDR (item))) + XINT (delta));
       plist = XCAR (XCDR (XCDR (item)));
-      
+
       tem = Fadd_text_properties (start, end, plist, object);
       if (!NILP (tem))
 	modified_p = 1;
@@ -1733,12 +2035,12 @@ extend_property_ranges (list, old_end, new_end)
   for (; CONSP (list); list = XCDR (list))
     {
       Lisp_Object item, end;
-      
+
       item = XCAR (list);
       end = XCAR (XCDR (item));
 
       if (EQ (end, old_end))
-	XCAR (XCDR (item)) = new_end;
+	XSETCAR (XCDR (item), new_end);
     }
 }
 
@@ -1831,7 +2133,7 @@ verify_interval_modification (buf, start, end)
 	      if (! NULL_INTERVAL_P (i))
 		{
 		  after = textget (i->plist, Qread_only);
-		  
+
 		  /* If interval I is read-only and read-only is
 		     front-sticky, inhibit insertion.
 		     Check for read-only as well as category.  */
@@ -1844,14 +2146,14 @@ verify_interval_modification (buf, start, end)
 		      if (TMEM (Qread_only, tem)
 			  || (NILP (Fplist_get (i->plist, Qread_only))
 			      && TMEM (Qcategory, tem)))
-			text_read_only ();
+			text_read_only (after);
 		    }
 		}
 
 	      if (! NULL_INTERVAL_P (prev))
 		{
 		  before = textget (prev->plist, Qread_only);
-		  
+
 		  /* If interval PREV is read-only and read-only isn't
 		     rear-nonsticky, inhibit insertion.
 		     Check for read-only as well as category.  */
@@ -1864,14 +2166,14 @@ verify_interval_modification (buf, start, end)
 		      if (! TMEM (Qread_only, tem)
 			  && (! NILP (Fplist_get (prev->plist,Qread_only))
 			      || ! TMEM (Qcategory, tem)))
-			text_read_only ();
+			text_read_only (before);
 		    }
 		}
 	    }
 	  else if (! NULL_INTERVAL_P (i))
 	    {
 	      after = textget (i->plist, Qread_only);
-		  
+
 	      /* If interval I is read-only and read-only is
 		 front-sticky, inhibit insertion.
 		 Check for read-only as well as category.  */
@@ -1883,13 +2185,13 @@ verify_interval_modification (buf, start, end)
 		  if (TMEM (Qread_only, tem)
 		      || (NILP (Fplist_get (i->plist, Qread_only))
 			  && TMEM (Qcategory, tem)))
-		    text_read_only ();
+		    text_read_only (after);
 
 		  tem = textget (prev->plist, Qrear_nonsticky);
 		  if (! TMEM (Qread_only, tem)
 		      && (! NILP (Fplist_get (prev->plist, Qread_only))
 			  || ! TMEM (Qcategory, tem)))
-		    text_read_only ();
+		    text_read_only (after);
 		}
 	    }
 	}
@@ -1911,7 +2213,7 @@ verify_interval_modification (buf, start, end)
       do
 	{
 	  if (! INTERVAL_WRITABLE_P (i))
-	    text_read_only ();
+	    text_read_only (textget (i->plist, Qread_only));
 
 	  if (!inhibit_modification_hooks)
 	    {
@@ -1964,33 +2266,44 @@ void
 syms_of_textprop ()
 {
   DEFVAR_LISP ("default-text-properties", &Vdefault_text_properties,
-   "Property-list used as default values.\n\
-The value of a property in this list is seen as the value for every\n\
-character that does not have its own value for that property.");
+	       doc: /* Property-list used as default values.
+The value of a property in this list is seen as the value for every
+character that does not have its own value for that property.  */);
   Vdefault_text_properties = Qnil;
 
+  DEFVAR_LISP ("char-property-alias-alist", &Vchar_property_alias_alist,
+	       doc: /* Alist of alternative properties for properties without a value.
+Each element should look like (PROPERTY ALTERNATIVE1 ALTERNATIVE2...).
+If a piece of text has no direct value for a particular property, then
+this alist is consulted.  If that property appears in the alist, then
+the first non-nil value from the associated alternative properties is
+returned. */);
+  Vchar_property_alias_alist = Qnil;
+
   DEFVAR_LISP ("inhibit-point-motion-hooks", &Vinhibit_point_motion_hooks,
-   "If non-nil, don't run `point-left' and `point-entered' text properties.\n\
-This also inhibits the use of the `intangible' text property.");
+	       doc: /* If non-nil, don't run `point-left' and `point-entered' text properties.
+This also inhibits the use of the `intangible' text property.  */);
   Vinhibit_point_motion_hooks = Qnil;
 
   DEFVAR_LISP ("text-property-default-nonsticky",
 	       &Vtext_property_default_nonsticky,
-    "Alist of properties vs the corresponding non-stickinesses.\n\
-Each element has the form (PROPERTY . NONSTICKINESS).\n\
-\n\
-If a character in a buffer has PROPERTY, new text inserted adjacent to\n\
-the character doesn't inherit PROPERTY if NONSTICKINESS is non-nil,\n\
-inherits it if NONSTICKINESS is nil.  The front-sticky and\n\
-rear-nonsticky properties of the character overrides NONSTICKINESS.");
-  Vtext_property_default_nonsticky = Qnil;
+	       doc: /* Alist of properties vs the corresponding non-stickinesses.
+Each element has the form (PROPERTY . NONSTICKINESS).
+
+If a character in a buffer has PROPERTY, new text inserted adjacent to
+the character doesn't inherit PROPERTY if NONSTICKINESS is non-nil,
+inherits it if NONSTICKINESS is nil.  The front-sticky and
+rear-nonsticky properties of the character overrides NONSTICKINESS.  */);
+  /* Text property `syntax-table' should be nonsticky by default.  */
+  Vtext_property_default_nonsticky
+    = Fcons (Fcons (intern ("syntax-table"), Qt), Qnil);
 
   staticpro (&interval_insert_behind_hooks);
   staticpro (&interval_insert_in_front_hooks);
   interval_insert_behind_hooks = Qnil;
   interval_insert_in_front_hooks = Qnil;
 
-	       
+
   /* Common attributes one might give text */
 
   staticpro (&Qforeground);
@@ -2034,6 +2347,7 @@ rear-nonsticky properties of the character overrides NONSTICKINESS.");
   defsubr (&Stext_properties_at);
   defsubr (&Sget_text_property);
   defsubr (&Sget_char_property);
+  defsubr (&Sget_char_property_and_overlay);
   defsubr (&Snext_char_property_change);
   defsubr (&Sprevious_char_property_change);
   defsubr (&Snext_single_char_property_change);
@@ -2046,9 +2360,12 @@ rear-nonsticky properties of the character overrides NONSTICKINESS.");
   defsubr (&Sput_text_property);
   defsubr (&Sset_text_properties);
   defsubr (&Sremove_text_properties);
+  defsubr (&Sremove_list_of_text_properties);
   defsubr (&Stext_property_any);
   defsubr (&Stext_property_not_all);
 /*  defsubr (&Serase_text_properties); */
 /*  defsubr (&Scopy_text_properties); */
 }
 
+/* arch-tag: 454cdde8-5f86-4faa-a078-101e3625d479
+   (do not change this comment) */

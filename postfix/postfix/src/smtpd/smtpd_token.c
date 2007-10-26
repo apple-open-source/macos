@@ -51,6 +51,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef STRCASECMP_IN_STRINGS_H
+#include <strings.h>
+#endif
+
 /* Utility library. */
 
 #include <mymalloc.h>
@@ -222,6 +226,7 @@ int     main(int unused_argc, char **unused_argv)
 	    vstream_printf("Token value: %s\n", tok_argv[i].strval);
 	}
     }
+    vstring_free(vp);
     exit(0);
 }
 

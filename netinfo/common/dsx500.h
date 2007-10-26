@@ -53,4 +53,4 @@ char *dsx500_rdn_attr_type(char *s);
 /* get RDN value (right hand side) */
 char *dsx500_rdn_attr_value(char * rdn);
 
-#endif __DSX500_H__
+#endif /* __DSX500_H__ */

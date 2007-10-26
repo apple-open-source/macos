@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/tcpdump/tcpdump/l2tp.h,v 1.1.1.2 2002/05/29 00:05:31 landonf Exp $ (LBL) */
+/* @(#) $Header: /tcpdump/master/tcpdump/l2tp.h,v 1.5 2001/11/05 10:03:27 guy Exp $ (LBL) */
 /*
  * Copyright (c) 1991, 1993, 1994, 1995, 1996, 1997
  *      The Regents of the University of California.  All rights reserved.

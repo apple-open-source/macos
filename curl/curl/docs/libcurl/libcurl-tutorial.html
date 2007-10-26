@@ -59,7 +59,7 @@ p.roffit {
 <p class="level1">$ curl-config --libs 
 <p class="level1">
 <p class="level0"><a name="SSL"></a><span class="nroffip">SSL or Not</span> 
-<p class="level1">libcurl can be built and customized in many ways. One of the things that varies from different libraries and builds is the support for SSL-based transfers, like HTTPS and FTPS. If OpenSSL was detected properly at build-time, libcurl will be built with SSL support. To figure out if an installed libcurl has been built with SSL support enabled, use 'curl-config' like this: 
+<p class="level1">libcurl can be built and customized in many ways. One of the things that varies from different libraries and builds is the support for SSL-based transfers, like HTTPS and FTPS. If a supported SSL library was detected properly at build-time, libcurl will be built with SSL support. To figure out if an installed libcurl has been built with SSL support enabled, use 'curl-config' like this: 
 <p class="level1">$ curl-config --feature 
 <p class="level1">And if SSL is supported, the keyword 'SSL' will be written to stdout, possibly together with a few other features that can be on and off on different libcurls. 
 <p class="level1">See also the "Features libcurl Provides" further down. 
@@ -76,13 +76,13 @@ p.roffit {
 <p class="level0"><a name="CURLGLOBALWIN32"></a><span class="nroffip">CURL_GLOBAL_WIN32</span> 
 <p class="level1">which only does anything on Windows machines. When used on a Windows machine, it'll make libcurl initialize the win32 socket stuff. Without having that initialized properly, your program cannot use sockets properly. You should only do this once for each application, so if your program already does this or of another library in use does it, you should not tell libcurl to do this as well. 
 <p class="level0"><a name="CURLGLOBALSSL"></a><span class="nroffip">CURL_GLOBAL_SSL</span> 
-<p class="level1">which only does anything on libcurls compiled and built SSL-enabled. On these systems, this will make libcurl initialize OpenSSL properly for this application. This is only needed to do once for each application so if your program or another library already does this, this bit should not be needed. 
+<p class="level1">which only does anything on libcurls compiled and built SSL-enabled. On these systems, this will make libcurl initialize the SSL library properly for this application. This is only needed to do once for each application so if your program or another library already does this, this bit should not be needed. 
 <p class="level0">
 <p class="level0">libcurl has a default protection mechanism that detects if <a class="emphasis" href="./curl_global_init.html">curl_global_init(3)</a> hasn't been called by the time <a class="emphasis" href="./curl_easy_perform.html">curl_easy_perform(3)</a> is called and if that is the case, libcurl runs the function itself with a guessed bit pattern. Please note that depending solely on this is not considered nice nor very good. 
 <p class="level0">When the program no longer uses libcurl, it should call <a class="emphasis" href="./curl_global_cleanup.html">curl_global_cleanup(3)</a>, which is the opposite of the init call. It will then do the reversed operations to cleanup the resources the <a class="emphasis" href="./curl_global_init.html">curl_global_init(3)</a> call initialized. 
 <p class="level0">Repeated calls to <a class="emphasis" href="./curl_global_init.html">curl_global_init(3)</a> and <a class="emphasis" href="./curl_global_cleanup.html">curl_global_cleanup(3)</a> should be avoided. They should only be called once each. 
 <p class="level0"><a name="Features"></a><h2 class="nroffsh">Features libcurl Provides</h2>
-<p class="level0">It is considered best-practice to determine libcurl features run-time rather than build-time (if possible of course). By calling curl_version_info() and checking tout he details of the returned struct, your program can figure out exactly what the currently running libcurl supports. 
+<p class="level0">It is considered best-practice to determine libcurl features at run-time rather than at build-time (if possible of course). By calling <a class="emphasis" href="./curl_version_info.html">curl_version_info(3)</a> and checking out the details of the returned struct, your program can figure out exactly what the currently running libcurl supports. 
 <p class="level0"><a name="Handle"></a><h2 class="nroffsh">Handle the Easy libcurl</h2>
 <p class="level0">libcurl first introduced the so called easy interface. All operations in the easy interface are prefixed with 'curl_easy'. 
 <p class="level0">Recent libcurl versions also offer the multi interface. More about that interface, what it is targeted for and how to use it is detailed in a separate chapter further down. You still need to understand the easy interface first, so please continue reading for better understanding. 
@@ -118,7 +118,7 @@ p.roffit {
  <p class="level0">Now, we need to take a step back and have a deep breath. Here's one of those
  rare platform-dependent nitpicks. Did you spot it? On some platforms[2],
  libcurl won't be able to operate on files opened by the program. Thus, if you
- use the default callback and pass in a an open file with
+ use the default callback and pass in an open file with
  <span Class="emphasis">CURLOPT_WRITEDATA</span>, it will crash. You should therefore avoid this to
  make your program run fine virtually everywhere.
  <p class="level0">(<span Class="emphasis">CURLOPT_WRITEDATA</span> was formerly known as <span Class="emphasis">CURLOPT_FILE</span>. Both names
@@ -143,13 +143,21 @@ p.roffit {
  <p class="level0">If you then want to transfer another file, the handle is ready to be used
  again. Mind you, it is even preferred that you re-use an existing handle if
  you intend to make another transfer. libcurl will then attempt to re-use the
- previous
+ previous connection.
  <p class="level0"></pre>
 <a name="Multi-threading"></a><h2 class="nroffsh">Multi-threading Issues</h2>
-<p class="level0">libcurl is completely thread safe, except for two issues: signals and alarm handlers. Signals are needed for a SIGPIPE handler, and the alarm() call is used to deal with timeouts (during DNS lookup). 
-<p class="level0">If you are accessing HTTPS or FTPS URLs in a multi-threaded manner, you are then of course using OpenSSL multi-threaded and it has itself a few requirements on this. Basically, you need to provide one or two functions to allow it to function properly. For all details, see this: 
+<p class="level0">The first basic rule is that you must <span Class="bold">never</span> share a libcurl handle (be it easy or multi or whatever) between multiple threads. Only use one handle in one thread at a time. 
+<p class="level0">libcurl is completely thread safe, except for two issues: signals and SSL/TLS handlers. Signals are used timeouting name resolves (during DNS lookup) - when built without c-ares support and not on Windows.. 
+<p class="level0">If you are accessing HTTPS or FTPS URLs in a multi-threaded manner, you are then of course using the underlying SSL library multi-threaded and those libs might have their own requirements on this issue. Basically, you need to provide one or two functions to allow it to function properly. For all details, see this: 
+<p class="level0">OpenSSL 
 <p class="level0">&nbsp;<a href="http://www.openssl.org/docs/crypto/threads.html">http://www.openssl.org/docs/crypto/threads.html</a>#DESCRIPTION 
-<p class="level0">When using multiple threads you should set the CURLOPT_NOSIGNAL option to TRUE for all handles. Everything will work fine except that timeouts are not honored during the DNS lookup - which you can work around by building libcurl with c-ares support. c-ares is a library that provides asynchronous name resolves. Unfortunately, c-ares does not yet support IPv6. 
+<p class="level0">GnuTLS 
+<p class="level0">&nbsp;<a href="http://www.gnu.org/software/gnutls/manual/html_node/">http://www.gnu.org/software/gnutls/manual/html_node/</a>Multi_002dthreaded-applications.html 
+<p class="level0">NSS 
+<p class="level0">&nbsp;is claimed to be thread-safe already without anything required 
+<p class="level0">yassl 
+<p class="level0">&nbsp;Required actions unknown 
+<p class="level0">When using multiple threads you should set the CURLOPT_NOSIGNAL option to TRUE for all handles. Everything will or might work fine except that timeouts are not honored during the DNS lookup - which you can work around by building libcurl with c-ares support. c-ares is a library that provides asynchronous name resolves. Unfortunately, c-ares does not yet fully support IPv6. On some platforms, libcurl simply will not function properly multi-threaded unless this option is set. 
 <p class="level0">Also, note that CURLOPT_DNS_USE_GLOBAL_CACHE is not thread-safe. 
 <p class="level0"><a name="When"></a><h2 class="nroffsh">When It Doesn't Work</h2>
 <p class="level0">There will always be times when the transfer fails for some reason. You might have set the wrong libcurl option or misunderstood what the libcurl option actually does, or the remote server might return non-standard replies that confuse the library which then confuses your program. 
@@ -329,9 +337,10 @@ p.roffit {
 <a name="Proxies"></a><h2 class="nroffsh">Proxies</h2>
 <p class="level0">
 <p class="level0">What "proxy" means according to Merriam-Webster: "a person authorized to act for another" but also "the agency, function, or office of a deputy who acts as a substitute for another". 
-<p class="level0">Proxies are exceedingly common these days. Companies often only offer Internet access to employees through their HTTP proxies. Network clients or user-agents ask the proxy for documents, the proxy does the actual request and then it returns them. 
-<p class="level0">libcurl has full support for HTTP proxies, so when a given URL is wanted, libcurl will ask the proxy for it instead of trying to connect to the actual host identified in the URL. 
-<p class="level0">The fact that the proxy is a HTTP proxy puts certain restrictions on what can actually happen. A requested URL that might not be a HTTP URL will be still be passed to the HTTP proxy to deliver back to libcurl. This happens transparently, and an application may not need to know. I say "may", because at times it is very important to understand that all operations over a HTTP proxy is using the HTTP protocol. For example, you can't invoke your own custom FTP commands or even proper FTP directory listings. 
+<p class="level0">Proxies are exceedingly common these days. Companies often only offer Internet access to employees through their proxies. Network clients or user-agents ask the proxy for documents, the proxy does the actual request and then it returns them. 
+<p class="level0">libcurl supports SOCKS and HTTP proxies. When a given URL is wanted, libcurl will ask the proxy for it instead of trying to connect to the actual host identified in the URL. 
+<p class="level0">If you're using a SOCKS proxy, you may find that libcurl doesn't quite support all operations through it. 
+<p class="level0">For HTTP proxies: the fact that the proxy is a HTTP proxy puts certain restrictions on what can actually happen. A requested URL that might not be a HTTP URL will be still be passed to the HTTP proxy to deliver back to libcurl. This happens transparently, and an application may not need to know. I say "may", because at times it is very important to understand that all operations over a HTTP proxy is using the HTTP protocol. For example, you can't invoke your own custom FTP commands or even proper FTP directory listings. 
 <p class="level0">
 <p class="level0"><a name="Proxy"></a><span class="nroffip">Proxy Options</span> 
 <p class="level1">
@@ -340,13 +349,15 @@ p.roffit {
 <p class="level1">Some proxies require user authentication before allowing a request, and you pass that information similar to this: 
 <p class="level1">&nbsp;curl_easy_setopt(easyhandle, CURLOPT_PROXYUSERPWD, "user:password"); 
 <p class="level1">If you want to, you can specify the host name only in the CURLOPT_PROXY option, and set the port number separately with CURLOPT_PROXYPORT. 
+<p class="level1">Tell libcurl what kind of proxy it is with CURLOPT_PROXYTYPE (if not, it will default to assume a HTTP proxy): 
+<p class="level1">&nbsp;curl_easy_setopt(easyhandle, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS4); 
 <p class="level1">
 <p class="level0"><a name="Environment"></a><span class="nroffip">Environment Variables</span> 
 <p class="level1">
 <p class="level1">libcurl automatically checks and uses a set of environment variables to know what proxies to use for certain protocols. The names of the variables are following an ancient de facto standard and are built up as "[protocol]_proxy" (note the lower casing). Which makes the variable 'http_proxy' checked for a name of a proxy to use when the input URL is HTTP. Following the same rule, the variable named 'ftp_proxy' is checked for FTP URLs. Again, the proxies are always HTTP proxies, the different names of the variables simply allows different HTTP proxies to be used. 
 <p class="level1">The proxy environment variable contents should be in the format "[protocol://][user:password@]machine[:port]". Where the protocol:// part is simply ignored if present (so <a href="http://proxy">http://proxy</a> and bluerk://proxy will do the same) and the optional port number specifies on which port the proxy operates on the host. If not specified, the internal default port number will be used and that is most likely *not* the one you would like it to be. 
 <p class="level1">There are two special environment variables. 'all_proxy' is what sets proxy for any URL in case the protocol specific variable wasn't set, and 'no_proxy' defines a list of hosts that should not use a proxy even though a variable may say so. If 'no_proxy' is a plain asterisk ("*") it matches all hosts. 
-<p class="level1">
+<p class="level1">To explicitly disable libcurl's checking for and using the proxy environment variables, set the proxy name to "" - an empty string - with CURLOPT_PROXY. 
 <p class="level0"><a name="SSL"></a><span class="nroffip">SSL and Proxies</span> 
 <p class="level1">
 <p class="level1">SSL is for secure point-to-point connections. This involves strong encryption and similar things, which effectively makes it impossible for a proxy to operate as a "man in between" which the proxy's task is, as previously discussed. Instead, the only way to have SSL work over a HTTP proxy is to ask the proxy to tunnel trough everything without being able to check or fiddle with the traffic. 
@@ -379,18 +390,9 @@ p.roffit {
 <p class="level0">libcurl caches DNS name resolving results, to make lookups of a previously looked up name a lot faster. 
 <p class="level0">Other interesting details that improve performance for subsequent requests may also be added in the future. 
 <p class="level0">Each easy handle will attempt to keep the last few connections alive for a while in case they are to be used again. You can set the size of this "cache" with the CURLOPT_MAXCONNECTS option. Default is 5. It is very seldom any point in changing this value, and if you think of changing this it is often just a matter of thinking again. 
-<p class="level0">When the connection cache gets filled, libcurl must close an existing connection in order to get room for the new one. To know which connection to close, libcurl uses a "close policy" that you can affect with the CURLOPT_CLOSEPOLICY option. There's only two polices implemented as of this writing (libcurl 7.9.4) and they are: 
-<p class="level0">
-<p class="level1">
-<p class="level0"><a name="CURLCLOSEPOLICYLEASTRECENTLYUSED"></a><span class="nroffip">CURLCLOSEPOLICY_LEAST_RECENTLY_USED</span> 
-<p class="level1">simply close the one that hasn't been used for the longest time. This is the default behavior. 
-<p class="level0"><a name="CURLCLOSEPOLICYOLDEST"></a><span class="nroffip">CURLCLOSEPOLICY_OLDEST</span> 
-<p class="level1">closes the oldest connection, the one that was created the longest time ago. 
-<p class="level0">
-<p class="level0">There are, or at least were, plans to support a close policy that would call a user-specified callback to let the user be able to decide which connection to dump when this is necessary and therefor is the CURLOPT_CLOSEFUNCTION an existing option still today. Nothing ever uses this though and this will not be used within the foreseeable future either. 
 <p class="level0">To force your upcoming request to not use an already existing connection (it will even close one first if there happens to be one alive to the same host you're about to operate on), you can do that by setting CURLOPT_FRESH_CONNECT to TRUE. In a similar spirit, you can also forbid the upcoming request to be "lying" around and possibly get re-used after the request by setting CURLOPT_FORBID_REUSE to TRUE. 
 <p class="level0"><a name="HTTP"></a><h2 class="nroffsh">HTTP Headers Used by libcurl</h2>
-<p class="level0">When you use libcurl to do HTTP requests, it'll pass along a series of headers automatically. It might be good for you to know and understand these ones. 
+<p class="level0">When you use libcurl to do HTTP requests, it'll pass along a series of headers automatically. It might be good for you to know and understand these ones. You can replace or remove them by using the CURLOPT_HTTPHEADER option. 
 <p class="level0">
 <p class="level0"><a name="Host"></a><span class="nroffip">Host</span> 
 <p class="level1">This header is required by HTTP 1.1 and even many 1.0 servers and should be the name of the server we want to talk to. This includes the port number if anything but default. 
@@ -401,8 +403,8 @@ p.roffit {
 <p class="level0"><a name="Accept"></a><span class="nroffip">Accept</span> 
 <p class="level1">"*/*". 
 <p class="level1">
-<p class="level0"><a name="Expect"></a><span class="nroffip">Expect:</span> 
-<p class="level1">When doing multi-part formposts, libcurl will set this header to "100-continue" to ask the server for an "OK" message before it proceeds with sending the data part of the post. 
+<p class="level0"><a name="Expect"></a><span class="nroffip">Expect</span> 
+<p class="level1">When doing POST requests, libcurl sets this header to "100-continue" to ask the server for an "OK" message before it proceeds with sending the data part of the post. If the POSTed data amount is deemed "small", libcurl will not use this header. 
 <p class="level1"><a name="Customizing"></a><h2 class="nroffsh">Customizing Operations</h2>
 <p class="level0">There is an ongoing development today where more and more protocols are built upon HTTP for transport. This has obvious benefits as HTTP is a tested and reliable protocol that is widely deployed and have excellent proxy-support. 
 <p class="level0">When you use one of these protocols, and even when doing other kinds of programming you may need to change the traditional HTTP (or FTP or...) manners. You may need to change words, headers or various data. 
@@ -441,13 +443,11 @@ p.roffit {
  upload, even though the size of the data to upload might be known. By default,
  libcurl usually switches over to chunked upload automatically if the upload
  data size is unknown.
- <p class="level1"><p class="level0"><a name="HTTP"></a><span class="nroffip">HTTP Version</span> <p class="level1"><p class="level1">There's only one aspect left in the HTTP requests that we haven't yet
- mentioned how to modify: the version field. All HTTP requests includes the
- version number to tell the server which version we support. libcurl speak
- HTTP 1.1 by default. Some very old servers don't like getting 1.1-requests
- and when dealing with stubborn old things like that, you can tell libcurl
- to use 1.0 instead by doing something like this:
- <p class="level1">&nbsp;curl_easy_setopt(easyhandle, CURLOPT_HTTP_VERSION, CURLHTTP_VERSION_1_0);
+ <p class="level1"><p class="level0"><a name="HTTP"></a><span class="nroffip">HTTP Version</span> <p class="level1"><p class="level1">All HTTP requests includes the version number to tell the server which version
+ we support. libcurl speak HTTP 1.1 by default. Some very old servers don't
+ like getting 1.1-requests and when dealing with stubborn old things like that,
+ you can tell libcurl to use 1.0 instead by doing something like this:
+ <p class="level1">&nbsp;curl_easy_setopt(easyhandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
  <p class="level1"><p class="level0"><a name="FTP"></a><span class="nroffip">FTP Custom Commands</span> <p class="level1"><p class="level1">Not all protocols are HTTP-like, and thus the above may not help you when
  you want to make for example your FTP transfers to behave differently.
  <p class="level1">Sending custom commands to a FTP server means that you need to send the

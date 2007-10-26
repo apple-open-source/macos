@@ -1,4 +1,4 @@
-/* #ident  "@(#)gss_release_name.c 1.2     95/05/09 SMI" */
+/* #pragma ident	"@(#)g_rel_name.c	1.11	04/02/23 SMI" */
 
 /*
  * Copyright 1996 by Sun Microsystems, Inc.
@@ -43,22 +43,27 @@ gss_name_t *		input_name;
 {
     gss_union_name_t	union_name;
     
+    if (minor_status == NULL)
+	return (GSS_S_CALL_INACCESSIBLE_WRITE);
+    *minor_status = 0;
+    
     /* if input_name is NULL, return error */
-    
     if (input_name == 0)
-	return(GSS_S_BAD_NAME);
-    
+	return (GSS_S_CALL_INACCESSIBLE_READ | GSS_S_BAD_NAME);
+
+    if (*input_name == GSS_C_NO_NAME)
+	return GSS_S_COMPLETE;
+
     /*
      * free up the space for the external_name and then
      * free the union_name descriptor
      */
     
     union_name = (gss_union_name_t) *input_name;
+    if (GSSINT_CHK_LOOP(union_name))
+	return (GSS_S_CALL_INACCESSIBLE_READ | GSS_S_BAD_NAME);
     *input_name = 0;
     *minor_status = 0;
-    
-    if (union_name == NULL)
-	return GSS_S_BAD_NAME;
 
     if (union_name->name_type)
 	    gss_release_oid(minor_status, &union_name->name_type);
@@ -67,7 +72,7 @@ gss_name_t *		input_name;
     free(union_name->external_name);
 
     if (union_name->mech_type) {
-	    __gss_release_internal_name(minor_status, union_name->mech_type,
+	    gssint_release_internal_name(minor_status, union_name->mech_type,
 					&union_name->mech_name);
 	    gss_release_oid(minor_status, &union_name->mech_type);
     }

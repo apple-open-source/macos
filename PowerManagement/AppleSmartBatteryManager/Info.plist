@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleSmartBatteryManager</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleSmartBatteryManager</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>136.0</string>
+	<key>CFBundleName</key>
+	<string>AppleSmartBatteryManagerKEXT</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>136.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>136.0.0</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOSmartBatteryManager</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleSmartBatteryManager</string>
+			<key>IOClass</key>
+			<string>AppleSmartBatteryManager</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>IOSMBusSmartBatteryManager</key>
+				<true/>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOSMBusController</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOSMBusFamily</key>
+		<string>1.0.0</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.3.1</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.3.1</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.3.1</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.3.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>

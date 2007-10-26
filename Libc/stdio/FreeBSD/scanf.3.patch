@@ -1,27 +1,92 @@
---- scanf.3.orig	Fri Mar 11 17:08:59 2005
-+++ scanf.3	Fri Mar 11 17:03:13 2005
-@@ -115,10 +115,18 @@
- each successive conversion specifier
- (but see the
- .Cm *
--conversion below).
-+and
-+.Cm %n$
-+conversions below).
- All conversions are introduced by the
- .Cm %
--(percent sign) character.
-+(percent sign) character or
-+.Cm %n$
-+sequence. In the latter case the next 
-+.Em pointer 
-+will be the
-+.Cm n
-+th argument after the format string.
+--- scanf.3.orig	2007-04-08 18:49:37.000000000 -0700
++++ scanf.3	2007-04-08 20:14:03.000000000 -0700
+@@ -40,35 +40,55 @@
+ .Dt SCANF 3
+ .Os
+ .Sh NAME
+-.Nm scanf ,
+ .Nm fscanf ,
++.Nm scanf ,
+ .Nm sscanf ,
++.Nm vfscanf ,
+ .Nm vscanf ,
+-.Nm vsscanf ,
+-.Nm vfscanf
++.Nm vsscanf
+ .Nd input format conversion
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft int
+-.Fn scanf "const char * restrict format" ...
++.Fo fscanf
++.Fa "FILE *restrict stream"
++.Fa "const char *restrict format" ...
++.Fc
+ .Ft int
+-.Fn fscanf "FILE * restrict stream" "const char * restrict format" ...
++.Fo scanf
++.Fa "const char *restrict format" ...
++.Fc
+ .Ft int
+-.Fn sscanf "const char * restrict str" "const char * restrict format" ...
++.Fo sscanf
++.Fa "const char *restrict s"
++.Fa "const char *restrict format" ...
++.Fc
+ .In stdarg.h
++.In stdio.h
+ .Ft int
+-.Fn vscanf "const char * restrict format" "va_list ap"
++.Fo vfscanf
++.Fa "FILE *restrict stream"
++.Fa "const char *restrict format"
++.Fa "va_list arg"
++.Fc
+ .Ft int
+-.Fn vsscanf "const char * restrict str" "const char * restrict format" "va_list ap"
++.Fo vscanf
++.Fa "const char *restrict format"
++.Fa "va_list arg"
++.Fc
+ .Ft int
+-.Fn vfscanf "FILE * restrict stream" "const char * restrict format" "va_list ap"
++.Fo vsscanf
++.Fa "const char *restrict s"
++.Fa "const char *restrict format"
++.Fa "va_list arg"
++.Fc
+ .Sh DESCRIPTION
  The
- .Fa format
- string
-@@ -132,10 +140,18 @@
+ .Fn scanf
+ family of functions scans input according to a
+-.Fa format
++.Fa format ,
+ as described below.
+ This format may contain
+ .Em conversion specifiers ;
+@@ -87,7 +107,8 @@
+ and
+ .Fn sscanf
+ reads its input from the character string pointed to by
+-.Fa str .
++.Fa s .
++.Pp
+ The
+ .Fn vfscanf
+ function
+@@ -108,7 +129,8 @@
+ .Fn vprintf
+ and
+ .Fn vsprintf
+-functions respectively.
++functions, respectively.
++.Pp
+ Each successive
+ .Em pointer
+ argument must correspond properly with
+@@ -132,10 +154,16 @@
  when an input character does not match such a format character.
  Scanning also stops
  when an input conversion cannot be made (see below).
@@ -35,30 +100,42 @@
  Following the
  .Cm %
 -character introducing a conversion
-+character or
-+.Cm %n$
-+sequence introducing a conversion
++character introducing a conversion,
  there may be a number of
  .Em flag
  characters, as follows:
-@@ -466,7 +482,8 @@
+@@ -440,13 +468,10 @@
+ causes an immediate return of
+ .Dv EOF .
+ .Sh RETURN VALUES
+-These
+-functions
+-return
+-the number of input items assigned, which can be fewer than provided
+-for, or even zero, in the event of a matching failure.
+-Zero
+-indicates that, while there was input available,
++These functions return the number of input items assigned.
++This can be fewer than provided for, or even zero,
++in the event of a matching failure.
++Zero indicates that, although there was input available,
+ no conversions were assigned;
+ typically this is due to an invalid input character,
+ such as an alphabetic character for a
+@@ -463,6 +488,7 @@
+ .Xr getc 3 ,
+ .Xr mbrtowc 3 ,
+ .Xr printf 3 ,
++.Xr scanf_l 3 ,
  .Xr strtod 3 ,
  .Xr strtol 3 ,
  .Xr strtoul 3 ,
--.Xr wscanf 3
-+.Xr wscanf 3 ,
-+.Xr scanf_l 3
- .Sh STANDARDS
- The functions
- .Fn fscanf ,
-@@ -505,10 +522,6 @@
- .Cm %512f
+@@ -473,7 +499,7 @@
+ .Fn scanf ,
+ .Fn sscanf ,
+ .Fn vfscanf ,
+-.Fn vscanf
++.Fn vscanf ,
  and
- .Cm %512d .
--.Pp
--The
--.Cm %n$
--modifiers for positional arguments are not implemented.
- .Pp
- The
- .Nm
+ .Fn vsscanf
+ conform to

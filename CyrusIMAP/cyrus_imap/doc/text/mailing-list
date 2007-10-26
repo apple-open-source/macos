@@ -5,15 +5,14 @@ info-cyrus mailing list
     this server and other Cyrus software. Please do NOT send subscription
     requests to the list. 
 
-    To subscribe: Send mail to majordomo@lists.andrew.cmu.edu to subscribe
-    with the body of 'subscribe info-cyrus' (or just click the link above
-    and that should just work). 
+    To subscribe: Send mail to info-cyrus-subscribe@lists.andrew.cmu.edu to
+    subscribe (or just click the link above and that should just work). 
 
     An archive is availible via anonymous IMAP at
     imap://cyrus.andrew.cmu.edu/archive.info-cyrus. 
 
     A web archive is also available at
-    http://asg.web.cmu.edu/archive/mailbox.php3?mailbox=archive.info-cyrus 
+    http://cyrusimap.web.cmu.edu/archive/index.php?mailbox=archive.info-cyrus 
 
     If you are not subscribed to the list (or you are sending the message
     from a different address than the one which you are subscribed under),
@@ -25,5 +24,5 @@ info-cyrus mailing list
     archive location 
 
     Detailed contact information can be found at
-    http://asg.web.cmu.edu/cyrus/contacts.html 
+    http://cyrusimap.web.cmu.edu/lists.html 
 

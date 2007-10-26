@@ -15,6 +15,11 @@
 @parskip 6pt plus 6pt
 @end iftex
 
+@dircategory Kerberos
+@direntry
+* krb5-install: (krb5-install).         Kerberos V5 Installation Guide
+@end direntry
+
 @include definitions.texinfo
 @set EDITION 1.1
 
@@ -456,6 +461,10 @@ should not be part of any backup of the machine, unless access to the
 backup data is secured as tightly as access to the master password
 itself.
 
+If you choose not to install a stash file, the KDC will prompt you for
+the master key each time it starts up.  This means that the KDC will
+not be able to start automatically, such as after a system reboot.
+
 Note that @code{kdb5_util} will prompt you for the master key for the
 Kerberos database.  This key can be any string.  A good key is one you
 can remember, but that no one else can guess.  Examples of bad keys are
@@ -509,10 +518,12 @@ want a stash file, run the above command without the @code{-s} option.
 @subsubsection Add Administrators to the Acl File
 
 Next, you need create an Access Control List (acl) file, and put the
-Kerberos principal of at least one of the administrators into it.  The
-filename should match the value you have set for ``acl_file'' in your
-@code{kdc.conf} file.  The default file name is
-@samp{@value{DefaultAclFile}}.  
+Kerberos principal of at least one of the administrators into it.  This
+file is used by the @code{kadmind} daemon to control which principals
+may view and make privileged modifications to the Kerberos database
+files.  The filename should match the value you have set for
+``acl_file'' in your @code{kdc.conf} file.  The default file name is
+@samp{@value{DefaultAclFile}}.
 
 @include kadm5acl.texinfo
 
@@ -572,16 +583,16 @@ continuation of the previous line.):
 @result{} kadmin/admin kadmin/changepw 
 @b{ Entry for principal kadmin/admin with kvno 5, encryption
 	type Triple DES cbc mode with HMAC/sha1 added to keytab
-	WRFILE:/usr/local/var/krb5kdc/kadm5.keytab.
+	WRFILE:/var/db/krb5kdc/kadm5.keytab.
 Entry for principal kadmin/admin with kvno 5, encryption type DES cbc mode
 	with CRC-32 added to keytab
-	WRFILE:/usr/local/var/krb5kdc/kadm5.keytab.
+	WRFILE:/var/db/krb5kdc/kadm5.keytab.
 Entry for principal kadmin/changepw with kvno 5, encryption
 	type Triple DES cbc mode with HMAC/sha1 added to keytab
-	WRFILE:/usr/local/var/krb5kdc/kadm5.keytab.
+	WRFILE:/var/db/krb5kdc/kadm5.keytab.
 Entry for principal kadmin/changepw with kvno 5,
 	encryption type DES cbc mode with CRC-32 added to keytab
-	WRFILE:/usr/local/var/krb5kdc/kadm5.keytab.
+	WRFILE:/var/db/krb5kdc/kadm5.keytab.
 kadmin.local:} quit
 @b{shell%}
 @end group

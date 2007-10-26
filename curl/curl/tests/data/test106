@@ -1,3 +1,12 @@
+<testcase>
+<info>
+<keywords>
+FTP
+EPSV
+TYPE A
+RETR
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -27,7 +36,7 @@ FTP GET with type=A style ASCII URL using %20 codes
 <verify>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 CWD /path with  spaces
 CWD and things2
@@ -38,3 +47,4 @@ RETR 106
 QUIT
 </protocol>
 </verify>
+</testcase>

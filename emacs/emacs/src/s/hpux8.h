@@ -1,12 +1,35 @@
 /* system description file for hpux version 8.
-   This contains changes that were suggested "for the hp700".
-   They were not needed for the 800.
-   Our conjecture that they are needed for hpux version 8,
-   which is what runs on the 700.  */
 
-#include "hpux.h"
+   Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005, 2006,
+                 2007  Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
+
+Commentary:
+
+This contains changes that were suggested "for the hp700".
+They were not needed for the 800.
+Our conjecture that they are needed for hpux version 8,
+which is what runs on the 700.  */
 
 #define HPUX8
+
+#include "hpux.h"
 
 /* dob@inel.gov says HPUX 8.07 needs this.  He was using X11R5, I think.  */
 #define LIBX11_SYSTEM -lXext
@@ -52,7 +75,7 @@
    and none have sioctl.h, so might as well define this.  */
 #define NO_SIOCTL_H
 
-#if 0 /* autoconf should be detecting the presence or absence of 
+#if 0 /* autoconf should be detecting the presence or absence of
 	 random and srandom now.  */
 /* If you use X11R4 you must define this.  If you use
    X11R5 you must comment this out */
@@ -69,3 +92,6 @@
 
 /* Enable a special hack in XTread_socket.  */
 #define X_IO_BUG
+
+/* arch-tag: 25fafe5c-b26c-43ab-8144-1629d59207ee
+   (do not change this comment) */

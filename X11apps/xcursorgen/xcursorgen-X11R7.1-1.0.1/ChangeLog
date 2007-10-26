@@ -1,0 +1,47 @@
+2006-04-26  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Bump to 1.0.1
+
+2006-04-03  Adam Jackson  <ajax@freedesktop.org>
+
+	* xcursorgen.c:
+	Bug #3270: Fix rounding errors.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-06  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-11-12  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* Makefile.am: 
+	* configure.ac:
+	Bug #5021 <https://bugs.freedesktop.org/show_bug.cgi?id=5021>
+	Patch #3786 <https://bugs.freedesktop.org/attachment.cgi?id=3786>
+	xcursorgen installs manpages into 'man1' instead of 'man1x'
+
+2005-11-09  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC2 release.
+
+2005-10-20  Eric Anholt  <anholt@FreeBSD.org>
+
+	* Makefile.am:
+	Fix spelling of man1_MANS so the manpage gets installed. (Bill Crawford)
+
+2005-07-09  Keith Packard  <keithp@keithp.com>
+
+	* .cvsignore:
+	Add .cvsignore files

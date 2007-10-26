@@ -21,6 +21,14 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+/*
+ * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
+ *
+ * Copyright (c) 1980, 1988, 1993
+ *     The Regents of the University of California.  All rights reserved.
+ *
+ *     @(#)fstab.c     8.1 (Berkeley) 6/4/93
+ */
 
 #include <sys/types.h>
 
@@ -30,6 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <utmp.h>
+#include <utmpx.h>
 
 #define	NCACHE	64			/* power of 2 */
 #define	MASK	(NCACHE - 1)		/* bits to store with */
@@ -41,7 +50,7 @@ user_from_uid(uid, nouser)
 {
 	static struct ncache {
 		uid_t	uid;
-		char	name[UT_NAMESIZE + 1];
+		char	name[_UTX_USERSIZE + 1];
 	} *c_uid[NCACHE];
 	static int pwopen;
 	static char nbuf[15];		/* 32 bits == 10 digits */
@@ -67,8 +76,8 @@ err:
 				goto err;
 		}
 		(*cp)->uid = uid;
-		(void)strncpy((*cp)->name, pw->pw_name, UT_NAMESIZE);
-		(*cp)->name[UT_NAMESIZE] = '\0';
+		(void)strncpy((*cp)->name, pw->pw_name, _UTX_USERSIZE);
+		(*cp)->name[_UTX_USERSIZE] = '\0';
 	}
 	return ((*cp)->name);
 }
@@ -80,7 +89,7 @@ group_from_gid(gid, nogroup)
 {
 	static struct ncache {
 		gid_t	gid;
-		char	name[UT_NAMESIZE + 1];
+		char	name[_UTX_USERSIZE + 1];
 	} *c_gid[NCACHE];
 	static int gropen;
 	static char nbuf[15];		/* 32 bits == 10 digits */
@@ -106,8 +115,8 @@ err:
 				goto err;
 		}
 		(*cp)->gid = gid;
-		(void)strncpy((*cp)->name, gr->gr_name, UT_NAMESIZE);
-		(*cp)->name[UT_NAMESIZE] = '\0';
+		(void)strncpy((*cp)->name, gr->gr_name, _UTX_USERSIZE);
+		(*cp)->name[_UTX_USERSIZE] = '\0';
 	}
 	return ((*cp)->name);
 }

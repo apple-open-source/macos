@@ -45,11 +45,13 @@
 #endif
 
 #define tpDebug(args...)		secdebug("tpDebug", ## args)
+#define tpDbDebug(args...)		secdebug("tpDbDebug", ## args)
 #define tpCrlDebug(args...)		secdebug("tpCrlDebug", ## args)
 #define tpPolicyError(args...)	secdebug("tpPolicy", ## args)
 #define tpVfyDebug(args...)		secdebug("tpVfyDebug", ## args)
 #define tpAnchorDebug(args...)	secdebug("tpAnchorDebug", ## args)
 #define tpOcspDebug(args...)	secdebug("tpOcsp", ## args)
 #define tpOcspCacheDebug(args...)	secdebug("tpOcspCache", ## args)
+#define tpTrustSettingsDbg(args...)	secdebug("tpTrustSettings", ## args)
 
 #endif	/* _TPDEBUGGING_H_ */

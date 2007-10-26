@@ -1,7 +1,7 @@
 /*
  * This program is licenced under the same licence as Ruby.
  * (See the file 'LICENCE'.)
- * $Id: ossl_pkcs12.c,v 1.2 2003/12/15 00:30:12 usa Exp $
+ * $Id: ossl_pkcs12.c 11708 2007-02-12 23:01:19Z shyouhei $
  */
 #include "ossl.h"
 

@@ -48,7 +48,11 @@ extern "C" {
 int main(void) {
   const char *s1r = "{Base=#ib32b8b3b8sb16b8b8b2b8c}";
   const char *s1 = @encode(Base);
+#if __OBJC2__
+  const char *s2r = "{Derived=#ib32b8b3b8sb16b8b8b2b8ccb6b0}";
+#else
   const char *s2r = "{Derived=#ib32b8b3b8sb16b8b8b2b8ccb6}";
+#endif
   const char *s2 = @encode(Derived);
 
   CHECK_IF(!strcmp(s1r, s1));

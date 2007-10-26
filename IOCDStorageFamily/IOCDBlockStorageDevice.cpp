@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,48 @@ IOCDBlockStorageDevice::init(OSDictionary * properties)
     }
 
     return(result);
+}
+
+IOReturn
+IOCDBlockStorageDevice::audioPause(bool pause)
+{
+    return(kIOReturnUnsupported);
+}
+
+IOReturn
+IOCDBlockStorageDevice::audioPlay(CDMSF timeStart,CDMSF timeStop)
+{
+    return(kIOReturnUnsupported);
+}
+
+IOReturn
+IOCDBlockStorageDevice::audioScan(CDMSF timeStart,bool reverse)
+{
+    return(kIOReturnUnsupported);
+}
+
+IOReturn
+IOCDBlockStorageDevice::audioStop()
+{
+    return(kIOReturnUnsupported);
+}
+
+IOReturn
+IOCDBlockStorageDevice::getAudioStatus(CDAudioStatus *status)
+{
+    return(kIOReturnUnsupported);
+}
+
+IOReturn
+IOCDBlockStorageDevice::getAudioVolume(UInt8 *leftVolume,UInt8 *rightVolume)
+{
+    return(kIOReturnUnsupported);
+}
+
+IOReturn
+IOCDBlockStorageDevice::setAudioVolume(UInt8 leftVolume,UInt8 rightVolume)
+{
+    return(kIOReturnUnsupported);
 }
 
 IOReturn

@@ -1,5 +1,6 @@
-/* Dwarf2 location expression support for GDB.
-   Copyright 2003 Free Software Foundation, Inc.
+/* DWARF 2 location expression support for GDB.
+
+   Copyright 2003, 2005 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,6 +22,8 @@
 #if !defined (DWARF2LOC_H)
 #define DWARF2LOC_H
 
+#include "dwarf2read.h"
+
 struct symbol_ops;
 
 /* This header is private to the DWARF-2 reader.  It is shared between
@@ -35,23 +38,31 @@ struct symbol_ops;
 struct dwarf2_locexpr_baton
 {
   /* Pointer to the start of the location expression.  */
-  unsigned char *data;
+  gdb_byte *data;
 
   /* Length of the location expression.  */
   unsigned short size;
 
   /* The objfile containing the symbol whose location we're computing.  */
   struct objfile *objfile;
+
+  /* APPLE LOCAL we need to translate addresses for location list expressions
+     from .o file addresses to final executable addresses.  */
+  struct oso_to_final_addr_map *addr_map;
 };
 
 struct dwarf2_loclist_baton
 {
   /* The initial base address for the location list, based on the compilation
      unit.  */
-  CORE_ADDR base_address;
+  /* APPLE LOCAL: In the non-dSYM or kext dSYM case where we must
+     translate addresses in the DWARF, BASE_ADDRESS_UNTRANSLATED
+     has not been translated to a final-executable address.  It is
+     accurate only in terms of the .o file. */
+  CORE_ADDR base_address_untranslated;
 
   /* Pointer to the start of the location list.  */
-  unsigned char *data;
+  gdb_byte *data;
 
   /* Length of the location list.  */
   unsigned short size;
@@ -62,9 +73,12 @@ struct dwarf2_loclist_baton
      variable declared with the `__thread' storage class), we may need
      to know which object file it's in.  */
   struct objfile *objfile;
+
+  /* APPLE LOCAL */
+  struct oso_to_final_addr_map *addr_map;
 };
 
 extern const struct symbol_ops dwarf2_locexpr_funcs;
 extern const struct symbol_ops dwarf2_loclist_funcs;
 
-#endif
+#endif /* dwarf2loc.h */

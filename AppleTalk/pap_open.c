@@ -44,6 +44,7 @@
 #include <netat/pap.h>
 #include <netat/atp.h>
 
+
 #define	SET_ERRNO(e) errno = e
 
 /*#define MSGSTR(num,str)		catgets(catd, MS_PAP, num,str)*/
@@ -163,14 +164,12 @@ long wait_time;
 					  &rdata[5], rdata[4]&0xff);
 			error = ECONNREFUSED;
 			SET_ERRNO(ECONNREFUSED);
-			if (rdata[1] == 8) {
-				sleep(1);
-				i = time(NULL) - tm + wait_time;
-				data[2] = i>>8;
-				data[3] = i & 0xff;
-				continue;
-			}
-			goto bad;
+
+			sleep(1);
+			i = time(NULL) - tm + wait_time;
+			data[2] = i>>8;
+			data[3] = i & 0xff;
+			continue;
 		}
 		/* Connection established okay, just for the sake of our
 		 * sanity, check the other fields in the packet
@@ -235,6 +234,7 @@ at_nbptuple_t *tuple;
 void
 pap_timeout(n) {
 	struct pap_state *papp = paps[papm[papfd]];
+	
 	
 	if (papp == NULL)
 	    return;		/* stream is already closed */
@@ -304,7 +304,7 @@ pap_send_request(fd, papp, function, xo, seqno)
 		papp->pap_send_count++;
 		if (papp->pap_send_count == 0)
 		    papp->pap_send_count = 1;
-		*(u_short *)&puserdata[2] = papp->pap_send_count;
+		*(u_short *)&puserdata[2] = htons(papp->pap_send_count);
 	} else
 		*(u_short *)&puserdata[2] = 0;
 

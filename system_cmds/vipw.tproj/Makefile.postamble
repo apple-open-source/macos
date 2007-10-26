@@ -109,5 +109,5 @@
 # a single colon.
 
 after_install::
-	$(MKDIR) -p $(DSTROOT)/usr/share/man/man8
+	$(MKDIRS) $(DSTROOT)/usr/share/man/man8
 	$(CP) vipw.8 $(DSTROOT)/usr/share/man/man8/

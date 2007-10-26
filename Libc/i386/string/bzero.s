@@ -35,4 +35,4 @@
 
 LEAF(_bzero,0)
 	movl	$(_COMM_PAGE_BZERO), %eax
-	jmpl	%eax
+	jmpl	*%eax

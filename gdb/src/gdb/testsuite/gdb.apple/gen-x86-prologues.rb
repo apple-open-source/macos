@@ -65,9 +65,9 @@ end
 def add_expect_body (str, pat)
   t = <<HERE
 gdb_test "continue" "Continuing.*Breakpoint $decimal, func_under_#{pat} .*#{$filename_base}.*" "continue to func_under_#{pat}"
-gdb_test "bt" ".*#0  func_under_#{pat} \\\\(\\\\) at .*pro.*#1  $hex in #{pat} \\\\(\\\\) .*#{$filename_base}.*#2  $hex in main \\\\(argc=1.*" "backtrace in #{pat}"
+gdb_test "bt" ".*#0  func_under_#{pat} \\\\(\\\\) at .*pro.*#1  $hex in #{pat} \\\\(\\\\).*#2  $hex in main \\\\(argc=1.*" "backtrace in #{pat}"
 gdb_test "fin" ".*Run till exit from #0  func_under_#{pat}.*" "finish from func_under_#{pat} to #{pat}"
-gdb_test "bt" ".*#0  $hex in #{pat} \\\\(\\\\) .*#{$filename_base}.*#1  $hex in main \\\\(argc=1.*" "backtrace in #{pat}"
+gdb_test "bt" ".*#0  $hex in #{pat} \\\\(\\\\).*#1  $hex in main \\\\(argc=1.*" "backtrace in #{pat}"
 gdb_test "fin" ".*Run till exit from #0  $hex in #{pat}.*" "finish from #{pat} to main"
 gdb_test "bt" ".*#0  main \\\\(argc=1.*" "backtrace in main (from #{pat})"
 gdb_test "maint i386-prologue-parser #{pat}" ".*Found push %ebp.*Found mov %esp.*" "analyze #{pat} prologue directly"
@@ -94,6 +94,11 @@ global hex decimal
 if ![istarget "i\\[3-6\\]86-apple-darwin*"] {
     verbose "Skipping x86 prologue tests."
     return
+}
+
+if [target_info exists darwin64] {
+   verbose "This test file not yet adapted for x86-64, skipping."
+   return
 }
 
 if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable {debug}] != "" } {

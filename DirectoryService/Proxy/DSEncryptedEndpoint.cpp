@@ -91,7 +91,7 @@ DSEncryptedEndpoint::DSEncryptedEndpoint (
 
 DSEncryptedEndpoint::DSEncryptedEndpoint (
 	const DSTCPEndpoint	*inEndpoint,
-	const uInt32 		inSessionID)
+	const UInt32 		inSessionID)
 	: inherited (inEndpoint, inSessionID)
 {
 	CSSM_RETURN		crtn;
@@ -128,24 +128,24 @@ DSEncryptedEndpoint::~DSEncryptedEndpoint (void)
 //  returns eDSNoErr for success
 // ----------------------------------------------------------------------------
 
-sInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
+SInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
 {
 	bool			bFirstPass	= true;
-	sInt32			result		= eDSContinue;
+	SInt32			result		= eDSContinue;
 	CSSM_RETURN		crtn;
-	uInt8		   *outBuff		= nil;
-	uInt32			outLen		= 0;
-	uInt8		   *inBuff		= nil;
-	uInt32 			inLen		= 0;
-	uInt32 			readBytes	= 0;
+	UInt8		   *outBuff		= nil;
+	UInt32			outLen		= 0;
+	UInt8		   *inBuff		= nil;
+	UInt32 			inLen		= 0;
+	UInt32 			readBytes	= 0;
 	CSSM_KEY		myPriv;
 	CSSM_KEY		myPub;
 	CSSM_KEY		localDerived;
-	uInt32			theTestBlob	= 0;
-	uInt32			theTestBlobBE	= 0;
+	UInt32			theTestBlob	= 0;
+	UInt32			theTestBlobBE	= 0;
 	CSSM_DATA		plainText	= {0, NULL};
 	CSSM_DATA		cipherText	= {0, NULL};
-	sInt32			syncRet		= eDSNoErr;
+	SInt32			syncRet		= eDSNoErr;
 
 	bzero(&myPriv,sizeof(CSSM_KEY));
 	bzero(&myPub,sizeof(CSSM_KEY));
@@ -167,10 +167,10 @@ sInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
 				return eDSCorruptBuffer; //TODO need an eDSEncryptError
 			}
 			// build the send buffer with the auth tag
-			outBuff = (uInt8*)calloc(1,4 + myPub.KeyData.Length);
-			*((FourCharCode *) outBuff) = NXSwapHostLongToBig(DSTCPAuthTag);
+			outBuff = (UInt8*)calloc(1,4 + myPub.KeyData.Length);
+			*((FourCharCode *) outBuff) = NXSwapHostIntToBig(DSTCPAuthTag);
 			outLen = myPub.KeyData.Length;
-			memcpy(outBuff+4, (uInt8 *)myPub.KeyData.Data, outLen);
+			memcpy(outBuff+4, (UInt8 *)myPub.KeyData.Data, outLen);
 			outLen += 4; //for the tag
 			bFirstPass = false;
 		}
@@ -197,8 +197,8 @@ sInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
 			//now need to send server a blob to confirm keys work
 			::srandom(getpid() + time(NULL));
 			theTestBlob			= random();
-            theTestBlobBE = NXSwapHostLongToBig(theTestBlob);
-			plainText.Data		= (uInt8 *)&theTestBlobBE;
+            theTestBlobBE = NXSwapHostIntToBig(theTestBlob);
+			plainText.Data		= (UInt8 *)&theTestBlobBE;
 			plainText.Length	= 4;
 
 			crtn = cdsaEncrypt(
@@ -235,7 +235,7 @@ sInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
 			// read message from network
 			syncRet = SyncToMessageBody(true, &inLen);
 			if (syncRet != eDSNoErr) return syncRet;
-			inBuff = (uInt8*)calloc(1, inLen);
+			inBuff = (UInt8*)calloc(1, inLen);
 			readBytes = DoTCPRecvFrom(inBuff, inLen);
 			if (readBytes != inLen)
 			{
@@ -271,7 +271,7 @@ sInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
 		{
 			if (	(plainText.Data == nil) ||
 					(plainText.Length != 4) ||
-					(theTestBlob+1 != NXSwapBigLongToHost(*((uInt32*)plainText.Data))) )
+					(theTestBlob+1 != NXSwapBigIntToHost(*((UInt32*)plainText.Data))) )
 			{
 				//printf("failed to compare the updated test blob plus one\n");
 				result = eDSCorruptBuffer; //TODO need an eDSEncryptError
@@ -310,23 +310,23 @@ sInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
 //  returns eDSNoErr for success
 // ----------------------------------------------------------------------------
 
-sInt32 DSEncryptedEndpoint::ServerNegotiateKey ( void )
+SInt32 DSEncryptedEndpoint::ServerNegotiateKey ( void )
 {
 	bool			bFirstPass	= true;
-	sInt32			result		= eDSContinue;
+	SInt32			result		= eDSContinue;
 	CSSM_RETURN		crtn;
-	uInt8		   *outBuff		= nil;
-	uInt32			outLen		= 0;
-	uInt8		   *inBuff		= nil;
-	uInt32 			inLen		= 0;
-	uInt32 			readBytes	= 0;
+	UInt8		   *outBuff		= nil;
+	UInt32			outLen		= 0;
+	UInt8		   *inBuff		= nil;
+	UInt32 			inLen		= 0;
+	UInt32 			readBytes	= 0;
 	CSSM_KEY		myPriv;
 	CSSM_KEY		myPub;
 	CSSM_KEY		localDerived;
 	CSSM_DATA		plainText	= {0, NULL};
 	CSSM_DATA		cipherText	= {0, NULL};
 	FourCharCode	rxCode		= 0;
-	sInt32			syncRet		= eDSNoErr;
+	SInt32			syncRet		= eDSNoErr;
 	
 	bzero(&myPriv,sizeof(CSSM_KEY));
 	bzero(&myPub,sizeof(CSSM_KEY));
@@ -341,7 +341,7 @@ sInt32 DSEncryptedEndpoint::ServerNegotiateKey ( void )
 		// read message from network
 		syncRet = SyncToMessageBody(true, &inLen);
 		if (syncRet != eDSNoErr) return syncRet;
-		inBuff = (uInt8*)calloc(1, inLen);
+		inBuff = (UInt8*)calloc(1, inLen);
 		readBytes = DoTCPRecvFrom(inBuff, inLen);
 		if (readBytes != inLen)
 		{
@@ -356,7 +356,7 @@ sInt32 DSEncryptedEndpoint::ServerNegotiateKey ( void )
 
 		if (bFirstPass)
 		{
-			rxCode = NXSwapBigLongToHost(*((FourCharCode *) inBuff));
+			rxCode = NXSwapBigIntToHost(*((FourCharCode *) inBuff));
             //first check the auth tag
 			if ( (inLen <= 4) || (rxCode != DSTCPAuthTag) )
 			{
@@ -435,9 +435,9 @@ sInt32 DSEncryptedEndpoint::ServerNegotiateKey ( void )
 				return eDSCorruptBuffer; //TODO need an eDSEncryptError
 			}
 			//add one to test blob received
-            uInt32 temp = NXSwapBigLongToHost(*(uInt32*)plainText.Data);
+            UInt32 temp = NXSwapBigIntToHost(*(UInt32*)plainText.Data);
             temp++;
-			*(uInt32*)plainText.Data = NXSwapHostLongToBig(temp);
+			*(UInt32*)plainText.Data = NXSwapHostIntToBig(temp);
 
 			cipherText.Data		= nil;
 			cipherText.Length	= 0;
@@ -486,7 +486,7 @@ sInt32 DSEncryptedEndpoint::ServerNegotiateKey ( void )
 //	Encrypt a block.
 // ----------------------------------------------------------------------------
 
-void DSEncryptedEndpoint::EncryptData ( void *inData, const uInt32 inBuffSize, void *&outData, uInt32 &outBuffSize )
+void DSEncryptedEndpoint::EncryptData ( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize )
 {
 	CSSM_RETURN		crtn;
 	CSSM_DATA		plainText	= {0, NULL};
@@ -499,7 +499,7 @@ void DSEncryptedEndpoint::EncryptData ( void *inData, const uInt32 inBuffSize, v
 		return;
     }
 
-	plainText.Data		= (uInt8 *)inData;
+	plainText.Data		= (UInt8 *)inData;
 	plainText.Length	= inBuffSize;
 	crtn = cdsaEncrypt(
 		fcspHandle,
@@ -526,7 +526,7 @@ void DSEncryptedEndpoint::EncryptData ( void *inData, const uInt32 inBuffSize, v
 //	Decrypt a block.
 // ----------------------------------------------------------------------------
 
-void DSEncryptedEndpoint::DecryptData ( void *inData, const uInt32 inBuffSize, void *&outData, uInt32 &outBuffSize )
+void DSEncryptedEndpoint::DecryptData ( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize )
 {
 	CSSM_RETURN		crtn;
 	CSSM_DATA		plainText	= {0, NULL};
@@ -539,7 +539,7 @@ void DSEncryptedEndpoint::DecryptData ( void *inData, const uInt32 inBuffSize, v
 		return;
     }
 
-	cipherText.Data		= (uInt8 *)inData;
+	cipherText.Data		= (UInt8 *)inData;
 	cipherText.Length	= inBuffSize;
 	crtn = cdsaDecrypt(
 		fcspHandle,

@@ -1,7 +1,7 @@
 /* timsieved.c -- main file for timsieved (sieve script accepting program)
  * Tim Martin
  * 9/21/99
- * $Id: timsieved.c,v 1.5 2005/07/28 16:53:33 dasenbro Exp $
+ * $Id: timsieved.c,v 1.58 2006/11/30 17:11:25 murch Exp $
  */
 /*
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -68,6 +68,8 @@
 #include <signal.h>
 #include <string.h>
 
+#include "sieve_interface.h"
+
 #include "prot.h"
 #include "libconfig.h"
 #include "xmalloc.h"
@@ -82,13 +84,23 @@
 
 #include "auth.h"
 #include "acl.h"
+#include "backend.h"
 #include "mboxlist.h"
+#include "proxy.h"
 #include "util.h"
 
+#ifdef APPLE_OS_X_SERVER
 #include "AppleOD.h"
+#endif
+
+#include "scripttest.h"
+
+#include "sync_log.h"
 
 /* global state */
 const int config_need_data = 0;
+
+sieve_interp_t *interp = NULL;
 
 static struct 
 {
@@ -106,7 +118,9 @@ struct sockaddr_storage sieved_remoteaddr;
 struct protstream *sieved_out;
 struct protstream *sieved_in;
 
+#ifdef APPLE_OS_X_SERVER
 struct od_user_opts	*gUserOpts = NULL;
+#endif
 
 int sieved_logfd = -1;
 
@@ -121,12 +135,27 @@ static struct proxy_context sieved_proxyctx = {
     1, 1, &sieved_authstate, &sieved_userisadmin, NULL
 };
 
+/* PROXY stuff */
+struct backend *backend = NULL;
+
+static void bitpipe(void);
+/* end PROXY stuff */
+
 /*
  * Cleanly shut down and exit
  */
 void shut_down(int code) __attribute__ ((noreturn));
 void shut_down(int code)
 {
+    /* free interpreter */
+    if (interp) sieve_interp_free(&interp);
+
+    /* close backend connection */
+    if (backend) {
+	backend_disconnect(backend);
+	free(backend);
+    }
+
     /* close mailboxes */
     mboxlist_close();
     mboxlist_done();
@@ -137,15 +166,21 @@ void shut_down(int code)
 	prot_free(sieved_out);
     }
 
+#ifdef APPLE_OS_X_SERVER
 	if (gUserOpts) {
 	odFreeUserOpts(gUserOpts, 1);
 	free(gUserOpts);
 	gUserOpts = NULL;
 	}
+#endif
 
     if (sieved_in) prot_free(sieved_in);
 
     if (sieved_logfd != -1) close(sieved_logfd);
+
+#ifdef HAVE_SSL
+    tls_shutdown_serverengine();
+#endif
 
     cyrus_done();
 
@@ -168,6 +203,14 @@ void cmdloop()
 
     while (ret != TRUE)
     {
+	if (backend) {
+	    /* create a pipe from client to backend */
+	    bitpipe();
+
+	    /* pipe has been closed */
+	    return;
+	}
+
 	ret = parser(sieved_out, sieved_in);
     }
 
@@ -209,11 +252,13 @@ int service_init(int argc __attribute__((unused)),
 		 char **argv __attribute__((unused)),
 		 char **envp __attribute__((unused)))
 {
-    global_sasl_init(0, 1, mysasl_cb);
+    global_sasl_init(1, 1, mysasl_cb);
 
     /* open mailboxes */
     mboxlist_init(0);
     mboxlist_open(NULL);
+
+    if (build_sieve_interp() != TIMSIEVE_OK) shut_down(EX_SOFTWARE);
 
     return 0;
 }
@@ -236,13 +281,17 @@ int service_main(int argc __attribute__((unused)),
     char hbuf[NI_MAXHOST];
     int niflags;
 
+    sync_log_init();
+
     /* set up the prot streams */
     sieved_in = prot_new(0, 0);
     sieved_out = prot_new(1, 1);
 
+#ifdef APPLE_OS_X_SERVER
 	if ( gUserOpts == NULL ) {
 	gUserOpts = xzmalloc( sizeof(struct od_user_opts) );
 	}
+#endif
 
     timeout = config_getint(IMAPOPT_TIMEOUT);
     if (timeout < 10) timeout = 10;
@@ -361,4 +410,37 @@ int reset_saslconn(sasl_conn_t **conn, sasl_ssf_t ssf, char *authid)
     /* End TLS/SSL Info */
 
     return SASL_OK;
+}
+
+/* we've authenticated the client, we've connected to the backend.
+   now it's all up to them */
+static void bitpipe(void)
+{
+    struct protgroup *protin = protgroup_new(2);
+    int shutdown = 0;
+    char buf[4096];
+
+    protgroup_insert(protin, sieved_in);
+    protgroup_insert(protin, backend->in);
+
+    do {
+	/* Flush any buffered output */
+	prot_flush(sieved_out);
+	prot_flush(backend->out);
+
+	/* check for shutdown file */
+	if (shutdown_file(buf, sizeof(buf))) {
+	    shutdown = 1;
+	    goto done;
+	}
+    } while (!proxy_check_input(protin, sieved_in, sieved_out,
+				backend->in, backend->out, 0));
+
+ done:
+    /* ok, we're done. */
+    protgroup_free(protin);
+
+    if (shutdown) prot_printf(sieved_out, "NO \"%s\"\r\n", buf);
+
+    return;
 }

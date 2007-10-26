@@ -14,10 +14,10 @@ PROJECT_TYPE = Tool
 
 HFILES = extern.h gettytab.h pathnames.h
 
-CFILES = init.c main.c subr.c
+CFILES = chat.c init.c main.c subr.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble getty.8\
-            gettytab.5 ttys.5
+            gettytab.5 ttys.5 com.apple.getty.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

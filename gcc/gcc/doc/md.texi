@@ -3935,6 +3935,29 @@ respectively, a low or moderate degree of temporal locality.
 
 Targets that do not support write prefetches or locality hints can ignore
 the values of operands 1 and 2.
+@c APPLE LOCAL begin mainline
+@cindex @code{stack_protect_set} instruction pattern
+@item @samp{stack_protect_set}
+
+This pattern, if defined, moves a @code{Pmode} value from the memory
+in operand 1 to the memory in operand 0 without leaving the value in
+a register afterward.  This is to avoid leaking the value some place
+that an attacker might use to rewrite the stack guard slot after
+having clobbered it.
+
+If this pattern is not defined, then a plain move pattern is generated.
+
+@cindex @code{stack_protect_test} instruction pattern
+@item @samp{stack_protect_test}
+
+This pattern, if defined, compares a @code{Pmode} value from the
+memory in operand 1 with the memory in operand 0 without leaving the
+value in a register afterward and branches to operand 2 if the values
+weren't equal.
+
+If this pattern is not defined, then a plain compare pattern and
+conditional branch pattern is used.
+@c APPLE LOCAL end mainline
 
 @end table
 

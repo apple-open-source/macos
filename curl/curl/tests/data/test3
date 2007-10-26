@@ -1,6 +1,14 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP POST
+HTTP Basic auth
+</keywords>
+</info>
 #
 # Server-side
-<reply name="1">
+<reply>
 <data>
 HTTP/1.0 200 OK
 Server: test-server/fake
@@ -38,11 +46,10 @@ HTTP POST with auth and contents but with content-length set to 0
 <strip>
 ^User-Agent:.*
 </strip>
-<protocol nonewline=yes>
+<protocol nonewline="yes">
 POST /3 HTTP/1.1
 Authorization: Basic ZmFrZTotdXNlcg==
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Content-Length: 37
 Content-Type: application/x-www-form-urlencoded
@@ -50,3 +57,4 @@ Content-Type: application/x-www-form-urlencoded
 fooo=mooo&pooo=clue&doo=%20%20%20++++
 </protocol>
 </verify>
+</testcase>

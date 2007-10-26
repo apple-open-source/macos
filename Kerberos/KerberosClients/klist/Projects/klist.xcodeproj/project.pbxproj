@@ -11,32 +11,10 @@
 		A181F27E05E553A9006CE0A8 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5E27E5F023718D701650119 /* Kerberos.framework */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildStyle section */
-		F5E27E090237083401650119 /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		F5E27E0A0237083401650119 /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXFileReference section */
-		A181F28105E553A9006CE0A8 /* klist */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = klist; sourceTree = BUILT_PRODUCTS_DIR; };
+		A108E6E20A41E86A008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E6E30A41E86A008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A181F28105E553A9006CE0A8 /* klist */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "compiled.mach-o.executable"; path = klist; sourceTree = BUILT_PRODUCTS_DIR; };
 		F5033FCE025DFA1D01F62B58 /* klist.M */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = klist.M; sourceTree = "<group>"; };
 		F5E27E53023715AE01650119 /* klist.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = klist.c; sourceTree = "<group>"; };
 		F5E27E5F023718D701650119 /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -66,6 +44,8 @@
 		F5E27E080237083401650119 = {
 			isa = PBXGroup;
 			children = (
+				A108E6E20A41E86A008545E5 /* Release.xcconfig */,
+				A108E6E30A41E86A008545E5 /* Debug.xcconfig */,
 				F5E27E52023715AE01650119 /* Sources */,
 				F5033FCD025DFA1D01F62B58 /* Documentation */,
 				F5E27E5F023718D701650119 /* Kerberos.framework */,
@@ -92,41 +72,17 @@
 		};
 /* End PBXGroup section */
 
-/* Begin PBXHeadersBuildPhase section */
-		A181F27A05E553A9006CE0A8 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXHeadersBuildPhase section */
-
 /* Begin PBXNativeTarget section */
 		A181F27805E553A9006CE0A8 /* klist */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A151913D086C8DEC0042CBBC /* Build configuration list for PBXNativeTarget "klist" */;
 			buildPhases = (
-				A181F27A05E553A9006CE0A8 /* Headers */,
 				A181F27B05E553A9006CE0A8 /* Sources */,
 				A181F27D05E553A9006CE0A8 /* Frameworks */,
-				A181F27F05E553A9006CE0A8 /* Rez */,
 				A1C7E152069DEBCE00DF6AFE /* ShellScript */,
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
-				GCC_DYNAMIC_NO_PIC = YES;
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = klist;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = klist;
@@ -141,12 +97,6 @@
 		F5E27E070237083401650119 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = A1519141086C8DEC0042CBBC /* Build configuration list for PBXProject "klist" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				F5E27E090237083401650119 /* Development */,
-				F5E27E0A0237083401650119 /* Deployment */,
-			);
 			hasScannedForEncodings = 1;
 			mainGroup = F5E27E080237083401650119;
 			productRefGroup = F5E27E56023716E301650119 /* Products */;
@@ -156,16 +106,6 @@
 			);
 		};
 /* End PBXProject section */
-
-/* Begin PBXRezBuildPhase section */
-		A181F27F05E553A9006CE0A8 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		A1C7E152069DEBCE00DF6AFE /* ShellScript */ = {
@@ -197,79 +137,43 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A151913E086C8DEC0042CBBC /* Development */ = {
+		A151913E086C8DEC0042CBBC /* Debug */ = {
 			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = klist;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		A151913F086C8DEC0042CBBC /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
-				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = klist;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		A1519140086C8DEC0042CBBC /* Default */ = {
-			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6E30A41E86A008545E5 /* Debug.xcconfig */;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = klist;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				VALID_ARCHS = "i386 ppc";
 			};
-			name = Default;
+			name = Debug;
 		};
-		A1519142086C8DEC0042CBBC /* Development */ = {
+		A151913F086C8DEC0042CBBC /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6E20A41E86A008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = klist;
+				VALID_ARCHS = "i386 ppc";
+			};
+			name = Release;
+		};
+		A1519142086C8DEC0042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6E30A41E86A008545E5 /* Debug.xcconfig */;
 			buildSettings = {
 			};
-			name = Development;
+			name = Debug;
 		};
-		A1519143086C8DEC0042CBBC /* Deployment */ = {
+		A1519143086C8DEC0042CBBC /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6E20A41E86A008545E5 /* Release.xcconfig */;
 			buildSettings = {
 			};
-			name = Deployment;
-		};
-		A1519144086C8DEC0042CBBC /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -277,22 +181,20 @@
 		A151913D086C8DEC0042CBBC /* Build configuration list for PBXNativeTarget "klist" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A151913E086C8DEC0042CBBC /* Development */,
-				A151913F086C8DEC0042CBBC /* Deployment */,
-				A1519140086C8DEC0042CBBC /* Default */,
+				A151913E086C8DEC0042CBBC /* Debug */,
+				A151913F086C8DEC0042CBBC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Debug;
 		};
 		A1519141086C8DEC0042CBBC /* Build configuration list for PBXProject "klist" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1519142086C8DEC0042CBBC /* Development */,
-				A1519143086C8DEC0042CBBC /* Deployment */,
-				A1519144086C8DEC0042CBBC /* Default */,
+				A1519142086C8DEC0042CBBC /* Debug */,
+				A1519143086C8DEC0042CBBC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};

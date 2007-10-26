@@ -30,7 +30,6 @@
 
 // system
 #include <IOKit/assert.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommand.h>
 
@@ -255,13 +254,24 @@ IOReturn IOFWWriteCommand::execute()
     fTrans = fControl->allocTrans( this );
     if( fTrans ) 
 	{
-		IOFWWriteFlags flags = kIOFWWriteFlagsNone;
+		UInt32 flags = kIOFWWriteFlagsNone;
 		
-		if( fMembers && 
-			fMembers->fSubclassMembers &&
-			((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify )
+		if( fMembers && fMembers->fSubclassMembers )
 		{
-			flags = kIOFWWriteFlagsDeferredNotify;
+			if( ((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify )
+			{
+				flags |= kIOFWWriteFlagsDeferredNotify;
+			}
+			
+			if( ((MemberVariables*)fMembers->fSubclassMembers)->fFastRetryOnBusy )
+			{
+				flags |= kIOFWWriteFastRetryOnBusy;
+			}
+
+			if( ((IOFWAsyncCommand::MemberVariables*)fMembers)->fForceBlockRequests )
+			{
+				flags |= kIOFWWriteBlockRequest;
+			}
 		}
 		
         result = fControl->asyncWrite(	fGeneration, 
@@ -274,7 +284,7 @@ IOReturn IOFWWriteCommand::execute()
 										fBytesTransferred, 
 										fPackSize, 
 										this,
-										flags );
+										(IOFWWriteFlags)flags );
     }
     else 
 	{

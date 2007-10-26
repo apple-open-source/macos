@@ -1,0 +1,10 @@
+--- uucp.c.orig	2006-12-15 13:11:08.000000000 -0800
++++ uucp.c	2006-12-15 13:14:02.000000000 -0800
+@@ -547,6 +547,7 @@
+ 
+       if (flocal && !fsysdep_file_exists(zfrom)) {
+ 	  wordexp_t w;
++	  bzero(&w,sizeof(wordexp_t));
+ 	  int rc = wordexp(zfrom, &w, WRDE_NOCMD|WRDE_SHOWERR|WRDE_UNDEF);
+ 	  if (rc == 0) {
+ 	      if (w.we_wordc > 1) {

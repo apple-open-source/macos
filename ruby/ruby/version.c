@@ -2,8 +2,8 @@
 
   version.c -
 
-  $Author: nobu $
-  $Date: 2004/04/23 14:26:20 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Thu Sep 30 20:08:01 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -17,6 +17,7 @@
 const char ruby_version[] = RUBY_VERSION;
 const char ruby_release_date[] = RUBY_RELEASE_DATE;
 const char ruby_platform[] = RUBY_PLATFORM;
+const int ruby_patchlevel = RUBY_PATCHLEVEL;
 
 void
 Init_version()
@@ -28,6 +29,7 @@ Init_version()
     rb_define_global_const("RUBY_VERSION", v);
     rb_define_global_const("RUBY_RELEASE_DATE", d);
     rb_define_global_const("RUBY_PLATFORM", p);
+    rb_define_global_const("RUBY_PATCHLEVEL", INT2FIX(RUBY_PATCHLEVEL));
 
     /* obsolete constants */
     rb_define_global_const("VERSION", v);
@@ -38,7 +40,8 @@ Init_version()
 void
 ruby_show_version()
 {
-    printf("ruby %s (%s) [%s]\n", RUBY_VERSION, RUBY_RELEASE_DATE, RUBY_PLATFORM);
+    printf("ruby %s (%s patchlevel %d) [%s]\n", RUBY_VERSION, RUBY_RELEASE_DATE, RUBY_PATCHLEVEL, RUBY_PLATFORM);
+    fflush(stdout);
 }
 
 void

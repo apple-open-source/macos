@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,7 @@
 #include "net.h"
 #include "net_set.h"
 #include "net_service.h"
+#include "prefs.h"
 
 
 /* -------------------- */
@@ -254,7 +255,7 @@ create_set(int argc, char **argv)
 		}
 	}
 
-	net_changed = TRUE;
+	_prefs_changed = TRUE;
 
 	if (net_set != NULL) CFRelease(net_set);
 	net_set = set;
@@ -324,7 +325,7 @@ remove_set(int argc, char **argv)
 		goto done;
 	}
 
-	net_changed = TRUE;
+	_prefs_changed = TRUE;
 
 	setName = SCNetworkSetGetName(set);
 	if (setName != NULL) {
@@ -458,7 +459,7 @@ set_set(int argc, char **argv)
 				return;
 			}
 
-			net_changed = TRUE;
+			_prefs_changed = TRUE;
 
 			if (sets != NULL) {
 				/*

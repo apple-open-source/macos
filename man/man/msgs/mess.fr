@@ -124,26 +124,27 @@ USAGE2
 USAGE3
 	"[-p chaîne] nom ...\n\n"
 USAGE4
-	"  a : recherche toutes les entrées correspondantes\n\
-  c : n'utilise pas de fichier cat\n\
-  d : affiche une floppée d'informations de déboguage\n\
-  D : comme -d, mais affiche aussi les pages\n\
+	"  a : rechercher toutes les entrées correspondantes\n\
+  c : ne pas utiliser de fichier cat\n\
+  d : afficher une floppée d'informations de débogage\n\
+  D : comme -d, mais afficher aussi les pages\n\
   f : équivalent à whatis(1)\n\
-  h : affiche ce message d'aide\n\
+  h : afficher ce message d'aide\n\
   k : équivalent à apropos(1)\n"
+  K : rechercher une chaîne dans toutes les pages\n"
 USAGE5
 	"  t : utilise troff pour le formatage des pages\n"
 USAGE6
 	"\
-  w : indique l'emplacement des pages de manuel qui seraient affichées\n\
-      (si aucun nom n'est donné, affiche les répertoires qui seraient scrutés)\n\
-  W : comme -w, mais n'affiche que les noms de fichiers\n\n\
-  C fichier : prend « fichier » comme fichier de configuration\n\
-  M chemin  : assigne le chemin de recherche des pages à « chemin »\n\
-  P visu    : utilise le programme « visu » pour afficher les pages\n\
+  w : indiquer l'emplacement des pages de manuel qui seraient affichées\n\
+      (si aucun nom n'est donné, afficher les répertoires qui seraient scrutés)\n\
+  W : comme -w, mais n'afficher que les noms de fichiers\n\n\
+  C fichier : prendre « fichier » comme fichier de configuration\n\
+  M chemin  : positionner le chemin de recherche des pages à « chemin »\n\
+  P visu    : utiliser le programme « visu » pour afficher les pages\n\
   S liste   : liste de sections séparées par des deux points\n"
 USAGE7
-	"  m système : recherche d'autres systèmes de pages de manuel\n"
+        "  m système : rechercher d'autres systèmes de pages de manuel\n"
 USAGE8
 	"  p chaîne  : la chaîne détermine les préprocesseurs à employer\n\
                e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
@@ -168,3 +169,22 @@ NO_TROFF
 	"erreur: aucune commande TROFF spécifiée dans %s\n"
 NO_CAT_FOR_NONSTD_LL
 	"pas de page cat enregistrée en raison d'une taille de ligne non standard\n"
+BROWSER_IS
+        "\nutilisation de %s comme navigateur\n"
+HTMLPAGER_IS
+        "\nutilisation de %s pour transformer les pages HTML en texte"
+FOUND_FILE
+        "manfile_from_sec_and_dir() a trouvé %s\n"
+CALLTRACE1
+        "manfile_from_sec_and_dir(rép=%s, sec=%s, nom=%s, flags=0x%0x)\n"
+CALLTRACE2
+        "glob_for_file(rép=%s, sec=%s, nom=%s, type=0x%0x, ...)\n"
+NO_MATCH
+        "glob_for_file n'a pas trouvé de correspondance.\n"
+GLOB_FOR_FILE
+        "glob_for_file renvoie %s.\n"
+CALLTRACE3
+         "glob_for_file_ext_glob(rép=%s, sec=%s, nom=%s, ext=%s, hpx=%s, glob=%d, type=0x%0x);\n"
+ABOUT_TO_GLOB
+        "glob_for_file_ext_glob développera %s\n"
+

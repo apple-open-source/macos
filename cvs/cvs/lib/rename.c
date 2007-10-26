@@ -1,5 +1,7 @@
-/* rename.c -- BSD compatible directory function for System V
-   Copyright (C) 1988, 1990 Free Software Foundation, Inc.
+/* Work around the bug in some systems whereby rename fails when the source
+   file has a trailing slash.  The rename functions of SunOS 4.1.1_U1 and
+   mips-dec-ultrix4.4 have this bug.
+   Copyright (C) 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -9,72 +11,48 @@
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.  */
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+
+/* written by Volker Borchert */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+# include <config.h>
 #endif
+#undef rename
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
-#ifndef STDC_HEADERS
-extern int errno;
-#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-/* Rename file FROM to file TO.
-   Return 0 if successful, -1 if not. */
+#include "dirname.h"
+#include "xalloc.h"
+
+/* Rename the file SRC to DST, removing any trailing
+   slashes from SRC.  Needed for SunOS 4.1.1_U1.  */
 
 int
-rename (from, to)
-     char *from;
-     char *to;
+rpl_rename (char const *src, char const *dst)
 {
-  struct stat from_stats;
-  int pid, status;
+  char *src_temp;
+  int ret_val;
+  size_t s_len = strlen (src);
 
-  if (stat (from, &from_stats) == 0)
+  if (s_len && src[s_len - 1] == '/')
     {
-      /* We don't check existence_error because the systems which need it
-	 have rename().  */
-      if (CVS_UNLINK (to) && errno != ENOENT)
-	return -1;
-      if ((from_stats.st_mode & S_IFMT) == S_IFDIR)
-	{
-#ifdef MVDIR
-	  /* I don't think MVDIR ever gets defined, but I don't think
-	     it matters, because I don't think CVS ever calls rename()
-	     on directories.  */
-
-	  /* Need a setuid root process to link and unlink directories. */
-	  pid = fork ();
-	  switch (pid)
-	    {
-	    case -1:		/* Error. */
-	      error (1, errno, "cannot fork");
-
-	    case 0:		/* Child. */
-	      execl (MVDIR, "mvdir", from, to, (char *) 0);
-	      error (255, errno, "cannot run `%s'", MVDIR);
-
-	    default:		/* Parent. */
-	      while (wait (&status) != pid)
-		/* Do nothing. */ ;
-
-	      errno = 0;	/* mvdir printed the system error message. */
-	      return status != 0 ? -1 : 0;
-	    }
-#else /* no MVDIR */
-	  error (1, 0, "internal error: cannot move directories");
-#endif /* no MVDIR */
-	}
-      else
-	{
-	  /* We don't check existence_error because the systems which need it
-	     have rename().  */
-	  if (link (from, to) == 0 && (CVS_UNLINK (from) == 0 || errno == ENOENT))
-	    return 0;
-	}
+      src_temp = xstrdup (src);
+      strip_trailing_slashes (src_temp);
     }
-  return -1;
+  else
+    src_temp = (char *) src;
+
+  ret_val = rename (src_temp, dst);
+
+  if (src_temp != src)
+    free (src_temp);
+
+  return ret_val;
 }

@@ -1,0 +1,65 @@
+2006-04-26  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Bump to 1.0.2
+
+2006-04-03  Adam Jackson  <ajax@freedesktop.org>
+
+	* Makefile.am:
+	Bug #6480: Cygwin build fix.  (Yaakov Selkowitz)
+
+2005-12-20  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version for X11R7 release.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-07  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	* configure.ac:
+	Change to use the app-defaults default dir configured in libXt.
+
+2005-12-06  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-11-19  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* configure.ac: 
+	Add dependency on xp module when building with Xprint support.
+
+2005-11-09  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC2 release.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-10-16  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am: Change man sources from xedit.1 to xedit.man to
+	allow the man page to be processed.  Move man page to top level
+	dir to pass check-tarball test.
+
+2005-10-05  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am: Add missing files to EXTRA_DIST
+
+2005-09-27  Adam Jackson  <ajax@freedesktop.org>
+
+	* Makefile.am:
+	Don't override ${lispdir}, automake predefines it.

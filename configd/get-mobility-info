@@ -1,10 +1,10 @@
 #!/bin/sh
+# Copyright (c) 2004-2007 Apple Inc.
+#
 # get-mobility-info
 #
 # Collect system & network configuration information.
 #
-
-OUT=mobility-config-$$
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 
@@ -13,23 +13,43 @@ if [ ${EUID} -ne 0 ]; then
 	PRIV="sudo"
 fi
 
-cd /tmp
-mkdir ${OUT}
+OUT="mobility-info-`date +'%m.%d.%Y.%H%M%S'`"
+OUTDIR="/var/tmp"
+if [ -d ~/Desktop ]; then
+	OUTDIR=~/Desktop
+fi
+
+umask 077
+
+WORKDIR=`mktemp -d -q "/tmp/${OUT}"`
+if [ $? -ne 0 ]; then
+	echo "Could not create snapshot directory"
+	exit 1
+fi
+
+ARCHIVE=`mktemp -q "${OUTDIR}/${OUT}.tar.gz"`
+if [ $? -ne 0 ]; then
+	echo "Could not create snapshot archive"
+	rm -rf "${WORKDIR}"
+	exit 1
+fi
+
+cd "${WORKDIR}"
 
 #
 # processes
 #
-ps axlww						> ${OUT}/ps			2>&1
+ps axlww						> ps			2>&1
 
 #
 # network interface configuration
 #
-ifconfig -a -b						> ${OUT}/ifconfig		2>&1
+ifconfig -a -b						> ifconfig		2>&1
 
 #
 # network route configuration
 #
-netstat -n -r						>> ${OUT}/netstat		2>&1
+netstat -n -r -a -l					> netstat		2>&1
 
 #
 # DHCP configuration
@@ -38,54 +58,64 @@ for if in `ifconfig -l`
 do
 	case ${if} in
 	lo* )	;;
-	en* )	ipconfig getpacket ${if}		> ${OUT}/ipconfig-${if}		2>&1
+	en* )	ipconfig getpacket ${if}		> ipconfig-${if}	2>&1
 		;;
 	esac
 done
+
+#
+# AirPort info
+#
+if [ -x /System/Library/PrivateFrameworks/Apple80211.framework/Resources/airport ]; then
+	/System/Library/PrivateFrameworks/Apple80211.framework/Resources/airport --getinfo	\
+							> airport		2>&1
+fi
 
 #
 # OS info
 #
 if [ -e /System/Library/CoreServices/SystemVersion.plist ]; then
 	cat /System/Library/CoreServices/SystemVersion.plist	\
-							> ${OUT}/SystemVersion.plist	2>&1
+							> SystemVersion.plist	2>&1
 fi
 if [ -e /System/Library/CoreServices/ServerVersion.plist ]; then
 	cat /System/Library/CoreServices/ServerVersion.plist	\
-							> ${OUT}/ServerVersion.plist	2>&1
+							> ServerVersion.plist	2>&1
 fi
 
 #
 # IOKit info
 #
-ioreg -l						> ${OUT}/ioreg			2>&1
+ioreg -i -l -w 0					> ioreg			2>&1
+
+#
+# Host name
+#
+hostname						> hostname		2>&1
 
 #
 # Host configuration
 #
-hostinfo						> ${OUT}/hostinfo		2>&1
+hostinfo						> hostinfo		2>&1
 if [ -e /etc/hostconfig ]; then
-	cat /etc/hostconfig				> ${OUT}/etc.hostconfig		2>&1
+	cat /etc/hostconfig				> etc.hostconfig	2>&1
 fi
 
 #
 # DNS configuration
 #
-scutil --dns						> ${OUT}/dns-configuration	2>&1
+scutil --dns						> dns-configuration	2>&1
 if [ -e /etc/resolv.conf ]; then
-	cat /etc/resolv.conf				> ${OUT}/etc.resolv.conf	2>&1
+	cat /etc/resolv.conf				> etc.resolv.conf	2>&1
 fi
 if [ -e /var/run/resolv.conf ]; then
-	cat /var/run/resolv.conf			> ${OUT}/var.run.resolv.conf	2>&1
+	cat /var/run/resolv.conf			> var.run.resolv.conf	2>&1
 fi
 
 #
-# NetInfo configuration
+# Proxy configuration
 #
-niutil -statistics .					> ${OUT}/netinfo-statistics	2>&1
-if [ -f /var/run/niconfig_local.xml ]; then
-	cat /var/run/niconfig_local.xml			> ${OUT}/niconfig_local.xml	2>&1
-fi
+scutil --proxy						> proxy-configuration	2>&1
 
 #
 # System / network preferences
@@ -95,13 +125,15 @@ for f in										\
 	/Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist	\
 	/Library/Preferences/SystemConfiguration/com.apple.airport.preferences.plist	\
 	/Library/Preferences/SystemConfiguration/com.apple.nat.plist			\
+	/Library/Preferences/SystemConfiguration/com.apple.network.identification.plist	\
+	/Library/Preferences/SystemConfiguration/com.apple.smb.server.plist		\
 	/Library/Preferences/SystemConfiguration/preferences.plist			\
 	/Library/Preferences/com.apple.sharing.firewall.plist				\
 
 do
-	if [ -e ${f} ]; then
-		b=`basename $f`
-		cat ${f}				> ${OUT}/${b}			2>&1
+	if [ -e "${f}" ]; then
+		b="`basename ${f}`"
+		cat "${f}"				> "${b}"		2>&1
 	fi
 done
 
@@ -114,123 +146,355 @@ snapshot
 quit
 _END_OF_INPUT
 if [ -f /var/tmp/configd-store.xml ]; then
-	cp /var/tmp/configd-store.xml			${OUT}/configd-store.xml
+	cat /var/tmp/configd-store.xml			> configd-store.xml	2>&1
 fi
 if [ -f /var/tmp/configd-pattern.xml ]; then
-	cp /var/tmp/configd-pattern.xml			${OUT}/configd-pattern.xml
+	cat /var/tmp/configd-pattern.xml		> configd-pattern.xml	2>&1
 fi
 if [ -f /var/tmp/configd-session.xml ]; then
-	cp /var/tmp/configd-session.xml			${OUT}/configd-session.xml
+	cat /var/tmp/configd-session.xml		> configd-session.xml	2>&1
+fi
+if [ -f /var/tmp/configd-state ]; then
+	cat /var/tmp/configd-state			> configd-state		2>&1
 fi
 
 #
 # network reachability
 #
-scutil -d -v -r www.apple.com				> ${OUT}/reachability-info	2>&1
-if [ -f /usr/bin/dig ]; then
-	dig -t any -c any www.apple.com			> ${OUT}/dig-results		2>&1
+scutil -d -v -r www.apple.com				> reachability-info	2>&1
+if [ -x /usr/bin/dig ]; then
+	dig -t any -c any www.apple.com			> dig-results		2>&1
 fi
 
 #
 # mounted filesystems
 #
-mount							> ${OUT}/mounted-filesystems	2>&1
+mount							> mounted-filesystems	2>&1
 
 #
-# system log
+# mDNSResponder info
 #
-tail -1000 /var/log/system.log				> ${OUT}/system.log
+if [ -f /var/run/mDNSResponder.pid ]; then
+	${PRIV} kill -INFO `cat /var/run/mDNSResponder.pid`
+fi
 
 #
-# ppp log
+# system log, early boot log messages
 #
-if [ -f /var/log/ppp.log ]; then
-	cp /var/log/ppp.log				${OUT}/ppp.log
+${PRIV} tail -n 2000 /var/log/system.log		> system.log
+${PRIV} dmesg						> dmesg
+
+#
+# ppp log file(s)
+#
+scutil <<_END_OF_INPUT				\
+| awk -F' *: *'					\
+    '						\
+     /Logfile : / {				\
+       if (index($2, "/") == 1) { print $2 }	\
+       else { print "/var/log/ppp/" $2 }	\
+     }						\
+     END {					\
+       print "/tmp/pppotcp.log"			\
+     }						\
+    '						\
+| sort -u					\
+| while read logFile
+open
+show Setup:/Network/Service/[^/]+/PPP pattern
+quit
+_END_OF_INPUT
+do
+	if [ -f "${logFile}" ]; then
+		b="`basename ${logFile}`"
+		cat "${logFile}"			> "${b}"		2>&1
+	fi					
+done
+
+#
+# application firewall log
+#
+if [ -f /var/log/appfirewall.log ]; then
+	${PRIV} tail -n 2000 /var/log/appfirewall.log	> appfirewall.log
 fi
 
 #
 # kernel extensions statistic
 #
-if   [ -f /usr/sbin/kextstat ]; then
-	kextstat					> ${OUT}/kextstat		2>&1
-elif [ -f /usr/sbin/kmodstat ]; then
-	kmodstat					> ${OUT}/kmodstat		2>&1
+if   [ -x /usr/sbin/kextstat ]; then
+	kextstat					> kextstat		2>&1
+elif [ -x /usr/sbin/kmodstat ]; then
+	kmodstat					> kmodstat		2>&1
 fi
 
 #
 # network statistics
 #
-echo "#"						>> ${OUT}/network-statistics
-echo "# netstat -n -a -A -f inet"			>> ${OUT}/network-statistics
-echo "#"						>> ${OUT}/network-statistics
-netstat -n -a -A -f inet				>> ${OUT}/network-statistics	2>&1
-echo "#"						>> ${OUT}/network-statistics
-echo "# lsof -n -i -P"					>> ${OUT}/network-statistics
-echo "#"						>> ${OUT}/network-statistics
-lsof -n -i -P						>> ${OUT}/network-statistics	2>&1
-echo "#"						>> ${OUT}/network-statistics
-echo "# netstat -s"					>> ${OUT}/network-statistics
-echo "#"						>> ${OUT}/network-statistics
-netstat -s						>> ${OUT}/network-statistics	2>&1
-echo "#"						>> ${OUT}/network-statistics
-echo "# netstat -m"					>> ${OUT}/network-statistics
-echo "#"						>> ${OUT}/network-statistics
-netstat -m						>> ${OUT}/network-statistics	2>&1
-echo "#"						>> ${OUT}/network-statistics
-echo "# netstat -i -n -d"				>> ${OUT}/network-statistics
-echo "#"						>> ${OUT}/network-statistics
-netstat -i -n -d					>> ${OUT}/network-statistics	2>&1
-echo "#"						>> ${OUT}/network-statistics
-echo "# ipfw -at show"					>> ${OUT}/network-statistics
-echo "#"						>> ${OUT}/network-statistics
-ipfw -at show						>> ${OUT}/network-statistics	2>&1
-echo "#"						>> ${OUT}/network-statistics
-echo "# appletalk -s"					>> ${OUT}/network-statistics
-echo "#"						>> ${OUT}/network-statistics
-appletalk -s						>> ${OUT}/network-statistics	2>&1
+echo "#"						>  network-statistics
+echo "# netstat -n -a -A -f inet"			>> network-statistics
+echo "#"						>> network-statistics
+netstat -n -a -A -f inet				>> network-statistics	2>&1
+
+echo "#"						>> network-statistics
+echo "# lsof -i -n -P"					>> network-statistics
+echo "#"						>> network-statistics
+${PRIV} lsof -i -n -P					>> network-statistics	2>&1
+
+echo "#"						>> network-statistics
+echo "# netstat -s"					>> network-statistics
+echo "#"						>> network-statistics
+netstat -s						>> network-statistics	2>&1
+
+echo "#"						>> network-statistics
+echo "# netstat -mmm"					>> network-statistics
+echo "#"						>> network-statistics
+netstat -mmm						>> network-statistics	2>&1
+
+echo "#"						>> network-statistics
+echo "# netstat -i -n -d"				>> network-statistics
+echo "#"						>> network-statistics
+netstat -i -n -d					>> network-statistics	2>&1
+
+echo "#"						>> network-statistics
+echo "# ipfw -at show"					>> network-statistics
+echo "#"						>> network-statistics
+ipfw -at show						>> network-statistics	2>&1
+
+echo "#"						>> network-statistics
+echo "# appletalk -s"					>> network-statistics
+echo "#"						>> network-statistics
+appletalk -s						>> network-statistics	2>&1
 
 #
 # system usage statistics
 #
-echo "#"						>  ${OUT}/system-statistics
-echo "# uptime"						>> ${OUT}/system-statistics
-echo "#"						>> ${OUT}/system-statistics
-uptime							>> ${OUT}/system-statistics	2>&1
-echo "#"						>> ${OUT}/system-statistics
-echo "# pstat -t"					>> ${OUT}/system-statistics
-echo "#"						>> ${OUT}/system-statistics
-pstat -t						>> ${OUT}/system-statistics	2>&1
-echo "#"						>> ${OUT}/system-statistics
-echo "# sysctl -a"					>> ${OUT}/system-statistics
-echo "#"						>> ${OUT}/system-statistics
-sysctl -a						>> ${OUT}/system-statistics	2>&1
-echo "#"						>> ${OUT}/system-statistics
-echo "# zprint"						>> ${OUT}/system-statistics
-echo "#"						>> ${OUT}/system-statistics
-zprint							>> ${OUT}/system-statistics	2>&1
-echo "#"						>> ${OUT}/system-statistics
-echo "# top -l5 -s2"					>> ${OUT}/system-statistics
-echo "#"						>> ${OUT}/system-statistics
-  echo ""
-  echo "Please wait, collecting statistics"
-  echo ""
-top -s 2 -l 5						>> ${OUT}/system-statistics	2>&1
+echo "#"						>  system-statistics
+echo "# uptime"						>> system-statistics
+echo "#"						>> system-statistics
+uptime							>> system-statistics	2>&1
+
+echo "#"						>> system-statistics
+echo "# sysctl -a"					>> system-statistics
+echo "#"						>> system-statistics
+sysctl -a						>> system-statistics	2>&1
+
+echo "#"						>> system-statistics
+echo "# zprint"						>> system-statistics
+echo "#"						>> system-statistics
+zprint							>> system-statistics	2>&1
+
+echo "#"						>> system-statistics
+echo "# top -l5 -s2"					>> system-statistics
+echo "#"						>> system-statistics
+echo ""
+echo "Please wait, collecting statistics"
+echo ""
+top -s 2 -l 5						>> system-statistics	2>&1
+
+#
+# DirectoryService info
+#
+if [ -x /usr/bin/dscacheutil ]; then
+	echo "#"					>  ds-info
+	echo "# dscacheutil -configuration"		>> ds-info
+	echo "#"					>> ds-info
+	dscacheutil -configuration			>> ds-info		2>&1
+
+	echo "#"					>> ds-info
+	echo "# dscacheutil -statistics"		>> ds-info
+	echo "#"					>> ds-info
+	dscacheutil -statistics				>> ds-info		2>&1
+
+	echo "#"					>> ds-info
+	echo "# dscacheutil -cachedump -entries"	>> ds-info
+	echo "#"					>> ds-info
+	dscacheutil -cachedump -entries			>> ds-info		2>&1
+fi
+
+#
+# IPsec configuration
+#
+echo "#"						>  ipsec
+echo "# setkey -D"					>> ipsec
+echo "#"						>> ipsec
+${PRIV} setkey -D					\
+| perl -nle '
+	if (/^(\s+[AE]:\s+\S+\s+)"?(.*)"?\s*$/) {
+		chop($sha1=`echo "$2" | openssl sha1`);
+		printf "%s[SHA-1:%s]\n", $1, $sha1;
+	} else {
+		printf "%s\n", $_;
+	}
+'							>> ipsec
+
+echo ""							>> ipsec
+echo "#"						>> ipsec
+echo "# setkey -Pp -D"					>> ipsec
+echo "#"						>> ipsec
+${PRIV} setkey -Pp -D					>> ipsec
+
+for CF in /etc/racoon/remote/*.conf
+do
+	echo ""						>> ipsec
+	echo "#"					>> ipsec
+	echo "# ${CF}"					>> ipsec
+	echo "#"					>> ipsec
+	${PRIV} cat ${CF}				\
+	| perl -nle '
+		if (/^(\s+shared_secret\s+use\s+)"?([^\s;"]+)"?(.*)/) {
+			chop($sha1=`echo "$2" | openssl sha1`);
+			printf "%s[SHA-1:%s]%s\n", $1, $sha1, $3;
+		} else {
+			printf "%s\n", $_;
+		}
+	'						>> ipsec
+done
+
+#
+# Kerberos configuration
+#
+echo "#"						>  kerberos
+echo "# klist -e -c -A -f -a -n"			>> kerberos
+echo "#"						>> kerberos
+${PRIV} klist -e -c -A -f -a -n				>> kerberos
+
+echo "#"						>> kerberos
+echo "# klist -e -k -t -K"				>> kerberos
+echo "#"						>> kerberos
+${PRIV} klist -e -k -t -K				>> kerberos
+
+#
+# BTMM configuration
+#
+DIG()
+{
+	/usr/bin/dig @pm-members.mac.com -y "${DOMAIN}:${TSIG}" +short "${1}" "${2}"
+}
+
+scutil <<_END_OF_INPUT					\
+| sed -n 's@.* : *\(.*\.members\.mac\.com\)$@\1@p'	\
+| sort							\
+| while read DOMAIN
+open
+show Setup:/Network/BackToMyMac
+quit
+_END_OF_INPUT
+do
+	echo ""							>> btmm
+	echo "${DOMAIN}"					>> btmm
+
+	# lookup TSIG in base64 format
+	TSIG=`								\
+		${PRIV} security find-generic-password			\
+			-a ${DOMAIN}					\
+			-g /Library/Keychains/System.keychain 2>&1	\
+		| grep "^password: "					\
+		| cut -d '"' -f 2					\
+		| cut -d '\' -f 1					\
+	     `
+	if [ -z "$TSIG" ]; then
+		echo "  No TSIG in system keychain."		>> btmm
+		continue
+	fi
+	if [ `echo "$TSIG" | wc -l` -ne 1 ] ; then
+		echo "  More than one TSIG in system keychain."	>> btmm
+		continue
+	fi
+
+	for TYPE in			\
+		_afpovertcp._tcp	\
+		_airport._tcp		\
+		_adisk._tcp		\
+		_rfb._tcp		\
+		_smb._tcp		\
+		_ssh._tcp
+	do
+		DIG "${TYPE}.${DOMAIN}" ptr	\
+		| while read -r REG
+		do
+			echo ""					>> btmm
+			/bin/echo "  ${REG}"			>> btmm
+			echo ""					>> btmm
+
+			INF_Q=`/bin/echo "${REG}" | sed -e "s/${TYPE}/_device-info._tcp/"`
+			INF=`DIG "${INF_Q}" txt`
+			echo "    INF: ${INF}"			>> btmm
+
+			SRV=`DIG ${REG} srv`
+			SRV1=`/bin/echo "${SRV}" | head -1`
+			echo "    SRV: ${SRV1}"			>> btmm
+			SRV2=`/bin/echo "${SRV}" | tail +2`
+			if [ -n "${SRV2}" ]; then
+				SRV="${SRV1}"
+				/bin/echo "${SRV2}"		\
+				| sed -e 's/^/  *****: /'	>> btmm
+			fi
+
+			TXT=`DIG ${REG} txt`
+			TXT1=`/bin/echo "${TXT}" | head -1`
+			echo "    TXT: ${TXT1}"			>> btmm
+			TXT2=`/bin/echo "${TXT}" | tail +2`
+			if [ -n "${TXT2}" ]; then
+				/bin/echo "${TXT2}"		\
+				| sed -e 's/^/  *****: /'	>> btmm
+			fi
+
+			HOST=`/bin/echo "${SRV}" | cut -d ' ' -f 4-`
+			V4=`DIG ${HOST} a`
+			if [ -n "${V4}" ]; then
+				echo "     v4: ${V4}"		>> btmm
+			fi
+			V6=`DIG ${HOST} aaaa`
+			if [ -n "${V6}" ]; then
+				echo "     v6: ${V6}"		>> btmm
+			fi
+
+			KRB=`DIG _kerberos.${HOST} txt`
+			echo "    KRB: ${KRB}"			>> btmm
+
+			TUN=`DIG _autotunnel._udp.${HOST} srv`
+			echo "    TUN: ${TUN}"			>> btmm
+
+			HOST=`/bin/echo "${TUN}" | cut -d ' ' -f 4-`
+			V4=`DIG ${HOST} a`
+			if [ -n "${V4}" ]; then
+				echo "     v4: ${V4}"		>> btmm
+			fi
+			V6=`DIG ${HOST} aaaa`
+			if [ -n "${V6}" ]; then
+				echo "     v6: ${V6}"		>> btmm
+			fi
+		done
+	done
+done
 
 #
 # collect crash reports
 #
+CRASH_DIR=/Library/Logs/CrashReporter
 for daemon in bootpd configd pppd
 do
-	LOG=${daemon}.crash.log
-	if [ -e /Library/Logs/CrashReporter/${LOG} ]; then
-		cat /Library/Logs/CrashReporter/${LOG}	> ${OUT}/${LOG}			2>&1
-	fi
+	/bin/ls -1 ${CRASH_DIR}/${daemon}_*.crash 2>/dev/null	\
+	| while read log
+	do
+		b="`basename ${log}`"
+		${PRIV} cat "${log}"			> "${b}"		2>&1
+	done
 done
 
 #
 # collect everything into a single archive
 #
-tar cfz ${OUT}.tar.gz ${OUT}
-rm -rf ${OUT}
+cd "${WORKDIR}/.."
+tar cfz "${ARCHIVE}" "${OUT}"
+rm -rf "${WORKDIR}"
 
-echo "Network data collected to /tmp/${OUT}.tar.gz"
+if [ ${UID} -eq 0 ]; then
+	if [ -n "${SUDO_UID}" -a -n "${SUDO_GID}" ]; then
+		if [ ${UID} -ne ${SUDO_UID} ]; then
+			chown ${SUDO_UID}:${SUDO_GID} "${ARCHIVE}"
+		fi
+	fi
+fi
+
+echo "Network data collected to \"${ARCHIVE}\""

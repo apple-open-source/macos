@@ -1,7 +1,0 @@
-Package: tcsh
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Vendor: Christos Zoulas
-Version: 6.10.00
-URL: ftp://ftp.astron.com/pub/tcsh
-Description: TENEX C-Shell
-Build-Depends: build-base, gnudiff

@@ -55,17 +55,17 @@ set objfile1 "${testfile}a.o"
 set srcfile2 "${testfile}b.cc"
 set objfile2 "${testfile}b.o"
 set binfile  "${objdir}/${subdir}/${testfile}"
-set additional_flags "additional_flags=-gused"
+set additional_flags "additional_flags=-gstabs+ -feliminate-unused-debug-symbols"
 
-if  { [gdb_compile "$srcdir/$subdir/$srcfile1" "$objdir/$subdir/$objfile1" object [list $additional_flags c++]] != "" } {
+if  { [gdb_compile "$srcdir/$subdir/$srcfile1" "$objdir/$subdir/$objfile1" object {debug c++}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
-if  { [gdb_compile "$srcdir/$subdir/$srcfile2" "$objdir/$subdir/$objfile2" object [list $additional_flags c++]] != "" } {
+if  { [gdb_compile "$srcdir/$subdir/$srcfile2" "$objdir/$subdir/$objfile2" object {debug c++}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
-if  { [gdb_compile "$objdir/$subdir/$objfile1 $objdir/$subdir/$objfile2" "${binfile}" executable [list $additional_flags c++]] != "" } {
+if  { [gdb_compile "$objdir/$subdir/$objfile1 $objdir/$subdir/$objfile2" "${binfile}" executable {debug c++}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 

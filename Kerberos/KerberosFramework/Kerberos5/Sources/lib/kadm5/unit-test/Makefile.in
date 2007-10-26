@@ -1,10 +1,15 @@
-thisconfigdir=./..
+thisconfigdir=../../..
 myfulldir=lib/kadm5/unit-test
-mydir=unit-test
+mydir=lib/kadm5/unit-test
 BUILDTOP=$(REL)..$(S)..$(S)..
 DEFINES = -DUSE_KADM5_API_VERSION=1
 PROG_LIBPATH=-L$(TOPLIBD)
 PROG_RPATH=$(KRB5_LIBDIR)
+KDB_DEP_LIB=$(DL_LIB) $(THREAD_LINKOPTS)
+DEFS=
+
+SRCS= init-test.c destroy-test.c handle-test.c iter-test.c setkey-test.c \
+	randkey-test.c lock-test.c
 
 all:: init-test destroy-test client-handle-test client-iter-test
 all:: randkey-test server-handle-test lock-test server-iter-test 
@@ -40,26 +45,26 @@ client-setkey-test: setkey-test.o $(KADMCLNT_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 
 randkey-test: randkey-test.o $(KADMSRV_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 	$(CC_LINK) -o randkey-test randkey-test.o \
-		$(KADMSRV_LIBS) $(KRB5_BASE_LIBS)
+		$(KADMSRV_LIBS) $(KDB_DEP_LIB) $(KRB5_BASE_LIBS)
 
 server-handle-test: handle-test.o $(KADMSRV_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 	$(CC_LINK) -o server-handle-test handle-test.o \
-		$(KADMSRV_LIBS) $(KRB5_BASE_LIBS)
+		$(KADMSRV_LIBS) $(KDB_DEP_LIB) $(KRB5_BASE_LIBS)
 
 lock-test: lock-test.o $(KADMSRV_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 	$(CC_LINK) -o lock-test lock-test.o \
-		$(KADMSRV_LIBS) $(KRB5_BASE_LIBS)
+		$(KADMSRV_LIBS) $(KDB_DEP_LIB) $(KRB5_BASE_LIBS)
 
 server-iter-test: iter-test.o $(KADMSRV_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 	$(CC_LINK) -o server-iter-test iter-test.o \
-		$(KADMSRV_LIBS) $(KRB5_BASE_LIBS)
+		$(KADMSRV_LIBS) $(KDB_DEP_LIB) $(KRB5_BASE_LIBS)
 
 setkey-test.o: $(SRCTOP)/lib/kadm5/unit-test/setkey-test.c
 	$(CC) $(ALL_CFLAGS) -UUSE_KADM5_API_VERSION -DUSE_KADM5_API_VERSION=2 -c $(SRCTOP)/lib/kadm5/unit-test/setkey-test.c
 
 server-setkey-test: setkey-test.o $(KADMSRV_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 	$(CC_LINK) -o server-setkey-test setkey-test.o \
-		$(KADMSRV_LIBS) $(KRB5_BASE_LIBS)
+		$(KADMSRV_LIBS) $(KDB_DEP_LIB) $(KRB5_BASE_LIBS)
 
 #
 # The unit-test targets
@@ -136,3 +141,92 @@ clean::
 	$(RM) server-iter-test iter-test.o
 	$(RM) server-setkey-test client-setkey-test setkey-test.o
 	$(RM) *.log *.plog *.sum *.psum unit-test-log.*
+# +++ Dependency line eater +++
+# 
+# Makefile dependencies follow.  This must be the last section in
+# the Makefile.in file
+#
+$(OUTPRE)init-test.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/types.h \
+  $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/kadm5/chpass_util_strings.h \
+  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/gssrpc/auth.h $(SRCTOP)/include/gssrpc/auth_gss.h \
+  $(SRCTOP)/include/gssrpc/auth_unix.h $(SRCTOP)/include/gssrpc/clnt.h \
+  $(SRCTOP)/include/gssrpc/rename.h $(SRCTOP)/include/gssrpc/rpc.h \
+  $(SRCTOP)/include/gssrpc/rpc_msg.h $(SRCTOP)/include/gssrpc/svc.h \
+  $(SRCTOP)/include/gssrpc/svc_auth.h $(SRCTOP)/include/gssrpc/xdr.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  $(SRCTOP)/include/kdb.h $(SRCTOP)/include/krb5.h init-test.c
+$(OUTPRE)destroy-test.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/types.h \
+  $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/kadm5/admin_internal.h \
+  $(BUILDTOP)/include/kadm5/chpass_util_strings.h $(BUILDTOP)/include/kadm5/client_internal.h \
+  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/gssrpc/auth.h $(SRCTOP)/include/gssrpc/auth_gss.h \
+  $(SRCTOP)/include/gssrpc/auth_unix.h $(SRCTOP)/include/gssrpc/clnt.h \
+  $(SRCTOP)/include/gssrpc/rename.h $(SRCTOP)/include/gssrpc/rpc.h \
+  $(SRCTOP)/include/gssrpc/rpc_msg.h $(SRCTOP)/include/gssrpc/svc.h \
+  $(SRCTOP)/include/gssrpc/svc_auth.h $(SRCTOP)/include/gssrpc/xdr.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  $(SRCTOP)/include/kdb.h $(SRCTOP)/include/krb5.h destroy-test.c
+$(OUTPRE)handle-test.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/types.h \
+  $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/kadm5/admin_internal.h \
+  $(BUILDTOP)/include/kadm5/chpass_util_strings.h $(BUILDTOP)/include/kadm5/client_internal.h \
+  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/gssrpc/auth.h $(SRCTOP)/include/gssrpc/auth_gss.h \
+  $(SRCTOP)/include/gssrpc/auth_unix.h $(SRCTOP)/include/gssrpc/clnt.h \
+  $(SRCTOP)/include/gssrpc/rename.h $(SRCTOP)/include/gssrpc/rpc.h \
+  $(SRCTOP)/include/gssrpc/rpc_msg.h $(SRCTOP)/include/gssrpc/svc.h \
+  $(SRCTOP)/include/gssrpc/svc_auth.h $(SRCTOP)/include/gssrpc/xdr.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  $(SRCTOP)/include/kdb.h $(SRCTOP)/include/krb5.h handle-test.c
+$(OUTPRE)iter-test.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/types.h \
+  $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/kadm5/chpass_util_strings.h \
+  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/gssrpc/auth.h $(SRCTOP)/include/gssrpc/auth_gss.h \
+  $(SRCTOP)/include/gssrpc/auth_unix.h $(SRCTOP)/include/gssrpc/clnt.h \
+  $(SRCTOP)/include/gssrpc/rename.h $(SRCTOP)/include/gssrpc/rpc.h \
+  $(SRCTOP)/include/gssrpc/rpc_msg.h $(SRCTOP)/include/gssrpc/svc.h \
+  $(SRCTOP)/include/gssrpc/svc_auth.h $(SRCTOP)/include/gssrpc/xdr.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  $(SRCTOP)/include/kdb.h $(SRCTOP)/include/krb5.h iter-test.c
+$(OUTPRE)setkey-test.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/types.h \
+  $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/kadm5/chpass_util_strings.h \
+  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(BUILDTOP)/include/osconf.h $(BUILDTOP)/include/profile.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/gssrpc/auth.h $(SRCTOP)/include/gssrpc/auth_gss.h \
+  $(SRCTOP)/include/gssrpc/auth_unix.h $(SRCTOP)/include/gssrpc/clnt.h \
+  $(SRCTOP)/include/gssrpc/rename.h $(SRCTOP)/include/gssrpc/rpc.h \
+  $(SRCTOP)/include/gssrpc/rpc_msg.h $(SRCTOP)/include/gssrpc/svc.h \
+  $(SRCTOP)/include/gssrpc/svc_auth.h $(SRCTOP)/include/gssrpc/xdr.h \
+  $(SRCTOP)/include/k5-err.h $(SRCTOP)/include/k5-int.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-plugin.h \
+  $(SRCTOP)/include/k5-thread.h $(SRCTOP)/include/kdb.h \
+  $(SRCTOP)/include/krb5.h $(SRCTOP)/include/krb5/locate_plugin.h \
+  $(SRCTOP)/include/krb5/preauth_plugin.h $(SRCTOP)/include/port-sockets.h \
+  $(SRCTOP)/include/socket-utils.h setkey-test.c
+$(OUTPRE)randkey-test.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/types.h \
+  $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/kadm5/chpass_util_strings.h \
+  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/gssrpc/auth.h $(SRCTOP)/include/gssrpc/auth_gss.h \
+  $(SRCTOP)/include/gssrpc/auth_unix.h $(SRCTOP)/include/gssrpc/clnt.h \
+  $(SRCTOP)/include/gssrpc/rename.h $(SRCTOP)/include/gssrpc/rpc.h \
+  $(SRCTOP)/include/gssrpc/rpc_msg.h $(SRCTOP)/include/gssrpc/svc.h \
+  $(SRCTOP)/include/gssrpc/svc_auth.h $(SRCTOP)/include/gssrpc/xdr.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  $(SRCTOP)/include/kdb.h $(SRCTOP)/include/krb5.h randkey-test.c
+$(OUTPRE)lock-test.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/types.h \
+  $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/kadm5/chpass_util_strings.h \
+  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/gssrpc/auth.h $(SRCTOP)/include/gssrpc/auth_gss.h \
+  $(SRCTOP)/include/gssrpc/auth_unix.h $(SRCTOP)/include/gssrpc/clnt.h \
+  $(SRCTOP)/include/gssrpc/rename.h $(SRCTOP)/include/gssrpc/rpc.h \
+  $(SRCTOP)/include/gssrpc/rpc_msg.h $(SRCTOP)/include/gssrpc/svc.h \
+  $(SRCTOP)/include/gssrpc/svc_auth.h $(SRCTOP)/include/gssrpc/xdr.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
+  $(SRCTOP)/include/kdb.h $(SRCTOP)/include/krb5.h lock-test.c

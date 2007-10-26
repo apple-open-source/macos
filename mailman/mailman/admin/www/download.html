@@ -2,7 +2,7 @@
                       "http://www.w3.org/TR/html4/loose.dtd" >
 <html>
 <!-- THIS PAGE IS AUTOMATICALLY GENERATED.  DO NOT EDIT. -->
-<!-- Wed Dec 31 13:01:17 2003 -->
+<!-- Tue Sep 12 23:12:41 2006 -->
 <!-- USING HT2HTML 2.0 -->
 <!-- SEE http://ht2html.sf.net -->
 <!-- User-specified headers:
@@ -12,8 +12,8 @@ Title: Downloading Mailman
 
 <head>
 <title>Downloading Mailman</title>
-<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
-<meta name="generator" content="HT2HTML/2.0" />
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" >
+<meta name="generator" content="HT2HTML/2.0" >
 <style type="text/css">
 body { margin: 0px; }
 </style>
@@ -38,19 +38,25 @@ body { margin: 0px; }
 <td width="90%" bgcolor="#eecfa1" class="banner">
 <!-- start of site links table -->
 <table width="100%" border="0"
-CELLSPACING=0 CELLPADDING=0
+       CELLSPACING=0 CELLPADDING=0
        bgcolor="#ffffff">
 <tr>
     <td bgcolor="#eecfa1">
 <a href="./index.html">Home</a>
     </td>
     <td bgcolor="#eecfa1">
+<a href="./security.html">Security</a>
+    </td>
+    <td bgcolor="#eecfa1">
 <a href="./docs.html">Documentation</a>
     </td>
     <td bgcolor="#eecfa1">
-<a href="./lists.html">Mailing lists</a>
+<a href="./lists.html">Mailing Lists</a>
     </td>
 </tr><tr>
+    <td bgcolor="#eecfa1">
+<a href="http://wiki.list.org/x/DQ">Community</a>
+    </td>
     <td bgcolor="#eecfa1">
 <a href="./help.html">Help</a>
     </td>
@@ -75,63 +81,61 @@ CELLSPACING=0 CELLPADDING=0
 Overview
 </font></b></td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="index.html">Home</a>
+<a href="index.html">Home</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="features.html">Features</a>
+<a href="security.html">Security</li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="i18n.html">Internationalization</a>
+<a href="features.html">Features</a></li>
+</td></tr>
+<tr><td bgcolor="#eecfa1">&nbsp;</td></tr>
+<tr><td bgcolor="#36648b"><b><font color="#ffffff">
+More Information
+</font></b></td></tr>
+<tr><td bgcolor="#eecfa1">
+<a href="http://wiki.list.org">Wiki</a> <i>(exit)</i></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="otherstuff.html">Rants, Papers, and Logos</a>
+<a href="lists.html">Discussion Lists</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="inthenews.html">Mailman in Use</a>
+<a href="http://sf.net/projects/mailman">SF Project Page</a>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="prev.html">Previous Releases</a>
+<a href="otherstuff.html">Rants, Papers, and Logos</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="bugs.html">Bugs and Patches</a>
+<a href="bugs.html">Bugs and Patches</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="mirrors.html">Mirrors</a>
+<a href="mirrors.html">Mirrors</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">&nbsp;</td></tr>
 <tr><td bgcolor="#36648b"><b><font color="#ffffff">
 Downloading
 </font></b></td></tr>
 <tr><td bgcolor="#eecfa1">
-<b>Downloading</b>
-</td></tr>
-<tr><td bgcolor="#eecfa1">
-<a href="version.html">Latest Version</a>
-</td></tr>
-<tr><td bgcolor="#eecfa1">
 <a href="requirements.html">Requirements</a>
+</td></tr>
+<tr><td bgcolor="#eecfa1">
+<b>Downloading</b>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
 <a href="install.html">Installing</a>
 </td></tr>
 <tr><td bgcolor="#eecfa1">&nbsp;</td></tr>
 <tr><td bgcolor="#36648b"><b><font color="#ffffff">
-Exits
+Related Links <i>(exits)</i>
 </font></b></td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="http://sf.net/projects/mailman">SF Project Page</a>
+<a href="http://www.python.org/">Python</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="lists.html">Discussion Lists</a>
+<a href="http://www.gnu.org/">GNU</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="http://www.python.org/">Python</a>
-</td></tr>
-<tr><td bgcolor="#eecfa1">
-<a href="http://www.gnu.org/">GNU</a>
-</td></tr>
-<tr><td bgcolor="#eecfa1">
-<a href="http://barry.warsaw.us/">Barry Warsaw</a>
+<a href="http://barry.warsaw.us/">Barry Warsaw</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">&nbsp;</td></tr>
 <tr><td bgcolor="#36648b"><b><font color="#ffffff">
@@ -155,7 +159,7 @@ Email Us
 &nbsp;
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-&copy; 1998-2003
+&copy; 1998-2006
 Free Software Foundation, Inc.  Verbatim copying and distribution of this
 entire article is permitted in any medium, provided this notice is preserved.
 
@@ -166,34 +170,11 @@ entire article is permitted in any medium, provided this notice is preserved.
 <td width="15">&nbsp;&nbsp;</td><!--spacer-->
 <!-- end of sidebar cell -->
 <!-- start of body cell -->
-<td valign="top" width="90%" class="body"><br />
+<td valign="top" width="90%" class="body"><br>
 <h3>Requirements</h3>
 
-You must have a mail server (MTA) that you can send messages to, and a
-web server that supports the CGI/1.1 API.
-<a href="http://httpd.apache.org">Apache</a> makes a fine choice
-for web server, and MTAs such as
-<a href="http://www.postfix.org">Postfix</a>,
-<a href="http://www.exim.org">Exim</a>,
-<a href="http://www.sendmail.org">Sendmail</a>, and
-<a href="http://www.qmail.org">qmail</a>
-should work just fine.
-
-<p>You will need an ANSI C compiler to build Mailman's security
-wrappers.  The
-<a href="http://gcc.gnu.org/">GNU C compiler</a>
-gcc 2.8.1 or later is known to work
-well.
-
-<p>You must have the
-<a href="http://www.python.org/">Python</a>
-interpreter installed somewhere on your system.  Currently Python 2.1
-or newer is required, with Python 2.3.3 being recommended.  Mailman
-should work with latest patch release on any Python branch from 2.1 to
-2.3, which as of this writing (31-Dec-2003) is
-<a href="http://www.python.org/2.1.3/">Python 2.1.3</a>,
-<a href="http://www.python.org/2.2.3/">Python 2.2.3</a>, and
-<a href="http://www.python.org/2.3.3/">Python 2.3.3</a>.
+See the <a href="requirements.html">requirements page</a> for the list of
+pre-requisites.
 
 <h3>Downloading</h3>
 

@@ -7,7 +7,7 @@
 #   * date-time defined by RFC 2822
 #   * HTTP-date defined by RFC 2616
 #   * dateTime defined by XML Schema Part 2: Datatypes (ISO 8601)
-#   * various formats handled by ParseDate (string to time only)
+#   * various formats handled by Date._parse (string to time only)
 # 
 # == Design Issues
 # 
@@ -60,7 +60,7 @@ class Time
       'MST' => -7, 'MDT' => -6,
       'PST' => -8, 'PDT' => -7,
       # Following definition of military zones is original one.
-      # See RFC 1123 and RFC 2822 for the error of RFC 822.
+      # See RFC 1123 and RFC 2822 for the error in RFC 822.
       'A' => +1, 'B' => +2, 'C' => +3, 'D' => +4,  'E' => +5,  'F' => +6, 
       'G' => +7, 'H' => +8, 'I' => +9, 'K' => +10, 'L' => +11, 'M' => +12,
       'N' => -1, 'O' => -2, 'P' => -3, 'Q' => -4,  'R' => -5,  'S' => -6, 
@@ -83,8 +83,111 @@ class Time
       off
     end
 
+    def zone_utc?(zone)
+      # * +0000 means localtime. [RFC 2822]
+      # * GMT is a localtime abbreviation in Europe/London, etc.
+      if /\A(?:-00:00|-0000|-00|UTC|Z|UT)\z/i =~ zone
+        true
+      else
+        false
+      end
+    end
+    private :zone_utc?
+
+    LeapYearMonthDays = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    CommonYearMonthDays = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    def month_days(y, m)
+      if ((y % 4 == 0) && (y % 100 != 0)) || (y % 400 == 0)
+        LeapYearMonthDays[m-1]
+      else
+        CommonYearMonthDays[m-1]
+      end
+    end
+    private :month_days
+
+    def apply_offset(year, mon, day, hour, min, sec, off)
+      if off < 0
+        off = -off
+        off, o = off.divmod(60)
+        if o != 0 then sec += o; o, sec = sec.divmod(60); off += o end
+        off, o = off.divmod(60)
+        if o != 0 then min += o; o, min = min.divmod(60); off += o end
+        off, o = off.divmod(24)
+        if o != 0 then hour += o; o, hour = hour.divmod(24); off += o end
+        if off != 0
+          day += off
+          if month_days(year, mon) < day
+            mon += 1
+            if 12 < mon
+              mon = 1
+              year += 1
+            end
+            day = 1
+          end
+        end
+      elsif 0 < off
+        off, o = off.divmod(60)
+        if o != 0 then sec -= o; o, sec = sec.divmod(60); off -= o end
+        off, o = off.divmod(60)
+        if o != 0 then min -= o; o, min = min.divmod(60); off -= o end
+        off, o = off.divmod(24)
+        if o != 0 then hour -= o; o, hour = hour.divmod(24); off -= o end
+        if off != 0 then
+          day -= off
+          if day < 1
+            mon -= 1
+            if mon < 1
+              year -= 1
+              mon = 12
+            end
+            day = month_days(year, mon)
+          end
+        end
+      end
+      return year, mon, day, hour, min, sec
+    end
+    private :apply_offset
+
+    def make_time(year, mon, day, hour, min, sec, sec_fraction, zone, now)
+      usec = nil
+      usec = (sec_fraction * 1000000).to_i if sec_fraction
+      if now
+        begin
+          break if year; year = now.year
+          break if mon; mon = now.mon
+          break if day; day = now.day
+          break if hour; hour = now.hour
+          break if min; min = now.min
+          break if sec; sec = now.sec
+          break if sec_fraction; usec = now.tv_usec
+        end until true
+      end
+
+      year ||= 1970
+      mon ||= 1
+      day ||= 1
+      hour ||= 0
+      min ||= 0
+      sec ||= 0
+      usec ||= 0
+
+      off = nil
+      off = zone_offset(zone, year) if zone
+
+      if off
+        year, mon, day, hour, min, sec =
+          apply_offset(year, mon, day, hour, min, sec, off)
+        t = Time.utc(year, mon, day, hour, min, sec, usec)
+        t.localtime if !zone_utc?(zone)
+        t
+      else
+        self.local(year, mon, day, hour, min, sec, usec)
+      end
+    end
+    private :make_time
+
     #
-    # Parses +date+ using ParseDate.parsedate and converts it to a Time object.
+    # Parses +date+ using Date._parse and converts it to a Time object.
     #
     # If a block is given, the year described in +date+ is converted by the
     # block.  For example:
@@ -122,7 +225,7 @@ class Time
     # If the extracted timezone abbreviation does not match any of them,
     # it is ignored and the given time is regarded as a local time.
     #
-    # ArgumentError is raised if ParseDate cannot extract information from
+    # ArgumentError is raised if Date._parse cannot extract information from
     # +date+ or Time class cannot represent specified date.
     #
     # This method can be used as fail-safe for other parsing methods as:
@@ -134,37 +237,10 @@ class Time
     # A failure for Time.parse should be checked, though.
     #
     def parse(date, now=Time.now)
-      year, mon, day, hour, min, sec, zone, _ = ParseDate.parsedate(date)
+      d = Date._parse(date, false)
+      year = d[:year]
       year = yield(year) if year && block_given?
-
-      if now
-        begin
-          break if year; year = now.year
-          break if mon; mon = now.mon
-          break if day; day = now.day
-          break if hour; hour = now.hour
-          break if min; min = now.min
-          break if sec; sec = now.sec
-        end until true
-      end
-
-      year ||= 1970
-      mon ||= 1
-      day ||= 1
-      hour ||= 0
-      min ||= 0
-      sec ||= 0
-
-      off = nil
-      off = zone_offset(zone, year) if zone
-
-      if off
-        t = Time.utc(year, mon, day, hour, min, sec) - off
-        t.localtime if off != 0
-        t
-      else
-        Time.local(year, mon, day, hour, min, sec)
-      end
+      make_time(year, d[:mon], d[:mday], d[:hour], d[:min], d[:sec], d[:sec_fraction], d[:zone], now)
     end
 
     MonthValue = {
@@ -211,10 +287,11 @@ class Time
                  year
                end
 
-        t = Time.utc(year, mon, day, hour, min, sec)
-        offset = zone_offset(zone)
-	t = (t - offset).localtime if offset != 0 || zone == '+0000'
-	t
+        year, mon, day, hour, min, sec =
+          apply_offset(year, mon, day, hour, min, sec, zone_offset(zone))
+        t = self.utc(year, mon, day, hour, min, sec)
+        t.localtime if !zone_utc?(zone)
+        t
       else
         raise ArgumentError.new("not RFC 2822 compliant date: #{date.inspect}")
       end
@@ -239,14 +316,14 @@ class Time
           (\d{2}):(\d{2}):(\d{2})\x20
           GMT
           \s*\z/ix =~ date
-        Time.rfc2822(date)
+        self.rfc2822(date)
       elsif /\A\s*
              (?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\x20
              (\d\d)-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d\d)\x20
              (\d\d):(\d\d):(\d\d)\x20
              GMT
              \s*\z/ix =~ date
-        Time.parse(date)
+        self.parse(date)
       elsif /\A\s*
              (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\x20
              (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\x20
@@ -254,7 +331,7 @@ class Time
              (\d\d):(\d\d):(\d\d)\x20
              (\d{4})
              \s*\z/ix =~ date
-        Time.utc($6.to_i, MonthValue[$1.upcase], $2.to_i,
+        self.utc($6.to_i, MonthValue[$1.upcase], $2.to_i,
                  $3.to_i, $4.to_i, $5.to_i)
       else
         raise ArgumentError.new("not RFC 2616 compliant date: #{date.inspect}")
@@ -279,13 +356,22 @@ class Time
           (\.\d*)?
           (Z|[+-]\d\d:\d\d)?
           \s*\z/ix =~ date
-	datetime = [$1.to_i, $2.to_i, $3.to_i, $4.to_i, $5.to_i, $6.to_i] 
-	datetime << $7.to_f * 1000000 if $7
-	if $8
-	  Time.utc(*datetime) - zone_offset($8)
-	else
-	  Time.local(*datetime)
-	end
+        year = $1.to_i
+        mon = $2.to_i
+        day = $3.to_i
+        hour = $4.to_i
+        min = $5.to_i
+        sec = $6.to_i
+        usec = 0
+        usec = $7.to_f * 1000000 if $7
+        if $8
+          zone = $8
+          year, mon, day, hour, min, sec =
+            apply_offset(year, mon, day, hour, min, sec, zone_offset(zone))
+          Time.utc(year, mon, day, hour, min, sec, usec)
+        else
+          Time.local(year, mon, day, hour, min, sec, usec)
+        end
       else
         raise ArgumentError.new("invalid date: #{date.inspect}")
       end
@@ -511,7 +597,7 @@ if __FILE__ == $0
       assert_equal(Time.utc(2000, 1, 12, 12, 13, 14),
                    Time.xmlschema("2000-01-12T12:13:14Z"))
       assert_equal(Time.utc(2001, 4, 17, 19, 23, 17, 300000),
-		   Time.xmlschema("2001-04-17T19:23:17.3Z"))
+                   Time.xmlschema("2001-04-17T19:23:17.3Z"))
     end
 
     def test_encode_xmlschema
@@ -612,6 +698,100 @@ if __FILE__ == $0
       assert_raise(ArgumentError) { Time.rfc2822("\307\341\314\343\332\311, 30 \344\346\335\343\310\321 2001 10:01:06") }
       assert_raise(ArgumentError) { Time.rfc2822("=?iso-8859-1?Q?(=BF=E5),?= 12  =?iso-8859-1?Q?9=B7=EE?= 2001 14:52:41\n+0900 (JST)") }
     end
-  end
 
+    def test_zone_0000
+      assert_equal(true, Time.parse("2000-01-01T00:00:00Z").utc?)
+      assert_equal(true, Time.parse("2000-01-01T00:00:00-00:00").utc?)
+      assert_equal(false, Time.parse("2000-01-01T00:00:00+00:00").utc?)
+      assert_equal(false, Time.parse("Sat, 01 Jan 2000 00:00:00 GMT").utc?)
+      assert_equal(true, Time.parse("Sat, 01 Jan 2000 00:00:00 -0000").utc?)
+      assert_equal(false, Time.parse("Sat, 01 Jan 2000 00:00:00 +0000").utc?)
+      assert_equal(false, Time.rfc2822("Sat, 01 Jan 2000 00:00:00 GMT").utc?)
+      assert_equal(true, Time.rfc2822("Sat, 01 Jan 2000 00:00:00 -0000").utc?)
+      assert_equal(false, Time.rfc2822("Sat, 01 Jan 2000 00:00:00 +0000").utc?)
+      assert_equal(true, Time.rfc2822("Sat, 01 Jan 2000 00:00:00 UTC").utc?)
+    end
+
+    def test_parse_leap_second
+      t = Time.utc(1998,12,31,23,59,59)
+      assert_equal(t, Time.parse("Thu Dec 31 23:59:59 UTC 1998"))
+      assert_equal(t, Time.parse("Fri Dec 31 23:59:59 -0000 1998"));t.localtime
+      assert_equal(t, Time.parse("Fri Jan  1 08:59:59 +0900 1999"))
+      assert_equal(t, Time.parse("Fri Jan  1 00:59:59 +0100 1999"))
+      assert_equal(t, Time.parse("Fri Dec 31 23:59:59 +0000 1998"))
+      assert_equal(t, Time.parse("Fri Dec 31 22:59:59 -0100 1998"));t.utc
+      t += 1
+      assert_equal(t, Time.parse("Thu Dec 31 23:59:60 UTC 1998"))
+      assert_equal(t, Time.parse("Fri Dec 31 23:59:60 -0000 1998"));t.localtime
+      assert_equal(t, Time.parse("Fri Jan  1 08:59:60 +0900 1999"))
+      assert_equal(t, Time.parse("Fri Jan  1 00:59:60 +0100 1999"))
+      assert_equal(t, Time.parse("Fri Dec 31 23:59:60 +0000 1998"))
+      assert_equal(t, Time.parse("Fri Dec 31 22:59:60 -0100 1998"));t.utc
+      t += 1 if t.sec == 60
+      assert_equal(t, Time.parse("Thu Jan  1 00:00:00 UTC 1999"))
+      assert_equal(t, Time.parse("Fri Jan  1 00:00:00 -0000 1999"));t.localtime
+      assert_equal(t, Time.parse("Fri Jan  1 09:00:00 +0900 1999"))
+      assert_equal(t, Time.parse("Fri Jan  1 01:00:00 +0100 1999"))
+      assert_equal(t, Time.parse("Fri Jan  1 00:00:00 +0000 1999"))
+      assert_equal(t, Time.parse("Fri Dec 31 23:00:00 -0100 1998"))
+    end
+
+    def test_rfc2822_leap_second
+      t = Time.utc(1998,12,31,23,59,59)
+      assert_equal(t, Time.rfc2822("Thu, 31 Dec 1998 23:59:59 UTC"))
+      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 23:59:59 -0000"));t.localtime                                  
+      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 08:59:59 +0900"))
+      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 00:59:59 +0100"))
+      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 23:59:59 +0000"))
+      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 22:59:59 -0100"));t.utc                                  
+      t += 1
+      assert_equal(t, Time.rfc2822("Thu, 31 Dec 1998 23:59:60 UTC"))
+      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 23:59:60 -0000"));t.localtime                                  
+      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 08:59:60 +0900"))
+      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 00:59:60 +0100"))
+      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 23:59:60 +0000"))
+      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 22:59:60 -0100"));t.utc                                  
+      t += 1 if t.sec == 60
+      assert_equal(t, Time.rfc2822("Thu,  1 Jan 1999 00:00:00 UTC"))
+      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 00:00:00 -0000"));t.localtime                                  
+      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 09:00:00 +0900"))
+      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 01:00:00 +0100"))
+      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 00:00:00 +0000"))
+      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 23:00:00 -0100"))
+    end
+
+    def test_xmlschema_leap_second
+      t = Time.utc(1998,12,31,23,59,59)
+      assert_equal(t, Time.xmlschema("1998-12-31T23:59:59Z"))
+      assert_equal(t, Time.xmlschema("1998-12-31T23:59:59-00:00"));t.localtime
+      assert_equal(t, Time.xmlschema("1999-01-01T08:59:59+09:00"))
+      assert_equal(t, Time.xmlschema("1999-01-01T00:59:59+01:00"))
+      assert_equal(t, Time.xmlschema("1998-12-31T23:59:59+00:00"))
+      assert_equal(t, Time.xmlschema("1998-12-31T22:59:59-01:00"));t.utc
+      t += 1
+      assert_equal(t, Time.xmlschema("1998-12-31T23:59:60Z"))
+      assert_equal(t, Time.xmlschema("1998-12-31T23:59:60-00:00"));t.localtime
+      assert_equal(t, Time.xmlschema("1999-01-01T08:59:60+09:00"))
+      assert_equal(t, Time.xmlschema("1999-01-01T00:59:60+01:00"))
+      assert_equal(t, Time.xmlschema("1998-12-31T23:59:60+00:00"))
+      assert_equal(t, Time.xmlschema("1998-12-31T22:59:60-01:00"));t.utc
+      t += 1 if t.sec == 60
+      assert_equal(t, Time.xmlschema("1999-01-01T00:00:00Z"))
+      assert_equal(t, Time.xmlschema("1999-01-01T00:00:00-00:00"));t.localtime
+      assert_equal(t, Time.xmlschema("1999-01-01T09:00:00+09:00"))
+      assert_equal(t, Time.xmlschema("1999-01-01T01:00:00+01:00"))
+      assert_equal(t, Time.xmlschema("1999-01-01T00:00:00+00:00"))
+      assert_equal(t, Time.xmlschema("1998-12-31T23:00:00-01:00"))
+    end
+
+    def test_ruby_talk_152866
+      t = Time::xmlschema('2005-08-30T22:48:00-07:00')
+      assert_equal(31, t.day)
+      assert_equal(8, t.mon)
+    end
+
+    def test_parse_fraction
+      assert_equal(500000, Time.parse("2000-01-01T00:00:00.5+00:00").tv_usec)
+    end
+  end
 end

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
+#include <sys/wait.h>
 #include <dirent.h>
 #include <sysexits.h>
 #include <unistd.h>
@@ -63,6 +64,7 @@ typedef struct {
 	CFBundleRef				bundle;
 	Boolean					loaded;
 	Boolean					builtin;
+	Boolean					enabled;
 	Boolean					verbose;
 	SCDynamicStoreBundleLoadFunction	load;
 	SCDynamicStoreBundleStartFunction	start;
@@ -72,29 +74,33 @@ typedef struct {
 
 
 // all loaded bundles
-static CFMutableArrayRef	allBundles	= NULL;
+static CFMutableArrayRef	allBundles		= NULL;
 
 // exiting bundles
-static CFMutableDictionaryRef	exiting		= NULL;
+static CFMutableDictionaryRef	exiting			= NULL;
 
 // plugin CFRunLoopRef
-static CFRunLoopRef		plugin_runLoop	= NULL;
+__private_extern__
+CFRunLoopRef			plugin_runLoop		= NULL;
 
 
-#ifdef	ppc
-//extern SCDynamicStoreBundleLoadFunction	load_ATconfig;
-//extern SCDynamicStoreBundleStopFunction	stop_ATconfig;
-#endif	/* ppc */
+extern SCDynamicStoreBundleLoadFunction		load_ATconfig;
+extern SCDynamicStoreBundleStopFunction		stop_ATconfig;
 extern SCDynamicStoreBundleLoadFunction		load_IPMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_IPMonitor;
 extern SCDynamicStoreBundleLoadFunction		load_InterfaceNamer;
 extern SCDynamicStoreBundleLoadFunction		load_KernelEventMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_KernelEventMonitor;
+#ifdef	INCLUDE_KICKER
 extern SCDynamicStoreBundleLoadFunction		load_Kicker;
+#endif	// INCLUDE_KICKER
 extern SCDynamicStoreBundleLoadFunction		load_LinkConfiguration;
 extern SCDynamicStoreBundleLoadFunction		load_PreferencesMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_PreferencesMonitor;
 extern SCDynamicStoreBundleStopFunction		stop_PreferencesMonitor;
+extern SCDynamicStoreBundleLoadFunction		load_NetworkIdentification;
+extern SCDynamicStoreBundlePrimeFunction	prime_NetworkIdentification;
+extern SCDynamicStoreBundleStopFunction		stop_NetworkIdentification;
 
 
 typedef struct {
@@ -107,15 +113,13 @@ typedef struct {
 
 
 static const builtin builtin_plugins[] = {
-#ifdef	ppc
-//	{
-//		CFSTR("com.apple.SystemConfiguration.ATconfig"),
-//		&load_ATconfig,
-//		NULL,
-//		NULL,
-//		&stop_ATconfig
-//	},
-#endif	/* ppc */
+	{
+		CFSTR("com.apple.SystemConfiguration.ATconfig"),
+		&load_ATconfig,
+		NULL,
+		NULL,
+		&stop_ATconfig
+	},
 	{
 		CFSTR("com.apple.SystemConfiguration.IPMonitor"),
 		&load_IPMonitor,
@@ -137,6 +141,7 @@ static const builtin builtin_plugins[] = {
 		&prime_KernelEventMonitor,
 		NULL
 	},
+#ifdef	INCLUDE_KICKER
 	{
 		CFSTR("com.apple.SystemConfiguration.Kicker"),
 		&load_Kicker,
@@ -144,12 +149,20 @@ static const builtin builtin_plugins[] = {
 		NULL,
 		NULL
 	},
+#endif	// INCLUDE_KICKER
 	{
 		CFSTR("com.apple.SystemConfiguration.LinkConfiguration"),
 		&load_LinkConfiguration,
 		NULL,
 		NULL,
 		NULL
+	},
+	{
+		CFSTR("com.apple.SystemConfiguration.NetworkIdentification"),
+		&load_NetworkIdentification,
+		NULL,
+		&prime_NetworkIdentification,
+		&stop_NetworkIdentification
 	},
 	{
 		CFSTR("com.apple.SystemConfiguration.PreferencesMonitor"),
@@ -161,8 +174,32 @@ static const builtin builtin_plugins[] = {
 };
 
 
+#ifdef	DEBUG
 static void
-addBundle(CFBundleRef bundle)
+traceBundle(const char *op, CFBundleRef bundle)
+{
+	if (_configd_trace != NULL) {
+		if (bundle != NULL) {
+			CFStringRef	bundleID	= CFBundleGetIdentifier(bundle);
+
+			SCTrace(TRUE, _configd_trace,
+				CFSTR("bundle  : %s %@\n"),
+				op,
+				bundleID);
+		} else {
+			SCTrace(TRUE, _configd_trace,
+				CFSTR("bundle  : %s\n"),
+				op);
+		}
+	}
+
+	return;
+}
+#endif	/* DEBUG */
+
+
+static void
+addBundle(CFBundleRef bundle, Boolean forceEnabled)
 {
 	CFDictionaryRef		bundleDict;
 	bundleInfoRef		bundleInfo;
@@ -171,6 +208,7 @@ addBundle(CFBundleRef bundle)
 	bundleInfo->bundle	= (CFBundleRef)CFRetain(bundle);
 	bundleInfo->loaded	= FALSE;
 	bundleInfo->builtin	= FALSE;
+	bundleInfo->enabled	= TRUE;
 	bundleInfo->verbose	= FALSE;
 	bundleInfo->load	= NULL;
 	bundleInfo->start	= NULL;
@@ -182,14 +220,23 @@ addBundle(CFBundleRef bundle)
 		CFBooleanRef	bVal;
 
 		bVal = CFDictionaryGetValue(bundleDict, kSCBundleIsBuiltinKey);
-		if (isA_CFBoolean(bVal) && CFBooleanGetValue(bVal)) {
-			bundleInfo->builtin = TRUE;
+		if (isA_CFBoolean(bVal)) {
+			bundleInfo->builtin = CFBooleanGetValue(bVal);
+		}
+
+		bVal = CFDictionaryGetValue(bundleDict, kSCBundleEnabledKey);
+		if (isA_CFBoolean(bVal)) {
+			bundleInfo->enabled = CFBooleanGetValue(bVal);
 		}
 
 		bVal = CFDictionaryGetValue(bundleDict, kSCBundleVerboseKey);
-		if (isA_CFBoolean(bVal) && CFBooleanGetValue(bVal)) {
-			bundleInfo->verbose = TRUE;
+		if (isA_CFBoolean(bVal)) {
+			bundleInfo->verbose = CFBooleanGetValue(bVal);
 		}
+	}
+
+	if (forceEnabled) {
+		bundleInfo->enabled = TRUE;
 	}
 
 	CFArrayAppendValue(allBundles, bundleInfo);
@@ -257,14 +304,14 @@ loadBundle(const void *value, void *context) {
 	bundleID = CFBundleGetIdentifier(bundleInfo->bundle);
 	if (bundleID == NULL) {
 		// sorry, no bundles without a bundle identifier
-		SCLog(TRUE, LOG_DEBUG, CFSTR("skipped %@"), bundleInfo->bundle);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("skipped %@ (no bundle ID)"), bundleInfo->bundle);
 		return;
 	}
 
 	shortID = shortBundleIdentifier(bundleID);
 
 	bundleExclude = CFSetContainsValue(_plugins_exclude, bundleID);
-	if (bundleExclude) {
+	if (!bundleExclude) {
 		if (shortID != NULL) {
 			bundleExclude = CFSetContainsValue(_plugins_exclude, shortID);
 		}
@@ -272,7 +319,13 @@ loadBundle(const void *value, void *context) {
 
 	if (bundleExclude) {
 		// sorry, this bundle has been excluded
-		SCLog(TRUE, LOG_DEBUG, CFSTR("excluded %@"), bundleID);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("skipped %@ (excluded)"), bundleID);
+		goto done;
+	}
+
+	if (!bundleInfo->enabled) {
+		// sorry, this bundle has not been enaabled
+		SCLog(TRUE, LOG_DEBUG, CFSTR("skipped %@ (disabled)"), bundleID);
 		goto done;
 	}
 
@@ -299,8 +352,20 @@ loadBundle(const void *value, void *context) {
 				break;
 			}
 		}
+
+		if ((bundleInfo->load  == NULL) &&
+		    (bundleInfo->start == NULL) &&
+		    (bundleInfo->prime == NULL) &&
+		    (bundleInfo->stop  == NULL)) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("%@ add failed"), bundleID);
+			goto done;
+		}
 	} else {
 		SCLog(TRUE, LOG_DEBUG, CFSTR("loading %@"), bundleID);
+
+#ifdef	DEBUG
+		traceBundle("loading", bundleInfo->bundle);
+#endif	/* DEBUG */
 
 		if (!CFBundleLoadExecutable(bundleInfo->bundle)) {
 			SCLog(TRUE, LOG_NOTICE, CFSTR("%@ load failed"), bundleID);
@@ -340,7 +405,12 @@ callLoadFunction(const void *value, void *context) {
 		return;
 	}
 
+#ifdef	DEBUG
+	traceBundle("calling load() for", bundleInfo->bundle);
+#endif	/* DEBUG */
+
 	(*bundleInfo->load)(bundleInfo->bundle, bundleInfo->verbose);
+
 	return;
 }
 
@@ -402,7 +472,12 @@ callStartFunction(const void *value, void *context) {
 	bundleName[0] = '\0';
 	(void) strncat(bundleName, cp, len);
 
+#ifdef	DEBUG
+	traceBundle("calling start() for", bundleInfo->bundle);
+#endif	/* DEBUG */
+
 	(*bundleInfo->start)(bundleName, bundlePath);
+
 	return;
 }
 
@@ -420,7 +495,12 @@ callPrimeFunction(const void *value, void *context) {
 		return;
 	}
 
+#ifdef	DEBUG
+	traceBundle("calling prime() for", bundleInfo->bundle);
+#endif	/* DEBUG */
+
 	(*bundleInfo->prime)();
+
 	return;
 }
 
@@ -483,20 +563,33 @@ stopDelayed(CFRunLoopTimerRef timer, void *info)
 	exit (status);
 }
 
+static CFStringRef
+stopRLSCopyDescription(const void *info)
+{
+	CFBundleRef	bundle	= (CFBundleRef)info;
+
+	return CFStringCreateWithFormat(NULL,
+					NULL,
+					CFSTR("<stopRLS %p> {bundleID = %@}"),
+					info,
+					CFBundleGetIdentifier(bundle));
+}
+
+
 static void
 stopBundle(const void *value, void *context) {
 	bundleInfoRef			bundleInfo	= (bundleInfoRef)value;
 	CFRunLoopSourceRef		stopRls;
-	CFRunLoopSourceContext		stopContext	= { 0			// version
-							  , bundleInfo->bundle	// info
-							  , CFRetain		// retain
-							  , CFRelease		// release
-							  , CFCopyDescription	// copyDescription
-							  , CFEqual		// equal
-							  , CFHash		// hash
-							  , NULL		// schedule
-							  , NULL		// cancel
-							  , stopComplete	// perform
+	CFRunLoopSourceContext		stopContext	= { 0				// version
+							  , bundleInfo->bundle		// info
+							  , CFRetain			// retain
+							  , CFRelease			// release
+							  , stopRLSCopyDescription	// copyDescription
+							  , CFEqual			// equal
+							  , CFHash			// hash
+							  , NULL			// schedule
+							  , NULL			// cancel
+							  , stopComplete		// perform
 							  };
 
 	if (!bundleInfo->loaded) {
@@ -560,22 +653,29 @@ stopBundles()
 }
 
 
+static CFStringRef
+termRLSCopyDescription(const void *info)
+{
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SIGTERM RLS>"));
+}
+
+
 __private_extern__
 Boolean
 plugin_term(int *status)
 {
-	CFRunLoopSourceRef	stopRls;
-	CFRunLoopSourceContext	stopContext = { 0		// version
-					      , NULL		// info
-					      , NULL		// retain
-					      , NULL		// release
-					      , NULL		// copyDescription
-					      , NULL		// equal
-					      , NULL		// hash
-					      , NULL		// schedule
-					      , NULL		// cancel
-					      , stopBundles	// perform
+	CFRunLoopSourceContext	termContext = { 0			// version
+					      , (void *)1		// info
+					      , NULL			// retain
+					      , NULL			// release
+					      , termRLSCopyDescription	// copyDescription
+					      , NULL			// equal
+					      , NULL			// hash
+					      , NULL			// schedule
+					      , NULL			// cancel
+					      , stopBundles		// perform
 					      };
+	CFRunLoopSourceRef	termRls;
 
 	if (plugin_runLoop == NULL) {
 		// if no plugins
@@ -595,10 +695,10 @@ plugin_term(int *status)
 					    &kCFTypeDictionaryKeyCallBacks,
 					    &kCFTypeDictionaryValueCallBacks);
 
-	stopRls = CFRunLoopSourceCreate(NULL, 0, &stopContext);
-	CFRunLoopAddSource(plugin_runLoop, stopRls, kCFRunLoopDefaultMode);
-	CFRunLoopSourceSignal(stopRls);
-	CFRelease(stopRls);
+	termRls = CFRunLoopSourceCreate(NULL, 0, &termContext);
+	CFRunLoopAddSource(plugin_runLoop, termRls, kCFRunLoopDefaultMode);
+	CFRunLoopSourceSignal(termRls);
+	CFRelease(termRls);
 	CFRunLoopWakeUp(plugin_runLoop);
 
 	return TRUE;
@@ -606,16 +706,19 @@ plugin_term(int *status)
 
 
 #ifdef	DEBUG
-
 static void
 timerCallback(CFRunLoopTimerRef timer, void *info)
 {
-	SCLog(_configd_verbose,
-	      LOG_INFO,
-	      CFSTR("the CFRunLoop is waiting for something to happen...."));
+	static int	pass	= 0;
+
+	pass++;
+	if ((pass > 120) && ((pass % 60) != 0)) {
+		return;
+	}
+
+	traceBundle("the [plugin] CFRunLoop is waiting...", NULL);
 	return;
 }
-
 #endif	/* DEBUG */
 
 
@@ -721,7 +824,7 @@ plugin_exec(void *arg)
 			CFURLRef	url;
 
 			/* load any available bundle */
-			strcat(path, BUNDLE_DIRECTORY);
+			strlcat(path, BUNDLE_DIRECTORY, sizeof(path));
 			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("searching for bundles in \".\""));
 			url = CFURLCreateFromFileSystemRepresentation(NULL,
 								      (UInt8 *)path,
@@ -739,7 +842,7 @@ plugin_exec(void *arg)
 					CFBundleRef	bundle;
 
 					bundle = (CFBundleRef)CFArrayGetValueAtIndex(bundles, i);
-					addBundle(bundle);
+					addBundle(bundle, FALSE);
 				}
 				CFRelease(bundles);
 			}
@@ -759,11 +862,15 @@ plugin_exec(void *arg)
 							      TRUE);
 		bundle = CFBundleCreate(NULL, url);
 		if (bundle != NULL) {
-			addBundle(bundle);
+			addBundle(bundle, TRUE);
 			CFRelease(bundle);
 		}
 		CFRelease(url);
 	}
+
+#ifdef	DEBUG
+	traceBundle("before loading any plugins", NULL);
+#endif	/* DEBUG */
 
 	/*
 	 * load each bundle.
@@ -828,7 +935,7 @@ plugin_exec(void *arg)
 		/* allocate a periodic event (to help show we're not blocking) */
 		timer = CFRunLoopTimerCreate(NULL,				/* allocator */
 					     CFAbsoluteTimeGetCurrent() + 1.0,	/* fireDate */
-					     60.0,				/* interval */
+					     1.0,				/* interval */
 					     0,					/* flags */
 					     0,					/* order */
 					     timerCallback,			/* callout */
@@ -836,6 +943,10 @@ plugin_exec(void *arg)
 		CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopDefaultMode);
 		CFRelease(timer);
 	}
+#endif	/* DEBUG */
+
+#ifdef	DEBUG
+	traceBundle("about to start plugin CFRunLoop", NULL);
 #endif	/* DEBUG */
 
 	/*

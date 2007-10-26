@@ -38,9 +38,6 @@ class IOFireWireAVCProtocolUserClient : public IOUserClient
     OSDeclareDefaultStructors(IOFireWireAVCProtocolUserClient)
 
 protected:
-    static IOExternalAsyncMethod 	sAsyncMethods[kIOFWAVCProtocolUserClientNumAsyncCommands];
-    static IOExternalMethod 		sMethods[kIOFWAVCProtocolUserClientNumCommands];
-    
     task_t						fTask;
 	bool						fStarted;
     IOFireWireNub *				fDevice;
@@ -68,29 +65,28 @@ protected:
 								   UInt32 generation,
 								   UInt16 nodeID);
 
-	virtual IOReturn setAVCRequestCallback(OSAsyncReference asyncRef, UInt32 subUnitType, UInt32 subUnitID);
     virtual IOReturn sendAVCResponse(UInt32 generation, UInt16 nodeID, const char *buffer, UInt32 size);
-    virtual IOReturn allocateInputPlug(OSAsyncReference asyncRef, void *userRefcon, UInt32 *plug);
+    virtual IOReturn allocateInputPlug(io_user_reference_t *asyncRef, uint64_t userRefcon, uint64_t *plug);
     virtual IOReturn freeInputPlug(UInt32 plug);
-    virtual IOReturn readInputPlug(UInt32 plug, UInt32 *val);
+    virtual IOReturn readInputPlug(UInt32 plug, uint64_t *val);
     virtual IOReturn updateInputPlug(UInt32 plug, UInt32 oldVal, UInt32 newVal);
-    virtual IOReturn allocateOutputPlug(OSAsyncReference asyncRef, void *userRefcon, UInt32 *plug);
+    virtual IOReturn allocateOutputPlug(io_user_reference_t *asyncRef, uint64_t userRefcon, uint64_t *plug);
     virtual IOReturn freeOutputPlug(UInt32 plug);
-    virtual IOReturn readOutputPlug(UInt32 plug, UInt32 *val);
+    virtual IOReturn readOutputPlug(UInt32 plug, uint64_t *val);
     virtual IOReturn updateOutputPlug(UInt32 plug, UInt32 oldVal, UInt32 newVal);
-    virtual IOReturn readOutputMasterPlug(UInt32 *val);
+    virtual IOReturn readOutputMasterPlug(uint64_t *val);
     virtual IOReturn updateOutputMasterPlug(UInt32 oldVal, UInt32 newVal);
-    virtual IOReturn readInputMasterPlug(UInt32 *val);
+    virtual IOReturn readInputMasterPlug(uint64_t *val);
     virtual IOReturn updateInputMasterPlug(UInt32 oldVal, UInt32 newVal);
     virtual IOReturn publishAVCUnitDirectory(void);
-	virtual IOReturn installAVCCommandHandler(OSAsyncReference asyncRef, UInt32 subUnitTypeAndID, UInt32 opCode, UInt32 callback, UInt32 refCon);
-    virtual IOReturn addSubunit(OSAsyncReference asyncRef,
-								UInt32 subunitType,
-								UInt32 numSourcePlugs,
-								UInt32 numDestPlugs,
-								UInt32 callBack,
-								UInt32 refCon,
-								UInt32 *subUnitTypeAndID);
+	virtual IOReturn installAVCCommandHandler(io_user_reference_t *asyncRef, uint64_t subUnitTypeAndID, uint64_t opCode, uint64_t callback, uint64_t refCon);
+    virtual IOReturn addSubunit(io_user_reference_t *asyncRef,
+								uint64_t subunitType,
+								uint64_t numSourcePlugs,
+								uint64_t numDestPlugs,
+								uint64_t callBack,
+								uint64_t refCon,
+								uint64_t *subUnitTypeAndID);
 	virtual IOReturn setSubunitPlugSignalFormat(UInt32 subunitTypeAndID,
 											 IOFWAVCPlugTypes plugType,
 											 UInt32 plugNum,
@@ -99,7 +95,7 @@ protected:
 	virtual IOReturn getSubunitPlugSignalFormat(UInt32 subunitTypeAndID,
 											 IOFWAVCPlugTypes plugType,
 											 UInt32 plugNum,
-											 UInt32 *pSignalFormat);
+											 uint64_t *pSignalFormat);
 
 	virtual IOReturn connectTargetPlugs(AVCConnectTargetPlugsInParams *inParams,
 									 AVCConnectTargetPlugsOutParams *outParams);
@@ -121,9 +117,12 @@ protected:
 										  const char *pCmdBuf,
 										  UInt32 cmdLen);
 
-	virtual IOExternalMethod * getTargetAndMethodForIndex(IOService **target, UInt32 index);
-    virtual IOExternalAsyncMethod * getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index);
-
+	virtual IOReturn externalMethod( uint32_t selector, 
+									IOExternalMethodArguments * arguments, 
+									IOExternalMethodDispatch * dispatch, 
+									OSObject * target, 
+									void * reference);
+	
     virtual void free();
     
 public:

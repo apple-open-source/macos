@@ -1,21 +1,23 @@
-src/LR0.c
-src/allocate.c
-src/closure.c
+src/complain.c
 src/conflicts.c
-src/derives.c
-# src/files.c
+src/files.c
 src/getargs.c
-# src/gram.c
-src/lalr.c
-src/lex.c
+src/gram.c
 src/main.c
-src/nullable.c
-src/output.c
+src/parse-gram.y
 src/print.c
 src/reader.c
 src/reduce.c
-# src/symtab.c
-# src/warshall.c
+src/scan-gram.l
+src/symlist.c
+src/symtab.c
 
-src/getopt.c
-src/getopt1.c
+lib/argmatch.c
+lib/bitset_stats.c
+lib/error.c
+lib/getopt.c
+lib/obstack.c
+lib/quotearg.c
+lib/subpipe.c
+lib/timevar.c
+lib/xalloc-die.c

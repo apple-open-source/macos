@@ -53,6 +53,8 @@ public:
 	bool operator < (const Identity &other) const;
 	bool operator == (const Identity &other) const;
 
+	bool equal(SecCFObject &other);
+
 private:
 	SecPointer<KeyItem> mPrivateKey;
 	SecPointer<Certificate> mCertificate;

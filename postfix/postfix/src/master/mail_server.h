@@ -30,6 +30,7 @@
 #define MAIL_SERVER_SOLITARY	15
 #define MAIL_SERVER_UNLIMITED	16
 #define MAIL_SERVER_PRE_DISCONN	17
+#define MAIL_SERVER_PRIVILEGED	18
 
 #define MAIL_SERVER_IN_FLOW_DELAY	20
 
@@ -51,6 +52,7 @@ extern NORETURN single_server_main(int, char **, SINGLE_SERVER_FN, ...);
 typedef void (*MULTI_SERVER_FN) (VSTREAM *, char *, char **);
 extern NORETURN multi_server_main(int, char **, MULTI_SERVER_FN,...);
 extern void multi_server_disconnect(VSTREAM *);
+extern int multi_server_drain(void);
 
  /*
   * trigger_server.c

@@ -1,0 +1,979 @@
+commit 0128497fac0794d947fa44b433550fe064905d8d
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Dec 16 01:38:30 2006 +0200
+
+    xdm 1.1.3
+
+commit 3bc9148509a058647a9c43d0e2668c94ac579884
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Dec 6 19:01:52 2006 +0200
+
+    Makefile.am: make ChangeLog hook safer
+    Make ChangeLog hook as safe as possible.
+
+commit 75a8fce621adecd50db129c839a578df630137db
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Thu Nov 30 19:49:31 2006 +0200
+
+    bump to 1.1.2
+
+commit c8612093ba0a67c1a161111d58aac9956b9c5320
+Author: J.P. Larocque <piranha-fdo-bz@thoughtcrime.us>
+Date:   Mon Nov 20 11:06:18 2006 -0800
+
+    Bug 7317: xfs doesn't build on some GLIBC based systems: _XOPEN_SOURCE undefined
+    
+    Bug 7317: <https://bugs.freedesktop.org/show_bug.cgi?id=7317>
+
+commit 15e5c60cced750559853ca7e9bddcd6b7f1dd3f9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Nov 13 14:51:16 2006 -0800
+
+    Bump version number to 1.1.1
+
+commit 623dacd509bd6c0c1f0c2c424933818ff34788ca
+Author: Vickenty Fesunov <kent@comintern.ru>
+Date:   Mon Nov 13 14:48:02 2006 -0800
+
+    Bug 8995: Copying address into in6_addr instead of in6_addr.sin6_addr in forward_respond()
+    
+    Bugzilla #8995 <https://bugs.freedesktop.org/show_bug.cgi?id=8995>
+    Patch #7759 <https://bugs.freedesktop.org/attachment.cgi?id=7759>
+
+commit 37f9293e3cc00411d8d335ce729d18995bb9ce59
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Nov 6 14:08:15 2006 -0800
+
+    Fill in paths at build time in Xreset & Xstartup
+    
+    Stop hardcoding /usr/X11R6/bin/sessreg and instead fill in paths like other
+    config files from directories passed via configure.
+
+commit 0e0221a70543ba5f2aa7ce188e2dc9544bac96bd
+Author: Darrel Goeddel <dgoeddel@trustedcs.com>
+Date:   Wed Oct 18 18:59:02 2006 -0700
+
+    Set PAM_TTY for local displays
+
+commit 698ffcff29d4c574b155451342bc6e3b9ee07287
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 3 18:32:54 2006 -0700
+
+    Bump version number to 1.1.0
+
+commit 46fea537186aa57d803262bf5f504f7041a7d97e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 3 18:21:15 2006 -0700
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit f97db135e818ea04735e1fbbaea2e7d3dac9c872
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 3 18:11:03 2006 -0700
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 3349ab7b6c2b9ff6ad39da6d29b6aa1250f96cd9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Aug 14 13:48:19 2006 -0700
+
+    Draw text with Xft in greeter window
+    
+    (Includes portions copied from Keith Packard's Xft conversion of xclock)
+
+commit 0e47586fe5c76d7804368c4536e66ec610978e38
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Aug 14 11:02:51 2006 -0700
+
+    SetPrompt takes LOGIN_* not PAM_* constants for type argument
+
+commit 929d2d81827325c2736f6ccf47d017364153b3a7
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Aug 14 10:56:50 2006 -0700
+
+    Include display number in Xserver arguments
+
+commit 2fbac8d6d0fd9bfebcd30a128cfef4131149e735
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Aug 11 14:04:58 2006 -0700
+
+    Sun bug 6459557: remote logins to xdm fail since recent PAM fixes
+    
+    <http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6459557>
+    When stripping :<display> off the end of the display name so that we can
+    pass the remote hostname to PAM, make sure we modify the copy we made for
+    PAM, not the original which is used to set $DISPLAY for the session being
+    created.
+
+commit be9b2e85f579c5eda7a8868ee9ebf0b268c5a181
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 15:25:19 2006 -0700
+
+    Delete unused Panic() function
+
+commit 2094955be1ef94a0ba3f7dcf64ae04c9575dbd9c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 15:11:08 2006 -0700
+
+    Use pid_t instead of int when working with fork/wait/etc. (clear more lint warnings)
+
+commit 1abe7027403ecf00b846c675fac27c2d86ebd9d4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 14:01:18 2006 -0700
+
+    Store return values from umask in mode_t instead of int (clear lint warnings)
+
+commit 5283b118b4bfdb1a85356147701f602b884c342b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 13:05:52 2006 -0700
+
+    Fix many sparse warnings of: Using plain integer as NULL pointer
+    
+    Also fixes Login.c:1329:5: warning: mixing declarations and code from extra ;
+
+commit 41211f8c849de67cebeb9d9f7516eb5a4a7eb3cf
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 13:02:02 2006 -0700
+
+    Add XORG_WITH_LINT & lint targets for checking code with lint/sparse/etc.
+
+commit bfe7bc6a04d468f7943ebed9a7ea571cbf916d9e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 11:40:20 2006 -0700
+
+    Add *~ to .gitignore to skip emacs droppings
+
+commit 1e19a9746ffa570f81346307b1eb32257a0bb24a
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 11:38:39 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit aee9b7f645c12a2a3bc6605726669dbb7b5f3985
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jun 27 16:33:25 2006 +0000
+
+    Bugzilla #7317 <https://bugs.freedesktop.org/show_bug.cgi?id=7317> xdm
+        needs to define _XOPEN_SOURCE to build on Hurd (J.P. Larocque)
+
+commit 6329bf48b0f775335e552967622bf53912131edb
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jun 27 01:25:40 2006 +0000
+
+    Bugzilla #7318 <https://bugs.freedesktop.org/show_bug.cgi?id=7318> Patch
+        #6032 <https://bugs.freedesktop.org/attachment.cgi?id=6032> xdm crashes
+        on Hurd because of incongruity in dlfuncs (J.P. Larocque)
+
+commit 6bf94d0ed871db12e8e5aa48200ce3b548895b8f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Jun 26 23:56:06 2006 +0000
+
+    Bugzilla #7332 <https://bugs.freedesktop.org/show_bug.cgi?id=7332> Patch
+        #6046 <https://bugs.freedesktop.org/attachment.cgi?id=6046> (1) Xdm
+        compiled with IPv6 support failed to accept any chooser connections
+        (even when only using IPv4). (2) There should be a one-to-one
+        correspondence between successful getaddrinfo calls and freeaddrinfo
+        calls. (Peter Breitenlohner)
+
+commit b80ae0aa74cfd9d168f4e100e0fea8fef240500f
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Tue Jun 20 19:25:51 2006 +0000
+
+    Check setuid() return value. Bugzilla #7116.
+
+commit 57e927d7340494bb5fdd73c04c9e1f33379b9b75
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jun 20 01:50:35 2006 +0000
+
+    Initialize manufacturerDisplayID.length to 0 too.
+
+commit fe7e9b5b69e42b92a1e0aac4faef8c1c9d21ac96
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jun 3 01:13:44 2006 +0000
+
+    Mark GreetUser (called from xdm) as _X_EXPORT. Make all other non-static
+        functions in libXdmGreet _X_INTERNAL.
+
+commit aae2d2d25d7423c99baadb724ff7722cafdcf095
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jun 3 01:01:21 2006 +0000
+
+    Replace old Imake-based SIGNALRETURNSINT with AC_TYPE_SIGNAL
+    util.c Replace old Imake #ifdefs with AC_CHECK_FUNCS([sigaction])
+
+commit ec8fdcf0cff01a504bfbf096194012fff997f4ca
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jun 3 00:06:46 2006 +0000
+
+    Make initial pass at an AUTHORS list.
+
+commit 4010a63ee6e05bee51208d667a0dc7f01f916af8
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jun 3 00:05:24 2006 +0000
+
+    Convert PAM code to use full PAM conversation. Modify greeter to allow PAM
+        to prompt for more than just username and password. Rely on PAM to
+        initialize Secure RPC & Kerberos credentials when it is being used.
+        (Based on work begun for Sun bug #6398796 "Solaris-10: Unable to login
+        thru xdm once password is aged")
+
+commit 1f7dab056c661af97ca7c6a7b61a87b26ca3fa36
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jun 2 23:14:36 2006 +0000
+
+    Drop pre-waitpid() support since all POSIX.1-1990 systems have waitpid.
+
+commit 2a79e8011cffd6e7a2d4a5c15ad4df8b96e12309
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jun 2 23:12:12 2006 +0000
+
+    Bump version to 1.0.99 for 1.1 branch.
+
+commit 56ee4c350624f42cbeb7a19656f65a79b74ba53f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Apr 27 21:21:15 2006 +0000
+
+    Version bump: 1.0.4
+
+commit 1ba990f121143be61eedc530f15ad30ca4d1742f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Apr 14 20:17:31 2006 +0000
+
+    <http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6413255> Sun
+        bug #6413255: xdm should check for uid 0, not for username of "root",
+        when doing non-console login check
+
+commit aa1a1388081db6f1592db823c69bd699ca172683
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Apr 14 02:52:02 2006 +0000
+
+    Add AC_C_INLINE so we can use "inline" keyword
+    Add "inline" to max function definition
+
+commit 03fad3472eabe457a6bc37989edd875f081b529b
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Apr 12 01:57:46 2006 +0000
+
+    When clearing username & password buffers, zero out the entire buffer, not
+        just the first byte, for reduced risk of leaking passwords into core
+        dumps.
+
+commit 3960bb1666e3d0ec2da3cd5ea8492792290018c7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Apr 12 01:55:05 2006 +0000
+
+    ChangeLog for last commit
+
+commit 2900b8984d8fdce182b87f0ce7a2f5813ea0b53f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Apr 8 00:22:23 2006 +0000
+
+    Xorg bug #4765 <https://bugs.freedesktop.org/show_bug.cgi?id=4765> Patch
+        #3555 <https://bugs.freedesktop.org/attachment.cgi?id=3555> xdm doesn't
+        work with the pam_krb5 module (call pam_getenvlist after pam_setcred)
+        (Constantine Sapuntzakis)
+
+commit c9fcce730483358594c9556426098ac3325da47f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Mar 31 02:19:01 2006 +0000
+
+    Version bump: 1.0.3
+
+commit e6e6b9960262ab30d64486898fc147c7010a5559
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Mar 30 21:14:31 2006 +0000
+
+    Drop all setpgrp/setpgid silliness and just use setsid everywhere. (Assumes
+        all platforms are at least POSIX.1-1990 compliant.)
+    Check for error return from daemon() function.
+
+commit 4fad29bad3e06127b93c8cef3761b40472df6bb7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Mar 27 23:59:21 2006 +0000
+
+    Version bump: 1.0.2
+
+commit 9609b9f14945b8dc55321a5fee7855f7b1dc9451
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Mar 18 03:43:18 2006 +0000
+
+    Bug #5898 <https://bugs.freedesktop.org/show_bug.cgi?id=5898> Use mktemp
+        command to create files safely in TMPDIR or /tmp on systems that have
+        it - don't try to create files there if mktemp is not present. Fix
+        based on NetBSD fix from
+        <http://www.netbsd.org/cgi-bin/query-pr-single.pl?number=32805> .
+
+commit 5102f671d3f5a4e870e8ea8b78cef953d4f64111
+Author: Jeremy C. Reed <reed@reedmedia.net>
+Date:   Thu Mar 16 21:56:24 2006 +0000
+
+    DragonFly is a BSD, so is CSRG_BASED and use su with -m option.
+
+commit 4a0e026c04bd1027641670eda68e3a65441d2b63
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Mar 16 21:46:55 2006 +0000
+
+    Convert checks for <grp.h>, daemon(), and setpgrp arguments to autoconf
+        tests instead of checking OS name #ifdefs.
+
+commit 0a224935e64342e3eec055672229212c856ea14b
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Mar 11 04:07:00 2006 +0000
+
+    Coverity ids #722, 723, 724, 725, 726, 727, 728: Need to XtFree the values
+        returned by XawListShowCurrent to plug memory leaks.
+    Coverity id #834: After joining a multicast group, add group pointer to the
+        list of active multicast groups instead of just leaking the group
+        pointer.
+
+commit 23198133e90c34508e5d0c0f1314bf167bf3a98c
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Mar 10 00:48:16 2006 +0000
+
+    Coverity ids #7689, 7690, 7691: When malloc fails, don't just print an
+        error and continue on using the NULL pointer, return NULL to the
+        caller.
+
+commit 17b0d313c80ca754348ca8b92ce117918a2f8d43
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Wed Mar 1 15:48:06 2006 +0000
+
+    openSUSE bug #142954 Fixed potential segfault on OOM condition.
+
+commit 6729f4df2d314a3573f3da7da3fc364cb48685de
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Feb 25 02:21:51 2006 +0000
+
+    Bug #6036 <https://bugs.freedesktop.org/show_bug.cgi?id=6036> Check for
+        key_setnet declaration before defining it to avoid compiler error of
+        conflicting types on DragonFly BSD
+
+commit ebec01137a6b200ee9432faecde5817670b41684
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Feb 25 00:58:50 2006 +0000
+
+    Bug #6026 <https://bugs.freedesktop.org/show_bug.cgi?id=6026> Segfault in
+        netaddr.c:ConvertAddr if ifa_addr is NULL (Loser Mcloser
+        <reebydobalina@yahoo.ca>)
+
+commit f82da0960018bfa4237d3d8239cf84d880673e6a
+Author: Jeremy C. Reed <reed@reedmedia.net>
+Date:   Fri Feb 24 21:36:13 2006 +0000
+
+    Bug #5897 <https://bugs.freedesktop.org/show_bug.cgi?id=5897>
+    Create xsession error file with umask 077 instead of chmod a moment later
+        so others can't open first. This was reported by Steven M. Bellovin to
+        NetBSD http://www.netbsd.org/cgi-bin/query-pr-single.pl?number=32804
+    Reviewed by Alan Coopersmith via xorg_security list.
+
+commit 2a01568e61905944a59a7a8b34f22e08ccd25937
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Feb 24 18:09:00 2006 +0000
+
+    Bug #1391 <https://bugs.freedesktop.org/show_bug.cgi?id=1391> Patch #4739
+        <https://bugs.freedesktop.org/attachment.cgi?id=4739> xdm hangs in a
+        loop when invalid xpm bitmap is used for logo (Costantino Leandro
+        <lcostantino@gmail.com>)
+
+commit 26388c9b82fd29ecde162b81bd59f38827171142
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:49 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit b0c37b961844260d75e0bf88354e4fd04c36a4fc
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:43 2005 +0000
+
+    Stub COPYING files
+
+commit 2e78ed332496e323acf63b3783d4818751dcf560
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:06 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit c8288d472e3c0881a201207140ac51ce713da877
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Dec 11 20:46:25 2005 +0000
+
+    Bugzilla #5055 <https://bugs.freedesktop.org/show_bug.cgi?id=5055> Add
+        XDMSCRIPTDIR cpp substitution to allow modular tree builder/packager to
+        decide if scripts should go in config, lib, or data directories.
+
+commit 3d1caeec0b120997b5a958bec586c01665516499
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Dec 11 20:43:49 2005 +0000
+
+    Bugzilla #5055 <https://bugs.freedesktop.org/show_bug.cgi?id=5055> Add
+        --with-xdmscriptdir to allow builder/packager to decide if scripts
+        should go in config, lib, or data directories.
+
+commit af3cf72277abea12541117e7acc9867a7ad48cb7
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 7 16:17:59 2005 +0000
+
+    Change to use the app-defaults default dir configured in libXt.
+
+commit 15eddf034f082a10076967e77fd7af5d6a0cca2a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:20 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 2824039d6b25007fd597a5fd0823268e193b4810
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:19 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit eace59cc41e57fd48e22be043cefb5bdee60a0d6
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:40 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 06dcef110dc99a939ff2cfbc68ba85b4635cb055
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Nov 23 19:32:39 2005 +0000
+
+    Set HAS_ARC4_RANDOM if arc4random() function is found Set RANDOMMANDEFS to
+        correctly substitute alternate random device/method descriptions in man
+        page.
+
+commit 53c306241b93562b3b309072a652c708e87c0850
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Nov 22 05:43:52 2005 +0000
+
+    Fix file paths in man pages.
+
+commit a608715447b1c700c017f80c6ba27ce4dbbac973
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:34:59 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit d0149420c83f80cb15151a361b0929d53505d056
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 07:21:39 2005 +0000
+
+    Bug #5113: The insertion of -lutil into XDM_LIBS ended up having no effect
+        because PKG_CHECK_MODULES(XDM, ...) later overwrote it. So put
+    -lutil into XDM_OS_LIBS and add XDM_OS_LIBS to XDM_LIBS later.
+
+commit b4ee0e22b54786e0bb9a5b1c527be2e7f71100ba
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:51 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 05b9908f5e7d30df1230cfa872d4022c2fccfc3d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Nov 20 04:00:36 2005 +0000
+
+    Add dependency on xau.
+
+commit 7f31d566014d9e99569e0b93ee93009ec4028e6e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:36 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit 6ebcb3aab1c6a0c58b6d6d304d7ae61168990c33
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 14 04:25:43 2005 +0000
+
+    Add --enable-dynamic-greeter flag to allow choosing whether greeter should
+        be built into xdm binary or dynamically loaded libXdmGreet.so object.
+        Add -rdynamic flag to link options when using gcc with dynamic greeter
+        to allow greeter object to reference symbols in xdm.
+
+commit f9e6bc3588358c82c9d6e3293cc4eae28567959b
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Nov 13 01:41:50 2005 +0000
+
+    Install xdm man page using APP_MAN_SUFFIX instead of forcing .1
+
+commit 9bccda24de3851829059c224ce94de28066bd8f5
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:09:20 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit 515ba1756966081ca3fae0cdd5a776f5a4fc6ad1
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Nov 8 07:50:12 2005 +0000
+
+    Changes to match bug #3180 checkin to monolith:
+    Generate Xsession from Xsession.cpp Add SHELL_CMD to cpp substitutions
+    configure.ac Set SHELL_CMD to /bin/ksh for sco, /bin/sh for all other
+        OS'es.
+
+commit 3834f880ba013be524cd5b4ce4ff75734742ad12
+Author: Kean Johnson <kean@armory.com>
+Date:   Tue Nov 8 06:33:32 2005 +0000
+
+    See ChangeLog entry 2005-11-07 for details.
+
+commit d384b20b3d63f1b28d428f02746d5ec0c1e81a39
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Nov 1 16:44:38 2005 +0000
+
+    Add AC_DEFINE_DIR calls for the path #defines previously set in RES_DEFINES
+        section of xdm Imakefile. (Some should probably be made settable via
+        configure --with-* flags, but at least they correctly set defaults to
+        match the directories specified to configure now.)
+
+commit dc12a42ebd70b24c4d84632fa253cd6e3094cbd2
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Nov 1 15:05:18 2005 +0000
+
+    Update pkgcheck depedencies to work with separate build roots.
+
+commit 2b9da10c25ddcc9f098fa9af69e5f560037b5660
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sun Oct 30 17:25:00 2005 +0000
+
+    Add -I$(top_srcdir) to pick up dm{,_error}.h and greet.h.
+
+commit 2e06c1273459c14006452b8a483178494a4ba61f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Oct 29 01:48:12 2005 +0000
+
+    Fix #ifdef statement syntax to clear compiler warning.
+
+commit f4a2e78f543a5b8ab5101cd22b625addc12cf6a5
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Oct 29 00:05:12 2005 +0000
+
+    Add -DGREET_LIB to GREETER_CFLAGS on Solaris & SVR4 (was in #if SVR4 in
+        Imake) Add --with-random-device and checks for /dev/urandom &
+        /dev/random for source of random data for key generation Link
+        libXdmgreet with Xinerama & XPM libraries when using those features.
+
+commit 461b7fc37aae3578577a9eab2c9310287af14726
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Oct 26 03:21:17 2005 +0000
+
+    Use XDMCONFIGDIR for location of configuration files so they can be
+        installed in a directory other than the lib directory. (Only
+        overridable in modular build system at this point.)
+
+commit 16917371d7663d59c58dbd27c8592d3b6e8ef078
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Oct 26 03:17:17 2005 +0000
+
+    Allow overriding directories for xdm scripts/modules & configuration files
+        via configure options --with-xdmlibdir & --with-xdmconfigdir Add libXt
+        and libX11 to dependencies for libXdmgreet.
+    Document default directories & configure options to change them
+
+commit eb1ed04945a3af8d04f5441966674486be715036
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Oct 26 02:25:02 2005 +0000
+
+    We forgot to build the Xdm greeter library. Add it to build and cleanup
+        hardcoded values to find it.
+
+commit 1770fc21706c276d051de4dbe8a199f12a06f711
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:53 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 6279ce5e919e7a1a92060b7448c8d68ef6aef8af
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 02:12:17 2005 +0000
+
+    Change XCOMM to \&# to allow both cpp & sed to translate correctly.
+    Use XDMPIDDIR instead of XDMDIR when showing location of xdm-pid file in
+        man page.
+
+commit fbfdcd1c2e760014c5c0632c785e405f20d759e1
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 00:32:55 2005 +0000
+
+    Change default install dir for app-default files from
+        $(sysconfdir)/X11/app-defaults to $(libdir)/X11/app-defaults to match
+        the monolith & allow localization
+
+commit 971fdf46fa6a43b121db4a8e64dcde62dab0a85e
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 20:40:32 2005 +0000
+
+    Set XDMPIDDIR in when subsituting variables in man pages
+
+commit 1afabc5f0a70fc32581b53eb978f06a30f58fefa
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 00:40:28 2005 +0000
+
+    Put files in $(prefix)/lib/X11/xdm to match monolith install locations
+
+commit 82d152fba78e1c34b62b426a7854efd0b116afdd
+Author: Donnie Berkholz <spyderous@gentoo.org>
+Date:   Fri Oct 14 18:42:17 2005 +0000
+
+    Add another set of brackets around DEFAULTVT's empty default setting so it
+        isn't treated as a command.
+
+commit 8ae6b815fc2641e48f994260ad817010116a1ec9
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Oct 4 23:45:46 2005 +0000
+
+    Use CLEANFILES for all generated files
+
+commit 3d9c1086b712ea62717c34e83d31efa3988dfc08
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 3 17:36:09 2005 +0000
+
+    Bug #3891 <https://bugs.freedesktop.org/show_bug.cgi?id=3891> xdm build
+        failure: IN6_IS_ADDR_LOOPBACK undefined (David Schleef)
+
+commit 960be79d2f246edc3b0d2b571c5ed44edbc07276
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Oct 2 19:44:42 2005 +0000
+
+    Add Chooser app-defaults file to app/xdm
+
+commit 51a6b1de8beeb33858d3e8eb151cfad004a62ef8
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Wed Sep 28 21:13:12 2005 +0000
+
+    Add Xservers.fs.
+
+commit 92864cfde7de9b5d9cf8894abeb7a972ea35d2a0
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Aug 28 22:46:07 2005 +0000
+
+    Add comment to configure.ac explaining error: possibly undefined macro:
+        AC_DEFINE message that some users were seeing, thanks to diagnosis from
+        Stepan Kasal on the autoconf@gnu.org mailing list: dnl If you're
+        looking here because you got a message that said dnl 'error: possibly
+        undefined macro: AC_DEFINE', the source of dnl your problem is not
+        here. You need to upgrade to pkgconfig 0.18 dnl or later to get an
+        updated pkg.m4 with PKG_CHECK_EXISTS defined. dnl See
+        http://www.mail-archive.com/autoconf@gnu.org/msg13413.html
+
+commit e0187570bd3efd7b61ccc41dbc21d0840ee82260
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Aug 27 17:06:16 2005 +0000
+
+    Fixes for config files built via cpp
+
+commit 6bdf59b8f4fa96e5d85aafc87af57513794cb43e
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Aug 23 07:07:57 2005 +0000
+
+    Actually generate Xservers.ws from .cpp, and make build objdir != srcdir
+        safe.
+
+commit d778b237aab11cfa4ac8d50587f045d8a0497b9a
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Aug 23 06:53:53 2005 +0000
+
+    Actually generate Xservers.ws from .cpp, and make build objdir != srcdir
+        safe.
+
+commit 6a9a224cf84913f4dc9b87d59fac6594226e5b7e
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Aug 19 04:26:04 2005 +0000
+
+    Add #ifdef HAVE_CONFIG_H/#include "config.h" since "dm.h" is included too
+        late.
+
+commit 91a45fdfd505233d8624f2664ffdf188d96549e4
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Aug 17 20:35:09 2005 +0000
+
+    Fix EXTRA_DIST to point to a real variable. Bump to 0.99.1.
+
+commit 0f0954a36a9a71b9a98fb9a251dfc8ef4f815bed
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Aug 17 05:11:04 2005 +0000
+
+    Define USESHADOW if getspnam() is available Define USE_XINERAMA if
+        pkg-config finds xinerama module Fix XDM_LIBS settings by various
+        options
+
+commit 1abcef080aa3bd268a496c81b965d2db1086112e
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Aug 16 02:21:37 2005 +0000
+
+    Fix quoting on BINDIR definition for xdmshell
+
+commit e130f52f3b5f70f8cb478a2f64be2cd0c1fc553f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Aug 16 01:19:40 2005 +0000
+
+    Convert cpp substitutions from __projectroot__/... to XDMDIR and BINDIR so
+        they get correct pathnames in both modular & monolithic trees.
+
+commit 6b2d39036681c603f74bdd63f62198fbcdaae98f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 15 23:08:42 2005 +0000
+
+    Install xdm config files & man page Convert many more Imakefile checks into
+        autoconf checks for xdm
+
+commit 7cd1bfa8acde5b494960c0b7e5b97abd89121545
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Aug 13 02:46:59 2005 +0000
+
+    Install chooser in $(libdir)/xdm, not $(bindir)
+
+commit 6ae3766444c62ee920b94807ac514d1003ca4fee
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Aug 10 11:17:06 2005 +0000
+
+    Add build system for sessreg, broken out from xdm.
+
+commit 23b64bbec8561ea707633f4e73ec8e1616e48c8f
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Aug 3 04:14:23 2005 +0000
+
+    General fix: need to pull in more xtrans macros to get UNIXCONN etc defined
+        OSX fixes: Define __DARWIN__, workaround some lastlog breakage.
+
+commit fbeae50b9153d45afa90df2b540141b74a436594
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:31 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit f07aa24d8eb865b4b15fdb0c059e70ab437a97f9
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Jul 28 01:10:49 2005 +0000
+
+    Add -D_XOPEN_SOURCE for Linux
+
+commit ac5184384d6347ea97da5cc7f85e9687ff060641
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jul 27 22:37:02 2005 +0000
+
+    Add XPROTO_CFLAGS to XDM_CFLAGS and CHOOSER_CFLAGS, also add _BSD_SOURCE to
+        CHOOSER_FLAGS
+
+commit b92f8751058bf2bc94967b84f71c4c88a5f007df
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Jul 14 22:58:25 2005 +0000
+
+    Set HAS_VFORK if autoconf has set HAVE_WORKING_VFORK.
+    Add #include "config.h" for modularization
+
+commit e3b9c2dfffb74fe0bb96c21c198b8f08dfff65f0
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Jul 14 22:55:17 2005 +0000
+
+    Makefile.am:
+    - Remove hardcoded definitions of _XOPEN_SOURCE, _POSIX_SOURCE, &
+        _BSD_SOURCE
+    configure.ac:
+    - Use xtrans.m4 macros for IPv6 & SecureRPC support
+    - Add PAM support
+    - Add checks for vfork & mkstemp functions
+    - Add libXdmcp to CHOOSER_LIBS
+
+commit 90b6e7d98567f77981adca5c2b9acc71d07f1442
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 8 20:45:03 2005 +0000
+
+    Add build system for xdm
+
+commit ac796dbe8d2877d479cb25397e2982b9e73b87ad
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 5 18:52:33 2005 +0000
+
+    Bugzilla #2901 <https://bugs.freedesktop.org/show_bug.cgi?id=2901> Patch
+        #2317 <https://bugs.freedesktop.org/attachment.cgi?id=2317>
+    This patch fixes several problems arising if xdm is compiled with IPv6
+        support, but the (linux) kernel does not support IPv6. (Peter
+        Breitenlohner)
+
+commit 13b06d4e40a4d8a309b97dbab13cd6ac6aa469ad
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Jun 20 02:59:16 2005 +0000
+
+    Bug #2959: Make sure displays other than :0 get entries in utmp when
+        started from xdm. (Tim Waugh)
+
+commit f890eac42449a34b258128749075220f860421c3
+Author: Kean Johnson <kean@armory.com>
+Date:   Fri Jun 10 06:54:09 2005 +0000
+
+    file Xsession.cpp was initially added on branch sco_port_update.
+
+commit 9ab8ed5d49559eed0c7357c1a390bcd08b217d7a
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue May 24 00:10:17 2005 +0000
+
+    Bugzilla #2165 <https://bugs.freedesktop.org/show_bug.cgi?id=2165> Patches
+        #1599 & 2754 XDM Chooser enhancements: scrollwheel, no mouse (Thomas
+        Reifferscheid)
+
+commit dd32476e8b55a0c191376d61918e78a61d76ae43
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Wed Dec 15 20:49:08 2004 +0000
+
+    Remove unused define.
+
+commit 7a776dd5a49283ddb29c37eed565b7bd86a5ad8a
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Thu Nov 11 15:44:31 2004 +0000
+
+    update shared lib revisions on OpenBSD (Bug #1828).
+    update references to xf86site.def in comments (Bug #1827).
+    fix kbd driver for wskbd protocol and pure wscons console driver (Bug
+        #1825).
+    don't add '-4' to generated default file name (bug #1826).
+    typo in resource name (XFree86 bug #1300, X.org bug #1825)
+
+commit e58e367fd2a7d5e395cee23cfab6716219c74f67
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Thu Oct 21 06:03:13 2004 +0000
+
+    programs/xdm/greeter/verify.c Make BSDAUTH able to use non-default login
+        classes. (Bugzilla #1676, Pierre Lalet).
+
+commit 40a8dac56de796db130b53dc1b01ea7421d0bf93
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Aug 7 19:22:01 2004 +0000
+
+    Check to see if array->data is NULL before we dereference it, instead of
+        after. (Prevents segfault when array->data is initialized to NULL, but
+        array->length is not set to 0.)
+    Always initialize both data & length in ARRAYs.
+
+commit 0f92f0f76b812a29bbb748e7588a7208be4c30e2
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Mon Jul 26 22:56:33 2004 +0000
+
+    Fix log file location in manual page.
+
+commit 616e67f2b69018a7c6ffd91f1742ece51c4c5f78
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Jul 6 00:44:39 2004 +0000
+
+    XFree86 bugzilla #1376: xdm opens random tcp sockets
+    "Even when DisplayManager.requestPort is set to 0, xdm will open a
+        chooserFd tcp socket on all interfaces. This apparently cannot be
+        disabled by configuration and presents a possible security risk. Older
+        versions of xdm/socket.c appear to have checked and aborted if
+        request_port == 0, but the current one does not..."
+
+commit c5072fb61a23d4b4063d9c2f6043c23ff200af1b
+Author: Egbert Eich <eich@suse.de>
+Date:   Mon May 24 19:05:01 2004 +0000
+
+    Muffle compiler warnings.
+    fix option name in log message.
+    improve debugging messages.
+
+commit 1a5767483ccfb5e95555ff9bed0a1ec5456be725
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Apr 24 23:28:17 2004 +0000
+
+    xc/programs/xdm/greeter/verify.c Fix typo in Solaris console restriction
+        code (Xfree() -> XFree())
+    xc/programs/xdm/greeter/Imakefile Link with PamLibraries if building with
+        PAM support
+
+commit ec8b11f4b1ea888e28d71ee6f3903933d73aa65d
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:43 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 37f2b9991615b9f440c08c15457c54ee69f27f38
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Mar 27 01:44:18 2004 +0000
+
+    file xorg-bw.xpm was initially added on branch XORG-RELEASE-1-TM.
+
+commit a6bfe9be2718bf7eb78ec4b7c0f8f32ddff9d5ab
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Mar 27 01:44:18 2004 +0000
+
+    file xorg.xpm was initially added on branch XORG-RELEASE-1-TM.
+
+commit 69a0d00505815453ed192d9ce8da11ad1449d79b
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:13 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 819eb99db26dc93c189170ca00f268463c1f13ba
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:00 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 71d3a63e7fb725820d68fae4acc4b8868ea7e95d
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:17 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit aaa7fe57361c3df1dc35775fa9610b16755d1d02
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:04 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 102dcbe36ca6c5ef6c8efcfbf6ce6fa3542142ec
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Jan 29 08:09:07 2004 +0000
+
+    Importing vendor version xf86-012804-2330 on Thu Jan 29 00:06:33 PST 2004
+
+commit 0bd68eefddac98eaebb353dce62971a34a565842
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Dec 19 20:55:50 2003 +0000
+
+    XFree86 4.3.99.902 (RC 2)
+
+commit 450fda6015f1799648ff7da87fdb2c46d42415f8
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Thu Dec 4 22:03:47 2003 +0000
+
+    XFree86 4.3.99.901 (RC 1)
+
+commit ca56bbdb0d398371332467534deaefdb77883bd7
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:12 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 19bd1c5e3910088ac0e92ca005427192a223c8a0
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:11 2003 +0000
+
+    Initial revision
+
+commit 6c29c43354706a933c0bc73a9c800bdfd1a9a827
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:22 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit fa5d4a38a4dae7f24cdf3b8650dd931294c0fdc6
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:22 2003 +0000
+
+    Initial revision
+
+commit df3e1beed5bbb631975127133464b7e24fc38497
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:53 2003 +0000
+
+    R6.6 is the Xorg base-line

@@ -1310,9 +1310,7 @@ void pppoe_rfc_lower_detaching(ifnet_t ifp)
             if (rfc->flags & PPPOE_FLAG_DEBUG)
                 log(LOGVAL, "PPPoE lower layer detaching (0x%x): ethernet unit = %d\n", rfc, rfc->unit);
         
-			lck_mtx_unlock(ppp_domain_mutex);
             pppoe_dlil_detach(rfc->ifp);
-			lck_mtx_lock(ppp_domain_mutex);
             rfc->ifp = 0;
             rfc->unit = 0xFFFF;
         

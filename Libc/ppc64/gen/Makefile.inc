@@ -3,7 +3,6 @@
 
 MDSRCS +=	\
      abs.s	\
-     ffs.s	\
      fp.h	\
      icacheinval.s \
      mcount.s	\

@@ -157,14 +157,16 @@ extern acl_t	acl_get_link_np(const char *path_p, acl_type_t type);
 extern int	acl_set_fd(int fd, acl_t acl);
 extern int	acl_set_fd_np(int fd, acl_t acl, acl_type_t acl_type);
 extern int	acl_set_file(const char *path_p, acl_type_t type, acl_t acl);
-extern int	acl_set_link(const char *path_p, acl_type_t type, acl_t acl);
+extern int	acl_set_link_np(const char *path_p, acl_type_t type, acl_t acl);
 
 /* 23.1.6.4 ACL Format translation */
 extern ssize_t	acl_copy_ext(void *buf_p, acl_t acl, ssize_t size);
+extern ssize_t	acl_copy_ext_native(void *buf_p, acl_t acl, ssize_t size);
 extern acl_t	acl_copy_int(const void *buf_p);
+extern acl_t	acl_copy_int_native(const void *buf_p);
 extern acl_t	acl_from_text(const char *buf_p);
 extern ssize_t	acl_size(acl_t acl);
 extern char	*acl_to_text(acl_t acl, ssize_t *len_p);
 __END_DECLS
 
-#endif _SYS_ACL_H
+#endif /* _SYS_ACL_H */

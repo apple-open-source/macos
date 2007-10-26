@@ -1,5 +1,6 @@
 /* Definitions file for GNU Emacs running on LynxOS-3.0.1
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* LynxOS is almost a bsd 4.2 system */
 #include "s/bsd4-2.h"
@@ -33,8 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #define KERNEL_FILE "/lynx.os"
 #undef LDAV_SYMBOL
 #define LDAV_SYMBOL "load_average"
-/* LynxOS doesn't have vfork */
-#undef HAVE_VFORK 
 
 /* misc defines */
 #define GETPGRP_NO_ARG
@@ -56,3 +55,6 @@ Boston, MA 02111-1307, USA.  */
 /* warning messages */
 #define C_SWITCH_SYSTEM -D__NO_INCLUDE_WARN__
 #define LIBS_SYSTEM -lbsd
+
+/* arch-tag: fbc81ec9-1c45-416b-a368-799ae7c094a1
+   (do not change this comment) */

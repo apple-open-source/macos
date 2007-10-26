@@ -26,6 +26,7 @@
 
 #include <security_keychain/Globals.h>
 #include <security_keychain/SecCFTypes.h>
+#include <security_keychain/SecBasePriv.h>
 #include <Security/SecKeychainPriv.h>
 #include <security_keychain/KCUtilities.h>
 #include <security_cdsa_utilities/cssmbridge.h>
@@ -40,18 +41,30 @@ using namespace KeychainCore;
 //  END_API		// returns CSSM_RETURN on exception
 //	END_API0	// returns nothing (void) on exception
 //	END_API1(bad) // return (bad) on exception
+//	END_API2(name) // like END_API, with API name as debug scope for printing function result
+//	END_API3(name, bad) // like END_API1, with API name as debug scope for printing function result
 //
 #define BEGIN_SECAPI \
+    OSStatus __secapiresult; \
 	try { \
 		StLock<Mutex> stAPILock(globals().apiLock);
-#define END_SECAPI \
-	} \
-	catch (const MacOSError &err) { return err.osStatus(); } \
-	catch (const CommonError &err) { return SecKeychainErrFromOSStatus(err.osStatus()); } \
-	catch (const std::bad_alloc &) { return memFullErr; } \
-	catch (...) { return internalComponentErr; } \
-    return noErr;
-#define END_SECAPI0		} catch (...) { return; }
-#define END_SECAPI1(bad)	} catch (...) { return bad; }
+#define END_SECAPI2(API_NAME) \
+	SecCFObject::clearDeletedObjects(); __secapiresult=noErr; } \
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); } \
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); } \
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; } \
+	catch (...) { __secapiresult=internalComponentErr; } \
+    secdebug(API_NAME, "%s result = %d", API_NAME, (int)__secapiresult); \
+    return __secapiresult;
+#define END_SECAPI3(API_NAME, BAD_RETURN_VAL) \
+    SecCFObject::clearDeletedObjects(); __secapiresult=noErr; } \
+    catch (...) { __secapiresult=BAD_RETURN_VAL; } \
+    secdebug(API_NAME, "%s result = %d", API_NAME, (int)__secapiresult); \
+    return __secapiresult;
+#define END_SECAPI      END_SECAPI2("SECAPI")
+#define END_SECAPI0		SecCFObject::clearDeletedObjects(); __secapiresult=noErr; } \
+    catch (...) { return; }
+#define END_SECAPI1(bad)    END_SECAPI3("SECAPI", bad)
+
 
 #endif /* !_SECURITY_SECBRIDGE_H_ */

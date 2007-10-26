@@ -1,0 +1,120 @@
+.Dd December 22, 2005
+.Dt asl.conf 5
+.Os "Mac OS X"
+.Sh NAME
+.Nm asl.conf
+.Nd configuration file for
+.Xr syslogd 8
+asl_action module.
+.Sh DESCRIPTION
+The
+.Xr syslogd 8
+server in Mac OS X includes a module that compares messages with a set of query patterns,
+and which performs various actions when messages match the query patterns.
+.Pp
+Each line in the file contains three components.
+The first is a query, the second is an action, and the third contains parameters specific to that action.
+For example:
+.Pp
+.Dl Q [= Sender foobar] [N< Level 3] notify com.apple.foobar
+.Pp
+.Ss Queries
+Queries start with the letter "Q" followed by whitespace.
+Following that are any number of message matching components, each of which has the form:
+.Pp
+.Dl [OP KEY VAL]
+.Pp
+OP is a comparison operator.
+It can have the following values:
+.Pp
+.Bl -tag -width "<=  " -compact -offset indent
+.It T
+true (always matches)
+.It =
+equal
+.It !
+not equal
+.It >
+greater than
+.It >=
+greater than or equal to
+.It <
+less than
+.It <=
+less than or equal to
+.El
+.Pp
+It can also be preceded by one or more modifiers:
+.Bl -tag -width "C   " -compact -offset indent
+.Pp
+.It C
+casefold
+.It N
+numeric comparison
+.It S
+substring
+.It A
+prefix
+.It Z
+suffix
+.El
+.Pp
+KEY and VAL are message keys and values.
+For example
+.Pp
+.Dl Q [= Sender foobar]
+.Pp
+matches any message with key="Sender" and val="foobar".
+The query
+.Pp
+.Dl Q [CA= Color gr]
+.Pp
+matches any message with key=Color and val beginning with the letters GR, Gr, gr, or gR
+(C meaning casefold, A meaning prefix).
+The example query above,
+.Pp
+.Dl Q [= Sender foobar] [N< Level 3]
+.Pp
+matches any message from "foobar" with a level numerically less than 3
+(string values are converted to integers, and the comparison is done on the integer values).
+.Pp
+The "T" operator is useful to test for the presence of a particular key.
+.Pp
+.Dl Q [T Flavor whatever]
+.Pp
+Will match any message that has a "Flavor" key, regardless of its value.
+.Pp
+.Ss Actions
+The "notify" action causes
+.Nm syslogd
+to post a notification with
+.Fn notify_post .
+The notification key must appear as a single parameter following the "notify" action.
+.Pp
+The "access" action sets read access controls for messages that match the associated query pattern. 
+.Nm syslogd
+will restrict read access to matching messages to a specific user and group.
+The user ID number and group ID number must follow the "access" keyword as parameters.
+.Pp
+The "store" action saves matching messages in a separate log message database.
+The database may be accessed using the
+.Nm syslog
+command line utility.
+A database pathname must follow the "store" keyword. 
+A new database will be created if one does not exist.
+Two optional parameters, "stayopen" and "exclude_asldb" may follow the database pathname.
+.Pp
+By default,
+.Nm syslogd
+will open the database, save a matching message, and then close the database.
+If a high volume of messages is expected, specifying "stayopen" will improve performance.
+.Pp
+Specifying "exclude_asldb" will cause syslogd to save matching messages in the database,
+but exclude them from the main 
+.Nm syslogd
+database (/var/log/asl.db).
+.Sh SEE ALSO
+.Xr asl 3 ,
+.Xr notify 3 ,
+.Xr syslog 1 ,
+.Xr syslogd 8 .

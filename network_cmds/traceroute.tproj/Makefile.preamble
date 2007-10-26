@@ -16,7 +16,7 @@
 ## (e.g. change -O to -O2), see Makefile.postamble.
 
 # Flags passed to compiler (in addition to -g, -O, etc)
-OTHER_CFLAGS = -DHAVE_SOCKADDR_SA_LEN 
+OTHER_CFLAGS = -DHAVE_SOCKADDR_SA_LEN -mdynamic-no-pic
 # Flags passed to ld (in addition to -ObjC, etc.)
 OTHER_LDFLAGS =	
 

@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -52,7 +55,7 @@ GLOBAL unsigned8 rpc_g_dbg_switches[RPC_C_DBG_SWITCHES];
 /*
  * string buffer used by uuid_string()
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 INTERNAL char         uuid_string_buff[40];
 #endif
 
@@ -96,14 +99,14 @@ INTERNAL char         uuid_string_buff[40];
 PUBLIC void rpc__dbg_set_switches 
 (
     char            *s
-#ifndef DEBUG
+#ifndef DEBUG_DCE_RPC
                           __attribute((unused))
 #endif
                       ,
     unsigned32      *status
 )
 {
-#ifndef DEBUG
+#ifndef DEBUG_DCE_RPC
 
     *status = rpc_s_ok;
 
@@ -291,12 +294,12 @@ PRIVATE void rpc__die
 PRIVATE char *rpc__uuid_string 
 (
     uuid_t          *uuid
-#ifndef DEBUG
+#ifndef DEBUG_DCE_RPC
                           __attribute((unused))
 #endif
 )
 {
-#ifndef DEBUG
+#ifndef DEBUG_DCE_RPC
 
     return ("");
 
@@ -332,17 +335,17 @@ PRIVATE char *rpc__uuid_string
 PRIVATE void rpc__print_source
 (
   char         *file
-#ifndef DEBUG
+#ifndef DEBUG_DCE_RPC
                      __attribute((unused))
                     ,
 #endif
   int          line
-#ifndef DEBUG
+#ifndef DEBUG_DCE_RPC
                      __attribute((unused))
 #endif
 )
 {
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
     if (RPC_DBG(rpc_e_dbg_source, 1))
     {
         EPRINTF("    [file: %s, line: %d]\n", file, line);

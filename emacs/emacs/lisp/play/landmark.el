@@ -1,14 +1,15 @@
 ;;; landmark.el --- neural-network robot that learns landmarks
 
-;; Copyright (c) 1996, 1997, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 1997, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Terrence Brannon (was: <brannon@rana.usc.edu>)
 ;; Created: December 16, 1996 - first release to usenet
-;; Keywords: gomoku neural network adaptive search chemotaxis
+;; Keywords: gomoku, neural network, adaptive search, chemotaxis
 
 ;;;_* Usage
 ;;; Just type
-;;;   M-x eval-current-buffer
+;;;   M-x eval-buffer
 ;;;   M-x lm-test-run
 
 
@@ -26,8 +27,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 
 ;;; Commentary:
@@ -74,7 +75,7 @@
 ;; The board is a rectangular grid. We code empty squares with 0, X's with 1
 ;; and O's with 6. The rectangle is recorded in a one dimensional vector
 ;; containing padding squares (coded with -1). These squares allow us to
-;; detect when we are trying to move out of the board.	We denote a square by
+;; detect when we are trying to move out of the board.  We denote a square by
 ;; its (X,Y) coords, or by the INDEX corresponding to them in the vector.  The
 ;; leftmost topmost square has coords (1,1) and index lm-board-width + 2.
 ;; Similarly, vectors between squares may be given by two DX, DY coords or by
@@ -200,38 +201,34 @@
   (define-key lm-mode-map [mouse-2] 'lm-mouse-play)
   (define-key lm-mode-map [drag-mouse-2] 'lm-mouse-play)
 
-  (substitute-key-definition 'previous-line 'lm-move-up
-			     lm-mode-map (current-global-map))
-  (substitute-key-definition 'next-line 'lm-move-down
-			     lm-mode-map (current-global-map))
-  (substitute-key-definition 'beginning-of-line 'lm-beginning-of-line
-			     lm-mode-map (current-global-map))
-  (substitute-key-definition 'end-of-line 'lm-end-of-line
-			     lm-mode-map (current-global-map))
-  (substitute-key-definition 'undo 'lm-human-takes-back
-			     lm-mode-map (current-global-map))
-  (substitute-key-definition 'advertised-undo 'lm-human-takes-back
-			     lm-mode-map (current-global-map)))
+  (define-key lm-mode-map [remap previous-line] 'lm-move-up)
+  (define-key lm-mode-map [remap next-line] 'lm-move-down)
+  (define-key lm-mode-map [remap beginning-of-line] 'lm-beginning-of-line)
+  (define-key lm-mode-map [remap end-of-line] 'lm-end-of-line)
+  (define-key lm-mode-map [remap undo] 'lm-human-takes-back)
+  (define-key lm-mode-map [remap advertised-undo] 'lm-human-takes-back))
 
 (defvar lm-emacs-won ()
   "*For making font-lock use the winner's face for the line.")
 
-(defvar lm-font-lock-face-O
-  (if (display-color-p)
-      (list (facemenu-get-face 'fg:red) 'bold))
-  "*Face to use for Emacs' O.")
+(defface lm-font-lock-face-O '((((class color)) :foreground "red")
+			       (t :weight bold))
+  "*Face to use for Emacs' O."
+  :version "22.1"
+  :group 'lm)
 
-(defvar lm-font-lock-face-X
-  (if (display-color-p)
-      (list (facemenu-get-face 'fg:green) 'bold))
-  "*Face to use for your X.")
+(defface lm-font-lock-face-X '((((class color)) :foreground "green")
+			       (t :weight bold))
+  "*Face to use for your X."
+  :version "22.1"
+  :group 'lm)
 
 (defvar lm-font-lock-keywords
-  '(("O" . lm-font-lock-face-O)
-    ("X" . lm-font-lock-face-X)
+  '(("O" . 'lm-font-lock-face-O)
+    ("X" . 'lm-font-lock-face-X)
     ("[-|/\\]" 0 (if lm-emacs-won
-		     lm-font-lock-face-O
-		   lm-font-lock-face-X)))
+		     'lm-font-lock-face-O
+		   'lm-font-lock-face-X)))
   "*Font lock rules for Lm.")
 
 (put 'lm-mode 'front-sticky
@@ -254,6 +251,7 @@ Other useful commands:
 Entry to this mode calls the value of `lm-mode-hook' if that value
 is non-nil.  One interesting value is `turn-on-font-lock'."
   (interactive)
+  (kill-all-local-variables)
   (setq major-mode 'lm-mode
 	mode-name "Lm")
   (lm-display-statistics)
@@ -261,7 +259,7 @@ is non-nil.  One interesting value is `turn-on-font-lock'."
   (make-local-variable 'font-lock-defaults)
   (setq font-lock-defaults '(lm-font-lock-keywords t))
   (toggle-read-only t)
-  (run-hooks 'lm-mode-hook))
+  (run-mode-hooks 'lm-mode-hook))
 
 
 ;;;_ +  THE SCORE TABLE.
@@ -767,9 +765,9 @@ If the game is finished, this command requests for another game."
     (let (square score)
       (setq square (lm-point-square))
       (cond ((null square)
-	     (error "Your point is not on a square. Retry !"))
+	     (error "Your point is not on a square. Retry!"))
 	    ((not (zerop (aref lm-board square)))
-	     (error "Your point is not on a free square. Retry !"))
+	     (error "Your point is not on a free square. Retry!"))
 	    (t
 	     (setq score (aref lm-score-table square))
 	     (lm-play-move square 1)
@@ -794,7 +792,7 @@ If the game is finished, this command requests for another game."
     (sit-for 4)
     (lm-prompt-for-other-game))
    ((zerop lm-number-of-human-moves)
-    (message "You have not played yet... Your move ?"))
+    (message "You have not played yet... Your move?"))
    (t
     (message "One moment, please...")
     ;; It is possible for the user to let Emacs play several consecutive
@@ -815,9 +813,9 @@ If the game is finished, this command requests for another game."
     (lm-crash-game))
    ((not lm-game-in-progress)
     (message "There is no game in progress"))
-   ((y-or-n-p "You mean, you resign ")
+   ((y-or-n-p "You mean, you resign? ")
     (lm-terminate-game 'human-resigned))
-   ((y-or-n-p "You mean, we continue ")
+   ((y-or-n-p "You mean, we continue? ")
     (lm-prompt-for-move))
    (t
     (lm-terminate-game 'human-resigned)))) ; OK. Accept it
@@ -827,23 +825,23 @@ If the game is finished, this command requests for another game."
 (defun lm-prompt-for-move ()
   "Display a message asking for Human's move."
   (message (if (zerop lm-number-of-human-moves)
-	       "Your move ? (move to a free square and hit X, RET ...)"
-	       "Your move ?"))
+	       "Your move? (move to a free square and hit X, RET ...)"
+	       "Your move?"))
   ;; This may seem silly, but if one omits the following line (or a similar
   ;; one), the cursor may very well go to some place where POINT is not.
   (save-excursion (set-buffer (other-buffer))))
 
 (defun lm-prompt-for-other-game ()
   "Ask for another game, and start it."
-  (if (y-or-n-p "Another game ")
+  (if (y-or-n-p "Another game? ")
       (if (y-or-n-p "Retain learned weights ")
 	  (lm 2)
 	(lm 1))
-    (message "Chicken !")))
+    (message "Chicken!")))
 
 (defun lm-offer-a-draw ()
   "Offer a draw and return t if Human accepted it."
-  (or (y-or-n-p "I offer you a draw. Do you accept it ")
+  (or (y-or-n-p "I offer you a draw. Do you accept it? ")
       (not (setq lm-human-refused-draw t))))
 
 
@@ -948,11 +946,11 @@ mouse-1: get robot moving, mouse-2: play on this square")))
       (insert-char ?\n lm-square-height))
     (or (eq (char-after 1) ?.)
 	(put-text-property 1 2 'point-entered
-			   (lambda (x x) (if (bobp) (forward-char)))))
+			   (lambda (x y) (if (bobp) (forward-char)))))
     (or intangible
 	(put-text-property point (point) 'intangible 2))
     (put-text-property point (point) 'point-entered
-		       (lambda (x x) (if (eobp) (backward-char))))
+		       (lambda (x y) (if (eobp) (backward-char))))
     (put-text-property (point-min) (point) 'category 'lm-mode))
   (lm-goto-xy (/ (1+ n) 2) (/ (1+ m) 2)) ; center of the board
   (sit-for 0))				; Display NOW
@@ -1477,7 +1475,7 @@ After this limit is reached, lm-random-move is called to push him out of it."
   (lm-plot-square (lm-point-square) 1)
   (incf lm-number-of-moves)
   (if lm-output-moves
-      (message (format "Moves made: %d" lm-number-of-moves))))
+      (message "Moves made: %d" lm-number-of-moves)))
 
 
 (defun lm-random-move ()
@@ -1527,9 +1525,9 @@ If the game is finished, this command requests for another game."
     (let (square score)
       (setq square (lm-point-square))
       (cond ((null square)
-	     (error "Your point is not on a square. Retry !"))
+	     (error "Your point is not on a square. Retry!"))
 	    ((not (zerop (aref lm-board square)))
-	     (error "Your point is not on a free square. Retry !"))
+	     (error "Your point is not on a free square. Retry!"))
 	    (t
 	     (progn
 	       (lm-plot-square square 1)
@@ -1682,7 +1680,7 @@ Use \\[describe-mode] for more info."
       (if (and (> lm-m max-height)
 	       (not (eq lm-m lm-saved-board-height))
 	       ;; Use EQ because SAVED-BOARD-HEIGHT may be nil
-	       (not (y-or-n-p (format "Do you really want %d rows " lm-m))))
+	       (not (y-or-n-p (format "Do you really want %d rows? " lm-m))))
 	  (setq lm-m max-height)))
     (if lm-one-moment-please
 	(message "One moment, please..."))
@@ -1698,15 +1696,18 @@ Use \\[describe-mode] for more info."
 
 ;;;_ + Local variables
 
-;;; The following `outline-layout' local variable setting:
+;;; The following `allout-layout' local variable setting:
 ;;;  - closes all topics from the first topic to just before the third-to-last,
 ;;;  - shows the children of the third to last (config vars)
 ;;;  - and the second to last (code section),
 ;;;  - and closes the last topic (this local-variables section).
 ;;;Local variables:
-;;;outline-layout: (0 : -1 -1 0)
+;;;allout-layout: (0 : -1 -1 0)
 ;;;End:
+
+(random t)
 
 (provide 'landmark)
 
+;;; arch-tag: ae5031be-96e6-459e-a3df-1df53117d3f2
 ;;; landmark.el ends here

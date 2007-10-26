@@ -194,15 +194,15 @@ public:
 class DSContext
 {
 protected:
-	DirectoryService& mDirectoryService;
 	tContextData mContext;
+	tDirReference mReference;
 
 public:
-	DSContext (DirectoryService &ds) : mDirectoryService (ds), mContext (NULL) {}
+	DSContext () : mContext (NULL), mReference (0) {}
 	~DSContext ();
 	
 	operator tContextData* () {return &mContext;}
-	
+	void SetReference (tDirReference ref) {mReference = ref;}
 	bool Empty () {return mContext == NULL;}
 };
 

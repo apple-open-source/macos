@@ -1,0 +1,431 @@
+2003-12-17  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* generic/gdbtk-bp.c: Change calls to decode_line_1 to add
+	new NULL parameter.
+	* generic/gdbtk-cmds.c: Ditto.
+	* generic/gdbtk-stack.c: Ditto.
+
+2003-12-11  Jim Blandy  <jimb@redhat.com>
+
+	* library/prefs.tcl (pref_read): The section marker or the word
+	'option' must be the first thing on the line; they don't count if
+	they appear in the middle of the line.
+
+2003-11-24  David Carlton  <carlton@kealia.com>
+
+	* generic/gdbtk.c (target_is_native): Replace STREQ by strcmp.
+	* generic/gdbtk-cmds.c (gdb_stop): Replace STREQ by strcmp.
+	(gdb_search): Replace STREQN by strncmp and DEPRECATED_SYMBOL_NAME
+	by SYMBOL_LINKAGE_NAME.
+	* generic/gdbtk-varobj.c (variable_format): Replace STREQN by
+	strncmp.
+
+2003-11-11  David Carlton  <carlton@kealia.com>
+
+	* generic/gdbtk-bp.c (gdb_find_bp_at_addr): Replace use of
+	BREAKPOINT->address by BREAKPOINT->loc->address.
+	(gdb_get_breakpoint_info): Ditto.
+
+2003-10-06  David Carlton  <carlton@kealia.com>
+
+	* generic/gdbtk-register.c (get_register_size): Replace
+	REGISTER_RAW_SIZE by DEPRECATED_REGISTER_RAW_SIZE.
+	(get_register, register_changed_p): Ditto.
+
+2003-09-30  David Carlton  <carlton@kealia.com>
+
+	* generic/gdbtk-register.c (get_register): Replace
+	REGISTER_VIRTUAL_SIZE by
+	DEPRECATED_REGISTER_VIRTUAL_SIZE.
+
+2003-09-08  Andrew Cagney  <cagney@redhat.com>
+
+	* generic/gdbtk-cmds.c: Include "disasm.h".
+	(gdbtk_load_asm): Use "gdb_print_insn" instead of
+	TARGET_PRINT_INSN .
+	(gdb_disassemble_driver): Delete code referencing
+	"deprecated_tm_print_insn_info".  Delete "di" and "di_initialized"
+	and any code initializing those variables.  Pass NULL as "di"
+	parameter to "print_asm_fn".
+	(disassemble_from_exec): Mention that it is unused.
+
+2003-08-05  Andrew Cagney  <cagney@redhat.com>
+
+	* generic/gdbtk-register.c (gdb_reggrouplist): Update, use
+	reggroup_next.
+	(gdb_reggroup): Ditto.
+
+2003-08-04  David Carlton  <carlton@kealia.com>
+
+	* generic/gdbtk.c (gdbtk_source_start_file): Add "%s" first
+	argument to error call.
+	(tk_command): Ditto.
+	(view_command): Ditto.
+
+2003-07-29  Martin Hunt  <hunt@redhat.com>
+
+	* library/prefs.tcl (pref_set_option_db): On Windows, fix 
+	highlighting of buttons.  On Unix, fix highlighting of
+	menus.
+
+2003-07-10  Martin Hunt  <hunt@redhat.com>
+
+	* library/prefs.tcl (pref_set_option_db): Only set 
+	activeBackground for Unix.
+
+2003-07-02  Martin Hunt  <hunt@redhat.com>
+
+	* library/prefs.tcl (pref_set_option_db): Only
+	set checkbutton select color for Unix.  Fixes Windows
+	checkbutton problem.
+
+2003-06-26  Keith R Seitz  <keiths@redhat.com>
+
+	From Roland Schwingel <Roland.Schwingel@onevision.de>:
+	* generic/gdbtk-cmds.c (gdb_find_file_command): If filename
+	is already an absolute filename, try stat'ing it before searching
+	symtabs.
+
+2003-06-13  Martin Hunt  <hunt@redhat.com>
+
+	* library/prefs.tcl (load_gnome_file): Fix parsing
+	of gtk theme files so Red Hat 9 (and others) GNOME colors 
+	are correct.
+
+2003-06-11  David Carlton  <carlton@bactrian.org>
+
+	* generic/gdbtk-stack.c: Include dictionary.h.
+	(gdb_block_vars): Update use of ALL_BLOCK_SYMBOLS.
+	(gdb_get_blocks, gdb_get_vars_command): Ditto.
+	* generic/gdbtk-cmds.c: Include dictionary.h.
+	(gdb_listfuncs): Update use of ALL_BLOCK_SYMBOLS.
+
+2003-06-11  David Carlton  <carlton@bactrian.org>
+
+	* generic/gdbtk-register.c (get_register): REGISTER_CONVERTIBLE
+	and REGISTER_CONVERT_TO_VIRTUAL are deprecated.
+
+2003-05-12  Elena Zannoni  <ezannoni@redhat.com>
+
+        * generic/gdbtk-cmds.c (gdb_search): Replace namespace_enum
+        with domain_emum, and *_NAMESPACE with *_DOMAIN.
+
+2003-05-08  Andrew Cagney  <cagney@redhat.com>
+
+	* generic/gdbtk-register.c (get_register): Replace
+	MAX_REGISTER_VIRTUAL_SIZE and MAX_REGISTER_RAW_SIZE with
+	MAX_REGISTER_SIZE.
+	(register_changed_p, setup_architecture_data): Ditto.
+
+2003-04-30  Andrew Cagney  <cagney@redhat.com>
+
+	* generic/gdbtk-cmds.c (gdb_disassemble_driver): Instead of
+	TARGET_PRINT_INSN_INFO, "dis_asm_memory_error",
+	"dis_asm_read_memory", and "dis_asm_print_address", use
+	"deprecated_tm_print_insn_info"
+
+2003-04-11  Andrew Cagney  <cagney@redhat.com>
+
+	* generic/gdbtk-stack.c (get_frame_name): Use get_frame_pc and
+	get_next_frame.
+
+2003-03-18  Keith Seitz  <keiths@redhat.com>
+
+	From Nick Kelsey <nickk@ubicom.com>:
+	* process.itb (build_win): Removed ide_sizebox instantiation that is
+	no longer required and is causing errors for win hosts.
+	* tdump.tcl (build_win): Ditto.
+	* locals.tcl (build_win): Removed ide_sizebox instantiation that is
+	no longer required and already commented out.
+	* regwin.itb (build_win): Ditto.
+	* srcwin.itb (constructor): Ditto.
+	* stackwin.itb (constructor): Ditto.
+	* watch.tcl (constructor): Ditto.
+
+2003-03-24  Martin M. Hunt  <hunt@redhat.com>
+
+	* generic/gdbtk-register.c (get_register_types): Use 
+	register_type instead of REGISTER_VIRTUAL_TYPE.
+	(get_register): Ditto.
+
+2003-03-17  Keith R Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-register.c (get_register): Use frame_register
+	instead of get_saved_register (which was deleted from gdb).
+
+2003-03-06  Martin M. Hunt  <hunt@redhat.com>
+
+	* generic/gdbtk-interp.c (gdbtk_interpreter_init): Remove
+	unused variable.
+
+	* generic/gdbtk-cmds.c (gdb_update_mem): Remove unused variable.
+	(gdbtk_print_source): Deleted.
+	(gdbtk_print_asm): Deleted.
+
+2003-03-06  Martin M. Hunt  <hunt@redhat.com>
+	
+	* generic/gdbtk-bp.c (gdb_get_tracepoint_info): Return CORE_ADDR.
+
+2003-03-06  Martin M. Hunt  <hunt@redhat.com>
+	
+	* generic/gdbtk-cmds.c (gdb_disassemble): Deleted.
+	(sprintf_append_element_to_obj): Deleted.
+
+	* generic/gdbtk-bp.c (get_breakpoint_commands): Use
+	Tcl_ListObjAppendElement() instead of 
+	sprintf_append_element_to_obj().
+	
+2003-03-05  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/srctextwin.itb (SrcTextWin::FillAssembly): 
+	Remove unused variables asm_lo_addr and asm_hi_addr.
+	(FillMixed): Ditto.
+
+2003-03-05  Martin M. Hunt  <hunt@redhat.com>	
+
+	* generic/gdbtk-cmds.c (Gdbtk_Init): Create gdb_CA_to_TAS.
+	(gdb_load_disassembly): Now takes CORE_ADDRs. Returns CORE_ADDRs
+	for low and high.
+	(gdbtk_load_asm): Use CORE_ADDRs.
+	(gdb_loc): Return CORE_ADDRs.
+	(gdb_entry_point): Return CORE_ADDR.
+	(gdb_incr_addr): Update description.
+	(gdb_CA_to_TAS): New function. Takes a CORE_ADDR and returns 
+	a target sddress string.
+
+	* generic/gdbtk-bp.c (gdb_find_bp_at_addr): Change to
+	take a CORE_ADDR.
+	(gdb_get_breakpoint_info): Returns a CORE_ADDR.
+	(gdb_set_bp_addr): Takes a CORE_ADDR.
+	
+	* library/bpwin.itb (bp_add): Call gdb_CA_to_TAS before 
+	displaying address.
+	(bp_modify): Ditto.
+
+	* library/srcwin.itb (location): Call gdb_CA_to_TAS before 
+	displaying address. Don't add "0x" in front of address.
+	(set_execution_status): Call gdb_CA_to_TAS before 
+	displaying address. Don't call [gdb_cmd printf] to format
+	output. Weird.
+
+2003-02-25  David Carlton  <carlton@math.stanford.edu>
+
+	* generic/gdbtk.h: Replace all instances of SYMBOL_NAME by
+	DEPRECATED_SYMBOL_NAME.
+	* generic/gdbtk-stack.c, generic/gdbtk-cmds.c: Ditto.
+	* generic/gdbtk-stack.c, generic/gdbtk-cmds.c: Update copyright.
+
+2003-02-21  Tom Tromey  <tromey@redhat.com>
+
+	* generic/gdbtk-interp.c (gdbtk_interpreter_init): Declare locals
+	before code.
+
+2003-02-21  Daniel Jacobowitz  <drow@mvista.com>
+
+	* generic/gdbtk-stack.c (gdb_get_blocks, gdb_block_vars)
+	(gdb_get_vars_command): Handle LOC_COMPUTED and LOC_COMPUTED_ARG.
+
+2003-02-20  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-cmds.c (gdb_search): Change SYMBOL_SOURCE_NAME
+	to SYMBOL_PRINT_NAME to track recent changes in gdb.
+
+2003-02-20  Pierre Muller  <muller@ics.u-strasbg.fr>
+
+	* generic/gdbtk-cmds.c: Add missing "block.h" include.
+	generic/gdbtk-stack.c: Ditto.
+	generic/gdbtk-wrapper.c: Ditto.
+
+2003-02-18  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-main.c (main): Change name of intepreter to "insight".
+	* generic/gdbtk.h: Add ifdef wrappers.
+	(gdbtk_init): Declare.
+	(gdbtk_source_start_file): Declare.
+	* generic/gdbtk.c (gdbtk_init): Export.
+	Reomve init_ui_hook stuff.
+	Do not add hooks here anymore (moved into interps).
+	Do not muck with gdbk_stdout et al (moved into interps).
+	(gdbtk_source_start_file): Code ripped out of gdbtk_init
+	which deals with sourcing the main startup file.
+	(gdbtk_init_1): Hack: New function.
+	(argv0): Hack: New static global.
+	(tk_init): Moved to gdbtk-interps.c.
+	(gdbtk_resume): Likewise.
+	(gdbtk_suspend): Likewise.
+	(gdbtk_prompt_p): Likewise.
+	(gdbtk_exec): Likewise.
+	(gdbtk_command_loop): Likewise.
+	(_initialize_gdbtk): Move interpreter stuff to gdbtk-interps.c.
+	Hack: Add new init_ui_hook.
+	* generic/gdbtk-interps.c: New file.
+
+2003-02-17  Christopher Faylor  <cgf@redhat.com>
+
+	Revert below change.
+
+2003-02-17  Christopher Faylor  <cgf@redhat.com>
+
+	* gdbtk/gdbtk.c (tk_procs): Make file global.  Declare at top.
+	(_initialize_gdbtk): Move interp_add from here.
+	(gdb_tk): Call interp_add here.  Pass correct uiout to interp_new.
+
+2003-02-14  Keith Seitz  <keiths@redhat.com>
+
+	From Chris Faylor <cgf@redhat.com>:
+	* generic/gdbtk-main.c (main): Initialize args.interpreter_p.
+
+2003-02-14  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/globalpref.itb (GlobalPref::_change_icons): Fix
+	curselection call for combobox.
+
+2003-02-12  Andrew Cagney  <ac131313@redhat.com>
+
+	* generic/gdbtk-hooks.c (tk_command_loop): Move function ...
+	* generic/gdbtk.c (gdbtk_command_loop): ... to here.  Add data
+	parameter.
+
+	* generic/gdbtk.c: Include "interps.h".
+	(_initialize_gdbtk): Register the "gdbtk" interpreter.  Don't set
+	init_ui_hook.
+	(gdbtk_init): Change parameter to a void data pointer.
+	(tk_init, gdbtk_resume, gdbtk_suspend): New functions.
+	(gdbtk_prompt_p, gdbtk_exec): New functions.
+
+	* generic/gdbtk-hooks.c (gdbtk_add_hooks): Don't set
+	command_loop_hook.  Update copyright.
+	
+2003-02-11  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/help/images/browser1.png: New file.
+	* library/help/images/browser2.png: New file.	
+
+2003-02-11  Keith R Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-register.c (register_changed_p): If the selected
+	frame is NULL, do not call frame_register_read, since that will
+	now cause an internal error.
+
+2003-02-10  Andrew Cagney  <ac131313@redhat.com>
+
+	* generic/gdbtk-varobj.c (gdb_variable_command): Ditto for
+	`commands'.
+	(variable_type): Ditto for `first'.
+	(variable_obj_command): Ditto.
+	(variable_create): Ditto for create_options.
+	(variable_type): Ditto for `last'.  Use `string' and not `first'
+	when modifying the buffer.
+	(struct disassembly_client_data ): Ditto for `asm_argv'
+	* generic/gdbtk-register.c (gdb_register_info): Ditto for
+	`commands'.
+	* generic/gdbtk-hooks.c (tk_command_loop): Ditto for `msg'.
+	* generic/gdbtk-cmds.c (gdb_search): Ditto for `switches'.
+	(gdbtk_load_source): Ditto for `text_argv'.
+	(struct disassembly_client_data ): Ditto for `source_argv'.
+	(gdbtk_load_asm): Ditto for `text_argv'.
+	(struct disassembly_client_data ): Ditto for `asm_argv'
+	(gdb_loadfile): Ditto for `text_argv'.
+	* generic/gdbtk.c (TclDebug): Make `v' a constant pointer.
+	(gdbtk_init): Ditto for `old_chain', `src_path', `msg', and
+	`lib_path'.
+
+2003-02-10  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/browserwin.itb: Set textbackground option to
+	$::Colors(textbg) instead of "white".
+
+2003-02-10  Martin M. Hunt  <hunt@redhat.com>	
+
+	* library/interface.tcl (gdbtk_attach_native): Don't force the user
+	to choose an exec file when attaching.
+
+	* library/attachdlg.itb: Some fixes to work with latest iwidgets.
+
+2003-02-10  Martin M. Hunt  <hunt@redhat.com>
+	
+	* library/prefs.tcl (pref_set_defaults): Remove prefs
+	gdb/browser/width, gdb/browser/top_height, gdb/browser/view_height,
+	gdb/browser/view_is_open. Add gdb/browser/layout.
+
+	* library/browserwin.ith: Update declarations to match 
+	changes in browserwin.itb.
+
+	* library/browserwin.itb (constructor): Don't set toplevel
+	bindings. Set _layout from prefs.
+	(destructor): Don't check $resize_after. Don't save view_is_open.
+	(_build_win): Create a popup menu and bind to button 3.
+	Split the rest into 4 functions; _build_file_frame, 
+	_build_filter_frame, _build_function_frame, and _build_view_frame.
+	Pack these 4 frames according to $_layout.
+	(_toggle_more): Deleted.
+	(_bind_toplevel): Deleted.
+	(_do_resize): Deleted.
+	(_resize): Deleted.
+	(_fill_source): Always fill because source is always visible.
+	(_fill_funcs_combo): Limit width of combo to 40 chars.
+	(_build_filter_frame): New function.
+	(_build_file_frame): New function.
+	(_build_function_frame): New function.
+	(_build_view_frame): New function.
+	(_switch_layout): New function. Toggle between layouts.
+
+	* library/tclIndex: Rebuilt.
+	
+	* library/help/browser.html: Rewrite.
+
+2003-02-03  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/targetselection.itb (TargetSelection::build_win): Remove 
+	duplicate label.
+
+2003-02-03  Martin M. Hunt  <hunt@redhat.com>	
+
+	* library/globalpref.itb, library/mempref.itb, library/srcpref.itb,
+	library/srcwin.itb, library/targetselection.itb, library/tracedlg.tcl:
+	Set background color of comboboxes to Colors(textbg).
+
+	* library/main.tcl: Load combobox version 2.2.
+
+	* library/prefs.tcl: Minor optimization. Change order of main_names
+	to have the most common, "main", first.
+	
+2003-02-03  Martin M. Hunt  <hunt@redhat.com>
+	
+	* library/targetselection.itb (TargetSelection::port_list): Keep
+	checking ports on Windows until we can open no more. Replaces
+	fixed limit of 9.
+
+2003-02-03  Martin M. Hunt  <hunt@redhat.com>
+	
+	* library/session.tcl (_recreate_bps): Catch errors.
+
+2003-02-03  Martin M. Hunt  <hunt@redhat.com>
+	
+	* library/interface.tcl (gdbtk_locate_main): Rewrite for efficiency.
+	No longer uses gdb_search.  Caches result. 
+	(initialize_gdbtk): Initialize gdb_locate_main cache.
+	* library/main.tcl: Call initialize_gdbtk after loading prefs.
+
+2003-01-21  Martin M. Hunt  <hunt@redhat.com>
+	* library/main.tcl: Don't require iwidgets 3.0.
+
+	* library/console.itb (Console::_build_win): Rename
+	tkTextClosestGap to tk::TextClosestGap. Rename tkCancelRepeat
+	to tk::CancelRepeat. Rename tkPriv to tk::Priv. Needed for tk 8.4.1.
+
+	* library/bpwin.itb (BpWin::build_win): Don't
+	create sizebox.
+	* library/locals.tcl (build_win): Ditto.
+	* library/regwin.itb (RegWin::_build_win): Ditto.
+	* library/srcwin.itb (SrcWin::constructor): Ditto.
+	* library/stackwin.itb (StackWin::build_win): Ditto.
+	* library/watch.tcl (build_win): Ditto.
+	
+	* generic/gdbtk.c (gdbtk_init): Look for iwidgets in
+	"iwidgets" instead of "iwidgets3.0.0".
+	Don't call ide_create_sizebox_command.
+
+	* ChangeLog: New log for 2003.
+	* ChangeLog-2002: Renamed from ChangeLog. 
+

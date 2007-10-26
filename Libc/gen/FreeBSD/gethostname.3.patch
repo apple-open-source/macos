@@ -1,0 +1,11 @@
+--- _SB/Libc/gen/FreeBSD/gethostname.3	2004-11-25 11:38:01.000000000 -0800
++++ _SB/Libc/gen/FreeBSD/gethostname.3.edit	2006-06-28 16:55:50.000000000 -0700
+@@ -60,7 +60,7 @@
+ specifies the size of the
+ .Fa name
+ array.
+-The returned name is null-terminated unless insufficient space is provided.
++The returned name is null-terminated, unless insufficient space is provided.
+ .Pp
+ The
+ .Fn sethostname

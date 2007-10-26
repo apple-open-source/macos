@@ -1,4 +1,4 @@
-.Dd October 7, 2004
+.Dd October 23, 2005
 .Os Darwin
 .Dt COMPAT 5
 .Sh NAME
@@ -8,9 +8,12 @@
 .Ev COMMAND_MODE=legacy|unix2003
 .Lp
 .Fd #define _POSIX_C_SOURCE
-.Fd #define _APPLE_C_SOURE
+.Fd #define _DARWIN_C_SOURCE
 .Fd #define _NONSTD_SOURCE
-.Fd #define __LP64__
+.Fd defined(__LP64__)
+.Lp
+.In sys/cdefs.h
+.Fd defined(_DARWIN_FEATURE_UNIX_CONFORMANCE)
 .Sh DESCRIPTION
 Setting the environment variable
 .Ev COMMAND_MODE
@@ -22,53 +25,83 @@ to the value unix03 causes utility programs to obey the
 .St -susv3
 standards even if doing so would alter the behavior of flags used in 10.3.
 .Pp
-.Ev COMMAND_MODE's
-value is case insensitive and if it is unset or set to something other than legacy or unix03 it behaves as if it were set to unix03.
-.Pp
+The value of
+.Ev COMMAND_MODE
+is case insensitive and if it is unset or set to something other than legacy or unix03 it behaves as if it were set to unix03.
+.Sh 32-BIT COMPILATION
 Defining
 .Dv _NONSTD_SOURCE
 causes library and kernel calls to behave as closely to Mac OS X 10.3's library and kernel calls as possible.  Any behavioral changes in this mode are documented in the LEGACY sections of the individual function calls.
 .Pp
-Defining any of
-.Dv _POSIX_C_SOURCE,
-.Dv _APPLE_C_SOURE,
-or
-.Dv __LP64__
-causes library and kernel calls to conform to
-.St -susv3
-standards even if doing so would alter the behavior of functions used in 10.3.  Defining
+Defining
 .Dv _POSIX_C_SOURCE
-also removes functions, types, and other interfaces that are not part of
-.St -susv3
-from the normal C namespace, while
-.Dv _APPLE_C_SOURE
-does not.
+or
+.Dv _DARWIN_C_SOURCE
+causes library and kernel calls to conform to the SUSv3
+standards even if doing so would alter the behavior of functions used in 10.3.
+Defining
+.Dv _POSIX_C_SOURCE
+also removes functions, types, and other interfaces that are not part of SUSv3
+from the normal C namespace, unless
+.Dv _DARWIN_C_SOURCE
+is also defined (i.e.,
+.Dv _DARWIN_C_SOURCE
+is
+.Dv _POSIX_C_SOURCE 
+with non-POSIX extensions).
+In any of these cases, the
+.Dv _DARWIN_FEATURE_UNIX_CONFORMANCE
+feature macro will be defined to the SUS conformance level (it is undefined
+otherwise).
 .Pp
-Failing to define any of those symbols currently acts as if you have defined 
+Starting in Mac OS X 10.5, if none of the macros
+.Dv _NONSTD_SOURCE ,
+.Dv _POSIX_C_SOURCE
+or
+.Dv _DARWIN_C_SOURCE
+are defined, and the environment variable
+.Ev MACOSX_DEPLOYMENT_TARGET
+is either undefined or set to 10.5 or greater (or equivalently, the
+.Xr gcc 1
+option
+.Fl mmacosx-version-min
+is either not specified or set to 10.5 or greater), then UNIX conformance will
+be on by default, and non-POSIX extensions will also be available
+(this is the equivalent of defining
+.Dv _DARWIN_C_SOURCE ) .
+For version values less that 10.5, UNIX conformance will be off (the
+equivalent of defining
+.Dv _NONSTD_SOURCE ) .
+.Sh 64-BIT COMPILATION
+When compiling for 64-bit architectures, the
+.Dv __LP64__
+macro will be defined to 1, and UNIX conformance is always on (the
+.Dv _DARWIN_FEATURE_UNIX_CONFORMANCE
+macro will also be defined to the SUS conformance level).
+Defining
 .Dv _NONSTD_SOURCE
-but it is expected that in a future OS X release the default behavior will change to be as if
-.Dv _APPLE_C_SOURE
-were defined.
+will cause a compilation error.
 .Sh STANDARDS
 With COMMAND_MODE set to unix2003 utility functions conform to 
-.St -susv3
+.St -susv3 .
 .Pp
 With
-.Dv _POSIX_C_SOURCE,
-.Dv _APPLE_C_SOURE,
+.Dv _POSIX_C_SOURCE ,
+.Dv _DARWIN_C_SOURCE ,
 or
-.Dv __LP64__
+.Dv __LP64__ ,
 system and library calls conform to
-.St -susv3
+.St -susv3 .
 .Sh BUGS
-Different parts of a program can be compiled with different compatibility settings.  The resultant program will normally work as expected, for example a regex created by the
-.St -susv3
+Different parts of a program can be compiled with different compatibility
+settings.
+The resultant program will normally work as expected, for example a regex
+created by the SUSv3
 .Fn regcomp 3
 can be passed to the legacy
 .Fn regfree 3
 with no unexpected results.  Some cases are less clear cut, for example
-what does the programmer intend when they use the
-.Fn -susv3
+what does the programmer intend when they use the SUSv3
 .Fn regcomp 3
 to compile a regex, but the legacy
 .Fn regexec 3

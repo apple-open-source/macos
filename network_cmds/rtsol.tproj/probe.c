@@ -129,7 +129,7 @@ defrouter_probe(int ifindex)
 					"non-linklocal address(%s)",
 				       inet_ntop(AF_INET6,
 						 &dr.defrouter[i].rtaddr,
-						 ntopbuf, INET6_ADDRSTRLEN));
+						 (char *)ntopbuf, INET6_ADDRSTRLEN));
 				continue; /* ignore the address */
 			}
 			sendprobe(&dr.defrouter[i].rtaddr,
@@ -180,12 +180,12 @@ sendprobe(struct in6_addr *addr, int ifindex)
 	}
 
 	warnmsg(LOG_DEBUG, __FUNCTION__, "probe a router %s on %s",
-	       inet_ntop(AF_INET6, addr, ntopbuf, INET6_ADDRSTRLEN),
-	       if_indextoname(ifindex, ifnamebuf));
+	       inet_ntop(AF_INET6, addr, (char *)ntopbuf, INET6_ADDRSTRLEN),
+	       if_indextoname(ifindex, (char *)ifnamebuf));
 
 	if (sendmsg(probesock, &sndmhdr, 0))
 		warnmsg(LOG_ERR, __FUNCTION__, "sendmsg on %s: %s",
-			if_indextoname(ifindex, ifnamebuf), strerror(errno));
+			if_indextoname(ifindex, (char *)ifnamebuf), strerror(errno));
 
 	return;
 }

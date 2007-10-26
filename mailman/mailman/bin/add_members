@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! @PYTHON@
 #
 # Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 #
@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # argv[1] should be the name of the list.
 # argv[2] should be the list of non-digested users.
@@ -52,10 +52,6 @@ Options:
         the success/failure of these subscriptions, overriding whatever the
         list's `admin_notify_mchanges' setting is.
 
-    --enable-mail=<y|n>
-    -e <y|n>
-        Enable user mail deilvery options.
-
     --help
     -h
         Print this help message and exit.
@@ -81,7 +77,6 @@ from Mailman import MailList
 from Mailman import Utils
 from Mailman import Message
 from Mailman import Errors
-from Mailman import MemberAdaptor
 from Mailman import mm_cfg
 from Mailman import i18n
 
@@ -129,7 +124,7 @@ class UserDesc: pass
 
 
 
-def addall(mlist, members, digest, ack, outfp, enable):
+def addall(mlist, members, digest, ack, outfp):
     tee = Tee(outfp)
     for member in members:
         userdesc = UserDesc()
@@ -140,10 +135,6 @@ def addall(mlist, members, digest, ack, outfp, enable):
             mlist.ApprovedAddMember(userdesc, ack, 0)
         except Errors.MMAlreadyAMember:
             print >> tee, _('Already a member: %(member)s')
-            if enable == 1:
-                mlist.setDeliveryStatus(member, MemberAdaptor.ENABLED)
-            else:
-                mlist.setDeliveryStatus(member, MemberAdaptor.BYADMIN)
         except Errors.MMBadEmailError:
             if userdesc.address == '':
                 print >> tee, _('Bad/Invalid email address: blank line')
@@ -153,19 +144,14 @@ def addall(mlist, members, digest, ack, outfp, enable):
             print >> tee, _('Hostile address (illegal characters): %(member)s')
         else:
             print >> tee, _('Subscribed: %(member)s')
-            if enable == 1:
-                mlist.setDeliveryStatus(member, MemberAdaptor.ENABLED)
-            else:
-                mlist.setDeliveryStatus(member, MemberAdaptor.BYADMIN)
 
 
-
+
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'a:n:r:e:d:w:h',
+                                   'a:n:r:d:w:h',
                                    ['admin-notify=',
-                                    'enable-mail=',
                                     'regular-members-file=',
                                     'non-digest-members-file=',
                                     'digest-members-file=',
@@ -180,7 +166,6 @@ def main():
     listname = args[0].lower().strip()
     nfile = None
     dfile = None
-    enable_mail = 1
     send_welcome_msg = None
     admin_notif = None
     for opt, arg in opts:
@@ -197,13 +182,6 @@ def main():
             # I don't think we need to use the warnings module here.
             print >> sys.stderr, 'option', opt, \
                   'is deprecated, use -r/--regular-members-file'
-        elif opt in ('-e', '--enable-mail'):
-            if arg.lower()[0] == 'y':
-                enable_mail = 1
-            elif arg.lower()[0] == 'n':
-                enable_mail = 0
-            else:
-                usage(1, _('Bad argument to -3/--enable-mail: %(arg)s'))
         elif opt in ('-w', '--welcome-msg'):
             if arg.lower()[0] == 'y':
                 send_welcome_msg = 1
@@ -254,10 +232,10 @@ def main():
         s = StringIO()
         i18n.set_language(mlist.preferred_language)
         if nmembers:
-            addall(mlist, nmembers, 0, send_welcome_msg, s, enable_mail)
+            addall(mlist, nmembers, 0, send_welcome_msg, s)
 
         if dmembers:
-            addall(mlist, dmembers, 1, send_welcome_msg, s, enable_mail)
+            addall(mlist, dmembers, 1, send_welcome_msg, s)
 
         if admin_notif:
             realname = mlist.real_name

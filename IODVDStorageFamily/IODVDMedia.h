@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -75,7 +75,7 @@
 #define kIODVDMediaTypeRW "DVD-RW"
 
 /*!
- * @defined kIODVDMediaTypePlusRW
+ * @defined kIODVDMediaTypePlusR
  * The kIODVDMediaTypeKey constant for DVD "Plus" Recordable (DVD+R) media.
  */
 
@@ -94,6 +94,34 @@
  */
 
 #define kIODVDMediaTypeRAM "DVD-RAM"
+
+/*!
+ * @defined kIODVDMediaTypeHDROM
+ * The kIODVDMediaTypeKey constant for HD DVD-ROM media.
+ */
+
+#define kIODVDMediaTypeHDROM "HD DVD-ROM"
+
+/*!
+ * @defined kIODVDMediaTypeHDR
+ * The kIODVDMediaTypeKey constant for HD DVD Recordable (HD DVD-R) media.
+ */
+
+#define kIODVDMediaTypeHDR "HD DVD-R"
+
+/*!
+ * @defined kIODVDMediaTypeHDRW
+ * The kIODVDMediaTypeKey constant for HD DVD ReWritable (HD DVD-RW) media.
+ */
+
+#define kIODVDMediaTypeHDRW "HD DVD-RW"
+
+/*!
+ * @defined kIODVDMediaTypeHDRAM
+ * The kIODVDMediaTypeKey constant for HD DVD-RAM media.
+ */
+
+#define kIODVDMediaTypeHDRAM "HD DVD-RAM"
 
 #ifdef KERNEL
 #ifdef __cplusplus
@@ -131,6 +159,12 @@ public:
      */
 
     virtual IODVDBlockStorageDriver * getProvider() const;
+
+    /*
+     * Compare the properties in the supplied table to this object's properties.
+     */
+
+    virtual bool matchPropertyTable(OSDictionary * table, SInt32 * score);
 
     /*!
      * @function reportKey

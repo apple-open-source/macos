@@ -87,7 +87,6 @@ TPCrlInfo::TPCrlInfo(
 	: TPClItemInfo(clHand, cspHand, tpCrlClCalls, crlData, 
 			copyCrlData, verifyTime),
 		mRefCount(0),
-		mToBeDeleted(false),
 		mFromWhere(CFW_Nowhere),
 		mX509Crl(NULL),
 		mCrlFieldToFree(NULL),
@@ -243,7 +242,8 @@ CSSM_RETURN TPCrlInfo::parseExtensions(
 
 /* 
  * The heavyweight "perform full verification of this CRL" op.
- * Must verify to an anchor cert in tpVerifyContext.
+ * Must verify to an anchor cert in tpVerifyContext or via
+ * Trust Settings if so enabled. 
  * Intermediate certs can come from signerCerts or dBList. 
  */
 CSSM_RETURN TPCrlInfo::verifyWithContext(
@@ -288,10 +288,10 @@ CSSM_RETURN TPCrlInfo::verifyWithContext(
 		isIndirectCrl);
 	if(crtn) {
 		mVerifyState = CVS_Bad;
-		if(forCert) {
-			forCert->addStatusCode(crtn);
+		if(!forCert || forCert->addStatusCode(crtn)) {
+			return crtn;
 		}
-		return crtn;
+		/* else continue */
 	}
 	CSSM_X509_REVOKED_CERT_LIST_PTR revoked = 
 			mX509Crl->tbsCertList.revokedCertificates;
@@ -305,11 +305,10 @@ CSSM_RETURN TPCrlInfo::verifyWithContext(
 				forCert,
 				dummyIsIndirect);
 			if(crtn) {
-				mVerifyState = CVS_Bad;
-				if(forCert) {
-					forCert->addStatusCode(crtn);
+				if(!forCert || forCert->addStatusCode(crtn)) {
+					mVerifyState = CVS_Bad;
+					return crtn;
 				}
-				return crtn;
 			}
 		}
 	}
@@ -319,6 +318,7 @@ CSSM_RETURN TPCrlInfo::verifyWithContext(
 	 */
 	CSSM_BOOL	verifiedToRoot;
 	CSSM_BOOL	verifiedToAnchor;
+	CSSM_BOOL	verifiedViaTrustSetting;
 	
 	TPCertGroup outCertGroup(tpVerifyContext.alloc, 
 		TGO_Caller);			// CRLs owned by inCertGroup
@@ -344,19 +344,26 @@ CSSM_RETURN TPCrlInfo::verifyWithContext(
 			&tpVerifyContext.gatheredCerts,
 			CSSM_FALSE,						// subjectIsInGroup
 			tpVerifyContext.actionFlags,
+			tpVerifyContext.policyOid,
+			tpVerifyContext.policyStr,
+			tpVerifyContext.policyStrLen,
+			kSecTrustSettingsKeyUseSignRevocation,
 			verifiedToRoot,	
-			verifiedToAnchor);
+			verifiedToAnchor,
+			verifiedViaTrustSetting);
+	/* subsequent errors to errOut: */
+
 	if(crtn) {
 		tpCrlDebug("TPCrlInfo::verifyWithContext buildCertGroup failure "
 			"index %u",	index());
-		if(forCert) {
-			forCert->addStatusCode(crtn);
+		if(!forCert || forCert->addStatusCode(crtn)) {
+			goto errOut;
 		}
-		return crtn;
 	}
-	if(!verifiedToAnchor) {
+	if (verifiedToRoot && (tpVerifyContext.actionFlags & CSSM_TP_ACTION_IMPLICIT_ANCHORS))
+		verifiedToAnchor = CSSM_TRUE;
+	if(!verifiedToAnchor && !verifiedViaTrustSetting) {
 		/* required */
-		mVerifyState = CVS_Bad;
 		if(verifiedToRoot) {
 			/* verified to root which is not an anchor */
 			tpCrlDebug("TPCrlInfo::verifyWithContext root, no anchor, "
@@ -369,10 +376,10 @@ CSSM_RETURN TPCrlInfo::verifyWithContext(
 				"index %u",	index());
 			crtn = CSSMERR_APPLETP_CRL_NOT_TRUSTED;
 		}
-		if(forCert) {
-			forCert->addStatusCode(crtn);
+		if(!forCert || forCert->addStatusCode(crtn)) {
+			mVerifyState = CVS_Bad;
+			goto errOut;
 		}
-		return crtn;
 	}
 	
 	/* 
@@ -387,17 +394,17 @@ CSSM_RETURN TPCrlInfo::verifyWithContext(
 		tpVerifyContext.cspHand,
 		&outCertGroup,
 		verifiedToRoot,
+		verifiedViaTrustSetting,
 		tpVerifyContext.actionFlags | CSSM_TP_ACTION_LEAF_IS_CA,
 		NULL,							// sslOpts
 		NULL);							// policyOpts, not currently used 
 	if(crtn) {
 		tpCrlDebug("   ...verifyWithContext policy FAILURE CRL %u",
 			index());
-		if(forCert) {
-			forCert->addStatusCode(CSSMERR_APPLETP_CRL_POLICY_FAIL);
+		if(!forCert || forCert->addStatusCode(CSSMERR_APPLETP_CRL_POLICY_FAIL)) {
+			mVerifyState = CVS_Bad;
+			goto errOut;
 		}
-		mVerifyState = CVS_Bad;
-		return crtn;
 	}
 	
 	/*
@@ -415,16 +422,18 @@ CSSM_RETURN TPCrlInfo::verifyWithContext(
 		if(crtn) {
 			tpCrlDebug("   ...verifyWithContext CRL reverify FAILURE CRL %u",
 				index());
-			if(forCert) {
-				forCert->addStatusCode(crtn);
+			if(!forCert || forCert->addStatusCode(crtn)) {
+				mVerifyState = CVS_Bad;
+				goto errOut;
 			}
-			mVerifyState = CVS_Bad;
-			return crtn;
 		}
 	}
 
 	tpCrlDebug("   ...verifyWithContext CRL %u SUCCESS", index());
 	mVerifyState = CVS_Good;
+errOut:
+	/* we own these, we free the DB records */
+	certsToBeFreed.freeDbRecords();
 	return crtn;
 }
 
@@ -500,8 +509,13 @@ CSSM_RETURN TPCrlInfo::isCertRevoked(
 	if(crtn) {
 		/* should never happen */
 		tpErrorLog("TPCrlInfo:isCertRevoked: error fetching serial number\n");
-		subjectCert.addStatusCode(crtn);
-		return crtn;
+		if(subjectCert.addStatusCode(crtn)) {
+			return crtn;
+		}
+		else {
+			/* allowed error - can't proceed; punt with success */
+			return CSSM_OK;
+		}
 	}
 	/* subsequent errors to errOut: */
 	
@@ -560,8 +574,8 @@ CSSM_RETURN TPCrlInfo::isCertRevoked(
 	}
 	
 	subjectCert.freeField(&CSSMOID_X509V1SerialNumber, subjSerial);
-	if(crtn) {
-		subjectCert.addStatusCode(crtn);
+	if(crtn && !subjectCert.addStatusCode(crtn)) {
+		return CSSM_OK;
 	}
 	if(cfRevokedTime) {
 		CFRelease(cfRevokedTime);

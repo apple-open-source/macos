@@ -58,84 +58,13 @@
 
 #define MIN_BAUD (50 << 1)
 
-    // Globals
-
-#if USE_ELG
-    com_apple_iokit_XTrace	*gXTrace = 0;
-#endif
-
 //AppleUSBCDCACMControl		*gControlDriver = NULL;			// Our Control driver
+
+static const OSSymbol *gPMWakeOnRingSymbol = NULL;
 
 #define super IOSerialDriverSync
 
 OSDefineMetaClassAndStructors(AppleUSBCDCACMData, IOSerialDriverSync);
-
-#if USE_ELG
-/****************************************************************************************************/
-//
-//		Function:	findKernelLoggerAD
-//
-//		Inputs:		
-//
-//		Outputs:	
-//
-//		Desc:		Just like the name says
-//
-/****************************************************************************************************/
-
-IOReturn findKernelLoggerAD()
-{
-    OSIterator		*iterator = NULL;
-    OSDictionary	*matchingDictionary = NULL;
-    IOReturn		error = 0;
-	
-	// Get matching dictionary
-	
-    matchingDictionary = IOService::serviceMatching("com_apple_iokit_XTrace");
-    if (!matchingDictionary)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerAD] Couldn't create a matching dictionary.\n");
-        goto exit;
-    }
-	
-	// Get an iterator
-	
-    iterator = IOService::getMatchingServices(matchingDictionary);
-    if (!iterator)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerAD] No XTrace logger found.\n");
-        goto exit;
-    }
-	
-	// Use iterator to find each com_apple_iokit_XTrace instance. There should be only one, so we
-	// won't iterate
-	
-    gXTrace = (com_apple_iokit_XTrace*)iterator->getNextObject();
-    if (gXTrace)
-    {
-        IOLog(DEBUG_NAME "[findKernelLoggerAD] Found XTrace logger at %p.\n", gXTrace);
-    }
-	
-exit:
-	
-    if (error != kIOReturnSuccess)
-    {
-        gXTrace = NULL;
-        IOLog(DEBUG_NAME "[findKernelLoggerAD] Could not find a logger instance. Error = %X.\n", error);
-    }
-	
-    if (matchingDictionary)
-        matchingDictionary->release();
-            
-    if (iterator)
-        iterator->release();
-		
-    return error;
-    
-}/* end findKernelLoggerAD */
-#endif
 
 /****************************************************************************************************/
 //
@@ -304,96 +233,44 @@ AppleUSBCDCACMControl *findControlDriverAD(void *me)
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCACMData::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
+void AppleUSBCDCACMData::USBLogData(UInt8 Dir, SInt32 Count, char *buf)
 {    
     SInt32	wlen;
-#if USE_ELG
-    UInt8 	*b;
-    UInt8 	w[8];
-#else
-    UInt32	llen, rlen;
-    UInt16	i, Aspnt, Hxpnt;
+    SInt32	llen, rlen;
+    SInt16	i, Aspnt, Hxpnt;
     UInt8	wchr;
-    char	LocBuf[buflen+1];
-#endif
+    UInt8	LocBuf[buflen+1];
     
     switch (Dir)
     {
         case kDataIn:
-#if USE_ELG
-            XTRACE2(this, buf, Count, "USBLogData - Read Complete, address, size");
-#else
-            IOLog( "AppleUSBCDCACMData: USBLogData - Read Complete, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
-#endif
+            Log( "AppleUSBCDCACMData: USBLogData - Read Complete, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
             break;
         case kDataOut:
-#if USE_ELG
-            XTRACE2(this, buf, Count, "USBLogData - Write, address, size");
-#else
-            IOLog( "AppleUSBCDCACMData: USBLogData - Write, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
-#endif
+            Log( "AppleUSBCDCACMData: USBLogData - Write, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
             break;
         case kDataOther:
-#if USE_ELG
-            XTRACE2(this, buf, Count, "USBLogData - Other, address, size");
-#else
-            IOLog( "AppleUSBCDCACMData: USBLogData - Other, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
-#endif
+            Log( "AppleUSBCDCACMData: USBLogData - Other, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
             break;
     }
 
-#if DUMPALL
-    wlen = Count;
-#else
     if (Count > dumplen)
     {
         wlen = dumplen;
     } else {
         wlen = Count;
     }
-#endif
 
     if (wlen == 0)
     {
-#if USE_ELG
-        XTRACE2(this, 0, Count, "USBLogData - No data, Count=0");
-#else
-        IOLog( "AppleUSBCDCACMData: USBLogData - No data, Count=0\n" );
-#endif
+        Log( "AppleUSBCDCACMData: USBLogData - No data, Count=0\n" );
         return;
     }
 
-#if (USE_ELG)
-    b = (UInt8 *)buf;
-    while (wlen > 0)							// loop over the buffer
-    {
-        bzero(w, sizeof(w));						// zero it
-        bcopy(b, w, min(wlen, 8));					// copy bytes over
-    
-        switch (Dir)
-        {
-            case kDataIn:
-                XTRACE2(this, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Rx buffer dump");
-                break;
-            case kDataOut:
-                XTRACE2(this, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Tx buffer dump");
-                break;
-            case kDataOther:
-                XTRACE2(this, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Misc buffer dump");
-                break;
-        }
-        wlen -= 8;							// adjust by 8 bytes for next time (if have more)
-        b += 8;
-    }
-#else
     rlen = 0;
     do
     {
-        for (i=0; i<=buflen; i++)
-        {
-            LocBuf[i] = 0x20;
-        }
-        LocBuf[i] = 0x00;
+		memset(LocBuf, 0x20, buflen);
         
         if (wlen > dumplen)
         {
@@ -418,16 +295,65 @@ void AppleUSBCDCACMData::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
             }
         }
         LocBuf[(llen + Asciistart) + 1] = 0x00;
-        IOLog("%s", LocBuf);
-        IOLog("\n");
+
+        Log("%s\n", LocBuf);
+#if USE_IOL
         IOSleep(Sleep_Time);					// Try and keep the log from overflowing
-       
+#endif       
         rlen += llen;
         buf = &buf[rlen];
     } while (wlen != 0);
-#endif 
 
 }/* end USBLogData */
+
+/****************************************************************************************************/
+//
+//		Function:	AppleUSBCDCACMData::dumpData
+//
+//		Inputs:		Dir - direction
+//					buf - the data
+//					size - number of bytes
+//
+//		Outputs:	None
+//
+//		Desc:		Creates formatted data for the log
+//
+/****************************************************************************************************/
+
+void AppleUSBCDCACMData::dumpData(UInt8 Dir, char *buf, SInt32 Count)
+{
+    SInt32	curr, len, dlen;
+	
+	switch (Dir)
+    {
+        case kDataIn:
+            Log( "AppleUSBCDCACMData: dumpData - Read Complete, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
+            break;
+        case kDataOut:
+            Log( "AppleUSBCDCACMData: dumpData - Write, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
+            break;
+        case kDataOther:
+            Log( "AppleUSBCDCACMData: dumpData - Other, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
+            break;
+    }
+
+    dlen = 0;
+    len = Count;
+    
+    for (curr=0; curr<Count; curr+=dumplen)
+    {
+        if (len > dumplen)
+        {
+            dlen = dumplen;
+        } else {
+            dlen = len;
+        }
+        Log("%8x ", (UInt)&buf[curr]);
+        USBLogData(kDataNone, dlen, &buf[curr]);
+        len -= dlen;
+    }
+   
+}/* end dumpData */
 #endif
 
 /****************************************************************************************************/
@@ -1015,7 +941,7 @@ IOService* AppleUSBCDCACMData::probe( IOService *provider, SInt32 *score )
 
 bool AppleUSBCDCACMData::start(IOService *provider)
 {
-    OSNumber		*bufNumber = NULL;
+    OSNumber	*bufNumber = NULL;
     UInt16		bufValue = 0;
 	
 	XTRACE(this, 0, provider, "start");
@@ -1027,23 +953,11 @@ bool AppleUSBCDCACMData::start(IOService *provider)
     fStopping = false;
 	fControlDriver = NULL;
 	fWorkLoop = NULL;
+	fPMRootDomain = NULL;
+	fWoR = false;
+	fWakeSettingControllerHandle = NULL;
     
     initStructure();
-    
-#if USE_ELG
-    XTraceLogInfo	*logInfo;
-    
-    findKernelLoggerAD();
-    if (gXTrace)
-    {
-        gXTrace->retain();		// don't let it unload ...
-        XTRACE(this, 0, 0xbeefbeef, "Hello from start");
-        logInfo = gXTrace->LogGetInfo();
-        IOLog("AppleUSBCDCACMData: start - Log is at %x\n", (unsigned int)logInfo);
-    } else {
-        return false;
-    }
-#endif
     
     if(!super::start(provider))
     {
@@ -1224,16 +1138,27 @@ bool AppleUSBCDCACMData::start(IOService *provider)
     fWorkLoop->retain();
     fCommandGate->enable();
 
+	gPMWakeOnRingSymbol = OSSymbol::withCString(kIOPMSettingWakeOnRingKey);
+	
 	if (fConfigAttributes & kUSBAtrRemoteWakeup)
     {
-        getPMRootDomain()->publishFeature("WakeOnRing");
-		setWakeFeature();
 		XTRACE(this, 0, 0, "start - Remote wake up is supported");
+		WakeonRing();
+		setWakeFeature();
+		if (!setupWakeOnRingPMCallback())
+		{
+			XTRACE(this, 0, 0, "start - Setting the Wake on Ring callback failed");
+		}
 	} else {
         XTRACE(this, 0, 0, "start - Remote wake up not supported");
     }
 	
-	IOLog(DEBUG_NAME ": Version number - %s, Input buffers %d, Output buffers %d\n", VersionNumber, fInBufPool, fOutBufPool);
+		// Save the ID's
+    
+    fVendorID = fDataInterface->GetDevice()->GetVendorID();
+    fProductID = fDataInterface->GetDevice()->GetProductID();
+	
+	Log(DEBUG_NAME ": Version number - %s, Input buffers %d, Output buffers %d\n", VersionNumber, fInBufPool, fOutBufPool);
     
     return true;
     	
@@ -1262,6 +1187,16 @@ void AppleUSBCDCACMData::stop(IOService *provider)
     retain();
     ret = fCommandGate->runAction(stopAction);
     release();
+	
+	if (fWakeSettingControllerHandle)
+	{
+		fWakeSettingControllerHandle->release();
+	}
+	
+	if (fPMRootDomain)
+	{
+		fPMRootDomain->deRegisterInterestedDriver(this);
+	}
         
     removeProperty((const char *)propertyTag);
     
@@ -1334,8 +1269,7 @@ bool AppleUSBCDCACMData::createSuffix(unsigned char *sufKey)
     UInt8	serBuf[12];		// arbitrary size > 8
     OSNumber	*location;
     UInt32	locVal;
-    UInt8	*rlocVal;
-    UInt16	offs, i, sig = 0;
+    SInt16	i, sig = 0;
     UInt8	indx;
     bool	keyOK = false;			
 	
@@ -1367,18 +1301,17 @@ bool AppleUSBCDCACMData::createSuffix(unsigned char *sufKey)
         location = (OSNumber *)fDataInterface->GetDevice()->getProperty(kUSBDevicePropertyLocationID);
         if (location)
         {
-            locVal = location->unsigned32BitValue();		
-            offs = 0;
-            rlocVal = (UInt8*)&locVal;
-            for (i=0; i<4; i++)
-            {
-                sufKey[offs] = Asciify(rlocVal[i] >> 4);
-                if (sufKey[offs++] != '0')
-                    sig = offs;
-                sufKey[offs] = Asciify(rlocVal[i]);
-                if (sufKey[offs++] != '0')
-                    sig = offs;
-            }
+            locVal = location->unsigned32BitValue();
+			snprintf((char *)sufKey, (sizeof(locVal)*2)+1, "%x", locVal);
+			sig = strlen((const char *)sufKey)-1;
+			for (i=sig; i>=0; i--)
+			{
+				if (sufKey[i] != '0')
+				{
+					break;
+				}
+			}
+			sig = i + 1;
             keyOK = true;
         }
     }
@@ -1388,11 +1321,9 @@ bool AppleUSBCDCACMData::createSuffix(unsigned char *sufKey)
     if (keyOK)
     {
         sufKey[sig] = Asciify((UInt8)fPort.DataInterfaceNumber >> 4);
-        if (sufKey[sig] != '0')
-            sig++;
-        sufKey[sig] = Asciify((UInt8)fPort.DataInterfaceNumber);
-        if (sufKey[sig] != '0')
-            sig++;			
+		if (sufKey[sig] != '0')
+            sig++;	
+        sufKey[sig++] = Asciify((UInt8)fPort.DataInterfaceNumber);
         sufKey[sig] = 0x00;
     }
 	
@@ -1972,6 +1903,11 @@ IOReturn AppleUSBCDCACMData::setStateAction(OSObject *owner, void *arg0, void *a
 IOReturn AppleUSBCDCACMData::setStateGated(UInt32 state, UInt32 mask)
 {
     UInt32	delta;
+	bool	controlUpdate = false;
+	UInt32	DTRstate;
+	UInt32	RTSstate;
+	bool	DTRnew;
+	bool	RTSnew;
 	
     XTRACE(this, state, mask, "setStateGated");
     
@@ -1982,23 +1918,55 @@ IOReturn AppleUSBCDCACMData::setStateGated(UInt32 state, UInt32 mask)
 
     if ((state & PD_S_ACQUIRED) || (fPort.State & PD_S_ACQUIRED))
     {
+		XTRACE(this, state, mask, "setState - Requested state and mask");
+		XTRACE(this, 0, fPort.State, "setState - Current state");
+		DTRstate = fPort.State & PD_RS232_S_DTR;
+		RTSstate = fPort.State & PD_RS232_S_RTS;
+		XTRACE(this, DTRstate, RTSstate, "setState - DTRstate and RTSstate");
+		DTRnew = (bool)fPort.State & PD_RS232_S_DTR;
+		RTSnew = (bool)fPort.State & PD_RS232_S_RTS;
+		
+			// Handle DTR and RTS changes for the modem
+		
         if (mask & PD_RS232_S_DTR)
         {
             if ((state & PD_RS232_S_DTR) != (fPort.State & PD_RS232_S_DTR))
             {
+				controlUpdate = true;
                 if (state & PD_RS232_S_DTR)
                 {
-                    XTRACE(this, 0, 0, "setState - DTR TRUE");
-                    setControlLineState(true, true);
+                    XTRACE(this, 0, 0, "setState - Changing DTR to ON");
+					DTRnew = true;
                 } else {
-                    if (!fTerminate)
-                    {
-                        XTRACE(this, 0, 0, "setState - DTR FALSE");
-                        setControlLineState(true, false);
-                    }
+					XTRACE(this, 0, 0, "setState - Changing DTR to OFF");
+					DTRnew = false;
                 }
-            }
+            } else {
+				XTRACE(this, 0, DTRstate, "setState - DTR state unchanged");
+			}
         }
+		if (mask & PD_RS232_S_RTS)
+		{
+			if ((state & PD_RS232_S_RTS) != (fPort.State & PD_RS232_S_RTS))
+            {
+				controlUpdate = true;
+                if (state & PD_RS232_S_RTS)
+                {
+                    XTRACE(this, 0, 0, "setState - Changing RTS to ON");
+					RTSnew = true;
+                } else {
+					XTRACE(this, 0, 0, "setState - Changing RTS to OFF");
+					RTSnew = false;
+                }
+            } else {
+				XTRACE(this, 0, RTSstate, "setState - RTS state unchanged");
+			}
+		}
+		
+		if ((!fTerminate) && (controlUpdate))
+		{
+			setControlLineState(RTSnew, DTRnew);
+		}
         
         state = (fPort.State & ~mask) | (state & mask); 		// compute the new state
         delta = state ^ fPort.State;		    			// keep a copy of the diffs
@@ -3540,42 +3508,130 @@ bool AppleUSBCDCACMData::allocateRingBuffer(CirQueue *Queue, size_t BufferSize)
 
 /****************************************************************************************************/
 //
+//		Function:	AppleUSBCDCACMData::handleSettingCallback
+//
+//		Inputs:		
+//
+//		Outputs:	none	
+//
+//		Desc:		Handles the async Wake on Ring setting
+//
+/****************************************************************************************************/
+
+void AppleUSBCDCACMData::handleSettingCallback(const OSSymbol *arg_type, OSObject *arg_val, uintptr_t refcon)
+{
+    UInt32				WoR;
+	
+	XTRACE(this, 0, 0, "handleSettingCallback");
+		
+    WoR = ((OSNumber *)arg_val)->unsigned32BitValue();
+    
+	if (arg_type == gPMWakeOnRingSymbol)
+	{
+		if (WoR != fWoR)
+		{
+			fWoR = WoR;
+			if (fTerminate || fStopping)
+			{
+				XTRACE(this, 0, 0, "handleSettingCallback - Offline");
+				return;
+			}
+			setWakeFeature();
+		} else {
+			XTRACE(this, 0, 0, "handleSettingCallback - Wake on Ring unchanged");
+		}
+    }
+	
+}/* end handleSettingCallback */
+
+/****************************************************************************************************/
+//
+//		Function:	AppleUSBCDCACMData::setupWakeOnRingPMCallback
+//
+//		Inputs:		none
+//
+//		Outputs:	return code - true( callback enabled), false(disabled)	
+//
+//		Desc:		Set up the PM callback for Wake on Ring
+//
+/****************************************************************************************************/
+
+bool AppleUSBCDCACMData::setupWakeOnRingPMCallback()
+{
+	IOReturn		ior;
+	bool			worOK = false;
+    const OSSymbol	*settings_arr[] = {gPMWakeOnRingSymbol, (const OSSymbol *)NULL};
+	
+	XTRACE(this, 0, 0, "setupWakeOnRingPMCallback");
+	
+	if (fPMRootDomain)
+	{
+		fPMRootDomain->publishFeature("WakeOnRing");
+    
+		ior = fPMRootDomain->registerPMSettingController(settings_arr,
+														 OSMemberFunctionCast(IOPMSettingControllerCallback,
+														 (OSObject*)this,
+														 &AppleUSBCDCACMData::handleSettingCallback),
+														 (OSObject *)this,
+														 (uintptr_t)NULL,
+														 (OSObject **)&fWakeSettingControllerHandle);
+		if (ior == kIOReturnSuccess)
+		{
+			XTRACE(this, 0, 0, "setupWakeOnRingPMCallback - Setting PM callback successful");
+			worOK = true;
+		} else {
+			XTRACE(this, 0, 0, "setupWakeOnRingPMCallback - Setting PM callback failed, wake-on-ring set at start only");
+		}
+	} else {
+		XTRACE(this, 0, 0, "setupWakeOnRingPMCallback - PM root domain is invalid, wake-on-ring set at start only");
+	}
+	
+    return worOK;
+	
+}/* end setupWakeOnRingPMCallback */
+
+/****************************************************************************************************/
+//
 //		Function:	AppleUSBCDCACMData::WakeonRing
 //
 //		Inputs:		none
 //
-//		Outputs:	return code - true(Wake-on-Ring enabled), false(disabled)	
+//		Outputs:	return code - true(always at the moment...)	
 //
-//		Desc:		Find the PMU entry and checks the wake-on-ring flag
+//		Desc:		Get the current Wake on Ring setting
 //
 /****************************************************************************************************/
 
 bool AppleUSBCDCACMData::WakeonRing(void)
 {
-    mach_timespec_t	t;
-    IOService 		*pmu;
-    bool		WoR = false;
-
+    OSObject	*initWORValue = NULL;
+	UInt32		worVal;
+	
     XTRACE(this, 0, 0, "WakeonRing");
         
-    t.tv_sec = 1;
-    t.tv_nsec = 0;
+    fPMRootDomain = getPMRootDomain();
+	if (fPMRootDomain)
+	{
+		fPMRootDomain->registerInterestedDriver(this);
+		initWORValue = fPMRootDomain->copyPMSetting((OSSymbol *)gPMWakeOnRingSymbol);
+		if (initWORValue)
+		{
+			worVal = ((OSNumber *)initWORValue)->unsigned32BitValue();
+			if (worVal)
+			{
+				XTRACE(this, 0, worVal, "WakeonRing - Wake on Ring Enabled");
+				fWoR = true;
+			} else {
+				XTRACE(this, 0, 0, "WakeonRing - Wake on Ring Disabled");
+			}
+		} else {
+			XTRACE(this, 0, 0, "WakeonRing - Initial Wake on Ring unavailable, now disabled...");
+		}
+	} else {
+		XTRACE(this, 0, 0, "WakeonRing - Remote wake up is disabled");
+	}
     
-    pmu = waitForService(IOService::serviceMatching("ApplePMU"), &t);
-    if (pmu)
-    {
-        if (kOSBooleanTrue == pmu->getProperty("WakeOnRing"))
-        {
-            XTRACE(this, 0, 0, "WakeonRing - Enabled");
-            WoR = true;
-        } else {
-            XTRACE(this, 0, 0, "WakeonRing - Disabled");
-        }
-    } else {
-        XTRACE(this, 0, 0, "WakeonRing - serviceMatching ApplePMU failed");
-    }
-    
-    return WoR;
+    return true;
     
 }/* end WakeonRing */
 
@@ -3601,7 +3657,7 @@ void AppleUSBCDCACMData::setWakeFeature(void)
 		// Set/Clear the Device Remote Wake feature depending upon wake-on-ring
     
 	devreq.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBDevice);
-	if (!WakeonRing())				
+	if (!fWoR)				
 	{
 		devreq.bRequest = kUSBRqClearFeature;
 	} else {
@@ -3615,9 +3671,9 @@ void AppleUSBCDCACMData::setWakeFeature(void)
 	ior = fDataInterface->GetDevice()->DeviceRequest(&devreq);
 	if (ior == kIOReturnSuccess)
 	{
-		XTRACE(this, 0, ior, "setWakeFeature - Set/Clear remote wake up feature successful");
+		XTRACE(this, fWoR, ior, "setWakeFeature - Set/Clear remote wake up feature successful");
 	} else {
-		XTRACE(this, 0, ior, "setWakeFeature - Set/Clear remote wake up feature failed");
+		XTRACE(this, fWoR, ior, "setWakeFeature - Set/Clear remote wake up feature failed");
 	}
 
 }/* end setWakeFeature */
@@ -3766,3 +3822,284 @@ IOReturn AppleUSBCDCACMData::message(UInt32 type, IOService *provider, void *arg
     return kIOReturnUnsupported;
     
 }/* end message */
+
+#undef  super
+#define super IOUserClient
+
+OSDefineMetaClassAndStructors(AppleUSBCDCACMDataUserClient, IOUserClient);
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMDataUserClient::getExternalMethodForIndex
+//
+//		Inputs:		
+//
+//		Outputs:	return code - method index
+//
+//		Desc:		Get the method index. 
+//
+/****************************************************************************************************/
+
+IOExternalMethod *AppleUSBCDCACMDataUserClient::getExternalMethodForIndex(UInt32 index)
+{
+    IOExternalMethod	*result = NULL;
+
+    XTRACE(this, 0, index, "getExternalMethodForIndex");
+    
+    if (index == 0)
+    {
+        result = &fMethods[0];
+    }
+
+    return result;
+    
+}/* end getExternalMethodForIndex */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMDataUserClient::initWithTask
+//
+//		Inputs:		owningTask - the owner
+//					security_id - Security ID
+//					type - Client code (lucky number)
+//
+//		Outputs:	true - it worked, false - it didn't
+//
+//		Desc:		Set up the user client task. 
+//
+/****************************************************************************************************/
+
+bool AppleUSBCDCACMDataUserClient::initWithTask(task_t owningTask, void *security_id , UInt32 type)
+{
+
+    XTRACE(this, 0, 0, "initWithTask");
+    
+    if (!super::initWithTask(owningTask, security_id, type))
+    {
+        XTRACE(this, 0, 0, "initWithTask - super failed");
+        return false;
+    }
+    
+    if (!owningTask)
+    {
+        XTRACE(this, 0, 0, "initWithTask - No owning task");
+		return false;
+    }
+	
+    fTask = owningTask;
+    fProvider = NULL;
+        
+    return true;
+    
+}/* end initWithTask */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMDataUserClient::start
+//
+//		Inputs:		provider - my provider
+//
+//		Outputs:	return code - true(it worked), false (it didn't)
+//
+//		Desc:		Start the user client task. 
+//
+/****************************************************************************************************/
+
+bool AppleUSBCDCACMDataUserClient::start(IOService *provider)
+{
+
+    XTRACE(this, 0, 0, "start");
+    
+    if (super::start(provider) == false)
+    {
+        XTRACE(this, 0, 0, "start - Provider start failed");
+        return false;
+    }
+    
+    fProvider = OSDynamicCast(AppleUSBCDCACMData, provider);
+    if (!fProvider)
+    {
+        XTRACE(this, 0, 0, "start - Provider invalid");
+		return false;
+    }
+    
+        // Initialize the call structure
+    
+    fMethods[0].object = this;
+    fMethods[0].func   = (IOMethod)&AppleUSBCDCACMDataUserClient::doRequest;
+    fMethods[0].count0 = 0xFFFFFFFF;			/* One input  as big as I need */
+    fMethods[0].count1 = 0xFFFFFFFF;			/* One output as big as I need */
+    fMethods[0].flags  = kIOUCStructIStructO;
+    
+    return true;
+    
+}/* end start */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMDataUserClient::clientClose
+//
+//		Inputs:		
+//
+//		Outputs:	return code - kIOReturnSuccess
+//
+//		Desc:		Close things down. 
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCACMDataUserClient::clientClose()
+{
+    
+    XTRACE(this, 0, 0, "clientClose");
+    
+    if (!fProvider)
+    {
+        XTRACE(this, 0, 0, "clientClose - Not attached");
+        return kIOReturnNotAttached;
+    }
+
+        // Make sure it's open before we close it.
+    
+    if (fProvider->isOpen(this))
+        fProvider->close(this);
+
+    fTask = NULL;
+    fProvider = NULL;
+           
+    return kIOReturnSuccess;
+    
+}/* end clientClose */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMDataUserClient::clientDied
+//
+//		Inputs:		
+//
+//		Outputs:	return code - kIOReturnSuccess
+//
+//		Desc:		Close it down now. 
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCACMDataUserClient::clientDied()
+{
+
+    XTRACE(this, 0, 0, "clientDied");
+    
+    return clientClose();
+    
+}/* end clientDied */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMDataUserClient::doRequest
+//
+//		Inputs:		pIn - the input buffer
+//					pOut - the output buffer
+//					inputSize - Size of input buffer
+//					pOutPutSize - Size of output buffer
+//
+//		Outputs:	pOutSize - Number of bytes returned
+//					return code - kIOReturnSuccess or kIOReturnBadArgument
+//
+//		Desc:		Execute the client request. 
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCACMDataUserClient::doRequest(void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *pOutPutSize)
+{
+    UInt8	*input;
+    
+    XTRACE(this, 0, 0, "doRequest");
+    
+        // Make sure we actually have a provider
+        
+    if (!fProvider)
+    {
+        XTRACE(this, 0, 0, "doRequest - Not attached");
+        return kIOReturnNotAttached;
+    }
+
+	// check first byte of input data for a command code
+        
+    if (pIn && (inputSize > 0))
+    {
+        input = (UInt8 *)pIn;
+ 
+            // 1st byte of input has request ID
+            
+        switch (*input) 
+        {
+            case cmdACMData_Message:
+                return ACMDataMessage(pIn, pOut, inputSize, pOutPutSize);
+                		    
+            default:
+               XTRACE(this, 0, *input, "doRequest - Invalid command");
+               break;    
+        }
+    } else {
+        XTRACE(this, 0, inputSize, "doRequest - pIn/pOut or size error");
+    }
+
+    return kIOReturnBadArgument;
+    
+}/* end doRequest */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCACMDataUserClient::ACMDataMessage
+//
+//		Inputs:		pIn - the input structure
+//					pOut - the output structure
+//					inputSize - Size of the input structure
+//					pOutSize - Size of the output structure
+//
+//		Outputs:	return code - kIOReturnSuccess
+//
+//		Desc:		Process the message 
+//
+/****************************************************************************************************/
+
+IOReturn AppleUSBCDCACMDataUserClient::ACMDataMessage(void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *pOutPutSize)
+{
+	dataParms	*input = (dataParms *)pIn;
+    statusData	*output = (statusData *)pOut;
+    
+    XTRACE(this, 0, 0, "ACMDataMessage");
+    
+	switch (input->message)
+    {
+		case noWarning:
+			XTRACE(this, 0, 0, "ACMDataMessage - noWarning");
+			if ((input->vendor == fProvider->fVendorID) && (input->product == fProvider->fProductID))
+			{
+				XTRACE(this, fProvider->fVendorID, fProvider->fProductID, "ACMDataMessage - Unplug warning dialog is being suppressed");
+				fProvider->fSuppressWarning = true;
+				output->status = kSuccess;
+			} else {
+				XTRACE(this, 0, 0, "ACMDataMessage - noWarning, not my device");
+				output->status = kError;
+			}
+			break;
+		case warning:
+			XTRACE(this, 0, 0, "ACMDataMessage - warning");
+			if ((input->vendor == fProvider->fVendorID) && (input->product == fProvider->fProductID))
+			{
+				XTRACE(this, fProvider->fVendorID, fProvider->fProductID, "ACMDataMessage - Unplug warning dialog is being re-instated");
+				fProvider->fSuppressWarning = false;
+				output->status = kSuccess;
+			} else {
+				XTRACE(this, 0, 0, "ACMDataMessage - warning, not my device");
+				output->status = kError;
+			}
+			break;
+		default:
+			XTRACE(this, 0, 0, "ACMDataMessage - Invalid message");
+			output->status = kError;
+			break;
+	}
+
+    return kIOReturnSuccess;
+    
+}/* end ACMDataMessage */

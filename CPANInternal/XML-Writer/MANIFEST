@@ -1,0 +1,8 @@
+README
+Changes
+MANIFEST
+Makefile.PL
+META.yml
+Writer.pm
+t/01_main.t
+TODO

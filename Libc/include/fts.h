@@ -58,6 +58,23 @@
 #ifndef	_FTS_H_
 #define	_FTS_H_
 
+#include <sys/_types.h>
+
+#ifndef _DEV_T
+typedef	__darwin_dev_t		dev_t;		/* device number */
+#define _DEV_T
+#endif
+
+#ifndef	_INO_T
+typedef	__darwin_ino_t	ino_t;		/* inode number */
+#define _INO_T
+#endif
+
+#ifndef _NLINK_T
+typedef	__uint16_t		nlink_t;	/* link count */
+#define	_NLINK_T
+#endif
+
 typedef struct {
 	struct _ftsent *fts_cur;	/* current node */
 	struct _ftsent *fts_child;	/* linked list of children */
@@ -77,7 +94,8 @@ typedef struct {
 #define	FTS_SEEDOT	0x020		/* return dot and dot-dot */
 #define	FTS_XDEV	0x040		/* don't cross devices */
 #define	FTS_WHITEOUT	0x080		/* return whiteout information */
-#define	FTS_OPTIONMASK	0x0ff		/* valid user option mask */
+#define	FTS_COMFOLLOWDIR 0x400		/* (non-std) follow command line symlinks for directories only */
+#define	FTS_OPTIONMASK	0x4ff		/* valid user option mask */
 
 #define	FTS_NAMEONLY	0x100		/* (private) child names only */
 #define	FTS_STOP	0x200		/* (private) unrecoverable error */
@@ -139,12 +157,53 @@ typedef struct _ftsent {
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-FTSENT	*fts_children(FTS *, int);
-int	 fts_close(FTS *);
+//Begin-Libc
+#ifndef LIBC_ALIAS_FTS_CHILDREN
+//End-Libc
+FTSENT	*fts_children(FTS *, int) __DARWIN_INODE64(fts_children);
+//Begin-Libc
+#else /* LIBC_ALIAS_FTS_CHILDREN */
+FTSENT	*fts_children(FTS *, int) LIBC_INODE64(fts_children);
+#endif /* !LIBC_ALIAS_FTS_CHILDREN */
+//End-Libc
+//Begin-Libc
+#ifndef LIBC_ALIAS_FTS_CLOSE
+//End-Libc
+int	 fts_close(FTS *) __DARWIN_INODE64(fts_close);
+//Begin-Libc
+#else /* LIBC_ALIAS_FTS_CLOSE */
+int	 fts_close(FTS *) LIBC_INODE64(fts_close);
+#endif /* !LIBC_ALIAS_FTS_CLOSE */
+//End-Libc
+//Begin-Libc
+#ifndef LIBC_ALIAS_FTS_OPEN
+//End-Libc
 FTS	*fts_open(char * const *, int,
-	    int (*)(const FTSENT **, const FTSENT **));
-FTSENT	*fts_read(FTS *);
-int	 fts_set(FTS *, FTSENT *, int);
+	    int (*)(const FTSENT **, const FTSENT **)) __DARWIN_INODE64(fts_open);
+//Begin-Libc
+#else /* LIBC_ALIAS_FTS_OPEN */
+FTS	*fts_open(char * const *, int,
+	    int (*)(const FTSENT **, const FTSENT **)) LIBC_INODE64(fts_open);
+#endif /* !LIBC_ALIAS_FTS_OPEN */
+//End-Libc
+//Begin-Libc
+#ifndef LIBC_ALIAS_FTS_READ
+//End-Libc
+FTSENT	*fts_read(FTS *) __DARWIN_INODE64(fts_read);
+//Begin-Libc
+#else /* LIBC_ALIAS_FTS_READ */
+FTSENT	*fts_read(FTS *) LIBC_INODE64(fts_read);
+#endif /* !LIBC_ALIAS_FTS_READ */
+//End-Libc
+//Begin-Libc
+#ifndef LIBC_ALIAS_FTS_SET
+//End-Libc
+int	 fts_set(FTS *, FTSENT *, int) __DARWIN_INODE64(fts_set);
+//Begin-Libc
+#else /* LIBC_ALIAS_FTS_SET */
+int	 fts_set(FTS *, FTSENT *, int) LIBC_INODE64(fts_set);
+#endif /* !LIBC_ALIAS_FTS_SET */
+//End-Libc
 __END_DECLS
 
 #endif /* !_FTS_H_ */

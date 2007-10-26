@@ -1,10 +1,11 @@
 ;;; cc-compat.el --- cc-mode compatibility with c-mode.el confusion
 
-;; Copyright (C) 1985,1987,1992-2001 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+;;   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
 
-;; Authors:    2000- Martin Stjernholm
-;;	       1998-1999 Barry A. Warsaw and Martin Stjernholm
-;;	       1994-1997 Barry A. Warsaw
+;; Authors:    1998- Martin Stjernholm
+;;	       1994-1999 Barry A. Warsaw
 ;; Maintainer: bug-cc-mode@gnu.org
 ;; Created:    August 1994, split from cc-mode.el
 ;; Version:    See cc-mode.el
@@ -24,8 +25,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program; see the file COPYING.  If not, write to
-;; the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 ;;
@@ -51,7 +52,7 @@
 		  (stringp byte-compile-dest-file))
 	     (cons (file-name-directory byte-compile-dest-file) load-path)
 	   load-path)))
-    (require 'cc-bytecomp)))
+    (load "cc-bytecomp" nil t)))
 
 (cc-require 'cc-defs)
 (cc-require 'cc-vars)
@@ -62,6 +63,8 @@
 ;; In case c-mode.el isn't loaded
 (defvar c-indent-level 2
   "*Indentation of C statements with respect to containing block.")
+;;;###autoload(put 'c-indent-level 'safe-local-variable 'integerp)
+
 (defvar c-brace-imaginary-offset 0
   "*Imagined indentation of a C open brace that actually follows a statement.")
 (defvar c-brace-offset 0
@@ -161,4 +164,6 @@ This is in addition to c-continued-statement-offset.")
 
 
 (cc-provide 'cc-compat)
+
+;;; arch-tag: 564dab2f-e6ad-499c-a4a3-fedec3ecc192
 ;;; cc-compat.el ends here

@@ -183,7 +183,6 @@
 #define __dr7 dr7
 
 #include <string.h>
-#include "stuff/target_arch.h"
 #include <mach-o/fat.h>
 #include <mach-o/loader.h>
 #include <mach/m68k/thread_status.h>
@@ -275,7 +274,7 @@ enum byte_sex
 get_host_byte_sex(
 void)
 {
-    unsigned long s;
+    uint32_t s;
 
 	s = (BIG_ENDIAN_BYTE_SEX << 24) | LITTLE_ENDIAN_BYTE_SEX;
 	return((enum byte_sex)*((char *)&s));
@@ -292,8 +291,8 @@ enum byte_sex target_byte_sex)
         dummy = target_byte_sex;
 #endif
 
-	fat_header->magic     = SWAP_LONG(fat_header->magic);
-	fat_header->nfat_arch = SWAP_LONG(fat_header->nfat_arch);
+	fat_header->magic     = SWAP_INT(fat_header->magic);
+	fat_header->nfat_arch = SWAP_INT(fat_header->nfat_arch);
 }
 
 __private_extern__
@@ -310,11 +309,11 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < nfat_arch; i++){
-	    fat_archs[i].cputype    = SWAP_LONG(fat_archs[i].cputype);
-	    fat_archs[i].cpusubtype = SWAP_LONG(fat_archs[i].cpusubtype);
-	    fat_archs[i].offset     = SWAP_LONG(fat_archs[i].offset);
-	    fat_archs[i].size       = SWAP_LONG(fat_archs[i].size);
-	    fat_archs[i].align      = SWAP_LONG(fat_archs[i].align);
+	    fat_archs[i].cputype    = SWAP_INT(fat_archs[i].cputype);
+	    fat_archs[i].cpusubtype = SWAP_INT(fat_archs[i].cpusubtype);
+	    fat_archs[i].offset     = SWAP_INT(fat_archs[i].offset);
+	    fat_archs[i].size       = SWAP_INT(fat_archs[i].size);
+	    fat_archs[i].align      = SWAP_INT(fat_archs[i].align);
 	}
 }
 
@@ -328,13 +327,13 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	mh->magic = SWAP_LONG(mh->magic);
-	mh->cputype = SWAP_LONG(mh->cputype);
-	mh->cpusubtype = SWAP_LONG(mh->cpusubtype);
-	mh->filetype = SWAP_LONG(mh->filetype);
-	mh->ncmds = SWAP_LONG(mh->ncmds);
-	mh->sizeofcmds = SWAP_LONG(mh->sizeofcmds);
-	mh->flags = SWAP_LONG(mh->flags);
+	mh->magic = SWAP_INT(mh->magic);
+	mh->cputype = SWAP_INT(mh->cputype);
+	mh->cpusubtype = SWAP_INT(mh->cpusubtype);
+	mh->filetype = SWAP_INT(mh->filetype);
+	mh->ncmds = SWAP_INT(mh->ncmds);
+	mh->sizeofcmds = SWAP_INT(mh->sizeofcmds);
+	mh->flags = SWAP_INT(mh->flags);
 }
 
 __private_extern__
@@ -347,14 +346,14 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	mh->magic = SWAP_LONG(mh->magic);
-	mh->cputype = SWAP_LONG(mh->cputype);
-	mh->cpusubtype = SWAP_LONG(mh->cpusubtype);
-	mh->filetype = SWAP_LONG(mh->filetype);
-	mh->ncmds = SWAP_LONG(mh->ncmds);
-	mh->sizeofcmds = SWAP_LONG(mh->sizeofcmds);
-	mh->flags = SWAP_LONG(mh->flags);
-	mh->reserved = SWAP_LONG(mh->reserved);
+	mh->magic = SWAP_INT(mh->magic);
+	mh->cputype = SWAP_INT(mh->cputype);
+	mh->cpusubtype = SWAP_INT(mh->cpusubtype);
+	mh->filetype = SWAP_INT(mh->filetype);
+	mh->ncmds = SWAP_INT(mh->ncmds);
+	mh->sizeofcmds = SWAP_INT(mh->sizeofcmds);
+	mh->flags = SWAP_INT(mh->flags);
+	mh->reserved = SWAP_INT(mh->reserved);
 }
 
 __private_extern__
@@ -367,8 +366,8 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	lc->cmd = SWAP_LONG(lc->cmd);
-	lc->cmdsize = SWAP_LONG(lc->cmdsize);
+	lc->cmd = SWAP_INT(lc->cmd);
+	lc->cmdsize = SWAP_INT(lc->cmdsize);
 }
 
 __private_extern__
@@ -382,16 +381,16 @@ enum byte_sex target_byte_sex)
         dummy = target_byte_sex;
 #endif
 	/* segname[16] */
-	sg->cmd = SWAP_LONG(sg->cmd);
-	sg->cmdsize = SWAP_LONG(sg->cmdsize);
-	sg->vmaddr = SWAP_LONG(sg->vmaddr);
-	sg->vmsize = SWAP_LONG(sg->vmsize);
-	sg->fileoff = SWAP_LONG(sg->fileoff);
-	sg->filesize = SWAP_LONG(sg->filesize);
-	sg->maxprot = SWAP_LONG(sg->maxprot);
-	sg->initprot = SWAP_LONG(sg->initprot);
-	sg->nsects = SWAP_LONG(sg->nsects);
-	sg->flags = SWAP_LONG(sg->flags);
+	sg->cmd = SWAP_INT(sg->cmd);
+	sg->cmdsize = SWAP_INT(sg->cmdsize);
+	sg->vmaddr = SWAP_INT(sg->vmaddr);
+	sg->vmsize = SWAP_INT(sg->vmsize);
+	sg->fileoff = SWAP_INT(sg->fileoff);
+	sg->filesize = SWAP_INT(sg->filesize);
+	sg->maxprot = SWAP_INT(sg->maxprot);
+	sg->initprot = SWAP_INT(sg->initprot);
+	sg->nsects = SWAP_INT(sg->nsects);
+	sg->flags = SWAP_INT(sg->flags);
 }
 
 __private_extern__
@@ -405,16 +404,16 @@ enum byte_sex target_byte_sex)
         dummy = target_byte_sex;
 #endif
 	/* segname[16] */
-	sg->cmd = SWAP_LONG(sg->cmd);
-	sg->cmdsize = SWAP_LONG(sg->cmdsize);
+	sg->cmd = SWAP_INT(sg->cmd);
+	sg->cmdsize = SWAP_INT(sg->cmdsize);
 	sg->vmaddr = SWAP_LONG_LONG(sg->vmaddr);
 	sg->vmsize = SWAP_LONG_LONG(sg->vmsize);
 	sg->fileoff = SWAP_LONG_LONG(sg->fileoff);
 	sg->filesize = SWAP_LONG_LONG(sg->filesize);
-	sg->maxprot = SWAP_LONG(sg->maxprot);
-	sg->initprot = SWAP_LONG(sg->initprot);
-	sg->nsects = SWAP_LONG(sg->nsects);
-	sg->flags = SWAP_LONG(sg->flags);
+	sg->maxprot = SWAP_INT(sg->maxprot);
+	sg->initprot = SWAP_INT(sg->initprot);
+	sg->nsects = SWAP_INT(sg->nsects);
+	sg->flags = SWAP_INT(sg->flags);
 }
 
 __private_extern__
@@ -433,15 +432,15 @@ enum byte_sex target_byte_sex)
 	for(i = 0; i < nsects; i++){
 	    /* sectname[16] */
 	    /* segname[16] */
-	    s[i].addr = SWAP_LONG(s[i].addr);
-	    s[i].size = SWAP_LONG(s[i].size);
-	    s[i].offset = SWAP_LONG(s[i].offset);
-	    s[i].align = SWAP_LONG(s[i].align);
-	    s[i].reloff = SWAP_LONG(s[i].reloff);
-	    s[i].nreloc = SWAP_LONG(s[i].nreloc);
-	    s[i].flags = SWAP_LONG(s[i].flags);
-	    s[i].reserved1 = SWAP_LONG(s[i].reserved1);
-	    s[i].reserved2 = SWAP_LONG(s[i].reserved2);
+	    s[i].addr = SWAP_INT(s[i].addr);
+	    s[i].size = SWAP_INT(s[i].size);
+	    s[i].offset = SWAP_INT(s[i].offset);
+	    s[i].align = SWAP_INT(s[i].align);
+	    s[i].reloff = SWAP_INT(s[i].reloff);
+	    s[i].nreloc = SWAP_INT(s[i].nreloc);
+	    s[i].flags = SWAP_INT(s[i].flags);
+	    s[i].reserved1 = SWAP_INT(s[i].reserved1);
+	    s[i].reserved2 = SWAP_INT(s[i].reserved2);
 	}
 }
 
@@ -463,13 +462,13 @@ enum byte_sex target_byte_sex)
 	    /* segname[16] */
 	    s[i].addr = SWAP_LONG_LONG(s[i].addr);
 	    s[i].size = SWAP_LONG_LONG(s[i].size);
-	    s[i].offset = SWAP_LONG(s[i].offset);
-	    s[i].align = SWAP_LONG(s[i].align);
-	    s[i].reloff = SWAP_LONG(s[i].reloff);
-	    s[i].nreloc = SWAP_LONG(s[i].nreloc);
-	    s[i].flags = SWAP_LONG(s[i].flags);
-	    s[i].reserved1 = SWAP_LONG(s[i].reserved1);
-	    s[i].reserved2 = SWAP_LONG(s[i].reserved2);
+	    s[i].offset = SWAP_INT(s[i].offset);
+	    s[i].align = SWAP_INT(s[i].align);
+	    s[i].reloff = SWAP_INT(s[i].reloff);
+	    s[i].nreloc = SWAP_INT(s[i].nreloc);
+	    s[i].flags = SWAP_INT(s[i].flags);
+	    s[i].reserved1 = SWAP_INT(s[i].reserved1);
+	    s[i].reserved2 = SWAP_INT(s[i].reserved2);
 	}
 }
 
@@ -483,12 +482,12 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	st->cmd = SWAP_LONG(st->cmd);
-	st->cmdsize = SWAP_LONG(st->cmdsize);
-	st->symoff = SWAP_LONG(st->symoff);
-	st->nsyms = SWAP_LONG(st->nsyms);
-	st->stroff = SWAP_LONG(st->stroff);
-	st->strsize = SWAP_LONG(st->strsize);
+	st->cmd = SWAP_INT(st->cmd);
+	st->cmdsize = SWAP_INT(st->cmdsize);
+	st->symoff = SWAP_INT(st->symoff);
+	st->nsyms = SWAP_INT(st->nsyms);
+	st->stroff = SWAP_INT(st->stroff);
+	st->strsize = SWAP_INT(st->strsize);
 }
 
 __private_extern__
@@ -501,26 +500,26 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	dyst->cmd = SWAP_LONG(dyst->cmd);
-	dyst->cmdsize = SWAP_LONG(dyst->cmdsize);
-	dyst->ilocalsym = SWAP_LONG(dyst->ilocalsym);
-	dyst->nlocalsym = SWAP_LONG(dyst->nlocalsym);
-	dyst->iextdefsym = SWAP_LONG(dyst->iextdefsym);
-	dyst->nextdefsym = SWAP_LONG(dyst->nextdefsym);
-	dyst->iundefsym = SWAP_LONG(dyst->iundefsym);
-	dyst->nundefsym = SWAP_LONG(dyst->nundefsym);
-	dyst->tocoff = SWAP_LONG(dyst->tocoff);
-	dyst->ntoc = SWAP_LONG(dyst->ntoc);
-	dyst->modtaboff = SWAP_LONG(dyst->modtaboff);
-	dyst->nmodtab = SWAP_LONG(dyst->nmodtab);
-	dyst->extrefsymoff = SWAP_LONG(dyst->extrefsymoff);
-	dyst->nextrefsyms = SWAP_LONG(dyst->nextrefsyms);
-	dyst->indirectsymoff = SWAP_LONG(dyst->indirectsymoff);
-	dyst->nindirectsyms = SWAP_LONG(dyst->nindirectsyms);
-	dyst->extreloff = SWAP_LONG(dyst->extreloff);
-	dyst->nextrel = SWAP_LONG(dyst->nextrel);
-	dyst->locreloff = SWAP_LONG(dyst->locreloff);
-	dyst->nlocrel = SWAP_LONG(dyst->nlocrel);
+	dyst->cmd = SWAP_INT(dyst->cmd);
+	dyst->cmdsize = SWAP_INT(dyst->cmdsize);
+	dyst->ilocalsym = SWAP_INT(dyst->ilocalsym);
+	dyst->nlocalsym = SWAP_INT(dyst->nlocalsym);
+	dyst->iextdefsym = SWAP_INT(dyst->iextdefsym);
+	dyst->nextdefsym = SWAP_INT(dyst->nextdefsym);
+	dyst->iundefsym = SWAP_INT(dyst->iundefsym);
+	dyst->nundefsym = SWAP_INT(dyst->nundefsym);
+	dyst->tocoff = SWAP_INT(dyst->tocoff);
+	dyst->ntoc = SWAP_INT(dyst->ntoc);
+	dyst->modtaboff = SWAP_INT(dyst->modtaboff);
+	dyst->nmodtab = SWAP_INT(dyst->nmodtab);
+	dyst->extrefsymoff = SWAP_INT(dyst->extrefsymoff);
+	dyst->nextrefsyms = SWAP_INT(dyst->nextrefsyms);
+	dyst->indirectsymoff = SWAP_INT(dyst->indirectsymoff);
+	dyst->nindirectsyms = SWAP_INT(dyst->nindirectsyms);
+	dyst->extreloff = SWAP_INT(dyst->extreloff);
+	dyst->nextrel = SWAP_INT(dyst->nextrel);
+	dyst->locreloff = SWAP_INT(dyst->locreloff);
+	dyst->nlocrel = SWAP_INT(dyst->nlocrel);
 }
 
 __private_extern__
@@ -533,10 +532,10 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	ss->cmd = SWAP_LONG(ss->cmd);
-	ss->cmdsize = SWAP_LONG(ss->cmdsize);
-	ss->offset = SWAP_LONG(ss->offset);
-	ss->size = SWAP_LONG(ss->size);
+	ss->cmd = SWAP_INT(ss->cmd);
+	ss->cmdsize = SWAP_INT(ss->cmdsize);
+	ss->offset = SWAP_INT(ss->offset);
+	ss->size = SWAP_INT(ss->size);
 }
 
 __private_extern__
@@ -549,11 +548,11 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	fl->cmd = SWAP_LONG(fl->cmd);
-	fl->cmdsize = SWAP_LONG(fl->cmdsize);
-	fl->fvmlib.name.offset = SWAP_LONG(fl->fvmlib.name.offset);
-	fl->fvmlib.minor_version = SWAP_LONG(fl->fvmlib.minor_version);
-	fl->fvmlib.header_addr = SWAP_LONG(fl->fvmlib.header_addr);
+	fl->cmd = SWAP_INT(fl->cmd);
+	fl->cmdsize = SWAP_INT(fl->cmdsize);
+	fl->fvmlib.name.offset = SWAP_INT(fl->fvmlib.name.offset);
+	fl->fvmlib.minor_version = SWAP_INT(fl->fvmlib.minor_version);
+	fl->fvmlib.header_addr = SWAP_INT(fl->fvmlib.header_addr);
 }
 
 __private_extern__
@@ -566,13 +565,13 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	dl->cmd = SWAP_LONG(dl->cmd);
-	dl->cmdsize = SWAP_LONG(dl->cmdsize);
-	dl->dylib.name.offset = SWAP_LONG(dl->dylib.name.offset);
-	dl->dylib.timestamp = SWAP_LONG(dl->dylib.timestamp);
-	dl->dylib.current_version = SWAP_LONG(dl->dylib.current_version);
+	dl->cmd = SWAP_INT(dl->cmd);
+	dl->cmdsize = SWAP_INT(dl->cmdsize);
+	dl->dylib.name.offset = SWAP_INT(dl->dylib.name.offset);
+	dl->dylib.timestamp = SWAP_INT(dl->dylib.timestamp);
+	dl->dylib.current_version = SWAP_INT(dl->dylib.current_version);
 	dl->dylib.compatibility_version =
-				SWAP_LONG(dl->dylib.compatibility_version);
+				SWAP_INT(dl->dylib.compatibility_version);
 }
 
 __private_extern__
@@ -585,9 +584,9 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	sub->cmd = SWAP_LONG(sub->cmd);
-	sub->cmdsize = SWAP_LONG(sub->cmdsize);
-	sub->umbrella.offset = SWAP_LONG(sub->umbrella.offset);
+	sub->cmd = SWAP_INT(sub->cmd);
+	sub->cmdsize = SWAP_INT(sub->cmdsize);
+	sub->umbrella.offset = SWAP_INT(sub->umbrella.offset);
 }
 
 __private_extern__
@@ -600,9 +599,9 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	usub->cmd = SWAP_LONG(usub->cmd);
-	usub->cmdsize = SWAP_LONG(usub->cmdsize);
-	usub->sub_umbrella.offset = SWAP_LONG(usub->sub_umbrella.offset);
+	usub->cmd = SWAP_INT(usub->cmd);
+	usub->cmdsize = SWAP_INT(usub->cmdsize);
+	usub->sub_umbrella.offset = SWAP_INT(usub->sub_umbrella.offset);
 }
 
 __private_extern__
@@ -615,9 +614,9 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	lsub->cmd = SWAP_LONG(lsub->cmd);
-	lsub->cmdsize = SWAP_LONG(lsub->cmdsize);
-	lsub->sub_library.offset = SWAP_LONG(lsub->sub_library.offset);
+	lsub->cmd = SWAP_INT(lsub->cmd);
+	lsub->cmdsize = SWAP_INT(lsub->cmdsize);
+	lsub->sub_library.offset = SWAP_INT(lsub->sub_library.offset);
 }
 
 __private_extern__
@@ -630,9 +629,9 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	csub->cmd = SWAP_LONG(csub->cmd);
-	csub->cmdsize = SWAP_LONG(csub->cmdsize);
-	csub->client.offset = SWAP_LONG(csub->client.offset);
+	csub->cmd = SWAP_INT(csub->cmd);
+	csub->cmdsize = SWAP_INT(csub->cmdsize);
+	csub->client.offset = SWAP_INT(csub->client.offset);
 }
 
 __private_extern__
@@ -645,12 +644,12 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	pbdylib->cmd = SWAP_LONG(pbdylib->cmd);
-	pbdylib->cmdsize = SWAP_LONG(pbdylib->cmdsize);
-	pbdylib->name.offset = SWAP_LONG(pbdylib->name.offset);
-	pbdylib->nmodules = SWAP_LONG(pbdylib->nmodules);
+	pbdylib->cmd = SWAP_INT(pbdylib->cmd);
+	pbdylib->cmdsize = SWAP_INT(pbdylib->cmdsize);
+	pbdylib->name.offset = SWAP_INT(pbdylib->name.offset);
+	pbdylib->nmodules = SWAP_INT(pbdylib->nmodules);
 	pbdylib->linked_modules.offset =
-		SWAP_LONG(pbdylib->linked_modules.offset);
+		SWAP_INT(pbdylib->linked_modules.offset);
 }
 
 __private_extern__
@@ -663,9 +662,9 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	dyld->cmd = SWAP_LONG(dyld->cmd);
-	dyld->cmdsize = SWAP_LONG(dyld->cmdsize);
-	dyld->name.offset = SWAP_LONG(dyld->name.offset);
+	dyld->cmd = SWAP_INT(dyld->cmd);
+	dyld->cmdsize = SWAP_INT(dyld->cmdsize);
+	dyld->name.offset = SWAP_INT(dyld->name.offset);
 }
 
 __private_extern__
@@ -678,10 +677,10 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	ff->cmd = SWAP_LONG(ff->cmd);
-	ff->cmdsize = SWAP_LONG(ff->cmdsize);
-	ff->name.offset = SWAP_LONG(ff->name.offset);
-	ff->header_addr = SWAP_LONG(ff->header_addr);
+	ff->cmd = SWAP_INT(ff->cmd);
+	ff->cmdsize = SWAP_INT(ff->cmdsize);
+	ff->name.offset = SWAP_INT(ff->name.offset);
+	ff->header_addr = SWAP_INT(ff->header_addr);
 }
 
 
@@ -695,8 +694,8 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	ut->cmd = SWAP_LONG(ut->cmd);
-	ut->cmdsize = SWAP_LONG(ut->cmdsize);
+	ut->cmd = SWAP_INT(ut->cmd);
+	ut->cmdsize = SWAP_INT(ut->cmdsize);
 }
 
 __private_extern__
@@ -712,12 +711,12 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < 8; i++)
-	    cpu->dreg[i] = SWAP_LONG(cpu->dreg[i]);
+	    cpu->dreg[i] = SWAP_INT(cpu->dreg[i]);
 	for(i = 0; i < 8; i++)
-	    cpu->areg[i] = SWAP_LONG(cpu->areg[i]);
+	    cpu->areg[i] = SWAP_INT(cpu->areg[i]);
 	cpu->pad0 = SWAP_SHORT(cpu->pad0);
 	cpu->sr = SWAP_SHORT(cpu->sr);
-	cpu->pc = SWAP_LONG(cpu->pc);
+	cpu->pc = SWAP_INT(cpu->pc);
 }
 
 __private_extern__
@@ -733,15 +732,15 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < 8; i++){
-	                   tmp = SWAP_LONG(fpu->regs[i].fp[0]);
-	    fpu->regs[i].fp[1] = SWAP_LONG(fpu->regs[i].fp[1]);
-	    fpu->regs[i].fp[0] = SWAP_LONG(fpu->regs[i].fp[2]);
+	                   tmp = SWAP_INT(fpu->regs[i].fp[0]);
+	    fpu->regs[i].fp[1] = SWAP_INT(fpu->regs[i].fp[1]);
+	    fpu->regs[i].fp[0] = SWAP_INT(fpu->regs[i].fp[2]);
 	    fpu->regs[i].fp[2] = tmp;
 	}
-	fpu->cr = SWAP_LONG(fpu->cr);
-	fpu->sr = SWAP_LONG(fpu->sr);
-	fpu->iar = SWAP_LONG(fpu->iar);
-	fpu->state = SWAP_LONG(fpu->state);
+	fpu->cr = SWAP_INT(fpu->cr);
+	fpu->sr = SWAP_INT(fpu->sr);
+	fpu->iar = SWAP_INT(fpu->iar);
+	fpu->state = SWAP_INT(fpu->state);
 }
 
 __private_extern__
@@ -754,7 +753,7 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	user_reg->user_reg = SWAP_LONG(user_reg->user_reg);
+	user_reg->user_reg = SWAP_INT(user_reg->user_reg);
 }
 
 __private_extern__
@@ -763,46 +762,46 @@ swap_ppc_thread_state_t(
 ppc_thread_state_t *cpu,
 enum byte_sex target_byte_sex)
 {
-	cpu->srr0 = SWAP_LONG(cpu->srr0);
-	cpu->srr1 = SWAP_LONG(cpu->srr1);
-	cpu->r0 = SWAP_LONG(cpu->r0);
-	cpu->r1 = SWAP_LONG(cpu->r1);
-	cpu->r2 = SWAP_LONG(cpu->r2);
-	cpu->r3 = SWAP_LONG(cpu->r3);
-	cpu->r4 = SWAP_LONG(cpu->r4);
-	cpu->r5 = SWAP_LONG(cpu->r5);
-	cpu->r6 = SWAP_LONG(cpu->r6);
-	cpu->r7 = SWAP_LONG(cpu->r7);
-	cpu->r8 = SWAP_LONG(cpu->r8);
-	cpu->r9 = SWAP_LONG(cpu->r9);
-	cpu->r10 = SWAP_LONG(cpu->r10);
-	cpu->r11 = SWAP_LONG(cpu->r11);
-	cpu->r12 = SWAP_LONG(cpu->r12);
-	cpu->r13 = SWAP_LONG(cpu->r13);
-	cpu->r14 = SWAP_LONG(cpu->r14);
-	cpu->r15 = SWAP_LONG(cpu->r15);
-	cpu->r16 = SWAP_LONG(cpu->r16);
-	cpu->r17 = SWAP_LONG(cpu->r17);
-	cpu->r18 = SWAP_LONG(cpu->r18);
-	cpu->r19 = SWAP_LONG(cpu->r19);
-	cpu->r20 = SWAP_LONG(cpu->r20);
-	cpu->r21 = SWAP_LONG(cpu->r21);
-	cpu->r22 = SWAP_LONG(cpu->r22);
-	cpu->r23 = SWAP_LONG(cpu->r23);
-	cpu->r24 = SWAP_LONG(cpu->r24);
-	cpu->r25 = SWAP_LONG(cpu->r25);
-	cpu->r26 = SWAP_LONG(cpu->r26);
-	cpu->r27 = SWAP_LONG(cpu->r27);
-	cpu->r28 = SWAP_LONG(cpu->r28);
-	cpu->r29 = SWAP_LONG(cpu->r29);
-	cpu->r30 = SWAP_LONG(cpu->r30);
-	cpu->r31 = SWAP_LONG(cpu->r31);
-	cpu->cr  = SWAP_LONG(cpu->cr);
-	cpu->xer = SWAP_LONG(cpu->xer);
-	cpu->lr  = SWAP_LONG(cpu->lr);
-	cpu->ctr = SWAP_LONG(cpu->ctr);
-	cpu->mq =  SWAP_LONG(cpu->mq);
-	cpu->vrsave = SWAP_LONG(cpu->vrsave);
+	cpu->srr0 = SWAP_INT(cpu->srr0);
+	cpu->srr1 = SWAP_INT(cpu->srr1);
+	cpu->r0 = SWAP_INT(cpu->r0);
+	cpu->r1 = SWAP_INT(cpu->r1);
+	cpu->r2 = SWAP_INT(cpu->r2);
+	cpu->r3 = SWAP_INT(cpu->r3);
+	cpu->r4 = SWAP_INT(cpu->r4);
+	cpu->r5 = SWAP_INT(cpu->r5);
+	cpu->r6 = SWAP_INT(cpu->r6);
+	cpu->r7 = SWAP_INT(cpu->r7);
+	cpu->r8 = SWAP_INT(cpu->r8);
+	cpu->r9 = SWAP_INT(cpu->r9);
+	cpu->r10 = SWAP_INT(cpu->r10);
+	cpu->r11 = SWAP_INT(cpu->r11);
+	cpu->r12 = SWAP_INT(cpu->r12);
+	cpu->r13 = SWAP_INT(cpu->r13);
+	cpu->r14 = SWAP_INT(cpu->r14);
+	cpu->r15 = SWAP_INT(cpu->r15);
+	cpu->r16 = SWAP_INT(cpu->r16);
+	cpu->r17 = SWAP_INT(cpu->r17);
+	cpu->r18 = SWAP_INT(cpu->r18);
+	cpu->r19 = SWAP_INT(cpu->r19);
+	cpu->r20 = SWAP_INT(cpu->r20);
+	cpu->r21 = SWAP_INT(cpu->r21);
+	cpu->r22 = SWAP_INT(cpu->r22);
+	cpu->r23 = SWAP_INT(cpu->r23);
+	cpu->r24 = SWAP_INT(cpu->r24);
+	cpu->r25 = SWAP_INT(cpu->r25);
+	cpu->r26 = SWAP_INT(cpu->r26);
+	cpu->r27 = SWAP_INT(cpu->r27);
+	cpu->r28 = SWAP_INT(cpu->r28);
+	cpu->r29 = SWAP_INT(cpu->r29);
+	cpu->r30 = SWAP_INT(cpu->r30);
+	cpu->r31 = SWAP_INT(cpu->r31);
+	cpu->cr  = SWAP_INT(cpu->cr);
+	cpu->xer = SWAP_INT(cpu->xer);
+	cpu->lr  = SWAP_INT(cpu->lr);
+	cpu->ctr = SWAP_INT(cpu->ctr);
+	cpu->mq =  SWAP_INT(cpu->mq);
+	cpu->vrsave = SWAP_INT(cpu->vrsave);
 }
 
 __private_extern__
@@ -845,11 +844,11 @@ enum byte_sex target_byte_sex)
 	cpu->r29 = SWAP_LONG_LONG(cpu->r29);
 	cpu->r30 = SWAP_LONG_LONG(cpu->r30);
 	cpu->r31 = SWAP_LONG_LONG(cpu->r31);
-	cpu->cr  = SWAP_LONG(cpu->cr);
+	cpu->cr  = SWAP_INT(cpu->cr);
 	cpu->xer = SWAP_LONG_LONG(cpu->xer);
 	cpu->lr  = SWAP_LONG_LONG(cpu->lr);
 	cpu->ctr = SWAP_LONG_LONG(cpu->ctr);
-	cpu->vrsave =  SWAP_LONG(cpu->vrsave);
+	cpu->vrsave =  SWAP_INT(cpu->vrsave);
 }
 
 __private_extern__
@@ -867,8 +866,8 @@ enum byte_sex target_byte_sex)
 	for(i = 0; i < 32; i++)
 	    fpu->fpregs[i] = SWAP_DOUBLE(fpu->fpregs[i]);
 
-	fpu->fpscr_pad = SWAP_LONG(fpu->fpscr_pad);
-	fpu->fpscr = SWAP_LONG(fpu->fpscr);
+	fpu->fpscr_pad = SWAP_INT(fpu->fpscr_pad);
+	fpu->fpscr = SWAP_INT(fpu->fpscr);
 }
 
 __private_extern__
@@ -883,13 +882,13 @@ enum byte_sex target_byte_sex)
         dummy = target_byte_sex;
 #endif
 	
-	state->dar = SWAP_LONG(state->dar);
-	state->dsisr = SWAP_LONG(state->dsisr);
-	state->exception = SWAP_LONG(state->exception);
-	state->pad0 = SWAP_LONG(state->pad0);
+	state->dar = SWAP_INT(state->dar);
+	state->dsisr = SWAP_INT(state->dsisr);
+	state->exception = SWAP_INT(state->exception);
+	state->pad0 = SWAP_INT(state->pad0);
 
 	for(i = 0; i < 4; i++)
-	    state->pad1[i] = SWAP_LONG(state->pad1[i]);
+	    state->pad1[i] = SWAP_INT(state->pad1[i]);
 }
 
 __private_extern__
@@ -902,40 +901,40 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	cpu->r1 = SWAP_LONG(cpu->r1);
-	cpu->r2 = SWAP_LONG(cpu->r2);
-	cpu->r3 = SWAP_LONG(cpu->r3);
-	cpu->r4 = SWAP_LONG(cpu->r4);
-	cpu->r5 = SWAP_LONG(cpu->r5);
-	cpu->r6 = SWAP_LONG(cpu->r6);
-	cpu->r7 = SWAP_LONG(cpu->r7);
-	cpu->r8 = SWAP_LONG(cpu->r8);
-	cpu->r9 = SWAP_LONG(cpu->r9);
-	cpu->r10 = SWAP_LONG(cpu->r10);
-	cpu->r11 = SWAP_LONG(cpu->r11);
-	cpu->r12 = SWAP_LONG(cpu->r12);
-	cpu->r13 = SWAP_LONG(cpu->r13);
-	cpu->r14 = SWAP_LONG(cpu->r14);
-	cpu->r15 = SWAP_LONG(cpu->r15);
-	cpu->r16 = SWAP_LONG(cpu->r16);
-	cpu->r17 = SWAP_LONG(cpu->r17);
-	cpu->r18 = SWAP_LONG(cpu->r18);
-	cpu->r19 = SWAP_LONG(cpu->r19);
-	cpu->r20 = SWAP_LONG(cpu->r20);
-	cpu->r21 = SWAP_LONG(cpu->r21);
-	cpu->r22 = SWAP_LONG(cpu->r22);
-	cpu->r23 = SWAP_LONG(cpu->r23);
-	cpu->r24 = SWAP_LONG(cpu->r24);
-	cpu->r25 = SWAP_LONG(cpu->r25);
-	cpu->r26 = SWAP_LONG(cpu->r26);
-	cpu->r27 = SWAP_LONG(cpu->r27);
-	cpu->r28 = SWAP_LONG(cpu->r28);
-	cpu->r29 = SWAP_LONG(cpu->r29);
-	cpu->r30 = SWAP_LONG(cpu->r30);
-	cpu->r31 = SWAP_LONG(cpu->r31);
-	cpu->xip = SWAP_LONG(cpu->xip);
-	cpu->xip_in_bd = SWAP_LONG(cpu->xip_in_bd);
-	cpu->nip = SWAP_LONG(cpu->nip);
+	cpu->r1 = SWAP_INT(cpu->r1);
+	cpu->r2 = SWAP_INT(cpu->r2);
+	cpu->r3 = SWAP_INT(cpu->r3);
+	cpu->r4 = SWAP_INT(cpu->r4);
+	cpu->r5 = SWAP_INT(cpu->r5);
+	cpu->r6 = SWAP_INT(cpu->r6);
+	cpu->r7 = SWAP_INT(cpu->r7);
+	cpu->r8 = SWAP_INT(cpu->r8);
+	cpu->r9 = SWAP_INT(cpu->r9);
+	cpu->r10 = SWAP_INT(cpu->r10);
+	cpu->r11 = SWAP_INT(cpu->r11);
+	cpu->r12 = SWAP_INT(cpu->r12);
+	cpu->r13 = SWAP_INT(cpu->r13);
+	cpu->r14 = SWAP_INT(cpu->r14);
+	cpu->r15 = SWAP_INT(cpu->r15);
+	cpu->r16 = SWAP_INT(cpu->r16);
+	cpu->r17 = SWAP_INT(cpu->r17);
+	cpu->r18 = SWAP_INT(cpu->r18);
+	cpu->r19 = SWAP_INT(cpu->r19);
+	cpu->r20 = SWAP_INT(cpu->r20);
+	cpu->r21 = SWAP_INT(cpu->r21);
+	cpu->r22 = SWAP_INT(cpu->r22);
+	cpu->r23 = SWAP_INT(cpu->r23);
+	cpu->r24 = SWAP_INT(cpu->r24);
+	cpu->r25 = SWAP_INT(cpu->r25);
+	cpu->r26 = SWAP_INT(cpu->r26);
+	cpu->r27 = SWAP_INT(cpu->r27);
+	cpu->r28 = SWAP_INT(cpu->r28);
+	cpu->r29 = SWAP_INT(cpu->r29);
+	cpu->r30 = SWAP_INT(cpu->r30);
+	cpu->r31 = SWAP_INT(cpu->r31);
+	cpu->xip = SWAP_INT(cpu->xip);
+	cpu->xip_in_bd = SWAP_INT(cpu->xip_in_bd);
+	cpu->nip = SWAP_INT(cpu->nip);
 }
 
 __private_extern__
@@ -958,7 +957,7 @@ enum byte_sex target_byte_sex)
 		unsigned	xmod:BIT_WIDTH(16);
 		unsigned	:BITS_WIDTH(31,17);
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } ssr;
     struct swapped_m88k_fpcr {
@@ -973,140 +972,140 @@ enum byte_sex target_byte_sex)
 		m88k_fpcr_rm_t	rm:BITS_WIDTH(15,14);
 		unsigned	:BITS_WIDTH(31,16);
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } scr;
 
 	host_byte_sex = get_host_byte_sex();
 
-	fpu->x1.x[0] = SWAP_LONG(fpu->x1.x[0]);
-	fpu->x1.x[1] = SWAP_LONG(fpu->x1.x[1]);
-	fpu->x1.x[2] = SWAP_LONG(fpu->x1.x[2]);
-	fpu->x1.x[3] = SWAP_LONG(fpu->x1.x[3]);
-	fpu->x2.x[0] = SWAP_LONG(fpu->x2.x[0]);
-	fpu->x2.x[1] = SWAP_LONG(fpu->x2.x[1]);
-	fpu->x2.x[2] = SWAP_LONG(fpu->x2.x[2]);
-	fpu->x2.x[3] = SWAP_LONG(fpu->x2.x[3]);
-	fpu->x3.x[0] = SWAP_LONG(fpu->x3.x[0]);
-	fpu->x3.x[1] = SWAP_LONG(fpu->x3.x[1]);
-	fpu->x3.x[2] = SWAP_LONG(fpu->x3.x[2]);
-	fpu->x3.x[3] = SWAP_LONG(fpu->x3.x[3]);
-	fpu->x4.x[0] = SWAP_LONG(fpu->x4.x[0]);
-	fpu->x4.x[1] = SWAP_LONG(fpu->x4.x[1]);
-	fpu->x4.x[2] = SWAP_LONG(fpu->x4.x[2]);
-	fpu->x4.x[3] = SWAP_LONG(fpu->x4.x[3]);
-	fpu->x5.x[0] = SWAP_LONG(fpu->x5.x[0]);
-	fpu->x5.x[1] = SWAP_LONG(fpu->x5.x[1]);
-	fpu->x5.x[2] = SWAP_LONG(fpu->x5.x[2]);
-	fpu->x5.x[3] = SWAP_LONG(fpu->x5.x[3]);
-	fpu->x6.x[0] = SWAP_LONG(fpu->x6.x[0]);
-	fpu->x6.x[1] = SWAP_LONG(fpu->x6.x[1]);
-	fpu->x6.x[2] = SWAP_LONG(fpu->x6.x[2]);
-	fpu->x6.x[3] = SWAP_LONG(fpu->x6.x[3]);
-	fpu->x7.x[0] = SWAP_LONG(fpu->x7.x[0]);
-	fpu->x7.x[1] = SWAP_LONG(fpu->x7.x[1]);
-	fpu->x7.x[2] = SWAP_LONG(fpu->x7.x[2]);
-	fpu->x7.x[3] = SWAP_LONG(fpu->x7.x[3]);
-	fpu->x8.x[0] = SWAP_LONG(fpu->x8.x[0]);
-	fpu->x8.x[1] = SWAP_LONG(fpu->x8.x[1]);
-	fpu->x8.x[2] = SWAP_LONG(fpu->x8.x[2]);
-	fpu->x8.x[3] = SWAP_LONG(fpu->x8.x[3]);
-	fpu->x9.x[0] = SWAP_LONG(fpu->x9.x[0]);
-	fpu->x9.x[1] = SWAP_LONG(fpu->x9.x[1]);
-	fpu->x9.x[2] = SWAP_LONG(fpu->x9.x[2]);
-	fpu->x9.x[3] = SWAP_LONG(fpu->x9.x[3]);
-	fpu->x10.x[0] = SWAP_LONG(fpu->x10.x[0]);
-	fpu->x10.x[1] = SWAP_LONG(fpu->x10.x[1]);
-	fpu->x10.x[2] = SWAP_LONG(fpu->x10.x[2]);
-	fpu->x10.x[3] = SWAP_LONG(fpu->x10.x[3]);
-	fpu->x11.x[0] = SWAP_LONG(fpu->x11.x[0]);
-	fpu->x11.x[1] = SWAP_LONG(fpu->x11.x[1]);
-	fpu->x11.x[2] = SWAP_LONG(fpu->x11.x[2]);
-	fpu->x11.x[3] = SWAP_LONG(fpu->x11.x[3]);
-	fpu->x12.x[0] = SWAP_LONG(fpu->x12.x[0]);
-	fpu->x12.x[1] = SWAP_LONG(fpu->x12.x[1]);
-	fpu->x12.x[2] = SWAP_LONG(fpu->x12.x[2]);
-	fpu->x12.x[3] = SWAP_LONG(fpu->x12.x[3]);
-	fpu->x13.x[0] = SWAP_LONG(fpu->x13.x[0]);
-	fpu->x13.x[1] = SWAP_LONG(fpu->x13.x[1]);
-	fpu->x13.x[2] = SWAP_LONG(fpu->x13.x[2]);
-	fpu->x13.x[3] = SWAP_LONG(fpu->x13.x[3]);
-	fpu->x14.x[0] = SWAP_LONG(fpu->x14.x[0]);
-	fpu->x14.x[1] = SWAP_LONG(fpu->x14.x[1]);
-	fpu->x14.x[2] = SWAP_LONG(fpu->x14.x[2]);
-	fpu->x14.x[3] = SWAP_LONG(fpu->x14.x[3]);
-	fpu->x15.x[0] = SWAP_LONG(fpu->x15.x[0]);
-	fpu->x15.x[1] = SWAP_LONG(fpu->x15.x[1]);
-	fpu->x15.x[2] = SWAP_LONG(fpu->x15.x[2]);
-	fpu->x15.x[3] = SWAP_LONG(fpu->x15.x[3]);
-	fpu->x16.x[0] = SWAP_LONG(fpu->x16.x[0]);
-	fpu->x16.x[1] = SWAP_LONG(fpu->x16.x[1]);
-	fpu->x16.x[2] = SWAP_LONG(fpu->x16.x[2]);
-	fpu->x16.x[3] = SWAP_LONG(fpu->x16.x[3]);
-	fpu->x17.x[0] = SWAP_LONG(fpu->x17.x[0]);
-	fpu->x17.x[1] = SWAP_LONG(fpu->x17.x[1]);
-	fpu->x17.x[2] = SWAP_LONG(fpu->x17.x[2]);
-	fpu->x17.x[3] = SWAP_LONG(fpu->x17.x[3]);
-	fpu->x18.x[0] = SWAP_LONG(fpu->x18.x[0]);
-	fpu->x18.x[1] = SWAP_LONG(fpu->x18.x[1]);
-	fpu->x18.x[2] = SWAP_LONG(fpu->x18.x[2]);
-	fpu->x18.x[3] = SWAP_LONG(fpu->x18.x[3]);
-	fpu->x19.x[0] = SWAP_LONG(fpu->x19.x[0]);
-	fpu->x19.x[1] = SWAP_LONG(fpu->x19.x[1]);
-	fpu->x19.x[2] = SWAP_LONG(fpu->x19.x[2]);
-	fpu->x19.x[3] = SWAP_LONG(fpu->x19.x[3]);
-	fpu->x20.x[0] = SWAP_LONG(fpu->x20.x[0]);
-	fpu->x20.x[1] = SWAP_LONG(fpu->x20.x[1]);
-	fpu->x20.x[2] = SWAP_LONG(fpu->x20.x[2]);
-	fpu->x20.x[3] = SWAP_LONG(fpu->x20.x[3]);
-	fpu->x21.x[0] = SWAP_LONG(fpu->x21.x[0]);
-	fpu->x21.x[1] = SWAP_LONG(fpu->x21.x[1]);
-	fpu->x21.x[2] = SWAP_LONG(fpu->x21.x[2]);
-	fpu->x21.x[3] = SWAP_LONG(fpu->x21.x[3]);
-	fpu->x22.x[0] = SWAP_LONG(fpu->x22.x[0]);
-	fpu->x22.x[1] = SWAP_LONG(fpu->x22.x[1]);
-	fpu->x22.x[2] = SWAP_LONG(fpu->x22.x[2]);
-	fpu->x22.x[3] = SWAP_LONG(fpu->x22.x[3]);
-	fpu->x23.x[0] = SWAP_LONG(fpu->x23.x[0]);
-	fpu->x23.x[1] = SWAP_LONG(fpu->x23.x[1]);
-	fpu->x23.x[2] = SWAP_LONG(fpu->x23.x[2]);
-	fpu->x23.x[3] = SWAP_LONG(fpu->x23.x[3]);
-	fpu->x24.x[0] = SWAP_LONG(fpu->x24.x[0]);
-	fpu->x24.x[1] = SWAP_LONG(fpu->x24.x[1]);
-	fpu->x24.x[2] = SWAP_LONG(fpu->x24.x[2]);
-	fpu->x24.x[3] = SWAP_LONG(fpu->x24.x[3]);
-	fpu->x25.x[0] = SWAP_LONG(fpu->x25.x[0]);
-	fpu->x25.x[1] = SWAP_LONG(fpu->x25.x[1]);
-	fpu->x25.x[2] = SWAP_LONG(fpu->x25.x[2]);
-	fpu->x25.x[3] = SWAP_LONG(fpu->x25.x[3]);
-	fpu->x26.x[0] = SWAP_LONG(fpu->x26.x[0]);
-	fpu->x26.x[1] = SWAP_LONG(fpu->x26.x[1]);
-	fpu->x26.x[2] = SWAP_LONG(fpu->x26.x[2]);
-	fpu->x26.x[3] = SWAP_LONG(fpu->x26.x[3]);
-	fpu->x27.x[0] = SWAP_LONG(fpu->x27.x[0]);
-	fpu->x27.x[1] = SWAP_LONG(fpu->x27.x[1]);
-	fpu->x27.x[2] = SWAP_LONG(fpu->x27.x[2]);
-	fpu->x27.x[3] = SWAP_LONG(fpu->x27.x[3]);
-	fpu->x28.x[0] = SWAP_LONG(fpu->x28.x[0]);
-	fpu->x28.x[1] = SWAP_LONG(fpu->x28.x[1]);
-	fpu->x28.x[2] = SWAP_LONG(fpu->x28.x[2]);
-	fpu->x28.x[3] = SWAP_LONG(fpu->x28.x[3]);
-	fpu->x29.x[0] = SWAP_LONG(fpu->x29.x[0]);
-	fpu->x29.x[1] = SWAP_LONG(fpu->x29.x[1]);
-	fpu->x29.x[2] = SWAP_LONG(fpu->x29.x[2]);
-	fpu->x29.x[3] = SWAP_LONG(fpu->x29.x[3]);
-	fpu->x30.x[0] = SWAP_LONG(fpu->x30.x[0]);
-	fpu->x30.x[1] = SWAP_LONG(fpu->x30.x[1]);
-	fpu->x30.x[2] = SWAP_LONG(fpu->x30.x[2]);
-	fpu->x30.x[3] = SWAP_LONG(fpu->x30.x[3]);
-	fpu->x31.x[0] = SWAP_LONG(fpu->x31.x[0]);
-	fpu->x31.x[1] = SWAP_LONG(fpu->x31.x[1]);
-	fpu->x31.x[2] = SWAP_LONG(fpu->x31.x[2]);
-	fpu->x31.x[3] = SWAP_LONG(fpu->x31.x[3]);
+	fpu->x1.x[0] = SWAP_INT(fpu->x1.x[0]);
+	fpu->x1.x[1] = SWAP_INT(fpu->x1.x[1]);
+	fpu->x1.x[2] = SWAP_INT(fpu->x1.x[2]);
+	fpu->x1.x[3] = SWAP_INT(fpu->x1.x[3]);
+	fpu->x2.x[0] = SWAP_INT(fpu->x2.x[0]);
+	fpu->x2.x[1] = SWAP_INT(fpu->x2.x[1]);
+	fpu->x2.x[2] = SWAP_INT(fpu->x2.x[2]);
+	fpu->x2.x[3] = SWAP_INT(fpu->x2.x[3]);
+	fpu->x3.x[0] = SWAP_INT(fpu->x3.x[0]);
+	fpu->x3.x[1] = SWAP_INT(fpu->x3.x[1]);
+	fpu->x3.x[2] = SWAP_INT(fpu->x3.x[2]);
+	fpu->x3.x[3] = SWAP_INT(fpu->x3.x[3]);
+	fpu->x4.x[0] = SWAP_INT(fpu->x4.x[0]);
+	fpu->x4.x[1] = SWAP_INT(fpu->x4.x[1]);
+	fpu->x4.x[2] = SWAP_INT(fpu->x4.x[2]);
+	fpu->x4.x[3] = SWAP_INT(fpu->x4.x[3]);
+	fpu->x5.x[0] = SWAP_INT(fpu->x5.x[0]);
+	fpu->x5.x[1] = SWAP_INT(fpu->x5.x[1]);
+	fpu->x5.x[2] = SWAP_INT(fpu->x5.x[2]);
+	fpu->x5.x[3] = SWAP_INT(fpu->x5.x[3]);
+	fpu->x6.x[0] = SWAP_INT(fpu->x6.x[0]);
+	fpu->x6.x[1] = SWAP_INT(fpu->x6.x[1]);
+	fpu->x6.x[2] = SWAP_INT(fpu->x6.x[2]);
+	fpu->x6.x[3] = SWAP_INT(fpu->x6.x[3]);
+	fpu->x7.x[0] = SWAP_INT(fpu->x7.x[0]);
+	fpu->x7.x[1] = SWAP_INT(fpu->x7.x[1]);
+	fpu->x7.x[2] = SWAP_INT(fpu->x7.x[2]);
+	fpu->x7.x[3] = SWAP_INT(fpu->x7.x[3]);
+	fpu->x8.x[0] = SWAP_INT(fpu->x8.x[0]);
+	fpu->x8.x[1] = SWAP_INT(fpu->x8.x[1]);
+	fpu->x8.x[2] = SWAP_INT(fpu->x8.x[2]);
+	fpu->x8.x[3] = SWAP_INT(fpu->x8.x[3]);
+	fpu->x9.x[0] = SWAP_INT(fpu->x9.x[0]);
+	fpu->x9.x[1] = SWAP_INT(fpu->x9.x[1]);
+	fpu->x9.x[2] = SWAP_INT(fpu->x9.x[2]);
+	fpu->x9.x[3] = SWAP_INT(fpu->x9.x[3]);
+	fpu->x10.x[0] = SWAP_INT(fpu->x10.x[0]);
+	fpu->x10.x[1] = SWAP_INT(fpu->x10.x[1]);
+	fpu->x10.x[2] = SWAP_INT(fpu->x10.x[2]);
+	fpu->x10.x[3] = SWAP_INT(fpu->x10.x[3]);
+	fpu->x11.x[0] = SWAP_INT(fpu->x11.x[0]);
+	fpu->x11.x[1] = SWAP_INT(fpu->x11.x[1]);
+	fpu->x11.x[2] = SWAP_INT(fpu->x11.x[2]);
+	fpu->x11.x[3] = SWAP_INT(fpu->x11.x[3]);
+	fpu->x12.x[0] = SWAP_INT(fpu->x12.x[0]);
+	fpu->x12.x[1] = SWAP_INT(fpu->x12.x[1]);
+	fpu->x12.x[2] = SWAP_INT(fpu->x12.x[2]);
+	fpu->x12.x[3] = SWAP_INT(fpu->x12.x[3]);
+	fpu->x13.x[0] = SWAP_INT(fpu->x13.x[0]);
+	fpu->x13.x[1] = SWAP_INT(fpu->x13.x[1]);
+	fpu->x13.x[2] = SWAP_INT(fpu->x13.x[2]);
+	fpu->x13.x[3] = SWAP_INT(fpu->x13.x[3]);
+	fpu->x14.x[0] = SWAP_INT(fpu->x14.x[0]);
+	fpu->x14.x[1] = SWAP_INT(fpu->x14.x[1]);
+	fpu->x14.x[2] = SWAP_INT(fpu->x14.x[2]);
+	fpu->x14.x[3] = SWAP_INT(fpu->x14.x[3]);
+	fpu->x15.x[0] = SWAP_INT(fpu->x15.x[0]);
+	fpu->x15.x[1] = SWAP_INT(fpu->x15.x[1]);
+	fpu->x15.x[2] = SWAP_INT(fpu->x15.x[2]);
+	fpu->x15.x[3] = SWAP_INT(fpu->x15.x[3]);
+	fpu->x16.x[0] = SWAP_INT(fpu->x16.x[0]);
+	fpu->x16.x[1] = SWAP_INT(fpu->x16.x[1]);
+	fpu->x16.x[2] = SWAP_INT(fpu->x16.x[2]);
+	fpu->x16.x[3] = SWAP_INT(fpu->x16.x[3]);
+	fpu->x17.x[0] = SWAP_INT(fpu->x17.x[0]);
+	fpu->x17.x[1] = SWAP_INT(fpu->x17.x[1]);
+	fpu->x17.x[2] = SWAP_INT(fpu->x17.x[2]);
+	fpu->x17.x[3] = SWAP_INT(fpu->x17.x[3]);
+	fpu->x18.x[0] = SWAP_INT(fpu->x18.x[0]);
+	fpu->x18.x[1] = SWAP_INT(fpu->x18.x[1]);
+	fpu->x18.x[2] = SWAP_INT(fpu->x18.x[2]);
+	fpu->x18.x[3] = SWAP_INT(fpu->x18.x[3]);
+	fpu->x19.x[0] = SWAP_INT(fpu->x19.x[0]);
+	fpu->x19.x[1] = SWAP_INT(fpu->x19.x[1]);
+	fpu->x19.x[2] = SWAP_INT(fpu->x19.x[2]);
+	fpu->x19.x[3] = SWAP_INT(fpu->x19.x[3]);
+	fpu->x20.x[0] = SWAP_INT(fpu->x20.x[0]);
+	fpu->x20.x[1] = SWAP_INT(fpu->x20.x[1]);
+	fpu->x20.x[2] = SWAP_INT(fpu->x20.x[2]);
+	fpu->x20.x[3] = SWAP_INT(fpu->x20.x[3]);
+	fpu->x21.x[0] = SWAP_INT(fpu->x21.x[0]);
+	fpu->x21.x[1] = SWAP_INT(fpu->x21.x[1]);
+	fpu->x21.x[2] = SWAP_INT(fpu->x21.x[2]);
+	fpu->x21.x[3] = SWAP_INT(fpu->x21.x[3]);
+	fpu->x22.x[0] = SWAP_INT(fpu->x22.x[0]);
+	fpu->x22.x[1] = SWAP_INT(fpu->x22.x[1]);
+	fpu->x22.x[2] = SWAP_INT(fpu->x22.x[2]);
+	fpu->x22.x[3] = SWAP_INT(fpu->x22.x[3]);
+	fpu->x23.x[0] = SWAP_INT(fpu->x23.x[0]);
+	fpu->x23.x[1] = SWAP_INT(fpu->x23.x[1]);
+	fpu->x23.x[2] = SWAP_INT(fpu->x23.x[2]);
+	fpu->x23.x[3] = SWAP_INT(fpu->x23.x[3]);
+	fpu->x24.x[0] = SWAP_INT(fpu->x24.x[0]);
+	fpu->x24.x[1] = SWAP_INT(fpu->x24.x[1]);
+	fpu->x24.x[2] = SWAP_INT(fpu->x24.x[2]);
+	fpu->x24.x[3] = SWAP_INT(fpu->x24.x[3]);
+	fpu->x25.x[0] = SWAP_INT(fpu->x25.x[0]);
+	fpu->x25.x[1] = SWAP_INT(fpu->x25.x[1]);
+	fpu->x25.x[2] = SWAP_INT(fpu->x25.x[2]);
+	fpu->x25.x[3] = SWAP_INT(fpu->x25.x[3]);
+	fpu->x26.x[0] = SWAP_INT(fpu->x26.x[0]);
+	fpu->x26.x[1] = SWAP_INT(fpu->x26.x[1]);
+	fpu->x26.x[2] = SWAP_INT(fpu->x26.x[2]);
+	fpu->x26.x[3] = SWAP_INT(fpu->x26.x[3]);
+	fpu->x27.x[0] = SWAP_INT(fpu->x27.x[0]);
+	fpu->x27.x[1] = SWAP_INT(fpu->x27.x[1]);
+	fpu->x27.x[2] = SWAP_INT(fpu->x27.x[2]);
+	fpu->x27.x[3] = SWAP_INT(fpu->x27.x[3]);
+	fpu->x28.x[0] = SWAP_INT(fpu->x28.x[0]);
+	fpu->x28.x[1] = SWAP_INT(fpu->x28.x[1]);
+	fpu->x28.x[2] = SWAP_INT(fpu->x28.x[2]);
+	fpu->x28.x[3] = SWAP_INT(fpu->x28.x[3]);
+	fpu->x29.x[0] = SWAP_INT(fpu->x29.x[0]);
+	fpu->x29.x[1] = SWAP_INT(fpu->x29.x[1]);
+	fpu->x29.x[2] = SWAP_INT(fpu->x29.x[2]);
+	fpu->x29.x[3] = SWAP_INT(fpu->x29.x[3]);
+	fpu->x30.x[0] = SWAP_INT(fpu->x30.x[0]);
+	fpu->x30.x[1] = SWAP_INT(fpu->x30.x[1]);
+	fpu->x30.x[2] = SWAP_INT(fpu->x30.x[2]);
+	fpu->x30.x[3] = SWAP_INT(fpu->x30.x[3]);
+	fpu->x31.x[0] = SWAP_INT(fpu->x31.x[0]);
+	fpu->x31.x[1] = SWAP_INT(fpu->x31.x[1]);
+	fpu->x31.x[2] = SWAP_INT(fpu->x31.x[2]);
+	fpu->x31.x[3] = SWAP_INT(fpu->x31.x[3]);
 
 	if(target_byte_sex == host_byte_sex){
 	    memcpy(&ssr, &(fpu->fpsr), sizeof(struct swapped_m88k_fpsr));
-	    ssr.u.word = SWAP_LONG(ssr.u.word);
+	    ssr.u.word = SWAP_INT(ssr.u.word);
 	    fpu->fpsr.afinx = ssr.u.fields.afinx;
 	    fpu->fpsr.afovf = ssr.u.fields.afovf;
 	    fpu->fpsr.afunf = ssr.u.fields.afunf;
@@ -1115,7 +1114,7 @@ enum byte_sex target_byte_sex)
 	    fpu->fpsr.xmod = ssr.u.fields.xmod;
 
 	    memcpy(&scr, &(fpu->fpcr), sizeof(struct swapped_m88k_fpcr));
-	    scr.u.word = SWAP_LONG(scr.u.word);
+	    scr.u.word = SWAP_INT(scr.u.word);
 	    fpu->fpcr.efinx = scr.u.fields.efinx;
 	    fpu->fpcr.efovf = scr.u.fields.efovf;
 	    fpu->fpcr.efunf = scr.u.fields.efunf;
@@ -1130,7 +1129,7 @@ enum byte_sex target_byte_sex)
 	    ssr.u.fields.afdvz = fpu->fpsr.afdvz;
 	    ssr.u.fields.afinv = fpu->fpsr.afinv;
 	    ssr.u.fields.xmod = fpu->fpsr.xmod;
-	    ssr.u.word = SWAP_LONG(ssr.u.word);
+	    ssr.u.word = SWAP_INT(ssr.u.word);
 	    memcpy(&(fpu->fpsr), &ssr, sizeof(struct swapped_m88k_fpsr));
 
 	    scr.u.fields.efinx = fpu->fpcr.efinx;
@@ -1139,7 +1138,7 @@ enum byte_sex target_byte_sex)
 	    scr.u.fields.efdvz = fpu->fpcr.efdvz;
 	    scr.u.fields.efinv = fpu->fpcr.efinv;
 	    scr.u.fields.rm = fpu->fpcr.rm;
-	    scr.u.word = SWAP_LONG(scr.u.word);
+	    scr.u.word = SWAP_INT(scr.u.word);
 	    memcpy(&(fpu->fpcr), &scr, sizeof(struct swapped_m88k_fpcr));
 	}
 }
@@ -1154,7 +1153,7 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	user->user = SWAP_LONG(user->user);
+	user->user = SWAP_INT(user->user);
 }
 
 __private_extern__
@@ -1176,7 +1175,7 @@ enum byte_sex target_byte_sex)
 		unsigned	rw:BIT_WIDTH(28);
 		unsigned	:BITS_WIDTH(31,29);
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } sbpc;
 
@@ -1197,7 +1196,7 @@ enum byte_sex target_byte_sex)
 		unsigned	le:BIT_WIDTH(30);
 		unsigned	supr:BIT_WIDTH(31);
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } spsr;
 
@@ -1217,7 +1216,7 @@ enum byte_sex target_byte_sex)
 		m88110_iresult_size_t	iresult_size:BITS_WIDTH(15,14);
 		unsigned	:BITS_WIDTH(31,16);
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } sfps;
 
@@ -1225,10 +1224,10 @@ enum byte_sex target_byte_sex)
 
 	if(target_byte_sex == host_byte_sex){
 	    for(i = 0; i < M88110_N_DATA_BP; i++){
-		spu->data_bp[i].addr = SWAP_LONG(spu->data_bp[i].addr);
+		spu->data_bp[i].addr = SWAP_INT(spu->data_bp[i].addr);
 		memcpy(&sbpc, &(spu->data_bp[i].ctrl),
 		       sizeof(struct swapped_m88110_bp_ctrl));
-		sbpc.u.word = SWAP_LONG(sbpc.u.word);
+		sbpc.u.word = SWAP_INT(sbpc.u.word);
 		spu->data_bp[i].ctrl.v = sbpc.u.fields.v;
 		spu->data_bp[i].ctrl.addr_match = sbpc.u.fields.addr_match;
 		spu->data_bp[i].ctrl.rwm = sbpc.u.fields.rwm;
@@ -1236,7 +1235,7 @@ enum byte_sex target_byte_sex)
 	    }
 
 	    memcpy(&spsr, &(spu->psr), sizeof(struct swap_m88110_psr));
-	    spsr.u.word = SWAP_LONG(spsr.u.word);
+	    spsr.u.word = SWAP_INT(spsr.u.word);
 	    spu->psr.mxm_dis = spsr.u.fields.mxm_dis;
 	    spu->psr.sfu1dis = spsr.u.fields.sfu1dis;
 	    spu->psr.trace = spsr.u.fields.trace;
@@ -1249,7 +1248,7 @@ enum byte_sex target_byte_sex)
 
 	    memcpy(&sfps, &(spu->fp_trap_status),
 		   sizeof(struct swapped_m88110_fp_trap_status));
-	    sfps.u.word = SWAP_LONG(sfps.u.word);
+	    sfps.u.word = SWAP_INT(sfps.u.word);
 	    spu->fp_trap_status.efinx = sfps.u.fields.efinx;
 	    spu->fp_trap_status.efovf = sfps.u.fields.efovf;
 	    spu->fp_trap_status.efunf = sfps.u.fields.efunf;
@@ -1262,12 +1261,12 @@ enum byte_sex target_byte_sex)
 	}
 	else{
 	    for(i = 0; i < M88110_N_DATA_BP; i++){
-		spu->data_bp[i].addr = SWAP_LONG(spu->data_bp[i].addr);
+		spu->data_bp[i].addr = SWAP_INT(spu->data_bp[i].addr);
 		sbpc.u.fields.v = spu->data_bp[i].ctrl.v;
 		sbpc.u.fields.addr_match = spu->data_bp[i].ctrl.addr_match;
 		sbpc.u.fields.rwm = spu->data_bp[i].ctrl.rwm;
 		sbpc.u.fields.rw = spu->data_bp[i].ctrl.rw;
-		sbpc.u.word = SWAP_LONG(sbpc.u.word);
+		sbpc.u.word = SWAP_INT(sbpc.u.word);
 		memcpy(&(spu->data_bp[i].ctrl), &sbpc,
 		       sizeof(struct swapped_m88110_bp_ctrl));
 	    }
@@ -1281,7 +1280,7 @@ enum byte_sex target_byte_sex)
 	    spsr.u.fields.se = spu->psr.se;
 	    spsr.u.fields.le = spu->psr.le;
 	    spsr.u.fields.supr = spu->psr.supr;
-	    spsr.u.word = SWAP_LONG(spsr.u.word);
+	    spsr.u.word = SWAP_INT(spsr.u.word);
 	    memcpy(&(spu->psr), &spsr, sizeof(struct swap_m88110_psr));
 
 	    sfps.u.fields.efinx = spu->fp_trap_status.efinx;
@@ -1293,18 +1292,18 @@ enum byte_sex target_byte_sex)
 	    sfps.u.fields.unimp = spu->fp_trap_status.unimp;
 	    sfps.u.fields.sfu1_disabled = spu->fp_trap_status.sfu1_disabled;
 	    sfps.u.fields.iresult_size = spu->fp_trap_status.iresult_size;
-	    sfps.u.word = SWAP_LONG(sfps.u.word);
+	    sfps.u.word = SWAP_INT(sfps.u.word);
 	    memcpy(&(spu->fp_trap_status), &sfps,
 		   sizeof(struct swapped_m88110_fp_trap_status));
 	}
 	spu->intermediate_result.x[0] =
-	    SWAP_LONG(spu->intermediate_result.x[0]);
+	    SWAP_INT(spu->intermediate_result.x[0]);
 	spu->intermediate_result.x[1] =
-	    SWAP_LONG(spu->intermediate_result.x[1]);
+	    SWAP_INT(spu->intermediate_result.x[1]);
 	spu->intermediate_result.x[2] =
-	    SWAP_LONG(spu->intermediate_result.x[2]);
+	    SWAP_INT(spu->intermediate_result.x[2]);
 	spu->intermediate_result.x[3] =
-	    SWAP_LONG(spu->intermediate_result.x[3]);
+	    SWAP_INT(spu->intermediate_result.x[3]);
 }
 
 __private_extern__
@@ -1320,14 +1319,14 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < 31; i++)
-	    cpu->ireg[i] = SWAP_LONG(cpu->ireg[i]);
+	    cpu->ireg[i] = SWAP_INT(cpu->ireg[i]);
 	for(i = 0; i < 30; i++)
-	    cpu->freg[i] = SWAP_LONG(cpu->freg[i]);
-	cpu->psr = SWAP_LONG(cpu->psr);
-	cpu->epsr = SWAP_LONG(cpu->epsr);
-	cpu->db = SWAP_LONG(cpu->db);
-	cpu->pc = SWAP_LONG(cpu->pc);
-	cpu->_padding_ = SWAP_LONG(cpu->_padding_);
+	    cpu->freg[i] = SWAP_INT(cpu->freg[i]);
+	cpu->psr = SWAP_INT(cpu->psr);
+	cpu->epsr = SWAP_INT(cpu->epsr);
+	cpu->db = SWAP_INT(cpu->db);
+	cpu->pc = SWAP_INT(cpu->pc);
+	cpu->_padding_ = SWAP_INT(cpu->_padding_);
 	cpu->Mres3 = SWAP_DOUBLE(cpu->Mres3);
 	cpu->Ares3 = SWAP_DOUBLE(cpu->Ares3);
 	cpu->Mres2 = SWAP_DOUBLE(cpu->Mres2);
@@ -1341,11 +1340,11 @@ enum byte_sex target_byte_sex)
 	cpu->KR = SWAP_DOUBLE(cpu->KR);
 	cpu->KI = SWAP_DOUBLE(cpu->KI);
 	cpu->T = SWAP_DOUBLE(cpu->T);
-	cpu->Fsr3 = SWAP_LONG(cpu->Fsr3);
-	cpu->Fsr2 = SWAP_LONG(cpu->Fsr2);
-	cpu->Fsr1 = SWAP_LONG(cpu->Fsr1);
-	cpu->Mergelo32 = SWAP_LONG(cpu->Mergelo32);
-	cpu->Mergehi32 = SWAP_LONG(cpu->Mergehi32);
+	cpu->Fsr3 = SWAP_INT(cpu->Fsr3);
+	cpu->Fsr2 = SWAP_INT(cpu->Fsr2);
+	cpu->Fsr1 = SWAP_INT(cpu->Fsr1);
+	cpu->Mergelo32 = SWAP_INT(cpu->Mergelo32);
+	cpu->Mergehi32 = SWAP_INT(cpu->Mergehi32);
 }
 
 __private_extern__
@@ -1358,22 +1357,22 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	cpu->eax = SWAP_LONG(cpu->eax);
-	cpu->ebx = SWAP_LONG(cpu->ebx);
-	cpu->ecx = SWAP_LONG(cpu->ecx);
-	cpu->edx = SWAP_LONG(cpu->edx);
-	cpu->edi = SWAP_LONG(cpu->edi);
-	cpu->esi = SWAP_LONG(cpu->esi);
-	cpu->ebp = SWAP_LONG(cpu->ebp);
-	cpu->esp = SWAP_LONG(cpu->esp);
-	cpu->ss = SWAP_LONG(cpu->ss);
-	cpu->eflags = SWAP_LONG(cpu->eflags);
-	cpu->eip = SWAP_LONG(cpu->eip);
-	cpu->cs = SWAP_LONG(cpu->cs);
-	cpu->ds = SWAP_LONG(cpu->ds);
-	cpu->es = SWAP_LONG(cpu->es);
-	cpu->fs = SWAP_LONG(cpu->fs);
-	cpu->gs = SWAP_LONG(cpu->gs);
+	cpu->eax = SWAP_INT(cpu->eax);
+	cpu->ebx = SWAP_INT(cpu->ebx);
+	cpu->ecx = SWAP_INT(cpu->ecx);
+	cpu->edx = SWAP_INT(cpu->edx);
+	cpu->edi = SWAP_INT(cpu->edi);
+	cpu->esi = SWAP_INT(cpu->esi);
+	cpu->ebp = SWAP_INT(cpu->ebp);
+	cpu->esp = SWAP_INT(cpu->esp);
+	cpu->ss = SWAP_INT(cpu->ss);
+	cpu->eflags = SWAP_INT(cpu->eflags);
+	cpu->eip = SWAP_INT(cpu->eip);
+	cpu->cs = SWAP_INT(cpu->cs);
+	cpu->ds = SWAP_INT(cpu->ds);
+	cpu->es = SWAP_INT(cpu->es);
+	cpu->fs = SWAP_INT(cpu->fs);
+	cpu->gs = SWAP_INT(cpu->gs);
 }
 
 #ifdef x86_THREAD_STATE64
@@ -1465,8 +1464,8 @@ enum byte_sex target_byte_sex)
 
 	host_byte_sex = get_host_byte_sex();
 
-	fpu->fpu_reserved[0] = SWAP_LONG(fpu->fpu_reserved[0]);
-	fpu->fpu_reserved[1] = SWAP_LONG(fpu->fpu_reserved[1]);
+	fpu->fpu_reserved[0] = SWAP_INT(fpu->fpu_reserved[0]);
+	fpu->fpu_reserved[1] = SWAP_INT(fpu->fpu_reserved[1]);
 
 	if(target_byte_sex == host_byte_sex){
 	    memcpy(&sfpc, &(fpu->fpu_fcw),
@@ -1531,15 +1530,15 @@ enum byte_sex target_byte_sex)
 		   sizeof(struct swapped_fp_status));
 	}
 	fpu->fpu_fop = SWAP_SHORT(fpu->fpu_fop);
-	fpu->fpu_ip = SWAP_LONG(fpu->fpu_ip);
+	fpu->fpu_ip = SWAP_INT(fpu->fpu_ip);
 	fpu->fpu_cs = SWAP_SHORT(fpu->fpu_cs);
 	fpu->fpu_rsrv2 = SWAP_SHORT(fpu->fpu_rsrv2);
-	fpu->fpu_dp = SWAP_LONG(fpu->fpu_dp);
+	fpu->fpu_dp = SWAP_INT(fpu->fpu_dp);
 	fpu->fpu_ds = SWAP_SHORT(fpu->fpu_ds);
 	fpu->fpu_rsrv3 = SWAP_SHORT(fpu->fpu_rsrv3);
-	fpu->fpu_mxcsr = SWAP_LONG(fpu->fpu_mxcsr);
-	fpu->fpu_mxcsrmask = SWAP_LONG(fpu->fpu_mxcsrmask);
-	fpu->fpu_reserved1 = SWAP_LONG(fpu->fpu_reserved1);
+	fpu->fpu_mxcsr = SWAP_INT(fpu->fpu_mxcsr);
+	fpu->fpu_mxcsrmask = SWAP_INT(fpu->fpu_mxcsrmask);
+	fpu->fpu_reserved1 = SWAP_INT(fpu->fpu_reserved1);
 
 #endif /* defined(i386_EXCEPTION_STATE_COUNT) */
 }
@@ -1550,9 +1549,9 @@ swap_i386_exception_state(
 i386_exception_state_t *exc,
 enum byte_sex target_byte_sex)
 {
-	exc->trapno = SWAP_LONG(exc->trapno);
-	exc->err = SWAP_LONG(exc->err);
-    	exc->faultvaddr = SWAP_LONG(exc->faultvaddr);
+	exc->trapno = SWAP_INT(exc->trapno);
+	exc->err = SWAP_INT(exc->err);
+    	exc->faultvaddr = SWAP_INT(exc->faultvaddr);
 }
 
 #ifdef x86_THREAD_STATE64
@@ -1610,8 +1609,8 @@ enum byte_sex target_byte_sex)
 
 	host_byte_sex = get_host_byte_sex();
 
-	fpu->fpu_reserved[0] = SWAP_LONG(fpu->fpu_reserved[0]);
-	fpu->fpu_reserved[1] = SWAP_LONG(fpu->fpu_reserved[1]);
+	fpu->fpu_reserved[0] = SWAP_INT(fpu->fpu_reserved[0]);
+	fpu->fpu_reserved[1] = SWAP_INT(fpu->fpu_reserved[1]);
 
 	if(target_byte_sex == host_byte_sex){
 	    memcpy(&sfpc, &(fpu->fpu_fcw),
@@ -1676,15 +1675,15 @@ enum byte_sex target_byte_sex)
 		   sizeof(struct swapped_fp_status));
 	}
 	fpu->fpu_fop = SWAP_SHORT(fpu->fpu_fop);
-	fpu->fpu_ip = SWAP_LONG(fpu->fpu_ip);
+	fpu->fpu_ip = SWAP_INT(fpu->fpu_ip);
 	fpu->fpu_cs = SWAP_SHORT(fpu->fpu_cs);
 	fpu->fpu_rsrv2 = SWAP_SHORT(fpu->fpu_rsrv2);
-	fpu->fpu_dp = SWAP_LONG(fpu->fpu_dp);
+	fpu->fpu_dp = SWAP_INT(fpu->fpu_dp);
 	fpu->fpu_ds = SWAP_SHORT(fpu->fpu_ds);
 	fpu->fpu_rsrv3 = SWAP_SHORT(fpu->fpu_rsrv3);
-	fpu->fpu_mxcsr = SWAP_LONG(fpu->fpu_mxcsr);
-	fpu->fpu_mxcsrmask = SWAP_LONG(fpu->fpu_mxcsrmask);
-	fpu->fpu_reserved1 = SWAP_LONG(fpu->fpu_reserved1);
+	fpu->fpu_mxcsr = SWAP_INT(fpu->fpu_mxcsr);
+	fpu->fpu_mxcsrmask = SWAP_INT(fpu->fpu_mxcsrmask);
+	fpu->fpu_reserved1 = SWAP_INT(fpu->fpu_reserved1);
 }
 
 __private_extern__
@@ -1693,8 +1692,8 @@ swap_x86_exception_state64(
 x86_exception_state64_t *exc,
 enum byte_sex target_byte_sex)
 {
-	exc->trapno = SWAP_LONG(exc->trapno);
-	exc->err = SWAP_LONG(exc->err);
+	exc->trapno = SWAP_INT(exc->trapno);
+	exc->err = SWAP_INT(exc->err);
     	exc->faultvaddr = SWAP_LONG_LONG(exc->faultvaddr);
 }
 
@@ -1704,14 +1703,14 @@ swap_x86_debug_state32(
 x86_debug_state32_t *debug,
 enum byte_sex target_byte_sex)
 {
-	debug->dr0 = SWAP_LONG(debug->dr0);
-	debug->dr1 = SWAP_LONG(debug->dr1);
-	debug->dr2 = SWAP_LONG(debug->dr2);
-	debug->dr3 = SWAP_LONG(debug->dr3);
-	debug->dr4 = SWAP_LONG(debug->dr4);
-	debug->dr5 = SWAP_LONG(debug->dr5);
-	debug->dr6 = SWAP_LONG(debug->dr6);
-	debug->dr7 = SWAP_LONG(debug->dr7);
+	debug->dr0 = SWAP_INT(debug->dr0);
+	debug->dr1 = SWAP_INT(debug->dr1);
+	debug->dr2 = SWAP_INT(debug->dr2);
+	debug->dr3 = SWAP_INT(debug->dr3);
+	debug->dr4 = SWAP_INT(debug->dr4);
+	debug->dr5 = SWAP_INT(debug->dr5);
+	debug->dr6 = SWAP_INT(debug->dr6);
+	debug->dr7 = SWAP_INT(debug->dr7);
 }
 
 __private_extern__
@@ -1736,8 +1735,8 @@ swap_x86_state_hdr(
 struct x86_state_hdr *hdr,
 enum byte_sex target_byte_sex)
 {
-	hdr->flavor = SWAP_LONG(hdr->flavor);
-	hdr->count = SWAP_LONG(hdr->count);
+	hdr->flavor = SWAP_INT(hdr->flavor);
+	hdr->count = SWAP_INT(hdr->count);
 }
 #endif /* x86_THREAD_STATE64 */
 
@@ -1842,9 +1841,9 @@ enum byte_sex target_byte_sex)
 
 	host_byte_sex = get_host_byte_sex();
 
-	fpu->environ.ip = SWAP_LONG(fpu->environ.ip);
+	fpu->environ.ip = SWAP_INT(fpu->environ.ip);
 	fpu->environ.opcode = SWAP_SHORT(fpu->environ.opcode);
-	fpu->environ.dp = SWAP_LONG(fpu->environ.dp);
+	fpu->environ.dp = SWAP_INT(fpu->environ.dp);
 
 	if(target_byte_sex == host_byte_sex){
 	    memcpy(&sfpc, &(fpu->environ.control),
@@ -2006,19 +2005,19 @@ enum byte_sex target_byte_sex)
 				wrtflt	:1,
 				prot	:1;
 	    } pgfault;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } sec;
-    unsigned long word;
+    uint32_t word;
     enum byte_sex host_byte_sex;
 
 	host_byte_sex = get_host_byte_sex();
 
-	exc->trapno = SWAP_LONG(exc->trapno);
+	exc->trapno = SWAP_INT(exc->trapno);
 	if(exc->trapno == 14){
 	    if(target_byte_sex == host_byte_sex){
 		memcpy(&sec, &(exc->err), sizeof(struct swapped_err_code));
-		sec.u.word = SWAP_LONG(sec.u.word);
+		sec.u.word = SWAP_INT(sec.u.word);
 		exc->err.pgfault.user   = sec.u.pgfault.user;
 		exc->err.pgfault.wrtflt = sec.u.pgfault.wrtflt;
 		exc->err.pgfault.prot   = sec.u.pgfault.prot;
@@ -2027,16 +2026,16 @@ enum byte_sex target_byte_sex)
 		sec.u.pgfault.prot   = exc->err.pgfault.prot;
 		sec.u.pgfault.wrtflt = exc->err.pgfault.wrtflt;
 		sec.u.pgfault.user   = exc->err.pgfault.user;
-		sec.u.word = SWAP_LONG(sec.u.word);
+		sec.u.word = SWAP_INT(sec.u.word);
 		memcpy(&(exc->err), &sec, sizeof(struct swapped_err_code));
 	    }
 	}
 	else{
 	    if(target_byte_sex == host_byte_sex){
 		memcpy(&sec, &(exc->err), sizeof(struct swapped_err_code));
-		sec.u.word = SWAP_LONG(sec.u.word);
+		sec.u.word = SWAP_INT(sec.u.word);
 		word = sec.u.normal.index;
-		exc->err.normal.index = SWAP_LONG(word);
+		exc->err.normal.index = SWAP_INT(word);
 		exc->err.normal.tbl   = sec.u.normal.tbl;
 		exc->err.normal.ext   = sec.u.normal.ext;
 	    }
@@ -2044,8 +2043,8 @@ enum byte_sex target_byte_sex)
 		sec.u.normal.ext   = exc->err.normal.ext;
 		sec.u.normal.tbl   = exc->err.normal.tbl;
 		word = exc->err.normal.index;
-		sec.u.normal.index = SWAP_LONG(word);
-		sec.u.word = SWAP_LONG(sec.u.word);
+		sec.u.normal.index = SWAP_INT(word);
+		sec.u.word = SWAP_INT(sec.u.word);
 		memcpy(&(exc->err), &sec, sizeof(struct swapped_err_code));
 	    }
 	}
@@ -2061,7 +2060,7 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	user->self = SWAP_LONG(user->self);
+	user->self = SWAP_INT(user->self);
 }
 #endif /* i386_THREAD_STATE == -1 */
 
@@ -2075,42 +2074,42 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	regs->ts_gr1 = SWAP_LONG(regs->ts_gr1);
-	regs->ts_gr2 = SWAP_LONG(regs->ts_gr2);
-	regs->ts_gr3 = SWAP_LONG(regs->ts_gr3);
-	regs->ts_gr4 = SWAP_LONG(regs->ts_gr4);
-	regs->ts_gr5 = SWAP_LONG(regs->ts_gr5);
-	regs->ts_gr6 = SWAP_LONG(regs->ts_gr6);
-	regs->ts_gr7 = SWAP_LONG(regs->ts_gr7);
-	regs->ts_gr8 = SWAP_LONG(regs->ts_gr8);
-	regs->ts_gr9 = SWAP_LONG(regs->ts_gr9);
-	regs->ts_gr10 = SWAP_LONG(regs->ts_gr10);
-	regs->ts_gr11 = SWAP_LONG(regs->ts_gr11);
-	regs->ts_gr12 = SWAP_LONG(regs->ts_gr12);
-	regs->ts_gr13 = SWAP_LONG(regs->ts_gr13);
-	regs->ts_gr14 = SWAP_LONG(regs->ts_gr14);
-	regs->ts_gr15 = SWAP_LONG(regs->ts_gr15);
-	regs->ts_gr16 = SWAP_LONG(regs->ts_gr16);
-	regs->ts_gr17 = SWAP_LONG(regs->ts_gr17);
-	regs->ts_gr18 = SWAP_LONG(regs->ts_gr18);
-	regs->ts_gr19 = SWAP_LONG(regs->ts_gr19);
-	regs->ts_gr20 = SWAP_LONG(regs->ts_gr20);
-	regs->ts_gr21 = SWAP_LONG(regs->ts_gr21);
-	regs->ts_gr22 = SWAP_LONG(regs->ts_gr22);
-	regs->ts_gr23 = SWAP_LONG(regs->ts_gr23);
-	regs->ts_gr24 = SWAP_LONG(regs->ts_gr24);
-	regs->ts_gr25 = SWAP_LONG(regs->ts_gr25);
-	regs->ts_gr26 = SWAP_LONG(regs->ts_gr26);
-	regs->ts_gr27 = SWAP_LONG(regs->ts_gr27);
-	regs->ts_gr28 = SWAP_LONG(regs->ts_gr28);
-	regs->ts_gr29 = SWAP_LONG(regs->ts_gr29);
-	regs->ts_gr30 = SWAP_LONG(regs->ts_gr30);
-	regs->ts_gr31 = SWAP_LONG(regs->ts_gr31);
-	regs->ts_sr0 = SWAP_LONG(regs->ts_sr0);
-	regs->ts_sr1 = SWAP_LONG(regs->ts_sr1);
-	regs->ts_sr2 = SWAP_LONG(regs->ts_sr2);
-	regs->ts_sr3 = SWAP_LONG(regs->ts_sr3);
-	regs->ts_sar = SWAP_LONG(regs->ts_sar);
+	regs->ts_gr1 = SWAP_INT(regs->ts_gr1);
+	regs->ts_gr2 = SWAP_INT(regs->ts_gr2);
+	regs->ts_gr3 = SWAP_INT(regs->ts_gr3);
+	regs->ts_gr4 = SWAP_INT(regs->ts_gr4);
+	regs->ts_gr5 = SWAP_INT(regs->ts_gr5);
+	regs->ts_gr6 = SWAP_INT(regs->ts_gr6);
+	regs->ts_gr7 = SWAP_INT(regs->ts_gr7);
+	regs->ts_gr8 = SWAP_INT(regs->ts_gr8);
+	regs->ts_gr9 = SWAP_INT(regs->ts_gr9);
+	regs->ts_gr10 = SWAP_INT(regs->ts_gr10);
+	regs->ts_gr11 = SWAP_INT(regs->ts_gr11);
+	regs->ts_gr12 = SWAP_INT(regs->ts_gr12);
+	regs->ts_gr13 = SWAP_INT(regs->ts_gr13);
+	regs->ts_gr14 = SWAP_INT(regs->ts_gr14);
+	regs->ts_gr15 = SWAP_INT(regs->ts_gr15);
+	regs->ts_gr16 = SWAP_INT(regs->ts_gr16);
+	regs->ts_gr17 = SWAP_INT(regs->ts_gr17);
+	regs->ts_gr18 = SWAP_INT(regs->ts_gr18);
+	regs->ts_gr19 = SWAP_INT(regs->ts_gr19);
+	regs->ts_gr20 = SWAP_INT(regs->ts_gr20);
+	regs->ts_gr21 = SWAP_INT(regs->ts_gr21);
+	regs->ts_gr22 = SWAP_INT(regs->ts_gr22);
+	regs->ts_gr23 = SWAP_INT(regs->ts_gr23);
+	regs->ts_gr24 = SWAP_INT(regs->ts_gr24);
+	regs->ts_gr25 = SWAP_INT(regs->ts_gr25);
+	regs->ts_gr26 = SWAP_INT(regs->ts_gr26);
+	regs->ts_gr27 = SWAP_INT(regs->ts_gr27);
+	regs->ts_gr28 = SWAP_INT(regs->ts_gr28);
+	regs->ts_gr29 = SWAP_INT(regs->ts_gr29);
+	regs->ts_gr30 = SWAP_INT(regs->ts_gr30);
+	regs->ts_gr31 = SWAP_INT(regs->ts_gr31);
+	regs->ts_sr0 = SWAP_INT(regs->ts_sr0);
+	regs->ts_sr1 = SWAP_INT(regs->ts_sr1);
+	regs->ts_sr2 = SWAP_INT(regs->ts_sr2);
+	regs->ts_sr3 = SWAP_INT(regs->ts_sr3);
+	regs->ts_sar = SWAP_INT(regs->ts_sar);
 }
 
 __private_extern__
@@ -2122,15 +2121,15 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	frame->ts_pcsq_front = SWAP_LONG(frame->ts_pcsq_front);
-	frame->ts_pcsq_back = SWAP_LONG(frame->ts_pcsq_back);
-	frame->ts_pcoq_front = SWAP_LONG(frame->ts_pcoq_front);
-	frame->ts_pcoq_back = SWAP_LONG(frame->ts_pcoq_back);
-	frame->ts_psw = SWAP_LONG(frame->ts_psw);
-	frame->ts_unaligned_faults = SWAP_LONG(frame->ts_unaligned_faults);
-	frame->ts_fault_address = SWAP_LONG(frame->ts_fault_address);
-	frame->ts_step_range_start = SWAP_LONG(frame->ts_step_range_start);
-	frame->ts_step_range_stop = SWAP_LONG(frame->ts_step_range_stop);
+	frame->ts_pcsq_front = SWAP_INT(frame->ts_pcsq_front);
+	frame->ts_pcsq_back = SWAP_INT(frame->ts_pcsq_back);
+	frame->ts_pcoq_front = SWAP_INT(frame->ts_pcoq_front);
+	frame->ts_pcoq_back = SWAP_INT(frame->ts_pcoq_back);
+	frame->ts_psw = SWAP_INT(frame->ts_psw);
+	frame->ts_unaligned_faults = SWAP_INT(frame->ts_unaligned_faults);
+	frame->ts_fault_address = SWAP_INT(frame->ts_fault_address);
+	frame->ts_step_range_start = SWAP_INT(frame->ts_step_range_start);
+	frame->ts_step_range_stop = SWAP_INT(frame->ts_step_range_stop);
 }
 
 __private_extern__
@@ -2206,29 +2205,29 @@ enum byte_sex target_byte_sex)
 
 	host_byte_sex = get_host_byte_sex();
 
-	cpu->regs.r_pc = SWAP_LONG(cpu->regs.r_pc);
-	cpu->regs.r_npc = SWAP_LONG(cpu->regs.r_npc);
-	cpu->regs.r_y = SWAP_LONG(cpu->regs.r_y);
-	cpu->regs.r_g1 = SWAP_LONG(cpu->regs.r_g1);
-	cpu->regs.r_g2 = SWAP_LONG(cpu->regs.r_g2);
-	cpu->regs.r_g3 = SWAP_LONG(cpu->regs.r_g3);
-	cpu->regs.r_g4 = SWAP_LONG(cpu->regs.r_g4);
-	cpu->regs.r_g5 = SWAP_LONG(cpu->regs.r_g5);
-	cpu->regs.r_g6 = SWAP_LONG(cpu->regs.r_g6);
-	cpu->regs.r_g7 = SWAP_LONG(cpu->regs.r_g7);
-	cpu->regs.r_o0 = SWAP_LONG(cpu->regs.r_o0);
-	cpu->regs.r_o1 = SWAP_LONG(cpu->regs.r_o1);
-	cpu->regs.r_o2 = SWAP_LONG(cpu->regs.r_o2);
-	cpu->regs.r_o3 = SWAP_LONG(cpu->regs.r_o3);
-	cpu->regs.r_o4 = SWAP_LONG(cpu->regs.r_o4);
-	cpu->regs.r_o5 = SWAP_LONG(cpu->regs.r_o5);
-	cpu->regs.r_o6 = SWAP_LONG(cpu->regs.r_o6);
-	cpu->regs.r_o7 = SWAP_LONG(cpu->regs.r_o7);
+	cpu->regs.r_pc = SWAP_INT(cpu->regs.r_pc);
+	cpu->regs.r_npc = SWAP_INT(cpu->regs.r_npc);
+	cpu->regs.r_y = SWAP_INT(cpu->regs.r_y);
+	cpu->regs.r_g1 = SWAP_INT(cpu->regs.r_g1);
+	cpu->regs.r_g2 = SWAP_INT(cpu->regs.r_g2);
+	cpu->regs.r_g3 = SWAP_INT(cpu->regs.r_g3);
+	cpu->regs.r_g4 = SWAP_INT(cpu->regs.r_g4);
+	cpu->regs.r_g5 = SWAP_INT(cpu->regs.r_g5);
+	cpu->regs.r_g6 = SWAP_INT(cpu->regs.r_g6);
+	cpu->regs.r_g7 = SWAP_INT(cpu->regs.r_g7);
+	cpu->regs.r_o0 = SWAP_INT(cpu->regs.r_o0);
+	cpu->regs.r_o1 = SWAP_INT(cpu->regs.r_o1);
+	cpu->regs.r_o2 = SWAP_INT(cpu->regs.r_o2);
+	cpu->regs.r_o3 = SWAP_INT(cpu->regs.r_o3);
+	cpu->regs.r_o4 = SWAP_INT(cpu->regs.r_o4);
+	cpu->regs.r_o5 = SWAP_INT(cpu->regs.r_o5);
+	cpu->regs.r_o6 = SWAP_INT(cpu->regs.r_o6);
+	cpu->regs.r_o7 = SWAP_INT(cpu->regs.r_o7);
 
     	pr_status = (struct p_status *) &(cpu->regs.r_psr);
 	if(target_byte_sex == host_byte_sex){
 	    memcpy(&spsr, &(cpu->regs.r_psr), sizeof(struct swapped_psr));
-	    spsr.u.word = SWAP_LONG(spsr.u.word);
+	    spsr.u.word = SWAP_INT(spsr.u.word);
 	    pr_status->PSRREG.psr_bits.cwp = spsr.u.fields.cwp;
 	    pr_status->PSRREG.psr_bits.ps = spsr.u.fields.ps;
 	    pr_status->PSRREG.psr_bits.s = spsr.u.fields.s;
@@ -2251,7 +2250,7 @@ enum byte_sex target_byte_sex)
 	    spsr.u.fields.icc = pr_status->PSRREG.psr_bits.icc;
 	    spsr.u.fields.ver = pr_status->PSRREG.psr_bits.et;
 	    spsr.u.fields.impl = pr_status->PSRREG.psr_bits.impl;
-	    spsr.u.word = SWAP_LONG(spsr.u.word);
+	    spsr.u.word = SWAP_INT(spsr.u.word);
 	    memcpy(&(cpu->regs.r_psr), &spsr, sizeof(struct swapped_psr));
 	}
 }
@@ -2294,14 +2293,14 @@ enum byte_sex target_byte_sex)
 
 	fpu->fpu.Fpu_q[0].FQu.whole = SWAP_DOUBLE(fpu->fpu.Fpu_q[0].FQu.whole);
 	fpu->fpu.Fpu_q[1].FQu.whole = SWAP_DOUBLE(fpu->fpu.Fpu_q[1].FQu.whole);
-	fpu->fpu.Fpu_flags = SWAP_LONG(fpu->fpu.Fpu_flags);
-	fpu->fpu.Fpu_extra = SWAP_LONG(fpu->fpu.Fpu_extra);
-	fpu->fpu.Fpu_qcnt = SWAP_LONG(fpu->fpu.Fpu_qcnt);
+	fpu->fpu.Fpu_flags = SWAP_INT(fpu->fpu.Fpu_flags);
+	fpu->fpu.Fpu_extra = SWAP_INT(fpu->fpu.Fpu_extra);
+	fpu->fpu.Fpu_qcnt = SWAP_INT(fpu->fpu.Fpu_qcnt);
 
 	fpu_status = (struct f_status *) &(fpu->fpu.Fpu_fsr);
 	if(target_byte_sex == host_byte_sex){
 	    memcpy(&sfsr, &(fpu->fpu.Fpu_fsr), sizeof(unsigned int));
-	    sfsr.u.word = SWAP_LONG(sfsr.u.word);
+	    sfsr.u.word = SWAP_INT(sfsr.u.word);
 	    fpu_status->FPUREG.Fpu_fsr_bits.rd = sfsr.u.fields.rd;
 	    fpu_status->FPUREG.Fpu_fsr_bits.rp = sfsr.u.fields.rp;
 	    fpu_status->FPUREG.Fpu_fsr_bits.tem = sfsr.u.fields.tem;
@@ -2324,7 +2323,7 @@ enum byte_sex target_byte_sex)
 	    sfsr.u.fields.fcc = fpu_status->FPUREG.Fpu_fsr_bits.fcc;
 	    sfsr.u.fields.aexc = fpu_status->FPUREG.Fpu_fsr_bits.aexc;
 	    sfsr.u.fields.cexc = fpu_status->FPUREG.Fpu_fsr_bits.cexc;
-	    sfsr.u.word = SWAP_LONG(sfsr.u.word);
+	    sfsr.u.word = SWAP_INT(sfsr.u.word);
 	    memcpy(&(fpu->fpu.Fpu_fsr), &sfsr, sizeof(struct swapped_fsr));
 	}
 }
@@ -2339,8 +2338,8 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	id_cmd->cmd = SWAP_LONG(id_cmd->cmd);
-	id_cmd->cmdsize = SWAP_LONG(id_cmd->cmdsize);
+	id_cmd->cmd = SWAP_INT(id_cmd->cmd);
+	id_cmd->cmdsize = SWAP_INT(id_cmd->cmdsize);
 }
 
 __private_extern__
@@ -2353,16 +2352,16 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	r_cmd->cmd = SWAP_LONG(r_cmd->cmd);
-	r_cmd->cmdsize = SWAP_LONG(r_cmd->cmdsize);
-	r_cmd->init_address = SWAP_LONG(r_cmd->init_address);
-	r_cmd->init_module = SWAP_LONG(r_cmd->init_module);
-	r_cmd->reserved1 = SWAP_LONG(r_cmd->reserved1);
-	r_cmd->reserved2 = SWAP_LONG(r_cmd->reserved2);
-	r_cmd->reserved3 = SWAP_LONG(r_cmd->reserved3);
-	r_cmd->reserved4 = SWAP_LONG(r_cmd->reserved4);
-	r_cmd->reserved5 = SWAP_LONG(r_cmd->reserved5);
-	r_cmd->reserved6 = SWAP_LONG(r_cmd->reserved6);
+	r_cmd->cmd = SWAP_INT(r_cmd->cmd);
+	r_cmd->cmdsize = SWAP_INT(r_cmd->cmdsize);
+	r_cmd->init_address = SWAP_INT(r_cmd->init_address);
+	r_cmd->init_module = SWAP_INT(r_cmd->init_module);
+	r_cmd->reserved1 = SWAP_INT(r_cmd->reserved1);
+	r_cmd->reserved2 = SWAP_INT(r_cmd->reserved2);
+	r_cmd->reserved3 = SWAP_INT(r_cmd->reserved3);
+	r_cmd->reserved4 = SWAP_INT(r_cmd->reserved4);
+	r_cmd->reserved5 = SWAP_INT(r_cmd->reserved5);
+	r_cmd->reserved6 = SWAP_INT(r_cmd->reserved6);
 }
 
 __private_extern__
@@ -2375,8 +2374,8 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	r_cmd->cmd = SWAP_LONG(r_cmd->cmd);
-	r_cmd->cmdsize = SWAP_LONG(r_cmd->cmdsize);
+	r_cmd->cmd = SWAP_INT(r_cmd->cmd);
+	r_cmd->cmdsize = SWAP_INT(r_cmd->cmdsize);
 	r_cmd->init_address = SWAP_LONG_LONG(r_cmd->init_address);
 	r_cmd->init_module = SWAP_LONG_LONG(r_cmd->init_module);
 	r_cmd->reserved1 = SWAP_LONG_LONG(r_cmd->reserved1);
@@ -2397,10 +2396,10 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	hints_cmd->cmd = SWAP_LONG(hints_cmd->cmd);
-	hints_cmd->cmdsize = SWAP_LONG(hints_cmd->cmdsize);
-	hints_cmd->offset = SWAP_LONG(hints_cmd->offset);
-	hints_cmd->nhints = SWAP_LONG(hints_cmd->nhints);
+	hints_cmd->cmd = SWAP_INT(hints_cmd->cmd);
+	hints_cmd->cmdsize = SWAP_INT(hints_cmd->cmdsize);
+	hints_cmd->offset = SWAP_INT(hints_cmd->offset);
+	hints_cmd->nhints = SWAP_INT(hints_cmd->nhints);
 }
 
 __private_extern__
@@ -2413,11 +2412,11 @@ enum byte_sex target_byte_sex)
     struct swapped_twolevel_hint {
 	union {
 	    struct {
-		unsigned long
+		uint32_t
 		    itoc:24,
 		    isub_image:8;
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } shint;
 
@@ -2429,14 +2428,14 @@ enum byte_sex target_byte_sex)
 	for(i = 0; i < nhints; i++){
 	    if(target_byte_sex == host_byte_sex){
 		memcpy(&shint, hints + i, sizeof(struct swapped_twolevel_hint));
-		shint.u.word = SWAP_LONG(shint.u.word);
+		shint.u.word = SWAP_INT(shint.u.word);
 		hints[i].itoc = shint.u.fields.itoc;
 		hints[i].isub_image = shint.u.fields.isub_image;
 	    }
 	    else{
 		shint.u.fields.isub_image = hints[i].isub_image;
 		shint.u.fields.itoc = hints[i].itoc;
-		shint.u.word = SWAP_LONG(shint.u.word);
+		shint.u.word = SWAP_INT(shint.u.word);
 		memcpy(hints + i, &shint, sizeof(struct swapped_twolevel_hint));
 	    }
 	}
@@ -2452,9 +2451,9 @@ enum byte_sex target_byte_sex)
     enum byte_sex dummy;
         dummy = target_byte_sex;
 #endif
-	cksum_cmd->cmd = SWAP_LONG(cksum_cmd->cmd);
-	cksum_cmd->cmdsize = SWAP_LONG(cksum_cmd->cmdsize);
-	cksum_cmd->cksum = SWAP_LONG(cksum_cmd->cksum);
+	cksum_cmd->cmd = SWAP_INT(cksum_cmd->cmd);
+	cksum_cmd->cmdsize = SWAP_INT(cksum_cmd->cmdsize);
+	cksum_cmd->cksum = SWAP_INT(cksum_cmd->cksum);
 }
 
 __private_extern__
@@ -2463,8 +2462,30 @@ swap_uuid_command(
 struct uuid_command *uuid_cmd,
 enum byte_sex target_byte_sex)
 {
-	uuid_cmd->cmd = SWAP_LONG(uuid_cmd->cmd);
-	uuid_cmd->cmdsize = SWAP_LONG(uuid_cmd->cmdsize);
+	uuid_cmd->cmd = SWAP_INT(uuid_cmd->cmd);
+	uuid_cmd->cmdsize = SWAP_INT(uuid_cmd->cmdsize);
+}
+
+__private_extern__
+void
+swap_linkedit_data_command(
+struct linkedit_data_command *ld,
+enum byte_sex target_byte_sex)
+{
+	ld->cmd = SWAP_INT(ld->cmd);
+	ld->cmdsize = SWAP_INT(ld->cmdsize);
+	ld->dataoff = SWAP_INT(ld->dataoff);
+	ld->datasize = SWAP_INT(ld->datasize);
+}
+
+__private_extern__
+void swap_rpath_command(
+struct rpath_command *rpath_cmd,
+enum byte_sex target_byte_sex)
+{
+	rpath_cmd->cmd = SWAP_INT(rpath_cmd->cmd);
+	rpath_cmd->cmdsize = SWAP_INT(rpath_cmd->cmdsize);
+	rpath_cmd->path.offset = SWAP_INT(rpath_cmd->path.offset);
 }
 
 __private_extern__
@@ -2481,11 +2502,11 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < nsymbols; i++){
-	    symbols[i].n_un.n_strx = SWAP_LONG(symbols[i].n_un.n_strx);
+	    symbols[i].n_un.n_strx = SWAP_INT(symbols[i].n_un.n_strx);
 	    /* n_type */
 	    /* n_sect */
 	    symbols[i].n_desc = SWAP_SHORT(symbols[i].n_desc);
-	    symbols[i].n_value = SWAP_LONG(symbols[i].n_value);
+	    symbols[i].n_value = SWAP_INT(symbols[i].n_value);
 	}
 }
 
@@ -2503,7 +2524,7 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < nsymbols; i++){
-	    symbols[i].n_un.n_strx = SWAP_LONG(symbols[i].n_un.n_strx);
+	    symbols[i].n_un.n_strx = SWAP_INT(symbols[i].n_un.n_strx);
 	    /* n_type */
 	    /* n_sect */
 	    symbols[i].n_desc = SWAP_SHORT(symbols[i].n_desc);
@@ -2525,8 +2546,8 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < nranlibs; i++){
-	    ranlibs[i].ran_un.ran_strx = SWAP_LONG(ranlibs[i].ran_un.ran_strx);
-	    ranlibs[i].ran_off = SWAP_LONG(ranlibs[i].ran_off);
+	    ranlibs[i].ran_un.ran_strx = SWAP_INT(ranlibs[i].ran_un.ran_strx);
+	    ranlibs[i].ran_off = SWAP_INT(ranlibs[i].ran_off);
 	}
 }
 
@@ -2552,12 +2573,12 @@ enum byte_sex target_byte_sex)
 		    r_pcrel:1,
 		    r_symbolnum:24;
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } sr;
 
     struct swapped_scattered_relocation_info {
-	unsigned long word;
+	uint32_t word;
 	long	r_value;
     } *ssr;
 
@@ -2567,15 +2588,15 @@ enum byte_sex target_byte_sex)
 	for(i = 0; i < nrelocs; i++){
 	    if(to_host_byte_sex)
 		scattered = (enum bool)(
-			(SWAP_LONG(relocs[i].r_address) & R_SCATTERED) != 0);
+			(SWAP_INT(relocs[i].r_address) & R_SCATTERED) != 0);
 	    else
 		scattered = (enum bool)
 			(((relocs[i].r_address) & R_SCATTERED) != 0);
 	    if(scattered == FALSE){
 		if(to_host_byte_sex){
 		    memcpy(&sr, relocs + i, sizeof(struct relocation_info));
-		    sr.r_address = SWAP_LONG(sr.r_address);
-		    sr.u.word = SWAP_LONG(sr.u.word);
+		    sr.r_address = SWAP_INT(sr.r_address);
+		    sr.u.word = SWAP_INT(sr.u.word);
 		    relocs[i].r_address = sr.r_address;
 		    relocs[i].r_symbolnum = sr.u.fields.r_symbolnum;
 		    relocs[i].r_pcrel = sr.u.fields.r_pcrel;
@@ -2590,15 +2611,15 @@ enum byte_sex target_byte_sex)
 		    sr.u.fields.r_pcrel = relocs[i].r_pcrel;
 		    sr.u.fields.r_extern = relocs[i].r_extern;
 		    sr.u.fields.r_type = relocs[i].r_type;
-		    sr.r_address = SWAP_LONG(sr.r_address);
-		    sr.u.word = SWAP_LONG(sr.u.word);
+		    sr.r_address = SWAP_INT(sr.r_address);
+		    sr.u.word = SWAP_INT(sr.u.word);
 		    memcpy(relocs + i, &sr, sizeof(struct relocation_info));
 		}
 	    }
 	    else{
 		ssr = (struct swapped_scattered_relocation_info *)(relocs + i);
-		ssr->word = SWAP_LONG(ssr->word);
-		ssr->r_value = SWAP_LONG(ssr->r_value);
+		ssr->word = SWAP_INT(ssr->word);
+		ssr->r_value = SWAP_INT(ssr->r_value);
 	    }
 	}
 }
@@ -2606,8 +2627,8 @@ enum byte_sex target_byte_sex)
 __private_extern__
 void
 swap_indirect_symbols(
-unsigned long *indirect_symbols,
-unsigned long nindirect_symbols,
+uint32_t *indirect_symbols,
+uint32_t nindirect_symbols,
 enum byte_sex target_byte_sex)
 {
     unsigned long i;
@@ -2617,7 +2638,7 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < nindirect_symbols; i++)
-	    indirect_symbols[i] = SWAP_LONG(indirect_symbols[i]);
+	    indirect_symbols[i] = SWAP_INT(indirect_symbols[i]);
 }
 
 __private_extern__
@@ -2630,11 +2651,11 @@ enum byte_sex target_byte_sex)
     struct swapped_dylib_reference {
 	union {
 	    struct {
-		unsigned long
+		uint32_t
 		    flags:8,
 		    isym:24;
 	    } fields;
-	    unsigned long word;
+	    uint32_t word;
 	} u;
     } sref;
 
@@ -2646,14 +2667,14 @@ enum byte_sex target_byte_sex)
 	for(i = 0; i < nrefs; i++){
 	    if(target_byte_sex == host_byte_sex){
 		memcpy(&sref, refs + i, sizeof(struct swapped_dylib_reference));
-		sref.u.word = SWAP_LONG(sref.u.word);
+		sref.u.word = SWAP_INT(sref.u.word);
 		refs[i].flags = sref.u.fields.flags;
 		refs[i].isym = sref.u.fields.isym;
 	    }
 	    else{
 		sref.u.fields.isym = refs[i].isym;
 		sref.u.fields.flags = refs[i].flags;
-		sref.u.word = SWAP_LONG(sref.u.word);
+		sref.u.word = SWAP_INT(sref.u.word);
 		memcpy(refs + i, &sref, sizeof(struct swapped_dylib_reference));
 	    }
 	}
@@ -2674,21 +2695,21 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < nmods; i++){
-	    mods[i].module_name = SWAP_LONG(mods[i].module_name);
-	    mods[i].iextdefsym  = SWAP_LONG(mods[i].iextdefsym);
-	    mods[i].nextdefsym  = SWAP_LONG(mods[i].nextdefsym);
-	    mods[i].irefsym     = SWAP_LONG(mods[i].irefsym);
-	    mods[i].nrefsym     = SWAP_LONG(mods[i].nrefsym);
-	    mods[i].ilocalsym   = SWAP_LONG(mods[i].ilocalsym);
-	    mods[i].nlocalsym   = SWAP_LONG(mods[i].nlocalsym);
-	    mods[i].iextrel     = SWAP_LONG(mods[i].iextrel);
-	    mods[i].nextrel     = SWAP_LONG(mods[i].nextrel);
-	    mods[i].iinit_iterm = SWAP_LONG(mods[i].iinit_iterm);
-	    mods[i].ninit_nterm = SWAP_LONG(mods[i].ninit_nterm);
+	    mods[i].module_name = SWAP_INT(mods[i].module_name);
+	    mods[i].iextdefsym  = SWAP_INT(mods[i].iextdefsym);
+	    mods[i].nextdefsym  = SWAP_INT(mods[i].nextdefsym);
+	    mods[i].irefsym     = SWAP_INT(mods[i].irefsym);
+	    mods[i].nrefsym     = SWAP_INT(mods[i].nrefsym);
+	    mods[i].ilocalsym   = SWAP_INT(mods[i].ilocalsym);
+	    mods[i].nlocalsym   = SWAP_INT(mods[i].nlocalsym);
+	    mods[i].iextrel     = SWAP_INT(mods[i].iextrel);
+	    mods[i].nextrel     = SWAP_INT(mods[i].nextrel);
+	    mods[i].iinit_iterm = SWAP_INT(mods[i].iinit_iterm);
+	    mods[i].ninit_nterm = SWAP_INT(mods[i].ninit_nterm);
 	    mods[i].objc_module_info_addr =
-				  SWAP_LONG(mods[i].objc_module_info_addr);
+				  SWAP_INT(mods[i].objc_module_info_addr);
 	    mods[i].objc_module_info_size =
-				  SWAP_LONG(mods[i].objc_module_info_size);
+				  SWAP_INT(mods[i].objc_module_info_size);
 	}
 }
 
@@ -2706,17 +2727,17 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < nmods; i++){
-	    mods[i].module_name = SWAP_LONG(mods[i].module_name);
-	    mods[i].iextdefsym  = SWAP_LONG(mods[i].iextdefsym);
-	    mods[i].nextdefsym  = SWAP_LONG(mods[i].nextdefsym);
-	    mods[i].irefsym     = SWAP_LONG(mods[i].irefsym);
-	    mods[i].nrefsym     = SWAP_LONG(mods[i].nrefsym);
-	    mods[i].ilocalsym   = SWAP_LONG(mods[i].ilocalsym);
-	    mods[i].nlocalsym   = SWAP_LONG(mods[i].nlocalsym);
-	    mods[i].iextrel     = SWAP_LONG(mods[i].iextrel);
-	    mods[i].nextrel     = SWAP_LONG(mods[i].nextrel);
-	    mods[i].iinit_iterm = SWAP_LONG(mods[i].iinit_iterm);
-	    mods[i].ninit_nterm = SWAP_LONG(mods[i].ninit_nterm);
+	    mods[i].module_name = SWAP_INT(mods[i].module_name);
+	    mods[i].iextdefsym  = SWAP_INT(mods[i].iextdefsym);
+	    mods[i].nextdefsym  = SWAP_INT(mods[i].nextdefsym);
+	    mods[i].irefsym     = SWAP_INT(mods[i].irefsym);
+	    mods[i].nrefsym     = SWAP_INT(mods[i].nrefsym);
+	    mods[i].ilocalsym   = SWAP_INT(mods[i].ilocalsym);
+	    mods[i].nlocalsym   = SWAP_INT(mods[i].nlocalsym);
+	    mods[i].iextrel     = SWAP_INT(mods[i].iextrel);
+	    mods[i].nextrel     = SWAP_INT(mods[i].nextrel);
+	    mods[i].iinit_iterm = SWAP_INT(mods[i].iinit_iterm);
+	    mods[i].ninit_nterm = SWAP_INT(mods[i].ninit_nterm);
 	    mods[i].objc_module_info_addr =
 				  SWAP_LONG_LONG(mods[i].objc_module_info_addr);
 	    mods[i].objc_module_info_size =
@@ -2738,7 +2759,7 @@ enum byte_sex target_byte_sex)
 #endif
 
 	for(i = 0; i < ntocs; i++){
-	    tocs[i].symbol_index = SWAP_LONG(tocs[i].symbol_index);
-	    tocs[i].module_index = SWAP_LONG(tocs[i].module_index);
+	    tocs[i].symbol_index = SWAP_INT(tocs[i].symbol_index);
+	    tocs[i].module_index = SWAP_INT(tocs[i].module_index);
 	}
 }

@@ -1,4 +1,4 @@
-# Copyright 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+# Copyright 1999, 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,6 +27,9 @@ global mi_gdb_prompt
 if ![info exists mi_gdb_prompt] then {
     set mi_gdb_prompt "\[(\]gdb\[)\] \[\r\n\]*"
 }
+
+global mi_inferior_spawn_id
+global mi_inferior_tty_name
 
 set MIFLAGS "-i=mi"
 
@@ -81,13 +84,17 @@ proc mi_uncatched_gdb_exit {} {
 }
 
 #
-# start gdb -- start gdb running, default procedure
+# mi_gdb_start [INFERIOR_PTY] -- start gdb running, default procedure
+#
+# INFERIOR_PTY should be set to separate-inferior-tty to have the inferior work 
+# with it's own PTY. If set to same-inferior-tty, the inferior shares GDB's PTY. 
+# The default value is same-inferior-tty.
 #
 # When running over NFS, particularly if running many simultaneous
 # tests on different hosts all using the same server, things can
 # get really slow.  Give gdb at least 3 minutes to start up.
 #
-proc mi_gdb_start { } {
+proc mi_gdb_start { args } {
     global verbose
     global GDB
     global GDBFLAGS
@@ -98,6 +105,13 @@ proc mi_gdb_start { } {
     global MIFLAGS
 
     gdb_stop_suppressing_tests;
+    set inferior_pty no-tty
+
+    if { [llength $args] == 1} {
+	set inferior_pty [lindex $args 0]
+    }
+
+    set separate_inferior_pty [string match $inferior_pty separate-inferior-tty]
 
     # Start SID.
     if { [info procs sid_start] != "" } {
@@ -117,6 +131,16 @@ proc mi_gdb_start { } {
 	    exit 1
 	}
     }
+
+    # Create the new PTY for the inferior process.
+    if { $separate_inferior_pty } {
+	spawn -pty
+	global mi_inferior_spawn_id
+	global mi_inferior_tty_name
+	set mi_inferior_spawn_id $spawn_id
+	set mi_inferior_tty_name $spawn_out(slave,name)
+    }
+
     set res [remote_spawn host "$GDB -nw $GDBFLAGS $MIFLAGS [host_info gdb_opts]"];
     if { $res < 0 || $res == "" } {
 	perror "Spawning $GDB failed."
@@ -200,6 +224,19 @@ proc mi_gdb_start { } {
 	timeout {
 	    warning "Couldn't set the width to 0."
 	}
+    }
+    # If allowing the inferior to have its own PTY then assign the inferior
+    # its own terminal device here.
+    if { $separate_inferior_pty } {
+	send_gdb "102-inferior-tty-set $mi_inferior_tty_name\n"
+	gdb_expect 10 {
+	    -re ".*102\\\^done\r\n$mi_gdb_prompt$" {
+		verbose "redirect inferior output to new terminal device."
+	    }
+	    timeout {
+	    	warning "Couldn't redirect inferior output." 2
+	    }
+    	}
     }
 
     return 0;
@@ -451,7 +488,7 @@ proc mi_gdb_load { arg } {
 
 	if { ! [info exists last_mi_remote_file] } {
 	    if [is_remote target] {
-		set last_mi_remote_file [remote_download target $arg]
+		set last_mi_remote_file [remote_download target $arg /tmp/[file tail $arg].[pid]]
 	    } else {
 		set last_mi_remote_file $last_mi_gdb_file
 	    }
@@ -468,7 +505,7 @@ proc mi_gdb_load { arg } {
 	# For SID, things get complex
 	send_target_sid
 	gdb_expect 60 {
-	    -re "\\^done,.*$mi_gdb_prompt$" {
+	    -re "\\^done.*$mi_gdb_prompt$" {
 	    }
 	    timeout {
 		perror "Unable to connect to SID target"
@@ -506,14 +543,9 @@ proc mi_gdb_load { arg } {
 	}
     } elseif { [target_info gdb_protocol] == "remote" } {
 	# remote targets
-	send_gdb "target [target_info gdb_protocol] [target_info netport]\n"
-	gdb_expect 60 {
-	    -re "\\^done,.*$mi_gdb_prompt$" {
-	    }
-	    timeout {
-		perror "Unable to connect to remote target"
-		return -1
-	    }
+	if { [mi_gdb_target_cmd "remote" [target_info netport]] != 0 } {
+	    perror "Unable to connect to remote target"
+	    return -1
 	}
 	send_gdb "48-target-download\n"
 	gdb_expect 10 {
@@ -528,16 +560,19 @@ proc mi_gdb_load { arg } {
     return 0
 }
 
-# mi_gdb_test COMMAND PATTERN MESSAGE -- send a command to gdb; test the result.
+# mi_gdb_test COMMAND PATTERN MESSAGE [IPATTERN] -- send a command to gdb; 
+#   test the result.
 #
 # COMMAND is the command to execute, send to GDB with send_gdb.  If
 #   this is the null string no command is sent.
 # PATTERN is the pattern to match for a PASS, and must NOT include
 #   the \r\n sequence immediately before the gdb prompt.
-# MESSAGE is an optional message to be printed.  If this is
-#   omitted, then the pass/fail messages use the command string as the
-#   message.  (If this is the empty string, then sometimes we don't
-#   call pass or fail at all; I don't understand this at all.)
+# MESSAGE is the message to be printed.  (If this is the empty string, 
+#   then sometimes we don't call pass or fail at all; I don't 
+#   understand this at all.)
+# IPATTERN is the pattern to match for the inferior's output.  This parameter
+#   is optional.  If present, it will produce a PASS if the match is 
+#   successful, and a FAIL if unsuccessful.
 #
 # Returns:
 #    1 if the test failed,
@@ -550,13 +585,13 @@ proc mi_gdb_test { args } {
     global GDB expect_out
     upvar timeout timeout
 
-    if [llength $args]>2 then {
-	set message [lindex $args 2]
-    } else {
-	set message [lindex $args 0]
-    }
     set command [lindex $args 0]
     set pattern [lindex $args 1]
+    set message [lindex $args 2]
+
+    if [llength $args]==4 {
+	set ipattern [lindex $args 3]
+    }
 
     if [llength $args]==5 {
 	set question_string [lindex $args 3];
@@ -708,6 +743,23 @@ proc mi_gdb_test { args } {
 	    set result 1
 	}
     }
+
+    # If the GDB output matched, compare the inferior output.
+    if { $result == 0 } {
+	if [ info exists ipattern ] {
+	    global mi_inferior_spawn_id
+	    expect {
+		-i $mi_inferior_spawn_id -re "$ipattern" {
+		    pass "inferior_output:$message"
+		}
+		timeout {
+		    fail "inferior output timeout"
+		    set result 1
+		}
+	    }
+        }
+    }
+
     return $result
 }
 
@@ -728,6 +780,7 @@ proc mi_check_current_frame { func file line message } {
 # mi_get_bp_stopped BKPTNO THREAD ARGS FUNC FILE LINE MESSAGE 
 
 proc mi_get_bp_stopped { bkptno thread args func file line message } {
+# APPLE LOCAL [breakpoint-hit]: We emit a TIMES field. 
   set reason "breakpoint-hit\",commands=\"no\",times=\"\[0-9\]+\",bkptno=\"$bkptno"
   return [mi_get_stopped $reason $thread $args $func $file $line $message]
 }
@@ -856,7 +909,7 @@ proc mi_runto {func} {
   }
 
   global mi_gdb_prompt expect_out
-  global hex decimal
+  global hex decimal fullname_syntax
 
   set test "mi runto $func"
   mi_gdb_test "200-break-insert $func" \
@@ -871,6 +924,7 @@ proc mi_runto {func} {
   mi_run_cmd
 # APPLE LOCAL: COMMANDS field included in 'stopped' reason
 #              FRAME field not included in 'stopped' reason
+#              TIMES field included in 'stopped' reason
   gdb_expect {
     -re ".*000\\*stopped,reason=\"breakpoint-hit\",commands=\"no\",times=\"\[0-9\]+\",bkptno=\"$bkptno\",thread-id=\"$decimal\"\r\n$mi_gdb_prompt$" {
       pass "$test"
@@ -909,7 +963,7 @@ proc mi_step { test } {
 # Can not match -re ".*\r\n${mi_gdb_prompt}", because of false positives
 # after the first prompt is printed.
 
-proc mi_execute_to_helper { cmd reason func args file line extra test } {
+proc mi_execute_to_helper { cmd reason func args file line extra_before extra_after test {during_run ".*"}} {
     global suppress_flag
     if { $suppress_flag } {
 	return -1
@@ -918,6 +972,7 @@ proc mi_execute_to_helper { cmd reason func args file line extra test } {
     global mi_gdb_prompt
     global hex
     global decimal
+    global fullname_syntax
     send_gdb "220-$cmd\n"
 
 # APPLE LOCAL: Our 'stopped' result doesn't include the FRAME field, so issue
@@ -925,12 +980,16 @@ proc mi_execute_to_helper { cmd reason func args file line extra test } {
 # inserted into the result by the caller of this function.
 
     gdb_expect {
-	-re ".*220\\^running\r\n${mi_gdb_prompt}.*220\\*stopped,reason=\"$reason\",thread-id=\"$decimal\"$extra\r\n$mi_gdb_prompt$" {
+	-re ".*220\\^running\r\n${mi_gdb_prompt}${during_run}220\\*stopped,reason=\"$reason\",${extra_before}thread-id=\"$decimal\"$extra_after\r\n$mi_gdb_prompt$" {
 	    pass "$test"
             mi_check_current_frame "$func" "$file" "$line" "$test loc-check"
 	    return 0
 	}
-	-re ".*220\\^running\r\n${mi_gdb_prompt}.*220\\*stopped,reason=\"$reason\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\[\\\[\{\].*\[\\\]\}\],file=\".*\",line=\"\[0-9\]*\"\}.*\r\n$mi_gdb_prompt$" {
+	-re ".*220\\^running\r\n${mi_gdb_prompt}.*220\\*stopped,reason=\"$reason\",${extra_before}thread-id=\"$decimal\"$extra_after\r\n$mi_gdb_prompt$" {
+	    fail "$test (didn't match during_run condition)"
+	    return -1
+	}
+	-re ".*220\\^running\r\n${mi_gdb_prompt}${during_run}220\\*stopped,reason=\"$reason\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\[\\\[\{\].*\[\\\]\}\],file=\".*\",fullname=\"${fullname_syntax}.*\",line=\"\[0-9\]*\"\}.*\r\n$mi_gdb_prompt$" {
 	    fail "$test (stopped at wrong place)"
 	    return -1
 	}
@@ -945,9 +1004,14 @@ proc mi_execute_to_helper { cmd reason func args file line extra test } {
     }
 }
 
-proc mi_execute_to { cmd reason func args file line extra test } {
+proc mi_continue_to_watchpoint { func args file line number exp old new test } {
+    set wpt "wpt=\{number=\"$number\",exp=\"$exp\"\},value=\{old=\"$old\",new=\"$new\"\},"
+    mi_execute_to_helper "exec-continue" "watchpoint-trigger" $func $args $file $line $wpt "" $test
+}
+
+proc mi_execute_to { cmd reason func args file line extra test {during_run .*}} {
     mi_execute_to_helper "$cmd" "$reason" "$func" "\\\[$args\\\]" \
-	"$file" "$line" "$extra" "$test"
+	"$file" "$line" "" "$extra" "$test" $during_run
 }
 
 proc mi_next_to { func args file line test } {
@@ -967,16 +1031,16 @@ proc mi_finish_to { func args file line result ret test } {
 	"$test"
 }
 
-# APPLE LOCAL: When we stop due to a breakpoint, we'll get a COMMANDS field.
+# APPLE LOCAL: When we stop due to a breakpoint, we'll get COMMANDS & TIMES fields.
 
-proc mi_continue_to { bkptno func args file line test } {
+proc mi_continue_to { bkptno func args file line test {during_run .*}} {
     mi_execute_to "exec-continue" "breakpoint-hit\",commands=\"no\",times=\"\[0-9\]+\",bkptno=\"$bkptno" \
-	"$func" "$args" "$file" "$line" "" "$test"
+	"$func" "$args" "$file" "$line" "" "$test" $during_run
 }
 
 proc mi0_execute_to { cmd reason func args file line extra test } {
     mi_execute_to_helper "$cmd" "$reason" "$func" "\{$args\}" \
-	"$file" "$line" "$extra" "$test"
+	"$file" "$line" "" "$extra" "$test"
 }
 
 proc mi0_next_to { func args file line test } {
@@ -996,7 +1060,7 @@ proc mi0_finish_to { func args file line result ret test } {
 	"$test"
 }
 
-# APPLE LOCAL: When we stop due to a breakpoint, we'll get a COMMANDS field.
+# APPLE LOCAL: When we stop due to a breakpoint, we'll get COMMANDS & TIMES fields.
 
 proc mi0_continue_to { bkptno func args file line test } {
     mi0_execute_to "exec-continue" "breakpoint-hit\",commands=\"no\",times=\"\[0-9\]+\",bkptno=\"$bkptno" \

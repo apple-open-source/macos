@@ -19,6 +19,7 @@ Install_Target = install
 after_install:
 	$(STRIP) $(DSTROOT)/usr/bin/m4
 	$(LN) $(DSTROOT)/usr/bin/m4 $(DSTROOT)/usr/bin/gm4
+	$(LN) $(DSTROOT)/usr/share/man/man1/m4.1 $(DSTROOT)/usr/share/man/man1/gm4.1
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
@@ -30,16 +31,16 @@ install-plist:
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(ProjectName).txt
 
 install-info:
-	$(INSTALL_DIRECTORY) "$(DSTROOT)/Developer/ADC Reference Library/documentation/DeveloperTools"
+	$(INSTALL_DIRECTORY) "$(DSTROOT)$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)"
 	$(TEXI2HTML) --split=chapter $(Sources)/doc/m4.texinfo \
-		--output="$(DSTROOT)/Developer/ADC Reference Library/documentation/DeveloperTools/m4"
+		--output="$(DSTROOT)$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)/m4"
 
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.4.2
+AEP_Version    = 1.4.6
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
+AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = patch-doc__Makefile.in
 
@@ -56,6 +57,6 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 endif

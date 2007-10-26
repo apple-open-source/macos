@@ -1,0 +1,1086 @@
+This is uucp.info, produced by makeinfo version 4.1 from uucp.texi.
+
+START-INFO-DIR-ENTRY
+* UUCP: (uucp).                 Transfer mail and news across phone lines.
+END-INFO-DIR-ENTRY
+
+   This file documents Taylor UUCP, version 1.07.
+
+   Copyright (C) 1992, 1993, 1994, 1995, 2002 Ian Lance Taylor
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "Copying" are included exactly as in the
+original, and provided that the entire resulting derived work is
+distributed under the terms of a permission notice identical to this
+one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the section entitled "Copying" may be included in
+a translation approved by the author instead of in the original English.
+
+
+File: uucp.info,  Node: The Initial Handshake,  Next: UUCP Protocol Commands,  Prev: UUCP Protocol,  Up: UUCP Protocol
+
+The Initial Handshake
+---------------------
+
+   Before the initial handshake, the caller will usually have logged in
+the called machine and somehow started the UUCP package there.  On Unix
+this is normally done by setting the shell of the login name used to
+`/usr/lib/uucp/uucico'.
+
+   All messages in the initial handshake begin with a `^P' (a byte with
+the octal value `\020') and end with a null byte (`\000').  A few
+systems end these messages with a line feed character (`\012') instead
+of a null byte; the examples below assume a null byte is being used.
+
+   Some options below are supported by QFT, which stands for Queued File
+Transfer, and is (or was) an internal Bell Labs version of UUCP.
+
+   Taylor UUCP size negotiation was introduced by Taylor UUCP, and is
+also supported by DOS based UUPlus and Amiga based wUUCP and UUCP-1.17.
+
+   The initial handshake goes as follows.  It is begun by the called
+machine.
+
+called: `\020Shere=hostname\000'
+     The hostname is the UUCP name of the called machine.  Older UUCP
+     packages do not output it, and simply send `\020Shere\000'.
+
+caller: `\020Shostname options\000'
+     The hostname is the UUCP name of the calling machine.  The
+     following options may appear (or there may be none):
+
+    `-QSEQ'
+          Report sequence number for this conversation.  The sequence
+          number is stored at both sites, and incremented after each
+          call.  If there is a sequence number mismatch, something has
+          gone wrong (somebody may have broken security by pretending
+          to be one of the machines) and the call is denied.  If the
+          sequence number changes on one of the machines, perhaps
+          because of an attempted breakin or because a disk backup was
+          restored, the sequence numbers on the two machines must be
+          reconciled manually.
+
+    `-xLEVEL'
+          Requests the called system to set its debugging level to the
+          specified value.  This is not supported by all systems.
+
+    `-pGRADE'
+    `-vgrade=GRADE'
+          Requests the called system to only transfer files of the
+          specified grade or higher.  This is not supported by all
+          systems.  Some systems support `-p', some support `-vgrade='.
+          UUPlus allows either `-p' or `-v' to be specified on a
+          per-system basis in the `SYSTEMS' file (`gradechar' option).
+
+    `-R'
+          Indicates that the calling UUCP understands how to restart
+          failed file transmissions.  Supported only by System V
+          Release 4 UUCP, QFT, and Taylor UUCP.
+
+    `-ULIMIT'
+          Reports the ulimit value of the calling UUCP.  The limit is
+          specified as a base 16 number in C notation (e.g.,
+          `-U0x1000000').  This number is the number of 512 byte blocks
+          in the largest file which the calling UUCP can create.  The
+          called UUCP may not transfer a file larger than this.
+          Supported only by System V Release 4 UUCP, QFT and UUPlus.
+          UUPlus reports the lesser of the available disk space on the
+          spool directory drive and the ulimit variable in
+          `UUPLUS.CFG'.  Taylor UUCP understands this option, but does
+          not generate it.
+
+    `-N[NUMBER]'
+          Indicates that the calling UUCP understands the Taylor UUCP
+          size negotiation extension.  Not supported by traditional
+          UUCP packages.  Supported by UUPlus.  The optional number is
+          a bitmask of features supported by the calling UUCP, and is
+          described below.
+
+called: `\020ROK\000'
+     There are actually several possible responses.
+    `ROK'
+          The calling UUCP is acceptable, and the handshake proceeds to
+          the protocol negotiation.  Some options may also appear; see
+          below.
+
+    `ROKN[NUMBER]'
+          The calling UUCP is acceptable, it specified `-N', and the
+          called UUCP also understands the Taylor UUCP size limiting
+          extensions.  The optional number is a bitmask of features
+          supported by the called UUCP, and is described below.
+
+    `RLCK'
+          The called UUCP already has a lock for the calling UUCP,
+          which normally indicates the two machines are already
+          communicating.
+
+    `RCB'
+          The called UUCP will call back.  This may be used to avoid
+          impostors (but only one machine out of each pair should call
+          back, or no conversation will ever begin).
+
+    `RBADSEQ'
+          The call sequence number is wrong (see the `-Q' discussion
+          above).
+
+    `RLOGIN'
+          The calling UUCP is using the wrong login name.
+
+    `RYou are unknown to me'
+          The calling UUCP is not known to the called UUCP, and the
+          called UUCP does not permit connections from unknown systems.
+          Some versions of UUCP just drop the line rather than sending
+          this message.
+
+     If the response is `ROK', the following options are supported by
+     System V Release 4 UUCP and QFT.
+    `-R'
+          The called UUCP knows how to restart failed file
+          transmissions.
+
+    `-ULIMIT'
+          Reports the ulimit value of the called UUCP.  The limit is
+          specified as a base 16 number in C notation.  This number is
+          the number of 512 byte blocks in the largest file which the
+          called UUCP can create.  The calling UUCP may not send a file
+          larger than this.  Also supported by UUPlus.  Taylor UUCP
+          understands this option, but does not generate it.
+
+    `-xLEVEL'
+          I'm not sure just what this means.  It may request the
+          calling UUCP to set its debugging level to the specified
+          value.
+
+     If the response is not `ROK' (or `ROKN') both sides hang up the
+     phone, abandoning the call.
+
+called: `\020Pprotocols\000'
+     Note that the called UUCP outputs two strings in a row.  The
+     protocols string is a list of UUCP protocols supported by the
+     caller.  Each UUCP protocol has a single character name.  These
+     protocols are discussed in more detail later in this document.
+     For example, the called UUCP might send `\020Pgf\000'.
+
+caller: `\020Uprotocol\000'
+     The calling UUCP selects which protocol to use out of the protocols
+     offered by the called UUCP.  If there are no mutually supported
+     protocols, the calling UUCP sends `\020UN\000' and both sides hang
+     up the phone.  Otherwise the calling UUCP sends something like
+     `\020Ug\000'.
+
+   Most UUCP packages will consider each locally supported protocol in
+turn and select the first one supported by the called UUCP.  With some
+versions of HDB UUCP, this can be modified by giving a list of protocols
+after the device name in the `Devices' file or the `Systems' file.  For
+example, to select the `e' protocol in `Systems',
+         airs Any ACU,e ...
+   or in Devices,
+         ACU,e ttyXX ...
+   Taylor UUCP provides the `protocol' command which may be used either
+for a system (*note Protocol Selection::) or a port (*note port File::).
+UUPlus allows specification of the protocol string on a per-system basis
+in the `SYSTEMS' file.
+
+   The optional number following a `-N' sent by the calling system, or
+an `ROKN' sent by the called system, is a bitmask of features supported
+by the UUCP package.  The optional number was introduced in Taylor UUCP
+version 1.04.  The number is sent as an octal number with a leading
+zero.  The following bits are currently defined.  A missing number
+should be taken as `011'.
+
+`01'
+     UUCP supports size negotiation.
+
+`02'
+     UUCP supports file restart.
+
+`04'
+     UUCP supports the `E' command.
+
+`010'
+     UUCP requires the file size in the `S' and `R' commands to be in
+     base 10.  This bit is used by default if no number appears, but
+     should not be explicitly sent.
+
+`020'
+     UUCP expects a dummy string between the notify field and the size
+     field in an `S' command.  This is true of SVR4 UUCP.  This bit
+     should not be used.
+
+`040'
+     UUCP supports the `q' option in the `S', `R', `X', and `E'
+     commands.
+
+   After the protocol has been selected and the initial handshake has
+been completed, both sides turn on the selected protocol.  For some
+protocols (notably `g') a further handshake is done at this point.
+
+
+File: uucp.info,  Node: UUCP Protocol Commands,  Next: The Final Handshake,  Prev: The Initial Handshake,  Up: UUCP Protocol
+
+UUCP Protocol Commands
+----------------------
+
+   Each protocol supports a method for sending a command to the remote
+system.  This method is used to transmit a series of commands between
+the two UUCP packages.  At all times, one package is the master and the
+other is the slave.  Initially, the calling UUCP is the master.
+
+   If a protocol error occurs during the exchange of commands, both
+sides move immediately to the final handshake.
+
+   The master will send one of five commands: `S', `R', `X', `E', or
+`H'.
+
+   Any file name referred to below is either an absolute file name
+beginning with `/', a public directory file name beginning with `~/', a
+file name relative to a user's home directory beginning with `~USER/',
+or a spool directory file name.  File names in the spool directory are
+not absolute, but instead are converted to file names within the spool
+directory by UUCP.  They always begin with `C.' (for a command file
+created by `uucp' or `uux'), `D.' (for a data file created by `uucp',
+`uux' or by an execution, or received from another system for an
+execution), or `X.' (for an execution file created by `uux' or received
+from another system).
+
+   All the commands other than the `H' command support options.  The
+`q' option indicates that the command argument strings are backslash
+quoted.  If the `q' option appears, then any backslash in one of the
+arguments should be followed by either a backslash or three octal
+digits.  The backslash quoting is interpreted as in a C string.  If the
+`q' option does not appear, backslashes in the strings are not treated
+specially.  The `q' option was introduced in Taylor UUCP version 1.07.
+
+* Menu:
+
+* The S Command::               The S Command
+* The R Command::               The R Command
+* The X Command::               The X Command
+* The E Command::               The E Command
+* The H Command::               The H Command
+
+
+File: uucp.info,  Node: The S Command,  Next: The R Command,  Prev: UUCP Protocol Commands,  Up: UUCP Protocol Commands
+
+The S Command
+.............
+
+master: `S FROM TO USER -OPTIONS TEMP MODE NOTIFY SIZE'
+     The `S' and the `-' are literal characters.  This is a request by
+     the master to send a file to the slave.
+
+    FROM
+          The name of the file to send.  If the `C' option does not
+          appear in OPTIONS, the master will actually open and send
+          this file.  Otherwise the file has been copied to the spool
+          directory, where it is named TEMP.  The slave ignores this
+          field unless TO is a directory, in which case the basename of
+          FROM will be used as the file name.  If FROM is a spool
+          directory filename, it must be a data file created for or by
+          an execution, and must begin with `D.'.
+
+    TO
+          The name to give the file on the slave.  If this field names
+          a directory the file is placed within that directory with the
+          basename of FROM.  A name ending in `/' is taken to be a
+          directory even if one does not already exist with that name.
+          If TO begins with `X.', an execution file will be created on
+          the slave.  Otherwise, if TO begins with `D.' it names a data
+          file to be used by some execution file.  Otherwise, TO should
+          not be in the spool directory.
+
+    USER
+          The name of the user who requested the transfer.
+
+    OPTIONS
+          A list of options to control the transfer.  The following
+          options are defined (all options are single characters):
+         `C'
+               The file has been copied to the spool directory (the
+               master should use TEMP rather than FROM).
+
+         `c'
+               The file has not been copied to the spool directory
+               (this is the default).
+
+         `d'
+               The slave should create directories as necessary (this
+               is the default).
+
+         `f'
+               The slave should not create directories if necessary,
+               but should fail the transfer instead.
+
+         `m'
+               The master should send mail to USER when the transfer is
+               complete.
+
+         `n'
+               The slave should send mail to NOTIFY when the transfer is
+               complete.
+
+         `q'
+               Backslash quoting is applied to the FROM, TO, USER, and
+               NOTIFY arguments.  *Note UUCP Protocol Commands::.  This
+               option was introduced in Taylor UUCP version 1.07.
+
+    TEMP
+          If the `C' option appears in OPTIONS, this names the file to
+          be sent.  Otherwise if FROM is in the spool directory, TEMP
+          is the same as FROM.  Otherwise TEMP may be a dummy string,
+          such as `D.0'.  After the transfer has been succesfully
+          completed, the master will delete the file TEMP.
+
+    MODE
+          This is an octal number giving the mode of the file on the
+          master.  If the file is not in the spool directory, the slave
+          will always create it with mode 0666, except that if (MODE &
+          0111) is not zero (the file is executable), the slave will
+          create the file with mode 0777.  If the file is in the spool
+          directory, some UUCP packages will use the algorithm above
+          and some will always create the file with mode 0600.  This
+          field is ignored by UUPlus, since it is meaningless on DOS;
+          UUPlus uses 0666 for outgoing files.
+
+    NOTIFY
+          This field may not be present, and in any case is only
+          meaningful if the `n' option appears in OPTIONS.  If the `n'
+          option appears, then, when the transfer is successfully
+          completed, the slave will send mail to NOTIFY, which must be
+          a legal mailing address on the slave.  If a SIZE field will
+          appear but the `n' option does not appear, NOTIFY will always
+          be present, typically as the string `dummy' or simply a pair
+          of double quotes.
+
+    SIZE
+          This field is only present when doing Taylor UUCP or SVR4
+          UUCP size negotiation.  It is the size of the file in bytes.
+          Taylor UUCP version 1.03 sends the size as a decimal integer,
+          while versions 1.04 and up, and all other UUCP packages that
+          support size negotiation, send the size in base 16 with a
+          leading 0x.
+
+     The slave then responds with an `S' command response.
+
+    `SY START'
+          The slave is willing to accept the file, and file transfer
+          begins.  The START field will only be present when using file
+          restart.  It specifies the byte offset into the file at which
+          to start sending.  If this is a new file, START will be 0x0.
+
+    `SN2'
+          The slave denies permission to transfer the file.  This can
+          mean that the destination directory may not be accessed, or
+          that no requests are permitted.  It implies that the file
+          transfer will never succeed.
+
+    `SN4'
+          The slave is unable to create the necessary temporary file.
+          This implies that the file transfer might succeed later.
+
+    `SN6'
+          This is only used by Taylor UUCP size negotiation.  It means
+          that the slave considers the file too large to transfer at
+          the moment, but it may be possible to transfer it at some
+          other time.
+
+    `SN7'
+          This is only used by Taylor UUCP size negotiation.  It means
+          that the slave considers the file too large to ever transfer.
+
+    `SN8'
+          This is only used by Taylor UUCP.  It means that the file was
+          already received in a previous conversation.  This can happen
+          if the receive acknowledgement was lost after it was sent by
+          the receiver but before it was received by the sender.
+
+    `SN9'
+          This is only used by Taylor UUCP (versions 1.05 and up) and
+          UUPlus (versions 2.0 and up).  It means that the remote
+          system was unable to open another channel (see the discussion
+          of the `i' protocol for more information about channels).
+          This implies that the file transfer might succeed later.
+
+    `SN10'
+          This is reportedly used by SVR4 UUCP to mean that the file
+          size is too large.
+
+     If the slave responds with `SY', a file transfer begins.  When the
+     file transfer is complete, the slave sends a `C' command response.
+
+    `CY'
+          The file transfer was successful.
+
+    `CYM'
+          The file transfer was successful, and the slave wishes to
+          become the master; the master should send an `H' command,
+          described below.
+
+    `CN5'
+          The temporary file could not be moved into the final
+          location.  This implies that the file transfer will never
+          succeed.
+
+   After the `C' command response has been received (in the `SY' case)
+or immediately (in an `SN' case) the master will send another command.
+
+
+File: uucp.info,  Node: The R Command,  Next: The X Command,  Prev: The S Command,  Up: UUCP Protocol Commands
+
+The R Command
+.............
+
+master: `R FROM TO USER -OPTIONS SIZE'
+     The `R' and the `-' are literal characters.  This is a request by
+     the master to receive a file from the slave.  I do not know how
+     SVR4 UUCP or QFT implement file transfer restart in this case.
+
+    FROM
+          This is the name of the file on the slave which the master
+          wishes to receive.  It must not be in the spool directory,
+          and it may not contain any wildcards.
+
+    TO
+          This is the name of the file to create on the master.  I do
+          not believe that it can be a directory.  It may only be in
+          the spool directory if this file is being requested to
+          support an execution either on the master or on some system
+          other than the slave.
+
+    USER
+          The name of the user who requested the transfer.
+
+    OPTIONS
+          A list of options to control the transfer.  The following
+          options are defined (all options are single characters):
+         `d'
+               The master should create directories as necessary (this
+               is the default).
+
+         `f'
+               The master should not create directories if necessary,
+               but should fail the transfer instead.
+
+         `m'
+               The master should send mail to USER when the transfer is
+               complete.
+
+         `q'
+               Backslash quoting is applied to the FROM, TO, and USER
+               arguments.  *Note UUCP Protocol Commands::.  This option
+               was introduced in Taylor UUCP version 1.07.
+
+    SIZE
+          This only appears if Taylor UUCP size negotiation is being
+          used.  It specifies the largest file which the master is
+          prepared to accept (when using SVR4 UUCP or QFT, this was
+          specified in the `-U' option during the initial handshake).
+
+     The slave then responds with an `R' command response.  UUPlus does
+     not support `R' requests, and always responds with `RN2'.
+
+    `RY MODE [SIZE]'
+          The slave is willing to send the file, and file transfer
+          begins.  The MODE argument is the octal mode of the file on
+          the slave.  The master treats this just as the slave does the
+          MODE argument in the send command, q.v.  I am told that SVR4
+          UUCP sends a trailing SIZE argument.  For some versions of
+          BSD UUCP, the MODE argument may have a trailing `M' character
+          (e.g., `RY 0666M').  This means that the slave wishes to
+          become the master.
+
+    `RN2'
+          The slave is not willing to send the file, either because it
+          is not permitted or because the file does not exist.  This
+          implies that the file request will never succeed.
+
+    `RN6'
+          This is only used by Taylor UUCP size negotiation.  It means
+          that the file is too large to send, either because of the
+          size limit specifies by the master or because the slave
+          considers it too large.  The file transfer might succeed
+          later, or it might not (this may be cleared up in a later
+          release of Taylor UUCP).
+
+    `RN9'
+          This is only used by Taylor UUCP (versions 1.05 and up) and
+          FSUUCP (versions 1.5 and up).  It means that the remote
+          system was unable to open another channel (see the discussion
+          of the `i' protocol for more information about channels).
+          This implies that the file transfer might succeed later.
+
+     If the slave responds with `RY', a file transfer begins.  When the
+     file transfer is complete, the master sends a `C' command.  The
+     slave pretty much ignores this, although it may log it.
+
+    `CY'
+          The file transfer was successful.
+
+    `CN5'
+          The temporary file could not be moved into the final location.
+
+     After the `C' command response has been sent (in the `RY' case) or
+     immediately (in an `RN' case) the master will send another command.
+
+
+File: uucp.info,  Node: The X Command,  Next: The E Command,  Prev: The R Command,  Up: UUCP Protocol Commands
+
+The X Command
+.............
+
+master: `X FROM TO USER -OPTIONS'
+     The `X' and the `-' are literal characters.  This is a request by
+     the master to, in essence, execute uucp on the slave.  The slave
+     should execute `uucp FROM TO'.
+
+    FROM
+          This is the name of the file or files on the slave which the
+          master wishes to transfer.  Any wildcards are expanded on the
+          slave.  If the master is requesting that the files be
+          transferred to itself, the request would normally contain
+          wildcard characters, since otherwise an `R' command would
+          suffice.  The master can also use this command to request
+          that the slave transfer files to a third system.
+
+    TO
+          This is the name of the file or directory to which the files
+          should be transferred.  This will normally use a UUCP name.
+          For example, if the master wishes to receive the files
+          itself, it would use `master!path'.
+
+    USER
+          The name of the user who requested the transfer.
+
+    OPTIONS
+          A list of options to control the transfer.  As far as I know,
+          only one option is defined:
+         `q'
+               Backslash quoting is applied to the FROM, TO, and USER
+               arguments.  *Note UUCP Protocol Commands::.  This option
+               was introduced in Taylor UUCP version 1.07.
+
+     The slave then responds with an `X' command response.  FSUUCP does
+     not support `X' requests, and always responds with `XN'.
+
+    `XY'
+          The request was accepted, and the appropriate file transfer
+          commands have been queued up for later processing.
+
+    `XN'
+          The request was denied.  No particular reason is given.
+
+     In either case, the master will then send another command.
+
+
+File: uucp.info,  Node: The E Command,  Next: The H Command,  Prev: The X Command,  Up: UUCP Protocol Commands
+
+The E Command
+.............
+
+master: `E FROM TO USER -OPTIONS TEMP MODE NOTIFY SIZE COMMAND'
+     The `E' command is only supported by Taylor UUCP 1.04 and up.  It
+     is used to make an execution request without requiring a separate
+     `X.*' file.  *Note Execution File Format::.  It is only used when
+     the command to be executed requires a single input file which is
+     passed to it as standard input.
+
+     All the fields have the same meaning as they do for an `S' command,
+     except for OPTIONS and COMMAND.
+
+    OPTIONS
+          A list of options to control the transfer.  The following
+          options are defined (all options are single characters):
+         `C'
+               The file has been copied to the spool directory (the
+               master should use TEMP rather than FROM).
+
+         `c'
+               The file has not been copied to the spool directory
+               (this is the default).
+
+         `N'
+               No mail message should be sent, even if the command
+               fails.  This is the equivalent of the `N' command in an
+               `X.*' file.
+
+         `Z'
+               A mail message should be sent if the command fails (this
+               is generally the default in any case).  This is the
+               equivalent of the `Z' command in an `X.*' file.
+
+         `R'
+               Mail messages about the execution should be sent to the
+               address in the NOTIFY field.  This is the equivalent of
+               the `R' command in an `X.*' file.
+
+         `e'
+               The execution should be done with `/bin/sh'.  This is the
+               equivalent of the `e' command in an `X.*' file.
+
+         `q'
+               Backslash quoting is applied to the FROM, TO, USER, and
+               NOTIFY arguments.  *Note UUCP Protocol Commands::.  This
+               option was introduced in Taylor UUCP version 1.07.  Note
+               that the COMMAND argument is not backslash quoted--that
+               argument is defined as the remainder of the line, and so
+               is already permitted to contain any character.
+
+    COMMAND
+          The command which should be executed.  This is the equivalent
+          of the `C' command in an `X.*' file.
+
+     The slave then responds with an `E' command response.  These are
+     the same as the `S' command responses, but the initial character is
+     `E' rather than `S'.
+
+     If the slave responds with `EY', the file transfer begins.  When
+     the file transfer is complete, the slave sends a `C' command
+     response, just as for the `S' command.  After a successful file
+     transfer, the slave is responsible for arranging for the command
+     to be executed.  The transferred file is passed as standard input,
+     as though it were named in the `I' and `F' commands of an `X.*'
+     file.
+
+     After the `C' command response has been received (in the `EY'
+     case) or immediately (in an `EN' case) the master will send another
+     command.
+
+
+File: uucp.info,  Node: The H Command,  Prev: The E Command,  Up: UUCP Protocol Commands
+
+The H Command
+.............
+
+master: `H'
+     This is used by the master to hang up the connection.  The slave
+     will respond with an `H' command response.
+
+    `HY'
+          The slave agrees to hang up the connection.  In this case the
+          master sends another `HY' command.  In some UUCP packages the
+          slave will then send a third `HY' command.  At this point the
+          protocol is shut down, and the final handshake is begun.
+
+    `HN'
+          The slave does not agree to hang up.  In this case the master
+          and the slave exchange roles.  The next command will be sent
+          by the former slave, which is the new master.  The roles may
+          be reversed several times during a single connection.
+
+
+File: uucp.info,  Node: The Final Handshake,  Prev: UUCP Protocol Commands,  Up: UUCP Protocol
+
+The Final Handshake
+-------------------
+
+   After the protocol has been shut down, the final handshake is
+performed.  This handshake has no real purpose, and some UUCP packages
+simply drop the connection rather than do it (in fact, some will drop
+the connection immediately after both sides agree to hangup, without
+even closing down the protocol).
+
+caller: `\020OOOOOO\000'
+
+called: `\020OOOOOOO\000'
+   That is, the calling UUCP sends six `O' characters and the called
+UUCP replies with seven `O' characters.  Some UUCP packages always send
+six `O' characters.
+
+
+File: uucp.info,  Node: g Protocol,  Next: f Protocol,  Prev: UUCP Protocol,  Up: Protocols
+
+UUCP `g' Protocol
+=================
+
+   The `g' protocol is a packet based flow controlled error correcting
+protocol that requires an eight bit clear connection.  It is the
+original UUCP protocol, and is supported by all UUCP implementations.
+Many implementations of it are only able to support small window and
+packet sizes, specifically a window size of 3 and a packet size of 64
+bytes, but the protocol itself can support up to a window size of 7 and
+a packet size of 4096 bytes.  Complaints about the inefficiency of the
+`g' protocol generally refer to specific implementations, rather than
+to the correctly implemented protocol.
+
+   The `g' protocol was originally designed for general packet drivers,
+and thus contains some features that are not used by UUCP, including an
+alternate data channel and the ability to renegotiate packet and window
+sizes during the communication session.
+
+   The `g' protocol is spoofed by many Telebit modems.  When spoofing
+is in effect, each Telebit modem uses the `g' protocol to communicate
+with the attached computer, but the data between the modems is sent
+using a Telebit proprietary error correcting protocol.  This allows for
+very high throughput over the Telebit connection, which, because it is
+half-duplex, would not normally be able to handle the `g' protocol very
+well at all.  When a Telebit is spoofing the `g' protocol, it forces
+the packet size to be 64 bytes and the window size to be 3.
+
+   This discussion of the `g' protocol explains how it works, but does
+not discuss useful error handling techniques.  Some discussion of this
+can be found in Jamie E. Hanrahan's paper, cited above (*note UUCP
+Protocol Sources::).
+
+   All `g' protocol communication is done with packets.  Each packet
+begins with a six byte header.  Control packets consist only of the
+header.  Data packets contain additional data.
+
+   The header is as follows:
+
+`\020'
+     Every packet begins with a `^P'.
+
+K (1 <= K <= 9)
+     The K value is always 9 for a control packet.  For a data packet,
+     the K value indicates how much data follows the six byte header.
+     The amount of data is 2 ** (K + 4), where ** indicates
+     exponentiation.  Thus a K value of 1 means 32 data bytes and a K
+     value of 8 means 4096 data bytes.  The K value for a data packet
+     must be between 1 and 8 inclusive.
+
+checksum low byte
+checksum high byte
+     The checksum value is described below.
+
+control byte
+     The control byte indicates the type of packet, and is described
+     below.
+
+xor byte
+     This byte is the xor of K, the checksum low byte, the checksum
+     high byte and the control byte (i.e., the second, third, fourth and
+     fifth header bytes).  It is used to ensure that the header data is
+     valid.
+
+   The control byte in the header is composed of three bit fields,
+referred to here as TT (two bits), XXX (three bits) and YYY (three
+bits).  The control is TTXXXYYY, or `(TT << 6) + (XXX << 3) + YYY'.
+
+   The TT field takes on the following values:
+
+`0'
+     This is a control packet.  In this case the K byte in the header
+     must be 9.  The XXX field indicates the type of control packet;
+     these types are described below.
+
+`1'
+     This is an alternate data channel packet.  This is not used by
+     UUCP.
+
+`2'
+     This is a data packet, and the entire contents of the attached data
+     field (whose length is given by the K byte in the header) are
+     valid.  The XXX and YYY fields are described below.
+
+`3'
+     This is a short data packet.  Let the length of the data field (as
+     given by the K byte in the header) be L.  Let the first byte in
+     the data field be B1.  If B1 is less than 128 (if the most
+     significant bit of B1 is 0), then there are `L - B1' valid bytes
+     of data in the data field, beginning with the second byte.  If `B1
+     >= 128', let B2 be the second byte in the data field.  Then there
+     are `L - ((B1 & 0x7f) + (B2 << 7))' valid bytes of data in the
+     data field, beginning with the third byte.  In all cases L bytes
+     of data are sent (and all data bytes participate in the checksum
+     calculation) but some of the trailing bytes may be dropped by the
+     receiver.  The XXX and YYY fields are described below.
+
+   In a data packet (short or not) the XXX field gives the sequence
+number of the packet.  Thus sequence numbers can range from 0 to 7,
+inclusive.  The YYY field gives the sequence number of the last
+correctly received packet.
+
+   Each communication direction uses a window which indicates how many
+unacknowledged packets may be transmitted before waiting for an
+acknowledgement.  The window may range from 1 to 7, and may be different
+in each direction. For example, if the window is 3 and the last packet
+acknowledged was packet number 6, packet numbers 7, 0 and 1 may be sent
+but the sender must wait for an acknowledgement before sending packet
+number 2.  This acknowledgement could come as the YYY field of a data
+packet, or as the YYY field of a `RJ' or `RR' control packet (described
+below).
+
+   Each packet must be transmitted in order (the sender may not skip
+sequence numbers).  Each packet must be acknowledged, and each packet
+must be acknowledged in order.
+
+   In a control packet, the XXX field takes on the following values:
+
+1 `CLOSE'
+     The connection should be closed immediately.  This is typically
+     sent when one side has seen too many errors and wants to give up.
+     It is also sent when shutting down the protocol.  If an unexpected
+     `CLOSE' packet is received, a `CLOSE' packet should be sent in
+     reply and the `g' protocol should halt, causing UUCP to enter the
+     final handshake.
+
+2 `RJ' or `NAK'
+     The last packet was not received correctly.  The YYY field
+     contains the sequence number of the last correctly received packet.
+
+3 `SRJ'
+     Selective reject.  The YYY field contains the sequence number of a
+     packet that was not received correctly, and should be
+     retransmitted.  This is not used by UUCP, and most implementations
+     will not recognize it.
+
+4 `RR' or `ACK'
+     Packet acknowledgement.  The YYY field contains the sequence
+     number of the last correctly received packet.
+
+5 `INITC'
+     Third initialization packet.  The YYY field contains the maximum
+     window size to use.
+
+6 `INITB'
+     Second initialization packet.  The YYY field contains the packet
+     size to use.  It requests a size of 2 ** (YYY + 5).  Note that
+     this is not the same coding used for the K byte in the packet
+     header (it is 1 less).  Most UUCP implementations that request a
+     packet size larger than 64 bytes can handle any packet size up to
+     that specified.
+
+7 `INITA'
+     First initialization packet.  The YYY field contains the maximum
+     window size to use.
+
+   To compute the checksum, call the control byte (the fifth byte in the
+header) C.
+
+   The checksum of a control packet is simply `0xaaaa - C'.
+
+   The checksum of a data packet is `0xaaaa - (CHECK ^ C)', where `^'
+denotes exclusive or, and CHECK is the result of the following routine
+as run on the contents of the data field (every byte in the data field
+participates in the checksum, even for a short data packet).  Below is
+the routine used by an early version of Taylor UUCP; it is a slightly
+modified version of a routine which John Gilmore patched from G.L.
+Chesson's original paper.  The `z' argument points to the data and the
+`c' argument indicates how much data there is.
+
+     int
+     igchecksum (z, c)
+          register const char *z;
+          register int c;
+     {
+       register unsigned int ichk1, ichk2;
+     
+       ichk1 = 0xffff;
+       ichk2 = 0;
+     
+       do
+         {
+           register unsigned int b;
+     
+           /* Rotate ichk1 left.  */
+           if ((ichk1 & 0x8000) == 0)
+             ichk1 <<= 1;
+           else
+             {
+               ichk1 <<= 1;
+               ++ichk1;
+             }
+     
+           /* Add the next character to ichk1.  */
+           b = *z++ & 0xff;
+           ichk1 += b;
+     
+           /* Add ichk1 xor the character position in the buffer counting from
+              the back to ichk2.  */
+           ichk2 += ichk1 ^ c;
+     
+           /* If the character was zero, or adding it to ichk1 caused an
+              overflow, xor ichk2 to ichk1.  */
+           if (b == 0 || (ichk1 & 0xffff) < b)
+             ichk1 ^= ichk2;
+         }
+       while (--c > 0);
+     
+       return ichk1 & 0xffff;
+     }
+
+   When the `g' protocol is started, the calling UUCP sends an `INITA'
+control packet with the window size it wishes the called UUCP to use.
+The called UUCP responds with an `INITA' packet with the window size it
+wishes the calling UUCP to use.  Pairs of `INITB' and `INITC' packets
+are then similarly exchanged.  When these exchanges are completed, the
+protocol is considered to have been started.
+
+   Note that the window and packet sizes are not a negotiation.  Each
+system announces the window and packet size which the other system
+should use.  It is possible that different window and packet sizes will
+be used in each direction.  The protocol works this way on the theory
+that each system knows how much data it can accept without getting
+overrun.  Therefore, each system tells the other how much data to send
+before waiting for an acknowledgement.
+
+   When a UUCP package transmits a command, it sends one or more data
+packets.  All the data packets will normally be complete, although some
+UUCP packages may send the last one as a short packet.  The command
+string is sent with a trailing null byte, to let the receiving package
+know when the command is finished.  Some UUCP packages require the last
+byte of the last packet sent to be null, even if the command ends
+earlier in the packet.  Some packages may require all the trailing bytes
+in the last packet to be null, but I have not confirmed this.
+
+   When a UUCP package sends a file, it will send a sequence of data
+packets.  The end of the file is signalled by a short data packet
+containing zero valid bytes (it will normally be preceeded by a short
+data packet containing the last few bytes in the file).
+
+   Note that the sequence numbers cover the entire communication
+session, including both command and file data.
+
+   When the protocol is shut down, each UUCP package sends a `CLOSE'
+control packet.
+
+
+File: uucp.info,  Node: f Protocol,  Next: t Protocol,  Prev: g Protocol,  Up: Protocols
+
+UUCP `f' Protocol
+=================
+
+   The `f' protocol is a seven bit protocol which checksums an entire
+file at a time.  It only uses the characters between `\040' and `\176'
+(ASCII `space' and `~') inclusive, as well as the carriage return
+character.  It can be very efficient for transferring text only data,
+but it is very inefficient at transferring eight bit data (such as
+compressed news).  It is not flow controlled, and the checksum is
+fairly insecure over large files, so using it over a serial connection
+requires handshaking (XON/XOFF can be used) and error correcting
+modems.  Some people think it should not be used even under those
+circumstances.
+
+   I believe that the `f' protocol originated in BSD versions of UUCP.
+It was originally intended for transmission over X.25 PAD links.
+
+   The `f' protocol has no startup or finish protocol.  However, both
+sides typically sleep for a couple of seconds before starting up,
+because they switch the terminal into XON/XOFF mode and want to allow
+the changes to settle before beginning transmission.
+
+   When a UUCP package transmits a command, it simply sends a string
+terminated by a carriage return.
+
+   When a UUCP package transmits a file, each byte B of the file is
+translated according to the following table:
+
+            0 <= B <=  037: 0172, B + 0100 (0100 to 0137)
+          040 <= B <= 0171:       B        ( 040 to 0171)
+         0172 <= B <= 0177: 0173, B - 0100 ( 072 to  077)
+         0200 <= B <= 0237: 0174, B - 0100 (0100 to 0137)
+         0240 <= B <= 0371: 0175, B - 0200 ( 040 to 0171)
+         0372 <= B <= 0377: 0176, B - 0300 ( 072 to  077)
+
+   That is, a byte between `\040' and `\171' inclusive is transmitted
+as is, and all other bytes are prefixed and modified as shown.
+
+   When all the file data is sent, a seven byte sequence is sent: two
+bytes of `\176' followed by four ASCII bytes of the checksum as printed
+in base 16 followed by a carriage return.  For example, if the checksum
+was 0x1234, this would be sent: `\176\1761234\r'.
+
+   The checksum is initialized to 0xffff.  For each byte that is sent
+it is modified as follows (where B is the byte before it has been
+transformed as described above):
+
+           /* Rotate the checksum left.  */
+           if ((ichk & 0x8000) == 0)
+             ichk <<= 1;
+           else
+             {
+               ichk <<= 1;
+               ++ichk;
+             }
+     
+           /* Add the next byte into the checksum.  */
+           ichk += B;
+
+   When the receiving UUCP sees the checksum, it compares it against its
+own calculated checksum and replies with a single character followed by
+a carriage return.
+
+`G'
+     The file was received correctly.
+
+`R'
+     The checksum did not match, and the file should be resent from the
+     beginning.
+
+`Q'
+     The checksum did not match, but too many retries have occurred and
+     the communication session should be abandoned.
+
+   The sending UUCP checks the returned character and acts accordingly.
+
+
+File: uucp.info,  Node: t Protocol,  Next: e Protocol,  Prev: f Protocol,  Up: Protocols
+
+UUCP `t' Protocol
+=================
+
+   The `t' protocol is intended for use on links which provide reliable
+end-to-end connections, such as TCP.  It does no error checking or flow
+control, and requires an eight bit clear channel.
+
+   I believe the `t' protocol originated in BSD versions of UUCP.
+
+   When a UUCP package transmits a command, it first gets the length of
+the command string, C.  It then sends `((C / 512) + 1) * 512' bytes
+(the smallest multiple of 512 which can hold C bytes plus a null byte)
+consisting of the command string itself followed by trailing null bytes.
+
+   When a UUCP package sends a file, it sends it in blocks.  Each block
+contains at most 1024 bytes of data.  Each block consists of four bytes
+containing the amount of data in binary (most significant byte first,
+the same format as used by the Unix function `htonl') followed by that
+amount of data.  The end of the file is signalled by a block containing
+zero bytes of data.
+
+
+File: uucp.info,  Node: e Protocol,  Next: Big G Protocol,  Prev: t Protocol,  Up: Protocols
+
+UUCP `e' Protocol
+=================
+
+   The `e' protocol is similar to the `t' protocol.  It does no flow
+control or error checking and is intended for use over networks
+providing reliable end-to-end connections, such as TCP.
+
+   The `e' protocol originated in versions of HDB UUCP.
+
+   When a UUCP package transmits a command, it simply sends the command
+as an ASCII string terminated by a null byte.
+
+   When a UUCP package transmits a file, it sends the complete size of
+the file as an ASCII decimal number.  The ASCII string is padded out to
+20 bytes with null bytes (i.e. if the file is 1000 bytes long, it sends
+`1000\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0').  It then sends the entire file.
+
+
+File: uucp.info,  Node: Big G Protocol,  Next: i Protocol,  Prev: e Protocol,  Up: Protocols
+
+UUCP `G' Protocol
+=================
+
+   The `G' protocol is used by SVR4 UUCP.  It is identical to the `g'
+protocol, except that it is possible to modify the window and packet
+sizes.  The SVR4 implementation of the `g' protocol reportedly is fixed
+at a packet size of 64 and a window size of 7.  Supposedly SVR4 chose
+to implement a new protocol using a new letter to avoid any potential
+incompatibilities when using different packet or window sizes.
+
+   Most implementations of the `g' protocol that accept packets larger
+than 64 bytes will also accept packets smaller than whatever they
+requested in the `INITB' packet.  The SVR4 `G' implementation is an
+exception; it will only accept packets of precisely the size it
+requests in the INITB packet.
+

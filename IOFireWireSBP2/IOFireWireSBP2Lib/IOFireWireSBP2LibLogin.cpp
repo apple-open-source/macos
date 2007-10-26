@@ -26,6 +26,8 @@
 #include "IOFireWireSBP2LibLogin.h"
 #include "IOFireWireSBP2LibORB.h"
 
+#include <System/libkern/OSCrossEndian.h>
+
 __BEGIN_DECLS
 #include <IOKit/iokitmig.h>
 __END_DECLS
@@ -154,9 +156,8 @@ IOReturn IOFireWireSBP2LibLogin::init( io_connect_t connection, mach_port_t asyn
 		
 	if( status == kIOReturnSuccess )
 	{
-		mach_msg_type_number_t len = 1;
-		status = io_connect_method_scalarI_scalarO( connection, kIOFWSBP2UserClientCreateLogin, 
-													NULL, 0, (int*)&fLoginRef, &len );
+		uint32_t len = 1;
+		status = IOConnectCallScalarMethod( connection, kIOFWSBP2UserClientCreateLogin, NULL, 0, &fLoginRef, &len );
 		if( status != kIOReturnSuccess )
 			fLoginRef = 0; // just to make sure
 													
@@ -166,88 +167,57 @@ IOReturn IOFireWireSBP2LibLogin::init( io_connect_t connection, mach_port_t asyn
 	
 	if( status == kIOReturnSuccess )
 	{
-		io_async_ref_t 			asyncRef;
-		io_scalar_inband_t		params;
+		io_async_ref64_t asyncRef;
 		mach_msg_type_number_t	size = 0;
 		
-		asyncRef[0] = 0;
-		params[0]	= (UInt32)this;
-		params[1]	= (UInt32)(IOAsyncCallback)&IOFireWireSBP2LibLogin::staticLoginCompletion;
-	
-		status = io_async_method_scalarI_scalarO( fConnection, fAsyncPort, 
-												  asyncRef, 1, 
-												  kIOFWSBP2UserClientSetLoginCallback,
-												  params, 2,
-												  NULL, &size );	
-	}
-	
-	if( status == kIOReturnSuccess )
-	{
-		io_async_ref_t 			asyncRef;
-		io_scalar_inband_t		params;
-		mach_msg_type_number_t	size = 0;
-		
-		asyncRef[0] = 0;
-		params[0]	= (UInt32)this;
-		params[1]	= (UInt32)(IOAsyncCallback)&IOFireWireSBP2LibLogin::staticLogoutCompletion;
-	
-		status = io_async_method_scalarI_scalarO( fConnection, fAsyncPort, 
-												  asyncRef, 1, 
-												  kIOFWSBP2UserClientSetLogoutCallback,
-												  params, 2,
-												  NULL, &size );	
-	}
-	
-	if( status == kIOReturnSuccess )
-	{
-		io_async_ref_t 			asyncRef;
-		io_scalar_inband_t		params;
-		mach_msg_type_number_t	size = 0;
-		
-		asyncRef[0] = 0;
-		params[0]	= (UInt32)this;
-		params[1]	=    
-		   (UInt32)(IOAsyncCallback)&IOFireWireSBP2LibLogin::staticUnsolicitedStatusNotify;
-	
-		status = io_async_method_scalarI_scalarO( fConnection, fAsyncPort, 
-												  asyncRef, 1, 
-										kIOFWSBP2UserClientSetUnsolicitedStatusNotify,
-												  params, 2,
-												  NULL, &size );	
-	}
-	
-	if( status == kIOReturnSuccess )
-	{
-		io_async_ref_t 			asyncRef;
-		io_scalar_inband_t		params;
-		mach_msg_type_number_t	size = 0;
-		
-		asyncRef[0] = 0;
-		params[0]	= (UInt32)this;
-		params[1]	= (UInt32)(IOAsyncCallback)&IOFireWireSBP2LibLogin::staticStatusNotify;
-	
-		status = io_async_method_scalarI_scalarO( fConnection, fAsyncPort, 
-												  asyncRef, 1, 
-												  kIOFWSBP2UserClientSetStatusNotify,
-												  params, 2,
-												  NULL, &size );	
+		asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)&IOFireWireSBP2LibLogin::staticLoginCompletion;
+		asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)this;
+			  
+		status = IOConnectCallAsyncScalarMethod( fConnection, kIOFWSBP2UserClientSetLoginCallback, fAsyncPort, asyncRef, kOSAsyncRef64Count, NULL, 0, NULL, &size  );
 	}
 
 	if( status == kIOReturnSuccess )
 	{
-		io_async_ref_t 			asyncRef;
-		io_scalar_inband_t		params;
+		io_async_ref64_t asyncRef;
 		mach_msg_type_number_t	size = 0;
-		
-		asyncRef[0] = 0;
-		params[0]	= (UInt32)this;
-		params[1]	= (UInt32)(IOAsyncCallback)&IOFireWireSBP2LibLogin::staticFetchAgentWriteCompletion;
+
+		asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)&IOFireWireSBP2LibLogin::staticLogoutCompletion;
+		asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)this;
+			  
+		status = IOConnectCallAsyncScalarMethod( fConnection, kIOFWSBP2UserClientSetLogoutCallback, fAsyncPort, asyncRef, kOSAsyncRef64Count, NULL, 0, NULL, &size  );
+	}
 	
-		status = io_async_method_scalarI_scalarO( fConnection, fAsyncPort, 
-												  asyncRef, 1, 
-												  kIOFWSBP2UserClientSetFetchAgentWriteCompletion,
-												  params, 2,
-												  NULL, &size );	
+	if( status == kIOReturnSuccess )
+	{
+		io_async_ref64_t asyncRef;
+		mach_msg_type_number_t	size = 0;
+
+		asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)&IOFireWireSBP2LibLogin::staticUnsolicitedStatusNotify;
+		asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)this;
+					  
+		status = IOConnectCallAsyncScalarMethod( fConnection, kIOFWSBP2UserClientSetUnsolicitedStatusNotify, fAsyncPort, asyncRef, kOSAsyncRef64Count, NULL, 0, NULL, &size  );
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		io_async_ref64_t asyncRef;
+		mach_msg_type_number_t	size = 0;
+
+		asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)&IOFireWireSBP2LibLogin::staticStatusNotify;
+		asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)this;
+					  
+		status = IOConnectCallAsyncScalarMethod( fConnection, kIOFWSBP2UserClientSetStatusNotify, fAsyncPort, asyncRef, kOSAsyncRef64Count, NULL, 0, NULL, &size  );
+	}
+
+	if( status == kIOReturnSuccess )
+	{
+		io_async_ref64_t asyncRef;
+		mach_msg_type_number_t	size = 0;
+
+		asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)&IOFireWireSBP2LibLogin::staticFetchAgentWriteCompletion;
+		asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)this;
+					  
+		status = IOConnectCallAsyncScalarMethod( fConnection, kIOFWSBP2UserClientSetFetchAgentWriteCompletion, fAsyncPort, asyncRef, kOSAsyncRef64Count, NULL, 0, NULL, &size  );
 	}
 	
 	return status;
@@ -261,12 +231,12 @@ IOFireWireSBP2LibLogin::~IOFireWireSBP2LibLogin()
 {
 	if( fLoginRef ) 
 	{
-		IOReturn status = kIOReturnSuccess;
+		IOReturn status = kIOReturnSuccess;		
 		
-		mach_msg_type_number_t len = 0;
-		status = io_connect_method_scalarI_scalarO( fConnection, 	
-													kIOFWSBP2UserClientReleaseLogin, 
-													(int*)&fLoginRef, 1, NULL, &len );
+		uint32_t len = 0;
+		status = IOConnectCallScalarMethod( fConnection, 	
+											kIOFWSBP2UserClientReleaseLogin, 
+											&fLoginRef, 1, NULL, &len );
 		FWLOG(( "IOFireWireSBP2LibLogin : release login status = 0x%08x\n", status ));
 	}
 }
@@ -360,10 +330,10 @@ IOReturn IOFireWireSBP2LibLogin::submitLogin( void )
 	
 	FWLOG(( "IOFireWireSBP2LibLogin : submitLogin\n" ));
 		
-	mach_msg_type_number_t len = 0;
-	status = io_connect_method_scalarI_scalarO( fConnection, 	
-												kIOFWSBP2UserClientSubmitLogin, 
-												(int*)&fLoginRef, 1, NULL, &len );
+	uint32_t len = 0;
+	status = IOConnectCallScalarMethod( fConnection, 	
+										kIOFWSBP2UserClientSubmitLogin, 
+										&fLoginRef, 1, NULL, &len );
 	return status;
 }
 
@@ -382,10 +352,10 @@ IOReturn IOFireWireSBP2LibLogin::submitLogout( void )
 	
 	FWLOG(( "IOFireWireSBP2LibLogin : submitLogout\n" ));
 		
-	mach_msg_type_number_t len = 0;
-	status = io_connect_method_scalarI_scalarO( fConnection, 	
-												kIOFWSBP2UserClientSubmitLogout, 
-												(int*)&fLoginRef, 1, NULL, &len );
+	uint32_t len = 0;
+	status = IOConnectCallScalarMethod( fConnection, 	
+										kIOFWSBP2UserClientSubmitLogout, 
+										&fLoginRef, 1, NULL, &len );
 	return status;
 }
 
@@ -402,15 +372,15 @@ void IOFireWireSBP2LibLogin::setLoginFlags( UInt32 flags )
 {
 	FWLOG(( "IOFireWireSBP2LibLogin : setLoginFlags: 0x%08lx\n", flags ));
 		
-	mach_msg_type_number_t len = 0;
-	UInt32 params[2];
+	uint32_t len = 0;
+	uint64_t params[2];
 	
 	params[0] = fLoginRef;
 	params[1] = flags;
 	
-	io_connect_method_scalarI_scalarO( fConnection, 	
-									   kIOFWSBP2UserClientSetLoginFlags, 
-									   (int*)params, 2, NULL, &len );
+	IOConnectCallScalarMethod( fConnection, 	
+								kIOFWSBP2UserClientSetLoginFlags, 
+								params, 2, NULL, &len );
 }
 
 // setLoginCallback
@@ -451,12 +421,12 @@ void IOFireWireSBP2LibLogin::setLogoutCallback( void * refCon,
 //
 //
 
-void IOFireWireSBP2LibLogin::staticSetRefCon( void * self, UInt32 refCon )
+void IOFireWireSBP2LibLogin::staticSetRefCon( void * self, void * refCon )
 {
 	getThis(self)->setRefCon( refCon );
 }
 
-void IOFireWireSBP2LibLogin::setRefCon( UInt32 refCon )
+void IOFireWireSBP2LibLogin::setRefCon( void * refCon )
 {
 	fRefCon = refCon;
 }
@@ -465,12 +435,12 @@ void IOFireWireSBP2LibLogin::setRefCon( UInt32 refCon )
 //
 //
 
-UInt32 IOFireWireSBP2LibLogin::staticGetRefCon( void * self )
+void * IOFireWireSBP2LibLogin::staticGetRefCon( void * self )
 {
 	return getThis(self)->getRefCon();
 }
 
-UInt32 IOFireWireSBP2LibLogin::getRefCon( void )
+void * IOFireWireSBP2LibLogin::getRefCon( void )
 {
 	return fRefCon;
 }
@@ -487,16 +457,16 @@ UInt32 IOFireWireSBP2LibLogin::staticGetMaxCommandBlockSize( void * self )
 UInt32 IOFireWireSBP2LibLogin::getMaxCommandBlockSize( void )
 {
 	IOReturn status = kIOReturnSuccess;
-	mach_msg_type_number_t len = 1;
-	UInt32 blockSize;
+	uint32_t len = 1;
+	uint64_t blockSize;
 		
-	status = io_connect_method_scalarI_scalarO( fConnection, 	
-									   kIOFWSBP2UserClientGetMaxCommandBlockSize, 
-									   (int*)&fLoginRef, 1, (int*)&blockSize, &len );
+	status = IOConnectCallScalarMethod( fConnection, 	
+									    kIOFWSBP2UserClientGetMaxCommandBlockSize, 
+									    &fLoginRef, 1, &blockSize, &len );
 	if( status != kIOReturnSuccess )
 		blockSize = 0;
-		
-	return blockSize;
+	
+	return (UInt32)blockSize;
 }
 
 // getLoginID
@@ -511,12 +481,12 @@ UInt32 IOFireWireSBP2LibLogin::staticGetLoginID( void * self )
 UInt32 IOFireWireSBP2LibLogin::getLoginID( void )
 {
 	IOReturn status = kIOReturnSuccess;
-	mach_msg_type_number_t len = 1;
-	UInt32 loginID;
+	uint32_t len = 1;
+	uint64_t loginID;
 	
-	io_connect_method_scalarI_scalarO( fConnection, 	
-									   kIOFWSBP2UserClientGetLoginID, 
-									   (int*)&fLoginRef, 1, (int*)&loginID, &len );
+	IOConnectCallScalarMethod(	fConnection, 	
+								kIOFWSBP2UserClientGetLoginID, 
+								&fLoginRef, 1, &loginID, &len );
 	if( status != kIOReturnSuccess )
 		loginID = 0;
 		
@@ -536,15 +506,15 @@ void IOFireWireSBP2LibLogin::setMaxPayloadSize( UInt32 size )
 {
 	FWLOG(( "IOFireWireSBP2LibLogin : setReconnectTime = %ld\n", size ));
 		
-	mach_msg_type_number_t len = 0;
-	UInt32 params[2];
+	uint32_t len = 0;
+	uint64_t params[2];
 	
 	params[0] = fLoginRef;
 	params[1] = size;
 	
-	io_connect_method_scalarI_scalarO( fConnection, 	
-									   kIOFWSBP2UserClientSetMaxPayloadSize, 
-									   (int*)params, 2, NULL, &len );
+	IOConnectCallScalarMethod(	fConnection, 	
+								kIOFWSBP2UserClientSetMaxPayloadSize, 
+								params, 2, NULL, &len );
 
 }
 
@@ -561,15 +531,15 @@ void IOFireWireSBP2LibLogin::setReconnectTime( UInt32 time )
 {
 	FWLOG(( "IOFireWireSBP2LibLogin : setReconnectTime = %ld\n", time ));
 		
-	mach_msg_type_number_t len = 0;
-	UInt32 params[2];
+	uint32_t len = 0;
+	uint64_t params[2];
 	
 	params[0] = fLoginRef;
 	params[1] = time;
 	
-	io_connect_method_scalarI_scalarO( fConnection, 	
-									   kIOFWSBP2UserClientSetReconnectTime, 
-									   (int*)params, 2, NULL, &len );
+	IOConnectCallScalarMethod(	fConnection, 	
+								kIOFWSBP2UserClientSetReconnectTime, 
+								params, 2, NULL, &len );
 
 }
 
@@ -634,12 +604,12 @@ IOReturn IOFireWireSBP2LibLogin::submitORB( IOFireWireSBP2LibORBInterface ** orb
 	
 	FWLOG(( "IOFireWireSBP2LibLogin : submitORB\n" ));
 	
-	UInt32 ref = IOFireWireSBP2LibORB::getThis(orb)->getORBRef();
+	uint64_t ref = IOFireWireSBP2LibORB::getThis(orb)->getORBRef();
 
-	mach_msg_type_number_t len = 0;
-	status = io_connect_method_scalarI_scalarO( fConnection, 	
-												kIOFWSBP2UserClientSubmitORB, 
-												(int*)&ref, 1, NULL, &len );
+	uint32_t len = 0;
+	status = IOConnectCallScalarMethod( fConnection, 	
+										kIOFWSBP2UserClientSubmitORB, 
+										&ref, 1, NULL, &len );
 	return status;
 }
 
@@ -684,23 +654,53 @@ void IOFireWireSBP2LibLogin::setStatusNotify( void * refCon,
 //
 
 void IOFireWireSBP2LibLogin::staticLoginCompletion( void *refcon, IOReturn result, 
-													void **args, int numArgs )
+													io_user_reference_t *args, int numArgs )
 {
 	((IOFireWireSBP2LibLogin*)refcon)->loginCompletion( result, args, numArgs );
 }
 
-void IOFireWireSBP2LibLogin::loginCompletion( IOReturn result, void **args, int numArgs )
+void IOFireWireSBP2LibLogin::loginCompletion( IOReturn result, io_user_reference_t *args, int numArgs )
 {
 	FWLOG(( "IOFireWireSBP2LibLogin : loginCompletion numArgs = %d\n",  numArgs));
-
+	
 	FWSBP2LoginCompleteParams params;
 	
-	UInt32 loginResponse[4];
-	bcopy( &args[2], loginResponse, 4 * sizeof(UInt32) );
-	 
-	UInt32 statusBlock[8];
-	bcopy( &args[7], statusBlock, 8 * sizeof(UInt32) );
+	UInt32 loginResponse[2];
+
+	{
+		int i;
+
+		for( i = 0; i < 2; i++ )
+		{
+			IF_ROSETTA()
+			{
+				loginResponse[i] = OSSwapInt32( (UInt32)args[2+i] );
+			}
+			else
+			{
+				loginResponse[i] = (UInt32)args[2+i];
+			}
+		}
+	}
+
+	UInt32 statusBlock[4];
 	
+	{
+		int i;
+
+		for( i = 0; i < 4; i++ )
+		{
+			IF_ROSETTA()
+			{
+				statusBlock[i] = OSSwapInt32( (UInt32)args[7+i] );
+			}
+			else
+			{
+				statusBlock[i] = (UInt32)args[7+i];
+			}
+		}
+	}
+			
 	params.refCon = (void*)fRefCon;
 	params.generation = (UInt32)args[0];
 	params.status = (IOReturn)args[1];
@@ -717,20 +717,34 @@ void IOFireWireSBP2LibLogin::loginCompletion( IOReturn result, void **args, int 
 //
 
 void IOFireWireSBP2LibLogin::staticLogoutCompletion( void *refcon, IOReturn result, 
-													void **args, int numArgs )
+													io_user_reference_t *args, int numArgs )
 {
 	((IOFireWireSBP2LibLogin*)refcon)->logoutCompletion( result, args, numArgs );
 }
 
-void IOFireWireSBP2LibLogin::logoutCompletion( IOReturn result, void **args, int numArgs )
+void IOFireWireSBP2LibLogin::logoutCompletion( IOReturn result, io_user_reference_t *args, int numArgs )
 {
 	FWLOG(( "IOFireWireSBP2LibLogin : logoutCompletion numArgs = %d\n", numArgs ));
 
 	FWSBP2LogoutCompleteParams params;
 	
-	UInt32 statusBlock[8];
-	bcopy( &args[3], statusBlock, 8 * sizeof(UInt32) );
-	
+	UInt32 statusBlock[4];
+	{
+		int i;
+
+		for( i = 0; i < 4; i++ )
+		{
+			IF_ROSETTA()
+			{
+				statusBlock[i] = OSSwapInt32( (UInt32)args[3+i] );
+			}
+			else
+			{
+				statusBlock[i] = (UInt32)args[3+i];
+			}
+		}
+	}
+			
 	params.refCon = (void*)fRefCon;
 	params.generation = (UInt32)args[0];
 	params.status = (IOReturn)args[1];
@@ -746,21 +760,35 @@ void IOFireWireSBP2LibLogin::logoutCompletion( IOReturn result, void **args, int
 //
 
 void IOFireWireSBP2LibLogin::staticUnsolicitedStatusNotify( void *refcon, IOReturn result, 
-													void **args, int numArgs )
+													io_user_reference_t *args, int numArgs )
 {
 	((IOFireWireSBP2LibLogin*)refcon)->unsolicitedStatusNotify( result, args, numArgs );
 }
 
-void IOFireWireSBP2LibLogin::unsolicitedStatusNotify( IOReturn result, void **args, 
+void IOFireWireSBP2LibLogin::unsolicitedStatusNotify( IOReturn result, io_user_reference_t *args, 
 																		int numArgs )
 {
 	FWLOG(( "IOFireWireSBP2LibLogin : unsolicitedStatusNotify numArgs = %d\n", numArgs ));
 
 	FWSBP2NotifyParams params;
-	
+
 	UInt32 statusBlock[8];
-	bcopy( &args[3], statusBlock, 8 * sizeof(UInt32) );
-	
+	{
+		int i;
+
+		for( i = 0; i < 8; i++ )
+		{
+			IF_ROSETTA()
+			{
+				statusBlock[i] = OSSwapInt32( (UInt32)args[3+i] );
+			}
+			else
+			{
+				statusBlock[i] = (UInt32)args[3+i];
+			}
+		}
+	}
+		
 	params.refCon = (void*)fRefCon;
 	params.notificationEvent = (UInt32)args[0];
 	params.generation = (IOReturn)args[1];
@@ -776,25 +804,63 @@ void IOFireWireSBP2LibLogin::unsolicitedStatusNotify( IOReturn result, void **ar
 //
 
 void IOFireWireSBP2LibLogin::staticStatusNotify( void *refcon, IOReturn result, 
-													void **args, int numArgs )
+													io_user_reference_t *args, int numArgs )
 {
 	((IOFireWireSBP2LibLogin*)refcon)->statusNotify( result, args, numArgs );
 }
 
-void IOFireWireSBP2LibLogin::statusNotify( IOReturn result, void **args, int numArgs )
+void IOFireWireSBP2LibLogin::statusNotify( IOReturn result, io_user_reference_t *args, int numArgs )
 {
 	FWLOG(( "IOFireWireSBP2LibLogin : statusNotify numArgs = %d\n", numArgs ));
 
+//	printf( "IOFireWireSBP2LibLogin : statusNotify numArgs = %d\n", numArgs );
+
 	FWSBP2NotifyParams params;
-	
+
 	UInt32 statusBlock[8];
-	bcopy( &args[4], statusBlock, 8 * sizeof(UInt32) );
-	
+	{
+		int i;
+
+		for( i = 0; i < 8; i++ )
+		{
+			IF_ROSETTA()
+			{
+				statusBlock[i] = OSSwapInt32( (UInt32)args[4+i] );
+			}
+			else
+			{
+				statusBlock[i] = (UInt32)args[4+i];
+			}
+		}
+	}
+
+#if 0		
+	{
+		int i;
+
+		for( i = 0; i < 8; i++ )
+		{
+			printf( "IOFireWireSBP2LibLogin : statusNotify params[%d] 0x%08lx\n", i, statusBlock[i] ); 
+		}
+	}
+#endif
+
 	params.notificationEvent = (UInt32)args[0];
 	params.generation = (IOReturn)args[1];
 	params.length = (UInt32)args[2];
 	params.refCon = (void*)args[3];
 	params.message = (FWSBP2StatusBlock*)&statusBlock;
+
+#if 0
+	printf( "IOFireWireSBP2LibLogin : statusNotify args[0] 0x%08llx\n", (UInt32)args[0] ); 
+	printf( "IOFireWireSBP2LibLogin : statusNotify args[1] 0x%08llx\n", (IOReturn)args[1] ); 
+	printf( "IOFireWireSBP2LibLogin : statusNotify args[2] 0x%08llx\n", (UInt32)args[2] ); 
+	#if __LP64__
+		printf( "IOFireWireSBP2LibLogin : statusNotify args[3] 0x%016llx\n", (void*)args[3] ); 
+	#else
+		printf( "IOFireWireSBP2LibLogin : statusNotify args[3] 0x%08lx\n", (void*)args[3] ); 
+	#endif
+#endif
 
 	if( fStatusNotifyRoutine != NULL )
 		(fStatusNotifyRoutine)( fStatusNotifyRefCon, &params );
@@ -830,22 +896,18 @@ IOReturn IOFireWireSBP2LibLogin::submitFetchAgentReset( void )
 	
 	if( status == kIOReturnSuccess )
 	{
-		io_async_ref_t 			asyncRef;
-		io_scalar_inband_t		params;
+		io_async_ref64_t asyncRef;
 		mach_msg_type_number_t	size = 0;
+		uint64_t	params[1];
+
+		params[0] = fLoginRef;
+
+		asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)&IOFireWireSBP2LibLogin::staticFetchAgentResetCompletion;
+		asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)this;
 		
-		asyncRef[0] = 0;
-		params[0]	= fLoginRef;
-		params[1]	= (UInt32)this;
-		params[2]	= (UInt32)(IOAsyncCallback)&IOFireWireSBP2LibLogin::staticFetchAgentResetCompletion;
-	
-		status = io_async_method_scalarI_scalarO( fConnection, fAsyncPort, 
-												  asyncRef, 1, 
-												  kIOFWSBP2UserClientSubmitFetchAgentReset,
-												  params, 3,
-												  NULL, &size );	
-	}											
-	
+		status = IOConnectCallAsyncScalarMethod( fConnection, kIOFWSBP2UserClientSubmitFetchAgentReset, fAsyncPort, asyncRef, kOSAsyncRef64Count, params, 1, NULL, &size  );
+	}
+									
 	return status;
 
 }
@@ -854,13 +916,13 @@ IOReturn IOFireWireSBP2LibLogin::submitFetchAgentReset( void )
 //
 //
 
-void IOFireWireSBP2LibLogin::staticFetchAgentResetCompletion( void *refcon, IOReturn result, void **args,
+void IOFireWireSBP2LibLogin::staticFetchAgentResetCompletion( void *refcon, IOReturn result, io_user_reference_t *args,
 												int numArgs )
 {
 	((IOFireWireSBP2LibLogin*)refcon)->fetchAgentResetCompletion( result, args, numArgs );
 }
 
-void IOFireWireSBP2LibLogin::fetchAgentResetCompletion( IOReturn result, void **args, int numArgs )
+void IOFireWireSBP2LibLogin::fetchAgentResetCompletion( IOReturn result, io_user_reference_t *args, int numArgs )
 {
 	if( fFetchAgentResetCallback != NULL )
 		(fFetchAgentResetCallback)( fFetchAgentResetRefCon, result );
@@ -885,13 +947,13 @@ void IOFireWireSBP2LibLogin::setFetchAgentWriteCallback( void * refCon, IOFWSBP2
 //
 //
 
-void IOFireWireSBP2LibLogin::staticFetchAgentWriteCompletion( void *refcon, IOReturn result, void **args,
+void IOFireWireSBP2LibLogin::staticFetchAgentWriteCompletion( void *refcon, IOReturn result, io_user_reference_t *args,
 												int numArgs )
 {
 	((IOFireWireSBP2LibLogin*)refcon)->fetchAgentWriteCompletion( result, args, numArgs );
 }
 
-void IOFireWireSBP2LibLogin::fetchAgentWriteCompletion( IOReturn result, void **args, int numArgs )
+void IOFireWireSBP2LibLogin::fetchAgentWriteCompletion( IOReturn result, io_user_reference_t *args, int numArgs )
 {
 	if( fFetchAgentWriteCallback != NULL )
 		(fFetchAgentWriteCallback)( fFetchAgentWriteRefCon, result, NULL );
@@ -912,15 +974,11 @@ IOReturn IOFireWireSBP2LibLogin::ringDoorbell( void )
 	
 	if( status == kIOReturnSuccess )
 	{
-		io_scalar_inband_t		params;
-		mach_msg_type_number_t	size = 0;
-		
-		params[0]	= fLoginRef;
-	
-		status = io_connect_method_scalarI_scalarO( fConnection,
-												    kIOFWSBP2UserClientRingDoorbell,
-												    params, 1,
-												    NULL, &size );	
+		uint32_t	size = 0;
+		status = IOConnectCallScalarMethod( fConnection,
+											kIOFWSBP2UserClientRingDoorbell,
+											&fLoginRef, 1,
+											NULL, &size );	
 	}											
 	
 	return status;
@@ -941,15 +999,11 @@ IOReturn IOFireWireSBP2LibLogin::enableUnsolicitedStatus( void )
 	
 	if( status == kIOReturnSuccess )
 	{
-		io_scalar_inband_t		params;
-		mach_msg_type_number_t	size = 0;
-		
-		params[0]	= fLoginRef;
-	
-		status = io_connect_method_scalarI_scalarO( fConnection,
-												  kIOFWSBP2UserClientEnableUnsolicitedStatus,
-												  params, 1,
-												  NULL, &size );	
+		uint32_t	size = 0;
+		status = IOConnectCallScalarMethod( fConnection,
+											kIOFWSBP2UserClientEnableUnsolicitedStatus,
+											&fLoginRef, 1,
+											NULL, &size );	
 	}											
 	
 	return status;
@@ -970,15 +1024,15 @@ IOReturn IOFireWireSBP2LibLogin::setBusyTimeoutRegisterValue( UInt32 timeout )
 	
 	if( status == kIOReturnSuccess )
 	{
-		io_scalar_inband_t		params;
-		mach_msg_type_number_t	size = 0;
+		uint64_t	params[2];
+		uint32_t	size = 0;
 		
 		params[0]	= fLoginRef;
 		params[1] 	= timeout;
-		status = io_connect_method_scalarI_scalarO( fConnection,
-												  kIOFWSBP2UserClientSetBusyTimeoutRegisterValue,
-												  params, 2,
-												  NULL, &size );	
+		status = IOConnectCallScalarMethod( fConnection,
+											kIOFWSBP2UserClientSetBusyTimeoutRegisterValue,
+											params, 2,
+											NULL, &size );	
 	}											
 	
 	return status;
@@ -999,16 +1053,16 @@ IOReturn IOFireWireSBP2LibLogin::setPassword( void * buffer, UInt32 length )
 
 	FWLOG(( "IOFireWireSBP2LibORB : setPassword\n" ));
 		
-	mach_msg_type_number_t len = 0;
-	UInt32 params[3];
+	uint32_t len = 0;
+	uint64_t params[3];
 	
 	params[0] = fLoginRef;
-	params[1] = (UInt32)buffer;
+	params[1] = (UInt64)buffer;
 	params[2] = length;
 
-	status = io_connect_method_scalarI_scalarO( fConnection, 	
-									   kIOFWSBP2UserClientSetPassword, 
-									   (int*)params, 3, NULL, &len );
+	status = IOConnectCallScalarMethod( fConnection, 	
+										kIOFWSBP2UserClientSetPassword, 
+										params, 3, NULL, &len );
 	return status;	
 }
 

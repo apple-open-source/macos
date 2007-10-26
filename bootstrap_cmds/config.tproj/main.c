@@ -67,9 +67,8 @@ static char sccsid[] = "@(#)main.c	5.9 (Berkeley) 6/18/88";
  * Config builds a set of files for building a UNIX
  * system given a description of the desired system.
  */
-main(argc, argv)
-	int argc;
-	char **argv;
+int
+main(int argc, char *argv[])
 {
 
 	source_directory = "..";	/* default */
@@ -199,6 +198,10 @@ main(argc, argv)
 		ppc_ioconf();
 		break;
 
+	case MACHINE_ARM:
+		arm_ioconf();
+		break;
+
 	default:
 		printf("Specify machine type, e.g. ``machine vax''\n");
 		exit(1);
@@ -206,9 +209,9 @@ main(argc, argv)
 
 	makefile();			/* build Makefile */
 	headers();			/* make a lot of .h files */
-#ifndef	NeXT
 	swapconf();			/* swap config files */
-#endif	NeXT
+
+	return 0;
 }
 
 /*
@@ -217,9 +220,8 @@ main(argc, argv)
  *	NULL on end of line
  *	pointer to the word otherwise
  */
-char *
-get_word(fp)
-	register FILE *fp;
+const char *
+get_word(FILE *fp)
 {
 	static char line[80];
 	register int ch;
@@ -255,8 +257,7 @@ get_word(fp)
  *	pointer to the word otherwise
  */
 char *
-get_rest(fp)
-	register FILE *fp;
+get_rest(FILE *fp)
 {
 	static char line[80];
 	register int ch;
@@ -278,8 +279,7 @@ get_rest(fp)
  * prepend the path to a filename
  */
 char *
-path(file)
-	char *file;
+path(const char *file)
 {
 	register char *cp;
 

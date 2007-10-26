@@ -21,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <sys/types.h>
-#include <sys/syscall.h>
 #include <sys/acl.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -61,19 +60,22 @@ fchmodx_np(int fd, filesec_t fsec)
 /*
  * Chmod syscalls.
  */
+extern int __chmod_extended(char *, uid_t, gid_t, int, struct kauth_filesec *);
+extern int __fchmod_extended(int, uid_t, gid_t, int, struct kauth_filesec *);
+
 static int
 chmodx_syscall(void *obj, uid_t fsowner, gid_t fsgrp, int mode, struct kauth_filesec *fsacl)
 {
 	char *path = *(char **)obj;
 
-	return(syscall(SYS_chmod_extended, path, fsowner, fsgrp, mode, fsacl));
+	return(__chmod_extended(path, fsowner, fsgrp, mode, fsacl));
 }
 
 static int
 fchmodx_syscall(void *obj, uid_t fsowner, gid_t fsgrp, int mode, struct kauth_filesec *fsacl)
 {
 	int fd = *(int *)obj;
-	return(syscall(SYS_fchmod_extended, fd, fsowner, fsgrp, mode, fsacl));
+	return(__fchmod_extended(fd, fsowner, fsgrp, mode, fsacl));
 }
 
 /*

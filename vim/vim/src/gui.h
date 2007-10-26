@@ -7,21 +7,11 @@
  * Do ":help credits" in Vim to see a list of people who contributed.
  */
 
-/* For debugging */
-/* #define D(x)	printf x; */
-#define D(x)
-
-#if defined(FEAT_GUI_AMIGA)
-# include <intuition/intuition.h>
-#endif
-
 #ifdef FEAT_GUI_MOTIF
-# define FEAT_GUI_X11
 # include <Xm/Xm.h>
 #endif
 
 #ifdef FEAT_GUI_ATHENA
-# define FEAT_GUI_X11
 # include <X11/Intrinsic.h>
 # include <X11/StringDefs.h>
 #endif
@@ -31,12 +21,16 @@
 #endif
 
 #ifdef FEAT_GUI_GTK
+# ifdef VMS /* undef MIN and MAX because Intrinsic.h redefines them anyway */
+#  ifdef MAX
+#   undef MAX
+#  endif
+#  ifdef MIN
+#   undef MIN
+#  endif
+# endif
 # include <X11/Intrinsic.h>
 # include <gtk/gtk.h>
-#endif
-
-#ifdef FEAT_GUI_BEOS
-# include "gui_beos.h"
 #endif
 
 #ifdef FEAT_GUI_MAC
@@ -85,7 +79,7 @@
  * GUIs that support dropping files on a running Vim.
  */
 #if defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_MAC) \
-	|| defined(FEAT_GUI_BEOS) || defined(FEAT_GUI_GTK)
+	|| defined(FEAT_GUI_GTK)
 # define HAVE_DROP_FILE
 #endif
 
@@ -152,10 +146,11 @@
 #define DRAW_TRANSP		0x01	/* draw with transparant bg */
 #define DRAW_BOLD		0x02	/* draw bold text */
 #define DRAW_UNDERL		0x04	/* draw underline text */
+#define DRAW_UNDERC		0x08	/* draw undercurl text */
 #if defined(RISCOS) || defined(HAVE_GTK2)
-# define DRAW_ITALIC		0x08	/* draw italic text */
+# define DRAW_ITALIC		0x10	/* draw italic text */
 #endif
-#define DRAW_CURSOR		0x10	/* drawing block cursor (win32) */
+#define DRAW_CURSOR		0x20	/* drawing block cursor (win32) */
 
 /* For our own tearoff menu item */
 #define TEAR_STRING		"-->Detach"
@@ -171,6 +166,13 @@
 #endif
 #define TOOLBAR_BORDER_HEIGHT	12  /* room above+below buttons for MSWindows */
 
+#ifdef FEAT_GUI_MSWIN
+# define TABLINE_HEIGHT 22
+#endif
+#ifdef FEAT_GUI_MOTIF
+# define TABLINE_HEIGHT 30
+#endif
+
 #if defined(NO_CONSOLE) || defined(FEAT_GUI_GTK) || defined(FEAT_GUI_X11)
 # define NO_CONSOLE_INPUT	/* use no_console_input() to check if there
 				   is no console input possible */
@@ -179,7 +181,7 @@
 typedef struct GuiScrollbar
 {
     long	ident;		/* Unique identifier for each scrollbar */
-    struct window *wp;		/* Scrollbar's window, NULL for bottom */
+    win_T	*wp;		/* Scrollbar's window, NULL for bottom */
     int		type;		/* one of SBAR_{LEFT,RIGHT,BOTTOM} */
     long	value;		/* Represents top line number visible */
 #ifdef FEAT_GUI_ATHENA
@@ -209,9 +211,6 @@ typedef struct GuiScrollbar
 				   32767 lines.  When the file is longer,
 				   scroll_shift is set to the number of shifts
 				   to reduce the count.  */
-#endif
-#if FEAT_GUI_BEOS
-    VimScrollBar *id;		/* Pointer to real scroll bar */
 #endif
 #ifdef FEAT_GUI_MAC
     ControlHandle id;		/* A handle to the scrollbar */
@@ -304,8 +303,9 @@ typedef struct Gui
     scrollbar_T bottom_sbar;	    /* Bottom scrollbar */
     int		which_scrollbars[3];/* Which scrollbar boxes are active? */
     int		prev_wrap;	    /* For updating the horizontal scrollbar */
-    int		char_width;	    /* Width of char in pixels */
-    int		char_height;	    /* Height of char in pixels + 'linespace' */
+    int		char_width;	    /* Width of char cell in pixels */
+    int		char_height;	    /* Height of char cell in pixels, includes
+				       'linespace' */
     int		char_ascent;	    /* Ascent of char in pixels */
     int		border_width;	    /* Width of our border around text area */
     int		border_offset;	    /* Total pixel offset for all borders */
@@ -397,6 +397,7 @@ typedef struct Gui
 # endif
     GdkColor	*fgcolor;	    /* GDK-styled foreground color */
     GdkColor	*bgcolor;	    /* GDK-styled background color */
+    GdkColor	*spcolor;	    /* GDK-styled special color */
 # ifndef HAVE_GTK2
     GuiFont	current_font;
 # endif
@@ -405,6 +406,9 @@ typedef struct Gui
     PangoContext     *text_context; /* the context used for all text */
     PangoFont	     *ascii_font;   /* cached font for ASCII strings */
     PangoGlyphString *ascii_glyphs; /* cached code point -> glyph map */
+# endif
+# ifdef FEAT_GUI_TABLINE
+    GtkWidget	*tabline;	    /* tab pages line handle */
 # endif
 
     GtkAccelGroup *accel_group;
@@ -415,6 +419,11 @@ typedef struct Gui
     GtkWidget	*filedlg;	    /* file selection dialog */
     char_u	*browse_fname;	    /* file name from filedlg */
 #endif	/* FEAT_GUI_GTK */
+
+#if defined(FEAT_GUI_TABLINE) \
+	&& (defined(FEAT_GUI_W32) || defined(FEAT_GUI_MOTIF))
+    int		tabline_height;
+#endif
 
 #ifdef FEAT_FOOTER
     int		footer_height;	    /* height of the message footer */
@@ -439,14 +448,7 @@ typedef struct Gui
     GuiFont	currFont;	    /* Current font */
     guicolor_T	currFgColor;	    /* Current foreground text color */
     guicolor_T	currBgColor;	    /* Current background text color */
-#endif
-
-#ifdef FEAT_GUI_BEOS
-    VimApp     *vimApp;
-    VimWindow  *vimWindow;
-    VimFormView *vimForm;
-    VimTextAreaView *vimTextArea;
-    int		vdcmp;		    /* Vim Direct Communication Message Port */
+    guicolor_T	currSpColor;	    /* Current special text color */
 #endif
 
 #ifdef FEAT_GUI_MAC
@@ -456,12 +458,6 @@ typedef struct Gui
     int		MacOSHaveCntxMenu;  /* Contextual menu available */
     WindowPtr	wid;		    /* Window id of text area */
     int		visibility;	    /* Is window partially/fully obscured? */
-#endif
-
-#if defined(FEAT_GUI_AMIGA)
-    struct Window *window;		/* a handle to the amiga window */
-    struct Menu	  *menu;		/* a pointer to the first menu */
-    struct TextFont *textfont;		/* a pointer to the font structure */
 #endif
 
 #ifdef RISCOS
@@ -504,11 +500,9 @@ typedef enum
     VW_POS_MOUSE,
     VW_POS_CENTER,
     VW_POS_TOP_CENTER
-}
-gui_win_pos_T;
+} gui_win_pos_T;
 
-#if defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_GTK) \
-	|| defined(MSWIN_FIND_REPLACE)
+#ifdef FIND_REPLACE_DIALOG
 /*
  * Flags used to distinguish the different contexts in which the
  * find/replace callback may be called.
@@ -523,3 +517,46 @@ gui_win_pos_T;
 # define FRD_WHOLE_WORD	0x08	/* match whole word only */
 # define FRD_MATCH_CASE	0x10	/* match case */
 #endif
+
+#ifdef HAVE_GTK2
+/*
+ * Convenience macros to convert from 'encoding' to 'termencoding' and
+ * vice versa.	If no conversion is necessary the passed-in pointer is
+ * returned as is, without allocating any memory.  Thus additional _FREE()
+ * macros are provided.  The _FREE() macros also set the pointer to NULL,
+ * in order to avoid bugs due to illegal memory access only happening if
+ * 'encoding' != utf-8...
+ *
+ * Defining these macros as pure expressions looks a bit tricky but
+ * avoids depending on the context of the macro expansion.  One of the
+ * rare occasions where the comma operator comes in handy :)
+ *
+ * Note: Do NOT keep the result around when handling control back to
+ * the main Vim!  The user could change 'encoding' at any time.
+ */
+# define CONVERT_TO_UTF8(String)				\
+    ((output_conv.vc_type == CONV_NONE || (String) == NULL)	\
+	    ? (String)						\
+	    : string_convert(&output_conv, (String), NULL))
+
+# define CONVERT_TO_UTF8_FREE(String)				\
+    ((String) = ((output_conv.vc_type == CONV_NONE)		\
+			? (char_u *)NULL			\
+			: (vim_free(String), (char_u *)NULL)))
+
+# define CONVERT_FROM_UTF8(String)				\
+    ((input_conv.vc_type == CONV_NONE || (String) == NULL)	\
+	    ? (String)						\
+	    : string_convert(&input_conv, (String), NULL))
+
+# define CONVERT_FROM_UTF8_FREE(String)				\
+    ((String) = ((input_conv.vc_type == CONV_NONE)		\
+			? (char_u *)NULL			\
+			: (vim_free(String), (char_u *)NULL)))
+
+#else
+# define CONVERT_TO_UTF8(String) (String)
+# define CONVERT_TO_UTF8_FREE(String) ((String) = (char_u *)NULL)
+# define CONVERT_FROM_UTF8(String) (String)
+# define CONVERT_FROM_UTF8_FREE(String) ((String) = (char_u *)NULL)
+#endif /* HAVE_GTK2 */

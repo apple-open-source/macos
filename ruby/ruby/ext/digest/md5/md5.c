@@ -41,9 +41,15 @@
   1999-05-03 lpd Original version.
  */
 
+/*
+  This code was modified for use in Ruby.
+
+  - Akinori MUSHA <knu@idaemons.org>
+ */
+
 /*$OrigId: md5c.c,v 1.2 2001/03/26 08:57:14 matz Exp $ */
 /*$RoughId: md5.c,v 1.2 2001/07/13 19:48:41 knu Exp $ */
-/*$Id: md5.c,v 1.1 2001/07/13 20:06:14 knu Exp $ */
+/*$Id: md5.c 11708 2007-02-12 23:01:19Z shyouhei $ */
 
 #include "md5.h"
 
@@ -391,7 +397,7 @@ MD5_Update(MD5_CTX *pms, const uint8_t *data, size_t nbytes)
 }
 
 void
-MD5_Final(uint8_t *digest, MD5_CTX *pms)
+MD5_Finish(MD5_CTX *pms, uint8_t *digest)
 {
     static const uint8_t pad[64] = {
 	0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -411,22 +417,4 @@ MD5_Final(uint8_t *digest, MD5_CTX *pms)
     MD5_Update(pms, data, 8);
     for (i = 0; i < 16; ++i)
 	digest[i] = (uint8_t)(pms->state[i >> 2] >> ((i & 3) << 3));
-}
-
-void
-MD5_End(MD5_CTX *pctx, uint8_t *hexdigest)
-{
-    unsigned char digest[16];
-    size_t i;
-
-    MD5_Final(digest, pctx);
-
-    for (i = 0; i < 16; i++)
-        sprintf(hexdigest + i * 2, "%02x", digest[i]);
-}
-
-int MD5_Equal(MD5_CTX* pctx1, MD5_CTX* pctx2) {
-	return memcmp(pctx1->count, pctx2->count, sizeof(pctx1->count)) == 0
-		&& memcmp(pctx1->state, pctx2->state, sizeof(pctx1->state)) == 0
-		&& memcmp(pctx1->buffer, pctx2->buffer, sizeof(pctx1->buffer)) == 0;
 }

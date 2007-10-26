@@ -47,7 +47,7 @@ static char sccsid[] = "@(#)join.c	8.6 (Berkeley) 5/4/95";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-//__FBSDID("$FreeBSD: src/usr.bin/join/join.c,v 1.18 2004/07/05 13:20:03 tjr Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/join/join.c,v 1.20 2004/08/26 06:28:05 maxim Exp $");
 
 #include <sys/param.h>
 
@@ -57,15 +57,14 @@ static char sccsid[] = "@(#)join.c	8.6 (Berkeley) 5/4/95";
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <unistd.h>
 #include <wchar.h>
 
 #ifdef __APPLE__
- #include "get_compat.h"
+#include "get_compat.h"
 #else
- #define COMPAT_MODE(func, mode) 1
+#define COMPAT_MODE(func, mode) 1
 #endif
 
 /*
@@ -173,10 +172,8 @@ main(int argc, char *argv[])
 				errx(1, "-a option file number not 1 or 2");
 				break;
 			}
-			if (*end) {
-				warnx("illegal file number -- %s", optarg);
-				usage();
-			}
+			if (*end)
+				errx(1, "illegal file number -- %s", optarg);
 			break;
 		case 'e':
 			empty = optarg;
@@ -214,10 +211,8 @@ main(int argc, char *argv[])
 				errx(1, "-v option file number not 1 or 2");
 				break;
 			}
-			if (*end) {
-				warnx("illegal file number -- %s", optarg);
-				usage();
-			}
+			if (*end)
+				errx(1, "illegal file number -- %s", optarg);
 			break;
 		case '?':
 		default:
@@ -230,7 +225,7 @@ main(int argc, char *argv[])
 	if (aflag && vflag)
 		errx(1, "the -a and -v options are mutually exclusive");
 
-	if (argc != 2)
+	if (argc != 2 || argv[0]==NULL || argv[1]==NULL)
 		usage();
 
 	/* Open the files; "-" means stdin. */

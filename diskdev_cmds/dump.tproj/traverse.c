@@ -487,11 +487,12 @@ blksout(blkp, frags, ino)
 		writeheader(ino);
 		bp = &blkp[i / tbperdb];
 		for (j = i; j < count; j += tbperdb, bp++)
-			if (*bp != 0)
+			if (*bp != 0) {
 				if (j + tbperdb <= count)
 					dumpblock(*bp, (int)sblock->fs_bsize);
 				else
 					dumpblock(*bp, (count - j) * TP_BSIZE);
+			}
 		spcl.c_type = TS_ADDR;
 	}
 }

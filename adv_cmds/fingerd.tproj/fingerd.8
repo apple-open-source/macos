@@ -38,7 +38,7 @@
 .Nm fingerd
 .Nd remote user information server
 .Sh SYNOPSIS
-.Nm fingerd
+.Nm
 .Op Fl s
 .Op Fl l
 .Op Fl p Ar filename
@@ -90,30 +90,30 @@ and
 If a name is ambiguous, all possible derivations are returned.
 .Pp
 The following options may be passed to
-.Nm fingerd
+.Nm
 as server program arguments in
 .Pa /etc/inetd.conf :
 .Bl -tag -width Ds
-.It Fl s
-Enable secure mode.
-Queries without a user name are rejected and
-forwarding of queries to other remote hosts is denied.
 .It Fl l
 Enable logging.
 The name of the host originating the query is reported via
 .Xr syslog 3
 at LOG_NOTICE priority.
-.It Fl p
+.It Fl p Ar filename
 Use an alternate program as the local information provider.
 The default local program
 executed by
-.Nm fingerd
+.Nm
 is 
 .Xr finger 1 .
 By specifying a customized local server,
 this option allows a system manager
 to have more control over what information is
 provided to remote sites.
+.It Fl s
+Enable secure mode.
+Queries without a user name are rejected and
+forwarding of queries to other remote hosts is denied.
 .El
 .Sh SEE ALSO
 .Xr finger 1

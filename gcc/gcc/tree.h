@@ -97,6 +97,13 @@ extern const enum tree_code_class tree_code_type[];
 #define DECL_P(CODE)\
         (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
 
+/* APPLE LOCAL begin mainline 4.2 2006-05-09 */
+/* Nonzero if DECL represents a VAR_DECL or FUNCTION_DECL.  */
+
+#define VAR_OR_FUNCTION_DECL_P(DECL)\
+  (TREE_CODE (DECL) == VAR_DECL || TREE_CODE (DECL) == FUNCTION_DECL)
+/* APPLE LOCAL end mainline 4.2 2006-05-09 */
+
 /* Nonzero if CODE represents a INDIRECT_REF.  Keep these checks in
    ascending code order.  */
 #define INDIRECT_REF_P(CODE)\
@@ -290,8 +297,6 @@ struct tree_common GTY(())
   unsigned visited : 1;
   /* APPLE LOCAL "unavailable" attribute (Radar 2809697) --ilr */
   unsigned unavailable_flag : 1;
-  /* APPLE LOCAL bitfield reversal 4228294 */
-  unsigned reversed_flag : 1;
 };
 
 /* The following table lists the uses of each of the above flags and
@@ -424,6 +429,8 @@ struct tree_common GTY(())
 
 	TREE_DEPRECATED in
 	   ..._DECL
+	APPLE LOCAL C* property (Radar 4436866)
+	   CALL_EXPR
 
    APPLE LOCAL begin "unavailable" attribute (Radar 2809697)
    unavailable_flag:
@@ -854,6 +861,12 @@ extern void tree_operand_check_failed (int, enum tree_code,
    call optimizations.  */
 #define CALL_EXPR_TAILCALL(NODE) (CALL_EXPR_CHECK(NODE)->common.addressable_flag)
 
+/* APPLE LOCAL begin C* property (Radar 4436866) */
+/* Set on a CALL_EXPR if it is for call to a getter function represented by an
+   objective-c property declaration. */
+#define CALL_EXPR_OBJC_PROPERTY_GETTER(NODE) (CALL_EXPR_CHECK(NODE)->common.deprecated_flag)
+/* APPLE LOCAL end C* property (Radar 4436866) */
+
 /* In a VAR_DECL, nonzero means allocate static storage.
    In a FUNCTION_DECL, nonzero if function has been defined.
    In a CONSTRUCTOR, nonzero means allocate static storage.
@@ -898,6 +911,13 @@ extern void tree_operand_check_failed (int, enum tree_code,
    ??? Apparently, lots of code assumes this is defined in all
    expressions.  */
 #define TREE_OVERFLOW(NODE) ((NODE)->common.public_flag)
+/* APPLE LOCAL begin mainline */
+
+/* TREE_OVERFLOW can only be true for EXPR of CONSTANT_CLASS_P.  */
+
+#define TREE_OVERFLOW_P(EXPR) \
+ (CONSTANT_CLASS_P (EXPR) && TREE_OVERFLOW (EXPR))
+/* APPLE LOCAL end mainline */
 
 /* In a VAR_DECL or FUNCTION_DECL,
    nonzero means name is to be accessible from outside this module.
@@ -1014,6 +1034,13 @@ extern void tree_operand_check_failed (int, enum tree_code,
    thunked-to function.  */
 #define CALL_FROM_THUNK_P(NODE) ((NODE)->common.protected_flag)
 
+/* APPLE LOCAL begin ARM strings in code */
+/* In a STRING_CST, means that the string was encountered while copying an
+   inline function body, which means it is not safe to generate code for
+   it on the stack (since all copies must share the same string).  */
+#define TREE_STRING_INLINED(NODE) (STRING_CST_CHECK (NODE)->common.protected_flag)
+/* APPLE LOCAL end ARM strings in code */
+
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
    of this type is aligned at least to the alignment of the type, even if it
@@ -1040,9 +1067,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
    unavailable feature by __attribute__((unavailable)).  */
 #define TREE_UNAVAILABLE(NODE) ((NODE)->common.unavailable_flag)
 /* APPLE LOCAL end "unavailable" attribute (Radar 2809697) */
-/* APPLE LOCAL begin bitfield reversal 4228294 */
-#define TREE_FIELDS_REVERSED(NODE) ((NODE)->common.reversed_flag)
-/* APPLE LOCAL end bitfield reversal 4228294 */
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function
@@ -2254,13 +2278,14 @@ struct tree_binfo GTY (())
 /* Used to indicate that this DECL has weak linkage.  */
 #define DECL_WEAK(NODE) (DECL_CHECK (NODE)->decl.weak_flag)
 
-/* APPLE LOCAL handling duplicate decls across files */
+/* APPLE LOCAL duplicate decls in multiple files. */
 #define DECL_DUPLICATE_DECL(NODE) (DECL_CHECK (NODE)->decl.duplicate_decl)
 
 /* APPLE LOCAL begin CW asm blocks */
-#define DECL_CW_ASM_FUNCTION(NODE) (DECL_CHECK (NODE)->decl.cw_asm_function_flag)
-#define DECL_CW_ASM_NORETURN(NODE) (DECL_CHECK (NODE)->decl.cw_asm_noreturn_flag)
-#define DECL_CW_ASM_FRAME_SIZE(NODE) (DECL_CHECK (NODE)->decl.cw_asm_frame_size)
+#define DECL_IASM_ASM_FUNCTION(NODE) (DECL_CHECK (NODE)->decl.iasm_asm_function_flag)
+#define DECL_IASM_NORETURN(NODE) (DECL_CHECK (NODE)->decl.iasm_noreturn_flag)
+#define DECL_IASM_DONT_PROMOTE_TO_STATIC(NODE) (DECL_CHECK (NODE)->decl.iasm_dont_promote_to_static)
+#define DECL_IASM_FRAME_SIZE(NODE) (DECL_CHECK (NODE)->decl.iasm_frame_size)
 /* APPLE LOCAL end CW asm blocks */
 
 /* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
@@ -2323,15 +2348,6 @@ struct tree_binfo GTY (())
 /* Nonzero if an alias set has been assigned to this declaration.  */
 #define DECL_POINTER_ALIAS_SET_KNOWN_P(NODE) \
   (DECL_POINTER_ALIAS_SET (NODE) != - 1)
-
-/* APPLE LOCAL begin DECL_ESTIMATED_INSNS */
-/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
-   the approximate number of statements in this function.  There is
-   no need for this number to be exact; it is only used in various
-   heuristics regarding optimization.  */
-#define DECL_ESTIMATED_INSNS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
-/* APPLE LOCAL end */
 
 /* Nonzero for a decl which is at file scope.  */
 #define DECL_FILE_SCOPE_P(EXP) 					\
@@ -2428,9 +2444,10 @@ struct tree_decl GTY(())
   /* APPLE LOCAL unused bits */
   /* 9 unused bits.  */
   /* APPLE LOCAL begin CW asm blocks */
-  unsigned cw_asm_function_flag : 1;
-  unsigned cw_asm_noreturn_flag : 1;
-  unsigned int cw_asm_frame_size;
+  unsigned iasm_asm_function_flag : 1;
+  unsigned iasm_noreturn_flag : 1;
+  unsigned iasm_dont_promote_to_static : 1;
+  unsigned int iasm_frame_size;
   /* APPLE LOCAL end CW asm blocks */
 
   union tree_decl_u1 {
@@ -3612,6 +3629,14 @@ extern tree fold_builtin (tree, bool);
 extern tree fold_builtin_fputs (tree, bool, bool, tree);
 extern tree fold_builtin_strcpy (tree, tree);
 extern tree fold_builtin_strncpy (tree, tree);
+/* APPLE LOCAL begin mainline */
+extern tree fold_builtin_memory_chk (tree, tree, tree, bool,
+                                     enum built_in_function);
+extern tree fold_builtin_stxcpy_chk (tree, tree, tree, bool,
+                                     enum built_in_function);
+extern tree fold_builtin_strncpy_chk (tree, tree);
+extern tree fold_builtin_snprintf_chk (tree, tree, enum built_in_function);
+/* APPLE LOCAL end mainline */
 extern bool fold_builtin_next_arg (tree);
 extern enum built_in_function builtin_mathfn_code (tree);
 extern tree build_function_call_expr (tree, tree);
@@ -3648,6 +3673,10 @@ extern int simple_cst_list_equal (tree, tree);
 extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree);
+/* APPLE LOCAL begin mainline */
+extern void stack_protect_prologue (void);
+extern void stack_protect_epilogue (void);
+/* APPLE LOCAL end mainline */
 extern void recompute_tree_invarant_for_addr_expr (tree);
 extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);
@@ -3840,6 +3869,12 @@ extern void dwarf2out_return_save (const char *, HOST_WIDE_INT);
 
 extern void dwarf2out_return_reg (const char *, unsigned);
 
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+/* Entry point for saving the first register into the second.  */
+
+extern void dwarf2out_reg_save_reg (const char *, rtx, rtx);
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
+
 /* In tree-inline.c  */
 
 /* The type of a set of already-visited pointers.  Functions for creating
@@ -3991,4 +4026,11 @@ extern tree get_base_address (tree t);
 /* In tree-vectorizer.c.  */
 extern void vect_set_verbosity_level (const char *);
 
+/* APPLE LOCAL begin mainline */
+/* In tree-object-size.c.  */
+extern void init_object_sizes (void);
+extern void fini_object_sizes (void);
+extern unsigned HOST_WIDE_INT compute_builtin_object_size (tree, int);
+
+/* APPLE LOCAL end mainline */
 #endif  /* GCC_TREE_H  */

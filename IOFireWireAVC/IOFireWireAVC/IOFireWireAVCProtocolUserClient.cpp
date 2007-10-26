@@ -27,206 +27,177 @@
 #include <IOKit/avc/IOFireWirePCRSpace.h>
 #include <IOKit/avc/IOFireWireAVCTargetSpace.h>
 
+#if FIRELOG
+#import <IOKit/firewire/FireLog.h>
+#define FIRELOG_MSG(x) FireLog x
+#else
+#define FIRELOG_MSG(x) do {} while (0)
+#endif
+
 // Structure for keeping track of allocated plugs
 struct PlugInfo {
     IOFireWireAVCProtocolUserClient *fClient;
     UInt32 fPlug;
-    OSAsyncReference fCallbackInfo;
-    void *fUserRefcon;	// Store here so CFPlugin doesn't have to track this
+    OSAsyncReference64 fCallbackInfo;
+    uint64_t fUserRefcon;	// Store here so CFPlugin doesn't have to track this
 };
 
 OSDefineMetaClassAndStructors(IOFireWireAVCProtocolUserClient, IOUserClient)
 
-IOExternalMethod IOFireWireAVCProtocolUserClient::sMethods[kIOFWAVCProtocolUserClientNumCommands] =
+//////////////////////////////////////////////////////
+// IOFireWireAVCUserClient::externalMethod
+//////////////////////////////////////////////////////
+IOReturn IOFireWireAVCProtocolUserClient::externalMethod( uint32_t selector, 
+														IOExternalMethodArguments * arguments,
+														IOExternalMethodDispatch * dispatch, 
+														OSObject * target, 
+														void * reference)
 {
-    { //    kIOFWAVCProtocolUserClientSendAVCResponse
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::sendAVCResponse,
-        kIOUCScalarIStructI,
-        2,
-        0xFFFFFFFF	// variable
-    },
-    { //    kIOFWAVCProtocolUserClientFreeInputPlug
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::freeInputPlug,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWAVCProtocolUserClientReadInputPlug
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::readInputPlug,
-        kIOUCScalarIScalarO,
-        1,
-        1
-    },
-    { //    kIOFWAVCProtocolUserClientUpdateInputPlug
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::updateInputPlug,
-        kIOUCScalarIScalarO,
-        3,
-        0
-    },
-    { //    kIOFWAVCProtocolUserClientFreeOutputPlug
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::freeOutputPlug,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWAVCProtocolUserClientReadOutputPlug
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::readOutputPlug,
-        kIOUCScalarIScalarO,
-        1,
-        1
-    },
-    { //    kIOFWAVCProtocolUserClientUpdateOutputPlug
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::updateOutputPlug,
-        kIOUCScalarIScalarO,
-        3,
-        0
-    },
-    { //    kIOFWAVCProtocolUserClientReadOutputMasterPlug
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::readOutputMasterPlug,
-        kIOUCScalarIScalarO,
-        0,
-        1
-    },
-    { //    kIOFWAVCProtocolUserClientUpdateOutputMasterPlug
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::updateOutputMasterPlug,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWAVCProtocolUserClientReadInputMasterPlug
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::readInputMasterPlug,
-        kIOUCScalarIScalarO,
-        0,
-        1
-    },
-    { //    kIOFWAVCProtocolUserClientUpdateInputMasterPlug
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::updateInputMasterPlug,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWAVCProtocolUserClientPublishAVCUnitDirectory
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::publishAVCUnitDirectory,
-        kIOUCScalarIScalarO,
-        0,
-        0
-    },
-    { //    kIOFWAVCProtocolUserClientSetSubunitPlugSignalFormat
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::setSubunitPlugSignalFormat,
-        kIOUCScalarIScalarO,
-        4,
-        0
-    },
-    { //    kIOFWAVCProtocolUserClientGetSubunitPlugSignalFormat, // kIOUCScalarIScalarO 3, 1
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::getSubunitPlugSignalFormat,
-        kIOUCScalarIScalarO,
-        3,
-        1
-    },
-    { //    kIOFWAVCProtocolUserClientConnectTargetPlugs,		// kIOUCStructIStructO
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::connectTargetPlugs,
-        kIOUCStructIStructO,
-        sizeof(AVCConnectTargetPlugsInParams),
-        sizeof(AVCConnectTargetPlugsOutParams)
-    },
-    { //    kIOFWAVCProtocolUserClientDisconnectTargetPlugs,	// kIOUCScalarIScalarO 6, 0
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::disconnectTargetPlugs,
-        kIOUCScalarIScalarO,
-        6,
-        0
-    },
-	{ //    kIOFWAVCProtocolUserClientGetTargetPlugConnection,	// kIOUCStructIStructO
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::getTargetPlugConnection,
-        kIOUCStructIStructO,
-        sizeof(AVCGetTargetPlugConnectionInParams),
-        sizeof(AVCGetTargetPlugConnectionOutParams)
-    },
-	{ //    kIOFWAVCProtocolUserClientAVCRequestNotHandled,  // kIOUCScalarIStructI 4, -1
-        0,
-        (IOMethod) &IOFireWireAVCProtocolUserClient::AVCRequestNotHandled,
-        kIOUCScalarIStructI,
-        4,
-        0xFFFFFFFF	// variable
-    }
-};
+	IOReturn result = kIOReturnBadArgument;
+	
+	FIRELOG_MSG(("IOFireWireAVCProtocolUserClient::externalMethod (this=0x%08X), selector=0x%08X\n",this,selector));
+	
+	// Dispatch the method call
+	switch (selector)
+	{
+		case kIOFWAVCProtocolUserClientSendAVCResponse:
+			result = sendAVCResponse(arguments->scalarInput[0],arguments->scalarInput[1], (const char*)arguments->structureInput, arguments->structureInputSize);
+			break;
+	
+		case kIOFWAVCProtocolUserClientFreeInputPlug:
+			result = freeInputPlug(arguments->scalarInput[0]);
+			break;
+	
+		case kIOFWAVCProtocolUserClientReadInputPlug:
+			result = readInputPlug((UInt32) arguments->scalarInput[0], arguments->scalarOutput);
+			break;
+		
+		case kIOFWAVCProtocolUserClientUpdateInputPlug:
+			result = updateInputPlug(arguments->scalarInput[0],arguments->scalarInput[1],arguments->scalarInput[2]);
+			break;
+	
+		case kIOFWAVCProtocolUserClientFreeOutputPlug:
+			result = freeOutputPlug(arguments->scalarInput[0]);
+			break;
 
-IOExternalAsyncMethod IOFireWireAVCProtocolUserClient::sAsyncMethods[kIOFWAVCProtocolUserClientNumAsyncCommands] =
-{
-    {   //    kIOFWAVCProtocolUserClientSetAVCRequestCallback
-        0,
-        (IOAsyncMethod) &IOFireWireAVCProtocolUserClient::setAVCRequestCallback,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    {   //    kIOFWAVCProtocolUserClientAllocateInputPlug
-        0,
-        (IOAsyncMethod) &IOFireWireAVCProtocolUserClient::allocateInputPlug,
-        kIOUCScalarIScalarO,
-        1,
-        1
-    },
-    {   //    kIOFWAVCProtocolUserClientAllocateOutputPlug
-        0,
-        (IOAsyncMethod) &IOFireWireAVCProtocolUserClient::allocateOutputPlug,
-        kIOUCScalarIScalarO,
-        1,
-        1
-    },
-	{
-		//    kIOFWAVCProtocolUserClientInstallAVCCommandHandler
-        0,
-        (IOAsyncMethod) &IOFireWireAVCProtocolUserClient::installAVCCommandHandler,
-        kIOUCScalarIScalarO,
-        4,
-        0
-    },
-	{
-		//    kIOFWAVCProtocolUserClientAddSubunit
-        0,
-        (IOAsyncMethod) &IOFireWireAVCProtocolUserClient::addSubunit,
-        kIOUCScalarIScalarO,
-        5,
-        1
-    }
-};
+		case kIOFWAVCProtocolUserClientReadOutputPlug:
+			result = readOutputPlug((UInt32) arguments->scalarInput[0], arguments->scalarOutput);
+			break;
+		
+		case kIOFWAVCProtocolUserClientUpdateOutputPlug:
+			result = updateOutputPlug(arguments->scalarInput[0],arguments->scalarInput[1],arguments->scalarInput[2]);
+			break;
+
+		case kIOFWAVCProtocolUserClientReadOutputMasterPlug:
+			result = readOutputMasterPlug(arguments->scalarOutput);
+			break;
+
+		case kIOFWAVCProtocolUserClientUpdateOutputMasterPlug:
+			result = updateOutputMasterPlug(arguments->scalarInput[0],arguments->scalarInput[1]);
+			break;
+		
+		case kIOFWAVCProtocolUserClientReadInputMasterPlug:
+			result = readInputMasterPlug(arguments->scalarOutput);
+			break;
+		
+		case kIOFWAVCProtocolUserClientUpdateInputMasterPlug:
+			result = updateInputMasterPlug(arguments->scalarInput[0],arguments->scalarInput[1]);
+			break;
+		
+		case kIOFWAVCProtocolUserClientPublishAVCUnitDirectory:
+			result = publishAVCUnitDirectory();
+			break;
+		
+		case kIOFWAVCProtocolUserClientSetSubunitPlugSignalFormat:
+			result = setSubunitPlugSignalFormat(arguments->scalarInput[0],(IOFWAVCPlugTypes)arguments->scalarInput[1],arguments->scalarInput[2],arguments->scalarInput[3]);
+			break;
+		
+		case kIOFWAVCProtocolUserClientGetSubunitPlugSignalFormat:
+			result = getSubunitPlugSignalFormat(arguments->scalarInput[0],(IOFWAVCPlugTypes)arguments->scalarInput[1],arguments->scalarInput[2],arguments->scalarOutput);
+			break;
+		
+		case kIOFWAVCProtocolUserClientConnectTargetPlugs:
+			result = connectTargetPlugs((AVCConnectTargetPlugsInParams *) arguments->structureInput, (AVCConnectTargetPlugsOutParams *) arguments->structureOutput);
+			break;
+		
+		case kIOFWAVCProtocolUserClientDisconnectTargetPlugs:
+			result = disconnectTargetPlugs(arguments->scalarInput[0],
+										(IOFWAVCPlugTypes)arguments->scalarInput[1],
+										arguments->scalarInput[2],
+										arguments->scalarInput[3],
+										(IOFWAVCPlugTypes)arguments->scalarInput[4],
+										arguments->scalarInput[5]);
+			break;
+	
+		case kIOFWAVCProtocolUserClientGetTargetPlugConnection:
+			result = getTargetPlugConnection((AVCGetTargetPlugConnectionInParams *) arguments->structureInput,
+											(AVCGetTargetPlugConnectionOutParams *) arguments->structureOutput);
+			break;
+		
+		case kIOFWAVCProtocolUserClientAVCRequestNotHandled:
+			result = AVCRequestNotHandled(arguments->scalarInput[0],
+										arguments->scalarInput[1],
+										(IOFWSpeed)arguments->scalarInput[2],
+										arguments->scalarInput[3],
+										(const char *)arguments->structureInput,
+										arguments->structureInputSize);
+			break;
+
+		case kIOFWAVCProtocolUserClientAllocateInputPlug:
+			result = allocateInputPlug(arguments->asyncReference, arguments->scalarInput[0], arguments->scalarOutput);
+			break;
+	
+		case kIOFWAVCProtocolUserClientAllocateOutputPlug:
+			result = allocateOutputPlug(arguments->asyncReference, arguments->scalarInput[0], arguments->scalarOutput);
+			break;
+
+		case kIOFWAVCProtocolUserClientInstallAVCCommandHandler:
+			result = installAVCCommandHandler(arguments->asyncReference, arguments->scalarInput[0], arguments->scalarInput[1],arguments->scalarInput[2],arguments->scalarInput[3]);
+			break;
+		
+		case kIOFWAVCProtocolUserClientAddSubunit:
+			result = addSubunit(arguments->asyncReference, 
+								arguments->scalarInput[0],
+								arguments->scalarInput[1],
+								arguments->scalarInput[2],
+								arguments->scalarInput[3],
+								arguments->scalarInput[4],
+								arguments->scalarOutput);		
+			break;
+	
+		case kIOFWAVCProtocolUserClientSetAVCRequestCallback: // No longer supported!
+			result = kIOReturnUnsupported;
+			break;
+
+		default:
+			// None of the above!
+			break;
+	};
+	
+	return result;
+}
+
+
 
 void IOFireWireAVCProtocolUserClient::forwardPlugWrite(void *refcon, UInt16 nodeID, UInt32 plug, UInt32 oldVal, UInt32 newVal)
 {
     OSData *data = (OSData *)refcon;
     const PlugInfo *info = (const PlugInfo *)(data->getBytesNoCopy());
-    void * args[kMaxAsyncArgs];
+    io_user_reference_t args[kMaxAsyncArgs];
     UInt32 generation;
     UInt16 localID;
 
-    //IOLog( "IOFireWireAVCProtocolUserClient::forwardPlugWrite\n");
+    FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::forwardPlugWrite\n"));
 	
     // fill out return parameters
     info->fClient->fDevice->getNodeIDGeneration(generation, localID);
     args[0] = info->fUserRefcon;
-    args[1] = (void*)generation;
-    args[2] = (void*)((UInt32)nodeID);
-    args[3] = (void*)plug;
-    args[4] = (void*)oldVal;
-    args[5] = (void*)newVal;
-    info->fClient->sendAsyncResult( ((PlugInfo *)info)->fCallbackInfo, kIOReturnSuccess, args, 6 );
+    args[1] = generation;
+    args[2] = ((UInt32)nodeID);
+    args[3] = plug;
+    args[4] = oldVal;
+    args[5] = newVal;
+    info->fClient->sendAsyncResult64( ((PlugInfo *)info)->fCallbackInfo, kIOReturnSuccess, args, 6 );
 }
 
 void IOFireWireAVCProtocolUserClient::avcTargetCommandHandler(const AVCCommandHandlerInfo *pCmdInfo,
@@ -237,49 +208,82 @@ void IOFireWireAVCProtocolUserClient::avcTargetCommandHandler(const AVCCommandHa
 															  IOFWSpeed &speed,
 															  UInt32 handlerSearchIndex)
 {
-    void * args[kMaxAsyncArgs];
-	OSAsyncReference asyncRef;
-	const UInt8 *src;
+    io_user_reference_t args[kMaxAsyncArgs];
+	OSAsyncReference64 asyncRef;
+	UInt8 *src;
 	UInt8 *dst;
 	UInt32 copyLen;
+	UInt32 i;
+	UInt32 thisCopyLen;
+	UInt8 *thisLoopStartSrc;
 	
-    //IOLog( "IOFireWireAVCProtocolUserClient::avcTargetCommandHandler\n");
+    FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::avcTargetCommandHandler\n"));
 
-	bcopy(pCmdInfo->asyncRef, asyncRef, sizeof(OSAsyncReference));
+	bcopy(pCmdInfo->asyncRef, asyncRef, sizeof(OSAsyncReference64));
 
 	args[0] = 0;		// Initial call
-	args[2] = (void*)generation;
-	args[3] = (void*)((UInt32)nodeID);
-	args[4] = (void*)cmdLen;
-	args[5] = (void*)pCmdInfo->userCallBack;
-	args[6] = (void*)pCmdInfo->userRefCon;
-	args[7] = (void*)speed;
-	args[8] = (void*)handlerSearchIndex;
+	args[2] = generation;
+	args[3] = ((UInt32)nodeID);
+	args[4] = cmdLen;
+	args[5] = pCmdInfo->userCallBack;
+	args[6] = pCmdInfo->userRefCon;
+	args[7] = speed;
+	args[8] = handlerSearchIndex;
 	
-	src = (const UInt8*)command;
+	src = (UInt8*)command;
 	dst = (UInt8 *)(args+9);
+
+#if __BIG_ENDIAN__
+	dst += 4;
+#endif
+	
 	copyLen = cmdLen;
 	if(copyLen > (kMaxAsyncArgs - 9)*sizeof(void *))
 		copyLen =  (kMaxAsyncArgs - 9)*sizeof(void *);
-	bcopy(src, dst, copyLen);
-	args[1] = (void*)copyLen;
-	pCmdInfo->userClient->sendAsyncResult( asyncRef, kIOReturnSuccess,
+
+	i = copyLen;
+	while (i > 0)
+	{
+		thisCopyLen = (i < 4) ? i : 4;
+		bcopy(src, dst, thisCopyLen);
+		i -= thisCopyLen;
+		src += 4;
+		dst += 8;
+	}
+	
+	args[1] = copyLen;
+	pCmdInfo->userClient->sendAsyncResult64( asyncRef, kIOReturnSuccess,
 					  args, 9+(copyLen+sizeof(void *)-1)/sizeof(void *) );
 	cmdLen -= copyLen;
-	src += copyLen;
+
 	// Send rest of packet if necessary
 	while(cmdLen) {
 		copyLen = cmdLen;
 		dst = (UInt8 *)(args+2);
+
+#if __BIG_ENDIAN__
+		dst += 4;
+#endif
+		
 		if(copyLen > (kMaxAsyncArgs - 2)*sizeof(void *))
 			copyLen =  (kMaxAsyncArgs - 2)*sizeof(void *);
-		bcopy(src, dst, copyLen);
-		args[0] = (void *)(src - (const UInt8*)command);	// Bit being sent
-		args[1] = (void*)copyLen;
-		pCmdInfo->userClient->sendAsyncResult( asyncRef, kIOReturnSuccess,
+		
+		i = copyLen;
+		thisLoopStartSrc = src;
+		while (i > 0)
+		{
+			thisCopyLen = (i < 4) ? i : 4;
+			bcopy(src, dst, thisCopyLen);
+			i -= thisCopyLen;
+			src += 4;
+			dst += 8;
+		}
+
+		args[0] = (thisLoopStartSrc - (const UInt8*)command);	// Bit being sent
+		args[1] = copyLen;
+		pCmdInfo->userClient->sendAsyncResult64( asyncRef, kIOReturnSuccess,
 					   args, 2+(copyLen+sizeof(void *)-1)/sizeof(void *) );
 		cmdLen -= copyLen;
-		src += copyLen;
 	}
 }
 
@@ -291,31 +295,30 @@ void IOFireWireAVCProtocolUserClient::avcSubunitPlugHandler(const AVCSubunitInfo
 															UInt32 generation,
 															UInt16 nodeID)
 {
-    void * args[kMaxAsyncArgs];
-	OSAsyncReference asyncRef;
+    io_user_reference_t args[kMaxAsyncArgs];
+	OSAsyncReference64 asyncRef;
 
-	//IOLog( "IOFireWireAVCProtocolUserClient::avcSubunitPlugHandler\n");
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::avcSubunitPlugHandler\n"));
 
-	bcopy(pSubunitInfo->asyncRef, asyncRef, sizeof(OSAsyncReference));
+	bcopy(pSubunitInfo->asyncRef, asyncRef, sizeof(OSAsyncReference64));
 
-	args[0] = (void*) pSubunitInfo->subunitTypeAndID;
-	args[1] = (void*) plugType;
-	args[2] = (void*) plugNum;
-	args[3] = (void*) plugMessage;
-	args[4] = (void*) messageParams;
-	args[5] = (void*)pSubunitInfo->userCallBack;
-	args[6] = (void*)pSubunitInfo->userRefCon;
-	args[7] = (void*)generation;
-	args[8] = (void*)((UInt32)nodeID);
+	args[0] = pSubunitInfo->subunitTypeAndID;
+	args[1] = plugType;
+	args[2] = plugNum;
+	args[3] = plugMessage;
+	args[4] = messageParams;
+	args[5] = pSubunitInfo->userCallBack;
+	args[6] = pSubunitInfo->userRefCon;
+	args[7] = generation;
+	args[8] = ((UInt32)nodeID);
 	
-	pSubunitInfo->userClient->sendAsyncResult( asyncRef, kIOReturnSuccess,
+	pSubunitInfo->userClient->sendAsyncResult64( asyncRef, kIOReturnSuccess,
 										args, 9);
-
 }
 
 void IOFireWireAVCProtocolUserClient::free()
 {
-    //IOLog( "IOFireWireAVCProtocolUserClient::free (0x%08X)\n",(int) this);
+    FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::free (0x%08X)\n",(int) this));
 
     if(fInputPlugs) {
         OSData *data;
@@ -352,7 +355,7 @@ bool IOFireWireAVCProtocolUserClient::start(IOService *provider)
 	OSObject *prop;
     IOFireWireNub *device;
 
-    //IOLog( "IOFireWireAVCProtocolUserClient::start (0x%08X)\n",(int) this);
+    FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::start (0x%08X)\n",(int) this));
 
 	device = OSDynamicCast(IOFireWireNub, provider->getProvider());
     if(!device)
@@ -394,7 +397,7 @@ IOReturn IOFireWireAVCProtocolUserClient::newUserClient( task_t owningTask, void
                                     UInt32 type,  OSDictionary * properties,
                                     IOUserClient ** handler )
 {
-    //IOLog( "IOFireWireAVCProtocolUserClient::newUserClient (0x%08X)\n",(int) this);
+    FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::newUserClient (0x%08X)\n",(int) this));
 
 	if(fStarted)
         return kIOReturnStillOpen;
@@ -402,6 +405,14 @@ IOReturn IOFireWireAVCProtocolUserClient::newUserClient( task_t owningTask, void
     *handler = this;
     fStarted = true;
     fTask = owningTask;
+
+	// Allow Rosetta based apps access to this user-client
+	if (properties)
+	{
+		properties->setObject("IOUserClientCrossEndianCompatible", kOSBooleanTrue);
+		setProperty("IOUserClientCrossEndianCompatible", kOSBooleanTrue);
+	}
+	
     return kIOReturnSuccess;
 }
 
@@ -411,7 +422,7 @@ IOReturn IOFireWireAVCProtocolUserClient::newUserClient( task_t owningTask, void
 
 IOReturn IOFireWireAVCProtocolUserClient::clientClose( void )
 {
-    //IOLog( "IOFireWireAVCProtocolUserClient::clientClose (0x%08X)\n",(int) this);
+    FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::clientClose (0x%08X)\n",(int) this));
 
 	fStarted = false;
 	
@@ -422,7 +433,7 @@ IOReturn IOFireWireAVCProtocolUserClient::clientClose( void )
 
 IOReturn IOFireWireAVCProtocolUserClient::clientDied( void )
 {
-    //IOLog( "IOFireWireAVCProtocolUserClient::clientDied (0x%08X)\n",(int) this);
+    FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::clientDied (0x%08X)\n",(int) this));
 
     return clientClose();
 }
@@ -432,7 +443,7 @@ IOReturn IOFireWireAVCProtocolUserClient::clientDied( void )
  **/
 bool IOFireWireAVCProtocolUserClient::matchPropertyTable(OSDictionary * table)
 {
-    //IOLog( "IOFireWireAVCProtocolUserClient::matchPropertyTable (0x%08X)\n",(int) this);
+    FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::matchPropertyTable (0x%08X)\n",(int) this));
 
 	//
     // If the service object wishes to compare some of its properties in its
@@ -449,47 +460,10 @@ bool IOFireWireAVCProtocolUserClient::matchPropertyTable(OSDictionary * table)
     return res;
 }
 
-IOExternalMethod* IOFireWireAVCProtocolUserClient::getTargetAndMethodForIndex(IOService **target, UInt32 index)
-{
-    //IOLog( "IOFireWireAVCProtocolUserClient::getTargetAndMethodForIndex (0x%08X)\n",(int) this);
-
-	if( index >= kIOFWAVCProtocolUserClientNumCommands )
-        return NULL;
-    else
-    {
-        *target = this;
-        return &sMethods[index];
-    }
-}
-
-IOExternalAsyncMethod* 
-IOFireWireAVCProtocolUserClient::getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index)
-{
-    //IOLog( "IOFireWireAVCProtocolUserClient::getAsyncTargetAndMethodForIndex (0x%08X)\n",(int) this);
-
-	if( index >= kIOFWAVCProtocolUserClientNumAsyncCommands )
-       return NULL;
-   else
-   {
-       *target = this;
-       return &sAsyncMethods[index];
-   }
-    return NULL;
-}
-
-IOReturn IOFireWireAVCProtocolUserClient::setAVCRequestCallback
-	( OSAsyncReference asyncRef, UInt32 subUnitType, UInt32 subUnitID)
-{
-	//IOLog( "IOFireWireAVCProtocolUserClient::setAVCRequestCallback (0x%08X)\n",(int) this);
-
-	// This function has been deprecated!	
-	return kIOReturnUnsupported;
-}
-
 IOReturn
 IOFireWireAVCProtocolUserClient::sendAVCResponse(UInt32 generation, UInt16 nodeID, const char *buffer, UInt32 size)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::sendAVCResponse (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::sendAVCResponse (0x%08X)\n",(int) this));
 
 	IOMemoryDescriptor *desc = NULL;
     IOFWWriteCommand *cmd = NULL;
@@ -528,13 +502,13 @@ IOFireWireAVCProtocolUserClient::sendAVCResponse(UInt32 generation, UInt16 nodeI
 }
 
 IOReturn
-IOFireWireAVCProtocolUserClient::allocateInputPlug(OSAsyncReference asyncRef, void *userRefcon, UInt32 *plugPtr)
+IOFireWireAVCProtocolUserClient::allocateInputPlug(io_user_reference_t *asyncRef, uint64_t userRefcon, uint64_t *plugPtr)
 {
     IOReturn status;
     PlugInfo info;
     OSData *data;
 
-	//IOLog( "IOFireWireAVCProtocolUserClient::allocateInputPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::allocateInputPlug (0x%08X)\n",(int) this));
 	
     data = OSData::withCapacity(sizeof(info));
     if(!data)
@@ -544,7 +518,7 @@ IOFireWireAVCProtocolUserClient::allocateInputPlug(OSAsyncReference asyncRef, vo
         status = fPCRSpace->allocateInputPlug(data, forwardPlugWrite, info.fPlug);
         if(status != kIOReturnSuccess)
             break;
-        bcopy(asyncRef, info.fCallbackInfo, sizeof(OSAsyncReference));
+        bcopy(asyncRef, info.fCallbackInfo, sizeof(OSAsyncReference64));
         info.fUserRefcon = userRefcon;
         info.fClient = this;
         if(!data->appendBytes(&info, sizeof(info))) {
@@ -565,13 +539,13 @@ IOFireWireAVCProtocolUserClient::allocateInputPlug(OSAsyncReference asyncRef, vo
 }
 
 IOReturn
-IOFireWireAVCProtocolUserClient::allocateOutputPlug(OSAsyncReference asyncRef, void *userRefcon, UInt32 *plugPtr)
+IOFireWireAVCProtocolUserClient::allocateOutputPlug(io_user_reference_t *asyncRef, uint64_t userRefcon, uint64_t *plugPtr)
 {
     IOReturn status;
     PlugInfo info;
     OSData *data;
 
-	//IOLog( "IOFireWireAVCProtocolUserClient::allocateOutputPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::allocateOutputPlug (0x%08X)\n",(int) this));
 
     data = OSData::withCapacity(sizeof(info));
     if(!data)
@@ -581,7 +555,7 @@ IOFireWireAVCProtocolUserClient::allocateOutputPlug(OSAsyncReference asyncRef, v
         status = fPCRSpace->allocateOutputPlug(data, forwardPlugWrite, info.fPlug);
         if(status != kIOReturnSuccess)
             break;
-        bcopy(asyncRef, info.fCallbackInfo, sizeof(OSAsyncReference));
+        bcopy(asyncRef, info.fCallbackInfo, sizeof(OSAsyncReference64));
         info.fUserRefcon = userRefcon;
         info.fClient = this;
         if(!data->appendBytes(&info, sizeof(info))) {
@@ -605,7 +579,7 @@ IOReturn IOFireWireAVCProtocolUserClient::freeInputPlug(UInt32 plug)
 {
     OSIterator *plugIterator;
 
-	//IOLog( "IOFireWireAVCProtocolUserClient::freeInputPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::freeInputPlug (0x%08X)\n",(int) this));
 	
     plugIterator = OSCollectionIterator::withCollection(fInputPlugs);
     if( plugIterator) {
@@ -627,7 +601,7 @@ IOReturn IOFireWireAVCProtocolUserClient::freeOutputPlug(UInt32 plug)
 {
     OSIterator *plugIterator;
 
-	//IOLog( "IOFireWireAVCProtocolUserClient::freeOutputPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::freeOutputPlug (0x%08X)\n",(int) this));
 
     plugIterator = OSCollectionIterator::withCollection(fOutputPlugs);
     if( plugIterator) {
@@ -645,9 +619,9 @@ IOReturn IOFireWireAVCProtocolUserClient::freeOutputPlug(UInt32 plug)
     return kIOReturnSuccess;
 }
 
-IOReturn IOFireWireAVCProtocolUserClient::readInputPlug(UInt32 plug, UInt32 *valPtr)
+IOReturn IOFireWireAVCProtocolUserClient::readInputPlug(UInt32 plug, uint64_t *valPtr)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::readInputPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::readInputPlug (0x%08X)\n",(int) this));
 
 	if(plug > 30)
         return kIOReturnBadArgument;
@@ -658,7 +632,7 @@ IOReturn IOFireWireAVCProtocolUserClient::readInputPlug(UInt32 plug, UInt32 *val
 
 IOReturn IOFireWireAVCProtocolUserClient::updateInputPlug(UInt32 plug, UInt32 oldVal, UInt32 newVal)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::updateInputPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::updateInputPlug (0x%08X)\n",(int) this));
 
     if(plug > 30)
         return kIOReturnBadArgument;
@@ -666,9 +640,9 @@ IOReturn IOFireWireAVCProtocolUserClient::updateInputPlug(UInt32 plug, UInt32 ol
     return fPCRSpace->updateInputPlug(plug, oldVal, newVal);
 }
 
-IOReturn IOFireWireAVCProtocolUserClient::readOutputPlug(UInt32 plug, UInt32 *valPtr)
+IOReturn IOFireWireAVCProtocolUserClient::readOutputPlug(UInt32 plug, uint64_t *valPtr)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::readOutputPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::readOutputPlug (0x%08X)\n",(int) this));
 
     if(plug > 30)
         return kIOReturnBadArgument;
@@ -679,7 +653,7 @@ IOReturn IOFireWireAVCProtocolUserClient::readOutputPlug(UInt32 plug, UInt32 *va
 
 IOReturn IOFireWireAVCProtocolUserClient::updateOutputPlug(UInt32 plug, UInt32 oldVal, UInt32 newVal)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::updateOutputPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::updateOutputPlug (0x%08X)\n",(int) this));
 
     if(plug > 30)
         return kIOReturnBadArgument;
@@ -687,9 +661,9 @@ IOReturn IOFireWireAVCProtocolUserClient::updateOutputPlug(UInt32 plug, UInt32 o
     return fPCRSpace->updateOutputPlug(plug, oldVal, newVal);
 }
 
-IOReturn IOFireWireAVCProtocolUserClient::readOutputMasterPlug(UInt32 *valPtr)
+IOReturn IOFireWireAVCProtocolUserClient::readOutputMasterPlug(uint64_t *valPtr)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::readOutputMasterPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::readOutputMasterPlug (0x%08X)\n",(int) this));
 
     *valPtr = fPCRSpace->readOutputMasterPlug();
     return kIOReturnSuccess;
@@ -697,14 +671,14 @@ IOReturn IOFireWireAVCProtocolUserClient::readOutputMasterPlug(UInt32 *valPtr)
 
 IOReturn IOFireWireAVCProtocolUserClient::updateOutputMasterPlug(UInt32 oldVal, UInt32 newVal)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::updateOutputMasterPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::updateOutputMasterPlug (0x%08X)\n",(int) this));
 
     return fPCRSpace->updateOutputMasterPlug(oldVal, newVal);
 }
 
-IOReturn IOFireWireAVCProtocolUserClient::readInputMasterPlug(UInt32 *valPtr)
+IOReturn IOFireWireAVCProtocolUserClient::readInputMasterPlug(uint64_t *valPtr)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::readInputMasterPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::readInputMasterPlug (0x%08X)\n",(int) this));
 
     *valPtr = fPCRSpace->readInputMasterPlug();
     return kIOReturnSuccess;
@@ -712,37 +686,37 @@ IOReturn IOFireWireAVCProtocolUserClient::readInputMasterPlug(UInt32 *valPtr)
 
 IOReturn IOFireWireAVCProtocolUserClient::updateInputMasterPlug(UInt32 oldVal, UInt32 newVal)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::updateInputMasterPlug (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::updateInputMasterPlug (0x%08X)\n",(int) this));
 
     return fPCRSpace->updateInputMasterPlug(oldVal, newVal);
 }
 
 IOReturn IOFireWireAVCProtocolUserClient::publishAVCUnitDirectory(void)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::publishAVCUnitDirectory (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::publishAVCUnitDirectory (0x%08X)\n",(int) this));
 
 	return fAVCTargetSpace->publishAVCUnitDirectory();
 }
 
-IOReturn IOFireWireAVCProtocolUserClient::installAVCCommandHandler(OSAsyncReference asyncRef, UInt32 subUnitTypeAndID, UInt32 opCode, UInt32 callback, UInt32 refCon)
+IOReturn IOFireWireAVCProtocolUserClient::installAVCCommandHandler(io_user_reference_t *asyncRef, uint64_t subUnitTypeAndID, uint64_t opCode, uint64_t callback, uint64_t refCon)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::installAVCCommandHandler (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::installAVCCommandHandler (0x%08X)\n",(int) this));
 
 	return fAVCTargetSpace->installAVCCommandHandler(this, avcTargetCommandHandler, asyncRef, subUnitTypeAndID, opCode, callback, refCon);
 }
 
-IOReturn IOFireWireAVCProtocolUserClient::addSubunit(OSAsyncReference asyncRef,
-													 UInt32 subunitType,
-													 UInt32 numSourcePlugs,
-													 UInt32 numDestPlugs,
-													 UInt32 callBack,
-													 UInt32 refCon,
-													 UInt32 *subUnitTypeAndID)
+IOReturn IOFireWireAVCProtocolUserClient::addSubunit(io_user_reference_t *asyncRef,
+													 uint64_t subunitType,
+													 uint64_t numSourcePlugs,
+													 uint64_t numDestPlugs,
+													 uint64_t callBack,
+													 uint64_t refCon,
+													 uint64_t *subUnitTypeAndID)
 {
     IOReturn res = kIOReturnSuccess;
 	UInt32 subUnitID = 0x00;
 
-	//IOLog( "IOFireWireAVCProtocolUserClient::addSubunit (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::addSubunit (0x%08X)\n",(int) this));
 
 	res = fAVCTargetSpace->addSubunit(this,
 								   avcSubunitPlugHandler,
@@ -764,7 +738,7 @@ IOReturn IOFireWireAVCProtocolUserClient::setSubunitPlugSignalFormat(UInt32 subu
 																	 UInt32 plugNum,
 																	 UInt32 signalFormat)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::setSubunitPlugSignalFormat (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::setSubunitPlugSignalFormat (0x%08X)\n",(int) this));
 
 	return fAVCTargetSpace->setSubunitPlugSignalFormat(this,subunitTypeAndID, plugType, plugNum, signalFormat);
 }
@@ -772,17 +746,24 @@ IOReturn IOFireWireAVCProtocolUserClient::setSubunitPlugSignalFormat(UInt32 subu
 IOReturn IOFireWireAVCProtocolUserClient::getSubunitPlugSignalFormat(UInt32 subunitTypeAndID,
 											IOFWAVCPlugTypes plugType,
 											UInt32 plugNum,
-											UInt32 *pSignalFormat)
+											uint64_t *pSignalFormat)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::getSubunitPlugSignalFormat (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::getSubunitPlugSignalFormat (0x%08X)\n",(int) this));
 
-	return fAVCTargetSpace->getSubunitPlugSignalFormat(this,subunitTypeAndID, plugType, plugNum, pSignalFormat);
+	UInt32 signalFormat;
+	IOReturn status;
+	
+	status = fAVCTargetSpace->getSubunitPlugSignalFormat(this,subunitTypeAndID, plugType, plugNum, &signalFormat);
+
+	*pSignalFormat = signalFormat;
+	
+	return status;
 }
 
 IOReturn IOFireWireAVCProtocolUserClient::connectTargetPlugs(AVCConnectTargetPlugsInParams *inParams,
 															 AVCConnectTargetPlugsOutParams *outParams)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::connectTargetPlugs (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::connectTargetPlugs (0x%08X)\n",(int) this));
 
 	return fAVCTargetSpace->connectTargetPlugs(this,inParams,outParams);
 }
@@ -794,7 +775,7 @@ IOReturn IOFireWireAVCProtocolUserClient::disconnectTargetPlugs(UInt32 sourceSub
 									   IOFWAVCPlugTypes destPlugType,
 									   UInt32 destPlugNum)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::disconnectTargetPlugs (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::disconnectTargetPlugs (0x%08X)\n",(int) this));
 
 	return fAVCTargetSpace->disconnectTargetPlugs(this,
 											   sourceSubunitTypeAndID,
@@ -808,7 +789,7 @@ IOReturn IOFireWireAVCProtocolUserClient::disconnectTargetPlugs(UInt32 sourceSub
 IOReturn IOFireWireAVCProtocolUserClient::getTargetPlugConnection(AVCGetTargetPlugConnectionInParams *inParams,
 																  AVCGetTargetPlugConnectionOutParams *outParams)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::getTargetPlugConnection (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::getTargetPlugConnection (0x%08X)\n",(int) this));
 
 	return fAVCTargetSpace->getTargetPlugConnection(this,inParams,outParams);
 }
@@ -820,7 +801,7 @@ IOReturn IOFireWireAVCProtocolUserClient::AVCRequestNotHandled(UInt32 generation
 									  const char *pCmdBuf,
 									  UInt32 cmdLen)
 {
-	//IOLog( "IOFireWireAVCProtocolUserClient::AVCRequestNotHandled (0x%08X)\n",(int) this);
+	FIRELOG_MSG(( "IOFireWireAVCProtocolUserClient::AVCRequestNotHandled (0x%08X)\n",(int) this));
 
 	fAVCTargetSpace->findAVCRequestHandler(this,
 							 generation,

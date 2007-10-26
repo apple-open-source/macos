@@ -27,18 +27,19 @@
 #define _NSS_UTILS_H_
 
 #include <Security/cssmtype.h>
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* return true if two CSSM_DATAs (or two CSSM_OIDs) compare equal */
-bool nssCompareCssmData(
+int nssCompareCssmData(
 	const CSSM_DATA *data1,
 	const CSSM_DATA *data2);
 
 /* How many items in a NULL-terminated array of pointers? */
-unsigned nssArraySize(
+size_t nssArraySize(
 	const void **array);
 
 #ifdef __cplusplus

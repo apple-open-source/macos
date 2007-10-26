@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>automake</string>
+	<key>OpenSourceVersion</key>
+	<string>1.10</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.gnu.org/software/automake/</string>
+	<key>OpenSourceURL</key>
+	<string>http://ftp.gnu.org/gnu/automake/automake-1.10.tar.bz2</string>
+	<key>OpenSourceSHA1</key>
+	<string>966008107cc1fdb099f65de6496147ef05522fec</string>
+	<key>OpenSourceImportDate</key>
+	<string>2007-04-04</string>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>automake.txt</string>
+</dict>
+</plist>

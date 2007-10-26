@@ -296,7 +296,7 @@ bool AppleDART::initHardware(IOService *provider)
     else if (!dartSizePages)
 	dartSizePages = kRegDARTSize;
 
-    if (!allocTable(dartSizePages * kMapperPage))
+    if (!allocTable((dartSizePages + 1) * kMapperPage))
 	return false;
 
     fRegisterVMMap = nub->mapDeviceMemoryWithIndex(0);

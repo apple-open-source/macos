@@ -33,7 +33,9 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fn pthread_rwlock_unlock "pthread_rwlock_t *lock"
+.Fo pthread_rwlock_unlock
+.Fa "pthread_rwlock_t *rwlock"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlock_unlock
@@ -46,11 +48,11 @@ or
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_rwlock_unlock
-function will return zero.  Otherwise an error number will be returned
-to indicate the error.
+function will return zero.
+Otherwise, an error number will be returned to indicate the error.
 .Pp
 The results are undefined if
-.Fa lock
+.Fa rwlock
 is not held by the calling thread.
 .Sh SEE ALSO
 .Xr pthread_rwlock_rdlock 3 ,
@@ -67,7 +69,7 @@ function may fail if:
 .Bl -tag -width Er
 .It Bq Er EINVAL
 The value specified by
-.Fa lock
+.Fa rwlock
 is invalid.
 .It Bq Er EPERM
 The current thread does not own the read/write lock.

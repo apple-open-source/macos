@@ -24,6 +24,14 @@
 #ifndef _UCONTEXT_H_
 #define _UCONTEXT_H_
 
+#include <sys/cdefs.h>
 #include <sys/ucontext.h>
+
+__BEGIN_DECLS
+int  getcontext(ucontext_t *);
+void makecontext(ucontext_t *, void (*)(void), int, ...);
+int  setcontext(const ucontext_t *);
+int  swapcontext(ucontext_t * __restrict, const ucontext_t * __restrict);
+__END_DECLS
 
 #endif /* _UCONTEXT_H_ */

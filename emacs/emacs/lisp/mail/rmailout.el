@@ -1,6 +1,7 @@
 ;;; rmailout.el --- "RMAIL" mail reader for Emacs: output message to a file
 
-;; Copyright (C) 1985, 1987, 1993, 1994, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1987, 1993, 1994, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: mail
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -62,9 +63,9 @@ Set `rmail-default-rmail-file' to this name as well as returning it."
     (let ((read-file
 	   (expand-file-name
 	    (read-file-name
-	     (concat "Output message to Rmail file: (default "
+	     (concat "Output message to Rmail file (default "
 		     (file-name-nondirectory default-file)
-		     ") ")
+		     "): ")
 	     (file-name-directory default-file)
 	     (abbreviate-file-name default-file))
 	    (file-name-directory default-file))))
@@ -94,9 +95,9 @@ Set `rmail-default-file' to this name as well as returning it."
     (let ((read-file
 	   (expand-file-name
 	    (read-file-name
-	     (concat "Output message to Unix mail file: (default "
+	     (concat "Output message to Unix mail file (default "
 		     (file-name-nondirectory default-file)
-		     ") ")
+		     "): ")
 	     (file-name-directory default-file)
 	     (abbreviate-file-name default-file))
 	    (file-name-directory default-file))))
@@ -122,11 +123,11 @@ appended in inbox format, the same way `rmail-output' does it.
 The default file name comes from `rmail-default-rmail-file',
 which is updated to the name you use in this command.
 
-A prefix argument N says to output N consecutive messages
+A prefix argument COUNT says to output that many consecutive messages,
 starting with the current one.  Deleted messages are skipped and don't count.
 
-If optional argument STAY is non-nil, then leave the last filed
-mesasge up instead of moving forward to the next non-deleted message."
+If the optional argument STAY is non-nil, then leave the last filed
+message up instead of moving forward to the next non-deleted message."
   (interactive
    (list (rmail-output-read-rmail-file-name)
 	 (prefix-numeric-value current-prefix-arg)))
@@ -225,13 +226,13 @@ mesasge up instead of moving forward to the next non-deleted message."
 	  (if redelete (rmail-set-attribute "deleted" t))))
       (setq count (1- count))
       (if rmail-delete-after-output
-	  (unless 
+	  (unless
 	      (if (and (= count 0) stay)
 		  (rmail-delete-message)
 		(rmail-delete-forward))
 	    (setq count 0))
 	(if (> count 0)
-	    (unless 
+	    (unless
 		(if (not stay) (rmail-next-undeleted-message 1))
 	      (setq count 0)))))))
 
@@ -246,7 +247,7 @@ mesasge up instead of moving forward to the next non-deleted message."
 ;; NOT-RMAIL if t means this buffer does not have the full header
 ;; and *** EOOH *** that a message in an Rmail file has.
 (defun rmail-delete-unwanted-fields (&optional not-rmail)
-  (if rmail-fields-not-to-output 
+  (if rmail-fields-not-to-output
       (save-excursion
 	(goto-char (point-min))
 	;; Find the end of the header.
@@ -264,9 +265,9 @@ mesasge up instead of moving forward to the next non-deleted message."
 ;;;###autoload
 (defun rmail-output (file-name &optional count noattribute from-gnus)
   "Append this message to system-inbox-format mail file named FILE-NAME.
-A prefix argument N says to output N consecutive messages
+A prefix argument COUNT says to output that many consecutive messages,
 starting with the current one.  Deleted messages are skipped and don't count.
-When called from lisp code, N may be omitted.
+When called from lisp code, COUNT may be omitted and defaults to 1.
 
 If the pruned message header is shown on the current message, then
 messages will be appended with pruned headers; otherwise, messages
@@ -296,14 +297,14 @@ The optional fourth argument FROM-GNUS is set when called from GNUS."
 	  (tembuf (get-buffer-create " rmail-output"))
 	  (original-headers-p
 	   (and (not from-gnus)
-		(save-excursion 
+		(save-excursion
 		  (save-restriction
 		    (narrow-to-region (rmail-msgbeg rmail-current-message) (point-max))
 		    (goto-char (point-min))
 		    (forward-line 1)
 		    (= (following-char) ?0)))))
 	  header-beginning
-	  mail-from mime-version)
+	  mail-from mime-version content-type)
       (while (> count 0)
 	;; Preserve the Mail-From and MIME-Version fields
 	;; even if they have been pruned.
@@ -315,11 +316,10 @@ The optional fourth argument FROM-GNUS is set when called from GNUS."
 		(setq header-beginning (point))
 		(search-forward "\n*** EOOH ***\n")
 		(narrow-to-region header-beginning (point))
-		(setq mail-from
-		      (mail-fetch-field "Mail-From")
-		      mime-version
-		      (unless rmail-enable-mime
-			(mail-fetch-field "MIME-Version"))))))
+		(setq mail-from (mail-fetch-field "Mail-From"))
+		(unless rmail-enable-mime
+		  (setq mime-version (mail-fetch-field "MIME-Version")
+			content-type (mail-fetch-field "Content-type"))))))
 	(save-excursion
 	  (set-buffer tembuf)
 	  (erase-buffer)
@@ -349,8 +349,11 @@ The optional fourth argument FROM-GNUS is set when called from GNUS."
 						 (mail-fetch-field "sender")
 						 "unknown"))
 		    " " (current-time-string) "\n"))
-	  (if mime-version
-	      (insert "MIME-Version: " mime-version "\n"))
+	  (when mime-version
+	    (insert "MIME-Version: " mime-version)
+	    ;; Some malformed MIME messages set content-type to nil.
+	    (when content-type
+	      (insert "\nContent-type: " content-type "\n")))
 	  ;; ``Quote'' "\nFrom " as "\n>From "
 	  ;;  (note that this isn't really quoting, as there is no requirement
 	  ;;   that "\n[>]+From " be quoted in the same transparent way.)
@@ -374,7 +377,7 @@ The optional fourth argument FROM-GNUS is set when called from GNUS."
 	      (if (and next-message-p original-headers-p)
 		  (rmail-toggle-header))
 	      (if (and (> count 0) (not next-message-p))
-		  (progn 
+		  (progn
 		    (error
 		     (save-excursion
 		       (set-buffer rmailbuf)
@@ -405,7 +408,7 @@ FILE-NAME defaults, interactively, from the Subject field of the message."
     (goto-char (point-min))
     (search-forward "\n\n")
     (and (file-exists-p file-name)
-	 (not (y-or-n-p (message "File %s exists; overwrite? " file-name)))
+	 (not (y-or-n-p (format "File %s exists; overwrite? " file-name)))
 	 (error "Operation aborted"))
     (write-region (point) (point-max) file-name)
     (if (equal major-mode 'rmail-mode)
@@ -413,4 +416,5 @@ FILE-NAME defaults, interactively, from the Subject field of the message."
   (if rmail-delete-after-output
       (rmail-delete-forward)))
 
+;;; arch-tag: 447117c6-1a9a-4b88-aa43-3101b043e3a4
 ;;; rmailout.el ends here

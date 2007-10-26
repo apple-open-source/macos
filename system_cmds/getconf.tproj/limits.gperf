@@ -122,7 +122,7 @@ find_limit(const char *name, intmax_t *value)
 	}
 #ifdef APPLE_GETCONF_UNDERSCORE
 	if(*name == '_')
-		alt = name + 1;
+		alt = (char *)name + 1;
 	else {
 		if((alt = (char *)alloca(strlen(name) + 2)) == NULL)
 			return 0;

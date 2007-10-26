@@ -1,6 +1,6 @@
---- wcsxfrm.c.orig	Thu Nov 25 11:38:47 2004
-+++ wcsxfrm.c	Fri Feb 18 15:01:58 2005
-@@ -31,31 +31,35 @@
+--- wcsxfrm.c.orig	2004-11-25 11:38:47.000000000 -0800
++++ wcsxfrm.c	2005-03-30 15:06:45.000000000 -0800
+@@ -31,23 +31,23 @@
  #endif
  __FBSDID("$FreeBSD: src/lib/libc/string/wcsxfrm.c,v 1.3 2004/04/07 09:47:56 tjr Exp $");
  
@@ -9,81 +9,115 @@
  #include <stdlib.h>
  #include <string.h>
  #include <wchar.h>
++#include <errno.h>
  #include "collate.h"
  
 -static char *__mbsdup(const wchar_t *);
-+static char *__mbsdup(const wchar_t *, locale_t);
++#define WCS_XFRM_OFFSET	1
  
- /*
-  * Placeholder wcsxfrm() implementation. See wcscoll.c for a description of
-  * the logic used.
-  */
+-/*
+- * Placeholder wcsxfrm() implementation. See wcscoll.c for a description of
+- * the logic used.
+- */
  size_t
 -wcsxfrm(wchar_t * __restrict dest, const wchar_t * __restrict src, size_t len)
 +wcsxfrm_l(wchar_t * __restrict dest, const wchar_t * __restrict src, size_t len,
 +    locale_t loc)
  {
- 	int prim, sec, l;
+-	int prim, sec, l;
  	size_t slen;
- 	char *mbsrc, *s, *ss;
+-	char *mbsrc, *s, *ss;
++	wchar_t *xf[2];
++	int sverrno;
  
-+	NORMALIZE_LOCALE(loc);
  	if (*src == L'\0') {
  		if (len != 0)
- 			*dest = L'\0';
+@@ -55,7 +55,8 @@
  		return (0);
  	}
  
 -	if (__collate_load_error || MB_CUR_MAX > 1) {
-+	if (loc->__collate_load_error || MB_CUR_MAX_L(loc) > 1) {
++	NORMALIZE_LOCALE(loc);
++	if (loc->__collate_load_error) {
  		slen = wcslen(src);
  		if (len > 0) {
  			if (slen < len)
-@@ -68,13 +72,13 @@
+@@ -68,49 +69,41 @@
  		return (slen);
  	}
  
 -	mbsrc = __mbsdup(src);
-+	mbsrc = __mbsdup(src, loc);
- 	slen = 0;
- 	prim = sec = 0;
+-	slen = 0;
+-	prim = sec = 0;
 -	ss = s = __collate_substitute(mbsrc);
-+	ss = s = (char *)__collate_substitute_l((unsigned char *)mbsrc, loc);
- 	while (*s != '\0') {
- 		while (*s != '\0' && prim == 0) {
+-	while (*s != '\0') {
+-		while (*s != '\0' && prim == 0) {
 -			__collate_lookup(s, &l, &prim, &sec);
-+			__collate_lookup_l((unsigned char *)s, &l, &prim, &sec, loc);
- 			s += l;
+-			s += l;
++	__collate_xfrm(src, xf, loc);
++
++	slen = wcslen(xf[0]);
++	if (xf[1])
++		slen += wcslen(xf[1]) + 1;
++	if (len > 0) {
++		wchar_t *w = xf[0];
++		while (len > 1) {
++			if (!*w)
++				break;
++			*dest++ = *w++ + WCS_XFRM_OFFSET;
++			len--;
  		}
- 		if (prim != 0) {
-@@ -94,8 +98,14 @@
+-		if (prim != 0) {
+-			if (len > 1) {
+-				*dest++ = (wchar_t)prim;
++		if ((w = xf[1]) != NULL) {
++			if (len > 1)
++				*dest++ = WCS_XFRM_OFFSET;
++			while (len > 1) {
++				if (!*w)
++					break;
++				*dest++ = *w++ + WCS_XFRM_OFFSET;
+ 				len--;
+ 			}
+-			slen++;
+-			prim = 0;
+ 		}
+-	}
+-	free(ss);
+-	free(mbsrc);
+-	if (len != 0)
+-		*dest = L'\0';
+-
++		*dest = 0;
++ 	}
++	sverrno = errno;
++	free(xf[0]);
++	free(xf[1]);
++	errno = sverrno;
++ 
  	return (slen);
  }
  
+-static char *
+-__mbsdup(const wchar_t *ws)
 +size_t
 +wcsxfrm(wchar_t * __restrict dest, const wchar_t * __restrict src, size_t len)
-+{
-+	return wcsxfrm_l(dest, src, len, __current_locale());
-+}
-+
- static char *
--__mbsdup(const wchar_t *ws)
-+__mbsdup(const wchar_t *ws, locale_t loc)
  {
- 	static const mbstate_t initial;
- 	mbstate_t st;
-@@ -105,12 +115,12 @@
- 
- 	wcp = ws;
- 	st = initial;
+-	static const mbstate_t initial;
+-	mbstate_t st;
+-	const wchar_t *wcp;
+-	size_t len;
+-	char *mbs;
+-
+-	wcp = ws;
+-	st = initial;
 -	if ((len = wcsrtombs(NULL, &wcp, 0, &st)) == (size_t)-1)
-+	if ((len = wcsrtombs_l(NULL, &wcp, 0, &st, loc)) == (size_t)-1)
- 		return (NULL);
- 	if ((mbs = malloc(len + 1)) == NULL)
- 		return (NULL);
- 	st = initial;
+-		return (NULL);
+-	if ((mbs = malloc(len + 1)) == NULL)
+-		return (NULL);
+-	st = initial;
 -	wcsrtombs(mbs, &ws, len + 1, &st);
-+	wcsrtombs_l(mbs, &ws, len + 1, &st, loc);
- 
- 	return (mbs);
+-
+-	return (mbs);
++	return wcsxfrm_l(dest, src, len, __current_locale());
  }

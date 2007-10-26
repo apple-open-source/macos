@@ -1,11 +1,11 @@
 " Vim syntax file
 " Language:    FORTH
 " Maintainer:  Christian V. J. Brüssow <cvjb@cvjb.de>
-" Last Change: Fre 04 Apr 2003 17:15:27 CEST
+" Last Change: Di 06 Jul 2004 18:40:33 CEST
 " Filenames:   *.fs,*.ft
-" URL:	       http://www.cvjb.de/comp/vim/forth.vim
+" URL:         http://www.cvjb.de/comp/vim/forth.vim
 
-" $Id$
+" $Id: forth.vim,v 1.2 2004/07/10 09:40:55 vimboss Exp $
 
 " The list of keywords is incomplete, compared with the offical ANS
 " wordlist. If you use this language, please improve it, and send me
@@ -13,22 +13,30 @@
 
 " Many Thanks to...
 "
+" 2004-07-06:
+" Changed "syn sync ccomment maxlines=200" line: splitted it into two separate
+" lines.
+"
+" 2003-05-10:
+" Andrew Gaul <andrew at gaul.org> send me a patch for
+" forthOperators.
+"
 " 2003-04-03:
-" Ron Aaron <ronaaron@exchange.microsoft.com> made updates for an
+" Ron Aaron <ronaharon at yahoo.com> made updates for an
 " improved Win32Forth support.
 "
 " 2002-04-22:
-" Charles Shattuck <charley@forth.org> helped me to settle up with the
+" Charles Shattuck <charley at forth.org> helped me to settle up with the
 " binary and hex number highlighting.
 "
 " 2002-04-20:
-" Charles Shattuck <charley@forth.org> send me some code for correctly
+" Charles Shattuck <charley at forth.org> send me some code for correctly
 " highlighting char and [char] followed by an opening paren. He also added
 " some words for operators, conditionals, and definitions; and added the
 " highlighting for s" and c".
 "
 " 2000-03-28:
-" John Providenza <john@probo.com> made improvements for the
+" John Providenza <john at probo.com> made improvements for the
 " highlighting of strings, and added the code for highlighting hex numbers.
 "
 
@@ -42,7 +50,8 @@ elseif exists("b:current_syntax")
 endif
 
 " Synchronization method
-syn sync ccomment maxlines=200
+syn sync ccomment
+syn sync maxlines=200
 
 " I use gforth, so I set this to case ignore
 syn case ignore
@@ -71,7 +80,7 @@ syn keyword forthOperators F+ F- F* F/ FNEGATE FABS FMAX FMIN FLOOR FROUND
 syn keyword forthOperators F** FSQRT FEXP FEXPM1 FLN FLNP1 FLOG FALOG FSIN
 syn keyword forthOperators FCOS FSINCOS FTAN FASIN FACOS FATAN FATAN2 FSINH
 syn keyword forthOperators FCOSH FTANH FASINH FACOSH FATANH
-syn keyword forthOperators 0< 0<= 0<> 0= 0> 0>= <= <> = > >=
+syn keyword forthOperators 0< 0<= 0<> 0= 0> 0>= < <= <> = > >=
 syn keyword forthOperators ?NEGATE ?DNEGATE
 
 " stack manipulations
@@ -185,10 +194,10 @@ syn match forthInclude '^needs\s\+'
 " For version 5.8 and later: only when an item doesn't have highlighting yet
 if version >= 508 || !exists("did_forth_syn_inits")
     if version < 508
-	let did_forth_syn_inits = 1
-	command -nargs=+ HiLink hi link <args>
+        let did_forth_syn_inits = 1
+        command -nargs=+ HiLink hi link <args>
     else
-	command -nargs=+ HiLink hi def link <args>
+        command -nargs=+ HiLink hi def link <args>
     endif
 
     " The default methods for highlighting. Can be overriden later.

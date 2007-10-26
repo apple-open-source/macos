@@ -38,6 +38,7 @@
 typedef struct {
     CFStringRef		username;
     CFStringRef		password;
+    Boolean		one_time_password;
     Boolean		user_cancelled;
 } UserPasswordDialogueResponse, *UserPasswordDialogueResponseRef;
 
@@ -53,7 +54,7 @@ UserPasswordDialogueRef
 UserPasswordDialogue_create(UserPasswordDialogueResponseCallBack func,
 			    const void * arg1, const void * arg2, 
 			    CFStringRef message, CFStringRef username, 
-			    CFStringRef password);
+			    CFStringRef password, bool one_time_password);
 
 void
 UserPasswordDialogue_free(UserPasswordDialogueRef * dialogue_p_p);

@@ -1,0 +1,103 @@
+# -*-ruby-*-
+
+module RubyCocoaConfig
+  eval File.open('VERSION'){|f|f.read}
+
+  module_function
+
+  def libruby_path
+    path = File.join(Config::CONFIG['libdir'], Config::CONFIG['LIBRUBY'])
+    unless File.exist?( path ) then
+      path = File.join(Config::CONFIG['archdir'], Config::CONFIG['LIBRUBY_A'])
+    end
+    # On Panther, /usr/lib/ruby reports wrong CONFIG
+    unless File.exist?( path ) then
+      path = File.join(Config::CONFIG['libdir'], 'libruby.dylib')
+    end
+    return path
+  end
+
+  def system_version
+    `/usr/bin/defaults read /System/Library/CoreServices/SystemVersion ProductUserVisibleVersion`
+  end
+
+  def framework_version
+    # "#{RubyCocoaConfig::VERSION}_RUBY-#{RUBY_VERSION}"
+    "A"
+  end
+end
+
+### install destination ### 
+
+add_path_config 'install-root', '',
+  'path to the root directory for Frameworks and "ProjectBuilder Extras"'
+
+add_path_config 'frameworks', '/Library/Frameworks',
+  'path to the directory for installing RubyCocoa.framework'
+
+if File.exist?('/Developer/Applications/Project Builder.app') then
+  add_path_config 'projectbuilder-extras', '/Developer/ProjectBuilder Extras',
+    'path to the directory for "Project Bulder Extras"'
+end 
+
+if File.exist?('/Developer/Applications/Xcode.app') then
+  add_path_config 'xcode-extras', 
+    '/Library/Application Support/Apple/Developer Tools',
+    'path to the directory for "Xcode Extras"'
+end 
+
+add_path_config 'examples', '/Developer/Examples',
+  'path to the directory for Examples'
+
+add_path_config 'documentation', '/Developer/Documentation',
+  'path to the directory for Documentation'
+
+add_bool_config 'gen-bridge-support', true,
+  'yes, generate bridge metadata files'
+
+add_bool_config 'build-as-embeddable', true,
+  'yes, build the framework as embeddable (with INSTALL_PATH pointing to the current application\'s Frameworks directory)'
+
+### build configuration ### 
+
+# Xcode 2.2 moved ruby.h, but ruby command reports old path.
+unless File.exist? File.join(Config::CONFIG['archdir'], 'ruby.h')
+  Config::CONFIG['archdir'] = Config::CONFIG['archdir'].sub(/powerpc/, 'universal')
+end
+add_path_config 'ruby-header-dir', Config::CONFIG['archdir'],
+  'path to the ruby header directory'
+
+add_path_config 'libruby-path', RubyCocoaConfig.libruby_path,
+  'path to the libruby file'
+
+add_path_config 'ri-dir',
+  "#{Config::CONFIG['datadir']}/ri/#{Config::CONFIG['ruby_version']}/site",
+  'the directory for ri files'
+
+if RubyCocoaConfig.system_version.to_f >= 10.4
+  add_bool_config 'build-universal', false,
+    'yes, build universal binary (requires Xcode 2.1 or later and SDK)'
+end
+
+add_config 'macosx-deployment-target', 'version', 
+  sprintf('%02.1f', RubyCocoaConfig.system_version.to_f),
+  'target Mac OS X version'
+
+### versioning ### 
+
+add_config 'rubycocoa-version', 'name', 
+  RubyCocoaConfig::VERSION + RubyCocoaConfig::STAGE,
+  'RubyCocoa version'
+
+add_config 'rubycocoa-version-short', 'name', 
+  RubyCocoaConfig::VERSION,
+  'RubyCocoa version short'
+
+add_config 'rubycocoa-release-date', 'name', 
+  RubyCocoaConfig::RELEASE_DATE, 'RubyCocoa release date'
+
+add_config 'rubycocoa-svn-revision', 'name', 
+  RubyCocoaConfig::SVN_REVISION, 'RubyCocoa subversion revision number'
+
+add_config 'rubycocoa-framework-version', 'name',
+  RubyCocoaConfig.framework_version, 'RubyCocoa Framework version name'

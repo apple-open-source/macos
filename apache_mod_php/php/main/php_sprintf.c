@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,11 +16,16 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sprintf.c,v 1.12.8.5.2.2 2007/01/01 09:46:50 sebastian Exp $ */
+/* $Id: php_sprintf.c,v 1.23.2.1.2.1 2007/01/01 09:36:11 sebastian Exp $ */
 
 #include <stdio.h>
 #include <stdarg.h>
 #include "php.h"
+#ifdef PHP_WIN32
+#include "config.w32.h"
+#else
+#include <php_config.h>
+#endif
 
 PHPAPI int
 php_sprintf (char*s, const char* format, ...)

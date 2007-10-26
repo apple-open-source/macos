@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleK2Driver</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleK2Driver version 1.7.1, Copyright 2003-2007 Apple Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleK2Driver</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleK2Driver</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.7.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.7.1f3</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleK2Driver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleK2Driver</string>
+			<key>IOClass</key>
+			<string>AppleK2Driver</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>i2s-a</string>
+				<string>i2s-b</string>
+				<string>i2s-c</string>
+				<string>fans</string>
+				<string>escc</string>
+				<string>escc-legacy</string>
+			</array>
+			<key>IOProbeScore</key>
+			<integer>0</integer>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>preserveIODeviceTree</key>
+				<true/>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>AppleK2Device</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>

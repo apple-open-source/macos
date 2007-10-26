@@ -36,22 +36,26 @@
 #import <sys/types.h>
 #import <sys/ioctl.h>
 #import <termios.h>
+#import <histedit.h>
 #import "PathManager.h"
 #import "DSoStatus.h"
 #import "DSoException.h"
 #import "DSCLCommandHistory.h"
 #import "NSStringEscPath.h"
 #import "dstools_version.h"
+#import <sysexits.h>
+#import <sys/sysctl.h>
+
+#import "PlugInManager.h"		// ATM - support for plugins
 
 #define streq(A,B) (strcmp(A,B) == 0)
 #define forever for(;;)
 
-#warning VERIFY the version string before each distinct build submission that changes the dscl tool
-#define DSCL_VERSION "20.4"
+#warning VERIFY the version string before each major OS build submission
+#define DSCL_VERSION "10.5.0"
 
 static char			myname[256];
 PathManager		   *engine			= nil;
-DSCLCommandHistory *gCommandHistory = nil;
 BOOL				gHACK			= NO;
 BOOL				gURLEncode		= NO;
 static int			interactive		= 0;
@@ -97,58 +101,91 @@ static int minargs[] =
 	0,  // resync 
 	1,  // authenticate 
 	0,  // refs 
-	2,   // setrdn
+	2,  // setrdn
 	4,  // change
 	4,  // changei
-	1   // authonly 
+	1,  // authonly 
+	1,  // readall
+	2,  // diff
+	3,  // readpl
+	4,  // createpl
+	3,  // deletepl
+	4,	// readpli
+	5,	// createpli
+	4	// deletepli
 };
 
-#define OP_NOOP			0
-#define OP_CREATE		1
-#define OP_DELETE		2
-#define OP_READ			4
-#define OP_LIST			5
-#define OP_APPEND		6
-#define OP_MERGE		7
-#define OP_SEARCH		11
-#define OP_PUSHD		13
-#define OP_POPD			14
-#define OP_CD			16
-#define OP_PASSWD		18
-#define OP_AUTH			23
-#define OP_CHANGE		26
-#define OP_CHANGE_INDEX 27
-#define OP_AUTH_ONLY	28
+#define OP_NOOP				0
+#define OP_CREATE			1
+#define OP_DELETE			2
+#define OP_READ				4
+#define OP_LIST				5
+#define OP_APPEND			6
+#define OP_MERGE			7
+#define OP_SEARCH			11
+#define OP_PUSHD			13
+#define OP_POPD				14
+#define OP_CD				16
+#define OP_PASSWD			18
+#define OP_AUTH				23
+#define OP_CHANGE			26
+#define OP_CHANGE_INDEX		27
+#define OP_AUTH_ONLY		28
+#define OP_READALL			29
+#define OP_DIFF				30
+#define OP_READPL			31
+#define	OP_CREATEPL			32
+#define	OP_DELETEPL			33
+#define OP_READPL_INDEX		34
+#define	OP_CREATEPL_INDEX	35
+#define	OP_DELETEPL_INDEX	36
 
 void usage()
 {
     fprintf(stderr, "dscl (v%s)\n", DSCL_VERSION);
 	fprintf(stderr, "usage: %s [options] [<datasource> [<command>]]\n", myname);
     fprintf(stderr, "datasource:\n");
-    fprintf(stderr, "    localhost    (default)                               or\n");
-    fprintf(stderr, "    <hostname>   (requires DS proxy support, >= DS-158)  or\n");
-    fprintf(stderr, "    <nodename>   (Directory Service style node name)     or\n");
+    fprintf(stderr, "    localhost    (default)                                    or\n");
+    fprintf(stderr, "    localonly    (activates a DirectoryService daemon process   \n");
+	fprintf(stderr, "                  with Local node only - daemon quits after use \n");
+    fprintf(stderr, "    <hostname>   (requires DS proxy support, >= DS-158)       or\n");
+    fprintf(stderr, "    <nodename>   (Directory Service style node name)          or\n");
     fprintf(stderr, "    <domainname> (NetInfo style domain name)\n");
 	fprintf(stderr, "options:\n");
 	fprintf(stderr, "    -u <user>      authenticate as user (required when using DS Proxy)\n");
 	fprintf(stderr, "    -P <password>  authentication password\n");
 	fprintf(stderr, "    -p             prompt for password\n");
+	fprintf(stderr, "    -f <filepath>  targeted file path for DS daemon running in localonly mode\n");
+	fprintf(stderr, "                   (example: /Volumes/Build100/var/db/dslocal/nodes/Default) \n");
+	fprintf(stderr, "                   (NOTE: Nodename to use is fixed at /Local/Target) \n");
 	fprintf(stderr, "    -raw           don't strip off prefix from DS constants\n");
+	fprintf(stderr, "    -plist         print out record(s) or attribute(s) in XML plist format\n");
 	fprintf(stderr, "    -url           print record attribute values in URL-style encoding\n");
 	fprintf(stderr, "    -q             quiet - no interactive prompt\n");
 	fprintf(stderr, "commands:\n");
 	fprintf(stderr, "    -read      <path> [<key>...]\n");
+	fprintf(stderr, "    -readall   <path> [<key>...]\n");
+	fprintf(stderr, "    -readpl    <path> <key> <plist path>\n");
+	fprintf(stderr, "    -readpli   <path> <key> <value index> <plist path>\n");
 	fprintf(stderr, "    -create    <record path> [<key> [<val>...]]\n");
+	fprintf(stderr, "    -createpl  <record path> <key> <plist path> <val1> [<val2>...]\n");
+	fprintf(stderr, "    -createpli <record path> <key> <value index> <plist path> <val1> [<val2>...]\n");
 	fprintf(stderr, "    -delete    <path> [<key> [<val>...]]\n");
+	fprintf(stderr, "    -deletepl  <record path> <key> <plist path> [<val>...]\n");
+	fprintf(stderr, "    -deletepli <record path> <key> <value index> <plist path> [<val>...]\n");
 	fprintf(stderr, "    -list      <path> [<key>]\n");
 	fprintf(stderr, "    -append    <record path> <key> <val>...\n");
 	fprintf(stderr, "    -merge     <record path> <key> <val>...\n");
 	fprintf(stderr, "    -change    <record path> <key> <old value> <new value>\n");
 	fprintf(stderr, "    -changei   <record path> <key> <value index> <new value>\n");
+	fprintf(stderr, "    -diff      <first path> <second path>\n");
 	fprintf(stderr, "    -search    <path> <key> <val>\n"); 
 	fprintf(stderr, "    -auth      [<user> [<password>]]\n");
 	fprintf(stderr, "    -authonly  [<user> [<password>]]\n");
 	fprintf(stderr, "    -passwd    <user path> [<new password> | <old password> <new password>]\n");
+	
+	// ATM - give the plugins a chance to display their own help
+	dscl_PlugInShowUsage(stderr);
 }
 
 tDirStatus
@@ -285,8 +322,50 @@ dscl_delete(u_int32_t dsid, int argc, char *argv[])
     return status;
 }
 
+
 tDirStatus
-dscl_read(u_int32_t dsid, int argc, char *argv[])
+dscl_diff(u_int32_t dsid, int argc, char *argv[])
+{
+	// <path1> <path2> [<key> ...] 
+	
+    NSString		   *path1	= nil;
+    NSString		   *path2	= nil;
+    NSMutableArray     *keys	= nil;
+	
+    path1 = [[NSString alloc] initWithUTF8String:argv[0]];
+    path2 = [[NSString alloc] initWithUTF8String:argv[1
+		]];
+    argc -= 2;
+    argv += 2;
+    
+    keys = [[NSMutableArray alloc] initWithCapacity:argc];
+    
+	while (argc > 0)
+	{
+        [keys addObject:[NSString stringWithUTF8String:argv[0]]];
+		argc--;
+		argv++;
+	}
+	
+    NS_DURING
+		[engine diff:path1 otherPath:path2 keys:keys];
+	NS_HANDLER
+		[keys release];
+		[path1 release];
+		[path2 release];
+		[localException raise];
+	NS_ENDHANDLER
+	
+    [keys release];
+    [path1 release];
+    [path2 release];
+	
+	return eDSNoErr;
+}
+
+
+tDirStatus
+dscl_read(u_int32_t dsid, int argc, char *argv[], BOOL all)
 {
 	// <path> [<key> ...] 
 
@@ -295,8 +374,10 @@ dscl_read(u_int32_t dsid, int argc, char *argv[])
 
 	if (argc == 0)
 	{
-        [engine read:nil keys:nil];
-		return eDSNoErr;
+		if (all)
+			return [engine readAll:nil keys:nil];
+		else
+			return [engine read:nil keys:nil];
 	}
 
     path = [[NSString alloc] initWithUTF8String:argv[0]];
@@ -313,7 +394,10 @@ dscl_read(u_int32_t dsid, int argc, char *argv[])
 	}
 	
     NS_DURING
-		[engine read:path keys:keys];
+		if (all)
+			NS_VALUERETURN(([engine readAll:path keys:keys]), tDirStatus);
+		else
+			NS_VALUERETURN(([engine read:path keys:keys]), tDirStatus);
 	NS_HANDLER
 		[keys release];
 		[path release];
@@ -328,6 +412,194 @@ dscl_read(u_int32_t dsid, int argc, char *argv[])
 
 
 tDirStatus
+dscl_readpl(u_int32_t dsid, int argc, char *argv[])
+{
+	// <path> <key> <plist path>
+
+	NSString		   *path	= nil;
+	NSString		   *key		= nil;
+	NSString		   *plistPath = nil;
+
+	path = [[NSString alloc] initWithUTF8String:argv[0]];
+	key = [[NSString alloc] initWithUTF8String:argv[1]];
+	plistPath = [[NSString alloc] initWithUTF8String:argv[2]];
+		
+	NS_DURING
+		NS_VALUERETURN(([engine read:path key:key plistPath:plistPath]), tDirStatus);
+	NS_HANDLER
+		[path release];
+		[localException raise];
+	NS_ENDHANDLER
+
+	[path release];
+	
+	return eDSNoErr;
+}
+
+tDirStatus
+dscl_readpli(u_int32_t dsid, int argc, char *argv[])
+{
+	// <path> <key> <value index> <plist path>
+	
+	NSString		   *path	= nil;
+	NSString		   *key		= nil;
+	NSString		   *plistPath = nil;
+	NSString		   *sindex	= nil;
+	int				    index = 0;
+	
+	path = [[NSString alloc] initWithUTF8String:argv[0]];
+	key = [[NSString alloc] initWithUTF8String:argv[1]];
+	sindex = [[NSString alloc] initWithUTF8String:argv[2]];
+	plistPath = [[NSString alloc] initWithUTF8String:argv[3]];
+	index = [sindex intValue];
+	
+	NS_DURING
+		NS_VALUERETURN(([engine read:path key:key atIndex:index plistPath:plistPath]), tDirStatus);
+	NS_HANDLER
+		[path release];
+		[localException raise];
+	NS_ENDHANDLER
+	
+	[path release];
+	
+	return eDSNoErr;
+}
+
+tDirStatus
+dscl_createpl(u_int32_t dsid, int argc, char *argv[])
+{
+	// <record path> <key> <plist path> <val1> [<val2>...]
+	
+	NSString		   *path	= nil;
+	NSString		   *key		= nil;
+	NSString		   *plistPath = nil;
+	NSMutableArray	   *values	= nil;
+	
+	path = [[NSString alloc] initWithUTF8String:argv[0]];
+	key = [[NSString alloc] initWithUTF8String:argv[1]];
+	plistPath = [[NSString alloc] initWithUTF8String:argv[2]];
+	unsigned int c;
+	values = [[NSMutableArray alloc] init];
+	for(c = 3; c < argc; c++)
+	{
+		[values addObject:[NSString stringWithUTF8String:argv[c]]];
+	}
+	
+	NS_DURING
+		NS_VALUERETURN(([engine create:path key:key plistPath:plistPath values:values]), tDirStatus);
+	NS_HANDLER
+		[path release];
+		[localException raise];
+	NS_ENDHANDLER
+	
+	[path release];
+	return eDSNoErr;
+}
+
+tDirStatus
+dscl_createpli(u_int32_t dsid, int argc, char *argv[])
+{
+	// <record path> <key> <plist path> <val1> [<val2>...]
+	
+	NSString		   *path	= nil;
+	NSString		   *key		= nil;
+	NSString		   *plistPath = nil;
+	NSMutableArray	   *values	= nil;
+	NSString		   *sindex	= nil;
+	int					index	= 0;
+	
+	path = [[NSString alloc] initWithUTF8String:argv[0]];
+	key = [[NSString alloc] initWithUTF8String:argv[1]];
+	sindex = [[NSString alloc] initWithUTF8String:argv[2]];
+	plistPath = [[NSString alloc] initWithUTF8String:argv[3]];
+	index = [sindex intValue];
+	
+	unsigned int c;
+	values = [[NSMutableArray alloc] init];
+	for(c = 4; c < argc; c++)
+	{
+		[values addObject:[NSString stringWithUTF8String:argv[c]]];
+	}
+	
+	NS_DURING
+		NS_VALUERETURN(([engine create:path key:key atIndex:index plistPath:plistPath values:values]), tDirStatus);
+	NS_HANDLER
+		[path release];
+		[localException raise];
+	NS_ENDHANDLER
+	
+	[path release];
+	return eDSNoErr;
+}
+
+tDirStatus
+dscl_deletepl(u_int32_t dsid, int argc, char *argv[])
+{
+	// <path> <key> <plist path> [<val>...]
+	NSString		   *path	= nil;
+	NSString		   *key		= nil;
+	NSString		   *plistPath = nil;
+	NSMutableArray	   *values	= nil;
+	
+	path = [[NSString alloc] initWithUTF8String:argv[0]];
+	key = [[NSString alloc] initWithUTF8String:argv[1]];
+	plistPath = [[NSString alloc] initWithUTF8String:argv[2]];
+	unsigned int c;
+	values = [[NSMutableArray alloc] init];
+	for(c = 3; c < argc; c++)
+	{
+		[values addObject:[NSString stringWithUTF8String:argv[c]]];
+	}
+	
+	NS_DURING
+		NS_VALUERETURN(([engine delete:path key:key plistPath:plistPath values:values]), tDirStatus);
+	NS_HANDLER
+		[path release];
+		[localException raise];
+	NS_ENDHANDLER
+	
+	[path release];
+	return eDSNoErr;
+}
+
+tDirStatus
+dscl_deletepli(u_int32_t dsid, int argc, char *argv[])
+{
+	// <path> <key> <value index> <plist path> [<val>...]
+	NSString		   *path	= nil;
+	NSString		   *key		= nil;
+	NSString		   *plistPath = nil;
+	NSMutableArray	   *values	= nil;
+	NSString		   *sindex	= nil;
+	int					index	= 0;
+	
+	path = [[NSString alloc] initWithUTF8String:argv[0]];
+	key = [[NSString alloc] initWithUTF8String:argv[1]];
+	sindex = [[NSString alloc] initWithUTF8String:argv[2]];
+	plistPath = [[NSString alloc] initWithUTF8String:argv[3]];
+	index = [sindex intValue];
+	
+	unsigned int c;
+	values = [[NSMutableArray alloc] init];
+	for(c = 4; c < argc; c++)
+	{
+		[values addObject:[NSString stringWithUTF8String:argv[c]]];
+	}
+	
+	NS_DURING
+		NS_VALUERETURN(([engine delete:path key:key atIndex:index plistPath:plistPath values:values]), tDirStatus);
+	NS_HANDLER
+		[path release];
+		[localException raise];
+	NS_ENDHANDLER
+	
+	[path release];
+	return eDSNoErr;
+}
+
+
+
+tDirStatus
 dscl_list(u_int32_t dsid, int argc, char *argv[])
 {
 	// <path> [<key>] 
@@ -335,11 +607,13 @@ dscl_list(u_int32_t dsid, int argc, char *argv[])
     NSString *path = nil;
     NSString *key = nil;
     
-    if (argv[0] != NULL)
-        path = [[NSString alloc] initWithUTF8String:argv[0]];
-    if (argc > 1 && argv[1] != NULL)
-        key = [[NSString alloc] initWithUTF8String:argv[1]];
-
+	if (argc > 0)
+	{
+		if (argv[0] != NULL)
+			path = [[NSString alloc] initWithUTF8String:argv[0]];
+		if (argc > 1 && argv[1] != NULL)
+			key = [[NSString alloc] initWithUTF8String:argv[1]];
+	}
     [engine list:path key:key];
     [path release];
     [key release];
@@ -350,7 +624,7 @@ dscl_list(u_int32_t dsid, int argc, char *argv[])
 tDirStatus
 dscl_cd(u_int32_t dsid, int argc, char *argv[])
 {
-    if (argv[0] != NULL)
+    if (argc > 0 && argv[0] != NULL)
         [engine cd:[NSString stringWithUTF8String:argv[0]]];
 		
     return eDSNoErr;
@@ -514,10 +788,18 @@ dscl_cmd(int cc, char *cv[])
 
 	else if (streq(cmd, "create"))		op = OP_CREATE;
 	else if (streq(cmd, "createprop"))	op = OP_CREATE;
+	else if (streq(cmd, "createpl"))	op = OP_CREATEPL;
+	else if (streq(cmd, "createpli"))	op = OP_CREATEPL_INDEX;
 	else if (streq(cmd, "delete"))		op = OP_DELETE;
 	else if (streq(cmd, "destroy"))		op = OP_DELETE;
 	else if (streq(cmd, "destroyprop"))	op = OP_DELETE;
+	else if (streq(cmd, "deletepl"))	op = OP_DELETEPL;
+	else if (streq(cmd, "deletepli"))	op = OP_DELETEPL_INDEX;
 	else if (streq(cmd, "read"))		op = OP_READ;
+	else if (streq(cmd, "readall"))		op = OP_READALL;
+	else if (streq(cmd, "readpl"))		op = OP_READPL;
+	else if (streq(cmd, "readpli"))		op = OP_READPL_INDEX;
+	else if (streq(cmd, "diff"))		op = OP_DIFF;
 	else if (streq(cmd, "list"))		op = OP_LIST;
 	else if (streq(cmd, "append"))		op = OP_APPEND;
 	else if (streq(cmd, "merge"))		op = OP_MERGE;
@@ -548,6 +830,15 @@ dscl_cmd(int cc, char *cv[])
 	else if (streq(cmd, "change"))		op = OP_CHANGE;
 	else if (streq(cmd, "changei"))		op = OP_CHANGE_INDEX;
 
+	// ATM - the command is not a built-in command; see if any of the plugin(s) will claim it
+	else if (dscl_PlugInDispatch(cc, cv, interactive, dsid, engine, &status))
+	{
+		// Exit codes seem to get truncated to 0...255 range so if we get something outside this range, convert to something standardized
+		if (status < 0 || status > EX__MAX /* 78 */)
+			status = EX_OSERR;
+		return status;
+	}
+	
 	else
 	{
 		usage();
@@ -565,7 +856,7 @@ dscl_cmd(int cc, char *cv[])
 	{
 		fprintf(stderr, "Too few parameters for %s operation\n", cmd);
 		usage();
-		return eDSNoErr;
+		return EX_USAGE;
 	}
 
 	status = eDSNoErr;
@@ -583,7 +874,31 @@ dscl_cmd(int cc, char *cv[])
 			status = dscl_delete(dsid, cc, cv);
 			break;
 		case OP_READ:
-			status = dscl_read(dsid, cc, cv);
+			status = dscl_read(dsid, cc, cv, NO);
+			break;
+		case OP_READALL:
+			status = dscl_read(dsid, cc, cv, YES);
+			break;
+		case OP_READPL:
+			status = dscl_readpl(dsid, cc, cv);
+			break;
+		case OP_READPL_INDEX:
+			status = dscl_readpli(dsid, cc, cv);
+			break;
+		case OP_CREATEPL:
+			status = dscl_createpl(dsid, cc, cv);
+			break;
+		case OP_CREATEPL_INDEX:
+			status = dscl_createpli(dsid, cc, cv);
+			break;
+		case OP_DELETEPL:
+			status = dscl_deletepl(dsid, cc, cv);
+			break;
+		case OP_DELETEPL_INDEX:
+			status = dscl_deletepli(dsid, cc, cv);
+			break;
+		case OP_DIFF:
+			status = dscl_diff(dsid, cc, cv);
 			break;
 		case OP_LIST:
 			status = dscl_list(dsid, cc, cv);
@@ -634,22 +949,27 @@ dscl_cmd(int cc, char *cv[])
         else if ([localException isKindOfClass:[DSoException class]])
         {
             printf("%s: DS error: %s\n", cmd, [(DSoException*)localException statusCString]);
-            status = -[(DSoException*)localException status];
+            status = [(DSoException*)localException status];
         }
         else
             [localException raise];
     NS_ENDHANDLER
-	
-	return status;
+	if (status != eDSNoErr)
+		fprintf(stderr, "<dscl_cmd> DS Error: %d (%s)\n", status, [[DSoStatus sharedInstance] cStringForStatus:status]);
+		
+	// Reverse the sign in order to exit with a positive value.
+	// Certain external tool expect this to be positive.
+	return -status;
 }
 
 char *
-getString(char **s)
+dscl_get_string(char **s)
 {
 	char	   *p		= nil;
 	char	   *x		= nil;
 	int			i		= 0;
 	int			quote   = 0;
+	int			esc		= 0;
 
 	if (*s == NULL) return NULL;
 	if (**s == '\0') return NULL;
@@ -661,7 +981,7 @@ getString(char **s)
 
 	x = *s;
 	
-	if (*x == '\"')
+	if (*x == '\"' || *x == '\'')
 	{
 		quote = 1;
 		*s += 1;
@@ -671,12 +991,13 @@ getString(char **s)
 	forever
 	{
 		if (x[i] == '\0') break;
-		if ((quote == 1) && (x[i] == '\"')) break;
+		if ((quote == 1) && ((x[i] == '\"') || (x[i] == '\''))) break;
 		if ((quote == 0) && (x[i] == ' ' )) break;
 		if ((quote == 0) && (x[i] == '\t')) break;
 		
 		if (x[i] == '\\')
 		{
+			if (esc == 0) esc = i;
 			i++;
 			if (x[i] == '\0') break;
 		}
@@ -687,28 +1008,41 @@ getString(char **s)
 	memmove(p, x, i);
 	p[i] = 0;
 
+	if (quote == 1) i++;
 	*s += i;
-	if (x[i] != '\0')
-		*s += 1;
+    
+	while (esc != 0)
+	{
+		i = esc + 1;
+		if (p[i] == '\\') i++;
+		esc = 0;
+		for (; p[i] != '\0'; i++)
+		{
+			p[i-1] = p[i];
+			if ((p[i] == '\\') && (esc == 0)) esc = i - 1;
+		}
+		p[i - 1] = '\0';
+	}
 
 	return p;
 }
 
 int
-dscl_tabcomplete(char *line, int *currentPos)
+dscl_tabcomplete(EditLine *e, int ch)
 {
 	NSAutoreleasePool      *pool				= [[NSAutoreleasePool alloc] init];
 	NSArray				   *possibleCompletions = nil;
+    int						cntLimit			= 0;
+    const LineInfo		   *li					= el_line(e);
 
 	// Remove any pre-existing trailing slash:
-	if (line[*currentPos-1] == '/')
+	if (*(li->lastchar) == '/')
 	{
-		line[*currentPos-1] = '\0';
-		putchar(8);
+        el_deletestr(e, 1);
 	}
     
-    NSString            *inputLine      = [NSString stringWithUTF8String:line];
-    NSRange             cmdSeparator    = [inputLine rangeOfString:@" "]; // find the comand-line separator
+    NSString            *inputLine      = [[NSString alloc] initWithBytes:li->buffer length:(li->lastchar - li->buffer) encoding:NSUTF8StringEncoding];
+    NSRange             cmdSeparator    = [inputLine rangeOfString:@" "]; // find the command-line separator
     
     if( cmdSeparator.location != NSNotFound ) 
     {
@@ -719,7 +1053,7 @@ dscl_tabcomplete(char *line, int *currentPos)
         possibleCompletions = [engine getPossibleCompletionsFor: completePath];
         if (possibleCompletions != nil)
         {
-            int cntLimit = [possibleCompletions count];
+            cntLimit = [possibleCompletions count];
             if (cntLimit > 0)
             {
                 // For now, newLine is just the current completion.
@@ -734,19 +1068,10 @@ dscl_tabcomplete(char *line, int *currentPos)
                         partialMatch = commonMatch;
                 }
                 
-                // Strip off previous path & prefix, and replace it with the new one:
-                [lineComponents removeLastObject];
-                [lineComponents addObject: partialMatch];
-                
-                // newLine now is going to represent the whole string:
-                // Put it back together:
-                NSString *finalLine = [NSString escapablePathFromArray:lineComponents];
-                
-                // Set the internal current cursor postion indicator:
-                
-                strlcpy( &line[cmdSeparator.location + 1], [finalLine UTF8String], INPUT_LENGTH-(cmdSeparator.location + 1) );
-                *currentPos = strlen( line );
-                
+                // Remove the partial item from the input line to
+                // make room for the complete value.
+                el_deletestr(e, [[partialPath escapedString] length]);
+
                 // If there were multiple completion possibilities, list
                 // them out for the user.
                 if (cntLimit > 1)
@@ -759,19 +1084,14 @@ dscl_tabcomplete(char *line, int *currentPos)
                     }
                     
                     putchar('\n');
-                    // re-print the prompt
-                    printf("\e[1m%s\e[0m > %s", [[[engine cwd] unescapedString] UTF8String], line);
+                    // Insert the partial completion into the input line
+                    el_insertstr(e, [[partialMatch escapedString] UTF8String]);
                 }
                 else
                 {
                     // Otherwise add a trailing slash and do in-line
                     // completion since this is the only completion.
-                    int pathLen = strlen([[partialPath escapedString] UTF8String]);
-                    int i;
-                    line[(*currentPos)++] = '/';
-                    for (i = 0; i < pathLen; i++)
-                        putchar(8);
-                    printf("%s/", [[partialMatch escapedString] UTF8String]);
+                    el_insertstr(e, [[[partialMatch escapedString] stringByAppendingString:@"/"] UTF8String]);
                 }
                 
             }
@@ -782,165 +1102,137 @@ dscl_tabcomplete(char *line, int *currentPos)
             putchar(7);
     }
 	
+    [inputLine release];
 	[pool release];
 	
-	return 1;
+    switch (cntLimit)
+    {
+        case 0:
+            return CC_ARGHACK;
+            break;
+        case 1:
+            return CC_REFRESH;
+            break;
+        default:
+            return CC_REDISPLAY;
+            break;
+    }
 }
 
-int
-dscl_myscan(char *line)
+static char *
+dscl_input_line(FILE *in, EditLine *el, History *h)
 {
-	int				i			= 0;
-	int				j			= 0;
-	int				c			= 1;
-	BOOL			finished	= NO;
-	struct termios  tty;
-	struct termios  otty;
-
-	// Get original tty settings and save them in otty
-	tcgetattr(STDIN_FILENO, &otty);
-	tty = otty;
-	// Now set the terminal to char-by-char input
-	tty.c_lflag     = tty.c_lflag & ~(ECHO | ECHOK | ICANON);
-	tty.c_cc[VTIME] = 1;
-	tcsetattr(STDIN_FILENO, TCSANOW, &tty);
-
-	while (c && !finished && i < INPUT_LENGTH)
-	{
-		c = getchar();
-		switch(c)
-		{
-			case '\t':
-				dscl_tabcomplete(line, &i);
-				break;
-			case '\n':
-				finished = YES;
-				putchar('\n');
-				if (i > 0)
-				{
-					//peel off trailing backslashes unless there is a blank in front of the backslash
-					//ie. allow "cd /" but not "cd //" which would get converted into "cd /"
-					while ((i > 2) && (line[i-1] == '/') && (line[i-2] != ' '))
-						i--;
-					line[i] = '\0';
-					[gCommandHistory addCommand:[NSString stringWithUTF8String:line]];
-				}
-				break;
-			case 8:   // Backspace
-			case 127: // Delete
-				if (i > 0)
-				{
-					line[--i] = '\0';
-					putchar(8); putchar(' '); putchar(8);
-				}
-				break;
-			case 27:   // ESC: We ignore it.
-			  // Check for and ignore arrow keys:
-				c = getchar();
-				if (c == 91)
-				{   // It's beginning to look like we have an arrow key
-					c = getchar();
-					if (c > 68 || c < 65)
-					{   // we don't, put the characters back in the queue
-						// (except for the ESC, ignore that)
-						ungetc(c, stdin);
-						ungetc(91, stdin);
-					}
-					else if (c == 65)
-					{ // up
-						for (j=0 ; j < i; j++)
-							{ putchar(8); putchar(' '); putchar(8); }
-						if ([gCommandHistory isClean])
-						{
-							line[i] = '\0';
-							[gCommandHistory addTemporaryCommand:[NSString stringWithUTF8String:line]];
-						}
-						[[gCommandHistory previousCommand] getCString:line];
-						printf("%s", line);
-						i = strlen(line);
-					}
-					else if (c == 66)
-					{ // down
-						for (j=0 ; j < i; j++)
-							{ putchar(8); putchar(' '); putchar(8); }
-						[[gCommandHistory nextCommand] getCString:line];
-						printf("%s", line);
-						i = strlen(line);
-					}
-				}
-				else  // Definitely not an arrow key, put the char back
-					ungetc(c, stdin);
-				break;
-			default:
-				line[i++] = c;
-				putchar(c);
-				break;
-		}
-	}
+	HistEvent			hev;
+	const char		   *eline				= NULL;
+	char 			   *out					= NULL;
+    char				fline[INPUT_LENGTH];
+	int					count				= 0;
+    int					len					= 0;
 	
-	/* Reset to the original settings */
-	tcsetattr(STDIN_FILENO, TCSANOW, &otty);
-	return strlen(line);
+	if (el == NULL)
+	{
+		count = fscanf(in, "%[^\n]%*c", fline);
+		if (count < 0) return NULL;
+		if (count == 0)
+		{
+			fscanf(in, "%*c");
+			out = calloc(1, 1);
+			return out;
+		}
+		len = strlen(fline);
+		out = malloc(len + 1);
+		memmove(out, fline, len);
+		out[len] = '\0';
+		return out;
+	}
+    
+	eline = el_gets(el, &count);
+	if (eline == NULL) return NULL;
+	if (count <= 0) return NULL;
+
+    
+    // Strip trailing '/' if it's not by itself. -- Rajpaul
+    if (eline[count-2] == '/' && eline[count-3] != ' ')
+        len = count - 2;
+    else
+        len = count - 1;
+
+	out = malloc(len + 1);
+	memmove(out, eline, len);
+	out[len] = '\0';
+	if (len > 0) history(h, &hev, H_ENTER, out);
+    
+	return out;
+}
+
+char *
+dscl_prompt(EditLine *el)
+{
+    NSString *P = [NSString stringWithFormat:@"\e[1m%@\e[0m > ", [[engine cwd] unescapedString]];
+    return (char*)[P UTF8String];
 }
 
 int
-dscl_interactive(int prompt)
+dscl_interactive(FILE *in, int pmt)
 {
 	char			   *s					= nil;
 	char			   *p					= nil;
 	char			  **iargv				= NULL;
-	char				line[INPUT_LENGTH];
-    NSString		   *P					= nil;
-	tDirStatus			status				= eDSNoErr;
+	char			   *line				= NULL;
 	int					i					= 0;
 	int					iargc				= 0;
+	int					quote				= 0;
+	int					esc					= 0;
+	EditLine		   *el					= NULL;
+	History			   *h					= NULL;
+	HistEvent			hev;
     NSAutoreleasePool  *foreverPool			= nil;
-	
-	gCommandHistory = [[DSCLCommandHistory alloc] init];
-	interactive = 1;
 
+    interactive = 1;
+
+	if (pmt != PROMPT_NONE)
+	{
+		el = el_init("dscl", in, stdout, stderr);
+		h = history_init();
+        
+		el_set(el, EL_HIST, history, h);
+		el_set(el, EL_PROMPT, dscl_prompt);
+		el_set(el, EL_EDITOR, "emacs");
+		el_set(el, EL_SIGNAL, 1);
+		el_set(el, EL_EDITMODE, 1);
+        
+        // Tell the command line editor library to use
+        // the tab completion routine when tab is pressed.
+        el_set(el, EL_ADDFN, "tabcomplete", "Tab completion", dscl_tabcomplete);
+        el_set(el, EL_BIND, "^I", "tabcomplete", NULL);
+        
+		history(h, &hev, H_SETSIZE, 100000);
+	}
+    
 	forever
 	{
         foreverPool = [[NSAutoreleasePool alloc] init];
-		memset(line, 0, INPUT_LENGTH);
-
-		switch (prompt)
+		line = dscl_input_line(in, el, h);
+        
+		if (line == NULL) break;
+		if (line[0] == '\0')
 		{
-			case PROMPT_NONE:
-				break;
-			case PROMPT_PLAIN:
-				printf("> ");
-				break;
-			case PROMPT_DS:
-                // Get the string representation of the absolute path
-                // of the current_dir directory id.
-                P = [[engine cwd] unescapedString];
-				printf("\e[1m%s\e[0m > ", [P UTF8String]);
-				break;
-			default:
-				break;
-		}
-
-		fflush(stdout);
-
-		status = dscl_myscan(line);
-		
-		if (status == 0)
-		{
-			rewind(stdin);
+			free(line);
 			continue;
 		}
 
-		if (status == -1) break;
+		if (streq(line, "exit")) break;
 		if (streq(line, "quit")) break;
 		if (streq(line, "q")) break;
 
 		p = line;
 		iargc = 0;
+		quote = 0;
+		esc = 0;
 
 		forever
 		{
-			s = getString(&p);
+			s = dscl_get_string(&p);
 			if (s == NULL) break;
 			if (iargc == 0)
 				iargv = (char **)malloc(sizeof(char *));
@@ -954,12 +1246,23 @@ dscl_interactive(int prompt)
 
 		for (i = 0; i < iargc; i++) free(iargv[i]);
 		free(iargv);
-        
+		free(line);
+
         [foreverPool release];
 	}
-	[gCommandHistory release];
 
 	return eDSNoErr;
+}
+
+uint32_t isSingleUserMode( void )
+{
+	uint32_t	sb = 0;
+	size_t		sbsz = sizeof(sb);
+	
+	if ( sysctlbyname("kern.singleuser", &sb, &sbsz, NULL, 0) == -1 )
+		return NO;
+	
+	return sb;	
 }
 
 int
@@ -971,15 +1274,18 @@ main(int argc, char *argv[])
 	int						opt_promptpw	= 0;
 	int						opt_user		= 0;
 	int						opt_password	= 0;
+	int						opt_filePath	= 0;
 	int						prompt			= PROMPT_DS;
     char				   *slash			= nil;
     char				   *dataSource		= nil;
     tDirStatus				status			= eDSNoErr;
     NSString			   *auth_user		= nil;
 	NSString			   *auth_password   = nil;
+	NSString			   *filePath		= nil;
     extern BOOL				gRawMode;
+	extern BOOL				gPlistMode;
 	
-    NS_DURING
+    @try {
         
     slash = rindex(argv[0], '/');
     if (slash == NULL) strcpy(myname, argv[0]);
@@ -997,6 +1303,7 @@ main(int argc, char *argv[])
         else if (streq(argv[i], "-q"))		prompt = PROMPT_NONE;
         else if (streq(argv[i], "-t"))		opt_tag = 1;
         else if (streq(argv[i], "-raw"))	gRawMode = 1;
+        else if (streq(argv[i], "-plist"))	gPlistMode = 1;
         else if (streq(argv[i], "-p"))		opt_promptpw = 1;
 		else if (streq(argv[i], "-url"))	gURLEncode = YES;
         else if (streq(argv[i], "-P"))
@@ -1009,13 +1316,17 @@ main(int argc, char *argv[])
             i++;
             opt_user = i;
         }
+        else if (streq(argv[i], "-f"))
+        {
+            i++;
+            opt_filePath = i;
+        }
         else break;
     }
 
     if (i == argc)
     {
-        usage();
-        printf("Entering interactive mode...\n");
+        printf("Entering interactive mode... (type \"help\" for commands)\n");
         dataSource = "localhost";
     }
     else
@@ -1031,6 +1342,9 @@ main(int argc, char *argv[])
         auth_user = @"root";
     }
 
+	if (opt_filePath != 0)
+		filePath = [NSString stringWithUTF8String:argv[opt_filePath]];
+
     if (opt_user != 0)
         auth_user = [NSString stringWithUTF8String:argv[opt_user]];
 
@@ -1044,11 +1358,12 @@ main(int argc, char *argv[])
     else if (opt_promptpw == 1)
         auth_password = [NSString stringWithUTF8String:getpass("Password: ")];
 
-
-    if (streq(dataSource, ".."))
-        dataSource = "/NetInfo/..";
-        
-    if (dataSource[0] == '/')
+	if (filePath != NULL)
+	{
+        // The data source is the raw local file, open the local only DS service.
+        engine = [[PathManager alloc] initWithLocalPath:filePath];
+	}
+    else if (dataSource[0] == '/')
     {
         // The data source begins with a "/", it's a node,
         // open the node via the local DS service.
@@ -1059,16 +1374,6 @@ main(int argc, char *argv[])
                                                   password:auth_password];
         else
             engine = [[PathManager alloc] initWithNodeName:[NSString stringWithUTF8String:dataSource]];
-        
-        if (engine == nil)
-        {
-            // For nicl backward compatibility:
-            // If they specified an old, nicl-style domain, then re-try the previous
-            // call if nothing found, but by prepending
-            // "/NetInfo/root" to whatever the user typed
-            engine = [[PathManager alloc] initWithNodeName:[NSString stringWithFormat:@"/NetInfo/root%s",dataSource]];
-        }
-            
     }
     else if (strcasecmp(dataSource, "eDSLocalHostedNodes") == 0)
     {
@@ -1096,21 +1401,17 @@ main(int argc, char *argv[])
         // The data source is the localhost, open the local DS service.
         engine = [[PathManager alloc] initWithLocal];
     }
+    else if (strcasecmp(dataSource, "localonly") == 0)
+    {
+        // The data source is the localonly, open the local only DS service.
+        engine = [[PathManager alloc] initWithLocalPath:@"Default"];
+    }
     else
     {
         // assume the data source is a remote host to be contacted via DS proxy.
-        NS_DURING
         engine = [[PathManager alloc] initWithHost:[NSString stringWithUTF8String:dataSource]
                                         user:auth_user
                                         password:auth_password];
-        NS_HANDLER
-            if ([[localException name] isEqualToString:@"DSOpenDirServiceErr"])
-            {
-                printf("Cannot open remote host, error: DSOpenDirServiceErr\n");
-            }
-            else
-                [localException raise];
-        NS_ENDHANDLER
     }
     
     if (engine != nil)
@@ -1118,32 +1419,47 @@ main(int argc, char *argv[])
         i++;
         if (i >= argc)
         {
-            status = dscl_interactive(prompt);
+            status = dscl_interactive(stdin, prompt);
             if (prompt != PROMPT_NONE) printf("Goodbye\n");
         }
         else status = dscl_cmd(argc - i, argv + i);
     }
     else
     {
+		status = EX_UNAVAILABLE;
         printf("Data source (%s) is not valid.\n", dataSource);
     }
 
-    NS_HANDLER
-        if ([localException isKindOfClass:[DSoException class]])
-        {
-            NSLog(@"*** Uncaught DS Exception: <%@> (%@)",[localException name], [(DSoException*)localException statusString]);
-            status = -[(DSoException*)localException status];
-        }
-        else
-        {
-            NSLog(@"*** My Uncaught Exception: <%@> (%@)",[localException name], [localException reason]);
-            status = 1;
-        }
-    NS_ENDHANDLER
-
+    } @catch( DSoException *exception ) {
+		
+		if ([[exception name] isEqualToString:@"DSOpenDirServiceErr"]) {
+			printf("Cannot open remote host, error: DSOpenDirServiceErr\n");
+		} else {
+			status = [exception status];
+			switch ( status )
+			{
+				case eServerSendError:
+				case eServerNotRunning:
+					if ( isSingleUserMode() ) {
+						fprintf( stderr, "For Single User Mode you must run the following command to enable use of dscl.\n" );
+						fprintf( stderr, "launchctl load /System/Library/LaunchDaemons/com.apple.DirectoryServicesLocal.plist\n" );
+						status = EX_CONFIG;
+						break;
+					}
+				default:
+					fprintf( stderr, "Operation failed with error: %s\n", [[exception statusString] UTF8String] );
+					status = EX_SOFTWARE;
+					break;
+			}
+		}
+	} @catch ( id exception ) {
+		fprintf( stderr, "*** Uncaught Exception: <%s> (%s)\n", [[exception name] UTF8String], [[exception reason] UTF8String] );
+		status = EX_SOFTWARE;
+	}
+	
     [engine release];
     
     [pool release];
-	
+
 	exit(status);
 }

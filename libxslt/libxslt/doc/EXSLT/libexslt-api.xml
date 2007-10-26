@@ -6,9 +6,10 @@
      <exports symbol='EXSLT_DATE_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_FUNCTIONS_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_STRINGS_NAMESPACE' type='macro'/>
+     <exports symbol='SAXON_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_SETS_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_DYNAMIC_NAMESPACE' type='macro'/>
-     <exports symbol='SAXON_NAMESPACE' type='macro'/>
+     <exports symbol='EXSLT_CRYPTO_NAMESPACE' type='macro'/>
      <exports symbol='EXSLT_MATH_NAMESPACE' type='macro'/>
      <exports symbol='exsltLibxmlVersion' type='variable'/>
      <exports symbol='exsltLibexsltVersion' type='variable'/>
@@ -20,9 +21,10 @@
      <exports symbol='exsltStrRegister' type='function'/>
      <exports symbol='exsltFuncRegister' type='function'/>
      <exports symbol='exsltSaxonRegister' type='function'/>
+     <exports symbol='exsltRegisterAll' type='function'/>
      <exports symbol='exsltSetsRegister' type='function'/>
      <exports symbol='exsltDateRegister' type='function'/>
-     <exports symbol='exsltRegisterAll' type='function'/>
+     <exports symbol='exsltCryptoRegister' type='function'/>
     </file>
     <file name='exsltexports'>
      <exports symbol='LIBEXSLT_PUBLIC' type='macro'/>
@@ -41,6 +43,9 @@
     </macro>
     <macro name='EXSLT_COMMON_NAMESPACE' file='exslt'>
       <info>Namespace for EXSLT common functions</info>
+    </macro>
+    <macro name='EXSLT_CRYPTO_NAMESPACE' file='exslt'>
+      <info>Namespace for EXSLT crypto functions</info>
     </macro>
     <macro name='EXSLT_DATE_NAMESPACE' file='exslt'>
       <info>Namespace for EXSLT date functions</info>
@@ -73,6 +78,10 @@
     <variable name='exsltLibxsltVersion' file='exslt' type='const int'/>
     <function name='exsltCommonRegister' file='exslt'>
       <info>Registers the EXSLT - Common module</info>
+      <return type='void'/>
+    </function>
+    <function name='exsltCryptoRegister' file='exslt'>
+      <info></info>
       <return type='void'/>
     </function>
     <function name='exsltDateRegister' file='exslt'>

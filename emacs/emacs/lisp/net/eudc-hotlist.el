@@ -1,10 +1,11 @@
 ;;; eudc-hotlist.el --- hotlist management for EUDC
 
-;; Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Oscar Figueiredo <oscar@xemacs.org>
-;; Maintainer: Oscar Figueiredo <oscar@xemacs.org>
-;; Keywords: help
+;; Author: Oscar Figueiredo <oscar@cpe.fr>
+;; Maintainer: Pavel Janík <Pavel@Janik.cz>
+;; Keywords: comm
 
 ;; This file is part of GNU Emacs.
 
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -51,23 +52,24 @@ These are the special commands of this mode:
   (setq major-mode 'eudc-hotlist-mode)
   (setq mode-name "EUDC-Servers")
   (use-local-map eudc-hotlist-mode-map)
-  (setq mode-popup-menu eudc-hotlist-menu)
-  (when (and eudc-xemacs-p
-	     (featurep 'menubar))
-    (set-buffer-menubar current-menubar)
-    (add-submenu nil (cons "EUDC-Hotlist" (cdr (cdr eudc-hotlist-menu)))))
-  (setq buffer-read-only t))
+  (when (featurep 'xemacs)
+    (setq mode-popup-menu eudc-hotlist-menu)
+    (when (featurep 'menubar)
+      (set-buffer-menubar current-menubar)
+      (add-submenu nil (cons "EUDC-Hotlist" (cdr (cdr eudc-hotlist-menu))))))
+  (setq buffer-read-only t)
+  (run-mode-hooks 'eudc-hotlist-mode-hook))
 
 ;;;###autoload
 (defun eudc-edit-hotlist ()
   "Edit the hotlist of directory servers in a specialized buffer."
   (interactive)
-  (let ((proto-col 0)
+  (let ((proto-col 10)
 	gap)
     (switch-to-buffer (get-buffer-create "*EUDC Servers*"))
     (setq buffer-read-only nil)
     (erase-buffer)
-    (mapcar (function 
+    (mapcar (function
 	     (lambda (entry)
 	       (setq proto-col (max (length (car entry)) proto-col))))
 	    eudc-server-hotlist)
@@ -113,7 +115,7 @@ These are the special commands of this mode:
   (let ((buffer-read-only nil))
     (save-excursion
       (beginning-of-line)
-      (if (and (>= (point) eudc-hotlist-list-beginning)     
+      (if (and (>= (point) eudc-hotlist-list-beginning)
 	       (looking-at "^\\([-.a-zA-Z:0-9]+\\)[ \t]+\\([a-zA-Z]+\\)"))
 	  (kill-line 1)
 	(error "No server on this line")))))
@@ -131,7 +133,7 @@ These are the special commands of this mode:
 			  hotlist))
       (forward-line 1))
     (if (not (looking-at "^[ \t]*$"))
-	(error "Malformed entry in hotlist, discarding edits")) 
+	(error "Malformed entry in hotlist, discarding edits"))
     (setq eudc-server-hotlist (nreverse hotlist))
     (eudc-install-menu)
     (eudc-save-options)
@@ -150,7 +152,7 @@ These are the special commands of this mode:
 	  (eudc-set-server (match-string 1) (intern (match-string 2)))
 	  (message "Current directory server is %s (%s)" eudc-server eudc-protocol))
       (error "No server on this line"))))
-      
+
 (defun eudc-hotlist-transpose-servers ()
   "Swap the order of the server with the previous one in the list."
   (interactive)
@@ -161,13 +163,13 @@ These are the special commands of this mode:
       (beginning-of-line)
       (if (and (>= (point) eudc-hotlist-list-beginning)
 	       (looking-at "^\\([-.a-zA-Z:0-9]+\\)[ \t]+\\([a-zA-Z]+\\)")
-	       (progn 
+	       (progn
 		 (forward-line -1)
 		 (looking-at "^\\([-.a-zA-Z:0-9]+\\)[ \t]+\\([a-zA-Z]+\\)")))
 	  (progn
 	    (forward-line 1)
 	    (transpose-lines 1))))))
-  
+
 (setq eudc-hotlist-mode-map
       (let ((map (make-sparse-keymap)))
 	(define-key map "a" 'eudc-hotlist-add-server)
@@ -189,9 +191,10 @@ These are the special commands of this mode:
     ["Exit without Saving" kill-this-buffer t]))
 
 (if eudc-emacs-p
-    (easy-menu-define eudc-hotlist-emacs-menu 
+    (easy-menu-define eudc-hotlist-emacs-menu
 		      eudc-hotlist-mode-map
 		      ""
 		      eudc-hotlist-menu))
 
+;;; arch-tag: 9b633ab3-6a6e-4b46-b12e-d96739a7e0e8
 ;;; eudc-hotlist.el ends here

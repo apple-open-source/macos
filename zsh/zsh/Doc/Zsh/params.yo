@@ -169,25 +169,31 @@ cindex(subscript flags)
 If the opening bracket, or the comma in a range, in any subscript
 expression is directly followed by an opening parenthesis, the string up
 to the matching closing one is considered to be a list of flags, as in
-`var(name)tt([LPAR())var(flags)tt(RPAR())var(exp)tt(])'.  The flags
-currently understood are:
+`var(name)tt([LPAR())var(flags)tt(RPAR())var(exp)tt(])'.
+
+The flags tt(s), tt(n) and tt(b) take an argument; the delimiter
+is shown below as `tt(:)', but any character, or the matching pairs
+`tt(LPAR())...tt(RPAR())', `tt({)...tt(})', `tt([)...tt(])', or
+`tt(<)...tt(>)', may be used.
+
+The flags currently understood are:
 
 startitem()
 item(tt(w))(
-If the parameter subscripted is a scalar than this flag makes
+If the parameter subscripted is a scalar then this flag makes
 subscripting work on words instead of characters.  The default word
 separator is whitespace.
 )
 item(tt(s:)var(string)tt(:))(
 This gives the var(string) that separates words (for use with the
-tt(w) flag).
+tt(w) flag).  The delimiter character tt(:) is arbitrary; see above.
 )
 item(tt(p))(
 Recognize the same escape sequences as the tt(print) builtin in
 the string argument of a subsequent `tt(s)' flag.
 )
 item(tt(f))(
-If the parameter subscripted is a scalar than this flag makes
+If the parameter subscripted is a scalar then this flag makes
 subscripting work on lines instead of characters, i.e. with elements
 separated by newlines.  This is a shorthand for `tt(pws:\n:)'.
 )
@@ -201,11 +207,42 @@ is the number of the matching element, so that pairs of subscripts such as
 possible if the parameter is not an associative array.  If the
 parameter is an associative array, only the value part of each pair is
 compared to the pattern, and the result is that value.
+
+If a search through an ordinary array failed, the search sets the
+subscript to one past the end of the array, and hence
+tt(${array[(r)pattern]}) will substitute the empty string.  Thus the
+success of a search can be tested by using the tt((i)) flag, for
+example (assuming the option tt(KSH_ARRAYS) is not in effect):
+
+example([[ ${array[(i)pattern]} -le ${#array} ]])
+
+If tt(KSH_ARRAYS) is in effect, the tt(-le) should be replaced by tt(-lt).
+
+Note that in subscripts with both `tt(r)' and `tt(R)' pattern characters
+are active even if they were substituted for a parameter (regardless
+of the setting of tt(GLOB_SUBST) which controls this feature in normal
+pattern matching).  It is therefore necessary to quote pattern characters
+for an exact string match.  Given a string in tt($key), and assuming
+the tt(EXTENDED_GLOB) option is set, the following is sufficient to
+match an element of an array tt($array) containing exactly the value of
+tt($key):
+
+example(key2=${key//(#m)[\][+LPAR()+RPAR()\\*?#<>~^]/\\$MATCH}
+print ${array[(R)$key2]})
 )
 item(tt(R))(
 Like `tt(r)', but gives the last match.  For associative arrays, gives
 all possible matches. May be used for assigning to ordinary array
 elements, but not for assigning to associative arrays.
+
+Note that this flag can give odd results on failure.  For an ordinary array
+the item substituted is that corresponding to subscript 0.  If the option
+tt(KSH_ARRAYS) is not in effect, this is the same as the element
+corresponding to subscript 1, although the form tt(${array[(I)pattern]})
+will evaluate to 0 for a failed match.  If the option tt(KSH_ARRAYS) is in
+effect, the subscript is still 0 for a failed match; this cannot be
+distinguished from a successful match without testing tt(${array[0]})
+against the pattern.
 )
 item(tt(i))(
 Like `tt(r)', but gives the index of the match instead; this may not be
@@ -213,10 +250,14 @@ combined with a second argument.  On the left side of an assignment,
 behaves like `tt(r)'.  For associative arrays, the key part of each pair
 is compared to the pattern, and the first matching key found is the
 result.
+
+See `tt(r)' for discussion of subscripts of failed matches.
 )
 item(tt(I))(
 Like `tt(i)', but gives the index of the last match, or all possible
 matching keys in an associative array.
+
+See `tt(R)' for discussion of subscripts of failed matches.
 )
 item(tt(k))(
 If used in a subscript on an associative array, this flag causes the keys
@@ -234,11 +275,13 @@ item(tt(n:)var(expr)tt(:))(
 If combined with `tt(r)', `tt(R)', `tt(i)' or `tt(I)', makes them give
 the var(n)th or var(n)th last match (if var(expr) evaluates to
 var(n)).  This flag is ignored when the array is associative.
+The delimiter character tt(:) is arbitrary; see above.
 )
 item(tt(b:)var(expr)tt(:))(
 If combined with `tt(r)', `tt(R)', `tt(i)' or `tt(I)', makes them begin
 at the var(n)th or var(n)th last element, word, or character (if var(expr)
 evaluates to var(n)).  This flag is ignored when the array is associative.
+The delimiter character tt(:) is arbitrary; see above.
 )
 item(tt(e))(
 This flag has no effect and for ordinary arrays is retained for backward
@@ -434,7 +477,8 @@ The following parameters are automatically set by the shell:
 startitem()
 vindex(!)
 item(tt(!) <S>)(
-The process ID of the last background command invoked.
+The process ID of the last command started in the background with tt(&),
+or put into the background with the tt(bg) builtin.
 )
 vindex(#)
 item(tt(#) <S>)(
@@ -450,7 +494,10 @@ Same as tt(#).
 )
 vindex($)
 item(tt($) <S>)(
-The process ID of this shell.
+The process ID of this shell.  Note that this indicates the original
+shell started by invoking tt(zsh); all processes forked from the shells
+without executing a new program, such as subshells started by
+tt(LPAR())var(...)tt(RPAR()), substitute the same value.
 )
 vindex(-)
 item(tt(-) <S>)(
@@ -475,7 +522,7 @@ Same as tt(argv[@]), even when tt(argv) is not set.
 )
 vindex(?)
 item(tt(?) <S>)(
-The exit value returned by the last command.
+The exit status returned by the last command.
 )
 vindex(0)
 item(tt(0) <S>)(
@@ -489,7 +536,7 @@ Same as tt(?).
 )
 vindex(pipestatus)
 item(tt(pipestatus) <S> <Z>)(
-An array containing the exit values returned by all commands in the
+An array containing the exit statuses returned by all commands in the
 last pipeline.
 )
 vindex(_)
@@ -586,7 +633,9 @@ The operating system, as determined at compile time.
 )
 vindex(PPID)
 item(tt(PPID) <S>)(
-The process ID of the parent of the shell.
+The process ID of the parent of the shell.  As for tt($$), the
+value indicates the parent of the original shell and does not
+change in subshells.
 )
 vindex(PWD)
 item(tt(PWD))(
@@ -693,19 +742,20 @@ item(tt(ARGV0))(
 If exported, its value is used as the tt(argv[0]) of external commands.
 Usually used in constructs like `tt(ARGV0=emacs nethack)'.
 )
+cindex(editing over slow connection)
+cindex(slow connection, editing over)
 vindex(BAUD)
 item(tt(BAUD))(
-The baud rate of the current connection.  Used by the line editor
-update mechanism to compensate for a slow terminal by delaying
-updates until necessary.  This may be profitably set to a lower value
-in some circumstances, e.g.
-for slow modems dialing into a communications server which is connected
-to a host via a fast link; in this case, this variable
-would be set by default to the speed of the fast link, and not
-the modem.
-This parameter should be set to the baud
-rate of the slowest part of the link for best performance. The compensation
-mechanism can be turned off by setting the variable to zero.
+The rate in bits per second at which data reaches the terminal.
+The line editor will use this value in order to compensate for a slow
+terminal by delaying updates to the display until necessary.  If the
+parameter is unset or the value is zero the compensation mechanism is
+turned off.  The parameter is not set by default.
+
+This parameter may be profitably set in some circumstances, e.g.
+for slow modems dialing into a communications server, or on a slow wide
+area network.  It should be set to the baud
+rate of the slowest part of the link for best performance.
 )
 vindex(cdpath)
 vindex(CDPATH)
@@ -735,7 +785,9 @@ tt(ENV) is em(not) used unless zsh is emulating bf(sh) or bf(ksh).
 )
 vindex(FCEDIT)
 item(tt(FCEDIT))(
-The default editor for the tt(fc) builtin.
+The default editor for the tt(fc) builtin.  If tt(FCEDIT) is not set,
+the parameter tt(EDITOR) is used; if that is not set either, a builtin
+default, usually tt(vi), is used.
 )
 vindex(fignore)
 vindex(FIGNORE)
@@ -761,6 +813,10 @@ mechanism.  The first character signals the start of a history
 expansion (default `tt(!)').  The second character signals the
 start of a quick history substitution (default `tt(^)').  The third
 character is the comment character (default `tt(#)').
+
+The characters must be in the ASCII character set; any attempt to set
+tt(histchars) to characters with a locale-dependent meaning will be
+rejected with an error message.
 )
 vindex(HISTCHARS)
 item(tt(HISTCHARS) <S> <Z>)(
@@ -780,7 +836,10 @@ cushion for saving duplicated history events.
 )
 vindex(HOME)
 item(tt(HOME) <S>)(
-The default argument for the tt(cd) command.
+The default argument for the tt(cd) command.  This is not set automatically
+by the shell in tt(sh), tt(ksh) or tt(csh) emulation, but it is typically
+present in the environment anyway, and if it becomes set it has its usual
+special behaviour.
 )
 vindex(IFS)
 item(tt(IFS) <S>)(

@@ -27,9 +27,8 @@
  */
 
 #include <Kerberos/KerberosDebug.h>
-#include <Kerberos/KerberosLogin.h>
-#include <Kerberos/profile.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <Security/AuthSession.h>
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -316,14 +315,21 @@ int ddebuglevel (void)
 
 void dprintf (const char *format, ...)
 {
+    va_list args;
+        
+    va_start (args, format);
+    dvprintf (format, args);
+    va_end (args);        
+}
+
+// ---------------------------------------------------------------------------
+
+void dvprintf (const char *format, va_list args)
+{
     aslclient client = NULL;
     
     if (dlevel (&client) > 0) {
-        va_list args;
-        
-        va_start (args, format);
-        dvlog (client, format, args);
-        va_end (args);        
+        dvlog (client, format, args);       
     }
 }
 
@@ -391,46 +397,29 @@ void dprintmem (const void *inBuffer, size_t inLength)
 
 // ---------------------------------------------------------------------------
 
-void dprintbootstrap (task_t inTask)
+void dprintsession (void)
 {
     aslclient client = NULL;
     
     if (dlevel (&client) > 0) {
-        kern_return_t            err = KERN_SUCCESS;
-        mach_port_t              bootPort = MACH_PORT_NULL;
-        name_array_t             serviceArray = NULL;
-        mach_msg_type_number_t   serviceCount = 0;
-        name_array_t             serverArray = NULL;
-        mach_msg_type_number_t   serverCount = 0;
-        bootstrap_status_array_t serverStatusArray = NULL;
-        mach_msg_type_number_t   serverStatusCount = 0;
-        mach_msg_type_number_t   i;
-        
-        err = task_get_bootstrap_port ((inTask != TASK_NULL) ? inTask : mach_task_self (), &bootPort);
-        
-        if (!err) {
-            err = bootstrap_info (bootPort, &serviceArray, &serviceCount, 
-                                  &serverArray, &serverCount, 
-                                  &serverStatusArray, &serverStatusCount);
-            if (!err) {
-                // print out the bootstrap state
-                err = dlog (client, "Bootstrap State: %d registered services", serviceCount);
-                
-                for (i = 0; !err && (i < serviceCount); i++) {
-                    err = dlog (client, "Service '%s' registered by server '%s'.  Status is %s.\n",
-                                (serviceArray[i][0] == '\0' ? "Unknown" : serviceArray[i]),
-                                (serverArray[i][0] == '\0' ? "Unknown" : serverArray[i]),
-                                ((serverStatusArray[i] == BOOTSTRAP_STATUS_ACTIVE) ? "Active" :
-                                 ((serverStatusArray[i] == BOOTSTRAP_STATUS_ON_DEMAND) ? 
-                                  "On-Demand" : "Inactive")));
-                }
-            } else {
-                // report bootstrap_info() failure (overwrites err)
-                err = dlog (client, "bootstrap_info() failed: %d '%s'\n", err, mach_error_string (err));
-            }        
-        } else {
-            // report task_get_bootstrap_port() failure (overwrites err)
-            err = dlog (client, "task_get_bootstrap_port() failed: %d '%s'\n", err, mach_error_string (err));
-        }
+	OSStatus              err = noErr;
+	SecuritySessionId     sessionID;
+	SessionAttributeBits  attributes;
+	
+	if (!err) {
+	    err = SessionGetInfo (callerSecuritySession, &sessionID, &attributes);
+	}
+	
+	if (!err) {
+	    dlog (client, "Security session is %ld (%s%s%s%s%s)", sessionID,
+		  (attributes & sessionWasInitialized) ? "inited," : "",
+		  (attributes & sessionIsRoot) ? "root," : "",
+		  (attributes & sessionHasGraphicAccess) ? "gui," : "",
+		  (attributes & sessionHasTTY) ? "tty," : "",
+		  (attributes & sessionIsRemote) ? "remote" : "local");
+	} else {
+	    dlog (client, "SessionGetInfo() failed: %ld", err);
+	}    
     }
 }
+

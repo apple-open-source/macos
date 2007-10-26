@@ -5,4 +5,4 @@ INCXLOCALE_INSTHDRS += __wctype.h _ctype.h _inttypes.h _langinfo.h \
 INCXLOCALE_INSTHDRS := ${INCXLOCALE_INSTHDRS:S/^/${.CURDIR}\/include\/xlocale\//}
 XLOCALE_INSTHDRS += ${INCXLOCALE_INSTHDRS}
 
-STRIP_HDRS += xlocale/_ctype.h
+STRIP_HDRS += xlocale/_ctype.h xlocale/_time.h xlocale/_wchar.h

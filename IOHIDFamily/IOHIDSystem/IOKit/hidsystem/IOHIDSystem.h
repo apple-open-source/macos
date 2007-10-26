@@ -50,11 +50,16 @@
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
-#include "ev_keymap.h"		/* For NX_NUM_SCANNED_SPECIALKEYS */
+#include <IOKit/IODataQueue.h>
+#include <IOKit/hid/IOHIDEvent.h>
+#include <IOKit/hidsystem/ev_keymap.h>		/* For NX_NUM_SCANNED_SPECIALKEYS */
 
            
 // The following messages should be unique across the entire system
+#ifndef sub_iokit_hidsystem
 #define sub_iokit_hidsystem                     err_sub(14)
+#endif
+
 #define kIOHIDSystem508MouseClickMessage        iokit_family_msg(sub_iokit_hidsystem, 1)
 #define kIOHIDSystemDeviceSeizeRequestMessage	iokit_family_msg(sub_iokit_hidsystem, 2)
 #define kIOHIDSystem508SpecialKeyDownMessage    iokit_family_msg(sub_iokit_hidsystem, 3)
@@ -68,6 +73,7 @@ class IOHIDSystem : public IOService
 
 	friend class IOHIDUserClient;
 	friend class IOHIDParamUserClient;
+	friend class IOHIDEventSystemUserClient;
 
 private:
 	IOWorkLoop *		workLoop;
@@ -88,14 +94,16 @@ private:
 	// Ports on which we hold send rights
 	mach_port_t	eventPort;	// Send msg here when event queue
 					// goes non-empty
+    mach_port_t stackShotPort;
 	mach_port_t	_specialKeyPort[NX_NUM_SCANNED_SPECIALKEYS]; // Special key msgs
 	void		*eventMsg;	// Msg to be sent to Window Server.
+	void		*stackShotMsg;	// Msg to be sent to Stack Shot.
 
 	// Shared memory area information
-        IOBufferMemoryDescriptor * globalMemory;
+    IOBufferMemoryDescriptor * globalMemory;
 	vm_offset_t	shmem_addr;	// kernel address of shared memory
 	vm_size_t	shmem_size;	// size of shared memory
-
+    
 	// Pointers to structures which occupy the shared memory area.
 	volatile void	*evs;		// Pointer to private driver shmem
 	volatile EvGlobals *evg;	// Pointer to EvGlobals (shmem)
@@ -112,24 +120,25 @@ private:
 	int		screens;	// running total of allocated screens
 	UInt32		cursorScreens;	// bit mask of screens with cursor present
         UInt32		cursorPinScreen;// a screen to pin against
-	Bounds		cursorPin;	// Range to which cursor is pinned
+	IOGBounds		cursorPin;	// Range to which cursor is pinned
 					// while on this screen.
-	Bounds		workSpace;	// Bounds of full workspace.
+	IOGBounds		workSpace;	// IOGBounds of full workspace.
 	// Event Status state - This includes things like event timestamps,
 	// time til screen dim, and related things manipulated through the
 	// Event Status API.
 	//
-	Point	pointerLoc;	// Current pointing device location
+	IOGPoint	pointerLoc;	// Current pointing device location
 				// The value leads evg->cursorLoc.
-        Point	pointerDelta;	// The cumulative pointer delta values since
+        IOGPoint	pointerDelta;	// The cumulative pointer delta values since
                                 // previous mouse move event was posted
                                 
-	Point	clickLoc;	// location of last mouse click
-	Point   clickSpaceThresh;	// max mouse delta to be a doubleclick
+	IOGPoint	clickLoc;	// location of last mouse click
+	IOGPoint   clickSpaceThresh;	// max mouse delta to be a doubleclick
 	int	clickState;	// Current click state
 
 	bool evOpenCalled;	// Has the driver been opened?
 	bool evInitialized;	// Has the first-open-only initialization run?
+    bool evStateChanging;   // Is the event system state changing.
 	bool eventsOpen;	// Boolean: has evmmap been called yet?
 	bool cursorStarted;	// periodic events running?
 	bool cursorEnabled;	// cursor positioning ok?
@@ -185,6 +194,14 @@ private:
 
         unsigned consumedKeyCode;
         
+    OSObject * lastSender;
+    
+        UInt32 scrollZoomMask;
+        
+    bool setParamPropertiesInProgress;
+    
+    OSSet * dataQueueSet;
+        
 private:
     void vblEvent(void);
     static void _vblEvent(OSObject *self, IOTimerEventSource *sender);
@@ -199,7 +216,7 @@ private:
   void     initShmem();
   /* Dispatch low level events through shared memory to the WindowServer */
   void postEvent(int           what,
-          /* at */       Point *       location,
+          /* at */       IOGPoint *       location,
           /* atTime */   AbsoluteTime  ts,
           /* withData */ NXEventData * myData,
           /* sender */   OSObject *    sender   = 0,
@@ -215,6 +232,9 @@ private:
                /* level */     unsigned l);
   /* Message the event consumer to process posted events */
   void kickEventConsumer();
+  void sendStackShotMessage();
+  
+  OSDictionary * createFilteredParamPropertiesForService(IOService * service, OSDictionary * dict);
 
   static void _periodicEvents(IOHIDSystem * self,
                               IOTimerEventSource *timer);
@@ -262,7 +282,7 @@ private:
   void animateWaitCursor();
   void changeCursor(int frame);
   // Return screen number a point lies on.
-  int  pointToScreen(Point * p);
+  int  pointToScreen(IOGPoint * p);
 
   inline void showCursor();
   inline void hideCursor();
@@ -274,16 +294,16 @@ private:
   bool registerEventSource(IOService * source);
 
   // Set abs cursor position.
-  void setCursorPosition(Point * newLoc, bool external, OSObject * sender=0);
+  void setCursorPosition(IOGPoint * newLoc, bool external, OSObject * sender=0);
   void _setButtonState(int buttons,
                        /* atTime */ AbsoluteTime ts,
                        OSObject * sender);
-  void _setCursorPosition(Point * newLoc, bool external, bool proximityChange = false, OSObject * sender=0);
+  void _setCursorPosition(IOGPoint * newLoc, bool external, bool proximityChange = false, OSObject * sender=0);
 
   static bool _idleTimeSerializerCallback(void * target, void * ref, OSSerialize *s);
 
   void _postMouseMoveEvent(int		what,
-                           Point *	location,
+                           IOGPoint *	location,
                            AbsoluteTime	theClock,
                            OSObject *	sender);
   void createParameters( void );
@@ -293,7 +313,7 @@ private:
 public:
   static IOHIDSystem * instance();     /* Return the current instance of the */
 				       /* EventDriver, or 0 if none. */
-  static void scaleLocationToCurrentScreen(Point *location, Bounds *bounds);
+  static void scaleLocationToCurrentScreen(IOGPoint *location, IOGBounds *bounds);
 
   virtual bool init(OSDictionary * properties = 0);
   virtual IOHIDSystem * probe(IOService *    provider,
@@ -313,6 +333,13 @@ public:
 
   /* Create the shared memory area */
   virtual IOReturn createShmem(void*,void*,void*,void*,void*,void*);
+
+  /* register the IODataQueue for the new user events */
+  virtual IOReturn registerEventQueue(IODataQueue * queue);
+
+  /* Unregister the IODataQueue for the new user events */
+  virtual IOReturn unregisterEventQueue(IODataQueue * queue);
+
   /* Set the port for event available notify msg */
   virtual void     setEventPort(mach_port_t port);
   /* Set the port for the special key keypress msg */
@@ -343,8 +370,8 @@ public:
 
   /* Tablet event reporting */
   virtual void absolutePointerEvent(int        buttons,
-                 /* at */           Point *    newLoc,
-                 /* withBounds */   Bounds *   bounds,
+                 /* at */           IOGPoint *    newLoc,
+                 /* withBounds */   IOGBounds *bounds,
                  /* inProximity */  bool       proximity,
                  /* withPressure */ int        pressure,
                  /* withAngle */    int        stylusAngle,
@@ -400,7 +427,7 @@ private:
    * statics for upstream callouts
    */
 
-  void _scaleLocationToCurrentScreen(Point *location, Point *fraction, Bounds *bounds);  // Should this one be public???
+  void _scaleLocationToCurrentScreen(IOGPoint *location, IOGPoint *fraction, IOGBounds *bounds);  // Should this one be public???
 
   static void _relativePointerEvent(IOHIDSystem * self,
 				    int        buttons,
@@ -413,8 +440,8 @@ private:
   /* Tablet event reporting */
   static void _absolutePointerEvent(IOHIDSystem * self,
 				    int        buttons,
-                 /* at */           Point *    newLoc,
-                 /* withBounds */   Bounds *   bounds,
+                 /* at */           IOGPoint *    newLoc,
+                 /* withBounds */   IOGBounds *bounds,
                  /* inProximity */  bool       proximity,
                  /* withPressure */ int        pressure,
                  /* withAngle */    int        stylusAngle,
@@ -511,7 +538,7 @@ public:
 
 public:
   virtual int registerScreen(IOGraphicsDevice * instance,
-             /* bounds */    Bounds * bp);
+             /* bounds */    IOGBounds * bp);
 //           /* shmem */     void **  addr,
 //           /* size */      int *    size)
   virtual void unregisterScreen(int index);
@@ -523,13 +550,13 @@ public:
  *
  * Absolute position input devices and some specialized output devices
  * may need to know the bounding rectangle for all attached displays.
- * The following method returns a Bounds* for the workspace.  Please note
+ * The following method returns a IOGBounds* for the workspace.  Please note
  * that the bounds are kept as signed values, and that on a multi-display
  * system the minx and miny values may very well be negative.
  */
 
 public:
-  virtual Bounds * workspaceBounds();
+  virtual IOGBounds * workspaceBounds();
 
 /* END HISTORICAL NOTES */
 
@@ -542,8 +569,8 @@ void relativePointerEvent(          int        buttons,
 
   /* Tablet event reporting */
 void absolutePointerEvent(          int        buttons,
-                 /* at */           Point *    newLoc,
-                 /* withBounds */   Bounds *   bounds,
+                 /* at */           IOGPoint *    newLoc,
+                 /* withBounds */   IOGBounds *bounds,
                  /* inProximity */  bool       proximity,
                  /* withPressure */ int        pressure,
                  /* withAngle */    int        stylusAngle,
@@ -612,14 +639,23 @@ void updateEventFlags(unsigned flags, OSObject * sender);
 static	IOReturn	doEvClose (IOHIDSystem *self);
         IOReturn	evCloseGated (void);
         
-static	IOReturn	doSetEventsEnable (IOHIDSystem *self, void *p1);
-        IOReturn	setEventsEnableGated (void *p1);
+static	IOReturn	doSetEventsEnablePre (IOHIDSystem *self, void *p1);
+        IOReturn	setEventsEnablePreGated (void *p1);
+
+static	IOReturn	doSetEventsEnablePost (IOHIDSystem *self, void *p1);
+        IOReturn	setEventsEnablePostGated (void *p1);
         
 static	IOReturn	doUnregisterScreen (IOHIDSystem *self, void * arg0);
         void		unregisterScreenGated (int index);
 
 static	IOReturn	doCreateShmem (IOHIDSystem *self, void * arg0);
         IOReturn	createShmemGated (void * p1);
+
+static	IOReturn	doRegisterEventQueue (IOHIDSystem *self, void * arg0);
+        IOReturn	registerEventQueueGated (void * p1);
+
+static	IOReturn	doUnregisterEventQueue (IOHIDSystem *self, void * arg0);
+        IOReturn	unregisterEventQueueGated (void * p1);
 
 static	IOReturn	doRelativePointerEvent (IOHIDSystem *self, void * args);
         void		relativePointerEventGated(int buttons, 
@@ -630,8 +666,8 @@ static	IOReturn	doRelativePointerEvent (IOHIDSystem *self, void * args);
 
 static	IOReturn	doAbsolutePointerEvent (IOHIDSystem *self, void * args);        
         void 		absolutePointerEventGated (int buttons,
-                                                    Point *    newLoc,
-                                                    Bounds *   bounds,
+                                                    IOGPoint *    newLoc,
+                                                    IOGBounds *bounds,
                                                     bool       proximity,
                                                     int        pressure,
                                                     int        stylusAngle,
@@ -708,10 +744,20 @@ static	IOReturn	doExtSetMouseLocation (IOHIDSystem *self, void * args);
 static	IOReturn	doExtGetButtonEventNum (IOHIDSystem *self, void * arg0, void * arg1);        
         IOReturn	extGetButtonEventNumGated (void * p1, void * p2);
 
-static	IOReturn	doSetParamProperties (IOHIDSystem *self, void * arg0);        
-        IOReturn	setParamPropertiesGated (OSDictionary * dict);
+static	IOReturn	doSetParamPropertiesPre (IOHIDSystem *self, void * arg0, void * arg1);        
+        IOReturn	setParamPropertiesPreGated (OSDictionary * dict, OSIterator ** pOpenIter);
+
+static	IOReturn	doSetParamPropertiesPost (IOHIDSystem *self, void * arg0);        
+        IOReturn	setParamPropertiesPostGated (OSDictionary * dict);
         
 /* END COMMAND GATE COMPATIBILITY */
+
+public:
+    virtual void setStackShotPort(mach_port_t port);
+    
+    virtual UInt32 eventFlags();
+    
+    virtual void dispatchEvent(IOHIDEvent *event, IOOptionBits options=0);
 
 };
 

@@ -6,13 +6,13 @@
   Implementation of a FILE* based TidyInputSource and 
   TidyOutputSink.
 
-  (c) 1998-2003 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2005 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
 
   CVS Info:
-    $Author: rbraun $ 
-    $Date: 2004/05/04 20:05:14 $ 
-    $Revision: 1.1.1.1 $ 
+    $Author: jkahn $ 
+    $Date: 2006/06/20 21:17:30 $ 
+    $Revision: 1.2 $ 
 */
 
 #include "buffio.h"
@@ -21,16 +21,16 @@ extern "C" {
 #endif
 
 /** Allocate and initialize file input source */
-void initFileSource( TidyInputSource* source, FILE* fp );
+void TIDY_CALL initFileSource( TidyInputSource* source, FILE* fp );
 
 /** Free file input source */
-void freeFileSource( TidyInputSource* source, Bool closeIt );
+void TIDY_CALL freeFileSource( TidyInputSource* source, Bool closeIt );
 
 /** Initialize file output sink */
-void initFileSink( TidyOutputSink* sink, FILE* fp );
+void TIDY_CALL initFileSink( TidyOutputSink* sink, FILE* fp );
 
 /* Needed for internal declarations */
-void filesink_putByte( ulong sinkData, byte bv );
+void TIDY_CALL filesink_putByte( ulong sinkData, byte bv );
 
 #ifdef __cplusplus
 }

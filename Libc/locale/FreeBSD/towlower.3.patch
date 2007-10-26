@@ -1,6 +1,6 @@
---- towlower.3.orig	Fri Mar 11 19:44:47 2005
-+++ towlower.3	Fri Mar 11 19:50:47 2005
-@@ -40,7 +40,8 @@
+--- _SB/Libc/locale/FreeBSD/towlower.3	2003-05-20 15:21:44.000000000 -0700
++++ _SB/Libc/locale/FreeBSD/towlower.3.edit	2006-06-28 16:55:51.000000000 -0700
+@@ -40,29 +40,48 @@
  .Dt TOWLOWER 3
  .Os
  .Sh NAME
@@ -10,20 +10,27 @@
  .Nd "upper case to lower case letter conversion (wide character version)"
  .Sh LIBRARY
  .Lb libc
-@@ -48,11 +49,22 @@
+ .Sh SYNOPSIS
  .In wctype.h
  .Ft wint_t
- .Fn towlower "wint_t wc"
+-.Fn towlower "wint_t wc"
++.Fo towlower
++.Fa "wint_t wc"
++.Fc
++.In wctype.h
 +.In xlocale.h
 +.Ft wint_t
-+.Fn towlower_l "wint_t wc" "locale_t loc"
++.Fo towlower_l
++.Fa "wint_t wc"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn towlower
  function converts an upper-case letter to the corresponding lower-case
  letter.
 +.Pp
-+While the
++Although the
 +.Fn towlower
 +function uses the current locale, the
 +.Fn towlower_l
@@ -33,7 +40,10 @@
  .Sh RETURN VALUES
  If the argument is an upper-case letter, the
  .Fn towlower
-@@ -62,7 +74,8 @@
+ function returns the corresponding lower-case letter if there is
+-one; otherwise the argument is returned unchanged.
++one; otherwise, the argument is returned unchanged.
+ .Sh SEE ALSO
  .Xr iswlower 3 ,
  .Xr tolower 3 ,
  .Xr towupper 3 ,

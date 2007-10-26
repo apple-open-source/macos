@@ -1,0 +1,19 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN"[
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+<!ENTITY % mdefs SYSTEM "mdefs.ent"> %mdefs;
+]>
+ 
+<article>
+
+<!-- Title information -->
+<title>Documentation for the X Window System Version 11 Release &relvers; (X11R&relvers;)
+<author>The X.Org Foundation
+<date>&reldate;
+
+<!--
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/index.pre,v 1.23 2004/02/15 02:16:49 dawes Exp $ 
+-->
+
+<p>
+<itemize>
+

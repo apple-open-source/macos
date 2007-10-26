@@ -1,6 +1,7 @@
 ;;; lucid.el --- emulate some Lucid Emacs functions
 
-;; Copyright (C) 1993, 1995, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1995, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: emulations
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -30,33 +31,6 @@
 (require 'cl)
 
 (defalias 'current-time-seconds 'current-time)
-
-(defun map-keymap (function keymap &optional sort-first)
-  "Call FUNCTION for every binding in KEYMAP.
-This does not include bindings inherited from a parent keymap.
-FUNCTION receives two arguments each time it is called:
-the character (more generally, the event type) that is bound,
-and the binding it has.
-
-Note that passing the event type directly to `define-key' does not work
-in Emacs 19.  We do not emulate that particular feature of Lucid Emacs.
-If your code does that, modify it to make a vector containing the event
-type that you get.  That will work in both versions of Emacs."
-  (if sort-first
-      (let (list)
-	(cl-map-keymap (lambda (a b) (push (cons a b) list))
-		       keymap)
-	(setq list (sort list
-			 (lambda (a b)
-			   (setq a (car a) b (car b))
-			   (if (integerp a)
-			       (if (integerp b) (< a b)
-				 t)
-			     (if (integerp b) t
-			       (string< a b))))))
-	(dolist (p list)
-	  (funcall function (car p) (cdr p))))
-    (cl-map-keymap function keymap)))
 
 (defun read-number (prompt &optional integers-only)
   "Read a number from the minibuffer.
@@ -107,12 +81,43 @@ bottom of the buffer stack."
 		      (list buf)))
 		  (buffer-list)))))))
 
+(defun device-class (&optional device)
+  "Return the class (color behavior) of DEVICE.
+This will be one of 'color, 'grayscale, or 'mono.
+This function exists for compatibility with XEmacs."
+  (cond
+   ((display-color-p device) 'color)
+   ((display-grayscale-p device) 'grayscale)
+   (t 'mono)))
+
 (defalias 'find-face 'internal-find-face)
 (defalias 'get-face 'internal-get-face)
 (defalias 'try-face-font 'internal-try-face-font)
 
 (defalias 'exec-to-string 'shell-command-to-string)
 
+
+;; Buffer context
+
+(defun buffer-syntactic-context (&optional buffer)
+  "Syntactic context at point in BUFFER.
+Either of `string', `comment' or nil.
+This is an XEmacs compatibility function."
+  (with-current-buffer (or buffer (current-buffer))
+    (let ((state (syntax-ppss (point))))
+      (cond
+       ((nth 3 state) 'string)
+       ((nth 4 state) 'comment)))))
+
+
+(defun buffer-syntactic-context-depth (&optional buffer)
+  "Syntactic parenthesis depth at point in BUFFER.
+This is an XEmacs compatibility function."
+  (with-current-buffer (or buffer (current-buffer))
+    (nth 0 (syntax-ppss (point)))))
+
+
+;; Extents
 (defun make-extent (beg end &optional buffer)
   (make-overlay beg end buffer))
 
@@ -229,4 +234,5 @@ bottom of the buffer stack."
 
 (provide 'lucid)
 
+;;; arch-tag: 80f9ab46-0b36-4151-86ed-3edb6d449c9e
 ;;; lucid.el ends here

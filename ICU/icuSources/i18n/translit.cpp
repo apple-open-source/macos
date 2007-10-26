@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -46,6 +46,7 @@
 #include "uassert.h"
 #include "cmemory.h"
 #include "cstring.h"
+#include "uinvchar.h"
 
 static const UChar TARGET_SEP  = 0x002D; /*-*/
 static const UChar ID_DELIM    = 0x003B; /*;*/
@@ -106,7 +107,7 @@ UOBJECT_DEFINE_ABSTRACT_RTTI_IMPLEMENTATION(Transliterator)
  * Return TRUE if the given UTransPosition is valid for text of
  * the given length.
  */
-inline UBool positionIsValid(UTransPosition& index, int32_t len) {
+static inline UBool positionIsValid(UTransPosition& index, int32_t len) {
     return !(index.contextStart < 0 ||
              index.start < index.contextStart ||
              index.limit < index.start ||
@@ -125,17 +126,20 @@ inline UBool positionIsValid(UTransPosition& index, int32_t len) {
 Transliterator::Transliterator(const UnicodeString& theID,
                                UnicodeFilter* adoptedFilter) :
     UObject(), ID(theID), filter(adoptedFilter),
-    maximumContextLength(0) {
-
-    // NUL-terminate the ID string
-    ID.getTerminatedBuffer();
+    maximumContextLength(0)
+{
+    // NUL-terminate the ID string, which is a non-aliased copy.
+    ID.append((UChar)0);
+    ID.truncate(ID.length()-1);
 }
 
 /**
  * Destructor.
  */
 Transliterator::~Transliterator() {
-    delete filter;
+    if (filter) {
+        delete filter;
+    }
 }
 
 /**
@@ -143,15 +147,20 @@ Transliterator::~Transliterator() {
  */
 Transliterator::Transliterator(const Transliterator& other) :
     UObject(other), ID(other.ID), filter(0),
-    maximumContextLength(other.maximumContextLength) {
-
-    // NUL-terminate the ID string
-    ID.getTerminatedBuffer();
+    maximumContextLength(other.maximumContextLength)
+{
+    // NUL-terminate the ID string, which is a non-aliased copy.
+    ID.append((UChar)0);
+    ID.truncate(ID.length()-1);
 
     if (other.filter != 0) {
         // We own the filter, so we must have our own copy
         filter = (UnicodeFilter*) other.filter->clone();
     }
+}
+
+Transliterator* Transliterator::clone() const {
+    return NULL;
 }
 
 /**
@@ -746,65 +755,69 @@ UnicodeString& U_EXPORT2 Transliterator::getDisplayName(const UnicodeString& id,
     ID.append(TARGET_SEP).append(target).append(variant);
 
     // build the char* key
-    char key[200];
-    uprv_strcpy(key, RB_DISPLAY_NAME_PREFIX);
-    int32_t length=(int32_t)uprv_strlen(RB_DISPLAY_NAME_PREFIX);
-    ID.extract(0, (int32_t)(sizeof(key)-length), key+length, "");
+    if (uprv_isInvariantUString(ID.getBuffer(), ID.length())) {
+        char key[200];
+        uprv_strcpy(key, RB_DISPLAY_NAME_PREFIX);
+        int32_t length=(int32_t)uprv_strlen(RB_DISPLAY_NAME_PREFIX);
+        ID.extract(0, (int32_t)(sizeof(key)-length), key+length, (int32_t)(sizeof(key)-length), US_INV);
 
-    // Try to retrieve a UnicodeString from the bundle.
-    UnicodeString resString = bundle.getStringEx(key, status);
+        // Try to retrieve a UnicodeString from the bundle.
+        UnicodeString resString = bundle.getStringEx(key, status);
 
-    if (U_SUCCESS(status) && resString.length() != 0) {
-        return result = resString; // [sic] assign & return
-    }
+        if (U_SUCCESS(status) && resString.length() != 0) {
+            return result = resString; // [sic] assign & return
+        }
 
 #if !UCONFIG_NO_FORMATTING
-    // We have failed to get a name from the locale data.  This is
-    // typical, since most transliterators will not have localized
-    // name data.  The next step is to retrieve the MessageFormat
-    // pattern from the locale data and to use it to synthesize the
-    // name from the ID.
+        // We have failed to get a name from the locale data.  This is
+        // typical, since most transliterators will not have localized
+        // name data.  The next step is to retrieve the MessageFormat
+        // pattern from the locale data and to use it to synthesize the
+        // name from the ID.
 
-    status = U_ZERO_ERROR;
-    resString = bundle.getStringEx(RB_DISPLAY_NAME_PATTERN, status);
+        status = U_ZERO_ERROR;
+        resString = bundle.getStringEx(RB_DISPLAY_NAME_PATTERN, status);
 
-    if (U_SUCCESS(status) && resString.length() != 0) {
-        MessageFormat msg(resString, inLocale, status);
-        // Suspend checking status until later...
+        if (U_SUCCESS(status) && resString.length() != 0) {
+            MessageFormat msg(resString, inLocale, status);
+            // Suspend checking status until later...
 
-        // We pass either 2 or 3 Formattable objects to msg.
-        Formattable args[3];
-        int32_t nargs;
-        args[0].setLong(2); // # of args to follow
-        args[1].setString(source);
-        args[2].setString(target);
-        nargs = 3;
+            // We pass either 2 or 3 Formattable objects to msg.
+            Formattable args[3];
+            int32_t nargs;
+            args[0].setLong(2); // # of args to follow
+            args[1].setString(source);
+            args[2].setString(target);
+            nargs = 3;
 
-        // Use display names for the scripts, if they exist
-        UnicodeString s;
-        length=(int32_t)uprv_strlen(RB_SCRIPT_DISPLAY_NAME_PREFIX);
-        for (int j=1; j<=2; ++j) {
+            // Use display names for the scripts, if they exist
+            UnicodeString s;
+            length=(int32_t)uprv_strlen(RB_SCRIPT_DISPLAY_NAME_PREFIX);
+            for (int j=1; j<=2; ++j) {
+                status = U_ZERO_ERROR;
+                uprv_strcpy(key, RB_SCRIPT_DISPLAY_NAME_PREFIX);
+                args[j].getString(s);
+                if (uprv_isInvariantUString(s.getBuffer(), s.length())) {
+                    s.extract(0, sizeof(key)-length-1, key+length, (int32_t)sizeof(key)-length-1, US_INV);
+
+                    resString = bundle.getStringEx(key, status);
+
+                    if (U_SUCCESS(status)) {
+                        args[j] = resString;
+                    }
+                }
+            }
+
             status = U_ZERO_ERROR;
-            uprv_strcpy(key, RB_SCRIPT_DISPLAY_NAME_PREFIX);
-            args[j].getString(s);
-            s.extract(0, sizeof(key)-length-1, key+length, "");
-
-            resString = bundle.getStringEx(key, status);
-
+            FieldPosition pos; // ignored by msg
+            msg.format(args, nargs, result, pos, status);
             if (U_SUCCESS(status)) {
-                args[j] = resString;
+                result.append(variant);
+                return result;
             }
         }
-        
-        status = U_ZERO_ERROR;
-        FieldPosition pos; // ignored by msg
-        msg.format(args, nargs, result, pos, status);
-        if (U_SUCCESS(status)) {
-            result.append(variant);
-            return result;
-        }
-    }
 #endif
+    }
 
     // We should not reach this point unless there is something
     // wrong with the build or the RB_DISPLAY_NAME_PATTERN has
@@ -916,30 +929,26 @@ Transliterator::createInstance(const UnicodeString& ID,
         return NULL;
     }
     
-    TransliteratorIDParser::instantiateList(list, NULL, -1, status);
+    TransliteratorIDParser::instantiateList(list, status);
     if (U_FAILURE(status)) {
         return NULL;
     }
     
     U_ASSERT(list.size() > 0);
     Transliterator* t = NULL;
-    switch (list.size()) {
-    case 1:
-        t = (Transliterator*) list.elementAt(0);
-        break;
-    default:
+    
+    if (list.size() > 1 || canonID.indexOf(ID_DELIM) >= 0) {
+        // [NOTE: If it's a compoundID, we instantiate a CompoundTransliterator even if it only
+        // has one child transliterator.  This is so that toRules() will return the right thing
+        // (without any inactive ID), but our main ID still comes out correct.  That is, if we
+        // instantiate "(Lower);Latin-Greek;", we want the rules to come out as "::Latin-Greek;"
+        // even though the ID is "(Lower);Latin-Greek;".
         t = new CompoundTransliterator(list, parseError, status);
-        /* test for NULL */
-        if (t == 0) {
-            status = U_MEMORY_ALLOCATION_ERROR;
-            return 0;
-        }
-        if (U_FAILURE(status)) {
-            delete t;
-            return NULL;
-        }
-        break;
     }
+    else {
+        t = (Transliterator*)list.elementAt(0);
+    }
+    
     t->setID(canonID);
     if (globalFilter != NULL) {
         t->adoptFilter(globalFilter);
@@ -989,7 +998,7 @@ Transliterator* Transliterator::createBasicInstance(const UnicodeString& id,
         // Other aliases are handled with TransliteratorAlias::create().
         if (alias->isRuleBased()) {
             // Step 1. parse
-            TransliteratorParser parser;
+            TransliteratorParser parser(ec);
             alias->parse(parser, pe, ec);
             delete alias;
             alias = 0;
@@ -1040,7 +1049,7 @@ Transliterator::createFromRules(const UnicodeString& ID,
 {
     Transliterator* t = NULL;
 
-    TransliteratorParser parser;
+    TransliteratorParser parser(status);
     parser.parse(rules, dir, parseError, status);
 
     if (U_FAILURE(status)) {
@@ -1048,59 +1057,62 @@ Transliterator::createFromRules(const UnicodeString& ID,
     }
 
     // NOTE: The logic here matches that in TransliteratorRegistry.
-    if (parser.idBlock.length() == 0) {
-        if (parser.data == NULL) {
-            // No idBlock, no data -- this is just an
-            // alias for Null
-            t = new NullTransliterator();
-        } else {
-            // No idBlock, data != 0 -- this is an
-            // ordinary RBT_DATA.
-            t = new RuleBasedTransliterator(ID, parser.orphanData(), TRUE); // TRUE == adopt data object
+    if (parser.idBlockVector.size() == 0 && parser.dataVector.size() == 0) {
+        t = new NullTransliterator();
+    }
+    else if (parser.idBlockVector.size() == 0 && parser.dataVector.size() == 1) {
+        t = new RuleBasedTransliterator(ID, (TransliterationRuleData*)parser.dataVector.orphanElementAt(0), TRUE);
+    }
+    else if (parser.idBlockVector.size() == 1 && parser.dataVector.size() == 0) {
+        // idBlock, no data -- this is an alias.  The ID has
+        // been munged from reverse into forward mode, if
+        // necessary, so instantiate the ID in the forward
+        // direction.
+        if (parser.compoundFilter != NULL) {
+            UnicodeString filterPattern;
+            parser.compoundFilter->toPattern(filterPattern, FALSE);
+            t = createInstance(filterPattern + UnicodeString(ID_DELIM)
+                    + *((UnicodeString*)parser.idBlockVector.elementAt(0)), UTRANS_FORWARD, parseError, status);
         }
-        /* test for NULL */
-        if (t == 0) {
-            status = U_MEMORY_ALLOCATION_ERROR;
-            return 0;
-        }
-    } else {
-        if (parser.data == NULL) {
-            // idBlock, no data -- this is an alias.  The ID has
-            // been munged from reverse into forward mode, if
-            // necessary, so instantiate the ID in the forward
-            // direction.
-            t = createInstance(parser.idBlock, UTRANS_FORWARD, parseError, status);
-            if (t != NULL) {
-                t->setID(ID);
-            }
-        } else {
-            // idBlock and data -- this is a compound
-            // RBT
-            UnicodeString id((UChar)0x005F); // '_'
-            t = new RuleBasedTransliterator(id, parser.orphanData(), TRUE); // TRUE == adopt data object
-            /* test for NULL */
-            if (t == 0) {
-                status = U_MEMORY_ALLOCATION_ERROR;
-                return 0;
-            }
-            t = new CompoundTransliterator(ID, parser.idBlock, parser.idSplitPoint,
-                                           t, status);
-            /* test for NULL */
-            if (t == 0) {
-                status = U_MEMORY_ALLOCATION_ERROR;
-                return 0;
-            }
-            if (U_FAILURE(status)) {
-                delete t;
-                t = 0;
-            }
-            if (parser.compoundFilter != NULL) {
-                t->adoptFilter(parser.orphanCompoundFilter());
-            }
-            return t;
+        else
+            t = createInstance(*((UnicodeString*)parser.idBlockVector.elementAt(0)), UTRANS_FORWARD, parseError, status);
+
+
+        if (t != NULL) {
+            t->setID(ID);
         }
     }
+    else {
+        UVector transliterators(status);
+        int32_t passNumber = 1;
 
+        int32_t limit = parser.idBlockVector.size();
+        if (parser.dataVector.size() > limit)
+            limit = parser.dataVector.size();
+
+        for (int32_t i = 0; i < limit; i++) {
+            if (i < parser.idBlockVector.size()) {
+                UnicodeString* idBlock = (UnicodeString*)parser.idBlockVector.elementAt(i);
+                if (!idBlock->isEmpty()) {
+                    Transliterator* temp = createInstance(*idBlock, UTRANS_FORWARD, parseError, status);
+                    if (temp != NULL && temp->getDynamicClassID() != NullTransliterator::getStaticClassID())
+                        transliterators.addElement(temp, status);
+                    else
+                        delete temp;
+                }
+            }
+            if (!parser.dataVector.isEmpty()) {
+                TransliterationRuleData* data = (TransliterationRuleData*)parser.dataVector.orphanElementAt(0);
+                transliterators.addElement(
+                    new RuleBasedTransliterator(UnicodeString(CompoundTransliterator::PASS_STRING) + (passNumber++),
+                    data, TRUE), status);
+            }
+        }
+
+        t = new CompoundTransliterator(transliterators, passNumber - 1, parseError, status);
+        t->setID(ID);
+        t->adoptFilter(parser.orphanCompoundFilter());
+    }
     return t;
 }
 
@@ -1230,6 +1242,20 @@ void U_EXPORT2 Transliterator::registerInstance(Transliterator* adoptedPrototype
 
 void Transliterator::_registerInstance(Transliterator* adoptedPrototype) {
     registry->put(adoptedPrototype, TRUE);
+}
+
+void U_EXPORT2 Transliterator::registerAlias(const UnicodeString& aliasID,
+                                             const UnicodeString& realID) {
+    umtx_init(&registryMutex);
+    Mutex lock(&registryMutex);
+    if (HAVE_REGISTRY) {
+        _registerAlias(aliasID, realID);
+    }
+}
+
+void Transliterator::_registerAlias(const UnicodeString& aliasID,
+                                    const UnicodeString& realID) {
+    registry->put(aliasID, realID, FALSE, TRUE);
 }
 
 /**
@@ -1463,13 +1489,15 @@ UBool Transliterator::initializeRegistry() {
         for (row = 0; row < maxRows; row++) {
             colBund = ures_getByIndex(transIDs, row, 0, &status);
             if (U_SUCCESS(status)) {
-                UnicodeString id(ures_getKey(colBund));
+                UnicodeString id(ures_getKey(colBund), -1, US_INV);
                 UResourceBundle* res = ures_getNextResource(colBund, NULL, &status);
                 const char* typeStr = ures_getKey(res);
                 UChar type;
                 u_charsToUChars(typeStr, &type, 1);
 
                 if (U_SUCCESS(status)) {
+                    int32_t len = 0;
+                    const UChar *resString;
                     switch (type) {
                     case 0x66: // 'f'
                     case 0x69: // 'i'
@@ -1477,19 +1505,19 @@ UBool Transliterator::initializeRegistry() {
                         // row[2]=resource, row[3]=direction
                         {
                             
-                            UnicodeString resString = ures_getUnicodeStringByKey(res, "resource", &status);
+                            resString = ures_getStringByKey(res, "resource", &len, &status);
                             UBool visible = (type == 0x0066 /*f*/);
                             UTransDirection dir = 
                                 (ures_getUnicodeStringByKey(res, "direction", &status).charAt(0) ==
                                  0x0046 /*F*/) ?
                                 UTRANS_FORWARD : UTRANS_REVERSE;
-                            registry->put(id, resString, dir, visible);
+                            registry->put(id, UnicodeString(TRUE, resString, len), dir, TRUE, visible);
                         }
                         break;
                     case 0x61: // 'a'
                         // 'alias'; row[2]=createInstance argument
-                        UnicodeString resString = ures_getUnicodeString(res, &status);
-                        registry->put(id, resString, TRUE);
+                        resString = ures_getString(res, &len, &status);
+                        registry->put(id, UnicodeString(TRUE, resString, len), TRUE, TRUE);
                         break;
                     }
                 }
@@ -1519,8 +1547,8 @@ UBool Transliterator::initializeRegistry() {
     NormalizationTransliterator::registerIDs();
     AnyTransliterator::registerIDs();
 
-    _registerSpecialInverse(NullTransliterator::SHORT_ID,
-                            NullTransliterator::SHORT_ID, FALSE);
+    _registerSpecialInverse(UNICODE_STRING_SIMPLE("Null"),
+                            UNICODE_STRING_SIMPLE("Null"), FALSE);
     _registerSpecialInverse(UNICODE_STRING_SIMPLE("Upper"),
                             UNICODE_STRING_SIMPLE("Lower"), TRUE);
     _registerSpecialInverse(UNICODE_STRING_SIMPLE("Title"),

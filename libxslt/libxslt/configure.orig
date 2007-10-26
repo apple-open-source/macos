@@ -1588,12 +1588,12 @@ host_os=`echo $ac_cv_host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
 
 LIBXSLT_MAJOR_VERSION=1
 LIBXSLT_MINOR_VERSION=1
-LIBXSLT_MICRO_VERSION=11
+LIBXSLT_MICRO_VERSION=12
 PACKAGE=libxslt
 LIBEXSLT_MAJOR_VERSION=0
 LIBEXSLT_MINOR_VERSION=8
-LIBEXSLT_MICRO_VERSION=9
-LIBXML_REQUIRED_VERSION=2.6.8
+LIBEXSLT_MICRO_VERSION=10
+LIBXML_REQUIRED_VERSION=2.6.15 # needs new API xmlNewDocPI
 
 
 LIBXSLT_VERSION=$LIBXSLT_MAJOR_VERSION.$LIBXSLT_MINOR_VERSION.$LIBXSLT_MICRO_VERSION
@@ -21689,7 +21689,7 @@ done
 
 
 
-for ac_func in mktime localtime localtime_r asctime time gmtime ftime
+for ac_func in mktime localtime localtime_r asctime time gmtime_r ftime
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -21901,6 +21901,7 @@ else
   NEED_TRIO=1
 fi
 done
+
 
 
 if test "${NEED_TRIO}" = "1" ; then

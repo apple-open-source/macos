@@ -60,100 +60,227 @@ mi_get_bp_stopped "1" "\[01\]" "" "foo4" "callfuncs.c" ".*" "run to foo4"
 
 mi_gdb_test "103-mi-verify-command stack-list-frames-lite" {103\^done,name="stack-list-frames-lite",defined="true",implemented="true"} "Verify stack-list-frames-lite defined"
 
+mi_gdb_test "200-stack-list-frames-lite -limit" {200\^error,msg="mi_cmd_stack_list_frames_lite: No argument to -limit."} "-stack-list-frames-lite catch no argument to -limit error"
+
+mi_gdb_test "201-stack-list-frames-lite -names" {201\^error,msg="mi_cmd_stack_list_frames_lite: No argument to -names."} "-stack-list-frames-lite catch no argument to -names error"
+
+mi_gdb_test "202-stack-list-frames-lite -names -limit" {202\^error,msg="mi_cmd_stack_list_frames_lite: Invalid argument to -names."} "-stack-list-frames-lite catch no argument to -names -limit error"
+
 mi_gdb_test "104-stack-list-frames-lite -limit 500" \
-  "104\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\},2=\{pc=\"$hex\",fp=\"$hex\"\},3=\{pc=\"$hex\",fp=\"$hex\"\},4=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"5\"" "-stack-list-frames-lite works"
+  "104\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\},2=\{pc=\"$hex\",fp=\"$hex\"\},3=\{pc=\"$hex\",fp=\"$hex\"\},4=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"5\"" "-stack-list-frames-lite -limit 500 works"
 
 mi_gdb_test "105-stack-info-depth" \
   "105\\^done,depth=\"5\"" "check stack depth is as expected"
 
-# SWEET GOD I HATE TCL DIE DIE DIE DIE EVIL TCL DIE EVIL TCL
-#
-#send_gdb "110-stack-list-frames 0 3\n"
-#gdb_expect {
-#  -re "110\\^done,stack=\\\[frame=\{level=\"0\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo4\",.*\},frame=\{level=\"1\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo3\",.*\},frame=\{level=\"2\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo2\",.*\},frame=\{level=\"3\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo1\",.*\}\\\]\[\r\n\]+$mi_gdb_prompt$" {
-#    pass "get values from stack-list-frames"
-#    set foo4_addr $expect_out(1, string)
-#    set foo4_fp $expect_out(2, string)
-#    set foo3_addr $expect_out(3, string)
-#    set foo3_fp $expect_out(4, string)
-#    set foo2_addr $expect_out(5, string)
-#    set foo2_fp $expect_out(6, string)
-#    set foo1_addr $expect_out(7, string)
-#    set foo1_fp $expect_out(8, string)
-#  }
-#  -re ".*$mi_gdb_prompt$" {
-#    fail "get values from stack-list-frames"
-#  }
-#  timeout {
-#    fail "(timeout) get values from stack-list-frames"
-#  }
-#}
-#
-#send_gdb "120-stack-list-frames-lite -limit 500\n"
-#gdb_expect {
-#  -re "120\\^done,frames=\\\[0=\{pc=\"($hex)\",fp=\"($hex)\"\},1=\{pc=\"($hex)\",fp=\"($hex)\"\},2=\{pc=\"($hex)\",fp=\"($hex)\"\},3=\{pc=\"($hex)\",fp=\"($hex)\"\},4=\{pc=\"($hex)\",fp=\"($hex)\"\}\\\],valid=\"1\",count=\"5\"\[\r\n\]+$mi_gdb_prompt$" {
-#  pass "get values from stack-list-frames-lite"
-#  set foo4_lite_addr $expect_out(1, string)
-#  set foo4_lite_fp $expect_out(2, string)
-#  set foo3_lite_addr $expect_out(3, string)
-#  set foo3_lite_fp $expect_out(4, string)
-#  set foo2_lite_addr $expect_out(5, string)
-#  set foo2_lite_fp $expect_out(6, string)
-#  set foo1_lite_addr $expect_out(7, string)
-#  set foo1_lite_fp $expect_out(8, string)
-#  }
-#  -re ".*$mi_gdb_prompt$" {
-#    fail "get values from stack-list-frames-lite"
-#  }
-#  timeout {
-#    fail "(timeout) get values from stack-list-frames-lite"
-#  }
-#}
-#
-#if {$foo4_addr == $foo4_lite_addr} {
-#  pass "foo4() address from stack-list-frames and stack-list-frames-lite matches"
-#} else {
-#  fail "foo4() address from stack-list-frames and stack-list-frames-lite matches"
-#}
-#if {$foo4_fp == $foo4_lite_fp} {
-#  pass "foo4() fp from stack-list-frames and stack-list-frames-lite matches"
-#} else {
-#  fail "foo4() fp from stack-list-frames and stack-list-frames-lite matches"
-#}
-#
-#if {$foo3_addr == $foo3_lite_addr} {
-#  pass "foo3() address from stack-list-frames and stack-list-frames-lite matches"
-#} else {
-#  fail "foo3() address from stack-list-frames and stack-list-frames-lite matches"
-#}
-#if {$foo3_fp == $foo3_lite_fp} {
-#  pass "foo3() fp from stack-list-frames and stack-list-frames-lite matches"
-#} else {
-#  fail "foo3() fp from stack-list-frames and stack-list-frames-lite matches"
-#}
-#
-#if {$foo2_addr == $foo2_lite_addr} {
-#  pass "foo2() address from stack-list-frames and stack-list-frames-lite matches"
-#} else {
-#  fail "foo2() address from stack-list-frames and stack-list-frames-lite matches"
-#}
-#if {$foo2_fp == $foo2_lite_fp} {
-#  pass "foo2() fp from stack-list-frames and stack-list-frames-lite matches"
-#} else {
-#  fail "foo2() fp from stack-list-frames and stack-list-frames-lite matches"
-#}
-#
-#if {$foo1_addr == $foo1_lite_addr} {
-#  pass "foo1() address from stack-list-frames and stack-list-frames-lite matches"
-#} else {
-#  fail "foo1() address from stack-list-frames and stack-list-frames-lite matches"
-#}
-#if {$foo1_fp == $foo1_lite_fp} {
-#  pass "foo1() fp from stack-list-frames and stack-list-frames-lite matches"
-#} else {
-#  fail "foo1() fp from stack-list-frames and stack-list-frames-lite matches"
-#}
-#
+mi_gdb_test "106-stack-list-frames-lite -limit 2" \
+  "106\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"5\"" "-stack-list-frames-lite -limit 2 works"
+
+# Go to a deeper function.
+
+
+send_gdb "110-break-insert foo8\n"
+gdb_expect {
+    -re "110\\^done,bkpt=\{number=\"2\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*foo8.*\",file=\".*callfuncs.c\",line=\"($decimal)\",shlib=\"$binfile\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
+    pass "break-insert foo8"
+  }
+  -re ".*$mi_gdb_prompt$" {
+    fail "break-insert foo8"
+  }
+  timeout {
+    fail "(timeout) break-insert foo8"
+  }
+}
+
+send_gdb "000-exec-continue\n"
+
+mi_get_bp_stopped "2" "\[01\]" "" "foo8" "callfuncs.c" ".*" "run to foo8"
+
+mi_gdb_test "114-stack-list-frames-lite -limit 500" \
+  "114\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\},2=\{pc=\"$hex\",fp=\"$hex\"\},3=\{pc=\"$hex\",fp=\"$hex\"\},4=\{pc=\"$hex\",fp=\"$hex\"\},5=\{pc=\"$hex\",fp=\"$hex\"\},6=\{pc=\"$hex\",fp=\"$hex\"\},7=\{pc=\"$hex\",fp=\"$hex\"\},8=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -limit 500 works"
+
+mi_gdb_test "115-stack-info-depth" \
+  "115\\^done,depth=\"9\"" "check stack depth is as expected"
+
+mi_gdb_test "116-stack-list-frames-lite -limit 2" \
+  "116\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -limit 2 works"
+
+mi_gdb_test "116-stack-list-frames-lite -limit 2 -names 1" \
+  "116\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\",func=\"foo8\"\},1=\{pc=\"$hex\",fp=\"$hex\",func=\"foo7\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -limit 2 -names works"
+
+mi_gdb_test "117-stack-list-frames-lite -limit 7" \
+  "117\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\},2=\{pc=\"$hex\",fp=\"$hex\"\},3=\{pc=\"$hex\",fp=\"$hex\"\},4=\{pc=\"$hex\",fp=\"$hex\"\},5=\{pc=\"$hex\",fp=\"$hex\"\},6=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -limit 7 works"
+
+mi_gdb_test "117-stack-list-frames-lite -names 1 -limit 7" \
+  "117\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\",func=\"foo8\"\},1=\{pc=\"$hex\",fp=\"$hex\",func=\"foo7\"\},2=\{pc=\"$hex\",fp=\"$hex\",func=\"foo6\"\},3=\{pc=\"$hex\",fp=\"$hex\",func=\"foo5\"\},4=\{pc=\"$hex\",fp=\"$hex\",func=\"foo4\"\},5=\{pc=\"$hex\",fp=\"$hex\",func=\"foo3\"\},6=\{pc=\"$hex\",fp=\"$hex\",func=\"foo2\"\}\\\],valid=\"1\",count=\"9\"" "-stack-list-frames-lite -names -limit 7 works"
+
+set slow_worked 0
+set fast_worked 0
+
+send_gdb "120-stack-list-frames\n"
+gdb_expect {
+    -re "120\\^done,stack=\\\[frame=\{level=\"0\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo8\",.*\},frame=\{level=\"1\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo7\",.*\},frame=\{level=\"2\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo6\",.*\},frame=\{level=\"3\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo5\",.*\},frame=\{level=\"4\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo4\",.*\},frame=\{level=\"5\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo3\",.*\},frame=\{level=\"6\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo2\",.*\},frame=\{level=\"7\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo1\",.*\},frame=\{level=\"8\",addr=\"($hex)\",fp=\"($hex)\",func=\"main\",.*\}\\\]\[\r\n\]+$mi_gdb_prompt$" {
+	pass "get values from stack-list-frames"
+	set wildnum 1
+	for {set lev 0} {$lev < 8} {incr lev} {
+	    set foonum [ expr 8 - $lev ]
+	    set foo_addr($foonum) $expect_out($wildnum,string)
+	    incr wildnum
+	    set foo_fp($foonum) $expect_out($wildnum,string)
+	    incr wildnum
+	}
+	set main_addr $expect_out($wildnum,string)
+	incr wildnum
+	set main_fp $expect_out($wildnum,string)
+	incr wildnum
+	set slow_worked 1
+    }
+    -re ".*$mi_gdb_prompt$" {
+	fail "get values from stack-list-frames"
+    }
+    timeout {
+	fail "(timeout) get values from stack-list-frames"
+    }
+}
+
+send_gdb "121-stack-list-frames-lite\n"
+gdb_expect {
+    -re "121\\^done,frames=\\\[0=\{pc=\"($hex)\",fp=\"($hex)\"\},1=\{pc=\"($hex)\",fp=\"($hex)\"\},2=\{pc=\"($hex)\",fp=\"($hex)\"\},3=\{pc=\"($hex)\",fp=\"($hex)\"\},4=\{pc=\"($hex)\",fp=\"($hex)\"\},5=\{pc=\"($hex)\",fp=\"($hex)\"\},6=\{pc=\"($hex)\",fp=\"($hex)\"\},7=\{pc=\"($hex)\",fp=\"($hex)\"\},8=\{pc=\"($hex)\",fp=\"($hex)\"\}\\\],valid=\"1\",count=\"9\"\[\r\n\]+$mi_gdb_prompt$" {
+	pass "get values from stack-list-frames-lite"
+	set wildnum 1
+	for {set lev 0} {$lev < 8} {incr lev} {
+	    set foonum [ expr 8 - $lev ]
+	    set foo_addr_lite($foonum) $expect_out($wildnum,string)
+	    incr wildnum
+	    set foo_fp_lite($foonum) $expect_out($wildnum,string)
+	    incr wildnum
+	}
+	set main_addr_lite $expect_out($wildnum,string)
+	incr wildnum
+	set main_fp_lite $expect_out($wildnum,string)
+	incr wildnum
+	set fast_worked 1
+    }
+    -re ".*$mi_gdb_prompt$" {
+	fail "get values from stack-list-frames-lite"
+    }
+    timeout {
+	fail "(timeout) get values from stack-list-frames-lite"
+    }
+}
+
+if { $slow_worked && $fast_worked } {
+
+    for {set lev 0} {$lev < 8} {incr lev} {
+	set foonum [ expr 8 - $lev ]
+	if {$foo_addr($foonum) == $foo_addr_lite($foonum)} {
+	    pass "foo$foonum () address from stack-list-frames and stack-list-frames-lite matches"
+	} else {
+	    fail "foo$foonum () address from stack-list-frames and stack-list-frames-lite matches"
+	}
+	if {$foo_fp($foonum) == $foo_fp_lite($foonum)} {
+	    pass "foo$foonum () fp from stack-list-frames and stack-list-frames-lite matches"
+	} else {
+	    fail "foo$foonum () fp from stack-list-frames and stack-list-frames-lite matches"
+	}
+    }
+
+    if {$main_addr == $main_addr_lite} {
+	pass "main () address from stack-list-frames and stack-list-frames-lite matches"
+    } else {
+	fail "main () address from stack-list-frames and stack-list-frames-lite matches"
+    }
+    if {$main_fp == $main_fp_lite} {
+	pass "main () fp from stack-list-frames and stack-list-frames-lite matches"
+    } else {
+	fail "main () fp from stack-list-frames and stack-list-frames-lite matches"
+    }
+}
 
 mi_gdb_exit
 return 0
+
+# Commented out because I can't get it to behave right - never gets to sigfoo8,
+# although works as expected when exercised manually.
+#
+# Now try sigtramp stuff
+#
+#send_gdb "130-break-insert sigfoo8\n"
+#gdb_expect {
+#    -re "130\\^done,bkpt=\{number=\"3\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*sigfoo8.*\",file=\".*callfuncs.c\",line=\"($decimal)\",shlib=\"$binfile\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
+#    pass "break-insert sigfoo8"
+#  }
+#  -re ".*$mi_gdb_prompt$" {
+#    fail "break-insert sigfoo8"
+#  }
+#  timeout {
+#    fail "(timeout) break-insert sigfoo8"
+#  }
+#}
+#
+#
+#send_gdb "000-exec-continue\n"
+#
+#mi_get_bp_stopped "3" "\[01\]" "" "sigfoo8" "callfuncs.c" ".*" "run to sigfoo8"
+#
+#mi_gdb_test "131-stack-list-frames-lite -limit 8" \
+#  "131\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\},2=\{pc=\"$hex\",fp=\"$hex\"\},3=\{pc=\"$hex\",fp=\"$hex\"\},4=\{pc=\"$hex\",fp=\"$hex\"\},5=\{pc=\"$hex\",fp=\"$hex\"\},6=\{pc=\"$hex\",fp=\"$hex\"\},7=\{pc=\"$hex\",fp=\"$hex\"\},8=\{pc=\"$hex\",fp=\"$hex\"\},9=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"10\"" "-stack-list-frames-lite -limit 500 works"
+#
+#mi_gdb_test "132-stack-info-depth" \
+#  "132\\^done,depth=\"10\"" "check stack depth is as expected"
+#
+#send_gdb "133-stack-list-frames 0 7\n"
+#gdb_expect {
+#    -re "133\\^done,stack=\\\[frame=\{level=\"0\",addr=\"($hex)\",fp=\"($hex)\",func=\"sigfoo8\",.*\},frame=\{level=\"1\",addr=\"($hex)\",fp=\"($hex)\",func=\"sigfoo7\",.*\},frame=\{level=\"2\",addr=\"($hex)\",fp=\"($hex)\",func=\"sigfoo6\",.*\},frame=\{level=\"3\",addr=\"($hex)\",fp=\"($hex)\",func=\"sigfoo5\",.*\},frame=\{level=\"4\",addr=\"($hex)\",fp=\"($hex)\",func=\"sigfoo4\",.*\},frame=\{level=\"5\",addr=\"($hex)\",fp=\"($hex)\",func=\"sigfoo3\",.*\},frame=\{level=\"6\",addr=\"($hex)\",fp=\"($hex)\",func=\"sigfoo2\",.*\},frame=\{level=\"7\",addr=\"($hex)\",fp=\"($hex)\",func=\"sigfoo1\",.*\}\\\]\[\r\n\]+$mi_gdb_prompt$" {
+#	pass "get values from stack-list-frames"
+#	set wildnum 1
+#	for {set lev 0} {$lev < 7} {incr lev} {
+#	    set sigfoonum [ expr 8 - $lev ]
+#	    set sigfoo_addr($sigfoonum) $expect_out($wildnum,string)
+#	    incr wildnum
+#	    set sigfoo_fp($sigfoonum) $expect_out($wildnum,string)
+#	    incr wildnum
+#	}
+#    }
+#    -re ".*$mi_gdb_prompt$" {
+#	fail "get values from stack-list-frames"
+#    }
+#    timeout {
+#	fail "(timeout) get values from stack-list-frames"
+#    }
+#}
+#
+#send_gdb "133-stack-list-frames-lite -limit 7\n"
+#gdb_expect {
+#    -re "133\\^done,frames=\\\[0=\{pc=\"($hex)\",fp=\"($hex)\"\},1=\{pc=\"($hex)\",fp=\"($hex)\"\},2=\{pc=\"($hex)\",fp=\"($hex)\"\},3=\{pc=\"($hex)\",fp=\"($hex)\"\},4=\{pc=\"($hex)\",fp=\"($hex)\"\},5=\{pc=\"($hex)\",fp=\"($hex)\"\},6=\{pc=\"($hex)\",fp=\"($hex)\"\}\\\],valid=\"1\",count=\"10\"\[\r\n\]+$mi_gdb_prompt$" {
+#	pass "get values from sigtramp stack-list-frames-lite"
+#	set wildnum 1
+#	for {set lev 0} {$lev < 8} {incr lev} {
+#	    set sigfoonum [ expr 8 - $lev ]
+#	    set sigfoo_addr_lite($sigfoonum) $expect_out($wildnum,string)
+#	    incr wildnum
+#	    set sigfoo_fp_lite($sigfoonum) $expect_out($wildnum,string)
+#	    incr wildnum
+#	}
+#    }
+#    -re ".*$mi_gdb_prompt$" {
+#	fail "get values from sigtramp stack-list-frames-lite"
+#    }
+#    timeout {
+#	fail "(timeout) get values from sigtramp stack-list-frames-lite"
+#    }
+#}
+#
+#for {set lev 0} {$lev < 7} {incr lev} {
+#    set sigfoonum [ expr 8 - $lev ]
+#    if {$sigfoo_addr($sigfoonum) == $sigfoo_addr_lite($sigfoonum)} {
+#	pass "sigfoo$sigfoonum () address from stack-list-frames and stack-list-frames-lite matches"
+#    } else {
+#	fail "sigfoo$sigfoonum () address from stack-list-frames and stack-list-frames-lite matches"
+#    }
+#    if {$sigfoo_fp($sigfoonum) == $sigfoo_fp_lite($sigfoonum)} {
+#	pass "sigfoo$sigfoonum () fp from stack-list-frames and stack-list-frames-lite matches"
+#    } else {
+#	fail "sigfoo$sigfoonum () fp from stack-list-frames and stack-list-frames-lite matches"
+#    }
+#}
+#

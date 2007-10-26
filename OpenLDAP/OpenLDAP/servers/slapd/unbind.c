@@ -1,8 +1,8 @@
 /* unbind.c - decode an ldap unbind operation and pass it to a backend db */
-/* $OpenLDAP: pkg/ldap/servers/slapd/unbind.c,v 1.19.2.2 2004/01/01 18:16:35 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/unbind.c,v 1.23.2.3 2006/01/03 22:16:16 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,12 +36,7 @@
 int
 do_unbind( Operation *op, SlapReply *rs )
 {
-#ifdef NEW_LOGGING
-	LDAP_LOG( OPERATION, ENTRY, 
-		"do_unbind: conn %d\n", op->o_connid ? op->o_connid : -1, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "do_unbind\n", 0, 0, 0 );
-#endif
 
 	/*
 	 * Parse the unbind request.  It looks like this:
@@ -49,11 +44,18 @@ do_unbind( Operation *op, SlapReply *rs )
 	 *	UnBindRequest ::= NULL
 	 */
 
-	Statslog( LDAP_DEBUG_STATS, "conn=%lu op=%lu UNBIND\n", op->o_connid,
-	    op->o_opid, 0, 0, 0 );
+	Statslog( LDAP_DEBUG_STATS, "%s UNBIND\n", op->o_log_prefix,
+		0, 0, 0, 0 );
+
+	if ( frontendDB->be_unbind ) {
+		op->o_bd = frontendDB;
+		(void)frontendDB->be_unbind( op, rs );
+		op->o_bd = NULL;
+	}
 
 	/* pass the unbind to all backends */
-	backend_unbind( op, rs );
+	(void)backend_unbind( op, rs );
 
 	return 0;
 }
+

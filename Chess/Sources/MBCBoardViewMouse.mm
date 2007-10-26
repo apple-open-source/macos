@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardViewMouse.mm,v $
+		Revision 1.21  2007/03/02 23:06:00  neerache
+		<rdar://problem/4038207> Allow the user to type in a move in Chess
+		
 		Revision 1.20  2004/09/08 00:35:24  neerache
 		Reduce square sizes to avoid navigation ambiguities
 		
@@ -439,6 +442,106 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 		fSelectedDest	= [self positionToSquare:&fSelectedPos];
 		fLastRedraw 	= now;
 		[self drawNow];
+	}
+}
+
+- (BOOL)acceptsFirstResponder
+{
+	return YES;
+}
+
+- (void)keyDown:(NSEvent *)event
+{
+	NSString * chr = [event characters];
+	if ([chr length] != 1)
+		return; // Ignore
+	switch (char ch = [chr characterAtIndex:0]) {
+	case 'A':
+	case 'B':
+	case 'C':
+	case 'D':
+	case 'E':
+	case 'F':
+	case 'G':
+	case 'H':
+		ch = tolower(ch);
+		// Fall through
+	case 'b':
+		if (fKeyBuffer == '=')
+			goto promotion_piece;
+		// Else fall through
+	case 'a':
+	case 'c':
+	case 'd':
+	case 'e':
+	case 'f':
+	case 'g':
+	case 'h':
+	case '=':
+		fKeyBuffer	= ch;
+		break;
+	case '1':
+	case '2':
+	case '3':
+	case '4':
+	case '5':
+	case '6':
+	case '7':
+	case '8':
+		if (isalpha(fKeyBuffer)) {
+			MBCSquare sq = Square(fKeyBuffer, ch-'0');
+			if (fPickedSquare != kInvalidSquare) {
+				[fInteractive startSelection:fPickedSquare];
+				[fInteractive endSelection:sq animate:YES];
+			} else {
+				[fInteractive startSelection:sq];
+				[self clickPiece];
+			}
+		} else
+			NSBeep();
+		fKeyBuffer = 0;
+		break;
+	case '\177':	// Delete
+	case '\r':
+		if (fKeyBuffer) {
+			fKeyBuffer 	= 0;
+		} else if (fPickedSquare != kInvalidSquare) {
+			[fInteractive endSelection:fPickedSquare animate:NO];
+			fPickedSquare	= kInvalidSquare;
+			[self setNeedsDisplay:YES];
+		}
+		break;
+	case 'K':
+		if (fVariant != kVarSuicide) {
+			NSBeep();
+			break;
+		}
+		// Fall through
+	case 'Q':
+	case 'N':
+	case 'R':
+		ch = tolower(ch);
+		// Fall through
+	case 'k':
+		if (fVariant != kVarSuicide) {
+			NSBeep();
+			break;
+		}
+		// Fall through
+	case 'q':
+	case 'n':
+	case 'r':		
+	promotion_piece:
+		if (fKeyBuffer == '=') {
+			const char * kPiece = " kqbnr";
+			[fBoard setDefaultPromotion:strchr(kPiece, ch)-kPiece for:YES];
+			[fBoard setDefaultPromotion:strchr(kPiece, ch)-kPiece for:NO];
+			[self setNeedsDisplay:YES];
+		} else {
+			NSBeep();
+		}
+	    fKeyBuffer = 0;
+	    break;
 	}
 }
 

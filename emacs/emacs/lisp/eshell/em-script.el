@@ -1,6 +1,7 @@
 ;;; em-script.el --- Eshell script files
 
-;; Copyright (C) 1999, 2000 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,12 +19,14 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'em-script)
 
 (eval-when-compile (require 'esh-maint))
+
+(require 'eshell)
 
 (defgroup eshell-script nil
   "This module allows for the execution of files containing Eshell
@@ -136,4 +139,5 @@ environment, binding ARGS to $1, $2, etc.")
 
 ;;; Code:
 
+;;; arch-tag: a346439d-5ba8-4faf-ac2b-3aacfeaa4647
 ;;; em-script.el ends here

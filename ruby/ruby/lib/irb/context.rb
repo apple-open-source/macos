@@ -1,9 +1,9 @@
 #
 #   irb/context.rb - irb context
-#   	$Release Version: 0.9$
-#   	$Revision: 1.8 $
-#   	$Date: 2003/10/15 02:25:48 $
-#   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
+#   	$Release Version: 0.9.5$
+#   	$Revision: 11708 $
+#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
@@ -19,7 +19,7 @@ module IRB
     #		      String -- File
     #		      other -- using this as InputMethod
     #
-    def initialize(irb, workspace = nil, input_method = nil)
+    def initialize(irb, workspace = nil, input_method = nil, output_method = nil)
       @irb = irb
       if workspace
 	@workspace = workspace
@@ -38,7 +38,7 @@ module IRB
       @inspect_mode = IRB.conf[:INSPECT_MODE]
 
       self.math_mode = IRB.conf[:MATH_MODE] if IRB.conf[:MATH_MODE]
-      self.use_tracer = IRB.conf[:USE_TRACER] if IRB.conf[:USE_TRASER]
+      self.use_tracer = IRB.conf[:USE_TRACER] if IRB.conf[:USE_TRACER]
       self.use_loader = IRB.conf[:USE_LOADER] if IRB.conf[:USE_LOADER]
       self.eval_history = IRB.conf[:EVAL_HISTORY] if IRB.conf[:EVAL_HISTORY]
 
@@ -58,18 +58,37 @@ module IRB
 
       case input_method
       when nil
-	if (defined?(ReadlineInputMethod) &&
-            (use_readline? || IRB.conf[:PROMPT_MODE] != :INF_RUBY && STDIN.tty?))
-	  @io = ReadlineInputMethod.new
-	else
+	case use_readline?
+	when nil
+	  if (defined?(ReadlineInputMethod) && STDIN.tty? &&
+	      IRB.conf[:PROMPT_MODE] != :INF_RUBY)
+	    @io = ReadlineInputMethod.new
+	  else
+	    @io = StdioInputMethod.new
+	  end
+	when false
 	  @io = StdioInputMethod.new
+	when true
+	  if defined?(ReadlineInputMethod)
+	    @io = ReadlineInputMethod.new
+	  else
+	    @io = StdioInputMethod.new
+	  end
 	end
+
       when String
 	@io = FileInputMethod.new(input_method)
 	@irb_name = File.basename(input_method)
 	@irb_path = input_method
       else
 	@io = input_method
+      end
+      self.save_history = IRB.conf[:SAVE_HISTORY] if IRB.conf[:SAVE_HISTORY]
+
+      if output_method
+	@output_method = output_method
+      else
+	@output_method = StdioOutputMethod.new
       end
 
       @verbose = IRB.conf[:VERBOSE] 
@@ -96,13 +115,14 @@ module IRB
     attr_accessor :irb_name
     attr_accessor :irb_path
 
-    attr_accessor :use_readline
+    attr_reader :use_readline
     attr_reader :inspect_mode
 
     attr_reader :prompt_mode
     attr_accessor :prompt_i
     attr_accessor :prompt_s
     attr_accessor :prompt_c
+    attr_accessor :prompt_n
     attr_accessor :auto_indent_mode
     attr_accessor :return_format
 
@@ -141,6 +161,7 @@ module IRB
 
     def set_last_value(value)
       @last_value = value
+      @workspace.evaluate self, "_ = IRB.CurrentContext.last_value"
     end
 
     attr_reader :irb_name
@@ -151,6 +172,7 @@ module IRB
       @prompt_i = pconf[:PROMPT_I]
       @prompt_s = pconf[:PROMPT_S]
       @prompt_c = pconf[:PROMPT_C]
+      @prompt_n = pconf[:PROMPT_N]
       @return_format = pconf[:RETURN]
       if ai = pconf.include?(:AUTO_INDENT)
 	@auto_indent_mode = ai
@@ -177,7 +199,6 @@ module IRB
       @inspect_mode
     end
 
-    undef use_readline=
     def use_readline=(opt)
       @use_readline = opt
       print "use readline module\n" if @use_readline

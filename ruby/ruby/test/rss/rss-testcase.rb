@@ -1,10 +1,11 @@
-# -*- tab-width: 2 -*- vim: ts=2
+require "erb"
 
 require "test/unit"
 require 'rss-assertions'
 
 module RSS
   class TestCase < Test::Unit::TestCase
+    include ERB::Util
 
     include RSS
     include Assertions
@@ -139,6 +140,15 @@ EOR
 EORSS
     end
 
+    def make_sample_items20
+      RESOURCES.collect do |res|
+        elems = ["<link>#{res}</link>"]
+        elems << "<title>title of #{res}</title>"
+        elems = elems.join("\n")
+        item = "<item>\n#{elems}\n</item>"
+      end.join("\n")
+    end
+
     def make_channel20(content=nil)
       <<-EOC
 <channel>
@@ -153,7 +163,7 @@ EORSS
     <link>#{LINK_VALUE}</link>
   </image>
 
-#{RESOURCES.collect do |res| '<item><link>' + res + '</link></item>' end.join("\n")}
+#{make_sample_items20}
 
   <textInput>
     <title>#{TITLE_VALUE}</title>
@@ -189,6 +199,23 @@ EOI
 EOC
     end
 
+    def make_sample_rss20
+      make_rss20(<<-EOR)
+#{make_channel20}
+EOR
+    end
+
+    def make_element(elem_name, attrs, contents)
+      attrs_str = attrs.collect do |name, value|
+        "#{h name}='#{h value}'"
+      end.join(" ")
+      contents_str = contents.collect do |name, value|
+        "#{Element::INDENT}<#{h name}>#{h value}</#{h name}>"
+      end.join("\n")
+
+      "<#{h elem_name} #{attrs_str}>\n#{contents_str}\n</#{h elem_name}>"
+    end
+    
     private
     def setup_dummy_channel(maker)
       about = "http://hoge.com"
@@ -236,5 +263,24 @@ EOC
       item.link = link
     end
     
+    def setup_taxo_topic(target, topics)
+      topics.each do |topic|
+        taxo_topic = target.taxo_topics.new_taxo_topic
+        topic.each do |name, value|
+          case name
+          when :link
+            taxo_topic.taxo_link = value
+          when :topics
+            value.each do |t|
+              taxo_topic.taxo_topics << t
+            end
+          else
+            dc_elems = taxo_topic.__send__("dc_#{name}s")
+            dc_elem = dc_elems.__send__("new_#{name}")
+            dc_elem.value = value
+          end
+        end
+      end
+    end
   end
 end

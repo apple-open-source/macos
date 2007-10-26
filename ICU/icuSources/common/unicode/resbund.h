@@ -1,8 +1,8 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1996-2004, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Copyright (C) 1996-2005, International Business Machines Corporation
+*   and others.  All Rights Reserved.
 *
 ******************************************************************************
 *
@@ -52,6 +52,11 @@
 #include "unicode/unistr.h"
 #include "unicode/locid.h"
 
+/**
+ * \file 
+ * \brief C++ API: Resource Bundle
+ */
+ 
 U_NAMESPACE_BEGIN
 
 /**
@@ -61,9 +66,9 @@ U_NAMESPACE_BEGIN
  * locale and then ask it for individual resources.
  * <P>
  * Resource bundles in ICU4C are currently defined using text files which conform to the following
- * <a href="http://oss.software.ibm.com/cvs/icu/~checkout~/icuhtml/design/bnf_rb.txt">BNF definition</a>.
+ * <a href="http://dev.icu-project.org/cgi-bin/viewcvs.cgi/~checkout~/icuhtml/design/bnf_rb.txt">BNF definition</a>.
  * More on resource bundle concepts and syntax can be found in the
- * <a href="http://oss.software.ibm.com/icu/userguide/ResourceManagement.html">Users Guide</a>.
+ * <a href="http://icu.sourceforge.net/userguide/ResourceManagement.html">Users Guide</a>.
  * <P>
  *
  * The ResourceBundle class is not suitable for subclassing.
@@ -75,13 +80,11 @@ public:
     /**
      * Constructor
      *
-     * @param path    This is a full pathname in the platform-specific format for the
-     *                directory containing the resource data files we want to load
-     *                resources from. We use locale IDs to generate filenames, and the
-     *                filenames have this string prepended to them before being passed
-     *                to the C++ I/O functions. Therefore, this string must always end
-     *                with a directory delimiter (whatever that is for the target OS)
-     *                for this class to work correctly.
+     * @param packageName   The packageName and locale together point to an ICU udata object, 
+     *                      as defined by <code> udata_open( packageName, "res", locale, err) </code> 
+     *                      or equivalent.  Typically, packageName will refer to a (.dat) file, or to
+     *                      a package registered with udata_setAppData(). Using a full file or directory
+     *                      pathname for packageName is deprecated.
      * @param locale  This is the locale this resource bundle is for. To get resources
      *                for the French locale, for example, you would create a
      *                ResourceBundle passing Locale::FRENCH for the "locale" parameter,
@@ -100,22 +103,26 @@ public:
      * fall back locales could be found.
      * @stable ICU 2.0
      */
-    ResourceBundle(const UnicodeString&    path,
+    ResourceBundle(const UnicodeString&    packageName,
                    const Locale&           locale,
                    UErrorCode&              err);
 
     /**
-     * Construct a resource bundle for the root bundle in the specified path.
+     * Construct a resource bundle for the default bundle in the specified package.
      *
-     * @param path A path/basename for the data file(s) containing the bundle.
+     * @param packageName   The packageName and locale together point to an ICU udata object, 
+     *                      as defined by <code> udata_open( packageName, "res", locale, err) </code> 
+     *                      or equivalent.  Typically, packageName will refer to a (.dat) file, or to
+     *                      a package registered with udata_setAppData(). Using a full file or directory
+     *                      pathname for packageName is deprecated.
      * @param err A UErrorCode value
      * @stable ICU 2.0
      */
-    ResourceBundle(const UnicodeString&    path,
+    ResourceBundle(const UnicodeString&    packageName,
                    UErrorCode&              err);
 
     /**
-     * Construct a resource bundle for the ICU root bundle.
+     * Construct a resource bundle for the ICU default bundle.
      *
      * @param err A UErrorCode value
      * @stable ICU 2.0
@@ -124,15 +131,19 @@ public:
 
     /**
      * Standard constructor, onstructs a resource bundle for the locale-specific
-     * bundle in the specified path.
+     * bundle in the specified package.
      *
-     * @param path A path/basename for the data file(s) containing the bundle.
-     *             NULL is used for ICU data.
+     * @param packageName   The packageName and locale together point to an ICU udata object, 
+     *                      as defined by <code> udata_open( packageName, "res", locale, err) </code> 
+     *                      or equivalent.  Typically, packageName will refer to a (.dat) file, or to
+     *                      a package registered with udata_setAppData(). Using a full file or directory
+     *                      pathname for packageName is deprecated.
+     *                      NULL is used to refer to ICU data.
      * @param locale The locale for which to open a resource bundle.
      * @param err A UErrorCode value
      * @stable ICU 2.0
      */
-    ResourceBundle(const char* path,
+    ResourceBundle(const char* packageName,
                    const Locale& locale,
                    UErrorCode& err);
 
@@ -179,7 +190,7 @@ public:
      * @return a clone of this object
      *
      * @see getDynamicClassID
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     ResourceBundle *clone() const;
 
@@ -437,7 +448,7 @@ public:
      * @param status just for catching illegal arguments
      *
      * @return a Locale object
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     const Locale
       getLocale(ULocDataLocaleType type, UErrorCode &status) const;

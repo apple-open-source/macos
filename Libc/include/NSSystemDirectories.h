@@ -68,6 +68,7 @@ typedef enum {
     NSDesktopDirectory = 12,                // location of user's Desktop (Desktop)
     NSCachesDirectory = 13,                 // location of discardable cache files (Library/Caches)
     NSApplicationSupportDirectory = 14,     // location of application support files (plug-ins, etc) (Library/Application Support)
+    NSDownloadsDirectory = 15,              // location of user's Downloads directory (Downloads)
     NSAllApplicationsDirectory = 100,       // all directories where applications can occur (Applications, Applications/Utilities, Developer/Applications, ...)
     NSAllLibrariesDirectory = 101           // all directories where resources can occur (Library, Developer)
 } NSSearchPathDirectory;

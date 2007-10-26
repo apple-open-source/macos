@@ -352,6 +352,12 @@ extern int last_basic_block;
 
 extern int n_edges;
 
+/* APPLE LOCAL begin 4538899 mainline */
+/* TRUE if we should re-run loop discovery after threading jumps, FALSE
+   otherwise.  */
+extern bool rediscover_loops_after_threading;
+/* APPLE LOCAL end 4538899 mainline */
+
 /* Signalize the status of profile information in the CFG.  */
 extern enum profile_status
 {

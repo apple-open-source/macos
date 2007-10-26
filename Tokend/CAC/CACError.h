@@ -58,5 +58,3 @@ protected:
 
 #endif /* !_CACERROR_H_ */
 
-
-/* arch-tag: 0EB9B81B-10D9-11D9-BA83-000393D5F80A */

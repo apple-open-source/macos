@@ -2,6 +2,8 @@
  * Copyright (c) 2000, 2001 Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb.c,v 1.1.1.2 2001/07/06 22:38:42 conrad Exp $
+ * $Id: nb.c,v 1.2 2005/10/07 03:51:09 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -47,36 +49,37 @@
 #include <netsmb/netbios.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/nb_lib.h>
+#include "charsets.h"
 
-int
-nb_ctx_create(struct nb_ctx **ctxpp)
-{
-	struct nb_ctx *ctx;
-
-	ctx = malloc(sizeof(struct nb_ctx));
-	if (ctx == NULL)
-		return ENOMEM;
-	bzero(ctx, sizeof(struct nb_ctx));
-	*ctxpp = ctx;
-	return 0;
-}
 
 void
 nb_ctx_done(struct nb_ctx *ctx)
 {
-	if (ctx == NULL)
-		return;
 	if (ctx->nb_scope)
 		free(ctx->nb_scope);
+	if (ctx->nb_nsname)
+		free(ctx->nb_nsname);
 }
 
 int
 nb_ctx_setns(struct nb_ctx *ctx, const char *addr)
 {
-	if (addr == NULL || addr[0] == 0)
+	char * wspace;
+	
+	if ((addr == NULL) || (addr[0] == 0) || (addr[0] == 0x20))
 		return EINVAL;
 	if (ctx->nb_nsname)
 		free(ctx->nb_nsname);
+	/* 
+	 * %%%
+	 * Currently we only support one WINS server, someday maybe more
+	 * but thats a different radar. We could end up with a list of WINS
+	 * servers that are separated by a space.
+	 */
+	wspace = strchr(addr, 0x20);
+	if (wspace)
+		*wspace = 0;
+	
 	if ((ctx->nb_nsname = strdup(addr)) == NULL)
 		return ENOMEM;
 	return 0;
@@ -88,7 +91,7 @@ nb_ctx_setscope(struct nb_ctx *ctx, const char *scope)
 	size_t slen = strlen(scope);
 
 	if (slen >= 128) {
-		smb_error("scope '%s' is too long", 0, scope);
+		smb_log_info("scope '%s' is too long", 0, ASL_LEVEL_ERR, scope);
 		return ENAMETOOLONG;
 	}
 	if (ctx->nb_scope)
@@ -96,38 +99,42 @@ nb_ctx_setscope(struct nb_ctx *ctx, const char *scope)
 	ctx->nb_scope = malloc(slen + 1);
 	if (ctx->nb_scope == NULL)
 		return ENOMEM;
-	nls_str_upper(ctx->nb_scope, scope);
+	str_upper(ctx->nb_scope, scope);
 	return 0;
 }
 
-int
-nb_ctx_resolve(struct nb_ctx *ctx)
+/*
+ * Used for resolving NetBIOS names
+ */
+int nb_ctx_resolve(struct nb_ctx *ctx)
 {
 	struct sockaddr *sap;
 	int error;
 
-	ctx->nb_flags &= ~NBCF_RESOLVED;
-
 	if (ctx->nb_nsname == NULL) {
 		ctx->nb_ns.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+		ctx->nb_ns.sin_port = htons(NBNS_UDP_PORT_137);
+		ctx->nb_ns.sin_family = AF_INET;
+		ctx->nb_ns.sin_len = sizeof(ctx->nb_ns);
 	} else {
-		error = nb_resolvehost_in(ctx->nb_nsname, &sap);
+		error = nb_resolvehost_in(ctx->nb_nsname, &sap, NBNS_UDP_PORT_137, TRUE);
 		if (error) {
-			smb_error("can't resolve %s", error, ctx->nb_nsname);
+			smb_log_info("can't resolve %s", error, ASL_LEVEL_DEBUG, ctx->nb_nsname);
 			return error;
-		}
-		if (sap->sa_family != AF_INET) {
-			smb_error("unsupported address family %d", 0, sap->sa_family);
-			return EINVAL;
 		}
 		bcopy(sap, &ctx->nb_ns, sizeof(ctx->nb_ns));
 		free(sap);
 	}
-	ctx->nb_ns.sin_port = htons(137);
-	ctx->nb_ns.sin_family = AF_INET;
-	ctx->nb_ns.sin_len = sizeof(ctx->nb_ns);
-	ctx->nb_flags |= NBCF_RESOLVED;
 	return 0;
+}
+
+void nb_ctx_readcodepage(struct rcfile *rcfile, const char *sname)
+{
+	char *p;
+	
+	rc_getstringptr(rcfile, sname, "doscharset", &p);
+	if (p)
+		setcharset(p);	
 }
 
 /*
@@ -146,10 +153,13 @@ nb_ctx_readrcsection(struct rcfile *rcfile, struct nb_ctx *ctx,
 		return EINVAL;
 	rc_getint(rcfile, sname, "nbtimeout", &ctx->nb_timo);
 	rc_getstringptr(rcfile, sname, "nbns", &p);
+	if (!p)
+	    rc_getstringptr(rcfile, sname, "winsserver", &p);
 	if (p) {
+	    	smb_log_info("wins address %s specified in the section %s", 0, ASL_LEVEL_DEBUG, p, sname);
 		error = nb_ctx_setns(ctx, p);
 		if (error) {
-			smb_error("invalid address specified in the section %s", 0, sname);
+			smb_log_info("invalid address specified in the section %s", 0, ASL_LEVEL_DEBUG, sname);
 			return error;
 		}
 	}
@@ -159,33 +169,44 @@ nb_ctx_readrcsection(struct rcfile *rcfile, struct nb_ctx *ctx,
 	return 0;
 }
 
-static const char *nb_err_rcode[] = {
-	"bad request/response format",
-	"NBNS server failure",
-	"no such name",
-	"unsupported request",
-	"request rejected",
-	"name already registered"
-};
+#define NBNS_FMT_ERR	0x01	/* Request was invalidly formatted */
+#define NBNS_SRV_ERR	0x02	/* Problem with NBNS, connot process name */
+#define NBNS_NME_ERR	0x03	/* No such name */
+#define NBNS_IMP_ERR	0x04	/* Unsupport request */
+#define NBNS_RFS_ERR	0x05	/* For policy reasons server will not register this name fron this host */
+#define NBNS_ACT_ERR	0x06	/* Name is owned by another host */
+#define NBNS_CFT_ERR	0x07	/* Name conflict error  */
 
-static const char *nb_err[] = {
-	"host not found",
-	"too many redirects",
-	"invalid response",
-	"NETBIOS name too long",
-	"no interface to broadcast on and no NBNS server specified"
-};
-
-const char *
-nb_strerror(int error)
+/*
+ * Convert NetBIOS name lookup errors to UNIX errors
+ */
+int nb_error_to_errno(int error)
 {
-	if (error == 0)
-		return NULL;
-	if (error <= NBERR_ACTIVE)
-		return nb_err_rcode[error - 1];
-	else if (error >= NBERR_HOSTNOTFOUND && error < NBERR_MAX)
-		return nb_err[error - NBERR_HOSTNOTFOUND];
-	else
-		return NULL;
+	switch (error) {
+	case NBNS_FMT_ERR:
+		error = EINVAL;
+		break;
+	case NBNS_SRV_ERR: 
+		error = EBUSY;
+		break;
+	case NBNS_NME_ERR: 
+		error = ENOENT;
+		break;
+	case NBNS_IMP_ERR: 
+		error = ENOTSUP;
+		break;
+	case NBNS_RFS_ERR: 
+		error = EACCES;
+		break;
+	case NBNS_ACT_ERR: 
+		error = EADDRINUSE;
+		break;
+	case NBNS_CFT_ERR: 
+		error = EADDRINUSE;
+		break;
+	default:
+		error = ETIMEDOUT;
+		break;
+	};
+	return error;
 }
-

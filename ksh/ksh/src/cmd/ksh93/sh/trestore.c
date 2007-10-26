@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -40,17 +36,17 @@ static struct dolnod	*r_comlist(void);
 static struct argnod	*r_arg(void);
 static struct ionod	*r_redirect(void);
 static struct regnod	*r_switch(void);
-static union anynode	*r_tree(void);
+static Shnode_t	*r_tree(void);
 static char		*r_string(void);
 static void		r_comarg(struct comnod*);
 
 static Sfio_t *infile;
 
-#define getnode(type)   ((union anynode*)stakalloc(sizeof(struct type)))
+#define getnode(type)   ((Shnode_t*)stakalloc(sizeof(struct type)))
 
-union anynode *sh_trestore(Sfio_t *in)
+Shnode_t *sh_trestore(Sfio_t *in)
 {
-	union anynode *t;
+	Shnode_t *t;
 	infile = in;
 	t = r_tree();
 	return(t);
@@ -58,11 +54,11 @@ union anynode *sh_trestore(Sfio_t *in)
 /*
  * read in a shell tree
  */
-static union anynode *r_tree()
+static Shnode_t *r_tree()
 {
 	long l = sfgetl(infile); 
 	register int type;
-	register union anynode *t=0;
+	register Shnode_t *t=0;
 	if(l<0)
 		return(t);
 	type = l;
@@ -162,12 +158,13 @@ static union anynode *r_tree()
 				t->lst.lstlef = r_tree(); 
 			else
 			{
-				t->lst.lstlef = (union anynode*)r_arg();
+				t->lst.lstlef = (Shnode_t*)r_arg();
 				if((type&TBINARY))
-					t->lst.lstrit = (union anynode*)r_arg();
+					t->lst.lstrit = (Shnode_t*)r_arg();
 			}
 	}
-	t->tre.tretyp = type;
+	if(t)
+		t->tre.tretyp = type;
 	return(t);
 }
 
@@ -247,6 +244,11 @@ static struct ionod *r_redirect(void)
 			sfmove(infile,sh.heredocs, iop->iosize, -1);
 		}
 		iopold = iop;
+		if(iop->iofile&IOVNM)
+			iop->iovname = r_string();
+		else
+			iop->iovname = 0;
+		iop->iofile &= ~IOVNM;
 	}
 	if(iop)
 		iop->ionxt = 0;

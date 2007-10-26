@@ -31,12 +31,17 @@
 #include <copyfile.h>
 #endif
 
+#if HAVE_SYS_UN_H
+#include <sys/un.h>
+#endif
+
 extern int dry_run;
 extern int read_only;
 extern int list_only;
 extern int preserve_perms;
 #ifdef EA_SUPPORT
 extern int extended_attributes;
+extern int preserve_links;
 #endif
 
 #define RETURN_ERROR_IF(x,e) \
@@ -96,6 +101,29 @@ int do_mknod(char *pathname, mode_t mode, dev_t dev)
 {
 	if (dry_run) return 0;
 	RETURN_ERROR_IF_RO_OR_LO;
+# if HAVE_MKFIFO
+	if (S_ISFIFO(mode))
+		return mkfifo(pathname, mode);
+# endif
+# if HAVE_SYS_UN_H
+	if (S_ISSOCK(mode)) {
+		int sock;
+		struct sockaddr_un saddr;
+		unsigned int len;
+
+		saddr.sun_family = AF_UNIX;
+		len = strlcpy(saddr.sun_path, pathname, sizeof saddr.sun_path);
+		saddr.sun_len = len >= sizeof saddr.sun_path
+			      ? sizeof saddr.sun_path : len + 1;
+
+		if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0
+		    || (unlink(pathname) < 0 && errno != ENOENT)
+		    || (bind(sock, (struct sockaddr*)&saddr, sizeof saddr)) < 0)
+			return -1;
+		close(sock);
+		return do_chmod(pathname, mode);
+	}
+# endif
 	return mknod(pathname, mode, dev);
 }
 #endif
@@ -142,7 +170,7 @@ int do_rename(char *fname1, char *fname2)
 	    {
 		snprintf(dst_fname, MAXPATHLEN, "%s/%s", dirname(fname2), basename(fname2) + 2);
 		if(copyfile(fname1, dst_fname, 0,
-		    COPYFILE_UNPACK | COPYFILE_METADATA) == 0)
+			    COPYFILE_UNPACK | COPYFILE_ACL | COPYFILE_XATTR | (preserve_links ? COPYFILE_NOFOLLOW : 0)) == 0)
 		return unlink(fname1);
 	    }
 	}

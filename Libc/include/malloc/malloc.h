@@ -88,6 +88,9 @@ extern malloc_zone_t *malloc_zone_from_ptr(const void *ptr);
 extern size_t malloc_size(const void *ptr);
     /* Returns size of given ptr */
 
+extern size_t malloc_good_size(size_t size);
+    /* Returns number of bytes greater than or equal to size that can be allocated without padding */
+
 /*********	Batch methods	************/
 
 extern unsigned malloc_zone_batch_malloc(malloc_zone_t *zone, size_t size, void **results, unsigned num_requested);

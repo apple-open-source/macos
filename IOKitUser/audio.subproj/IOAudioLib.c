@@ -32,8 +32,6 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/audio/IOAudioLib.h>
 
-#include <IOKit/iokitmig.h> 	// mig generated
-
 /* --------------------------------------------------------- */
 
 kern_return_t

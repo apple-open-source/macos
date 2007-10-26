@@ -2,7 +2,7 @@
                       "http://www.w3.org/TR/html4/loose.dtd"> 
 <html><head>
 <title>Cyrus SASLv2 INSTALL Documentation</title>
-<!-- $Id: install.html,v 1.4 2005/01/10 19:13:37 snsimon Exp $ -->
+<!-- $Id: install.html,v 1.6 2006/01/20 20:15:07 snsimon Exp $ -->
 </head>
 <body>
 <h1>Installation Procedure</h1>
@@ -74,7 +74,7 @@ and plaintext, you'll want to use the auxprop plugin for password verification.
   </li>
   </ul></li>
 <li>If you are using an auxprop plugin, will you be using SASLdb (and
-if so, Berkeley DB [recommended], GDBM, or NDBM?) or an SQL backend
+if so, Berkeley DB [recommended], GDBM, or NDBM?), LDAP or an SQL backend
 (Postgres? MySQL?).</li>
 <li>If you are using saslauthd, what module will you be using?  LDAP?
 Kerberos?  PAM?</li>
@@ -104,6 +104,10 @@ href="http://www.sleepycat.com/">Sleepycat</a>
 and build the necessary client libraries on the system where you will be
 building and using SASL.  Currently we support <a href=http://postgresql.org>
 PostgreSQL</a> v7.2 (or higher) and <a href=http://mysql.org>MySQL</a>.
+
+<p>If you are using LDAPDB, you'll need SASL enabled OpenLDAP libraries.  <a
+href="http://www.openldap.org">OpenLDAP</a> 2.1.27 (or higher) or 2.2.6 (or
+higher) is support.</p>
 
 <p>For Kerberos support, you'll need the kerberos libraries.  At CMU, the
 version we use comes from <a href="http://www.pdc.kth.se/kth-krb/">here</a>.
@@ -139,10 +143,19 @@ GSSAPI, PLAIN, and ANONYMOUS.  These can be disabled with
 <tt>--disable-krb4</tt>, <tt>--disable-gssapi</tt>,
 <tt>--disable-plain</tt>, and <tt>--disable-anon</tt> respecively.
 
-<p>If you are using an SQL auxprop plugin, you may want to specify one
-or more of <tt>--enable-sql</tt>, <tt>--with-mysql=PATH</tt>, and
-<tt>--with-pgsql=PATH</tt>, note that PATH in the later two should be
-replaced with the path where you installed the necessary client libraries.
+<p>If you are using an SQL auxprop plugin, you may want to specify one or more
+of <tt>--enable-sql</tt>, <tt>--with-mysql=PATH</tt>, and
+<tt>--with-pgsql=PATH</tt>, note that PATH in the later two should be replaced
+with the path where you installed the necessary client libraries.
+
+<p>If you are using LDAPDB auxprop plugin, you will need to specify
+<tt>--enable-ldapdb</tt> and <tt>--with-ldap=PATH</tt>.  <b>Warning:</b> LDAPDB
+auxprop plugin (and LDAP enabled saslauthd) introduces a circular dependency
+between OpenLDAP and SASL.  I.e., you must have OpenLDAP already built when
+building LDAPDB in SASL.  In order for LDAPDB to work at runtime, you must have
+OpenLDAP already built with SASL support. One way to solve this issue is to
+build Cyrus SASL first without ldap support, then build OpenLDAP, and then come
+back to SASL and build LDAPDB.</p>
 
 <p>Given the myriad of ways that Berkeley DB can be installed on a system,
 people useing it may want to look at the <tt>--with-bdb-libdir</tt> and

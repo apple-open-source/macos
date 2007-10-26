@@ -80,7 +80,7 @@ typedef __darwin_gid_t	gid_t;		/* [XBD] */
 typedef __darwin_size_t	size_t;		/* [???] */
 #endif
 
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	_PATH_GROUP		"/etc/group"
 #endif
 
@@ -102,11 +102,11 @@ int getgrgid_r(gid_t, struct group *, char *, size_t, struct group **);
 int getgrnam_r(const char *, struct group *, char *, size_t, struct group **);
 /* [XSI] */
 struct group *getgrent(void);
-int setgrent(void);
+void setgrent(void);
 void endgrent(void);
 
-#ifndef _POSIX_C_SOURCE
-#ifndef _XOPEN_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+#if !defined(_XOPEN_SOURCE) || defined(_DARWIN_C_SOURCE)
 char *group_from_gid(gid_t, int);
 #endif
 void setgrfile(const char *);

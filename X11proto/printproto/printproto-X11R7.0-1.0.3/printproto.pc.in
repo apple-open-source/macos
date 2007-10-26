@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+ 
+Name: PrintProto
+Description: Print extension headers
+Version: @PACKAGE_VERSION@
+Requires: xau
+Cflags: -I${includedir}

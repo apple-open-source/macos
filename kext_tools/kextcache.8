@@ -23,6 +23,15 @@
 .Op Fl z
 .Op Ar kext_or_directory
 \&.\|.\|.
+.Nm
+.Op Fl v Op #
+.Op Fl f
+.Fl u
+.Ar os_volume
+.Nm
+.Op Fl v Op #
+.Fl U
+.Ar os_volume
 .Sh DESCRIPTION
 The
 .Nm
@@ -66,7 +75,7 @@ A repository cache must exist alongside its repository
 directory for the kext tools to find and use it.
 The kext tools normally build or update repository caches as
 needed.
-To create or update a kext cache use the
+To create or update a kext repository cache use the
 .Fl k
 option.
 .Pp
@@ -112,15 +121,22 @@ a cache file is created in the
 This option is a convenience to update the mkext cache
 for the /System/Library/Extensions folder.
 .It Fl F
-Fork a child process and exit immediately.
-This allows a cache update during system startup to continue
-without delaying startup.
+Run in low-priority mode, as when forked and executed  by
+.Xr kextd 8 .
+(This used to actually fork, but no longer does, as kextd handles the forking.)
+.It Fl f
+Used with
+.Fl u
+to specify that all caches should be updated regardless of cached
+timestamp information.
 .It Fl h
 Extended usage statement
 .It Fl k
-Create or update the kext cache for any repository directories specified.
+Create or update the kext repository cache
+for any repository directories specified.
 .It Fl K Ar kernel_filename
-The name of the kernel file to use as the base of a kernel cache file (default is /mach_kernel).
+The name of the kernel file to use as the base
+of a kernel cache file (default is /mach_kernel).
 .It Fl l
 Specifies that for directory arguments,
 only extensions required for local disk boot
@@ -223,20 +239,50 @@ authentication, and dependency resolution; a failure at any
 stage can make tests in further stages impossible.
 Thus, a kext with validation failures may have unreported
 authentication problems or missing dependencies.
+.It Fl u Ar os_volume
+Update out of date caches and any helper partitions associated with
+.Ar os_volume .
+The mkext is first checked and updated if needed (the updating sub-process
+will not inherit any verbose flags).  Then any modified files which belong
+in the helper partitions are updated.  If
+.Fl f
+is also specified, all helper partition are fully updated regardless of
+whether the
+.Pa com.apple.bootstamps
+data suggests that they are up to date.
+OS volumes without
+.Pa /usr/standalone/bootcaches.plist
+are ignored (success is returned).
+.It Fl U Ar os_volume
+Similar to
+.Fl u ,
+except EX_OSFILE 
+.Ns ( Xr sysexits 3 Ns )
+is returned after a helper partition update.  Also, no locks are taken with
+.Xr kextd 8 ,
+which means that it is only useful for its primary purpose: determining
+during early boot whether updates and a reboot are needed to activate
+kernel software which has been installed but not yet copied to the
+helper partitions.
 .It Fl v Op 1-6
 Verbose mode; print information about the kext scanning and loading
-process. Higher levels of verbosity include all lower levels.
-With this program only verbose levels 1-3 are useful.
-The levels of verbose output are these:
+process. Higher levels of verbosity include output from lower levels.
+For the purposes of
+.Nm Ns ,
+levels higher than 3 are not particularly relevant.
+The levels of verbose output are
+these:
 .Bl -tag -width "xxx"
 .It 1
 prints basic kext scanning and archiving information
 .It 2
 prints basic compression information
 .It 3
-prints detailed kext scanning information;
-also uncompresses mkext cache entries to make sure
-they do so without error
+prints detailed kext scanning information, including warnings when a kext
+lacks architectures explicitly specified using
+.Fl a ;
+also uncompresses mkext cache entries to make sure they do so without
+error
 .It 4
 prints basic information on every kext encountered
 .It 5
@@ -264,13 +310,6 @@ End of all options. Only kext or directory names follow.
 exits with a zero status upon success.
 Upon failure, it prints an error message
 and exits with a nonzero status.
-When the
-.Fl F
-option is used, however,
-.Nm
-exits with a nonzero status only if the
-.Xr fork 2
-operation fails.
 .Sh SEE ALSO 
 .Xr kextd 8 ,
 .Xr kextload 8 ,

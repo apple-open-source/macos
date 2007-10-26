@@ -12,6 +12,7 @@
 # use of catalogs - aeb, June 1994
 
 CC = @CC@
+BUILD_CC = @BUILD_CC@
 INSTALL = @INSTALL@
 
 pager = @pager@
@@ -36,6 +37,11 @@ MANOBJS = man.o manfile.o manpath.o man-config.o man-getopt.o \
 man: $(MANOBJS) $(LIBOBJS)
 	$(CC) $(LDFLAGS) -o man $(MANOBJS) $(LIBOBJS) $(LIBS)
 
+# CC may be a cross compiler, but BUILD_CC must compile for
+# the present machine.
+makemsg:
+	$(BUILD_CC) -o makemsg makemsg.c
+
 msg.c gripedefs.h: ../msgs/mess.en makemsg
 	./makemsg ../msgs/mess.en gripedefs.h msg.c
 
@@ -46,7 +52,7 @@ glob.o: glob.c ndir.h
 man-config.o man-getopt.o man.o manpath.o to_cat.o: defs.h
 different.o man.o: different.h
 man.o manfile.o: glob.h
-different.o gripes.o man-config.o man-getopt.o man.o manpath.o util.o: gripes.h gripedefs.h
+different.o gripes.o man-config.o man-getopt.o man.o manfile.o manpath.o util.o: gripes.h gripedefs.h
 different.o man-config.o man-getopt.o man.o manpath.o: man-config.h
 gripes.o man-config.o man-getopt.o man.o manpath.o util.o: man.h
 man-getopt.o man.o manpath.o: man-getopt.h
@@ -73,7 +79,7 @@ apropos: apropos.sh Makefile
 	rm -f apropos
 	sed -e 's,%apropos_or_whatis%,apropos,' \
 	    -e 's,%version%,@version@,' \
-	    -e 's,%pager%,@pager@,' -e 's,%manpathoption%,@manpathoption@,' \
+	    -e 's,%manpathoption%,@manpathoption@,' \
 		apropos.sh > apropos
 	chmod +x apropos
 
@@ -81,7 +87,7 @@ whatis: apropos.sh Makefile
 	rm -f whatis
 	sed -e 's,%apropos_or_whatis%,whatis,' \
 	    -e 's,%version%,@version@,' \
-	    -e 's,%pager%,@pager@,' -e 's,%manpathoption%,@manpathoption@,' \
+	    -e 's,%manpathoption%,@manpathoption@,' \
 		apropos.sh > whatis
 	chmod +x whatis
 

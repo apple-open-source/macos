@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,6 @@
 #define _IOCDMEDIABSDCLIENT_H
 
 #include <sys/ioctl.h>
-#include <sys/types.h>
 
 #include <IOKit/storage/IOCDTypes.h>
 
@@ -51,70 +50,86 @@
 
 typedef struct
 {
-    u_int64_t offset;
+    uint64_t offset;
 
-    u_int8_t  sectorArea;
-    u_int8_t  sectorType;
+    uint8_t  sectorArea;
+    uint8_t  sectorType;
 
-    u_int8_t  reserved0080[6];                     /* reserved, clear to zero */
+#ifdef __LP64__
+    uint8_t  reserved0080[10];                     /* reserved, clear to zero */
+#else /* !__LP64__ */
+    uint8_t  reserved0080[6];                      /* reserved, clear to zero */
+#endif /* !__LP64__ */
 
-    u_int32_t bufferLength;                        /* actual length on return */
-    void *    buffer;
+    uint32_t bufferLength;                         /* actual length on return */
+    void *   buffer;
 } dk_cd_read_t;
 
 typedef struct
 {
-    CDISRC    isrc;
-    u_int8_t  track;
+    CDISRC   isrc;
+    uint8_t  track;
 
-    u_int8_t  reserved0112[2];                     /* reserved, clear to zero */
+    uint8_t  reserved0112[2];                      /* reserved, clear to zero */
 } dk_cd_read_isrc_t;
 
 typedef struct
 {
-    CDMCN     mcn;
+    CDMCN    mcn;
 
-    u_int8_t  reserved0112[2];                     /* reserved, clear to zero */
+    uint8_t  reserved0112[2];                      /* reserved, clear to zero */
 } dk_cd_read_mcn_t;
 
 typedef struct
 {
-    u_int8_t  format;
-    u_int8_t  formatAsTime;
+    uint8_t  format;
+    uint8_t  formatAsTime;
 
-    u_int8_t  reserved0016[5];                     /* reserved, clear to zero */
+    uint8_t  reserved0016[5];                      /* reserved, clear to zero */
 
     union
     {
-        u_int8_t session;
-        u_int8_t track;
+        uint8_t session;
+        uint8_t track;
     } address;
 
-    u_int8_t  reserved0064[2];                     /* reserved, clear to zero */
+#ifdef __LP64__
+    uint8_t  reserved0064[6];                      /* reserved, clear to zero */
+#else /* !__LP64__ */
+    uint8_t  reserved0064[2];                      /* reserved, clear to zero */
+#endif /* !__LP64__ */
 
-    u_int16_t bufferLength;                        /* actual length on return */
-    void *    buffer;
+    uint16_t bufferLength;                         /* actual length on return */
+    void *   buffer;
 } dk_cd_read_toc_t;
 
 typedef struct
 {
-    u_int8_t  reserved0000[10];                    /* reserved, clear to zero */
+#ifdef __LP64__
+    uint8_t  reserved0000[14];                     /* reserved, clear to zero */
+#else /* !__LP64__ */
+    uint8_t  reserved0000[10];                     /* reserved, clear to zero */
+#endif /* !__LP64__ */
 
-    u_int16_t bufferLength;                        /* actual length on return */
-    void *    buffer;
+    uint16_t bufferLength;                         /* actual length on return */
+    void *   buffer;
 } dk_cd_read_disc_info_t;
 
 typedef struct
 {
-    u_int8_t  reserved0000[4];                     /* reserved, clear to zero */
+    uint8_t  reserved0000[4];                      /* reserved, clear to zero */
 
-    u_int32_t address;
-    u_int8_t  addressType;
+    uint32_t address;
+    uint8_t  addressType;
 
-    u_int8_t  reserved0072[1];                     /* reserved, clear to zero */
+#ifdef __LP64__
+    uint8_t  reserved0072[5];                      /* reserved, clear to zero */
+#else /* !__LP64__ */
+    uint8_t  reserved0072[1];                      /* reserved, clear to zero */
+#endif /* !__LP64__ */
 
-    u_int16_t bufferLength;                        /* actual length on return */
-    void *    buffer;
+    uint16_t bufferLength;                         /* actual length on return */
+    void *   buffer;
 } dk_cd_read_track_info_t;
 
 #define DKIOCCDREAD          _IOWR('d', 96, dk_cd_read_t)
@@ -122,8 +137,8 @@ typedef struct
 #define DKIOCCDREADISRC      _IOWR('d', 97, dk_cd_read_isrc_t)
 #define DKIOCCDREADMCN       _IOWR('d', 98, dk_cd_read_mcn_t)
 
-#define DKIOCCDGETSPEED      _IOR('d', 99, u_int16_t)
-#define DKIOCCDSETSPEED      _IOW('d', 99, u_int16_t)
+#define DKIOCCDGETSPEED      _IOR('d', 99, uint16_t)
+#define DKIOCCDSETSPEED      _IOW('d', 99, uint16_t)
 
 #define DKIOCCDREADTOC       _IOWR('d', 100, dk_cd_read_toc_t)
 

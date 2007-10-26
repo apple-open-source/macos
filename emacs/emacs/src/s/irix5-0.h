@@ -1,10 +1,33 @@
+/* Definitions file for GNU Emacs running on Silicon Graphics Irix system 5.0.
+
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+                 2007  Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
+
 #include "usg5-4.h"
 
 #define IRIX5
 
 #undef sigsetmask  /* use sys_sigsetmask */
 #undef _longjmp /* use system versions, not conservative aliases */
-#undef _setjmp 
+#undef _setjmp
 
 #define SETPGRP_RELEASES_CTTY
 
@@ -28,17 +51,6 @@
 /* thomas@mathematik.uni-bremen.de says this is needed.  */
 /* Make process_send_signal work by "typing" a signal character on the pty.  */
 #define SIGNALS_VIA_CHARACTERS
-
-/* Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used. */
-#define HAVE_ALLOCA
-#undef C_ALLOCA
-
-#ifndef NOT_C_CODE
-#ifndef __GNUC__
-#include <alloca.h>
-#endif
-#endif
 
 /* SGI has all the fancy wait stuff, but we can't include sys/wait.h
    because it defines BIG_ENDIAN and LITTLE_ENDIAN (ugh!.)  Instead
@@ -84,7 +96,7 @@ char *_getpty();
 
 /* Since we use POSIX constructs in PTY_OPEN, we must force POSIX
    throughout. */
-#define POSIX_SIGNALS  
+#define POSIX_SIGNALS
 
 /* Info from simon@lia.di.epfl.ch (Simon Leinen) suggests this is needed.  */
 #define GETPGRP_NO_ARG
@@ -124,3 +136,6 @@ char *_getpty();
 #define NARROWPROTO 1
 
 #define USE_MMAP_FOR_BUFFERS 1
+
+/* arch-tag: ad0660e0-acf8-46ae-b866-4f3df5b1101b
+   (do not change this comment) */

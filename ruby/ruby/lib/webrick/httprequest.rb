@@ -27,8 +27,8 @@ module WEBrick
     attr_reader :request_method, :unparsed_uri, :http_version
 
     # Request-URI
-    attr_reader :request_uri, :host, :port, :path, :query_string
-    attr_accessor :script_name, :path_info
+    attr_reader :request_uri, :host, :port, :path
+    attr_accessor :script_name, :path_info, :query_string
 
     # Header and entity body
     attr_reader :raw_header, :header, :cookies
@@ -256,7 +256,8 @@ module WEBrick
       uri = URI::parse(str)
       return uri if uri.absolute?
       if self["host"]
-        host, port = self['host'].split(":", 2)
+        pattern = /\A(#{URI::REGEXP::PATTERN::HOST})(?::(\d+))?\z/n
+        host, port = *self['host'].scan(pattern)[0]
       elsif @addr.size > 0
         host, port = @addr[2], @addr[1]
       else
@@ -306,7 +307,12 @@ module WEBrick
     def read_chunked(socket, block)
       chunk_size, = read_chunk_size(socket)
       while chunk_size > 0
-        data = read_data(socket, chunk_size) # read chunk-data
+        data = ""
+        while data.size < chunk_size
+          tmp = read_data(socket, chunk_size-data.size) # read chunk-data
+          break unless tmp
+          data << tmp
+        end
         if data.nil? || data.size != chunk_size
           raise BadRequest, "bad chunk data size."
         end

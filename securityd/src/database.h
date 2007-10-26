@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,7 +65,7 @@ public:
 	DbCommon(Session &ssn);
 	
 	Session &session() const;
-	
+
 	virtual void sleepProcessing();		// generic action on system sleep
 	virtual void lockProcessing();		// generic action on "lock" requests
 
@@ -148,7 +148,7 @@ public:
 	virtual void authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentials *cred);
 	virtual SecurityServerAcl &acl();
 
-	virtual bool isLocked() const;
+	virtual bool isLocked();
 
 public:
 	class Search : public Subsidiary {

@@ -1,9 +1,9 @@
 dnl libloguse.m4--LOGUSE libraries and includes
 dnl Derrick Brashear
 dnl from KTH krb and Arla
+dnl $Id: libloguse.m4,v 1.4 2006/01/20 20:21:08 snsimon Exp $
 
-AC_DEFUN(CMU_LOGUSE_LIB_WHERE1, [
-AC_REQUIRE([AC_PROG_CC_GNU])
+AC_DEFUN([CMU_LOGUSE_LIB_WHERE1], [
 saved_LIBS=$LIBS
 LIBS="$saved_LIBS -L$1 -lloguse"
 AC_TRY_LINK(,
@@ -13,7 +13,7 @@ ac_cv_found_loguse_lib=no)
 LIBS=$saved_LIBS
 ])
 
-AC_DEFUN(CMU_LOGUSE_LIB_WHERE, [
+AC_DEFUN([CMU_LOGUSE_LIB_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for loguse library in $i)
       CMU_LOGUSE_LIB_WHERE1($i)
@@ -28,7 +28,8 @@ AC_DEFUN(CMU_LOGUSE_LIB_WHERE, [
     done
 ])
 
-AC_DEFUN(CMU_LOGUSE, [
+AC_DEFUN([CMU_LOGUSE], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_REQUIRE([CMU_SOCKETS])
 AC_ARG_WITH(loguse,
 	[  --with-loguse=PREFIX      Compile with LOGUSE support],
@@ -38,7 +39,7 @@ AC_ARG_WITH(loguse,
 
 	if test "X$with_loguse" != "X"; then
 	  if test "$with_loguse" != "yes"; then
-	    ac_cv_loguse_where_lib=$with_loguse/lib
+	    ac_cv_loguse_where_lib=$with_loguse/$CMU_LIB_SUBDIR
 	  fi
 	fi
 
@@ -46,7 +47,7 @@ AC_ARG_WITH(loguse,
 	  ac_cv_loguse_where_lib=$with_loguse_lib
 	fi
 	if test "X$ac_cv_loguse_where_lib" = "X"; then
-	  CMU_LOGUSE_LIB_WHERE(/usr/lib /usr/local/lib)
+	  CMU_LOGUSE_LIB_WHERE(/usr/$CMU_LIB_SUBDIR /usr/local/$CMU_LIB_SUBDIR)
 	fi
 
 	AC_MSG_CHECKING(whether to include loguse)

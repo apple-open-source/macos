@@ -5,6 +5,68 @@
  *
  *  DRI: Paul Resch
  *
+ *		$Log: IOI2CSMUSat.cpp,v $
+ *		Revision 1.18  2005/09/08 04:44:11  galcher
+ *		[rdar://4248418] Remove Kodiak Workarounds (AppleHWSensor -
+ *		IOI2CSMUSat).
+ *		Removed Kodiak-related constants.  Removed code in ::start that restricted
+ *		operation of the sensor to Kodiak v1.2 and beyond.
+ *		
+ *		Revision 1.17  2005/08/10 22:31:11  tsherman
+ *		4212063 - Q63: Flashing SATs is painfully slow
+ *		
+ *		Revision 1.16  2005/08/10 20:43:19  larson
+ *		4196134 - sat-version property should only be the version number, not also the MPUID and the CRC.
+ *		
+ *		Revision 1.15  2005/08/06 01:00:52  tsherman
+ *		rdar:4204990 - Q63: Platform Plugin not loaded on boot.
+ *		
+ *		Revision 1.14  2005/07/28 01:19:45  tsherman
+ *		4195836 - Q63: Disable SMU traffic in IOI2CPulsar and IOI2CSMUSat for non 1.2 Kodiak systems
+ *		
+ *		Revision 1.13  2005/07/26 20:19:04  jorr
+ *		When the SAT base partition is erased now both 8k blocks at 0xFC000 and
+ *		0xFE000 are erased. Also debug timing info added for flashing SATs.
+ *		
+ *		Revision 1.12  2005/06/03 00:24:17  tsherman
+ *		Changed sensor cache update code to use locks instead of a IOCommandGate. This
+ *		new implementation guarantees the control loop will not get blocked waiting
+ *		for i2c reads (which can be up to 7/10th of second waiting on the SAT).
+ *		
+ *		Revision 1.11  2005/06/01 23:15:57  tsherman
+ *		Marco implemented IOI2CSMUSat "lock-sensor" mechanism
+ *		
+ *		Revision 1.10  2005/05/24 01:01:50  mpontil
+ *		Cached data was invalidated much to frequently due to a time scale error.
+ *		(.001 second as opposed to 1 second.)
+ *		
+ *		Revision 1.9  2005/05/19 22:15:33  tsherman
+ *		4095546 - SMUSAT sensors - Update driver to read all SAT sensors with one read (raddog)
+ *		
+ *		Revision 1.8  2005/05/02 21:45:40  raddog
+ *		Do the Cam approved sign extension of 16-bit sensor data so we can handle negative sensor readings
+ *		
+ *		Revision 1.7  2005/04/28 20:20:41  raddog
+ *		Initial SAT flash support.  Redo Josephs getProperty code and eliminate getPartition call platform function (use getProperty instead)
+ *		
+ *		Revision 1.6  2005/04/27 17:41:48  mpontil
+ *		Checking in changes from Joseph to supprt current sensors. Also this checkin
+ *		does a little of cleaning up and adds a getProperty() to read from SDB in
+ *		the same way it is already done for the SMU.
+ *		
+ *		These changes are tagged before and after with BeforeMarco050427 and
+ *		AfterMarco050427.
+ *		
+ *		Revision 1.5  2005/04/11 23:40:17  dirty
+ *		Fix compiler warning.
+ *		
+ *		Revision 1.4  2005/02/01 03:25:16  larson
+ *		Do not publish sensors named adc since on SAT systems they behave as indirect
+ *		sensors and do not play well with the code that speaks like direct sensors.
+ *		
+ *		Revision 1.3  2005/01/13 01:46:48  dirty
+ *		Add cvs header.  Fix build.
+ *		
  *		
  */
 

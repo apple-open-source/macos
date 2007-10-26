@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2002, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,14 +57,16 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #ifndef lint
-static char copyright[] =
+__unused static char copyright[] =
 "@(#) Copyright (c) 1980, 1990, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-static char sccsid[] = "@(#)quotaon.c	8.1 (Berkeley) 6/6/93";
+__unused static char sccsid[] = "@(#)quotaon.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 
 /*
@@ -94,11 +96,21 @@ int	gflag;		/* operate on group quotas */
 int	uflag;		/* operate on user quotas */
 int	vflag;		/* verbose */
 
+/* Function prototypes */
+#ifdef __APPLE__
+int hasquota(register struct statfs *, int, char **);
+int quotaonoff(register struct statfs *, int, int, char *);
+#else
+int hasquota(register struct fstab *, int, char **);
+int quotaonoff(register struct fstab *, int, int, char *);
+#endif /* __APPLE__ */
+
+int oneof(register char *, register char **, int);
+
 int main(argc, argv)
 	int argc;
 	char **argv;
 {
-	register struct fstab *fs;
 	char ch, *qfnp, *whoami, *rindex();
 	long argnum, done = 0;
 	int i, offmode = 0, errs = 0;
@@ -180,6 +192,7 @@ int main(argc, argv)
 	  }
 	}
 #else
+	register struct fstab *fs;
 	setfsent();
 	while ((fs = getfsent()) != NULL) {
 		if (strcmp(fs->fs_vfstype, "ufs") ||

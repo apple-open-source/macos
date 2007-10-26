@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-pflog.c,v 1.1.1.3 2004/05/21 20:51:30 rbraun Exp $ (LBL)";
+    "@(#) $Header: /tcpdump/master/tcpdump/print-pflog.c,v 1.13.2.2 2006/10/25 22:13:30 guy Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -44,6 +44,15 @@ static struct tok pf_reasons[] = {
 	{ 3,	"3(short)" },
 	{ 4,	"4(normalize)" },
 	{ 5,	"5(memory)" },
+	{ 6,	"6(bad-timestamp)" },
+	{ 7,	"7(congestion)" },
+	{ 8,	"8(ip-option)" },
+	{ 9,	"9(proto-cksum)" },
+	{ 10,	"10(state-mismatch)" },
+	{ 11,	"11(state-insert)" },
+	{ 12,	"12(state-limit)" },
+	{ 13,	"13(src-limit)" },
+	{ 14,	"14(synproxy)" },
 	{ 0,	NULL }
 };
 
@@ -75,11 +84,14 @@ static struct tok pf_directions[] = {
 static void
 pflog_print(const struct pfloghdr *hdr)
 {
-	if (ntohl(hdr->subrulenr) == (u_int32_t)-1)
-		printf("rule %u/", ntohl(hdr->rulenr));
+	u_int32_t rulenr, subrulenr;
+
+	rulenr = ntohl(hdr->rulenr);
+	subrulenr = ntohl(hdr->subrulenr);
+	if (subrulenr == (u_int32_t)-1)
+		printf("rule %u/", rulenr);
 	else
-		printf("rule %u.%s.%u/", ntohl(hdr->rulenr), hdr->ruleset,
-		    ntohl(hdr->subrulenr));
+		printf("rule %u.%s.%u/", rulenr, hdr->ruleset, subrulenr);
 
 	printf("%s: %s %s on %s: ",
 	    tok2str(pf_reasons, "unkn(%u)", hdr->reason),
@@ -133,7 +145,7 @@ pflog_if_print(const struct pcap_pkthdr *h, register const u_char *p)
 #if OPENBSD_AF_INET != AF_INET
 		case OPENBSD_AF_INET:		/* XXX: read pcap files */
 #endif
-			ip_print(p, length);
+		        ip_print(gndo, p, length);
 			break;
 
 #ifdef INET6
@@ -149,7 +161,7 @@ pflog_if_print(const struct pcap_pkthdr *h, register const u_char *p)
 		/* address family not handled, print raw packet */
 		if (!eflag)
 			pflog_print(hdr);
-		if (!xflag && !qflag)
+		if (!suppress_default_print)
 			default_print(p, caplen);
 	}
 	
@@ -158,3 +170,10 @@ trunc:
 	printf("[|pflog]");
 	return (hdrlen);
 }
+
+/*
+ * Local Variables:
+ * c-style: whitesmith
+ * c-basic-offset: 8
+ * End:
+ */

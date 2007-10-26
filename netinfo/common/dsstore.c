@@ -40,9 +40,6 @@
 #include <syslog.h>
 #include <notify.h>
 
-extern uint32_t notify_set_state(int token, int state);
-extern uint32_t notify_get_state(int token, int *state);
-
 #define DataStoreAccessMode 0700
 #define ConfigFileName "Config"
 #define IndexFileName "Index"
@@ -293,6 +290,7 @@ dsstore_lock(dsstore *s, int block)
 	int status, op;
 
 	if (s == NULL) return DSStatusInvalidStore;
+	if (s->flags & DSSTORE_FLAGS_NO_LOCK) return DSStatusOK;
 
 	op = LOCK_EX;
 	if (block == 0) op |= LOCK_NB;
@@ -311,6 +309,7 @@ static void
 dsstore_unlock(dsstore *s)
 {
 	if (s == NULL) return;
+	if (s->flags & DSSTORE_FLAGS_NO_LOCK) return;
 	flock(s->store_lock, LOCK_UN);
 }
 
@@ -336,6 +335,7 @@ dsstore_sync(dsstore *s)
 	struct stat sb;
 	uint32_t i;
 	uint32_t status, check, vers;
+	uint64_t v64;
 
 	if (s == NULL) return DSStatusInvalidStore;
 
@@ -345,8 +345,8 @@ dsstore_sync(dsstore *s)
 	status = notify_check(s->notify_token, &check);
 	if (status != NOTIFY_STATUS_OK) check = 1;
 
-	status = notify_get_state(s->notify_token, &vers);
-	if (status != NOTIFY_STATUS_OK) vers = 0;
+	status = notify_get_state(s->notify_token, &v64);
+	if (status == NOTIFY_STATUS_OK) vers = v64;
 
 	if ((check == 0) && (vers == s->max_vers)) return DSStatusOK;
 
@@ -1430,6 +1430,7 @@ dsstore_open(dsstore **s, char *dirname, uint32_t flags)
 {
 	dsstatus status;
 	char *p, *dot, *path;
+	uint64_t v64;
 
 	if (flags & DSSTORE_FLAGS_REMOTE_NETINFO)
 		return nistore_open(s, dirname, flags);
@@ -1464,7 +1465,8 @@ dsstore_open(dsstore **s, char *dirname, uint32_t flags)
 
 		asprintf(&((*s)->notification_name), "%s.%s.%s", NETINFO_NOTIFY_PREFIX, p, NETINFO_NOTIFY_SUFFIX);
 		notify_register_check((*s)->notification_name, &((*s)->notify_token));
-		notify_set_state((*s)->notify_token, (*s)->max_vers);
+		v64 = (*s)->max_vers;
+		notify_set_state((*s)->notify_token, v64);
 		free(path);
 	}
 
@@ -1476,6 +1478,8 @@ dsstore_open(dsstore **s, char *dirname, uint32_t flags)
 void
 dsstore_set_notification_name(dsstore *s, const char *n)
 {
+	uint64_t v64;
+
 	if (s == NULL) return;
 
 	if (!(s->flags & DSSTORE_FLAGS_NOTIFY_CHANGES)) return;
@@ -1491,18 +1495,22 @@ dsstore_set_notification_name(dsstore *s, const char *n)
 	{
 		s->notification_name = strdup(n);
 		notify_register_check(s->notification_name, &(s->notify_token));
-		notify_set_state(s->notify_token, s->max_vers);
+		v64 = s->max_vers;
+		notify_set_state(s->notify_token, v64);
 	}
 }
 
 void
 dsstore_notify(dsstore *s)
 {
+	uint64_t v64;
+
 	if (s == NULL) return;
 	if (s->notification_name == NULL) return;
 	if (!(s->flags & DSSTORE_FLAGS_NOTIFY_CHANGES)) return;
 
-	notify_set_state(s->notify_token, s->max_vers);
+	v64 = s->max_vers;
+	notify_set_state(s->notify_token, v64);
 	notify_post(s->notification_name);
 }
 
@@ -2268,6 +2276,7 @@ dsstore_remove_internal(dsstore *s, uint32_t dsid, uint32_t lock)
 	{
 		/* Bad news - the database is corrupt */
 		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u _dsstore_dsrecord_fread failed at offset %q: %s", dsid, size, offset, strerror(errno));
+		if (lock != 0) dsstore_unlock(s);
 		return DSStatusWriteFailed;
 	}
 	
@@ -2275,6 +2284,7 @@ dsstore_remove_internal(dsstore *s, uint32_t dsid, uint32_t lock)
 	{
 		/* Bad news - the database is corrupt */
 		syslog(LOG_ERR, "dsstore_remove_internal %u Store.%u _dsstore_dsrecord_fread returned incorrect ID %u at offset %q: %s", dsid, size, r->dsid, offset, strerror(errno));
+		if (lock != 0) dsstore_unlock(s);
 		return DSStatusWriteFailed;
 	}
 	
@@ -2395,6 +2405,7 @@ dsstore_fetch_internal(dsstore *s, uint32_t dsid, uint32_t lock)
 	{
 		/* Bad news - the database is corrupt */
 		syslog(LOG_ERR, "dsstore_fetch_internal %u Store.%u _dsstore_dsrecord_fread failed at offset %q: %s", dsid, size, offset, strerror(errno));
+		if (lock != 0) dsstore_unlock(s);
 		return NULL;
 	}
 
@@ -2403,6 +2414,7 @@ dsstore_fetch_internal(dsstore *s, uint32_t dsid, uint32_t lock)
 		/* Bad news - the database is corrupt */
 		syslog(LOG_ERR, "dsstore_fetch_internal %u Store.%u _dsstore_dsrecord_fread returned incorrect ID %u at offset %q: %s", dsid, size, r->dsid, offset, strerror(errno));
 		dsrecord_release(r);
+		if (lock != 0) dsstore_unlock(s);
 		return NULL;
 	}
 	

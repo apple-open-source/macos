@@ -1,8 +1,7 @@
-#define NEED_SOCKETS
 #include "k5-int.h"
 #include <kadm5/admin.h>
 #include <syslog.h>
-#include <krb5/adm_proto.h>	/* krb5_klog_syslog */
+#include <adm_proto.h>	/* krb5_klog_syslog */
 #include <stdio.h>
 #include <errno.h>
 
@@ -41,6 +40,8 @@ process_chpw_request(context, server_handle, realm, s, keytab, sockin,
     int numresult;
     char strresult[1024];
     char *clientstr;
+    size_t clen;
+    char *cdots;
 
     ret = 0;
     rep->length = 0;
@@ -249,8 +250,8 @@ process_chpw_request(context, server_handle, realm, s, keytab, sockin,
     memcpy(ptr, clear.data, clear.length);
     ptr[clear.length] = '\0';
 
-    ret = chpass_util_wrapper(server_handle, ticket->enc_part2->client,
-			      ptr, NULL, strresult, sizeof(strresult));
+    ret = schpw_util_wrapper(server_handle, ticket->enc_part2->client,
+			     ptr, NULL, strresult, sizeof(strresult));
 
     /* zap the password */
     memset(clear.data, 0, clear.length);
@@ -259,9 +260,12 @@ process_chpw_request(context, server_handle, realm, s, keytab, sockin,
     free(ptr);
     clear.length = 0;
 
-    krb5_klog_syslog(LOG_NOTICE, "chpw request from %s for %s: %s",
+    clen = strlen(clientstr);
+    trunc_name(&clen, &cdots);
+    krb5_klog_syslog(LOG_NOTICE, "chpw request from %s for %.*s%s: %s",
 		     inet_ntoa(((struct sockaddr_in *)&remote_addr)->sin_addr),
-		     clientstr, ret ? error_message(ret) : "success");
+		     clen, clientstr, cdots,
+		     ret ? krb5_get_error_message (context, ret) : "success");
     krb5_free_unparsed_name(context, clientstr);
 
     if (ret) {

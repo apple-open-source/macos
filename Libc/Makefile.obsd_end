@@ -13,32 +13,46 @@
 OBSDSECTIONS= 1 2 3 4 5 6 7 8 9
 
 .for _src in ${OBSDSRCS}
-${SYMROOT}/${_src:R}-obsd.${_src:E}: OpenBSD/${_src} _AUTOPATCHSYM
+.ifmake autopatch
+${_src:R}-obsd.${_src:E}: OpenBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHSRCS+= ${_src:R}-obsd.${_src:E}
+.else # !autopatch
 SRCS+= ${_src}
-AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-obsd.${_src:E}
+.endif # autopatch
 .endfor
 
 .for _src in ${OBSDMDSRCS}
-${SYMROOT}/${_src:R}-obsd.${_src:E}: OpenBSD/${_src} _AUTOPATCHSYM
+.ifmake autopatch
+${_src:R}-obsd.${_src:E}: OpenBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHSRCS+= ${_src:R}-obsd.${_src:E}
+.else # !autopatch
 MDSRCS+= ${_src}
-AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-obsd.${_src:E}
+.endif # autopatch
 .endfor
 
 .for _src in ${OBSDMISRCS}
-${SYMROOT}/${_src:R}-obsd.${_src:E}: OpenBSD/${_src} _AUTOPATCHSYM
+.ifmake autopatch
+${_src:R}-obsd.${_src:E}: OpenBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHSRCS+= ${_src:R}-obsd.${_src:E}
+.else # !autopatch
 MISRCS+= ${_src}
-AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-obsd.${_src:E}
+.endif # autopatch
 .endfor
 
+.ifmake autopatch
 .for _src in ${OBSDHDRS}
-${SYMROOT}/${_src}: OpenBSD/${_src} _AUTOPATCHSYM
-AUTOPATCHHDRS+= ${SYMROOT}/${_src}
+${_src}: OpenBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHHDRS+= ${_src}
 .endfor
+.endif # autopatch
 
 .for _sect in ${OBSDSECTIONS}
 .for _src in ${OBSDMAN${_sect}}
+.ifmake autopatch
 ${_src}: OpenBSD/${_src} _AUTOPATCH
-MAN${_sect}+= ${_src}
 AUTOPATCHMAN+= ${_src}
+.else # !autopatch
+MAN${_sect}+= ${_src}
+.endif # autopatch
 .endfor
 .endfor

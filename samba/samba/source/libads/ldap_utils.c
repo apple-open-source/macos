@@ -27,11 +27,12 @@
   a wrapper around ldap_search_s that retries depending on the error code
   this is supposed to catch dropped connections and auto-reconnect
 */
-ADS_STATUS ads_do_search_retry(ADS_STRUCT *ads, const char *bind_path, int scope, 
-			       const char *expr,
-			       const char **attrs, void **res)
+static ADS_STATUS ads_do_search_retry_internal(ADS_STRUCT *ads, const char *bind_path, int scope, 
+					       const char *expr,
+					       const char **attrs, void *args,
+					       LDAPMessage **res)
 {
-	ADS_STATUS status;
+	ADS_STATUS status = ADS_SUCCESS;
 	int count = 3;
 	char *bp;
 
@@ -48,15 +49,24 @@ ADS_STATUS ads_do_search_retry(ADS_STRUCT *ads, const char *bind_path, int scope
 		return ADS_ERROR_NT(NT_STATUS_NO_MEMORY);
 	}
 
-	while (count--) {
-		*res = NULL;
-		status = ads_do_search_all(ads, bp, scope, expr, attrs, res);
-		if (ADS_ERR_OK(status)) {
-			DEBUG(5,("Search for %s gave %d replies\n",
-				 expr, ads_count_replies(ads, *res)));
-			SAFE_FREE(bp);
-			return status;
-		}
+	*res = NULL;
+
+	/* when binding anonymously, we cannot use the paged search LDAP
+	 * control - Guenther */
+
+	if (ads->auth.flags & ADS_AUTH_ANON_BIND) {
+		status = ads_do_search(ads, bp, scope, expr, attrs, res);
+	} else {
+		status = ads_do_search_all_args(ads, bp, scope, expr, attrs, args, res);
+	}
+	if (ADS_ERR_OK(status)) {
+               DEBUG(5,("Search for %s in <%s> gave %d replies\n",
+                        expr, bp, ads_count_replies(ads, *res)));
+		SAFE_FREE(bp);
+		return status;
+	}
+
+	while (--count) {
 
 		if (*res) 
 			ads_msgfree(ads, *res);
@@ -79,30 +89,102 @@ ADS_STATUS ads_do_search_retry(ADS_STRUCT *ads, const char *bind_path, int scope
 			SAFE_FREE(bp);
 			return status;
 		}
+
+		*res = NULL;
+
+		/* when binding anonymously, we cannot use the paged search LDAP
+		 * control - Guenther */
+
+		if (ads->auth.flags & ADS_AUTH_ANON_BIND) {
+			status = ads_do_search(ads, bp, scope, expr, attrs, res);
+		} else {
+			status = ads_do_search_all_args(ads, bp, scope, expr, attrs, args, res);
+		}
+
+		if (ADS_ERR_OK(status)) {
+			DEBUG(5,("Search for filter: %s, base: %s gave %d replies\n",
+				 expr, bp, ads_count_replies(ads, *res)));
+			SAFE_FREE(bp);
+			return status;
+		}
 	}
         SAFE_FREE(bp);
 
-	if (!ADS_ERR_OK(status))
+	if (!ADS_ERR_OK(status)) {
 		DEBUG(1,("ads reopen failed after error %s\n", 
 			 ads_errstr(status)));
-
+	}
 	return status;
 }
 
+ ADS_STATUS ads_do_search_retry(ADS_STRUCT *ads, const char *bind_path,
+				int scope, const char *expr,
+				const char **attrs, LDAPMessage **res)
+{
+	return ads_do_search_retry_internal(ads, bind_path, scope, expr, attrs, NULL, res);
+}
 
-ADS_STATUS ads_search_retry(ADS_STRUCT *ads, void **res, 
-			    const char *expr, 
-			    const char **attrs)
+ ADS_STATUS ads_do_search_retry_args(ADS_STRUCT *ads, const char *bind_path,
+				     int scope, const char *expr,
+				     const char **attrs, void *args,
+				     LDAPMessage **res)
+{
+	return ads_do_search_retry_internal(ads, bind_path, scope, expr, attrs, args, res);
+}
+
+
+ ADS_STATUS ads_search_retry(ADS_STRUCT *ads, LDAPMessage **res, 
+			     const char *expr, const char **attrs)
 {
 	return ads_do_search_retry(ads, ads->config.bind_path, LDAP_SCOPE_SUBTREE,
 				   expr, attrs, res);
 }
 
-ADS_STATUS ads_search_retry_dn(ADS_STRUCT *ads, void **res, 
-			       const char *dn, 
-			       const char **attrs)
+ ADS_STATUS ads_search_retry_dn(ADS_STRUCT *ads, LDAPMessage **res, 
+				const char *dn, 
+				const char **attrs)
 {
 	return ads_do_search_retry(ads, dn, LDAP_SCOPE_BASE,
 				   "(objectclass=*)", attrs, res);
 }
+
+ ADS_STATUS ads_search_retry_extended_dn(ADS_STRUCT *ads, LDAPMessage **res, 
+					 const char *dn, 
+					 const char **attrs,
+					 enum ads_extended_dn_flags flags)
+{
+	ads_control args;
+
+	args.control = ADS_EXTENDED_DN_OID;
+	args.val = flags;
+	args.critical = True;
+
+	return ads_do_search_retry_args(ads, dn, LDAP_SCOPE_BASE,
+					"(objectclass=*)", attrs, &args, res);
+}
+
+ ADS_STATUS ads_search_retry_sid(ADS_STRUCT *ads, LDAPMessage **res, 
+				 const DOM_SID *sid,
+				 const char **attrs)
+{
+	char *dn, *sid_string;
+	ADS_STATUS status;
+	
+	sid_string = sid_binstring_hex(sid);
+	if (sid_string == NULL) {
+		return ADS_ERROR(LDAP_NO_MEMORY);
+	}
+
+	if (!asprintf(&dn, "<SID=%s>", sid_string)) {
+		SAFE_FREE(sid_string);
+		return ADS_ERROR(LDAP_NO_MEMORY);
+	}
+
+	status = ads_do_search_retry(ads, dn, LDAP_SCOPE_BASE,
+				   "(objectclass=*)", attrs, res);
+	SAFE_FREE(dn);
+	SAFE_FREE(sid_string);
+	return status;
+}
+
 #endif

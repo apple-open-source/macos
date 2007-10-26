@@ -16,19 +16,25 @@
 .Nm
 .Op Fl hv         \" [-f path] 
 .Sh DESCRIPTION          \" Section Header - required - don't modify
-Apple's Open Directory architecture includes source code for both directory client access and directory servers. Open Directory forms the foundation of how Mac OS X accesses all authoritative configuration information (users, groups, mounts, managed desktop data, etc.). Mac OS X obtains this information via abstraction APIs, enabling use of virtually any directory system.  Configuration of Open Directory is done through the Directory Access applications in /Applications/Utilities.  This application can configure plugin settings, including turning on/off various directory services.
+Apple's Open Directory architecture includes source code for both directory client access and directory servers.
+Open Directory forms the foundation of how Mac OS X accesses all authoritative configuration information (users, groups, mounts,
+managed desktop data, etc.). Mac OS X obtains this information via abstraction APIs, enabling use of virtually any directory
+system.  Configuration of Open Directory is done through the Directory Utility applications in /Applications/Utilities.  This
+application can configure plugin settings, including turning on/off various directory services.
 .Pp
-.Nm Open Directory Access
+.Nm Open Directory Utility
 .Pp
-Directory Services is a core part of the Open Directory technology. Directory Services provides a client read/write/authentication API abstraction for accessing directory-based data. Directory Services consists of an access API, and an API daemon, and a plug-in API.
-.Pp
-An additional element of Open Directory is the existing Darwin component of lookupd that provides a read-only abstraction for accessing all BSD configuration information. Both lookupd and Directory Services work in conjunction with each other via the DSAgent to provide authoritative and consistent configuration information to all processes running on Mac OS X regardless of which Directory API they are using. The source code for DSAgent is also available.
+Directory Services is a core part of the Open Directory technology. Directory Services provides a client
+read/write/authentication API abstraction for accessing directory-based data. Directory Services consists
+of an access API, and an API daemon, and a plug-in API.
 .Pp
 More information can be accessed from the Darwin Open Directory Page: http://developer.apple.com/darwin/projects/opendirectory/
 .Pp
 .Nm Open Directory Servers
 .Pp
-Apple's Open Directory Servers are OpenLDAP and NetInfo. OpenLDAP and NetInfo are included as part of Mac OS X Desktop and Server, and are also included with Darwin. Both OpenLDAP and NetInfo provide a robust and scalable platform for serving directory based configuration information for both stand-alone and networked CPUs. OpenLDAP and NetInfo share the same datastore and both separately consist of:
+Apple's Open Directory Server is OpenLDAP. OpenLDAP is included as part of Mac OS X Desktop and Server,
+and is also included with Darwin. OpenLDAP provides a robust and scalable platform for serving directory based
+configuration information for both stand-alone and networked CPUs. OpenLDAP consists of:
 .Bl -bullet -offset indent
 .It
 Access API
@@ -40,7 +46,7 @@ Command line tools for displaying and modifying the contents of the Directory Se
 .Pp
 .Nm Documentation
 .Pp
-Directory Services Access API and Plug-in API is documented at: http://developer.apple.com/techpubs/macosx/Networking/
+Directory Services Access API and Plug-in API is documented at: http://developer.apple.com/referencelibrary/Networking/
 .Pp
 The headers for the DirectoryService APIs can also be found in the following location:
 .Pp
@@ -58,13 +64,11 @@ Display the release version.
 .El                      \" Ends the list
 .Pp
 .Sh PLUGINS
-The following plugins can be managed using the Directory Access application.
+The following plugins can be managed using the Directory Utility application.
 .Pp
 .Bl -bullet -offset indent  \" Differs from above in -compact tag removed 
 .It
 BSD (Flat File and NIS)
-.It
-NetInfo
 .It
 LDAPv3
 .It
@@ -88,7 +92,8 @@ PasswordServer
 .\" .Sh EXAMPLES
 .\" .Ev PAGER
 .Sh DIAGNOSTICS      \"Sections 1, 6, 7, and 8
-There are two helpful signals you can send to the DirectoryService daemon to help diagnose problems you may be having.  (Example: % sudo killall -USR1 DirectoryService).  USR2 logging automatically turns off after 5 minutes.
+There are two helpful signals you can send to the DirectoryService daemon to help diagnose problems you may be having.
+(Example: % sudo killall -USR1 DirectoryService).  USR2 logging automatically turns off after 5 minutes.
 .Pp
 .Bl -bullet -offset indent  \" Differs from above in -compact tag removed 
 .It
@@ -139,6 +144,9 @@ See /var/log/system.log
 .Pp
 	eDSUnRegisterFailed				=	-14012
 .Pp
+	eDSLocalDSDaemonInUse			=	-14015
+.Pp
+	eDSNormalDSDaemonInUse			=	-14016
 .Pp
 	eDSAllocationFailed				=	-14050
 .Pp
@@ -188,15 +196,15 @@ See /var/log/system.log
 .Pp
 	eDSRefTableError				=	-14081
 .Pp
-	eDSRefTableNilError					=	-14082,
+	eDSRefTableNilError				=	-14082,
 .Pp
 	eDSRefTableIndexOutOfBoundsError	=	-14083,
 .Pp
 	eDSRefTableEntryNilError			=	-14084,
 .Pp
-	eDSRefTableCSBPAllocError			=	-14085,
+	eDSRefTableCSBPAllocError		=	-14085,
 .Pp
-	eDSRefTableFWAllocError				=	-14086,
+	eDSRefTableFWAllocError			=	-14086,
 .Pp
 	eDSAuthFailed					=	-14090
 .Pp
@@ -261,10 +269,10 @@ See /var/log/system.log
 .Pp
 	eDSSchemaError					=	-14142
 .Pp
-	eDSAttributeValueNotFound		=   -14143
+	eDSAttributeValueNotFound		=	-14143
 .Pp
 .Pp
-	eDSVersionMismatch				=   -14149
+	eDSVersionMismatch				=	-14149
 .Pp
 	eDSPlugInConfigFileError			=	-14150
 .Pp
@@ -515,6 +523,8 @@ See /var/log/system.log
 .Pp
 	eDSServiceUnavailable			=	-14487
 .Pp
+	eDSInvalidFilePath				=	-14488
+.Pp
 .Pp
 	eFWGetDirNodeNameErr1			=	-14501
 .Pp
@@ -627,7 +637,7 @@ More information on Darwin may be found on the Web at
 .Pp
 Directory Services Access API and Plug-in API is documented at
 .Pp
-.Dl http://developer.apple.com/techpubs/macosx/Networking/
+.Dl http://developer.apple.com/referencelibrary/Networking/
 .Pp
 The headers for the DirectoryService APIs can also be found in the following location:
 .Pp
@@ -643,8 +653,13 @@ The headers for the DirectoryService APIs can also be found in the following loc
 .Sh SEE ALSO 
 .\" List links in ascending order by section, alphabetically within a section.
 .\" Please do not reference files that do not exist without filing a bug report
-.Xr DirectoryServiceAttributes 7
-.Xr dscl 1
-.Xr lookupd 8
+.Xr DirectoryServiceAttributes 7 ,
+.Xr dscl 1 ,
+.Xr dsmemberutil 1 ,
+.Xr dscacheutil 1 ,
+.Xr dseditgroup 8 ,
+.Xr dsenableroot 8 ,
+.Xr dserr 8 ,
+.Xr pwpolicy 8
 .\" .Sh BUGS 
-.\" .Sh HISTORY 
+.\" .Sh HISTORY

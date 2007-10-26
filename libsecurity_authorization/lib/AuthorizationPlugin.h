@@ -39,7 +39,6 @@ extern "C" {
 
 /*!
 	@header AuthorizationPlugin
-	Version 0.4 05/09/2004
 	
 	The AuthorizationPlugin API allows the creation of plugins that can participate
 	in authorization decisions.  Using the AuthorizationDB API the system can be configured
@@ -77,7 +76,7 @@ extern "C" {
 */
 typedef struct AuthorizationValue
 {
-    UInt32 length;
+    size_t length;
     void *data;
 } AuthorizationValue;
 
@@ -96,13 +95,15 @@ typedef struct AuthorizationValueVector
     @typedef
     Data produced as context during the authorization evaluation is tagged.  
     If data is set to be extractable (kAuthorizationContextFlagExtractable), it will be possible for the client of authorization to obtain the value of this attribute using AuthorizationCopyInfo().
-    If data is marked as volatile (kAuthorizationContextFlagVolatile), this value will not be remembered.
+    If data is marked as volatile (kAuthorizationContextFlagVolatile), this value will not be remembered in the AuthorizationRef.
+    Sticky data (kAuthorizationContextFlagSticky) persists through a failed or interrupted evaluation. It can be used to propagate an error condition from a downstream plugin to an upstream one. It is not remembered in the AuthorizationRef.
 */
 typedef UInt32 AuthorizationContextFlags;
 enum
 {
     kAuthorizationContextFlagExtractable = (1 << 0),
-    kAuthorizationContextFlagVolatile = (1 << 1)
+    kAuthorizationContextFlagVolatile = (1 << 1),
+    kAuthorizationContextFlagSticky = (1 << 2)
 };
 
 

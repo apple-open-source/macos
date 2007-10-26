@@ -1,5 +1,6 @@
 /* Pro-process emacs.exe for profiling by MSVC.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005,
+      2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
    Andrew Innes <andrewi@harlequin.co.uk>       16-Jan-1999
      based on code from addsection.c
@@ -67,17 +68,17 @@ open_input_file (file_data *p_file, char *filename)
 
   file = CreateFile (filename, GENERIC_READ, FILE_SHARE_READ, NULL,
 		     OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-  if (file == INVALID_HANDLE_VALUE) 
+  if (file == INVALID_HANDLE_VALUE)
     return FALSE;
 
   size = GetFileSize (file, &upper_size);
-  file_mapping = CreateFileMapping (file, NULL, PAGE_READONLY, 
+  file_mapping = CreateFileMapping (file, NULL, PAGE_READONLY,
 				    0, size, NULL);
-  if (!file_mapping) 
+  if (!file_mapping)
     return FALSE;
 
   file_base = MapViewOfFile (file_mapping, FILE_MAP_READ, 0, 0, size);
-  if (file_base == 0) 
+  if (file_base == 0)
     return FALSE;
 
   p_file->name = filename;
@@ -98,18 +99,18 @@ open_output_file (file_data *p_file, char *filename, unsigned long size)
 
   file = CreateFile (filename, GENERIC_READ | GENERIC_WRITE, 0, NULL,
 		     CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
-  if (file == INVALID_HANDLE_VALUE) 
+  if (file == INVALID_HANDLE_VALUE)
     return FALSE;
 
-  file_mapping = CreateFileMapping (file, NULL, PAGE_READWRITE, 
+  file_mapping = CreateFileMapping (file, NULL, PAGE_READWRITE,
 				    0, size, NULL);
-  if (!file_mapping) 
+  if (!file_mapping)
     return FALSE;
-  
+
   file_base = MapViewOfFile (file_mapping, FILE_MAP_WRITE, 0, 0, size);
-  if (file_base == 0) 
+  if (file_base == 0)
     return FALSE;
-  
+
   p_file->name = filename;
   p_file->size = size;
   p_file->file = file;
@@ -129,17 +130,17 @@ open_inout_file (file_data *p_file, char *filename)
 
   file = CreateFile (filename, GENERIC_READ | GENERIC_WRITE, 0, NULL,
 		     OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-  if (file == INVALID_HANDLE_VALUE) 
+  if (file == INVALID_HANDLE_VALUE)
     return FALSE;
 
   size = GetFileSize (file, &upper_size);
   file_mapping = CreateFileMapping (file, NULL, PAGE_READWRITE,
 				    0, size, NULL);
-  if (!file_mapping) 
+  if (!file_mapping)
     return FALSE;
 
   file_base = MapViewOfFile (file_mapping, FILE_MAP_WRITE, 0, 0, size);
-  if (file_base == 0) 
+  if (file_base == 0)
     return FALSE;
 
   p_file->name = filename;
@@ -341,7 +342,7 @@ relocate_offset (DWORD offset,
    easy to parse.  */
 
 static void
-copy_executable_and_move_sections (file_data *p_infile, 
+copy_executable_and_move_sections (file_data *p_infile,
 				   file_data *p_outfile)
 {
   unsigned char *dst;
@@ -389,10 +390,10 @@ copy_executable_and_move_sections (file_data *p_infile,
      Note that dst is updated implicitly by each COPY_CHUNK.  */
 
   dos_header = (PIMAGE_DOS_HEADER) p_infile->file_base;
-  nt_header = (PIMAGE_NT_HEADERS) (((unsigned long) dos_header) + 
+  nt_header = (PIMAGE_NT_HEADERS) (((unsigned long) dos_header) +
 				   dos_header->e_lfanew);
   section = IMAGE_FIRST_SECTION (nt_header);
- 
+
   import_dir = &nt_header->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
   import_section = rva_to_section (import_dir->VirtualAddress, nt_header);
 
@@ -776,7 +777,7 @@ main (int argc, char **argv)
   /* Open the original (dumped) executable file for reference.  */
   if (!open_input_file (&in_file, in_filename))
     {
-      printf ("Failed to open %s (%d)...bailing.\n", 
+      printf ("Failed to open %s (%d)...bailing.\n",
 	      in_filename, GetLastError ());
       exit (1);
     }
@@ -786,7 +787,7 @@ main (int argc, char **argv)
      which should fit in the alignment slop.  */
   if (!open_output_file (&out_file, out_filename, in_file.size))
     {
-      printf ("Failed to open %s (%d)...bailing.\n", 
+      printf ("Failed to open %s (%d)...bailing.\n",
 	      out_filename, GetLastError ());
       exit (1);
     }
@@ -827,3 +828,6 @@ main (int argc, char **argv)
 }
 
 /* eof */
+
+/* arch-tag: 144ca747-168e-43a0-9736-3f4c0ba1657f
+   (do not change this comment) */

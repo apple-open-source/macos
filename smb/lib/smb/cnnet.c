@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -453,7 +456,7 @@ PRIVATE void rpc__cn_network_mon
      * Get the association group using the group id provided as a
      * client handle. 
      */
-    grp_id.all = (unsigned32) client_h;
+    grp_id.all = (unsigned long)client_h;
     grp_id = rpc__cn_assoc_grp_lkup_by_id (grp_id,
                                            RPC_C_CN_ASSOC_GRP_SERVER,
                                            st);
@@ -532,7 +535,7 @@ PRIVATE void rpc__cn_network_stop_mon
      * Get the association group using the group id provided as a
      * client handle. 
      */
-    grp_id.all = (unsigned32) client_h;
+    grp_id.all = (unsigned long)client_h;
     grp_id = rpc__cn_assoc_grp_lkup_by_id (grp_id,
                                            RPC_C_CN_ASSOC_GRP_SERVER,
                                            st);

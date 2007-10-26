@@ -1,12 +1,12 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/FindPane.c,v 1.1.1.4 2002/09/10 23:34:44 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
  *
- *	XMenuFindPane - Find the first menu pane who's label matches a 
+ *	XMenuFindPane - Find the first menu pane who's label matches a
  *			particular string.
  *
  *	Author:		Tony Della Fera, DEC
@@ -17,7 +17,7 @@
 #include "XMenuInt.h"
 
 int
-XMenuFindPane(menu, label) 
+XMenuFindPane(menu, label)
     register XMenu *menu;
     register char *label;
 {
@@ -62,3 +62,6 @@ XMenuFindPane(menu, label)
     _XMErrorCode = XME_P_NOT_FOUND;
     return (XM_FAILURE);
 }
+
+/* arch-tag: b6c94285-0d1d-4569-a071-b34b63c67a54
+   (do not change this comment) */

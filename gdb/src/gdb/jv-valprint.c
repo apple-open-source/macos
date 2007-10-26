@@ -1,6 +1,6 @@
 /* Support for printing Java values for GDB, the GNU debugger.
 
-   Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004 Free
+   Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free
    Software Foundation, Inc.
 
    This file is part of GDB.
@@ -36,13 +36,6 @@
 
 /* Local functions */
 
-static void java_print_value_fields (struct type * type, char *valaddr,
-				     CORE_ADDR address,
-				     struct ui_file *stream, int format,
-				     int recurse,
-				     enum val_prettyprint pretty);
-
-
 int
 java_value_print (struct value *val, struct ui_file *stream, int format,
 		  enum val_prettyprint pretty)
@@ -52,8 +45,8 @@ java_value_print (struct value *val, struct ui_file *stream, int format,
   int i;
   char *name;
 
-  type = VALUE_TYPE (val);
-  address = VALUE_ADDRESS (val) + VALUE_OFFSET (val);
+  type = value_type (val);
+  address = VALUE_ADDRESS (val) + value_offset (val);
 
   if (is_object_type (type))
     {
@@ -61,14 +54,14 @@ java_value_print (struct value *val, struct ui_file *stream, int format,
 
       /* Get the run-time type, and cast the object into that */
 
-      obj_addr = unpack_pointer (type, VALUE_CONTENTS (val));
+      obj_addr = unpack_pointer (type, value_contents (val));
 
       if (obj_addr != 0)
 	{
 	  type = type_from_class (java_class_from_object (val));
 	  type = lookup_pointer_type (type);
 
-	  val = value_at (type, address, NULL);
+	  val = value_at (type, address);
 	}
     }
 
@@ -79,7 +72,7 @@ java_value_print (struct value *val, struct ui_file *stream, int format,
   if (TYPE_CODE (type) == TYPE_CODE_STRUCT && name != NULL
       && (i = strlen (name), name[i - 1] == ']'))
     {
-      char buf4[4];
+      gdb_byte buf4[4];
       long length;
       unsigned int things_printed = 0;
       int reps;
@@ -100,7 +93,7 @@ java_value_print (struct value *val, struct ui_file *stream, int format,
 
 	  while (i < length && things_printed < print_max)
 	    {
-	      char *buf;
+	      gdb_byte *buf;
 
 	      buf = alloca (TARGET_PTR_BIT / HOST_CHAR_BIT);
 	      fputs_filtered (", ", stream);
@@ -169,17 +162,17 @@ java_value_print (struct value *val, struct ui_file *stream, int format,
 		}
 	      else
 		{
-		  VALUE_LAZY (v) = 1;
-		  VALUE_OFFSET (v) = 0;
+		  set_value_lazy (v, 1);
+		  set_value_offset (v, 0);
 		}
 
-	      VALUE_OFFSET (next_v) = VALUE_OFFSET (v);
+	      set_value_offset (next_v, value_offset (v));
 
 	      for (reps = 1; i + reps < length; reps++)
 		{
-		  VALUE_LAZY (next_v) = 1;
-		  VALUE_OFFSET (next_v) += TYPE_LENGTH (el_type);
-		  if (memcmp (VALUE_CONTENTS (v), VALUE_CONTENTS (next_v),
+		  set_value_lazy (next_v, 1);
+		  set_value_offset (next_v, value_offset (next_v) + TYPE_LENGTH (el_type));
+		  if (memcmp (value_contents (v), value_contents (next_v),
 			      TYPE_LENGTH (el_type)) != 0)
 		    break;
 		}
@@ -189,8 +182,7 @@ java_value_print (struct value *val, struct ui_file *stream, int format,
 	      else
 		fprintf_filtered (stream, "%d..%d: ", i, i + reps - 1);
 
-	      val_print (VALUE_TYPE (v), VALUE_CONTENTS (v), 0, 0,
-			 stream, format, 2, 1, pretty);
+	      common_val_print (v, stream, format, 2, 1, pretty);
 
 	      things_printed++;
 	      i += reps;
@@ -242,8 +234,7 @@ java_value_print (struct value *val, struct ui_file *stream, int format,
       return 0;
     }
 
-  return (val_print (type, VALUE_CONTENTS (val), 0, address,
-		     stream, format, 1, 0, pretty));
+  return common_val_print (val, stream, format, 1, 0, pretty);
 }
 
 /* TYPE, VALADDR, ADDRESS, STREAM, RECURSE, and PRETTY have the
@@ -253,9 +244,9 @@ java_value_print (struct value *val, struct ui_file *stream, int format,
    should not print, or zero if called from top level.  */
 
 static void
-java_print_value_fields (struct type *type, char *valaddr, CORE_ADDR address,
-			 struct ui_file *stream, int format, int recurse,
-			 enum val_prettyprint pretty)
+java_print_value_fields (struct type *type, const gdb_byte *valaddr,
+			 CORE_ADDR address, struct ui_file *stream,
+			 int format, int recurse, enum val_prettyprint pretty)
 {
   int i, len, n_baseclasses;
 
@@ -274,7 +265,7 @@ java_print_value_fields (struct type *type, char *valaddr, CORE_ADDR address,
 	  int boffset;
 	  struct type *baseclass = check_typedef (TYPE_BASECLASS (type, i));
 	  char *basename = TYPE_NAME (baseclass);
-	  char *base_valaddr;
+	  const gdb_byte *base_valaddr;
 
 	  if (BASETYPE_VIA_VIRTUAL (type, i))
 	    continue;
@@ -391,8 +382,7 @@ java_print_value_fields (struct type *type, char *valaddr, CORE_ADDR address,
 		  v = value_from_longest (TYPE_FIELD_TYPE (type, i),
 				   unpack_field_as_long (type, valaddr, i));
 
-		  val_print (TYPE_FIELD_TYPE (type, i), VALUE_CONTENTS (v), 0,
-			     0, stream, format, 0, recurse + 1, pretty);
+		  common_val_print (v, stream, format, 0, recurse + 1, pretty);
 		}
 	    }
 	  else
@@ -408,12 +398,11 @@ java_print_value_fields (struct type *type, char *valaddr, CORE_ADDR address,
 		    fputs_filtered ("<optimized out>", stream);
 		  else
 		    {
-		      struct type *t = check_typedef (VALUE_TYPE (v));
+		      struct type *t = check_typedef (value_type (v));
 		      if (TYPE_CODE (t) == TYPE_CODE_STRUCT)
 			v = value_addr (v);
-		      val_print (VALUE_TYPE (v),
-				 VALUE_CONTENTS (v), 0, VALUE_ADDRESS (v),
-				 stream, format, 0, recurse + 1, pretty);
+		      common_val_print (v, stream, format, 0, recurse + 1,
+					pretty);
 		    }
 		}
 	      else if (TYPE_FIELD_TYPE (type, i) == NULL)
@@ -452,9 +441,10 @@ java_print_value_fields (struct type *type, char *valaddr, CORE_ADDR address,
    The PRETTY parameter controls prettyprinting.  */
 
 int
-java_val_print (struct type *type, char *valaddr, int embedded_offset,
-		CORE_ADDR address, struct ui_file *stream, int format,
-		int deref_ref, int recurse, enum val_prettyprint pretty)
+java_val_print (struct type *type, const gdb_byte *valaddr,
+		int embedded_offset, CORE_ADDR address,
+		struct ui_file *stream, int format, int deref_ref,
+		int recurse, enum val_prettyprint pretty)
 {
   unsigned int i = 0;	/* Number of characters printed */
   struct type *target_type;

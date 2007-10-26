@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,7 +45,6 @@ struct __DAMountCallbackContext
 
 typedef struct __DAMountCallbackContext __DAMountCallbackContext;
 
-static void __DAMountWithArgumentsCallback( int status, void * context );
 static void __DAMountWithArgumentsCallbackStage1( int status, void * context );
 static void __DAMountWithArgumentsCallbackStage2( int status, void * context );
 
@@ -141,7 +140,7 @@ void _DAMountCreateTrashFolder( DADiskRef disk, CFURLRef mountpoint )
          * Obtain the mount point path.
          */
 
-        if ( CFURLGetFileSystemRepresentation( mountpoint, TRUE, path, sizeof( path ) ) )
+        if ( CFURLGetFileSystemRepresentation( mountpoint, TRUE, ( void * ) path, sizeof( path ) ) )
         {
             struct stat status;
 
@@ -157,20 +156,8 @@ void _DAMountCreateTrashFolder( DADiskRef disk, CFURLRef mountpoint )
                  * Create the trash folder.
                  */
 
-                if ( mkdir( path, 01333 ) == 0 )
+                if ( ___mkdir( path, 01333 ) == 0 )
                 {
-                    /*
-                     * Correct the trash folder's mode.
-                     */
-
-                    chmod( path, 01333 );
-
-                    /*
-                     * Correct the trash folder's ownership.
-                     */
-
-                    chown( path, ___UID_ROOT, ___GID_ADMIN );
-
                     /*
                      * Correct the trash folder's attributes.
                      */
@@ -306,11 +293,11 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
                             {
                                 char source[MAXPATHLEN];
 
-                                if ( CFURLGetFileSystemRepresentation( url, TRUE, source, sizeof( source ) ) )
+                                if ( CFURLGetFileSystemRepresentation( url, TRUE, ( void * ) source, sizeof( source ) ) )
                                 {
                                     if ( symlink( source, path ) == 0 )
                                     {
-                                        mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, path, strlen( path ), TRUE );
+                                        mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
                                     }
                                 }
                             }
@@ -323,14 +310,14 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
                              * Create the mount point.
                              */
 
-                            if ( mkdir( path, 0755 ) == 0 )
+                            if ( mkdir( path, 0111 ) == 0 )
                             {
                                 if ( DADiskGetUserEUID( disk ) )
                                 {
                                     chown( path, DADiskGetUserEUID( disk ), -1 );
                                 }
 
-                                mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, path, strlen( path ), TRUE );
+                                mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
 
                                 /*
                                  * Create the mount point cookie file.
@@ -363,11 +350,11 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
                             {
                                 char source[MAXPATHLEN];
 
-                                if ( CFURLGetFileSystemRepresentation( url, TRUE, source, sizeof( source ) ) )
+                                if ( CFURLGetFileSystemRepresentation( url, TRUE, ( void * ) source, sizeof( source ) ) )
                                 {
                                     if ( rename( source, path ) == 0 )
                                     {
-                                        mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, path, strlen( path ), TRUE );
+                                        mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
                                     }
                                 }
                             }
@@ -376,7 +363,7 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
                         }
                         case kDAMountPointActionNone:
                         {
-                            mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, path, strlen( path ), TRUE );
+                            mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
 
                             break;
                         }
@@ -438,7 +425,7 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
 
             if ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
             {
-                value = kCFBooleanFalse;
+                value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountTrustRemovableKey );
             }
             else
             {
@@ -493,11 +480,19 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
      * Obtain the mount point path.
      */
 
-    if ( CFURLGetFileSystemRepresentation( mountpoint, TRUE, path, sizeof( path ) ) )
+    if ( CFURLGetFileSystemRepresentation( mountpoint, TRUE, ( void * ) path, sizeof( path ) ) )
     {
         if ( ___isautofs( path ) == 0 )
         {
+            Boolean     remove;
             struct stat status;
+
+            remove = FALSE;
+
+            if ( strcmp( dirname( path ), kDAMainMountPointFolder ) == 0 )
+            {
+                remove = TRUE;
+            }
 
             /*
              * Determine whether the mount point cookie file exists.
@@ -514,14 +509,11 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
 
                 if ( unlink( path ) == 0 )
                 {
-                    /*
-                     * Remove the mount point.
-                     */
-
-                    rmdir( dirname( path ) );
+                    remove = TRUE;
                 }
             }
-            else if ( strncmp( path, kDAMainMountPointFolder, sizeof( kDAMainMountPointFolder ) ) == 0 )
+
+            if ( remove )
             {
                 /*
                  * Remove the mount point.
@@ -632,6 +624,19 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     }
 
     /*
+     * Determine whether the volume is clean.
+     */
+
+    if ( automatic == NULL )
+    {
+        if ( DADiskGetState( disk, kDADiskStateRequireRepair ) )
+        {
+            CFStringInsert( options, 0, CFSTR( "," ) );
+            CFStringInsert( options, 0, kDAFileSystemMountArgumentNoWrite );
+        }
+    }
+
+    /*
      * Scan the mount map list.
      */
 
@@ -649,52 +654,55 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
             id   = CFDictionaryGetValue( map, kDAMountMapProbeIDKey );
             kind = CFDictionaryGetValue( map, kDAMountMapProbeKindKey );
 
-            /*
-             * Determine whether the volume kind matches.
-             */
-
-            if ( CFEqual( kind, DAFileSystemGetKind( filesystem ) ) )
+            if ( kind )
             {
-                if ( CFGetTypeID( id ) == CFUUIDGetTypeID( ) )
+                /*
+                 * Determine whether the volume kind matches.
+                 */
+
+                if ( CFEqual( kind, DAFileSystemGetKind( filesystem ) ) == FALSE )
                 {
-                    /*
-                     * Determine whether the volume UUID matches.
-                     */
-
-                    if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeUUIDKey, id ) == kCFCompareEqualTo )
-                    {
-                        break;
-                    }
-                }
-                else if ( CFGetTypeID( id ) == CFStringGetTypeID( ) )
-                {
-                    /*
-                     * Determine whether the volume name matches.
-                     */
-
-                    if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, id ) == kCFCompareEqualTo )
-                    {
-                        break;
-                    }
-                }
-                else if ( CFGetTypeID( id ) == CFDictionaryGetTypeID( ) )
-                {
-                    boolean_t match = FALSE;
-
-                    /*
-                     * Determine whether the device description is a match.
-                     */
-
-                    IOServiceMatchPropertyTable( DADiskGetIOMedia( disk ), id, &match );
-
-                    if ( match )
-                    {
-                        break;
-                    }
+                    continue;
                 }
             }
 
-            map = NULL;
+            if ( CFGetTypeID( id ) == CFUUIDGetTypeID( ) )
+            {
+                /*
+                 * Determine whether the volume UUID matches.
+                 */
+
+                if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeUUIDKey, id ) == kCFCompareEqualTo )
+                {
+                    break;
+                }
+            }
+            else if ( CFGetTypeID( id ) == CFStringGetTypeID( ) )
+            {
+                /*
+                 * Determine whether the volume name matches.
+                 */
+
+                if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, id ) == kCFCompareEqualTo )
+                {
+                    break;
+                }
+            }
+            else if ( CFGetTypeID( id ) == CFDictionaryGetTypeID( ) )
+            {
+                boolean_t match = FALSE;
+
+                /*
+                 * Determine whether the device description matches.
+                 */
+
+                IOServiceMatchPropertyTable( DADiskGetIOMedia( disk ), id, &match );
+
+                if ( match )
+                {
+                    break;
+                }
+            }
         }
     }
 
@@ -702,7 +710,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
      * Process the map.
      */
 
-    if ( map )
+    if ( index < count )
     {
         CFStringRef string;
 
@@ -772,8 +780,6 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
             {
                 break;
             }
-
-            map = NULL;
         }
     }
 
@@ -781,7 +787,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
      * Process the map.
      */
 
-    if ( map )
+    if ( index < count )
     {
         CFStringRef string;
 

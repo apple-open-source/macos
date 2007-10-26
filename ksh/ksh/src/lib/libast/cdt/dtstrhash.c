@@ -1,34 +1,39 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"dthdr.h"
 
-/*	Hashing a string
+/* Hashing a string into an unsigned integer.
+** The basic method is to continuingly accumulate bytes and multiply
+** with some given prime. The length n of the string is added last.
+** The recurrent equation is like this:
+**	h[k] = (h[k-1] + bytes)*prime	for 0 <= k < n
+**	h[n] = (h[n-1] + n)*prime
+** The prime is chosen to have a good distribution of 1-bits so that
+** the multiplication will distribute the bits in the accumulator well.
+** The below code accumulates 2 bytes at a time for speed.
 **
-**	Written by Kiem-Phong Vo (05/22/96)
+** Written by Kiem-Phong Vo (02/28/03)
 */
+
 #if __STD_C
 uint dtstrhash(reg uint h, Void_t* args, reg int n)
 #else
@@ -41,16 +46,16 @@ reg int		n;
 	reg unsigned char*	s = (unsigned char*)args;
 
 	if(n <= 0)
-	{	for(; (n = *s) != 0; ++s)
-			h = dtcharhash(h,n);
+	{	for(; *s != 0; s += s[1] ? 2 : 1)
+			h = (h + (s[0]<<8) + s[1])*DT_PRIME;
+		n = s - (unsigned char*)args;
 	}
 	else
 	{	reg unsigned char*	ends;
-		for(ends = s+n; s < ends; ++s)
-		{	n = *s;
-			h = dtcharhash(h,n);
-		}
+		for(ends = s+n-1; s < ends; s += 2)
+			h = (h + (s[0]<<8) + s[1])*DT_PRIME;
+		if(s <= ends)
+			h = (h + (s[0]<<8))*DT_PRIME;
 	}
-
-	return h;
+	return (h+n)*DT_PRIME;
 }

@@ -55,7 +55,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: ccp.c,v 1.11 2004/03/04 01:36:32 lindak Exp $"
+#define RCSID	"$Id: ccp.c,v 1.12 2005/12/13 06:30:15 lindak Exp $"
 
 #include <stdlib.h>
 #include <string.h>
@@ -244,6 +244,7 @@ struct protent ccp_protent = {
     NULL,
     NULL,
 #ifdef __APPLE__
+    NULL,
     NULL,
     NULL,
     NULL

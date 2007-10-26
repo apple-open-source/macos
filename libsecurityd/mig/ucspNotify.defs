@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+// Copyright (c) 2002-2004,2006 Apple Computer, Inc. All Rights Reserved.
 //
 // @APPLE_LICENSE_HEADER_START@
 // 
@@ -43,3 +43,8 @@ waittime 0;
 simpleroutine notify(requestport receiver: mach_port_t;
     in domain: uint32; in event: uint32; in data: Data;
     in sender: uint32);
+// note:  If you make changes to notify you must MANUALLY
+// modify the routines in transition.cpp (look for the line
+// reading #if TARGET_RT_BIG_ENDIAN
+// Do not expect automatic swapping with MIG to work.
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,12 +52,10 @@
 
 static const CFStringRef __kDABundlePath = CFSTR( "/System/Library/Frameworks/DiskArbitration.framework" );
 
-static SCDynamicStoreRef     __gDAConfigurationPort = NULL;
-static CFMachPortRef         __gDANotifyPort        = NULL;
-static Boolean               __gDAOptionDebug       = FALSE;
-///w:start
-Boolean _gDAAuthorize = TRUE;
-///w:stop
+static SCDynamicStoreRef     __gDAConfigurationPort   = NULL;
+static Boolean               __gDAOptionDebug         = FALSE;
+static CFMachPortRef         __gDAVolumeMountedPort   = NULL;
+static CFMachPortRef         __gDAVolumeUnmountedPort = NULL;
 
 const char * kDAMainMountPointFolder           = "/Volumes";
 const char * kDAMainMountPointFolderCookieFile = ".autodiskmounted";
@@ -116,22 +114,7 @@ static Boolean __DAMainCreateMountPointFolder( void )
          * Create the mount point folder.
          */
 
-        success = mkdir( kDAMainMountPointFolder, 01777 ) ? FALSE : TRUE;
-
-        if ( success )
-        {
-            /*
-             * Correct the mount point folder's mode.
-             */
-
-            chmod( kDAMainMountPointFolder, 01777 );
-
-            /*
-             * Correct the mount point folder's ownership.
-             */
-
-            chown( kDAMainMountPointFolder, ___UID_ROOT, ___GID_ADMIN );
-        }
+        success = ___mkdir( kDAMainMountPointFolder, 01777 ) ? FALSE : TRUE;
     }
     else
     {
@@ -144,29 +127,6 @@ static Boolean __DAMainCreateMountPointFolder( void )
         if ( success )
         {
             DIR * folder;
-
-            /*
-             * Correct the mount point folder's mode.
-             */
-
-            if ( ( status.st_mode & 01777 ) != 01777 )
-            {
-                chmod( kDAMainMountPointFolder, 01777 );
-            }
-
-            /*
-             * Correct the mount point folder's ownership.
-             */
-
-            if ( status.st_uid != ___UID_ROOT )
-            {
-                chown( kDAMainMountPointFolder, ___UID_ROOT, -1 );
-            }
-
-            if ( status.st_gid != ___GID_ADMIN )
-            {
-                chown( kDAMainMountPointFolder, -1, ___GID_ADMIN );
-            }
 
             /*
              * Correct the mount point folder's contents.
@@ -391,15 +351,39 @@ static void __DAMain( void )
      * Create the BSD notification run loop source.
      */
 
-    __gDANotifyPort = CFMachPortCreate( kCFAllocatorDefault, _DANotifyCallback, NULL, NULL );
+    __gDAVolumeMountedPort = CFMachPortCreate( kCFAllocatorDefault, _DAVolumeMountedCallback, NULL, NULL );
 
-    if ( __gDANotifyPort == NULL )
+    if ( __gDAVolumeMountedPort == NULL )
     {
         DALogError( "could not create BSD notification port." );
         exit( EX_SOFTWARE );
     }
 
-    source = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, __gDANotifyPort, 0 );
+    source = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, __gDAVolumeMountedPort, 0 );
+
+    if ( source == NULL )
+    {
+        DALogError( "could not create BSD notification run loop source." );
+        exit( EX_SOFTWARE );
+    }
+
+    CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
+
+    CFRelease( source );
+
+    /*
+     * Create the BSD notification run loop source.
+     */
+
+    __gDAVolumeUnmountedPort = CFMachPortCreate( kCFAllocatorDefault, _DAVolumeUnmountedCallback, NULL, NULL );
+
+    if ( __gDAVolumeUnmountedPort == NULL )
+    {
+        DALogError( "could not create BSD notification port." );
+        exit( EX_SOFTWARE );
+    }
+
+    source = CFMachPortCreateRunLoopSource( kCFAllocatorDefault, __gDAVolumeUnmountedPort, 0 );
 
     if ( source == NULL )
     {
@@ -555,10 +539,22 @@ static void __DAMain( void )
     CFRelease( keys );
 
     /*
+     * Create the "file system mounted" notification.
+     */
+
+    port = CFMachPortGetPort( __gDAVolumeMountedPort );
+
+    if ( notify_register_mach_port( "com.apple.system.kernel.mount", &port, NOTIFY_REUSE, &token ) )
+    {
+        DALogError( "could not create \"file system mounted\" notification." );
+        exit( EX_SOFTWARE );
+    }
+
+    /*
      * Create the "file system unmounted" notification.
      */
 
-    port = CFMachPortGetPort( __gDANotifyPort );
+    port = CFMachPortGetPort( __gDAVolumeUnmountedPort );
 
     if ( notify_register_mach_port( "com.apple.system.kernel.unmount", &port, NOTIFY_REUSE, &token ) )
     {
@@ -590,19 +586,6 @@ static void __DAMain( void )
         fclose( file );
     }
 
-///w:start
-{
-    struct stat status;
-
-    if ( stat( "/etc/rc.cdrom", &status ) == 0 )
-    {
-        if ( stat( "/System/Installation", &status ) == 0 )
-        {
-            _gDAAuthorize = FALSE;
-        }
-    }
-}
-///w:stop
     /*
      * Announce our arrival in the debug log.
      */

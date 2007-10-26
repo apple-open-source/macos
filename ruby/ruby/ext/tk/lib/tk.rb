@@ -1,6 +1,6 @@
 #
 #               tk.rb - Tk interface module using tcltklib
-#                       $Date: 2004/12/23 16:22:36 $
+#                       $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
 #                       by Yukihiro Matsumoto <matz@netlab.jp>
 
 # use Shigehiro's tcltklib
@@ -16,6 +16,7 @@ class TclTkIp
   alias _invoke_without_enc _invoke
 
   def _ip_id_
+    # for RemoteTkIp
     ''
   end
 end
@@ -189,6 +190,7 @@ module TkComm
   module_function :_at
 
   def tk_tcl2ruby(val, enc_mode = false, listobj = true)
+=begin
     if val =~ /^rb_out\S* (c(_\d+_)?\d+)/
       #return Tk_CMDTBL[$1]
       return TkCore::INTERP.tk_cmd_tbl[$1]
@@ -199,28 +201,36 @@ module TkComm
       #  cmd_obj.cmd
       #end
     end
+=end
+    if val =~ /rb_out\S*(?:\s+(::\S*|[{](::.*)[}]|["](::.*)["]))? (c(_\d+_)?(\d+))/
+      return TkCore::INTERP.tk_cmd_tbl[$4]
+    end
     #if val.include? ?\s
     #  return val.split.collect{|v| tk_tcl2ruby(v)}
     #end
     case val
-    when /^@font/
+    when /\A@font\S+\z/
       TkFont.get_obj(val)
-    when /^-?\d+$/
+    when /\A-?\d+\z/
       val.to_i
-    when /^\./
+    when /\A\.\S*\z/
       #Tk_WINDOWS[val] ? Tk_WINDOWS[val] : _genobj_for_tkwidget(val)
       TkCore::INTERP.tk_windows[val]? 
            TkCore::INTERP.tk_windows[val] : _genobj_for_tkwidget(val)
-    when /^i(_\d+_)?\d+$/
+    when /\Ai(_\d+_)?\d+\z/
       TkImage::Tk_IMGTBL[val]? TkImage::Tk_IMGTBL[val] : val
-    when /^-?\d+\.?\d*(e[-+]?\d+)?$/
+    when /\A-?\d+\.?\d*(e[-+]?\d+)?\z/
       val.to_f
     when /\\ /
       val.gsub(/\\ /, ' ')
     when /[^\\] /
       if listobj
-        tk_split_escstr(val).collect{|elt|
-          tk_tcl2ruby(elt, enc_mode, listobj)
+        #tk_split_escstr(val).collect{|elt|
+        #  tk_tcl2ruby(elt, enc_mode, listobj)
+        #}
+        val = _toUTF8(val) unless enc_mode
+        tk_split_escstr(val, false, false).collect{|elt|
+          tk_tcl2ruby(elt, true, listobj)
         }
       elsif enc_mode
         _fromUTF8(val)
@@ -249,13 +259,20 @@ if USE_TCLs_LIST_FUNCTIONS
   # use Tcl function version of split_list
   ###########################################################################
 
-  def tk_split_escstr(str)
-    TkCore::INTERP._split_tklist(str)
+  def tk_split_escstr(str, src_enc=true, dst_enc=true)
+    str = _toUTF8(str) if src_enc
+    if dst_enc
+      TkCore::INTERP._split_tklist(str).map!{|s| _fromUTF8(s)}
+    else
+      TkCore::INTERP._split_tklist(str)
+    end
   end
 
-  def tk_split_sublist(str, depth=-1)
+  def tk_split_sublist(str, depth=-1, src_enc=true, dst_enc=true)
     # return [] if str == ""
     # list = TkCore::INTERP._split_tklist(str)
+    str = _toUTF8(str) if src_enc
+
     if depth == 0
       return "" if str == ""
       list = [str]
@@ -264,45 +281,82 @@ if USE_TCLs_LIST_FUNCTIONS
       list = TkCore::INTERP._split_tklist(str)
     end
     if list.size == 1
-      tk_tcl2ruby(list[0], nil, false)
+      # tk_tcl2ruby(list[0], nil, false)
+      tk_tcl2ruby(list[0], dst_enc, false)
     else
-      list.collect{|token| tk_split_sublist(token, depth - 1)}
+      list.collect{|token| tk_split_sublist(token, depth - 1, false, dst_enc)}
     end
   end
 
-  def tk_split_list(str, depth=0)
+  def tk_split_list(str, depth=0, src_enc=true, dst_enc=true)
     return [] if str == ""
-    TkCore::INTERP._split_tklist(str).collect{|token| 
-      tk_split_sublist(token, depth - 1)
+    str = _toUTF8(str) if src_enc
+    TkCore::INTERP._split_tklist(str).map!{|token|
+      tk_split_sublist(token, depth - 1, false, dst_enc)
     }
   end
 
-  def tk_split_simplelist(str)
+  def tk_split_simplelist(str, src_enc=true, dst_enc=true)
     #lst = TkCore::INTERP._split_tklist(str)
     #if (lst.size == 1 && lst =~ /^\{.*\}$/)
     #  TkCore::INTERP._split_tklist(str[1..-2])
     #else
     #  lst
     #end
-    TkCore::INTERP._split_tklist(str)
+
+    str = _toUTF8(str) if src_enc
+    if dst_enc
+      TkCore::INTERP._split_tklist(str).map!{|s| _fromUTF8(s)}
+    else
+      TkCore::INTERP._split_tklist(str)
+    end
   end
 
-  def array2tk_list(ary)
+  def array2tk_list(ary, enc=nil)
     return "" if ary.size == 0
+
+    sys_enc = TkCore::INTERP.encoding
+    sys_enc = TclTkLib.encoding_system unless sys_enc
+
+    dst_enc = (enc == nil)? sys_enc: enc
 
     dst = ary.collect{|e|
       if e.kind_of? Array
-        array2tk_list(e)
+        s = array2tk_list(e, enc)
       elsif e.kind_of? Hash
         tmp_ary = []
         #e.each{|k,v| tmp_ary << k << v }
         e.each{|k,v| tmp_ary << "-#{_get_eval_string(k)}" << v }
-        array2tk_list(tmp_ary)
+        s = array2tk_list(tmp_ary, enc)
       else
-        _get_eval_string(e)
+        s = _get_eval_string(e, enc)
       end
+
+      if dst_enc != true && dst_enc != false
+        if (s_enc = s.instance_variable_get(:@encoding))
+          s_enc = s_enc.to_s
+        else
+          s_enc = sys_enc
+        end
+        dst_enc = true if s_enc != dst_enc
+      end
+
+      s
     }
-    TkCore::INTERP._merge_tklist(*dst)
+
+    if sys_enc && dst_enc
+      dst.map!{|s| _toUTF8(s)}
+      ret = TkCore::INTERP._merge_tklist(*dst)
+      if dst_enc.kind_of?(String)
+        ret = _fromUTF8(ret, dst_enc)
+        ret.instance_variable_set(:@encoding, dst_enc)
+      else
+        ret.instance_variable_set(:@encoding, 'utf-8')
+      end
+      ret
+    else
+      TkCore::INTERP._merge_tklist(*dst)
+    end
   end
 
 else
@@ -310,7 +364,7 @@ else
   # use Ruby script version of split_list (traditional methods)
   ###########################################################################
 
-  def tk_split_escstr(str)
+  def tk_split_escstr(str, src_enc=true, dst_enc=true)
     return [] if str == ""
     list = []
     token = nil
@@ -331,7 +385,7 @@ else
     list
   end
 
-  def tk_split_sublist(str, depth=-1)
+  def tk_split_sublist(str, depth=-1, src_enc=true, dst_enc=true)
     #return [] if str == ""
     #return [tk_split_sublist(str[1..-2])] if str =~ /^\{.*\}$/
     #list = tk_split_escstr(str)
@@ -351,9 +405,11 @@ else
     end
   end
 
-  def tk_split_list(str, depth=0)
+  def tk_split_list(str, depth=0, src_enc=true, dst_enc=true)
     return [] if str == ""
-    tk_split_escstr(str).collect{|token| tk_split_sublist(token, depth - 1)}
+    tk_split_escstr(str).collect{|token| 
+      tk_split_sublist(token, depth - 1)
+    }
   end
 =begin
   def tk_split_list(str)
@@ -396,7 +452,7 @@ else
   end
 =end
 
-  def tk_split_simplelist(str)
+  def tk_split_simplelist(str, src_enc=true, dst_enc=true)
     return [] if str == ""
     list = []
     token = nil
@@ -422,16 +478,16 @@ else
     list
   end
 
-  def array2tk_list(ary)
+  def array2tk_list(ary, enc=nil)
     ary.collect{|e|
       if e.kind_of? Array
-        "{#{array2tk_list(e)}}"
+        "{#{array2tk_list(e, enc)}}"
       elsif e.kind_of? Hash
         # "{#{e.to_a.collect{|ee| array2tk_list(ee)}.join(' ')}}"
         e.each{|k,v| tmp_ary << "-#{_get_eval_string(k)}" << v }
-        array2tk_list(tmp_ary)
+        array2tk_list(tmp_ary, enc)
       else
-        s = _get_eval_string(e)
+        s = _get_eval_string(e, enc)
         (s.index(/\s/) || s.size == 0)? "{#{s}}": s
       end
     }.join(" ")
@@ -448,7 +504,7 @@ end
 
   private_class_method :tk_split_escstr, :tk_split_sublist
   private_class_method :tk_split_list, :tk_split_simplelist
-  private_class_method :array2tk_list
+#  private_class_method :array2tk_list
 
 =begin
   ### --> definition is moved to TkUtil module
@@ -528,11 +584,11 @@ end
   end
 =end
 
-  def list(val, depth=0)
-    tk_split_list(val, depth)
+  def list(val, depth=0, enc=true)
+    tk_split_list(val, depth, enc, enc)
   end
-  def simplelist(val)
-    tk_split_simplelist(val)
+  def simplelist(val, src_enc=true, dst_enc=true)
+    tk_split_simplelist(val, src_enc, dst_enc)
   end
   def window(val)
     if val =~ /^\./
@@ -551,10 +607,14 @@ end
     end
   end
   def procedure(val)
+=begin
     if val =~ /^rb_out\S* (c(_\d+_)?\d+)/
       #Tk_CMDTBL[$1]
       #TkCore::INTERP.tk_cmd_tbl[$1]
       TkCore::INTERP.tk_cmd_tbl[$1].cmd
+=end
+    if val =~ /rb_out\S*(?:\s+(::\S*|[{](::.*)[}]|["](::.*)["]))? (c(_\d+_)?(\d+))/
+      return TkCore::INTERP.tk_cmd_tbl[$4].cmd
     else
       #nil
       val
@@ -565,6 +625,15 @@ end
   module_function :bool, :number, :num_or_str, :string
   module_function :list, :simplelist, :window, :image_obj, :procedure
 
+  def subst(str, *opts)
+    # opts := :nobackslashes | :nocommands | novariables
+    tk_call('subst', 
+            *(opts.collect{|opt|
+                opt = opt.to_s
+                (opt[0] == ?-)? opt: '-' << opt
+              } << str))
+  end
+
   def _toUTF8(str, encoding = nil)
     TkCore::INTERP._toUTF8(str, encoding)
   end
@@ -573,6 +642,12 @@ end
   end
   private :_toUTF8, :_fromUTF8
   module_function :_toUTF8, :_fromUTF8
+
+  def _callback_entry_class?(cls)
+    cls <= Proc || cls <= Method || cls <= TkCallbackEntry
+  end
+  private :_callback_entry_class?
+  module_function :_callback_entry_class?
 
   def _callback_entry?(obj)
     obj.kind_of?(Proc) || obj.kind_of?(Method) || obj.kind_of?(TkCallbackEntry)
@@ -718,6 +793,13 @@ end
 
   def install_cmd(cmd)
     return '' if cmd == ''
+    begin
+      ns = TkCore::INTERP._invoke_without_enc('namespace', 'current')
+      ns = nil if ns == '::' # for backward compatibility
+    rescue
+      # probably, Tcl7.6
+      ns = nil
+    end
     id = _next_cmd_id
     #Tk_CMDTBL[id] = cmd
     if cmd.kind_of?(TkCallbackEntry)
@@ -729,10 +811,15 @@ end
     @cmdtbl.taint unless @cmdtbl.tainted?
     @cmdtbl.push id
     #return Kernel.format("rb_out %s", id);
-    return 'rb_out' + TkCore::INTERP._ip_id_ + ' ' + id
+    if ns
+      'rb_out' << TkCore::INTERP._ip_id_ << ' ' << ns << ' ' << id
+    else
+      'rb_out' << TkCore::INTERP._ip_id_ << ' ' << id
+    end
   end
   def uninstall_cmd(id)
-    id = $1 if /rb_out\S* (c(_\d+_)?\d+)/ =~ id
+    #id = $1 if /rb_out\S* (c(_\d+_)?\d+)/ =~ id
+    id = $4 if id =~ /rb_out\S*(?:\s+(::\S*|[{](::.*)[}]|["](::.*)["]))? (c(_\d+_)?(\d+))/
     #Tk_CMDTBL.delete(id)
     TkCore::INTERP.tk_cmd_tbl.delete(id)
   end
@@ -850,9 +937,13 @@ module TkComm
   def _bindinfo(what, context=nil)
     if context
       tk_call_without_enc(*what+["<#{tk_event_sequence(context)}>"]) .collect {|cmdline|
+=begin
         if cmdline =~ /^rb_out\S* (c(?:_\d+_)?\d+)\s+(.*)$/
           #[Tk_CMDTBL[$1], $2]
           [TkCore::INTERP.tk_cmd_tbl[$1], $2]
+=end
+        if cmdline =~ /rb_out\S*(?:\s+(::\S*|[{](::.*)[}]|["](::.*)["]))? (c(_\d+_)?(\d+))/
+          [TkCore::INTERP.tk_cmd_tbl[$4], $5]
         else
           cmdline
         end
@@ -913,7 +1004,7 @@ module TkComm
   #end
   def bind(tagOrClass, context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -928,7 +1019,7 @@ module TkComm
   #end
   def bind_append(tagOrClass, context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -952,7 +1043,7 @@ module TkComm
   #end
   def bind_all(context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -967,7 +1058,7 @@ module TkComm
   #end
   def bind_append_all(context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -1016,6 +1107,13 @@ module TkCore
 
     INTERP.instance_eval{
       @tk_cmd_tbl = {}.taint
+      def @tk_cmd_tbl.[]=(idx,val)
+        if self.has_key?(idx) && Thread.current.group != ThreadGroup::Default
+          fail SecurityError,"cannot change the entried command"
+        end
+        super(idx,val)
+      end
+
       @tk_windows = {}.taint
 
       @tk_table_list = [].taint
@@ -1023,8 +1121,8 @@ module TkCore
       @init_ip_env  = [].taint  # table of Procs
       @add_tk_procs = [].taint  # table of [name, args, body]
 
-      @cb_entry_class = Class.new(TkCallbackEntry){|c|
-        class << c
+      @cb_entry_class = Class.new(TkCallbackEntry){
+        class << self
           def inspect
             sprintf("#<Class(TkCallbackEntry):%0x>", self.__id__)
           end
@@ -1094,8 +1192,22 @@ module TkCore
       script.call(self)
     end
     def INTERP.add_tk_procs(name, args = nil, body = nil)
-      @add_tk_procs << [name, args, body]
-      self._invoke('proc', name, args, body) if args && body
+      if name.kind_of?(Array)
+        name.each{|param| self.add_tk_procs(*param)}
+      else
+        name = name.to_s
+        @add_tk_procs << [name, args, body]
+        self._invoke('proc', name, args, body) if args && body
+      end
+    end
+    def INTERP.remove_tk_procs(*names)
+      names.each{|name|
+        name = name.to_s
+        @add_tk_procs.delete_if{|elem| 
+          elem.kind_of?(Array) && elem[0].to_s == name
+        }
+        self._invoke('rename', name, '')
+      }
     end
     def INTERP.init_ip_internal
       ip = self
@@ -1110,13 +1222,14 @@ module TkCore
   INTERP._invoke_without_enc('bind', 'all', "<#{WIDGET_DESTROY_HOOK}>",
                              install_cmd(proc{|path|
                                 unless TkCore::INTERP.deleted?
-                                  if (widget = TkCore::INTERP.tk_windows[path])
-                                    if widget.respond_to?(:__destroy_hook__)
-                                      begin
+                                  begin
+                                    if (widget=TkCore::INTERP.tk_windows[path])
+                                      if widget.respond_to?(:__destroy_hook__)
                                         widget.__destroy_hook__
-                                      rescue Exception
                                       end
                                     end
+                                  rescue Exception=>e
+                                      p e if $DEBUG
                                   end
                                 end
                              }) << ' %W')
@@ -1124,6 +1237,28 @@ module TkCore
   INTERP.add_tk_procs(TclTkLib::FINALIZE_PROC_NAME, '', 
                       "bind all <#{WIDGET_DESTROY_HOOK}> {}")
 
+  INTERP.add_tk_procs('rb_out', 'ns args', <<-'EOL')
+    if [regexp {^::} $ns] {
+      set cmd {namespace eval $ns {ruby_cmd TkCore callback} $args}
+    } else {
+      set cmd {eval {ruby_cmd TkCore callback} $ns $args}
+    }
+    if {[set st [catch $cmd ret]] != 0} {
+       #return -code $st $ret
+       set idx [string first "\n\n" $ret]
+       if {$idx > 0} {
+          return -code $st \
+                 -errorinfo [string range $ret [expr $idx + 2] \
+                                               [string length $ret]] \
+                 [string range $ret 0 [expr $idx - 1]]
+       } else {
+          return -code $st $ret
+       }
+    } else {
+        return $ret
+    }
+  EOL
+=begin
   INTERP.add_tk_procs('rb_out', 'args', <<-'EOL')
     if {[set st [catch {eval {ruby_cmd TkCore callback} $args} ret]] != 0} {
        #return -code $st $ret
@@ -1140,6 +1275,7 @@ module TkCore
         return $ret
     }
   EOL
+=end
 =begin
   INTERP.add_tk_procs('rb_out', 'args', <<-'EOL')
     #regsub -all {\\} $args {\\\\} args
@@ -1163,6 +1299,8 @@ module TkCore
   EOL
 =end
 
+  at_exit{ INTERP.remove_tk_procs(TclTkLib::FINALIZE_PROC_NAME) }
+
   EventFlag = TclTkLib::EventFlag
 
   def callback_break
@@ -1173,13 +1311,30 @@ module TkCore
     fail TkCallbackContinue, "Tk callback returns 'continue' status"
   end
 
+  def callback_return
+    fail TkCallbackReturn, "Tk callback returns 'return' status"
+  end
+
   def TkCore.callback(*arg)
     begin
-      TkCore::INTERP.tk_cmd_tbl[arg.shift].call(*arg)
-    rescue SystemExit
-      exit(0)
-    rescue Interrupt
-      exit!(1)
+      if TkCore::INTERP.tk_cmd_tbl.kind_of?(Hash)
+        #TkCore::INTERP.tk_cmd_tbl[arg.shift].call(*arg)
+        normal_ret = false
+        ret = catch(:IRB_EXIT) do  # IRB hack
+          retval = TkCore::INTERP.tk_cmd_tbl[arg.shift].call(*arg)
+          normal_ret = true
+          retval
+        end
+        unless normal_ret
+          # catch IRB_EXIT
+          exit(ret)
+        end
+        ret
+      end
+    rescue SystemExit=>e
+      exit(e.status)
+    rescue Interrupt=>e
+      fail(e)
     rescue Exception => e
       begin
         msg = _toUTF8(e.class.inspect) + ': ' + 
@@ -1194,6 +1349,8 @@ module TkCore
               e.backtrace.join("\n") + 
               "\n---< backtrace of Tk side >-------"
       end
+      # TkCore::INTERP._set_global_var('errorInfo', msg)
+      # fail(e)
       fail(e, msg)
     end
   end
@@ -1276,6 +1433,10 @@ module TkCore
     tk_call_without_enc('after','idle',cmdid)
   end
 
+  def after_cancel(afterId)
+    tk_call_without_enc('after','cancel',afterId)
+  end
+
   def windowingsystem
     tk_call_without_enc('tk', 'windowingsystem')
   end
@@ -1293,6 +1454,19 @@ module TkCore
     else
       Float(number(tk_call_without_enc('tk', '-displayof', win, 'scaling')))
     end
+  end
+
+  def inactive
+    Integer(tk_call_without_enc('tk', 'inactive'))
+  end
+  def inactive_displayof(win)
+    Integer(tk_call_without_enc('tk', 'inactive', '-displayof', win))
+  end
+  def reset_inactive
+    tk_call_without_enc('tk', 'inactive', 'reset')
+  end
+  def reset_inactive_displayof(win)
+    tk_call_without_enc('tk', 'inactive', '-displayof', win, 'reset')
   end
 
   def appname(name=None)
@@ -1383,6 +1557,22 @@ module TkCore
     TclTkLib.mainloop(check_root)
   end
 
+  def mainloop_thread?
+    # true  : current thread is mainloop
+    # nil   : there is no mainloop
+    # false : mainloop is running on the other thread
+    #         ( At then, it is dangerous to call Tk interpreter directly. )
+    TclTkLib.mainloop_thread?
+  end
+
+  def mainloop_exist?
+    TclTkLib.mainloop_thread? != nil
+  end
+
+  def is_mainloop?
+    TclTkLib.mainloop_thread? == true
+  end
+
   def mainloop_watchdog(check_root = true)
     # watchdog restarts mainloop when mainloop is dead
     TclTkLib.mainloop_watchdog(check_root)
@@ -1429,14 +1619,16 @@ module TkCore
     nil
   end
 
-  def event_generate(window, context, keys=nil)
-    #window = window.path if window.kind_of?(TkObject)
-    if keys
-      tk_call_without_enc('event', 'generate', window, 
+  def event_generate(win, context, keys=nil)
+    #win = win.path if win.kind_of?(TkObject)
+    if context.kind_of?(TkEvent::Event)
+      context.generate(win, ((keys)? keys: {}))
+    elsif keys
+      tk_call_without_enc('event', 'generate', win, 
                           "<#{tk_event_sequence(context)}>", 
                           *hash_kv(keys, true))
     else
-      tk_call_without_enc('event', 'generate', window, 
+      tk_call_without_enc('event', 'generate', win, 
                           "<#{tk_event_sequence(context)}>")
     end
     nil
@@ -1449,9 +1641,15 @@ module TkCore
   def getOpenFile(keys = nil)
     tk_call('tk_getOpenFile', *hash_kv(keys))
   end
+  def getMultipleOpenFile(keys = nil)
+    simplelist(tk_call('tk_getOpenFile', '-multiple', '1', *hash_kv(keys)))
+  end
 
   def getSaveFile(keys = nil)
     tk_call('tk_getSaveFile', *hash_kv(keys))
+  end
+  def getMultipleSaveFile(keys = nil)
+    simplelist(tk_call('tk_getSaveFile', '-multiple', '1', *hash_kv(keys)))
   end
 
   def chooseColor(keys = nil)
@@ -1562,6 +1760,41 @@ module TkCore
 
   def tk_call_with_enc(*args)
     _tk_call_core(true, *args)
+  end
+
+  def _tk_call_to_list_core(depth, arg_enc, val_enc, *args)
+    args = _conv_args([], arg_enc, *args)
+    val = _tk_call_core(false, *args)
+    if !depth.kind_of?(Integer) || depth == 0
+      tk_split_simplelist(val, false, val_enc)
+    else
+      tk_split_list(val, depth, false, val_enc)
+    end
+  end
+  #private :_tk_call_to_list_core
+
+  def tk_call_to_list(*args)
+    _tk_call_to_list_core(-1, nil, true, *args)
+  end
+
+  def tk_call_to_list_without_enc(*args)
+    _tk_call_to_list_core(-1, false, false, *args)
+  end
+
+  def tk_call_to_list_with_enc(*args)
+    _tk_call_to_list_core(-1, true, true, *args)
+  end
+
+  def tk_call_to_simplelist(*args)
+    _tk_call_to_list_core(0, nil, true, *args)
+  end
+
+  def tk_call_to_simplelist_without_enc(*args)
+    _tk_call_to_list_core(0, false, false, *args)
+  end
+
+  def tk_call_to_simplelist_with_enc(*args)
+    _tk_call_to_list_core(0, true, true, *args)
   end
 end
 
@@ -1676,6 +1909,10 @@ module Tk
     code
   end
 
+  def Tk.has_mainwindow?
+    INTERP.has_mainwindow?
+  end
+
   def root
     TkRoot.new
   end
@@ -1702,6 +1939,62 @@ module Tk
     else
       tk_call('unload', *args)
     end
+  end
+
+  def Tk.pkgconfig_list(mod)
+    # Tk8.5 feature
+    if mod.kind_of?(Module)
+      if mod.respond_to?(:package_name)
+        pkgname = mod.package_name
+      elsif mod.const_defined?(:PACKAGE_NAME)
+        pkgname = mod::PACKAGE_NAME
+      else
+        fail NotImplementedError, 'may not be a module for a Tcl extension'
+      end
+    else
+      pkgname = mod.to_s
+    end
+
+    pkgname = '::' << pkgname unless pkgname =~ /^::/
+
+    tk_split_list(tk_call(pkgname + '::pkgconfig', 'list'))
+  end
+
+  def Tk.pkgconfig_get(mod, key)
+    # Tk8.5 feature
+    if mod.kind_of?(Module)
+      if mod.respond_to?(:package_name)
+        pkgname = mod.package_name
+      else
+        fail NotImplementedError, 'may not be a module for a Tcl extension'
+      end
+    else
+      pkgname = mod.to_s
+    end
+
+    pkgname = '::' << pkgname unless pkgname =~ /^::/
+
+    tk_call(pkgname + '::pkgconfig', 'get', key)
+  end
+
+  def Tk.tcl_pkgconfig_list
+    # Tk8.5 feature
+    Tk.pkgconfig_list('::tcl')
+  end
+
+  def Tk.tcl_pkgconfig_get(key)
+    # Tk8.5 feature
+    Tk.pkgconfig_get('::tcl', key)
+  end
+
+  def Tk.tk_pkgconfig_list
+    # Tk8.5 feature
+    Tk.pkgconfig_list('::tk')
+  end
+
+  def Tk.tk_pkgconfig_get(key)
+    # Tk8.5 feature
+    Tk.pkgconfig_get('::tk', key)
   end
 
   def Tk.bell(nice = false)
@@ -1738,12 +2031,33 @@ module Tk
   end
 
   def Tk.pack(*args)
-    #TkPack.configure(*args)
-    TkPack(*args)
+    TkPack.configure(*args)
+  end
+  def Tk.pack_forget(*args)
+    TkPack.forget(*args)
+  end
+  def Tk.unpack(*args)
+    TkPack.forget(*args)
   end
 
   def Tk.grid(*args)
     TkGrid.configure(*args)
+  end
+  def Tk.grid_forget(*args)
+    TkGrid.forget(*args)
+  end
+  def Tk.ungrid(*args)
+    TkGrid.forget(*args)
+  end
+
+  def Tk.place(*args)
+    TkPlace.configure(*args)
+  end
+  def Tk.place_forget(*args)
+    TkPlace.forget(*args)
+  end
+  def Tk.unplace(*args)
+    TkPlace.forget(*args)
   end
 
   def Tk.update(idle=nil)
@@ -1762,8 +2076,10 @@ module Tk
     self
   end
 
-=begin
-  #  See tcltklib.c for the reason of why the following methods are disabled. 
+  # NOTE::
+  #   If no eventloop-thread is running, "thread_update" method is same 
+  #   to "update" method. Else, "thread_update" method waits to complete 
+  #   idletask operation on the eventloop-thread. 
   def Tk.thread_update(idle=nil)
     if idle
       tk_call_without_enc('thread_update', 'idletasks')
@@ -1774,7 +2090,15 @@ module Tk
   def Tk.thread_update_idletasks
     thread_update(true)
   end
-=end
+
+  def Tk.lower_window(win, below=None)
+    tk_call('lower', _epath(win), _epath(below))
+    nil
+  end
+  def Tk.raise_window(win, above=None)
+    tk_call('raise', _epath(win), _epath(above))
+    nil
+  end
 
   def Tk.current_grabs(win = nil)
     if win
@@ -1812,8 +2136,8 @@ module Tk
     TkManageFocus.prev(win)
   end
 
-  def Tk.strictMotif(bool=None)
-    bool(tk_call_without_enc('set', 'tk_strictMotif', bool))
+  def Tk.strictMotif(mode=None)
+    bool(tk_call_without_enc('set', 'tk_strictMotif', mode))
   end
 
   def Tk.show_kinsoku(mode='both')
@@ -2005,6 +2329,19 @@ if (/^(8\.[1-9]|9\.|[1-9][0-9])/ =~ Tk::TCL_VERSION && !Tk::JAPANIZED_TK)
 =end
   end
 
+  module TclTkLib
+    class << self
+      alias _encoding encoding
+      alias _encoding= encoding=
+      def encoding=(name)
+        TkCore::INTERP.encoding = name
+      end
+      def encoding
+        TkCore::INTERP.encoding
+      end
+    end
+  end
+
   module Tk
     module Encoding
       extend Encoding
@@ -2020,22 +2357,25 @@ if (/^(8\.[1-9]|9\.|[1-9][0-9])/ =~ Tk::TCL_VERSION && !Tk::JAPANIZED_TK)
       end
 
       def encoding_names
-        tk_split_simplelist(tk_call('encoding', 'names'))
+        TkComm.simplelist(Tk.tk_call('encoding', 'names'))
       end
 
       def encoding_system
-        tk_call('encoding', 'system')
+        Tk.tk_call('encoding', 'system')
       end
 
       def encoding_system=(enc)
-        tk_call('encoding', 'system', enc)
+        Tk.tk_call('encoding', 'system', enc)
       end
 
       def encoding_convertfrom(str, enc=nil)
-        # str must be a Tcl's internal string expression in enc. 
+        # str is an usual enc string or a Tcl's internal string expression
+        # in enc (which is returned from 'encoding_convertto' method). 
         # the return value is a UTF-8 string.
         enc = encoding_system unless enc
-        TkCore::INTERP.__invoke('encoding', 'convertfrom', enc, str)
+        ret = TkCore::INTERP.__invoke('encoding', 'convertfrom', enc, str)
+        ret.instance_variable_set('@encoding', 'utf-8')
+        ret
       end
       alias encoding_convert_from encoding_convertfrom
 
@@ -2044,9 +2384,21 @@ if (/^(8\.[1-9]|9\.|[1-9][0-9])/ =~ Tk::TCL_VERSION && !Tk::JAPANIZED_TK)
         # The return value is a Tcl's internal string expression in enc. 
         # To get an usual enc string, use Tk.fromUTF8(ret_val, enc).
         enc = encoding_system unless enc
-        TkCore::INTERP.__invoke('encoding', 'convertto', enc, str)
+        ret = TkCore::INTERP.__invoke('encoding', 'convertto', enc, str)
+        ret.instance_variable_set('@encoding', 'binary')
+        ret
       end
       alias encoding_convert_to encoding_convertto
+
+      def encoding_dirs
+        # Tcl8.5 feature
+        TkComm.simplelist(Tk.tk_call_without_enc('encoding', 'dirs'))
+      end
+
+      def encoding_dirs=(dir_list) # an array or a Tcl's list string
+        # Tcl8.5 feature
+        Tk.tk_call_without_enc('encoding', 'dirs', dir_list)
+      end
     end
 
     extend Encoding
@@ -2073,6 +2425,9 @@ if (/^(8\.[1-9]|9\.|[1-9][0-9])/ =~ Tk::TCL_VERSION && !Tk::JAPANIZED_TK)
     Tk.encoding = 'utf-8'
     Tk.encoding_system = 'utf-8'
   else        # NONE
+    if defined? DEFAULT_TK_ENCODING
+      Tk.encoding_system = DEFAULT_TK_ENCODING
+    end
     begin
       Tk.encoding = Tk.encoding_system
     rescue StandardError, NameError
@@ -2084,6 +2439,8 @@ if (/^(8\.[1-9]|9\.|[1-9][0-9])/ =~ Tk::TCL_VERSION && !Tk::JAPANIZED_TK)
 else
   # dummy methods
   class TclTkIp
+    attr_accessor :encoding
+
     alias __eval _eval
     alias __invoke _invoke
 
@@ -2120,7 +2477,15 @@ else
         str
       end
       alias encoding_convert_to encoding_convertto
+      def encoding_dirs
+        nil
+      end
+      def encoding_dirs=(dir_array)
+        nil
+      end
     end
+
+    extend Encoding
   end
 end
 
@@ -2131,7 +2496,7 @@ module TkBindCore
   #end
   def bind(context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -2144,7 +2509,7 @@ module TkBindCore
   #end
   def bind_append(context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -2373,18 +2738,18 @@ module TkTreatFont
     self
   end
 
-  def font_copy(window, wintag=nil, winkey=nil, targetkey=nil)
+  def font_copy(win, wintag=nil, winkey=nil, targetkey=nil)
     if wintag
       if winkey
-        fnt = window.tagfontobj(wintag, winkey).dup
+        fnt = win.tagfontobj(wintag, winkey).dup
       else
-        fnt = window.tagfontobj(wintag).dup
+        fnt = win.tagfontobj(wintag).dup
       end
     else
       if winkey
-        fnt = window.fontobj(winkey).dup
+        fnt = win.fontobj(winkey).dup
       else
-        fnt = window.fontobj.dup
+        fnt = win.fontobj.dup
       end
     end
 
@@ -2396,7 +2761,7 @@ module TkTreatFont
     self
   end
 
-  def latinfont_copy(window, wintag=nil, winkey=nil, targetkey=nil)
+  def latinfont_copy(win, wintag=nil, winkey=nil, targetkey=nil)
     if targetkey
       fontobj(targetkey).dup.call_font_configure([__pathname, targetkey], 
                                                  *(__config_cmd << {}))
@@ -2406,22 +2771,22 @@ module TkTreatFont
 
     if wintag
       if winkey
-        fontobj.latin_replace(window.tagfontobj(wintag, winkey).latin_font_id)
+        fontobj.latin_replace(win.tagfontobj(wintag, winkey).latin_font_id)
       else
-        fontobj.latin_replace(window.tagfontobj(wintag).latin_font_id)
+        fontobj.latin_replace(win.tagfontobj(wintag).latin_font_id)
       end
     else
       if winkey
-        fontobj.latin_replace(window.fontobj(winkey).latin_font_id)
+        fontobj.latin_replace(win.fontobj(winkey).latin_font_id)
       else
-        fontobj.latin_replace(window.fontobj.latin_font_id)
+        fontobj.latin_replace(win.fontobj.latin_font_id)
       end
     end
     self
   end
   alias asciifont_copy latinfont_copy
 
-  def kanjifont_copy(window, wintag=nil, winkey=nil, targetkey=nil)
+  def kanjifont_copy(win, wintag=nil, winkey=nil, targetkey=nil)
     if targetkey
       fontobj(targetkey).dup.call_font_configure([__pathname, targetkey], 
                                                  *(__config_cmd << {}))
@@ -2431,15 +2796,15 @@ module TkTreatFont
 
     if wintag
       if winkey
-        fontobj.kanji_replace(window.tagfontobj(wintag, winkey).kanji_font_id)
+        fontobj.kanji_replace(win.tagfontobj(wintag, winkey).kanji_font_id)
       else
-        fontobj.kanji_replace(window.tagfontobj(wintag).kanji_font_id)
+        fontobj.kanji_replace(win.tagfontobj(wintag).kanji_font_id)
       end
     else
       if winkey
-        fontobj.kanji_replace(window.fontobj(winkey).kanji_font_id)
+        fontobj.kanji_replace(win.fontobj(winkey).kanji_font_id)
       else
-        fontobj.kanji_replace(window.fontobj.kanji_font_id)
+        fontobj.kanji_replace(win.fontobj.kanji_font_id)
       end
     end
     self
@@ -2464,7 +2829,7 @@ module TkConfigMethod
   def __confinfo_cmd
     __config_cmd
   end
-  private :__config_cmd
+  private :__confinfo_cmd
 
   def __configinfo_struct
     {:key=>0, :alias=>1, :db_name=>1, :db_class=>2, 
@@ -2483,12 +2848,18 @@ module TkConfigMethod
   private :__numstrval_optkeys
 
   def __boolval_optkeys
-    []
+    ['exportselection', 'jump', 'setgrid', 'takefocus']
   end
   private :__boolval_optkeys
 
   def __strval_optkeys
-    ['text', 'label', 'show', 'data', 'file']
+    [
+      'text', 'label', 'show', 'data', 'file', 
+      'activebackground', 'activeforeground', 'background', 
+      'disabledforeground', 'disabledbackground', 'foreground', 
+      'highlightbackground', 'highlightcolor', 'insertbackground', 
+      'selectbackground', 'selectforeground', 'troughcolor'
+    ]
   end
   private :__strval_optkeys
 
@@ -2502,7 +2873,29 @@ module TkConfigMethod
   end
   private :__numlistval_optkeys
 
+  def __tkvariable_optkeys
+    ['variable', 'textvariable']
+  end
+  private :__tkvariable_optkeys
+
+  def __val2ruby_optkeys  # { key=>proc, ... }
+    # The method is used to convert a opt-value to a ruby's object.
+    # When get the value of the option "key", "proc.call(value)" is called.
+    {}
+  end
+  private :__val2ruby_optkeys
+
+  def __ruby2val_optkeys  # { key=>proc, ... }
+    # The method is used to convert a ruby's object to a opt-value.
+    # When set the value of the option "key", "proc.call(value)" is called.
+    # That is, "-#{key} #{proc.call(value)}".
+    {}
+  end
+  private :__ruby2val_optkeys
+
   def __methodcall_optkeys  # { key=>method, ... }
+    # The method is used to both of get and set.
+    # Usually, the 'key' will not be a widget option.
     {}
   end
   private :__methodcall_optkeys
@@ -2533,6 +2926,7 @@ module TkConfigMethod
     }
     keys2
   end
+  private :__conv_keyonly_opts
 
   def config_hash_kv(keys, enc_mode = nil, conf = nil)
     hash_kv(__conv_keyonly_opts(keys), enc_mode, conf)
@@ -2550,7 +2944,22 @@ module TkConfigMethod
   end
 
   def cget(slot)
+    orig_slot = slot
     slot = slot.to_s
+ 
+   if slot.length == 0
+      fail ArgumentError, "Invalid option `#{orig_slot.inspect}'"
+    end
+
+    if ( method = _symbolkey2str(__val2ruby_optkeys())[slot] )
+      optval = tk_call_without_enc(*(__cget_cmd << "-#{slot}"))
+      begin
+        return method.call(optval)
+      rescue => e
+        warn("Warning:: #{e.message} (when #{method}.call(#{optval.inspect})") if $DEBUG
+        return optval
+      end
+    end
 
     if ( method = _symbolkey2str(__methodcall_optkeys)[slot] )
       return self.__send__(method)
@@ -2602,6 +3011,10 @@ module TkConfigMethod
         fnt
       end
 
+    when /^(#{__tkvariable_optkeys.join('|')})$/
+      v = tk_call_without_enc(*(__cget_cmd << "-#{slot}"))
+      (v.empty?)? nil: TkVarAccess.new(v)
+
     else
       tk_tcl2ruby(tk_call_without_enc(*(__cget_cmd << "-#{slot}")), true)
     end
@@ -2614,6 +3027,11 @@ module TkConfigMethod
       __methodcall_optkeys.each{|key, method|
         value = slot.delete(key.to_s)
         self.__send__(method, value) if value
+      }
+
+      __ruby2val_optkeys.each{|key, method|
+        key = key.to_s
+        slot[key] = method.call(slot[key]) if slot.has_key?(key)
       }
 
       __keyonly_optkeys.each{|defkey, undefkey|
@@ -2636,7 +3054,12 @@ module TkConfigMethod
       end
 
     else
+      orig_slot = slot
       slot = slot.to_s
+      if slot.length == 0
+        fail ArgumentError, "Invalid option `#{orig_slot.inspect}'"
+      end
+
       if ( conf = __keyonly_optkeys.find{|k, v| k.to_s == slot} )
         defkey, undefkey = conf
         if value
@@ -2644,6 +3067,8 @@ module TkConfigMethod
         elsif undefkey
           tk_call(*(__config_cmd << "-#{undefkey}"))
         end
+      elsif ( method = _symbolkey2str(__ruby2val_optkeys)[slot] )
+        tk_call(*(__config_cmd << "-#{slot}" << method.call(value)))
       elsif ( method = _symbolkey2str(__methodcall_optkeys)[slot] )
         self.__send__(method, value)
       elsif (slot =~ /^(|latin|ascii|kanji)(#{__font_optkeys.join('|')})$/)
@@ -2665,9 +3090,11 @@ module TkConfigMethod
 
   def configinfo(slot = nil)
     if TkComm::GET_CONFIGINFO_AS_ARRAY
-      if (slot.to_s =~ /^(|latin|ascii|kanji)(#{__font_optkeys.join('|')})$/)
+      if (slot && 
+          slot.to_s =~ /^(|latin|ascii|kanji)(#{__font_optkeys.join('|')})$/)
         fontkey  = $2
-        conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{fontkey}"))))
+        # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{fontkey}"))))
+        conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{fontkey}")), false, true)
         conf[__configinfo_struct[:key]] = 
           conf[__configinfo_struct[:key]][1..-1]
         if ( ! __configinfo_struct[:alias] \
@@ -2684,12 +3111,38 @@ module TkConfigMethod
         if slot
           slot = slot.to_s
           case slot
+          when /^(#{__val2ruby_optkeys().keys.join('|')})$/
+            method = _symbolkey2str(__val2ruby_optkeys())[slot]
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd() << "-#{slot}")), false, true)
+            if ( __configinfo_struct[:default_value] \
+                && conf[__configinfo_struct[:default_value]] )
+              optval = conf[__configinfo_struct[:default_value]]
+              begin
+                val = method.call(optval)
+              rescue => e
+                warn("Warning:: #{e.message} (when #{method}.call(#{optval.inspect})") if $DEBUG
+                val = optval
+              end
+              conf[__configinfo_struct[:default_value]] = val
+            end
+            if ( conf[__configinfo_struct[:current_value]] )
+              optval = conf[__configinfo_struct[:current_value]]
+              begin
+                val = method.call(optval)
+              rescue => e
+                warn("Warning:: #{e.message} (when #{method}.call(#{optval.inspect})") if $DEBUG
+                val = optval
+              end
+              conf[__configinfo_struct[:current_value]] = val
+            end
+
           when /^(#{__methodcall_optkeys.keys.join('|')})$/
             method = _symbolkey2str(__methodcall_optkeys)[slot]
             return [slot, '', '', '', self.__send__(method)]
 
           when /^(#{__numval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
 
             if ( __configinfo_struct[:default_value] \
                 && conf[__configinfo_struct[:default_value]])
@@ -2710,7 +3163,8 @@ module TkConfigMethod
             end
 
           when /^(#{__numstrval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
 
             if ( __configinfo_struct[:default_value] \
                 && conf[__configinfo_struct[:default_value]])
@@ -2723,7 +3177,8 @@ module TkConfigMethod
             end
 
           when /^(#{__boolval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
 
             if ( __configinfo_struct[:default_value] \
                 && conf[__configinfo_struct[:default_value]])
@@ -2744,7 +3199,8 @@ module TkConfigMethod
             end
 
           when /^(#{__listval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
 
             if ( __configinfo_struct[:default_value] \
                 && conf[__configinfo_struct[:default_value]])
@@ -2757,7 +3213,8 @@ module TkConfigMethod
             end
 
           when /^(#{__numlistval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
 
             if ( __configinfo_struct[:default_value] \
                 && conf[__configinfo_struct[:default_value]] \
@@ -2772,9 +3229,33 @@ module TkConfigMethod
             end
 
           when /^(#{__strval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
+
+          when /^(#{__tkvariable_optkeys.join('|')})$/
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
+
+            if ( __configinfo_struct[:default_value] \
+                && conf[__configinfo_struct[:default_value]])
+              v = conf[__configinfo_struct[:default_value]]
+              if v.empty?
+                conf[__configinfo_struct[:default_value]] = nil
+              else
+                conf[__configinfo_struct[:default_value]] = TkVarAccess.new(v)
+              end
+            end
+            if ( conf[__configinfo_struct[:current_value]] )
+              v = conf[__configinfo_struct[:current_value]]
+              if v.empty?
+                conf[__configinfo_struct[:current_value]] = nil
+              else
+                conf[__configinfo_struct[:current_value]] = TkVarAccess.new(v)
+              end
+            end
+
           else
-            conf = tk_split_list(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_list(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_list(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), 0, false, true)
           end
           conf[__configinfo_struct[:key]] = 
             conf[__configinfo_struct[:key]][1..-1]
@@ -2789,12 +3270,39 @@ module TkConfigMethod
           conf
 
         else
-          ret = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*__confinfo_cmd))).collect{|conflist|
-            conf = tk_split_simplelist(conflist)
+          # ret = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*__confinfo_cmd))).collect{|conflist|
+          #  conf = tk_split_simplelist(conflist)
+          ret = tk_split_simplelist(tk_call_without_enc(*__confinfo_cmd), false, false).collect{|conflist|
+            conf = tk_split_simplelist(conflist, false, true)
             conf[__configinfo_struct[:key]] = 
               conf[__configinfo_struct[:key]][1..-1]
 
-            case conf[__configinfo_struct[:key]]
+            optkey = conf[__configinfo_struct[:key]]
+            case optkey
+            when /^(#{__val2ruby_optkeys().keys.join('|')})$/
+              method = _symbolkey2str(__val2ruby_optkeys())[optkey]
+              if ( __configinfo_struct[:default_value] \
+                  && conf[__configinfo_struct[:default_value]] )
+                optval = conf[__configinfo_struct[:default_value]]
+                begin
+                  val = method.call(optval)
+                rescue => e
+                  warn("Warning:: #{e.message} (when #{method}.call(#{optval.inspect})") if $DEBUG
+                  val = optval
+                end
+                conf[__configinfo_struct[:default_value]] = val
+              end
+              if ( conf[__configinfo_struct[:current_value]] )
+                optval = conf[__configinfo_struct[:current_value]]
+                begin
+                  val = method.call(optval)
+                rescue => e
+                  warn("Warning:: #{e.message} (when #{method}.call(#{optval.inspect})") if $DEBUG
+                  val = optval
+                end
+                conf[__configinfo_struct[:current_value]] = val
+              end
+
             when /^(#{__strval_optkeys.join('|')})$/
               # do nothing
 
@@ -2869,6 +3377,25 @@ module TkConfigMethod
                   && conf[__configinfo_struct[:current_value]] =~ /^[0-9]/ )
                 conf[__configinfo_struct[:current_value]] = 
                   list(conf[__configinfo_struct[:current_value]])
+              end
+
+            when /^(#{__tkvariable_optkeys.join('|')})$/
+              if ( __configinfo_struct[:default_value] \
+                  && conf[__configinfo_struct[:default_value]] )
+                v = conf[__configinfo_struct[:default_value]]
+                if v.empty?
+                  conf[__configinfo_struct[:default_value]] = nil
+                else
+                  conf[__configinfo_struct[:default_value]] = TkVarAccess.new(v)
+                end
+              end
+              if ( conf[__configinfo_struct[:current_value]] )
+                v = conf[__configinfo_struct[:current_value]]
+                if v.empty?
+                  conf[__configinfo_struct[:current_value]] = nil
+                else
+                  conf[__configinfo_struct[:current_value]] = TkVarAccess.new(v)
+                end
               end
 
             else
@@ -2922,9 +3449,11 @@ module TkConfigMethod
       end
 
     else # ! TkComm::GET_CONFIGINFO_AS_ARRAY
-      if (slot.to_s =~ /^(|latin|ascii|kanji)(#{__font_optkeys.join('|')})$/)
+      if (slot && 
+          slot.to_s =~ /^(|latin|ascii|kanji)(#{__font_optkeys.join('|')})$/)
         fontkey  = $2
-        conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{fontkey}"))))
+        # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{fontkey}"))))
+        conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{fontkey}")), false, true)
         conf[__configinfo_struct[:key]] = 
           conf[__configinfo_struct[:key]][1..-1]
 
@@ -2946,12 +3475,38 @@ module TkConfigMethod
         if slot
           slot = slot.to_s
           case slot
+          when /^(#{__val2ruby_optkeys().keys.join('|')})$/
+            method = _symbolkey2str(__val2ruby_optkeys())[slot]
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
+            if ( __configinfo_struct[:default_value] \
+                && conf[__configinfo_struct[:default_value]] )
+              optval = conf[__configinfo_struct[:default_value]]
+              begin
+                val = method.call(optval)
+              rescue => e
+                warn("Warning:: #{e.message} (when #{method}.call(#{optval.inspect})") if $DEBUG
+                val = optval
+              end
+              conf[__configinfo_struct[:default_value]] = val
+            end
+            if ( conf[__configinfo_struct[:current_value]] )
+              optval = conf[__configinfo_struct[:current_value]]
+              begin
+                val = method.call(optval)
+              rescue => e
+                warn("Warning:: #{e.message} (when #{method}.call(#{optval.inspect})") if $DEBUG
+                val = optval
+              end
+              conf[__configinfo_struct[:current_value]] = val
+            end
+
           when /^(#{__methodcall_optkeys.keys.join('|')})$/
             method = _symbolkey2str(__methodcall_optkeys)[slot]
             return {slot => ['', '', '', self.__send__(method)]}
 
           when /^(#{__numval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
 
             if ( __configinfo_struct[:default_value] \
                 && conf[__configinfo_struct[:default_value]] )
@@ -2972,7 +3527,8 @@ module TkConfigMethod
             end
 
           when /^(#{__numstrval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
 
             if ( __configinfo_struct[:default_value] \
                 && conf[__configinfo_struct[:default_value]] )
@@ -2985,7 +3541,8 @@ module TkConfigMethod
             end
 
           when /^(#{__boolval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
 
             if ( __configinfo_struct[:default_value] \
                 && conf[__configinfo_struct[:default_value]] )
@@ -3006,7 +3563,8 @@ module TkConfigMethod
             end
 
           when /^(#{__listval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
 
             if ( __configinfo_struct[:default_value] \
                 && conf[__configinfo_struct[:default_value]] )
@@ -3019,7 +3577,8 @@ module TkConfigMethod
             end
 
           when /^(#{__numlistval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
 
             if ( __configinfo_struct[:default_value] \
                 && conf[__configinfo_struct[:default_value]] \
@@ -3033,10 +3592,33 @@ module TkConfigMethod
                 list(conf[__configinfo_struct[:current_value]])
             end
 
+          when /^(#{__tkvariable_optkeys.join('|')})$/
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
+
+            if ( __configinfo_struct[:default_value] \
+                && conf[__configinfo_struct[:default_value]] )
+              v = conf[__configinfo_struct[:default_value]]
+              if v.empty?
+                conf[__configinfo_struct[:default_value]] = nil
+              else
+                conf[__configinfo_struct[:default_value]] = TkVarAccess.new(v)
+              end
+            end
+            if ( conf[__configinfo_struct[:current_value]] )
+              v = conf[__configinfo_struct[:current_value]]
+              if v.empty?
+                conf[__configinfo_struct[:current_value]] = nil
+              else
+                conf[__configinfo_struct[:current_value]] = TkVarAccess.new(v)
+              end
+            end
+
           when /^(#{__strval_optkeys.join('|')})$/
-            conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_simplelist(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_simplelist(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), false, true)
           else
-            conf = tk_split_list(_fromUTF8(tk_send_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            # conf = tk_split_list(_fromUTF8(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}"))))
+            conf = tk_split_list(tk_call_without_enc(*(__confinfo_cmd << "-#{slot}")), 0, false, true)
           end
           conf[__configinfo_struct[:key]] = 
             conf[__configinfo_struct[:key]][1..-1]
@@ -3054,12 +3636,39 @@ module TkConfigMethod
 
         else
           ret = {}
-          tk_split_simplelist(_fromUTF8(tk_call_without_enc(*__confinfo_cmd))).each{|conflist|
-            conf = tk_split_simplelist(conflist)
+          # tk_split_simplelist(_fromUTF8(tk_call_without_enc(*__confinfo_cmd))).each{|conflist|
+          #  conf = tk_split_simplelist(conflist)
+          tk_split_simplelist(tk_call_without_enc(*__confinfo_cmd), false, false).each{|conflist|
+            conf = tk_split_simplelist(conflist, false, true)
             conf[__configinfo_struct[:key]] = 
               conf[__configinfo_struct[:key]][1..-1]
 
-            case conf[__configinfo_struct[:key]]
+            optkey = conf[__configinfo_struct[:key]]
+            case optkey
+            when /^(#{__val2ruby_optkeys().keys.join('|')})$/
+              method = _symbolkey2str(__val2ruby_optkeys())[optkey]
+              if ( __configinfo_struct[:default_value] \
+                  && conf[__configinfo_struct[:default_value]] )
+                optval = conf[__configinfo_struct[:default_value]]
+                begin
+                  val = method.call(optval)
+                rescue => e
+                  warn("Warning:: #{e.message} (when #{method}.call(#{optval.inspect})") if $DEBUG
+                  val = optval
+                end
+                conf[__configinfo_struct[:default_value]] = val
+              end
+              if ( conf[__configinfo_struct[:current_value]] )
+                optval = conf[__configinfo_struct[:current_value]]
+                begin
+                  val = method.call(optval)
+                rescue => e
+                  warn("Warning:: #{e.message} (when #{method}.call(#{optval.inspect})") if $DEBUG
+                  val = optval
+                end
+                conf[__configinfo_struct[:current_value]] = val
+              end
+
             when /^(#{__strval_optkeys.join('|')})$/
               # do nothing
 
@@ -3134,6 +3743,25 @@ module TkConfigMethod
                   && conf[__configinfo_struct[:current_value]] =~ /^[0-9]/ )
                 conf[__configinfo_struct[:current_value]] = 
                   list(conf[__configinfo_struct[:current_value]])
+              end
+
+            when /^(#{__tkvariable_optkeys.join('|')})$/
+              if ( __configinfo_struct[:default_value] \
+                  && conf[__configinfo_struct[:default_value]] )
+                v = conf[__configinfo_struct[:default_value]]
+                if v.empty?
+                  conf[__configinfo_struct[:default_value]] = nil
+                else
+                  conf[__configinfo_struct[:default_value]] = TkVarAccess.new
+                end
+              end
+              if ( conf[__configinfo_struct[:current_value]] )
+                v = conf[__configinfo_struct[:current_value]]
+                if v.empty?
+                  conf[__configinfo_struct[:current_value]] = nil
+                else
+                  conf[__configinfo_struct[:current_value]] = TkVarAccess.new
+                end
               end
 
             else
@@ -3257,6 +3885,25 @@ class TkObject<TkKernel
   end
   # private :tk_send, :tk_send_without_enc, :tk_send_with_enc
 
+  def tk_send_to_list(cmd, *rest)
+    tk_call_to_list(path, cmd, *rest)
+  end
+  def tk_send_to_list_without_enc(cmd, *rest)
+    tk_call_to_list_without_enc(path, cmd, *rest)
+  end
+  def tk_send_to_list_with_enc(cmd, *rest)
+    tk_call_to_list_with_enc(path, cmd, *rest)
+  end
+  def tk_send_to_simplelist(cmd, *rest)
+    tk_call_to_simplelist(path, cmd, *rest)
+  end
+  def tk_send_to_simplelist_without_enc(cmd, *rest)
+    tk_call_to_simplelist_without_enc(path, cmd, *rest)
+  end
+  def tk_send_to_simplelist_with_enc(cmd, *rest)
+    tk_call_to_simplelist_with_enc(path, cmd, *rest)
+  end
+
   def method_missing(id, *args)
     name = id.id2name
     case args.length
@@ -3272,12 +3919,14 @@ class TkObject<TkKernel
       begin
         cget(name)
       rescue
-        fail NameError, 
-             "undefined local variable or method `#{name}' for #{self.to_s}", 
-             error_at
+        super(id, *args)
+#        fail NameError, 
+#             "undefined local variable or method `#{name}' for #{self.to_s}", 
+#             error_at
       end
     else
-      fail NameError, "undefined method `#{name}' for #{self.to_s}", error_at
+      super(id, *args)
+#      fail NameError, "undefined method `#{name}' for #{self.to_s}", error_at
     end
   end
 
@@ -3293,7 +3942,9 @@ class TkObject<TkKernel
 =end
 
   def event_generate(context, keys=nil)
-    if keys
+    if context.kind_of?(TkEvent::Event)
+      context.generate(self, ((keys)? keys: {}))
+    elsif keys
       #tk_call('event', 'generate', path, 
       #       "<#{tk_event_sequence(context)}>", *hash_kv(keys))
       tk_call_without_enc('event', 'generate', path, 
@@ -3341,19 +3992,19 @@ class TkWindow<TkObject
       widgetname = keys.delete('widgetname')
       install_win(if parent then parent.path end, widgetname)
       without_creating = keys.delete('without_creating')
-      if without_creating && !widgetname 
-        fail ArgumentError, 
-             "if set 'without_creating' to true, need to define 'widgetname'"
-      end
+      # if without_creating && !widgetname 
+      #   fail ArgumentError, 
+      #        "if set 'without_creating' to true, need to define 'widgetname'"
+      # end
     elsif keys
       keys = _symbolkey2str(keys)
       widgetname = keys.delete('widgetname')
       install_win(if parent then parent.path end, widgetname)
       without_creating = keys.delete('without_creating')
-      if without_creating && !widgetname 
-        fail ArgumentError, 
-             "if set 'without_creating' to true, need to define 'widgetname'"
-      end
+      # if without_creating && !widgetname 
+      #   fail ArgumentError, 
+      #        "if set 'without_creating' to true, need to define 'widgetname'"
+      # end
     else
       install_win(if parent then parent.path end)
     end
@@ -3389,6 +4040,11 @@ class TkWindow<TkObject
         __methodcall_optkeys.each{|key|
           key = key.to_s
           methodkeys[key] = keys.delete(key) if keys.key?(key)
+        }
+
+        __ruby2val_optkeys.each{|key, method|
+          key = key.to_s
+          keys[key] = method.call(keys[key]) if keys.has_key?(key)
         }
       end
       if without_creating && keys
@@ -3541,7 +4197,7 @@ class TkWindow<TkObject
     self
   end
 
-  def  grid_forget
+  def grid_forget
     #tk_call('grid', 'forget', epath)
     TkGrid.forget(self)
     self
@@ -3625,9 +4281,9 @@ class TkWindow<TkObject
     #  self
     #end
     if mode == None
-      TkGrid.propagete(self)
+      TkGrid.propagate(self)
     else
-      TkGrid.propagete(self, mode)
+      TkGrid.propagate(self, mode)
       self
     end
   end
@@ -3778,12 +4434,14 @@ class TkWindow<TkObject
     tk_call 'lower', epath, below
     self
   end
+  alias lower_window lower
   def raise(above=None)
     #above = above.epath if above.kind_of?(TkObject)
     above = _epath(above)
     tk_call 'raise', epath, above
     self
   end
+  alias raise_window raise
 
   def command(cmd=nil, &b)
     if cmd
@@ -3940,7 +4598,7 @@ end
 #Tk.freeze
 
 module Tk
-  RELEASE_DATE = '2004-12-24'.freeze
+  RELEASE_DATE = '2007-01-26'.freeze
 
   autoload :AUTO_PATH,        'tk/variable'
   autoload :TCL_PACKAGE_PATH, 'tk/variable'
@@ -3950,9 +4608,9 @@ module Tk
   autoload :TCL_PRECISION,    'tk/variable'
 end
 
-
 # call setup script for Tk extension libraries (base configuration)
 begin
+  require 'tkextlib/version.rb'
   require 'tkextlib/setup.rb'
 rescue LoadError
   # ignore

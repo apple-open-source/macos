@@ -1,0 +1,41 @@
+#! /bin/bash
+
+set -e
+
+BASEDIR=$(cd $(dirname $0)/.. ; pwd)
+. $BASEDIR/scripts/common.sh
+
+SVNBASE="svn+ssh://src.apple.com/svn/fs/samba"
+SVNTRUNK="$SVNBASE/trunk"
+
+TAG=$($BASEDIR/scripts/next-svn-tag)
+
+CHECKDIR="submit.$TAG"
+BNI="$SVNBASE/tags/$TAG"
+
+echo next tag is $TAG
+
+vrun svn copy -m "tag samba/trunk as $TAG" $SVNTRUNK $BNI
+vrun svn checkout $BNI $CHECKDIR
+
+(
+    set -e
+    cd $CHECKDIR
+
+    SRCROOT=$(pwd) vrun make patch
+    echo "GnuNoPatch := YES" > make.local
+
+    vrun svn add make.local
+    # Make sure that the SVN keywords property didn't get lost because I
+    # used git for integration -- jpeach.
+    vrun svn propset svn:keywords Id tools/prefsync/rules.cpp
+    # applying patches might have created files. Make sure we add them.
+    vrun svn add $(svn status | awk '/^\?/{print $2}')
+    vrun svn commit -m "prepatching BNI tree"
+)
+
+if [ "$?" != "0" ]; then exit 1; fi
+
+vrun rm -rf $CHECKDIR
+echo created BNI branch $BNI
+

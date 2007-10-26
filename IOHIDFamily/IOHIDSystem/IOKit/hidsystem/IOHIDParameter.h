@@ -90,7 +90,17 @@
 #define kIOHIDScrollAccelerationTypeKey     "HIDScrollAccelerationType"
 #define kIOHIDScrollAccelerationTableKey	"HIDScrollAccelerationTable"
 
+#define kIOHIDScrollResolutionXKey		"HIDScrollResolutionX"
+#define kIOHIDScrollResolutionYKey		"HIDScrollResolutionY"
+#define kIOHIDScrollResolutionZKey		"HIDScrollResolutionZ"
+
+#define kIOHIDScrollAccelerationTableXKey	"HIDScrollAccelerationTableX"
+#define kIOHIDScrollAccelerationTableYKey	"HIDScrollAccelerationTableY"
+#define kIOHIDScrollAccelerationTableZKey	"HIDScrollAccelerationTableZ"
+
 #define kIOHIDScrollMouseButtonKey      "HIDScrollMouseButton"
+
+#define kIOHIDScrollZoomModifierMaskKey "HIDScrollZoomModifierMask"
 
 #define kIOHIDTrackpadScrollAccelerationKey "HIDTrackpadScrollAcceleration"
 #define kIOHIDMouseScrollAccelerationKey   "HIDMouseScrollAcceleration"

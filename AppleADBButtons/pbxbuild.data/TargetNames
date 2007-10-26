@@ -1,5 +1,0 @@
-if [ "${Target}" = "AppleADBButtons" ]; then
-	Targets='AppleADBButtons'
-else
-	Targets='AppleADBButtons'
-fi

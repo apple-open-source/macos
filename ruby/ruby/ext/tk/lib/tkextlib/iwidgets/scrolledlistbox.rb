@@ -19,6 +19,21 @@ class Tk::Iwidgets::Scrolledlistbox
   WidgetClassName = 'Scrolledlistbox'.freeze
   WidgetClassNames[WidgetClassName] = self
 
+  def __strval_optkeys
+    super() << 'textbackground'
+  end
+  private :__strval_optkeys
+
+  def __tkvariable_optkeys
+    super() << 'listvariable'
+  end
+  private :__tkvariable_optkeys
+
+  def __font_optkeys
+    super() << 'textfont'
+  end
+  private :__font_optkeys
+
   ################################
 
   def initialize(*args)
@@ -125,7 +140,9 @@ class Tk::Iwidgets::Scrolledlistbox
   end
   def get(first, last=nil)
     if last
-      tk_split_simplelist(_fromUTF8(tk_send_without_enc('get', first, last)))
+      # tk_split_simplelist(_fromUTF8(tk_send_without_enc('get', first, last)))
+      tk_split_simplelist(tk_send_without_enc('get', first, last), 
+                          false, true)
     else
       _fromUTF8(tk_send_without_enc('get', first))
     end
@@ -152,8 +169,8 @@ class Tk::Iwidgets::Scrolledlistbox
     self
   end
 
-  def index(index)
-    tk_send_without_enc('index', index).to_i
+  def index(idx)
+    tk_send_without_enc('index', idx).to_i
   end
 
   #####################################

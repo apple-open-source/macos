@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2003-2004, International Business Machines
+* Copyright (c) 2003-2005, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -117,11 +117,13 @@ void RuleCharacterIterator::jumpahead(int32_t count) {
     _advance(count);
 }
 
+/*
 UnicodeString& RuleCharacterIterator::toString(UnicodeString& result) const {
     int32_t b = pos.getIndex();
     text.extract(0, b, result);
-    return result.append((UChar) 0x7C /*'|'*/).append(text, b, 0x7FFFFFFF);
+    return result.append((UChar) 0x7C).append(text, b, 0x7FFFFFFF); // Insert '|' at index
 }
+*/
 
 UChar32 RuleCharacterIterator::_current() const {
     if (buf != 0) {

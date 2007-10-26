@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ##
 # Submit a project from CVS to Release Control.
@@ -20,7 +20,8 @@ else
     export PATH=${PATH}:${MyPath};
 fi;
 
-CVS_PROG="${0%%-*}"
+CVS_PROG="$(basename $0)"
+CVS_PROG="${CVS_PROG%%-*}"
 
 ##
 # Usage

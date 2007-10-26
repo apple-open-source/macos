@@ -1,0 +1,13 @@
+/QuickTime\.h/i
+#ifndef __LP64__
+.
+/^$/i
+#endif /* !__LP64__ */
+.
+/Qt exports/i
+#ifndef __LP64__
+.
+/^$/i
+#endif /* !__LP64__ */
+.
+w

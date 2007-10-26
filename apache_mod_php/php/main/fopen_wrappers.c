@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,8 @@
    |          Jim Winstead <jimw@php.net>                                 |
    +----------------------------------------------------------------------+
  */
-/* $Id: fopen_wrappers.c,v 1.153.2.10.2.4 2007/01/01 09:46:50 sebastian Exp $ */
+
+/* $Id: fopen_wrappers.c,v 1.175.2.3.2.13 2007/07/10 13:21:11 dmitry Exp $ */
 
 /* {{{ includes
  */
@@ -32,8 +33,6 @@
 #include <fcntl.h>
 
 #ifdef PHP_WIN32
-#include <windows.h>
-#include <winsock.h>
 #define O_RDONLY _O_RDONLY
 #include "win32/param.h"
 #else
@@ -47,11 +46,7 @@
 #include "php_network.h"
 
 #if HAVE_PWD_H
-#ifdef PHP_WIN32
-#include "win32/pwd.h"
-#else
 #include <pwd.h>
-#endif
 #endif
 
 #include <sys/types.h>
@@ -64,9 +59,8 @@
 #endif
 
 #ifdef PHP_WIN32
-#include <winsock.h>
+#include <winsock2.h>
 #elif defined(NETWARE) && defined(USE_WINSOCK)
-/*#include <ws2nlm.h>*/
 #include <novsock2.h>
 #else
 #include <netinet/in.h>
@@ -96,8 +90,12 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 	char resolved_name[MAXPATHLEN];
 	char resolved_basedir[MAXPATHLEN];
 	char local_open_basedir[MAXPATHLEN];
+	char path_tmp[MAXPATHLEN];
+	char *path_file;
 	int resolved_basedir_len;
 	int resolved_name_len;
+	int path_len;
+	int nesting_level = 0;
 	
 	/* Special case basedir==".": Use script-directory */
 	if (strcmp(basedir, ".") || !VCWD_GETCWD(local_open_basedir, MAXPATHLEN)) {
@@ -105,8 +103,66 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 		strlcpy(local_open_basedir, basedir, sizeof(local_open_basedir));
 	}
 
-	/* Resolve the real path into resolved_name */
-	if ((expand_filepath(path, resolved_name TSRMLS_CC) != NULL) && (expand_filepath(local_open_basedir, resolved_basedir TSRMLS_CC) != NULL)) {
+	path_len = strlen(path);
+	if (path_len > (MAXPATHLEN - 1)) {
+		/* empty and too long paths are invalid */
+		return -1;
+	}
+
+	/* normalize and expand path */
+	if (expand_filepath(path, resolved_name TSRMLS_CC) == NULL) {
+		return -1;
+	}
+	
+	path_len = strlen(resolved_name);
+	memcpy(path_tmp, resolved_name, path_len + 1); /* safe */
+
+	while (VCWD_REALPATH(path_tmp, resolved_name) == NULL) {
+#ifdef HAVE_SYMLINK
+		if (nesting_level == 0) {
+			int ret;
+			char buf[MAXPATHLEN];
+			
+			ret = readlink(path_tmp, buf, MAXPATHLEN - 1);
+			if (ret < 0) {
+				/* not a broken symlink, move along.. */
+			} else {
+				/* put the real path into the path buffer */
+				memcpy(path_tmp, buf, ret);
+				path_tmp[ret] = '\0';
+			}
+		}
+#endif
+
+#if defined(PHP_WIN32) || defined(NETWARE)
+		path_file = strrchr(path_tmp, DEFAULT_SLASH);
+		if (!path_file) {
+			path_file = strrchr(path_tmp, '/');
+		}
+#else
+		path_file = strrchr(path_tmp, DEFAULT_SLASH);
+#endif
+		if (!path_file) {
+			/* none of the path components exist. definitely not in open_basedir.. */
+			return -1;
+		} else {
+			path_len = path_file - path_tmp + 1;
+#if defined(PHP_WIN32) || defined(NETWARE)
+			if (path_len > 1 && path_tmp[path_len - 2] == ':') {
+				/* this is c:\,  */
+				path_tmp[path_len] = '\0';
+			} else {
+				path_tmp[path_len - 1] = '\0';
+			}
+#else
+			path_tmp[path_len - 1] = '\0';
+#endif
+		}
+		nesting_level++;
+	}
+
+	/* Resolve open_basedir to resolved_basedir */
+	if (expand_filepath(local_open_basedir, resolved_basedir TSRMLS_CC) != NULL) {
 		/* Handler for basedirs that end with a / */
 		resolved_basedir_len = strlen(resolved_basedir);
 		if (basedir[strlen(basedir) - 1] == PHP_DIR_SEPARATOR) {
@@ -116,8 +172,8 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 			}
 		}
 
-		if (path[strlen(path)-1] == PHP_DIR_SEPARATOR) {
-			resolved_name_len = strlen(resolved_name);
+		resolved_name_len = strlen(resolved_name);
+		if (path_tmp[path_len - 1] == PHP_DIR_SEPARATOR) {
 			if (resolved_name[resolved_name_len - 1] != PHP_DIR_SEPARATOR) {
 				resolved_name[resolved_name_len] = PHP_DIR_SEPARATOR;
 				resolved_name[++resolved_name_len] = '\0';
@@ -125,7 +181,7 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 		}
 
 		/* Check the path */
-#ifdef PHP_WIN32
+#if defined(PHP_WIN32) || defined(NETWARE)
 		if (strncasecmp(resolved_basedir, resolved_name, resolved_basedir_len) == 0) {
 #else
 		if (strncmp(resolved_basedir, resolved_name, resolved_basedir_len) == 0) {
@@ -133,6 +189,16 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 			/* File is in the right directory */
 			return 0;
 		} else {
+			/* /openbasedir/ and /openbasedir are the same directory */
+			if (resolved_basedir_len == (resolved_name_len + 1) && resolved_basedir[resolved_basedir_len - 1] == PHP_DIR_SEPARATOR) {
+#if defined(PHP_WIN32) || defined(NETWARE)
+				if (strncasecmp(resolved_basedir, resolved_name, resolved_name_len) == 0) {
+#else
+				if (strncmp(resolved_basedir, resolved_name, resolved_name_len) == 0) {
+#endif
+					return 0;
+				}
+			}
 			return -1;
 		}
 	} else {
@@ -191,7 +257,7 @@ PHPAPI int php_check_open_basedir_ex(const char *path, int warn TSRMLS_DC)
 
 /* {{{ php_check_safe_mode_include_dir
  */
-PHPAPI int php_check_safe_mode_include_dir(char *path TSRMLS_DC)
+PHPAPI int php_check_safe_mode_include_dir(const char *path TSRMLS_DC)
 {
 	if (PG(safe_mode)) {
 		if (PG(safe_mode_include_dir) && *PG(safe_mode_include_dir)) {
@@ -241,7 +307,7 @@ PHPAPI int php_check_safe_mode_include_dir(char *path TSRMLS_DC)
 
 /* {{{ php_fopen_and_set_opened_path
  */
-static FILE *php_fopen_and_set_opened_path(const char *path, char *mode, char **opened_path TSRMLS_DC)
+static FILE *php_fopen_and_set_opened_path(const char *path, const char *mode, char **opened_path TSRMLS_DC)
 {
 	FILE *fp;
 
@@ -261,39 +327,56 @@ static FILE *php_fopen_and_set_opened_path(const char *path, char *mode, char **
 PHPAPI int php_fopen_primary_script(zend_file_handle *file_handle TSRMLS_DC)
 {
 	FILE *fp;
+#ifndef PHP_WIN32
 	struct stat st;
+#endif
 	char *path_info, *filename;
 	int length;
 
 	filename = SG(request_info).path_translated;
 	path_info = SG(request_info).request_uri;
 #if HAVE_PWD_H
-	if (PG(user_dir) && *PG(user_dir)
-		&& path_info && '/' == path_info[0] && '~' == path_info[1]) {
-
-		char user[32];
-		struct passwd *pw;
+	if (PG(user_dir) && *PG(user_dir) && path_info && '/' == path_info[0] && '~' == path_info[1]) {
 		char *s = strchr(path_info + 2, '/');
 
 		filename = NULL;	/* discard the original filename, it must not be used */
 		if (s) {			/* if there is no path name after the file, do not bother */
-							/* to try open the directory */
+			char user[32];			/* to try open the directory */
+			struct passwd *pw;
+#if defined(ZTS) && defined(HAVE_GETPWNAM_R) && defined(_SC_GETPW_R_SIZE_MAX)
+			struct passwd pwstruc;
+			long pwbuflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+			char *pwbuf;
+
+			if (pwbuflen < 1) {
+				return FAILURE;
+			}
+			
+			pwbuf = emalloc(pwbuflen);
+#endif
 			length = s - (path_info + 2);
-			if (length > sizeof(user) - 1)
+			if (length > (int)sizeof(user) - 1) {
 				length = sizeof(user) - 1;
+			}
 			memcpy(user, path_info + 2, length);
 			user[length] = '\0';
-
-			pw = getpwnam(user);
-			if (pw && pw->pw_dir) {
-				filename = emalloc(strlen(PG(user_dir)) + strlen(path_info) + strlen(pw->pw_dir) + 4);
-				if (filename) {
-					sprintf(filename, "%s%c%s%c%s", pw->pw_dir, PHP_DIR_SEPARATOR,
-								PG(user_dir), PHP_DIR_SEPARATOR, s+1); /* Safe */
-					STR_FREE(SG(request_info).path_translated);
-					SG(request_info).path_translated = filename;
-				}
+#if defined(ZTS) && defined(HAVE_GETPWNAM_R) && defined(_SC_GETPW_R_SIZE_MAX)
+			if (getpwnam_r(user, &pwstruc, pwbuf, pwbuflen, &pw)) {
+				efree(pwbuf);
+				return FAILURE;
 			}
+#else
+			pw = getpwnam(user);
+#endif
+			if (pw && pw->pw_dir) {
+				spprintf(&filename, 0, "%s%c%s%c%s", pw->pw_dir, PHP_DIR_SEPARATOR,
+								PG(user_dir), PHP_DIR_SEPARATOR, s+1); /* Safe */
+				STR_FREE(SG(request_info).path_translated);
+				SG(request_info).path_translated = filename;
+			}
+#if defined(ZTS) && defined(HAVE_GETPWNAM_R) && defined(_SC_GETPW_R_SIZE_MAX)
+			efree(pwbuf);
+#endif
 		}
 	} else
 #endif
@@ -327,11 +410,14 @@ PHPAPI int php_fopen_primary_script(zend_file_handle *file_handle TSRMLS_DC)
 	}
 	fp = VCWD_FOPEN(filename, "rb");
 
+#ifndef PHP_WIN32
 	/* refuse to open anything that is not a regular file */
 	if (fp && (0 > fstat(fileno(fp), &st) || !S_ISREG(st.st_mode))) {
 		fclose(fp);
 		fp = NULL;
 	}
+#endif
+
 	if (!fp) {
 		STR_FREE(SG(request_info).path_translated);	/* for same reason as above */
 		SG(request_info).path_translated = NULL;
@@ -358,7 +444,7 @@ PHPAPI int php_fopen_primary_script(zend_file_handle *file_handle TSRMLS_DC)
  * Tries to open a file with a PATH-style list of directories.
  * If the filename starts with "." or "/", the path is ignored.
  */
-PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **opened_path TSRMLS_DC)
+PHPAPI FILE *php_fopen_with_path(const char *filename, const char *mode, const char *path, char **opened_path TSRMLS_DC)
 {
 	char *pathbuf, *ptr, *end;
 	char *exec_fname;
@@ -476,7 +562,13 @@ PHPAPI FILE *php_fopen_with_path(char *filename, char *mode, char *path, char **
  */
 PHPAPI char *php_strip_url_passwd(char *url)
 {
-	register char *p = url, *url_start;
+	register char *p, *url_start;
+	
+	if (url == NULL) {
+		return "";
+	}
+	
+	p = url;
 	
 	while (*p) {
 		if (*p==':' && *(p+1)=='/' && *(p+2)=='/') {
@@ -514,15 +606,21 @@ PHPAPI char *expand_filepath(const char *filepath, char *real_path TSRMLS_DC)
 	char cwd[MAXPATHLEN];
 	char *result;
 
-	result = VCWD_GETCWD(cwd, MAXPATHLEN);	
-	if (!result) {
+	if (!filepath[0]) {
+		return NULL;
+	} else if (IS_ABSOLUTE_PATH(filepath, strlen(filepath))) {
 		cwd[0] = '\0';
+	} else{
+		result = VCWD_GETCWD(cwd, MAXPATHLEN);
+		if (!result) {
+			cwd[0] = '\0';
+		}
 	}
 
 	new_state.cwd = strdup(cwd);
 	new_state.cwd_length = strlen(cwd);
 
-	if(virtual_file_ex(&new_state, filepath, NULL, 1)) {
+	if(virtual_file_ex(&new_state, filepath, NULL, CWD_FILEPATH)) {
 		free(new_state.cwd);
 		return NULL;
 	}

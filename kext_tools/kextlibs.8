@@ -1,0 +1,81 @@
+.Dd April 11, 2006
+.Dt KEXTLIBS 8
+.Os Darwin
+.Sh NAME
+.Nm kextlibs
+.Nd find OSBundleLibraries needed by a kext
+.Sh SYNOPSIS
+.Nm
+.Op Ar options
+.Ar kext_bundle
+.Sh DESCRIPTION
+The
+.Nm
+utility searches for library kexts that define symbols
+needed for linking by
+.Ar kext_bundle ,
+printing their bundle identifiers and versions.
+If any symbols are not found, or are found in multiple libraries,
+they are printed to standard error after the library kext informtion.
+.Pp
+Run 
+.Nm
+with the
+.Fl xml
+flag to get an XML fragment suitable for copying and pasting directly
+into an Info.plist file.
+.Pp
+If no repository directories are explicitly specified,
+.Nm
+searches the system extensions folder.
+.Sh OPTIONS
+.Bl -tag -width indent -compact
+.It Fl h
+.It Fl help
+Display a help message and exit.
+.It Fl all-symbols
+Print all symbols that remain unresolved
+or that are found in more than one library kext.
+Normally only the number of missing and duplicate symbols is printed.
+.It Fl c
+.It Fl compatible-versions
+Print the compatible rather than the current version.
+.It Fl non-kpi
+Search the compatibility kernel extension, com.apple.kernel.6.0,
+rather than any of the com.apple.kpi.* system kexts.
+Use of this option is not recommended:
+The exact kernel component (mach, bsd, libkern, or iokit)
+cannot be determined,
+and the compatible version of com.apple.kernel
+is locked to the current version.
+.It Fl r Ar directory
+.It Fl repository Ar directory
+Specifies a directory to search for dependencies.
+You can use this to get library declarations
+for a set of extensions other than those of the running system,
+or to include a side directory of library kexts.
+Note: If you specify a directory with this option,
+the system extensions folder is not implicitly searched.
+.It Fl e
+.It Fl system-extensions
+Adds the system extensions folder to the list of directories to search.
+If you don't specify any directories or kexts, this is used by default.
+.It Fl xml
+Print an XML fragment suitable for copying and pasting directly
+into an Info.plist file.
+.It Fl -
+End of options.
+.El
+.Sh DIAGNOSTICS
+The
+.Nm
+utility exits with a status of 0 on completion
+if all undefined symbols are found exactly once;
+with a status of 1 if any undefined symbols remain,
+or with a status of 2 if any symbols
+are found in more than one library kext
+(whether or not any undefined symbols remain),
+and with another nonzero status on some other problem.
+.Sh SEE ALSO
+.Xr kextcache 8 ,
+.Xr kextload 8

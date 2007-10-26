@@ -1,6 +1,8 @@
+/* APPLE LOCAL file mainline */
 /* Test for reload failing to eliminate from argp to sp.  */
 /* { dg-do run { target i?86-*-* } } */
 /* { dg-skip-if "" { i?86-*-* } { "-m64" "-fpic" "-fPIC" } { "" } } */
+/* { dg-skip-if "" { i?86-*-darwin* } { "*" } { "" } } */
 /* { dg-options "-O2 -fomit-frame-pointer" } */
 
 static int ustrsize (const char *s);
@@ -58,7 +60,7 @@ main()
   ucwidth = ucwidth_;
   ugetxc = ugetxc_;
   usetc = usetc_;
-  
+
   /* ??? It is impossible to explicitly modify the hard frame pointer.
      This will run afoul of code in flow.c that declines to mark regs
      in eliminate_regs in regs_ever_used.  Apparently, we have to wait

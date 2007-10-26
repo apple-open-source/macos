@@ -1,4 +1,4 @@
-: sgi.mips3 cc wrapper that generates mips3 binaries : 2001-02-14 :
+: sgi.mips3 cc wrapper that generates mips3 binaries : 2007-04-27 :
 
 HOSTTYPE=sgi.mips3
 
@@ -13,6 +13,7 @@ esac
 #	 134
 # cc:
 #	1685 (first!!) Invalid error number: X.
+#	1035 cpp #error -- 0 exit status by default - botch botch botch
 #	1048
 #	1155
 #	1171 The indicated expression has no effect.
@@ -25,15 +26,75 @@ esac
 #	3433 X not marked as intrinsic because it is not yet declared
 #	3434 X not marked as intrinsic because it is not yet declared
 
+cc=/usr/bin/cc
+debug=
+dynamic=-G0
+flags=-OPT:Olimit=0
+fatal=1035
+ignore=1685,733,1048,1155,1171,1184,1209,1343,3169,3170,3421,3433,3434
+ldignore=15,84,85,13
+optimize=
+
+case $_AST_cc_OPTIONS in
+?*)	eval $_AST_cc_OPTIONS ;;
+esac
+case $fatal in
+?*)	fatal="-diag_error $fatal" ;;
+esac
+case $ignore in
+?*)	ignore="-woff $ignore" ;;
+esac
+case $ldignore in
+?*)	ifs=$IFS
+	IFS=,
+	v=$ldignore
+	ldignore=
+	for i in $v
+	do	ldignore="$ldignore -Wl,-woff,$i"
+	done
+	IFS=$ifs
+	;;
+esac
+case $debug in
+?*)	integer n=0
+	for i
+	do	case $i in
+		-g*)	case $debug in
+			-)	continue ;;
+			esac
+			i=$debug
+			;;
+		esac
+		a[n++]=$i
+	done
+	set -- ${a[@]}
+	;;
+esac
+case $optimize in
+?*)	integer n=0
+	for i
+	do	case $i in
+		-O*)	case $optimize in
+			-)	continue ;;
+			esac
+			i=$optimize
+			;;
+		esac
+		a[n++]=$i
+	done
+	set -- ${a[@]}
+	;;
+esac
+
 case $1 in
 -mips2)	if	test -d /usr/lib32
-	then	LD_LIBRARYN32_PATH=/lib32 /usr/bin/cc -32 -mips2 -G0 -Olimit 5000 -Wl,-woff,15 -Wl,-woff,84 -Wl,-woff,85 -Wl,-woff,134 -woff 1685,733,1048,1155,1171,1184,1209,1343,3169,3170,3433 "$@"
-	else	/usr/bin/cc -mips2 -Olimit 5000 -woff 1685,733,1048,1155,1171,1184,1209,1343,3169,3170,3433 "$@"
+	then	LD_LIBRARYN32_PATH=/lib32 $cc -32 -mips2 $flags $dynamic $ldignore $ignore "$@"
+	else	$cc -mips2 $flags $ignore "$@"
 	fi
 	;;
 -mips4)	case " $* " in
 	*" -ldl "*)
-		integer n
+		integer n=0
 		for i
 		do	case $i in
 			-ldl)	;;
@@ -42,8 +103,8 @@ case $1 in
 		done
 		set -- ${a[@]}
 	esac
-	/usr/bin/cc -64 -mips4 -G0 -OPT:Olimit=0 -Wl,-woff,15 -Wl,-woff,84 -Wl,-woff,85 -Wl,-woff,134 -woff 1685,1048,1155,1171,1184,1209,1343,3169,3170,3433 "$@"
+	$cc -64 -mips4 $flags $dynamic $fatal $ldignore $ignore "$@"
 	;;
-*)	/usr/bin/cc -n32 -mips3 -G0 -OPT:Olimit=0 -Wl,-woff,15 -Wl,-woff,84 -Wl,-woff,85 -Wl,-woff,134 -woff 1685,1048,1155,1171,1184,1209,1343,3169,3170,3421,3433,3434 "$@"
+*)	$cc -n32 -mips3 $flags $dynamic $fatal $ldignore $ignore "$@"
 	;;
 esac

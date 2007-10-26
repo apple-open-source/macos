@@ -1,0 +1,24 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>tcsh</string>
+	<key>OpenSourceVersion</key>
+	<string>6.14.00</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.tcsh.org</string>
+	<key>OpenSourceURL</key>
+	<string>ftp://ftp.astron.com/pub/tcsh/tcsh-6.14.00.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>55a08b31a57cfd8631edd1fb7e42f18578d8198a</string>
+	<key>OpenSourceImportDate</key>
+	<string>2007-2-23</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string> Change bsd4.4 config file to reflect POSIX signals </string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>tcsh.txt</string>
+</dict>
+</plist>

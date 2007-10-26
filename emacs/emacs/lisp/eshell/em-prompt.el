@@ -1,6 +1,7 @@
 ;;; em-prompt.el --- command prompts
 
-;; Copyright (C) 1999, 2000 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'em-prompt)
 
@@ -68,7 +69,7 @@ re-entered for it to take effect."
   :type 'boolean
   :group 'eshell-prompt)
 
-(defface eshell-prompt-face
+(defface eshell-prompt
   '((((class color) (background light)) (:foreground "Red" :bold t))
     (((class color) (background dark)) (:foreground "Pink" :bold t))
     (t (:bold t)))
@@ -76,6 +77,8 @@ re-entered for it to take effect."
 For highlighting other kinds of strings -- similar to shell mode's
 behavior -- simply use an output filer which changes text properties."
   :group 'eshell-prompt)
+;; backward-compatibility alias
+(put 'eshell-prompt-face 'face-alias 'eshell-prompt)
 
 (defcustom eshell-before-prompt-hook nil
   "*A list of functions to call before outputting the prompt."
@@ -98,7 +101,6 @@ arriving, or after."
 (defun eshell-prompt-initialize ()
   "Initialize the prompting code."
   (unless eshell-non-interactive-p
-    (make-local-hook 'eshell-post-command-hook)
     (add-hook 'eshell-post-command-hook 'eshell-emit-prompt nil t)
 
     (make-local-variable 'eshell-prompt-regexp)
@@ -120,7 +122,7 @@ arriving, or after."
       (and eshell-highlight-prompt
 	   (add-text-properties 0 (length prompt)
 				'(read-only t
-				  face eshell-prompt-face
+				  face eshell-prompt
 				  rear-nonsticky (face read-only))
 				prompt))
       (eshell-interactive-print prompt)))
@@ -173,4 +175,5 @@ If this takes us past the end of the current line, don't skip at all."
 
 ;;; Code:
 
+;;; arch-tag: 01c1574b-ce70-4e89-bc38-e6619f61e208
 ;;; em-prompt.el ends here

@@ -1,4 +1,4 @@
-*usr_07.txt*	For Vim version 6.2.  Last change: 2002 Jul 19
+*usr_07.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -99,9 +99,9 @@ the second file out of three files.
 
 	:args
 
-This is short for "arguments".  The output might look like this: >
+This is short for "arguments".  The output might look like this:
 
-	one.c [two.c] three.c
+	one.c [two.c] three.c ~
 
 These are the files you started Vim with.  The one you are currently editing,
 "two.c", is in square brackets.
@@ -169,9 +169,9 @@ DID YOU EDIT THE LAST FILE?
 							*arglist-quit*
 When you use a list of files, Vim assumes you want to edit them all.  To
 protect you from exiting too early, you will get this error when you didn't
-edit the last file in the list yet: >
+edit the last file in the list yet:
 
-	E173: 46 more files to edit
+	E173: 46 more files to edit ~
 
 If you really want to exit, just do it again.  Then it will work (but not when
 you did other commands in between).
@@ -266,7 +266,7 @@ positions without placing marks there.
 ==============================================================================
 *07.4*	Backup files
 
-Usually Vim does not produce a backup file. If you want to have one, all you
+Usually Vim does not produce a backup file.  If you want to have one, all you
 need to do is execute the following command: >
 
 	:set backup

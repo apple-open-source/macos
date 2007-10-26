@@ -118,7 +118,7 @@ extern void quit_command (char *, int);
 extern void source_command (char *, int);
 
 /* APPLE LOCAL export to cli-out.h */
-extern int cli_interpreter_complete (void *data, char *word, char *command_buffer, int cursor);
+extern int cli_interpreter_complete (void *data, char *word, char *command_buffer, int cursor, int limit);
 
 /* Used everywhere whenever at least one parameter is required and
   none is specified. */

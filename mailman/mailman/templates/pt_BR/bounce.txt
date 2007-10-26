@@ -1,10 +1,9 @@
-Esta é a notificação de ação de retorno da lista de 
-discussão gerenciada pelo Mailman:
+Esta é a notificação de ação de retorno do Mailman:
 
-    Lista:       %(listname)s
-    Membro:     %(addr)s
+    Lista:    %(listname)s
+    Membro:   %(addr)s
     Ação:     Inscrição %(negative)s%(did)s.
-    Razão:    Bounces excessivos ou fatais.
+    Razão:    Retornos excessivos ou fatais.
     %(but)s
 
 %(reenable)s

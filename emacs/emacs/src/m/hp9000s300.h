@@ -1,5 +1,6 @@
 /* machine description file for hp9000 series 200 or 300 on either HPUX or BSD.
-   Copyright (C) 1985 Free Software Foundation, Inc.
+   Copyright (C) 1985, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="note"
 
@@ -120,8 +121,6 @@ NOTE-END */
 
 #define CRT0_DUMMIES		bogus_a6,
 
-#define HAVE_ALLOCA
-
 #ifndef __GNUC__
 #define LIBS_DEBUG		/* don't have -lg that works */
 #define C_DEBUG_SWITCH		/* don't support -g */
@@ -149,10 +148,6 @@ NOTE-END */
 /* Convert that into an integer that is 100 for a load average of 1.0  */
 
 #define LOAD_AVE_CVT(x) ((int) ((x) * 100.0))
-
-#ifdef __GNUC__
-#define HAVE_ALLOCA
-#endif
 
 /* This library is needed with -g, on the 200/300 only.  */
 
@@ -228,3 +223,6 @@ NOTE-END */
 #endif
 
 #endif /* not BSD4_3 */
+
+/* arch-tag: 6e0001a5-ed62-4258-9235-204348f6bdb9
+   (do not change this comment) */

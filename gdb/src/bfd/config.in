@@ -24,12 +24,64 @@
 /* Define to 1 if you have the `dcgettext' function. */
 #undef HAVE_DCGETTEXT
 
+/* Define to 1 if you have the declaration of `basename', and to 0 if you
+   don't. */
+#undef HAVE_DECL_BASENAME
+
+/* Define to 1 if you have the declaration of `ffs', and to 0 if you don't. */
+#undef HAVE_DECL_FFS
+
+/* Define to 1 if you have the declaration of `free', and to 0 if you don't.
+   */
+#undef HAVE_DECL_FREE
+
+/* Define to 1 if you have the declaration of `fseeko', and to 0 if you don't.
+   */
+#undef HAVE_DECL_FSEEKO
+
+/* Define to 1 if you have the declaration of `fseeko64', and to 0 if you
+   don't. */
+#undef HAVE_DECL_FSEEKO64
+
+/* Define to 1 if you have the declaration of `ftello', and to 0 if you don't.
+   */
+#undef HAVE_DECL_FTELLO
+
+/* Define to 1 if you have the declaration of `ftello64', and to 0 if you
+   don't. */
+#undef HAVE_DECL_FTELLO64
+
+/* Define to 1 if you have the declaration of `getenv', and to 0 if you don't.
+   */
+#undef HAVE_DECL_GETENV
+
+/* Define to 1 if you have the declaration of `malloc', and to 0 if you don't.
+   */
+#undef HAVE_DECL_MALLOC
+
+/* Define to 1 if you have the declaration of `realloc', and to 0 if you
+   don't. */
+#undef HAVE_DECL_REALLOC
+
+/* Define to 1 if you have the declaration of `snprintf', and to 0 if you
+   don't. */
+#undef HAVE_DECL_SNPRINTF
+
+/* Define to 1 if you have the declaration of `stpcpy', and to 0 if you don't.
+   */
+#undef HAVE_DECL_STPCPY
+
+/* Define to 1 if you have the declaration of `strstr', and to 0 if you don't.
+   */
+#undef HAVE_DECL_STRSTR
+
+/* Define to 1 if you have the declaration of `vsnprintf', and to 0 if you
+   don't. */
+#undef HAVE_DECL_VSNPRINTF
+
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
 #undef HAVE_DIRENT_H
-
-/* Define to 1 if you have the <dlfcn.h> header file. */
-#undef HAVE_DLFCN_H
 
 /* Define to 1 if you have the `fcntl' function. */
 #undef HAVE_FCNTL
@@ -240,21 +292,6 @@
 /* Define to 1 if you have the `__argz_stringify' function. */
 #undef HAVE___ARGZ_STRINGIFY
 
-/* Define if free is not declared in system header files. */
-#undef NEED_DECLARATION_FREE
-
-/* Define if getenv is not declared in system header files. */
-#undef NEED_DECLARATION_GETENV
-
-/* Define if malloc is not declared in system header files. */
-#undef NEED_DECLARATION_MALLOC
-
-/* Define if realloc is not declared in system header files. */
-#undef NEED_DECLARATION_REALLOC
-
-/* Define if strstr is not declared in system header files. */
-#undef NEED_DECLARATION_STRSTR
-
 /* Name of package */
 #undef PACKAGE
 
@@ -273,18 +310,18 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* The number of bytes in type long */
+/* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
-/* The number of bytes in type long long */
+/* The size of `long long', as computed by sizeof. */
 #undef SIZEOF_LONG_LONG
 
-/* The number of bytes in type off_t */
+/* The size of `off_t', as computed by sizeof. */
 #undef SIZEOF_OFF_T
 
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be
-   automatically deduced at run-time.
+   automatically deduced at runtime.
 	STACK_DIRECTION > 0 => grows toward higher addresses
 	STACK_DIRECTION < 0 => grows toward lower addresses
 	STACK_DIRECTION = 0 => direction of growth unknown */
@@ -292,6 +329,9 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* Define if you can safely include both <string.h> and <strings.h>. */
+#undef STRING_WITH_STRINGS
 
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME
@@ -305,8 +345,16 @@
 /* Use mmap if it's available? */
 #undef USE_MMAP
 
+/* Define if we should default to creating read-only plt entries */
+#undef USE_SECUREPLT
+
 /* Version number of package */
 #undef VERSION
+
+/* Enable GNU extensions on systems that have them.  */
+#ifndef _GNU_SOURCE
+# undef _GNU_SOURCE
+#endif
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const
@@ -317,8 +365,8 @@
 #undef inline
 #endif
 
-/* Define to `long' if <sys/types.h> does not define. */
+/* Define to `long int' if <sys/types.h> does not define. */
 #undef off_t
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
+/* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t

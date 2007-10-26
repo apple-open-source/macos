@@ -1,4 +1,4 @@
-<!-- #bbinclude "header.template"
+<!-- #bbinclude "header.txt"
   #PAGETITLE#="Credentials Cache API v3 Specification"
   #BASEHREF#="" 
 -->
@@ -34,7 +34,7 @@
 </DIV>
 <DIV ID="body">
 <!-- end bbinclude -->
-<!-- #bbinclude "icon.template" #ICON#="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif" #TEXT#="<H2>Credentials Cache API v3 Specification</H2>" -->
+<!-- #bbinclude "icon.txt" #ICON#="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif" #TEXT#="<H2>Credentials Cache API v3 Specification</H2>" -->
 <TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
    <TR VALIGN=middle>
       <TD ALIGN=center> <IMG CLASS=icon SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif" ALT="An icon image (description text to the right)" WIDTH=32 HEIGHT=32> </TD>
@@ -397,7 +397,7 @@ cc_time_t*            time)</pre>
 	<li>the default ccache is changed
 </ul>
 <p><b>NOTE:</b> In order to be able to compare two values returned by <code>cc_context_get_change_time()</code>, the caller must use the same context to acquire them.  Callers should maintain a single context in memory for <code>cc_context_get_change_time()</code> calls rather than creating a new context for every call.</p>
-<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidContext</code>, <code>ccBadParam</code></p>
+<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidContext</code>, <code>ccErrBadParam</code></p>
 <h4>cc_context_get_default_ccache_name</h4>
 <pre>cc_int32 get_default_ccache_name (
 cc_context_t          cc_context,
@@ -408,7 +408,7 @@ cc_string_t*          name)</pre>
 <p>This function returns the name of the default ccache. When the default ccache exists, its name is returned. If there are no ccaches in the collection, and thus there is no default ccache, the name that the default ccache should have is returned. The ccache with that name will be used as the default ccache by all processes which initialized Kerberos libraries before the ccache was created.</p>
 <p>If there is no default ccache, and the client is creating a new ccache, it should be created with the default name. If there already is a default ccache, and the client wants to create a new ccache (as opposed to reusing an existing ccache), it should be created with any unique name; <code>cc_context_create_new_ccache()</code> can be used to accomplish that more easily.</p>
 <p>If the first ccache is created with a name other than the default name, then the processes already running will not notice the credentials stored in the new ccache, which is normally undesirable.</p>
-<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidContext</code>, <code>ccBadParam</code>, <code>ccErrNoMem</code></p>
+<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidContext</code>, <code>ccErrBadParam</code>, <code>ccErrNoMem</code></p>
 <h4>cc_context_open_ccache</h4>
 <pre>cc_int32 open_ccache (
 cc_context_t          cc_context,
@@ -497,7 +497,7 @@ cc_context_t          cc_context,
 cc_ccache_iterator_t* iterator)</pre>
 <p>Used to allocate memory and initialize <code>iterator</code>. Successive calls to <code>iterator</code>'s <code>next()</code> function will return ccaches in the collection.</p>
 <p>If changes are made to the collection while an iterator is being used on it, the iterator must return at least the intersection, and at most the union, of the set of ccaches that were present when the iteration began and the set of ccaches that are present when it ends.</p>
-<p>Possible error codes: <code>ccNoError</code>, <code>ccBadParam</code>, <code>ccErrNoMem</code>, <code>ccErrInvalidContext</code></p>
+<p>Possible error codes: <code>ccNoError</code>, <code>ccErrBadParam</code>, <code>ccErrNoMem</code>, <code>ccErrInvalidContext</code></p>
 <h4>cc_context_lock</h4>
 <pre>cc_int32 lock (
 cc_context_t          context,
@@ -716,7 +716,7 @@ cc_time_t*            time)</pre>
 	<li>a ccache principal is changed
 	<li>the ccache is made default or not-default
 </ul>
-<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccBadParam</code>, <code>ccErrCCacheNotFound</code></p>
+<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccErrBadParam</code>, <code>ccErrCCacheNotFound</code></p>
 <h4>cc_ccache_get_last_default_time</h4>
 <pre>cc_int32 get_last_default_time (
 cc_ccache_t           ccache,
@@ -725,7 +725,7 @@ cc_int32 cc_ccache_get_last_default_time (
 cc_ccache_t           ccache,
 cc_time_t*            time)</pre>
 <p>This function returns the last time when the ccache was made the default ccache. This allows clients to sort the ccaches by how recently they were default, which is useful for user listing of ccaches. If the ccache was never default, <code>ccErrNeverDefault</code> is returned.</p>
-<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccBadParam</code>, <code>ccErrNeverDefault</code>, <code>ccErrCCacheNotFound</code></p>
+<p>Possible return values: <code>ccNoError</code>, <code>ccErrInvalidCCache</code>, <code>ccErrBadParam</code>, <code>ccErrNeverDefault</code>, <code>ccErrCCacheNotFound</code></p>
 <h4>cc_ccache_move</h4>
 <pre>cc_int32 move (
 cc_ccache_t           source,
@@ -1019,13 +1019,13 @@ cc_string_t  string)</pre>
 	<li>Removed note about Windows cc_get_instance() and cc_set_instance() functions, they are no longer part of the Windows code!Function definitions<a name="FunctionDefinitions"></a>
 </ul>
 
-<!-- #bbinclude "footer.template" -->
+<!-- #bbinclude "footer.txt" -->
 </DIV>
 <DIV ID="footer">
 	<P>
-		Copyright 2005 Massachusetts Institute of Technology.<BR>
-		Last updated on $Date: 2005-10-05 17:41:09 -0400 (Wed, 05 Oct 2005) $ <BR> 
-		Last modified by $Author: lxs $ 
+		Copyright 2006 Massachusetts Institute of Technology.<BR>
+		Last updated on $Date: 2006-12-08 19:07:28 -0500 (Fri, 08 Dec 2006) $ <BR> 
+		Last modified by $Author: jander $ 
 	</P>
 </DIV>
 <!-- Begin MIT-use only web reporting counter -->

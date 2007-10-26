@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)floor.3	6.5 (Berkeley) 4/19/91
-.\"	$Id: ilogb.3,v 1.4 2004/12/20 21:35:45 scp Exp $
+.\"	$Id: ilogb.3,v 1.7 2006/06/16 18:49:26 scanon Exp $
 .\"
 .Dd July 22, 2003
 .Dt ILOGB 3
@@ -52,15 +52,19 @@ The
 functions return the exponent of x as a signed integer value. 
 .Sh SPECIAL VALUES
 .Fn ilogb "±0"
-returns - INT_MAX.
+returns FP_ILOGB0.
 .Pp
 .Fn ilogb "±infinity"
 returns INT_MAX.
 .Pp
 .Fn ilogb "x"
-returns INT_MAX if x is a NaN.
+returns FP_ILOGBNAN if x is a NaN.
 .Pp
-A range error may occur if x is 0.
+A range error may occur if x is 0, ±infinity, or a nan.
+.Pp
+The special return values FP_ILOGB0 and FP_ILOGBNAN are
+defined in math.h, and may differ between platforms.
+INT_MAX is defined in limits.h.
 .Sh SEE ALSO
 .Xr math 3
 .Sh STANDARDS

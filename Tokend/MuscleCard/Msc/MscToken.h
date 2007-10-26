@@ -86,4 +86,3 @@ std::ostream& operator << (std::ostream& strm, const MscToken& oa);
 
 #endif /* !_MSCTOKEN_H_ */
 
-/* arch-tag: 953C07D8-BE68-11D8-8196-000A95C4302E */

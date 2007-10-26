@@ -112,7 +112,7 @@ public:
 										//     value
 										// false -> it's part of this dictionary
 	
-	void setDefaults(const MDS_InstallDefaults *defaults) { mDefaults = defaults; }
+	void setDefaults(const MDS_InstallDefaults *defaults);
 	
 private:
 	CFDictionaryRef		mDict;

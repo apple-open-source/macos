@@ -84,7 +84,7 @@ static io_iterator_t		gBulkTestAddedIter;
 static io_iterator_t		gBulkTestRemovedIter;
 static char			gBuffer[64];
 
-IOReturn ConfigureAnchorDevice(IOUSBDeviceInterface **dev)
+IOReturn ConfigureAnchorDevice(IOUSBDeviceInterface245 **dev)
 {
     UInt8				numConf;
     IOReturn				kr;
@@ -111,7 +111,7 @@ IOReturn ConfigureAnchorDevice(IOUSBDeviceInterface **dev)
     return kIOReturnSuccess;
 }
 
-IOReturn AnchorWrite(IOUSBDeviceInterface **dev, UInt16 anchorAddress, UInt16 count, UInt8 writeBuffer[])
+IOReturn AnchorWrite(IOUSBDeviceInterface245 **dev, UInt16 anchorAddress, UInt16 count, UInt8 writeBuffer[])
 {
     IOUSBDevRequest 		request;
     
@@ -125,7 +125,7 @@ IOReturn AnchorWrite(IOUSBDeviceInterface **dev, UInt16 anchorAddress, UInt16 co
     return (*dev)->DeviceRequest(dev, &request);
 }
 
-IOReturn DownloadToAnchorDevice(IOUSBDeviceInterface **dev)
+IOReturn DownloadToAnchorDevice(IOUSBDeviceInterface245 **dev)
 {
     int		i;
     UInt8 	writeVal;
@@ -170,7 +170,7 @@ IOReturn DownloadToAnchorDevice(IOUSBDeviceInterface **dev)
         
 void ReadCompletion(void *refCon, IOReturn result, void *arg0)
 {
-    IOUSBInterfaceInterface	**intf = (IOUSBInterfaceInterface **) refCon;
+    IOUSBInterfaceInterface245	**intf = (IOUSBInterfaceInterface245 **) refCon;
     UInt32 			numBytesRead = (UInt32) arg0;
     UInt32			i;
     
@@ -193,7 +193,7 @@ void ReadCompletion(void *refCon, IOReturn result, void *arg0)
 
 void WriteCompletion(void *refCon, IOReturn result, void *arg0)
 {
-    IOUSBInterfaceInterface	**intf = (IOUSBInterfaceInterface **) refCon;
+    IOUSBInterfaceInterface245	**intf = (IOUSBInterfaceInterface245 **) refCon;
     UInt32 			numBytesWritten = (UInt32) arg0;
     UInt32			numBytesRead;
     
@@ -219,14 +219,14 @@ void WriteCompletion(void *refCon, IOReturn result, void *arg0)
     
 }
 
-IOReturn FindInterfaces(IOUSBDeviceInterface **dev)
+IOReturn FindInterfaces(IOUSBDeviceInterface245 **dev)
 {
     IOReturn			kr;
     IOUSBFindInterfaceRequest	request;
     io_iterator_t		iterator;
     io_service_t		usbInterface;
     IOCFPlugInInterface 	**plugInInterface = NULL;
-    IOUSBInterfaceInterface 	**intf = NULL;
+    IOUSBInterfaceInterface245 	**intf = NULL;
     HRESULT 			res;
     SInt32 			score;
     UInt8			intfClass;
@@ -260,12 +260,12 @@ IOReturn FindInterfaces(IOUSBDeviceInterface **dev)
         }
             
         // I have the interface plugin. I need the interface interface
-        res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID), (LPVOID) &intf);
+        res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBInterfaceInterfaceID245), (LPVOID) &intf);
         IODestroyPlugInInterface(plugInInterface);			// done with this
 
         if (res || !intf)
         {
-            printf("couldn't create an IOUSBInterfaceInterface (%08x)\n", (int) res);
+            printf("couldn't create an IOUSBInterfaceInterface245 (%08x)\n", (int) res);
             break;
         }
         
@@ -420,7 +420,7 @@ void RawDeviceAdded(void *refCon, io_iterator_t iterator)
     kern_return_t		kr;
     io_service_t		usbDevice;
     IOCFPlugInInterface 	**plugInInterface=NULL;
-    IOUSBDeviceInterface 	**dev=NULL;
+    IOUSBDeviceInterface245 	**dev=NULL;
     HRESULT 			res;
     SInt32 			score;
     UInt16			vendor;
@@ -440,7 +440,7 @@ void RawDeviceAdded(void *refCon, io_iterator_t iterator)
         }
             
         // I have the device plugin, I need the device interface
-        res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID)&dev);
+        res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID245), (LPVOID)&dev);
         IODestroyPlugInInterface(plugInInterface);			// done with this
 		
         if (res || !dev)
@@ -509,7 +509,7 @@ void BulkTestDeviceAdded(void *refCon, io_iterator_t iterator)
     kern_return_t		kr;
     io_service_t		usbDevice;
     IOCFPlugInInterface 	**plugInInterface=NULL;
-    IOUSBDeviceInterface 	**dev=NULL;
+    IOUSBDeviceInterface245 	**dev=NULL;
     HRESULT 			res;
     SInt32 			score;
     UInt16			vendor;
@@ -529,7 +529,7 @@ void BulkTestDeviceAdded(void *refCon, io_iterator_t iterator)
         }
             
         // I have the device plugin, I need the device interface
-        res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID)&dev);
+        res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID245), (LPVOID)&dev);
         IODestroyPlugInInterface(plugInInterface);			// done with this
 		
         if (res || !dev)

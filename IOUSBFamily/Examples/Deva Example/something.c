@@ -194,7 +194,7 @@ lightState states[]={
 #endif
 
 
-void finallyDoSomethingWithThisDevice(IOUSBInterfaceInterface **intf)
+void finallyDoSomethingWithThisDevice(IOUSBInterfaceInterface245 **intf)
 {
 #if PUMPKIN
 IOReturn err;

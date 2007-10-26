@@ -1,8 +1,8 @@
 /* ldappasswd -- a tool for change LDAP passwords */
-/* $OpenLDAP: pkg/ldap/clients/tools/ldappasswd.c,v 1.117.2.8 2004/08/28 13:39:00 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldappasswd.c,v 1.127.2.5 2006/02/16 20:06:03 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * Portions Copyright 1998-2001 Net Boolean Incorporated.
  * Portions Copyright 2001-2003 IBM Corporation.
@@ -81,7 +81,7 @@ usage( void )
 
 
 const char options[] = "a:As:St:T:"
-	"d:D:e:h:H:InO:p:QR:U:vVw:WxX:y:Y:Z";
+	"d:D:e:h:H:InNO:p:QR:U:vVw:WxX:y:Y:Z";
 
 int
 handle_private_option( int i )
@@ -196,7 +196,10 @@ main( int argc, char *argv[] )
 
 	if( oldpwfile ) {
 		rc = lutil_get_filed_password( oldpwfile, &oldpw );
-		if( rc ) return EXIT_FAILURE;
+		if( rc ) {
+			rc = EXIT_FAILURE;
+			goto done;
+		}
 	}
 
 	if( want_oldpw && oldpw.bv_val == NULL ) {
@@ -209,7 +212,8 @@ main( int argc, char *argv[] )
 			strcmp( oldpw.bv_val, ckoldpw ))
 		{
 			fprintf( stderr, _("passwords do not match\n") );
-			return EXIT_FAILURE;
+			rc = EXIT_FAILURE;
+			goto done;
 		}
 
 		oldpw.bv_len = strlen( oldpw.bv_val );
@@ -217,7 +221,10 @@ main( int argc, char *argv[] )
 
 	if( newpwfile ) {
 		rc = lutil_get_filed_password( newpwfile, &newpw );
-		if( rc ) return EXIT_FAILURE;
+		if( rc ) {
+			rc = EXIT_FAILURE;
+			goto done;
+		}
 	}
 
 	if( want_newpw && newpw.bv_val == NULL ) {
@@ -230,7 +237,8 @@ main( int argc, char *argv[] )
 			strcmp( newpw.bv_val, cknewpw ))
 		{
 			fprintf( stderr, _("passwords do not match\n") );
-			return EXIT_FAILURE;
+			rc = EXIT_FAILURE;
+			goto done;
 		}
 
 		newpw.bv_len = strlen( newpw.bv_val );
@@ -238,7 +246,10 @@ main( int argc, char *argv[] )
 
 	if ( pw_file ) {
 		rc = lutil_get_filed_password( pw_file, &passwd );
-		if( rc ) return EXIT_FAILURE;
+		if( rc ) {
+			rc = EXIT_FAILURE;
+			goto done;
+		}
 
 	} else if ( want_bindpw ) {
 		passwd.bv_val = getpassphrase( _("Enter LDAP Password: ") );
@@ -259,8 +270,8 @@ main( int argc, char *argv[] )
 
 		if( ber == NULL ) {
 			perror( "ber_alloc_t" );
-			ldap_unbind_ext( ld, NULL, NULL );
-			return EXIT_FAILURE;
+			rc = EXIT_FAILURE;
+			goto done;
 		}
 
 		ber_printf( ber, "{" /*}*/ );
@@ -289,14 +300,14 @@ main( int argc, char *argv[] )
 
 		if( rc < 0 ) {
 			perror( "ber_flatten2" );
-			ldap_unbind_ext( ld, NULL, NULL );
-			return EXIT_FAILURE;
+			rc = EXIT_FAILURE;
+			goto done;
 		}
 	}
 
 	if ( not ) {
 		rc = LDAP_SUCCESS;
-		goto skip;
+		goto done;
 	}
 
 	rc = ldap_extended_operation( ld,
@@ -307,29 +318,44 @@ main( int argc, char *argv[] )
 
 	if( rc != LDAP_SUCCESS ) {
 		ldap_perror( ld, "ldap_extended_operation" );
-		ldap_unbind_ext( ld, NULL, NULL );
-		return EXIT_FAILURE;
+		rc = EXIT_FAILURE;
+		goto done;
 	}
 
-	rc = ldap_result( ld, LDAP_RES_ANY, LDAP_MSG_ALL, NULL, &res );
-	if ( rc < 0 ) {
-		ldap_perror( ld, "ldappasswd: ldap_result" );
-		return rc;
+	for ( ; ; ) {
+		struct timeval	tv;
+
+		if ( tool_check_abandon( ld, id ) ) {
+			return LDAP_CANCELLED;
+		}
+
+		tv.tv_sec = 0;
+		tv.tv_usec = 100000;
+
+		rc = ldap_result( ld, LDAP_RES_ANY, LDAP_MSG_ALL, &tv, &res );
+		if ( rc < 0 ) {
+			ldap_perror( ld, "ldappasswd: ldap_result" );
+			return rc;
+		}
+
+		if ( rc != 0 ) {
+			break;
+		}
 	}
 
 	rc = ldap_parse_result( ld, res,
 		&code, &matcheddn, &text, &refs, NULL, 0 );
-
 	if( rc != LDAP_SUCCESS ) {
 		ldap_perror( ld, "ldap_parse_result" );
-		return rc;
+		rc = EXIT_FAILURE;
+		goto done;
 	}
 
 	rc = ldap_parse_extended_result( ld, res, &retoid, &retdata, 1 );
-
 	if( rc != LDAP_SUCCESS ) {
-		ldap_perror( ld, "ldap_parse_result" );
-		return rc;
+		ldap_perror( ld, "ldap_parse_extended_result" );
+		rc = EXIT_FAILURE;
+		goto done;
 	}
 
 	if( retdata != NULL ) {
@@ -339,8 +365,8 @@ main( int argc, char *argv[] )
 
 		if( ber == NULL ) {
 			perror( "ber_init" );
-			ldap_unbind_ext( ld, NULL, NULL );
-			return EXIT_FAILURE;
+			rc = EXIT_FAILURE;
+			goto done;
 		}
 
 		/* we should check the tag */
@@ -381,9 +407,12 @@ main( int argc, char *argv[] )
 	ber_memfree( retoid );
 	ber_bvfree( retdata );
 
-skip:
-	/* disconnect from server */
-	ldap_unbind_ext( ld, NULL, NULL );
+	rc = ( code == LDAP_SUCCESS ) ? EXIT_SUCCESS : EXIT_FAILURE;
 
-	return code == LDAP_SUCCESS ? EXIT_SUCCESS : EXIT_FAILURE;
+done:
+	/* disconnect from server */
+	if ( ld )
+		tool_unbind( ld ); 
+	tool_destroy();
+	return rc;
 }

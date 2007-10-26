@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPCCardFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPCCardFamily 1.6.1, Copyright 2000-2004 Apple Computer, Inc.</string>
+	<string>IOPCCardFamily 1.6.4, Copyright 2000-2006 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.6.1</string>
+	<string>1.6.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.6.1</string>
+	<string>1.6.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPCCardFamily</key>
@@ -32,6 +32,27 @@
 			<string>com.apple.iokit.IOPCCardFamily</string>
 			<key>Configuration Settings</key>
 			<dict>
+				<key>ADP2,1</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						AAABAAAABP8=
+						</data>
+						<data>
+						AAAIAAAACP8=
+						</data>
+						<data>
+						AAAMAAAADP8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						oAAAAKD///8=
+						</data>
+					</array>
+				</dict>
 				<key>PowerBook</key>
 				<dict>
 					<key>I/O Port Ranges</key>

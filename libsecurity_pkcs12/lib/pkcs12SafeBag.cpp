@@ -32,7 +32,7 @@
 #include <assert.h>
 #include <Security/Security.h>
 #include <Security/SecKeyPriv.h>
-#include <Security/asn1Templates.h>
+#include <Security/SecAsn1Templates.h>
 #include <security_asn1/nssUtils.h>
 
 /*
@@ -127,14 +127,18 @@ P12SafeBag::~P12SafeBag()
 void P12SafeBag::friendlyName(
 	CFStringRef 		fname)
 {
-	if(fname == NULL) {
+	CFIndex len = 0;
+	
+	if(fname != NULL) {
+		len = CFStringGetLength(fname);
+	}
+	if(len == 0) {
 		mFriendlyName.Data = NULL;
 		mFriendlyName.Length = 0;
 		return;
 	}
 	
 	/* convert unicode to byte array */
-	CFIndex len = CFStringGetLength(fname);
 	unsigned flen = len * sizeof(UniChar);
 	mCoder.allocItem(mFriendlyName, flen);
 	unsigned char *cp = mFriendlyName.Data;
@@ -148,12 +152,16 @@ void P12SafeBag::friendlyName(
 void P12SafeBag::localKeyId(
 	CFDataRef 			keyId)
 {
-	if(keyId == NULL) {
+	CFIndex len = 0;
+	
+	if(keyId != NULL) {
+		len = CFDataGetLength(keyId);
+	}
+	if(len == 0) {
 		mLocalKeyId.Data = NULL;
 		mLocalKeyId.Length = 0;
 		return;
 	}
-	CFIndex len = CFDataGetLength(keyId);
 	mCoder.allocItem(mLocalKeyId, len);
 	const UInt8 *cp = CFDataGetBytePtr(keyId);
 	memmove(mLocalKeyId.Data, cp, len);
@@ -292,7 +300,8 @@ P12CertBag::P12CertBag(
 	NSS_Attribute		**attrs,	// optional
 	SecNssCoder			&coder)
 		: P12SafeBag(attrs, coder),
-		  mCertType(certType)
+		  mCertType(certType),
+		  mCertRef(NULL)
 {
 	coder.allocCopyItem(certData, mCertData);
 }
@@ -306,19 +315,29 @@ P12CertBag::P12CertBag(
 	P12BagAttrs			*otherAttrs,
 	SecNssCoder			&coder)
 		: P12SafeBag(fname, keyId, otherAttrs, coder),
-		  mCertType(certType)
+		  mCertType(certType),
+		  mCertRef(NULL)
 {
 	coder.allocCopyItem(certData, mCertData);
 }
 
 P12CertBag::~P12CertBag()
 {
-	/* nothing if everything we allocd is via mCoder */
+	if(mCertRef) {
+		CFRelease(mCertRef);
+	}
+	/* everything else we allocd is via mCoder */
 }
 
 /* convert to P12CertBag to SecCertificateRef */
 SecCertificateRef P12CertBag::getSecCert()
 {
+	if(mCertRef) {
+		CFRetain(mCertRef);		/* a ref count for the caller */
+		return mCertRef;
+	}
+	
+	/* lazy creation... */
 	CSSM_CERT_TYPE certType;
 	CSSM_CERT_ENCODING certEncoding;
 	switch(mCertType) {
@@ -337,16 +356,18 @@ SecCertificateRef P12CertBag::getSecCert()
 			certEncoding = CSSM_CERT_ENCODING_UNKNOWN;
 			break;
 	}
-	SecCertificateRef secCert;
 	OSStatus ortn = SecCertificateCreateFromData(
 		&mCertData,
 		certType,
 		certEncoding,
-		&secCert);
+		&mCertRef);
 	if(ortn) {
 		MacOSError::throwMe(ortn);
 	}
-	return secCert;
+	
+	/* One ref count for us, one for the caller */
+	CFRetain(mCertRef);
+	return mCertRef;
 }
 
 P12CrlBag::P12CrlBag(

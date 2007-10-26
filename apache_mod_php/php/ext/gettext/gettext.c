@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gettext.c,v 1.39.4.3.4.2 2007/01/01 09:46:42 sebastian Exp $ */
+/* $Id: gettext.c,v 1.46.2.2.2.4 2007/01/16 14:42:38 tony2001 Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -27,35 +27,105 @@
 #if HAVE_LIBINTL
 
 #include <stdio.h>
-#include <libintl.h>
 #include "ext/standard/info.h"
 #include "php_gettext.h"
 
+/* {{{ arginfo */
+static
+ZEND_BEGIN_ARG_INFO(arginfo_textdomain, 0)
+	ZEND_ARG_INFO(0, domain)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_gettext, 0)
+	ZEND_ARG_INFO(0, msgid)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_dgettext, 0)
+	ZEND_ARG_INFO(0, domain_name)
+	ZEND_ARG_INFO(0, msgid)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_dcgettext, 0)
+	ZEND_ARG_INFO(0, domain_name)
+	ZEND_ARG_INFO(0, msgid)
+	ZEND_ARG_INFO(0, category)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_bindtextdomain, 0)
+	ZEND_ARG_INFO(0, domain_name)
+	ZEND_ARG_INFO(0, dir)
+ZEND_END_ARG_INFO()
+
+#if HAVE_NGETTEXT
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ngettext, 0)
+	ZEND_ARG_INFO(0, msgid1)
+	ZEND_ARG_INFO(0, msgid2)
+	ZEND_ARG_INFO(0, count)
+ZEND_END_ARG_INFO()
+#endif
+
+#if HAVE_DNGETTEXT
+static
+ZEND_BEGIN_ARG_INFO(arginfo_dngettext, 0)
+	ZEND_ARG_INFO(0, domain)
+	ZEND_ARG_INFO(0, msgid1)
+	ZEND_ARG_INFO(0, msgid2)
+	ZEND_ARG_INFO(0, count)
+ZEND_END_ARG_INFO()
+#endif
+
+#if HAVE_DCNGETTEXT
+static
+ZEND_BEGIN_ARG_INFO(arginfo_dcngettext, 0)
+	ZEND_ARG_INFO(0, domain)
+	ZEND_ARG_INFO(0, msgid1)
+	ZEND_ARG_INFO(0, msgid2)
+	ZEND_ARG_INFO(0, count)
+	ZEND_ARG_INFO(0, category)
+ZEND_END_ARG_INFO()
+#endif
+
+#if HAVE_BIND_TEXTDOMAIN_CODESET
+static
+ZEND_BEGIN_ARG_INFO(arginfo_bind_textdomain_codeset, 0)
+	ZEND_ARG_INFO(0, domain)
+	ZEND_ARG_INFO(0, codeset)
+ZEND_END_ARG_INFO()
+#endif
+/* }}} */
+
 /* {{{ php_gettext_functions[]
  */
-function_entry php_gettext_functions[] = {
-	PHP_NAMED_FE(textdomain,		zif_textdomain,		NULL)
-	PHP_NAMED_FE(gettext,			zif_gettext,		NULL)
+zend_function_entry php_gettext_functions[] = {
+	PHP_NAMED_FE(textdomain,		zif_textdomain,		arginfo_textdomain)
+	PHP_NAMED_FE(gettext,			zif_gettext,		arginfo_gettext)
 	/* Alias for gettext() */
-	PHP_NAMED_FE(_,					zif_gettext,		NULL)
-	PHP_NAMED_FE(dgettext,			zif_dgettext,		NULL)
-	PHP_NAMED_FE(dcgettext,			zif_dcgettext,		NULL)
-	PHP_NAMED_FE(bindtextdomain,	zif_bindtextdomain,	NULL)
+	PHP_NAMED_FE(_,					zif_gettext,		arginfo_gettext)
+	PHP_NAMED_FE(dgettext,			zif_dgettext,		arginfo_dgettext)
+	PHP_NAMED_FE(dcgettext,			zif_dcgettext,		arginfo_dcgettext)
+	PHP_NAMED_FE(bindtextdomain,	zif_bindtextdomain,	arginfo_bindtextdomain)
 #if HAVE_NGETTEXT
-	PHP_NAMED_FE(ngettext,			zif_ngettext,		NULL)
+	PHP_NAMED_FE(ngettext,			zif_ngettext,		arginfo_ngettext)
 #endif
 #if HAVE_DNGETTEXT
-	PHP_NAMED_FE(dngettext,			zif_dngettext,		NULL)
+	PHP_NAMED_FE(dngettext,			zif_dngettext,		arginfo_dngettext)
 #endif
 #if HAVE_DCNGETTEXT
-	PHP_NAMED_FE(dcngettext,		zif_dcngettext,		NULL)
+	PHP_NAMED_FE(dcngettext,		zif_dcngettext,		arginfo_dcngettext)
 #endif
 #if HAVE_BIND_TEXTDOMAIN_CODESET
-	PHP_NAMED_FE(bind_textdomain_codeset,	zif_bind_textdomain_codeset,	NULL)
+	PHP_NAMED_FE(bind_textdomain_codeset,	zif_bind_textdomain_codeset,	arginfo_bind_textdomain_codeset)
 #endif
     {NULL, NULL, NULL}
 };
 /* }}} */
+
+#include <libintl.h>
 
 zend_module_entry php_gettext_module_entry = {
 	STANDARD_MODULE_HEADER,
@@ -183,9 +253,11 @@ PHP_NAMED_FUNCTION(zif_bindtextdomain)
 	}
 	
 	if (Z_STRVAL_PP(dir)[0] != '\0' && strcmp(Z_STRVAL_PP(dir), "0")) {
-		VCWD_REALPATH(Z_STRVAL_PP(dir), dir_name);
-	} else {
-		VCWD_GETCWD(dir_name, MAXPATHLEN);
+		if (!VCWD_REALPATH(Z_STRVAL_PP(dir), dir_name)) {
+			RETURN_FALSE;
+		}
+	} else if (!VCWD_GETCWD(dir_name, MAXPATHLEN)) {
+		RETURN_FALSE;
 	}
 
 	retval = bindtextdomain(Z_STRVAL_PP(domain_name), dir_name);
@@ -257,7 +329,7 @@ PHP_NAMED_FUNCTION(zif_dcngettext)
 
 	RETVAL_FALSE;
 
-	if (ZEND_NUM_ARGS() != 5 || zend_get_parameters_ex(4, &domain, &msgid1, &msgid2, &count, &category) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 5 || zend_get_parameters_ex(5, &domain, &msgid1, &msgid2, &count, &category) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	} else {
 		char* msgstr = NULL;

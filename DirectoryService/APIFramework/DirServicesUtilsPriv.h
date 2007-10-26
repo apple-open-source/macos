@@ -22,92 +22,21 @@
  */
 
 /*!
- * @header DirServicesUtilsPriv
+ * @header DirServicesTypesPriv
  */
 
 #ifndef __DirServicesUtilsPriv_h__
 #define	__DirServicesUtilsPriv_h__	1
 
-// App
-
-#include <stdarg.h>
-
-#include <AvailabilityMacros.h>
 #include <DirectoryService/DirServicesTypes.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
-/*!
- * @function dsFillAuthBuffer
- * Pass in a list of buffer items and receive a constructed buffer.
- */
-tDirStatus		dsFillAuthBuffer			(	tDataBufferPtr inOutAuthBuffer,
-												unsigned long			inCount,
-												unsigned long			inLen,
-												const void *inData, ... )
-AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+tDirStatus dsParseAuthAuthorityExtended( const char *inAuthAuthority, char **outVersion, char **outAuthTag, char ***outAuthData );
+CFMutableDictionaryRef dsConvertAuthAuthorityToCFDict( const char *inAuthAuthorityStr );
+char *dsConvertCFDictToAuthAuthority( CFDictionaryRef inAuthAuthorityDict );
 
-/*!
- * @function dsAppendAuthBuffer
- * Pass in a list of buffer items and receive a constructed buffer.
- */
-tDirStatus		dsAppendAuthBuffer				(	tDataBufferPtr inOutAuthBuffer,
-													unsigned long			inCount,
-													unsigned long			inLen,
-													const void *inData, ... )
-AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+__END_DECLS
 
-/*!
-    @function dsAppendAuthBufferWithAuthorityAttribute
-    @abstract   Inserts a user name with authentication authority data into
-				an existing buffer.
-    @discussion Use this function for authentication methods that contain user
-				or authenticator names and the authentication authority attribute
-				has already been retrieved.
-    @param      inNodeRef a node reference for the record to parse
-    @param      inRecordListBuffPtr the data returned from dsGetDataList
-    @param      inAttributePtr an attribute with authentication authority data
-    @param      inValueRef the reference for the kDSNAttrAuthenticationAuthority
-							attribute.
-    @param      inUserName the name of the user to authenticate
-    @param      inOutAuthBuffer pass in a preallocated buffer, returns with
-				the user data appended.
-    @result    tDirStatus code
-*/
-tDirStatus	dsAppendAuthBufferWithAuthorityAttribute
-												(	tDirNodeReference inNodeRef,
-													tDataBufferPtr inRecordListBuffPtr,
-													tAttributeEntryPtr inAttributePtr,
-													tAttributeValueListRef inValueRef,
-													const char *inUserName,
-													tDataBufferPtr inOutAuthBuffer )
-AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
-
-/*!
-    @function dsAppendAuthBufferWithAuthorityStrings
-    @abstract   Inserts a user name with authentication authority data into
-				an existing buffer.
-    @discussion Use this function for authentication methods that contain user
-				or authenticator names and the authentication authority attribute
-				has already been retrieved.
-    @param      inUserName the name of the user to authenticate
-	@param		inAuthAuthority a NULL terminated array of C strings
-    @param      inOutAuthBuffer pass in a preallocated buffer, returns with
-				the user data appended.
-    @result    tDirStatus code
-*/
-
-tDirStatus dsAppendAuthBufferWithAuthorityStrings
-												(	const char *inUserName,
-													const char *inAuthAuthority[],
-													tDataBufferPtr inOutAuthBuffer )
-AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+#endif  // DirServicesUtilsPriv
 

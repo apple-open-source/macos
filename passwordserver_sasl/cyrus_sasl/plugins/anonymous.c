@@ -1,7 +1,7 @@
 /* Anonymous SASL plugin
  * Rob Siemborski
  * Tim Martin 
- * $Id: anonymous.c,v 1.5 2005/01/10 19:01:37 snsimon Exp $
+ * $Id: anonymous.c,v 1.8 2006/02/03 22:33:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -60,7 +60,7 @@
 
 /*****************************  Common Section  *****************************/
 
-//static const char plugin_id[] = "$Id: anonymous.c,v 1.5 2005/01/10 19:01:37 snsimon Exp $";
+//static const char plugin_id[] = "$Id: anonymous.c,v 1.8 2006/02/03 22:33:14 snsimon Exp $";
 
 static const char anonymous_id[] = "anonymous";
 
@@ -233,7 +233,7 @@ anonymous_client_mech_step(void *conn_context,
 			   sasl_out_params_t *oparams)
 {
     client_context_t *text = (client_context_t *) conn_context;
-    unsigned userlen;
+    size_t userlen;
     char hostname[256];
     const char *user = NULL;
     int user_result = SASL_OK;
@@ -308,9 +308,9 @@ anonymous_client_mech_step(void *conn_context,
     gethostname(hostname, sizeof(hostname));
     hostname[sizeof(hostname)-1] = '\0';
     
-    *clientoutlen = userlen + strlen(hostname) + 1;
+    *clientoutlen = (unsigned) (userlen + strlen(hostname) + 1);
     
-    result = _plug_buf_alloc(cparams->utils, &text->out_buf,
+    result = _plug_buf_alloc(cparams->utils, (unsigned char **)&text->out_buf,
 			     &text->out_buf_len, *clientoutlen);
     
     if (result != SASL_OK) return result;
@@ -347,7 +347,7 @@ static void anonymous_client_dispose(void *conn_context,
     utils->free(text);
 }
 
-static const long anonymous_required_prompts[] = {
+static const unsigned long anonymous_required_prompts[] = {
     SASL_CB_LIST_END
 };
 

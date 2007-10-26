@@ -2,7 +2,7 @@ include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
 
 after_install::
 	mkdir -p "$(DSTROOT)$(INSTALLDIR)"
-	install -c -m 555 ./generic.sh $(DSTROOT)$(INSTALLDIR)/alias
+	$(INSTALL_PROGRAM) generic.sh $(DSTROOT)$(INSTALLDIR)/alias
 
 	$(LINKPRODUCT) $(DSTROOT)$(INSTALLDIR)/bg
 	$(LINKPRODUCT) $(DSTROOT)$(INSTALLDIR)/cd

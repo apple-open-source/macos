@@ -9,7 +9,7 @@ FBSDHDRS= msgcat.h
 .include "Makefile.fbsd_end"
 
 # Install msgcat.h for usage by gencat (in adv_cmds)
-LOCALHDRS+=	${SYMROOT}/msgcat.h
+LOCALHDRS+=	${.CURDIR}/nls/msgcat.h
 
 .if ${LIB} == "c"
 .include "Makefile.fbsd_begin"

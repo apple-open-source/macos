@@ -158,7 +158,7 @@ svctcp_create(sock, sendsize, recvsize)
 	register SVCXPRT *xprt;
 	register struct tcp_rendezvous *r;
 	struct sockaddr_in addr;
-	int len = sizeof(struct sockaddr_in);
+	unsigned int len = sizeof(struct sockaddr_in);
 
 	if (sock == RPC_ANYSOCK) {
 		if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
@@ -266,13 +266,12 @@ rendezvous_request(xprt)
 	int sock;
 	struct tcp_rendezvous *r;
 	struct sockaddr_in addr;
-	int len;
+	unsigned int len;
 
 	r = (struct tcp_rendezvous *)xprt->xp_p1;
     again:
 	len = sizeof(struct sockaddr_in);
-	if ((sock = accept(xprt->xp_sock, (struct sockaddr *)&addr,
-	    &len)) < 0) {
+	if ((sock = accept(xprt->xp_sock, (struct sockaddr *)&addr, &len)) < 0) {
 		if (errno == EINTR)
 			goto again;
 	       return (FALSE);

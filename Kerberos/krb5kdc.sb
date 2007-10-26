@@ -1,0 +1,58 @@
+;;
+;; krb5kdc - sandbox profile
+;; Copyright (c) 2007 Apple Inc.  All Rights reserved.
+;;
+;; WARNING: The sandbox rules in this file currently constitute 
+;; Apple System Private Interface and are subject to change at any time and
+;; without notice. The contents of this file are also auto-generated and not
+;; user editable; it may be overwritten at any time.
+;;
+(version 1)
+
+(deny default)
+(debug deny)
+
+(allow mach-lookup (global-name
+    "com.apple.DirectoryService"
+    "com.apple.ocspd"
+    "com.apple.SecurityServer"
+    "com.apple.system.notification_center"
+    "com.apple.system.DirectoryService.libinfo_v1"))
+
+(allow file-read* (literal "/dev/autofs_nowait")
+                  (regex "^/dev/u?random$")
+                  (regex "^(/private)?/var/db/dyld/dyld_shared_")
+                  (regex "^(/private)?/var/root/\\.CFUserTextEncoding$")
+                  (literal "/usr/sbin")
+                  (literal "/usr/sbin/krb5kdc")
+                  (regex "^/usr/lib/krb5(/|$)")
+                  (regex "^/usr/share/zoneinfo/")
+                  (regex "^(/private)?/var/root/Library/Preferences/ByHost/\\.GlobalPreferences\\..*\\.plist$")
+                  (regex "^(/private)?/var/root/Library/Preferences/\\.GlobalPreferences\\.plist\$")
+                  (literal "/Library/Preferences/.GlobalPreferences.plist")
+                  (literal "/Library/Preferences/edu.mit.Kerberos")
+                  (literal "/Library/Preferences/com.apple.security.systemidentities.plist")
+                  (literal "/Library/Keychains/System.keychain")
+                  (regex "^/System/Library/Frameworks/")
+                  (regex "^/System/Library/Keychains/")
+                  (regex "^/System/Library/KerberosPlugins/")
+                  (regex "^/System/Library/PrivateFrameworks/")
+                  (regex "^/System/Library/Security(/|$)")
+                  (regex "/Library/Keychains/login\\.keychain$")
+                  (regex "/Library/Preferences/com\\.apple\\.security\\.revocation\\.plist$"))
+
+(allow file-read-metadata)
+
+(allow file-read* file-write* (regex "^(/private)?/var/db/krb5kdc(/|$)")
+                              (regex "^(/private)?/var/log/krb5kdc/kdc\\.log$")
+                              (regex "^(/private)?/var/tmp/krb5_RC")
+                              (regex "^(/private)?/var/tmp/krb5kdc_rcache")
+                              (regex "^(/private)?/var/tmp/mds/system(/|$)"))
+							  
+(allow file-write-data (literal #"/dev/dtracehelper"))
+
+(allow process-exec (glob "/usr/sbin/krb5kdc"))
+
+(allow network*)
+
+(allow sysctl-read)

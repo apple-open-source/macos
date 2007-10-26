@@ -13,5 +13,7 @@ FBSDHDRS= recno.h
 .include "Makefile.fbsd_end"
 
 # need to rename extern.h to make it unique
-${SYMROOT}/rec_extern.h: ${.CURDIR}/db/recno/FreeBSD/extern.h _AUTOPATCHSYM
-AUTOPATCHHDRS+= ${SYMROOT}/rec_extern.h
+.ifmake autopatch
+rec_extern.h: FreeBSD/extern.h _AUTOPATCHCUR
+AUTOPATCHHDRS+= rec_extern.h
+.endif # autopatch

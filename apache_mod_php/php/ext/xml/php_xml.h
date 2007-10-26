@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,30 +12,27 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
+   | Authors: Stig Sæther Bakken <ssb@php.net>                            |
    |          Thies C. Arntzen <thies@thieso.net>                         |
+   |          Sterling Hughes <sterling@php.net>                          |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_xml.h,v 1.19.8.2.2.2 2007/01/01 09:46:49 sebastian Exp $ */
+/* $Id: php_xml.h,v 1.28.2.2.2.3 2007/01/01 09:36:09 sebastian Exp $ */
 
 #ifndef PHP_XML_H
 #define PHP_XML_H
 
-#ifdef HAVE_LIBEXPAT
-
+#ifdef HAVE_XML
 extern zend_module_entry xml_module_entry;
 #define xml_module_ptr &xml_module_entry
-
 #else
-
 #define xml_module_ptr NULL
-
 #endif
 
-#if defined(PHP_XML_INTERNAL)
+#ifdef HAVE_XML 
 
-#include <expat.h>
+#include "ext/xml/expat_compat.h"
 
 #ifdef PHP_WIN32
 #define PHP_XML_API __declspec(dllexport)
@@ -48,15 +45,16 @@ extern zend_module_entry xml_module_entry;
 #error "UTF-16 Unicode support not implemented!"
 #endif
 
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(xml)
 	XML_Char *default_encoding;
-} php_xml_globals;
+ZEND_END_MODULE_GLOBALS(xml)
 
 typedef struct {
 	int index;
 	int case_folding;
 	XML_Parser parser;
 	XML_Char *target_encoding;
+
 	zval *startElementHandler;
 	zval *endElementHandler;
 	zval *characterDataHandler;
@@ -65,9 +63,22 @@ typedef struct {
 	zval *unparsedEntityDeclHandler;
 	zval *notationDeclHandler;
 	zval *externalEntityRefHandler;
-	zval *unknownEncodingHandler;
+	zval *unknownEncodingHandler;	
 	zval *startNamespaceDeclHandler;
 	zval *endNamespaceDeclHandler;
+
+	zend_function *startElementPtr;
+	zend_function *endElementPtr;
+	zend_function *characterDataPtr;
+	zend_function *processingInstructionPtr;
+	zend_function *defaultPtr;
+	zend_function *unparsedEntityDeclPtr;
+	zend_function *notationDeclPtr;
+	zend_function *externalEntityRefPtr;
+	zend_function *unknownEncodingPtr;
+	zend_function *startNamespaceDeclPtr;
+	zend_function *endNamespaceDeclPtr;
+
 	zval *object;
 
 	zval *data;
@@ -75,7 +86,7 @@ typedef struct {
 	int level;
 	int toffset;
 	int curtag;
-	pval **ctag;
+	zval **ctag;
 	char **ltags;
 	int lastwasopen;
 	int skipwhite;
@@ -98,10 +109,6 @@ enum php_xml_option {
     PHP_XML_OPTION_SKIP_TAGSTART,
     PHP_XML_OPTION_SKIP_WHITE
 };
-
-#define RETURN_OUT_OF_MEMORY \
-	php_error(E_WARNING, "Out of memory");\
-	RETURN_FALSE
 
 /* for xml_parse_into_struct */
 	
@@ -134,13 +141,14 @@ PHP_FUNCTION(xml_parse_into_struct);
 
 PHPAPI char *_xml_zval_strdup(zval *val);
 PHPAPI char *xml_utf8_decode(const XML_Char *, int, int *, const XML_Char *);
+PHPAPI char *xml_utf8_encode(const char *s, int len, int *newlen, const XML_Char *encoding);
 
 #endif /* HAVE_LIBEXPAT */
 
 #define phpext_xml_ptr xml_module_ptr
 
 #ifdef ZTS
-#define XML(v) TSRMG(xml_globals_id, php_xml_globals *, v)
+#define XML(v) TSRMG(xml_globals_id, zend_xml_globals *, v)
 #else
 #define XML(v) (xml_globals.v)
 #endif

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--DOCTYPE giml SYSTEM "http://gitk.sourceforge.net/giml.dtd"-->
-<!-- $Id: bug145246_0.xml,v 1.1 2004/08/10 14:17:33 veillard Exp $
+<!-- $Id: gitkTemplate_message.xml.in,v 1.11 2004/01/07 14:21:17 ensonic Exp $
  * @file   gitkTemplate_message.xml
  * @author Stefan Kost <ensonic@users.sf.net>
  * @date   Thu Jan 17 11:22:38 2002

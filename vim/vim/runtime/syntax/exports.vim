@@ -1,10 +1,10 @@
 " Vim syntax file
 " Language:	exports
-" Maintainer:	Dr. Charles E. Campbell, Jr. <Charles.E.Campbell.1@nasa.gov>
-" Last Change:	Nov 18, 2002
-" Version:	2
+" Maintainer:	Dr. Charles E. Campbell, Jr. <NdrOchipS@PcampbellAfamily.Mbiz>
+" Last Change:	Sep 06, 2005
+" Version:	4
 " Notes:		This file includes both SysV and BSD 'isms
-" URL:	http://www.erols.com/astronaut/vim/index.html#vimlinks_syntax
+" URL:	http://mysite.verizon.net/astronaut/vim/index.html#vimlinks_syntax
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -36,7 +36,7 @@ syn match exportsOptSet	"-[a-z]\+=" contains=exportsKeyOptSet,exportsOptSetError
 syn match exportsSeparator	"[,:]"
 
 " comments
-syn match exportsComment	"^\s*#.*$"
+syn match exportsComment	"^\s*#.*$"	contains=@Spell
 
 " Define the default highlighting.
 " For version 5.7 and earlier: only when not done already

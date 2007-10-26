@@ -8,7 +8,7 @@ subsystem secagentrequest 1100;
 serverprefix sa_request_server_;
 userprefix sa_request_client_;
 
-import "sa_types.h";
+import <security_agent_client/sa_types.h>;
 
 //
 // Data types

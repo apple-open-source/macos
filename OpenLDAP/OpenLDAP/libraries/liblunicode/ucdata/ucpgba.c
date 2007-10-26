@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucpgba.c,v 1.3.4.2 2004/01/01 18:16:31 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucpgba.c,v 1.5.2.2 2006/01/03 22:16:10 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,13 +32,12 @@
  * OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $Id: ucpgba.c,v 1.4 2004/03/30 01:32:51 jtownsen Exp $ */
+/* $Id: ucpgba.c,v 1.5 2001/01/02 18:46:20 mleisher Exp $ */
 
 #include "portable.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <ac/bytes.h>
 
 #include "ucdata.h"
 #include "ucpgba.h"

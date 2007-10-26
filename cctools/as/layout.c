@@ -68,6 +68,7 @@ void)
     relax_addressT slide, tmp;
     symbolS *symbolP;
     unsigned long nbytes, fill_size, repeat_expression, partial_bytes;
+    relax_stateT old_fr_type;
 
 	if(frchain_root == NULL)
 	    return;
@@ -201,6 +202,7 @@ void)
 		switch(fragP->fr_type){
 		case rs_align:
 		case rs_org:
+		    old_fr_type = fragP->fr_type;
 		    /* convert this frag to an rs_fill type */
 		    fragP->fr_type = rs_fill;
 		    /*
@@ -219,6 +221,33 @@ void)
 		    }
 		    fill_size = fragP->fr_var;
 		    repeat_expression = nbytes / fill_size;
+#ifdef I386
+		    /*
+		     * For x86 architecures in sections containing only
+		     * instuctions being padded with nops that are aligned to 16
+		     * bytes or less and are assembled with -dynamic we will
+		     * actually end up padding with the optimal nop sequence.
+		     * Previously there has been the maximum number of bytes
+		     * allocated in the frag to use for this.
+		     */
+		    if(old_fr_type == rs_align &&
+		       (frchain_now->frch_section.flags &
+			S_ATTR_PURE_INSTRUCTIONS) != 0 &&
+			 fill_size == 1 &&
+			 fragP->fr_literal[fragP->fr_fix] == (char)0x90 &&
+			 nbytes > 0 && nbytes < 16 &&
+			 flagseen['k'] == TRUE){
+			i386_align_code(fragP, nbytes);
+			/*
+			 * The call to i386_align_code() has set the fill_size
+			 * in fragP->fr_var to nbytes. So we set the fr_offset
+			 * to the fill repeat_expression to 1 to match for this
+			 * now an rs_fill type frag.
+			 */ 
+			fragP->fr_offset = 1;
+			break;
+		    }
+#endif /* I386 */
 		    partial_bytes = nbytes - (repeat_expression * fill_size);
 		    /*
 		     * Now set the fr_offset to the fill repeat_expression
@@ -527,8 +556,15 @@ int nsect)
 			
 		    case N_SECT:
 #if (defined(I386) && defined(ARCH64))
-				/* Symbol offsets are not part of fixups for external symbols for x86_64. */
-				if (add_symbol_N_TYPE == N_SECT && is_local_symbol(add_symbolP))
+			/*
+			 * Symbol offsets are not part of fixups for external
+			 * symbols for x86_64.
+			 */
+			if((is_section_debug(nsect) &&
+			    add_symbol_N_TYPE != N_UNDF) ||
+			   (add_symbol_N_TYPE == N_SECT &&
+			    is_local_symbol(add_symbolP) &&
+			    !is_section_cstring_literals(add_symbol_nsect)) )
 #else
 			if((add_symbolP->sy_type & N_EXT) != N_EXT ||
 			   add_symbol_N_TYPE != N_SECT ||

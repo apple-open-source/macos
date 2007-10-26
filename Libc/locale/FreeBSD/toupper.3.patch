@@ -1,6 +1,6 @@
---- toupper.3.orig	Fri Mar 11 19:44:47 2005
-+++ toupper.3	Fri Mar 11 19:51:26 2005
-@@ -40,7 +40,8 @@
+--- _SB/Libc/locale/FreeBSD/toupper.3	2004-11-25 11:38:20.000000000 -0800
++++ _SB/Libc/locale/FreeBSD/toupper.3.edit	2006-06-28 16:55:51.000000000 -0700
+@@ -40,14 +40,24 @@
  .Dt TOUPPER 3
  .Os
  .Sh NAME
@@ -10,22 +10,36 @@
  .Nd lower case to upper case letter conversion
  .Sh LIBRARY
  .Lb libc
-@@ -48,6 +49,9 @@
+ .Sh SYNOPSIS
  .In ctype.h
  .Ft int
- .Fn toupper "int c"
+-.Fn toupper "int c"
++.Fo toupper
++.Fa "int c"
++.Fc
++.In ctype.h
 +.In xlocale.h
 +.Ft int
-+.Fn toupper_l "int c" "locale_t loc"
++.Fo toupper_l
++.Fa "int c"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn toupper
-@@ -62,6 +66,14 @@
+@@ -56,17 +66,25 @@
+ For single C
+ .Va char Ns s
+ locales (see
+-.Xr multibyte 3 )
++.Xr multibyte 3 ) ,
+ the value of the argument is
+ representable as an
  .Li unsigned char
  or the value of
  .Dv EOF .
 +.Pp
-+While the
++Although the
 +.Fn toupper
 +function uses the current locale, the
 +.Fn toupper_l
@@ -35,7 +49,13 @@
  .Sh RETURN VALUES
  If the argument is a lower-case letter, the
  .Fn toupper
-@@ -81,7 +93,8 @@
+ function returns the corresponding upper-case letter if there is
+-one; otherwise the argument is returned unchanged.
++one; otherwise, the argument is returned unchanged.
+ .Sh COMPATIBILITY
+ The
+ .Bx 4.4
+@@ -81,7 +99,8 @@
  .Xr ctype 3 ,
  .Xr isupper 3 ,
  .Xr multibyte 3 ,

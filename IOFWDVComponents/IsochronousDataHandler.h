@@ -3,23 +3,7 @@
  
      Contains:   Component Manager based Isochronous Data Handler
  
-     Copyright:  © 1997-2001 by Apple Computer, Inc., all rights reserved.
- 
-     Warning:    *** APPLE INTERNAL USE ONLY ***
-                 This file may contain unreleased API's
- 
-     BuildInfo:  Built by:            wgulland
-                 On:                  Tue Mar 19 11:37:55 2002
-                 With Interfacer:     3.0d35   (Mac OS X for PowerPC)
-                 From:                IsochronousDataHandler.i
-                     Revision:        1.5
-                     Dated:           2001/10/05 16:46:32
-                     Last change by:  wgulland
-                     Last comment:    Add inputFormat to IDHDeviceStatus structure
- 
-     Bugs:       Report bugs to Radar component "System Interfaces", "Latest"
-                 List the version information (from above) in the Problem Description.
- 
+     Copyright:  © 1997-2006 by Apple Computer, Inc., all rights reserved.
 */
 
 #ifndef __ISOCHRONOUSDATAHANDLER__

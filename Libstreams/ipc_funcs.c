@@ -164,6 +164,7 @@ static void ipc_close(register NXStream *s)
  *
  *	open a stream using a ipc descriptor.
  */
+__private_extern__
 NXStream *
 NXOpenPort(mach_port_t port, int mode)
 {

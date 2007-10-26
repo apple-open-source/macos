@@ -22,7 +22,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/libpcap/libpcap/scanner.l,v 1.1.1.4 2004/05/21 20:31:59 rbraun Exp $ (LBL)";
+    "@(#) $Header: /tcpdump/master/libpcap/scanner.l,v 1.99.2.6 2005/11/09 23:49:48 guy Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -81,11 +81,11 @@ N		([0-9]+|(0X|0x)[0-9A-Fa-f]+)
 B		([0-9A-Fa-f][0-9A-Fa-f]?)
 W		([0-9A-Fa-f][0-9A-Fa-f]?[0-9A-Fa-f]?[0-9A-Fa-f]?)
 
-%a 16000
-%o 19000
-%e 6000
-%k 4000
-%p 25000
+%a 18400
+%o 21500
+%e 7600
+%k 4550
+%p 27600
 %n 2000
 
 V680		{W}:{W}:{W}:{W}:{W}:{W}:{W}:{W}
@@ -183,6 +183,7 @@ igmp		return IGMP;
 igrp		return IGRP;
 pim		return PIM;
 vrrp		return VRRP;
+radio		return RADIO;
 
 ip6		{
 #ifdef INET6
@@ -234,6 +235,7 @@ host		return HOST;
 net		return NET;
 mask		return NETMASK;
 port		return PORT;
+portrange	return PORTRANGE;
 proto		return PROTO;
 protochain	{
 #ifdef NO_PROTOCHAIN
@@ -260,6 +262,9 @@ inbound		return INBOUND;
 outbound	return OUTBOUND;
 
 vlan		return VLAN;
+mpls		return MPLS;
+pppoed		return PPPOED;
+pppoes		return PPPOES;
 
 lane		return LANE;
 llc		return LLC;
@@ -282,6 +287,11 @@ rnr|rulenum	return PF_RNR;
 srnr|subrulenum	return PF_SRNR;
 reason		return PF_REASON;
 action		return PF_ACTION;
+
+sio		return SIO;
+opc		return OPC;
+dpc		return DPC;
+sls		return SLS;
 
 [ \r\n\t]		;
 [+\-*/:\[\]!<>()&|=]	return yytext[0];

@@ -36,7 +36,7 @@ extern "C" {
 
 typedef unsigned char		word8;	
 typedef unsigned short		word16;	
-typedef unsigned long		word32;
+typedef unsigned int		word32;
 
 
 int rijndaelKeySched (word8 k[4][MAXKC], int keyBits, int blockBits, 

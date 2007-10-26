@@ -6,7 +6,7 @@
 
 #include "pmap_wakeup.h"
 
-void pmap_wakeup(void)
+int pmap_wakeup(void)
 {
 	struct sockaddr_un sun;
 	int fd;
@@ -19,13 +19,14 @@ void pmap_wakeup(void)
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (fd == -1)
-		return;
+		return -1;
 
 	if (connect(fd, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
 		close(fd);
-		return;
+		return -1;
 	}
 
 	read(fd, &b, sizeof(b));
 	close(fd);
+	return 0;
 }

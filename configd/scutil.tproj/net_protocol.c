@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,7 +32,7 @@
 #include "scutil.h"
 #include "net.h"
 #include "net_protocol.h"
-
+#include "prefs.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -94,7 +94,7 @@ __copyIPv6Address(const char *arg)
 
 	p = strchr(arg, '%');
 	if (p != NULL) {
-		sin6.sin6_scope_id = if_nametoindex(p+1);
+		sin6.sin6_scope_id = if_nametoindex(p + 1);
 	}
 
 	_SC_sockaddr_to_string((struct sockaddr *)&sin6, buf, sizeof(buf));
@@ -237,7 +237,7 @@ create_protocol(int argc, char **argv)
 		goto done;
 	}
 
-	net_changed = TRUE;
+	_prefs_changed = TRUE;
 
 	if (protocols != NULL) {
 		CFRelease(protocols);
@@ -293,7 +293,7 @@ disable_protocol(int argc, char **argv)
 		return;
 	}
 
-	net_changed = TRUE;
+	_prefs_changed = TRUE;
 
 	return;
 }
@@ -328,7 +328,7 @@ enable_protocol(int argc, char **argv)
 		return;
 	}
 
-	net_changed = TRUE;
+	_prefs_changed = TRUE;
 
 	return;
 }
@@ -367,7 +367,7 @@ remove_protocol(int argc, char **argv)
 		goto done;
 	}
 
-	net_changed = TRUE;
+	_prefs_changed = TRUE;
 
 	SCPrint(TRUE, stdout,
 		CFSTR("protocol \"%@\" removed\n"),
@@ -417,7 +417,8 @@ select_protocol(int argc, char **argv)
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark AppleTalk
 
 
 static selections appletalkConfigMethods[] = {
@@ -498,7 +499,9 @@ static options appletalkOptions[] = {
 				       , isChooseOne  , &kSCPropNetAppleTalkConfigMethod    , __doAppleTalkConfigMethod, (void *)appletalkConfigMethods },
 	{ "DefaultZone"     , "zone"   , isString     , &kSCPropNetAppleTalkDefaultZone     , NULL                     , NULL                           },
 	{ "NodeID"          , "node"   , isNumber     , &kSCPropNetAppleTalkNodeID          , NULL                     , NULL                           },
+	{   "node"          , "node"   , isNumber     , &kSCPropNetAppleTalkNodeID          , NULL                     , NULL                           },
 	{ "NetworkID"       , "network", isNumber     , &kSCPropNetAppleTalkNetworkID       , NULL                     , NULL                           },
+	{   "network"       , "network", isNumber     , &kSCPropNetAppleTalkNetworkID       , NULL                     , NULL                           },
 	{ "SeedNetworkRange", "range"  , isOther      , &kSCPropNetAppleTalkSeedNetworkRange, __doAppleTalkNetworkRange, NULL                           },
 	{ "SeedZones"       , "zone"   , isStringArray, &kSCPropNetAppleTalkSeedZones       , NULL                     , NULL                           },
 
@@ -530,7 +533,8 @@ set_protocol_appletalk(int argc, char **argv, CFMutableDictionaryRef newConfigur
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark DNS
 
 
 static CFStringRef
@@ -640,7 +644,7 @@ __doDNSServerAddresses(CFStringRef key, const char *description, void *info, int
 	CFMutableArrayRef	servers;
 
 	if (argc < 1) {
-		SCPrint(TRUE, stdout, CFSTR("DNS search domain name(s) not specified\n"));
+		SCPrint(TRUE, stdout, CFSTR("DNS name server address(es) not specified\n"));
 		return -1;
 	}
 
@@ -724,7 +728,8 @@ set_protocol_dns(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark IPv4
 
 
 #define allowIPv4Address	1<<1	// allow address
@@ -887,7 +892,8 @@ set_protocol_ipv4(int argc, char **argv, CFMutableDictionaryRef newConfiguration
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark IPv6
 
 
 #define allowIPv6Address	1<<1	// allow address
@@ -1048,7 +1054,8 @@ set_protocol_ipv6(int argc, char **argv, CFMutableDictionaryRef newConfiguration
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark Proxies
 
 
 typedef const struct {
@@ -1370,7 +1377,191 @@ set_protocol_proxies(int argc, char **argv, CFMutableDictionaryRef newConfigurat
 }
 
 
-/* -------------------- */
+#pragma mark -
+#pragma mark SMB
+
+
+static CFStringRef
+__cleanupName(CFStringRef name)
+{
+	CFMutableStringRef	newName;
+
+	newName = CFStringCreateMutableCopy(NULL, 0, name);
+	CFStringTrimWhitespace(newName);
+	if (CFStringGetLength(newName) == 0) {
+		CFRelease(newName);
+		newName = NULL;
+	}
+
+	return newName;
+}
+
+
+static int
+__doSMBName(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("NetBIOS name not specified\n"));
+		return -1;
+	}
+
+	if (strlen(argv[0]) > 0) {
+		CFStringRef	name;
+		CFStringRef	str;
+
+		str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+		name = __cleanupName(str);
+		CFRelease(str);
+
+		if (name != NULL) {
+			CFDictionarySetValue(newConfiguration, key, name);
+			CFRelease(name);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("invalid NetBIOS name\n"));
+			return -1;
+		}
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	return 1;
+}
+
+
+static int
+__doSMBWorkgroup(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("Workgroup not specified\n"));
+		return -1;
+	}
+
+	if (strlen(argv[0]) > 0) {
+		CFStringRef	name;
+		CFStringRef	str;
+
+		str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+		name = __cleanupName(str);
+		CFRelease(str);
+
+		if (name != NULL) {
+			CFDictionarySetValue(newConfiguration, key, name);
+			CFRelease(name);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("invalid Workgroup\n"));
+			return -1;
+		}
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	return 1;
+}
+
+
+static int
+__doSMBWINSAddresses(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	CFMutableArrayRef	servers;
+
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("WINS address(es) not specified\n"));
+		return -1;
+	}
+
+	servers = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	if (strlen(argv[0]) > 0) {
+		CFArrayRef	array;
+		CFIndex		i;
+		CFIndex		n;
+		CFStringRef	str;
+
+		str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+		array = CFStringCreateArrayBySeparatingStrings(NULL, str, CFSTR(","));
+		CFRelease(str);
+
+		n = (array != NULL) ? CFArrayGetCount(array) : 0;
+		for (i = 0; i < n; i++) {
+			char	str[32];
+
+			if (_SC_cfstring_to_cstring(CFArrayGetValueAtIndex(array, i),
+						    str,
+						    sizeof(str),
+						    kCFStringEncodingUTF8) != NULL) {
+				CFStringRef	server;
+
+				server = __copyIPv4Address(str);
+				//if (server == NULL) {
+				//	server = __copyIPv6Address(str);
+				//}
+				if (server != NULL) {
+					CFArrayAppendValue(servers, server);
+					CFRelease(server);
+					continue;
+				}
+			}
+
+			SCPrint(TRUE, stdout, CFSTR("invalid WINS address\n"));
+			CFRelease(array);
+			CFRelease(servers);
+			return -1;
+		}
+		if (array != NULL) CFRelease(array);
+	}
+
+	if (CFArrayGetCount(servers) > 0) {
+		CFDictionarySetValue(newConfiguration, key, servers);
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	CFRelease(servers);
+	return 1;
+}
+
+
+static selections smbNodeTypes[] = {
+	{ CFSTR("Broadcast"), &kSCValNetSMBNetBIOSNodeTypeBroadcast, 0 },
+	{ CFSTR("Peer")     , &kSCValNetSMBNetBIOSNodeTypePeer     , 0 },
+	{ CFSTR("Mixed")    , &kSCValNetSMBNetBIOSNodeTypeMixed    , 0 },
+	{ CFSTR("Hybrid")   , &kSCValNetSMBNetBIOSNodeTypeHybrid   , 0 },
+	{ NULL              , NULL                                 , 0 }
+};
+
+
+static options smbOptions[] = {
+	{ "NetBIOSName"    , "name"     , isOther    , &kSCPropNetSMBNetBIOSName    , __doSMBName         , NULL },
+	{   "name"         , "name"     , isOther    , &kSCPropNetSMBNetBIOSName    , __doSMBName         , NULL },
+	{ "NetBIOSNodeType", "type"     , isChooseOne, &kSCPropNetSMBNetBIOSNodeType, NULL                , (void *)smbNodeTypes },
+	{   "type",          "type"     , isChooseOne, &kSCPropNetSMBNetBIOSNodeType, NULL                , (void *)smbNodeTypes },
+	{ "Workgroup"      , "workgroup", isOther    , &kSCPropNetSMBWorkgroup      , __doSMBWorkgroup    , NULL },
+	{ "WINSAddresses"  , "wins"     , isOther    , &kSCPropNetSMBWINSAddresses  , __doSMBWINSAddresses, NULL },
+	{   "wins"         , "wins"     , isOther    , &kSCPropNetSMBWINSAddresses  , __doSMBWINSAddresses, NULL },
+
+	{ "?"              , NULL       , isHelp     , NULL                         , NULL,
+	    "\nSMB configuration commands\n\n"
+	    " set protocol name NetBIOS-name\n"
+	    " set protocol type (Broadcast|Peer|Mixed|Hybrid)\n"
+	    " set protocol workgroup SMB-workgroup\n"
+	    " set protocol wins x1.x1.x1.x1[,x2.x2.x2.x2]"
+	}
+};
+#define	N_SMB_OPTIONS	(sizeof(smbOptions) / sizeof(smbOptions[0]))
+
+
+static Boolean
+set_protocol_smb(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	Boolean	ok;
+
+	ok = _process_options(smbOptions, N_SMB_OPTIONS, argc, argv, newConfiguration);
+	return ok;
+}
+
+
+#pragma mark -
+#pragma mark *Protocol*
 
 
 __private_extern__
@@ -1414,6 +1605,8 @@ set_protocol(int argc, char **argv)
 		ok = set_protocol_ipv6(argc, argv, newConfiguration);
 	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeProxies)) {
 		ok = set_protocol_proxies(argc, argv, newConfiguration);
+	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeSMB)) {
+		ok = set_protocol_smb(argc, argv, newConfiguration);
 	} else {
 		SCPrint(TRUE, stdout, CFSTR("this protocols configuration cannot be changed\n"));
 	}
@@ -1429,7 +1622,7 @@ set_protocol(int argc, char **argv)
 			goto done;
 		}
 
-		net_changed = TRUE;
+		_prefs_changed = TRUE;
 	}
 
     done :
@@ -1686,6 +1879,39 @@ _protocol_description(SCNetworkProtocolRef protocol, Boolean skipEmpty)
 					     CFSTR("%s%s"),
 					     CFStringGetLength(description) > 0 ? ", " : "",
 					     currentProxy->proxy);
+		}
+	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeSMB)) {
+		CFStringRef	name;
+		CFArrayRef	servers;
+		CFStringRef	workgroup;
+
+		name  = CFDictionaryGetValue(configuration, kSCPropNetSMBNetBIOSName);
+		if (isA_CFString(name)) {
+			CFStringAppendFormat(description,
+					     NULL,
+					     CFSTR("NetBIOS name=%@"),
+					     name);
+		}
+
+		workgroup  = CFDictionaryGetValue(configuration, kSCPropNetSMBWorkgroup);
+		if (isA_CFString(workgroup)) {
+			CFStringAppendFormat(description,
+					     NULL,
+					     CFSTR("Workgroup=%@"),
+					     workgroup);
+		}
+
+		servers = CFDictionaryGetValue(configuration, kSCPropNetSMBWINSAddresses);
+		if (isA_CFArray(servers)) {
+			CFStringRef	str;
+
+			str = CFStringCreateByCombiningStrings(NULL, servers, CFSTR(","));
+			CFStringAppendFormat(description,
+					     NULL,
+					     CFSTR("%sWINS servers=%@"),
+					     CFStringGetLength(description) > 0 ? ", " : "",
+					     str);
+			CFRelease(str);
 		}
 	}
 

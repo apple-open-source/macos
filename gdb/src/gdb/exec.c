@@ -32,10 +32,11 @@
 #include "completer.h"
 #include "value.h"
 #include "exec.h"
-
-#ifdef USG
-#include <sys/types.h>
-#endif
+#include "observer.h"
+/* APPLE LOCAL exceptions.h */
+#include "exceptions.h"
+/* APPLE LOCAL osabi.h */
+#include "osabi.h"
 
 #include <fcntl.h>
 #include "readline/readline.h"
@@ -51,6 +52,13 @@
 
 #include "xcoffsolib.h"
 
+/* APPLE LOCAL begin dyld */
+#ifdef MACOSX_DYLD
+#include "macosx-nat-dyld.h"
+#endif
+/* APPLE LOCAL end dyld */
+
+/* APPLE LOCAL begin section names */
 #ifndef TEXT_SECTION_NAME
 #define TEXT_SECTION_NAME ".text"
 #endif
@@ -58,7 +66,9 @@
 #ifndef DATA_SECTION_NAME
 #define DATA_SECTION_NAME ".data"
 #endif
+/* APPLE LOCAL end section names */
 
+/* APPLE LOCAL begin async */
 static void
 standard_async (void (*callback) (enum inferior_event_type event_type, 
 				  void *context), void *context)
@@ -75,10 +85,11 @@ int standard_can_async_p (void)
 {
   return (current_target.to_async_mask_value);
 }
+/* APPLE LOCAL end async */
 
 struct vmap *map_vmap (bfd *, bfd *);
 
-void (*file_changed_hook) (char *);
+void (*deprecated_file_changed_hook) (char *);
 
 /* Prototypes for local functions */
 
@@ -90,8 +101,9 @@ static void set_section_command (char *, int);
 
 static void exec_files_info (struct target_ops *);
 
-static int ignore (CORE_ADDR, char *);
+static int ignore (CORE_ADDR, bfd_byte *);
 
+/* APPLE LOCAL make globally visible */
 void init_exec_ops (void);
 
 void _initialize_exec (void);
@@ -107,6 +119,14 @@ bfd *exec_bfd = NULL;
 /* Whether to open exec and core files read-only or read-write.  */
 
 int write_files = 0;
+static void
+show_write_files (struct ui_file *file, int from_tty,
+		  struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Writing into executable and core files is %s.\n"),
+		    value);
+}
+
 
 struct vmap *vmap;
 
@@ -139,7 +159,7 @@ exec_close (int quitting)
       else if (vp->bfd != exec_bfd)
 	/* FIXME-leak: We should be freeing vp->name too, I think.  */
 	if (!bfd_close (vp->bfd))
-	  warning ("cannot close \"%s\": %s",
+	  warning (_("cannot close \"%s\": %s"),
 		   vp->name, bfd_errmsg (bfd_get_error ()));
 
       /* FIXME: This routine is #if 0'd in symfile.c.  What should we
@@ -158,7 +178,7 @@ exec_close (int quitting)
       char *name = bfd_get_filename (exec_bfd);
 
       if (!bfd_close (exec_bfd))
-	warning ("cannot close \"%s\": %s",
+	warning (_("cannot close \"%s\": %s"),
 		 name, bfd_errmsg (bfd_get_error ()));
       xfree (name);
       exec_bfd = NULL;
@@ -166,16 +186,10 @@ exec_close (int quitting)
 
   if (exec_ops.to_sections)
     {
+      /* APPLE LOCAL section resize */
       target_resize_to_sections
 	(&exec_ops, exec_ops.to_sections_end - exec_ops.to_sections);
     }
-
-#if 0
-#ifdef NM_NEXTSTEP
-  if (! quitting)
-    macosx_init_dyld_symfile (symfile_objfile, exec_bfd);
-#endif
-#endif
 }
 
 void
@@ -185,7 +199,7 @@ exec_file_clear (int from_tty)
   unpush_target (&exec_ops);
 
   if (from_tty)
-    printf_unfiltered ("No executable file now.\n");
+    printf_unfiltered (_("No executable file now.\n"));
 }
 
 #ifdef SOLIB_ADD
@@ -231,14 +245,14 @@ exec_file_attach (char *filename, int from_tty)
   if (!filename)
     {
       if (from_tty)
-        printf_unfiltered ("No executable file now.\n");
+        printf_unfiltered (_("No executable file now.\n"));
     }
   else
     {
       char *scratch_pathname;
       int scratch_chan;
 
-      scratch_chan = openp (getenv ("PATH"), 1, filename,
+      scratch_chan = openp (getenv ("PATH"), OPF_TRY_CWD_FIRST, filename,
 		   write_files ? O_RDWR | O_BINARY : O_RDONLY | O_BINARY, 0,
 			    &scratch_pathname);
 #if defined(__GO32__) || defined(_WIN32) || defined(__CYGWIN__)
@@ -246,12 +260,14 @@ exec_file_attach (char *filename, int from_tty)
 	{
 	  char *exename = alloca (strlen (filename) + 5);
 	  strcat (strcpy (exename, filename), ".exe");
-	  scratch_chan = openp (getenv ("PATH"), 1, exename, write_files ?
-	     O_RDWR | O_BINARY : O_RDONLY | O_BINARY, 0, &scratch_pathname);
+	  scratch_chan = openp (getenv ("PATH"), OPF_TRY_CWD_FIRST, exename,
+	     write_files ? O_RDWR | O_BINARY : O_RDONLY | O_BINARY, 0,
+	     &scratch_pathname);
 	}
 #endif
 
-#ifdef NM_NEXTSTEP
+      /* APPLE LOCAL begin app bundles */
+#ifdef TM_NEXTSTEP
       if (scratch_chan < 0)
 	{
 	  /* APPLE LOCAL: Look for a wrapped executable of the form
@@ -269,13 +285,16 @@ exec_file_attach (char *filename, int from_tty)
 	    }
 	}
 #endif
+      /* APPLE LOCAL end app bundles */
 
       if (scratch_chan < 0)
 	perror_with_name (filename);
-      exec_bfd = bfd_fdopenr (scratch_pathname, gnutarget, scratch_chan);
+      exec_bfd = bfd_fopen (scratch_pathname, gnutarget,
+			    write_files ? FOPEN_RUB : FOPEN_RB,
+			    scratch_chan);
 
       if (!exec_bfd)
-	error ("\"%s\": could not open as an executable file: %s",
+	error (_("\"%s\": could not open as an executable file: %s"),
 	       scratch_pathname, bfd_errmsg (bfd_get_error ()));
 
       /* At this point, scratch_pathname and exec_bfd->name both point to the
@@ -285,23 +304,25 @@ exec_file_attach (char *filename, int from_tty)
       scratch_pathname = xstrdup (scratch_pathname);
       make_cleanup (xfree, scratch_pathname);
 
-      /* APPLE LOCAL: If the file is an archive file (i.e. fat
-	 binary), look for sub-files that match the current osabi. */
+      /* APPLE LOCAL begin fat binaries */
+      /* If the file is an archive file (i.e. fat binary), look for
+	 sub-files that match the current osabi. */
 
       if (bfd_check_format (exec_bfd, bfd_archive))
 	{
 	  bfd *tmp_bfd;
-	  tmp_bfd = open_bfd_matching_arch (exec_bfd);
+	  tmp_bfd = open_bfd_matching_arch (exec_bfd, bfd_object);
 	  if (tmp_bfd != NULL)
 	    exec_bfd = tmp_bfd;
 	}
+      /* APPLE LOCAL end fat binaries */
       
       if (!bfd_check_format (exec_bfd, bfd_object))
 	{
 	  /* Make sure to close exec_bfd, or else "run" might try to use
 	     it.  */
 	  exec_close (0);
-	  error ("\"%s\": not in executable format: %s",
+	  error (_("\"%s\": not in executable format: %s"),
 		 scratch_pathname, bfd_errmsg (bfd_get_error ()));
 	}
 
@@ -316,7 +337,7 @@ exec_file_attach (char *filename, int from_tty)
 	  /* Make sure to close exec_bfd, or else "run" might try to use
 	     it.  */
 	  exec_close (0);
-	  error ("\"%s\": can't find the file sections: %s",
+	  error (_("\"%s\": can't find the file sections: %s"),
 		 scratch_pathname, bfd_errmsg (bfd_get_error ()));
 	}
 #endif /* DEPRECATED_IBM6000_TARGET */
@@ -327,7 +348,7 @@ exec_file_attach (char *filename, int from_tty)
 	  /* Make sure to close exec_bfd, or else "run" might try to use
 	     it.  */
 	  exec_close (0);
-	  error ("\"%s\": can't find the file sections: %s",
+	  error (_("\"%s\": can't find the file sections: %s"),
 		 scratch_pathname, bfd_errmsg (bfd_get_error ()));
 	}
 
@@ -341,7 +362,7 @@ exec_file_attach (char *filename, int from_tty)
 
       push_target (&exec_ops);
 
-#ifdef NM_NEXTSTEP
+#ifdef MACOSX_DYLD
       macosx_init_dyld_symfile (symfile_objfile, exec_bfd);
 #endif
 
@@ -351,9 +372,11 @@ exec_file_attach (char *filename, int from_tty)
 #endif
   
       /* Tell display code (if any) about the changed file name.  */
-      if (exec_file_display_hook)
-	(*exec_file_display_hook) (filename);
+      if (deprecated_exec_file_display_hook)
+	(*deprecated_exec_file_display_hook) (filename);
     }
+  bfd_cache_close_all ();
+  observer_notify_executable_changed (NULL);
 }
 
 /*  Process the first arg in ARGS as the new exec file.
@@ -387,7 +410,7 @@ exec_file_command (char *args, int from_tty)
         {;
         }
       if (*argv == NULL)
-        error ("No executable file name was specified");
+        error (_("No executable file name was specified"));
 
       filename = tilde_expand (*argv);
       make_cleanup (xfree, filename);
@@ -408,8 +431,8 @@ file_command (char *arg, int from_tty)
      the exec file, but that's rough.  */
   exec_file_command (arg, from_tty);
   symbol_file_command (arg, from_tty);
-  if (file_changed_hook)
-    file_changed_hook (arg);
+  if (deprecated_file_changed_hook)
+    deprecated_file_changed_hook (arg);
 }
 
 
@@ -452,7 +475,7 @@ build_section_table (struct bfd *some_bfd, struct section_table **start,
   *end = *start;
   bfd_map_over_sections (some_bfd, add_to_section_table, (char *) end);
   if (*end > *start + count)
-    internal_error (__FILE__, __LINE__, "failed internal consistency check");
+    internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
   /* We could realloc the table, but it probably loses for most files.  */
   return 0;
 }
@@ -468,14 +491,14 @@ bfdsec_to_vmap (struct bfd *abfd, struct bfd_section *sect, void *arg3)
   if ((bfd_get_section_flags (abfd, sect) & SEC_LOAD) == 0)
     return;
 
-  if (DEPRECATED_STREQ (bfd_section_name (abfd, sect), TEXT_SECTION_NAME))
+  if (strcmp (bfd_section_name (abfd, sect), TEXT_SECTION_NAME) == 0)
     {
       vp->tstart = bfd_section_vma (abfd, sect);
       vp->tend = vp->tstart + bfd_section_size (abfd, sect);
       vp->tvma = bfd_section_vma (abfd, sect);
       vp->toffs = sect->filepos;
     }
-  else if (DEPRECATED_STREQ (bfd_section_name (abfd, sect), DATA_SECTION_NAME))
+  else if (strcmp (bfd_section_name (abfd, sect), DATA_SECTION_NAME) == 0)
     {
       vp->dstart = bfd_section_vma (abfd, sect);
       vp->dend = vp->dstart + bfd_section_size (abfd, sect);
@@ -531,9 +554,8 @@ map_vmap (bfd *abfd, bfd *arch)
    we just tail-call it with more arguments to select between them.  */
 
 int
-xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
-	     struct mem_attrib *attrib,
-	     struct target_ops *target)
+xfer_memory (CORE_ADDR memaddr, gdb_byte *myaddr, int len, int write,
+	     struct mem_attrib *attrib, struct target_ops *target)
 {
   int res;
   struct section_table *p;
@@ -541,7 +563,7 @@ xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
   asection *section = NULL;
 
   if (len <= 0)
-    internal_error (__FILE__, __LINE__, "failed internal consistency check");
+    internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 
   if (overlay_debugging)
     {
@@ -700,7 +722,7 @@ exec_files_info (struct target_ops *t)
     {
       struct vmap *vp;
 
-      printf_unfiltered ("\tMapping info for file `%s'.\n", vmap->name);
+      printf_unfiltered (_("\tMapping info for file `%s'.\n"), vmap->name);
       printf_unfiltered ("\t  %*s   %*s   %*s   %*s %8.8s %s\n",
 			 strlen_paddr (), "tstart",
 			 strlen_paddr (), "tend",
@@ -768,7 +790,7 @@ set_section_command (char *args, int from_tty)
   long offset;
 
   if (args == 0)
-    error ("Must specify section name and its virtual address");
+    error (_("Must specify section name and its virtual address"));
 
   /* Parse out section name */
   for (secname = args; !isspace (*args); args++);
@@ -794,7 +816,28 @@ set_section_command (char *args, int from_tty)
     seclen = sizeof (secprint) - 1;
   strncpy (secprint, secname, seclen);
   secprint[seclen] = '\0';
-  error ("Section %s not found", secprint);
+  error (_("Section %s not found"), secprint);
+}
+
+/* If we can find a section in FILENAME with BFD index INDEX, and the
+   user has not assigned an address to it yet (via "set section"), adjust it
+   to ADDRESS.  */
+
+void
+exec_set_section_address (const char *filename, int index, CORE_ADDR address)
+{
+  struct section_table *p;
+
+  for (p = exec_ops.to_sections; p < exec_ops.to_sections_end; p++)
+    {
+      if (strcmp (filename, p->bfd->filename) == 0
+	  && index == p->the_bfd_section->index
+	  && p->addr == 0)
+	{
+	  p->addr = address;
+	  p->endaddr += address;
+	}
+    }
 }
 
 /* If mourn is being called in all the right places, this could be say
@@ -802,7 +845,7 @@ set_section_command (char *args, int from_tty)
    breakpoint_init_inferior).  */
 
 static int
-ignore (CORE_ADDR addr, char *contents)
+ignore (CORE_ADDR addr, bfd_byte *contents)
 {
   return 0;
 }
@@ -834,7 +877,7 @@ Specify the filename of the executable file.";
   exec_ops.to_open = exec_open;
   exec_ops.to_close = exec_close;
   exec_ops.to_attach = find_default_attach;
-  exec_ops.to_xfer_memory = xfer_memory;
+  exec_ops.deprecated_xfer_memory = xfer_memory;
   exec_ops.to_files_info = exec_files_info;
   exec_ops.to_insert_breakpoint = ignore;
   exec_ops.to_remove_breakpoint = ignore;
@@ -859,37 +902,38 @@ _initialize_exec (void)
 
   if (!dbx_commands)
     {
-      c = add_cmd ("file", class_files, file_command,
-		   "Use FILE as program to be debugged.\n\
+      c = add_cmd ("file", class_files, file_command, _("\
+Use FILE as program to be debugged.\n\
 It is read for its symbols, for getting the contents of pure memory,\n\
 and it is the program executed when you use the `run' command.\n\
 If FILE cannot be found as specified, your execution directory path\n\
 ($PATH) is searched for a command of that name.\n\
-No arg means to have no executable file and no symbols.", &cmdlist);
+No arg means to have no executable file and no symbols."), &cmdlist);
       set_cmd_completer (c, filename_completer);
       /* c->completer_word_break_characters = gdb_completer_filename_word_break_characters; */ /* FIXME */
     }
 
-  c = add_cmd ("exec-file", class_files, exec_file_command,
-	       "Use FILE as program for getting contents of pure memory.\n\
+  c = add_cmd ("exec-file", class_files, exec_file_command, _("\
+Use FILE as program for getting contents of pure memory.\n\
 If FILE cannot be found as specified, your execution directory path\n\
 is searched for a command of that name.\n\
-No arg means have no executable file.", &cmdlist);
+No arg means have no executable file."), &cmdlist);
   set_cmd_completer (c, filename_completer);
   /* c->completer_word_break_characters = gdb_completer_filename_word_break_characters; */ /* FIXME */
 
-  add_com ("section", class_files, set_section_command,
-	   "Change the base address of section SECTION of the exec file to ADDR.\n\
+  add_com ("section", class_files, set_section_command, _("\
+Change the base address of section SECTION of the exec file to ADDR.\n\
 This can be used if the exec file does not contain section addresses,\n\
 (such as in the a.out format), or when the addresses specified in the\n\
 file itself are wrong.  Each section must be changed separately.  The\n\
-``info files'' command lists all the sections and their addresses.");
+``info files'' command lists all the sections and their addresses."));
 
-  add_show_from_set
-    (add_set_cmd ("write", class_support, var_boolean, (char *) &write_files,
-		  "Set writing into executable and core files.",
-		  &setlist),
-     &showlist);
+  add_setshow_boolean_cmd ("write", class_support, &write_files, _("\
+Set writing into executable and core files."), _("\
+Show writing into executable and core files."), NULL,
+			   NULL,
+			   show_write_files,
+			   &setlist, &showlist);
 
   add_target (&exec_ops);
 }
@@ -897,5 +941,5 @@ file itself are wrong.  Each section must be changed separately.  The\n\
 static char *
 exec_make_note_section (bfd *obfd, int *note_size)
 {
-  error ("Can't create a corefile");
+  error (_("Can't create a corefile"));
 }

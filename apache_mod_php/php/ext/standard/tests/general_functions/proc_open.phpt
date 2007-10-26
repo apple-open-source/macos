@@ -3,9 +3,8 @@ proc_open
 --SKIPIF--
 <?php # vim:syn=php
 if (!is_executable("/bin/cat")) echo "skip";
+if (!function_exists("proc_open")) echo "skip proc_open() is not available";
 ?>
---POST--
---GET--
 --FILE--
 <?php
 $ds = array(
@@ -19,12 +18,6 @@ $cat = proc_open(
 		$ds,
 		$pipes
 		);
-
-/* As per manual: avoid deadlock */
-for ($i = 0; $i < count($pipes); $i++)
-{
-    fclose($pipes[$i]);
-}
 
 proc_close($cat);
 

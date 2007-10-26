@@ -28,110 +28,115 @@
 */
 static ADS_STATUS ads_sasl_spnego_ntlmssp_bind(ADS_STRUCT *ads)
 {
-	const char *mechs[] = {OID_NTLMSSP, NULL};
 	DATA_BLOB msg1 = data_blob(NULL, 0);
-	DATA_BLOB blob, chal1, chal2, auth;
-	uint8 challenge[8];
-	uint8 nthash[24], lmhash[24], sess_key[16];
-	uint32 neg_flags;
+	DATA_BLOB blob = data_blob(NULL, 0);
+	DATA_BLOB blob_in = data_blob(NULL, 0);
+	DATA_BLOB blob_out = data_blob(NULL, 0);
 	struct berval cred, *scred = NULL;
-	ADS_STATUS status;
 	int rc;
+	NTSTATUS nt_status;
+	int turn = 1;
 
-	if (!ads->auth.password) {
-		/* No password, don't segfault below... */
-		return ADS_ERROR_NT(NT_STATUS_LOGON_FAILURE);
+	struct ntlmssp_state *ntlmssp_state;
+
+	if (!NT_STATUS_IS_OK(nt_status = ntlmssp_client_start(&ntlmssp_state))) {
+		return ADS_ERROR_NT(nt_status);
+	}
+	ntlmssp_state->neg_flags &= ~NTLMSSP_NEGOTIATE_SIGN;
+
+	if (!NT_STATUS_IS_OK(nt_status = ntlmssp_set_username(ntlmssp_state, ads->auth.user_name))) {
+		return ADS_ERROR_NT(nt_status);
+	}
+	if (!NT_STATUS_IS_OK(nt_status = ntlmssp_set_domain(ntlmssp_state, ads->auth.realm))) {
+		return ADS_ERROR_NT(nt_status);
+	}
+	if (!NT_STATUS_IS_OK(nt_status = ntlmssp_set_password(ntlmssp_state, ads->auth.password))) {
+		return ADS_ERROR_NT(nt_status);
 	}
 
-	neg_flags = NTLMSSP_NEGOTIATE_UNICODE | 
-		NTLMSSP_NEGOTIATE_128 | 
-		NTLMSSP_NEGOTIATE_NTLM;
+	blob_in = data_blob(NULL, 0);
 
-	memset(sess_key, 0, 16);
+	do {
+		nt_status = ntlmssp_update(ntlmssp_state, 
+					   blob_in, &blob_out);
+		data_blob_free(&blob_in);
+		if ((NT_STATUS_EQUAL(nt_status, NT_STATUS_MORE_PROCESSING_REQUIRED) 
+		     || NT_STATUS_IS_OK(nt_status))
+		    && blob_out.length) {
+			if (turn == 1) {
+				/* and wrap it in a SPNEGO wrapper */
+				msg1 = gen_negTokenInit(OID_NTLMSSP, blob_out);
+			} else {
+				/* wrap it in SPNEGO */
+				msg1 = spnego_gen_auth(blob_out);
+			}
 
-	/* generate the ntlmssp negotiate packet */
-	msrpc_gen(&blob, "CddB",
-		  "NTLMSSP",
-		  NTLMSSP_NEGOTIATE,
-		  neg_flags,
-		  sess_key, 16);
+			data_blob_free(&blob_out);
 
-	/* and wrap it in a SPNEGO wrapper */
-	msg1 = gen_negTokenTarg(mechs, blob);
-	data_blob_free(&blob);
+			cred.bv_val = (char *)msg1.data;
+			cred.bv_len = msg1.length;
+			scred = NULL;
+			rc = ldap_sasl_bind_s(ads->ld, NULL, "GSS-SPNEGO", &cred, NULL, NULL, &scred);
+			data_blob_free(&msg1);
+			if ((rc != LDAP_SASL_BIND_IN_PROGRESS) && (rc != 0)) {
+				if (scred) {
+					ber_bvfree(scred);
+				}
 
-	cred.bv_val = (char *)msg1.data;
-	cred.bv_len = msg1.length;
+				ntlmssp_end(&ntlmssp_state);
+				return ADS_ERROR(rc);
+			}
+			if (scred) {
+				blob = data_blob(scred->bv_val, scred->bv_len);
+				ber_bvfree(scred);
+			} else {
+				blob = data_blob(NULL, 0);
+			}
 
-	rc = ldap_sasl_bind_s(ads->ld, NULL, "GSS-SPNEGO", &cred, NULL, NULL, &scred);
-	if (rc != LDAP_SASL_BIND_IN_PROGRESS) {
-		status = ADS_ERROR(rc);
-		goto failed;
-	}
+		} else {
 
-	blob = data_blob(scred->bv_val, scred->bv_len);
-	ber_bvfree(scred);
+			ntlmssp_end(&ntlmssp_state);
+			data_blob_free(&blob_out);
+			return ADS_ERROR_NT(nt_status);
+		}
+		
+		if ((turn == 1) && 
+		    (rc == LDAP_SASL_BIND_IN_PROGRESS)) {
+			DATA_BLOB tmp_blob = data_blob(NULL, 0);
+			/* the server might give us back two challenges */
+			if (!spnego_parse_challenge(blob, &blob_in, 
+						    &tmp_blob)) {
 
-	/* the server gives us back two challenges */
-	if (!spnego_parse_challenge(blob, &chal1, &chal2)) {
-		DEBUG(3,("Failed to parse challenges\n"));
-		status = ADS_ERROR(LDAP_OPERATIONS_ERROR);
-		goto failed;
-	}
+				ntlmssp_end(&ntlmssp_state);
+				data_blob_free(&blob);
+				DEBUG(3,("Failed to parse challenges\n"));
+				return ADS_ERROR_NT(NT_STATUS_INVALID_PARAMETER);
+			}
+			data_blob_free(&tmp_blob);
+		} else if (rc == LDAP_SASL_BIND_IN_PROGRESS) {
+			if (!spnego_parse_auth_response(blob, nt_status, 
+							&blob_in)) {
 
-	data_blob_free(&blob);
-
-	/* encrypt the password with the challenge */
-	memcpy(challenge, chal1.data + 24, 8);
-	SMBencrypt(ads->auth.password, challenge,lmhash);
-	SMBNTencrypt(ads->auth.password, challenge,nthash);
-
-	data_blob_free(&chal1);
-	data_blob_free(&chal2);
-
-	/* this generates the actual auth packet */
-	msrpc_gen(&blob, "CdBBUUUBd", 
-		  "NTLMSSP", 
-		  NTLMSSP_AUTH, 
-		  lmhash, 24,
-		  nthash, 24,
-		  lp_workgroup(), 
-		  ads->auth.user_name, 
-		  global_myname(),
-		  sess_key, 16,
-		  neg_flags);
-
-	/* wrap it in SPNEGO */
-	auth = spnego_gen_auth(blob);
-
-	data_blob_free(&blob);
-
-	/* Remember to free the msg1 blob. The contents of this
-	   have been copied into cred and need freeing before reassignment. */
-	data_blob_free(&msg1);
-
-	/* now send the auth packet and we should be done */
-	cred.bv_val = (char *)auth.data;
-	cred.bv_len = auth.length;
-
-	rc = ldap_sasl_bind_s(ads->ld, NULL, "GSS-SPNEGO", &cred, NULL, NULL, &scred);
-
-	ber_bvfree(scred);
-	data_blob_free(&auth);
+				ntlmssp_end(&ntlmssp_state);
+				data_blob_free(&blob);
+				DEBUG(3,("Failed to parse auth response\n"));
+				return ADS_ERROR_NT(NT_STATUS_INVALID_PARAMETER);
+			}
+		}
+		data_blob_free(&blob);
+		data_blob_free(&blob_out);
+		turn++;
+	} while (rc == LDAP_SASL_BIND_IN_PROGRESS && !NT_STATUS_IS_OK(nt_status));
 	
+	/* we have a reference conter on ntlmssp_state, if we are signing
+	   then the state will be kept by the signing engine */
+
+	ntlmssp_end(&ntlmssp_state);
+
 	return ADS_ERROR(rc);
-
-failed:
-
-	/* Remember to free the msg1 blob. The contents of this
-	   have been copied into cred and need freeing. */
-	data_blob_free(&msg1);
-
-	if(scred)
-		ber_bvfree(scred);
-	return status;
 }
 
+#ifdef HAVE_KRB5
 /* 
    perform a LDAP/SASL/SPNEGO/KRB5 bind
 */
@@ -142,7 +147,8 @@ static ADS_STATUS ads_sasl_spnego_krb5_bind(ADS_STRUCT *ads, const char *princip
 	DATA_BLOB session_key = data_blob(NULL, 0);
 	int rc;
 
-	rc = spnego_gen_negTokenTarg(principal, ads->auth.time_offset, &blob, &session_key);
+	rc = spnego_gen_negTokenTarg(principal, ads->auth.time_offset, &blob, &session_key, 0,
+				     &ads->auth.tgs_expire);
 
 	if (rc) {
 		return ADS_ERROR_KRB5(rc);
@@ -161,6 +167,7 @@ static ADS_STATUS ads_sasl_spnego_krb5_bind(ADS_STRUCT *ads, const char *princip
 
 	return ADS_ERROR(rc);
 }
+#endif
 
 /* 
    this performs a SASL/SPNEGO bind
@@ -173,7 +180,9 @@ static ADS_STATUS ads_sasl_spnego_bind(ADS_STRUCT *ads)
 	DATA_BLOB blob;
 	char *principal = NULL;
 	char *OIDs[ASN1_MAX_OIDS];
+#ifdef HAVE_KRB5
 	BOOL got_kerberos_mechanism = False;
+#endif
 
 	rc = ldap_sasl_bind_s(ads->ld, NULL, "GSS-SPNEGO", NULL, NULL, NULL, &scred);
 
@@ -202,22 +211,55 @@ static ADS_STATUS ads_sasl_spnego_bind(ADS_STRUCT *ads)
 	/* make sure the server understands kerberos */
 	for (i=0;OIDs[i];i++) {
 		DEBUG(3,("ads_sasl_spnego_bind: got OID=%s\n", OIDs[i]));
+#ifdef HAVE_KRB5
 		if (strcmp(OIDs[i], OID_KERBEROS5_OLD) == 0 ||
 		    strcmp(OIDs[i], OID_KERBEROS5) == 0) {
 			got_kerberos_mechanism = True;
 		}
+#endif
 		free(OIDs[i]);
 	}
-	DEBUG(3,("ads_sasl_spnego_bind: got server principal name =%s\n", principal));
+	DEBUG(3,("ads_sasl_spnego_bind: got server principal name = %s\n", principal));
 
 #ifdef HAVE_KRB5
 	if (!(ads->auth.flags & ADS_AUTH_DISABLE_KERBEROS) &&
-	    got_kerberos_mechanism) {
+	    got_kerberos_mechanism) 
+	{
+		/* I've seen a child Windows 2000 domain not send 
+		   the principal name back in the first round of 
+		   the SASL bind reply.  So we guess based on server
+		   name and realm.  --jerry  */
+		if ( !principal ) {
+			if ( ads->server.realm && ads->server.ldap_server ) {
+				char *server, *server_realm;
+				
+				server = SMB_STRDUP( ads->server.ldap_server );
+				server_realm = SMB_STRDUP( ads->server.realm );
+				
+				if ( !server || !server_realm )
+					return ADS_ERROR(LDAP_NO_MEMORY);
+
+				strlower_m( server );
+				strupper_m( server_realm );				
+				asprintf( &principal, "ldap/%s@%s", server, server_realm );
+
+				SAFE_FREE( server );
+				SAFE_FREE( server_realm );
+
+				if ( !principal )
+					return ADS_ERROR(LDAP_NO_MEMORY);				
+			}
+			
+		}
+		
 		status = ads_sasl_spnego_krb5_bind(ads, principal);
 		if (ADS_ERR_OK(status)) {
 			SAFE_FREE(principal);
 			return status;
 		}
+
+		DEBUG(10,("ads_sasl_spnego_krb5_bind failed with: %s, "
+			  "calling kinit\n", ads_errstr(status)));
 
 		status = ADS_ERROR_KRB5(ads_kinit_password(ads)); 
 
@@ -259,7 +301,7 @@ static ADS_STATUS ads_sasl_gssapi_bind(ADS_STRUCT *ads)
 	uint32 minor_status;
 	gss_name_t serv_name;
 	gss_buffer_desc input_name;
-	gss_ctx_id_t context_handle;
+	gss_ctx_id_t context_handle = GSS_C_NO_CONTEXT;
 	gss_OID mech_type = GSS_C_NULL_OID;
 	gss_buffer_desc output_token, input_token;
 	uint32 ret_flags, conf_state;
@@ -268,11 +310,10 @@ static ADS_STATUS ads_sasl_gssapi_bind(ADS_STRUCT *ads)
 	int i=0;
 	int gss_rc, rc;
 	uint8 *p;
-	uint32 max_msg_size;
-	char *sname;
-	unsigned sec_layer;
+	uint32 max_msg_size = 0;
+	char *sname = NULL;
 	ADS_STATUS status;
-	krb5_principal principal;
+	krb5_principal principal = NULL;
 	krb5_context ctx = NULL;
 	krb5_enctype enc_types[] = {
 #ifdef ENCTYPE_ARCFOUR_HMAC
@@ -281,26 +322,51 @@ static ADS_STATUS ads_sasl_gssapi_bind(ADS_STRUCT *ads)
 			ENCTYPE_DES_CBC_MD5,
 			ENCTYPE_NULL};
 	gss_OID_desc nt_principal = 
-	{10, "\052\206\110\206\367\022\001\002\002\002"};
+	{10, CONST_DISCARD(char *, "\052\206\110\206\367\022\001\002\002\002")};
 
 	/* we need to fetch a service ticket as the ldap user in the
 	   servers realm, regardless of our realm */
 	asprintf(&sname, "ldap/%s@%s", ads->config.ldap_server_name, ads->config.realm);
-	krb5_init_context(&ctx);
-	krb5_set_default_tgs_ktypes(ctx, enc_types);
-	krb5_parse_name(ctx, sname, &principal);
-	free(sname);
-	krb5_free_context(ctx);	
+
+	initialize_krb5_error_table();
+	status = ADS_ERROR_KRB5(krb5_init_context(&ctx));
+	if (!ADS_ERR_OK(status)) {
+		SAFE_FREE(sname);
+		return status;
+	}
+	status = ADS_ERROR_KRB5(krb5_set_default_tgs_ktypes(ctx, enc_types));
+	if (!ADS_ERR_OK(status)) {
+		SAFE_FREE(sname);
+		krb5_free_context(ctx);	
+		return status;
+	}
+	status = ADS_ERROR_KRB5(smb_krb5_parse_name(ctx, sname, &principal));
+	if (!ADS_ERR_OK(status)) {
+		SAFE_FREE(sname);
+		krb5_free_context(ctx);	
+		return status;
+	}
 
 	input_name.value = &principal;
 	input_name.length = sizeof(principal);
 
-	gss_rc = gss_import_name(&minor_status,&input_name,&nt_principal, &serv_name);
+	gss_rc = gss_import_name(&minor_status, &input_name, &nt_principal, &serv_name);
+
+	/*
+	 * The MIT libraries have a *HORRIBLE* bug - input_value.value needs
+	 * to point to the *address* of the krb5_principal, and the gss libraries
+	 * to a shallow copy of the krb5_principal pointer - so we need to keep
+	 * the krb5_principal around until we do the gss_release_name. MIT *SUCKS* !
+	 * Just one more way in which MIT engineers screwed me over.... JRA.
+	 */
+
+	SAFE_FREE(sname);
+
 	if (gss_rc) {
+		krb5_free_principal(ctx, principal);
+		krb5_free_context(ctx);	
 		return ADS_ERROR_GSS(gss_rc, minor_status);
 	}
-
-	context_handle = GSS_C_NO_CONTEXT;
 
 	input_token.value = NULL;
 	input_token.length = 0;
@@ -329,7 +395,7 @@ static ADS_STATUS ads_sasl_gssapi_bind(ADS_STRUCT *ads)
 			goto failed;
 		}
 
-		cred.bv_val = output_token.value;
+		cred.bv_val = (char *)output_token.value;
 		cred.bv_len = output_token.length;
 
 		rc = ldap_sasl_bind_s(ads->ld, NULL, "GSSAPI", &cred, NULL, NULL, 
@@ -354,8 +420,6 @@ static ADS_STATUS ads_sasl_gssapi_bind(ADS_STRUCT *ads)
 		if (gss_rc == 0) break;
 	}
 
-	gss_release_name(&minor_status, &serv_name);
-
 	gss_rc = gss_unwrap(&minor_status,context_handle,&input_token,&output_token,
 			    (int *)&conf_state,NULL);
 	if (gss_rc) {
@@ -367,15 +431,18 @@ static ADS_STATUS ads_sasl_gssapi_bind(ADS_STRUCT *ads)
 
 	p = (uint8 *)output_token.value;
 
+#if 0
 	file_save("sasl_gssapi.dat", output_token.value, output_token.length);
+#endif
 
-	max_msg_size = (p[1]<<16) | (p[2]<<8) | p[3];
-	sec_layer = *p;
+	if (p) {
+		max_msg_size = (p[1]<<16) | (p[2]<<8) | p[3];
+	}
 
 	gss_release_buffer(&minor_status, &output_token);
 
 	output_token.value = SMB_MALLOC(strlen(ads->config.bind_path) + 8);
-	p = output_token.value;
+	p = (uint8 *)output_token.value;
 
 	*p++ = 1; /* no sign & seal selection */
 	/* choose the same size as the server gave us */
@@ -397,7 +464,7 @@ static ADS_STATUS ads_sasl_gssapi_bind(ADS_STRUCT *ads)
 
 	free(output_token.value);
 
-	cred.bv_val = input_token.value;
+	cred.bv_val = (char *)input_token.value;
 	cred.bv_len = input_token.length;
 
 	rc = ldap_sasl_bind_s(ads->ld, NULL, "GSSAPI", &cred, NULL, NULL, 
@@ -407,11 +474,18 @@ static ADS_STATUS ads_sasl_gssapi_bind(ADS_STRUCT *ads)
 	gss_release_buffer(&minor_status, &input_token);
 
 failed:
+
+	gss_release_name(&minor_status, &serv_name);
+	if (context_handle != GSS_C_NO_CONTEXT)
+		gss_delete_sec_context(&minor_status, &context_handle, GSS_C_NO_BUFFER);
+	krb5_free_principal(ctx, principal);
+	krb5_free_context(ctx);	
+
 	if(scred)
 		ber_bvfree(scred);
 	return status;
 }
-#endif
+#endif /* HAVE_GGSAPI */
 
 /* mapping between SASL mechanisms and functions */
 static struct {
@@ -431,7 +505,7 @@ ADS_STATUS ads_sasl_bind(ADS_STRUCT *ads)
 	char **values;
 	ADS_STATUS status;
 	int i, j;
-	void *res;
+	LDAPMessage *res;
 
 	/* get a list of supported SASL mechanisms */
 	status = ads_do_search(ads, "", LDAP_SCOPE_BASE, "(objectclass=*)", attrs, &res);
@@ -458,5 +532,5 @@ ADS_STATUS ads_sasl_bind(ADS_STRUCT *ads)
 	return ADS_ERROR(LDAP_AUTH_METHOD_NOT_SUPPORTED);
 }
 
-#endif
+#endif /* HAVE_LDAP */
 

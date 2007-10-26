@@ -24,19 +24,7 @@
 #ifndef __CPOLICYGLOBALXML__
 #define __CPOLICYGLOBALXML__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <PasswordServer/CPolicyBase.h>
-
-// C API
-int ConvertGlobalXMLPolicyToSpaceDelimited( const char *inXMLDataStr, char **outPolicyStr );
-int ConvertGlobalSpaceDelimitedPolicyToXML( const char *inPolicyStr, char **outXMLDataStr );
-
-#ifdef __cplusplus
-};
-#endif
 
 class CPolicyGlobalXML : public CPolicyBase
 {

@@ -21,6 +21,9 @@
 
 #include "includes.h"
 
+extern struct current_user current_user;
+extern struct generic_mapping file_generic_mapping;
+
 #undef  DBGC_CLASS
 #define DBGC_CLASS DBGC_ACLS
 
@@ -81,7 +84,7 @@ struct pai_entry {
 };
 	
 struct pai_val {
-	BOOL protected;
+	BOOL pai_protected;
 	unsigned int num_entries;
 	struct pai_entry *entry_list;
 	unsigned int num_def_entries;
@@ -146,7 +149,7 @@ static unsigned int num_inherited_entries(canon_ace *ace_list)
  Create the on-disk format. Caller must free.
 ************************************************************************/
 
-static char *create_pai_buf(canon_ace *file_ace_list, canon_ace *dir_ace_list, BOOL protected, size_t *store_size)
+static char *create_pai_buf(canon_ace *file_ace_list, canon_ace *dir_ace_list, BOOL pai_protected, size_t *store_size)
 {
 	char *pai_buf = NULL;
 	canon_ace *ace_list = NULL;
@@ -166,7 +169,7 @@ static char *create_pai_buf(canon_ace *file_ace_list, canon_ace *dir_ace_list, B
 
 	*store_size = PAI_ENTRIES_BASE + ((num_entries + num_def_entries)*PAI_ENTRY_LENGTH);
 
-	pai_buf = SMB_MALLOC(*store_size);
+	pai_buf = (char *)SMB_MALLOC(*store_size);
 	if (!pai_buf) {
 		return NULL;
 	}
@@ -174,7 +177,7 @@ static char *create_pai_buf(canon_ace *file_ace_list, canon_ace *dir_ace_list, B
 	/* Set up the header. */
 	memset(pai_buf, '\0', PAI_ENTRIES_BASE);
 	SCVAL(pai_buf,PAI_VERSION_OFFSET,PAI_VERSION);
-	SCVAL(pai_buf,PAI_FLAG_OFFSET,(protected ? PAI_ACL_FLAG_PROTECTED : 0));
+	SCVAL(pai_buf,PAI_FLAG_OFFSET,(pai_protected ? PAI_ACL_FLAG_PROTECTED : 0));
 	SSVAL(pai_buf,PAI_NUM_ENTRIES_OFFSET,num_entries);
 	SSVAL(pai_buf,PAI_NUM_DEFAULT_ENTRIES_OFFSET,num_def_entries);
 
@@ -210,7 +213,7 @@ static char *create_pai_buf(canon_ace *file_ace_list, canon_ace *dir_ace_list, B
 ************************************************************************/
 
 static void store_inheritance_attributes(files_struct *fsp, canon_ace *file_ace_list,
-					canon_ace *dir_ace_list, BOOL protected)
+					canon_ace *dir_ace_list, BOOL pai_protected)
 {
 	int ret;
 	size_t store_size;
@@ -224,19 +227,19 @@ static void store_inheritance_attributes(files_struct *fsp, canon_ace *file_ace_
 	 * none of the entries in it are marked as inherited.
 	 */
 
-	if (!protected && num_inherited_entries(file_ace_list) == 0 && num_inherited_entries(dir_ace_list) == 0) {
+	if (!pai_protected && num_inherited_entries(file_ace_list) == 0 && num_inherited_entries(dir_ace_list) == 0) {
 		/* Instead just remove the attribute if it exists. */
-		if (fsp->fd != -1)
-			SMB_VFS_FREMOVEXATTR(fsp, fsp->fd, SAMBA_POSIX_INHERITANCE_EA_NAME);
+		if (fsp->fh->fd != -1)
+			SMB_VFS_FREMOVEXATTR(fsp, fsp->fh->fd, SAMBA_POSIX_INHERITANCE_EA_NAME);
 		else
 			SMB_VFS_REMOVEXATTR(fsp->conn, fsp->fsp_name, SAMBA_POSIX_INHERITANCE_EA_NAME);
 		return;
 	}
 
-	pai_buf = create_pai_buf(file_ace_list, dir_ace_list, protected, &store_size);
+	pai_buf = create_pai_buf(file_ace_list, dir_ace_list, pai_protected, &store_size);
 
-	if (fsp->fd != -1)
-		ret = SMB_VFS_FSETXATTR(fsp, fsp->fd, SAMBA_POSIX_INHERITANCE_EA_NAME,
+	if (fsp->fh->fd != -1)
+		ret = SMB_VFS_FSETXATTR(fsp, fsp->fh->fd, SAMBA_POSIX_INHERITANCE_EA_NAME,
 				pai_buf, store_size, 0);
 	else
 		ret = SMB_VFS_SETXATTR(fsp->conn,fsp->fsp_name, SAMBA_POSIX_INHERITANCE_EA_NAME,
@@ -244,7 +247,7 @@ static void store_inheritance_attributes(files_struct *fsp, canon_ace *file_ace_
 
 	SAFE_FREE(pai_buf);
 
-	DEBUG(10,("store_inheritance_attribute:%s for file %s\n", protected ? " (protected)" : "", fsp->fsp_name));
+	DEBUG(10,("store_inheritance_attribute:%s for file %s\n", pai_protected ? " (protected)" : "", fsp->fsp_name));
 	if (ret == -1 && !no_acl_syscall_error(errno))
 		DEBUG(1,("store_inheritance_attribute: Error %s\n", strerror(errno) ));
 }
@@ -277,7 +280,7 @@ static BOOL get_protected_flag(struct pai_val *pal)
 {
 	if (!pal)
 		return False;
-	return pal->protected;
+	return pal->pai_protected;
 }
 
 /************************************************************************
@@ -349,7 +352,7 @@ static struct pai_val *create_pai_val(char *buf, size_t size)
 
 	memset(paiv, '\0', sizeof(struct pai_val));
 
-	paiv->protected = (CVAL(buf,PAI_FLAG_OFFSET) == PAI_ACL_FLAG_PROTECTED);
+	paiv->pai_protected = (CVAL(buf,PAI_FLAG_OFFSET) == PAI_ACL_FLAG_PROTECTED);
 
 	paiv->num_entries = SVAL(buf,PAI_NUM_ENTRIES_OFFSET);
 	paiv->num_def_entries = SVAL(buf,PAI_NUM_DEFAULT_ENTRIES_OFFSET);
@@ -357,7 +360,7 @@ static struct pai_val *create_pai_val(char *buf, size_t size)
 	entry_offset = buf + PAI_ENTRIES_BASE;
 
 	DEBUG(10,("create_pai_val:%s num_entries = %u, num_def_entries = %u\n",
-			paiv->protected ? " (protected)" : "", paiv->num_entries, paiv->num_def_entries ));
+			paiv->pai_protected ? " (pai_protected)" : "", paiv->num_entries, paiv->num_def_entries ));
 
 	for (i = 0; i < paiv->num_entries; i++) {
 		struct pai_entry *paie;
@@ -438,12 +441,12 @@ static struct pai_val *load_inherited_info(files_struct *fsp)
 	if (!lp_map_acl_inherit(SNUM(fsp->conn)))
 		return NULL;
 
-	if ((pai_buf = SMB_MALLOC(pai_buf_size)) == NULL)
+	if ((pai_buf = (char *)SMB_MALLOC(pai_buf_size)) == NULL)
 		return NULL;
 
 	do {
-		if (fsp->fd != -1)
-			ret = SMB_VFS_FGETXATTR(fsp, fsp->fd, SAMBA_POSIX_INHERITANCE_EA_NAME,
+		if (fsp->fh->fd != -1)
+			ret = SMB_VFS_FGETXATTR(fsp, fsp->fh->fd, SAMBA_POSIX_INHERITANCE_EA_NAME,
 					pai_buf, pai_buf_size);
 		else
 			ret = SMB_VFS_GETXATTR(fsp->conn,fsp->fsp_name,SAMBA_POSIX_INHERITANCE_EA_NAME,
@@ -459,7 +462,7 @@ static struct pai_val *load_inherited_info(files_struct *fsp)
 			if (pai_buf_size > 1024*1024) {
 				return NULL; /* Limit malloc to 1mb. */
 			}
-			if ((pai_buf = SMB_MALLOC(pai_buf_size)) == NULL)
+			if ((pai_buf = (char *)SMB_MALLOC(pai_buf_size)) == NULL)
 				return NULL;
 		}
 	} while (ret == -1);
@@ -481,7 +484,7 @@ static struct pai_val *load_inherited_info(files_struct *fsp)
 
 	paiv = create_pai_val(pai_buf, ret);
 
-	if (paiv && paiv->protected)
+	if (paiv && paiv->pai_protected)
 		DEBUG(10,("load_inherited_info: ACL is protected for file %s\n", fsp->fsp_name));
 
 	SAFE_FREE(pai_buf);
@@ -513,10 +516,12 @@ static size_t count_canon_ace_list( canon_ace *list_head )
 
 static void free_canon_ace_list( canon_ace *list_head )
 {
-	while (list_head) {
-		canon_ace *old_head = list_head;
-		DLIST_REMOVE(list_head, list_head);
-		SAFE_FREE(old_head);
+	canon_ace *list, *next;
+
+	for (list = list_head; list; list = next) {
+		next = list->next;
+		DLIST_REMOVE(list_head, list);
+		SAFE_FREE(list);
 	}
 }
 
@@ -569,6 +574,9 @@ static void print_canon_ace(canon_ace *pace, int num)
 			break;
 		case SMB_ACL_OTHER:
 			dbgtext( "SMB_ACL_OTHER ");
+			break;
+		default:
+			dbgtext( "MASK " );
 			break;
 	}
 	if (pace->inherited)
@@ -650,6 +658,7 @@ static int map_acl_perms_to_permset(connection_struct *conn, mode_t mode, SMB_AC
 	}
 	return 0;
 }
+
 /****************************************************************************
  Function to create owner and group SIDs from a SMB_STRUCT_STAT.
 ****************************************************************************/
@@ -658,6 +667,27 @@ static void create_file_sids(SMB_STRUCT_STAT *psbuf, DOM_SID *powner_sid, DOM_SI
 {
 	uid_to_sid( powner_sid, psbuf->st_uid );
 	gid_to_sid( pgroup_sid, psbuf->st_gid );
+}
+
+/****************************************************************************
+ Is the identity in two ACEs equal ? Check both SID and uid/gid.
+****************************************************************************/
+
+static BOOL identity_in_ace_equal(canon_ace *ace1, canon_ace *ace2)
+{
+	if (sid_equal(&ace1->trustee, &ace2->trustee)) {
+		return True;
+	}
+	if (ace1->owner_type == ace2->owner_type) {
+		if (ace1->owner_type == UID_ACE &&
+				ace1->unix_ug.uid == ace2->unix_ug.uid) {
+			return True;
+		} else if (ace1->owner_type == GID_ACE &&
+				ace1->unix_ug.gid == ace2->unix_ug.gid) {
+			return True;
+		}
+	}
+	return False;
 }
 
 /****************************************************************************
@@ -687,7 +717,7 @@ static void merge_aces( canon_ace **pp_list_head )
 
 			curr_ace_next = curr_ace->next; /* Save the link in case of delete. */
 
-			if (sid_equal(&curr_ace->trustee, &curr_ace_outer->trustee) &&
+			if (identity_in_ace_equal(curr_ace, curr_ace_outer) &&
 				(curr_ace->attr == curr_ace_outer->attr)) {
 
 				if( DEBUGLVL( 10 )) {
@@ -727,7 +757,7 @@ static void merge_aces( canon_ace **pp_list_head )
 			 * we've put on the ACL, we know the deny must be the first one.
 			 */
 
-			if (sid_equal(&curr_ace->trustee, &curr_ace_outer->trustee) &&
+			if (identity_in_ace_equal(curr_ace, curr_ace_outer) &&
 				(curr_ace_outer->attr == DENY_ACE) && (curr_ace->attr == ALLOW_ACE)) {
 
 				if( DEBUGLVL( 10 )) {
@@ -780,15 +810,15 @@ static void merge_aces( canon_ace **pp_list_head )
 
 static BOOL nt4_compatible_acls(void)
 {
-	const char *compat = lp_acl_compatibility();
+	int compat = lp_acl_compatibility();
 
-	if (*compat == '\0') {
+	if (compat == ACL_COMPAT_AUTO) {
 		enum remote_arch_types ra_type = get_remote_arch();
 
 		/* Automatically adapt to client */
 		return (ra_type <= RA_WINNT);
 	} else
-		return (strequal(compat, "winnt"));
+		return (compat == ACL_COMPAT_WINNT);
 }
 
 
@@ -798,15 +828,19 @@ static BOOL nt4_compatible_acls(void)
  not get. Deny entries are implicit on get with ace->perms = 0.
 ****************************************************************************/
 
-static SEC_ACCESS map_canon_ace_perms(int *pacl_type, DOM_SID *powner_sid, canon_ace *ace)
+static SEC_ACCESS map_canon_ace_perms(int snum, int *pacl_type, DOM_SID *powner_sid, canon_ace *ace, BOOL directory_ace)
 {
 	SEC_ACCESS sa;
 	uint32 nt_mask = 0;
 
 	*pacl_type = SEC_ACE_TYPE_ACCESS_ALLOWED;
 
-	if ((ace->perms & ALL_ACE_PERMS) == ALL_ACE_PERMS) {
+	if (lp_acl_map_full_control(snum) && ((ace->perms & ALL_ACE_PERMS) == ALL_ACE_PERMS)) {
+		if (directory_ace) {
+			nt_mask = UNIX_DIRECTORY_ACCESS_RWX;
+		} else {
 			nt_mask = UNIX_ACCESS_RWX;
+		}
 	} else if ((ace->perms & ALL_ACE_PERMS) == (mode_t)0) {
 		/*
 		 * Windows NT refuses to display ACEs with no permissions in them (but
@@ -822,9 +856,15 @@ static SEC_ACCESS map_canon_ace_perms(int *pacl_type, DOM_SID *powner_sid, canon
 		else
 			nt_mask = 0;
 	} else {
-		nt_mask |= ((ace->perms & S_IRUSR) ? UNIX_ACCESS_R : 0 );
-		nt_mask |= ((ace->perms & S_IWUSR) ? UNIX_ACCESS_W : 0 );
-		nt_mask |= ((ace->perms & S_IXUSR) ? UNIX_ACCESS_X : 0 );
+		if (directory_ace) {
+			nt_mask |= ((ace->perms & S_IRUSR) ? UNIX_DIRECTORY_ACCESS_R : 0 );
+			nt_mask |= ((ace->perms & S_IWUSR) ? UNIX_DIRECTORY_ACCESS_W : 0 );
+			nt_mask |= ((ace->perms & S_IXUSR) ? UNIX_DIRECTORY_ACCESS_X : 0 );
+		} else {
+			nt_mask |= ((ace->perms & S_IRUSR) ? UNIX_ACCESS_R : 0 );
+			nt_mask |= ((ace->perms & S_IWUSR) ? UNIX_ACCESS_W : 0 );
+			nt_mask |= ((ace->perms & S_IXUSR) ? UNIX_ACCESS_X : 0 );
+		}
 	}
 
 	DEBUG(10,("map_canon_ace_perms: Mapped (UNIX) %x to (NT) %x\n",
@@ -842,36 +882,36 @@ static SEC_ACCESS map_canon_ace_perms(int *pacl_type, DOM_SID *powner_sid, canon
 #define FILE_SPECIFIC_WRITE_BITS (FILE_WRITE_DATA|FILE_APPEND_DATA|FILE_WRITE_EA|FILE_WRITE_ATTRIBUTES)
 #define FILE_SPECIFIC_EXECUTE_BITS (FILE_EXECUTE)
 
-static mode_t map_nt_perms( SEC_ACCESS sec_access, int type)
+static mode_t map_nt_perms( uint32 *mask, int type)
 {
 	mode_t mode = 0;
 
 	switch(type) {
 	case S_IRUSR:
-		if(sec_access.mask & GENERIC_ALL_ACCESS)
+		if((*mask) & GENERIC_ALL_ACCESS)
 			mode = S_IRUSR|S_IWUSR|S_IXUSR;
 		else {
-			mode |= (sec_access.mask & (GENERIC_READ_ACCESS|FILE_SPECIFIC_READ_BITS)) ? S_IRUSR : 0;
-			mode |= (sec_access.mask & (GENERIC_WRITE_ACCESS|FILE_SPECIFIC_WRITE_BITS)) ? S_IWUSR : 0;
-			mode |= (sec_access.mask & (GENERIC_EXECUTE_ACCESS|FILE_SPECIFIC_EXECUTE_BITS)) ? S_IXUSR : 0;
+			mode |= ((*mask) & (GENERIC_READ_ACCESS|FILE_SPECIFIC_READ_BITS)) ? S_IRUSR : 0;
+			mode |= ((*mask) & (GENERIC_WRITE_ACCESS|FILE_SPECIFIC_WRITE_BITS)) ? S_IWUSR : 0;
+			mode |= ((*mask) & (GENERIC_EXECUTE_ACCESS|FILE_SPECIFIC_EXECUTE_BITS)) ? S_IXUSR : 0;
 		}
 		break;
 	case S_IRGRP:
-		if(sec_access.mask & GENERIC_ALL_ACCESS)
+		if((*mask) & GENERIC_ALL_ACCESS)
 			mode = S_IRGRP|S_IWGRP|S_IXGRP;
 		else {
-			mode |= (sec_access.mask & (GENERIC_READ_ACCESS|FILE_SPECIFIC_READ_BITS)) ? S_IRGRP : 0;
-			mode |= (sec_access.mask & (GENERIC_WRITE_ACCESS|FILE_SPECIFIC_WRITE_BITS)) ? S_IWGRP : 0;
-			mode |= (sec_access.mask & (GENERIC_EXECUTE_ACCESS|FILE_SPECIFIC_EXECUTE_BITS)) ? S_IXGRP : 0;
+			mode |= ((*mask) & (GENERIC_READ_ACCESS|FILE_SPECIFIC_READ_BITS)) ? S_IRGRP : 0;
+			mode |= ((*mask) & (GENERIC_WRITE_ACCESS|FILE_SPECIFIC_WRITE_BITS)) ? S_IWGRP : 0;
+			mode |= ((*mask) & (GENERIC_EXECUTE_ACCESS|FILE_SPECIFIC_EXECUTE_BITS)) ? S_IXGRP : 0;
 		}
 		break;
 	case S_IROTH:
-		if(sec_access.mask & GENERIC_ALL_ACCESS)
+		if((*mask) & GENERIC_ALL_ACCESS)
 			mode = S_IROTH|S_IWOTH|S_IXOTH;
 		else {
-			mode |= (sec_access.mask & (GENERIC_READ_ACCESS|FILE_SPECIFIC_READ_BITS)) ? S_IROTH : 0;
-			mode |= (sec_access.mask & (GENERIC_WRITE_ACCESS|FILE_SPECIFIC_WRITE_BITS)) ? S_IWOTH : 0;
-			mode |= (sec_access.mask & (GENERIC_EXECUTE_ACCESS|FILE_SPECIFIC_EXECUTE_BITS)) ? S_IXOTH : 0;
+			mode |= ((*mask) & (GENERIC_READ_ACCESS|FILE_SPECIFIC_READ_BITS)) ? S_IROTH : 0;
+			mode |= ((*mask) & (GENERIC_WRITE_ACCESS|FILE_SPECIFIC_WRITE_BITS)) ? S_IWOTH : 0;
+			mode |= ((*mask) & (GENERIC_EXECUTE_ACCESS|FILE_SPECIFIC_EXECUTE_BITS)) ? S_IXOTH : 0;
 		}
 		break;
 	}
@@ -883,7 +923,7 @@ static mode_t map_nt_perms( SEC_ACCESS sec_access, int type)
  Unpack a SEC_DESC into a UNIX owner and group.
 ****************************************************************************/
 
-static BOOL unpack_nt_owners(int snum, SMB_STRUCT_STAT *psbuf, uid_t *puser, gid_t *pgrp, uint32 security_info_sent, SEC_DESC *psd)
+BOOL unpack_nt_owners(int snum, uid_t *puser, gid_t *pgrp, uint32 security_info_sent, SEC_DESC *psd)
 {
 	DOM_SID owner_sid;
 	DOM_SID grp_sid;
@@ -912,12 +952,11 @@ static BOOL unpack_nt_owners(int snum, SMB_STRUCT_STAT *psbuf, uid_t *puser, gid
 
 	if (security_info_sent & OWNER_SECURITY_INFORMATION) {
 		sid_copy(&owner_sid, psd->owner_sid);
-		if (!NT_STATUS_IS_OK(sid_to_uid(&owner_sid, puser))) {
+		if (!sid_to_uid(&owner_sid, puser)) {
 			if (lp_force_unknown_acl_user(snum)) {
 				/* this allows take ownership to work
 				 * reasonably */
-				extern struct current_user current_user;
-				*puser = current_user.uid;
+				*puser = current_user.ut.uid;
 			} else {
 				DEBUG(3,("unpack_nt_owners: unable to validate"
 					 " owner sid for %s\n",
@@ -933,13 +972,12 @@ static BOOL unpack_nt_owners(int snum, SMB_STRUCT_STAT *psbuf, uid_t *puser, gid
 	 */
 
 	if (security_info_sent & GROUP_SECURITY_INFORMATION) {
-		sid_copy(&grp_sid, psd->grp_sid);
-		if (!NT_STATUS_IS_OK(sid_to_gid( &grp_sid, pgrp))) {
+		sid_copy(&grp_sid, psd->group_sid);
+		if (!sid_to_gid( &grp_sid, pgrp)) {
 			if (lp_force_unknown_acl_user(snum)) {
 				/* this allows take group ownership to work
 				 * reasonably */
-				extern struct current_user current_user;
-				*pgrp = current_user.gid;
+				*pgrp = current_user.ut.gid;
 			} else {
 				DEBUG(3,("unpack_nt_owners: unable to validate"
 					 " group sid.\n"));
@@ -1003,10 +1041,7 @@ static void apply_default_perms(files_struct *fsp, canon_ace *pace, mode_t type)
 
 static BOOL uid_entry_in_group( canon_ace *uid_ace, canon_ace *group_ace )
 {
-	extern DOM_SID global_sid_World;
 	fstring u_name;
-	fstring g_name;
-	extern struct current_user current_user;
 
 	/* "Everyone" always matches every uid. */
 
@@ -1015,18 +1050,11 @@ static BOOL uid_entry_in_group( canon_ace *uid_ace, canon_ace *group_ace )
 
 	/* Assume that the current user is in the current group (force group) */
 
-	if (uid_ace->unix_ug.uid == current_user.uid && group_ace->unix_ug.gid == current_user.gid)
+	if (uid_ace->unix_ug.uid == current_user.ut.uid && group_ace->unix_ug.gid == current_user.ut.gid)
 		return True;
 
 	fstrcpy(u_name, uidtoname(uid_ace->unix_ug.uid));
-	fstrcpy(g_name, gidtoname(group_ace->unix_ug.gid));
-
-	/*
-	 * Due to the winbind interfaces we need to do this via names,
-	 * not uids/gids.
-	 */
-
-	return user_in_group_list(u_name, g_name, NULL, 0);
+	return user_in_group_sid(u_name, &group_ace->trustee);
 }
 
 /****************************************************************************
@@ -1041,18 +1069,16 @@ static BOOL uid_entry_in_group( canon_ace *uid_ace, canon_ace *group_ace )
 
 static BOOL ensure_canon_entry_valid(canon_ace **pp_ace,
 							files_struct *fsp,
-							DOM_SID *pfile_owner_sid,
-							DOM_SID *pfile_grp_sid,
+							const DOM_SID *pfile_owner_sid,
+							const DOM_SID *pfile_grp_sid,
 							SMB_STRUCT_STAT *pst,
 							BOOL setting_acl)
 {
-	extern DOM_SID global_sid_World;
 	canon_ace *pace;
 	BOOL got_user = False;
 	BOOL got_grp = False;
 	BOOL got_other = False;
 	canon_ace *pace_other = NULL;
-	canon_ace *pace_group = NULL;
 
 	for (pace = *pp_ace; pace; pace = pace->next) {
 		if (pace->type == SMB_ACL_USER_OBJ) {
@@ -1070,7 +1096,6 @@ static BOOL ensure_canon_entry_valid(canon_ace **pp_ace,
 			if (setting_acl)
 				apply_default_perms(fsp, pace, S_IRGRP);
 			got_grp = True;
-			pace_group = pace;
 
 		} else if (pace->type == SMB_ACL_OTHER) {
 
@@ -1099,13 +1124,28 @@ static BOOL ensure_canon_entry_valid(canon_ace **pp_ace,
 		pace->attr = ALLOW_ACE;
 
 		if (setting_acl) {
+			/* See if the owning user is in any of the other groups in
+			   the ACE. If so, OR in the permissions from that group. */
+
+			BOOL group_matched = False;
+			canon_ace *pace_iter;
+
+			for (pace_iter = *pp_ace; pace_iter; pace_iter = pace_iter->next) {
+				if (pace_iter->type == SMB_ACL_GROUP_OBJ || pace_iter->type == SMB_ACL_GROUP) {
+					if (uid_entry_in_group(pace, pace_iter)) {
+						pace->perms |= pace_iter->perms;
+						group_matched = True;
+					}
+				}
+			}
+
 			/* If we only got an "everyone" perm, just use that. */
-			if (!got_grp && got_other)
-				pace->perms = pace_other->perms;
-			else if (got_grp && uid_entry_in_group(pace, pace_group))
-				pace->perms = pace_group->perms;
-			else
-				pace->perms = 0;
+			if (!group_matched) {
+				if (got_other)
+					pace->perms = pace_other->perms;
+				else
+					pace->perms = 0;
+			}
 
 			apply_default_perms(fsp, pace, S_IRUSR);
 		} else {
@@ -1220,14 +1260,9 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 							canon_ace **ppfile_ace, canon_ace **ppdir_ace,
 							SEC_ACL *dacl)
 {
-	extern DOM_SID global_sid_Creator_Owner;
-	extern DOM_SID global_sid_Creator_Group;
-	extern DOM_SID global_sid_World;
-	extern struct generic_mapping file_generic_mapping;
 	BOOL all_aces_are_inherit_only = (fsp->is_directory ? True : False);
 	canon_ace *file_ace = NULL;
 	canon_ace *dir_ace = NULL;
-	canon_ace *tmp_ace = NULL;
 	canon_ace *current_ace = NULL;
 	BOOL got_dir_allow = False;
 	BOOL got_file_allow = False;
@@ -1241,7 +1276,7 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 	 */
 
 	for(i = 0; i < dacl->num_aces; i++) {
-		SEC_ACE *psa = &dacl->ace[i];
+		SEC_ACE *psa = &dacl->aces[i];
 
 		if((psa->type != SEC_ACE_TYPE_ACCESS_ALLOWED) && (psa->type != SEC_ACE_TYPE_ACCESS_DENIED)) {
 			DEBUG(3,("create_canon_ace_lists: unable to set anything but an ALLOW or DENY ACE.\n"));
@@ -1260,12 +1295,12 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 			 * Convert GENERIC bits to specific bits.
 			 */
  
-			se_map_generic(&psa->info.mask, &file_generic_mapping);
+			se_map_generic(&psa->access_mask, &file_generic_mapping);
 
-			psa->info.mask &= (UNIX_ACCESS_NONE|FILE_ALL_ACCESS);
+			psa->access_mask &= (UNIX_ACCESS_NONE|FILE_ALL_ACCESS);
 
-			if(psa->info.mask != UNIX_ACCESS_NONE)
-				psa->info.mask &= ~UNIX_ACCESS_NONE;
+			if(psa->access_mask != UNIX_ACCESS_NONE)
+				psa->access_mask &= ~UNIX_ACCESS_NONE;
 		}
 	}
 
@@ -1278,12 +1313,12 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 	 */
 
 	for(i = 0; i < dacl->num_aces; i++) {
-		SEC_ACE *psa1 = &dacl->ace[i];
+		SEC_ACE *psa1 = &dacl->aces[i];
 
 		for (j = i + 1; j < dacl->num_aces; j++) {
-			SEC_ACE *psa2 = &dacl->ace[j];
+			SEC_ACE *psa2 = &dacl->aces[j];
 
-			if (psa1->info.mask != psa2->info.mask)
+			if (psa1->access_mask != psa2->access_mask)
 				continue;
 
 			if (!sid_equal(&psa1->trustee, &psa2->trustee))
@@ -1309,18 +1344,7 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 	}
 
 	for(i = 0; i < dacl->num_aces; i++) {
-		SEC_ACE *psa = &dacl->ace[i];
-
-		/*
-		 * Ignore non-mappable SIDs (NT Authority, BUILTIN etc).
-		 */
-
-		if (non_mappable_sid(&psa->trustee)) {
-			fstring str;
-			DEBUG(10,("create_canon_ace_lists: ignoring non-mappable SID %s\n",
-				sid_to_string(str, &psa->trustee) ));
-			continue;
-		}
+		SEC_ACE *psa = &dacl->aces[i];
 
 		/*
 		 * Create a cannon_ace entry representing this NT DACL ACE.
@@ -1373,14 +1397,25 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 			if (nt4_compatible_acls())
 				psa->flags |= SEC_ACE_FLAG_INHERIT_ONLY;
 
-		} else if (NT_STATUS_IS_OK(sid_to_uid( &current_ace->trustee, &current_ace->unix_ug.uid))) {
+		} else if (sid_to_uid( &current_ace->trustee, &current_ace->unix_ug.uid)) {
 			current_ace->owner_type = UID_ACE;
 			current_ace->type = SMB_ACL_USER;
-		} else if (NT_STATUS_IS_OK(sid_to_gid( &current_ace->trustee, &current_ace->unix_ug.gid))) {
+		} else if (sid_to_gid( &current_ace->trustee, &current_ace->unix_ug.gid)) {
 			current_ace->owner_type = GID_ACE;
 			current_ace->type = SMB_ACL_GROUP;
 		} else {
 			fstring str;
+
+			/*
+			 * Silently ignore map failures in non-mappable SIDs (NT Authority, BUILTIN etc).
+			 */
+
+			if (non_mappable_sid(&psa->trustee)) {
+				DEBUG(10,("create_canon_ace_lists: ignoring non-mappable SID %s\n",
+					sid_to_string(str, &psa->trustee) ));
+				SAFE_FREE(current_ace);
+				continue;
+			}
 
 			free_canon_ace_list(file_ace);
 			free_canon_ace_list(dir_ace);
@@ -1395,7 +1430,7 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 		 * S_I(R|W|X)USR bits.
 		 */
 
-		current_ace->perms |= map_nt_perms( psa->info, S_IRUSR);
+		current_ace->perms |= map_nt_perms( &psa->access_mask, S_IRUSR);
 		current_ace->attr = (psa->type == SEC_ACE_TYPE_ACCESS_ALLOWED) ? ALLOW_ACE : DENY_ACE;
 		current_ace->inherited = ((psa->flags & SEC_ACE_FLAG_INHERITED_ACE) ? True : False);
 
@@ -1415,7 +1450,7 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 			if ((psa->flags & (SEC_ACE_FLAG_OBJECT_INHERIT|SEC_ACE_FLAG_CONTAINER_INHERIT)) ==
 				(SEC_ACE_FLAG_OBJECT_INHERIT|SEC_ACE_FLAG_CONTAINER_INHERIT)) {
 
-				DLIST_ADD_END(dir_ace, current_ace, tmp_ace);
+				DLIST_ADD_END(dir_ace, current_ace, canon_ace *);
 
 				/*
 				 * Note if this was an allow ace. We can't process
@@ -1430,7 +1465,6 @@ static BOOL create_canon_ace_lists(files_struct *fsp, SMB_STRUCT_STAT *pst,
 Deny entry after Allow entry. Failing to set on file %s.\n", fsp->fsp_name ));
 					free_canon_ace_list(file_ace);
 					free_canon_ace_list(dir_ace);
-					SAFE_FREE(current_ace);
 					return False;
 				}	
 
@@ -1473,8 +1507,8 @@ Deny entry after Allow entry. Failing to set on file %s.\n", fsp->fsp_name ));
 		 * Only add to the file ACL if not inherit only.
 		 */
 
-		if (!(psa->flags & SEC_ACE_FLAG_INHERIT_ONLY)) {
-			DLIST_ADD_END(file_ace, current_ace, tmp_ace);
+		if (current_ace && !(psa->flags & SEC_ACE_FLAG_INHERIT_ONLY)) {
+			DLIST_ADD_END(file_ace, current_ace, canon_ace *);
 
 			/*
 			 * Note if this was an allow ace. We can't process
@@ -1489,7 +1523,6 @@ Deny entry after Allow entry. Failing to set on file %s.\n", fsp->fsp_name ));
 Deny entry after Allow entry. Failing to set on file %s.\n", fsp->fsp_name ));
 				free_canon_ace_list(file_ace);
 				free_canon_ace_list(dir_ace);
-				SAFE_FREE(current_ace);
 				return False;
 			}	
 
@@ -1531,8 +1564,12 @@ Deny entry after Allow entry. Failing to set on file %s.\n", fsp->fsp_name ));
 		 * entries can be converted to *_OBJ. Usually we will already have these
 		 * entries in the Default ACL, and the Access ACL will not have them.
 		 */
-		check_owning_objs(file_ace, pfile_owner_sid, pfile_grp_sid);
-		check_owning_objs(dir_ace, pfile_owner_sid, pfile_grp_sid);
+		if (file_ace) {
+			check_owning_objs(file_ace, pfile_owner_sid, pfile_grp_sid);
+		}
+		if (dir_ace) {
+			check_owning_objs(dir_ace, pfile_owner_sid, pfile_grp_sid);
+		}
 	}
 
 	*ppfile_ace = file_ace;
@@ -1647,7 +1684,6 @@ Deny entry after Allow entry. Failing to set on file %s.\n", fsp->fsp_name ));
 
 static void process_deny_list( canon_ace **pp_ace_list )
 {
-	extern DOM_SID global_sid_World;
 	canon_ace *ace_list = *pp_ace_list;
 	canon_ace *curr_ace = NULL;
 	canon_ace *curr_ace_next = NULL;
@@ -1719,7 +1755,6 @@ static void process_deny_list( canon_ace **pp_ace_list )
 	for (curr_ace = ace_list; curr_ace; curr_ace = curr_ace_next) {
 		mode_t new_perms = (mode_t)0;
 		canon_ace *allow_ace_p;
-		canon_ace *tmp_ace;
 
 		curr_ace_next = curr_ace->next; /* So we can't lose the link. */
 
@@ -1738,7 +1773,7 @@ static void process_deny_list( canon_ace **pp_ace_list )
 
 			curr_ace->attr = ALLOW_ACE;
 			curr_ace->perms = (mode_t)0;
-			DLIST_DEMOTE(ace_list, curr_ace, tmp_ace);
+			DLIST_DEMOTE(ace_list, curr_ace, canon_ace *);
 			continue;
 		}
 
@@ -1763,13 +1798,12 @@ static void process_deny_list( canon_ace **pp_ace_list )
 
 		curr_ace->attr = ALLOW_ACE;
 		curr_ace->perms = (new_perms & ~curr_ace->perms);
-		DLIST_DEMOTE(ace_list, curr_ace, tmp_ace);
+		DLIST_DEMOTE(ace_list, curr_ace, canon_ace *);
 	}
 
 	/* Pass 3 above - deal with deny group entries. */
 
 	for (curr_ace = ace_list; curr_ace; curr_ace = curr_ace_next) {
-		canon_ace *tmp_ace;
 		canon_ace *allow_ace_p;
 		canon_ace *allow_everyone_p = NULL;
 
@@ -1811,8 +1845,7 @@ static void process_deny_list( canon_ace **pp_ace_list )
 			curr_ace->perms = allow_everyone_p->perms & ~curr_ace->perms;
 		else
 			curr_ace->perms = (mode_t)0;
-		DLIST_DEMOTE(ace_list, curr_ace, tmp_ace);
-
+		DLIST_DEMOTE(ace_list, curr_ace, canon_ace *);
 	}
 
 	/* Doing this fourth pass allows Windows semantics to be layered
@@ -1867,7 +1900,10 @@ static mode_t create_default_mode(files_struct *fsp, BOOL interitable_mode)
 	int snum = SNUM(fsp->conn);
 	mode_t and_bits = (mode_t)0;
 	mode_t or_bits = (mode_t)0;
-	mode_t mode = interitable_mode ? unix_mode( fsp->conn, FILE_ATTRIBUTE_ARCHIVE, fsp->fsp_name) : S_IRUSR;
+	mode_t mode = interitable_mode
+		? unix_mode( fsp->conn, FILE_ATTRIBUTE_ARCHIVE, fsp->fsp_name,
+			     NULL )
+		: S_IRUSR;
 
 	if (fsp->is_directory)
 		mode |= (S_IWUSR|S_IXUSR);
@@ -2012,8 +2048,8 @@ static BOOL unpack_canon_ace(files_struct *fsp,
  then a simple POSIX permission of rw-r--r-- should really map to 5 entries,
 
  Entry 0: owner : deny all except read and write.
- Entry 1: group : deny all except read.
- Entry 2: owner : allow read and write.
+ Entry 1: owner : allow read and write.
+ Entry 2: group : deny all except read.
  Entry 3: group : allow read.
  Entry 4: Everyone : allow read.
 
@@ -2052,7 +2088,7 @@ static void arrange_posix_perms( char *filename, canon_ace **pp_list_head)
 	}
 
 	if (other_ace) {
-		DLIST_DEMOTE(list_head, other_ace, ace);
+		DLIST_DEMOTE(list_head, other_ace, canon_ace *);
 	}
 
 	/* We have probably changed the head of the list. */
@@ -2065,9 +2101,8 @@ static void arrange_posix_perms( char *filename, canon_ace **pp_list_head)
 ****************************************************************************/
 
 static canon_ace *canonicalise_acl( files_struct *fsp, SMB_ACL_T posix_acl, SMB_STRUCT_STAT *psbuf,
-					DOM_SID *powner, DOM_SID *pgroup, struct pai_val *pal, SMB_ACL_TYPE_T the_acl_type)
+					const DOM_SID *powner, const DOM_SID *pgroup, struct pai_val *pal, SMB_ACL_TYPE_T the_acl_type)
 {
-	extern DOM_SID global_sid_World;
 	connection_struct *conn = fsp->conn;
 	mode_t acl_mask = (S_IRUSR|S_IWUSR|S_IXUSR);
 	canon_ace *list_head = NULL;
@@ -2222,10 +2257,44 @@ static canon_ace *canonicalise_acl( files_struct *fsp, SMB_ACL_T posix_acl, SMB_
 }
 
 /****************************************************************************
+ Check if the current user group list contains a given group.
+****************************************************************************/
+
+static BOOL current_user_in_group(gid_t gid)
+{
+	int i;
+
+	for (i = 0; i < current_user.ut.ngroups; i++) {
+		if (current_user.ut.groups[i] == gid) {
+			return True;
+		}
+	}
+
+	return False;
+}
+
+/****************************************************************************
+ Should we override a deny ?  Check deprecated 'acl group control'
+ and 'dos filemode'
+****************************************************************************/
+
+static BOOL acl_group_override(connection_struct *conn, gid_t prim_gid)
+{
+	if ( (errno == EACCES || errno == EPERM) 
+		&& (lp_acl_group_control(SNUM(conn)) || lp_dos_filemode(SNUM(conn)))
+		&& current_user_in_group(prim_gid)) 
+	{
+		return True;
+	} 
+
+	return False;
+}
+
+/****************************************************************************
  Attempt to apply an ACL to a file or directory.
 ****************************************************************************/
 
-static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL default_ace, BOOL *pacl_set_support)
+static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL default_ace, gid_t prim_gid, BOOL *pacl_set_support)
 {
 	connection_struct *conn = fsp->conn;
 	BOOL ret = False;
@@ -2290,7 +2359,7 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 		if (SMB_VFS_SYS_ACL_CREATE_ENTRY(conn, &the_acl, &the_entry) == -1) {
 			DEBUG(0,("set_canon_ace_list: Failed to create entry %d. (%s)\n",
 				i, strerror(errno) ));
-			goto done;
+			goto fail;
 		}
 
 		if (p_ace->type == SMB_ACL_MASK) {
@@ -2316,7 +2385,7 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 		if (SMB_VFS_SYS_ACL_SET_TAG_TYPE(conn, the_entry, p_ace->type) == -1) {
 			DEBUG(0,("set_canon_ace_list: Failed to set tag type on entry %d. (%s)\n",
 				i, strerror(errno) ));
-			goto done;
+			goto fail;
 		}
 
 		/*
@@ -2328,7 +2397,7 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 			if (SMB_VFS_SYS_ACL_SET_QUALIFIER(conn, the_entry,(void *)&p_ace->unix_ug.uid) == -1) {
 				DEBUG(0,("set_canon_ace_list: Failed to set qualifier on entry %d. (%s)\n",
 					i, strerror(errno) ));
-				goto done;
+				goto fail;
 			}
 		}
 
@@ -2339,13 +2408,13 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 		if (SMB_VFS_SYS_ACL_GET_PERMSET(conn, the_entry, &the_permset) == -1) {
 			DEBUG(0,("set_canon_ace_list: Failed to get permset on entry %d. (%s)\n",
 				i, strerror(errno) ));
-			goto done;
+			goto fail;
 		}
 
 		if (map_acl_perms_to_permset(conn, p_ace->perms, &the_permset) == -1) {
 			DEBUG(0,("set_canon_ace_list: Failed to create permset for mode (%u) on entry %d. (%s)\n",
 				(unsigned int)p_ace->perms, i, strerror(errno) ));
-			goto done;
+			goto fail;
 		}
 
 		/*
@@ -2355,7 +2424,7 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 		if (SMB_VFS_SYS_ACL_SET_PERMSET(conn, the_entry, the_permset) == -1) {
 			DEBUG(0,("set_canon_ace_list: Failed to add permset on entry %d. (%s)\n",
 				i, strerror(errno) ));
-			goto done;
+			goto fail;
 		}
 
 		if( DEBUGLVL( 10 ))
@@ -2366,46 +2435,35 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 	if (needs_mask && !got_mask_entry) {
 		if (SMB_VFS_SYS_ACL_CREATE_ENTRY(conn, &the_acl, &mask_entry) == -1) {
 			DEBUG(0,("set_canon_ace_list: Failed to create mask entry. (%s)\n", strerror(errno) ));
-			goto done;
+			goto fail;
 		}
 
 		if (SMB_VFS_SYS_ACL_SET_TAG_TYPE(conn, mask_entry, SMB_ACL_MASK) == -1) {
 			DEBUG(0,("set_canon_ace_list: Failed to set tag type on mask entry. (%s)\n",strerror(errno) ));
-			goto done;
+			goto fail;
 		}
 
 		if (SMB_VFS_SYS_ACL_GET_PERMSET(conn, mask_entry, &mask_permset) == -1) {
 			DEBUG(0,("set_canon_ace_list: Failed to get mask permset. (%s)\n", strerror(errno) ));
-			goto done;
+			goto fail;
 		}
 
 		if (map_acl_perms_to_permset(conn, S_IRUSR|S_IWUSR|S_IXUSR, &mask_permset) == -1) {
 			DEBUG(0,("set_canon_ace_list: Failed to create mask permset. (%s)\n", strerror(errno) ));
-			goto done;
+			goto fail;
 		}
 
 		if (SMB_VFS_SYS_ACL_SET_PERMSET(conn, mask_entry, mask_permset) == -1) {
 			DEBUG(0,("set_canon_ace_list: Failed to add mask permset. (%s)\n", strerror(errno) ));
-			goto done;
+			goto fail;
 		}
-	}
-
-	/*
-	 * Check if the ACL is valid.
-	 */
-
-	if (SMB_VFS_SYS_ACL_VALID(conn, the_acl) == -1) {
-		DEBUG(0,("set_canon_ace_list: ACL type (%s) is invalid for set (%s).\n",
-				the_acl_type == SMB_ACL_TYPE_DEFAULT ? "directory default" : "file",
-				strerror(errno) ));
-		goto done;
 	}
 
 	/*
 	 * Finally apply it to the file or directory.
 	 */
 
-	if(default_ace || fsp->is_directory || fsp->fd == -1) {
+	if(default_ace || fsp->is_directory || fsp->fh->fd == -1) {
 		if (SMB_VFS_SYS_ACL_SET_FILE(conn, fsp->fsp_name, the_acl_type, the_acl) == -1) {
 			/*
 			 * Some systems allow all the above calls and only fail with no ACL support
@@ -2415,13 +2473,29 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 				*pacl_set_support = False;
 			}
 
-			DEBUG(2,("set_canon_ace_list: sys_acl_set_file type %s failed for file %s (%s).\n",
-					the_acl_type == SMB_ACL_TYPE_DEFAULT ? "directory default" : "file",
-					fsp->fsp_name, strerror(errno) ));
-			goto done;
+			if (acl_group_override(conn, prim_gid)) {
+				int sret;
+
+				DEBUG(5,("set_canon_ace_list: acl group control on and current user in file %s primary group.\n",
+					fsp->fsp_name ));
+
+				become_root();
+				sret = SMB_VFS_SYS_ACL_SET_FILE(conn, fsp->fsp_name, the_acl_type, the_acl);
+				unbecome_root();
+				if (sret == 0) {
+					ret = True;	
+				}
+			}
+
+			if (ret == False) {
+				DEBUG(2,("set_canon_ace_list: sys_acl_set_file type %s failed for file %s (%s).\n",
+						the_acl_type == SMB_ACL_TYPE_DEFAULT ? "directory default" : "file",
+						fsp->fsp_name, strerror(errno) ));
+				goto fail;
+			}
 		}
 	} else {
-		if (SMB_VFS_SYS_ACL_SET_FD(fsp, fsp->fd, the_acl) == -1) {
+		if (SMB_VFS_SYS_ACL_SET_FD(fsp, fsp->fh->fd, the_acl) == -1) {
 			/*
 			 * Some systems allow all the above calls and only fail with no ACL support
 			 * when attempting to apply the acl. HPUX with HFS is an example of this. JRA.
@@ -2430,18 +2504,35 @@ static BOOL set_canon_ace_list(files_struct *fsp, canon_ace *the_ace, BOOL defau
 				*pacl_set_support = False;
 			}
 
-			DEBUG(2,("set_canon_ace_list: sys_acl_set_file failed for file %s (%s).\n",
-					fsp->fsp_name, strerror(errno) ));
-			goto done;
+			if (acl_group_override(conn, prim_gid)) {
+				int sret;
+
+				DEBUG(5,("set_canon_ace_list: acl group control on and current user in file %s primary group.\n",
+					fsp->fsp_name ));
+
+				become_root();
+				sret = SMB_VFS_SYS_ACL_SET_FD(fsp, fsp->fh->fd, the_acl);
+				unbecome_root();
+				if (sret == 0) {
+					ret = True;
+				}
+			}
+
+			if (ret == False) {
+				DEBUG(2,("set_canon_ace_list: sys_acl_set_file failed for file %s (%s).\n",
+						fsp->fsp_name, strerror(errno) ));
+				goto fail;
+			}
 		}
 	}
 
 	ret = True;
 
-  done:
+  fail:
 
-	if (the_acl != NULL)
-	    SMB_VFS_SYS_ACL_FREE_ACL(conn, the_acl);
+	if (the_acl != NULL) {
+		SMB_VFS_SYS_ACL_FREE_ACL(conn, the_acl);
+	}
 
 	return ret;
 }
@@ -2575,7 +2666,7 @@ static size_t merge_default_aces( SEC_ACE *nt_ace_list, size_t num_aces)
 			/* We know the lower number ACE's are file entries. */
 			if ((nt_ace_list[i].type == nt_ace_list[j].type) &&
 				(nt_ace_list[i].size == nt_ace_list[j].size) &&
-				(nt_ace_list[i].info.mask == nt_ace_list[j].info.mask) &&
+				(nt_ace_list[i].access_mask == nt_ace_list[j].access_mask) &&
 				sid_equal(&nt_ace_list[i].trustee, &nt_ace_list[j].trustee) &&
 				(i_inh == j_inh) &&
 				(i_flags_ni == 0) &&
@@ -2588,7 +2679,7 @@ static size_t merge_default_aces( SEC_ACE *nt_ace_list, size_t num_aces)
 				 * the non-inherited ACE onto the inherited ACE.
 				 */
 
-				if (nt_ace_list[i].info.mask == 0) {
+				if (nt_ace_list[i].access_mask == 0) {
 					nt_ace_list[j].flags = SEC_ACE_FLAG_OBJECT_INHERIT|SEC_ACE_FLAG_CONTAINER_INHERIT|
 								(i_inh ? SEC_ACE_FLAG_INHERITED_ACE : 0);
 					if (num_aces - i - 1 > 0)
@@ -2629,10 +2720,6 @@ static size_t merge_default_aces( SEC_ACE *nt_ace_list, size_t num_aces)
 
 size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 {
-	extern DOM_SID global_sid_Builtin_Administrators;
-	extern DOM_SID global_sid_Builtin_Users;
-	extern DOM_SID global_sid_Creator_Owner;
-	extern DOM_SID global_sid_Creator_Group;
 	connection_struct *conn = fsp->conn;
 	SMB_STRUCT_STAT sbuf;
 	SEC_ACE *nt_ace_list = NULL;
@@ -2641,10 +2728,10 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 	size_t sd_size = 0;
 	SEC_ACL *psa = NULL;
 	size_t num_acls = 0;
-	size_t num_dir_acls = 0;
+	size_t num_def_acls = 0;
 	size_t num_aces = 0;
 	SMB_ACL_T posix_acl = NULL;
-	SMB_ACL_T dir_acl = NULL;
+	SMB_ACL_T def_acl = NULL;
 	canon_ace *file_ace = NULL;
 	canon_ace *dir_ace = NULL;
 	size_t num_profile_acls = 0;
@@ -2655,7 +2742,7 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 
 	DEBUG(10,("get_nt_acl: called for file %s\n", fsp->fsp_name ));
 
-	if(fsp->is_directory || fsp->fd == -1) {
+	if(fsp->is_directory || fsp->fh->fd == -1) {
 
 		/* Get the stat struct for the owner info. */
 		if(SMB_VFS_STAT(fsp->conn,fsp->fsp_name, &sbuf) != 0) {
@@ -2672,25 +2759,25 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 		 */
 
 		if(fsp->is_directory) {
-			dir_acl = SMB_VFS_SYS_ACL_GET_FILE(conn, fsp->fsp_name, SMB_ACL_TYPE_DEFAULT);
-			dir_acl = free_empty_sys_acl(conn, dir_acl);
+			def_acl = SMB_VFS_SYS_ACL_GET_FILE(conn, fsp->fsp_name, SMB_ACL_TYPE_DEFAULT);
+			def_acl = free_empty_sys_acl(conn, def_acl);
 		}
 
 	} else {
 
 		/* Get the stat struct for the owner info. */
-		if(SMB_VFS_FSTAT(fsp,fsp->fd,&sbuf) != 0) {
+		if(SMB_VFS_FSTAT(fsp,fsp->fh->fd,&sbuf) != 0) {
 			return 0;
 		}
 		/*
 		 * Get the ACL from the fd.
 		 */
-		posix_acl = SMB_VFS_SYS_ACL_GET_FD(fsp, fsp->fd);
+		posix_acl = SMB_VFS_SYS_ACL_GET_FD(fsp, fsp->fh->fd);
 	}
 
 	DEBUG(5,("get_nt_acl : file ACL %s, directory ACL %s\n",
 			posix_acl ? "present" :  "absent",
-			dir_acl ? "present" :  "absent" ));
+			def_acl ? "present" :  "absent" ));
 
 	pal = load_inherited_info(fsp);
 
@@ -2698,7 +2785,7 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 	 * Get the owner, group and world SIDs.
 	 */
 
-	if (lp_profile_acls(SNUM(fsp->conn))) {
+	if (lp_profile_acls(SNUM(conn))) {
 		/* For WXP SP1 the owner must be administrators. */
 		sid_copy(&owner_sid, &global_sid_Builtin_Administrators);
 		sid_copy(&group_sid, &global_sid_Builtin_Users);
@@ -2725,11 +2812,11 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 	
 		if (count_canon_ace_list(file_ace) == 0) {
 			DEBUG(0,("get_nt_acl : No ACLs on file (%s) !\n", fsp->fsp_name ));
-			return 0;
+			goto done;
 		}
 
-		if (fsp->is_directory && dir_acl) {
-			dir_ace = canonicalise_acl(fsp, dir_acl, &sbuf,
+		if (fsp->is_directory && def_acl) {
+			dir_ace = canonicalise_acl(fsp, def_acl, &sbuf,
 					&global_sid_Creator_Owner,
 					&global_sid_Creator_Group, pal, SMB_ACL_TYPE_DEFAULT );
 		}
@@ -2793,15 +2880,15 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 			}
 
 			num_acls = count_canon_ace_list(file_ace);
-			num_dir_acls = count_canon_ace_list(dir_ace);
+			num_def_acls = count_canon_ace_list(dir_ace);
 
 			/* Allocate the ace list. */
-			if ((nt_ace_list = SMB_MALLOC_ARRAY(SEC_ACE, num_acls + num_profile_acls + num_dir_acls)) == NULL) {
+			if ((nt_ace_list = SMB_MALLOC_ARRAY(SEC_ACE,num_acls + num_profile_acls + num_def_acls)) == NULL) {
 				DEBUG(0,("get_nt_acl: Unable to malloc space for nt_ace_list.\n"));
 				goto done;
 			}
 
-			memset(nt_ace_list, '\0', (num_acls + num_dir_acls) * sizeof(SEC_ACE) );
+			memset(nt_ace_list, '\0', (num_acls + num_def_acls) * sizeof(SEC_ACE) );
 											                
 			/*
 			 * Create the NT ACE list from the canonical ace lists.
@@ -2812,12 +2899,12 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 			for (i = 0; i < num_acls; i++, ace = ace->next) {
 				SEC_ACCESS acc;
 
-				acc = map_canon_ace_perms(&nt_acl_type, &owner_sid, ace );
+				acc = map_canon_ace_perms(SNUM(conn), &nt_acl_type, &owner_sid, ace, fsp->is_directory);
 				init_sec_ace(&nt_ace_list[num_aces++], &ace->trustee, nt_acl_type, acc, ace->inherited ? SEC_ACE_FLAG_INHERITED_ACE : 0);
 			}
 
 			/* The User must have access to a profile share - even if we can't map the SID. */
-			if (lp_profile_acls(SNUM(fsp->conn))) {
+			if (lp_profile_acls(SNUM(conn))) {
 				SEC_ACCESS acc;
 
 				init_sec_access(&acc,FILE_GENERIC_ALL);
@@ -2827,10 +2914,10 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 
 			ace = dir_ace;
 
-			for (i = 0; i < num_dir_acls; i++, ace = ace->next) {
+			for (i = 0; i < num_def_acls; i++, ace = ace->next) {
 				SEC_ACCESS acc;
 	
-				acc = map_canon_ace_perms(&nt_acl_type, &owner_sid, ace );
+				acc = map_canon_ace_perms(SNUM(conn), &nt_acl_type, &owner_sid, ace, fsp->is_directory);
 				init_sec_ace(&nt_ace_list[num_aces++], &ace->trustee, nt_acl_type, acc,
 						SEC_ACE_FLAG_OBJECT_INHERIT|SEC_ACE_FLAG_CONTAINER_INHERIT|
 						SEC_ACE_FLAG_INHERIT_ONLY|
@@ -2838,7 +2925,7 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 			}
 
 			/* The User must have access to a profile share - even if we can't map the SID. */
-			if (lp_profile_acls(SNUM(fsp->conn))) {
+			if (lp_profile_acls(SNUM(conn))) {
 				SEC_ACCESS acc;
 			
 				init_sec_access(&acc,FILE_GENERIC_ALL);
@@ -2874,31 +2961,37 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
 	if(!psd) {
 		DEBUG(0,("get_nt_acl: Unable to malloc space for security descriptor.\n"));
 		sd_size = 0;
-	} else {
-		/*
-		 * Windows 2000: The DACL_PROTECTED flag in the security
-		 * descriptor marks the ACL as non-inheriting, i.e., no
-		 * ACEs from higher level directories propagate to this
-		 * ACL. In the POSIX ACL model permissions are only
-		 * inherited at file create time, so ACLs never contain
-		 * any ACEs that are inherited dynamically. The DACL_PROTECTED
-		 * flag doesn't seem to bother Windows NT.
-		 */
-		if (get_protected_flag(pal))
-			psd->type |= SE_DESC_DACL_PROTECTED;
+		goto done;
 	}
 
-	if (psd->dacl)
-		dacl_sort_into_canonical_order(psd->dacl->ace, (unsigned int)psd->dacl->num_aces);
+	/*
+	 * Windows 2000: The DACL_PROTECTED flag in the security
+	 * descriptor marks the ACL as non-inheriting, i.e., no
+	 * ACEs from higher level directories propagate to this
+	 * ACL. In the POSIX ACL model permissions are only
+	 * inherited at file create time, so ACLs never contain
+	 * any ACEs that are inherited dynamically. The DACL_PROTECTED
+	 * flag doesn't seem to bother Windows NT.
+	 * Always set this if map acl inherit is turned off.
+	 */
+	if (get_protected_flag(pal) || !lp_map_acl_inherit(SNUM(conn))) {
+		psd->type |= SE_DESC_DACL_PROTECTED;
+	}
+
+	if (psd->dacl) {
+		dacl_sort_into_canonical_order(psd->dacl->aces, (unsigned int)psd->dacl->num_aces);
+	}
 
 	*ppdesc = psd;
 
  done:
 
-	if (posix_acl)
+	if (posix_acl) {
 		SMB_VFS_SYS_ACL_FREE_ACL(conn, posix_acl);
-	if (dir_acl)
-		SMB_VFS_SYS_ACL_FREE_ACL(conn, dir_acl);
+	}
+	if (def_acl) {
+		SMB_VFS_SYS_ACL_FREE_ACL(conn, def_acl);
+	}
 	free_canon_ace_list(file_ace);
 	free_canon_ace_list(dir_ace);
 	free_inherited_info(pal);
@@ -2911,41 +3004,71 @@ size_t get_nt_acl(files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
  Try to chown a file. We will be able to chown it under the following conditions.
 
   1) If we have root privileges, then it will just work.
-  2) If we have write permission to the file and dos_filemodes is set
+  2) If we have SeTakeOwnershipPrivilege we can change the user to the current user.
+  3) If we have SeRestorePrivilege we can change the user to any other user. 
+  4) If we have write permission to the file and dos_filemodes is set
      then allow chown to the currently authenticated user.
 ****************************************************************************/
 
-static int try_chown(connection_struct *conn, const char *fname, uid_t uid, gid_t gid)
+int try_chown(connection_struct *conn, const char *fname, uid_t uid, gid_t gid)
 {
 	int ret;
-	extern struct current_user current_user;
 	files_struct *fsp;
 	SMB_STRUCT_STAT st;
 
+	if(!CAN_WRITE(conn)) {
+		return -1;
+	}
+
+	/* Case (1). */
 	/* try the direct way first */
 	ret = SMB_VFS_CHOWN(conn, fname, uid, gid);
 	if (ret == 0)
 		return 0;
 
-	if(!CAN_WRITE(conn) || !lp_dos_filemode(SNUM(conn)))
-		return -1;
+	/* Case (2) / (3) */
+	if (lp_enable_privileges()) {
 
-	if (SMB_VFS_STAT(conn,fname,&st))
-		return -1;
+		BOOL has_take_ownership_priv = user_has_privileges(current_user.nt_user_token,
+							      &se_take_ownership);
+		BOOL has_restore_priv = user_has_privileges(current_user.nt_user_token,
+						       &se_restore);
 
-	fsp = open_file_fchmod(conn,fname,&st);
-	if (!fsp)
+		/* Case (2) */
+		if ( ( has_take_ownership_priv && ( uid == current_user.ut.uid ) ) ||
+		/* Case (3) */
+		     ( has_restore_priv ) ) {
+
+			become_root();
+			/* Keep the current file gid the same - take ownership doesn't imply group change. */
+			ret = SMB_VFS_CHOWN(conn, fname, uid, (gid_t)-1);
+			unbecome_root();
+			return ret;
+		}
+	}
+
+	/* Case (4). */
+	if (!lp_dos_filemode(SNUM(conn))) {
 		return -1;
+	}
+
+	if (SMB_VFS_STAT(conn,fname,&st)) {
+		return -1;
+	}
+
+	if (!NT_STATUS_IS_OK(open_file_fchmod(conn,fname,&st,&fsp))) {
+		return -1;
+	}
 
 	/* only allow chown to the current user. This is more secure,
 	   and also copes with the case where the SID in a take ownership ACL is
 	   a local SID on the users workstation 
 	*/
-	uid = current_user.uid;
+	uid = current_user.ut.uid;
 
 	become_root();
 	/* Keep the current file gid the same. */
-	ret = SMB_VFS_FCHOWN(fsp, fsp->fd, uid, (gid_t)-1);
+	ret = SMB_VFS_FCHOWN(fsp, fsp->fh->fd, uid, (gid_t)-1);
 	unbecome_root();
 
 	close_file_fchmod(fsp);
@@ -2974,7 +3097,6 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 	uid_t orig_uid;
 	gid_t orig_gid;
 	BOOL need_chown = False;
-	extern struct current_user current_user;
 
 	DEBUG(10,("set_nt_acl: called for file %s\n", fsp->fsp_name ));
 
@@ -2987,11 +3109,11 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 	 * Get the current state of the file.
 	 */
 
-	if(fsp->is_directory || fsp->fd == -1) {
+	if(fsp->is_directory || fsp->fh->fd == -1) {
 		if(SMB_VFS_STAT(fsp->conn,fsp->fsp_name, &sbuf) != 0)
 			return False;
 	} else {
-		if(SMB_VFS_FSTAT(fsp,fsp->fd,&sbuf) != 0)
+		if(SMB_VFS_FSTAT(fsp,fsp->fh->fd,&sbuf) != 0)
 			return False;
 	}
 
@@ -3004,15 +3126,17 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 	 * Unpack the user/group/world id's.
 	 */
 
-	if (!unpack_nt_owners( SNUM(conn), &sbuf, &user, &grp, security_info_sent, psd))
+	if (!unpack_nt_owners( SNUM(conn), &user, &grp, security_info_sent, psd)) {
 		return False;
+	}
 
 	/*
 	 * Do we need to chown ?
 	 */
 
-	if (((user != (uid_t)-1) && (orig_uid != user)) || (( grp != (gid_t)-1) && (orig_gid != grp)))
+	if (((user != (uid_t)-1) && (orig_uid != user)) || (( grp != (gid_t)-1) && (orig_gid != grp))) {
 		need_chown = True;
+	}
 
 	/*
 	 * Chown before setting ACL only if we don't change the user, or
@@ -3020,7 +3144,7 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 	 * the file.
 	 */
 
-	if (need_chown && (user == (uid_t)-1 || user == current_user.uid)) {
+	if (need_chown && (user == (uid_t)-1 || user == current_user.ut.uid)) {
 
 		DEBUG(3,("set_nt_acl: chown %s. uid = %u, gid = %u.\n",
 				fsp->fsp_name, (unsigned int)user, (unsigned int)grp ));
@@ -3044,10 +3168,10 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 
 			int ret;
     
-			if(fsp->fd == -1)
+			if(fsp->fh->fd == -1)
 				ret = SMB_VFS_STAT(fsp->conn, fsp->fsp_name, &sbuf);
 			else
-				ret = SMB_VFS_FSTAT(fsp,fsp->fd,&sbuf);
+				ret = SMB_VFS_FSTAT(fsp,fsp->fh->fd,&sbuf);
   
 			if(ret != 0)
 				return False;
@@ -3065,7 +3189,7 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 	create_file_sids(&sbuf, &file_owner_sid, &file_grp_sid);
 
 	acl_perms = unpack_canon_ace( fsp, &sbuf, &file_owner_sid, &file_grp_sid,
-									&file_ace_list, &dir_ace_list, security_info_sent, psd);
+					&file_ace_list, &dir_ace_list, security_info_sent, psd);
 
 	/* Ignore W2K traverse DACL set. */
 	if (file_ace_list || dir_ace_list) {
@@ -3092,7 +3216,7 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 			 */
 
 			if (acl_perms && file_ace_list) {
-				ret = set_canon_ace_list(fsp, file_ace_list, False, &acl_set_support);
+				ret = set_canon_ace_list(fsp, file_ace_list, False, sbuf.st_gid, &acl_set_support);
 				if (acl_set_support && ret == False) {
 					DEBUG(3,("set_nt_acl: failed to set file acl on file %s (%s).\n", fsp->fsp_name, strerror(errno) ));
 					free_canon_ace_list(file_ace_list);
@@ -3103,7 +3227,7 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 
 			if (acl_perms && acl_set_support && fsp->is_directory) {
 				if (dir_ace_list) {
-					if (!set_canon_ace_list(fsp, dir_ace_list, True, &acl_set_support)) {
+					if (!set_canon_ace_list(fsp, dir_ace_list, True, sbuf.st_gid, &acl_set_support)) {
 						DEBUG(3,("set_nt_acl: failed to set default acl on directory %s (%s).\n", fsp->fsp_name, strerror(errno) ));
 						free_canon_ace_list(file_ace_list);
 						free_canon_ace_list(dir_ace_list); 
@@ -3116,17 +3240,32 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 					 */
 
 					if (SMB_VFS_SYS_ACL_DELETE_DEF_FILE(conn, fsp->fsp_name) == -1) {
-						DEBUG(3,("set_nt_acl: sys_acl_delete_def_file failed (%s)\n", strerror(errno)));
-						free_canon_ace_list(file_ace_list);
-						free_canon_ace_list(dir_ace_list);
-						return False;
+						int sret = -1;
+
+						if (acl_group_override(conn, sbuf.st_gid)) {
+							DEBUG(5,("set_nt_acl: acl group control on and "
+								"current user in file %s primary group. Override delete_def_acl\n",
+								fsp->fsp_name ));
+
+							become_root();
+							sret = SMB_VFS_SYS_ACL_DELETE_DEF_FILE(conn, fsp->fsp_name);
+							unbecome_root();
+						}
+
+						if (sret == -1) {
+							DEBUG(3,("set_nt_acl: sys_acl_delete_def_file failed (%s)\n", strerror(errno)));
+							free_canon_ace_list(file_ace_list);
+							free_canon_ace_list(dir_ace_list);
+							return False;
+						}
 					}
 				}
 			}
 
-			if (acl_set_support)
+			if (acl_set_support) {
 				store_inheritance_attributes(fsp, file_ace_list, dir_ace_list,
 						(psd->type & SE_DESC_DACL_PROTECTED) ? True : False);
+			}
 
 			/*
 			 * If we cannot set using POSIX ACLs we fall back to checking if we need to chmod.
@@ -3149,11 +3288,24 @@ BOOL set_nt_acl(files_struct *fsp, uint32 security_info_sent, SEC_DESC *psd)
 						fsp->fsp_name, (unsigned int)posix_perms ));
 
 					if(SMB_VFS_CHMOD(conn,fsp->fsp_name, posix_perms) == -1) {
-						DEBUG(3,("set_nt_acl: chmod %s, 0%o failed. Error = %s.\n",
+						int sret = -1;
+						if (acl_group_override(conn, sbuf.st_gid)) {
+							DEBUG(5,("set_nt_acl: acl group control on and "
+								"current user in file %s primary group. Override chmod\n",
+								fsp->fsp_name ));
+
+							become_root();
+							sret = SMB_VFS_CHMOD(conn,fsp->fsp_name, posix_perms);
+							unbecome_root();
+						}
+
+						if (sret == -1) {
+							DEBUG(3,("set_nt_acl: chmod %s, 0%o failed. Error = %s.\n",
 								fsp->fsp_name, (unsigned int)posix_perms, strerror(errno) ));
-						free_canon_ace_list(file_ace_list);
-						free_canon_ace_list(dir_ace_list);
-						return False;
+							free_canon_ace_list(file_ace_list);
+							free_canon_ace_list(dir_ace_list);
+							return False;
+						}
 					}
 				}
 			}
@@ -3330,19 +3482,17 @@ int chmod_acl(connection_struct *conn, const char *name, mode_t mode)
 }
 
 /****************************************************************************
- If "inherit permissions" is set and the parent directory has no default
- ACL but it does have an Access ACL, inherit this Access ACL to file name.
+ If the parent directory has no default ACL but it does have an Access ACL,
+ inherit this Access ACL to file name.
 ****************************************************************************/
 
-int inherit_access_acl(connection_struct *conn, const char *name, mode_t mode)
+int inherit_access_acl(connection_struct *conn, const char *inherit_from_dir,
+		       const char *name, mode_t mode)
 {
-	pstring dirname;
-	pstrcpy(dirname, parent_dirname(name));
-
-	if (!lp_inherit_perms(SNUM(conn)) || directory_has_default_acl(conn, dirname))
+	if (directory_has_default_acl(conn, inherit_from_dir))
 		return 0;
 
-	return copy_access_acl(conn, dirname, name, mode);
+	return copy_access_acl(conn, inherit_from_dir, name, mode);
 }
 
 /****************************************************************************
@@ -3376,14 +3526,907 @@ int fchmod_acl(files_struct *fsp, int fd, mode_t mode)
 
 BOOL directory_has_default_acl(connection_struct *conn, const char *fname)
 {
-        SMB_ACL_T dir_acl = SMB_VFS_SYS_ACL_GET_FILE( conn, fname, SMB_ACL_TYPE_DEFAULT);
-        BOOL has_acl = False;
-        SMB_ACL_ENTRY_T entry;
+	SMB_ACL_T def_acl = SMB_VFS_SYS_ACL_GET_FILE( conn, fname, SMB_ACL_TYPE_DEFAULT);
+	BOOL has_acl = False;
+	SMB_ACL_ENTRY_T entry;
 
-        if (dir_acl != NULL && (SMB_VFS_SYS_ACL_GET_ENTRY(conn, dir_acl, SMB_ACL_FIRST_ENTRY, &entry) == 1))
-                has_acl = True;
+	if (def_acl != NULL && (SMB_VFS_SYS_ACL_GET_ENTRY(conn, def_acl, SMB_ACL_FIRST_ENTRY, &entry) == 1)) {
+		has_acl = True;
+	}
 
-	if (dir_acl)
-	        SMB_VFS_SYS_ACL_FREE_ACL(conn, dir_acl);
+	if (def_acl) {
+	        SMB_VFS_SYS_ACL_FREE_ACL(conn, def_acl);
+	}
         return has_acl;
+}
+
+/****************************************************************************
+ Map from wire type to permset.
+****************************************************************************/
+
+static BOOL unix_ex_wire_to_permset(connection_struct *conn, unsigned char wire_perm, SMB_ACL_PERMSET_T *p_permset)
+{
+	if (wire_perm & ~(SMB_POSIX_ACL_READ|SMB_POSIX_ACL_WRITE|SMB_POSIX_ACL_EXECUTE)) {
+		return False;
+	}
+
+	if (SMB_VFS_SYS_ACL_CLEAR_PERMS(conn, *p_permset) ==  -1) {
+		return False;
+	}
+
+	if (wire_perm & SMB_POSIX_ACL_READ) {
+		if (SMB_VFS_SYS_ACL_ADD_PERM(conn, *p_permset, SMB_ACL_READ) == -1) {
+			return False;
+		}
+	}
+	if (wire_perm & SMB_POSIX_ACL_WRITE) {
+		if (SMB_VFS_SYS_ACL_ADD_PERM(conn, *p_permset, SMB_ACL_WRITE) == -1) {
+			return False;
+		}
+	}
+	if (wire_perm & SMB_POSIX_ACL_EXECUTE) {
+		if (SMB_VFS_SYS_ACL_ADD_PERM(conn, *p_permset, SMB_ACL_EXECUTE) == -1) {
+			return False;
+		}
+	}
+	return True;
+}
+
+/****************************************************************************
+ Map from wire type to tagtype.
+****************************************************************************/
+
+static BOOL unix_ex_wire_to_tagtype(unsigned char wire_tt, SMB_ACL_TAG_T *p_tt)
+{
+	switch (wire_tt) {
+		case SMB_POSIX_ACL_USER_OBJ:
+			*p_tt = SMB_ACL_USER_OBJ;
+			break;
+		case SMB_POSIX_ACL_USER:
+			*p_tt = SMB_ACL_USER;
+			break;
+		case SMB_POSIX_ACL_GROUP_OBJ:
+			*p_tt = SMB_ACL_GROUP_OBJ;
+			break;
+		case SMB_POSIX_ACL_GROUP:
+			*p_tt = SMB_ACL_GROUP;
+			break;
+		case SMB_POSIX_ACL_MASK:
+			*p_tt = SMB_ACL_MASK;
+			break;
+		case SMB_POSIX_ACL_OTHER:
+			*p_tt = SMB_ACL_OTHER;
+			break;
+		default:
+			return False;
+	}
+	return True;
+}
+
+/****************************************************************************
+ Create a new POSIX acl from wire permissions.
+ FIXME ! How does the share mask/mode fit into this.... ?
+****************************************************************************/
+
+static SMB_ACL_T create_posix_acl_from_wire(connection_struct *conn, uint16 num_acls, const char *pdata)
+{
+	unsigned int i;
+	SMB_ACL_T the_acl = SMB_VFS_SYS_ACL_INIT(conn, num_acls);
+
+	if (the_acl == NULL) {
+		return NULL;
+	}
+
+	for (i = 0; i < num_acls; i++) {
+		SMB_ACL_ENTRY_T the_entry;
+		SMB_ACL_PERMSET_T the_permset;
+		SMB_ACL_TAG_T tag_type;
+
+		if (SMB_VFS_SYS_ACL_CREATE_ENTRY(conn, &the_acl, &the_entry) == -1) {
+			DEBUG(0,("create_posix_acl_from_wire: Failed to create entry %u. (%s)\n",
+				i, strerror(errno) ));
+			goto fail;
+		}
+
+		if (!unix_ex_wire_to_tagtype(CVAL(pdata,(i*SMB_POSIX_ACL_ENTRY_SIZE)), &tag_type)) {
+			DEBUG(0,("create_posix_acl_from_wire: invalid wire tagtype %u on entry %u.\n",
+				CVAL(pdata,(i*SMB_POSIX_ACL_ENTRY_SIZE)), i ));
+			goto fail;
+		}
+
+		if (SMB_VFS_SYS_ACL_SET_TAG_TYPE(conn, the_entry, tag_type) == -1) {
+			DEBUG(0,("create_posix_acl_from_wire: Failed to set tagtype on entry %u. (%s)\n",
+				i, strerror(errno) ));
+			goto fail;
+		}
+
+		/* Get the permset pointer from the new ACL entry. */
+		if (SMB_VFS_SYS_ACL_GET_PERMSET(conn, the_entry, &the_permset) == -1) {
+			DEBUG(0,("create_posix_acl_from_wire: Failed to get permset on entry %u. (%s)\n",
+                                i, strerror(errno) ));
+                        goto fail;
+                }
+
+		/* Map from wire to permissions. */
+		if (!unix_ex_wire_to_permset(conn, CVAL(pdata,(i*SMB_POSIX_ACL_ENTRY_SIZE)+1), &the_permset)) {
+			DEBUG(0,("create_posix_acl_from_wire: invalid permset %u on entry %u.\n",
+				CVAL(pdata,(i*SMB_POSIX_ACL_ENTRY_SIZE) + 1), i ));
+			goto fail;
+		}
+
+		/* Now apply to the new ACL entry. */
+		if (SMB_VFS_SYS_ACL_SET_PERMSET(conn, the_entry, the_permset) == -1) {
+			DEBUG(0,("create_posix_acl_from_wire: Failed to add permset on entry %u. (%s)\n",
+				i, strerror(errno) ));
+			goto fail;
+		}
+
+		if (tag_type == SMB_ACL_USER) {
+			uint32 uidval = IVAL(pdata,(i*SMB_POSIX_ACL_ENTRY_SIZE)+2);
+			uid_t uid = (uid_t)uidval;
+			if (SMB_VFS_SYS_ACL_SET_QUALIFIER(conn, the_entry,(void *)&uid) == -1) {
+				DEBUG(0,("create_posix_acl_from_wire: Failed to set uid %u on entry %u. (%s)\n",
+					(unsigned int)uid, i, strerror(errno) ));
+				goto fail;
+			}
+		}
+
+		if (tag_type == SMB_ACL_GROUP) {
+			uint32 gidval = IVAL(pdata,(i*SMB_POSIX_ACL_ENTRY_SIZE)+2);
+			gid_t gid = (uid_t)gidval;
+			if (SMB_VFS_SYS_ACL_SET_QUALIFIER(conn, the_entry,(void *)&gid) == -1) {
+				DEBUG(0,("create_posix_acl_from_wire: Failed to set gid %u on entry %u. (%s)\n",
+					(unsigned int)gid, i, strerror(errno) ));
+				goto fail;
+			}
+		}
+	}
+
+	return the_acl;
+
+ fail:
+
+	if (the_acl != NULL) {
+		SMB_VFS_SYS_ACL_FREE_ACL(conn, the_acl);
+	}
+	return NULL;
+}
+
+/****************************************************************************
+ Calls from UNIX extensions - Default POSIX ACL set.
+ If num_def_acls == 0 and not a directory just return. If it is a directory
+ and num_def_acls == 0 then remove the default acl. Else set the default acl
+ on the directory.
+****************************************************************************/
+
+BOOL set_unix_posix_default_acl(connection_struct *conn, const char *fname, SMB_STRUCT_STAT *psbuf,
+				uint16 num_def_acls, const char *pdata)
+{
+	SMB_ACL_T def_acl = NULL;
+
+	if (num_def_acls && !S_ISDIR(psbuf->st_mode)) {
+		DEBUG(5,("set_unix_posix_default_acl: Can't set default ACL on non-directory file %s\n", fname ));
+		errno = EISDIR;
+		return False;
+	}
+
+	if (!num_def_acls) {
+		/* Remove the default ACL. */
+		if (SMB_VFS_SYS_ACL_DELETE_DEF_FILE(conn, fname) == -1) {
+			DEBUG(5,("set_unix_posix_default_acl: acl_delete_def_file failed on directory %s (%s)\n",
+				fname, strerror(errno) ));
+			return False;
+		}
+		return True;
+	}
+
+	if ((def_acl = create_posix_acl_from_wire(conn, num_def_acls, pdata)) == NULL) {
+		return False;
+	}
+
+	if (SMB_VFS_SYS_ACL_SET_FILE(conn, fname, SMB_ACL_TYPE_DEFAULT, def_acl) == -1) {
+		DEBUG(5,("set_unix_posix_default_acl: acl_set_file failed on directory %s (%s)\n",
+			fname, strerror(errno) ));
+	        SMB_VFS_SYS_ACL_FREE_ACL(conn, def_acl);
+		return False;
+	}
+
+	DEBUG(10,("set_unix_posix_default_acl: set default acl for file %s\n", fname ));
+	SMB_VFS_SYS_ACL_FREE_ACL(conn, def_acl);
+	return True;
+}
+
+/****************************************************************************
+ Remove an ACL from a file. As we don't have acl_delete_entry() available
+ we must read the current acl and copy all entries except MASK, USER and GROUP
+ to a new acl, then set that. This (at least on Linux) causes any ACL to be
+ removed.
+ FIXME ! How does the share mask/mode fit into this.... ?
+****************************************************************************/
+
+static BOOL remove_posix_acl(connection_struct *conn, files_struct *fsp, const char *fname)
+{
+	SMB_ACL_T file_acl = NULL;
+	int entry_id = SMB_ACL_FIRST_ENTRY;
+	SMB_ACL_ENTRY_T entry;
+	BOOL ret = False;
+	/* Create a new ACL with only 3 entries, u/g/w. */
+	SMB_ACL_T new_file_acl = SMB_VFS_SYS_ACL_INIT(conn, 3);
+	SMB_ACL_ENTRY_T user_ent = NULL;
+	SMB_ACL_ENTRY_T group_ent = NULL;
+	SMB_ACL_ENTRY_T other_ent = NULL;
+
+	if (new_file_acl == NULL) {
+		DEBUG(5,("remove_posix_acl: failed to init new ACL with 3 entries for file %s.\n", fname));
+		return False;
+	}
+
+	/* Now create the u/g/w entries. */
+	if (SMB_VFS_SYS_ACL_CREATE_ENTRY(conn, &new_file_acl, &user_ent) == -1) {
+		DEBUG(5,("remove_posix_acl: Failed to create user entry for file %s. (%s)\n",
+			fname, strerror(errno) ));
+		goto done;
+	}
+	if (SMB_VFS_SYS_ACL_SET_TAG_TYPE(conn, user_ent, SMB_ACL_USER_OBJ) == -1) {
+		DEBUG(5,("remove_posix_acl: Failed to set user entry for file %s. (%s)\n",
+			fname, strerror(errno) ));
+		goto done;
+	}
+
+	if (SMB_VFS_SYS_ACL_CREATE_ENTRY(conn, &new_file_acl, &group_ent) == -1) {
+		DEBUG(5,("remove_posix_acl: Failed to create group entry for file %s. (%s)\n",
+			fname, strerror(errno) ));
+		goto done;
+	}
+	if (SMB_VFS_SYS_ACL_SET_TAG_TYPE(conn, group_ent, SMB_ACL_GROUP_OBJ) == -1) {
+		DEBUG(5,("remove_posix_acl: Failed to set group entry for file %s. (%s)\n",
+			fname, strerror(errno) ));
+		goto done;
+	}
+
+	if (SMB_VFS_SYS_ACL_CREATE_ENTRY(conn, &new_file_acl, &other_ent) == -1) {
+		DEBUG(5,("remove_posix_acl: Failed to create other entry for file %s. (%s)\n",
+			fname, strerror(errno) ));
+		goto done;
+	}
+	if (SMB_VFS_SYS_ACL_SET_TAG_TYPE(conn, other_ent, SMB_ACL_OTHER) == -1) {
+		DEBUG(5,("remove_posix_acl: Failed to set other entry for file %s. (%s)\n",
+			fname, strerror(errno) ));
+		goto done;
+	}
+
+	/* Get the current file ACL. */
+	if (fsp && fsp->fh->fd != -1) {
+		file_acl = SMB_VFS_SYS_ACL_GET_FD(fsp, fsp->fh->fd);
+	} else {
+		file_acl = SMB_VFS_SYS_ACL_GET_FILE( conn, fname, SMB_ACL_TYPE_ACCESS);
+	}
+
+	if (file_acl == NULL) {
+		/* This is only returned if an error occurred. Even for a file with
+		   no acl a u/g/w acl should be returned. */
+		DEBUG(5,("remove_posix_acl: failed to get ACL from file %s (%s).\n",
+			fname, strerror(errno) ));
+		goto done;
+	}
+
+	while ( SMB_VFS_SYS_ACL_GET_ENTRY(conn, file_acl, entry_id, &entry) == 1) {
+		SMB_ACL_TAG_T tagtype;
+		SMB_ACL_PERMSET_T permset;
+
+		/* get_next... */
+		if (entry_id == SMB_ACL_FIRST_ENTRY)
+			entry_id = SMB_ACL_NEXT_ENTRY;
+
+		if (SMB_VFS_SYS_ACL_GET_TAG_TYPE(conn, entry, &tagtype) == -1) {
+			DEBUG(5,("remove_posix_acl: failed to get tagtype from ACL on file %s (%s).\n",
+				fname, strerror(errno) ));
+			goto done;
+		}
+
+		if (SMB_VFS_SYS_ACL_GET_PERMSET(conn, entry, &permset) == -1) {
+			DEBUG(5,("remove_posix_acl: failed to get permset from ACL on file %s (%s).\n",
+				fname, strerror(errno) ));
+			goto done;
+		}
+
+		if (tagtype == SMB_ACL_USER_OBJ) {
+			if (SMB_VFS_SYS_ACL_SET_PERMSET(conn, user_ent, permset) == -1) {
+				DEBUG(5,("remove_posix_acl: failed to set permset from ACL on file %s (%s).\n",
+					fname, strerror(errno) ));
+			}
+		} else if (tagtype == SMB_ACL_GROUP_OBJ) {
+			if (SMB_VFS_SYS_ACL_SET_PERMSET(conn, group_ent, permset) == -1) {
+				DEBUG(5,("remove_posix_acl: failed to set permset from ACL on file %s (%s).\n",
+					fname, strerror(errno) ));
+			}
+		} else if (tagtype == SMB_ACL_OTHER) {
+			if (SMB_VFS_SYS_ACL_SET_PERMSET(conn, other_ent, permset) == -1) {
+				DEBUG(5,("remove_posix_acl: failed to set permset from ACL on file %s (%s).\n",
+					fname, strerror(errno) ));
+			}
+		}
+	}
+
+	/* Set the new empty file ACL. */
+	if (fsp && fsp->fh->fd != -1) {
+		if (SMB_VFS_SYS_ACL_SET_FD(fsp, fsp->fh->fd, new_file_acl) == -1) {
+			DEBUG(5,("remove_posix_acl: acl_set_file failed on %s (%s)\n",
+				fname, strerror(errno) ));
+			goto done;
+		}
+	} else {
+		if (SMB_VFS_SYS_ACL_SET_FILE(conn, fname, SMB_ACL_TYPE_ACCESS, new_file_acl) == -1) {
+			DEBUG(5,("remove_posix_acl: acl_set_file failed on %s (%s)\n",
+				fname, strerror(errno) ));
+			goto done;
+		}
+	}
+
+	ret = True;
+
+ done:
+
+	if (file_acl) {
+		SMB_VFS_SYS_ACL_FREE_ACL(conn, file_acl);
+	}
+	if (new_file_acl) {
+		SMB_VFS_SYS_ACL_FREE_ACL(conn, new_file_acl);
+	}
+	return ret;
+}
+
+/****************************************************************************
+ Calls from UNIX extensions - POSIX ACL set.
+ If num_def_acls == 0 then read/modify/write acl after removing all entries
+ except SMB_ACL_USER_OBJ, SMB_ACL_GROUP_OBJ, SMB_ACL_OTHER.
+****************************************************************************/
+
+BOOL set_unix_posix_acl(connection_struct *conn, files_struct *fsp, const char *fname, uint16 num_acls, const char *pdata)
+{
+	SMB_ACL_T file_acl = NULL;
+
+	if (!num_acls) {
+		/* Remove the ACL from the file. */
+		return remove_posix_acl(conn, fsp, fname);
+	}
+
+	if ((file_acl = create_posix_acl_from_wire(conn, num_acls, pdata)) == NULL) {
+		return False;
+	}
+
+	if (fsp && fsp->fh->fd != -1) {
+		/* The preferred way - use an open fd. */
+		if (SMB_VFS_SYS_ACL_SET_FD(fsp, fsp->fh->fd, file_acl) == -1) {
+			DEBUG(5,("set_unix_posix_acl: acl_set_file failed on %s (%s)\n",
+				fname, strerror(errno) ));
+		        SMB_VFS_SYS_ACL_FREE_ACL(conn, file_acl);
+			return False;
+		}
+	} else {
+		if (SMB_VFS_SYS_ACL_SET_FILE(conn, fname, SMB_ACL_TYPE_ACCESS, file_acl) == -1) {
+			DEBUG(5,("set_unix_posix_acl: acl_set_file failed on %s (%s)\n",
+				fname, strerror(errno) ));
+		        SMB_VFS_SYS_ACL_FREE_ACL(conn, file_acl);
+			return False;
+		}
+	}
+
+	DEBUG(10,("set_unix_posix_acl: set acl for file %s\n", fname ));
+	SMB_VFS_SYS_ACL_FREE_ACL(conn, file_acl);
+	return True;
+}
+
+/****************************************************************************
+ Check for POSIX group ACLs. If none use stat entry.
+ Return -1 if no match, 0 if match and denied, 1 if match and allowed.
+****************************************************************************/
+
+static int check_posix_acl_group_access(connection_struct *conn, const char *fname, SMB_STRUCT_STAT *psbuf, uint32 access_mask)
+{
+	SMB_ACL_T posix_acl = NULL;
+	int entry_id = SMB_ACL_FIRST_ENTRY;
+	SMB_ACL_ENTRY_T entry;
+	int i;
+	BOOL seen_mask = False;
+	BOOL seen_owning_group = False;
+	int ret = -1;
+	gid_t cu_gid;
+
+	DEBUG(10,("check_posix_acl_group_access: requesting 0x%x on file %s\n",
+		(unsigned int)access_mask, fname ));
+
+	if ((posix_acl = SMB_VFS_SYS_ACL_GET_FILE(conn, fname, SMB_ACL_TYPE_ACCESS)) == NULL) {
+		goto check_stat;
+	}
+
+	/* First ensure the group mask allows group access. */
+	/* Also check any user entries (these take preference over group). */
+
+	while ( SMB_VFS_SYS_ACL_GET_ENTRY(conn, posix_acl, entry_id, &entry) == 1) {
+		SMB_ACL_TAG_T tagtype;
+		SMB_ACL_PERMSET_T permset;
+		int have_write = -1;
+		int have_read = -1;
+
+		/* get_next... */
+		if (entry_id == SMB_ACL_FIRST_ENTRY)
+			entry_id = SMB_ACL_NEXT_ENTRY;
+
+		if (SMB_VFS_SYS_ACL_GET_TAG_TYPE(conn, entry, &tagtype) == -1) {
+			goto check_stat;
+		}
+
+		if (SMB_VFS_SYS_ACL_GET_PERMSET(conn, entry, &permset) == -1) {
+			goto check_stat;
+		}
+
+		have_read = SMB_VFS_SYS_ACL_GET_PERM(conn, permset, SMB_ACL_READ);
+		if (have_read == -1) {
+			goto check_stat;
+		}
+
+		have_write = SMB_VFS_SYS_ACL_GET_PERM(conn, permset, SMB_ACL_WRITE);
+		if (have_write == -1) {
+			goto check_stat;
+		}
+
+		/*
+		 * Solaris returns 2 for this if write is available.
+		 * canonicalize to 0 or 1.
+		 */	
+		have_write = (have_write ? 1 : 0);
+		have_read = (have_read ? 1 : 0);
+
+		switch(tagtype) {
+			case SMB_ACL_MASK:
+				seen_mask = True;
+				switch (access_mask) {
+					case FILE_READ_DATA:
+						if (!have_read) {
+							ret = -1;
+							DEBUG(10,("check_posix_acl_group_access: file %s "
+								"refusing read due to mask.\n", fname));
+							goto done;
+						}
+						break;
+					case FILE_WRITE_DATA:
+						if (!have_write) {
+							ret = -1;
+							DEBUG(10,("check_posix_acl_group_access: file %s "
+								"refusing write due to mask.\n", fname));
+							goto done;
+						}
+						break;
+					default: /* FILE_READ_DATA|FILE_WRITE_DATA */
+						if (!have_write || !have_read) {
+							ret = -1;
+							DEBUG(10,("check_posix_acl_group_access: file %s "
+								"refusing read/write due to mask.\n", fname));
+							goto done;
+						}
+						break;
+				}
+				break;
+			case SMB_ACL_USER:
+			{
+				/* Check against current_user.ut.uid. */
+				uid_t *puid = (uid_t *)SMB_VFS_SYS_ACL_GET_QUALIFIER(conn, entry);
+				if (puid == NULL) {
+					goto check_stat;
+				}
+				if (current_user.ut.uid == *puid) {
+					/* We have a uid match but we must ensure we have seen the acl mask. */
+					switch (access_mask) {
+						case FILE_READ_DATA:
+							ret = have_read;
+							break;
+						case FILE_WRITE_DATA:
+							ret = have_write;
+							break;
+						default: /* FILE_READ_DATA|FILE_WRITE_DATA */
+							ret = (have_write & have_read);
+							break;
+					}
+					DEBUG(10,("check_posix_acl_group_access: file %s "
+						"match on user %u -> %s.\n",
+						fname, (unsigned int)*puid,
+						ret ? "can access" : "cannot access"));
+					if (seen_mask) {
+						goto done;
+					}
+				}
+				break;
+			}
+			default:
+				continue;
+		}
+	}
+
+	/* If ret is anything other than -1 we matched on a user entry. */
+	if (ret != -1) {
+		goto done;
+	}
+
+	/* Next check all group entries. */
+	entry_id = SMB_ACL_FIRST_ENTRY;
+	while ( SMB_VFS_SYS_ACL_GET_ENTRY(conn, posix_acl, entry_id, &entry) == 1) {
+		SMB_ACL_TAG_T tagtype;
+		SMB_ACL_PERMSET_T permset;
+		int have_write = -1;
+		int have_read = -1;
+
+		/* get_next... */
+		if (entry_id == SMB_ACL_FIRST_ENTRY)
+			entry_id = SMB_ACL_NEXT_ENTRY;
+
+		if (SMB_VFS_SYS_ACL_GET_TAG_TYPE(conn, entry, &tagtype) == -1) {
+			goto check_stat;
+		}
+
+		if (SMB_VFS_SYS_ACL_GET_PERMSET(conn, entry, &permset) == -1) {
+			goto check_stat;
+		}
+
+		have_read = SMB_VFS_SYS_ACL_GET_PERM(conn, permset, SMB_ACL_READ);
+		if (have_read == -1) {
+			goto check_stat;
+		}
+
+		have_write = SMB_VFS_SYS_ACL_GET_PERM(conn, permset, SMB_ACL_WRITE);
+		if (have_write == -1) {
+			goto check_stat;
+		}
+
+		/*
+		 * Solaris returns 2 for this if write is available.
+		 * canonicalize to 0 or 1.
+		 */	
+		have_write = (have_write ? 1 : 0);
+		have_read = (have_read ? 1 : 0);
+
+		switch(tagtype) {
+			case SMB_ACL_GROUP:
+			case SMB_ACL_GROUP_OBJ:
+			{
+				gid_t *pgid = NULL;
+
+				if (tagtype == SMB_ACL_GROUP) {
+					pgid = (gid_t *)SMB_VFS_SYS_ACL_GET_QUALIFIER(conn, entry);
+				} else {
+					seen_owning_group = True;
+					pgid = &psbuf->st_gid;
+				}
+				if (pgid == NULL) {
+					goto check_stat;
+				}
+
+				/*
+				 * Does it match the current effective group
+				 * or supplementary groups ?
+				 */
+				for (cu_gid = get_current_user_gid_first(&i); cu_gid != (gid_t)-1;
+							cu_gid = get_current_user_gid_next(&i)) {
+					if (cu_gid == *pgid) {
+						switch (access_mask) {
+							case FILE_READ_DATA:
+								ret = have_read;
+								break;
+							case FILE_WRITE_DATA:
+								ret = have_write;
+								break;
+							default: /* FILE_READ_DATA|FILE_WRITE_DATA */
+								ret = (have_write & have_read);
+								break;
+						}
+
+						DEBUG(10,("check_posix_acl_group_access: file %s "
+							"match on group %u -> can access.\n",
+							fname, (unsigned int)cu_gid ));
+
+						/* If we don't have access permission this entry doesn't
+							terminate the enumeration of the entries. */
+						if (ret) {
+							goto done;
+						}
+						/* But does terminate the group iteration. */
+						break;
+					}
+				}
+				break;
+			}
+			default:
+				continue;
+		}
+	}
+
+	/* If ret is -1 here we didn't match on the user entry or
+	   supplemental group entries. */
+	
+	DEBUG(10,("check_posix_acl_group_access: ret = %d before check_stat:\n", ret));
+
+  check_stat:
+
+	/*
+	 * We only check the S_I[RW]GRP permissions if we haven't already
+	 * seen an owning group SMB_ACL_GROUP_OBJ ace entry. If there is an
+	 * SMB_ACL_GROUP_OBJ ace entry then the group bits in st_gid are
+	 * the same as the SMB_ACL_MASK bits, not the SMB_ACL_GROUP_OBJ
+	 * bits. Thanks to Marc Cousin <mcousin@sigma.fr> for pointing
+	 * this out. JRA.
+	 */
+
+	if (!seen_owning_group) {
+		/* Do we match on the owning group entry ? */
+		/*
+		 * Does it match the current effective group
+		 * or supplementary groups ?
+		 */
+		for (cu_gid = get_current_user_gid_first(&i); cu_gid != (gid_t)-1;
+						cu_gid = get_current_user_gid_next(&i)) {
+			if (cu_gid == psbuf->st_gid) {
+				switch (access_mask) {
+					case FILE_READ_DATA:
+						ret = (psbuf->st_mode & S_IRGRP) ? 1 : 0;
+						break;
+					case FILE_WRITE_DATA:
+						ret = (psbuf->st_mode & S_IWGRP) ? 1 : 0;
+						break;
+					default: /* FILE_READ_DATA|FILE_WRITE_DATA */
+						if ((psbuf->st_mode & (S_IWGRP|S_IRGRP)) == (S_IWGRP|S_IRGRP)) {
+							ret = 1;
+						} else {
+							ret = 0;
+						}
+						break;
+				}
+				DEBUG(10,("check_posix_acl_group_access: file %s "
+					"match on owning group %u -> %s.\n",
+					fname, (unsigned int)psbuf->st_gid,
+					ret ? "can access" : "cannot access"));
+				break;
+			}
+		}
+
+		if (cu_gid == (gid_t)-1) {
+			DEBUG(10,("check_posix_acl_group_access: file %s "
+				"failed to match on user or group in token (ret = %d).\n",
+				fname, ret ));
+		}
+	}
+
+  done:
+
+	if (posix_acl) {
+		SMB_VFS_SYS_ACL_FREE_ACL(conn, posix_acl);
+	}
+
+	DEBUG(10,("check_posix_acl_group_access: file %s returning (ret = %d).\n", fname, ret ));
+	return ret;
+}
+
+/****************************************************************************
+ Actually emulate the in-kernel access checking for delete access. We need
+ this to successfully return ACCESS_DENIED on a file open for delete access.
+****************************************************************************/
+
+BOOL can_delete_file_in_directory(connection_struct *conn, const char *fname)
+{
+	SMB_STRUCT_STAT sbuf;  
+	pstring dname;
+	int ret;
+
+	if (!CAN_WRITE(conn)) {
+		return False;
+	}
+
+	/* Get the parent directory permission mask and owners. */
+	pstrcpy(dname, parent_dirname(fname));
+	if(SMB_VFS_STAT(conn, dname, &sbuf) != 0) {
+		return False;
+	}
+	if (!S_ISDIR(sbuf.st_mode)) {
+		return False;
+	}
+	if (current_user.ut.uid == 0 || conn->admin_user) {
+		/* I'm sorry sir, I didn't know you were root... */
+		return True;
+	}
+
+	/* Check primary owner write access. */
+	if (current_user.ut.uid == sbuf.st_uid) {
+		return (sbuf.st_mode & S_IWUSR) ? True : False;
+	}
+
+#ifdef S_ISVTX
+	/* sticky bit means delete only by owner or root. */
+	if (sbuf.st_mode & S_ISVTX) {
+		SMB_STRUCT_STAT sbuf_file;  
+		if(SMB_VFS_STAT(conn, fname, &sbuf_file) != 0) {
+			if (errno == ENOENT) {
+				/* If the file doesn't already exist then
+				 * yes we'll be able to delete it. */
+				return True;
+			}
+			return False;
+		}
+		/*
+		 * Patch from SATOH Fumiyasu <fumiyas@miraclelinux.com>
+		 * for bug #3348. Don't assume owning sticky bit
+		 * directory means write access allowed.
+		 */
+		if (current_user.ut.uid != sbuf_file.st_uid) {
+			return False;
+		}
+	}
+#endif
+
+	/* Check group or explicit user acl entry write access. */
+	ret = check_posix_acl_group_access(conn, dname, &sbuf, FILE_WRITE_DATA);
+	if (ret == 0 || ret == 1) {
+		return ret ? True : False;
+	}
+
+	/* Finally check other write access. */
+	return (sbuf.st_mode & S_IWOTH) ? True : False;
+}
+
+/****************************************************************************
+ Actually emulate the in-kernel access checking for read/write access. We need
+ this to successfully check for ability to write for dos filetimes.
+ Note this doesn't take into account share write permissions.
+****************************************************************************/
+
+BOOL can_access_file(connection_struct *conn, const char *fname, SMB_STRUCT_STAT *psbuf, uint32 access_mask)
+{
+	int ret;
+
+	if (!(access_mask & (FILE_READ_DATA|FILE_WRITE_DATA))) {
+		return False;
+	}
+	access_mask &= (FILE_READ_DATA|FILE_WRITE_DATA);
+
+	DEBUG(10,("can_access_file: requesting 0x%x on file %s\n",
+		(unsigned int)access_mask, fname ));
+
+	if (current_user.ut.uid == 0 || conn->admin_user) {
+		/* I'm sorry sir, I didn't know you were root... */
+		return True;
+	}
+
+	if (!VALID_STAT(*psbuf)) {
+		/* Get the file permission mask and owners. */
+		if(SMB_VFS_STAT(conn, fname, psbuf) != 0) {
+			return False;
+		}
+	}
+
+#if defined(HAVE_STAT_ST_FLAGS)
+#if defined(UF_IMMUTABLE) && defined(SF_IMMUTABLE)
+
+	if (access_mask & FILE_WRITE_DATA) {
+		if (psbuf->st_flags & (UF_IMMUTABLE | SF_IMMUTABLE)) {
+			return False;
+		}
+	}
+
+#endif
+#endif
+
+	/* Check primary owner access. */
+	if (current_user.ut.uid == psbuf->st_uid) {
+		switch (access_mask) {
+			case FILE_READ_DATA:
+				return (psbuf->st_mode & S_IRUSR) ? True : False;
+
+			case FILE_WRITE_DATA:
+				return (psbuf->st_mode & S_IWUSR) ? True : False;
+
+			default: /* FILE_READ_DATA|FILE_WRITE_DATA */
+
+				if ((psbuf->st_mode & (S_IWUSR|S_IRUSR)) == (S_IWUSR|S_IRUSR)) {
+					return True;
+				} else {
+					return False;
+				}
+		}
+	}
+
+	/* Check group or explicit user acl entry access. */
+	ret = check_posix_acl_group_access(conn, fname, psbuf, access_mask);
+	if (ret == 0 || ret == 1) {
+		return ret ? True : False;
+	}
+
+	/* Finally check other access. */
+	switch (access_mask) {
+		case FILE_READ_DATA:
+			return (psbuf->st_mode & S_IROTH) ? True : False;
+
+		case FILE_WRITE_DATA:
+			return (psbuf->st_mode & S_IWOTH) ? True : False;
+
+		default: /* FILE_READ_DATA|FILE_WRITE_DATA */
+
+			if ((psbuf->st_mode & (S_IWOTH|S_IROTH)) == (S_IWOTH|S_IROTH)) {
+				return True;
+			}
+	}
+	return False;
+}
+
+/****************************************************************************
+ Userspace check for write access.
+ Note this doesn't take into account share write permissions.
+****************************************************************************/
+
+BOOL can_write_to_file(connection_struct *conn, const char *fname, SMB_STRUCT_STAT *psbuf)
+{
+	return can_access_file(conn, fname, psbuf, FILE_WRITE_DATA);
+}
+
+/********************************************************************
+ Pull the NT ACL from a file on disk or the OpenEventlog() access
+ check.  Caller is responsible for freeing the returned security
+ descriptor via TALLOC_FREE().  This is designed for dealing with 
+ user space access checks in smbd outside of the VFS.  For example,
+ checking access rights in OpenEventlog().
+ 
+ Assume we are dealing with files (for now)
+********************************************************************/
+
+SEC_DESC* get_nt_acl_no_snum( TALLOC_CTX *ctx, const char *fname)
+{
+	SEC_DESC *psd, *ret_sd;
+	connection_struct conn;
+	files_struct finfo;
+	struct fd_handle fh;
+	pstring path;
+	pstring filename;
+	
+	ZERO_STRUCT( conn );
+	
+	if ( !(conn.mem_ctx = talloc_init( "novfs_get_nt_acl" )) ) {
+		DEBUG(0,("get_nt_acl_no_snum: talloc() failed!\n"));
+		return NULL;
+	}
+
+	if (!(conn.params = TALLOC_P(conn.mem_ctx, struct share_params))) {
+		DEBUG(0,("get_nt_acl_no_snum: talloc() failed!\n"));
+		TALLOC_FREE(conn.mem_ctx);
+		return NULL;
+	}
+
+	conn.params->service = -1;
+	
+	pstrcpy( path, "/" );
+	set_conn_connectpath(&conn, path);
+	
+	if (!smbd_vfs_init(&conn)) {
+		DEBUG(0,("get_nt_acl_no_snum: Unable to create a fake connection struct!\n"));
+		conn_free_internal( &conn );
+		return NULL;
+        }
+	
+	ZERO_STRUCT( finfo );
+	ZERO_STRUCT( fh );
+	
+	finfo.fnum = -1;
+	finfo.conn = &conn;
+	finfo.fh = &fh;
+	finfo.fh->fd = -1;
+	pstrcpy( filename, fname );
+	finfo.fsp_name = filename;
+	
+	if (get_nt_acl( &finfo, DACL_SECURITY_INFORMATION, &psd ) == 0) {
+		DEBUG(0,("get_nt_acl_no_snum: get_nt_acl returned zero.\n"));
+		conn_free_internal( &conn );
+		return NULL;
+	}
+	
+	ret_sd = dup_sec_desc( ctx, psd );
+	
+	conn_free_internal( &conn );
+	
+	return ret_sd;
 }

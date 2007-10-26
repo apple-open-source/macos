@@ -1,3 +1,4 @@
+
 /* 
    Unix SMB/CIFS implementation.
    SMB client library implementation (server cache)
@@ -23,11 +24,10 @@
 
 #include "includes.h"
 
-/*
- * Define this to get the real SMBCFILE and SMBCSRV structures 
- */
-#define _SMBC_INTERNAL
 #include "include/libsmbclient.h"
+#include "../include/libsmb_internal.h"
+
+int smbc_default_cache_functions(SMBCCTX * context);
 
 /*
  * Structure we use if internal caching mechanism is used 
@@ -49,7 +49,7 @@ struct smbc_server_cache {
  * Add a new connection to the server cache.
  * This function is only used if the external cache is not enabled 
  */
-static int smbc_add_cached_server(SMBCCTX * context, SMBCSRV * new,
+static int smbc_add_cached_server(SMBCCTX * context, SMBCSRV * newsrv,
 				  const char * server, const char * share, 
 				  const char * workgroup, const char * username)
 {
@@ -63,7 +63,7 @@ static int smbc_add_cached_server(SMBCCTX * context, SMBCSRV * new,
        
 	ZERO_STRUCTP(srvcache);
 
-	srvcache->server = new;
+	srvcache->server = newsrv;
 
 	srvcache->server_name = SMB_STRDUP(server);
 	if (!srvcache->server_name) {
@@ -97,6 +97,7 @@ static int smbc_add_cached_server(SMBCCTX * context, SMBCSRV * new,
 	SAFE_FREE(srvcache->share_name);
 	SAFE_FREE(srvcache->workgroup);
 	SAFE_FREE(srvcache->username);
+	SAFE_FREE(srvcache);
 	
 	return 1;
 }
@@ -105,7 +106,7 @@ static int smbc_add_cached_server(SMBCCTX * context, SMBCSRV * new,
 
 /*
  * Search the server cache for a server 
- * returns server_fd on success, -1 on error (not found)
+ * returns server handle on success, NULL on error (not found)
  * This function is only used if the external cache is not enabled 
  */
 static SMBCSRV * smbc_get_cached_server(SMBCCTX * context, const char * server, 
@@ -115,11 +116,70 @@ static SMBCSRV * smbc_get_cached_server(SMBCCTX * context, const char * server,
 	
 	/* Search the cache lines */
 	for (srv=((struct smbc_server_cache *)context->server_cache);srv;srv=srv->next) {
+
 		if (strcmp(server,srv->server_name)  == 0 &&
-		    strcmp(share,srv->share_name)    == 0 &&
 		    strcmp(workgroup,srv->workgroup) == 0 &&
-		    strcmp(user, srv->username)  == 0) 
-			return srv->server;
+		    strcmp(user, srv->username)  == 0) {
+
+                        /* If the share name matches, we're cool */
+                        if (strcmp(share, srv->share_name) == 0) {
+                                return srv->server;
+                        }
+
+                        /*
+                         * We only return an empty share name or the attribute
+                         * server on an exact match (which would have been
+                         * caught above).
+                         */
+                        if (*share == '\0' || strcmp(share, "*IPC$") == 0)
+                                continue;
+
+                        /*
+                         * Never return an empty share name or the attribute
+                         * server if it wasn't what was requested.
+                         */
+                        if (*srv->share_name == '\0' ||
+                            strcmp(srv->share_name, "*IPC$") == 0)
+                                continue;
+
+                        /*
+                         * If we're only allowing one share per server, then
+                         * a connection to the server (other than the
+                         * attribute server connection) is cool.
+                         */
+                        if (context->options.one_share_per_server) {
+                                /*
+                                 * The currently connected share name
+                                 * doesn't match the requested share, so
+                                 * disconnect from the current share.
+                                 */
+                                if (! cli_tdis(srv->server->cli)) {
+                                        /* Sigh. Couldn't disconnect. */
+                                        cli_shutdown(srv->server->cli);
+					srv->server->cli = NULL;
+                                        context->callbacks.remove_cached_srv_fn(context, srv->server);
+                                        continue;
+                                }
+
+                                /*
+                                 * Save the new share name.  We've
+                                 * disconnected from the old share, and are
+                                 * about to connect to the new one.
+                                 */
+                                SAFE_FREE(srv->share_name);
+                                srv->share_name = SMB_STRDUP(share);
+                                if (!srv->share_name) {
+                                        /* Out of memory. */
+                                        cli_shutdown(srv->server->cli);
+					srv->server->cli = NULL;
+                                        context->callbacks.remove_cached_srv_fn(context, srv->server);
+                                        continue;
+                                }
+
+
+                                return srv->server;
+                        }
+                }
 	}
 
 	return NULL;

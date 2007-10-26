@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * uniq
@@ -30,7 +26,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: uniq (AT&T Labs Research) 1999-04-28 $\n]"
+"[-?\n@(#)$Id: uniq (AT&T Research) 2006-08-28 $\n]"
 USAGE_LICENSE
 "[+NAME?uniq - Report or filter out repeated lines in a file]"
 "[+DESCRIPTION?\buniq\b reads an input, comparing adjacent lines, and "
@@ -43,10 +39,18 @@ USAGE_LICENSE
 	"the file is defined as the current offset.]"
 "[c:count?Output the number of times each line occurred  along with "
 	"the line.]"
-"[d:repeated|duplicates?Only output duplicate lines.]"
+"[d:repeated|duplicates?Output the first of each duplicate line.]"
+"[D:all-repeated?Output all duplicate lines as a group with an empty "
+    "line delimiter specified by \adelimit\a:]:?[delimit:=none]"
+    "{"
+        "[n:none?Do not delimit duplicate groups.]"
+        "[p:prepend?Prepend an empty line before each group.]"
+        "[s:separate?Separate each group with an empty line.]"
+    "}"
 "[f:skip-fields]#[fields?\afields\a is the number of fields to skip over "
-	"before checking for uniqueness.  A field is the minimal string "
-	"matching the BRE \b[[:blank:]]]]*[^[:blank:]]]]*\b.]"
+    "before checking for uniqueness. A field is the minimal string matching "
+    "the BRE \b[[:blank:]]]]*[^[:blank:]]]]*\b.]"
+"[i:ignore-case?Ignore case in comparisons.]"
 "[s:skip-chars]#[chars?\achars\a is the number of characters to skip over "
 	"before checking for uniqueness.  If specified along with \b-f\b, "
 	"the first \achars\a after the first \afields\a are ignored.  If "
@@ -65,139 +69,140 @@ USAGE_LICENSE
 "[+SEE ALSO?\bsort\b(1), \bgrep\b(1)]"
 ;
 
-
-#include <cmdlib.h>
+#include <cmd.h>
 
 #define C_FLAG	1
 #define D_FLAG	2
 #define U_FLAG	4
+
 #define CWIDTH	4
 #define MAXCNT	9999
 
-/*
- * return a pointer to a side buffer
- */
-static char *sidebuff(int size)
-{
-	static int maxbuff;
-	static char *buff;
-	if(size)
-	{
-		if(size <= maxbuff)
-			return(buff);
-		if (!(buff = newof(buff, char, size, 0)))
-			error(ERROR_exit(1), "out of space [side buffer]");
-	}
-	else
-	{
-		free(buff);
-		buff = 0;
-	}
-	maxbuff = size;
-	return(buff);
-}
+typedef int (*Compare_f)(const char*, const char*, size_t);
 
-static int uniq(Sfio_t *fdin, Sfio_t *fdout, int fields, int chars, int width,int mode)
+static int uniq(Sfio_t *fdin, Sfio_t *fdout, int fields, int chars, int width, int mode, int* all, Compare_f compare)
 {
-	register int n, outsize=0;
-	register char *cp, *bufp, *outp;
+	register int n, f, outsize=0;
+	register char *cp, *ep, *bufp, *outp;
 	char *orecp, *sbufp=0, *outbuff;
-	int reclen,oreclen= -1,count=0, cwidth=0;
+	int reclen,oreclen= -1,count=0,cwidth=0,sep,next;
 	if(mode&C_FLAG)
 		cwidth = CWIDTH+1;
 	while(1)
 	{
-		if(cp = bufp = sfgetr(fdin,'\n',0))
+		if(bufp = sfgetr(fdin,'\n',0))
+			n = sfvalue(fdin);
+		else if(bufp = sfgetr(fdin,'\n',SF_LASTR))
 		{
-			if(n=fields)
-			{
-				while(*cp!='\n') /* skip over fields */
+			n = sfvalue(fdin);
+			bufp = memcpy(fmtbuf(n + 1), bufp, n);
+			bufp[n++] = '\n';
+		}
+		else
+			n = 0;
+		if(n)
+		{
+			cp = bufp;
+			ep = cp + n;
+			if(f=fields)
+				while(f-->0 && cp<ep) /* skip over fields */
 				{
-					while(*cp==' ' || *cp=='\t')
+					while(cp<ep && *cp==' ' || *cp=='\t')
 						cp++;
-					if(n-- <=0)
-						break;
-					while(*cp!=' ' && *cp!='\t' && *cp!='\n')
+					while(cp<ep && *cp!=' ' && *cp!='\t')
 						cp++;
 				}
-			}
 			if(chars)
 				cp += chars;
-			n = sfvalue(fdin);
 			if((reclen = n - (cp-bufp)) <=0)
 			{
 				reclen = 1;
 				cp = bufp + sfvalue(fdin)-1;
 			}
-			else if(width>0 && width < reclen)
+			else if(width >= 0 && width < reclen)
 				reclen = width;
 		}
 		else
-			reclen=0;
-		if(reclen==oreclen && memcmp(cp,orecp,reclen)==0)
+			reclen=-2;
+		if(reclen==oreclen && (!reclen || !(*compare)(cp,orecp,reclen)))
 		{
 			count++;
-			continue;
+			if (!all)
+				continue;
+			next = count;
 		}
-		/* no match */
-		if(outsize>0)
+		else
 		{
-			if(((mode&D_FLAG)&&count==0) || ((mode&U_FLAG)&&count))
+			next = 0;
+			if(outsize>0)
 			{
-				if(outp!=sbufp)
-					sfwrite(fdout,outp,0);
-			}
-			else
-			{
-				if(cwidth)
+				if(((mode&D_FLAG)&&count==0) || ((mode&U_FLAG)&&count))
 				{
-					outp[CWIDTH] = ' ';
-					if(count<MAXCNT)
+					if(outp!=sbufp)
+						sfwrite(fdout,outp,0);
+				}
+				else
+				{
+					if(cwidth)
 					{
-						sfsprintf(outp,cwidth,"%*d",CWIDTH,count+1);
 						outp[CWIDTH] = ' ';
-					}
-					else
-					{
-						outsize -= (CWIDTH+1);
-						if(outp!=sbufp)
+						if(count<MAXCNT)
 						{
-							if(!(sbufp=sidebuff(outsize)))
-								return(1);
-							memcpy(sbufp,outp+CWIDTH+1,outsize);
-							sfwrite(fdout,outp,0);
-							outp = sbufp;
+							sfsprintf(outp,cwidth,"%*d",CWIDTH,count+1);
+							outp[CWIDTH] = ' ';
 						}
 						else
-							outp += CWIDTH+1;
-						sfprintf(fdout,"%4d ",count+1);
+						{
+							outsize -= (CWIDTH+1);
+							if(outp!=sbufp)
+							{
+								if(!(sbufp=fmtbuf(outsize)))
+									return(1);
+								memcpy(sbufp,outp+CWIDTH+1,outsize);
+								sfwrite(fdout,outp,0);
+								outp = sbufp;
+							}
+							else
+								outp += CWIDTH+1;
+							sfprintf(fdout,"%4d ",count+1);
+						}
 					}
+					if(sfwrite(fdout,outp,outsize) != outsize)
+						return(1);
 				}
-				if(sfwrite(fdout,outp,outsize) < 0)
-					return(1);
 			}
 		}
-		if(reclen==0)
+		if(n==0)
 			break;
-		count = 0;
+		if(count = next)
+		{
+			if(sfwrite(fdout,outp,outsize) != outsize)
+				return(1);
+			if(*all >= 0)
+				*all = 1;
+			sep = 0;
+		}
+		else
+			sep = all && *all > 0;
 		/* save current record */
 		if (!(outbuff = sfreserve(fdout, 0, 0)) || (outsize = sfvalue(fdout)) < 0)
 			return(1);
 		outp = outbuff;
-		if(outsize < n+cwidth)
+		if(outsize < n+cwidth+sep)
 		{
 			/* no room in outp, clear lock and use side buffer */
 			sfwrite(fdout,outp,0);
-			if(!(sbufp = outp=sidebuff(outsize=n+cwidth)))
+			if(!(sbufp = outp=fmtbuf(outsize=n+cwidth+sep)))
 				return(1);
 		}
 		else
-			outsize = n+cwidth;
-		memcpy(outp+cwidth,bufp,n);
+			outsize = n+cwidth+sep;
+		memcpy(outp+cwidth+sep,bufp,n);
+		if(sep)
+			outp[cwidth] = '\n';
 		oreclen = reclen;
-		orecp = outp+cwidth + (cp-bufp);
+		orecp = outp+cwidth+sep + (cp-bufp);
 	}
-	sidebuff(0);
 	return(0);
 }
 
@@ -206,11 +211,13 @@ b_uniq(int argc, char** argv, void* context)
 {
 	register int n, mode=0;
 	register char *cp;
-	int fields=0, chars=0, width=0;
+	int fields=0, chars=0, width=-1;
 	Sfio_t *fpin, *fpout;
+	int* all = 0;
+	int sep;
+	Compare_f compare = (Compare_f)memcmp;
 
-	NoP(argc);
-	cmdinit(argv, context, ERROR_CATALOG, 0);
+	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
 	while (n = optget(argv, usage)) switch (n)
 	{
 	    case 'c':
@@ -218,6 +225,25 @@ b_uniq(int argc, char** argv, void* context)
 		break;
 	    case 'd':
 		mode |= D_FLAG;
+		break;
+	    case 'D':
+		mode |= D_FLAG;
+		switch ((int)opt_info.num)
+		{
+		case 'p':
+			sep = 1;
+			break;
+		case 's':
+			sep = 0;
+			break;
+		default:
+			sep = -1;
+			break;
+		}
+		all = &sep;
+		break;
+	    case 'i':
+		compare = (Compare_f)strncasecmp;
 		break;
 	    case 'u':
 		mode |= U_FLAG;
@@ -242,6 +268,8 @@ b_uniq(int argc, char** argv, void* context)
 		break;
 	}
 	argv += opt_info.index;
+	if(all && (mode&C_FLAG))
+		error(2, "-c and -D are mutually exclusive");
 	if(error_info.errors)
 		error(ERROR_usage(2), "%s", optusage(NiL));
 	if((cp = *argv) && (argv++,!streq(cp,"-")))
@@ -264,7 +292,7 @@ b_uniq(int argc, char** argv, void* context)
 		error(2, "too many arguments");
 		error(ERROR_usage(2), "%s", optusage(NiL));
 	}
-	error_info.errors = uniq(fpin,fpout,fields,chars,width,mode);
+	error_info.errors = uniq(fpin,fpout,fields,chars,width,mode,all,compare);
 	if(fpin!=sfstdin)
 		sfclose(fpin);
 	if(fpout!=sfstdout)

@@ -1,0 +1,56 @@
+--- _SB/Libc/stdio/FreeBSD/putc.3	2004-11-25 11:38:35.000000000 -0800
++++ _SB/Libc/stdio/FreeBSD/putc.3.edit	2006-06-28 16:55:52.000000000 -0700
+@@ -52,17 +52,33 @@
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft int
+-.Fn fputc "int c" "FILE *stream"
+-.Ft int
+-.Fn putc "int c" "FILE *stream"
+-.Ft int
+-.Fn putc_unlocked "int c" "FILE *stream"
+-.Ft int
+-.Fn putchar "int c"
+-.Ft int
+-.Fn putchar_unlocked "int c"
+-.Ft int
+-.Fn putw "int w" "FILE *stream"
++.Fo fputc
++.Fa "int c"
++.Fa "FILE *stream"
++.Fc
++.Ft int
++.Fo putc
++.Fa "int c"
++.Fa "FILE *stream"
++.Fc
++.Ft int
++.Fo putc_unlocked
++.Fa "int c"
++.Fa "FILE *stream"
++.Fc
++.Ft int
++.Fo putchar
++.Fa "int c"
++.Fc
++.Ft int
++.Fo putchar_unlocked
++.Fa "int c"
++.Fc
++.Ft int
++.Fo putw
++.Fa "int w"
++.Fa "FILE *stream"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn fputc
+@@ -121,7 +137,7 @@
+ .Fn fputc ,
+ .Fn putc ,
+ .Fn putchar ,
+-.Fn putc_unlocked
++.Fn putc_unlocked ,
+ and
+ .Fn putchar_unlocked
+ return the character written.

@@ -37,6 +37,8 @@
 #include "SecCFTypes.h"
 #include "defaultcreds.h"
 
+class EventBuffer;
+
 namespace Security
 {
 
@@ -47,7 +49,6 @@ class KCCursor;
 class Item;
 class PrimaryKey;
 class StorageManager;
-
 
 class KeychainSchemaImpl : public RefCount
 {
@@ -121,7 +122,8 @@ protected:
 	// Methods called by ItemImpl;
 	void didUpdate(const Item &inItem, PrimaryKey &oldPK,
 		PrimaryKey &newPK);
-
+	void completeAdd(Item &item, PrimaryKey &key);
+	
 public:
     virtual ~KeychainImpl() throw();
 
@@ -129,6 +131,7 @@ public:
 
     // Item calls
 	void add(Item &item);
+	void addCopy(Item &item);
     void deleteItem(Item &item); // item must be persistant.
 
     // Keychain calls
@@ -187,13 +190,17 @@ public:
 	void recode(const CssmData &dbBlob, const CssmData &data);
 	void copyBlob(CssmData &dbBlob);
 	
+	void setBatchMode(Boolean mode, Boolean rollBack);
+	
 	// yield default open() credentials for this keychain (as of now)
 	const AccessCredentials *defaultCredentials();
 
 	// Only call these functions while holding globals().apiLock.
 	bool inCache() const throw() { return mInCache; }
 	void inCache(bool inCache) throw() { mInCache = inCache; }
-
+	
+	void postEvent(SecKeychainEvent kcEvent, ItemImpl* item);
+	
 private:
 	void addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl);
 	void removeItem(const PrimaryKey &primaryKey, ItemImpl *inItemImpl);
@@ -201,7 +208,7 @@ private:
 
 	const AccessCredentials *makeCredentials();
 
-	// mDbItemMap and mInCache are protected by
+	// mDbItemMap, mBufferEnabled and mInCache are protected by
 	// globals().apiLock
 
     typedef map<PrimaryKey, ItemImpl *> DbItemMap;
@@ -216,7 +223,8 @@ private:
 	
 	// Data for auto-unlock credentials
 	DefaultCredentials mCustomUnlockCreds;
-
+	bool mIsInBatchMode;
+	EventBuffer *mEventBuffer;
 };
 
 

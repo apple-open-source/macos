@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,39 +27,42 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)compare.c	8.1 (Berkeley) 6/6/93";
-#endif
-static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/mtree/compare.c,v 1.15.2.3 2001/01/12 19:17:18 phk Exp $";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.sbin/mtree/compare.c,v 1.34 2005/03/29 11:44:17 tobez Exp $");
 
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fts.h>
-#ifdef MD5
+#ifdef ENABLE_MD5
 #include <md5.h>
 #endif
-#ifdef SHA1
-#include <sha.h>
-#endif
-#ifdef RMD160
+#ifdef ENABLE_RMD160
 #include <ripemd.h>
 #endif
+#ifdef ENABLE_SHA1
+#include <sha.h>
+#endif
+#ifdef ENABLE_SHA256
+#include <sha256.h>
+#endif
+#include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
+#include <vis.h>
+
 #include "mtree.h"
 #include "extern.h"
-
-extern int uflag;
-extern int lineno;
-
-static char *ftype __P((u_int));
 
 #define	INDENTNAMELEN	8
 #define	LABEL \
@@ -73,15 +72,14 @@ static char *ftype __P((u_int));
 	}
 
 int
-compare(name, s, p)
-	char *name;
-	register NODE *s;
-	register FTSENT *p;
+compare(char *name __unused, NODE *s, FTSENT *p)
 {
-	extern int uflag;
-	u_long len, val;
+	struct timeval tv[2];
+	uint32_t val;
 	int fd, label;
-	char *cp, *tab = "";
+	off_t len;
+	char *cp;
+	const char *tab = "";
 	char *fflags;
 
 	label = 0;
@@ -174,8 +172,8 @@ typeerr:		LABEL;
 	if (s->flags & F_SIZE && s->st_size != p->fts_statp->st_size &&
 		!S_ISDIR(p->fts_statp->st_mode)) {
 		LABEL;
-		(void)printf("%ssize expected %qd found %qd\n",
-		    tab, s->st_size, p->fts_statp->st_size);
+		(void)printf("%ssize expected %jd found %jd\n", tab,
+		    (intmax_t)s->st_size, (intmax_t)p->fts_statp->st_size);
 		tab = "\t";
 	}
 	/*
@@ -188,8 +186,19 @@ typeerr:		LABEL;
 		LABEL;
 		(void)printf("%smodification time expected %.24s ",
 		    tab, ctime(&s->st_mtimespec.tv_sec));
-		(void)printf("found %.24s\n",
+		(void)printf("found %.24s",
 		    ctime(&p->fts_statp->st_mtimespec.tv_sec));
+		if (uflag) {
+			tv[0].tv_sec = s->st_mtimespec.tv_sec;
+			tv[0].tv_usec = s->st_mtimespec.tv_nsec / 1000;
+			tv[1] = tv[0];
+			if (utimes(p->fts_accpath, tv))
+				(void)printf(" not modified: %s\n",
+				    strerror(errno));
+			else
+				(void)printf(" modified\n");
+		} else
+			(void)printf("\n");
 		tab = "\t";
 	}
 	if (s->flags & F_CKSUM) {
@@ -209,17 +218,11 @@ typeerr:		LABEL;
 			if (s->cksum != val) {
 				LABEL;
 				(void)printf("%scksum expected %lu found %lu\n",
-				    tab, s->cksum, val);
+				    tab, s->cksum, (unsigned long)val);
+				tab = "\t";
 			}
-			tab = "\t";
 		}
 	}
-	/*
-	 * XXX
-	 * since chflags(2) will reset file times, the utimes() above
-	 * may have been useless!  oh well, we'd rather have correct
-	 * flags, rather than times?
-	 */
 	if ((s->flags & F_FLAGS) && s->st_flags != p->fts_statp->st_flags) {
 		LABEL;
 		fflags = flags_to_string(s->st_flags);
@@ -240,7 +243,7 @@ typeerr:		LABEL;
 			(void)printf("\n");
 		tab = "\t";
 	}
-#ifdef MD5
+#ifdef ENABLE_MD5
 	if (s->flags & F_MD5) {
 		char *new_digest, buf[33];
 
@@ -257,8 +260,8 @@ typeerr:		LABEL;
 			tab = "\t";
 		}
 	}
-#endif /* MD5 */
-#ifdef SHA1
+#endif /* ENABLE_MD5 */
+#ifdef ENABLE_SHA1
 	if (s->flags & F_SHA1) {
 		char *new_digest, buf[41];
 
@@ -270,13 +273,13 @@ typeerr:		LABEL;
 			tab = "\t";
 		} else if (strcmp(new_digest, s->sha1digest)) {
 			LABEL;
-			printf("%sSHA-1 expected %s found %s\n", 
+			printf("%sSHA-1 expected %s found %s\n",
 			       tab, s->sha1digest, new_digest);
 			tab = "\t";
 		}
 	}
-#endif /* SHA1 */
-#ifdef RMD160
+#endif /* ENABLE_SHA1 */
+#ifdef ENABLE_RMD160
 	if (s->flags & F_RMD160) {
 		char *new_digest, buf[41];
 
@@ -293,20 +296,37 @@ typeerr:		LABEL;
 			tab = "\t";
 		}
 	}
-#endif /* RMD160 */
+#endif /* ENABLE_RMD160 */
+#ifdef ENABLE_SHA256
+	if (s->flags & F_SHA256) {
+		char *new_digest, buf[65];
+
+		new_digest = SHA256_File(p->fts_accpath, buf);
+		if (!new_digest) {
+			LABEL;
+			printf("%sSHA-256: %s: %s\n", tab, p->fts_accpath,
+			       strerror(errno));
+			tab = "\t";
+		} else if (strcmp(new_digest, s->sha256digest)) {
+			LABEL;
+			printf("%sSHA-256 expected %s found %s\n",
+			       tab, s->sha256digest, new_digest);
+			tab = "\t";
+		}
+	}
+#endif /* ENABLE_SHA256 */
 
 	if (s->flags & F_SLINK &&
 	    strcmp(cp = rlink(p->fts_accpath), s->slink)) {
 		LABEL;
 		(void)printf("%slink_ref expected %s found %s\n",
-		      tab, cp, s->slink);
+		      tab, s->slink, cp);
 	}
 	return (label);
 }
 
-char *
-inotype(type)
-	u_int type;
+const char *
+inotype(u_int type)
 {
 	switch(type & S_IFMT) {
 	case S_IFBLK:
@@ -329,9 +349,8 @@ inotype(type)
 	/* NOTREACHED */
 }
 
-static char *
-ftype(type)
-	u_int type;
+const char *
+ftype(u_int type)
 {
 	switch(type) {
 	case F_BLOCK:
@@ -355,14 +374,15 @@ ftype(type)
 }
 
 char *
-rlink(name)
-	char *name;
+rlink(char *name)
 {
-	static char lbuf[MAXPATHLEN];
-	register int len;
+	static char lbuf[MAXPATHLEN * 4];
+	int len;
+	char tbuf[MAXPATHLEN];
 
-	if ((len = readlink(name, lbuf, sizeof(lbuf) - 1)) == -1)
+	if ((len = readlink(name, tbuf, sizeof(tbuf) - 1)) == -1)
 		err(1, "line %d: %s", lineno, name);
-	lbuf[len] = '\0';
+	tbuf[len] = '\0';
+	strvis(lbuf, tbuf, VIS_WHITE | VIS_OCTAL);
 	return (lbuf);
 }

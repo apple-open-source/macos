@@ -29,6 +29,11 @@
 #include <errno.h>
 #include <uuid/uuid.h>
 
+/*
+ * Versions of copy_int/copy_ext that retain native endianity.
+ */
+extern ssize_t	acl_copy_ext_native(void *buf_p, acl_t acl, ssize_t size);
+extern acl_t	acl_copy_int_native(const void *buf_p);
 
 struct _filesec {
 	int	fs_valid;
@@ -149,7 +154,7 @@ filesec_get_property(filesec_t fsec, filesec_property_t property, void *propptr)
 			if (fsec->fs_aclbuf == _FILESEC_REMOVE_ACL) {
 				*(acl_t *)propptr = _FILESEC_REMOVE_ACL;
 			} else {
-				*(acl_t *)propptr = acl_copy_int(fsec->fs_aclbuf);
+				*(acl_t *)propptr = acl_copy_int_native(fsec->fs_aclbuf);
 				if (*(acl_t *)propptr == NULL)
 					error = errno;
 			}
@@ -252,7 +257,7 @@ filesec_set_property(filesec_t fsec, filesec_property_t property, const void *pr
 				error = errno;
 				break;
 			}
-			copysize = acl_copy_ext(aclbuf, acl, aclsize);
+			copysize = acl_copy_ext_native(aclbuf, acl, aclsize);
 			if (copysize < 0) {
 				free(aclbuf);
 				error = EINVAL;

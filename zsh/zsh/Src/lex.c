@@ -33,7 +33,7 @@
 /* tokens */
 
 /**/
-mod_export char ztokens[] = "#$^*()$=|{}[]`<>?~`,'\"\\";
+mod_export char ztokens[] = "#$^*()$=|{}[]`<>?~`,'\"\\\\";
 
 /* parts of the current token */
 
@@ -71,16 +71,13 @@ int inalmore;
 /**/
 int nocorrect;
 
-/* the line buffer */
+/*
+ * Cursor position and line length in zle when the line is
+ * metafied for access from the main shell.
+ */
 
 /**/
-mod_export unsigned char *line;
-
-/* cursor position and line length */
-/* N.B.: must use the real names here, for the .export file */
-
-/**/
-mod_export int zshcs, zshll;
+mod_export int zlemetacs, zlemetall;
 
 /* inwhat says what exactly we are in     *
  * (its value is one of the IN_* things). */
@@ -99,18 +96,18 @@ mod_export int addedx;
 mod_export int wb, we;
 
 /* 1 if aliases should not be expanded */
- 
+
 /**/
 mod_export int noaliases;
 
 /* we are parsing a line sent to use by the editor */
- 
+
 /**/
 mod_export int zleparse;
- 
+
 /**/
 mod_export int wordbeg;
- 
+
 /**/
 mod_export int parbegin;
 
@@ -118,7 +115,7 @@ mod_export int parbegin;
 mod_export int parend;
 
 /* don't recognize comments */
- 
+
 /**/
 mod_export int nocomments;
 
@@ -158,6 +155,7 @@ mod_export char *tokstrings[WHILE + 1] = {
     "))",	/* DOUTPAR	     */
     "&|",	/* AMPERBANG	  30 */
     ";&",	/* SEMIAMP	     */
+    ";|",	/* SEMIBAR	     */
 };
 
 /* lexical state */
@@ -384,6 +382,7 @@ ctxtlex(void)
     case SEMI:
     case DSEMI:
     case SEMIAMP:
+    case SEMIBAR:
     case AMPER:
     case AMPERBANG:
     case INPAR:
@@ -525,10 +524,10 @@ add(int c)
     }
 }
 
-#define SETPARBEGIN {if (zleparse && !(inbufflags & INP_ALIAS) && cs >= ll+1-inbufct) parbegin = inbufct;}
+#define SETPARBEGIN {if (zleparse && !(inbufflags & INP_ALIAS) && zlemetacs >= zlemetall+1-inbufct) parbegin = inbufct;}
 #define SETPAREND {\
 	    if (zleparse && !(inbufflags & INP_ALIAS) && parbegin != -1 && parend == -1) {\
-		if (cs >= ll + 1 - inbufct)\
+		if (zlemetacs >= zlemetall + 1 - inbufct)\
 		    parbegin = -1;\
 		else\
 		    parend = inbufct;} }
@@ -543,14 +542,14 @@ cmd_or_math(int cs_type)
     c = dquote_parse(')', 0);
     cmdpop();
     *bptr = '\0';
-    if (!c) {
-	c = hgetc();
-	if (c == ')')
-	    return 1;
-	hungetc(c);
-	lexstop = 0;
-	c = ')';
-    }
+    if (c)
+	return 1;
+    c = hgetc();
+    if (c == ')')
+	return 1;
+    hungetc(c);
+    lexstop = 0;
+    c = ')';
     hungetc(c);
     lexstop = 0;
     while (len > oldlen) {
@@ -716,6 +715,8 @@ gettok(void)
 	    return DSEMI;
 	else if(d == '&')
 	    return SEMIAMP;
+	else if (d == '|')
+	    return SEMIBAR;
 	hungetc(d);
 	lexstop = 0;
 	return SEMI;
@@ -1138,10 +1139,13 @@ gettokstr(int c, int sub)
 		if (idigit(*t))
 		    while (++t < bptr && idigit(*t));
 		else {
-		    while (iident(*t) && ++t < bptr);
+		    int sav = *bptr;
+		    *bptr = '\0';
+		    t = itype_end(t, IIDENT, 0);
 		    if (t < bptr) {
-			*bptr = '\0';
 			skipparens(Inbrack, Outbrack, &t);
+		    } else {
+			*bptr = sav;
 		    }
 		}
 		if (*t == '+')
@@ -1181,10 +1185,20 @@ gettokstr(int c, int sub)
 		STOPHIST
 		while ((c = hgetc()) != '\'' && !lexstop) {
 		    if (strquote && c == '\\') {
-			add(c);
 			c = hgetc();
 			if (lexstop)
 			    break;
+			/*
+			 * Mostly we don't need to do anything special
+			 * with escape backslashes or closing quotes
+			 * inside $'...'; however in completion we
+			 * need to be able to strip multiple backslashes
+			 * neatly.
+			 */
+			if (c == '\\' || c == '\'')
+			    add(Bnull);
+			else
+			    add('\\');
 		    } else if (!sub && isset(CSHJUNKIEQUOTES) && c == '\n') {
 			if (bptr[-1] == '\\')
 			    bptr--, len--;
@@ -1272,11 +1286,11 @@ gettokstr(int c, int sub)
   brk:
     hungetc(c);
     if (unmatched)
-	zerr("unmatched %c", NULL, unmatched);
+	zerr("unmatched %c", unmatched);
     if (in_brace_param) {
 	while(bct-- >= in_brace_param)
 	    cmdpop();
-	zerr("closing brace expected", NULL, 0);
+	zerr("closing brace expected");
     } else if (unset(IGNOREBRACES) && !sub && len > 1 &&
 	       peek == STRING && bptr[-1] == '}' && bptr[-2] != Bnull) {
 	/* hack to get {foo} command syntax work */
@@ -1297,7 +1311,7 @@ dquote_parse(char endchar, int sub)
     int pct = 0, brct = 0, bct = 0, intick = 0, err = 0;
     int c;
     int math = endchar == ')' || endchar == ']';
-    int zlemath = math && cs > ll + addedx - inbufct;
+    int zlemath = math && zlemetacs > zlemetall + addedx - inbufct;
 
     while (((c = hgetc()) != endchar || bct ||
 	    (math && ((pct > 0) || (brct > 0))) ||
@@ -1422,9 +1436,16 @@ dquote_parse(char endchar, int sub)
 	cmdpop();
     if (lexstop)
 	err = intick || endchar || err;
-    else if (err == 1)
+    else if (err == 1) {
+	/*
+	 * TODO: as far as I can see, this hack is used in gettokstr()
+	 * to hungetc() a character on an error.  However, I don't
+	 * understand what that actually gets us, and we can't guarantee
+	 * it's a character anyway, because of the previous test.
+	 */
 	err = c;
-    if (zlemath && cs <= ll + 1 - inbufct)
+    }
+    if (zlemath && zlemetacs <= zlemetall + 1 - inbufct)
 	inwhat = IN_MATH;
     return err;
 }
@@ -1441,9 +1462,9 @@ parsestr(char *s)
     if ((err = parsestrnoerr(s))) {
 	untokenize(s);
 	if (err > 32 && err < 127)
-	    zerr("parse error near `%c'", NULL, err);
+	    zerr("parse error near `%c'", err);
 	else
-	    zerr("parse error", NULL, 0);
+	    zerr("parse error");
     }
     return err;
 }
@@ -1536,9 +1557,13 @@ parse_subst_string(char *s)
 	return 1;
     }
 #ifdef DEBUG
-    if (c != STRING || olen != l || errflag) {
+    /*
+     * Historical note: we used to check here for olen == l, but
+     * that's not necessarily the case if we stripped an RCQUOTE.
+     */
+    if (c != STRING || errflag) {
 	fprintf(stderr, "Oops. Bug in parse_subst_string: %s\n",
-		olen < l ? "len < l" : errflag ? "errflag" : "c != STRING");
+		errflag ? "errflag" : "c != STRING");
 	fflush(stderr);
 	untokenize(s);
 	return 1;
@@ -1553,9 +1578,9 @@ parse_subst_string(char *s)
 mod_export void
 gotword(void)
 {
-    we = ll + 1 - inbufct + (addedx == 2 ? 1 : 0);
-    if (cs <= we) {
-	wb = ll - wordbeg + addedx;
+    we = zlemetall + 1 - inbufct + (addedx == 2 ? 1 : 0);
+    if (zlemetacs <= we) {
+	wb = zlemetall - wordbeg + addedx;
 	zleparse = 0;
     }
 }
@@ -1609,7 +1634,7 @@ exalias(void)
 		
 		an = (Alias) aliastab->getnode(aliastab, yytext);
 		if (an && !an->inuse &&
-		    ((an->flags & ALIAS_GLOBAL) || incmdpos || inalmore)) {
+		    ((an->node.flags & ALIAS_GLOBAL) || incmdpos || inalmore)) {
 		    inpush(an->text, INP_ALIAS, an);
 		    if (an->text[0] == ' ')
 			aliasspaceflag = 1;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,12 +23,16 @@
 #ifndef _APPLERAIDMEMORYDESCRIPTOR_H
 #define _APPLERAIDMEMORYDESCRIPTOR_H
 
+class AppleLVMVolume;
+
 class AppleRAIDMemoryDescriptor : public IOMemoryDescriptor
 {
     OSDeclareAbstractStructors(AppleRAIDMemoryDescriptor);
     
     friend class AppleRAIDEventSource;		// XXX remove this
     friend class AppleRAIDStorageRequest;	// XXX remove this
+    friend class AppleLVMStorageRequest;	// XXX remove this
+    friend class AppleLVMGroup;			// XXX remove this
 
 protected:
     IOMemoryDescriptor		*mdMemoryDescriptor;
@@ -40,7 +44,7 @@ protected:
     
     virtual bool initWithAddress(void *address, IOByteCount withLength, IODirection withDirection) { return false; }
     virtual bool initWithAddress(vm_address_t address, IOByteCount withLength, IODirection withDirection, task_t withTask)
-                                 { return false; }
+				{ return false; }
     virtual bool initWithPhysicalAddress(IOPhysicalAddress address, IOByteCount withLength, IODirection withDirection)
                                          { return false; }
     virtual bool initWithRanges(IOVirtualRange *ranges, UInt32 withCount, IODirection withDirection, task_t withTask,
@@ -52,7 +56,8 @@ protected:
     virtual bool initWithStorageRequest(AppleRAIDStorageRequest *storageRequest, UInt32 memberIndex);
     virtual void free(void);
     
-    virtual bool configureForMemoryDescriptor(IOMemoryDescriptor *memoryDescriptor, UInt64 byteStart, UInt32 activeIndex) = 0;
+    virtual bool configureForMemoryDescriptor(IOMemoryDescriptor *memoryDescriptor, UInt64 byteStart, UInt32 activeIndex) { return false; }
+    virtual bool configureForMemoryDescriptor(IOMemoryDescriptor * memoryDescriptor, UInt64 requestStart, UInt64 requestSize, AppleLVMVolume * lv) { return false; }
     
     virtual IOPhysicalAddress getPhysicalSegment(IOByteCount offset, IOByteCount *length) = 0;
     virtual void *getVirtualSegment(IOByteCount offset, IOByteCount *length) { return 0; }

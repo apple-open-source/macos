@@ -1,5 +1,5 @@
---- telldir.c.orig	2003-05-20 15:21:03.000000000 -0700
-+++ telldir.c	2004-11-19 17:18:44.000000000 -0800
+--- telldir.c.orig	2007-01-24 14:10:41.000000000 -0800
++++ telldir.c	2007-01-27 02:51:57.000000000 -0800
 @@ -54,7 +54,9 @@
   * cookie may be used only once before it is freed. This option
   * is used to avoid having memory usage grow without bound.
@@ -10,7 +10,7 @@
  
  /*
   * return a pointer into a directory
-@@ -65,14 +67,32 @@
+@@ -65,14 +67,41 @@
  {
  	struct ddloc *lp;
  
@@ -18,8 +18,13 @@
 +	if (__isthreaded)
 +		_pthread_mutex_lock((pthread_mutex_t *)&dirp->dd_lock);
 +	LIST_FOREACH(lp, &dirp->dd_td->td_locq, loc_lqe) {
-+		if ((lp->loc_seek == dirp->dd_seek) &&
-+		    (lp->loc_loc == dirp->dd_loc))
++		if (
++#if __DARWIN_64_BIT_INO_T
++		    (lp->loc_seek == dirp->dd_td->seekoff)
++#else /* !__DARWIN_64_BIT_INO_T */
++		    (lp->loc_seek == dirp->dd_seek)
++#endif /* __DARWIN_64_BIT_INO_T */
++		    && (lp->loc_loc == dirp->dd_loc))
 +			goto found;
 +	}
 +	if ((lp = (struct ddloc *)malloc(sizeof(struct ddloc))) == NULL) {
@@ -34,7 +39,11 @@
  		_pthread_mutex_lock((pthread_mutex_t *)&dirp->dd_lock);
 +#endif /* __DARWIN_UNIX03 */
  	lp->loc_index = dirp->dd_td->td_loccnt++;
++#if __DARWIN_64_BIT_INO_T
++	lp->loc_seek = dirp->dd_td->seekoff;
++#else /* !__DARWIN_64_BIT_INO_T */
  	lp->loc_seek = dirp->dd_seek;
++#endif /* __DARWIN_64_BIT_INO_T */
  	lp->loc_loc = dirp->dd_loc;
  	LIST_INSERT_HEAD(&dirp->dd_td->td_locq, lp, loc_lqe);
 +#if __DARWIN_UNIX03
@@ -43,7 +52,28 @@
  	if (__isthreaded)
  		_pthread_mutex_unlock((pthread_mutex_t *)&dirp->dd_lock);
  	return (lp->loc_index);
-@@ -106,13 +126,14 @@
+@@ -96,23 +125,34 @@
+ 	}
+ 	if (lp == NULL)
+ 		return;
+-	if (lp->loc_loc == dirp->dd_loc && lp->loc_seek == dirp->dd_seek)
++	if (lp->loc_loc == dirp->dd_loc && 
++#if __DARWIN_64_BIT_INO_T
++	    lp->loc_seek == dirp->dd_td->seekoff
++#else /* !__DARWIN_64_BIT_INO_T */
++	    lp->loc_seek == dirp->dd_seek
++#endif /* __DARWIN_64_BIT_INO_T */
++	)
+ 		goto found;
+ 	(void) lseek(dirp->dd_fd, (off_t)lp->loc_seek, SEEK_SET);
++#if __DARWIN_64_BIT_INO_T
++	dirp->dd_td->seekoff = lp->loc_seek;
++#else /* !__DARWIN_64_BIT_INO_T */
+ 	dirp->dd_seek = lp->loc_seek;
++#endif /* __DARWIN_64_BIT_INO_T */
+ 	dirp->dd_loc = 0;
+ 	while (dirp->dd_loc < lp->loc_loc) {
+ 		dp = _readdir_unlocked(dirp);
  		if (dp == NULL)
  			break;
  	}
@@ -59,7 +89,7 @@
  /*
   * Reclaim memory for telldir cookies which weren't used.
   */
-@@ -131,3 +152,4 @@
+@@ -131,3 +171,4 @@
  	}
  	LIST_INIT(&dirp->dd_td->td_locq);
  }

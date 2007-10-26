@@ -28,7 +28,7 @@
 #ifndef	_PKCS12_CRYPTO_H_
 #define _PKCS12_CRYPTO_H_
 
-#include <Security/cssmtype.h>
+#include <Security/Security.h>
 #include <security_asn1/SecNssCoder.h>
 
 #ifdef __cplusplus
@@ -134,6 +134,10 @@ CSSM_RETURN p12UnwrapKey(
 	const CSSM_KEY		*passKey,
 	SecNssCoder			&coder,		// for mallocing privKey
 	const CSSM_DATA		&labelData,
+	SecAccessRef		access,		// optional; use default ACL if NULL and !noAcl
+	bool				noAcl,		// true ==> no ACL
+	CSSM_KEYUSE			keyUsage,
+	CSSM_KEYATTR_FLAGS	keyAttrs,
 
 	/*
 	 * Result: a private key, reference format, optionaly stored

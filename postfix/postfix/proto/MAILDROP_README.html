@@ -41,7 +41,9 @@ file processing. You would typically do this for hosted domains with
 recipients that don't have UNIX home directories. </p>
 
 <p> The following example shows how to use maildrop for some.domain
-and for someother.domain.  </p>
+and for someother.domain. The example comes in two parts. </p>
+
+<p> Part 1 describes changes to the main.cf file: </p>
 
 <blockquote>
 <pre>
@@ -96,13 +98,18 @@ to deliver the mail.  </p>
 
 <p> Note: Do not use the postfix user as the maildrop user. </p>
 
+<p> Part 2 describes changes to the master.cf file: </p>
+
 <blockquote>
 <pre>
 /etc/postfix/master.cf:
     maildrop  unix  -       n       n       -       -       pipe
-      flags=DRhu user=vmail argv=/path/to/maildrop -d ${recipient}
+      flags=ODRhu user=vmail argv=/path/to/maildrop -d ${recipient}
 </pre>
 </blockquote>
+
+<p> The pipe(8) manual page gives a detailed description of the
+above command line arguments, and more. </p>
 
 <p> If you want to support user+extension@domain style addresses,
 use the following instead: </p>
@@ -111,7 +118,7 @@ use the following instead: </p>
 <pre>
 /etc/postfix/master.cf:
     maildrop  unix  -       n       n       -       -       pipe
-      flags=DRhu user=vmail argv=/path/to/maildrop 
+      flags=ODRhu user=vmail argv=/path/to/maildrop 
       -d ${user}@${nexthop} ${extension} ${recipient} ${user} ${nexthop}
 </pre>
 </blockquote>
@@ -149,7 +156,7 @@ use the Postfix local(8) delivery agent's mailbox_command_maps feature:
 <blockquote>
 <pre>
 /etc/postfix/main.cf:
-    mailbox_command_maps = /etc/postfix/mailbox_commands
+    mailbox_command_maps = hash:/etc/postfix/mailbox_commands
 
 /etc/postfix/mailbox_commands:
     you    /path/to/maildrop -d ${USER}

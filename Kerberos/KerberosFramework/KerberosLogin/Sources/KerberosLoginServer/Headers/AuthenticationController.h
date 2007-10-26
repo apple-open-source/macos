@@ -26,10 +26,11 @@
  * or implied warranty.
  */
 
-#import "Preferences.h"
-#import "Principal.h"
+#import "KerberosPreferences.h"
+#import "KerberosPrincipal.h"
 #import "BadgedImageView.h"
 #import "PopupButton.h"
+#import "ChangePasswordController.h"
 #include <Kerberos/Kerberos.h>
 
 typedef struct AuthenticationControllerState
@@ -39,7 +40,7 @@ typedef struct AuthenticationControllerState
     
     NSString *callerNameString;
     NSImage *callerIconImage;
-    Principal *callerProvidedPrincipal;
+    KerberosPrincipal *callerProvidedPrincipal;
     
     NSString *serviceNameString;
     time_t startTime;
@@ -83,17 +84,28 @@ typedef struct AuthenticationControllerState
     IBOutlet NSButton *optionsOKButton;
     IBOutlet NSButton *optionsCancelButton;
     
+    IBOutlet NSWindow *aboutWindow;
+    IBOutlet NSTextField *aboutVersionTextField;
+    IBOutlet NSTextField *aboutCopyrightTextField;
+
     float minimizedFrameHeight;
     float maximizedFrameHeight;
     
     AuthenticationControllerState state;
         
-    Preferences *preferences;
+    KerberosPreferences *preferences;
     
-    Principal *acquiredPrincipal;
+    KerberosPrincipal *acquiredPrincipal;
     NSMutableString *acquiredCacheName;
     
+    ChangePasswordController *changePasswordController;
+
     KLStatus result;
+	
+    IBOutlet NSButton *rememberPasswordInKeychainCheckBox;
+	BOOL _didChangeText;
+	SecKeychainItemRef _foundKCItem;
+	NSString *_keychainPasswordFromKeychain;
 }
 
 - (void) windowDidLoad;
@@ -105,11 +117,16 @@ typedef struct AuthenticationControllerState
 - (void) windowDidResignKey: (NSNotification *) notification;
 
 - (IBAction) changePassword: (id) sender;
+- (void) changePasswordSheetDidEnd: (NSWindow *) sheet 
+                        returnCode: (int) returnCode
+                       contextInfo: (id) contextInfo;
 
 - (IBAction) showOptions: (id) sender;
 - (IBAction) renewableCheckboxWasHit: (id) sender;
 - (IBAction) optionsOK: (id) sender;
 - (IBAction) optionsCancel: (id) sender;
+
+- (IBAction) showAboutBox: (id) sender;
 
 - (IBAction) ok: (id) sender;
 - (IBAction) cancel: (id) sender;
@@ -118,7 +135,7 @@ typedef struct AuthenticationControllerState
 
 - (void) setCallerNameString: (NSString *) callerNameString;
 - (void) setCallerIcon: (NSImage *) callerIcon;
-- (void) setCallerProvidedPrincipal: (Principal *) callerProvidedPrincipal;
+- (void) setCallerProvidedPrincipal: (KerberosPrincipal *) callerProvidedPrincipal;
 
 - (void) setServiceName: (NSString *) serviceName;
 - (void) setStartTime: (time_t) startTime;
@@ -129,19 +146,26 @@ typedef struct AuthenticationControllerState
 - (void) setRenewable: (BOOL) renewable;
 - (void) setRenewableLifetime: (time_t) renewableLifetime;
 
-- (Principal *) principal;
+- (KerberosPrincipal *) principal;
 - (void) updateOKButtonState;
 - (BOOL) validateMenuItem: (id <NSMenuItem>) menuItem;
 - (void) setWindowContentHeight: (float) newHeight;
 - (void) minimizeWindow;
 - (void) maximizeWindow;
 - (void) loginOptionsToPreferences;
-- (int) getTickets;
+- (int) getTicketsWithPassword: (NSString *) password;
 
-- (Principal *) acquiredPrincipal;
+- (KerberosPrincipal *) acquiredPrincipal;
 - (NSString *) acquiredCacheName;
 
 - (int) runWindow;
 - (void) stopWithCode: (int) returnCode;
+
+- (NSString*)enteredPassword;
+- (SecKeychainItemRef)foundKCItem;
+- (BOOL)findKeychainItemWithUser:(NSString*)user serverName:(NSString*)serverName password:(NSString**)password;
+- (NSString*)keychainPasswordFromKeychain;
+- (void)autoFillPasswordWithKeychainPasswordForRealm:(NSString*)realm;
+- (BOOL)rememberPasswordInKeychain;
 
 @end

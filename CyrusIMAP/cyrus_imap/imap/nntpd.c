@@ -38,7 +38,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: nntpd.c,v 1.5 2005/03/05 00:37:01 dasenbro Exp $
+ * $Id: nntpd.c,v 1.54 2007/02/05 18:49:56 jeaton Exp $
  */
 
 /*
@@ -83,6 +83,7 @@
 #include "exitcodes.h"
 #include "global.h"
 #include "hash.h"
+#include "idle.h"
 #include "imap_err.h"
 #include "index.h"
 #include "iptostring.h"
@@ -93,16 +94,20 @@
 #include "mupdate-client.h"
 #include "nntp_err.h"
 #include "prot.h"
+#include "proxy.h"
 #include "retry.h"
 #include "rfc822date.h"
 #include "smtpclient.h"
 #include "spool.h"
+#include "sync_log.h"
 #include "telemetry.h"
 #include "tls.h"
 #include "util.h"
 #include "version.h"
 #include "wildmat.h"
 #include "xmalloc.h"
+#include "xstrlcat.h"
+#include "xstrlcpy.h"
 
 extern int optind;
 extern char *optarg;
@@ -113,6 +118,8 @@ int imapd_exists;
 struct protstream *imapd_out = NULL;
 struct auth_state *imapd_authstate = NULL;
 char *imapd_userid = NULL;
+int imapd_condstore_client = 0;
+
 void printastring(const char *s __attribute__((unused)))
 {
     fatal("not implemented", EC_SOFTWARE);
@@ -122,7 +129,6 @@ void printastring(const char *s __attribute__((unused)))
 /* PROXY STUFF */
 /* we want a list of our outgoing connections here and which one we're
    currently piping */
-#define IDLE_TIMEOUT (5 * 60)
 
 /* the current server most commands go to */
 struct backend *backend_current = NULL;
@@ -145,6 +151,7 @@ int nntp_haveaddr = 0;
 char nntp_clienthost[NI_MAXHOST*2+1] = "[local]";
 struct protstream *nntp_out = NULL;
 struct protstream *nntp_in = NULL;
+struct protgroup *protin = NULL;
 static int nntp_logfd = -1;
 unsigned nntp_exists = 0;
 unsigned nntp_current = 0;
@@ -162,6 +169,7 @@ enum {
 
 static unsigned nntp_capa = MODE_READ | MODE_FEED; /* general-purpose */
 
+static sasl_ssf_t extprops_ssf = 0;
 static int nntps = 0;
 int nntp_starttls_done = 0;
 
@@ -261,88 +269,6 @@ static struct sasl_callback mysasl_cb[] = {
     { SASL_CB_LIST_END, NULL, NULL }
 };
 
-/* proxy support functions */
-void proxyd_downserver(struct backend *s)
-{
-    if (!s || !s->timeout) {
-	/* already disconnected */
-	return;
-    }
-
-    /* need to logout of server */
-    backend_disconnect(s, &protocol[PROTOCOL_NNTP]);
-
-    if(s == backend_current) backend_current = NULL;
-
-    /* remove the timeout */
-    prot_removewaitevent(nntp_in, s->timeout);
-    s->timeout = NULL;
-}
-
-struct prot_waitevent *backend_timeout(struct protstream *s __attribute__((unused)),
-				       struct prot_waitevent *ev, void *rock)
-{
-    struct backend *be = (struct backend *) rock;
-
-    if (be != backend_current) {
-	/* server is not our current server, and idle too long.
-	 * down the backend server (removes the event as a side-effect)
-	 */
-	proxyd_downserver(be);
-	return NULL;
-    }
-    else {
-	/* it will timeout in IDLE_TIMEOUT seconds from now */
-	ev->mark = time(NULL) + IDLE_TIMEOUT;
-	return ev;
-    }
-}
-
-/* return the connection to the server */
-struct backend *proxyd_findserver(const char *server)
-{
-    int i = 0;
-    struct backend *ret = NULL;
-
-    while (backend_cached && backend_cached[i]) {
-	if (!strcmp(server, backend_cached[i]->hostname)) {
-	    /* xxx do we want to ping/noop the server here? */
-	    ret = backend_cached[i];
-	    break;
-	}
-	i++;
-    }
-
-    if (!ret || !ret->timeout) {
-	/* need to (re)establish connection to server or create one */
-	ret = backend_connect(ret, server, &protocol[PROTOCOL_NNTP],
-			      nntp_userid ? nntp_userid : "anonymous", NULL);
-	if(!ret) return NULL;
-
-	/* set the id */
-	if (!ret->context) {
-	    ret->context = xmalloc(sizeof(unsigned));
-	    *((unsigned *) ret->context) = i;
-	}
-
-	/* add the timeout */
-	ret->timeout = prot_addwaitevent(nntp_in, time(NULL) + IDLE_TIMEOUT,
-					 backend_timeout, ret);
-    }
-
-    ret->timeout->mark = time(NULL) + IDLE_TIMEOUT;
-
-    /* insert server in list of cached connections */
-    if (!backend_cached[i]) {
-	backend_cached = (struct backend **) 
-	    xrealloc(backend_cached, (i + 2) * sizeof(struct backend *));
-	backend_cached[i] = ret;
-	backend_cached[i + 1] = NULL;
-    }
-
-    return ret;
-}
-
 /* proxy mboxlist_lookup; on misses, it asks the listener for this
    machine to make a roundtrip to the master mailbox server to make
    sure it's up to date */
@@ -352,10 +278,10 @@ static int mlookup(const char *name, char **server, char **aclp, void *tid)
 
     if(server) *server = NULL;
 
-    r = mboxlist_detail(name, &type, NULL, server, aclp, tid);
+    r = mboxlist_detail(name, &type, NULL, NULL, server, aclp, tid);
     if (r == IMAP_MAILBOX_NONEXISTENT && config_mupdate_server) {
 	kick_mupdate();
-	r = mboxlist_detail(name, &type, NULL, server, aclp, tid);
+	r = mboxlist_detail(name, &type, NULL, NULL, server, aclp, tid);
     }
 
     if (type & MBTYPE_REMOTE) {
@@ -382,7 +308,7 @@ static int read_response(struct backend *s, int force_notfatal, char **result)
 	/* uh oh */
 	if (s == backend_current && !force_notfatal)
 	    fatal("Lost connection to selected backend", EC_UNAVAILABLE);
-	proxyd_downserver(s);
+	proxy_downserver(s);
 	return IMAP_SERVER_UNAVAILABLE;
     }
 
@@ -401,7 +327,7 @@ static int pipe_to_end_of_response(struct backend *s, int force_notfatal)
 	    /* uh oh */
 	    if (s == backend_current && !force_notfatal)
 		fatal("Lost connection to selected backend", EC_UNAVAILABLE);
-	    proxyd_downserver(s);
+	    proxy_downserver(s);
 	    return IMAP_SERVER_UNAVAILABLE;
 	}
 
@@ -427,7 +353,7 @@ static void nntp_reset(void)
     /* close backend connections */
     i = 0;
     while (backend_cached && backend_cached[i]) {
-	proxyd_downserver(backend_cached[i]);
+	proxy_downserver(backend_cached[i]);
 	free(backend_cached[i]->context);
 	free(backend_cached[i]);
 	i++;
@@ -450,6 +376,8 @@ static void nntp_reset(void)
     
     nntp_in = nntp_out = NULL;
 
+    if (protin) protgroup_reset(protin);
+
 #ifdef HAVE_SSL
     if (tls_conn) {
 	tls_reset_servertls(&tls_conn);
@@ -457,7 +385,7 @@ static void nntp_reset(void)
     }
 #endif
 
-    cyrus_reset_stdio(); 
+    cyrus_reset_stdio();
 
     strcpy(nntp_clienthost, "[local]");
     if (nntp_logfd != -1) {
@@ -538,7 +466,10 @@ int service_init(int argc __attribute__((unused)),
     quotadb_init(0);
     quotadb_open(NULL);
 
-    while ((opt = getopt(argc, argv, "srf")) != EOF) {
+    /* setup for sending IMAP IDLE notifications */
+    idle_enabled();
+
+    while ((opt = getopt(argc, argv, "srfp:")) != EOF) {
 	switch(opt) {
 	case 's': /* nntps (do starttls right away) */
 	    nntps = 1;
@@ -557,6 +488,10 @@ int service_init(int argc __attribute__((unused)),
 	    nntp_capa = MODE_FEED;
 	    break;
 
+	case 'p': /* external protection */
+	    extprops_ssf = atoi(optarg);
+	    break;
+
 	default:
 	    usage();
 	}
@@ -570,6 +505,9 @@ int service_init(int argc __attribute__((unused)),
     newsmaster_authstate = auth_newstate(newsmaster);
 
     singleinstance = config_getswitch(IMAPOPT_SINGLEINSTANCESTORE);
+
+    /* Create a protgroup for input from the client and selected backend */
+    protin = protgroup_new(2);
 
     return 0;
 }
@@ -591,8 +529,11 @@ int service_main(int argc __attribute__((unused)),
 
     signals_poll();
 
+    sync_log_init();
+
     nntp_in = prot_new(0, 0);
     nntp_out = prot_new(1, 1);
+    protgroup_insert(protin, nntp_in);
 
     /* Find out name of client host */
     salen = sizeof(nntp_remoteaddr);
@@ -632,6 +573,7 @@ int service_main(int argc __attribute__((unused)),
     /* will always return something valid */
     secprops = mysasl_secprops(SASL_SEC_NOPLAINTEXT);
     sasl_setprop(nntp_saslconn, SASL_SEC_PROPS, secprops);
+    sasl_setprop(nntp_saslconn, SASL_SSF_EXTERNAL, &extprops_ssf);
     
     if(iptostring((struct sockaddr *)&nntp_localaddr, salen,
 		  localip, 60) == 0) {
@@ -648,16 +590,10 @@ int service_main(int argc __attribute__((unused)),
     proc_register("nntpd", nntp_clienthost, NULL, NULL);
 
     /* Set inactivity timer */
-    timeout = config_getint(IMAPOPT_TIMEOUT);
+    timeout = config_getint(IMAPOPT_NNTPTIMEOUT);
     if (timeout < 3) timeout = 3;
     prot_settimeout(nntp_in, timeout*60);
     prot_setflushonread(nntp_in, nntp_out);
-
-    if (config_mupdate_server) {
-	/* setup the cache */
-	backend_cached = xmalloc(sizeof(struct backend *));
-	backend_cached[0] = NULL;
-    }
 
     /* we were connected on nntps port so we should do 
        TLS negotiation immediatly */
@@ -719,7 +655,7 @@ void shut_down(int code)
     /* close backend connections */
     i = 0;
     while (backend_cached && backend_cached[i]) {
-	proxyd_downserver(backend_cached[i]);
+	proxy_downserver(backend_cached[i]);
 	free(backend_cached[i]->context);
 	free(backend_cached[i]);
 	i++;
@@ -747,6 +683,8 @@ void shut_down(int code)
 	prot_flush(nntp_out);
 	prot_free(nntp_out);
     }
+
+    if (protin) protgroup_free(protin);
 
 #ifdef HAVE_SSL
     tls_shutdown_serverengine();
@@ -784,7 +722,7 @@ static int reset_saslconn(sasl_conn_t **conn)
 
     sasl_dispose(conn);
     /* do initialization typical of service_main */
-    ret = sasl_server_new("news", config_servername,
+    ret = sasl_server_new("nntp", config_servername,
                          NULL, NULL, NULL,
                          NULL, SASL_SUCCESS_DATA, conn);
     if(ret != SASL_OK) return ret;
@@ -805,7 +743,9 @@ static int reset_saslconn(sasl_conn_t **conn)
 
     /* If we have TLS/SSL info, set it */
     if(saslprops.ssf) {
-       ret = sasl_setprop(*conn, SASL_SSF_EXTERNAL, &saslprops.ssf);
+	ret = sasl_setprop(*conn, SASL_SSF_EXTERNAL, &saslprops.ssf);
+    } else {
+	ret = sasl_setprop(*conn, SASL_SSF_EXTERNAL, &extprops_ssf);
     }
 
     if(ret != SASL_OK) return ret;
@@ -828,13 +768,30 @@ static void cmdloop(void)
     static struct buf cmd, arg1, arg2, arg3, arg4;
     char *p, *result, buf[1024];
     const char *err;
-    unsigned long uid;
+    unsigned long uid, last;
     struct backend *be;
 
     allowanonymous = config_getswitch(IMAPOPT_ALLOWANONYMOUSLOGIN);
 
     for (;;) {
+	/* Flush any buffered output */
+	prot_flush(nntp_out);
+	if (backend_current) prot_flush(backend_current->out);
+
+	/* Check for shutdown file */
+	if (shutdown_file(buf, sizeof(buf))) {
+	    prot_printf(nntp_out, "400 %s\r\n", buf);
+	    shut_down(0);
+	}
+
 	signals_poll();
+
+	if (!proxy_check_input(protin, nntp_in, nntp_out,
+			       backend_current ? backend_current->in : NULL,
+			       NULL, 0)) {
+	    /* No input from client */
+	    continue;
+	}
 
 	/* Parse command name */
 	c = getword(nntp_in, &cmd);
@@ -845,10 +802,6 @@ static void cmdloop(void)
 		prot_printf(nntp_out, "400 %s\r\n", err);
 	    }
 	    return;
-	}
-	if (shutdown_file(buf, sizeof(buf))) {
-	    prot_printf(nntp_out, "400 %s\r\n", buf);
-	    shut_down(0);
 	}
 	if (!cmd.s[0]) {
 	    prot_printf(nntp_out, "501 Empty command\r\n");
@@ -939,13 +892,15 @@ static void cmdloop(void)
 			else
 			    prot_printf(be->out, "%s\r\n", cmd.s);
 
-			r = read_response(be, 0, &result);
-			if (r) goto noopengroup;
+			if (be != backend_current) {
+			    r = read_response(be, 0, &result);
+			    if (r) goto noopengroup;
 
-			prot_printf(nntp_out, "%s", result);
-			if (!strncmp(result, "22", 2) &&
-			    mode != ARTICLE_STAT) {
-			    pipe_to_end_of_response(be, 0);
+			    prot_printf(nntp_out, "%s", result);
+			    if (!strncmp(result, "22", 2) &&
+				mode != ARTICLE_STAT) {
+				pipe_to_end_of_response(be, 0);
+			    }
 			}
 		    }
 		    else
@@ -1013,16 +968,33 @@ static void cmdloop(void)
 		if (c == '\r') c = prot_getc(nntp_in);
 		if (c != '\n') goto extraargs;
 
-		r = open_group(arg1.s, 0, &backend_current, NULL);
+		r = open_group(arg1.s, 0, &be, NULL);
 		if (r) goto nogroup;
-		else if (backend_current) {
-		    prot_printf(backend_current->out, "GROUP %s\r\n", arg1.s);
-		    r = read_response(backend_current, 0, &result);
+		else if (be) {
+		    prot_printf(be->out, "GROUP %s\r\n", arg1.s);
+		    r = read_response(be, 0, &result);
 		    if (r) goto nogroup;
 
 		    prot_printf(nntp_out, "%s", result);
+
+		    if (!strncmp(result, "211", 3)) {
+			if (backend_current && backend_current != be) {
+			    /* remove backend_current from the protgroup */
+			    protgroup_delete(protin, backend_current->in);
+			}
+			backend_current = be;
+
+			/* add backend_current to the protgroup */
+			protgroup_insert(protin, backend_current->in);
+		    }
 		}
 		else {
+		    if (backend_current) {
+			/* remove backend_current from the protgroup */
+			protgroup_delete(protin, backend_current->in);
+		    }
+		    backend_current = NULL;
+
 		    nntp_exists = nntp_group->exists;
 		    nntp_current = nntp_exists > 0;
 
@@ -1053,7 +1025,6 @@ static void cmdloop(void)
 	    else if (!nntp_userid && !allowanonymous) goto nologin;
 	    else if (!strcmp(cmd.s, "Hdr")) {
 		char curgroup[MAX_MAILBOX_NAME+1], *msgid;
-		unsigned long last;
 
 	      hdr:
 		if (arg2.s) *arg2.s = 0;
@@ -1079,12 +1050,14 @@ static void cmdloop(void)
 			else
 			    prot_printf(be->out, "%s %s\r\n", cmd.s, arg1.s);
 
-			r = read_response(be, 0, &result);
-			if (r) goto noopengroup;
+			if (be != backend_current) {
+			    r = read_response(be, 0, &result);
+			    if (r) goto noopengroup;
 
-			prot_printf(nntp_out, "%s", result);
-			if (!strncmp(result, "22", 2)) { /* 221 or 225 */
-			    pipe_to_end_of_response(be, 0);
+			    prot_printf(nntp_out, "%s", result);
+			    if (!strncmp(result, "22", 2)) { /* 221 or 225 */
+				pipe_to_end_of_response(be, 0);
+			    }
 			}
 		    }
 		    else
@@ -1140,11 +1113,6 @@ static void cmdloop(void)
 
 		if (backend_current) {
 		    prot_printf(backend_current->out, "LAST\r\n");
-
-		    r = read_response(backend_current, 0, &result);
-		    if (r) goto noopengroup;
-
-		    prot_printf(nntp_out, "%s", result);
 		}
 		else if (!nntp_group) goto noopengroup;
 		else if (!nntp_current) goto nocurrent;
@@ -1164,41 +1132,59 @@ static void cmdloop(void)
 	    }
 	    else if (!strcmp(cmd.s, "Listgroup")) {
 		arg1.len = 0;
+		arg2.s = arg2.s ? strcpy(arg2.s, "1-") : "1-";
+		be = backend_current;
 
 		if (c == ' ') {
 		    c = getword(nntp_in, &arg1); /* group (optional) */
 		    if (c == EOF) goto missingargs;
+		    if (c == ' ') {
+			c = getword(nntp_in, &arg2); /* range (optional) */
+			if (c == EOF) goto missingargs;
+		    }
 		}
 		if (c == '\r') c = prot_getc(nntp_in);
 		if (c != '\n') goto extraargs;
 
 		if (arg1.len) {
-		    r = open_group(arg1.s, 0, &backend_current, NULL);
+		    r = open_group(arg1.s, 0, &be, NULL);
 		    if (r) goto nogroup;
-
-		    if (nntp_group) {
-			nntp_exists = nntp_group->exists;
-			nntp_current = nntp_exists > 0;
-		    }
 		}
-		if (backend_current) {
-		    if (arg1.len)
-			prot_printf(backend_current->out, "LISTGROUP %s\r\n",
-				    arg1.s);
-		    else
-			prot_printf(backend_current->out, "LISTGROUP\r\n");
 
-		    r = read_response(backend_current, 0, &result);
+		if (be) {
+		    if (arg1.len)
+			prot_printf(be->out, "LISTGROUP %s %s\r\n",
+				    arg1.s, arg2.s);
+		    else
+			prot_printf(be->out, "LISTGROUP\r\n");
+
+		    r = read_response(be, 0, &result);
 		    if (r) goto noopengroup;
 
 		    prot_printf(nntp_out, "%s", result);
+
 		    if (!strncmp(result, "211", 3)) {
-			pipe_to_end_of_response(backend_current, 0);
+			pipe_to_end_of_response(be, 0);
+
+			if (backend_current && backend_current != be) {
+			    /* remove backend_current from the protgroup */
+			    protgroup_delete(protin, backend_current->in);
+			}
+			backend_current = be;
+
+			/* add backend_current to the protgroup */
+			protgroup_insert(protin, backend_current->in);
 		    }
 		}
 		else if (!nntp_group) goto noopengroup;
-		else {
-		    int i;
+		else if (parserange(arg2.s, &uid, &last, NULL, NULL) != -1) {
+		    int msgno, last_msgno;
+
+		    if (backend_current) {
+			/* remove backend_current from the protgroup */
+			protgroup_delete(protin, backend_current->in);
+		    }
+		    backend_current = NULL;
 
 		    nntp_exists = nntp_group->exists;
 		    nntp_current = nntp_exists > 0;
@@ -1211,8 +1197,12 @@ static void cmdloop(void)
 				nntp_group->last_uid,
 				nntp_group->name + strlen(newsprefix));
 
-		    for (i = 1; i <= nntp_exists; i++)
-			prot_printf(nntp_out, "%u\r\n", index_getuid(i));
+		    msgno = index_finduid(uid);
+		    if (!msgno || index_getuid(msgno) != uid) msgno++;
+		    last_msgno = index_finduid(last);
+
+		    for (; msgno <= last_msgno; msgno++)
+			prot_printf(nntp_out, "%u\r\n", index_getuid(msgno));
 		    prot_printf(nntp_out, ".\r\n");
 		}
 	    }
@@ -1288,11 +1278,6 @@ static void cmdloop(void)
 
 		if (backend_current) {
 		    prot_printf(backend_current->out, "NEXT\r\n");
-
-		    r = read_response(backend_current, 0, &result);
-		    if (r) goto noopengroup;
-
-		    prot_printf(nntp_out, "%s", result);
 		}
 		else if (!nntp_group) goto noopengroup;
 		else if (!nntp_current) goto nocurrent;
@@ -1316,7 +1301,6 @@ static void cmdloop(void)
 	case 'O':
 	    if (!strcmp(cmd.s, "Over")) {
 		char curgroup[MAX_MAILBOX_NAME+1], *msgid;
-		unsigned long last;
 
 	      over:
 		if (arg1.s) *arg1.s = 0;
@@ -1341,12 +1325,14 @@ static void cmdloop(void)
 			else
 			    prot_printf(be->out, "%s\r\n", cmd.s);
 
-			r = read_response(be, 0, &result);
-			if (r) goto noopengroup;
+			if (be != backend_current) {
+			    r = read_response(be, 0, &result);
+			    if (r) goto noopengroup;
 
-			prot_printf(nntp_out, "%s", result);
-			if (!strncmp(result, "224", 3)) {
-			    pipe_to_end_of_response(be, 0);
+			    prot_printf(nntp_out, "%s", result);
+			    if (!strncmp(result, "224", 3)) {
+				pipe_to_end_of_response(be, 0);
+			    }
 			}
 		    }
 		    else
@@ -1421,7 +1407,6 @@ static void cmdloop(void)
 	    }
 	    else if (!strcmp(cmd.s, "Xpat")) {
 		char curgroup[MAX_MAILBOX_NAME+1], *msgid;
-		unsigned long last;
 
 		if (c != ' ') goto missingargs;
 		c = getword(nntp_in, &arg1); /* header */
@@ -1449,12 +1434,14 @@ static void cmdloop(void)
 			prot_printf(be->out, "%s %s %s %s\r\n",
 				    cmd.s, arg1.s, arg2.s, arg3.s);
 
-			r = read_response(be, 0, &result);
-			if (r) goto noopengroup;
+			if (be != backend_current) {
+			    r = read_response(be, 0, &result);
+			    if (r) goto noopengroup;
 
-			prot_printf(nntp_out, "%s", result);
-			if (!strncmp(result, "221", 3)) {
-			    pipe_to_end_of_response(be, 0);
+			    prot_printf(nntp_out, "%s", result);
+			    if (!strncmp(result, "221", 3)) {
+				pipe_to_end_of_response(be, 0);
+			    }
 			}
 		    }
 		    else
@@ -1518,6 +1505,10 @@ static void cmdloop(void)
 
       nocurrent:
 	prot_printf(nntp_out, "420 Current article number is invalid\r\n");
+	continue;
+
+      noarticle:
+	prot_printf(nntp_out, "423 No such article(s) in this newsgroup\r\n");
 	continue;
     }
 }
@@ -1599,7 +1590,7 @@ static int parserange(char *str, unsigned long *uid, unsigned long *last,
     if (ret) *ret = NULL;
 
     if (!str || !*str) {
-	/* argument, use current article */
+	/* no argument, use current article */
 	if (backend_current) {
 	    if (ret) *ret = backend_current;
 	}
@@ -1623,7 +1614,6 @@ static int parserange(char *str, unsigned long *uid, unsigned long *last,
     else if (backend_current)
 	*ret = backend_current;
     else if (!nntp_group) goto noopengroup;
-    else if (!nntp_exists) goto noarticle;
     else if ((*uid = parsenum(str, &p)) <= 0) goto badrange;
     else if (p && *p) {
 	/* extra stuff, check for range */
@@ -1632,7 +1622,6 @@ static int parserange(char *str, unsigned long *uid, unsigned long *last,
 	    *last = parsenum(p, NULL);
 	else
 	    *last = index_getuid(nntp_exists);
-	if (*last <= 0 || *last < *uid) goto badrange;
     }
 
     if (last && !*last) *last = *uid;
@@ -1647,10 +1636,6 @@ static int parserange(char *str, unsigned long *uid, unsigned long *last,
     prot_printf(nntp_out, "420 Current article number is invalid\r\n");
     return -1;
 
-  noarticle:
-    prot_printf(nntp_out, "423 No such article in this newsgroup\r\n");
-    return -1;
-
   nomsgid:
     prot_printf(nntp_out, "430 No article found with that message-id");
     if (r) prot_printf(nntp_out, " (%s)", error_message(r));
@@ -1658,7 +1643,7 @@ static int parserange(char *str, unsigned long *uid, unsigned long *last,
     return -1;
 
   badrange:
-    prot_printf(nntp_out, "501 Bad message-id or range\r\n");
+    prot_printf(nntp_out, "501 Bad message-id, message number, or range\r\n");
     return -1;
 }
 
@@ -1766,7 +1751,10 @@ static int open_group(char *name, int has_prefix, struct backend **ret,
 
     if (newserver) {
 	/* remote group */
-	backend_next = proxyd_findserver(newserver);
+	backend_next = proxy_findserver(newserver, &protocol[PROTOCOL_NNTP],
+					nntp_userid ? nntp_userid : "anonymous",
+					&backend_cached, &backend_current,
+					NULL, nntp_in);
 	if (!backend_next) return IMAP_SERVER_UNAVAILABLE;
 
 	*ret = backend_next;
@@ -1802,7 +1790,7 @@ static int open_group(char *name, int has_prefix, struct backend **ret,
 static void cmd_capabilities(char *keyword __attribute__((unused)))
 {
     const char *mechlist;
-    unsigned mechcount = 0;
+    int mechcount = 0;
 
     prot_printf(nntp_out, "101 Capability list follows:\r\n");
     prot_printf(nntp_out, "VERSION 2\r\n");
@@ -1831,7 +1819,10 @@ static void cmd_capabilities(char *keyword __attribute__((unused)))
 
     /* add the reader capabilities/extensions */
     if ((nntp_capa & MODE_READ) && (nntp_userid || allowanonymous)) {
-	prot_printf(nntp_out, "READER POST LISTGROUP\r\n");
+	prot_printf(nntp_out, "READER\r\n");
+	prot_printf(nntp_out, "POST\r\n");
+	if (config_getswitch(IMAPOPT_ALLOWNEWNEWS))
+	    prot_printf(nntp_out, "NEWNEWS\r\n");
 	prot_printf(nntp_out, "HDR\r\n");
 	prot_printf(nntp_out, "OVER\r\n");
 	prot_printf(nntp_out, "XPAT\r\n");
@@ -1914,6 +1905,8 @@ static void cmd_article(int part, char *msgid, unsigned long uid)
 	return;
     }
 
+    nntp_current = msgno;
+
     if (!by_msgid) msgid = index_get_msgid(nntp_group, msgno);
 
     prot_printf(nntp_out, "%u %lu %s\r\n",
@@ -1960,6 +1953,10 @@ static void cmd_article(int part, char *msgid, unsigned long uid)
 	if (buf[strlen(buf)-1] != '\n') prot_printf(nntp_out, "\r\n");
 
 	prot_printf(nntp_out, ".\r\n");
+
+	/* Reset inactivity timer in case we spend a long time
+	   pushing data to the client over a slow link. */
+	prot_resettimeout(nntp_in);
     }
 
     if (!by_msgid) free(msgid);
@@ -2071,7 +2068,7 @@ static void cmd_authinfo_sasl(char *cmd, char *mech, char *resp)
 	/* if client didn't specify any mech we give them the list */
 	if (!mech) {
 	    const char *sasllist;
-	    unsigned int mechnum;
+	    int mechnum;
 
 	    prot_printf(nntp_out, "281 List of mechanisms follows\r\n");
       
@@ -2128,13 +2125,16 @@ static void cmd_authinfo_sasl(char *cmd, char *mech, char *resp)
 	    default:
 		code = 481;
 	    }
-	    errorstring = sasl_errstring(sasl_result, NULL, NULL);
 
 	    syslog(LOG_NOTICE, "badlogin: %s %s [%s]",
 		   nntp_clienthost, mech, sasl_errdetail(nntp_saslconn));
 
 	    sleep(3);
 
+	    /* Don't allow user probing */
+	    if (sasl_result == SASL_NOUSER) sasl_result = SASL_BADAUTH;
+
+	    errorstring = sasl_errstring(sasl_result, NULL, NULL);
 	    if (errorstring) {
 		prot_printf(nntp_out, "%d %s\r\n", code, errorstring);
 	    } else {
@@ -2203,16 +2203,22 @@ static void cmd_authinfo_sasl(char *cmd, char *mech, char *resp)
 static void cmd_hdr(char *cmd, char *hdr, char *pat, char *msgid,
 		    unsigned long uid, unsigned long last)
 {
+    int msgno, last_msgno;
+    int by_msgid = (msgid != NULL);
+    int found = 0;
+
     lcase(hdr);
 
-    prot_printf(nntp_out, "%u Headers follow:\r\n", cmd[0] == 'X' ? 221 : 225);
+    msgno = index_finduid(uid);
+    if (!msgno || index_getuid(msgno) != uid) msgno++;
+    last_msgno = index_finduid(last);
 
-    for (; uid <= last; uid++) {
+    for (; msgno <= last_msgno; msgno++) {
 	char *body;
-	int msgno = index_finduid(uid);
-	int by_msgid = (msgid != NULL);
 
-	if (!msgno || index_getuid(msgno) != uid) continue;
+	if (!found++)
+	    prot_printf(nntp_out, "%u Headers follow:\r\n",
+			cmd[0] == 'X' ? 221 : 225);
 
 	/* see if we're looking for metadata */
 	if (hdr[0] == ':') {
@@ -2228,10 +2234,12 @@ static void cmd_hdr(char *cmd, char *hdr, char *pat, char *msgid,
 			    size + strlen(xref) + 2); /* +2 for \r\n */
 	    }
 	    else if (!strcasecmp(":lines", hdr))
-		prot_printf(nntp_out, "%lu %lu\r\n", by_msgid ? 0 : uid,
+		prot_printf(nntp_out, "%lu %lu\r\n",
+			    by_msgid ? 0 : index_getuid(msgno),
 			    index_getlines(nntp_group, msgno));
 	    else
-		prot_printf(nntp_out, "%lu \r\n", by_msgid ? 0 : uid);
+		prot_printf(nntp_out, "%lu \r\n",
+			    by_msgid ? 0 : index_getuid(msgno));
 	}
 	else if (!strcmp(hdr, "xref") && !pat /* [X]HDR only */) {
 	    char xref[8192];
@@ -2240,16 +2248,21 @@ static void cmd_hdr(char *cmd, char *hdr, char *pat, char *msgid,
 	    build_xref(msgid, xref, sizeof(xref), 1);
 	    if (!by_msgid) free(msgid);
 
-	    prot_printf(nntp_out, "%lu %s\r\n", by_msgid ? 0 : uid, xref);
+	    prot_printf(nntp_out, "%lu %s\r\n",
+			by_msgid ? 0 : index_getuid(msgno), xref);
 	}
 	else if ((body = index_getheader(nntp_group, msgno, hdr)) &&
 		 (!pat ||			/* [X]HDR */
 		  wildmat(body, pat))) {	/* XPAT with match */
-		prot_printf(nntp_out, "%lu %s\r\n", by_msgid ? 0 : uid, body);
+		prot_printf(nntp_out, "%lu %s\r\n",
+			    by_msgid ? 0 : index_getuid(msgno), body);
 	}
     }
 
-    prot_printf(nntp_out, ".\r\n");
+    if (found)
+	prot_printf(nntp_out, ".\r\n");
+    else
+	prot_printf(nntp_out, "423 No such article(s) in this newsgroup\r\n");
 }
 
 static void cmd_help(void)
@@ -2311,9 +2324,7 @@ static void cmd_help(void)
 		    "\t\tList the descriptions of the specified newsgroups.\r\n");
 	prot_printf(nntp_out, "\tLIST OVERVIEW.FMT\r\n"
 		    "\t\tList the headers and metadata items available via OVER.\r\n");
-    }
-    if ((nntp_capa & MODE_READ) && (nntp_userid || allowanonymous)) {
-	prot_printf(nntp_out, "\tLISTGROUP [group]\r\n"
+	prot_printf(nntp_out, "\tLISTGROUP [group [range]]\r\n"
 		    "\t\tList the article numbers in the specified newsgroup.\r\n");
 	if (config_getswitch(IMAPOPT_ALLOWNEWNEWS))
 	    prot_printf(nntp_out, "\tNEWNEWS wildmat date time [GMT]\r\n"
@@ -2408,7 +2419,9 @@ void list_proxy(char *server, void *data __attribute__((unused)), void *rock)
     int r;
     char *result;
 
-    be = proxyd_findserver(server);
+    be = proxy_findserver(server, &protocol[PROTOCOL_NNTP],
+			  nntp_userid ? nntp_userid : "anonymous",
+			  &backend_cached, &backend_current, NULL, nntp_in);
     if (!be) return;
 
     prot_printf(be->out, "LIST %s %s\r\n", erock->cmd, erock->wild);
@@ -2759,21 +2772,22 @@ static void cmd_newnews(char *wild, time_t tstamp)
 
 static void cmd_over(char *msgid, unsigned long uid, unsigned long last)
 {
-    int msgno;
+    int msgno, last_msgno;
     struct nntp_overview *over;
     int found = 0;
 
-    for (; uid <= last; uid++) {
-	msgno = index_finduid(uid);
-	if (!msgno || index_getuid(msgno) != uid) continue;
+    msgno = index_finduid(uid);
+    if (!msgno || index_getuid(msgno) != uid) msgno++;
+    last_msgno = index_finduid(last);
+
+    for (; msgno <= last_msgno; msgno++) {
+	if (!found++)
+	    prot_printf(nntp_out, "224 Overview information follows:\r\n");
 
 	if ((over = index_overview(nntp_group, msgno))) {
 	    char xref[8192];
 
 	    build_xref(over->msgid, xref, sizeof(xref), 0);
-
-	    if (!found++)
-		prot_printf(nntp_out, "224 Overview information follows:\r\n");
 
 	    prot_printf(nntp_out, "%lu\t%s\t%s\t%s\t%s\t%s\t%lu\t%lu\t%s\r\n",
 			msgid ? 0 : over->uid,
@@ -2790,7 +2804,7 @@ static void cmd_over(char *msgid, unsigned long uid, unsigned long last)
     if (found)
 	prot_printf(nntp_out, ".\r\n");
     else
-	prot_printf(nntp_out, "420 No articles selected\r\n");
+	prot_printf(nntp_out, "423 No such article(s) in this newsgroup\r\n");
 }
 
 
@@ -2899,7 +2913,7 @@ static int parse_groups(const char *groups, message_data_t *msg)
 	}
     }
 
-    return NNTP_FAIL_NEWSGROUPS;
+    /* never reached */
 }
 
 /*
@@ -2923,6 +2937,8 @@ static int savemsg(message_data_t *m, FILE *f)
 	NULL
     };
     int addlen;
+
+    m->f = f;
 
     /* fill the cache */
     r = spool_fill_hdrcache(nntp_in, f, m->hdrcache, skipheaders);
@@ -3128,7 +3144,7 @@ static int savemsg(message_data_t *m, FILE *f)
 	else {
 	    /* close the tmpfile and use the stage */
 	    fclose(f);
-	    f = stagef;
+	    m->f = f = stagef;
 	}
     }
     /* else this is probably a remote group, so use the tmpfile */
@@ -3146,18 +3162,70 @@ static int savemsg(message_data_t *m, FILE *f)
 	return IMAP_IOERROR;
     }
     m->size = sbuf.st_size;
-    m->f = f;
     m->data = prot_new(fileno(f), 0);
+
+    return 0;
+}
+
+static int deliver_remote(message_data_t *msg, struct dest *dlist)
+{
+    struct dest *d;
+
+    /* run the txns */
+    for (d = dlist; d; d = d->next) {
+	struct backend *be;
+	char buf[4096];
+
+	be = proxy_findserver(d->server, &protocol[PROTOCOL_NNTP],
+			      nntp_userid ? nntp_userid : "anonymous",
+			      &backend_cached, &backend_current,
+			      NULL, nntp_in);
+	if (!be) return IMAP_SERVER_UNAVAILABLE;
+
+	/* tell the backend about our new article */
+	prot_printf(be->out, "IHAVE %s\r\n", msg->id);
+	prot_flush(be->out);
+
+	if (!prot_fgets(buf, sizeof(buf), be->in) ||
+	    strncmp("335", buf, 3)) {
+	    syslog(LOG_NOTICE, "backend doesn't want article %s", msg->id);
+	    continue;
+	}
+
+	/* send the article */
+	rewind(msg->f);
+	while (fgets(buf, sizeof(buf), msg->f)) {
+	    if (buf[0] == '.') prot_putc('.', be->out);
+	    do {
+		prot_printf(be->out, "%s", buf);
+	    } while (buf[strlen(buf)-1] != '\n' &&
+		     fgets(buf, sizeof(buf), msg->f));
+	}
+
+	/* Protect against messages not ending in CRLF */
+	if (buf[strlen(buf)-1] != '\n') prot_printf(be->out, "\r\n");
+
+	prot_printf(be->out, ".\r\n");
+
+	if (!prot_fgets(buf, sizeof(buf), be->in) ||
+	    strncmp("235", buf, 3)) {
+	    syslog(LOG_WARNING, "article %s transfer to backend failed",
+		   msg->id);
+	    return NNTP_FAIL_TRANSFER;
+	}
+    }
 
     return 0;
 }
 
 static int deliver(message_data_t *msg)
 {
-    int n, r, myrights;
+    int n, r = 0, myrights;
     char *rcpt = NULL, *local_rcpt = NULL, *server, *acl;
     time_t now = time(NULL);
-    unsigned long uid, backend_mask = 0;
+    unsigned long uid;
+    struct body *body = NULL;
+    struct dest *dlist = NULL;
 
     /* check ACLs of all mailboxes */
     for (n = 0; n < msg->rcpt_num; n++) {
@@ -3173,52 +3241,7 @@ static int deliver(message_data_t *msg)
 
 	if (server) {
 	    /* remote group */
-	    struct backend *be = NULL;
-	    unsigned id;
-	    char buf[4096];
-
-	    be = proxyd_findserver(server);
-	    if (!be) return IMAP_SERVER_UNAVAILABLE;
-
-	    /* check if we've already sent to this backend
-	     * XXX this only works for <= 32 backends
-	     */
-	    if ((id = *((unsigned *) be->context)) < 32) {
-		if (backend_mask & (1 << id)) continue;
-		backend_mask |= (1 << id);
-	    }
-
-	    /* tell the backend about our new article */
-	    prot_printf(be->out, "IHAVE %s\r\n", msg->id);
-	    prot_flush(be->out);
-
-	    if (!prot_fgets(buf, sizeof(buf), be->in) ||
-		strncmp("335", buf, 3)) {
-		syslog(LOG_NOTICE, "backend doesn't want article %s", msg->id);
-		continue;
-	    }
-
-	    /* send the article */
-	    rewind(msg->f);
-	    while (fgets(buf, sizeof(buf), msg->f)) {
-		if (buf[0] == '.') prot_putc('.', be->out);
-		do {
-		    prot_printf(be->out, "%s", buf);
-		} while (buf[strlen(buf)-1] != '\n' &&
-			 fgets(buf, sizeof(buf), msg->f));
-	    }
-
-	    /* Protect against messages not ending in CRLF */
-	    if (buf[strlen(buf)-1] != '\n') prot_printf(be->out, "\r\n");
-
-	    prot_printf(be->out, ".\r\n");
-
-	    if (!prot_fgets(buf, sizeof(buf), be->in) ||
-		strncmp("235", buf, 3)) {
-		syslog(LOG_WARNING, "article %s transfer to backend failed",
-		       msg->id);
-		return NNTP_FAIL_TRANSFER;
-	    }
+	    proxy_adddest(&dlist, NULL, 0, server, "");
 	}
 	else {
 	    /* local group */
@@ -3237,15 +3260,28 @@ static int deliver(message_data_t *msg)
 	    if (!r) {
 		prot_rewind(msg->data);
 		if (stage) {
-		    r = append_fromstage(&as, stage, now,
+		    r = append_fromstage(&as, &body, stage, now,
 					 (const char **) NULL, 0, !singleinstance);
 		} else {
 		    /* XXX should never get here */
-		    r = append_fromstream(&as, msg->data, msg->size, now,
+		    r = append_fromstream(&as, &body, msg->data, msg->size, now,
 					  (const char **) NULL, 0);
 		}
-		if (!r) append_commit(&as, 0, NULL, &uid, NULL);
-		else append_abort(&as);
+		if (r || (msg->id &&   
+			  duplicate_check(msg->id, strlen(msg->id),
+					  rcpt, strlen(rcpt)))) {  
+		    append_abort(&as);
+                   
+		    if (!r) {
+			/* duplicate message */
+			duplicate_log(msg->id, rcpt, "nntp delivery");
+			continue;
+		    }            
+		}                
+		else {           
+		    r = append_commit(&as, 0, NULL, &uid, NULL);
+		    if (!r) sync_log_append(rcpt);
+		}
 	    }
 
 	    if (!r && msg->id)
@@ -3258,7 +3294,27 @@ static int deliver(message_data_t *msg)
 	}
     }
 
-    return  0;
+    if (body) {
+	message_free_body(body);
+	free(body);
+    }
+
+    if (dlist) {
+	struct dest *d;
+
+	/* run the txns */
+	r = deliver_remote(msg, dlist);
+
+	/* free the destination list */
+	d = dlist;
+	while (d) {
+	    struct dest *nextd = d->next;
+	    free(d);
+	    d = nextd;
+	}
+    }
+
+    return r;
 }
 
 static int newgroup(message_data_t *msg)
@@ -3266,6 +3322,7 @@ static int newgroup(message_data_t *msg)
     int r;
     char *group;
     char mailboxname[MAX_MAILBOX_NAME+1];
+    int sync_lockfd = (-1);
 
     /* isolate newsgroup */
     group = msg->control + 8; /* skip "newgroup" */
@@ -3279,6 +3336,8 @@ static int newgroup(message_data_t *msg)
 
     /* XXX check body of message for useful MIME parts */
 
+    if (!r) sync_log_mailbox(mailboxname);
+
     return r;
 }
 
@@ -3287,6 +3346,7 @@ static int rmgroup(message_data_t *msg)
     int r;
     char *group;
     char mailboxname[MAX_MAILBOX_NAME+1];
+    int sync_lockfd = (-1);
 
     /* isolate newsgroup */
     group = msg->control + 7; /* skip "rmgroup" */
@@ -3300,6 +3360,8 @@ static int rmgroup(message_data_t *msg)
     r = mboxlist_deletemailbox(mailboxname, 0,
 			       newsmaster, newsmaster_authstate, 1, 0, 0);
 
+    if (!r) sync_log_mailbox(mailboxname);
+
     return r;
 }
 
@@ -3309,6 +3371,7 @@ static int mvgroup(message_data_t *msg)
     char *group;
     char oldmailboxname[MAX_MAILBOX_NAME+1];
     char newmailboxname[MAX_MAILBOX_NAME+1];
+    int sync_lockfd = (-1);
 
     /* isolate old newsgroup */
     group = msg->control + 7; /* skip "mvgroup" */
@@ -3327,9 +3390,11 @@ static int mvgroup(message_data_t *msg)
 	     newsprefix, len, group);
 
     r = mboxlist_renamemailbox(oldmailboxname, newmailboxname, NULL, 0,
-			       newsmaster, newsmaster_authstate);
+			       newsmaster, newsmaster_authstate, 0);
 
     /* XXX check body of message for useful MIME parts */
+
+    if (!r) sync_log_mailbox_double(oldmailboxname, newmailboxname);
 
     return r;
 }
@@ -3338,7 +3403,8 @@ static int mvgroup(message_data_t *msg)
  * mailbox_exchange() callback function to delete cancelled articles
  */
 static int expunge_cancelled(struct mailbox *mailbox __attribute__((unused)),
-			     void *rock, char *index)
+			     void *rock, char *index,
+			     int expunge_flags __attribute__((unused)))
 {
     int uid = ntohl(*((bit32 *)(index+OFFSET_UID)));
 
@@ -3364,7 +3430,7 @@ static int cancel_cb(const char *msgid __attribute__((unused)),
 	r = mailbox_open_header(mailbox, 0, &mbox);
 
 	if (!r &&
-	    !(cyrus_acl_myrights(newsmaster_authstate, mbox.acl) & ACL_DELETE))
+	    !(cyrus_acl_myrights(newsmaster_authstate, mbox.acl) & ACL_DELETEMSG))
 	    r = IMAP_PERMISSION_DENIED;
 
 	if (!r) {
@@ -3379,13 +3445,14 @@ static int cancel_cb(const char *msgid __attribute__((unused)),
 	if (!r) {
 	    mailbox_lock_index(&mbox);
 	    mbox.index_lock_count = 1;
-	    mailbox_expunge(&mbox, 0, expunge_cancelled, &uid);
+	    mailbox_expunge(&mbox, expunge_cancelled, &uid, EXPUNGE_FORCE);
 	}
 
 	if (doclose) mailbox_close(&mbox);
 
 	/* if we failed, pass the return code back in the rock */
 	if (r) *((int *) rock) = r;
+	else sync_log_mailbox(mbox.name);
     }
 
     return 0;

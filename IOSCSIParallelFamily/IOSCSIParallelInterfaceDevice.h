@@ -180,7 +180,8 @@ public:
 	*/
 	static IOSCSIParallelInterfaceDevice *	CreateTarget ( 
 									SCSITargetIdentifier 		targetID,
-									UInt32 						sizeOfHBAData );
+									UInt32 						sizeOfHBAData,
+									IORegistryEntry *			entry = NULL );
 	
 	/*!
 		@function DestroyTarget
@@ -342,6 +343,20 @@ protected:
 								SCSIParallelTaskIdentifier 	parallelTask );
 			
 	/*!
+		@function SetDevice
+		@abstract Method to set the device to be associated
+		with a SCSIParallelTaskIdentifier.
+		@discussion Method to set the device to be associated
+		with a SCSIParallelTaskIdentifier.
+		@param parallelTask A valid SCSIParallelTaskIdentifier.
+		@param device A pointer to a valid  IOSCSIParallelInterfaceDevice.
+		@result returns true if successful.
+	*/
+	bool				SetDevice ( 
+							SCSIParallelTaskIdentifier			parallelTask,
+							IOSCSIParallelInterfaceDevice * 	device );
+
+	/*!
 		@function SetTargetIdentifier
 		@abstract Set Target Identifier
 		@discussion xxx
@@ -362,6 +377,18 @@ protected:
 	*/
 	SCSITargetIdentifier	GetTargetIdentifier ( 
 								SCSIParallelTaskIdentifier 	parallelTask );
+
+	/*!
+		@function SetDMABuffer
+		@abstract Set DMA buffer
+		@discussion xxx
+		@param parallelTask A valid SCSIParallelTaskIdentifier.
+		@param buffer A valid IOMemoryDescriptor.
+		@result returns IOReturn value.
+	*/
+	IOReturn	SetDMABuffer ( 
+							SCSIParallelTaskIdentifier 	parallelTask,
+							IOMemoryDescriptor *		buffer );
 	
 	// ---- Methods for Accessing data in the client's SCSI Task Object ----	
 	// Method to retrieve the LUN that identifies the Logical Unit whose Task
@@ -591,6 +618,7 @@ protected:
 	IOMemoryDescriptor * 	GetHBADataDescriptor ( 
 								SCSIParallelTaskIdentifier 	parallelTask );
 
+	
 #if 0
 #pragma mark -
 #pragma mark For Internal Use Only
@@ -604,8 +632,7 @@ public:
 	bool		start ( IOService * provider );
 	void		stop ( IOService *  provider );
 	void		free ( void );
-	bool		willTerminate ( IOService * provider, IOOptionBits options );
-	bool		didTerminate ( IOService * provider, IOOptionBits options, bool * defer );	
+	bool		finalize ( IOOptionBits options );	
 	
 	IOReturn	message ( UInt32 clientMsg, IOService * forProvider, void * forArg = 0 );
 	IOReturn	requestProbe ( IOOptionBits options );
@@ -621,6 +648,27 @@ public:
 	
 	// This member routine is obsoleted and should not be used by a client.
 	virtual SCSIServiceResponse AbortSCSICommand ( SCSITaskIdentifier request );
+
+protected:
+	
+	
+	SCSIServiceResponse		HandleAbortTask ( 
+											UInt8 						theLogicalUnit, 
+											SCSITaggedTaskIdentifier 	theTag );
+	
+	SCSIServiceResponse		HandleAbortTaskSet ( 
+											UInt8 						theLogicalUnit );
+	
+	SCSIServiceResponse		HandleClearACA ( 
+											UInt8 						theLogicalUnit );
+	
+	SCSIServiceResponse		HandleClearTaskSet (
+											UInt8 						theLogicalUnit );
+	
+	SCSIServiceResponse		HandleLogicalUnitReset (
+											UInt8 						theLogicalUnit );
+											
+	SCSIServiceResponse		HandleTargetReset ( void );
 	
 private:
 	
@@ -644,6 +692,7 @@ private:
 	// Lock for controlling access to the resend task queue.
 	IOSimpleLock *				fResendQueueLock;
 	SCSIParallelTask *			fResendTaskList;
+	bool						fAllowResends;
 	
 	IOSCSIParallelInterfaceController *	fController;
 	

@@ -71,7 +71,7 @@ void DigestCtxFree(
 int DigestCtxUpdate(
 	DigestCtx 	*ctx,
 	const void *textPtr,
-	UInt32 textLen)
+	uint32 textLen)
 {
 	return ctx->ops->update(&ctx->dig, textPtr, textLen);
 }

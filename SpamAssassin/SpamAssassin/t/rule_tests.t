@@ -15,6 +15,8 @@ if (-e 'test_dir') {            # running from test directory, not ..
   $prefix = '..';
 }
 
+use SATest; sa_t_init("rule_tests");
+
 use strict;
 use Test;
 use Mail::SpamAssassin;
@@ -24,14 +26,7 @@ $num_tests = 1;
 
 $Mail::SpamAssassin::Conf::COLLECT_REGRESSION_TESTS = 1;
 
-my $sa = Mail::SpamAssassin->new({
-    rules_filename => "$prefix/t/log/test_rules_copy",
-    site_rules_filename => "$prefix/t/log/test_default.cf",
-    userprefs_filename  => "$prefix/masses/spamassassin/user_prefs",
-    local_tests_only    => 1,
-    debug             => 0,
-    dont_copy_prefs   => 1,
-});
+my $sa = create_saobj({'dont_copy_prefs' => 1});
 
 $sa->init(0); # parse rules
 
@@ -67,7 +62,12 @@ foreach my $symbol ($sa->{conf}->regression_tests()) {
 		|| $sa->{conf}->{head_evals}->{$priority}->{$symbol};
 	      last if $test_string;
             }
+	    if (ref($test_string) eq 'ARRAY'){
+	      $test_string = join("_", @{$test_string});
+	      $test_string = "Received" if ($test_string =~ /received/i);
+	    }
             my ($header_name) = $test_string =~ /^(\S+)/;
+	    $header_name =~ s/:.*$//; # :name, :addr, etc.
             # warn("got header name: $header_name - setting to: $string\n");
 	    $mail = $sa->parse(["${header_name}: $string\n","\n","\n"]);
         }
@@ -82,6 +82,9 @@ foreach my $symbol ($sa->{conf}->regression_tests()) {
 	    }
 	    $mail = $sa->parse(["Content-type: $type\n","\n","$string\n"]);
         }
+
+	# debugging, what message is being processed
+	#print $symbol, "\n", "-"x48, "\n", $mail->get_pristine(), "\n", "-"x48, "\n";
 
         my $msg = Mail::SpamAssassin::PerMsgStatus->new($sa, $mail);
         my $conf = $msg->{conf};
@@ -98,6 +101,10 @@ foreach my $symbol ($sa->{conf}->regression_tests()) {
 	my %rules_hit = map { $_ => 1 } split(/,/,$msg->get_names_of_tests_hit()),
 		split(/,/,$msg->get_names_of_subtests_hit());
 
+	# debugging, what rule hits actually occurred
+	#print $symbol, ": ", join(", ", keys(%rules_hit), "\n");
+
+print "Test for '$symbol' (type: $test_type) against '$string'\n";
         ok( (exists $rules_hit{$symbol} ? 1 : 0), ($ok_or_fail eq 'ok' ? 1 : 0),
                 "Test for '$symbol' (type: $test_type) against '$string'" );
     }

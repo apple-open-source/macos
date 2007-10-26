@@ -28,22 +28,21 @@
 #endif
 
 #ifdef  DOSYNCTODR
-#if !defined(VMS)
-#include <sys/resource.h>
-#endif /* VMS */
+# if !defined(VMS)
+#  include <sys/resource.h>
+# endif /* VMS */
 #endif
 
 #if defined(VMS)
-#include <descrip.h>
+# include <descrip.h>
 #endif /* VMS */
 
 /*
  * This contains odds and ends.  Right now the only thing you'll find
- * in here is the hourly stats printer and some code to support rereading
- * the keys file, but I may eventually put other things in here such as
- * code to do something with the leap bits.
+ * in here is the hourly stats printer and some code to support
+ * rereading the keys file, but I may eventually put other things in
+ * here such as code to do something with the leap bits.
  */
-
 /*
  * Name of the keys file
  */
@@ -53,21 +52,25 @@ static	char *key_file_name;
  * The name of the drift_comp file and the temporary.
  */
 static	char *stats_drift_file;
+static  int  drift_exists;
 static	char *stats_temp_file;
+int stats_write_period = 3600;	/* # of seconds between writes. */
+double stats_write_tolerance = 0;
+static double prev_drift_comp = 99999.;
 
 /*
  * Statistics file stuff
  */
 #ifndef NTP_VAR
-#ifndef SYS_WINNT
-#define NTP_VAR "/var/NTP/"		/* NOTE the trailing '/' */
-#else
-#define NTP_VAR "c:\\var\\ntp\\"		/* NOTE the trailing '\\' */
-#endif /* SYS_WINNT */
+# ifndef SYS_WINNT
+#  define NTP_VAR "/var/NTP/"		/* NOTE the trailing '/' */
+# else
+#  define NTP_VAR "c:\\var\\ntp\\"		/* NOTE the trailing '\\' */
+# endif /* SYS_WINNT */
 #endif
 
 #ifndef MAXPATHLEN
-#define MAXPATHLEN 256
+# define MAXPATHLEN 256
 #endif
 
 static	char statsdir[MAXPATHLEN] = NTP_VAR;
@@ -76,12 +79,58 @@ static FILEGEN peerstats;
 static FILEGEN loopstats;
 static FILEGEN clockstats;
 static FILEGEN rawstats;
+static FILEGEN sysstats;
+#ifdef OPENSSL
+static FILEGEN cryptostats;
+#endif /* OPENSSL */
 
+/* derived from PM tool getsleep.c */
+#include <mach/mach_port.h>
+#include <mach/mach_interface.h>
+#include <mach/mach_init.h>
+
+#include <IOKit/pwr_mgt/IOPMLib.h>
+#include <IOKit/pwr_mgt/IOPM.h>
+
+static io_connect_t getFB() {
+	static io_connect_t fb;
+	
+	if (!fb) {
+		fb = IOPMFindPowerManagement(kIOMasterPortDefault);
+	}
+	return fb;
+}
+
+static unsigned long energy_saving() {
+	IOReturn err;
+	unsigned long min = 99;
+	io_connect_t fb = getFB();
+
+	if (fb) {
+		err = IOPMGetAggressiveness( fb, kPMMinutesToSleep, &min);
+		if (err == kIOReturnSuccess) {
+			if (min > 0) {
+				return min;
+			} else {
+				err = IOPMGetAggressiveness( fb, kPMMinutesToSpinDown, &min);
+				if (err == kIOReturnSuccess) {
+					return min;
+				}
+			}
+		}
+	}
+	return 0;
+}
 /*
  * This controls whether stats are written to the fileset. Provided
  * so that ntpdc can turn off stats when the file system fills up. 
  */
 int stats_control;
+
+/*
+ * Initial frequency offset later passed to the loopfilter.
+ */
+double	old_drift;
 
 /*
  * init_util - initialize the utilities
@@ -93,62 +142,79 @@ init_util(void)
 	stats_temp_file = 0;
 	key_file_name = 0;
 
-#define PEERNAME "peerstats"
-#define LOOPNAME "loopstats"
-#define CLOCKNAME "clockstats"
-#define RAWNAME "rawstats"
-	peerstats.fp       = NULL;
-	peerstats.prefix   = &statsdir[0];
-	peerstats.basename = (char*)emalloc(strlen(PEERNAME)+1);
-	strcpy(peerstats.basename, PEERNAME);
-	peerstats.id       = 0;
-	peerstats.type     = FILEGEN_DAY;
-	peerstats.flag     = FGEN_FLAG_LINK; /* not yet enabled !!*/
-	filegen_register("peerstats", &peerstats);
-	
-	loopstats.fp       = NULL;
-	loopstats.prefix   = &statsdir[0];
-	loopstats.basename = (char*)emalloc(strlen(LOOPNAME)+1);
-	strcpy(loopstats.basename, LOOPNAME);
-	loopstats.id       = 0;
-	loopstats.type     = FILEGEN_DAY;
-	loopstats.flag     = FGEN_FLAG_LINK; /* not yet enabled !!*/
-	filegen_register("loopstats", &loopstats);
+	filegen_register(&statsdir[0], "peerstats", &peerstats);
 
-	clockstats.fp      = NULL;
-	clockstats.prefix  = &statsdir[0];
-	clockstats.basename = (char*)emalloc(strlen(CLOCKNAME)+1);
-	strcpy(clockstats.basename, CLOCKNAME);
-	clockstats.id      = 0;
-	clockstats.type    = FILEGEN_DAY;
-	clockstats.flag    = FGEN_FLAG_LINK; /* not yet enabled !!*/
-	filegen_register("clockstats", &clockstats);
+	filegen_register(&statsdir[0], "loopstats", &loopstats);
 
-	rawstats.fp      = NULL;
-	rawstats.prefix  = &statsdir[0];
-	rawstats.basename = (char*)emalloc(strlen(RAWNAME)+1);
-	strcpy(rawstats.basename, RAWNAME);
-	rawstats.id      = 0;
-	rawstats.type    = FILEGEN_DAY;
-	rawstats.flag    = FGEN_FLAG_LINK; /* not yet enabled !!*/
-	filegen_register("rawstats", &rawstats);
+	filegen_register(&statsdir[0], "clockstats", &clockstats);
 
-#undef PEERNAME
-#undef LOOPNAME
-#undef CLOCKNAME
-#undef RAWNAME
+	filegen_register(&statsdir[0], "rawstats", &rawstats);
+
+	filegen_register(&statsdir[0], "sysstats", &sysstats);
+
+#ifdef OPENSSL
+	filegen_register(&statsdir[0], "cryptostats", &cryptostats);
+#endif /* OPENSSL */
 
 }
 
+void
+save_drift_file(
+	int force
+	)
+{
+	FILE *fp;
+	static int skipped;
+	
+	if (!skipped)
+		force = 0;	/* Don't force a write if we never skipped one */
+	if (stats_drift_file != 0 && (force || !drift_exists || !energy_saving())) {
+		skipped = 0;
+		if ((fp = fopen(stats_temp_file, "w")) == NULL) {
+			msyslog(LOG_ERR, "can't open %s: %m",
+			    stats_temp_file);
+			return;
+		}
+		fprintf(fp, "%.3f\n", drift_comp * 1e6);
+		(void)fclose(fp);
+		/* atomic */
+#ifdef SYS_WINNT
+		(void) _unlink(stats_drift_file); /* rename semantics differ under NT */
+#endif /* SYS_WINNT */
+
+#ifndef NO_RENAME
+		(void) rename(stats_temp_file, stats_drift_file);
+#else
+        /* we have no rename NFS of ftp in use*/
+		if ((fp = fopen(stats_drift_file, "w")) == NULL) {
+			msyslog(LOG_ERR, "can't open %s: %m",
+			    stats_drift_file);
+			return;
+		}
+
+#endif
+	        drift_exists++;
+#if defined(VMS)
+		/* PURGE */
+		{
+			$DESCRIPTOR(oldvers,";-1");
+			struct dsc$descriptor driftdsc = {
+				strlen(stats_drift_file),0,0,stats_drift_file };
+
+			while(lib$delete_file(&oldvers,&driftdsc) & 1) ;
+		}
+#endif
+	} else {
+		skipped = 1;
+	}
+}
 
 /*
  * hourly_stats - print some interesting stats
  */
 void
-hourly_stats(void)
+write_stats(void)
 {
-	FILE *fp;
-
 #ifdef DOSYNCTODR
 	struct timeval tv;
 #if !defined(VMS)
@@ -183,27 +249,27 @@ hourly_stats(void)
 
 #if !defined(VMS)
 	/* (prr) getpriority returns -1 on error, but -1 is also a valid
-	 * return value (!), so instead we have to zero errno before the call
-	 * and check it for non-zero afterwards.
+	 * return value (!), so instead we have to zero errno before the
+	 * call and check it for non-zero afterwards.
 	 */
-
 	errno = 0;
 	prio_set = 0;
 	o_prio = getpriority(PRIO_PROCESS,0); /* Save setting */
 
-	/* (prr) if getpriority succeeded, call setpriority to raise
+	/*
+	 * (prr) if getpriority succeeded, call setpriority to raise
 	 * scheduling priority as high as possible.  If that succeeds
 	 * as well, set the prio_set flag so we remember to reset
-	 * priority to its previous value below.  Note that on Solaris 2.6
-	 * (and beyond?), both getpriority and setpriority will fail with
-	 * ESRCH, because sched_setscheduler (called from main) put us in
-	 * the real-time scheduling class which setpriority doesn't know about.
-	 * Being in the real-time class is better than anything setpriority
-	 * can do, anyhow, so this error is silently ignored.
+	 * priority to its previous value below.  Note that on Solaris
+	 * 2.6 (and beyond?), both getpriority and setpriority will fail
+	 * with ESRCH, because sched_setscheduler (called from main) put
+	 * us in the real-time scheduling class which setpriority
+	 * doesn't know about. Being in the real-time class is better
+	 * than anything setpriority can do, anyhow, so this error is
+	 * silently ignored.
 	 */
-
 	if ((errno == 0) && (setpriority(PRIO_PROCESS,0,-20) == 0))
-	    prio_set = 1;	/* overdrive */
+		prio_set = 1;	/* overdrive */
 #endif /* VMS */
 #ifdef HAVE_GETCLOCK
         (void) getclock(TIMEOFDAY, &ts);
@@ -212,58 +278,28 @@ hourly_stats(void)
 #else /*  not HAVE_GETCLOCK */
 	GETTIMEOFDAY(&tv,(struct timezone *)NULL);
 #endif /* not HAVE_GETCLOCK */
-	if (ntp_set_tod(&tv,(struct timezone *)NULL) != 0)
-	{
+	if (ntp_set_tod(&tv,(struct timezone *)NULL) != 0) {
 		msyslog(LOG_ERR, "can't sync battery time: %m");
 	}
 #if !defined(VMS)
 	if (prio_set)
-	    setpriority(PRIO_PROCESS, 0, o_prio); /* downshift */
+		setpriority(PRIO_PROCESS, 0, o_prio); /* downshift */
 #endif /* VMS */
 #endif /* DOSYNCTODR */
 
 	NLOG(NLOG_SYSSTATIST)
 		msyslog(LOG_INFO,
 		    "offset %.6f sec freq %.3f ppm error %.6f poll %d",
-		    last_offset, drift_comp * 1e6, sys_jitter, sys_poll);
+		    last_offset, drift_comp * 1e6, sys_jitter,
+		    sys_poll);
 
 	
-	if (stats_drift_file != 0) {
-		if ((fp = fopen(stats_temp_file, "w")) == NULL) {
-			msyslog(LOG_ERR, "can't open %s: %m",
-			    stats_temp_file);
-			return;
-		}
-		fprintf(fp, "%.3f\n", drift_comp * 1e6);
-		(void)fclose(fp);
-		/* atomic */
-#ifdef SYS_WINNT
-		(void) unlink(stats_drift_file); /* rename semantics differ under NT */
-#endif /* SYS_WINNT */
-
-#ifndef NO_RENAME
-		(void) rename(stats_temp_file, stats_drift_file);
-#else
-        /* we have no rename NFS of ftp in use*/
-		if ((fp = fopen(stats_drift_file, "w")) == NULL) {
-			msyslog(LOG_ERR, "can't open %s: %m",
-			    stats_drift_file);
-			return;
-		}
-
-#endif
-
-#if defined(VMS)
-		/* PURGE */
-		{
-			$DESCRIPTOR(oldvers,";-1");
-			struct dsc$descriptor driftdsc = {
-				strlen(stats_drift_file),0,0,stats_drift_file };
-
-			while(lib$delete_file(&oldvers,&driftdsc) & 1) ;
-		}
-#endif
+	record_sys_stats();
+	if ((u_long)(fabs(prev_drift_comp - drift_comp) * 1e9) <=
+	    (u_long)(fabs(stats_write_tolerance * drift_comp) * 1e9)) {
+	     return;
 	}
+	prev_drift_comp = drift_comp;
 }
 
 
@@ -278,17 +314,16 @@ stats_config(
 {
 	FILE *fp;
 	char *value;
-	double old_drift;
 	int len;
 
-	/* Expand environment strings under Windows NT, since the command
-	 * interpreter doesn't do this, the program must.
+	/*
+	 * Expand environment strings under Windows NT, since the
+	 * command interpreter doesn't do this, the program must.
 	 */
 #ifdef SYS_WINNT
 	char newvalue[MAX_PATH], parameter[MAX_PATH];
 
-	if (!ExpandEnvironmentStrings(invalue, newvalue, MAX_PATH))
-	{
+	if (!ExpandEnvironmentStrings(invalue, newvalue, MAX_PATH)) {
  		switch(item) {
 		    case STATS_FREQ_FILE:
 			strcpy(parameter,"STATS_FREQ_FILE");
@@ -307,15 +342,13 @@ stats_config(
 
 		msyslog(LOG_ERR,
 		    "ExpandEnvironmentStrings(%s) failed: %m\n", parameter);
-	}
-	else 
+	} else {
 		value = newvalue;
+	}
 #else    
 	value = invalue;
 #endif /* SYS_WINNT */
 
-	
-	
 	switch(item) {
 	    case STATS_FREQ_FILE:
 		if (stats_drift_file != 0) {
@@ -330,49 +363,42 @@ stats_config(
 
 		stats_drift_file = (char*)emalloc((u_int)(len + 1));
 #if !defined(VMS)
-		stats_temp_file = (char*)emalloc((u_int)(len + sizeof(".TEMP")));
+		stats_temp_file = (char*)emalloc((u_int)(len +
+		    sizeof(".TEMP")));
 #else
-		stats_temp_file = (char*)emalloc((u_int)(len + sizeof("-TEMP")));
+		stats_temp_file = (char*)emalloc((u_int)(len +
+		    sizeof("-TEMP")));
 #endif /* VMS */
 		memmove(stats_drift_file, value, (unsigned)(len+1));
 		memmove(stats_temp_file, value, (unsigned)len);
 #if !defined(VMS)
-		memmove(stats_temp_file + len, ".TEMP", sizeof(".TEMP"));
+		memmove(stats_temp_file + len, ".TEMP",
+		    sizeof(".TEMP"));
 #else
-		memmove(stats_temp_file + len, "-TEMP", sizeof("-TEMP"));
+		memmove(stats_temp_file + len, "-TEMP",
+		    sizeof("-TEMP"));
 #endif /* VMS */
 
 		/*
-		 * Open drift file and read frequency
+		 * Open drift file and read frequency. If the file is
+		 * missing or contains errors, tell the loop to reset.
 		 */
 		if ((fp = fopen(stats_drift_file, "r")) == NULL) {
+			old_drift = 1e9;
 			break;
 		}
 		if (fscanf(fp, "%lf", &old_drift) != 1) {
-			msyslog(LOG_ERR, "Un-parsable frequency in %s", 
+			msyslog(LOG_ERR, "Frequency format error in %s", 
 			    stats_drift_file);
-			(void) fclose(fp);
+			old_drift = 1e9;
 			break;
 		}
-		(void) fclose(fp);
-		if (
-#ifdef HAVE_FINITE
-			!finite(old_drift)
-#else  /* not HAVE_FINITE */
-# ifdef HAVE_ISFINITE
-			!isfinite(old_drift)
-# else  /* not HAVE_ISFINITE */
-			0
-# endif /* not HAVE_ISFINITE */
-#endif /* not HAVE_FINITE */
-		    || (fabs(old_drift) > (NTP_MAXFREQ * 1e6))) {
-			msyslog(LOG_ERR, "invalid frequency (%f) in %s", 
-			    old_drift, stats_drift_file);
-			old_drift = 0.0;
-		}
-		msyslog(LOG_INFO, "frequency initialized %.3f from %s",
-		    old_drift, stats_drift_file);
-		loop_config(LOOP_DRIFTCOMP, old_drift / 1e6);
+		fclose(fp);
+		drift_exists++;
+		prev_drift_comp = old_drift / 1e6;
+		msyslog(LOG_INFO,
+		    "frequency initialized %.3f PPM from %s",
+			old_drift, stats_drift_file);
 		break;
 	
 	    case STATS_STATSDIR:
@@ -409,6 +435,20 @@ stats_config(
 				rawstats.fp = NULL;
 				filegen_setup(&rawstats, now.l_ui);
 			}
+			if(sysstats.prefix == &statsdir[0] &&
+			    sysstats.fp != NULL) {
+				fclose(sysstats.fp);
+				sysstats.fp = NULL;
+				filegen_setup(&sysstats, now.l_ui);
+			}
+#ifdef OPENSSL
+			if(cryptostats.prefix == &statsdir[0] &&
+			    cryptostats.fp != NULL) {
+				fclose(cryptostats.fp);
+				cryptostats.fp = NULL;
+				filegen_setup(&cryptostats, now.l_ui);
+			}
+#endif /* OPENSSL */
 		}
 		break;
 
@@ -442,38 +482,28 @@ stats_config(
 */
 void
 record_peer_stats(
-	struct sockaddr_in *addr,
-	int status,
-	double offset,
-	double delay,
-	double dispersion,
-	double skew
+	struct sockaddr_storage *addr,
+	int	status,
+	double	offset,
+	double	delay,
+	double	dispersion,
+	double	skew
 	)
 {
-	struct timeval tv;
-#ifdef HAVE_GETCLOCK
-        struct timespec ts;
-#endif
-	u_long day, sec, msec;
+	l_fp	now;
+	u_long	day;
 
 	if (!stats_control)
 		return;
-#ifdef HAVE_GETCLOCK
-        (void) getclock(TIMEOFDAY, &ts);
-        tv.tv_sec = ts.tv_sec;
-        tv.tv_usec = ts.tv_nsec / 1000;
-#else /*  not HAVE_GETCLOCK */
-	GETTIMEOFDAY(&tv, (struct timezone *)NULL);
-#endif /* not HAVE_GETCLOCK */
-	day = tv.tv_sec / 86400 + MJD_1970;
-	sec = tv.tv_sec % 86400;
-	msec = tv.tv_usec / 1000;
 
-	filegen_setup(&peerstats, (u_long)(tv.tv_sec + JAN_1970));
+	get_systime(&now);
+	filegen_setup(&peerstats, now.l_ui);
+	day = now.l_ui / 86400 + MJD_1900;
+	now.l_ui %= 86400;
 	if (peerstats.fp != NULL) {
 		fprintf(peerstats.fp,
-		    "%lu %lu.%03lu %s %x %.9f %.9f %.9f %.9f\n",
-		    day, sec, msec, ntoa(addr), status, offset,
+		    "%lu %s %s %x %.9f %.9f %.9f %.9f\n",
+		    day, ulfptoa(&now, 3), stoa(addr), status, offset,
 		    delay, dispersion, skew);
 		fflush(peerstats.fp);
 	}
@@ -490,37 +520,27 @@ record_peer_stats(
  */
 void
 record_loop_stats(
-	double offset,
-	double freq,
-	double jitter,
-	double stability,
-	int poll
+	double	offset,
+	double	freq,
+	double	jitter,
+	double	stability,
+	int spoll
 	)
 {
-	struct timeval tv;
-#ifdef HAVE_GETCLOCK
-        struct timespec ts;
-#endif
-	u_long day, sec, msec;
+	l_fp	now;
+	u_long	day;
 
 	if (!stats_control)
 		return;
-#ifdef HAVE_GETCLOCK
-        (void) getclock(TIMEOFDAY, &ts);
-        tv.tv_sec = ts.tv_sec;
-        tv.tv_usec = ts.tv_nsec / 1000;
-#else /*  not HAVE_GETCLOCK */
-	GETTIMEOFDAY(&tv, (struct timezone *)NULL);
-#endif /* not HAVE_GETCLOCK */
-	day = tv.tv_sec / 86400 + MJD_1970;
-	sec = tv.tv_sec % 86400;
-	msec = tv.tv_usec / 1000;
 
-	filegen_setup(&loopstats, (u_long)(tv.tv_sec + JAN_1970));
+	get_systime(&now);
+	filegen_setup(&loopstats, now.l_ui);
+	day = now.l_ui / 86400 + MJD_1900;
+	now.l_ui %= 86400;
 	if (loopstats.fp != NULL) {
-		fprintf(loopstats.fp, "%lu %lu.%03lu %.9f %.6f %.9f %.6f %d\n",
-		    day, sec, msec, offset, freq * 1e6, jitter,
-		    stability * 1e6, poll);
+		fprintf(loopstats.fp, "%lu %s %.9f %.3f %.9f %.6f %d\n",
+		    day, ulfptoa(&now, 3), offset, freq * 1e6, jitter,
+		    stability * 1e6, spoll);
 		fflush(loopstats.fp);
 	}
 }
@@ -536,33 +556,23 @@ record_loop_stats(
  */
 void
 record_clock_stats(
-	struct sockaddr_in *addr,
+	struct sockaddr_storage *addr,
 	const char *text
 	)
 {
-	struct timeval tv;
-#ifdef HAVE_GETCLOCK
-        struct timespec ts;
-#endif
-	u_long day, sec, msec;
+	l_fp	now;
+	u_long	day;
 
 	if (!stats_control)
 		return;
-#ifdef HAVE_GETCLOCK
-        (void) getclock(TIMEOFDAY, &ts);
-        tv.tv_sec = ts.tv_sec;
-        tv.tv_usec = ts.tv_nsec / 1000;
-#else /*  not HAVE_GETCLOCK */
-	GETTIMEOFDAY(&tv, (struct timezone *)NULL);
-#endif /* not HAVE_GETCLOCK */
-	day = tv.tv_sec / 86400 + MJD_1970;
-	sec = tv.tv_sec % 86400;
-	msec = tv.tv_usec / 1000;
 
-	filegen_setup(&clockstats, (u_long)(tv.tv_sec + JAN_1970));
+	get_systime(&now);
+	filegen_setup(&clockstats, now.l_ui);
+	day = now.l_ui / 86400 + MJD_1900;
+	now.l_ui %= 86400;
 	if (clockstats.fp != NULL) {
-		fprintf(clockstats.fp, "%lu %lu.%03lu %s %s\n",
-		    day, sec, msec, ntoa(addr), text);
+		fprintf(clockstats.fp, "%lu %s %s %s\n",
+		    day, ulfptoa(&now, 3), stoa(addr), text);
 		fflush(clockstats.fp);
 	}
 }
@@ -579,42 +589,115 @@ record_clock_stats(
  */
 void
 record_raw_stats(
-        struct sockaddr_in *srcadr,
-        struct sockaddr_in *dstadr,
-	l_fp *t1,
-	l_fp *t2,
-	l_fp *t3,
-	l_fp *t4
+        struct sockaddr_storage *srcadr,
+        struct sockaddr_storage *dstadr,
+	l_fp	*t1,
+	l_fp	*t2,
+	l_fp	*t3,
+	l_fp	*t4
 	)
 {
-	struct timeval tv;
-#ifdef HAVE_GETCLOCK
-        struct timespec ts;
-#endif
-	u_long day, sec, msec;
+	l_fp	now;
+	u_long	day;
 
 	if (!stats_control)
 		return;
-#ifdef HAVE_GETCLOCK
-        (void) getclock(TIMEOFDAY, &ts);
-        tv.tv_sec = ts.tv_sec;
-        tv.tv_usec = ts.tv_nsec / 1000;
-#else /*  not HAVE_GETCLOCK */
-	GETTIMEOFDAY(&tv, (struct timezone *)NULL);
-#endif /* not HAVE_GETCLOCK */
-	day = tv.tv_sec / 86400 + MJD_1970;
-	sec = tv.tv_sec % 86400;
-	msec = tv.tv_usec / 1000;
 
-	filegen_setup(&rawstats, (u_long)(tv.tv_sec + JAN_1970));
+	get_systime(&now);
+	filegen_setup(&rawstats, now.l_ui);
+	day = now.l_ui / 86400 + MJD_1900;
+	now.l_ui %= 86400;
 	if (rawstats.fp != NULL) {
-                fprintf(rawstats.fp, "%lu %lu.%03lu %s %s %s %s %s %s\n",
-		    day, sec, msec, ntoa(srcadr), ntoa(dstadr),
+                fprintf(rawstats.fp, "%lu %s %s %s %s %s %s %s\n",
+		    day, ulfptoa(&now, 3), stoa(srcadr), stoa(dstadr),
 		    ulfptoa(t1, 9), ulfptoa(t2, 9), ulfptoa(t3, 9),
 		    ulfptoa(t4, 9));
 		fflush(rawstats.fp);
 	}
 }
+
+
+/*
+ * record_sys_stats - write system statistics to file
+ *
+ * file format
+ * time (s past midnight)
+ * time since startup (hr)
+ * packets recieved
+ * packets processed
+ * current version
+ * previous version
+ * bad version
+ * access denied
+ * bad length or format
+ * bad authentication
+ * rate exceeded
+ */
+void
+record_sys_stats(void)
+{
+	l_fp	now;
+	u_long	day;
+
+	if (!stats_control)
+		return;
+
+	get_systime(&now);
+	filegen_setup(&sysstats, now.l_ui);
+	day = now.l_ui / 86400 + MJD_1900;
+	now.l_ui %= 86400;
+	if (sysstats.fp != NULL) {
+                fprintf(sysstats.fp,
+		    "%lu %s %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu\n",
+		    day, ulfptoa(&now, 3), sys_stattime / 3600,
+		    sys_received, sys_processed, sys_newversionpkt,
+		    sys_oldversionpkt, sys_unknownversion,
+		    sys_restricted, sys_badlength, sys_badauth,
+		    sys_limitrejected);
+		fflush(sysstats.fp);
+		proto_clr_stats();
+	}
+}
+
+
+#ifdef OPENSSL
+/*
+ * record_crypto_stats - write crypto statistics to file
+ *
+ * file format:
+ * day (mjd)
+ * time (s past midnight)
+ * peer (ip address)
+ * text message
+ */
+void
+record_crypto_stats(
+	struct sockaddr_storage *addr,
+	const char *text
+	)
+{
+	l_fp	now;
+	u_long	day;
+
+	if (!stats_control)
+		return;
+
+	get_systime(&now);
+	filegen_setup(&cryptostats, now.l_ui);
+	day = now.l_ui / 86400 + MJD_1900;
+	now.l_ui %= 86400;
+	if (cryptostats.fp != NULL) {
+		if (addr == NULL)
+			fprintf(cryptostats.fp, "%lu %s %s\n",
+			    day, ulfptoa(&now, 3), text);
+		else
+			fprintf(cryptostats.fp, "%lu %s %s %s\n",
+			    day, ulfptoa(&now, 3), stoa(addr), text);
+		fflush(cryptostats.fp);
+	}
+}
+#endif /* OPENSSL */
+
 
 /*
  * getauthkeys - read the authentication keys from the specified file
@@ -666,4 +749,52 @@ rereadkeys(void)
 {
 	if (key_file_name != 0)
 	    authreadkeys(key_file_name);
+}
+
+/*
+ * sock_hash - hash an sockaddr_storage structure
+ */
+int
+sock_hash(
+	struct sockaddr_storage *addr
+	)
+{
+	int hashVal;
+	int i;
+	int len;
+	char *ch;
+
+	hashVal = 0;
+	len = 0;
+	/*
+	 * We can't just hash the whole thing because there are hidden
+	 * fields in sockaddr_in6 that might be filled in by recvfrom(),
+	 * so just use the family, port and address.
+	 */
+	ch = (char *)&addr->ss_family;
+	hashVal = 37 * hashVal + (int)*ch;
+	if (sizeof(addr->ss_family) > 1) {
+		ch++;
+		hashVal = 37 * hashVal + (int)*ch;
+	}
+	switch(addr->ss_family) {
+	case AF_INET:
+		ch = (char *)&((struct sockaddr_in *)addr)->sin_addr;
+		len = sizeof(struct in_addr);
+		break;
+	case AF_INET6:
+		ch = (char *)&((struct sockaddr_in6 *)addr)->sin6_addr;
+		len = sizeof(struct in6_addr);
+		break;
+	}
+
+	for (i = 0; i < len ; i++)
+		hashVal = 37 * hashVal + (int)*(ch + i);
+
+	hashVal = hashVal % 128;  /* % MON_HASH_SIZE hardcoded */
+
+	if (hashVal < 0)
+		hashVal += 128;
+
+	return hashVal;
 }

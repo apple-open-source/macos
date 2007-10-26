@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #ifndef SEARCHSIZE
 /*
@@ -56,7 +52,7 @@
 #	include	"national.h"
 #   endif /* ESS_MAXCHAR */
     typedef wchar_t genchar;
-#   define CHARSIZE	3
+#   define CHARSIZE	(sizeof(wchar_t)<=2?3:sizeof(wchar_t))
 #else
     typedef char genchar;
 #   define CHARSIZE	1
@@ -64,19 +60,25 @@
 
 #define TABSIZE	8
 #define PRSIZE	160
-#define MAXLINE	502		/* longest edit line permitted */
+#define MAXLINE	1024		/* longest edit line permitted */
+
+typedef struct _edit_pos
+{
+	unsigned short line;
+	unsigned short col;
+} Edpos_t;
 
 typedef struct edit
 {
+	sigjmp_buf e_env;
 	int	e_kill;
 	int	e_erase;
 	int	e_werase;
 	int	e_eof;
 	int	e_lnext;
 	int	e_fchar;
-	char	e_plen;		/* length of prompt string */
-	char	e_crlf;		/* zero if cannot return to beginning of line */
-	sigjmp_buf e_env;
+	int	e_plen;		/* length of prompt string */
+	int	e_crlf;		/* zero if cannot return to beginning of line */
 	int	e_llimit;	/* line length limit */
 	int	e_hline;	/* current history line number */
 	int	e_hloff;	/* line number offset for command */
@@ -107,6 +109,7 @@ typedef struct edit
 	int	e_lbuf[LOOKAHEAD];/* pointer to look-ahead buffer */
 	int	e_fd;		/* file descriptor */
 	int	e_ttyspeed;	/* line speed, also indicates tty parms are valid */
+	int	e_tabcount;
 #ifdef _hdr_utime
 	ino_t	e_tty_ino;
 	dev_t	e_tty_dev;
@@ -126,7 +129,7 @@ typedef struct edit
 	char	e_inmacro;	/* processing macro expansion */
 #if KSHELL
 	char	e_vi_insert[2];	/* for sh_keytrap */
-	long	e_col;		/* for sh_keytrap */
+	int32_t e_col;		/* for sh_keytrap */
 #else
 	char	e_prbuff[PRSIZE]; /* prompt buffer */
 #endif /* KSHELL */
@@ -142,10 +145,16 @@ typedef struct edit
 	int	e_stkoff;	/* saved stack offset */
 	char	**e_clist;	/* completion list after <ESC>= */
 	int	e_nlist;	/* number of elements on completion list */
+	int	e_multiline;	/* allow multiple lines for editing */
+	int	e_winsz;	/* columns in window */ 
+	Edpos_t	e_curpos;	/* cursor line and column */
+	Namval_t *e_default;	/* variable containing default value */
+	Namval_t *e_term;	/* TERM variable */
+	char 	e_termname[80];	/* terminal name */
 } Edit_t;
 
 #undef MAXWINDOW
-#define MAXWINDOW	160	/* maximum width window */
+#define MAXWINDOW	300	/* maximum width window */
 #define FAST	2
 #define SLOW	1
 #define ESC	cntl('[')
@@ -194,6 +203,8 @@ extern void	ed_ungetchar(Edit_t*,int);
 extern int	ed_viread(void*, int, char*, int, int);
 extern int	ed_read(void*, int, char*, int, int);
 extern int	ed_emacsread(void*, int, char*, int, int);
+extern Edpos_t	ed_curpos(Edit_t*, genchar*, int, int, Edpos_t);
+extern int	ed_setcursor(Edit_t*, genchar*, int, int, int);
 #if KSHELL
 	extern int	ed_macro(Edit_t*,int);
 	extern int	ed_expand(Edit_t*, char[],int*,int*,int,int);

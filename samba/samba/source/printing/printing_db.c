@@ -55,7 +55,9 @@ struct tdb_print_db *get_print_db_byname(const char *printername)
 	/* Not found. */
 	if (num_open >= MAX_PRINT_DBS_OPEN) {
 		/* Try and recycle the last entry. */
-		DLIST_PROMOTE(print_db_head, last_entry);
+		if (print_db_head && last_entry) {
+			DLIST_PROMOTE(print_db_head, last_entry);
+		}
 
 		for (p = print_db_head; p; p = p->next) {
 			if (p->ref_count)
@@ -72,7 +74,7 @@ struct tdb_print_db *get_print_db_byname(const char *printername)
 			memset(p->printer_name, '\0', sizeof(p->printer_name));
 			break;
 		}
-		if (p) {
+		if (p && print_db_head) {
 			DLIST_PROMOTE(print_db_head, p);
 			p = print_db_head;
 		}
@@ -188,7 +190,7 @@ TDB_DATA get_printer_notify_pid_list(TDB_CONTEXT *tdb, const char *printer_name,
 
 		/* Entry is dead if process doesn't exist or refcount is zero. */
 
-		while ((i < data.dsize) && ((IVAL(data.dptr, i + 4) == 0) || !process_exists(pid))) {
+		while ((i < data.dsize) && ((IVAL(data.dptr, i + 4) == 0) || !process_exists_by_pid(pid))) {
 
 			/* Refcount == zero is a logic error and should never happen. */
 			if (IVAL(data.dptr, i + 4) == 0) {

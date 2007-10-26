@@ -29,8 +29,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: ident.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:38  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:38  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:31  wsanchez
  * Import of RCS 5.7
@@ -109,7 +109,7 @@ static int match P((FILE*));
 static int scanfile P((FILE*,char const*,int));
 static void reportError P((char const*));
 
-mainProg(identId, "ident", "$Id: ident.c,v 1.1.1.1 1999/04/23 01:43:38 wsanchez Exp $")
+mainProg(identId, "ident", "$Id: ident.c,v 1.1 1999/04/23 01:43:38 wsanchez Exp $")
 /*  Ident searches the named files for all occurrences
  *  of the pattern $@: text $ where @ is a keyword.
  */

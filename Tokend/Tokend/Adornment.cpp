@@ -95,4 +95,3 @@ SecKeychainItemRef SecCertificateAdornment::certificateItem()
 
 }	// end namespace Tokend
 
-/* arch-tag: C7D4DE5C-F61D-11D8-B69C-000A9595DEEE */

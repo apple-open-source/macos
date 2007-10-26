@@ -115,5 +115,3 @@ void MscObject::getAttributes(bool refresh)
 	}
 }
 
-
-/* arch-tag: 95333FBE-BE68-11D8-9D29-000A95C4302E */

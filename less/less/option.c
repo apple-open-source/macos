@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2002  Mark Nudelman
+ * Copyright (C) 1984-2004  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -28,8 +28,10 @@ static char *propt();
 static char *optstring();
 static int flip_triple();
 
+extern int more_mode;
 extern int screen_trashed;
 extern char *every_first_cmd;
+extern int unix2003_compat;
 
 /* 
  * Scan an argument (either from the command line or from the 
@@ -132,6 +134,30 @@ scan_option(s)
 			s--;
 			optc = 'z';
 			break;
+		case 'e':	/* For more under Unix2003, -e acts like -E */
+			if (more_mode) {
+				if (unix2003_compat)
+					optc = 'E';
+			}
+			break;
+		case 'i':	/* For more under Unix2003, -i acts like -I */
+			if (more_mode) {
+				if (unix2003_compat)
+					optc = 'I';
+			}
+			break;
+		case 'n':	/* For more under Unix2003, -n acts differently  */
+			if (more_mode) {
+				if (unix2003_compat)
+					optc = ']';
+			}
+			break;
+		case 'p':	/* For more under Unix2003, -p acts differently  */
+			if (more_mode) {
+				if (unix2003_compat)
+					optc = '}';
+			}
+			break;
 		}
 
 		/*
@@ -142,12 +168,12 @@ scan_option(s)
 		if (optname == NULL)
 		{
 			printopt = propt(optc);
-			lc = SIMPLE_IS_LOWER(optc);
+			lc = ASCII_IS_LOWER(optc);
 			o = findopt(optc);
 		} else
 		{
 			printopt = optname;
-			lc = SIMPLE_IS_LOWER(optname[0]);
+			lc = ASCII_IS_LOWER(optname[0]);
 			o = findopt_name(&optname, NULL, &err);
 			s = optname;
 			optname = NULL;
@@ -350,14 +376,14 @@ toggle_option(c, s, how_toggle)
 			{
 			case OPT_TOGGLE:
 				*(o->ovar) = flip_triple(*(o->ovar), 
-						islower(c));
+						ASCII_IS_LOWER(c));
 				break;
 			case OPT_UNSET:
 				*(o->ovar) = o->odefault;
 				break;
 			case OPT_SET:
 				*(o->ovar) = flip_triple(o->odefault,
-						islower(c));
+						ASCII_IS_LOWER(c));
 				break;
 			}
 			break;

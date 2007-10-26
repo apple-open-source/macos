@@ -1,5 +1,61 @@
-Current Version: 1.3.5.
-See the file ChangeLog for the details of all changes.
+Major changes in Gzip 1.3.10 (2006-12-30)
+
+* gzip -c and zcat now work on special files, files with special mode bits,
+  and files with multiple hard links.
+* gzip -q now exits with status 2 (not 1) when SIGPIPE is received.
+* zcmp and zdiff did not work in the usual case, due to a typo.
+* zgrep has many bugs fixed with argument handling, special characters,
+  and exit status.
+* zless no longer mishandles $%=~ in file names.
+
+Gzip 1.3.9 (2006-12-15)
+
+* No major changes; only porting fixes.
+
+Major changes in Gzip 1.3.8 (2006-12-08)
+
+* Fix some gzip problems:
+  - A security fix from Debian 1.3.5-5 was inadvertently omitted.
+  - The assembler is now invoked with --noexecstack if supported,
+    so that gzip can better resist stack-smashing attacks.
+
+Major changes in Gzip 1.3.7 (2006-12-06)
+
+* Fix some gzip problems:
+  - Refuse to compress setuid or setgid files, or files with the sticky bit.
+  - Fix more race conditions in setting file permissions and owner,
+    removing output files, following symbolic links, and dealing with
+    special files.
+  - Remove most of the code working around ENAMETOOLONG deficiencies.
+    Systems with those deficiencies are long-dead, and the workarounds
+    had race conditions on modern hosts.
+  - Catch CPU time and file size limit signals, too.
+  - Check for read errors when closing files.
+  - Fix a core dump caused by a stray abort mistakenly introduced in 1.3.6.
+* Fix some gzexe problems:
+  - Improve resistance to denial-of-service attacks.
+  - Fix some quoting and escaping bugs.
+  - Do not assume /tmp is sticky (though it should be!).
+  - Do not assume the working directory can be written.
+  - Rely on PATH in the generated executable, as the man page says.
+  - Don't assume IFS is sane.
+  - Exit with signal's status, if signaled.
+
+Major changes in Gzip 1.3.6 (2006-11-20)
+
+* Fix some race conditions in setting file time stamps, permissions, and owner.
+* Fix some race conditions in signal handling.
+* When gzip exits due to a signal, it exits with the signal's status, not 1.
+* gzip now restores file time stamps to the resolution supported by the
+  time-setting primitives of the operating system, typically 1 microsecond.
+  Formerly it restored them only to the nearest second.
+* gzip -r no longer attempts to reset the last-access times of directories
+  it reads, as this messes up when other processes are reading the directories.
+* The options --version and --help now work on all gzip-installed executables,
+  and now use a format similar to other GNU programs.
+* The manual is now distributed under the terms of the GNU Free
+  Documentation License without invariant sections or cover texts.
+* Port to current versions of Autoconf, Automake, and Gnulib.
 
 Major changes from 1.3.4 to 1.3.5
 * gzip now removes any output symlink before writing output file.
@@ -170,7 +226,7 @@ Major changes from 1.0.4 to 1.0.5.
 Major changes from 1.0.3 to 1.0.4.
 * Added optimized asm version for 68020.
 * Add support for DJGPP.
-	
+
 * Add support for the Atari ST.
 * Added zforce to rename gzip'ed files with truncated names.
 * Do not install with name uncompress (some systems rely on the
@@ -260,24 +316,15 @@ Major changes form 0.5 to 0.6:
 * Accept gzcat in addition to zcat for people having /usr/bin before
   /usr/local/bin in their path.
 
-
 
-Copyright (C) 1999, 2001, 2002 Free Software Foundation, Inc.
+========================================================================
+
+Copyright (C) 1999, 2001, 2002, 2006 Free Software Foundation, Inc.
 Copyright (C) 1992, 1993 Jean-loup Gailly
 
-This file is part of GNU tar.
-
-GNU tar is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
-
-GNU tar is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with tar; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with no Front-Cover Texts, and with no Back-Cover
+Texts.  A copy of the license is included in the ``GNU Free
+Documentation License'' file as part of this distribution.

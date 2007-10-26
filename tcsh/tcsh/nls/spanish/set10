@@ -1,4 +1,4 @@
-$ $Id: set10,v 1.1.1.2 2001/06/28 23:11:21 bbraun Exp $
+$ $Id: set10,v 1.1 1998/04/08 17:59:51 christos Exp $
 $ ma.setp.c
 $set 10 
 1 setpath: comando '%s' incorrecto.\n

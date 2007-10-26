@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,8 +50,7 @@ typedef struct {
 	SCDynamicStoreRef	store;
 
 	/* credentials associated with this "open" session */
-	int			callerEUID;
-	int			callerEGID;
+	uid_t			callerEUID;
 
 } serverSession, *serverSessionRef;
 
@@ -65,7 +64,7 @@ void			removeSession	(mach_port_t	server);
 
 void			cleanupSession	(mach_port_t	server);
 
-void			listSessions	();
+void			listSessions	(void);
 
 __END_DECLS
 

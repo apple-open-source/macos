@@ -25,7 +25,7 @@
 
 #include "AppleCSPContext.h"
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
-#include <openssl/rc4.h>
+#include <CommonCrypto/rc4.h>
 
 class RC4Context : public AppleCSPContext {
 public:

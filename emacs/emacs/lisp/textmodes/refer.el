@@ -1,6 +1,7 @@
 ;;; refer.el --- look up references in bibliography files
 
-;; Copyright (C) 1992, 1996, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1996, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Ashwin Ram <ashwin@cc.gatech.edu>
 ;; Maintainer: Gernot Heiser <gernot@acm.org>
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -78,19 +79,19 @@
   :group 'wp)
 
 (defcustom refer-bib-directory nil
-  "Directory, or list of directories, to search for \\.bib files. Can
-be set to 'bibinputs or 'texinputs, in which case the environment
+  "Directory, or list of directories, to search for \\.bib files.
+Can be set to 'bibinputs or 'texinputs, in which case the environment
 variable BIBINPUTS or TEXINPUTS, respectively, is used to obtain a
-list of directories.  Useful only if refer-bib-files is set to 'dir or
-a list of file names (without directory). A value of nil indicates the
+list of directories.  Useful only if `refer-bib-files' is set to 'dir or
+a list of file names (without directory).  A value of nil indicates the
 current working directory.
 
-If refer-bib-directory is 'bibinputs or 'texinputs, it is setq'd to
+If `refer-bib-directory' is 'bibinputs or 'texinputs, it is setq'd to
 the appropriate list of directories when it is first used.
 
 Note that an empty directory is interpreted by BibTeX as indicating
-the default search path. Since Refer does not know that default path,
-it cannot search it. Include that path explicitly in your BIBINPUTS
+the default search path.  Since Refer does not know that default path,
+it cannot search it.  Include that path explicitly in your BIBINPUTS
 environment if you really want it searched (which is not likely to
 happen anyway)."
   :type '(choice (repeat directory) (const bibinputs) (const texinputs))
@@ -101,24 +102,24 @@ happen anyway)."
 or one of the following special values:
 nil  = prompt for \\.bib file (if visiting a \\.bib file, use it as default)
 auto = read \\.bib file names from appropriate command in buffer (see
-       refer-bib-files-regexp) unless the buffer's mode is bibtex-mode,
+       `refer-bib-files-regexp') unless the buffer's mode is `bibtex-mode',
        in which case only the buffer is searched
-dir  = use all \\.bib files in directories referenced by refer-bib-directory.
+dir  = use all \\.bib files in directories referenced by `refer-bib-directory'.
 
 If a specified file doesn't exist and has no extension, a \\.bib extension
 is automatically tried.
 
-If refer-bib-files is nil, auto or dir, it is setq'd to the appropriate
-list of files when it is first used if refer-cache-bib-files is t.  If
-refer-cache-bib-files is nil, the list of \\.bib files to use is re-read
+If `refer-bib-files' is nil, auto or dir, it is setq'd to the appropriate
+list of files when it is first used if `refer-cache-bib-files' is t.  If
+`refer-cache-bib-files' is nil, the list of \\.bib files to use is re-read
 each time it is needed."
   :type '(choice (repeat file) (const nil) (const auto) (const dir))
   :group 'refer)
 
 (defcustom refer-cache-bib-files t
-  "*Variable determining whether the value of refer-bib-files should be cached.
+  "*Variable determining whether the value of `refer-bib-files' should be cached.
 If t, initialize the value of refer-bib-files the first time it is used.  If
-nil, re-read the list of \\.bib files depending on the value of refer-bib-files
+nil, re-read the list of \\.bib files depending on the value of `refer-bib-files'
 each time it is needed."
   :type 'boolean
   :group 'refer)
@@ -127,8 +128,8 @@ each time it is needed."
   "*Regexp matching a bibliography file declaration.
 The current buffer is expected to contain a line such as
 \\bibliography{file1,file2,file3}
-which is read to set up refer-bib-files.  The regexp must specify the command
-(such as \\bibliography) that is used to specify the list of bib files.  The
+which is read to set up `refer-bib-files'.  The regexp must specify the command
+\(such as \\bibliography) that is used to specify the list of bib files.  The
 command is expected to specify a file name, or a list of comma-separated file
 names, within curly braces.
 If a specified file doesn't exist and has no extension, a \\.bib extension
@@ -149,8 +150,8 @@ is automatically tried."
 (defun refer-find-entry (keywords &optional continue)
    "Find entry in refer-bib-files containing KEYWORDS.
 If KEYWORDS is nil, prompt user for blank-separated list of keywords.
-If CONTINUE is t, or if called interactively with a prefix arg, look for next
-entry by continuing search from previous point."
+If CONTINUE is non-nil, or if called interactively with a prefix arg,
+look for next entry by continuing search from previous point."
    (interactive (list nil current-prefix-arg))
    (or keywords (setq keywords (if continue
                                    refer-previous-keywords
@@ -159,13 +160,13 @@ entry by continuing search from previous point."
    (refer-find-entry-internal keywords continue))
 
 (defun refer-find-next-entry ()
-   "Find next occurrence of entry in refer-bib-files.  See refer-find-entry."
+   "Find next occurrence of entry in `refer-bib-files'.  See `refer-find-entry'."
    (interactive)
    (refer-find-entry-internal refer-previous-keywords t))
 
 (defun refer-yank-key ()
   "Inserts at point in current buffer the \"key\" field of the entry
-found on the last refer-find-entry or refer-find-next-entry."
+found on the last `refer-find-entry' or `refer-find-next-entry'."
   (interactive)
   (let ((old-point (point)))
     (insert
@@ -226,10 +227,12 @@ found on the last refer-find-entry or refer-find-next-entry."
                      (throw 'found (find-file file)))
                  (setq refer-saved-pos nil
                        files (cdr files)))
-             (progn (message "Scanning %s... No such file" (car files) (ding))
+             (progn (ding)
+		    (message "Scanning %s... No such file" (car files))
                     (sit-for 1)
                     (setq files (cdr files))))))
-       (message "Keywords \"%s\" not found in any \.bib file" keywords (ding)))
+       (ding)
+       (message "Keywords \"%s\" not found in any \.bib file" keywords))
      (select-window old-window)))
 
 (defun refer-find-entry-in-file (keywords-list file &optional old-pos)
@@ -332,11 +335,11 @@ found on the last refer-find-entry or refer-find-next-entry."
             (list refer-bib-directory))))
          (files
            (cond
-            ((null refer-bib-files) 
+            ((null refer-bib-files)
              (list (expand-file-name
                     (if (eq major-mode 'bibtex-mode)
                         (read-file-name
-                         (format ".bib file: (default %s) "
+                         (format ".bib file (default %s): "
                                  (file-name-nondirectory
                                   (buffer-file-name)))
                          (file-name-directory (buffer-file-name))
@@ -386,7 +389,7 @@ found on the last refer-find-entry or refer-find-next-entry."
                       (eq refer-bib-directory 'bibinputs)))
              (refer-expand-files refer-bib-files dir-list))
             ((listp refer-bib-files) refer-bib-files)
-            (t (error "Illegal value for refer-bib-files: %s"
+            (t (error "Invalid value for refer-bib-files: %s"
                       refer-bib-files)))))
     (if (or (eq refer-bib-directory 'texinputs)
             (eq refer-bib-directory 'bibinputs))
@@ -395,4 +398,5 @@ found on the last refer-find-entry or refer-find-next-entry."
         (setq refer-bib-files files))
     files))
 
+;;; arch-tag: 151f641b-e79b-462b-9a29-a95c3793f300
 ;;; refer.el ends here

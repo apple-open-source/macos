@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: multi-single.c,v 1.5 2004/05/24 15:16:29 bagder Exp $
+ * $Id: multi-single.c,v 1.6 2006-10-13 14:01:20 bagder Exp $
  *
  * This is a very simple example using the multi interface.
  */
@@ -64,6 +64,10 @@ int main(int argc, char **argv)
 
     /* get file descriptors from the transfers */
     curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
+
+    /* In a real-world program you OF COURSE check the return code of the
+       function calls, *and* you make sure that maxfd is bigger than -1 so
+       that the call to select() below makes sense! */
 
     rc = select(maxfd+1, &fdread, &fdwrite, &fdexcep, &timeout);
 

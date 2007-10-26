@@ -1,5 +1,6 @@
 /* unexec for GNU Emacs on Windows NT.
-   Copyright (C) 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,15 +16,14 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
    Geoff Voelker (voelker@cs.washington.edu)                         8-12-94
 */
 
 #include <config.h>
 
-#include <stdlib.h> 	/* _fmode */
 #include <stdio.h>
 #include <fcntl.h>
 #include <time.h>
@@ -112,10 +112,6 @@ _start (void)
   /* Grab our malloc arena space now, before CRT starts up. */
   init_heap ();
 
-  /* The default behavior is to treat files as binary and patch up
-     text files appropriately, in accordance with the MSDOS code.  */
-  _fmode = O_BINARY;
-
   /* This prevents ctrl-c's in shells running while we're suspended from
      having us exit.  */
   SetConsoleCtrlHandler ((PHANDLER_ROUTINE) ctrl_c_handler, TRUE);
@@ -148,17 +144,17 @@ open_input_file (file_data *p_file, char *filename)
 
   file = CreateFile (filename, GENERIC_READ, FILE_SHARE_READ, NULL,
 		     OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-  if (file == INVALID_HANDLE_VALUE) 
+  if (file == INVALID_HANDLE_VALUE)
     return FALSE;
 
   size = GetFileSize (file, &upper_size);
-  file_mapping = CreateFileMapping (file, NULL, PAGE_READONLY, 
+  file_mapping = CreateFileMapping (file, NULL, PAGE_READONLY,
 				    0, size, NULL);
-  if (!file_mapping) 
+  if (!file_mapping)
     return FALSE;
 
   file_base = MapViewOfFile (file_mapping, FILE_MAP_READ, 0, 0, size);
-  if (file_base == 0) 
+  if (file_base == 0)
     return FALSE;
 
   p_file->name = filename;
@@ -179,18 +175,18 @@ open_output_file (file_data *p_file, char *filename, unsigned long size)
 
   file = CreateFile (filename, GENERIC_READ | GENERIC_WRITE, 0, NULL,
 		     CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
-  if (file == INVALID_HANDLE_VALUE) 
+  if (file == INVALID_HANDLE_VALUE)
     return FALSE;
 
-  file_mapping = CreateFileMapping (file, NULL, PAGE_READWRITE, 
+  file_mapping = CreateFileMapping (file, NULL, PAGE_READWRITE,
 				    0, size, NULL);
-  if (!file_mapping) 
+  if (!file_mapping)
     return FALSE;
-  
+
   file_base = MapViewOfFile (file_mapping, FILE_MAP_WRITE, 0, 0, size);
-  if (file_base == 0) 
+  if (file_base == 0)
     return FALSE;
-  
+
   p_file->name = filename;
   p_file->size = size;
   p_file->file = file;
@@ -330,6 +326,9 @@ relocate_offset (DWORD offset,
 /* Convert address in executing image to RVA.  */
 #define PTR_TO_RVA(ptr) ((DWORD)(ptr) - (DWORD) GetModuleHandle (NULL))
 
+#define RVA_TO_PTR(var,section,filedata) \
+	  ((void *)(RVA_TO_OFFSET(var,section) + (filedata).file_base))
+
 #define PTR_TO_OFFSET(ptr, pfile_data) \
           ((unsigned char *)(ptr) - (pfile_data)->file_base)
 
@@ -345,24 +344,24 @@ get_section_info (file_data *p_infile)
   PIMAGE_NT_HEADERS nt_header;
   PIMAGE_SECTION_HEADER section;
   int overlap;
-  
+
   dos_header = (PIMAGE_DOS_HEADER) p_infile->file_base;
-  if (dos_header->e_magic != IMAGE_DOS_SIGNATURE) 
+  if (dos_header->e_magic != IMAGE_DOS_SIGNATURE)
     {
       printf ("Unknown EXE header in %s...bailing.\n", p_infile->name);
       exit (1);
     }
-  nt_header = (PIMAGE_NT_HEADERS) (((unsigned long) dos_header) + 
+  nt_header = (PIMAGE_NT_HEADERS) (((unsigned long) dos_header) +
 				   dos_header->e_lfanew);
-  if (nt_header == NULL) 
+  if (nt_header == NULL)
     {
-      printf ("Failed to find IMAGE_NT_HEADER in %s...bailing.\n", 
+      printf ("Failed to find IMAGE_NT_HEADER in %s...bailing.\n",
 	     p_infile->name);
       exit (1);
     }
 
   /* Check the NT header signature ...  */
-  if (nt_header->Signature != IMAGE_NT_SIGNATURE) 
+  if (nt_header->Signature != IMAGE_NT_SIGNATURE)
     {
       printf ("Invalid IMAGE_NT_SIGNATURE 0x%x in %s...bailing.\n",
 	      nt_header->Signature, p_infile->name);
@@ -482,7 +481,7 @@ get_section_info (file_data *p_infile)
 /* The dump routines.  */
 
 void
-copy_executable_and_dump_data (file_data *p_infile, 
+copy_executable_and_dump_data (file_data *p_infile,
 			       file_data *p_outfile)
 {
   unsigned char *dst, *dst_save;
@@ -493,27 +492,34 @@ copy_executable_and_dump_data (file_data *p_infile,
   PIMAGE_SECTION_HEADER dst_section;
   DWORD offset;
   int i;
+  int be_verbose = GetEnvironmentVariable ("DEBUG_DUMP", NULL, 0) > 0;
 
-#define COPY_CHUNK(message, src, size)						\
+#define COPY_CHUNK(message, src, size, verbose)					\
   do {										\
     unsigned char *s = (void *)(src);						\
     unsigned long count = (size);						\
-    printf ("%s\n", (message));							\
-    printf ("\t0x%08x Offset in input file.\n", s - p_infile->file_base);	\
-    printf ("\t0x%08x Offset in output file.\n", dst - p_outfile->file_base);	\
-    printf ("\t0x%08x Size in bytes.\n", count);				\
+    if (verbose)								\
+      {										\
+	printf ("%s\n", (message));						\
+	printf ("\t0x%08x Offset in input file.\n", s - p_infile->file_base); 	\
+	printf ("\t0x%08x Offset in output file.\n", dst - p_outfile->file_base); \
+	printf ("\t0x%08x Size in bytes.\n", count);				\
+      }										\
     memcpy (dst, s, count);							\
     dst += count;								\
   } while (0)
 
-#define COPY_PROC_CHUNK(message, src, size)					\
+#define COPY_PROC_CHUNK(message, src, size, verbose)				\
   do {										\
     unsigned char *s = (void *)(src);						\
     unsigned long count = (size);						\
-    printf ("%s\n", (message));							\
-    printf ("\t0x%08x Address in process.\n", s);				\
-    printf ("\t0x%08x Offset in output file.\n", dst - p_outfile->file_base);	\
-    printf ("\t0x%08x Size in bytes.\n", count);				\
+    if (verbose)								\
+      {										\
+	printf ("%s\n", (message));						\
+	printf ("\t0x%08x Address in process.\n", s);				\
+	printf ("\t0x%08x Offset in output file.\n", dst - p_outfile->file_base); \
+	printf ("\t0x%08x Size in bytes.\n", count);				\
+      }										\
     memcpy (dst, s, count);							\
     dst += count;								\
   } while (0)
@@ -537,20 +543,21 @@ copy_executable_and_dump_data (file_data *p_infile,
      Note that dst is updated implicitly by each COPY_CHUNK.  */
 
   dos_header = (PIMAGE_DOS_HEADER) p_infile->file_base;
-  nt_header = (PIMAGE_NT_HEADERS) (((unsigned long) dos_header) + 
+  nt_header = (PIMAGE_NT_HEADERS) (((unsigned long) dos_header) +
 				   dos_header->e_lfanew);
   section = IMAGE_FIRST_SECTION (nt_header);
- 
+
   dst = (unsigned char *) p_outfile->file_base;
 
   COPY_CHUNK ("Copying DOS header...", dos_header,
-	      (DWORD) nt_header - (DWORD) dos_header);
+	      (DWORD) nt_header - (DWORD) dos_header, be_verbose);
   dst_nt_header = (PIMAGE_NT_HEADERS) dst;
   COPY_CHUNK ("Copying NT header...", nt_header,
-	      (DWORD) section - (DWORD) nt_header);
+	      (DWORD) section - (DWORD) nt_header, be_verbose);
   dst_section = (PIMAGE_SECTION_HEADER) dst;
   COPY_CHUNK ("Copying section table...", section,
-	      nt_header->FileHeader.NumberOfSections * sizeof (*section));
+	      nt_header->FileHeader.NumberOfSections * sizeof (*section),
+	      be_verbose);
 
   /* Align the first section's raw data area, and set the header size
      field accordingly.  */
@@ -560,7 +567,9 @@ copy_executable_and_dump_data (file_data *p_infile,
   for (i = 0; i < nt_header->FileHeader.NumberOfSections; i++)
     {
       char msg[100];
-      sprintf (msg, "Copying raw data for %s...", section->Name);
+      /* Windows section names are fixed 8-char strings, only
+	 zero-terminated if the name is shorter than 8 characters.  */
+      sprintf (msg, "Copying raw data for %.8s...", section->Name);
 
       dst_save = dst;
 
@@ -573,7 +582,7 @@ copy_executable_and_dump_data (file_data *p_infile,
       /* Can always copy the original raw data.  */
       COPY_CHUNK
 	(msg, OFFSET_TO_PTR (section->PointerToRawData, p_infile),
-	 section->SizeOfRawData);
+	 section->SizeOfRawData, be_verbose);
       /* Ensure alignment slop is zeroed.  */
       ROUND_UP_DST_AND_ZERO (dst_nt_header->OptionalHeader.FileAlignment);
 
@@ -582,7 +591,8 @@ copy_executable_and_dump_data (file_data *p_infile,
 	{
 	  dst = dst_save
 	    + RVA_TO_SECTION_OFFSET (PTR_TO_RVA (data_start), dst_section);
-	  COPY_PROC_CHUNK ("Dumping initialized data...", data_start, data_size);
+	  COPY_PROC_CHUNK ("Dumping initialized data...",
+			   data_start, data_size, be_verbose);
 	  dst = dst_save + dst_section->SizeOfRawData;
 	}
       if (section == bss_section)
@@ -591,7 +601,8 @@ copy_executable_and_dump_data (file_data *p_infile,
              data size as necessary.  */
 	  dst = dst_save
 	    + RVA_TO_SECTION_OFFSET (PTR_TO_RVA (bss_start), dst_section);
-	  COPY_PROC_CHUNK ("Dumping bss data...", bss_start, bss_size);
+	  COPY_PROC_CHUNK ("Dumping bss data...", bss_start,
+			   bss_size, be_verbose);
 	  ROUND_UP_DST (dst_nt_header->OptionalHeader.FileAlignment);
 	  dst_section->PointerToRawData = PTR_TO_OFFSET (dst_save, p_outfile);
 	  /* Determine new size of raw data area.  */
@@ -606,7 +617,8 @@ copy_executable_and_dump_data (file_data *p_infile,
              section's raw data size as necessary.  */
 	  dst = dst_save
 	    + RVA_TO_SECTION_OFFSET (PTR_TO_RVA (bss_start_static), dst_section);
-	  COPY_PROC_CHUNK ("Dumping static bss data...", bss_start_static, bss_size_static);
+	  COPY_PROC_CHUNK ("Dumping static bss data...", bss_start_static,
+			   bss_size_static, be_verbose);
 	  ROUND_UP_DST (dst_nt_header->OptionalHeader.FileAlignment);
 	  dst_section->PointerToRawData = PTR_TO_OFFSET (dst_save, p_outfile);
 	  /* Determine new size of raw data area.  */
@@ -624,7 +636,8 @@ copy_executable_and_dump_data (file_data *p_infile,
              section's size to the appropriate size.  */
 	  dst = dst_save
 	    + RVA_TO_SECTION_OFFSET (PTR_TO_RVA (heap_start), dst_section);
-	  COPY_PROC_CHUNK ("Dumping heap...", heap_start, heap_size);
+	  COPY_PROC_CHUNK ("Dumping heap...", heap_start, heap_size,
+			   be_verbose);
 	  ROUND_UP_DST (dst_nt_header->OptionalHeader.FileAlignment);
 	  dst_section->PointerToRawData = PTR_TO_OFFSET (dst_save, p_outfile);
 	  /* Determine new size of raw data area.  */
@@ -659,7 +672,7 @@ copy_executable_and_dump_data (file_data *p_infile,
   COPY_CHUNK
     ("Copying remainder of executable...",
      OFFSET_TO_PTR (offset, p_infile),
-     p_infile->size - offset);
+     p_infile->size - offset, be_verbose);
 
   /* Final size for new image.  */
   p_outfile->size = DST_TO_OFFSET ();
@@ -736,7 +749,7 @@ unexec (char *new_name, char *old_name, void *start_data, void *start_bss,
   if ((q = strrchr (new_name, '/')) == NULL)
     abort ();
   strcpy (p, q);
-  
+
   /* Make sure that the output filename has the ".exe" extension...patch
      it up if not.  */
   p = out_filename + strlen (out_filename) - 4;
@@ -752,7 +765,7 @@ unexec (char *new_name, char *old_name, void *start_data, void *start_bss,
   /* Open the undumped executable file.  */
   if (!open_input_file (&in_file, in_filename))
     {
-      printf ("Failed to open %s (%d)...bailing.\n", 
+      printf ("Failed to open %s (%d)...bailing.\n",
 	      in_filename, GetLastError ());
       exit (1);
     }
@@ -768,7 +781,7 @@ unexec (char *new_name, char *old_name, void *start_data, void *start_bss,
     extra_bss_size_static;
   if (!open_output_file (&out_file, out_filename, size))
     {
-      printf ("Failed to open %s (%d)...bailing.\n", 
+      printf ("Failed to open %s (%d)...bailing.\n",
 	      out_filename, GetLastError ());
       exit (1);
     }
@@ -812,3 +825,6 @@ unexec (char *new_name, char *old_name, void *start_data, void *start_bss,
 }
 
 /* eof */
+
+/* arch-tag: fe1d3d1c-ef88-4917-ab22-f12ab16b3254
+   (do not change this comment) */

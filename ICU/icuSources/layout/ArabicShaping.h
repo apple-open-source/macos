@@ -1,6 +1,6 @@
 /*
  *
- * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
  *
  */
 
@@ -21,6 +21,18 @@ class LEGlyphStorage;
 
 class ArabicShaping /* not : public UObject because all methods are static */ {
 public:
+    // Joining types
+    enum JoiningTypes
+    {
+        JT_NON_JOINING   = 0,
+        JT_JOIN_CAUSING  = 1,
+        JT_DUAL_JOINING  = 2,
+        JT_LEFT_JOINING  = 3,
+        JT_RIGHT_JOINING = 4,
+        JT_TRANSPARENT   = 5,
+        JT_COUNT         = 6
+    };
+
     // shaping bit masks
     enum ShapingBitMasks
     {
@@ -47,16 +59,15 @@ public:
     static void shape(const LEUnicode *chars, le_int32 offset, le_int32 charCount, le_int32 charMax,
                       le_bool rightToLeft, LEGlyphStorage &glyphStorage);
 
-    static const LETag *getFeatureOrder();
+    static const FeatureMap *getFeatureMap(le_int32 &count);
 
 private:
     // forbid instantiation
     ArabicShaping();
 
-    static const LETag tagArray[];
-
     static ShapeType getShapeType(LEUnicode c);
 
+    static const le_uint8 shapingTypeTable[];
     static const ShapeType shapeTypes[];
 
     static void adjustTags(le_int32 outIndex, le_int32 shapeOffset, LEGlyphStorage &glyphStorage); 

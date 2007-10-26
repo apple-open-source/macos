@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All rights reserved.
  *
  */
 
@@ -43,12 +43,13 @@ OSDefineMetaClassAndStructors(USBKeyLargo, IOService);
 //   initialize the driver for a specific bus, so that the driver knows which bus
 //   it is responsable for.
 bool
-USBKeyLargo::initForBus(UInt32 busNumber, SInt32 devID)
+USBKeyLargo::initForBus(UInt32 busNumber, SInt32 devID, bool isK2)
 {
 	setProperty("usb", (UInt64)busNumber, 32);
 	setProperty("IOClass", "USBKeyLargo");
 
 	keyLargoDeviceId = devID;
+	hasK2FCR9 = isK2;
 
 	// initialize for Power Management
 	initForPM(getProvider());
@@ -250,6 +251,56 @@ void USBKeyLargo::turnOnUSB(UInt32 busNumber)
 		}
 		
 		provider->safeWriteRegUInt32(kKeyLargoFCR4, regMask, regData);
+
+		if (hasK2FCR9) {
+			enum {			// Values lifted from AppleK2.h
+				kK2FCR9								= 0x00028,
+				kK2FCR9USB0Clk48isStopped			= 1 << 9,
+				kK2FCR9USB1Clk48isStopped			= 1 << 10,
+				
+				kMaxUSBClockRetry					= 10,
+				kUSBClockDelay						= 5
+			};
+			volatile UInt32 clockStopReg;
+			int retryCount = 0;
+			bool clockStopped;
+			
+			// Make sure clocks are spun up
+			do {
+				IOSleep (kUSBClockDelay);
+				clockStopReg = provider->safeReadRegUInt32 (kK2FCR9);
+				
+				clockStopped = (clockStopReg & ((busNumber == 0) ? kK2FCR9USB0Clk48isStopped : kK2FCR9USB1Clk48isStopped));
+				
+				retryCount++;
+				
+				if ((retryCount > kMaxUSBClockRetry) && clockStopped) {
+					//kprintf ("USBKeyLargo::turnOnUSB - retrying clock enable\n");
+					//IOLog ("USBKeyLargo::turnOnUSB - retrying clock enable\n");
+					
+					// Clock is stuck so whack it again
+					// Turn it off again
+					regData = 0;
+					regMask = (busNumber == 0) ? kKeyLargoFCR0USB0CellEnable : kKeyLargoFCR0USB1CellEnable;
+					provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
+					
+					// Wait a bit
+					IOSleep (kUSBClockDelay);
+					
+					// Turn it on again
+					regData = regMask = (busNumber == 0) ? (kKeyLargoFCR0USB0CellEnable) : (kKeyLargoFCR0USB1CellEnable);
+					provider->safeWriteRegUInt32(kKeyLargoFCR0, regMask, regData);
+					
+					// Keep trying
+					retryCount = 0;
+					
+					//xxx debug
+					IOSleep (kUSBClockDelay);
+					clockStopReg = provider->safeReadRegUInt32 (kK2FCR9);
+					clockStopped = (clockStopReg & ((busNumber == 0) ? kK2FCR9USB0Clk48isStopped : kK2FCR9USB1Clk48isStopped));
+				} 
+			} while (clockStopped);
+		}
 	} else {	// Intrepid only
 		regData = regMask = kIntrepidFCR1USB2CellEnable;
 		

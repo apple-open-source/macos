@@ -59,80 +59,9 @@
 
     // Globals
 
-#if USE_ELG
-    com_apple_iokit_XTrace	*gXTrace = 0;
-#endif
-
 #define super IOSerialDriverSync
 
 OSDefineMetaClassAndStructors(AppleUSBCDCDMM, IOSerialDriverSync);
-
-#if USE_ELG
-/****************************************************************************************************/
-//
-//		Function:	findKernelLoggerDM
-//
-//		Inputs:		
-//
-//		Outputs:	
-//
-//		Desc:		Just like the name says
-//
-/****************************************************************************************************/
-
-IOReturn findKernelLoggerDM()
-{
-    OSIterator		*iterator = NULL;
-    OSDictionary	*matchingDictionary = NULL;
-    IOReturn		error = 0;
-	
-	// Get matching dictionary
-	
-    matchingDictionary = IOService::serviceMatching("com_apple_iokit_XTrace");
-    if (!matchingDictionary)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerDM] Couldn't create a matching dictionary.\n");
-        goto exit;
-    }
-	
-	// Get an iterator
-	
-    iterator = IOService::getMatchingServices(matchingDictionary);
-    if (!iterator)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerDM] No XTrace logger found.\n");
-        goto exit;
-    }
-	
-	// Use iterator to find each com_apple_iokit_XTrace instance. There should be only one, so we
-	// won't iterate
-	
-    gXTrace = (com_apple_iokit_XTrace*)iterator->getNextObject();
-    if (gXTrace)
-    {
-        IOLog(DEBUG_NAME "[findKernelLoggerDM] Found XTrace logger at %p.\n", gXTrace);
-    }
-	
-exit:
-	
-    if (error != kIOReturnSuccess)
-    {
-        gXTrace = NULL;
-        IOLog(DEBUG_NAME "[findKernelLoggerDM] Could not find a logger instance. Error = %X.\n", error);
-    }
-	
-    if (matchingDictionary)
-        matchingDictionary->release();
-            
-    if (iterator)
-        iterator->release();
-		
-    return error;
-    
-}/* end findKernelLoggerDM */
-#endif
 
 #if LOG_DATA
 #define dumplen		32		// Set this to the number of bytes to dump and the rest should work out correct
@@ -154,41 +83,24 @@ exit:
 //
 /****************************************************************************************************/
 
-void AppleUSBCDCDMM::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
+void AppleUSBCDCDMM::USBLogData(UInt8 Dir, SInt32 Count, char *buf)
 {    
     SInt32	wlen;
-#if USE_ELG
-    UInt8 	*b;
-    UInt8 	w[8];
-#else
-    UInt32	llen, rlen;
-    UInt16	i, Aspnt, Hxpnt;
+    SInt32	llen, rlen;
+    SInt16	i, Aspnt, Hxpnt;
     UInt8	wchr;
     char	LocBuf[buflen+1];
-#endif
     
     switch (Dir)
     {
         case kDataIn:
-#if USE_ELG
-            XTRACE2(this, buf, Count, "USBLogData - Read Complete, address, size");
-#else
-            IOLog( "AppleUSBCDCDMM: USBLogData - Read Complete, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
-#endif
+            Log( "AppleUSBCDCDMM: USBLogData - Read Complete, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
             break;
         case kDataOut:
-#if USE_ELG
-            XTRACE2(this, buf, Count, "USBLogData - Write, address, size");
-#else
-            IOLog( "AppleUSBCDCDMM: USBLogData - Write, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
-#endif
+            Log( "AppleUSBCDCDMM: USBLogData - Write, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
             break;
         case kDataOther:
-#if USE_ELG
-            XTRACE2(this, buf, Count, "USBLogData - Other, address, size");
-#else
-            IOLog( "AppleUSBCDCDMM: USBLogData - Other, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
-#endif
+            Log( "AppleUSBCDCDMM: USBLogData - Other, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
             break;
     }
 
@@ -205,45 +117,14 @@ void AppleUSBCDCDMM::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
 
     if (wlen == 0)
     {
-#if USE_ELG
-        XTRACE2(this, 0, Count, "USBLogData - No data, Count=0");
-#else
-        IOLog( "AppleUSBCDCDMM: USBLogData - No data, Count=0\n" );
-#endif
+        Log( "AppleUSBCDCDMM: USBLogData - No data, Count=0\n" );
         return;
     }
 
-#if (USE_ELG)
-    b = (UInt8 *)buf;
-    while (wlen > 0)							// loop over the buffer
-    {
-        bzero(w, sizeof(w));						// zero it
-        bcopy(b, w, min(wlen, 8));					// copy bytes over
-    
-        switch (Dir)
-        {
-            case kDataIn:
-                XTRACE2(this, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Rx buffer dump");
-                break;
-            case kDataOut:
-                XTRACE2(this, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Tx buffer dump");
-                break;
-            case kDataOther:
-                XTRACE2(this, (w[0] << 24 | w[1] << 16 | w[2] << 8 | w[3]), (w[4] << 24 | w[5] << 16 | w[6] << 8 | w[7]), "USBLogData - Misc buffer dump");
-                break;
-        }
-        wlen -= 8;							// adjust by 8 bytes for next time (if have more)
-        b += 8;
-    }
-#else
     rlen = 0;
     do
     {
-        for (i=0; i<=buflen; i++)
-        {
-            LocBuf[i] = 0x20;
-        }
-        LocBuf[i] = 0x00;
+        memset(LocBuf, 0x20, buflen);
         
         if (wlen > dumplen)
         {
@@ -268,14 +149,14 @@ void AppleUSBCDCDMM::USBLogData(UInt8 Dir, UInt32 Count, char *buf)
             }
         }
         LocBuf[(llen + Asciistart) + 1] = 0x00;
-        IOLog("%s", LocBuf);
-        IOLog("\n");
+		
+		Log("%s\n", LocBuf);
+#if USE_IOL
         IOSleep(Sleep_Time);					// Try and keep the log from overflowing
-       
+#endif       
         rlen += llen;
         buf = &buf[rlen];
     } while (wlen != 0);
-#endif 
 
 }/* end USBLogData */
 #endif
@@ -915,21 +796,6 @@ bool AppleUSBCDCDMM::start(IOService *provider)
     
     initStructure();
     
-#if USE_ELG
-    XTraceLogInfo	*logInfo;
-    
-    findKernelLoggerDM();
-    if (gXTrace)
-    {
-        gXTrace->retain();		// don't let it unload ...
-        XTRACE(this, 0, 0xbeefbeef, "Hello from start");
-        logInfo = gXTrace->LogGetInfo();
-        IOLog("AppleUSBCDCDMM: start - Log is at %x\n", (unsigned int)logInfo);
-    } else {
-        return false;
-    }
-#endif
-
     XTRACE(this, 0, provider, "start - provider.");
     
     if(!super::start(provider))
@@ -994,7 +860,7 @@ bool AppleUSBCDCDMM::start(IOService *provider)
     fCommandGate->enable();
 
     XTRACE(this, 0, 0, "start - successful and IOModemSerialStreamSync created");
-	IOLog(DEBUG_NAME ": Version number - %s\n", VersionNumber);
+	Log(DEBUG_NAME ": Version number - %s\n", VersionNumber);
     
     return true;
     	
@@ -1191,8 +1057,7 @@ bool AppleUSBCDCDMM::createSuffix(unsigned char *sufKey)
     UInt8	serBuf[12];		// arbitrary size > 8
     OSNumber	*location;
     UInt32	locVal;
-    UInt8	*rlocVal;
-    UInt16	offs, i, sig = 0;
+    SInt16	i, sig = 0;
     UInt8	indx;
     bool	keyOK = false;			
 	
@@ -1225,17 +1090,16 @@ bool AppleUSBCDCDMM::createSuffix(unsigned char *sufKey)
         if (location)
         {
             locVal = location->unsigned32BitValue();		
-            offs = 0;
-            rlocVal = (UInt8*)&locVal;
-            for (i=0; i<4; i++)
-            {
-                sufKey[offs] = Asciify(rlocVal[i] >> 4);
-                if (sufKey[offs++] != '0')
-                    sig = offs;
-                sufKey[offs] = Asciify(rlocVal[i]);
-                if (sufKey[offs++] != '0')
-                    sig = offs;
-            }
+            snprintf((char *)sufKey, (sizeof(locVal)*2)+1, "%x", locVal);
+			sig = strlen((const char *)sufKey)-1;
+			for (i=sig; i>=0; i--)
+			{
+				if (sufKey[i] != '0')
+				{
+					break;
+				}
+			}
+			sig = i + 1;
             keyOK = true;
         }
     }
@@ -1247,9 +1111,7 @@ bool AppleUSBCDCDMM::createSuffix(unsigned char *sufKey)
         sufKey[sig] = Asciify((UInt8)fPort.InterfaceNumber >> 4);
         if (sufKey[sig] != '0')
             sig++;
-        sufKey[sig] = Asciify((UInt8)fPort.InterfaceNumber);
-        if (sufKey[sig] != '0')
-            sig++;			
+        sufKey[sig++] = Asciify((UInt8)fPort.InterfaceNumber);
         sufKey[sig] = 0x00;
     }
 	

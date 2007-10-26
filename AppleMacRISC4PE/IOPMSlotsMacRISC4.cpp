@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,9 +36,9 @@ bool childrenInPowerTree(IORegistryEntry * child);
 
 static IOPMPowerState ourPowerStates[number_of_power_states] =
 {
-	{1,0,0,0,0,0,0,0,0,0,0,0},
-	{1,IOPMPowerOn,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0},
-	{1,IOPMPowerOn,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0}
+    {1,0,0,0,0,0,0,0,0,0,0,0},
+    {1,0,0,IOPMPowerOn,0,0,0,0,0,0,0,0},
+    {1,0,0,IOPMPowerOn,0,0,0,0,0,0,0,0}
 };
 
 // The following aux current table values come from the PCI Bus Power Management Interface Spec 
@@ -57,6 +57,10 @@ OSDefineMetaClassAndStructors(IOPMSlotsMacRISC4,IOService)
 
 #ifndef kIOPMIsPowerManagedKey
 #define kIOPMIsPowerManagedKey	"IOPMIsPowerManaged"
+#endif
+
+#ifndef kIOPMSetSleepSupported
+#define kIOPMSetSleepSupported	"IOPMSetSleepSupported"
 #endif
 
 // **********************************************************************************
@@ -108,8 +112,10 @@ bool IOPMSlotsMacRISC4::start ( IOService * nub )
 	// If the system is portable, then both platform functions will return false, and
 	// the aux capacity will not be checked.
 
+#if defined( __ppc__ )
 	checkAuxCapacity = ((true == getPlatform()->hasPrivPMFeature( kPMHasLegacyDesktopSleepMask ))
 					 || (true == getPlatform()->hasPMFeature( kPMCanPowerOffPCIBusMask )));
+#endif
 
 	return true;
 }
@@ -265,10 +271,19 @@ bool childrenInPowerTree(IORegistryEntry * child)
 
 
 // **********************************************************************************
-// setPowerState
+// determineSleepSupport
+//
+// [5420237] - This used to be setPowerState and was called directly by the Power
+// Manager.  But there were multiple issues with that - we were in the wrong power
+// state and that resulted in this being called at boot, not sleep.  At boot the
+// power tree is incomplete so funky results were reported.  So instead, we 
+// now ignore setPowerState calls and rely on the Power Manager to call us through
+// 4PE via callPlatformFunction ("IOPMSetSleepSupported")
+//
+// The new name reflects the change in behavior
 //
 // **********************************************************************************
-IOReturn IOPMSlotsMacRISC4::setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice)
+IOReturn IOPMSlotsMacRISC4::determineSleepSupport ( void )
 {
 	IORegistryEntry *	myProvider;			   // Added Ethan Bold 
 	OSIterator *		iter;
@@ -282,136 +297,133 @@ IOReturn IOPMSlotsMacRISC4::setPowerState ( unsigned long powerStateOrdinal, IOS
 	OSIterator *		pciChildIter;
 	OSObject *			obj;
 	
-	// Are we going to sleep?
-	if ( powerStateOrdinal == 0 )
+	// Get child iterator.
+	iter = getChildIterator ( gIOPowerPlane );
+	if ( iter )
 	{
 		
-		// Get child iterator.
-		iter = getChildIterator ( gIOPowerPlane );
-		if ( iter )
+		// Get next object from iterator.
+		while ( ( next = iter->getNextObject() ) )
 		{
 			
-			// Get next object from iterator.
-			while ( ( next = iter->getNextObject() ) )
+			// If it's a power connection, get its child entry.
+			if ( ( connection = OSDynamicCast(IOPowerConnection,next)) )
 			{
 				
-				// If it's a power connection, get its child entry.
-				if ( ( connection = OSDynamicCast(IOPowerConnection,next)) )
+				// Get child entry.
+				nub = ((IOService *)(connection->getChildEntry(gIOPowerPlane)));
+				
+				// Is this an IOPCIDevice object?
+				if ( ( PCInub = OSDynamicCast(IOPCIDevice,nub)) )
 				{
 					
-					// Get child entry.
-					nub = ((IOService *)(connection->getChildEntry(gIOPowerPlane)));
+					// Yes. Get the object's power consumption.
+					childPower = PCInub->currentPowerConsumption();
 					
-					// Is this an IOPCIDevice object?
-					if ( ( PCInub = OSDynamicCast(IOPCIDevice,nub)) )
+					if ( childPower != kIOPMUnknown )
 					{
-						
-						// Yes. Get the object's power consumption.
-						childPower = PCInub->currentPowerConsumption();
-						
-						if ( childPower != kIOPMUnknown )
-						{
-							if ( checkAuxCapacity )
-								totalPower += childPower;
-						}
-						
-						else
-						{
-							
-							// Unknown power consumption.
-							
-							if ( checkAuxCapacity )
-								probePCIhardware(PCInub,&canSleep,&totalPower);
-							
-							// Does the property exist?
-							if ((obj = nub->getProperty( kIOPMIsPowerManagedKey )))
-							{
-								
-								// Is this object power managed?
-								if (obj != kOSBooleanTrue)
-								{
-									
-									// No.
-									IOLog ( "PCI sleep prevented by non-power-managed %s (3)\n",nub->getName ( ) );
-									canSleep = false;
-									
-								}
-								
-							}
-							
-							// Property doesn't exist, iterate over children of PCI device.
-							else if ( ( pciChildIter = PCInub->getChildIterator( gIOServicePlane ) ) )
-							{
-								
-								IORegistryEntry * child;
-								
-								// Assume we cannot sleep, unless we find a child that is power managed.
-								canSleep = false;
-								
-								// Get next child object.
-								while ( ( child = ( IORegistryEntry * ) pciChildIter->getNextObject ( ) ) )
-								{
-									
-									// Check if child object has children in the power tree.
-									if ( childrenInPowerTree ( child ) )
-									{	
-										
-										canSleep = true;
-										break;
-										
-									}
-									
-								}
-								
-								if ( canSleep == false )
-								{
-									
-									IOLog ( "PCI sleep prevented by non-power-managed %s (1)\n", nub->getName ( ) );
-									
-								}
-								
-								pciChildIter->release ( );
-								
-							}
-							
-							if ( ! connection->childHasRequestedPower() )
-							{
-								IOLog("PCI sleep prevented by non-power-managed %s (2)\n",nub->getName());
-								canSleep = false;
-							}
-							
-						}
-						
+						if ( checkAuxCapacity )
+							totalPower += childPower;
 					}
 					
 					else
 					{
-						canSleep = false;	// something wrong with the power plane
+						
+						// Unknown power consumption.
+						
+						if ( checkAuxCapacity )
+							probePCIhardware(PCInub,&canSleep,&totalPower);
+						
+						// Does the property exist?
+						if ((obj = nub->getProperty( kIOPMIsPowerManagedKey )))
+						{
+							
+							// Is this object power managed?
+							if (obj != kOSBooleanTrue)
+							{
+								
+								// No.
+								IOLog ( "PCI sleep prevented by non-power-managed %s (3)\n",nub->getName ( ) );
+								canSleep = false;
+								
+							}
+							
+						}
+						
+						// Property doesn't exist, iterate over children of PCI device.
+						else if ( ( pciChildIter = PCInub->getChildIterator( gIOServicePlane ) ) )
+						{
+							
+							IORegistryEntry * child;
+							
+							// Assume we cannot sleep, unless we find a child that is power managed.
+							canSleep = false;
+							
+							// Get next child object.
+							while ( ( child = ( IORegistryEntry * ) pciChildIter->getNextObject ( ) ) )
+							{
+								
+								// Check if child object has children in the power tree.
+								if ( childrenInPowerTree ( child ) )
+								{	
+									
+									canSleep = true;
+									break;
+									
+								}
+								
+							}
+							
+							if ( canSleep == false )
+							{
+								
+								IOLog ( "PCI sleep prevented by non-power-managed %s (1)\n", nub->getName ( ) );
+								
+							}
+							
+							pciChildIter->release ( );
+							
+						}
+						
+						if ( ! connection->childHasRequestedPower() )
+						{
+							IOLog("PCI sleep prevented by non-power-managed %s (2)\n",nub->getName());
+							canSleep = false;
+						}
+						
 					}
 					
 				}
 				
-				if ( canSleep == false )
-					break;
+				else
+				{
+					canSleep = false;	// something wrong with the power plane
+				}
 				
 			}
 			
-			iter->release();
+			if ( canSleep == false )
+				break;
 			
 		}
 		
-		if ( totalPower > auxCapacity ) {
-			IOLog("PCI sleep prevented by high-power expansion cards %ld %ld (4)\n",totalPower,auxCapacity);
-			canSleep = false;
-		}
+		iter->release();
+		
+	}
+	
+	if ( totalPower > auxCapacity ) {
+		IOLog("PCI sleep prevented by high-power expansion cards %ld %ld (4)\n",totalPower,auxCapacity);
+		canSleep = false;
+	}
 
-		myProvider = getProvider();
-		if ( ! canSleep 
-			|| ( myProvider		// Ethan B. - hack for G5 Doze 10.3.5
-				&& myProvider->getProperty("PlatformCannotSleep")) ) {
-			if ( rootDomain != NULL ) {
-				rootDomain->setSleepSupported(kPCICantSleep);
-			}
+	IOLog ("IOPMSlotsMacRISC4::determineSleepSupport has canSleep %s\n", canSleep ? "true" : "false");
+
+	myProvider = getProvider();
+	if ( ! canSleep 
+		|| ( myProvider		// Ethan B. - hack for G5 Doze 10.3.5
+			&& myProvider->getProperty("PlatformCannotSleep")) ) {
+		if ( rootDomain != NULL ) {
+			rootDomain->setSleepSupported(kPCICantSleep);
 		}
 	}
   return IOPMAckImplied;

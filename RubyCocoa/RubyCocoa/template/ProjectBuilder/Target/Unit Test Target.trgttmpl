@@ -1,0 +1,13 @@
+{
+    Class = Aggregate;
+    Description = "Target that runs Ruby unit tests.";
+    CustomBuildSettings = {
+    };
+	BuildPhases = (
+        {
+			Class = ShellScript;
+			ShellPath = "/usr/bin/env ruby";
+			ShellScript = "require 'test/unit'\n\n# Add the test scripts there\n#   Example: TESTS = ['test1.rb', 'test2.rb'] \nTESTS = []\n\nTESTS.each { |p| require(p) }";
+        },
+    );
+}

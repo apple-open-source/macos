@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1998-2004, International Business Machines
+*   Copyright (C) 1998-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -89,37 +89,61 @@
  * \brief C API: Unicode stdio-like API
  *
  * <h2>Unicode stdio-like C API</h2>
-General printf format:<br>
-%[format modifier][width][.precision][type modifier][format]
-
-General scanf format:<br>
-%[*][format modifier][width][type modifier][format]
-
+ *
+ * <p>This API provides an stdio-like API wrapper around ICU's other
+ * formatting and parsing APIs. It is meant to ease the transition of adding
+ * Unicode support to a preexisting applications using stdio. The following
+ * is a small list of noticable differences between stdio and ICU I/O's
+ * ustdio implementation.</p>
+ *
+ * <ul>
+ * <li>Locale specific formatting and parsing is only done with file IO.</li>
+ * <li>u_fstropen can be used to simulate file IO with strings.
+ * This is similar to the iostream API, and it allows locale specific
+ * formatting and parsing to be used.</li>
+ * <li>This API provides uniform formatting and parsing behavior between
+ * platforms (unlike the standard stdio implementations found on various
+ * platforms).</li>
+ * <li>This API is better suited for text data handling than binary data
+ * handling when compared to the typical stdio implementation.</li>
+ * <li>You can specify a Transliterator while using the file IO.</li>
+ * <li>You can specify a file's codepage separately from the default
+ * system codepage.</li>
+ * </ul>
+ *
+ * <h2>Formatting and Parsing Specification</h2>
+ *
+ * General printf format:<br>
+ * %[format modifier][width][.precision][type modifier][format]
+ * 
+ * General scanf format:<br>
+ * %[*][format modifier][width][type modifier][format]
+ * 
 <table cellspacing="3">
-<tr><td>format</td><td>default<br>type</td><td>description</td></tr>
-<tr><td>%E</td><td>double</td><td>Scientific with an uppercase exponent</td></tr>
-<tr><td>%e</td><td>double</td><td>Scientific with a lowercase exponent</td></tr>
-<tr><td>%G</td><td>double</td><td>Use %E or %f for best format</td></tr>
-<tr><td>%g</td><td>double</td><td>Use %e or %f for best format</td></tr>
-<tr><td>%f</td><td>double</td><td>Simple floating point without the exponent</td></tr>
-<tr><td>%X</td><td>int32_t</td><td>ustdio special uppercase hex radix formatting</td></tr>
-<tr><td>%x</td><td>int32_t</td><td>ustdio special lowercase hex radix formatting</td></tr>
-<tr><td>%d</td><td>int32_t</td><td>Decimal format</td></tr>
-<tr><td>%i</td><td>int32_t</td><td>Same as %d</td></tr>
-<tr><td>%n</td><td>int32_t</td><td>count (write the number of UTF-16 codeunits read/written)</td></tr>
-<tr><td>%o</td><td>int32_t</td><td>ustdio special octal radix formatting</td></tr>
-<tr><td>%u</td><td>uint32_t</td><td>Decimal format</td></tr>
-<tr><td>%p</td><td>void *</td><td>Prints the pointer value</td></tr>
-<tr><td>%s</td><td>char *</td><td>Use default converter or specified converter from fopen</td></tr>
-<tr><td>%c</td><td>char</td><td>Use default converter or specified converter from fopen<br>
-When width is specified, this acts like a non-NULL-terminated char * string.<br>
+<tr><td>format</td><td>default<br>printf<br>type</td><td>default<br>scanf<br>type</td><td>description</td></tr>
+<tr><td>%E</td><td>double</td><td>float</td><td>Scientific with an uppercase exponent</td></tr>
+<tr><td>%e</td><td>double</td><td>float</td><td>Scientific with a lowercase exponent</td></tr>
+<tr><td>%G</td><td>double</td><td>float</td><td>Use %E or %f for best format</td></tr>
+<tr><td>%g</td><td>double</td><td>float</td><td>Use %e or %f for best format</td></tr>
+<tr><td>%f</td><td>double</td><td>float</td><td>Simple floating point without the exponent</td></tr>
+<tr><td>%X</td><td>int32_t</td><td>int32_t</td><td>ustdio special uppercase hex radix formatting</td></tr>
+<tr><td>%x</td><td>int32_t</td><td>int32_t</td><td>ustdio special lowercase hex radix formatting</td></tr>
+<tr><td>%d</td><td>int32_t</td><td>int32_t</td><td>Decimal format</td></tr>
+<tr><td>%i</td><td>int32_t</td><td>int32_t</td><td>Same as %d</td></tr>
+<tr><td>%n</td><td>int32_t</td><td>int32_t</td><td>count (write the number of UTF-16 codeunits read/written)</td></tr>
+<tr><td>%o</td><td>int32_t</td><td>int32_t</td><td>ustdio special octal radix formatting</td></tr>
+<tr><td>%u</td><td>uint32_t</td><td>uint32_t</td><td>Decimal format</td></tr>
+<tr><td>%p</td><td>void *</td><td>void *</td><td>Prints the pointer value</td></tr>
+<tr><td>%s</td><td>char *</td><td>char *</td><td>Use default converter or specified converter from fopen</td></tr>
+<tr><td>%c</td><td>char</td><td>char</td><td>Use default converter or specified converter from fopen<br>
+When width is specified for scanf, this acts like a non-NULL-terminated char * string.<br>
 By default, only one char is written.</td></tr>
-<tr><td>%S</td><td>UChar *</td><td>Null terminated UTF-16 string</td></tr>
-<tr><td>%C</td><td>UChar</td><td>16-bit Unicode code unit<br>
-When width is specified, this acts like a non-NULL-terminated UChar * string<br>
+<tr><td>%S</td><td>UChar *</td><td>UChar *</td><td>Null terminated UTF-16 string</td></tr>
+<tr><td>%C</td><td>UChar</td><td>UChar</td><td>16-bit Unicode code unit<br>
+When width is specified for scanf, this acts like a non-NULL-terminated UChar * string<br>
 By default, only one codepoint is written.</td></tr>
-<tr><td>%[]</td><td>UChar *</td><td>(scanf only) Null terminated UTF-16 string which contains the filtered set of characters specified by the UnicodeSet</td></tr>
-<tr><td>%%</td><td>N/A</td><td>Show a percent sign</td></tr>
+<tr><td>%[]</td><td>&nbsp;</td><td>UChar *</td><td>Null terminated UTF-16 string which contains the filtered set of characters specified by the UnicodeSet</td></tr>
+<tr><td>%%</td><td>&nbsp;</td><td>&nbsp;</td><td>Show a percent sign</td></tr>
 </table>
 
 Format modifiers
@@ -162,13 +186,14 @@ scanf modifier
 /**
  * When an end of file is encountered, this value can be returned.
  * @see u_fgetc
- * @draft 3.0
+ * @stable 3.0
  */
 #define U_EOF 0xFFFF
 
-/** Forward declaration of a Unicode-aware file @draft 3.0 */
+/** Forward declaration of a Unicode-aware file @stable 3.0 */
 typedef struct UFILE UFILE;
 
+#ifndef U_HIDE_DRAFT_API
 /**
  * Enum for which direction of stream a transliterator applies to.
  * @see u_fsettransliterator
@@ -179,6 +204,8 @@ typedef enum {
    U_WRITE = 2, 
    U_READWRITE =3  /* == (U_READ | U_WRITE) */ 
 } UFileDirection;
+
+#endif /* U_HIDE_DRAFT_API */
 
 /**
  * Open a UFILE.
@@ -197,7 +224,7 @@ typedef enum {
  * @return A new UFILE, or NULL if an error occurred.
  * @draft 3.0
  */
-U_CAPI UFILE* U_EXPORT2
+U_DRAFT UFILE* U_EXPORT2
 u_fopen(const char    *filename,
     const char    *perm,
     const char    *locale,
@@ -216,7 +243,7 @@ u_fopen(const char    *filename,
  * @return A new UFILE, or NULL if an error occurred.
  * @draft 3.0
  */
-U_CAPI UFILE* U_EXPORT2
+U_DRAFT UFILE* U_EXPORT2
 u_finit(FILE        *f,
     const char    *locale,
     const char    *codepage);
@@ -235,7 +262,7 @@ u_finit(FILE        *f,
  * @return A new UFILE, or NULL if an error occurred.
  * @draft 3.0
  */
-U_CAPI UFILE* U_EXPORT2
+U_DRAFT UFILE* U_EXPORT2
 u_fstropen(UChar      *stringBuf,
            int32_t     capacity,
            const char *locale);
@@ -245,7 +272,7 @@ u_fstropen(UChar      *stringBuf,
  * @param file The UFILE to close.
  * @draft 3.0
  */
-U_CAPI void U_EXPORT2
+U_DRAFT void U_EXPORT2
 u_fclose(UFILE *file);
 
 /**
@@ -256,7 +283,7 @@ u_fclose(UFILE *file);
  * not end of file.
  * @draft 3.0
 */
-U_CAPI UBool U_EXPORT2
+U_DRAFT UBool U_EXPORT2
 u_feof(UFILE  *f);
 
 /**
@@ -267,7 +294,7 @@ u_feof(UFILE  *f);
  * @param file The UFILE to flush.
  * @draft 3.0
  */
-U_CAPI void U_EXPORT2
+U_DRAFT void U_EXPORT2
 u_fflush(UFILE *file);
 
 /**
@@ -275,7 +302,7 @@ u_fflush(UFILE *file);
  * @param file The UFILE to rewind.
  * @draft 3.0
  */
-U_CAPI void
+U_DRAFT void
 u_frewind(UFILE *file);
 
 /**
@@ -284,7 +311,7 @@ u_frewind(UFILE *file);
  * @return A FILE*, owned by the UFILE.  The FILE <EM>must not</EM> be closed.
  * @draft 3.0
  */
-U_CAPI FILE* U_EXPORT2
+U_DRAFT FILE* U_EXPORT2
 u_fgetfile(UFILE *f);
 
 #if !UCONFIG_NO_FORMATTING
@@ -297,7 +324,7 @@ u_fgetfile(UFILE *f);
  * @return The locale whose conventions are used to format and parse output.
  * @draft 3.0
  */
-U_CAPI const char* U_EXPORT2
+U_DRAFT const char* U_EXPORT2
 u_fgetlocale(UFILE *file);
 
 /**
@@ -308,7 +335,7 @@ u_fgetlocale(UFILE *file);
  * @return NULL if successful, otherwise a negative number.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_fsetlocale(UFILE      *file,
              const char *locale);
 
@@ -323,7 +350,7 @@ u_fsetlocale(UFILE      *file,
  * or NULL if an error occurred.
  * @draft 3.0
  */
-U_CAPI const char* U_EXPORT2
+U_DRAFT const char* U_EXPORT2
 u_fgetcodepage(UFILE *file);
 
 /**
@@ -341,7 +368,7 @@ u_fgetcodepage(UFILE *file);
  * @see u_frewind
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_fsetcodepage(const char   *codepage,
                UFILE        *file);
 
@@ -352,7 +379,7 @@ u_fsetcodepage(const char   *codepage,
  * @return alias to the converter
  * @draft 3.0
  */
-U_CAPI UConverter* U_EXPORT2 u_fgetConverter(UFILE *f);
+U_DRAFT UConverter* U_EXPORT2 u_fgetConverter(UFILE *f);
 
 #if !UCONFIG_NO_FORMATTING
 
@@ -366,7 +393,7 @@ U_CAPI UConverter* U_EXPORT2 u_fgetConverter(UFILE *f);
  * @return The number of Unicode characters written to <TT>f</TT>.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_fprintf(UFILE         *f,
           const char    *patternSpecification,
           ... );
@@ -383,7 +410,7 @@ u_fprintf(UFILE         *f,
  * @see u_fprintf
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_vfprintf(UFILE        *f,
            const char   *patternSpecification,
            va_list      ap);
@@ -396,7 +423,7 @@ u_vfprintf(UFILE        *f,
  * @return The number of Unicode characters written to <TT>f</TT>.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_fprintf_u(UFILE       *f,
             const UChar *patternSpecification,
             ... );
@@ -413,7 +440,7 @@ u_fprintf_u(UFILE       *f,
  * @see u_fprintf_u
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_vfprintf_u(UFILE      *f,
             const UChar *patternSpecification,
             va_list     ap);
@@ -428,7 +455,7 @@ u_vfprintf_u(UFILE      *f,
  * @see u_file_write
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_fputs(const UChar *s,
         UFILE       *f);
 
@@ -439,7 +466,7 @@ u_fputs(const UChar *s,
  * @return The character written if successful, EOF otherwise.
  * @draft 3.0
  */
-U_CAPI UChar32 U_EXPORT2
+U_DRAFT UChar32 U_EXPORT2
 u_fputc(UChar32  uc,
         UFILE  *f);
 
@@ -454,7 +481,7 @@ u_fputc(UChar32  uc,
  * @see u_fputs
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_file_write(const UChar    *ustring, 
              int32_t        count, 
              UFILE          *f);
@@ -472,7 +499,7 @@ u_file_write(const UChar    *ustring,
  * if an error occurred.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_fscanf(UFILE      *f,
          const char *patternSpecification,
          ... );
@@ -490,7 +517,7 @@ u_fscanf(UFILE      *f,
  * @see u_fscanf
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_vfscanf(UFILE         *f,
           const char    *patternSpecification,
           va_list        ap);
@@ -504,7 +531,7 @@ u_vfscanf(UFILE         *f,
  * if an error occurred.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_fscanf_u(UFILE        *f,
            const UChar  *patternSpecification,
            ... );
@@ -522,7 +549,7 @@ u_fscanf_u(UFILE        *f,
  * @see u_fscanf_u
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_vfscanf_u(UFILE       *f,
             const UChar *patternSpecification,
             va_list      ap);
@@ -540,7 +567,7 @@ u_vfscanf_u(UFILE       *f,
  * @return A pointer to <TT>s</TT>, or NULL if no characters were available.
  * @draft 3.0
  */
-U_CAPI UChar* U_EXPORT2
+U_DRAFT UChar* U_EXPORT2
 u_fgets(UChar  *s,
         int32_t n,
         UFILE  *f);
@@ -554,7 +581,7 @@ u_fgets(UChar  *s,
  * @return The UChar value read, or U+FFFF if no character was available.
  * @draft 3.0
  */
-U_CAPI UChar U_EXPORT2
+U_DRAFT UChar U_EXPORT2
 u_fgetc(UFILE   *f);
 
 /**
@@ -567,7 +594,7 @@ u_fgetc(UFILE   *f);
  * @see u_unescape()
  * @draft 3.0
  */
-U_CAPI UChar32 U_EXPORT2
+U_DRAFT UChar32 U_EXPORT2
 u_fgetcx(UFILE  *f);
 
 /**
@@ -581,7 +608,7 @@ u_fgetcx(UFILE  *f);
  * @return The UChar32 value put back if successful, U_EOF otherwise.
  * @draft 3.0
  */
-U_CAPI UChar32 U_EXPORT2
+U_DRAFT UChar32 U_EXPORT2
 u_fungetc(UChar32   c,
       UFILE        *f);
 
@@ -595,7 +622,7 @@ u_fungetc(UChar32   c,
  * @return The number of Unicode characters read.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_file_read(UChar        *chars, 
         int32_t        count, 
         UFILE         *f);
@@ -619,7 +646,7 @@ u_file_read(UChar        *chars,
  * on the result of this function.
  * @draft 3.0
  */
-U_CAPI UTransliterator* U_EXPORT2
+U_DRAFT UTransliterator* U_EXPORT2
 u_fsettransliterator(UFILE *file, UFileDirection direction,
                      UTransliterator *adopt, UErrorCode *status);
 
@@ -640,7 +667,7 @@ u_fsettransliterator(UFILE *file, UFileDirection direction,
  * does not include the terminating null character.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_sprintf(UChar       *buffer,
         const char    *patternSpecification,
         ... );
@@ -661,7 +688,7 @@ u_sprintf(UChar       *buffer,
  * does not include the terminating null character.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_snprintf(UChar      *buffer,
         int32_t       count,
         const char    *patternSpecification,
@@ -680,7 +707,7 @@ u_snprintf(UChar      *buffer,
  * @see u_sprintf
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_vsprintf(UChar      *buffer,
         const char    *patternSpecification,
         va_list        ap);
@@ -704,7 +731,7 @@ u_vsprintf(UChar      *buffer,
  * @see u_sprintf
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_vsnprintf(UChar     *buffer,
         int32_t       count,
         const char    *patternSpecification,
@@ -719,7 +746,7 @@ u_vsnprintf(UChar     *buffer,
  * @return The number of Unicode characters written to <TT>buffer</TT>.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_sprintf_u(UChar      *buffer,
         const UChar    *patternSpecification,
         ... );
@@ -739,7 +766,7 @@ u_sprintf_u(UChar      *buffer,
  * @return The number of Unicode characters written to <TT>buffer</TT>.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_snprintf_u(UChar     *buffer,
         int32_t        count,
         const UChar    *patternSpecification,
@@ -758,7 +785,7 @@ u_snprintf_u(UChar     *buffer,
  * @see u_sprintf_u
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_vsprintf_u(UChar     *buffer,
         const UChar    *patternSpecification,
         va_list        ap);
@@ -782,7 +809,7 @@ u_vsprintf_u(UChar     *buffer,
  * @see u_sprintf_u
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_vsnprintf_u(UChar *buffer,
         int32_t         count,
         const UChar     *patternSpecification,
@@ -800,7 +827,7 @@ u_vsnprintf_u(UChar *buffer,
  * if an error occurred.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_sscanf(const UChar   *buffer,
         const char     *patternSpecification,
         ... );
@@ -819,7 +846,7 @@ u_sscanf(const UChar   *buffer,
  * @see u_sscanf
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_vsscanf(const UChar  *buffer,
         const char     *patternSpecification,
         va_list        ap);
@@ -834,7 +861,7 @@ u_vsscanf(const UChar  *buffer,
  * if an error occurred.
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_sscanf_u(const UChar  *buffer,
         const UChar     *patternSpecification,
         ... );
@@ -853,7 +880,7 @@ u_sscanf_u(const UChar  *buffer,
  * @see u_sscanf_u
  * @draft 3.0
  */
-U_CAPI int32_t U_EXPORT2
+U_DRAFT int32_t U_EXPORT2
 u_vsscanf_u(const UChar *buffer,
         const UChar     *patternSpecification,
         va_list         ap);

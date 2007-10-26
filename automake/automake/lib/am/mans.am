@@ -1,5 +1,5 @@
 ## automake - create Makefile.in from Makefile.am
-## Copyright 1998, 2001 Free Software Foundation, Inc.
+## Copyright (C) 1998, 2001, 2003, 2004, 2006 Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -13,8 +13,8 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
 man%SECTION%dir = $(mandir)/man%SECTION%
 
@@ -27,11 +27,11 @@ man%SECTION%dir = $(mandir)/man%SECTION%
 
 .PHONY: install-man
 ?INSTALL-MAN?install-data-am: install-man
-?INSTALL-MAN?_am_installdirs += $(DESTDIR)$(man%SECTION%dir)
+?INSTALL-MAN?am__installdirs += "$(DESTDIR)$(man%SECTION%dir)"
 .PHONY install-man: install-man%SECTION%
 install-man%SECTION%: $(man%SECTION%_MANS) $(man_MANS)
 	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(man%SECTION%dir)
+	test -z "$(man%SECTION%dir)" || $(MKDIR_P) "$(DESTDIR)$(man%SECTION%dir)"
 	@list='$(man%SECTION%_MANS) $(dist_man%SECTION%_MANS) $(nodist_man%SECTION%_MANS)'; \
 ## Extract all items from man_MANS that should go in this section.
 ## This must be done dynamically to support conditionals.
@@ -57,8 +57,8 @@ install-man%SECTION%: $(man%SECTION%_MANS) $(man_MANS)
 	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
 	  inst=`echo $$inst | sed -e 's/^.*\///'`; \
 	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
-	  echo " $(INSTALL_DATA) $$file $(DESTDIR)$(man%SECTION%dir)/$$inst"; \
-	  $(INSTALL_DATA) $$file $(DESTDIR)$(man%SECTION%dir)/$$inst; \
+	  echo " $(INSTALL_DATA) '$$file' '$(DESTDIR)$(man%SECTION%dir)/$$inst'"; \
+	  $(INSTALL_DATA) "$$file" "$(DESTDIR)$(man%SECTION%dir)/$$inst"; \
 	done
 
 
@@ -83,12 +83,17 @@ uninstall-man%SECTION%:
 	  esac; \
 	done; \
 	for i in $$list; do \
+## Change the extension if needed.
+	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
+	  case "$$ext" in \
+	    %SECTION%*) ;; \
+	    *) ext='%SECTION%' ;; \
+	  esac; \
 ## Extract basename of man page and run it through the program rename
 ## transform.
-	  ext=`echo $$i | sed -e 's/^.*\\.//'`; \
 	  inst=`echo $$i | sed -e 's/\\.[0-9a-z]*$$//'`; \
 	  inst=`echo $$inst | sed -e 's/^.*\///'`; \
 	  inst=`echo $$inst | sed '$(transform)'`.$$ext; \
-	  echo " rm -f $(DESTDIR)$(man%SECTION%dir)/$$inst"; \
-	  rm -f $(DESTDIR)$(man%SECTION%dir)/$$inst; \
+	  echo " rm -f '$(DESTDIR)$(man%SECTION%dir)/$$inst'"; \
+	  rm -f "$(DESTDIR)$(man%SECTION%dir)/$$inst"; \
 	done

@@ -31,9 +31,9 @@ module WEBrick
       exit!(0) if fork
       Dir::chdir("/")
       File::umask(0)
-      [ STDIN, STDOUT, STDERR ].each{|io|
-        io.reopen("/dev/null", "r+")
-      }
+      STDIN.reopen("/dev/null")
+      STDOUT.reopen("/dev/null", "w")
+      STDERR.reopen("/dev/null", "w")
       yield if block_given?
     end
   end
@@ -61,6 +61,9 @@ module WEBrick
           warn(":Listen option is deprecated; use GenericServer#listen")
         end
         listen(@config[:BindAddress], @config[:Port])
+        if @config[:Port] == 0
+          @config[:Port] = @listeners[0].addr[1]
+        end
       end
     end
 
@@ -88,17 +91,15 @@ module WEBrick
             if svrs = IO.select(@listeners, nil, nil, 2.0)
               svrs[0].each{|svr|
                 @tokens.pop          # blocks while no token is there.
-                sock = svr.accept
-                sock.sync = true
-                Utils::set_close_on_exec(sock)
-                th = start_thread(sock, &block)
-                th[:WEBrickThread] = true
-                thgroup.add(th)
+                if sock = accept_client(svr)
+                  th = start_thread(sock, &block)
+                  th[:WEBrickThread] = true
+                  thgroup.add(th)
+                else
+                  @tokens.push(nil)
+                end
               }
             end
-          rescue Errno::ECONNRESET, Errno::ECONNABORTED, Errno::EPROTO => ex
-            # TCP connection was established but RST segment was sent
-            # from peer before calling TCPServer#accept.
           rescue Errno::EBADF, IOError => ex
             # if the listening socket was closed in GenericServer#shutdown,
             # IO::select raise it.
@@ -140,6 +141,23 @@ module WEBrick
 
     private
 
+    def accept_client(svr)
+      sock = nil
+      begin
+        sock = svr.accept
+        sock.sync = true
+        Utils::set_non_blocking(sock)
+        Utils::set_close_on_exec(sock)
+      rescue Errno::ECONNRESET, Errno::ECONNABORTED, Errno::EPROTO => ex
+        # TCP connection was established but RST segment was sent
+        # from peer before calling TCPServer#accept.
+      rescue Exception => ex
+        msg = "#{ex.class}: #{ex.message}\n\t#{ex.backtrace[0]}"
+        @logger.error msg
+      end
+      return sock
+    end
+
     def start_thread(sock, &block)
       Thread.start{
         begin
@@ -161,6 +179,7 @@ module WEBrick
         rescue Exception => ex
           @logger.error ex
         ensure
+          @tokens.push(nil)
           Thread.current[:WEBrickSocket] = nil
           if addr
             @logger.debug "close: #{addr[3]}:#{addr[1]}"
@@ -169,7 +188,6 @@ module WEBrick
           end
           sock.close
         end
-        @tokens.push(nil)
       }
     end
 

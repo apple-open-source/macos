@@ -44,9 +44,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
-#ifdef HAVE_TERM_H
-#include <term.h>
-#endif
 #include <signal.h>
 #include <fcntl.h>
 #if 0
@@ -58,7 +55,7 @@
 
 /* This redefines CTRL if it is not already defined, so it must come
    after terminal state releated include files like <term.h> and
-   "gdb_ncurses.h".  */
+   "gdb_curses.h".  */
 #include "readline/readline.h"
 
 /* Tells whether the TUI is active or not.  */
@@ -485,9 +482,9 @@ tui_reset (void)
      ** reset the teletype mode bits to a sensible state.
      ** Copied tset.c
    */
-#if ! defined (USG) && defined (TIOCGETC)
+#if defined (TIOCGETC)
   struct tchars tbuf;
-#endif /* !USG && TIOCGETC */
+#endif /* TIOCGETC */
 #ifdef UCB_NTTY
   struct ltchars ltc;
 
@@ -503,7 +500,6 @@ tui_reset (void)
       ioctl (FILEDES, TIOCSLTC, &ltc);
     }
 #endif /* UCB_NTTY */
-#ifndef USG
 #ifdef TIOCGETC
   ioctl (FILEDES, TIOCGETC, &tbuf);
   tbuf.t_intrc = CHK (tbuf.t_intrc, CTRL ('?'));
@@ -520,27 +516,6 @@ tui_reset (void)
 #endif /* CBREAK */
 		     | VTDELAY | ALLDELAY);
   mode.sg_flags |= XTABS | ECHO | CRMOD | ANYP;
-#else /*USG */
-  ioctl (FILEDES, TCGETA, &mode);
-  mode.c_cc[VINTR] = CHK (mode.c_cc[VINTR], CTRL ('?'));
-  mode.c_cc[VQUIT] = CHK (mode.c_cc[VQUIT], CTRL ('\\'));
-  mode.c_cc[VEOF] = CHK (mode.c_cc[VEOF], CTRL ('D'));
-
-  mode.c_iflag &= ~(IGNBRK | PARMRK | INPCK | INLCR | IGNCR | IUCLC | IXOFF);
-  mode.c_iflag |= (BRKINT | ISTRIP | ICRNL | IXON);
-  mode.c_oflag &= ~(OLCUC | OCRNL | ONOCR | ONLRET | OFILL | OFDEL |
-		    NLDLY | CRDLY | TABDLY | BSDLY | VTDLY | FFDLY);
-  mode.c_oflag |= (OPOST | ONLCR);
-  mode.c_cflag &= ~(CSIZE | PARODD | CLOCAL);
-#ifndef hp9000s800
-  mode.c_cflag |= (CS8 | CREAD);
-#else /*hp9000s800 */
-  mode.c_cflag |= (CS8 | CSTOPB | CREAD);
-#endif /* hp9000s800 */
-  mode.c_lflag &= ~(XCASE | ECHONL | NOFLSH);
-  mode.c_lflag |= (ISIG | ICANON | ECHO | ECHOK);
-  ioctl (FILEDES, TCSETAW, &mode);
-#endif /* USG */
 
   return;
 }
@@ -577,7 +552,7 @@ tui_is_window_visible (enum tui_win_type type)
 }
 
 int
-tui_get_command_dimension (int *width, int *height)
+tui_get_command_dimension (unsigned int *width, unsigned int *height)
 {
   if (!tui_active || (TUI_CMD_WIN == NULL))
     {

@@ -11,14 +11,17 @@
 /*	void	rewrite_proto(stream)
 /*	VSTREAM	*stream;
 /*
-/*	void	rewrite_addr(rule, addr, result)
-/*	char	*rule;
+/*	void	rewrite_addr(context, addr, result)
+/*	RWR_CONTEXT *context;
 /*	char	*addr;
 /*	VSTRING *result;
 /*
-/*	void	rewrite_tree(rule, tree)
-/*	char	*rule;
+/*	void	rewrite_tree(context, tree)
+/*	RWR_CONTEXT *context;
 /*	TOK822	*tree;
+/*
+/*	RWR_CONTEXT local_context;
+/*	RWR_CONTEXT remote_context;
 /* DESCRIPTION
 /*	This module implements the trivial address rewriting engine.
 /*
@@ -35,6 +38,9 @@
 /*
 /*	rewrite_tree() rewrites a parse tree with a single address to
 /*	another tree.  A tree is a dummy node on top of a token list.
+/*
+/*	local_context and remote_context provide domain names for
+/*	completing incomplete address forms.
 /* STANDARDS
 /* DIAGNOSTICS
 /*	Problems and transactions are logged to the syslog daemon.
@@ -77,13 +83,23 @@
 
 #include "trivial-rewrite.h"
 
+RWR_CONTEXT local_context = {
+    VAR_MYORIGIN, &var_myorigin,
+    VAR_MYDOMAIN, &var_mydomain,
+};
+
+RWR_CONTEXT remote_context = {
+    VAR_REM_RWR_DOMAIN, &var_remote_rwr_domain,
+    VAR_REM_RWR_DOMAIN, &var_remote_rwr_domain,
+};
+
 static VSTRING *ruleset;
 static VSTRING *address;
 static VSTRING *result;
 
 /* rewrite_tree - rewrite address according to rule set */
 
-void    rewrite_tree(char *unused_ruleset, TOK822 *tree)
+void    rewrite_tree(RWR_CONTEXT *context, TOK822 *tree)
 {
     TOK822 *colon;
     TOK822 *domain;
@@ -157,9 +173,12 @@ void    rewrite_tree(char *unused_ruleset, TOK822 *tree)
 	/*
 	 * Append missing @origin
 	 */
-	else if (var_append_at_myorigin != 0) {
+	else if (var_append_at_myorigin != 0
+		 && REW_PARAM_VALUE(context->origin) != 0
+		 && REW_PARAM_VALUE(context->origin)[0] != 0) {
 	    domain = tok822_sub_append(tree, tok822_alloc('@', (char *) 0));
-	    tok822_sub_append(tree, tok822_scan(var_myorigin, (TOK822 **) 0));
+	    tok822_sub_append(tree, tok822_scan(REW_PARAM_VALUE(context->origin),
+						(TOK822 **) 0));
 	}
     }
 
@@ -169,12 +188,15 @@ void    rewrite_tree(char *unused_ruleset, TOK822 *tree)
      * alone.
      */
     if (var_append_dot_mydomain != 0
+	&& REW_PARAM_VALUE(context->domain) != 0
+	&& REW_PARAM_VALUE(context->domain)[0] != 0
 	&& (domain = tok822_rfind_type(tree->tail, '@')) != 0
 	&& domain != tree->tail
 	&& tok822_find_type(domain, TOK822_DOMLIT) == 0
 	&& tok822_find_type(domain, '.') == 0) {
 	tok822_sub_append(tree, tok822_alloc('.', (char *) 0));
-	tok822_sub_append(tree, tok822_scan(var_mydomain, (TOK822 **) 0));
+	tok822_sub_append(tree, tok822_scan(REW_PARAM_VALUE(context->domain),
+					    (TOK822 **) 0));
     }
 
     /*
@@ -189,48 +211,52 @@ void    rewrite_tree(char *unused_ruleset, TOK822 *tree)
 	tok822_free_tree(tok822_sub_keep_before(tree, tree->tail));
 }
 
-/* rewrite_addr - rewrite address according to rule set */
-
-void    rewrite_addr(char *ruleset, char *addr, VSTRING *result)
-{
-    TOK822 *tree;
-
-    /*
-     * Sanity check. An address is supposed to be in externalized form.
-     */
-    if (*addr == 0) {
-	msg_warn("rewrite_addr: null address, ruleset \"%s\"", ruleset);
-	vstring_strcpy(result, addr);
-	return;
-    }
-
-    /*
-     * Convert the address from externalized (quoted) form to token list,
-     * rewrite it, and convert back.
-     */
-    tree = tok822_scan_addr(addr);
-    rewrite_tree(ruleset, tree);
-    tok822_externalize(result, tree, TOK822_STR_DEFL);
-    tok822_free_tree(tree);
-}
-
 /* rewrite_proto - read request and send reply */
 
 int     rewrite_proto(VSTREAM *stream)
 {
+    RWR_CONTEXT *context;
+    TOK822 *tree;
+
     if (attr_scan(stream, ATTR_FLAG_STRICT,
 		  ATTR_TYPE_STR, MAIL_ATTR_RULE, ruleset,
 		  ATTR_TYPE_STR, MAIL_ATTR_ADDR, address,
 		  ATTR_TYPE_END) != 2)
 	return (-1);
 
-    rewrite_addr(vstring_str(ruleset), vstring_str(address), result);
+    if (strcmp(vstring_str(ruleset), MAIL_ATTR_RWR_LOCAL) == 0)
+	context = &local_context;
+    else if (strcmp(vstring_str(ruleset), MAIL_ATTR_RWR_REMOTE) == 0)
+	context = &remote_context;
+    else {
+	msg_warn("unknown context: %s", vstring_str(ruleset));
+	return (-1);
+    }
 
+    /*
+     * Sanity check. An address is supposed to be in externalized form.
+     */
+    if (*vstring_str(address) == 0) {
+	msg_warn("rewrite_addr: null address");
+	vstring_strcpy(result, vstring_str(address));
+    }
+
+    /*
+     * Convert the address from externalized (quoted) form to token list,
+     * rewrite it, and convert back.
+     */
+    else {
+	tree = tok822_scan_addr(vstring_str(address));
+	rewrite_tree(context, tree);
+	tok822_externalize(result, tree, TOK822_STR_DEFL);
+	tok822_free_tree(tree);
+    }
     if (msg_verbose)
 	msg_info("`%s' `%s' -> `%s'", vstring_str(ruleset),
 		 vstring_str(address), vstring_str(result));
 
     attr_print(stream, ATTR_FLAG_NONE,
+	       ATTR_TYPE_INT, MAIL_ATTR_FLAGS, server_flags,
 	       ATTR_TYPE_STR, MAIL_ATTR_ADDR, vstring_str(result),
 	       ATTR_TYPE_END);
 

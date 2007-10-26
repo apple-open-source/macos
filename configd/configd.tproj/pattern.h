@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,13 +36,7 @@
 
 __BEGIN_DECLS
 
-Boolean			patternCompile		(CFStringRef		pattern,
-						 regex_t		*preg,
-						 CFStringRef		*error);
-
-CFMutableArrayRef	patternCopy		(CFStringRef		pattern);
-
-CFMutableArrayRef	patternNew		(CFStringRef		pattern);
+CFArrayRef		patternCopyMatches	(CFStringRef		pattern);
 
 Boolean			patternAddSession	(CFStringRef		pattern,
 						 CFNumberRef		sessionNum);

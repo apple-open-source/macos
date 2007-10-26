@@ -1,8 +1,27 @@
 #! /bin/sh
+# Copyright (C) 2001, 2002, 2004, 2005, 2006  Free Software Foundation, Inc.
+#
+# This file is part of GNU Automake.
+#
+# GNU Automake is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# GNU Automake is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Automake; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA 02110-1301, USA.
+
 # Make sure nobase_* works.
 
-required=libtoolize
-. $srcdir/defs || exit 1
+required='libtoolize gcc'
+. ./defs || exit 1
 
 set -e
 
@@ -19,11 +38,11 @@ fooexecdir = $(prefix)/foo
 foo_HEADERS = sub/base.h
 nobase_foo_HEADERS = sub/nobase.h
 
-foo_DATA = sub/base.dat
-nobase_foo_DATA = sub/nobase.dat
+dist_foo_DATA = sub/base.dat
+nobase_dist_foo_DATA = sub/nobase.dat
 
-fooexec_SCRIPTS = sub/base.sh
-nobase_fooexec_SCRIPTS = sub/nobase.sh
+dist_fooexec_SCRIPTS = sub/base.sh
+nobase_dist_fooexec_SCRIPTS = sub/nobase.sh
 
 fooexec_PROGRAMS = sub/base
 nobase_fooexec_PROGRAMS = sub/nobase
@@ -89,10 +108,12 @@ main (int argc, char *argv[])
 EOF
 cp source.c source2.c
 
+rm -f install-sh
+
 libtoolize
 $ACLOCAL
 $AUTOCONF
-$AUTOMAKE -a
+$AUTOMAKE -a --copy
 ./configure --prefix `pwd`/inst --program-prefix=p
 
 $MAKE
@@ -103,3 +124,16 @@ $MAKE uninstall
 test `find inst/foo -type f -print | wc -l` = 0
 
 $MAKE install-strip
+
+# Likewise, in a VPATH build.
+
+$MAKE uninstall
+$MAKE distclean
+mkdir build
+cd build
+../configure --prefix `pwd`/inst --program-prefix=p
+$MAKE
+$MAKE test-install-data
+$MAKE test-install-exec
+$MAKE uninstall
+test `find inst/foo -type f -print | wc -l` = 0

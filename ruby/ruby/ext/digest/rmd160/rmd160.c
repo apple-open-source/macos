@@ -1,6 +1,6 @@
 /*	$NetBSD: rmd160.c,v 1.1.1.1 2001/03/06 11:21:05 agc Exp $	*/
 /*	$RoughId: rmd160.c,v 1.2 2001/07/13 19:49:10 knu Exp $	*/
-/*	$Id: rmd160.c,v 1.1 2001/07/13 20:06:14 knu Exp $	*/
+/*	$Id: rmd160.c 11708 2007-02-12 23:01:19Z shyouhei $	*/
 
 /********************************************************************\
  *
@@ -409,7 +409,7 @@ RMD160_Update(RMD160_CTX *context, const uint8_t *data, size_t nbytes)
 /********************************************************************/
 
 void
-RMD160_Final(uint8_t digest[20], RMD160_CTX *context)
+RMD160_Finish(RMD160_CTX *context, uint8_t digest[20])
 {
 	uint32_t i;
 	uint32_t X[16];
@@ -452,13 +452,6 @@ RMD160_Final(uint8_t digest[20], RMD160_CTX *context)
 			digest[i + 3] = (context->state[i>>2] >> 24);
 		}
 	}
-}
-
-int RMD160_Equal(RMD160_CTX* pctx1, RMD160_CTX* pctx2) {
-	return pctx1->buflen == pctx2->buflen
-		&& memcmp(pctx1->length, pctx2->length, sizeof(pctx1->length)) == 0
-		&& memcmp(pctx1->state, pctx2->state, sizeof(pctx1->state)) == 0
-		&& memcmp(pctx1->bbuffer, pctx2->bbuffer, sizeof(pctx1->bbuffer)) == 0;
 }
 
 /************************ end of file rmd160.c **********************/

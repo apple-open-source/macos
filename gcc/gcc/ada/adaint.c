@@ -1350,7 +1350,8 @@ __gnat_get_libraries_from_registry (void)
 {
   char *result = (char *) "";
 
-#if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_COMPILE)
+  /* APPLE LOCAL mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
 
   HKEY reg_key;
   DWORD name_size, value_size;
@@ -2486,7 +2487,8 @@ _flush_cache()
 }
 #endif
 
-#if defined (CROSS_COMPILE)  \
+  /* APPLE LOCAL mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#if defined (CROSS_DIRECTORY_STRUCTURE)  \
   || (! (defined (sparc) && defined (sun) && defined (__SVR4)) \
       && ! (defined (linux) && defined (i386)) \
       && ! defined (__FreeBSD__) \

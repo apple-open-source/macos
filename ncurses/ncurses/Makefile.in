@@ -1,6 +1,6 @@
-# $Id: Makefile.in,v 1.22 2001/10/27 18:17:22 tom Exp $
+# $Id: Makefile.in,v 1.24 2005/01/29 19:30:06 tom Exp $
 ##############################################################################
-# Copyright (c) 1998 Free Software Foundation, Inc.                          #
+# Copyright (c) 1998-2004,2005 Free Software Foundation, Inc.                #
 #                                                                            #
 # Permission is hereby granted, free of charge, to any person obtaining a    #
 # copy of this software and associated documentation files (the "Software"), #
@@ -65,6 +65,9 @@ preinstall :
 	@ echo ''
 	@ echo '** Configuration summary for NCURSES $(NCURSES_MAJOR).$(NCURSES_MINOR) $(NCURSES_PATCH):'
 	@ echo ''
+	@ echo '     extended funcs: '`test @NCURSES_EXT_FUNCS@ != 0 && echo yes || echo no`
+	@ echo '     xterm terminfo: '@WHICH_XTERM@
+	@ echo ''
 	@ echo '      bin directory: '$(bindir)
 	@ echo '      lib directory: '$(libdir)
 	@ echo '  include directory: '$(includedir)
@@ -80,15 +83,6 @@ preinstall :
 		fgrep NCURSES_VERSION $(includedir)/curses.h >/dev/null || \
 		echo '** Will overwrite non-ncurses curses.h'
 
-install-strip: install
-	-mkdir -p $(SYMROOT)/usr/lib $(SYMROOT)/usr/bin
-	cp -r $(DSTROOT)/usr/lib $(SYMROOT)/usr/lib
-	cp -r $(DSTROOT)/usr/bin $(SYMROOT)/usr/bin
-	-find $(DSTROOT)/usr/lib -type f -print0 | xargs -0 strip -S
-	-find $(DSTROOT)/usr/bin -type f -print0 | xargs -0 strip
-	find $(DSTROOT) -group apple_sw -print0 | xargs -0 chgrp -h wheel
-	-rm -f $(DSTROOT)/usr/lib/*.a
-
 # Put the common rules here so that we can easily construct the list of
 # directories to visit.
 all \
@@ -98,5 +92,6 @@ mostlyclean \
 realclean \
 depend \
 sources \
+tags \
 uninstall \
 install ::

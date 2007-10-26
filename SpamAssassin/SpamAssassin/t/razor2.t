@@ -3,7 +3,7 @@
 use lib '.'; use lib 't';
 use SATest; sa_t_init("razor2");
 
-use constant TEST_ENABLED => (-e 't/do_net');
+use constant TEST_ENABLED => conf_bool('run_net_tests');
 use constant HAS_RAZOR2 => eval { require Razor2::Client::Agent; };
 
 use Test;
@@ -35,6 +35,10 @@ if (! $razor_not_available) {
     warn "'razor-report < data/spam/001' failed. This may cause this test to fail.\n";
   }
 }
+
+tstpre ("
+loadplugin Mail::SpamAssassin::Plugin::Razor2
+");
 
 sarun ("-t < data/spam/001", \&patterns_run_cb);
 skip_all_patterns($razor_not_available);

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>gid</key>
+	<array>
+		<string>4</string>
+	</array>
+	<key>home</key>
+	<array>
+		<string>/var/spool/uucp</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>_uucp</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>Unix to Unix Copy Protocol</string>
+	</array>
+	<key>shell</key>
+	<array>
+		<string>/usr/sbin/uucico</string>
+	</array>
+	<key>uid</key>
+	<array>
+		<string>4</string>
+	</array>
+</dict>
+</plist>

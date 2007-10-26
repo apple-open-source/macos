@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/librewrite/rewrite.c,v 1.6.2.5 2004/06/28 18:19:47 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/librewrite/rewrite.c,v 1.12.2.3 2006/01/03 22:16:11 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,13 +30,14 @@
 #include <stdio.h>
 
 #include <rewrite.h>
+#include <lutil.h>
 #include <ldap.h>
 
 int ldap_debug;
 int ldap_syslog;
 int ldap_syslog_level;
 
-char *
+static void
 apply( 
 		FILE *fin, 
 		const char *rewriteContext,
@@ -58,11 +59,12 @@ apply(
 
 	rewrite_session_init( info, cookie );
 
-	string = strdup( arg );
+	string = (char *)arg;
 	for ( sep = strchr( rewriteContext, ',' );
 			rewriteContext != NULL;
 			rewriteContext = sep,
-			sep ? sep = strchr( rewriteContext, ',' ) : NULL ) {
+			sep ? sep = strchr( rewriteContext, ',' ) : NULL )
+	{
 		char	*errmsg = "";
 
 		if ( sep != NULL ) {
@@ -105,17 +107,19 @@ apply(
 		if ( result == NULL ) {
 			break;
 		}
-		free( string );
+		if ( string != arg && string != result ) {
+			free( string );
+		}
 		string = result;
 	}
 
-	free( string );
+	if ( result && result != arg ) {
+		free( result );
+	}
 
 	rewrite_session_delete( info, cookie );
 
 	rewrite_info_delete( &info );
-
-	return result;
 }
 
 int
@@ -124,7 +128,6 @@ main( int argc, char *argv[] )
 	FILE	*fin = NULL;
 	char	*rewriteContext = REWRITE_DEFAULT_CONTEXT;
 	int	debug = 0;
-	char	*next;
 
 	while ( 1 ) {
 		int opt = getopt( argc, argv, "d:f:hr:" );
@@ -135,8 +138,7 @@ main( int argc, char *argv[] )
 
 		switch ( opt ) {
 		case 'd':
-			debug = strtol( optarg, &next, 10 );
-			if ( next == NULL || next[0] != '\0' ) {
+			if ( lutil_atoi( &debug, optarg ) != 0 ) {
 				fprintf( stderr, "illegal log level '%s'\n",
 						optarg );
 				exit( EXIT_FAILURE );

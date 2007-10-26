@@ -1,36 +1,32 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1982-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#                David Korn <dgk@research.att.com>                 #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                  David Korn <dgk@research.att.com>                   #
+#                                                                      #
+########################################################################
 function err_exit
 {
 	print -u2 -n "\t"
-	print -u2 -r $Command[$1]: "${@:2}"
+	print -u2 -r ${Command}[$1]: "${@:2}"
 	let Errors+=1
 }
 alias err_exit='err_exit $LINENO'
 
+Command=${0##*/}
 integer Errors=0
-Command=$0
 # RANDOM
 if	(( RANDOM==RANDOM || $RANDOM==$RANDOM ))
 then	err_exit RANDOM variable not working
@@ -58,7 +54,7 @@ if	[[ !  $PWD -ef . ]]
 then	err_exit PWD variable not working
 fi
 # PPID
-if	[[ $($SHELL -c 'echo $PPID')  != $$ ]]
+if	[[ $($SHELL -c 'print $PPID')  != $$ ]]
 then	err_exit PPID variable not working
 fi
 # OLDPWD
@@ -67,7 +63,7 @@ cd /
 if	[[ $OLDPWD != $old ]]
 then	err_exit OLDPWD variable not working
 fi
-cd $d || err_exit cd failed
+cd $old || err_exit cd failed
 # REPLY
 read <<-!
 	foobar
@@ -85,7 +81,6 @@ if	(( LINENO != 13))
 then	err_exit LINENO variable not working
 fi
 LINENO=save+10
-ifs=$IFS
 IFS=:
 x=a::b::c
 if	[[ $x != a::b::c ]]
@@ -130,6 +125,7 @@ unset foo
 foo=bar
 (
 	unset foo
+	set +u
 	if	[[ $foo != '' ]]
 	then	err_exit '$foo not null after unset in subsehll'
 	fi
@@ -150,6 +146,7 @@ set --
 if	[[ ${*:0:1} != "$0" ]]
 then	err_exit '${@:0} not expanding correctly'
 fi
+ACCESS=0
 function COUNT.set
 {
         (( ACCESS++ ))
@@ -203,6 +200,7 @@ x error"
 	then	err_exit "\${#$i} not correct"
 	fi
 done
+kill $!
 unset x
 CDPATH=/
 x=$(cd tmp)
@@ -268,6 +266,144 @@ x  y z
 if	[[ $b != y ]]
 then	err_exit 'IFS not restored after subshell'
 fi
+
+# The next part generates 3428 IFS set/read tests.
+
+unset IFS x
+function split
+{
+	i=$1 s=$2 r=$3
+	IFS=': '
+	set -- $i
+	IFS=' '
+	g="[$#]"
+	while	:
+	do	case $# in
+		0)	break ;;
+		esac
+		g="$g($1)"
+		shift
+	done
+	case "$g" in
+	"$s")	;;
+	*)	err_exit "IFS=': '; set -- '$i'; expected '$s' got '$g'" ;;
+	esac
+	print "$i" | IFS=": " read arg rem; g="($arg)($rem)"
+	case "$g" in
+	"$r")	;;
+	*)	err_exit "IFS=': '; read '$i'; expected '$r' got '$g'" ;;
+	esac
+}
+for str in 	\
+	'-'	\
+	'a'	\
+	'- -'	\
+	'- a'	\
+	'a -'	\
+	'a b'	\
+	'- - -'	\
+	'- - a'	\
+	'- a -'	\
+	'- a b'	\
+	'a - -'	\
+	'a - b'	\
+	'a b -'	\
+	'a b c'
+do
+	IFS=' '
+	set x $str
+	shift
+	case $# in
+	0)	continue ;;
+	esac
+	f1=$1
+	case $f1 in
+	'-')	f1='' ;;
+	esac
+	shift
+	case $# in
+	0)	for d0 in '' ' '
+		do
+			for d1 in '' ' ' ':' ' :' ': ' ' : '
+			do
+				case $f1$d1 in
+				'')	split "$d0$f1$d1" "[0]" "()()" ;;
+				' ')	;;
+				*)	split "$d0$f1$d1" "[1]($f1)" "($f1)()" ;;
+				esac
+			done
+		done
+		continue
+		;;
+	esac
+	f2=$1
+	case $f2 in
+	'-')	f2='' ;;
+	esac
+	shift
+	case $# in
+	0)	for d0 in '' ' '
+		do
+			for d1 in ' ' ':' ' :' ': ' ' : '
+			do
+				case ' ' in
+				$f1$d1|$d1$f2)	continue ;;
+				esac
+				for d2 in '' ' ' ':' ' :' ': ' ' : '
+				do
+					case $f2$d2 in
+					'')	split "$d0$f1$d1$f2$d2" "[1]($f1)" "($f1)()" ;;
+					' ')	;;
+					*)	split "$d0$f1$d1$f2$d2" "[2]($f1)($f2)" "($f1)($f2)" ;;
+					esac
+				done
+			done
+		done
+		continue
+		;;
+	esac
+	f3=$1
+	case $f3 in
+	'-')	f3='' ;;
+	esac
+	shift
+	case $# in
+	0)	for d0 in '' ' '
+		do
+			for d1 in ':' ' :' ': ' ' : '
+			do
+				case ' ' in
+				$f1$d1|$d1$f2)	continue ;;
+				esac
+				for d2 in ' ' ':' ' :' ': ' ' : '
+				do
+					case $f2$d2 in
+					' ')	continue ;;
+					esac
+					case ' ' in
+					$f2$d2|$d2$f3)	continue ;;
+					esac
+					for d3 in '' ' ' ':' ' :' ': ' ' : '
+					do
+						case $f3$d3 in
+						'')	split "$d0$f1$d1$f2$d2$f3$d3" "[2]($f1)($f2)" "($f1)($f2)" ;;
+						' ')	;;
+						*)	x=$f2$d2$f3$d3
+							x=${x#' '}
+							x=${x%' '}
+							split "$d0$f1$d1$f2$d2$f3$d3" "[3]($f1)($f2)($f3)" "($f1)($x)"
+							;;
+						esac
+					done
+				done
+			done
+		done
+		continue
+		;;
+	esac
+done
+unset IFS
+
 if	[[ $( (print ${12345:?}) 2>&1) != *12345* ]]
 then	err_exit 'Incorrect error message with ${12345?}'
 fi
@@ -358,4 +494,65 @@ case $? in
 1)	 err_exit 'append discipline not implemented';;
 *)	 err_exit 'append discipline not working';;
 esac
+.sh.foobar=hello
+{
+	function .sh.foobar.get
+	{
+		.sh.value=world
+	} 
+} 2> /dev/null || err_exit "Can't add get discipline to .sh.foobar"
+[[ ${.sh.foobar} == world ]]  || err_exit 'get discipline for .sh.foobar not working'
+x='a|b'
+IFS='|'
+set -- $x
+[[ $2 == b ]] || err_exit '$2 should be b after set'
+exec 3>&2 2> /dev/null
+set -x
+( IFS= ) 2> /dev/null
+set +x
+exec 2>&3-
+set -- $x
+[[ $2 == b ]] || err_exit '$2 should be b after subshell'
+: & pid=$!
+( : & )
+[[ $pid == $! ]] || err_exit '$! value not preserved across subshells'
+unset foo
+typeset -A foo
+function foo.set
+{
+	case ${.sh.subscript} in
+	bar)	if	((.sh.value > 1 ))
+	        then	.sh.value=5
+			foo[barrier_hit]=yes
+		fi
+		;;
+	barrier_hit)
+		if	[[ ${.sh.value} = yes ]]
+		then	foo[barrier_not_hit]=no
+		else	foo[barrier_not_hit]=yes
+		fi
+		;;
+	esac
+}
+foo[barrier_hit]=no 
+foo[bar]=1
+(( foo[bar] == 1 )) || err_exit 'foo[bar] should be 1'
+[[ ${foo[barrier_hit]} == no ]] || err_exit 'foo[barrier_hit] should be no'
+[[ ${foo[barrier_not_hit]} == yes ]] || err_exit 'foo[barrier_not_hit] should be yes'
+foo[barrier_hit]=no 
+foo[bar]=2
+(( foo[bar] == 5 )) || err_exit 'foo[bar] should be 5'
+[[ ${foo[barrier_hit]} == yes ]] || err_exit 'foo[barrier_hit] should be yes'
+[[ ${foo[barrier_not_hit]} == no ]] || err_exit 'foo[barrier_not_hit] should be no'
+unset x
+typeset -i x
+function x.set
+{
+	typeset sub=${.sh.subscript}
+	(( sub > 0 )) && (( x[sub-1]= x[sub-1] + .sh.value ))
+}
+x[0]=0 x[1]=1 x[2]=2 x[3]=3
+[[ ${x[@]} == '12 8 5 3' ]] || err_exit 'set discipline for indexed array not working correctly'
+((SECONDS=3*4))
+(( SECONDS < 12 || SECONDS > 12.1 )) &&  err_exit "SECONDS is $SECONDS and should be close to 12"
 exit $((Errors))

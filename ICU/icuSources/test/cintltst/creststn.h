@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /***************************************************************************
@@ -18,8 +18,17 @@
 /* C TEST FOR NEW RESOURCEBUNDLE API*/
 #include "cintltst.h"
 
-
-
+/*
+ * Test wrapper for ures_getStringXYZ(), for testing other variants of
+ * these functions as well.
+ * If index>=0, calls ures_getStringByIndex().
+ * If key!=NULL, calls ures_getStringByKey().
+ */
+extern const UChar *
+tres_getString(const UResourceBundle *resB,
+               int32_t index, const char *key,
+               int32_t *length,
+               UErrorCode *status);
 
 void addNEWResourceBundleTest(TestNode**);
 
@@ -59,6 +68,10 @@ static void TestResourceLevelAliasing(void);
 static void TestErrorCodes(void);
 
 static void TestJB3763(void);
+
+static void TestXPath(void);
+
+static void TestStackReuse(void);
 
 /**
 * extensive subtests called by TestResourceBundles

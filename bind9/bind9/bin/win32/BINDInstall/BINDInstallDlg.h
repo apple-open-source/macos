@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: BINDInstallDlg.h,v 1.3.12.3 2004/03/08 09:04:21 marka Exp $ */
+/* $Id: BINDInstallDlg.h,v 1.6 2004/03/05 05:04:17 marka Exp $ */
 
 /*
  * Copyright (c) 1999-2000 by Nortel Networks Corporation

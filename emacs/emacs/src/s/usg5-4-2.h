@@ -1,9 +1,28 @@
-/* s/ file for System V release 4.2.  */
+/* s/ file for System V release 4.2.
+
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+                 2007  Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
 
 #include "usg5-4.h"
 
-/* pcg@aber.ac.uk says this is useless since fork does copy-on-write
-   #define HAVE_VFORK */
 /* fnf@cygnus.com says these exist.  */
 #define HAVE_TCATTR
 #if 0 /* autoconf should take care of this.  */
@@ -56,3 +75,6 @@
 /* ryanr@ellingtn.ftc.nrcs.usda.gov (Richard Anthony Ryan) says -lXimp
    is needed in UNIX_SV ... 4.2 1.1.2.  */
 #define LIB_MOTIF -lXm -lXimp
+
+/* arch-tag: 9bbfcfc1-19be-45a1-9699-af57b87da2c6
+   (do not change this comment) */

@@ -71,6 +71,11 @@ DEFINE_API( ComponentResult ) DeviceControlEnableAVCTransactions(ComponentInstan
 	#else
 	struct DeviceControlEnableAVCTransactionsGluePB myDeviceControlEnableAVCTransactionsGluePB;
 	*((unsigned long*)&myDeviceControlEnableAVCTransactionsGluePB) = 0x00000100;
+	
+	myDeviceControlEnableAVCTransactionsGluePB.componentFlags = 0;
+	myDeviceControlEnableAVCTransactionsGluePB.componentParamSize = 0;
+	myDeviceControlEnableAVCTransactionsGluePB.componentWhat = 256;
+		
 	#endif
 
 	myDeviceControlEnableAVCTransactionsGluePB.instance = instance;
@@ -117,7 +122,12 @@ DEFINE_API( ComponentResult ) DeviceControlDisableAVCTransactions(ComponentInsta
 
 	#else
 	struct DeviceControlDisableAVCTransactionsGluePB myDeviceControlDisableAVCTransactionsGluePB;
-	*((unsigned long*)&myDeviceControlDisableAVCTransactionsGluePB) = 0x00000101;
+//	*((unsigned long*)&myDeviceControlDisableAVCTransactionsGluePB) = 0x00000101;
+	
+	myDeviceControlDisableAVCTransactionsGluePB.componentFlags = 0;
+	myDeviceControlDisableAVCTransactionsGluePB.componentParamSize = 0;
+	myDeviceControlDisableAVCTransactionsGluePB.componentWhat = 257;
+	
 	#endif
 
 	myDeviceControlDisableAVCTransactionsGluePB.instance = instance;
@@ -165,7 +175,12 @@ DEFINE_API( ComponentResult ) DeviceControlSetDeviceConnectionID(ComponentInstan
 
 	#else
 	struct DeviceControlSetDeviceConnectionIDGluePB myDeviceControlSetDeviceConnectionIDGluePB;
-	*((unsigned long*)&myDeviceControlSetDeviceConnectionIDGluePB) = 0x00040102;
+//	*((unsigned long*)&myDeviceControlSetDeviceConnectionIDGluePB) = 0x00040102;
+
+	myDeviceControlSetDeviceConnectionIDGluePB.componentFlags = 0;
+	myDeviceControlSetDeviceConnectionIDGluePB.componentParamSize = 4;
+	myDeviceControlSetDeviceConnectionIDGluePB.componentWhat = 258;
+		
 	#endif
 
 	myDeviceControlSetDeviceConnectionIDGluePB.connectionID = connectionID;
@@ -214,7 +229,12 @@ DEFINE_API( ComponentResult ) DeviceControlGetDeviceConnectionID(ComponentInstan
 
 	#else
 	struct DeviceControlGetDeviceConnectionIDGluePB myDeviceControlGetDeviceConnectionIDGluePB;
-	*((unsigned long*)&myDeviceControlGetDeviceConnectionIDGluePB) = 0x00040103;
+//	*((unsigned long*)&myDeviceControlGetDeviceConnectionIDGluePB) = 0x00040103;
+	
+	myDeviceControlGetDeviceConnectionIDGluePB.componentFlags = 0;
+	myDeviceControlGetDeviceConnectionIDGluePB.componentParamSize = 4;
+	myDeviceControlGetDeviceConnectionIDGluePB.componentWhat = 259;
+		
 	#endif
 
 	myDeviceControlGetDeviceConnectionIDGluePB.connectionID = connectionID;

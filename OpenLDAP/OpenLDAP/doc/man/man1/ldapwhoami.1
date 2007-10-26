@@ -1,6 +1,6 @@
 .TH LDAPWHOAMI 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapwhoami.1,v 1.4.2.2 2004/01/01 18:16:27 kurt Exp $
-.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapwhoami.1,v 1.6.2.4 2006/01/03 22:16:04 kurt Exp $
+.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapwhoami \- LDAP who am i? tool
@@ -29,7 +29,7 @@ ldapwhoami \- LDAP who am i? tool
 [\c
 .BI \-p \ ldapport\fR]
 [\c
-.BR \-O \ security-properties ]
+.BI \-O \ security-properties\fR]
 [\c
 .BR \-I ]
 [\c
@@ -65,7 +65,7 @@ Run in verbose mode, with many diagnostics written to standard output.
 .TP
 .BI \-d \ debuglevel
 Set the LDAP debugging level to \fIdebuglevel\fP.
-.B ldapcompare
+.B ldapwhoami
 must be compiled with LDAP_DEBUG defined for this option to have any effect.
 .TP
 .B \-x 
@@ -86,7 +86,9 @@ Use complete contents of \fIpasswdfile\fP as the password for
 simple authentication.
 .TP
 .BI \-H \ ldapuri
-Specify URI(s) referring to the ldap server(s).
+Specify URI(s) referring to the ldap server(s); only the protocol/host/port
+fields are allowed; a list of URI, separated by whitespace or commas
+is expected.
 .TP
 .BI \-h \ ldaphost
 Specify an alternate host on which the ldap server is running.

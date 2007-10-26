@@ -39,8 +39,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: rcsfnms.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:38  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:38  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:33  wsanchez
  * Import of RCS 5.7
@@ -184,7 +184,7 @@ Report problems and direct all questions to:
 
 #include "rcsbase.h"
 
-libId(fnmsId, "$Id: rcsfnms.c,v 1.1.1.1 1999/04/23 01:43:38 wsanchez Exp $")
+libId(fnmsId, "$Id: rcsfnms.c,v 1.1 1999/04/23 01:43:38 wsanchez Exp $")
 
 static char const *bindex P((char const*,int));
 static int fin2open P((char const*, size_t, char const*, size_t, char const*, size_t, RILE*(*)P((struct buf*,struct stat*,int)), int));

@@ -137,7 +137,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleVIA;
-				MODULE_VERSION = 1.5d1;
+				MODULE_VERSION = 1.5.1d1;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -163,7 +163,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleVIA</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleVIA version 1.5, Copyright 2001 Apple Computer, Inc.</string>
+	<string>AppleVIA version 1.5.1, Copyright 2001 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -175,11 +175,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5d1</string>
+	<string>1.5.1d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleVIA</key>

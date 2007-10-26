@@ -73,6 +73,11 @@ cannot be set in the smb.conf file. nmbd will abort with this setting.\n");
 		ret = 1;
 	}
 
+	if (lp_passdb_expand_explicit()) {
+		fprintf(stderr, "WARNING: passdb expand explicit = yes is "
+			"deprecated\n");
+	}
+
 	/*
 	 * Password server sanity checks.
 	 */
@@ -90,15 +95,6 @@ to a valid password server.\n", sec_setting );
 	}
 
 	
-	/*
-	 * Check 'hosts equiv' and 'use rhosts' compatibility with 'hostname lookup' value.
-	 */
-
-	if(*lp_hosts_equiv() && !lp_hostname_lookups()) {
-		fprintf(stderr, "ERROR: The setting 'hosts equiv = %s' requires that 'hostname lookups = yes'.\n", lp_hosts_equiv());
-		ret = 1;
-	}
-
 	/*
 	 * Password chat sanity checks.
 	 */
@@ -201,9 +197,12 @@ via the %%o substitution. With encrypted passwords this is not possible.\n", lp_
 	const char *config_file = dyn_CONFIGFILE;
 	int s;
 	static BOOL silent_mode = False;
+	static BOOL show_all_parameters = False;
 	int ret = 0;
 	poptContext pc;
 	static const char *term_code = "";
+	static char *parameter_name = NULL;
+	static const char *section_name = NULL;
 	static char *new_local_machine = NULL;
 	const char *cname;
 	const char *caddr;
@@ -215,15 +214,25 @@ via the %%o substitution. With encrypted passwords this is not possible.\n", lp_
 		{"verbose", 'v', POPT_ARG_NONE, &show_defaults, 1, "Show default options too"},
 		{"server", 'L',POPT_ARG_STRING, &new_local_machine, 0, "Set %%L macro to servername\n"},
 		{"encoding", 't', POPT_ARG_STRING, &term_code, 0, "Print parameters with encoding"},
+		{"show-all-parameters", '\0', POPT_ARG_VAL, &show_all_parameters, True, "Show the parameters, type, possible values" },
+		{"parameter-name", '\0', POPT_ARG_STRING, &parameter_name, 0, "Limit testparm to a named parameter" },
+		{"section-name", '\0', POPT_ARG_STRING, &section_name, 0, "Limit testparm to a named section" },
 		POPT_COMMON_VERSION
 		POPT_TABLEEND
 	};
+
+	load_case_tables();
 
 	pc = poptGetContext(NULL, argc, argv, long_options, 
 			    POPT_CONTEXT_KEEP_FIRST);
 	poptSetOtherOptionHelp(pc, "[OPTION...] <config-file> [host-name] [host-ip]");
 
 	while(poptGetNextOpt(pc) != -1);
+
+	if (show_all_parameters) {
+		show_parameter_list();
+		exit(0);
+	}
 
 	setup_logging(poptGetArg(pc), True);
 
@@ -243,12 +252,12 @@ via the %%o substitution. With encrypted passwords this is not possible.\n", lp_
 	}
 
 	dbf = x_stderr;
-	SAMBA_DEBUGLEVEL = 2;
+	DEBUGLEVEL = 2;
 	AllowDebugChange = False;
 
 	fprintf(stderr,"Load smb config files from %s\n",config_file);
 
-	if (!lp_load(config_file,False,True,False)) {
+	if (!lp_load(config_file,False,True,False,True)) {
 		fprintf(stderr,"Error loading services.\n");
 		return(1);
 	}
@@ -320,29 +329,19 @@ via the %%o substitution. With encrypted passwords this is not possible.\n", lp_
 					   Map system can only work if force create mode excludes octal 010 (S_IXGRP).\n",
 					   lp_servicename(s) );
 			}
+#ifdef HAVE_CUPS
+			if (lp_printing(s) == PRINT_CUPS && *(lp_printcommand(s)) != '\0') {
+				 fprintf(stderr,"Warning: Service %s defines a print command, but \
+print command parameter is ignored when using CUPS libraries.\n",
+					   lp_servicename(s) );
+			}
+#endif
 		}
 	}
 
 
-	if (!silent_mode) {
-		fprintf(stderr,"Server role: ");
-		switch(lp_server_role()) {
-			case ROLE_STANDALONE:
-				fprintf(stderr,"ROLE_STANDALONE\n");
-				break;
-			case ROLE_DOMAIN_MEMBER:
-				fprintf(stderr,"ROLE_DOMAIN_MEMBER\n");
-				break;
-			case ROLE_DOMAIN_BDC:
-				fprintf(stderr,"ROLE_DOMAIN_BDC\n");
-				break;
-			case ROLE_DOMAIN_PDC:
-				fprintf(stderr,"ROLE_DOMAIN_PDC\n");
-				break;
-			default:
-				fprintf(stderr,"Unknown -- internal error?\n");
-				break;
-		}
+	if (!section_name && !parameter_name) {
+		fprintf(stderr,"Server role: %s\n", server_role_str(lp_server_role()));
 	}
 
 	if (!cname) {
@@ -351,6 +350,34 @@ via the %%o substitution. With encrypted passwords this is not possible.\n", lp_
 			fflush(stdout);
 			getc(stdin);
 		}
+		if (parameter_name || section_name) {
+			BOOL isGlobal = False;
+			s = GLOBAL_SECTION_SNUM;
+
+			if (!section_name) {
+				section_name = GLOBAL_NAME;
+				isGlobal = True;
+			} else if ((isGlobal=!strwicmp(section_name, GLOBAL_NAME)) == 0 &&
+				 (s=lp_servicenumber(section_name)) == -1) {
+					fprintf(stderr,"Unknown section %s\n",
+						section_name);
+					return(1);
+			}
+			if (parameter_name) {
+				if (!dump_a_parameter( s, parameter_name, stdout, isGlobal)) {
+					fprintf(stderr,"Parameter %s unknown for section %s\n",
+						parameter_name, section_name);
+					return(1);
+				}
+			} else {
+				if (isGlobal == True)
+					lp_dump(stdout, show_defaults, 0);
+				else
+					lp_dump_one(stdout, show_defaults, s);
+			}
+			return(ret);
+		}
+
 		lp_dump(stdout, show_defaults, lp_numservices());
 	}
 

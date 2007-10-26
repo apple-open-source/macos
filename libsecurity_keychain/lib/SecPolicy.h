@@ -22,8 +22,8 @@
  */
 
 /*!
-	@header SecPolicy
-	The functions provided in SecPolicy implement a representation of a particular trust policy.
+    @header SecPolicy
+    The functions provided in SecPolicy implement a representation of a particular trust policy.
 */
 
 #ifndef _SECURITY_SECPOLICY_H_
@@ -38,15 +38,15 @@ extern "C" {
 #endif
 
 /*!
-	@function SecPolicyGetTypeID
-	@abstract Returns the type identifier of SecPolicy instances.
-	@result The CFTypeID of SecPolicy instances.
+    @function SecPolicyGetTypeID
+    @abstract Returns the type identifier of SecPolicy instances.
+    @result The CFTypeID of SecPolicy instances.
 */
 CFTypeID SecPolicyGetTypeID(void);
 
 /*!
-	@function SecPolicyGetOID
-	@abstract Returns a policy's object identifier.
+    @function SecPolicyGetOID
+    @abstract Returns a policy's object identifier.
     @param policyRef A policy reference.
     @param oid On return, a pointer to the policy's object identifier.
     @result A result code.  See "Security Error Codes" (SecBase.h).
@@ -54,8 +54,8 @@ CFTypeID SecPolicyGetTypeID(void);
 OSStatus SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID *oid);
 
 /*!
-	@function SecPolicyGetValue
-	@abstract Returns a policy's value.
+    @function SecPolicyGetValue
+    @abstract Returns a policy's value.
     @param policyRef A policy reference.
     @param value On return, a pointer to the policy's value.
     @result A result code.  See "Security Error Codes" (SecBase.h).
@@ -63,8 +63,17 @@ OSStatus SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID *oid);
 OSStatus SecPolicyGetValue(SecPolicyRef policyRef, CSSM_DATA *value);
 
 /*!
-	@function SecPolicyGetTPHandle
-	@abstract Returns the CSSM trust policy handle for the given policy.
+    @function SecPolicySetValue
+    @abstract Sets a policy's value.
+    @param policyRef A policy reference.
+    @param value The value to be set into the policy object, replacing any previous value.
+    @result A result code.  See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value);
+
+/*!
+    @function SecPolicyGetTPHandle
+    @abstract Returns the CSSM trust policy handle for the given policy.
     @param policyRef A policy reference.
     @param tpHandle On return, a pointer to a value of type CSSM_TP_HANDLE.
     @result A result code.  See "Security Error Codes" (SecBase.h).

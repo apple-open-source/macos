@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: getinmemory.c,v 1.9 2005/02/04 23:53:12 bagder Exp $
+ * $Id: getinmemory.c,v 1.10 2005/10/10 20:58:18 bagder Exp $
  *
  * Example source code to show how the callback function can be used to
  * download data into a chunk of memory instead of storing it in a file.
@@ -14,6 +14,8 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <curl/curl.h>
 #include <curl/types.h>
@@ -92,6 +94,9 @@ int main(int argc, char **argv)
    * allocated data block, and nothing has yet deallocated that data. So when
    * you're done with it, you should free() it as a nice application.
    */
+
+  if(chunk.memory)
+    free(chunk.memory);
 
   return 0;
 }

@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Bakken <ssb@gaurdian.no>                               |
+   | Authors: Stig Bakken <ssb@php.net>                                   |
    |          Zeev Suraski <zeev@zend.com>                                |
    |          Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: crypt.c,v 1.55.8.3.4.2 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: crypt.c,v 1.62.2.1.2.6 2007/01/01 09:36:08 sebastian Exp $ */
 #include <stdlib.h>
 
 #include "php.h"
@@ -28,6 +28,9 @@
 #include <unistd.h>
 #endif
 #if HAVE_CRYPT_H
+#if defined(CRYPT_R_GNU_SOURCE) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
 #include <crypt.h>
 #endif
 #if TM_IN_SYS_TIME
@@ -145,8 +148,22 @@ PHP_FUNCTION(crypt)
 		salt[2] = '\0';
 #endif
 	}
+#if defined(HAVE_CRYPT_R) && (defined(_REENTRANT) || defined(_THREAD_SAFE))
+	{
+#if defined(CRYPT_R_STRUCT_CRYPT_DATA)
+		struct crypt_data buffer;
+		memset(&buffer, 0, sizeof(buffer));
+#elif defined(CRYPT_R_CRYPTD)
+		CRYPTD buffer;
+#else 
+#error Data struct used by crypt_r() is unknown. Please report.
+#endif
 
-	RETVAL_STRING(crypt(str, salt), 1);
+		RETURN_STRING(crypt_r(str, salt, &buffer), 1);
+	}
+#else
+	RETURN_STRING(crypt(str, salt), 1);
+#endif
 }
 /* }}} */
 #endif

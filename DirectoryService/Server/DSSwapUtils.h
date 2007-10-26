@@ -33,6 +33,7 @@
 
 #include <machine/byte_order.h>
 #include "DirServicesConst.h"
+#include "DirServicesTypes.h"
 
 #ifndef dsBool
 	#define	dsBool	int
@@ -44,23 +45,23 @@ enum { kDSSwapToBig, kDSSwapToHost };
 extern "C" {
 #endif
 
-    void DSSwapObjectData	(	unsigned long type,
+    void DSSwapObjectData	(	UInt32 type,
 								char* data,
-								unsigned long size,
+								UInt32 size,
 								dsBool swapAuth,
 								dsBool isCustomCall,
-								unsigned long inCustomRequestNum,
+								UInt32 inCustomRequestNum,
 								const char* inPluginName,
 								dsBool isAPICallResponse,
 								dsBool inToBig);
     
-    void DSSwapStandardBuf(char* data, unsigned long size, dsBool inToBig);
-    void DSSwapRecordEntry(char* data, unsigned long type, dsBool inToBig);
+    void DSSwapStandardBuf(char* data, UInt32 size, dsBool inToBig);
+    void DSSwapRecordEntry(char* data, UInt32 type, dsBool inToBig);
 
-    unsigned long DSGetLong(void* ptr, dsBool inToBig);
+    UInt32 DSGetLong(void* ptr, dsBool inToBig);
     unsigned short DSGetShort(void* ptr, dsBool inToBig);
     
-    unsigned long DSGetAndSwapLong(void* ptr, dsBool inToBig);
+    UInt32 DSGetAndSwapLong(void* ptr, dsBool inToBig);
     unsigned short DSGetAndSwapShort(void* ptr, dsBool inToBig);
     
     void DSSwapLong(void* ptr, dsBool inToBig);

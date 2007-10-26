@@ -88,18 +88,24 @@ an incorrect value, though this does not explain why symptoms have only been
 noticed under BSDI.
 
 
-* Spaces in arguments to `cvs diff' are currently split on spaces and tabs
-before being passed to diff.  This can often cause diff to abort since it can
-no longer interpret its options string and if it can, coincidentally,
-interpret its option string, then the problem may be output in unexpected
-formats.
+* The CVS server is leaving a temp directory (/tmp/cvs-serv*) on AIX 4.3 under
+very rare circumstances (one out of c. 10,500 test cases).  This appears to be
+dependent on some sort of race condition as it disappears with tracing enabled
+and under the debugger.  Informative feedback is welcome.
+
+
+* UNICOS 9.0 on Cray currently fails testing in both client/server and
+  writeproxy modes.
 
 
 * Status
 
-                             /*-------.
-                             | Stable |
-                             `-------*/
+  This experimental version of CVS contains new features which may not have
+  been tested as thoroughly as the stable release.  It is classified as:
+
+                          /*-------------.
+                          | Experimental |
+                          `-------------*/
 
                      /*-------------------------.
                      | Sane for full scale use. |

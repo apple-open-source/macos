@@ -53,7 +53,7 @@ OSStatus SecCertificateRequestCreate(
 	Required(policy);
 	*certRequest = (new CertificateRequest(*policy, certificateType, requestType,
 		privateKeyItemRef, publicKeyItemRef, attributeList))->handle();
-	END_SECAPI
+	END_SECAPI2("SecCertificateRequestCreate")
 }
 
 
@@ -65,7 +65,7 @@ OSStatus SecCertificateRequestSubmit(
 
 	CertificateRequest::required(certRequest)->submit(estimatedTime);
 
-	END_SECAPI
+	END_SECAPI2("SecCertificateRequestSubmit")
 }
 
 
@@ -78,7 +78,7 @@ OSStatus SecCertificateRequestGetType(
 	Required(requestType);
 	*requestType = CertificateRequest::required(certRequestRef)->reqType();
 
-	END_SECAPI
+	END_SECAPI2("SecCertificateRequestGetType")
 }
 
 OSStatus SecCertificateRequestGetResult(
@@ -99,7 +99,26 @@ OSStatus SecCertificateRequestGetResult(
 		CFDataRef cfCert = CFDataCreate(NULL, (UInt8 *)certData.data(), certData.Length);
 		SecExternalItemType itemType = kSecItemTypeCertificate;
 		CFArrayRef outItems = NULL;
-		OSStatus ortn = SecKeychainItemImport(cfCert, NULL,
+		bool freeKcRef = false;
+		OSStatus ortn;
+		
+		if(keychain == NULL) {
+			/* 
+			 * Unlike most Sec* calls, if the keychain argument to SecKeychainItemImport()
+			 * is NULL, the item is not imported to the default keychain. At our
+			 * interface, however, a NULL keychain means "import to the default
+			 * keychain". 
+			 */
+			ortn = SecKeychainCopyDefault(&keychain);
+			if(ortn) {
+				certReqDbg("GetResult: SecKeychainCopyDefault failure");
+				/* oh well, there's nothing we can do about this */
+			}
+			else {
+				freeKcRef = true;
+			}
+		}
+		ortn = SecKeychainItemImport(cfCert, NULL,
 			NULL,			// format, don't care
 			&itemType,
 			0,				// flags
@@ -107,6 +126,9 @@ OSStatus SecCertificateRequestGetResult(
 			keychain,		// optional, like ours
 			&outItems);
 		CFRelease(cfCert);
+		if(freeKcRef) {
+			CFRelease(keychain);
+		}
 		if(ortn) {
 			certReqDbg("SecCertificateRequestGetResult: SecKeychainItemImport failure");
 			MacOSError::throwMe(ortn);
@@ -133,7 +155,7 @@ OSStatus SecCertificateRequestGetResult(
 		}
 		CFRelease(outItems);
 	}	
-	END_SECAPI
+	END_SECAPI2("SecCertificateRequestGetResult")
 }
 
 OSStatus SecCertificateFindRequest(
@@ -151,7 +173,7 @@ OSStatus SecCertificateFindRequest(
 	Required(policy);
 	*certRequest = (new CertificateRequest(*policy, certificateType, requestType,
 		privateKeyItemRef, publicKeyItemRef, attributeList, false))->handle();
-	END_SECAPI
+	END_SECAPI2("SecCertificateFindRequest")
 }
 
 
@@ -164,5 +186,5 @@ OSStatus SecCertificateRequestGetData(
 	Required(data);
 	CertificateRequest::required(certRequestRef)->getReturnData(CssmData::overlay(*data));
 
-	END_SECAPI
+	END_SECAPI2("SecCertificateRequestGetData")
 }

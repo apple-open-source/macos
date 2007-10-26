@@ -1,7 +1,7 @@
-:: $OpenLDAP: pkg/ldap/build/mkvers.bat,v 1.2.4.2 2004/01/01 18:16:25 kurt Exp $
+:: $OpenLDAP: pkg/ldap/build/mkvers.bat,v 1.5.2.2 2006/01/03 22:16:01 kurt Exp $
 :: This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ::
-:: Copyright 1998-2004 The OpenLDAP Foundation.
+:: Copyright 1998-2006 The OpenLDAP Foundation.
 :: All rights reserved.
 ::
 :: Redistribution and use in source and binary forms, with or without
@@ -25,4 +25,3 @@ copy %1 %2
 (echo %4 const char __Version[] =) >> %2
 (echo "@(#) $" OPENLDAP_PACKAGE ": %3 " OPENLDAP_VERSION) >> %2
 (echo " (" __DATE__ " " __TIME__ ") $\n") >> %2
-(echo "\t%USERNAME%@%COMPUTERNAME% %CD:\=/%\n";) >> %2

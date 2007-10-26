@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/st.c,v 1.15.2.2 2004/01/01 18:16:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/st.c,v 1.18.2.4 2006/05/09 17:43:12 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 
 #include "slurp.h"
 #include "globals.h"
+#include "lutil.h"
 
 /*
  * Add information about replica host specified by Ri to list
@@ -109,15 +110,9 @@ St_write (
 	if (( rc = acquire_lock( sglob->slurpd_status_file, &(st->st_fp),
 		&(st->st_lfp))) < 0 ) {
 	    if ( !st->st_err_logged ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( SLURPD, ERR, "St_write: "
-			"Error: cannot open status file \"%s\":%s\n",
-			sglob->slurpd_status_file, sys_errlist[ errno ], 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"Error: cannot open status file \"%s\": %s\n",
 			sglob->slurpd_status_file, sys_errlist[ errno ], 0 );
-#endif
 		st->st_err_logged = 1;
 		ldap_pvt_thread_mutex_unlock( &(st->st_mutex ));
 		return -1;
@@ -195,26 +190,15 @@ St_read(
 	 * File doesn't exist, so create it and return.
 	 */
 	if (( fp = fopen( sglob->slurpd_status_file, "w" )) == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( SLURPD, ERR, "St_write: "
-			"Error: cannot create status file \"%s\"\n",
-		    sglob->slurpd_status_file, 0, 0 );
-#else
 	    Debug( LDAP_DEBUG_ANY, "Error: cannot create status file \"%s\"\n",
 		    sglob->slurpd_status_file, 0, 0 );
-#endif
 	    ldap_pvt_thread_mutex_unlock( &(st->st_mutex ));
 	    return -1;
 	}
 	(void) fclose( fp );
 	ldap_pvt_thread_mutex_unlock( &(st->st_mutex ));
-#ifdef NEW_LOGGING
-	LDAP_LOG ( SLURPD, DETAIL1, "St_write: "
-		"No status file found, defaulting values\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_ARGS, "No status file found, defaulting values\n",
 		0, 0, 0 );
-#endif
 	return 0;
     }
     if (( rc = acquire_lock( sglob->slurpd_status_file, &fp, &lfp)) < 0 ) {
@@ -247,35 +231,28 @@ St_read(
 
 	found = 0;
 	for ( i = 0; i < sglob->st->st_nreplicas; i++ ) {
+	    int p;
 	    if ( !strcmp( hostname, sglob->st->st_data[ i ]->hostname ) &&
-		    atoi( port ) == sglob->st->st_data[ i ]->port ) {
+		    lutil_atoi( &p, port ) == 0 && p == sglob->st->st_data[ i ]->port )
+	    {
 		found = 1;
-		sglob->st->st_data[ i ]->last = atol( timestamp );
-		sglob->st->st_data[ i ]->seq = atoi( seq );
+		if ( lutil_atol( &sglob->st->st_data[ i ]->last, timestamp ) != 0
+			|| lutil_atoi( &sglob->st->st_data[ i ]->seq, seq ) != 0 )
+		{
+		    found = 0;
+		}
 		break;
 	    }
 	}
 	if ( found ) {
 	    char tbuf[ 255 ];
-	    sprintf( tbuf, "%s:%s (timestamp %s.%s)", hostname, port,
-		    timestamp, seq );
-#ifdef NEW_LOGGING
-		LDAP_LOG ( SLURPD, DETAIL1, "St_write: "
-			"Retrieved state information for %s\n", tbuf, 0, 0 );
-#else
+	    sprintf( tbuf, "%s.%s", timestamp, seq );
 	    Debug( LDAP_DEBUG_ARGS,
-		    "Retrieved state information for %s\n", tbuf, 0, 0 );
-#endif
+		    "Retrieved state information for %s:%s (timestamp %s)\n", hostname, port, tbuf );
 	} else {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( SLURPD, WARNING, "St_write: "
-			"Warning: saved state for %s:%s, not a known replica\n", 
-			hostname, port, 0 );
-#else
 	    Debug(  LDAP_DEBUG_ANY,
 		    "Warning: saved state for %s:%s, not a known replica\n",
 		    hostname, port, 0 );
-#endif
 	}
     }
     (void) relinquish_lock( sglob->slurpd_status_file, fp, lfp);

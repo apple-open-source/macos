@@ -26,9 +26,10 @@
  * or implied warranty.
  */
 
-#ifndef __KERBEROSDEBUG
-#define __KERBEROSDEBUG
+#ifndef KERBEROSDEBUG_H
+#define KERBEROSDEBUG_H
 
+#include <stdarg.h>
 #include <sys/types.h>
 #include <mach/mach.h>
 
@@ -42,16 +43,17 @@ extern "C" {
  * linking against the Kerberos framework.
  */
 
-#define ddebuglevel      __KerberosDebug_ddebuglevel
-#define dprintf          __KerberosDebug_dprintf
-#define dprintmem        __KerberosDebug_dprintmem
-#define dprintbootstrap  __KerberosDebug_dprintbootstrap
-    
-    
+#define ddebuglevel       __KerberosDebugLogLevel
+#define dprintf           __KerberosDebugPrint
+#define dvprintf          __KerberosDebugVAPrint
+#define dprintmem         __KerberosDebugPrintMemory
+#define dprintsession     __KerberosDebugPrintSession
+
 int ddebuglevel (void);
-void dprintf (const char *format, ...) __attribute__ ((format (printf, 1, 2)));
-void dprintmem (const void *data, size_t length);
-void dprintbootstrap (task_t inTask);
+void dprintf (const char *in_format, ...) __attribute__ ((format (printf, 1, 2)));
+void dvprintf (const char *in_format, va_list in_args);
+void dprintmem (const void *in_data, size_t in_length);
+void dprintsession (void);
 
 #define SetSignalAction_(inAction)
 #ifdef __PowerPlant__
@@ -106,4 +108,4 @@ enum { errUncaughtException = 666 };
 }
 #endif
 
-#endif /* __KERBEROSDEBUG */
+#endif /* KERBEROSDEBUG_H */

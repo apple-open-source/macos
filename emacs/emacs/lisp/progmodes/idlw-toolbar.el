@@ -1,10 +1,11 @@
 ;;; idlw-toolbar.el --- a debugging toolbar for IDLWAVE
-;; Copyright (c) 1999, 2000 Free Software Foundation
 
-;; Author: Carsten Dominik <dominik@strw.leidenuniv.nl>
-;; Maintainer: John-David Smith <jdsmith@astro.cornell.edu>
-;; Version: 4.7
-;; Date: $Date: 2002/09/10 23:34:05 $
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
+
+;; Author: Carsten Dominik <dominik@astro.uva.nl>
+;; Maintainer: J.D. Smith <jdsmith@as.arizona.edu>
+;; Version: 6.1_em22
 ;; Keywords: processes
 
 ;; This file is part of GNU Emacs.
@@ -21,13 +22,17 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;; This file implements a debugging toolbar for IDLWAVE.  It requires
 ;; Emacs or XEmacs with toolbar and xpm support.
+
+;; New versions of IDLWAVE, documentation, and more information
+;; available from:
+;;                 http://idlwave.org
 
 
 ;;; Code:
@@ -39,7 +44,10 @@
       (toolbar-make-button-list image)
     (list 'image :type 'xpm :data image)))
 
+(defvar idlwave-toolbar)
 (defvar default-toolbar)
+(defvar idlwave-toolbar-is-possible)
+
 (if (not (or (and (featurep 'xemacs)                ; This is XEmacs
 		  (featurep 'xpm)                   ; need xpm
 		  (featurep 'toolbar))              ; ... and the toolbar
@@ -59,7 +67,7 @@
    "/* XPM */
 static char * file[] = {
 \"28 28 2 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"                            \",
 \"                            \",
@@ -96,7 +104,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 3 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"R	c #FFFF00000000\",
 \"                            \",
@@ -134,7 +142,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 3 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"R	c #FFFF00000000\",
 \"                            \",
@@ -167,52 +175,13 @@ static char * file[] = {
 \"                            \"};")
   "The Stop At icon.")
 
-(defvar idlwave-toolbar-stop-in-icon
-  (idlwave-toolbar-make-button
-   "/* XPM */
-static char * file[] = {
-\"28 28 4 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
-\"_	c #FFFFFFFFFFFF\",
-\".	c #000000000000\",
-\"R	c #FFFF00000000\",
-\"                            \",
-\"                            \",
-\"                            \",
-\"                            \",
-\"          ........          \",
-\"         .RRRRRRRR.         \",
-\"        .RRRRRRRRRR.        \",
-\"       .RRRRRRRRRRRR.       \",
-\"      .RRR___RR___RRR.      \",
-\"     .RRRR__RRRR__RRRR.     \",
-\"    .RRRRR__RRRR__RRRRR.    \",
-\"    .RRRRR__RRRR__RRRRR.    \",
-\"    .RRRRR__RRRR__RRRRR.    \",
-\"    .RRRR__RRRRRR__RRRR.    \",
-\"    .RRRRR__RRRR__RRRRR.    \",
-\"    .RRRRR__RRRR__RRRRR.    \",
-\"    .RRRRR__RRRR__RRRRR.    \",
-\"    .RRRRR__RRRR__RRRRR.    \",
-\"     .RRRR___RR___RRRR.     \",
-\"      .RRRRRRRRRRRRRR.      \",
-\"       .RRRRRRRRRRRR.       \",
-\"        .RRRRRRRRRR.        \",
-\"         .RRRRRRRR.         \",
-\"          ........          \",
-\"                            \",
-\"                            \",
-\"                            \",
-\"                            \"};")
-  "The Stop in icon.")
-
 
 (defvar idlwave-toolbar-clear-at-icon
   (idlwave-toolbar-make-button
    "/* XPM */
 static char * file[] = {
 \"28 28 3 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"R	c #FFFF00000000\",
 \"                            \",
@@ -250,7 +219,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 4 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"X	c #FFFFFFFFFFFF\",
 \"R	c #FFFF00000000\",
@@ -284,12 +253,90 @@ static char * file[] = {
 \"                            \"};")
   "The Clear-All icon.")
 
+(defvar idlwave-toolbar-stop-beginning-icon
+  (idlwave-toolbar-make-button
+   "/* XPM */
+static char * file[] = {
+\"28 28 4 1\",
+\" 	c None s backgroundToolBarColor\",
+\".	c #000000000000\",
+\"X	c #FFFF00000000\",
+\"_	c #FFFFFFFFFFFF\",
+\"                            \",
+\"                            \",
+\"                            \",
+\"                            \",
+\"          ........          \",
+\"         .XXXXXXXX.         \",
+\"        .XXXXXXXXXX.        \",
+\"       .XXXXXXXXXXXX.       \",
+\"      .XX..XXXXXXXXXX.      \",
+\"     .XX.XX.X______XXX.     \",
+\"    .XXX.XX.X______XXXX.    \",
+\"    .XXXX..XXXXXXXXXXXX.    \",
+\"    .XXXXXXXXXX____XXXX.    \",
+\"    .XXXXXXXXXX____XXXX.    \",
+\"    .XXXXXXXXXXXXXXXXXX.    \",
+\"    .XXXXXXXXXX____XXXX.    \",
+\"    .XXXXXXXXXX____XXXX.    \",
+\"    .XXXXXXXXXXXXXXXXXX.    \",
+\"     .XXXXXXXXX____XXX.     \",
+\"      .XXXXXXXX____XX.      \",
+\"       .XXXXXXXXXXXX.       \",
+\"        .XXXXXXXXXX.        \",
+\"         .XXXXXXXX.         \",
+\"          ........          \",
+\"                            \",
+\"                            \",
+\"                            \",
+\"                            \"};")
+  "The Stop at Beginning icon.")
+
+(defvar idlwave-toolbar-stop-in-icon
+  (idlwave-toolbar-make-button
+   "/* XPM */
+static char * file[] = {
+\"28 28 4 1\",
+\" 	c None s backgroundToolBarColor\",
+\"_	c #FFFFFFFFFFFF\",
+\".	c #000000000000\",
+\"R	c #FFFF00000000\",
+\"                            \",
+\"                            \",
+\"                            \",
+\"                            \",
+\"          ........          \",
+\"         .RRRRRRRR.         \",
+\"        .RRRRRRRRRR.        \",
+\"       .RRRRRRRRRRRR.       \",
+\"      .RRR___RR___RRR.      \",
+\"     .RRRR__RRRR__RRRR.     \",
+\"    .RRRRR__RRRR__RRRRR.    \",
+\"    .RRRRR__RRRR__RRRRR.    \",
+\"    .RRRRR__RRRR__RRRRR.    \",
+\"    .RRRR__RRRRRR__RRRR.    \",
+\"    .RRRRR__RRRR__RRRRR.    \",
+\"    .RRRRR__RRRR__RRRRR.    \",
+\"    .RRRRR__RRRR__RRRRR.    \",
+\"    .RRRRR__RRRR__RRRRR.    \",
+\"     .RRRR___RR___RRRR.     \",
+\"      .RRRRRRRRRRRRRR.      \",
+\"       .RRRRRRRRRRRR.       \",
+\"        .RRRRRRRRRR.        \",
+\"         .RRRRRRRR.         \",
+\"          ........          \",
+\"                            \",
+\"                            \",
+\"                            \",
+\"                            \"};")
+  "The Stop in icon.")
+
 (defvar idlwave-toolbar-edit-cmd-icon
   (idlwave-toolbar-make-button
    "/* XPM */
 static char * file[] = {
 \"28 28 2 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"                            \",
 \"                            \",
@@ -326,7 +373,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 3 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	s FgColor c #000000000000\",
 \"G	c #0000BBBB0000\",
 \"                            \",
@@ -364,7 +411,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 3 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	s FgColor c #000000000000\",
 \"G	c #0000BBBB0000\",
 \"                            \",
@@ -402,7 +449,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 4 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"G	c #0000BBBB0000\",
 \"R	c #FFFF00000000\",
@@ -441,7 +488,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 3 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"G	c #0000BBBB0000\",
 \"                            \",
@@ -479,7 +526,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 3 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"G	c #0000BBBB0000\",
 \"                            \",
@@ -517,7 +564,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 3 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"G	c #0000BBBB0000\",
 \"                            \",
@@ -556,7 +603,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 2 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	c #000000000000\",
 \"                            \",
 \"                            \",
@@ -593,7 +640,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 5 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	s FgColor c #000000000000\",
 \"_	c #FFFFFFFFFFFF\",
 \"G	c #0000BBBB0000\",
@@ -633,7 +680,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 5 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \".	s FgColor c #000000000000\",
 \"_	c #FFFFFFFFFFFF\",
 \"G	c #0000BBBB0000\",
@@ -673,7 +720,7 @@ static char * file[] = {
    "/* XPM */
 static char * file[] = {
 \"28 28 3 1\",
-\" 	c #C8C8C8C8C8C8 s backgroundToolBarColor\",
+\" 	c None s backgroundToolBarColor\",
 \"G	c #0000BBBB0000\",
 \". 	c #000000000000\",
 \"                            \",
@@ -706,6 +753,49 @@ static char * file[] = {
 \"                            \"};")
   "The Reset icon.")
 
+(defvar idlwave-toolbar-electric-debug-icon
+  (idlwave-toolbar-make-button
+   "/* XPM */
+static char * file[] = {
+\"28 28 8 1\",
+\" 	c None s backgroundToolBarColor\",
+\".	c #CFC854\",
+\"+	c #EEDB0E\",
+\"@	c #D2C739\",
+\"#	c #A39C54\",
+\"$	c #CDC020\",
+\"%	c #020202\",
+\"&	c #D60E36\",
+\"                            \",
+\"                            \",
+\"      ..                    \",
+\"   +++++@                   \",
+\"   ++++++                   \",
+\"    +++++@                  \",
+\"     +++++                  \",
+\"     #++++@                 \",
+\"      $+++@       %% %%     \",
+\"     ++++++$       % %      \",
+\"     #+++++$       % %      \",
+\"      #++$#        %%%      \",
+\"      #+++       %%%%%%%    \",
+\"       .++     %%%%%%%%%%%  \",
+\"        ++$$   %%%%%%%%%%%  \",
+\"        .+@#   &&%%%%%%%&&  \",
+\"      .++++#  &&&&&%%%&&&&& \",
+\"      +++++$  &&%%&&&&&%%&& \",
+\"       $+++$  &&%%&&&&&%%&& \",
+\"        $++@  &&&&&&%&&&&&& \",
+\"         $+@  &&&&&&%&&&&&& \",
+\"          @+  &&%%&&&&&%%&& \",
+\"           ++. &%%&&%&&%%&  \",
+\"            +. &&&&%%%&&&&  \",
+\"            .+  &&%%%%%&&   \",
+\"             ++  %%%%%%%    \",
+\"              .    %%%      \",
+\"                            \"};")
+  "The electric debug icon.")
+
 (defvar idlwave-toolbar
   '(
     [idlwave-toolbar-compile-icon
@@ -720,10 +810,6 @@ static char * file[] = {
      idlwave-shell-break-here
      (eq major-mode 'idlwave-mode)
      "Set Breakpoint at selected position"]
-    [idlwave-toolbar-stop-in-icon
-     idlwave-shell-break-in
-     t
-     "Stop in Function with name near at point"]
     [idlwave-toolbar-clear-at-icon
      idlwave-shell-clear-current-bp
      t
@@ -732,6 +818,14 @@ static char * file[] = {
      idlwave-shell-clear-all-bp
      t
      "Clear all Breakpoints"]
+    [idlwave-toolbar-stop-beginning-icon
+     idlwave-shell-break-this-module
+     (eq major-mode 'idlwave-mode)
+     "Stop at beginning of enclosing Routine"]
+    [idlwave-toolbar-stop-in-icon
+     idlwave-shell-break-in
+     t
+     "Stop in Routine with name near point"]
     [idlwave-toolbar-edit-cmd-icon
      idlwave-shell-edit-default-command-line
      t
@@ -776,6 +870,10 @@ static char * file[] = {
      idlwave-shell-reset
      t
      "Reset IDL (RETALL & CLOSE,/ALL and more)"]
+    [idlwave-toolbar-electric-debug-icon
+     idlwave-shell-electric-debug-mode
+     (eq major-mode 'idlwave-mode)
+     "Toggle Electric Debug Mode"]
     ))
 
 ;; When the shell exits, arrange to remove the special toolbar everywhere.
@@ -821,13 +919,14 @@ static char * file[] = {
       (mapcar (lambda (x)
 		(let* ((icon (aref x 0))
 		       (func (aref x 1))
-		       ;;(show (aref x 2))
+		       (show (aref x 2))
 		       (help (aref x 3))
 		       (key (vector 'tool-bar func))
 		       (def (list 'menu-item
 				  "a"
 				  func
 				  :image (symbol-value icon)
+				  :visible show
 				  :help help)))
 		  (define-key idlwave-mode-map key def)
 		  (define-key idlwave-shell-mode-map key def)))
@@ -873,4 +972,5 @@ static char * file[] = {
 (provide 'idlw-toolbar)
 (provide 'idlwave-toolbar)
 
+;; arch-tag: ec9a3717-c44c-4716-9bda-cdacbe5ddb62
 ;;; idlw-toolbar.el ends here

@@ -24,20 +24,7 @@
 #ifndef __CPOLICYXML__
 #define __CPOLICYXML__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <PasswordServer/CPolicyBase.h>
-
-// C API
-int ConvertXMLPolicyToSpaceDelimited( const char *inXMLDataStr, char **outPolicyStr );
-int ConvertSpaceDelimitedPolicyToXML( const char *inPolicyStr, char **outXMLDataStr );
-void GetDefaultUserPolicies( PWAccessFeatures *inOutUserPolicies );
-
-#ifdef __cplusplus
-};
-#endif
 
 class CPolicyXML : public CPolicyBase
 {

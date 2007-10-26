@@ -2,8 +2,8 @@
 
   intern.h -
 
-  $Author: nobu $
-  $Date: 2004/12/03 03:25:49 $
+  $Author: shyouhei $
+  $Date: 2007-06-07 21:40:01 +0900 (Thu, 07 Jun 2007) $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -70,6 +70,7 @@ VALUE rb_str_to_inum _((VALUE, int, int));
 VALUE rb_cstr2inum _((const char*, int));
 VALUE rb_str2inum _((VALUE, int));
 VALUE rb_big2str _((VALUE, int));
+VALUE rb_big2str0 _((VALUE, int, int));
 long rb_big2long _((VALUE));
 #define rb_big2int(x) rb_big2long(x)
 unsigned long rb_big2ulong _((VALUE));
@@ -164,6 +165,7 @@ void rb_dvar_asgn _((ID, VALUE));
 void rb_dvar_push _((ID, VALUE));
 VALUE *rb_svar _((int));
 VALUE rb_eval_cmd _((VALUE, VALUE, int));
+int rb_obj_respond_to _((VALUE, ID, int));
 int rb_respond_to _((VALUE, ID));
 void rb_interrupt _((void));
 VALUE rb_apply _((VALUE, ID, VALUE));
@@ -204,12 +206,15 @@ void rb_thread_sleep _((int));
 void rb_thread_sleep_forever _((void));
 VALUE rb_thread_stop _((void));
 VALUE rb_thread_wakeup _((VALUE));
+VALUE rb_thread_wakeup_alive _((VALUE));
 VALUE rb_thread_run _((VALUE));
 VALUE rb_thread_kill _((VALUE));
+VALUE rb_thread_alive_p _((VALUE));
 VALUE rb_thread_create _((VALUE (*)(ANYARGS), void*));
 void rb_thread_interrupt _((void));
 void rb_thread_trap_eval _((VALUE, int, int));
-void rb_thread_signal_raise _((char*));
+void rb_thread_signal_raise _((int));
+void rb_thread_signal_exit _((void));
 int rb_thread_select _((int, fd_set *, fd_set *, fd_set *, struct timeval *));
 void rb_thread_wait_for _((struct timeval));
 VALUE rb_thread_current _((void));
@@ -219,8 +224,8 @@ VALUE rb_thread_local_aset _((VALUE, ID, VALUE));
 void rb_thread_atfork _((void));
 VALUE rb_funcall_rescue __((VALUE, ID, int, ...));
 /* file.c */
-int eaccess _((const char*, int));
 VALUE rb_file_s_expand_path _((int, VALUE *));
+VALUE rb_file_expand_path _((VALUE, VALUE));
 void rb_file_const _((const char*, VALUE));
 int rb_find_file_ext _((VALUE*, const char* const*));
 VALUE rb_find_file _((VALUE));
@@ -228,6 +233,7 @@ char *rb_path_next _((const char *));
 char *rb_path_skip_prefix _((const char *));
 char *rb_path_last_separator _((const char *));
 char *rb_path_end _((const char *));
+VALUE rb_file_directory_p _((VALUE,VALUE));
 /* gc.c */
 NORETURN(void rb_memerror __((void)));
 int ruby_stack_check _((void));
@@ -333,6 +339,8 @@ int rb_is_instance_id _((ID));
 int rb_is_class_id _((ID));
 int rb_is_local_id _((ID));
 int rb_is_junk_id _((ID));
+int rb_symname_p _((const char*));
+int rb_sym_interned_p _((VALUE));
 VALUE rb_backref_get _((void));
 void rb_backref_set _((VALUE));
 VALUE rb_lastline_get _((void));
@@ -350,9 +358,9 @@ VALUE rb_range_new _((VALUE, VALUE, int));
 VALUE rb_range_beg_len _((VALUE, long*, long*, long, int));
 VALUE rb_length_by_each _((VALUE));
 /* re.c */
-int rb_memcmp _((char*,char*,long));
-int rb_memcicmp _((char*,char*,long));
-long rb_memsearch _((char*,long,char*,long));
+int rb_memcmp _((const void*,const void*,long));
+int rb_memcicmp _((const void*,const void*,long));
+long rb_memsearch _((const void*,long,const void*,long));
 VALUE rb_reg_nth_defined _((int, VALUE));
 VALUE rb_reg_nth_match _((int, VALUE));
 VALUE rb_reg_last_match _((VALUE));
@@ -365,6 +373,8 @@ VALUE rb_reg_match2 _((VALUE));
 int rb_reg_options _((VALUE));
 void rb_set_kcode _((const char*));
 const char* rb_get_kcode _((void));
+void rb_kcode_set_option _((VALUE));
+void rb_kcode_reset_option _((void));
 /* ruby.c */
 RUBY_EXTERN VALUE rb_argv;
 RUBY_EXTERN VALUE rb_argv0;
@@ -386,6 +396,7 @@ void posix_signal _((int, RETSIGTYPE (*)(int)));
 void rb_trap_exit _((void));
 void rb_trap_exec _((void));
 const char *ruby_signal_name _((int));
+void ruby_default_signal _((int));
 /* sprintf.c */
 VALUE rb_f_sprintf _((int, VALUE*));
 /* string.c */
@@ -448,7 +459,7 @@ VALUE rb_path2class _((const char*));
 void rb_name_class _((VALUE, ID));
 VALUE rb_class_name _((VALUE));
 void rb_autoload _((VALUE, ID, const char*));
-void rb_autoload_load _((VALUE, ID));
+VALUE rb_autoload_load _((VALUE, ID));
 VALUE rb_autoload_p _((VALUE, ID));
 void rb_gc_mark_global_tbl _((void));
 VALUE rb_f_trace_var _((int, VALUE*));

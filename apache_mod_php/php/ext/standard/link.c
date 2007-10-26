@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: link.c,v 1.42.2.5.2.3 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: link.c,v 1.52.2.1.2.3 2007/07/10 13:21:11 dmitry Exp $ */
 
 #include "php.h"
 #include "php_filestat.h"
@@ -122,14 +122,16 @@ PHP_FUNCTION(symlink)
 	convert_to_string_ex(topath);
 	convert_to_string_ex(frompath);
 
-	expand_filepath(Z_STRVAL_PP(frompath), source_p TSRMLS_CC);
-	expand_filepath(Z_STRVAL_PP(topath), dest_p TSRMLS_CC);
+	if (!expand_filepath(Z_STRVAL_PP(frompath), source_p TSRMLS_CC) || !expand_filepath(Z_STRVAL_PP(topath), dest_p TSRMLS_CC)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No such file or directory");
+		RETURN_FALSE;
+	}
 
 	if (php_stream_locate_url_wrapper(source_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ||
 		php_stream_locate_url_wrapper(dest_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ) 
 	{
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to symlink to a URL");
-		RETURN_FALSE;	
+		RETURN_FALSE;
 	}
 
 	if (PG(safe_mode) && !php_checkuid(dest_p, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {
@@ -177,14 +179,16 @@ PHP_FUNCTION(link)
 	convert_to_string_ex(topath);
 	convert_to_string_ex(frompath);
 
-	expand_filepath(Z_STRVAL_PP(frompath), source_p TSRMLS_CC);
-	expand_filepath(Z_STRVAL_PP(topath), dest_p TSRMLS_CC);
+	if (!expand_filepath(Z_STRVAL_PP(frompath), source_p TSRMLS_CC) || !expand_filepath(Z_STRVAL_PP(topath), dest_p TSRMLS_CC)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No such file or directory");
+		RETURN_FALSE;
+	}
 
 	if (php_stream_locate_url_wrapper(source_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ||
 		php_stream_locate_url_wrapper(dest_p, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC) ) 
 	{
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to link to a URL");
-		RETURN_FALSE;	
+		RETURN_FALSE;
 	}
 
 	if (PG(safe_mode) && !php_checkuid(dest_p, NULL, CHECKUID_CHECK_FILE_AND_DIR)) {

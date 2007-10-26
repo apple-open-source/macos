@@ -21,7 +21,7 @@ WARN_CFLAGS = /warning
 OPTIMFLAGS = /optimize
 
 CFLAGS = $(ABIFLAGS) $(WARN_CFLAGS) $(OPTIMFLAGS)
-DEFS = "VMS=1","HAVE_CONFIG_H=1","ENABLE_RELOCATABLE=1","IN_LIBRARY=1","INSTALLDIR=""$(bindir)""","NO_XMALLOC=1","set_relocation_prefix=libiconv_set_relocation_prefix","relocate=libiconv_relocate"
+DEFS = "VMS=1","HAVE_CONFIG_H=1","ENABLE_RELOCATABLE=1","IN_LIBRARY=1","INSTALLPREFIX=""$(prefix)]""","INSTALLDIR=""$(bindir)]""","NO_XMALLOC=1","set_relocation_prefix=libiconv_set_relocation_prefix","relocate=libiconv_relocate"
 
 INCLUDES = /include=([],[-.include])
 
@@ -38,7 +38,7 @@ INSTALL_DATA = copy
 
 #### End of system configuration section. ####
 
-OBJECTS = iconv.obj,localcharset.obj,relocatable.obj
+OBJECTS = libiconv.obj,localcharset.obj,relocatable.obj
 
 all : iconv.olb
 	write sys$output "Nothing else to be done for 'all'."
@@ -46,8 +46,8 @@ all : iconv.olb
 config.h : config.h_vms
 	$(LN) config.h_vms config.h
 
-iconv.obj : iconv.c,encodings.def,encodings_local.def,aliases.h,config.h
-	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) iconv.c
+libiconv.obj : iconv.c,encodings.def,encodings_local.def,aliases.h,config.h
+	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) /obj=libiconv.obj iconv.c
 
 localcharset.obj : [-.libcharset.lib]localcharset.c,relocatable.h,config.h
 	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) [-.libcharset.lib]localcharset.c

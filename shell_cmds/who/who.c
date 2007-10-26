@@ -46,16 +46,21 @@ __FBSDID("$FreeBSD: src/usr.bin/who/who.c,v 1.20 2003/10/26 05:05:48 peter Exp $
 #include <time.h>
 #include <timeconv.h>
 #include <unistd.h>
-#include <utmp.h>
+#include <utmpx.h>
+
+/* from utmp.h; used only for print formatting */
+#define	UT_NAMESIZE	8
+#define	UT_LINESIZE	8
+#define	UT_HOSTSIZE	16
 
 static void	heading(void);
-static void	process_utmp(FILE *);
-static void	process_wtmp(FILE *);
-static void	quick(FILE *);
-static void	row(struct utmp *);
+static void	process_utmp(void);
+static void	process_wtmp();
+static void	quick(void);
+static void	row(const struct utmpx *);
 static int	ttywidth(void);
 static void	usage(void);
-static void	whoami(FILE *);
+static void	whoami(void);
 
 static int	bflag;			/* date & time of last reboot */
 static int	dflag;			/* dead processes */
@@ -69,16 +74,21 @@ static int	sflag;			/* Show name, line, time */
 static int	tflag;			/* time of change to system clock */
 static int	Tflag;			/* Show terminal state */
 static int	uflag;			/* Show idle time */
+#ifdef __APPLE__
+#include <get_compat.h>
+#else  /* !__APPLE__ */
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
+static int	unix2003_std;
 
 int
 main(int argc, char *argv[])
 {
 	int ch;
-	const char *file;
-	FILE *fp;
-	FILE *wtmp_fp;
 
 	setlocale(LC_TIME, "");
+
+	unix2003_std = COMPAT_MODE("bin/who", "unix2003");
 
 	while ((ch = getopt(argc, argv, "abdHlmpqrstTu")) != -1) {
 		switch (ch) {
@@ -141,42 +151,33 @@ main(int argc, char *argv[])
 	if (argc > 1)
 		usage();
 
-	if (*argv != NULL)
-		file = *argv;
-	else
-		file = _PATH_UTMP;
-	if ((fp = fopen(file, "r")) == NULL)
-		err(1, "%s", file);
+	if (*argv != NULL) {
+		if (!utmpxname(*argv) || !wtmpxname(*argv))
+		    usage();
+	}
 
 	if (qflag)
-		quick(fp);
+		quick();
 	else {
 		if (sflag)
 			Tflag = uflag = 0;
 		if (Hflag)
 			heading();
 		if (mflag)
-			whoami(fp);
+			whoami();
 		else
-			/* read and process utmp file for relevant options */
+			/* read and process utmpx file for relevant options */
 			if( Tflag || uflag || !(bflag || dflag || lflag || pflag || rflag) )
-				process_utmp(fp);
+				process_utmp();
 	}
-
-	fclose(fp);
 
 	/* read and process wtmp file for relevant options */
 	if (bflag || dflag || lflag || pflag || rflag ) {
 
-		/* Open the wtmp file */
-		if ((wtmp_fp = fopen(_PATH_WTMP, "r")) == NULL)
-                	err(1, "%s", _PATH_WTMP);
-		else {
-			process_wtmp(wtmp_fp);
-			fclose(wtmp_fp);
-		}
+		process_wtmp();
 	}
 
+	endutxent();
 	exit(0);
 }
 
@@ -199,26 +200,29 @@ heading(void)
 	printf("%-*s ", 12, "TIME");
 	if (uflag)
 		printf("IDLE  ");
+	if (unix2003_std && uflag && !Tflag)
+		printf("     PID ");
 	printf("%-*s", UT_HOSTSIZE, "FROM");
 	putchar('\n');
 }
 
 static void
-row(struct utmp *ut)
+row(const struct utmpx *ut)
 {
-	char buf[80], tty[sizeof(_PATH_DEV) + UT_LINESIZE];
+	char buf[80], tty[sizeof(_PATH_DEV) + _UTX_LINESIZE];
 	struct stat sb;
 	time_t idle, t;
 	static int d_first = -1;
 	struct tm *tm;
 	char state;
+	char login_pidstr[20];
 
 	if (d_first < 0)
 		d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
 
 	if (Tflag || uflag) {
 		snprintf(tty, sizeof(tty), "%s%.*s", _PATH_DEV,
-			UT_LINESIZE, ut->ut_line);
+			_UTX_LINESIZE, ut->ut_line);
 		state = '?';
 		idle = 0;
 		if (stat(tty, &sb) == 0) {
@@ -226,13 +230,22 @@ row(struct utmp *ut)
 			    '+' : '-';
 			idle = time(NULL) - sb.st_mtime;
 		}
+		if (unix2003_std && !Tflag) {
+			/* uflag without Tflag */
+			if (ut->ut_pid) {
+				snprintf(login_pidstr,sizeof(login_pidstr),
+						"%8d",ut->ut_pid);
+			} else {
+				strcpy(login_pidstr,"       ?");
+			}
+		}
 	}
 
-	printf("%-*.*s ", UT_NAMESIZE, UT_NAMESIZE, ut->ut_name);
+	printf("%-*.*s ", UT_NAMESIZE, _UTX_USERSIZE, ut->ut_user);
 	if (Tflag)
 		printf("%c ", state);
-	printf("%-*.*s ", UT_LINESIZE, UT_LINESIZE, ut->ut_line);
-	t = _time32_to_time(ut->ut_time);
+	printf("%-*.*s ", UT_LINESIZE, _UTX_LINESIZE, ut->ut_line);
+	t = _time32_to_time(ut->ut_tv.tv_sec);
 	tm = localtime(&t);
 	strftime(buf, sizeof(buf), d_first ? "%e %b %R" : "%b %e %R", tm);
 	printf("%-*s ", 12, buf);
@@ -244,42 +257,55 @@ row(struct utmp *ut)
 			    (int)(idle / 60 % 60));
 		else
 			printf(" old  ");
+		if (unix2003_std && !Tflag) {
+			printf("%s ", login_pidstr);
+		}
 	}
 	if (*ut->ut_host != '\0')
-		printf("(%.*s)", UT_HOSTSIZE, ut->ut_host);
+		printf("(%.*s)", _UTX_HOSTSIZE, ut->ut_host);
 	putchar('\n');
 
 }
 
 static void
-process_utmp(FILE *fp)
+process_utmp(void)
 {
-	struct utmp ut;
+	struct utmpx *ut;
 
-	while (fread(&ut, sizeof(ut), 1, fp) == 1)
-		if (*ut.ut_name != '\0') {
-			row(&ut);
+	while ((ut = getutxent()) != NULL)
+		if (*ut->ut_user != '\0' && ut->ut_type == USER_PROCESS) {
+			row(ut);
 		}
 }
 
 /* For some options, process the wtmp file to generate output */
 static void
-process_wtmp(FILE *fp)
+process_wtmp(void)
 {
-	struct utmp ut;
-	struct utmp lboot_ut = { "", "", "", 0 };
+	struct utmpx *ut;
+	struct utmpx lboot_ut;
 	int num = 0;	/* count of user entries */
 
-	while (fread(&ut, sizeof(ut), 1, fp) == 1)
-		if (*ut.ut_name != '\0') {
-			if (bflag && (!strcmp(ut.ut_name, "reboot"))) {
-				memcpy(&lboot_ut, &ut, sizeof(ut));
-			}
-			else
-				num++;
-		};
+	setutxent_wtmp(0);	/* zero means reverse chronological */
+	lboot_ut.ut_type = 0;
+	while (!lboot_ut.ut_type && (ut = getutxent_wtmp()) != NULL) {
+		switch(ut->ut_type) {
+		case BOOT_TIME:
+			lboot_ut = *ut;
+			strcpy(lboot_ut.ut_user, "reboot");
+			strcpy(lboot_ut.ut_line, "~");
+			break;
+		case INIT_PROCESS:
+		case LOGIN_PROCESS:
+		case USER_PROCESS:
+		case DEAD_PROCESS:
+			num++;
+			break;
+		}
+	}
+	endutxent_wtmp();
 
-	if (bflag && (!strcmp(lboot_ut.ut_name, "reboot")))
+	if (bflag && lboot_ut.ut_type)
 		row(&lboot_ut);
 
 	/* run level of the init process is unknown in BSD system. If multi
@@ -290,17 +316,17 @@ process_wtmp(FILE *fp)
 }
 
 static void
-quick(FILE *fp)
+quick(void)
 {
-	struct utmp ut;
+	struct utmpx *ut;
 	int col, ncols, num;
 
 	ncols = ttywidth();
 	col = num = 0;
-	while (fread(&ut, sizeof(ut), 1, fp) == 1) {
-		if (*ut.ut_name == '\0')
+	while ((ut = getutxent()) != NULL) {
+		if (*ut->ut_user == '\0' || ut->ut_type != USER_PROCESS)
 			continue;
-		printf("%-*.*s", UT_NAMESIZE, UT_NAMESIZE, ut.ut_name);
+		printf("%-*.*s", UT_NAMESIZE, _UTX_USERSIZE, ut->ut_user);
 		if (++col < ncols / (UT_NAMESIZE + 1))
 			putchar(' ');
 		else {
@@ -316,9 +342,10 @@ quick(FILE *fp)
 }
 
 static void
-whoami(FILE *fp)
+whoami(void)
 {
-	struct utmp ut;
+	struct utmpx ut;
+	struct utmpx *u;
 	struct passwd *pwd;
 	const char *name, *p, *tty;
 
@@ -327,23 +354,24 @@ whoami(FILE *fp)
 	else if ((p = strrchr(tty, '/')) != NULL)
 		tty = p + 1;
 
-	/* Search utmp for our tty, dump first matching record. */
-	while (fread(&ut, sizeof(ut), 1, fp) == 1)
-		if (*ut.ut_name != '\0' && strncmp(ut.ut_line, tty,
-		    UT_LINESIZE) == 0) {
-			row(&ut);
-			return;
-		}
-
-	/* Not found; fill the utmp structure with the information we have. */
 	memset(&ut, 0, sizeof(ut));
+	strncpy(ut.ut_line, tty, sizeof(ut.ut_line));
+	memcpy(ut.ut_id, tty + (strlen(tty) - sizeof(ut.ut_id)), sizeof(ut.ut_id));
+	ut.ut_type = USER_PROCESS;
+	/* Search utmp for our tty, dump first matching record. */
+	u = getutxid(&ut);
+	if (u) {
+		row(u);
+		return;
+	}
+
+	/* Not found; fill the utmpx structure with the information we have. */
 	if ((pwd = getpwuid(getuid())) != NULL)
 		name = pwd->pw_name;
 	else
 		name = "?";
-	strncpy(ut.ut_name, name, UT_NAMESIZE);
-	strncpy(ut.ut_line, tty, UT_LINESIZE);
-	ut.ut_time = _time_to_time32(time(NULL));
+	strncpy(ut.ut_user, name, _UTX_USERSIZE);
+	ut.ut_tv.tv_sec = _time_to_time32(time(NULL));
 	row(&ut);
 }
 

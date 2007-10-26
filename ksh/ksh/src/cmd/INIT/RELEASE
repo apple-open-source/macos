@@ -1,3 +1,224 @@
+07-05-08 regress.sh: execute basename instead of absolute path for short $0
+07-04-27 cc.sgi.mips[34]: for #error to exit non-zero -- a no brainer
+07-04-20 mktest.sh: defer to systems without 'grep -q' -- sigh
+07-04-11 mamprobe.sh: handle $(CC.*) => ${mam_cc_*}, $(...) => ${...}
+07-04-11 make.probe: fix CC.PICBIG probe, default { CC.PIC CC.DLL } to BIG
+07-04-04 iffe.sh: prepend ${tst}${ext} to each .c probe
+07-03-28 package.sh: fix binary tgz architecture type duplication
+07-03-28 package.mk: add binary write PACKAGE.$HOSTTYPE.lst
+07-03-28 iffe.sh: add -F header to mac test
+07-03-23 make.probe: handle file(1) that returns 'archive' for .so
+07-03-22 mamprobe.sh: fix STDED probe for implementations that ignore EOF
+07-03-11 package.sh: add nocopyright and tst => nocopyright
+07-03-11 package.mk: add copyright=0
+07-03-08 C+probe: restore IFS after probe.ini
+07-02-26 mamake.c: expand first of ${mam_lib*} for ${AR}
+07-01-05 package.sh: fix "admin write binary" logic
+07-01-01 iffe.sh: add "cmd" --verbose trace
+07-01-01 iffe.sh: sort => LC_ALL=C sort
+07-01-01 C+probe: LC_ALL=C
+06-12-22 make.probe: lean on gcc -v for stdlib, but preserve /usr/local!
+06-11-23 package.sh: *.md5 are not tarballs -- doh
+06-11-23 iffe.sh: add -F, --features=feature-test-header
+06-11-11 make.probe: favor lib64 over lib for hosttype==*64
+06-10-31 make.probe: add "-ignore-source-dir -iquote" test
+06-10-31 iffe.sh: add status{...} code block
+06-10-11 regress.sh: fix DO to handle {...} (time for regress.tst?)
+06-10-11 package.sh: handle already gunzip'd *.tgz
+06-10-06 iffe.sh: add reference for header content tests
+06-09-27 regress.sh: fix UMASK to do DO too (duh)
+06-09-22 iffe.sh: drop -O for npt tests (for msvc intrinsics)
+06-09-14 cc.darwin: drop -O until gcc 4.* gets its act together
+06-09-11 package.sh: { cc ld ldd } intercepts check ${HOSTTYPE%.*} too
+06-09-08 regress.sh: add PIPE INPUT|OUTPUT for pipe io
+06-09-05 C+probe: add { probe_version version_stamp version_string }
+06-09-05 make.probe: add version stamp comment, CC.VERSION[.STRING]
+06-08-27 regress.sh,mktest.sh: add UMASK
+06-08-25 regress.sh: add -b,--ignore-space,IGNORESPACE
+06-08-25 mktest.sh: add IGNORESPACE
+06-08-24 mktest.sh: handle \000 in data
+06-08-24 regress.sh: handle -f* for INPUT|OUTPUT|ERROR
+06-08-16 package.sh: fix 'install flat' logic
+06-08-11 rt.sh: handle style=shell %K date format
+06-07-17 ratz.c: fix __MVS__ FAR definition
+06-07-17 iffe.sh: "header x.h" -- deprecate "include x.h" for .SCAN.iffe
+06-07-17 package.sh: differentiate urls vs. assignments
+06-06-27 rt.sh: add --failed, --heading
+06-06-27 C+probe,TEST.mk,make.probe,mktest.sh,regress.sh: 'ulimit -c 0'
+06-06-26 cc.darwin.ppc: handle -lcc_dynamic disappearance
+06-06-25 mktest.sh: implement PROG
+06-06-11 Makefile: add -ldbm :MAPLIB:, provide public MAPLIB.mk
+06-05-06 package.sh: add PACKAGE_admin_tail_timeout
+06-05-22 ratz.c: upgrade to zlib-1.2.3
+06-05-09 package.sh: fix admin.db docs
+06-03-11 package.sh: fix `package use - command ...'
+06-03-05 make.probe: work around pedantic bash 3.1 mismatched " in `.`
+06-02-14 package.sh: "results failed test" == "results test failed"
+	 cc.sgi.*: add _AST_cc_OPTIONS parameterization, -OPT:Olimit=0
+	 cc.linux.ia64-icc: add for intel cc
+06-02-02 package.sh: freebsd stuck with os version for all arch
+06-02-01 package.mk: fix locale logic (tw -d requires dir arg)
+06-01-31 package.sh: require $CC only for make|test
+06-01-30 package.sh,hurl.sh: use the backwards-compatible --http-passwd
+	 package.sh: add more pdksh => /bin/sh checks
+06-01-26 package.sh: wget --http-pass => --http-password
+	 package.sh: fix wget error logic
+	 hurl.sh: wget --http-pass => --http-password
+06-01-11 package.mk: pass package.license.class to make --mam too
+	 package.mk: variants=pattern => --variants=pattern
+	 package.sh: darwin rel<=7 => darwin7.ppc
+	 package.sh: freebsd rel<=4 => freebsd4
+	 package.sh: freebsd rel<=5 => freebsd5
+05-12-07 iffe.sh: don't emit <stdio.h> if <sfio.h>|<ast.h> (XXX)
+05-12-05 make.probe: disable readonly.exe core dump via ulimit -c 0
+05-09-22 mktest.sh: add EXEC [ ++NOOUTPUT ++NOERROR ++NOEXIT ]
+05-09-21 mktest.sh: fix --style=shell compare to ignore \r
+05-09-12 TEST.mk: all --force to force %.rt regeneration
+05-09-05 TEST.mk: regenerate from %.rt only if newer, :SAVE: %.tst
+05-08-25 mktest.sh: add
+	 TEST.mk: add %.rt=>%.tst for mktest
+05-08-18 package.sh: 'package host cpu' now checks $NPROC first
+05-07-17 iffe.sh: add { define extern include print } ops
+	 iffe.sh: accept output{...}end output on success only -- doh
+05-07-01 package.sh: add TARPROBE for tar B flag probe
+05-06-24 package.sh: fix binary read chmod via *.sum
+05-06-06 package.sh: fix KEEP_HOSTTYPE logic to handle synthesized types
+05-06-01 make.probe: verify that cc_pic works for hosted cc
+	 cc.lynxos.ppc: make -mshared the default
+	 package.sh: note $INSTALLROOT/bin/@(cc|ld|ldd) installation
+05-05-25 make.probe: add CC.INCLUDE.LOCAL instead of -I- in CC.DIALECT
+05-05-24 iffe.sh: really fix grouping logic -- with tests this time
+	 package.sh: pipe/socket configuration mismatches => use /bin/sh
+05-04-28 TEST.mk: add $(TESTS)
+05-04-19 package.sh: package results test uses rt if possible
+	 iffe.sh: fix 'op var - ... - ...' grouping logic
+05-04-15 rt.sh: handle autom4ate style
+05-04-11 regress.sh: fix unit name when command line unit also specified
+	 rt.sh: handle all ast package test output formats
+	 package.sh: fix make docs for options passed to underlying make
+05-04-08 package.sh: cp -p makerules.mo to $OK to preserve mtime
+	 regress.sh: add "TITLE name" to change TEST output title
+05-04-01 rt.sh: add pretty make test + regress.sh wrapper
+05-03-29 package.sh: test -e path => test -f path -o -d path
+05-03-24 make.probe: fix CC.PICBIG probe to prefer -fPIC over -fpic -- doh
+05-03-19 mamake.c: command line name=var also defines name.FORCE=var
+05-03-11 regress.sh: unset LC_ALL when LC_* EXPORT'd
+	 package.sh: old make.out saved in circular make.out.[1-9]
+	 mamake.c: sync with nmake :W=O:
+05-03-01 package.sh: fix flat hierarchy initialization
+	 package.sh: admin action now properly resets sibling remote logs
+	 package.mk: relax unknown/unwritten package messages to warnings
+	 package.sh: handle space in command line name=value
+	 make.probe: add mvs -Wc,dll,exportall,longname,rent to CC.DLL probe
+05-02-24 package.sh: hosttype *.powerpc => *.ppc
+	 cc.lynxos.ppc,ldd.lynxos.ppc: add
+05-02-22 mamake.c: fix { -G --debug-symbols -S --strip-symbols } MAMAKEFLAGS bug
+05-02-20 probe.win32: handle /platformsdk mount
+05-02-19 package.sh,package.mk: add write tst for tgz in tst subdir
+05-02-18 package.sh: accept cc -dumpmachine with 0 or 1 -
+05-02-14 package.sh: handle mutiple architectures per host in admin.db
+	 Makefile,package.sh: honor $INSTALLROOT/bin/.paths overrides
+	 package.sh: normalize trailing [-_]bits in host type
+	 iffe.sh: some ksh-compatible shells don't do *(pattern)
+05-02-11 iffe.sh: back out 05-01-11 child process stdin hijack
+	 cc.lynxos.i386: -dynamic instead of -static default
+05-02-10 package.sh: cyg usr/doc => usr/share/doc
+05-02-08 package.sh: drop -m with pax -- delta bug fixed 2005-02-08
+	 iffe.sh: work around old bash 0<... redirection bug
+05-02-06 package.mk: source.tgz: update generated files only when they change
+05-02-02 *.sh,*probe: IFS may be unset and { ash bsh } don't on startup -- wow
+05-01-11 package.sh: update setup docs to include authorize+password
+	 package.mk: fix .source.cyg final directory edit
+	 package.mk: notice=1 for conspicuous empty NOTICE file
+	 WWW.mk: fix *-index.html installation
+	 filter.sh: retain input file suffix in tmp copy
+	 mamexec.c: fix non-contiguous "exec" bug that skipped lines
+	 iffe.sh: fix candidate lib test to try grouping subsequent libs
+	 iffe.sh: fix child process stdin hijack that skipped input lines
+	 iffe.sh: --shell=osh to force read -r compatibility command
+	 iffe.sh: chop iffe input leading space before # for KnR compatibility
+05-01-05 package.sh: add ${TAR} ${TARFLAGS} and tar B flag for pipes
+	 mamake.c: fix makefile scan to ignore lib*.[hH]
+	 iffe.sh: immunize function/symbol tests from aggressive -O
+04-12-28 WWW.mk: add :WWWPAGE: faq.*.mm index generator
+04-12-21 ratz.c: make sure tmp dir is writable -- doh
+04-12-08 iffe.sh: fix dat test for aggressive -O
+04-12-01 iffe.sh: add `include file' to pull in #define's for `exp'
+04-11-11 package.sh: default MAKESKIP is "*[-.]*"
+04-10-22 ratz.c: change docs to note zlib license
+	 mamake.c: handle --debug-symbols and --strip-symbols
+	 package.sh: make (debug|strip)=1 => --(debug|strip)-symbols
+	 package.mk: add :LICENSE: => package.license.class
+	 mamake.c: fix recursive order logic
+04-10-18 package.mk: add :LICENSE:, :OMIT: to omit package subdirs
+04-10-11 package.sh: add 'authorize name' and 'password password'
+04-10-01 iffe.sh: double check $static link with ! $static
+	 Makefile: add BUILTIN_LIB to $INSTALLROOT/bin/.paths
+	 make.probe: add CC.DIALECT EXPORT={ALL,REF,EXT,DLL}
+	 package.sh: add BUILTIN_LIB to $INSTALLROOT/bin/.paths
+04-09-21 package.mk: $(init)$(name) is now an implicit prereq
+04-09-09 package.sh: copy makerules.mo to $INSTALLROOT/bin/ok
+04-09-01 package.mk,package.sh: rename *.txt => *.README
+	 package.mk: add the runtime package type (no *.[ah])
+	 iffe.sh: fix key test reports
+04-08-26 Makefile: { add m2.c m3.c } -lm tests for { frexp[l] ldexp[l] }
+04-08-11 package.mk: handle HOSTTYPE for solaris > 9 
+	 package.sh: add `checkaout proto' for { make view }
+	 package.sh: check for { md5sum md5 }
+	 iffe.sh: add {if|elif|else|endif} test ...
+	 iffe.sh: add 'exp - expression' and '( expression )'
+	 iffe.sh: add 'name = test ...' user defined macros
+	 iffe.sh: add '! test ...' negation
+	 TEST.mk: add implied { .c .sh } generated prereq
+	 cc.darwin.ppc: handle 10.3 -dylib mess
+04-08-01 package.mk: let include handle nested requirements -- duh
+04-07-31 package.sh: attempt a second ping before admin assumes host down
+04-07-26 package.sh: fix hp.ia64 HOSTTYPE
+04-07-23 probe.win32: generalize #include dir order search
+04-07-17 regress.sh: add INPUT -x for chmod +x
+04-07-01 regress.sh: TMP => TWD
+04-06-29 regress.sh: put COMMAND in $TWD too
+04-06-21 regress.sh: mkdir -p INPUT and OUTPUT intermediate dirs
+	 TEST.mk: add :TEST: -- to disable .c .sh search
+04-06-18 TEST.mk: add .SCAN.tst
+04-06-17 regress.sh: TEST returns true if active, false otherwise
+	 regress.sh: add CD to change test pwd from $TWD
+04-06-16 regress.sh: add TWD for ./unit.tmp override
+	 regress.sh: DO now flushes previous test
+	 regress.sh: INPUT and OUTPUT handle -f for printf instead of print
+04-06-11 package.sh: make sure $INSTALLROOT/bin is in front of $PATH
+	 package.sh: skip nmake if older than 2000-10-31
+04-05-20 package.sh: fix arg vs. package parse with - or '' to disambuguate
+04-05-11 package.sh: package verbose update lists closure for package setup
+	 package.sh: add src/lib/libardir to nmake proto bootstrap
+	 regress.sh: probe for rm -u vs. chmod -R u+rwx
+04-05-01 package.sh: $CC must be C, not C++; allow release command on $PATH
+04-04-15 make.probe: check probe_libdir false positives
+	 package.sh: add lib/package/*.lic src package subdirs
+	 package.mk: add mamfile=0 to inhibit Mamfile generation
+	 iffe.sh: config name_DECLARED => HAVE_name_DECL
+	 iffe.sh: fix mac to handle default value
+04-04-11 iffe.sh: normalize sed [\\\\/] quoting
+04-04-04 package.mk: only checksum generated tarballs
+	 mamprobe.sh: add STDCHMOD
+04-04-01 C+probe: set export LANG=C for uniform error messages
+	 make.probe: another CC.STDLIB tweak
+	 package.sh: fix regress core dump pattern, expand [a-z] match ranges
+04-03-31 Makefile: add intl :MAPLIB: test
+	 make.probe: fix CC.STDLIB search; drop CC.* path duplicates
+04-03-28 iffe.sh: drop unused exec $stdin<&0 dup
+04-03-25 Makefile: add iconv :MAPLIB:
+	 package.sh: use ${PING:-ping -c 1 -w 4}, allowing admin.db override
+04-03-24 package.mk: add *.md5 checksum for each *.(c|exe|tgz)
+	 package.sh: update base change on md5 sum instead of size
+	 iffe.sh: adjust case label \ and keyword quoting for ancient /bin/sh
+04-03-22 probe.win32: ncc => nld
+04-03-19 CONVERT.mk: change the instructions and old source dir default
+	 package.mk: fix recurse=list check
+	 package.mk: add *.md5 checksum for each *.(c|exe|tgz)
+	 package.sh: fix update base/delta/sync existence check
+04-03-18 iffe.sh: -d2 does not remove core dumps on exit
+04-03-17 package.sh: fix make recurse arg/action order
 04-02-29 package.sh: add regress action to compare current and previous tests
 	 package.sh: fix sgi.mips[23] HOSTTYPE test for old irix cc
 	 package.sh: add `export variable ...'
@@ -34,7 +255,7 @@
 03-10-11 regress.sh: add EXPORT, export COLUMNS=80 for message consistency
 03-09-23 ratz.c: fix tar header number parse bug that skipped to next number
 	 regress.sh: rm cleanup now handles files matching -*
-03-09-11 iffe.sh: add if-elif-else and unnamed { ... } blocks
+03-09-11 iffe.sh: add unnamed { ... } blocks
 	 regress.sh: add COPY from to, like MOVE but comprison still done
 	 regress.sh: rm -rfu to handle test dirs w/o u+rwx
 03-08-14 Makfile: add hello.c to the manifest

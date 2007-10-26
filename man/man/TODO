@@ -1,3 +1,22 @@
+Improvements and reviews of internationalization/localization, 
+Italian, Spanish, Czech and Russian manual and catalog review.
+
+Review support under HP-UX, Irix, Solaris, AIX, OS-X and other *NIXes. 
+
+Some patches long in the works (you know who you are) will be included in the next release cycle.
+
+----> The localization and platform support are being addressed in the
+upcoming minor releases. Comments and patches welcome.
+
+----> UTF-8 support is in the works as well. Comments and patches welcome.
+
+hman does not use LANG; review coherence of ENV use.
+
+Fixes for Cygwin.
+
+Are there security problems in the present setup?
+
+-----------------------------------------------------------
 MANPL gives page length - undocumented; may disappear again
 
 [But brobison@ecst.csuchico.edu likes it and says:
@@ -8,9 +27,3 @@ export MANPAGER='less -i'
 export MANPL='$(perl -e "print ($LINES - 1) / 6, \"i\";")'
 ]
 
-hman does not use LANG
-
-Integrate Olaf's `cache manager' patch ?
-Adding additional processes and communication makes the
-system much more fragile. (And might fail on CYGWIN32.)
-Are there known security problems in the present setup?

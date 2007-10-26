@@ -50,7 +50,7 @@ Node	*arglist = 0;	/* list of args for current function */
 %token	<i>	NL ',' '{' '(' '|' ';' '/' ')' '}' '[' ']'
 %token	<i>	ARRAY
 %token	<i>	MATCH NOTMATCH MATCHOP
-%token	<i>	FINAL DOT ALL CCL NCCL CHAR OR STAR QUEST PLUS
+%token	<i>	FINAL DOT ALL CCL NCCL CHAR OR STAR QUEST PLUS IGNORE_PRIOR_ATOM
 %token	<i>	AND BOR APPEND EQ GE GT LE LT NE IN
 %token	<i>	ARG BLTIN BREAK CLOSE CONTINUE DELETE DO EXIT FOR FUNC 
 %token	<i>	SUB GSUB IF INDEX LSUBSTR MATCHFCN NEXT NEXTFILE
@@ -354,6 +354,7 @@ term:
 	| term '-' term			{ $$ = op2(MINUS, $1, $3); }
 	| term '*' term			{ $$ = op2(MULT, $1, $3); }
 	| term '/' term			{ $$ = op2(DIVIDE, $1, $3); }
+	| re '/' term			{ $$ = op2(DIVIDE, $1, $3); }
 	| term '%' term			{ $$ = op2(MOD, $1, $3); }
 	| term POWER term		{ $$ = op2(POWER, $1, $3); }
 	| '-' term %prec UMINUS		{ $$ = op1(UMINUS, $2); }

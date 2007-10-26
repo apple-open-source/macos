@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * test expression
@@ -42,25 +38,21 @@
 #include	"builtins.h"
 #include	"FEATURE/externs"
 #include	"FEATURE/poll"
+#include	<tmx.h>
 
-#ifndef _lib_setregid
+#if !_lib_setregid
 #   undef _lib_setreuid
 #endif /* _lib_setregid */
 
-#ifdef _lib_setreuid
-    extern int setreuid(uid_t,uid_t);
-    extern int setregid(uid_t,uid_t);
-#endif /* _lib_setreuid */
-
 #ifdef S_ISSOCK
 #   if _pipe_socketpair
-#      if _socketpair_shutdown_mode
-#         define isapipe(f,p) (test_stat(f,p)>=0&&S_ISFIFO((p)->st_mode)||S_ISSOCK((p)->st_mode)&&(p)->st_ino&&((p)->st_mode&(S_IRUSR|S_IWUSR))!=(S_IRUSR|S_IWUSR))
-#      else
-#         define isapipe(f,p) (test_stat(f,p)>=0&&S_ISFIFO((p)->st_mode)||S_ISSOCK((p)->st_mode)&&(p)->st_ino)
-#      endif
+#       if _socketpair_shutdown_mode
+#           define isapipe(f,p) (test_stat(f,p)>=0&&S_ISFIFO((p)->st_mode)||S_ISSOCK((p)->st_mode)&&(p)->st_ino&&((p)->st_mode&(S_IRUSR|S_IWUSR))!=(S_IRUSR|S_IWUSR))
+#       else
+#           define isapipe(f,p) (test_stat(f,p)>=0&&S_ISFIFO((p)->st_mode)||S_ISSOCK((p)->st_mode)&&(p)->st_ino)
+#       endif
 #   else
-#      define isapipe(f,p) (test_stat(f,p)>=0&&S_ISFIFO((p)->st_mode))
+#       define isapipe(f,p) (test_stat(f,p)>=0&&S_ISFIFO((p)->st_mode)||S_ISSOCK((p)->st_mode)&&(p)->st_ino)
 #   endif
 #   define isasock(f,p) (test_stat(f,p)>=0&&S_ISSOCK((p)->st_mode))
 #else
@@ -89,6 +81,32 @@ struct test
 static char *nxtarg(struct test*,int);
 static int expr(struct test*,int);
 static int e3(struct test*);
+
+static int test_strmatch(const char *str, const char *pat)
+{
+	int match[2*(MATCH_MAX+1)],n;
+	register int c, m=0;
+	register const char *cp=pat; 
+	while(c = *cp++)
+	{
+		if(c=='(')
+			m++;
+		if(c=='\\' && *cp)
+			cp++;
+	}
+	if(m)
+		m++;
+	else
+		match[0] = 0;
+	if(m >  elementsof(match)/2)
+		m = elementsof(match)/2;
+	n = strgrpmatch(str, pat, match, m, STR_MAXIMAL|STR_LEFT|STR_RIGHT);
+	if(m==0 && n==1)
+		match[1] = strlen(str);
+	if(n)
+		sh_setmatch(str, -1, n, match);
+	return(n);
+}
 
 int b_test(int argc, char *argv[],void *extra)
 {
@@ -227,13 +245,13 @@ static int e3(struct test *tp)
 	register int op;
 	char *binop;
 	arg=nxtarg(tp,0);
-	if(c_eq(arg, '!'))
+	if(arg && c_eq(arg, '!'))
 		return(!e3(tp));
 	if(c_eq(arg, '('))
 	{
 		op = expr(tp,1);
 		cp = nxtarg(tp,0);
-		if(!c_eq(cp, ')'))
+		if(!cp || !c_eq(cp, ')'))
 			errormsg(SH_DICT,ERROR_exit(2),e_missing,"')'");
 		return(op);
 	}
@@ -283,6 +301,7 @@ skip:
 int test_unop(register int op,register const char *arg)
 {
 	struct stat statb;
+	int f;
 	switch(op)
 	{
 	    case 'r':
@@ -331,12 +350,9 @@ int test_unop(register int op,register const char *arg)
 #endif
 	    case 'L':
 	    case 'h': /* undocumented, and hopefully will disappear */
-	    {
-		struct stat statb;
 		if(*arg==0 || arg[strlen(arg)-1]=='/' || lstat(arg,&statb)<0)
 			return(0);
 		return(S_ISLNK(statb.st_mode));
-	    }
 
 	    case 'C':
 #ifdef S_ISCTG
@@ -364,7 +380,7 @@ int test_unop(register int op,register const char *arg)
 	    case 'S':
 		return(isasock(arg,&statb));
 	    case 'N':
-		return(test_stat(arg,&statb)>=0 && (statb.st_mtime>statb.st_atime));
+		return(test_stat(arg,&statb)>=0 && tmxgetmtime(&statb) > tmxgetatime(&statb));
 	    case 'p':
 		return(isapipe(arg,&statb));
 	    case 'n':
@@ -375,8 +391,6 @@ int test_unop(register int op,register const char *arg)
 		sfsync(sfstdout);
 	    case 'O':
 	    case 'G':
-	    {
-		struct stat statb;
 		if(*arg==0 || test_stat(arg,&statb)<0)
 			return(0);
 		if(op=='s')
@@ -384,13 +398,15 @@ int test_unop(register int op,register const char *arg)
 		else if(op=='O')
 			return(statb.st_uid==sh.userid);
 		return(statb.st_gid==sh.groupid);
-	    }
 	    case 'a':
 	    case 'e':
 		return(permission(arg, F_OK));
 	    case 'o':
-		op = sh_lookup(arg,shtab_options);
-		return(op && sh_isoption(op)!=0);
+		f=1;
+		if(*arg=='?')
+			return(sh_lookopt(arg+1,&f)>0);
+		op = sh_lookopt(arg,&f);
+		return(op && (f==(sh_isoption(op)!=0)));
 	    case 't':
 		if(isdigit(*arg) && arg[1]==0)
 			 return(tty_check(*arg-'0'));
@@ -425,9 +441,9 @@ int test_binop(register int op,const char *left,const char *right)
 		case TEST_OR:
 			return(*left!=0);
 		case TEST_PEQ:
-			return(strmatch(left, right));
+			return(test_strmatch(left, right));
 		case TEST_PNE:
-			return(!strmatch(left, right));
+			return(!test_strmatch(left, right));
 		case TEST_SGT:
 			return(strcoll(left, right)>0);
 		case TEST_SLT:
@@ -465,13 +481,20 @@ int test_binop(register int op,const char *left,const char *right)
 
 static time_t test_time(const char *file1,const char *file2)
 {
+	Time_t t1, t2;
 	struct stat statb1,statb2;
 	int r=test_stat(file2,&statb2);
 	if(test_stat(file1,&statb1)<0)
 		return(r<0?0:-1);
 	if(r<0)
 		return(1);
-	return(statb1.st_mtime-statb2.st_mtime);
+	t1 = tmxgetmtime(&statb1);
+	t2 = tmxgetmtime(&statb2);
+	if (t1 > t2)
+		return(1);
+	if (t1 < t2)
+		return(-1);
+	return(0);
 }
 
 /*
@@ -493,7 +516,7 @@ int test_inode(const char *file1,const char *file2)
  * The static buffer statb is shared with test_mode.
  */
 
-sh_access(register const char *name, register int mode)
+int sh_access(register const char *name, register int mode)
 {
 	struct stat statb;
 	if(*name==0)

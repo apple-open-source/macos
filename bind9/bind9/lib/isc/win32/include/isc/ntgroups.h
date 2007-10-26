@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: ntgroups.h,v 1.2.200.3 2004/03/08 09:05:03 marka Exp $ */
+/* $Id: ntgroups.h,v 1.3 2004/03/05 05:12:05 marka Exp $ */
 
 #ifndef ISC_NTGROUPS_H
 #define ISC_NTGROUPS_H 1

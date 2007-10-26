@@ -1,8 +1,8 @@
 /* schema.c - routines to manage schema definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/schema.c,v 1.90.2.4 2004/08/30 15:52:51 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/schema.c,v 1.100.2.5 2006/01/03 22:16:15 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,7 +23,6 @@
 #include <ac/socket.h>
 
 #include "slap.h"
-#include "ldap_pvt.h"
 #include "lutil.h"
 
 
@@ -46,13 +45,8 @@ schema_info( Entry **entry, const char **text )
 	e = (Entry *) SLAP_CALLOC( 1, sizeof(Entry) );
 	if( e == NULL ) {
 		/* Out of memory, do something about it */
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			"schema_info: SLAP_CALLOC failed - out of memory.\n", 0, 0,0 );
-#else
 		Debug( LDAP_DEBUG_ANY, 
 			"schema_info: SLAP_CALLOC failed - out of memory.\n", 0, 0, 0 );
-#endif
 		*text = "out of memory";
 		return LDAP_OTHER;
 	}
@@ -61,8 +55,8 @@ schema_info( Entry **entry, const char **text )
 	/* backend-specific schema info should be created by the
 	 * backend itself
 	 */
-	ber_dupbv( &e->e_name, &global_schemadn );
-	ber_dupbv( &e->e_nname, &global_schemandn );
+	ber_dupbv( &e->e_name, &frontendDB->be_schemadn );
+	ber_dupbv( &e->e_nname, &frontendDB->be_schemandn );
 	e->e_private = NULL;
 
 	BER_BVSTR( &vals[0], "subentry" );
@@ -88,8 +82,8 @@ schema_info( Entry **entry, const char **text )
 	{
 		int rc;
 		AttributeDescription *desc = NULL;
-		struct berval rdn = global_schemadn;
-		vals[0].bv_val = strchr( rdn.bv_val, '=' );
+		struct berval rdn = frontendDB->be_schemadn;
+		vals[0].bv_val = ber_bvchr( &rdn, '=' );
 
 		if( vals[0].bv_val == NULL ) {
 			*text = "improperly configured subschema subentry";
@@ -108,11 +102,11 @@ schema_info( Entry **entry, const char **text )
 			return LDAP_OTHER;
 		}
 
-		nvals[0].bv_val = strchr( global_schemandn.bv_val, '=' );
-		assert( nvals[0].bv_val );
+		nvals[0].bv_val = ber_bvchr( &frontendDB->be_schemandn, '=' );
+		assert( nvals[0].bv_val != NULL );
 		nvals[0].bv_val++;
-		nvals[0].bv_len = global_schemandn.bv_len -
-			(nvals[0].bv_val - global_schemandn.bv_val);
+		nvals[0].bv_len = frontendDB->be_schemandn.bv_len -
+			(nvals[0].bv_val - frontendDB->be_schemandn.bv_val);
 
 		if ( attr_merge_one( e, desc, vals, nvals ) ) {
 			/* Out of memory, do something about it */
@@ -123,10 +117,6 @@ schema_info( Entry **entry, const char **text )
 	}
 
 	{
-		struct		tm *ltm;
-#ifdef HAVE_GMTIME_R
-		struct		tm ltm_buf;
-#endif
 		char		timebuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
 
 		/*
@@ -140,19 +130,10 @@ schema_info( Entry **entry, const char **text )
 		 * AND modified at server startup time ...
 		 */
 
-#ifdef HAVE_GMTIME_R
-		ltm = gmtime_r( &starttime, &ltm_buf );
-#else
-		ldap_pvt_thread_mutex_lock( &gmtime_mutex );
-		ltm = gmtime( &starttime );
-#endif /* HAVE_GMTIME_R */
-		lutil_gentime( timebuf, sizeof(timebuf), ltm );
-#ifndef HAVE_GMTIME_R
-		ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
-#endif
-
 		vals[0].bv_val = timebuf;
-		vals[0].bv_len = strlen( timebuf );
+		vals[0].bv_len = sizeof( timebuf );
+
+		slap_timestamp( &starttime, vals );
 
 		if( attr_merge_one( e, ad_createTimestamp, vals, NULL ) ) {
 			/* Out of memory, do something about it */
@@ -183,67 +164,4 @@ schema_info( Entry **entry, const char **text )
 	
 	*entry = e;
 	return LDAP_SUCCESS;
-}
-
-
-void schema_load_directory_based_schema( int first_load )
-{
-	int					rc;
-	BerValue			dn;
-	BerValue			ndn;
-	BerValue			*bv;
-	Operation			op = {0};
-	Entry				*entry;
-	Attribute			*attrsValues;
-	unsigned int		i,j;
-	unsigned int		num_vals=0;
-	char				*prettyDN = NULL;
-	char				*line = NULL;
-	
-	op.o_tmpmfuncs = &ch_mfuncs;
-	op.o_threadctx = ldap_pvt_thread_pool_context();
-	
-	/* prepare the op */
-	op.o_time = slap_get_time();
-
-	dn = global_schemaconfigdn;
-	ndn = global_schemaconfigndn;
-	if ( ndn.bv_len == 0 || dn.bv_len == 0 ) 
-		return;
-
-	op.o_bd = select_backend( &ndn, 0, 0 );
-
-	rc = be_entry_get_rw( &op, &ndn, slap_schema.si_oc_container, slap_schema.si_ad_attributeTypesConfig, 
-		0, &entry );
-
-	if( rc != LDAP_SUCCESS ) {
-		fprintf( stderr,
-			"couldn't read the schema entry from the directory(%d):  %s\n",
-			rc, ldap_err2string(rc) );
-		return;
-	}
-	
-	// first, load the attribute types
-	attrsValues = attr_find( entry->e_attrs, slap_schema.si_ad_attributeTypesConfig );
-	if (attrsValues != NULL) {
-		bv = attrsValues->a_vals; 
-
-		/* figure out how many values there are */
-		for( num_vals=0; bv[num_vals].bv_val != NULL && bv[num_vals].bv_len != 0; num_vals++ ) 
-		{
-			parse_at(dn.bv_val,num_vals,bv[num_vals].bv_val,NULL,!first_load);
-		}
-	}
-	
-	// then load object classes
-	attrsValues = attr_find( entry->e_attrs, slap_schema.si_ad_objectClassesConfig );
-	if (attrsValues != NULL) {
-		bv = attrsValues->a_vals; 
-
-		/* figure out how many values there are */
-		for( num_vals=0; bv[num_vals].bv_val != NULL && bv[num_vals].bv_len != 0; num_vals++ ) 
-		{
-			parse_oc(dn.bv_val,num_vals,bv[num_vals].bv_val,NULL,!first_load);
-		}
-	}
 }

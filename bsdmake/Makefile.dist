@@ -1,8 +1,7 @@
-# $FreeBSD: src/usr.bin/make/Makefile.dist,v 1.2 2001/03/01 06:26:32 imp Exp $
+# $FreeBSD: src/usr.bin/make/Makefile.dist,v 1.4 2005/05/24 13:19:40 harti Exp $
 # a very simple makefile...
 pmake:
 	@echo 'make started.'
-	cc -DDEFSHELL=1 -I. -c *.c
-	cd lst.lib; cc -I.. -c *.c
-	cc *.o lst.lib/*.o -o pmake
+	cc -DDEFSHELLNAME=\"sh\" -I. -c *.c
+	cc *.o -o pmake
 	@echo 'make completed.'

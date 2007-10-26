@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1983, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -54,27 +31,27 @@
  * SUCH DAMAGE.
  *
  *	from: @(#)gettytab.h	8.2 (Berkeley) 3/30/94
- *	$Id: gettytab.h,v 1.1.1.2 2000/01/11 02:10:14 wsanchez Exp $
+ * $FreeBSD: src/libexec/getty/gettytab.h,v 1.14 2003/06/10 18:30:41 yar Exp $
  */
 
 /*
  * Getty description definitions.
  */
 struct	gettystrs {
-	char	*field;		/* name to lookup in gettytab */
+	const char *field;	/* name to lookup in gettytab */
 	char	*defalt;	/* value we find by looking in defaults */
 	char	*value;		/* value that we find there */
 };
 
 struct	gettynums {
-	char	*field;		/* name to lookup */
+	const char *field;	/* name to lookup */
 	long	defalt;		/* number we find in defaults */
 	long	value;		/* number we find there */
 	int	set;		/* we actually got this one */
 };
 
 struct gettyflags {
-	char	*field;		/* name to lookup */
+	const char *field;	/* name to lookup */
 	char	invrt;		/* name existing in gettytab --> false */
 	char	defalt;		/* true/false in defaults */
 	char	value;		/* true/false flag */
@@ -108,6 +85,13 @@ struct gettyflags {
 #define FL	gettystrs[21].value
 #define WE	gettystrs[22].value
 #define LN	gettystrs[23].value
+#define Lo	gettystrs[24].value
+#define PP	gettystrs[25].value
+#define IF	gettystrs[26].value
+#define IC	gettystrs[27].value
+#define AC	gettystrs[28].value
+#define AL	gettystrs[29].value
+#define DF	gettystrs[30].value
 
 /*
  * Numeric definitions.
@@ -152,6 +136,11 @@ struct gettyflags {
 #define	O1set	gettynums[23].set
 #define	O2	gettynums[24].value
 #define	O2set	gettynums[24].set
+#define	DE	gettynums[25].value
+#define RTset	gettynums[26].set
+#define RT	gettynums[26].value
+#define CT	gettynums[27].value
+#define DC	gettynums[28].value
 
 /*
  * Boolean values.
@@ -181,14 +170,8 @@ struct gettyflags {
 #define AB	gettyflags[19].value
 #define DX	gettyflags[20].value
 #define	NP	gettyflags[21].value
+#define	NPset	gettyflags[21].set
 #define	MB	gettyflags[22].value
-
-int	getent __P((char *, char *));
-long	getnum __P((char *));
-int	getflag __P((char *));
-char	*getstr __P((char *, char **));
-
-extern	struct gettyflags gettyflags[];
-extern	struct gettynums gettynums[];
-extern	struct gettystrs gettystrs[];
-extern	int hopcount;
+#define	HW	gettyflags[23].value
+#define	NC	gettyflags[24].value
+#define	PL	gettyflags[25].value

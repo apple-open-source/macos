@@ -59,7 +59,7 @@
 
 static void master_status_event(int event, char *context)
 {
-    char   *myname = "master_status_event";
+    const char *myname = "master_status_event";
     MASTER_SERV *serv = (MASTER_SERV *) context;
     MASTER_STATUS stat;
     MASTER_PROC *proc;
@@ -89,13 +89,15 @@ static void master_status_event(int event, char *context)
 	/* NOTREACHED */
 
     default:
-	msg_warn("%s: partial status (%d bytes)", myname, n);
+	msg_warn("service %s(%s): child (pid %d) sent partial status update (%d bytes)",
+		 serv->ext_name, serv->name, stat.pid, n);
 	return;
 
     case sizeof(stat):
 	pid = stat.pid;
 	if (msg_verbose)
-	    msg_info("%s: pid %d avail %d", myname, stat.pid, stat.avail);
+	    msg_info("%s: pid %d gen %u avail %d",
+		     myname, stat.pid, stat.gen, stat.avail);
     }
 
     /*
@@ -109,6 +111,11 @@ static void master_status_event(int event, char *context)
 					(char *) &pid, sizeof(pid))) == 0) {
 	if (msg_verbose)
 	    msg_info("%s: process id not found: %d", myname, stat.pid);
+	return;
+    }
+    if (proc->gen != stat.gen) {
+	msg_info("ignoring status update from child pid %d generation %u",
+		 pid, stat.gen);
 	return;
     }
     if (proc->serv != serv)
@@ -142,7 +149,7 @@ static void master_status_event(int event, char *context)
 
 void    master_status_init(MASTER_SERV *serv)
 {
-    char   *myname = "master_status_init";
+    const char *myname = "master_status_init";
 
     /*
      * Sanity checks.
@@ -169,7 +176,7 @@ void    master_status_init(MASTER_SERV *serv)
 
 void    master_status_cleanup(MASTER_SERV *serv)
 {
-    char   *myname = "master_status_cleanup";
+    const char *myname = "master_status_cleanup";
 
     /*
      * Sanity checks.

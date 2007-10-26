@@ -1,6 +1,6 @@
 ## Freeze M4 files.
 
-## Copyright (C) 2002 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2004, 2006 Free Software Foundation, Inc.
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -14,8 +14,8 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
 
 ## ----------------- ##
@@ -24,23 +24,24 @@
 
 SUFFIXES = .m4 .m4f
 
-# Do not use AUTOM4TE here, since Makefile.maint (my-distcheck)
-# checks if we are independent of Autoconf by defining AUTOM4TE (and
-# others) to `false'.  But we _ship_ tests/autom4te, so it doesn't
-# apply to us.
-MY_AUTOM4TE = $(top_builddir)/tests/autom4te
-$(MY_AUTOM4TE): $(top_srcdir)/tests/wrapper.in
-	cd $(top_builddir)/tests && $(MAKE) $(AM_MAKEFLAGS) autom4te
-
 AUTOM4TE_CFG = $(top_builddir)/lib/autom4te.cfg
 $(AUTOM4TE_CFG): $(top_srcdir)/lib/autom4te.in
 	cd $(top_builddir)/lib && $(MAKE) $(AM_MAKEFLAGS) autom4te.cfg
+
+# Do not use AUTOM4TE here, since Makefile.maint (my-distcheck)
+# checks if we are independent of Autoconf by defining AUTOM4TE (and
+# others) to `false'.  Autoconf provides autom4te, so that doesn't
+# apply to us.
+MY_AUTOM4TE =									\
+	autom4te_perllibdir='$(top_srcdir)'/lib					\
+	AUTOM4TE_CFG='$(AUTOM4TE_CFG)'         $(top_builddir)/bin/autom4te	\
+		-B '$(top_builddir)'/lib -B '$(top_srcdir)'/lib        # keep ` '
 
 # When processing the file with diversion disabled, there must be no
 # output but comments and empty lines.
 # If freezing produces output, something went wrong: a bad `divert',
 # or an improper paren etc.
-# It may happen that the output does not end with a end of line, hence
+# It may happen that the output does not end with an end of line, hence
 # force an end of line when reporting errors.
 .m4.m4f:
 	$(MY_AUTOM4TE)				\
@@ -54,7 +55,7 @@ $(AUTOM4TE_CFG): $(top_srcdir)/lib/autom4te.in
 src_libdir   = $(top_srcdir)/lib
 build_libdir = $(top_builddir)/lib
 
-m4f_dependencies = $(MY_AUTOM4TE) $(AUTOM4TE_CFG)
+m4f_dependencies = $(top_builddir)/bin/autom4te $(AUTOM4TE_CFG)
 
 # For parallel builds.
 $(build_libdir)/m4sugar/version.m4:
@@ -69,7 +70,7 @@ m4sh_m4f_dependencies =				\
 	$(m4sugar_m4f_dependencies)		\
 	$(src_libdir)/m4sugar/m4sh.m4
 
-autotest_m4f_dependencies = 			\
+autotest_m4f_dependencies =			\
 	$(m4sh_m4f_dependencies)		\
 	$(src_libdir)/autotest/autotest.m4	\
 	$(src_libdir)/autotest/general.m4
@@ -87,6 +88,7 @@ autoconf_m4f_dependencies =			\
 	$(src_libdir)/autoconf/lang.m4		\
 	$(src_libdir)/autoconf/c.m4		\
 	$(src_libdir)/autoconf/fortran.m4	\
+	$(src_libdir)/autoconf/erlang.m4	\
 	$(src_libdir)/autoconf/functions.m4	\
 	$(src_libdir)/autoconf/headers.m4	\
 	$(src_libdir)/autoconf/types.m4		\
@@ -113,13 +115,20 @@ ETAGS_FOR_AUTOCONF = \
   --regex='/AN_\(FUNCTION\|HEADER\|IDENTIFIER\|LIBRARY\|MAKEVAR\|PROGRAM\)(\[\([^]]*\)\]/\2/'
 
 
+## ---------- ##
+## Run GREP.  ##
+## ---------- ##
+
+GREP = @GREP@
+
+
 ## -------------------------------- ##
 ## Looking for forbidden patterns.  ##
 ## -------------------------------- ##
 
 check-forbidden-patterns:
-	if (cd $(srcdir) && \
-	    grep $(forbidden_patterns) $(forbidden_patterns_files)) \
+	@if (cd $(srcdir) && \
+	    $(GREP) $(forbidden_patterns) $(forbidden_patterns_files)) \
 	    >forbidden.log; then \
 	  echo "ERROR: forbidden patterns were found:" >&2; \
 	  sed "s,^,$*.m4: ," <forbidden.log >&2; \

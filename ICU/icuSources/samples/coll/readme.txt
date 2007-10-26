@@ -1,4 +1,4 @@
-Copyright (c) 2002, International Business Machines Corporation and others. All Rights Reserved.
+Copyright (c) 2002-2005, International Business Machines Corporation and others. All Rights Reserved.
 coll: a sample program which compares 2 strings with a user-defined collator.
 
 This sample demonstrates
@@ -7,12 +7,12 @@ This sample demonstrates
          
 Files:
     coll.c                      Main source file
-    coll.dsw                   Windows MSVC workspace.  Double-click this to get started.
-    coll.dsp                    Windows MSVC project file
+    coll.sln                    Windows MSVC workspace.  Double-click this to get started.
+    coll.vcproj                 Windows MSVC project file
 
 To Build coll on Windows
     1.  Install and build ICU
-    2.  In MSVC, open the workspace file icu\samples\coll\coll.dsw
+    2.  In MSVC, open the workspace file icu\samples\coll\coll.sln
     3.  Choose a Debug or Release build.
     4.  Build.
 	

@@ -125,6 +125,7 @@ OTHER_OFILES = default_pager_alerts_server.o backing_store_alerts.o backing_stor
 #OTHER_PUBLIC_HEADERS = default_pager_alerts_server.h
 #OTHER_GENERATED_OFILES = $(VERS_OFILE)
 -include ../Makefile.include
-OTHER_CFLAGS =
+OTHER_CFLAGS = -I$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+OTHER_LDFLAGS = -framework CoreFoundation -framework IOKit
 BEFORE_BUILD = default_pager_alerts_server.o 
-AFTER_INSTALL += install-man-page
+AFTER_INSTALL += install-man-page install-launchd-plist

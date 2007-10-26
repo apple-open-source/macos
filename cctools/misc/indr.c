@@ -260,8 +260,9 @@ char *envp[])
 		    for(j = 0; j < narch_flags; j++){
 			if(arch_flags[j].cputype ==
 				arch_flags[narch_flags].cputype &&
-			   arch_flags[j].cpusubtype ==
-				arch_flags[narch_flags].cpusubtype &&
+			   (arch_flags[j].cpusubtype & ~CPU_SUBTYPE_MASK) ==
+				(arch_flags[narch_flags].cpusubtype &
+				 ~CPU_SUBTYPE_MASK) &&
 			   strcmp(arch_flags[j].name,
 				arch_flags[narch_flags].name) == 0)
 			    break;
@@ -294,8 +295,9 @@ char *envp[])
 		for(j = 0; j < narch_flags; j++){
 		    if(arch_flags[j].cputype ==
 			    arch_flags[narch_flags].cputype &&
-		       arch_flags[j].cpusubtype ==
-			    arch_flags[narch_flags].cpusubtype &&
+		       (arch_flags[j].cpusubtype & ~CPU_SUBTYPE_MASK) ==
+			    (arch_flags[narch_flags].cpusubtype & 
+			     ~CPU_SUBTYPE_MASK) &&
 		       strcmp(arch_flags[j].name,
 			    arch_flags[narch_flags].name) == 0)
 			break;
@@ -464,15 +466,15 @@ enum bool nflag)
 	    if(archs[i].type == OFILE_ARCHIVE){
 		for(j = 0; j < archs[i].nmembers; j++){
 		    if(archs[i].members[j].type == OFILE_Mach_O){
-			cputype = archs[i].members[j].object->mh->cputype;
-			cpusubtype = archs[i].members[j].object->mh->cpusubtype;
+			cputype = archs[i].members[j].object->mh_cputype;
+			cpusubtype = archs[i].members[j].object->mh_cpusubtype;
 			break;
 		    }
 		}
 	    }
 	    else if(archs[i].type == OFILE_Mach_O){
-		cputype = archs[i].object->mh->cputype;
-		cpusubtype = archs[i].object->mh->cpusubtype;
+		cputype = archs[i].object->mh_cputype;
+		cpusubtype = archs[i].object->mh_cpusubtype;
 	    }
 	    else if(archs[i].fat_arch != NULL){
 		cputype = archs[i].fat_arch->cputype;
@@ -486,7 +488,8 @@ enum bool nflag)
 	    else if(narch_flags != 0){
 		for(j = 0; j < narch_flags; j++){
 		    if(arch_flags[j].cputype == cputype &&
-		       arch_flags[j].cpusubtype == cpusubtype){
+		       (arch_flags[j].cpusubtype & ~CPU_SUBTYPE_MASK) ==
+		       (cpusubtype & ~CPU_SUBTYPE_MASK)){
 			arch_process = TRUE;
 			arch_flag_processed[j] = TRUE;
 			if(list_filenames != NULL)
@@ -498,7 +501,8 @@ enum bool nflag)
 	    else{
 		(void)get_arch_from_host(&host_arch_flag, NULL);
 		if(host_arch_flag.cputype == cputype &&
-		   host_arch_flag.cpusubtype == cpusubtype)
+		   (host_arch_flag.cpusubtype & ~CPU_SUBTYPE_MASK) ==
+		   (cpusubtype & ~CPU_SUBTYPE_MASK))
 		    arch_process = TRUE;
 	    }
 	    if(narchs != 1 && arch_process == FALSE)
@@ -604,8 +608,8 @@ struct object *object)
     long new_nsyms;
     struct nlist *new_symbols;
 
-	if(object->mh->filetype == MH_DYLIB ||
-	   object->mh->filetype == MH_DYLIB_STUB){
+	if(object->mh_filetype == MH_DYLIB ||
+	   object->mh_filetype == MH_DYLIB_STUB){
 	    if(member != NULL)
 		fatal_arch(arch, member, "is a dynamic library which is not "
 			   "allowed as a member of an archive");
@@ -763,11 +767,11 @@ struct object *object)
 		object->st->symoff = 0;
 
 	    if(object->dyst->nindirectsyms != 0){
-		object->output_indirect_symtab = (unsigned long *)
+		object->output_indirect_symtab = (uint32_t *)
 		    (object->object_addr + object->dyst->indirectsymoff);
 		object->dyst->indirectsymoff = offset;
 		offset += object->dyst->nindirectsyms *
-			  sizeof(unsigned long);
+			  sizeof(uint32_t);
 	    }
 	    else
 		object->dyst->indirectsymoff = 0;;
@@ -815,7 +819,7 @@ struct object *object)
     struct dylib_reference *refs;
     unsigned long nextrefsyms;
     struct relocation_info *ext_relocs;
-    unsigned long *indirect_symtab;
+    uint32_t *indirect_symtab;
 
     struct nlist *new_symbols;
     unsigned long new_nsyms;
@@ -850,7 +854,7 @@ struct object *object)
 	nextrefsyms = object->dyst->nextrefsyms;
 	ext_relocs = (struct relocation_info *)
 		      (object->object_addr + object->dyst->extreloff);
-	indirect_symtab = (unsigned long *)
+	indirect_symtab = (uint32_t *)
 			   (object->object_addr + object->dyst->indirectsymoff);
 	/*
 	 * Swap them if needed.
@@ -1225,12 +1229,12 @@ struct object *object)
 		    "%ld (not external) in: ", i);
 	    }
 	    if((ext_relocs[i].r_address & R_SCATTERED) == 0){
-		if(reloc_has_pair(object->mh->cputype, ext_relocs[i].r_type))
+		if(reloc_has_pair(object->mh_cputype, ext_relocs[i].r_type))
 		    i++;
 	    }
 	    else{
 		sreloc = (struct scattered_relocation_info *)ext_relocs + i;
-		if(reloc_has_pair(object->mh->cputype, sreloc->r_type))
+		if(reloc_has_pair(object->mh_cputype, sreloc->r_type))
 		    i++;
 	    }
 	}
@@ -1272,6 +1276,11 @@ struct object *object)
 	    new_nmodtab * sizeof(struct dylib_module) +
 	    new_nextrefsyms * sizeof(struct dylib_reference);
 
+	if(object->split_info_cmd != NULL){
+	    object->input_sym_info_size += object->split_info_cmd->datasize;
+	    object->output_sym_info_size += object->split_info_cmd->datasize;
+	}
+
 	if(object->hints_cmd != NULL){ 
 	    object->input_sym_info_size +=
 		object->hints_cmd->nhints * sizeof(struct twolevel_hint);
@@ -1279,6 +1288,16 @@ struct object *object)
 		object->hints_cmd->nhints * sizeof(struct twolevel_hint);
 	}
 
+	if(object->code_sig_cmd != NULL){
+	    object->input_sym_info_size =
+		round(object->input_sym_info_size, 16);
+	    object->input_sym_info_size +=
+		object->code_sig_cmd->datasize;
+	    object->output_sym_info_size =
+		round(object->output_sym_info_size, 16);
+	    object->output_sym_info_size +=
+		object->code_sig_cmd->datasize;
+	}
 
 	if(object->seg_linkedit != NULL){
 	    object->seg_linkedit->filesize += object->output_sym_info_size -
@@ -1298,11 +1317,23 @@ struct object *object)
 	object->output_nextrefsyms = new_nextrefsyms;
 	object->output_loc_relocs = (struct relocation_info *)
 	    (object->object_addr + object->dyst->locreloff);
+	if(object->split_info_cmd != NULL){
+	    object->output_split_info_data = 
+	    (object->object_addr + object->split_info_cmd->dataoff);
+	    object->output_split_info_data_size = 
+		object->split_info_cmd->datasize;
+	}
 	object->output_ext_relocs = ext_relocs;
 	object->output_indirect_symtab = indirect_symtab;
 	if(object->hints_cmd != NULL){
 	    object->output_hints = (struct twolevel_hint *)
 		(object->object_addr + object->hints_cmd->offset);
+	}
+	if(object->code_sig_cmd != NULL){
+	    object->output_code_sig_data = object->object_addr +
+		object->code_sig_cmd->dataoff;
+	    object->output_code_sig_data_size = 
+		object->code_sig_cmd->datasize;
 	}
 
 	if(object->object_byte_sex != host_byte_sex){
@@ -1336,6 +1367,10 @@ struct object *object)
 	if(object->dyst->nlocrel != 0){
 	    object->dyst->locreloff = offset;
 	    offset += object->dyst->nlocrel * sizeof(struct relocation_info);
+	}
+	if(object->split_info_cmd != NULL){
+	    object->split_info_cmd->dataoff = offset;
+	    offset += object->split_info_cmd->datasize;
 	}
 	if(object->st->nsyms != 0){
 	    object->st->symoff = offset;
@@ -1373,6 +1408,11 @@ struct object *object)
 	if(object->st->strsize != 0){
 	    object->st->stroff = offset;
 	    offset += object->st->strsize;
+	}
+	if(object->code_sig_cmd != NULL){
+	    offset = round(offset, 16);
+	    object->code_sig_cmd->dataoff = offset;
+	    offset += object->code_sig_cmd->datasize;
 	}
 }
 
@@ -1446,8 +1486,8 @@ struct arch *arch)
 	for(i = arch->nmembers - 1; i >= 0 ;i--){
 	    if(arch->members[i].object != NULL){
 		if(cputype == 0){
-		    cputype = arch->members[i].object->mh->cputype;
-		    cpusubtype = arch->members[i].object->mh->cpusubtype;
+		    cputype = arch->members[i].object->mh_cputype;
+		    cpusubtype = arch->members[i].object->mh_cpusubtype;
 		}
 		if(target_byte_sex == UNKNOWN_BYTE_SEX){
 		    target_byte_sex = arch->members[i].object->object_byte_sex;

@@ -29,65 +29,7 @@
 #ifndef __CREPLICAFILE__
 #define __CREPLICAFILE__
 
-#include <CoreFoundation/CoreFoundation.h>
-#include "AuthFile.h"
-
-#define kPWReplicaFile						"/var/db/authserver/authserverreplicas"
-#define kPWReplicaRemoteFilePrefix			kPWReplicaFile".remote."
-#define kPWReplicaDir						"/var/db/authserver"
-
-#define kPWReplicaParentKey					"Parent"
-#define kPWReplicaReplicaKey				"Replicas"
-#define kPWReplicaIPKey						"IP"
-#define kPWReplicaDNSKey					"DNS"
-#define kPWReplicaNameKey					"ReplicaName"
-#define kPWReplicaPolicyKey					"ReplicaPolicy"
-#define kPWReplicaStatusKey					"ReplicaStatus"
-#define kPWReplicaNameValuePrefix			"Replica"
-#define kPWReplicaSyncDateKey				"LastSyncDate"
-#define kPWReplicaSyncServerKey				"LastSyncServer"
-#define kPWReplicaStatusAllow				"AllowReplication"
-#define kPWReplicaStatusUseACL				"UseACL"
-#define kPWReplicaIDRangeBeginKey			"IDRangeBegin"
-#define kPWReplicaIDRangeEndKey				"IDRangeEnd"
-#define kPWReplicaSyncAttemptKey			"LastSyncFailedAttempt"
-#define kPWReplicaIncompletePullKey			"PullStatus"
-#define kPWReplicaEntryModDateKey			"EntryModDate"
-
-// values
-#define kPWReplicaPolicyNeverKey			"SyncNever"
-#define kPWReplicaPolicyOnlyIfDesperateKey	"SyncOnlyIfDesperate"
-#define kPWReplicaPolicyOnScheduleKey		"SyncOnSchedule"
-#define kPWReplicaPolicyOnDirtyKey			"SyncOnDirty"
-#define kPWReplicaPolicyAnytimeKey			"SyncAnytime"
-
-#define kPWReplicaStatusActiveValue			"Active"
-#define kPWReplicaStatusPermDenyValue		"PermissionDenied"
-#define kPWReplicaStatusNotFoundValue		"NotFound"
-
-
-typedef UInt8 ReplicaPolicy;
-enum {
-	kReplicaNone,
-	kReplicaAllowAll,
-	kReplicaUseACL
-};
-
-typedef UInt8 ReplicaSyncPolicy;
-enum {
-	kReplicaSyncNever,
-	kReplicaSyncOnlyIfDesperate,
-	kReplicaSyncOnSchedule,
-	kReplicaSyncOnDirty,
-	kReplicaSyncAnytime
-};
-
-typedef UInt8 ReplicaStatus;
-enum {
-	kReplicaActive,
-	kReplicaPermissionDenied,
-	kReplicaNotFound
-};
+#include <PasswordServer/ReplicaFileDefs.h>
 
 class CReplicaFile
 {
@@ -109,6 +51,7 @@ class CReplicaFile
 		virtual CFDictionaryRef					GetReplica( UInt32 index );
 		virtual bool							IsActive( void );
 		virtual bool							GetUniqueID( char *outIDStr );
+		virtual CFStringRef						CurrentServerForLDAP( void );
 		virtual CFDictionaryRef					GetParent( void );
 		virtual char *							GetXMLData( void );
 		virtual bool							FileHasChanged( void );
@@ -167,8 +110,6 @@ class CReplicaFile
 		virtual void							GetIDRange( const char *inMyLastID, UInt32 inCount, char *outFirstID, char *outLastID );
 		virtual int								SetIDRange( CFMutableDictionaryRef inServerDict, const char *inFirstID, const char *inLastID );
 		virtual CFMutableDictionaryRef			FindMatchToKey( const char *inKey, const char *inValue );
-		virtual void							passwordRecRefToString(PWFileEntry *inPasswordRec, char *outRefStr);
-		virtual int								stringToPasswordRecRef(const char *inRefStr, PWFileEntry *outPasswordRec);
 		
 		CFMutableDictionaryRef					mReplicaDict;
 		CFArrayRef 								mReplicaArray;
@@ -177,8 +118,5 @@ class CReplicaFile
 		char									mSelfName[20];
 };
 
-bool ConvertBinaryToHex( const unsigned char *inData, long len, char *outHexStr );
 void pwsf_AddReplicaStatus( CReplicaFile *inReplicaFile, CFDictionaryRef inDict, CFMutableDictionaryRef inOutDict );
-CFStringRef pwsf_GetReplicaStatusString( ReplicaStatus replicaStatus );
-
 #endif

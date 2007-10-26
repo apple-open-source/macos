@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2004, International Business Machines Corporation and    *
+ * Copyright (C) 1996-2005, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -19,6 +19,8 @@
 #include "unicode/ustring.h"
 #include "unicode/decimfmt.h"
 #include "unicode/udata.h"
+#include "testutil.h"
+
 //#include "llong.h"
 
 #include <string.h>
@@ -60,6 +62,8 @@ void IntlTestRBNF::runIndexedTest(int32_t index, UBool exec, const char* &name, 
         TESTCASE(12, TestBelgianFrenchSpellout);
         TESTCASE(13, TestSmallValues);
         TESTCASE(14, TestLocalizations);
+        TESTCASE(15, TestAllLocales);
+        TESTCASE(16, TestHebrewFraction);
 #else
         TESTCASE(0, TestRBNFDisabled);
 #endif
@@ -70,6 +74,60 @@ void IntlTestRBNF::runIndexedTest(int32_t index, UBool exec, const char* &name, 
 }
 
 #if U_HAVE_RBNF
+
+void IntlTestRBNF::TestHebrewFraction() {
+    // this is the expected output for 123.45, with no '<' in it.
+    UChar text1[] = { 
+        0x05de, 0x05d0, 0x05d4, 0x0020, 
+        0x05e2, 0x05e9, 0x05e8, 0x05d9, 0x05dd, 0x0020,
+        0x05d5, 0x05e9, 0x05dc, 0x05d5, 0x05e9, 0x0020, 
+        0x05e0, 0x05e7, 0x05d5, 0x05d3, 0x05d4, 0x0020,
+        0x05d0, 0x05e8, 0x05d1, 0x05e2, 0x05d9, 0x05dd, 0x0020,
+        0x05d5, 0x05d7, 0x05de, 0x05e9, 0x0000,
+    };
+    UChar text2[] = { 
+        0x05DE, 0x05D0, 0x05D4, 0x0020, 
+        0x05E2, 0x05E9, 0x05E8, 0x05D9, 0x05DD, 0x0020, 
+        0x05D5, 0x05E9, 0x05DC, 0x05D5, 0x05E9, 0x0020, 
+        0x05E0, 0x05E7, 0x05D5, 0x05D3, 0x05D4, 0x0020, 
+        0x05D0, 0x05E4, 0x05E1, 0x0020, 
+        0x05D0, 0x05E4, 0x05E1, 0x0020, 
+        0x05D0, 0x05E8, 0x05D1, 0x05E2, 0x05D9, 0x05DD, 0x0020, 
+        0x05D5, 0x05D7, 0x05DE, 0x05E9, 0x0000,
+    };
+    UErrorCode status = U_ZERO_ERROR;
+    RuleBasedNumberFormat* formatter = new RuleBasedNumberFormat(URBNF_SPELLOUT, "he_IL", status);
+    UnicodeString result;
+    Formattable parseResult;
+    ParsePosition pp(0);
+    {
+        UnicodeString expected(text1);
+        formatter->format(123.45, result);
+        if (result != expected) {
+            errln((UnicodeString)"expected '" + TestUtility::hex(expected) + "'\nbut got: '" + TestUtility::hex(result) + "'");
+        } else {
+            formatter->parse(result, parseResult, pp);
+            if (parseResult.getDouble() != 123.45) {
+                errln("expected 123.45 but got: %g", parseResult.getDouble());
+            }
+        }
+    }
+    {
+        UnicodeString expected(text2);
+        result.remove();
+        formatter->format(123.0045, result);
+        if (result != expected) {
+            errln((UnicodeString)"expected '" + TestUtility::hex(expected) + "'\nbut got: '" + TestUtility::hex(result) + "'");
+        } else {
+            pp.setIndex(0);
+            formatter->parse(result, parseResult, pp);
+            if (parseResult.getDouble() != 123.0045) {
+                errln("expected 123.0045 but got: %g", parseResult.getDouble());
+            }
+        }
+    }
+    delete formatter;
+}
 
 void 
 IntlTestRBNF::TestAPI() {
@@ -120,6 +178,12 @@ IntlTestRBNF::TestAPI() {
         UParseError perror;
         RuleBasedNumberFormat ruleCtorResult(spelloutRules, Locale::getUS(), perror, status);
         if(!(ruleCtorResult == *formatter)) {
+          errln("Formatter constructed from the original rules should be semantically equivalent to the original!");
+        }
+        
+        // Jitterbug 4452, for coverage
+        RuleBasedNumberFormat nf(spelloutRules, (UnicodeString)"", Locale::getUS(), perror, status);
+        if(!(nf == *formatter)) {
           errln("Formatter constructed from the original rules should be semantically equivalent to the original!");
         }
       }
@@ -230,6 +294,24 @@ IntlTestRBNF::TestAPI() {
       logln("Formatted 4, expected " + expected + " got " + result);
   }
 
+  result.remove();
+  FieldPosition pos;
+  formatter->format((int64_t)4, result, pos, status = U_ZERO_ERROR);
+  if(result != expected) {
+      errln("Formatted 4 int64_t, expected " + expected + " got " + result);
+  } else {
+      logln("Formatted 4 int64_t, expected " + expected + " got " + result);
+  }
+
+  //Jitterbug 4452, for coverage
+  result.remove();
+  FieldPosition pos2;
+  formatter->format((int64_t)4, formatter->getRuleSetName(0), result, pos2, status = U_ZERO_ERROR);
+  if(result != expected) {
+      errln("Formatted 4 int64_t, expected " + expected + " got " + result);
+  } else {
+      logln("Formatted 4 int64_t, expected " + expected + " got " + result);
+  }
 
   // clean up
   logln("Cleaning up");
@@ -1521,10 +1603,17 @@ IntlTestRBNF::TestLocalizations(void)
                     Locale locale0("en__VALLEY@turkey=gobblegobble");
                     Locale locale1("de_DE_FOO");
                     Locale locale2("ja_JP");
-                    logln(formatter0.getRuleSetDisplayName(0, locale0));
-                    logln(formatter0.getRuleSetDisplayName(0, locale1));
-                    logln(formatter0.getRuleSetDisplayName(0, locale2));
-                    // TODO: check against intended result
+                    UnicodeString name = formatter0.getRuleSetName(0);
+                    if ( formatter0.getRuleSetDisplayName(0, locale0) == "Main"
+                      && formatter0.getRuleSetDisplayName(0, locale1) == "das Main"
+                      && formatter0.getRuleSetDisplayName(0, locale2) == "%main"
+                      && formatter0.getRuleSetDisplayName(name, locale0) == "Main"
+                      && formatter0.getRuleSetDisplayName(name, locale1) == "das Main"
+                      && formatter0.getRuleSetDisplayName(name, locale2) == "%main"){
+                          logln("getRuleSetDisplayName tested");
+                    }else {
+                        errln("failed to getRuleSetDisplayName");
+                    }
                 }
 
                 for (i = 0; i < formatter0.getNumberOfRuleSetDisplayNameLocales(); ++i) {
@@ -1607,14 +1696,46 @@ IntlTestRBNF::TestLocalizations(void)
     }
 }
 
+void
+IntlTestRBNF::TestAllLocales()
+{
+  const char* names[] = {
+    " (spellout) ",
+    " (ordinal)  ",
+    " (duration) "
+  };
+  int32_t count = 0;
+  const Locale* locales = Locale::getAvailableLocales(count);
+  for (int i = 0; i < count; ++i) {
+    const Locale* loc = &locales[i];
+    for (int j = 0; j < 3; ++j) {
+      UErrorCode status = U_ZERO_ERROR;
+      RuleBasedNumberFormat* f = new RuleBasedNumberFormat((URBNFRuleSetTag)j, *loc, status);
+      if (U_SUCCESS(status)) {
+        double n = 45.678;
+        UnicodeString str;
+        f->format(n, str);
+        delete f;
+
+        logln(UnicodeString(loc->getName()) + UnicodeString(names[j])
+            + UnicodeString("success: 45.678 -> ") + str);
+      } else {
+        errln(UnicodeString(loc->getName()) + UnicodeString(names[j])
+            + UnicodeString("ERROR could not instantiate -> ") + UnicodeString(u_errorName(status)));
+      }
+    }
+  }
+}
+
 void 
 IntlTestRBNF::doTest(RuleBasedNumberFormat* formatter, const char* testData[][2], UBool testParsing) 
 {
   // man, error reporting would be easier with printf-style syntax for unicode string and formattable
 
     UErrorCode status = U_ZERO_ERROR;
+    DecimalFormatSymbols dfs("en", status);
     // NumberFormat* decFmt = NumberFormat::createInstance(Locale::getUS(), status);
-    NumberFormat* decFmt = new DecimalFormat("#,###.################", status);
+    DecimalFormat decFmt("#,###.################", dfs, status);
     if (U_FAILURE(status)) {
         errln("FAIL: could not create NumberFormat");
     } else {
@@ -1624,7 +1745,7 @@ IntlTestRBNF::doTest(RuleBasedNumberFormat* formatter, const char* testData[][2]
 
             log("[%i] %s = ", i, numString);
             Formattable expectedNumber;
-            decFmt->parse(numString, expectedNumber, status);
+            decFmt.parse(numString, expectedNumber, status);
             if (U_FAILURE(status)) {
                 errln("FAIL: decFmt could not parse %s", numString);
                 break;
@@ -1634,14 +1755,14 @@ IntlTestRBNF::doTest(RuleBasedNumberFormat* formatter, const char* testData[][2]
                 formatter->format(expectedNumber, actualString/* , pos*/, status);
                 if (U_FAILURE(status)) {
                     UnicodeString msg = "Fail: formatter could not format ";
-                    decFmt->format(expectedNumber, msg, status);
+                    decFmt.format(expectedNumber, msg, status);
                     errln(msg);
                     break;
                 } else {
                     UnicodeString expectedString = UnicodeString(expectedWords).unescape();
                     if (actualString != expectedString) {
                         UnicodeString msg = "FAIL: check failed for ";
-                        decFmt->format(expectedNumber, msg, status);
+                        decFmt.format(expectedNumber, msg, status);
                         msg.append(", expected ");
                         msg.append(expectedString);
                         msg.append(" but got ");
@@ -1665,9 +1786,9 @@ IntlTestRBNF::doTest(RuleBasedNumberFormat* formatter, const char* testData[][2]
                                     UnicodeString msg = "FAIL: parse failed for ";
                                     msg.append(actualString);
                                     msg.append(", expected ");
-                                    decFmt->format(expectedNumber, msg, status);
+                                    decFmt.format(expectedNumber, msg, status);
                                     msg.append(", but got ");
-                                    decFmt->format(parsedNumber, msg, status);
+                                    decFmt.format(parsedNumber, msg, status);
                                     errln(msg);
                                     break;
                                 }
@@ -1677,7 +1798,6 @@ IntlTestRBNF::doTest(RuleBasedNumberFormat* formatter, const char* testData[][2]
                 }
             }
         }
-        delete decFmt;
     }
 }
 

@@ -46,5 +46,4 @@ public:
 
 #endif /* !_TOKEND_TOKENCONTEXT_H_ */
 
-/* arch-tag: 57047250-E707-11D8-9366-000A95C4302E */
 

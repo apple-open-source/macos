@@ -1,0 +1,242 @@
+.\" $XFree86: xc/programs/xfs/xfs.man,v 3.15 2001/04/18 16:13:22 dawes Exp $
+.\"
+.\" Copyright 1991, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included in
+.\" all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL 
+.\" THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+.\" WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF 
+.\" OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+.\" SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall not 
+.\" be used in advertising or otherwise to promote the sale, use or other 
+.\" dealing in this Software without prior written authorization from the 
+.\" The Open Group.
+.\" Copyright 1991 Network Computing Devices
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and
+.\" its documentation for any purpose is hereby granted without fee, provided
+.\" that the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation, and that the name of Network Computing Devices 
+.\" not be used in advertising or
+.\" publicity pertaining to distribution of the software without specific,
+.\" written prior permission.  Network Computing Devices make
+.\" no representations about the
+.\" suitability of this software for any purpose.  It is provided "as is"
+.\" without express or implied warranty.
+.\" $Xorg: xfs.man,v 1.4 2001/02/09 02:05:42 xorgcvs Exp $
+.TH XFS 1 __xorgversion__
+.SH NAME
+xfs \- X font server
+.SH SYNOPSIS
+.B "xfs"
+[\-config \fIconfiguration_file\fP]
+[\-daemon]
+[\-droppriv]
+[\-ls \fIlisten_socket\fP]
+[\-nodaemon]
+[\-port \fItcp_port\fP]
+[\-user \fIusername\fP]
+.SH DESCRIPTION
+.PP
+.I Xfs
+is the X Window System font server.  It supplies fonts to X Window
+System display servers.
+.SH "STARTING THE SERVER"
+The server is usually run by a system administrator, and started via 
+boot files like \fI/etc/rc.local\fR.  Users may also wish to start
+private font servers for specific sets of fonts.
+.SH "OPTIONS"
+.TP 8
+.B \-config configuration_file
+Specifies the configuration file the font server will use.  If this
+parameter is not specified, the default file, \fI__configdir__/config\fR
+will be used.
+.TP 8
+.B \-ls listen_socket
+Specifies a file descriptor which is already set up to be used as the
+listen socket.  This option is only intended to be used by the font server
+itself when automatically spawning another copy of itself to handle
+additional connections.
+.TP 8
+.B \-port tcp_port
+Specifies the TCP port number on which the server will listen for connections.
+The default port number is 7100.
+.TP 8
+.B \-daemon
+Instructs xfs to fork and go into the background automatically at
+startup  If this option is not specified, xfs will run as a regular
+process (unless xfs was built to daemonize by default).
+.TP 8
+.B \-droppriv
+If specified, xfs will attempt to run as user and group \fIxfs\fR (unless
+the
+.B \-user
+option is used). This
+has been implemented for security reasons, as xfs may have undiscovered
+buffer overflows or other paths for possible exploit, both local and
+remote.  With this option, you may also wish to specify
+"no-listen = tcp"
+in the config file, which ensures that xfs will not to use a TCP port at all.
+.TP 8
+.B \-nodaemon
+When xfs is built to daemonize (run in the background) by default,
+this prevents that and starts xfs up as a regular process.
+.TP 8
+.B \-user username
+This is equivalent to
+.B \-droppriv
+except that xfs will run as user \fIusername\fR.
+.SH "SIGNALS"
+.TP 8
+.I SIGTERM
+This causes the font server to exit cleanly.
+.TP 8
+.I SIGUSR1
+This signal is used to cause the server to re-read its configuration file.
+.TP 8
+.I SIGUSR2
+This signal is used to cause the server to flush any cached data it
+may have.
+.TP 8
+.I SIGHUP
+This signal is used to cause the server to reset, closing all active
+connections and re-reading the configuration file.
+.SH "CONFIGURATION"
+The configuration language is a list of keyword and value pairs.
+Each keyword is followed by an '=' and then the desired value.
+.PP
+Recognized keywords include:
+.sp
+.\" .IP "cache-size (cardinal)"
+.\" Size in bytes of the font server cache.
+.IP "catalogue (list of string)"
+Ordered list of font path element names.
+Use of the keyword "catalogue" is very misleading at present,
+the current implementation only supports a single catalogue ("all"),
+containing all of the specified fonts.
+.IP "alternate-servers (list of string)"
+List of alternate servers for this font server.
+.IP "client-limit (cardinal)"
+Number of clients this font server will support 
+before refusing service.  This is useful for tuning 
+the load on each individual font server.
+.IP "clone-self (boolean)"
+Whether this font server should attempt to clone itself
+when it reachs the client-limit.
+.IP "default-point-size (cardinal)"
+The default pointsize (in decipoints) for fonts that 
+don't specify.  The default is 120.
+.IP "default-resolutions (list of resolutions)"
+Resolutions the server supports by default.
+This information may be used as a hint for 
+pre-rendering, and substituted for scaled fonts 
+which do not specify a resolution.
+A resolution is a comma-separated pair of x and y resolutions in
+pixels per inch.
+Multiple resolutions are separated by commas.
+.IP "error-file (string)"
+Filename of the error file.  All warnings and errors
+will be logged here.
+.IP "no-listen (trans-type)"
+Disable a transport  type. For example, TCP/IP connections can
+be disabled with no-listen tcp
+.IP "port (cardinal)"
+TCP port on which the server will listen for connections.
+.IP "use-syslog (boolean)"
+Whether syslog(3) (on supported systems) is to be used 
+for errors.
+.IP "deferglyphs (string)"
+Set the mode for delayed fetching and caching of glyphs.  Value is
+"none", meaning deferred glyphs is disabled, "all", meaning it is
+enabled for all fonts, and "16", meaning it is enabled only for
+16-bits fonts.
+.\" .IP "trusted-clients (list of string)"
+.\" Those clients the fontserver will talk to.  Others
+.\" will be refused for the initial connection.  An empty
+.\" list means the server will talk to any client.
+.SH "EXAMPLE"
+.nf
+XCOMM
+XCOMM sample font server configuration file
+XCOMM
+
+XCOMM allow a max of 10 clients to connect to this font server
+client-limit = 10
+
+XCOMM when a font server reaches its limit, start up a new one
+clone-self = on
+
+XCOMM alternate font servers for clients to use
+alternate-servers = hansen:7101,hansen:7102
+
+XCOMM where to look for fonts
+XCOMM the first is a set of Speedo outlines, the second is a set of 
+XCOMM misc bitmaps and the last is a set of 100dpi bitmaps
+XCOMM
+catalogue = /usr/X11R6/lib/X11/fonts/speedo,
+	/usr/X11R6/lib/X11/fonts/misc,
+	/usr/X11R6/lib/X11/fonts/100dpi/
+
+XCOMM in 12 points, decipoints
+default-point-size = 120
+
+XCOMM 100 x 100 and 75 x 75
+default-resolutions = 100,100,75,75
+use-syslog = off
+.fi
+.sp
+.SH "FONT SERVER NAMES"
+One of the following forms can be used to name a font server that
+accepts TCP connections:
+.sp
+.nf
+    tcp/\fIhostname\fP:\fIport\fP
+    tcp/\fIhostname\fP:\fIport\fP/\fIcataloguelist\fP
+.fi
+.PP
+The \fIhostname\fP specifies the name (or decimal numeric address)
+of the machine on which the font server is running.  The \fIport\fP
+is the decimal TCP port on which the font server is listening for connections.
+The \fIcataloguelist\fP specifies a list of catalogue names,
+with '+' as a separator.
+.PP
+Examples: \fItcp/fs.x.org:7100\fP, \fItcp/18.30.0.212:7101/all\fP.
+.PP
+One of the following forms can be used to name a font server that
+accepts DECnet connections:
+.sp
+.nf
+    decnet/\fInodename\fP::font$\fIobjname\fP
+    decnet/\fInodename\fP::font$\fIobjname\fP/\fIcataloguelist\fP
+.fi
+.PP
+The \fInodename\fP specifies the name (or decimal numeric address)
+of the machine on which the font server is running.
+The \fIobjname\fP is a normal, case-insensitive DECnet object name.
+The \fIcataloguelist\fP specifies a list of catalogue names,
+with '+' as a separator.
+.PP
+Examples: \fIDECnet/SRVNOD::FONT$DEFAULT\fP, \fIdecnet/44.70::font$special/symbols\fP.
+.SH "SEE ALSO"
+X(__miscmansuffix__), \fIThe X Font Service Protocol\fP,
+.br
+\fIFont server implementation overview\fP
+.SH BUGS
+Multiple catalogues should be supported.
+.SH AUTHORS
+Dave Lemke, Network Computing Devices, Inc
+.br
+Keith Packard, Massachusetts Institute of Technology

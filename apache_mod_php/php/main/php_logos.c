@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,9 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
+   | Author: Hartmut Holzgraefe <hholzgra@php.net>                        |
    +----------------------------------------------------------------------+
 */
+
+/* $Id: php_logos.c,v 1.19.2.1.2.5 2007/01/06 20:44:51 nlopess Exp $ */
 
 #include "php.h"
 #include "logos.h"
@@ -23,15 +25,15 @@
 #include "SAPI.h"
 
 typedef struct _php_info_logo { 
-	char *mimetype;
+	const char *mimetype;
 	int mimelen;
-	unsigned char *data; 
+	const unsigned char *data; 
 	int size; 
 } php_info_logo;
 
-HashTable phpinfo_logo_hash;
+static HashTable phpinfo_logo_hash;
 
-PHPAPI int php_register_info_logo(char *logo_string, char *mimetype, unsigned char *data, int size)
+PHPAPI int php_register_info_logo(char *logo_string, const char *mimetype, const unsigned char *data, int size)
 {
 	php_info_logo info_logo;
 
@@ -76,13 +78,12 @@ int php_info_logos(const char *logo_string TSRMLS_DC)
 	if(FAILURE==zend_hash_find(&phpinfo_logo_hash, (char *) logo_string, strlen(logo_string), (void **)&logo_image))
 		return 0;
 
-	len=strlen(CONTENT_TYPE_HEADER)+logo_image->mimelen;
-	content_header=malloc(len+1);
-	if(!content_header) return 0;
-	strcpy(content_header, CONTENT_TYPE_HEADER);
-	strcat(content_header, logo_image->mimetype);
-	sapi_add_header(content_header, len, 1);
-	free(content_header);
+	len = sizeof(CONTENT_TYPE_HEADER) - 1 + logo_image->mimelen;
+	content_header = emalloc(len + 1);
+	memcpy(content_header, CONTENT_TYPE_HEADER, sizeof(CONTENT_TYPE_HEADER) - 1);
+	memcpy(content_header + sizeof(CONTENT_TYPE_HEADER) - 1 , logo_image->mimetype, logo_image->mimelen);
+	content_header[len] = '\0';
+	sapi_add_header(content_header, len, 0);
 
 	PHPWRITE(logo_image->data, logo_image->size);
 	return 1;

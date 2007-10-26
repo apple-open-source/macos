@@ -1,5 +1,6 @@
 /* Functions taken directly from X sources for use with the Microsoft W32 API.
-   Copyright (C) 1989, 1992, 1993, 1994, 1995, 1999 Free Software Foundation.
+   Copyright (C) 1989, 1992, 1993, 1994, 1995, 1999, 2001, 2002, 2003,
+                 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include <config.h>
 #include <signal.h>
@@ -38,7 +39,7 @@ extern HANDLE keyboard_handle;
 HANDLE input_available = NULL;
 HANDLE interrupt_handle = NULL;
 
-void 
+void
 init_crit ()
 {
   InitializeCriticalSection (&critsect);
@@ -56,7 +57,7 @@ init_crit ()
   interrupt_handle = CreateEvent (NULL, TRUE, FALSE, NULL);
 }
 
-void 
+void
 delete_crit ()
 {
   DeleteCriticalSection (&critsect);
@@ -160,33 +161,33 @@ int_msg *lpHead = NULL;
 int_msg *lpTail = NULL;
 int nQueue = 0;
 
-BOOL 
+BOOL
 get_next_msg (lpmsg, bWait)
      W32Msg * lpmsg;
      BOOL bWait;
 {
   BOOL bRet = FALSE;
-  
+
   enter_crit ();
-  
+
   /* The while loop takes care of multiple sets */
-  
+
   while (!nQueue && bWait)
     {
       leave_crit ();
       WaitForSingleObject (input_available, INFINITE);
       enter_crit ();
     }
-  
+
   if (nQueue)
     {
       bcopy (&(lpHead->w32msg), lpmsg, sizeof (W32Msg));
 
       {
 	int_msg * lpCur = lpHead;
-	    
+
 	lpHead = lpHead->lpNext;
-	    
+
 	myfree (lpCur);
       }
 
@@ -197,13 +198,13 @@ get_next_msg (lpmsg, bWait)
 
   if (nQueue == 0)
     ResetEvent (input_available);
-  
+
   leave_crit ();
-  
+
   return (bRet);
 }
 
-BOOL 
+BOOL
 post_msg (lpmsg)
      W32Msg * lpmsg;
 {
@@ -221,14 +222,14 @@ post_msg (lpmsg)
     {
       lpTail->lpNext = lpNew;
     }
-  else 
+  else
     {
       lpHead = lpNew;
     }
 
   lpTail = lpNew;
   SetEvent (input_available);
-    
+
   leave_crit ();
 
   return (TRUE);
@@ -277,7 +278,7 @@ drain_message_queue ()
  *   It returns a bitmask that indicates which of the four values
  *   were actually found in the string.  For each value found,
  *   the corresponding argument is updated;  for each value
- *   not found, the corresponding argument is left unchanged. 
+ *   not found, the corresponding argument is left unchanged.
  */
 
 static int
@@ -287,7 +288,7 @@ read_integer (string, NextString)
 {
   register int Result = 0;
   int Sign = 1;
-  
+
   if (*string == '+')
     string++;
   else if (*string == '-')
@@ -306,7 +307,7 @@ read_integer (string, NextString)
     return (-Result);
 }
 
-int 
+int
 XParseGeometry (string, x, y, width, height)
      char *string;
      int *x, *y;
@@ -317,23 +318,23 @@ XParseGeometry (string, x, y, width, height)
   unsigned int tempWidth, tempHeight;
   int tempX, tempY;
   char *nextCharacter;
-  
+
   if ((string == NULL) || (*string == '\0')) return (mask);
   if (*string == '=')
     string++;  /* ignore possible '=' at beg of geometry spec */
-  
+
   strind = (char *)string;
-  if (*strind != '+' && *strind != '-' && *strind != 'x') 
+  if (*strind != '+' && *strind != '-' && *strind != 'x')
     {
       tempWidth = read_integer (strind, &nextCharacter);
-      if (strind == nextCharacter) 
+      if (strind == nextCharacter)
 	return (0);
       strind = nextCharacter;
       mask |= WidthValue;
     }
-  
-  if (*strind == 'x' || *strind == 'X') 
-    {	
+
+  if (*strind == 'x' || *strind == 'X')
+    {
       strind++;
       tempHeight = read_integer (strind, &nextCharacter);
       if (strind == nextCharacter)
@@ -341,10 +342,10 @@ XParseGeometry (string, x, y, width, height)
       strind = nextCharacter;
       mask |= HeightValue;
     }
-  
-  if ((*strind == '+') || (*strind == '-')) 
+
+  if ((*strind == '+') || (*strind == '-'))
     {
-      if (*strind == '-') 
+      if (*strind == '-')
 	{
 	  strind++;
 	  tempX = -read_integer (strind, &nextCharacter);
@@ -355,7 +356,7 @@ XParseGeometry (string, x, y, width, height)
 
 	}
       else
-	{	
+	{
 	  strind++;
 	  tempX = read_integer (strind, &nextCharacter);
 	  if (strind == nextCharacter)
@@ -363,9 +364,9 @@ XParseGeometry (string, x, y, width, height)
 	  strind = nextCharacter;
 	}
       mask |= XValue;
-      if ((*strind == '+') || (*strind == '-')) 
+      if ((*strind == '+') || (*strind == '-'))
 	{
-	  if (*strind == '-') 
+	  if (*strind == '-')
 	    {
 	      strind++;
 	      tempY = -read_integer (strind, &nextCharacter);
@@ -386,12 +387,12 @@ XParseGeometry (string, x, y, width, height)
 	  mask |= YValue;
 	}
     }
-  
+
   /* If strind isn't at the end of the string the it's an invalid
      geometry specification. */
-  
+
   if (*strind != '\0') return (0);
-  
+
   if (mask & XValue)
     *x = tempX;
   if (mask & YValue)
@@ -409,3 +410,6 @@ x_sync (f)
      void *f;
 {
 }
+
+/* arch-tag: 4fab3695-4ad3-4cc6-a2b1-fd2c67dc46be
+   (do not change this comment) */

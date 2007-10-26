@@ -1,9 +1,8 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,31 +26,82 @@
 
 #include "AppleEHCIitdMemoryBlock.h"
 
-#define super IOBufferMemoryDescriptor
-OSDefineMetaClassAndStructors(AppleEHCIitdMemoryBlock, IOBufferMemoryDescriptor);
+#define super OSObject
+OSDefineMetaClassAndStructors(AppleEHCIitdMemoryBlock, OSObject);
 
 AppleEHCIitdMemoryBlock*
 AppleEHCIitdMemoryBlock::NewMemoryBlock(void)
 {
-    AppleEHCIitdMemoryBlock 					*me = new AppleEHCIitdMemoryBlock;
-    IOByteCount							len;
+    AppleEHCIitdMemoryBlock 	*me = new AppleEHCIitdMemoryBlock;
+    IOByteCount					len;
+	IODMACommand				*dmaCommand = NULL;
+	UInt64						offset = 0;
+	IODMACommand::Segment32		segments;
+	UInt32						numSegments = 1;
+	IOReturn					status = kIOReturnSuccess;
     
-    if (!me)
-	USBError(1, "AppleEHCIitdMemoryBlock::NewMemoryBlock, constructor failed!");
-	
-    // allocate exactly one physical page
-    if (me && !me->initWithOptions(kIOMemorySharingTypeMask, kEHCIPageSize, kEHCIPageSize)) 
-    {
-	USBError(1, "AppleEHCIitdMemoryBlock::NewMemoryBlock, initWithOptions failed!");
-	me->release();
-	return NULL;
+    if (me)
+	{
+		// Use IODMACommand to get the physical address
+		dmaCommand = IODMACommand::withSpecification(kIODMACommandOutputHost32, 32, PAGE_SIZE, (IODMACommand::MappingOptions)(IODMACommand::kMapped | IODMACommand::kIterateOnly));
+		if (!dmaCommand)
+		{
+			USBError(1, "AppleEHCIitdMemoryBlock::NewMemoryBlock - could not create IODMACommand");
+			return NULL;
+		}
+		USBLog(6, "AppleEHCIitdMemoryBlock::NewMemoryBlock - got IODMACommand %p", dmaCommand);
+		
+		// allocate one page on a page boundary below the 4GB line
+		me->_buffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, kIOMemoryUnshared | kIODirectionInOut, kEHCIPageSize, kEHCIStructureAllocationPhysicalMask);
+		
+		// allocate exactly one physical page
+		if (me->_buffer) 
+		{
+			status = me->_buffer->prepare();
+			if (status)
+			{
+				USBError(1, "AppleEHCIitdMemoryBlock::NewMemoryBlock - could not prepare buffer");
+				me->_buffer->release();
+				me->release();
+				dmaCommand->release();
+				return NULL;
+			}
+			me->_sharedLogical = (EHCIIsochTransferDescriptorSharedPtr)me->_buffer->getBytesNoCopy();
+			bzero(me->_sharedLogical, kEHCIPageSize);
+			status = dmaCommand->setMemoryDescriptor(me->_buffer);
+			if (status)
+			{
+				USBError(1, "AppleEHCIitdMemoryBlock::NewMemoryBlock - could not set memory descriptor");
+				me->_buffer->complete();
+				me->_buffer->release();
+				me->release();
+				dmaCommand->release();
+				return NULL;
+			}
+			status = dmaCommand->gen32IOVMSegments(&offset, &segments, &numSegments);
+			dmaCommand->clearMemoryDescriptor();
+			dmaCommand->release();
+			if (status || (numSegments != 1) || (segments.fLength != kEHCIPageSize))
+			{
+				USBError(1, "AppleEHCIitdMemoryBlock::NewMemoryBlock - could not get physical segment");
+				me->_buffer->complete();
+				me->_buffer->release();
+				me->release();
+				return NULL;
+			}
+			me->_sharedPhysical = segments.fIOVMAddr;
+		}
+		else
+		{
+			USBError(1, "AppleEHCIitdMemoryBlock::NewMemoryBlock, could not allocate buffer!");
+			me->release();
+			me = NULL;
+		}
+	}
+	else
+	{
+		USBError(1, "AppleEHCIitdMemoryBlock::NewMemoryBlock, constructor failed!");
     }
-    
-    me->prepare();
-    me->_sharedLogical = (EHCIIsochTransferDescriptorSharedPtr)me->getBytesNoCopy();
-    bzero(me->_sharedLogical, kEHCIPageSize);
-    me->_sharedPhysical = me->getPhysicalSegment(0, &len);
-    
     return me;
 }
 

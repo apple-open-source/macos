@@ -19,7 +19,7 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
+#include <system.h>
 
 #if HAVE_UTIME_H
 # include <utime.h>
@@ -38,7 +38,7 @@ struct utimbuf
 #include <quotearg.h>
 
 #include "common.h"
-#include "rmt.h"
+#include <rmt.h>
 #include <stdarg.h>
 
 /* Nonzero if we are verifying at the moment.  */
@@ -54,9 +54,8 @@ static char *diff_buffer;
 void
 diff_init (void)
 {
-  diff_buffer = valloc (record_size);
-  if (!diff_buffer)
-    xalloc_die ();
+  void *ptr;
+  diff_buffer = page_aligned_alloc (&ptr, record_size);
 }
 
 /* Sigh about something that differs by writing a MESSAGE to stdlis,
@@ -495,6 +494,14 @@ diff_archive (void)
 void
 verify_volume (void)
 {
+  if (removed_prefixes_p ())
+    {
+      WARN((0, 0,
+	    _("Archive contains file names with leading prefixes removed.")));
+      WARN((0, 0,
+	    _("Verification may fail to locate original files.")));
+    }
+
   if (!diff_buffer)
     diff_init ();
 
@@ -556,6 +563,7 @@ verify_volume (void)
 	  do
 	    {
 	      counter++;
+	      set_next_block_after (current_header);
 	      status = read_header (false);
 	    }
 	  while (status == HEADER_FAILURE);
@@ -569,6 +577,8 @@ verify_volume (void)
 	break;
 
       diff_archive ();
+      tar_stat_destroy (&current_stat_info);
+      xheader_destroy (&extended_header);
     }
 
   access_mode = ACCESS_WRITE;

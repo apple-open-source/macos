@@ -109,6 +109,7 @@ extern char	**environ;
 int
 main(int argc, char *argv[])
 {
+	static char	*cleanenv;
 	struct passwd	*pwd;
 	struct pam_conv	conv = {misc_conv, NULL};
 	enum tristate	iscsh;
@@ -120,15 +121,21 @@ main(int argc, char *argv[])
 	gid_t		gid;
 	int		asme, ch, asthem, fastlogin, prio, i, setwhat, retcode,
 			statusp, child_pid, child_pgrp, ret_pid;
-	char		*username, *cleanenv, *class, shellbuf[MAXPATHLEN];
+	char		*username, *class, shellbuf[MAXPATHLEN];
 	const char	*p, *user, *shell, *mytty, **nargv;
+	const char	*avshell;
+	char		avshellbuf[MAXPATHLEN];
 
 	shell = class = cleanenv = NULL;
 	asme = asthem = fastlogin = statusp = 0;
 	user = "root";
 	iscsh = UNSET;
 
+#ifdef __APPLE__
+	while ((ch = getopt(argc, argv, "-flm")) != -1)
+#else
 	while ((ch = getopt(argc, argv, "-flmc:")) != -1)
+#endif /* __APPLE__ */
 		switch ((char)ch) {
 		case 'f':
 			fastlogin = 1;
@@ -142,9 +149,11 @@ main(int argc, char *argv[])
 			asme = 1;
 			asthem = 0;
 			break;
+#ifndef __APPLE__
 		case 'c':
 			class = optarg;
 			break;
+#endif /* !__APPLE__ */
 		case '?':
 		default:
 			usage();
@@ -268,14 +277,14 @@ main(int argc, char *argv[])
 		iscsh = NO;
 	}
 
+	if ((p = strrchr(shell, '/')) != NULL)
+		avshell = p+1;
+	else
+		avshell = shell;
+
 	/* if we're forking a csh, we want to slightly muck the args */
 	if (iscsh == UNSET) {
-		p = strrchr(shell, '/');
-		if (p)
-			++p;
-		else
-			p = shell;
-		iscsh = strcmp(p, "csh") ? (strcmp(p, "tcsh") ? NO : YES) : YES;
+		iscsh = strcmp(avshell, "csh") ? (strcmp(avshell, "tcsh") ? NO : YES) : YES;
 	}
 	setpriority(PRIO_PROCESS, 0, prio);
 
@@ -330,14 +339,24 @@ main(int argc, char *argv[])
 	case 0:
 		if( setgid(pwd->pw_gid) )
 			err(1, "setgid");
+		/* Call initgroups(2) after setgid(2) to re-establish memberd */
+		if( initgroups(user, pwd->pw_gid) )
+			err(1, "initgroups");
 		if( setuid(pwd->pw_uid) )
 			err(1, "setuid");
 
 		if (!asme) {
 			if (asthem) {
 				p = getenv("TERM");
-				*environ = NULL;
+				environ = &cleanenv;
+			}
 
+			if (asthem || pwd->pw_uid)
+				setenv("USER", pwd->pw_name, 1);
+			setenv("HOME", pwd->pw_dir, 1);
+			setenv("SHELL", shell, 1);
+
+			if (asthem) {
 				/*
 				 * Add any environmental variables that the
 				 * PAM modules may have set.
@@ -346,15 +365,22 @@ main(int argc, char *argv[])
 				if (environ_pam)
 					export_pam_environment();
 
+#ifdef __APPLE__
+				/* 5276965: As documented, set $PATH. */
+				setenv("PATH", "/bin:/usr/bin", 1);
+#else
+				/* set the su'd user's environment & umask */
+				setusercontext(lc, pwd, pwd->pw_uid,
+					LOGIN_SETPATH | LOGIN_SETUMASK |
+					LOGIN_SETENV);
+#endif
 				if (p)
 					setenv("TERM", p, 1);
-				if (chdir(pwd->pw_dir) < 0)
+
+				p = pam_getenv(pamh, "HOME");
+				if (chdir(p ? p : pwd->pw_dir) < 0)
 					errx(1, "no directory");
 			}
-			if (asthem || pwd->pw_uid)
-				setenv("USER", pwd->pw_name, 1);
-			setenv("HOME", pwd->pw_dir, 1);
-			setenv("SHELL", shell, 1);
 		}
 
 		if (iscsh == YES) {
@@ -363,8 +389,15 @@ main(int argc, char *argv[])
 			if (asme)
 				*np.a-- = "-m";
 		}
+
+		if (asthem) {
+			avshellbuf[0] = '-';
+			strlcpy(avshellbuf+1, avshell, sizeof(avshellbuf) - 1);
+			avshell = avshellbuf;
+		}
+
 		/* csh *no longer* strips the first character... */
-		*np.a = asthem ? "-su" : "su";
+		*np.a = avshell;
 
 		if (ruid != 0)
 			syslog(LOG_NOTICE, "%s to %s%s", username, user,
@@ -421,7 +454,11 @@ static void
 usage(void)
 {
 
+#ifdef __APPLE__
+	fprintf(stderr, "usage: su [-] [-flm] [login [args]]\n");
+#else
 	fprintf(stderr, "usage: su [-] [-flm] [-c class] [login [args]]\n");
+#endif /* __APPLE__ */
 	exit(1);
 }
 

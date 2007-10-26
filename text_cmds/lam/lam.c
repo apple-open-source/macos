@@ -1,5 +1,3 @@
-/*	$NetBSD: lam.c,v 1.3 1997/10/19 03:42:18 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,24 +31,26 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)lam.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: lam.c,v 1.3 1997/10/19 03:42:18 lukem Exp $");
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/lam/lam.c,v 1.14 2005/08/05 01:04:36 jmallett Exp $");
 
 /*
  *	lam - laminate files
  *	Author:  John Kunze, UCB
  */
 
+#include <ctype.h>
 #include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,8 +64,8 @@ struct	openfile {		/* open file structure */
 	short	eof;		/* eof flag */
 	short	pad;		/* pad flag for missing columns */
 	char	eol;		/* end of line character */
-	char	*sepstring;	/* string to print before each line */
-	char	*format;	/* printf(3) style string spec. */
+	const char *sepstring;	/* string to print before each line */
+	const char *format;	/* printf(3) style string spec. */
 }	input[MAXOFILES];
 
 int	morefiles;		/* set by getargs(), changed by gatherline() */
@@ -73,22 +73,21 @@ int	nofinalnl;		/* normally append \n to each output line */
 char	line[BIGBUFSIZ];
 char	*linep;
 
-void	 error __P((char *, char *));
-char	*gatherline __P((struct openfile *));
-void	 getargs __P((char *[]));
-int	 main __P((int, char **));
-char	*pad __P((struct openfile *));
+static char    *gatherline(struct openfile *);
+static void	getargs(char *[]);
+static char    *pad(struct openfile *);
+static void	usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	struct	openfile *ip;
 
+	if (argc == 1)
+		usage();
 	getargs(argv);
 	if (!morefiles)
-		error("lam - laminate files", "");
+		usage();
 	for (;;) {
 		linep = line;
 		for (ip = input; ip->fp != NULL; ip++)
@@ -102,13 +101,11 @@ main(argc, argv)
 	}
 }
 
-void
-getargs(av)
-	char *av[];
+static void
+getargs(char *av[])
 {
 	struct	openfile *ip = input;
-	char *p;
-	char *c;
+	char *p, *c;
 	static char fmtbuf[BUFSIZ];
 	char *fmtp = fmtbuf;
 	int P, S, F, T;
@@ -116,11 +113,13 @@ getargs(av)
 	P = S = F = T = 0;		/* capitalized options */
 	while ((p = *++av) != NULL) {
 		if (*p != '-' || !p[1]) {
-			morefiles++;
+			if (++morefiles >= MAXOFILES)
+				errx(1, "too many input files");
 			if (*p == '-')
 				ip->fp = stdin;
-			else if ((ip->fp = fopen(p, "r")) == NULL)
-				errx(1, "open %s", p);
+			else if ((ip->fp = fopen(p, "r")) == NULL) {
+				err(1, "%s", p);
+			}
 			ip->pad = P;
 			if (!ip->sepstring)
 				ip->sepstring = (S ? (ip-1)->sepstring : "");
@@ -131,40 +130,46 @@ getargs(av)
 			ip++;
 			continue;
 		}
-		switch (*(c = ++p) | 040) {
+		c = ++p;
+		switch (tolower((unsigned char)*c)) {
 		case 's':
 			if (*++p || (p = *++av))
 				ip->sepstring = p;
 			else
-				error("Need string after -%s", c);
+				usage();
 			S = (*c == 'S' ? 1 : 0);
 			break;
 		case 't':
 			if (*++p || (p = *++av))
 				ip->eol = *p;
 			else
-				error("Need character after -%s", c);
+				usage();
 			T = (*c == 'T' ? 1 : 0);
 			nofinalnl = 1;
 			break;
 		case 'p':
 			ip->pad = 1;
 			P = (*c == 'P' ? 1 : 0);
+			/* FALLTHROUGH */
 		case 'f':
 			F = (*c == 'F' ? 1 : 0);
 			if (*++p || (p = *++av)) {
 				fmtp += strlen(fmtp) + 1;
-				if (fmtp > fmtbuf + BUFSIZ)
-					error("No more format space", "");
-				sprintf(fmtp, "%%%ss", p);
+				if (fmtp >= fmtbuf + sizeof(fmtbuf))
+					errx(1, "no more format space");
+				/* restrict format string to only valid width formatters */
+				if (strspn(p, "-.0123456789") != strlen(p))
+					errx(1, "invalid format string `%s'", p);
+				if (snprintf(fmtp, fmtbuf + sizeof(fmtbuf) - fmtp, "%%%ss", p)
+				    >= fmtbuf + sizeof(fmtbuf) - fmtp)
+					errx(1, "no more format space");
 				ip->format = fmtp;
 			}
 			else
-				error("Need string after -%s", c);
+				usage();
 			break;
 		default:
-			error("What do you mean by -%s?", c);
-			break;
+			usage();
 		}
 	}
 	ip->fp = NULL;
@@ -172,31 +177,28 @@ getargs(av)
 		ip->sepstring = "";
 }
 
-char *
-pad(ip)
-	struct openfile *ip;
+static char *
+pad(struct openfile *ip)
 {
-	char *p = ip->sepstring;
 	char *lp = linep;
 
-	while (*p)
-		*lp++ = *p++;
+	strlcpy(lp, ip->sepstring, line + sizeof(line) - lp);
+	lp += strlen(lp);
 	if (ip->pad) {
-		sprintf(lp, ip->format, "");
+		snprintf(lp, line + sizeof(line) - lp, ip->format, "");
 		lp += strlen(lp);
 	}
 	return (lp);
 }
 
-char *
-gatherline(ip)
-	struct openfile *ip;
+static char *
+gatherline(struct openfile *ip)
 {
 	char s[BUFSIZ];
 	int c;
 	char *p;
 	char *lp = linep;
-	char *end = s + BUFSIZ;
+	char *end = s + sizeof(s) - 1;
 
 	if (ip->eof)
 		return (pad(ip));
@@ -211,27 +213,18 @@ gatherline(ip)
 		morefiles--;
 		return (pad(ip));
 	}
-	p = ip->sepstring;
-	while (*p)
-		*lp++ = *p++;
-	sprintf(lp, ip->format, s);
+	strlcpy(lp, ip->sepstring, line + sizeof(line) - lp);
+	lp += strlen(lp);
+	snprintf(lp, line + sizeof(line) - lp, ip->format, s);
 	lp += strlen(lp);
 	return (lp);
 }
 
-void
-error(msg, s)
-	char *msg, *s;
+static void
+usage()
 {
-	warnx(msg, s);
-	fprintf(stderr,
-"\nUsage:  lam [ -[fp] min.max ] [ -s sepstring ] [ -t c ] file ...\n");
-	if (strncmp("lam - ", msg, 6) == 0)
-		fprintf(stderr, "Options:\n\t%s\t%s\t%s\t%s\t%s",
-		    "-f min.max	field widths for file fragments\n",
-		    "-p min.max	like -f, but pad missing fragments\n",
-		    "-s sepstring	fragment separator\n",
-"-t c		input line terminator is c, no \\n after output lines\n",
-		    "Capitalized options affect more than one file.\n");
+	fprintf(stderr, "%s\n%s\n",
+"usage: lam [ -f min.max ] [ -s sepstring ] [ -t c ] file ...",
+"       lam [ -p min.max ] [ -s sepstring ] [ -t c ] file ...");
 	exit(1);
 }

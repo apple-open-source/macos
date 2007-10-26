@@ -29,6 +29,30 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.cpp,v $
+	Revision 1.20  2007/02/16 19:03:43  arulchan
+	*** empty log message ***
+	
+	Revision 1.19  2007/02/14 21:58:29  collin
+	*** empty log message ***
+	
+	Revision 1.18  2007/02/07 06:35:20  collin
+	*** empty log message ***
+	
+	Revision 1.17  2007/01/24 04:10:13  collin
+	*** empty log message ***
+	
+	Revision 1.16  2007/01/18 01:07:32  collin
+	*** empty log message ***
+	
+	Revision 1.15  2007/01/17 03:46:26  collin
+	*** empty log message ***
+	
+	Revision 1.14  2006/12/21 21:17:44  ayanowit
+	More changes necessary to eventually get support for 64-bit apps working (4222965).
+	
+	Revision 1.13  2006/12/06 00:01:07  arulchan
+	Isoch Channel 31 Generic Receiver
+	
 	Revision 1.12  2005/02/18 03:19:03  niels
 	fix isight
 	
@@ -115,22 +139,22 @@ IOFWPacketHeader_t::IOFWPacketHeader_t()
 	IOFWPacketHeaderGetOffset(this) = 0 ;
 }
 
-inline IOByteCount& IOFWPacketHeaderGetSize(IOFWPacketHeader_t* hdr)
+io_user_reference_t& IOFWPacketHeaderGetSize(IOFWPacketHeader_t* hdr)
 {
 	return hdr->CommonHeader.args[1] ;
 }
 
-inline IOByteCount& IOFWPacketHeaderGetOffset(IOFWPacketHeader_t* hdr)
+io_user_reference_t& IOFWPacketHeaderGetOffset(IOFWPacketHeader_t* hdr)
 {
 	return hdr->CommonHeader.args[2] ;
 }
 
-inline void InitIncomingPacketHeader(
+void InitIncomingPacketHeader(
 	IOFWPacketHeader_t*				header,
 	IOFWPacketHeader_t*				next,
 	const IOByteCount				len,
 	const IOByteCount				offset,
-	OSAsyncReference*				ref,
+	OSAsyncReference64*				ref,
 	UInt16							nodeID,
 	const IOFWSpeed&   				speed,
 	const FWAddress&				addr,
@@ -151,11 +175,11 @@ inline void InitIncomingPacketHeader(
 	header->IncomingPacket.isLock			= isLock ;
 }
 
-inline void InitSkippedPacketHeader(
+void InitSkippedPacketHeader(
 	IOFWPacketHeader*				header,
 	IOFWPacketHeader*				next,
 	const IOByteCount				offset,
-	OSAsyncReference*				ref)
+	OSAsyncReference64*				ref)
 {
 	header->CommonHeader.type 				= IOFWPacketHeader::kSkippedPacket ;
 	header->CommonHeader.next				= next ;
@@ -168,12 +192,12 @@ inline void InitSkippedPacketHeader(
 	header->SkippedPacket.skippedPacketCount= 1;
 }
 
-inline void InitReadPacketHeader(
+void InitReadPacketHeader(
 	IOFWPacketHeader*				header,
 	IOFWPacketHeader*				next,
 	IOByteCount						len,
 	IOByteCount						offset,
-	OSAsyncReference*				ref,
+	OSAsyncReference64*				ref,
 	IOFWRequestRefCon				reqrefcon,
 	UInt16							nodeID,
 	IOFWSpeed&						speed,
@@ -192,16 +216,16 @@ inline void InitReadPacketHeader(
 	header->ReadPacket.speed			= speed ;
 	header->ReadPacket.addrHi   		= addr.addressHi ;
 	header->ReadPacket.addrLo			= addr.addressLo ;
-	header->ReadPacket.reqrefcon		= reqrefcon ;
+	header->ReadPacket.reqrefcon		= (io_user_reference_t)reqrefcon ;
 	header->ReadPacket.generation		= generation ;
 }
 
-inline void InitLockPacketHeader(
+void InitLockPacketHeader(
 	IOFWPacketHeader*				header,
 	IOFWPacketHeader*				next,
 	IOByteCount						len,
 	IOByteCount						offset,
-	OSAsyncReference*				ref,
+	OSAsyncReference64*				ref,
 	UInt16							nodeID,
 	IOFWSpeed&						speed,
 	FWAddress						addr,
@@ -211,16 +235,16 @@ inline void InitLockPacketHeader(
 	InitIncomingPacketHeader( header, next, len, offset, ref, nodeID, speed, addr, true ) ;	
 	header->IncomingPacket.type			= IOFWPacketHeader::kLockPacket ;
 	header->IncomingPacket.generation	= generation ;
-	header->IncomingPacket.reqrefcon 	= reqrefcon;
+	header->IncomingPacket.reqrefcon 	= (io_user_reference_t)reqrefcon;
 }
 
-inline Boolean IsSkippedPacketHeader(
+Boolean IsSkippedPacketHeader(
 	IOFWPacketHeader*				header)
 {
 	return header->CommonHeader.type == IOFWPacketHeader::kSkippedPacket ;
 }
 
-inline Boolean IsFreePacketHeader(
+Boolean IsFreePacketHeader(
 	IOFWPacketHeader*				header)
 {
 	return header->CommonHeader.type == IOFWPacketHeader::kFree ;
@@ -242,28 +266,30 @@ IOFWUserPseudoAddressSpace::serialize(OSSerialize *s) const
 	
 	char temp[256] ;
 	
-	sprintf(temp, "addr=%x:%08lx", fAddress.addressHi, fAddress.addressLo) ;
-	sprintf(temp+strlen(temp), ", backing-store-bytes=%lud",
+	snprintf(temp, sizeof(temp), "addr=%x:%08lx", fAddress.addressHi, fAddress.addressLo) ;
+	snprintf(temp+strlen(temp), sizeof(temp), ", backing-store-bytes=%lud",
 			fDesc ? fDesc->getLength() : 0) ;
 	if ( fFlags )
 	{
-		sprintf(temp+strlen(temp), ", flags:") ;
+		snprintf(temp+strlen(temp), sizeof(temp), ", flags:") ;
 		if (fFlags & kFWAddressSpaceNoWriteAccess)
-			sprintf(temp+strlen(temp), " no-write") ;
+			snprintf(temp+strlen(temp), sizeof(temp), " no-write") ;
 		if (fFlags & kFWAddressSpaceNoReadAccess)
-			sprintf(temp+strlen(temp), " no-read") ;
+			snprintf(temp+strlen(temp), sizeof(temp), " no-read") ;
 		if (fFlags & kFWAddressSpaceAutoWriteReply)
-			sprintf(temp+strlen(temp), " auto-write") ;
+			snprintf(temp+strlen(temp), sizeof(temp), " auto-write") ;
 		if (fFlags & kFWAddressSpaceAutoReadReply)
-			sprintf(temp+strlen(temp), " auto-read") ;
+			snprintf(temp+strlen(temp), sizeof(temp), " auto-read") ;
 		if (fFlags & kFWAddressSpaceAutoCopyOnWrite)
-			sprintf(temp+strlen(temp), " copy-on-write") ;
+			snprintf(temp+strlen(temp), sizeof(temp), " copy-on-write") ;
 		if (fFlags & kFWAddressSpaceShareIfExists)
-			sprintf(temp+strlen(temp), " shared") ;
+			snprintf(temp+strlen(temp), sizeof(temp), " shared") ;
+		if (fFlags & kFWAddressSpaceExclusive)
+			snprintf(temp+strlen(temp), sizeof(temp), " exclusive") ;			
 	}
 	else
 	{
-		sprintf(temp+strlen(temp), ", no flags") ;
+		snprintf(temp+strlen(temp), sizeof(temp), ", no flags") ;
 	}
 	
 	OSString*	string = OSString::withCString(temp) ;
@@ -306,11 +332,13 @@ IOFWUserPseudoAddressSpace::free()
 //
 
 void
-IOFWUserPseudoAddressSpace::exporterCleanup ()
+IOFWUserPseudoAddressSpace::exporterCleanup( const OSObject * self )
 {
+	IOFWUserPseudoAddressSpace * me = (IOFWUserPseudoAddressSpace*)self;
+	
 	DebugLog("IOFWUserPseudoAddressSpace::exporterCleanup\n");
 	
-	deactivate();
+	me->deactivate();
 }
 
 void
@@ -353,7 +381,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 {
 	Boolean	status = true ;
 
-	fUserRefCon					= (UInt32)params->refCon ;
+	fUserRefCon					= params->refCon ;
 	fFlags						= params->flags ;
 	fWaitingForUserCompletion	= false ;
 
@@ -372,8 +400,8 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 	{
 		if ( params->queueBuffer )
 		{
-			fPacketQueueBuffer = IOMemoryDescriptor::withAddress( (vm_address_t) params->queueBuffer,
-																	(IOByteCount) params->queueSize,
+			fPacketQueueBuffer = IOMemoryDescriptor::withAddressRange( params->queueBuffer,
+																	params->queueSize,
 																	kIODirectionOutIn,
 																	fUserClient->getOwningTask() ) ;
 			if ( !fPacketQueueBuffer )
@@ -414,8 +442,8 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 	if ( status )
 		if ( NULL != params->backingStore )
 		{
-			fDesc = IOMemoryDescriptor::withAddress( (vm_address_t) params->backingStore,
-															(IOByteCount) params->size,
+			fDesc = IOMemoryDescriptor::withAddressRange(	params->backingStore,
+															params->size,
 															kIODirectionOutIn,
 															userclient->getOwningTask() ) ;
 			if (!fDesc)
@@ -505,6 +533,13 @@ IOFWUserPseudoAddressSpace::initFixed(
 	if ( !IOFWPseudoAddressSpace::initFixed( userclient->getOwner()->getController(), fAddress, params->size, NULL, NULL, this ))
 		return false ;
 	
+	// mark this address space as exclusve
+	// it will fail in activate if there's a conflict
+	if( params->flags & kFWAddressSpaceExclusive )
+	{
+		setExclusive( true );
+	}
+		
 	return completeInit( userclient, params ) ;
 }
 
@@ -697,7 +732,8 @@ IOFWUserPseudoAddressSpace::doPacket(
 		fLastWrittenHeader = currentHeader ;
 	}
 	
-	sendPacketNotification(currentHeader) ;
+	if( currentHeader->CommonHeader.type != IOFWPacketHeader::kFree )
+		sendPacketNotification(currentHeader) ;
 
 	IOLockUnlock(fLock) ;
 
@@ -740,23 +776,23 @@ IOFWUserPseudoAddressSpace::pseudoAddrSpaceWriter(
 
 void
 IOFWUserPseudoAddressSpace::setAsyncRef_Packet(
-	OSAsyncReference	asyncRef)
+	OSAsyncReference64	asyncRef)
 {
-	bcopy(asyncRef, fPacketAsyncNotificationRef, sizeof(OSAsyncReference)) ;	
+	bcopy(asyncRef, fPacketAsyncNotificationRef, sizeof(OSAsyncReference64)) ;	
 }
 
 void
 IOFWUserPseudoAddressSpace::setAsyncRef_SkippedPacket(
-	OSAsyncReference	asyncRef)
+	OSAsyncReference64	asyncRef)
 {
-	bcopy(asyncRef, fSkippedPacketAsyncNotificationRef, sizeof(OSAsyncReference)) ;
+	bcopy(asyncRef, fSkippedPacketAsyncNotificationRef, sizeof(OSAsyncReference64)) ;
 }
 
 void
 IOFWUserPseudoAddressSpace::setAsyncRef_Read(
-	OSAsyncReference	asyncRef)
+	OSAsyncReference64	asyncRef)
 {
-	bcopy(asyncRef, fReadAsyncNotificationRef, sizeof(OSAsyncReference)) ;
+	bcopy(asyncRef, fReadAsyncNotificationRef, sizeof(OSAsyncReference64)) ;
 }
 
 void
@@ -782,7 +818,7 @@ IOFWUserPseudoAddressSpace::clientCommandIsComplete(
 																				fDesc,//fBackingStore
 																				oldHeader->IncomingPacket.addrLo - fAddress.addressLo,
 																				oldHeader->IncomingPacket.packetSize >> 1,
-																				oldHeader->IncomingPacket.reqrefcon ) ;
+																				(void*)oldHeader->IncomingPacket.reqrefcon ) ;
 				}
 				
 				// fall through
@@ -798,7 +834,7 @@ IOFWUserPseudoAddressSpace::clientCommandIsComplete(
                                                                                 fDesc,//fBackingStore
                                                                                 oldHeader->ReadPacket.addrLo - fAddress.addressLo,
                                                                                 oldHeader->ReadPacket.packetSize,
-                                                                                oldHeader->ReadPacket.reqrefcon ) ;
+                                                                                (void*)oldHeader->ReadPacket.reqrefcon ) ;
 				}
                 break ;
 				
@@ -840,9 +876,9 @@ IOFWUserPseudoAddressSpace::sendPacketNotification(
 		
 		if (inPacketHeader->CommonHeader.whichAsyncRef[0])
 		{
-			IOFireWireUserClient::sendAsyncResult(*(inPacketHeader->CommonHeader.whichAsyncRef),
+			IOFireWireUserClient::sendAsyncResult64(*(inPacketHeader->CommonHeader.whichAsyncRef),
 							kIOReturnSuccess,
-							(void**)inPacketHeader->CommonHeader.args,
+							(io_user_reference_t*)inPacketHeader->CommonHeader.args,
 							inPacketHeader->CommonHeader.argCount) ;
 			fWaitingForUserCompletion = true ;
 		}

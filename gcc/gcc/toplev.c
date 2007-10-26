@@ -250,12 +250,6 @@ int flag_fastf = 0;
 int flag_fastcp = 0;
 /* APPLE LOCAL end -fast */
 
-/* APPLE LOCAL begin -ffppc 2001-08-01 --sts */
-/* Nonzero if the floating point precision control pass should
-   be performed. (x86 only really, but we pretend it's generic)  */
-int flag_fppc = 0;
-/* APPLE LOCAL end -ffppc 2001-08-01 --sts */
-
 /* Nonzero if structures and unions should be returned in memory.
 
    This should only be defined if compatibility with another compiler or
@@ -922,7 +916,8 @@ check_global_declarations (tree *vec, int len)
 	  && ! TREE_USED (decl)
 	  /* The TREE_USED bit for file-scope decls is kept in the identifier,
 	     to handle multiple external decls in different scopes.  */
-	  && ! TREE_USED (DECL_NAME (decl))
+	  /* APPLE LOCAL mainline 2005-10-10  */
+	  && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
 	  && ! DECL_EXTERNAL (decl)
 	  && ! TREE_PUBLIC (decl)
 	  /* A volatile variable might be used in some non-obvious way.  */
@@ -1505,6 +1500,42 @@ print_switch_values (FILE *file, int pos, int max,
   fprintf (file, "%s", term);
 }
 
+/* APPLE LOCAL begin option verifier 4957887 */
+/* Return a string (allocated using xmalloc) listing all the arguments
+   originally passed to the compiler.  Arguments are separated by spaces,
+   and spaces or backslashes inside arguments are backslash-quoted.  */
+   
+char *
+get_arguments (void)
+{
+  size_t i;
+  size_t sz = 1;
+  char * result;
+  char * resultp;
+  
+  /* Make upper estimate of space required.  */
+  for (i = 0; save_argv[i] != NULL; i++)
+    sz += strlen (save_argv[i])*2 + 1;
+
+  /* Build up result.  */
+  result = xmalloc (sz);
+  resultp = result;
+  for (i = 0; save_argv[i] != NULL; i++)
+    {
+      const char * arg_p = save_argv[i];
+      while (*arg_p)
+	{
+	  if (*arg_p == '\\' || *arg_p == ' ')
+	    *resultp++ = '\\';
+	  *resultp++ = *arg_p++;
+	}
+      *resultp++ = ' ';
+    }
+  *resultp = 0;
+  return result;
+}
+/* APPLE LOCAL end option verifier 4957887 */
+
 /* Open assembly code output file.  Do this even if -fsyntax-only is
    on, because then the driver will have provided the name of a
    temporary file or bit bucket for us.  NAME is the file specified on
@@ -1766,8 +1797,6 @@ general_init (const char *argv0)
   /* Handle compilation interrupts.  */
   if (signal (SIGINT, SIG_IGN) != SIG_IGN)
     signal (SIGINT, interrupt_signal);
-  if (signal (SIGKILL, SIG_IGN) != SIG_IGN)
-    signal (SIGINT, interrupt_signal);
   if (signal (SIGTERM, SIG_IGN) != SIG_IGN)
     signal (SIGTERM, interrupt_signal);
   /* APPLE LOCAL end interrupt signal handler */
@@ -1868,9 +1897,16 @@ process_options (void)
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
-  /* The loop unrolling code assumes that cse will be run after loop.  */
+  /* APPLE LOCAL begin 3791237 */
+  /* The loop unrolling code assumes that cse will be run after loop.
+     Turning on web has the effect of live range splitting for unrolled
+     induction variables, and is beneficial for scheduling. */
   if (flag_unroll_loops || flag_peel_loops)
-    flag_rerun_cse_after_loop = 1;
+    {
+      flag_rerun_cse_after_loop = 1;
+      flag_web = 1;
+    }
+  /* APPLE LOCAL end 3791237 */
 
   /* If explicitly asked to run new loop optimizer, switch off the old
      one.  */
@@ -2111,6 +2147,18 @@ process_options (void)
   /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
   if (flag_cx_limited_range)
     flag_complex_method = 0;
+  /* APPLE LOCAL begin mainline */
+
+  /* Targets must be able to place spill slots at lower addresses.  If the
+     target already uses a soft frame pointer, the transition is trivial.  */
+  if (!FRAME_GROWS_DOWNWARD && flag_stack_protect)
+    {
+      warning ("-fstack-protector not supported for this target");
+      flag_stack_protect = 0;
+    }
+  if (!flag_stack_protect)
+    warn_stack_protect = 0;
+  /* APPLE LOCAL end mainline */
 
   /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
   cl_pf_opts_cooked = cl_pf_opts;

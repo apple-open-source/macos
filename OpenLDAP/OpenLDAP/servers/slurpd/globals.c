@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/globals.c,v 1.17.2.3 2004/01/01 18:16:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/globals.c,v 1.22.2.2 2006/01/03 22:16:26 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,7 @@
 #include "globals.h"
 
 Globals		 *sglob;
+static Globals glob;
 
 int ldap_syslog = 0;
 #ifdef LOG_DEBUG
@@ -59,10 +60,10 @@ init_globals( void )
 {
     Globals *g;
 
-    g = ( Globals * ) malloc( sizeof( Globals ));
-    if ( g == NULL ) {
-	return NULL;
-    }
+    g = &glob;
+
+	g->wake_sds[0] = -1;
+	g->wake_sds[1] = -1;
 
 #ifdef HAVE_NT_SERVICE_MANAGER
     g->slapd_configfile = ".\\slapd.conf";
@@ -71,11 +72,11 @@ init_globals( void )
     g->slapd_configfile = SLAPD_DEFAULT_CONFIGFILE;
     g->slurpd_rdir = DEFAULT_SLURPD_REPLICA_DIR "/replica";
 #endif
+
     g->no_work_interval = DEFAULT_NO_WORK_INTERVAL;
     g->slurpd_shutdown = 0;
     g->num_replicas = 0;
     g->replicas = NULL;
-    strcpy( g->slurpd_status_file, DEFAULT_SLURPD_STATUS_FILE );
     g->slapd_replogfile[ 0 ] = '\0';
     g->slurpd_replogfile[ 0 ] = '\0';
     g->slurpd_status_file[ 0 ] = '\0';

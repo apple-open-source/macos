@@ -5,7 +5,7 @@
 #
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/10/04 23:11:25 $
+# Last Updated: $Date: 2007/07/18 23:13:26 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -44,7 +44,7 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.4.2.5.2.16 $';
+$VERSION = '$Revision: 1.4.2.5.2.19 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -76,7 +76,7 @@ sub _initialize {
     $self->{CLASS} = "HeaderDoc::ObjCContainer";
 }
 
-sub _getCompositePageString { 
+sub _old_getCompositePageString { 
     my $self = shift;
     my $name = $self->name();
     my $compositePageString;
@@ -191,6 +191,20 @@ sub objGroup { # used for sorting
    # } else {
         # return (1 cmp 2);
    # }
+}
+
+sub conformsToList {
+    my $self = shift;
+    my $string = shift;
+    my $localDebug = 0;
+
+    print "ObjC object ".$self->name." conforms to: ".$string."\n" if ($localDebug);
+    $string =~ s/\s*//sg;
+    $string =~ s/,/\cA/g;
+
+    if ($string ne "") {
+	$self->attribute("Conforms&nbsp;to", $string, 0);
+    }
 }
 
 ##################### Debugging ####################################

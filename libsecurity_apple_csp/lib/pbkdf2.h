@@ -26,7 +26,7 @@
 #ifndef __PBKDF2__
 #define __PBKDF2__
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#include <Security/cssmconfig.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -42,8 +42,8 @@ extern "C" {
    Both keyLen and textLen can have any nonzero value.
    A good prf would be a HMAC-SHA-1 algorithm where the keyPtr octets serve as
    HMAC's "key" and the textPtr octets serve as HMAC's "text".  */
-typedef void (*PRF)(const void *keyPtr, UInt32 keyLen,
-					const void *textPtr, UInt32 textLen,
+typedef void (*PRF)(const void *keyPtr, uint32 keyLen,
+					const void *textPtr, uint32 textLen,
 					void *randomPtr);
 
 /* This function implements the PBKDF2 key derrivation algorithm described in
@@ -65,11 +65,11 @@ typedef void (*PRF)(const void *keyPtr, UInt32 keyLen,
    The value of iterationCount should be at least 1000 (one thousand).
    A good prf would be a HMAC-SHA-1 algorithm where the password serves as
    HMAC's "key" and the data serves as HMAC's "text".  */
-void pbkdf2 (PRF prf, UInt32 hLen,
-			 const void *passwordPtr, UInt32 passwordLen,
-			 const void *saltPtr, UInt32 saltLen,
-			 UInt32 iterationCount,
-			 void *dkPtr, UInt32 dkLen,
+void pbkdf2 (PRF prf, uint32 hLen,
+			 const void *passwordPtr, uint32 passwordLen,
+			 const void *saltPtr, uint32 saltLen,
+			 uint32 iterationCount,
+			 void *dkPtr, uint32 dkLen,
 			 void *tempBuffer);
 
 #ifdef	__cplusplus

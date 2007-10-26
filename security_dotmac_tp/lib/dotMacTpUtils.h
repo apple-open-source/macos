@@ -60,7 +60,7 @@ void dotMacRefKeyToRaw(
  */
 OSStatus dotMacEncodeRefId(  
 	const CSSM_DATA				&userName,	// UTF8, no NULL
-	DotMacSignType				signType,
+	DotMacCertTypeTag			signType,
 	SecNssCoder					&coder,		// results mallocd in this address space
 	CSSM_DATA					&refId);	// RETURNED, PEM encoded
 
@@ -68,12 +68,12 @@ OSStatus dotMacDecodeRefId(
 	SecNssCoder					&coder,		// results mallocd in this address space
 	const CSSM_DATA				&refId,		// PEM encoded
 	CSSM_DATA					&userName,	// RETURNED, UTF8, no NULL
-	DotMacSignType				*signType);  // RETURNED
+	DotMacCertTypeTag			*signType);  // RETURNED
 
 /* fetch cert via HTTP */
-OSStatus dotMacTpCertFetch(
+CSSM_RETURN dotMacTpCertFetch(
 	const CSSM_DATA				&userName,  // UTF8, no NULL
-	DotMacSignType				signType,
+	DotMacCertTypeTag			signType,
 	Allocator					&alloc,		// results mallocd here
 	CSSM_DATA					&result);	// RETURNED
 

@@ -5,7 +5,7 @@
  |                     MacsBug screen area display control routines                     |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2005                       |
+ |                       Copyright Apple Computer, Inc. 2000-2006                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -103,6 +103,7 @@ static short pc_left;
 static short pc_bottom;
 static short pc_right;
 static short pc_lines;
+static short pc_wrap;
 
 static short cmd_top;				/* location of the command line area	*/
 static short cmd_left;
@@ -786,7 +787,7 @@ static char *write_to_history_area(FILE *f, char *line, void *data)
         }
     *dst = '\0';
         
-    line = detabbed_line;
+    len = strlen(line = detabbed_line);
     
     /* Handle line wrapping.  Write chunks of line that fit in the history are leaving	*/
     /* the last chunk to be handled normally...						*/
@@ -1088,20 +1089,8 @@ void display_pc_area(void)
     
     get_screen_size(&max_rows, &max_cols);
     
-    /* Sometimes gdb will print an extra line at the start of the first x/i done in a	*/
-    /* session.  For example, for Cocoa inferiors, it will print something like,	*/
-    
-    /*      Current language:  auto; currently objective-c				*/
-    
-    /* This will confuse the disassembly reformatting.  We can fake gdb out, however,	*/
-    /* by giving it "x/0i 0".  It won't do anything if gdb has nothing additional to	*/
-    /* say.  But if it does, the additional stuff is all it will say.  This will print	*/
-    /* to the current output stream which is where we want it to go.			*/
-    
-    gdb_execute_command("x/0i 0");
-    
-    memset(line, '_', max_cols - pc_left);
-    line[max_cols - pc_left] = '\0';
+    memset(line, '_', pc_wrap);
+    line[pc_wrap] = '\0';
     screen_fprintf(stderr, PC_AREA, GOTO "%s", pc_top_divider,    pc_left, line);
     screen_fprintf(stderr, PC_AREA, GOTO "%s", pc_bottom_divider, pc_left, line);
    
@@ -1127,6 +1116,18 @@ void display_pc_area(void)
     	return;
     previous_pc = current_pc;
     
+    /* Sometimes gdb will print an extra line at the start of the first x/i done in a	*/
+    /* session.  For example, for Cocoa inferiors, it will print something like,	*/
+    
+    /*      Current language:  auto; currently objective-c				*/
+    
+    /* This will confuse the disassembly reformatting.  We can fake gdb out, however,	*/
+    /* by giving it "x/0i 0".  It won't do anything if gdb has nothing additional to	*/
+    /* say.  But if it does, the additional stuff is all it will say.  This will print	*/
+    /* to the current output stream which is where we want it to go.			*/
+    
+    gdb_execute_command("x/0i 0");
+        
     /* This is a little tricky.  We use format_disasm_line() as usual to format the	*/
     /* the disassembly lines.  It writes those lines using the disasm_info.stream which	*/
     /* we set here to cause that stream to use disasm_pc_area_output() above.  Thus two	*/
@@ -1135,8 +1136,9 @@ void display_pc_area(void)
     /* (disasm_pc_area_output()) for the stream format_disasm_line() writes to.		*/
     
     disasm_info.pc        = current_pc;		/* these are for format_disasm_line()	*/
-    disasm_info.max_width = max_cols - pc_left;
-    disasm_info.flags	  = (ALWAYS_SHOW_NAME|FLAG_PC);
+    disasm_info.max_width = pc_wrap;
+    disasm_info.comm_max  = pc_wrap;
+    disasm_info.flags	  = (ALWAYS_SHOW_NAME|FLAG_PC|DISASM_PC_AREA);
     disasm_info.stream    = gdb_open_output(stdout, disasm_pc_area_output, &pc_data);
     
     pc_data.row = pc_top;			/* for disasm_pc_area_output() to use	*/
@@ -1328,7 +1330,7 @@ void save_stack(int max_rows)
     	prev_stack = (unsigned long *)gdb_realloc(prev_stack, i);
     
     if (prev_stack)
-    	gdb_read_memory_from_addr(prev_stack, gdb_get_sp(), i);
+    	gdb_read_memory_from_addr(prev_stack, gdb_get_sp(), i, 1);
 }
 
 
@@ -1547,7 +1549,7 @@ void __display_side_bar(char *arg, int from_tty)
     	gdb_internal_error("Window size inconsistency dealing with number of stack entries");
     if (stack_rows > 0) {		
     	stack = (unsigned long *)gdb_malloc(stack_rows * sizeof(unsigned long));
-    	gdb_read_memory_from_addr(stack, gdb_get_sp(), (stack_rows * sizeof(unsigned long)));
+    	gdb_read_memory_from_addr(stack, gdb_get_sp(), (stack_rows * sizeof(unsigned long)), 1);
 	if (first_sidebar) {
 	    prev_stack_color = (char *)gdb_malloc(stack_rows);
 	    memset(prev_stack_color, 0, stack_rows);
@@ -1852,7 +1854,7 @@ void init_sidebar_and_pc_areas(void)
    history_bottom, history_right,
    history_lines, history_wrap
 
-   pc_top, pc_left			these define the position of the pc area
+   pc_top, pc_left, pc_wrap,		these define the position of the pc area
    pc_bottom, pc_right, pc_lines
 
    cmd_top, cmd_left,			these define the position of the cmd line area
@@ -1891,7 +1893,7 @@ void define_macsbug_screen_positions(short pc_area_lines, short cmd_area_lines)
     get_screen_size(&max_rows, &max_cols);
     
     side_bar_top      = 1;			/* side bar first 12 characters	of the	*/
-    side_bar_bottom   = max_rows;		/* entire screen			*/
+    side_bar_bottom   = max_rows;		/* entire screen (20 fo 64 bit)		*/
     side_bar_left     = 1;
     side_bar_right    = (target_arch == 4) ? 12 : 20;
     
@@ -1904,6 +1906,7 @@ void define_macsbug_screen_positions(short pc_area_lines, short cmd_area_lines)
     pc_top	      = pc_bottom-pc_area_lines;/* pc area is pc_lines+1 to allow for 	*/
     pc_left	      = side_bar_right + 2;	/* the function name + pc_lines lines	*/
     pc_right	      = max_cols;
+    pc_wrap	      = max_cols - pc_left;
     
     history_top	      = 1;			/* history area is what's left		*/
     history_bottom    = pc_top - 2;
@@ -1935,6 +1938,7 @@ void define_macsbug_screen_positions(short pc_area_lines, short cmd_area_lines)
     gdb_printf("pc_top            = %d\n", pc_top);
     gdb_printf("pc_left           = %d\n", pc_left);
     gdb_printf("pc_right          = %d\n\n", pc_right);
+    gdb_printf("pc_wrap           = %d\n\n", pc_wrap);
     
     gdb_printf("history_top       = %d\n", history_top);
     gdb_printf("history_bottom    = %d\n", history_bottom);
@@ -2038,7 +2042,25 @@ void refresh(char *arg, int from_tty)
     /* lines.										*/
    
     old_prompt_start = prompt_start;
-    prompt_start = sprintf(prompt, GOTO CLEAR_LINE, cmd_top, cmd_left);
+    //prompt_start = sprintf(prompt, GOTO CLEAR_LINE, cmd_top, cmd_left);
+    prompt_start = sprintf(prompt, GOTO, cmd_top, cmd_left);
+    
+    /* NOTE: The CLEAR_LINE at the need of the prompt has been removed because, for some*/
+    /*       unknown reason, the input line is cleared when backspacing over the first	*/
+    /*       character of the input line.  The input line needed to be 3 bytes larger	*/
+    /*       than the prompt (with the GOTO CLEAR_LINE, and it's interesting that 	*/
+    /*       CLEAR_LINE is "\033[0K" which is 3 bytes) for this to happen.  I think the */
+    /*       problem is due to something that either rl_redisplay() or update_line() 	*/
+    /*       (both in gdb's readline) are doing.  That code appears to adjust for the	*/
+    /*       shortening line anyhow so it doesn't look like we need our own CLEAR_LINE 	*/
+    /*       (but I sure would feel safer with it in).  But it is strange that this 	*/
+    /*       problem only occurred when the line was "long enough" and only backspacing */
+    /*       over the first character of the line.  It worked fine anywhere else and for*/
+    /*       any length line.  Weird!  Personally I think there's an edge condition 	*/
+    /*       error in either rl_redisplay() or update_line().  I think it's supposed to	*/
+    /*       only redraw the portion of the line that requires redrawing.  Instead it 	*/
+    /*       must be redrawing 3 bytes before and firing off our CLEAR_LINE.  But I am	*/
+    /*       not sure.									*/
    
     if (old_prompt_start) {
     	gdb_get_prompt(old_prompt);
@@ -2046,14 +2068,15 @@ void refresh(char *arg, int from_tty)
     } else {
     	/* The following is done to try to protect ourselves from someone loading the	*/
 	/* MacsBug plugins twice.  If MacsBug is already loaded and already set our	*/
-	/* prompt with the GOTO CLEAR_LINE prefix we just use actual prompt that 	*/
-	/* follows it.									*/
+	/* prompt with the GOTO prefix we just use actual prompt that follows it.	*/
 	
 	char *p1 = prompt + prompt_start;
-	char *p2 = strstr(gdb_get_prompt(p1), CLEAR_LINE);
+	//char *p2 = strstr(gdb_get_prompt(p1), CLEAR_LINE);
+	char *p2 = strstr(gdb_get_prompt(p1), GOTO);
 	
 	if (p2)
-	    strcpy(p1, p2 + strlen(CLEAR_LINE));
+	    strcpy(p1, p2 + strlen(GOTO));
+	    //strcpy(p1, p2 + strlen(CLEAR_LINE));
     }
 
     sprintf(set_prompt_cmd, "set prompt %s", prompt);
@@ -2149,7 +2172,8 @@ void update_macsbug_prompt(void)
     char *p, set_prompt_cmd[1024], prompt[1024];
     
     if (!doing_set_prompt && macsbug_screen) {
-	prompt_start = sprintf(prompt, GOTO CLEAR_LINE, cmd_top, cmd_left);
+	//prompt_start = sprintf(prompt, GOTO CLEAR_LINE, cmd_top, cmd_left);
+	prompt_start = sprintf(prompt, GOTO, cmd_top, cmd_left);
 	gdb_get_prompt(prompt + prompt_start);
 	sprintf(set_prompt_cmd, "set prompt %s", prompt);
 	doing_set_prompt = 1;
@@ -2371,7 +2395,8 @@ void my_raw_input_prompt_setter(char *prompt)
     
     if (strstr(prompt, GOTO CLEAR_LINE) == NULL) {
 	strcpy(orig_prompt, prompt);
-	sprintf(prompt, GOTO CLEAR_LINE "%s", cmd_top, cmd_left, orig_prompt);
+	//sprintf(prompt, GOTO CLEAR_LINE "%s", cmd_top, cmd_left, orig_prompt);
+	sprintf(prompt, GOTO "%s", cmd_top, cmd_left, orig_prompt);
     }
 }
 
@@ -2533,8 +2558,8 @@ void macsbug_off(int suspend)
     if (!macsbug_screen)
     	return;
 	
-    gdb_close_output(macsbug_screen_stdout);
     gdb_close_output(macsbug_screen_stderr);
+    gdb_close_output(macsbug_screen_stdout);
     gdb_special_events(Gdb_Word_Completion_Cursor, NULL);
     gdb_special_events(Gdb_Word_Completion_Query,  NULL);
     gdb_special_events(Gdb_Before_Query,           NULL);

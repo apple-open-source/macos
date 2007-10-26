@@ -1,4 +1,4 @@
-# Copyright (c) 2002 IBM, Inc. and others
+# Copyright (c) 2002-2005 IBM, Inc. and others
 # sample code rules for a single-target simple sample
 
 # list of targets that aren't actually created
@@ -17,14 +17,18 @@ res-install: $(RESTARGET)
 
 # clean out files
 distclean clean: $(CLEAN_SUBDIR)
-	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
-	-rm $(OBJECTS) $(TARGET) $(RESTARGET) $(RESFILES)
+	-test -z "$(CLEANFILES)" || rm -rf $(CLEANFILES)
+	-rm -rf $(OBJECTS) $(TARGET) $(RESTARGET) $(RESFILES)
 
 # Make check: simply runs the sample, logged to a file
 check: $(TARGET)
 	$(INVOKE) $(CHECK_VARS) ./$(TARGET) $(CHECK_ARGS) | tee $(TARGET).out
 
 ## resources
-$(RESNAME)_%.res: %.txt
+%.res: %.txt
+	@echo "generating $@"
+	$(GENRB) $(GENRBOPT) $^
+
+$(RESNAME)/%.res: %.txt
 	@echo "generating $@"
 	$(GENRB) $(GENRBOPT) $^

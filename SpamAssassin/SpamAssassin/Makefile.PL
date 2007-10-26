@@ -54,6 +54,11 @@ my @ATT_KEYS = (
   'DEFRULESDIR',      # A synonym for 'DATADIR'.
   'LOCALRULESDIR',    # " "       "   'CONFDIR'.
 
+  'LOCALSTATEDIR',    # normally determined based on $*PREFIX.
+  'PERLLOCALSTATEDIR', 
+  'SITELOCALSTATEDIR', 
+  'VENDORLOCALSTATEDIR',
+
   'PERL_BIN',         # Sets the Perl interpreter used by the scripts.
   'PERL_VERSION',     # Some parts in SpamAssassin were dependant on the version
   'PERL_WARN',        # Can be used to disable warnings in the scripts
@@ -63,7 +68,6 @@ my @ATT_KEYS = (
   'BUILD_SPAMC'  ,    # Set to 'no' to skip build of spamc.
   'ENABLE_SSL',       # Set to 'yes' to build spamc with SSL support.
   'CONTACT_ADDRESS',  # To not ask for the contact address, use this.
-  'RUN_NET_TESTS',    # To not ask whether net tests should be run, use this.
 );
 
 
@@ -98,11 +102,8 @@ sub yesno {
 my %opt = (
   'build_spamc'        => undef,
   'enable_ssl'      => undef,
-  'contact_address' => undef,
-  'run_net_tests'   => undef,
+  'contact_address' => "postmaster",
   'destdir'         => undef,
-  '__cruft'         => undef,
-  'ignore_cruft'    => undef,
 );
 ARGV: foreach (@ARGV) {
   foreach my $key (keys %opt) {
@@ -112,10 +113,6 @@ ARGV: foreach (@ARGV) {
     if (defined $val) {
       $opt{$key} = $val;
       next ARGV;
-    }
-
-    if (defined parse_arg($_, qr/INST_(?:PREFIX|SITELIB|SYSCONFDIR)|[A-Z_]+_RULES_DIR/)) {
-      $opt{'__cruft'} = 1;
     }
   }
 }
@@ -148,9 +145,13 @@ foreach my $key (@ATT_KEYS) {
 }
 
 
-# Gather the rules files in the range 00-69; we do this in perl because it's more portable
-my @datafiles = map { s,^rules/,,; $_ } (<rules/*.cf>);
-my $datafiles = join(' ', (grep { /^[0-6][0-9]_/ } @datafiles), qw(user_prefs.template triplets.txt languages));
+# Gather the rules files in the range 00-69; we do this in perl because
+# it's more portable.  Also, plugin .pm files.
+my @datafiles = map { s,^rules/,,; $_ }
+                grep { -f $_ } (<rules/*.cf>, <rules/*.pm>);
+my $datafiles = join(' ', (grep 
+                { /^(?:(?:[0-6][0-9]|72)_\S+\.cf|\S+\.pm)/ } @datafiles),
+                qw(user_prefs.template languages sa-update-pubkey.txt));
 
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
@@ -159,24 +160,41 @@ my %makefile = (
     'NAME'         => 'Mail::SpamAssassin',
     'VERSION_FROM' => 'lib/Mail/SpamAssassin.pm', # finds $VERSION
 
-    'EXE_FILES'	=> [
-        'spamassassin', 'sa-learn',
-        'spamc/spamc$(EXE_EXT)', # must next to last one
-        'spamd/spamd',	# must be the last one
-    ],
+    # This is not the standard EU::MM array, we use a hash instead (which 
+    # will be converted later on).  Use the source file name as the key and
+    # the executable as the value.
+    'EXE_FILES' => {
+      'spamassassin.raw' => 'spamassassin',
+      'sa-learn.raw'     => 'sa-learn',
+      'sa-update.raw'    => 'sa-update',
+      'sa-compile.raw'    => 'sa-compile',
+      'spamc/spamc.c'    => 'spamc/spamc$(EXE_EXT)',
+      'spamd/spamd.raw'  => 'spamd/spamd',
+    },
+
+    # TODO: the rule compilation is hooked into the build step for "sa-update"
+    # as the make target "build_rules".
+    # This is kludgy, and it'd be nice to find a cleaner way to do this.
 
     'MAN1PODS' => {
-        'spamassassin'    => '$(INST_MAN1DIR)/spamassassin.$(MAN1EXT)',
-        'sa-learn'        => '$(INST_MAN1DIR)/sa-learn.$(MAN1EXT)',
-        'spamc/spamc.pod' => '$(INST_MAN1DIR)/spamc.$(MAN1EXT)',
-        'spamd/spamd'     => '$(INST_MAN1DIR)/spamd.$(MAN1EXT)',
+        'spamassassin'     => '$(INST_MAN1DIR)/spamassassin.$(MAN1EXT)',
+        'lib/spamassassin-run.pod' => '$(INST_MAN1DIR)/spamassassin-run.$(MAN1EXT)',
+        'sa-learn'         => '$(INST_MAN1DIR)/sa-learn.$(MAN1EXT)',
+        'sa-update'        => '$(INST_MAN1DIR)/sa-update.$(MAN1EXT)',
+        'sa-compile'       => '$(INST_MAN1DIR)/sa-compile.$(MAN1EXT)',
+        'spamc/spamc.pod'  => '$(INST_MAN1DIR)/spamc.$(MAN1EXT)',
+        'spamd/spamd'      => '$(INST_MAN1DIR)/spamd.$(MAN1EXT)',
     },
 
     'PL_FILES' => { },
 
     'PMLIBDIRS' => [ 'lib' ],
 
-    'PM_FILTER' => '$(PREPROCESS) -Mconditional -Mvars -DVERSION="$(VERSION)" -DPREFIX="$(I_PREFIX)"',
+    'PM_FILTER' => '$(PREPROCESS) -Mconditional -Mvars -DVERSION="$(VERSION)" \
+    	-DPREFIX="$(I_PREFIX)" \
+	-DDEF_RULES_DIR="$(I_DATADIR)" \
+	-DLOCAL_RULES_DIR="$(I_CONFDIR)" \
+	-DLOCAL_STATE_DIR="$(I_LOCALSTATEDIR)"',
 
     'macro' => {
         DATAFILES => $datafiles,
@@ -189,8 +207,8 @@ my %makefile = (
         'File::Spec'    => 0.8,           # older versions lack some routines we need
         'File::Copy'    => 2.02,          # this version is shipped with 5.005_03, the oldest version known to work
         'Pod::Usage'    => 1.10,          # all versions prior to this do seem to be buggy
-        'HTML::Parser'  => 3.24,          # the HTML code is based on this parser
-        'Text::Wrap'    => 98.112902,     # this version is shipped with 5.005_03, the oldest version known to work
+        'HTML::Parser'  => 3.43,          # the HTML code is based on this parser, older versions have utf-8 bugs
+        'Net::DNS'      => (RUNNING_ON_WINDOWS ? 0.46 : 0.34), # bugs in older revs
         'Sys::Hostname' => 0,
         'Time::Local'   => 0,
         'Errno'         => 0,
@@ -199,42 +217,67 @@ my %makefile = (
     'dist' => {
         COMPRESS => 'gzip -9f',
         SUFFIX => 'gz',
-        DIST_DEFAULT => 'tardist'
+        DIST_DEFAULT => 'tardist',
+
+        CI => 'svn commit',
+        RCS_LABEL => 'true',
     },
 
     'clean' => { FILES => join(' ' =>
-        'spamassassin', 'sa-learn',
-
+        'sa-learn', 'sa-update', 'spamassassin', 'sa-compile',
+        
         'spamd/spamd',
 
         'spamc/spamc$(EXE_EXT)',
+        'spamc/spamc.h',
         'spamc/qmail-spamc$(EXE_EXT)',
         'spamc/*.o*', 'spamc/replace/*.o*',
         'spamc/*.so',
         'spamc/Makefile',
-        'spamc/config.h', 'spamc/version.h',
-        'spamc/config.status', 'spamc/config.cache', 'spamc/config.log', 'spamc/autom4te.cache',
+        'spamc/config.h', 'spamc/version.h', 'spamc/spamc.h',
+        'spamc/config.status', 'spamc/*.cache', 'spamc/config.log',
         'spamd/*spamc*', 'qmail',
 
-        'doc', 'pod2htm*',
+        'doc', 'pod2htm*', '*.cache',
 
 	'version.env',
 
         't/bayessql.cf', 't/do_net', 't/log', 't/sql_based_whitelist.cf',
+
+        'rules/*.pm',
+
+        # don't remove these. they are built from 'rulesrc' in SVN, but
+        # in a distribution tarball, they're not
+        # 'rules/70_sandbox.cf',
+        # 'rules/72_active.cf',
+
+        # this file is no longer built, or used
+        'rules/70_inactive.cf',
+
       )
 
     },
 
-    'AUTHOR'   => 'SpamAssassin Project <spamassassin-dev@incubator.apache.org>',
-    'ABSTRACT' => 'identify spam mail using text analysis',
+    'AUTHOR'   => 'The Apache SpamAssassin Project <dev at spamassassin.apache.org>',
+    'ABSTRACT' => 'SpamAssassin is an extensible email filter which is used to identify spam.',
 
     # We have only this Makefile.PL and this option keeps MakeMaker from
     # asking all questions twice after a 'make dist*'.
     'NORECURS' => 1,
 
+    # bug 5074: perl 5.6.1 (with ExtUtils::MakeMaker 5.45) attempts to
+    # recurse anyway unless this is explicitly specified
+    'DIR' => [ ],
+
     # Don't add META.yml to the MANIFEST for god's sake!
     'NO_META' => 1,
 );
+
+# rules/72_active.cf is built from "rulesrc", but *must* exist before
+# WriteMakefile() is called due to shortcomings in MakeMaker.
+my @FILES_THAT_MUST_EXIST = qw(
+        rules/72_active.cf
+    );
 
 # That META.yml stuff was introduced with Perl 6.06_03, see
 # <http://archive.develooper.com/makemaker@perl.org/msg00922.html>
@@ -247,26 +290,6 @@ my %CURRENT_PM = (
     'Net::DNS' => (RUNNING_ON_WINDOWS ? 0.46 : 0.34),
     'Razor2::Client::Agent' => 2.40,
 );
-
-if (bool($opt{'__cruft'}, 0) and not bool($opt{'ignore_cruft'}, 0)) {
-  my $error = <<OLD_CRUFT;
-
-    ***********************************************************************
-    You attempted to use one of the following unsupported variables:
-      INST_PREFIX
-      INST_SITELIB
-      INST_SYSCONFDIR
-      DEF_RULES_DIR
-      LOCAL_RULES_DIR
-    Please read INSTALL and PACKAGING for new usage instructions.
-
-    Thanks and sorry for any inconvenience.
-    ***********************************************************************
-
-OLD_CRUFT
-  $error =~ s/^ {4}//gm;
-  die $error;
-}
 
 if ($mm_needs_destdir) {
   my $error = <<DESTDIR_HACK;
@@ -308,8 +331,13 @@ DESTDIR_BUG
 }
 
 
-# All the $(*MAN1*) stuff is empty/zero if Perl was Configured with -Dman1dir=none
-unless($Config{installman1dir}) {
+# All the $(*MAN1*) stuff is empty/zero if Perl was Configured with -Dman1dir=none;
+# however, support site/vendor man1 dirs (bug 5338)
+unless($Config{installman1dir}
+    || $Config{installsiteman1dir}
+    || $Config{installvendorman1dir})
+{
+  warn "not installing man pages in man1; no man1 dir found";
   delete $makefile{MAN1PODS};
 }
 
@@ -317,26 +345,24 @@ unless($Config{installman1dir}) {
 # Windows platforms need some adjustments
 if (RUNNING_ON_WINDOWS) {
   # Don't build spamd
-  pop    @{$makefile{EXE_FILES}};
+  delete $makefile{EXE_FILES}{'spamd/spamd.raw'};
   delete $makefile{MAN1PODS}{'spamd/spamd'};
   # building spamc is optional under Win32 because not everyone has compiler
   if (!defined $opt{'build_spamc'}) {
     $opt{'build_spamc'} = bool(prompt(
       "Build spamc.exe (environment must be set up for C compiler)? (y/n)",
-      'y'));
+      'n'));
   } else {
     $opt{'build_spamc'} = bool($opt{'build_spamc'});
   }
   if (!$opt{'build_spamc'}) {
-    pop    @{$makefile{EXE_FILES}};
+    delete $makefile{EXE_FILES}{'spamc/spamc.c'};
     delete $makefile{MAN1PODS}{'spamc/spamc.pod'};
   }
 }
 
 
 $makefile{'macro'}{'ENABLE_SSL'} = yesno($opt{'enable_ssl'});
-
-$opt{'contact_address'} = "postmaster\@localhost";
 
 if (!defined $opt{'contact_address'}) {
   $opt{'contact_address'} = prompt(
@@ -349,108 +375,30 @@ if (!defined $opt{'contact_address'}) {
 }
 $makefile{'macro'}{'CONTACT_ADDRESS'} = $opt{'contact_address'};
 
-$opt{'run_net_tests'} = 0;
+print 
+'NOTE: settings for "make test" are now controlled using "t/config.dist". 
+See that file if you wish to customise what tests are run, and how.
 
-if (!defined $opt{'run_net_tests'}) {
-  $opt{'run_net_tests'} = prompt(
-    "Check network rules during 'make test' (test scripts may fail due to\n".
-    "network problems)? (y/n)",
-    'n');
-  print "\n";
-}
-$opt{'run_net_tests'} = bool($opt{'run_net_tests'});
-if ($opt{'run_net_tests'}) {
-  open(FLAG, "> t/do_net");
-  close(FLAG);
-}
-else {
-  unlink("t/do_net");
-}
-$makefile{'macro'}{'RUN_NET_TESTS'} = yesno($opt{'run_net_tests'});
-
-$opt{'run_awl_sql_tests'} = 0;
-
-if (HAS_DBI) {
-  if (!defined $opt{'run_awl_sql_tests'}) {
-    $opt{'run_awl_sql_tests'} = prompt(
-      "Run SQL-based Auto-whitelist tests during 'make test' (additional\n".
-      "information required) (y/n)", "n");
-    print "\n";
-
-    $opt{'run_awl_sql_tests'} = bool($opt{'run_awl_sql_tests'});
-  }
-}
-
-if ($opt{'run_awl_sql_tests'}) {
-  my $user_awl_dsn = prompt("SQL AWL DSN (user_awl_dsn): ", "dbi:mysql:spamassassin:localhost");
-  my $user_awl_sql_username = prompt("SQL AWL DB username (user_awl_sql_username): ", "");
-  my $user_awl_sql_password = prompt("SQL AWL DB password (user_awl_sql_password): ", "");
-  my $user_awl_sql_table = prompt("SQL AWL tablename (user_awl_sql_table): ", "awl") || 'awl';
-  print "\n";
-
-  open(FILE, ">t/sql_based_whitelist.cf");
-  print FILE "user_awl_dsn $user_awl_dsn\n";
-  # These two can be blank and the conf parser doesn't really like
-  # blank variables, so do not print them if blank
-  print FILE "user_awl_sql_username $user_awl_sql_username\n" if ($user_awl_sql_username);
-  print FILE "user_awl_sql_password $user_awl_sql_password\n" if ($user_awl_sql_password);
-  print FILE "user_awl_sql_table $user_awl_sql_table\n";
-
-  close(FILE);
-}
-else {
-  unlink("t/sql_based_whitelist.cf");
-}
-
-$opt{'run_bayes_sql_tests'} = 0;
-
-if (HAS_DBI) {
-  if (!defined $opt{'run_bayes_sql_tests'}) {
-    $opt{'run_bayes_sql_tests'} = prompt(
-      "Run Bayes SQL storage tests during 'make test' (additional\n".
-      "information required)? (y/n)", 'n');
-    print "\n";
-
-    $opt{'run_bayes_sql_tests'} = bool($opt{'run_bayes_sql_tests'});
-  }
-}
-
-if ($opt{'run_bayes_sql_tests'}) {
-  my $bayes_sql_dsn = prompt("Bayes SQL DSN (bayes_sql_dsn): ", "dbi:mysql:spamassassin:localhost");
-  my $bayes_sql_username = prompt("Bayes SQL DB username (bayes_sql_username): ", "");
-  my $bayes_sql_password = prompt("Bayes SQL DB password (bayes_sql_password): ", "");
-  print "\n";
-  
-  open(FILE, ">t/bayessql.cf");
-  print FILE "bayes_sql_dsn $bayes_sql_dsn\n";
-  # These two can be blank and the conf parser doesn't really like
-  # blank variables, so do not print them if blank
-  print FILE "bayes_sql_username $bayes_sql_username\n" if ($bayes_sql_username);
-  print FILE "bayes_sql_password $bayes_sql_password\n" if ($bayes_sql_password);
-  close(FILE);
-}
-else {
-  unlink("t/bayessql.cf");
-}
+';
 
 # check optional module versions
-while (my ($module, $version) = each %CURRENT_PM) {
-  my $eval = "require $module";
-  eval $eval;
+use lib 'lib';
+use Mail::SpamAssassin::Util::DependencyInfo;
+if (Mail::SpamAssassin::Util::DependencyInfo::long_diagnostics() != 0) {
+  # missing required module?  die!
+  exit 1;
+}
 
-  if ($@) {
-    next;
-  }
-  elsif ($module->VERSION < $version) {
-    warn("Warning: optional module $module $version not found (" .
-	 $module->VERSION .
-	 " currently installed)");
-  }
+foreach my $file (@FILES_THAT_MUST_EXIST) {
+  open (TOUCH, ">>$file") or die "cannot touch '$file'";
+  close TOUCH;
 }
 
 #######################################################################
 
-# Now dump the Makefile
+# Now finish the meta hash and dump the Makefile
+$makefile{EXE_FILES} = [ values %{$makefile{EXE_FILES}} ];
+$makefile{AUTHOR} =~ s/(<.+) at (.+>)/$1\@$2/;
 WriteMakefile(%makefile);
 print "Makefile written by ExtUtils::MakeMaker ${mm_version}\n";
 
@@ -562,7 +510,7 @@ sub macro_ref {
 # If it is omitted, the value set in the current EU::MM instance is used.
 sub macro_def {
   my($name, $val) = (@_, undef);
-  my $MUST_NOT_HAPPEN = "THIS MUST NOT HAPPEN. PLEASE REPORT A BUG VIA <http://bugzilla.spamassassin.org>";
+  my $MUST_NOT_HAPPEN = "THIS MUST NOT HAPPEN. PLEASE REPORT A BUG VIA <http://issues.apache.org/SpamAssassin/>";
   die $MUST_NOT_HAPPEN  unless defined $name;
   die $MUST_NOT_HAPPEN  unless defined $EQ;
   $val = $SELF->{$name} unless defined $val;
@@ -643,9 +591,11 @@ sub set_macro {
 #   INSTALLPERLCONF -> INSTALLCONF
 # Actually, its a bit more complex than that but we follow that simple mapping
 # for our vars; one also has to know when to call this function and when not.
+# If the second parameter is set, always the PERL variant is used.
 sub repository {
-  my($repository) = (@_);
+  my($repository, $default) = (@_);
 
+  return '' if $default;
   return '' if $repository eq 'PERL';
   return $repository;
 }
@@ -693,6 +643,48 @@ sub _set_macro_SYSCONFDIR {
   );
 }
 
+# This routine determines the correct LOCALSTATEDIR to use for the given
+# repository.
+#
+# The first parameter must be one value from @REPOSITORIES.
+#
+# *LOCALSTATEDIR can be overwritten with:
+#   *LOCALSTATEDIR
+#   LOCALSTATEDIR
+# If none of those is specified, it will chose an FHS-compliant dir
+# based on the corresponding *PREFIX:
+#   *PREFIX     *LOCALSTATEDIR
+#   /usr        /etc
+#   /usr/local  /etc
+#   /opt/*      /etc/opt
+#   /foo/*      /foo/*/etc
+sub _set_macro_LOCALSTATEDIR {
+  my($repository) = (@_);
+
+  my($macro);
+  $macro = $repository . "LOCALSTATEDIR";
+
+  # Is this macro already set?
+  return if get_macro($macro);
+
+  # Is this macro supposed to be overwritten?
+  if (get_macro('LOCALSTATEDIR')) {
+    set_macro($macro, macro_ref('LOCALSTATEDIR'));
+    return;
+  }
+
+  my($rprefix);
+  $rprefix = get_expanded_macro("${repository}PREFIX");
+
+  # Set the default, depending on the corresponding full PREFIX
+  set_macro($macro,
+    ($rprefix =~ m{^$})                ? ''                      :
+    ($rprefix =~ m{^/usr(/local)?/?$}) ? '/var/lib/spamassassin' :
+    ($rprefix =~ m{^/opt(/|$)})        ? '/var/opt/spamassassin' :
+    macro_ref("${repository}PREFIX") . '/var/spamassassin'
+  );
+}
+
 # This routine determines the correct INSTALLDATADIR (aka DEFRULESDIR)
 # to use for the given repository.
 #
@@ -703,7 +695,7 @@ sub _set_macro_SYSCONFDIR {
 #   DATADIR
 #   DEFRULESDIR
 # If none of those is specified, it will chose an FHS-compliant dir,
-# namely *PREFIX/usr/share/spamassassin.
+# namely *PREFIX/share/spamassassin.
 sub _set_macro_DATADIR {
   my($repository) = (@_);
 
@@ -723,7 +715,7 @@ sub _set_macro_DATADIR {
 
   # Set the default value based on the corresponding PREFIX
   set_macro($macro,
-    macro_ref("${repository}PREFIX") . '/usr/share/spamassassin'
+    macro_ref("${repository}PREFIX") . '/share/spamassassin'
   );
 }
 
@@ -861,8 +853,26 @@ sub _set_macro_CONFIGURE {
   set_macro('CONFIGURE', join(' ', macro_ref('PERL_BIN'), qq{spamc/configure.pl}));
 }
 
+# This routine sets the value for the SYMLINK command.
+#
+# There are no parameters.
+#
+# $(SYMLINK) calls Perl's symlink() function if available, else falls back 
+# to $(CP).
+sub _set_macro_SYMLINK {
 
-
+  return if get_macro('SYMLINK');
+  
+  if (eval { symlink("", "") or 1 }) {
+    my $code = q{symlink((splitpath($ARGV[0]))[2], $ARGV[1]) || die qq{$!\n}};
+    $code =~ s/(\$)/$1$1/g;
+    $code = qq{'$code'};
+    set_macro('SYMLINK', join(' ', macro_ref('PERL_BIN'), q{-MFile::Spec::Functions=splitpath}, q{-e}, $code));
+  }
+  else {
+    set_macro('SYMLINK', macro_ref('CP'));
+  }
+}
 
 
 # Override the libscan routine so it skips SVN/CVS stuff and some common
@@ -874,7 +884,7 @@ sub MY::libscan {
 
   return q{} if $path =~ m{
                   (^|/)(CVS|\.svn)(/|$)|
-                  [/.](orig|old|rej|r\d+|diff|patch|bak|backup|mine|my)$
+                  [/.](orig|old|rej|r\d+|diff|patch|bak|backup|mine|my|swp)$
                 }ix;
 
   clean_MY_globals($self);
@@ -969,10 +979,12 @@ sub MY::constants {
   # Add some additional target dirs
   {
     set_macro('SYSCONFDIR', "") unless get_macro('SYSCONFDIR');
+    set_macro('LOCALSTATEDIR', "") unless get_macro('LOCALSTATEDIR');
 
     # Determine the correct settings for each repository...
     foreach my $r (@REPOSITORIES) {
       _set_macro_SYSCONFDIR($r);
+      _set_macro_LOCALSTATEDIR($r);
       _set_macro_DATADIR($r);
       _set_macro_CONFDIR($r);
     }
@@ -983,6 +995,13 @@ sub MY::constants {
     push(@code, macro_def('SYSCONFDIR'));
     foreach my $r (@REPOSITORIES) {
       push(@code, macro_def($r . 'SYSCONFDIR'));
+    }
+
+    push(@code, qq{});
+    push(@code, qq{# Where to install local state files});
+    push(@code, macro_def('LOCALSTATEDIR'));
+    foreach my $r (@REPOSITORIES) {
+      push(@code, macro_def($r . 'LOCALSTATEDIR'));
     }
 
     foreach my $m (qw(DATA CONF)) {
@@ -1017,29 +1036,36 @@ sub MY::constants {
   {
     _set_macro_PREPROCESS;
     _set_macro_CONFIGURE;
+    _set_macro_SYMLINK;
 
     # Add it to the Makefile.
     push(@code, qq{});
     push(@code, macro_def('PREPROCESS'));
     push(@code, macro_def('CONFIGURE'));
+    push(@code, macro_def('SYMLINK'));
   }
 
-  # Set some additional helper/shortcut macros.
+  # Set some additional helper/shortcut macros; the B_FOO are the ones which
+  # can be temporary locations if DESTDIR is used, I_FOO are the final 
+  # destinations.
   {
     my($repository);
     $repository = uc($SELF->{INSTALLDIRS}) || 'SITE';
 
-    foreach my $macro (qw(PREFIX SYSCONFDIR)) {
+    # For these the install paths are needed only.
+    foreach my $macro (qw(PREFIX SYSCONFDIR LOCALSTATEDIR)) {
       push(@code, macro_def('I_' . $macro,
                     macro_ref($repository . $macro)));
     }
-    foreach my $macro (qw(DATA CONF LIB)) {
+    # For the following we need bot the B_- and the I_-variants.  But the
+    # SCRIPT macro is the same for all repositories.
+    foreach my $macro (qw(SCRIPT DATA CONF LIB)) {
       push(@code, macro_def('I_' . $macro . 'DIR',
-                    macro_ref('INSTALL' . repository($repository) . $macro)));
+                    macro_ref('INSTALL' . repository($repository, $macro eq 'SCRIPT') . $macro)));
 
       if ($mm_has_destdir) {
         push(@code, macro_def('B_' . $macro . 'DIR',
-                      macro_ref('DESTINSTALL' . repository($repository) . $macro)));
+                      macro_ref('DESTINSTALL' . repository($repository, $macro eq 'SCRIPT') . $macro)));
       } else {
         push(@code, macro_def('B_' . $macro . 'DIR',
                       macro_ref('I_' . $macro . 'DIR')));
@@ -1075,7 +1101,6 @@ sub MY::dist {
   clean_MY_globals($self);
   return join("\n", @code);
 }
-      
 
 sub MY::postamble {
   my $self = shift;
@@ -1089,14 +1114,15 @@ FIXVARS		= -Mvars \
 		  -DPREFIX="$(I_PREFIX)" \
 		  -DDEF_RULES_DIR="$(I_DATADIR)" \
 		  -DLOCAL_RULES_DIR="$(I_CONFDIR)" \
+		  -DLOCAL_STATE_DIR="$(I_LOCALSTATEDIR)" \
 		  -DINSTALLSITELIB="$(I_LIBDIR)" \
 		  -DCONTACT_ADDRESS="$(CONTACT_ADDRESS)"
 
 FIXBANG		= -Msharpbang \
+                  -Mconditional \
 		  -DPERL_BIN="$(PERL_BIN)" \
 		  -DPERL_WARN="$(PERL_WARN)" \
 		  -DPERL_TAINT="$(PERL_TAINT)"
-
 
 spamassassin: spamassassin.raw
 	$(PREPROCESS) $(FIXBYTES) $(FIXVARS) $(FIXBANG) -m$(PERM_RWX) -i$? -o$@
@@ -1104,10 +1130,17 @@ spamassassin: spamassassin.raw
 sa-learn: sa-learn.raw
 	$(PREPROCESS) $(FIXBYTES) $(FIXVARS) $(FIXBANG) -m$(PERM_RWX) -i$? -o$@
 
+sa-update: sa-update.raw build_rules
+	$(PREPROCESS) $(FIXBYTES) $(FIXVARS) $(FIXBANG) -m$(PERM_RWX) -isa-update.raw -osa-update
+
+sa-compile: sa-compile.raw
+	$(PREPROCESS) $(FIXBYTES) $(FIXVARS) $(FIXBANG) -m$(PERM_RWX) -isa-compile.raw -osa-compile
 
 spamd/spamd: spamd/spamd.raw
 	$(PREPROCESS) $(FIXBYTES) $(FIXVARS) $(FIXBANG) -m$(PERM_RWX) -i$? -o$@
 
+build_rules: 
+	$(PERL) build/mkrules --exit_on_no_src --src rulesrc --out rules --manifest MANIFEST --manifestskip MANIFEST.SKIP
 
 SPAMC_MAKEFILE  = spamc/Makefile
 MAKE_SPAMC      = $(MAKE) -f $(SPAMC_MAKEFILE)
@@ -1117,8 +1150,8 @@ SPAMC_SRC       = spamc/spamc.c spamc/utils.c
 QSPAMC_SRC      = spamc/qmail-spamc.c spamc/utils.c
 LIBSPAMC_SRC    = spamc/libspamc.c spamc/utils.c
 
-$(SPAMC_MAKEFILE): $(SPAMC_MAKEFILE).in $(SPAMC_MAKEFILE).win
-	$(CONFIGURE) --prefix="$(I_PREFIX)" --sysconfdir="$(I_CONFDIR)" --datadir="$(I_DATADIR)" --mandir="/user/share/man" --enable-ssl="$(ENABLE_SSL)"
+$(SPAMC_MAKEFILE): $(SPAMC_MAKEFILE).in $(SPAMC_MAKEFILE).win spamc/spamc.h.in
+	$(CONFIGURE) --prefix="$(I_PREFIX)" --sysconfdir="$(I_CONFDIR)" --datadir="$(I_DATADIR)" --enable-ssl="$(ENABLE_SSL)"
 
 spamc_has_moved:
 	$(NOECHO) echo "***"
@@ -1127,7 +1160,7 @@ spamc_has_moved:
 	$(PERL) -MFile::Spec -MFile::Copy \
 	  -e "copy(q{$(SOURCE)}, q{$(TARGET)});"
 
-spamc/libspamc.so: $(SPAMC_MAKEFILE) $(LIBSPAMC_SRC) 
+spamc/libspamc.so: $(SPAMC_MAKEFILE) $(LIBSPAMC_SRC)
 	$(MAKE_SPAMC) $@
 
 spamd/libspamc.so: spamc/libspamc.so
@@ -1139,7 +1172,7 @@ spamc/libsslspamc.so: $(SPAMC_MAKEFILE) $(LIBSPAMC_SRC)
 spamd/libsslspamc.so: spamc/libsslspamc.so
 	$(MAKE_SPAMC_OLD)
 
-spamc/spamc$(EXE_EXT): $(SPAMC_MAKEFILE) $(SPAMC_SRC)
+spamc/spamc$(EXE_EXT): $(SPAMC_MAKEFILE) $(SPAMC_SRC) $(LIBSPAMC_SRC)
 	$(MAKE_SPAMC) $@
 
 spamd/spamc$(EXE_EXT): spamc/spamc$(EXE_EXT)
@@ -1154,13 +1187,18 @@ qmail/qmail-spamc$(EXE_EXT): spamc/qmail-spamc$(EXE_EXT)
 	$(MAKE_SPAMC_OLD)
 	$(CHMOD) $(PERM_RWX) $@
 
+# needs to be added to MY::install if used
+#bin__install: $(INST_SCRIPT)/sa-filter
+#        # $(RM_F) $(B_SCRIPTDIR)/spamassassin
+#        # $(SYMLINK) $(INST_SCRIPT)/sa-filter $(B_SCRIPTDIR)/spamassassin
 
 conf__install:
 	-$(MKPATH) $(B_CONFDIR)
-	$(PERL) -MFile::Spec -MFile::Copy \
-	  -e "copy(q{rules/local.cf}, q{$(B_CONFDIR)/local.cf}) unless -f q{$(B_CONFDIR)/local.cf};"
-	$(PERL) -MFile::Spec -MFile::Copy \
-	  -e "copy(q{rules/init.pre}, q{$(B_CONFDIR)/init.pre}) unless -f q{$(B_CONFDIR)/init.pre};"
+	$(PERL) -MFile::Copy -e "copy(q{rules/local.cf}, q{$(B_CONFDIR)/local.cf}) unless -f q{$(B_CONFDIR)/local.cf}"
+	$(PERL) -MFile::Copy -e "copy(q{rules/init.pre}, q{$(B_CONFDIR)/init.pre}) unless -f q{$(B_CONFDIR)/init.pre}"
+	$(PERL) -MFile::Copy -e "copy(q{rules/v310.pre}, q{$(B_CONFDIR)/v310.pre}) unless -f q{$(B_CONFDIR)/v310.pre}"
+	$(PERL) -MFile::Copy -e "copy(q{rules/v312.pre}, q{$(B_CONFDIR)/v312.pre}) unless -f q{$(B_CONFDIR)/v312.pre}"
+	$(PERL) -MFile::Copy -e "copy(q{rules/v320.pre}, q{$(B_CONFDIR)/v320.pre}) unless -f q{$(B_CONFDIR)/v320.pre}"
 
 data__install:
 	-$(MKPATH) $(B_DATADIR)
@@ -1185,6 +1223,14 @@ version.env: lib/Mail/SpamAssassin.pm Makefile
 	$(PERL) -Ilib -MMail::SpamAssassin -e 'printf("FULL_VERSION=%s\n", Mail::SpamAssassin::Version())' >> $@
 	$(PERL) -e 'print "DIST_VERSION=$(VERSION_COOL)\n"' >> $@
 	$(PERL) -e 'print "CPAN_VERSION=$(VERSION)\n"' >> $@
+
+
+manifest_skip:
+	sort -f < MANIFEST.SKIP > MANIFEST.SKIP.tmp
+	mv MANIFEST.SKIP.tmp MANIFEST.SKIP
+
+sysreport:
+	$(NOECHO) $(PERL) tools/sysreport CC=$(CC) PERL=$(PERL) PERL_BIN=$(PERL_BIN) PERL_VERSION=$(PERL_VERSION)
 
   EOD
 

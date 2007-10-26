@@ -34,6 +34,7 @@ extern int protocol_version;
 extern int make_backups;
 #ifdef EA_SUPPORT
 extern int extended_attributes;
+extern int preserve_links;
 #endif
 extern struct stats stats;
 
@@ -217,7 +218,7 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 
 			    if(mktemp(fname_tmp)
 				&& !copyfile(fname_src, fname_tmp, NULL,
-				       COPYFILE_PACK | COPYFILE_METADATA)) {
+					     COPYFILE_PACK | COPYFILE_ACL | COPYFILE_XATTR | (preserve_links ? COPYFILE_NOFOLLOW : 0))) {
 				    fd = do_open(fname_tmp, O_RDONLY, 0);
 			    }
 			    else

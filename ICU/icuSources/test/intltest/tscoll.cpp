@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -27,7 +27,6 @@
 #include "encoll.h"
 #include "frcoll.h"
 #include "decoll.h"
-#include "dacoll.h"
 #include "escoll.h"
 #include "ficoll.h"
 #include "jacoll.h"
@@ -39,7 +38,6 @@
 #include "regcoll.h"
 #include "currcoll.h"
 #include "itercoll.h"
-//#include "capicoll.h"   // CollationCAPITest
 #include "tstnorm.h"
 #include "normconf.h"
 #include "thcoll.h"
@@ -49,6 +47,7 @@
 #include "ucaconf.h"
 #include "svccoll.h"
 #include "cmemory.h"
+#include "rndmcoll.h"
 
 #define TESTCLASS(n,classname)        \
     case n:                           \
@@ -88,11 +87,9 @@ void IntlTestCollator::runIndexedTest( int32_t index, UBool exec, const char* &n
       TESTCLASS(17, DataDrivenCollatorTest);
       TESTCLASS(18, UCAConformanceTest);
       TESTCLASS(19, CollationServiceTest);
-
-      //TESTCLASS(n, CollationDanishTest); // removed by weiv - we have changed Danish collation
       TESTCLASS(20, CollationFinnishTest); // removed by weiv - we have changed Finnish collation
-      //TESTCLASS(n, CollationCAPITest);
-      
+      TESTCLASS(21, RandomCollatorTest);
+
       default: name = ""; break;
     }
 }

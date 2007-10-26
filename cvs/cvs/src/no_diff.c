@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -15,11 +20,10 @@
  */
 
 #include "cvs.h"
+#include <assert.h>
 
 int
-No_Difference (finfo, vers)
-    struct file_info *finfo;
-    Vers_TS *vers;
+No_Difference (struct file_info *finfo, Vers_TS *vers)
 {
     Node *p;
     int ret;
@@ -49,28 +53,28 @@ No_Difference (finfo, vers)
 	options = xstrdup ("");
 
     tocvsPath = wrap_tocvs_process_file (finfo->file);
-    retcode = RCS_cmp_file( vers->srcfile, vers->vn_user, (char **)NULL,
-                            (char *)NULL, options,
-			    tocvsPath == NULL ? finfo->file : tocvsPath );
+    retcode = RCS_cmp_file (vers->srcfile, vers->vn_user, NULL, NULL, options,
+			    tocvsPath == NULL ? finfo->file : tocvsPath);
     if (retcode == 0)
     {
 	/* no difference was found, so fix the entries file */
 	ts = time_stamp (finfo->file);
 	Register (finfo->entries, finfo->file,
 		  vers->vn_user ? vers->vn_user : vers->vn_rcs, ts,
-		  options, vers->tag, vers->date, (char *) 0);
+		  options, vers->tag, vers->date, NULL);
 #ifdef SERVER_SUPPORT
 	if (server_active)
 	{
 	    /* We need to update the entries line on the client side.  */
-	    server_update_entries
-	      (finfo->file, finfo->update_dir, finfo->repository, SERVER_UPDATED);
+	    server_update_entries (finfo->file, finfo->update_dir,
+				   finfo->repository, SERVER_UPDATED);
 	}
 #endif
 	free (ts);
 
 	/* update the entdata pointer in the vers_ts structure */
 	p = findnode (finfo->entries, finfo->file);
+	assert (p);
 	vers->entdata = p->data;
 
 	ret = 0;
@@ -82,13 +86,11 @@ No_Difference (finfo, vers)
     {
 	/* Need to call unlink myself because the noexec variable
 	 * has been set to 1.  */
-	if (trace)
-	    (void) fprintf (stderr, "%s-> unlink (%s)\n",
-			    CLIENT_SERVER_STR, tocvsPath);
+	TRACE (TRACE_FUNCTION, "unlink (%s)", tocvsPath);
 	if ( CVS_UNLINK (tocvsPath) < 0)
 	    error (0, errno, "could not remove %s", tocvsPath);
     }
 
     free (options);
-    return (ret);
+    return ret;
 }

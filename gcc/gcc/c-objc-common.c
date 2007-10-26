@@ -256,7 +256,8 @@ c_objc_common_truthvalue_conversion (tree expr)
       break;
     }
 
-  return c_common_truthvalue_conversion (expr);
+  /* APPLE LOCAL radar 4426814 - radar 5276085 */
+  return c_common_truthvalue_conversion (objc_build_weak_reference_tree (expr));
 }
 
 /* In C and ObjC, all decls have "C" linkage.  */
@@ -284,3 +285,13 @@ c_types_compatible_p (tree x, tree y)
 {
     return comptypes (TYPE_MAIN_VARIANT (x), TYPE_MAIN_VARIANT (y));
 }
+
+/* APPLE LOCAL begin mainline 2006-05-18 4336222 */
+/* Determine if the type is a vla type for the backend.  */
+
+bool
+c_vla_unspec_p (tree x, tree fn ATTRIBUTE_UNUSED)
+{
+  return c_vla_type_p (x);
+}
+/* APPLE LOCAL end mainline 2006-05-18 4336222 */

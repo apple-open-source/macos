@@ -1,6 +1,6 @@
 --- Makefile.in.orig	Sat Nov 20 06:33:03 2004
 +++ Makefile.in	Sat Nov 20 06:33:33 2004
-@@ -189,8 +189,6 @@
+@@ -222,8 +222,6 @@
  $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
  	$(SHELL) ./config.status --recheck
  
@@ -8,4 +8,4 @@
 -	cd $(srcdir) && $(AUTOCONF)
  $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
  	cd $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
- uninstall-info-am:
+ install-pkgdataDATA: $(pkgdata_DATA)

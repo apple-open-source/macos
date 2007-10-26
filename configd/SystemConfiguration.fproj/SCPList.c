@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,7 @@
 CFArrayRef
 SCPreferencesCopyKeyList(SCPreferencesRef prefs)
 {
-	CFAllocatorRef		allocator	= CFGetAllocator(prefs);
+	CFAllocatorRef		allocator;
 	CFArrayRef		keys;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	CFIndex			prefsCnt;
@@ -52,6 +52,7 @@ SCPreferencesCopyKeyList(SCPreferencesRef prefs)
 
 	__SCPreferencesAccess(prefs);
 
+	allocator = CFGetAllocator(prefs);
 	prefsCnt  = CFDictionaryGetCount(prefsPrivate->prefs);
 	if (prefsCnt > 0) {
 		prefsKeys = CFAllocatorAllocate(allocator, prefsCnt * sizeof(CFStringRef), 0);

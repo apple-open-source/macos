@@ -382,7 +382,7 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 	          xmlNodePtr node, const xmlChar *mode,
 		  const xmlChar *modeURI) {
     int i;
-    xsltStepOpPtr step, select = NULL;
+    xsltStepOpPtr step, sel = NULL;
 
     if ((comp == NULL) || (node == NULL) || (ctxt == NULL)) {
 	xsltTransformError(ctxt, NULL, node,
@@ -411,7 +411,7 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
     for (i = 0;i < comp->nbStep;i++) {
 	step = &comp->steps[i];
 	if (step->op != XSLT_OP_PREDICATE)
-	    select = step;
+	    sel = step;
 	switch (step->op) {
             case XSLT_OP_END:
 		return(1);
@@ -618,15 +618,15 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 		if (comp->steps[i + 1].op == XSLT_OP_PREDICATE) {
 		    xmlDocPtr prevdoc, doc;
 		    xmlXPathObjectPtr list;
-		    int index, j;
+		    int ix, j;
 		    int nocache = 0;
 
 		    prevdoc = (xmlDocPtr)
-			XSLT_RUNTIME_EXTRA(ctxt, select->previousExtra);
-		    index = (int)
-			XSLT_RUNTIME_EXTRA(ctxt, select->indexExtra);
+			XSLT_RUNTIME_EXTRA(ctxt, sel->previousExtra);
+		    ix = (int)
+			XSLT_RUNTIME_EXTRA(ctxt, sel->indexExtra);
 		    list = (xmlXPathObjectPtr)
-			XSLT_RUNTIME_EXTRA_LST(ctxt, select->lenExtra);
+			XSLT_RUNTIME_EXTRA_LST(ctxt, sel->lenExtra);
 		    
 		    doc = node->doc;
 		    if ((list == NULL) || (prevdoc != doc)) {
@@ -656,7 +656,7 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 			    xmlXPathFreeObject(newlist);
 			    return(-1);
 			}
-			index = 0;
+			ix = 0;
 
 			if ((parent == NULL) || (node->doc == NULL))
 			    nocache = 1;
@@ -673,13 +673,13 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 				xmlXPathFreeObject(list);
 			    list = newlist;
 
-			    XSLT_RUNTIME_EXTRA_LST(ctxt, select->lenExtra) =
+			    XSLT_RUNTIME_EXTRA_LST(ctxt, sel->lenExtra) =
 				(void *) list;
-			    XSLT_RUNTIME_EXTRA(ctxt, select->previousExtra) =
+			    XSLT_RUNTIME_EXTRA(ctxt, sel->previousExtra) =
 				(void *) doc;
-			    XSLT_RUNTIME_EXTRA(ctxt, select->indexExtra) =
+			    XSLT_RUNTIME_EXTRA(ctxt, sel->indexExtra) =
 			        0;
-			    XSLT_RUNTIME_EXTRA_FREE(ctxt, select->lenExtra) =
+			    XSLT_RUNTIME_EXTRA_FREE(ctxt, sel->lenExtra) =
 				(xmlFreeFunc) xmlXPathFreeObject;
 			} else
 			    list = newlist;
@@ -691,7 +691,7 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 			return(0);
 		    }
 		    /* TODO: store the index and use it for the scan */
-		    if (index == 0) {
+		    if (ix == 0) {
 			for (j = 0;j < list->nodesetval->nodeNr;j++) {
 			    if (list->nodesetval->nodeTab[j] == node) {
 				if (nocache == 1)
@@ -713,18 +713,18 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 		 */
 		oldCS = ctxt->xpathCtxt->contextSize;
 		oldCP = ctxt->xpathCtxt->proximityPosition;
-		if ((select != NULL) &&
-		    (select->op == XSLT_OP_ELEM) &&
-		    (select->value != NULL) &&
+		if ((sel != NULL) &&
+		    (sel->op == XSLT_OP_ELEM) &&
+		    (sel->value != NULL) &&
 		    (node->type == XML_ELEMENT_NODE) &&
 		    (node->parent != NULL)) {
 		    xmlNodePtr previous;
-		    int index, nocache = 0;
+		    int ix, nocache = 0;
 
 		    previous = (xmlNodePtr)
-			XSLT_RUNTIME_EXTRA(ctxt, select->previousExtra);
-		    index = (int)
-			XSLT_RUNTIME_EXTRA(ctxt, select->indexExtra);
+			XSLT_RUNTIME_EXTRA(ctxt, sel->previousExtra);
+		    ix = (int)
+			XSLT_RUNTIME_EXTRA(ctxt, sel->indexExtra);
 		    if ((previous != NULL) &&
 			(previous->parent == node->parent)) {
 			/*
@@ -741,9 +741,9 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 				(sibling->name != NULL) &&
 				(previous->name[0] == sibling->name[0]) &&
 				(xmlStrEqual(previous->name, sibling->name))) {
-				if ((select->value2 == NULL) ||
+				if ((sel->value2 == NULL) ||
 				    ((sibling->ns != NULL) &&
-				     (xmlStrEqual(select->value2,
+				     (xmlStrEqual(sel->value2,
 						  sibling->ns->href))))
 				    indx++;
 			    }
@@ -756,16 +756,16 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 			    while (sibling != NULL) {
 				if (sibling == previous)
 				    break;
-				if ((select->value2 == NULL) ||
+				if ((sel->value2 == NULL) ||
 				    ((sibling->ns != NULL) &&
-				     (xmlStrEqual(select->value2,
+				     (xmlStrEqual(sel->value2,
 						  sibling->ns->href))))
 				    indx--;
 				sibling = sibling->next;
 			    }
 			}
 			if (sibling != NULL) {
-			    pos = index + indx;
+			    pos = ix + indx;
 			    /*
 			     * If the node is in a Value Tree we cannot
 			     * cache it !
@@ -774,13 +774,13 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 			        (node->doc->name != NULL) &&
 				(node->doc->name[0] != ' ')) {
 				len = (int)
-				    XSLT_RUNTIME_EXTRA(ctxt, select->lenExtra);
+				    XSLT_RUNTIME_EXTRA(ctxt, sel->lenExtra);
 				XSLT_RUNTIME_EXTRA(ctxt,
-					select->previousExtra) = node;
-				XSLT_RUNTIME_EXTRA(ctxt, select->indexExtra) =
+					sel->previousExtra) = node;
+				XSLT_RUNTIME_EXTRA(ctxt, sel->indexExtra) =
 				    (void *) pos;
 			    }
-			    index = pos;
+			    ix = pos;
 			} else
 			    pos = 0;
 		    } else {
@@ -799,9 +799,9 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 					   (siblings->name != NULL) &&
 				    (node->name[0] == siblings->name[0]) &&
 				    (xmlStrEqual(node->name, siblings->name))) {
-				    if ((select->value2 == NULL) ||
+				    if ((sel->value2 == NULL) ||
 					((siblings->ns != NULL) &&
-					 (xmlStrEqual(select->value2,
+					 (xmlStrEqual(sel->value2,
 						      siblings->ns->href))))
 					len++;
 				}
@@ -827,23 +827,23 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 			 * cache it !
 			 */
 			if ((node->doc != NULL) && (nocache == 0)) {
-			    XSLT_RUNTIME_EXTRA(ctxt, select->previousExtra) =
+			    XSLT_RUNTIME_EXTRA(ctxt, sel->previousExtra) =
 				node;
-			    XSLT_RUNTIME_EXTRA(ctxt, select->indexExtra) =
+			    XSLT_RUNTIME_EXTRA(ctxt, sel->indexExtra) =
 				(void *) pos;
-			    XSLT_RUNTIME_EXTRA(ctxt, select->lenExtra) =
+			    XSLT_RUNTIME_EXTRA(ctxt, sel->lenExtra) =
 				(void *) len;
 			}
 		    }
-		} else if ((select != NULL) && (select->op == XSLT_OP_ALL) &&
+		} else if ((sel != NULL) && (sel->op == XSLT_OP_ALL) &&
 			   (node->type == XML_ELEMENT_NODE)) {
 		    xmlNodePtr previous;
-		    int index, nocache = 0;
+		    int ix, nocache = 0;
 
 		    previous = (xmlNodePtr)
-			XSLT_RUNTIME_EXTRA(ctxt, select->previousExtra);
-		    index = (int)
-			XSLT_RUNTIME_EXTRA(ctxt, select->indexExtra);
+			XSLT_RUNTIME_EXTRA(ctxt, sel->previousExtra);
+		    ix = (int)
+			XSLT_RUNTIME_EXTRA(ctxt, sel->indexExtra);
 		    if ((previous != NULL) &&
 			(previous->parent == node->parent)) {
 			/*
@@ -872,7 +872,7 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 			    }
 			}
 			if (sibling != NULL) {
-			    pos = index + indx;
+			    pos = ix + indx;
 			    /*
 			     * If the node is in a Value Tree we cannot
 			     * cache it !
@@ -881,10 +881,10 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 			        (node->doc->name != NULL) &&
 				(node->doc->name[0] != ' ')) {
 				len = (int)
-				    XSLT_RUNTIME_EXTRA(ctxt, select->lenExtra);
+				    XSLT_RUNTIME_EXTRA(ctxt, sel->lenExtra);
 				XSLT_RUNTIME_EXTRA(ctxt,
-					select->previousExtra) = node;
-				XSLT_RUNTIME_EXTRA(ctxt, select->indexExtra) =
+					sel->previousExtra) = node;
+				XSLT_RUNTIME_EXTRA(ctxt, sel->indexExtra) =
 				    (void *) pos;
 			    }
 			} else
@@ -924,11 +924,11 @@ xsltTestCompMatch(xsltTransformContextPtr ctxt, xsltCompMatchPtr comp,
 			 * cache it !
 			 */
 			if ((node->doc != NULL) && (nocache == 0)) {
-			    XSLT_RUNTIME_EXTRA(ctxt, select->previousExtra) =
+			    XSLT_RUNTIME_EXTRA(ctxt, sel->previousExtra) =
 				node;
-			    XSLT_RUNTIME_EXTRA(ctxt, select->indexExtra) =
+			    XSLT_RUNTIME_EXTRA(ctxt, sel->indexExtra) =
 				(void *) pos;
-			    XSLT_RUNTIME_EXTRA(ctxt, select->lenExtra) =
+			    XSLT_RUNTIME_EXTRA(ctxt, sel->lenExtra) =
 				(void *) len;
 			}
 		    }

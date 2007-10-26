@@ -1,6 +1,6 @@
 /* Header file for targets using CGEN: Cpu tools GENerator.
 
-Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002
+Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
 Free Software Foundation, Inc.
 
 This file is part of GDB, the GNU debugger, and the GNU Binutils.
@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #ifndef CGEN_H
 #define CGEN_H
@@ -369,7 +369,8 @@ enum cgen_parse_operand_type
 {
   CGEN_PARSE_OPERAND_INIT,
   CGEN_PARSE_OPERAND_INTEGER,
-  CGEN_PARSE_OPERAND_ADDRESS
+  CGEN_PARSE_OPERAND_ADDRESS,
+  CGEN_PARSE_OPERAND_SYMBOLIC
 };
 
 /* Values for indicating what was parsed.  */

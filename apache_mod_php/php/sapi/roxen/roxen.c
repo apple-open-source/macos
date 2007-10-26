@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: roxen.c,v 1.53.2.5.6.2 2007/01/01 09:46:52 sebastian Exp $ */
+/* $Id: roxen.c,v 1.61.2.2.2.1 2007/01/01 09:36:13 sebastian Exp $ */
 
 #include "php.h"
 #ifdef HAVE_ROXEN
@@ -438,7 +438,7 @@ static void php_info_roxen(ZEND_MODULE_INFO_FUNC_ARGS)
 {
   /*  char buf[512]; */
   php_info_print_table_start();
-  php_info_print_table_row(2, "SAPI module version", "$Id: roxen.c,v 1.53.2.5.6.2 2007/01/01 09:46:52 sebastian Exp $");
+  php_info_print_table_row(2, "SAPI module version", "$Id: roxen.c,v 1.61.2.2.2.1 2007/01/01 09:36:13 sebastian Exp $");
   /*  php_info_print_table_row(2, "Build date", Ns_InfoBuildDate());
       php_info_print_table_row(2, "Config file path", Ns_InfoConfigFile());
       php_info_print_table_row(2, "Error Log path", Ns_InfoErrorLog());
@@ -501,8 +501,7 @@ static sapi_module_struct roxen_sapi_module = {
   php_roxen_sapi_read_cookies,		/* read Cookies */
   NULL,					/* register server variables */
   NULL,					/* Log message */
-  NULL,					/* Block interruptions */
-  NULL,					/* Unblock interruptions */
+  NULL,					/* Get request time */
 
   STANDARD_SAPI_MODULE_PROPERTIES
 };
@@ -513,19 +512,19 @@ static sapi_module_struct roxen_sapi_module = {
  * the HTTP header data, so that a script can access these.
  */
 #define ADD_STRING(name)										\
-	MAKE_STD_ZVAL(pval);										\
-	pval->type = IS_STRING;										\
-	pval->value.str.len = strlen(buf);							\
-	pval->value.str.val = estrndup(buf, pval->value.str.len);	\
+	MAKE_STD_ZVAL(zvalue);										\
+	zvalue->type = IS_STRING;										\
+	zvalue->value.str.len = strlen(buf);							\
+	zvalue->value.str.val = estrndup(buf, zvalue->value.str.len);	\
 	zend_hash_update(&EG(symbol_table), name, sizeof(name), 	\
-			&pval, sizeof(zval *), NULL)
+			&zvalue, sizeof(zval *), NULL)
 
 static void
 php_roxen_hash_environment(TSRMLS_D)
 {
   int i;
   char buf[512];
-  zval *pval;
+  zval *zvalue;
   struct svalue *headers;
   struct pike_string *sind;
   struct array *indices;
@@ -547,22 +546,22 @@ php_roxen_hash_environment(TSRMLS_D)
 	buf_len = MIN(511, ind->u.string->len);
 	strncpy(buf, ind->u.string->str, buf_len);
 	buf[buf_len] = '\0'; /* Terminate correctly */
-	MAKE_STD_ZVAL(pval);
-	pval->type = IS_STRING;
-	pval->value.str.len = val->u.string->len;
-	pval->value.str.val = estrndup(val->u.string->str, pval->value.str.len);
+	MAKE_STD_ZVAL(zvalue);
+	zvalue->type = IS_STRING;
+	zvalue->value.str.len = val->u.string->len;
+	zvalue->value.str.val = estrndup(val->u.string->str, zvalue->value.str.len);
 	
-	zend_hash_update(&EG(symbol_table), buf, buf_len + 1, &pval, sizeof(zval *), NULL);
+	zend_hash_update(&EG(symbol_table), buf, buf_len + 1, &zvalue, sizeof(zval *), NULL);
       }
     }
     free_array(indices);
   }
   
   /*
-    MAKE_STD_ZVAL(pval);
-    pval->type = IS_LONG;
-    pval->value.lval = Ns_InfoBootTime();
-    zend_hash_update(&EG(symbol_table), "SERVER_BOOTTIME", sizeof("SERVER_BOOTTIME"), &pval, sizeof(zval *), NULL);
+    MAKE_STD_ZVAL(zvalue);
+    zvalue->type = IS_LONG;
+    zvalue->value.lval = Ns_InfoBootTime();
+    zend_hash_update(&EG(symbol_table), "SERVER_BOOTTIME", sizeof("SERVER_BOOTTIME"), &zvalue, sizeof(zval *), NULL);
   */
 }
 
@@ -575,7 +574,7 @@ static int php_roxen_module_main(TSRMLS_D)
 {
   int res, len;
   char *dir;
-  zend_file_handle file_handle = {0};
+  zend_file_handle file_handle;
 #ifdef ROXEN_USE_ZTS
   GET_THIS();
 #endif
@@ -617,12 +616,12 @@ void f_php_roxen_request_handler(INT32 args)
   TSRMLS_FETCH();
 
   if(current_thread == th_self())
-    php_error(E_WARNING, "PHP4.Interpreter->run: Tried to run a PHP-script from a PHP "
+    php_error(E_WARNING, "PHP5.Interpreter->run: Tried to run a PHP-script from a PHP "
 	  "callback!");
-  get_all_args("PHP4.Interpreter->run", args, "%S%m%O%*", &script,
+  get_all_args("PHP5.Interpreter->run", args, "%S%m%O%*", &script,
 	       &request_data, &my_fd_obj, &done_callback);
   if(done_callback->type != PIKE_T_FUNCTION) 
-    php_error(E_WARNING, "PHP4.Interpreter->run: Bad argument 4, expected function.\n");
+    php_error(E_WARNING, "PHP5.Interpreter->run: Bad argument 4, expected function.\n");
   PHP_LOCK(THIS); /* Need to lock here or reusing the same object might cause
 		       * problems in changing stuff in that object */
 #ifndef ROXEN_USE_ZTS
@@ -658,7 +657,7 @@ void f_php_roxen_request_handler(INT32 args)
   {
     int fd = fd_from_object(raw_fd->u.object);
     if(fd == -1)
-      php_error(E_WARNING, "PHP4.Interpreter->run: my_fd object not open or not an FD.\n");
+      php_error(E_WARNING, "PHP5.Interpreter->run: my_fd object not open or not an FD.\n");
     THIS->my_fd = fd;
   } else
     THIS->my_fd = 0;

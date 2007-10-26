@@ -1646,9 +1646,11 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
       /* Determine if this stmt finishes an existing expression.  */
       FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_USE)
 	{
+	  /* APPLE LOCAL begin ARM 4709156 */
 	  if (tab->version_info[SSA_NAME_VERSION (def)])
 	    {
 	      bool same_root_var = false;
+	      bool both_are_calls = false;
 	      tree def2;
 	      ssa_op_iter iter2;
 
@@ -1662,13 +1664,25 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 		    break;
 		  }
 
+	      if (get_call_expr_in (stmt) != NULL_TREE
+		  && get_call_expr_in (SSA_NAME_DEF_STMT (def))
+			!= NULL_TREE)
+		both_are_calls = true;
+
 	      /* Mark expression as replaceable unless stmt is volatile
 		 or DEF sets the same root variable as STMT.  */
-	      if (!ann->has_volatile_ops && !same_root_var)
+	      if (!ann->has_volatile_ops && !same_root_var
+#ifdef TARGET_ARM
+		  /* Don't TER a call into a call -- this can wreak
+		     havoc on the backend.  */
+		  && !both_are_calls
+#endif
+		 )
 		mark_replaceable (tab, def);
 	      else
 		finish_expr (tab, SSA_NAME_VERSION (def), false);
 	    }
+	  /* APPLE LOCAL end ARM 4709156 */
 	}
       
       /* Next, see if this stmt kills off an active expression.  */

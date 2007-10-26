@@ -33,6 +33,7 @@
 
 #include "IOHIDUserClient.h"
 #include "IOHIDParameter.h"
+#include "IOHIDPrivate.h"
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -43,6 +44,10 @@
 OSDefineMetaClassAndStructors(IOHIDUserClient, IOUserClient)
 
 OSDefineMetaClassAndStructors(IOHIDParamUserClient, IOUserClient)
+
+OSDefineMetaClassAndStructors(IOHIDStackShotUserClient, IOUserClient)
+
+OSDefineMetaClassAndStructors(IOHIDEventSystemUserClient, IOUserClient)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -88,8 +93,8 @@ IOReturn IOHIDUserClient::registerNotificationPort(
 
 IOReturn IOHIDUserClient::connectClient( IOUserClient * client )
 {
-    Bounds * 		bounds;
-    IOService *		provider;
+    IOGBounds *         bounds;
+    IOService *         provider;
     IOGraphicsDevice *	graphicsDevice;
 
     provider = client->getProvider();
@@ -109,16 +114,17 @@ IOReturn IOHIDUserClient::connectClient( IOUserClient * client )
 IOReturn IOHIDUserClient::clientMemoryForType( UInt32 type,
         UInt32 * flags, IOMemoryDescriptor ** memory )
 {
-
-    if( type != kIOHIDGlobalMemory)
-	return( kIOReturnBadArgument);
-
-    *flags = 0;
-    
-    if (owner->globalMemory)
-        owner->globalMemory->retain();
-    *memory = owner->globalMemory;
-    return( kIOReturnSuccess);
+    if( type == kIOHIDGlobalMemory) {
+        *flags = 0;
+        
+        if (owner->globalMemory)
+            owner->globalMemory->retain();
+        *memory = owner->globalMemory;
+    } else {
+        return kIOReturnBadArgument;
+    }
+     
+    return kIOReturnSuccess;
 }
 
 IOExternalMethod * IOHIDUserClient::getTargetAndMethodForIndex(
@@ -138,8 +144,8 @@ IOExternalMethod * IOHIDUserClient::getTargetAndMethodForIndex(
 /* 5 */  { NULL, (IOMethod) &IOHIDSystem::extGetButtonEventNum,
             kIOUCScalarIScalarO, 1, 1 },
 /* 6 */  { NULL, (IOMethod) &IOHIDSystem::extSetBounds,
-            kIOUCStructIStructO, sizeof( IOGBounds), 0 },
-    };
+            kIOUCStructIStructO, sizeof( IOGBounds), 0 }
+};
 
     if( index > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
         return( NULL );
@@ -214,5 +220,241 @@ IOReturn IOHIDParamUserClient::setProperties( OSObject * properties )
     }
 
     return( owner->setProperties( properties ) );
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+bool IOHIDStackShotUserClient::
+initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
+{
+    if (!super::init() || 
+            (IOUserClient::clientHasPrivilege(owningTask, 
+                kIOClientPrivilegeAdministrator) != kIOReturnSuccess))
+        return false;
+
+    client = owningTask;
+    task_reference (client);
+
+    return true;
+}
+
+bool IOHIDStackShotUserClient::start( IOService * _owner )
+{
+    if( !super::start( _owner ))
+	return( false);
+
+    owner = (IOHIDSystem *) _owner;
+
+    return( true );
+}
+
+IOReturn IOHIDStackShotUserClient::clientClose( void )
+{
+   if (client) {
+        task_deallocate(client);
+        client = 0;
+    }
+ 
+    return( kIOReturnSuccess);
+}
+
+IOService * IOHIDStackShotUserClient::getService( void )
+{
+    return( owner );
+}
+
+
+IOReturn IOHIDStackShotUserClient::registerNotificationPort(
+		mach_port_t 	port,
+		UInt32		type,
+		UInt32		refCon )
+{
+    if( type != kIOHIDStackShotNotification)
+	return( kIOReturnUnsupported);
+
+    owner->setStackShotPort(port);
+    return( kIOReturnSuccess);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+bool IOHIDEventSystemUserClient::
+initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
+{
+    if (!super::init() || 
+            (IOUserClient::clientHasPrivilege(owningTask, 
+                kIOClientPrivilegeAdministrator) != kIOReturnSuccess))
+        return false;
+
+    client = owningTask;
+    task_reference (client);
+
+    return true;
+}
+
+bool IOHIDEventSystemUserClient::start( IOService * _owner )
+{
+    if( !super::start( _owner ))
+	return( false);
+
+    owner = (IOHIDSystem *) _owner;
+
+    return( true );
+}
+
+IOReturn IOHIDEventSystemUserClient::clientClose( void )
+{
+   if (client) {
+        task_deallocate(client);
+        client = 0;
+    }
+ 
+    return( kIOReturnSuccess);
+}
+
+IOService * IOHIDEventSystemUserClient::getService( void )
+{
+    return( owner );
+}
+
+IOReturn IOHIDEventSystemUserClient::clientMemoryForType( UInt32 type,
+        UInt32 * flags, IOMemoryDescriptor ** memory )
+{
+    IODataQueue *   eventQueue  = OSDynamicCast(IODataQueue, (OSObject*)type);
+    IOReturn        ret         = kIOReturnNoMemory;
+    
+    if ( eventQueue ) {
+        IOMemoryDescriptor * desc = NULL;
+        *flags = 0;
+        
+        desc = eventQueue->getMemoryDescriptor();
+        
+        if ( desc ) { 
+            desc->retain();
+            ret = kIOReturnSuccess;
+        }
+        
+        *memory = desc;
+    } else {
+        ret = kIOReturnBadArgument;
+    }
+     
+    return ret;
+}
+
+IOExternalMethod * IOHIDEventSystemUserClient::getTargetAndMethodForIndex(
+                        IOService ** targetP, UInt32 index )
+{
+    static const IOExternalMethod methodTemplate[] = {
+/* 0 */  { NULL, (IOMethod) &IOHIDEventSystemUserClient::createEventQueue,
+            kIOUCScalarIScalarO, 2, 1 },
+/* 1 */  { NULL, (IOMethod) &IOHIDEventSystemUserClient::destroyEventQueue,
+            kIOUCScalarIScalarO, 2, 0 }
+    };
+
+    if( index > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
+        return( NULL );
+
+    *targetP = this;
+    return( (IOExternalMethod *)(methodTemplate + index) );
+}
+
+IOReturn IOHIDEventSystemUserClient::createEventQueue(void*p1,void*p2,void*p3,void*,void*,void*)
+{
+    UInt32          type        = (UInt32)p1;
+    IOByteCount     size        = (IOByteCount)p2;
+    UInt32 *        pToken      = (UInt32*)p3;
+    IODataQueue *   eventQueue  = NULL;
+    
+    if( !size )
+        return kIOReturnBadArgument;
+
+    switch ( type ) {
+        case kIOHIDEventQueueTypeKernel:
+            if ( !kernelQueue ) {
+                kernelQueue = IOHIDEventServiceQueue::withCapacity(size);
+                if ( kernelQueue ) {
+                    kernelQueue->setState(true);
+                    owner->registerEventQueue(kernelQueue);
+                }
+            }
+            eventQueue = kernelQueue;
+            break;
+        case kIOHIDEventQueueTypeUser:
+            if ( !userQueues )
+                userQueues = OSSet::withCapacity(4);
+                
+            eventQueue = IOSharedDataQueue::withCapacity(size);
+            
+            userQueues->setObject(eventQueue);
+            
+            eventQueue->release();
+
+            break;    
+    }
+
+    if( !eventQueue )
+        return kIOReturnNoMemory;
+        
+    if ( pToken )
+        *pToken = (UInt32)eventQueue;
+
+    return kIOReturnSuccess;
+}
+
+IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*p3,void*,void*,void*)
+{
+    UInt32          type        = (UInt32)p1;
+    IODataQueue *   eventQueue  = OSDynamicCast(IODataQueue, (OSObject*)p2);
+
+    if ( !eventQueue )
+        return kIOReturnBadArgument;
+
+    switch ( type ) {
+        case kIOHIDEventQueueTypeKernel:
+            if ( kernelQueue == eventQueue ) {
+                kernelQueue->setState(false);
+                owner->unregisterEventQueue(kernelQueue);
+                kernelQueue->release();
+                kernelQueue = NULL;
+                break;
+            }
+        case kIOHIDEventQueueTypeUser:
+            if ( userQueues )
+                userQueues->removeObject(eventQueue);
+            break;
+    }
+
+    return kIOReturnSuccess;
+}
+
+void IOHIDEventSystemUserClient::free()
+{
+    if ( kernelQueue ) {
+        kernelQueue->setState(false);
+        if ( owner ) 
+            owner->unregisterEventQueue(kernelQueue);
+            
+        kernelQueue->release();
+    }
+    
+    if ( userQueues ) {
+        userQueues->release();
+    }
+    
+    super::free();
+}
+
+IOReturn IOHIDEventSystemUserClient::registerNotificationPort(
+		mach_port_t 	port,
+		UInt32		type,
+		UInt32		refCon )
+{
+    IODataQueue *   eventQueue  = OSDynamicCast(IODataQueue, (OSObject*)type);
+
+    if ( !eventQueue )
+        return kIOReturnBadArgument;
+        
+    eventQueue->setNotificationPort(port);
+    
+    return( kIOReturnSuccess);
 }
 

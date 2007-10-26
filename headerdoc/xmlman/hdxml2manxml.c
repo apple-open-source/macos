@@ -29,7 +29,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/dirent.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
@@ -48,22 +48,15 @@ typedef struct usage {
 usage_t usage_head = NULL, usage_tail = NULL;
 int seen_name = 0;
 
-char *striplines(char *line);
 char *man_section = NULL;
 
 #define MAX(a, b) ((a<b) ? b : a)
 
-/* @@@ NOTE: USE xmlNodeListGetRawString instead of reading content */
+/* @@@ REMINDER: Use xmlNodeListGetRawString instead of reading content */
 
 int hdxml2man(xmlDocPtr dp, xmlNode *root, char *output_filename);
 char *textmatching(xmlDocPtr dp, char *name, xmlNode *node, int missing_ok, int recurse);
 xmlNode *nodematching(char *name, xmlNode *cur, int recurse);
-
-void strip_dotxml(char *filename)
-{
-    char *last = &filename[strlen(filename)-5];
-    if (!strcmp(last, ".xml")) *last = '\0';
-}
 
 struct nodelistitem
 {
@@ -94,7 +87,9 @@ int main(int argc, char *argv[])
 	first_arg += 2;
     }
 
+#ifdef LIBXML_TEST_VERSION
     LIBXML_TEST_VERSION;
+#endif
 
     xmlSubstituteEntitiesDefault(0);
 // printf("%d %d\n", argc, first_arg);
@@ -169,7 +164,7 @@ void processfile(char *filename, xmlDocPtr dp, int counter)
     // node = nodematching("function", root, 1);
     while (nodelistp) {
 	node = nodelistp->node;
-	if (!strcmp(node->name, "function")) {
+	if (!strcmp((char *)node->name, "function")) {
 		name = textmatching(dp, "name", node->children, 0, 0);
 		if (name) {
 			strcpy(output_filename, name);
@@ -178,7 +173,7 @@ void processfile(char *filename, xmlDocPtr dp, int counter)
 			sprintf(output_filename, "unknown-%06d.mxml", counter++);
 		}
 		hdxml2man(dp, node, output_filename);
-	} else if (strcmp(node->name, "text")) {
+	} else if (strcmp((char *)node->name, "text")) {
 		fprintf(stderr, "Unexpected node %s in functions\n", node->name);
 	}
 	nodelistp = nodelistp->next;
@@ -301,7 +296,7 @@ void write_arguments(xmlDocPtr dp, FILE *fp, xmlNode *root)
     for ( ; node; node=node->next) {
 	struct param *p;
 
-	if (strcmp(node->name, "parsedparameter")) continue;
+	if (strcmp((char *)node->name, "parsedparameter")) continue;
 
 	p = malloc(sizeof(struct param));
 	if (!p) continue;
@@ -321,7 +316,7 @@ void write_arguments(xmlDocPtr dp, FILE *fp, xmlNode *root)
     for ( ; node; node = node->next) {
 	char *name, *desc;
 
-	if (strcmp(node->name, "parameter")) continue;
+	if (strcmp((char *)node->name, "parameter")) continue;
 	name = textmatching(dp, "name", node->children, 0, 0);
 	desc = textmatching(dp, "desc", node->children, 1, 0);
 	if (!name) continue;
@@ -398,7 +393,7 @@ void write_example_sub(xmlDocPtr dp, FILE *fp, xmlNode *root)
 
     if (!root) return;
 
-    tag = translation(root->name);
+    tag = translation((char *)root->name);
 
     if (tag) { fprintf(fp, "<%s>", tag); }
     if (root->content) { fprintf(fp, "%s", xmlNodeListGetRawString(dp, root, 0)); } // root->content
@@ -412,7 +407,7 @@ xmlNode *nodematching(char *name, xmlNode *cur, int recurse)
     xmlNode *temp = NULL;
     while (cur) {
         if (!cur->name) break;
-        if (!strcmp(cur->name, name)) break;
+        if (!strcmp((char *)cur->name, name)) break;
         if (recurse) {
                 if ((temp=nodematching(name, cur->children, recurse))) {
                         return temp;
@@ -438,7 +433,7 @@ void nodelist_rec(char *name, xmlNode *cur, struct nodelistitem **nl)
 
     if (!cur) return;
 
-    if (cur->name && !strcmp(cur->name, name)) {
+    if (cur->name && !strcmp((char *)cur->name, name)) {
 	nli = malloc(sizeof(*nli));
 	if (nli) {
 	    nli->node = cur;
@@ -460,10 +455,10 @@ char *textmatching(xmlDocPtr dp, char *name, xmlNode *node, int missing_ok, int 
 		fprintf(stderr, "Invalid or missing contents for %s.\n", name);
 	}
     } else if (cur && cur->children && cur->children->content) {
-		ret = xmlNodeListGetRawString(dp, cur->children, 0);
+		ret = (char *)xmlNodeListGetRawString(dp, cur->children, 0);
 		// ret = cur->children->content;
     } else if (!strcmp(name, "text")) {
-		ret = xmlNodeListGetRawString(dp, cur, 0);
+		ret = (char *)xmlNodeListGetRawString(dp, cur, 0);
 		// ret = cur->content;
     } else {
 	if (!missing_ok) {
@@ -513,58 +508,14 @@ char *xs(int count)
 int propval(char *name, struct _xmlAttr *prop)
 {
     for (; prop; prop=prop->next) {
-	if (!strcmp(prop->name, name)) {
+	if (!strcmp((char *)prop->name, name)) {
 		if (prop->children && prop->children->content) {
-			return atoi(prop->children->content);
+			return atoi((char *)prop->children->content);
 		}
 	}
     }
     /* Assume 0 */
     return 0;
-}
-
-
-enum stripstate
-{
-    kSOL = 1,
-    kText = 2
-};
-
-char *striplines(char *line)
-{
-    static char *ptr = NULL;
-    char *pos;
-    char *linepos;
-    int state = 0;
-
-    if (!line) return "";
-    linepos = line;
-
-    if (ptr) free(ptr);
-    ptr = malloc(strlen(line) * sizeof(char));
-
-    state = kSOL;
-    pos = ptr;
-    for (pos=ptr; (*linepos); linepos++,pos++) {
-	switch(state) {
-		case kSOL:
-			if (*linepos == ' ' || *linepos == '\n' || *linepos == '\r' ||
-			    *linepos == '\t') { pos--; continue; }
-		case kText:
-			if (*linepos == '\n' || *linepos == '\r') {
-				state = kSOL;
-				*pos = ' ';
-			} else {
-				state = kText;
-				*pos = *linepos;
-			}
-	}
-    }
-    *pos = '\0';
-
-    // printf("LINE \"%s\" changed to \"%s\"\n", line, ptr);
-
-    return ptr;
 }
 
 

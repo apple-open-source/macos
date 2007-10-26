@@ -735,7 +735,7 @@
 	* files.el (auto-mode-alist): Fix regular expression error for
 	sh-mode.
 
-1998-07-26  Ken'ichi HANDA <handa@etl.go.jp>
+1998-07-26  Ken'ichi HANDA  <handa@etl.go.jp>
 
 	* arc-mode.el (archive-summarize): Set buffer unibyte before
 	calling archive-XXX-summarize.
@@ -1297,7 +1297,7 @@
 
 	* language/misc-lang.el ("IPA"): Add coding-priority and coding-system.
 
-1998-07-07  Kevin Rodgers <kevinr@ihs.com>
+1998-07-07  Kevin Rodgers  <kevinr@ihs.com> (tiny change)
 
 	* vc.el (vc-finish-logentry): Only delete windows in the
 	selected frame displaying the *VC-log* buffer, in case another
@@ -1905,7 +1905,7 @@
 	(japanese-hankaku-region): Likewise.
 	(japanese-zenkaku-region): Likewise.
 
-1998-06-22  WJCarpenter <bill@carpenter.ORG>
+1998-06-22  WJCarpenter  <bill@carpenter.ORG>
 
 	* mail/feedmail.el: New file.
 
@@ -1958,7 +1958,7 @@
 
 	(custom-buffer-create-internal): Move the ... before %.
 
-	* cus-dep.el (custom-make-dependencies): Also remeber if the
+	* cus-dep.el (custom-make-dependencies): Also remember if the
 	variable is autoloaded or not.
 	Create the information needed by customize-changed-options.
 
@@ -2475,7 +2475,7 @@
 	* rsz-mini.el (resize-minibuffer-mode):
 	* iswitchb.el (iswitchb-read-buffer): Add autoload cookie.
 
-1998-06-03  Kevin Rodgers <kevinr@ihs.com>
+1998-06-03  Kevin Rodgers  <kevinr@ihs.com> (tiny change)
 
 	* replace.el (esc-map): Bind C-M-% to query-replace-regexp.
 
@@ -2604,7 +2604,7 @@
 	* international/mule.el (coding-system-mnemonic):
 	Don't crash if arg is nil.
 
-1998-05-31  Alan Shutko <shutkoa@ugsolutions.com>
+1998-05-31  Alan Shutko  <shutkoa@ugsolutions.com>
 
 	* emacs-lisp/easy-mmode.el (easy-mmode-define-minor-mode): Add
 	missing format arg.
@@ -2613,7 +2613,7 @@
 
 	* finder.el (finder-known-keywords): Fix `convenience' entry.
 
-1998-05-30  Richard Stallman <rms@gnu.org>
+1998-05-30  Richard Stallman  <rms@gnu.org>
 
 	* textmodes/tex-mode.el: Undo May 15 change.
 
@@ -2752,7 +2752,7 @@
 	* autoinsert.el:
 	* abbrev.el: Likewise.
 
-1998-05-26  Emilio Lopes <Emilio.Lopes@Physik.TU-Muenchen.DE>
+1998-05-26  Emilio Lopes  <Emilio.Lopes@Physik.TU-Muenchen.DE>
 	        and Karl Fogel  <kfogel@red-bean.com>
 
 	* bookmark.el: Changes so bookmark list mode works with Info:
@@ -3092,7 +3092,7 @@
 	(register-input-method): Rename argument.
 	(activate-input-method): If INPUT-METHOD is nil, deactivate.
 
-1998-05-19 Ed Reingold  <reingold@uiuc.edu>
+1998-05-19  Ed Reingold  <reingold@uiuc.edu>
 
 	* calendar/cal-tex.el (cal-tex-list-holidays): Rewritten.
 
@@ -3833,8 +3833,8 @@
 
 1998-04-29  Eric S. Raymond  <esr@snark.thyrsus.com>
 
-	* Many small changes that mostly eliminate the explicit mail
-	separator variable and use the new rfc822-goto-eoh primitive instead:
+	Many small changes that mostly eliminate the explicit mail separator
+	variable and use the new rfc822-goto-eoh primitive instead:
 
 	* ispell4.el (ispell-message): Use rfc822-goto-eoh.
 
@@ -4121,7 +4121,7 @@
 
 	* ffap.el (dired-at-point): Add autoload cookie.
 
-1998-04-23  Jens Petersen <petersen@kurims.kyoto-u.ac.jp>
+1998-04-23  Jens Petersen  <petersen@kurims.kyoto-u.ac.jp>
 
 	* ffap.el (dired-at-point-require-prefix): New option.
 	(dired-at-point): New command.
@@ -4909,7 +4909,7 @@
 
 1998-04-07  Dave Love  <d.love@dl.ac.uk>
 
-	* progmodes/fortran.el Use regexp-opt and eval-and-compile to
+	* progmodes/fortran.el: Use regexp-opt and eval-and-compile to
 	build font-lock patterns.
 	(fortran-mode): Define indent-region-function,
 	indent-line-function.
@@ -5788,7 +5788,7 @@
 
 1998-03-06  Dave Love  <d.love@dl.ac.uk>
 
-	* browse-url.el Various doc fixes, mainly to remove innappropriate
+	* browse-url.el: Various doc fixes, mainly to remove innappropriate
 	leading "*"s.
 	(browse-url-new-window-p, browse-url-netscape-display)
 	(browse-url-save-file, browse-url-generic-program):
@@ -5871,7 +5871,7 @@
 
 	* battery.el: Fixed spelling of `autoload' magic cookies.
 
-1998-03-05  Sam Steingold <sds@usa.net>
+1998-03-05  Sam Steingold  <sds@usa.net>
 
 	* lisp/simple.el (backward-delete-char-untabify-method):
 	New user option.
@@ -5898,7 +5898,7 @@
 
 	* subr.el (sref): Increase CHAR in the while loop.
 
-1998-03-03  Sam Steingold <sds@usa.net>
+1998-03-03  Sam Steingold  <sds@usa.net>
 
 	* dired.el (dired-quit): Function deleted.
 	(dired-mode-map): Use quit-window for q.
@@ -6260,7 +6260,7 @@
 	* mail/rmail.el (rmail-decode-babyl-format): Message modified.
 	(rmail): Comment for the binding of rmail-enable-multibyte added.
 
-1998-02-19   Kenichi Handa  <handa@etl.go.jp>
+1998-02-19  Kenichi Handa  <handa@etl.go.jp>
 
 	* international/mule.el
 	(after-insert-file-set-buffer-file-coding-system): Call
@@ -7508,7 +7508,7 @@
 	* avoid.el (mouse-avoidance-mode): Variable customized to
 	automatically load the package.
 
-1997-12-22  Kevin Rodgers <kevinr@ihs.com>
+1997-12-22  Kevin Rodgers  <kevinr@ihs.com> (tiny change)
 
 	* simple.el (previous-matching-history-element): Bind
 	case-fold-search to nil if REGEXP contains an uppercase letter.
@@ -8260,7 +8260,7 @@
 
 	* cal-tex.el (cal-tex-cursor-week-iso): Delete spurious %.
 
-1997-11-02  Kevin Rodgers  <kevinr@airedale.ihs.com>
+1997-11-02  Kevin Rodgers  <kevinr@ihs.com>
 
 	* emacs-lisp/byte-opt.el (byte-optimize-concat): New function.
 
@@ -8403,7 +8403,7 @@
 
 1997-10-24  Carsten Dominik  <dominik@strw.LeidenUniv.nl>
 
-	* reftex.el  The menu now used toggle and radio for some items.
+	* reftex.el:  The menu now used toggle and radio for some items.
 	(reftex-default-context-regexps): `caption' now prefers the
 	optional short caption.
 	(reftex-offer-label-menu): Fixed bug which could kill master
@@ -8929,7 +8929,7 @@
 	* gnus-nocem.el (gnus-nocem-close): Nix out
 	gnus-real-group-hashtb.
 
-1997-10-21  roth@klondike.cse.ucsc.edu (Carl D. Roth)
+1997-10-21  Carl D. Roth  <roth@klondike.cse.ucsc.edu>
 
 	* gnus-nocem.el (gnus-fill-real-hashtb): New function.
 
@@ -9275,7 +9275,7 @@
 
 	* gnus.el: Gnus v5.4.56 is released.
 
-1997-10-21  Shuhei KOBAYASHI <shuhei-k@jaist.ac.jp>
+1997-10-21  Shuhei KOBAYASHI  <shuhei-k@jaist.ac.jp>
 
 	* message.el (message-make-in-reply-to): Make valid In-Reply-To.
 
@@ -9284,7 +9284,7 @@
 	* gnus-art.el (gnus-header-button-alist): Check for URLs in the
 	Subject.
 
-1997-10-21  Hrvoje Niksic <hniksic@srce.hr>
+1997-10-21  Hrvoje Niksic  <hniksic@srce.hr>
 
 	* gnus-xmas.el: Cleanup.
 
@@ -9292,12 +9292,12 @@
 
 	* gnus-art.el (gnus-output-to-file): Return t.
 
-1997-10-21  Guy Geens <Guy.Geens@elis.rug.ac.be>
+1997-10-21  Guy Geens  <Guy.Geens@elis.rug.ac.be>
 
 	* gnus-score.el (gnus-decay-score): Make decay work on negative
 	scores.
 
-1997-10-21  Kurt Swanson <kurt@dna.lth.se>
+1997-10-21  Kurt Swanson  <kurt@dna.lth.se>
 
 	* nnmail.el (nnmail-article-group): Handle junk properly.
 
@@ -9591,34 +9591,34 @@
 
 1997-10-21  Kim-Minh Kaplan  <kimminh.kaplan@utopia.eunet.fr>
 
-	* gnus-picon.el: * gnus-picons-clear-cache-on-shutdown: new variable.
-	* gnus-picons-piconsearch-cache-user: variable deleted.
-	* gnus-picons-clear-cache: new function.
-	* gnus-picons-close: only clear cache if
+	* gnus-picon.el (gnus-picons-clear-cache-on-shutdown): new variable.
+	(gnus-picons-piconsearch-cache-user): variable deleted.
+	(gnus-picons-clear-cache): new function.
+	(gnus-picons-close): only clear cache if
 	gnus-picons-clear-cache-on-shutdown.
-	* gnus-picons-url-retrieve: set url-package-name and
+	(gnus-picons-url-retrieve): set url-package-name and
 	url-package-version.
-	* gnus-picons-users-image-alist: new variable.
-	* gnus-picons-retrieve-user-callback: use it.
-	* Added support for network retrieval of picons.
-	* gnus-picons-map: removed.
-	* gnus-picons-remove: removed case to handle processes.
-	* gnus-picons-processes-alist: new variable
-	* gnus-picons-x-face-sentinel: simplified.  Use processes alist.
-	* gnus-picons-display-x-face: explicitly request an xface image.
+	(gnus-picons-users-image-alist): new variable.
+	(gnus-picons-retrieve-user-callback): use it.
+	Added support for network retrieval of picons.
+	(gnus-picons-map): removed.
+	(gnus-picons-remove): removed case to handle processes.
+	(gnus-picons-processes-alist): new variable
+	(gnus-picons-x-face-sentinel): simplified.  Use processes alist.
+	(gnus-picons-display-x-face): explicitly request an xface image.
 	Always call gnus-picons-prepare-for-annotations.  Use processes
 	alist.
-	* gnus-picons-lookup-internal: new function.
-	* gnus-picons-lookup: use it.
-	* gnus-picons-lookup-user-internal: ditto.
-	* gnus-picons-display-picon-or-name: no more xface-p argument.
-	* gnus-picons-try-suffixes: removed.
-	* gnus-picons-try-face: new function.  Does the caching in
+	(nus-picons-lookup-internal): new function.
+	(gnus-picons-lookup): use it.
+	(gnus-picons-lookup-user-internal): ditto.
+	(gnus-picons-display-picon-or-name): no more xface-p argument.
+	(gnus-picons-try-suffixes): removed.
+	(gnus-picons-try-face): new function.  Does the caching in
 	gnus-picons-glyph-alist.
-	* gnus-picons-try-to-find-face: take a glyph argument instead of a
+	(gnus-picons-try-to-find-face): take a glyph argument instead of a
 	path.  No more xface-p argument.  Only use one annotation even if
 	gnus-picons-display-as-address.
-	* gnus-picons-toggle-extent: changed into an annotation action.
+	(gnus-picons-toggle-extent): changed into an annotation action.
 
 1997-10-21  Lars Magne Ingebrigtsen  <larsi@menja.ifi.uio.no>
 
@@ -11224,7 +11224,7 @@
 
 	* mail/sendmail.el (mail-send): Complain about invalid header line.
 
-1997-08-30  Jerry James <jerry@cs.ucsb.edu>
+1997-08-30  Jerry James  <jerry@cs.ucsb.edu>
 
 	* format.el (format-subtract-regions): New function.
 	(format-property-increment-region): New function.
@@ -11237,8 +11237,8 @@
 	* format.el (format-deannotate-region): Don't change extents of
 	enclosing annotations of the same kind.
 
-	* format.el (format-deannotate-region): Use
-	property-increment-region to add to numeric properties.
+	* format.el (format-deannotate-region):
+	Use property-increment-region to add to numeric properties.
 
 1997-08-29  Richard Stallman  <rms@psilocin.gnu.ai.mit.edu>
 
@@ -11843,7 +11843,7 @@
 	a temporary file name which includes an arbitrary buffer name to
 	avoid losing on non-unixy systems.
 
-1997-08-20 22:06:10 1997  Vinicius Jose Latorre  <vinicius@cpqd.br>
+1997-08-20  Vinicius Jose Latorre  <vinicius@cpqd.br>
 
 	* ps-print.el: A lot of comment and doc fixes.
 	Replace: 'nil by nil, '() by nil, 't by t.
@@ -12211,7 +12211,7 @@
 
 	* wid-edit.el (widget-before-change): Obey `inhibit-read-only'.
 
-1997-08-12 +03  Eli Zaretskii  <eliz@is.elta.co.il>
+1997-08-12  Eli Zaretskii  <eliz@is.elta.co.il>
 
 	* add-log.el (change-log-font-lock-keywords): Don't consider
 	a closeparen as part of a function or variable name.
@@ -12431,8 +12431,8 @@
 
 	* progmodes/awk-mode.el (awk-mode): Require cc-mode, not cc-langs.
 
-	* wid-edit.el (widget-single-line-display-table): Variable
-	commented out; don't use it either.
+	* wid-edit.el (widget-single-line-display-table):
+	Variable commented out; don't use it either.
 
 	* case-table.el: Delete autoload cookies (file is preloaded).
 
@@ -12440,7 +12440,7 @@
 
 	* help.el (describe-key): Don't put a colon after the command name.
 
-1887-08-09  Barry A. Warsaw  <cc-mode-help@python.org>
+1997-08-09  Barry A. Warsaw  <cc-mode-help@python.org>
 
 	* progmodes/cc-engine.el (c-beginning-of-statement-1):
 	When checking for bare semi, don't match
@@ -12452,7 +12452,7 @@
 
 	* progmodes/cc-mode.el (idl-mode): Support for CORBA's IDL language.
 
-	* progmodes/cc-mode.el (c-initialize-cc-mode): move the calling of
+	* progmodes/cc-mode.el (c-initialize-cc-mode): Move the calling of
 	c-make-styles-buffer-local into c-initialize-builtin-style.
 
 	* progmodes/cc-mode.el (c-initialize-cc-mode): Run the
@@ -12527,7 +12527,7 @@
 1997-08-08  Boris Goldowsky  <boris@gnu.ai.mit.edu>
 
 	* format.el (format-annotate-single-property-change,
-	format-annotate-atomic-property-change): move code that interprets
+	format-annotate-atomic-property-change): Move code that interprets
 	nil as 0 inside test that property is numeric.
 
 1997-08-08  Valery Alexeev  <valery@math.uga.edu>
@@ -12843,7 +12843,7 @@
 	(viper-bind-mouse-search-key,viper-bind-mouse-insert-key,
 	viper-unbind-mouse-search-key,viper-unbind-mouse-insert-key):
 	New functions.
-	* viper*el: vip-style names changed to viper-style names.
+	* viper*.el: vip-style names changed to viper-style names.
 
 1997-08-01  Richard Stallman  <rms@psilocin.gnu.ai.mit.edu>
 
@@ -12909,7 +12909,7 @@
 
 1997-07-31  Michael Kifer  <kifer@cs.sunysb.edu>
 
-	* ediff*el: (ediff-eval-in-buffer): changed macro and renamed
+	* ediff*.el: (ediff-eval-in-buffer): changed macro and renamed
 	ediff-with-current-buffer.
 	Eliminated inefficient calls to `intern'.
 	* ediff-diff.el: (ediff-exec-process): changed to work with buffers
@@ -12985,7 +12985,7 @@
 	(makefile-define-space-face): Function deleted.
 	(makefile-mode): Don't call makefile-define-space-font.
 
-1997-07-28 Per Abrahamsen  <abraham@dina.kvl.dk>
+1997-07-28  Per Abrahamsen  <abraham@dina.kvl.dk>
 
 	* cus-edit.el (customize-save-variable): New command.
 
@@ -13455,7 +13455,7 @@
 
 	* viper*.el: Adapted to use custom.el
 	* ediff*.el: Improved customization.
-	* ediff-ptch (ediff-default-backup-extension): New variable.
+	* ediff-ptch.el (ediff-default-backup-extension): New variable.
 	(ediff-backup-extension,ediff-backup-specs): Change in initialization.
 
 1997-07-17  Geoff Voelker  <voelker@cs.washington.edu>
@@ -13793,8 +13793,8 @@
 	(describe-fontset): Likewise.  Doc-string modified.
 	(list-fontsets): Likewise.
 
-	* international/encoded-kb.el (encoded-kbd-mode): Call
-	coding-system-XXX instead of coding-vector-XXX.
+	* international/encoded-kb.el (encoded-kbd-mode):
+	Call coding-system-XXX instead of coding-vector-XXX.
 
 1997-07-09  Richard Stallman  <rms@psilocin.gnu.ai.mit.edu>
 
@@ -14612,8 +14612,8 @@
 	(type-break-cancel-function-timers): New function.
 	All callers of cancel-function-timers changed.
 	(type-break-check-post-command-hook): New function.
-	(type-break-mode, type-break-schedule, type-break-alarm,
-	type-break-time-warning-alarm): Call it.
+	(type-break-mode, type-break-schedule, type-break-alarm)
+	(type-break-time-warning-alarm): Call it.
 	(type-break-mode-line-countdown-or-break): New function.
 	(type-break): Call it.
 	(type-break-time-warning-schedule): Put type-break-time-warning
@@ -14875,7 +14875,7 @@
 	custom-nest-groups controls this.
 	<l, i, e>: Indent differently if custom-nest-groups.
 
-1997-06-20   Ryszard Kubiak <rysiek@ipipan.gda.pl>
+1997-06-20  Ryszard Kubiak  <rysiek@ipipan.gda.pl>
 
 	* ogonek.el: Doc fixes.
 	(ogonek-jak, ogonek-how): Examples of customization fixed.
@@ -15021,7 +15021,7 @@
 	(reftex-plug-into-AUCTeX) New variable and function.
 	(reftex-make-master-buffer) Fixed bug with relative path names.
 
-1997-06-18   Ryszard Kubiak <rysiek@ipipan.gda.pl>
+1997-06-18  Ryszard Kubiak  <rysiek@ipipan.gda.pl>
 
 	* ogonek.el: Doc Fix.
 	(prefix-code): Change the name to `ogonek-prefix-code'.
@@ -16522,7 +16522,7 @@
 
 	* widget.el: Removed :hide-front-space and :hide-rear-space.
 
-1997-06-04 Richard Stallman  <rms@psilocin.gnu.ai.mit.edu>
+1997-06-04  Richard Stallman  <rms@psilocin.gnu.ai.mit.edu>
 
 	* informat.el (Info-tagify): Don't set Info-tag-table-marker
 	if not in Info mode.
@@ -16583,7 +16583,7 @@
 1997-06-02  Michael Kifer  <kifer@cs.sunysb.edu>
 
 	* viper-init.el (vip-parse-sexp-ignore-comments): new variable.
-	* viper-cmd.el (vip-paren-match): parsing comments is now controled
+	* viper-cmd.el (vip-paren-match): parsing comments is now controlled
 	with vip-parse-sexp-ignore-comments.
 	* viper-cmd.el (vip-goto-col): fixed.
 	* viper-cmd.el (vip-autoindent): now expands abbrevs.
@@ -16775,7 +16775,7 @@
 	* startup.el (command-line): Detect Latin-N character sets
 	from envvars, both for multibyte mode and single-byte mode.
 
-1997-05-31 Per Abrahamsen  <abraham@dina.kvl.dk>
+1997-05-31  Per Abrahamsen  <abraham@dina.kvl.dk>
 
 	* cus-edit.el (custom-format-handler): Don't show links for hidden
 	items.
@@ -16885,11 +16885,11 @@
 	`icomplete-show-key-bindings', `icomplete-get-keys', and
 	`icomplete-completions'.
 
-	* icomplete.el (icomplete-get-keys): Return keys bound in prior 
+	* icomplete.el (icomplete-get-keys): Return keys bound in prior
 	buffer to func name.
 
-	* icomplete.el: Added icomplete delay behavior, so completions 
-	don't intrude as quickly for short input, with customization 
+	* icomplete.el: Added icomplete delay behavior, so completions
+	don't intrude as quickly for short input, with customization
 	variables:
 	(icomplete-max-delay-chars): Maximum number of initial chars to
 	apply icomplete compute delay.
@@ -17009,7 +17009,7 @@
 	* cus-edit.el (custom-face-display-set): Define if not defined.
 	(custom-buffer-create-internal): Refer to the Emacs manual.
 
-1997-05-29  Anders Holst (aho@nada.kth.se)
+1997-05-29  Anders Holst  (aho@nada.kth.se)
 
 	* hippie-exp.el (he-file-name-beg): Don't trigger on parts of
 	words with non-file chars.
@@ -18062,7 +18062,7 @@
 	Setting of syntax and category for Devanagari characters are moved
 	to characters.el.
 
-	* language/english (setup-english-environment): Set
+	* language/english.el (setup-english-environment): Set
 	sendmail-coding-system and rmail-file-coding-system to nil.
 
 	* language/ethio-util.el (fidel-to-tex-map): Name changed to
@@ -18634,7 +18634,7 @@
 
 	* skeleton.el (skeleton-read): Doc fix.
 
-1997-04-24  Per Abrahamsen <abraham@dina.kvl.dk>
+1997-04-24  Per Abrahamsen  <abraham@dina.kvl.dk>
 
 	* widget.el (define-widget): Return name.
 
@@ -19673,7 +19673,7 @@
 	* mh-utils.el (mh-find-progs): When looking for mh-lib, construct
 	likely paths based on mh-progs rather than using a static list.
 
-1997-03-24  Kevin Rodgers <kevinr@ihs.com>
+1997-03-24  Kevin Rodgers  <kevinr@ihs.com>
 
 	* compile.el (grep-program): New variable.
 	(grep-command): Use it, and test whether it supports the -e
@@ -19949,7 +19949,7 @@
 	c-Java-defun-prompt-regexp.
 	(c-guess-basic-syntax): CASE 2: relpos for c and c++ is now boi.
 
-1997-03-11  Kurt Hornik <Kurt.Hornik@ci.tuwien.ac.at>
+1997-03-11  Kurt Hornik  <Kurt.Hornik@ci.tuwien.ac.at>
 
 	* octave-mod.el (octave-abbrev-table): Add abbrevs for switch,
 	case, otherwise, and endswitch.
@@ -19988,7 +19988,7 @@
 	(makefile-dependency-regex, makefile-macroassign-regex): Disallow
 	spaces in symbol name.
 
-1997-03-11  Dan Nicolaescu <done@ece.arizona.edu>
+1997-03-11  Dan Nicolaescu  <done@ece.arizona.edu>
 
 	* subr.el (add-to-invisibility-spec, remove-from-invisibility-spec):
 	New functions.
@@ -20416,7 +20416,7 @@
 1997-02-07  Richard Stallman  <rms@psilocin.gnu.ai.mit.edu>
 
 	* rmailsort.el (rmail-sort-messages): Preserve point
-	with respect to the the current message.
+	with respect to the current message.
 
 1997-02-06  Richard Stallman  <rms@psilocin.gnu.ai.mit.edu>
 
@@ -21130,7 +21130,7 @@
 	* sendmail.el (sendmail-send-it): If no recipients, don't run
 	the mailer program.  If there was also no fcc file, signal error.
 
-1996-12-15  Ake Stenhoff <etxaksf@aom.ericsson.se>
+1996-12-15  Ake Stenhoff  <etxaksf@aom.ericsson.se>
 
 	* imenu.el (imenu-generic-expression): Doc fix.
 	(imenu--make-index-alist): Do `widen' and save-restriction here.
@@ -21295,7 +21295,7 @@
 
 	* files.el (backup-buffer): Doc fix.
 
-1996-12-06  Ake Stenhoff <etxaksf@aom.ericsson.se>
+1996-12-06  Ake Stenhoff  <etxaksf@aom.ericsson.se>
 
 	* imenu.el (imenu): Support integers used as positions.
 
@@ -21588,7 +21588,7 @@
 
 	* time-stamp.el (time-stamp-dd/mm/yyyy): New function.
 
-1996-11-04  Kevin Rodgers  <evinr@ihs.com>
+1996-11-04  Kevin Rodgers  <kevinr@ihs.com>
 
 	* compile.el (compile-highlight-display-limit): New variable.
 	(compilation-handle-exit): Parse error messages here
@@ -21702,12 +21702,12 @@
 
 	* imenu.el (imenu-scanning-message): Use ellipsis.
 
-	* iso-acc.el (iso-langauges): Alphabetize list.
+	* iso-acc.el (iso-languages): Alphabetize list.
 	Add Catalan, Spanish, and Esperanto.
 
 	* dired.el (dired-insert-directory): Check for non-US LANG.
 
-1996-10-24  Dave Gillespie <daveg@synaptics.com>
+1996-10-24  Dave Gillespie  <daveg@synaptics.com>
 
 	* cl-macs.el (lexical-let): Fixed a bug involving nested
 	lexical contexts and macros.
@@ -21763,7 +21763,7 @@
 	(simula-find-next-comment-region): Function deleted.
 	(simula-mode): Set font-lock-defaults.  Add autoload cookie.
 
-1996-10-20  Ake Stenhoff <etxaksf@aom.ericsson.se>
+1996-10-20  Ake Stenhoff  <etxaksf@aom.ericsson.se>
 
 	* cc-mode.el (cc-imenu-java-generic-expression): New variable.
 	(java-mode): Set imenu-generic-expression.
@@ -22503,7 +22503,7 @@
 
 	* loadup.el: Load frame.elc unconditionally.
 
-1996-09-12  Kevin Rodgers <kevinr@ihs.com>
+1996-09-12  Kevin Rodgers  <kevinr@ihs.com>
 
 	* loadhist.el (read-feature): New function.
 	(unload-feature): Read FEATURE interactively with read-feature.
@@ -22716,7 +22716,7 @@
 	* vc.el (vc-register-switches): New variable.
 	(vc-backend-admin): Use vc-register-switches.
 
-1996-09-01  Vladimir Alexiev <vladimir@cs.ualberta.ca>
+1996-09-01  Vladimir Alexiev  <vladimir@cs.ualberta.ca>
 
 	* tmm.el (tmm-add-one-shortcut): New subroutine.
 	(tmm-add-shortcuts): Code moved to tmm-add-one-shortcut.
@@ -22779,8 +22779,8 @@
 	calling function, not setting variable.
 	(enriched-encode): New argument ORIG-BUF; evaluate
 	enriched-initial-annotation in that buffer.
-	(enriched-decode): Turn on use-hard-newlines with function.  Use
-	new `set-hard-newline-properties' function.  Set fill-column from
+	(enriched-decode): Turn on use-hard-newlines with function.
+	Use new `set-hard-newline-properties' function.  Set fill-column from
 	File-Width header; re-fill paragraphs only if there is no
 	File-Width header.
 
@@ -23029,7 +23029,7 @@
 	* pc-select.el: Replace \n in doc strings.
 	(pc-selection-mode): Big doc fix.  Don't bind f1.
 
-1996-08-21  Michael Staats <michael@thp.Uni-Duisburg.DE>
+1996-08-21  Michael Staats  <michael@thp.Uni-Duisburg.DE>
 
 	* pc-select.el (forward-line-mark): New function.
 	(forward-line-nomark): New function.
@@ -23104,8 +23104,8 @@
 	* message.el (message-mode): Delete abbrev mode initialization.
 	(message-mode-hook): Move it here, instead, so the user can
 	override it.
-	(message-y-or-n-p, message-talkative-question,
-	message-flatten-list, message-flatten-list-1): Move utility
+	(message-y-or-n-p, message-talkative-question)
+	(message-flatten-list, message-flatten-list-1): Move utility
 	functions up so macro is defined before first invocation.
 
 	* f90.el (f90-auto-fill-mode): Function deleted, all references
@@ -23115,24 +23115,23 @@
 
 1996-08-13  Torbjorn Einarsson  <etxeina@etxdn.ericsson.se>
 
-	* f90.el: (f90-do-auto-fill): Fixed bug which made program hang for
+	* f90.el: (f90-do-auto-fill): Fix bug which made program hang for
 	space in fill-column.
 	(f90-font-lock-keywords-1): Now we have common font-lock
 	exps for Emacs and XEmacs
-	(f90-font-lock-keywords-2): Changed reg-exp for line number.  A
-	number must be followed by a letter to be highlighted.  Fixed
-	highlighting of declarations with trailing comments.
-	(f90-match-end): Fixed bug due to new message syntax.
-	(f90-mode): Fixed setup of variable font-lock-defaults.
+	(f90-font-lock-keywords-2): Change reg-exp for line number.
+	A number must be followed by a letter to be highlighted.
+	Fix highlighting of declarations with trailing comments.
+	(f90-match-end): Fix bug due to new message syntax.
+	(f90-mode): Fix setup of variable font-lock-defaults.
 	(f90-looking-at-program-block-start): Small error in detecting of
 	function start. Made the detection of subroutine start more flexible.
 	(f90-mode-map): Much nicer menu with sections and added submenus
 	for highlighting and keyword case change.
 	Also added 'menu-enable' properties for region-based commands.
-	(f90-imenu-generic-expression): Fixed expression to find
+	(f90-imenu-generic-expression): Fix expression to find
 	procedures, modules and types.
-	(f90-add-imenu-menu): New function for adding imenu menu to the
-	menubar.
+	(f90-add-imenu-menu): New function for adding imenu menu to the menubar.
 
 1996-08-13  Richard Stallman  <rms@psilocin.gnu.ai.mit.edu>
 
@@ -23140,6 +23139,24 @@
 
 See ChangeLog.6 for earlier changes.
 
-    Copyright (C) 1997, 1998 Free Software Foundation, Inc.
-  Copying and distribution of this file, with or without modification,
-  are permitted provided the copyright notice and this notice are preserved.
+    Copyright (C) 1997, 1998, 2001, 2002, 2003, 2004, 2005, 2006,
+      2007  Free Software Foundation, Inc.
+
+  This file is part of GNU Emacs.
+
+  GNU Emacs is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2, or (at your option)
+  any later version.
+
+  GNU Emacs is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with GNU Emacs; see the file COPYING.  If not, write to the
+  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+  Boston, MA 02110-1301, USA.
+
+;;; arch-tag: 0995d517-13da-45ab-9c2d-7911aa25512b

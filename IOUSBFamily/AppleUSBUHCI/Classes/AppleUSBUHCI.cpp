@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,10 +33,13 @@ extern "C" {
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/pccard/IOPCCard.h>
 #include <IOKit/platform/ApplePlatformExpert.h>
+#include <IOKit/IOKitKeys.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IODMACommand.h>
+
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
-
-#include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/usb/IOUSBRootHubDevice.h>
 
 #include <libkern/OSAtomic.h>
 
@@ -45,7 +48,7 @@ extern "C" {
 #include "AppleUHCIqhMemoryBlock.h"
 
 
-#define super IOUSBControllerV2
+#define super IOUSBControllerV3
 
 
 /*
@@ -55,43 +58,7 @@ extern "C" {
  *  - support for synthetic suspend change status bit in roo thub
  */
 
-OSDefineMetaClassAndStructors(AppleUSBUHCI, IOUSBControllerV2)
-OSDefineMetaClassAndStructors(UHCIMemoryBuffer, IOBufferMemoryDescriptor)
-
-
-UHCIMemoryBuffer *
-UHCIMemoryBuffer::newBuffer(bool dmaable)
-{
-    UHCIMemoryBuffer *bp;
-    
-    bp = new UHCIMemoryBuffer;
-    if (bp == NULL) 
-	{
-        return NULL;
-    }
-    
-    if (!bp->initWithOptions(kIOMemoryUnshared | kIODirectionInOut, PAGE_SIZE, PAGE_SIZE))
-	{
-        bp->release();
-        return NULL;
-    }
-    if (dmaable) 
-	{
-        bp->prepare();
-    }
-    
-    return bp;
-}
-
-
-
-void
-UHCIMemoryBuffer::free()
-{
-    complete();
-    IOBufferMemoryDescriptor::free();
-}
-
+OSDefineMetaClassAndStructors(AppleUSBUHCI, IOUSBControllerV3)
 
 
 // ========================================================================
@@ -108,23 +75,19 @@ AppleUSBUHCI::init(OSDictionary * propTable)
     //KernelDebugSetLevel(5);
     //USBLog(3, "AppleUSBUHCI[%p]::init", this);
 	
-    _uhciBusState = kUHCIBusStateOff;
-    _uhciAvailable = true;
     USBLog(7, "AppleUSBUHCI::init: %s", _deviceName);
     
-    _intLock = IOLockAlloc();
-    if (!_intLock)
-        return(false);
-	
     _wdhLock = IOSimpleLockAlloc();
     if (!_wdhLock)
-        return(false);
+		goto ErrorExit;
 	
 	_isochScheduleLock = IOSimpleLockAlloc();
     if (!_isochScheduleLock)
-        return(false);
+		goto ErrorExit;
 	
     _uimInitialized = false;
+    _myBusState = kUSBBusStateReset;
+    _controllerSpeed = kUSBDeviceSpeedFull;	
 	
     // Initialize our consumer and producer counts.  
     //
@@ -132,77 +95,35 @@ AppleUSBUHCI::init(OSDictionary * propTable)
     _consumerCount = 1;
     
     return true;
+
+ErrorExit:
+		
+	if ( _wdhLock )
+		IOSimpleLockFree(_wdhLock);
+	
+	if (_isochScheduleLock)
+		IOSimpleLockFree(_isochScheduleLock);
+	
+	return false;
 }
 
 
 
 bool
 AppleUSBUHCI::start( IOService * provider )
-{
-	OSIterator				*siblings = NULL;
-    mach_timespec_t			t;
-    OSDictionary			*matching;
-    IOService				*service;
-    IORegistryEntry			*entry;
-    bool					ehciPresent = false;
-    
-    // Check my provide (_device) parent (a PCI bridge) children (sibling PCI functions)
-    // to see if any of them is an EHCI controller - if so, wait for it..
-    
-	if (provider)
-		siblings = provider->getParentEntry(gIOServicePlane)->getChildIterator(gIOServicePlane);
-	
-	if( siblings ) 
-	{
-		while( (entry = OSDynamicCast(IORegistryEntry, siblings->getNextObject())))
-		{
-			UInt32			classCode;
-			OSData			*obj = OSDynamicCast(OSData, entry->getProperty("class-code"));
-			if (obj) 
-			{
-				classCode = *(UInt32 *)obj->getBytesNoCopy();
-				if (classCode == 0x0c0320) 
-				{
-					ehciPresent = true;
-					break;
-				}
-			}
-		}
-		siblings->release();
-	}
-	
-    if (ehciPresent) 
-	{
-        t.tv_sec = 5;
-        t.tv_nsec = 0;
-        USBLog(7, "AppleUSBUHCI[%p]::start waiting for EHCI", this);
-		setProperty("Companion", "yes");
-        service = waitForService( serviceMatching("AppleUSBEHCI"), &t );
-        USBLog(7, "AppleUSBUHCI[%p]::start got EHCI service %p", this, service);
-    }
-    
+{		
 	// Set a property indicating that we need contiguous memory for isoch transfers
 	//
 	setProperty(kUSBControllerNeedsContiguousMemoryForIsoch, kOSBooleanTrue);
 	
     USBLog(7, "AppleUSBUHCI[%p]::start", this);
+	// this is a call to IOUSBControllerV2::start, which will in turn call UIMInitialize, which is where most of our work is done
     if (!super::start(provider)) 
 	{
         return false;
     }
     
-    initForPM(_device);
-
     return true;
-}
-
-
-
-void
-AppleUSBUHCI::stop( IOService * provider )
-{
-    USBLog(3, "AppleUSBUHCI[%p]::stop", this);
-    super::stop(provider);
 }
 
 
@@ -213,7 +134,6 @@ AppleUSBUHCI::finalize(IOOptionBits options)
     USBLog(3, "AppleUSBUHCI[%p]::finalize", this);
     return super::finalize(options);
 }
-
 
 
 
@@ -241,13 +161,12 @@ IOReturn
 AppleUSBUHCI::HardwareInit(void)
 {
     IOReturn									status;
-    UInt32 *									frames;
-    IOPhysicalAddress							pPhysical;
     int											i, j, frame_period;
-    AppleUHCITransferDescriptor					*pTD;
-    AppleUHCIQueueHead							*lastQH, *bulkQH, *fsQH, *lsQH, *pQH;
-    UHCIMemoryBuffer							*bp;
-    
+    AppleUHCITransferDescriptor					*pTD, *rolloverTD;
+    AppleUHCIQueueHead							*lastQH, *bulkQH, *fsQH, *lsQH, *pQH, *rolloverQH;
+    UInt32										link32msQH;
+	IOUSBControllerListElement					*thing;
+	
     ioWrite16(kUHCI_INTR, 0);					// Disable interrupts
     
     GlobalReset();
@@ -257,24 +176,17 @@ AppleUSBUHCI::HardwareInit(void)
         return status;
     }
     
-    // Set up frame array
-    bp = UHCIMemoryBuffer::newBuffer();
-    if (bp == NULL) 
+	status = InitializeBufferMemory();
+    if (status != kIOReturnSuccess) 
 	{
-        return kIOReturnNoMemory;
+		USBError(1, "AppleUSBUHCI[%p]::HardwareInit - InitializeBufferMemory failed with status(%p)", this, (void*)status);
+        return status;
     }
-    queue_enter(&_allocatedBuffers, bp, UHCIMemoryBuffer *, _chain);
-    
-    frames = (UInt32 *)bp->getBytesNoCopy();
-    pPhysical = bp->getPhysicalAddress();
-	USBLog(7, "AppleUSBUHCI[%p]::HardwareInit - frame list pPhysical[%p] frames[%p]", this, (void*)pPhysical, frames);
-    _framesPaddr = pPhysical;
-	_frameList = frames;								// pointer to the list of physical addresses
-    
+
     // Set frame number and physical frame address
     ioWrite16(kUHCI_FRNUM, 0);
-    ioWrite32(kUHCI_FRBASEADDR, pPhysical);
-    USBLog(7, "AppleUSBUHCI[%p]::HardwareInit - Setting physical frame address to %p", this, (void*)pPhysical);
+    ioWrite32(kUHCI_FRBASEADDR, _framesPaddr);
+    USBLog(7, "AppleUSBUHCI[%p]::HardwareInit - Setting physical frame address to %p", this, (void*)_framesPaddr);
     
     //============= Set up queue heads =======================//
     
@@ -292,14 +204,15 @@ AppleUSBUHCI::HardwareInit(void)
     // Bulk traffic queue.
     bulkQH = AllocateQH(0, 0, 0, 0, 0, kQHTypeDummy);
     if (bulkQH == NULL)
-        return kIOReturnNoMemory;
+        return kIOReturnNoMemory;	
 	
     bulkQH->_logicalNext = lastQH;
     bulkQH->SetPhysicalLink(lastQH->GetPhysicalAddrWithType());
     bulkQH->firstTD = NULL;
     bulkQH->GetSharedLogical()->elink = HostToUSBLong(kUHCI_QH_T);
     _bulkQHStart = _bulkQHEnd = bulkQH;
-    
+   	
+		
     // Full speed control queue.
     fsQH = AllocateQH(0, 0, 0, 0, 0, kQHTypeDummy);
     if (fsQH == NULL)
@@ -348,12 +261,57 @@ AppleUSBUHCI::HardwareInit(void)
 		frame_period = (1 << i);
 		for (j=frame_period-1; j < kUHCI_NVFRAMES; j += frame_period)
 		{
-			frames[j] = HostToUSBLong(pQH->GetPhysicalAddrWithType());
+			_frameList[j] = HostToUSBLong(pQH->GetPhysicalAddrWithType());
 			_logicalFrameList[j] = pQH;
 		}
         lastQH = pQH;
     }
-    
+ #define kUHCI_ROLLOVERFRAME (kUHCI_NVFRAMES-1)   
+	
+	//for frame rolloever interrupt
+	
+	//1) allocate rollover TDs
+	//allocate a dummy QH and TD for the rollover interrupt.
+	//a dummy TD is linked directly into the schedule, the QH is not.  The QH is only used to allocate the dummy TD here.
+	
+	USBLog(5, "AppleUSBUHCI[%p]::Allocate rollover QH,TD",  this);
+	//for the rollover QH:
+	//function,enpoint,direction,speed,maxpacket all set to zero
+	rolloverQH = AllocateQH(0, 0, 0, 0, 0, kQHTypeDummy);
+	if (rolloverQH == NULL)
+        return kIOReturnNoMemory;
+
+	rolloverTD = AllocateTD(rolloverQH);
+	if (rolloverTD == NULL)
+        return kIOReturnNoMemory;
+
+	//2) init the rollover TD
+	//init additional rolloverTD fields, we must set the following to make the HC to generate an interrupt:
+	//Active bit is set to (0).
+	//InterruptOnComplete bit set to (1).
+	//Buffer Pointer set to arbitary sig value 0xdeadbeef.
+	rolloverTD->GetSharedLogical()->ctrlStatus |= kUHCI_TD_IOC;
+	rolloverTD->GetSharedLogical()->buffer = 0xdeadbeef;
+	
+	//3) link the rollover TD to the schedule
+	//Hardware Link Pointer, points to the 32ms interrupt queue head at index [0] in the frame list.
+	//QHTDselect set to 1 (QH) because we link the TD to a static queue head.
+	thing = _logicalFrameList[kUHCI_ROLLOVERFRAME];	  
+
+	link32msQH = HostToUSBLong(thing->GetPhysicalAddrWithType());
+	rolloverTD->GetSharedLogical()->link = link32msQH;
+	// linked in to schedule now -- controller should not running but if is it can 
+	// access the rollover TD at this point.
+	_frameList[kUHCI_ROLLOVERFRAME] = HostToUSBLong(rolloverTD->GetPhysicalAddrWithType());
+	
+	_logicalFrameList[kUHCI_ROLLOVERFRAME] = rolloverTD;
+
+	// remeber these for debugging
+	_rolloverQH = rolloverQH;
+	_rolloverTD = rolloverTD;
+	USBLog(5, "AppleUSBUHCI[%p]::Allocate rollover QH,TD (success)",  this);
+#undef  kUHCI_ROLLOVERFRAME
+
     // For "bandwidth reclamation", point the hardware link
 	//	for the last QH back to the full speed queue head.
 	//	Don't link the software pointer.
@@ -363,13 +321,21 @@ AppleUSBUHCI::HardwareInit(void)
 	// Use 64-byte packets, and mark controller as configured
 	Command(kUHCI_CMD_MAXP | kUHCI_CMD_CF);
 	USBLog(7, "AppleUSBUHCI[%p]::HardwareInit - Command register reports %x", this, ioRead16(kUHCI_CMD));
-
+	
+	return kIOReturnSuccess;
+	
+#if 0
+	// with the new power management changes, leave the controller not running, and leave the interrupts disabled
+	// until the setPowerState comes in
+	
 	// Enable interrupts
 	ioWrite16(kUHCI_INTR, kUHCI_INTR_TIE | kUHCI_INTR_RIE | kUHCI_INTR_IOCE | kUHCI_INTR_SPIE);
-	USBLog(7, "AppleUSBUHCI[%p]::HardwareInit - Interrupt register reports %x", this, ioRead16(kUHCI_INTR));
+	USBLog(2, "AppleUSBUHCI[%p]::HardwareInit - Interrupt register reports %x", this, ioRead16(kUHCI_INTR));
 
 	// Start the controller
 	return Run(true);
+#endif
+
 }
 
 
@@ -377,8 +343,8 @@ AppleUSBUHCI::HardwareInit(void)
 IOReturn
 AppleUSBUHCI::UIMInitialize(IOService * provider)
 {
-    IOReturn status;
-    UInt32   value;
+    IOReturn		status;
+	int				i;
     
     USBLog(7, "+AppleUSBUHCI[%p]::UIMInitialize", this);
     
@@ -392,13 +358,7 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         
         // Disable the master interrupt
         EnableUSBInterrupt(false);
-        
-        //      _device->configWrite32(0x20, 0xFFFFFFFF);
-        //      UInt32 val = _device->configRead32(0x20);
-        //
-        //      USBLog(3, "Read of config at 0x20 = %08x", val);
-        //      return kIOReturnBadArgument;
-        
+
         _ioMap = _device->mapDeviceMemoryWithIndex(0);
 		
         USBLog(7, "AppleUSBUHCI[%p]::UIMInitialize - _ioMap = %p", this, _ioMap);
@@ -418,15 +378,13 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
 		{
             return kIOReturnNoMemory;
         }
-        
-        queue_init(&_allocatedBuffers);
-		
+
         _isocBandwidth = kUSBMaxFSIsocEndpointReqCount;
-        _uhciBusState = kUHCIBusStateRunning;
 		
         clock_get_uptime(&_lastTime);
         
         SetVendorInfo();
+		
         SetDeviceName();
         
         // Do not use standardized errata bits yet
@@ -448,10 +406,8 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         USBLog(7, "AppleUSBUHCI[%p]::UIMInitialize -   USBBASE: %08x", this, (unsigned int)_device->configRead32(0x20));
         USBLog(7, "AppleUSBUHCI[%p]::UIMInitialize -   SBRN: %02x", this, _device->configRead8(0x60));
         
-        // enable the card
-        value = _device->configRead32(kIOPCIConfigCommand) & 0xFFFF0000;
-        value |= (kIOPCICommandBusMaster | kIOPCICommandMemorySpace | kIOPCICommandIOSpace);
-        _device->configWrite32(kIOPCIConfigCommand, value);
+        // leave bus mastering off until the setPowerState
+        _device->configWrite16(kIOPCIConfigCommand, kIOPCICommandMemorySpace | kIOPCICommandIOSpace);
         
         USBLog(7, "AppleUSBUHCI[%p]::UIMInitialize - calling HardwareInit:", this);
         
@@ -459,32 +415,17 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         
         USBLog(7, "AppleUSBUHCI[%p]:: UIMInitialize - status after init: %p", this, (void*)status);
         
-        // Set up a periodic timer to check the root hub status
-        _rhTimer = IOTimerEventSource::timerEventSource(this, (IOTimerEventSource::Action) RHTimerFired);
-        
-        if ( _rhTimer == NULL )
-        {
-            USBError(1, "AppleUSBUHCI[%p]::UIMInitialize - couldn't allocate timer event source", this);
-            return kIOReturnNoMemory;
-        }
-        
-        if ( _workLoop->addEventSource( _rhTimer ) != kIOReturnSuccess )
-        {
-            USBError(1, "AppleUSBUHCI[%p]::UIMInitialize - couldn't add timer event source", this);
-            return kIOReturnError;
-        }
+		// check for sleep capability before we initialize power management
+		CheckSleepCapability();
 		
-		_uhciBusState = kUHCIBusStateRunning;
-		
-        // Enable interrupts
-        EnableUSBInterrupt(true);
-        
-        // Note that the timer isn't scheduled to send events yet.
-        
-        // enable interrupt delivery
-        _workLoop->enableAllInterrupts();
+		for (i=0; i < kUHCI_NUM_PORTS; i++)
+		{
+			_rhResumePortTimerThread[i] = thread_call_allocate((thread_call_func_t)RHResumePortTimerEntry, (thread_call_param_t)this);
+		}
 		
         _uimInitialized = true;
+		
+		_myBusState = kUSBBusStateReset;
     }
     
     USBLog(7, "-AppleUSBUHCI[%p]::UIMInitialize", this);
@@ -507,9 +448,7 @@ AppleUSBUHCI::UIMFinalize()
 	
     // Stop and suspend controller.
     SuspendController();
-    
-    _workLoop->disableAllInterrupts();
-    
+        
     if (!isInactive()) 
 	{
         // Disable controller in PCI space.
@@ -532,28 +471,11 @@ AppleUSBUHCI::UIMFinalize()
     }
 	
     USBLog(3, "AppleUSBUHCI[%p]::UIMFinalize freeing memory", this);
-    
-    // Free allocated TD, QH, transaction and frame memory.
 	
-    while (!queue_empty(&_allocatedBuffers)) 
-	{
-        UHCIMemoryBuffer *bp;
-        
-        queue_remove_first(&_allocatedBuffers, bp, UHCIMemoryBuffer *, _chain);
-        bp->release();
-    }
-    
+	FreeBufferMemory();
+	
     // TODO: free the transfer descriptor memory blocks
     // TODO: free the queue head memory blocks
-	
-    if (_rhTimer)
-    {
-        if ( _workLoop )
-            _workLoop->removeEventSource(_rhTimer);
-        
-        _rhTimer->release();
-        _rhTimer = NULL;
-    }
 	
     USBLog(3, "AppleUSBUHCI[%p]::UIMFinalize - removing interrupt source", this);
 	
@@ -583,88 +505,25 @@ AppleUSBUHCI::UIMFinalize()
 
 
 
-// Initialize the controller hardware after powering up (e.g. from sleep).
-// Does not start the controller.
-IOReturn 
-AppleUSBUHCI::UIMInitializeForPowerUp()
-{
-    UInt32 value;
-    
-    USBLog(2, "AppleUSBUHCI[%p]::UIMInitializeForPowerUp", this);
-    USBLog(2, "AppleUSBUHCI[%p]::UIMInitializeForPowerUp before: kUHCI_FRBASEADDR[%p] _saveFrameAddress[%p]", this, (void*)ioRead32(kUHCI_FRBASEADDR), (void*)_saveFrameAddress);
-    USBLog(2, "AppleUSBUHCI[%p]::UIMInitializeForPowerUp kUHCI_FRNUM[%p] _saveFrameNumber[%p]", this, (void*)ReadFrameNumberRegister(), (void*)_saveFrameNumber);
-    USBLog(2, "AppleUSBUHCI[%p]::UIMInitializeForPowerUp kUHCI_INTR[%p] _saveInterrupts[%p]", this, (void*)ioRead16(kUHCI_INTR), (void*)_saveInterrupts);
-    ioWrite32(kUHCI_FRBASEADDR, _saveFrameAddress);
-    ioWrite16(kUHCI_FRNUM, _saveFrameNumber);
-    USBLog(2, "AppleUSBUHCI[%p]::UIMInitializeForPowerUp after: kUHCI_FRBASEADDR[%p]", this, (void*)ioRead32(kUHCI_FRBASEADDR));
-    USBLog(2, "AppleUSBUHCI[%p]::UIMInitializeForPowerUp after: kUHCI_FRNUM[%p]", this,  (void*)ReadFrameNumberRegister());
-    USBLog(2, "AppleUSBUHCI[%p]::UIMInitializeForPowerUp after: kUHCI_INTR[%p]", this, (void*)ioRead16(kUHCI_INTR));
-	_saveFrameNumber = 0;
-	_saveFrameAddress = 0;
-    
-    Command(kUHCI_CMD_MAXP | kUHCI_CMD_CF | ioRead16(kUHCI_CMD));
-    USBLog(2, "AppleUSBUHCI[%p]::UIMInitializeForPowerUp Command register reports %p", this, (void*)ioRead16(kUHCI_CMD));
-    
-    // Enable bus mastering
-    value = _device->configRead32(kIOPCIConfigCommand) & 0xFFFF0000;
-    value |= (kIOPCICommandBusMaster | kIOPCICommandMemorySpace | kIOPCICommandIOSpace);
-    _device->configWrite32(kIOPCIConfigCommand, value);
-	_uhciAvailable = true;
-
-	// Enable interrupts
-	ioWrite16(kUHCI_INTR, _saveInterrupts);
-	_saveInterrupts = 0;
-    if (_rootHubPollingRate && _outstandingTrans[0].completion.action)
-	{
-		USBLog(2, "AppleUSBUHCI[%p]::UIMInitalizeForPowerUp starting rhTimer(%d)", this, _rootHubPollingRate);
-        _rhTimer->setTimeoutMS(_rootHubPollingRate);
-	}
-	USBLog(2, "AppleUSBUHCI[%p]::UIMInitializeForPowerUp - enabling master interrupt INTR[%p]", this, (void*)ioRead16(kUHCI_INTR));
-	EnableUSBInterrupt(true);
-    
-    return kIOReturnSuccess;
-}
-
-
-
-// Finalize controller hardware for powering down.
-// Assumes that the controller is stopped.
-IOReturn
-AppleUSBUHCI::UIMFinalizeForPowerDown()
-{
-    UInt32 value;
-    
-    USBLog(2, "AppleUSBUHCI[%p]::UIMFinalizeForPowerDown", this);
-    
-    _saveFrameAddress = ioRead32(kUHCI_FRBASEADDR);
-    USBLog(2, "AppleUSBUHCI[%p]::UIMFinalizeForPowerDown _saveFrameAddress[%p]", this, (void*)_saveFrameAddress);
-    _saveFrameNumber = ioRead16(kUHCI_FRNUM);
-    USBLog(2, "AppleUSBUHCI[%p]::UIMFinalizeForPowerDown _saveFrameNumber[%p]", this, (void*)_saveFrameNumber);
-    _saveInterrupts = ioRead16(kUHCI_INTR);
-    USBLog(2, "AppleUSBUHCI[%p]::UIMFinalizeForPowerDown _saveInterrupts[%p]", this, (void*)_saveInterrupts);
-
-    // Disable interrupts
-    ioWrite16(kUHCI_INTR, 0);
-    USBLog(2, "AppleUSBUHCI[%p]::UIMFinalizeForPowerDown cancelling rhTimer", this);
-    _rhTimer->cancelTimeout();										// This is the root hub status change interrupt
-
-    // Disable bus mastering
-	_uhciAvailable = false;
-    value = _device->configRead32(kIOPCIConfigCommand) & 0xFFFF0000;
-    value |= (kIOPCICommandMemorySpace | kIOPCICommandIOSpace);
-    _device->configWrite32(kIOPCIConfigCommand, value);
-    
-	USBLog(2, "AppleUSBUHCI[%p]::UIMFinalizeForPowerDown - disabling master interrupt - INTR[%p]", this, (void*)ioRead16(kUHCI_INTR));
-	EnableUSBInterrupt(false);
-		
-    return kIOReturnSuccess;
-}
-
-
-
 IOReturn
 AppleUSBUHCI::message( UInt32 type, IOService * provider,  void * argument )
 {
+	if (type == kIOUSBMessageExpressCardCantWake)
+	{
+		IOService *					nub = (IOService*)argument;
+		const IORegistryPlane *		usbPlane = getPlane(kIOUSBPlane);
+		IOUSBRootHubDevice *		parentHub = OSDynamicCast(IOUSBRootHubDevice, nub->getParentEntry(usbPlane));
+
+		nub->retain();
+		USBLog(1, "AppleUSBUHCI[%p]::message - got kIOUSBMessageExpressCardCantWake from driver %s[%p] argument is %s[%p]", this, provider->getName(), provider, nub->getName(), nub);
+		if (parentHub == _rootHubDevice)
+		{
+			USBLog(1, "AppleUSBUHCI[%p]::message - device is attached to my root hub (port %d)!!", this, (int)_ExpressCardPort);
+			_badExpressCardAttached = true;
+		}
+		nub->release();
+		return kIOReturnSuccess;
+	}
     return super::message( type, provider, argument );
 }
 
@@ -771,7 +630,7 @@ AppleUSBUHCI::Run(bool run)
     int					i;
     IOReturn			status = kIOReturnTimeout;
     
-    USBLog(2, "AppleUSBUHCI[%p]::Run(%s)", this, run ? "true" : "false");
+    USBLog(7, "AppleUSBUHCI[%p]::Run(%s)", this, run ? "true" : "false");
     
     //_workLoop->disableAllInterrupts();
     cmd = ioRead16(kUHCI_CMD);
@@ -782,33 +641,33 @@ AppleUSBUHCI::Run(bool run)
 	{
         cmd = cmd & ~kUHCI_CMD_RS;
     }
-    USBLog(2, "AppleUSBUHCI[%p]::Run - About to write command 0x%x", this, cmd);
+    USBLog(7, "AppleUSBUHCI[%p]::Run - About to write command 0x%x", this, cmd);
     Command(cmd);
-    USBLog(2, "AppleUSBUHCI[%p]::Run - Waiting for controller to come ready", this);
+    USBLog(7, "AppleUSBUHCI[%p]::Run - Waiting for controller to %s", this, run ? "come ready." : "turn off.");
     for (i=0; i<20; i++) 
 	{
         state = ((ioRead16(kUHCI_STS) & kUHCI_STS_HCH) == 0);
         if (run == state) 
 		{
             status = kIOReturnSuccess;
+			_myBusState = kUSBBusStateRunning;
             break;
         }
         IOSleep(1);
     }
-    USBLog(2, "AppleUSBUHCI[%p]::Run - Finished waiting with result %d", this, status);
+    USBLog(7, "AppleUSBUHCI[%p]::Run - Finished waiting with result %d", this, status);
     //if (run) {
     //    _workLoop->enableAllInterrupts();
     //}
     
-	USBLog(2, "AppleUSBUHCI[%p]::Run - run resulted in status %d, command port %x", this, status, ioRead16(kUHCI_CMD));
+	USBLog(7, "AppleUSBUHCI[%p]::Run - run resulted in status %d, command port %x", this, status, ioRead16(kUHCI_CMD));
 	return status;
 }
 
 
-
 // For now, the frame number is really only 32 bits
 UInt64
-AppleUSBUHCI::GetFrameNumber()
+AppleUSBUHCI::GetFrameNumber(void)
 {
     UInt32				lastFrameNumber;
     UInt32				lastFrame;
@@ -819,7 +678,7 @@ AppleUSBUHCI::GetFrameNumber()
 	// If the controller is halted, then we should just bail out
 	if (ioRead16(kUHCI_STS) & kUHCI_STS_HCH)
 	{
-		if (!_idleSuspend)
+		if (_myPowerState < kUSBPowerStateOn)
 		{
 			USBLog(1, "AppleUSBUHCI[%p]::GetFrameNumber called but controller is halted",  this);
 		}
@@ -829,7 +688,7 @@ AppleUSBUHCI::GetFrameNumber()
     if (_lastFrameNumberLow >= (UInt32)(~kUHCI_FRNUM_MASK)) 
 	{
         USBLog(7, "AppleUSBUHCI[%p]::GetFrameNumber - locking to check frame number", this);
-        IOLockLock(_frameLock);
+		IOLockLock(_frameLock);
         lastFrameNumber = _lastFrameNumberLow;
 		
         overflow = lastFrameNumber & (~kUHCI_FRNUM_MASK);
@@ -848,7 +707,8 @@ AppleUSBUHCI::GetFrameNumber()
             USBLog(7, "AppleUSBUHCI[%p]::GetFrameNumber - 64-bit frame number overflow (low %p)", this, (void*)newFrame);
         }
         _lastFrameNumberLow = newFrame;
-        IOLockUnlock(_frameLock);
+	    IOLockUnlock(_frameLock);
+		
     } else do 
 	{
         lastFrameNumber = _lastFrameNumberLow;
@@ -875,12 +735,38 @@ AppleUSBUHCI::GetFrameNumber()
 }
 
 
-
 UInt32
 AppleUSBUHCI::GetFrameNumber32()
 {
     return (UInt32)GetFrameNumber();
 }
+
+// this call is not gated, so we need to gate it ourselves
+IOReturn
+AppleUSBUHCI::GetFrameNumberWithTime(UInt64* frameNumber, AbsoluteTime *theTime)
+{
+	if (!_commandGate)
+		return kIOReturnUnsupported;
+		
+	return _commandGate->runAction(GatedGetFrameNumberWithTime, frameNumber, theTime);
+}
+
+
+
+// here is the gated version
+IOReturn
+AppleUSBUHCI::GatedGetFrameNumberWithTime(OSObject *owner, void* arg0, void* arg1, void* arg2, void* arg3)
+{
+	AppleUSBUHCI		*me = (AppleUSBUHCI*)owner;
+	UInt64				*frameNumber = (UInt64*)arg0;
+	AbsoluteTime		*theTime = (AbsoluteTime*)arg1;
+	
+	*frameNumber = me->_anchorFrame;
+	*theTime = me->_anchorTime;
+	return kIOReturnSuccess;
+}
+
+
 
 
 // ========================================================================
@@ -1048,6 +934,27 @@ static struct UHCIVendorInfo
 
 
 
+void 
+AppleUSBUHCI::showRegisters(UInt32 level, const char *s)
+{
+	
+	if (!_controllerAvailable)
+		return;
+		
+    USBLog(level,"UHCIUIM -- showRegisters %s", s);
+    USBLog(level,"kUHCI_CMD:  %p", (void*)ioRead16(kUHCI_CMD));
+    USBLog(level,"kUHCI_STS:  %p", (void*)ioRead16(kUHCI_STS));
+    USBLog(level,"kUHCI_INTR: %p", (void*)ioRead16(kUHCI_INTR));
+    USBLog(level,"kUHCI_PORTSC1: %p", (void*)ioRead16(kUHCI_PORTSC1));
+    USBLog(level,"kUHCI_PORTSC2:    %p", (void*)ioRead16(kUHCI_PORTSC2));
+    USBLog(level,"kUHCI_FRBASEADDR:  %p", (void*)ioRead32(kUHCI_FRBASEADDR));
+    USBLog(level,"kUHCI_FRNUM:  %p", (void*)ioRead32(kUHCI_FRNUM));
+    USBLog(level,"kUHCI_SOFMOD: %p", (void*)ioRead32(kUHCI_SOFMOD));
+    USBLog(level,"kIOPCIConfigCommand: %p", (void*)_device->configRead16(kIOPCIConfigCommand));
+}
+
+
+
 void
 AppleUSBUHCI::SetDeviceName(void)
 {
@@ -1083,7 +990,7 @@ AppleUSBUHCI::SetDeviceName(void)
 	{
 		_deviceNameLen = strlen(vi->vendor_name) + strlen(di_found->device_name) + strlen("UHCI USB Controller") + 4;
 		char *str = (char *)IOMalloc(_deviceNameLen);
-		sprintf(str, "%s %s UHCI USB Controller", vi->vendor_name, di_found->device_name);
+		snprintf(str, _deviceNameLen, "%s %s UHCI USB Controller", vi->vendor_name, di_found->device_name);
 		_deviceName = str;
 	}
 	USBLog(7, "AppleUSBUHCI[%p]::SetDeviceName: %s", this, _deviceName);
@@ -1137,6 +1044,8 @@ AppleUSBUHCI::scavengeIsochTransactions(void)
 	
     if (pDoneEl && (cachedConsumer != cachedProducer))
     {
+		EnsureUsability();
+		
 		// there is real work to do - first reverse the list
 		prevEl = NULL;
 		USBLog(7, "AppleUSBUHCI[%p]::scavengeIsocTransactions - before reversal, cachedConsumer[%d] cachedProducer[%d]", this, (int)cachedConsumer, (int)cachedProducer);
@@ -1230,6 +1139,31 @@ AppleUSBUHCI::scavengeAnIsochTD(AppleUHCIIsochTransferDescriptor *pTD)
 
 
 
+void
+AppleUSBUHCI::PutTDonDoneQueue(IOUSBControllerIsochEndpoint* pED, IOUSBControllerIsochListElement *pTD, bool checkDeferred)
+{
+	AppleUHCIIsochTransferDescriptor	*pUHCITD = OSDynamicCast(AppleUHCIIsochTransferDescriptor, pTD);
+	if (pUHCITD && pUHCITD->alignBuffer)
+	{
+		if (pED->direction == kUSBOut)
+		{
+			USBLog(7, "AppleUSBUHCI[%p]::PutTDonDoneQueue - found alignment buffer on Isoch OUT (%p) - freeing", this, pUHCITD->alignBuffer);
+			ReleaseIsochAlignmentBuffer(pUHCITD->alignBuffer);
+		}
+		else if (pUHCITD->alignBuffer->dmaCommand)
+		{
+			// put these in the dma command to be copied when the dmaCommand is completed
+			USBLog(7, "AppleUSBUHCI[%p]::PutTDonDoneQueue - found alignment buffer on Isoch IN (%p) - storing in dmacommand (%p)", this, pUHCITD->alignBuffer, pUHCITD->alignBuffer->dmaCommand);
+			queue_enter(&pUHCITD->alignBuffer->dmaCommand->_alignment_buffers, pUHCITD->alignBuffer, UHCIAlignmentBuffer *, chain);
+		}
+		pUHCITD->alignBuffer = NULL;
+	}
+	
+	super::PutTDonDoneQueue(pED, pTD, checkDeferred);
+}
+
+
+
 IOReturn						
 AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 {
@@ -1243,25 +1177,32 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
     while( (pLE != NULL) && (leCount++ < 150000) )
     {
 		pQH = OSDynamicCast(AppleUHCIQueueHead, pLE);
+		tdCount = 0;
+		
 		if(pQH && (pQH->type != kQHTypeDummy) && (!pQH->stalled))
 		{
 			bool	foundInactive = false;
 			
 			qTD = qHead = pQH->firstTD;
 			qEnd = pQH->lastTD;
-			if (((qTD == NULL) || (qEnd == NULL)) && (qTD != qEnd))
+			if (((qHead == NULL) || (qEnd == NULL)) && (qHead != qEnd))
 			{
-				USBError(1, "The UHCI driver found a device queue with invalid head (%p) or tail (%p)", qTD, qEnd);
+				USBError(1, "The UHCI driver found a device queue with invalid head (%p) or tail (%p)", qHead, qEnd);
 			}
 			TDisHalted = false;
 			shortTransfer = false;
+			
+			// reset
+			tdCount = 0;
+			qTD = pQH->firstTD;
+			
 			if (qTD && (qTD != qEnd))
 			{
 				USBLog(7, "AppleUSBUHCI[%p]::scavengeQueueHeads - looking at pQH[%p]=========================================", this, pQH);
 				logging = true;
 			}
 				
-			while( qTD && (qTD != qEnd) && (tdCount++ < 150000) )
+			while(qTD && (qTD != qEnd) && (tdCount++ < 150000) )
 			{	
 				// This end point has transactions
 				ctrlStatus = USBToHostLong(qTD->GetSharedLogical()->ctrlStatus);
@@ -1304,10 +1245,39 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 						pQH->stalled = true;
 					}
 				}
-				if (qTD->buffer && (qTD->direction == kUSBIn) && actLength)
+				if (qTD->alignBuffer)
 				{
-					USBLog(1, "AppleUSBUHCI[%p]::scavengeQueueHeads - writing back from alignment buffer", this);
-					qTD->buffer->userBuffer->writeBytes(qTD->buffer->userOffset, (void*)qTD->buffer->vaddr, actLength);
+					IOUSBCommand	*command = qTD->command;
+					
+					if ((qTD->direction == kUSBOut) || !actLength)
+					{
+						USBLog(1, "AppleUSBUHCI[%p]::scavengeQueueHeads - releasing CBI buffer (%p) - direction (%s) - actLen (%d)", this, qTD->alignBuffer, qTD->direction == kUSBOut ? "OUT" : "IN", actLength);
+						ReleaseCBIAlignmentBuffer(qTD->alignBuffer);
+						qTD->alignBuffer = NULL;
+					}
+					else
+					{
+						// for IN transactions, we store them in the DMA Command to be copied after the DMACommand is released
+						if (!command)
+						{
+							USBError(1, "AppleUSBUHCI[%p]::scavengeQueueHeads - ERROR - missing usbcommand!!", this);
+						}
+						else
+						{
+							AppleUSBUHCIDMACommand	*dmaCommand = OSDynamicCast(AppleUSBUHCIDMACommand, command->GetDMACommand());
+							if (dmaCommand && (dmaCommand->getMemoryDescriptor()))
+							{
+								USBLog(1, "AppleUSBUHCI[%p]::scavengeQueueHeads - IN transaction - storing UHCIAlignmentBuffer (%p) into dmaCommand (%p) to be copied later - actLegth (%d)", this, qTD->alignBuffer, dmaCommand, actLength);
+								qTD->alignBuffer->actCount = actLength;
+								queue_enter(&dmaCommand->_alignment_buffers, qTD->alignBuffer, UHCIAlignmentBuffer *, chain);
+								qTD->alignBuffer = NULL;
+							}
+							else
+							{
+								USBError(1, "AppleUSBUHCI[%p]::scavengeQueueHeads - ERROR - TD (%p) missing or empty dmaCommand (%p) or (%p)", this, qTD, dmaCommand, command->GetDMACommand());
+							}
+						}
+					}
 				}
 				if (qTD->lastTDofTransaction)
 				{
@@ -1365,12 +1335,12 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 					}
 					// we are going to return the TDs between the curent firstTD and the new qTD, so change the firstTD
 					pQH->firstTD = qTD;
-					
-                    // Reset our loop variables
-                    //
-                    TDisHalted = false;
-                    shortTransfer = false;
-                } 
+
+					// Reset our loop variables
+					//
+					TDisHalted = false;
+					shortTransfer = false;
+				} 
 				else
 				{
 					USBLog(7, "AppleUSBUHCI[%p]::scavengeQueueHeads - looking past TD (%p) to TD (%p)", this, qTD, qTD->_logicalNext); 
@@ -1395,6 +1365,9 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 
     if(doneQueue != NULL)
     {
+		// 2007-08-08 - JRH - stop calling EnsureUsability just because of a completeion. Let the driver do it as needed
+		// USBLog(5, "AppleUSBUHCI[%p]::scavengeQueueHeads - calling EnsureUsability", this);
+		// EnsureUsability();
 		UHCIUIMDoDoneQueueProcessing(doneQueue, kIOReturnSuccess, NULL);
     }
     if(leCount > 1000)
@@ -1450,7 +1423,7 @@ AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing(AppleUHCITransferDescriptor *pHCDoneT
 				UInt32 value = USBToHostLong(pHCDoneTD->GetSharedLogical()->ctrlStatus);
 				if ( value & kUHCI_TD_BABBLE )
 				{
-					USBLog(4, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing - TD (%p) had the BABBLE bit on (0x%x), calling UIMRootHubStatusChange directly()", this, pHCDoneTD, value);
+					USBLog(4, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing - TD (%p) had the BABBLE bit on (0x%x), calling UIMRootHubStatusChange directly()", this, pHCDoneTD, (unsigned int)value);
 					UIMRootHubStatusChange();
 				}
 				
@@ -1474,7 +1447,9 @@ AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing(AppleUHCITransferDescriptor *pHCDoneT
 					// remove flag before completing
 					pHCDoneTD->lastTDofTransaction = false;
 					if (errStatus)
-						USBLog(3, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing - calling completion routine - err[%p] remain[%p]", this, (void*)errStatus, (void*)bufferSizeRemaining);
+					{
+						USBLog(3, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing - calling completion routine (%p) - err[%p] remain[%p]", this, completion.action, (void*)errStatus, (void*)bufferSizeRemaining);
+					}
 					Complete(completion, errStatus, bufferSizeRemaining);
 					if ((pHCDoneTD->pQH->type == kUSBControl) || (pHCDoneTD->pQH->type == kUSBBulk))
 					{
@@ -1485,12 +1460,12 @@ AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing(AppleUHCITransferDescriptor *pHCDoneT
 						else
 						{
 							_controlBulkTransactionsOut--;
-							USBLog(6, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing - _controlBulkTransactionsOut(%p) pHCDoneTD(%p)", this, (void*)_controlBulkTransactionsOut, pHCDoneTD);
+							USBLog(7, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing - _controlBulkTransactionsOut(%p) pHCDoneTD(%p)", this, (void*)_controlBulkTransactionsOut, pHCDoneTD);
 							if (!_controlBulkTransactionsOut)
 							{
 								UInt32 link;
 								link = _lastQH->GetPhysicalLink();
-								USBLog(6, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing - no more _controlBulkTransactionsOut - terminating list (%p to %p)", this, (void*)link, (void*)(link | kUHCI_QH_T));
+								USBLog(7, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing - no more _controlBulkTransactionsOut - terminating list (%p to %p)", this, (void*)link, (void*)(link | kUHCI_QH_T));
 								_lastQH->SetPhysicalLink(link | kUHCI_QH_T);
 							}
 						}
@@ -1567,7 +1542,7 @@ AppleUSBUHCI::AllocateTD(AppleUHCIQueueHead *pQH)
 		if (!_pFreeTD)
 			_pLastFreeTD = NULL;
 		freeTD->_logicalNext = NULL;
-		freeTD->buffer = NULL;										// no alignment buffer yet
+		freeTD->alignBuffer = NULL;										// no alignment buffer yet
 		freeTD->lastFrame = 0;
 		freeTD->lastRemaining = 0;
 		freeTD->command = NULL;
@@ -1591,14 +1566,6 @@ AppleUSBUHCI::DeallocateTD(AppleUHCITransferDescriptor *pTD)
 	
 	pTD->GetSharedLogical()->ctrlStatus = 0;
     pTD->_logicalNext = NULL;
-	
-	if (pTD->buffer)
-	{
-		USBLog(3, "AppleUSBUHCI[%p]::DeallocateTD - have alignment buffer %p and pQH %p", this, pTD->buffer, pQH);
-		if (pQH)
-			pQH->ReleaseAlignmentBuffer(pTD->buffer);
-		pTD->buffer = NULL;
-	}
 	
     if (_pLastFreeTD)
     {
@@ -1665,7 +1632,7 @@ AppleUSBUHCI::AllocateITD(void)
 		if (!_pFreeITD)
 			_pLastFreeITD = NULL;
 		freeITD->_logicalNext = NULL;
-		freeITD->buffer = NULL;											// no alignment buffer
+		freeITD->alignBuffer = NULL;											// no alignment buffer
 		// zero out the shared data
 		freeITD->GetSharedLogical()->ctrlStatus = 0;
 		freeITD->SetPhysicalLink(0);
@@ -1681,17 +1648,15 @@ IOReturn
 AppleUSBUHCI::DeallocateITD(AppleUHCIIsochTransferDescriptor *pITD)
 {
     UInt32					physical;
-	AppleUHCIIsochEndpoint	*pEP = OSDynamicCast(AppleUHCIIsochEndpoint, pITD->_pEndpoint);
 	
 	pITD->GetSharedLogical()->ctrlStatus = 0;
     pITD->_logicalNext = NULL;
 	
-	if (pITD->buffer)
+	if (pITD->alignBuffer)
 	{
-		USBLog(6, "AppleUSBUHCI[%p]::DeallocateITD - have alignment buffer %p and pEP %p", this, pITD->buffer, pEP);
-		if (pEP)
-			pEP->ReleaseAlignmentBuffer(pITD->buffer);
-		pITD->buffer = NULL;
+		USBError(1, "AppleUSBUHCI[%p]::DeallocateITD - UNEXPECTED alignment buffer %p", this, pITD->alignBuffer);
+		ReleaseIsochAlignmentBuffer(pITD->alignBuffer);
+		pITD->alignBuffer = NULL;
 	}
 	
     if (_pLastFreeITD)
@@ -1759,7 +1724,6 @@ AppleUSBUHCI::AllocateQH(UInt16 functionNumber, UInt16 endpointNumber, UInt8 dir
 		if (!_pFreeQH)
 			_pLastFreeQH = NULL;
 		freeQH->_logicalNext = NULL;
-		freeQH->buffersInUse = 0;
 		freeQH->functionNumber = functionNumber;
 		freeQH->endpointNumber = endpointNumber;
 		freeQH->direction = direction;
@@ -1767,8 +1731,6 @@ AppleUSBUHCI::AllocateQH(UInt16 functionNumber, UInt16 endpointNumber, UInt8 dir
 		freeQH->maxPacketSize = maxPacketSize;
 		freeQH->type = type;
         freeQH->stalled = false;
-		queue_init(&freeQH->allocatedBuffers);
-		queue_init(&freeQH->freeBuffers);
 	}
     return freeQH;
 }
@@ -1802,9 +1764,9 @@ AppleUSBUHCI::DeallocateQH(AppleUHCIQueueHead *pQH)
 IOUSBControllerIsochEndpoint*			
 AppleUSBUHCI::AllocateIsochEP()
 {
-	AppleUHCIIsochEndpoint		*pEP;
+	IOUSBControllerIsochEndpoint		*pEP;
 	
-	pEP = new AppleUHCIIsochEndpoint;
+	pEP = new IOUSBControllerIsochEndpoint;
 	if (pEP)
 	{
 		if (!pEP->init())
@@ -1817,6 +1779,420 @@ AppleUSBUHCI::AllocateIsochEP()
 }
 
 
+
+IOReturn
+AppleUSBUHCI::GetLowLatencyOptionsAndPhysicalMask(IOOptionBits *pOptionBits, mach_vm_address_t *pPhysicalMask)
+{
+	super::GetLowLatencyOptionsAndPhysicalMask(pOptionBits, pPhysicalMask);				// get the defaults
+	*pOptionBits = kIOMemoryPhysicallyContiguous;										// make sure we are physically contiguous
+	return kIOReturnSuccess;
+}
+
+
+
+IOReturn
+AppleUSBUHCI::InitializeBufferMemory()
+{
+	IOReturn									status;
+	char *										logicalBytes;
+	UInt64										offset = 0;
+	IODMACommand::Segment32						segments;
+	UInt32										numSegments = 1;
+    IOPhysicalAddress							pPhysical= 0;
+	IODMACommand *								dmaCommand = NULL;
+	UHCIAlignmentBuffer							*alignBuf;
+	bool										alignBufferPrepared = false;
+	bool										isochBufferPrepared = false;
+	bool										frameBufferPrepared = false;
+	int											i,j;
+	
+	// make sure that things are initialized to NULL
+	_cbiAlignBuffer = NULL;
+	_isochAlignBuffer = NULL;
+	queue_init(&_cbiAlignmentBuffers);
+	queue_init(&_isochAlignmentBuffers);
+
+	// Use IODMACommand to get the physical address
+	dmaCommand = IODMACommand::withSpecification(kIODMACommandOutputHost32, 32, PAGE_SIZE, (IODMACommand::MappingOptions)(IODMACommand::kMapped | IODMACommand::kIterateOnly));
+	if (!dmaCommand)
+	{
+		USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not create IODMACommand", this);
+		return kIOReturnInternalError;
+	}
+	USBLog(6, "AppleUSBUHCI[%p]::InitializeBufferMemory - got IODMACommand %p", this, dmaCommand);
+	
+	// the old do while false loop to prevent goto statements
+	do
+	{
+		// Set up frame array
+		_frameListBuffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, kIOMemoryUnshared | kIODirectionInOut, PAGE_SIZE, kUHCIStructureAllocationPhysicalMask);
+		if (_frameListBuffer == NULL) 
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not get frame list buffer", this);
+			status = kIOReturnNoMemory;
+			break;
+		}
+		
+		status = _frameListBuffer->prepare();
+		if (status)
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - _frameListBuffer->prepare failed with status(%p)", this, (void*)status);
+			break;
+		}
+		
+		frameBufferPrepared = true;
+		
+		status = dmaCommand->setMemoryDescriptor(_frameListBuffer);
+		if (status)
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - setMemoryDescriptor returned err (%p)", this, (void*)status);
+			break;
+		}
+		
+		offset = 0;
+		segments.fIOVMAddr = 0;
+		segments.fLength = 0;
+		numSegments = 1;
+		
+		status = dmaCommand->gen32IOVMSegments(&offset, &segments, &numSegments);
+		if (status || (numSegments != 1) || (segments.fLength != PAGE_SIZE))
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not generate segments err (%p) numSegments (%d) fLength (%d)", this, (void*)status, (int)numSegments, (int)segments.fLength);
+			dmaCommand->clearMemoryDescriptor();
+			status = status ? status : kIOReturnInternalError;
+			break;
+		}
+		
+		_frameList = (UInt32 *)_frameListBuffer->getBytesNoCopy();
+		pPhysical = segments.fIOVMAddr;
+		
+		USBLog(7, "AppleUSBUHCI[%p]::InitializeBufferMemory - frame list pPhysical[%p] frames[%p]", this, (void*)pPhysical, _frameList);
+		_framesPaddr = pPhysical;
+		dmaCommand->clearMemoryDescriptor();
+		
+		// set up some alignment buffers for control/bulk/interrupt
+		_cbiAlignBuffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, kIOMemoryUnshared | kIODirectionInOut, PAGE_SIZE, kUHCIStructureAllocationPhysicalMask);
+		if (!_cbiAlignBuffer)
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not get alignment buffer", this);
+			status = kIOReturnNoMemory;
+			break;
+		}
+		status = _cbiAlignBuffer->prepare();
+		if (status)
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - _alignBuffer->prepare failed with status(%p)", this, (void*)status);
+			break;
+		}
+		alignBufferPrepared = true;
+		status = dmaCommand->setMemoryDescriptor(_cbiAlignBuffer);
+		if (status)
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - setMemoryDescriptor (_alignBuffer) returned err (%p)", this, (void*)status);
+			break;
+		}
+		
+		logicalBytes = (char*)_cbiAlignBuffer->getBytesNoCopy();
+
+		offset = 0;
+		segments.fIOVMAddr = 0;
+		segments.fLength = 0;
+		numSegments = 1;
+		
+		status = dmaCommand->gen32IOVMSegments(&offset, &segments, &numSegments);
+		if (status || (numSegments != 1) || (segments.fLength != PAGE_SIZE))
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not generate segments err (%p) numSegments (%d) fLength (%d)", this, (void*)status, (int)numSegments, (int)segments.fLength);
+			dmaCommand->clearMemoryDescriptor();
+			status = status ? status : kIOReturnInternalError;
+			break;
+		}
+		pPhysical = segments.fIOVMAddr;
+		for (i=0; i < (PAGE_SIZE/kUHCI_BUFFER_CBI_ALIGN_SIZE); i++)
+		{
+			alignBuf = new UHCIAlignmentBuffer;
+			if (!alignBuf)
+			{
+				USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - unable to allocate expected UHCIAlignmentBuffer", this);
+				break;
+			}
+			alignBuf->paddr = pPhysical+(i*kUHCI_BUFFER_CBI_ALIGN_SIZE);
+			alignBuf->vaddr = (IOVirtualAddress)(logicalBytes+(i*kUHCI_BUFFER_CBI_ALIGN_SIZE));
+			alignBuf->userBuffer = NULL;
+			alignBuf->userOffset = 0;
+			alignBuf->type = UHCIAlignmentBuffer::kTypeCBI;
+			queue_enter(&_cbiAlignmentBuffers, alignBuf, UHCIAlignmentBuffer *, chain);
+		}
+		dmaCommand->clearMemoryDescriptor();
+		
+		// Set up some alignment buffers for isoch.  Note that each isoch transfer can be up to a max for 1023 bytes, so each alignment buffer needs to be
+		// at least that much -- we make them 1024 bytes.  We allocate kUHCI_BUFFER_ISOCH_ALIGN_QTY buffers to begin with.
+		
+		_isochAlignBuffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, kIOMemoryUnshared | kIODirectionInOut, kUHCI_BUFFER_ISOCH_ALIGN_QTY * kUHCI_BUFFER_ISOCH_ALIGN_SIZE, kUHCIStructureAllocationPhysicalMask);
+		if (!_isochAlignBuffer)
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not get isoch alignment buffer", this);
+			status = kIOReturnNoMemory;
+			break;
+		}
+		status = _isochAlignBuffer->prepare();
+		if (status)
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - _alignBuffer->prepare failed with status(%p)", this, (void*)status);
+			break;
+		}
+		isochBufferPrepared = true;
+		status = dmaCommand->setMemoryDescriptor(_isochAlignBuffer);
+		if (status)
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - setMemoryDescriptor (_alignBuffer) returned err (%p)", this, (void*)status);
+			break;
+		}
+		
+		logicalBytes = (char*)_isochAlignBuffer->getBytesNoCopy();
+
+		for (j=0; j < (kUHCI_BUFFER_ISOCH_ALIGN_QTY * kUHCI_BUFFER_ISOCH_ALIGN_SIZE / PAGE_SIZE) ; j++ )
+		{
+			offset = j * PAGE_SIZE;
+		segments.fIOVMAddr = 0;
+		segments.fLength = 0;
+		numSegments = 1;
+		
+		status = dmaCommand->gen32IOVMSegments(&offset, &segments, &numSegments);
+		if (status || (numSegments != 1) || (segments.fLength != PAGE_SIZE))
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - could not generate segments err (%p) numSegments (%d) fLength (%d)", this, (void*)status, (int)numSegments, (int)segments.fLength);
+			dmaCommand->clearMemoryDescriptor();
+			status = status ? status : kIOReturnInternalError;
+			break;
+		}
+		pPhysical = segments.fIOVMAddr;
+		for (i=0; i < (PAGE_SIZE/kUHCI_BUFFER_ISOCH_ALIGN_SIZE); i++)
+		{
+			alignBuf = new UHCIAlignmentBuffer;
+			if (!alignBuf)
+			{
+				USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - unable to allocate expected UHCIAlignmentBuffer", this);
+				break;
+			}
+			alignBuf->paddr = pPhysical+(i*kUHCI_BUFFER_ISOCH_ALIGN_SIZE);
+				alignBuf->vaddr = (IOVirtualAddress)(logicalBytes + (j*PAGE_SIZE) + (i*kUHCI_BUFFER_ISOCH_ALIGN_SIZE));
+			alignBuf->userBuffer = NULL;
+			alignBuf->userOffset = 0;
+			alignBuf->type = UHCIAlignmentBuffer::kTypeIsoch;
+			queue_enter(&_isochAlignmentBuffers, alignBuf, UHCIAlignmentBuffer *, chain);
+		}
+		}
+		dmaCommand->clearMemoryDescriptor();
+		
+	} while (false);
+	
+	if (status)
+	{
+		if (_frameListBuffer)
+		{
+			if (frameBufferPrepared)
+				_frameListBuffer->complete();
+			_frameListBuffer->release();
+			_frameListBuffer = NULL;
+		}
+		if (_cbiAlignBuffer)
+		{
+			if (alignBufferPrepared)
+				_cbiAlignBuffer->complete();
+			_cbiAlignBuffer->release();
+			_cbiAlignBuffer = NULL;
+		}
+		if (_isochAlignBuffer)
+		{
+			if (alignBufferPrepared)
+				_isochAlignBuffer->complete();
+			_isochAlignBuffer->release();
+			_isochAlignBuffer = NULL;
+		}
+	}
+	
+	if (dmaCommand)
+	{
+		if (dmaCommand->getMemoryDescriptor())
+		{
+			USBError(1, "AppleUSBUHCI[%p]::InitializeBufferMemory - dmaCommand still has memory descriptor (%p)", this, dmaCommand->getMemoryDescriptor());
+			dmaCommand->clearMemoryDescriptor();
+		}
+		dmaCommand->release();
+	}
+	return status;
+}
+
+
+void
+AppleUSBUHCI::FreeBufferMemory()
+{
+	UHCIAlignmentBuffer			*ap;
+	
+	while (!queue_empty(&_cbiAlignmentBuffers)) 
+	{
+		queue_remove_first(&_cbiAlignmentBuffers, ap, UHCIAlignmentBuffer *, chain);
+		ap->release();
+	}
+	
+	while (!queue_empty(&_isochAlignmentBuffers)) 
+	{
+		queue_remove_first(&_isochAlignmentBuffers, ap, UHCIAlignmentBuffer *, chain);
+		ap->release();
+	}
+	
+	if (_frameListBuffer)
+	{
+		_frameListBuffer->complete();
+		_frameListBuffer->release();
+		_frameListBuffer = NULL;
+	}
+	if (_cbiAlignBuffer)
+	{
+		_cbiAlignBuffer->complete();
+		_cbiAlignBuffer->release();
+		_cbiAlignBuffer = NULL;
+	}
+	if (_isochAlignBuffer)
+	{
+		_isochAlignBuffer->complete();
+		_isochAlignBuffer->release();
+		_isochAlignBuffer = NULL;
+	}
+}
+
+UHCIAlignmentBuffer *
+AppleUSBUHCI::GetCBIAlignmentBuffer()
+{
+	UHCIAlignmentBuffer			*ap;
+	UInt32						align;
+	
+	if (queue_empty(&_cbiAlignmentBuffers)) 
+	{
+		USBError(1, "AppleUSBUHCI[%p]::GetCBIAlignmentBuffer - ran out of alignment buffers", this);
+		return NULL;
+	}
+	queue_remove_first(&_cbiAlignmentBuffers, ap, UHCIAlignmentBuffer *, chain);
+	ap->userBuffer = NULL;
+	ap->userOffset = 0;
+	ap->controller = this;
+	return ap;
+}
+
+
+void
+AppleUSBUHCI::ReleaseCBIAlignmentBuffer(UHCIAlignmentBuffer *ap)
+{
+	// USBLog(7, "AppleUSBUHCI[%p]::ReleaseAlignmentBuffer - putting alignment buffer %p into freeBuffers", this, ap);
+	queue_enter(&_cbiAlignmentBuffers, ap, UHCIAlignmentBuffer *, chain);
+}
+
+
+UHCIAlignmentBuffer *
+AppleUSBUHCI::GetIsochAlignmentBuffer()
+{
+	UHCIAlignmentBuffer			*ap;
+	UInt32						align;
+	
+	if (queue_empty(&_isochAlignmentBuffers)) 
+	{
+		USBError(1, "AppleUSBUHCI[%p]::GetIsochAlignmentBuffer - ran out of alignment buffers", this);
+		return NULL;
+	}
+	queue_remove_first(&_isochAlignmentBuffers, ap, UHCIAlignmentBuffer *, chain);
+	ap->userBuffer = NULL;
+	ap->userOffset = 0;
+	ap->controller = this;
+	
+	_uhciAlignmentBuffersInUse++;
+	if ( _uhciAlignmentBuffersInUse > _uhciAlignmentHighWaterMark )
+	{
+		_uhciAlignmentHighWaterMark++;
+		setProperty("AlignmentBuffersHighWaterMark", _uhciAlignmentHighWaterMark, 32);
+		USBLog(5, "AppleUSBUHCI[%p]::GetIsochAlignmentBuffer - New isoch alignment high water mark: %ld", this, _uhciAlignmentHighWaterMark);
+	}
+	
+	return ap;
+}
+
+
+void
+AppleUSBUHCI::ReleaseIsochAlignmentBuffer(UHCIAlignmentBuffer *ap)
+{
+	//USBLog(6, "AppleUSBUHCI[%p]::ReleaseIsochAlignmentBuffer - putting alignment buffer %p into freeBuffers", this, ap);
+	queue_enter(&_isochAlignmentBuffers, ap, UHCIAlignmentBuffer *, chain);
+	_uhciAlignmentBuffersInUse--;
+}
+
+
+OSDefineMetaClassAndStructors(UHCIAlignmentBuffer, OSObject);
+
+// ========================================================================
+#pragma mark AppleUSBUHCIDMACommand
+// ========================================================================
+OSDefineMetaClassAndStructors(AppleUSBUHCIDMACommand, IODMACommand)
+
+AppleUSBUHCIDMACommand *
+AppleUSBUHCIDMACommand::withSpecification(SegmentFunction outSegFunc,
+											UInt8           numAddressBits,
+											UInt64          maxSegmentSize,
+											MappingOptions  mappingOptions,
+											UInt64          maxTransferSize,
+											UInt32          alignment,
+											IOMapper       *mapper,
+											void           *refCon)
+{
+    AppleUSBUHCIDMACommand * me = new AppleUSBUHCIDMACommand;
+	
+    if (me && !me->initWithSpecification(outSegFunc,
+										 numAddressBits, maxSegmentSize,
+										 mappingOptions, maxTransferSize,
+										 alignment,      mapper, refCon))
+    {
+        me->release();
+        return NULL;
+    };
+	
+	queue_init(&me->_alignment_buffers);
+
+    return me;
+}
+
+
+
+IOReturn
+AppleUSBUHCIDMACommand::clearMemoryDescriptor(bool autoComplete)
+{
+	UHCIAlignmentBuffer			*ap;
+	IOReturn					ret;
+	
+	ret = IODMACommand::clearMemoryDescriptor(autoComplete);
+	while (!queue_empty(&_alignment_buffers)) 
+	{
+		queue_remove_first(&_alignment_buffers, ap, UHCIAlignmentBuffer *, chain);
+		USBLog(6, "AppleUSBUHCIDMACommand[%p]::clearMemoryDescriptor - got UHCIAlignmentBuffer (%p) paddr (%p) CBP (%p)", this, ap, (void*)ap->paddr, ap->userBuffer);
+		if (ap->actCount)
+		{
+			USBLog(6, "AppleUSBUHCIDMACommand[%p]::clearMemoryDescriptor - copying (%d) bytes from virtual address (%p)", this, (int)ap->actCount, (void*)ap->vaddr);
+			ap->userBuffer->writeBytes(ap->userOffset, (void*)ap->vaddr, ap->actCount);
+		}
+		if (ap->type == UHCIAlignmentBuffer::kTypeCBI)
+			ap->controller->ReleaseCBIAlignmentBuffer(ap);
+		else
+			ap->controller->ReleaseIsochAlignmentBuffer(ap);
+	}
+	return ret;
+}
+
+
+
+IODMACommand*
+AppleUSBUHCI::GetNewDMACommand()
+{
+	// our output function uses 64 bits, even though the controller can only handle 32 bits
+	return AppleUSBUHCIDMACommand::withSpecification(kIODMACommandOutputHost64, 32, 0);
+}
 
 // ========================================================================
 #pragma mark Debugging

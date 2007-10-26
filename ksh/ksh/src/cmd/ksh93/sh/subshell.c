@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  *   Create and manage subshells avoiding forks when possible
@@ -79,13 +75,14 @@ static struct subshell
 	char		*pwd;	/* present working directory */
 	const char	*shpwd;	/* saved pointer to sh.pwd */
 	void		*jobs;	/* save job info */
-	int		mask;	/* present umask */
+	mode_t		mask;	/* saved umask */
 	short		tmpfd;	/* saved tmp file descriptor */
 	short		pipefd;	/* read fd if pipe is created */
 	char		jobcontrol;
 	char		monitor;
 	unsigned char	fdstatus;
 	int		fdsaved; /* bit make for saved files */
+	int		bckpid;
 } *subshell_data;
 
 static int subenv;
@@ -170,7 +167,7 @@ void sh_subfork(void)
 	}
 	else
 	{
-		short subshell;
+		int16_t subshell;
 		/* this is the child part of the fork */
 		/* setting subpid to 1 causes subshell to exit when reached */
 		sh_onstate(SH_FORKED);
@@ -178,7 +175,7 @@ void sh_subfork(void)
 		sh_offstate(SH_MONITOR);
 		subshell_data = 0;
 		subshell = sh.subshell = 0;
-		nv_putval(SH_SUBSHELLNOD, (char*)&subshell, NV_INTEGER|NV_SHORT);
+		nv_putval(SH_SUBSHELLNOD, (char*)&subshell, NV_INT16);
 		sp->subpid=0;
 	}
 }
@@ -212,6 +209,7 @@ Namval_t *sh_assignok(register Namval_t *np,int add)
 	subshell_data->svar = lp;
 	save = sh.subshell;
 	sh.subshell = 0;;
+	mp->nvname = np->nvname;
 	nv_clone(np,mp,NV_NOFREE);
 	sh.subshell = save;
 	return(np);
@@ -233,30 +231,26 @@ static void nv_restore(struct subshell *sp)
 		lq = lp->next;
 		if(nv_isarray(mp))
 			 nv_putsub(mp,NIL(char*),ARRAY_SCAN);
-		nv_unset(mp);
+		_nv_unset(mp,NV_RDONLY);
 		nv_setsize(mp,nv_size(np));
-		if(!nv_isattr(np,NV_MINIMAL))
+		if(!nv_isattr(np,NV_MINIMAL) || nv_isattr(np,NV_EXPORT))
 			mp->nvenv = np->nvenv;
 		mp->nvfun = np->nvfun;
-		if(mp==nv_scoped(PATHNOD))
+		mp->nvflag = np->nvflag;
+		if(nv_cover(mp))
 			nv_putval(mp, np->nvalue.cp,0);
 		else
 			mp->nvalue.cp = np->nvalue.cp;
-		mp->nvflag = np->nvflag;
 		np->nvfun = 0;
 		if(nv_isattr(mp,NV_EXPORT))
 		{
 			char *name = nv_name(mp);
-#ifdef _ENV_H
 			sh_envput(sh.env,mp);
-#endif
 			if(*name=='_' && strcmp(name,"_AST_FEATURES")==0)
 				astconf(NiL, NiL, NiL);
 		}
-#ifdef _ENV_H
 		else if(nv_isattr(np,NV_EXPORT))
 			env_delete(sh.env,nv_name(mp));
-#endif
 		free((void*)np);
 	}
 	sp->shpwd=save;
@@ -273,7 +267,7 @@ Dt_t *sh_subaliastree(int create)
 		return(sh.alias_tree);
 	if(!sp->salias && create)
 	{
-		sp->salias = dtopen(&_Nvdisc,Dtbag);
+		sp->salias = dtopen(&_Nvdisc,Dtoset);
 		dtview(sp->salias,sh.alias_tree);
 		sh.alias_tree = sp->salias;
 	}
@@ -291,11 +285,23 @@ Dt_t *sh_subfuntree(int create)
 		return(sh.fun_tree);
 	if(!sp->sfun && create)
 	{
-		sp->sfun = dtopen(&_Nvdisc,Dtbag);
+		sp->sfun = dtopen(&_Nvdisc,Dtoset);
 		dtview(sp->sfun,sh.fun_tree);
 		sh.fun_tree = sp->sfun;
 	}
 	return(sp->sfun);
+}
+
+static void table_unset(register Dt_t *root)
+{
+	register Namval_t *np,*nq;
+	for(np=(Namval_t*)dtfirst(root);np;np=nq)
+	{
+		_nv_unset(np,NV_RDONLY);
+		nq = (Namval_t*)dtnext(root,np);
+		dtdelete(root,np);
+		free((void*)np);
+	}
 }
 
 int sh_subsavefd(register int fd)
@@ -317,14 +323,15 @@ int sh_subsavefd(register int fd)
  * output of command <t>.  Otherwise, NULL will be returned.
  */
 
-Sfio_t *sh_subshell(union anynode *t, int flags, int comsub)
+Sfio_t *sh_subshell(Shnode_t *t, int flags, int comsub)
 {
 	Shell_t *shp = &sh;
 	struct subshell sub_data;
 	register struct subshell *sp = &sub_data;
 	int jmpval,nsig;
 	int savecurenv = shp->curenv;
-	short subshell;
+	int savejobpgid = job.curpgid;
+	int16_t subshell;
 	char *savsig;
 	Sfio_t *iop=0;
 	struct checkpt buff;
@@ -339,10 +346,11 @@ Sfio_t *sh_subshell(union anynode *t, int flags, int comsub)
 		subenv = 0;
 	}
 	shp->curenv = ++subenv;
+	job.curpgid = 0;
 	savst = shp->st;
 	sh_pushcontext(&buff,SH_JMPSUB);
 	subshell = shp->subshell+1;
-	nv_putval(SH_SUBSHELLNOD, (char*)&subshell, NV_INTEGER|NV_SHORT);
+	nv_putval(SH_SUBSHELLNOD, (char*)&subshell, NV_INT16);
 	shp->subshell = subshell;
 	sp->prev = subshell_data;
 	subshell_data = sp;
@@ -353,16 +361,17 @@ Sfio_t *sh_subshell(union anynode *t, int flags, int comsub)
 #ifdef PATH_BFPATH
 	/* make sure initialization has occurred */ 
 	if(!shp->pathlist)
-		path_get("/");
+		path_get(".");
 	sp->pathlist = path_dup((Pathcomp_t*)shp->pathlist);
 #endif
 	if(!shp->pwd)
 		path_pwd(0);
-	if(!comsub || !sh_isoption(SH_SUBSHARE))
+	sp->bckpid = shp->bckpid;
+	if(!comsub || (comsub==1 && !sh_isoption(SH_SUBSHARE)))
 	{
 		sp->shpwd = shp->pwd;
 		sp->pwd = (shp->pwd?strdup(shp->pwd):0);
-		umask(sp->mask=umask(0));
+		sp->mask = shp->mask;
 		/* save trap table */
 		shp->st.otrapcom = 0;
 		if((nsig=shp->st.trapmax*sizeof(char*))>0 || shp->st.trapcom[0])
@@ -476,13 +485,15 @@ Sfio_t *sh_subshell(union anynode *t, int flags, int comsub)
 	if(shp->subshell)
 		shp->subshell--;
 	subshell = shp->subshell;
-	nv_putval(SH_SUBSHELLNOD, (char*)&subshell, NV_INTEGER|NV_SHORT);
+	nv_putval(SH_SUBSHELLNOD, (char*)&subshell, NV_INT16);
 #ifdef PATH_BFPATH
 	path_delete((Pathcomp_t*)shp->pathlist);
 	shp->pathlist = (void*)sp->pathlist;
 #endif
 	job_subrestore(sp->jobs);
 	shp->jobenv = savecurenv;
+	job.curpgid = savejobpgid;
+	shp->bckpid = sp->bckpid;
 	if(sp->shpwd)	/* restore environment if saved */
 	{
 		shp->options = sp->options;
@@ -490,11 +501,13 @@ Sfio_t *sh_subshell(union anynode *t, int flags, int comsub)
 		if(sp->salias)
 		{
 			shp->alias_tree = dtview(sp->salias,0);
+			table_unset(sp->salias);
 			dtclose(sp->salias);
 		}
 		if(sp->sfun)
 		{
 			shp->fun_tree = dtview(sp->sfun,0);
+			table_unset(sp->sfun);
 			dtclose(sp->sfun);
 		}
 		sh_sigreset(1);
@@ -528,7 +541,8 @@ Sfio_t *sh_subshell(union anynode *t, int flags, int comsub)
 		}
 		else
 			free((void*)sp->pwd);
-		umask(sp->mask);
+		if(sp->mask!=shp->mask)
+			umask(shp->mask);
 	}
 	subshell_data = sp->prev;
 	sh_argfree(argsav,0);

@@ -89,8 +89,6 @@ private:
     bool shouldMergeEnd(bool);
     bool shouldMerge(const VisiblePosition&, const VisiblePosition&);
     
-    void removeUnrenderedTextNodesAtEnds();
-    
     void negateStyleRulesThatAffectAppearance();
     void removeRedundantStyles(Node*);
     

@@ -528,7 +528,7 @@ static void appendUInt32ToData (const uint32 value, CssmDataContainer &data)
 
 static inline uint32 GetUInt32AtFinger (uint8 *&finger)
 {
-	uint32 a = ntohl ((finger[0] << 24) | (finger[1] << 16) | (finger[2] << 8) | finger[3]);
+	uint32 a = ((finger[0] << 24) | (finger[1] << 16) | (finger[2] << 8) | finger[3]);
 	finger += sizeof (uint32);
 	return a;
 }
@@ -573,8 +573,34 @@ SSDLSession::unwrapAttributesAndData (uint32 &numAttributes,
 				}
 
 				attributes[i].Value[j].Data = (uint8*) allocator ().malloc (attributes[i].Value[j].Length);
-				memmove (attributes[i].Value[j].Data, finger, attributes[i].Value[j].Length);
-				finger += attributes[i].Value[j].Length;
+				
+				switch (attributes[i].Info.AttributeFormat)
+				{
+					default:
+					{
+						memmove (attributes[i].Value[j].Data, finger, attributes[i].Value[j].Length);
+						finger += attributes[i].Value[j].Length;
+						break;
+					}
+					
+					case CSSM_DB_ATTRIBUTE_FORMAT_SINT32:
+					case CSSM_DB_ATTRIBUTE_FORMAT_UINT32:
+					{
+						*(uint32*) attributes[i].Value[j].Data = GetUInt32AtFinger (finger);
+						break;
+					}
+					
+					case CSSM_DB_ATTRIBUTE_FORMAT_MULTI_UINT32:
+					{
+						uint32* d = (uint32*) attributes[i].Value[j].Data;
+						uint32 numValues = attributes[i].Value[j].Length / sizeof (UInt32);
+						while (numValues--)
+						{
+							*d++ = GetUInt32AtFinger (finger);
+						}
+						break;
+					}
+				}
 			}
 			else
 			{
@@ -886,7 +912,7 @@ void SSDLSession::doGetWithoutEncryption (SSDatabase &db, const void *inInputPar
 	outputData->Data = output.Data;
 	output.Data = NULL;
 	outputData->Length = output.Length;
-	output.Length = NULL;
+	output.Length = 0;
 }
 
 void

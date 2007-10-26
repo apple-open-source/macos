@@ -72,4 +72,3 @@ private:
 
 #endif /* !_TOKEND_ATTRIBUTE_H_ */
 
-/* arch-tag: 5B8B0720-F190-11D8-9806-000A9595DEEE */

@@ -1,8 +1,9 @@
 ;;; ediff-ptch.el --- Ediff's  patch support
 
-;; Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+;;   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Michael Kifer <kifer@cs.sunysb.edu>
+;; Author: Michael Kifer <kifer@cs.stonybrook.edu>
 
 ;; This file is part of GNU Emacs.
 
@@ -18,17 +19,16 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;;; Code:
-	 
-(provide 'ediff-ptch)
+
 
 (defgroup ediff-ptch nil
-  "Ediff patch support"
+  "Ediff patch support."
   :tag "Patch"
   :prefix "ediff-"
   :group 'ediff)
@@ -44,6 +44,8 @@
   (let ((load-path (cons (expand-file-name ".") load-path)))
     (or (featurep 'ediff-init)
 	(load "ediff-init.el" nil nil 'nosuffix))
+    (or (featurep 'ediff-mult)
+	(load "ediff-mult.el" nil nil 'nosuffix))
     (or (featurep 'ediff)
 	(load "ediff.el" nil nil 'nosuffix))
     ))
@@ -74,7 +76,7 @@ case the default value for this variable should be changed."
 (defconst ediff-default-backup-extension
   (if (memq system-type '(vax-vms axp-vms emx ms-dos))
       "_orig" ".orig"))
-  
+
 
 (defcustom ediff-backup-extension ediff-default-backup-extension
   "Backup extension used by the patch program.
@@ -83,14 +85,16 @@ See also `ediff-backup-specs'."
   :group 'ediff-ptch)
 
 (defun ediff-test-patch-utility ()
-  (cond ((zerop (call-process ediff-patch-program nil nil nil "-z." "-b"))
-	 ;; GNU `patch' v. >= 2.2
-	 'gnu)
-	((zerop (call-process ediff-patch-program nil nil nil "-b"))
-	 'posix)
-	(t 'traditional)))
+  (condition-case nil
+      (cond ((eq 0 (call-process ediff-patch-program nil nil nil "-z." "-b"))
+	     ;; GNU `patch' v. >= 2.2
+	     'gnu)
+	    ((eq 0 (call-process ediff-patch-program nil nil nil "-b"))
+	     'posix)
+	    (t 'traditional))
+    (file-error nil)))
 
-(defcustom ediff-backup-specs 
+(defcustom ediff-backup-specs
   (let ((type (ediff-test-patch-utility)))
     (cond ((eq type 'gnu)
 	   ;; GNU `patch' v. >= 2.2
@@ -158,10 +162,16 @@ program."
 ;; strip prefix from filename
 ;; returns /dev/null, if can't strip prefix
 (defsubst ediff-file-name-sans-prefix (filename prefix)
-  (save-match-data
-    (if (string-match (concat "^" prefix) filename)
-	(substring filename (match-end 0))
-      (concat "/null/" filename))))
+  (if prefix
+      (save-match-data
+	(if (string-match (concat "^" (if (stringp prefix)
+					  (regexp-quote prefix)
+					""))
+			  filename)
+	    (substring filename (match-end 0))
+	  (concat "/null/" filename)))
+    filename)
+  )
 
 
 
@@ -180,12 +190,22 @@ program."
 	    (setq count (1+ count)))))
       count)))
 
-;; Scan BUF (which is supposed to contain a patch) and make a list of the form 
-;;    ((filename1 marker1 marker2) (filename2 marker1 marker2) ...)
-;; where filenames are files to which patch would have applied the patch;
-;; marker1 delimits the beginning of the corresponding patch and marker2 does
-;; it for the end.  This list is then assigned to ediff-patch-map.
-;; Returns the number of elements in the list ediff-patch-map
+;; Scan BUF (which is supposed to contain a patch) and make a list of the form
+;;    ((nil nil filename-spec1 marker1 marker2)
+;;          (nil nil filename-spec2 marker1 marker2) ...)
+;; where filename-spec[12] are files to which the `patch' program would
+;; have applied the patch.
+;; nin, nil are placeholders. See ediff-make-new-meta-list-element in
+;;    ediff-meta.el for the explanations.
+;; In the beginning we don't know exactly which files need to be patched.
+;; We usually come up with two candidates and ediff-file-name-sans-prefix
+;;    resolves this later.
+;;
+;; The marker `marker1' delimits the beginning of the corresponding patch and
+;;    `marker2' does it for the end.
+;; The result of ediff-map-patch-buffer is a list, which is then assigned
+;; to ediff-patch-map.
+;; The function returns the number of elements in the list ediff-patch-map
 (defun ediff-map-patch-buffer (buf)
   (ediff-with-current-buffer buf
     (let ((count 0)
@@ -210,7 +230,8 @@ program."
  		  end2 (or (match-end 3) (match-end 5)))
 	    ;; possible-file-names is holding the new file names until we
 	    ;; insert the old file name in the patch map
-	    ;; It is a pair (filename from 1st header line . fn from 2nd line)
+	    ;; It is a pair
+	    ;;     (filename-from-1st-header-line . fn from 2nd line)
 	    (setq possible-file-names
 		  (cons (if (and beg1 end1)
 			    (buffer-substring beg1 end1)
@@ -225,25 +246,33 @@ program."
 		(move-marker mark2 (match-beginning 0)))
 
 	    (goto-char mark2-end)
-	    
+
 	    (if filenames
-		(setq patch-map (cons (list filenames mark1 mark2) patch-map)))
+		(setq patch-map
+		      (cons (ediff-make-new-meta-list-element
+			     filenames mark1 mark2)
+			    patch-map)))
 	    (setq mark1 mark2
 		  mark1-end mark2-end
 		  filenames possible-file-names))
 	  (setq opoint (point)
 		count (1+ count))))
       (setq mark2 (point-max-marker)
-	    patch-map (cons (list possible-file-names mark1 mark2) patch-map))
+	    patch-map (cons (ediff-make-new-meta-list-element
+			     possible-file-names mark1 mark2)
+			    patch-map))
       (setq ediff-patch-map (nreverse patch-map))
       count)))
 
 ;; Fix up the file names in the list using the argument FILENAME
-;; Algorithm: find the first file's directory and cut it out from each file
-;; name in the patch.  Prepend the directory of FILENAME to each file in the
-;; patch.  In addition, the first file in the patch is replaced by FILENAME.
-;; Each file is actually a file-pair of files found in the context diff header
-;; In the end, for each pair, we select the shortest existing file.
+;; Algorithm: find the files' directories in the patch and, if a directory is
+;; absolute, cut it out from the corresponding file name in the patch.
+;; Relative directories are not cut out.
+;; Prepend the directory of FILENAME to each resulting file (which came
+;; originally from the patch).
+;; In addition, the first file in the patch document is replaced by FILENAME.
+;; Each file is actually a pair of files found in the context diff header
+;; In the end, for each pair, we ask the user which file to patch.
 ;; Note: Ediff doesn't recognize multi-file patches that are separated
 ;; with the `Index:' line.  It treats them as a single-file patch.
 ;;
@@ -254,44 +283,71 @@ program."
 			;; directory part of filename
 			(file-name-as-directory filename)
 		      (file-name-directory filename)))
-	;; directory part of the first file in the patch
-	(base-dir1 (file-name-directory (car (car (car ediff-patch-map)))))
-	(base-dir2 (file-name-directory (cdr (car (car ediff-patch-map)))))
+	;; In case 2 files are possible patch targets, the user will be offered
+	;; to choose file1 or file2.  In a multifile patch, if the user chooses
+	;; 1 or 2, this choice is preserved to decide future alternatives.
+	chosen-alternative
 	)
 
     ;; chop off base-dirs
-    (mapcar (lambda (triple)
-	      (or (string= (car (car triple)) "/dev/null")
-		  (setcar (car triple)
-			  (ediff-file-name-sans-prefix
-			   (car (car triple)) base-dir1)))
-	      (or (string= (cdr (car triple)) "/dev/null")
-		  (setcdr (car triple)
-			  (ediff-file-name-sans-prefix
-			   (cdr (car triple)) base-dir2)))
-	      )
+    (mapcar (lambda (session-info)
+	      (let* ((proposed-file-names
+		      ;; Filename-spec is objA; it is represented as
+		      ;; (file1 . file2). Get it using ediff-get-session-objA.
+		      (ediff-get-session-objA-name session-info))
+		     ;; base-dir1 is  the dir part of the 1st file in the patch
+		     (base-dir1
+		      (or (file-name-directory (car proposed-file-names))
+			  ""))
+		     ;; directory part of the 2nd file in the patch
+		     (base-dir2
+		      (or (file-name-directory (cdr proposed-file-names))
+			  ""))
+		     )
+		;; If both base-dir1 and base-dir2 are relative and exist,
+		;; assume that
+		;; these dirs lead to the actual files starting at the present
+		;; directory. So, we don't strip these relative dirs from the
+		;; file names. This is a heuristic intended to improve guessing
+		(unless (or (file-name-absolute-p base-dir1)
+			    (file-name-absolute-p base-dir2)
+			    (not (file-exists-p base-dir1))
+			    (not (file-exists-p base-dir2)))
+		  (setq base-dir1 ""
+			base-dir2 ""))
+		(or (string= (car proposed-file-names) "/dev/null")
+		    (setcar proposed-file-names
+			    (ediff-file-name-sans-prefix
+			     (car proposed-file-names) base-dir1)))
+		(or (string=
+		     (cdr proposed-file-names) "/dev/null")
+		    (setcdr proposed-file-names
+			    (ediff-file-name-sans-prefix
+			     (cdr proposed-file-names) base-dir2)))
+		))
 	    ediff-patch-map)
 
     ;; take the given file name into account
     (or (file-directory-p filename)
 	(string= "/dev/null" filename)
-	(progn
-	  (setcar (car ediff-patch-map)
-		  (cons (file-name-nondirectory filename)
-			(file-name-nondirectory filename)))))
+	(setcar (ediff-get-session-objA (car ediff-patch-map))
+		(cons (file-name-nondirectory filename)
+		      (file-name-nondirectory filename))))
 
     ;; prepend actual-dir
-    (mapcar (lambda (triple)
-	      (if (and (string-match "^/null/" (car (car triple)))
-		       (string-match "^/null/" (cdr (car triple))))
-		  ;; couldn't strip base-dir1 and base-dir2
-		  ;; hence, something wrong
-		  (progn
-		    (with-output-to-temp-buffer ediff-msg-buffer
-		      (ediff-with-current-buffer standard-output
-			(fundamental-mode))
-		      (princ
-		       (format "
+    (mapcar (lambda (session-info)
+	      (let ((proposed-file-names
+		     (ediff-get-session-objA-name session-info)))
+		(if (and (string-match "^/null/" (car proposed-file-names))
+			 (string-match "^/null/" (cdr proposed-file-names)))
+		    ;; couldn't intuit the file name to patch, so
+		    ;; something is amiss
+		    (progn
+		      (with-output-to-temp-buffer ediff-msg-buffer
+			(ediff-with-current-buffer standard-output
+			  (fundamental-mode))
+			(princ
+			 (format "
 The patch file contains a context diff for
 	%s
 	%s
@@ -302,47 +358,64 @@ please enter it now.
 If you don't know and still would like to apply patches to
 other files, enter /dev/null
 "
-			       (substring (car (car triple)) 6)
-			       (substring (cdr (car triple)) 6))))
-		    (let ((directory t)
-			  user-file)
-		      (while directory
-			(setq user-file
-			      (read-file-name
-			       "Please enter file name: "
-			       actual-dir actual-dir t))
-			(if (not (file-directory-p user-file))
-			    (setq directory nil)
-			  (setq directory t)
-			  (beep)
-			  (message "%s is a directory" user-file)
-			  (sit-for 2)))
-		      (setcar triple (cons user-file user-file))))
-		(setcar (car triple)
-			(expand-file-name 
-			 (concat actual-dir (car (car triple)))))
-		(setcdr (car triple)
-			(expand-file-name 
-			 (concat actual-dir (cdr (car triple))))))
-	      )
+				 (substring (car proposed-file-names) 6)
+				 (substring (cdr proposed-file-names) 6))))
+		      (let ((directory t)
+			    user-file)
+			(while directory
+			  (setq user-file
+				(read-file-name
+				 "Please enter file name: "
+				 actual-dir actual-dir t))
+			  (if (not (file-directory-p user-file))
+			      (setq directory nil)
+			    (setq directory t)
+			    (beep)
+			    (message "%s is a directory" user-file)
+			    (sit-for 2)))
+			(setcar (ediff-get-session-objA session-info)
+				(cons user-file user-file))))
+		  (setcar proposed-file-names
+			  (expand-file-name
+			   (concat actual-dir (car proposed-file-names))))
+		  (setcdr proposed-file-names
+			  (expand-file-name
+			   (concat actual-dir (cdr proposed-file-names)))))
+		))
 	    ediff-patch-map)
-    ;; check for the shorter existing file in each pair and discard the other
-    ;; one
-    (mapcar (lambda (triple)
-	      (let* ((file1 (car (car triple)))
-		     (file2 (cdr (car triple)))
+    ;; Check for the existing files in each pair and discard the nonexisting
+    ;; ones. If both exist, ask the user.
+    (mapcar (lambda (session-info)
+	      (let* ((file1 (car (ediff-get-session-objA-name session-info)))
+		     (file2 (cdr (ediff-get-session-objA-name session-info)))
+		     (session-file-object
+		      (ediff-get-session-objA session-info))
 		     (f1-exists (file-exists-p file1))
 		     (f2-exists (file-exists-p file2)))
 		(cond
-		 ((and (< (length file2) (length file1))
-		       f2-exists)
-		  (setcar triple file2))
-		 ((and (< (length file1) (length file2))
-		       f1-exists)
-		  (setcar triple file1))
+		 ((and
+		   ;; The patch program prefers the shortest file as the patch
+		   ;; target. However, this is a questionable heuristic. In an
+		   ;; interactive program, like ediff, we can offer the user a
+		   ;; choice.
+		   ;; (< (length file2) (length file1))
+		   (not f1-exists)
+		   f2-exists)
+		  ;; replace file-pair with the winning file2
+		  (setcar session-file-object file2))
+		 ((and
+		   ;; (< (length file1) (length file2))
+		   (not f2-exists)
+		   f1-exists)
+		  ;; replace file-pair with the winning file1
+		  (setcar session-file-object file1))
 		 ((and f1-exists f2-exists
 		       (string= file1 file2))
-		  (setcar triple file1))
+		  (setcar session-file-object file1))
+		 ((and f1-exists f2-exists (eq chosen-alternative 1))
+		  (setcar session-file-object file1))
+		 ((and f1-exists f2-exists (eq chosen-alternative 2))
+		  (setcar session-file-object file2))
 		 ((and f1-exists f2-exists)
 		  (with-output-to-temp-buffer ediff-msg-buffer
 		    (ediff-with-current-buffer standard-output
@@ -358,12 +431,17 @@ Please advice:
     Type `y' to use %s as the target;
     Type `n' to use %s as the target.
 "
-				   file1 file2 file2 file1)))
-		  (setcar triple
-			  (if (y-or-n-p (format "Use %s ? " file2))
-			      file2 file1)))
-		 (f2-exists (setcar triple file2))
-		 (f1-exists (setcar triple file1))
+				   file1 file2 file1 file2)))
+		  (setcar session-file-object
+			  (if (y-or-n-p (format "Use %s ? " file1))
+			      (progn
+				(setq chosen-alternative 1)
+				file1)
+			    (setq chosen-alternative 2)
+			    file2))
+		  )
+		 (f2-exists (setcar session-file-object file2))
+		 (f1-exists (setcar session-file-object file1))
 		 (t
 		  (with-output-to-temp-buffer ediff-msg-buffer
 		    (ediff-with-current-buffer standard-output
@@ -372,7 +450,7 @@ Please advice:
 		    (if (string= file1 file2)
 			(princ (format "
 	%s
-is the target for this patch.  However, this file does not exist."
+is assumed to be the target for this patch.  However, this file does not exist."
 				       file1))
 		      (princ (format "
 	%s
@@ -384,7 +462,7 @@ are two possible targets for this patch.  However, these files do not exist."
 		  (let ((directory t)
 			target)
 		    (while directory
-		      (setq target (read-file-name 
+		      (setq target (read-file-name
 				    "Please enter a patch target: "
 				    actual-dir actual-dir t))
 		      (if (not (file-directory-p target))
@@ -392,7 +470,7 @@ are two possible targets for this patch.  However, these files do not exist."
 			(beep)
 			(message "%s is a directory" target)
 			(sit-for 2)))
-		    (setcar triple target))))))
+		    (setcar session-file-object target))))))
 	    ediff-patch-map)
     ))
 
@@ -406,22 +484,26 @@ are two possible targets for this patch.  However, these files do not exist."
 
 ;; prompt for file, get the buffer
 (defun ediff-prompt-for-patch-file ()
-  (let ((dir (cond (ediff-patch-default-directory) ; try patch default dir
-		   (ediff-use-last-dir ediff-last-dir-patch)
+  (let ((dir (cond (ediff-use-last-dir ediff-last-dir-patch)
+		   (ediff-patch-default-directory) ; try patch default dir
 		   (t default-directory)))
-	(coding-system-for-read ediff-coding-system-for-read))
-    (find-file-noselect
-     (read-file-name
-      (format "Patch is in file:%s "
-	      (cond ((and buffer-file-name
-			  (equal (expand-file-name dir)
-				 (file-name-directory buffer-file-name)))
-		     (concat
-		      " (default "
-		      (file-name-nondirectory buffer-file-name)
-		      ")"))
-		    (t "")))
-      dir buffer-file-name 'must-match))
+	(coding-system-for-read ediff-coding-system-for-read)
+	patch-file-name)
+    (setq patch-file-name
+	  (read-file-name
+	   (format "Patch is in file%s: "
+		   (cond ((and buffer-file-name
+			       (equal (expand-file-name dir)
+				      (file-name-directory buffer-file-name)))
+			  (concat
+			   " (default "
+			   (file-name-nondirectory buffer-file-name)
+			   ")"))
+			 (t "")))
+	   dir buffer-file-name 'must-match))
+    (if (file-directory-p patch-file-name)
+	(error "Patch file cannot be a directory: %s" patch-file-name)
+      (find-file-noselect patch-file-name))
     ))
 
 
@@ -468,7 +550,7 @@ optional argument, then use it."
 		   (if (y-or-n-p "Is the patch already in a buffer? ")
 		       (ediff-prompt-for-patch-buffer)
 		     (ediff-prompt-for-patch-file)))))
-    
+
     (ediff-with-current-buffer patch-buf
       (goto-char (point-min))
       (or (ediff-get-visible-buffer-window patch-buf)
@@ -491,9 +573,14 @@ optional argument, then use it."
 	(ediff-patch-file-internal
 	 patch-buf
 	 (if (and ediff-patch-map
-		  (not (string-match "^/dev/null" (car (car ediff-patch-map))))
-		  (> (length (car (car ediff-patch-map))) 1))
-	     (car (car ediff-patch-map))
+		  (not (string-match
+			"^/dev/null"
+			;; this is the file to patch
+			(ediff-get-session-objA-name (car ediff-patch-map))))
+		  (> (length
+		      (ediff-get-session-objA-name (car ediff-patch-map)))
+		     1))
+	     (ediff-get-session-objA-name (car ediff-patch-map))
 	   filename)
 	 startup-hooks)
       (ediff-multi-patch-internal patch-buf startup-hooks))
@@ -532,11 +619,11 @@ optional argument, then use it."
       (set-visited-file-modtime) ; sync buffer and temp file
       (setq default-directory default-dir)
       )
-  
+
     ;; dispatch a patch function
     (setq ctl-buf (ediff-dispatch-file-patching-job
 		   patch-buf file-name startup-hooks))
-    
+
     (ediff-with-current-buffer ctl-buf
       (delete-file (buffer-file-name ediff-buffer-A))
       (delete-file (buffer-file-name ediff-buffer-B))
@@ -549,7 +636,7 @@ optional argument, then use it."
 	(setq buffer-auto-save-file-name nil) ; don't create auto-save file
 	(if default-dir (setq default-directory default-dir))
 	(set-visited-file-name nil)
-	(rename-buffer (ediff-unique-buffer-name 
+	(rename-buffer (ediff-unique-buffer-name
 			(concat buf-to-patch-name "_patched") ""))
 	(set-buffer-modified-p t)))
     ))
@@ -568,7 +655,7 @@ optional argument, then use it."
 (defun ediff-patch-file-internal (patch-buf source-filename
 					    &optional startup-hooks)
   (setq source-filename (expand-file-name source-filename))
-  
+
   (let* ((shell-file-name ediff-shell)
 	 (patch-diagnostics (get-buffer-create "*ediff patch diagnostics*"))
 	 ;; ediff-find-file may use a temp file to do the patch
@@ -579,15 +666,15 @@ optional argument, then use it."
 	 (target-filename source-filename)
 	 ;; this ensures that the patch process gets patch buffer in the
 	 ;; encoding that Emacs thinks is right for that type of text
-	 (coding-system-for-write 
+	 (coding-system-for-write
 	  (if (boundp 'buffer-file-coding-system) buffer-file-coding-system))
-	 target-buf buf-to-patch file-name-magic-p 
+	 target-buf buf-to-patch file-name-magic-p
 	 patch-return-code ctl-buf backup-style aux-wind)
-	  
+
     (if (string-match "V" ediff-patch-options)
 	(error
 	 "Ediff doesn't take the -V option in `ediff-patch-options'--sorry"))
-					
+
     ;; Make a temp file, if source-filename has a magic file handler (or if
     ;; it is handled via auto-mode-alist and similar magic).
     ;; Check if there is a buffer visiting source-filename and if they are in
@@ -601,13 +688,13 @@ optional argument, then use it."
     ;; temporary file where we put the after-product of the file handler.
     (setq file-name-magic-p (not (equal (file-truename true-source-filename)
 					(file-truename source-filename))))
-    
-    ;; Checkout orig file, if necessary, so that the patched file 
+
+    ;; Checkout orig file, if necessary, so that the patched file
     ;; could be checked back in.
     (ediff-maybe-checkout buf-to-patch)
 
     (ediff-with-current-buffer patch-diagnostics
-      (insert-buffer patch-buf)
+      (insert-buffer-substring patch-buf)
       (message "Applying patch ... ")
       ;; fix environment for gnu patch, so it won't make numbered extensions
       (setq backup-style (getenv "VERSION_CONTROL"))
@@ -635,7 +722,7 @@ optional argument, then use it."
 
     (switch-to-buffer patch-diagnostics)
     (sit-for 0) ; synchronize - let the user see diagnostics
-    
+
     (or (and (ediff-patch-return-code-ok patch-return-code)
 	     (file-exists-p
 	      (concat true-source-filename ediff-backup-extension)))
@@ -643,7 +730,7 @@ optional argument, then use it."
 	  (with-output-to-temp-buffer ediff-msg-buffer
 	    (ediff-with-current-buffer standard-output
 	      (fundamental-mode))
-	    (princ (format 
+	    (princ (format
 		    "Patch program has failed due to a bad patch file,
 it couldn't apply all hunks, OR
 it couldn't create the backup for the file being patched.
@@ -656,7 +743,7 @@ The second problem might be due to an incompatibility among these settings:
     ediff-backup-extension = %S             ediff-backup-specs     = %S
 
 See Ediff on-line manual for more details on these variables.
-In particular, check the documentation for `ediff-backup-specs'. 
+In particular, check the documentation for `ediff-backup-specs'.
 
 In any of the above cases, Ediff doesn't compare files automatically.
 However, if the patch was applied partially and the backup file was created,
@@ -674,7 +761,7 @@ you can still examine the changes via M-x ediff-files"
 		(goto-char (point-max))))
 	  (switch-to-buffer-other-window patch-diagnostics)
 	  (error "Patch appears to have failed")))
-    
+
     ;; If black magic is involved, apply patch to a temp copy of the
     ;; file.  Otherwise, apply patch to the orig copy.  If patch is applied
     ;; to temp copy, we name the result old-name_patched for local files
@@ -688,7 +775,7 @@ you can still examine the changes via M-x ediff-files"
 	  (set-visited-file-name
 	   (concat source-filename ediff-backup-extension))
 	  (set-buffer-modified-p nil))
-      
+
       ;; Black magic in effect.
       ;; If orig file was remote, put the patched file in the temp directory.
       ;; If orig file is local, put the patched file in the directory of
@@ -699,20 +786,20 @@ you can still examine the changes via M-x ediff-files"
 		 true-source-filename
 	       source-filename)
 	     "_patched"))
-      
+
       (rename-file true-source-filename target-filename t)
-      
+
       ;; arrange that the temp copy of orig will be deleted
       (rename-file (concat true-source-filename ediff-backup-extension)
 		   true-source-filename t))
-    
+
     ;; make orig buffer read-only
     (setq startup-hooks
 	  (cons 'ediff-set-read-only-in-buf-A startup-hooks))
-    
+
     ;; set up a buf for the patched file
     (setq target-buf (find-file-noselect target-filename))
-    
+
     (setq ctl-buf
 	  (ediff-buffers-internal
 	   buf-to-patch target-buf nil
@@ -720,7 +807,7 @@ you can still examine the changes via M-x ediff-files"
     (ediff-with-current-buffer ctl-buf
       (setq ediff-patchbufer patch-buf
 	    ediff-patch-diagnostics patch-diagnostics))
-  
+
     (bury-buffer patch-diagnostics)
     (message "Type `P', if you need to see patch diagnostics")
     ctl-buf))
@@ -736,11 +823,16 @@ you can still examine the changes via M-x ediff-files"
 			 'ediff-patch-file-form-meta
 			 ediff-meta-patchbufer patch-buf) )
 		startup-hooks))
-    (setq meta-buf (ediff-prepare-meta-buffer 
+    (setq meta-buf (ediff-prepare-meta-buffer
 		    'ediff-filegroup-action
 		    (ediff-with-current-buffer patch-buf
-		      ;; nil replaces a regular expression
-		      (cons (list nil (format "%S" patch-buf))
+		      (cons (ediff-make-new-meta-list-header
+			     nil                     ; regexp
+			     (format "%S" patch-buf) ; obj A
+			     nil nil                 ; objects B,C
+			     nil                     ; merge-auto-store-dir
+			     nil                     ; comparison-func
+			     )
 			    ediff-patch-map))
 		    "*Ediff Session Group Panel"
 		    'ediff-redraw-directory-group-buffer
@@ -749,8 +841,10 @@ you can still examine the changes via M-x ediff-files"
     (ediff-show-meta-buffer meta-buf)
     ))
 
-  
-      
+
+
+(provide 'ediff-ptch)
+
 
 ;;; Local Variables:
 ;;; eval: (put 'ediff-defvar-local 'lisp-indent-hook 'defun)
@@ -758,4 +852,5 @@ you can still examine the changes via M-x ediff-files"
 ;;; eval: (put 'ediff-with-current-buffer 'edebug-form-spec '(form body))
 ;;; End:
 
+;;; arch-tag: 2fe2161e-e116-469b-90fa-5cbb44c1bd1b
 ;;; ediff-ptch.el ends here

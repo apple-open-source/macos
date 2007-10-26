@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1987, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -31,6 +27,7 @@
  * SUCH DAMAGE.
  */
 
+#if 0
 #ifndef lint
 static char const copyright[] =
 "@(#) Copyright (c) 1987, 1993, 1994\n\
@@ -38,12 +35,11 @@ static char const copyright[] =
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)ln.c	8.2 (Berkeley) 3/31/94";
-#endif
 #endif /* not lint */
+#endif
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/ln/ln.c,v 1.29 2002/07/31 16:53:59 markm Exp $");
+__FBSDID("$FreeBSD: src/bin/ln/ln.c,v 1.34 2006/02/14 11:08:05 glebius Exp $");
 
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -57,6 +53,7 @@ __RCSID("$FreeBSD: src/bin/ln/ln.c,v 1.29 2002/07/31 16:53:59 markm Exp $");
 #include <unistd.h>
 
 int	fflag;				/* Unlink existing files. */
+int	Fflag;				/* Remove empty directories also. */
 int	hflag;				/* Check new name for symlink first. */
 int	iflag;				/* Interactive mode. */
 int	sflag;				/* Symbolic, not hard, link. */
@@ -75,6 +72,8 @@ main(int argc, char *argv[])
 	char *p, *sourcedir;
 	int ch, exitval;
 
+	if (argc < 1)
+		usage();
 	/*
 	 * Test for the special case where the utility is called as
 	 * "link", for which the functionality provided is greatly
@@ -95,8 +94,11 @@ main(int argc, char *argv[])
 		exit(linkit(argv[0], argv[1], 0));
 	}
 
-	while ((ch = getopt(argc, argv, "fhinsv")) != -1)
+	while ((ch = getopt(argc, argv, "Ffhinsv")) != -1)
 		switch (ch) {
+		case 'F':
+			Fflag = 1;
+			break;
 		case 'f':
 			fflag = 1;
 			iflag = 0;
@@ -125,6 +127,10 @@ main(int argc, char *argv[])
 
 	linkf = sflag ? symlink : link;
 	linkch = sflag ? '-' : '=';
+	if (sflag == 0)
+		Fflag = 0;
+	if (Fflag == 1 && iflag == 0)
+		fflag = 1;
 
 	switch(argc) {
 	case 0:
@@ -204,7 +210,12 @@ linkit(const char *target, const char *source, int isdir)
 	 * and interactively if -i was specified.
 	 */
 	if (fflag && exists) {
-		if (unlink(source)) {
+		if (Fflag && S_ISDIR(sb.st_mode)) {
+			if (rmdir(source)) {
+				warn("%s", source);
+				return (1);
+			}
+		} else if (unlink(source)) {
 			warn("%s", source);
 			return (1);
 		}
@@ -220,7 +231,12 @@ linkit(const char *target, const char *source, int isdir)
 			return (1);
 		}
 
-		if (unlink(source)) {
+		if (Fflag && S_ISDIR(sb.st_mode)) {
+			if (rmdir(source)) {
+				warn("%s", source);
+				return (1);
+			}
+		} else if (unlink(source)) {
 			warn("%s", source);
 			return (1);
 		}
@@ -240,8 +256,8 @@ void
 usage(void)
 {
 	(void)fprintf(stderr, "%s\n%s\n%s\n",
-	    "usage: ln [-fhinsv] file1 file2",
-	    "       ln [-fhinsv] file ... directory",
-	    "       link file1 file2");
+	    "usage: ln [-Ffhinsv] source_file [target_file]",
+	    "       ln [-Ffhinsv] source_file ... target_dir",
+	    "       link source_file target_file");
 	exit(1);
 }

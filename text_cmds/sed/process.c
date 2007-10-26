@@ -14,10 +14,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -36,7 +32,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/sed/process.c,v 1.29 2002/09/20 19:40:23 eric Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/sed/process.c,v 1.39 2005/04/09 14:31:41 stefanf Exp $");
 
 #ifndef lint
 static const char sccsid[] = "@(#)process.c	8.6 (Berkeley) 4/20/94";
@@ -57,11 +53,13 @@ static const char sccsid[] = "@(#)process.c	8.6 (Berkeley) 4/20/94";
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wchar.h>
+#include <wctype.h>
 
 #include "defs.h"
 #include "extern.h"
 
-static SPACE HS, PS, SS;
+static SPACE HS, PS, SS, YS;
 #define	pd		PS.deleted
 #define	ps		PS.space
 #define	psl		PS.len
@@ -69,8 +67,9 @@ static SPACE HS, PS, SS;
 #define	hsl		HS.len
 
 static __inline int	 applies(struct s_command *);
+static void		 do_tr(struct s_tr *);
 static void		 flush_appends(void);
-static void		 lputs(char *);
+static void		 lputs(char *, size_t);
 static __inline int	 regexec_e(regex_t *, const char *, int, int, size_t);
 static void		 regsub(SPACE *, char *, char *);
 static int		 substitute(struct s_command *);
@@ -86,14 +85,14 @@ static regex_t *defpreg;
 size_t maxnsub;
 regmatch_t *match;
 
-#define OUT(s) { fwrite(s, sizeof(u_char), psl, stdout); putchar('\n'); }
+#define OUT(s) { fwrite(s, sizeof(u_char), psl, outfile); fputc('\n', outfile); }
 
 void
-process()
+process(void)
 {
 	struct s_command *cp;
 	SPACE tspace;
-	size_t len, oldpsl = 0;
+	size_t oldpsl = 0;
 	char *p;
 
 	p = NULL;
@@ -130,7 +129,7 @@ redirect:
 				pd = 1;
 				psl = 0;
 				if (cp->a2 == NULL || lastaddr)
-					(void)printf("%s", cp->t);
+					(void)fprintf(outfile, "%s", cp->t);
 				break;
 			case 'd':
 				pd = 1;
@@ -162,10 +161,10 @@ redirect:
 				cspace(&HS, ps, psl, 0);
 				break;
 			case 'i':
-				(void)printf("%s", cp->t);
+				(void)fprintf(outfile, "%s", cp->t);
 				break;
 			case 'l':
-				lputs(ps);
+				lputs(ps, psl);
 				break;
 			case 'n':
 				if (!nflag && !pd)
@@ -246,14 +245,13 @@ redirect:
 			case 'y':
 				if (pd || psl == 0)
 					break;
-				for (p = ps, len = psl; len--; ++p)
-					*p = cp->u.y[(unsigned char)*p];
+				do_tr(cp->u.y);
 				break;
 			case ':':
 			case '}':
 				break;
 			case '=':
-				(void)printf("%lu\n", linenum);
+				(void)fprintf(outfile, "%lu\n", linenum);
 			}
 			cp = cp->next;
 		} /* for all cp */
@@ -277,8 +275,7 @@ new:		if (!nflag && !pd)
  * flag to process ranges.  Interprets the non-select (``!'') flag.
  */
 static __inline int
-applies(cp)
-	struct s_command *cp;
+applies(struct s_command *cp)
 {
 	int r;
 
@@ -319,12 +316,11 @@ applies(cp)
  *	and then swap them.
  */
 static int
-substitute(cp)
-	struct s_command *cp;
+substitute(struct s_command *cp)
 {
 	SPACE tspace;
 	regex_t *re;
-	size_t re_off, slen;
+	regoff_t re_off, slen;
 	int lastempty, n;
 	char *s;
 
@@ -340,14 +336,14 @@ substitute(cp)
 	if (!regexec_e(re, s, 0, 0, psl))
 		return (0);
 
-  	SS.len = 0;				/* Clean substitute space. */
-  	slen = psl;
-  	n = cp->u.s->n;
+	SS.len = 0;				/* Clean substitute space. */
+	slen = psl;
+	n = cp->u.s->n;
 	lastempty = 1;
 
-  	switch (n) {
-  	case 0:					/* Global */
-  		do {
+	switch (n) {
+	case 0:					/* Global */
+		do {
 			if (lastempty || match[0].rm_so != match[0].rm_eo) {
 				/* Locate start of replaced string. */
 				re_off = match[0].rm_so;
@@ -362,29 +358,27 @@ substitute(cp)
 				s += match[0].rm_eo;
 				slen -= match[0].rm_eo;
 				lastempty = 0;
-			} else if (match[0].rm_so == slen) {
-				s += match[0].rm_so;
-				slen = 0;
 			} else {
-				if (match[0].rm_so == 0)
-					cspace(&SS, s, match[0].rm_so + 1,
-					    APPEND);
-				else
+				if (match[0].rm_so < slen)
 					cspace(&SS, s + match[0].rm_so, 1,
 					    APPEND);
 				s += match[0].rm_so + 1;
 				slen -= match[0].rm_so + 1;
 				lastempty = 1;
 			}
-		} while (slen > 0 && regexec_e(re, s, REG_NOTBOL, 0, slen));
+		} while (slen >= 0 && regexec_e(re, s, REG_NOTBOL, 0, slen));
 		/* Copy trailing retained string. */
 		if (slen > 0)
 			cspace(&SS, s, slen, APPEND);
-  		break;
+		break;
 	default:				/* Nth occurrence */
 		while (--n) {
+			if (match[0].rm_eo == match[0].rm_so)
+				match[0].rm_eo = match[0].rm_so + 1;
 			s += match[0].rm_eo;
 			slen -= match[0].rm_eo;
+			if (slen < 0)
+				return (0);
 			if (!regexec_e(re, s, REG_NOTBOL, 0, slen))
 				return (0);
 		}
@@ -429,11 +423,66 @@ substitute(cp)
 }
 
 /*
+ * do_tr --
+ *	Perform translation ('y' command) in the pattern space.
+ */
+static void
+do_tr(struct s_tr *y)
+{
+	SPACE tmp;
+	char c, *p;
+	size_t clen, left;
+	int i;
+
+	if (MB_CUR_MAX == 1) {
+		/*
+		 * Single-byte encoding: perform in-place translation
+		 * of the pattern space.
+		 */
+		for (p = ps; p < &ps[psl]; p++)
+			*p = y->bytetab[(u_char)*p];
+	} else {
+		/*
+		 * Multi-byte encoding: perform translation into the
+		 * translation space, then swap the translation and
+		 * pattern spaces.
+		 */
+		/* Clean translation space. */
+		YS.len = 0;
+		for (p = ps, left = psl; left > 0; p += clen, left -= clen) {
+			if ((c = y->bytetab[(u_char)*p]) != '\0') {
+				cspace(&YS, &c, 1, APPEND);
+				clen = 1;
+				continue;
+			}
+			for (i = 0; i < y->nmultis; i++)
+				if (left >= y->multis[i].fromlen &&
+				    memcmp(p, y->multis[i].from,
+				    y->multis[i].fromlen) == 0)
+					break;
+			if (i < y->nmultis) {
+				cspace(&YS, y->multis[i].to,
+				    y->multis[i].tolen, APPEND);
+				clen = y->multis[i].fromlen;
+			} else {
+				cspace(&YS, p, 1, APPEND);
+				clen = 1;
+			}
+		}
+		/* Swap the translation space and the pattern space. */
+		tmp = PS;
+		PS = YS;
+		YS = tmp;
+		YS.space = YS.back;
+	}
+}
+
+/*
  * Flush append requests.  Always called before reading a line,
  * therefore it also resets the substitution done (sdone) flag.
  */
 static void
-flush_appends()
+flush_appends(void)
 {
 	FILE *f;
 	int count, i;
@@ -443,7 +492,7 @@ flush_appends()
 		switch (appends[i].type) {
 		case AP_STRING:
 			fwrite(appends[i].s, sizeof(char), appends[i].len,
-			    stdout);
+			    outfile);
 			break;
 		case AP_FILE:
 			/*
@@ -457,25 +506,29 @@ flush_appends()
 			if ((f = fopen(appends[i].s, "r")) == NULL)
 				break;
 			while ((count = fread(buf, sizeof(char), sizeof(buf), f)))
-				(void)fwrite(buf, sizeof(char), count, stdout);
+				(void)fwrite(buf, sizeof(char), count, outfile);
 			(void)fclose(f);
 			break;
 		}
-	if (ferror(stdout))
-		errx(1, "stdout: %s", strerror(errno ? errno : EIO));
+	if (ferror(outfile))
+		errx(1, "%s: %s", outfname, strerror(errno ? errno : EIO));
 	appendx = sdone = 0;
 }
 
 static void
-lputs(s)
-	char *s;
+lputs(char *s, size_t len)
 {
-	int count;
-	const char *escapes;
+	static const char escapes[] = "\\\a\b\f\r\t\v";
+	int c, col, width;
 	char *p;
 	struct winsize win;
 	static int termwidth = -1;
+	size_t clen, i;
+	wchar_t wc;
+	mbstate_t mbs;
 
+	if (outfile != stdout)
+		termwidth = 60;
 	if (termwidth == -1) {
 		if ((p = getenv("COLUMNS")) && *p != '\0')
 			termwidth = atoi(p);
@@ -486,42 +539,63 @@ lputs(s)
 			termwidth = 60;
 	}
 
-	for (count = 0; *s; ++s) {
-		if (count + 5 >= termwidth) {
-			(void)printf("\\\n");
-			count = 0;
+	memset(&mbs, 0, sizeof(mbs));
+	col = 0;
+	while (len != 0) {
+		clen = mbrtowc(&wc, s, len, &mbs);
+		if (clen == 0)
+			clen = 1;
+		if (clen == (size_t)-1 || clen == (size_t)-2) {
+			wc = (unsigned char)*s;
+			clen = 1;
+			memset(&mbs, 0, sizeof(mbs));
 		}
-		if (isprint((unsigned char)*s) && *s != '\\') {
-			(void)putchar(*s);
-			count++;
-		} else if (*s == '\n') {
-			(void)putchar('$');
-			(void)putchar('\n');
-			count = 0;
-		} else {
-			escapes = "\\\a\b\f\r\t\v";
-			(void)putchar('\\');
-			if ((p = strchr(escapes, *s))) {
-				(void)putchar("\\abfrtv"[p - escapes]);
-				count += 2;
-			} else {
-				(void)printf("%03o", *(u_char *)s);
-				count += 4;
+		if (wc == '\n') {
+			if (col + 1 >= termwidth)
+				fprintf(outfile, "\\\n");
+			fputc('$', outfile);
+			fputc('\n', outfile);
+			col = 0;
+		} else if (iswprint(wc)) {
+			width = wcwidth(wc);
+			if (col + width >= termwidth) {
+				fprintf(outfile, "\\\n");
+				col = 0;
 			}
+			fwrite(s, 1, clen, outfile);
+			col += width;
+		} else if (wc != L'\0' && (c = wctob(wc)) != EOF &&
+		    (p = strchr(escapes, c)) != NULL) {
+			if (col + 2 >= termwidth) {
+				fprintf(outfile, "\\\n");
+				col = 0;
+			}
+			fprintf(outfile, "\\%c", "\\abfrtv"[p - escapes]);
+			col += 2;
+		} else {
+			if (col + 4 * clen >= termwidth) {
+				fprintf(outfile, "\\\n");
+				col = 0;
+			}
+			for (i = 0; i < clen; i++)
+				fprintf(outfile, "\\%03o",
+				    (int)(unsigned char)s[i]);
+			col += 4 * clen;
 		}
+		s += clen;
+		len -= clen;
 	}
-	(void)putchar('$');
-	(void)putchar('\n');
-	if (ferror(stdout))
-		errx(1, "stdout: %s", strerror(errno ? errno : EIO));
+	if (col + 1 >= termwidth)
+		fprintf(outfile, "\\\n");
+	(void)fputc('$', outfile);
+	(void)fputc('\n', outfile);
+	if (ferror(outfile))
+		errx(1, "%s: %s", outfname, strerror(errno ? errno : EIO));
 }
 
 static __inline int
-regexec_e(preg, string, eflags, nomatch, slen)
-	regex_t *preg;
-	const char *string;
-	int eflags, nomatch;
-	size_t slen;
+regexec_e(regex_t *preg, const char *string, int eflags, int nomatch,
+	size_t slen)
 {
 	int eval;
 
@@ -552,15 +626,14 @@ regexec_e(preg, string, eflags, nomatch, slen)
  * Based on a routine by Henry Spencer
  */
 static void
-regsub(sp, string, src)
-	SPACE *sp;
-	char *string, *src;
+regsub(SPACE *sp, char *string, char *src)
 {
 	int len, no;
 	char c, *dst;
 
 #define	NEEDSP(reqlen)							\
-	if (sp->len >= sp->blen - (reqlen) - 1) {			\
+	/* XXX What is the +1 for? */					\
+	if (sp->len + (reqlen) + 1 >= sp->blen) {			\
 		sp->blen += (reqlen) + 1024;				\
 		if ((sp->space = sp->back = realloc(sp->back, sp->blen)) \
 		    == NULL)						\
@@ -577,12 +650,12 @@ regsub(sp, string, src)
 		else
 			no = -1;
 		if (no < 0) {		/* Ordinary character. */
- 			if (c == '\\' && (*src == '\\' || *src == '&'))
- 				c = *src++;
+			if (c == '\\' && (*src == '\\' || *src == '&'))
+				c = *src++;
 			NEEDSP(1);
- 			*dst++ = c;
+			*dst++ = c;
 			++sp->len;
- 		} else if (match[no].rm_so != -1 && match[no].rm_eo != -1) {
+		} else if (match[no].rm_so != -1 && match[no].rm_eo != -1) {
 			len = match[no].rm_eo - match[no].rm_so;
 			NEEDSP(len);
 			memmove(dst, string + match[no].rm_so, len);
@@ -600,11 +673,7 @@ regsub(sp, string, src)
  *	space as necessary.
  */
 void
-cspace(sp, p, len, spflag)
-	SPACE *sp;
-	const char *p;
-	size_t len;
-	enum e_spflag spflag;
+cspace(SPACE *sp, const char *p, size_t len, enum e_spflag spflag)
 {
 	size_t tlen;
 
@@ -629,8 +698,7 @@ cspace(sp, p, len, spflag)
  * Close all cached opened files and report any errors
  */
 void
-cfclose(cp, end)
-	struct s_command *cp, *end;
+cfclose(struct s_command *cp, struct s_command *end)
 {
 
 	for (; cp != end; cp = cp->next)

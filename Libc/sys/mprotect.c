@@ -24,18 +24,18 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
-#include <sys/syscall.h>
 
 /*
  * Stub function to account for the differences in standard compliance
  * while maintaining binary backward compatibility.
+ *
+ * This is only the legacy behavior.
  */
+extern int __mprotect(void *, size_t, int);
+
 int
 mprotect(void *addr, size_t len, int prot)
 {
-#if __DARWIN_UNIX03
-	return syscall(SYS_mprotect, addr, len, prot);
-#else	/* !__DARWIN_UNIX03 */
 	void	*aligned_addr;
 	int	page_mask;
 	size_t	offset;
@@ -50,7 +50,7 @@ mprotect(void *addr, size_t len, int prot)
 	offset = ((uintptr_t) addr) & page_mask;
 	aligned_addr = (void *) (((uintptr_t) addr) & ~page_mask);
 	len += offset;
-	rv = syscall(SYS_mprotect, aligned_addr, len, prot);
+	rv = __mprotect(aligned_addr, len, prot);
 	if (rv == -1 && errno == ENOMEM) {
 		/*
 		 * Standards now require that we return ENOMEM if there was
@@ -60,5 +60,4 @@ mprotect(void *addr, size_t len, int prot)
 		errno = EINVAL;
 	}
 	return rv;
-#endif	/* !__DARWIN_UNIX03 */
 }

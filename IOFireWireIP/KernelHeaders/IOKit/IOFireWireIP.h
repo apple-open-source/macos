@@ -48,6 +48,8 @@ extern "C"{
 
 #include <sys/socketvar.h>
 #include <net/dlil.h>
+
+#include <libkern/version.h>
 }
 
 #include <IOKit/assert.h>
@@ -72,50 +74,40 @@ extern "C"{
 #include <IOFWController.h>
 #include <IOFWInterface.h>
 
-#include "IOFWAsyncStreamRxCommand.h"
 #include "IOFireWireIPCommand.h"
-#include "ip_firewire.h"
+#include "IOFWIPDefinitions.h"
 #include "IOFireWireIPDiagnostics.h"
-#include "firewire.h"
 
 class IOFireWireNub;
-// class IOFWIPAsyncWriteCommand;
 
-typedef UInt32	(*IOTransmitPacket)(mbuf_t m, void * param);
+typedef UInt32	(*IOTransmitPacket)(mbuf_t m, void *param);
 typedef bool	(*IOUpdateARPCache)(void *refcon, IP1394_ARP *fwa);
+typedef bool	(*IOUpdateMulticastCache)(void *refcon, IOFWAddress *addrs, UInt32 count);
 
 typedef struct IOFireWireIPPrivateHandlers 
 {
 	OSObject				*newService;
     IOTransmitPacket		transmitPacket;
 	IOUpdateARPCache		updateARPCache;
+	IOUpdateMulticastCache	updateMulticastCache;
 };
 
 #include "IOFWIPBusInterface.h"
 
-// Should be zero because the broadcast handle has value as "0"
-#define kInvalidIPDeviceRefID 0
+const UInt32 kUnicastHi					= 0x0001;
+const UInt32 kUnicastLo					= 0x00000000;
 
-const UInt32 kUnicastHi = 0x0001;
-const UInt32 kUnicastLo = 0x00000000;
-
-const UInt32 kTransmitQueueStalled = 0x3;
-const UInt32 kTransmitQueueRestart = 0x1;	
-
-const UInt32 kIOFireWireIPNoResources = 0xe0009001;
-
-// Size of the Pseudo address space
-#define MAX_FIFO_SIZE 4096
-
-// Watch dog timeout set to 1 sec = 1000 milli second
-#define WATCHDOG_TIMER_MS 1000
+const UInt32 kIOFireWireIPNoResources	= 0xe0009001;
 
 #define TRANSMIT_QUEUE_SIZE     256		// Overridden by IORegistry value
 
 #define NETWORK_STAT_ADD(  x )	(fpNetStats->x++)
 #define ETHERNET_STAT_ADD( x )	(fpEtherStats->x++)
 
-#define GUID_TYPE 0x1
+#define GUID_TYPE				0x1
+
+
+#define kIOFireWireIPClassKey "IOFireWireIP"
 
 /*! @defined kIOFWHWAddr
     @abstract kIOFWHWAddr is a property of IOFireWireIP
@@ -123,34 +115,6 @@ const UInt32 kIOFireWireIPNoResources = 0xe0009001;
     @discussion The kIOFWHWAddr property describes the hardware
         16 byte address containing eui64, maxrec, spd & fifo address */
 #define kIOFWHWAddr            "IOFWHWAddr"
-
-
-//
-// defines for channel allocation and reallocation
-//
-#define kChannelPrime	((UInt32)0x80000000)
-
-enum {
-	kNotifyOnSuccess = 0x80000000,
-	kDoNotNotifyOnFailure = 0x40000000,
-	kDoNotAllocate = 0x20000000,
-	kDoNotDeallocate = 0x10000000
-};
-
-const int rcbexpirationtime = 60; // 60 seconds active time for reassembly control blocks, decremented by watchdog
-
-
-// Set this flag to true if you need to copy the payload
-const bool kCopyBuffers = false;
-
-// Set this flag to false if you don't need to queue the block write packets 
-const bool kQueueCommands = false; 
-
-// Low water mark for commands in the pre-allocated pool
-const UInt32 kLowWaterMark = 48;
-
-const int	kDeviceHoldSeconds = (30*60); // lets wait for 30 mins safe !
-
 
 /*!
 @class IOFireWireIP
@@ -192,34 +156,16 @@ protected:
 	IONotifier				*fIPUnitNotifier;
 	IONotifier				*fIPv6UnitNotifier;
 	LCB						*fLcb;
-    u_char 					macAddr[FIREWIRE_ADDR_LEN];
+    UInt8 					macAddr[kIOFWAddressSize];
     bool					fStarted;	
-	IOService				*fPolicyMaker;
 	bool					fPacketsQueued;
-	UInt32					fActiveCmds;
-	UInt32					fInActiveCmds;
-	UInt32					fNoCommands;
-	UInt32					fNoBCastCommands;
-	UInt32					fMissedQRestarts;
-	UInt32					fDoubleCompletes;
-	UInt32 					fCallErrs;
-	UInt32 					fStalls;
-	UInt32 					fRxFragmentPkts;
-	UInt32 					fTxFragmentPkts;
-	UInt16 					fMaxPktSize;
-	UInt16 					fMaxInputCount;
-	UInt32					fTxBcast;
-	UInt32					fRxBcast;	
-	UInt32					fTxUni;
-	UInt32					fRxUni;;
-        
-	IOFWSpeed				fPrevBroadcastSpeed;
-	bool					fDumpLog;
+
 	OSObject				*fDiagnostics;
 
 	OSObject				*fPrivateInterface;
     IOTransmitPacket		fOutAction;
 	IOUpdateARPCache		fUpdateARPCache;
+	IOUpdateMulticastCache	fUpdateMulticastCache;
 
 	const OSSymbol 			*fDiagnostics_Symbol;
 
@@ -237,17 +183,60 @@ protected:
 
     
 public:
-	UInt32 				fSubmitErrs;
-	UInt32 				fNoResources;
-	
+	typedef struct  {
+		UInt32	fActiveBcastCmds;
+		UInt32	fInActiveBcastCmds;
+		UInt32	fActiveCmds;
+		UInt32	fInActiveCmds;
+		UInt32	fNoCommands;
+		UInt32	fNoBCastCommands;
+		UInt32	fDoubleCompletes;
+		UInt32	fCallErrs;
+		UInt32	fServiceInOutput;
+		UInt32	fServiceInCallback;
+		UInt32	fRxFragmentPkts;
+		UInt32	fTxFragmentPkts;
+		UInt16	fMaxPktSize;
+		UInt16	fMaxInputCount;
+		UInt32	fTxBcast;
+		UInt32	fRxBcast;	
+		UInt32	fTxUni;
+		UInt32	fRxUni;
+		UInt32	fMaxQueueSize;
+		UInt32	fLastStarted;
+		UInt32	fMaxPacketSize;
+		
+		UInt32	fGaspTagError;
+		UInt32	fGaspHeaderError;
+		UInt32	fNonRFC2734Gasp;
+		UInt32	fRemoteGaspError;			// not from local bus
+		UInt32	fEncapsulationHeaderError;
+		UInt32	fNoMbufs;
+		UInt32	fInCorrectMCAPDesc;
+		UInt32	fUnknownMCAPDesc;
+		UInt32	fUnknownGroupAddress;
+		UInt32	fSubmitErrs;
+		UInt32	fNoResources;
+		
+		UInt32	activeMbufs;
+		UInt32	inActiveMbufs;
+		UInt32	fBusyAcks;
+		UInt32	fFastRetryBusyAcks;
+		UInt32	fDoFastRetry;
+		UInt32	fNoRCBCommands;
+		UInt32  fRxFragmentPktsDropped;
+	}IPoFWDiagnostics;
 
+	IPoFWDiagnostics	fIPoFWDiagnostics;
+	
 	// IOService overrides
     virtual bool		start(IOService *provider);
 	virtual void		stop(IOService *provider);
 	virtual void		free();
     virtual bool		finalize(IOOptionBits options);
     virtual IOReturn	message(UInt32 type, IOService *provider, void *argument);
-	
+	virtual bool		matchPropertyTable(OSDictionary * table);
+
 	
 	#pragma mark -
 	#pragma mark еее IOFWController defs еее
@@ -286,6 +275,8 @@ public:
 	virtual	bool			arpCacheHandler(IP1394_ARP *fwa);
 	virtual UInt32			transmitPacket(mbuf_t m, void * param);
 
+	virtual bool			multicastCacheHandler(IOFWAddress *addrs, UInt32 count);
+	
 	void networkStatAdd(UInt32 *x) const
 	{(*x)++;};
 	
@@ -301,10 +292,21 @@ public:
 	*/
 	bool createMediumState();
 
+	/*!
+		@function getFeatures
+		@abstract 
+		@param none.
+		@result Tell family we can handle multipage mbufs. kIONetworkFeatureMultiPages
+	*/
+	UInt32 getFeatures() const;
+
 	#pragma mark -
 	#pragma mark еее IOFireWireIP defs еее
 
-	void updateMTU(bool onLynx);
+	UInt32	getMaxARDMAPacketSize();
+	UInt8	getMaxARDMARec(UInt32 size);
+
+	void updateMTU(UInt32 mtu);
 	
     /*!
         @function getDevice
@@ -330,12 +332,12 @@ public:
 	IORecursiveLock *getIPLock() const
 	{return ipLock;};
 
-	inline void IOFireWireIP::closeIPGate()
+	inline void IOFireWireIP::closeIPoFWGate()
 	{
 		IORecursiveLockLock(ipLock);
 	}
 
-	inline void IOFireWireIP::openIPGate()
+	inline void IOFireWireIP::openIPoFWGate()
 	{
 		IORecursiveLockUnlock(ipLock);
 	}
@@ -374,7 +376,7 @@ public:
 		@param bufAddr - pointer to the buffer.
 		@result void.
 	*/	
-	void getBytesFromGUID(void *guid, u_char *bufAddr, UInt8 type);
+	void getBytesFromGUID(void *guid, UInt8 *bufAddr, UInt8 type);
 	
 	/*!
 		@function makeEthernetAddress
@@ -384,15 +386,17 @@ public:
 		@param vendorID - vendorID.
         @result void.
 	*/
-	void makeEthernetAddress(CSRNodeUniqueID *fwuid, u_char *bufAddr, UInt32 vendorID);
-
-#ifdef DEBUG	
-	void showRcb(RCB *rcb);
-	void showArb(ARB *arb);
-	void showHandle(TNF_HANDLE *handle);
-	void showDrb(DRB *drb);
-	void showLcb(); 
-#endif
+	void makeEthernetAddress(CSRNodeUniqueID *fwuid, UInt8 *bufAddr, UInt32 vendorID);
 };
+
+class recursiveScopeLock
+{
+private:
+	IORecursiveLock *fLock;
+public:
+	recursiveScopeLock(IORecursiveLock *lock){fLock = lock; IORecursiveLockLock(fLock);};
+	~recursiveScopeLock(){IORecursiveLockUnlock(fLock);};
+};
+
 #endif // _IOKIT_IOFIREWIREIP_H
 

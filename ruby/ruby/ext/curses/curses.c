@@ -1,5 +1,5 @@
 /* -*- C -*-
- * $Id: curses.c,v 1.24.2.1 2004/12/15 09:57:05 shugo Exp $
+ * $Id: curses.c 11708 2007-02-12 23:01:19Z shyouhei $
  *
  * ext/curses/curses.c
  * 
@@ -53,6 +53,9 @@
 #ifdef NCURSES_MOUSE_VERSION
 # define USE_MOUSE 1
 #endif
+
+#define NUM2CH NUM2LONG
+#define CH2FIX LONG2FIX
 
 static VALUE mCurses;
 static VALUE mKey;
@@ -124,7 +127,7 @@ curses_init_screen()
     if (rb_stdscr) return rb_stdscr;
     initscr();
     if (stdscr == 0) {
-	rb_raise(rb_eRuntimeError, "cannot initialize curses");
+	rb_raise(rb_eRuntimeError, "can't initialize curses");
     }
     clear();
     rb_stdscr = prep_window(cWindow, stdscr);
@@ -180,6 +183,15 @@ curses_clear(obj)
 {
     curses_stdscr();
     wclear(stdscr);
+    return Qnil;
+}
+
+/* def clrtoeol */
+static VALUE
+curses_clrtoeol()
+{
+    curses_stdscr();
+    clrtoeol();
     return Qnil;
 }
 
@@ -362,7 +374,7 @@ curses_inch(obj)
     VALUE obj;
 {
     curses_stdscr();
-    return CHR2FIX(inch());
+    return CH2FIX(inch());
 }
 
 /* def addch(ch) */
@@ -372,7 +384,7 @@ curses_addch(obj, ch)
     VALUE ch;
 {
     curses_stdscr();
-    addch(NUM2CHR(ch));
+    addch(NUM2CH(ch));
     return Qnil;
 }
 
@@ -383,7 +395,7 @@ curses_insch(obj, ch)
     VALUE ch;
 {
     curses_stdscr();
-    insch(NUM2CHR(ch));
+    insch(NUM2CH(ch));
     return Qnil;
 }
 
@@ -442,6 +454,17 @@ curses_deleteln(obj)
 {
 #if defined(HAVE_DELETELN) || defined(deleteln)
     deleteln();
+#endif
+    return Qnil;
+}
+
+/* def insertln */
+static VALUE
+curses_insertln(obj)
+    VALUE obj;
+{
+#if defined(HAVE_INSERTLN) || defined(insertln)
+    insertln();
 #endif
     return Qnil;
 }
@@ -536,7 +559,7 @@ static VALUE
 curses_bkgdset(VALUE obj, VALUE ch)
 {
 #ifdef HAVE_BKGDSET
-  bkgdset(NUM2CHR(ch));
+  bkgdset(NUM2CH(ch));
 #endif
   return Qnil;
 }
@@ -545,7 +568,7 @@ static VALUE
 curses_bkgd(VALUE obj, VALUE ch)
 {
 #ifdef HAVE_BKGD
-  return (bkgd(NUM2CHR(ch)) == OK) ? Qtrue : Qfalse;
+  return (bkgd(NUM2CH(ch)) == OK) ? Qtrue : Qfalse;
 #else
   return Qfalse;
 #endif
@@ -660,7 +683,7 @@ curses_getmouse(VALUE obj)
 
   val = Data_Make_Struct(cMouseEvent,struct mousedata,
 			 0,curses_mousedata_free,mdata);
-  mdata->mevent = (MEVENT*)malloc(sizeof(MEVENT));
+  mdata->mevent = (MEVENT*)xmalloc(sizeof(MEVENT));
   return (getmouse(mdata->mevent) == OK) ? val : Qnil;
 }
 
@@ -814,6 +837,19 @@ window_clear(obj)
     
     GetWINDOW(obj, winp);
     wclear(winp->window);
+    
+    return Qnil;
+}
+
+/* def clrtoeol */
+static VALUE
+window_clrtoeol(obj)
+    VALUE obj;
+{
+    struct windata *winp;
+    
+    GetWINDOW(obj, winp);
+    wclrtoeol(winp->window);
     
     return Qnil;
 }
@@ -991,13 +1027,13 @@ window_box(argc, argv, self)
     rb_scan_args(argc, argv, "21", &vert, &hor, &corn);
 
     GetWINDOW(self, winp);
-    box(winp->window, NUM2CHR(vert), NUM2CHR(hor));
+    box(winp->window, NUM2CH(vert), NUM2CH(hor));
 
     if (!NIL_P(corn)) {
       int cur_x, cur_y, x, y;
-      char c;
+      chtype c;
 
-      c = NUM2CHR(corn);
+      c = NUM2CH(corn);
       getyx(winp->window, cur_y, cur_x);
       x = NUM2INT(window_maxx(self)) - 1;
       y = NUM2INT(window_maxy(self)) - 1;
@@ -1047,7 +1083,7 @@ window_inch(obj)
     struct windata *winp;
     
     GetWINDOW(obj, winp);
-    return CHR2FIX(winch(winp->window));
+    return CH2FIX(winch(winp->window));
 }
 
 /* def addch(ch) */
@@ -1059,7 +1095,7 @@ window_addch(obj, ch)
     struct windata *winp;
     
     GetWINDOW(obj, winp);
-    waddch(winp->window, NUM2CHR(ch));
+    waddch(winp->window, NUM2CH(ch));
     
     return Qnil;
 }
@@ -1073,7 +1109,7 @@ window_insch(obj, ch)
     struct windata *winp;
     
     GetWINDOW(obj, winp);
-    winsch(winp->window, NUM2CHR(ch));
+    winsch(winp->window, NUM2CH(ch));
     
     return Qnil;
 }
@@ -1159,6 +1195,20 @@ window_deleteln(obj)
     return Qnil;
 }
 
+/* def insertln */
+static VALUE
+window_insertln(obj)
+    VALUE obj;
+{
+#if defined(HAVE_WINSERTLN) || defined(winsertln)
+    struct windata *winp;
+    
+    GetWINDOW(obj, winp);
+    winsertln(winp->window);
+#endif
+    return Qnil;
+}
+
 static VALUE
 window_scrollok(VALUE obj, VALUE bf)
 {
@@ -1194,6 +1244,19 @@ window_setscrreg(VALUE obj, VALUE top, VALUE bottom)
   return Qfalse;
 #endif
 }
+
+#if defined(USE_COLOR) && defined(HAVE_WCOLOR_SET)
+static VALUE
+window_color_set(VALUE obj, VALUE col) 
+{
+  struct windata *winp;
+  int res;
+
+  GetWINDOW(obj, winp);
+  res = wcolor_set(winp->window, NUM2INT(col), NULL);
+  return (res == OK) ? Qtrue : Qfalse;
+}
+#endif /* USE_COLOR */
 
 static VALUE
 window_scroll(VALUE obj)
@@ -1274,7 +1337,7 @@ window_bkgdset(VALUE obj, VALUE ch)
   struct windata *winp;
 
   GetWINDOW(obj,winp);
-  wbkgdset(winp->window, NUM2CHR(ch));
+  wbkgdset(winp->window, NUM2CH(ch));
 #endif
   return Qnil;
 }
@@ -1286,7 +1349,7 @@ window_bkgd(VALUE obj, VALUE ch)
   struct windata *winp;
 
   GetWINDOW(obj,winp);
-  return (wbkgd(winp->window, NUM2CHR(ch)) == OK) ? Qtrue : Qfalse;
+  return (wbkgd(winp->window, NUM2CH(ch)) == OK) ? Qtrue : Qfalse;
 #else
   return Qfalse;
 #endif
@@ -1296,11 +1359,11 @@ static VALUE
 window_getbkgd(VALUE obj)
 {
 #ifdef HAVE_WGETBKGD
-  char c;
+  chtype c;
   struct windata *winp;
 
   GetWINDOW(obj,winp);
-  return (c = getbkgd(winp->window) != ERR) ? CHR2FIX(c) : Qnil;
+  return (c = getbkgd(winp->window) != ERR) ? CH2FIX(c) : Qnil;
 #else
   return Qnil;
 #endif
@@ -1400,6 +1463,7 @@ Init_curses()
     rb_define_module_function(mCurses, "refresh", curses_refresh, 0);
     rb_define_module_function(mCurses, "doupdate", curses_doupdate, 0);
     rb_define_module_function(mCurses, "clear", curses_clear, 0);
+    rb_define_module_function(mCurses, "clrtoeol", curses_clrtoeol, 0);
     rb_define_module_function(mCurses, "echo", curses_echo, 0);
     rb_define_module_function(mCurses, "noecho", curses_noecho, 0);
     rb_define_module_function(mCurses, "raw", curses_raw, 0);
@@ -1424,6 +1488,7 @@ Init_curses()
     rb_define_module_function(mCurses, "getstr", curses_getstr, 0);
     rb_define_module_function(mCurses, "delch", curses_delch, 0);
     rb_define_module_function(mCurses, "deleteln", curses_deleteln, 0);
+    rb_define_module_function(mCurses, "insertln", curses_insertln, 0);
     rb_define_module_function(mCurses, "keyname", curses_keyname, 1);
     rb_define_module_function(mCurses, "lines", curses_lines, 0);
     rb_define_module_function(mCurses, "cols", curses_cols, 0);
@@ -1466,11 +1531,15 @@ Init_curses()
     rb_define_method(cWindow, "subwin", window_subwin, 4);
     rb_define_method(cWindow, "close", window_close, 0);
     rb_define_method(cWindow, "clear", window_clear, 0);
+    rb_define_method(cWindow, "clrtoeol", window_clrtoeol, 0);
     rb_define_method(cWindow, "refresh", window_refresh, 0);
     rb_define_method(cWindow, "noutrefresh", window_noutrefresh, 0);
     rb_define_method(cWindow, "box", window_box, -1);
     rb_define_method(cWindow, "move", window_move, 2);
     rb_define_method(cWindow, "setpos", window_setpos, 2);
+#if defined(USE_COLOR) && defined(HAVE_WCOLOR_SET)
+    rb_define_method(cWindow, "color_set", window_color_set, 1);
+#endif /* USE_COLOR && HAVE_WCOLOR_SET */
     rb_define_method(cWindow, "cury", window_cury, 0);
     rb_define_method(cWindow, "curx", window_curx, 0);
     rb_define_method(cWindow, "maxy", window_maxy, 0);
@@ -1488,6 +1557,7 @@ Init_curses()
     rb_define_method(cWindow, "getstr", window_getstr, 0);
     rb_define_method(cWindow, "delch", window_delch, 0);
     rb_define_method(cWindow, "deleteln", window_deleteln, 0);
+    rb_define_method(cWindow, "insertln", window_insertln, 0);
     rb_define_method(cWindow, "scroll", window_scroll, 0);
     rb_define_method(cWindow, "scrollok", window_scrollok, 1);
     rb_define_method(cWindow, "idlok", window_idlok, 1);

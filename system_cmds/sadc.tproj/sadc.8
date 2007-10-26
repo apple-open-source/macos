@@ -30,7 +30,7 @@
 .Op Ar ofile           \" [ofile]
 .Sh DESCRIPTION          \" Section Header - required - don't modify
 The
-.Nm
+.Nm sadc
 tool is used to collect cumulative system activity data.
 The sample system data is collected at intervals
 .Ar t
@@ -45,14 +45,14 @@ If the
 .Ar ofile 
 file does not exist, it is created, otherwise it is truncated.
 .Pp                      \" Inserts a space
-.Nm
+.Nm sadc
 is intended to be used as the engine behind the
 .Nm sar(1)
 command, and is not typically invoked on the command line.
 Two shell scripts,
 .Nm sa1
 and
-.Nm sa2 
+.Nm sa2 ,
 are provided to drive the typical sampling, saving, and
 reporting process.
 .Pp
@@ -99,13 +99,12 @@ data reporting.
 .El
 .Sh SEE ALSO 
 .\" List links in ascending order by section, alphabetically within a section.
-.Xr sa1 8 , 
-.Xr sa2 8 ,
-.Xr sar 1 ,
-.Xr iostat 8 ,
-.Xr vm_stat 1 ,
+.Xr fs_usage 1 ,
 .Xr netstat 1 ,
-.Xr top 1 , 
+.Xr sar 1 ,
 .Xr sc_usage 1 ,
-.Xr fs_usage 1
-.\" .Sh BUGS              \" Document known, unremedied bugs 
+.Xr top 1 , 
+.Xr vm_stat 1 ,
+.Xr iostat 8 ,
+.Xr sa1 8 , 
+.Xr sa2 8

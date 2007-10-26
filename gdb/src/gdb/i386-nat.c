@@ -310,8 +310,8 @@ i386_length_and_rw_bits (int len, enum target_hw_bp_type type)
 	break;
 #endif
       default:
-	internal_error (__FILE__, __LINE__, "\
-Invalid hardware breakpoint type %d in i386_length_and_rw_bits.\n",
+	internal_error (__FILE__, __LINE__, _("\
+Invalid hardware breakpoint type %d in i386_length_and_rw_bits.\n"),
 			(int) type);
     }
 
@@ -327,8 +327,8 @@ Invalid hardware breakpoint type %d in i386_length_and_rw_bits.\n",
         if (TARGET_HAS_DR_LEN_8)
  	  return (DR_LEN_8 | rw);
       default:
-	internal_error (__FILE__, __LINE__, "\
-Invalid hardware breakpoint length %d in i386_length_and_rw_bits.\n", len);
+	internal_error (__FILE__, __LINE__, _("\
+Invalid hardware breakpoint length %d in i386_length_and_rw_bits.\n"), len);
     }
 }
 
@@ -454,7 +454,7 @@ i386_handle_nonaligned_watchpoint (i386_wp_op_t what, CORE_ADDR addr, int len,
   while (len > 0)
     {
       int align = addr % max_wp_len;
-      /* Four (eigth on AMD64) is the maximum length a debug register
+      /* Four (eight on AMD64) is the maximum length a debug register
 	 can watch.  */
       int try = (len > max_wp_len ? (max_wp_len - 1) : len - 1);
       int size = size_try_array[try][align];
@@ -478,8 +478,8 @@ i386_handle_nonaligned_watchpoint (i386_wp_op_t what, CORE_ADDR addr, int len,
 	  else if (what == WP_REMOVE)
 	    status = i386_remove_aligned_watchpoint (addr, len_rw);
 	  else
-	    internal_error (__FILE__, __LINE__, "\
-Invalid value %d of operation in i386_handle_nonaligned_watchpoint.\n",
+	    internal_error (__FILE__, __LINE__, _("\
+Invalid value %d of operation in i386_handle_nonaligned_watchpoint.\n"),
 			    (int)what);
 	  /* We keep the loop going even after a failure, because some
 	     of the other aligned watchpoints might still succeed
@@ -564,14 +564,16 @@ i386_region_ok_for_watchpoint (CORE_ADDR addr, int len)
   return nregs <= DR_NADDR ? 1 : 0;
 }
 
-/* If the inferior has some watchpoint that triggered, return the
-   address associated with that watchpoint.  Otherwise, return zero.  */
+/* If the inferior has some watchpoint that triggered, set the
+   address associated with that watchpoint and return non-zero.  
+   Otherwise, return zero.  */
 
-CORE_ADDR
-i386_stopped_data_address (void)
+int
+i386_stopped_data_address (CORE_ADDR *addr_p)
 {
   CORE_ADDR addr = 0;
   int i;
+  int rc = 0;
 
   dr_status_mirror = I386_DR_LOW_GET_STATUS ();
 
@@ -582,10 +584,11 @@ i386_stopped_data_address (void)
 	     watchpoint, not a hardware breakpoint.  The reason is
 	     that GDB doesn't call the target_stopped_data_address
 	     method except for data watchpoints.  In other words, I'm
-	     being paranoid.  */
+	     being paranoiac.  */
 	  && I386_DR_GET_RW_LEN (i) != 0)
 	{
 	  addr = dr_mirror[i];
+	  rc = 1;
 	  if (maint_show_dr)
 	    i386_show_dr ("watchpoint_hit", addr, -1, hw_write);
 	}
@@ -593,7 +596,16 @@ i386_stopped_data_address (void)
   if (maint_show_dr && addr == 0)
     i386_show_dr ("stopped_data_addr", 0, 0, hw_write);
 
-  return addr;
+  if (rc)
+    *addr_p = addr;
+  return rc;
+}
+
+int
+i386_stopped_by_watchpoint (void)
+{
+  CORE_ADDR addr = 0;
+  return i386_stopped_data_address (&addr);
 }
 
 /* Return non-zero if the inferior has some break/watchpoint that
@@ -658,13 +670,13 @@ _initialize_i386_nat (void)
 #ifdef I386_USE_GENERIC_WATCHPOINTS
   /* A maintenance command to enable printing the internal DRi mirror
      variables.  */
-  add_set_cmd ("show-debug-regs", class_maintenance,
-	       var_boolean, (char *) &maint_show_dr,
-	       "\
+  deprecated_add_set_cmd ("show-debug-regs", class_maintenance,
+			  var_boolean, (char *) &maint_show_dr, _("\
 Set whether to show variables that mirror the x86 debug registers.\n\
 Use \"on\" to enable, \"off\" to disable.\n\
 If enabled, the debug registers values are shown when GDB inserts\n\
 or removes a hardware breakpoint or watchpoint, and when the inferior\n\
-triggers a breakpoint or watchpoint.", &maintenancelist);
+triggers a breakpoint or watchpoint."),
+			  &maintenancelist);
 #endif
 }

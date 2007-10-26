@@ -67,7 +67,6 @@
 #ifndef _WCHAR_H_
 #define _WCHAR_H_
 
-#include <sys/cdefs.h>
 #include <_types.h>
 
 #ifndef NULL
@@ -133,13 +132,13 @@ size_t	mbsrtowcs(wchar_t * __restrict, const char ** __restrict, size_t,
 	    mbstate_t * __restrict);
 wint_t	putwc(wchar_t, FILE *);
 wint_t	putwchar(wchar_t);
-int	swprintf(wchar_t * __restrict, size_t n, const wchar_t * __restrict,
+int	swprintf(wchar_t * __restrict, size_t, const wchar_t * __restrict,
 	    ...) __DARWIN_LDBL_COMPAT(swprintf);
 int	swscanf(const wchar_t * __restrict, const wchar_t * __restrict, ...) __DARWIN_LDBL_COMPAT(swscanf);
 wint_t	ungetwc(wint_t, FILE *);
 int	vfwprintf(FILE * __restrict, const wchar_t * __restrict,
 	    __darwin_va_list) __DARWIN_LDBL_COMPAT(vfwprintf);
-int	vswprintf(wchar_t * __restrict, size_t n, const wchar_t * __restrict,
+int	vswprintf(wchar_t * __restrict, size_t, const wchar_t * __restrict,
 	    __darwin_va_list) __DARWIN_LDBL_COMPAT(vswprintf);
 int	vwprintf(const wchar_t * __restrict, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwprintf);
 size_t	wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
@@ -149,8 +148,17 @@ int	wcscmp(const wchar_t *, const wchar_t *);
 int	wcscoll(const wchar_t *, const wchar_t *);
 wchar_t	*wcscpy(wchar_t * __restrict, const wchar_t * __restrict);
 size_t	wcscspn(const wchar_t *, const wchar_t *);
+//Begin-Libc
+#ifndef LIBC_ALIAS_WCSFTIME
+//End-Libc
 size_t	wcsftime(wchar_t * __restrict, size_t, const wchar_t * __restrict,
-	    const struct tm * __restrict);
+	    const struct tm * __restrict) __DARWIN_ALIAS(wcsftime);
+//Begin-Libc
+#else /* LIBC_ALIAS_WCSFTIME */
+size_t	wcsftime(wchar_t * __restrict, size_t, const wchar_t * __restrict,
+	    const struct tm * __restrict) LIBC_ALIAS(wcsftime);
+#endif /* !LIBC_ALIAS_WCSFTIME */
+//End-Libc
 size_t	wcslen(const wchar_t *);
 wchar_t	*wcsncat(wchar_t * __restrict, const wchar_t * __restrict, size_t);
 int	wcsncmp(const wchar_t *, const wchar_t *, size_t);
@@ -196,14 +204,19 @@ int	wcswidth(const wchar_t *, size_t);
 int	wcwidth(wchar_t);
 #endif /* !defined(_ANSI_SOURCE) */
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 size_t	mbsnrtowcs(wchar_t * __restrict, const char ** __restrict, size_t,
 	    size_t, mbstate_t * __restrict);
 size_t	wcslcat(wchar_t *, const wchar_t *, size_t);
 size_t	wcslcpy(wchar_t *, const wchar_t *, size_t);
 size_t	wcsnrtombs(char * __restrict, const wchar_t ** __restrict, size_t,
 	    size_t, mbstate_t * __restrict);
-#endif /* !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE) */
+#endif /* !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)) */
+
+/* Poison the following routines if -fshort-wchar is set */
+#if !defined(__cplusplus) && defined(__WCHAR_MAX__) && __WCHAR_MAX__ <= 0xffffU
+#pragma GCC poison fgetws fputwc fputws fwprintf fwscanf mbrtowc mbsnrtowcs mbsrtowcs putwc putwchar swprintf swscanf vfwprintf vfwscanf vswprintf vswscanf vwprintf vwscanf wcrtomb wcscat wcschr wcscmp wcscoll wcscpy wcscspn wcsftime wcsftime wcslcat wcslcpy wcslen wcsncat wcsncmp wcsncpy wcsnrtombs wcspbrk wcsrchr wcsrtombs wcsspn wcsstr wcstod wcstof wcstok wcstol wcstold wcstoll wcstoul wcstoull wcswidth wcsxfrm wcwidth wmemchr wmemcmp wmemcpy wmemmove wmemset wprintf wscanf
+#endif
 __END_DECLS
 
 #ifdef _USE_EXTENDED_LOCALES_

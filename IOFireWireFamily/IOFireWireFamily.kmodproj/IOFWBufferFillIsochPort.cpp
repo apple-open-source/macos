@@ -6,6 +6,9 @@
  *  Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * $Log: IOFWBufferFillIsochPort.cpp,v $
+ * Revision 1.6  2007/03/14 01:01:12  collin
+ * *** empty log message ***
+ *
  * Revision 1.5  2004/05/04 22:52:19  niels
  * *** empty log message ***
  *
@@ -34,7 +37,7 @@
 OSDefineMetaClassAndAbstractStructors( IOFWBufferFillIsochPort, IOFWIsochPort )
 
 bool
-IOFWBufferFillIsochPort :: init( 
+IOFWBufferFillIsochPort::init( 
 	IOFireWireBus &			bus, 
 	IOByteCount				expectedBytesPerSecond, 
 	UInt32					interruptMicroseconds,
@@ -50,7 +53,7 @@ IOFWBufferFillIsochPort :: init(
 
 #if 0
 bool
-IOFWBufferFillIsochPort :: initWithBufferSize( 
+IOFWBufferFillIsochPort::initWithBufferSize( 
 	IOFireWireBus &			bus, 
 	IOByteCount				bufferSize, 
 	UInt32					interruptMicroseconds, 
@@ -66,7 +69,7 @@ IOFWBufferFillIsochPort :: initWithBufferSize(
 #endif
 
 void
-IOFWBufferFillIsochPort :: free()
+IOFWBufferFillIsochPort::free()
 {
 	delete[] fBackingStore ;
 	
@@ -76,7 +79,7 @@ IOFWBufferFillIsochPort :: free()
 // Return maximum speed and channels supported
 // (bit n set = chan n supported)
 IOReturn
-IOFWBufferFillIsochPort :: getSupported (
+IOFWBufferFillIsochPort::getSupported (
 	IOFWSpeed &			maxSpeed, 
 	UInt64 &			chanSupported)
 {
@@ -86,26 +89,26 @@ IOFWBufferFillIsochPort :: getSupported (
 }
 
 unsigned int
-IOFWBufferFillIsochPort :: gotIsoch( IOVirtualRange packets[], unsigned int maxPacketCount )
+IOFWBufferFillIsochPort::gotIsoch( IOVirtualRange packets[], unsigned int maxPacketCount )
 {
 	packets = NULL ;
 	return 0 ;
 }
 
 unsigned int
-IOFWBufferFillIsochPort :: gotIsochAll( IOVirtualRange packets[], unsigned int maxPacketCount )
+IOFWBufferFillIsochPort::gotIsochAll( IOVirtualRange packets[], unsigned int maxPacketCount )
 {
 	packets = NULL ;
 	return 0 ;
 }
 
 void
-IOFWBufferFillIsochPort :: pushIsoch()
+IOFWBufferFillIsochPort::pushIsoch()
 {
 }
 
 IOReturn
-IOFWBufferFillIsochPort :: setIsochResourceFlags( IOFWIsochResourceFlags flags )
+IOFWBufferFillIsochPort::setIsochResourceFlags( IOFWIsochResourceFlags flags )
 {
 	fIsochResourceFlags = flags ;
 	
@@ -113,33 +116,33 @@ IOFWBufferFillIsochPort :: setIsochResourceFlags( IOFWIsochResourceFlags flags )
 }
 
 IOFWIsochResourceFlags
-IOFWBufferFillIsochPort :: getIsochResourceFlags() const
+IOFWBufferFillIsochPort::getIsochResourceFlags() const
 {
 	return fIsochResourceFlags ; 
 }
 
 IOReturn
-IOFWBufferFillIsochPort :: setFlags( UInt32 flags )
+IOFWBufferFillIsochPort::setFlags( UInt32 flags )
 {
 	fFlags = flags ; 
 	return kIOReturnSuccess ;
 }
 
 UInt32
-IOFWBufferFillIsochPort :: getFlags()
+IOFWBufferFillIsochPort::getFlags()
 {
 	return fFlags ; 
 }
 
 IOReturn
-IOFWBufferFillIsochPort :: setChannels( UInt64 channelMask )
+IOFWBufferFillIsochPort::setChannels( UInt64 channelMask )
 {
 	fChannels = channelMask ;
 	return kIOReturnSuccess ;
 }
 
 AbsoluteTime
-IOFWBufferFillIsochPort :: getInterruptTime()
+IOFWBufferFillIsochPort::getInterruptTime()
 {
 	return AbsoluteTime() ;
 }

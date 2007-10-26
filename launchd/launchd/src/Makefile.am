@@ -1,77 +1,96 @@
-AM_CFLAGS = -no-cpp-precomp -F/System/Library/PrivateFrameworks -Wall -W -Wshadow -Wpadded -Werror -fconstant-cfstrings
+AM_CFLAGS = -no-cpp-precomp -F/System/Library/PrivateFrameworks -Wall -Wextra -Waggregate-return -Wshadow -Wmissing-prototypes -Wmissing-declarations -Werror -D__MigTypeCheck=1 -fvisibility=hidden -Dmig_external=__private_extern__
 
-sbin_SCRIPTS = service
+CLEANFILES = protocol_vproc.h protocol_vprocServer.c protocol_vprocUser.c protocol_vprocServer.h		\
+	     launchd_internal.h launchd_internalServer.h launchd_internalServer.c launchd_internalUser.c	\
+	     notifyServer.c notifyServer.h job_replyUser.c job_reply.h __version.c
+
+protocol_vproc.h protocol_vprocServer.c protocol_vprocUser.c protocol_vprocServer.h: $(srcdir)/protocol_job.defs
+	mig $(MIGFLAGS) -sheader protocol_vprocServer.h $(srcdir)/protocol_job.defs
+
+if LIBS_ONLY
 
 noinst_LIBRARIES = liblaunch.a liblaunch_profile.a
 
+liblaunch_a_CFLAGS = -D__DARWIN_NON_CANCELABLE=1 $(AM_CFLAGS)
+liblaunch_a_SOURCES = liblaunch.c libvproc.c libbootstrap.c protocol_vprocUser.c __version.c
+
+liblaunch_profile_a_CFLAGS = -pg -D__DARWIN_NON_CANCELABLE=1 $(AM_CFLAGS)
+liblaunch_profile_a_SOURCES = liblaunch.c libvproc.c libbootstrap.c protocol_vprocUser.c __version.c
+
+$(srcdir)/libvproc.c:: protocol_vproc.h
+
+$(srcdir)/protocol_vprocUser.c:: protocol_vproc.h
+
+__version.c:
+	/Developer/Makefiles/bin/version.pl launchd_libs > $@
+
+
+install-data-hook:
+	mkdir -p $(DESTDIR)/usr/local/lib/system
+	cp liblaunch.a $(DESTDIR)/usr/local/lib/system
+	cp liblaunch.a $(DESTDIR)/usr/local/lib/system/liblaunch_debug.a
+	cp liblaunch_profile.a $(DESTDIR)/usr/local/lib/system/liblaunch_profile.a
+
+else
+
 bin_PROGRAMS = launchctl wait4path
-sbin_PROGRAMS = launchd SystemStarter launchd_debugd
-libexec_PROGRAMS = ConsoleMessage register_mach_bootstrap_servers StartupItemContext launchproxy
+sbin_PROGRAMS = launchd SystemStarter
+libexec_PROGRAMS = launchproxy
 
-sysconf_DATA = hostconfig rc rc.common rc.netboot rc.shutdown
+sysconf_DATA = hostconfig rc.common rc.netboot
 
-ConsoleMessage_LDFLAGS = -framework CoreFoundation
-
-launchctl_LDFLAGS = -framework CoreFoundation -weak_library /usr/lib/libedit.dylib
-
-register_mach_bootstrap_servers_LDFLAGS = -framework CoreFoundation
-
-launchd_debugd_CFLAGS = -mdynamic-no-pic $(AM_CFLAGS)
-launchd_debugd_SOURCES = launchdebugd.c
-
-liblaunch_a_SOURCES = liblaunch.c
-
-liblaunch_profile_a_CFLAGS = -pg $(AM_CFLAGS)
-liblaunch_profile_a_SOURCES = liblaunch.c
+launchctl_CFLAGS = $(AM_CFLAGS) -I/System/Library/Frameworks/System.framework/PrivateHeaders
+launchctl_LDFLAGS = -framework CoreFoundation -framework IOKit -framework Security -weak_library /usr/lib/libedit.dylib
 
 SystemStarter_CFLAGS = -mdynamic-no-pic $(AM_CFLAGS)
-SystemStarter_LDFLAGS = -framework CoreFoundation
+SystemStarter_LDFLAGS = -framework CoreFoundation -framework IOKit
 SystemStarter_SOURCES = StartupItems.c IPC.c SystemStarter.c
 
-launchd_CFLAGS = -DPID1_REAP_ADOPTED_CHILDREN -mdynamic-no-pic $(AM_CFLAGS) -Wno-unused-parameter
+launchd_CFLAGS = -mdynamic-no-pic $(AM_CFLAGS) -Wno-unused-parameter
 launchd_LDFLAGS = -lbsm
-launchd_SOURCES = launchd.c init.c bootstrap.c lists.c rpc_services.c bootstrapServer.c
+launchd_SOURCES = launchd.c launchd_core_logic.c launchd_unix_ipc.c protocol_vprocServer.c notifyServer.c launchd_internalUser.c launchd_internalServer.c job_replyUser.c launchd_runtime.c launchd_runtime_kill.c
+
+launchd_runtime.c:: notifyServer.h launchd_internal.h
+launchd_core_logic.c:: protocol_vproc.h job_reply.h protocol_vprocServer.h
 
 launchproxy_LDFLAGS = -weak_framework Security
 
-CLEANFILES = bootstrap.h bootstrapServer.c bootstrapUser.c
+notifyServer.c notifyServer.h: /usr/include/mach/notify.defs
+	mig $(MIGFLAGS) -header /dev/null -user /dev/null -sheader notifyServer.h /usr/include/mach/notify.defs
 
-bootstrap.c:: bootstrap.h
+job_replyUser.c job_reply.h: $(srcdir)/protocol_job_reply.defs
+	mig $(MIGFLAGS) -sheader /dev/null -server /dev/null $(srcdir)/protocol_job_reply.defs
 
-bootstrap.h bootstrapServer.c bootstrapUser.c: $(srcdir)/bootstrap.defs
-	mig $(MIGFLAGS) $(srcdir)/bootstrap.defs
+launchd_internal.h launchd_internalServer.c launchd_internalUser.c launchd_internalServer.h: $(srcdir)/launchd_internal.defs
+	mig $(MIGFLAGS) -sheader launchd_internalServer.h $(srcdir)/launchd_internal.defs
+
 
 man1_MANS = wait4path.1 launchctl.1
 
 man5_MANS = launchd.plist.5 launchd.conf.5
 
-man8_MANS = ConsoleMessage.8 StartupItemContext.8 SystemStarter.8 init.8 rc.8 launchd.8 service.8 launchproxy.8 launchd_debugd.8
+man8_MANS = StartupItemContext.8 SystemStarter.8 rc.8 launchd.8 launchproxy.8
 
-STARTUPITEMS = $(basename $(notdir $(wildcard $(srcdir)/StartupItems/*.plist)))
-
-$(addprefix $(DESTDIR)/System/Library/StartupItems/, $(STARTUPITEMS)):
-	mkdir -p $@
-	cp $(srcdir)/StartupItems/$(notdir $@) $@
-	chmod 755 $@/$(notdir $@)
-	cp $(srcdir)/StartupItems/$(notdir $@).plist $@/StartupParameters.plist
-
-install-startupitems: $(addprefix $(DESTDIR)/System/Library/StartupItems/, $(STARTUPITEMS))
-
-install-data-hook: install-startupitems
-	mkdir -p $(DESTDIR)/usr/local/lib/system
-	cp liblaunch.a $(DESTDIR)/usr/local/lib/system
-	cp liblaunch.a $(DESTDIR)/usr/local/lib/system/liblaunch_debug.a
-	cp liblaunch_profile.a $(DESTDIR)/usr/local/lib/system/liblaunch_profile.a
-	mkdir -p $(DESTDIR)/usr/include
-	cp $(srcdir)/launch.h $(DESTDIR)/usr/include
+install-data-hook:
+	mkdir -p $(DESTDIR)/usr/libexec
+	mkdir -p $(DESTDIR)/usr/include/servers
 	mkdir -p $(DESTDIR)/usr/local/include
-	cp $(srcdir)/launch_priv.h $(DESTDIR)/usr/local/include
 	mkdir -p $(DESTDIR)/$(sysconfdir)/mach_init.d
 	mkdir -p $(DESTDIR)/$(sysconfdir)/mach_init_per_user.d
+	mkdir -p $(DESTDIR)/$(sysconfdir)/mach_init_per_login_session.d
 	mkdir -p $(DESTDIR)/Library/LaunchDaemons
 	mkdir -p $(DESTDIR)/Library/LaunchAgents
-	mkdir -p $(DESTDIR)/System/Library/LaunchDaemons
 	mkdir -p $(DESTDIR)/System/Library/LaunchAgents
+	mkdir -p $(DESTDIR)/System/Library/LaunchDaemons
+	cp $(srcdir)/StartupItemContext $(DESTDIR)/usr/libexec
+	cp $(srcdir)/liblaunch_public.h $(DESTDIR)/usr/include/launch.h
+	cp $(srcdir)/libvproc_public.h $(DESTDIR)/usr/include/vproc.h
+	cp $(srcdir)/libbootstrap_public.h $(DESTDIR)/usr/include/servers/bootstrap.h
+	cp $(srcdir)/libbootstrap_public.h $(DESTDIR)/usr/include/servers/bootstrap_defs.h
+	cp $(srcdir)/libbootstrap_private.h $(DESTDIR)/usr/local/include/bootstrap_priv.h
+	cp $(srcdir)/liblaunch_private.h $(DESTDIR)/usr/local/include/launch_priv.h
+	cp $(srcdir)/libvproc_private.h $(DESTDIR)/usr/local/include/vproc_priv.h
+	cp $(srcdir)/reboot2.h $(DESTDIR)/usr/local/include/reboot2.h
+	cp $(srcdir)/com.apple.SystemStarter.plist $(DESTDIR)/System/Library/LaunchDaemons
 
-install-exec-hook:
-	chmod u+s $(DESTDIR)/$(sbindir)/launchd
+endif

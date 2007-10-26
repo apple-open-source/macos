@@ -163,19 +163,6 @@ prefixmask2len(struct in6_addr * mask, u_char * lim0)
     return x * 8 + y;
 }
 
-__private_extern__ void
-network_addr(struct in6_addr * addr, struct in6_addr * prefixmask,
-		struct in6_addr * netaddr)
-{
-    int i;
-
-    if (addr != NULL && prefixmask != NULL && netaddr != NULL) {
-        for (i = 0; i < S6_ADDR_LEN; i++) {
-            netaddr->s6_addr[i] = addr->s6_addr[i] & prefixmask->s6_addr[i];
-        }
-    }
-}
-
 __private_extern__ int
 ifflags_set(int s, char * name, short flags)
 {

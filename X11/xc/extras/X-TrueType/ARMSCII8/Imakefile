@@ -1,9 +1,0 @@
-/* code converter: ARMSCII8 */
-
-#define ModuleName ARMSCII8
-SRCS = ARMSCII8toUCS2.c main.c
-OBJS = ARMSCII8toUCS2.o main.o
-
-#include <xttMod.tmpl>
-
-/* end of file */

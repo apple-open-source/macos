@@ -1,0 +1,12 @@
+--- src/client.c	2004-10-29 12:55:14.000000000 -0700
++++ /var/tmp/client.c	2005-11-19 19:15:01.000000000 -0800
+@@ -1558,7 +1558,8 @@ update_entries (data_arg, ent_list, shor
+ 	sprintf (temp_filename, "%s_new_", filename);
+ #else
+ #ifdef _POSIX_NO_TRUNC
+-	sprintf (temp_filename, ".new.%.9s", filename);
++	sprintf (temp_filename, ".new.XXXXXX");
++	mktemp (temp_filename);
+ #else /* _POSIX_NO_TRUNC */
+ 	sprintf (temp_filename, ".new.%s", filename);
+ #endif /* _POSIX_NO_TRUNC */

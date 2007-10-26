@@ -1,0 +1,81 @@
+/WXWIN_OS_DESCRIPTION/s/\(Darwin [^ ]*\) .*/\1 Macintosh"/
+/WORDS_BIGENDIAN/c
+#ifdef __BIG_ENDIAN__
+#define WORDS_BIGENDIAN 1
+#else /* !__BIG_ENDIAN__ */
+/* #undef WORDS_BIGENDIAN */
+#endif /* __BIG_ENDIAN__ */
+.
+/__POWERPC__/c
+#if defined(__ppc__) || defined(__ppc64__)
+#define __POWERPC__ 1
+#elif defined(__i386__) || defined(__x86_64__)
+#define __INTEL__ 1
+#else
+#error architecture not supported */
+#endif
+.
+/HAVE_DLOPEN/c
+#define HAVE_DLOPEN 1
+.
+/HAVE_FTIME/c
+#define HAVE_FTIME 1
+.
+/HAVE_NANOSLEEP/c
+#define HAVE_NANOSLEEP 1
+.
+/HAVE_SIGEMPTYSET/c
+#define HAVE_SIGEMPTYSET 1
+.
+/HAVE_VSSCANF/c
+#define HAVE_VSSCANF 1
+.
+/SIZEOF_VOID_P/c
+#ifdef __LP64__
+#define SIZEOF_VOID_P 8
+#else /* !__LP64__ */
+#define SIZEOF_VOID_P 4
+#endif /* __LP64__ */
+.
+/SIZEOF_LONG/c
+#ifdef __LP64__
+#define SIZEOF_LONG 8
+#else /* !__LP64__ */
+#define SIZEOF_LONG 4
+#endif /* __LP64__ */
+.
+/SIZEOF_SIZE_T/c
+#ifdef __LP64__
+#define SIZEOF_SIZE_T 8
+#else /* !__LP64__ */
+#define SIZEOF_SIZE_T 4
+#endif /* __LP64__ */
+.
+/HAVE_DLOPEN/c
+#define HAVE_DLOPEN 1
+.
+/HAVE_DLERROR/c
+#define HAVE_DLERROR 1
+.
+/HAVE_FLOCK/c
+#define HAVE_FLOCK 1
+.
+/HAVE_GETHOSTNAME/c
+#define HAVE_GETHOSTNAME 1
+.
+/HAVE_MKTEMP/c
+#define HAVE_MKTEMP 1
+.
+/HAVE_NANOSLEEP/c
+#define HAVE_NANOSLEEP 1
+.
+/HAVE_SETENV/c
+#define HAVE_SETENV 1
+.
+/HAVE_FCNTL_H/c
+#define HAVE_FCNTL_H 1
+.
+/HAVE_WCTYPE_H/c
+#define HAVE_WCTYPE_H 1
+.
+w

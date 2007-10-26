@@ -1,3 +1,4 @@
+/*$Header: /src/pub/tcsh/win32/ntfunc.c,v 1.10 2004/11/23 02:10:50 christos Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -225,6 +226,11 @@ void dostart(Char ** vc, struct command *c) {
 			if (j + cmdlen > cmdsize) {
 				ptr = cmdstr;
 				cmdstr = heap_realloc(cmdstr, cmdsize << 1);
+				if(!cmdstr)
+				{
+					heap_free(ptr);
+					stderror(ERR_NOMEM,"start");
+				}
 				cmdend =  cmdstr + (cmdend - ptr);
 				cmdsize <<= 1;
 			}
@@ -648,6 +654,7 @@ void try_shell_ex(char **argv,int exitsuccess, BOOL throw_ok) {
 
 	char *prog;
 	char *cmdstr, *p2, *cmdend;
+	char *originalPtr = NULL;
 	unsigned int cmdsize,cmdlen;
 	int hasdot = 0;
 	char err2[256];
@@ -660,6 +667,7 @@ void try_shell_ex(char **argv,int exitsuccess, BOOL throw_ok) {
 
 	prog=*argv;
 
+	dprintf("trying shellex for prog %s\n",prog);
 	ptr = prog;
 	if (!is_url(prog)) {
 
@@ -688,9 +696,8 @@ void try_shell_ex(char **argv,int exitsuccess, BOOL throw_ok) {
 		}
 
 	}
-	cmdstr= heap_alloc(MAX_PATH<<2);
+	originalPtr = cmdstr= heap_alloc(MAX_PATH<<2);
 
-	cmdstr++; // concat_args_and_quote expects ptr to 2nd place in string
 	cmdsize = MAX_PATH<<2;
 
 	p2 = cmdstr;
@@ -701,7 +708,13 @@ void try_shell_ex(char **argv,int exitsuccess, BOOL throw_ok) {
 	*argv++; // the first arg is the command
 
 
-	concat_args_and_quote(argv,&cmdstr,&cmdlen,&cmdend,&cmdsize);
+	dprintf("try_shell_ex calling c_a_a_q");
+	if(!concat_args_and_quote(argv,&originalPtr,&cmdstr,&cmdlen,&cmdend,&cmdsize))
+	{
+		errno = ENOMEM;
+		heap_free(originalPtr);
+		return;
+	}
 
 	*cmdend = 0;
 
@@ -725,7 +738,7 @@ void try_shell_ex(char **argv,int exitsuccess, BOOL throw_ok) {
 			ExitProcess(0);
 		errno = 0;
 
-		heap_free(cmdstr-1);
+		heap_free(originalPtr);
 		return;
 	}
 	if (throw_ok) { 
@@ -741,7 +754,7 @@ void try_shell_ex(char **argv,int exitsuccess, BOOL throw_ok) {
 		stderror(ERR_SYSTEM,err2,cmdstr);
 	}
 
-	heap_free(cmdstr-1);
+	heap_free(originalPtr);
 	restore_path(ptr);
 
 	errno = ENOEXEC;
@@ -762,7 +775,7 @@ int nt_try_fast_exec(struct command *t) {
     register char *f;
 	register struct varent *v;
 	register int hashval,i;
-	register bool slash;
+	register int slash;
 	int rc;
 	Char *vp;
 	Char   *blk[2];
@@ -773,6 +786,12 @@ int nt_try_fast_exec(struct command *t) {
 
 	blk[0] = t->t_dcom[0];
 	blk[1] = 0;
+
+    // don't do backtick
+    if(Strchr(t->t_dcom[0],'`') )
+        return 1;
+
+
 	gflag = 0, tglob(blk);
 	if (gflag) {
 		pv = globall(blk);
@@ -873,8 +892,9 @@ int nt_texec(char *prog, char**args ) {
     DWORD type=0;
 	DWORD dwCreationflags;
 	unsigned int priority;
-	char *argv0, *savepath;
-	char *cmdstr,*cmdend ,*cmdstr_save;
+	char *argv0, *savepath = NULL;
+	char *cmdstr,*cmdend ;
+	char *originalPtr = NULL;
 	unsigned int cmdsize,cmdlen;
     char *p2;
 	char **savedargs;
@@ -887,8 +907,7 @@ int nt_texec(char *prog, char**args ) {
 	savedargs = args;
 
 	/* MUST FREE !! */
-	cmdstr= heap_alloc(MAX_PATH<<2);
-	cmdstr_save = cmdstr;
+	originalPtr = cmdstr= heap_alloc(MAX_PATH<<2);
 	cmdsize = MAX_PATH<<2;
 
 	is_winnt = (gdwPlatform != VER_PLATFORM_WIN32_WINDOWS);
@@ -904,6 +923,7 @@ int nt_texec(char *prog, char**args ) {
 		 // If not quoted, skip initial character we left for quote
 		*cmdstr = 'A';
 		cmdstr++; 
+		cmdsize--;
 	}
 	*p2 = 0; 
 	cmdend = p2;
@@ -937,7 +957,14 @@ int nt_texec(char *prog, char**args ) {
 
 	*args++; // the first arg is the command
 
-	concat_args_and_quote(args,&cmdstr,&cmdlen,&cmdend,&cmdsize);
+	dprintf("nt_texec calling c_a_a_q");
+	if(concat_args_and_quote(args,&originalPtr,&cmdstr,&cmdlen,&cmdend,&cmdsize) == NULL)
+	{
+		retval = 1;
+		errno  = ENOMEM;
+		heap_free(originalPtr);
+		goto free_mem;
+	}
 
 	*cmdend = 0;
 
@@ -982,10 +1009,10 @@ int nt_texec(char *prog, char**args ) {
 			retries++;
 		}while(retries < 3);
 	}
-re_cp:
-	dprintf("cmdstr %s\n",cmdstr);
-
 	savepath = fix_path_for_child();
+re_cp:
+	dprintf("nt_texec cmdstr %s\n",cmdstr);
+
 
 	if (!CreateProcess(argv0,
 					   cmdstr,
@@ -1012,7 +1039,6 @@ re_cp:
 			goto re_cp;
 		}
 		retval = 1;
-		goto cleanup;
 	}
 	else{
 		int gui_app ;
@@ -1024,25 +1050,25 @@ re_cp:
 			gui_app=0;
 		else
 			gui_app= is_gui(argv0);
-		
+
 		if(!gui_app) {
 			WaitForSingleObject(pi.hProcess,INFINITE);
 			(void)GetExitCodeProcess(pi.hProcess,&exitcode);
 			set(STRstatus, putn(exitcode), VAR_READWRITE);
 		}
 		retval = 0;
+		CloseHandle(pi.hProcess);
+		CloseHandle(pi.hThread);
 	}
-cleanup:
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
 free_mem:
 	CloseHandle(si.hStdInput);
 	CloseHandle(si.hStdOutput);
 	CloseHandle(si.hStdError);
 
-	restore_path(savepath);
+    if(savepath)
+        restore_path(savepath);
 
-	heap_free(cmdstr_save);
+	heap_free(originalPtr);
 	if (argv0)
 		heap_free(argv0);
 	return retval;
@@ -1125,7 +1151,7 @@ BOOL is_nt_executable(char *path,char *extension) {
 int
 executable(dir, name, dir_ok)
     Char   *dir, *name;
-    bool    dir_ok;
+    int    dir_ok;
 {
 	struct stat stbuf;
 	Char    path[MAXPATHLEN + 1];

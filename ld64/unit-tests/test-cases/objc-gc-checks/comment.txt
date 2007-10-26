@@ -1,0 +1,1 @@
+Validate that the linker catches illegal combintations of .o files compiled with different GC settings

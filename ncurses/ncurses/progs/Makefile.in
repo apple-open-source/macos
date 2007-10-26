@@ -1,6 +1,6 @@
-# $Id: Makefile.in,v 1.62 2003/11/01 22:45:57 tom Exp $
+# $Id: Makefile.in,v 1.65 2005/09/25 00:42:08 tom Exp $
 ##############################################################################
-# Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.                #
+# Copyright (c) 1998-2003,2005 Free Software Foundation, Inc.                #
 #                                                                            #
 # Permission is hereby granted, free of charge, to any person obtaining a    #
 # copy of this software and associated documentation files (the "Software"), #
@@ -53,6 +53,7 @@ o		= .@OBJEXT@
 
 MODEL		= ../@DFT_OBJ_SUBDIR@
 DESTDIR		= @DESTDIR@
+top_srcdir	= @top_srcdir@
 srcdir		= @srcdir@
 prefix		= @prefix@
 exec_prefix	= @exec_prefix@
@@ -77,31 +78,31 @@ LN_S		= @LN_S@
 
 CC		= @CC@
 CPP		= @CPP@
-CFLAGS		= @CFLAGS@
+CFLAGS		= @CFLAGS@ -mdynamic-no-pic
 
-INCDIR		= $(srcdir)/../include
+INCDIR		= $(top_srcdir)/include
 CPPFLAGS	= -I../progs -I$(srcdir) -DHAVE_CONFIG_H @CPPFLAGS@
 
-CC_FLAGS		= $(CPPFLAGS) $(CFLAGS)
+CCFLAGS		= $(CPPFLAGS) $(CFLAGS)
 
-CFLAGS_LIBTOOL	= $(CC_FLAGS)
-CFLAGS_NORMAL	= $(CC_FLAGS)
-CFLAGS_DEBUG	= $(CC_FLAGS) @CC_G_OPT@ -DTRACE
-CFLAGS_PROFILE	= $(CC_FLAGS) -pg
-CFLAGS_SHARED	= $(CC_FLAGS) @CC_SHARED_OPTS@
+CFLAGS_LIBTOOL	= $(CCFLAGS)
+CFLAGS_NORMAL	= $(CCFLAGS)
+CFLAGS_DEBUG	= $(CCFLAGS) @CC_G_OPT@ -DTRACE
+CFLAGS_PROFILE	= $(CCFLAGS) -pg
+CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
 
 CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
 
 LD		= @LD@
 LINK		= @LINK_PROGS@ $(LIBTOOL_LINK) $(CC)
-LD_FLAGS		= @EXTRA_LDFLAGS@ \
-		$(shell $(SRCROOT)/ldfix @PROG_ARGS@) @LDFLAGS@ @LD_MODEL@ @LIBS@ @EXTRA_LIBS@
+LDFLAGS		= @EXTRA_LDFLAGS@ \
+		@TINFO_ARGS@ @LDFLAGS@ @LD_MODEL@ @LIBS@
 
-LDFLAGS_LIBTOOL	= $(LD_FLAGS) $(CFLAGS_LIBTOOL)
-LDFLAGS_NORMAL	= $(LD_FLAGS) $(CFLAGS_NORMAL)
-LDFLAGS_DEBUG	= $(LD_FLAGS) $(CFLAGS_DEBUG)
-LDFLAGS_PROFILE	= $(LD_FLAGS) $(CFLAGS_PROFILE) 
-LDFLAGS_SHARED	= $(LD_FLAGS) $(CFLAGS_SHARED) @LD_SHARED_OPTS@
+LDFLAGS_LIBTOOL	= $(LDFLAGS) $(CFLAGS_LIBTOOL)
+LDFLAGS_NORMAL	= $(LDFLAGS) $(CFLAGS_NORMAL)
+LDFLAGS_DEBUG	= $(LDFLAGS) $(CFLAGS_DEBUG)
+LDFLAGS_PROFILE	= $(LDFLAGS) $(CFLAGS_PROFILE) 
+LDFLAGS_SHARED	= $(LDFLAGS) $(CFLAGS_SHARED) @LD_SHARED_OPTS@
 
 LDFLAGS_DEFAULT	= $(LDFLAGS_@DFT_UPR_MODEL@)
 
@@ -122,6 +123,12 @@ TESTPROGS = mvcur$x tctest$x hardscroll$x hashmap$x
 
 # Default library, for linking applications
 DEPS_CURSES = ../lib/@LIB_PREFIX@ncurses@DFT_DEP_SUFFIX@
+
+HEADER_DEPS	= \
+	../include/curses.h \
+	$(INCDIR)/term_entry.h \
+	$(INCDIR)/tic.h \
+	$(INCDIR)/nc_alloc.h
 
 ################################################################################
 all:		$(AUTO_SRC) $(PROGS)

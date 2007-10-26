@@ -252,7 +252,7 @@ synchnet(int f)
 	int i, j = 0;
 	char rbuf[PKTSIZE];
 	struct sockaddr_in from;
-	int fromlen;
+	socklen_t fromlen;
 
 	while (1) {
 		(void) ioctl(f, FIONREAD, &i);

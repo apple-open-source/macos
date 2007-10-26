@@ -1,6 +1,7 @@
 /* Scheme/Guile language support routines for GDB, the GNU debugger.
-   Copyright 1995, 1996, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+
+   Copyright 1995, 1996, 1998, 1999, 2000, 2001, 2005 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -29,11 +30,7 @@
 #include "scm-lang.h"
 #include "valprint.h"
 #include "gdbcore.h"
-
-/* FIXME: Should be in a header file that we import. */
-extern int c_val_print (struct type *, char *, int, CORE_ADDR,
-			struct ui_file *, int, int, int,
-			enum val_prettyprint);
+#include "c-lang.h"
 
 static void scm_ipruk (char *, LONGEST, struct ui_file *);
 static void scm_scmlist_print (LONGEST, struct ui_file *, int, int,
@@ -223,7 +220,7 @@ taloop:
 	    int i;
 	    int done = 0;
 	    int buf_size;
-	    char buffer[64];
+	    gdb_byte buffer[64];
 	    int truncate = print_max && len > (int) print_max;
 	    if (truncate)
 	      len = print_max;
@@ -251,8 +248,8 @@ taloop:
 	  {
 	    int len = SCM_LENGTH (svalue);
 
-	    char *str = (char *) alloca (len);
-	    read_memory (SCM_CDR (svalue), str, len + 1);
+	    char *str = alloca (len);
+	    read_memory (SCM_CDR (svalue), (gdb_byte *) str, len + 1);
 	    /* Should handle weird characters FIXME */
 	    str[len] = '\0';
 	    fputs_filtered (str, stream);
@@ -290,8 +287,9 @@ taloop:
 	      {
 		result
 		  = scm_apply (hook,
-			scm_listify (exp, port, (writing ? BOOL_T : BOOL_F),
-				     SCM_UNDEFINED),
+			       scm_listify (exp, port, 
+					    (writing ? BOOL_T : BOOL_F),
+					    SCM_UNDEFINED),
 			       EOL);
 		if (result == BOOL_F)
 		  goto punk;
@@ -338,7 +336,9 @@ taloop:
 	  break;
 	case tc7_port:
 	  i = PTOBNUM (exp);
-	  if (i < scm_numptob && scm_ptobs[i].print && (scm_ptobs[i].print) (exp, port, writing))
+	  if (i < scm_numptob 
+	      && scm_ptobs[i].print 
+	      && (scm_ptobs[i].print) (exp, port, writing))
 	    break;
 	  goto punk;
 	case tc7_smob:
@@ -359,9 +359,10 @@ taloop:
 }
 
 int
-scm_val_print (struct type *type, char *valaddr, int embedded_offset,
-	       CORE_ADDR address, struct ui_file *stream, int format,
-	       int deref_ref, int recurse, enum val_prettyprint pretty)
+scm_val_print (struct type *type, const gdb_byte *valaddr,
+	       int embedded_offset, CORE_ADDR address,
+	       struct ui_file *stream, int format, int deref_ref,
+	       int recurse, enum val_prettyprint pretty)
 {
   if (is_scmvalue_type (type))
     {
@@ -390,6 +391,5 @@ int
 scm_value_print (struct value *val, struct ui_file *stream, int format,
 		 enum val_prettyprint pretty)
 {
-  return (val_print (VALUE_TYPE (val), VALUE_CONTENTS (val), 0,
-		     VALUE_ADDRESS (val), stream, format, 1, 0, pretty));
+  return (common_val_print (val, stream, format, 1, 0, pretty));
 }

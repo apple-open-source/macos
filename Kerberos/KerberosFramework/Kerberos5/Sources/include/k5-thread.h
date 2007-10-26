@@ -1,7 +1,7 @@
 /*
  * include/k5-thread.h
  *
- * Copyright 2004 by the Massachusetts Institute of Technology.
+ * Copyright 2004,2005,2006 by the Massachusetts Institute of Technology.
  * All Rights Reserved.
  *
  * Export of this software from the United States of America may
@@ -31,6 +31,12 @@
 #define K5_THREAD_H
 
 #include "autoconf.h"
+#ifndef KRB5_CALLCONV
+# define KRB5_CALLCONV
+#endif
+#ifndef KRB5_CALLCONV_C
+# define KRB5_CALLCONV_C
+#endif
 
 /* Interface (tentative):
 
@@ -148,13 +154,13 @@
 #ifdef DEBUG_THREADS_LOC
 typedef struct {
     const char *filename;
-    short lineno;
+    int lineno;
 } k5_debug_loc;
 #define K5_DEBUG_LOC_INIT	{ __FILE__, __LINE__ }
 #if __GNUC__ >= 2
 #define K5_DEBUG_LOC		(__extension__ (k5_debug_loc)K5_DEBUG_LOC_INIT)
 #else
-static inline k5_debug_loc k5_debug_make_loc(const char *file, short line)
+static inline k5_debug_loc k5_debug_make_loc(const char *file, int line)
 {
     k5_debug_loc l;
     l.filename = file;
@@ -193,13 +199,22 @@ typedef char k5_debug_loc;
 #ifdef HAVE_STDINT_H
 # include <stdint.h>
 #endif
+/* for memset */
+#include <string.h>
+/* for uint64_t */
 #include <inttypes.h>
-typedef uint64_t k5_debug_timediff_t;
+typedef uint64_t k5_debug_timediff_t; /* or long double */
 typedef struct timeval k5_debug_time_t;
 static inline k5_debug_timediff_t
 timediff(k5_debug_time_t t2, k5_debug_time_t t1)
 {
     return (t2.tv_sec - t1.tv_sec) * 1000000 + (t2.tv_usec - t1.tv_usec);
+}
+static inline k5_debug_time_t get_current_time(void)
+{
+    struct timeval tv;
+    if (gettimeofday(&tv,0) < 0) { tv.tv_sec = tv.tv_usec = 0; }
+    return tv;
 }
 struct k5_timediff_stats {
     k5_debug_timediff_t valmin, valmax, valsum, valsqsum;
@@ -209,10 +224,20 @@ typedef struct {
     k5_debug_time_t time_acquired, time_created;
     struct k5_timediff_stats lockwait, lockheld;
 } k5_debug_mutex_stats;
-#define k5_mutex_init_stats(S) \
-	(memset((S), 0, sizeof(struct k5_debug_mutex_stats)), 0)
+#define k5_mutex_init_stats(S)					\
+	(memset((S), 0, sizeof(k5_debug_mutex_stats)),	\
+	 (S)->time_created = get_current_time(),		\
+	 0)
 #define k5_mutex_finish_init_stats(S) 	(0)
 #define K5_MUTEX_STATS_INIT	{ 0, {0}, {0}, {0}, {0} }
+typedef k5_debug_time_t k5_mutex_stats_tmp;
+#define k5_mutex_stats_start()	get_current_time()
+void KRB5_CALLCONV krb5int_mutex_lock_update_stats(k5_debug_mutex_stats *m,
+						   k5_mutex_stats_tmp start);
+void KRB5_CALLCONV krb5int_mutex_unlock_update_stats(k5_debug_mutex_stats *m);
+#define k5_mutex_lock_update_stats	krb5int_mutex_lock_update_stats
+#define k5_mutex_unlock_update_stats	krb5int_mutex_unlock_update_stats
+void KRB5_CALLCONV krb5int_mutex_report_stats(/* k5_mutex_t *m */);
 
 #else
 
@@ -220,6 +245,26 @@ typedef char k5_debug_mutex_stats;
 #define k5_mutex_init_stats(S)		(*(S) = 's', 0)
 #define k5_mutex_finish_init_stats(S)	(0)
 #define K5_MUTEX_STATS_INIT		's'
+typedef int k5_mutex_stats_tmp;
+#define k5_mutex_stats_start()		(0)
+#ifdef __GNUC__
+static inline void
+k5_mutex_lock_update_stats(k5_debug_mutex_stats *m, k5_mutex_stats_tmp t)
+{
+}
+#else
+# define k5_mutex_lock_update_stats(M,S)	(S)
+#endif
+#define k5_mutex_unlock_update_stats(M)	(*(M) = 's')
+
+/* If statistics tracking isn't enabled, these functions don't actually
+   do anything.  Declare anyways so we can do type checking etc.  */
+void KRB5_CALLCONV krb5int_mutex_lock_update_stats(k5_debug_mutex_stats *m,
+						   k5_mutex_stats_tmp start);
+void KRB5_CALLCONV krb5int_mutex_unlock_update_stats(k5_debug_mutex_stats *m);
+void KRB5_CALLCONV krb5int_mutex_report_stats(/* k5_mutex_t *m */);
+
+#define krb5int_mutex_report_stats(M)	((M)->stats = 'd')
 
 #endif
 
@@ -343,9 +388,13 @@ typedef k5_os_nothread_mutex k5_os_mutex;
 
    Linux: Stub mutex routines exist, but pthread_once does not.
 
-   Solaris: In libc there's a pthread_once that doesn't seem
-   to do anything.  Bleah.  But pthread_mutexattr_setrobust_np
-   is defined only in libpthread.
+   Solaris: In libc there's a pthread_once that doesn't seem to do
+   anything.  Bleah.  But pthread_mutexattr_setrobust_np is defined
+   only in libpthread.  However, some version of GNU libc (Red Hat's
+   Fedora Core 5, reportedly) seems to have that function, but no
+   declaration, so we'd have to declare it in order to test for its
+   address.  We now have tests to see if pthread_once actually works,
+   so stick with that for now.
 
    IRIX 6.5 stub pthread support in libc is really annoying.  The
    pthread_mutex_lock function returns ENOSYS for a program not linked
@@ -369,17 +418,8 @@ typedef k5_os_nothread_mutex k5_os_mutex;
 # pragma weak pthread_mutex_init
 # pragma weak pthread_self
 # pragma weak pthread_equal
-# ifdef HAVE_PTHREAD_MUTEXATTR_SETROBUST_NP_IN_THREAD_LIB
-#  pragma weak pthread_mutexattr_setrobust_np
-# endif
-# if !defined HAVE_PTHREAD_ONCE
-#  define K5_PTHREADS_LOADED	(&pthread_once != 0)
-# elif !defined HAVE_PTHREAD_MUTEXATTR_SETROBUST_NP \
-	&& defined HAVE_PTHREAD_MUTEXATTR_SETROBUST_NP_IN_THREAD_LIB
-#  define K5_PTHREADS_LOADED	(&pthread_mutexattr_setrobust_np != 0)
-# else
-#  define K5_PTHREADS_LOADED	(1)
-# endif
+extern int krb5int_pthread_loaded(void);
+# define K5_PTHREADS_LOADED	(krb5int_pthread_loaded())
 #else
 /* no pragma weak support */
 # define K5_PTHREADS_LOADED	(1)
@@ -400,10 +440,9 @@ typedef k5_os_nothread_mutex k5_os_mutex;
 #   error "Weak reference support is required"
 #  endif
 # endif
-# define USE_PTHREAD_LOCK_ONLY_IF_LOADED
 #endif
 
-#if !defined(HAVE_PTHREAD_MUTEX_LOCK) && !defined(USE_PTHREAD_LOCK_ONLY_IF_LOADED)
+#ifdef HAVE_PRAGMA_WEAK_REF
 # define USE_PTHREAD_LOCK_ONLY_IF_LOADED
 #endif
 
@@ -672,31 +711,37 @@ static inline int k5_mutex_finish_init_1(k5_mutex_t *m, k5_debug_loc l)
 #define k5_mutex_finish_init(M)	k5_mutex_finish_init_1((M), K5_DEBUG_LOC)
 #define k5_mutex_destroy(M)			\
 	(k5_os_mutex_assert_unlocked(&(M)->os),	\
+	 krb5int_mutex_report_stats(M),		\
 	 k5_mutex_lock(M), (M)->loc_last = K5_DEBUG_LOC, k5_mutex_unlock(M), \
 	 k5_os_mutex_destroy(&(M)->os))
 #ifdef __GNUC__
-#define k5_mutex_lock(M)				\
-	__extension__ ({				\
-	    int _err = 0;				\
-	    k5_mutex_t *_m = (M);			\
-	    _err = k5_os_mutex_lock(&_m->os);		\
-	    if (_err == 0) _m->loc_last = K5_DEBUG_LOC;	\
-	    _err;					\
+#define k5_mutex_lock(M)						 \
+	__extension__ ({						 \
+	    int _err = 0;						 \
+	    k5_mutex_stats_tmp _stats = k5_mutex_stats_start();		 \
+	    k5_mutex_t *_m = (M);					 \
+	    _err = k5_os_mutex_lock(&_m->os);				 \
+	    if (_err == 0) _m->loc_last = K5_DEBUG_LOC;			 \
+	    if (_err == 0) k5_mutex_lock_update_stats(&_m->stats, _stats); \
+	    _err;							 \
 	})
 #else
 static inline int k5_mutex_lock_1(k5_mutex_t *m, k5_debug_loc l)
 {
     int err = 0;
+    k5_mutex_stats_tmp stats = k5_mutex_stats_start();
     err = k5_os_mutex_lock(&m->os);
     if (err)
 	return err;
     m->loc_last = l;
+    k5_mutex_lock_update_stats(&m->stats, stats);
     return err;
 }
 #define k5_mutex_lock(M)	k5_mutex_lock_1(M, K5_DEBUG_LOC)
 #endif
 #define k5_mutex_unlock(M)				\
 	(k5_mutex_assert_locked(M),			\
+	 k5_mutex_unlock_update_stats(&(M)->stats),	\
 	 (M)->loc_last = K5_DEBUG_LOC,			\
 	 k5_os_mutex_unlock(&(M)->os))
 
@@ -727,5 +772,26 @@ extern int k5_key_register(k5_key_t, void (*)(void *));
 extern void *k5_getspecific(k5_key_t);
 extern int k5_setspecific(k5_key_t, void *);
 extern int k5_key_delete(k5_key_t);
+
+extern int  KRB5_CALLCONV krb5int_mutex_alloc  (k5_mutex_t **);
+extern void KRB5_CALLCONV krb5int_mutex_free   (k5_mutex_t *);
+extern int  KRB5_CALLCONV krb5int_mutex_lock   (k5_mutex_t *);
+extern int  KRB5_CALLCONV krb5int_mutex_unlock (k5_mutex_t *);
+
+/* In time, many of the definitions above should move into the support
+   library, and this file should be greatly simplified.  For type
+   definitions, that'll take some work, since other data structures
+   incorporate mutexes directly, and our mutex type is dependent on
+   configuration options and system attributes.  For most functions,
+   though, it should be relatively easy.
+
+   For now, plugins should use the exported functions, and not the
+   above macros, and use krb5int_mutex_alloc for allocations.  */
+#ifdef PLUGIN
+#undef k5_mutex_lock
+#define k5_mutex_lock krb5int_mutex_lock
+#undef k5_mutex_unlock
+#define k5_mutex_unlock krb5int_mutex_unlock
+#endif
 
 #endif /* multiple inclusion? */

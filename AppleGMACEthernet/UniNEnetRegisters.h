@@ -37,7 +37,7 @@
 #define TX_DESC_PER_INT         32
 
 #define MAX_SEGS_PER_TX_MBUF	32		// maximum number of segments per Transmit mbuf
-#define NETWORK_BUFSIZE         ((kIOEthernetMaxPacketSize + 7) & ~7)
+#define NETWORK_BUFSIZE			((kIOEthernetMaxPacketSize + 4 + 7) & ~7)	// add 4 for VLAN
 
 #define TRANSMIT_QUEUE_SIZE     256		// Overridden by IORegistry value ???
 
@@ -396,7 +396,7 @@
 
 #define kSlotTime_default		0x0040
 #define kMinFrameSize_default	0x0040
-#define kMaxFrameSize_default	0x05EE	// 1518 = 14 address + 1500 data + 4 FCS
+#define kMaxFrameSize_default	1522	// 1500 data + 12 address + 2 pkt type + 4 FCS + 4 VLAN
 
 #define kPASize_default			0x07
 #define kJamSize_default		0x04
@@ -415,7 +415,7 @@
 #define kMIFBitBangFrame_Output_TA_MSB		0x00020000	// Turn Around MSB
 #define kMIFBitBangFrame_Output_TA_LSB		0x00010000	// Turn Around LSB
 
-#define kMIFConfiguration_PHY_Select	0x0001
+#define kMIFConfiguration_PHY_Select	0x0001			// register 0x6210
 #define kMIFConfiguration_Poll_Enable	0x0002
 #define kMIFConfiguration_BB_Mode		0x0004
 #define kMIFConfiguration_MDI_0			0x0010
@@ -453,15 +453,6 @@
 #define kSerialinkControl_DisableLoopback	0x01
 #define kSerialinkControl_EnableSyncDet		0x02
 #define kSerialinkControl_LockRefClk		0x04
-
-
-	/* Rx flags field:	*/
-
-#define kGEMRxDescFlags_HashValueBit	0x00001000
-#define kGEMRxDescFlags_HashValueMask	0x0FFFF000
-#define kGEMRxDescFlags_HashPass		0x10000000
-#define kGEMRxDescFlags_AlternateAddr	0x20000000
-#define kGEMRxDescFlags_BadCRC			0x40000000
 
 
 		/* Rx descriptor:	*/

@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -36,14 +32,32 @@
 #include	"FEATURE/options"
 #include	<cdt.h>
 #include	<history.h>
-#include	<env.h>
 #include	"fault.h"
 #include	"argnod.h"
+#include	"name.h"
+#define _SH_PRIVATE
+#include	<shcmd.h>
+#undef _SH_PRIVATE
+
+#ifndef pointerof
+#define pointerof(x)		((void*)((char*)0+(x)))
+#endif
+
+#define	env_change()		(++ast.env_serial)
+#if SHOPT_ENV
+#   include	<env.h>
+#else
+#   define Env_t		void
+#   define sh_envput(e,p)	env_change()
+#   define env_delete(e,p)	env_change()
+#endif
 
 /*
  * note that the first few fields have to be the same as for
  * Shscoped_t in <shell.h>
  */
+
+
 struct sh_scoped
 {
 	struct sh_scoped *prevst;	/* pointer to previous state */
@@ -61,13 +75,13 @@ struct sh_scoped
 	int		execbrk;
 	int		loopcnt;
 	int		firstline;
-	long		optindex;
-	long		optnum;
-	long		tmout;		/* value for TMOUT */ 
+	int32_t		optindex;
+	int32_t		optnum;
+	int32_t		tmout;		/* value for TMOUT */ 
 	short		optchar;
 	short		opterror;
 	int		ioset;
-	short		trapmax;
+	unsigned short	trapmax;
 	char		*trap[SH_DEBUGTRAP+1];
 	char		**trapcom;
 	char		**otrapcom;
@@ -76,6 +90,7 @@ struct sh_scoped
 
 struct limits
 {
+	long		arg_max;	/* max arg+env exec() size */
 	int		open_max;	/* maximum number of file descriptors */
 	int		clk_tck;	/* number of ticks per second */
 	int		child_max;	/* maxumum number of children */
@@ -124,9 +139,10 @@ struct limits
 	pid_t		pid;		/* process id of shell */ \
 	pid_t		bckpid;		/* background process id */ \
 	pid_t		cpid; \
-	long		ppid;		/* parent process id of shell */ \
+	int32_t		ppid;		/* parent process id of shell */ \
 	int		topfd; \
 	int		sigmax;		/* maximum number of signals */ \
+	int		savesig; \
 	unsigned char	*sigflag;	/* pointer to signal states */ \
 	char		intrap; \
 	char		login_sh; \
@@ -141,13 +157,16 @@ struct limits
 	int		*outpipe;	/* output pipe pointer */ \
 	int		cpipe[2]; \
 	int		coutpipe; \
+	int		inuse_bits; \
 	struct argnod	*envlist; \
 	struct dolnod	*arglist; \
 	int		fn_depth; \
 	int		dot_depth; \
+	int		hist_depth; \
 	int		xargmin; \
 	int		xargmax; \
 	int		xargexit; \
+	mode_t		mask; \
 	long		nforks; \
 	Env_t		*env; \
 	void		*init_context; \
@@ -166,6 +185,7 @@ struct limits
 	struct checkpt	checkbase; \
 	Shinit_f	userinit; \
 	Shbltin_f	bltinfun; \
+	Shbltin_t	bltindata; \
 	Shwait_f	waitevent; \
 	char		*cur_line; \
 	char		*rcfile; \
@@ -177,7 +197,11 @@ struct limits
 	History_t	*hist_ptr; \
 	char		universe; \
 	void		*jmpbuffer; \
-	char		ifstable[256];
+	void		*mktype; \
+	Sfio_t		*strbuf; \
+	Dt_t		*last_root; \
+	char		ifstable[256]; \
+	Shopt_t		offoptions;
 
 #include	<shell.h>
 
@@ -191,6 +215,10 @@ struct limits
 
 #ifndef SH_DICT
 #define SH_DICT		(void*)e_dict
+#endif
+
+#ifndef SH_CMDLIB_DIR
+#define SH_CMDLIB_DIR	"/opt/ast/bin"
 #endif
 
 /* states */
@@ -213,11 +241,26 @@ struct limits
 #define SH_BASH			41
 #define SH_BRACEEXPAND		42
 #define SH_POSIX		46
+#define SH_MULTILINE    	47
+
 #define SH_NOPROFILE		78
+#define SH_NOUSRPROFILE		79
 #define SH_LOGIN_SHELL		67
 #define SH_COMMANDLINE		0x100
 #define SH_BASHEXTRA		0x200
 #define SH_BASHOPT		0x400
+
+#define SH_ID			"ksh"	/* ksh id */
+#define SH_STD			"sh"	/* standard sh id */
+
+/* defines for sh_type() */
+
+#define SH_TYPE_SH		001
+#define SH_TYPE_KSH		002
+#define SH_TYPE_BASH		004
+#define SH_TYPE_LOGIN		010
+#define SH_TYPE_PROFILE		020
+#define SH_TYPE_RESTRICTED	040
 
 #if SHOPT_BASH
 #   ifndef SHOPT_HISTEXPAND
@@ -250,7 +293,6 @@ struct limits
 #   define SH_SHIFT_VERBOSE	75
 #   define SH_SOURCEPATH	76
 #   define SH_XPG_ECHO		77
-#   define SH_NORC		79
 #endif
 
 #if SHOPT_HISTEXPAND
@@ -261,6 +303,13 @@ struct limits
 #   define SH_HISTVERIFY	62
 #endif
 
+#ifndef PIPE_BUF
+#   define PIPE_BUF		512
+#endif
+
+#define MATCH_MAX		64
+
+extern int		sh_addlib(void*);
 extern void 		*sh_argopen(Shell_t*);
 extern Namval_t		*sh_assignok(Namval_t*,int);
 extern char		*sh_checkid(char*,char*);
@@ -268,15 +317,19 @@ extern int		sh_debug(const char*,const char*,const char*,char *const[],int);
 extern int 		sh_echolist(Sfio_t*, int, char**);
 extern struct argnod	*sh_endword(int);
 extern char 		**sh_envgen(void);
+#if SHOPT_ENV
 extern void 		sh_envput(Env_t*, Namval_t*);
+#endif
 extern void 		sh_envnolocal(Namval_t*,void*);
 extern Sfdouble_t	sh_arith(const char*);
 extern void		*sh_arithcomp(char*);
 extern pid_t 		sh_fork(int,int*);
+extern pid_t		_sh_fork(pid_t, int ,int*);
 extern char 		*sh_mactrim(char*,int);
 extern int 		sh_macexpand(struct argnod*,struct argnod**,int);
 extern void 		sh_machere(Sfio_t*, Sfio_t*, char*);
 extern void 		*sh_macopen(Shell_t*);
+extern char 		*sh_macpat(struct argnod*,int);
 extern char 		*sh_mactry(char*);
 extern void		sh_printopts(Shopt_t,int,Shopt_t*);
 extern int 		sh_readline(Shell_t*,char**,int,int,long);
@@ -290,6 +343,7 @@ extern char 		*sh_substitute(const char*,const char*,char*);
 extern const char	*_sh_translate(const char*);
 extern int		sh_trace(char*[],int);
 extern void		sh_trim(char*);
+extern int		sh_type(const char*);
 extern void		sh_utol(const char*, char*);
 extern int 		sh_whence(char**,int);
 
@@ -314,21 +368,17 @@ extern int 		sh_whence(char**,int);
 #define	sh_onstate(x)	(sh.st.states |= sh_state(x))
 #define	sh_offstate(x)	(sh.st.states &= ~sh_state(x))
 #define	sh_getstate()	(sh.st.states)
-#define	sh_setstate(x)	(sh.st.states = x)
+#define	sh_setstate(x)	(sh.st.states = (x))
 
 #define sh_sigcheck() do{if(sh.trapnote&SH_SIGSET)sh_exit(SH_EXITSIG);} while(0)
 
-extern time_t		sh_mailchk;
+extern int32_t		sh_mailchk;
 extern const char	e_dict[];
 
-/* flags for sh_printopts mode parameter
-   PRINT_VERBOSE: print "option on|off" format, "set -o option" otherwise
-   PRINT_ALL: also print unset options as "set +o option"
-   PRINT_NO_HEADER: don't print "Current option settings"
-   PRINT_SHOPT: use "shopt -s|-u" instead of "set -o|+o"
-*/
-#define PRINT_VERBOSE	0x01
-#define PRINT_ALL	0x02
-#define PRINT_NO_HEADER	0x04
-#define PRINT_SHOPT	0x08
+/* sh_printopts() mode flags -- set --[no]option by default */
 
+#define PRINT_VERBOSE	0x01	/* option on|off list		*/
+#define PRINT_ALL	0x02	/* list unset iptions too	*/
+#define PRINT_NO_HEADER	0x04	/* omit listing header		*/
+#define PRINT_SHOPT	0x08	/* shopt -s|-u			*/
+#define PRINT_TABLE	0x10	/* table of all options		*/

@@ -173,5 +173,3 @@
 4	belong	0x0000007d		GLF_BINARY_MSB_FIRST
 # GLS is OpenGL stream encoding; GLS is the successor of GLF
 0	string	glsBeginGLS(		GLS_TEXT
-4	belong	0x10000000		GLS_BINARY_LSB_FIRST
-4	belong	0x00000010		GLS_BINARY_MSB_FIRST

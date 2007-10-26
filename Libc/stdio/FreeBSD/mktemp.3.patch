@@ -1,0 +1,80 @@
+--- mktemp.3	2004-11-25 11:38:35.000000000 -0800
++++ mktemp.3.edit	2006-07-12 11:24:49.000000000 -0700
+@@ -36,20 +36,33 @@
+ .Dt MKTEMP 3
+ .Os
+ .Sh NAME
+-.Nm mktemp
++.Nm mkdtemp ,
++.Nm mkstemp ,
++.Nm mktemp ,
++.Nm mktemps
+ .Nd make temporary file name (unique)
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+ .In unistd.h
+ .Ft char *
+-.Fn mktemp "char *template"
++.Fo mkdtemp
++.Fa "char *template"
++.Fc
+ .Ft int
+-.Fn mkstemp "char *template"
++.Fo mkstemps
++.Fa "char *template"
++.Fa "int suffixlen"
++.Fc
++.In stdlib.h
+ .Ft int
+-.Fn mkstemps "char *template" "int suffixlen"
++.Fo mkstemp
++.Fa "char *template"
++.Fc
+ .Ft char *
+-.Fn mkdtemp "char *template"
++.Fo mktemp
++.Fa "char *template"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn mktemp
+@@ -137,7 +150,7 @@
+ .Pp
+ The
+ .Fn mkstemp ,
+-.Fn mkstemps
++.Fn mkstemps ,
+ and
+ .Fn mkdtemp
+ functions
+@@ -171,7 +184,7 @@
+ passes in a read-only string to
+ .Fn mktemp ,
+ .Fn mkstemp ,
+-.Fn mkstemps
++.Fn mkstemps ,
+ or
+ .Fn mkdtemp .
+ This is common with programs that were developed before
+@@ -226,12 +239,19 @@
+ You must provide your own locking around this and other consumers of the
+ .Xr arc4random 3
+ API.
++.Sh LEGACY SYNOPSIS
++.Fd #include <unistd.h>
++.Pp
++The include file
++.In unistd.h
++is necessary and sufficient for all functions.
+ .Sh SEE ALSO
+ .Xr chmod 2 ,
+ .Xr getpid 2 ,
+ .Xr mkdir 2 ,
+ .Xr open 2 ,
+-.Xr stat 2
++.Xr stat 2 ,
++.Xr compat 5
+ .Sh HISTORY
+ A
+ .Fn mktemp

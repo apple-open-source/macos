@@ -21,6 +21,7 @@
 #include "frame.h"
 #include "value.h"
 #include "block.h"
+#include "exceptions.h"
 #include "gdbtk-wrapper.h"
 
 /*
@@ -158,7 +159,7 @@ wrap_type_print (char *a)
   char *varstring = (*args)->args[1];
   struct ui_file *stream = (struct ui_file *) (*args)->args[2];
   int show = (int) (*args)->args[3];
-  type_print (VALUE_TYPE (val), varstring, stream, show);
+  type_print (value_type (val), varstring, stream, show);
   return 1;
 }
 
@@ -191,7 +192,7 @@ wrap_val_print (char *a)
 {
   struct gdb_wrapper_arguments **args = (struct gdb_wrapper_arguments **) a;
   struct type *type;
-  char *valaddr;
+  const gdb_byte *valaddr;
   CORE_ADDR address;
   struct ui_file *stream;
   int format;
@@ -200,7 +201,7 @@ wrap_val_print (char *a)
   enum val_prettyprint pretty;
 
   type = (struct type *) (*args)->args[0];
-  valaddr = (char *) (*args)->args[1];
+  valaddr = (gdb_byte *) (*args)->args[1];
   address = *(CORE_ADDR *) (*args)->args[2];
   stream = (struct ui_file *) (*args)->args[3];
   format = (int) (*args)->args[4];

@@ -1,0 +1,219 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1EF1AD607035FA500384C5C /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 08FB7796FE84155DC02AAC07 /* main.c */; settings = {ATTRIBUTES = (); }; };
+		A1EF1AD807035FA500384C5C /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F568D5030226ECBF019430C7 /* Kerberos.framework */; };
+		A1EF1ADD0703610100384C5C /* ErrorTestErrors.et in Sources */ = {isa = PBXBuildFile; fileRef = A1EF1A9F07035BD600384C5C /* ErrorTestErrors.et */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		A1EF1ADC07035FC500384C5C /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.et";
+			fileType = pattern.proxy;
+			isEditable = 1;
+			outputFiles = (
+				"${DERIVED_SOURCES_DIR}/${INPUT_FILE_BASE}.c",
+				"${DERIVED_SOURCES_DIR}/${INPUT_FILE_BASE}.h",
+			);
+			script = "/usr/bin/compile_et --etout \"${DERIVED_SOURCES_DIR}\" \"${INPUT_FILE_PATH}\"";
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXFileReference section */
+		08FB7796FE84155DC02AAC07 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		A108E7580A41ED35008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E7590A41ED35008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1EF1A9F07035BD600384C5C /* ErrorTestErrors.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = ErrorTestErrors.et; sourceTree = "<group>"; };
+		A1EF1ADA07035FA500384C5C /* ErrorTest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ErrorTest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F568D5030226ECBF019430C7 /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1EF1AD707035FA500384C5C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1EF1AD807035FA500384C5C /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* ErrorTest */ = {
+			isa = PBXGroup;
+			children = (
+				A108E7580A41ED35008545E5 /* Release.xcconfig */,
+				A108E7590A41ED35008545E5 /* Debug.xcconfig */,
+				08FB7795FE84155DC02AAC07 /* Source */,
+				A1EF1A9E07035BD600384C5C /* Resources */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+				F568D5030226ECBF019430C7 /* Kerberos.framework */,
+			);
+			name = ErrorTest;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7796FE84155DC02AAC07 /* main.c */,
+			);
+			name = Source;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1EF1ADA07035FA500384C5C /* ErrorTest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1EF1A9E07035BD600384C5C /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A1EF1A9F07035BD600384C5C /* ErrorTestErrors.et */,
+			);
+			name = Resources;
+			path = ../Resources;
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		A1EF1AD407035FA500384C5C /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		A1EF1AD307035FA500384C5C /* ErrorTest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A108E75A0A41ED35008545E5 /* Build configuration list for PBXNativeTarget "ErrorTest" */;
+			buildPhases = (
+				A1EF1AD407035FA500384C5C /* Headers */,
+				A1EF1AD507035FA500384C5C /* Sources */,
+				A1EF1AD707035FA500384C5C /* Frameworks */,
+				A1EF1AD907035FA500384C5C /* Rez */,
+			);
+			buildRules = (
+				A1EF1ADC07035FC500384C5C /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = ErrorTest;
+			productInstallPath = "$(HOME)/bin";
+			productName = ErrorTest;
+			productReference = A1EF1ADA07035FA500384C5C /* ErrorTest */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A108E75E0A41ED35008545E5 /* Build configuration list for PBXProject "ErrorTest" */;
+			hasScannedForEncodings = 0;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* ErrorTest */;
+			projectDirPath = "";
+			targets = (
+				A1EF1AD307035FA500384C5C /* ErrorTest */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		A1EF1AD907035FA500384C5C /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1EF1AD507035FA500384C5C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1EF1ADD0703610100384C5C /* ErrorTestErrors.et in Sources */,
+				A1EF1AD607035FA500384C5C /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A108E75B0A41ED35008545E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7590A41ED35008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = "$(HOME)/bin";
+				PRODUCT_NAME = ErrorTest;
+			};
+			name = Debug;
+		};
+		A108E75C0A41ED35008545E5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7580A41ED35008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = "$(HOME)/bin";
+				PRODUCT_NAME = ErrorTest;
+			};
+			name = Release;
+		};
+		A108E75F0A41ED35008545E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7590A41ED35008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A108E7600A41ED35008545E5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7580A41ED35008545E5 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A108E75A0A41ED35008545E5 /* Build configuration list for PBXNativeTarget "ErrorTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A108E75B0A41ED35008545E5 /* Debug */,
+				A108E75C0A41ED35008545E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A108E75E0A41ED35008545E5 /* Build configuration list for PBXProject "ErrorTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A108E75F0A41ED35008545E5 /* Debug */,
+				A108E7600A41ED35008545E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

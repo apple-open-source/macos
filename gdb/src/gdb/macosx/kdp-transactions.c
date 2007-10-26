@@ -364,8 +364,8 @@ kdp_disconnect (kdp_connection *c)
     {
       return ret;
     }
-  c->connected = 0;
 
+  c->connected = 0;
   return RR_SUCCESS;
 }
 
@@ -385,8 +385,8 @@ kdp_reattach (kdp_connection *c)
     {
       return ret;
     }
-  c->connected = 0;
 
+  c->connected = 1;
   return RR_SUCCESS;
 }
 
@@ -405,7 +405,7 @@ kdp_hostreboot (kdp_connection *c)
     {
       return ret;
     }
-  c->connected = 0;
 
+  c->connected = 0;
   return RR_SUCCESS;
 }

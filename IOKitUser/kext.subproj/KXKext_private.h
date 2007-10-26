@@ -1,16 +1,19 @@
+#if !__LP64__
+
 #ifndef __KXKEXT_PRIVATE_H__
 #define __KXKEXT_PRIVATE_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 #include "KXKext.h"
 #include "KXKextManager_private.h"
 #include "KXKextRepository_private.h"
 #include "dgraph.h"
 #include "vers_rsrc.h"
-#include <Bom/Bom.h>
+#include "fat_util.h"
+
 
 /*******************************************************************************
 * This file is for declaring private  API used by code other than kext.c,
@@ -54,8 +57,11 @@ KXKextManagerError _KXKextInitWithCacheDictionaryInRepository(
     CFDictionaryRef aDictionary,
     KXKextRepositoryRef aRepository);
 
-const char * _KXKextCopyCanonicalPathnameAsCString(KXKextRef aKext);
-const char * _KXKextCopyBundlePathInRepositoryAsCString(KXKextRef aKext);
+char * _KXKextCopyCanonicalPathnameAsCString(KXKextRef aKext);
+char * _KXKextCopyBundlePathInRepositoryAsCString(KXKextRef aKext);
+char * _KXKextCopyExecutableCanonicalPathnameAsCString(KXKextRef aKext);
+
+fat_iterator _KXKextCopyFatIterator(KXKextRef aKext);
 
 KXKextManagerLogLevel _KXKextGetLogLevel(KXKextRef aKext);
 
@@ -100,33 +106,8 @@ KXKextManagerError _KXKextMakeSecure(KXKextRef aKext);
 KXKextManagerError _KXKextCheckIntegrity(KXKextRef aKext, CFMutableArrayRef bomArray);
 void _KXKextSetStartAddress(KXKextRef aKext, vm_address_t newAddr);
 
-/*BOM stuff*/
 
-BOMBom _BOMBomOpen(const char *bomPath, Boolean forWriting);
-#define BOMBomOpen _BOMBomOpen
-
-int _BOMBomFree(BOMBom bom);
-#define BOMBomFree _BOMBomFree
-
-off_t  _BOMFSObjectSize(BOMFSObject fsObject);
-#define BOMFSObjectSize _BOMFSObjectSize
-
-unsigned int _BOMFSObjectChecksum(BOMFSObject fsObject);
-#define BOMFSObjectChecksum _BOMFSObjectChecksum
-
-int _BOMCRC32ForFile(const char *path, unsigned int *crc, off_t *length);
-#define BOMCRC32ForFile _BOMCRC32ForFile
-
-BOMFSObject _BOMBomGetFSObjectAtPath(BOMBom bom, const char *path);
-#define BOMBomGetFSObjectAtPath _BOMBomGetFSObjectAtPath
-
-BOMFSObject _BOMFSObjectFree(BOMFSObject fsObject);
-#define BOMFSObjectFree _BOMFSObjectFree
-/*end BOM stuff*/
-
-
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif __KXKEXT_PRIVATE_H__
+#endif // !__LP64__

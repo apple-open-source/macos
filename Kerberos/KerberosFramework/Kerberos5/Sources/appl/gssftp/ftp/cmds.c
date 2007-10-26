@@ -214,6 +214,9 @@ void setpeer(argc, argv)
 		overbose = verbose;
 		if (debug == 0)
 			verbose = -1;
+		if (debug)
+		    printf("%s:%d: verbose=%d debug=%d overbose=%d\n",
+			   __FILE__, __LINE__, verbose, debug, overbose);
 		if (command("SYST") == COMPLETE && overbose) {
 			register char *cp, c=0;
 			cp = strchr(reply_string+4, ' ');
@@ -257,6 +260,9 @@ void setpeer(argc, argv)
 "Remember to set tenex mode when transfering binary files from this machine.\n");
 		}
 		verbose = overbose;
+#else
+		if (debug)
+		    printf("(!defined(unix): not checking remote system type)\n");
 #endif /* unix */
 	}
 }
@@ -725,14 +731,14 @@ void mput(argc, argv)
 			if (mflag && confirm(argv[0], cp)) {
 				tp = cp;
 				if (mcase) {
-					while (*tp && !islower((int) (*tp))) {
+					while (*tp && !islower((unsigned char) (*tp))) {
 						tp++;
 					}
 					if (!*tp) {
 						tp = cp;
 						tp2 = tmpbuf;
 						while ((*tp2 = *tp) != 0) {
-						     if (isupper((int) *tp2)) {
+						     if (isupper((unsigned char) *tp2)) {
 						        *tp2 = 'a' + *tp2 - 'A';
 						     }
 						     tp++;
@@ -864,14 +870,14 @@ usage:
 	if (loc && mcase) {
 		char *tp = argv[1], *tp2, tmpbuf[MAXPATHLEN];
 
-		while (*tp && !islower((int) *tp)) {
+		while (*tp && !islower((unsigned char) *tp)) {
 			tp++;
 		}
 		if (!*tp) {
 			tp = argv[2];
 			tp2 = tmpbuf;
 			while ((*tp2 = *tp) != 0) {
-				if (isupper((int) *tp2)) {
+				if (isupper((unsigned char) *tp2)) {
 					*tp2 = 'a' + *tp2 - 'A';
 				}
 				tp++;
@@ -994,14 +1000,14 @@ void mget(argc, argv)
 		if (mflag && confirm(argv[0], cp)) {
 			tp = cp;
 			if (mcase) {
-				while (*tp && !islower((int) *tp)) {
+				while (*tp && !islower((unsigned char) *tp)) {
 					tp++;
 				}
 				if (!*tp) {
 					tp = cp;
 					tp2 = tmpbuf;
 					while ((*tp2 = *tp) != 0) {
-						if (isupper((int) *tp2)) {
+						if (isupper((unsigned char) *tp2)) {
 							*tp2 = 'a' + *tp2 - 'A';
 						}
 						tp++;

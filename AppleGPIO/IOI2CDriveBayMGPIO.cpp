@@ -1,9 +1,12 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDriveBayMGPIO.cpp,v 1.3 2005/08/01 23:37:34 galcher Exp $
+ *	File: $Id: IOI2CDriveBayMGPIO.cpp,v 1.4 2007/07/07 19:37:03 raddog Exp $
  *
  *		$Log: IOI2CDriveBayMGPIO.cpp,v $
+ *		Revision 1.4  2007/07/07 19:37:03  raddog
+ *		[5127355]9A410: Q63: Panic in PowerMac11_2_PlatformPlugin3.0.0d0 during cold boot test.
+ *		
  *		Revision 1.3  2005/08/01 23:37:34  galcher
  *		Removed unused variable 'cstr' from ::start.
  *		
@@ -105,7 +108,7 @@ IOI2CDriveBayMGPIO::start(IOService *provider)
 			char cstr[256];
 			UInt32 ph;
 			ph = *(UInt32 *)data->getBytesNoCopy();
-			sprintf( cstr, "platform-drivebay-sense-%08x", ph );
+			snprintf( cstr, sizeof(cstr), "platform-drivebay-sense-%08lx", ph );
 			if (fDrivebaySenseSym = OSSymbol::withCString(cstr))
 			{
 				timeout.tv_sec = 30;
@@ -313,7 +316,7 @@ IOI2CDriveBayMGPIO::enableClient(
 
 	if (i < kCLIENT_MAX)
 	{
-		DLOG ("IOI2CDriveBayMGPIO::enableClient reg:%x %s\n", reg, isEnable?"enable":"disable");
+		DLOG ("IOI2CDriveBayMGPIO::enableClient reg:%lx %s\n", reg, isEnable?"enable":"disable");
 		fClient[i].isEnabled = isEnable;
 
 		if (isEnable)
@@ -419,7 +422,7 @@ IOI2CDriveBayMGPIO::sProcessApplePMUInterrupt(
 {
 	IOI2CDriveBayMGPIO *self;
 
-	DLOG("IOI2CDriveBayMGPIO::sProcessApplePMUInterrupt interruptMask:0x%02x length:%d\n", interruptMask, length);
+	DLOG("IOI2CDriveBayMGPIO::sProcessApplePMUInterrupt interruptMask:0x%02x length:%ld\n", interruptMask, length);
 
 	if ((interruptMask != 0x01) || (length < 5))
 		return;

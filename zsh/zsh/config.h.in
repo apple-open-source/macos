@@ -68,6 +68,10 @@
 /* The default path; used when running commands with command -p */
 #undef DEFAULT_PATH
 
+/* Define to 1 if you want to avoid calling functions that will require
+   dynamic NSS modules. */
+#undef DISABLE_DYNAMIC_NSS
+
 /* Define to 1 if an underscore has to be prepended to dlsym() argument. */
 #undef DLSYM_NEEDS_UNDERSCORE
 
@@ -106,7 +110,7 @@
    anything */
 #undef GLOBAL_ZSHRC
 
-/* Define if your system defines TIOCGWINSZ in sys/ioctl.h. */
+/* Define if TIOCGWINSZ is defined in sys/ioctl.h but not in termios.h. */
 #undef GWINSZ_IN_SYS_IOCTL
 
 /* Define to 1 if you have `alloca', as a function or macro. */
@@ -170,6 +174,12 @@
 
 /* Define to 1 if you have the `fchdir' function. */
 #undef HAVE_FCHDIR
+
+/* Define to 1 if you have the `fchmod' function. */
+#undef HAVE_FCHMOD
+
+/* Define to 1 if you have the `fchown' function. */
+#undef HAVE_FCHOWN
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
@@ -243,6 +253,9 @@
 /* Define to 1 if you have the `iconv' function. */
 #undef HAVE_ICONV
 
+/* Define to 1 if you have the <iconv.h> header file. */
+#undef HAVE_ICONV_H
+
 /* Define to 1 if you have the `inet_aton' function. */
 #undef HAVE_INET_ATON
 
@@ -258,7 +271,7 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if there is a prototype defined for ioctl() on your system */
+/* Define to 1 if there is a prototype defined for ioctl() on your system. */
 #undef HAVE_IOCTL_PROTO
 
 /* Define to 1 if you have the `killpg' function. */
@@ -278,9 +291,6 @@
 
 /* Define to 1 if you have the `dl' library (-ldl). */
 #undef HAVE_LIBDL
-
-/* Define to 1 if you have the `iconv' library (-liconv). */
-#undef HAVE_LIBICONV
 
 /* Define to 1 if you have the `m' library (-lm). */
 #undef HAVE_LIBM
@@ -321,11 +331,14 @@
 /* Define to 1 if you have the `mkfifo' function. */
 #undef HAVE_MKFIFO
 
-/* Define to 1 if there is a prototype defined for mknod() on your system */
+/* Define to 1 if there is a prototype defined for mknod() on your system. */
 #undef HAVE_MKNOD_PROTO
 
 /* Define to 1 if you have the `mkstemp' function. */
 #undef HAVE_MKSTEMP
+
+/* Define to 1 if you have the `mktime' function. */
+#undef HAVE_MKTIME
 
 /* Define to 1 if you have a working `mmap' system call. */
 #undef HAVE_MMAP
@@ -420,6 +433,12 @@
 /* Define to 1 if RLIMIT_MEMLOCK is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_MEMLOCK
 
+/* Define to 1 if RLIMIT_MSGQUEUE is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_MSGQUEUE
+
+/* Define to 1 if RLIMIT_NICE is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_NICE
+
 /* Define to 1 if RLIMIT_NOFILE is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_NOFILE
 
@@ -432,8 +451,14 @@
 /* Define to 1 if RLIMIT_RSS is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_RSS
 
+/* Define to 1 if RLIMIT_RTPRIO is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_RTPRIO
+
 /* Define to 1 if RLIMIT_SBSIZE is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_SBSIZE
+
+/* Define to 1 if RLIMIT_SIGPENDING is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_SIGPENDING
 
 /* Define to 1 if RLIMIT_TCACHE is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_TCACHE
@@ -507,6 +532,9 @@
 /* Define to 1 if you have the `sigsetmask' function. */
 #undef HAVE_SIGSETMASK
 
+/* Define to 1 if you have the <stdarg.h> header file. */
+#undef HAVE_STDARG_H
+
 /* Define to 1 if you have the <stddef.h> header file. */
 #undef HAVE_STDDEF_H
 
@@ -540,6 +568,9 @@
 
 /* Define if you have the terminfo strnames symbol. */
 #undef HAVE_STRNAMES
+
+/* Define to 1 if you have the `strptime' function. */
+#undef HAVE_STRPTIME
 
 /* Define to 1 if you have the `strstr' function. */
 #undef HAVE_STRSTR
@@ -706,6 +737,9 @@
 /* Define to 1 if you have the `tigetstr' function. */
 #undef HAVE_TIGETSTR
 
+/* Define to 1 if you have the `timelocal' function. */
+#undef HAVE_TIMELOCAL
+
 /* Define to 1 if you have the `uname' function. */
 #undef HAVE_UNAME
 
@@ -726,6 +760,9 @@
 
 /* Define to 1 if you have the <utmp.h> header file. */
 #undef HAVE_UTMP_H
+
+/* Define to 1 if you have the <varargs.h> header file. */
+#undef HAVE_VARARGS_H
 
 /* Define to 1 if compiler supports variable-length arrays */
 #undef HAVE_VARIABLE_LENGTH_ARRAYS
@@ -748,8 +785,15 @@
 /* Define to 1 if you want to use dynamically loaded modules on HPUX 10. */
 #undef HPUXDYNAMIC
 
+/* Define as const if the declaration of iconv() needs const. */
+#undef ICONV_CONST
+
 /* Define to 1 if ino_t is 64 bit (for large file support). */
 #undef INO_T_IS_64_BIT
+
+/* Define to 1 if we must include <sys/ioctl.h> to get a prototype for
+   ioctl(). */
+#undef IOCTL_IN_SYS_IOCTL
 
 /* Definitions used when a long is less than eight byte, to try to provide
    some support for eight byte operations. Note that ZSH_64_BIT_TYPE,
@@ -766,6 +810,9 @@
 
 /* Define for function depth limits */
 #undef MAX_FUNCTION_DEPTH
+
+/* Define to 1 if you want support for multibyte character sets. */
+#undef MULTIBYTE_SUPPORT
 
 /* Define to 1 if you have ospeed, but it is not defined in termcap.h */
 #undef MUST_DEFINE_OSPEED
@@ -821,6 +868,9 @@
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
+
+/* Define to 1 if RLIMIT_RSS and RLIMIT_AS both exist and are equal. */
+#undef RLIMIT_RSS_IS_AS
 
 /* Define to 1 if RLIMIT_VMEM and RLIMIT_AS both exist and are equal. */
 #undef RLIMIT_VMEM_IS_AS

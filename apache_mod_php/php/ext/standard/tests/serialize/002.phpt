@@ -13,7 +13,7 @@ var_dump(unserialize('a:3:{i:0;s:3:"foo";i:1;s:3:"bar";i:2;s:3:"baz";}'));
 var_dump(unserialize('O:8:"stdClass":0:{}'));
 ?>
 ===DONE===
---EXPECT--
+--EXPECTF--
 bool(false)
 bool(true)
 int(823)
@@ -39,6 +39,6 @@ array(3) {
   [2]=>
   string(3) "baz"
 }
-object(stdClass)(0) {
+object(stdClass)#%d (0) {
 }
 ===DONE===

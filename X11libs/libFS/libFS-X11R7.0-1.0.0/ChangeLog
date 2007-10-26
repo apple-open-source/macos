@@ -1,0 +1,56 @@
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-12-02  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	* src/Makefile.am:
+	Add check and cflags for malloc(0) returning NULL.
+
+2005-11-19  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* libfs.pc.in:
+	Update pkgconfig files to separate library build-time dependencies
+	from application build-time dependencies.
+
+2005-11-09  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC2 release.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-07-13  Keith Packard  <keithp@keithp.com>
+
+	* configure.ac:
+	* src/Makefile.am:
+	Eliminate xtrans CFLAGS from .pc file as xtrans
+	is not part of the public API.
+
+2005-07-08  Keith Packard  <keithp@keithp.com>
+
+	* .cvsignore:
+	* src/.cvsignore:
+	* src/Makefile.am:
+	Add .cvsignore files
+	Switch _la_CFLAGS for AM_CFLAGS to clean up directory
+
+2005-06-22  Theo van Klaveren  <t.vanklaveren@student.utwente.nl>
+
+	* configure.ac: libXfixes -> libFS.
+
+2005-06-09  Alexander Gottwald <ago@freedesktop.org>
+
+	* src/fs_transport.c:
+	Replace <X11/transport.c> with <X11/Xtrans/transport.c>
+

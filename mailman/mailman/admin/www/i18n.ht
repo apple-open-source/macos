@@ -60,10 +60,15 @@ Project</a> for future language support.
     <td><a href="mailto:robert@cataloniahosting.com">Robert Garrigos</td>
     <td>Supported</td>
 </tr>
-<tr><td>Chinese</td><td>(various)</td>
-    <td>Orphaned
-    <td>The Chinese support is quite out of date and not currently supported
-        by anyone.  Volunteers wanted!</td>
+<tr><td rowspan="2">Chinese</td><td>zh_CN</td>
+    <td>Coordinated at
+        <a href="http://mail.cs.hit.edu.cn:8080/mmcn/">this page</a> by
+        champion <a href="mailto:leona@cs.hit.edu.cn">Leona</a>.</td>
+    <td>Supported</td>
+</tr>
+<tr><td>zh_TW</td>
+    <td><a href="mailto:ping@pingyeh.net">Ping Yeh</td>
+    <td>Supported</td>
 </tr>
 <tr><td>Croatian</td><td>hr</td>
     <td><a href="mailto:nkatic@public.srce.hr">Nino Katic</a></td>
@@ -75,7 +80,7 @@ Project</a> for future language support.
     <td>Supported</td>
 </tr>
 <tr><td>Danish</td><td>da</td>
-    <td><a href="mailto:soren@ka-net.dk">Soren Bondrup</a></td>
+    <td><a href="mailto:mm-da@statsbiblioteket.dk">Tom G. Christensen</a></td>
     <td>Supported</td>
 </tr>
 <tr><td>Dutch</td><td>nl</td>
@@ -108,6 +113,10 @@ Project</a> for future language support.
     (See <a href="http://www.postfixbuch.de/mailman.txt">also</a>)</td>
     <td>Supported</td>
 </tr>
+<tr><td>Greek</td><td>el</td>
+    <td><a href="mailto:avgoulea@cti.gr">Maria Avgoulea</a></td>
+    <td>Not yet submitted</td>
+</tr>
 <tr><td>Hungarian</td><td>hu</td>
     <td><a href="mailto:vizisz@freemail.hu">Vizi Szilard</a>, Szabolcs
     Szigeti,
@@ -117,6 +126,12 @@ Project</a> for future language support.
 <tr><td>Icelandic</td><td>is</td>
     <td><a href="mailto:oli@edal.net">&Oacute;lafur Gar&eth;arsson</a></td>
     <td>Not yet submitted</td>
+</tr>
+<tr><td>Interlingua</td><td>ia</td>
+    <td><a href="mailto:mardy@users.sourceforge.net">Alberto Mardegan</a>,
+    Thomas Breinstrup, <a href="mailto:ensjo@interlingua.com">Emerson
+    Jos&eacute; Silveira da Costa</a></td>
+    <td>Supported</td>
 </tr>
 <tr><td>Italian</td><td>it</td>
     <td><a href="mailto:pioppo@ferrara.linux.it">Simone Piunno</a></td>
@@ -157,7 +172,6 @@ Project</a> for future language support.
 <tr><td>Portuguese</td><td>pt, pt_BR</td>
     <td><a href="mailto:gleydson.mazioli@ima.sp.gov.br">Gleydson
         Mazioli da Silva</a>,
-        <a href="mailto:samarta@ci.uc.pt">João Sá Marta</a>,
         <a href="mailto:queiroz@ccuec.unicamp.br">Rubens Queiroz de
         Almeida</a>,
         <a href="mailto:aleck@unesp.br">Aleck Zander</a>,
@@ -167,7 +181,7 @@ Project</a> for future language support.
     <td>Supported</td>
 </tr>
 <tr><td>Romanian</td><td>ro</td>
-    <td><a href="mailto:gupi@informatia.ro">Stefaniu Criste</a></td>
+    <td><a href="mailto:webmaster@dizain.ro">Stefaniu Criste</a></td>
     <td>Supported</td>
 </tr>
 <tr><td>Russian</td><td>ru</td>
@@ -179,7 +193,7 @@ Project</a> for future language support.
     <td><a href="mailto:bojan@trust-b.com">Bojan Suzic</a></td>
     <td>Supported</td>
 </tr>
-<tr><td>Solvenian</td><td>sl</td>
+<tr><td>Slovenian</td><td>sl</td>
     <td><a href="mailto:urosh@agenda.si">Uros Kositer</a></td>
     <td>Supported</td>
 </tr>

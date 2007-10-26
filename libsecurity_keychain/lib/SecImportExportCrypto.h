@@ -65,6 +65,7 @@ OSStatus impExpImportRawKey(
 	CSSM_CSP_HANDLE						cspHand,		// optional
 	SecItemImportExportFlags			flags,
 	const SecKeyImportExportParameters	*keyParams,		// optional 
+	const char							*printName,		// optional
 	CFMutableArrayRef					outArray);		// optional, append here 
 
 /*
@@ -95,6 +96,7 @@ OSStatus impExpImportKeyCommon(
 	SecItemImportExportFlags		flags,
 	const SecKeyImportExportParameters *keyParams,  // optional 
 	const impExpKeyUnwrapParams		*unwrapParams,
+	const char						*printName,		// optional
 	CFMutableArrayRef				outArray);		// optional, append here 
 
 /* 
@@ -111,6 +113,7 @@ CSSM_RETURN impExpExportKeyCommon(
 	CSSM_KEYBLOB_FORMAT	wrapFormat,		// NONE, PKCS7, PKCS8
 	CSSM_ATTRIBUTE_TYPE blobAttrType,	// optional raw key format attr
 	CSSM_KEYBLOB_FORMAT blobForm,		// ditto
+	const CSSM_DATA		*descData,		// optional descriptive data
 	const CSSM_DATA		*iv);
 	
 #ifdef	__cplusplus

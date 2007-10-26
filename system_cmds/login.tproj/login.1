@@ -39,9 +39,14 @@
 .Nd log into the computer
 .Sh SYNOPSIS
 .Nm login
-.Op Fl fp
+.Op Fl pq
 .Op Fl h Ar hostname
 .Op Ar user
+.Nm login
+.Fl f
+.Op Fl lpq
+.Op Fl h Ar hostname
+.Op Ar user Op Ar prog Op Ar args...
 .Sh DESCRIPTION
 The
 .Nm login
@@ -55,6 +60,7 @@ Authentication of users is done via passwords.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
+.\" ==========
 .It Fl f
 The
 .Fl f
@@ -63,6 +69,13 @@ authentication has already been done and that no password need be
 requested.
 This option may only be used by the super-user or when an already
 logged in user is logging in as themselves.
+.Pp
+With the
+.Fl f
+option, an alternate program (and any arguments) may be run instead of the
+user's default shell.
+The program and arguments follows the user name.
+.\" ==========
 .It Fl h
 The
 .Fl h
@@ -70,6 +83,16 @@ option specifies the host from which the connection was received.
 It is used by various daemons such as
 .Xr telnetd  8 .
 This option may only be used by the super-user.
+.\" ==========
+.It Fl l
+Tells the program executed by
+.Nm login
+that this is not a login session (by convention, a login session is
+signalled to the program with a hyphen as the first character of
+.Em argv[0] ;
+this option disables that), and prevents it from chdir(2)ing to the user's home directory.
+The default is to add the hyphen (this is a login session).
+.\" ==========
 .It Fl p
 By default,
 .Nm login
@@ -77,6 +100,11 @@ discards any previous environment.
 The
 .Fl p
 option disables this behavior.
+.\" ==========
+.It Fl q
+This forces quiet logins, as if a
+.Pa .hushlogin
+is present.
 .El
 .Pp
 If the file
@@ -94,15 +122,18 @@ displays the system copyright notice, the date and time the user last
 logged in, the message of the day as well as other information.
 If the file
 .Dq Pa .hushlogin
-exists in the user's home directory, all of these messages are suppressed.
+exists in the user's home directory or
+.Fl q
+is specified, all of these messages are suppressed.
 This is to simplify logins for non-human users, such as
 .Xr uucp 1 .
 .Nm Login
-then records an entry in the
-.Xr wtmp 5
-and
-.Xr utmp 5
-files and executes the user's command interpreter.
+then records an entry in
+.Xr utmpx 5
+and the like, and executes the user's command interpreter (or the program
+specified on the command line if
+.Fl f
+is specified).
 .Pp
 Login enters information into the environment (see
 .Xr environ 7 )
@@ -123,12 +154,8 @@ utility.
 message-of-the-day
 .It Pa /etc/nologin
 disallows logins
-.It Pa /var/run/utmp
+.It Pa /var/run/utmpx
 current logins
-.It Pa /var/log/lastlog
-last login account records
-.It Pa /var/log/wtmp
-login account records
 .It Pa /var/mail/user
 system mailboxes
 .It Pa \&.hushlogin
@@ -139,8 +166,8 @@ makes login quieter
 .Xr passwd 1 ,
 .Xr rlogin 1 ,
 .Xr getpass 3 ,
-.Xr utmp 5 ,
-.Xr environ 7 ,
+.Xr utmpx 5 ,
+.Xr environ 7
 .Sh HISTORY
 A
 .Nm login

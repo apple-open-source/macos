@@ -1,8 +1,8 @@
 /* thr_posix.c - wrapper around posix and posixish thread implementations.  */
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_posix.c,v 1.34.2.3 2004/01/01 18:16:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_posix.c,v 1.37.2.6 2006/04/03 19:49:55 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -20,8 +20,17 @@
 
 #include <ac/errno.h>
 
-#include "ldap_pvt_thread.h"
+#ifdef REPLACE_BROKEN_YIELD
+#ifndef HAVE_NANOSLEEP
+#include <ac/socket.h>
+#endif
+#include <ac/time.h>
+#endif
 
+#include "ldap_pvt_thread.h" /* Get the thread interface */
+#define LDAP_THREAD_IMPLEMENTATION
+#define LDAP_THREAD_RDWR_IMPLEMENTATION
+#include "ldap_thr_debug.h"	 /* May rename the symbols defined below */
 
 #if HAVE_PTHREADS < 6
 #  define LDAP_INT_THREAD_ATTR_DEFAULT		pthread_attr_default
@@ -30,13 +39,29 @@
 #else
 #  define LDAP_INT_THREAD_ATTR_DEFAULT		NULL
 #  define LDAP_INT_THREAD_CONDATTR_DEFAULT	NULL
-#  define LDAP_INT_THREAD_MUTEXATTR_DEFAULT	NULL
+#  define LDAP_INT_THREAD_MUTEXATTR_DEFAULT NULL
 #endif
 
+#ifdef LDAP_THREAD_DEBUG
+#  if defined LDAP_INT_THREAD_MUTEXATTR	/* May be defined in CPPFLAGS */
+#  elif defined HAVE_PTHREAD_KILL_OTHER_THREADS_NP
+	 /* LinuxThreads hack */
+#    define LDAP_INT_THREAD_MUTEXATTR	PTHREAD_MUTEX_ERRORCHECK_NP
+#  else
+#    define LDAP_INT_THREAD_MUTEXATTR	PTHREAD_MUTEX_ERRORCHECK
+#  endif
+static pthread_mutexattr_t mutex_attr;
+#  undef  LDAP_INT_THREAD_MUTEXATTR_DEFAULT
+#  define LDAP_INT_THREAD_MUTEXATTR_DEFAULT &mutex_attr
+#endif
 
 int
 ldap_int_thread_initialize( void )
 {
+#ifdef LDAP_INT_THREAD_MUTEXATTR
+	pthread_mutexattr_init( &mutex_attr );
+	pthread_mutexattr_settype( &mutex_attr, LDAP_INT_THREAD_MUTEXATTR );
+#endif
 	return 0;
 }
 
@@ -46,6 +71,9 @@ ldap_int_thread_destroy( void )
 #ifdef HAVE_PTHREAD_KILL_OTHER_THREADS_NP
 	/* LinuxThreads: kill clones */
 	pthread_kill_other_threads_np();
+#endif
+#ifdef LDAP_INT_THREAD_MUTEXATTR
+	pthread_mutexattr_destroy( &mutex_attr );
 #endif
 	return 0;
 }
@@ -110,7 +138,7 @@ ldap_pvt_thread_create( ldap_pvt_thread_t * thread,
 	pthread_attr_create(&attr);
 #endif
 
-#if defined(LDAP_PVT_THREAD_STACK_SIZE) && LDAP_PVT_THREAD_STACK_SIZE > 0
+#ifdef LDAP_PVT_THREAD_SET_STACK_SIZE
 	/* this should be tunable */
 	pthread_attr_setstacksize( &attr, LDAP_PVT_THREAD_STACK_SIZE );
 #endif
@@ -186,8 +214,18 @@ ldap_pvt_thread_kill( ldap_pvt_thread_t thread, int signo )
 int 
 ldap_pvt_thread_yield( void )
 {
-#if HAVE_THR_YIELD
-	return thr_yield();
+#ifdef REPLACE_BROKEN_YIELD
+#ifdef HAVE_NANOSLEEP
+	struct timespec t = { 0, 0 };
+	nanosleep(&t, NULL);
+#else
+	struct timeval tv = {0,0};
+	select( 0, NULL, NULL, NULL, &tv );
+#endif
+	return 0;
+#elif HAVE_THR_YIELD
+	thr_yield();
+	return 0;
 
 #elif HAVE_PTHREADS == 10
 	return sched_yield();
@@ -407,7 +445,7 @@ int ldap_pvt_thread_rdwr_wunlock( ldap_pvt_thread_rdwr_t *rw )
 #endif
 }
 
-#endif /* HAVE_PTHREAD_RDLOCK_DESTROY */
+#endif /* HAVE_PTHREAD_RWLOCK_DESTROY */
 #endif /* LDAP_THREAD_HAVE_RDWR */
 #endif /* HAVE_PTHREADS */
 

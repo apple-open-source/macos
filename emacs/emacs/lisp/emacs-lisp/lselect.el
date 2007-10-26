@@ -1,6 +1,7 @@
 ;;; lselect.el --- Lucid interface to X Selections
 
-;; Copyright (C) 1990, 1993 Free Software Foundation, Inc.
+;; Copyright (C) 1990, 1993, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: emulations
@@ -22,24 +23,29 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;;; Code:
 
-;;; The selection code requires us to use certain symbols whose names are
-;;; all upper-case; this may seem tasteless, but it makes there be a 1:1
-;;; correspondence between these symbols and X Atoms (which are upcased.)
+;; The selection code requires us to use certain symbols whose names are
+;; all upper-case; this may seem tasteless, but it makes there be a 1:1
+;; correspondence between these symbols and X Atoms (which are upcased.)
+
+;; This is Lucid/XEmacs stuff
+(defvar mouse-highlight-priority)
+(defvar x-lost-selection-functions)
+(defvar zmacs-regions)
 
 (defalias 'x-get-cutbuffer 'x-get-cut-buffer)
 (defalias 'x-store-cutbuffer 'x-set-cut-buffer)
 
-(or (find-face 'primary-selection)
+(or (facep 'primary-selection)
     (make-face 'primary-selection))
 
-(or (find-face 'secondary-selection)
+(or (facep 'secondary-selection)
     (make-face 'secondary-selection))
 
 (defun x-get-secondary-selection ()
@@ -101,9 +107,9 @@
 
 
 (defun x-own-selection (selection &optional type)
-  "Make a primary X Selection of the given argument.  
-The argument may be a string, a cons of two markers, or an extent.  
-In the latter cases the selection is considered to be the text 
+  "Make a primary X Selection of the given argument.
+The argument may be a string, a cons of two markers, or an extent.
+In the latter cases the selection is considered to be the text
 between the markers, or the between extents endpoints."
   (interactive (if (not current-prefix-arg)
 		   (list (read-string "Store text for pasting: "))
@@ -124,7 +130,7 @@ between the markers, or the between extents endpoints."
 
 
 (defun x-own-secondary-selection (selection &optional type)
-  "Make a secondary X Selection of the given argument.  The argument may be a 
+  "Make a secondary X Selection of the given argument.  The argument may be a
 string or a cons of two markers (in which case the selection is considered to
 be the text between those markers.)"
   (interactive (if (not current-prefix-arg)
@@ -146,7 +152,7 @@ secondary selection instead of the primary selection."
   (x-disown-selection-internal (if secondary-p 'SECONDARY 'PRIMARY)))
 
 (defun x-dehilight-selection (selection)
-  "for use as a value of x-lost-selection-hooks."
+  "for use as a value of `x-lost-selection-functions'."
   (cond ((eq selection 'PRIMARY)
 	 (if primary-selection-extent
 	     (let ((inhibit-quit t))
@@ -160,32 +166,32 @@ secondary selection instead of the primary selection."
 	       (setq secondary-selection-extent nil)))))
   nil)
 
-(setq x-lost-selection-hooks 'x-dehilight-selection)
+(setq x-lost-selection-functions 'x-dehilight-selection)
 
 (defun x-notice-selection-requests (selection type successful)
-  "for possible use as the value of x-sent-selection-hooks."
+  "for possible use as the value of `x-sent-selection-functions'."
   (if (not successful)
       (message "Selection request failed to convert %s to %s"
 	       selection type)
     (message "Sent selection %s as %s" selection type)))
 
 (defun x-notice-selection-failures (selection type successful)
-  "for possible use as the value of x-sent-selection-hooks."
+  "for possible use as the value of `x-sent-selection-functions'."
   (or successful
       (message "Selection request failed to convert %s to %s"
 	       selection type)))
 
-;(setq x-sent-selection-hooks 'x-notice-selection-requests)
-;(setq x-sent-selection-hooks 'x-notice-selection-failures)
+;(setq x-sent-selection-functions 'x-notice-selection-requests)
+;(setq x-sent-selection-functions 'x-notice-selection-failures)
 
 
-;;; Random utility functions
+;; Random utility functions
 
 (defun x-kill-primary-selection ()
-  "If there is a selection, delete the text it covers, and copy it to 
+  "If there is a selection, delete the text it covers, and copy it to
 both the kill ring and the Clipboard."
   (interactive)
-  (or (x-selection-owner-p) (error "emacs does not own the primary selection"))
+  (or (x-selection-owner-p) (error "Emacs does not own the primary selection"))
   (setq last-command nil)
   (or primary-selection-extent
       (error "the primary selection is not an extent?"))
@@ -199,7 +205,7 @@ both the kill ring and the Clipboard."
   "If there is a selection, delete the text it covers *without* copying it to
 the kill ring or the Clipboard."
   (interactive)
-  (or (x-selection-owner-p) (error "emacs does not own the primary selection"))
+  (or (x-selection-owner-p) (error "Emacs does not own the primary selection"))
   (setq last-command nil)
   (or primary-selection-extent
       (error "the primary selection is not an extent?"))
@@ -213,7 +219,7 @@ the kill ring or the Clipboard."
   "If there is a selection, copy it to both the kill ring and the Clipboard."
   (interactive)
   (setq last-command nil)
-  (or (x-selection-owner-p) (error "emacs does not own the primary selection"))
+  (or (x-selection-owner-p) (error "Emacs does not own the primary selection"))
   (or primary-selection-extent
       (error "the primary selection is not an extent?"))
   (save-excursion
@@ -232,4 +238,5 @@ the kill ring or the Clipboard."
 
 (provide 'lselect)
 
+;; arch-tag: 92fa54d4-c5d1-4e9b-ad58-cf1e13930556
 ;;; lselect.el ends here

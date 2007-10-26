@@ -41,6 +41,11 @@ void gdbarch_register_osabi (enum bfd_architecture, unsigned long,
 /* Lookup the OS ABI corresponding to the specified BFD.  */
 enum gdb_osabi gdbarch_lookup_osabi (bfd *);
 
+/* APPLE LOCAL: This variant of gdbarch_lookup_osabi ALWAYS 
+   consults the bfd.  The original version will prefer the user
+   set value if it is actually set.  */
+enum gdb_osabi gdbarch_lookup_osabi_from_bfd (bfd *);
+
 /* Initialize the gdbarch for the specified OS ABI variant.  */
 void gdbarch_init_osabi (struct gdbarch_info, struct gdbarch *);
 
@@ -52,4 +57,6 @@ const char *gdbarch_osabi_name (enum gdb_osabi);
    via bfd_map_over_sections.  */
 void generic_elf_osabi_sniff_abi_tag_sections (bfd *, asection *, void *);
 
+/* APPLE LOCAL: I needed a way to programatically set the osabi.  */
+int set_osabi_from_string (char *in_osabi_string);
 #endif /* OSABI_H */

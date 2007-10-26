@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1988, 1989, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 1988, 1989 by Adam de Boor
@@ -37,20 +37,18 @@
  * SUCH DAMAGE.
  *
  *	@(#)config.h	8.2 (Berkeley) 4/28/95
- * $FreeBSD: src/usr.bin/make/config.h,v 1.12 2002/09/17 21:29:06 jmallett Exp $
+ * $FreeBSD: src/usr.bin/make/config.h,v 1.16 2005/02/01 10:50:35 harti Exp $
  */
+
+#ifndef config_h_efe0765e
+#define	config_h_efe0765e
 
 /*
  * DEFMAXJOBS
- * DEFMAXLOCAL
- *	These control the default concurrency. On no occasion will more
- *	than DEFMAXJOBS targets be created at once (locally or remotely)
- *	DEFMAXLOCAL is the highest number of targets which will be
- *	created on the local machine at once. Note that if you set this
- *	to 0, nothing will ever happen...
+ *	This control the default concurrency. On no occasion will more
+ *	than DEFMAXJOBS targets be created at once.
  */
-#define	DEFMAXJOBS	4
-#define	DEFMAXLOCAL	1
+#define	DEFMAXJOBS	1
 
 /*
  * INCLUDES
@@ -83,15 +81,6 @@
 #define	RECHECK
 
 /*
- * POSIX
- *	Adhere to the POSIX 1003.2 draft for the make(1) program.
- *	- Use MAKEFLAGS instead of MAKE to pick arguments from the
- *	  environment.
- *	- Allow empty command lines if starting with tab.
- */
-#define	POSIX
-
-/*
  * SYSVINCLUDE
  *	Recognize system V like include directives [include "filename"]
  * SYSVVARSUB
@@ -118,3 +107,5 @@
 #  define RANLIBMAG "/"
 # endif
 #endif
+
+#endif /* config_h_efe0765e */

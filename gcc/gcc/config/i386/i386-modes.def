@@ -74,6 +74,10 @@ VECTOR_MODE (INT, HI, 16);    /*                V16HI */
 VECTOR_MODE (INT, QI, 32);    /*                V32QI */
 VECTOR_MODE (FLOAT, DF, 4);   /*                 V4DF */
 VECTOR_MODE (FLOAT, SF, 8);   /*                 V8SF */
+/* APPLE LOCAL begin 4656532 use V1DImode for _m64 */
+VECTOR_MODE (INT, DI, 1);     /*		 V1DI (__mm64) */
+VECTOR_MODE (INT, SI, 1);     /*		 V1SI */
+/* APPLE LOCAL end 4656532 use V1DImode for _m64 */
 
 /* The symbol Pmode stands for one of the above machine modes (usually SImode).
    The tm.h file specifies which one.  It is not a distinct mode.  */

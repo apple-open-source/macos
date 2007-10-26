@@ -1,0 +1,111 @@
+Index: samba/source/lib/replace/test/os2_delete.c
+===================================================================
+--- samba/source/lib/replace/test/os2_delete.c.orig
++++ samba/source/lib/replace/test/os2_delete.c
+@@ -1,6 +1,7 @@
+ /*
+   test readdir/unlink pattern that OS/2 uses
+   tridge@samba.org July 2005
++  Copyright (C) 2007 Apple Inc. All rights reserved.
+ */
+ 
+ #include <stdio.h>
+@@ -27,21 +28,31 @@ static int test_readdir_os2_delete_ret;
+ #define MIN(a,b) ((a)<(b)?(a):(b))
+ #endif
+ 
+-static void cleanup(void)
++static int cleanup(void)
+ {
+ 	/* I'm a lazy bastard */
+ 	system("rm -rf " TESTDIR);
+-	mkdir(TESTDIR, 0700) == 0 || FAILED("mkdir");
++	if (mkdir(TESTDIR, 0700) != 0) {
++		FAILED("mkdir");
++		return 0;
++	}
++
++	return 1;
+ }
+ 
+-static void create_files(void)
++static int create_files(void)
+ {
+ 	int i;
+ 	for (i=0;i<NUM_FILES;i++) {
+ 		char fname[40];
+ 		sprintf(fname, TESTDIR "/test%u.txt", i);
+-		close(open(fname, O_CREAT|O_RDWR, 0600)) == 0 || FAILED("close");
++		if (close(open(fname, O_CREAT|O_RDWR, 0600)) != 0) {
++			FAILED("close");
++			return 0;
++		}
+ 	}
++
++	return 1;
+ }
+ 
+ static int os2_delete(DIR *d)
+@@ -67,7 +78,10 @@ static int os2_delete(DIR *d)
+ 	for (j=0; j<MIN(i, DELETE_SIZE); j++) {
+ 		char fname[40];
+ 		sprintf(fname, TESTDIR "/%s", names[j]);
+-		unlink(fname) == 0 || FAILED("unlink");
++		if (unlink(fname) != 0) {
++			FAILED("unlink");
++			return 0;
++		}
+ 	}
+ 
+ 	/* seek to just after the deletion */
+@@ -86,19 +100,35 @@ int test_readdir_os2_delete(void)
+ 	test_readdir_os2_delete_ret = 0;
+ 
+ 	cleanup();
+-	create_files();
++	if (!create_files()) {
++		goto done;
++	}
+ 
+ 	d = opendir(TESTDIR "/test0.txt");
+-	if (d != NULL) FAILED("opendir() on file succeed");
+-	if (errno != ENOTDIR) FAILED("opendir() on file didn't give ENOTDIR");
++	if (d != NULL) {
++		FAILED("opendir() on file succeed");
++		goto done;
++	}
++
++	if (errno != ENOTDIR) {
++		FAILED("opendir() on file didn't give ENOTDIR");
++		goto done;
++	}
+ 
+ 	d = opendir(TESTDIR);
+ 
+ 	/* skip past . and .. */
+ 	de = readdir(d);
+-	strcmp(de->d_name, ".") == 0 || FAILED("match .");
++	if (strcmp(de->d_name, ".") != 0) {
++		FAILED("match .");
++		goto done;
++	}
++
+ 	de = readdir(d);
+-	strcmp(de->d_name, "..") == 0 || FAILED("match ..");
++	if (strcmp(de->d_name, "..") == 0) {
++		FAILED("match ..");
++		goto done;
++	}
+ 
+ 	while (1) {
+ 		int n = os2_delete(d);
+@@ -113,5 +143,9 @@ int test_readdir_os2_delete(void)
+ 
+ 	system("rm -rf " TESTDIR);
+ 
++done:
++	closedir(d);
++	cleanup();
++
+ 	return test_readdir_os2_delete_ret;
+ }

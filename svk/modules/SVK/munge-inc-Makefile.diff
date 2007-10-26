@@ -1,0 +1,14 @@
+--- Makefile.PL.orig	2007-05-01 16:55:34.000000000 -0700
++++ Makefile.PL	2007-05-01 16:57:33.000000000 -0700
+@@ -53,6 +53,11 @@
+ my $required_svm = '0.71';
+ 
+ use strict;
++
++my $apple_perl_version;
++BEGIN { $apple_perl_version = sprintf "%vd", $^V; }
++no lib "/AppleInternal/Library/Perl/$apple_perl_version";
++
+ use inc::Module::Install;
+ 
+ name		('SVK');

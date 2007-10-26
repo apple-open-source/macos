@@ -3,17 +3,24 @@
 	<key>OpenSourceProject</key>
 	<string>cvs</string>
 	<key>OpenSourceVersion</key>
-	<string>1.11.18</string>
+	<string>1.12.13</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>https://www.cvshome.org/</string>
+	<string>http://www.nongnu.org/cvs/</string>
 	<key>OpenSourceURL</key>
-	<string>https://ccvs.cvshome.org/files/documents/19/534/cvs-1.11.18.tar.bz2</string>
+	<string>ftp://ftp.gnu.org/gnu/non-gnu/cvs/source/feature/1.12.13/cvs-1.12.13.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>934206a23aee42e690e78bd2b38b31a5d25f4ac8</string>
+	<string>93a8dacc6ff0e723a130835713235863f1f5ada9</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-11-18</string>
+	<string>2006-08-17</string>
 	<key>OpenSourceModifications</key>
 	<array>
+		<string>Ignore ._ files by default.</string>
+		<string>Endian fixes.</string>
+		<string>Extra info for people using wrappers.</string>
+		<string>Avoid truncating UTF-8 pathnames at non-char boundaries.</string>
+		<string>Build with the -mdynamic-no-pic flag.</string>
+		<string>Documentation for 'tag' subcommand.</string>
+		<string>Fix hang in src/zlib.c (Savannah #14840)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>

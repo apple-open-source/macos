@@ -1,0 +1,100 @@
+#   Copyright (C) 2002 Free Software Foundation, Inc.
+#
+# This Program Is Free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# Test fat mach-o archive files with current architecture only files.
+#
+# Written by Greg Clayton (gclayton@apple.com)
+
+# LIBCFLAGS=-arch i386 -arch ppc -gdwarf-2
+# MAINCFLAGS=-gdwarf-2
+# LDFLAGS=
+# 
+# all:
+#         gcc $(LIBCFLAGS) -c univ-archive-file.c
+#         rm -f univ-archive-file.a
+#         ar -vr univ-archive-file.a univ-archive-a.o
+#         ranlib univ-archive-file.a
+#         gcc $(MAINCFLAGS) -c univ-archive-main.c
+#         gcc $(MAINCFLAGS) $(LDFLAGS) univ-archive-main.o univ-archive-file.a
+#         dsymutil a.out
+
+set arch_base "univ-archive-file"
+set arch_src ${srcdir}/${subdir}/${arch_base}.c
+set arch_o ${objdir}/${subdir}/${arch_base}.o
+set arch_a  ${objdir}/${subdir}/${arch_base}.a
+if  { [gdb_compile "${arch_src}" "${objdir}/${subdir}/${arch_base}_ppc.o" object {debug additional_flags=-arch\ ppc}] != "" } {
+    gdb_suppress_entire_file "Testcase ppc archive object compile failed, so all tests in this file will automatically fail."
+}
+if  { [gdb_compile "${arch_src}" "${objdir}/${subdir}/${arch_base}_i386.o" object {debug additional_flags=-arch\ i386}] != "" } {
+    gdb_suppress_entire_file "Testcase i386 archive object compile failed, so all tests in this file will automatically fail."
+}
+if  { [gdb_compile "${arch_src}" "${objdir}/${subdir}/${arch_base}_ppc64.o" object {debug additional_flags=-arch\ ppc64}] != "" } {
+    gdb_suppress_entire_file "Testcase ppc64 archive object compile failed, so all tests in this file will automatically fail."
+}
+
+file delete -force $arch_a
+verbose -log "lipo -create -arch ppc \"${objdir}/${subdir}/${arch_base}_ppc.o\" -arch i386 \"${objdir}/${subdir}/${arch_base}_i386.o\" -arch ppc64 \"${objdir}/${subdir}/${arch_base}_ppc64.o\" \-output \"$arch_o\""
+exec lipo -create -arch ppc "${objdir}/${subdir}/${arch_base}_ppc.o" \
+          -arch i386 "${objdir}/${subdir}/${arch_base}_i386.o" \
+          -arch ppc64 "${objdir}/${subdir}/${arch_base}_ppc64.o" \
+          -output "$arch_o"
+verbose -log "libtool -static -o \"$arch_a\" \"$arch_o\""
+exec libtool -static -o $arch_a $arch_o
+
+set testfile "univ-archive-main"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable "debug additional_flags=$arch_a"] != "" } {
+    gdb_suppress_entire_file "Testcase executable compile failed, so all tests in this file will automatically fail."
+}
+
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+gdb_test "future-break foo" ".*Breakpoint 1.*" "Set breakpoint at function foo in archive"
+send_gdb "run\n"
+set stopped "no"
+gdb_expect {
+ -re ".*Starting program: ${binfile}.*Reading symbols for shared libraries.*Breakpoint 1, .*${arch_src}.*$gdb_prompt $" {
+   pass "run program" 
+   set stopped "yes"
+ }  
+ -re ".*Program exited.*" {
+   fail "continue to foo bp: Program exited"
+   set stopped "no"
+ }
+ -re ".*internal-error: assertion failure in function.*Quit this debugging session. .y or n. $" {
+   fail "continue to foo bp: assertion error!"
+   set stopped "no"
+ }
+ -re ".*$gdb_prompt $" {
+   fail "continue to foo bp: Program exited"
+   set stopped "no"
+ }
+ timeout {
+   fail "(timeout) continue to foo bp"
+   set stopped "yes"
+ }
+}
+if {$stopped == "yes"} {
+}
+
+gdb_exit
+
+return 0

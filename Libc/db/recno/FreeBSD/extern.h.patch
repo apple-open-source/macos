@@ -5,7 +5,7 @@
   */
  
 -#include "../btree/extern.h"
-+#include "bt_extern.h"
++#include "../btree/bt_extern.h"
  
  int	 __rec_close(DB *);
  int	 __rec_delete(const DB *, const DBT *, u_int);

@@ -1,52 +1,37 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * mktime implementation
  */
 
-#define _def_map_ast	1
-
-#if defined(__STDPP__directive) && defined(__STDPP__hide)
-__STDPP__directive pragma pp:hide mktime
-#else
 #define mktime		______mktime
-#endif
 
 #include <ast.h>
 #include <tm.h>
 
-#if defined(__STDPP__directive) && defined(__STDPP__hide)
-__STDPP__directive pragma pp:nohide mktime
-#else
 #undef	mktime
-#endif
 
 #undef	_def_map_ast
-
 #include <ast_map.h>
 
 #undef	_lib_mktime	/* we can pass X/Open */
@@ -62,9 +47,31 @@ NoN(mktime)
 #endif
 
 extern time_t
-mktime(Tm_t* tm)
+mktime(struct tm* ts)
 {
-	return tmtime(tm, TM_LOCALZONE);
+	time_t	t;
+	Tm_t	tm;
+
+	tm.tm_sec = ts->tm_sec;
+	tm.tm_min = ts->tm_min;
+	tm.tm_hour = ts->tm_hour;
+	tm.tm_mday = ts->tm_mday;
+	tm.tm_mon = ts->tm_mon;
+	tm.tm_year = ts->tm_year;
+	tm.tm_wday = ts->tm_wday;
+	tm.tm_yday = ts->tm_yday;
+	tm.tm_isdst = ts->tm_isdst;
+	t = tmtime(&tm, TM_LOCALZONE);
+	ts->tm_sec = tm.tm_sec;
+	ts->tm_min = tm.tm_min;
+	ts->tm_hour = tm.tm_hour;
+	ts->tm_mday = tm.tm_mday;
+	ts->tm_mon = tm.tm_mon;
+	ts->tm_year = tm.tm_year;
+	ts->tm_wday = tm.tm_wday;
+	ts->tm_yday = tm.tm_yday;
+	ts->tm_isdst = tm.tm_isdst;
+	return t;
 }
 
 #endif

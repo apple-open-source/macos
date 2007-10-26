@@ -27,10 +27,114 @@
  *
  */
 
-#undef trashzle
-#undef zleread
-#undef spaceinline
-#undef zrefresh
+#ifdef MULTIBYTE_SUPPORT
+typedef wchar_t ZLE_CHAR_T;
+typedef wchar_t *ZLE_STRING_T;
+typedef wint_t   ZLE_INT_T;
+#define ZLE_CHAR_SIZE	sizeof(wchar_t)
+
+
+#define ZLEEOF	WEOF
+
+/* Functions that operate on a ZLE_STRING_T. */
+#define ZS_memcpy wmemcpy
+#define ZS_memmove wmemmove
+#define ZS_memset wmemset
+#define ZS_memcmp wmemcmp
+#define ZS_strlen wcslen
+#define ZS_strcpy wcscpy
+#define ZS_strncpy wcsncpy
+#define ZS_strncmp wcsncmp
+#define ZS_zarrdup wcs_zarrdup
+#define ZS_width wcslen
+#define ZS_strchr wcschr
+#define ZS_memchr wmemchr
+
+/*
+ * Functions that operate on a metafied string.
+ * These versions handle multibyte characters.
+ */
+#define ZMB_nicewidth(s)	mb_niceformat(s, NULL, NULL, 0)
+
+/* Functions that operate on ZLE_CHAR_T. */
+#define ZC_ialpha iswalpha
+#define ZC_ialnum iswalnum
+#define ZC_iblank wcsiblank
+#define ZC_icntrl iswcntrl
+#define ZC_idigit iswdigit
+#define ZC_iident(x) wcsitype((x), IIDENT)
+#define ZC_ilower iswlower
+#define ZC_inblank iswspace
+#define ZC_iupper iswupper
+#define ZC_iword(x) wcsitype((x), IWORD)
+
+#define ZC_tolower towlower
+#define ZC_toupper towupper
+
+#define LASTFULLCHAR	lastchar_wide
+#define LASTFULLCHAR_T  ZLE_INT_T
+
+#else  /* Not MULTIBYTE_SUPPORT: old single-byte code */
+
+typedef char ZLE_CHAR_T;
+typedef char *ZLE_STRING_T;
+typedef int ZLE_INT_T;
+#define ZLE_CHAR_SIZE	sizeof(ZLE_CHAR_T)
+
+#define ZLEEOF	EOF
+
+/* Functions that operate on a ZLE_STRING_T. */
+#define ZS_memcpy memcpy
+#define ZS_memmove memmove
+#define ZS_memset memset
+#define ZS_memcmp memcmp
+#define ZS_zarrdup zarrdup
+#define ZS_width ztrlen
+#define ZS_strchr strchr
+#define ZS_memchr memchr
+
+/*
+ * Functions that operate on a metafied string.
+ * These versions don't handle multibyte characters.
+ */
+#define ZMB_nicewidth	niceztrlen
+
+#ifdef __GNUC__
+static inline size_t ZS_strlen(ZLE_STRING_T s)
+{ return strlen((char*)s); }
+static inline ZLE_STRING_T ZS_strcpy(ZLE_STRING_T t, ZLE_STRING_T f)
+{ return (ZLE_STRING_T)strcpy((char*)t, (char*)f); }
+static inline ZLE_STRING_T ZS_strncpy(ZLE_STRING_T t, ZLE_STRING_T f, size_t l)
+{ return (ZLE_STRING_T)strncpy((char*)t, (char*)f, l); }
+static inline int ZS_strncmp(ZLE_STRING_T s1, ZLE_STRING_T s2, size_t l)
+{ return strncmp((char*)s1, (char*)s2, l); }
+#else
+#define ZS_strlen(s) strlen((char*)(s))
+#define ZS_strcpy(t,f) strcpy((char*)(t),(char*)(f))
+#define ZS_strncpy(t,f,l) strncpy((char*)(t),(char*)(f),(l))
+#define ZS_strncmp(s1,s2,l) strncmp((char*)(s1),(char*)(s2),(l))
+#endif
+
+/* Functions that operate on ZLE_CHAR_T. */
+#define ZC_ialpha ialpha
+#define ZC_ialnum ialnum
+#define ZC_iblank iblank
+#define ZC_icntrl icntrl
+#define ZC_idigit idigit
+#define ZC_iident iident
+#define ZC_ilower islower
+#define ZC_inblank inblank
+#define ZC_iupper isupper
+#define ZC_iword iword
+
+#define ZC_tolower tulower
+#define ZC_toupper tuupper
+
+#define LASTFULLCHAR	lastchar
+#define LASTFULLCHAR_T	int
+
+#endif
+
 
 typedef struct widget *Widget;
 typedef struct thingy *Thingy;
@@ -85,6 +189,7 @@ struct modifier {
     int mult;		/* repeat count */
     int tmult;		/* repeat count actually being edited */
     int vibuf;		/* vi cut buffer */
+    int base;		/* numeric base for digit arguments (usually 10) */
 };
 
 #define MOD_MULT  (1<<0)   /* a repeat count has been selected */
@@ -104,8 +209,10 @@ struct change {
     int flags;			/* see below */
     int hist;			/* history line being changed */
     int off;			/* offset of the text changes */
-    char *del;			/* characters to delete (metafied) */
-    char *ins;			/* characters to insert (metafied) */
+    ZLE_STRING_T del;		/* characters to delete */
+    int dell;			/* no. of characters in del */
+    ZLE_STRING_T ins;		/* characters to insert */
+    int insl;			/* no. of characters in ins */
     int old_cs, new_cs;		/* old and new cursor positions */
 };
 
@@ -126,14 +233,22 @@ typedef void (*KeyScanFunc) _((char *, Thingy, char *, void *));
 
 /* Standard type of suffix removal. */
 
-#define removesuffix() iremovesuffix(256, 0)
+#ifdef MULTIBYTE_SUPPORT
+#define NO_INSERT_CHAR	WEOF
+#else
+#define NO_INSERT_CHAR  256
+#endif
+#define removesuffix() iremovesuffix(NO_INSERT_CHAR, 0)
 
-/* Cut/kill buffer type.  The buffer itself is purely binary data, *
- * not NUL-terminated.  len is a length count.  flags uses the     *
- * CUTBUFFER_* constants defined below.                            */
+/*
+ * Cut/kill buffer type.  The buffer itself is purely binary data, not
+ * NUL-terminated.  len is a length count (N.B. number of characters,
+ * not size in bytes).  flags uses the CUTBUFFER_* constants defined
+ * below.
+ */
 
 struct cutbuffer {
-    char *buf;
+    ZLE_STRING_T buf;
     size_t len;
     char flags;
 };
@@ -194,3 +309,28 @@ struct compldat {
 /* Invalidate the completion list. */
 
 #define invalidatelist() runhookdef(INVALIDATELISTHOOK, NULL)
+
+/* Bit flags to setline */
+enum {
+    ZSL_COPY = 1,		/* Copy the argument, don't modify it */
+    ZSL_TOEND = 2,		/* Go to the end of the new line */
+};
+
+
+/* Type arguments to addsuffix() */
+enum suffixtype {
+    SUFTYP_POSSTR,		/* String of characters to match */
+    SUFTYP_NEGSTR,		/* String of characters not to match */
+    SUFTYP_POSRNG,		/* Range of characters to match */
+    SUFTYP_NEGRNG		/* Range of characters not to match */
+};
+
+#ifdef DEBUG
+#define METACHECK()		\
+	DPUTS(zlemetaline == NULL, "line not metafied")
+#define UNMETACHECK()		\
+	DPUTS(zlemetaline != NULL, "line metafied")
+#else
+#define METACHECK()
+#define UNMETACHECK()
+#endif

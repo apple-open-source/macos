@@ -1,5 +1,6 @@
 /* The emacs frame widget.
-   Copyright (C) 1992, 1993, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 2000, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Emacs 19 face widget ported by Fred Pierresteguy */
 
@@ -53,8 +54,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include <signal.h>
 #include "syssignal.h"
-
-#define max(a, b) ((a) > (b) ? (a) : (b))
 
 /* This sucks: this is the first default that x-faces.el tries.  This won't
    be used unless neither the "Emacs.EmacsFrame" resource nor the
@@ -185,8 +184,8 @@ get_default_char_pixel_size (ew, pixel_width, pixel_height)
      int* pixel_height;
 {
   struct frame* f = ew->emacs_frame.frame;
-  *pixel_width = FONT_WIDTH (f->output_data.x->font);
-  *pixel_height = f->output_data.x->line_height;
+  *pixel_width = FRAME_COLUMN_WIDTH (f);
+  *pixel_height = FRAME_LINE_HEIGHT (f);
 }
 
 static void
@@ -198,8 +197,8 @@ pixel_to_char_size (ew, pixel_width, pixel_height, char_width, char_height)
      int* char_height;
 {
   struct frame* f = ew->emacs_frame.frame;
-  *char_width = PIXEL_TO_CHAR_WIDTH (f, (int) pixel_width);
-  *char_height = PIXEL_TO_CHAR_HEIGHT (f, (int) pixel_height);
+  *char_width = FRAME_PIXEL_WIDTH_TO_TEXT_COLS (f, (int) pixel_width);
+  *char_height = FRAME_PIXEL_HEIGHT_TO_TEXT_LINES (f, (int) pixel_height);
 }
 
 static void
@@ -211,8 +210,8 @@ char_to_pixel_size (ew, char_width, char_height, pixel_width, pixel_height)
      Dimension* pixel_height;
 {
   struct frame* f = ew->emacs_frame.frame;
-  *pixel_width = CHAR_TO_PIXEL_WIDTH (f, char_width);
-  *pixel_height = CHAR_TO_PIXEL_HEIGHT (f, char_height);
+  *pixel_width = FRAME_TEXT_COLS_TO_PIXEL_WIDTH (f, char_width);
+  *pixel_height = FRAME_TEXT_LINES_TO_PIXEL_HEIGHT (f, char_height);
 }
 
 static void
@@ -298,7 +297,7 @@ set_frame_size (ew)
      (the menubar and the parent of the menubar and all that sort of thing
      are managed by lwlib.)
 
-     The EmacsShell widget is simply a replacement for the Shell widget 
+     The EmacsShell widget is simply a replacement for the Shell widget
      which is able to deal with using an externally-supplied window instead
      of always creating its own.  It is not actually emacs specific, and
      should possibly have class "Shell" instead of "EmacsShell" to simplify
@@ -307,15 +306,15 @@ set_frame_size (ew)
    */
 
   /* Hairily merged geometry */
-  unsigned int w = ew->emacs_frame.frame->width;
-  unsigned int h = ew->emacs_frame.frame->height;
-  
+  unsigned int w = FRAME_COLS (ew->emacs_frame.frame);
+  unsigned int h = FRAME_LINES (ew->emacs_frame.frame);
+
   Widget wmshell = get_wm_shell ((Widget) ew);
   /* Each Emacs shell is now independent and top-level.  */
-  
+
   if (! XtIsSubclass (wmshell, shellWidgetClass)) abort ();
 
-  /* We don't need this for the moment. The geometry is computed in 
+  /* We don't need this for the moment. The geometry is computed in
      xfns.c.  */
 #if 0
   /* If the EmacsFrame doesn't have a geometry but the shell does,
@@ -328,20 +327,20 @@ set_frame_size (ew)
      this bogus? I'm not sure.) */
   if (!ew->emacs_frame.iconic)
     XtVaGetValues (wmshell, XtNiconic, &ew->emacs_frame.iconic, NULL);
-  
-  
+
+
   {
     char *geom = 0;
     XtVaGetValues (app_shell, XtNgeometry, &geom, NULL);
     if (geom)
       app_flags = XParseGeometry (geom, &app_x, &app_y, &app_w, &app_h);
   }
-  
+
   if (ew->emacs_frame.geometry)
     frame_flags = XParseGeometry (ew->emacs_frame.geometry,
 				   &frame_x, &frame_y,
 				   &frame_w, &frame_h);
-  
+
   if (first_frame_p)
     {
       /* If this is the first frame created:
@@ -422,7 +421,7 @@ set_frame_size (ew)
     }
 #endif /* 0 */
   {
-    struct frame* frame = ew->emacs_frame.frame;
+    struct frame *f = ew->emacs_frame.frame;
     Dimension pixel_width, pixel_height;
 
     /* Take into account the size of the scrollbar.  Always use the
@@ -430,16 +429,16 @@ set_frame_size (ew)
        might end up with a frame width that is not a multiple of the
        frame's character width which is bad for vertically split
        windows.  */
-    frame->output_data.x->vertical_scroll_bar_extra
-      = (!FRAME_HAS_VERTICAL_SCROLL_BARS (frame)
-	 ? 0
-	 : (FRAME_SCROLL_BAR_COLS (frame)
-	    * FONT_WIDTH (frame->output_data.x->font)));
+    f->scroll_bar_actual_width
+      = FRAME_SCROLL_BAR_COLS (f) * FRAME_COLUMN_WIDTH (f);
 
-    frame->output_data.x->flags_areas_extra
-      = FRAME_FLAGS_AREA_WIDTH (frame);
+    compute_fringe_widths (f, 0);
 
-    change_frame_size (frame, h, w, 1, 0, 0);
+#if 0 /* This can run Lisp code, and it is dangerous to give
+	 out the frame to Lisp code before it officially exists.
+	 This is handled in Fx_create_frame so not needed here.  */
+    change_frame_size (f, h, w, 1, 0, 0);
+#endif
     char_to_pixel_size (ew, w, h, &pixel_width, &pixel_height);
     ew->core.width = pixel_width;
     ew->core.height = pixel_height;
@@ -515,7 +514,7 @@ update_wm_hints (ew)
 		      &char_width, &char_height);
   char_to_pixel_size (ew, char_width, char_height,
 		      &rounded_width, &rounded_height);
-  get_default_char_pixel_size (ew, &cw, &ch); 
+  get_default_char_pixel_size (ew, &cw, &ch);
 
   base_width = (wmshell->core.width - ew->core.width
 		+ (rounded_width - (char_width * cw)));
@@ -530,7 +529,7 @@ update_wm_hints (ew)
   XtVaSetValues (wmshell,
 		 XtNbaseWidth, (XtArgVal) base_width,
 		 XtNbaseHeight, (XtArgVal) base_height,
-		 XtNwidthInc, (XtArgVal) cw, 
+		 XtNwidthInc, (XtArgVal) cw,
 		 XtNheightInc, (XtArgVal) ch,
 		 XtNminWidth, (XtArgVal) (base_width + min_cols * cw),
 		 XtNminHeight, (XtArgVal) (base_height + min_rows * ch),
@@ -644,10 +643,11 @@ static void
 update_various_frame_slots (ew)
      EmacsFrame ew;
 {
-  struct x_output *x = ew->emacs_frame.frame->output_data.x;
-  x->pixel_height = ew->core.height + x->menubar_height;
-  x->pixel_width = ew->core.width;
-  x->internal_border_width = ew->emacs_frame.internal_border_width;
+  struct frame *f = ew->emacs_frame.frame;
+  struct x_output *x = f->output_data.x;
+  FRAME_PIXEL_HEIGHT (f) = ew->core.height + x->menubar_height;
+  FRAME_PIXEL_WIDTH (f) = ew->core.width;
+  f->internal_border_width = ew->emacs_frame.internal_border_width;
 
 }
 
@@ -655,18 +655,19 @@ static void
 update_from_various_frame_slots (ew)
      EmacsFrame ew;
 {
-  struct x_output *x = ew->emacs_frame.frame->output_data.x;
-  ew->core.height = x->pixel_height - x->menubar_height;
-  ew->core.width = x->pixel_width;
+  struct frame *f = ew->emacs_frame.frame;
+  struct x_output *x = f->output_data.x;
+  ew->core.height = FRAME_PIXEL_HEIGHT (f) - x->menubar_height;
+  ew->core.width = FRAME_PIXEL_WIDTH (f);
   ew->core.background_pixel = x->background_pixel;
-  ew->emacs_frame.internal_border_width = x->internal_border_width;
+  ew->emacs_frame.internal_border_width = f->internal_border_width;
   ew->emacs_frame.font = x->font;
   ew->emacs_frame.foreground_pixel = x->foreground_pixel;
   ew->emacs_frame.cursor_color = x->cursor_pixel;
   ew->core.border_pixel = x->border_pixel;
 }
 
-static void 
+static void
 EmacsFrameInitialize (request, new, dum1, dum2)
      Widget request;
      Widget new;
@@ -705,7 +706,7 @@ EmacsFrameInitialize (request, new, dum1, dum2)
     face_res.default_addr = 0;
     XtGetSubresources ((Widget) ew, (XtPointer) &f, "default", "Face",
 		       &face_res, 1, NULL, 0);
-      
+
     if (f)
 	ew->emacs_frame.font = f;
     else if (! ew->emacs_frame.font)
@@ -716,11 +717,11 @@ EmacsFrameInitialize (request, new, dum1, dum2)
   }
 
 /* Update the font field in frame */
-  ew->emacs_frame.frame->output_data.x->font = ew->emacs_frame.font;
+  FRAME_FONT (ew->emacs_frame.frame) = ew->emacs_frame.font;
 #endif
 
   update_from_various_frame_slots (ew);
-  set_frame_size (ew); 
+  set_frame_size (ew);
 /*create_frame_gcs (ew);
   setup_frame_gcs (ew);
   update_various_frame_slots (ew); */
@@ -744,7 +745,7 @@ EmacsFrameRealize (widget, mask, attrs)
   *mask |= CWEventMask;
   XtCreateWindow (widget, InputOutput, (Visual *)CopyFromParent, *mask,
 		  attrs);
-  update_wm_hints (ew); 
+  update_wm_hints (ew);
 }
 
 extern void free_frame_faces (/* struct frame * */);
@@ -758,7 +759,6 @@ EmacsFrameDestroy (widget)
 
   if (! s) abort ();
   if (! s->output_data.x) abort ();
-  if (! s->output_data.x->normal_gc) abort ();
 
   BLOCK_INPUT;
   x_free_gcs (s);
@@ -780,7 +780,7 @@ EmacsFrameResize (widget)
 
   pixel_to_char_size (ew, ew->core.width, ew->core.height, &columns, &rows);
   change_frame_size (f, rows, columns, 0, 1, 0);
-  update_wm_hints (ew); 
+  update_wm_hints (ew);
   update_various_frame_slots (ew);
 
   cancel_mouse_face (f);
@@ -805,14 +805,14 @@ EmacsFrameSetValues (cur_widget, req_widget, new_widget, dum1, dum2)
   int char_width, char_height;
   Dimension pixel_width;
   Dimension pixel_height;
-  
+
   has_to_recompute_gcs = (cur->emacs_frame.font != new->emacs_frame.font
 			  || (cur->emacs_frame.foreground_pixel
 			      != new->emacs_frame.foreground_pixel)
 			  || (cur->core.background_pixel
 			      != new->core.background_pixel)
 			  );
-  
+
   has_to_recompute_size = (cur->emacs_frame.font != new->emacs_frame.font
 			   && cur->core.width == new->core.width
 			   && cur->core.height == new->core.height);
@@ -824,7 +824,7 @@ EmacsFrameSetValues (cur_widget, req_widget, new_widget, dum1, dum2)
       setup_frame_gcs (new);
       needs_a_refresh = True;
     }
-			  
+
   if (has_to_recompute_size)
     {
       pixel_width = new->core.width;
@@ -905,17 +905,14 @@ EmacsFrameSetCharSize (widget, columns, rows)
   EmacsFrame ew = (EmacsFrame) widget;
   Dimension pixel_width, pixel_height;
   struct frame *f = ew->emacs_frame.frame;
-  
+
   if (columns < 3) columns = 3;  /* no way buddy */
 
   check_frame_size (f, &rows, &columns);
-  f->output_data.x->vertical_scroll_bar_extra
-    = (!FRAME_HAS_VERTICAL_SCROLL_BARS (f)
-       ? 0
-       : (FRAME_SCROLL_BAR_COLS (f) * FONT_WIDTH (f->output_data.x->font)));
+  f->scroll_bar_actual_width
+    = FRAME_SCROLL_BAR_COLS (f) * FRAME_COLUMN_WIDTH (f);
 
-  f->output_data.x->flags_areas_extra
-    = FRAME_FLAGS_AREA_WIDTH (f);
+  compute_fringe_widths (f, 0);
 
   char_to_pixel_size (ew, columns, rows, &pixel_width, &pixel_height);
 
@@ -923,7 +920,7 @@ EmacsFrameSetCharSize (widget, columns, rows)
   /* Something is really strange here wrt to the border width:
      Apparently, XtNwidth and XtNheight include the border, so we have
      to add it here.  But the XtNborderWidth set for the widgets has
-     no similarity to what f->output_data.x->border_width is set to.  */
+     no similarity to what f->border_width is set to.  */
   XtVaGetValues (widget, XtNborderWidth, &border_width, NULL);
   pixel_height += 2 * border_width;
   pixel_width += 2 * border_width;
@@ -956,9 +953,11 @@ EmacsFrameSetCharSize (widget, columns, rows)
 	 Xt when the default font is changed.  Tell Xt not to wait,
 	 depending on the value of the frame parameter
 	 `wait-for-wm'.  */
+      x_catch_errors (FRAME_X_DISPLAY (f));
       XtVaSetValues (f->output_data.x->widget,
 		     XtNwaitForWm, (XtArgVal) f->output_data.x->wait_for_wm,
 		     NULL);
+      x_uncatch_errors ();
 
       /* Workaround: When a SIGIO or SIGALRM occurs while Xt is
 	 waiting for a ConfigureNotify event (see above), this leads
@@ -968,11 +967,14 @@ EmacsFrameSetCharSize (widget, columns, rows)
 #ifdef SIGIO
       sigblock (sigmask (SIGIO));
 #endif
-      
+
       /* Do parents first, otherwise LessTif's geometry management
 	 enters an infinite loop (as of 2000-01-15).  This is fixed in
 	 later versions of LessTif (as of 2001-03-13); I'll leave it
 	 as is because I think it can't do any harm.  */
+      /* In April 2002, simon.marshall@misys.com reports the problem
+	 seems not to occur any longer.  */
+      x_catch_errors (FRAME_X_DISPLAY (f));
       XtVaSetValues (f->output_data.x->widget,
       		     XtNheight, (XtArgVal) (outer_widget_height + hdelta),
 		     XtNwidth, (XtArgVal) (outer_widget_width + wdelta),
@@ -985,11 +987,13 @@ EmacsFrameSetCharSize (widget, columns, rows)
                      XtNheight, (XtArgVal) pixel_height,
       		     XtNwidth, (XtArgVal) pixel_width,
 		     NULL);
+      x_uncatch_errors ();
+
 #ifdef SIGIO
       sigunblock (sigmask (SIGIO));
 #endif
       turn_on_atimers (1);
-      
+
       lw_refigure_widget (f->output_data.x->column_widget, True);
 
       update_hints_inhibit = 0;
@@ -1015,6 +1019,8 @@ widget_store_internal_border (widget)
   EmacsFrame ew = (EmacsFrame) widget;
   FRAME_PTR f = ew->emacs_frame.frame;
 
-  ew->emacs_frame.internal_border_width
-    = f->output_data.x->internal_border_width;
+  ew->emacs_frame.internal_border_width = f->internal_border_width;
 }
+
+/* arch-tag: 931d28e5-0d59-405a-8325-7d475d0a13d9
+   (do not change this comment) */

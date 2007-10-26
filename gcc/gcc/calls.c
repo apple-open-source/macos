@@ -616,13 +616,17 @@ flags_from_decl_or_type (tree exp)
 
       /* The function exp may have the `pure' attribute.  */
       if (DECL_IS_PURE (exp))
-	flags |= ECF_PURE | ECF_LIBCALL_BLOCK;
+        /* APPLE LOCAL begin mainline 4850442 */
+	flags |= ECF_PURE;
+        /* APPLE LOCAL end mainline 4850442 */
 
       if (TREE_NOTHROW (exp))
 	flags |= ECF_NOTHROW;
 
       if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
-	flags |= ECF_LIBCALL_BLOCK | ECF_CONST;
+        /* APPLE LOCAL begin mainline 4850442 */
+	flags |= ECF_CONST;
+        /* APPLE LOCAL end mainline 4850442 */
 
       flags = special_function_p (exp, flags);
     }
@@ -637,7 +641,9 @@ flags_from_decl_or_type (tree exp)
   if (TREE_CODE (type) == FUNCTION_TYPE && TYPE_RETURNS_STACK_DEPRESSED (type))
     {
       flags |= ECF_SP_DEPRESSED;
-      flags &= ~(ECF_PURE | ECF_CONST | ECF_LIBCALL_BLOCK);
+      /* APPLE LOCAL begin mainline 4850442 */
+      flags &= ~(ECF_PURE | ECF_CONST);
+      /* APPLE LOCAL end mainline 4850442 */
     }
 
   return flags;
@@ -1398,6 +1404,7 @@ finalize_must_preallocate (int must_preallocate, int num_actuals, struct arg_dat
 
    ARGBLOCK is an rtx for the address of the outgoing arguments.  */
 
+/* APPLE LOCAL begin mainline 2007-01-03 4908494 */
 static void
 compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals)
 {
@@ -1415,9 +1422,13 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	  rtx slot_offset = ARGS_SIZE_RTX (args[i].locate.slot_offset);
 	  rtx addr;
 	  unsigned int align, boundary;
+	  unsigned int units_on_stack = 0;
+	  enum machine_mode partial_mode = VOIDmode;
 
 	  /* Skip this parm if it will not be passed on the stack.  */
-	  if (! args[i].pass_on_stack && args[i].reg != 0)
+	  if (! args[i].pass_on_stack
+	      && args[i].reg != 0
+	      && args[i].partial == 0)
 	    continue;
 
 	  if (GET_CODE (offset) == CONST_INT)
@@ -1426,9 +1437,23 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	    addr = gen_rtx_PLUS (Pmode, arg_reg, offset);
 
 	  addr = plus_constant (addr, arg_offset);
-	  args[i].stack = gen_rtx_MEM (args[i].mode, addr);
-	  set_mem_attributes (args[i].stack,
-			      TREE_TYPE (args[i].tree_value), 1);
+
+	  if (args[i].partial != 0)
+	    {
+	      /* Only part of the parameter is being passed on the stack.
+		 Generate a simple memory reference of the correct size.  */
+	      units_on_stack = args[i].locate.size.constant;
+	      partial_mode = mode_for_size (units_on_stack * BITS_PER_UNIT,
+					    MODE_INT, 1);
+	      args[i].stack = gen_rtx_MEM (partial_mode, addr);
+	      set_mem_size (args[i].stack, GEN_INT (units_on_stack));
+	    }
+	  else
+	    {
+	      args[i].stack = gen_rtx_MEM (args[i].mode, addr);
+	      set_mem_attributes (args[i].stack,
+				  TREE_TYPE (args[i].tree_value), 1);
+	    }
 	  align = BITS_PER_UNIT;
 	  boundary = args[i].locate.boundary;
 	  if (args[i].locate.where_pad != downward)
@@ -1446,9 +1471,21 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	    addr = gen_rtx_PLUS (Pmode, arg_reg, slot_offset);
 
 	  addr = plus_constant (addr, arg_offset);
-	  args[i].stack_slot = gen_rtx_MEM (args[i].mode, addr);
-	  set_mem_attributes (args[i].stack_slot,
-			      TREE_TYPE (args[i].tree_value), 1);
+
+	  if (args[i].partial != 0)
+	    {
+	      /* Only part of the parameter is being passed on the stack.
+		 Generate a simple memory reference of the correct size.
+	       */
+	      args[i].stack_slot = gen_rtx_MEM (partial_mode, addr);
+	      set_mem_size (args[i].stack_slot, GEN_INT (units_on_stack));
+	    }
+	  else
+	    {
+	      args[i].stack_slot = gen_rtx_MEM (args[i].mode, addr);
+	      set_mem_attributes (args[i].stack_slot,
+				  TREE_TYPE (args[i].tree_value), 1);
+	    }
 	  set_mem_align (args[i].stack_slot, args[i].locate.boundary);
 
 	  /* Function incoming arguments may overlap with sibling call
@@ -1460,6 +1497,7 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	}
     }
 }
+/* APPLE LOCAL end mainline 2007-01-03 4908494 */
 
 /* Given a FNDECL and EXP, return an rtx suitable for use as a target address
    in a call instruction.
@@ -2069,7 +2107,8 @@ expand_call (tree exp, rtx target, int ignore)
 	    /* For variable-sized objects, we must be called with a target
 	       specified.  If we were to allocate space on the stack here,
 	       we would have no way of knowing when to free it.  */
-	    rtx d = assign_temp (TREE_TYPE (exp), 1, 1, 1);
+	    /* APPLE LOCAL allow reuse of return temps 4658012 */
+	    rtx d = assign_temp (TREE_TYPE (exp), 0, 1, 1);
 
 	    mark_temp_addr_taken (d);
 	    structure_value_addr = XEXP (d, 0);
@@ -2274,9 +2313,14 @@ expand_call (tree exp, rtx target, int ignore)
          some of the caller's arguments, but could clobber them beforehand if
          the argument areas are shared.  */
       || (fndecl && decl_function_context (fndecl) == current_function_decl)
+      /* APPLE LOCAL begin ARM mainline 2006-05-09 4537821 */
       /* If this function requires more stack slots than the current
-	 function, we cannot change it into a sibling call.  */
-      || args_size.constant > current_function_args_size
+	 function, we cannot change it into a sibling call.
+	 current_function_pretend_args_size is not part of the
+	 stack allocated by our caller.  */
+      || args_size.constant > (current_function_args_size
+			       - current_function_pretend_args_size)
+      /* APPLE LOCAL end ARM mainline 2006-05-09 4537821 */
       /* If the callee pops its own arguments, then it must pop exactly
 	 the same number of arguments as the current function.  */
       || (RETURN_POPS_ARGS (fndecl, funtype, args_size.constant)
@@ -2372,6 +2416,10 @@ expand_call (tree exp, rtx target, int ignore)
 	 if a libcall is deleted.  */
       if (pass && (flags & (ECF_LIBCALL_BLOCK | ECF_MALLOC)))
 	start_sequence ();
+      /* APPLE LOCAL begin mainline */
+      if (pass == 0 && cfun->stack_protect_guard)
+	stack_protect_epilogue ();
+      /* APPLE LOCAL end mainlne */
 
       adjusted_args_size = args_size;
       /* Compute the actual size of the argument block required.  The variable
@@ -4128,7 +4176,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		  arg->save_area = assign_temp (nt, 0, 1, 1);
 		  preserve_temp_slots (arg->save_area);
 		  emit_block_move (validize_mem (arg->save_area), stack_area,
-				   expr_size (arg->tree_value),
+				   /* APPLE LOCAL mainline 2007-01-03 4908494 */
+				   GEN_INT (arg->locate.size.constant),
 				   BLOCK_OP_CALL_PARM);
 		}
 	      else
@@ -4362,11 +4411,32 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		  if (arg->locate.offset.constant < i + INTVAL (size_rtx))
 		    sibcall_failure = 1;
 		}
+	      /* APPLE LOCAL begin ARM mainline 4567449 */
+#ifdef TARGET_ARM
+	      /* Use arg->locate.size.constant instead of size_rtx because
+		 we only care about the part of the argument on the stack.  */
+	      else if (arg->locate.offset.constant < i)
+		{
+		  if (i < arg->locate.offset.constant + arg->locate.size.constant)
+		    sibcall_failure = 1;
+		}
+	      /* Even though they appear to be at the same location, if
+		 part of the outgoing argument is in registers, they aren't
+		 really at the same location.  Check for this by making sure
+		 that the incoming size is the same as the outgoing size.  */
+	      else
+		{
+		  if (arg->locate.size.constant != INTVAL (size_rtx))
+		    sibcall_failure = 1;
+		}
+#else
 	      else if (arg->locate.offset.constant < i)
 		{
 		  if (i < arg->locate.offset.constant + INTVAL (size_rtx))
 		    sibcall_failure = 1;
 		}
+#endif
+	      /* APPLE LOCAL end ARM mainline 4567449 */
 	    }
 	}
 

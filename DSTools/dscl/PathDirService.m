@@ -52,7 +52,8 @@ static NSDictionary *gSearchPaths;
     gSearchPaths = [[NSDictionary alloc] initWithObjectsAndKeys:[NSNumber numberWithLong:eDSSearchNodeName],
 							@"Search",
 							[NSNumber numberWithLong:eDSContactsSearchNodeName],
-							@"Contact",0];
+							@"Contact",
+							0];
 }
 // ----------------------------------------------------------------------------
 // Initialization / teardown
@@ -73,6 +74,14 @@ static NSDictionary *gSearchPaths;
     return self;
 }
 
+- initWithLocalPath:(NSString*)filePath
+{
+    [self init];
+    _dir = [[DSoDirectory alloc] initWithLocalPath:filePath];
+    [_attribs setObject:@"localonly" forKey:kHostnameKey];
+    return self;
+}
+
 - initWithHost:(NSString*)hostName user:(NSString*)user password:(NSString*)password
 {
     [self init];
@@ -87,6 +96,12 @@ static NSDictionary *gSearchPaths;
     [_dir release];
     [_attribs release];
     [super dealloc];
+}
+
+-(DSoDirectory*) directory
+{
+	// ATM - PlugInManager needs access to directory instance
+	return _dir;
 }
 
 // ----------------------------------------------------------------------------
@@ -214,6 +229,16 @@ static NSDictionary *gSearchPaths;
     {
         p = [[PathNodeConfig alloc] initWithNode:[_dir configNode] path:@"/Configure"];
         [(PathNodeConfig*)p setEnableSubNodes:NO];
+    }
+    else if ([dest caseInsensitiveCompare:@"cache"] == NSOrderedSame)
+    {
+		NS_DURING
+			n = [_dir findNode:@"/Cache"];
+		NS_HANDLER
+			if (!DS_EXCEPTION_STATUS_IS(eNotHandledByThisNode))
+				[localException raise];
+		NS_ENDHANDLER
+		p = [[PathNode alloc] initWithNode:n path:@"/Cache"];
     }
     else if ([[_dir configNode] pluginEnabled:dest])
     {

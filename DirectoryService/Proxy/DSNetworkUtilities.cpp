@@ -39,6 +39,7 @@
 #include <net/if.h>		// interface struture ifreq, ifconf
 #include <net/if_dl.h>	// datalink structs
 #include <net/if_types.h>
+#include <unistd.h>
 
 #include <arpa/inet.h>	// for inet_*
 #include <arpa/nameser.h>
@@ -71,7 +72,7 @@ DSMutexSemaphore   *DSNetworkUtilities::sNetSemaphore		= NULL;
 //	* Initialize ()
 // ------------------------------------------------------------------------
 
-OSStatus DSNetworkUtilities::Initialize ( void )
+SInt32 DSNetworkUtilities::Initialize ( void )
 {
 	register int rc = 0;
 
@@ -80,33 +81,33 @@ OSStatus DSNetworkUtilities::Initialize ( void )
 		return eDSNoErr;
 	}
 
-	sNetSemaphore = new DSMutexSemaphore();
+	sNetSemaphore = new DSMutexSemaphore("DSNetworkUtilities::sNetSemaphore");
 	sIPInfo = nil;
 
 	try
 	{
 #ifdef DSSERVERTCP
-		SRVRLOG( kLogApplication, "Initializing TCP ..." );
+		SrvrLog( kLogApplication, "Initializing TCP ..." );
 #endif
 		rc = InitializeTCP();
 		if ( rc != 0 )
 		{
 #ifdef DSSERVERTCP
-			ERRORLOG1( kLogApplication, "*** Warning*** TCP is not available.  Error: %d", rc );
-			DBGLOG( kLogTCPEndpoint, "DSNetworkUtilities::Initialize(): TCP not available." );
+			ErrLog( kLogApplication, "*** Warning*** TCP is not available.  Error: %d", rc );
+			DbgLog( kLogTCPEndpoint, "DSNetworkUtilities::Initialize(): TCP not available." );
 #else
 			LOG1( kStdErr, "*** Warning*** DSNetworkUtilities::Initialize(): TCP is not available.  Error: %d", rc );
 #endif
-			throw( (sInt32)rc );
+			throw( (SInt32)rc );
 		}
 
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		sNetworkInitialized = false;
 #ifdef DSSERVERTCP
-		DBGLOG1( kLogTCPEndpoint, "DSNetworkUtilities::Initialize failed.  Error: %d", err );
+		DbgLog( kLogTCPEndpoint, "DSNetworkUtilities::Initialize failed.  Error: %d", err );
 #else
 		LOG1( kStdErr, "DSNetworkUtilities::Initialize failed.  Error: %d", err );
 #endif
@@ -115,7 +116,7 @@ OSStatus DSNetworkUtilities::Initialize ( void )
 
 	sNetworkInitialized = true;
 #ifdef DSSERVERTCP
-	DBGLOG( kLogTCPEndpoint, "DSNetworkUtilities::Initialized." );
+	DbgLog( kLogTCPEndpoint, "DSNetworkUtilities::Initialized." );
 #endif
 
 	return( eDSNoErr );
@@ -127,7 +128,7 @@ OSStatus DSNetworkUtilities::Initialize ( void )
 //	* ResolveToIPAddress ()
 // ------------------------------------------------------------------------
 
-OSStatus DSNetworkUtilities::ResolveToIPAddress ( const InetDomainName inDomainName, InetHost* outInetHost )
+SInt32 DSNetworkUtilities::ResolveToIPAddress ( const InetDomainName inDomainName, InetHost* outInetHost )
 {
 	register struct hostent *hp = NULL;
 
@@ -140,7 +141,7 @@ OSStatus DSNetworkUtilities::ResolveToIPAddress ( const InetDomainName inDomainN
 			hp = ::gethostbyname( inDomainName );
 			if ( hp == NULL )
 			{
-				throw( (sInt32)h_errno );
+				throw( (SInt32)h_errno );
 			}
 			*outInetHost = ntohl( ((struct in_addr *)(hp->h_addr_list[0]))->s_addr );
 
@@ -149,10 +150,10 @@ OSStatus DSNetworkUtilities::ResolveToIPAddress ( const InetDomainName inDomainN
 		}
 	} // try
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 #ifdef DSSERVERTCP
-		ERRORLOG1( kLogTCPEndpoint, "Unable to resolve the IP address for %s.", inDomainName );
+		ErrLog( kLogTCPEndpoint, "Unable to resolve the IP address for %s.", inDomainName );
 #else
 		LOG1( kStdErr, "Unable to resolve the IP address for %s.", inDomainName );
 #endif
@@ -304,7 +305,7 @@ DSNetworkUtilities::GetIPAddressByName(const char *inName)
 
 		hp = ::gethostbyname(inName);
 		if (hp == NULL) {
-			throw((sInt32)h_errno);
+			throw((SInt32)h_errno);
 		}
 
 		IPAddr = ntohl(((struct in_addr *)hp->h_addr)->s_addr);
@@ -312,10 +313,10 @@ DSNetworkUtilities::GetIPAddressByName(const char *inName)
 		return IPAddr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 #ifdef DSSERVERTCP
-		ERRORLOG2( kLogTCPEndpoint, "GetIPAddressByName for %s failed: %d.", inName, err );
+		ErrLog( kLogTCPEndpoint, "GetIPAddressByName for %s failed: %d.", inName, err );
 #else
 		LOG2( kStdErr, "GetIPAddressByName for %s failed: %d.", inName, err );
 #endif
@@ -345,7 +346,7 @@ DSNetworkUtilities::IPAddrToString(const InetHost inAddr, char *ioNameBuffer, co
 		::strncpy(ioNameBuffer, result, inBufferSize);
 	else {
 #ifdef DSSERVERTCP
-		ERRORLOG1( kLogTCPEndpoint, "IPAddrToString for %u failed.", inAddr );
+		ErrLog( kLogTCPEndpoint, "IPAddrToString for %u failed.", inAddr );
 #else
 		LOG1( kStdErr, "IPAddrToString for %u failed.", inAddr );
 #endif
@@ -382,7 +383,7 @@ DSNetworkUtilities::StringToIPAddr(const char *inAddrStr, InetHost *ioIPAddr)
 		}
 
 #ifdef DSSERVERTCP
-		ERRORLOG1( kLogTCPEndpoint, "StringToIPAddr() failed for %s", inAddrStr );
+		ErrLog( kLogTCPEndpoint, "StringToIPAddr() failed for %s", inAddrStr );
 #else
 		LOG1( kStdErr, "StringToIPAddr() failed for %s", inAddrStr );
 #endif
@@ -426,11 +427,11 @@ int DSNetworkUtilities::InitializeTCP ( void )
 		{
 			err = errno;
 #ifdef DSSERVERTCP
-			ERRORLOG1( kLogTCPEndpoint, "SOCKET: %d.", err );
+			ErrLog( kLogTCPEndpoint, "SOCKET: %d.", err );
 #else
 			LOG1( kStdErr, "SOCKET: %d.", err );
 #endif
-			throw((sInt32)err);
+			throw((SInt32)err);
 		}
 
 		ifc.ifc_buf = (caddr_t)ifrbuf;
@@ -440,11 +441,11 @@ int DSNetworkUtilities::InitializeTCP ( void )
 		{
 			err = errno;
 #ifdef DSSERVERTCP
-			ERRORLOG1( kLogTCPEndpoint, "ioctl:SIOCGIFCONF: %d.", err );
+			ErrLog( kLogTCPEndpoint, "ioctl:SIOCGIFCONF: %d.", err );
 #else
 			LOG1( kStdErr, "ioctl:SIOCGIFCONF: %d.", err );
 #endif
-			throw((sInt32)err);
+			throw((SInt32)err);
 		}
 
 		// walk the interface and  address list, only interested in ethernet and AF_INET
@@ -489,11 +490,11 @@ int DSNetworkUtilities::InitializeTCP ( void )
 
 	} // try
 
-	catch( sInt32 someError )
+	catch( SInt32 someError )
 	{
 		DSNetworkUtilities::Signal();
 #ifdef DSSERVERTCP
-		ERRORLOG( kLogTCPEndpoint, "DSNetworkUtilities::InitializeTCP failed." );
+		ErrLog( kLogTCPEndpoint, "DSNetworkUtilities::InitializeTCP failed." );
 #else
 		LOG( kStdErr, "DSNetworkUtilities::InitializeTCP failed." );
 #endif
@@ -515,27 +516,26 @@ void DSNetworkUtilities::Signal ( void )
 	else
 	{
 #ifdef DSSERVERTCP
-		DBGLOG( kLogApplication,"DSNetworkUtilities::Signal -- sNetSemaphore is NULL" );
+		DbgLog( kLogApplication,"DSNetworkUtilities::Signal -- sNetSemaphore is NULL" );
 #else
 		LOG( kStdErr,"DSNetworkUtilities::Signal -- sNetSemaphore is NULL" );
 #endif
 	}
 }
 
-long DSNetworkUtilities::Wait ( sInt32 milliSecs )
+void DSNetworkUtilities::Wait ()
 {
 	if ( sNetSemaphore != nil )
 	{
-		return sNetSemaphore->Wait(milliSecs);
+		sNetSemaphore->Wait();
 	}
 	else
 	{
 #ifdef DSSERVERTCP
-		DBGLOG( kLogApplication,"DSNetworkUtilities::Wait -- sNetSemaphore is NULL" );
+		DbgLog( kLogApplication,"DSNetworkUtilities::Wait -- sNetSemaphore is NULL" );
 #else
 		LOG( kStdErr,"DSNetworkUtilities::Wait -- sNetSemaphore is NULL" );
 #endif
-		return (long)DSSemaphore::semOtherErr;
 	}
 }
 

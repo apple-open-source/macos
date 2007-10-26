@@ -1,35 +1,31 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1982-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#                David Korn <dgk@research.att.com>                 #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                  David Korn <dgk@research.att.com>                   #
+#                                                                      #
+########################################################################
 function err_exit
 {
 	print -u2 -n "\t"
-	print -u2 -r $Command[$1]: "${@:2}"
+	print -u2 -r ${Command}[$1]: "${@:2}"
 	let Errors+=1
 }
 alias err_exit='err_exit $LINENO'
 
-Command=$0
+Command=${0##*/}
 integer Errors=0
 function checkref
 {
@@ -194,4 +190,40 @@ function setval # name value
 foo=( integer bar=0)
 setval foo 5
 (( foo.bar == 5)) || err_exit 'nested nameref not working'
+function selfref
+{
+        typeset -n ps=$1
+        print -r -- "${ps}"
+}
+ps=(a=1 b=2)
+[[ $(selfref ps) == *a=1* ]] ||  err_exit 'local nameref cannot reference global variable of the same name'
+function subref
+{
+	typeset -n foo=$1
+	print -r -- ${foo.a}
+}
+[[ $(subref ps) == 1 ]] ||  err_exit 'local nameref cannot reference global variable child'
+
+function local
+{
+	typeset ps=(typeset -i a=3 b=4)
+	[[ $(subref ps) == 3 ]] ||  err_exit 'local nameref cannot reference caller compound variable'
+}
+local
+unset -f local
+function local
+{
+	qs=(integer  a=3; integer b=4)
+}
+local 2> /dev/null || err_exit 'function local has non-zero exit status'
+[[ ${qs.a} == 3 ]] || err_exit 'function cannot set compound global variable' 
+unset fun i
+foo=(x=hi)
+function fun
+{
+        nameref i=$1
+        print -r -- "${i.x}"
+}
+i=foo
+[[ $(fun $i) == hi ]] || err_exit 'nameref for compound variable with in function name of caller fails'
 exit $((Errors))

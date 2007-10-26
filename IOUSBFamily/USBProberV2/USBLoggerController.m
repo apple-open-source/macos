@@ -188,7 +188,7 @@ static int remainingFreshEntries = 0;
     currentDate = [NSCalendarDate date];
     [currentDate setCalendarFormat:@"%b %d %H:%M:%S"];
 
-    [self appendOutput:[NSString stringWithFormat:@"\n\t\t¥¥¥¥ %@ ¥¥¥¥\n\n",currentDate] atLevel:[NSNumber numberWithInt:0]];
+    [self appendOutput:[NSString stringWithFormat:@"\n\t\t**** %@ ****\n\n",currentDate] atLevel:[NSNumber numberWithInt:0]];
     
 }
 
@@ -206,7 +206,7 @@ static int remainingFreshEntries = 0;
         
         finalString = [LoggerOutputTV string];
         
-        if (![finalString writeToFile:[sp filename] atomically:YES])
+        if (![finalString writeToFile:[sp filename] atomically:YES encoding:NSUTF8StringEncoding error:NULL])
             NSBeep();
         
         [_outputLock unlock];
@@ -242,7 +242,7 @@ static int remainingFreshEntries = 0;
             return;
         }
         
-        _dumpingFile = fopen ([[sp filename] cString],"w");
+        _dumpingFile = fopen ([[sp filename] cStringUsingEncoding:NSUTF8StringEncoding],"w");
         if (_dumpingFile == NULL) {
             [self appendOutput:[NSString stringWithFormat:@"%@: Error - unable to open the file %@\n\n",currentDate,[sp filename]] atLevel:[NSNumber numberWithInt:0]];
         } else {
@@ -364,18 +364,18 @@ static int remainingFreshEntries = 0;
         int     status;
         
         cpArgs[0] = "-r";
-        cpArgs[1] = (char *)[sourcePath cString];
-        cpArgs[2] = (char *)[destPath cString];
+        cpArgs[1] = (char *)[sourcePath cStringUsingEncoding:NSUTF8StringEncoding];
+        cpArgs[2] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
         cpArgs[3] = NULL;
         
         err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/cp", 0, cpArgs, NULL);
         
-        shArgs[0] = (char *)[permRepairPath cString];
+        shArgs[0] = (char *)[permRepairPath cStringUsingEncoding:NSUTF8StringEncoding];
         shArgs[1] = NULL;
         
         err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/sh", 0, shArgs, NULL);
         
-        kextloadArgs[0] = (char *)[destPath cString];
+        kextloadArgs[0] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
         kextloadArgs[1] = NULL;
         
         err = AuthorizationExecuteWithPrivileges(authorizationRef, "/sbin/kextload", 0, kextloadArgs, NULL);
@@ -445,7 +445,7 @@ static int remainingFreshEntries = 0;
     [entry release];
 
     if (_dumpingFile != NULL) {
-        fprintf(_dumpingFile, [aString cString]);
+        fprintf(_dumpingFile, [aString cStringUsingEncoding:NSUTF8StringEncoding]);
         fflush(_dumpingFile);
     }
     
@@ -463,7 +463,7 @@ static int remainingFreshEntries = 0;
     [_outputLock unlock];
     
     if (_dumpingFile != NULL) {
-        fprintf(_dumpingFile, [text cString]);
+        fprintf(_dumpingFile, [text cStringUsingEncoding:NSUTF8StringEncoding]);
         fflush(_dumpingFile);
     }
     

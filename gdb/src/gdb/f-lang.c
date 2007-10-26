@@ -1,6 +1,8 @@
 /* Fortran language support routines for GDB, the GNU debugger.
-   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004
-   Free Software Foundation, Inc.
+
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002,
+   2003, 2004, 2005 Free Software Foundation, Inc.
+
    Contributed by Motorola.  Adapted from the C parser by Farooq Butt
    (fmbutt@engage.sps.mot.com).
 
@@ -87,9 +89,6 @@ static void patch_common_entries (SAVED_F77_COMMON_PTR, CORE_ADDR, int);
 #endif
 
 static struct type *f_create_fundamental_type (struct objfile *, int);
-static void f_printstr (struct ui_file * stream, char *string,
-			unsigned int length, int width,
-			int force_ellipses);
 static void f_printchar (int c, struct ui_file * stream);
 static void f_emit_char (int c, struct ui_file * stream, int quoter);
 
@@ -161,8 +160,8 @@ f_printchar (int c, struct ui_file *stream)
    be replaced with a true F77 version. */
 
 static void
-f_printstr (struct ui_file *stream, char *string, unsigned int length,
-	    int width, int force_ellipses)
+f_printstr (struct ui_file *stream, const gdb_byte *string,
+	    unsigned int length, int width, int force_ellipses)
 {
   unsigned int i;
   unsigned int things_printed = 0;
@@ -395,7 +394,7 @@ f_create_fundamental_type (struct objfile *objfile, int typeid)
       type = init_type (TYPE_CODE_INT,
 			TARGET_INT_BIT / TARGET_CHAR_BIT,
 			0, "<?type?>", objfile);
-      warning ("internal error: no F77 fundamental type %d", typeid);
+      warning (_("internal error: no F77 fundamental type %d"), typeid);
       break;
     }
   return (type);
@@ -462,9 +461,11 @@ const struct language_defn f_language_defn =
   range_check_on,
   type_check_on,
   case_sensitive_off,
+  array_column_major,
   &exp_descriptor_standard,
   f_parse,			/* parser */
   f_error,			/* parser error function */
+  null_post_parser,
   f_printchar,			/* Print character constant */
   f_printstr,			/* function to print string constant */
   f_emit_char,			/* Function to print a single character */
@@ -477,15 +478,13 @@ const struct language_defn f_language_defn =
   basic_lookup_symbol_nonlocal,	/* lookup_symbol_nonlocal */
   basic_lookup_transparent_type,/* lookup_transparent_type */
   NULL,				/* Language specific symbol demangler */
-  {"", "", "", ""},		/* Binary format info */
-  {"0%o", "0", "o", ""},	/* Octal format info */
-  {"%d", "", "d", ""},		/* Decimal format info */
-  {"0x%x", "0x", "x", ""},	/* Hex format info */
+  NULL,				/* Language specific class_name_from_physname */
   f_op_print_tab,		/* expression operators for printing */
   0,				/* arrays are first-class (not c-style) */
   1,				/* String lower bound */
   &builtin_type_f_character,	/* Type of string elements */
   default_word_break_characters,
+  NULL, /* FIXME: la_language_arch_info.  */
   LANG_MAGIC
 };
 
@@ -686,7 +685,7 @@ add_common_block (char *name, CORE_ADDR offset, int secnum, char *func_stab)
   if (c)
     *c = '\0';
   else
-    error ("Malformed function STAB found in add_common_block()");
+    error (_("Malformed function STAB found in add_common_block()"));
 
 
   tmp->owning_function = xmalloc (strlen (local_copy_func_stab) + 1);
@@ -734,7 +733,7 @@ add_common_entry (struct symbol *entry_sym_ptr)
   tmp->symbol = entry_sym_ptr;
 
   if (current_common == NULL)
-    error ("Attempt to add COMMON entry with no block open!");
+    error (_("Attempt to add COMMON entry with no block open!"));
   else
     {
       if (current_common->entries == NULL)
@@ -927,7 +926,7 @@ get_bf_for_fcn (long the_function)
 
   if (saved_bf_list == NULL)
     internal_error (__FILE__, __LINE__,
-		    "cannot get .bf node off empty list");
+		    _("cannot get .bf node off empty list"));
 
   if (current_head_bf_list != NULL)
     if (current_head_bf_list->symnum_fcn == the_function)

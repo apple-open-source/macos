@@ -11,11 +11,17 @@ Current contributions:
 		LDAP C++ API
 		Contributed by SuSE Gmbh.
 
-	ldapsasl
-		LDAP SASL auxprop plugin
-		Contributed by Symas Corp.
+	slapd-modules
+		Native modules
 
-Please submit your contributions using the OpenLDAP Issue Tracking
-System <http://www.openldap.org/>.
+	slapd-tools
+		Tools to use with slapd
 
-$OpenLDAP: pkg/ldap/contrib/README,v 1.11.2.2 2003/12/01 00:58:23 kurt Exp $
+	slapi-plugins
+		SLAPI plugins
+
+
+OpenLDAP Contributing Guidelines are available at:
+  <http://www.openldap.org/devel/contributing.html>.
+
+$OpenLDAP: pkg/ldap/contrib/README,v 1.14.2.6 2005/04/29 21:28:59 kurt Exp $

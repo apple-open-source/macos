@@ -44,22 +44,33 @@
 
 extern	CPlugInList		*gPlugins;
 
+extern DSEventSemaphore gKickConfigRequests;
+extern DSEventSemaphore gKickNodeRequests;
+extern DSEventSemaphore gKickLocalNodeRequests;
+extern DSEventSemaphore gKickSearchRequests;
+extern DSEventSemaphore gKickCacheRequests;
+extern DSEventSemaphore gKickBSDRequests;
+
+extern	dsBool			gDSInstallDaemonMode;
+
 // ---------------------------------------------------------------------------
 //	* CNodeList ()
 // ---------------------------------------------------------------------------
 
-CNodeList::CNodeList ( void )
+CNodeList::CNodeList ( void ) : fMutex("CNodeList::fMutex")
 {
 	fTreePtr					= nil;
 	fCount						= 0;
 	fNodeChangeToken			= 1001;	//some arbitrary start value
 	fLocalNode					= nil;
+	fCacheNode					= nil;
 	fAuthenticationSearchNode	= nil;
 	fContactsSearchNode			= nil;
 	fNetworkSearchNode			= nil;
 	fConfigureNode				= nil;
 	fLocalHostedNodes			= nil;
 	fDefaultNetworkNodes		= nil;
+	fBSDNode					= nil;
     bDHCPLDAPv3InitComplete		= false;
 } // CNodeList
 
@@ -81,6 +92,16 @@ CNodeList::~CNodeList ( void )
 		}
 		free( fLocalNode );
 		fLocalNode = nil;
+	}
+
+	if ( fCacheNode != nil )
+	{
+		if ( fCacheNode->fNodeName != nil )
+		{
+			free( fCacheNode->fNodeName );
+		}
+		free( fCacheNode );
+		fCacheNode = nil;
 	}
 
 	if ( fAuthenticationSearchNode != nil )
@@ -142,9 +163,9 @@ CNodeList::~CNodeList ( void )
 //	* DeleteTree ()
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList::DeleteTree ( sTreeNode **inTree )
+SInt32 CNodeList::DeleteTree ( sTreeNode **inTree )
 {
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
@@ -164,11 +185,11 @@ sInt32 CNodeList::DeleteTree ( sTreeNode **inTree )
 		*inTree = nil;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 
 	return( 1 );
@@ -180,15 +201,15 @@ sInt32 CNodeList::DeleteTree ( sTreeNode **inTree )
 //	* AddNode () RETURNS ZERO IF NODE ALREADY EXISTS
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList::AddNode ( const char		*inNodeName,
+SInt32 CNodeList::AddNode ( const char		*inNodeName,
 							tDataList		*inListPtr,
 							eDirNodeType	 inType,
 							CServerPlugin	*inPlugInPtr,
-							uInt32			 inToken )
+							UInt32			 inToken )
 {
-	sInt32		siResult	= 0;
+	SInt32		siResult	= 0;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
@@ -207,7 +228,7 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 				}
 				else
 				{
-					DBGLOG( kLogApplication, "Attempt to register second Authentication Search Node failed." );
+					DbgLog( kLogApplication, "Attempt to register second Authentication Search Node failed." );
 				}
 				break;
 			case kContactsSearchNodeType:
@@ -217,7 +238,7 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 				}
 				else
 				{
-					DBGLOG( kLogApplication, "Attempt to register second Contacts Search Node failed." );
+					DbgLog( kLogApplication, "Attempt to register second Contacts Search Node failed." );
 				}
 				break;
 			case kNetworkSearchNodeType:
@@ -227,7 +248,7 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 				}
 				else
 				{
-					DBGLOG( kLogApplication, "Attempt to register second Network Search Node failed." );
+					DbgLog( kLogApplication, "Attempt to register second Network Search Node failed." );
 				}
 				break;
 			case kConfigNodeType:
@@ -237,7 +258,7 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 				}
 				else
 				{
-					DBGLOG( kLogApplication, "Attempt to register second Configure Node failed." );
+					DbgLog( kLogApplication, "Attempt to register second Configure Node failed." );
 				}
 				break;
 			//no longer add the localnode name to the overall tree ie. fixed name
@@ -248,17 +269,33 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 				}
 				else
 				{
-					DBGLOG( kLogApplication, "Attempt to register second Local Node failed." );
+					DbgLog( kLogApplication, "Attempt to register second Local Node failed." );
+				}
+				break;
+			case kCacheNodeType:
+				if (fCacheNode == nil)
+				{
+					siResult = AddCacheNode( inNodeName, inListPtr, inType, inPlugInPtr, inToken );
+				}
+				else
+				{
+					DbgLog( kLogApplication, "Attempt to register second Cache Node failed." );
+				}
+				break;
+			case kBSDNodeType:
+				if (fBSDNode == nil)
+				{
+					siResult = AddBSDNode( inNodeName, inListPtr, inType, inPlugInPtr, inToken );
+				}
+				else
+				{
+					DbgLog( kLogApplication, "Attempt to register second BSD Node failed." );
 				}
 				break;
 			case kDHCPLDAPv3NodeType:
 				if ( !bDHCPLDAPv3InitComplete )
 				{
 					siResult = AddDHCPLDAPv3Node( inNodeName, inListPtr, inType, inPlugInPtr, inToken );
-				}
-				else
-				{
-					DBGLOG( kLogApplication, "Duplicate attempt to indicate DHCP LDAPv3 initialization has failed." );
 				}
 				break;
 			case kDirNodeType:
@@ -272,12 +309,12 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 		}//switch end
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -288,13 +325,13 @@ sInt32 CNodeList::AddNode ( const char		*inNodeName,
 //	* AddLocalNode () RETURNS ZERO IF NODE ALREADY EXISTS
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList::AddLocalNode (	const char		*inNodeName,
+SInt32 CNodeList::AddLocalNode (	const char		*inNodeName,
 									tDataList		*inListPtr,
 									eDirNodeType	 inType,
 									CServerPlugin	*inPlugInPtr,
-									uInt32			 inToken )
+									UInt32			 inToken )
 {
-	sInt32		siResult	= 1;
+	SInt32		siResult	= 1;
 	sTreeNode  *aLocalNode	= nil;
 	//local needed here and in all the addxxxxxnode methods below
 	//since we test elsewhere on the sTreeNode pointer to use its contents
@@ -313,15 +350,15 @@ sInt32 CNodeList::AddLocalNode (	const char		*inNodeName,
 		return( 0 );
 	}
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
 		aLocalNode 					= (sTreeNode *)::calloc( 1, sizeof( sTreeNode ) );
-		if ( aLocalNode == nil ) throw((sInt32)eMemoryAllocError);
+		if ( aLocalNode == nil ) throw((SInt32)eMemoryAllocError);
 		
 		aLocalNode->fNodeName 		= (char *)::calloc( 1, ::strlen( inNodeName ) + 1 );
-		if ( aLocalNode->fNodeName == nil ) throw((sInt32)eMemoryAllocError);
+		if ( aLocalNode->fNodeName == nil ) throw((SInt32)eMemoryAllocError);
 		
 		::strcpy( aLocalNode->fNodeName, inNodeName );
 		aLocalNode->fDataListPtr	= inListPtr;
@@ -331,9 +368,11 @@ sInt32 CNodeList::AddLocalNode (	const char		*inNodeName,
 		aLocalNode->left			= nil;
 		aLocalNode->right			= nil;
 		fLocalNode					= aLocalNode;
+		fWaitForLN.PostEvent();
+		DbgLog( kLogApplication, "Added local node to node list." );
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( aLocalNode != nil )
 		{
@@ -356,7 +395,7 @@ sInt32 CNodeList::AddLocalNode (	const char		*inNodeName,
 		siResult = 0;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -364,16 +403,96 @@ sInt32 CNodeList::AddLocalNode (	const char		*inNodeName,
 
 
 // ---------------------------------------------------------------------------
+//	* AddCacheNode () RETURNS ZERO IF NODE ALREADY EXISTS
+// ---------------------------------------------------------------------------
+
+SInt32 CNodeList::AddCacheNode (	const char		*inNodeName,
+									tDataList		*inListPtr,
+									eDirNodeType	 inType,
+									CServerPlugin	*inPlugInPtr,
+									UInt32			 inToken )
+{
+	SInt32		siResult	= 1;
+	sTreeNode  *aCacheNode	= nil;
+	//Cache needed here and in all the addxxxxxnode methods below
+	//since we test elsewhere on the sTreeNode pointer to use its contents
+	//however, need to be assured that there is contents
+	//probably should test on the contents as well
+
+	if ( fCacheNode != nil )
+	{
+		if (inListPtr != nil)
+		{
+			::dsDataListDeallocatePriv( inListPtr );
+			//need to free the header as well
+			free( inListPtr );
+			inListPtr = nil;
+		}
+		return( 0 );
+	}
+
+	fMutex.WaitLock();
+
+	try
+	{
+		aCacheNode 					= (sTreeNode *)::calloc( 1, sizeof( sTreeNode ) );
+		if ( aCacheNode == nil ) throw((SInt32)eMemoryAllocError);
+		
+		aCacheNode->fNodeName 		= (char *)::calloc( 1, ::strlen( inNodeName ) + 1 );
+		if ( aCacheNode->fNodeName == nil ) throw((SInt32)eMemoryAllocError);
+		
+		::strcpy( aCacheNode->fNodeName, inNodeName );
+		aCacheNode->fDataListPtr	= inListPtr;
+		aCacheNode->fPlugInPtr		= inPlugInPtr;
+		aCacheNode->fPlugInToken	= inToken;
+		aCacheNode->fType			= inType;
+		aCacheNode->left			= nil;
+		aCacheNode->right			= nil;
+		fCacheNode					= aCacheNode;
+		fWaitForCacheN.PostEvent();
+	}
+
+	catch( SInt32 err )
+	{
+		if ( aCacheNode != nil )
+		{
+			if (aCacheNode->fNodeName != nil)
+			{
+				free(aCacheNode->fNodeName);
+				aCacheNode->fNodeName = nil;
+			}
+			if (aCacheNode->fDataListPtr != nil)
+			{
+				::dsDataListDeallocatePriv( aCacheNode->fDataListPtr );
+				//need to free the header as well
+				free ( aCacheNode->fDataListPtr );
+				aCacheNode->fDataListPtr = nil;
+			}
+			free( aCacheNode );
+			aCacheNode = nil;
+			fCacheNode = nil;
+		}
+		siResult = 0;
+	}
+
+	fMutex.SignalLock();
+
+	return( siResult );
+
+} // AddCacheNode
+
+
+// ---------------------------------------------------------------------------
 //	* AddAuthenticationSearchNode () RETURNS ZERO IF NODE ALREADY EXISTS
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList:: AddAuthenticationSearchNode (	const char		*inNodeName,
+SInt32 CNodeList:: AddAuthenticationSearchNode (	const char		*inNodeName,
 													tDataList		*inListPtr,
 													eDirNodeType	 inType,
 													CServerPlugin	*inPlugInPtr,
-													uInt32			 inToken )
+													UInt32			 inToken )
 {
-	sInt32		siResult					= 1;
+	SInt32		siResult					= 1;
 	sTreeNode  *anAuthenticationSearchNode	= nil;
 
 	if ( fAuthenticationSearchNode != nil )
@@ -388,15 +507,15 @@ sInt32 CNodeList:: AddAuthenticationSearchNode (	const char		*inNodeName,
 		return( 0 );
 	}
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
 		anAuthenticationSearchNode 					= (sTreeNode *)::calloc( 1, sizeof( sTreeNode ) );
-		if ( anAuthenticationSearchNode == nil ) throw((sInt32)eMemoryAllocError);
+		if ( anAuthenticationSearchNode == nil ) throw((SInt32)eMemoryAllocError);
 		
 		anAuthenticationSearchNode->fNodeName		= (char *)::calloc( 1, ::strlen( inNodeName ) + 1 );
-		if ( anAuthenticationSearchNode->fNodeName == nil ) throw((sInt32)eMemoryAllocError);
+		if ( anAuthenticationSearchNode->fNodeName == nil ) throw((SInt32)eMemoryAllocError);
 		
 		::strcpy( anAuthenticationSearchNode->fNodeName, inNodeName );
 		anAuthenticationSearchNode->fDataListPtr	= inListPtr;
@@ -406,9 +525,11 @@ sInt32 CNodeList:: AddAuthenticationSearchNode (	const char		*inNodeName,
 		anAuthenticationSearchNode->left			= nil;
 		anAuthenticationSearchNode->right			= nil;
 		fAuthenticationSearchNode					= anAuthenticationSearchNode;
+		fWaitForAuthenticationSN.PostEvent();
+		DbgLog( kLogApplication, "Added authentication search node to node list." );
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( anAuthenticationSearchNode != nil )
 		{
@@ -431,7 +552,7 @@ sInt32 CNodeList:: AddAuthenticationSearchNode (	const char		*inNodeName,
 		siResult = 0;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -442,13 +563,13 @@ sInt32 CNodeList:: AddAuthenticationSearchNode (	const char		*inNodeName,
 //	* AddContactsSearchNode () RETURNS ZERO IF NODE ALREADY EXISTS
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList:: AddContactsSearchNode (	const char		*inNodeName,
+SInt32 CNodeList:: AddContactsSearchNode (	const char		*inNodeName,
 											tDataList		*inListPtr,
 											eDirNodeType	 inType,
 											CServerPlugin	*inPlugInPtr,
-											uInt32			 inToken )
+											UInt32			 inToken )
 {
-	sInt32		siResult					= 1;
+	SInt32		siResult					= 1;
 	sTreeNode  *aContactsSearchNode			= nil;
 
 	if ( fContactsSearchNode != nil )
@@ -463,15 +584,15 @@ sInt32 CNodeList:: AddContactsSearchNode (	const char		*inNodeName,
 		return( 0 );
 	}
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
 		aContactsSearchNode 				= (sTreeNode *)::calloc( 1, sizeof( sTreeNode ) );
-		if ( aContactsSearchNode == nil ) throw((sInt32)eMemoryAllocError);
+		if ( aContactsSearchNode == nil ) throw((SInt32)eMemoryAllocError);
 		
 		aContactsSearchNode->fNodeName		= (char *)::calloc( 1, ::strlen( inNodeName ) + 1 );
-		if ( aContactsSearchNode->fNodeName == nil ) throw((sInt32)eMemoryAllocError);
+		if ( aContactsSearchNode->fNodeName == nil ) throw((SInt32)eMemoryAllocError);
 		
 		::strcpy( aContactsSearchNode->fNodeName, inNodeName );
 		aContactsSearchNode->fDataListPtr	= inListPtr;
@@ -481,9 +602,10 @@ sInt32 CNodeList:: AddContactsSearchNode (	const char		*inNodeName,
 		aContactsSearchNode->left			= nil;
 		aContactsSearchNode->right			= nil;
 		fContactsSearchNode					= aContactsSearchNode;
+		fWaitForContactsSN.PostEvent();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( aContactsSearchNode != nil )
 		{
@@ -506,7 +628,7 @@ sInt32 CNodeList:: AddContactsSearchNode (	const char		*inNodeName,
 		siResult = 0;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -517,13 +639,13 @@ sInt32 CNodeList:: AddContactsSearchNode (	const char		*inNodeName,
 //	* AddNetworkSearchNode () RETURNS ZERO IF NODE ALREADY EXISTS
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList:: AddNetworkSearchNode (	const char		*inNodeName,
+SInt32 CNodeList:: AddNetworkSearchNode (	const char		*inNodeName,
 											tDataList		*inListPtr,
 											eDirNodeType	 inType,
 											CServerPlugin	*inPlugInPtr,
-											uInt32			 inToken )
+											UInt32			 inToken )
 {
-	sInt32		siResult					= 1;
+	SInt32		siResult					= 1;
 	sTreeNode  *aNetworkSearchNode			= nil;
 
 	if ( fNetworkSearchNode != nil )
@@ -538,15 +660,15 @@ sInt32 CNodeList:: AddNetworkSearchNode (	const char		*inNodeName,
 		return( 0 );
 	}
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
 		aNetworkSearchNode 				= (sTreeNode *)::calloc( 1, sizeof( sTreeNode ) );
-		if ( aNetworkSearchNode == nil ) throw((sInt32)eMemoryAllocError);
+		if ( aNetworkSearchNode == nil ) throw((SInt32)eMemoryAllocError);
 		
 		aNetworkSearchNode->fNodeName		= (char *)::calloc( 1, ::strlen( inNodeName ) + 1 );
-		if ( aNetworkSearchNode->fNodeName == nil ) throw((sInt32)eMemoryAllocError);
+		if ( aNetworkSearchNode->fNodeName == nil ) throw((SInt32)eMemoryAllocError);
 		
 		::strcpy( aNetworkSearchNode->fNodeName, inNodeName );
 		aNetworkSearchNode->fDataListPtr	= inListPtr;
@@ -556,9 +678,10 @@ sInt32 CNodeList:: AddNetworkSearchNode (	const char		*inNodeName,
 		aNetworkSearchNode->left			= nil;
 		aNetworkSearchNode->right			= nil;
 		fNetworkSearchNode					= aNetworkSearchNode;
+		fWaitForNetworkSN.PostEvent();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( aNetworkSearchNode != nil )
 		{
@@ -581,7 +704,7 @@ sInt32 CNodeList:: AddNetworkSearchNode (	const char		*inNodeName,
 		siResult = 0;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -592,13 +715,13 @@ sInt32 CNodeList:: AddNetworkSearchNode (	const char		*inNodeName,
 //	* AddConfigureNode () RETURNS ZERO IF NODE ALREADY EXISTS
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList:: AddConfigureNode (	const char		*inNodeName,
+SInt32 CNodeList:: AddConfigureNode (	const char		*inNodeName,
 									tDataList		*inListPtr,
 									eDirNodeType	 inType,
 									CServerPlugin	*inPlugInPtr,
-									uInt32			 inToken )
+									UInt32			 inToken )
 {
-	sInt32		siResult				= 1;
+	SInt32		siResult				= 1;
 	sTreeNode  *aConfigureNode			= nil;
 
 	if ( fConfigureNode != nil )
@@ -613,15 +736,15 @@ sInt32 CNodeList:: AddConfigureNode (	const char		*inNodeName,
 		return( 0 );
 	}
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
 		aConfigureNode 					= (sTreeNode *)::calloc( 1, sizeof( sTreeNode ) );
-		if ( aConfigureNode == nil ) throw((sInt32)eMemoryAllocError);
+		if ( aConfigureNode == nil ) throw((SInt32)eMemoryAllocError);
 		
 		aConfigureNode->fNodeName 		= (char *)::calloc( 1, ::strlen( inNodeName ) + 1 );
-		if ( aConfigureNode->fNodeName == nil ) throw((sInt32)eMemoryAllocError);
+		if ( aConfigureNode->fNodeName == nil ) throw((SInt32)eMemoryAllocError);
 		
 		::strcpy( aConfigureNode->fNodeName, inNodeName );
 		aConfigureNode->fDataListPtr	= inListPtr;
@@ -631,9 +754,10 @@ sInt32 CNodeList:: AddConfigureNode (	const char		*inNodeName,
 		aConfigureNode->left			= nil;
 		aConfigureNode->right			= nil;
 		fConfigureNode					= aConfigureNode;
+		fWaitForConfigureN.PostEvent();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( aConfigureNode != nil )
 		{
@@ -656,11 +780,86 @@ sInt32 CNodeList:: AddConfigureNode (	const char		*inNodeName,
 		siResult = 0;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
 } // AddConfigureNode
+
+// ---------------------------------------------------------------------------
+//	* AddBSDNode () RETURNS ZERO IF NODE ALREADY EXISTS
+// ---------------------------------------------------------------------------
+
+SInt32 CNodeList:: AddBSDNode (	const char		*inNodeName,
+								tDataList		*inListPtr,
+								eDirNodeType	 inType,
+								CServerPlugin	*inPlugInPtr,
+								UInt32			 inToken )
+{
+	SInt32		siResult				= 1;
+	sTreeNode  *aBSDNode				= nil;
+	
+	if ( fBSDNode != nil )
+	{
+		if (inListPtr != nil)
+		{
+			::dsDataListDeallocatePriv( inListPtr );
+			//need to free the header as well
+			free( inListPtr );
+			inListPtr = nil;
+		}
+		return( 0 );
+	}
+	
+	fMutex.WaitLock();
+	
+	try
+	{
+		aBSDNode				= (sTreeNode *)::calloc( 1, sizeof( sTreeNode ) );
+		if ( aBSDNode == nil ) throw((SInt32)eMemoryAllocError);
+		
+		aBSDNode->fNodeName		= (char *)::calloc( 1, ::strlen( inNodeName ) + 1 );
+		if ( aBSDNode->fNodeName == nil ) throw((SInt32)eMemoryAllocError);
+		
+		::strcpy( aBSDNode->fNodeName, inNodeName );
+		aBSDNode->fDataListPtr	= inListPtr;
+		aBSDNode->fPlugInPtr	= inPlugInPtr;
+		aBSDNode->fPlugInToken	= inToken;
+		aBSDNode->fType			= inType;
+		aBSDNode->left			= nil;
+		aBSDNode->right			= nil;
+		fBSDNode				= aBSDNode;
+		fWaitForBSDN.PostEvent();
+	}
+	
+	catch( SInt32 err )
+	{
+		if ( aBSDNode != nil )
+		{
+			if (aBSDNode->fNodeName != nil)
+			{
+				free(aBSDNode->fNodeName);
+				aBSDNode->fNodeName = nil;
+			}
+			if (aBSDNode->fDataListPtr != nil)
+			{
+				::dsDataListDeallocatePriv( aBSDNode->fDataListPtr );
+				//need to free the header as well
+				free ( aBSDNode->fDataListPtr );
+				aBSDNode->fDataListPtr = nil;
+			}
+			free( aBSDNode );
+			aBSDNode = nil;
+			fBSDNode = nil;
+		}
+		siResult = 0;
+	}
+	
+	fMutex.SignalLock();
+	
+	return( siResult );
+	
+} // AddBSDNode
 
 
 // ---------------------------------------------------------------------------
@@ -668,13 +867,14 @@ sInt32 CNodeList:: AddConfigureNode (	const char		*inNodeName,
 // simply used as an indicator to note that DHCP LDAPv3 initialization has completed
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList::AddDHCPLDAPv3Node (	const char		*inNodeName,
+SInt32 CNodeList::AddDHCPLDAPv3Node (	const char		*inNodeName,
                                         tDataList		*inListPtr,
                                         eDirNodeType	 inType,
                                         CServerPlugin	*inPlugInPtr,
-										uInt32			 inToken )
+										UInt32			 inToken )
 {
-    bDHCPLDAPv3InitComplete = true;
+	bDHCPLDAPv3InitComplete = true;
+	fWaitForDHCPLDAPv3InitFlag.PostEvent();
 
 	return( eDSNoErr );
 
@@ -685,20 +885,20 @@ sInt32 CNodeList::AddDHCPLDAPv3Node (	const char		*inNodeName,
 //	* AddNodeToTree ()
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList:: AddNodeToTree (	sTreeNode	  **inTree,
+SInt32 CNodeList:: AddNodeToTree (	sTreeNode	  **inTree,
 									const char	   *inNodeName,
 									tDataList	   *inListPtr,
 									eDirNodeType	inType,
 									CServerPlugin  *inPlugInPtr,
-									uInt32			 inToken )
+									UInt32			 inToken )
 {
-	sInt32			siResult	= 1;
+	SInt32			siResult	= 1;
 	sTreeNode	   *current		= nil;
 	sTreeNode	   *parent		= nil;
 	sTreeNode	   *pNewNode	= nil;
 	bool			bAddNode	= true;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
@@ -707,7 +907,7 @@ sInt32 CNodeList:: AddNodeToTree (	sTreeNode	  **inTree,
 		while ( current != nil )
 		{
 			parent = current;
-			siResult = CompareString( inNodeName, current->fNodeName );
+			siResult = CompareCString( inNodeName, current->fNodeName );
 			if ( siResult < 0 )
 			{
 				current = current->left;
@@ -733,10 +933,10 @@ sInt32 CNodeList:: AddNodeToTree (	sTreeNode	  **inTree,
 		if (bAddNode)
 		{
 			pNewNode = (sTreeNode *)::calloc( 1, sizeof( sTreeNode ) );
-			if ( pNewNode == nil ) throw((sInt32)eMemoryAllocError);
+			if ( pNewNode == nil ) throw((SInt32)eMemoryAllocError);
 			
 			pNewNode->fNodeName = (char *)::calloc( 1, ::strlen( inNodeName ) + 1 );
-			if ( pNewNode->fNodeName == nil ) throw((sInt32)eMemoryAllocError);
+			if ( pNewNode->fNodeName == nil ) throw((SInt32)eMemoryAllocError);
 			
 			::strcpy( pNewNode->fNodeName, inNodeName );
 			pNewNode->fDataListPtr	= inListPtr;
@@ -756,7 +956,7 @@ sInt32 CNodeList:: AddNodeToTree (	sTreeNode	  **inTree,
 			else
 			{
 				// Otherwise we are assigning a newnode to the left or right of the parent leaf node
-				siResult = CompareString( inNodeName, parent->fNodeName );
+				siResult = CompareCString( inNodeName, parent->fNodeName );
 				if ( siResult < 0 )
 				{
 					parent->left = pNewNode;
@@ -769,7 +969,7 @@ sInt32 CNodeList:: AddNodeToTree (	sTreeNode	  **inTree,
 		} //if (bAddNode)
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( pNewNode != nil )
 		{
@@ -791,7 +991,7 @@ sInt32 CNodeList:: AddNodeToTree (	sTreeNode	  **inTree,
 		siResult = 0;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -806,7 +1006,7 @@ bool CNodeList::GetLocalNode ( CServerPlugin **outPlugInPtr )
 {
 	bool	found = false;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( fLocalNode != nil )
 	{
@@ -814,7 +1014,7 @@ bool CNodeList::GetLocalNode ( CServerPlugin **outPlugInPtr )
 		found = true;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -829,7 +1029,7 @@ bool CNodeList::GetLocalNode ( tDataList **outListPtr )
 {
 	bool	found = false;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( fLocalNode != nil )
 	{
@@ -837,11 +1037,57 @@ bool CNodeList::GetLocalNode ( tDataList **outListPtr )
 		found = true;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
 } // GetLocalNode 
+
+
+// ---------------------------------------------------------------------------
+//	* GetCacheNode ()
+// ---------------------------------------------------------------------------
+
+bool CNodeList::GetCacheNode ( CServerPlugin **outPlugInPtr )
+{
+	bool	found = false;
+
+	fMutex.WaitLock();
+
+	if ( fCacheNode != nil )
+	{
+		*outPlugInPtr = GetPluginPtr(fCacheNode);
+		found = true;
+	}
+
+	fMutex.SignalLock();
+
+	return( found );
+
+} // GetCacheNode 
+
+
+// ---------------------------------------------------------------------------
+//	* GetCacheNode ()
+// ---------------------------------------------------------------------------
+
+bool CNodeList::GetCacheNode ( tDataList **outListPtr )
+{
+	bool	found = false;
+
+	fMutex.WaitLock();
+
+	if ( fCacheNode != nil )
+	{
+		*outListPtr = fCacheNode->fDataListPtr;
+		found = true;
+	}
+
+	fMutex.SignalLock();
+
+	return( found );
+
+} // GetCacheNode 
 
 
 // ---------------------------------------------------------------------------
@@ -852,7 +1098,7 @@ bool CNodeList::GetAuthenticationSearchNode ( CServerPlugin **outPlugInPtr )
 {
 	bool	found = false;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( fAuthenticationSearchNode != nil )
 	{
@@ -860,7 +1106,7 @@ bool CNodeList::GetAuthenticationSearchNode ( CServerPlugin **outPlugInPtr )
 		found = true;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -875,7 +1121,7 @@ bool CNodeList::GetAuthenticationSearchNode ( tDataList **outListPtr )
 {
 	bool	found = false;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( fAuthenticationSearchNode != nil )
 	{
@@ -883,7 +1129,7 @@ bool CNodeList::GetAuthenticationSearchNode ( tDataList **outListPtr )
 		found = true;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -898,7 +1144,7 @@ bool CNodeList::GetContactsSearchNode ( CServerPlugin **outPlugInPtr )
 {
 	bool	found = false;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( fContactsSearchNode != nil )
 	{
@@ -906,7 +1152,7 @@ bool CNodeList::GetContactsSearchNode ( CServerPlugin **outPlugInPtr )
 		found = true;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -921,7 +1167,7 @@ bool CNodeList::GetContactsSearchNode ( tDataList **outListPtr )
 {
 	bool	found = false;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( fContactsSearchNode != nil )
 	{
@@ -929,7 +1175,7 @@ bool CNodeList::GetContactsSearchNode ( tDataList **outListPtr )
 		found = true;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -944,7 +1190,7 @@ bool CNodeList::GetNetworkSearchNode ( CServerPlugin **outPlugInPtr )
 {
 	bool	found = false;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( fNetworkSearchNode != nil )
 	{
@@ -952,7 +1198,7 @@ bool CNodeList::GetNetworkSearchNode ( CServerPlugin **outPlugInPtr )
 		found = true;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -967,7 +1213,7 @@ bool CNodeList::GetNetworkSearchNode ( tDataList **outListPtr )
 {
 	bool	found = false;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( fNetworkSearchNode != nil )
 	{
@@ -975,7 +1221,7 @@ bool CNodeList::GetNetworkSearchNode ( tDataList **outListPtr )
 		found = true;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -988,18 +1234,18 @@ bool CNodeList::GetNetworkSearchNode ( tDataList **outListPtr )
 
 void CNodeList::RegisterAll ( void )
 {
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
 		this->Register( fTreePtr );
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 } // RegisterAll
 
@@ -1022,7 +1268,7 @@ void CNodeList::Register ( sTreeNode *inTree )
 //	* GetNodeCount ()
 // ---------------------------------------------------------------------------
 
-uInt32 CNodeList::GetNodeCount ( void )
+UInt32 CNodeList::GetNodeCount ( void )
 {
 	return( fCount );
 } // GetNodeCount
@@ -1032,7 +1278,7 @@ uInt32 CNodeList::GetNodeCount ( void )
 //	* GetNodeChangeToken ()
 // ---------------------------------------------------------------------------
 
-uInt32 CNodeList:: GetNodeChangeToken ( void )
+UInt32 CNodeList:: GetNodeChangeToken ( void )
 {
 	return( fNodeChangeToken );
 } // GetNodeChangeToken
@@ -1042,20 +1288,20 @@ uInt32 CNodeList:: GetNodeChangeToken ( void )
 //	* CountNodes ()
 // ---------------------------------------------------------------------------
 
-void CNodeList::CountNodes ( uInt32 *outCount )
+void CNodeList::CountNodes ( UInt32 *outCount )
 {
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
 		this->Count( fTreePtr, outCount );
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 } // CountNodes
 
@@ -1065,7 +1311,7 @@ void CNodeList::CountNodes ( uInt32 *outCount )
 // ---------------------------------------------------------------------------
 
 
-void CNodeList::Count ( sTreeNode *inTree, uInt32 *outCount )
+void CNodeList::Count ( sTreeNode *inTree, UInt32 *outCount )
 {
 	if ( inTree != nil )
 	{
@@ -1081,11 +1327,11 @@ void CNodeList::Count ( sTreeNode *inTree, uInt32 *outCount )
 //	* GetNodes ()
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList::GetNodes ( char			   *inStr,
+SInt32 CNodeList::GetNodes ( char			   *inStr,
 							 tDirPatternMatch	inMatch,
 							 tDataBuffer	   *inBuff )
 {
-	sInt32			siResult	= eDSNoErr;
+	SInt32			siResult	= eDSNoErr;
 	sTreeNode	   *outNodePtr	= nil;
 
 	// If the pre-defined nodes are not currently in the list, let's wait
@@ -1095,15 +1341,21 @@ sInt32 CNodeList::GetNodes ( char			   *inStr,
 	{
 		WaitForLocalNode();
 	}
+	if ( (inMatch == eDSCacheNodeName) && (fCacheNode == nil) )
+	{
+		WaitForCacheNode();
+	}
 	if ( (inMatch == eDSAuthenticationSearchNodeName) && (fAuthenticationSearchNode == nil) )
 	{
 		WaitForLocalNode();
+		WaitForBSDNode();
         WaitForDHCPLDAPv3Init();
 		WaitForAuthenticationSearchNode();
 	}
 	else if ( (inMatch == eDSContactsSearchNodeName) && (fContactsSearchNode == nil) )
 	{
 		WaitForLocalNode();
+		WaitForBSDNode();
         WaitForDHCPLDAPv3Init();
 		WaitForContactsSearchNode();
 	}
@@ -1121,8 +1373,7 @@ sInt32 CNodeList::GetNodes ( char			   *inStr,
 		WaitForConfigureNode();
 	}
 
-
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
@@ -1176,6 +1427,16 @@ sInt32 CNodeList::GetNodes ( char			   *inStr,
 				}
 			}
 		}
+		else if ( inMatch == eDSCacheNodeName )
+		{
+			if ( fCacheNode != nil )
+			{
+				if ( fCacheNode->fDataListPtr != nil )
+				{
+					siResult = AddNodePathToTDataBuff( fCacheNode->fDataListPtr, inBuff );
+				}
+			}
+		}
 		else if ( inMatch == eDSLocalHostedNodes )
 		{
 			siResult = this->DoGetNode( fLocalHostedNodes, inStr, inMatch, inBuff, &outNodePtr );
@@ -1190,11 +1451,11 @@ sInt32 CNodeList::GetNodes ( char			   *inStr,
 		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -1205,7 +1466,7 @@ sInt32 CNodeList::GetNodes ( char			   *inStr,
 //	* DoGetNode ()
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList::DoGetNode ( sTreeNode		   *inLeaf,
+SInt32 CNodeList::DoGetNode ( sTreeNode		   *inLeaf,
 							 char			   *inStr,
 							 tDirPatternMatch	inMatch,
 							 tDataBuffer	   *inBuff,
@@ -1214,9 +1475,9 @@ sInt32 CNodeList::DoGetNode ( sTreeNode		   *inLeaf,
 	char	   *aString1	= nil;
 	char	   *aString2	= nil;
 	bool		bAddToBuff	= false;
-	sInt32		uiStrLen	= 0;
-	sInt32		uiInStrLen	= 0;
-	sInt32		siResult	= eDSNoErr;
+	SInt32		uiStrLen	= 0;
+	SInt32		uiInStrLen	= 0;
+	SInt32		siResult	= eDSNoErr;
 
 	if ( inLeaf != nil )
 	{
@@ -1226,6 +1487,13 @@ sInt32 CNodeList::DoGetNode ( sTreeNode		   *inLeaf,
 		{
 			case eDSLocalNodeNames:
 				if ( inLeaf->fType == kLocalNodeType )
+				{
+					bAddToBuff = true;
+				}
+				break;
+				
+			case eDSCacheNodeName:
+				if ( inLeaf->fType == kCacheNodeType )
 				{
 					bAddToBuff = true;
 				}
@@ -1447,9 +1715,9 @@ bool CNodeList::DeleteNode ( char *inStr )
 {
 	bool		found  		= false;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
-	// kSearchNodeType | kContactsSearchNodeType | kNetworkSearchNodeType | kConfigNodeType | kLocalNodeType
+	// kSearchNodeType | kContactsSearchNodeType | kNetworkSearchNodeType | kConfigNodeType | kLocalNodeType | kCacheNodeType
 	// these nodes are not allowed to be removed at this time
 	
 	found = DeleteNodeFromTree( inStr, fLocalHostedNodes );
@@ -1464,7 +1732,7 @@ bool CNodeList::DeleteNode ( char *inStr )
 		gSrvrCntl->NotifyDirNodeDeleted(inStr);
 	}
 	
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -1478,7 +1746,7 @@ bool CNodeList::DeleteNode ( char *inStr )
 bool CNodeList::DeleteNodeFromTree ( char *inStr, sTreeNode  *inTree )
 {
 	bool			found  			= false;
-	sInt32			siResult		= 0;
+	SInt32			siResult		= 0;
 	sTreeNode	   *aTree			= inTree;
 	sTreeNode	   *aTreeParent		= nil;
 	sTreeNode	   *remTree			= nil;
@@ -1486,7 +1754,7 @@ bool CNodeList::DeleteNodeFromTree ( char *inStr, sTreeNode  *inTree )
 	sTreeNode	   *remTreeChild	= nil;
 	eDirNodeType	aDirNodeType	= kUnknownNodeType;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	// looking only for the three node types that use trees
 	if (aTree == fLocalHostedNodes)
@@ -1509,7 +1777,7 @@ bool CNodeList::DeleteNodeFromTree ( char *inStr, sTreeNode  *inTree )
 	//find the matching node
 	while ( (!found) && (aTree != nil) )
 	{
-		siResult = CompareString( inStr, aTree->fNodeName );
+		siResult = CompareCString( inStr, aTree->fNodeName );
 		if ( siResult == 0 )
 		{
 			found = true;
@@ -1605,7 +1873,7 @@ bool CNodeList::DeleteNodeFromTree ( char *inStr, sTreeNode  *inTree )
 		delete( aTree );
 	}
 	
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -1619,17 +1887,17 @@ bool CNodeList::DeleteNodeFromTree ( char *inStr, sTreeNode  *inTree )
 bool CNodeList::IsPresent ( const char *inStr, eDirNodeType inType )
 {
 	bool		found		= false;
-	sInt32		siResult	= 0;
+	SInt32		siResult	= 0;
 	sTreeNode  *current		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
-	if	( inType & ( kSearchNodeType | kContactsSearchNodeType | kNetworkSearchNodeType | kConfigNodeType | kLocalNodeType) )
+	if	( inType & ( kSearchNodeType | kContactsSearchNodeType | kNetworkSearchNodeType | kConfigNodeType | kLocalNodeType | kCacheNodeType | kBSDNodeType) )
 	{
 		//these nodes are not allowed to be compared to at this time
 		//so we always return false - actually possible mis-information
 		//so the actual AddNode call will need to decide whether to add or not
-		fMutex.Signal();
+		fMutex.SignalLock();
 		return false;
 	}
 	else if (inType == kLocalHostedType)
@@ -1647,7 +1915,7 @@ bool CNodeList::IsPresent ( const char *inStr, eDirNodeType inType )
 	
 	while ( (!found) && (current != nil) )
 	{
-		siResult = CompareString( inStr, current->fNodeName );
+		siResult = CompareCString( inStr, current->fNodeName );
 		if ( siResult == 0 )
 		{
 			found = true;
@@ -1665,7 +1933,7 @@ bool CNodeList::IsPresent ( const char *inStr, eDirNodeType inType )
 		}
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -1679,10 +1947,10 @@ bool CNodeList::IsPresent ( const char *inStr, eDirNodeType inType )
 bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPtr )
 {
 	bool		found		= false;
-	sInt32		siResult	= 0;
+	SInt32		siResult	= 0;
 	sTreeNode  *current		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	//check the special nodes in anticipated order of frequency of request
 	if ( fLocalNode != nil)
@@ -1695,7 +1963,24 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 				{
 					*outPlugInPtr = GetPluginPtr(fLocalNode);
 				}
-				fMutex.Signal();
+				fMutex.SignalLock();
+				return( true );
+			}
+		}
+	}
+	
+	//check the special nodes in anticipated order of frequency of request
+	if ( fCacheNode != nil)
+	{
+		if (fCacheNode->fNodeName != nil)
+		{
+			if (strcmp(inStr,fCacheNode->fNodeName) == 0)
+			{
+				if ( outPlugInPtr != nil )
+				{
+					*outPlugInPtr = GetPluginPtr(fCacheNode);
+				}
+				fMutex.SignalLock();
 				return( true );
 			}
 		}
@@ -1715,7 +2000,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 						{
 							*outPlugInPtr = GetPluginPtr(fAuthenticationSearchNode);
 						}
-						fMutex.Signal();
+						fMutex.SignalLock();
 						return( true );
 					}
 				}
@@ -1730,7 +2015,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 						{
 							*outPlugInPtr = GetPluginPtr(fNetworkSearchNode);
 						}
-						fMutex.Signal();
+						fMutex.SignalLock();
 						return( true );
 					}
 				}
@@ -1746,7 +2031,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 						{
 							*outPlugInPtr = GetPluginPtr(fContactsSearchNode);
 						}
-						fMutex.Signal();
+						fMutex.SignalLock();
 						return( true );
 					}
 				}
@@ -1759,7 +2044,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 	current = fTreePtr;
 	while ( (!found) && (current != nil) )
 	{
-		siResult = CompareString( inStr, current->fNodeName );
+		siResult = CompareCString( inStr, current->fNodeName );
 		if ( siResult == 0 )
 		{
 			found = true;
@@ -1796,7 +2081,7 @@ bool CNodeList::GetPluginHandle ( const char *inStr, CServerPlugin **outPlugInPt
 		}
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( found );
 
@@ -1813,12 +2098,12 @@ CServerPlugin* CNodeList::GetPluginPtr( sTreeNode* nodePtr )
 } // GetPluginPtr
 
 // ---------------------------------------------------------------------------
-//	* CompareString ()
+//	* CompareCString ()
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList::CompareString ( const char *inStr_1, const char *inStr_2 )
+SInt32 CNodeList::CompareCString ( const char *inStr_1, const char *inStr_2 )
 {
-	volatile sInt32	siResult = -22;
+	volatile SInt32	siResult = -22;
 
 	if ( (inStr_1 != nil) && (inStr_2 != nil) )
 	{
@@ -1827,26 +2112,26 @@ sInt32 CNodeList::CompareString ( const char *inStr_1, const char *inStr_2 )
 
 	return( siResult );
 
-} // CompareString
+} // CompareCString
 
 
 // ---------------------------------------------------------------------------
 //	* BuildNodeListBuff ()
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList::BuildNodeListBuff ( sGetDirNodeList *inData )
+SInt32 CNodeList::BuildNodeListBuff ( sGetDirNodeList *inData )
 {
-	sInt32			siResult	= eDSNoErr;
-	uInt32			outCount	= 0;
+	SInt32			siResult	= eDSNoErr;
+	UInt32			outCount	= 0;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	inData->fIOContinueData = nil;
 
 	siResult = this->DoBuildNodeListBuff( fTreePtr, inData->fOutDataBuff, &outCount );
 	inData->fOutNodeCount = outCount;
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -1857,9 +2142,9 @@ sInt32 CNodeList::BuildNodeListBuff ( sGetDirNodeList *inData )
 //	* DoBuildNodeListBuff ()
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList::DoBuildNodeListBuff ( sTreeNode *inTree, tDataBuffer *inBuff, uInt32 *outCount )
+SInt32 CNodeList::DoBuildNodeListBuff ( sTreeNode *inTree, tDataBuffer *inBuff, UInt32 *outCount )
 {
-	sInt32			siResult	= eDSNoErr;
+	SInt32			siResult	= eDSNoErr;
 	tDataList	   *pNodeList	= nil;
 
 	if ( inTree != nil )
@@ -1893,18 +2178,18 @@ sInt32 CNodeList::DoBuildNodeListBuff ( sTreeNode *inTree, tDataBuffer *inBuff, 
 //	* AddNodePathToTDataBuff ()
 // ---------------------------------------------------------------------------
 
-sInt32 CNodeList::AddNodePathToTDataBuff ( tDataList *inPtr, tDataBuffer *inBuff )
+SInt32 CNodeList::AddNodePathToTDataBuff ( tDataList *inPtr, tDataBuffer *inBuff )
 {
-	sInt32				siResult	= eDSBufferTooSmall;
+	SInt32				siResult	= eDSBufferTooSmall;
 	FourCharCode		uiBuffType	= 'npss'; // node path strings
-	uInt32				inBuffType	= 'xxxx';
+	UInt32				inBuffType	= 'xxxx';
 	char			   *segmentStr	= nil;
-	uInt16				uiStrLen	= 0;
-	uInt32				uiItemCnt	= 0;
-	uInt16				segmentCnt	= 0;
-	uInt32				pathLength	= 0;
-	uInt32				iSegment	= 0;
-	uInt32				offset		= 0;
+	UInt16				uiStrLen	= 0;
+	UInt32				uiItemCnt	= 0;
+	UInt16				segmentCnt	= 0;
+	UInt32				pathLength	= 0;
+	UInt32				iSegment	= 0;
+	UInt32				offset		= 0;
 
 	if ( (inPtr != nil) && (inBuff != nil) )
 	{
@@ -1938,7 +2223,7 @@ sInt32 CNodeList::AddNodePathToTDataBuff ( tDataList *inPtr, tDataBuffer *inBuff
 			}
 			
 			//retrieve number of segments in node path
-			segmentCnt	= (uInt16) dsDataListGetNodeCountPriv( inPtr );
+			segmentCnt	= (UInt16) dsDataListGetNodeCountPriv( inPtr );
 			//retrieve the segment's overall length
 			pathLength	= dsGetDataLengthPriv ( inPtr );
 			//adjust the pathLength for each segment string length
@@ -2003,58 +2288,8 @@ sInt32 CNodeList::AddNodePathToTDataBuff ( tDataList *inPtr, tDataBuffer *inBuff
 
 void CNodeList::WaitForAuthenticationSearchNode( void )
 {
-	DSSemaphore		timedWait;
-	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
-
-	// Grab the wait semaphore
-	fWaitForAuthenticationSN.Wait();
-
-	while ( fAuthenticationSearchNode == nil )
-	{
-		// Check every .5 seconds
-		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
-
-		// check over max of 2 minutes
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
-	}
-
-	//additional wait until the plugin is deemed active
-	waitTime = dsTimestamp() + USEC_PER_SEC*2;
-	bool bHitCondition = true;
-	while ( fAuthenticationSearchNode != nil )
-	{
-		if ( fAuthenticationSearchNode->fPlugInPtr != nil )
-		{
-			uInt32 uiState = 0;
-			sInt32 stateResult = gPlugins->GetState( fAuthenticationSearchNode->fPlugInPtr->GetPluginName(), &uiState );
-			if ( (stateResult == eDSNoErr) && ( uiState & kActive ) )
-			{
-				break;
-			}
-			if (bHitCondition)
-			{
-				DBGLOG( kLogApplication, "Hit the Search plugin race condition between init and active" );
-				bHitCondition = false;
-			}
-		}
-		// Check every .2 seconds
-		timedWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
-
-		// check over max of 2 seconds 
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
-	}
-
-	// Now let it go
-	fWaitForAuthenticationSN.Signal();
-
+	fWaitForAuthenticationSN.WaitForEvent();
+	gKickSearchRequests.WaitForEvent();
 } // WaitForAuthenticationSearchNode
 
 
@@ -2064,58 +2299,8 @@ void CNodeList::WaitForAuthenticationSearchNode( void )
 
 void CNodeList:: WaitForContactsSearchNode ( void )
 {
-	DSSemaphore		timedWait;
-	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
-
-	// Grab the wait semaphore
-	fWaitForContactsSN.Wait();
-
-	while ( fContactsSearchNode == nil )
-	{
-		// Check every .5 seconds
-		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
-
-		// check over max of 2 minutes
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
-	}
-
-	//additional wait until the plugin is deemed active
-	waitTime = dsTimestamp() + USEC_PER_SEC*2;
-	bool bHitCondition = true;
-	while ( fContactsSearchNode != nil )
-	{
-		if ( fContactsSearchNode->fPlugInPtr != nil )
-		{
-			uInt32 uiState = 0;
-			sInt32 stateResult = gPlugins->GetState( fContactsSearchNode->fPlugInPtr->GetPluginName(), &uiState );
-			if ( (stateResult == eDSNoErr) && ( uiState & kActive ) )
-			{
-				break;
-			}
-			if (bHitCondition)
-			{
-				DBGLOG( kLogApplication, "Hit the Search plugin race condition between init and active" );
-				bHitCondition = false;
-			}
-		}
-		// Check every .2 seconds
-		timedWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
-
-		// check over max of 2 seconds 
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
-	}
-
-	// Now let it go
-	fWaitForContactsSN.Signal();
-
+	fWaitForContactsSN.WaitForEvent();
+	gKickSearchRequests.WaitForEvent();
 } // WaitForContactsSearchNode
 
 
@@ -2125,58 +2310,8 @@ void CNodeList:: WaitForContactsSearchNode ( void )
 
 void CNodeList:: WaitForNetworkSearchNode ( void )
 {
-	DSSemaphore		timedWait;
-	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
-
-	// Grab the wait semaphore
-	fWaitForNetworkSN.Wait();
-
-	while ( fNetworkSearchNode == nil )
-	{
-		// Check every .5 seconds
-		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
-
-		// check over max of 2 minutes
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
-	}
-
-	//additional wait until the plugin is deemed active
-	waitTime = dsTimestamp() + USEC_PER_SEC*2;
-	bool bHitCondition = true;
-	while ( fNetworkSearchNode != nil )
-	{
-		if ( fNetworkSearchNode->fPlugInPtr != nil )
-		{
-			uInt32 uiState = 0;
-			sInt32 stateResult = gPlugins->GetState( fNetworkSearchNode->fPlugInPtr->GetPluginName(), &uiState );
-			if ( (stateResult == eDSNoErr) && ( uiState & kActive ) )
-			{
-				break;
-			}
-			if (bHitCondition)
-			{
-				DBGLOG( kLogApplication, "Hit the Search plugin race condition between init and active" );
-				bHitCondition = false;
-			}
-		}
-		// Check every .2 seconds
-		timedWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
-
-		// check over max of 2 seconds 
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
-	}
-
-	// Now let it go
-	fWaitForNetworkSN.Signal();
-
+	fWaitForNetworkSN.WaitForEvent();
+	gKickSearchRequests.WaitForEvent();
 } // WaitForNetworkSearchNode
 
 
@@ -2186,59 +2321,30 @@ void CNodeList:: WaitForNetworkSearchNode ( void )
 
 void CNodeList::WaitForLocalNode( void )
 {
-	DSSemaphore		timedWait;
-	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
-
-	// Grab the wait semaphore
-	fWaitForLN.Wait();
-
-	while ( fLocalNode == nil )
-	{
-		// Check every .5 seconds
-		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
-
-		// check over max of 2 minutes
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
-	}
-
-	//additional wait until the plugin is deemed active
-	waitTime = dsTimestamp() + USEC_PER_SEC*2;
-	bool bHitCondition = true;
-	while ( fLocalNode != nil )
-	{
-		if ( fLocalNode->fPlugInPtr != nil )
-		{
-			uInt32 uiState = 0;
-			sInt32 stateResult = gPlugins->GetState( fLocalNode->fPlugInPtr->GetPluginName(), &uiState );
-			if ( (stateResult == eDSNoErr) && ( uiState & kActive ) )
-			{
-				break;
-			}
-			if (bHitCondition)
-			{
-				DBGLOG( kLogApplication, "Hit the Local Netinfo plugin race condition between init and active" );
-				bHitCondition = false;
-			}
-		}
-		// Check every .2 seconds
-		timedWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
-
-		// check over max of 2 seconds 
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
-	}
-
-	// Now let it go
-	fWaitForLN.Signal();
-
+	fWaitForLN.WaitForEvent();
+	gKickLocalNodeRequests.WaitForEvent();
 } // WaitForLocalNode
+
+
+// ---------------------------------------------------------------------------
+//	* WaitForCacheNode ()
+// ---------------------------------------------------------------------------
+
+void CNodeList::WaitForCacheNode( void )
+{
+	fWaitForCacheN.WaitForEvent();
+	gKickCacheRequests.WaitForEvent();
+} // WaitForCacheNode
+
+// ---------------------------------------------------------------------------
+//	* WaitForBSDNode ()
+// ---------------------------------------------------------------------------
+
+void CNodeList::WaitForBSDNode( void )
+{
+	fWaitForBSDN.WaitForEvent();
+	gKickBSDRequests.WaitForEvent();
+} // WaitForCacheNode
 
 
 // ---------------------------------------------------------------------------
@@ -2247,58 +2353,8 @@ void CNodeList::WaitForLocalNode( void )
 
 void CNodeList::WaitForConfigureNode( void )
 {
-	DSSemaphore		timedWait;
-	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
-
-	// Grab the wait semaphore
-	fWaitForConfigureN.Wait();
-
-	while ( fConfigureNode == nil )
-	{
-		// Check every .5 seconds
-		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
-
-		// check over max of 2 minutes
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
-	}
-
-	//additional wait until the plugin is deemed active
-	waitTime = dsTimestamp() + USEC_PER_SEC*2;
-	bool bHitCondition = true;
-	while ( fConfigureNode != nil )
-	{
-		if ( fConfigureNode->fPlugInPtr != nil )
-		{
-			uInt32 uiState = 0;
-			sInt32 stateResult = gPlugins->GetState( fConfigureNode->fPlugInPtr->GetPluginName(), &uiState );
-			if ( (stateResult == eDSNoErr) && ( uiState & kActive ) )
-			{
-				break;
-			}
-			if (bHitCondition)
-			{
-				DBGLOG( kLogApplication, "Hit the Configure plugin race condition between init and active" );
-				bHitCondition = false;
-			}
-		}
-		// Check every .2 seconds
-		timedWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
-
-		// check over max of 2 seconds 
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
-	}
-
-	// Now let it go
-	fWaitForConfigureN.Signal();
-
+	fWaitForConfigureN.WaitForEvent();
+	gKickConfigRequests.WaitForEvent();
 } // WaitForConfigureNode
 
 // ---------------------------------------------------------------------------
@@ -2307,27 +2363,9 @@ void CNodeList::WaitForConfigureNode( void )
 
 void CNodeList::WaitForDHCPLDAPv3Init( void )
 {
-	DSSemaphore		timedWait;
-	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
-
-	// Grab the wait semaphore
-	fWaitForDHCPLDAPv3InitFlag.Wait();
-
-	while ( !bDHCPLDAPv3InitComplete )
+	if (!gDSInstallDaemonMode)
 	{
-		// Check every .5 seconds
-		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
-
-		// Wait for 2 minutes
-		if ( dsTimestamp() > waitTime )
-		{
-			// We have waited as long as we are going to at this time
-			break;
-		} 
+		fWaitForDHCPLDAPv3InitFlag.WaitForEvent();
 	}
-
-	// Now let it go
-	fWaitForDHCPLDAPv3InitFlag.Signal();
-
 } // WaitForDHCPLDAPv3Init
 

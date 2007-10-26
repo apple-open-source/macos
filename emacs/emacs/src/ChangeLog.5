@@ -1766,7 +1766,7 @@
 	* m/intel386.h (C_SWITCH_SYSTEM): Don't #undef or define it.
  	[SOLARIS2, SOLARIS2_4, !__GNUC__] (C_SWITCH_MACHINE): Define instead.
 
-1995-03-26  Germano Caronni <caronni@tik.ethz.ch>
+1995-03-26  Germano Caronni  <caronni@tik.ethz.ch>
 
 	* ralloc.c (r_re_alloc): Correct realloc behavior--allow shrinking
  	of blocks while reallocating, if shrinking by more than one page.
@@ -1789,7 +1789,7 @@
 
 	* textprop.c (Fnext_property_change): Fix previous change.
 
-1995-03-23  Kevin Rodgers <kevinr@ihs.com>
+1995-03-23  Kevin Rodgers  <kevinr@ihs.com> (tiny change)
 
 	* print.c (temp_output_buffer_setup): (Re)set the default
 	directory of the temp buffer to that of the current buffer.
@@ -3199,7 +3199,7 @@
 	* dispnew.c (scrolling): Fewer restrictions if scroll_region_ok is
 	set.  New vector old_draw_cost for direct scrolling method.
 
-1994-12-23  Michal Jankowski (Michal.Jankowski@fuw.edu.pl)
+1994-12-23  Michal Jankowski  (Michal.Jankowski@fuw.edu.pl)
 
 	* keyboard.c (read_char): Don't echo keys when echo_keystrokes is 0.
 
@@ -3405,7 +3405,7 @@
 	(UNISTD_H_INCLUDED): Don't define or test this.
 	* m/ibm370aix.h (NEED_UNISTD_H): Defined.
 	* s/aix3-1.h (NEED_UNISTD_H): Defined.
-	* s/irix4-0.h (NEED_UNISTD_H): Defined.
+	* s/irix4-0.h (NEED_UNISTD_H): Define.
 
 	* fileio.c (internal_delete_file, internal_delete_file_1):
 	New functions.
@@ -3419,7 +3419,7 @@
 1994-11-24  Francesco Potorti`  <pot@cnuce.cnr.it>
 
 	* m/delta.h (C_SWITCH_MACHINE): -inline-functions removed,
-        because the compiler shipped with R3V7 is not stable.
+	because the compiler shipped with R3V7 is not stable.
 
 1994-11-24  Richard Stallman  <rms@mole.gnu.ai.mit.edu>
 
@@ -3443,7 +3443,7 @@
 	(complete_and_exit_1, complete_and_exit_2): New subroutines.
 
 	* s/aix4.h: New file.
-	* s/aix3-1.h (AIXHFT): Defined.
+	* s/aix3-1.h (AIXHFT): Define.
 	* m/ibmrs6000.h (OBJECTS_MACHINE): Define only if AIXHFT.
 
 	* sysdep.c (init_sys_modes): Tes AIXHFT, not AIX.
@@ -4314,7 +4314,7 @@
 
 	* buffer.c (list_buffers_1): Always mark current_buffer read-only.
 
-1994-10-20  Fred Pierresteguy <F.Pierresteguy@frcl.bull.fr>
+1994-10-20  Fred Pierresteguy  <F.Pierresteguy@frcl.bull.fr>
 
 	* m/dpx2.h (LD_SWITCH_MACHINE): Defined.
 
@@ -4614,7 +4614,7 @@
 	(FRAMEP): Define different versions for MULTI_FRAME and MSDOS.
 	Otherwise, don't define at all.
 
-	* makefile.in.in (MSDOS_SUPPORT): Add faces.elc.
+	* Makefile.in.in (MSDOS_SUPPORT): Add faces.elc.
 	(msdos.o, dosfns.o): Add dependencies.
 	(MSDOS_OBJ): New set of object files.
 	(obj): Include MSDOS_OBJ.
@@ -5279,7 +5279,7 @@
 
 	* window.c (syms_of_window): Doc fix.
 
-1994-09-26  Fred Pierresteguy <F.Pierresteguy@frcl.bull.fr>
+1994-09-26  Fred Pierresteguy  <F.Pierresteguy@frcl.bull.fr>
 
 	* m/dpx2.h (POSIX_SIGNALS): Define it.
 	(sigsetmask): Add #undef.
@@ -5485,7 +5485,7 @@
 
 	* editfns.c (Fmessage_box): Renamed from Fbox_message.
 
-1994-09-17  Michael Ben-Gershon (mybg@cs.huji.ac.il)
+1994-09-17  Michael Ben-Gershon  (mybg@cs.huji.ac.il)
 
 	* unexec.c (copy_text_and_data): Add RISCiX changes.
 
@@ -5793,7 +5793,7 @@
 
 	* term.c (clear_to_end): Fix reversed condition.
 
-1994-09-16  K. Berry <kb@cs.umb.edu>
+1994-09-16  K. Berry  <kb@cs.umb.edu>
 
 	* dired.c (Qcompletion_ignored_extensions): New symbol.
 	(syms_of_dired): Initialize it.
@@ -5804,7 +5804,7 @@
 	* s/msdos.h (MODE_LINE_BINARY_TEXT): Define this symbol.
 	* xdisp.c (decode_mode_spec): Use it when defined.
 
-1994-09-16  Andreas Schwab <schwab@issan.informatik.uni-dortmund.de>
+1994-09-16  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
 	* minibuf.c (read_minibuf): Don't add to the history list if the
 	minibuffer string is empty, since it is not very useful.
 
@@ -6045,7 +6045,7 @@
 	instead of whether SIGIO is defined.
 	* Makefile.in.in (xterm.o): Depend on keyboard.h.
 
-1994-08-26  Kevin Rodgers <kevinr@ihs.com>
+1994-08-26  Kevin Rodgers  <kevinr@ihs.com>
 
 	* xfns.c (Fx_color_defined_p): Return list of RGB values, not just t.
 
@@ -6451,7 +6451,7 @@
 	Add an unwind protect to restore original buffer and kill the temp.
 
 	* sysdep.c (init_system_name): Retry gethostbyname after TRY_AGAIN
-        failure.
+	failure.
 
 	* process.c (Fopen_network_stream):
 	Retry gethostbyname after TRY_AGAIN failure.
@@ -6477,7 +6477,7 @@
 
 	* s/linux.h [emacs]: Include stdio.h.
 
-	* commands.h (unread_command_char): Declared.
+	* commands.h (unread_command_char): Declare.
 	* dispnew.c (sit_for): Return immediately if unread events exist.
 
 1994-07-17  Richard Stallman  (rms@mole.gnu.ai.mit.edu)
@@ -7144,6 +7144,24 @@
 
 See ChangeLog.4 for earlier changes.
 
-    Copyright (C) 1994, 1995 Free Software Foundation, Inc.
-  Copying and distribution of this file, with or without modification,
-  are permitted provided the copyright notice and this notice are preserved.
+    Copyright (C) 1994, 1995, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+	Free Software Foundation, Inc.
+
+  This file is part of GNU Emacs.
+
+  GNU Emacs is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2, or (at your option)
+  any later version.
+
+  GNU Emacs is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with GNU Emacs; see the file COPYING.  If not, write to the
+  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+  Boston, MA 02110-1301, USA.
+
+;;; arch-tag: aea244d6-d513-4b51-8dba-5ecdf1aa5875

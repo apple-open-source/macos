@@ -22,6 +22,7 @@
 #include "frame.h"
 #include "gdb_assert.h"
 #include "osabi.h"
+#include "solib-svr4.h"
 
 #include "alpha-tdep.h"
 
@@ -134,13 +135,16 @@ alpha_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   /* Hook into the MDEBUG frame unwinder.  */
   alpha_mdebug_init_abi (info, gdbarch);
 
-  set_gdbarch_pc_in_sigtramp (gdbarch, alpha_linux_pc_in_sigtramp);
-
   tdep = gdbarch_tdep (gdbarch);
   tdep->dynamic_sigtramp_offset = alpha_linux_sigtramp_offset;
   tdep->sigcontext_addr = alpha_linux_sigcontext_addr;
+  tdep->pc_in_sigtramp = alpha_linux_pc_in_sigtramp;
   tdep->jb_pc = 2;
   tdep->jb_elt_size = 8;
+
+  /* Enable TLS support.  */
+  set_gdbarch_fetch_tls_load_module_address (gdbarch,
+                                             svr4_fetch_objfile_link_map);
 }
 
 void

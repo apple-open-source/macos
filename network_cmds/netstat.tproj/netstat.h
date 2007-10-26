@@ -59,11 +59,17 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 extern int	Aflag;	/* show addresses of protocol control block */
 extern int	aflag;	/* show all sockets (including servers) */
 extern int	bflag;	/* show i/f total bytes in/out */
 extern int	dflag;	/* show i/f dropped packets */
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 extern int	gflag;	/* show group (multicast) routing or stats */
+#endif
 extern int	iflag;	/* show interfaces */
 extern int	lflag;	/* show routing table with use and ref */
 extern int	Lflag;	/* show size of listen queues */
@@ -106,12 +112,15 @@ void	icmp6_ifstats (char *);
 void	pim6_stats (u_long, char *, int);
 #endif
 void	rip6_stats (u_long, char *, int);
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 void	mroute6pr (void);
 void	mrt6_stats (void);
+#endif
 
 struct sockaddr_in6;
 struct in6_addr;
 char *routename6 (struct sockaddr_in6 *);
+struct sockaddr; /* forward reference */
 char *netname6 (struct sockaddr_in6 *, struct sockaddr *);
 #endif /*INET6*/
 
@@ -127,6 +136,7 @@ void	hostpr (u_long, u_long);
 void	impstats (u_long, u_long);
 
 void	intpr (void (*)(char *));
+void	intervalpr(void (*)(u_long, char *, int), u_long, char *, int);
 
 void	pr_rthdr (int);
 void	pr_family (int);
@@ -174,6 +184,8 @@ void	tp_protopr (u_long, char *, int);
 void	tp_inproto (u_long);
 void	tp_stats (caddr_t, caddr_t);
 
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 void	mroutepr (void);
 void	mrt_stats (void);
-
+#endif
+void	ifmalist_dump(void);

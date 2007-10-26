@@ -1,0 +1,46 @@
+# -*- mode:ruby; indent-tabs-mode:nil; coding:utf-8 -*-
+require 'rubygems'
+require 'bluecloth'
+
+task :default => :html
+
+DocumentWrapper = %{
+<html lang="%s">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Language" content="%s">
+  <title>RubyCocoa - %s</title></head>
+<body>
+%s
+</body>
+</html>
+}
+
+
+def write_html(src_path)
+  dname = File.dirname(src_path)
+  name  = File.basename(src_path, '.txt')
+  body = BlueCloth.new(File.read(src_path))
+  if dname == '.' then
+    lang = 'en'
+    dst_path = "html/#{name}.html"
+  else
+    lang = dname
+    dst_path = "html/#{dname}/#{name}.html"
+  end
+  html = format(DocumentWrapper, lang, lang, name, body.to_html)
+  FileUtils.mkdir_p(File.dirname(dst_path))
+  File.open(dst_path,"w") { |io| io.write(html) }
+end
+
+task :html do
+  Dir['*/**/*.txt'].each do |path|
+    write_html(path)
+  end
+end
+
+task :clean do
+  Dir['*/**/*.html'].each do |path|
+    rm_rf(path)
+  end
+end

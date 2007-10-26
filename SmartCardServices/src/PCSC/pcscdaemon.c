@@ -1,36 +1,51 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please
- * obtain a copy of the License at http://www.apple.com/publicsource and
- * read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please
- * see the License for the specific language governing rights and
- * limitations under the License.
+ *  Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * 
+ *  @APPLE_LICENSE_HEADER_START@
+ *  
+ *  This file contains Original Code and/or Modifications of Original Code
+ *  as defined in and that are subject to the Apple Public Source License
+ *  Version 2.0 (the 'License'). You may not use this file except in
+ *  compliance with the License. Please obtain a copy of the License at
+ *  http://www.opensource.apple.com/apsl/ and read it before using this
+ *  file.
+ *  
+ *  The Original Code and all software distributed under the License are
+ *  distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *  EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ *  INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ *  Please see the License for the specific language governing rights and
+ *  limitations under the License.
+ *  
+ *  @APPLE_LICENSE_HEADER_END@
  */
 
-/******************************************************************
+/*
+ *  pcscdaemon.c
+ *  SmartCardServices
+ */
 
-	Title  : pcscdaemon.c
-	Package: PC/SC Lite
-	Author : David Corcoran
-	Date   : 10/24/99
-	License: Copyright (C) 1999 David Corcoran
-			<corcoran@linuxnet.com>
-	Purpose: This is the main pcscd daemon.
+/*
+ * MUSCLE SmartCard Development ( http://www.linuxnet.com )
+ *
+ * Copyright (C) 1999-2005
+ *  David Corcoran <corcoran@linuxnet.com>
+ *  Ludovic Rousseau <ludovic.rousseau@free.fr>
+ *
+ * $Id: pcscdaemon.c 2377 2007-02-05 13:13:56Z rousseau $
+ */
 
-$Id: pcscdaemon.c,v 1.4 2004/12/07 01:15:43 mb Exp $
-
-********************************************************************/
+/**
+ * @file
+ * @brief This is the main pcscd daemon.
+ *
+ * The function \c main() starts up the communication environment.\n
+ * Then an endless loop is calld to look for Client connections. For each
+ * Client connection a call to \c CreateContextThread() is done.
+ */
 
 #include "config.h"
-
 #include <time.h>
 #include <syslog.h>
 #include <signal.h>
@@ -41,230 +56,279 @@ $Id: pcscdaemon.c,v 1.4 2004/12/07 01:15:43 mb Exp $
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifdef  HAVE_GETOPT_H
+#ifdef HAVE_GETOPT_H
 #include <getopt.h>
 #endif
 
 #include "wintypes.h"
 #include "pcsclite.h"
+#include "debuglog.h"
 #include "winscard_msg.h"
 #include "winscard_svc.h"
 #include "sys_generic.h"
 #include "thread_generic.h"
 #include "hotplug.h"
-#include "debuglog.h"
 #include "readerfactory.h"
 #include "configfile.h"
-
-#ifdef PCSC_TARGET_OSX
 #include "powermgt_generic.h"
-#endif
 
-static char AraKiri = 0;
+#include <security_utilities/debugging.h>
+
+char AraKiri = 0;
 static char Init = 1;
-extern int errno;
+int HPForceReaderPolling = 0;
 
 /*
- * Some internal functions 
+ * Some internal functions
  */
-
-void SVCServiceRunLoop();
-void SVCClientCleanup(request_object *msgStruct);
+void SVCServiceRunLoop(void);
+void SVCClientCleanup(psharedSegmentMsg);
 void at_exit(void);
 void clean_temp_files(void);
+void signal_reload(int sig);
 void signal_trap(int);
 void print_version (void);
 void print_usage (char const * const);
+int ProcessHotplugRequest();
 
 PCSCLITE_MUTEX usbNotifierMutex;
 
-/*
- * Cleans up messages still on the queue when a client dies 
- */
-void SVCClientCleanup(request_object *msgStruct)
+#ifdef USE_RUN_PID
+pid_t GetDaemonPid(void);
+pid_t GetDaemonPid(void)
 {
-	/*
-	 * May be implemented in future releases 
+	FILE *f;
+	pid_t pid;
+
+	/* pids are only 15 bits but 4294967296
+	 * (32 bits in case of a new system use it) is on 10 bytes
 	 */
+	if ((f = fopen(USE_RUN_PID, "rb")) != NULL)
+	{
+#define PID_ASCII_SIZE 11
+		char pid_ascii[PID_ASCII_SIZE];
+
+		fgets(pid_ascii, PID_ASCII_SIZE, f);
+		fclose(f);
+
+		pid = atoi(pid_ascii);
+	}
+	else
+	{
+		Log2(PCSC_LOG_CRITICAL, "Can't open " USE_RUN_PID ": %s",
+			strerror(errno));
+		return -1;
+	}
+
+	return pid;
+} /* GetDaemonPid */
+#endif
+
+int SendHotplugSignal(void)
+{
+#ifdef USE_RUN_PID
+	pid_t pid;
+
+	pid = GetDaemonPid();
+
+	if (pid != -1)
+	{
+		Log2(PCSC_LOG_INFO, "Send hotplug signal to pcscd (pid=%d)", pid);
+		if (kill(pid, SIGUSR1) < 0)
+		{
+			Log3(PCSC_LOG_CRITICAL, "Can't signal pcscd (pid=%d): %s",
+				pid, strerror(errno));
+			return EXIT_FAILURE ;
+		}
+	}
+#endif
+
+	return EXIT_SUCCESS;
+} /* SendHotplugSignal */
+
+int ProcessHotplugRequest()
+{
+#ifdef USE_RUN_PID
+
+	/* read the pid file to get the old pid and test if the old pcscd is
+	 * still running
+	 */
+	if (GetDaemonPid() != -1)
+		return SendHotplugSignal();
+
+	Log1(PCSC_LOG_CRITICAL, "file " USE_RUN_PID " does not exist");
+	Log1(PCSC_LOG_CRITICAL,	"Perhaps pcscd is not running?");
+#else
+	struct stat tmpStat;
+	if (SYS_Stat(PCSCLITE_CSOCK_NAME, &tmpStat) == 0)	// socket file exists, so maybe pcscd is running
+		return SendHotplugSignal();
+	Log1(PCSC_LOG_CRITICAL, "pcscd was not configured with --enable-runpid=FILE");
+#endif
+	Log1(PCSC_LOG_CRITICAL, "Hotplug failed");
+	return EXIT_FAILURE;
 }
 
 /*
- * The Message Queue Listener function 
+ * Cleans up messages still on the queue when a client dies
  */
-void SVCServiceRunLoop()
+void SVCClientCleanup(psharedSegmentMsg msgStruct)
 {
+	/*
+	 * May be implemented in future releases
+	 */
+}
 
-	char errMessage[200];
-	request_object request;
-	int currHandle, rsp;
+/**
+ * @brief The Server's Message Queue Listener function.
+ *
+ * An endless loop calls the function \c SHMProcessEventsServer() to check for
+ * messages sent by clients.
+ * If the message is valid, \c CreateContextThread() is called to serve this
+ * request.
+ */
+void SVCServiceRunLoop(void)
+{
+	int rsp;
+	LONG rv;
+	DWORD dwClientID;	/* Connection ID used to reference the Client */
 
-	currHandle = 0, rsp = 0;
+	rsp = 0;
+	rv = 0;
 
 	/*
-	 * Initialize the comm structure 
+	 * Initialize the comm structure
 	 */
-	rsp = MSGServerSetupCommonChannel();
+	rsp = SHMInitializeCommonSegment();
 
 	if (rsp == -1)
 	{
-		DebugLogA("SVCServiceRunLoop: Error initializing pcscd.");
+		Log1(PCSC_LOG_CRITICAL, "Error initializing pcscd.");
 		exit(-1);
 	}
 
 	/*
-	 * Solaris sends a SIGALRM and it is annoying 
+	 * Initialize the contexts structure
+	 */
+	rv = ContextsInitialize();
+
+	if (rv == -1)
+	{
+		Log1(PCSC_LOG_CRITICAL, "Error initializing pcscd.");
+		exit(-1);
+	}
+
+	/*
+	 * Solaris sends a SIGALRM and it is annoying
 	 */
 
 	signal(SIGALRM, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);	/* needed for Solaris. The signal is sent
-								 * when the shell is existed */
+				 * when the shell is existed */
 
 	/*
-	 * This function always returns zero 
+	 * This function always returns zero
 	 */
 	rsp = SYS_MutexInit(&usbNotifierMutex);
 
 	/*
-	 * Set up the search for USB/PCMCIA devices 
+	 * Set up the search for USB/PCMCIA devices
 	 */
 	HPSearchHotPluggables();
 	HPRegisterForHotplugEvents();
 
-#ifdef PCSC_TARGET_OSX
 	/*
-	 * Set up the power management callback routine for OS X
+	 * Set up the power management callback routine
 	 */
-	PMRegisterForPowerEvents();
-#endif
+//	PMRegisterForPowerEvents();
 
 	while (1)
 	{
-		switch (rsp = MSGServerProcessEvents(&request, 0))
+		switch (rsp = SHMProcessEventsServer(&dwClientID, 0))
 		{
 
 		case 0:
-			if (request.mtype == CMD_CLIENT_DIED)
+			Log2(PCSC_LOG_DEBUG, "A new context thread creation is requested: %d", dwClientID);
+			rv = CreateContextThread(&dwClientID);
+
+ 			if (rv != SCARD_S_SUCCESS)
 			{
-				/*
-				 * Clean up the dead client 
-				 */
-				SYS_MutexLock(&usbNotifierMutex);
-				MSGCleanupClient(&request);
-				SYS_MutexUnLock(&usbNotifierMutex);
-				snprintf(errMessage, sizeof(errMessage), "%s%d%s",
-					"SVCServiceRun: Client ", request.socket,
-					" has disappeared.");
-				DebugLogB("%s", errMessage);
-			} else
-			{
-				continue;
-			}
-
-			break;
-
-		case 1:
-			if (request.mtype == CMD_FUNCTION)
-			{
-				reply_object reply;
-				reply_header *replyh = &reply.message.header;
-
-				reply.additional_data = NULL;
-
-				/*
-				 * Command must be found 
-				 */
-				SYS_MutexLock(&usbNotifierMutex);
-				rsp = MSGFunctionDemarshall(&request, &reply);
-				/* Command is bogus, ignore it, we should probably
-				   also get rid of this client. */
-				if (rsp)
-					continue;
-
-				if (!reply.additional_data)
-					replyh->additional_data_size = 0;
-				rsp = MSGSendData(request.socket, PCSCLITE_SERVER_ATTEMPTS,
-					replyh, replyh->size);
-				if (!rsp && replyh->additional_data_size)
-				{
-					rsp = MSGSendData(request.socket, PCSCLITE_SERVER_ATTEMPTS,
-						reply.additional_data, replyh->additional_data_size);
-				}
-
-				if (reply.additional_data)
-				{
-					if (replyh->additional_data_size)
-						memset(reply.additional_data, 0,
-							replyh->additional_data_size);
-					free(reply.additional_data);
-				}
-
-				SYS_MutexUnLock(&usbNotifierMutex);
-			} else
-			{
-				continue;
+				Log1(PCSC_LOG_ERROR, "Problem during the context thread creation");
+				AraKiri = 1;
 			}
 
 			break;
 
 		case 2:
-			// timeout in MSGServerProcessEvents(): do nothing
-			// this is used to catch the Ctrl-C signal at some time when
-			// nothing else happens
+			/*
+			 * timeout in SHMProcessEventsServer(): do nothing
+			 * this is used to catch the Ctrl-C signal at some time when
+			 * nothing else happens
+			 */
 			break;
 
 		case -1:
-			DebugLogA("SVCServiceRun: Error in MSGServerProcessEvents");
+			Log1(PCSC_LOG_ERROR, "Error in SHMProcessEventsServer");
+			break;
+
+		case -2:
+			/* Nothing to do in case of a syscall interrupted
+			 * It happens when SIGUSR1 (reload) or SIGINT (Ctrl-C) is received
+			 * We just try again */
 			break;
 
 		default:
-			DebugLogB("SVCServiceRun: MSGServerProcessEvents returned: %d",
+			Log2(PCSC_LOG_ERROR, "SHMProcessEventsServer unknown retval: %d",
 				rsp);
 			break;
 		}
 
-		if (request.additional_data)
-		{
-			if (request.message.header.additional_data_size)
-				memset(request.additional_data, 0,
-					request.message.header.additional_data_size);
-			free(request.additional_data);
-			request.additional_data = NULL;
-		}
-
 		if (AraKiri)
+		{
+			/* stop the hotpug thread and waits its exit */
+//			HPStopHotPluggables();
+			SYS_Sleep(1);
+
+			/* now stop all the drivers */
 			RFCleanupReaders(1);
+		}
 	}
 }
 
 int main(int argc, char **argv)
 {
-
 	int rv;
 	char setToForeground;
+	char HotPlug;
 	char *newReaderConfig;
 	struct stat fStatBuf;
 	int opt;
 #ifdef HAVE_GETOPT_LONG
-	int option_index;
+	int option_index = 0;
 	static struct option long_options[] = {
 		{"config", 1, 0, 'c'},
 		{"foreground", 0, 0, 'f'},
-		{"debug", 1, 0, 'd'},
 		{"help", 0, 0, 'h'},
 		{"version", 0, 0, 'v'},
 		{"apdu", 0, 0, 'a'},
+		{"debug", 0, 0, 'd'},
+		{"info", 0, 0, 0},
+		{"error", 0, 0, 'e'},
+		{"critical", 0, 0, 'C'},
+		{"hotplug", 0, 0, 'H'},
+		{"force-reader-polling", optional_argument, 0, 0},
 		{0, 0, 0, 0}
 	};
 #endif
-	
+#define OPT_STRING "c:fdhvaeCH"
+
 	rv = 0;
-	newReaderConfig = 0;
+	newReaderConfig = NULL;
 	setToForeground = 0;
+	HotPlug = 0;
 
 	/*
-	 * test the version 
+	 * test the version
 	 */
 	if (strcmp(PCSCLITE_VERSION_NUMBER, VERSION) != 0)
 	{
@@ -273,165 +337,153 @@ int main(int argc, char **argv)
 			PCSCLITE_VERSION_NUMBER);
 		printf("  generated in config.h (%s) (see configure.in).\n", VERSION);
 
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	/*
-	 * log to stderr by default
+	 * By default we create a daemon (not connected to any output)
+	 * The log will go to wherever securityd log output goes.
 	 */
-	DebugLogSetLogType(DEBUGLOG_STDERR_DEBUG);
+	DebugLogSetLogType(DEBUGLOG_NO_DEBUG);
 
 	/*
-	 * Handle any command line arguments 
+	 * Handle any command line arguments
 	 */
 #ifdef  HAVE_GETOPT_LONG
-	while ((opt = getopt_long (argc, argv, "c:fd:hva", long_options,
-		&option_index)) != -1) {
+	while ((opt = getopt_long (argc, argv, OPT_STRING, long_options, &option_index)) != -1) {
 #else
-	while ((opt = getopt (argc, argv, "c:fd:hva")) != -1) {
+	while ((opt = getopt (argc, argv, OPT_STRING)) != -1) {
 #endif
 		switch (opt) {
+#ifdef  HAVE_GETOPT_LONG
+			case 0:
+				if (strcmp(long_options[option_index].name,
+					"force-reader-polling") == 0)
+					HPForceReaderPolling = optarg ? abs(atoi(optarg)) : 1;
+				break;
+#endif
 			case 'c':
-				DebugLogB("main: using new config file: %s", optarg);
+				Log2(PCSC_LOG_INFO, "using new config file: %s", optarg);
 				newReaderConfig = optarg;
 				break;
 
 			case 'f':
-				DebugLogA("main: pcscd set to foreground");
 				setToForeground = 1;
+				/* debug to stderr instead of default syslog */
+				Log1(PCSC_LOG_INFO,
+					"pcscd set to foreground with debug send to stderr");
 				break;
 
 			case 'd':
-				if (strncmp(optarg, "syslog", PCSCLITE_MAX_COMSIZE) == 0) 
-					DebugLogSetLogType(DEBUGLOG_SYSLOG_DEBUG);
-				else if (strncmp(optarg, "stderr", PCSCLITE_MAX_COMSIZE) == 0) {
-					DebugLogSetLogType(DEBUGLOG_STDERR_DEBUG);
-					DebugLogA("main: debug messages to stderr");
-					setToForeground = 1;
-				} 
-				else if (strncmp(optarg, "stdout", PCSCLITE_MAX_COMSIZE) == 0) {
-					DebugLogSetLogType(DEBUGLOG_STDOUT_DEBUG);
-					DebugLogA("main: debug messages to stdout");
-					setToForeground = 1;
-				}
-				else
-				{
-					DebugLogB("unknown debug argument: %s", optarg);
-					print_usage (argv[0]);
-					return 1;
-				}
+				DebugLogSetLogType(DEBUGLOG_STDERR_DEBUG);
+				DebugLogSetLevel(PCSC_LOG_DEBUG);
+				break;
+
+			case 'e':
+				DebugLogSetLogType(DEBUGLOG_STDERR_DEBUG);
+				DebugLogSetLevel(PCSC_LOG_ERROR);
+				break;
+
+			case 'C':
+				DebugLogSetLogType(DEBUGLOG_STDERR_DEBUG);
+				DebugLogSetLevel(PCSC_LOG_CRITICAL);
 				break;
 
 			case 'h':
 				print_usage (argv[0]);
-				return 0;
+				return EXIT_SUCCESS;
 
 			case 'v':
 				print_version ();
-				return 0;
+				return EXIT_SUCCESS;
 
 			case 'a':
 				DebugLogSetCategory(DEBUG_CATEGORY_APDU);
 				break;
 
+			case 'H':
+				/* debug to stderr instead of default syslog */
+				DebugLogSetLogType(DEBUGLOG_STDERR_DEBUG);
+				HotPlug = 1;
+				break;
+
 			default:
 				print_usage (argv[0]);
-				return 1;
+				return EXIT_FAILURE;
 		}
 
 	}
-	
+
+	if (argv[optind])
+	{
+		printf("Unknown option: %s\n\n", argv[optind]);
+		print_usage(argv[0]);
+		return EXIT_SUCCESS;
+	}
+
 	/*
-	 * test the presence of /tmp/pcsc 
+		If this run of pcscd has the hotplug option, just send a signal to the
+		running one and exit
+	*/
+	
+	if (HotPlug)
+		return ProcessHotplugRequest();
+
+	/*
+	 * test the presence of /var/run/pcsc.comm
 	 */
 
-	rv = SYS_Stat(PCSCLITE_IPC_DIR, &fStatBuf);
+	rv = SYS_Stat(PCSCLITE_CSOCK_NAME, &fStatBuf);
 
 	if (rv == 0)
 	{
 #ifdef USE_RUN_PID
+		pid_t pid;
 
-		// read the pid file to get the old pid and test if the old pcscd is
-		// still running 
+		/* read the pid file to get the old pid and test if the old pcscd is
+		 * still running
+		 */
+		pid = GetDaemonPid();
 
-		FILE *f;
-		// pids are only 15 bits but 4294967296 (32 bits in case of a new
-		// system use it) is on 10 bytes
-#define PID_ASCII_SIZE 11
-		char pid_ascii[PID_ASCII_SIZE];
-		int pid;
-
-		if ((f = fopen(USE_RUN_PID, "rb")) != NULL)
+		if (pid != -1)
 		{
-			fgets(pid_ascii, PID_ASCII_SIZE, f);
-			fclose(f);
-
-			pid = atoi(pid_ascii);
-
 			if (kill(pid, 0) == 0)
 			{
-				DebugLogA("main: Directory " PCSCLITE_IPC_DIR " already exists.");
-				DebugLogA("Another pcscd seems to be running");
-				return 1;
+				Log2(PCSC_LOG_CRITICAL,
+					"Another pcscd (pid: %d) seems to be running.", pid);
+				Log1(PCSC_LOG_CRITICAL,
+					"Remove " USE_RUN_PID " if pcscd is not running to clear this message.");
+				return EXIT_FAILURE;
 			}
 			else
-				// the old pcscd is dead. make some cleanup
+				/* the old pcscd is dead. Do some cleanup */
 				clean_temp_files();
 		}
-		else
-		{
-			DebugLogA("main: Directory " PCSCLITE_IPC_DIR " already exists.");
-			DebugLogA("Maybe another pcscd is running?");
-			DebugLogA("Can't read process pid from " USE_RUN_PID);
-			DebugLogA("Remove " PCSCLITE_IPC_DIR " if pcscd is not running");
-			DebugLogA("to clear this message.");
-			return 1;
-		}
 #else
-		DebugLogA("main: Directory " PCSCLITE_IPC_DIR " already exists.");
-		DebugLogA("Maybe another pcscd is running?");
-		DebugLogA("Remove " PCSCLITE_IPC_DIR " if pcscd is not running");
-		DebugLogA("to clear this message.");
-		return 1;
+		{
+			Log1(PCSC_LOG_CRITICAL,
+				"file " PCSCLITE_CSOCK_NAME " already exists.");
+			Log1(PCSC_LOG_CRITICAL,
+				"Maybe another pcscd is running?");
+			Log1(PCSC_LOG_CRITICAL,
+				"Remove " PCSCLITE_CSOCK_NAME "if pcscd is not running to clear this message.");
+			return EXIT_FAILURE;
+		}
 #endif
 	}
 
 	/*
-	 * If this is set to one the user has asked it not to fork 
+	 * If this is set to one the user has asked it not to fork
 	 */
-
-	if (setToForeground == 0)
+	if (!setToForeground)
 	{
-#ifndef HAVE_DAEMON
-		switch (SYS_Fork())
-		{
-		case -1:
-			return (-1);
-		case 0:
-			break;
-		default:
-			return (0);
-		}
-
-		if (SYS_CloseFile(0))
-			DebugLogB("main: SYS_CloseFile(0) failed: %s", strerror(errno));
-
-		if (SYS_CloseFile(1))
-			DebugLogB("main: SYS_CloseFile(1) failed: %s", strerror(errno));
-
-		if (SYS_CloseFile(2))
-			DebugLogB("main: SYS_CloseFile(2) failed: %s", strerror(errno));
-
-		if (SYS_Chdir("/"))
-			DebugLogB("main: SYS_Chdir() failed: %s", strerror(errno));
-#else
 		if (SYS_Daemon(0, 0))
-			DebugLogB("main: SYS_Daemon() failed: %s", strerror(errno));
-#endif
+			Log2(PCSC_LOG_CRITICAL, "SYS_Daemon() failed: %s",
+				strerror(errno));
 	}
 
 	/*
-	 * cleanly remove /tmp/pcsc when exiting 
+	 * cleanly remove /tmp/pcsc when exiting
 	 */
 	signal(SIGQUIT, signal_trap);
 	signal(SIGTERM, signal_trap);
@@ -455,141 +507,153 @@ int main(int argc, char **argv)
 #endif
 
 	/*
-	 * Create the /tmp/pcsc directory and chmod it 
+	 * If PCSCLITE_IPC_DIR does not exist then create it
 	 */
-	rv = SYS_Mkdir(PCSCLITE_IPC_DIR,
-        S_ISVTX | S_IROTH | S_IXOTH | S_IRGRP | S_IXGRP | S_IRWXU);
-	if (rv != 0)
+	rv = SYS_Stat(PCSCLITE_IPC_DIR, &fStatBuf);
+	if (rv < 0)
 	{
-		DebugLogB("main: cannot create " PCSCLITE_IPC_DIR ": %s",
-			strerror(errno));
-		return 1;
+		rv = SYS_Mkdir(PCSCLITE_IPC_DIR, S_ISVTX | S_IRWXO | S_IRWXG | S_IRWXU);
+		if (rv != 0)
+		{
+			Log2(PCSC_LOG_CRITICAL,
+				"cannot create " PCSCLITE_IPC_DIR ": %s", strerror(errno));
+			return EXIT_FAILURE;
+		}
 	}
 
-	rv = SYS_Chmod(PCSCLITE_IPC_DIR,
-        S_ISVTX | S_IROTH | S_IXOTH | S_IRGRP | S_IXGRP | S_IRWXU);
-	if (rv != 0)
-	{
-		DebugLogB("main: cannot chmod " PCSCLITE_IPC_DIR ": %s",
-			strerror(errno));
-		return 1;
-	}
-
-	/* cleanly remove /tmp/pcsc when exiting */
+	/* cleanly remove /var/run/pcsc.* files when exiting */
 	if (atexit(at_exit))
-		DebugLogB("main: atexit() failed: %s", strerror(errno));
+		Log2(PCSC_LOG_CRITICAL, "atexit() failed: %s", strerror(errno));
 
 	/*
-	 * Allocate memory for reader structures 
+	 * Allocate memory for reader structures
 	 */
-	RFAllocateReaderSpace(PCSCLITE_MAX_CONTEXTS);
+	RFAllocateReaderSpace();
 
 	/*
-	 * Grab the information from the reader.conf 
+	 * Grab the information from the reader.conf
 	 */
 	if (newReaderConfig)
 	{
-		rv = DBUpdateReaders(newReaderConfig);
+		rv = RFStartSerialReaders(newReaderConfig);
 		if (rv != 0)
 		{
-			DebugLogB("main: invalid file %s\n", newReaderConfig);
+			Log3(PCSC_LOG_CRITICAL, "invalid file %s: %s", newReaderConfig,
+				strerror(errno));
 			at_exit();
-			return 1;
 		}
-	} else
+	}
+	else
 	{
-		rv = DBUpdateReaders(PCSCLITE_READER_CONFIG);
+		rv = RFStartSerialReaders(PCSCLITE_READER_CONFIG);
 
+#if 0
 		if (rv == 1)
 		{
-			DebugLogA("main: warning: no reader.conf found\n");
+			Log1(PCSC_LOG_INFO,
+				"warning: no " PCSCLITE_READER_CONFIG " found");
 			/*
-			 * Token error in file 
+			 * Token error in file
 			 */
-		} else if (rv == -1)
-		{
-			at_exit();
-			return 1;
 		}
+		else
+#endif
+			if (rv == -1)
+				at_exit();
 	}
 
 	/*
-	 * Set the default globals 
+	 * Set the default globals
 	 */
 	g_rgSCardT0Pci.dwProtocol = SCARD_PROTOCOL_T0;
 	g_rgSCardT1Pci.dwProtocol = SCARD_PROTOCOL_T1;
 	g_rgSCardRawPci.dwProtocol = SCARD_PROTOCOL_RAW;
 
-	DebugLogA("main: pcsc-lite daemon ready.");
+	Log1(PCSC_LOG_INFO, "pcsc-lite " VERSION " daemon ready.");
 
 	/*
-	 * post initialistion 
+	 * post initialistion
 	 */
 	Init = 0;
 
 	/*
-	 * signal_trap() does just set a global variable used by the main loop 
+	 * signal_trap() does just set a global variable used by the main loop
 	 */
 	signal(SIGQUIT, signal_trap);
 	signal(SIGTERM, signal_trap);
 	signal(SIGINT, signal_trap);
 	signal(SIGHUP, signal_trap);
 
+	signal(SIGUSR1, signal_reload);
+
 	SVCServiceRunLoop();
 
-	DebugLogA("pcscdaemon.c: main: SVCServiceRunLoop returned");
-	return 1;
+	Log1(PCSC_LOG_ERROR, "SVCServiceRunLoop returned");
+	return EXIT_FAILURE;
 }
 
 void at_exit(void)
 {
-	DebugLogA("at_exit: cleaning " PCSCLITE_IPC_DIR);
+	Log1(PCSC_LOG_INFO, "cleaning " PCSCLITE_IPC_DIR);
 
 	clean_temp_files();
 
-	SYS_Exit(1);
+	SYS_Exit(EXIT_SUCCESS);
 }
 
 void clean_temp_files(void)
 {
 	int rv;
 
-	rv = SYS_Unlink(PCSCLITE_PUBSHM_FILE);
-	if (rv != 0)
-		DebugLogB("main: Cannot unlink " PCSCLITE_PUBSHM_FILE ": %s",
-			strerror(errno));
-
 	rv = SYS_Unlink(PCSCLITE_CSOCK_NAME);
 	if (rv != 0)
-		DebugLogB("main: Cannot unlink " PCSCLITE_CSOCK_NAME ": %s",
-			strerror(errno));
-
-	rv = SYS_Rmdir(PCSCLITE_IPC_DIR);
-	if (rv != 0)
-		DebugLogB("main: Cannot rmdir " PCSCLITE_IPC_DIR ": %s",
+		Log2(PCSC_LOG_ERROR, "Cannot unlink " PCSCLITE_CSOCK_NAME ": %s",
 			strerror(errno));
 
 #ifdef USE_RUN_PID
 	rv = SYS_Unlink(USE_RUN_PID);
 	if (rv != 0)
-		DebugLogB("main: Cannot unlink " USE_RUN_PID ": %s",
+		Log2(PCSC_LOG_ERROR, "Cannot unlink " USE_RUN_PID ": %s",
 			strerror(errno));
 #endif
 }
 
+void signal_reload(int sig)
+{
+	static int rescan_ongoing = 0;
+
+	if (AraKiri)
+		return;
+
+	Log1(PCSC_LOG_INFO, "Reload serial configuration");
+	if (rescan_ongoing)
+	{
+		Log1(PCSC_LOG_INFO, "Rescan already ongoing");
+		return;
+	}
+
+	rescan_ongoing = 0;
+
+	HPReCheckSerialReaders();
+
+	rescan_ongoing = 0;
+	Log1(PCSC_LOG_INFO, "End reload serial configuration");
+} /* signal_reload */
+
 void signal_trap(int sig)
 {
-	// the signal handler is called several times for the same Ctrl-C
+	/* the signal handler is called several times for the same Ctrl-C */
 	if (AraKiri == 0)
 	{
-		DebugLogA("Preparing for suicide");
+		Log1(PCSC_LOG_INFO, "Preparing for suicide");
 		AraKiri = 1;
 
-		// if still in the init/loading phase the AraKiri will not be
-		// seen by the main event loop
+		/* if still in the init/loading phase the AraKiri will not be
+		 * seen by the main event loop
+		 */
 		if (Init)
 		{
-			DebugLogA("Suicide during init");
+			Log1(PCSC_LOG_INFO, "Suicide during init");
 			at_exit();
 		}
 	}
@@ -599,30 +663,37 @@ void print_version (void)
 {
 	printf("%s version %s.\n",  PACKAGE, VERSION);
 	printf("Copyright (C) 1999-2002 by David Corcoran <corcoran@linuxnet.com>.\n");
+	printf("Copyright (C) 2001-2005 by Ludovic Rousseau <ludovic.rousseau@free.fr>.\n");
+	printf("Copyright (C) 2003-2004 by Damien Sauveron <sauveron@labri.fr>.\n");
+	printf("Portions Copyright (C) 2000-2007 by Apple Inc.\n");
 	printf("Report bugs to <sclinux@linuxnet.com>.\n");
 }
 
 void print_usage (char const * const progname)
 {
-	printf("Usage: %s [-c file] [-f] [-d output] [-v] [-h]\n", progname);
+	printf("Usage: %s options\n", progname);
 	printf("Options:\n");
 #ifdef HAVE_GETOPT_LONG
 	printf("  -a, --apdu		log APDU commands and results\n");
 	printf("  -c, --config		path to reader.conf\n");
-	printf("  -f, --foreground	run in foreground (no daemon)\n");
-	printf("  -d, --debug output	display debug messages. Output may be:\n"); 
-	printf("			\"stdout\" (imply -f), \"stderr\" (imply -f),\n");
-	printf("			or \"syslog\"\n");
+	printf("  -f, --foreground	run in foreground (no daemon),\n");
+	printf("			send logs to stderr instead of syslog\n");
 	printf("  -h, --help		display usage information\n");
+	printf("  -H, --hotplug		ask the daemon to rescan the available readers\n");
 	printf("  -v, --version		display the program version number\n");
+	printf("  -d, --debug	 	display lower level debug messages\n");
+	printf("      --info	 	display info level debug messages (default level)\n");
+	printf("  -e  --error	 	display error level debug messages\n");
+	printf("  -C  --critical 	display critical only level debug messages\n");
+	printf("  --force-reader-polling ignore the IFD_GENERATE_HOTPLUG reader capability\n");
 #else
 	printf("  -a    log APDU commands and results\n");
 	printf("  -c 	path to reader.conf\n");
-	printf("  -f 	run in foreground (no daemon)\n");
-	printf("  -d 	display debug messages. Output may be:\n"); 
-	printf("	stdout (imply -f), stderr (imply -f),\n");
-	printf("	or syslog\n");
+	printf("  -f	run in foreground (no daemon), send logs to stderr instead of syslog\n");
+	printf("  -d 	display debug messages. Output may be:\n");
 	printf("  -h 	display usage information\n");
+	printf("  -H	ask the daemon to rescan the avaiable readers\n");
 	printf("  -v 	display the program version number\n");
 #endif
 }
+

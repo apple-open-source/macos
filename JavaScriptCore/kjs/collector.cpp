@@ -54,12 +54,9 @@
 
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <unistd.h>
 
 #if HAVE(PTHREAD_NP_H)
 #include <pthread_np.h>
-#else
-#include <pthread.h>
 #endif
 
 #endif

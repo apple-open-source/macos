@@ -456,4 +456,3 @@ MultiUInt32Value::evaluate(const MultiUInt32Value &other,
 
 } // end namespace Tokend
 
-/* arch-tag: E9534B59-DF80-11D8-A160-000A95C4302E */

@@ -36,7 +36,7 @@ The options have the following defaults and meanings:
                      SH_CMDLIB_DIR nmake state variable can be used to
 		     specify a directory. 
     CMDLIB_DIR   off Sets CMDLIB_BLTIN=1 and provides a default value
-                     of "/opt/ast/bin/" for SH_CMDLIB_DIR.
+                     of "/opt/ast/bin" for SH_CMDLIB_DIR.
     COMPOUND_ARRAY
                  on  Allows all components of compound variables except the
                      first to be any string by enclosing in [...].  It also

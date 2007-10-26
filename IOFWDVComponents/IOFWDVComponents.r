@@ -25,6 +25,8 @@ resource 'thng' (kIsocCodecThing, "DV_IHandler")
 //        cmpWantsRegisterMessage  |
             0,		// component flags
         'dlle', kIsocCodecBaseID, platformPowerPCNativeEntryPoint,
+            0,		// component flags
+        'dlle', kIsocCodecBaseID, platformIA32NativeEntryPoint,
     }
 };
 
@@ -51,7 +53,9 @@ resource 'thng' (kControlCodecThing, "DV_DCHandler")
     {
 //        cmpWantsRegisterMessage  |
             0,		// component flags
-        'dlle', kControlCodecBaseID, 5, //platformPowerPCNativeEntryPoint,
+        'dlle', kControlCodecBaseID, platformPowerPCNativeEntryPoint,
+            0,		// component flags
+        'dlle', kControlCodecBaseID, platformIA32NativeEntryPoint,
     }
 };
 

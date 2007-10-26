@@ -1,4 +1,4 @@
-# Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Test the bounce detection modules."""
 
@@ -20,6 +21,8 @@ import sys
 import os
 import unittest
 import email
+
+from Mailman.Bouncers.BouncerAPI import Stop
 
 
 
@@ -40,14 +43,32 @@ class BounceTest(unittest.TestCase):
         ('SimpleMatch', 'simple_04.txt', ['claird@starbase.neosoft.com']),
         ('SimpleMatch', 'newmailru_01.txt', ['zzzzz@newmail.ru']),
         ('SimpleMatch', 'hotpop_01.txt', ['allensmithee@hotpop.com']),
+        ('SimpleMatch', 'microsoft_03.txt', ['midica@banknbr.com']),
+        ('SimpleMatch', 'simple_05.txt', ['rlosardo@sbcglobal.net']),
+        ('SimpleMatch', 'simple_06.txt', ['dlyle@hamiltonpacific.com']),
+        ('SimpleMatch', 'simple_07.txt', ['william.xxxx@sbcglobal.net']),
+        ('SimpleMatch', 'simple_08.txt', ['severin.XXX@t-online.de']),
+        ('SimpleMatch', 'simple_09.txt', ['RobotMail@auto-walther.de']),
+        ('SimpleMatch', 'simple_10.txt', ['sais@thehartford.com']),
+        ('SimpleMatch', 'simple_11.txt', ['carlosr73@hartfordlife.com']),
+        ('SimpleMatch', 'simple_12.txt', ['charrogar@rhine1.andrew.ac.jp']),
+        ('SimpleMatch', 'simple_13.txt', ['dycusibreix@ademe.fr']),
+        ('SimpleMatch', 'simple_14.txt', ['dump@dachamp.com',
+                                          'iqxwmmfauudpo@dachamp.com']),
+        ('SimpleMatch', 'simple_15.txt', ['isam@kviv.be']),
+        ('SimpleMatch', 'simple_16.txt', ['xvlogtfsei@the-messenger.com']),
+        ('SimpleMatch', 'bounce_02.txt', ['acinsp1@midsouth.rr.com']),
+        ('SimpleMatch', 'bounce_03.txt', ['james@jeborall.demon.co.uk']),
         # SimpleWarning
-        ('SimpleWarning', 'simple_03.txt', ['jacobus@geo.co.za']),
+        ('SimpleWarning', 'simple_03.txt', Stop),
         # GroupWise
         ('GroupWise', 'groupwise_01.txt', ['thoff@MAINEX1.ASU.EDU']),
         # This one really sucks 'cause it's text/html.  Just make sure it
         # doesn't throw an exception, but we won't get any meaningful
         # addresses back from it.
         ('GroupWise', 'groupwise_02.txt', []),
+        # Actually, it's from Exchange, and Exchange does recognize it
+        ('Exchange', 'groupwise_02.txt', ['omarmo@thebas.com']),
         # Yale's own
         ('Yale', 'yale_01.txt', ['thomas.dtankengine@cs.yale.edu',
                                  'thomas.dtankengine@yale.edu']),
@@ -56,13 +77,16 @@ class BounceTest(unittest.TestCase):
         ('DSN', 'dsn_02.txt', ['zzzzz@zeus.hud.ac.uk']),
         ('DSN', 'dsn_03.txt', ['ddd.kkk@advalvas.be']),
         ('DSN', 'dsn_04.txt', ['max.haas@unibas.ch']),
-        ('DSN', 'dsn_05.txt', ['pkocmid@atlas.cz']),
-        ('DSN', 'dsn_06.txt', ['hao-nghi.au@fr.thalesgroup.com']),
-        ('DSN', 'dsn_07.txt', ['david.farrar@parliament.govt.nz']),
-        ('DSN', 'dsn_08.txt', ['news-list.zope@localhost.bln.innominate.de']),
+        ('DSN', 'dsn_05.txt', Stop),
+        ('DSN', 'dsn_06.txt', Stop),
+        ('DSN', 'dsn_07.txt', Stop),
+        ('DSN', 'dsn_08.txt', Stop),
         ('DSN', 'dsn_09.txt', ['pr@allen-heath.com']),
         ('DSN', 'dsn_10.txt', ['anne.person@dom.ain']),
         ('DSN', 'dsn_11.txt', ['joem@example.com']),
+        ('DSN', 'dsn_12.txt', ['auaauqdgrdz@jtc-con.co.jp']),
+        ('DSN', 'dsn_13.txt', ['marcooherbst@cardinal.com']),
+        ('DSN', 'dsn_14.txt', ['artboardregistration@home.dk']),
         # Microsoft Exchange
         ('Exchange', 'microsoft_01.txt', ['DJBENNETT@IKON.COM']),
         ('Exchange', 'microsoft_02.txt', ['MDMOORE@BALL.COM']),
@@ -70,8 +94,14 @@ class BounceTest(unittest.TestCase):
         ('SMTP32', 'smtp32_01.txt', ['oliver@pcworld.com.ph']),
         ('SMTP32', 'smtp32_02.txt', ['lists@mail.spicynoodles.com']),
         ('SMTP32', 'smtp32_03.txt', ['borisk@gw.xraymedia.com']),
+        ('SMTP32', 'smtp32_04.txt', ['after_another@pacbell.net',
+                                     'one_bad_address@pacbell.net']),
+        ('SMTP32', 'smtp32_05.txt', ['jmrpowersports@jmrpowersports.com']),
+        ('SMTP32', 'smtp32_06.txt', ['Absolute_garbage_addr@pacbell.net']),
         # Qmail
         ('Qmail', 'qmail_01.txt', ['psadisc@wwwmail.n-h.de']),
+        ('Qmail', 'qmail_02.txt', ['rauschlo@frontfin.com']),
+        ('Qmail', 'qmail_03.txt', ['crown@hbc.co.jp']),
         # LLNL's custom Sendmail
         ('LLNL', 'llnl_01.txt', ['trotts1@llnl.gov']),
         # Netscape's server...
@@ -101,6 +131,9 @@ class BounceTest(unittest.TestCase):
                                    'yuli_kolesnikov@yahoo.com']),
         ('Yahoo', 'yahoo_09.txt', ['hankel_o_fung@yahoo.com',
                                    'ultravirus2001@yahoo.com']),
+        ('Yahoo', 'yahoo_10.txt', ['jajcchoo@yahoo.com',
+                                   'lyons94706@yahoo.com',
+                                   'turtle4jne@yahoo.com']),
         # sina.com appears to use their own weird SINAEMAIL MTA
         ('Sina', 'sina_01.txt', ['boboman76@sina.com', 'alan_t18@sina.com']),
         # No address can be detected in these...
@@ -121,8 +154,12 @@ class BounceTest(unittest.TestCase):
             # Some modules return None instead of [] for failure
             if foundaddrs is None:
                 foundaddrs = []
-            addrs.sort()
-            foundaddrs.sort()
+            if foundaddrs is not Stop:
+                # MAS: The following strip() is only because of my
+                # hybrid test environment.  It is not otherwise needed.
+                foundaddrs = [found.strip() for found in foundaddrs]
+                addrs.sort()
+                foundaddrs.sort()
             self.assertEqual(addrs, foundaddrs)
 
     def test_SMTP32_failure(self):

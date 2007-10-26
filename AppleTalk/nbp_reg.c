@@ -64,6 +64,7 @@
 
 #include <AppleTalk/at_proto.h>
 
+
 #define	SET_ERRNO(e) errno = e
 
 #define IFR_NEXT(ifr)   \
@@ -185,6 +186,7 @@ int nbp_register(entity, fd, retry)
 	int		if_id;
 	ddp_addr_t	ddp_addr;
 	at_nbp_reg_t    reg;
+	
 
 	if (fd < 0) {
 		SET_ERRNO(EBADF);

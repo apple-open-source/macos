@@ -1,5 +1,6 @@
 %{ /* rclex.l -- lexer for Windows rc files parser  */
-/* Copyright 1997, 1998, 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+/* Copyright 1997, 1998, 1999, 2001, 2002, 2003, 2005
+   Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Cygnus Support.
 
    This file is part of GNU Binutils.
@@ -16,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* This is a lex input file which generates a lexer used by the
    Windows rc file parser.  It basically just recognized a bunch of
@@ -31,6 +32,8 @@
 #include "rcparse.h"
 
 #include <assert.h>
+
+#define YY_NO_UNPUT
 
 /* Whether we are in rcdata mode, in which we returns the lengths of
    strings.  */

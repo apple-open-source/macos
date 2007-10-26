@@ -59,7 +59,7 @@
 static char sccsid[] = "@(#)unix.c	8.1 (Berkeley) 6/6/93";
 #endif
 static const char rcsid[] =
-	"$Id: unix.c,v 1.3 2004/08/26 23:55:22 lindak Exp $";
+	"$Id: unix.c,v 1.4 2006/02/07 06:22:20 lindak Exp $";
 #endif /* not lint */
 
 /*
@@ -81,7 +81,6 @@ static const char rcsid[] =
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <kvm.h>
 #include "netstat.h"
 
 static	void unixdomainpr __P((struct xunpcb *, struct xsocket *));
@@ -170,7 +169,7 @@ unixdomainpr(xunp, so)
 		    "Inode", "Conn", "Refs", "Nextref");
 		first = 0;
 	}
-	printf("%8lx %-6.6s %6ld %6ld %8lx %8lx %8lx %8lx",
+	printf("%8lx %-6.6s %6u %6u %8lx %8lx %8lx %8lx",
 	       (long)so->so_pcb, socktype[so->so_type], so->so_rcv.sb_cc,
 	       so->so_snd.sb_cc,
 	       (long)unp->unp_vnode, (long)unp->unp_conn,

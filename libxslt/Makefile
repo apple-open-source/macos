@@ -9,7 +9,7 @@ ToolType              = Libraries
 Extra_Configure_Flags = --without-python --disable-static
 Extra_Environment     = LD_TWOLEVEL_NAMESPACE=1 
 Extra_LD_Flags        = 
-GnuAfterInstall       = fix-xslt-links fix-exslt-links install-plist
+GnuAfterInstall       = fix-xslt-links fix-exslt-links install-plist thin-binaries
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -17,7 +17,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.1.11
+AEP_Version    = 1.1.12
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -46,13 +46,13 @@ install_headers:: shadow_source configure
 
 fix-xslt-links:
 	$(RM) $(DSTROOT)/usr/lib/libxslt.1.dylib
-	$(MV) $(DSTROOT)/usr/lib/libxslt.1.1.11.dylib $(DSTROOT)/usr/lib/libxslt.1.dylib
+	$(MV) $(DSTROOT)/usr/lib/libxslt.1.1.12.dylib $(DSTROOT)/usr/lib/libxslt.1.dylib
 	$(RM) $(DSTROOT)/usr/lib/libxslt.dylib
 	$(LN) -s libxslt.1.dylib $(DSTROOT)/usr/lib/libxslt.dylib
 
 fix-exslt-links:
 	$(RM) $(DSTROOT)/usr/lib/libexslt.0.dylib
-	$(MV) $(DSTROOT)/usr/lib/libexslt.0.8.9.dylib $(DSTROOT)/usr/lib/libexslt.0.dylib
+	$(MV) $(DSTROOT)/usr/lib/libexslt.0.8.10.dylib $(DSTROOT)/usr/lib/libexslt.0.dylib
 	$(RM) $(DSTROOT)/usr/lib/libexslt.dylib
 	$(LN) -s libexslt.0.dylib $(DSTROOT)/usr/lib/libexslt.dylib
 
@@ -64,3 +64,9 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/Copyright $(OSL)/$(Project).txt
+
+thin-binaries:
+	for binary in xsltproc; do \
+		lipo -remove x86_64 -remove ppc64 $(DSTROOT)/usr/bin/$$binary -output $(DSTROOT)/usr/bin/$$binary.thin; \
+		$(MV) $(DSTROOT)/usr/bin/$$binary.thin $(DSTROOT)/usr/bin/$$binary; \
+	done

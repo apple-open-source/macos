@@ -22,7 +22,6 @@
 #include "config.h"
 #include "scope_chain.h"
 #include "PropertyNameArray.h"
-#include <stdio.h>
 #include "object.h"
 
 namespace KJS {

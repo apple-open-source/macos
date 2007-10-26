@@ -2134,7 +2134,7 @@ bool AppleSCCIrDA::enableSCC( void )
 	    OSData *kl = OSDynamicCast( OSData, provider->getProperty("compatible") );
 	    if ( kl != NULL )
 	    {
-		(const void *)comp = kl->getBytesNoCopy();
+		comp = (UInt8 *)kl->getBytesNoCopy();
 		LogData( kAny, 20, (char *)comp );
 		if ( kl->isEqualTo("Keylargo", 8) )
 		{
@@ -2300,7 +2300,7 @@ bool AppleSCCIrDA::disableSCC( void )
 	    OSData *kl = OSDynamicCast( OSData, provider->getProperty("compatible") );
 	    if ( kl != NULL )
 	    {
-		(const void *)comp = kl->getBytesNoCopy();
+		comp = (UInt8 *)kl->getBytesNoCopy();
 		LogData( kAny, 20, (char *)comp );
 		if ( kl->isEqualTo("Keylargo", 8) )
 		{
@@ -4111,7 +4111,7 @@ IOReturn AppleSCCIrDA::privateWatchState( PortInfo_t *port, UInt32 *state, UInt3
 	assert_wait( &port->WatchStateMask, true ); /* assert event */
 
 	IOLockUnlock( port->serialRequestLock );
-	rtn = thread_block( (void(*)(void))0 );         /* block ourselves */
+	rtn = thread_block( 0 );         /* block ourselves */
 	IOLockLock( port->serialRequestLock );
 
 	if ( rtn == THREAD_RESTART )

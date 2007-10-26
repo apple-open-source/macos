@@ -121,7 +121,11 @@ endif
 	   $(RM) -f $(INFO_FILE) ; \
 	   cmd="$(MERGEINFO) PB.project $$mergeInfoArgs $(OTHER_INFO_FILES) -o $(INFO_FILE)" ; \
 	   $(ECHO) $$cmd ; eval $$cmd ; \
-	fi
+	elif [ -f "$(USER_INFO_FILE_NAME)" ]; then \
+       $(RM) -f $(INFO_FILE) ; \
+       cmd="$(CP) $(USER_INFO_FILE_NAME) $(INFO_FILE)" ; \
+       $(ECHO) $$cmd ; eval $$cmd ; \
+ 	fi
 endif
 
 -include $(LOCAL_MAKEFILEDIR)/wrapped-common.make.postamble

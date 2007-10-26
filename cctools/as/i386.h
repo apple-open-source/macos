@@ -125,6 +125,7 @@ typedef struct
 #define CpuMNI	      0x80000	/* Merom New Instructions required */
 #endif
 #define CpuVMX	     0x100000	/* VMX Instructions required */
+#define CpuSSE4	     0x200000	/* Streaming SIMD extensions 4 required */
 
   /* These flags are set by gas depending on the flag_code.  */
 #define Cpu64	     0x4000000   /* 64bit support required  */
@@ -132,7 +133,7 @@ typedef struct
 
   /* The default value for unknown CPUs - enable all features to avoid problems.  */
 #ifdef NeXT_MOD
-#define CpuUnknownFlags (Cpu086|Cpu186|Cpu286|Cpu386|Cpu486|Cpu586|Cpu686|CpuP4|CpuSledgehammer|CpuMMX|CpuMMX2|CpuSSE|CpuSSE2|CpuPNI|CpuVMX|Cpu3dnow|Cpu3dnowA|CpuK6|CpuAthlon|CpuPadLock|CpuMNI)
+#define CpuUnknownFlags (Cpu086|Cpu186|Cpu286|Cpu386|Cpu486|Cpu586|Cpu686|CpuP4|CpuSledgehammer|CpuMMX|CpuMMX2|CpuSSE|CpuSSE2|CpuPNI|CpuVMX|Cpu3dnow|Cpu3dnowA|CpuK6|CpuAthlon|CpuPadLock|CpuMNI|CpuSSE4)
 #else
 #define CpuUnknownFlags (Cpu086|Cpu186|Cpu286|Cpu386|Cpu486|Cpu586|Cpu686|CpuP4|CpuSledgehammer|CpuMMX|CpuMMX2|CpuSSE|CpuSSE2|CpuPNI|CpuVMX|Cpu3dnow|Cpu3dnowA|CpuK6|CpuAthlon|CpuPadLock)
 #endif

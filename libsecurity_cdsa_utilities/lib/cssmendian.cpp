@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,9 +33,6 @@ namespace Security {
 void n2hi(CssmKey::Header &header)
 {
 		header.HeaderVersion = n2h(header.HeaderVersion);
-		header.CspId.Data1 = n2h(header.CspId.Data1);
-		header.CspId.Data2 = n2h(header.CspId.Data2);
-		header.CspId.Data3 = n2h(header.CspId.Data3);
 		header.BlobType = n2h(header.BlobType);
 		header.Format = n2h(header.Format);
 		header.AlgorithmId = n2h(header.AlgorithmId);

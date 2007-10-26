@@ -1,0 +1,130 @@
+! XMore.ad
+
+! keyboard translations
+*text.Translations: #override\n\
+        Ctrl<Key>S:     no-op(RingBell)\n\
+        Ctrl<Key>R:     no-op(RingBell)\n\
+        <Key>space:     next-page()\n\
+        <Key>F:         next-page()\n\
+        Ctrl<Key>B:     previous-page()\n\
+        <Key>B:         previous-page()\n\
+        <Key>K:         scroll-one-line-down()\n\
+        <Key>Y:         scroll-one-line-down()\n\
+        <Key>Return:    scroll-one-line-up()\n\
+        <Key>J:         scroll-one-line-up()\n\
+        <Key>E:         scroll-one-line-up()\n\
+        <Key>p:         print()\n\
+        <Key>q:         quit()\n
+*text.baseTranslations: #override\n\
+        <Key>space:     next-page()\n\
+        <Key>F:         next-page()\n\
+        Ctrl<Key>B:     previous-page()\n\
+        <Key>K:         scroll-one-line-down()\n\
+        <Key>Y:         scroll-one-line-down()\n\
+        <Key>Return:    scroll-one-line-up()\n\
+        <Key>J:         scroll-one-line-up()\n\
+        <Key>E:         scroll-one-line-up()\n\
+        <Key>p:         print()\n\
+        <Key>q:         quit()\n
+
+! tip messages
+*quit.tip:  Quit application
+*print.tip: Print file
+
+! Use "white" as background for printing
+*printshell*background:   white
+
+! Print dialog
+*printdialogshell*geometry:                       600x120
+*printdialogshell*title:                          Print
+*printdialogshell*main*ok.fromVert:               innerform
+*printdialogshell*main*ok.label:                  Print
+*printdialogshell*main*ok.tip:                    Print
+*printdialogshell*main*setup.fromHoriz:           ok
+*printdialogshell*main*setup.fromVert:            innerform
+*printdialogshell*main*setup.label:               Setup...
+*printdialogshell*main*setup.tip:                 Configure print job options (page size, orientation, etc.)
+*printdialogshell*main*cancel.fromHoriz:          setup
+*printdialogshell*main*cancel.fromVert:           innerform
+*printdialogshell*main*cancel.label:              Cancel
+*printdialogshell*main*cancel.tip:                Cancel printing
+*printdialogshell*main*desclabel.label:           Printer Description:
+*printdialogshell*main*desclabel.tip:             Short description of printer
+*printdialogshell*main*desc.fromHoriz:            desclabel
+*printdialogshell*main*desc.tip:                  Short description of printer
+*printdialogshell*main*info.fromHoriz:            desc
+*printdialogshell*main*info.label:                Printer info...
+*printdialogshell*main*info.tip:                  Display additional information about this printer
+*printdialogshell*main*namelabel.fromVert:        desclabel
+*printdialogshell*main*namelabel.label:           Printer Name:
+*printdialogshell*main*namelabel.tip:             Name of selected printer
+*printdialogshell*main*name.fromHoriz:            namelabel
+*printdialogshell*main*name.fromVert:             desclabel
+*printdialogshell*main*name.tip:                  Name of selected printer
+*printdialogshell*main*selectprinter.fromHoriz:   name
+*printdialogshell*main*selectprinter.fromVert:    desclabel
+*printdialogshell*main*selectprinter.label:       Select Printer...
+*printdialogshell*main*selectprinter.label:       Select Printer...
+*printdialogshell*main*selectprinter.tip:         Select a different printer
+*printdialogshell*main*filenamelabel.fromVert:    namelabel
+*printdialogshell*main*filenamelabel.label:       File Name:
+*printdialogshell*main*filenamelabel.tip:         File where the output should be stored
+*printdialogshell*main*filename.fromHoriz:        filenamelabel
+*printdialogshell*main*filename.fromVert:         namelabel
+*printdialogshell*main*filename.tip:              File where the output should be stored
+*printdialogshell*main*selectfile.fromHoriz:      filename
+*printdialogshell*main*selectfile.fromVert:       namelabel
+*printdialogshell*main*selectfile.label:          Select File...
+*printdialogshell*main*selectfile.tip:            Select file where the output should be stored
+*printdialogshell*main*printtoprinter.fromVert:   filenamelabel
+*printdialogshell*main*printtoprinter.label:      Print to Printer
+*printdialogshell*main*printtoprinter.tip:        Send print job to printer
+*printdialogshell*main*printtofile.fromVert:      filenamelabel
+*printdialogshell*main*printtofile.fromHoriz:     printtoprinter
+*printdialogshell*main*printtofile.label:         Print to File
+*printdialogshell*main*printtofile.tip:           Save print job in a file
+
+! Print job options dialog
+*printdialogshell*setup*geometry:                     600x400
+*printdialogshell*setup*title:                        Print: Print job options
+*printdialogshell*setup*ok.fromVert:                  list
+*printdialogshell*setup*ok.label:                     OK
+*printdialogshell*setup*ok.tip:                       Commit changes
+*printdialogshell*setup*cancel.fromHoriz:             ok
+*printdialogshell*setup*cancel.fromVert:              list
+*printdialogshell*setup*cancel.label:                 Cancel
+*printdialogshell*setup*cancel.tip:                   Cancel and reset to defaults
+*printdialogshell*setup*paperlist.tip:                Select paper size
+*printdialogshell*setup*resolutionlist.fromHoriz:     paperlist
+*printdialogshell*setup*resolutionlist.tip:           Select page resolution
+*printdialogshell*setup*orientationlist.fromHoriz:    resolutionlist
+*printdialogshell*setup*orientationlist.tip:          Select page orientation
+*printdialogshell*setup*plexlist.fromHoriz:           orientationlist
+*printdialogshell*setup*plexlist.tip:                 Select page plex mode (simplex, duplex, etc.)
+*printdialogshell*setup*colorspacelist.fromHoriz:     plexlist
+*printdialogshell*setup*colorspacelist.tip:           Select color space (color, grayscale, CYMK, etc.)
+*printdialogshell*setup*jobcopieslabel.fromVert:      paperlist
+*printdialogshell*setup*jobcopieslabel.tip:           Set number of job copies
+*printdialogshell*setup*jobcopieslabel.label:         Job Copies:
+*printdialogshell*setup*jobcopies.fromHoriz:          jobcopieslabel
+*printdialogshell*setup*jobcopies.fromVert:           paperlist
+*printdialogshell*setup*jobcopies.tip:                Set number of job copies
+
+! Printer selection
+*printdialogshell*printerselection*geometry:          400x150
+*printdialogshell*printerselection*title:             Print: Select printer
+*printdialogshell*printerselection*ok.fromVert:       list
+*printdialogshell*printerselection*ok.label:          OK
+*printdialogshell*printerselection*ok.tip:            Switch printer
+*printdialogshell*printerselection*cancel.fromHoriz:  ok
+*printdialogshell*printerselection*cancel.fromVert:   list
+*printdialogshell*printerselection*cancel.label:      Cancel
+*printdialogshell*printerselection*cancel.tip:        Cancel printer selection
+*printdialogshell*printerselection*list.tip:          Select printer name from list
+
+! Select job file
+*printdialogshell*selectfile*geometry:          400x80
+*printdialogshell*selectfile*title:             Print: Select job file
+*printdialogshell*selectfile*dialog.label:      Select Filename:
+
+! EOF.

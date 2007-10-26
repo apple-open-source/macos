@@ -51,6 +51,19 @@
 	      || REGNO (op) >= FIRST_PSEUDO_REGISTER));
 })
 
+;; APPLE LOCAL begin ARM add this peephole
+;; Any Thumb low register. 
+(define_predicate "thumb_low_register_operand"
+  (match_code "reg,subreg")
+{
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  return (GET_CODE (op) == REG
+	  && REGNO (op) <= LAST_LO_REGNUM);
+})
+;; APPLE LOCAL end ARM add this peephole
+
 (define_predicate "f_register_operand"
   (match_code "reg,subreg")
 {
@@ -73,6 +86,16 @@
   (and (match_code "const_int")
        (match_test "const_ok_for_arm (INTVAL (op))")))
 
+;; APPLE LOCAL begin ARM 4468410 long long constants
+(define_predicate "arm_immediate64_operand"
+  (and (match_code "const_int,const_double")
+       (match_test "const64_ok_for_arm_immediate (op)")))
+
+(define_predicate "arm_add_immediate64_operand"
+  (and (match_code "const_int,const_double")
+       (match_test "const64_ok_for_arm_add (op)")))
+;; APPLE LOCAL end ARM 4468410 long long constants
+
 (define_predicate "arm_neg_immediate_operand"
   (and (match_code "const_int")
        (match_test "const_ok_for_arm (-INTVAL (op))")))
@@ -85,6 +108,16 @@
 (define_predicate "arm_rhs_operand"
   (ior (match_operand 0 "s_register_operand")
        (match_operand 0 "arm_immediate_operand")))
+
+;; APPLE LOCAL begin ARM 4468410 long long constants
+(define_predicate "arm_rhs64_operand"
+  (ior (match_operand 0 "s_register_operand")
+       (match_operand 0 "arm_immediate64_operand")))
+
+(define_predicate "arm_add64_operand"
+  (ior (match_operand 0 "s_register_operand")
+       (match_operand 0 "arm_add_immediate64_operand")))
+;; APPLE LOCAL end ARM 4468410 long long constants
 
 (define_predicate "arm_rhsm_operand"
   (ior (match_operand 0 "arm_rhs_operand")
@@ -170,6 +203,14 @@
 (define_special_predicate "shiftable_operator"
   (and (match_code "plus,minus,ior,xor,and")
        (match_test "mode == GET_MODE (op)")))
+
+;; APPLE LOCAL begin ARM 4382996 improve assignments of NE
+;; True for binary operators that can set the condition codes as a side effect.
+;; Plus also works, but will not currently be matched; see *add_add_ne_0.
+(define_special_predicate "binary_cc_operator"
+  (and (match_code "minus,mult,ior,xor,and,ashift,ashiftrt,lshiftrt")
+       (match_test "mode == GET_MODE (op)")))
+;; APPLE LOCAL end ARM 4382996 improve assignments of NE
 
 ;; True for logical binary operators.
 (define_special_predicate "logical_binary_operator"
@@ -467,4 +508,19 @@
   (and (match_code "const_int")
        (match_test "((unsigned HOST_WIDE_INT) INTVAL (op)) < 64")))
 
+;; APPLE LOCAL begin ARM pic support
+;; Allow local symbols and stub references
+(define_predicate "arm_branch_target"
+  (match_code "reg,symbol_ref")
+{
+#if TARGET_MACHO
+  return GET_CODE (op) == REG
+	 || ! (flag_pic || MACHO_DYNAMIC_NO_PIC_P)
+	 || machopic_data_defined_p (op)
+	 || machopic_lookup_stub_or_non_lazy_ptr (XSTR (op, 0));
+#else
+  return 1;
+#endif
+})
+;; APPLE LOCAL end ARM pic support
 

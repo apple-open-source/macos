@@ -1,0 +1,135 @@
+# Copyright 2002 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# This file was written by Jim Ingham  <jingham@apple.com>
+
+# This program loads, unloads & reloads a bundle.  We set a breakpoint in
+# a function in a dependent bundle to the loaded one.  We also load a dummy
+# bundle between the load & unload to force the second load to a different
+# location.
+
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+set bindir [file join ${objdir} ${subdir}]
+
+set reallib "libreal"
+set realbinfile [file join $bindir $reallib.dylib]
+
+set loaded_bundle loaded
+set loaded_binfile [file join $bindir $loaded_bundle.bundle]
+
+set dummy_bundle dummy
+set dummy_binfile [file join $bindir $dummy_bundle.bundle]
+
+set testfile "loader"
+set srcfile ${testfile}.c
+set binfile [file join $bindir $testfile]
+
+# Make libreal.dylib
+set additional_flags "additional_flags=-dynamiclib"
+if { [gdb_compile "${srcdir}/${subdir}/real.c" "$realbinfile" executable [list debug $additional_flags]] != "" } {
+    gdb_suppress_entire_file "Testcase real compile failed, so all tests in this file will automatically fail."
+}
+
+# Make loaded
+set additional_flags "additional_flags=-bundle -L$bindir -lreal"
+if  { [gdb_compile "${srcdir}/${subdir}/loaded.c" "$loaded_binfile" executable [list debug $additional_flags]] != "" } {
+     gdb_suppress_entire_file "Testcase loaded compile failed, so all tests in this file will automatically fail."
+}
+
+# Make dummy
+set additional_flags "additional_flags=-dynamiclib"
+if  { [gdb_compile "${srcdir}/${subdir}/dummy.c" "$dummy_binfile" executable [list debug $additional_flags]] != "" } {
+     gdb_suppress_entire_file "Testcase dummy bundle compile failed, so all tests in this file will automatically fail."
+}
+
+# Make dummy
+if  { [gdb_compile "${srcdir}/${subdir}/loader.c" "$binfile" executable debug] != "" } {
+     gdb_suppress_entire_file "Testcase dummy bundle compile failed, so all tests in this file will automatically fail."
+}
+
+load_lib mi-support.exp
+set MIFLAGS "-i=mi1"
+
+gdb_exit
+if [mi_gdb_start] {
+    continue
+}
+
+mi_delete_breakpoints
+mi_gdb_reinitialize_dir $srcdir/$subdir
+mi_gdb_load ${binfile}
+
+mi_run_to_main
+
+send_gdb "200-break-insert -s libreal.dylib -f real_function\n"
+gdb_expect {
+  -re "200\\^done,bkpt=\{number=\"2\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"<PENDING>\",pending=\"real_function\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
+    pass "break-insert blocky operation"
+  }
+  -re ".*$mi_gdb_prompt$" {
+    fail "break-insert blocky operation"
+  }
+  timeout {
+    fail "(timeout) break-insert blocky operation"
+  }
+}
+
+send_gdb "210-gdb-set sharedlibrary load-rules dyld .* extern\n"
+gdb_expect {
+    -re "210\\^done\[\r\n\]+$mi_gdb_prompt$" {
+    pass "setting sharedlibrary load rules to extern."
+  }
+  timeout {
+    fail "(timeout) setting sharedlibrary load rules to extern."
+  }
+}
+send_gdb "211-gdb-set auto-raise-load-levels 1\n"
+gdb_expect {
+    -re "211\\^done\[\r\n\]+$mi_gdb_prompt$" {
+    pass "setting sharedlibrary load rules to extern."
+  }
+  timeout {
+    fail "(timeout) setting sharedlibrary load rules to extern."
+  }
+}
+
+set libs_loaded {.*\r\n=shlibs-added,shlib-info=\[num="[0-9]+",name="loaded.bundle",.*\].*\r\n=shlibs-added,shlib-info=\[num="[0-9]+",name="libreal.dylib".*\]\r\n.*}
+set libs_unloaded {.*\r\n=shlibs-removed,shlib-info=\[num="[0-9]+",name="loaded.bundle",.*\].*\r\n=shlibs-removed,shlib-info=\[num="[0-9]+",name="libreal.dylib".*\]\r\n.*}
+
+mi_continue_to 2 real_function ".*" real.c "4" "Run to real function first time" $libs_loaded
+
+mi_continue_to 2 real_function ".*" real.c "4" "Run to real function second time" $libs_unloaded$libs_loaded
+
+send_gdb "220-exec-run\n"
+gdb_expect {
+    -re "220\\*stopped,reason=\"breakpoint-hit\",commands=\"no\",times=\"1\",bkptno=\"1\",thread-id=\"$decimal\"\[\r\n\]+$mi_gdb_prompt$" {
+    pass "Rerunning."
+  }
+  timeout {
+    fail "(timeout) rerunning"
+  }
+}
+
+mi_continue_to 2 real_function ".*" real.c "4" "Rerun to real function first time" $libs_loaded
+
+mi_continue_to 2 real_function ".*" real.c "4" "Rerun to real function second time" $libs_unloaded$libs_loaded
+

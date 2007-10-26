@@ -926,7 +926,8 @@ merge_memattrs (rtx x, rtx y)
   if (code != GET_CODE (y))
     return;
 
-  if (GET_MODE (x) != GET_MODE (y))
+  /* APPLE LOCAL ARM 4577110 modes on INSNs are not reliable. */
+  if (!INSN_P (x) && GET_MODE (x) != GET_MODE (y))
     return;
 
   if (code == MEM && MEM_ATTRS (x) != MEM_ATTRS (y))

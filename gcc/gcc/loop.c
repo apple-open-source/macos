@@ -503,25 +503,12 @@ struct loop_info
 #define PREFETCH_CONDITIONAL 1
 #endif
 
-/* APPLE LOCAL begin avoid out-of-bounds refs */
-/* If the first or last uid lies outside the loop, assume the
-   lifetime extends to that end of the loop. */
 #define LOOP_REG_LIFETIME(LOOP, REGNO) \
-(((REGNO_LAST_UID (REGNO) > max_uid_for_loop) \
-  ? (INSN_LUID ((LOOP)->end)) \
-  : (REGNO_LAST_LUID (REGNO))) \
- - ((REGNO_FIRST_UID (REGNO) > max_uid_for_loop) \
-  ? (INSN_LUID ((LOOP)->start)) \
-  : (REGNO_FIRST_LUID (REGNO))))
+((REGNO_LAST_LUID (REGNO) - REGNO_FIRST_LUID (REGNO)))
 
-/* uid's that are too big are derived from nested loops and are
-   not referenced outside this loop, hence they are not global. */
 #define LOOP_REG_GLOBAL_P(LOOP, REGNO) \
-((REGNO_LAST_UID (REGNO) > max_uid_for_loop) ? 0 : \
-(((REGNO_FIRST_UID (REGNO) > max_uid_for_loop) ? 0 : \
-((((REGNO_LAST_LUID (REGNO) > INSN_LUID ((LOOP)->end) \
- || REGNO_FIRST_LUID (REGNO) < INSN_LUID ((LOOP)->start))))))))
-/* APPLE LOCAL end avoid out-of-bounds refs */
+((REGNO_LAST_LUID (REGNO) > INSN_LUID ((LOOP)->end) \
+ || REGNO_FIRST_LUID (REGNO) < INSN_LUID ((LOOP)->start)))
 
 #define LOOP_REGNO_NREGS(REGNO, SET_DEST) \
 ((REGNO) < FIRST_PSEUDO_REGISTER \
@@ -7770,7 +7757,12 @@ general_induction_var (const struct loop *loop, rtx x, rtx *src_reg,
   rtx orig_x = x;
 
   /* If this is an invariant, forget it, it isn't a giv.  */
-  if (loop_invariant_p (loop, x) == 1)
+  /* APPLE LOCAL begin radar 4491613 */
+  /* If a loop jumps to the bottom of the loop first, then jumps back
+     to the top of the loop, and its induction variable may trap, 
+     the induction variable shouldn't be a giv. */
+  if (loop_invariant_p (loop, x) == 1 || (loop->top && may_trap_p (x)))
+  /* APPLE LOCAL end radar 4491613 */
     return 0;
 
   *pbenefit = 0;

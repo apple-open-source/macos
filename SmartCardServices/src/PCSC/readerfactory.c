@@ -1,19 +1,31 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please
- * obtain a copy of the License at http://www.apple.com/publicsource and
- * read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please
- * see the License for the specific language governing rights and
- * limitations under the License.
+ *  Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * 
+ *  @APPLE_LICENSE_HEADER_START@
+ *  
+ *  This file contains Original Code and/or Modifications of Original Code
+ *  as defined in and that are subject to the Apple Public Source License
+ *  Version 2.0 (the 'License'). You may not use this file except in
+ *  compliance with the License. Please obtain a copy of the License at
+ *  http://www.opensource.apple.com/apsl/ and read it before using this
+ *  file.
+ *  
+ *  The Original Code and all software distributed under the License are
+ *  distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *  EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ *  INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ *  Please see the License for the specific language governing rights and
+ *  limitations under the License.
+ *  
+ *  @APPLE_LICENSE_HEADER_END@
  */
+
+/*
+ *  readerfactory.c
+ *  SmartCardServices
+ */
+
 
 /******************************************************************
 
@@ -31,6 +43,7 @@ $Id: readerfactory.c,v 1.3 2004/10/14 20:33:35 mb Exp $
 
 ********************************************************************/
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,1172 +53,622 @@ $Id: readerfactory.c,v 1.3 2004/10/14 20:33:35 mb Exp $
 #include <sys/errno.h>
 #include <fcntl.h>
 
-#include "config.h"
 #include "wintypes.h"
 #include "pcsclite.h"
+#include "ifdhandler.h"
+#include "debuglog.h"
 #include "thread_generic.h"
 #include "readerfactory.h"
 #include "dyn_generic.h"
 #include "sys_generic.h"
 #include "eventhandler.h"
-#include "ifdhandler.h"
 #include "ifdwrapper.h"
-/*
- * FIX :: This should go 
- */
-#include "debuglog.h"
+#include "readerState.h"
 
-static PREADER_CONTEXT sContexts[PCSCLITE_MAX_CONTEXTS];
-static DWORD *dwNumContexts = 0;
+#include <security_utilities/debugging.h>
 
-LONG RFAllocateReaderSpace(DWORD dwAllocNum)
+#ifndef PCSCLITE_HP_BASE_PORT
+#define PCSCLITE_HP_BASE_PORT       0x200000
+#endif /* PCSCLITE_HP_BASE_PORT */
+
+static LONG RFLoadReader(PREADER_CONTEXT);
+static LONG RFUnBindFunctions(PREADER_CONTEXT);
+static LONG RFUnloadReader(PREADER_CONTEXT);
+
+static PREADER_CONTEXT sReadersContexts[PCSCLITE_MAX_READERS_CONTEXTS];
+static DWORD dwNumReadersContexts = 0;
+static DWORD lastLockID = 0;
+static PCSCLITE_MUTEX_T sReadersContextsLock = NULL;
+
+static int ReaderContextConstructor(PREADER_CONTEXT ctx, LPCSTR lpcReader, 
+	DWORD dwPort, LPCSTR lpcLibrary, LPCSTR lpcDevice);
+static void ReaderContextDestructor(PREADER_CONTEXT ctx);
+static void ReaderContextFree(PREADER_CONTEXT ctx);
+static void ReaderContextClear(PREADER_CONTEXT ctx);
+static int ReaderContextInsert(PREADER_CONTEXT ctx);
+static int ReaderContextRemove(PREADER_CONTEXT ctx);
+static int ReaderContextCheckDuplicateReader(LPCSTR lpcReader, DWORD dwPort);
+static int ReaderSlotCount(PREADER_CONTEXT ctx);
+static BOOL ReaderDriverIsThreadSafe(PREADER_CONTEXT ctx, BOOL testSlot);
+static BOOL ReaderNameMatchForIndex(DWORD dwPort, LPCSTR lpcReader, int index);
+static void ReaderContextDuplicateSlot(PREADER_CONTEXT ctxBase, PREADER_CONTEXT ctxSlot, int slotNumber, BOOL baseIsThreadSafe);
+static int ReaderCheckForClone(PREADER_CONTEXT ctx, LPCSTR lpcReader, 
+	DWORD dwPort, LPCSTR lpcLibrary);
+
+
+LONG RFAllocateReaderSpace()
 {
+	int i;
 
-	int i;   					/* Counter */
-	LONG rv;       					/* Return tester */
-
-	/*
-	 * Zero out everything 
-	 */
-	i = 0;
+	sReadersContextsLock = (PCSCLITE_MUTEX_T) malloc(sizeof(PCSCLITE_MUTEX));
+	SYS_MutexInit(sReadersContextsLock);
 
 	/*
-	 * Allocate global dwNumContexts 
+	 * Allocate each reader structure
 	 */
-	dwNumContexts = (DWORD *) malloc(sizeof(DWORD));
-	*dwNumContexts = 0;
+	for (i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
+		sReadersContexts[i] = (PREADER_CONTEXT) calloc(1, sizeof(READER_CONTEXT));
 
 	/*
-	 * Allocate each reader structure 
+	 * Create public event structures
 	 */
-	for (i = 0; i < dwAllocNum; i++)
+	return EHInitializeEventStructures();
+}
+
+LONG RFAddReader(LPSTR lpcReader, DWORD dwPort, LPSTR lpcLibrary, LPSTR lpcDevice)
+{
+	int slotCount;
+	LONG rv = SCARD_E_NO_MEMORY;
+	int slot;
+	PREADER_CONTEXT baseContext = NULL;
+
+	if ((lpcReader == NULL) || (lpcLibrary == NULL) || (lpcDevice == NULL))
+		return SCARD_E_INVALID_VALUE;
+
+	/* Reader name too long? */
+	if (strlen(lpcReader) >= MAX_READERNAME)
 	{
-		sContexts[i] = (PREADER_CONTEXT) calloc(1, sizeof(READER_CONTEXT));
+		Log3(PCSC_LOG_ERROR, "Reader name too long: %d chars instead of max %d",
+			strlen(lpcReader), MAX_READERNAME);
+		return SCARD_E_INVALID_VALUE;
 	}
 
+	/* Library name too long? */
+	if (strlen(lpcLibrary) >= MAX_LIBNAME)
+	{
+		Log3(PCSC_LOG_ERROR, "Library name too long: %d chars instead of max %d",
+			strlen(lpcLibrary), MAX_LIBNAME);
+		return SCARD_E_INVALID_VALUE;
+	}
+
+	/* Device name too long? */
+	if (strlen(lpcDevice) >= MAX_DEVICENAME)
+	{
+		Log3(PCSC_LOG_ERROR, "Device name too long: %d chars instead of max %d",
+			strlen(lpcDevice), MAX_DEVICENAME);
+		return SCARD_E_INVALID_VALUE;
+	}
+
+	rv = ReaderContextCheckDuplicateReader(lpcReader, dwPort);
+	if (rv)
+		return rv;
+
+	// Make sure we have an empty slot to put the reader structure
+	rv = ReaderContextInsert(NULL);
+	if (rv != SCARD_S_SUCCESS)
+		return rv;
+
+	// Allocate a temporary reader context struct
+	baseContext = (PREADER_CONTEXT) calloc(1, sizeof(READER_CONTEXT));
+
+	rv = ReaderContextConstructor(baseContext, lpcReader, dwPort, lpcLibrary, lpcDevice);
+	if (rv != SCARD_S_SUCCESS)
+		goto xit;
+
+	rv = ReaderCheckForClone(baseContext, lpcReader, dwPort, lpcLibrary);
+	if (rv != SCARD_S_SUCCESS)
+		goto xit;
+
+	rv = RFInitializeReader(baseContext);
+	if (rv != SCARD_S_SUCCESS)
+		goto xit;
+
+	rv = ReaderContextInsert(baseContext);
+	if (rv != SCARD_S_SUCCESS)
+		goto xit;
+
+	rv = EHSpawnEventHandler(baseContext);
+	if (rv != SCARD_S_SUCCESS)
+		goto xit;
+
+	slotCount = ReaderSlotCount(baseContext);
+	if (slotCount <= 1)
+		return SCARD_S_SUCCESS;
+
 	/*
-	 * Create public event structures 
+	 * Check the number of slots and create a different
+	 * structure for each one accordingly
 	 */
-	rv = EHInitializeEventStructures();
+
+	BOOL baseIsThreadSafe = ReaderDriverIsThreadSafe(baseContext, 1);
+	
+	for (slot = 1; slot < slotCount; slot++)
+	{
+		// Make sure we have an empty slot to put the reader structure
+		// If not, we remove the whole reader
+		rv = ReaderContextInsert(NULL);
+		if (rv != SCARD_S_SUCCESS)
+		{
+			rv = RFRemoveReader(lpcReader, dwPort);
+			return rv;
+		}
+
+		// Allocate a temporary reader context struct
+		PREADER_CONTEXT ctxSlot = (PREADER_CONTEXT) calloc(1, sizeof(READER_CONTEXT));
+
+		rv = ReaderContextConstructor(ctxSlot, lpcReader, dwPort, lpcLibrary, lpcDevice);
+		if (rv != SCARD_S_SUCCESS)
+		{
+			ReaderContextDestructor(ctxSlot);
+			free(ctxSlot);
+			return rv;
+		}
+
+		ReaderContextDuplicateSlot(baseContext, ctxSlot, slot, baseIsThreadSafe);
+
+		rv = RFInitializeReader(ctxSlot);
+		if (rv != SCARD_S_SUCCESS)
+		{
+			Log2(PCSC_LOG_ERROR, "%s init failed.", lpcReader);
+			ReaderContextDestructor(ctxSlot);
+			free(ctxSlot);
+			return rv;
+		}
+
+		rv = ReaderContextInsert(ctxSlot);
+		if (rv != SCARD_S_SUCCESS)
+			return rv;
+
+		rv = EHSpawnEventHandler(ctxSlot);
+		if (rv != SCARD_S_SUCCESS)
+			return rv;
+		EHSpawnEventHandler(ctxSlot);
+	}
+
+xit:
+	if (rv != SCARD_S_SUCCESS)
+	{
+		// Cannot connect to reader, so exit gracefully
+		Log3(PCSC_LOG_ERROR, "RFAddReader: %s init failed: %d", lpcReader, rv);
+		ReaderContextDestructor(baseContext);
+		free(baseContext);
+	}
 
 	return rv;
 }
 
-LONG RFAddReader(LPSTR lpcReader, DWORD dwPort, LPSTR lpcLibrary)
-{
-
-	DWORD dwContext, dwContextB, dwGetSize;
-	UCHAR ucGetData[1];
-	char lpcStripReader[MAX_READERNAME];
-	LONG rv, parentNode;
-
-	int i, j, tmplen, psize;
-
-	/*
-	 * Zero out everything 
-	 */
-	dwContext = 0;
-	dwContextB = 0;
-	dwGetSize = 0;
-	rv = 0;
-	i = 0;
-	j = 0;
-	psize = 0;
-	ucGetData[0] = 0;
-	tmplen = 0;
-
-	if (lpcReader == 0 || lpcLibrary == 0)
-	{
-		return SCARD_E_INVALID_VALUE;
-	}
-
-	/*
-	 * Same name, same port - duplicate reader cannot be used 
-	 */
-	if (dwNumContexts != 0)
-	{
-		for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-		{
-			if ((sContexts[i])->vHandle != 0)
-			{
-				strncpy(lpcStripReader, (sContexts[i])->lpcReader,
-					MAX_READERNAME);
-				tmplen = strlen(lpcStripReader);
-				lpcStripReader[tmplen - 4] = 0;
-				if ((strcmp(lpcReader, lpcStripReader) == 0) &&
-					(dwPort == (sContexts[i])->dwPort))
-				{
-					DebugLogA("RFAddReader: Duplicate reader found.");
-					return SCARD_E_DUPLICATE_READER;
-				}
-			}
-		}
-	}
-
-	/*
-	 * We must find an empty spot to put the reader structure 
-	 */
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-	{
-		if ((sContexts[i])->vHandle == 0)
-		{
-			dwContext = i;
-			break;
-		}
-	}
-
-	if (i == PCSCLITE_MAX_CONTEXTS)
-	{
-		/*
-		 * No more spots left return 
-		 */
-		return SCARD_E_NO_MEMORY;
-	}
-
-	/*
-	 * Check and set the readername to see if it must be enumerated 
-	 */
-	parentNode = RFSetReaderName(sContexts[dwContext], lpcReader,
-		lpcLibrary, dwPort, 0);
-
-	strcpy((sContexts[dwContext])->lpcLibrary, lpcLibrary);
-	(sContexts[dwContext])->dwVersion = 0;
-	(sContexts[dwContext])->dwPort = dwPort;
-	(sContexts[dwContext])->mMutex = 0;
-	(sContexts[dwContext])->dwStatus = 0;
-	(sContexts[dwContext])->dwBlockStatus = 0;
-	(sContexts[dwContext])->dwContexts = 0;
-        (sContexts[dwContext])->pthThread = 0;
-	(sContexts[dwContext])->dwLockId = 0;
-	(sContexts[dwContext])->vHandle = 0;
-	(sContexts[dwContext])->dwPublicID = 0;
-	(sContexts[dwContext])->dwFeeds = 0;
-	(sContexts[dwContext])->dwIdentity =
-		(dwContext + 1) << (sizeof(DWORD) / 2) * 8;
-
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-	{
-		(sContexts[dwContext])->psHandles[i].hCard = 0;
-	}
-
-	/*
-	 * If a clone to this reader exists take some values from that clone 
-	 */
-	if (parentNode != -1 && parentNode < PCSCLITE_MAX_CONTEXTS
-		&& parentNode >= 0)
-	{
-		(sContexts[dwContext])->dwFeeds = 
-		  (sContexts[parentNode])->dwFeeds;
-		*(sContexts[dwContext])->dwFeeds += 1;
-		(sContexts[dwContext])->vHandle = 
-		  (sContexts[parentNode])->vHandle;
-		(sContexts[dwContext])->mMutex = 
-		  (sContexts[parentNode])->mMutex;
-	}
-
-	if ((sContexts[dwContext])->dwFeeds == 0)
-	{
-		(sContexts[dwContext])->dwFeeds = 
-		  (DWORD *)malloc(sizeof(DWORD));
-
-		/* Initialize dwFeeds to 1, otherwise multiple 
-		   cloned readers will cause pcscd to crash when 
-		   RFUnloadReader unloads the driver library
-		   and there are still devices attached using it --mikeg*/
-
-		*(sContexts[dwContext])->dwFeeds = 1;
-	}
-
-	if ((sContexts[dwContext])->mMutex == 0)
-	{
-		(sContexts[dwContext])->mMutex =
-			(PCSCLITE_MUTEX_T) malloc(sizeof(PCSCLITE_MUTEX));
-		SYS_MutexInit((sContexts[dwContext])->mMutex);
-	}
-
-	*dwNumContexts += 1;
-
-	rv = RFInitializeReader(sContexts[dwContext]);
-	if (rv != SCARD_S_SUCCESS)
-	{
-		/*
-		 * Cannot connect to reader exit gracefully 
-		 */
-		/*
-		 * Clean up so it is not using needed space 
-		 */
-		DebugLogB("RFAddReader: %s init failed.", lpcReader);
-
-		(sContexts[dwContext])->dwVersion = 0;
-		(sContexts[dwContext])->dwPort = 0;
-		(sContexts[dwContext])->mMutex = 0;
-		(sContexts[dwContext])->vHandle = 0;
-		(sContexts[dwContext])->dwPublicID = 0;
-		(sContexts[dwContext])->dwIdentity = 0;
-
-		if (parentNode >= 0)
-		{
-			*(sContexts[dwContext])->dwFeeds -= 1;
-		}
-
-		*dwNumContexts -= 1;
-
-		return rv;
-	}
-
-	EHSpawnEventHandler(sContexts[dwContext]);
-
-	/*
-	 * Call on the driver to see if there are multiple slots 
-	 */
-
-	rv = IFDGetCapabilities((sContexts[dwContext]),
-		TAG_IFD_SLOTS_NUMBER, &dwGetSize, ucGetData);
-
-	if (rv != IFD_SUCCESS || dwGetSize != 1 || ucGetData[0] == 0)
-	{
-		/*
-		 * Reader does not have this defined.  Must be a single slot
-		 * reader so we can just return SCARD_S_SUCCESS. 
-		 */
-
-		return SCARD_S_SUCCESS;
-
-	} else if (rv == IFD_SUCCESS && dwGetSize == 1 && ucGetData[0] == 1)
-	{
-		/*
-		 * Reader has this defined and it only has one slot 
-		 */
-
-		return SCARD_S_SUCCESS;
-
-	} else
-	{
-		/*
-		 * Check the number of slots and create a different 
-		 * structure for each one accordingly 
-		 */
-
-		/*
-		 * Initialize the rest of the slots 
-		 */
-
-		for (j = 1; j < ucGetData[0]; j++)
-		{
-
-			/*
-			 * We must find an empty spot to put the 
-			 * reader structure 
-			 */
-			for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-			{
-				if ((sContexts[i])->vHandle == 0)
-				{
-					dwContextB = i;
-					break;
-				}
-			}
-
-			if (i == PCSCLITE_MAX_CONTEXTS)
-			{
-				/*
-				 * No more spots left return 
-				 */
-				(sContexts[dwContext])->mMutex = 0;
-				(sContexts[dwContext])->vHandle = 0;
-				(sContexts[dwContext])->dwPublicID = 0;
-				(sContexts[dwContext])->dwIdentity = 0;
-
-				return SCARD_E_NO_MEMORY;
-			}
-
-			/*
-			 * Check and set the readername to see if it must be
-			 * enumerated 
-			 */
-			rv = RFSetReaderName(sContexts[dwContextB], lpcReader,
-				lpcLibrary, dwPort, j);
-
-			strcpy((sContexts[dwContextB])->lpcLibrary, lpcLibrary);
-			(sContexts[dwContextB])->dwVersion =
-			  (sContexts[dwContext])->dwVersion;
-			(sContexts[dwContextB])->dwPort =
-			  (sContexts[dwContext])->dwPort;
-			(sContexts[dwContextB])->mMutex =
-			  (sContexts[dwContext])->mMutex;
-			(sContexts[dwContextB])->vHandle =
-			  (sContexts[dwContext])->vHandle;
-
-			/* Added by Dave - slots did not have a dwFeeds
-			   parameter so it was by luck they were working
-			*/
-
-			(sContexts[dwContextB])->dwFeeds =
-			  (sContexts[dwContext])->dwFeeds;
-
-			(sContexts[dwContextB])->dwStatus = 0;
-			(sContexts[dwContextB])->dwBlockStatus = 0;
-			(sContexts[dwContextB])->dwContexts = 0;
-			(sContexts[dwContextB])->dwLockId = 0;
-			(sContexts[dwContextB])->dwPublicID = 0;
-			(sContexts[dwContextB])->dwIdentity =
-				(dwContextB + 1) << (sizeof(DWORD) / 2) * 8;
-
-			RFBindFunctions(sContexts[dwContextB]);
-
-			for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-			{
-				(sContexts[dwContextB])->psHandles[i].hCard = 0;
-			}
-
-			/* Added by Dave for multiple slots */
-			*(sContexts[dwContextB])->dwFeeds += 1;
-			*dwNumContexts += 1;
-
-			EHSpawnEventHandler(sContexts[dwContextB]);
-		}
-
-	}
-
-	return SCARD_S_SUCCESS;
-}
-
 LONG RFRemoveReader(LPSTR lpcReader, DWORD dwPort)
 {
-
 	LONG rv;
-	PREADER_CONTEXT sContext;
-	int i;
-
-	/*
-	 * Zero out everything 
-	 */
-	i = 0;
+	PREADER_CONTEXT tmpContext = NULL;
 
 	if (lpcReader == 0)
-	{
 		return SCARD_E_INVALID_VALUE;
-	}
 
-	rv = RFReaderInfoNamePort(dwPort, lpcReader, &sContext);
-	if (rv != SCARD_S_SUCCESS)
+	secdebug("pcscd", "RFRemoveReader: removing %s", lpcReader);
+	while ((rv = RFReaderInfoNamePort(dwPort, lpcReader, &tmpContext)) == SCARD_S_SUCCESS)
 	{
-		return rv;
-	}
+		// Try to destroy the thread
+		rv = EHDestroyEventHandler(tmpContext);
 
-	/*
-	 * Try to destroy the thread 
-	 */
-	rv = EHDestroyEventHandler(sContext);
-
-	rv = RFUnInitializeReader(sContext);
-	if (rv != SCARD_S_SUCCESS)
-	{
-		return rv;
-	}
-
-	/*
-	 * Destroy and free the mutex 
-	 */
-	if (*sContext->dwFeeds == 1)
-	{
-		SYS_MutexDestroy(sContext->mMutex);
-		free(sContext->mMutex);
-	}
-
-	*sContext->dwFeeds -= 1;
-
-	/* Added by Dave to free the dwFeeds variable */
-	if (*sContext->dwFeeds == 0) {
-	  free(sContext->dwFeeds);
-	  sContext->dwFeeds = 0;
-	}
-
-	sContext->dwVersion = 0;
-	sContext->dwPort = 0;
-	sContext->mMutex = 0;
-	sContext->dwStatus = 0;
-	sContext->dwBlockStatus = 0;
-	sContext->dwContexts = 0;
-	sContext->dwSlot = 0;
-	sContext->dwLockId = 0;
-	sContext->vHandle = 0;
-	sContext->dwIdentity = 0;
-	sContext->dwPublicID = 0;
-
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-	{
-		sContext->psHandles[i].hCard = 0;
-	}
-
-	*dwNumContexts -= 1;
-
-	while ((rv = RFReaderInfoNamePort(dwPort, lpcReader, &sContext))
-		== SCARD_S_SUCCESS)
-	{
-
-		EHDestroyEventHandler(sContext);
-
-		rv = RFUnInitializeReader(sContext);
+		rv = RFUnInitializeReader(tmpContext);
 		if (rv != SCARD_S_SUCCESS)
-		  {
-		    return rv;
-		  }
-		
-		/*
-		 * Destroy and free the mutex 
-		 */
-		if (*sContext->dwFeeds == 1)
-		  {
-		    SYS_MutexDestroy(sContext->mMutex);
-		    free(sContext->mMutex);
-		  }
+			return rv;
 
-		*sContext->dwFeeds -= 1;
-
-		/* Added by Dave to free the dwFeeds variable */
-
-		if (*sContext->dwFeeds == 0) {
-		  free(sContext->dwFeeds);
-		  sContext->dwFeeds = 0;
-		}
-
-		sContext->dwVersion = 0;
-		sContext->dwPort = 0;
-		sContext->mMutex = 0;
-		sContext->dwStatus = 0;
-		sContext->dwBlockStatus = 0;
-		sContext->dwContexts = 0;
-		sContext->dwSlot = 0;
-		sContext->dwLockId = 0;
-		sContext->vHandle = 0;
-		sContext->dwIdentity = 0;
-		sContext->dwPublicID = 0;
-
-		for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-		{
-			sContext->psHandles[i].hCard = 0;
-		}
-
-		*dwNumContexts -= 1;
-
+		ReaderContextRemove(tmpContext);
 	}
 
 	return SCARD_S_SUCCESS;
 }
 
-LONG RFSetReaderName(PREADER_CONTEXT rContext, LPSTR readerName,
-	LPSTR libraryName, DWORD dwPort, DWORD dwSlot)
+LONG RFSetReaderName(PREADER_CONTEXT rContext, LPCSTR readerName,
+	LPCSTR libraryName, DWORD dwPort, DWORD dwSlot)
 {
-
-	LONG rv=-1;					/* rv is the reader number of the parent
-								 * of the clone */
-	LONG ret;
+	LONG parent = -1;	/* reader number of the parent of the clone */
 	DWORD valueLength;
-	UCHAR tagValue;
-	static int lastDigit = 0;
-	int currentDigit;
-	int supportedChannels;
-	int usedDigits[PCSCLITE_MAX_CONTEXTS];
+	int currentDigit = -1;
+	int supportedChannels = 0;
+	int usedDigits[PCSCLITE_MAX_READERS_CONTEXTS] = {0,};
 	int i;
 
-	currentDigit = -1;
-	i = 0;
-	rv = -1;
-	supportedChannels = 0;
-	valueLength = sizeof(tagValue);
-	tagValue = 0;
-
-	/*
-	 * Clear the taken list 
-	 */
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	if ((0 == dwSlot) && (dwNumReadersContexts != 0))
 	{
-		usedDigits[i] = 0;
-	}
-
-	currentDigit = -1;
-
-	if (dwSlot == 0)
-	{
-		if (*dwNumContexts != 0)
+		for (i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
 		{
-			for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+			if (sReadersContexts[i] == NULL)
+				continue;
+			if ((sReadersContexts[i])->vHandle != 0)
 			{
-				if ((sContexts[i])->vHandle != 0)
+				if (strcmp((sReadersContexts[i])->lpcLibrary, libraryName) == 0)
 				{
-					if (strcmp((sContexts[i])->lpcLibrary,
-							libraryName) == 0)
+					UCHAR tagValue[1];
+					LONG ret;
+
+					/*
+					 * Ask the driver if it supports multiple channels
+					 */
+					valueLength = sizeof(tagValue);
+					ret = IFDGetCapabilities((sReadersContexts[i]),
+						TAG_IFD_SIMULTANEOUS_ACCESS,
+						&valueLength, tagValue);
+
+					if ((ret == IFD_SUCCESS) && (valueLength == 1) &&
+						(tagValue[0] > 1))
 					{
+						supportedChannels = tagValue[0];
+						Log2(PCSC_LOG_INFO,
+							"Support %d simultaneous readers", tagValue[0]);
+					}
+					else
+						supportedChannels = 1;
+
+					/*
+					 * Check to see if it is a hotplug reader and
+					 * different
+					 */
+					if (((((sReadersContexts[i])->dwPort & 0xFFFF0000) ==
+							PCSCLITE_HP_BASE_PORT)
+						&& ((sReadersContexts[i])->dwPort != dwPort))
+						|| (supportedChannels > 1))
+					{
+						char *lpcReader = sReadersContexts[i]->lpcReader;
 
 						/*
-						 * Ask the driver if it supports multiple channels 
+						 * tells the caller who the parent of this
+						 * clone is so it can use it's shared
+						 * resources like mutex/etc.
 						 */
-						ret = IFDGetCapabilities((sContexts[i]),
-							TAG_IFD_SIMULTANEOUS_ACCESS,
-							&valueLength, &tagValue);
-
-						if ((ret == IFD_SUCCESS) && (valueLength == 1) &&
-							(tagValue > 1))
-						{
-							supportedChannels = tagValue;
-						} else
-						{
-							supportedChannels = -1;
-						}
+						parent = i;
 
 						/*
-						 * Check to see if it is a hotplug reader and
-						 * different 
+						 * If the same reader already exists and it is
+						 * hotplug then we must look for others and
+						 * enumerate the readername
 						 */
-						if (((((sContexts[i])->dwPort & 0xFFFF0000) ==
-									0x200000)
-								&& (sContexts[i])->dwPort != dwPort)
-							|| (supportedChannels > 1))
-						{
+						currentDigit = strtol(lpcReader + strlen(lpcReader) - 5, NULL, 16);
 
-							/*
-							 * rv tells the caller who the parent of this
-							 * clone is so it can use it's shared
-							 * resources like mutex/etc. 
-							 */
-
-							rv = i;
-
-							/*
-							 * If the same reader already exists and it is 
-							 * hotplug then we must look for others and
-							 * enumerate the readername 
-							 */
-
-							currentDigit = (sContexts[i])->
-								lpcReader[strlen((sContexts[i])->
-									lpcReader) - 3] - '0';
-
-							if (currentDigit > 9)
-							{
-								/*
-								 * 0-9 -> A-F is 7 apart 
-								 */
-								currentDigit -= 7;
-							}
-
-							/*
-							 * This spot is taken 
-							 */
-							usedDigits[currentDigit] = 1;
-						}
+						/*
+						 * This spot is taken
+						 */
+						usedDigits[currentDigit] = 1;
 					}
 				}
 			}
 		}
 
-		/*
-		 * No other identical reader exists on the same bus 
-		 */
-		if (currentDigit == -1)
-		{
-			sprintf(rContext->lpcReader, "%s 0 %ld", readerName, dwSlot);
-			/*
-			 * Set the slot in 0xDDDDCCCC 
-			 */
-			rContext->dwSlot = dwSlot;
-		} else
-		{
-
-			for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-			{
-				if (usedDigits[i] == 0)
-				{
-					break;
-				}
-			}
-
-			if (i == PCSCLITE_MAX_CONTEXTS)
-			{
-				return -1;
-			} else if (i > supportedChannels)
-			{
-				return -1;
-			}
-
-			if (i <= 9)
-			{
-				sprintf(rContext->lpcReader, "%s %d %ld", readerName, i,
-					dwSlot);
-			} else
-			{
-				sprintf(rContext->lpcReader, "%s %c %ld", readerName,
-					'A' + (i % 10), dwSlot);
-			}
-
-			/*
-			 * Set the slot in 0xDDDDCCCC 
-			 */
-			rContext->dwSlot = (0x00010000 * i) + dwSlot;
-			lastDigit = i;
-		}
-
-		/*
-		 * On the second, third slot of the reader use the last used
-		 * reader number 
-		 */
-
-	} else
-	{
-		if (lastDigit <= 9 && dwSlot <= 9)
-		{
-			sprintf(rContext->lpcReader, "%s %d %ld", readerName,
-				lastDigit, dwSlot);
-		} else if (lastDigit > 9 && dwSlot <= 9)
-		{
-			sprintf(rContext->lpcReader, "%s %c %ld", readerName,
-				'A' + (lastDigit % 10), dwSlot);
-		} else if (lastDigit <= 9 && dwSlot > 9)
-		{
-			sprintf(rContext->lpcReader, "%s %d %c", readerName,
-				lastDigit, 'A' + ((int) dwSlot % 10));
-		} else if (lastDigit > 9 && dwSlot > 9)
-		{
-			sprintf(rContext->lpcReader, "%s %c %c", readerName,
-				'A' + (lastDigit % 10), 'A' + ((int) dwSlot % 10));
-		}
-
-		rContext->dwSlot = (0x00010000 * lastDigit) + dwSlot;
 	}
 
-	return rv;
-}
-
-LONG RFListReaders(LPSTR lpcReaders, LPDWORD pdwReaderNum)
-{
-
-	DWORD dwCSize;
-	LPSTR lpcTReaders;
-	int i, p;
-
-	/*
-	 * Zero out everything 
-	 */
-	dwCSize = 0;
-	lpcTReaders = 0;
+	/* default value */
 	i = 0;
-	p = 0;
 
-	if (*dwNumContexts == 0)
+	/* Other identical readers exist on the same bus */
+	if (currentDigit != -1)
 	{
-		return SCARD_E_READER_UNAVAILABLE;
-	}
-
-	/*
-	 * Ignore the groups for now, return all readers 
-	 */
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-	{
-		if ((sContexts[i])->vHandle != 0)
+		for (i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
 		{
-			dwCSize += strlen((sContexts[i])->lpcReader) + 1;
-			p += 1;
+			/* get the first free digit */
+			if (usedDigits[i] == 0)
+				break;
+		}
+
+		if (i == PCSCLITE_MAX_READERS_CONTEXTS)
+		{
+			Log2(PCSC_LOG_ERROR, "Max number of readers reached: %d", PCSCLITE_MAX_READERS_CONTEXTS);
+			return -2;
+		}
+
+		if (i >= supportedChannels)
+		{
+			Log3(PCSC_LOG_ERROR, "Driver %s does not support more than "
+				"%d reader(s). Maybe the driver should support "
+				"TAG_IFD_SIMULTANEOUS_ACCESS", libraryName, supportedChannels);
+			return -2;
 		}
 	}
 
-	if (p > *dwNumContexts)
-	{
-		/*
-		 * We are severely hosed here 
-		 */
-		/*
-		 * Hopefully this will never be true 
-		 */
-		return SCARD_F_UNKNOWN_ERROR;
-	}
+	sprintf(rContext->lpcReader, "%s %02X %02X", readerName, i, dwSlot);
 
 	/*
-	 * Added for extra NULL byte on MultiString 
+	 * Set the slot in 0xDDDDCCCC
 	 */
-	dwCSize += 1;
+	rContext->dwSlot = (i << 16) + dwSlot;
 
-	/*
-	 * If lpcReaders is not allocated then just 
-	 */
-	/*
-	 * return the amount needed to allocate 
-	 */
-	if (lpcReaders == 0)
-	{
-		*pdwReaderNum = dwCSize;
-		return SCARD_S_SUCCESS;
-	}
-
-	if (*pdwReaderNum < dwCSize)
-	{
-		return SCARD_E_INSUFFICIENT_BUFFER;
-	}
-
-	*pdwReaderNum = dwCSize;
-	lpcTReaders = lpcReaders;
-	p = 0;
-
-	/*
-	 * Creating MultiString 
-	 */
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-	{
-		if ((sContexts[i])->vHandle != 0)
-		{
-			strcpy(&lpcTReaders[p], (sContexts[i])->lpcReader);
-			p += strlen((sContexts[i])->lpcReader);	/* Copy */
-			lpcTReaders[p] = 0;	/* Add NULL */
-			p += 1;	/* Move on */
-		}
-	}
-
-	lpcTReaders[p] = 0;	/* Add NULL */
-
-	return SCARD_S_SUCCESS;
+	return parent;
 }
 
 LONG RFReaderInfo(LPSTR lpcReader, PREADER_CONTEXT * sReader)
 {
-
 	int i;
-
-	/*
-	 * Zero out everything 
-	 */
-	i = 0;
-
+	LONG rv = SCARD_E_UNKNOWN_READER;
+	
 	if (lpcReader == 0)
-	{
 		return SCARD_E_UNKNOWN_READER;
-	}
 
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	SYS_MutexLock(sReadersContextsLock);
+	for (i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
 	{
-		if ((sContexts[i])->vHandle != 0)
+		if ((sReadersContexts[i]!=NULL) && ((sReadersContexts[i])->vHandle != 0))
 		{
-			if (strcmp(lpcReader, (sContexts[i])->lpcReader) == 0)
+			if (strcmp(lpcReader, (sReadersContexts[i])->lpcReader) == 0)
 			{
-				*sReader = sContexts[i];
-				return SCARD_S_SUCCESS;
+				*sReader = sReadersContexts[i];
+				rv = SCARD_S_SUCCESS;
+				break;
 			}
 		}
 	}
+	SYS_MutexUnLock(sReadersContextsLock);
 
-	return SCARD_E_UNKNOWN_READER;
+	return rv;
 }
 
 LONG RFReaderInfoNamePort(DWORD dwPort, LPSTR lpcReader,
 	PREADER_CONTEXT * sReader)
 {
+	int ix;
+	LONG rv = SCARD_E_INVALID_VALUE;
 
-	char lpcStripReader[MAX_READERNAME];
-	int i, tmplen;
-
-	/*
-	 * Zero out everything 
-	 */
-	i = 0;
-	tmplen = 0;
-
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	SYS_MutexLock(sReadersContextsLock);
+	for (ix = 0; ix < PCSCLITE_MAX_READERS_CONTEXTS; ix++)
 	{
-		if ((sContexts[i])->vHandle != 0)
-		{
-			strncpy(lpcStripReader, (sContexts[i])->lpcReader,
-				MAX_READERNAME);
-			tmplen = strlen(lpcStripReader);
-			lpcStripReader[tmplen - 4] = 0;
-
-			if ((strcmp(lpcReader, lpcStripReader) == 0) &&
-				(dwPort == (sContexts[i])->dwPort))
+		if ((sReadersContexts[ix]!=NULL) && ((sReadersContexts[ix])->vHandle != 0) &&
+			ReaderNameMatchForIndex(dwPort, lpcReader, ix))
 			{
-				*sReader = sContexts[i];
-				return SCARD_S_SUCCESS;
+				*sReader = sReadersContexts[ix];
+				rv = SCARD_S_SUCCESS;
+				break;
 			}
-		}
 	}
-
-	return SCARD_E_INVALID_VALUE;
-}
-
-LONG RFReaderInfoById(DWORD dwIdentity, PREADER_CONTEXT * sReader)
-{
-
-	int i;
-
-	/*
-	 * Zero out everything 
-	 */
-	i = 0;
-
-	/*
-	 * Strip off the lower nibble and get the identity 
-	 */
-
-	dwIdentity = dwIdentity >> (sizeof(DWORD) / 2) * 8;
-	dwIdentity = dwIdentity << (sizeof(DWORD) / 2) * 8;
-
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-	{
-		if (dwIdentity == (sContexts[i])->dwIdentity)
-		{
-			*sReader = sContexts[i];
-			return SCARD_S_SUCCESS;
-		}
-	}
-
-	return SCARD_E_INVALID_VALUE;
-}
-
-LONG RFLoadReader(PREADER_CONTEXT rContext)
-{
-
-	LONG rv;
-
-	rv = 0;
-
-	if (rContext->vHandle != 0)
-	{
-		DebugLogA("RFLoadReader: Warning library pointer not NULL");
-		/*
-		 * Another reader exists with this library loaded 
-		 */
-		return SCARD_S_SUCCESS;
-	}
-
-	if (rContext->vHandle == 0)
-	{
-		rv = DYN_LoadLibrary(&rContext->vHandle, rContext->lpcLibrary);
-	}
+	SYS_MutexUnLock(sReadersContextsLock);
 
 	return rv;
 }
 
-LONG RFBindFunctions(PREADER_CONTEXT rContext)
+LONG RFReaderInfoById(DWORD dwIdentity, PREADER_CONTEXT * sReader)
 {
-
-	LONG rv, ret;
-	LPVOID pvTestA, pvTestB;
+	int i;
+	LONG rv = SCARD_E_INVALID_VALUE;
 
 	/*
-	 * Zero out everything 
+	 * Strip off the lower nibble and get the identity
 	 */
-	rv = 0;
-	ret = 0;
-	pvTestA = 0;
-	pvTestB = 0;
+	dwIdentity = dwIdentity >> (sizeof(DWORD) / 2) * 8;
+	dwIdentity = dwIdentity << (sizeof(DWORD) / 2) * 8;
+
+	SYS_MutexLock(sReadersContextsLock);
+	for (i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
+	{
+		if ((sReadersContexts[i]!=NULL) && (dwIdentity == (sReadersContexts[i])->dwIdentity))
+		{
+			*sReader = sReadersContexts[i];
+			rv = SCARD_S_SUCCESS;
+			break;
+		}
+	}
+	SYS_MutexUnLock(sReadersContextsLock);
+
+	return rv;
+}
+
+static LONG RFLoadReader(PREADER_CONTEXT rContext)
+{
+	if (rContext->vHandle != 0)
+	{
+		Log1(PCSC_LOG_ERROR, "Warning library pointer not NULL");
+		/*
+		 * Another reader exists with this library loaded
+		 */
+		return SCARD_S_SUCCESS;
+	}
+
+	return DYN_LoadLibrary(&rContext->vHandle, rContext->lpcLibrary);
+}
+
+LONG RFBindFunctions(PREADER_CONTEXT rContext)
+{
+	int rv1, rv2, rv3;
+	void *f;
 
 	/*
 	 * Use this function as a dummy to determine the IFD Handler version
-	 * type.  1.0/2.0.  Suppress error messaging since it can't be 1.0 and 
-	 * 2.0. 
+	 * type  1.0/2.0/3.0.  Suppress error messaging since it can't be 1.0,
+	 * 2.0 and 3.0.
 	 */
 
-	DebugLogSuppress(DEBUGLOG_IGNORE_ENTRIES);
+	Log1(PCSC_LOG_INFO, "Binding driver functions");
 
-	rv = DYN_GetAddress(rContext->vHandle,
-		&rContext->psFunctions.pvfCreateChannel, "IO_Create_Channel");
+//	DebugLogSuppress(DEBUGLOG_IGNORE_ENTRIES);
 
-	ret = DYN_GetAddress(rContext->vHandle,
-		&rContext->psFunctions.pvfCreateChannel, "IFDHCreateChannel");
+	rv1 = DYN_GetAddress(rContext->vHandle, &f, "IO_Create_Channel");
+	rv2 = DYN_GetAddress(rContext->vHandle, &f, "IFDHCreateChannel");
+	rv3 = DYN_GetAddress(rContext->vHandle, &f, "IFDHCreateChannelByName");
 
-	DebugLogSuppress(DEBUGLOG_LOG_ENTRIES);
+//	DebugLogSuppress(DEBUGLOG_LOG_ENTRIES);
 
-	if (rv != SCARD_S_SUCCESS && ret != SCARD_S_SUCCESS)
+	if (rv1 != SCARD_S_SUCCESS && rv2 != SCARD_S_SUCCESS && rv3 != SCARD_S_SUCCESS)
 	{
 		/*
-		 * Neither version of the IFD Handler was found - exit 
+		 * Neither version of the IFD Handler was found - exit
 		 */
-		rContext->psFunctions.pvfCreateChannel = 0;
-
-		DebugLogA("RFBindFunctions: IFDHandler functions missing");
+		Log1(PCSC_LOG_CRITICAL, "IFDHandler functions missing");
 
 		exit(1);
-	} else if (rv == SCARD_S_SUCCESS)
+	} else if (rv1 == SCARD_S_SUCCESS)
 	{
 		/*
-		 * Ifd Handler 1.0 found 
+		 * Ifd Handler 1.0 found
 		 */
-		/*
-		 * Re bind the function since it was lost in the second 
-		 */
-		rContext->dwVersion |= IFD_HVERSION_1_0;
-		DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfCreateChannel, "IO_Create_Channel");
-	} else
+		rContext->dwVersion = IFD_HVERSION_1_0;
+	} else if (rv3 == SCARD_S_SUCCESS)
 	{
 		/*
-		 * Ifd Handler 2.0 found 
+		 * Ifd Handler 3.0 found
 		 */
-		rContext->dwVersion |= IFD_HVERSION_2_0;
+		rContext->dwVersion = IFD_HVERSION_3_0;
+	}
+	else
+	{
+		/*
+		 * Ifd Handler 2.0 found
+		 */
+		rContext->dwVersion = IFD_HVERSION_2_0;
 	}
 
 	/*
-	 * The following binds version 1.0 of the IFD Handler specs 
+	 * The following binds version 1.0 of the IFD Handler specs
 	 */
 
-	if (rContext->dwVersion & IFD_HVERSION_1_0)
+	if (rContext->dwVersion == IFD_HVERSION_1_0)
 	{
+		Log1(PCSC_LOG_INFO, "Loading IFD Handler 1.0");
 
-		DebugLogA("RFBindFunctions: Loading IFD Handler 1.0");
+#define GET_ADDRESS_OPTIONALv1(field, function, code) \
+{ \
+	void *f1 = NULL; \
+	if (SCARD_S_SUCCESS != DYN_GetAddress(rContext->vHandle, &f1, "IFD_" #function)) \
+	{ \
+		code \
+	} \
+	rContext->psFunctions.psFunctions_v1.pvf ## field = f1; \
+}
 
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfCloseChannel, "IO_Close_Channel");
+#define GET_ADDRESSv1(field, function) \
+	GET_ADDRESS_OPTIONALv1(field, function, \
+		Log1(PCSC_LOG_CRITICAL, "IFDHandler functions missing: " #function ); \
+		exit(1); )
 
-		if (rv != SCARD_S_SUCCESS)
+		DYN_GetAddress(rContext->vHandle, &f, "IO_Create_Channel");
+		rContext->psFunctions.psFunctions_v1.pvfCreateChannel = f;
+
+		if (SCARD_S_SUCCESS != DYN_GetAddress(rContext->vHandle, &f,
+			"IO_Close_Channel"))
 		{
-			rContext->psFunctions.pvfCloseChannel = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
+			Log1(PCSC_LOG_CRITICAL, "IFDHandler functions missing");
 			exit(1);
 		}
+		rContext->psFunctions.psFunctions_v1.pvfCloseChannel = f;
 
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfGetCapabilities,
-			"IFD_Get_Capabilities");
+		GET_ADDRESSv1(GetCapabilities, Get_Capabilities)
+		GET_ADDRESSv1(SetCapabilities, Set_Capabilities)
+		GET_ADDRESSv1(PowerICC, Power_ICC)
+		GET_ADDRESSv1(TransmitToICC, Transmit_to_ICC)
+		GET_ADDRESSv1(ICCPresence, Is_ICC_Present)
 
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfGetCapabilities = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfSetCapabilities,
-			"IFD_Set_Capabilities");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfSetCapabilities = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfSetProtocol,
-			"IFD_Set_Protocol_Parameters");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfSetProtocol = 0;
-			/*
-			 * Not a completely required function 
-			 */
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfPowerICC, "IFD_Power_ICC");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfPowerICC = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfSwallowICC, "IFD_Swallow_ICC");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfSwallowICC = 0;
-			/*
-			 * Not a completely required function 
-			 */
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfEjectICC, "IFD_Eject_ICC");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfEjectICC = 0;
-			/*
-			 * Not a completely required function 
-			 */
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfConfiscateICC, "IFD_Confiscate_ICC");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfConfiscateICC = 0;
-			/*
-			 * Not a completely required function 
-			 */
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfTransmitICC, "IFD_Transmit_to_ICC");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfTransmitICC = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfICCPresent, "IFD_Is_ICC_Present");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfICCPresent = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfICCAbsent, "IFD_Is_ICC_Absent");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfICCAbsent = 0;
-			/*
-			 * Not a completely required function 
-			 */
-		}
-
-		/*
-		 * The following binds version 2.0 of the IFD Handler specs 
-		 */
-
-	} else if (rContext->dwVersion & IFD_HVERSION_2_0)
-	{
-
-		DebugLogA("RFBindFunctions: Loading IFD Handler 2.0");
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfCloseChannel, "IFDHCloseChannel");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfCloseChannel = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfGetCapabilities,
-			"IFDHGetCapabilities");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfGetCapabilities = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfSetCapabilities,
-			"IFDHSetCapabilities");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfSetCapabilities = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfSetProtocol,
-			"IFDHSetProtocolParameters");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfSetProtocol = 0;
-			/*
-			 * Not a completely required function 
-			 */
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfPowerICC, "IFDHPowerICC");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfPowerICC = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfTransmitICC, "IFDHTransmitToICC");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfTransmitICC = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfControl, "IFDHControl");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfControl = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-		rv = DYN_GetAddress(rContext->vHandle,
-			&rContext->psFunctions.pvfICCPresent, "IFDHICCPresence");
-
-		if (rv != SCARD_S_SUCCESS)
-		{
-			rContext->psFunctions.pvfICCPresent = 0;
-			DebugLogA("RFBindFunctions: IFDHandler functions missing");
-			exit(1);
-		}
-
-	} else
+		GET_ADDRESS_OPTIONALv1(SetProtocolParameters, Set_Protocol_Parameters, )
+	}
+	else if (rContext->dwVersion == IFD_HVERSION_2_0)
 	{
 		/*
-		 * Who knows what could have happenned for it to get here. 
+		 * The following binds version 2.0 of the IFD Handler specs
 		 */
-		DebugLogA("RFBindFunctions: IFD Handler not 1.0/2.0");
+
+#define GET_ADDRESS_OPTIONALv2(s, code) \
+{ \
+	void *f1 = NULL; \
+	if (SCARD_S_SUCCESS != DYN_GetAddress(rContext->vHandle, &f1, "IFDH" #s)) \
+	{ \
+		code \
+	} \
+	rContext->psFunctions.psFunctions_v2.pvf ## s = f1; \
+}
+
+#define GET_ADDRESSv2(s) \
+	GET_ADDRESS_OPTIONALv2(s, \
+		Log1(PCSC_LOG_CRITICAL, "IFDHandler functions missing: " #s ); \
+		exit(1); )
+
+		Log1(PCSC_LOG_INFO, "Loading IFD Handler 2.0");
+
+		GET_ADDRESSv2(CreateChannel)
+		GET_ADDRESSv2(CloseChannel)
+		GET_ADDRESSv2(GetCapabilities)
+		GET_ADDRESSv2(SetCapabilities)
+		GET_ADDRESSv2(PowerICC)
+		GET_ADDRESSv2(TransmitToICC)
+		GET_ADDRESSv2(ICCPresence)
+		GET_ADDRESS_OPTIONALv2(SetProtocolParameters, )
+
+		GET_ADDRESSv2(Control)
+	}
+	else if (rContext->dwVersion == IFD_HVERSION_3_0)
+	{
+		/*
+		 * The following binds version 3.0 of the IFD Handler specs
+		 */
+
+#define GET_ADDRESS_OPTIONALv3(s, code) \
+{ \
+	void *f1 = NULL; \
+	if (SCARD_S_SUCCESS != DYN_GetAddress(rContext->vHandle, &f1, "IFDH" #s)) \
+	{ \
+		code \
+	} \
+	rContext->psFunctions.psFunctions_v3.pvf ## s = f1; \
+}
+
+#define GET_ADDRESSv3(s) \
+	GET_ADDRESS_OPTIONALv3(s, \
+		Log1(PCSC_LOG_CRITICAL, "IFDHandler functions missing: " #s ); \
+		exit(1); )
+
+		Log1(PCSC_LOG_INFO, "Loading IFD Handler 3.0");
+
+		GET_ADDRESSv2(CreateChannel)
+		GET_ADDRESSv2(CloseChannel)
+		GET_ADDRESSv2(GetCapabilities)
+		GET_ADDRESSv2(SetCapabilities)
+		GET_ADDRESSv2(PowerICC)
+		GET_ADDRESSv2(TransmitToICC)
+		GET_ADDRESSv2(ICCPresence)
+		GET_ADDRESS_OPTIONALv2(SetProtocolParameters, )
+
+		GET_ADDRESSv3(CreateChannelByName)
+		GET_ADDRESSv3(Control)
+	}
+	else
+	{
+		/*
+		 * Who knows what could have happenned for it to get here.
+		 */
+		Log1(PCSC_LOG_CRITICAL, "IFD Handler not 1.0/2.0 or 3.0");
 		exit(1);
 	}
 
 	return SCARD_S_SUCCESS;
 }
 
-LONG RFUnBindFunctions(PREADER_CONTEXT rContext)
+static LONG RFUnBindFunctions(PREADER_CONTEXT rContext)
 {
-
 	/*
-	 * Zero out everything 
+	 * Zero out everything
 	 */
 
-	rContext->psFunctions.pvfCreateChannel = 0;
-	rContext->psFunctions.pvfCloseChannel = 0;
-	rContext->psFunctions.pvfGetCapabilities = 0;
-	rContext->psFunctions.pvfSetCapabilities = 0;
-	rContext->psFunctions.pvfSetProtocol = 0;
-	rContext->psFunctions.pvfPowerICC = 0;
-	rContext->psFunctions.pvfSwallowICC = 0;
-	rContext->psFunctions.pvfEjectICC = 0;
-	rContext->psFunctions.pvfConfiscateICC = 0;
-	rContext->psFunctions.pvfTransmitICC = 0;
-	rContext->psFunctions.pvfICCPresent = 0;
-	rContext->psFunctions.pvfICCAbsent = 0;
+	Log1(PCSC_LOG_INFO, "Unbinding driver functions");
+	memset(&rContext->psFunctions, 0, sizeof(rContext->psFunctions));
 
 	return SCARD_S_SUCCESS;
 }
 
-LONG RFUnloadReader(PREADER_CONTEXT rContext)
+static LONG RFUnloadReader(PREADER_CONTEXT rContext)
 {
-
 	/*
-	 * Make sure no one else is using this library 
+	 * Make sure no one else is using this library
 	 */
 
-	if (*rContext->dwFeeds == 1)
+		Log1(PCSC_LOG_INFO, "Unloading reader driver.");
+	if (*rContext->pdwFeeds == 1)
 	{
-	  DebugLogA("RFUnloadReader: Unloading reader driver.");
+		Log1(PCSC_LOG_INFO, "--- closing dynamic library");
 		DYN_CloseLibrary(&rContext->vHandle);
 	}
 
@@ -1216,45 +679,26 @@ LONG RFUnloadReader(PREADER_CONTEXT rContext)
 
 LONG RFCheckSharing(DWORD hCard)
 {
-
 	LONG rv;
-	DWORD dwSharing;
-	PREADER_CONTEXT rContext;
-
-	/*
-	 * Zero out everything 
-	 */
-	dwSharing = 0;
-	rContext = 0;
+	PREADER_CONTEXT rContext = NULL;
 
 	rv = RFReaderInfoById(hCard, &rContext);
 
 	if (rv != SCARD_S_SUCCESS)
-	{
 		return rv;
-	}
 
-	dwSharing = hCard;
-
-	if (rContext->dwLockId == 0 || rContext->dwLockId == dwSharing)
-	{
+	if (rContext->dwLockId == 0 || rContext->dwLockId == hCard)
 		return SCARD_S_SUCCESS;
-	} else
+	else
 	{
+		secdebug("pcscd", "RFCheckSharing: sharing violation, dwLockId: 0x%02X", rContext->dwLockId);
 		return SCARD_E_SHARING_VIOLATION;
 	}
-
 }
 
 LONG RFLockSharing(DWORD hCard)
 {
-
-	PREADER_CONTEXT rContext;
-
-	/*
-	 * Zero out everything 
-	 */
-	rContext = 0;
+	PREADER_CONTEXT rContext = NULL;
 
 	RFReaderInfoById(hCard, &rContext);
 
@@ -1262,115 +706,99 @@ LONG RFLockSharing(DWORD hCard)
 	{
 		EHSetSharingEvent(rContext, 1);
 		rContext->dwLockId = hCard;
-	} else
-	{
-		return SCARD_E_SHARING_VIOLATION;
 	}
+	else
+		return SCARD_E_SHARING_VIOLATION;
 
 	return SCARD_S_SUCCESS;
 }
 
 LONG RFUnlockSharing(DWORD hCard)
 {
+	PREADER_CONTEXT rContext = NULL;
+	LONG rv;
 
-	PREADER_CONTEXT rContext;
+	rv = RFReaderInfoById(hCard, &rContext);
+	if (rv != SCARD_S_SUCCESS)
+		return rv;
 
-	/*
-	 * Zero out everything 
-	 */
-	rContext = 0;
+	rv = RFCheckSharing(hCard);
+	if (rv != SCARD_S_SUCCESS)
+		return rv;
 
-	RFReaderInfoById(hCard, &rContext);
-
-	if (RFCheckSharing(hCard) == SCARD_S_SUCCESS)
-	{
-		EHSetSharingEvent(rContext, 0);
-		rContext->dwLockId = 0;
-	} else
-	{
-		return SCARD_E_SHARING_VIOLATION;
-	}
+	EHSetSharingEvent(rContext, 0);
+	rContext->dwLockId = 0;
 
 	return SCARD_S_SUCCESS;
 }
 
 LONG RFUnblockContext(SCARDCONTEXT hContext)
 {
-
 	int i;
 
-	/*
-	 * Zero out everything 
-	 */
-	i = 0;
-
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
-	{
-		(sContexts[i])->dwBlockStatus = hContext;
-	}
+	SYS_MutexLock(sReadersContextsLock);
+	for (i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
+		if (sReadersContexts[i])
+			(sReadersContexts[i])->dwBlockStatus = hContext;
+	SYS_MutexUnLock(sReadersContextsLock);
 
 	return SCARD_S_SUCCESS;
 }
 
 LONG RFUnblockReader(PREADER_CONTEXT rContext)
 {
-
 	rContext->dwBlockStatus = BLOCK_STATUS_RESUME;
 	return SCARD_S_SUCCESS;
 }
 
 LONG RFInitializeReader(PREADER_CONTEXT rContext)
 {
-
 	LONG rv;
 
 	/*
-	 * Zero out everything 
+	 * Spawn the event handler thread
 	 */
-	rv = 0;
-
-	/*
-	 * Spawn the event handler thread 
-	 */
-	DebugLogB("RFInitializeReader: Attempting startup of %s.",
-		rContext->lpcReader);
+	Log3(PCSC_LOG_INFO, "Attempting startup of %s using %s",
+		rContext->lpcReader, rContext->lpcLibrary);
 
   /******************************************/
 	/*
-	 * This section loads the library 
+	 * This section loads the library
 	 */
   /******************************************/
 	rv = RFLoadReader(rContext);
 	if (rv != SCARD_S_SUCCESS)
 	{
+		Log2(PCSC_LOG_ERROR, "RFLoadReader failed: %X", rv);
 		return rv;
 	}
 
   /*******************************************/
 	/*
-	 * This section binds the functions 
+	 * This section binds the functions
 	 */
   /*******************************************/
 	rv = RFBindFunctions(rContext);
 
 	if (rv != SCARD_S_SUCCESS)
 	{
+		Log2(PCSC_LOG_ERROR, "RFBindFunctions failed: %X", rv);
 		RFUnloadReader(rContext);
 		return rv;
 	}
 
   /*******************************************/
 	/*
-	 * This section tries to open the port 
+	 * This section tries to open the port
 	 */
   /*******************************************/
 
-	rv = IFDOpenIFD(rContext, rContext->dwPort);
+	rv = IFDOpenIFD(rContext);
 
 	if (rv != IFD_SUCCESS)
 	{
-		DebugLogB("RFInitializeReader: Open Port %X Failed",
-			rContext->dwPort);
+		Log3(PCSC_LOG_CRITICAL, "Open Port %X Failed (%s)",
+			rContext->dwPort, rContext->lpcDevice);
 		RFUnBindFunctions(rContext);
 		RFUnloadReader(rContext);
 		return SCARD_E_INVALID_TARGET;
@@ -1381,19 +809,18 @@ LONG RFInitializeReader(PREADER_CONTEXT rContext)
 
 LONG RFUnInitializeReader(PREADER_CONTEXT rContext)
 {
-
-	DebugLogB("RFUninitializeReader: Attempting shutdown of %s.",
+	Log2(PCSC_LOG_INFO, "Attempting shutdown of %s.",
 		rContext->lpcReader);
 
 	/*
-	 * Close the port, unbind the functions, and unload the library 
+	 * Close the port, unbind the functions, and unload the library
 	 */
 
 	/*
 	 * If the reader is getting uninitialized then it is being unplugged
 	 * so I can't send a IFDPowerICC call to it
-	 * 
-	 * IFDPowerICC( rContext, IFD_POWER_DOWN, Atr, &AtrLen ); 
+	 *
+	 * IFDPowerICC( rContext, IFD_POWER_DOWN, Atr, &AtrLen );
 	 */
 	IFDCloseIFD(rContext);
 	RFUnBindFunctions(rContext);
@@ -1404,37 +831,32 @@ LONG RFUnInitializeReader(PREADER_CONTEXT rContext)
 
 SCARDHANDLE RFCreateReaderHandle(PREADER_CONTEXT rContext)
 {
-
-	int i, j;
 	USHORT randHandle;
 
 	/*
-	 * Zero out everything 
-	 */
-	randHandle = 0;
-	i = 0;
-	j = 0;
-
-	/*
 	 * Create a random handle with 16 bits check to see if it already is
-	 * used. 
+	 * used.
 	 */
-
 	randHandle = SYS_Random(SYS_GetSeed(), 10, 65000);
 
 	while (1)
 	{
-		for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+		int i;
+
+		SYS_MutexLock(sReadersContextsLock);
+		for (i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
 		{
-			if ((sContexts[i])->vHandle != 0)
+			if ((sReadersContexts[i]!=NULL) && ((sReadersContexts[i])->vHandle != 0))
 			{
-				for (j = 0; j < PCSCLITE_MAX_CONTEXTS; j++)
+				int j;
+
+				for (j = 0; j < PCSCLITE_MAX_READER_CONTEXT_CHANNELS; j++)
 				{
 					if ((rContext->dwIdentity + randHandle) ==
-						(sContexts[i])->psHandles[j].hCard)
+						(sReadersContexts[i])->psHandles[j].hCard)
 					{
 						/*
-						 * Get a new handle and loop again 
+						 * Get a new handle and loop again
 						 */
 						randHandle = SYS_Random(randHandle, 10, 65000);
 						continue;
@@ -1442,16 +864,15 @@ SCARDHANDLE RFCreateReaderHandle(PREADER_CONTEXT rContext)
 				}
 			}
 		}
+		SYS_MutexUnLock(sReadersContextsLock);
 
 		/*
 		 * Once the for loop is completed w/o restart a good handle was
-		 * found and the loop can be exited. 
+		 * found and the loop can be exited.
 		 */
 
-		if (i == PCSCLITE_MAX_CONTEXTS)
-		{
+		if (i == PCSCLITE_MAX_READERS_CONTEXTS)
 			break;
-		}
 	}
 
 	return rContext->dwIdentity + randHandle;
@@ -1459,42 +880,42 @@ SCARDHANDLE RFCreateReaderHandle(PREADER_CONTEXT rContext)
 
 LONG RFFindReaderHandle(SCARDHANDLE hCard)
 {
-
-	int i, j;
-
-	i = 0;
-	j = 0;
-
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	int i;
+	LONG rv = SCARD_E_INVALID_HANDLE;
+	
+	SYS_MutexLock(sReadersContextsLock);
+	for (i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
 	{
-		if ((sContexts[i])->vHandle != 0)
+		if ((sReadersContexts[i]!=NULL) && ((sReadersContexts[i])->vHandle != 0))
 		{
-			for (j = 0; j < PCSCLITE_MAX_CONTEXTS; j++)
+			int j;
+
+			for (j = 0; j < PCSCLITE_MAX_READER_CONTEXT_CHANNELS; j++)
 			{
-				if (hCard == (sContexts[i])->psHandles[j].hCard)
+				if (hCard == (sReadersContexts[i])->psHandles[j].hCard)
 				{
-					return SCARD_S_SUCCESS;
+					rv = SCARD_S_SUCCESS;
+					goto xit;
 				}
 			}
 		}
 	}
+xit:
+	SYS_MutexUnLock(sReadersContextsLock);
 
-	return SCARD_E_INVALID_HANDLE;
+	return rv;
 }
 
 LONG RFDestroyReaderHandle(SCARDHANDLE hCard)
 {
-
 	return SCARD_S_SUCCESS;
 }
 
 LONG RFAddReaderHandle(PREADER_CONTEXT rContext, SCARDHANDLE hCard)
 {
-
 	int i;
-	i = 0;
 
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	for (i = 0; i < PCSCLITE_MAX_READER_CONTEXT_CHANNELS; i++)
 	{
 		if (rContext->psHandles[i].hCard == 0)
 		{
@@ -1504,21 +925,18 @@ LONG RFAddReaderHandle(PREADER_CONTEXT rContext, SCARDHANDLE hCard)
 		}
 	}
 
-	if (i == PCSCLITE_MAX_CONTEXTS)
-	{	/* List is full */
+	if (i == PCSCLITE_MAX_READER_CONTEXT_CHANNELS)
+		/* List is full */
 		return SCARD_E_INSUFFICIENT_BUFFER;
-	}
 
 	return SCARD_S_SUCCESS;
 }
 
 LONG RFRemoveReaderHandle(PREADER_CONTEXT rContext, SCARDHANDLE hCard)
 {
-
 	int i;
-	i = 0;
 
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	for (i = 0; i < PCSCLITE_MAX_READER_CONTEXT_CHANNELS; i++)
 	{
 		if (rContext->psHandles[i].hCard == hCard)
 		{
@@ -1528,29 +946,24 @@ LONG RFRemoveReaderHandle(PREADER_CONTEXT rContext, SCARDHANDLE hCard)
 		}
 	}
 
-	if (i == PCSCLITE_MAX_CONTEXTS)
-	{	/* Not Found */
+	if (i == PCSCLITE_MAX_READER_CONTEXT_CHANNELS)
+		/* Not Found */
 		return SCARD_E_INVALID_HANDLE;
-	}
 
 	return SCARD_S_SUCCESS;
 }
 
 LONG RFSetReaderEventState(PREADER_CONTEXT rContext, DWORD dwEvent)
 {
-
 	int i;
-	i = 0;
 
 	/*
-	 * Set all the handles for that reader to the event 
+	 * Set all the handles for that reader to the event
 	 */
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	for (i = 0; i < PCSCLITE_MAX_READER_CONTEXT_CHANNELS; i++)
 	{
 		if (rContext->psHandles[i].hCard != 0)
-		{
 			rContext->psHandles[i].dwEventStatus = dwEvent;
-		}
 	}
 
 	return SCARD_S_SUCCESS;
@@ -1558,26 +971,25 @@ LONG RFSetReaderEventState(PREADER_CONTEXT rContext, DWORD dwEvent)
 
 LONG RFCheckReaderEventState(PREADER_CONTEXT rContext, SCARDHANDLE hCard)
 {
-
 	int i;
-	i = 0;
 
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	for (i = 0; i < PCSCLITE_MAX_READER_CONTEXT_CHANNELS; i++)
 	{
 		if (rContext->psHandles[i].hCard == hCard)
 		{
 			if (rContext->psHandles[i].dwEventStatus == SCARD_REMOVED)
-			{
 				return SCARD_W_REMOVED_CARD;
-			} else if (rContext->psHandles[i].dwEventStatus == SCARD_RESET)
+			else
 			{
-				return SCARD_W_RESET_CARD;
-			} else if (rContext->psHandles[i].dwEventStatus == 0)
-			{
-				return SCARD_S_SUCCESS;
-			} else
-			{
-				return SCARD_E_INVALID_VALUE;
+				if (rContext->psHandles[i].dwEventStatus == SCARD_RESET)
+					return SCARD_W_RESET_CARD;
+				else
+				{
+					if (rContext->psHandles[i].dwEventStatus == 0)
+						return SCARD_S_SUCCESS;
+					else
+						return SCARD_E_INVALID_VALUE;
+				}
 			}
 		}
 	}
@@ -1587,135 +999,471 @@ LONG RFCheckReaderEventState(PREADER_CONTEXT rContext, SCARDHANDLE hCard)
 
 LONG RFClearReaderEventState(PREADER_CONTEXT rContext, SCARDHANDLE hCard)
 {
-
 	int i;
-	i = 0;
 
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	for (i = 0; i < PCSCLITE_MAX_READER_CONTEXT_CHANNELS; i++)
 	{
 		if (rContext->psHandles[i].hCard == hCard)
-		{
 			rContext->psHandles[i].dwEventStatus = 0;
-		}
 	}
 
-	if (i == PCSCLITE_MAX_CONTEXTS)
-	{	/* Not Found */
+	if (i == PCSCLITE_MAX_READER_CONTEXT_CHANNELS)
+		/* Not Found */
 		return SCARD_E_INVALID_HANDLE;
-	}
 
 	return SCARD_S_SUCCESS;
 }
 
 LONG RFCheckReaderStatus(PREADER_CONTEXT rContext)
 {
-
-	if (rContext->dwStatus & SCARD_UNKNOWN)
-	{
-		return SCARD_E_READER_UNAVAILABLE;
-	} else
-	{
-		return SCARD_S_SUCCESS;
-	}
+	LONG rx = 0;
+	rx = ((rContext == NULL) || (rContext->readerState == NULL) || 
+		(SharedReaderState_State(rContext->readerState) & SCARD_UNKNOWN))?SCARD_E_READER_UNAVAILABLE:SCARD_S_SUCCESS;
+	return rx;
 }
 
 void RFCleanupReaders(int shouldExit)
 {
 	int i;
-	LONG rv;
-	char lpcStripReader[MAX_READERNAME];
 
-	DebugLogA("RFCleanupReaders: entering cleaning function");
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	Log1(PCSC_LOG_INFO, "entering cleaning function");
+	for (i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
 	{
-		if (sContexts[i]->vHandle != 0)
+		if ((sReadersContexts[i]!=NULL) && (sReadersContexts[i]->vHandle != 0))
 		{
-			DebugLogB("Stopping reader: %s", sContexts[i]->lpcReader);
+			LONG rv;
+			char lpcStripReader[MAX_READERNAME];
 
-			strncpy(lpcStripReader, (sContexts[i])->lpcReader,
-				MAX_READERNAME);
+			Log2(PCSC_LOG_INFO, "Stopping reader: %s",
+				sReadersContexts[i]->lpcReader);
+
+			strncpy(lpcStripReader, (sReadersContexts[i])->lpcReader,
+				sizeof(lpcStripReader));
 			/*
-			 * strip the 4 last char ' 0 0' 
+			 * strip the 6 last char ' 00 00'
 			 */
-			lpcStripReader[strlen(lpcStripReader) - 4] = '\0';
+			lpcStripReader[strlen(lpcStripReader) - 6] = '\0';
 
-			rv = RFRemoveReader(lpcStripReader, sContexts[i]->dwPort);
+			rv = RFRemoveReader(lpcStripReader, sReadersContexts[i]->dwPort);
 
 			if (rv != SCARD_S_SUCCESS)
-				DebugLogB("RFRemoveReader error: %s",
-					pcsc_stringify_error(rv));
+				Log2(PCSC_LOG_ERROR, "RFRemoveReader error: 0x%08X", rv);
 		}
 	}
 
+	secdebug("pcscd", "RFCleanupReaders: exiting cleaning function");
 	/*
-	 * exit() will call at_exit() 
+	 * exit() will call at_exit()
 	 */
 
-        if (shouldExit) 
-        {
-                exit(0);
-        }
+	if (shouldExit)
+		exit(0);
+}
+
+int RFStartSerialReaders(const char *readerconf)
+{
+	return 0;
+}
+
+void RFReCheckReaderConf(void)
+{
 }
 
 void RFSuspendAllReaders() 
 {
-        int i;
+	int ix;
+	secdebug("pcscd", "RFSuspendAllReaders");
+	Log1(PCSC_LOG_DEBUG, "zzzzz zzzzz zzzzz zzzzz RFSuspendAllReaders zzzzz zzzzz zzzzz zzzzz ");
 
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	// @@@ We still need code to mark state first as "trying to sleep", in case
+	// not all of it gets done before we sleep
+	for (ix = 0; ix < PCSCLITE_MAX_READERS_CONTEXTS; ix++)
 	{
-		if ((sContexts[i])->vHandle != 0)
+		if ((sReadersContexts[ix]!=NULL) && ((sReadersContexts[ix])->vHandle != 0))
 		{
-                        EHDestroyEventHandler(sContexts[i]);
-                        IFDCloseIFD(sContexts[i]);
+			EHDestroyEventHandler(sReadersContexts[ix]);
+			IFDCloseIFD(sReadersContexts[ix]);
 		}
 	}
-
 }
 
-void RFAwakeAllReaders() 
+void RFAwakeAllReaders(void)
 {
-        LONG rv = IFD_SUCCESS;
-        int i, j;
-        int initFlag;
-        
-        initFlag = 0;
+	LONG rv = IFD_SUCCESS;
+	int i;
 
-	for (i = 0; i < PCSCLITE_MAX_CONTEXTS; i++)
+	secdebug("pcscd", "RFAwakeAllReaders");
+	Log1(PCSC_LOG_DEBUG, "----- ----- ----- ----- RFAwakeAllReaders ----- ----- ----- -----  ");
+	for (i = 0; i < PCSCLITE_MAX_READERS_CONTEXTS; i++)
 	{
-                /* If the library is loaded and the event handler is not running */
-	        if ( ((sContexts[i])->vHandle   != 0) &&
-                     ((sContexts[i])->pthThread == 0) )
+		if (sReadersContexts[i]==NULL)
+			continue;
+		/* If the library is loaded and the event handler is not running */
+		if ( ((sReadersContexts[i])->vHandle   != 0) &&
+		     ((sReadersContexts[i])->pthThread == 0) )
 		{
-                
-                        for (j=0; j < i; j++)
-                        {
-                                if (((sContexts[j])->vHandle == (sContexts[i])->vHandle)&&
-                                    ((sContexts[j])->dwPort   == (sContexts[i])->dwPort)) 
-                                    {
-                                            initFlag = 1;
-                                    }
-                        }
-                        
-                        if (initFlag == 0)
-                        {
-                                rv = IFDOpenIFD(sContexts[i], (sContexts[i])->dwPort);
+			int jx;
+			int alreadyInitializedFlag = 0;
 
-                        } else {
-                                initFlag = 0;
-                        }
-                        
+			// If a clone of this already did the initialization, 
+			// set flag so we don't do again
+			for (jx=0; jx < i; jx++)
+			{
+				if (((sReadersContexts[jx])->vHandle == (sReadersContexts[i])->vHandle)&&
+					((sReadersContexts[jx])->dwPort  == (sReadersContexts[i])->dwPort))
+				{
+					alreadyInitializedFlag = 1;
+				}
+			}
 
-                                if (rv != IFD_SUCCESS)
-                                {
-                                        DebugLogB("RFInitializeReader: Open Port %X Failed",
-                                                    (sContexts[i])->dwPort);
-                                }
+			if (!alreadyInitializedFlag)
+			{
+				SYS_USleep(100000L);	// 0.1s (in microseconds)
+				rv = IFDOpenIFD(sReadersContexts[i]);
+			}
+			
+			RFSetReaderEventState(sReadersContexts[i], SCARD_RESET);
+			if (rv != IFD_SUCCESS)
+			{
+				Log3(PCSC_LOG_ERROR, "Open Port %X Failed (%s)",
+					(sReadersContexts[i])->dwPort, (sReadersContexts[i])->lpcDevice);
+				Log2(PCSC_LOG_ERROR, "  with error 0x%08X", rv);
+				continue;
+			}
 
-
-                        EHSpawnEventHandler(sContexts[i]);
-                        RFSetReaderEventState(sContexts[i], SCARD_RESET);
-                        
+			EHSpawnEventHandler(sReadersContexts[i]);
 		}
 	}
-
 }
+
+#pragma mark ---------- Context Share Lock Tracking ----------
+
+void ReaderContextLock(PREADER_CONTEXT rContext)
+{
+	if (rContext)
+	{
+		secdebug("pcscd", "===> ReaderContextLock [was: %02X]", rContext->dwLockId);
+		rContext->dwLockId = 0xFFFF;
+		lastLockID = -3;			// something different
+	}
+}
+
+void ReaderContextUnlock(PREADER_CONTEXT rContext)
+{
+	if (rContext)
+	{
+		secdebug("pcscd", "<=== ReaderContextUnlock [was: %02X]", rContext->dwLockId);
+		rContext->dwLockId = 0;
+		lastLockID = -2;			// something different
+	}
+}
+
+int ReaderContextIsLocked(PREADER_CONTEXT rContext)
+{
+	if (rContext)
+	{
+		if (rContext->dwLockId && (rContext->dwLockId != lastLockID))		// otherwise too many messages
+		{
+			lastLockID = rContext->dwLockId;
+			secdebug("pcscd", ".... ReaderContextLock state: %02X", rContext->dwLockId);
+		}
+		return (rContext->dwLockId == 0xFFFF)?1:0;
+	}
+	else
+		return 0;
+}
+
+#pragma mark ---------- Reader Context Management ----------
+
+static int ReaderContextConstructor(PREADER_CONTEXT ctx, LPCSTR lpcReader, 
+	DWORD dwPort, LPCSTR lpcLibrary, LPCSTR lpcDevice)
+{
+	// We assume the struct was created with a calloc, so we don't call ReaderContextClear
+	if (!ctx)
+		return SCARD_E_NO_MEMORY;
+	
+	strlcpy(ctx->lpcLibrary, lpcLibrary, sizeof(ctx->lpcLibrary));
+	strlcpy(ctx->lpcDevice,  lpcDevice,  sizeof(ctx->lpcDevice));
+	ctx->dwPort = dwPort;
+
+	/*	
+		Initialize pdwFeeds to 1, otherwise multiple cloned readers will cause 
+		pcscd to crash when RFUnloadReader unloads the driver library
+		and there are still devices attached using it
+	*/
+	ctx->pdwFeeds = malloc(sizeof(DWORD));
+	*ctx->pdwFeeds = 1;
+
+	ctx->mMutex = (PCSCLITE_MUTEX_T) malloc(sizeof(PCSCLITE_MUTEX));
+	SYS_MutexInit(ctx->mMutex);
+
+	ctx->pdwMutex = malloc(sizeof(DWORD));
+	*ctx->pdwMutex = 1;
+
+	return SCARD_S_SUCCESS;
+}
+
+static int ReaderCheckForClone(PREADER_CONTEXT ctx, LPCSTR lpcReader, 
+	DWORD dwPort, LPCSTR lpcLibrary)
+{
+	// Check and set the readername to see if it must be enumerated
+	// A parentNode of -2 or less indicates fatal error
+	
+	LONG parentNode = RFSetReaderName(ctx, lpcReader, lpcLibrary, dwPort, 0);
+	if (parentNode < -1)			
+		return SCARD_E_NO_MEMORY;
+
+	// If a clone to this reader exists take some values from that clone
+	if ((parentNode >= 0) && (parentNode < PCSCLITE_MAX_READERS_CONTEXTS)
+		&& sReadersContexts[parentNode])
+	{
+		SYS_MutexLock(sReadersContextsLock);
+		ctx->pdwFeeds = (sReadersContexts[parentNode])->pdwFeeds;
+		*ctx->pdwFeeds += 1;
+		ctx->vHandle = (sReadersContexts[parentNode])->vHandle;
+		ctx->mMutex = (sReadersContexts[parentNode])->mMutex;
+		ctx->pdwMutex = (sReadersContexts[parentNode])->pdwMutex;
+		SYS_MutexUnLock(sReadersContextsLock);
+
+		if (ReaderDriverIsThreadSafe(sReadersContexts[parentNode], 0))
+		{
+			ctx->mMutex = 0;
+			ctx->pdwMutex = NULL;
+		}
+		else
+			*ctx->pdwMutex += 1;
+	}
+
+	return SCARD_S_SUCCESS;
+}
+
+static void ReaderContextDestructor(PREADER_CONTEXT ctx)
+{
+	ReaderContextFree(ctx);
+}
+
+static void ReaderContextFree(PREADER_CONTEXT ctx)
+{
+	if (!ctx)
+		return;
+
+	// Destroy and free the mutex
+	if (ctx->pdwMutex)
+	{
+		if (*ctx->pdwMutex == 1)
+		{
+			SYS_MutexDestroy(ctx->mMutex);
+			free(ctx->mMutex);
+		}
+		*ctx->pdwMutex -= 1;
+	}
+	
+	// Destroy and free the mutex counter
+	if (ctx->pdwMutex && (*ctx->pdwMutex == 0))
+	{
+		free(ctx->pdwMutex);
+		ctx->pdwMutex = NULL;
+	}
+
+	if (ctx->pdwFeeds)
+	{
+		*ctx->pdwFeeds -= 1;
+		if (*ctx->pdwFeeds == 0)
+		{
+			free(ctx->pdwFeeds);
+			ctx->pdwFeeds = NULL;
+		}
+	}
+	
+	// zero out everything else
+	ReaderContextClear(ctx);
+}
+
+static void ReaderContextClear(PREADER_CONTEXT ctx)
+{
+	// This assumes that ReaderContextFree has already been called if necessary
+	if (ctx)
+		memset(ctx, 0, sizeof(READER_CONTEXT));
+}
+
+static int ReaderContextInsert(PREADER_CONTEXT ctx)
+{
+	// Find an empty slot to put the reader structure, and copy it in
+	// If NULL is passed in, just return whether a spot is available or not
+
+	int ix, rv = SCARD_E_NO_MEMORY;
+	
+	SYS_MutexLock(sReadersContextsLock);
+	for (ix = 0; ix < PCSCLITE_MAX_READERS_CONTEXTS; ix++)
+	{
+		if ((sReadersContexts[ix] == NULL) || (sReadersContexts[ix])->vHandle == 0)
+		{
+			if (ctx)
+			{
+				if (sReadersContexts[ix])
+					free(sReadersContexts[ix]);
+				sReadersContexts[ix] = ctx;
+				(sReadersContexts[ix])->dwIdentity = (ix + 1) << (sizeof(DWORD) / 2) * 8;
+				dwNumReadersContexts += 1;
+			}
+			rv = SCARD_S_SUCCESS;
+			break;
+		}
+	}
+	SYS_MutexUnLock(sReadersContextsLock);
+	return rv;
+}
+
+static int ReaderContextRemove(PREADER_CONTEXT ctx)
+{
+	int ix, rv = SCARD_E_UNKNOWN_READER;
+	PREADER_CONTEXT ctxToRemove = NULL;
+	DWORD dwPort = ctx->dwPort;
+	LPSTR lpcReader = ctx->lpcReader;
+	SYS_MutexLock(sReadersContextsLock);
+	for (ix = 0; ix < PCSCLITE_MAX_READERS_CONTEXTS; ix++)
+	{
+		if (!ReaderNameMatchForIndex(dwPort, lpcReader, ix))
+			continue;
+
+		ctxToRemove = sReadersContexts[ix];
+		sReadersContexts[ix] = NULL;
+		dwNumReadersContexts -= 1;
+		rv = SCARD_S_SUCCESS;
+		break;
+	}
+	SYS_MutexUnLock(sReadersContextsLock);
+	// We can do this cleanup outside the lock
+	if (ctxToRemove)
+	{
+		ReaderContextDestructor(ctxToRemove);
+		free(ctxToRemove);
+	}
+	return rv;
+}
+
+static int ReaderContextCheckDuplicateReader(LPCSTR lpcReader, DWORD dwPort)
+{
+	// Readers with the same name and same port cannot be used
+
+	if (dwNumReadersContexts == 0)
+		return SCARD_S_SUCCESS;
+
+	int ix, rv = SCARD_S_SUCCESS;
+	SYS_MutexLock(sReadersContextsLock);
+	for (ix = 0; ix < PCSCLITE_MAX_READERS_CONTEXTS; ix++)
+	{
+		if ((sReadersContexts[ix]==NULL) || ((sReadersContexts[ix])->vHandle == 0))
+			continue;
+		
+		if (ReaderNameMatchForIndex(dwPort, lpcReader, ix))
+		{
+			Log1(PCSC_LOG_ERROR, "Duplicate reader found.");
+			rv = SCARD_E_DUPLICATE_READER;
+			break;
+		}
+	}
+	SYS_MutexUnLock(sReadersContextsLock);
+	return rv;
+}
+
+static int ReaderSlotCount(PREADER_CONTEXT ctx)
+{
+	// Call on the driver to see if there are multiple slots
+	// If we encounter errors, pretend it is just a single slot reader
+	
+	UCHAR ucGetData[1];
+	DWORD dwGetSize = sizeof(ucGetData);
+	int rv = IFDGetCapabilities(ctx, TAG_IFD_SLOTS_NUMBER, &dwGetSize, ucGetData);
+
+	//Reader does not have this defined, so assume a single slot
+	if (rv != IFD_SUCCESS || dwGetSize != 1 || ucGetData[0] == 0)
+		return 1;
+
+	// Reader has this defined and it only has one slot
+	if (rv == IFD_SUCCESS && dwGetSize == 1 && ucGetData[0] == 1)
+		return 1;
+
+	return (int)ucGetData[0];
+}
+
+static BOOL ReaderDriverIsThreadSafe(PREADER_CONTEXT ctx, BOOL testSlot)
+{
+	// Call on the driver to see if it is thread safe
+	UCHAR ucThread[1];
+	DWORD dwGetSize = sizeof(ucThread);
+	int rv = IFDGetCapabilities(ctx, testSlot?TAG_IFD_SLOT_THREAD_SAFE:TAG_IFD_THREAD_SAFE, 
+		&dwGetSize, ucThread);
+	if (rv == IFD_SUCCESS && dwGetSize == 1 && ucThread[0] == 1)
+	{
+		Log1(PCSC_LOG_INFO, "Driver is thread safe");
+		return 1;
+	}
+	else
+	{
+		Log1(PCSC_LOG_INFO, "Driver is not thread safe");
+		return 0;
+	}
+}
+
+static BOOL ReaderNameMatchForIndex(DWORD dwPort, LPCSTR lpcReader, int index)
+{
+	// "index" is index in sReadersContexts
+	char lpcStripReader[MAX_READERNAME];
+	int tmplen;
+
+	if (sReadersContexts[index]==NULL)
+		return 0;
+
+	strncpy(lpcStripReader, (sReadersContexts[index])->lpcReader, sizeof(lpcStripReader));
+	tmplen = strlen(lpcStripReader);
+	lpcStripReader[tmplen - 6] = 0;
+
+	return ((strcmp(lpcReader, lpcStripReader) == 0) && (dwPort == (sReadersContexts[index])->dwPort))?1:0;
+}
+
+static void ReaderContextDuplicateSlot(PREADER_CONTEXT ctxBase, PREADER_CONTEXT ctxSlot, int slotNumber, BOOL baseIsThreadSafe)
+{
+	// Copy the previous reader name and set the slot number
+	// The slot number for the base is 0
+
+	int ix;
+	char *tmpReader = ctxSlot->lpcReader;
+	strlcpy(tmpReader, ctxBase->lpcReader, sizeof(ctxSlot->lpcReader));
+	sprintf(tmpReader + strlen(tmpReader) - 2, "%02X", slotNumber);
+
+	strlcpy(ctxSlot->lpcLibrary, ctxBase->lpcLibrary, sizeof(ctxSlot->lpcLibrary));
+	strlcpy(ctxSlot->lpcDevice,  ctxBase->lpcDevice,  sizeof(ctxSlot->lpcDevice));
+
+	ctxSlot->dwVersion = ctxBase->dwVersion;
+	ctxSlot->dwPort = ctxBase->dwPort;
+	ctxSlot->vHandle = ctxBase->vHandle;
+	ctxSlot->mMutex = ctxBase->mMutex;
+	ctxSlot->pdwMutex = ctxBase->pdwMutex;
+	ctxSlot->dwSlot = ctxBase->dwSlot + slotNumber;
+
+	ctxSlot->pdwFeeds = ctxBase->pdwFeeds;
+
+	*ctxSlot->pdwFeeds += 1;
+
+	ctxSlot->dwBlockStatus = 0;
+	ctxSlot->dwContexts = 0;
+	ctxSlot->dwLockId = 0;
+	ctxSlot->readerState = NULL;
+	ctxSlot->dwIdentity = (slotNumber + 1) << (sizeof(DWORD) / 2) * 8;
+
+	for (ix = 0; ix < PCSCLITE_MAX_READER_CONTEXT_CHANNELS; ix++)
+		ctxSlot->psHandles[ix].hCard = 0;
+
+	if (!ctxSlot->pdwMutex)
+		ctxSlot->pdwMutex = malloc(sizeof(DWORD));
+	if (baseIsThreadSafe)
+	{
+		ctxSlot->mMutex = malloc(sizeof(PCSCLITE_MUTEX));
+		SYS_MutexInit(ctxSlot->mMutex);
+		*ctxSlot->pdwMutex = 1;
+	}
+	else
+		*ctxSlot->pdwMutex += 1;
+}
+

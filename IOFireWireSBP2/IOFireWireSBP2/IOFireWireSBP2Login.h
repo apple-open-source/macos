@@ -38,7 +38,8 @@
 // login option flags
 enum
 {
-    kFWSBP2ExclusiveLogin = (1 << 5)
+	kFWSBP2DontSynchronizeMgmtAgent = (1 << 0),
+    kFWSBP2ExclusiveLogin 			= (1 << 5)
 };
 
 // notification events
@@ -475,6 +476,8 @@ protected:
 	IOFWDelayCommand *		fReconnectRetryTimeoutCommand;
     bool					fReconnectRetryTimeoutTimerSet;	
 
+	int						fCriticalSectionCount;
+	
 	// init / destroy
     virtual IOReturn getUnitInformation( void );
     virtual IOReturn allocateResources( void );
@@ -642,6 +645,13 @@ protected:
 	virtual void removeLogin( void );
 	virtual IOFireWireSBP2Target * getTarget( void );
 	
+	UInt32		fARDMAMax;
+	bool		fPhysicalAccessEnabled;
+
+	bool					fLoginStatusReceived;
+	FWSBP2StatusBlock		fLoginStatusBlock;
+	UInt32					fLoginStatusBlockLen;
+		
 private:
 
     OSMetaClassDeclareReservedUnused(IOFireWireSBP2Login, 1);
@@ -868,9 +878,10 @@ public:
     /*!
 		@function setLoginFlags
 		@abstract Sets login configuration flags.
-		@discussion Configures the login behavior according to the provided flags.  Currently only one 
-        flag is defined for this API.  kFWSBP2ExclusiveLogin sets the exclusive login bit in the 
-        login ORB.
+		@discussion Configures the login behavior according to the provided flags.  Currently two 
+        flags are defined for this API.  kFWSBP2ExclusiveLogin sets the exclusive login bit in the 
+        login ORB. kFWSBP2DontSynchronizeMgmtAgent allows simultaneous logins or reconnects to LUNs
+        with a common management agent (ie LUNs in the same unit directory).
         @param loginFlags the login configuration flags.
 	*/
     
@@ -1048,6 +1059,12 @@ protected:
 	void fetchAgentRetryTimer( IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd );
 	
 	void terminateNotify( void );
+	void processLoginWrite( void );
+
+public:
+	
+	bool	isPhysicalAccessEnabled( void );
+	UInt32	getARDMMax( void );
 	
 private:
     

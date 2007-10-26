@@ -20,6 +20,8 @@ extern "C" {
 
 #define LAST(array) array + (sizeof(array) / sizeof(*array))
 
+#define LC_SPECIAL (LC_COLLATE+LC_CTYPE+LC_MESSAGES+LC_MONETARY+LC_NUMERIC+LC_TIME)
+
 using namespace std;
 
 enum vtype {
@@ -44,8 +46,8 @@ class keyword {
   public:
 	virtual string get_category() const { return category; }
 	virtual string get_keyword() const { return kword; }
-	virtual string get_value() const {
-	  return (t == V_STR) ? quote(value) : value; }
+	virtual string get_value(bool show_quotes) const {
+	  return (show_quotes && t == V_STR) ? quote(value) : value; }
 	
 	virtual ~keyword() { }
   protected:
@@ -69,6 +71,9 @@ class keyword {
 				break;
 			case LC_TIME:
 				category = "LC_TIME";
+				break;
+			case LC_SPECIAL:
+				category = "LC_SPECIAL";
 				break;
 			default:
 				{
@@ -100,7 +105,7 @@ class lia_keyword : public keyword {
   protected:
 	vector<string> values;
   public:
-	virtual string get_value() const {
+	virtual string get_value(bool show_quotes) const {
 		ostringstream ss;
 		vector<string>::const_iterator s(values.begin()), e(values.end()), i(s);
 
@@ -108,7 +113,7 @@ class lia_keyword : public keyword {
 			if (i != s) {
 				ss << ';';
 			}
-			if (t == V_STR) {
+			if (show_quotes && t == V_STR) {
 				ss << quote(*i);
 			} else {
 				ss << *i;
@@ -229,6 +234,7 @@ void init_keywords() {
 
 	int abdays[] = {ABDAY_1, ABDAY_2, ABDAY_3, ABDAY_4, ABDAY_5, ABDAY_6, ABDAY_7};
 	add_kw(new lia_keyword(LC_TIME, "ab_day", abdays, LAST(abdays)));
+	add_kw(new lia_keyword(LC_TIME, "abday", abdays, LAST(abdays)));
 
 	int days[] = {DAY_1, DAY_2, DAY_3, DAY_4, DAY_5, DAY_6, DAY_7};
 	add_kw(new lia_keyword(LC_TIME, "day", days, LAST(days)));
@@ -258,6 +264,9 @@ void init_keywords() {
 	add_kw(new li_keyword(LC_MESSAGES, "yesstr", YESSTR));
 	add_kw(new li_keyword(LC_MESSAGES, "nostr", NOSTR));
 
+	add_kw(new lc_keyword(LC_SPECIAL, "charmap", ""));
+	add_kw(new lc_keyword(LC_SPECIAL, "categories", "LC_COLLATE LC_CTYPE LC_MESSAGES LC_MONETARY LC_NUMERIC LC_TIME"));
+
 	// add_kw: CRNCYSTR D_MD_ORDER CODESET RADIXCHAR THOUSEP
 }
 
@@ -270,7 +279,7 @@ void show_keyword(string &last_cat, bool sw_categories, bool sw_keywords,
 	if (sw_keywords) {
 		cout << k->get_keyword() << "=";
 	}
-	cout << k->get_value() << endl;
+	cout << k->get_value(sw_keywords) << endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -317,7 +326,11 @@ int main(int argc, char *argv[]) {
 		cout << "LC_MONETARY=" << quote(setlocale(LC_MONETARY, NULL)) << endl;
 		cout << "LC_NUMERIC=" << quote(setlocale(LC_NUMERIC, NULL)) << endl;
 		cout << "LC_TIME=" << quote(setlocale(LC_TIME, NULL)) << endl;
-		cout << "LC_ALL=" << quote(setlocale(LC_ALL, NULL)) << endl;
+		if (getenv("LC_ALL")) {
+		    cout << "LC_ALL=" << quote(setlocale(LC_ALL, NULL)) << endl;
+		} else {
+		    cout << "LC_ALL=" << endl;
+		}
 
 		return 0;
 	}
@@ -329,12 +342,14 @@ int main(int argc, char *argv[]) {
 
 	if (sw_charmaps) {
 		// We only support the "Portable Character Set", so this 
-		// should be (and is) the empty list
+		// should be the empty list
+		cout << endl;
 		return 0;
 	}
 
 	init_keywords();
 	string last_cat("");
+	int exit_val = 0;
 	for(int i = optind; i < argc; ++i) {
 		keywords_t::iterator ki = keywords.find(argv[i]);
 		if (ki != keywords.end()) {
@@ -347,11 +362,28 @@ int main(int argc, char *argv[]) {
 				for(; vi != ve; ++vi) {
 					show_keyword(last_cat, sw_categories, sw_keywords, *vi);
 				}
+			} else if (argv[i] == string("LC_ALL")) {
+			    ki = keywords.begin();
+			    keywords_t::iterator ke = keywords.end();
+			    for(; ki != ke; ++ki) {
+				show_keyword(last_cat, sw_categories, sw_keywords, ki->second);
+			    }
 			} else {
-				clog << "unknown keyword " << argv[i] << endl;
+				if (argv[i] == string("LC_CTYPE") 
+				  || argv[i] == string("LC_COLLATE")) {
+				    // It would be nice to print a warning,
+				    // but we aren't allowed (locale.ex test#14)
+				    if (sw_categories) {
+					cout << argv[i] << endl;
+				    }
+				} else {
+				    clog << "unknown keyword "
+				      << argv[i] << endl;
+				    exit_val = 1;
+				}
 			}
 		}
 	}
 
-	return 0;
+	return exit_val;
 }

@@ -1,8 +1,9 @@
-thisconfigdir=./..
+thisconfigdir=../../..
 myfulldir=lib/crypto/arcfour
-mydir=arcfour
+mydir=lib/crypto/arcfour
 BUILDTOP=$(REL)..$(S)..$(S)..
 LOCALINCLUDES = -I$(srcdir)/.. -I$(srcdir)/../md4
+DEFS=
 
 ##DOS##BUILDTOP = ..\..\..
 ##DOS##PREFIXDIR=arcfour
@@ -15,15 +16,15 @@ RUN_SETUP = @KRB5_RUN_ENV@ KRB5_CONFIG=$(SRCTOP)/config-files/krb5.conf
 
 STLIBOBJS=\
 	arcfour.o	\
-	string_to_key.o
+	arcfour_s2k.o
 
 OBJS=\
 	$(OUTPRE)arcfour.$(OBJEXT)	\
-	$(OUTPRE)string_to_key.$(OBJEXT)
+	$(OUTPRE)arcfour_s2k.$(OBJEXT)
 
 SRCS=\
 	$(srcdir)/arcfour.c	\
-	$(srcdir)/string_to_key.c
+	$(srcdir)/arcfour_s2k.c
 
 ##DOS##LIBOBJS = $(OBJS)
 
@@ -35,24 +36,29 @@ depend:: $(SRCS)
 
 clean-unix:: clean-libobjs
 
-# @libobj_frag@
+@libobj_frag@
 
 # +++ Dependency line eater +++
 # 
 # Makefile dependencies follow.  This must be the last section in
 # the Makefile.in file
 #
-arcfour.so arcfour.po $(OUTPRE)arcfour.$(OBJEXT): arcfour.c $(SRCTOP)/include/k5-int.h \
-  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
-  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
-  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
+arcfour.so arcfour.po $(OUTPRE)arcfour.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/krb5/krb5.h $(BUILDTOP)/include/osconf.h \
+  $(BUILDTOP)/include/profile.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-err.h \
+  $(SRCTOP)/include/k5-int.h $(SRCTOP)/include/k5-platform.h \
+  $(SRCTOP)/include/k5-plugin.h $(SRCTOP)/include/k5-thread.h \
+  $(SRCTOP)/include/krb5.h $(SRCTOP)/include/krb5/locate_plugin.h \
+  $(SRCTOP)/include/krb5/preauth_plugin.h $(SRCTOP)/include/port-sockets.h \
+  $(SRCTOP)/include/socket-utils.h arcfour-int.h arcfour.c \
+  arcfour.h
+arcfour_s2k.so arcfour_s2k.po $(OUTPRE)arcfour_s2k.$(OBJEXT): \
+  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(BUILDTOP)/include/osconf.h $(BUILDTOP)/include/profile.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-err.h $(SRCTOP)/include/k5-int.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-plugin.h \
+  $(SRCTOP)/include/k5-thread.h $(SRCTOP)/include/krb5.h \
+  $(SRCTOP)/include/krb5/locate_plugin.h $(SRCTOP)/include/krb5/preauth_plugin.h \
   $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
-  $(SRCTOP)/include/krb5/kdb.h arcfour-int.h arcfour.h
-string_to_key.so string_to_key.po $(OUTPRE)string_to_key.$(OBJEXT): string_to_key.c $(SRCTOP)/include/k5-int.h \
-  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
-  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
-  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(BUILDTOP)/include/profile.h \
-  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
-  $(SRCTOP)/include/krb5/kdb.h $(srcdir)/../md4/rsa-md4.h \
-  arcfour-int.h arcfour.h
-
+  $(srcdir)/../md4/rsa-md4.h arcfour-int.h arcfour.h \
+  arcfour_s2k.c

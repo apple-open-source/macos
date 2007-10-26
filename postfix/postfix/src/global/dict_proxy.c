@@ -8,7 +8,7 @@
 /*
 /*	DICT	*dict_proxy_open(map, open_flags, dict_flags)
 /*	const char *map;
-/*	int	dummy;
+/*	int	open_flags;
 /*	int	dict_flags;
 /* DESCRIPTION
 /*	dict_proxy_open() relays read-only operations through
@@ -90,6 +90,8 @@ static const char *dict_proxy_lookup(DICT *dict, const char *key)
     DICT_PROXY *dict_proxy = (DICT_PROXY *) dict;
     VSTREAM *stream;
     int     status;
+    int     count = 0;
+    int     request_flags;
 
     /*
      * The client and server live in separate processes that may start and
@@ -100,26 +102,30 @@ static const char *dict_proxy_lookup(DICT *dict, const char *key)
      */
     VSTRING_RESET(dict_proxy->result);
     VSTRING_TERMINATE(dict_proxy->result);
+    request_flags = (dict_proxy->in_flags & DICT_FLAG_RQST_MASK)
+	| (dict->flags & DICT_FLAG_RQST_MASK);
     for (;;) {
 	stream = clnt_stream_access(proxy_stream);
 	errno = 0;
+	count += 1;
 	if (attr_print(stream, ATTR_FLAG_NONE,
 		       ATTR_TYPE_STR, MAIL_ATTR_REQ, PROXY_REQ_LOOKUP,
 		       ATTR_TYPE_STR, MAIL_ATTR_TABLE, dict->name,
-		       ATTR_TYPE_NUM, MAIL_ATTR_FLAGS, dict_proxy->in_flags,
+		       ATTR_TYPE_INT, MAIL_ATTR_FLAGS, request_flags,
 		       ATTR_TYPE_STR, MAIL_ATTR_KEY, key,
 		       ATTR_TYPE_END) != 0
 	    || vstream_fflush(stream)
 	    || attr_scan(stream, ATTR_FLAG_STRICT,
-			 ATTR_TYPE_NUM, MAIL_ATTR_STATUS, &status,
+			 ATTR_TYPE_INT, MAIL_ATTR_STATUS, &status,
 			 ATTR_TYPE_STR, MAIL_ATTR_VALUE, dict_proxy->result,
 			 ATTR_TYPE_END) != 2) {
-	    if (msg_verbose || (errno != EPIPE && errno != ENOENT))
+	    if (msg_verbose || count > 1 || (errno && errno != EPIPE && errno != ENOENT))
 		msg_warn("%s: service %s: %m", myname, VSTREAM_PATH(stream));
 	} else {
 	    if (msg_verbose)
-		msg_info("%s: table=%s flags=0%o key=%s -> status=%d result=%s",
-			 myname, dict->name, dict_proxy->in_flags, key,
+		msg_info("%s: table=%s flags=%s key=%s -> status=%d result=%s",
+			 myname, dict->name,
+			 dict_flags_str(request_flags), key,
 			 status, STR(dict_proxy->result));
 	    switch (status) {
 	    case PROXY_STAT_BAD:
@@ -173,12 +179,17 @@ DICT   *dict_proxy_open(const char *map, int open_flags, int dict_flags)
     /*
      * Sanity checks.
      */
-    if (dict_flags & DICT_FLAG_NO_PROXY)
-	msg_fatal("%s: %s map is not allowed for security sensitive data",
-		  map, DICT_TYPE_PROXY);
     if (open_flags != O_RDONLY)
 	msg_fatal("%s: %s map open requires O_RDONLY access mode",
 		  map, DICT_TYPE_PROXY);
+
+    /*
+     * OK. If this map can't be proxied then we silently do a direct open.
+     * This allows sites to benefit from proxying the virtual mailbox maps
+     * without unnecessary pain.
+     */
+    if (dict_flags & DICT_FLAG_NO_PROXY)
+	return (dict_open(map, open_flags, dict_flags));
 
     /*
      * Local initialization.
@@ -220,19 +231,20 @@ DICT   *dict_proxy_open(const char *map, int open_flags, int dict_flags)
 	if (attr_print(stream, ATTR_FLAG_NONE,
 		       ATTR_TYPE_STR, MAIL_ATTR_REQ, PROXY_REQ_OPEN,
 		       ATTR_TYPE_STR, MAIL_ATTR_TABLE, dict_proxy->dict.name,
-		       ATTR_TYPE_NUM, MAIL_ATTR_FLAGS, dict_proxy->in_flags,
+		       ATTR_TYPE_INT, MAIL_ATTR_FLAGS, dict_proxy->in_flags,
 		       ATTR_TYPE_END) != 0
 	    || vstream_fflush(stream)
 	    || attr_scan(stream, ATTR_FLAG_STRICT,
-			 ATTR_TYPE_NUM, MAIL_ATTR_STATUS, &status,
-			 ATTR_TYPE_NUM, MAIL_ATTR_FLAGS, &server_flags,
+			 ATTR_TYPE_INT, MAIL_ATTR_STATUS, &status,
+			 ATTR_TYPE_INT, MAIL_ATTR_FLAGS, &server_flags,
 			 ATTR_TYPE_END) != 2) {
 	    if (msg_verbose || (errno != EPIPE && errno != ENOENT))
 		msg_warn("%s: service %s: %m", VSTREAM_PATH(stream), myname);
 	} else {
 	    if (msg_verbose)
-		msg_info("%s: connect to map=%s status=%d server_flags=0%o",
-		       myname, dict_proxy->dict.name, status, server_flags);
+		msg_info("%s: connect to map=%s status=%d server_flags=%s",
+			 myname, dict_proxy->dict.name, status,
+			 dict_flags_str(server_flags));
 	    switch (status) {
 	    case PROXY_STAT_BAD:
 		msg_fatal("%s open failed for table \"%s\": invalid request",
@@ -241,7 +253,8 @@ DICT   *dict_proxy_open(const char *map, int open_flags, int dict_flags)
 		msg_fatal("%s service is not configured for table \"%s\"",
 			  MAIL_SERVICE_PROXYMAP, dict_proxy->dict.name);
 	    case PROXY_STAT_OK:
-		dict_proxy->dict.flags = dict_proxy->in_flags | server_flags;
+		dict_proxy->dict.flags = dict_proxy->in_flags
+		    | (server_flags & DICT_FLAG_IMPL_MASK);
 		return (DICT_DEBUG (&dict_proxy->dict));
 	    default:
 		msg_warn("%s open failed for table \"%s\": unexpected status %d",

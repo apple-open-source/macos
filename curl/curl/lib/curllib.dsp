@@ -42,8 +42,8 @@ RSC=rc.exe
 # PROP Intermediate_Dir "Release"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
-# ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "CURLLIB_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MT /W3 /GX /Zi /O2 /I "." /I "..\include" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "CURLLIB_EXPORTS" /D "_WINDLL" /FR /FD /c
+# ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "BUILDING_LIBCURL" /YX /FD /c
+# ADD CPP /nologo /MT /W3 /GX /Zi /O2 /I "." /I "..\include" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "BUILDING_LIBCURL" /D "_WINDLL" /FR /FD /c
 # SUBTRACT CPP /YX
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
@@ -69,8 +69,8 @@ LINK32=link.exe
 # PROP Intermediate_Dir "Debug"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
-# ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "CURLLIB_EXPORTS" /YX /FD /GZ /c
-# ADD CPP /nologo /MTd /W3 /Gm /GX /Zi /Od /I "." /I "..\include" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "CURLLIB_EXPORTS" /FR /FD /GZ /c
+# ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "BUILDING_LIBCURL" /YX /FD /GZ /c
+# ADD CPP /nologo /MTd /W3 /Gm /GX /Zi /Od /I "." /I "..\include" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "BUILDING_LIBCURL" /FR /FD /GZ /c
 # SUBTRACT CPP /WX /YX
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
@@ -303,6 +303,38 @@ SOURCE=.\parsedate.c
 
 SOURCE=.\select.c
 # End Source File
+# Begin Source File
+
+SOURCE=.\gtls.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\sslgen.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tftp.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\splay.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\strdup.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\socks.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\ssh.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\nss.c
+# End Source File
 # End Group
 # Begin Group "Header Files"
 # Begin Source File
@@ -396,10 +428,6 @@ SOURCE=.\getinfo.h
 # Begin Source File
 
 SOURCE=.\strequal.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\security.h
 # End Source File
 # Begin Source File
 
@@ -508,6 +536,46 @@ SOURCE=.\multiif.h
 # Begin Source File
 
 SOURCE=.\parsedate.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\sslgen.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\gtls.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tftp.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\sockaddr.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\splay.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\strdup.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\setup_once.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\socks.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ssh.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\nssg.h
 # End Source File
 # Begin Source File
 

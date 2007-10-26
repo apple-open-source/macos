@@ -84,8 +84,8 @@ do {									\
   /* APPLE LOCAL begin constant cfstrings */				\
   /* This just sets the default, SUBSUBTRAGET_OVERRIDE_OPTIONS will	\
      let the user override it.  */					\
-  darwin_constant_cfstrings = (darwin_macosx_version_min		\
-       && strverscmp (darwin_macosx_version_min, "10.2") >= 0);		\
+  darwin_constant_cfstrings = 						\
+    strverscmp (darwin_macosx_version_min, "10.2") >= 0;		\
   /* APPLE LOCAL end constant cfstrings */				\
   if (DEFAULT_ABI == ABI_DARWIN)					\
   {									\
@@ -97,9 +97,9 @@ do {									\
       }									\
     else if (flag_pic == 1)						\
       {									\
-        /* Darwin doesn't support -fpic.  */				\
-        warning ("-fpic is not supported; -fPIC assumed");		\
+	/* APPLE LOCAL begin mainline */				\
         flag_pic = 2;							\
+	/* APPLE LOCAL end mainline */					\
       }									\
 									\
     /* Handle -mfix-and-continue.  */					\
@@ -113,7 +113,7 @@ do {									\
 	darwin_fix_and_continue = (base[0] != 'n');			\
       }									\
     /* APPLE LOCAL begin longcall */					\
-    if (TARGET_64BIT)							\
+    if (TARGET_64BIT && TARGET_MACHO)					\
       rs6000_longcall_switch = (char *)0;				\
     /* APPLE LOCAL end longcall */					\
   }									\
@@ -122,7 +122,48 @@ do {									\
       target_flags |= MASK_POWERPC64;					\
       warning ("-m64 requires PowerPC64 architecture, enabling");	\
     }									\
+  /* APPLE LOCAL begin mainline */					\
+  if (flag_mkernel)							\
+    {									\
+      rs6000_longcall_switch = "-mlongcall"+10;				\
+      rs6000_default_long_calls = 1;					\
+      target_flags |= MASK_SOFT_FLOAT;					\
+    }									\
+  /* APPLE LOCAL end mainline */					\
+  /* APPLE LOCAL begin mainline default to G4 for 10.5 4479990 */	\
+  /* Unless the user (not the configurer) has explicitly overridden	\
+     it with -mcpu=G3 or -mno-altivec, then 10.5+ targets default to	\
+     G4 unless targetting the kernel.  */				\
+  if (!flag_mkernel							\
+      && !flag_apple_kext						\
+/* APPLE LOCAL begin mainline 2007-02-20 5005743 */			\
+/* APPLE LOCAL end mainline 2007-02-20 5005743 */			\
+      && strverscmp (darwin_macosx_version_min, "10.5") >= 0		\
+      && ! (target_flags_explicit & MASK_ALTIVEC)			\
+      && ! rs6000_select[1].string)					\
+    {									\
+      target_flags |= MASK_ALTIVEC;					\
+      /* APPLE LOCAL begin AltiVec */					\
+      flag_disable_opts_for_faltivec = 0;				\
+      target_flags &= ~MASK_PIM_ALTIVEC;				\
+      /* APPLE LOCAL end AltiVec */					\
+    }									\
+  /* APPLE LOCAL end mainline default to G4 for 10.5 4479990 */		\
 } while(0)
+
+/* APPLE LOCAL begin mainline */
+#define C_COMMON_OVERRIDE_OPTIONS do {					\
+  /* On powerpc, __cxa_get_exception_ptr is available starting in the	\
+     10.4.6 libstdc++.dylib.  */					\
+/* APPLE LOCAL mainline 2007-02-20 5005743 */				\
+  if (strverscmp (darwin_macosx_version_min, "10.4.6") < 0		\
+      && flag_use_cxa_get_exception_ptr == 2)				\
+    flag_use_cxa_get_exception_ptr = 0;					\
+  if (flag_mkernel)							\
+    flag_no_builtin = 1;						\
+  SUBTARGET_C_COMMON_OVERRIDE_OPTIONS;					\
+} while (0)
+/* APPLE LOCAL end mainline */
 
 /* Darwin has 128-bit long double support in libc in 10.4 and later.
    Default to 128-bit long doubles even on earlier platforms for ABI
@@ -135,13 +176,21 @@ do {									\
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
 
+/* APPLE LOCAL begin mainline */
 #define CC1_SPEC "\
-"/* APPLE LOCAL ignore -msse and -msse2 and other x86 options */"\
-%<msse  %<msse2 %<msse3 %<march=pentium4 %<mcpu=pentium4 \
-%{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
-%{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
-"/* APPLE LOCAL -fast and PIC code.  */"\
-%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}"
+  "/* APPLE LOCAL ARM ignore -mthumb and -mno-thumb */"\
+  %<mthumb %<mno-thumb \
+  "/* APPLE LOCAL ignore -msse and -msse2 and other x86 options */"\
+  %<msse  %<msse2 %<msse3 %<march=pentium4 %<mcpu=pentium4 \
+  "/* APPLE LOCAL mainline 2007-02-20 5005743 */"\
+  %{!mmacosx-version-min=*:-mmacosx-version-min=%(darwin_minversion)} \
+  %{g: %{!fno-eliminate-unused-debug-symbols: -feliminate-unused-debug-symbols }} \
+  %{static: %{Zdynamic: %e conflicting code gen style switches are used}}\
+  "/* APPLE LOCAL -fast and PIC code.  */"\
+  %{!mkernel:%{!static:%{!fast:%{!fastf:%{!fastcp:%{!mdynamic-no-pic:-fPIC}}}}}}"
+/* APPLE LOCAL end mainline */
+/* APPLE LOCAL begin mainline */
+#define DARWIN_ARCH_SPEC "%{m64:ppc64;:ppc}"
 
 #define DARWIN_SUBARCH_SPEC "			\
  %{m64: ppc64}					\
@@ -161,12 +210,33 @@ do {									\
    mcpu=power4:ppc970;				\
    mcpu=G5:ppc970;				\
    :ppc}}"
+/* APPLE LOCAL end mainline */
+/* APPLE LOCAL begin mainline 2005-11-15 4271575 */
+/* crt2.o is at least partially required for 10.3.x and earlier.  */
+#define DARWIN_CRT2_SPEC \
+  "%{!m64:%:version-compare(!> 10.4 mmacosx-version-min= crt2.o%s)}"
+/* APPLE LOCAL end mainline 2005-11-15 4271575 */
+/* APPLE LOCAL begin mainline 2007-03-13 5005743 5040758 */ \
 
+/* Determine a minimum version based on compiler options.  */
+#define DARWIN_MINVERSION_SPEC					\
+  "%{m64:%{fgnu-runtime:10.4;					\
+	   ,objective-c|,objc-cpp-output:10.5;			\
+	   ,objective-c++|,objective-c++-cpp-output:10.5;	\
+	   :10.4};						\
+     shared-libgcc:10.3;					\
+     :10.1}"
+
+/* APPLE LOCAL end mainline 2007-03-13 5040758 5005743 */
+/* APPLE LOCAL begin mainline */
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
-  { "darwin_arch", "%{m64:ppc64;:ppc}" },	\
+  DARWIN_EXTRA_SPECS				\
+  { "darwin_arch", DARWIN_ARCH_SPEC },	\
+  /* APPLE LOCAL mainline 2005-11-15 4271575 */	\
+  { "darwin_crt2", DARWIN_CRT2_SPEC },		\
   { "darwin_subarch", DARWIN_SUBARCH_SPEC },
-
+/* APPLE LOCAL end mainline */
 /* Output a .machine directive.  */
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START rs6000_darwin_file_start
@@ -189,9 +259,10 @@ do {									\
 #define FIXED_R13 0
 
 /* Base register for access to local variables of the function.  */
-
-#undef  FRAME_POINTER_REGNUM
-#define FRAME_POINTER_REGNUM 30
+/* APPLE LOCAL begin mainline */
+#undef  HARD_FRAME_POINTER_REGNUM
+#define HARD_FRAME_POINTER_REGNUM 30
+/* APPLE LOCAL end mainline */
 
 #undef  RS6000_PIC_OFFSET_TABLE_REGNUM
 #define RS6000_PIC_OFFSET_TABLE_REGNUM 31
@@ -213,14 +284,16 @@ do {									\
     ? RS6000_PIC_OFFSET_TABLE_REGNUM \
     : INVALID_REGNUM)
 /* APPLE LOCAL end -pg fix */
-
 /* Pad the outgoing args area to 16 bytes instead of the usual 8.  */
-
+/* APPLE LOCAL begin mainline */
 #undef STARTING_FRAME_OFFSET
 #define STARTING_FRAME_OFFSET						\
-  (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
+  (FRAME_GROWS_DOWNWARD                                                 \
+   ? 0                                                                  \
+   : (RS6000_ALIGN (current_function_outgoing_args_size, 16)		\
    + RS6000_VARARGS_AREA						\
-   + RS6000_SAVE_AREA)
+      + RS6000_SAVE_AREA))
+/* APPLE LOCAL end mainline */
 
 #undef STACK_DYNAMIC_OFFSET
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
@@ -251,7 +324,8 @@ do {									\
 #define FP_SAVE_INLINE(FIRST_REG) \
 (optimize >= 3   \
 || ((FIRST_REG) > 60 && (FIRST_REG) < 64) \
-|| TARGET_LONG_BRANCH)
+|| TARGET_LONG_BRANCH \
+|| flag_stack_protect)
 /* APPLE LOCAL end inline FP save/restore (radar 3414605) */
 
 /* Define cutoff for using external functions to save vector registers.  */
@@ -259,12 +333,14 @@ do {									\
 #undef VECTOR_SAVE_INLINE
 #define VECTOR_SAVE_INLINE(FIRST_REG) \
   (((FIRST_REG) >= LAST_ALTIVEC_REGNO - 1 && (FIRST_REG) <= LAST_ALTIVEC_REGNO) \
-   || TARGET_LONG_BRANCH)
+   || TARGET_LONG_BRANCH \
+   || flag_stack_protect)
 /* APPLE LOCAL end long-branch */
 
 /* Darwin uses a function call if everything needs to be saved/restored.  */
 #undef WORLD_SAVE_P
-#define WORLD_SAVE_P(INFO) ((INFO)->world_save_p)
+/* APPLE LOCAL stack protection */
+#define WORLD_SAVE_P(INFO) ((flag_stack_protect == 0) && (INFO)->world_save_p)
 
 /* The assembler wants the alternate register names, but without
    leading percent sign.  */
@@ -287,7 +363,10 @@ do {									\
     "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",             \
     "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",             \
     "vrsave", "vscr",							\
-    "spe_acc", "spefscr"                                                \
+    /* APPLE LOCAL begin mainline */					\
+    "spe_acc", "spefscr",						\
+    "sfp"								\
+    /* APPLE LOCAL end mainline */					\
 }
 
 /* This outputs NAME to FILE.  */
@@ -308,19 +387,9 @@ do {									\
 #undef ASM_OUTPUT_INTERNAL_LABEL_PREFIX
 #define ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
   fprintf (FILE, "%s", PREFIX)
-
-/* This says how to output an assembler line to define a global common
-   symbol.  */
-/* ? */
-#undef  ASM_OUTPUT_ALIGNED_COMMON
-#define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)			\
-  do {									\
-    unsigned HOST_WIDE_INT _new_size = SIZE;				\
-    fputs (".comm ", (FILE));						\
-    RS6000_OUTPUT_BASENAME ((FILE), (NAME));				\
-    if (_new_size == 0) _new_size = 1;					\
-    fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", _new_size);	\
-  } while (0)
+/* APPLE LOCAL begin mainline */
+/* Removed ASM_OUTPUT_COMMON */
+/* APPLE LOCAL end mainline */
 
 /* Override the standard rs6000 definition.  */
 
@@ -369,10 +438,13 @@ do {									\
 
 #define RS6000_MCOUNT "*mcount"
 
-/* Default processor: G4, and G5 for 64-bit.  */
-
+/* APPLE LOCAL begin 4298879.  */
+/* Default processor (for -mtune): G5 when not optimizing for size othwerise G4. 
+   It is G5 by default for 64-bit in all cases.  */
+/* APPLE LOCAL end 4298879.  */
 #undef PROCESSOR_DEFAULT
-#define PROCESSOR_DEFAULT  PROCESSOR_PPC7400
+/* APPLE LOCAL 4298879.  */
+#define PROCESSOR_DEFAULT  (optimize_size ? PROCESSOR_PPC7400 : PROCESSOR_POWER4)
 #undef PROCESSOR_DEFAULT64
 #define PROCESSOR_DEFAULT64  PROCESSOR_POWER4
 
@@ -444,6 +516,14 @@ do {									\
     	    			 : ((FIRST_FIELD_P) ? (COMPUTED) \
     	    			 		    : 32))))))
 
+/* When adjusting (lowering) the alignment of fields when in the
+   mac68k alignment mode, the 128-bit alignment of vectors *MUST*
+   be preserved.  */
+#undef PEG_ALIGN_FOR_MAC68K
+#define PEG_ALIGN_FOR_MAC68K(DESIRED)					\
+        ((DESIRED) == RS6000_VECTOR_ALIGNMENT ? RS6000_VECTOR_ALIGNMENT	\
+         : MIN ((DESIRED), 16))
+
 #undef ROUND_TYPE_ALIGN
 /* Macintosh alignment modes require more complicated handling
    of alignment, so we replace the macro with a call to a
@@ -510,12 +590,45 @@ extern const char *darwin_one_byte_bool;
 /* APPLE LOCAL end mainline to be accessed, 5 nops */
 
 #define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)
+/* APPLE LOCAL begin radar 4590221 */
+/* This is reserved to set flag_objc_direct_dispatch for Objective-C. */
+#define HAVE_OFFS_MSGSEND_FAST		\
+    (flag_next_runtime			\
+     && flag_objc_direct_dispatch != 0	\
+     && !TARGET_64BIT			\
+/* APPLE LOCAL mainline 2007-02-20 5005743 */ \
+     && (strverscmp (darwin_macosx_version_min, "10.4") >= 0 \
+         || flag_objc_direct_dispatch == 1))
+
+/* This is the reserved direct dispatch address for Objective-C.  */
+#define OFFS_MSGSEND_FAST \
+  (HAVE_OFFS_MSGSEND_FAST ? 0xFFFEFF00 : 0)
+
+/* This is the reserved ivar address Objective-C.  */
+#define OFFS_ASSIGNIVAR_FAST \
+  (HAVE_OFFS_MSGSEND_FAST ? 0xFFFEFEC0 : 0)
+/* APPLE LOCAL end radar 4590221 */
 /* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 
 /* Old versions of Mac OS/Darwin don't have C99 functions available.  */
 #undef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS					\
   (TARGET_64BIT							\
-   || (darwin_macosx_version_min				\
-       && strverscmp (darwin_macosx_version_min, "10.3") >= 0))
+/* APPLE LOCAL mainline 2007-02-20 5005743 */ \
+   || strverscmp (darwin_macosx_version_min, "10.3") >= 0)
 /* APPLE LOCAL end mainline 2005-09-01 3449986 */
+
+/* APPLE LOCAL begin mainline */
+/* When generating kernel code or kexts, we don't use Altivec by
+   default, as kernel code doesn't save/restore those registers.  */
+#define OS_MISSING_ALTIVEC (flag_mkernel || flag_apple_kext)
+/* APPLE LOCAL end mainline */
+
+/* APPLE LOCAL begin x86_64 */
+#define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(ASM_OUT_FILE, ENCODING, SIZE, ADDR, DONE)	\
+  if (ENCODING == ASM_PREFERRED_EH_DATA_FORMAT (2, 1))       \
+    {				                                         \
+	  darwin_non_lazy_pcrel (ASM_OUT_FILE, ADDR);            \
+	  goto DONE;                                             \
+    }
+/* APPLE LOCAL end x86_64 */

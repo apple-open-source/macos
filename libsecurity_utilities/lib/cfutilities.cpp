@@ -28,19 +28,105 @@
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/errors.h>
 #include <security_utilities/debugging.h>
+#include <cstdarg>
 
 
 namespace Security {
 
 
+ModuleNexus<CFEmptyArray> cfEmptyArray;
+
+CFEmptyArray::CFEmptyArray()
+{
+	mArray = CFArrayCreate(NULL, NULL, 0, NULL);
+}
+
+
 //
 // Turn a C(++) string into a CFURLRef indicating a file: path
 //
-CFURLRef makeCFURL(const char *s, bool isDirectory)
+CFURLRef makeCFURL(const char *s, bool isDirectory, CFURLRef base)
 {
-	return CFURLCreateWithFileSystemPath(NULL,
-		CFRef<CFStringRef>(makeCFString(s)),
-		kCFURLPOSIXPathStyle, isDirectory);
+	if (base)
+		return CFURLCreateWithFileSystemPathRelativeToBase(NULL,
+			CFTempString(s), kCFURLPOSIXPathStyle, isDirectory, base);
+	else
+		return CFURLCreateWithFileSystemPath(NULL,
+			CFTempString(s), kCFURLPOSIXPathStyle, isDirectory);
+}
+
+CFURLRef makeCFURL(CFStringRef s, bool isDirectory, CFURLRef base)
+{
+	if (base)
+		return CFURLCreateWithFileSystemPathRelativeToBase(NULL, s, kCFURLPOSIXPathStyle, isDirectory, base);
+	else
+		return CFURLCreateWithFileSystemPath(NULL, s, kCFURLPOSIXPathStyle, isDirectory);
+}
+
+
+//
+// CFMallocData objects
+//
+CFMallocData::operator CFDataRef ()
+{
+	CFDataRef result = makeCFDataMalloc(mData, mSize);
+	if (!result)
+		CFError::throwMe();
+	mData = NULL;	// release ownership
+	return result;
+}
+
+
+//
+// Make CFDictionaries from stuff
+//
+CFDictionaryRef makeCFDictionary(unsigned count, ...)
+{
+	CFTypeRef keys[count], values[count];
+	va_list args;
+	va_start(args, count);
+	for (unsigned n = 0; n < count; n++) {
+		keys[n] = va_arg(args, CFTypeRef);
+		values[n] = va_arg(args, CFTypeRef);
+	}
+	va_end(args);
+	return CFDictionaryCreate(NULL, (const void **)keys, (const void **)values, count,
+		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+}
+
+CFMutableDictionaryRef makeCFMutableDictionary(unsigned count, ...)
+{
+	CFMutableDictionaryRef dict = CFDictionaryCreateMutable(NULL, 0,
+		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	if (count > 0) {
+		va_list args;
+		va_start(args, count);
+		for (unsigned n = 0; n < count; n++) {
+			CFTypeRef key = va_arg(args, CFTypeRef);
+			CFTypeRef value = va_arg(args, CFTypeRef);
+			CFDictionaryAddValue(dict, key, value);
+		}
+		va_end(args);
+	}
+	return dict;
+}
+
+CFDictionaryRef makeCFDictionaryFrom(CFDataRef data)
+{
+	if (data) {
+		CFPropertyListRef plist = CFPropertyListCreateFromXMLData(NULL, data,
+			kCFPropertyListImmutable, NULL);
+		if (plist && CFGetTypeID(plist) != CFDictionaryGetTypeID())
+			CFError::throwMe();
+		return CFDictionaryRef(plist);
+	} else
+		return NULL;
+	
+}
+
+CFDictionaryRef makeCFDictionaryFrom(const void *data, size_t length)
+{
+	return makeCFDictionaryFrom(CFTempData(data, length).get());
 }
 
 
@@ -51,14 +137,10 @@ CFURLRef makeCFURL(const char *s, bool isDirectory)
 string cfString(CFStringRef inStr, bool release)
 {
 	if (!inStr)
-		CFError::throwMe();
+		return "";
 	CFRef<CFStringRef> str(inStr);	// hold ref
 	if (!release)
 		CFRetain(inStr);	// compensate for release on exit
-
-	// NULL translates (cleanly) to empty
-	if (str == NULL)
-		return "";
 
 	// quick path first
 	if (const char *s = CFStringGetCStringPtr(str, kCFStringEncodingUTF8)) {
@@ -101,26 +183,63 @@ string cfString(CFBundleRef inBundle, bool release)
 	return cfString(CFBundleCopyBundleURL(bundle), true);
 }
 
-
-//
-// Get numbers ouf of a CFNumber
-//
-uint32_t cfNumber(CFNumberRef number)
+string cfString(CFTypeRef it, OSStatus err)
 {
-	uint32_t value;
-	if (CFNumberGetValue(number, kCFNumberSInt32Type, &value))
-		return value;
+	if (it == NULL)
+		MacOSError::throwMe(err);
+	CFTypeID id = CFGetTypeID(it);
+	if (id == CFStringGetTypeID())
+		return cfString(CFStringRef(it));
+	else if (id == CFURLGetTypeID())
+		return cfString(CFURLRef(it));
+	else if (id == CFBundleGetTypeID())
+		return cfString(CFBundleRef(it));
 	else
-		CFError::throwMe();
+		MacOSError::throwMe(err);
 }
 
-uint32_t cfNumber(CFNumberRef number, uint32_t defaultValue)
+
+//
+// CFURLAccess wrappers for specific purposes
+//
+CFDataRef cfLoadFile(CFURLRef url)
 {
-	uint32_t value;
-	if (CFNumberGetValue(number, kCFNumberSInt32Type, &value))
-		return value;
-	else
-		return defaultValue;
+	assert(url);
+	CFDataRef data;
+	SInt32 error;
+	if (CFURLCreateDataAndPropertiesFromResource(NULL, url,
+		&data, NULL, NULL, &error)) {
+		return data;
+	} else {
+		secdebug("cfloadfile", "failed to fetch %s error=%d", cfString(url).c_str(), int(error));
+		return NULL;
+	}
+}
+
+
+//
+// CFArray creators
+//
+CFArrayRef makeCFArray(CFIndex count, ...)
+{
+	CFTypeRef elements[count];
+	va_list args;
+	va_start(args, count);
+	for (CFIndex n = 0; n < count; n++)
+		elements[n] = va_arg(args, CFTypeRef);
+	va_end(args);
+	return CFArrayCreate(NULL, elements, count, &kCFTypeArrayCallBacks);
+}
+
+CFMutableArrayRef makeCFMutableArray(CFIndex count, ...)
+{
+	CFMutableArrayRef array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+	va_list args;
+	va_start(args, count);
+	for (CFIndex n = 0; n < count; n++)
+		CFArrayAppendValue(array, va_arg(args, CFTypeRef));
+	va_end(args);
+	return array;
 }
 
 

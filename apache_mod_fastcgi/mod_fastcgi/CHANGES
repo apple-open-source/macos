@@ -1,0 +1,819 @@
+2.4.2
+
+ *) [WIN] Fix handle leaks in the process manager.  
+    Sascha Schumann [sascha@schumann.cx]
+
+ *) [WIN] Use a permanent pool for allocating the SystemRoot 
+    environment variable.  Sakamoto [ringring@zb4.so-net.ne.jp]
+
+ *) [WIN] Fix starting of scripts under AP2.
+
+ *) Do the connect() to the application *after* collecting a chunk
+    of client data.  This reinstates the pre-2.4.0 behaviour.
+    James Jurach [muaddib@erf.net].
+
+ *) Remove an assert that was triggering on WIN when spawn() failed.
+
+ *) Provide the NO_SUEXEC_FOR_AP_USER_N_GROUP macro for building
+    mod_fastcgi with the AP13 suexec behaviour (don't use suexec
+    if httpd's user and group match that needed for the application).
+
+ *) Prevent the use of all but the "auth" directives from being used
+    anywhere but in global scope.  Prevent more than one instance
+    of the FastCgiWrapper directive.
+
+ *) Return NOT_FOUND (404) or FORBIDDEN (403) instead of 
+    INTERNAL_SERVER_ERROR (500) when there are configuration issues
+    or the script does't exist.  Suggested by Jeff Lawson [bovine@ud.com].
+
+2.4.0
+
+ *) [*nix Security] - When FastCgiWrapper (FastCgiSuexec) was in use 
+    and a vhost configured to use the same uid/gid as the main
+    server, mod_fastcgi would not bother using the wrapper (suexec)
+    because its effective uid/gid was already appropriate.  This is
+    consistent with Apache's v1.3 mod_cgi behaviour.  There are two
+    problems with this approach:  1) when FastCgWrapper is in use 
+    mod_fastcgi's process manager keeps its root privileges (as its
+    real uid/gid) so it can terminate the applications its starts -
+    this privilege was being passed to applications when the use of 
+    the wrapper was bypassed  2) wrappers are often employed to
+    perform functionality beyond setting the uid/gid - by not calling
+    the wrapper under certain circumstances, application invocation
+    environments were inconsistent.  With this change, the wrapper is
+    always used (when enabled) under both Apache 1.3 and 2.
+    Reported by Michael Richards [michael@fastmail.ca].
+
+ *) [*nix/AP2] Use the vhost uid/gid instead of the server uid/gid
+    for dynamic application invocation when the FastCgiWrapper is in use.
+    Reported by Michael Richards [michael@fastmail.ca]
+
+ *) [*nix] Fix handling of FastCgiWrapper when passed a real path,
+    i.e. other than "on" or "off".  Michael Richards [michael@fastmail.ca]
+
+ *) Eliminate the logging of "incomplete headers (0 bytes) received from 
+    server" when a client aborts. 
+
+ *) [WIN32] Fix a delay in handling large POSTs to named pipe based
+    servers. Philip Gladstone [philip@okena.com]
+
+ *) [*nix/AP2] Prevent the module from being initalized twice at startup
+    (resulting in confusing error messages to the log).
+
+ *) Eliminate the need for SetHandler or AddHandler with static or 
+    external applications.
+
+ *) Limit PM requests to start a dynamic application
+    to 5sec to prevent endless spinning (this is a drop-dead
+    limit that should only occur if the socket/named_pipe directory
+    is removed out from under a running server).
+
+ *) [*nix] Change the default socket directory from /tmp/fcgi to:
+    Apache  - logs/fastcgi
+    Apache2 - RUNTIMEDIR/fastcgi
+
+ *) Add -user & -group args to FastCgiServer and FastCgiExternalServer
+    for use with wrappers (in lieu of finding the user/group associated
+    with a virtual host - under Apache2 this isn't accomodated).
+
+ *) [WIN32] Under Apache2, require v2.0.41 or later in order to pickup my 
+    apr_proc_create() changes.
+
+ *) Log when invoking and restoring the restart backoff policy.
+
+ *) [WIN32] Prevent intermittent ReadFile() failures (properly initialize the
+    OVERLAPPED structure). 
+
+ *) Eliminate need for dummy files for external servers under Apache2
+
+ *) Fix auth compatibility mode handling for access checker and authorizer
+
+ *) Fix HEAD request handling.  Based on a patch by 
+    Chris Lightfoot [chris@ex-parrot.com]
+
+ *) [*nix] When autoupdate is enabled touch the socket when restarting
+    the processes to prevent further requests.  
+    Eckebrecht von Pappenheim [evp@heise.de]
+
+ *) Apache 2.0 support.
+
+ *) [WIN32] Don't read from a potentially closed named pipe. 
+    Philip Gladstone [philip@okena.com]
+
+ *) Require the Apache version 1.3.6 or later to eliminate some signal
+    handling funk.
+
+ *) [WIN32] Use asyncronous io with named pipes instead of polled
+    nonblocking io.  This should eliminate the last of the npipe issues.
+
+ *) Handle an application returning a complete and valid response without 
+    having consumed all of the data sent to it.
+
+ *) Consume remaining client data (RESPONDERs only) if any.
+
+ *) Add support for backing off attempts to start applications that continuously
+    fail to start.  Three new macros defined in mod_fastcgi.h control this 
+    behaviour: MAX_FAILED_STARTS, RUNTIME_SUCCESS_INTERVAL, FAILED_STARTS_DELAY
+
+ *) [WIN32] Add (back) support for use of TerminateProcess() to accomodate
+    applications that do not (properly) support the shutdown event (this
+    feature was introduced in fcgi2 2.2.2 and improved in 2.2.4).  The 
+    new macro WIN32_SHUTDOWN_GRACEFUL_WAIT in mod_fastcgi.h conrols the 
+    interval between signaling a proper shutdown and wacking the process(s)
+    with a TerminateProcess().
+
+ *) [WIN32] Don't set the OVERLAPPED_IO flag on NamedPipe listen HANDLEs - 
+    setting it was just plain broken.
+
+ *) [WIN32] Fix the accept mutex - all applications were sharing one!? 
+
+ *) Fix 'FastCgiConfig -autoUpdate'.
+
+ *) Fix 'FastCgiConfig -flush'.
+
+ *) Prevent silly maxProcesses and processSlack combinations.
+    Dmitry Dorofeev [dima@yasp.com]
+                                                               
+ *) Properly handle the killing of idle processes when one takes a long time
+    to exit once signaled down (or the config is funky).
+    Dmitry Dorofeev [dima@yasp.com]
+
+ *) Always kill the youngest instance of an application.  Suggested by 
+    Dmitry Dorofeev [dima@yasp.com]
+
+2.2.12
+
+ *) Delay the logging of write errors to the pm to account for shutdown/restart.
+
+ *) (Win32) An assortment of fixes.
+
+ *) Fix some broken casts that were likely the cause of an assert.
+
+ *) Win32. Eliminate forward slashes from the named pipe path name.
+    Gerald Richter [richter@ecos.de]
+
+ *) SIGUSR2 is no longer blocked in the process manager and the fastcgi 
+    applications it spawns. [ryans@amazon.com]
+
+ *) Added support for the -flush argument to FastCgiConfig. 
+    Eric Sit [esit@alum.mit.edu]
+
+ *) Change the "which call to module_init() is this" check to a more
+    reliable approach.  Doru Petrescu [pdoru@kappa.ro]
+
+ *) Close the old pipe file descriptor in apache main on USR1/HUP 
+    (elimnates a small leak).  James E. Jurach Jr. jjurach@fundsxpress.com
+
+ *) Fix a bug in fcgi_config_set_authoritative_slot(). Tetsuya Furukawa
+    [tetsuya@secom-sis.co.jp]
+
+ *) Eliminate the use of locks to assist in the clean shutdown of
+    applications.  Instead, it is assumed that applications handle
+    termination signals properly (this is now embedded in the C
+    application lib).
+
+ *) Fix Win32 process termination.  Proper operation requires the use of
+    an updated application lib (termination is now signalled with an
+	Event and handled by specialized thread).
+
+ *) Docs cleanup.  Andrew Benham [adsb@bigfoot.com]
+
+ *) Added code so if the last instance of a dynamic application died without
+    provocation, then don't restart it if singleThreshold > 0 (i.e. if the
+    configuration allows the last instance to be killed, then allow it to die).
+    Andrew Benham [adsb@bigfoot.com]
+
+ *) Fix the loadFactor calculation used to determine when dyanmic
+    applications could be killed off due to low demand [adsb@bigfoot.com].
+
+ *) Fix a deadlock condition that could occur with Win32 named 
+    pipes (dynamic).
+
+ *) Fix a potential deadlock condition when FastCGI application
+    sent responses while still reading the client request (POST data).
+
+2.2.10
+
+ *) Allow absolute pathnames in the -socket argument.  Suggested by 
+    Christian Jaeger [christian.jaeger@sl.ethz.ch].
+
+ *) Don't invoke suexec when the user/group for the fastcgi application
+    is the same as the apache main server.  This is consistent with 
+    apache's suexec handling.  Suggested by Nikolaus Rath [Nikolaus@rath.org].
+
+ *) Reset the apache drop dead timer upon successful read or writes
+    to/from the client.  This eliminates timeouts that were occuring
+    during the large file transfers to/from slow clients.
+
+ *) Support generic wrappers such as cgiwrap by eliminating dependencies
+    on Apache's SUEXEC, renaming the FastCgiSuexec directive 
+    FastCgiWrapper and eliminating any checks regarding the target 
+    application (this is the repsonibility of the wrapper).
+
+ *) Fix a nasty bug that occurred when a client aborted a POST request 
+    before the connection to a dynamic FastCGI application was opened.
+    The application's lock file descriptor wasn't setup but was being 
+    closed which resulted in FD0 being closed.  Normally this is open to 
+    /dev/null and should pose no problems except that because the FD
+    was available it was being returned by Apache's accept().  This 
+    caused it to be registered for pool cleanup.  mod_cgi though moves
+    the CGI stdin pipe to FD0 and thus it was getting waxed during pool
+    cleanup.  Problem identified by checksum@163.net.
+
+Changes with mod_fastcgi 2.2.8
+
+ *) Eliminate the concept of disabled applications.  If a failure 
+    occurs trying to setup an application (e.g. bind() error) its 
+    tried repeatedly every init-start-delay seconds.
+
+ *) Tweak to Makefile.tmpl to support DSOs.  Dave Hill [ddhill@zk3.dec.com]
+
+Changes with mod_fastcgi 2.2.6
+
+ *) Shutdown the PM when Apache appears to have disappeared.
+
+ *) seteuid() tweak for HP-UX 11.  Milton L. Hankins [mlh@swl.msd.ray.com]
+
+ *) (Win32) More dynamic fixes.
+
+ *) (Win32) Eliminate the per application named pipe mutex.  Its now 
+    per process to keep the lib happy (the use _FCGI_MUTEX_ should
+    removed from the lib).  This allows pipe-based applications to
+    now handle multiple simoultanous requests (one per process).
+ 
+ *) Increase the number of open FDs we look to close when spawning apps.
+
+ *) Prevent an assert from popping unnecessarily.
+
+ *) (Win32) Add support for interpretter scripts.
+
+ *) (Win32) Fix named pipe handling (problems with large responses).
+
+ *) (Win32) Remove the "can exec" check.
+
+Changes with mod_fastcgi 2.2.4
+
+ *) Beta WinNT support.  David Allen [djallen@raleigh.ibm.com] and 
+    Rob Saccoccio [robs@chelsea.net]
+
+ *) Remove request type restriction (GET and POST only) in order to support
+    Web DAV requests.  Scott Robertson [sroberts@codeit.com] 
+
+ *) Allow requests for URLs such as /server/some/other/qualifier to match a
+    FastCGI server defined as /server.	This was done primarily for Java
+	Servlets, but is generically useful.
+
+ *) Change the comm between the PM and the request handlers from a regular
+    file to a pipe and an assortment of other dynamic fixes.
+
+ *) Log dynamic process termination scheduling and the resulting 
+    process exit notification.
+
+ *) Change the default singleThreshhold from 10 to 0 to prevent the last dynamic
+    application process from being killed off due to low demand.
+
+ *) Clean up FastCGI application pathnames (e.g. remove duplicate slashes). 
+ 
+ *) Fix bugs that prevented dynamic processes from being shutdown when
+    the load subsided.  Lars Heete [heete@do.isst.fhg.de]
+
+ *) Prevent dynamic processes from being scheduled to be started before
+    the init-start-delay or restart-delay period expires.  This prevents
+	the queuing of process start requests while an application which has
+	a long initialization period starts up.
+
+ *) When suexec is enabled, allow the process manager to become root again in
+    order to signal applications it spawned.
+
+ *) Change the "server started" log message level from INFO to WARN.
+
+ *) Fix dynamic server "Connection Refused" handling.
+
+ *) Fix demand-based dynamic process spawing (uses a more portable approach).
+
+ *) Add -idle-timeout arg to FastCgiServer, FastCgiExternalServer, and
+    FastCgiConfig.  mod_fastcgi will now abort a connection if inactive for
+	longer than this period.  It applies to the initiation of connections as
+	well (and thus is similar to appConnTimeout).  Default is 30 seconds.
+
+ *) appConnTimeout is 0 by default now resulting in blocking connect()s.  This
+    is more platform portable/predicable.
+
+ *) Leave STDOUT and STDERR open to the main server error_log.  This should
+    eliminate a pile of protocol errors and having to track down 3rd party
+    libs writing to stderr inadvertantly.  This doesn't mean these shouldn't
+    be fixed in the application to use the FastCGI I/O, it just allows these
+    applications to run when previously they'd crash and burn.
+
+ *) Add the pass-header arg to server directives.
+
+ *) Allow supplementary groups to be passed to spawned FastCGI applications (as
+    is done for CGI) - at least until PR2580 is resolved.
+
+ *) Initialize the default (empty) environment in a more socially acceptable
+    way.
+
+ *) Miscellaneous doc improvements based on notes I've collected up over the
+    last few months.
+
+ *) Fix a bug in the stderr handling introduced in 2.2.2.  There were conditions
+    that resulted in not or improperly terminated strings.
+
+ *) Fix the call to setsockopt() to disable Nagle.  [based on a bug report by
+    Johannes Plassmann <johannes.plassmann@pdb.siemens.de>]
+
+Changes with mod_fastcgi 2.2.2
+
+ *) Added support for blocking connect()s by setting appConnTimeout to 0.
+    Non-blocking connect()s (the default) can be troublesome on some platforms.
+    Its expected that blocking connect()s will become the default (and
+    non-blocking connect()s will become optional) in the next release.
+
+ *) Dump a compile time error if the version of Apache is too old.
+
+ *) Wrap the SIGPIPE handler manipulation code such that it is only applicable
+    to Apache releases prior to 1.3.6.
+
+ *) Minor tweaks for RUSSIAN_APACHE.  [Sergey Gershtein <sg@mplik.ru>]
+
+ *) Dynamic updates:
+
+    Always restart a failed dynamic application if it is the last instance.
+    This means there once started there will always be at least one process
+    instance of a dynamic application.
+
+    Send PLEASE_START to the PM when a connect() results in an ECONNREFUSED.
+    ECONNREFUSED means the listen queue is full (or there isn't one).  Asking
+    the PM to start (another) application instance may help empty it faster.
+
+    Change two sleep() calls to select() based snoozes because alarm() is in
+    effect and sleep() and alarm() don't always play nice together.
+
+    Fixed a couple of error messages.
+
+ *) Fix -listen-queue-depth arg on FastCgiConfig (dynamic).  Previously it
+    was ignored and the default was always used.
+
+ *) Allow the -initial-env argument to be used to pass variables from the
+    Apache process environment to the FastCGI server (by specifying a
+    variable name without the "=" or a value).  [suggested by
+    Martin Lichtin <lichtin@oanda.com>]
+
+ *) Cleanup some debug macros.
+
+ *) Improved script stderr handling.  [based on suggestions by
+    David Birnbaum <davidb@chelsea.net>]
+
+ *) Added IRIX and FreeBSD to the list of supported platforms and other minor
+    updates to the INSTALL doc.
+
+ *) Changed the default listen-queue-depth (FCGI_DEFAULT_LISTEN_Q) from
+    5 to 100.  Its still configurable with the -listen-queue-depth option.
+    This should help eliminate the FAQ - Why do I see "Connection Refused"
+    messages in the log?
+
+ *) Fix a bug in FastCgiExternalServer that broke support for external servers
+    on other hosts.  [Dave Neuer <dneuer@futuristics.net>]
+
+Changes with mod_fastcgi 2.2.1
+
+ *) Updates to the INSTALL doc to describe building as a DSO.
+
+ *) If the FastCgiIpcDir directive was in use and "httpd -t" was issued while
+    Apache was running ("apachectl restart" does this), the contents of the
+    dynamic directory (dynamic sockets and the mbox) would be blown away
+    (a 2.1b1 bug).
+
+ *) Add an extern declaration for ap_sys_siglist (its exposed but not in any
+    Apache header file) to prevent a compile error on systems without
+    SYS_SIGLIST defined.
+
+ *) During auth requests, the subprocess_env table was left holding variables
+    sent to the auth FastCGI server (including REMOTE_PASSWD!) which means they
+    were passed to other processing phases (such as CGI/FastCGI).  The
+    subprocess_env is now restored to its pre-auth condition.
+
+ *) Added a FastCGI Authorizer Role compatibility mode which implements the
+    specification to the tee.  Use -compat arg with any of the Auth server
+    directives.  This is intended for new and existing FastCGI authorizer
+    applications that require compatibility with other server implementations.
+
+ *) Fix logging from the process manager.  Previously, all calls to the
+    logging routines used NULL for the server_rec.  This works fine in a dev
+    environment, but results in most of these messages being tossed by
+    log_error_core() because DEFAULT_LOGLEVEL is too low.  Odd logic.
+
+ *) Always setup fr->header so that in the event the FastCGI server
+    doesn't get a valid FastCGI protocol header over the wire, we
+    can still print our error message to the log from do_work().
+
+ *) Fix a compile error in open_connection_to_fs() on systems with TCP_NODELAY
+    defined (Don Locrasto [locrasto@iceminer.com]).
+
+Changes with mod_fastcgi 2.2.0
+
+ *) Serious rewrite of mod_fastcgi.html.  An example conf will have
+    to wait until another time - I'm burned out on docs updates.
+
+ *) Add to the mod_fastcgi to the server version string.
+
+ *) SCO doesn't like the const in the arg to inet_addr() and
+    gethostbyname().
+
+ *) Use Apache's NET_SIZE_T to get the correct arg type for getsockopt().
+
+ *) Deleted redundant header files from fcgi.h.
+
+ *) Full path names are no longer required for directives which take
+    file names as arguments.  Like other Apache directives you can
+    specify paths from server_root (don't start with a "/").
+
+ *) The fcgiKillMgr is gone.  This intermediate process sat between
+    the Apache parent and the FastCGI Process Manager under Apache
+    1.2.	 The process manager tries to name itself fcgi_pm (it used
+    to be fcgiProcMgr).
+
+ *) Authentication, Authorization, and Access phases are now
+    supported. I've bent the FastCgi spec a bit: as many of the standard
+    environment variables (that were easy) are sent (the spec says don't
+    send some by name), all headers (except Status) sent by the auth
+    FastCgi server are passed to subprocesses (CGI/FastCGI invocations)
+    as environment variables rather than just those prefixed by
+    "Variable-".  Custom responses for auth failures aren't supported
+    (yet.. we'll see what the demand for this is like).  In addition to
+    the FastCGI protocol defined environment variable "FCGI_ROLE" being
+    set to "AUTHORIZER" an environment variable "FCGI_APACHE_ROLE" is
+    set indicating which of the three phases is being processed.  See
+    the docs for info on the new per-directory directives:
+
+        FastCgiAuthenticator, FastCgiAuthenticatorAuthoritative,
+        FastCgiAuthorizer, FastCgiAuthorizerAuthoritative,
+        FastCgiAccessChecker, FastCgiAccessCheckerAuthoritative
+
+ *) The code has been broken into logical chunks making figuring it
+    out much easier.  All of the #defines a user may want to change are
+    now in mod_fastcgi.h.
+
+ *) All the logging has been converted to the "supported" Apache
+    logging routines, ap_log_error() and ap_log_rerror().  Log entries
+    for request specific errors should now be directed to the correct
+    server errorlog (if your running more than one).  Some attempt has
+    been made at setting appropriate log levels (comments of course are
+    welcome) and printing errno info when its of value.  All of log
+    messages now have "FastCGI" in them (nice for grep).
+
+ *) All of the calls to Apache routines have been updated to the ap_
+    convention, eliminating the need for the compat header.
+
+ *) By default we no longer flush every piece of data we get from the
+    FastCGI server to the client.  This allows the FastCGI server to
+    release without having to wait for the client flush to complete.
+    The old behaviour can revived with the -flush argument to AppClass.
+
+ *) I renamed some of the directives for consistency (the old names
+    still work).
+
+        AppClass -> FastCgiServer,
+        FCGIConfig -> FastCgiConfig,
+        ExternalAppClass -> FastCgiExternalServer
+
+ *) Directive arguments are no longer case sensitive.
+
+ *) The module now uses hard_timeout() rather than soft_timeout.  This
+    means that the module will longjump out of the request if the
+    drop-dead timeout expires (set with Apache's Timeout directive, the
+    default is 5min) or if the client closes the connection (SIGPIPE).
+    This is more typical for a Apache modules and I'm not convinced we
+    properly handle all of the error cases well enough to use
+    soft_timeout (I can think of one place we don't anyway). This means
+    your FastCGI application can see SIGPIPE.
+
+ *) SIGPIPE is now ignored by default in FastCGI servers spawned by
+    Apache.  Without this the default behaviour is exit().
+
+ *) It should (I think) run now under DSO now.
+
+ *) The bug which prevented sending of binary data in 2.1b1 is fixed.
+
+ *) The broken -initial-env bug ins 2.1b1 is fixed.
+
+ *) Maybe some other stuff.
+
+
+
+*** Well there's a big gap here.  Maybe I'll go back and extract the CVS
+commit notes and stick 'em in here.. when I get some free time.	;)
+
+    --robs  (8 Feb 99)
+
+
+*** Originally from docs/README..
+
+Apache[X1.03.01]/mod_fastcgi[02.00.05] 19970909 unsupported
+From: Stanley Gambarin <stanleyg@cs.bu.edu>
+
+ *) Yet more changes to the source distribution.  Separated out
+    the Tcl dynamic string and buffer libraries into separate files.
+    Did the same for the OS library, however, it is not really an
+    abstraction... more like a bunch of wrappers.  Added to DEVNOTES
+    a note about the problem of Apache not allowing including header
+    file more than once.
+
+Apache[X1.03.01]/mod_fastcgi[02.00.04] 19970908 unsupported
+From: Stanley Gambarin <stanleyg@cs.bu.edu>
+
+ *) More changes to the installation scripts.  Theoretically we
+    should be able to to use the same Makefile/installation script
+    for both Apache 1.2.x and 1.3.x.  Need some sort of the abstraction
+    layer to use the same source code for both 1.2.x and 1.3.x sources.
+
+Apache[X1.03.01]/mod_fastcgi[02.00.03] 19970905 unsupported
+From: Stanley Gambarin <stanleyg@cs.bu.edu>
+
+ *) Created Makefile to compile the module into the archive library,
+    just like the proxy module.  Also initial draft of the installation
+    script, which should work for both 1.2 and 1.3 sources of Apache.
+
+Apache[01.02.04]/mod_fastcgi[02.00.02] 19970903 unsupported
+From: Stanley Gambarin <stanleyg@cs.bu.edu>
+
+ *) More source reorg.  Separated out some header files.  Need much
+    more work on this.  Updated the TODO file.  Added fcgivers.h and
+    CHANGES	file to track the history.
+
+Apache[01.02.04]/mod_fastcgi[02.00.01] 19970902 unsupported
+From: Stanley Gambarin <stanleyg@cs.bu.edu>
+
+ *) Source reorganization.  This is done to provide a basis for later
+    functionality implementation.  See TODO file for more information
+    of what possible future enhancements are possible/desired.
+
+Apache[01.02.04]/mod_fastcgi[02.00.00] 19970902 unsupported
+From:  David MacKenzie <djm@va.pubnix.com>
+
+ *) Create the "dynamic" dir and "mbox" as the user specified in the
+    User and Group directives instead of as root.  They are created with
+    restrictive permissions, and then the module checks to see whether the
+    user specified in the User and Group directives has read, write, and
+    execute permissions on them.  Those permissions had been explicitly
+    denied by creating them as "root".
+
+ *) Some documentation was garbled or incomplete.
+
+ *) When a FastCGI application can't be execl'd, the code used a
+    value of errno that may have been stomped on by intervening system
+    calls.  That happened on BSD/OS 2.1, where the error_log was
+    reporting errno=25 (NOTTY) instead of the correct errno=13 (EACCES).
+    An intervening stdio call was setting errno as a side-effect, which
+    it has the right to do.
+
+ *) Erroneous fprintf arguments, a missing return value, an unused
+    function, missing declarations, and other problems detected by gcc
+    -Wall.
+
+ *) Duplicated code to create the lock file name merged into a single
+    function, closing several memory leaks.
+
+ *) FCGIConfig -minProcesses didn't allow a value of 0, so the last
+    FCGI app in a given dynamic class would live forever, even if it
+    hadn't been requested for weeks.
+
+ *) The test for whether to keep looking for dynamic app victims to
+    kill was backwards, so no dynamic apps were ever selected as
+    victims.
+
+ *) The killInterval and updateInterval were being ignored; the
+    sigsuspend() forced recalculations only when a child died,
+    instead of at the intervals specified.
+
+ *) When a dynamic app couldn't be started, the program SEGV'd when
+    trying to free the ipcAddrPtr twice.
+
+ *) Remove the dead lock file and socket when cleaning up after a
+  	server whose last child has been killed, so the FastCGIHandler
+    isn't fooled into thinking there is still a process serving
+    that app.
+
+ *) Make file locking robust in the presence of signals.
+
+ *) Rename some badly named variables.
+
+ *) Fix typos in many comments.
+
+ *) Fix some memory and file descriptor leaks.
+
+ *) Make the blocking kill of a server closer to working.
+
+ *) More fixes to calculations in dynamic application management.
+
+
+*** Originally from docs/README.OMI..
+
+What's New: Version 2.0b1, 16 Apr 1997
+
+ *) Implemented a mechanism by which FastCGI applications are started by
+    the web server on the first request and continue running.  Also,  a
+    heuristics have been implemented to allow for dynamic killing of the
+    running FastCGI apps.  The configuration options are supplied via
+	the new FCGIConfig directive, that is described in the
+	mod_fastcgi.html
+
+ *) When performing internal redirect, since the original request's body
+    has already been read, do not allow the redirected request to think
+    that is has one [body].
+
+ *) More conditional compilation for OS/2.
+
+ *) Fixed occassional  "Assertion failed: len > 0, file mod_fastcgi.c"
+
+ *) Fixed "failed assertion `count >= 0 && count <= bufPtr->length'"
+
+ *) Added bflush() call after bwrite() in DrainReqOutBuf function to
+    force some output to be written in the period of inactivity. This
+    circumvents the Apache's buffering during the server-push.
+
+ *) Added a header-parser function placeholder for compatibility with an
+    Apache source code.
+
+ *) Additional checks have been placed with regard to permissions of the
+    FastCGI processes.  These include the existence of the  file,
+    ExecCGI and IncludesNOEXEC checks, disallowing of nph- scripts, etc.
+
+ *) Implemented a restart cleanup, so that no parentlesses FastCGI
+	applications are left after Apache is restarted and/or terminated.
+	This was accomplished via two independent mechanisms, where the
+	first one prevents a start of the process manager on the first
+	reading of the configuration files.  The second mechanism deals away
+	from Apache's  implementation of fork() (via spawn_child()) and
+	implements its own forking, thus removing any dependencies on the
+	Apache to cleanup  processes during termination phase.
+
+ *) Removed the definition of the Sigfunc, as Apache 2.0b10 defines it
+    itself in the file conf.h
+
+What's New: Version 1.4.3, 15 Jan 1997
+
+ *) Fixed compilation warnings for various platforms, as well as
+	conditional compilation for OS/2.
+
+What's New: Version 1.4.2, 12 Dec 1996
+
+ *) mod_fastcgi.c is ported to Apache 1.2b.  Any further development
+	will proceed under this version of Apache web server.
+
+ *) As the result of porting, the "include virtual" construct of SSI
+	will now work correctly using either <Location> or <Directory>
+	directive.
+
+What's New: Version 1.4.1, 4 Dec 1996
+
+ *) Checks have been removed from the ScanCGIHeaders that provided
+    for the presence of both Status and Location headers as being
+    an error.  Contradictory to CGI/1.1 Internet Draft, both of
+    these headers are used by the current CGI applications.
+
+What's New: Version 1.4, 22 Nov 1996
+
+ *) Added the -port option to AppClass, allowing TCP/IP communication.
+    Added the -socket option to AppClass, allowing Unix domain
+    communication via a configurable pathname.
+
+ *) Added the ExternalAppClass directive, allowing TCP/IP
+    communication with remote FastCGI applications.
+
+ *) The handler had its own code for generating HTTP response headers;
+    now it uses Apache's.  This reduces the size of the module.
+    More importantly, it fixes the bug in which "include virtual"
+    sees the HTTP response headers.
+
+ *) The response header parser performed very little checking.
+    Now the parser enforces the guidelines in the CGI/1.1
+    Internet-Draft: Status and Location are mutually exclusive,
+    Location can only be a response to GET or HEAD,
+    CGI response headers can't be repeated, etc.  (The CGI response
+    headers are the ones the handler interprets: Status, Location,
+    and Content-type.)
+
+ *) The response header parser used to miss CGI headers
+    with no whitespace after the colon, e.g. "Status:200 OK".
+
+ *) The response header parser sometimes interpreted the first line
+    of content as an RFC822 continuation line.
+
+ *) The handler implemented a nonstandard version of Location
+    which never used internal redirects.  The handler
+    now attempts to implement Location as specified in the
+    CGI/1.1 Internet-Draft.  The module documentation explains
+    the new behavior.
+
+ *) Error log entries from the response header parser were
+    pretty uninformative; they are better now.  If a header is
+    malformed, the log entry includes it.  If the headers are
+    unterminated rather than malformed, the log entry says that,
+    and says how many bytes were received from the app.
+
+ *) When the application manager forked a new process, and that
+    process ran into trouble before executing the first instruction
+    of application code, the process used to exit with status =
+    errno.  This made certain configuration problems (e.g. incorrect
+    file permissions when server parent is root) quite difficult
+    to pin down.  Now the failing child process opens up the error log
+    and writes an informative entry before exiting.
+
+ *) The module now correctly handles a slash at the end of the
+    DocumentRoot directive.  This was a one-line fix.
+
+What's New: Version 1.3.3, 17 Oct 1996
+
+ *) The module now registers its request handler under the name
+    fastcgi-script in addition to the name application/x-httpd-fcgi.
+    This was a one-line addition to the module, but had quite
+    a large impact on the documentation and sample configuration.
+
+What's New: Version 1.3.2, 27 Sept 1996
+
+ *) On some systems (SunOS, Linux?), fopen for append has a bug
+    that strikes when two processes append to the same file.
+    This bug causes the process manager to corrupt the error log.
+    Work around the bug by calling open, then fdopen.  A patch
+    to Apache 1.1.1 is also required, as described in mod_fastcgi.html.
+    (Reported by Bob Ramstad.)
+
+What's New: Version 1.3.1, 17 Sept 1996
+
+ *) On Linux and SunOS, the Apache default user_id (-1) is not a
+    legal value of uid_t, so cast it.  (Reported by Bob Ramstad,
+    Scott Langley, others.)
+
+ *) On some systems (Linux, some Solaris?, Irix?), connect requires
+    write access to a Unix Domain socket, so provide it.  (Reported
+    by Scott Langley, freeform@wired.com, others.)
+
+ *) If you hit a .fcg file, but there's no AppClass defined, the
+    error should be NOT_FOUND instead of SERVER_ERROR.  (Reported
+    by Michael Smith.)
+
+What's New: Version 1.3, 4 Sept 1996
+
+ *) Module sometimes busy-waited in FastCgiDoWork.  Fixed.
+
+ *) Module violated the Apache buff abstraction.
+    Fixed.  Might now work with SSL (not tested).
+    As part of the fix, eliminated support for
+    Apache 1.0x versions.
+
+ *) Module failed to chmod the Unix domain listening sockets
+    it created, so protections were set according to the current
+    umask.  Fixed.
+
+ *) Module forked too many process manager processes: One
+    per AppClass.  When the Apache parent ran as root, these
+    process manager processes ran as root.  New process
+    manager is a single process (only started if AppClass is
+    used) and runs with same privileges as other children.
+    The new process manager doesn't do any polling, so
+    there's less system overhead than before.
+
+ *) AppClass insisted on getting at least two arguments.  Fixed.
+
+ *) Module used setjmp/longjmp, causing compiler warnings
+    on some platforms (e.g. Linux.)  The module no longer
+    uses setjmp/longjmp.
+
+ *) Module created listening sockets in /tmp, where they were
+    sometimes wiped out by cleanup scripts.  Added FastCgiIpcDir
+    directive to give control over the location of listening
+    sockets.
+
+ *) Module wrote error log entries without a timestamp.  Fixed.
+
+ *) AppClass directive wrote error messages to stderr in addition
+    to returning a char * message to the Apache core.  Fixed.
+
+What's New: Version 1.2, 3 June 1996
+
+ *) Ported from Apache-1.0-based code to Apache-1.1b2 internals by
+    Ralf S. Engelschall
+    <rse@en.muc.de>
+    Add version string: APACHEVERSION macro to mod_fastcgi.c
+
+ *) chown FastCGI socket to user_id and setuid to user_id for app
+    class processes
+
+ *) Modify GetFromStream() by having it call an OS dependent
+    function GetStreamSize(FILE *) which uses FILE internal data member.
+    Linux users might need to modify GetStreamSize().
+
+What's New: Version 1.1, 10 May 1996
+
+ *) If you specify a non-existent executable in the AppClass directive,
+	or if the file exists and it does not have execute permission you
+	get a constant stream of error messages telling you that "program
+	terminated due to a signal".
+
+ *) The mod_fastcgi module should use the standard Apache error logging
+	facility instead of writing to stderr.
+
+Version 1.0, 30 April 1996
+
+

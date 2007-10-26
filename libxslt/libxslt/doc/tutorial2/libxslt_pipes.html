@@ -1,4 +1,4 @@
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>libxslt: An Extended Tutorial</title><meta name="generator" content="DocBook XSL Stylesheets V1.66.0"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="article" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="libxslt"></a>libxslt: An Extended Tutorial</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Panos</span> <span class="surname">Louridas</span></h3></div></div><div><p class="copyright">Copyright © 2004 Panagiotis Louridas</p></div><div><div class="legalnotice"><a name="id2719420"></a><p>Permission is hereby granted, free of charge, to
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>libxslt: An Extended Tutorial</title><meta name="generator" content="DocBook XSL Stylesheets V1.66.0"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="article" lang="en"><div class="titlepage"><div><div><h2 class="title"><a name="libxslt"></a>libxslt: An Extended Tutorial</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Panos</span> <span class="surname">Louridas</span></h3></div></div><div><p class="copyright">Copyright © 2004 Panagiotis Louridas</p></div><div><div class="legalnotice"><a name="id2839296"></a><p>Permission is hereby granted, free of charge, to
   any person obtaining a copy of this software and associated
   documentation files (the "Software"), to deal in the Software
   without restriction, including without limitation the rights to use,
@@ -13,8 +13,9 @@
   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
   LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
   OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p></div></div></div><hr></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="#id2651891">Introduction</a></span></dt><dt><span class="sect1"><a href="#id2651985">Setting the Scene</a></span></dt><dt><span class="sect1"><a href="#id2679350">Program Start</a></span></dt><dt><span class="sect1"><a href="#id2679483">Arguments Collection</a></span></dt><dt><span class="sect1"><a href="#id2679522">Parsing</a></span></dt><dt><span class="sect1"><a href="#id2651161">File Processing</a></span></dt><dt><span class="sect1"><a href="#id2651276">*NIX Compiling and Linking</a></span></dt><dt><span class="sect1"><a href="#id2651380">MS-Windows Compiling and Linking</a></span></dt><dd><dl><dt><span class="sect2"><a href="#windows-build">Building the Ports in
-MS-Windows</a></span></dt></dl></dd><dt><span class="sect1"><a href="#id2719828">The Complete Program</a></span></dt></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2651891"></a>Introduction</h2></div></div></div><p>The Extensible Stylesheet Language Transformations (XSLT)
+  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p></div></div></div><hr></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="sect1"><a href="#id2771767">Introduction</a></span></dt><dt><span class="sect1"><a href="#id2771862">Setting the Scene</a></span></dt><dt><span class="sect1"><a href="#id2799225">Program Start</a></span></dt><dt><span class="sect1"><a href="#id2799358">Arguments Collection</a></span></dt><dt><span class="sect1"><a href="#id2799396">Parsing</a></span></dt><dt><span class="sect1"><a href="#id2771038">File Processing</a></span></dt><dt><span class="sect1"><a href="#id2771153">*NIX Compiling and Linking</a></span></dt><dt><span class="sect1"><a href="#windows-build">MS-Windows Compiling and
+Linking</a></span></dt><dd><dl><dt><span class="sect2"><a href="#windows-ports-build">Building the Ports in
+MS-Windows</a></span></dt></dl></dd><dt><span class="sect1"><a href="#id2839739">zlib, iconv and All That</a></span></dt><dt><span class="sect1"><a href="#id2839841">The Complete Program</a></span></dt></dl></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2771767"></a>Introduction</h2></div></div></div><p>The Extensible Stylesheet Language Transformations (XSLT)
 specification defines an XML template language for transforming XML
 documents. An XSLT engine reads an XSLT file and an XML document and
 transforms the document accordingly.</p><p>We want to perform a series of XSLT transformations to a series
@@ -49,7 +50,7 @@ systems and MS-Windows, where by *NIX systems we
 mean Linux, BSD, and other members of the
 family. The gcc suite is used in the *NIX platform
 and the Microsoft compiler and linker are used in the
-MS-Windows platform.</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2651985"></a>Setting the Scene</h2></div></div></div><p>
+MS-Windows platform.</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2771862"></a>Setting the Scene</h2></div></div></div><p>
 We need to include the necessary libraries:
 
 </p><pre class="programlisting">
@@ -57,7 +58,6 @@ We need to include the necessary libraries:
   #include &lt;stdio.h&gt;
   #include &lt;string.h&gt;
   #include &lt;stdlib.h&gt;
-  #include &lt;malloc.h&gt;
   
   #include &lt;libxslt/transform.h&gt;
   #include &lt;libxslt/xsltutils.h&gt;
@@ -91,7 +91,7 @@ describing its usage:
       printf("      --param name value: pass a (parameter,value) pair\n");
   }
 </pre><p>
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2679350"></a>Program Start</h2></div></div></div><p>We need to define a few variables that are used throughout the
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2799225"></a>Program Start</h2></div></div></div><p>We need to define a few variables that are used throughout the
 program:
 </p><pre class="programlisting">
     int main(int argc, char **argv) {
@@ -140,7 +140,7 @@ space, but not much (the size of <span class="type">xmlStyleSheetPtr</span> and
 later on. The array memory is allocated with
 <tt class="function">calloc</tt> to ensure contents are initialised to
 zero.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2679483"></a>Arguments Collection</h2></div></div></div><p>If the program gets no arguments at all, we print the usage
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2799358"></a>Arguments Collection</h2></div></div></div><p>If the program gets no arguments at all, we print the usage
 description, set the program return value to 1 and exit. Instead of
 returning directly we go to (literally) to the end of the program text
 where some housekeeping takes place.</p><p>
@@ -187,7 +187,7 @@ arguments starting with a dash. The XSLT parameters are put into the
 is set to the user request, if any. After processing all the parameter
 key-value pairs we set the last element of the <tt class="varname">params</tt>
 array to null.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2679522"></a>Parsing</h2></div></div></div><p>The rest of the argument list is taken to be stylesheets and
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2799396"></a>Parsing</h2></div></div></div><p>The rest of the argument list is taken to be stylesheets and
 files to be transformed. Stylesheets are identified by their suffix,
 which is expected to be xsl (case sensitive). All other files are
 assumed to be XML documents, regardless of suffix.</p><p>
@@ -223,7 +223,7 @@ resulting <span class="type">xsltStylesheetPtr</span> is placed in the
 parsed using the <tt class="function">xmlParseFile</tt> function that takes
 as argument the file's name; the resulting <span class="type">xmlDocPtr</span> is
 placed in the <tt class="varname">files</tt> array.
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2651161"></a>File Processing</h2></div></div></div><p>All stylesheets are applied to each file one after the
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2771038"></a>File Processing</h2></div></div></div><p>All stylesheets are applied to each file one after the
 other. Stylesheets are applied with the
 <tt class="function">xsltApplyStylesheet</tt> function that takes as
 argument the stylesheet to be applied, the file to be transformed and
@@ -282,23 +282,35 @@ clean up all global variables used by the XSLT library using
 allocated for the XML parser is reclaimed by a call to
 <tt class="function">xmlCleanupParser</tt>. Before returning we deallocate
 the memory allocated for the holding the pointers to the XML documents
-and stylesheets.</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2651276"></a>*NIX Compiling and Linking</h2></div></div></div><p>Compiling and linking in a *NIX environment
+and stylesheets.</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2771153"></a>*NIX Compiling and Linking</h2></div></div></div><p>Compiling and linking in a *NIX environment
 is easy, as the required libraries are almost certain to be already in
 place (remember that libxml and libxslt are used by the GNOME project,
 so they are present in most installations). The program can be
 dynamically linked so that its footprint is minimized, or statically
-linked, so that it stands by itself, carrying all required code. For
-dynamic linking the following one liner will do:</p><p>
-<b class="userinput"><tt>gcc -o libxslt_pipes -Wall -I/usr/include/libxml2 -lxslt -lxml2 -L/usr/lib
-libxslt_pipes.c</tt></b>
+linked, so that it stands by itself, carrying all required code.</p><p>For dynamic linking the following one liner will do:</p><p>
+<b class="userinput"><tt>gcc -o libxslt_pipes -Wall -I/usr/include/libxml2 -lxslt
+-lxml2 -L/usr/lib libxslt_pipes.c</tt></b>
 </p><p>We assume that the necessary header files are in <tt class="filename">/usr/include/libxml2</tt> and that the
 required libraries (<tt class="filename">libxslt.so</tt>,
-<tt class="filename">libxsml2.so</tt>) are in <tt class="filename">/usr/lib</tt>.</p><p>For static linking we must list more libraries in the command
-line, as the libraries on which the libxsl and libxslt libraries
-depend are also needed. Still, an one-liner will do:</p><p>
+<tt class="filename">libxml2.so</tt>) are in <tt class="filename">/usr/lib</tt>.</p><p>In general, a program may need to link to additional libraries,
+depending on the processing it actually performs. A good way to start
+is to use the <span><b class="command">xslt-config</b></span> script. The
+<tt class="option">--help</tt> option displays usage
+information. Running</p><p>
+  <b class="userinput"><tt>
+    xslt-config --cflags
+  </tt></b>
+</p><p>we get compile flags, while running</p><p>
+  <b class="userinput"><tt>
+    xslt-config --libs
+  </tt></b>
+</p><p>we get the library settings for the linker.</p><p>For static linking we must list more libraries than we did for
+dynamic linking, as the libraries on which the libxsl and libxslt
+libraries depend are also needed. Using <span><b class="command">xslt-config</b></span>
+on a particular installation we create the following one-liner:</p><p>
 <b class="userinput"><tt>
 gcc -o libxslt_pipes -Wall -I/usr/include/libxml2 libxslt_pipes.c
--static -lxslt -lxml2 -lpthread -lz -lm
+-static -L/usr/lib -lxslt -lxml2 -lz -lpthread -lm
 </tt></b>
 </p><p>If we get warnings to the effect that some function in
 statically linked applications requires at runtime the shared
@@ -311,7 +323,8 @@ to avoid this it to use an alternative C runtime, for example <a href="http://ww
 and building a uClibc toolchain first (if the reason for trying to get
 a statically linked version of the program is to embed it somewhere,
 using uClibc might be a good idea anyway).
-</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2651380"></a>MS-Windows Compiling and Linking</h2></div></div></div><p>Compiling and linking in MS-Windows requires
+</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="windows-build"></a>MS-Windows Compiling and
+Linking</h2></div></div></div><p>Compiling and linking in MS-Windows requires
 some attention. First, the MS-Windows ports must be
 downloaded and installed in the programming workstation. The ports are
 available in <a href="http://www.zlatkovic.com/libxml.en.html" target="_top">Igor
@@ -351,7 +364,7 @@ with a compiler whose version is greater than 6, your program is
 likely to crash unexpectedly. Alternatively, you may wish to compile
 all iconv, zlib, libxml and libxslt yourself, using the new runtime
 library. This is not a tall order, and some details are given
-<a href="#windows-build" title="Building the Ports in
+<a href="#windows-ports-build" title="Building the Ports in
 MS-Windows">below</a>.</p><p>There are three kinds of libraries in MS-Windows. Dynamically
 Linked Libraries (DLLs), like <tt class="filename">msvcrt.dll</tt> we met
 above, are used for dynamic linking; an application links to them at
@@ -403,7 +416,7 @@ Microsoft developer tools with a version number greater than 6, we are
 no longer using <tt class="filename">msvcrt.dll</tt>, but another runtime
 like <tt class="filename">msvcrt71.dll</tt>, and we then need that DLL.  In
 contrast to <tt class="filename">msvcrt.dll</tt> it may not be present on
-the target computer, so we may have to copy it along.</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="windows-build"></a>Building the Ports in
+the target computer, so we may have to copy it along.</p><div class="sect2" lang="en"><div class="titlepage"><div><div><h3 class="title"><a name="windows-ports-build"></a>Building the Ports in
 MS-Windows</h3></div></div></div><p>The source code of the ports is readily available on the web,
 one has to check the ports sites. Each port can be built without
 problems in an MS-Windows environment using Microsoft development
@@ -434,7 +447,35 @@ distributions before starting; moreover, pay attention to the
 dependencies between the ports. If we configure libxml and libxslt to
 use iconv and zlib we must build these two first and make sure their
 headers and libraries can be found by the compiler and the
-linker when building libxml and libxslt.</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2719828"></a>The Complete Program</h2></div></div></div><p>
+linker when building libxml and libxslt.</p></div></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2839739"></a>zlib, iconv and All That</h2></div></div></div><p>We saw that libxml and libxslt depend on various other
+libraries, for instance zlib, iconv, and so forth. Taking a look into
+them gives us clues on the capabilities of libxml and libxslt.</p><p><a href="http://www.zlib.org" target="_top">zlib</a> is a free general
+purpose lossless data compression library. It is a venerable
+workhorse; more than <a href="http://www.gzip.org/zlib/apps.html" target="_top">500 applications</a>
+(both commercial and open source) seem to use the library. libxml uses
+zlib so that it can read from or write to compressed files
+directly. The <tt class="function">xmlParseFile</tt> function can
+transparently parse a compressed document to produce an
+<span class="structname">xmlDoc</span>. If we want to create a compressed
+document with libxml we can use an
+<span class="structname">xmlTextWriterPtr</span> (obtained through
+<tt class="function">xmlNewTextWriterDoc</tt>), or another related
+structure from <tt class="filename">libxml/xmlwriter.h</tt>, with
+compression enabled.</p><p>XML allows documents to use a variety of different character
+encodings. <a href="http://www.gnu.org/software/libiconv" target="_top">iconv</a> is a free
+library for converting between different character encodings.  libxml
+provides a set of default converters for some encodings: UTF-8, UTF-16
+(little endian and big endian), ISO-8859-1, ASCII, and HTML (a
+specific handler for the conversion of UTF-8 to ASCII with HTML
+predefined entities like &amp;copy; for the copyright sign). However,
+when compiled with iconv support, libxml and libxslt can handle the
+full range of encodings provided by iconv; these should cover most
+needs.</p><p>libxml and libxslt can be used in multi-threaded
+applications. In MS-Windows they are linked against
+<tt class="filename">MSVCRT.DLL</tt> (or one of its descendants, as we saw
+<a href="#windows-build" title="MS-Windows Compiling and
+Linking">above</a>). In *NIX the pthreads
+(POSIX threads) library is used.</p></div><div class="sect1" lang="en"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="id2839841"></a>The Complete Program</h2></div></div></div><p>
 The complete program listing is given below. The program is also
 <a href="libxslt_pipes.c" target="_top">available online</a>.
 </p><p>
@@ -445,34 +486,25 @@ The complete program listing is given below. The program is also
  *
  * Writen by Panos Louridas, based on libxslt_tutorial.c by John Fleck.
  *
- * Copyright (c) 2004 Panagiotis Louridas
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use, copy,
- * modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions: &lt;/para&gt;
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc.,  59 Temple Place - Suite 330, Cambridge, MA 02139, USA.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
  */ 
 
 #include &lt;stdio.h&gt;
 #include &lt;string.h&gt;
 #include &lt;stdlib.h&gt;
-#include &lt;malloc.h&gt;
-#include &lt;stdarg.h&gt;
 
 #include &lt;libxslt/transform.h&gt;
 #include &lt;libxslt/xsltutils.h&gt;

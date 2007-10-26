@@ -1,0 +1,18 @@
+= Hakoiri-Musume - Puzzle Game
+
+== HOW TO PLAY (Mac OS X 10.2 or later maybe)
+
+  cd {Hakoiri-Musume directory}
+  ruby rb_main.rb
+
+== HOW TO BUILD APPLICATION
+
+  make   # for RubyCocoa 0.4
+
+or
+
+  make -f Makefile_0.3   # for RubyCocoa 0.3
+
+== THANKS
+
+Hakoiri-Musume sources was contributed by Masatoshi SEKI san.

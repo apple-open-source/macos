@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-repository=:gserver:cvs.mit.edu:/cvs/krbdev
+repository=svn+ssh://svn.mit.edu/krb5
 dodoc=t
 dosrc=t
 checkout=t
@@ -22,6 +22,7 @@ while test $# -gt 2; do
 done
 if test $# -lt 2; then
 	echo "usage: $0 [opts] release-tag release-dir"
+	echo "	release-tag is relative to $repository/"
 	exit 1
 fi
 
@@ -97,7 +98,7 @@ echo "major=$relmajor minor=$relminor patch=$relpatch"
 # so, we don't edit it here.
 #
 if test $checkout = t; then
-	if cvs -q -d $repository checkout -p -r$reltag krb5/src/patchlevel.h | grep KRB5_RELDATE > /dev/null 2>&1; then
+	if svn cat $repository/$reltag/src/patchlevel.h | grep KRB5_RELDATE > /dev/null 2>&1; then
 		newstyle=t
 	else
 		newstyle=nil;
@@ -113,11 +114,12 @@ fi
 if test $newstyle = t; then
 	echo "parsing new style patchlevel.h..."
 	if test $checkout = t; then
-		eval `cvs -q -d $repository checkout -p -r$reltag krb5/src/patchlevel.h | sed -n 's/#define \([A-Z0-9_]*\)[ \t]*\(.*\)/\1=\2/p'`
+		eval `svn cat $repository/$reltag/src/patchlevel.h | sed -n 's/#define \([A-Z0-9_]*\)[ \t]*\(.*\)/\1=\2/p'`
 	else
 		eval `sed -n 's/#define \([A-Z0-9_]*\)[ \t]*\(.*\)/\1=\2/p' < $reldir/src/patchlevel.h`
 	fi
-	if test "$KRB5_RELTAG" != $reltag; then
+	if test "$KRB5_RELTAG" != $reltag && \
+		test "$KRB5_RELTAG" != `echo $reltag|sed 's%[^/]*/%%'` ; then
 		echo "WARNING: patchlevel.h '$KRB5_RELTAG' != $reltag"
 	fi
 	if test "$KRB5_MAJOR_RELEASE" != "$relmajor" || \
@@ -134,32 +136,19 @@ fi
 
 if test $checkout = t; then
 	echo "Checking out krb5 with tag $reltag into directory $reldir..."
-	cvs -q -d $repository export -r$reltag -d $reldir krb5
-fi
-
-if test $dosrc = t; then
-	if test -d $reldir/src/util/autoconf; then
-		echo "Building autoconf..."
-		(cd $reldir/src/util/autoconf
-			M4=gm4 ./configure
-			make)
-	fi
-	echo "Creating configure scripts..."
-	(cd $reldir/src; util/reconf)
-
-	if test -d $reldir/src/util/autoconf; then
-		echo "Cleaning src/util/autoconf..."
-		(cd $reldir/src/util/autoconf; make distclean)
-	fi
+	svn export $repository/$reltag $reldir
 fi
 
 echo "Editing release-specific files..."
 
 if test $newstyle = t; then 
 	(cd $reldir/src && \
-		sed -e '/RELDATE/c\
+		sed -e '/#[a-z 	]*KRB5_RELDATE/c\
 #define KRB5_RELDATE "'"$reldate"'"' patchlevel.h > patchlevel.h.new && \
 		mv patchlevel.h.new patchlevel.h)
+	if test $checkout = t; then
+		(cd $reldir && svn log -v $repository/$reltag > doc/CHANGES)
+	fi
 else
 
 	(cd $reldir/src/lib/krb5/krb && \
@@ -180,11 +169,28 @@ EOF
 	)
 fi
 
+if test $dosrc = t; then
+	if test -d $reldir/src/util/autoconf; then
+		echo "Building autoconf..."
+		(cd $reldir/src/util/autoconf
+			M4=gm4 ./configure
+			make)
+	fi
+	echo "Creating configure scripts..."
+	(cd $reldir/src; util/reconf)
+
+	if test -d $reldir/src/util/autoconf; then
+		echo "Cleaning src/util/autoconf..."
+		(cd $reldir/src/util/autoconf; make distclean)
+	fi
+fi
+
 echo "Nuking unneeded files..."
 find $reldir \( -name TODO -o -name todo -o -name .cvsignore \
 	-o -name BADSYMS -o -name .Sanitize -o -name .rconf \) -print \
 	| xargs rm -f || true
-find $reldir -type d -name autom4te.cache -exec rm -rf {} \; || true
+find $reldir -type d \( -name autom4te.cache -o -name .svn \
+	-o -name \$ac_config_fragdir \) -exec rm -rf {} \; || true
 
 if test $dodoc = t; then
 	echo "Building doc..."

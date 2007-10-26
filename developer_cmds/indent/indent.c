@@ -1,8 +1,35 @@
-/*	$NetBSD: indent.c,v 1.8 1998/09/06 20:17:30 mellon Exp $	*/
+/*	$NetBSD: indent.c,v 1.16 2004/10/30 17:45:34 dsl Exp $	*/
 
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
+/*
  * Copyright (c) 1976 Board of Trustees of the University of Illinois.
  * Copyright (c) 1985 Sun Microsystems, Inc.
  * All rights reserved.
@@ -48,7 +75,7 @@ __COPYRIGHT("@(#) Copyright (c) 1985 Sun Microsystems, Inc.\n\
 #if 0
 static char sccsid[] = "@(#)indent.c	5.17 (Berkeley) 6/7/93";
 #else
-__RCSID("$NetBSD: indent.c,v 1.8 1998/09/06 20:17:30 mellon Exp $");
+__RCSID("$NetBSD: indent.c,v 1.16 2004/10/30 17:45:34 dsl Exp $");
 #endif
 #endif				/* not lint */
 
@@ -61,6 +88,7 @@ __RCSID("$NetBSD: indent.c,v 1.8 1998/09/06 20:17:30 mellon Exp $");
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <locale.h>
 #define EXTERN
 #include "indent_globs.h"
 #undef  EXTERN
@@ -72,12 +100,10 @@ char   *out_name = "Standard Output";	/* will always point to name of output
 					 * file */
 char    bakfile[MAXPATHLEN] = "";
 
-int main __P((int, char **));
+int main(int, char **);
 
 int
-main(argc, argv)
-	int     argc;
-	char  **argv;
+main(int argc, char **argv)
 {
 
 	extern int found_err;	/* flag set in diag() on error */
@@ -106,6 +132,8 @@ main(argc, argv)
         |		      INITIALIZATION		      |
         \*-----------------------------------------------*/
 
+	if (!setlocale(LC_ALL, ""))
+		fprintf(stderr, "indent: can't set locale.\n");
 
 	hd_type = 0;
 	ps.p_stack[0] = stmt;	/* this is the parser's stack */
@@ -535,7 +563,7 @@ check_type:
 			    (ps.last_token != ident || proc_calls_space
 				|| (ps.its_a_keyword && (!ps.sizeof_keyword || Bill_Shannon))))
 				*e_code++ = ' ';
-			if (ps.in_decl && !ps.block_init)
+			if (ps.in_decl && !ps.block_init) {
 				if (troff && !ps.dumped_decl_indent && !is_procname && ps.last_token == decl) {
 					ps.dumped_decl_indent = 1;
 					sprintf(e_code, "\n.Du %dp+\200p \"%s\"\n", dec_ind * 7, token);
@@ -547,7 +575,7 @@ check_type:
 					}
 					*e_code++ = token[0];
 				}
-			else
+			} else
 				*e_code++ = token[0];
 			ps.paren_indents[ps.p_l_follow - 1] = e_code - s_code;
 			if (sp_sw && ps.p_l_follow == 1 && extra_expression_indent
@@ -709,7 +737,7 @@ check_type:
 				ps.want_blank = true;
 				break;
 			}
-			if (ps.in_decl) {
+			if (ps.in_or_st) {
 				*e_code++ = ':';
 				ps.want_blank = false;
 				break;
@@ -817,7 +845,7 @@ check_type:
 			if (ps.in_parameter_declaration)
 				prefix_blankline_requested = 0;
 
-			if (ps.p_l_follow > 0) {	/* check for preceeding
+			if (ps.p_l_follow > 0) {	/* check for preceding
 							 * unbalanced parens */
 				diag(1, "Unbalanced parens");
 				ps.p_l_follow = 0;
@@ -1011,8 +1039,9 @@ check_type:
 				e_code = chfont(&bodyf, &keywordf, e_code);
 				for (t_ptr = token; *t_ptr; ++t_ptr) {
 					CHECK_SIZE_CODE;
-					*e_code++ = keywordf.allcaps && islower(*t_ptr)
-					    ? toupper(*t_ptr) : *t_ptr;
+					*e_code++ = keywordf.allcaps
+					    ? toupper((unsigned char)*t_ptr)
+					    : *t_ptr;
 				}
 				e_code = chfont(&keywordf, &bodyf, e_code);
 			} else
@@ -1150,20 +1179,20 @@ check_type:
 					while ((c = getc(input)) == '\n');
 					ungetc(c, input);
 				}
-				if (ifdef_level < (int)(sizeof state_stack / sizeof state_stack[0])) {
+				if (ifdef_level < sizeof state_stack / sizeof state_stack[0]) {
 					match_state[ifdef_level].tos = -1;
 					state_stack[ifdef_level++] = ps;
 				} else
 					diag(1, "#if stack overflow");
 			} else
-				if (strncmp(s_lab, "#else", 5) == 0)
+				if (strncmp(s_lab, "#else", 5) == 0) {
 					if (ifdef_level <= 0)
 						diag(1, "Unmatched #else");
 					else {
 						match_state[ifdef_level - 1] = ps;
 						ps = state_stack[ifdef_level - 1];
 					}
-				else
+				} else
 					if (strncmp(s_lab, "#endif", 6) == 0) {
 						if (ifdef_level <= 0)
 							diag(1, "Unmatched #endif");
@@ -1213,7 +1242,7 @@ check_type:
  * original input file the output
  */
 void
-bakcopy()
+bakcopy(void)
 {
 	int     n, bakchn;
 	char    buff[8 * 1024];

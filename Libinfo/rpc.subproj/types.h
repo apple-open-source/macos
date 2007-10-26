@@ -91,4 +91,12 @@
 #endif
 #include <sys/time.h>
 
+#ifdef __LP64__
+typedef int rpc_int;
+typedef unsigned int rpc_uint;
+#else
+typedef long rpc_int;
+typedef unsigned long rpc_uint;
+#endif
+
 #endif /* !_RPC_TYPES_H */

@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_flatfile.c,v 1.8.2.6.4.2 2007/01/01 09:46:40 sebastian Exp $ */
+/* $Id: dba_flatfile.c,v 1.19.2.1.2.1 2007/01/01 09:35:59 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -41,25 +41,6 @@
 
 DBA_OPEN_FUNC(flatfile)
 {
-	int fd;
-#ifdef F_SETFL
-	int flags;
-#endif
-
-	if (info->mode != DBA_READER) {
-		if (SUCCESS != php_stream_cast(info->fp, PHP_STREAM_AS_FD, (void*)&fd, 1)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not cast stream");
-			return FAILURE;
-		}
-#ifdef F_SETFL
-		/* Needed becasue some systems do not allow to write to the original 
-		 * file contents with O_APPEND being set.
-		 */
-		flags = fcntl(fd, F_SETFL);
-		fcntl(fd, F_SETFL, flags & ~O_APPEND);
-#endif
-	}
-
 	info->dbf = pemalloc(sizeof(flatfile), info->flags&DBA_PERSISTENT);
 	memset(info->dbf, 0, sizeof(flatfile));
 

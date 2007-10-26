@@ -41,6 +41,8 @@ typedef struct _exsltFuncResultPreComp exsltFuncResultPreComp;
 struct _exsltFuncResultPreComp {
     xsltElemPreComp comp;
     xmlXPathCompExprPtr select;
+    xmlNsPtr *nsList;
+    int nsNr;
 };
 
 /* Used for callback function in exsltInitFunc */
@@ -247,6 +249,8 @@ exsltFreeFuncResultPreComp (exsltFuncResultPreComp *comp) {
 
     if (comp->select != NULL)
 	xmlXPathFreeCompExpr (comp->select);
+    if (comp->nsList != NULL)
+        xmlFree(comp->nsList);
     xmlFree(comp);
 }
 
@@ -451,7 +455,7 @@ static xsltElemPreCompPtr
 exsltFuncResultComp (xsltStylesheetPtr style, xmlNodePtr inst,
 		     xsltTransformFunction function) {
     xmlNodePtr test;
-    xmlChar *select;
+    xmlChar *sel;
     exsltFuncResultPreComp *ret;
 
     /*
@@ -521,12 +525,21 @@ exsltFuncResultComp (xsltStylesheetPtr style, xmlNodePtr inst,
     /*
      * Precompute the select attribute
      */
-    select = xmlGetNsProp(inst, (const xmlChar *) "select", NULL);
-    if (select != NULL) {
-	ret->select = xmlXPathCompile (select);
-	xmlFree(select);
+    sel = xmlGetNsProp(inst, (const xmlChar *) "select", NULL);
+    if (sel != NULL) {
+	ret->select = xmlXPathCompile (sel);
+	xmlFree(sel);
     }
-
+    /*
+     * Precompute the namespace list
+     */
+    ret->nsList = xmlGetNsList(inst->doc, inst);
+    if (ret->nsList != NULL) {
+        int i = 0;
+        while (ret->nsList[i] != NULL)
+	    i++;
+	ret->nsNr = i;
+    }
     return ((xsltElemPreCompPtr) ret);
 }
 
@@ -536,6 +549,8 @@ exsltFuncResultElem (xsltTransformContextPtr ctxt,
 		     exsltFuncResultPreComp *comp) {
     exsltFuncData *data;
     xmlXPathObjectPtr ret;
+    xmlNsPtr *oldNsList;
+    int oldNsNr;
 
     /* It is an error if instantiating the content of the
      * func:function element results in the instantiation of more than
@@ -569,7 +584,13 @@ exsltFuncResultElem (xsltTransformContextPtr ctxt,
 	    data->error = 1;
 	    return;
 	}
+	oldNsList = ctxt->xpathCtxt->namespaces;
+	oldNsNr = ctxt->xpathCtxt->nsNr;
+	ctxt->xpathCtxt->namespaces = comp->nsList;
+	ctxt->xpathCtxt->nsNr = comp->nsNr;
 	ret = xmlXPathCompiledEval(comp->select, ctxt->xpathCtxt);
+	ctxt->xpathCtxt->nsNr = oldNsNr;
+	ctxt->xpathCtxt->namespaces = oldNsList;
 	if (ret == NULL) {
 	    xsltGenericError(xsltGenericErrorContext,
 			     "exsltFuncResultElem: ret == NULL\n");

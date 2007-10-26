@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,7 +26,7 @@
  * 
  * /etc/passwd file access routines.
  * Just read from the /etc/passwd file and skip the dbm database, since
- * lookupd does all flat file lookups when the system is multi-user.
+ * Directory Service does all flat file lookups when the system is multi-user.
  * These routines are only used in single-user mode.
  *
  * 17 Apr 1997 file created - Marc Majka
@@ -36,6 +36,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pwd.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 
 #define forever for (;;)
@@ -45,27 +48,19 @@
 #define _PWUID_ 2
 
 static struct passwd _pw = { 0 };
-static FILE *_pfp;
-static int _pwStayOpen;
+static FILE *_pfp = NULL;
 static int _pwFileFormat = 1;
 
-static void
-free_pw()
-{
-	if (_pw.pw_name != NULL)   free(_pw.pw_name);
-	if (_pw.pw_passwd != NULL) free(_pw.pw_passwd);
-	if (_pw.pw_class != NULL)  free(_pw.pw_class);
-	if (_pw.pw_gecos != NULL)  free(_pw.pw_gecos);
-	if (_pw.pw_dir != NULL)    free(_pw.pw_dir);
-	if (_pw.pw_shell != NULL)  free(_pw.pw_shell);
+#define _HENT_  0
+#define _HNAM_  1
+#define _HADDR_ 2
 
-	_pw.pw_name = NULL;
-	_pw.pw_passwd = NULL;
-	_pw.pw_class = NULL;
-	_pw.pw_gecos = NULL;
-	_pw.pw_dir = NULL;
-	_pw.pw_shell = NULL;
-}
+static struct hostent _h = { 0 };
+static FILE *_hfp = NULL;
+
+/* Forward */
+__private_extern__ void LI_files_setpwent();
+__private_extern__ void LI_files_endhostent();
 
 static void
 freeList(char **l)
@@ -143,7 +138,6 @@ appendString(char *s, char **l)
 	return insertString(s, l, (unsigned int)-1);
 }
 
-
 static char **
 tokenize(const char *data, const char *sep)
 {
@@ -189,14 +183,14 @@ tokenize(const char *data, const char *sep)
 				if (p[0] == sep[j] || (p[0] == '\0')) scanning = 0;
 			}
 		}
-	
+
 		/* back over trailing whitespace */
 		i--;
 		if (i > -1) { /* did we actually copy anything? */
 			while ((buf[i] == ' ') || (buf[i] == '\t') || (buf[i] == '\n')) i--;
 		}
 		buf[++i] = '\0';
-	
+
 		tokens = appendString(buf, tokens);
 
 		/* check for end of line */
@@ -220,11 +214,49 @@ tokenize(const char *data, const char *sep)
 			return tokens;
 		}
 	}
+
 	return tokens;
 }
 
-struct passwd *
-parseUser(char *data)
+static char *
+getLine(FILE *fp)
+{
+	char s[1024];
+	char *out;
+
+	s[0] = '\0';
+
+	fgets(s, 1024, fp);
+	if ((s == NULL) || (s[0] == '\0')) return NULL;
+
+	if (s[0] != '#') s[strlen(s) - 1] = '\0';
+
+	out = copyString(s);
+	return out;
+}
+
+/* USERS */
+
+static void
+LI_files_free_user()
+{
+	if (_pw.pw_name != NULL) free(_pw.pw_name);
+	if (_pw.pw_passwd != NULL) free(_pw.pw_passwd);
+	if (_pw.pw_class != NULL) free(_pw.pw_class);
+	if (_pw.pw_gecos != NULL) free(_pw.pw_gecos);
+	if (_pw.pw_dir != NULL) free(_pw.pw_dir);
+	if (_pw.pw_shell != NULL) free(_pw.pw_shell);
+
+	_pw.pw_name = NULL;
+	_pw.pw_passwd = NULL;
+	_pw.pw_class = NULL;
+	_pw.pw_gecos = NULL;
+	_pw.pw_dir = NULL;
+	_pw.pw_shell = NULL;
+}
+
+static struct passwd *
+LI_files_parse_user(char *data)
 {
 	char **tokens;
 	int ntokens;
@@ -234,13 +266,13 @@ parseUser(char *data)
 	tokens = tokenize(data, ":");
 	ntokens = listLength(tokens);
 	if (( _pwFileFormat && (ntokens != 10)) ||
-	    (!_pwFileFormat && (ntokens !=  7)))
+		(!_pwFileFormat && (ntokens !=  7)))
 	{
 		freeList(tokens);
 		return NULL;
 	}
 
-	free_pw();
+	LI_files_free_user();
 
 	_pw.pw_name = tokens[0];
 	_pw.pw_passwd = tokens[1];
@@ -275,77 +307,16 @@ parseUser(char *data)
 	return &_pw;
 }
 
-static char *
-getLine(FILE *fp)
-{
-	char s[1024];
-	char *out;
-
-    s[0] = '\0';
-
-    fgets(s, 1024, fp);
-    if (s == NULL || s[0] == '\0') return NULL;
-
-	if (s[0] != '#') s[strlen(s) - 1] = '\0';
-
-	out = copyString(s);
-	return out;
-}
-
-int
-setpassent(int stayopen)
-{
-	_pwStayOpen = stayopen;
-	return(1);
-}
-
-int
-setpwent()
-{
-	if (_pfp == NULL)
-	{
-		char *pwFile;
-		if (geteuid() == 0)
-		{
-			pwFile = _PATH_MASTERPASSWD;
-		}
-		else
-		{
-			pwFile = _PATH_PASSWD;
-			_pwFileFormat = 0;
-		}
-		_pfp = fopen(pwFile, "r");
-		if (_pfp == NULL)
-		{
-			perror(pwFile);
-			return(0);
-		}
-	}
-	else rewind(_pfp);
-	_pwStayOpen = 0;
-	return(1);
-}
-
-void
-endpwent()
-{
-	if (_pfp != NULL)
-	{
-		fclose(_pfp);
-		_pfp = NULL;
-	}
-}
-
 static struct passwd *
-getpw(const char *nam, uid_t uid, int which)
+LI_files_getpw(const char *name, uid_t uid, int which)
 {
 	char *line;
 	struct passwd *pw;
 
-	if (which != 0)
-	{
-		if (setpwent() == 0) return NULL;
-	}
+	if (_pfp == NULL) LI_files_setpwent();
+	if (_pfp == NULL) return NULL;
+
+	if (which != _PWENT_) rewind(_pfp);
 
 	forever
 	{
@@ -359,42 +330,276 @@ getpw(const char *nam, uid_t uid, int which)
 			continue;
 		}
 
-		pw = parseUser(line);
+		pw = LI_files_parse_user(line);
 		free(line);
 		line = NULL;
 
-		if ((pw == NULL) || (which == _PWENT_))
-		{
-			if (_pwStayOpen == 0) endpwent();
-			return pw;
-		}
+		if (pw == NULL) continue;
 
-		if (((which == _PWNAM_) && (!strcmp(nam, pw->pw_name))) ||
-			((which == _PWUID_) && (uid == pw->pw_uid)))
+		if (which == _PWENT_) return pw;
+
+		if (((which == _PWNAM_) && (!strcmp(name, pw->pw_name))) || ((which == _PWUID_) && (uid == pw->pw_uid)))
 		{
-			if (_pwStayOpen == 0) endpwent();
+			fclose(_pfp);
+			_pfp = NULL;
 			return pw;
 		}
 	}
 
-	if (_pwStayOpen == 0) endpwent();
+	fclose(_pfp);
+	_pfp = NULL;
+
 	return NULL;
 }
 
-struct passwd *
-getpwent()
+/* "Public" */
+
+__private_extern__ struct passwd *
+LI_files_getpwent()
 {
-	return getpw(NULL, 0, _PWENT_);
+	return LI_files_getpw(NULL, 0, _PWENT_);
 }
 
-struct passwd *
-getpwnam(const char *nam)
+__private_extern__ struct passwd *
+LI_files_getpwnam(const char *name)
 {
-	return getpw(nam, 0, _PWNAM_);
+	return LI_files_getpw(name, 0, _PWNAM_);
 }
 
-struct passwd *
-getpwuid(uid_t uid)
+__private_extern__ struct passwd *
+LI_files_getpwuid(uid_t uid)
 {
-	return getpw(NULL, uid, _PWUID_);
+	return LI_files_getpw(NULL, uid, _PWUID_);
+}
+
+int
+setpassent(int stayopen)
+{
+	return 1;
+}
+
+__private_extern__ void
+LI_files_setpwent()
+{
+	if (_pfp == NULL)
+	{
+		char *pwFile;
+		if (geteuid() == 0)
+		{
+			pwFile = _PATH_MASTERPASSWD;
+		}
+		else
+		{
+			pwFile = _PATH_PASSWD;
+			_pwFileFormat = 0;
+		}
+
+		_pfp = fopen(pwFile, "r");
+	}
+	else rewind(_pfp);
+}
+
+__private_extern__ void
+LI_files_endpwent()
+{
+	if (_pfp != NULL)
+	{
+		fclose(_pfp);
+		_pfp = NULL;
+	}
+}
+
+/* HOSTS */
+
+static void
+LI_files_free_host()
+{
+	int i;
+
+	if (_h.h_name != NULL) free(_h.h_name);
+
+	if (_h.h_aliases != NULL)
+	{
+		for (i = 0; _h.h_aliases[i] != NULL; i++) free(_h.h_aliases[i]);
+		free(_h.h_aliases);
+	}
+
+	if (_h.h_addr_list != NULL)
+	{
+		for (i = 0; _h.h_addr_list[i] != NULL; i++) free(_h.h_addr_list[i]);
+		free(_h.h_addr_list);
+	}
+
+	_h.h_name = NULL;
+	_h.h_aliases = NULL;
+	_h.h_addrtype = 0;
+	_h.h_length = 0;
+	_h.h_addr_list = NULL;
+}
+
+static struct hostent *
+LI_files_parse_host(char *data)
+{
+	char **tokens, *addrstr;
+	int i, ntokens, af;
+	struct in_addr a4;
+	struct in6_addr a6;
+
+	if (data == NULL) return NULL;
+
+	tokens = tokenize(data, " 	");
+	ntokens = listLength(tokens);
+	if (ntokens < 2)
+	{
+		freeList(tokens);
+		return NULL;
+	}
+
+	LI_files_free_host();
+
+	af = AF_UNSPEC;
+	if (inet_pton(AF_INET, tokens[0], &a4) == 1) af = AF_INET;
+	else if (inet_pton(AF_INET6, tokens[0], &a6) == 1) af = AF_INET6;
+
+	if (af == AF_UNSPEC)
+	{
+		freeList(tokens);
+		return NULL;
+	}
+
+	addrstr = tokens[0];
+
+	_h.h_addrtype = af;
+	if (af == AF_INET)
+	{
+		_h.h_length = sizeof(struct in_addr);
+		_h.h_addr_list = (char **)calloc(2, sizeof(char *));
+		_h.h_addr_list[0] = (char *)calloc(1, _h.h_length);
+		memcpy(_h.h_addr_list[0], &a4, _h.h_length);
+	}
+	else
+	{
+		_h.h_length = sizeof(struct in6_addr);
+		_h.h_addr_list = (char **)calloc(2, sizeof(char *));
+		_h.h_addr_list[0] = (char *)calloc(1, _h.h_length);
+		memcpy(_h.h_addr_list[0], &a6, _h.h_length);
+	}
+
+	_h.h_name = tokens[1];
+
+	_h.h_aliases = (char **)calloc(ntokens - 1, sizeof(char *));
+	for (i = 2; i < ntokens; i++) _h.h_aliases[i-2] = tokens[i];
+
+	free(addrstr);
+	free(tokens);
+
+	return &_h;
+}
+
+static struct hostent *
+LI_files_get_host(const char *name, const void *addr, int af, int which)
+{
+	char *line;
+	struct hostent *h;
+	int i, got_host;
+
+	if ((which == _HADDR_) && (addr == NULL)) return NULL;
+
+	if (_hfp == NULL) _hfp = fopen(_PATH_HOSTS, "r");
+	if (_hfp == NULL) return NULL;
+
+	if (which != _HENT_) rewind(_hfp);
+
+	forever
+	{
+		line = getLine(_hfp);
+		if (line == NULL) break;
+
+		if (line[0] == '#') 
+		{
+			free(line);
+			line = NULL;
+			continue;
+		}
+
+		h = LI_files_parse_host(line);
+		free(line);
+		line = NULL;
+
+		if (h == NULL) continue;
+
+		if (which == _HENT_) return h;
+
+		got_host = 0;
+
+		if ((which == _HNAM_) && (af == h->h_addrtype))
+		{
+			if (!strcmp(name, h->h_name)) got_host = 1;
+			else if (h->h_aliases != NULL)
+			{
+				for (i = 0; (h->h_aliases[i] != NULL) && (got_host == 0); i++)
+					if (!strcmp(name, h->h_aliases[i])) got_host = 1;
+			}
+		}
+
+		if ((which == _HADDR_) && (h->h_addrtype == af))
+		{
+			for (i = 0; (h->h_addr_list[i] != NULL) && (got_host == 0); i++)
+				if (memcmp(addr, h->h_addr_list[i], h->h_length) == 0) got_host = 1;
+		}
+
+		if (got_host == 1)
+		{
+			fclose(_hfp);
+			_hfp = NULL;
+			return h;
+		}
+	}
+
+	fclose(_hfp);
+	_hfp = NULL;
+
+	return NULL;
+}
+
+/* "Public" */
+
+__private_extern__ struct hostent *
+LI_files_gethostbyname(const char *name)
+{
+	return LI_files_get_host(name, NULL, AF_INET, _HNAM_);
+}
+
+__private_extern__ struct hostent *
+LI_files_gethostbyname2(const char *name, int af)
+{
+	return LI_files_get_host(name, NULL, af, _HNAM_);
+}
+
+__private_extern__ struct hostent *
+LI_files_gethostbyaddr(const void *addr, socklen_t len, int type)
+{
+	if ((type == AF_INET) || (type == AF_INET6)) return LI_files_get_host(NULL, addr, type, _HADDR_);
+	return NULL;
+}
+
+__private_extern__ struct hostent *
+LI_files_gethostent()
+{
+	return LI_files_get_host(NULL, NULL, AF_UNSPEC, _HENT_);
+}
+
+__private_extern__ void
+LI_files_sethostent(int stayopen)
+{
+}
+
+__private_extern__ void
+LI_files_endhostent()
+{
+	if (_hfp != NULL)
+	{
+		fclose(_hfp);
+		_hfp = NULL;
+	}
 }

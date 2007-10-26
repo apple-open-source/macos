@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -32,9 +28,14 @@
 #ifndef _LCLIB_H
 #define _LCLIB_H	1
 
-#define categories	_ast_categories
 #define locales		_ast_locales
 #define translate	_ast_translate
+
+#define lc_categories	_ast_lc_categories
+#define lc_charsets	_ast_lc_charsets
+#define lc_languages	_ast_lc_languages
+#define lc_maps		_ast_lc_maps
+#define lc_territories	_ast_lc_territories
 
 struct Lc_info_s;
 
@@ -57,9 +58,14 @@ typedef struct Lc_numeric_s
 
 #define LCINFO(c)	(&locales[c]->info[c])
 
-extern	Lc_category_t	categories[];
-extern	Lc_t*		locales[];
+extern const Lc_charset_t	lc_charsets[];
+extern const Lc_language_t	lc_languages[];
+extern const Lc_map_t		lc_maps[];
+extern const Lc_territory_t	lc_territories[];
 
-extern char*		translate(const char*, const char*, const char*, const char*);
+extern Lc_category_t		lc_categories[];
+extern Lc_t*			locales[];
+
+extern char*			translate(const char*, const char*, const char*, const char*);
 
 #endif

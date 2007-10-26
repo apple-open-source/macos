@@ -1,11 +1,12 @@
+AFTER_POSTINSTALL += install-man-page
 OTHER_PRIVATE_HEADERS = membershipPriv.h
 
-# Additional flags (MiG generated files)
-DEFSFILES = memberd.defs
-OTHER_OFILES = memberdUser.o
+# Enable MIG type checking
+OTHER_CFLAGS += -D__MigTypeCheck=1 -D__DARWIN_NON_CANCELABLE=1
 
-# private headers
-INTERNAL_HDRS = memberd.defs memberd.h
+# Additional flags (MiG generated files)
+DEFSFILES = DSmemberdMIG.defs
+OTHER_OFILES = DSmemberdMIGUser.o
 
 BEFORE_INSTALLHDRS += $(SFILE_DIR) $(INTERNAL_HDRS) 
 # AFTER_INSTALLHDRS += mdns_hdrs

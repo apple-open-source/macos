@@ -1,0 +1,473 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4C75023E0540C42300056564 /* AppleDatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = C28A1CEE052E14480094CEF0 /* AppleDatabase.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C75023F0540C42300056564 /* AtomicFile.h in Headers */ = {isa = PBXBuildFile; fileRef = C28A1CF0052E14480094CEF0 /* AtomicFile.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C7502400540C42300056564 /* DbIndex.h in Headers */ = {isa = PBXBuildFile; fileRef = C28A1CFA052E14480094CEF0 /* DbIndex.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C7502410540C42300056564 /* DbQuery.h in Headers */ = {isa = PBXBuildFile; fileRef = C28A1CFE052E14480094CEF0 /* DbQuery.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C7502420540C42300056564 /* DbValue.h in Headers */ = {isa = PBXBuildFile; fileRef = C28A1D00052E14480094CEF0 /* DbValue.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C7502430540C42300056564 /* MetaAttribute.h in Headers */ = {isa = PBXBuildFile; fileRef = C28A1D02052E14480094CEF0 /* MetaAttribute.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C7502440540C42300056564 /* MetaRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = C28A1D04052E14480094CEF0 /* MetaRecord.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C7502450540C42300056564 /* ReadWriteSection.h in Headers */ = {isa = PBXBuildFile; fileRef = C28A1D05052E14480094CEF0 /* ReadWriteSection.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C7502460540C42300056564 /* SelectionPredicate.h in Headers */ = {isa = PBXBuildFile; fileRef = C28A1D07052E14480094CEF0 /* SelectionPredicate.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AA827A690C639E7900D7A310 /* OverUnderflowCheck.h in Headers */ = {isa = PBXBuildFile; fileRef = AA827A5B0C62AD0300D7A310 /* OverUnderflowCheck.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C28A1D08052E14480094CEF0 /* AppleDatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1CED052E14480094CEF0 /* AppleDatabase.cpp */; };
+		C28A1D0A052E14480094CEF0 /* AtomicFile.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1CEF052E14480094CEF0 /* AtomicFile.cpp */; };
+		C28A1D14052E14480094CEF0 /* DbIndex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1CF9052E14480094CEF0 /* DbIndex.cpp */; };
+		C28A1D18052E14480094CEF0 /* DbQuery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1CFD052E14480094CEF0 /* DbQuery.cpp */; };
+		C28A1D1A052E14480094CEF0 /* DbValue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1CFF052E14480094CEF0 /* DbValue.cpp */; };
+		C28A1D1C052E14480094CEF0 /* MetaAttribute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1D01052E14480094CEF0 /* MetaAttribute.cpp */; };
+		C28A1D1E052E14480094CEF0 /* MetaRecord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1D03052E14480094CEF0 /* MetaRecord.cpp */; };
+		C28A1D21052E14480094CEF0 /* SelectionPredicate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1D06052E14480094CEF0 /* SelectionPredicate.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4C7502340540C40A00056564 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C56350F0540A53300DCF0C8;
+			remoteInfo = security_filedb;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		4C5635100540A53300DCF0C8 /* security_filedb.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_filedb.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_filedb */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_filedb; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA827A5B0C62AD0300D7A310 /* OverUnderflowCheck.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OverUnderflowCheck.h; sourceTree = "<group>"; };
+		C28A1CED052E14480094CEF0 /* AppleDatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleDatabase.cpp; sourceTree = "<group>"; };
+		C28A1CEE052E14480094CEF0 /* AppleDatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleDatabase.h; sourceTree = "<group>"; };
+		C28A1CEF052E14480094CEF0 /* AtomicFile.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AtomicFile.cpp; sourceTree = "<group>"; };
+		C28A1CF0052E14480094CEF0 /* AtomicFile.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AtomicFile.h; sourceTree = "<group>"; };
+		C28A1CF9052E14480094CEF0 /* DbIndex.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DbIndex.cpp; sourceTree = "<group>"; };
+		C28A1CFA052E14480094CEF0 /* DbIndex.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DbIndex.h; sourceTree = "<group>"; };
+		C28A1CFD052E14480094CEF0 /* DbQuery.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DbQuery.cpp; sourceTree = "<group>"; };
+		C28A1CFE052E14480094CEF0 /* DbQuery.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DbQuery.h; sourceTree = "<group>"; };
+		C28A1CFF052E14480094CEF0 /* DbValue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DbValue.cpp; sourceTree = "<group>"; };
+		C28A1D00052E14480094CEF0 /* DbValue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DbValue.h; sourceTree = "<group>"; };
+		C28A1D01052E14480094CEF0 /* MetaAttribute.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MetaAttribute.cpp; sourceTree = "<group>"; };
+		C28A1D02052E14480094CEF0 /* MetaAttribute.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MetaAttribute.h; sourceTree = "<group>"; };
+		C28A1D03052E14480094CEF0 /* MetaRecord.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MetaRecord.cpp; sourceTree = "<group>"; };
+		C28A1D04052E14480094CEF0 /* MetaRecord.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MetaRecord.h; sourceTree = "<group>"; };
+		C28A1D05052E14480094CEF0 /* ReadWriteSection.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ReadWriteSection.h; sourceTree = "<group>"; };
+		C28A1D06052E14480094CEF0 /* SelectionPredicate.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SelectionPredicate.cpp; sourceTree = "<group>"; };
+		C28A1D07052E14480094CEF0 /* SelectionPredicate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SelectionPredicate.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworkTarget section */
+		4C56350F0540A53300DCF0C8 /* security_filedb */ = {
+			isa = PBXFrameworkTarget;
+			buildConfigurationList = C27AD3580987FCDE001272E0 /* Build configuration list for PBXFrameworkTarget "security_filedb" */;
+			buildPhases = (
+				4C56350A0540A53300DCF0C8 /* Headers */,
+			);
+			dependencies = (
+			);
+			name = security_filedb;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_filedb;
+			productReference = 4C5635100540A53300DCF0C8 /* security_filedb.framework */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict/>
+</plist>
+";
+		};
+/* End PBXFrameworkTarget section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				C28A1CEC052E14480094CEF0 /* lib */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* security_filedb */,
+				4C5635100540A53300DCF0C8 /* security_filedb.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C28A1CEC052E14480094CEF0 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				AA827A5B0C62AD0300D7A310 /* OverUnderflowCheck.h */,
+				C28A1CED052E14480094CEF0 /* AppleDatabase.cpp */,
+				C28A1CEE052E14480094CEF0 /* AppleDatabase.h */,
+				C28A1CEF052E14480094CEF0 /* AtomicFile.cpp */,
+				C28A1CF0052E14480094CEF0 /* AtomicFile.h */,
+				C28A1CF9052E14480094CEF0 /* DbIndex.cpp */,
+				C28A1CFA052E14480094CEF0 /* DbIndex.h */,
+				C28A1CFD052E14480094CEF0 /* DbQuery.cpp */,
+				C28A1CFE052E14480094CEF0 /* DbQuery.h */,
+				C28A1CFF052E14480094CEF0 /* DbValue.cpp */,
+				C28A1D00052E14480094CEF0 /* DbValue.h */,
+				C28A1D01052E14480094CEF0 /* MetaAttribute.cpp */,
+				C28A1D02052E14480094CEF0 /* MetaAttribute.h */,
+				C28A1D03052E14480094CEF0 /* MetaRecord.cpp */,
+				C28A1D04052E14480094CEF0 /* MetaRecord.h */,
+				C28A1D05052E14480094CEF0 /* ReadWriteSection.h */,
+				C28A1D06052E14480094CEF0 /* SelectionPredicate.cpp */,
+				C28A1D07052E14480094CEF0 /* SelectionPredicate.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4C56350A0540A53300DCF0C8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C75023E0540C42300056564 /* AppleDatabase.h in Headers */,
+				4C75023F0540C42300056564 /* AtomicFile.h in Headers */,
+				4C7502400540C42300056564 /* DbIndex.h in Headers */,
+				4C7502410540C42300056564 /* DbQuery.h in Headers */,
+				4C7502420540C42300056564 /* DbValue.h in Headers */,
+				4C7502430540C42300056564 /* MetaAttribute.h in Headers */,
+				4C7502440540C42300056564 /* MetaRecord.h in Headers */,
+				4C7502450540C42300056564 /* ReadWriteSection.h in Headers */,
+				4C7502460540C42300056564 /* SelectionPredicate.h in Headers */,
+				AA827A690C639E7900D7A310 /* OverUnderflowCheck.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLibraryTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_filedb */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = C27AD35C0987FCDE001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_filedb" */;
+			buildPhases = (
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+				4C789C38055AF7AE00B6FC95 /* ShellScript */,
+				4CD0D48F055B0DFB001715CB /* ShellScript */,
+			);
+			dependencies = (
+				4C7502350540C40A00056564 /* PBXTargetDependency */,
+			);
+			name = libsecurity_filedb;
+			productName = libsecurity_filedb;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* security_filedb */;
+		};
+/* End PBXLibraryTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD3600987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_filedb" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_filedb */,
+				4C56350F0540A53300DCF0C8 /* security_filedb */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4C789C38055AF7AE00B6FC95 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+		};
+		4CD0D48F055B0DFB001715CB /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A\"\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework\"\ndone";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C28A1D08052E14480094CEF0 /* AppleDatabase.cpp in Sources */,
+				C28A1D0A052E14480094CEF0 /* AtomicFile.cpp in Sources */,
+				C28A1D14052E14480094CEF0 /* DbIndex.cpp in Sources */,
+				C28A1D18052E14480094CEF0 /* DbQuery.cpp in Sources */,
+				C28A1D1A052E14480094CEF0 /* DbValue.cpp in Sources */,
+				C28A1D1C052E14480094CEF0 /* MetaAttribute.cpp in Sources */,
+				C28A1D1E052E14480094CEF0 /* MetaRecord.cpp in Sources */,
+				C28A1D21052E14480094CEF0 /* SelectionPredicate.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4C7502350540C40A00056564 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C56350F0540A53300DCF0C8 /* security_filedb */;
+			targetProxy = 4C7502340540C40A00056564 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD3590987FCDE001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_filedb;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD35A0987FCDE001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_filedb;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD35B0987FCDE001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_filedb;
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Default;
+		};
+		C27AD35D0987FCDE001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CURRENT_PROJECT_VERSION = 32510;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_filedb;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD35E0987FCDE001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32510;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_filedb;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD35F0987FCDE001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32510;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_filedb;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD3610987FCDE001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD3620987FCDE001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD3630987FCDE001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				UNSTRIPPED_PRODUCT = YES;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD3580987FCDE001272E0 /* Build configuration list for PBXFrameworkTarget "security_filedb" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3590987FCDE001272E0 /* Development */,
+				C27AD35A0987FCDE001272E0 /* Deployment */,
+				C27AD35B0987FCDE001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD35C0987FCDE001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_filedb" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD35D0987FCDE001272E0 /* Development */,
+				C27AD35E0987FCDE001272E0 /* Deployment */,
+				C27AD35F0987FCDE001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD3600987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_filedb" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3610987FCDE001272E0 /* Development */,
+				C27AD3620987FCDE001272E0 /* Deployment */,
+				C27AD3630987FCDE001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

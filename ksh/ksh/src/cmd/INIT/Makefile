@@ -10,9 +10,13 @@ hurl :: hurl.sh LICENSE=since=2003,author=gsf
 
 iffe :: iffe.sh LICENSE=since=1994,author=gsf+kpv
 
+mktest :: mktest.sh LICENSE=since=2005,author=gsf
+
 package :: package.sh
 
 regress :: regress.sh LICENSE=since=1995,author=gsf
+
+rt :: rt.sh LICENSE=since=2005,author=gsf
 
 $(PACKAGEROOT)/bin :INSTALLDIR: execrate ignore mamprobe package silent
 
@@ -31,18 +35,26 @@ silent :: silent.sh
 $(PACKAGEROOT)/lib/package :INSTALLDIR: package.mk CONVERT.mk
 
 $(LIBDIR)/make :INSTALLDIR: package.mk PROBE.mk TEST.mk WWW.mk \
-	MSGFUN.mk MSGKEY.mk
+	MSGFUN.mk MSGKEY.mk MAPLIB.mk
+
+:TEST: iffe
 
 cc ld ldd :PACKAGE_INIT: mamake.c proto.c ratz.c release.c
 
 :: RELEASE hosttype.tst p.c hello.c \
-	cc.darwin.ppc cc.hp.pa cc.hp.pa64 cc.ibm.risc cc.mvs.390 \
-	cc.next.i386 cc.next.m68k cc.osf.alpha cc.sco.i386 cc.sgi.mips2 \
-	cc.sgi.mips3 cc.sgi.mips3-o32 cc.sgi.mips4 cc.sgi.mips4-n32 \
-	cc.unix.mc68k \
-	ld.hp.pa \
-	ldd.cygwin.i386 ldd.darwin.ppc ldd.hp.pa ldd.ibm.risc \
-	ldd.mvs.390 ldd.sgi.mips2 ldd.sgi.mips3 ldd.sgi.mips4
+	cc.specialize cc.pentium4 \
+	ldd.cygwin.i386 \
+	cc.darwin ldd.darwin \
+	cc.hp.pa cc.hp.pa64 ld.hp.pa ldd.hp.pa \
+	cc.ibm.risc ldd.ibm.risc \
+	cc.linux.ia64-icc \
+	cc.lynxos.i386 cc.lynxos.ppc ldd.lynxos \
+	cc.mvs.390 cc.next.i386 cc.next.m68k ldd.mvs.390 \
+	cc.osf.alpha \
+	cc.sco.i386 \
+	cc.sgi.mips2 cc.sgi.mips3 cc.sgi.mips3-o32 cc.sgi.mips4 \
+	cc.sgi.mips4-n32 ldd.sgi \
+	cc.unix.mc68k
 
 LICENSE : .DONTCARE
 
@@ -62,59 +74,107 @@ $(BINDIR)/mkdir :INSTALL: mkdir.sh
 
 /*
  * ksh93 function search on PATH
+ * ksh93 builtin command library -lcmd
  * ksh93 ld library path search on PATH
  */
 
-$(BINDIR)/.paths :INSTALL:
-	{
-	echo FPATH=../fun
-	set x x : $(-mam:??$(.GETCONF LIBPATH:/:/ /G:/,/ : /G:Q)?)
-	p=
-	while	:
-	do	while	:
-		do	case $# in
-			0)	break ;;
-			esac
-			x=$1
-			shift
-			case $x in
-			:)	break ;;
-			esac
-		done
-		case $# in
-		0|1)	break
+$(BINDIR)/.paths :INSTALL: (CC.DIALECT)
+	if	test ! -e $(<) -o -w $(<)
+	then	nl="
+"
+		o=`cat $(<) 2>/dev/null`
+		v=
+		n=
+		case $nl$o in
+		*${nl}FPATH=*|*#FPATH=*|*[Nn][Oo]FPATH=*)
 			;;
-		2)	p=$2
-			;;
-		*)	case "$(CC.HOSTTYPE)" in
-			$3)	p=$2; break ;;
+		*)	case $n in
+			'')	;;
+			*)	n="$n$nl" v="$v|" ;;
 			esac
+			n="${n}FPATH=../fun"
+			v="${v}FPATH"
 			;;
 		esac
-	done
-	case $p in
-	'')	if	test -x /lib/dld.sl
-		then	p=SHLIB_PATH
-		elif	test -x /usr/lib/dyld
-		then	p=DYLD_LIBRARY_PATH
-		else	case "$(CC.HOSTTYPE)" in
-			ibm.*|mvs.*)
-				p=LIBPATH
+		case $nl$o in
+		*${nl}BUILTIN_LIB=*|*#BUILTIN_LIB=*|*[Nn][Oo]BUILTIN_LIB=*)
+			;;
+		*)	case $n in
+			'')	;;
+			*)	n="$n$nl" v="$v|" ;;
+			esac
+			case '$(CC.DIALECT:N=*EXPORT=[AD]LL*)' in
+			?*)	p= c= ;;
+			*)	p='XX' ;;
+			esac
+			n="${n}${p}BUILTIN_LIB=cmd"
+			v="${v}BUILTIN_LIB"
+			;;
+		esac
+		set x x : $(-mam:??$(.GETCONF LIBPATH:/:/ /G:/,/ : /G:Q)?)
+		p=
+		while	:
+		do	while	:
+			do	case $# in
+				0)	break ;;
+				esac
+				x=$1
+				shift
+				case $x in
+				:)	break ;;
+				esac
+			done
+			case $# in
+			0|1)	break
 				;;
-			sgi.mips3)	
-				p=LD_LIBRARYN32_PATH
+			2)	p=$2
 				;;
-			sgi.mips4)	
-				p=LD_LIBRARYN64_PATH
-				;;
-			*)	p=LD_LIBRARY_PATH
+			*)	case "$(CC.HOSTTYPE)" in
+				$3)	p=$2; break ;;
+				esac
 				;;
 			esac
-		fi
-		;;
-	esac
-	echo $p=../lib
-	} > $(<)
+		done
+		case $p in
+		'')	if	test -x /lib/dld.sl
+			then	p=SHLIB_PATH
+			elif	test -x /usr/lib/dyld
+			then	p=DYLD_LIBRARY_PATH
+			else	case "$(CC.HOSTTYPE)" in
+				ibm.*|mvs.*)
+					p=LIBPATH
+					;;
+				sgi.mips3)	
+					p=LD_LIBRARYN32_PATH
+					;;
+				sgi.mips4)	
+					p=LD_LIBRARYN64_PATH
+					;;
+				*)	p=LD_LIBRARY_PATH
+					;;
+				esac
+			fi
+			;;
+		esac
+		case $nl$o in
+		*${nl}${p}=*|*#${p}=*|*[Nn][Oo]${p}=*)
+			;;
+		*)	case $n in
+			'')	;;
+			*)	n="$n$nl" v="$v|" ;;
+			esac
+			n="${n}${p}=../lib"
+			v="${v}${p}"
+			;;
+		esac
+		case $n in
+		?*)	case $o in
+			?*)	o=`egrep -v "($v)=" $(<)`$nl ;;
+			esac
+			echo "# use { # no NO } prefix instead of XX to permanently disable #$nl$o$n" > $(<)
+			;;
+		esac
+	fi
 
 /*
  * probe initialization
@@ -175,25 +235,6 @@ prototyped.h : $(BINDIR)/proto
 	fi
 
 /*
- * -l* library local conventions
- */
-
-":MAPLIB:" : .MAKE .OPERATOR
-	$(LIBDIR)/lib/$(<) :INSTALL: $(<).req
-	$(<).req : (CC) $(>)
-		r='-'
-		for i in $(*)
-		do	if	$(CC) -o $(<:B).exe $i -l$(<:B) > /dev/null
-			then	$(CC) -o $(<:B).exe $i > /dev/null || {
-					r='-l$(<:B)'
-					break
-				}
-			fi
-		done 2>/dev/null
-		echo " $r" > $(<)
-		rm -f $(<:B).exe $(<:B)$(CC.SUFFIX.OBJECT)
-
-/*
  * check if -ldl is required
  * this allows makefiles to use -ldl on all systems
  *
@@ -207,10 +248,18 @@ prototyped.h : $(BINDIR)/proto
 dl :MAPLIB: dl.c
 
 /*
+ * requiring -liconv is a botch
+ */
+
+iconv :MAPLIB: iconv.c
+
+/*
  * miscellaneous -l* checks
  */
 
-m :MAPLIB: m.c
+intl :MAPLIB: intl.c
+
+m :MAPLIB: m.c m2.c m3.c m4.c m5.c
 
 nsl :MAPLIB: nsl.c
 
@@ -222,3 +271,13 @@ nsl :MAPLIB: nsl.c
  */
 
 socket :MAPLIB: socket.c nsl.c
+
+/*
+ * more substance abuse
+ * gdbm's ndbm "compatibility" doesn't supply <ndbm.h>, instead supplies
+ * <gdbm/ndbm.h> which provides K&R prototypes *and* it requires -lgdbm
+ * this is why unix is starting to look like windows
+ * this map allows makefiles to use -ldbm on all systems
+ */
+
+dbm gdbm :MAPLIB: gdbm.c gdbm2.c

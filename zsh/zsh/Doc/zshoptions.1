@@ -1,17 +1,17 @@
-.TH "ZSHOPTIONS" "1" "January 13, 2005" "zsh 4\&.2\&.3"
+.TH "ZSHOPTIONS" "1" "April 19, 2006" "zsh 4\&.3\&.4"
 .SH "NAME"
 zshoptions \- zsh options
 .\" Yodl file: Zsh/options.yo
 .SH "SPECIFYING OPTIONS"
 Options are primarily referred to by name\&.
 These names are case insensitive and underscores are ignored\&.
-For example, `\fBallexport\fP' is equivalent to `\fBA__lleXP_ort\fP'\&.
+For example, `\fBallexport\fP\&' is equivalent to `\fBA__lleXP_ort\fP'\&.
 .PP
 The sense of an option name may be inverted by preceding it with
-`\fBno\fP', so `\fBsetopt No_Beep\fP' is equivalent to `\fBunsetopt beep\fP'\&.
-This inversion can only be done once, so `\fBnonobeep\fP' is \fInot\fP
-a synonym for `\fBbeep\fP'\&.  Similarly, `\fBtify\fP' is not a synonym for
-`\fBnonotify\fP' (the inversion of `\fBnotify\fP')\&.
+`\fBno\fP\&', so `\fBsetopt No_Beep\fP' is equivalent to `\fBunsetopt beep\fP'\&.
+This inversion can only be done once, so `\fBnonobeep\fP\&' is \fInot\fP
+a synonym for `\fBbeep\fP\&'\&.  Similarly, `\fBtify\fP' is not a synonym for
+`\fBnonotify\fP\&' (the inversion of `\fBnotify\fP')\&.
 .PP
 Some options also have one or more single letter names\&.
 There are two sets of single letter options: one used by default,
@@ -19,28 +19,28 @@ and another used to emulate \fBsh\fP/\fBksh\fP (used when the
 \fBSH_OPTION_LETTERS\fP option is set)\&.
 The single letter options can be used on the shell command line,
 or with the \fBset\fP, \fBsetopt\fP and \fBunsetopt\fP
-builtins, as normal Unix options preceded by `\fB\-\fP'\&.
+builtins, as normal Unix options preceded by `\fB\-\fP\&'\&.
 .PP
 The sense of the single letter options may be inverted by using
-`\fB+\fP' instead of `\fB\-\fP'\&.
+`\fB+\fP\&' instead of `\fB\-\fP'\&.
 Some of the single letter option names refer to an option being off,
 in which case the inversion of that name refers to the option being on\&.
-For example, `\fB+n\fP' is the short name of `\fBexec\fP', and
-`\fB\-n\fP' is the short name of its inversion, `\fBnoexec\fP'\&.
+For example, `\fB+n\fP\&' is the short name of `\fBexec\fP', and
+`\fB\-n\fP\&' is the short name of its inversion, `\fBnoexec\fP'\&.
 .PP
 In strings of single letter options supplied to the shell at startup,
-trailing whitespace will be ignored; for example the string `\fB\-f    \fP'
-will be treated just as `\fB\-f\fP', but the string `\fB\-f i\fP' is an error\&.
-This is because many systems which implement the `\fB#!\fP' mechanism for
+trailing whitespace will be ignored; for example the string `\fB\-f    \fP\&'
+will be treated just as `\fB\-f\fP\&', but the string `\fB\-f i\fP' is an error\&.
+This is because many systems which implement the `\fB#!\fP\&' mechanism for
 calling scripts do not strip trailing whitespace\&.
 .PP
 .SH "DESCRIPTION OF OPTIONS"
 In the following list, options set by default in all emulations are marked
 <D>; those set by default only in csh, ksh, sh, or zsh emulations are marked
-<C>, <K>, <S>, <Z> as appropriate\&.  When listing options (by `\fBsetopt\fP',
-`\fBunsetopt\fP', `\fBset \-o\fP' or `\fBset +o\fP'), those turned on by default
-appear in the list prefixed with `\fBno\fP'\&.  Hence (unless
-\fBKSH_OPTION_PRINT\fP is set), `\fBsetopt\fP' shows all options whose settings
+<C>, <K>, <S>, <Z> as appropriate\&.  When listing options (by `\fBsetopt\fP\&',
+`\fBunsetopt\fP\&', `\fBset \-o\fP' or `\fBset +o\fP'), those turned on by default
+appear in the list prefixed with `\fBno\fP\&'\&.  Hence (unless
+\fBKSH_OPTION_PRINT\fP is set), `\fBsetopt\fP\&' shows all options whose settings
 are changed from the default\&.
 .PP
 .SS "Changing Directories"
@@ -48,7 +48,7 @@ are changed from the default\&.
 .TP
 .PD
 \fBAUTO_CD\fP (\fB\-J\fP)
-If a command is issued that can't be executed as a normal command,
+If a command is issued that can\&'t be executed as a normal command,
 and the command is the name of a directory, perform the \fBcd\fP
 command to that directory\&.
 .TP
@@ -58,43 +58,43 @@ Make \fBcd\fP push the old directory onto the directory stack\&.
 \fBCDABLE_VARS\fP (\fB\-T\fP)
 If the argument to a \fBcd\fP command (or an implied \fBcd\fP with the
 \fBAUTO_CD\fP option set) is not a directory, and does not begin with a
-slash, try to expand the expression as if it were preceded by a `\fB~\fP' (see
-the section `Filename Expansion')\&.
+slash, try to expand the expression as if it were preceded by a `\fB~\fP\&' (see
+the section `Filename Expansion\&')\&.
 .TP
 \fBCHASE_DOTS\fP
-When changing to a directory containing a path segment `\fB\&.\&.\fP' which would
+When changing to a directory containing a path segment `\fB\&.\&.\fP\&' which would
 otherwise be treated as canceling the previous segment in the path (in
-other words, `\fBfoo/\&.\&.\fP' would be removed from the path, or if `\fB\&.\&.\fP' is
+other words, `\fBfoo/\&.\&.\fP\&' would be removed from the path, or if `\fB\&.\&.\fP' is
 the first part of the path, the last part of \fB$PWD\fP would be deleted),
 instead resolve the path to the physical directory\&.  This option is
 overridden by \fBCHASE_LINKS\fP\&.
 .RS
 .PP
 For example, suppose \fB/foo/bar\fP is a link to the directory \fB/alt/rod\fP\&.
-Without this option set, `\fBcd /foo/bar/\&.\&.\fP' changes to \fB/foo\fP; with it
+Without this option set, `\fBcd /foo/bar/\&.\&.\fP\&' changes to \fB/foo\fP; with it
 set, it changes to \fB/alt\fP\&.  The same applies if the current directory
-is \fB/foo/bar\fP and `\fBcd \&.\&.\fP' is used\&.  Note that all other symbolic
+is \fB/foo/bar\fP and `\fBcd \&.\&.\fP\&' is used\&.  Note that all other symbolic
 links in the path will also be resolved\&.
 .RE
 .TP
 \fBCHASE_LINKS\fP (\fB\-w\fP)
 Resolve symbolic links to their true values when changing directory\&.
-This also has the effect of \fBCHASE_DOTS\fP, i\&.e\&. a `\fB\&.\&.\fP' path segment
+This also has the effect of \fBCHASE_DOTS\fP, i\&.e\&. a `\fB\&.\&.\fP\&' path segment
 will be treated as referring to the physical parent, even if the preceding
 path segment is a symbolic link\&.
 .TP
 \fBPUSHD_IGNORE_DUPS\fP
-Don't push multiple copies of the same directory onto the directory stack\&.
+Don\&'t push multiple copies of the same directory onto the directory stack\&.
 .TP
 \fBPUSHD_MINUS\fP
-Exchanges the meanings of `\fB+\fP' and `\fB\-\fP'
+Exchanges the meanings of `\fB+\fP\&' and `\fB\-\fP'
 when used with a number to specify a directory in the stack\&.
 .TP
 \fBPUSHD_SILENT\fP (\fB\-E\fP)
 Do not print the directory stack after \fBpushd\fP or \fBpopd\fP\&.
 .TP
 \fBPUSHD_TO_HOME\fP (\fB\-D\fP)
-Have \fBpushd\fP with no arguments act like `\fBpushd $HOME\fP'\&.
+Have \fBpushd\fP with no arguments act like `\fBpushd $HOME\fP\&'\&.
 .PP
 .SS "Completion"
 .PD 0
@@ -122,20 +122,20 @@ is overridden by \fBMENU_COMPLETE\fP\&.
 \fBAUTO_NAME_DIRS\fP
 Any parameter that is set to the absolute name of a directory
 immediately becomes a name for that directory, that will be used
-by the `\fB%~\fP'
+by the `\fB%~\fP\&'
 and related prompt sequences, and will be available when completion
-is performed on a word starting with `\fB~\fP'\&.
-(Otherwise, the parameter must be used in the form `\fB~\fP\fIparam\fP' first\&.)
+is performed on a word starting with `\fB~\fP\&'\&.
+(Otherwise, the parameter must be used in the form `\fB~\fP\fIparam\fP\&' first\&.)
 .TP
 \fBAUTO_PARAM_KEYS\fP <D>
 If a parameter name was completed and a following character
 (normally a space) automatically
 inserted, and the next character typed is one
-of those that have to come directly after the name (like `\fB}\fP', `\fB:\fP',
+of those that have to come directly after the name (like `\fB}\fP\&', `\fB:\fP',
 etc\&.), the automatically added character is deleted, so that the character
 typed comes immediately after the parameter name\&.
 Completion in a brace expansion is affected similarly: the added character
-is a `\fB,\fP', which will be removed if `\fB}\fP' is typed next\&.
+is a `\fB,\fP\&', which will be removed if `\fB}\fP' is typed next\&.
 .TP
 \fBAUTO_PARAM_SLASH\fP <D>
 If a parameter is completed whose content is the name of a directory,
@@ -168,7 +168,7 @@ started\&. Otherwise it stays there and completion is done from both ends\&.
 When the current word has a glob pattern, do not insert all the words
 resulting from the expansion but generate matches as for completion and
 cycle through them like \fBMENU_COMPLETE\fP\&. The matches are generated as if
-a `\fB*\fP' was added to the end of the word, or inserted at the cursor when
+a `\fB*\fP\&' was added to the end of the word, or inserted at the cursor when
 \fBCOMPLETE_IN_WORD\fP is set\&.  This actually uses pattern matching, not
 globbing, so it works not only for files but for any completion, such as
 options, user names, etc\&.
@@ -233,20 +233,20 @@ If a pattern for filename generation is badly formed, print an error message\&.
 .TP
 \fBBARE_GLOB_QUAL\fP <Z>
 In a glob pattern, treat a trailing set of parentheses as a qualifier
-list, if it contains no `\fB|\fP', `\fB(\fP' or (if special) `\fB~\fP'
-characters\&.  See the section `Filename Generation'\&.
+list, if it contains no `\fB|\fP\&', `\fB(\fP' or (if special) `\fB~\fP'
+characters\&.  See the section `Filename Generation\&'\&.
 .TP
 \fBBRACE_CCL\fP
 Expand expressions in braces which would not otherwise undergo brace
 expansion to a lexically ordered list of all the characters\&.  See
-the section `Brace Expansion'\&.
+the section `Brace Expansion\&'\&.
 .TP
 \fBCASE_GLOB\fP <D>
 Make globbing (filename generation) sensitive to case\&.  Note that other
 uses of patterns are always sensitive to case\&.  If the option is unset,
 the presence of any character which is special to filename generation
-will cause case\-insensitive matching\&.  For example, \fBcvs(/)\fP can
-match the directory \fBCVS\fP owing to the presence of the globbing flag
+will cause case\-insensitive matching\&.  For example, \fBcvs(/)\fP
+can match the directory \fBCVS\fP owing to the presence of the globbing flag
 (unless the option \fBBARE_GLOB_QUAL\fP is unset)\&.
 .TP
 \fBCSH_NULL_GLOB\fP <C>
@@ -258,31 +258,31 @@ Overrides \fBNOMATCH\fP\&.
 .TP
 \fBEQUALS\fP <Z>
 Perform \fB=\fP filename expansion\&.
-(See the section `Filename Expansion'\&.)
+(See the section `Filename Expansion\&'\&.)
 .TP
 \fBEXTENDED_GLOB\fP
-Treat the `\fB#\fP', `\fB~\fP' and `\fB^\fP' characters as part of patterns
-for filename generation, etc\&.  (An initial unquoted `\fB~\fP'
+Treat the `\fB#\fP\&', `\fB~\fP' and `\fB^\fP' characters as part of patterns
+for filename generation, etc\&.  (An initial unquoted `\fB~\fP\&'
 always produces named directory expansion\&.)
 .TP
 \fBGLOB\fP (\fB+F\fP, ksh: \fB+f\fP) <D>
 Perform filename generation (globbing)\&.
-(See the section `Filename Generation'\&.)
+(See the section `Filename Generation\&'\&.)
 .TP
 \fBGLOB_ASSIGN\fP <C>
 If this option is set, filename generation (globbing) is
 performed on the right hand side of scalar parameter assignments of
-the form `\fIname\fP\fB=\fP\fIpattern\fP (e\&.g\&. `\fBfoo=*\fP')\&.
+the form `\fIname\fP\fB=\fP\fIpattern\fP (e\&.g\&. `\fBfoo=*\fP\&')\&.
 If the result has more than one word the parameter will become an array
 with those words as arguments\&. This option is provided for backwards
 compatibility only: globbing is always performed on the right hand side
-of array assignments of the form `\fIname\fP\fB=(\fP\fIvalue\fP\fB)\fP'
-(e\&.g\&. `\fBfoo=(*)\fP') and this form is recommended for clarity;
+of array assignments of the form `\fIname\fP\fB=(\fP\fIvalue\fP\fB)\fP\&'
+(e\&.g\&. `\fBfoo=(*)\fP\&') and this form is recommended for clarity;
 with this option set, it is not possible to predict whether the result
 will be an array or a scalar\&.
 .TP
 \fBGLOB_DOTS\fP (\fB\-4\fP)
-Do not require a leading `\fB\&.\fP' in a filename to be matched explicitly\&.
+Do not require a leading `\fB\&.\fP\&' in a filename to be matched explicitly\&.
 .TP
 \fBGLOB_SUBST\fP <C> <K> <S>
 Treat any characters resulting from parameter expansion as being
@@ -291,18 +291,25 @@ characters resulting from command substitution as being eligible for
 filename generation\&.  Braces (and commas in between) do not become eligible
 for expansion\&.
 .TP
+\fBHIST_SUBST_PATTERN\fP
+Substitutions using the \fB:s\fP and \fB:&\fP history modifiers are performed
+with pattern matching instead of string matching\&.  This occurs wherever
+history modifiers are valid, including glob qualifiers and parameters\&.
+See
+the section Modifiers in \fIzshexp\fP(1)\&.
+.TP
 \fBIGNORE_BRACES\fP (\fB\-I\fP) <S>
 Do not perform brace expansion\&.
 .TP
 \fBKSH_GLOB\fP <K>
 In pattern matching, the interpretation of parentheses is affected by
-a preceding `\fB@\fP', `\fB*\fP', `\fB+\fP', `\fB?\fP' or `\fB!\fP'\&.
-See the section `Filename Generation'\&.
+a preceding `\fB@\fP\&', `\fB*\fP', `\fB+\fP', `\fB?\fP' or `\fB!\fP'\&.
+See the section `Filename Generation\&'\&.
 .TP
 \fBMAGIC_EQUAL_SUBST\fP
-All unquoted arguments of the form `\fIanything\fP\fB=\fP\fIexpression\fP'
+All unquoted arguments of the form `\fIanything\fP\fB=\fP\fIexpression\fP\&'
 appearing after the command name have filename expansion (that is,
-where \fIexpression\fP has a leading `\fB~\fP' or `\fB=\fP') performed on
+where \fIexpression\fP has a leading `\fB~\fP\&' or `\fB=\fP') performed on
 \fIexpression\fP as if it were a parameter assignment\&.  The argument is
 not otherwise treated specially; it is passed to the command as a single
 argument, and not used as an actual parameter assignment\&.  For example, in
@@ -316,15 +323,40 @@ assignments will not undergo wordsplitting\&.
 .RE
 .TP
 \fBMARK_DIRS\fP (\fB\-8\fP, ksh: \fB\-X\fP)
-Append a trailing `\fB/\fP' to all directory
+Append a trailing `\fB/\fP\&' to all directory
 names resulting from filename generation (globbing)\&.
+.TP
+\fBMULTIBYTE\fP
+Respect multibyte characters when found in strings\&.
+When this option is set, strings are examined using the
+system library to determine how many bytes form a character, depending
+on the current locale\&.  This affects the way characters are counted in
+pattern matching, parameter values and various delimiters\&.
+.RS
+.PP
+The option is on by default if the shell was compiled with
+\fBMULTIBYTE_SUPPORT\fP; otherwise it is off by default and has no effect if
+turned on\&.
+.PP
+If the option is off a single byte is always treated as a single
+character\&.  This setting is designed purely for examining strings
+known to contain raw bytes or other values that may not be characters
+in the current locale\&.  It is not necessary to unset the option merely
+because the character set for the current locale does not contain multibyte
+characters\&.
+.PP
+The option does not affect the shell\&'s editor,  which always uses the
+locale to determine multibyte characters\&.  This is because
+the character set displayed by the terminal emulator is independent of
+shell settings\&.
+.RE
 .TP
 \fBNOMATCH\fP (\fB+3\fP) <C> <Z>
 If a pattern for filename generation has no matches,
 print an error, instead of
 leaving it unchanged in the argument list\&.
 This also applies to file expansion
-of an initial `\fB~\fP' or `\fB=\fP'\&.
+of an initial `\fB~\fP\&' or `\fB=\fP'\&.
 .TP
 \fBNULL_GLOB\fP (\fB\-G\fP)
 If a pattern for filename generation has no matches,
@@ -337,14 +369,14 @@ sort the filenames numerically rather than lexicographically\&.
 .TP
 \fBRC_EXPAND_PARAM\fP (\fB\-P\fP)
 Array expansions of the form
-`\fIfoo\fP\fB${\fP\fIxx\fP\fB}\fP\fIbar\fP', where the parameter
+`\fIfoo\fP\fB${\fP\fIxx\fP\fB}\fP\fIbar\fP\&', where the parameter
 \fIxx\fP is set to \fB(\fP\fIa b c\fP\fB)\fP, are substituted with
-`\fIfooabar foobbar foocbar\fP' instead of the default
-`\fIfooa b cbar\fP'\&.
+`\fIfooabar foobbar foocbar\fP\&' instead of the default
+`\fIfooa b cbar\fP\&'\&.
 .TP
 \fBSH_GLOB\fP <K> <S>
-Disables the special meaning of `\fB(\fP', `\fB|\fP', `\fB)\fP'
-and '\fB<\fP' for globbing the result of parameter and command substitutions,
+Disables the special meaning of `\fB(\fP\&', `\fB|\fP', `\fB)\fP'
+and \&'\fB<\fP' for globbing the result of parameter and command substitutions,
 and in some other places where
 the shell accepts patterns\&.  This option is set by default if zsh is
 invoked as \fBsh\fP or \fBksh\fP\&.
@@ -352,6 +384,14 @@ invoked as \fBsh\fP or \fBksh\fP\&.
 \fBUNSET\fP (\fB+u\fP, ksh: \fB+u\fP) <K> <S> <Z>
 Treat unset parameters as if they were empty when substituting\&.
 Otherwise they are treated as an error\&.
+.TP
+\fBWARN_CREATE_GLOBAL\fP
+Print a warning message when a global parameter is created in a function
+by an assignment\&.  This often indicates that a parameter has not been
+declared local when it should have been\&.  Parameters explicitly declared
+global from within a function using \fBtypeset \-g\fP do not cause a warning\&.
+Note that there is no warning when a local parameter is assigned to in
+a nested function, which may also indicate an error\&.
 .PP
 .SS "History"
 .PD 0
@@ -359,30 +399,33 @@ Otherwise they are treated as an error\&.
 .PD
 \fBAPPEND_HISTORY\fP <D>
 If this is set, zsh sessions will append their history list to
-the history file, rather than overwrite it\&. Thus, multiple parallel
-zsh sessions will all have their history lists added to the
-history file, in the order they are killed\&.
+the history file, rather than replace it\&. Thus, multiple parallel
+zsh sessions will all have the new entries from their history lists
+added to the history file, in the order that they exit\&.
+The file will still be periodically re\-written to trim it when the
+number of lines grows 20% beyond the value specified by
+\fB$SAVEHIST\fP (see also the HIST_SAVE_BY_COPY option)\&.
 .TP
 \fBBANG_HIST\fP (\fB+K\fP) <C> <Z>
 Perform textual history expansion, \fBcsh\fP\-style,
-treating the character `\fB!\fP' specially\&.
+treating the character `\fB!\fP\&' specially\&.
 .TP
 \fBEXTENDED_HISTORY\fP <C>
-Save each command's beginning timestamp (in seconds since the epoch)
+Save each command\&'s beginning timestamp (in seconds since the epoch)
 and the duration (in seconds) to the history file\&.  The format of
 this prefixed data is:
 .RS
 .PP
-`\fB:\fP\fI<beginning time>\fP\fB:\fP\fI<elapsed seconds>\fP\fB:\fP\fI<command>\fP'\&.
+`\fB:\fP\fI<beginning time>\fP\fB:\fP\fI<elapsed seconds>\fP\fB:\fP\fI<command>\fP\&'\&.
 .RE
 .TP
 \fBHIST_ALLOW_CLOBBER\fP
-Add `\fB|\fP' to output redirections in the history\&.  This allows history
+Add `\fB|\fP\&' to output redirections in the history\&.  This allows history
 references to clobber files even when \fBCLOBBER\fP is unset\&.
 .TP
 \fBHIST_BEEP\fP <D>
 Beep when an attempt is made to access a history entry which
-isn't there\&.
+isn\&'t there\&.
 .TP
 \fBHIST_EXPIRE_DUPS_FIRST\fP
 If the internal history needs to be trimmed to add the current command line,
@@ -433,21 +476,39 @@ or edit the line\&.
 Remove superfluous blanks from each command line
 being added to the history list\&.
 .TP
+\fBHIST_SAVE_BY_COPY\fP <D>
+When the history file is re\-written, we normally write out a copy of
+the file named $HISTFILE\&.new and then rename it over the old one\&.
+However, if this option is unset, we instead truncate the old
+history file and write out the new version in\-place\&.  If one of the
+history\-appending options is enabled, this option only has an effect
+when the enlarged history file needs to be re\-written to trim it
+down to size\&.  Disable this only if you have special needs, as doing
+so makes it possible to lose history entries if zsh gets interrupted
+during the save\&.
+.RS
+.PP
+When writing out a copy of the history file, zsh preserves the old
+file\&'s permissions and group information, but will refuse to write
+out a new file if it would change the history file\&'s owner\&.
+.RE
+.TP
 \fBHIST_SAVE_NO_DUPS\fP
 When writing out the history file, older commands that duplicate
 newer ones are omitted\&.
 .TP
 \fBHIST_VERIFY\fP
 Whenever the user enters a line with history expansion,
-don't execute the line directly; instead, perform
+don\&'t execute the line directly; instead, perform
 history expansion and reload the line into the editing buffer\&.
 .TP
 \fBINC_APPEND_HISTORY\fP
 This options works like \fBAPPEND_HISTORY\fP except that new history lines
 are added to the \fB$HISTFILE\fP incrementally (as soon as they are
-entered), rather than waiting until the shell is killed\&.
-The file is periodically trimmed to the number of lines specified by
-\fB$SAVEHIST\fP, but can exceed this value between trimmings\&.
+entered), rather than waiting until the shell exits\&.
+The file will still be periodically re\-written to trim it when the
+number of lines grows 20% beyond the value specified by
+\fB$SAVEHIST\fP (see also the HIST_SAVE_BY_COPY option)\&.
 .TP
 \fBSHARE_HISTORY\fP <K>
 .RS
@@ -468,7 +529,7 @@ some include them\&.
 If you find that you want more control over when commands
 get imported, you may wish to turn \fBSHARE_HISTORY\fP off,
 \fBINC_APPEND_HISTORY\fP on, and then manually import
-commands whenever you need them using `\fBfc \-RI\fP'\&.
+commands whenever you need them using `\fBfc \-RI\fP\&'\&.
 .RE
 .RE
 .PP
@@ -506,7 +567,7 @@ files (\fB\&.zshrc\fP, etc\&.)\&.
 After \fB/etc/zshenv\fP is sourced on startup, source the
 \fB\&.zshenv\fP, \fB/etc/zprofile\fP, \fB\&.zprofile\fP,
 \fB/etc/zshrc\fP, \fB\&.zshrc\fP, \fB/etc/zlogin\fP, \fB\&.zlogin\fP, and \fB\&.zlogout\fP
-files, as described in the section `Files'\&.
+files, as described in the section `Files\&'\&.
 If this option is unset, the \fB/etc/zshenv\fP file is still sourced, but any
 of the others will not be; it can be set at any time to prevent the
 remaining startup files after the currently executing one from
@@ -520,10 +581,10 @@ being sourced\&.
 Expand aliases\&.
 .TP
 \fBCLOBBER\fP (\fB+C\fP, ksh: \fB+C\fP) <D>
-Allows `\fB>\fP' redirection to truncate existing files,
-and `\fB>>\fP' to create files\&.
-Otherwise `\fB>!\fP' or `\fB>|\fP' must be used to truncate a file,
-and `\fB>>!\fP' or `\fB>>|\fP' to create a file\&.
+Allows `\fB>\fP\&' redirection to truncate existing files,
+and `\fB>>\fP\&' to create files\&.
+Otherwise `\fB>!\fP\&' or `\fB>|\fP' must be used to truncate a file,
+and `\fB>>!\fP\&' or `\fB>>|\fP' to create a file\&.
 .TP
 \fBCORRECT\fP (\fB\-0\fP)
 Try to correct the spelling of commands\&.
@@ -542,7 +603,7 @@ options and the \fBspell\-word\fP editor command\&.
 \fBFLOW_CONTROL\fP <D>
 If this option is unset,
 output flow control via start/stop characters (usually assigned to
-^S/^Q) is disabled in the shell's editor\&.
+^S/^Q) is disabled in the shell\&'s editor\&.
 .TP
 \fBIGNORE_EOF\fP (\fB\-7\fP)
 Do not exit on end\-of\-file\&.  Require the use
@@ -580,17 +641,17 @@ accessed since the shell last checked\&.
 .TP
 \fBPATH_DIRS\fP (\fB\-Q\fP)
 Perform a path search even on command names with slashes in them\&.
-Thus if `\fB/usr/local/bin\fP' is in the user's path, and he or she types
-`\fBX11/xinit\fP', the command `\fB/usr/local/bin/X11/xinit\fP' will be executed
+Thus if `\fB/usr/local/bin\fP\&' is in the user's path, and he or she types
+`\fBX11/xinit\fP\&', the command `\fB/usr/local/bin/X11/xinit\fP' will be executed
 (assuming it exists)\&.
-Commands explicitly beginning with `\fB/\fP', `\fB\&./\fP' or `\fB\&.\&./\fP'
+Commands explicitly beginning with `\fB/\fP\&', `\fB\&./\fP' or `\fB\&.\&./\fP'
 are not subject to the path search\&.
 This also applies to the \fB\&.\fP builtin\&.
 .RS
 .PP
 Note that subdirectories of the current directory are always searched for
 executables specified in this form\&.  This takes place before any search
-indicated by this option, and regardless of whether `\fB\&.\fP' or the current
+indicated by this option, and regardless of whether `\fB\&.\fP\&' or the current
 directory appear in the command search path\&.
 .RE
 .TP
@@ -603,20 +664,20 @@ printability of eight bit characters (see \fIctype\fP(3))\&.
 Print the exit value of programs with non\-zero exit status\&.
 .TP
 \fBRC_QUOTES\fP
-Allow the character sequence `\fB''\fP' to signify a single quote
+Allow the character sequence `\fB\&''\fP' to signify a single quote
 within singly quoted strings\&.  Note this does not apply in quoted strings
-using the format \fB$'\fP\fI\&.\&.\&.\fP\fB'\fP, where a backslashed single quote can
+using the format \fB$\&'\fP\fI\&.\&.\&.\fP\fB'\fP, where a backslashed single quote can
 be used\&.
 .TP
 \fBRM_STAR_SILENT\fP (\fB\-H\fP) <K> <S>
-Do not query the user before executing `\fBrm *\fP' or `\fBrm path/*\fP'\&.
+Do not query the user before executing `\fBrm *\fP\&' or `\fBrm path/*\fP'\&.
 .TP
 \fBRM_STAR_WAIT\fP
-If querying the user before executing `\fBrm *\fP' or `\fBrm path/*\fP',
+If querying the user before executing `\fBrm *\fP\&' or `\fBrm path/*\fP',
 first wait ten seconds and ignore anything typed in that time\&.
-This avoids the problem of reflexively answering `yes' to the query
-when one didn't really mean it\&.  The wait and query can always be
-avoided by expanding the `\fB*\fP' in ZLE (with tab)\&.
+This avoids the problem of reflexively answering `yes\&' to the query
+when one didn\&'t really mean it\&.  The wait and query can always be
+avoided by expanding the `\fB*\fP\&' in ZLE (with tab)\&.
 .TP
 \fBSHORT_LOOPS\fP <C> <Z>
 Allow the short forms of \fBfor\fP, \fBrepeat\fP, \fBselect\fP,
@@ -653,9 +714,11 @@ such jobs will be killed automatically\&.
 .RS
 .PP
 The check is omitted if the commands run from the previous command line
-included a `\fBjobs\fP' command, since it is assumed the user is aware that
-there are background or suspended jobs\&.  A `\fBjobs\fP' command run from the
-\fBprecmd\fP function is not counted for this purpose\&.
+included a `\fBjobs\fP\&' command, since it is assumed the user is aware that
+there are background or suspended jobs\&.  A `\fBjobs\fP\&' command run from one
+of the hook functions defined in
+the section SPECIAL FUNCTIONS in \fIzshmisc\fP(1)
+is not counted for this purpose\&.
 .RE
 .TP
 \fBHUP\fP <Z>
@@ -677,17 +740,33 @@ waiting until just before printing a prompt\&.
 .TP
 .PD
 \fBPROMPT_BANG\fP <K>
-If set, `\fB!\fP' is treated specially in prompt expansion\&.
-See the section `Prompt Expansion'\&.
+If set, `\fB!\fP\&' is treated specially in prompt expansion\&.
+See the section `Prompt Expansion\&'\&.
 .TP
 \fBPROMPT_CR\fP (\fB+V\fP) <D>
 Print a carriage return just before printing
 a prompt in the line editor\&.  This is on by default as multi\-line editing
 is only possible if the editor knows where the start of the line appears\&.
 .TP
+\fBPROMPT_SP\fP <D>
+Attempt to preserve a partial line (i\&.e\&. a line that did not end with a
+newline) that would otherwise be covered up by the command prompt due to
+the PROMPT_CR option\&.  This works by outputting some cursor\-control
+characters, including a series of spaces, that should make the terminal
+wrap to the next line when a partial line is present (note that this is
+only successful if your terminal has automatic margins, which is typical)\&.
+.RS
+.PP
+When a partial line is preserved, you will see an inverse+bold character at
+the end of the partial line:  a "%" for a normal user or a "#" for root\&.
+.PP
+NOTE: if the PROMPT_CR option is not set, enabling this option will have no
+effect\&.  This option is on by default\&.
+.RE
+.TP
 \fBPROMPT_PERCENT\fP <C> <Z>
-If set, `\fB%\fP' is treated specially in prompt expansion\&.
-See the section `Prompt Expansion'\&.
+If set, `\fB%\fP\&' is treated specially in prompt expansion\&.
+See the section `Prompt Expansion\&'\&.
 .TP
 \fBPROMPT_SUBST\fP <K>
 If set, \fIparameter expansion\fP, \fIcommand substitution\fP and
@@ -703,13 +782,18 @@ line\&.  This may be useful with terminals with other cut/paste methods\&.
 .TP
 .PD
 \fBC_BASES\fP
-Output hexadecimal numbers in the standard C format, for example `\fB0xFF\fP'
-instead of the usual `\fB16#FF\fP'\&.  If the option \fBOCTAL_ZEROES\fP is also
+Output hexadecimal numbers in the standard C format, for example `\fB0xFF\fP\&'
+instead of the usual `\fB16#FF\fP\&'\&.  If the option \fBOCTAL_ZEROES\fP is also
 set (it is not by default), octal numbers will be treated similarly and
-hence appear as `\fB077\fP' instead of `\fB8#77\fP'\&.  This option has no effect
+hence appear as `\fB077\fP\&' instead of `\fB8#77\fP'\&.  This option has no effect
 on the choice of the output base, nor on the output of bases other than
 hexadecimal and octal\&.  Note that these formats will be understood on input
 irrespective of the setting of \fBC_BASES\fP\&.
+.TP
+\fBDEBUG_BEFORE_CMD\fP
+Run the \fBDEBUG\fP trap before each command; otherwise it is run after
+each command\&.  Setting this option mimics the behaviour of ksh 93; with
+the option unset the behaviour is that of ksh 88\&.
 .TP
 \fBERR_EXIT\fP (\fB\-e\fP, ksh: \fB\-e\fP)
 If a command has a non\-zero exit status, execute the \fBZERR\fP
@@ -728,7 +812,7 @@ If set, line numbers of expressions evaluated using the builtin \fBeval\fP
 are tracked separately of the enclosing environment\&.  This applies both
 to the parameter \fBLINENO\fP and the line number output by the prompt
 escape \fB%i\fP\&.  If the option is set, the prompt escape \fB%N\fP will output
-the string `\fB(eval)\fP' instead of the script or function name as an
+the string `\fB(eval)\fP\&' instead of the script or function name as an
 indication\&.   (The two prompt escapes are typically used in the parameter
 \fBPS4\fP to be output when the option \fBXTRACE\fP is set\&.)  If
 \fBEVAL_LINENO\fP is unset, the line number of the surrounding script or
@@ -738,7 +822,7 @@ function is retained during the evaluation\&.
 Do execute commands\&.  Without this option, commands are
 read and checked for syntax errors, but not executed\&.
 This option cannot be turned off in an interactive shell,
-except when `\fB\-n\fP' is supplied to the shell at startup\&.
+except when `\fB\-n\fP\&' is supplied to the shell at startup\&.
 .TP
 \fBFUNCTION_ARGZERO\fP <C> <Z>
 When executing a shell function or sourcing a script, set \fB$0\fP
@@ -752,7 +836,7 @@ the function are restored\&.  Otherwise, only this option and the
 if this is explicitly unset by a shell function the other options in
 force at the point of return will remain so\&.
 A shell function can also guarantee itself a known shell configuration
-with a formulation like `\fBemulate \-L zsh\fP'; the \fB\-L\fP activates
+with a formulation like `\fBemulate \-L zsh\fP\&'; the \fB\-L\fP activates
 \fBLOCAL_OPTIONS\fP\&.
 .TP
 \fBLOCAL_TRAPS\fP <K>
@@ -769,7 +853,7 @@ For example,
 .nf
 \fBunsetopt localtraps
 trap \- INT
-fn() { setopt localtraps; trap '' INT; sleep 3; }\fP
+fn() { setopt localtraps; trap \&'' INT; sleep 3; }\fP
 .fi
 .RE
 .PP
@@ -778,20 +862,26 @@ will restore normally handling of \fBSIGINT\fP after the function exits\&.
 .TP
 \fBMULTIOS\fP <Z>
 Perform implicit \fBtee\fPs or \fBcat\fPs when multiple
-redirections are attempted (see the section `Redirection')\&.
+redirections are attempted (see the section `Redirection\&')\&.
 .TP
 \fBOCTAL_ZEROES\fP <S>
 Interpret any integer constant beginning with a 0 as octal, per IEEE Std
 1003\&.2\-1992 (ISO 9945\-2:1993)\&.  This is not enabled by default as it
 causes problems with parsing of, for example, date and time strings with
 leading zeroes\&.
+.RS
+.PP
+Sequences of digits indicating a numeric base such as the `\fB08\fP\&'
+component in `\fB08#77\fP\&' are always interpreted as decimal, regardless
+of leading zeroes\&.
+.RE
 .TP
 \fBTYPESET_SILENT\fP
-If this is unset, executing any of the `\fBtypeset\fP' family of
+If this is unset, executing any of the `\fBtypeset\fP\&' family of
 commands with no options and a list of parameters that have no values
 to be assigned but already exist will display the value of the parameter\&.
 If the option is set, they will only be shown when parameters are selected
-with the `\fB\-m\fP' option\&.  The option `\fB\-p\fP' is available whether or not
+with the `\fB\-m\fP\&' option\&.  The option `\fB\-p\fP' is available whether or not
 the option is set\&.
 .TP
 \fBVERBOSE\fP (\fB\-v\fP, ksh: \fB\-v\fP)
@@ -816,28 +906,28 @@ to the same event as the previous history reference, defaulting to the
 previous command\&.
 .TP
 \fBCSH_JUNKIE_LOOPS\fP <C>
-Allow loop bodies to take the form `\fIlist\fP; \fBend\fP' instead of
-`\fBdo\fP \fIlist\fP; \fBdone\fP'\&.
+Allow loop bodies to take the form `\fIlist\fP; \fBend\fP\&' instead of
+`\fBdo\fP \fIlist\fP; \fBdone\fP\&'\&.
 .TP
 \fBCSH_JUNKIE_QUOTES\fP <C>
 Changes the rules for single\- and double\-quoted text to match that of
 \fBcsh\fP\&.  These require that embedded newlines be preceded by a backslash;
 unescaped newlines will cause an error message\&.
-In double\-quoted strings, it is made impossible to escape `\fB$\fP', `\fB`\fP'
-or `\fB"\fP' (and `\fB\e\fP' itself no longer needs escaping)\&.
+In double\-quoted strings, it is made impossible to escape `\fB$\fP\&', `\fB`\fP'
+or `\fB"\fP\&' (and `\fB\e\fP' itself no longer needs escaping)\&.
 Command substitutions are only expanded once, and cannot be nested\&.
 .TP
 \fBCSH_NULLCMD\fP <C>
 Do not use the values of \fBNULLCMD\fP and \fBREADNULLCMD\fP 
 when running redirections with no command\&.  This make 
-such redirections fail (see the section `Redirection')\&.
+such redirections fail (see the section `Redirection\&')\&.
 .TP
 \fBKSH_ARRAYS\fP <K> <S>
 Emulate \fBksh\fP array handling as closely as possible\&.  If this option
 is set, array elements are numbered from zero, an array parameter
 without subscript refers to the first element instead of the whole array,
-and braces are required to delimit a subscript (`\fB${path[2]}\fP' rather
-than just `\fB$path[2]\fP')\&.
+and braces are required to delimit a subscript (`\fB${path[2]}\fP\&' rather
+than just `\fB$path[2]\fP\&')\&.
 .TP
 \fBKSH_AUTOLOAD\fP <K> <S>
 Emulate \fBksh\fP function autoloading\&.  This means that when a function is
@@ -849,8 +939,8 @@ in the \fBksh\fP\-compatible manner\&.)
 .TP
 \fBKSH_OPTION_PRINT\fP <K>
 Alters the way options settings are printed: instead of separate lists of
-set and unset options, all options are shown, marked `on' if
-they are in the non\-default state, `off' otherwise\&.
+set and unset options, all options are shown, marked `on\&' if
+they are in the non\-default state, `off\&' otherwise\&.
 .TP
 \fBKSH_TYPESET\fP <K>
 Alters the way arguments to the \fBtypeset\fP family of commands, including
@@ -884,17 +974,37 @@ builtins are
 \fBtrap\fP and
 \fBunset\fP\&.
 .TP
+\fBPOSIX_IDENTIFIERS\fP <K> <S>
+When this option is set, only the ASCII characters \fBa\fP to \fBz\fP, \fBA\fP to
+\fBZ\fP, \fB0\fP to \fB9\fP and \fB_\fP may be used in identifiers (names
+of shell parameters and modules)\&.
+.RS
+.PP
+When the option is unset and multibyte character support is enabled (i\&.e\&. it
+is compiled in and the option \fBMULTIBYTE\fP is set), then additionally any
+alphanumeric characters in the local character set may be used in
+identifiers\&.  Note that scripts and functions written with this feature are
+not portable, and also that both options must be set before the script
+or function is parsed; setting them during execution is not sufficient
+as the syntax \fIvariable\fP\fB=\fP\fIvalue\fP has already been parsed as
+a command rather than an assignment\&.
+.PP
+If multibyte character support is not compiled into the shell this option is
+ignored; all octets with the top bit set may be used in identifiers\&.
+This is non\-standard but is the traditional zsh behaviour\&.
+.RE
+.TP
 \fBSH_FILE_EXPANSION\fP <K> <S>
 Perform filename expansion (e\&.g\&., ~ expansion) \fIbefore\fP
 parameter expansion, command substitution, arithmetic expansion
 and brace expansion\&.
 If this option is unset, it is performed \fIafter\fP
-brace expansion, so things like `\fB~$USERNAME\fP' and
-`\fB~{pfalstad,rc}\fP' will work\&.
+brace expansion, so things like `\fB~$USERNAME\fP\&' and
+`\fB~{pfalstad,rc}\fP\&' will work\&.
 .TP
 \fBSH_NULLCMD\fP <K> <S>
 Do not use the values of \fBNULLCMD\fP and \fBREADNULLCMD\fP 
-when doing redirections, use `\fB:\fP' instead (see the section `Redirection')\&.
+when doing redirections, use `\fB:\fP\&' instead (see the section `Redirection')\&.
 .TP
 \fBSH_OPTION_LETTERS\fP <K> <S>
 If this option is set the shell tries to interpret single letter options
@@ -904,7 +1014,7 @@ This also affects the value of the \fB\-\fP special parameter\&.
 \fBSH_WORD_SPLIT\fP (\fB\-y\fP) <K> <S>
 Causes field splitting to be performed on unquoted parameter expansions\&.
 Note that this option has nothing to do with word splitting\&.
-(See the section `Parameter Expansion'\&.)
+(See the section `Parameter Expansion\&'\&.)
 .TP
 \fBTRAPS_ASYNC\fP
 While waiting for a program to exit, handle signals and run traps
@@ -927,14 +1037,14 @@ The value of this option cannot be changed anywhere other than the command line\
 \fBLOGIN\fP (\fB\-l\fP, ksh: \fB\-l\fP)
 This is a login shell\&.
 If this option is not explicitly set, the shell is a login shell if
-the first character of the \fBargv[0]\fP passed to the shell is a `\fB\-\fP'\&.
+the first character of the \fBargv[0]\fP passed to the shell is a `\fB\-\fP\&'\&.
 .TP
 \fBPRIVILEGED\fP (\fB\-p\fP, ksh: \fB\-p\fP)
 Turn on privileged mode\&. This is enabled automatically on startup if the
 effective user (group) ID is not equal to the real user (group) ID\&.  Turning
 this option off causes the effective user and group IDs to be set to the
 real user and group IDs\&. This option disables sourcing user startup files\&.
-If zsh is invoked as `\fBsh\fP' or `\fBksh\fP' with this option set,
+If zsh is invoked as `\fBsh\fP\&' or `\fBksh\fP' with this option set,
 \fB/etc/suid_profile\fP is sourced (after \fB/etc/profile\fP on interactive
 shells)\&. Sourcing \fB~/\&.profile\fP is disabled and the contents of the
 \fBENV\fP variable is ignored\&. This option cannot be changed using the
@@ -946,7 +1056,7 @@ option\&.
 Enables restricted mode\&.  This option cannot be changed using
 \fBunsetopt\fP, and setting it inside a function always changes it
 globally regardless of the \fBLOCAL_OPTIONS\fP option\&.  See
-the section `Restricted Shell'\&.
+the section `Restricted Shell\&'\&.
 .TP
 \fBSHIN_STDIN\fP (\fB\-s\fP, ksh: \fB\-s\fP)
 Commands are being read from the standard input\&.
@@ -978,7 +1088,7 @@ Beep on error in ZLE\&.
 .TP
 \fBEMACS\fP
 If ZLE is loaded, turning on this option has the equivalent effect
-of `\fBbindkey \-e\fP'\&.  In addition, the VI option is unset\&.
+of `\fBbindkey \-e\fP\&'\&.  In addition, the VI option is unset\&.
 Turning it off has no effect\&.  The option setting is
 not guaranteed to reflect the current keymap\&.  This option is
 provided for compatibility; \fBbindkey\fP is the recommended interface\&.
@@ -991,7 +1101,7 @@ Use single\-line command line editing instead of multi\-line\&.
 .TP
 \fBVI\fP
 If ZLE is loaded, turning on this option has the equivalent effect
-of `\fBbindkey \-v\fP'\&.  In addition, the EMACS option is unset\&.
+of `\fBbindkey \-v\fP\&'\&.  In addition, the EMACS option is unset\&.
 Turning it off has no effect\&.  The option setting is
 not guaranteed to reflect the current keymap\&.  This option is
 provided for compatibility; \fBbindkey\fP is the recommended interface\&.

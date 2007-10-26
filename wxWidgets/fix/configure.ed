@@ -1,0 +1,7 @@
+g/powerpc-\*-darwin\*/s//xxx-xxx-xxx/
+/DEPSMODE=gcc/a
+.
+/darwin/+1c
+			DEPSMODE=disabled
+.
+w

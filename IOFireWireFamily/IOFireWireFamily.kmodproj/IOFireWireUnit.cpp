@@ -36,6 +36,7 @@
 #include <IOKit/firewire/IOFireWireDevice.h>
 #include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/firewire/IOConfigDirectory.h>
+#import <IOKit/firewire/IOFWSimpleContiguousPhysicalAddressSpace.h>
 
 #include "FWDebugging.h"
 
@@ -74,6 +75,49 @@ bool IOFireWireUnitAux::init( IOFireWireUnit * primary )
 void IOFireWireUnitAux::free()
 {	    
 	IOFireWireNubAux::free();
+}
+
+// isPhysicalAccessEnabled
+//
+//
+
+bool IOFireWireUnitAux::isPhysicalAccessEnabled( void )
+{
+	IOFireWireUnit * unit = (IOFireWireUnit*)fPrimary;
+	IOFireWireDevice * device = unit->fDevice;
+	return device->isPhysicalAccessEnabled();
+}
+
+// createSimpleContiguousPhysicalAddressSpace
+//
+//
+
+IOFWSimpleContiguousPhysicalAddressSpace * IOFireWireUnitAux::createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction )
+{
+    IOFWSimpleContiguousPhysicalAddressSpace * space = IOFireWireNubAux::createSimpleContiguousPhysicalAddressSpace( size, direction );
+	
+	if( space != NULL )
+	{
+		space->addTrustedNode( ((IOFireWireUnit*)fPrimary)->fDevice );
+	}
+	
+	return space;
+}
+
+// createSimplePhysicalAddressSpace
+//
+//
+
+IOFWSimplePhysicalAddressSpace * IOFireWireUnitAux::createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction )
+{
+    IOFWSimplePhysicalAddressSpace * space = IOFireWireNubAux::createSimplePhysicalAddressSpace( size, direction );
+	
+	if( space != NULL )
+	{
+		space->addTrustedNode( ((IOFireWireUnit*)fPrimary)->fDevice );
+	}
+	
+	return space;
 }
 
 #pragma mark -
@@ -137,7 +181,20 @@ bool IOFireWireUnit::attach( IOService *provider )
     fControl->retain();
     fDevice->getNodeIDGeneration(fGeneration, fNodeID, fLocalNodeID);
     
-    return(true);
+	// check if this is a kprintf unit directory
+	OSNumber * spec_id_number = (OSNumber*)getProperty( gFireWireUnit_Spec_ID );
+	OSNumber * sw_vers_number = (OSNumber*)getProperty( gFireWireUnit_SW_Version );
+	if( spec_id_number && sw_vers_number )
+	{
+		if( (spec_id_number->unsigned32BitValue() == kIOFWSpecID_AAPL) &&
+			(sw_vers_number->unsigned32BitValue() == kIOFWSWVers_KPF) )
+		{
+			// tell the controller to enter logging mode
+			fControl->enterLoggingMode();
+		}
+	}
+	
+    return true;
 }
 
 // free
@@ -163,12 +220,23 @@ IOReturn IOFireWireUnit::message( 	UInt32 		mess,
 									IOService *	provider,
 									void * 		argument )
 {
+    if(provider == fDevice &&
+       (kIOMessageServiceIsRequestingClose == mess ||
+        kIOFWMessageServiceIsRequestingClose == mess)) 
+	{
+        fDevice->getNodeIDGeneration(fGeneration, fNodeID, fLocalNodeID);
+		if( isOpen() )
+		{
+			messageClients( mess );
+        }
+		
+		return kIOReturnSuccess;
+    }
+	
     // Propagate bus reset start/end messages
     if(provider == fDevice &&
        (kIOMessageServiceIsResumed == mess ||
-        kIOMessageServiceIsSuspended == mess ||
-        kIOMessageServiceIsRequestingClose == mess ||
-        kIOFWMessageServiceIsRequestingClose == mess)) 
+        kIOMessageServiceIsSuspended == mess)) 
 	{
         fDevice->getNodeIDGeneration(fGeneration, fNodeID, fLocalNodeID);
 		messageClients( mess );

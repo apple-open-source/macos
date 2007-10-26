@@ -1,16 +1,35 @@
 #! /bin/sh
+# Copyright (C) 2002, 2004  Free Software Foundation, Inc.
+#
+# This file is part of GNU Automake.
+#
+# GNU Automake is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# GNU Automake is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Automake; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA 02110-1301, USA.
+
 # For PR 204.
 # Sources derived from nodist_ sources should not be distributed.
 
-required=bison
-
-. $srcdir/defs || exit 1
+required='bison gcc'
+. ./defs || exit 1
 
 set -e
 
 cat > configure.in <<'EOF'
 AC_INIT(pr204, 0.1)
 AM_INIT_AUTOMAKE
+AM_MAINTAINER_MODE
 AC_PROG_CC
 AC_PROG_YACC
 AC_CONFIG_FILES(Makefile)
@@ -21,9 +40,18 @@ EOF
 # sure Automake match 'nodist_' against the right
 # variable name...
 cat > Makefile.am << 'EOF'
+AM_YFLAGS = -d
 EXTRA_PROGRAMS = foo
 PARSE2 = parse2.y
 nodist_foo_SOURCES = parse.y $(PARSE2)
+
+distdirtest: distdir
+	test ! -f $(distdir)/parse.c
+	test ! -f $(distdir)/parse.y
+	test ! -f $(distdir)/parse.h
+	test ! -f $(distdir)/parse2.c
+	test ! -f $(distdir)/parse2.y
+	test ! -f $(distdir)/parse2.h
 EOF
 
 cat > parse.y << 'END'
@@ -37,18 +65,20 @@ END
 
 cp parse.y parse2.y
 
-# We are not checking Autoconf, so we pick $YACC for it.
-YACC="bison -y"
-export YACC
-
 $ACLOCAL
 $AUTOCONF
 $AUTOMAKE -a
 ./configure
-$MAKE distdir
-test -f pr204-0.1/parse.c && exit 1
-test -f pr204-0.1/parse.y && exit 1
-test -f pr204-0.1/parse2.c && exit 1
-test -f pr204-0.1/parse2.y && exit 1
+$MAKE distdirtest
 # Make sure parse.c and parse2.c are still targets.
 $MAKE parse.c parse2.c
+test -f parse.c
+test -f parse2.c
+
+# Ensure the rebuild rule works despite AM_MAINTAINER_MODE, because
+# it's a nodist_ parser.
+$sleep
+touch parse.y
+$sleep
+$MAKE parse.c parse2.c
+test `ls -1t parse.c parse.y | sed 1q` = parse.c

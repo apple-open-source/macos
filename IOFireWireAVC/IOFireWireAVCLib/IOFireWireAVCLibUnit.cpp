@@ -37,6 +37,9 @@
 #include <unistd.h>
 #import <sys/mman.h>
 #include <mach/mach_port.h>
+#include <mach/vm_map.h>
+
+#import <System/libkern/OSCrossEndian.h>
 
 #if 0
 #define FWLOG(x) printf x
@@ -134,18 +137,16 @@ static void removeIODispatcherFromRunLoop( void * self );
 //////////////////////////////////////////////////////
 // AVCAsyncCommandCallback
 //////////////////////////////////////////////////////
-static void AVCAsyncCommandCallback( void *refcon, IOReturn result, void **args, int numArgs)
+static void AVCAsyncCommandCallback( void *refcon, IOReturn result, io_user_reference_t *args, int numArgs)
 {
     AVCUnit *me = (AVCUnit*) refcon;
-	UInt32 commandIdentifierHandle = (UInt32)args[0];
-	UInt32 cmdState = (UInt32)args[1];
-	UInt32 respLen = (UInt32)args[2];
+	UInt32 commandIdentifierHandle = (args[0] & 0xFFFFFFFF);
+	UInt32 cmdState = (args[1] & 0xFFFFFFFF);
+	UInt32 respLen = (args[2] & 0xFFFFFFFF);
 	CFIndex count = 0;
 	CFIndex i = 0;
-	AVCLibAsynchronousCommandPriv *pPrivCmd;
+	AVCLibAsynchronousCommandPriv *pPrivCmd = NULL;
 	bool found = false;
-	
-	printf("AY_DEBUG:AVCAsyncCommandCallback\n");
 	
 	pthread_mutex_lock( &me->fAVCAsyncCommandArrayLock );
 	count = CFArrayGetCount( me->fAVCAsyncCommandArray );
@@ -215,6 +216,7 @@ static UInt32 release( void * self )
     AVCUnit *me = AVCUnit_getThis(self);
 	UInt32 retVal = me->fRefCount;
 	AVCLibAsynchronousCommandPriv *pPrivCmd;
+	uint32_t outputCnt = 0;
 	
 	if( 1 == me->fRefCount-- ) 
 	{
@@ -239,12 +241,17 @@ static UInt32 release( void * self )
 				pPrivCmd = (AVCLibAsynchronousCommandPriv*) CFArrayGetValueAtIndex( me->fAVCAsyncCommandArray, 0);
 				if (pPrivCmd)
 				{
-					IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCUserClientReleaseAsyncAVCCommand,1, 0, pPrivCmd->kernelAsyncAVCCommandHandle);
-					
+					const uint64_t inArg = pPrivCmd->kernelAsyncAVCCommandHandle;
+					IOConnectCallScalarMethod(me->fConnection,
+											kIOFWAVCUserClientReleaseAsyncAVCCommand,
+											&inArg,
+											1,NULL,&outputCnt);
+
 					// unmap the 1K response buffer
 					if (pPrivCmd->pResponseBuf)
-						munmap( (void*)pPrivCmd->pResponseBuf, 1024 ) ;
-					
+						//munmap( (void*)pPrivCmd->pResponseBuf, 1024 ) ;
+						vm_deallocate(mach_task_self(), (vm_address_t) pPrivCmd->pResponseBuf,1024);
+
 					// delete the command byte buffer, and the user command
 					if (pPrivCmd->pCmd)
 					{
@@ -427,10 +434,9 @@ static IOReturn start( void * self, CFDictionaryRef propertyTable,
 {
 	IOReturn status = kIOReturnSuccess;
     AVCUnit *me = AVCUnit_getThis(self);
-    io_async_ref_t 			asyncRef;
-    io_scalar_inband_t		params;
-    mach_msg_type_number_t	size = 1;
-	UInt32 returnVal;
+	uint64_t returnVal;
+	uint64_t refrncData[kOSAsyncRef64Count];
+	uint32_t outputCnt = 1;
 	
 	me->fService = service;
     status = IOServiceOpen( me->fService, mach_task_self(), 
@@ -446,14 +452,15 @@ static IOReturn start( void * self, CFDictionaryRef propertyTable,
 	// Setup the ref for the kernel user client to use for async AVC command callbacks 
 	if( status == kIOReturnSuccess )
 	{
-		asyncRef[kIOAsyncCalloutFuncIndex] = (UInt32)(IOAsyncCallback)&AVCAsyncCommandCallback;
-		asyncRef[kIOAsyncCalloutRefconIndex] = (UInt32)me;
-		params[0] = (int)0xDEADBEEF;
-		status = io_async_method_scalarI_scalarO( me->fConnection, me->fAsyncPort, 
-												  asyncRef, 3, 
-												  kIOFWAVCUserClientInstallAsyncAVCCommandCallback,
-												  params, 1,
-												  (int *)&returnVal, &size );
+		refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t)AVCAsyncCommandCallback;
+		refrncData[kIOAsyncCalloutRefconIndex] = (uint64_t)me;
+		
+		status = IOConnectCallAsyncScalarMethod(me->fConnection,
+												kIOFWAVCUserClientInstallAsyncAVCCommandCallback,
+												me->fAsyncPort,
+												refrncData,kOSAsyncRef64Count,
+												NULL,0,
+												&returnVal,&outputCnt);
 	}
 	
 	return status;
@@ -491,11 +498,13 @@ static IOReturn open( void * self )
 {
     AVCUnit *me = AVCUnit_getThis(self);
 	IOReturn status = kIOReturnSuccess;
+	uint32_t outputCnt = 0;
 	
     if( !me->fConnection )		    
 		return kIOReturnNoDevice; 
 
-    status = IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientOpen, 0, 0);
+	status = IOConnectCallScalarMethod(me->fConnection,kIOFWAVCUserClientOpen,NULL,0,NULL,&outputCnt);
+
 	return status;
 }
 
@@ -506,12 +515,13 @@ static IOReturn openWithSessionRef( void * self, IOFireWireSessionRef sessionRef
 {
     AVCUnit *me = AVCUnit_getThis(self);
 	IOReturn status = kIOReturnSuccess;
+	uint32_t outputCnt = 0;
 	
     if( !me->fConnection )		    
 		return kIOReturnNoDevice; 
-
-    status = IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientOpenWithSessionRef, 
-												1, 0, sessionRef);
+	
+	const uint64_t inputs[1]={(const uint64_t)sessionRef};
+	status = IOConnectCallScalarMethod(me->fConnection,kIOFWAVCUserClientOpenWithSessionRef,inputs,1,NULL,&outputCnt);
 	
 	return status;
 }
@@ -524,16 +534,19 @@ static IOFireWireSessionRef getSessionRef(void * self)
     AVCUnit *me = AVCUnit_getThis(self);
 	IOReturn status = kIOReturnSuccess;
 	IOFireWireSessionRef sessionRef = 0;
+	uint32_t outputCnt = 1;
+	uint64_t outputVal;
 	
     if( !me->fConnection )		    
 		return sessionRef; 
 
-    status = IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientGetSessionRef, 
-												0, 1, (int*)&sessionRef);	
-
+	status = IOConnectCallScalarMethod(me->fConnection,kIOFWAVCUserClientGetSessionRef,NULL,0,&outputVal,&outputCnt);
+	
 	if( status != kIOReturnSuccess )
 		sessionRef = 0; // just to make sure
-
+	else 
+		sessionRef = (IOFireWireSessionRef) outputVal;
+	
 	return sessionRef;
 }
 
@@ -543,10 +556,12 @@ static IOFireWireSessionRef getSessionRef(void * self)
 static void close( void * self )
 {
     AVCUnit *me = AVCUnit_getThis(self);
+	uint32_t outputCnt = 0;
+
 	if( !me->fConnection )		    
         return; 
 		
-	IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientClose, 0, 0);
+	IOConnectCallScalarMethod(me->fConnection,kIOFWAVCUserClientClose,NULL,0,NULL,&outputCnt);
 }
 
 //////////////////////////////////////////////////////
@@ -662,13 +677,12 @@ static IOReturn AVCCommand(void *self, const UInt8 * command, UInt32 cmdLen, UIn
 {
     AVCUnit *me = AVCUnit_getThis(self);
     IOReturn status;
-    IOByteCount outputCnt = *responseLen;
+    size_t outputCnt = *responseLen;
 	if( !me->fConnection )		    
         return kIOReturnNotOpen; 
 		
-    status = IOConnectMethodStructureIStructureO(
-        me->fConnection, kIOFWAVCUserClientAVCCommand,
-        cmdLen, &outputCnt, (UInt8 *)command, response);
+	status = IOConnectCallStructMethod(me->fConnection, kIOFWAVCUserClientAVCCommand, command, cmdLen, response,&outputCnt);
+		
     if(status == kIOReturnSuccess)
         *responseLen = outputCnt;
 
@@ -690,17 +704,23 @@ static IOReturn AVCCommandInGeneration(void *self, UInt32 generation,
     UInt8 annoying[sizeof(UInt32) + 512];
     AVCUnit *me = AVCUnit_getThis(self);
     IOReturn status;
-    IOByteCount outputCnt = *responseLen;
+    size_t outputCnt = *responseLen;
 	if( !me->fConnection )		    
         return kIOReturnNotOpen; 
+
+	ROSETTA_ONLY(
+		{
+			generation = OSSwapInt32(generation);
+		}
+	);
 		
     // Have to stick the generation in with the command bytes.
     *(UInt32 *)annoying = generation;
     bcopy(command, annoying+sizeof(UInt32), cmdLen);
-    status = IOConnectMethodStructureIStructureO(
-        me->fConnection, kIOFWAVCUserClientAVCCommandInGen,
-        cmdLen+sizeof(UInt32), &outputCnt, annoying, response);
-    if(status == kIOReturnSuccess)
+ 
+ 	status = IOConnectCallStructMethod(me->fConnection, kIOFWAVCUserClientAVCCommandInGen, annoying, cmdLen+sizeof(UInt32), response,&outputCnt);
+
+	if(status == kIOReturnSuccess)
         *responseLen = outputCnt;
 
 	if (me->fHighPerfAVCCommands == false)
@@ -717,7 +737,8 @@ static IOReturn AVCCommandInGeneration(void *self, UInt32 generation,
 //////////////////////////////////////////////////////
 static void *GetAncestorInterface( void * self, char * object_class, REFIID pluginType, REFIID iid)
 {
-    io_registry_entry_t 	parent;
+    io_registry_entry_t 	parent = NULL;
+    io_registry_entry_t 	notTheDesiredParent = NULL;
     IOCFPlugInInterface** 	theCFPlugInInterface = 0;
     void *					resultInterface = 0 ;
     SInt32					theScore ;
@@ -730,11 +751,18 @@ static void *GetAncestorInterface( void * self, char * object_class, REFIID plug
         err = IORegistryEntryGetParentEntry(me->fService, kIOServicePlane, &parent);
         
         while(!err && !IOObjectConformsTo(parent, object_class) )
-            err = IORegistryEntryGetParentEntry(parent, kIOServicePlane, &parent);
-            
+		{
+			notTheDesiredParent = parent;
+            err = IORegistryEntryGetParentEntry(notTheDesiredParent, kIOServicePlane, &parent);
+			IOObjectRelease(notTheDesiredParent);
+		}
+		
         if(err)
-            break;
-
+		{
+			parent = NULL;
+			break;
+		}
+		
         err = IOCreatePlugInInterfaceForService(
                         parent,
                         type_id,
@@ -760,6 +788,9 @@ static void *GetAncestorInterface( void * self, char * object_class, REFIID plug
     }
 
     CFRelease( type_id );
+	
+	if ((!resultInterface) && (parent))
+		IOObjectRelease(parent);
         
     return resultInterface;
 }
@@ -769,8 +800,9 @@ static void *GetAncestorInterface( void * self, char * object_class, REFIID plug
 //////////////////////////////////////////////////////
 static void *GetProtocolInterface( void * self, REFIID pluginType, REFIID iid)
 {
-    io_registry_entry_t 	parent;
-    io_registry_entry_t 	child;
+    io_registry_entry_t 	parent = NULL;
+    io_registry_entry_t 	notTheDesiredParent = NULL;
+    io_registry_entry_t 	child = NULL;
     io_iterator_t			iterator = NULL;
     IOCFPlugInInterface** 	theCFPlugInInterface = 0;
     void *					resultInterface = 0 ;
@@ -784,11 +816,18 @@ static void *GetProtocolInterface( void * self, REFIID pluginType, REFIID iid)
         err = IORegistryEntryGetParentEntry(me->fService, kIOServicePlane, &parent);
         
         while(!err && !IOObjectConformsTo(parent, "IOFireWireController") )
-            err = IORegistryEntryGetParentEntry(parent, kIOServicePlane, &parent);
-            
+		{
+			notTheDesiredParent = parent;
+            err = IORegistryEntryGetParentEntry(notTheDesiredParent, kIOServicePlane, &parent);
+			IOObjectRelease(notTheDesiredParent);
+		}
+		
         if(err)
-            break;
-
+		{
+			parent = NULL;
+			break;
+		}
+		
         // Now search for an IOFireWireLocalNode.
         err = IORegistryEntryGetChildIterator(parent, kIOServicePlane, &iterator );
         if(err)
@@ -798,6 +837,7 @@ static void *GetProtocolInterface( void * self, REFIID pluginType, REFIID iid)
             if(IOObjectConformsTo(child, "IOFireWireLocalNode"))
                 break;
             IOObjectRelease(child);
+			child = NULL;
         }
 
         if(!child)
@@ -831,7 +871,13 @@ static void *GetProtocolInterface( void * self, REFIID pluginType, REFIID iid)
         IOObjectRelease(iterator);
 
     CFRelease( type_id );
-        
+	
+	if (parent)
+		IOObjectRelease(parent);
+
+	if ((!resultInterface) && (child))
+		IOObjectRelease(child);
+
     return resultInterface;
 }
 
@@ -953,10 +999,12 @@ void consumerPlugDestroyed( void * self, IOFireWireAVCLibConsumer * consumer )
 static IOReturn updateAVCCommandTimeout( void * self )
 {
     AVCUnit *me = AVCUnit_getThis(self);
+	uint32_t outputCnt = 0;
+
 	if( !me->fConnection )		    
         return kIOReturnNotOpen; 
 		
-	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientUpdateAVCCommandTimeout, 0, 0);
+	return IOConnectCallScalarMethod(me->fConnection,kIOFWAVCUserClientUpdateAVCCommandTimeout,NULL,0,NULL,&outputCnt);
 }
 
 //////////////////////////////////////////////////////
@@ -965,7 +1013,10 @@ static IOReturn updateAVCCommandTimeout( void * self )
 static IOReturn makeP2PInputConnection(void * self, UInt32 inputPlug, UInt32 chan)
 {
     AVCUnit *me = AVCUnit_getThis(self);
-	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientMakeP2PInputConnection, 2, 0, inputPlug, chan);
+	uint32_t outputCnt = 0;
+	const uint64_t inputs[2] = {inputPlug,chan};
+	
+	return IOConnectCallScalarMethod(me->fConnection,kIOFWAVCUserClientMakeP2PInputConnection,inputs,2,NULL,&outputCnt);
 
 }
 
@@ -975,8 +1026,9 @@ static IOReturn makeP2PInputConnection(void * self, UInt32 inputPlug, UInt32 cha
 static IOReturn breakP2PInputConnection(void * self, UInt32 inputPlug)
 {
     AVCUnit *me = AVCUnit_getThis(self);
-	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientBreakP2PInputConnection, 1, 0, inputPlug);
-
+	uint32_t outputCnt = 0;
+	const uint64_t inputs[1]={(const uint64_t)inputPlug};
+	return IOConnectCallScalarMethod(me->fConnection,kIOFWAVCUserClientBreakP2PInputConnection,inputs,1,NULL,&outputCnt);
 }
 
 //////////////////////////////////////////////////////
@@ -985,8 +1037,10 @@ static IOReturn breakP2PInputConnection(void * self, UInt32 inputPlug)
 static IOReturn makeP2POutputConnection(void * self, UInt32 outputPlug, UInt32 chan, IOFWSpeed speed)
 {
     AVCUnit *me = AVCUnit_getThis(self);
-	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientMakeP2POutputConnection, 3, 0, outputPlug, chan, speed);
+	uint32_t outputCnt = 0;
+	const uint64_t inputs[3] = {outputPlug,chan,speed};
 
+	return IOConnectCallScalarMethod(me->fConnection,kIOFWAVCUserClientMakeP2POutputConnection,inputs,3,NULL,&outputCnt);
 }
 
 //////////////////////////////////////////////////////
@@ -995,8 +1049,10 @@ static IOReturn makeP2POutputConnection(void * self, UInt32 outputPlug, UInt32 c
 static IOReturn breakP2POutputConnection(void * self, UInt32 outputPlug)
 {
     AVCUnit *me = AVCUnit_getThis(self);
-	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientBreakP2POutputConnection, 1, 0, outputPlug);
+	uint32_t outputCnt = 0;
+	const uint64_t inputs[1]={(const uint64_t)outputPlug};
 
+	return IOConnectCallScalarMethod(me->fConnection,kIOFWAVCUserClientBreakP2POutputConnection,inputs,1,NULL,&outputCnt);
 }
 
 //////////////////////////////////////////////////////
@@ -1012,9 +1068,11 @@ static IOReturn createAVCAsynchronousCommand(void * self,
 	AVCUnit *me = AVCUnit_getThis(self);
 	AVCLibAsynchronousCommandPriv *pPrivCmd;
     IOReturn status = kIOReturnNoMemory;
-	IOByteCount outputCnt = sizeof(UInt32);
-	UInt8 **ppSharedBufAddress;
-
+	size_t outputCnt = sizeof(UInt32);
+	//UInt8 **ppSharedBufAddress;
+	mach_vm_address_t *pSharedBufAddress;
+	mach_vm_address_t sharedBuf;
+	
 	// Do some parameter validation
 	if(cmdLen == 0 || cmdLen > 512)
         return kIOReturnBadArgument;
@@ -1034,7 +1092,8 @@ static IOReturn createAVCAsynchronousCommand(void * self,
 		// Create the client command buf, and copy the passed in command bytes
 		// Note, add room at the end of this buffer for passing the address of the
 		// shared kernel/user response buffer down to the kernel
-		pPrivCmd->pCmd->pCommandBuf = (UInt8*) malloc(cmdLen+sizeof(UInt8*));
+		//pPrivCmd->pCmd->pCommandBuf = (UInt8*) malloc(cmdLen+sizeof(UInt8*));
+		pPrivCmd->pCmd->pCommandBuf = (UInt8*) malloc(cmdLen+sizeof(mach_vm_address_t));
 		if (!pPrivCmd->pCmd->pCommandBuf)
 			break;
 
@@ -1044,13 +1103,22 @@ static IOReturn createAVCAsynchronousCommand(void * self,
 		// Create a 1 KByte memory buffer for the kernel/user shared memory
 		// The first 512 bytes is the interim response buffer.
 		// The second 512 bytes is the final response buffer
-		pPrivCmd->pResponseBuf = (UInt8*) mmap( NULL, 1024, PROT_READ | PROT_WRITE, MAP_ANON, -1, 0 );
+		//pPrivCmd->pResponseBuf = (UInt8*) mmap( NULL, 1024, PROT_READ | PROT_WRITE, MAP_ANON, -1, 0 );
+		//if ((pPrivCmd->pResponseBuf == (UInt8*) -1 ) || (!pPrivCmd->pResponseBuf))
+		vm_allocate(mach_task_self(), (vm_address_t *)&pPrivCmd->pResponseBuf,1024, VM_FLAGS_ANYWHERE);
 		if (!pPrivCmd->pResponseBuf)
 			break;
-		
+			
 		// Put the address of the response buffer into the array of bytes we will send to the kernel
-		ppSharedBufAddress = (UInt8**) &(pPrivCmd->pCmd->pCommandBuf[cmdLen]);
-		*ppSharedBufAddress = pPrivCmd->pResponseBuf;
+		pSharedBufAddress = (mach_vm_address_t *) &(pPrivCmd->pCmd->pCommandBuf[cmdLen]);
+		sharedBuf = (mach_vm_address_t) pPrivCmd->pResponseBuf;
+		*pSharedBufAddress = sharedBuf;
+		
+		ROSETTA_ONLY(
+			{
+				*pSharedBufAddress = (mach_vm_address_t) OSSwapInt64(sharedBuf);
+			}
+		);
 		
 		// Initialize the command object
 		pPrivCmd->pCmd->cmdLen = cmdLen;
@@ -1063,12 +1131,19 @@ static IOReturn createAVCAsynchronousCommand(void * self,
 		pPrivCmd->clientCallback = completionCallback;
 
 		// Have the user-client create a in-kernel AVC async command object
-		status = IOConnectMethodStructureIStructureO(me->fConnection,
-													 kIOFWAVCUserClientCreateAsyncAVCCommand,
-													 cmdLen+sizeof(UInt8*), 
-													 &outputCnt, 
-													 pPrivCmd->pCmd->pCommandBuf, 
-													 &(pPrivCmd->kernelAsyncAVCCommandHandle));
+		status = IOConnectCallStructMethod(me->fConnection,
+										kIOFWAVCUserClientCreateAsyncAVCCommand,
+										pPrivCmd->pCmd->pCommandBuf,
+										cmdLen+sizeof(mach_vm_address_t),
+										&(pPrivCmd->kernelAsyncAVCCommandHandle),
+										&outputCnt);
+
+		ROSETTA_ONLY(
+			{
+				pPrivCmd->kernelAsyncAVCCommandHandle = OSSwapInt32(pPrivCmd->kernelAsyncAVCCommandHandle);
+			}
+		);
+		
 		if (status != kIOReturnSuccess)
 			*ppCommandObject = nil;
 		else
@@ -1087,7 +1162,8 @@ static IOReturn createAVCAsynchronousCommand(void * self,
 		if (pPrivCmd)
 		{
 			if (pPrivCmd->pResponseBuf)
-				munmap( (void*)pPrivCmd->pResponseBuf, 1024 ) ;
+				//munmap( (void*)pPrivCmd->pResponseBuf, 1024 ) ;
+				vm_deallocate(mach_task_self(), (vm_address_t) pPrivCmd->pResponseBuf,1024);
 
 			if (pPrivCmd->pCmd)
 			{
@@ -1111,6 +1187,7 @@ static IOReturn AVCAsynchronousCommandSubmit(void * self, IOFireWireAVCLibAsynch
 	AVCUnit *me = AVCUnit_getThis(self);
 	AVCLibAsynchronousCommandPriv *pPrivCmd;
 	IOReturn res = kIOReturnBadArgument;
+	uint32_t outputCnt = 0;
 
 	// Look up this command to see if it is valid
 	pPrivCmd = FindPrivAVCAsyncCommand(me,pCommandObject);
@@ -1124,7 +1201,11 @@ static IOReturn AVCAsynchronousCommandSubmit(void * self, IOFireWireAVCLibAsynch
 		}
 		else
 		{
-			res = IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCUserClientSubmitAsyncAVCCommand,1, 0, pPrivCmd->kernelAsyncAVCCommandHandle);
+			const uint64_t inArg = pPrivCmd->kernelAsyncAVCCommandHandle;
+			res =  IOConnectCallScalarMethod(me->fConnection,
+										kIOFWAVCUserClientSubmitAsyncAVCCommand,
+										&inArg,
+										1,NULL,&outputCnt);
 			if (res == kIOReturnSuccess)
 			{
 				// We need to check the command state here, because the callback may have already happened
@@ -1149,6 +1230,9 @@ static IOReturn AVCAsynchronousCommandReinit(void * self, IOFireWireAVCLibAsynch
 	AVCUnit *me = AVCUnit_getThis(self);
 	AVCLibAsynchronousCommandPriv *pPrivCmd;
 	IOReturn res = kIOReturnBadArgument;
+	uint32_t outputCnt = 0;
+	size_t outputStructCnt = 0;
+	
 	
 	// Look up this command to see if it is valid
 	pPrivCmd = FindPrivAVCAsyncCommand(me,pCommandObject);
@@ -1165,8 +1249,18 @@ static IOReturn AVCAsynchronousCommandReinit(void * self, IOFireWireAVCLibAsynch
 		}
 		else
 		{
-			res = IOConnectMethodScalarIStructureI(me->fConnection, kIOFWAVCUserClientReinitAsyncAVCCommand,
-												   1, pPrivCmd->pCmd->cmdLen, pPrivCmd->kernelAsyncAVCCommandHandle, pPrivCmd->pCmd->pCommandBuf);
+			const uint64_t inArg = pPrivCmd->kernelAsyncAVCCommandHandle;
+			res = IOConnectCallMethod(me->fConnection, 
+									kIOFWAVCUserClientReinitAsyncAVCCommand,
+									&inArg,
+									1,
+									pPrivCmd->pCmd->pCommandBuf,
+									pPrivCmd->pCmd->cmdLen,
+									NULL,
+									&outputCnt,
+									NULL,
+									&outputStructCnt);
+				
 			if (res == kIOReturnSuccess)
 			{
 				// Update the user parts of the lib command object
@@ -1193,8 +1287,9 @@ static IOReturn AVCAsynchronousCommandReinitWithCommandBytes(void * self,
 	AVCUnit *me = AVCUnit_getThis(self);
 	AVCLibAsynchronousCommandPriv *pPrivCmd;
 	IOReturn res = kIOReturnBadArgument;
-	
 	UInt8 *pNewCommandBuf;
+	uint32_t outputCnt = 0;
+	size_t outputStructCnt = 0;
 	
 	// Do some parameter validation
 	if(cmdLen == 0 || cmdLen > 512)
@@ -1229,8 +1324,17 @@ static IOReturn AVCAsynchronousCommandReinitWithCommandBytes(void * self,
 				pPrivCmd->pCmd->pCommandBuf = pNewCommandBuf;
 				bcopy(command, pPrivCmd->pCmd->pCommandBuf, cmdLen);
 				
-				res = IOConnectMethodScalarIStructureI(me->fConnection, kIOFWAVCUserClientReinitAsyncAVCCommand,
-														1, cmdLen, pPrivCmd->kernelAsyncAVCCommandHandle, command);
+				const uint64_t inArg = pPrivCmd->kernelAsyncAVCCommandHandle;
+				res = IOConnectCallMethod(me->fConnection, 
+										kIOFWAVCUserClientReinitAsyncAVCCommand,
+										&inArg,
+										1,
+										pPrivCmd->pCmd->pCommandBuf,
+										pPrivCmd->pCmd->cmdLen,
+										NULL,
+										&outputCnt,
+										NULL,
+										&outputStructCnt);
 
 				if (res == kIOReturnSuccess)
 				{
@@ -1256,6 +1360,7 @@ static IOReturn AVCAsynchronousCommandCancel(void * self, IOFireWireAVCLibAsynch
 	AVCUnit *me = AVCUnit_getThis(self);
 	AVCLibAsynchronousCommandPriv *pPrivCmd;
 	IOReturn res = kIOReturnBadArgument;
+	uint32_t outputCnt = 0;
 	
 	// Look up this command to see if it is valid
 	pPrivCmd = FindPrivAVCAsyncCommand(me,pCommandObject);
@@ -1263,7 +1368,12 @@ static IOReturn AVCAsynchronousCommandCancel(void * self, IOFireWireAVCLibAsynch
 	// If we determined that the command object is valid, release it
 	if (pPrivCmd)
 	{
-		res = IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCUserClientCancelAsyncAVCCommand,1, 0, pPrivCmd->kernelAsyncAVCCommandHandle);
+		const uint64_t inArg = pPrivCmd->kernelAsyncAVCCommandHandle;
+		res =  IOConnectCallScalarMethod(me->fConnection,
+									kIOFWAVCUserClientCancelAsyncAVCCommand,
+									&inArg,
+									1,NULL,&outputCnt);
+		
 		pPrivCmd->pCmd->cmdState = kAVCAsyncCommandStateCancled;
 	}
 	
@@ -1281,6 +1391,7 @@ static IOReturn AVCAsynchronousCommandRelease(void * self, IOFireWireAVCLibAsync
 	CFIndex count = 0;
 	CFIndex i = 0;
 	bool found = false;
+	uint32_t outputCnt = 0;
 	
 	// First, see if this is a valid command object passed in by the client
 	pthread_mutex_lock( &me->fAVCAsyncCommandArrayLock );
@@ -1298,12 +1409,17 @@ static IOReturn AVCAsynchronousCommandRelease(void * self, IOFireWireAVCLibAsync
 	// If we determined that the command object is valid, cancel it
 	if (found == true)
 	{
-		IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCUserClientReleaseAsyncAVCCommand,1, 0, pPrivCmd->kernelAsyncAVCCommandHandle);
+		const uint64_t inArg = pPrivCmd->kernelAsyncAVCCommandHandle;
+		IOConnectCallScalarMethod(me->fConnection,
+								kIOFWAVCUserClientReleaseAsyncAVCCommand,
+								&inArg,
+								1,NULL,&outputCnt);
 		
 		// unmap the 1K response buffer
 		if (pPrivCmd->pResponseBuf)
-			munmap( (void*)pPrivCmd->pResponseBuf, 1024 ) ;
-		
+			//munmap( (void*)pPrivCmd->pResponseBuf, 1024 ) ;
+			vm_deallocate(mach_task_self(), (vm_address_t) pPrivCmd->pResponseBuf,1024);
+
 		// delete the command byte buffer, and the user command
 		if (pPrivCmd->pCmd)
 		{
@@ -1333,7 +1449,7 @@ AVCLibAsynchronousCommandPriv *FindPrivAVCAsyncCommand(AVCUnit *me, IOFireWireAV
 {
 	CFIndex count = 0;
 	CFIndex i = 0;
-	AVCLibAsynchronousCommandPriv *pPrivCmd;
+	AVCLibAsynchronousCommandPriv *pPrivCmd = NULL;
 	bool found = false;
 
 	// First, see if this is a valid command object passed in by the client

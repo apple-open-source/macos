@@ -105,7 +105,7 @@ namespace IOFireWireLib {
 			IOReturn GetIndexValue(int index, UInt32& value);
 			IOReturn GetIndexValue(int index, CFDataRef* value);
 			IOReturn GetIndexValue(int index, CFStringRef* value);
-			IOReturn GetIndexValue(int index, UserObjectHandle& value) ;
+//			IOReturn GetIndexValue(int index, UserObjectHandle& value) ;
 			IOReturn GetIndexValue(int index, DirRef& value, REFIID iid);
 		
 			IOReturn GetIndexOffset(int index, FWAddress& value);

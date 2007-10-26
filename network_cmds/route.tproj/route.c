@@ -54,8 +54,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1983, 1989, 1991, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -64,8 +65,8 @@ static const char copyright[] =
 #if 0
 static char sccsid[] = "@(#)route.c	8.3 (Berkeley) 3/19/94";
 #endif
-static const char rcsid[] =
-	"$Id: route.c,v 1.3 2003/01/07 21:03:05 bbraun Exp $";
+__unused static const char rcsid[] =
+	"$Id: route.c,v 1.4 2006/02/07 06:22:29 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -143,7 +144,7 @@ int	getaddr(), rtmsg(), x25_makemask();
 int	prefixlen();
 extern	char *iso_ntoa();
 
-void usage __P((const char *));
+void usage __P((const char *)) __dead2;
 
 void
 usage(cp)
@@ -592,10 +593,10 @@ set_metric(value, key)
 	int key;
 {
 	int flag = 0;
-	u_long noval, *valp = &noval;
+	u_int noval, *valp = &noval;
 
 	switch (key) {
-#define caseof(x, y, z)	case x: valp = &rt_metrics.z; flag = y; break
+#define caseof(x, y, z)	case x: valp = (u_int *)&rt_metrics.z; flag = y; break
 	caseof(K_MTU, RTV_MTU, rmx_mtu);
 	caseof(K_HOPCOUNT, RTV_HOPCOUNT, rmx_hopcount);
 	caseof(K_EXPIRE, RTV_EXPIRE, rmx_expire);
@@ -899,7 +900,7 @@ getaddr(which, s, hpp)
 	char *s;
 	struct hostent **hpp;
 {
-	register sup su;
+	register sup su = NULL;
 	struct hostent *hp;
 	struct netent *np;
 	u_long val;
@@ -1507,16 +1508,16 @@ print_getmsg(rtm, msglen)
 
 	(void) printf("\n%s\n", "\
  recvpipe  sendpipe  ssthresh  rtt,msec    rttvar  hopcount      mtu     expire");
-	printf("%8ld%c ", rtm->rtm_rmx.rmx_recvpipe, lock(RPIPE));
-	printf("%8ld%c ", rtm->rtm_rmx.rmx_sendpipe, lock(SPIPE));
-	printf("%8ld%c ", rtm->rtm_rmx.rmx_ssthresh, lock(SSTHRESH));
-	printf("%8ld%c ", msec(rtm->rtm_rmx.rmx_rtt), lock(RTT));
-	printf("%8ld%c ", msec(rtm->rtm_rmx.rmx_rttvar), lock(RTTVAR));
-	printf("%8ld%c ", rtm->rtm_rmx.rmx_hopcount, lock(HOPCOUNT));
-	printf("%8ld%c ", rtm->rtm_rmx.rmx_mtu, lock(MTU));
+	printf("%8u%c ", rtm->rtm_rmx.rmx_recvpipe, lock(RPIPE));
+	printf("%8u%c ", rtm->rtm_rmx.rmx_sendpipe, lock(SPIPE));
+	printf("%8u%c ", rtm->rtm_rmx.rmx_ssthresh, lock(SSTHRESH));
+	printf("%8u%c ", msec(rtm->rtm_rmx.rmx_rtt), lock(RTT));
+	printf("%8u%c ", msec(rtm->rtm_rmx.rmx_rttvar), lock(RTTVAR));
+	printf("%8u%c ", rtm->rtm_rmx.rmx_hopcount, lock(HOPCOUNT));
+	printf("%8u%c ", rtm->rtm_rmx.rmx_mtu, lock(MTU));
 	if (rtm->rtm_rmx.rmx_expire)
 		rtm->rtm_rmx.rmx_expire -= time(0);
-	printf("%8ld%c\n", rtm->rtm_rmx.rmx_expire, lock(EXPIRE));
+	printf("%8d%c\n", rtm->rtm_rmx.rmx_expire, lock(EXPIRE));
 #undef lock
 #undef msec
 #define	RTA_IGN	(RTA_DST|RTA_GATEWAY|RTA_NETMASK|RTA_IFP|RTA_IFA|RTA_BRD)

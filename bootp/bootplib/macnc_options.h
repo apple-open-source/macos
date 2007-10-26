@@ -39,9 +39,9 @@
  * - converted to regular C
  */
 
-#import "gen_dhcp_tags.h"
-#import "gen_dhcp_types.h"
-#import "dhcp_options.h"
+#include "gen_dhcp_tags.h"
+#include "gen_dhcp_types.h"
+#include "dhcp_options.h"
 
 typedef enum {
     /* macNC client request options */
@@ -81,13 +81,13 @@ typedef enum {
 #define MACNC_CLIENT_INFO		"Apple MacNC"
 
 boolean_t
-macNCopt_encodeAFPPath(struct in_addr iaddr, u_short port,
-		       u_char * volname, unsigned long dirID,
-		       u_char pathtype, u_char * pathname,
-		       u_char separator, void * buf,
-		       int * len_p, u_char * err);
+macNCopt_encodeAFPPath(struct in_addr iaddr, uint16_t port,
+		       const char * volname, uint32_t dirID,
+		       uint8_t pathtype, const char * pathname,
+		       char separator, void * buf,
+		       int * len_p, char * err);
 boolean_t
-macNCopt_str_to_type(unsigned char * str, 
+macNCopt_str_to_type(const char * str, 
 		     int type, void * buf, int * len_p,
-		     unsigned char * err);
+		     char * err);
 #endif _S_MACNC_OPTIONS_H

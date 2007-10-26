@@ -34,7 +34,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)pr.1	8.3 (Berkeley) 4/18/94
-.\" $FreeBSD: src/usr.bin/pr/pr.1,v 1.20 2004/07/03 01:28:20 tjr Exp $
+.\" $FreeBSD: src/usr.bin/pr/pr.1,v 1.22 2005/01/18 13:43:52 ru Exp $
 .\"
 .Dd July 3, 2004
 .Dt PR 1
@@ -360,24 +360,28 @@ and
 .Fl n
 require that both arguments, if present, not be separated from the option
 letter.
-.Sh ERRORS
+.Sh EXIT STATUS
+The
+.Nm
+utility exits 0 on success, and 1 if an error occurs.
+.Sh DIAGNOSTICS
 If
 .Nm
 receives an interrupt while printing to a terminal, it
 flushes all accumulated error messages to the screen before
 terminating.
-.Sh DIAGNOSTICS
-The
-.Nm
-utility exits 0 on success, and 1 if an error occurs.
 .Pp
 Error messages are written to standard error during the printing
 process (if output is redirected) or after all successful
 file printing is complete (when printing to a terminal).
+.Sh LEGACY DESCRIPTION
+The last space before the tab stop is replaced with a tab character.
+In legacy mode, it is not.
 .Sh SEE ALSO
 .Xr cat 1 ,
 .Xr more 1 ,
-.Xr rs 1
+.Xr rs 1 ,
+.Xr compat 5
 .Sh STANDARDS
 The
 .Nm

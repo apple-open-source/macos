@@ -1,0 +1,205 @@
+#! /bin/bash
+# Copyright (c) 2007 Apple Inc. All rights reserved.
+
+# CurrentSambaServerTest - primary test driver for testing the Samba server.
+# This script lives in svn, and is triggered by a stub that lives on the
+# BigBrother web interface, http://coreos-bb.apple.com .
+#
+
+# Exit on error
+set -e
+
+error()
+{
+    echo '****' "$@" 1>&2
+    exit 2
+}
+
+cleanup()
+{
+    # Don't stop on error. We want the cleanup to proceed, irrespective of
+    # any slightly wonky state.
+    set +e
+
+    echo Restoring Samba configuration
+    . ${SAMBA_BUILD}/scripts/common.sh
+    . ${SAMBA_BUILD}/scripts/disk-images.sh
+
+    restore_config_file /etc/smb.conf $(basename $0)
+    $ASROOT killall -TERM smbd nmbd winbindd
+
+    unmount_disk_image $SAMBA_TESTSUITE
+    $ASROOT ${SAMBA_BUILD}/scripts/sudoers-edit.pl --remove /etc/sudoers
+
+    exit 0
+}
+
+SAMBA_BASE=$(cd $(dirname $0)/../.. && pwd)
+SAMBA_BUILD=$(basename $SAMBA_BASE)
+SAMBA_TESTSUITE=$(basename $0)
+
+SAMBA_TOOLS=${SAMBA_BUILD}/scripts/tests
+SAMBA_BBTEST=${SAMBA_BUILD}/scripts/bb-scripts
+
+PUBLIC=public
+
+[ -d $SAMBA_BUILD/scripts/bb-scripts ] || \
+    error $SAMBA_BUILD test suite not found
+
+# Create a directory for running this test in and set it up the way
+# SimonSays expects.
+
+rm -rf ${SAMBA_TESTSUITE}
+mkdir ${SAMBA_TESTSUITE}
+
+# The directory hierarchy should look like this:
+#   samba-xxx
+#   CurrentSambaServerTest
+#   CurrentSambaServerTest/Bin	    => link to samba-xxx/scripts/tests
+#   CurrentSambaServerTest/Logs	    => log directory
+#   CurrentSambaServerTest/Scripts
+
+(
+    echo Setting up test suite in ${SAMBA_TESTSUIE}
+
+    export SCRIPTBASE=${SAMBA_BASE}/scripts
+
+    cd ${SAMBA_TESTSUITE} && \
+	mkdir Tools && \
+	mkdir Logs && \
+	ln -s ../${SAMBA_BBTEST} Scripts && \
+	ln -s ../${SAMBA_TOOLS} Bin && \
+	ln -s ../${SAMBA_BBTEST}/configuration .configuration
+
+    echo Building XILog wrappers in ${SAMBA_TESTSUITE}/Tools
+
+    ./Scripts/make-xilog-testcase.pl Bin/sacl-access-checking.sh
+
+    ./Scripts/make-xilog-testcase.pl \
+	Bin/large-transfer-sizes.sh localhost $PUBLIC $BB_USER $BB_PASS
+
+    ./Scripts/make-xilog-testcase.pl \
+	Bin/bsd-flag-attributes.sh $BB_PASS
+
+    ./Scripts/make-xilog-testcase.pl Bin/admin-mount-volumes.sh
+
+    ./Scripts/make-xilog-testcase.pl \
+	Bin/constant-rate-lookup.sh localhost $PUBLIC $BB_USER $BB_PASS
+
+    ./Scripts/make-xilog-testcase.pl Bin/module-prealloc.sh 
+
+    ./Scripts/make-xilog-testcase.pl \
+	Bin/dfree-quota-support.sh  $BB_USER $BB_PASS
+    ./Scripts/make-xilog-testcase.pl \
+	Bin/enforce-quota-support.sh  $BB_USER $BB_PASS
+
+    ./Scripts/make-xilog-testcase.pl \
+	Bin/printer-sharing.sh $BB_USER $BB_PASS
+
+    ./Scripts/make-xilog-testcase.pl Bin/group-access-checking.sh
+    ./Scripts/make-xilog-testcase.pl Bin/sid-mapping-idmap-passdb.sh
+    ./Scripts/make-xilog-testcase.pl Bin/sid-mapping-xsan-compat.sh
+    ./Scripts/make-xilog-testcase.pl Bin/nmbd-finds-all-addresses.sh
+
+    ./Scripts/make-xilog-testcase.pl \
+	Bin/smbfs-fsx-torture.sh localhost $PUBLIC $BB_USER $BB_PASS
+
+    ./Scripts/make-xilog-testcase.pl \
+	Bin/smbfs-samba-compile.sh localhost $PUBLIC $BB_USER $BB_PASS
+
+    ./Scripts/make-xilog-testcase.pl \
+	Bin/smb-netbench.sh localhost $PUBLIC $BB_USER $BB_PASS
+
+    SMBTORTURE=y ./Scripts/make-xilog-testcase.pl \
+	    Bin/smb-torture-suite.sh localhost $PUBLIC $BB_USER $BB_PASS
+
+    NOXILOG=y ./Scripts/make-xilog-testcase.pl \
+	    Bin/smbfs-files-buster.sh localhost $PUBLIC $BB_USER $BB_PASS
+
+)
+
+# Set up password-less sudo, since some tests will rely on this. This should
+# not result in a password prompt unless $BB_USER is not in a preconfigured
+# sudoers group.
+echo adding $BB_USER to sudoers file
+echo $BB_PASS | sudo -S ${SAMBA_BUILD}/scripts/sudoers-edit.pl \
+	 --environment=QUOTA_USER,QUOTA_VOLUME \
+	 --environment=QUOTA_BLOCKS_HARD,QUOTA_BLOCKS_SOFT \
+	 --environment=QUOTA_INODES_HARD,QUOTA_INODES_SOFT \
+	 --environment=EDITOR,BUILDIT_DIR \
+	 /etc/sudoers
+
+trap "cleanup" 0 1 2 3 15
+
+(
+    echo dinking with machine state
+
+    # Turn sleep mode off for long-running tests
+    sudo pmset -a sleep 0
+)
+
+(
+    echo enabling SMB access for  $BB_USER
+    . ${SAMBA_BUILD}/scripts/common.sh
+    . ${SAMBA_BUILD}/scripts/directory-services.sh
+    ds_enable_user_for_smb "$BB_USER" "$BB_PASS" | indent
+)
+
+(
+    echo Configuring Samba
+    . ${SAMBA_BUILD}/scripts/common.sh
+    . ${SAMBA_BUILD}/scripts/disk-images.sh
+
+    make_disk_image 10g $SAMBA_TESTSUITE || \
+	testerr $0 "unable to create $SAMBA_TESTSUITE disk image"
+
+    TEST_IMAGE_PATH=$(mount_disk_image $SAMBA_TESTSUITE)
+
+    save_config_file /etc/smb.conf $(basename $0)
+    sed '-e/max smbd processes/d' \
+	'-e/max log size/d' \
+	< ${SAMBA_BUILD}/config/smb.conf.template > /etc/smb.conf
+
+    chmod 777 $TEST_IMAGE_PATH
+    create_smb_share $PUBLIC $TEST_IMAGE_PATH || \
+	testerr $0 "unable to create [public]"
+
+    cat >>/etc/smb.conf <<EOF
+# Test settings appended by $0
+
+[global]
+    max log size = 0 # unlimited
+EOF
+
+    for plist in smbd.plist nmbd.plist org.samba.winbindd.plist ; do
+	$ASROOT launchctl load -w /System/Library/LaunchDaemons/$plist
+    done
+
+    prefs="/Library/Preferences/SystemConfiguration/com.apple.smb.server"
+
+    # Make sure that file and print sharing is enabled in the SMB config.
+    $ASROOT defaults write $prefs EnabledServices -array print disk
+    $ASROOT defaults write $prefs AllowGuestAccess -bool true
+    $ASROOT defaults write $prefs MaxClients -int 0
+    $ASROOT plutil -convert xml1 ${prefs}.plist
+
+    $ASROOT /usr/libexec/samba/synchronize-preferences --verbose
+
+) || exit 1
+
+# Clear out any SimonSays reboot state
+/usr/local/bin/SimonSays -e
+
+# We need to create an actual script file. If we use -a to just run all the
+# tools, then the script entry in BigBrother gets named "ALL-TOOLS", which
+# is not so informative.
+for t in "$SAMBA_TESTSUITE"/Tools/* ; do
+    echo RunTool $(basename "$t" )
+done > "$SAMBA_TESTSUITE"/SambaServer
+
+(
+    # Run all the tests in the Tools directory.
+    echo Running test suite $SAMBA_TESTSUITE
+    cd "$SAMBA_TESTSUITE" && \
+	   /usr/local/bin/SimonSays -B "$SAMBA_BUILD" -s SambaServer
+)

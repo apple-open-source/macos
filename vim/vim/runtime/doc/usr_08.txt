@@ -1,4 +1,4 @@
-*usr_08.txt*	For Vim version 6.2.  Last change: 2002 Jul 21
+*usr_08.txt*	For Vim version 7.0.  Last change: 2006 Apr 30
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -17,6 +17,7 @@ side by side.  All this is possible with split windows.
 |08.6|	Commands for all windows
 |08.7|	Viewing differences with vimdiff
 |08.8|	Various
+|08.9|  Tab pages
 
      Next chapter: |usr_09.txt|  Using the GUI
  Previous chapter: |usr_07.txt|  Editing more than one file
@@ -52,8 +53,8 @@ the bottom one the code that uses these variables.
 
 The CTRL-W w command can be used to jump between the windows.  If you are in
 the top window, CTRL-W w jumps to the window below it.  If you are in the
-bottom window it will jump to the first window. (CTRL-W CTRL-W does the same
-thing, in case you let go of the CTRL key a bit later).
+bottom window it will jump to the first window.  (CTRL-W CTRL-W does the same
+thing, in case you let go of the CTRL key a bit later.)
 
 
 CLOSE THE WINDOW
@@ -189,8 +190,8 @@ empty file.  Another way to do this: >
 
 The ":vertical" command can be inserted before another command that splits a
 window.  This will cause that command to split the window vertically instead
-of horizontally.  (if the command doesn't split a window, it works
-unmodified).
+of horizontally.  (If the command doesn't split a window, it works
+unmodified.)
 
 
 MOVING BETWEEN WINDOWS
@@ -209,7 +210,7 @@ between them:
 
 You will notice the same letters as used for moving the cursor.  And the
 cursor keys can also be used, if you like.
-   More commands to move to other windows: |Q_wi|
+   More commands to move to other windows: |Q_wi|.
 
 ==============================================================================
 *08.5*	Moving windows
@@ -292,7 +293,7 @@ changes, use this command: >
 
 	:wall
 
-This stands for ":write all".  But actually, it only writes files with
+This stands for "write all".  But actually, it only writes files with
 changes.  Vim knows it doesn't make sense to write files that were not
 changed.
    And then there is the combination of ":qall" and ":wall": the "write and
@@ -369,10 +370,10 @@ in which you added characters, and a few lines above and below it.
 (This picture doesn't show the highlighting, use the vimdiff command for a
 better look.)
 
-   The lines that were not modified have been collapsed into one line.  This
-is called a closed fold.  The are indicated in the picture with "<- fold".
-Thus the single fold line at the top stands for 123 text lines.  These lines
-are equal in both files.
+The lines that were not modified have been collapsed into one line.  This is
+called a closed fold.  They are indicated in the picture with "<- fold".  Thus
+the single fold line at the top stands for 123 text lines.  These lines are
+equal in both files.
    The line marked with "<- changed line" is highlighted, and the inserted
 text is displayed with another color.  This clearly shows what the difference
 is between the two files.
@@ -401,7 +402,7 @@ Another way to start in diff mode can be done from inside Vim.  Edit the
 "main.c" file, then make a split and show the differences: >
 
 	:edit main.c
-	:vertical diffsplit main.c~
+	:vertical diffsplit main.c~ 
 
 The ":vertical" command is used to make the window split vertically.  If you
 omit this, you will get a horizontal split.
@@ -503,6 +504,95 @@ window is to appear:
 	:belowright {cmd}	idem
 	:topleft {cmd}		at the top or left of the Vim window
 	:botright {cmd}		at the bottom or right of the Vim window
+
+
+==============================================================================
+*08.9*	Tab pages
+
+You will have noticed that windows never overlap.  That means you quickly run
+out of screen space.  The solution for this is called Tab pages.
+
+Assume you are editing "thisfile".  To create a new tab page use this command: >
+
+	:tabedit thatfile
+
+This will edit the file "thatfile" in a window that occupies the whole Vim
+window.  And you will notice a bar at the top with the two file names:
+
+	+----------------------------------+
+	| thisfile | /thatfile/ __________X|    (thatfile is bold)
+	|/* thatfile */			   |
+	|that				   |
+	|that				   |
+	|~				   |
+	|~				   |
+	|~				   |
+	|				   |
+	+----------------------------------+
+
+You now have two tab pages.  The first one has a window for "thisfile" and the
+second one a window for "thatfile".  It's like two pages that are on top of
+eachother, with a tab sticking out of each page showing the file name.
+
+Now use the mouse to click on "thisfile" in the top line.  The result is
+
+	+----------------------------------+
+	| /thisfile/ | thatfile __________X|    (thisfile is bold)
+	|/* thisfile */			   |
+	|this				   |
+	|this				   |
+	|~				   |
+	|~				   |
+	|~				   |
+	|				   |
+	+----------------------------------+
+
+Thus you can switch between tab pages by clicking on the label in the top
+line.  If you don't have a mouse or don't want to use it, you can use the "gt"
+command.  Mnemonic: Goto Tab.
+
+Now let's create another tab page with the command: >
+
+	:tab split
+
+This makes a new tab page with one window that is editing the same buffer as
+the window we were in:
+
+	+-------------------------------------+
+	| thisfile | /thisfile/ | thatfile __X|   (thisfile is bold)
+	|/* thisfile */			      |
+	|this				      |
+	|this				      |
+	|~				      |
+	|~				      |
+	|~				      |
+	|				      |
+	+-------------------------------------+
+
+You can put ":tab" before any Ex command that opens a window.  The window will
+be opened in a new tab page.  Another example: >
+
+	:tab help gt
+
+Will show the help text for "gt" in a new tab page.
+
+A few more things you can do with tab pages:
+
+- click with the mouse in the space after the last label
+	The next tab page will be selected, like with "gt".
+
+- click with the mouse on the "X" in the top right corner
+	The current tab page will be closed.  Unless there are unsaved
+	changes in the current tab page.
+
+- double click with the mouse in the top line
+	A new tab page will be created.
+
+- the "tabonly" command
+	Closes all tab pages except the current one.  Unless there are unsaved
+	changes in other tab pages.
+
+For more information about tab pages see |tab-page|.
 
 ==============================================================================
 

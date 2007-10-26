@@ -1,9 +1,9 @@
 " Vim syntax file
 " Language:	Lex
-" Maintainer:	Dr. Charles E. Campbell, Jr. <Charles.E.Campbell.1@nasa.gov>
-" Last Change:	Nov 18, 2002
-" Version:	2
-" URL:	http://www.erols.com/astronaut/vim/index.html#vimlinks_syntax
+" Maintainer:	Dr. Charles E. Campbell, Jr. <NdrOchipS@PcampbellAfamily.Mbiz>
+" Last Change:	Sep 06, 2005
+" Version:	7
+" URL:	http://mysite.verizon.net/astronaut/vim/index.html#vimlinks_syntax
 "
 " Option:
 "   lex_uses_cpp : if this variable exists, then C++ is loaded rather than C
@@ -32,19 +32,22 @@ else
   endif
 endif
 
+" --- ========= ---
 " --- Lex stuff ---
+" --- ========= ---
 
 "I'd prefer to use lex.* , but it doesn't handle forward definitions yet
 syn cluster lexListGroup		contains=lexAbbrvBlock,lexAbbrv,lexAbbrv,lexAbbrvRegExp,lexInclude,lexPatBlock,lexPat,lexBrace,lexPatString,lexPatTag,lexPatTag,lexPatComment,lexPatCodeLine,lexMorePat,lexPatSep,lexSlashQuote,lexPatCode,cInParen,cUserLabel,cOctalZero,cCppSkip,cErrInBracket,cErrInParen,cOctalError,cCppOut2,cCommentStartError,cParenError
 syn cluster lexListPatCodeGroup	contains=lexAbbrvBlock,lexAbbrv,lexAbbrv,lexAbbrvRegExp,lexInclude,lexPatBlock,lexPat,lexBrace,lexPatTag,lexPatTag,lexPatComment,lexPatCodeLine,lexMorePat,lexPatSep,lexSlashQuote,cInParen,cUserLabel,cOctalZero,cCppSkip,cErrInBracket,cErrInParen,cOctalError,cCppOut2,cCommentStartError,cParenError
 
 " Abbreviations Section
-syn region lexAbbrvBlock	start="^\([a-zA-Z_]\+\t\|%{\)" end="^%%$"me=e-2	skipnl	nextgroup=lexPatBlock contains=lexAbbrv,lexInclude,lexAbbrvComment
+syn region lexAbbrvBlock	start="^\(\h\+\s\|%{\)" end="^\ze%%$"	skipnl	nextgroup=lexPatBlock contains=lexAbbrv,lexInclude,lexAbbrvComment,lexStartState
 syn match  lexAbbrv		"^\I\i*\s"me=e-1			skipwhite	contained nextgroup=lexAbbrvRegExp
 syn match  lexAbbrv		"^%[sx]"					contained
 syn match  lexAbbrvRegExp	"\s\S.*$"lc=1				contained nextgroup=lexAbbrv,lexInclude
 syn region lexInclude	matchgroup=lexSep	start="^%{" end="%}"	contained	contains=ALLBUT,@lexListGroup
-syn region lexAbbrvComment	start="^\s\+/\*"	end="\*/"
+syn region lexAbbrvComment	start="^\s\+/\*"	end="\*/"			contains=@Spell
+syn region lexStartState	matchgroup=lexAbbrv	start="^%\a\+"	end="$"			contained
 
 "%% : Patterns {Actions}
 syn region lexPatBlock	matchgroup=Todo	start="^%%$" matchgroup=Todo end="^%%$"	skipnl skipwhite contains=lexPat,lexPatTag,lexPatComment
@@ -53,7 +56,7 @@ syn region lexBrace	start="\[" skip=+\\\\\|\\+		end="]"		contained
 syn region lexPatString	matchgroup=String start=+"+	skip=+\\\\\|\\"+	matchgroup=String end=+"+	contained
 syn match  lexPatTag	"^<\I\i*\(,\I\i*\)*>*"			contained nextgroup=lexPat,lexPatTag,lexMorePat,lexPatSep
 syn match  lexPatTag	+^<\I\i*\(,\I\i*\)*>*\(\\\\\)*\\"+		contained nextgroup=lexPat,lexPatTag,lexMorePat,lexPatSep
-syn region lexPatComment	start="^\s*/\*" end="\*/"		skipnl	contained contains=cTodo nextgroup=lexPatComment,lexPat,lexPatString,lexPatTag
+syn region lexPatComment	start="^\s*/\*" end="\*/"		skipnl	contained contains=cTodo skipwhite nextgroup=lexPatComment,lexPat,@Spell
 syn match  lexPatCodeLine	".*$"					contained contains=ALLBUT,@lexListGroup
 syn match  lexMorePat	"\s*|\s*$"			skipnl	contained nextgroup=lexPat,lexPatTag,lexPatComment
 syn match  lexPatSep	"\s\+"					contained nextgroup=lexMorePat,lexPatCode,lexPatCodeLine
@@ -81,15 +84,16 @@ hi def link lexSlashQuote	lexPat
 hi def link lexBrace	lexPat
 hi def link lexAbbrvComment	lexPatComment
 
-hi def link lexAbbrv	SpecialChar
 hi def link lexAbbrvRegExp	Macro
+hi def link lexAbbrv	SpecialChar
 hi def link lexCFunctions	Function
 hi def link lexMorePat	SpecialChar
-hi def link lexPat		Function
 hi def link lexPatComment	Comment
+hi def link lexPat		Function
 hi def link lexPatString	Function
 hi def link lexPatTag	Special
 hi def link lexSep		Delimiter
+hi def link lexStartState	Statement
 
 let b:current_syntax = "lex"
 

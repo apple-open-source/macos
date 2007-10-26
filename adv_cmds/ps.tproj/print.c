@@ -73,6 +73,16 @@ printheader()
 {
 	VAR *v;
 	struct varent *vent;
+	int empty = 1;
+
+	for (vent = vhead; vent && empty; vent = vent->next) {
+		v = vent->var;
+		empty = '\0' == v->header[0];
+	}
+
+	if (empty) {
+		return;
+	}
 
 	for (vent = vhead; vent; vent = vent->next) {
 		v = vent->var;
@@ -94,9 +104,13 @@ printheader()
  *
  * If the global variable eflg is non-zero and the user has permission to view
  * the process's environment, the environment is included.
+ *
+ * on return argvlen is the length of the extracted string, argv0len is
+ * the length of the command (same as argvlen if show_args is true)
  */
 static void
-getproclline(KINFO *k, char **command_name, int *cmdlen, int show_args)
+getproclline(KINFO *k, char **command_name, int *argvlen, int *argv0len,
+  int show_args)
 {
 	int		mib[3], argmax, nargs, c = 0;
 	size_t		size;
@@ -206,20 +220,22 @@ getproclline(KINFO *k, char **command_name, int *cmdlen, int show_args)
 		if (*cp == '\0') {
 			c++;
 			if (np != NULL) {
-				/* Convert previous '\0'. */
-				*np = ' ';
+			    /* Convert previous '\0'. */
+			    *np = ' ';
+			} else {
+			    *argv0len = cp - sp;
 			}
 			/* Note location of current '\0'. */
 			np = cp;
 
 			if (!show_args) {
-				/*
-				 * Don't convert '\0' characters to ' '.
-				 * However, we needed to know that the
-				 * command name was terminated, which we
-				 * now know.
-				 */
-				break;
+			    /*
+			     * Don't convert '\0' characters to ' '.
+			     * However, we needed to know that the
+			     * command name was terminated, which we
+			     * now know.
+			     */
+			    break;
 			}
 		}
 	}
@@ -229,7 +245,7 @@ getproclline(KINFO *k, char **command_name, int *cmdlen, int show_args)
 	 * characters until no more strings that look like environment settings
 	 * follow.
 	 */
-	if ( (eflg != 0) && ( (getuid() == 0) || (KI_EPROC(k)->e_pcred.p_ruid == getuid()) ) ) {
+	if ( show_args && (eflg != 0) && ( (getuid() == 0) || (KI_EPROC(k)->e_pcred.p_ruid == getuid()) ) ) {
 		for (; cp < &procargs[size]; cp++) {
 			if (*cp == '\0') {
 				if (np != NULL) {
@@ -262,7 +278,7 @@ getproclline(KINFO *k, char **command_name, int *cmdlen, int show_args)
 	}
 
 	/* Make a copy of the string. */
-	*cmdlen = asprintf(command_name, "%s", sp);
+	*argvlen = asprintf(command_name, "%s", sp);
 
 	/* Clean up. */
 	free(procargs);
@@ -271,25 +287,22 @@ getproclline(KINFO *k, char **command_name, int *cmdlen, int show_args)
 	ERROR_B:
 	free(procargs);
 	ERROR_A:
-	*cmdlen = asprintf(command_name, "(%s)", KI_PROC(k)->p_comm);
+	*argv0len = *argvlen 
+	  = asprintf(command_name, "(%s)", KI_PROC(k)->p_comm);
 }
-    
-void
-command(k, ve)
-	KINFO *k;
-	VARENT *ve;
+
+/* Return value is malloc'ed, please free it */
+char *
+get_command_and_or_args(KINFO *k, VARENT *ve, int show_cmd, int show_args)
 {
-	VAR *v;
-	int left;
 	char *cp, *vis_args;
 
 	char *rawcmd, *cmd;
-        int cmdlen;
+	int cmdlen, argv0len;
 
-	v = ve->var;
 
 	if(!mflg || (print_all_thread && (print_thread_num== 0))) {
-		getproclline(k, &rawcmd, &cmdlen, !cflag);
+		getproclline(k, &rawcmd, &cmdlen, &argv0len, show_args);
 
 		if (cflag) {
 			/* Ignore the path in cmd, if any. */
@@ -299,33 +312,94 @@ command(k, ve)
 					break;
 				}
 			}
-		} else
+		} else {
 			cmd = rawcmd;
+		}
+
+		if (!show_cmd) {
+		    cmd += argv0len;
+			if (*cmd) {
+				cmd++;
+			}
+		}
 
 		if ((vis_args = malloc(strlen(cmd) * 4 + 1)) == NULL)
 			err(1, NULL);
 		strvis(vis_args, cmd, VIS_TAB | VIS_NL | VIS_NOSLASH);
-
-		if (ve->next == NULL) {
-			/* last field */
-			if (termwidth == UNLIMITED) {
-				(void)printf("%s", vis_args);
-			} else {
-				left = termwidth - (totwidth - v->width);
-				if (left < 1) /* already wrapped, just use std
-					       * width */
-					left = v->width;
-				for (cp = vis_args; --left >= 0 && *cp != '\0';)
-					(void)putchar(*cp++);
-			}
-		} else
-			/* XXX env? */
-			(void)printf("%-*.*s", v->width, v->width, vis_args);
-		free(vis_args);
-		free (rawcmd);
+		free(rawcmd);
+		return vis_args;
 	} else {
-		(void)printf("%-*s", v->width, " ");
+		char *ret;
+		VAR *v = ve->var;
+		(void)asprintf(&ret, "%-*s", v->width, " ");
+		return ret;
 	}
+}
+
+int
+s_command_and_or_args(KINFO *k, VARENT *ve, int show_cmd, int show_args)
+{
+	char *s = get_command_and_or_args(k, ve, show_cmd, show_args);
+	int sz = strlen(s);
+	free(s);
+
+	return sz;
+}
+
+void
+p_command_and_or_args(KINFO *k, VARENT *ve, int show_cmd, int show_args,
+  int no_trunc)
+{
+	VAR *v = ve->var;
+	char *s = get_command_and_or_args(k, ve, show_cmd, show_args);
+
+	if (ve->next == NULL) {
+		/* last field */
+		if (termwidth == UNLIMITED) {
+			fputs(s, stdout);
+		} else {
+			int left;
+			char *cp;
+
+			left = termwidth - (totwidth - v->width);
+			if (left < 1 || no_trunc) {
+				/* already wrapped, just use std * width */
+				left = v->width;
+			}
+			for(cp = s; --left >= 0 && *cp;) {
+				(void)putchar(*cp++);
+			}
+		}
+	} else {
+		/* XXX env? */
+		(void)printf("%-*.*s", v->width, v->width, s);
+	}
+
+	free(s);
+}
+
+int s_command(KINFO *k, VARENT *ve) {
+    return s_command_and_or_args(k, ve, 1, !cflag);
+}
+
+int s_args(KINFO *k, VARENT *ve) {
+    return s_command_and_or_args(k, ve, 0, 1);
+}
+
+int s_just_command(KINFO *k, VARENT *ve) {
+    return s_command_and_or_args(k, ve, 1, 0);
+}
+
+void command(KINFO *k, VARENT *ve) {
+    p_command_and_or_args(k, ve, 1, !cflag, 0);
+}
+
+void args(KINFO *k, VARENT *ve) {
+    p_command_and_or_args(k, ve, 0, 1, 1);
+}
+
+void just_command(KINFO *k, VARENT *ve) {
+    p_command_and_or_args(k, ve, 1, 0, 0);
 }
 
 void
@@ -392,9 +466,9 @@ state(k, ve)
 		*cp = mach_state_table[k->state];
 	}
 	cp++;
-	if (p->p_nice < NZERO)
+	if (p->p_nice < 0)
 		*cp++ = '<';
-	else if (p->p_nice > NZERO)
+	else if (p->p_nice > 0)
 		*cp++ = 'N';
 	if (flag & P_TRACED)
 		*cp++ = 'X';
@@ -472,8 +546,9 @@ uname(k, ve)
 }
 
 int
-s_uname(k)
+s_uname(k, ve)
 	KINFO *k;
+	VARENT *ve;
 {
 	    return (strlen(user_from_uid(KI_EPROC(k)->e_ucred.cr_uid, 0)));
 }
@@ -491,8 +566,9 @@ runame(k, ve)
 }
 
 int
-s_runame(k)
+s_runame(k, ve)
 	KINFO *k;
+	VARENT *ve;
 {
 	    return (strlen(user_from_uid(KI_EPROC(k)->e_pcred.p_ruid, 0)));
 }
@@ -603,6 +679,52 @@ lstarted(k, ve)
 	then = KI_PROC(k)->p_starttime.tv_sec;
 	(void)strftime(buf, sizeof(buf) -1, "%c", localtime(&then));
 	(void)printf("%-*s", v->width, buf);
+}
+
+char *get_etime(KINFO *k, VARENT *ve) {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	long e = tv.tv_sec - KI_PROC(k)->p_starttime.tv_sec;
+	
+	char *ret;
+
+	if (e > 100*60*60*24) {
+		asprintf(&ret, "%ld-%02ld:%02ld:%02ld",
+		  e / (60*60*24),
+		  (e / (60*60)) % 24,
+		  (e / 60) % 60,
+		  e % 60);
+	} else if (e > 60*60*24) {
+		asprintf(&ret, "%02ld-%02ld:%02ld:%02ld",
+		  e / (60*60*24),
+		  (e / (60*60)) % 24,
+		  (e / 60) % 60,
+		  e % 60);
+	} else if (e > 60*60) {
+		asprintf(&ret, "%02ld:%02ld:%02ld",
+		  (e / (60*60)),
+		  (e / 60) % 60,
+		  e % 60);
+	} else {
+		asprintf(&ret, "%02ld:%02ld",
+		  (e / 60),
+		  e % 60);
+	}
+
+	return ret;
+}
+
+void p_etime(KINFO *k, VARENT *ve) {
+	char *str = get_etime(k, ve);
+	printf("%*s", ve->var->width, str);
+	free(str);
+}
+
+int s_etime(KINFO *k, VARENT *ve) {
+	char *str = get_etime(k, ve);
+	int sz = strlen(str);
+	free(str);
+	return sz;
 }
 
 void
@@ -895,7 +1017,7 @@ getpmem(k)
 	fracmem = ((float)e->e_vm.vm_rssize + szptudot)/mempages;
 	return (100.0 * fracmem);
 #else /* FIXME */
-	fracmem = ((float)k->tasks_info.resident_size)/mempages;
+	fracmem = ((float)k->tasks_info.resident_size)/(double)mempages;
 	return (100.0 * fracmem);
 #endif /* FIXME */
 }

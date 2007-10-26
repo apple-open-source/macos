@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,6 +52,24 @@
 
 #include "pthread_internals.h"
 
+#include "plockstat.h"
+
+extern int __unix_conforming;
+
+#ifndef BUILDING_VARIANT /* [ */
+
+#define BLOCK_FAIL_PLOCKSTAT    0
+#define BLOCK_SUCCESS_PLOCKSTAT 1
+
+/* This function is never called and exists to provide never-fired dtrace
+ * probes so that user d scripts don't get errors.
+ */
+__private_extern__ void _plockstat_never_fired(void) 
+{
+	PLOCKSTAT_MUTEX_SPIN(NULL);
+	PLOCKSTAT_MUTEX_SPUN(NULL, 0, 0);
+}
+
 /*
  * Destroy a mutex variable.
  */
@@ -67,17 +85,27 @@ pthread_mutex_destroy(pthread_mutex_t *mutex)
 		    mutex->busy == (pthread_cond_t *)NULL)
 		{
 			mutex->sig = _PTHREAD_NO_SIG;
-			res = ESUCCESS;
+			res = 0;
 		}
 		else
 			res = EBUSY;
-	}
-	else
+	} else if (mutex->sig  == _PTHREAD_KERN_MUTEX_SIG) {
+				int mutexid = mutex->_pthread_mutex_kernid;
+				UNLOCK(mutex->lock);
+				if( __pthread_mutex_destroy(mutexid) == -1)
+					return(errno);
+				mutex->sig = _PTHREAD_NO_SIG;	
+				return(0);
+	} else 
 		res = EINVAL;
 	UNLOCK(mutex->lock);
 	return (res);
 }
 
+#ifdef PR_5243343
+/* 5243343 - temporary hack to detect if we are running the conformance test */
+extern int PR_5243343_flag;
+#endif /* PR_5243343 */
 /*
  * Initialize a mutex variable, possibly with additional attributes.
  */
@@ -91,10 +119,27 @@ _pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
 		mutex->prioceiling = attr->prioceiling;
 		mutex->protocol = attr->protocol;
 		mutex->type = attr->type;
+		mutex->pshared = attr->pshared;
+		if (attr->pshared == PTHREAD_PROCESS_SHARED) {
+			mutex->lock_count = 0;
+			mutex->owner = (pthread_t)NULL;
+			mutex->next = (pthread_mutex_t *)NULL;
+			mutex->prev = (pthread_mutex_t *)NULL;
+			mutex->busy = (pthread_cond_t *)NULL;
+			mutex->waiters = 0;
+			mutex->sem = SEMAPHORE_NULL;
+			mutex->order = SEMAPHORE_NULL;
+			mutex->sig = 0;
+			if( __pthread_mutex_init(mutex, attr) == -1)
+				return(errno);
+			mutex->sig = _PTHREAD_KERN_MUTEX_SIG;
+			return(0);
+		}
 	} else {
 		mutex->prioceiling = _PTHREAD_DEFAULT_PRIOCEILING;
 		mutex->protocol = _PTHREAD_DEFAULT_PROTOCOL;
 		mutex->type = PTHREAD_MUTEX_DEFAULT;
+		mutex->pshared = _PTHREAD_DEFAULT_PSHARED;
 	}
 	mutex->lock_count = 0;
 	mutex->owner = (pthread_t)NULL;
@@ -105,7 +150,7 @@ _pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
 	mutex->sem = SEMAPHORE_NULL;
 	mutex->order = SEMAPHORE_NULL;
 	mutex->sig = _PTHREAD_MUTEX_SIG;
-	return (ESUCCESS);
+	return (0);
 }
 
 /*
@@ -115,6 +160,12 @@ _pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
 int
 pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
 {
+#if 0
+	/* conformance tests depend on not having this behavior */
+	/* The test for this behavior is optional */
+	if (mutex->sig == _PTHREAD_MUTEX_SIG)
+		return EBUSY;
+#endif
 	LOCK_INIT(mutex->lock);
 	return (_pthread_mutex_init(mutex, attr));
 }
@@ -171,15 +222,34 @@ pthread_mutex_lock(pthread_mutex_t *mutex)
 	int sig = mutex->sig; 
 
 	/* To provide backwards compat for apps using mutex incorrectly */
-	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init))
+	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init) && (sig != _PTHREAD_KERN_MUTEX_SIG)) {
+		PLOCKSTAT_MUTEX_ERROR(mutex, EINVAL);
 		return(EINVAL);
+	}
 	LOCK(mutex->lock);
 	if (mutex->sig != _PTHREAD_MUTEX_SIG)
 	{
 		if (mutex->sig != _PTHREAD_MUTEX_SIG_init)
 		{
-			UNLOCK(mutex->lock);
-			return (EINVAL);
+			if (mutex->sig  == _PTHREAD_KERN_MUTEX_SIG) {
+				int mutexid = mutex->_pthread_mutex_kernid;
+				UNLOCK(mutex->lock);
+
+				PLOCKSTAT_MUTEX_BLOCK(mutex);
+				if( __pthread_mutex_lock(mutexid) == -1) {
+					PLOCKSTAT_MUTEX_BLOCKED(mutex, BLOCK_FAIL_PLOCKSTAT);
+					PLOCKSTAT_MUTEX_ERROR(mutex, errno);
+					return(errno);
+				}
+
+				PLOCKSTAT_MUTEX_BLOCKED(mutex, BLOCK_SUCCESS_PLOCKSTAT);
+				PLOCKSTAT_MUTEX_ACQUIRE(mutex, 0, 0);
+				return(0);
+			} else { 
+				UNLOCK(mutex->lock);
+				PLOCKSTAT_MUTEX_ERROR(mutex, EINVAL);
+				return (EINVAL);
+			}
 		}
 		_pthread_mutex_init(mutex, NULL);
 		self = _PTHREAD_MUTEX_OWNER_SELF;
@@ -196,11 +266,16 @@ pthread_mutex_lock(pthread_mutex_t *mutex)
 				if (mutex->lock_count < USHRT_MAX)
 				{
 					mutex->lock_count++;
-					res = ESUCCESS;
-				} else
+					PLOCKSTAT_MUTEX_ACQUIRE(mutex, 1, 0);
+					res = 0;
+				} else {
 					res = EAGAIN;
-			} else	/* PTHREAD_MUTEX_ERRORCHECK */
+					PLOCKSTAT_MUTEX_ERROR(mutex, res);
+				}
+			} else	{ /* PTHREAD_MUTEX_ERRORCHECK */
 				res = EDEADLK;
+				PLOCKSTAT_MUTEX_ERROR(mutex, res);
+			}
 			UNLOCK(mutex->lock);
 			return (res);
 		}
@@ -227,11 +302,14 @@ pthread_mutex_lock(pthread_mutex_t *mutex)
 			} 
 			UNLOCK(mutex->lock);
 
+			PLOCKSTAT_MUTEX_BLOCK(mutex);
 			PTHREAD_MACH_CALL(semaphore_wait_signal(sem, order), kern_res);
 			while (kern_res == KERN_ABORTED)
 			{
 				PTHREAD_MACH_CALL(semaphore_wait(sem), kern_res);
 			} 
+
+			PLOCKSTAT_MUTEX_BLOCKED(mutex, BLOCK_SUCCESS_PLOCKSTAT);
 
 			LOCK(mutex->lock);
 			if (--mutex->waiters == 0)
@@ -259,7 +337,8 @@ pthread_mutex_lock(pthread_mutex_t *mutex)
 	_pthread_mutex_add(mutex, self);
 #endif
 	UNLOCK(mutex->lock);
-	return (ESUCCESS);
+	PLOCKSTAT_MUTEX_ACQUIRE(mutex, 0, 0);
+	return (0);
 }
 
 /*
@@ -276,8 +355,21 @@ pthread_mutex_trylock(pthread_mutex_t *mutex)
 	{
 		if (mutex->sig != _PTHREAD_MUTEX_SIG_init)
 		{
-			UNLOCK(mutex->lock);
-			return (EINVAL);
+
+			if (mutex->sig  == _PTHREAD_KERN_MUTEX_SIG) {
+				int mutexid = mutex->_pthread_mutex_kernid;
+				UNLOCK(mutex->lock);
+				if( __pthread_mutex_trylock(mutexid) == -1) {
+					PLOCKSTAT_MUTEX_ERROR(mutex, errno);
+					return(errno);
+				}
+				PLOCKSTAT_MUTEX_ACQUIRE(mutex, 0, 0);
+				return(0);
+			} else { 
+				PLOCKSTAT_MUTEX_ERROR(mutex, EINVAL);
+				UNLOCK(mutex->lock);
+				return (EINVAL);
+			}
 		}
 		_pthread_mutex_init(mutex, NULL);
 		self = _PTHREAD_MUTEX_OWNER_SELF;
@@ -294,9 +386,12 @@ pthread_mutex_trylock(pthread_mutex_t *mutex)
 				if (mutex->lock_count < USHRT_MAX)
 				{
 					mutex->lock_count++;
-					res = ESUCCESS;
-				} else
+					PLOCKSTAT_MUTEX_ACQUIRE(mutex, 1, 0);
+					res = 0;
+				} else {
 					res = EAGAIN;
+					PLOCKSTAT_MUTEX_ERROR(mutex, res);
+				}
 				UNLOCK(mutex->lock);
 				return (res);
 			}
@@ -308,6 +403,7 @@ pthread_mutex_trylock(pthread_mutex_t *mutex)
 	{
 		if (mutex->waiters || mutex->owner != _PTHREAD_MUTEX_OWNER_SWITCHING)
 		{
+			PLOCKSTAT_MUTEX_ERROR(mutex, EBUSY);
 			UNLOCK(mutex->lock);
 			return (EBUSY);
 		}
@@ -329,7 +425,8 @@ pthread_mutex_trylock(pthread_mutex_t *mutex)
 	_pthread_mutex_add(mutex, self);
 #endif
 	UNLOCK(mutex->lock);
-	return (ESUCCESS);
+	PLOCKSTAT_MUTEX_ACQUIRE(mutex, 0, 0);
+	return (0);
 }
 
 /*
@@ -345,15 +442,29 @@ pthread_mutex_unlock(pthread_mutex_t *mutex)
 
 	/* To provide backwards compat for apps using mutex incorrectly */
 	
-	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init))
+	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init) && (sig != _PTHREAD_KERN_MUTEX_SIG)) {
+		PLOCKSTAT_MUTEX_ERROR(mutex, EINVAL);
 		return(EINVAL);
+	}
 	LOCK(mutex->lock);
 	if (mutex->sig != _PTHREAD_MUTEX_SIG)
 	{
 		if (mutex->sig != _PTHREAD_MUTEX_SIG_init)
 		{
-			UNLOCK(mutex->lock);
-			return (EINVAL);        /* Not a mutex variable */
+			if (mutex->sig  == _PTHREAD_KERN_MUTEX_SIG) {
+				int mutexid = mutex->_pthread_mutex_kernid;
+				UNLOCK(mutex->lock);
+				if( __pthread_mutex_unlock(mutexid) == -1) {
+					PLOCKSTAT_MUTEX_ERROR(mutex, errno);
+					return(errno);
+				}
+				PLOCKSTAT_MUTEX_RELEASE(mutex, 0);
+				return(0);
+			} else { 
+				PLOCKSTAT_MUTEX_ERROR(mutex, EINVAL);
+				UNLOCK(mutex->lock);
+				return (EINVAL);
+			}
 		}
 		_pthread_mutex_init(mutex, NULL);
 	} else
@@ -368,13 +479,15 @@ pthread_mutex_unlock(pthread_mutex_t *mutex)
 #if defined(DEBUG)
 			abort();
 #endif
+			PLOCKSTAT_MUTEX_ERROR(mutex, EPERM);
 			UNLOCK(mutex->lock);
 			return EPERM;
 		} else if (mutex->type == PTHREAD_MUTEX_RECURSIVE &&
 		    --mutex->lock_count)
 		{
+			PLOCKSTAT_MUTEX_RELEASE(mutex, 1);
 			UNLOCK(mutex->lock);
-			return ESUCCESS;
+			return(0);
 		}
 	}
 
@@ -387,15 +500,17 @@ pthread_mutex_unlock(pthread_mutex_t *mutex)
 	if (waiters)
 	{
 		mutex->owner = _PTHREAD_MUTEX_OWNER_SWITCHING;
+		PLOCKSTAT_MUTEX_RELEASE(mutex, 0);
 		UNLOCK(mutex->lock);
 		PTHREAD_MACH_CALL(semaphore_signal(mutex->sem), kern_res);
 	}
 	else
 	{
 		mutex->owner = (pthread_t)NULL;
+		PLOCKSTAT_MUTEX_RELEASE(mutex, 0);
 		UNLOCK(mutex->lock);
 	}
-	return (ESUCCESS);
+	return (0);
 }
 
 /*
@@ -412,7 +527,7 @@ pthread_mutex_getprioceiling(const pthread_mutex_t *mutex,
         if (mutex->sig == _PTHREAD_MUTEX_SIG)
         {
                 *prioceiling = mutex->prioceiling;
-                res = ESUCCESS;
+                res = 0;
         } else
                 res = EINVAL; /* Not an initialized 'attribute' structure */
 	UNLOCK(mutex->lock);
@@ -438,23 +553,13 @@ pthread_mutex_setprioceiling(pthread_mutex_t *mutex,
                 {
                         *old_prioceiling = mutex->prioceiling;
                         mutex->prioceiling = prioceiling;
-                        res = ESUCCESS;
+                        res = 0;
                 } else
                         res = EINVAL; /* Invalid parameter */
         } else
                 res = EINVAL; /* Not an initialized 'attribute' structure */
 	UNLOCK(mutex->lock);
 	return (res);
-}
-
-/*
- * Destroy a mutex attribute structure.
- */
-int
-pthread_mutexattr_destroy(pthread_mutexattr_t *attr)
-{
-        attr->sig = _PTHREAD_NO_SIG;  /* Uninitialized */
-        return (ESUCCESS);
 }
 
 /*
@@ -468,7 +573,7 @@ pthread_mutexattr_getprioceiling(const pthread_mutexattr_t *attr,
         if (attr->sig == _PTHREAD_MUTEX_ATTR_SIG)
         {
                 *prioceiling = attr->prioceiling;
-                return (ESUCCESS);
+                return (0);
         } else
         {
                 return (EINVAL); /* Not an initialized 'attribute' structure */
@@ -486,7 +591,7 @@ pthread_mutexattr_getprotocol(const pthread_mutexattr_t *attr,
         if (attr->sig == _PTHREAD_MUTEX_ATTR_SIG)
         {
                 *protocol = attr->protocol;
-                return (ESUCCESS);
+                return (0);
         } else
         {
                 return (EINVAL); /* Not an initialized 'attribute' structure */
@@ -503,7 +608,7 @@ pthread_mutexattr_gettype(const pthread_mutexattr_t *attr,
         if (attr->sig == _PTHREAD_MUTEX_ATTR_SIG)
         {
                 *type = attr->type;
-                return (ESUCCESS);
+                return (0);
         } else
         {
                 return (EINVAL); /* Not an initialized 'attribute' structure */
@@ -518,8 +623,8 @@ pthread_mutexattr_getpshared(const pthread_mutexattr_t *attr, int *pshared)
 {
         if (attr->sig == _PTHREAD_MUTEX_ATTR_SIG)
         {
-                *pshared = (int)PTHREAD_PROCESS_PRIVATE;
-                return (ESUCCESS);
+                *pshared = (int)attr->pshared;
+                return (0);
         } else
         {
                 return (EINVAL); /* Not an initialized 'attribute' structure */
@@ -536,7 +641,8 @@ pthread_mutexattr_init(pthread_mutexattr_t *attr)
         attr->protocol = _PTHREAD_DEFAULT_PROTOCOL;
         attr->type = PTHREAD_MUTEX_DEFAULT;
         attr->sig = _PTHREAD_MUTEX_ATTR_SIG;
-        return (ESUCCESS);
+        attr->pshared = _PTHREAD_DEFAULT_PSHARED;
+        return (0);
 }
 
 /*
@@ -553,7 +659,7 @@ pthread_mutexattr_setprioceiling(pthread_mutexattr_t *attr,
                     (prioceiling <= 999))
                 {
                         attr->prioceiling = prioceiling;
-                        return (ESUCCESS);
+                        return (0);
                 } else
                 {
                         return (EINVAL); /* Invalid parameter */
@@ -579,7 +685,7 @@ pthread_mutexattr_setprotocol(pthread_mutexattr_t *attr,
                     (protocol == PTHREAD_PRIO_PROTECT))
                 {
                         attr->protocol = protocol;
-                        return (ESUCCESS);
+                        return (0);
                 } else
                 {
                         return (EINVAL); /* Invalid parameter */
@@ -605,7 +711,7 @@ pthread_mutexattr_settype(pthread_mutexattr_t *attr,
                     (type == PTHREAD_MUTEX_DEFAULT))
                 {
                         attr->type = type;
-                        return (ESUCCESS);
+                        return (0);
                 } else
                 {
                         return (EINVAL); /* Invalid parameter */
@@ -616,27 +722,6 @@ pthread_mutexattr_settype(pthread_mutexattr_t *attr,
         }
 }
 
-/*
- *
- */
-int
-pthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared)
-{
-        if (attr->sig == _PTHREAD_MUTEX_ATTR_SIG)
-        {
-                if (pshared == PTHREAD_PROCESS_PRIVATE)
-                {
-                        /* attr->pshared = protocol; */
-                        return (ESUCCESS);
-                } else
-                {
-                        return (EINVAL); /* Invalid parameter */
-                }
-        } else
-        {
-                return (EINVAL); /* Not an initialized 'attribute' structure */
-        }
-}
 
 int mutex_try_lock(int *x) {
         return _spin_lock_try((pthread_lock_t *)x);
@@ -662,4 +747,61 @@ pthread_yield_np (void)
 {
         sched_yield();
 }
+
+
+/*
+ * Temp: till pshared is fixed correctly
+ */
+int
+pthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared)
+{
+#if __DARWIN_UNIX03
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+#endif /* __DARWIN_UNIX03 */
+
+        if (attr->sig == _PTHREAD_MUTEX_ATTR_SIG)
+        {
+#if __DARWIN_UNIX03
+#ifdef PR_5243343
+                if (( pshared == PTHREAD_PROCESS_PRIVATE) || (pshared == PTHREAD_PROCESS_SHARED && PR_5243343_flag))
+#else /* !PR_5243343 */
+                if (( pshared == PTHREAD_PROCESS_PRIVATE) || (pshared == PTHREAD_PROCESS_SHARED))
+#endif /* PR_5243343 */
+#else /* __DARWIN_UNIX03 */
+                if ( pshared == PTHREAD_PROCESS_PRIVATE)
+#endif /* __DARWIN_UNIX03 */
+			  {
+                         attr->pshared = pshared; 
+                        return (0);
+                } else
+                {
+                        return (EINVAL); /* Invalid parameter */
+                }
+        } else
+        {
+                return (EINVAL); /* Not an initialized 'attribute' structure */
+        }
+}
+
+
+#endif /* !BUILDING_VARIANT ] */
+
+/*
+ * Destroy a mutex attribute structure.
+ */
+int
+pthread_mutexattr_destroy(pthread_mutexattr_t *attr)
+{
+#if __DARWIN_UNIX03
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+	if (attr->sig != _PTHREAD_MUTEX_ATTR_SIG)
+		return (EINVAL);
+#endif /* __DARWIN_UNIX03 */
+
+        attr->sig = _PTHREAD_NO_SIG;  /* Uninitialized */
+        return (0);
+}
+
 

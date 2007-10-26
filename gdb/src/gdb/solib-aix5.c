@@ -193,7 +193,7 @@ build_so_list_from_mapfile (int pid, long match_mask, long match_val)
 
     /* Open the map file */
 
-    xasprintf (&map_pathname, "/proc/%d/map", pid);
+    map_pathname = xstrprintf ("/proc/%d/map", pid);
     map_fd = open (map_pathname, O_RDONLY);
     xfree (map_pathname);
     if (map_fd < 0)
@@ -335,7 +335,7 @@ open_symbol_file_object (void *from_ttyp)
 
   if (sos == NULL)
     {
-      warning ("Could not find name of main executable in map file");
+      warning (_("Could not find name of main executable in map file"));
       return 0;
     }
 
@@ -480,7 +480,7 @@ enable_break (void)
       /* Make sure the dynamic linker's really a useful object.  */
       if (!bfd_check_format (tmp_bfd, bfd_object))
 	{
-	  warning ("Unable to grok dynamic linker %s as an object file", buf);
+	  warning (_("Unable to grok dynamic linker %s as an object file"), buf);
 	  bfd_close (tmp_bfd);
 	  goto bkpt_at_symbol;
 	}
@@ -529,7 +529,7 @@ enable_break (void)
       /* For whatever reason we couldn't set a breakpoint in the dynamic
          linker.  Warn and drop into the old code.  */
     bkpt_at_symbol:
-      warning ("Unable to find dynamic linker breakpoint function.\nGDB will be unable to debug shared library initializers\nand track explicitly loaded dynamic code.");
+      warning (_("Unable to find dynamic linker breakpoint function.\nGDB will be unable to debug shared library initializers\nand track explicitly loaded dynamic code."));
     }
 
   /* Nothing good happened.  */
@@ -684,7 +684,7 @@ map_index_vs_section_name_okay (int idx, const char *name)
 	return idx == okay[i].idx;
     }
 
-  warning ("solib-aix5.c: Ignoring section %s when relocating the executable\n",
+  warning (_("Ignoring section %s when relocating the executable."),
            name);
   return 0;
 }
@@ -707,7 +707,7 @@ aix5_relocate_main_executable (void)
   /* Make sure we actually have some mappings to work with.  */
   if (so == NULL)
     {
-      warning ("Could not find main executable in map file");
+      warning (_("Could not find main executable in map file"));
       do_cleanups (old_chain);
       return;
     }
@@ -771,7 +771,7 @@ aix5_relocate_main_executable (void)
 
    SYNOPSIS
 
-   void aix5_solib_create_inferior_hook()
+   void aix5_solib_create_inferior_hook ()
 
    DESCRIPTION
 
@@ -798,7 +798,7 @@ aix5_solib_create_inferior_hook (void)
 
   if (!enable_break ())
     {
-      warning ("shared library handler failed to enable breakpoint");
+      warning (_("shared library handler failed to enable breakpoint"));
       return;
     }
 }
@@ -839,7 +839,7 @@ aix5_relocate_section_addresses (struct so_list *so,
 
       if (idx >= so->lm_info->nmappings)
 	internal_error (__FILE__, __LINE__,
-	  "aix_relocate_section_addresses: Can't find mapping for section %s",
+	  _("aix_relocate_section_addresses: Can't find mapping for section %s"),
 	  bfd_get_section_name (sec->bfd, sec->the_bfd_section));
       
       addr = so->lm_info->mapping[idx].addr;
@@ -908,7 +908,7 @@ aix5_find_gate_addresses (CORE_ADDR *start, CORE_ADDR *end)
   /* Make sure we actually have some mappings to work with.  */
   if (so == NULL)
     {
-      warning ("Could not find gate page in map file");
+      warning (_("Could not find gate page in map file"));
       *start = 0;
       *end = 0;
       do_cleanups (old_chain);

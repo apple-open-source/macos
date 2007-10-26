@@ -16,6 +16,7 @@ CFILES = du.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble du.1
 
+OTHER_CFLAGS = -D__FBSDID=__RCSID
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -28,7 +29,7 @@ PROF_LIBS = $(LIBS)
 
 
 
-NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/developer_cmds/Build
+NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/file_cmds/Build
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc

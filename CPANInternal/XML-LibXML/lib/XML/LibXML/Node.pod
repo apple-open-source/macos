@@ -1,0 +1,809 @@
+=head1 NAME
+
+XML::LibXML::Node - Abstract Base Class of XML::LibXML Nodes
+
+=head1 SYNOPSIS
+
+  $name = $node->nodeName;
+  $node->setNodeName( $newName );
+  $bool = $node->isSameNode( $other_node );
+  $bool = $node->isEqual( $other_node );
+  $content = $node->nodeValue;
+  $content = $node->textContent;
+  $lineno = $node->line_number();
+  $type = $node->nodeType;
+  $lineno = $node->line_number();
+  $node->unbindNode()
+  $childnode = $node->removeChild( $childnode )
+  $oldnode = $node->replaceChild( $newNode, $oldNode )
+  $node->replaceNode($newNode);
+  $childnode = $node->appendChild( $childnode );
+  $childnode = $node->addChild( $chilnode );
+  $node = $parent->addNewChild( $nsURI, $name );
+  $node->addSibling($newNode);
+  $newnode =$node->cloneNode( $deep )
+  $parentnode = $node->parentNode;
+  $nextnode = $node->nextSibling()
+  $prevnode = $node->previousSibling()
+  $boolean = $node->hasChildNodes();
+  $childnode = $node->firstChild;
+  $childnode = $node->lastChild;
+  $documentnode = $node->ownerDocument;
+  $node = $node->getOwner;
+  $node->setOwnerDocument( $doc );
+  $node->insertBefore( $newNode, $refNode )
+  $node->insertAfter( $newNode, $refNode )
+  @nodes = $node->findnodes( $xpath_statement );
+  $result = $node->find( $xpath );
+  print $node->findvalue( $xpath );
+  @childnodes = $node->childNodes;
+  $xmlstring = $node->toString($format,$docencoding);
+  $c14nstring = $node->toString($with_comments, $xpath_expression);
+  $str = $doc->serialze($format); 
+  $c14nstr = $doc->serialize_c14n($comment_flag,$xpath); 
+  $localname = $node->localname;
+  $nameprefix = $node->prefix;
+  $uri = $node->namespaceURI()
+  $boolean = $node->hasAttributes();
+  @attributelist = $node->attributes();
+  $URI = $node->lookupNamespaceURI( $prefix );
+  $prefix = $node->lookupNamespacePrefix( $URI );
+  $iter = $node->iterator;
+  $node->normalize;
+  @nslist = $node->getNamespaces;
+  $node->removeChildNodes();
+
+
+=head1 DESCRIPTION
+
+XML::LibXML::Node defines functions that are common to all Node Types. A
+LibXML::Node should never be created standalone, but as an instance of a high
+level class such as LibXML::Element or LibXML::Text. The class itself should
+provide only common functionality. In XML::LibXML each node is part either of a
+document or a document-fragment. Because of this there is no node without a
+parent. This may causes confusion with "unbound" nodes.
+
+=over 4
+
+=item B<nodeName>
+
+  $name = $node->nodeName;
+
+Returns the node's name. This Function is aware of namesaces and returns the
+full name of the current node (prefix:localname)
+
+
+
+=back
+
+=over 4
+
+=item B<setNodeName>
+
+  $node->setNodeName( $newName );
+
+In very limited situations, it is useful to change a nodes name. In the DOM
+specification this should throw an error. This Function is aware of namespaces.
+
+
+
+=back
+
+=over 4
+
+=item B<isSameNode>
+
+  $bool = $node->isSameNode( $other_node );
+
+returns TRUE (1) if the given nodes refer to the same node structure, otherwise
+FALSE (0) is returned.
+
+
+
+=back
+
+=over 4
+
+=item B<isEqual>
+
+  $bool = $node->isEqual( $other_node );
+
+deprecated version of isSameNode().
+
+NOTE isEqual will change behaviour to follow the DOM specification
+
+
+
+=back
+
+=over 4
+
+=item B<nodeValue>
+
+  $content = $node->nodeValue;
+
+If the node has any content (such as stored in a text node) it can get
+requested through this function.
+
+NOTE: Element Nodes have no content per definition. To get the text value of an
+Element use textContent() instead!
+
+
+
+=back
+
+=over 4
+
+=item B<textContent>
+
+  $content = $node->textContent;
+
+this function returns the content of all text nodes in the descendants of the
+given node as spacified in DOM.
+
+
+=item B<line_number>
+
+  $lineno = $node->line_number();
+
+This function returns the line number where the tag was found during parsing.
+If a node is added to the document the line number is 0. Problems may occour,
+if a node from one document is passed to another one.
+
+Note: line_number() is special to XML::LibXML and not part of the DOM
+specification.
+
+If the line_numbers flag of the parser was not activated before parsing,
+line_number() will always return 0.
+
+
+
+=back
+
+=over 4
+
+=item B<nodeType>
+
+  $type = $node->nodeType;
+
+Retrun the node's type. The possible types are described in the libxml2 tree.h
+documentation. The return value of this function is a numeric value. Therefore
+it differs from the result of perl ref function.
+
+
+=item B<line_number>
+
+  $lineno = $node->line_number();
+
+This function returns the line number where the tag was found during parsing.
+If a node is added to the document the line number is 0. Problems may occur, if
+a node from one document is passed to another one.
+
+Note: line_number() is special to XML::LibXML and not part of the DOM
+specification.
+
+If the line_numbers flag of the parser was not activated before parsing,
+line_number() will always return 0.
+
+
+
+=back
+
+=over 4
+
+=item B<unbindNode>
+
+  $node->unbindNode()
+
+Unbinds the Node from its siblings and Parent, but not from the Document it
+belongs to. If the node is not inserted into the DOM afterwards it will be lost
+after the programm terminated. From a low level view, the unbound node is
+stripped from the context it is and inserted into a (hidden) document-fragment.
+
+
+
+=back
+
+=over 4
+
+=item B<removeChild>
+
+  $childnode = $node->removeChild( $childnode )
+
+This will unbind the Child Node from its parent $node. The function returns the
+unbound node. If oldNode is not a child of the given Node the function will
+fail.
+
+
+
+=back
+
+=over 4
+
+=item B<replaceChild>
+
+  $oldnode = $node->replaceChild( $newNode, $oldNode )
+
+Replaces the $oldNode with the $newNode. The $oldNode will be unbound from the
+Node. This function differs from the DOM L2 specification, in the case, if the
+new node is not part of the document, the node will be imported first.
+
+
+
+=back
+
+=over 4
+
+=item B<replaceNode>
+
+  $node->replaceNode($newNode);
+
+This function is very similar to replaceChild(), but it replaces the node
+itself rather than a childnode. This is useful if a node found by any XPath
+function, should be replaced.
+
+
+
+=back
+
+=over 4
+
+=item B<appendChild>
+
+  $childnode = $node->appendChild( $childnode );
+
+The function will add the $childnode to the end of $node's children. The
+function should fail, if the new childnode is allready a child of $node. This
+function differs from the DOM L2 specification, in the case, if the new node is
+not part of the document, the node will be imported first.
+
+
+
+=back
+
+=over 4
+
+=item B<addChild>
+
+  $childnode = $node->addChild( $chilnode );
+
+As an alternative to appendChild() one can use the addChild() function. This
+function is a bit faster, because it avoids all DOM conformity checks.
+Therefore this function is quite useful if one builds XML documents in memory
+where the order and ownership (ownerDocument) is assured.
+
+addChild() uses libxml2's own xmlAddChild() function. Thus it has to be used
+with extra care: If a text node is added to a node and the node itself or its
+last childnode is as well a text node, the node to add will be merged with the
+one already available. The current node will be removed from memory after this
+action. Because perl is not aware of this action, the perl instance is still
+available. XML::LibXML will catch the loss of a node and refuse to run any
+function called on that node.
+
+   my $t1 = $doc->createTextNode( "foo" );
+   my $t2 = $doc->createTextNode( "bar" );
+   $t1->addChild( $t2 );       # is ok
+   my $val = $t2->nodeValue(); # will fail, script dies
+
+Also addChild() will not check it the added node belongs to the same document
+as the node it will be added to. This could lead to inconsistent documents and
+in more worse cases even to memory violations, if one does not keep track of
+this issue.
+
+Although this sounds like a lot of trouble, addChild() is useful if a document
+is built from a stream, such as happens sometimes in SAX handlers or filters.
+
+If you are not sure about the source of your nodes, you better stay with
+appendChild(), because this function is more user friendly in the sense of
+being more error tolerant.
+
+
+
+=back
+
+=over 4
+
+=item B<addNewChild>
+
+  $node = $parent->addNewChild( $nsURI, $name );
+
+Similar to addChild(), this function uses low level libxml2 functionality to
+provide faster interface for DOM building. addNewChild() uses xmlNewChild() to
+create a new node on a given parent element.
+
+addNewChild() has two parameters $nsURI and $name, where $nsURI is an
+(optional) namespace URI. $name is the fully qualified element name;
+addNewChild() will determine the correct prefix if nessecary.
+
+The function returns the newly created node.
+
+This function is very useful for DOM building, where a created node can be
+directly associated with its parent. NOTE this function is not part of the DOM
+specification and its use will limit your code to XML::LibXML.
+
+
+
+=back
+
+=over 4
+
+=item B<addSibling>
+
+  $node->addSibling($newNode);
+
+addSibling() allows adding an additional node to the end of a nodelist, defined
+by the given node.
+
+
+
+=back
+
+=over 4
+
+=item B<cloneNode>
+
+  $newnode =$node->cloneNode( $deep )
+
+cloneNode creates a copy of $node. When $deep is set to 1 (true) the function
+will copy all childnodes as well. If $deep is 0 only the current node will be
+copied.
+
+cloneNode will not copy any namespace information if it is not run recursivly.
+
+
+
+=back
+
+=over 4
+
+=item B<parentNode>
+
+  $parentnode = $node->parentNode;
+
+Returns simply the Parent Node of the current node.
+
+
+
+=back
+
+=over 4
+
+=item B<nextSibling>
+
+  $nextnode = $node->nextSibling()
+
+Returns the next sibling if any .
+
+
+
+=back
+
+=over 4
+
+=item B<previousSibling>
+
+  $prevnode = $node->previousSibling()
+
+Analogous to getNextSibling the function returns the previous sibling if any.
+
+
+
+=back
+
+=over 4
+
+=item B<hasChildNodes>
+
+  $boolean = $node->hasChildNodes();
+
+If the current node has Childnodes this function returns TRUE (1), otherwise it
+returns FALSE (0, not undef).
+
+
+
+=back
+
+=over 4
+
+=item B<firstChild>
+
+  $childnode = $node->firstChild;
+
+If a node has childnodes this function will return the first node in the
+childlist.
+
+
+
+=back
+
+=over 4
+
+=item B<lastChild>
+
+  $childnode = $node->lastChild;
+
+If the $node has childnodes this function returns the last child node.
+
+
+
+=back
+
+=over 4
+
+=item B<ownerDocument>
+
+  $documentnode = $node->ownerDocument;
+
+Through this function it is always possible to access the document the current
+node is bound to.
+
+
+
+=back
+
+=over 4
+
+=item B<getOwner>
+
+  $node = $node->getOwner;
+
+This function returns the node the current node is associated with. In most
+cases this will be a document node or a document fragment node.
+
+
+
+=back
+
+=over 4
+
+=item B<setOwnerDocument>
+
+  $node->setOwnerDocument( $doc );
+
+This function binds a node to another DOM. This method unbinds the node first,
+if it is allready bound to another document.
+
+This function is the oposite calling of XML::LibXML::Document's adoptNode()
+function. Because of this it has the same limitations with Entity References as
+adoptNode().
+
+
+
+=back
+
+=over 4
+
+=item B<insertBefore>
+
+  $node->insertBefore( $newNode, $refNode )
+
+The method inserts $newNode before $refNode. If $refNode is undefined, the
+newNode will be set as the new last child of the parent node. This function
+differs from the DOM L2 specification, in the case, if the new node is not part
+of the document, the node will be imported first, automatically.
+
+$refNode has to be passed to the function even if it is undefined:
+
+   $node->insertBefore( $newNode, undef ); # the same as $node->appendChild( $newNode );
+   $node->insertBefore( $newNode ); # wrong
+
+Note, that the reference node has to be a direct child of the node the function
+is called on. Also, $newChild is not allowed to be an ancestor of the new
+parent node.
+
+
+
+=back
+
+=over 4
+
+=item B<insertAfter>
+
+  $node->insertAfter( $newNode, $refNode )
+
+The method inserts $newNode after $refNode. If $refNode is undefined, the
+newNode will be set as the new last child of the parent node.
+
+Note, that $refNode has to be passed explicitly even if it is undef.
+
+
+
+=back
+
+=over 4
+
+=item B<findnodes>
+
+  @nodes = $node->findnodes( $xpath_statement );
+
+findnodes performs the xpath statement on the current node and returns the
+result as an array. In scalar context returns a XML::LibXML::NodeList object.
+
+
+
+=back
+
+=over 4
+
+=item B<find>
+
+  $result = $node->find( $xpath );
+
+find performs the xpath expression using the current node as the context of the
+expression, and returns the result depending on what type of result the XPath
+expression had. For example, the XPath "1 * 3 + 52" results in a
+XML::LibXML::Number object being returned. Other expressions might return a
+XML::LibXML::Boolean object, or a XML::LibXML::Literal object (a string). Each
+of those objects uses Perl's overload feature to "do the right thing" in
+different contexts.
+
+
+
+=back
+
+=over 4
+
+=item B<findvalue>
+
+  print $node->findvalue( $xpath );
+
+findvalue is exactly equivalent to:
+
+   $node->find( $xpath )->to_literal;              
+
+That is, it returns the literal value of the results. This enables you to
+ensure that you get a string back from your search, allowing certain shortcuts.
+This could be used as the equivalent of XSLT's <xsl:value-of
+select="some_xpath"/>.
+
+
+
+=back
+
+=over 4
+
+=item B<childNodes>
+
+  @childnodes = $node->childNodes;
+
+getChildnodes implements a more intuitive interface to the childnodes of the
+current node. It enables you to pass all children directly to a map or grep. If
+this function is called in scalar context, a XML::LibXML::NodeList object will
+be returned.
+
+
+
+=back
+
+=over 4
+
+=item B<toString>
+
+  $xmlstring = $node->toString($format,$docencoding);
+
+This is the equivalent to XML::LibXML::Document::toString for a single node.
+This means a node and all its childnodes will be dumped into the result string.
+
+Additionally to the $format flag of XML::LibXML::Document, this version accepts
+the optional $docencoding flag. If this flag is set this function returns the
+string in its original encoding (the encoding of the document) rather than
+UTF8.
+
+
+=item B<toStringC14N>
+
+  $c14nstring = $node->toString($with_comments, $xpath_expression);
+
+The function is similar to toString(). Instead of simply serializing the
+document tree, it transforms it as it is specified in the XML-C14N
+Specification. Such transformation is known as canonization.
+
+If $with_comments is 0 or not defined, the result-document will not contain any
+comments that exist in the original document. To include comments into the
+canonized document, $with_comments has to be set to 1.
+
+The parameter $xpath_expression defines the nodeset of nodes that should be
+visible in the resulting document. This can be used to filter out some nodes.
+One has to note, that only the nodes that are part of the nodeset, will be
+included into the result-document. Their child-nodes will not exist in the
+resulting document, unless they are part of the nodeset defined by the xpath
+expression.
+
+If $xpath_expression is ommitted or empty, toStringC14N() will include all
+nodes in the given sub-tree.
+
+No serializing flags will be recognized by this function!
+
+
+=item B<serialize>
+
+  $str = $doc->serialze($format); 
+
+Alternative form of toString(). This function name added to be more conform
+with libxml2's examples.
+
+
+=item B<serialize_c14n>
+
+  $c14nstr = $doc->serialize_c14n($comment_flag,$xpath); 
+
+Alternative form of toStringC14N().
+
+
+
+=back
+
+=over 4
+
+=item B<localname>
+
+  $localname = $node->localname;
+
+Returns the local name of a tag. This is the part behind the colon.
+
+
+
+=back
+
+=over 4
+
+=item B<prefix>
+
+  $nameprefix = $node->prefix;
+
+Returns the prefix of a tag. This is the part before the colon.
+
+
+
+=back
+
+=over 4
+
+=item B<namespaceURI>
+
+  $uri = $node->namespaceURI()
+
+returns the URI of the current namespace.
+
+
+
+=back
+
+=over 4
+
+=item B<hasAttributes>
+
+  $boolean = $node->hasAttributes();
+
+returns 1 (TRUE) if the current node has any attributes set, otherwise 0
+(FALSE) is returned.
+
+
+
+=back
+
+=over 4
+
+=item B<attributes>
+
+  @attributelist = $node->attributes();
+
+This function returns all attributes and namespace declarations assigned to the
+given node.
+
+Because XML::LibXML does not implement namespace declarations and attributes
+the same way, it is required to test what kind of node is handled while
+accessing the functions result.
+
+If this function is called in array context the attribute nodes are returned as
+an array. In scalar context the function will return a
+XML::LibXML::NamedNodeMap object.
+
+
+
+=back
+
+=over 4
+
+=item B<lookupNamespaceURI>
+
+  $URI = $node->lookupNamespaceURI( $prefix );
+
+Find a namespace URI by its prefix starting at the current node.
+
+
+
+=back
+
+=over 4
+
+=item B<lookupNamespacePrefix>
+
+  $prefix = $node->lookupNamespacePrefix( $URI );
+
+Find a namespace prefix by its URI starting at the current node.
+
+NOTE Only the namespace URIs are meant to be unique. The prefix is only
+document related. Also the document might have more than a single prefix
+defined for a namespace.
+
+
+
+=back
+
+=over 4
+
+=item B<iterator>
+
+  $iter = $node->iterator;
+
+This function is deprecated since XML::LibXML 1.54. It is only a dummy function
+that will get removed entirely in one of the next versions.
+
+To make use of iterator functions use XML::LibXML::Iterator Module available on
+CPAN.
+
+
+
+=back
+
+=over 4
+
+=item B<normalize>
+
+  $node->normalize;
+
+This function normalizes adjacent textnodes. This function is not as strict as
+libxml2's xmlTextMerge() function, since it will not free a node that is still
+referenced by the perl layer.
+
+
+
+=back
+
+=over 4
+
+=item B<getNamespaces>
+
+  @nslist = $node->getNamespaces;
+
+If a node has any namespaces defined, this function will return these
+namespaces. Note, that this will not return all namespaces that are in scope,
+but only the ones declared explicitly for that node.
+
+Although getNamespaces is available for all nodes, it only makes sense if used
+with element nodes.
+
+
+
+=back
+
+=over 4
+
+=item B<removeChildNodes>
+
+  $node->removeChildNodes();
+
+This function is not specified for any DOM level: It removes all childnodes
+from a node in a single step. Other than the libxml2 function itself
+(xmlFreeNodeList), this function will not immediately remove the nodes from the
+memory. This saves one from getting memory violations, if there are nodes still
+referred to from the Perl level.
+
+
+
+=back
+
+=head1 AUTHORS
+
+Matt Sergeant, 
+Christian Glahn, 
+=head1 VERSION
+
+1.58
+
+=head1 COPYRIGHT
+
+2001-2004, AxKit.com Ltd; 2002-2004 Christian Glahn, All rights reserved.
+
+=cut

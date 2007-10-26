@@ -118,5 +118,4 @@ private:
 
 #endif /* !_CACRECORD_H_ */
 
-/* arch-tag: 96BC854C-0E73-11D9-B9B1-000A9595DEEE */
 

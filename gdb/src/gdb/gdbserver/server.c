@@ -1,5 +1,6 @@
 /* Main code for remote server for GDB.
-   Copyright 1989, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright 1989, 1993, 1994, 1995, 1997, 1998, 1999, 2000, 2002, 2003, 2004,
+   2005
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -25,11 +26,11 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-int cont_thread;
-int general_thread;
-int step_thread;
-int thread_from_wait;
-int old_thread_from_wait;
+unsigned long cont_thread;
+unsigned long general_thread;
+unsigned long step_thread;
+unsigned long thread_from_wait;
+unsigned long old_thread_from_wait;
 int extended_protocol;
 int server_waiting;
 
@@ -40,9 +41,9 @@ jmp_buf toplevel;
    (user hitting Control-C in the client), and to wait for the child to exit
    when no longer debugging it.  */
 
-int signal_pid;
+unsigned long signal_pid;
 
-static unsigned char
+static int
 start_inferior (char *argv[], char *statusptr)
 {
   signal (SIGTTOU, SIG_DFL);
@@ -50,7 +51,7 @@ start_inferior (char *argv[], char *statusptr)
 
   signal_pid = create_inferior (argv[0], argv);
 
-  fprintf (stderr, "Process %s created; pid = %d\n", argv[0],
+  fprintf (stderr, "Process %s created; pid = %ld\n", argv[0],
 	   signal_pid);
 
   signal (SIGTTOU, SIG_IGN);
@@ -62,7 +63,7 @@ start_inferior (char *argv[], char *statusptr)
 }
 
 static int
-attach_inferior (int pid, char *statusptr, unsigned char *sigptr)
+attach_inferior (int pid, char *statusptr, int *sigptr)
 {
   /* myattach should return -1 if attaching is unsupported,
      0 if it succeeded, and call error() otherwise.  */
@@ -102,7 +103,7 @@ handle_query (char *own_buf)
   if (strcmp ("qfThreadInfo", own_buf) == 0)
     {
       thread_ptr = all_threads.head;
-      sprintf (own_buf, "m%x", thread_ptr->id);
+      sprintf (own_buf, "m%x", thread_to_gdb_id ((struct thread_info *)thread_ptr));
       thread_ptr = thread_ptr->next;
       return;
     }
@@ -111,7 +112,7 @@ handle_query (char *own_buf)
     {
       if (thread_ptr != NULL)
 	{
-	  sprintf (own_buf, "m%x", thread_ptr->id);
+	  sprintf (own_buf, "m%x", thread_to_gdb_id ((struct thread_info *)thread_ptr));
 	  thread_ptr = thread_ptr->next;
 	  return;
 	}
@@ -125,7 +126,7 @@ handle_query (char *own_buf)
   if (the_target->read_auxv != NULL
       && strncmp ("qPart:auxv:read::", own_buf, 17) == 0)
     {
-      char data[(PBUFSIZ - 1) / 2];
+      unsigned char data[(PBUFSIZ - 1) / 2];
       CORE_ADDR ofs;
       unsigned int len;
       int n;
@@ -149,7 +150,7 @@ handle_query (char *own_buf)
 
 /* Parse vCont packets.  */
 void
-handle_v_cont (char *own_buf, char *status, unsigned char *signal)
+handle_v_cont (char *own_buf, char *status, int *signal)
 {
   char *p, *q;
   int n = 0, i = 0;
@@ -217,11 +218,19 @@ handle_v_cont (char *own_buf, char *status, unsigned char *signal)
 	}
       else if (p[0] == ':')
 	{
-	  resume_info[i].thread = strtol (p + 1, &q, 16);
+	  unsigned int gdb_id = strtoul (p + 1, &q, 16);
+	  unsigned long thread_id;
+
 	  if (p == q)
 	    goto err;
 	  p = q;
 	  if (p[0] != ';' && p[0] != 0)
+	    goto err;
+
+	  thread_id = gdb_id_to_thread_id (gdb_id);
+	  if (thread_id)
+	    resume_info[i].thread = thread_id;
+	  else
 	    goto err;
 
 	  i++;
@@ -254,7 +263,7 @@ err:
 
 /* Handle all of the extended 'v' packets.  */
 void
-handle_v_requests (char *own_buf, char *status, unsigned char *signal)
+handle_v_requests (char *own_buf, char *status, int *signal)
 {
   if (strncmp (own_buf, "vCont;", 6) == 0)
     {
@@ -280,7 +289,7 @@ myresume (int step, int sig)
   struct thread_resume resume_info[2];
   int n = 0;
 
-  if (step || sig || cont_thread > 0)
+  if (step || sig || (cont_thread != 0 && cont_thread != -1))
     {
       resume_info[0].thread
 	= ((struct inferior_list_entry *) current_inferior)->id;
@@ -292,7 +301,7 @@ myresume (int step, int sig)
   resume_info[n].thread = -1;
   resume_info[n].step = 0;
   resume_info[n].sig = 0;
-  resume_info[n].leave_stopped = (cont_thread > 0);
+  resume_info[n].leave_stopped = (cont_thread != 0 && cont_thread != -1);
 
   (*the_target->resume) (resume_info);
 }
@@ -312,9 +321,10 @@ gdbserver_usage (void)
 int
 main (int argc, char *argv[])
 {
-  char ch, status, *own_buf, mem_buf[2000];
+  char ch, status, *own_buf;
+  unsigned char mem_buf[2000];
   int i = 0;
-  unsigned char signal;
+  int signal;
   unsigned int len;
   CORE_ADDR mem_addr;
   int bad_attach;
@@ -429,26 +439,35 @@ main (int argc, char *argv[])
 	      prepare_resume_reply (own_buf, status, signal);
 	      break;
 	    case 'H':
-	      switch (own_buf[1])
+	      if (own_buf[1] == 'c' || own_buf[1] == 'g' || own_buf[1] == 's')
 		{
-		case 'g':
-		  general_thread = strtol (&own_buf[2], NULL, 16);
+		  unsigned long gdb_id, thread_id;
+
+		  gdb_id = strtoul (&own_buf[2], NULL, 16);
+		  thread_id = gdb_id_to_thread_id (gdb_id);
+		  if (thread_id == 0)
+		    {
+		      write_enn (own_buf);
+		      break;
+		    }
+
+		  if (own_buf[1] == 'g')
+		    {
+		      general_thread = thread_id;
+		      set_desired_inferior (1);
+		    }
+		  else if (own_buf[1] == 'c')
+		    cont_thread = thread_id;
+		  else if (own_buf[1] == 's')
+		    step_thread = thread_id;
+
 		  write_ok (own_buf);
-		  set_desired_inferior (1);
-		  break;
-		case 'c':
-		  cont_thread = strtol (&own_buf[2], NULL, 16);
-		  write_ok (own_buf);
-		  break;
-		case 's':
-		  step_thread = strtol (&own_buf[2], NULL, 16);
-		  write_ok (own_buf);
-		  break;
-		default:
+		}
+	      else
+		{
 		  /* Silently ignore it so that gdb can extend the protocol
 		     without compatibility headaches.  */
 		  own_buf[0] = '\0';
-		  break;
 		}
 	      break;
 	    case 'g':
@@ -462,8 +481,10 @@ main (int argc, char *argv[])
 	      break;
 	    case 'm':
 	      decode_m_packet (&own_buf[1], &mem_addr, &len);
-	      read_inferior_memory (mem_addr, mem_buf, len);
-	      convert_int_to_ascii (mem_buf, own_buf, len);
+	      if (read_inferior_memory (mem_addr, mem_buf, len) == 0)
+		convert_int_to_ascii (mem_buf, own_buf, len);
+	      else
+		write_enn (own_buf);
 	      break;
 	    case 'M':
 	      decode_M_packet (&own_buf[1], &mem_addr, &len, mem_buf);
@@ -506,6 +527,66 @@ main (int argc, char *argv[])
 	      signal = mywait (&status, 1);
 	      prepare_resume_reply (own_buf, status, signal);
 	      break;
+	    case 'Z':
+	      {
+		char *lenptr;
+		char *dataptr;
+		CORE_ADDR addr = strtoul (&own_buf[3], &lenptr, 16);
+		int len = strtol (lenptr + 1, &dataptr, 16);
+		char type = own_buf[1];
+
+		if (the_target->insert_watchpoint == NULL
+		    || (type < '2' || type > '4'))
+		  {
+		    /* No watchpoint support or not a watchpoint command;
+		       unrecognized either way.  */
+		    own_buf[0] = '\0';
+		  }
+		else
+		  {
+		    int res;
+
+		    res = (*the_target->insert_watchpoint) (type, addr, len);
+		    if (res == 0)
+		      write_ok (own_buf);
+		    else if (res == 1)
+		      /* Unsupported.  */
+		      own_buf[0] = '\0';
+		    else
+		      write_enn (own_buf);
+		  }
+		break;
+	      }
+	    case 'z':
+	      {
+		char *lenptr;
+		char *dataptr;
+		CORE_ADDR addr = strtoul (&own_buf[3], &lenptr, 16);
+		int len = strtol (lenptr + 1, &dataptr, 16);
+		char type = own_buf[1];
+
+		if (the_target->remove_watchpoint == NULL
+		    || (type < '2' || type > '4'))
+		  {
+		    /* No watchpoint support or not a watchpoint command;
+		       unrecognized either way.  */
+		    own_buf[0] = '\0';
+		  }
+		else
+		  {
+		    int res;
+
+		    res = (*the_target->remove_watchpoint) (type, addr, len);
+		    if (res == 0)
+		      write_ok (own_buf);
+		    else if (res == 1)
+		      /* Unsupported.  */
+		      own_buf[0] = '\0';
+		    else
+		      write_enn (own_buf);
+		  }
+		break;
+	      }
 	    case 'k':
 	      fprintf (stderr, "Killing inferior\n");
 	      kill_inferior ();
@@ -528,10 +609,22 @@ main (int argc, char *argv[])
 		  break;
 		}
 	    case 'T':
-	      if (mythread_alive (strtol (&own_buf[1], NULL, 16)))
-		write_ok (own_buf);
-	      else
-		write_enn (own_buf);
+	      {
+		unsigned long gdb_id, thread_id;
+
+		gdb_id = strtoul (&own_buf[1], NULL, 16);
+		thread_id = gdb_id_to_thread_id (gdb_id);
+		if (thread_id == 0)
+		  {
+		    write_enn (own_buf);
+		    break;
+		  }
+
+		if (mythread_alive (thread_id))
+		  write_ok (own_buf);
+		else
+		  write_enn (own_buf);
+	      }
 	      break;
 	    case 'R':
 	      /* Restarting the inferior is only supported in the
@@ -571,9 +664,10 @@ main (int argc, char *argv[])
 
 	  if (status == 'W')
 	    fprintf (stderr,
-		     "\nChild exited with status %d\n", sig);
+		     "\nChild exited with status %d\n", signal);
 	  if (status == 'X')
-	    fprintf (stderr, "\nChild terminated with signal = 0x%x\n", sig);
+	    fprintf (stderr, "\nChild terminated with signal = 0x%x\n",
+		     signal);
 	  if (status == 'W' || status == 'X')
 	    {
 	      if (extended_protocol)

@@ -1,7 +1,7 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/DelSel.c,v 1.1.1.4 2002/09/10 23:34:42 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -24,7 +24,7 @@ XMenuDeleteSelection(display, menu, p_num, s_num)
 {
     register XMPane *p_ptr;	/* Pointer to pane being deleted. */
     register XMSelect *s_ptr;	/* Pointer to selections being deleted. */
-        
+
     /*
      * Find the right pane.
      */
@@ -53,7 +53,7 @@ XMenuDeleteSelection(display, menu, p_num, s_num)
      * Destroy the selection transparency.
      */
     if (s_ptr->window) XDestroyWindow(display, s_ptr->window);
-    
+
     /*
      * Free the selection's XMSelect structure.
      */
@@ -70,3 +70,6 @@ XMenuDeleteSelection(display, menu, p_num, s_num)
     _XMErrorCode = XME_NO_ERROR;
     return(s_num);
 }
+
+/* arch-tag: 24ca2bc7-8a37-471a-8095-e6363fc1ed10
+   (do not change this comment) */

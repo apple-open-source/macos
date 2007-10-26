@@ -1,0 +1,23 @@
+# This relies on the sources being prepared on a Mac OS X machine via 'make COPY_SOURCES=YES install_source'
+
+install:
+# ========== libxml2 ==========
+	cd "$(SRCROOT)\libxml2\win32"
+	cscript //nologo configure.js cruntime=/MD prefix="$(OBJROOT)\libxml" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\QuickTime SDK\CIncludes\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib" iconv=no icu=yes
+	nmake /f Makefile.msvc
+	nmake /f Makefile.msvc install	
+	xcopy "$(OBJROOT)\libxml\bin\libxml2.*" "$(DSTROOT)\AppleInternal\bin" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\lib\*.dll" "$(DSTROOT)\AppleInternal\bin" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\lib\*.lib" "$(DSTROOT)\AppleInternal\lib" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\include\libxml" "$(DSTROOT)\AppleInternal\include\libxml" /e/v/i/h/y	
+
+install_DEBUG:
+# ========== libxml2 ==========
+	cd "$(SRCROOT)\libxml2\win32"
+	cscript //nologo configure.js debug=1 cruntime=/MDd prefix="$(OBJROOT)\libxml" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\QuickTime SDK\CIncludes\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib" iconv=no icu=yes
+	nmake /f Makefile.msvc
+	nmake /f Makefile.msvc install
+	xcopy "$(OBJROOT)\libxml\bin\libxml*" "$(DSTROOT)\AppleInternal\bin" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\lib\*.dll" "$(DSTROOT)\AppleInternal\bin" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\lib\*.lib" "$(DSTROOT)\AppleInternal\lib" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\include\libxml" "$(DSTROOT)\AppleInternal\include\libxml" /e/v/i/h/y	

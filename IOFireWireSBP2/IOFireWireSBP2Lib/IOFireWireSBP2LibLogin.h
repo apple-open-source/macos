@@ -60,7 +60,7 @@ protected:
 	
 	io_connect_t 	fConnection;	// connection to user client in kernel
 	mach_port_t 	fAsyncPort;		// async port for callback from kernel
-	UInt32 			fLoginRef;  	// reference to kernel login object
+	uint64_t 		fLoginRef;  	// reference to kernel login object
 
 	IOFWSBP2LoginCallback			fLoginCallbackRoutine;
 	void *							fLoginCallbackRefCon;
@@ -80,7 +80,7 @@ protected:
 	IOFWSBP2FetchAgentWriteCallback fFetchAgentWriteCallback;
 	void * 							fFetchAgentWriteRefCon;
 	
-	UInt32							fRefCon;
+	void *							fRefCon;
 	
 	//////////////////////////////////////												
 	// IUnknown static methods
@@ -112,11 +112,11 @@ protected:
 	static void staticSetLogoutCallback( void * self, void * refCon, IOFWSBP2LogoutCallback callback );
 	virtual void setLogoutCallback( void * refCon, IOFWSBP2LogoutCallback callback );
 
-	static void staticSetRefCon( void * self, UInt32 refCon );
-	virtual void setRefCon( UInt32 refCon );
+	static void staticSetRefCon( void * self, void * refCon );
+	virtual void setRefCon( void * refCon );
 
-	static UInt32 staticGetRefCon( void * self );
-	virtual UInt32 getRefCon( void );
+	static void * staticGetRefCon( void * self );
+	virtual void * getRefCon( void );
 
 	static UInt32 staticGetMaxCommandBlockSize( void * self );
 	virtual UInt32 getMaxCommandBlockSize( void );
@@ -166,23 +166,23 @@ protected:
 	//////////////////////////////////////												
 	// callback static methods
 	
-	static void staticLoginCompletion( void *refcon, IOReturn result, void **args, int numArgs );
-	virtual void loginCompletion( IOReturn result, void **args, int numArgs );
+	static void staticLoginCompletion( void *refcon, IOReturn result, io_user_reference_t *args, int numArgs );
+	virtual void loginCompletion( IOReturn result, io_user_reference_t *args, int numArgs );
 
-	static void staticLogoutCompletion( void *refcon, IOReturn result, void **args, int numArgs );
-	virtual void logoutCompletion( IOReturn result, void **args, int numArgs );
+	static void staticLogoutCompletion( void *refcon, IOReturn result, io_user_reference_t *args, int numArgs );
+	virtual void logoutCompletion( IOReturn result, io_user_reference_t *args, int numArgs );
 
-	static void staticUnsolicitedStatusNotify( void *refcon, IOReturn result, void **args, int numArgs );
-	virtual void unsolicitedStatusNotify( IOReturn result, void **args, int numArgs );
+	static void staticUnsolicitedStatusNotify( void *refcon, IOReturn result, io_user_reference_t *args, int numArgs );
+	virtual void unsolicitedStatusNotify( IOReturn result, io_user_reference_t *args, int numArgs );
 
-	static void staticStatusNotify( void *refcon, IOReturn result, void **args, int numArgs );
-	virtual void statusNotify( IOReturn result, void **args, int numArgs );
+	static void staticStatusNotify( void *refcon, IOReturn result, io_user_reference_t *args, int numArgs );
+	virtual void statusNotify( IOReturn result, io_user_reference_t *args, int numArgs );
 
-	static void staticFetchAgentResetCompletion( void *refcon, IOReturn result, void **args, int numArgs );
-	virtual void fetchAgentResetCompletion( IOReturn result, void **args, int numArgs );
+	static void staticFetchAgentResetCompletion( void *refcon, IOReturn result, io_user_reference_t *args, int numArgs );
+	virtual void fetchAgentResetCompletion( IOReturn result, io_user_reference_t *args, int numArgs );
 
-	static void staticFetchAgentWriteCompletion( void *refcon, IOReturn result, void **args, int numArgs );
-	virtual void fetchAgentWriteCompletion( IOReturn result, void **args, int numArgs );
+	static void staticFetchAgentWriteCompletion( void *refcon, IOReturn result, io_user_reference_t *args, int numArgs );
+	virtual void fetchAgentWriteCompletion( IOReturn result, io_user_reference_t *args, int numArgs );
 
 public:
 

@@ -1,0 +1,27 @@
+--- readdir.c.orig	2007-01-24 14:10:41.000000000 -0800
++++ readdir.c	2007-01-27 02:51:25.000000000 -0800
+@@ -43,8 +43,10 @@
+ #include <errno.h>
+ #include <string.h>
+ #include <pthread.h>
++#include <unistd.h>
+ #include "un-namespace.h"
+ 
++#include "telldir.h"
+ #include "libc_private.h"
+ 
+ /*
+@@ -63,8 +65,13 @@
+ 			dirp->dd_loc = 0;
+ 		}
+ 		if (dirp->dd_loc == 0 && !(dirp->dd_flags & __DTF_READALL)) {
++#if __DARWIN_64_BIT_INO_T
++			dirp->dd_size = __getdirentries64(dirp->dd_fd,
++			    dirp->dd_buf, dirp->dd_len, &dirp->dd_td->seekoff);
++#else /* !__DARWIN_64_BIT_INO_T */
+ 			dirp->dd_size = _getdirentries(dirp->dd_fd,
+ 			    dirp->dd_buf, dirp->dd_len, &dirp->dd_seek);
++#endif /* __DARWIN_64_BIT_INO_T */
+ 			if (dirp->dd_size <= 0)
+ 				return (NULL);
+ 		}

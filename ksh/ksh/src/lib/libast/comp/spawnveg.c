@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -42,10 +38,11 @@ NoN(spawnveg)
 
 #else
 
-#if _lib_posix_spawn
+#if _lib_posix_spawn > 1	/* reports underlying exec() errors */
 
 #include <spawn.h>
 #include <error.h>
+#include <wait.h>
 
 pid_t
 spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
@@ -62,10 +59,21 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 			pgid = 0;
 		if (err = posix_spawnattr_setpgroup(&attr, pgid))
 			goto bad;
+		if (err = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP))
+			goto bad;
 	}
 	if (err = posix_spawn(&pid, path, NiL, &attr, argv, envv ? envv : environ))
 		goto bad;
 	posix_spawnattr_destroy(&attr);
+#if _lib_posix_spawn < 2
+	if (waitpid(pid, &err, WNOHANG|WNOWAIT) == pid && EXIT_STATUS(err) == 127)
+	{
+		while (waitpid(pid, NiL, 0) == -1 && errno == EINTR);
+		if (!access(path, X_OK))
+			errno = ENOEXEC;
+		pid = -1;
+	}
+#endif
 	return pid;
  bad:
 	errno = err;
@@ -118,6 +126,7 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 #else
 
 #include <error.h>
+#include <wait.h>
 #include <sig.h>
 #include <ast_vfork.h>
 
@@ -132,29 +141,34 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 #endif
 #endif
 
+#if !_lib_vfork
+#undef	_real_vfork
+#endif
+
 /*
- * fork+exec+(setsid|setpgid) with script check to avoid shell double fork
+ * fork+exec+(setsid|setpgid)
  */
 
 pid_t
 spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 {
 #if _lib_fork || _lib_vfork
-	int	n;
-	pid_t	pid;
+	int			n;
+	int			m;
+	pid_t			pid;
+	pid_t			rid;
 #if _real_vfork
-	int	exec_errno;
-	int*	exec_errno_ptr;
-	void*	exec_free;
-	void**	exec_free_ptr;
+	volatile int		exec_errno;
+	volatile int* volatile	exec_errno_ptr;
 #else
-	int	err[2];
+	int			err[2];
 #endif
-#endif
-#if _AST_DEBUG_spawnveg
-	int	debug;
 #endif
 
+#if 0
+	if (access(path, X_OK))
+		return -1;
+#endif
 	if (!envv)
 		envv = environ;
 #if _lib_spawnve
@@ -168,8 +182,6 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 #if _real_vfork
 	exec_errno = 0;
 	exec_errno_ptr = &exec_errno;
-	exec_free = 0;
-	exec_free_ptr = &exec_free;
 #else
 	if (pipe(err) < 0)
 		err[0] = -1;
@@ -185,16 +197,9 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 #else
 	pid = fork();
 #endif
-#if _AST_DEBUG_spawnveg
-	debug = streq(path, "/bin/_ast_debug_spawnveg_");
-#endif
 	sigcritical(0);
 	if (!pid)
 	{
-#if _AST_DEBUG_spawnveg
-		if (debug)
-			_exit(argv[1] ? (int)strtol(argv[1], NiL, 0) : 0);
-#endif
 		if (pgid < 0)
 			setsid();
 		else if (pgid > 0)
@@ -216,49 +221,40 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 #endif
 		_exit(errno == ENOENT ? EXIT_NOTFOUND : EXIT_NOEXEC);
 	}
-	else if (pid != -1)
-	{
-		if (pgid > 0)
-		{
-			/*
-			 * parent and child are in a race here
-			 */
-
-			if (pgid == 1)
-				pgid = pid;
-			if (setpgid(pid, pgid) < 0 && pid != pgid && errno == EPERM)
-				setpgid(pid, pid);
-		}
+	rid = pid;
 #if _real_vfork
-		if (exec_errno)
-		{
-			while (waitpid(pid, NiL, 0) == -1 && errno == EINTR);
-			pid = -1;
-			n = exec_errno;
-		}
-		if (exec_free)
-			free(exec_free);
-#endif
-		errno = n;
-#if _AST_DEBUG_spawnveg
-		if (!n && debug)
-			pause();
-#endif
+	if (pid != -1 && (m = *exec_errno_ptr))
+	{
+		while (waitpid(pid, NiL, 0) == -1 && errno == EINTR);
+		rid = pid = -1;
+		n = m;
 	}
-#if !_real_vfork
-	if (err[0] != -1)
+#else
+	if (pid != -1 && err[0] != -1)
 	{
 		close(err[1]);
-		if (read(err[0], &n, sizeof(n)) == sizeof(n))
+		if (read(err[0], &m, sizeof(m)) == sizeof(m) && m)
 		{
 			while (waitpid(pid, NiL, 0) == -1 && errno == EINTR);
-			pid = -1;
-			errno = n;
+			rid = pid = -1;
+			n = m;
 		}
 		close(err[0]);
 	}
 #endif
-	return pid;
+	if (pid != -1 && pgid > 0)
+	{
+		/*
+		 * parent and child are in a race here
+		 */
+
+		if (pgid == 1)
+			pgid = pid;
+		if (setpgid(pid, pgid) < 0 && pid != pgid && errno == EPERM)
+			setpgid(pid, pid);
+	}
+	errno = n;
+	return rid;
 #else
 	errno = ENOSYS;
 	return -1;

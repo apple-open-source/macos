@@ -1,29 +1,58 @@
---- wctrans.3.orig	Fri Mar 11 18:13:15 2005
-+++ wctrans.3	Fri Mar 11 18:14:31 2005
-@@ -28,7 +28,8 @@
+--- _SB/Libc/locale/FreeBSD/wctrans.3	2003-05-20 15:21:45.000000000 -0700
++++ _SB/Libc/locale/FreeBSD/wctrans.3.edit	2006-06-28 16:55:51.000000000 -0700
+@@ -28,21 +28,42 @@
  .Dt WCTRANS 3
  .Os
  .Sh NAME
 -.Nm towctrans , wctrans
-+.Nm towctrans , wctrans ,
-+.Nm towctrans_l , wctrans_l
++.Nm towctrans ,
++.Nm towctrans_l ,
++.Nm wctrans ,
++.Nm wctrans_l
  .Nd "wide character mapping functions"
  .Sh LIBRARY
  .Lb libc
-@@ -38,6 +39,11 @@
- .Fn towctrans "wint_t wc" "wctrans_t desc"
+ .Sh SYNOPSIS
+ .In wctype.h
+ .Ft wint_t
+-.Fn towctrans "wint_t wc" "wctrans_t desc"
++.Fo towctrans
++.Fa "wint_t wc"
++.Fa "wctrans_t desc"
++.Fc
  .Ft wctrans_t
- .Fn wctrans "const char *charclass"
+-.Fn wctrans "const char *charclass"
++.Fo wctrans
++.Fa "const char *charclass"
++.Fc
++.In wctype.h
 +.In xlocale.h
 +.Ft wint_t
-+.Fn towctrans_l "wint_t wc" "wctrans_t desc" "locale_t loc"
++.Fo towctrans_l
++.Fa "wint_t wc"
++.Fa "wctrans_t desc"
++.Fa "locale_t loc"
++.Fc
 +.Ft wctrans_t
-+.Fn wctrans_l "const char *charclass" "locale_t loc"
++.Fo wctrans_l
++.Fa "const char *charclass"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn wctrans
-@@ -58,6 +64,18 @@
- .Fa wc
+ function returns a value of type
+-.Vt wctrans_t
++.Vt wctrans_t ,
+ which represents the requested wide character mapping operation and
+ may be used as the second argument for calls to
+ .Fn towctrans .
+@@ -55,9 +76,21 @@
+ The
+ .Fn towctrans
+ function transliterates the wide character
+-.Fa wc
++.Fa wc ,
  according to the mapping described by
  .Fa desc .
 +.Pp
@@ -41,7 +70,7 @@
  .Sh RETURN VALUES
  The
  .Fn towctrans
-@@ -105,7 +123,8 @@
+@@ -105,7 +138,8 @@
  .Sh SEE ALSO
  .Xr tolower 3 ,
  .Xr toupper 3 ,

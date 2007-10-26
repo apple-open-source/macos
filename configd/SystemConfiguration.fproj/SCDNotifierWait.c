@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,21 +42,16 @@
 static mach_msg_id_t
 waitForMachMessage(mach_port_t port)
 {
-	kern_return_t 		status;
-	mach_msg_empty_rcv_t	*buf;
+	union {
+		u_int8_t		buf[sizeof(mach_msg_empty_t) + MAX_TRAILER_SIZE];
+		mach_msg_empty_rcv_t	msg;
+	} notify_msg;
+	kern_return_t 	status;
 
-	mach_msg_size_t		size = sizeof(mach_msg_empty_t) + MAX_TRAILER_SIZE;
-
-	status = vm_allocate(mach_task_self(), (vm_address_t *)&buf, size, TRUE);
-	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("waitForMachMessage vm_allocate(): %s"), mach_error_string(status));
-		return -1;
-	}
-
-	status = mach_msg(&buf->header,			/* msg */
+	status = mach_msg(&notify_msg.msg.header,	/* msg */
 			  MACH_RCV_MSG,			/* options */
 			  0,				/* send_size */
-			  size,				/* rcv_size */
+			  sizeof(notify_msg),		/* rcv_size */
 			  port,				/* rcv_name */
 			  MACH_MSG_TIMEOUT_NONE,	/* timeout */
 			  MACH_PORT_NULL);		/* notify */
@@ -65,7 +60,7 @@ waitForMachMessage(mach_port_t port)
 		return -1;
 	}
 
-	return buf->header.msgh_id;
+	return notify_msg.msg.header.msgh_id;
 }
 
 

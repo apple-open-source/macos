@@ -1,12 +1,12 @@
-/********************************************************************
+/****************************************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  * Modification History:
  *
  *   Date          Name        Description
  *   05/22/2000    Madhu       Added tests for testing new API for utf16 support and more
- **********************************************************************/
+ ****************************************************************************************/
 
 #include <string.h>
 #include "unicode/chariter.h"
@@ -40,13 +40,13 @@ public:
     virtual void getText(UnicodeString& result) {
         text.extract(0,text.length(),result);
     }
+    static UClassID getStaticClassID(void){ 
+        return (UClassID)(&fgClassID); 
+    }
     virtual UClassID getDynamicClassID(void) const{ 
         return getStaticClassID(); 
     }
 
-    static UClassID getStaticClassID(void){ 
-        return (UClassID)(&fgClassID); 
-    }
     virtual UBool operator==(const ForwardCharacterIterator& /*that*/) const{
         return TRUE;
     }
@@ -143,7 +143,7 @@ CharIterTest::CharIterTest()
 }
 void CharIterTest::runIndexedTest( int32_t index, UBool exec, const char* &name, char* /*par*/ )
 {
-    if (exec) logln("TestSuite LocaleTest: ");
+    if (exec) logln("TestSuite CharIterTest: ");
     switch (index) {
         case 0: name = "TestConstructionAndEquality"; if (exec) TestConstructionAndEquality(); break;
         case 1: name = "TestConstructionAndEqualityUChariter"; if (exec) TestConstructionAndEqualityUChariter(); break;
@@ -911,36 +911,51 @@ void CharIterTest::TestUCharIterator() {
 
     if(cIter.getIndex(&cIter, (enum UCharIteratorOrigin)-1) != -1)
     {
-      errln("error: UCharIterator(char iter).getIndex did not return error value");
+        errln("error: UCharIterator(char iter).getIndex did not return error value");
     }
 
     if(cIter.move(&cIter, 0, (enum UCharIteratorOrigin)-1) != -1)
     {
-      errln("error: UCharIterator(char iter).move did not return error value");
+        errln("error: UCharIterator(char iter).move did not return error value");
     }
 
 
     if(rIter.getIndex(&rIter, (enum UCharIteratorOrigin)-1) != -1)
     {
-      errln("error: UCharIterator(repl iter).getIndex did not return error value");
+        errln("error: UCharIterator(repl iter).getIndex did not return error value");
     }
 
     if(rIter.move(&rIter, 0, (enum UCharIteratorOrigin)-1) != -1)
     {
-      errln("error: UCharIterator(repl iter).move did not return error value");
+        errln("error: UCharIterator(repl iter).move did not return error value");
     }
 
 
     if(sIter.getIndex(&sIter, (enum UCharIteratorOrigin)-1) != -1)
     {
-      errln("error: UCharIterator(string iter).getIndex did not return error value");
+        errln("error: UCharIterator(string iter).getIndex did not return error value");
     }
 
     if(sIter.move(&sIter, 0, (enum UCharIteratorOrigin)-1) != -1)
     {
-      errln("error: UCharIterator(string iter).move did not return error value");
+        errln("error: UCharIterator(string iter).move did not return error value");
     }
 
+    /* Testing function coverage on bad input */
+    UErrorCode status = U_ZERO_ERROR;
+    uiter_setString(&sIter, NULL, 1);
+    uiter_setState(&sIter, 1, &status);
+    if (status != U_UNSUPPORTED_ERROR) {
+        errln("error: uiter_setState returned %s instead of U_UNSUPPORTED_ERROR", u_errorName(status));
+    }
+    status = U_ZERO_ERROR;
+    uiter_setState(NULL, 1, &status);
+    if (status != U_ILLEGAL_ARGUMENT_ERROR) {
+        errln("error: uiter_setState returned %s instead of U_ILLEGAL_ARGUMENT_ERROR", u_errorName(status));
+    }
+    if (uiter_getState(&sIter) != UITER_NO_STATE) {
+        errln("error: uiter_getState did not return UITER_NO_STATE on bad input");
+    }
 }
 
 // subclass test, and completing API coverage -------------------------------
@@ -1102,12 +1117,12 @@ public:
     }
 
     // RTTI
-    virtual UClassID getDynamicClassID() const {
-        return getStaticClassID();
-    }
-
     static UClassID getStaticClassID() {
         return (UClassID)(&fgClassID);
+    }
+
+    virtual UClassID getDynamicClassID() const {
+        return getStaticClassID();
     }
 
 private:

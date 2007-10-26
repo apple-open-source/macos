@@ -2,7 +2,7 @@
 
 THIS FILE IS MACHINE GENERATED WITH CGEN.
 
-Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+Copyright 1996-2005 Free Software Foundation, Inc.
 
 This file is part of the GNU Binutils and/or GDB, the GNU debugger.
 
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
 
 */
 
@@ -43,7 +43,7 @@ static const CGEN_ATTR_ENTRY bool_attr[] =
   { 0, 0 }
 };
 
-static const CGEN_ATTR_ENTRY MACH_attr[] =
+static const CGEN_ATTR_ENTRY MACH_attr[] ATTRIBUTE_UNUSED =
 {
   { "base", MACH_BASE },
   { "frv", MACH_FRV },
@@ -57,14 +57,14 @@ static const CGEN_ATTR_ENTRY MACH_attr[] =
   { 0, 0 }
 };
 
-static const CGEN_ATTR_ENTRY ISA_attr[] =
+static const CGEN_ATTR_ENTRY ISA_attr[] ATTRIBUTE_UNUSED =
 {
   { "frv", ISA_FRV },
   { "max", ISA_MAX },
   { 0, 0 }
 };
 
-static const CGEN_ATTR_ENTRY UNIT_attr[] =
+static const CGEN_ATTR_ENTRY UNIT_attr[] ATTRIBUTE_UNUSED =
 {
   { "NIL", UNIT_NIL },
   { "I0", UNIT_I0 },
@@ -97,7 +97,7 @@ static const CGEN_ATTR_ENTRY UNIT_attr[] =
   { 0, 0 }
 };
 
-static const CGEN_ATTR_ENTRY FR400_MAJOR_attr[] =
+static const CGEN_ATTR_ENTRY FR400_MAJOR_attr[] ATTRIBUTE_UNUSED =
 {
   { "NONE", FR400_MAJOR_NONE },
   { "I_1", FR400_MAJOR_I_1 },
@@ -118,7 +118,7 @@ static const CGEN_ATTR_ENTRY FR400_MAJOR_attr[] =
   { 0, 0 }
 };
 
-static const CGEN_ATTR_ENTRY FR450_MAJOR_attr[] =
+static const CGEN_ATTR_ENTRY FR450_MAJOR_attr[] ATTRIBUTE_UNUSED =
 {
   { "NONE", FR450_MAJOR_NONE },
   { "I_1", FR450_MAJOR_I_1 },
@@ -143,7 +143,7 @@ static const CGEN_ATTR_ENTRY FR450_MAJOR_attr[] =
   { 0, 0 }
 };
 
-static const CGEN_ATTR_ENTRY FR500_MAJOR_attr[] =
+static const CGEN_ATTR_ENTRY FR500_MAJOR_attr[] ATTRIBUTE_UNUSED =
 {
   { "NONE", FR500_MAJOR_NONE },
   { "I_1", FR500_MAJOR_I_1 },
@@ -179,7 +179,7 @@ static const CGEN_ATTR_ENTRY FR500_MAJOR_attr[] =
   { 0, 0 }
 };
 
-static const CGEN_ATTR_ENTRY FR550_MAJOR_attr[] =
+static const CGEN_ATTR_ENTRY FR550_MAJOR_attr[] ATTRIBUTE_UNUSED =
 {
   { "NONE", FR550_MAJOR_NONE },
   { "I_1", FR550_MAJOR_I_1 },
@@ -1825,6 +1825,7 @@ const CGEN_HW_ENTRY frv_cgen_hw_table[] =
   { "h-uint", HW_H_UINT, CGEN_ASM_NONE, 0, { 0, { (1<<MACH_BASE) } } },
   { "h-addr", HW_H_ADDR, CGEN_ASM_NONE, 0, { 0, { (1<<MACH_BASE) } } },
   { "h-iaddr", HW_H_IADDR, CGEN_ASM_NONE, 0, { 0, { (1<<MACH_BASE) } } },
+  { "h-reloc-ann", HW_H_RELOC_ANN, CGEN_ASM_NONE, 0, { 0, { (1<<MACH_BASE) } } },
   { "h-pc", HW_H_PC, CGEN_ASM_NONE, 0, { 0|A(PROFILE)|A(PC), { (1<<MACH_BASE) } } },
   { "h-psr_imple", HW_H_PSR_IMPLE, CGEN_ASM_NONE, 0, { 0, { (1<<MACH_BASE) } } },
   { "h-psr_ver", HW_H_PSR_VER, CGEN_ASM_NONE, 0, { 0, { (1<<MACH_BASE) } } },
@@ -1989,6 +1990,7 @@ const CGEN_IFLD frv_cgen_ifld_table[] =
   { FRV_F_TLBPR_NULL, "f-TLBPR-null", 0, 32, 30, 2, { 0|A(RESERVED), { (1<<MACH_BASE) } }  },
   { FRV_F_LI_OFF, "f-LI-off", 0, 32, 25, 1, { 0|A(RESERVED), { (1<<MACH_BASE) } }  },
   { FRV_F_LI_ON, "f-LI-on", 0, 32, 25, 1, { 0|A(RESERVED), { (1<<MACH_BASE) } }  },
+  { FRV_F_RELOC_ANN, "f-reloc-ann", 0, 32, 0, 0, { 0, { (1<<MACH_BASE) } }  },
   { 0, 0, 0, 0, 0, 0, {0, {0}} }
 };
 
@@ -2279,10 +2281,6 @@ const CGEN_OPERAND frv_cgen_operand_table[] =
   { "label16", FRV_OPERAND_LABEL16, HW_H_IADDR, 15, 16,
     { 0, { (const PTR) &frv_cgen_ifld_table[FRV_F_LABEL16] } }, 
     { 0|A(PCREL_ADDR), { (1<<MACH_BASE) } }  },
-/* label24: 26 bit pc relative address */
-  { "label24", FRV_OPERAND_LABEL24, HW_H_IADDR, 17, 24,
-    { 2, { (const PTR) &FRV_F_LABEL24_MULTI_IFIELD[0] } }, 
-    { 0|A(PCREL_ADDR)|A(VIRTUAL), { (1<<MACH_BASE) } }  },
 /* LRAE: Load Real Address E flag */
   { "LRAE", FRV_OPERAND_LRAE, HW_H_UINT, 5, 1,
     { 0, { (const PTR) &frv_cgen_ifld_table[FRV_F_LRAE] } }, 
@@ -2351,6 +2349,10 @@ const CGEN_OPERAND frv_cgen_operand_table[] =
   { "uhi16", FRV_OPERAND_UHI16, HW_H_UINT, 15, 16,
     { 0, { (const PTR) &frv_cgen_ifld_table[FRV_F_U16] } }, 
     { 0, { (1<<MACH_BASE) } }  },
+/* label24: 26 bit pc relative address */
+  { "label24", FRV_OPERAND_LABEL24, HW_H_IADDR, 17, 24,
+    { 2, { (const PTR) &FRV_F_LABEL24_MULTI_IFIELD[0] } }, 
+    { 0|A(PCREL_ADDR)|A(VIRTUAL), { (1<<MACH_BASE) } }  },
 /* psr_esr: PSR.ESR bit */
   { "psr_esr", FRV_OPERAND_PSR_ESR, HW_H_PSR_ESR, 0, 0,
     { 0, { (const PTR) 0 } }, 
@@ -2383,6 +2385,18 @@ const CGEN_OPERAND frv_cgen_operand_table[] =
   { "tbr_tt", FRV_OPERAND_TBR_TT, HW_H_TBR_TT, 0, 0,
     { 0, { (const PTR) 0 } }, 
     { 0|A(SEM_ONLY), { (1<<MACH_BASE) } }  },
+/* ldann: ld annotation */
+  { "ldann", FRV_OPERAND_LDANN, HW_H_RELOC_ANN, 0, 0,
+    { 0, { (const PTR) &frv_cgen_ifld_table[FRV_F_RELOC_ANN] } }, 
+    { 0, { (1<<MACH_BASE) } }  },
+/* lddann: ldd annotation */
+  { "lddann", FRV_OPERAND_LDDANN, HW_H_RELOC_ANN, 0, 0,
+    { 0, { (const PTR) &frv_cgen_ifld_table[FRV_F_RELOC_ANN] } }, 
+    { 0, { (1<<MACH_BASE) } }  },
+/* callann: call annotation */
+  { "callann", FRV_OPERAND_CALLANN, HW_H_RELOC_ANN, 0, 0,
+    { 0, { (const PTR) &frv_cgen_ifld_table[FRV_F_RELOC_ANN] } }, 
+    { 0, { (1<<MACH_BASE) } }  },
 /* sentinel */
   { 0, 0, 0, 0, 0,
     { 0, { (const PTR) 0 } },
@@ -2892,7 +2906,7 @@ static const CGEN_IBASE frv_cgen_insn_table[MAX_INSNS] =
     FRV_INSN_LDUH, "lduh", "lduh", 32,
     { 0, { (1<<MACH_BASE), UNIT_LOAD, FR400_MAJOR_I_2, FR450_MAJOR_I_2, FR500_MAJOR_I_2, FR550_MAJOR_I_3 } }
   },
-/* ld$pack @($GRi,$GRj),$GRk */
+/* ld$pack $ldann($GRi,$GRj),$GRk */
   {
     FRV_INSN_LD, "ld", "ld", 32,
     { 0, { (1<<MACH_BASE), UNIT_LOAD, FR400_MAJOR_I_2, FR450_MAJOR_I_2, FR500_MAJOR_I_2, FR550_MAJOR_I_3 } }
@@ -2957,7 +2971,7 @@ static const CGEN_IBASE frv_cgen_insn_table[MAX_INSNS] =
     FRV_INSN_NLDF, "nldf", "nldf", 32,
     { 0|A(FR_ACCESS)|A(NON_EXCEPTING), { (1<<MACH_SIMPLE)|(1<<MACH_TOMCAT)|(1<<MACH_FR500)|(1<<MACH_FR550)|(1<<MACH_FRV), UNIT_LOAD, FR400_MAJOR_NONE, FR450_MAJOR_NONE, FR500_MAJOR_I_2, FR550_MAJOR_I_3 } }
   },
-/* ldd$pack @($GRi,$GRj),$GRdoublek */
+/* ldd$pack $lddann($GRi,$GRj),$GRdoublek */
   {
     FRV_INSN_LDD, "ldd", "ldd", 32,
     { 0, { (1<<MACH_BASE), UNIT_LOAD, FR400_MAJOR_I_2, FR450_MAJOR_I_2, FR500_MAJOR_I_2, FR550_MAJOR_I_3 } }
@@ -4197,7 +4211,7 @@ static const CGEN_IBASE frv_cgen_insn_table[MAX_INSNS] =
     FRV_INSN_JMPL, "jmpl", "jmpl", 32,
     { 0|A(UNCOND_CTI), { (1<<MACH_BASE), UNIT_I0, FR400_MAJOR_I_5, FR450_MAJOR_I_5, FR500_MAJOR_I_5, FR550_MAJOR_I_6 } }
   },
-/* calll$pack @($GRi,$GRj) */
+/* calll$pack $callann($GRi,$GRj) */
   {
     FRV_INSN_CALLL, "calll", "calll", 32,
     { 0|A(UNCOND_CTI), { (1<<MACH_BASE), UNIT_I0, FR400_MAJOR_I_5, FR450_MAJOR_I_5, FR500_MAJOR_I_5, FR550_MAJOR_I_6 } }
@@ -5160,7 +5174,7 @@ static const CGEN_IBASE frv_cgen_insn_table[MAX_INSNS] =
 /* cfmovs$pack $FRj,$FRk,$CCi,$cond */
   {
     FRV_INSN_CFMOVS, "cfmovs", "cfmovs", 32,
-    { 0|A(FR_ACCESS)|A(CONDITIONAL), { (1<<MACH_SIMPLE)|(1<<MACH_TOMCAT)|(1<<MACH_FR500)|(1<<MACH_FR550)|(1<<MACH_FRV), UNIT_FM01, FR400_MAJOR_NONE, FR450_MAJOR_NONE, FR500_MAJOR_F_1, FR550_MAJOR_F_2 } }
+    { 0|A(FR_ACCESS)|A(CONDITIONAL), { (1<<MACH_SIMPLE)|(1<<MACH_TOMCAT)|(1<<MACH_FR500)|(1<<MACH_FR550)|(1<<MACH_FRV), UNIT_FMALL, FR400_MAJOR_NONE, FR450_MAJOR_NONE, FR500_MAJOR_F_1, FR550_MAJOR_F_2 } }
   },
 /* fnegs$pack $FRj,$FRk */
   {
@@ -6128,27 +6142,23 @@ static const CGEN_IBASE frv_cgen_insn_table[MAX_INSNS] =
 #undef A
 
 /* Initialize anything needed to be done once, before any cpu_open call.  */
-static void init_tables PARAMS ((void));
 
 static void
-init_tables ()
+init_tables (void)
 {
 }
 
-static const CGEN_MACH * lookup_mach_via_bfd_name
-  PARAMS ((const CGEN_MACH *, const char *));
-static void build_hw_table  PARAMS ((CGEN_CPU_TABLE *));
-static void build_ifield_table  PARAMS ((CGEN_CPU_TABLE *));
-static void build_operand_table PARAMS ((CGEN_CPU_TABLE *));
-static void build_insn_table    PARAMS ((CGEN_CPU_TABLE *));
-static void frv_cgen_rebuild_tables PARAMS ((CGEN_CPU_TABLE *));
+static const CGEN_MACH * lookup_mach_via_bfd_name (const CGEN_MACH *, const char *);
+static void build_hw_table      (CGEN_CPU_TABLE *);
+static void build_ifield_table  (CGEN_CPU_TABLE *);
+static void build_operand_table (CGEN_CPU_TABLE *);
+static void build_insn_table    (CGEN_CPU_TABLE *);
+static void frv_cgen_rebuild_tables (CGEN_CPU_TABLE *);
 
 /* Subroutine of frv_cgen_cpu_open to look up a mach via its bfd name.  */
 
 static const CGEN_MACH *
-lookup_mach_via_bfd_name (table, name)
-     const CGEN_MACH *table;
-     const char *name;
+lookup_mach_via_bfd_name (const CGEN_MACH *table, const char *name)
 {
   while (table->name)
     {
@@ -6162,8 +6172,7 @@ lookup_mach_via_bfd_name (table, name)
 /* Subroutine of frv_cgen_cpu_open to build the hardware table.  */
 
 static void
-build_hw_table (cd)
-     CGEN_CPU_TABLE *cd;
+build_hw_table (CGEN_CPU_TABLE *cd)
 {
   int i;
   int machs = cd->machs;
@@ -6189,8 +6198,7 @@ build_hw_table (cd)
 /* Subroutine of frv_cgen_cpu_open to build the hardware table.  */
 
 static void
-build_ifield_table (cd)
-     CGEN_CPU_TABLE *cd;
+build_ifield_table (CGEN_CPU_TABLE *cd)
 {
   cd->ifld_table = & frv_cgen_ifld_table[0];
 }
@@ -6198,8 +6206,7 @@ build_ifield_table (cd)
 /* Subroutine of frv_cgen_cpu_open to build the hardware table.  */
 
 static void
-build_operand_table (cd)
-     CGEN_CPU_TABLE *cd;
+build_operand_table (CGEN_CPU_TABLE *cd)
 {
   int i;
   int machs = cd->machs;
@@ -6207,8 +6214,7 @@ build_operand_table (cd)
   /* MAX_OPERANDS is only an upper bound on the number of selected entries.
      However each entry is indexed by it's enum so there can be holes in
      the table.  */
-  const CGEN_OPERAND **selected =
-    (const CGEN_OPERAND **) xmalloc (MAX_OPERANDS * sizeof (CGEN_OPERAND *));
+  const CGEN_OPERAND **selected = xmalloc (MAX_OPERANDS * sizeof (* selected));
 
   cd->operand_table.init_entries = init;
   cd->operand_table.entry_size = sizeof (CGEN_OPERAND);
@@ -6231,12 +6237,11 @@ build_operand_table (cd)
    operand elements to be in the table [which they mightn't be].  */
 
 static void
-build_insn_table (cd)
-     CGEN_CPU_TABLE *cd;
+build_insn_table (CGEN_CPU_TABLE *cd)
 {
   int i;
   const CGEN_IBASE *ib = & frv_cgen_insn_table[0];
-  CGEN_INSN *insns = (CGEN_INSN *) xmalloc (MAX_INSNS * sizeof (CGEN_INSN));
+  CGEN_INSN *insns = xmalloc (MAX_INSNS * sizeof (CGEN_INSN));
 
   memset (insns, 0, MAX_INSNS * sizeof (CGEN_INSN));
   for (i = 0; i < MAX_INSNS; ++i)
@@ -6249,8 +6254,7 @@ build_insn_table (cd)
 /* Subroutine of frv_cgen_cpu_open to rebuild the tables.  */
 
 static void
-frv_cgen_rebuild_tables (cd)
-     CGEN_CPU_TABLE *cd;
+frv_cgen_rebuild_tables (CGEN_CPU_TABLE *cd)
 {
   int i;
   unsigned int isas = cd->isas;
@@ -6262,7 +6266,7 @@ frv_cgen_rebuild_tables (cd)
 #define UNSET (CGEN_SIZE_UNKNOWN + 1)
   cd->default_insn_bitsize = UNSET;
   cd->base_insn_bitsize = UNSET;
-  cd->min_insn_bitsize = 65535; /* some ridiculously big number */
+  cd->min_insn_bitsize = 65535; /* Some ridiculously big number.  */
   cd->max_insn_bitsize = 0;
   for (i = 0; i < MAX_ISAS; ++i)
     if (((1 << i) & isas) != 0)
@@ -6274,7 +6278,7 @@ frv_cgen_rebuild_tables (cd)
 	if (cd->default_insn_bitsize == UNSET)
 	  cd->default_insn_bitsize = isa->default_insn_bitsize;
 	else if (isa->default_insn_bitsize == cd->default_insn_bitsize)
-	  ; /* this is ok */
+	  ; /* This is ok.  */
 	else
 	  cd->default_insn_bitsize = CGEN_SIZE_UNKNOWN;
 
@@ -6283,7 +6287,7 @@ frv_cgen_rebuild_tables (cd)
 	if (cd->base_insn_bitsize == UNSET)
 	  cd->base_insn_bitsize = isa->base_insn_bitsize;
 	else if (isa->base_insn_bitsize == cd->base_insn_bitsize)
-	  ; /* this is ok */
+	  ; /* This is ok.  */
 	else
 	  cd->base_insn_bitsize = CGEN_SIZE_UNKNOWN;
 
@@ -6395,12 +6399,12 @@ frv_cgen_cpu_open (enum cgen_cpu_open_arg arg_type, ...)
     }
   va_end (ap);
 
-  /* mach unspecified means "all" */
+  /* Mach unspecified means "all".  */
   if (machs == 0)
     machs = (1 << MAX_MACHS) - 1;
-  /* base mach is always selected */
+  /* Base mach is always selected.  */
   machs |= 1;
-  /* isa unspecified means "all" */
+  /* ISA unspecified means "all".  */
   if (isas == 0)
     isas = (1 << MAX_ISAS) - 1;
   if (endian == CGEN_ENDIAN_UNKNOWN)
@@ -6433,9 +6437,7 @@ frv_cgen_cpu_open (enum cgen_cpu_open_arg arg_type, ...)
    MACH_NAME is the bfd name of the mach.  */
 
 CGEN_CPU_DESC
-frv_cgen_cpu_open_1 (mach_name, endian)
-     const char *mach_name;
-     enum cgen_endian endian;
+frv_cgen_cpu_open_1 (const char *mach_name, enum cgen_endian endian)
 {
   return frv_cgen_cpu_open (CGEN_CPU_OPEN_BFDMACH, mach_name,
 			       CGEN_CPU_OPEN_ENDIAN, endian,
@@ -6448,8 +6450,7 @@ frv_cgen_cpu_open_1 (mach_name, endian)
    place as some simulator ports use this but they don't use libopcodes.  */
 
 void
-frv_cgen_cpu_close (cd)
-     CGEN_CPU_DESC cd;
+frv_cgen_cpu_close (CGEN_CPU_DESC cd)
 {
   unsigned int i;
   const CGEN_INSN *insns;
@@ -6458,23 +6459,17 @@ frv_cgen_cpu_close (cd)
     {
       insns = cd->macro_insn_table.init_entries;
       for (i = 0; i < cd->macro_insn_table.num_init_entries; ++i, ++insns)
-	{
-	  if (CGEN_INSN_RX ((insns)))
-	    regfree (CGEN_INSN_RX (insns));
-	}
+	if (CGEN_INSN_RX ((insns)))
+	  regfree (CGEN_INSN_RX (insns));
     }
 
   if (cd->insn_table.init_entries)
     {
       insns = cd->insn_table.init_entries;
       for (i = 0; i < cd->insn_table.num_init_entries; ++i, ++insns)
-	{
-	  if (CGEN_INSN_RX (insns))
-	    regfree (CGEN_INSN_RX (insns));
-	}
-    }
-
-  
+	if (CGEN_INSN_RX (insns))
+	  regfree (CGEN_INSN_RX (insns));
+    }  
 
   if (cd->macro_insn_table.init_entries)
     free ((CGEN_INSN *) cd->macro_insn_table.init_entries);

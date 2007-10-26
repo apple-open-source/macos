@@ -1,9 +1,10 @@
 " Vim syntax file
 " Language:	TCL/TK
-" Maintainer:	Matt Neumann <mattneu@purpleturtle.com>
+" Maintainer:	Dean Copsey <copsey@cs.ucdavis.edu>
+"		(previously Matt Neumann <mattneu@purpleturtle.com>)
 "		(previously Allan Kelly <allan@fruitloaf.co.uk>)
 " Original:	Robin Becker <robin@jessikat.demon.co.uk>
-" Version:	5.1(synched), 1998 June 29
+" Last Change:	2004 May 16
 "
 " Keywords TODO: format clock click anchor
 
@@ -53,8 +54,10 @@ syn keyword tcltkWidgetSwitch contained activerelief elementborderwidth
 " image
 syn keyword tcltkWidgetSwitch contained delete names types create
 " variable reference
-syn match tclVarRef "$\a[a-zA-Z0-9_.]*"
-syn match tclVarRef "${\a[a-zA-Z0-9_.]*}"
+	" ::optional::namespaces
+syn match tclVarRef "$\(\(::\)\?\([[:alnum:]_.]*::\)*\)\a[a-zA-Z0-9_.]*"
+	" ${...} may contain any character except '}'
+syn match tclVarRef "${[^}]*}"
 " menu, mane add
 syn keyword tcltkWidgetSwitch contained active end last none cascade checkbutton command radiobutton separator
 syn keyword tcltkWidgetSwitch contained activebackground actveforeground accelerator background bitmap columnbreak
@@ -79,7 +82,8 @@ syn region tcltkWidget matchgroup=tcltkWidgetColor start="\<radiobutton\>" match
 syn region tcltkWidget matchgroup=tcltkWidgetColor start="\<scrollbar\>" matchgroup=NONE skip="^\s*$" end="]\|[^\\]*\s*$"he=e-1  contains=tclLineContinue,tcltkWidgetSwitch,tclString,tcltkSwitch,tclNumber,tclVarRef
 " These words are dual purpose.
 " match switches
-syn match tcltkWidgetSwitch contained "-text"hs=s+1
+"syn match tcltkWidgetSwitch contained "-text"hs=s+1
+syn match tcltkWidgetSwitch contained "-text\(var\)\?"hs=s+1
 syn match tcltkWidgetSwitch contained "-menu"hs=s+1
 syn match tcltkWidgetSwitch contained "-label"hs=s+1
 " match commands - 2 lines for pretty match.
@@ -179,8 +183,8 @@ syn match  tclNumber		"0x[0-9a-f]\+\(u\=l\=\|lu\)\>"
 "syn match  tclIdentifier	"\<[a-z_][a-z0-9_]*\>"
 syn case match
 
-syn region  tclComment		start="^\s*\#" end="$" contains=tclTodo
-syn region  tclComment		start=/;\s*\#/hs=s+1 end="$" contains=tclTodo
+syn region  tclComment		start="^\s*\#" skip="\\$" end="$" contains=tclTodo
+syn region  tclComment		start=/;\s*\#/hs=s+1 skip="\\$" end="$" contains=tclTodo
 
 "syn sync ccomment tclComment
 

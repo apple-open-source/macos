@@ -30,7 +30,6 @@
 #ifndef	_SSL_PRIV_H_
 #define _SSL_PRIV_H_	1
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include "sslBuildFlags.h"
 #include "SecureTransportPriv.h"
 
@@ -47,7 +46,7 @@ extern "C" {
  * CFData, as in the public API.
  */
 typedef struct
-{   UInt32  length;
+{   size_t  length;
     UInt8   *data;
 } SSLBuffer;
 

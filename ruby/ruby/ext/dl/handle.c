@@ -1,5 +1,5 @@
 /* -*- C -*-
- * $Id: handle.c,v 1.11 2003/11/13 11:46:31 ttate Exp $
+ * $Id: handle.c 11708 2007-02-12 23:01:19Z shyouhei $
  */
 
 #include <ruby.h>
@@ -66,12 +66,12 @@ rb_dlhandle_initialize(int argc, VALUE argv[], VALUE self)
   ptr = dlopen(clib, cflag);
 #if defined(HAVE_DLERROR)
   if (!ptr && (err = dlerror())) {
-    rb_raise(rb_eRuntimeError, err);
+    rb_raise(rb_eRuntimeError, "%s", err);
   }
 #else
   if (!ptr) {
     err = dlerror();
-    rb_raise(rb_eRuntimeError, err);
+    rb_raise(rb_eRuntimeError, "%s", err);
   }
 #endif
   Data_Get_Struct(self, struct dl_handle, dlhandle);
@@ -161,7 +161,7 @@ rb_dlhandle_sym(int argc, VALUE argv[], VALUE self)
 
   Data_Get_Struct(self, struct dl_handle, dlhandle);
   if (!dlhandle->open) {
-    rb_raise(rb_eRuntimeError, "Closed handle.");
+    rb_raise(rb_eRuntimeError, "closed handle");
   }
   handle = dlhandle->ptr;
 
@@ -187,11 +187,11 @@ rb_dlhandle_sym(int argc, VALUE argv[], VALUE self)
       if (!func)
 #endif
       {
-	rb_raise(rb_eRuntimeError, "Unknown symbol \"%sA\".", name);
+	rb_raise(rb_eRuntimeError, "unknown symbol \"%sA\"", name);
       }
     }
 #else
-    rb_raise(rb_eRuntimeError, "Unknown symbol \"%s\".", name);
+    rb_raise(rb_eRuntimeError, "unknown symbol \"%s\"", name);
 #endif
   }
   val = rb_dlsym_new(func, name, stype);

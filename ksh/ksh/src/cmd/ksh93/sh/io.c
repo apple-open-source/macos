@@ -1,27 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
+
 /*
  * Input/output file processing
  *
@@ -35,7 +32,9 @@
 #include	<ls.h>
 #include	<stdarg.h>
 #include	<ctype.h>
+#include	<regex.h>
 #include	"variables.h"
+#include	"path.h"
 #include	"io.h"
 #include	"jobs.h"
 #include	"shnodes.h"
@@ -86,10 +85,222 @@ static int	(*fdnotify)(int,int);
 #         define pipe(v) ((socketpair(AF_UNIX,SOCK_STREAM,0,v)<0||shutdown((v)[0],1)<0||shutdown((v)[1],0)<0)?(-1):0)
 #      endif
 #   endif
-    static int str2inet(const char*, struct sockaddr_in*);
-#   define SOCKET	1
+
+#if !_lib_getaddrinfo
+
+#undef	EAI_SYSTEM
+
+#define EAI_SYSTEM		1
+
+#undef	addrinfo
+#undef	getaddrinfo
+#undef	freeaddrinfo
+
+#define addrinfo		local_addrinfo
+#define getaddrinfo		local_getaddrinfo
+#define freeaddrinfo		local_freeaddrinfo
+
+struct addrinfo
+{
+        int			ai_flags;
+        int			ai_family;
+        int			ai_socktype;
+        int			ai_protocol;
+        socklen_t		ai_addrlen;
+        struct sockaddr*	ai_addr;
+        struct addrinfo*	ai_next;
+};
+
+static int
+getaddrinfo(const char* node, const char* service, const struct addrinfo* hint, struct addrinfo **addr)
+{
+	unsigned long	    	ip_addr = 0;
+	unsigned short	    	ip_port = 0;
+	struct addrinfo*	ap;
+	struct hostent*		hp;
+	struct sockaddr_in*	ip;
+	char*			prot;
+	long			n;
+	
+	if (!(hp = gethostbyname(node)) || hp->h_addrtype!=AF_INET || hp->h_length>sizeof(struct in_addr))
+	{
+		errno = EADDRNOTAVAIL;
+		return EAI_SYSTEM;
+	}
+	ip_addr = (unsigned long)((struct in_addr*)hp->h_addr)->s_addr;
+	if ((n = strtol(service, &prot, 10)) > 0 && n <= USHRT_MAX && !*prot)
+		ip_port = htons((unsigned short)n);
+	else
+	{
+		struct servent*	sp;
+		const char*	protocol = 0;
+
+		if (hint)
+			switch (hint->ai_socktype)
+			{
+			case SOCK_STREAM:
+				switch (hint->ai_protocol)
+				{
+				case 0: 	  
+					protocol = "tcp";
+					break;
+#ifdef IPPROTO_SCTP
+				case IPPROTO_SCTP:
+					protocol = "sctp";
+					break;
+#endif
+				}
+				break;
+			case SOCK_DGRAM:
+				protocol = "udp";
+				break;
+			}
+		if (!protocol)
+		{
+			errno =  EPROTONOSUPPORT;
+			return 1;
+		}
+		if (sp = getservbyname(service, protocol))
+			ip_port = sp->s_port;
+	}
+	if (!ip_port)
+	{
+		errno = EADDRNOTAVAIL;
+		return EAI_SYSTEM;
+	}
+	if (!(ap = newof(0, struct addrinfo, 1, sizeof(struct sockaddr_in))))
+		return EAI_SYSTEM;
+	if (hint)
+		*ap = *hint;
+	ap->ai_family = hp->h_addrtype;
+	ap->ai_addrlen 	= sizeof(struct sockaddr_in);
+	ap->ai_addr = (struct sockaddr *)(ap+1);
+	ip = (struct sockaddr_in *)ap->ai_addr;
+	ip->sin_family = AF_INET;
+	ip->sin_port = ip_port;
+	ip->sin_addr.s_addr = ip_addr;
+	*addr = ap;
+	return 0;
+}
+
+static void
+freeaddrinfo(struct addrinfo* ap)
+{
+	if (ap)
+		free(ap);
+}
+
+#endif
+
+/*
+ * return <protocol>/<host>/<service> fd
+ */
+
+typedef int (*Inetintr_f)(struct addrinfo*, void*);
+
+static int
+inetopen(const char* path, int server, Inetintr_f onintr, void* handle)
+{
+	register char*		s;
+	register char*		t;
+	int			fd;
+	int			oerrno;
+	struct addrinfo		hint;
+	struct addrinfo*	addr;
+	struct addrinfo*	p;
+
+	memset(&hint, 0, sizeof(hint));
+	hint.ai_family = PF_UNSPEC;
+	switch (path[0])
+	{
+#ifdef IPPROTO_SCTP
+	case 's':
+		if (path[1]!='c' || path[2]!='t' || path[3]!='p' || path[4]!='/')
+		{
+			errno = ENOTDIR;
+			return -1;
+		}
+		hint.ai_socktype = SOCK_STREAM;
+		hint.ai_protocol = IPPROTO_SCTP;
+		path += 5;
+		break;
+#endif
+	case 't':
+		if (path[1]!='c' || path[2]!='p' || path[3]!='/')
+		{
+			errno = ENOTDIR;
+			return -1;
+		}
+		hint.ai_socktype = SOCK_STREAM;
+		path += 4;
+		break;
+	case 'u':
+		if (path[1]!='d' || path[2]!='p' || path[3]!='/')
+		{
+			errno = ENOTDIR;
+			return -1;
+		}
+		hint.ai_socktype = SOCK_DGRAM;
+		path += 4;
+		break;
+	default:
+		errno = ENOTDIR;
+		return -1;
+	}
+	if (!(s = strdup(path)))
+		return -1;
+	if (t = strchr(s, '/'))
+	{
+		*t++ = 0;
+		if (streq(s, "local"))
+			s = "localhost";
+		fd = getaddrinfo(s, t, &hint, &addr);
+	}
+	else
+		fd = -1;
+	free(s);
+	if (fd)
+	{
+		if (fd != EAI_SYSTEM)
+			errno = ENOTDIR;
+		return -1;
+	}
+	oerrno = errno;
+	errno = 0;
+	fd = -1;
+	for (p = addr; p; p = p->ai_next)
+	{
+		/*
+		 * some api's don't take the hint
+		 */
+
+		if (!p->ai_protocol)
+			p->ai_protocol = hint.ai_protocol;
+		if (!p->ai_socktype)
+			p->ai_socktype = hint.ai_socktype;
+		while ((fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) >= 0)
+		{
+			if (server && !bind(fd, p->ai_addr, p->ai_addrlen) && !listen(fd, 5) || !server && !connect(fd, p->ai_addr, p->ai_addrlen))
+				goto done;
+			close(fd);
+			fd = -1;
+			if (errno != EINTR || !onintr)
+				break;
+			if ((*onintr)(addr, handle))
+				return -1;
+		}
+	}
+ done:
+	freeaddrinfo(addr);
+	if (fd >= 0)
+		errno = oerrno;
+	return fd;
+}
+
 #else
-#   undef SOCKET
+
+#undef	O_SERVICE
+
 #endif
 
 struct fdsave
@@ -99,17 +310,16 @@ struct fdsave
 	int	subshell;	/* saved for subshell */
 };
 
-
 static int  	subexcept(Sfio_t*, int, void*, Sfdisc_t*);
 static int  	eval_exceptf(Sfio_t*, int, void*, Sfdisc_t*);
 static int  	slowexcept(Sfio_t*, int, void*, Sfdisc_t*);
-static int  	pipeexcept(Sfio_t*, int, void*, Sfdisc_t*);
+static int	pipeexcept(Sfio_t*, int, void*, Sfdisc_t*);
 static ssize_t	piperead(Sfio_t*, void*, size_t, Sfdisc_t*);
 static ssize_t	slowread(Sfio_t*, void*, size_t, Sfdisc_t*);
 static ssize_t	subread(Sfio_t*, void*, size_t, Sfdisc_t*);
 static ssize_t	tee_write(Sfio_t*,const void*,size_t,Sfdisc_t*);
 static int	io_prompt(Sfio_t*,int);
-static int	io_heredoc(register struct ionod*);
+static int	io_heredoc(register struct ionod*, const char*, int);
 static void	sftrack(Sfio_t*,int,int);
 static const Sfdisc_t eval_disc = { NULL, NULL, NULL, eval_exceptf, NULL};
 static Sfdisc_t tee_disc = {NULL,tee_write,NULL,NULL,NULL};
@@ -124,6 +334,42 @@ struct subfile
 	long		size;
 	long		left;
 };
+
+struct Eof
+{
+	Namfun_t	hdr;
+	int		fd;
+};
+
+static Sfdouble_t nget_cur_eof(register Namval_t* np, Namfun_t *fp)
+{
+	struct Eof *ep = (struct Eof*)fp;
+	Sfoff_t end, cur =lseek(ep->fd, (Sfoff_t)0, SEEK_CUR);
+	if(*np->nvname=='C')
+	        return((Sfdouble_t)cur);
+	if(cur<0)
+		return((Sfdouble_t)-1);
+	end =lseek(ep->fd, (Sfoff_t)0, SEEK_END);
+	lseek(ep->fd, (Sfoff_t)0, SEEK_CUR);
+        return((Sfdouble_t)end);
+}
+
+static const Namdisc_t EOF_disc	= { sizeof(struct Eof), 0, 0, nget_cur_eof};
+
+#define	MATCH_BUFF	(64*1024)
+struct Match
+{
+	Sfoff_t	offset;
+	char	*base;
+};
+
+static int matchf(void *handle, char *ptr, size_t size)
+{
+	struct Match *mp = (struct Match*)handle;
+	mp->offset += (ptr-mp->base);
+	return(1);
+}
+
 
 static struct fdsave	*filemap;
 static short		filemapsize;
@@ -212,17 +458,22 @@ Sfio_t *sh_iostream(register int fd)
 	{
 		Sfdisc_t *dp;
 		sfset(iop,SF_MALLOC,1);
+		if(!(status&IOWRITE))
+			sfset(iop,SF_IOCHECK,1);
 		{
 			dp = newof(0,Sfdisc_t,1,0);
+			dp->exceptf = slowexcept;
 			if(status&IOTTY)
 				dp->readf = slowread;
 			else if(status&IONOSEEK)
+			{
 				dp->readf = piperead;
+				sfset(iop, SF_IOINTR,1);
+			}
 			else
 				dp->readf = 0;
 			dp->seekf = 0;
 			dp->writef = 0;
-			dp->exceptf = slowexcept;
 			sfdisc(iop,dp);
 		}
 	}
@@ -277,7 +528,8 @@ int sh_iorenumber(register int f1,register int f2)
 		/* see whether file descriptor is in use */
 		if(sh_inuse(f2) || (f2>2 && sp))
 		{
-			io_preserve(sp,f2);
+			if(!(sh.inuse_bits&(1<<f2)))
+				io_preserve(sp,f2);
 			sp = 0;
 		}
 		else if(f2==0)
@@ -327,36 +579,35 @@ int sh_close(register int fd)
 	if(sh.fdptrs[fd])
 		*sh.fdptrs[fd] = -1;
 	sh.fdptrs[fd] = 0;
+	if(fd < 10)
+		sh.inuse_bits &= ~(1<<fd);
 	return(r);
 }
 
-int sh_devtofd(const char *cp)
+static int
+onintr(struct addrinfo* addr, void* handle)
 {
-	if(strmatch(cp,(char*)e_devfdstd))
+	Shell_t*	sh = (Shell_t*)handle;
+
+	if (sh->trapnote&SH_SIGSET)
 	{
-		if(cp[8]=='i')		/* /dev/stdin */
-			return(0);
-		else if(cp[8]=='o')	/* /dev/stdout */
-			return(1);
-		else if(cp[8]=='e')	/* /dev/stderr */
-			return(2);
-		else			/* /dev/fd/N */
-			return((int)strtol(cp+8,(char**)0,10));
+		freeaddrinfo(addr);
+		sh_exit(SH_EXITSIG);
+		return -1;
 	}
-	return(-1);
+	if (sh->trapnote)
+		sh_chktrap();
+	return 0;
 }
 
 /*
- * Open a file for reading
- * On failure, print message.
+ * Mimic open(2) with checks for pseudo /dev/ files.
  */
 int sh_open(register const char *path, int flags, ...)
 {
-	register int		fd= -1;
+	register int		fd = -1;
 	mode_t			mode;
-#ifdef SOCKET
-	struct sockaddr_in	addr;
-#endif /* SOCKET */
+	char			*e;
 	va_list			ap;
 	va_start(ap, flags);
 	mode = (flags & O_CREAT) ? va_arg(ap, int) : 0;
@@ -367,20 +618,48 @@ int sh_open(register const char *path, int flags, ...)
 		errno = ENOENT;
 		return(-1);
 	}
-	if ((fd = sh_devtofd(path))>=0)
-	if (strmatch(path,e_devfdNN) || (fd=strmatch(path,"/dev/std@(in|out|err)")))
+	if (path[0]=='/' && path[1]=='d' && path[2]=='e' && path[3]=='v' && path[4]=='/')
 	{
-		if(fd)
+		switch (path[5])
 		{
-			if(path[8]=='i')
-				fd = 0;
-			else if(path[8]=='o')
-				fd = 1;
-			else if(path[8]=='e')
-				fd = 2;
+		case 'f':
+			if (path[6]=='d' && path[7]=='/')
+			{
+				fd = (int)strtol(path+8, &e, 10);
+				if (*e)
+					fd = -1;
+			}
+			break;
+		case 's':
+			if (path[6]=='t' && path[7]=='d')
+				switch (path[8])
+				{
+				case 'e':
+					if (path[9]=='r' && path[10]=='r' && !path[11])
+						fd = 2;
+					break;
+				case 'i':
+					if (path[9]=='n' && !path[10])
+						fd = 0;
+					break;
+				case 'o':
+					if (path[9]=='u' && path[10]=='t' && !path[11])
+						fd = 1;
+					break;
+				}
 		}
-		else
-			fd = (int)strtol(path+8, (char**)0, 10);
+#ifdef O_SERVICE
+		if (fd < 0)
+		{
+			if ((fd = inetopen(path+5, !!(flags & O_SERVICE), onintr, &sh)) < 0 && errno != ENOTDIR)
+				return -1;
+			if (fd >= 0)
+				goto ok;
+		}
+#endif
+	}
+	if (fd >= 0)
+	{
 		if((mode=sh_iocheckfd(fd))==IOCLOSE)
 			return(-1);
 		flags &= O_ACCMODE;
@@ -388,45 +667,15 @@ int sh_open(register const char *path, int flags, ...)
 			return(-1);
 		if(!(mode&IOREAD) && ((flags==O_RDONLY) || (flags==O_RDWR)))
 			return(-1);
-		return(fd);
-
+		if((fd=dup(fd))<0)
+			return(-1);
 	}
-#ifdef SOCKET
-	if (strmatch(path, "/dev/@(tcp|udp)/*/*") && str2inet(path + 5, &addr))
-	{
-		if ((fd = socket(AF_INET, path[5] == 't' ? SOCK_STREAM : SOCK_DGRAM, 0)) >= 0)
-		{
-			if(flags&O_SERVICE)
-			{
-				if(bind(fd, (struct sockaddr*)&addr, sizeof(addr)) || listen(fd,5))
-				{
-					close(fd);
-					fd = -1;
-				}
-			}
-			else while(connect(fd, (struct sockaddr*)&addr, sizeof(addr)))
-			{
-				if(errno==EINTR)
-				{
-					if(sh.trapnote&SH_SIGSET)
-					{
-						close(fd);
-						sh_exit(SH_EXITSIG);
-					}
-					if(sh.trapnote)
-						sh_chktrap();
-					continue;
-				}
-				close(fd);
-				fd = -1;
-				break;
-			}
-		}
-	}
-	else
-#endif /* SOCKET */
-	if((fd = open(path, flags, mode)) < 0)
-		return(-1);
+	else while((fd = open(path, flags, mode)) < 0)
+		if(errno!=EINTR || sh.trapnote)
+			return(-1);
+#ifdef O_SERVICE
+ ok:
+#endif
 	flags &= O_ACCMODE;
 	if(flags==O_WRONLY)
 		mode = IOWRITE;
@@ -438,6 +687,10 @@ int sh_open(register const char *path, int flags, ...)
 	return(fd);
 }
 
+/*
+ * Open a file for reading
+ * On failure, print message.
+ */
 int sh_chkopen(register const char *name)
 {
 	register int fd = sh_open(name,O_RDONLY,0);
@@ -478,6 +731,88 @@ int	sh_pipe(register int pv[])
 	return(0);
 }
 
+static int pat_seek(void *handle, const char *str, size_t sz)
+{
+	char **bp = (char**)handle;
+	*bp = (char*)str;
+	return(-1);
+}
+
+static int pat_line(const regex_t* rp, const char *buff, register size_t n)
+{
+	register const char *cp=buff, *sp;
+	while(n>0)
+	{
+		for(sp=cp; n-->0 && *cp++ != '\n';);
+		if(regnexec(rp,sp,cp-sp, 0, (regmatch_t*)0, 0)==0)
+			return(sp-buff);
+	}
+	return(cp-buff);
+}
+
+static int io_patseek(regex_t *rp, Sfio_t* sp, int flags)
+{
+	char	*cp, *match;
+	int	r, fd=sffileno(sp), close_exec = sh.fdstatus[fd]&IOCLEX;
+	int	was_share,s=(PIPE_BUF>SF_BUFSIZE?SF_BUFSIZE:PIPE_BUF);
+	size_t	n,m;
+	sh.fdstatus[sffileno(sp)] |= IOCLEX;
+	if(fd==0)
+		was_share = sfset(sp,SF_SHARE,1);
+	while((cp=sfreserve(sp, -s, SF_LOCKR)) || (cp=sfreserve(sp,SF_UNBOUND, SF_LOCKR)))
+	{
+		m = n = sfvalue(sp);
+		while(n>0 && cp[n-1]!='\n')
+			n--;
+		if(n)
+			m = n;
+		r = regrexec(rp,cp,m,0,(regmatch_t*)0, 0, '\n', (void*)&match, pat_seek);
+		if(r<0)
+			m = match-cp;
+		else if(r==2)
+		{
+			if((m = pat_line(rp,cp,m)) < n)
+				r = -1;
+		}
+		if(m && (flags&IOCOPY))
+			sfwrite(sfstdout,cp,m);
+		sfread(sp,cp,m);
+		if(r<0)
+			break;
+	}
+	if(!close_exec)
+		sh.fdstatus[sffileno(sp)] &= ~IOCLEX;
+	if(fd==0 && !(was_share&SF_SHARE))
+		sfset(sp, SF_SHARE,0);
+	return(0);
+}
+
+static Sfoff_t	file_offset(int fn, char *fname)
+{
+	Sfio_t		*sp = sh.sftable[fn];
+	char		*cp;
+	Sfoff_t		off;
+	struct Eof	endf;
+	Namval_t	*mp = nv_open("EOF",sh.var_tree,0);
+	Namval_t	*pp = nv_open("CUR",sh.var_tree,0);
+	memset(&endf,0,sizeof(struct Eof));
+	endf.fd = fn;
+	endf.hdr.disc = &EOF_disc;
+	endf.hdr.nofree = 1;
+	if(mp)
+		nv_stack(mp, &endf.hdr);
+	if(pp)
+		nv_stack(pp, &endf.hdr);
+	if(sp)
+		sfsync(sp);
+	off = sh_strnum(fname, &cp, 0);
+	if(mp)
+		nv_stack(mp, NiL);
+	if(pp)
+		nv_stack(pp, NiL);
+	return(*cp?(Sfoff_t)-1:off);
+}
+
 /*
  * close a pipe
  */
@@ -495,18 +830,20 @@ void sh_pclose(register int pv[])
  * flag = 0 if files are to be restored
  * flag = 2 if files are to be closed on exec
  * flag = 3 when called from $( < ...), just open file and return
+ * flag = SH_SHOWME for trace only
  */
 int	sh_redirect(struct ionod *iop, int flag)
 {
+	Sfoff_t off; 
 	register char *fname;
 	register int 	fd, iof;
-	const char *message = ERROR_dictionary(e_open);
+	const char *message = e_open;
 	int o_mode;		/* mode flag for open */
-	static char io_op[5];	/* used for -x trace info */
-	static int	inuse_bits;	/* keep track of 3-9 in use */
+	static char io_op[7];	/* used for -x trace info */
 	int clexec=0, fn, traceon;
-	int indx = sh.topfd;
-	char *trace = sh.st.trap[SH_DEBUGTRAP];
+	int r, indx = sh.topfd;
+	char *after="", *trace = sh.st.trap[SH_DEBUGTRAP];
+	Namval_t *np=0;
 	if(flag==2)
 		clexec = 1;
 	if(iop)
@@ -515,7 +852,6 @@ int	sh_redirect(struct ionod *iop, int flag)
 	{
 		iof=iop->iofile;
 		fn = (iof&IOUFD);
-		fname=iop->ioname;
 		io_op[0] = '0'+(iof&IOUFD);
 		if(iof&IOPUT)
 		{
@@ -529,20 +865,52 @@ int	sh_redirect(struct ionod *iop, int flag)
 		}
 		io_op[2] = 0;
 		io_op[3] = 0;
+		io_op[4] = 0;
 		fname = iop->ioname;
 		if(!(iof&IORAW))
-			fname=sh_mactrim(fname,(!sh_isoption(SH_NOGLOB)&&sh_isoption(SH_INTERACTIVE))?2:0);
+		{
+			if(iof&IOLSEEK)
+			{
+				struct argnod *ap = (struct argnod*)stakalloc(ARGVAL+strlen(iop->ioname));
+				memset(ap, 0, ARGVAL);
+				ap->argflag = ARG_MAC;
+				strcpy(ap->argval,iop->ioname);
+				fname=sh_macpat(ap,(iof&IOARITH)?ARG_ARITH:ARG_EXP);
+			}
+			else
+				fname=sh_mactrim(fname,(!sh_isoption(SH_NOGLOB)&&sh_isoption(SH_INTERACTIVE))?2:0);
+		}
 		errno=0;
+		if(iop->iovname)
+		{
+			np = nv_open(iop->iovname,sh.var_tree,NV_NOASSIGN|NV_VARNAME);
+			if(nv_isattr(np,NV_RDONLY))
+				errormsg(SH_DICT,ERROR_exit(1),e_readonly, nv_name(np));
+			io_op[0] = '}';
+			if((iof&IOMOV) && *fname=='-')
+				fn = nv_getnum(np);
+		}
+		if(iof&IOLSEEK)
+		{
+			io_op[2] = '#';
+			if(iof&IOARITH)
+			{
+				strcpy(&io_op[3]," ((");
+				after = "))";
+			}
+			else if(iof&IOCOPY)
+				io_op[3] = '#';
+			goto traceit;
+		}
 		if(*fname)
 		{
 			if(iof&IODOC)
 			{
 				if(traceon)
-				{
-					io_op[2] = '<';
-					sfputr(sfstderr,io_op,'\n');
-				}
-				fd = io_heredoc(iop);
+					sfputr(sfstderr,io_op,'<');
+				fd = io_heredoc(iop,fname,traceon);
+				if(traceon && (flag==SH_SHOWME))
+					sh_close(fd);
 				fname = 0;
 			}
 			else if(iof&IOMOV)
@@ -560,7 +928,7 @@ int	sh_redirect(struct ionod *iop, int flag)
 					}
 					if(*number || dupfd > IOUFD)
 					{
-						message = ERROR_dictionary(e_file);
+						message = e_file;
 						goto fail;
 					}
 					if(sh.subshell && dupfd==1)
@@ -568,6 +936,8 @@ int	sh_redirect(struct ionod *iop, int flag)
 						sh_subtmpfile();
 						dupfd = sffileno(sfstdout);
 					}
+					else if(sh.sftable[dupfd])
+						sfsync(sh.sftable[dupfd]);
 				}
 				else if(fd=='-' && fname[1]==0)
 				{
@@ -577,15 +947,19 @@ int	sh_redirect(struct ionod *iop, int flag)
 				else if(fd=='p' && fname[1]==0)
 				{
 					if(iof&IOPUT)
-						toclose = dupfd = sh.coutpipe;
+						dupfd = sh.coutpipe;
 					else
-						toclose = dupfd = sh.cpipe[0];
+						dupfd = sh.cpipe[0];
+					if(flag)
+						toclose = dupfd;
 				}
 				else
 				{
-					message = ERROR_dictionary(e_file);
+					message = e_file;
 					goto fail;
 				}
+				if(flag==SH_SHOWME)
+					goto traceit;
 				if((fd=sh_fcntl(dupfd,F_DUPFD,3))<0)
 					goto fail;
 				sh_iocheckfd(dupfd);
@@ -603,12 +977,18 @@ int	sh_redirect(struct ionod *iop, int flag)
 			}
 			else if(iof&IORDW)
 			{
+				if(sh_isoption(SH_RESTRICTED))
+					errormsg(SH_DICT,ERROR_exit(1),e_restricted,fname);
 				io_op[2] = '>';
 				o_mode = O_RDWR|O_CREAT;
 				goto openit;
 			}
 			else if(!(iof&IOPUT))
+			{
+				if(flag==SH_SHOWME)
+					goto traceit;
 				fd=sh_chkopen(fname);
+			}
 			else if(sh_isoption(SH_RESTRICTED))
 				errormsg(SH_DICT,ERROR_exit(1),e_restricted,fname);
 			else
@@ -644,46 +1024,153 @@ int	sh_redirect(struct ionod *iop, int flag)
 					}
 				}
 			openit:
-				if((fd=sh_open(fname,o_mode,RW_ALL)) <0)
-					errormsg(SH_DICT,ERROR_system(1),((o_mode&O_CREAT)?e_create:e_open),fname);
+				if(flag!=SH_SHOWME)
+				{
+					if((fd=sh_open(fname,o_mode,RW_ALL)) <0)
+						errormsg(SH_DICT,ERROR_system(1),((o_mode&O_CREAT)?e_create:e_open),fname);
+				}
 			}
 		traceit:
 			if(traceon && fname)
-				sfprintf(sfstderr,"%s %s%c",io_op,fname,iop->ionxt?' ':'\n');
+			{
+				if(np)
+					sfprintf(sfstderr,"{%s",nv_name(np));
+				sfprintf(sfstderr,"%s %s%s%c",io_op,fname,after,iop->ionxt?' ':'\n');
+			}
+			if(flag==SH_SHOWME)
+				return(indx);
 			if(trace && fname)
 			{
-				char *av[3];
-				av[0] = io_op;
-				av[1] = fname;
-				av[2] = 0;;
+				char *argv[7], **av=argv;
+				av[3] = io_op;
+				av[4] = fname;
+				av[5] = 0;
+				av[6] = 0;
+				if(iof&IOARITH)
+					av[5] = after;
+				if(np)
+				{
+					av[0] = "{";
+					av[1] = nv_name(np);
+					av[2] = "}";
+				}
+				else
+					av +=3;
 				sh_debug(trace,(char*)0,(char*)0,av,ARG_NOGLOB);
 			}
-			if(flag==0)
-				sh_iosave(fn,indx);
-			else if(sh_subsavefd(fn))
-				sh_iosave(fn,indx|IOSUBSHELL);
+			if(iof&IOLSEEK)
+			{
+				Sfio_t *sp = sh.sftable[fn];
+				r = sh.fdstatus[fn];
+				if(!(r&(IOSEEK|IONOSEEK)))
+					r = sh_iocheckfd(fn);
+				sfsprintf(io_op,sizeof(io_op),"%d\0",fn);
+				if(r==IOCLOSE)
+				{
+					fname = io_op;
+					message = e_file;
+					goto fail;
+				}
+				if(iof&IOARITH)
+				{
+					if(r&IONOSEEK)
+					{
+						fname = io_op;
+						message = e_notseek;
+						goto fail;
+					}
+					message = e_badseek;
+					if((off = file_offset(fn,fname))<0)
+						goto fail;
+					if(sp)
+						r=sfseek(sp, off, SEEK_SET);
+					else
+						r=lseek(fn, off, SEEK_SET);
+				}
+				else
+				{
+					regex_t *rp;
+					extern const char e_notimp[];
+					if(!(r&IOREAD))
+					{
+						message = e_noread;
+						goto fail;
+					}
+					if(!(rp = regcache(fname, REG_SHELL|REG_NOSUB|REG_NEWLINE|REG_AUGMENTED|REG_FIRST|REG_LEFT|REG_RIGHT, &r)))
+					{
+						message = e_badpattern;
+						goto fail;
+					}
+					if(!sp)
+						sp = sh_iostream(fn);
+					r=io_patseek(rp,sp,iof);
+					if(sp && flag==3)
+					{
+						/* close stream but not fn */
+						sfsetfd(sp,-1);
+						sfclose(sp);
+					}
+				}
+				if(r<0)
+					goto fail;
+				if(flag==3)
+					return(fn);
+				continue;
+			}
+			if(!np)
+			{
+				if(flag==0)
+				{
+					if(fd==fn)
+					{
+						if((r=sh_fcntl(fd,F_DUPFD,10)) > 0)
+						{
+							fd = r;
+							sh_close(fn);
+						}
+					}
+					sh_iosave(fn,indx);
+				}
+				else if(sh_subsavefd(fn))
+					sh_iosave(fn,indx|IOSUBSHELL);
+			}
 			if(fd<0)
 			{
 				if(sh_inuse(fn) || fn==sh.infd)
 				{
-					if(fn>9 || !(inuse_bits&(1<<fn)))
+					if(fn>9 || !(sh.inuse_bits&(1<<fn)))
 						io_preserve(sh.sftable[fn],fn);
 				}
 				sh_close(fn);
-				if(fn<10)
-					inuse_bits &= ~(1<<fn);
 			}
 			if(flag==3)
 				return(fd);
 			if(fd>=0)
 			{
-				if(fn>2 && fn<10)
+				if(np)
 				{
-					if(inuse_bits&(1<<fn))
-						sh_close(fn);
-					inuse_bits |= (1<<fn);
+					int32_t v;
+					fn = fd;
+					if(fd<10)
+					{
+						if((fn=fcntl(fd,F_DUPFD,10)) < 0)
+							goto fail;
+						sh.fdstatus[fn] = sh.fdstatus[fd];
+						sh_close(fd);
+						fd = fn;
+					}
+					nv_unset(np);
+					nv_onattr(np,NV_INT32);
+					v = fn;
+					nv_putval(np,(char*)&v, NV_INT32);
+					sh_iocheckfd(fd);
 				}
-				fd = sh_iorenumber(sh_iomovefd(fd),fn);
+				else
+				{
+					fd = sh_iorenumber(sh_iomovefd(fd),fn);
+					if(fn>2 && fn<10)
+						sh.inuse_bits |= (1<<fn);
+				}
 			}
 			if(fd >2 && clexec)
 			{
@@ -703,39 +1190,52 @@ fail:
 /*
  * Create a tmp file for the here-document
  */
-static int io_heredoc(register struct ionod *iop)
+static int io_heredoc(register struct ionod *iop, const char *name, int traceon)
 {
 	register Sfio_t	*infile = 0, *outfile;
-	register char		fd;
+	register int		fd;
 	if(!(iop->iofile&IOSTRG) && (!sh.heredocs || iop->iosize==0))
 		return(sh_open(e_devnull,O_RDONLY));
 	/* create an unnamed temporary file */
 	if(!(outfile=sftmp(0)))
 		errormsg(SH_DICT,ERROR_system(1),e_tmpcreate);
-	if(!(iop->iofile&IOSTRG))
-		infile = subopen(sh.heredocs,iop->iooffset,iop->iosize);
-	if(iop->iofile&IOQUOTE)
+	if(iop->iofile&IOSTRG)
 	{
-		/* This is a quoted here-document, not expansion */
-		if(!infile)
-			infile = sfopen(NIL(Sfio_t*),iop->ioname,"s");
-		sfmove(infile,outfile,SF_UNBOUND,-1);
-		sfclose(infile);
+		if(traceon)
+			sfprintf(sfstderr,"< %s\n",name);
+		sfputr(outfile,name,'\n');
 	}
 	else
 	{
-		char *lastpath = sh.lastpath;
-		if(sh_isoption(SH_XTRACE))
+		infile = subopen(sh.heredocs,iop->iooffset,iop->iosize);
+		if(traceon)
+		{
+			char *cp = sh_fmtq(iop->iodelim);
+			fd = (*cp=='$' || *cp=='\'')?' ':'\\';
+			sfprintf(sfstderr," %c%s\n",fd,cp);
 			sfdisc(outfile,&tee_disc);
-		sh_machere(infile,outfile,iop->ioname);
-		sh.lastpath = lastpath;
-		if(infile)
+		}
+		if(iop->iofile&IOQUOTE)
+		{
+			/* This is a quoted here-document, not expansion */
+			sfmove(infile,outfile,SF_UNBOUND,-1);
 			sfclose(infile);
+		}
+		else
+		{
+			char *lastpath = sh.lastpath;
+			sh_machere(infile,outfile,iop->ioname);
+			sh.lastpath = lastpath;
+			if(infile)
+				sfclose(infile);
+		}
 	}
 	/* close stream outfile, but save file descriptor */
 	fd = sffileno(outfile);
 	sfsetfd(outfile,-1);
 	sfclose(outfile);
+	if(traceon && !(iop->iofile&IOSTRG))
+		sfputr(sfstderr,iop->ioname,'\n');
 	lseek(fd,(off_t)0,SEEK_SET);
 	sh.fdstatus[fd] = IOREAD;
 	return(fd);
@@ -790,7 +1290,7 @@ void sh_iosave(register int origfd, int oldtop)
 	else
 #endif /* SHOPT_DEVFD */
 	{
-		if((savefd = sh_fcntl(origfd, F_DUPFD, 3)) < 0 && errno!=EBADF)
+		if((savefd = sh_fcntl(origfd, F_DUPFD, 10)) < 0 && errno!=EBADF)
 			errormsg(SH_DICT,ERROR_system(1),e_toomany);
 	}
 	filemap[sh.topfd].subshell = flag;
@@ -881,6 +1381,8 @@ void	sh_iorestore(int last, int jmpval)
 			sh.sftable[savefd] = 0;
 			sh_close(savefd);
 		}
+		else
+			sh.fdstatus[origfd] = IOCLOSE;
 	}
 	if(!flag)
 	{
@@ -900,7 +1402,7 @@ void	sh_iorestore(int last, int jmpval)
  * returns -1 for failure, 0 for success
  * <mode> is the same as for access()
  */
-sh_ioaccess(int fd,register int mode)
+int sh_ioaccess(int fd,register int mode)
 {
 	register int flags;
 	if(mode==X_OK)
@@ -916,80 +1418,6 @@ sh_ioaccess(int fd,register int mode)
 	}
 	return(-1);
 }
-
-#ifdef SOCKET
-
-#ifndef INADDR_LOOPBACK
-#define INADDR_LOOPBACK		0x7f000001L
-#endif
-
-/*
- * convert string to sockaddr_in
- * 0 returned on error
- */
-
-static int str2inet(register const char *sp, struct sockaddr_in *addr)
-{
-	char		*proto = (char*)sp;
-	register int	n=0,c,v;
-	unsigned long	a=0;
-	unsigned short	p=0;
-
-	sp += 4;
-	if(memcmp(sp,"local/",6)==0)
-	{
-		a = INADDR_LOOPBACK;
-		n=4;
-		sp+=6;
-	}
-	else if(!isdigit(*sp))
-	{
-		struct hostent *hp;
-		char *cp = strchr(sp,'/');
-		*cp = 0;
-		hp = gethostbyname(sp);
-		*cp = '/';
-		if(!hp || hp->h_addrtype!=AF_INET || hp->h_length>sizeof(struct in_addr))
-			return 0;
-		a = (unsigned long)((struct in_addr*)hp->h_addr)->s_addr;
-		n=6;
-		sp = cp+1;
-		if(!isdigit(*sp))
-		{
-			struct servent *xp;
-			proto[3] = 0;
-			if(xp = getservbyname(sp,proto))
-			{
-				p = xp->s_port;
-				sp = "";
-			}
-			proto[3] = '/';
-		}
-	}
-	while(*sp)
-	{
-		v = 0;
-		while ((c = *sp++) >= '0' && c <= '9')
-			v = v * 10 + c - '0';
-		if (++n <= 4) a = (a << 8) | (v & 0xff);
-		else
-		{
-			if (c) return(0);
-			if (n <= 5)
-				a = htonl(a);
-			p = htons(v);
-			break;
-		}
-		if (c != '.' && c != '/') return(0);
-	}
-	memset((char*)addr, 0, sizeof(*addr));
-	addr->sin_family = AF_INET;
-	addr->sin_addr.s_addr = a;
-	addr->sin_port = p;
-	return(1);
-}
-#endif /* SOCKET */
-
 
 /*
  *  Handle interrupts for slow streams
@@ -1030,6 +1458,10 @@ static int slowexcept(register Sfio_t *iop,int type,void *data,Sfdisc_t *handle)
 			return(0);
 		n=1;
 	}
+	else
+		n = 0;
+	if(sh.bltinfun && sh.bltindata.sigset)
+		return(-1);
 	errno = 0;
 	if(sh.trapnote&SH_SIGSET)
 	{
@@ -1069,12 +1501,17 @@ static ssize_t piperead(Sfio_t *iop,void *buff,register size_t size,Sfdisc_t *ha
 {
 	int fd = sffileno(iop);
 	NOT_USED(handle);
+	if(sh.trapnote)
+	{
+		errno = EINTR;
+		return(-1);
+	}
 	if(sh_isstate(SH_INTERACTIVE) && io_prompt(iop,sh.nextprompt)<0 && errno==EIO)
 		return(0);
-	if(!(sh.fdstatus[sffileno(iop)]&IOCLEX) && sfset(iop,0,0)&SF_SHARE)
+	if(!(sh.fdstatus[sffileno(iop)]&IOCLEX) && (sfset(iop,0,0)&SF_SHARE))
 		size = ed_read(sh.ed_context, fd, (char*)buff, size,0);
 	else
-		size = read(fd, (char*)buff, size);
+		size = sfrd(iop,buff,size,handle);
 	return(size);
 }
 /*
@@ -1104,6 +1541,11 @@ static ssize_t slowread(Sfio_t *iop,void *buff,register size_t size,Sfdisc_t *ha
 	else
 #   endif	/* SHOPT_VSH */
 		readf = ed_read;
+	if(sh.trapnote)
+	{
+		errno = EINTR;
+		return(-1);
+	}
 	while(1)
 	{
 		if(io_prompt(iop,sh.nextprompt)<0 && errno==EIO)
@@ -1680,6 +2122,13 @@ int sh_fcntl(register int fd, int op, ...)
 	return(newfd);
 }
 
+#undef umask
+mode_t	sh_umask(mode_t m)
+{
+	sh.mask = m;
+	return(umask(m));
+}
+
 /*
  * give file descriptor <fd> and <mode>, return an iostream pointer
  * <mode> must be SF_READ or SF_WRITE
@@ -1737,6 +2186,23 @@ Notify_f    sh_fdnotify(Notify_f notify)
         old = fdnotify;
         fdnotify = notify;
         return(old);
+}
+
+Sfio_t	*sh_fd2sfio(int fd)
+{
+	register int status;
+	Sfio_t *sp = sh.sftable[fd];
+	if(!sp  && (status = sh_iocheckfd(fd))!=IOCLOSE)
+	{
+		register int flags=0;
+		if(status&IOREAD)
+			flags |= SF_READ;
+		if(status&IOWRITE)
+			flags |= SF_WRITE;
+		sp = sfnew(NULL, NULL, -1, fd,flags);
+		sh.sftable[fd] = sp;
+	}
+	return(sp);
 }
 
 Sfio_t *sh_pathopen(const char *cp)

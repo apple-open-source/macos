@@ -1,5 +1,6 @@
 /* machine description file for Sun 4 SPARC.
-   Copyright (C) 1987 Free Software Foundation, Inc.
+   Copyright (C) 1987, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,10 +16,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="note"
 
@@ -59,20 +60,6 @@ NOTE-END  */
 
 #define LOAD_AVE_CVT(x) (int) (((double) (x)) * 100.0 / FSCALE)
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#define HAVE_ALLOCA
-#ifndef NOT_C_CODE
-#if __GNUC__ < 2 /* Modern versions of GCC handle alloca directly.  */
-#include <alloca.h>
-#endif
-#endif
-
 /* Mask for address bits within a memory segment */
 
 #define SEGMENT_MASK (SEGSIZ - 1)
@@ -111,3 +98,6 @@ NOTE-END  */
 				   should be here.  -- fx */
 #endif
 #endif
+
+/* arch-tag: 0a6f7882-33fd-4811-9832-7466c51e50f7
+   (do not change this comment) */

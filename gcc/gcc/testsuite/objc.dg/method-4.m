@@ -3,8 +3,11 @@
 /* Author: Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-fnext-runtime" } */
 /* { dg-do compile } */
+/* APPLE LOCAL radar 4894756 */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
-#include <objc/Object.h>
+/* APPLE LOCAL radar 4894756 */
+#include "../objc/execute/Object2.h"
 
 typedef Object ObjectTypedef1;
 typedef ObjectTypedef1 ObjectTypedef2;

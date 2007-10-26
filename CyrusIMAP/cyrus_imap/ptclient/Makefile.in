@@ -41,7 +41,7 @@
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: Makefile.in,v 1.6 2005/03/05 00:37:35 dasenbro Exp $
+# $Id: Makefile.in,v 1.29 2006/11/30 17:11:24 murch Exp $
 # 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -53,7 +53,7 @@ INSTALL = @INSTALL@
 RANLIB = @RANLIB@
 
 DEFS = @DEFS@
-CPPFLAGS = -I.. -I$(srcdir)/../imap -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @CPPFLAGS@
+CPPFLAGS = -I.. -I$(srcdir)/../imap -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @CPPFLAGS@ @SASLFLAGS@
 AFS_LDFLAGS = @AFS_LDFLAGS@ @COM_ERR_LDFLAGS@
 AFS_LIBS = @AFS_LIBS@
 IMAP_LIBS = @IMAP_LIBS@ @LIB_RT@
@@ -96,11 +96,11 @@ install:
 .c.o:
 	$(CC) -c $(CPPFLAGS) $(LDAP_CPPFLAGS) $(DEFS) $(CFLAGS) $<
 
-ptloader: ptloader.o @WITH_PTS@.o ../imap/mutex_fake.o $(DEPLIBS)
-	$(CC) $(LDFLAGS) -o $@ ptloader.o @WITH_PTS@.o ../imap/mutex_fake.o $(SERVICETHREAD) ${AFS_LDFLAGS} ${LDAP_LDFLAGS} $(AFS_LIBS) ${LDAP_LIBS} $(DEPLIBS) $(LIB_SASL) $(LIBS) $(LIB_WRAP) $(LIB_RT)
+ptloader: ptloader.o afskrb.o ldap.o ../imap/mutex_fake.o $(DEPLIBS)
+	$(CC) $(LDFLAGS) -o $@ ptloader.o afskrb.o ldap.o ../imap/mutex_fake.o $(SERVICETHREAD) ${AFS_LDFLAGS} ${LDAP_LDFLAGS} $(AFS_LIBS) ${LDAP_LIBS} $(DEPLIBS) $(LIB_SASL) $(LIBS) $(LIB_WRAP) $(LIB_RT)
 
-ptloader.pure: ptloader.o @WITH_PTS@.o ../imap/mutex_fake.o $(DEPLIBS)
-	$(PURIFY) $(PUREARGS) $(CC) $(LDFLAGS) -o $@ ptloader.o @WITH_PTS@.o ../imap/mutex_fake.o $(SERVICETHREAD) ${AFS_LDFLAGS} ${LDAP_LDFLAGS} $(AFS_LIBS) ${LDAP_LIBS} $(DEPLIBS) $(LIB_SASL) $(LIBS) $(LIB_WRAP) $(LIB_RT)
+ptloader.pure: ptloader.o afskrb.o ldap.o ../imap/mutex_fake.o $(DEPLIBS)
+	$(PURIFY) $(PUREARGS) $(CC) $(LDFLAGS) -o $@ ptloader.o afskrb.o ldap.o ../imap/mutex_fake.o $(SERVICETHREAD) ${AFS_LDFLAGS} ${LDAP_LDFLAGS} $(AFS_LIBS) ${LDAP_LIBS} $(DEPLIBS) $(LIB_SASL) $(LIBS) $(LIB_WRAP) $(LIB_RT)
 
 ptexpire: ptexpire.o $(DEPLIBS) $(UTIL_LIBS)
 	$(CC) $(LDFLAGS) -o $@ ptexpire.o $(UTIL_LIBS) $(DEPLIBS) $(LIB_SASL) $(LIBS) $(LIB_RT)

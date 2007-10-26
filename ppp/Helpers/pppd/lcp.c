@@ -62,7 +62,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: lcp.c,v 1.13 2005/03/11 05:48:31 lindak Exp $"
+#define RCSID	"$Id: lcp.c,v 1.14 2005/12/13 06:30:15 lindak Exp $"
 
 /*
  * TODO:
@@ -313,6 +313,7 @@ struct protent lcp_protent = {
 #ifdef __APPLE__
     lcp_echo_lowerdown,
     lcp_echo_lowerup,
+    NULL,
     NULL
 #endif
 };

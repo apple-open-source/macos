@@ -43,6 +43,7 @@
  *	NXPrintf: printf into a stream.
  */
 
+__private_extern__
 void
 NXPrintf(NXStream *stream, const char *format, ...)
 {
@@ -54,6 +55,7 @@ NXPrintf(NXStream *stream, const char *format, ...)
     va_end(ap);
 }
 
+__private_extern__
 int NXScanf(NXStream *stream, const char *format, ...)
 {
     va_list ap;
@@ -72,6 +74,7 @@ int NXScanf(NXStream *stream, const char *format, ...)
  *	close the specified stream.
  */
 
+__private_extern__
 void NXClose(register NXStream *s)
 {
     _NXVerifyStream(s);
@@ -82,6 +85,7 @@ void NXClose(register NXStream *s)
 }
 
 
+__private_extern__
 long NXTell(register NXStream *s)
 {
     _NXVerifyStream(s);
@@ -96,6 +100,7 @@ long NXTell(register NXStream *s)
 }
 
 
+__private_extern__
 void NXSeek(register NXStream *s, long offset, int ptrname)
 {
     long curPos;
@@ -130,6 +135,7 @@ void NXSeek(register NXStream *s, long offset, int ptrname)
 }
 
 
+__private_extern__
 void NXUngetc(register NXStream *s)
 {
     _NXVerifyStream(s);

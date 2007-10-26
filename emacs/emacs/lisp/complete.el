@@ -1,7 +1,7 @@
 ;;; complete.el --- partial completion mechanism plus other goodies
 
-;; Copyright (C) 1990, 1991, 1992, 1993, 1999, 2000
-;;  Free Software Foundation, Inc.
+;; Copyright (C) 1990, 1991, 1992, 1993, 1999, 2000, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Dave Gillespie <daveg@synaptics.com>
 ;; Keywords: abbrev convenience
@@ -21,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -78,11 +78,6 @@
 ;; The regular M-TAB (lisp-complete-symbol) command also supports
 ;; partial completion in this package.
 
-;; File name completion does not do partial completion of directories
-;; on the path, e.g., "/u/b/f" will not complete to "/usr/bin/foo",
-;; but you can put *'s in the path to accomplish this:  "/u*/b*/f".
-;; Stars are required for performance reasons.
-
 ;; In addition, this package includes a feature for accessing include
 ;; files.  For example, `C-x C-f <sys/time.h> RET' reads the file
 ;; /usr/include/sys/time.h.  The variable PC-include-file-path is a
@@ -99,7 +94,7 @@
   :group 'convenience)
 
 (defcustom PC-first-char 'find-file
-  "*Control how the first character of a string is to be interpreted.
+  "Control how the first character of a string is to be interpreted.
 If nil, the first character of a string is not taken literally if it is a word
 delimiter, so that \".e\" matches \"*.e*\".
 If t, the first character of a string is always taken literally even if it is a
@@ -112,30 +107,30 @@ completion."
   :group 'partial-completion)
 
 (defcustom PC-meta-flag t
-  "*If non-nil, TAB means PC completion and M-TAB means normal completion.
+  "If non-nil, TAB means PC completion and M-TAB means normal completion.
 Otherwise, TAB means normal completion and M-TAB means Partial Completion."
   :type 'boolean
   :group 'partial-completion)
 
 (defcustom PC-word-delimiters "-_. "
-  "*A string of characters treated as word delimiters for completion.
+  "A string of characters treated as word delimiters for completion.
 Some arcane rules:
 If `]' is in this string, it must come first.
 If `^' is in this string, it must not come first.
 If `-' is in this string, it must come first or right after `]'.
-In other words, if S is this string, then `[S]' must be a legal Emacs regular
+In other words, if S is this string, then `[S]' must be a valid Emacs regular
 expression (not containing character ranges like `a-z')."
   :type 'string
   :group 'partial-completion)
 
 (defcustom PC-include-file-path '("/usr/include" "/usr/local/include")
-  "*A list of directories in which to look for include files.
+  "A list of directories in which to look for include files.
 If nil, means use the colon-separated path in the variable $INCPATH instead."
   :type '(repeat directory)
   :group 'partial-completion)
 
 (defcustom PC-disable-includes nil
-  "*If non-nil, include-file support in \\[find-file] is disabled."
+  "If non-nil, include-file support in \\[find-file] is disabled."
   :type 'boolean
   :group 'partial-completion)
 
@@ -146,14 +141,14 @@ If nil, means use the colon-separated path in the variable $INCPATH instead."
   "A list of the environment variable names and values.")
 
 
-(defvar PC-old-read-file-name-internal nil)
-
 (defun PC-bindings (bind)
   (let ((completion-map minibuffer-local-completion-map)
 	(must-match-map minibuffer-local-must-match-map))
     (cond ((not bind)
 	   ;; These bindings are the default bindings.  It would be better to
 	   ;; restore the previous bindings.
+	   (define-key read-expression-map "\e\t" 'lisp-complete-symbol)
+
 	   (define-key completion-map "\t"	'minibuffer-complete)
 	   (define-key completion-map " "	'minibuffer-complete-word)
 	   (define-key completion-map "?"	'minibuffer-completion-help)
@@ -164,8 +159,10 @@ If nil, means use the colon-separated path in the variable $INCPATH instead."
 	   (define-key must-match-map "\n"	'minibuffer-complete-and-exit)
 	   (define-key must-match-map "?"	'minibuffer-completion-help)
 
-	   (define-key global-map "\e\t"	'complete-symbol))
+	   (define-key global-map [remap lisp-complete-symbol]	nil))
 	  (PC-default-bindings
+	   (define-key read-expression-map "\e\t" 'PC-lisp-complete-symbol)
+
 	   (define-key completion-map "\t"	'PC-complete)
 	   (define-key completion-map " "	'PC-complete-word)
 	   (define-key completion-map "?"	'PC-completion-help)
@@ -188,7 +185,18 @@ If nil, means use the colon-separated path in the variable $INCPATH instead."
 	   (define-key must-match-map "\e\n"	'PC-complete-and-exit)
 	   (define-key must-match-map "\e?"	'PC-completion-help)
 
-	   (define-key global-map "\e\t"	'PC-lisp-complete-symbol)))))
+	   (define-key global-map [remap lisp-complete-symbol]	'PC-lisp-complete-symbol)))))
+
+(defvar PC-do-completion-end nil
+  "Internal variable used by `PC-do-completion'.")
+
+(make-variable-buffer-local 'PC-do-completion-end)
+
+(defvar PC-goto-end nil
+   "Internal variable set in `PC-do-completion', used in
+`choose-completion-string-functions'.")
+
+(make-variable-buffer-local 'PC-goto-end)
 
 ;;;###autoload
 (define-minor-mode partial-completion-mode
@@ -203,36 +211,64 @@ as much as possible and `*' characters are treated likewise in file names.
 For example, M-x p-c-m expands to M-x partial-completion-mode since no other
 command begins with that sequence of characters, and
 \\[find-file] f_b.c TAB might complete to foo_bar.c if that file existed and no
-other file in that directory begin with that sequence of characters.
+other file in that directory begins with that sequence of characters.
 
 Unless `PC-disable-includes' is non-nil, the `<...>' sequence is interpreted
 specially in \\[find-file].  For example,
 \\[find-file] <sys/time.h> RET finds the file `/usr/include/sys/time.h'.
-See also the variable `PC-include-file-path'."
+See also the variable `PC-include-file-path'.
+
+Partial Completion mode extends the meaning of `completion-auto-help' (which
+see), so that if it is neither nil nor t, Emacs shows the `*Completions*'
+buffer only on the second attempt to complete.  That is, if TAB finds nothing
+to complete, the first TAB just says \"Next char not unique\" and the
+second TAB brings up the `*Completions*' buffer."
   :global t :group 'partial-completion
   ;; Deal with key bindings...
   (PC-bindings partial-completion-mode)
   ;; Deal with include file feature...
   (cond ((not partial-completion-mode)
-	 (remove-hook 'find-file-not-found-hooks 'PC-look-for-include-file))
+	 (remove-hook 'find-file-not-found-functions 'PC-look-for-include-file))
 	((not PC-disable-includes)
-	 (add-hook 'find-file-not-found-hooks 'PC-look-for-include-file)))
+	 (add-hook 'find-file-not-found-functions 'PC-look-for-include-file)))
   ;; ... with some underhand redefining.
-  (cond ((and (not partial-completion-mode)
-	      (functionp PC-old-read-file-name-internal))
-	 (fset 'read-file-name-internal PC-old-read-file-name-internal))
-	((and (not PC-disable-includes) (not PC-old-read-file-name-internal))
-	 (setq PC-old-read-file-name-internal
-	       (symbol-function 'read-file-name-internal))
-	 (fset 'read-file-name-internal
-	       'PC-read-include-file-name-internal)))
-    (when (and partial-completion-mode (null PC-env-vars-alist))
-      (setq PC-env-vars-alist
-	    (mapcar (lambda (string)
-		      (let ((d (string-match "=" string)))
-			(cons (concat "$" (substring string 0 d))
-			      (and d (substring string (1+ d))))))
-		    process-environment))))
+  (cond ((not partial-completion-mode)
+         (ad-disable-advice 'read-file-name-internal 'around 'PC-include-file)
+         (ad-activate 'read-file-name-internal))
+	((not PC-disable-includes)
+         (ad-enable-advice 'read-file-name-internal 'around 'PC-include-file)
+         (ad-activate 'read-file-name-internal)))
+  ;; Adjust the completion selection in *Completion* buffers to the way
+  ;; we work.  The default minibuffer completion code only completes the
+  ;; text before point and leaves the text after point alone (new in
+  ;; Emacs-22).  In contrast we use the whole text and we even sometimes
+  ;; move point to a place before EOB, to indicate the first position where
+  ;; there's a difference, so when the user uses choose-completion, we have
+  ;; to trick choose-completion into replacing the whole minibuffer text
+  ;; rather than only the text before point.  --Stef
+  (funcall
+   (if partial-completion-mode 'add-hook 'remove-hook)
+   'choose-completion-string-functions
+   (lambda (choice buffer mini-p base-size)
+     ;; When completing M-: (lisp- ) with point before the ), it is
+     ;; not appropriate to go to point-max (unlike the filename case).
+     (if (and (not PC-goto-end)
+              mini-p)
+         (goto-char (point-max))
+       ;; Need a similar hack for the non-minibuffer-case -- gm.
+       (when PC-do-completion-end
+         (goto-char PC-do-completion-end)
+         (setq PC-do-completion-end nil)))
+     (setq PC-goto-end nil)
+     nil))
+  ;; Build the env-completion and mapping table.
+  (when (and partial-completion-mode (null PC-env-vars-alist))
+    (setq PC-env-vars-alist
+          (mapcar (lambda (string)
+                    (let ((d (string-match "=" string)))
+                      (cons (concat "$" (substring string 0 d))
+                            (and d (substring string (1+ d))))))
+                  process-environment))))
 
 
 (defun PC-complete ()
@@ -259,8 +295,7 @@ Word-delimiters for the purposes of Partial Completion are \"-\", \"_\",
       ;; and this command is repeated, scroll that window.
       (if (and window (window-buffer window)
 	       (buffer-name (window-buffer window)))
-	  (save-excursion
-	    (set-buffer (window-buffer window))
+	  (with-current-buffer (window-buffer window)
 	    (if (pos-visible-in-window-p (point-max) window)
 		(set-window-start window (point-min) nil)
 	      (scroll-other-window)))
@@ -344,26 +379,78 @@ See `PC-complete' for details."
 (defvar PC-delims-list nil)
 
 (defvar PC-completion-as-file-name-predicate
-  (function
-   (lambda ()
-     (memq minibuffer-completion-table
-	   '(read-file-name-internal read-directory-name-internal))))
-   "A function testing whether a minibuffer completion now will work filename-style.
+  (lambda () minibuffer-completing-file-name)
+  "A function testing whether a minibuffer completion now will work filename-style.
 The function takes no arguments, and typically looks at the value
 of `minibuffer-completion-table' and the minibuffer contents.")
 
-(defun PC-do-completion (&optional mode beg end)
+;; Returns the sequence of non-delimiter characters that follow regexp in string.
+(defun PC-chunk-after (string regexp)
+  (if (not (string-match regexp string))
+      (let ((message (format "String %s didn't match regexp %s" string regexp)))
+	(message message)
+	(error message)))
+  (let ((result (substring string (match-end 0))))
+    ;; result may contain multiple chunks
+    (if (string-match PC-delim-regex result)
+	(setq result (substring result 0 (match-beginning 0))))
+    result))
+
+(defun test-completion-ignore-case (str table pred)
+  "Like `test-completion', but ignores case when possible."
+  ;; Binding completion-ignore-case to nil ensures, for compatibility with
+  ;; standard completion, that the return value is exactly one of the
+  ;; possibilities.  Do this binding only if pred is nil, out of paranoia;
+  ;; perhaps it is safe even if pred is non-nil.
+  (if pred
+      (test-completion str table pred)
+    (let ((completion-ignore-case nil))
+      (test-completion str table pred))))
+
+;; The following function is an attempt to work around two problems:
+
+;; (1) When complete.el was written, (try-completion "" '(("") (""))) used to
+;; return the value "".  With a change from 2002-07-07 it returns t which caused
+;; `PC-lisp-complete-symbol' to fail with a "Wrong type argument: sequencep, t"
+;; error.  `PC-try-completion' returns STRING in this case.
+
+;; (2) (try-completion "" '((""))) returned t before the above-mentioned change.
+;; Since `PC-chop-word' operates on the return value of `try-completion' this
+;; case might have provoked a similar error as in (1).  `PC-try-completion'
+;; returns "" instead.  I don't know whether this is a real problem though.
+
+;; Since `PC-try-completion' is not a guaranteed to fix these bugs reliably, you
+;; should try to look at the following discussions when you encounter problems:
+;; - emacs-pretest-bug ("Partial Completion" starting 2007-02-23),
+;; - emacs-devel ("[address-of-OP: Partial completion]" starting 2007-02-24),
+;; - emacs-devel ("[address-of-OP: EVAL and mouse selection in *Completions*]"
+;;   starting 2007-03-05).
+(defun PC-try-completion (string alist &optional predicate)
+  "Like `try-completion' but return STRING instead of t."
+  (let ((result (try-completion string alist predicate)))
+    (if (eq result t) string result)))
+
+;; TODO document MODE magic...
+(defun PC-do-completion (&optional mode beg end goto-end)
+  "Internal function to do the work of partial completion.
+Text to be completed lies between BEG and END.  Normally when
+replacing text in the minibuffer, this function replaces up to
+point-max (as is appropriate for completing a file name).  If
+GOTO-END is non-nil, however, it instead replaces up to END."
   (or beg (setq beg (minibuffer-prompt-end)))
   (or end (setq end (point-max)))
   (let* ((table minibuffer-completion-table)
 	 (pred minibuffer-completion-predicate)
 	 (filename (funcall PC-completion-as-file-name-predicate))
-	 (dirname nil)
-	 (dirlength 0)
+	 (dirname nil) ; non-nil only if a filename is being completed
+	 ;; The following used to be "(dirlength 0)" which caused the erasure of
+	 ;; the entire buffer text before `point' when inserting a completion
+	 ;; into a buffer.
+	 dirlength
 	 (str (buffer-substring beg end))
 	 (incname (and filename (string-match "<\\([^\"<>]*\\)>?$" str)))
 	 (ambig nil)
-	 basestr
+	 basestr origstr
 	 env-on
 	 regex
 	 p offset
@@ -373,8 +460,15 @@ of `minibuffer-completion-table' and the minibuffer contents.")
 
     ;; Check if buffer contents can already be considered complete
     (if (and (eq mode 'exit)
-	     (PC-is-complete-p str table pred))
-	'complete
+	     (test-completion str table pred))
+	(progn
+	  ;; If completion-ignore-case is non-nil, insert the
+	  ;; completion string since that may have a different case.
+	  (when completion-ignore-case
+	    (setq str (PC-try-completion str table pred))
+	    (delete-region beg end)
+	    (insert str))
+	  'complete)
 
       ;; Do substitutions in directory names
       (and filename
@@ -388,7 +482,7 @@ of `minibuffer-completion-table' and the minibuffer contents.")
 	     (delete-region beg end)
 	     (insert str)
 	     (setq end (+ beg (length str)))))
-      
+
       ;; Prepare various delimiter strings
       (or (equal PC-word-delimiters PC-delims)
 	  (setq PC-delims PC-word-delimiters
@@ -396,10 +490,27 @@ of `minibuffer-completion-table' and the minibuffer contents.")
 		PC-ndelims-regex (concat "[^" PC-delims "]*")
 		PC-delims-list (append PC-delims nil)))
 
+      ;; Add wildcards if necessary
+      (and filename
+           (let ((dir (file-name-directory str))
+                 (file (file-name-nondirectory str))
+		 ;; The base dir for file-completion is passed in `predicate'.
+		 (default-directory (expand-file-name pred)))
+             (while (and (stringp dir) (not (file-directory-p dir)))
+               (setq dir (directory-file-name dir))
+               (setq file (concat (replace-regexp-in-string
+                                   PC-delim-regex "*\\&"
+                                   (file-name-nondirectory dir))
+                                  "*/" file))
+               (setq dir (file-name-directory dir)))
+             (setq origstr str str (concat dir file))))
+
       ;; Look for wildcard expansions in directory name
       (and filename
 	   (string-match "\\*.*/" str)
 	   (let ((pat str)
+		 ;; The base dir for file-completion is passed in `predicate'.
+		 (default-directory (expand-file-name pred))
 		 files)
 	     (setq p (1+ (string-match "/[^/]*\\'" pat)))
 	     (while (setq p (string-match PC-delim-regex pat p))
@@ -420,7 +531,14 @@ of `minibuffer-completion-table' and the minibuffer contents.")
 		     (setq str (concat dir (file-name-nondirectory str)))
 		     (insert str)
 		     (setq end (+ beg (length str)))))
-	       (setq filename nil table nil pred nil))))
+	       (if origstr
+                   ;; If the wildcards were introduced by us, it's possible
+                   ;; that read-file-name-internal (especially our
+                   ;; PC-include-file advice) can still find matches for the
+                   ;; original string even if we couldn't, so remove the
+                   ;; added wildcards.
+                   (setq str origstr)
+		 (setq filename nil table nil pred nil)))))
 
       ;; Strip directory name if appropriate
       (if filename
@@ -488,8 +606,8 @@ of `minibuffer-completion-table' and the minibuffer contents.")
 	(let ((compl (all-completions (if env-on
 					  (file-name-nondirectory (substring str 0 p))
 					(substring str 0 p))
-                                        table
-                                        pred)))
+                                      table
+                                      pred)))
 	  (setq p compl)
 	  (while p
 	    (and (string-match regex (car p))
@@ -497,6 +615,37 @@ of `minibuffer-completion-table' and the minibuffer contents.")
 		   (set-text-properties 0 (length (car p)) '() (car p))
 		   (setq poss (cons (car p) poss))))
 	    (setq p (cdr p)))))
+
+      ;; If table had duplicates, they can be here.
+      (delete-dups poss)
+
+      ;; Handle completion-ignored-extensions
+      (and filename
+           (not (eq mode 'help))
+           (let ((p2 poss))
+
+             ;; Build a regular expression representing the extensions list
+             (or (equal completion-ignored-extensions PC-ignored-extensions)
+                 (setq PC-ignored-regexp
+                       (concat "\\("
+                               (mapconcat
+                                'regexp-quote
+                                (setq PC-ignored-extensions
+                                      completion-ignored-extensions)
+                                "\\|")
+                               "\\)\\'")))
+
+             ;; Check if there are any without an ignored extension.
+             ;; Also ignore `.' and `..'.
+             (setq p nil)
+             (while p2
+               (or (string-match PC-ignored-regexp (car p2))
+                   (string-match "\\(\\`\\|/\\)[.][.]?/?\\'" (car p2))
+                   (setq p (cons (car p2) p)))
+               (setq p2 (cdr p2)))
+
+             ;; If there are "good" names, use them
+             (and p (setq poss p))))
 
       ;; Now we have a list of possible completions
       (cond
@@ -520,34 +669,6 @@ of `minibuffer-completion-table' and the minibuffer contents.")
        ((or (cdr (setq helpposs poss))
 	    (memq mode '(help word)))
 
-	;; Handle completion-ignored-extensions
-	(and filename
-	     (not (eq mode 'help))
-	     (let ((p2 poss))
-
-	       ;; Build a regular expression representing the extensions list
-	       (or (equal completion-ignored-extensions PC-ignored-extensions)
-		   (setq PC-ignored-regexp
-			 (concat "\\("
-				 (mapconcat
-				  'regexp-quote
-				  (setq PC-ignored-extensions
-					completion-ignored-extensions)
-				  "\\|")
-				 "\\)\\'")))
-
-	       ;; Check if there are any without an ignored extension.
-	       ;; Also ignore `.' and `..'.
-	       (setq p nil)
-	       (while p2
-		 (or (string-match PC-ignored-regexp (car p2))
-		     (string-match "\\(\\`\\|/\\)[.][.]?/?\\'" (car p2))
-		     (setq p (cons (car p2) p)))
-		 (setq p2 (cdr p2)))
-
-	       ;; If there are "good" names, use them
-	       (and p (setq poss p))))
-
 	;; Is the actual string one of the possible completions?
 	(setq p (and (not (eq mode 'help)) poss))
 	(while (and p
@@ -568,52 +689,56 @@ of `minibuffer-completion-table' and the minibuffer contents.")
 
 	    ;; Check if next few letters are the same in all cases
 	    (if (and (not (eq mode 'help))
-		     (setq prefix (try-completion "" (mapcar 'list poss))))
+		     (setq prefix (PC-try-completion
+				   (PC-chunk-after basestr skip) poss)))
 		(let ((first t) i)
+		  ;; Retain capitalization of user input even if
+		  ;; completion-ignore-case is set.
 		  (if (eq mode 'word)
 		      (setq prefix (PC-chop-word prefix basestr)))
 		  (goto-char (+ beg (length dirname)))
 		  (while (and (progn
-				(setq i 0)
+				(setq i 0) ; index into prefix string
 				(while (< i (length prefix))
 				  (if (and (< (point) end)
-					   (eq (aref prefix i)
-					       (following-char)))
+					   (eq (downcase (aref prefix i))
+					       (downcase (following-char))))
+				      ;; same char (modulo case); no action
 				      (forward-char 1)
 				    (if (and (< (point) end)
-					     (or (and (looking-at " ")
-						      (memq (aref prefix i)
-							    PC-delims-list))
-						 (eq (downcase (aref prefix i))
-						     (downcase
-						      (following-char)))))
+					     (and (looking-at " ")
+                                                  (memq (aref prefix i)
+							PC-delims-list)))
+					;; replace " " by the actual delimiter
 					(progn
 					  (delete-char 1)
-					  (setq end (1- end)))
-				      (and filename (looking-at "\\*")
-					   (progn
-					     (delete-char 1)
-					     (setq end (1- end))))
-				      (setq improved t))
-				    (insert (substring prefix i (1+ i)))
-				    (setq end (1+ end)))
+					  (insert (substring prefix i (1+ i))))
+				      ;; insert a new character
+				      (progn
+                                        (and filename (looking-at "\\*")
+                                             (progn
+                                               (delete-char 1)
+                                               (setq end (1- end))))
+					(setq improved t)
+                                        (insert (substring prefix i (1+ i)))
+					(setq end (1+ end)))))
 				  (setq i (1+ i)))
-				(or pt (equal (point) beg)
-				    (setq pt (point)))
+				(or pt (setq pt (point)))
 				(looking-at PC-delim-regex))
 			      (setq skip (concat skip
 						 (regexp-quote prefix)
 						 PC-ndelims-regex)
-				    prefix (try-completion
-					    ""
+				    prefix (PC-try-completion
+					    (PC-chunk-after
+					     ;; not basestr, because that does
+					     ;; not reflect insertions
+					     (buffer-substring
+					      (+ beg (length dirname)) end)
+					     skip)
 					    (mapcar
-					     (function
-					      (lambda (x)
-						(list
-						 (and (string-match skip x)
-						      (substring
-						       x
-						       (match-end 0))))))
+                                             (lambda (x)
+                                               (when (string-match skip x)
+                                                 (substring x (match-end 0))))
 					     poss)))
 			      (or (> i 0) (> (length prefix) 0))
 			      (or (not (eq mode 'word))
@@ -629,29 +754,45 @@ of `minibuffer-completion-table' and the minibuffer contents.")
 		(if improved
 
 		    ;; We changed it... would it be complete without the space?
-		    (if (PC-is-complete-p (buffer-substring 1 (1- end))
-					  table pred)
+		    (if (test-completion (buffer-substring 1 (1- end))
+                                         table pred)
 			(delete-region (1- end) end)))
 
 	      (if improved
 
 		  ;; We changed it... enough to be complete?
 		  (and (eq mode 'exit)
-		       (PC-is-complete-p (field-string) table pred))
+		       (test-completion-ignore-case (field-string) table pred))
 
 		;; If totally ambiguous, display a list of completions
 		(if (or (eq completion-auto-help t)
 			(and completion-auto-help
 			     (eq last-command this-command))
 			(eq mode 'help))
-		    (with-output-to-temp-buffer "*Completions*"
-		      (display-completion-list (sort helpposs 'string-lessp))
-		      (save-excursion
-			(set-buffer standard-output)
-			;; Record which part of the buffer we are completing
-			;; so that choosing a completion from the list
-			;; knows how much old text to replace.
-			(setq completion-base-size dirlength)))
+                    (let ((prompt-end (minibuffer-prompt-end)))
+                      (with-output-to-temp-buffer "*Completions*"
+                        (display-completion-list (sort helpposs 'string-lessp))
+                        (setq PC-do-completion-end end
+                              PC-goto-end goto-end)
+                        (with-current-buffer standard-output
+                          ;; Record which part of the buffer we are completing
+                          ;; so that choosing a completion from the list
+                          ;; knows how much old text to replace.
+                          ;; This was briefly nil in the non-dirname case.
+                          ;; However, if one calls PC-lisp-complete-symbol
+                          ;; on "(ne-f" with point on the hyphen, PC offers
+                          ;; all completions starting with "(ne", some of
+                          ;; which do not match the "-f" part (maybe it
+                          ;; should not, but it does). In such cases,
+                          ;; completion gets confused trying to figure out
+                          ;; how much to replace, so we tell it explicitly
+                          ;; (ie, the number of chars in the buffer before beg).
+                          ;;
+                          ;; Note that choose-completion-string-functions
+                          ;; plays around with point.
+                          (setq completion-base-size (if dirname
+                                                         dirlength
+                                                       (- beg prompt-end))))))
 		  (PC-temp-minibuffer-message " [Next char not unique]"))
 		nil)))))
 
@@ -667,20 +808,6 @@ of `minibuffer-completion-table' and the minibuffer contents.")
 			      (substitute-in-file-name (concat dirname (car poss)))
 			    (car poss)))))
 	t)))))
-
-
-(defun PC-is-complete-p (str table pred)
-  (let ((res (if (listp table)
-		 (assoc str table)
-	       (if (vectorp table)
-		   (or (equal str "nil")   ; heh, heh, heh
-		       (intern-soft str table))
-		 (funcall table str pred 'lambda)))))
-    (and res
-	 (or (not pred)
-	     (and (not (listp table)) (not (vectorp table)))
-	     (funcall pred res))
-	 res)))
 
 (defun PC-chop-word (new old)
   (let ((i -1)
@@ -715,6 +842,10 @@ of `minibuffer-completion-table' and the minibuffer contents.")
 	       (setq quit-flag nil
 		     unread-command-events '(7))))))))
 
+;; Does not need to be buffer-local (?) because only used when one
+;; PC-l-c-s immediately follows another.
+(defvar PC-lisp-complete-end nil
+  "Internal variable used by `PC-lisp-complete-symbol'.")
 
 (defun PC-lisp-complete-symbol ()
   "Perform completion on Lisp symbol preceding point.
@@ -727,16 +858,18 @@ Otherwise, all symbols with function definitions, values
 or properties are considered."
   (interactive)
   (let* ((end (point))
-	 (buffer-syntax (syntax-table))
-	 (beg (unwind-protect
-		  (save-excursion
-		    (if lisp-mode-syntax-table
-			(set-syntax-table lisp-mode-syntax-table))
-		    (backward-sexp 1)
-		    (while (= (char-syntax (following-char)) ?\')
-		      (forward-char 1))
-		    (point))
-		(set-syntax-table buffer-syntax)))
+         ;; To complete the word under point, rather than just the portion
+         ;; before point, use this:
+;;;           (save-excursion
+;;;             (with-syntax-table lisp-mode-syntax-table
+;;;               (forward-sexp 1)
+;;;               (point))))
+	 (beg (save-excursion
+                (with-syntax-table lisp-mode-syntax-table
+                  (backward-sexp 1)
+                  (while (= (char-syntax (following-char)) ?\')
+                    (forward-char 1))
+                  (point))))
 	 (minibuffer-completion-table obarray)
 	 (minibuffer-completion-predicate
 	  (if (eq (char-after (1- beg)) ?\()
@@ -745,7 +878,39 @@ or properties are considered."
 			(or (boundp sym) (fboundp sym)
 			    (symbol-plist sym))))))
 	 (PC-not-minibuffer t))
-    (PC-do-completion nil beg end)))
+    ;; http://lists.gnu.org/archive/html/emacs-devel/2007-03/msg01211.html
+    ;;
+    ;; This deals with cases like running PC-l-c-s on "M-: (n-f".
+    ;; The first call to PC-l-c-s expands this to "(ne-f", and moves
+    ;; point to the hyphen [1]. If one calls PC-l-c-s immediately after,
+    ;; then without the last-command check, one is offered all
+    ;; completions of "(ne", which is presumably not what one wants.
+    ;;
+    ;; This is arguably (at least, it seems to be the existing intended
+    ;; behaviour) what one _does_ want if point has been explicitly
+    ;; positioned on the hyphen. Note that if PC-do-completion (qv) binds
+    ;; completion-base-size to nil, then completion does not replace the
+    ;; correct amount of text in such cases.
+    ;;
+    ;; Neither of these problems occur when using PC for filenames in the
+    ;; minibuffer, because in that case PC-do-completion is called without
+    ;; an explicit value for END, and so uses (point-max). This is fine for
+    ;; a filename, because the end of the filename must be at the end of
+    ;; the minibuffer. The same is not true for lisp symbols.
+    ;;
+    ;; [1] An alternate fix would be to not move point to the hyphen
+    ;; in such cases, but that would make the behaviour different from
+    ;; that for filenames. It seems PC moves point to the site of the
+    ;; first difference between the possible completions.
+    ;;
+    ;; Alternatively alternatively, maybe end should be computed in
+    ;; the same way as beg. That would change the behaviour though.
+    (if (equal last-command 'PC-lisp-complete-symbol)
+        (PC-do-completion nil beg PC-lisp-complete-end t)
+      (if PC-lisp-complete-end
+          (move-marker PC-lisp-complete-end end)
+        (setq PC-lisp-complete-end (copy-marker end t)))
+      (PC-do-completion nil beg end t))))
 
 (defun PC-complete-as-file-name ()
    "Perform completion on file names preceding point.
@@ -762,16 +927,27 @@ or properties are considered."
      (goto-char end)
      (PC-do-completion nil beg end)))
 
-;;; Use the shell to do globbing.
-;;; This could now use file-expand-wildcards instead.
+;; Use the shell to do globbing.
+;; This could now use file-expand-wildcards instead.
 
 (defun PC-expand-many-files (name)
-  (save-excursion
-    (set-buffer (generate-new-buffer " *Glob Output*"))
+  (with-current-buffer (generate-new-buffer " *Glob Output*")
     (erase-buffer)
+    (when (and (file-name-absolute-p name)
+               (not (file-directory-p default-directory)))
+      ;; If the current working directory doesn't exist `shell-command'
+      ;; signals an error.  So if the file names we're looking for don't
+      ;; depend on the working directory, switch to a valid directory first.
+      (setq default-directory "/"))
     (shell-command (concat "echo " name) t)
     (goto-char (point-min))
-    (if (looking-at ".*No match")
+    ;; CSH-style shells were known to output "No match", whereas
+    ;; SH-style shells tend to simply output `name' when no match is found.
+    (if (looking-at (concat ".*No match\\|\\(^\\| \\)\\("
+			    (regexp-quote name)
+			    "\\|"
+			    (regexp-quote (expand-file-name name))
+			    "\\)\\( \\|$\\)"))
 	nil
       (insert "(\"")
       (while (search-forward " " nil t)
@@ -794,14 +970,21 @@ or properties are considered."
 			  "\\)\\'")))
 	(setq p nil)
 	(while files
-	  (or (string-match PC-ignored-regexp (car files))
+          ;; This whole process of going through to shell, to echo, and
+          ;; finally parsing the output is a hack.  It breaks as soon as
+          ;; there are spaces in the file names or when the no-match
+          ;; message changes.  To make up for it, we check that what we read
+          ;; indeed exists, so we may miss some files, but we at least won't
+          ;; list non-existent ones.
+	  (or (not (file-exists-p (car files)))
+	      (string-match PC-ignored-regexp (car files))
 	      (setq p (cons (car files) p)))
 	  (setq files (cdr files)))
 	p))))
 
-;;; Facilities for loading C header files.  This is independent from the
-;;; main completion code.  See also the variable `PC-include-file-path'
-;;; at top of this file.
+;; Facilities for loading C header files.  This is independent from the
+;; main completion code.  See also the variable `PC-include-file-path'
+;; at top of this file.
 
 (defun PC-look-for-include-file ()
   (if (string-match "[\"<]\\([^\"<>]*\\)[\">]?$" (buffer-file-name))
@@ -812,8 +995,7 @@ or properties are considered."
 	    new-buf)
 	(kill-buffer (current-buffer))
 	(if (equal name "")
-	    (save-excursion
-	      (set-buffer (car (buffer-list)))
+	    (with-current-buffer (car (buffer-list))
 	      (save-excursion
 		(beginning-of-line)
 		(if (looking-at
@@ -850,8 +1032,7 @@ or properties are considered."
 	      (if path
 		  (setq name (concat (file-name-as-directory (car path)) name))
 		(error "No such include file: <%s>" name)))
-	  (let ((dir (save-excursion
-		       (set-buffer (car (buffer-list)))
+	  (let ((dir (with-current-buffer (car (buffer-list))
 		       default-directory)))
 	    (if (file-exists-p (concat dir name))
 		(setq name (concat dir name))
@@ -860,8 +1041,7 @@ or properties are considered."
 	(if new-buf
 	    ;; no need to verify last-modified time for this!
 	    (set-buffer new-buf)
-	  (setq new-buf (create-file-buffer name))
-	  (set-buffer new-buf)
+	  (set-buffer (create-file-buffer name))
 	  (erase-buffer)
 	  (insert-file-contents name t))
 	;; Returning non-nil with the new buffer current
@@ -880,10 +1060,10 @@ or properties are considered."
 		env (substring env 0 pos)))
 	path)))
 
-;;; This is adapted from lib-complete.el, by Mike Williams.
+;; This is adapted from lib-complete.el, by Mike Williams.
 (defun PC-include-file-all-completions (file search-path &optional full)
   "Return all completions for FILE in any directory on SEARCH-PATH.
-If optional third argument FULL is non-nil, returned pathnames should be 
+If optional third argument FULL is non-nil, returned pathnames should be
 absolute rather than relative to some directory on the SEARCH-PATH."
   (setq search-path
 	(mapcar (lambda (dir)
@@ -893,7 +1073,7 @@ absolute rather than relative to some directory on the SEARCH-PATH."
       ;; It's an absolute file name, so don't need search-path
       (progn
 	(setq file (expand-file-name file))
-	(file-name-all-completions 
+	(file-name-all-completions
 	 (file-name-nondirectory file) (file-name-directory file)))
     (let ((subdir (file-name-directory file))
 	  (ndfile (file-name-nondirectory file))
@@ -911,9 +1091,9 @@ absolute rather than relative to some directory on the SEARCH-PATH."
 	  (if (file-directory-p dir)
 	      (progn
 		(setq file-lists
-		      (cons 
+		      (cons
 		       (mapcar (lambda (file) (concat subdir file))
-			       (file-name-all-completions ndfile 
+			       (file-name-all-completions ndfile
 							  (car search-path)))
 		       file-lists))))
 	  (setq search-path (cdr search-path))))
@@ -927,23 +1107,27 @@ absolute rather than relative to some directory on the SEARCH-PATH."
 	  (setq sorted (cdr sorted)))
 	compressed))))
 
-(defun PC-read-include-file-name-internal (string dir action)
-  (if (string-match "<\\([^\"<>]*\\)>?$" string)
-      (let* ((name (substring string (match-beginning 1) (match-end 1)))
+(defadvice read-file-name-internal (around PC-include-file disable)
+  (if (string-match "<\\([^\"<>]*\\)>?\\'" (ad-get-arg 0))
+      (let* ((string (ad-get-arg 0))
+             (action (ad-get-arg 2))
+             (name (match-string 1 string))
 	     (str2 (substring string (match-beginning 0)))
 	     (completion-table
-	      (mapcar (function (lambda (x) (list (format "<%s>" x))))
+	      (mapcar (lambda (x)
+                        (format (if (string-match "/\\'" x) "<%s" "<%s>") x))
 		      (PC-include-file-all-completions
 		       name (PC-include-file-path)))))
-	(cond
-	 ((not completion-table) nil)
-	 ((eq action nil) (try-completion str2 completion-table nil))
-	 ((eq action t) (all-completions str2 completion-table nil))
-	 ((eq action 'lambda)
-	  (eq (try-completion str2 completion-table nil) t))))
-    (funcall PC-old-read-file-name-internal string dir action)))
+        (setq ad-return-value
+              (cond
+               ((not completion-table) nil)
+               ((eq action 'lambda) (test-completion str2 completion-table nil))
+               ((eq action nil) (PC-try-completion str2 completion-table nil))
+               ((eq action t) (all-completions str2 completion-table nil)))))
+    ad-do-it))
 
 
 (provide 'complete)
 
+;; arch-tag: fc7e2768-ff44-4e22-b579-4d825b968458
 ;;; complete.el ends here

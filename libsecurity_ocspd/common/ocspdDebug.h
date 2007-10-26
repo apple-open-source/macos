@@ -36,5 +36,6 @@
 #define ocspdDebug(args...)			secdebug("ocspd", ## args)
 #define ocspdDbDebug(args...)		secdebug("ocspdDb", ## args)
 #define ocspdCrlDebug(args...)		secdebug("ocspdCrlDebug", ## args)
+#define ocspdTrustDebug(args...)     secdebug("ocspdTrustDebug", ## args)
 
 #endif	/* _OCSPD_DEBUGGING_H_ */

@@ -20,7 +20,12 @@
 
 #include "includes.h"
 
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#endif
+
 static void (*cont_fn)(void *);
+static pstring corepath;
 
 /*******************************************************************
 report a fault
@@ -33,10 +38,11 @@ static void fault_report(int sig)
 
 	counter++;
 
-	DEBUG(0,("===============================================================\n"));
+	DEBUGSEP(0);
 	DEBUG(0,("INTERNAL ERROR: Signal %d in pid %d (%s)",sig,(int)sys_getpid(),SAMBA_VERSION_STRING));
-	DEBUG(0,("\nPlease read the appendix Bugs of the Samba HOWTO collection\n"));
-	DEBUG(0,("===============================================================\n"));
+	DEBUG(0,("\nPlease read the Trouble-Shooting section of the Samba3-HOWTO\n"));
+	DEBUG(0,("\nFrom: http://www.samba.org/samba/docs/Samba3-HOWTO.pdf\n"));
+	DEBUGSEP(0);
   
 	smb_panic("internal error");
 
@@ -81,3 +87,112 @@ void fault_setup(void (*fn)(void *))
 	CatchSignal(SIGABRT,SIGNAL_CAST sig_fault);
 #endif
 }
+
+/*******************************************************************
+make all the preparations to safely dump a core file
+********************************************************************/
+
+void dump_core_setup(const char *progname)
+{
+	pstring logbase;
+	char * end;
+
+	if (lp_logfile() && *lp_logfile()) {
+		snprintf(logbase, sizeof(logbase), "%s", lp_logfile());
+		if ((end = strrchr_m(logbase, '/'))) {
+			*end = '\0';
+		}
+	} else {
+		/* We will end up here is the log file is given on the command
+		 * line by the -l option but the "log file" option is not set
+		 * in smb.conf.
+		 */
+		snprintf(logbase, sizeof(logbase), "%s", dyn_LOGFILEBASE);
+	}
+
+	SMB_ASSERT(progname != NULL);
+
+	snprintf(corepath, sizeof(corepath), "%s/cores", logbase);
+	mkdir(corepath,0700);
+
+	snprintf(corepath, sizeof(corepath), "%s/cores/%s",
+		logbase, progname);
+	mkdir(corepath,0700);
+
+	sys_chown(corepath,getuid(),getgid());
+	chmod(corepath,0700);
+
+#ifdef HAVE_GETRLIMIT
+#ifdef RLIMIT_CORE
+	{
+		struct rlimit rlp;
+		getrlimit(RLIMIT_CORE, &rlp);
+		rlp.rlim_cur = MAX(16*1024*1024,rlp.rlim_cur);
+		setrlimit(RLIMIT_CORE, &rlp);
+		getrlimit(RLIMIT_CORE, &rlp);
+		DEBUG(3,("Maximum core file size limits now %d(soft) %d(hard)\n",
+			 (int)rlp.rlim_cur,(int)rlp.rlim_max));
+	}
+#endif
+#endif
+
+#if defined(HAVE_PRCTL) && defined(PR_SET_DUMPABLE)
+	/* On Linux we lose the ability to dump core when we change our user
+	 * ID. We know how to dump core safely, so let's make sure we have our
+	 * dumpable flag set.
+	 */
+	prctl(PR_SET_DUMPABLE, 1);
+#endif
+
+	/* FIXME: if we have a core-plus-pid facility, configurably set
+	 * this up here.
+	 */
+}
+
+ void dump_core(void)
+{
+	/* Note that even if core dumping has been disabled, we still set up
+	 * the core path. This is to handle the case where core dumping is
+	 * turned on in smb.conf and the relevant daemon is not restarted.
+	 */
+	if (!lp_enable_core_files()) {
+		DEBUG(0, ("Exiting on internal error (core file administratively disabled)\n"));
+		exit(1);
+	}
+
+#if DUMP_CORE
+	/* If we're running as non root we might not be able to dump the core
+	 * file to the corepath.  There must not be an unbecome_root() before
+	 * we call abort(). */
+	if (geteuid() != 0) {
+		become_root();
+	}
+
+	if (*corepath != '\0') {
+		/* The chdir might fail if we dump core before we finish
+		 * processing the config file.
+		 */
+		if (chdir(corepath) != 0) {
+			DEBUG(0, ("unable to change to %s\n", corepath));
+			DEBUGADD(0, ("refusing to dump core\n"));
+			exit(1);
+		}
+
+		DEBUG(0,("dumping core in %s\n", corepath));
+	}
+
+	umask(~(0700));
+	dbgflush();
+
+	/* Ensure we don't have a signal handler for abort. */
+#ifdef SIGABRT
+	CatchSignal(SIGABRT,SIGNAL_CAST SIG_DFL);
+#endif
+
+	abort();
+
+#else /* DUMP_CORE */
+	exit(1);
+#endif /* DUMP_CORE */
+}
+

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapindex.c,v 1.1.2.1 2004/03/17 20:59:57 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapindex.c,v 1.1.4.2 2006/01/03 22:16:16 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *

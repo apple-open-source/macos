@@ -17,13 +17,12 @@
 
 #if !defined(lint) && !defined(LINT)
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/cron/cron/do_command.c,v 1.20 2001/03/17 00:21:54 peter Exp $";
+  "$FreeBSD: src/usr.sbin/cron/cron/do_command.c,v 1.26 2006/06/11 21:13:49 maxim Exp $";
 #endif
 
 
 #include "cron.h"
 #include <sys/signal.h>
-#include <stdlib.h>
 #if defined(sequent)
 # include <sys/universe.h>
 #endif
@@ -34,6 +33,8 @@ static const char rcsid[] =
 # include <login_cap.h>
 #endif
 
+#ifdef __APPLE__
+#include <stdlib.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPM.h>
@@ -44,7 +45,10 @@ static const char rcsid[] =
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach/mach_init.h>        /* for bootstrap_port */
- 
+#include <vproc.h>
+#include <vproc_priv.h>
+#endif /* __APPLE__ */
+
 static void		child_process __P((entry *, user *)),
 			do_univ __P((user *));
 
@@ -54,6 +58,7 @@ do_command(e, u)
 	entry	*e;
 	user	*u;
 {
+#ifdef __APPLE__
 	CFArrayRef cfarray;
 	static mach_port_t master = 0;
 	static io_connect_t pmcon = 0;
@@ -81,6 +86,10 @@ do_command(e, u)
 			} 
 		}
 	}
+#else
+	Debug(DPROC, ("[%d] do_command(%s, (%s,%d,%d))\n",
+		getpid(), e->cmd, u->name, e->uid, e->gid))
+#endif
 
 	/* fork to become asynchronous -- parent process is done immediately,
 	 * and continues to run the normal cron code, which means return to
@@ -95,7 +104,7 @@ do_command(e, u)
 		break;
 	case 0:
 		/* child process */
-		acquire_daemonlock(1);
+		pidfile_close(pfh);
 		child_process(e, u);
 		Debug(DPROC, ("[%d] child process done, exiting\n", getpid()))
 		_exit(OK_EXIT);
@@ -114,14 +123,17 @@ child_process(e, u)
 	user	*u;
 {
 	int		stdin_pipe[2], stdout_pipe[2];
-	char		*input_data;
-	char		*mailto;
-	int		children = 0;
+	register char	*input_data;
+	char		*usernm, *mailto;
+#ifdef __APPLE__
 	uid_t		uid = -1;
 	gid_t		gid = -1;
 	struct passwd	*pwd;
+#endif
+	int		children = 0;
 # if defined(LOGIN_CAP)
-	login_cap_t *lc = NULL;
+	struct passwd	*pwd;
+	login_cap_t *lc;
 # endif
 
 	Debug(DPROC, ("[%d] child_process('%s')\n", getpid(), e->cmd))
@@ -129,10 +141,19 @@ child_process(e, u)
 	/* mark ourselves as different to PS command watchers by upshifting
 	 * our program name.  This has no effect on some kernels.
 	 */
+#ifdef __APPLE__
 	setprogname("running job");
+#else
+	setproctitle("running job");
+#endif
 
 	/* discover some useful and important environment settings
 	 */
+#ifdef __APPLE__
+	usernm = e->uname;
+#else
+	usernm = env_get("LOGNAME", e->envp);
+#endif
 	mailto = env_get("MAILTO", e->envp);
 
 #ifdef USE_SIGCHLD
@@ -194,14 +215,27 @@ child_process(e, u)
 
 	/* fork again, this time so we can exec the user's command.
 	 */
+#ifdef __APPLE__
 	switch (fork()) {
+#else
+	switch (vfork()) {
+#endif
 	case -1:
-		log_it("CRON",getpid(),"error","can't fork");
+		log_it("CRON",getpid(),"error","can't vfork");
 		exit(ERROR_EXIT);
 		/*NOTREACHED*/
 	case 0:
-		Debug(DPROC, ("[%d] grandchild process fork()'ed\n",
+		Debug(DPROC, ("[%d] grandchild process Vfork()'ed\n",
 			      getpid()))
+
+#ifndef __APPLE__
+		if (e->uid == ROOT_UID)
+			Jitter = RootJitter;
+		if (Jitter != 0) {
+			srandom(getpid());
+			sleep(random() % Jitter);
+		}
+#endif
 
 		/* write a log message.  we've waited this long to do it
 		 * because it was not until now that we knew the PID that
@@ -211,7 +245,7 @@ child_process(e, u)
 		/*local*/{
 			char *x = mkprints((u_char *)e->cmd, strlen(e->cmd));
 
-			log_it(e->uname, getpid(), "CMD", x);
+			log_it(usernm, getpid(), "CMD", x);
 			free(x);
 		}
 
@@ -252,6 +286,11 @@ child_process(e, u)
 		 */
 		do_univ(u);
 
+#ifdef __APPLE__
+		/* move into background session */
+		 if (_vprocmgr_move_subset_to_user(geteuid(), VPROCMGR_SESSION_BACKGROUND) != NULL)
+		   warn("can't migrate to background session");
+
 		/* Set user's entire context, but skip the environment
 		 * as cron provides a separate interface for this
 		 */
@@ -286,12 +325,21 @@ child_process(e, u)
 				_exit(ERROR_EXIT);
 			}
 		}
-
+#endif /* __APPLE__ */
 # if defined(LOGIN_CAP)
-		if (e->class != NULL)
-			lc = login_getclass(e->class);
-
-		if (setusercontext(lc, pwd, uid,
+		/* Set user's entire context, but skip the environment
+		 * as cron provides a separate interface for this
+		 */
+		if ((pwd = getpwnam(usernm)) == NULL)
+			pwd = getpwuid(e->uid);
+		lc = NULL;
+		if (pwd != NULL) {
+			pwd->pw_gid = e->gid;
+			if (e->class != NULL)
+				lc = login_getclass(e->class);
+		}
+		if (pwd &&
+		    setusercontext(lc, pwd, e->uid,
 			    LOGIN_SETALL & ~(LOGIN_SETPATH|LOGIN_SETENV)) == 0)
 			(void) endpwent();
 		else {
@@ -299,21 +347,48 @@ child_process(e, u)
 			(void) endpwent();
 # endif
 			/* set our directory, uid and gid.  Set gid first,
-			 * since once we set uid, we've lost root privledges.
+			 * since once we set uid, we've lost root privileges.
 			 */
-			setgid(gid);
+#ifdef __APPLE__
+			if (setgid(gid) != 0) {
+#else
+			if (setgid(e->gid) != 0) {
+#endif
+				log_it(usernm, getpid(),
+				    "error", "setgid failed");
+				exit(ERROR_EXIT);
+			}
 # if defined(BSD)
-			initgroups(e->uname, gid);
+#ifdef __APPLE__
+			if (initgroups(usernm, gid) != 0) {
+#else
+			if (initgroups(usernm, e->gid) != 0) {
+#endif
+				log_it(usernm, getpid(),
+				    "error", "initgroups failed");
+				exit(ERROR_EXIT);
+			}
 # endif
-			setlogin(e->uname);
-			setuid(uid);		/* we aren't root after this..*/
+			if (setlogin(usernm) != 0) {
+				log_it(usernm, getpid(),
+				    "error", "setlogin failed");
+				exit(ERROR_EXIT);
+			}
+#ifdef __APPLE__
+			if (setuid(uid) != 0) {
+#else
+			if (setuid(e->uid) != 0) {
+#endif
+				log_it(usernm, getpid(),
+				    "error", "setuid failed");
+				exit(ERROR_EXIT);
+			}
+			/* we aren't root after this..*/
 #if defined(LOGIN_CAP)
 		}
 		if (lc != NULL)
 			login_close(lc);
 #endif
-
-
 		chdir(env_get("HOME", e->envp));
 
 		/* exec the command.
@@ -434,13 +509,14 @@ child_process(e, u)
 
 	/*local*/{
 		register FILE	*in = fdopen(stdout_pipe[READ_PIPE], "r");
-		register int	ch = getc(in);
+		register int	ch;
 
 		if (in == NULL) {
 			warn("fdopen failed in child");
 			_exit(ERROR_EXIT);
 		}
 
+		ch = getc(in);
 		if (ch != EOF) {
 			register FILE	*mail = NULL;
 			register int	bytes = 1;
@@ -464,7 +540,7 @@ child_process(e, u)
 			} else {
 				/* MAILTO not present, set to USER.
 				 */
-				mailto = e->uname;
+				mailto = usernm;
 			}
 
 			/* if we are supposed to be mailing, MAILTO will
@@ -484,10 +560,10 @@ child_process(e, u)
 					warn("%s", MAILCMD);
 					(void) _exit(ERROR_EXIT);
 				}
-				fprintf(mail, "From: %s (Cron Daemon)\n", e->uname);
+				fprintf(mail, "From: %s (Cron Daemon)\n", usernm);
 				fprintf(mail, "To: %s\n", mailto);
 				fprintf(mail, "Subject: Cron <%s@%s> %s\n",
-					e->uname, first_word(hostname, "."),
+					usernm, first_word(hostname, "."),
 					e->cmd);
 # if defined(MAIL_DATE)
 				fprintf(mail, "Date: %s\n",
@@ -541,7 +617,7 @@ child_process(e, u)
 			"mailed %d byte%s of output but got status 0x%04x\n",
 					bytes, (bytes==1)?"":"s",
 					status);
-				log_it(e->uname, getpid(), "MAIL", buf);
+				log_it(usernm, getpid(), "MAIL", buf);
 			}
 
 		} /*if data from grandchild*/
@@ -579,6 +655,9 @@ static void
 do_univ(u)
 	user	*u;
 {
+#ifdef __APPLE__
+	u = u; // avoid unused argument warning
+#endif
 #if defined(sequent)
 /* Dynix (Sequent) hack to put the user associated with
  * the passed user structure into the ATT universe if

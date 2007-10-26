@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: DLLMain.c,v 1.1.222.3 2004/03/08 09:04:28 marka Exp $ */
+/* $Id: DLLMain.c,v 1.2 2004/03/05 05:09:14 marka Exp $ */
 
 #include <windows.h>
 #include <signal.h>

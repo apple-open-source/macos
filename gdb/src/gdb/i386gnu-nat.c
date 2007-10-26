@@ -1,5 +1,6 @@
 /* Low level interface to i386 running the GNU Hurd.
-   Copyright 1992, 1995, 1996, 1998, 2000, 2001
+
+   Copyright 1992, 1995, 1996, 1998, 2000, 2001, 2004
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -27,6 +28,7 @@
 #include "gdb_assert.h"
 #include <errno.h>
 #include <stdio.h>
+#include "gdb_string.h"
 
 #include <mach.h>
 #include <mach_error.h>
@@ -59,8 +61,9 @@ static int reg_offset[] =
 #define REG_ADDR(state, regnum) ((char *)(state) + reg_offset[regnum])
 
 
-/* Get the whole floating-point state of THREAD and record the
-   values of the corresponding (pseudo) registers.  */
+/* Get the whole floating-point state of THREAD and record the values
+   of the corresponding (pseudo) registers.  */
+
 static void
 fetch_fpregs (struct proc *thread)
 {
@@ -72,24 +75,21 @@ fetch_fpregs (struct proc *thread)
 			  (thread_state_t) &state, &count);
   if (err)
     {
-      warning ("Couldn't fetch floating-point state from %s",
+      warning (_("Couldn't fetch floating-point state from %s"),
 	       proc_string (thread));
       return;
     }
 
   if (!state.initialized)
-    /* The floating-point state isn't initialized.  */
     {
-      int i;
-
-      for (i = FP0_REGNUM; i <= FOP_REGNUM; i++)
-	supply_register (i, NULL);
-
-      return;
+      /* The floating-point state isn't initialized.  */
+      i387_supply_fsave (current_regcache, -1, NULL);
     }
-
-  /* Supply the floating-point registers.  */
-  i387_supply_fsave (current_regcache, -1, state.hw_state);
+  else
+    {
+      /* Supply the floating-point registers.  */
+      i387_supply_fsave (current_regcache, -1, state.hw_state);
+    }
 }
 
 #ifdef HAVE_SYS_PROCFS_H
@@ -100,7 +100,7 @@ supply_gregset (gdb_gregset_t *gregs)
 {
   int i;
   for (i = 0; i < I386_NUM_GREGS; i++)
-    supply_register (i, REG_ADDR (gregs, i));
+    regcache_raw_supply (current_regcache, i, REG_ADDR (gregs, i));
 }
 
 void
@@ -121,7 +121,7 @@ gnu_fetch_registers (int regno)
 
   thread = inf_tid_to_thread (current_inferior, PIDGET (inferior_ptid));
   if (!thread)
-    error ("Can't fetch registers from thread %d: No such thread",
+    error (_("Can't fetch registers from thread %d: No such thread"),
 	   PIDGET (inferior_ptid));
 
   if (regno < I386_NUM_GREGS || regno == -1)
@@ -132,7 +132,7 @@ gnu_fetch_registers (int regno)
       state = proc_get_state (thread, 0);
       if (!state)
 	{
-	  warning ("Couldn't fetch registers from %s",
+	  warning (_("Couldn't fetch registers from %s"),
 		   proc_string (thread));
 	  return;
 	}
@@ -144,14 +144,15 @@ gnu_fetch_registers (int regno)
 	  proc_debug (thread, "fetching all register");
 
 	  for (i = 0; i < I386_NUM_GREGS; i++)
-	    supply_register (i, REG_ADDR (state, i));
+	    regcache_raw_supply (current_regcache, i, REG_ADDR (state, i));
 	  thread->fetched_regs = ~0;
 	}
       else
 	{
 	  proc_debug (thread, "fetching register %s", REGISTER_NAME (regno));
 
-	  supply_register (regno, REG_ADDR (state, regno));
+	  regcache_raw_supply (current_regcache, regno,
+			       REG_ADDR (state, regno));
 	  thread->fetched_regs |= (1 << regno);
 	}
     }
@@ -178,7 +179,7 @@ store_fpregs (struct proc *thread, int regno)
 			  (thread_state_t) &state, &count);
   if (err)
     {
-      warning ("Couldn't fetch floating-point state from %s",
+      warning (_("Couldn't fetch floating-point state from %s"),
 	       proc_string (thread));
       return;
     }
@@ -191,7 +192,7 @@ store_fpregs (struct proc *thread, int regno)
 			  (thread_state_t) &state, i386_FLOAT_STATE_COUNT);
   if (err)
     {
-      warning ("Couldn't store floating-point state into %s",
+      warning (_("Couldn't store floating-point state into %s"),
 	       proc_string (thread));
       return;
     }
@@ -201,6 +202,7 @@ store_fpregs (struct proc *thread, int regno)
 void
 gnu_store_registers (int regno)
 {
+  struct regcache *regcache = current_regcache;
   struct proc *thread;
 
   /* Make sure we know about new threads.  */
@@ -208,7 +210,7 @@ gnu_store_registers (int regno)
 
   thread = inf_tid_to_thread (current_inferior, PIDGET (inferior_ptid));
   if (!thread)
-    error ("Couldn't store registers into thread %d: No such thread",
+    error (_("Couldn't store registers into thread %d: No such thread"),
 	   PIDGET (inferior_ptid));
 
   if (regno < I386_NUM_GREGS || regno == -1)
@@ -225,7 +227,7 @@ gnu_store_registers (int regno)
       state = proc_get_state (thread, 1);
       if (!state)
 	{
-	  warning ("Couldn't store registers into %s", proc_string (thread));
+	  warning (_("Couldn't store registers into %s"), proc_string (thread));
 	  return;
 	}
 
@@ -242,22 +244,19 @@ gnu_store_registers (int regno)
 	    if ((thread->fetched_regs & (1 << check_regno))
 		&& memcpy (REG_ADDR (&old_state, check_regno),
 			   REG_ADDR (state, check_regno),
-			   DEPRECATED_REGISTER_RAW_SIZE (check_regno)))
+			   register_size (current_gdbarch, check_regno)))
 	      /* Register CHECK_REGNO has changed!  Ack!  */
 	      {
-		warning ("Register %s changed after the thread was aborted",
+		warning (_("Register %s changed after the thread was aborted"),
 			 REGISTER_NAME (check_regno));
 		if (regno >= 0 && regno != check_regno)
 		  /* Update GDB's copy of the register.  */
-		  supply_register (check_regno, REG_ADDR (state, check_regno));
+		  regcache_raw_supply (regcache, check_regno,
+				       REG_ADDR (state, check_regno));
 		else
-		  warning ("... also writing this register!  Suspicious...");
+		  warning (_("... also writing this register!  Suspicious..."));
 	      }
 	}
-
-#define fill(state, regno)                                               \
-  memcpy (REG_ADDR(state, regno), &deprecated_registers[DEPRECATED_REGISTER_BYTE (regno)],     \
-          DEPRECATED_REGISTER_RAW_SIZE (regno))
 
       if (regno == -1)
 	{
@@ -266,23 +265,21 @@ gnu_store_registers (int regno)
 	  proc_debug (thread, "storing all registers");
 
 	  for (i = 0; i < I386_NUM_GREGS; i++)
-	    if (deprecated_register_valid[i])
-	      fill (state, i);
+	    if (regcache_valid_p (regcache, i))
+	      regcache_raw_collect (regcache, i, REG_ADDR (state, i));
 	}
       else
 	{
 	  proc_debug (thread, "storing register %s", REGISTER_NAME (regno));
 
-	  gdb_assert (deprecated_register_valid[regno]);
-	  fill (state, regno);
+	  gdb_assert (regcache_valid_p (regcache, regno));
+	  regcache_raw_collect (regcache, regno, REG_ADDR (state, regno));
 	}
 
       /* Restore the T bit.  */
       ((struct i386_thread_state *)state)->efl &= ~0x100;
       ((struct i386_thread_state *)state)->efl |= trace;
     }
-
-#undef fill
 
   if (regno >= I386_NUM_GREGS || regno == -1)
     {

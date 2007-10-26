@@ -1,0 +1,12 @@
+這是一封 Mailman 電子論壇退信通知 :
+
+    List(論壇):       %(listname)s
+    Member(會員):       %(addr)s
+    Action(動作):       訂閱 %(negative)s%(did)s.
+    Reason(理由):       退信次數太多.
+    %(but)s
+
+%(reenable)s
+退信的通知內容如下.
+
+有任何疑問請逕洽 Mailman 總壇主 %(owneraddr)s.

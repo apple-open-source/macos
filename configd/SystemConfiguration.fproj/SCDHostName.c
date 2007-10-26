@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,9 +31,16 @@
  * - initial revision
  */
 
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFStringDefaultEncoding.h>	// for __CFStringGetUserDefaultEncoding
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
+
+
+#pragma mark ComputerName
+
 
 CFStringRef
 SCDynamicStoreKeyCreateComputerName(CFAllocatorRef allocator)
@@ -137,9 +144,22 @@ SCPreferencesSetComputerName(SCPreferencesRef	prefs,
 
 	CFDictionarySetValue(newDict, kSCPropSystemComputerName, name);
 
-	num = CFNumberCreate(NULL, kCFNumberIntType, &encoding);
+	num = CFNumberCreate(NULL, kCFNumberSInt32Type, &encoding);
 	CFDictionarySetValue(newDict, kSCPropSystemComputerNameEncoding, num);
 	CFRelease(num);
+
+	CFDictionaryRemoveValue(newDict, kSCPropSystemComputerNameRegion);
+	if (encoding == kCFStringEncodingMacRoman) {
+		UInt32	userEncoding	= 0;
+		UInt32	userRegion	= 0;
+
+		__CFStringGetUserDefaultEncoding(&userEncoding, &userRegion);
+		if ((userEncoding == kCFStringEncodingMacRoman) && (userRegion != 0)) {
+			num = CFNumberCreate(NULL, kCFNumberSInt32Type, &userRegion);
+			CFDictionarySetValue(newDict, kSCPropSystemComputerNameRegion, num);
+			CFRelease(num);
+		}
+	}
 
 	ok = SCPreferencesPathSetValue(prefs, path, newDict);
 
@@ -150,9 +170,8 @@ SCPreferencesSetComputerName(SCPreferencesRef	prefs,
 }
 
 
-#ifndef	kSCPropNetHostName
-#define	kSCPropNetHostName	CFSTR("HostName")
-#endif
+#pragma mark -
+#pragma mark HostName
 
 
 CFStringRef
@@ -175,7 +194,7 @@ SCPreferencesGetHostName(SCPreferencesRef	prefs)
 		return NULL;
 	}
 
-	name = isA_CFString(CFDictionaryGetValue(dict, kSCPropNetHostName));
+	name = isA_CFString(CFDictionaryGetValue(dict, kSCPropSystemHostName));
 	if (name == NULL) {
 		_SCErrorSet(kSCStatusNoKey);
 		return NULL;
@@ -225,9 +244,9 @@ SCPreferencesSetHostName(SCPreferencesRef	prefs,
 	}
 
 	if (name != NULL) {
-		CFDictionarySetValue(newDict, kSCPropNetHostName, name);
+		CFDictionarySetValue(newDict, kSCPropSystemHostName, name);
 	} else {
-		CFDictionaryRemoveValue(newDict, kSCPropNetHostName);
+		CFDictionaryRemoveValue(newDict, kSCPropSystemHostName);
 	}
 
 	if (CFDictionaryGetCount(newDict) > 0) {
@@ -241,6 +260,10 @@ SCPreferencesSetHostName(SCPreferencesRef	prefs,
 
 	return ok;
 }
+
+
+#pragma mark -
+#pragma mark LocalHostName
 
 
 CFStringRef
@@ -346,6 +369,7 @@ _SC_stringIsValidDNSName(const char *name)
 	return TRUE;
 }
 
+
 Boolean
 _SC_CFStringIsValidDNSName(CFStringRef name)
 {
@@ -434,4 +458,19 @@ SCPreferencesSetLocalHostName(SCPreferencesRef	prefs,
 	CFRelease(newDict);
 
 	return ok;
+}
+
+
+Boolean
+_SC_CFStringIsValidNetBIOSName(CFStringRef name)
+{
+	if (!isA_CFString(name)) {
+		return FALSE;
+	}
+
+	if (CFStringGetLength(name) > 15) {
+		return FALSE;
+	}
+
+	return TRUE;
 }

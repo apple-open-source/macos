@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 
 """The class representing a Mailman mailing list.
@@ -38,6 +39,7 @@ from types import *
 
 import email.Iterators
 from email.Utils import getaddresses, formataddr, parseaddr
+from email.Header import Header
 
 from Mailman import mm_cfg
 from Mailman import Utils
@@ -194,14 +196,39 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
     def GetOwnerEmail(self):
         return self.getListAddress('owner')
 
-    def GetRequestEmail(self):
-        return self.getListAddress('request')
+    def GetRequestEmail(self, cookie=''):
+        if mm_cfg.VERP_CONFIRMATIONS and cookie:
+            return self.GetConfirmEmail(cookie)
+        else:
+            return self.getListAddress('request')
 
     def GetConfirmEmail(self, cookie):
         return mm_cfg.VERP_CONFIRM_FORMAT % {
             'addr'  : '%s-confirm' % self.internal_name(),
             'cookie': cookie,
             } + '@' + self.host_name
+
+    def GetConfirmJoinSubject(self, listname, cookie):
+        if mm_cfg.VERP_CONFIRMATIONS and cookie:
+            cset = i18n.get_translation().charset() or \
+                       Utils.GetCharSet(self.preferred_language)
+            subj = Header(
+     _('Your confirmation is required to join the %(listname)s mailing list'),
+                          cset, header_name='subject')
+            return subj
+        else:
+            return 'confirm ' + cookie
+
+    def GetConfirmLeaveSubject(self, listname, cookie):
+        if mm_cfg.VERP_CONFIRMATIONS and cookie:
+            cset = i18n.get_translation().charset() or \
+                       Utils.GetCharSet(self.preferred_language)
+            subj = Header(
+     _('Your confirmation is required to leave the %(listname)s mailing list'),
+                          cset, header_name='subject')
+            return subj
+        else:
+            return 'confirm ' + cookie
 
     def GetListEmail(self):
         return self.getListAddress()
@@ -335,7 +362,11 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         self.include_list_post_header = 1
         self.filter_mime_types = mm_cfg.DEFAULT_FILTER_MIME_TYPES
         self.pass_mime_types = mm_cfg.DEFAULT_PASS_MIME_TYPES
+        self.filter_filename_extensions = \
+            mm_cfg.DEFAULT_FILTER_FILENAME_EXTENSIONS
+        self.pass_filename_extensions = mm_cfg.DEFAULT_PASS_FILENAME_EXTENSIONS
         self.filter_content = mm_cfg.DEFAULT_FILTER_CONTENT
+        self.collapse_alternatives = mm_cfg.DEFAULT_COLLAPSE_ALTERNATIVES
         self.convert_html_to_plaintext = \
             mm_cfg.DEFAULT_CONVERT_HTML_TO_PLAINTEXT
         self.filter_action = mm_cfg.DEFAULT_FILTER_ACTION
@@ -358,6 +389,7 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         self.discard_these_nonmembers = []
         self.forward_auto_discards = mm_cfg.DEFAULT_FORWARD_AUTO_DISCARDS
         self.generic_nonmember_action = mm_cfg.DEFAULT_GENERIC_NONMEMBER_ACTION
+        self.nonmember_rejection_notice = ''
         # Ban lists
         self.ban_list = []
         # BAW: This should really be set in SecurityManager.InitVars()
@@ -382,6 +414,10 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
             self.encode_ascii_prefixes = 0
         else:
             self.encode_ascii_prefixes = 2
+        # scrub regular delivery
+        self.scrub_nondigest = mm_cfg.DEFAULT_SCRUB_NONDIGEST
+        # automatic discarding
+        self.max_days_to_hold = mm_cfg.DEFAULT_MAX_DAYS_TO_HOLD
 
 
     #
@@ -731,7 +767,10 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         """
         invitee = userdesc.address
         Utils.ValidateEmail(invitee)
-        requestaddr = self.GetRequestEmail()
+        # check for banned address
+        pattern = self.GetBannedPattern(invitee)
+        if pattern:
+            raise Errors.MembershipIsBanned, pattern
         # Hack alert!  Squirrel away a flag that only invitations have, so
         # that we can do something slightly different when an invitation
         # subscription is confirmed.  In those cases, we don't need further
@@ -739,6 +778,7 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         # list name to prevent invitees from cross-subscribing.
         userdesc.invitation = self.internal_name()
         cookie = self.pend_new(Pending.SUBSCRIPTION, userdesc)
+        requestaddr = self.getListAddress('request')
         confirmurl = '%s/%s' % (self.GetScriptURL('confirm', absolute=1),
                                 cookie)
         listname = self.real_name
@@ -752,17 +792,13 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
              'cookie'     : cookie,
              'listowner'  : self.GetOwnerEmail(),
              }, mlist=self)
-        if mm_cfg.VERP_CONFIRMATIONS:
-            subj = _(
-                'You have been invited to join the %(listname)s mailing list')
-            sender = self.GetConfirmEmail(cookie)
-        else:
-            # Do it the old fashioned way
-            subj = 'confirm ' + cookie
-            sender = requestaddr
+        sender = self.GetRequestEmail(cookie)
         msg = Message.UserNotification(
-            invitee, sender, subj,
-            text, lang=self.preferred_language)
+            invitee, sender,
+            text=text, lang=self.preferred_language)
+        subj = self.GetConfirmJoinSubject(listname, cookie)
+        del msg['subject']
+        msg['Subject'] = subj
         msg.send(self)
 
     def AddMember(self, userdesc, remote=None):
@@ -808,29 +844,13 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         if email.lower() == self.GetListEmail().lower():
             # Trying to subscribe the list to itself!
             raise Errors.MMBadEmailError
-
+        realname = self.real_name
         # Is the subscribing address banned from this list?
-        ban = 0
-        for pattern in self.ban_list:
-            if pattern.startswith('^'):
-                # This is a regular expression match
-                try:
-                    if re.search(pattern, email, re.IGNORECASE):
-                        ban = 1
-                        break
-                except re.error:
-                    # BAW: we should probably remove this pattern
-                    pass
-            else:
-                # Do the comparison case insensitively
-                if pattern.lower() == email.lower():
-                    ban = 1
-                    break
-        if ban:
-            syslog('vette', 'banned subscription: %s (matched: %s)',
-                   email, pattern)
+        pattern = self.GetBannedPattern(email)
+        if pattern:
+            syslog('vette', '%s banned subscription: %s (matched: %s)',
+                   realname, email, pattern)
             raise Errors.MembershipIsBanned, pattern
-
         # Sanity check the digest flag
         if digest and not self.digestable:
             raise Errors.MMCantDigestError
@@ -860,7 +880,6 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
                 remote = _(' from %(remote)s')
 
             recipient = self.GetMemberAdminEmail(email)
-            realname = self.real_name
             confirmurl = '%s/%s' % (self.GetScriptURL('confirm', absolute=1),
                                     cookie)
             text = Utils.maketext(
@@ -869,26 +888,22 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
                  'listaddr'    : self.GetListEmail(),
                  'listname'    : realname,
                  'cookie'      : cookie,
-                 'requestaddr' : self.GetRequestEmail(),
+                 'requestaddr' : self.getListAddress('request'),
                  'remote'      : remote,
                  'listadmin'   : self.GetOwnerEmail(),
                  'confirmurl'  : confirmurl,
                  }, lang=lang, mlist=self)
             msg = Message.UserNotification(
-                recipient, self.GetRequestEmail(),
+                recipient, self.GetRequestEmail(cookie),
                 text=text, lang=lang)
             # BAW: See ChangeMemberAddress() for why we do it this way...
             del msg['subject']
-            msg['Subject'] = 'confirm ' + cookie
-            msg['Reply-To'] = self.GetRequestEmail()
+            msg['Subject'] = self.GetConfirmJoinSubject(realname, cookie)
+            msg['Reply-To'] = self.GetRequestEmail(cookie)
             msg.send(self)
-            # Encode name for printing
-            if isinstance(name, UnicodeType):
-                a_name = name.encode('utf8')
-            else:
-                a_name = name
+            who = formataddr((name, email))
             syslog('subscribe', '%s: pending %s %s',
-                   self.internal_name(), formataddr((a_name, email)), by)
+                   self.internal_name(), who, by)
             raise Errors.MMSubscribeNeedsConfirmation
         else:
             # Subscription approval is required.  Add this entry to the admin
@@ -936,6 +951,11 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         Utils.ValidateEmail(email)
         if self.isMember(email):
             raise Errors.MMAlreadyAMember, email
+        # Check for banned address here too for admin mass subscribes
+        # and confirmations.
+        pattern = self.GetBannedPattern(email)
+        if pattern:
+            raise Errors.MembershipIsBanned, pattern
         # Do the actual addition
         self.addNewMember(email, realname=name, digest=digest,
                           password=password, language=lang)
@@ -948,13 +968,8 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
             kind = ' (digest)'
         else:
             kind = ''
-        # Encode name for printing
-        if isinstance(name, UnicodeType):
-            a_name = name.encode('utf8')
-        else:
-            a_name = name
         syslog('subscribe', '%s: new%s %s, %s', self.internal_name(),
-               kind, formataddr((a_name, email)), whence)
+               kind, formataddr((name, email)), whence)
         if ack:
             self.SendSubscribeAck(email, self.getMemberPassword(email),
                                   digest, text)
@@ -1053,12 +1068,21 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
             raise Errors.MMAlreadyAMember
         if newaddr == self.GetListEmail().lower():
             raise Errors.MMBadEmailError
+        realname = self.real_name
+        # Don't allow changing to a banned address. MAS: maybe we should
+        # unsubscribe the oldaddr too just for trying, but that's probably
+        # too harsh.
+        pattern = self.GetBannedPattern(newaddr)
+        if pattern:
+            syslog('vette',
+                   '%s banned address change: %s -> %s (matched: %s)',
+                   realname, oldaddr, newaddr, pattern)
+            raise Errors.MembershipIsBanned, pattern
         # Pend the subscription change
         cookie = self.pend_new(Pending.CHANGE_OF_ADDRESS,
                                oldaddr, newaddr, globally)
         confirmurl = '%s/%s' % (self.GetScriptURL('confirm', absolute=1),
                                 cookie)
-        realname = self.real_name
         lang = self.getMemberLanguage(oldaddr)
         text = Utils.maketext(
             'verify.txt',
@@ -1066,7 +1090,7 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
              'listaddr'   : self.GetListEmail(),
              'listname'   : realname,
              'cookie'     : cookie,
-             'requestaddr': self.GetRequestEmail(),
+             'requestaddr': self.getListAddress('request'),
              'remote'     : '',
              'listadmin'  : self.GetOwnerEmail(),
              'confirmurl' : confirmurl,
@@ -1079,18 +1103,25 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         # Subject: in a separate step, although we have to delete the one
         # UserNotification adds.
         msg = Message.UserNotification(
-            newaddr, self.GetRequestEmail(),
+            newaddr, self.GetRequestEmail(cookie),
             text=text, lang=lang)
         del msg['subject']
-        msg['Subject'] = 'confirm ' + cookie
-        msg['Reply-To'] = self.GetRequestEmail()
+        msg['Subject'] = self.GetConfirmJoinSubject(realname, cookie)
+        msg['Reply-To'] = self.GetRequestEmail(cookie)
         msg.send(self)
 
     def ApprovedChangeMemberAddress(self, oldaddr, newaddr, globally):
+        # Check here for banned address in case address was banned after
+        # confirmation was mailed. MAS: If it's global change should we just
+        # skip this list and proceed to the others? For now we'll throw the
+        # exception.
+        pattern = self.GetBannedPattern(newaddr)
+        if pattern:
+            raise Errors.MembershipIsBanned, pattern
         # It's possible they were a member of this list, but choose to change
         # their membership globally.  In that case, we simply remove the old
         # address.
-        if self.isMember(newaddr):
+        if self.getMemberCPAddress(oldaddr) == newaddr:
             self.removeMember(oldaddr)
         else:
             self.changeMemberAddress(oldaddr, newaddr)
@@ -1107,10 +1138,13 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
                 continue
             if not mlist.isMember(oldaddr):
                 continue
+            # If new address is banned from this list, just skip it.
+            if mlist.GetBannedPattern(newaddr):
+                continue
             mlist.Lock()
             try:
                 # Same logic as above, re newaddr is already a member
-                if mlist.isMember(newaddr):
+                if mlist.getMemberCPAddress(oldaddr) == newaddr:
                     mlist.removeMember(oldaddr)
                 else:
                     mlist.changeMemberAddress(oldaddr, newaddr)
@@ -1265,18 +1299,18 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
              'listaddr'    : self.GetListEmail(),
              'listname'    : realname,
              'cookie'      : cookie,
-             'requestaddr' : self.GetRequestEmail(),
+             'requestaddr' : self.getListAddress('request'),
              'remote'      : remote,
              'listadmin'   : self.GetOwnerEmail(),
              'confirmurl'  : confirmurl,
              }, lang=lang, mlist=self)
         msg = Message.UserNotification(
-            addr, self.GetRequestEmail(),
+            addr, self.GetRequestEmail(cookie),
             text=text, lang=lang)
             # BAW: See ChangeMemberAddress() for why we do it this way...
         del msg['subject']
-        msg['Subject'] = 'confirm ' + cookie
-        msg['Reply-To'] = self.GetRequestEmail()
+        msg['Subject'] = self.GetConfirmLeaveSubject(realname, cookie)
+        msg['Reply-To'] = self.GetRequestEmail(cookie)
         msg.send(self)
 
 
@@ -1285,20 +1319,19 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
     #
     def HasExplicitDest(self, msg):
         """True if list name or any acceptable_alias is included among the
-        to or cc addrs."""
-        # BAW: fall back to Utils.ParseAddr if the first test fails.
-        # this is the list's full address
+        addresses in the recipient headers.
+        """
+        # This is the list's full address.
         listfullname = '%s@%s' % (self.internal_name(), self.host_name)
         recips = []
-        # check all recipient addresses against the list's explicit addresses,
+        # Check all recipient addresses against the list's explicit addresses,
         # specifically To: Cc: and Resent-to:
         to = []
         for header in ('to', 'cc', 'resent-to', 'resent-cc'):
             to.extend(getaddresses(msg.get_all(header, [])))
         for fullname, addr in to:
-            # It's possible that if the header doesn't have a valid
-            # (i.e. RFC822) value, we'll get None for the address.  So skip
-            # it.
+            # It's possible that if the header doesn't have a valid RFC 2822
+            # value, we'll get None for the address.  So skip it.
             if addr is None:
                 continue
             addr = addr.lower()
@@ -1307,40 +1340,39 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
                     localpart == self.internal_name() or
                     # exact match against the complete list address
                     addr == listfullname):
-                return 1
+                return True
             recips.append((addr, localpart))
-        #
-        # helper function used to match a pattern against an address.  Do it
+        # Helper function used to match a pattern against an address.
         def domatch(pattern, addr):
             try:
-                if re.match(pattern, addr):
-                    return 1
+                if re.match(pattern, addr, re.IGNORECASE):
+                    return True
             except re.error:
                 # The pattern is a malformed regexp -- try matching safely,
                 # with all non-alphanumerics backslashed:
-                if re.match(re.escape(pattern), addr):
-                    return 1
-        #
+                if re.match(re.escape(pattern), addr, re.IGNORECASE):
+                    return True
+            return False
         # Here's the current algorithm for matching acceptable_aliases:
         #
         # 1. If the pattern does not have an `@' in it, we first try matching
         #    it against just the localpart.  This was the behavior prior to
-        #    2.0beta3, and is kept for backwards compatibility.
-        #    (deprecated).
+        #    2.0beta3, and is kept for backwards compatibility.  (deprecated).
         #
         # 2. If that match fails, or the pattern does have an `@' in it, we
         #    try matching against the entire recip address.
+        aliases = self.acceptable_aliases.splitlines()
         for addr, localpart in recips:
-            for alias in self.acceptable_aliases.split('\n'):
+            for alias in aliases:
                 stripped = alias.strip()
                 if not stripped:
-                    # ignore blank or empty lines
+                    # Ignore blank or empty lines
                     continue
                 if '@' not in stripped and domatch(stripped, localpart):
-                    return 1
+                    return True
                 if domatch(stripped, addr):
-                    return 1
-        return 0
+                    return True
+        return False
 
     def parse_matching_header_opt(self):
         """Return a list of triples [(field name, regex, line), ...]."""
@@ -1387,13 +1419,17 @@ bad regexp in bounce_matching_header line: %s
                     return line
         return 0
 
-    def autorespondToSender(self, sender):
+    def autorespondToSender(self, sender, lang=None):
         """Return true if Mailman should auto-respond to this sender.
 
         This is only consulted for messages sent to the -request address, or
         for posting hold notifications, and serves only as a safety value for
         mail loops with email 'bots.
         """
+        # language setting
+        if lang == None:
+            lang = self.preferred_language
+        i18n.set_language(lang)
         # No limit
         if mm_cfg.MAX_AUTORESPONSES_PER_DAY == 0:
             return 1
@@ -1421,15 +1457,41 @@ bad regexp in bounce_matching_header line: %s
                  'listname': '%s@%s' % (self.real_name, self.host_name),
                  'num' : count,
                  'owneremail': self.GetOwnerEmail(),
-                 })
+                 },
+                lang=lang)
             msg = Message.UserNotification(
                 sender, self.GetOwnerEmail(),
                 _('Last autoresponse notification for today'),
-                text)
+                text, lang=lang)
             msg.send(self)
             return 0
         self.hold_and_cmd_autoresponses[sender] = (today, count+1)
         return 1
+
+    def GetBannedPattern(self, email):
+        """Returns matched entry in ban_list if email matches.
+        Otherwise returns None.
+        """
+        ban = False
+        for pattern in self.ban_list:
+            if pattern.startswith('^'):
+                # This is a regular expression match
+                try:
+                    if re.search(pattern, email, re.IGNORECASE):
+                        ban = True
+                        break
+                except re.error:
+                    # BAW: we should probably remove this pattern
+                    pass
+            else:
+                # Do the comparison case insensitively
+                if pattern.lower() == email.lower():
+                    ban = True
+                    break
+        if ban:
+            return pattern
+        else:
+            return None
 
 
 

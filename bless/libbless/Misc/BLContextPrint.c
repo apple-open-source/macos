@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,47 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Fri Apr 25 2002.
- *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLContextPrint.c,v 1.12 2005/02/03 00:42:27 ssen Exp $
- *
- *  $Log: BLContextPrint.c,v $
- *  Revision 1.12  2005/02/03 00:42:27  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.11  2004/04/20 21:40:44  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.10  2004/03/21 18:10:04  ssen
- *  Update includes
- *
- *  Revision 1.9  2004/03/21 18:08:33  ssen
- *  Use NO_VASPRINTF instead of OSX_TARGET
- *
- *  Revision 1.8  2003/07/22 15:58:34  ssen
- *  APSL 2.0
- *
- *  Revision 1.7  2003/04/19 00:11:12  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.6  2003/04/16 23:57:33  ssen
- *  Update Copyrights
- *
- *  Revision 1.5  2003/03/22 06:31:01  ssen
- *  add version field
- *
- *  Revision 1.4  2002/07/27 02:58:25  ssen
- *  use vsnprintf
- *
- *  Revision 1.3  2002/07/27 02:38:27  ssen
- *  don't use vasprintf on Puma
- *
- *  Revision 1.2  2002/06/11 00:50:48  ssen
- *  All function prototypes need to use BLContextPtr. This is really
- *  a minor change in all of the files.
- *
- *  Revision 1.1  2002/04/27 17:55:17  ssen
- *  Rewrite output logic to format the string before sending of to logger
+ *  $Id: BLContextPrint.c,v 1.13 2006/02/20 22:49:56 ssen Exp $
  *
  */
 

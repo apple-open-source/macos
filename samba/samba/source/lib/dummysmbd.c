@@ -22,8 +22,29 @@
 /* Stupid dummy functions required due to the horrible dependency mess
    in Samba. */
 
-void decrement_smbd_process_count( void )
+#include "includes.h"
+
+int find_service(fstring service)
 {
-	return;
+	return -1;
+}
+
+BOOL conn_snum_used(int snum)
+{
+	return False;
+}
+
+void cancel_pending_lock_requests_by_fid(files_struct *fsp, struct byte_range_lock *br_lck)
+{
+}
+
+void send_stat_cache_delete_message(const char *name)
+{
+}
+
+NTSTATUS can_delete_directory(struct connection_struct *conn,
+				const char *dirname)
+{
+	return NT_STATUS_OK;
 }
 

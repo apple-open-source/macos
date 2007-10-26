@@ -9,6 +9,7 @@
 #include "ntp_io.h"
 #include "ntp_refclock.h"
 #include "ntp_control.h"
+#include "ntp_unixtime.h"
 #include "ntp_stdlib.h"
 
 #include <stdio.h>
@@ -17,10 +18,6 @@
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-#ifdef PUBKEY
-#include "ntp_crypto.h"
-#endif /* PUBKEY */
 
 /*
  * Structure to hold request procedure information
@@ -46,7 +43,9 @@ struct ctl_proc {
  * Request processing routines
  */
 static	void	ctl_error	P((int));
+#ifdef REFCLOCK
 static	u_short ctlclkstatus	P((struct refclockstat *));
+#endif
 static	void	ctl_flushpkt	P((int));
 static	void	ctl_putdata	P((const char *, unsigned int, int));
 static	void	ctl_putstr	P((const char *, const char *,
@@ -56,11 +55,12 @@ static	void	ctl_putuint	P((const char *, u_long));
 static	void	ctl_puthex	P((const char *, u_long));
 static	void	ctl_putint	P((const char *, long));
 static	void	ctl_putts	P((const char *, l_fp *));
-static	void	ctl_putadr	P((const char *, u_int32));
+static	void	ctl_putadr	P((const char *, u_int32, struct sockaddr_storage*));
 static	void	ctl_putid	P((const char *, char *));
 static	void	ctl_putarray	P((const char *, double *, int));
 static	void	ctl_putsys	P((int));
 static	void	ctl_putpeer	P((int, struct peer *));
+static	void	ctl_putfs	P((const char *, tstamp_t));
 #ifdef REFCLOCK
 static	void	ctl_putclock	P((int, struct refclockstat *, int));
 #endif	/* REFCLOCK */
@@ -74,7 +74,7 @@ static	void	read_clock_status P((struct recvbuf *, int));
 static	void	write_clock_status P((struct recvbuf *, int));
 static	void	set_trap	P((struct recvbuf *, int));
 static	void	unset_trap	P((struct recvbuf *, int));
-static	struct ctl_trap *ctlfindtrap P((struct sockaddr_in *,
+static	struct ctl_trap *ctlfindtrap P((struct sockaddr_storage *,
 				    struct interface *));
 
 static	struct ctl_proc control_codes[] = {
@@ -108,23 +108,26 @@ static struct ctl_var sys_var[] = {
 	{ CS_OFFSET,	RO, "offset" },		/* 11 */
 	{ CS_DRIFT,	RO, "frequency" },	/* 12 */
 	{ CS_JITTER,	RO, "jitter" },		/* 13 */
-	{ CS_CLOCK,	RO, "clock" },		/* 14 */
-	{ CS_PROCESSOR, RO, "processor" },	/* 15 */
-	{ CS_SYSTEM,	RO, "system" },		/* 16 */
-	{ CS_VERSION,	RO, "version" },	/* 17 */
-	{ CS_STABIL,	RO, "stability" },	/* 18 */
-	{ CS_VARLIST,	RO, "sys_var_list" },	/* 19 */
-#ifdef PUBKEY
-	{ CS_FLAGS,	RO, "flags" },		/* 20 */
-	{ CS_HOST,	RO, "hostname" },	/* 21 */
-	{ CS_PUBLIC,	RO, "publickey" },	/* 22 */
-	{ CS_CERTIF,	RO, "certificate" },	/* 23 */
-	{ CS_DHPARAMS,	RO, "params" },		/* 24 */
-	{ CS_REVTIME,	RO, "refresh" },	/* 25 */
-	{ CS_LEAPTAB,	RO, "leapseconds" },	/* 26 */
-	{ CS_TAI,	RO, "tai"},		/* 27 */
-#endif /* PUBKEY */
-	{ 0,		EOV, "" }		/* 28 */
+	{ CS_ERROR,	RO, "noise" },		/* 14 */
+	{ CS_CLOCK,	RO, "clock" },		/* 15 */
+	{ CS_PROCESSOR, RO, "processor" },	/* 16 */
+	{ CS_SYSTEM,	RO, "system" },		/* 17 */
+	{ CS_VERSION,	RO, "version" },	/* 18 */
+	{ CS_STABIL,	RO, "stability" },	/* 19 */
+	{ CS_VARLIST,	RO, "sys_var_list" },	/* 20 */
+#ifdef OPENSSL
+	{ CS_FLAGS,	RO, "flags" },		/* 21 */
+	{ CS_HOST,	RO, "hostname" },	/* 22 */
+	{ CS_PUBLIC,	RO, "update" },		/* 23 */
+	{ CS_CERTIF,	RO, "cert" },		/* 24 */
+	{ CS_REVTIME,	RO, "expire" },		/* 25 */
+	{ CS_LEAPTAB,	RO, "leapsec" },	/* 26 */
+	{ CS_TAI,	RO, "tai" },		/* 27 */
+	{ CS_DIGEST,	RO, "signature" },	/* 28 */
+	{ CS_IDENT,	RO, "ident" },		/* 29 */
+	{ CS_REVOKE,	RO, "expire" },		/* 30 */
+#endif /* OPENSSL */
+	{ 0,		EOV, "" }		/* 21/31 */
 };
 
 static struct ctl_var *ext_sys_var = (struct ctl_var *)0;
@@ -151,15 +154,18 @@ static	u_char def_sys_var[] = {
 	CS_OFFSET,
 	CS_DRIFT,
 	CS_JITTER,
+	CS_ERROR,
 	CS_STABIL,
-#ifdef PUBKEY
-	CS_FLAGS,
+#ifdef OPENSSL
 	CS_HOST,
-	CS_CERTIF,
-	CS_DHPARAMS,
-	CS_REVTIME,
+	CS_DIGEST,
+	CS_FLAGS,
+	CS_PUBLIC,
+	CS_IDENT,
 	CS_LEAPTAB,
-#endif /* PUBKEY */
+	CS_TAI,
+	CS_CERTIF,
+#endif /* OPENSSL */
 	0
 };
 
@@ -190,7 +196,7 @@ static struct ctl_var peer_var[] = {
 	{ CP_REC,	RO, "rec" },		/* 19 */
 	{ CP_XMT,	RO, "xmt" },		/* 20 */
 	{ CP_REACH,	RO, "reach" },		/* 21 */
-	{ CP_VALID,	RO, "unreach" },	/* 22 */
+	{ CP_UNREACH,	RO, "unreach" },	/* 22 */
 	{ CP_TIMER,	RO, "timer" },		/* 23 */
 	{ CP_DELAY,	RO, "delay" },		/* 24 */
 	{ CP_OFFSET,	RO, "offset" },		/* 25 */
@@ -205,20 +211,18 @@ static struct ctl_var peer_var[] = {
 	{ CP_FILTERROR,	RO, "filtdisp=" },	/* 34 */
 	{ CP_FLASH,	RO, "flash" },		/* 35 */
 	{ CP_TTL,	RO, "ttl" },		/* 36 */
-	{ CP_TTLMAX,	RO, "ttlmax" },		/* 37 */
-	{ CP_VARLIST,	RO, "peer_var_list" },	/* 38 */
-#ifdef PUBKEY
+	{ CP_VARLIST,	RO, "peer_var_list" },	/* 37 */
+#ifdef OPENSSL
 	{ CP_FLAGS,	RO, "flags" },		/* 38 */
 	{ CP_HOST,	RO, "hostname" },	/* 39 */
-	{ CP_PUBLIC,	RO, "publickey" },	/* 40 */
-	{ CP_CERTIF,	RO, "certificate" },	/* 41 */
-	{ CP_SESKEY,	RO, "pcookie" },	/* 42 */
-	{ CP_SASKEY,	RO, "hcookie" },	/* 43 */
-	{ CP_INITSEQ,	RO, "initsequence" },   /* 44 */
-	{ CP_INITKEY,	RO, "initkey" },	/* 45 */
-	{ CP_INITTSP,	RO, "timestamp" },	/* 46 */
-#endif /* PUBKEY */
-	{ 0,		EOV, ""  }		/* 47 */
+	{ CP_VALID,	RO, "valid" },		/* 40 */
+	{ CP_INITSEQ,	RO, "initsequence" },   /* 41 */
+	{ CP_INITKEY,	RO, "initkey" },	/* 42 */
+	{ CP_INITTSP,	RO, "timestamp" },	/* 43 */
+	{ CP_DIGEST,	RO, "signature" },	/* 44 */
+	{ CP_IDENT,	RO, "trust" },		/* 45 */
+#endif /* OPENSSL */
+	{ 0,		EOV, "" }		/* 38/46 */
 };
 
 
@@ -237,7 +241,7 @@ static u_char def_peer_var[] = {
 	CP_ROOTDISPERSION,
 	CP_REFID,
 	CP_REACH,
-	CP_VALID,
+	CP_UNREACH,
 	CP_HMODE,
 	CP_PMODE,
 	CP_HPOLL,
@@ -245,7 +249,6 @@ static u_char def_peer_var[] = {
 	CP_FLASH,
 	CP_KEYID,
 	CP_TTL,
-	CP_TTLMAX,
 	CP_OFFSET,
 	CP_DELAY,
 	CP_DISPERSION,
@@ -257,13 +260,14 @@ static u_char def_peer_var[] = {
 	CP_FILTDELAY,
 	CP_FILTOFFSET,
 	CP_FILTERROR,
-#ifdef PUBKEY
-	CP_FLAGS,
+#ifdef OPENSSL
 	CP_HOST,
-	CP_CERTIF,
-	CP_SESKEY,
+	CP_DIGEST,
+	CP_VALID,
+	CP_FLAGS,
+	CP_IDENT,
 	CP_INITSEQ,
-#endif /* PUBKEY */
+#endif /* OPENSSL */
 	0
 };
 
@@ -370,7 +374,7 @@ static u_char clocktypes[] = {
 	CTL_SST_TS_UHF, 	/* REFCLK_IRIG_TPRO (12) */
 	CTL_SST_TS_ATOM,	/* REFCLK_ATOM_LEITCH (13) */
 	CTL_SST_TS_LF,		/* REFCLK_MSF_EES (14) */
-	CTL_SST_TS_UHF, 	/* REFCLK_TRUETIME (15) */
+	CTL_SST_TS_NTP, 	/* not used (15) */
 	CTL_SST_TS_UHF, 	/* REFCLK_IRIG_BANCOMM (16) */
 	CTL_SST_TS_UHF, 	/* REFCLK_GPS_DATU (17) */
 	CTL_SST_TS_TELEPHONE,	/* REFCLK_NIST_ACTS (18) */
@@ -378,9 +382,9 @@ static u_char clocktypes[] = {
 	CTL_SST_TS_UHF, 	/* REFCLK_GPS_NMEA (20) */
 	CTL_SST_TS_UHF, 	/* REFCLK_GPS_VME (21) */
 	CTL_SST_TS_ATOM,	/* REFCLK_ATOM_PPS (22) */
-	CTL_SST_TS_TELEPHONE,	/* REFCLK_PTB_ACTS (23) */
-	CTL_SST_TS_TELEPHONE,	/* REFCLK_USNO (24) */
-	CTL_SST_TS_UHF, 	/* REFCLK_TRUETIME (25) */
+	CTL_SST_TS_NTP,		/* not used (23) */
+	CTL_SST_TS_NTP,		/* not used (24) */
+	CTL_SST_TS_NTP, 	/* not used (25) */
 	CTL_SST_TS_UHF, 	/* REFCLK_GPS_HP (26) */
 	CTL_SST_TS_TELEPHONE,	/* REFCLK_ARCRON_MSF (27) */
 	CTL_SST_TS_TELEPHONE,	/* REFCLK_SHM (28) */
@@ -388,14 +392,18 @@ static u_char clocktypes[] = {
 	CTL_SST_TS_UHF, 	/* REFCLK_ONCORE (30) */
 	CTL_SST_TS_UHF,		/* REFCLK_JUPITER (31) */
 	CTL_SST_TS_LF,		/* REFCLK_CHRONOLOG (32) */
-	CTL_SST_TS_LF,		/* REFCLK_DUMBCLOCK (32) */
-	CTL_SST_TS_LF,		/* REFCLK_ULINK (33) */
+	CTL_SST_TS_LF,		/* REFCLK_DUMBCLOCK (33) */
+	CTL_SST_TS_LF,		/* REFCLK_ULINK (34) */
 	CTL_SST_TS_LF,		/* REFCLK_PCF (35) */
 	CTL_SST_TS_LF,		/* REFCLK_WWV (36) */
 	CTL_SST_TS_LF,		/* REFCLK_FG (37) */
 	CTL_SST_TS_UHF, 	/* REFCLK_HOPF_SERIAL (38) */
 	CTL_SST_TS_UHF,		/* REFCLK_HOPF_PCI (39) */
 	CTL_SST_TS_LF,		/* REFCLK_JJY (40) */
+	CTL_SST_TS_UHF,		/* REFCLK_TT560 (41) */
+	CTL_SST_TS_UHF,		/* REFCLK_ZYFER (42) */
+	CTL_SST_TS_UHF,		/* REFCLK_RIPENCC (43) */
+	CTL_SST_TS_UHF,		/* REFCLK_NEOCLOCK4X (44) */
 };
 
 
@@ -446,7 +454,7 @@ static u_char * datapt;
 static u_char * dataend;
 static int	datalinelen;
 static int	datanotbinflag;
-static struct sockaddr_in *rmt_addr;
+static struct sockaddr_storage *rmt_addr;
 static struct interface *lcl_inter;
 
 static u_char	res_authenticate;
@@ -731,14 +739,16 @@ ctlpeerstatus(
 /*
  * ctlclkstatus - return a status word for this clock
  */
+#ifdef REFCLOCK
 static u_short
 ctlclkstatus(
 	struct refclockstat *this_clock
 	)
 {
-	return ((u_short)(this_clock->currentstatus) << 8) |
-	    (u_short)(this_clock->lastevent);
+	return ((u_short)(((this_clock->currentstatus) << 8) |
+	    (this_clock->lastevent)));
 }
+#endif
 
 
 /*
@@ -750,6 +760,7 @@ ctlsysstatus(void)
 	register u_char this_clock;
 
 	this_clock = CTL_SST_TS_UNSPEC;
+#ifdef REFCLOCK
 	if (sys_peer != 0) {
 		if (sys_peer->sstclktype != CTL_SST_TS_UNSPEC) {
 			this_clock = sys_peer->sstclktype;
@@ -763,6 +774,7 @@ ctlsysstatus(void)
 				this_clock |= CTL_SST_TS_PPS;
 		}
 	}
+#endif /* REFCLOCK */
 	return (u_short)CTL_SYS_STATUS(sys_leap, this_clock,
 	    ctl_sys_num_events, ctl_sys_last_event);
 }
@@ -989,6 +1001,39 @@ ctl_putuint(
 	ctl_putdata(buffer, (unsigned)( cp - buffer ), 0);
 }
 
+/*
+ * ctl_putfs - write a decoded filestamp into the response
+ */
+static void
+ctl_putfs(
+	const char *tag,
+	tstamp_t uval
+	)
+{
+	register char *cp;
+	register const char *cq;
+	char buffer[200];
+	struct tm *tm = NULL;
+	time_t fstamp;
+
+	cp = buffer;
+	cq = tag;
+	while (*cq != '\0')
+		*cp++ = *cq++;
+
+	*cp++ = '=';
+	fstamp = uval - JAN_1970;
+	tm = gmtime(&fstamp);
+	if (tm == NULL)
+		return;
+
+	sprintf(cp, "%04d%02d%02d%02d%02d", tm->tm_year + 1900,
+	    tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min);
+	while (*cp != '\0')
+		cp++;
+	ctl_putdata(buffer, (unsigned)( cp - buffer ), 0);
+}
+
 
 /*
  * ctl_puthex - write a tagged unsigned integer, in hex, into the response
@@ -1061,8 +1106,9 @@ ctl_putts(
 		*cp++ = *cq++;
 
 	*cp++ = '=';
-	(void) sprintf(cp, "0x%08lx.%08lx", ts->l_ui & 0xffffffffL,
-			   ts->l_uf & 0xffffffffL);
+	(void) sprintf(cp, "0x%08lx.%08lx",
+			   ts->l_ui & ULONG_CONST(0xffffffff),
+			   ts->l_uf & ULONG_CONST(0xffffffff));
 	while (*cp != '\0')
 		cp++;
 	ctl_putdata(buffer, (unsigned)( cp - buffer ), 0);
@@ -1070,12 +1116,13 @@ ctl_putts(
 
 
 /*
- * ctl_putadr - write a dotted quad IP address into the response
+ * ctl_putadr - write an IP address into the response
  */
 static void
 ctl_putadr(
 	const char *tag,
-	u_int32 addr
+	u_int32 addr32,
+	struct sockaddr_storage* addr
 	)
 {
 	register char *cp;
@@ -1088,12 +1135,14 @@ ctl_putadr(
 		*cp++ = *cq++;
 
 	*cp++ = '=';
-	cq = numtoa(addr);
+	if (addr == NULL)
+		cq = numtoa(addr32);
+	else
+		cq = stoa(addr);
 	while (*cq != '\0')
 		*cp++ = *cq++;
 	ctl_putdata(buffer, (unsigned)( cp - buffer ), 0);
 }
-
 
 /*
  * ctl_putid - write a tagged clock ID into the response
@@ -1135,7 +1184,6 @@ ctl_putarray(
 	register const char *cq;
 	char buffer[200];
 	int i;
-
 	cp = buffer;
 	cq = tag;
 	while (*cq != '\0')
@@ -1162,9 +1210,11 @@ ctl_putsys(
 	)
 {
 	l_fp tmp;
-#ifdef HAVE_UNAME
 	char str[256];
-#endif
+#ifdef OPENSSL
+	struct cert_info *cp;
+	char cbuf[256];
+#endif /* OPENSSL */
 
 	switch (varid) {
 
@@ -1191,8 +1241,8 @@ ctl_putsys(
 		break;
 
 	case CS_REFID:
-		if (sys_stratum > 1)
-			ctl_putadr(sys_var[CS_REFID].text, sys_refid);
+		if (sys_stratum > 1 && sys_stratum < STRATUM_UNSPEC)
+			ctl_putadr(sys_var[CS_REFID].text, sys_refid, NULL);
 		else
 			ctl_putid(sys_var[CS_REFID].text,
 			    (char *)&sys_refid);
@@ -1230,6 +1280,10 @@ ctl_putsys(
 		ctl_putdbl(sys_var[CS_JITTER].text, sys_jitter * 1e3);
 		break;
 
+	case CS_ERROR:
+		ctl_putdbl(sys_var[CS_ERROR].text, clock_jitter * 1e3);
+		break;
+
 	case CS_CLOCK:
 		get_systime(&tmp);
 		ctl_putts(sys_var[CS_CLOCK].text, &tmp);
@@ -1250,8 +1304,7 @@ ctl_putsys(
 		ctl_putstr(sys_var[CS_SYSTEM].text, str_system,
 		    sizeof(str_system) - 1);
 #else
-		(void)strcpy(str, utsnamebuf.sysname);
-		(void)strcat(str, utsnamebuf.release);
+		sprintf(str, "%s/%s", utsnamebuf.sysname, utsnamebuf.release);
 		ctl_putstr(sys_var[CS_SYSTEM].text, str, strlen(str));
 #endif /* HAVE_UNAME */
 		break;
@@ -1329,47 +1382,74 @@ ctl_putsys(
 		}
 		break;
 
-#ifdef PUBKEY
+#ifdef OPENSSL
 	case CS_FLAGS:
-		if (crypto_flags)
-			ctl_puthex(sys_var[CS_FLAGS].text,
-			    crypto_flags);
+		if (crypto_flags) {
+			ctl_puthex(sys_var[CS_FLAGS].text, crypto_flags);
+		}
+		break;
+
+	case CS_DIGEST:
+		if (crypto_flags) {
+			const EVP_MD *dp;
+
+			dp = EVP_get_digestbynid(crypto_flags >> 16);
+			strcpy(str, OBJ_nid2ln(EVP_MD_pkey_type(dp)));
+			ctl_putstr(sys_var[CS_DIGEST].text, str,
+			    strlen(str));
+		}
 		break;
 
 	case CS_HOST:
-		ctl_putstr(sys_var[CS_HOST].text, sys_hostname,
-			strlen(sys_hostname));
-		if (host.fstamp != 0)
-			ctl_putuint(sys_var[CS_PUBLIC].text,
-			    ntohl(host.fstamp));
+		if (sys_hostname != NULL)
+			ctl_putstr(sys_var[CS_HOST].text, sys_hostname,
+			    strlen(sys_hostname));
 		break;
 
 	case CS_CERTIF:
-		if (certif.fstamp != 0)
-			ctl_putuint(sys_var[CS_CERTIF].text,
-			    ntohl(certif.fstamp));
+		for (cp = cinfo; cp != NULL; cp = cp->link) {
+			sprintf(cbuf, "%s %s 0x%x", cp->subject,
+			    cp->issuer, cp->flags);
+			ctl_putstr(sys_var[CS_CERTIF].text, cbuf,
+			    strlen(cbuf));
+			ctl_putfs(sys_var[CS_REVOKE].text, cp->last);
+		}
 		break;
 
-	case CS_DHPARAMS:
-		if (dhparam.fstamp != 0)
-			ctl_putuint(sys_var[CS_DHPARAMS].text,
-			    ntohl(dhparam.fstamp));
+	case CS_PUBLIC:
+		if (hostval.fstamp != 0)
+			ctl_putfs(sys_var[CS_PUBLIC].text,
+			    ntohl(hostval.tstamp));
 		break;
 
 	case CS_REVTIME:
-		if (host.tstamp != 0)
-			ctl_putuint(sys_var[CS_REVTIME].text,
-			    ntohl(host.tstamp));
+		if (hostval.tstamp != 0)
+			ctl_putfs(sys_var[CS_REVTIME].text,
+			    ntohl(hostval.tstamp));
+		break;
+
+	case CS_IDENT:
+		if (iffpar_pkey != NULL)
+			ctl_putstr(sys_var[CS_IDENT].text,
+			    iffpar_file, strlen(iffpar_file));
+		if (gqpar_pkey != NULL)
+			ctl_putstr(sys_var[CS_IDENT].text,
+			    gqpar_file, strlen(gqpar_file));
+		if (mvpar_pkey != NULL)
+			ctl_putstr(sys_var[CS_IDENT].text,
+			    mvpar_file, strlen(mvpar_file));
 		break;
 
 	case CS_LEAPTAB:
 		if (tai_leap.fstamp != 0)
-			ctl_putuint(sys_var[CS_LEAPTAB].text,
+			ctl_putfs(sys_var[CS_LEAPTAB].text,
 			    ntohl(tai_leap.fstamp));
-		if (sys_tai != 0)
-			ctl_putuint(sys_var[CS_TAI].text, sys_tai);
 		break;
-#endif /* PUBKEY */
+
+	case CS_TAI:
+		ctl_putuint(sys_var[CS_TAI].text, sys_tai);
+		break;
+#endif /* OPENSSL */
 	}
 }
 
@@ -1383,6 +1463,12 @@ ctl_putpeer(
 	struct peer *peer
 	)
 {
+	int temp;
+#ifdef OPENSSL
+	char str[256];
+	struct autokey *ap;
+#endif /* OPENSSL */
+
 	switch (varid) {
 
 	case CP_CONFIG:
@@ -1401,24 +1487,24 @@ ctl_putpeer(
 		break;
 
 	case CP_SRCADR:
-		ctl_putadr(peer_var[CP_SRCADR].text,
-		    peer->srcadr.sin_addr.s_addr);
+		ctl_putadr(peer_var[CP_SRCADR].text, 0,
+		    &peer->srcadr);
 		break;
 
 	case CP_SRCPORT:
 		ctl_putuint(peer_var[CP_SRCPORT].text,
-		    ntohs(peer->srcadr.sin_port));
+		    ntohs(((struct sockaddr_in*)&peer->srcadr)->sin_port));
 		break;
 
 	case CP_DSTADR:
-		ctl_putadr(peer_var[CP_DSTADR].text,
-		    peer->dstadr->sin.sin_addr.s_addr);
+		ctl_putadr(peer_var[CP_DSTADR].text, 0,
+		    &(peer->dstadr->sin));
 		break;
 
 	case CP_DSTPORT:
 		ctl_putuint(peer_var[CP_DSTPORT].text,
 		    (u_long)(peer->dstadr ?
-		    ntohs(peer->dstadr->sin.sin_port) : 0));
+		    ntohs(((struct sockaddr_in*)&peer->dstadr->sin)->sin_port) : 0));
 		break;
 
 	case CP_LEAP:
@@ -1457,16 +1543,17 @@ ctl_putpeer(
 		break;
 
 	case CP_REFID:
-		if (peer->stratum > 1) {
-			if (peer->flags & FLAG_REFCLOCK)
-			    ctl_putadr(peer_var[CP_REFID].text,
-			        peer->srcadr.sin_addr.s_addr);
-			else
-			    ctl_putadr(peer_var[CP_REFID].text,
-			        peer->refid);
-		} else {
+		if (peer->flags & FLAG_REFCLOCK) {
 			ctl_putid(peer_var[CP_REFID].text,
-			    (char *)&peer->refid);
+			   (char *)&peer->refid);
+		} else {
+			if (peer->stratum > 1 && peer->stratum <
+			    STRATUM_UNSPEC)
+				ctl_putadr(peer_var[CP_REFID].text,
+				    peer->refid, NULL);
+			else
+				ctl_putid(peer_var[CP_REFID].text,
+				    (char *)&peer->refid);
 		}
 		break;
 
@@ -1491,23 +1578,16 @@ ctl_putpeer(
 		break;
 
 	case CP_FLASH:
-		ctl_puthex(peer_var[CP_FLASH].text, peer->flash);
+		temp = peer->flash;
+		ctl_puthex(peer_var[CP_FLASH].text, temp);
 		break;
 
 	case CP_TTL:
-		if (!(peer->cast_flags & MDF_ACAST))
-			break;
-		ctl_putint(peer_var[CP_TTL].text, peer->ttl);
+		ctl_putint(peer_var[CP_TTL].text, sys_ttl[peer->ttl]);
 		break;
 
-	case CP_TTLMAX:
-		if (!(peer->cast_flags & (MDF_MCAST | MDF_ACAST)))
-			break;
-		ctl_putint(peer_var[CP_TTLMAX].text, peer->ttlmax);
-		break;
-
-	case CP_VALID:
-		ctl_putuint(peer_var[CP_VALID].text, peer->unreach);
+	case CP_UNREACH:
+		ctl_putuint(peer_var[CP_UNREACH].text, peer->unreach);
 		break;
 
 	case CP_TIMER:
@@ -1525,8 +1605,7 @@ ctl_putpeer(
 		break;
 
 	case CP_JITTER:
-		ctl_putdbl(peer_var[CP_JITTER].text,
-		    SQRT(peer->jitter) * 1e3);
+		ctl_putdbl(peer_var[CP_JITTER].text, peer->jitter * 1e3);
 		break;
 
 	case CP_DISPERSION:
@@ -1603,47 +1682,47 @@ ctl_putpeer(
 			ctl_putdata(buf, (unsigned)(s - buf), 0);
 		}
 		break;
-#ifdef PUBKEY
+#ifdef OPENSSL
 	case CP_FLAGS:
 		if (peer->crypto)
 			ctl_puthex(peer_var[CP_FLAGS].text, peer->crypto);
 		break;
 
+	case CP_DIGEST:
+		if (peer->crypto) {
+			const EVP_MD *dp;
+
+			dp = EVP_get_digestbynid(peer->crypto >> 16);
+			strcpy(str, OBJ_nid2ln(EVP_MD_pkey_type(dp)));
+			ctl_putstr(peer_var[CP_DIGEST].text, str,
+       	                     strlen(str));
+		}
+		break;
+
 	case CP_HOST:
-		if (peer->keystr != NULL)
-			ctl_putstr(peer_var[CP_HOST].text, peer->keystr,
-			    strlen(peer->keystr));
-		if (peer->pubkey.fstamp != 0)
-			ctl_putuint(peer_var[CP_PUBLIC].text,
-			    peer->pubkey.fstamp);
+		if (peer->subject != NULL)
+			ctl_putstr(peer_var[CP_HOST].text,
+			    peer->subject, strlen(peer->subject));
 		break;
 
-	case CP_CERTIF:
-		if (peer->certif.fstamp != 0)
-			ctl_putuint(peer_var[CP_CERTIF].text,
-			    peer->certif.fstamp);
+	case CP_VALID:		/* not used */
 		break;
 
-	case CP_SESKEY:
-		if (peer->pcookie.key != 0)
-			ctl_puthex(peer_var[CP_SESKEY].text,
-			    peer->pcookie.key);
-		if (peer->hcookie != 0)
-			ctl_puthex(peer_var[CP_SASKEY].text,
-			    peer->hcookie);
+	case CP_IDENT:
+		if (peer->issuer != NULL)
+			ctl_putstr(peer_var[CP_IDENT].text,
+			    peer->issuer, strlen(peer->issuer));
 		break;
 
 	case CP_INITSEQ:
-		if (peer->recauto.key == 0)
+		if ((ap = (struct autokey *)peer->recval.ptr) == NULL)
 			break;
-		ctl_putint(peer_var[CP_INITSEQ].text,
-		    peer->recauto.seq);
-		ctl_puthex(peer_var[CP_INITKEY].text,
-		    peer->recauto.key);
-		ctl_putuint(peer_var[CP_INITTSP].text,
-		    peer->recauto.tstamp);
+		ctl_putint(peer_var[CP_INITSEQ].text, ap->seq);
+		ctl_puthex(peer_var[CP_INITKEY].text, ap->key);
+		ctl_putfs(peer_var[CP_INITTSP].text,
+		    ntohl(peer->recval.tstamp));
 		break;
-#endif /* PUBKEY */
+#endif /* OPENSSL */
 	}
 }
 
@@ -1713,7 +1792,7 @@ ctl_putclock(
 		if (mustput || (clock_stat->haveflags & CLK_HAVEVAL2)) {
 			if (clock_stat->fudgeval1 > 1)
 				ctl_putadr(clock_var[CC_FUDGEVAL2].text,
-				    (u_int32)clock_stat->fudgeval2);
+				    (u_int32)clock_stat->fudgeval2, NULL);
 			else
 				ctl_putid(clock_var[CC_FUDGEVAL2].text,
 				    (char *)&clock_stat->fudgeval2);
@@ -1827,7 +1906,7 @@ ctl_getitem(
 	 * Delete leading commas and white space
 	 */
 	while (reqpt < reqend && (*reqpt == ',' ||
-	    isspace((int)*reqpt)))
+	    isspace((unsigned char)*reqpt)))
 		reqpt++;
 	if (reqpt >= reqend)
 		return (0);
@@ -1850,7 +1929,7 @@ ctl_getitem(
 				tp++;
 			}
 			if ((*tp == '\0') || (*tp == '=')) {
-				while (cp < reqend && isspace((int)*cp))
+				while (cp < reqend && isspace((unsigned char)*cp))
 					cp++;
 				if (cp == reqend || *cp == ',') {
 					buf[0] = '\0';
@@ -1863,27 +1942,30 @@ ctl_getitem(
 				if (*cp == '=') {
 					cp++;
 					tp = buf;
-					while (cp < reqend && isspace((int)*cp))
+					while (cp < reqend && isspace((unsigned char)*cp))
 						cp++;
 					while (cp < reqend && *cp != ',') {
 						*tp++ = *cp++;
 						if (tp >= buf + sizeof(buf)) {
 							ctl_error(CERR_BADFMT);
 							numctlbadpkts++;
+#if 0	/* Avoid possible DOS attack */
+/* If we get a smarter msyslog we can re-enable this */
 							msyslog(LOG_WARNING,
 		"Possible 'ntpdx' exploit from %s:%d (possibly spoofed)\n",
-		inet_ntoa(rmt_addr->sin_addr), ntohs(rmt_addr->sin_port)
+		stoa(rmt_addr), SRCPORT(rmt_addr)
 								);
+#endif
 							return (0);
 						}
 					}
 					if (cp < reqend)
 						cp++;
 					*tp-- = '\0';
-					while (tp > buf) {
-						*tp-- = '\0';
-						if (!isspace((int)(*tp)))
+					while (tp >= buf) {
+						if (!isspace((unsigned int)(*tp)))
 							break;
+						*tp-- = '\0';
 					}
 					reqpt = cp;
 					*data = buf;
@@ -1957,7 +2039,7 @@ read_status(
 
 		n = 0;
 		rpkt.status = htons(ctlsysstatus());
-		for (i = 0; i < HASH_SIZE; i++) {
+		for (i = 0; i < NTP_HASH_SIZE; i++) {
 			for (peer = assoc_hash[i]; peer != 0;
 				peer = peer->ass_next) {
 				ass_stat[n++] = htons(peer->associd);
@@ -2126,7 +2208,7 @@ write_variables(
 	register struct ctl_var *v;
 	register int ext_var;
 	char *valuep;
-	long val;
+	long val = 0;
 
 	/*
 	 * If he's trying to write into a peer tell him no way
@@ -2252,7 +2334,7 @@ read_clock_status(
 			peer = sys_peer;
 		} else {
 			peer = 0;
-			for (i = 0; peer == 0 && i < HASH_SIZE; i++) {
+			for (i = 0; peer == 0 && i < NTP_HASH_SIZE; i++) {
 				for (peer = assoc_hash[i]; peer != 0;
 					peer = peer->ass_next) {
 					if (peer->flags & FLAG_REFCLOCK)
@@ -2430,7 +2512,7 @@ unset_trap(
  */
 int
 ctlsettrap(
-	struct sockaddr_in *raddr,
+	struct sockaddr_storage *raddr,
 	struct interface *linter,
 	int traptype,
 	int version
@@ -2535,7 +2617,7 @@ ctlsettrap(
 	tptouse->tr_sequence = 1;
 	tptouse->tr_addr = *raddr;
 	tptouse->tr_localaddr = linter;
-	tptouse->tr_version = version;
+	tptouse->tr_version = (u_char) version;
 	tptouse->tr_flags = TRAP_INUSE;
 	if (traptype == TRAP_TYPE_CONFIG)
 		tptouse->tr_flags |= TRAP_CONFIGURED;
@@ -2551,7 +2633,7 @@ ctlsettrap(
  */
 int
 ctlclrtrap(
-	struct sockaddr_in *raddr,
+	struct sockaddr_storage *raddr,
 	struct interface *linter,
 	int traptype
 	)
@@ -2576,18 +2658,18 @@ ctlclrtrap(
  */
 static struct ctl_trap *
 ctlfindtrap(
-	struct sockaddr_in *raddr,
+	struct sockaddr_storage *raddr,
 	struct interface *linter
 	)
 {
 	register struct ctl_trap *tp;
 
 	for (tp = ctl_trap; tp < &ctl_trap[CTL_MAXTRAPS]; tp++) {
-		if (tp->tr_flags & TRAP_INUSE && NSRCADR(raddr) ==
-		    NSRCADR(&tp->tr_addr) && NSRCPORT(raddr) ==
-		    NSRCPORT(&tp->tr_addr) && linter ==
-		    tp->tr_localaddr)
-			return (tp);
+		if ((tp->tr_flags & TRAP_INUSE)
+		    && (NSRCPORT(raddr) == NSRCPORT(&tp->tr_addr))
+		    && SOCKCMP(raddr, &tp->tr_addr)
+	 	    && (linter == tp->tr_localaddr) )
+		return (tp);
 	}
 	return (struct ctl_trap *)NULL;
 }
@@ -2608,7 +2690,7 @@ report_event(
 	 * Record error code in proper spots, but have mercy on the
 	 * log file.
 	 */
-	if (!(err & PEER_EVENT)) {
+	if (!(err & (PEER_EVENT | CRPT_EVENT))) {
 		if (ctl_sys_num_events < CTL_SYS_MAXEVENTS)
 			ctl_sys_num_events++;
 		if (ctl_sys_last_event != (u_char)err) {
@@ -2630,10 +2712,10 @@ report_event(
 
 #ifdef REFCLOCK
 		if (ISREFCLOCKADR(&peer->srcadr))
-			src = refnumtoa(peer->srcadr.sin_addr.s_addr);
+			src = refnumtoa(&peer->srcadr);
 		else
 #endif
-			src = ntoa(&peer->srcadr);
+			src = stoa(&peer->srcadr);
 
 		peer->last_event = (u_char)(err & ~PEER_EVENT);
 		if (peer->num_events < CTL_PEER_MAXEVENTS)
@@ -2686,10 +2768,10 @@ report_event(
 		 * variables. Don't send crypto strings.
 		 */
 		for (i = 1; i <= CS_MAXCODE; i++) {
-#ifdef PUBKEY
+#ifdef OPENSSL
 			if (i > CS_VARLIST)
 				continue;
-#endif /* PUBKEY */
+#endif /* OPENSSL */
 			ctl_putsys(i);
 		}
 #ifdef REFCLOCK
@@ -2715,7 +2797,7 @@ report_event(
 					    strlen(kv->text), 0);
 			free_varlist(clock_stat.kv_list);
 		}
-#endif /*REFCLOCK*/
+#endif /* REFCLOCK */
 	} else {
 		rpkt.associd = htons(peer->associd);
 		rpkt.status = htons(ctlpeerstatus(peer));
@@ -2723,12 +2805,13 @@ report_event(
 		/*
 		 * Dump it all. Later, maybe less.
 		 */
-		for (i = 1; i <= CP_MAXCODE; i++)
-#ifdef PUBKEY
+		for (i = 1; i <= CP_MAXCODE; i++) {
+#ifdef OPENSSL
 			if (i > CP_VARLIST)
 				continue;
-#endif /* PUBKEY */
+#endif /* OPENSSL */
 			ctl_putpeer(i, peer);
+		}
 #ifdef REFCLOCK
 		/*
 		 * for clock exception events: add clock variables to
@@ -2754,7 +2837,7 @@ report_event(
 					    strlen(kv->text), 0);
 			free_varlist(clock_stat.kv_list);
 		}
-#endif /*REFCLOCK*/
+#endif /* REFCLOCK */
 	}
 
 	/*
@@ -2808,7 +2891,7 @@ char *
 add_var(
 	struct ctl_var **kv,
 	u_long size,
-	int def
+	u_short def
 	)
 {
 	register u_long c;
@@ -2837,7 +2920,7 @@ set_var(
 	struct ctl_var **kv,
 	const char *data,
 	u_long size,
-	int def
+	u_short def
 	)
 {
 	register struct ctl_var *k;
@@ -2848,7 +2931,8 @@ set_var(
 	if (!data || !size)
 		return;
 
-	if ((k = *kv)) {
+	k = *kv;
+	if (k != NULL) {
 		while (!(k->flags & EOV)) {
 			s = data;
 			t = k->text;
@@ -2883,7 +2967,7 @@ void
 set_sys_var(
 	char *data,
 	u_long size,
-	int def
+	u_short def
 	)
 {
 	set_var(&ext_sys_var, data, size, def);

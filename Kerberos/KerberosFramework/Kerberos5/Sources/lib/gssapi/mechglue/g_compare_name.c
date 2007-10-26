@@ -1,4 +1,4 @@
-/* #ident  "@(#)gss_compare_name.c 1.13     95/08/02 SMI" */
+/* #pragma ident	"@(#)g_compare_name.c	1.16	04/02/23 SMI" */
 
 /*
  * Copyright 1996 by Sun Microsystems, Inc.
@@ -33,9 +33,30 @@
 #endif
 #include <string.h>
 
-#define g_OID_equal(o1,o2) \
-   (((o1)->length == (o2)->length) && \
-    (memcmp((o1)->elements,(o2)->elements,(int) (o1)->length) == 0))
+static OM_uint32
+val_comp_name_args(
+    OM_uint32 *minor_status,
+    gss_name_t name1,
+    gss_name_t name2,
+    int *name_equal)
+{
+
+    /* Initialize outputs. */
+
+    if (minor_status != NULL)
+	*minor_status = 0;
+
+    /* Validate arguments. */
+
+    if (name1 == GSS_C_NO_NAME || name2 == GSS_C_NO_NAME)
+	return (GSS_S_CALL_INACCESSIBLE_READ | GSS_S_BAD_NAME);
+
+    if (name_equal == NULL)
+	return (GSS_S_CALL_INACCESSIBLE_WRITE);
+
+    return (GSS_S_COMPLETE);
+}
+
 
 OM_uint32 KRB5_CALLCONV
 gss_compare_name (minor_status,
@@ -54,13 +75,10 @@ int *			name_equal;
     gss_mechanism	mech;
     gss_name_t		internal_name;
     
-    gss_initialize();
-
-    if (name1 == 0 || name2 == 0) {
-	if (name_equal)
-	    *name_equal = 0;
-	return GSS_S_BAD_NAME;
-    }
+    major_status = val_comp_name_args(minor_status,
+				      name1, name2, name_equal);
+    if (major_status != GSS_S_COMPLETE)
+	return (major_status);
 
     union_name1 = (gss_union_name_t) name1;
     union_name2 = (gss_union_name_t) name2;
@@ -78,16 +96,13 @@ int *			name_equal;
      * information.
      */
     if (union_name1->mech_type) {
-	mech = __gss_get_mechanism (union_name1->mech_type);
+	mech = gssint_get_mechanism (union_name1->mech_type);
 	if (!mech)
 	    return (GSS_S_BAD_MECH);
 	if (!mech->gss_compare_name)
-	    return (GSS_S_BAD_BINDINGS);
+			return (GSS_S_UNAVAILABLE);
     }
 	
-    if (name_equal == NULL)
-	return GSS_S_COMPLETE;
-
     *name_equal = 0;		/* Default to *not* equal.... */
 
     /*
@@ -116,8 +131,32 @@ int *			name_equal;
      * gss_import_name().
      */
     if (!union_name1->mech_type && !union_name2->mech_type) {
-	if (!g_OID_equal(union_name1->name_type, union_name2->name_type))
+		/*
+		 * Second case, first sub-case... one name has null
+		 * name_type, the other doesn't.
+		 *
+		 * Not knowing a mech_type we can't import the name with
+		 * null name_type so we can't compare.
+		 */
+		if ((union_name1->name_type == GSS_C_NULL_OID &&
+		    union_name2->name_type != GSS_C_NULL_OID) ||
+		    (union_name1->name_type != GSS_C_NULL_OID &&
+		    union_name2->name_type == GSS_C_NULL_OID))
+			return (GSS_S_COMPLETE);
+		/*
+		 * Second case, second sub-case... both names have
+		 * name_types, but they are different.
+		 */
+		if ((union_name1->name_type != GSS_C_NULL_OID &&
+		    union_name2->name_type != GSS_C_NULL_OID) &&
+		    !g_OID_equal(union_name1->name_type,
+					union_name2->name_type))
 	    return (GSS_S_COMPLETE);
+		/*
+		 * Second case, third sub-case... both names have equal
+		 * name_types (and both have no mech_types) so we just
+		 * compare the external_names.
+		 */
 	if ((union_name1->external_name->length !=
 	     union_name2->external_name->length) ||
 	    (memcmp(union_name1->external_name->value,
@@ -141,16 +180,17 @@ int *			name_equal;
 	union_name1 = (gss_union_name_t) name2;
 	union_name2 = (gss_union_name_t) name1;
     }
-    major_status = __gss_import_internal_name(minor_status,
+    major_status = gssint_import_internal_name(minor_status,
 					      union_name1->mech_type,
 					      union_name2,
 					      &internal_name);
     if (major_status != GSS_S_COMPLETE)
-	return (GSS_S_COMPLETE);
+	return (GSS_S_COMPLETE); /* return complete, but not equal */
+
     major_status = mech->gss_compare_name(mech->context, minor_status,
 					  union_name1->mech_name,
 					  internal_name, name_equal);
-    __gss_release_internal_name(&temp_minor, union_name1->mech_type,
+    gssint_release_internal_name(&temp_minor, union_name1->mech_type,
 				&internal_name);
     return (major_status);
     

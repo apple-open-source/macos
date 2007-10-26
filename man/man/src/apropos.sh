@@ -22,7 +22,7 @@ program=`basename $0`
 aproposgrepopt1='i'
 aproposgrepopt2=''
 whatisgrepopt1='iw'
-whatisgrepopt2='^'
+whatisgrepopt2=''
 grepopt1=$%apropos_or_whatis%grepopt1
 grepopt2=$%apropos_or_whatis%grepopt2
 
@@ -38,11 +38,6 @@ if [ "$manpath" = "" ]
 then
     echo "$program: manpath is null"
     exit 1
-fi
-
-if [ "$PAGER" = "" ]
-then
-    PAGER="%pager%"
 fi
 
 args=
@@ -65,44 +60,8 @@ for arg in $*; do
     esac
 done
 
-# avoid using a pager if only output is "nothing appropriate"
-nothing=
-found=0
-while [ $found = 0 -a -n "$1" ]
-do
-    for d in /var/cache/man $manpath /usr/lib
-    do
-        if [ -f $d/whatis ]
-        then
-            if grep -"$grepopt1" "$grepopt2""$1" $d/whatis > /dev/null 2> /dev/null
-            then
-                found=1
-            fi
-        fi
-    done
-    if [ $found = 0 ]
-    then
-	nothing="$nothing $1"
-	shift
-    fi
-done
-
-if [ $found = 0 ]
-then
-    for i in $nothing
-    do
-	echo "$i: nothing appropriate"
-    done
-    exit
-fi
-
 while [ "$1" != "" ]
 do
-    for i in $nothing
-    do
-	echo "$i: nothing appropriate"
-    done
-    nothing=
     found=0
     for d in /var/cache/man $manpath /usr/lib
     do
@@ -111,6 +70,9 @@ do
             if grep -"$grepopt1" "$grepopt2""$1" $d/whatis
             then
                 found=1
+# Some people are satisfied with a single occurrence
+# But it is better to give all
+#               break
             fi
         fi
     done
@@ -121,8 +83,6 @@ do
     fi
 
     shift
-done
-# Maybe don't use a pager
-# | $PAGER
+done | ${PAGER:-more -E}
 
 exit

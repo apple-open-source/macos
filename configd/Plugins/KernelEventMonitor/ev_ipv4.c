@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,7 +34,11 @@
 
 #ifndef kSCEntNetIPv4ARPCollision
 #define kSCEntNetIPv4ARPCollision	CFSTR("IPv4ARPCollision")
-#endif kSCEntNetIPv4ARPCollision
+#endif /* kSCEntNetIPv4ARPCollision */
+
+#ifndef kSCEntNetIPv4PortInUse
+#define kSCEntNetIPv4PortInUse		CFSTR("PortInUse")
+#endif /* kSCEntNetIPv4PortInUse */
 
 #define IP_FORMAT	"%d.%d.%d.%d"
 #define IP_CH(ip, i)	(((u_char *)(ip))[i])
@@ -114,6 +118,7 @@ updateStore(const void *key, const void *value, void *context)
 		} else if (dict) {
 			cache_SCDynamicStoreRemoveValue(store, key);
 		}
+		network_changed = TRUE;
 	}
 
 	return;
@@ -143,7 +148,7 @@ interface_update_ipv4(struct ifaddrs *ifap, const char *if_name)
 					   &kCFTypeDictionaryValueCallBacks);
 
 	if (!ifap) {
-		if (getifaddrs(&ifap_temp) < 0) {
+		if (getifaddrs(&ifap_temp) == -1) {
 			SCLog(TRUE, LOG_ERR, CFSTR("getifaddrs() failed: %s"), strerror(errno));
 			goto error;
 		}
@@ -252,5 +257,23 @@ interface_collision_ipv4(const char *if_name, struct in_addr ip_addr, int hw_len
 	CFRelease(key);
 	CFRelease(prefix);
 	CFRelease(if_name_cf);
+	return;
+}
+
+__private_extern__
+void
+port_in_use_ipv4(uint16_t port, pid_t req_pid)
+{
+	CFStringRef		key;
+
+	key = SCDynamicStoreKeyCreate(NULL,
+				      CFSTR("%@/%@/Protocol/%@/%@/%d/%d"),
+				      kSCDynamicStoreDomainState,
+				      kSCCompNetwork,
+				      kSCEntNetIPv4,
+				      kSCEntNetIPv4PortInUse,
+				      port, req_pid);
+	cache_SCDynamicStoreNotifyValue(store, key);
+	CFRelease(key);
 	return;
 }

@@ -37,6 +37,16 @@
 # undef HAVE_POLL
 #endif
 
+/* The input line assembled so far */
+
+/**/
+mod_export ZLE_STRING_T zleline;
+
+/* Cursor position and line length in zle */
+
+/**/
+mod_export int zlecs, zlell;
+
 /* != 0 if in a shell function called from completion, such that read -[cl]  *
  * will work (i.e., the line is metafied, and the above word arrays are OK). */
 
@@ -73,10 +83,30 @@ int done;
 /**/
 int mark;
 
-/* last character pressed */
+/*
+ * Last character pressed.
+ *
+ * Depending how far we are with processing, the lastcharacter may
+ * be a single byte read (lastchar_wide_valid is 0, lastchar_wide is not
+ * valid) or a full wide character.  This is needed because we can't be
+ * sure whether the user is typing old \M-style commands or multibyte
+ * input.
+ *
+ * Calling getfullchar or getrestchar is guaranteed to ensure we have
+ * a valid wide character (although this may be WEOF).  In many states
+ * we know this and don't need to test lastchar_wide_valid.
+ */
 
 /**/
-mod_export int lastchar;
+mod_export int
+lastchar;
+#ifdef MULTIBYTE_SUPPORT
+/**/
+mod_export ZLE_INT_T lastchar_wide;
+/**/
+mod_export int
+lastchar_wide_valid;
+#endif
 
 /* the bindings for the previous and for this key */
 
@@ -92,7 +122,11 @@ int insmode;
 mod_export int eofchar;
 
 static int eofsent;
-static long keytimeout;
+/*
+ * Key timeout in hundredths of a second:  we use time_t so
+ * that we only have the limits on one integer type to worry about.
+ */
+static time_t keytimeout;
 
 #if defined(HAVE_SELECT) || defined(HAVE_POLL)
 /* Terminal baud rate */
@@ -112,7 +146,7 @@ mod_export Widget compwidget;
 /* the status line, and its length */
 
 /**/
-mod_export char *statusline;
+mod_export ZLE_STRING_T statusline;
 /**/
 mod_export int statusll;
 
@@ -143,7 +177,7 @@ mod_export struct modifier zmod;
 /**/
 int prefixflag;
 
-/* Number of characters waiting to be read by the ungetkeys mechanism */
+/* Number of characters waiting to be read by the ungetbytes mechanism */
 /**/
 int kungetct;
 
@@ -191,7 +225,7 @@ zsetterm(void)
 	 * we can't set up the terminal for zle *at all* until
 	 * we are sure there is no more typeahead to come.  So
 	 * if there is typeahead, we set the flag delayzsetterm.
-	 * Then getkey() performs another FIONREAD call; if that is
+	 * Then getbyte() performs another FIONREAD call; if that is
 	 * 0, we have finally used up all the typeahead, and it is
 	 * safe to alter the terminal, which we do at that point.
 	 */
@@ -261,7 +295,7 @@ zsetterm(void)
     ti.tio.c_cc[VMIN] = 1;
     ti.tio.c_cc[VTIME] = 0;
     ti.tio.c_iflag |= (INLCR | ICRNL);
- /* this line exchanges \n and \r; it's changed back in getkey
+ /* this line exchanges \n and \r; it's changed back in getbyte
 	so that the net effect is no change at all inside the shell.
 	This double swap is to allow typeahead in common cases, eg.
 
@@ -270,12 +304,12 @@ zsetterm(void)
 	echo foo<return>  <--- typed before sleep returns
 
 	The shell sees \n instead of \r, since it was changed by the kernel
-	while zsh wasn't looking. Then in getkey() \n is changed back to \r,
+	while zsh wasn't looking. Then in getbyte() \n is changed back to \r,
 	and it sees "echo foo<accept line>", as expected. Without the double
 	swap the shell would see "echo foo\n", which is translated to
 	"echo fooecho foo<accept line>" because of the binding.
 	Note that if you type <line-feed> during the sleep the shell just sees
-	\n, which is translated to \r in getkey(), and you just get another
+	\n, which is translated to \r in getbyte(), and you just get another
 	prompt. For type-ahead to work in ALL cases you have to use
 	stty inlcr.
 
@@ -316,9 +350,16 @@ zsetterm(void)
 static char *kungetbuf;
 static int kungetsz;
 
+/*
+ * Note on ungetbyte and ungetbytes for the confused (pws):
+ * these are low level and deal with bytes before they
+ * have been converted into (possibly wide) characters.
+ * Hence the names.
+ */
+
 /**/
 void
-ungetkey(int ch)
+ungetbyte(int ch)
 {
     if (kungetct == kungetsz)
 	kungetbuf = realloc(kungetbuf, kungetsz *= 2);
@@ -327,11 +368,11 @@ ungetkey(int ch)
 
 /**/
 void
-ungetkeys(char *s, int len)
+ungetbytes(char *s, int len)
 {
     s += len;
     while (len--)
-	ungetkey(*--s);
+	ungetbyte(*--s);
 }
 
 #if defined(pyr) && defined(HAVE_SELECT)
@@ -350,11 +391,110 @@ breakread(int fd, char *buf, int n)
 # define read    breakread
 #endif
 
-static int
-raw_getkey(int keytmout, char *cptr)
+/*
+ * Possible forms of timeout.
+ */
+enum ztmouttp {
+    /* No timeout in use. */
+    ZTM_NONE,
+    /*
+     * Key timeout in use (do_keytmout flag set).  If this goes off
+     * we return without anything being read.
+     */
+    ZTM_KEY,
+    /*
+     * Function timeout in use (from timedfns list).
+     * If this goes off we call any functions which have reached
+     * the time and then continue processing.
+     */
+    ZTM_FUNC,
+    /*
+     * Timeout hit the maximum allowed; if it fires we
+     * need to recalculate.  As we may use poll() for the timeout,
+     * which takes an int value in milliseconds, we might need this
+     * for times long in the future.  (We make no attempt to extend
+     * the range of time beyond that of time_t, however; that seems
+     * like a losing battle.)
+     *
+     * For key timeouts we just limit the value to
+     * ZMAXTIMEOUT; that's already absurdly large.
+     *
+     * The following is the maximum signed range over 1024 (2^10), which
+     * is a little more convenient than 1000, but done differently
+     * to avoid problems with unsigned integers.  We assume 8-bit bytes;
+     * there's no general way to fix up if that's wrong.
+     */
+    ZTM_MAX
+#define	ZMAXTIMEOUT	((time_t)(1 << (sizeof(time_t)*8-11)))
+};
+
+struct ztmout {
+    /* Type of timeout setting, see enum above */
+    enum ztmouttp tp;
+    /*
+     * Value for timeout in 100ths of a second if type is not ZTM_NONE.
+     */
+    time_t exp100ths;
+};
+
+/*
+ * See if we need a timeout either for a key press or for a
+ * timed function.
+ */
+
+static void
+calc_timeout(struct ztmout *tmoutp, int do_keytmout)
 {
-    long exp100ths;
+    if (do_keytmout && keytimeout > 0) {
+	if (keytimeout > ZMAXTIMEOUT * 100 /* 24 days for a keypress???? */)
+	    tmoutp->exp100ths = ZMAXTIMEOUT * 100;
+	else
+	    tmoutp->exp100ths = keytimeout;
+	tmoutp->tp = ZTM_KEY;
+    } else
+	tmoutp->tp = ZTM_NONE;
+
+    if (timedfns) {
+	for (;;) {
+	    LinkNode tfnode = firstnode(timedfns);
+	    Timedfn tfdat;
+	    time_t diff, exp100ths;
+
+	    if (!tfnode)
+		break;
+
+	    tfdat = (Timedfn)getdata(tfnode);
+	    diff = tfdat->when - time(NULL);
+	    if (diff < 0) {
+		/* Already due; call it and rescan. */
+		tfdat->func();
+		continue;
+	    }
+
+	    if (diff > ZMAXTIMEOUT) {
+		tmoutp->exp100ths = ZMAXTIMEOUT * 100;
+		tmoutp->tp = ZTM_MAX;
+	    } else if (diff > 0) {
+		exp100ths = diff * 100;
+		if (tmoutp->tp != ZTM_KEY ||
+		    exp100ths < tmoutp->exp100ths) {
+		    tmoutp->exp100ths = exp100ths;
+		    tmoutp->tp = ZTM_FUNC;
+		}
+	    }
+	    break;
+	}
+	/* In case we called a function which messed up the display... */
+	if (resetneeded)
+	    zrefresh();
+    }
+}
+
+static int
+raw_getbyte(int do_keytmout, char *cptr)
+{
     int ret;
+    struct ztmout tmout;
 #if defined(HAS_TIO) && \
   (defined(sun) || (!defined(HAVE_POLL) && !defined(HAVE_SELECT)))
     struct ttyinfo ti;
@@ -365,204 +505,254 @@ raw_getkey(int keytmout, char *cptr)
 # endif
 #endif
 
+    calc_timeout(&tmout, do_keytmout);
+
     /*
-     * Handle timeouts and watched fd's.  We only do one at once;
-     * key timeouts take precedence.  This saves tricky timing
-     * problems with the key timeout.
+     * Handle timeouts and watched fd's.  If a watched fd or a function
+     * timeout triggers we restart any key timeout.  This is likely to
+     * be harmless: the combination is extremely rare and a function
+     * is likely to occupy the user for a little while anyway.  We used
+     * to make timeouts take precedence, but we can't now that the
+     * timeouts may be external, so we may have both a permanent watched
+     * fd and a long-term timeout.
      */
-    if ((nwatch || keytmout)
+    if ((nwatch || tmout.tp != ZTM_NONE)
 #ifdef FIONREAD
 	&& ! delayzsetterm
 #endif
 	) {
-	if (!keytmout || keytimeout <= 0)
-	    exp100ths = 0;
-	else if (keytimeout > 500)
-	    exp100ths = 500;
-	else
-	    exp100ths = keytimeout;
 #if defined(HAVE_SELECT) || defined(HAVE_POLL)
-	if (!keytmout || exp100ths) {
-	    int i, errtry = 0, selret;
+	int i, errtry = 0, selret;
 # ifdef HAVE_POLL
-	    int poll_timeout;
-	    int nfds;
-	    struct pollfd *fds;
-# else
-	    int fdmax;
-	    struct timeval *tvptr;
-	    struct timeval expire_tv;
+	int nfds;
+	struct pollfd *fds;
 # endif
 # if defined(HAS_TIO) && defined(sun)
-	    /*
-	     * Yes, I know this is complicated.  Yes, I know we
-	     * already have three bits of code to poll the terminal
-	     * down below.  No, I don't want to do this either.
-	     * However, it turns out on certain OSes, specifically
-	     * Solaris, that you can't poll typeahead for love nor
-	     * money without actually trying to read it.  But
-	     * if we are trying to select (and we need to if we
-	     * are watching other fd's) we won't pick that up.
-	     * So we just try and read it without blocking in
-	     * the time-honoured (i.e. absurdly baroque) termios
-	     * fashion.
-	     */
-	    gettyinfo(&ti);
-	    ti.tio.c_cc[VMIN] = 0;
-	    settyinfo(&ti);
-	    ret = read(SHTTY, cptr, 1);
-	    ti.tio.c_cc[VMIN] = 1;
-	    settyinfo(&ti);
-	    if (ret > 0)
-		return 1;
+	/*
+	 * Yes, I know this is complicated.  Yes, I know we
+	 * already have three bits of code to poll the terminal
+	 * down below.  No, I don't want to do this either.
+	 * However, it turns out on certain OSes, specifically
+	 * Solaris, that you can't poll typeahead for love nor
+	 * money without actually trying to read it.  But
+	 * if we are trying to select (and we need to if we
+	 * are watching other fd's) we won't pick that up.
+	 * So we just try and read it without blocking in
+	 * the time-honoured (i.e. absurdly baroque) termios
+	 * fashion.
+	 */
+	gettyinfo(&ti);
+	ti.tio.c_cc[VMIN] = 0;
+	settyinfo(&ti);
+	ret = read(SHTTY, cptr, 1);
+	ti.tio.c_cc[VMIN] = 1;
+	settyinfo(&ti);
+	if (ret > 0)
+	    return 1;
 # endif
 # ifdef HAVE_POLL
-	    nfds = keytmout ? 1 : 1 + nwatch;
-	    /* First pollfd is SHTTY, following are the nwatch fds */
-	    fds = zalloc(sizeof(struct pollfd) * nfds);
-	    if (exp100ths)
-		poll_timeout = exp100ths * 10;
+	nfds = 1 + nwatch;
+	/* First pollfd is SHTTY, following are the nwatch fds */
+	fds = zalloc(sizeof(struct pollfd) * nfds);
+	fds[0].fd = SHTTY;
+	/*
+	 * POLLIN, POLLIN, POLLIN,
+	 * Keep those fd's POLLIN...
+	 */
+	fds[0].events = POLLIN;
+	for (i = 0; i < nwatch; i++) {
+	    fds[i+1].fd = watch_fds[i];
+	    fds[i+1].events = POLLIN;
+	}
+# endif
+	do {
+# ifdef HAVE_POLL
+	    int poll_timeout;
+
+	    if (tmout.tp != ZTM_NONE)
+		poll_timeout = tmout.exp100ths * 10;
 	    else
 		poll_timeout = -1;
 
-	    fds[0].fd = SHTTY;
-	    /*
-	     * POLLIN, POLLIN, POLLIN,
-	     * Keep those fd's POLLIN...
-	     */
-	    fds[0].events = POLLIN;
-	    if (!keytmout) {
+	    selret = poll(fds, errtry ? 1 : nfds, poll_timeout);
+# else
+	    int fdmax = SHTTY;
+	    struct timeval *tvptr;
+	    struct timeval expire_tv;
+
+	    FD_ZERO(&foofd);
+	    FD_SET(SHTTY, &foofd);
+	    if (!errtry) {
 		for (i = 0; i < nwatch; i++) {
-		    fds[i+1].fd = watch_fds[i];
-		    fds[i+1].events = POLLIN;
+		    int fd = watch_fds[i];
+		    FD_SET(fd, &foofd);
+		    if (fd > fdmax)
+			fdmax = fd;
 		}
 	    }
-# else
-	    fdmax = SHTTY;
-	    tvptr = NULL;
-	    if (exp100ths) {
-		expire_tv.tv_sec = exp100ths / 100;
-		expire_tv.tv_usec = (exp100ths % 100) * 10000L;
+
+	    if (tmout.tp != ZTM_NONE) {
+		expire_tv.tv_sec = tmout.exp100ths / 100;
+		expire_tv.tv_usec = (tmout.exp100ths % 100) * 10000L;
 		tvptr = &expire_tv;
 	    }
+	    else
+		tvptr = NULL;
+
+	    selret = select(fdmax+1, (SELECT_ARG_2_T) & foofd,
+			    NULL, NULL, tvptr);
 # endif
-	    do {
-# ifdef HAVE_POLL
-		selret = poll(fds, errtry ? 1 : nfds, poll_timeout);
-# else
-		FD_ZERO(&foofd);
-		FD_SET(SHTTY, &foofd);
-		if (!keytmout && !errtry) {
-		    for (i = 0; i < nwatch; i++) {
-			int fd = watch_fds[i];
-			FD_SET(fd, &foofd);
-			if (fd > fdmax)
-			    fdmax = fd;
-		    }
-		}
-		selret = select(fdmax+1, (SELECT_ARG_2_T) & foofd,
-				NULL, NULL, tvptr);
-# endif
+	    /*
+	     * Make sure a user interrupt gets passed on straight away.
+	     */
+	    if (selret < 0 && errflag)
+		break;
+	    /*
+	     * Try to avoid errors on our special fd's from
+	     * messing up reads from the terminal.  Try first
+	     * with all fds, then try unsetting the special ones.
+	     */
+	    if (selret < 0 && !errtry) {
+		errtry = 1;
+		continue;
+	    }
+	    if (selret == 0) {
 		/*
-		 * Make sure a user interrupt gets passed on straight away.
+		 * Nothing ready and no error, so we timed out.
 		 */
-		if (selret < 0 && errflag)
-		    break;
-		/*
-		 * Try to avoid errors on our special fd's from
-		 * messing up reads from the terminal.  Try first
-		 * with all fds, then try unsetting the special ones.
-		 */
-		if (selret < 0 && !keytmout && !errtry) {
-		    errtry = 1;
-		    continue;
-		}
-		if (selret == 0) {
+		switch (tmout.tp) {
+		case ZTM_NONE:
+		    /* keeps compiler happy if not debugging */
+#ifdef DEBUG
+		    dputs("BUG: timeout fired with no timeout set.");
+#endif
+		    /* treat as if a key timeout triggered */
+		    /*FALLTHROUGH*/
+		case ZTM_KEY:
 		    /* Special value -2 signals nothing ready */
 		    selret = -2;
-		}
-		if (selret < 0)
 		    break;
-		if (!keytmout && nwatch) {
-		    /*
-		     * Copy the details of the watch fds in case the
-		     * user decides to delete one from inside the
-		     * handler function.
-		     */
-		    int lnwatch = nwatch;
-		    int *lwatch_fds = zalloc(lnwatch*sizeof(int));
-		    char **lwatch_funcs = zarrdup(watch_funcs);
-		    memcpy(lwatch_fds, watch_fds, lnwatch*sizeof(int));
-		    for (i = 0; i < lnwatch; i++) {
-			if (
-# ifdef HAVE_POLL
-			    (fds[i+1].revents & POLLIN)
-# else
-			    FD_ISSET(lwatch_fds[i], &foofd)
-# endif
-			    ) {
-			    /* Handle the fd. */
-			    LinkList funcargs = znewlinklist();
-			    zaddlinknode(funcargs, ztrdup(lwatch_funcs[i]));
-			    {
-				char buf[BDIGBUFSIZE];
-				convbase(buf, lwatch_fds[i], 10);
-				zaddlinknode(funcargs, ztrdup(buf));
-			    }
-# ifdef HAVE_POLL
-#  ifdef POLLERR
-			    if (fds[i+1].revents & POLLERR)
-				zaddlinknode(funcargs, ztrdup("err"));
-#  endif
-#  ifdef POLLHUP
-			    if (fds[i+1].revents & POLLHUP)
-				zaddlinknode(funcargs, ztrdup("hup"));
-#  endif
-#  ifdef POLLNVAL
-			    if (fds[i+1].revents & POLLNVAL)
-				zaddlinknode(funcargs, ztrdup("nval"));
-#  endif
-# endif
 
-
-			    callhookfunc(lwatch_funcs[i], funcargs);
-			    if (errflag) {
-				/* No sensible way of handling errors here */
-				errflag = 0;
-				/*
-				 * Paranoia: don't run the hooks again this
-				 * time.
-				 */
-				errtry = 1;
-			    }
-			    freelinklist(funcargs, freestr);
-			}
+		case ZTM_FUNC:
+		    while (firstnode(timedfns)) {
+			Timedfn tfdat = (Timedfn)getdata(firstnode(timedfns));
+			/*
+			 * It's possible a previous function took
+			 * a long time to run (though it can't
+			 * call zle recursively), so recalculate
+			 * the time on each iteration.
+			 */
+			time_t now = time(NULL);
+			if (tfdat->when > now)
+			    break;
+			tfdat->func();
 		    }
-		    /* Function may have invalidated the display. */
+		    /* Function may have messed up the display */
 		    if (resetneeded)
 			zrefresh();
-		    zfree(lwatch_fds, lnwatch*sizeof(int));
-		    freearray(lwatch_funcs);
+		    /* We need to recalculate the timeout */
+		    /*FALLTHROUGH*/
+		case ZTM_MAX:
+		    /*
+		     * Reached the limit of our range, but not the
+		     * actual timeout; recalculate the timeout.
+		     * We're cheating with the key timeout here:
+		     * if one clashed with a function timeout we
+		     * reconsider the key timeout from scratch.
+		     * The effect of this is microscopic.
+		     */
+		    calc_timeout(&tmout, do_keytmout);
+		    break;
 		}
-	    } while (!
-# ifdef HAVE_POLL
-		     (fds[0].revents & POLLIN)
-# else
-		     FD_ISSET(SHTTY, &foofd)
-# endif
-		);
-# ifdef HAVE_POLL
-	    zfree(fds, sizeof(struct pollfd) * nfds);
-# endif
+		/*
+		 * If we handled the timeout successfully,
+		 * carry on.
+		 */
+		if (selret == 0)
+		    continue;
+	    }
+	    /* If error or unhandled timeout, give up. */
 	    if (selret < 0)
-		return selret;
-	}
+		break;
+	    if (nwatch && !errtry) {
+		/*
+		 * Copy the details of the watch fds in case the
+		 * user decides to delete one from inside the
+		 * handler function.
+		 */
+		int lnwatch = nwatch;
+		int *lwatch_fds = zalloc(lnwatch*sizeof(int));
+		char **lwatch_funcs = zarrdup(watch_funcs);
+		memcpy(lwatch_fds, watch_fds, lnwatch*sizeof(int));
+		for (i = 0; i < lnwatch; i++) {
+		    if (
+# ifdef HAVE_POLL
+			(fds[i+1].revents & POLLIN)
+# else
+			FD_ISSET(lwatch_fds[i], &foofd)
+# endif
+			) {
+			/* Handle the fd. */
+			LinkList funcargs = znewlinklist();
+			zaddlinknode(funcargs, ztrdup(lwatch_funcs[i]));
+			{
+			    char buf[BDIGBUFSIZE];
+			    convbase(buf, lwatch_fds[i], 10);
+			    zaddlinknode(funcargs, ztrdup(buf));
+			}
+# ifdef HAVE_POLL
+#  ifdef POLLERR
+			if (fds[i+1].revents & POLLERR)
+			    zaddlinknode(funcargs, ztrdup("err"));
+#  endif
+#  ifdef POLLHUP
+			if (fds[i+1].revents & POLLHUP)
+			    zaddlinknode(funcargs, ztrdup("hup"));
+#  endif
+#  ifdef POLLNVAL
+			if (fds[i+1].revents & POLLNVAL)
+			    zaddlinknode(funcargs, ztrdup("nval"));
+#  endif
+# endif
+
+
+			callhookfunc(lwatch_funcs[i], funcargs, 0);
+			if (errflag) {
+			    /* No sensible way of handling errors here */
+			    errflag = 0;
+			    /*
+			     * Paranoia: don't run the hooks again this
+			     * time.
+			     */
+			    errtry = 1;
+			}
+			freelinklist(funcargs, freestr);
+		    }
+		}
+		/* Function may have invalidated the display. */
+		if (resetneeded)
+		    zrefresh();
+		zfree(lwatch_fds, lnwatch*sizeof(int));
+		freearray(lwatch_funcs);
+	    }
+	} while (!
+# ifdef HAVE_POLL
+		 (fds[0].revents & POLLIN)
+# else
+		 FD_ISSET(SHTTY, &foofd)
+# endif
+		 );
+# ifdef HAVE_POLL
+	zfree(fds, sizeof(struct pollfd) * nfds);
+# endif
+	if (selret < 0)
+	    return selret;
 #else
 # ifdef HAS_TIO
 	ti = shttyinfo;
 	ti.tio.c_lflag &= ~ICANON;
 	ti.tio.c_cc[VMIN] = 0;
-	ti.tio.c_cc[VTIME] = exp100ths / 10;
+	ti.tio.c_cc[VTIME] = tmout.exp100ths / 10;
 #  ifdef HAVE_TERMIOS_H
 	tcsetattr(SHTTY, TCSANOW, &ti.tio);
 #  else
@@ -586,12 +776,24 @@ raw_getkey(int keytmout, char *cptr)
 
 /**/
 mod_export int
-getkey(int keytmout)
+getbyte(int do_keytmout, int *timeout)
 {
     char cc;
     unsigned int ret;
     int die = 0, r, icnt = 0;
     int old_errno = errno, obreaks = breaks;
+
+    if (timeout)
+	*timeout = 0;
+
+#ifdef MULTIBYTE_SUPPORT
+    /*
+     * Reading a single byte always invalidates the status
+     * of lastchar_wide.  We may fix this up in getrestchar
+     * if this is the last byte of a wide character.
+     */
+    lastchar_wide_valid = 0;
+#endif
 
     if (kungetct)
 	ret = STOUC(kungetbuf[--kungetct]);
@@ -607,10 +809,14 @@ getkey(int keytmout)
 	for (;;) {
 	    int q = queue_signal_level();
 	    dont_queue_signals();
-	    r = raw_getkey(keytmout, &cc);
+	    r = raw_getbyte(do_keytmout, &cc);
 	    restore_queue_signals(q);
-	    if (r == -2)	/* timeout */
-		return EOF;
+	    if (r == -2) {
+		/* timeout */
+		if (timeout)
+		    *timeout = 1;
+		return lastchar = EOF;
+	    }
 	    if (r == 1)
 		break;
 	    if (r == 0) {
@@ -637,7 +843,7 @@ getkey(int keytmout)
 		errflag = 0;
 		breaks = obreaks;
 		errno = old_errno;
-		return EOF;
+		return lastchar = EOF;
 	    } else if (errno == EWOULDBLOCK) {
 		fcntl(0, F_SETFL, 0);
 	    } else if (errno == EIO && !die) {
@@ -648,7 +854,7 @@ getkey(int keytmout)
 		opts[MONITOR] = ret;
 		die = 1;
 	    } else if (errno != 0) {
-		zerr("error on TTY read: %e", NULL, errno);
+		zerr("error on TTY read: %e", errno);
 		stopmsg = 1;
 		zexit(1, 0);
 	    }
@@ -660,14 +866,117 @@ getkey(int keytmout)
 
 	ret = STOUC(cc);
     }
+    /*
+     * vichgbuf is raw bytes, not wide characters, so is dealt
+     * with here.
+     */
     if (vichgflag) {
 	if (vichgbufptr == vichgbufsz)
 	    vichgbuf = realloc(vichgbuf, vichgbufsz *= 2);
 	vichgbuf[vichgbufptr++] = ret;
     }
     errno = old_errno;
-    return ret;
+    return lastchar = ret;
 }
+
+
+/*
+ * Get a full character rather than just a single byte.
+ */
+
+/**/
+mod_export ZLE_INT_T
+getfullchar(int do_keytmout)
+{
+    int inchar = getbyte(do_keytmout, NULL);
+
+#ifdef MULTIBYTE_SUPPORT
+    return getrestchar(inchar);
+#else
+    return inchar;
+#endif
+}
+
+
+/**/
+#ifdef MULTIBYTE_SUPPORT
+/*
+ * Get the remainder of a character if we support multibyte
+ * input strings.  It may not require any more input, but
+ * we haven't yet checked.  The character previously returned
+ * by getbyte() is passed down as inchar.
+ */
+
+/**/
+mod_export ZLE_INT_T
+getrestchar(int inchar)
+{
+    char c = inchar;
+    wchar_t outchar;
+    int timeout;
+    static mbstate_t mbs;
+
+    /*
+     * We are guaranteed to set a valid wide last character,
+     * although it may be WEOF (which is technically not
+     * a wide character at all...)
+     */
+    lastchar_wide_valid = 1;
+
+    if (inchar == EOF) {
+	/* End of input, so reset the shift state. */
+	memset(&mbs, 0, sizeof mbs);
+	return lastchar_wide = WEOF;
+    }
+
+    /*
+     * Return may be zero if we have a NULL; handle this like
+     * any other character.
+     */
+    while (1) {
+	size_t cnt = mbrtowc(&outchar, &c, 1, &mbs);
+	if (cnt == MB_INVALID) {
+	    /*
+	     * Invalid input.  Hmm, what's the right thing to do here?
+	     */
+	    memset(&mbs, 0, sizeof mbs);
+	    return lastchar_wide = WEOF;
+	}
+	if (cnt != MB_INCOMPLETE)
+	    break;
+
+	/*
+	 * Always apply KEYTIMEOUT to the remains of the input
+	 * character.  The parts of a multibyte character should
+	 * arrive together.  If we don't do this the input can
+	 * get stuck if an invalid byte sequence arrives.
+	 */
+	inchar = getbyte(1, &timeout);
+	/* getbyte deliberately resets lastchar_wide_valid */
+	lastchar_wide_valid = 1;
+	if (inchar == EOF) {
+	    memset(&mbs, 0, sizeof mbs);
+	    if (timeout)
+	    {
+		/*
+		 * This case means that we got a valid initial byte
+		 * (since we tested for EOF above), but the followup
+		 * timed out.  This probably indicates a duff character.
+		 * Return a '?'.
+		 */
+		lastchar = '?';
+		return lastchar_wide = L'?';
+	    }
+	    else
+		return lastchar_wide = WEOF;
+	}
+	c = inchar;
+    }
+    return lastchar_wide = (ZLE_INT_T)outchar;
+}
+/**/
+#endif
+
 
 /**/
 void
@@ -687,6 +996,7 @@ zlecore(void)
      * that explicitly.
      */
     while (!done && !errflag && !exit_pending) {
+	UNMETACHECK();
 
 	statusline = NULL;
 	vilinerange = 0;
@@ -694,7 +1004,7 @@ zlecore(void)
 	selectlocalmap(NULL);
 	bindk = getkeycmd();
 	if (bindk) {
-	    if (!ll && isfirstln && !(zlereadflags & ZLRF_IGNOREEOF) &&
+	    if (!zlell && isfirstln && !(zlereadflags & ZLRF_IGNOREEOF) &&
 		lastchar == eofchar) {
 		/*
 		 * Slight hack: this relies on getkeycmd returning
@@ -706,16 +1016,16 @@ zlecore(void)
 		eofsent = 1;
 		break;
 	    }
-	    if (execzlefunc(bindk, zlenoargs)) {
+	    if (execzlefunc(bindk, zlenoargs, 0)) {
 		handlefeep(zlenoargs);
 		if (eofsent)
 		    break;
 	    }
 	    handleprefixes();
 	    /* for vi mode, make sure the cursor isn't somewhere illegal */
-	    if (invicmdmode() && cs > findbol() &&
-		(cs == ll || line[cs] == '\n'))
-		cs--;
+	    if (invicmdmode() && zlecs > findbol() &&
+		(zlecs == zlell || zleline[zlecs] == ZWC('\n')))
+		zlecs--;
 	    if (undoing)
 		handleundo();
 	} else {
@@ -755,15 +1065,16 @@ zlecore(void)
 /* Read a line.  It is returned metafied. */
 
 /**/
-unsigned char *
+char *
 zleread(char **lp, char **rp, int flags, int context)
 {
-    unsigned char *s;
+    char *s;
     int old_errno = errno;
     int tmout = getiparam("TMOUT");
     Thingy initthingy;
 
 #if defined(HAVE_POLL) || defined(HAVE_SELECT)
+    /* may not be set, but that's OK since getiparam() returns 0 == off */
     baud = getiparam("BAUD");
     costmult = (baud) ? 3840000L / baud : 0;
 #endif
@@ -779,10 +1090,10 @@ zleread(char **lp, char **rp, int flags, int context)
 			  &pptlen);
 	write(2, (WRITE_ARG_2_T)pptbuf, pptlen);
 	free(pptbuf);
-	return (unsigned char *)shingetline();
+	return shingetline();
     }
 
-    keytimeout = getiparam("KEYTIMEOUT");
+    keytimeout = (time_t)getiparam("KEYTIMEOUT");
     if (!shout) {
 	if (SHTTY != -1)
 	    init_shout();
@@ -814,23 +1125,23 @@ zleread(char **lp, char **rp, int flags, int context)
     zlecontext = context;
     histline = curhist;
     undoing = 1;
-    line = (unsigned char *)zalloc((linesz = 256) + 2);
-    *line = '\0';
-    virangeflag = lastcmd = done = cs = ll = mark = 0;
+    zleline = (ZLE_STRING_T)zalloc(((linesz = 256) + 2) * ZLE_CHAR_SIZE);
+    *zleline = ZWC('\0');
+    virangeflag = lastcmd = done = zlecs = zlell = mark = 0;
     vichgflag = 0;
     viinsbegin = 0;
     statusline = NULL;
     selectkeymap("main", 1);
     selectlocalmap(NULL);
     fixsuffix();
-    if ((s = (unsigned char *)getlinknode(bufstack))) {
-	setline((char *)s);
-	zsfree((char *)s);
+    if ((s = getlinknode(bufstack))) {
+	setline(s, ZSL_TOEND);
+	zsfree(s);
 	if (stackcs != -1) {
-	    cs = stackcs;
+	    zlecs = stackcs;
 	    stackcs = -1;
-	    if (cs > ll)
-		cs = ll;
+	    if (zlecs > zlell)
+		zlecs = zlell;
 	}
 	if (stackhist != -1) {
 	    histline = stackhist;
@@ -855,7 +1166,7 @@ zleread(char **lp, char **rp, int flags, int context)
 	char *args[2];
 	args[0] = initthingy->nam;
 	args[1] = NULL;
-	execzlefunc(initthingy, args);
+	execzlefunc(initthingy, args, 1);
 	unrefthingy(initthingy);
 	errflag = retflag = 0;
     }
@@ -872,29 +1183,38 @@ zleread(char **lp, char **rp, int flags, int context)
 
     freeundo();
     if (eofsent) {
-	free(line);
-	line = NULL;
+	s = NULL;
     } else {
-	line[ll++] = '\n';
-	line = (unsigned char *) metafy((char *) line, ll, META_REALLOC);
+	zleline[zlell++] = ZWC('\n');
+	s = zlegetline(NULL, NULL);
     }
+    free(zleline);
+    zleline = NULL;
     forget_edits();
     errno = old_errno;
-    return line;
+    return s;
 }
 
-/* execute a widget */
+/*
+ * Execute a widget.  The third argument indicates that the global
+ * variable bindk should be set temporarily so that WIDGET etc.
+ * reflect the command being executed.
+ */
 
 /**/
 int
-execzlefunc(Thingy func, char **args)
+execzlefunc(Thingy func, char **args, int set_bindk)
 {
     int r = 0, ret = 0;
     Widget w;
+    Thingy save_bindk = bindk;
+
+    if (set_bindk)
+	bindk = func;
 
     if(func->flags & DISABLED) {
 	/* this thingy is not the name of a widget */
-	char *nm = niceztrdup(func->nam);
+	char *nm = nicedup(func->nam, 0);
 	char *msg = tricat("No such widget `", nm, "'");
 
 	zsfree(nm);
@@ -911,9 +1231,10 @@ execzlefunc(Thingy func, char **args)
 	 * zlenoargs placeholder.
 	 */
 	if (keybuf[0] == eofchar && !keybuf[1] && args == zlenoargs &&
-	    !ll && isfirstln && (zlereadflags & ZLRF_IGNOREEOF)) {
+	    !zlell && isfirstln && (zlereadflags & ZLRF_IGNOREEOF)) {
 	    showmsg((!islogin) ? "zsh: use 'exit' to exit." :
 		    "zsh: use 'logout' to logout.");
+	    use_exit_printed = 1;
 	    eofsent = 1;
 	    ret = 1;
 	} else {
@@ -933,6 +1254,8 @@ execzlefunc(Thingy func, char **args)
 		ret = completecall(args);
 		if (atcurhist)
 		    histline = curhist;
+	    } else if (!w->u.fn) {
+		handlefeep(zlenoargs);
 	    } else {
 		queue_signals();
 		ret = w->u.fn(args);
@@ -948,7 +1271,7 @@ execzlefunc(Thingy func, char **args)
 
 	if(prog == &dummy_eprog) {
 	    /* the shell function doesn't exist */
-	    char *nm = niceztrdup(w->u.fnnam);
+	    char *nm = nicedup(w->u.fnnam, 0);
 	    char *msg = tricat("No such shell function `", nm, "'");
 
 	    zsfree(nm);
@@ -970,7 +1293,7 @@ execzlefunc(Thingy func, char **args)
 	    makezleparams(0);
 	    sfcontext = SFC_WIDGET;
 	    opts[XTRACE] = 0;
-	    ret = doshfunc(w->u.fnnam, prog, largs, shf->flags, 1);
+	    ret = doshfunc(w->u.fnnam, prog, largs, shf->node.flags, 1);
 	    opts[XTRACE] = oxt;
 	    sfcontext = osc;
 	    endparamscope();
@@ -984,6 +1307,8 @@ execzlefunc(Thingy func, char **args)
 	refthingy(func);
 	lbindk = func;
     }
+    if (set_bindk)
+	bindk = save_bindk;
     return ret;
 }
 
@@ -997,6 +1322,7 @@ initmodifier(struct modifier *mp)
     mp->mult = 1;
     mp->tmult = 1;
     mp->vibuf = 0;
+    mp->base = 10;
 }
 
 /* Reset command modifiers, unless the command just executed was a prefix. *
@@ -1035,7 +1361,7 @@ savekeymap(char *cmdname, char *oldname, char *newname, Keymap *savemapptr)
 	}
 	return 0;
     } else {
-	zwarnnam(cmdname, "no such keymap: %s", newname, 0);
+	zwarnnam(cmdname, "no such keymap: %s", newname);
 	return 1;
     }
 }
@@ -1051,7 +1377,7 @@ restorekeymap(char *cmdname, char *oldname, char *newname, Keymap savemap)
     } else if (newname) {
 	/* urr... can this happen? */
 	zwarnnam(cmdname,
-		 "keymap %s was not defined, not restored", oldname, 0);
+		 "keymap %s was not defined, not restored", oldname);
     }
 }
 
@@ -1077,11 +1403,11 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     FILE *oshout = NULL;
 
     if ((interact && unset(USEZLE)) || !strcmp(term, "emacs")) {
-	zwarnnam(name, "ZLE not enabled", NULL, 0);
+	zwarnnam(name, "ZLE not enabled");
 	return 1;
     }
     if (zleactive) {
-	zwarnnam(name, "ZLE cannot be used recursively (yet)", NULL, 0);
+	zwarnnam(name, "ZLE cannot be used recursively (yet)");
 	return 1;
     }
 
@@ -1089,7 +1415,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     {
 	if (OPT_ISSET(ops, 'a'))
 	{
-	    zwarnnam(name, "specify only one of -a and -A", NULL, 0);
+	    zwarnnam(name, "specify only one of -a and -A");
 	    return 1;
 	}
 	type = PM_HASHED;
@@ -1102,7 +1428,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     vicmd_keymapname = OPT_ARG_SAFE(ops,'m');
 
     if (type != PM_SCALAR && !OPT_ISSET(ops,'c')) {
-	zwarnnam(name, "-%s ignored", type == PM_ARRAY ? "a" : "A", 0);
+	zwarnnam(name, "-%s ignored", type == PM_ARRAY ? "a" : "A");
     }
 
     /* handle non-existent parameter */
@@ -1112,7 +1438,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
 		   SCANPM_WANTKEYS|SCANPM_WANTVALS|SCANPM_MATCHMANY);
     if (!v && !OPT_ISSET(ops,'c')) {
 	unqueue_signals();
-	zwarnnam(name, "no such variable: %s", args[0], 0);
+	zwarnnam(name, "no such variable: %s", args[0]);
 	return 1;
     } else if (v) {
 	if (v->isarr) {
@@ -1120,32 +1446,40 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
 	    char **arr = getarrvalue(v), **aptr, **tmparr, **tptr;
 	    tptr = tmparr = (char **)zhalloc(sizeof(char *)*(arrlen(arr)+1));
 	    for (aptr = arr; *aptr; aptr++) {
-		int sepcount = 0;
+		int sepcount = 0, clen;
+		convchar_t c;
 		/*
 		 * See if this word contains a separator character
 		 * or backslash
 		 */
-		for (t = *aptr; *t; t++) {
-		    if (*t == Meta) {
-			if (isep(t[1] ^ 32))
-			    sepcount++;
+		MB_METACHARINIT();
+		for (t = *aptr; *t; ) {
+		    if (*t == '\\') {
 			t++;
-		    } else if (isep(*t) || *t == '\\')
 			sepcount++;
+		    } else {
+			t += MB_METACHARLENCONV(t, &c);
+			if (WC_ZISTYPE(c, ISEP))
+			    sepcount++;
+		    }
 		}
 		if (sepcount) {
 		    /* Yes, so allocate enough space to quote it. */
 		    char *newstr, *nptr;
 		    newstr = zhalloc(strlen(*aptr)+sepcount+1);
 		    /* Go through string quoting separators */
+		    MB_METACHARINIT();
 		    for (t = *aptr, nptr = newstr; *t; ) {
-			if (*t == Meta) {
-			    if (isep(t[1] ^ 32))
-				*nptr++ = '\\';
-			    *nptr++ = *t++;
-			} else if (isep(*t) || *t == '\\')
+			if (*t == '\\') {
 			    *nptr++ = '\\';
-			*nptr++ = *t++;
+			    *nptr++ = *t++;
+			} else {
+			    clen = MB_METACHARLENCONV(t, &c);
+			    if (WC_ZISTYPE(c, ISEP))
+				*nptr++ = '\\';
+			    while (clen--)
+				*nptr++ = *t++;
+			}
 		    }
 		    *nptr = '\0';
 		    /* Stick this into the array of words to join up */
@@ -1161,7 +1495,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
 	unqueue_signals();
     } else if (*s) {
 	unqueue_signals();
-	zwarnnam(name, "invalid parameter name: %s", args[0], 0);
+	zwarnnam(name, "invalid parameter name: %s", args[0]);
 	return 1;
     } else {
 	unqueue_signals();
@@ -1171,7 +1505,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     if (SHTTY == -1) {
 	/* need to open /dev/tty specially */
 	if ((SHTTY = open("/dev/tty", O_RDWR|O_NOCTTY)) == -1) {
-	    zwarnnam(name, "can't access terminal", NULL, 0);
+	    zwarnnam(name, "can't access terminal");
 	    return 1;
 	}
 	oshout = shout;
@@ -1194,8 +1528,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     if (OPT_ISSET(ops,'h'))
 	hbegin(2);
     isfirstln = OPT_ISSET(ops,'e');
-    t = (char *) zleread(&p1, &p2, OPT_ISSET(ops,'h') ? ZLRF_HISTORY : 0,
-			 ZLCON_VARED);
+    t = zleread(&p1, &p2, OPT_ISSET(ops,'h') ? ZLRF_HISTORY : 0, ZLCON_VARED);
     if (OPT_ISSET(ops,'h'))
 	hend(NULL);
     isfirstln = ifl;
@@ -1225,7 +1558,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     }
     queue_signals();
     pm = (Param) paramtab->getnode(paramtab, args[0]);
-    if (pm && (PM_TYPE(pm->flags) & (PM_ARRAY|PM_HASHED))) {
+    if (pm && (PM_TYPE(pm->node.flags) & (PM_ARRAY|PM_HASHED))) {
 	char **a;
 
 	/*
@@ -1234,7 +1567,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
 	 */
 	a = spacesplit(t, 1, 0, 1);
 	zsfree(t);
-	if (PM_TYPE(pm->flags) == PM_ARRAY)
+	if (PM_TYPE(pm->node.flags) == PM_ARRAY)
 	    setaparam(args[0], a);
 	else
 	    sethparam(args[0], a);
@@ -1254,8 +1587,8 @@ describekeybriefly(UNUSED(char **args))
     if (statusline)
 	return 1;
     clearlist = 1;
-    statusline = "Describe key briefly: _";
-    statusll = strlen(statusline);
+    statusline = ZWS("Describe key briefly: _");
+    statusll = ZS_strlen(statusline);
     zrefresh();
     seq = getkeymapcmd(curkeymap, &func, &str);
     statusline = NULL;
@@ -1266,7 +1599,7 @@ describekeybriefly(UNUSED(char **args))
     if (!func)
 	is = bindztrdup(str);
     else
-	is = niceztrdup(func->nam);
+	is = nicedup(func->nam, 0);
     msg = appstr(msg, is);
     zsfree(is);
     showmsg(msg);
@@ -1310,7 +1643,7 @@ whereis(UNUSED(char **args))
     if (!(ff.func = executenamedcommand("Where is: ")))
 	return 1;
     ff.found = 0;
-    ff.msg = niceztrdup(ff.func->nam);
+    ff.msg = nicedup(ff.func->nam, 0);
     scankeymap(curkeymap, 1, scanfindfunc, &ff);
     if (!ff.found)
 	ff.msg = appstr(ff.msg, " is not bound to any key");
@@ -1331,7 +1664,7 @@ recursiveedit(UNUSED(char **args))
     zlecore();
 
     locerror = errflag;
-    errflag = done = 0;
+    errflag = done = eofsent = 0;
 
     return locerror;
 }
@@ -1340,10 +1673,15 @@ recursiveedit(UNUSED(char **args))
 void
 reexpandprompt(void)
 {
-    free(lpromptbuf);
-    lpromptbuf = promptexpand(raw_lp ? *raw_lp : NULL, 1, NULL, NULL);
-    free(rpromptbuf);
-    rpromptbuf = promptexpand(raw_rp ? *raw_rp : NULL, 1, NULL, NULL);
+    static int reexpanding;
+
+    if (!reexpanding++) {
+	free(lpromptbuf);
+	lpromptbuf = promptexpand(raw_lp ? *raw_lp : NULL, 1, NULL, NULL);
+	free(rpromptbuf);
+	rpromptbuf = promptexpand(raw_rp ? *raw_rp : NULL, 1, NULL, NULL);
+    }
+    reexpanding--;
 }
 
 /**/
@@ -1354,11 +1692,22 @@ resetprompt(UNUSED(char **args))
     return redisplay(NULL);
 }
 
+/* same bug called from outside zle */
+
+/**/
+mod_export void
+zle_resetprompt(void)
+{   reexpandprompt();
+    if (zleactive)
+        redisplay(NULL);
+}
+
+
 /**/
 mod_export void
 trashzle(void)
 {
-    if (zleactive) {
+    if (zleactive && !trashedzle) {
 	/* This zrefresh() is just to get the main editor display right and *
 	 * get the cursor in the right place.  For that reason, we disable  *
 	 * list display (which would otherwise result in infinite           *
@@ -1384,6 +1733,7 @@ trashzle(void)
     if (errflag)
 	kungetct = 0;
 }
+
 
 /* Hook functions. Used to allow access to zle parameters if zle is
  * active. */
@@ -1433,12 +1783,14 @@ setup_(UNUSED(Module m))
 {
     /* Set up editor entry points */
     trashzleptr = trashzle;
-    refreshptr = zrefresh;
-    spaceinlineptr = spaceinline;
+    zle_resetpromptptr = zle_resetprompt;
+    zrefreshptr = zrefresh;
+    zleaddtolineptr = zleaddtoline;
+    zlegetlineptr = zlegetline;
     zlereadptr = zleread;
     zlesetkeymapptr = zlesetkeymap;
 
-    getkeyptr = getkey;
+    getkeyptr = getbyte;
 
     /* initialise the thingies */
     init_thingies();
@@ -1479,8 +1831,7 @@ int
 cleanup_(Module m)
 {
     if(zleactive) {
-	zerrnam(m->nam, "can't unload the zle module while zle is active",
-	    NULL, 0);
+	zerrnam(m->nam, "can't unload the zle module while zle is active");
 	return 1;
     }
     deletehookfunc("before_trap", (Hookfn) zlebeforetrap);
@@ -1506,10 +1857,10 @@ finish_(UNUSED(Module m))
     free_isrch_spots();
     if (rdstrs)
         freelinklist(rdstrs, freestr);
-    zfree(cutbuf.buf, cutbuf.len);
+    free(cutbuf.buf);
     if (kring) {
 	for(i = kringsize; i--; )
-	    zfree(kring[i].buf, kring[i].len);
+	    free(kring[i].buf);
 	zfree(kring, kringsize * sizeof(struct cutbuffer));
     }
     for(i = 35; i--; )
@@ -1517,8 +1868,10 @@ finish_(UNUSED(Module m))
 
     /* editor entry points */
     trashzleptr = noop_function;
-    refreshptr = noop_function;
-    spaceinlineptr = noop_function_int;
+    zle_resetpromptptr = noop_function;
+    zrefreshptr = noop_function;
+    zleaddtolineptr = noop_function_int;
+    zlegetlineptr = NULL;
     zlereadptr = fallback_zleread;
     zlesetkeymapptr= noop_function_int;
 

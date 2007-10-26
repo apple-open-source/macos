@@ -1,8 +1,8 @@
 #
 #   shell/command-controller.rb - 
 #   	$Release Version: 0.6.0 $
-#   	$Revision: 1.8.2.2 $
-#   	$Date: 2004/04/18 23:20:33 $
+#   	$Revision: 11708 $
+#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
 #   	by Keiju ISHITSUKA(Nippon Rational Inc.)
 #
 # --

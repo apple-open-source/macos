@@ -85,5 +85,3 @@ const char *CACError::errorstr(uint16_t sw) const
 
 #endif //NDEBUG
 
-
-/* arch-tag: 0D984528-10D9-11D9-84A3-000393D5F80A */

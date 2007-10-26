@@ -44,26 +44,34 @@ using namespace KeychainCore;
 
 KeyItem::KeyItem(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId) :
 	ItemImpl(keychain, primaryKey, uniqueId),
-	mKey()
+	mKey(),
+	algid(NULL),
+	mPubKeyHash(Allocator::standard())
 {
 }
 
 KeyItem::KeyItem(const Keychain &keychain, const PrimaryKey &primaryKey)  :
 	ItemImpl(keychain, primaryKey),
-	mKey()
+	mKey(),
+	algid(NULL),
+	mPubKeyHash(Allocator::standard())
 {
 }
 
 KeyItem::KeyItem(KeyItem &keyItem) :
 	ItemImpl(keyItem),
-	mKey()
+	mKey(),
+	algid(NULL),
+	mPubKeyHash(Allocator::standard())
 {
 	// @@@ this doesn't work for keys that are not in a keychain.
 }
 
 KeyItem::KeyItem(const CssmClient::Key &key) :
     ItemImpl(key->keyClass() + CSSM_DL_DB_RECORD_PUBLIC_KEY, (OSType)0, (UInt32)0, (const void*)NULL),
-	mKey(key)
+	mKey(key),
+	algid(NULL),
+	mPubKeyHash(Allocator::standard())
 {
 	if (key->keyClass() > CSSM_KEYCLASS_SESSION_KEY)
 		MacOSError::throwMe(paramErr);
@@ -82,7 +90,7 @@ KeyItem::update()
 Item
 KeyItem::copyTo(const Keychain &keychain, Access *newAccess)
 {
-	if (!keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP)
+	if (!(keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP))
 		MacOSError::throwMe(errSecInvalidKeychain);
 
 	/* Get the destination keychains db. */
@@ -135,7 +143,7 @@ KeyItem::copyTo(const Keychain &keychain, Access *newAccess)
 	unwrap.add(CSSM_ATTRIBUTE_DL_DB_HANDLE, ssDb->handle());
 
 	/* Set up an initial aclEntry so we can change it after the unwrap. */
-	Access::Maker maker;
+	Access::Maker maker(Allocator::standard(), Access::Maker::kAnyMakerType);
 	ResourceControlContext rcc;
 	maker.initialOwner(rcc, NULL);
 	unwrap.owner(rcc.input());
@@ -253,13 +261,37 @@ typedef struct cssm_x509_algorithm_identifier {
 	abort();
 }
 
+/* 
+ * itemID, used to locate Extended Attributes, is the public key hash for keys.
+ */
+const CssmData &KeyItem::itemID()
+{
+	if(mPubKeyHash.length() == 0) {
+		/* 
+		 * Fetch the attribute from disk.
+		 */
+		UInt32 tag = kSecKeyLabel;
+		UInt32 format = 0;
+		SecKeychainAttributeInfo attrInfo = {1, &tag, &format};
+		SecKeychainAttributeList *attrList = NULL;
+		getAttributesAndData(&attrInfo, NULL, &attrList, NULL, NULL);
+		if((attrList == NULL) || (attrList->count != 1)) {
+			MacOSError::throwMe(errSecNoSuchAttr);
+		}
+		mPubKeyHash.copy(attrList->attr->data, attrList->attr->length);
+		freeAttributesAndData(attrList, NULL);
+	}
+	return mPubKeyHash;
+}
+
+
 unsigned int
 KeyItem::strengthInBits(const CSSM_X509_ALGORITHM_IDENTIFIER *algid)
 {
 	// @@@ Make a context with key based on algid and use that to get the effective keysize and not just the logical one.
 	CSSM_KEY_SIZE keySize = {};
 	CSSM_RETURN rv = CSSM_QueryKeySizeInBits (csp()->handle(),
-                         NULL,
+                         CSSM_INVALID_HANDLE,
                          key(),
                          &keySize);
 	if (rv)
@@ -322,7 +354,7 @@ KeyItem::createPair(
 	bool freeKeys = false;
 	bool deleteContext = false;
 
-	if (!keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP)
+	if (!(keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP))
 		MacOSError::throwMe(errSecInvalidKeychain);
 
 	SSDb ssDb(safe_cast<SSDbImpl *>(&(*keychain->database())));
@@ -453,10 +485,17 @@ KeyItem::createPair(
 		// Finally fix the acl and owner of the private key to the specified access control settings.
 		initialAccess->setAccess(*privateKey, maker);
 
-		// Make the public key acl completely open
-		SecPointer<Access> pubKeyAccess(new Access());
-		pubKeyAccess->setAccess(*publicKey, maker);
-
+		if(publicKeyAttr & CSSM_KEYATTR_PUBLIC_KEY_ENCRYPT) {
+			/*
+			 * Make the public key acl completely open.
+			 * If the key was not encrypted, it already has a wide-open
+			 * ACL (though that is a feature of securityd; it's not
+			 * CDSA-specified behavior).
+			 */
+			SecPointer<Access> pubKeyAccess(new Access());
+			pubKeyAccess->setAccess(*publicKey, maker);
+		}
+		
 		// Create keychain items which will represent the keys.
 		publicKeyItem = keychain->item(CSSM_DL_DB_RECORD_PUBLIC_KEY, pubUniqueId);
 		privateKeyItem = keychain->item(CSSM_DL_DB_RECORD_PRIVATE_KEY, privUniqueId);
@@ -490,8 +529,8 @@ KeyItem::createPair(
 
 	if (keychain && publicKeyItem && privateKeyItem)
 	{
-		KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, publicKeyItem);
-		KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, privateKeyItem);
+		keychain->postEvent(kSecAddEvent, publicKeyItem);
+		keychain->postEvent(kSecAddEvent, privateKeyItem);
 	}
 }
 
@@ -508,7 +547,7 @@ KeyItem::importPair(
 	bool freePrivateKey = false;
 	bool deleteContext = false;
 
-	if (!keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP)
+	if (!(keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP))
 		MacOSError::throwMe(errSecInvalidKeychain);
 
 	SSDb ssDb(safe_cast<SSDbImpl *>(&(*keychain->database())));
@@ -518,7 +557,7 @@ KeyItem::importPair(
 	// Create a Access::Maker for the initial owner of the private key.
 	ResourceControlContext rcc;
 	memset(&rcc, 0, sizeof(rcc));
-	Access::Maker maker;
+	Access::Maker maker(Allocator::standard(), Access::Maker::kAnyMakerType);
 	// @@@ Potentially provide a credential argument which allows us to unwrap keys in the csp.  Currently the CSP let's anyone do this, but we might restrict this in the future, f.e. a smartcard could require out of band pin entry before a key can be generated.
 	maker.initialOwner(rcc);
 	// Create the cred we need to manipulate the keys until we actually set a new access control for them.
@@ -694,7 +733,7 @@ KeyItem::importPair(
 	}
 }
 
-KeyItem *
+SecPointer<KeyItem>
 KeyItem::generate(Keychain keychain,
 	CSSM_ALGORITHMS algorithm,
 	uint32 keySizeInBits,
@@ -711,11 +750,10 @@ KeyItem::generate(Keychain keychain,
 	bool freeKey = false;
 	bool deleteContext = false;
 	const CSSM_DATA *plabel = NULL;
-	KeyItem *outKey;
 
 	if (keychain)
 	{
-		if (!keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP)
+		if (!(keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP))
 			MacOSError::throwMe(errSecInvalidKeychain);
 	
 		ssDb = SSDb(safe_cast<SSDbImpl *>(&(*keychain->database())));
@@ -804,12 +842,11 @@ KeyItem::generate(Keychain keychain,
 
 			// Create keychain items which will represent the keys.
 			keyItem = keychain->item(CSSM_DL_DB_RECORD_SYMMETRIC_KEY, uniqueId);
-			outKey = safe_cast<KeyItem*>(&(*keyItem));
 		}
 		else
 		{
 			CssmClient::Key tempKey(csp, cssmKey);
-			outKey = new KeyItem(tempKey);
+			keyItem = new KeyItem(tempKey);
 		}
 	}
 	catch (...)
@@ -835,7 +872,7 @@ KeyItem::generate(Keychain keychain,
 		CSSM_DeleteContext(ccHandle);
 
 	if (keychain && keyItem)
-		KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, keyItem);
+		keychain->postEvent(kSecAddEvent, keyItem);
 
-	return outKey;
+	return safe_cast<KeyItem*> (&*keyItem);
 }

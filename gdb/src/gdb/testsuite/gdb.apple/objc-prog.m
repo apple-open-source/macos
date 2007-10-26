@@ -117,7 +117,7 @@ NSNumber *return_nsnumber_from_int (int num)
 
 NSNumber *return_nsnumber_from_char (char num) 
      { return [NSNumber numberWithChar:num]; }
-
+int outer = 15; /* for testing -var-create scoping regarding globals */
 int blocky (void) {
   int outer;
   outer = 5;
@@ -149,6 +149,7 @@ define_NS_Types ()
 {
   NSProcessInfo *pInfo = [NSProcessInfo processInfo];
   NSArray *fakeArray = [NSArray arrayWithObject: [pInfo processName]];
-  NSMutableDictionary *fakeDict = [NSMutableDictionary dictionaryWithObject:@"55" forKey:@"CANREADTHIS"];
+  NSMutableDictionary *fakeDict = 
+             [NSMutableDictionary dictionaryWithObject:@"55" forKey:@"CANREADTHIS"];
   return [fakeArray count] * [fakeDict count];
 }

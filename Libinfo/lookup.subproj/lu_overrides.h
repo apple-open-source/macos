@@ -35,25 +35,11 @@
 #include <sys/types.h>
 
 __BEGIN_DECLS
-struct passwd *_old_getpwnam __P((const char *));
-struct passwd *_old_getpwuid __P((uid_t));
-struct passwd *_old_getpwent __P((void));
-int _old_setpwent __P((void));
-void _old_endpwent __P((void));
-int _old_putpwpasswd(); /*XXX*/
-
 struct group *_old_getgrnam __P((const char *));
 struct group *_old_getgrgid __P((gid_t));
 int _old_setgrent __P((void));
 struct group *_old_getgrent __P((void));
 void _old_endgrent __P((void));
-
-struct hostent *_old_gethostbyname __P((const char *));
-struct hostent *_old_gethostbyaddr __P((const char *, int, int));
-void _old_sethostent __P((int));
-struct hostent *_old_gethostent __P((void));
-void _old_endhostent __P((void));
-void _old_sethostfile __P((const char *));
 
 struct netent *_old_getnetbyname();
 struct netent *_old_getnetbyaddr();

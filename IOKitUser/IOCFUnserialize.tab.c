@@ -74,6 +74,7 @@
 
 #line 55 "IOCFUnserialize.yacc"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -132,8 +133,8 @@ static int		yyparse(void * state);
 
 static object_t 	*newObject(parser_state_t *state);
 static void 		freeObject(parser_state_t *state, object_t *o);
-static void		rememberObject(parser_state_t *state, int tag, CFTypeRef o);
-static object_t		*retrieveObject(parser_state_t *state, int tag);
+static void		rememberObject(parser_state_t *state, intptr_t tag, CFTypeRef o);
+static object_t		*retrieveObject(parser_state_t *state, intptr_t tag);
 static void		cleanupObjects(parser_state_t *state);
 
 static object_t		*buildDictionary(parser_state_t *state, object_t *o);
@@ -581,14 +582,14 @@ yyparse(YYPARSE_PARAM_ARG)
 
 #ifdef YYPURE
   int yychar;
-  YYSTYPE yylval;
+  YYSTYPE yylval = 0;
   int yynerrs;
 #ifdef YYLSP_NEEDED
   YYLTYPE yylloc;
 #endif
 #endif
 
-  YYSTYPE yyval;		/*  the variable used to return		*/
+  YYSTYPE yyval = 0;		/*  the variable used to return		*/
 				/*  semantic values from the action	*/
 				/*  routines				*/
 
@@ -1043,6 +1044,7 @@ yyerrlab:   /* here on detecting error */
       if (yyn > YYFLAG && yyn < YYLAST)
 	{
 	  int size = 0;
+      size_t msgSize = 0;
 	  char *msg;
 	  int x, count;
 
@@ -1052,10 +1054,11 @@ yyerrlab:   /* here on detecting error */
 	       x < (sizeof(yytname) / sizeof(char *)); x++)
 	    if (yycheck[x + yyn] == x)
 	      size += strlen(yytname[x]) + 15, count++;
-	  msg = (char *) malloc(size + 15);
+      msgSize = size+15;
+	  msg = (char *) malloc(msgSize);
 	  if (msg != 0)
 	    {
-	      strcpy(msg, "parse error");
+	      strlcpy(msg, "parse error", msgSize);
 
 	      if (count < 5)
 		{
@@ -1064,9 +1067,9 @@ yyerrlab:   /* here on detecting error */
 		       x < (sizeof(yytname) / sizeof(char *)); x++)
 		    if (yycheck[x + yyn] == x)
 		      {
-			strcat(msg, count == 0 ? ", expecting `" : " or `");
-			strcat(msg, yytname[x]);
-			strcat(msg, "'");
+			strlcat(msg, count == 0 ? ", expecting `" : " or `", msgSize);
+			strlcat(msg, yytname[x], msgSize);
+			strlcat(msg, "'", msgSize);
 			count++;
 		      }
 		}
@@ -1754,22 +1757,22 @@ cleanupObjects(parser_state_t *state)
 // !@$&)(^Q$&*^!$(*!@$_(^%_(*Q#$(_*&!$_(*&!$_(*&!#$(*!@&^!@#%!_!#
 
 static void 
-rememberObject(parser_state_t *state, int tag, CFTypeRef o)
+rememberObject(parser_state_t *state, intptr_t tag, CFTypeRef o)
 {
 //	printf("remember idref %d\n", tag);
 
-	CFDictionarySetValue(state->tags, (const void *)tag,  (const void *)o);
+	CFDictionarySetValue(state->tags, (void *) tag,  o);
 }
 
 static object_t *
-retrieveObject(parser_state_t *state, int tag)
+retrieveObject(parser_state_t *state, intptr_t tag)
 {
 	CFTypeRef ref;
 	object_t *o;
 
 //	printf("retrieve idref '%d'\n", tag);
 
-	ref  = (CFTypeRef)CFDictionaryGetValue(state->tags, (const void *)tag);
+	ref = (CFTypeRef) CFDictionaryGetValue(state->tags, (void *) tag);
 	if (!ref) return 0;
 
 	o = newObject(state);
@@ -1962,7 +1965,7 @@ buildNumber(parser_state_t *state, object_t *o)
 };
 
 object_t *
-buildBoolean(parser_state_t *state, object_t *o)
+buildBoolean(parser_state_t *state __unused, object_t *o)
 {
 	o->object = CFRetain((o->number == 0) ? kCFBooleanFalse : kCFBooleanTrue);
 	return o;

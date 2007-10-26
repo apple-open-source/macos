@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,6 +27,7 @@
  * SUCH DAMAGE.
  */
 
+#if 0
 #ifndef lint
 static const char copyright[] =
 "@(#) Copyright (c) 1989, 1990, 1993\n\
@@ -38,12 +35,11 @@ static const char copyright[] =
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)mtree.c	8.1 (Berkeley) 6/6/93";
-#endif
-static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/mtree/mtree.c,v 1.8.2.2 2001/01/12 19:17:18 phk Exp $";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.sbin/mtree/mtree.c,v 1.29 2004/06/04 19:29:28 ru Exp $");
 
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -51,33 +47,33 @@ static const char rcsid[] =
 #include <errno.h>
 #include <fts.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <unistd.h>
 #include "mtree.h"
 #include "extern.h"
 
-extern long int crc_total;
-
 int ftsoptions = FTS_PHYSICAL;
-int cflag, dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, Uflag;
+int cflag, dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, Uflag, wflag;
 u_int keys;
 char fullpath[MAXPATHLEN];
 
-static void usage __P((void));
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int ch;
 	char *dir, *p;
 	int status;
+	FILE *spec1, *spec2;
 
 	dir = NULL;
 	keys = KEYDEFAULT;
 	init_excludes();
+	spec1 = stdin;
+	spec2 = NULL;
 
-	while ((ch = getopt(argc, argv, "cdef:iK:k:LnPp:qrs:UuxX:")) != -1)
+	while ((ch = getopt(argc, argv, "cdef:iK:k:LnPp:qrs:UuwxX:")) != -1)
 		switch((char)ch) {
 		case 'c':
 			cflag = 1;
@@ -89,8 +85,16 @@ main(argc, argv)
 			eflag = 1;
 			break;
 		case 'f':
-			if (!(freopen(optarg, "r", stdin)))
-				err(1, "%s", optarg);
+			if (spec1 == stdin) {
+				spec1 = fopen(optarg, "r");
+				if (spec1 == NULL)
+					err(1, "%s", optarg);
+			} else if (spec2 == NULL) {
+				spec2 = fopen(optarg, "r");
+				if (spec2 == NULL)
+					err(1, "%s", optarg);
+			} else
+				usage();
 			break;
 		case 'i':
 			iflag = 1;
@@ -128,15 +132,19 @@ main(argc, argv)
 			break;
 		case 's':
 			sflag = 1;
-			crc_total = ~strtol(optarg, &p, 0);
+			crc_total = ~strtoul(optarg, &p, 0);
 			if (*p)
 				errx(1, "illegal seed value -- %s", optarg);
+			break;
 		case 'U':
 			Uflag = 1;
 			uflag = 1;
 			break;
 		case 'u':
 			uflag = 1;
+			break;
+		case 'w':
+			wflag = 1;
 			break;
 		case 'x':
 			ftsoptions |= FTS_XDEV;
@@ -164,17 +172,20 @@ main(argc, argv)
 		cwalk();
 		exit(0);
 	}
-	status = verify();
+	if (spec2 != NULL)
+		status = mtree_specspec(spec1, spec2);
+	else
+		status = mtree_verifyspec(spec1);
 	if (Uflag & (status == MISMATCHEXIT))
 		status = 0;
 	exit(status);
 }
 
 static void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr,
-"usage: mtree [-LPUcdeinqrux] [-f spec] [-K key] [-k key] [-p path] [-s seed]\n"
+"usage: mtree [-LPUcdeinqruxw] [-f spec] [-f spec] [-K key] [-k key] [-p path] [-s seed]\n"
 "\t[-X excludes]\n");
 	exit(1);
 }

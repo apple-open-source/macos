@@ -669,9 +669,15 @@ compute_alignments (void)
   label_align = xcalloc (max_labelno - min_labelno + 1,
 			 sizeof (struct label_alignment));
 
-  /* If not optimizing or optimizing for size, don't assign any alignments.  */
+/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+#if !defined (TARGET_ARM)
+  /* If not optimizing or optimizing for size, don't assign any alignments.
+     On ARM, align_4 and align_8 are handled here, and getting those alignments 
+     right is necessary for correctness of switch tables.  */
   if (! optimize || optimize_size)
     return;
+#endif
+/* APPLE LOCAL end ARM 4790140 compact switch tables */
 
   FOR_EACH_BB (bb)
     {
@@ -680,8 +686,13 @@ compute_alignments (void)
       edge e;
       edge_iterator ei;
 
+/* APPLE LOCAL begin ARM 4790140 compact switch tables */
       if (!LABEL_P (label)
-	  || probably_never_executed_bb_p (bb))
+#if !defined (TARGET_ARM)
+	  || probably_never_executed_bb_p (bb)
+#endif
+	)
+/* APPLE LOCAL end ARM 4790140 compact switch tables */
 	continue;
       max_log = LABEL_ALIGN (label);
       max_skip = LABEL_ALIGN_MAX_SKIP;
@@ -763,6 +774,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
   rtx body;
   int uid;
   rtx align_tab[MAX_CODE_ALIGN];
+/* APPLE LOCAL ARM 4790140 compact switch tables */
+  bool asms_present = false;
 
 #endif
 
@@ -970,7 +983,14 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 #endif /* CASE_VECTOR_SHORTEN_MODE */
 
   /* Compute initial lengths, addresses, and varying flags for each insn.  */
-  for (insn_current_address = 0, insn = first;
+/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+  insn_current_address = 0;
+#ifdef TARGET_ARM
+  if (TARGET_THUMB)
+    insn_current_address = count_thumb_unexpanded_prologue ();
+#endif  
+  for (insn = first;
+/* APPLE LOCAL end ARM 4790140 compact switch tables */
        insn != 0;
        insn_current_address += insn_lengths[uid], insn = NEXT_INSN (insn))
     {
@@ -1009,7 +1029,12 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  /* Alignment is handled by ADDR_VEC_ALIGN.  */
 	}
       else if (GET_CODE (body) == ASM_INPUT || asm_noperands (body) >= 0)
-	insn_lengths[uid] = asm_insn_count (body) * insn_default_length (insn);
+/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+        {
+	  insn_lengths[uid] = asm_insn_count (body) * insn_default_length (insn);
+	  asms_present = true;
+	}
+/* APPLE LOCAL end ARM 4790140 compact switch tables */
       else if (GET_CODE (body) == SEQUENCE)
 	{
 	  int i;
@@ -1071,7 +1096,14 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
     {
       something_changed = 0;
       insn_current_align = MAX_CODE_ALIGN - 1;
-      for (insn_current_address = 0, insn = first;
+/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+      insn_current_address = 0;
+#ifdef TARGET_ARM
+      if (TARGET_THUMB)
+	insn_current_address = count_thumb_unexpanded_prologue ();
+#endif  
+      for (insn = first;
+/* APPLE LOCAL end ARM 4790140 compact switch tables */
 	   insn != 0;
 	   insn = NEXT_INSN (insn))
 	{
@@ -1109,6 +1141,11 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
 #ifdef CASE_VECTOR_SHORTEN_MODE
 	  if (optimize && JUMP_P (insn)
+/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+#ifdef TARGET_ARM
+	      && !asms_present
+#endif
+/* APPLE LOCAL end ARM 4790140 compact switch tables */
 	      && GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    {
 	      rtx body = PATTERN (insn);
@@ -1207,7 +1244,18 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 		{
 		  insn_lengths[uid]
 		    = (XVECLEN (body, 1) * GET_MODE_SIZE (GET_MODE (body)));
+/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+#ifdef TARGET_ARM
+#ifdef ADJUST_INSN_LENGTH
+		  ADJUST_INSN_LENGTH (insn, insn_lengths[uid]);
+#endif
+#endif
 		  insn_current_address += insn_lengths[uid];
+#ifdef TARGET_ARM
+		  /* Label gets same alignment as table. */
+		  LABEL_TO_ALIGNMENT (rel_lab) = ADDR_VEC_ALIGN (insn);
+#endif
+/* APPLE LOCAL end ARM 4790140 compact switch tables */
 		  if (insn_lengths[uid] != old_length)
 		    something_changed = 1;
 		}
@@ -1709,6 +1757,8 @@ final_scan_insn (rtx insn, FILE *file, int optimizing ATTRIBUTE_UNUSED,
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_EXPECTED_VALUE:
+	/* APPLE LOCAL ARM 5051776 */
+	case NOTE_INSN_ALLOCA:
 	  break;
 
 	case NOTE_INSN_UNLIKELY_EXECUTED_CODE:

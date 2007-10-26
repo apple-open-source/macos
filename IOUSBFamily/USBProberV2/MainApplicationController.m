@@ -142,7 +142,7 @@
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
-- (BOOL)validateMenuItem:(id <NSMenuItem>)menuItem {
+- (BOOL)validateMenuItem:(NSMenuItem *)menuItem {
     if ([NSStringFromSelector([menuItem action]) isEqualToString:@"Refresh:"]) {
         if ([MainTabView indexOfTabViewItem:[MainTabView selectedTabViewItem]] == 3) {
             // USB Logger does not have a 'refresh' option

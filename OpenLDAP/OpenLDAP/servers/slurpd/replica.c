@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/replica.c,v 1.20.2.2 2004/01/01 18:16:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/replica.c,v 1.23.2.3 2006/01/03 22:16:26 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,25 +51,13 @@ replicate(
 {
     Ri		*ri = (Ri *) ri_arg;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( SLURPD, ARGS, "replicate: "
-		"begin replication thread for %s:%d\n",
-	    ((Ri *)ri)->ri_hostname, ((Ri *)ri)->ri_port, 0 );
-#else
     Debug( LDAP_DEBUG_ARGS, "begin replication thread for %s:%d\n",
-	    ((Ri *)ri)->ri_hostname, ((Ri *)ri)->ri_port, 0 );
-#endif
+	    ri->ri_hostname, ri->ri_port, 0 );
 
     ri->ri_process( ri );
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( SLURPD, ARGS, "replicate: "
-		"begin replication thread for %s:%d\n",
-	    ri->ri_hostname, ri->ri_port, 0 );
-#else
     Debug( LDAP_DEBUG_ARGS, "end replication thread for %s:%d\n",
 	    ri->ri_hostname, ri->ri_port, 0 );
-#endif
     return NULL;
 }
 
@@ -86,14 +74,8 @@ start_replica_thread(
     /* POSIX_THREADS or compatible */
     if ( ldap_pvt_thread_create( &(ri->ri_tid), 0, replicate,
 	    (void *) ri ) != 0 ) {
-#ifdef NEW_LOGGING
-	LDAP_LOG ( SLURPD, ERR, "start_replica_thread: "
-		"replica %s:%d ldap_pvt_thread_create failed\n",
-	    ri->ri_hostname, ri->ri_port, 0 );
-#else
 	Debug( LDAP_DEBUG_ANY, "replica \"%s:%d\" ldap_pvt_thread_create failed\n",
 		ri->ri_hostname, ri->ri_port, 0 );
-#endif
 	return -1;
     }
 

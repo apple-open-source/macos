@@ -1,4 +1,4 @@
-.\" Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+.\" Copyright (c) 2006 Apple Computer, Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\"
@@ -18,30 +18,46 @@
 .\"
 .\" @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd November 21, 2002
+.Dd May 23, 2006
 .Dt MALLOC 3
 .Os
 .Sh NAME
-.Nm malloc , calloc , valloc , realloc , reallocf , free , malloc_size , malloc_good_size
+.Nm calloc ,
+.Nm free ,
+.Nm malloc ,
+.Nm realloc ,
+.Nm reallocf ,
+.Nm valloc
 .Nd memory allocation
 .Sh SYNOPSIS
 .In stdlib.h
 .Ft void *
-.Fn malloc "size_t size"
-.Ft void *
-.Fn calloc "size_t count" "size_t size"
-.Ft void *
-.Fn valloc "size_t size"
-.Ft void *
-.Fn realloc "void *ptr" "size_t size"
-.Ft void *
-.Fn reallocf "void *ptr" "size_t size"
+.Fo calloc
+.Fa "size_t count"
+.Fa "size_t size"
+.Fc
 .Ft void
-.Fn free "void *ptr"
-.Ft size_t
-.Fn malloc_size "void *ptr"
-.Ft size_t
-.Fn malloc_good_size "size_t size"
+.Fo free
+.Fa "void *ptr"
+.Fc
+.Ft void *
+.Fo malloc
+.Fa "size_t size"
+.Fc
+.Ft void *
+.Fo realloc
+.Fa "void *ptr"
+.Fa "size_t size"
+.Fc
+.Ft void *
+.Fo reallocf
+.Fa "void *ptr"
+.Fa "size_t size"
+.Fc
+.Ft void *
+.Fo valloc
+.Fa "size_t size"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn malloc ,
@@ -52,27 +68,17 @@ and
 .Fn reallocf
 functions allocate memory.
 The allocated memory is aligned such that it can be used for any data type,
-including AltiVec-related types.
+including AltiVec- and SSE-related types.
 The
 .Fn free
 function frees allocations that were created via the preceding allocation
 functions.
-The
-.Fn malloc_size
-and
-.Fn malloc_good_size
-functions provide information related to the amount of padding space at the end
-of allocations.
 .Pp
 The
 .Fn malloc
 function allocates
 .Fa size
 bytes of memory and returns a pointer to the allocated memory.
-.Fn malloc
-returns a
-.Dv NULL
-pointer if there is an error.
 .Pp
 The
 .Fn calloc
@@ -82,10 +88,6 @@ objects that are
 .Fa size
 bytes of memory each and returns a pointer to the allocated memory.
 The allocated memory is filled with bytes of value zero.
-.Fn calloc
-returns a
-.Dv NULL
-pointer if there is an error.
 .Pp
 The
 .Fn valloc
@@ -93,10 +95,6 @@ function allocates
 .Fa size
 bytes of memory and returns a pointer to the allocated memory.
 The allocated memory is aligned on a page boundary.
-.Fn valloc
-returns a
-.Dv NULL
-pointer if there is an error.
 .Pp
 The
 .Fn realloc
@@ -104,7 +102,7 @@ function tries to change the size of the allocation pointed to by
 .Fa ptr
 to
 .Fa size ,
-and return
+and returns
 .Fa ptr .
 If there is not enough room to enlarge the memory allocation pointed to by
 .Fa ptr ,
@@ -113,12 +111,23 @@ creates a new allocation, copies as much of the old data pointed to by
 .Fa ptr
 as will fit to the new allocation, frees the old allocation, and returns a
 pointer to the allocated memory.
-.Fn realloc
-returns a
-.Dv NULL
-pointer if there is an error, and the allocation pointed to by
+If
 .Fa ptr
-is still valid.
+is 
+.Dv NULL ,
+.Fn realloc
+is identical to a call to 
+.Fn malloc
+for 
+.Fa size
+bytes.
+If
+.Fa size
+is zero and 
+.Fa ptr
+is not 
+.Dv NULL ,
+a new, minimum sized object is allocated and the original object is freed.
 .Pp
 The
 .Fn reallocf
@@ -135,25 +144,12 @@ The
 .Fn free
 function deallocates the memory allocation pointed to by
 .Fa ptr .
-.Pp
-The
-.Fn malloc_size
-function
-returns the size of the memory block that backs the allocation pointed to by
-.Fa ptr .
-The memory block size is always at least as large as the allocation it backs,
-and may be larger.
-.Pp
-The
-.Fn malloc_good_size
-function rounds
-.Fa size
-up to a value that the allocator implementation can allocate without adding any
-padding and returns that rounded up value.
 .Sh RETURN VALUES
-If successful, the
-.Fn malloc ,
+If successful,
 .Fn calloc ,
+.Fn malloc ,
+.Fn realloc ,
+.Fn reallocf ,
 and
 .Fn valloc
 functions return a pointer to allocated memory.
@@ -164,17 +160,12 @@ pointer and set
 to
 .Er ENOMEM .
 .Pp
-If successful, the
-.Fn realloc
-and
-.Fn reallocf
-functions return a pointer to allocated memory.
-If there is an error, it returns a
-.Dv NULL
-pointer and sets
-.Va errno
-to
-.Er ENOMEM .
+For
+.Fn realloc ,
+the input pointer is still valid if reallocation failed.
+For
+.Fn reallocf ,
+the input pointer will have been freed if reallocation failed.
 .Pp
 The
 .Fn free
@@ -254,12 +245,16 @@ When
 is set and this is set to a non-zero value, causes
 .Xr abort 3
 to be called if a heap corruption is detected, instead of any sleeping.
-.It Ev MallocBadFreeAbort <b>
-If set to a non-zero value, causes
+.It Ev MallocErrorAbort
+If set, causes
 .Xr abort 3
-to be called if the pointer passed to
+to be called if an error was encountered in
+.Xr malloc 3
+or 
 .Xr free 3
-was previously freed, or is otherwise illegal.
+, such as a calling
+.Xr free 3
+on a pointer previously freed.
 .It Ev MallocHelp
 If set, print a list of environment variables that are paid heed to by the
 allocation-related functions, along with short descriptions.
@@ -269,5 +264,6 @@ The list should correspond to this documentation.
 .Sh SEE ALSO
 .Xr leaks 1 ,
 .Xr malloc_history 1 ,
-.Xr abort 3
-.Pa /Developer/Documentation/ReleaseNotes/DeveloperTools/MallocOptions.html
+.Xr abort 3 ,
+.Xr malloc_size 3
+.Pa /Developer/ADC Reference Library/releasenotes/DeveloperTools/MallocOptions.html

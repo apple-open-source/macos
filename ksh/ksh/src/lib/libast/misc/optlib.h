@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -36,7 +32,6 @@
 
 #include <ast.h>
 #include <cdt.h>
-#include <sfstr.h>
 
 #define OPT_cache		0x01
 #define OPT_functions		0x02
@@ -76,17 +71,12 @@ typedef struct Optcache_s
 	unsigned char		flags[sizeof(OPT_FLAGS)];
 } Optcache_t;
 
-typedef struct Optstr_s
-{
-	char*			argv[3];
-	char*			str;
-} Optstr_t;
-
 typedef struct Optstate_s
 {
 	Sfio_t*		mp;		/* opt_info.msg string stream	*/
 	Sfio_t*		vp;		/* translation string stream	*/
 	Sfio_t*		xp;		/* translation string stream	*/
+	Sfio_t*		cp;		/* compatibility string stream	*/
 	Optpass_t	pass[8];	/* optjoin() list		*/
 	char*		argv[2];	/* initial argv copy		*/
 	char*		strv[3];	/* optstr() argv		*/

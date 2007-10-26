@@ -1,8 +1,8 @@
 /* listener.c - deals with listener subsystem */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/listener.c,v 1.16.2.5 2004/07/25 21:01:50 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/listener.c,v 1.27.2.3 2006/01/03 22:16:21 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Copyright 2001-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -22,20 +22,22 @@
 #include "portable.h"
 
 #include <stdio.h>
+#include <ac/string.h>
 
 #include "slap.h"
 #include "back-monitor.h"
 
 int
 monitor_subsys_listener_init(
-	BackendDB	*be
+	BackendDB		*be,
+	monitor_subsys_t	*ms
 )
 {
-	struct monitorinfo	*mi;
-	Entry			*e, *e_listener, *e_tmp;
-	int			i;
-	struct monitorentrypriv	*mp;
-	Listener		**l;
+	monitor_info_t	*mi;
+	Entry		*e_listener, **ep;
+	int		i;
+	monitor_entry_t	*mp;
+	Listener	**l;
 
 	assert( be != NULL );
 
@@ -44,42 +46,29 @@ monitor_subsys_listener_init(
 			return 0;
 		}
 
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, CRIT,
-			"monitor_subsys_listener_init: "
-			"unable to get listeners\n", 0, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_listener_init: "
 			"unable to get listeners\n", 0, 0, 0 );
-#endif
 		return( -1 );
 	}
 
-	mi = ( struct monitorinfo * )be->be_private;
+	mi = ( monitor_info_t * )be->be_private;
 
-	if ( monitor_cache_get( mi, 
-				&monitor_subsys[SLAPD_MONITOR_LISTENER].mss_ndn, 
-				&e_listener ) ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, CRIT,
-			"monitor_subsys_listener_init: "
-			"unable to get entry '%s'\n",
-			monitor_subsys[SLAPD_MONITOR_LISTENER].mss_ndn.bv_val, 0, 0 );
-#else
+	if ( monitor_cache_get( mi, &ms->mss_ndn, &e_listener ) ) {
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_listener_init: "
-			"unable to get entry '%s'\n%s%s",
-			monitor_subsys[SLAPD_MONITOR_LISTENER].mss_ndn.bv_val, 
-			"", "" );
-#endif
+			"unable to get entry \"%s\"\n",
+			ms->mss_ndn.bv_val, 0, 0 );
 		return( -1 );
 	}
 
-	e_tmp = NULL;
-	for ( i = 0; l[i]; i++ );
-	for ( ; i--; ) {
+	mp = ( monitor_entry_t * )e_listener->e_private;
+	mp->mp_children = NULL;
+	ep = &mp->mp_children;
+
+	for ( i = 0; l[ i ]; i++ ) {
 		char 		buf[ BACKMONITOR_BUFSIZE ];
+		Entry		*e;
 
 		snprintf( buf, sizeof( buf ),
 				"dn: cn=Listener %d,%s\n"
@@ -88,91 +77,72 @@ monitor_subsys_listener_init(
 				"cn: Listener %d\n"
 				"%s: %s\n"
 				"labeledURI: %s\n"
+				"creatorsName: %s\n"
+				"modifiersName: %s\n"
 				"createTimestamp: %s\n"
 				"modifyTimestamp: %s\n",
 				i,
-				monitor_subsys[SLAPD_MONITOR_LISTENER].mss_dn.bv_val,
+				ms->mss_dn.bv_val,
 				mi->mi_oc_monitoredObject->soc_cname.bv_val,
 				mi->mi_oc_monitoredObject->soc_cname.bv_val,
 				i,
 				mi->mi_ad_monitorConnectionLocalAddress->ad_cname.bv_val,
-				l[i]->sl_name.bv_val,
-				l[i]->sl_url.bv_val,
+				l[ i ]->sl_name.bv_val,
+				l[ i ]->sl_url.bv_val,
+				mi->mi_creatorsName.bv_val,
+				mi->mi_creatorsName.bv_val,
 				mi->mi_startTime.bv_val,
 				mi->mi_startTime.bv_val );
 		
 		e = str2entry( buf );
 		if ( e == NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, CRIT,
-				"monitor_subsys_listener_init: "
-				"unable to create entry 'cn=Listener, %d,%s'\n",
-				i, monitor_subsys[SLAPD_MONITOR_LISTENER].mss_ndn.bv_val, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 				"monitor_subsys_listener_init: "
-				"unable to create entry 'cn=Listener %d,%s'\n%s",
-				i,
-				monitor_subsys[SLAPD_MONITOR_LISTENER].mss_ndn.bv_val,
-				"" );
-#endif
+				"unable to create entry \"cn=Listener %d,%s\"\n",
+				i, ms->mss_ndn.bv_val, 0 );
 			return( -1 );
 		}
 
 #ifdef HAVE_TLS
-		if ( l[i]->sl_is_tls ) {
+		if ( l[ i ]->sl_is_tls ) {
 			struct berval bv;
 
-			bv.bv_val = "TLS";
-			bv.bv_len = sizeof("TLS")-1;
-
+			BER_BVSTR( &bv, "TLS" );
 			attr_merge_normalize_one( e, mi->mi_ad_monitoredInfo,
 					&bv, NULL );
 		}
 #endif /* HAVE_TLS */
 #ifdef LDAP_CONNECTIONLESS
-		if ( l[i]->sl_is_udp ) {
+		if ( l[ i ]->sl_is_udp ) {
 			struct berval bv;
 
-			bv.bv_val = "UDP";
-			bv.bv_len = sizeof("UDP")-1;
-
+			BER_BVSTR( &bv, "UDP" );
 			attr_merge_normalize_one( e, mi->mi_ad_monitoredInfo,
 					&bv, NULL );
 		}
 #endif /* HAVE_TLS */
 
-		mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
+		mp = monitor_entrypriv_create();
+		if ( mp == NULL ) {
+			return -1;
+		}
 		e->e_private = ( void * )mp;
-		mp->mp_next = e_tmp;
-		mp->mp_children = NULL;
-		mp->mp_info = &monitor_subsys[SLAPD_MONITOR_LISTENER];
-		mp->mp_flags = monitor_subsys[SLAPD_MONITOR_LISTENER].mss_flags
+		mp->mp_info = ms;
+		mp->mp_flags = ms->mss_flags
 			| MONITOR_F_SUB;
 
 		if ( monitor_cache_add( mi, e ) ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, CRIT,
-				"monitor_subsys_listener_init: "
-				"unable to add entry 'cn=Listener %d,%s'\n",
-				i, monitor_subsys[SLAPD_MONITOR_LISTENER].mss_ndn.bv_val, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 				"monitor_subsys_listener_init: "
-				"unable to add entry 'cn=Listener %d,%s'\n",
-				i,
-				monitor_subsys[SLAPD_MONITOR_LISTENER].mss_ndn.bv_val,
-				0 );
-#endif
+				"unable to add entry \"cn=Listener %d,%s\"\n",
+				i, ms->mss_ndn.bv_val, 0 );
 			return( -1 );
 		}
 
-		e_tmp = e;
+		*ep = e;
+		ep = &mp->mp_next;
 	}
 	
-	mp = ( struct monitorentrypriv * )e_listener->e_private;
-	mp->mp_children = e_tmp;
-
 	monitor_cache_release( mi, e_listener );
 
 	return( 0 );

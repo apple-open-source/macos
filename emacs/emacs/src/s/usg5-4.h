@@ -1,5 +1,6 @@
 /* Definitions file for GNU Emacs running on AT&T's System V Release 4
-   Copyright (C) 1987, 1990, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1990, 1999, 2000, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This file written by James Van Artsdalen of Dell Computer Corporation.
  * james@bigtex.cactus.org.  Subsequently improved for Dell 2.2 by Eric
@@ -57,13 +58,6 @@ Boston, MA 02111-1307, USA.  */
 /* there are no -lg libraries on this system, and no libPW */
 
 #define LIBS_DEBUG
-/* This is turned off because nobody actually uses LIBS_STANDARD (Nov 1995).
-   That name is a typo.  The next step is to delete this entirely.  */
-/* #define LIBS_STANDARD -lc */
-
-/* No <sioctl.h> */
-
-#define NO_SIOCTL_H
 
 /* Undump with ELF */
 
@@ -135,9 +129,7 @@ Boston, MA 02111-1307, USA.  */
    subprocesses the usual way.  But TIOCSIGNAL does work for PTYs, and
    this is all we need.  */
 
-#ifndef IRIX6
 #define TIOCSIGSEND TIOCSIGNAL
-#endif
 
 /* This change means that we don't loop through allocate_pty too many
    times in the (rare) event of a failure. */
@@ -198,11 +190,10 @@ Boston, MA 02111-1307, USA.  */
    So give it a try.  */
 #define HAVE_SOCKETS
 
-#define bcopy(src,dst,n)	memmove (dst,src,n)
-#define bcmp(src,dst,n)		memcmp (src,dst,n)
-#define bzero(s,n)		memset (s,0,n)
-
 /* Markus Weiand <weiand@khof.com> says this is needed for Motif on
    SINIX.  */
 #undef LIBS_SYSTEM
 #define LIBS_SYSTEM -lgen
+
+/* arch-tag: 1a0ed909-5faa-434b-b7c3-9d86c63d53a6
+   (do not change this comment) */

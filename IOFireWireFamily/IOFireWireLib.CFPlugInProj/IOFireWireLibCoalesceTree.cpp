@@ -9,6 +9,7 @@
  */
 
 #import "IOFireWireLibCoalesceTree.h"
+#import "IOFireWireLibPriv.h"
 
 #import <unistd.h>
 
@@ -68,7 +69,7 @@ namespace IOFireWireLib {
 			if ( (inRange.address - inNode->range.address) <= inNode->range.length)
 			{
 				// merge
-				inNode->range.length = inNode->range.length >? ( inRange.address + inRange.length - inNode->range.address) ;
+				inNode->range.length = MAX( inNode->range.length, ( inRange.address + inRange.length - inNode->range.address) ) ;
 			}
 			else
 				if (inNode->right)
@@ -88,7 +89,7 @@ namespace IOFireWireLib {
 			if ((inNode->range.address - inRange.address) <= inRange.length)
 			{
 				// merge
-				inNode->range.length 	= inRange.length >? ( inNode->range.address + inNode->range.length - inRange.address) ;
+				inNode->range.length 	= MAX( inRange.length, ( inNode->range.address + inNode->range.length - inRange.address) ) ;
 				inNode->range.address 	= inRange.address ;
 			}
 			else

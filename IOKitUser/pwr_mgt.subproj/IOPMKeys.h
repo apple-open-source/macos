@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,6 +68,12 @@
 */
 
 #define kIOPMAutoShutdown                               "shutdown"
+/*!
+    @define kIOPMAutoRestart 
+    @abstract Value for scheduled restart.
+*/
+
+#define kIOPMAutoRestart                                "restart"
 
 /*
  * Keys for evaluating the CFDictionaries returned by IOPMCopyScheduledPowerEvents()

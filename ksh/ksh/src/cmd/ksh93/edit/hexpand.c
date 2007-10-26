@@ -1,26 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
+#pragma prototyped
 /*
  * bash style history expansion
  *
@@ -34,11 +31,17 @@
  * <K.Fleischer@omnium.de>
  */
 
-#include <ctype.h>
 
 #include "defs.h"
 #include "edit.h"
 
+#if ! SHOPT_HISTEXPAND
+
+NoN(hexpand)
+
+#else
+
+#include <ctype.h>
 
 static char *modifiers = "htrepqxs&";
 static int mod_flags[] = { 0, 0, 0, 0, HIST_PRINT, HIST_QUOTE, HIST_QUOTE|HIST_QUOTE_BR, 0, 0 };
@@ -147,7 +150,7 @@ int hist_expand(const char *ln, char **xp)
 		*str,	/* search string */
 		*evp,	/* event/word designator string, for error msgs */
 		*cc=0,	/* copy of current line up to cp; temp ptr */
-		hc[3]={'!','^','\0'},	/* default histchars */
+		hc[3],	/* default histchars */
 		*qc="\'\"`";	/* quote characters */
 	Sfio_t	*ref=0,	/* line referenced by event designator */
 		*tmp=0,	/* temporary line buffer */
@@ -160,6 +163,9 @@ int hist_expand(const char *ln, char **xp)
 	if(!wm)
 		wm = sfopen(NULL, NULL, "swr");
 
+	hc[0] = '!';
+	hc[1] = '^';
+	hc[2] = 0;
 	if((np = nv_open("histchars",sh.var_tree,0)) && (cp = nv_getval(np)))
 	{
 		if(cp[0])
@@ -262,6 +268,8 @@ int hist_expand(const char *ln, char **xp)
 			if(c == '-')
 				n = -n;
 			break;
+		case '$':
+			n = -1;
 		case ':':
 			break;
 		case '?':
@@ -725,3 +733,4 @@ done:
 	return (flag & HIST_ERROR ? HIST_ERROR : flag & HIST_FLAG_RETURN_MASK);
 }
 
+#endif

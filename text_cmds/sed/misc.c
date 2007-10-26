@@ -14,10 +14,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -36,7 +32,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/sed/misc.c,v 1.6 2002/07/08 05:36:24 tjr Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/sed/misc.c,v 1.10 2004/08/09 15:29:41 dds Exp $");
 
 #ifndef lint
 static const char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
@@ -45,6 +41,7 @@ static const char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
 #include <sys/types.h>
 
 #include <err.h>
+#include <limits.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,14 +51,12 @@ static const char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
 #include "extern.h"
 
 /*
- * Return a string for a regular expression error passed.  This is a overkill,
+ * Return a string for a regular expression error passed.  This is overkill,
  * because of the silly semantics of regerror (we can never know the size of
  * the buffer).
  */
 char *
-strregerror(errcode, preg)
-	int errcode;
-	regex_t *preg;
+strregerror(int errcode, regex_t *preg)
 {
 	static char *oe;
 	size_t s;

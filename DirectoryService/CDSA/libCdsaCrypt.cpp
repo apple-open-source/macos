@@ -39,17 +39,17 @@ static const CSSM_GUID testGuid = { 0xFADE, 0, 0, { 1,2,3,4,5,6,7,0 }};
 /*
  * Standard app-level memory functions required by CDSA.
  */
-void * appMalloc (uint32 size, void *allocRef) {
+void * appMalloc (CSSM_SIZE size, void *allocRef) {
 	return( malloc(size) );
 }
 void appFree (void *mem_ptr, void *allocRef) {
 	free(mem_ptr);
  	return;
 }
-void * appRealloc (void *ptr, uint32 size, void *allocRef) {
+void * appRealloc (void *ptr, CSSM_SIZE size, void *allocRef) {
 	return( realloc( ptr, size ) );
 }
-void * appCalloc (uint32 num, uint32 size, void *allocRef) {
+void * appCalloc (uint32 num, CSSM_SIZE size, void *allocRef) {
 	return( calloc( num, size ) );
 }
 static CSSM_API_MEMORY_FUNCS memFuncs = {
@@ -398,7 +398,7 @@ CSSM_RETURN cdsaEncrypt(
 	CSSM_RETURN 	crtn;
 	CSSM_CC_HANDLE	ccHandle;
 	CSSM_DATA		remData = {0, NULL};
-	uint32			bytesEncrypted;
+	CSSM_SIZE		bytesEncrypted;
 	
 	crtn = genCryptHandle(cspHandle, key, &ivCommon, &ccHandle);
 	if(crtn) {
@@ -447,7 +447,7 @@ CSSM_RETURN cdsaDecrypt(
 	CSSM_RETURN 	crtn;
 	CSSM_CC_HANDLE	ccHandle;
 	CSSM_DATA		remData = {0, NULL};
-	uint32			bytesDecrypted;
+	CSSM_SIZE		bytesDecrypted;
 	
 	crtn = genCryptHandle(cspHandle, key, &ivCommon, &ccHandle);
 	if(crtn) {

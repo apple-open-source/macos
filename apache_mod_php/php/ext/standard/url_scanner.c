@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -15,7 +15,7 @@
    | Author: Hartmut Holzgraefe <hholzgra@php.net>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: url_scanner.c,v 1.38.2.2.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: url_scanner.c,v 1.44.2.1.2.3 2007/02/22 00:44:08 iliaa Exp $ */
 
 #include "php.h"
 
@@ -50,35 +50,24 @@ int php_url_scanner_deactivate(TSRMLS_D)
 static char *url_attr_addon(const char *tag,const char *attr,const char *val,const char *buf)
 {
 	int flag = 0;
-	TSRMLS_FETCH();
 
-	if(!strcasecmp(tag,"a") && !strcasecmp(attr,"href")) {
+	if (!strcasecmp(tag,"a") && !strcasecmp(attr,"href")) {
 		flag = 1;
-	} else if(!strcasecmp(tag,"area" ) && !strcasecmp(attr,"href"   )) {
+	} else if (!strcasecmp(tag,"area" ) && !strcasecmp(attr,"href"   )) {
 		flag = 1;
-	} else if(!strcasecmp(tag,"form" ) && !strcasecmp(attr,"action" )) {
+	} else if (!strcasecmp(tag,"form" ) && !strcasecmp(attr,"action" )) {
 		flag = 1;
-	} else if(!strcasecmp(tag,"frame") && !strcasecmp(attr,"source" )) {
+	} else if (!strcasecmp(tag,"frame") && !strcasecmp(attr,"source" )) {
 		flag = 1;
-	} else if(!strcasecmp(tag,"img"  ) && !strcasecmp(attr,"action" )) {
+	} else if (!strcasecmp(tag,"img"  ) && !strcasecmp(attr,"action" )) {
 		flag = 1;
 	}
-	if(flag) {		
-		if(!strstr(val,buf)&&!strchr(val,':'))
-			{
-				char *result = (char *)emalloc(strlen(buf)+strlen(PG(arg_separator).output)+1);
-				int n;
+	if(flag && !strstr(val,buf) && !strchr(val,':')) {
+		char *result;
+		TSRMLS_FETCH();
 
-				if(strchr(val,'?')) {
-					strcpy(result,PG(arg_separator).output);
-					n=strlen(PG(arg_separator).output);
-				} else {
-					*result='?';
-					n=1;
-				}
-				strcpy(result+n,buf);
-				return result;
-			}
+		spprintf(&result, 0, "%s%s", (strchr(val,'?') ? PG(arg_separator).output : "?"), buf);
+		return result;
 	} 
 	return NULL;
 }
@@ -214,7 +203,7 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 							maxl+=l;
 							out=realloc(out,maxl);
 							outp=out+*newlen;
-							strcpy(outp,p);
+							strlcpy(outp,p,maxl);
 							outp+=l;
 							*newlen+=l;
 							efree(p);
@@ -230,7 +219,7 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 						maxl+=l;
 						out=realloc(out,maxl);
 						outp=out+*newlen;
-						strcpy(outp,p);
+						strlcpy(outp, p, maxl);
 						outp+=l;
 						*newlen+=l;
 						efree(p);
@@ -265,7 +254,7 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 						maxl+=l;
 						out=realloc(out,maxl);
 						outp=out+*newlen;
-						strcpy(outp,p);
+						strlcpy(outp,p,maxl);
 						outp+=l;
 						*newlen+=l;
 						efree(p);
@@ -282,7 +271,7 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 						maxl+=l;
 						out=realloc(out,maxl);
 						outp=out+*newlen;
-						strcpy(outp,p);
+						strlcpy(outp,p,maxl);
 						outp+=l;
 						*newlen+=l;
 						efree(p);
@@ -329,7 +318,7 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 						maxl+=l;
 						out=realloc(out,maxl);
 						outp=out+*newlen;
-						strcpy(outp,p);
+						strlcpy(outp,p,maxl);
 						outp+=l;
 						*newlen+=l;
 						efree(p);
@@ -346,7 +335,7 @@ char *url_adapt(const char *src, size_t srclen, const char *data, size_t *newlen
 						maxl+=l;
 						out=realloc(out,maxl);
 						outp=out+*newlen;
-						strcpy(outp,p);
+						strlcpy(outp,p,maxl);
 						outp+=l;
 						*newlen+=l;
 						efree(p);

@@ -56,7 +56,7 @@
 %#ifndef lint
 %/*static char sccsid[] = "from: @(#)rnusers.x 1.2 87/09/20 Copyr 1987 Sun Micro";*/
 %/*static char sccsid[] = "from: @(#)rnusers.x	2.1 88/08/01 4.0 RPCSRC";*/
-%static char rcsid[] = "$Id: rnusers.x,v 1.2 2000/03/05 02:04:45 wsanchez Exp $";
+%static char rcsid[] = "$Id: rnusers.x,v 1.2.12.1 2005/09/08 17:08:20 majka Exp $";
 %#endif /* not lint */
 #endif
 
@@ -79,7 +79,7 @@
 %	char	ut_line[8];		/* tty name */
 %	char	ut_name[8];		/* user id */
 %	char	ut_host[16];		/* host name, if remote */
-%	long	ut_time;		/* time on */
+%	rpc_int     ut_time;		/* time on */
 %};
 %typedef struct ru_utmp rutmp;
 %
@@ -102,19 +102,19 @@
 %typedef struct utmpidlearr utmpidlearr;
 %int xdr_utmpidlearr();
 %
-%#define RUSERSVERS_1 ((u_long)1)
-%#define RUSERSVERS_2 ((u_long)2)
+%#define RUSERSVERS_1 ((rpc_uint)1)
+%#define RUSERSVERS_2 ((rpc_uint)2)
 %#ifndef RUSERSPROG
-%#define RUSERSPROG ((u_long)100002)
+%#define RUSERSPROG ((rpc_uint)100002)
 %#endif
 %#ifndef RUSERSPROC_NUM
-%#define RUSERSPROC_NUM ((u_long)1)
+%#define RUSERSPROC_NUM ((rpc_uint)1)
 %#endif
 %#ifndef RUSERSPROC_NAMES
-%#define RUSERSPROC_NAMES ((u_long)2)
+%#define RUSERSPROC_NAMES ((rpc_uint)2)
 %#endif
 %#ifndef RUSERSPROC_ALLNAMES
-%#define RUSERSPROC_ALLNAMES ((u_long)3)
+%#define RUSERSPROC_ALLNAMES ((rpc_uint)3)
 %#endif
 %
 #endif	/* RPC_HDR */

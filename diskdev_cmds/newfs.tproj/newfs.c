@@ -391,7 +391,7 @@ main(argc, argv)
 		special = cp + 1;
 	if (*special == 'r' && special[1] != 'a' && special[1] != 'b')
 		special++;
-	sprintf(device, "/dev/r%s", special);
+	(void)snprintf(device, sizeof(device), "/dev/r%s", special);
 //	printf("Special device is %s\n",device);
 #else
 #if defined (linux)
@@ -405,9 +405,9 @@ main(argc, argv)
 		/*
 		 * No path prefix; try /dev/r%s then /dev/%s.
 		 */
-		(void)sprintf(device, "%sr%s", _PATH_DEV, special);
+		(void)snprintf(device, sizeof(device), "%sr%s", _PATH_DEV, special);
 		if (stat(device, &st) == -1)
-			(void)sprintf(device, "%s%s", _PATH_DEV, special);
+			(void)snprintf(device, sizeof(device), "%s%s", _PATH_DEV, special);
 		special = device;
 	}
 #endif /* __APPLE__ */
@@ -577,7 +577,7 @@ main(argc, argv)
 	}
 	secpercyl = nsectors * ntracks - cylspares;
 	if (secpercyl != lp->d_secpercyl)
-		fprintf(stderr, "%s (%d) %s (%lu)\n",
+		fprintf(stderr, "%s (%d) %s (%u)\n",
 			"Warning: calculated sectors per cylinder", secpercyl,
 			"disagrees with disk label", lp->d_secpercyl);
 	if (maxbpg == 0)

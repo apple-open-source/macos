@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/tcpdump/tcpdump/ether.h,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $ (LBL) */
+/* @(#) $Header: /tcpdump/master/tcpdump/ether.h,v 1.8 2002/12/11 07:13:51 guy Exp $ (LBL) */
 /*
  * Copyright (c) 1982, 1986, 1993
  *	The Regents of the University of California.  All rights reserved.

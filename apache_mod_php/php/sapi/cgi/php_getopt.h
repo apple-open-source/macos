@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,8 +16,17 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: php_getopt.h,v 1.7.2.1.2.2 2007/04/15 22:50:58 sniper Exp $ */
+
 #include "php.h"
 
+#ifdef NETWARE
+/*
+As NetWare LibC has optind and optarg macros defined in unistd.h our local variables were getting mistakenly preprocessed so undeffing optind and optarg
+*/
+#undef optarg
+#undef optind
+#endif
 /* Define structure for one recognized option (both single char and long name).
  * If short_open is '-' this is the last option.
  */

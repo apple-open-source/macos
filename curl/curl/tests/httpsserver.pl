@@ -1,7 +1,7 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #
-# $Id: httpsserver.pl,v 1.6 2003/10/29 16:27:43 bagder Exp $
-# This is the HTTPS server designed for the curl test suite.
+# $Id: httpsserver.pl,v 1.9 2007-03-08 02:38:49 danf Exp $
+# This is the HTTPS and FTPS server designed for the curl test suite.
 #
 # It is actually just a layer that runs stunnel properly.
 
@@ -18,13 +18,15 @@ my $stunnel = "stunnel";
 
 my $verbose=0; # set to 1 for debugging
 
-my $port = 8433; # just our default, weird enough
-my $target_port = 8999; # test http-server port
+my $port = 8991;        # just our default, weird enough
+my $target_port = 8999; # default test http-server port
 
 my $path = `pwd`;
 chomp $path;
 
 my $srcdir=$path;
+
+my $proto='https';
 
 do {
     if($ARGV[0] eq "-v") {
@@ -32,6 +34,10 @@ do {
     }
     if($ARGV[0] eq "-w") {
         return 0; # return success, means we have stunnel working!
+    }
+    elsif($ARGV[0] eq "-p") {
+        $proto=$ARGV[1];
+        shift @ARGV;
     }
     elsif($ARGV[0] eq "-r") {
         $target_port=$ARGV[1];
@@ -52,7 +58,7 @@ do {
 
 my $conffile="$path/stunnel.conf";	# stunnel configuration data
 my $certfile="$srcdir/stunnel.pem";	# stunnel server certificate
-my $pidfile="$path/.https.pid";		# stunnel process pid file
+my $pidfile="$path/.$proto.pid";	# stunnel process pid file
 
 open(CONF, ">$conffile") || return 1;
 print CONF "
@@ -79,9 +85,16 @@ my $version_ge_4=system("$stunnel -V 2>&1|grep '^stunnel.* on '>/dev/null 2>&1")
 if ($version_ge_4) { $cmd="$stunnel $conffile"; }
 
 if($verbose) {
-    print "HTTPS server: $cmd\n";
+    print uc($proto)." server: $cmd\n";
 }
 
-system($cmd);
+my $rc = system($cmd);
+
+$rc >>= 8;
+if($rc) {
+    print STDERR "stunnel exited with $rc!\n";
+}
 
 unlink $conffile;
+
+exit $rc;

@@ -1,16 +1,16 @@
 /*
   tidy.c - HTML TidyLib command line driver
 
-  Copyright (c) 1998-2003 World Wide Web Consortium
+  Copyright (c) 1998-2006 World Wide Web Consortium
   (Massachusetts Institute of Technology, European Research 
   Consortium for Informatics and Mathematics, Keio University).
   All Rights Reserved.
 
   CVS Info :
 
-    $Author: swilkin $ 
-    $Date: 2004/08/16 23:45:23 $ 
-    $Revision: 1.1.1.2 $ 
+    $Author: iccir $ 
+    $Date: 2007/01/30 23:46:50 $ 
+    $Revision: 1.3 $ 
 */
 
 #include "tidy.h"
@@ -27,7 +27,379 @@ static Bool samefile( ctmbstr filename1, ctmbstr filename2 )
 #endif
 }
 
-static void help( TidyDoc tdoc, ctmbstr prog )
+static const char *cutToWhiteSpace(const char *s, uint offset, char *sbuf)
+{
+    if (!s)
+    {
+        sbuf[0] = '\0';
+        return NULL;
+    }
+    else if (strlen(s) <= offset)
+    {
+        strcpy(sbuf,s);
+        sbuf[offset] = '\0';
+        return NULL;
+    }
+    else
+    {
+        uint j, l, n;
+        j = offset;
+        while(j && s[j] != ' ')
+            --j;
+        l = j;
+        n = j+1;
+        /* no white space */
+        if (j==0)
+        {
+            l = offset;
+            n = offset;
+        }
+        strncpy(sbuf,s,l);
+        sbuf[l] = '\0';
+        return s+n;
+    }
+}
+
+static void print2Columns( const char* fmt, uint l1, uint l2,
+                           const char *c1, const char *c2 )
+{
+    const char *pc1=c1, *pc2=c2;
+    char *c1buf = (char *)malloc(l1+1);
+    char *c2buf = (char *)malloc(l2+1);
+
+    do
+    {
+        pc1 = cutToWhiteSpace(pc1, l1, c1buf);
+        pc2 = cutToWhiteSpace(pc2, l2, c2buf);
+        printf(fmt,
+               c1buf[0]!='\0'?c1buf:"",
+               c2buf[0]!='\0'?c2buf:"");
+    } while (pc1 || pc2);
+    free(c1buf);
+    free(c2buf);
+}
+
+static void print3Columns( const char* fmt, uint l1, uint l2, uint l3,
+                           const char *c1, const char *c2, const char *c3 )
+{
+    const char *pc1=c1, *pc2=c2, *pc3=c3;
+    char *c1buf = (char *)malloc(l1+1);
+    char *c2buf = (char *)malloc(l2+1);
+    char *c3buf = (char *)malloc(l3+1);
+
+    do
+    {
+        pc1 = cutToWhiteSpace(pc1, l1, c1buf);
+        pc2 = cutToWhiteSpace(pc2, l2, c2buf);
+        pc3 = cutToWhiteSpace(pc3, l3, c3buf);
+        printf(fmt,
+               c1buf[0]!='\0'?c1buf:"",
+               c2buf[0]!='\0'?c2buf:"",
+               c3buf[0]!='\0'?c3buf:"");
+    } while (pc1 || pc2 || pc3);
+    free(c1buf);
+    free(c2buf);
+    free(c3buf);
+}
+
+static const char helpfmt[] = " %-19.19s %-58.58s\n";
+static const char helpul[]
+        = "-----------------------------------------------------------------";
+static const char fmt[] = "%-27.27s %-9.9s  %-40.40s\n";
+static const char valfmt[] = "%-27.27s %-9.9s %-1.1s%-39.39s\n";
+static const char ul[]
+        = "=================================================================";
+
+typedef enum
+{
+  CmdOptFileManip,
+  CmdOptCatFIRST = CmdOptFileManip,
+  CmdOptProcDir,
+  CmdOptCharEnc,
+  CmdOptMisc,
+  CmdOptCatLAST,
+} CmdOptCategory;
+
+static const struct {
+    ctmbstr mnemonic;
+    ctmbstr name;
+} cmdopt_catname[] = {
+    { "file-manip", "File manipulation" },
+    { "process-directives", "Processing directives" },
+    { "char-encoding", "Character encodings" },
+    { "misc", "Miscellaneous" }
+};
+
+typedef struct {
+    ctmbstr name1;      /**< Name */
+    ctmbstr desc;       /**< Description */
+    ctmbstr eqconfig;   /**< Equivalent configuration option */
+    CmdOptCategory cat; /**< Category */
+    ctmbstr name2;      /**< Name */
+    ctmbstr name3;      /**< Name */
+} CmdOptDesc;
+
+static const CmdOptDesc cmdopt_defs[] =  {
+    { "-output <file>",
+      "write output to the specified <file>",
+      "output-file: <file>", CmdOptFileManip, "-o <file>" },
+    { "-config <file>",
+      "set configuration options from the specified <file>",
+      NULL, CmdOptFileManip },
+    { "-file <file>",
+      "write errors to the specified <file>",
+      "error-file: <file>", CmdOptFileManip, "-f <file>" },
+    { "-modify",
+      "modify the original input files",
+      "write-back: yes", CmdOptFileManip, "-m" },
+    { "-indent",
+      "indent element content",
+      "indent: auto", CmdOptProcDir, "-i" },
+    { "-wrap <column>",
+      "wrap text at the specified <column>"
+      ". 0 is assumed if <column> is missing. "
+      "When this option is omitted, the default of the configuration option "
+      "\"wrap\" applies.",
+      "wrap: <column>", CmdOptProcDir, "-w <column>" },
+    { "-upper",
+      "force tags to upper case",
+      "uppercase-tags: yes", CmdOptProcDir, "-u" },
+    { "-clean",
+      "replace FONT, NOBR and CENTER tags by CSS",
+      "clean: yes", CmdOptProcDir, "-c" },
+    { "-bare",
+      "strip out smart quotes and em dashes, etc.",
+      "bare: yes", CmdOptProcDir, "-b" },
+    { "-numeric",
+      "output numeric rather than named entities",
+      "numeric-entities: yes", CmdOptProcDir, "-n" },
+    { "-errors",
+      "only show errors",
+      "markup: no", CmdOptProcDir, "-e" },
+    { "-quiet",
+      "suppress nonessential output",
+      "quiet: yes", CmdOptProcDir, "-q" },
+    { "-omit",
+      "omit optional end tags",
+      "hide-endtags: yes", CmdOptProcDir },
+    { "-xml",
+      "specify the input is well formed XML",
+      "input-xml: yes", CmdOptProcDir },
+    { "-asxml",
+      "convert HTML to well formed XHTML",
+      "output-xhtml: yes", CmdOptProcDir, "-asxhtml" },
+    { "-ashtml",
+      "force XHTML to well formed HTML",
+      "output-html: yes", CmdOptProcDir },
+#if SUPPORT_ACCESSIBILITY_CHECKS
+    { "-access <level>",
+      "do additional accessibility checks (<level> = 0, 1, 2, 3)"
+      ". 0 is assumed if <level> is missing.",
+      "accessibility-check: <level>", CmdOptProcDir },
+#endif
+    { "-raw",
+      "output values above 127 without conversion to entities",
+      NULL, CmdOptCharEnc },
+    { "-ascii",
+      "use ISO-8859-1 for input, US-ASCII for output",
+      NULL, CmdOptCharEnc },
+    { "-latin0",
+      "use ISO-8859-15 for input, US-ASCII for output",
+      NULL, CmdOptCharEnc },
+    { "-latin1",
+      "use ISO-8859-1 for both input and output",
+      NULL, CmdOptCharEnc },
+#ifndef NO_NATIVE_ISO2022_SUPPORT
+    { "-iso2022",
+      "use ISO-2022 for both input and output",
+      NULL, CmdOptCharEnc },
+#endif
+    { "-utf8",
+      "use UTF-8 for both input and output",
+      NULL, CmdOptCharEnc },
+    { "-mac",
+      "use MacRoman for input, US-ASCII for output",
+      NULL, CmdOptCharEnc },
+    { "-win1252",
+      "use Windows-1252 for input, US-ASCII for output",
+      NULL, CmdOptCharEnc },
+    { "-ibm858",
+      "use IBM-858 (CP850+Euro) for input, US-ASCII for output",
+      NULL, CmdOptCharEnc },
+#if SUPPORT_UTF16_ENCODINGS
+    { "-utf16le",
+      "use UTF-16LE for both input and output",
+      NULL, CmdOptCharEnc },
+    { "-utf16be",
+      "use UTF-16BE for both input and output",
+      NULL, CmdOptCharEnc },
+    { "-utf16",
+      "use UTF-16 for both input and output",
+      NULL, CmdOptCharEnc },
+#endif
+#if SUPPORT_ASIAN_ENCODINGS /* #431953 - RJ */
+    { "-big5",
+      "use Big5 for both input and output",
+      NULL, CmdOptCharEnc },
+    { "-shiftjis",
+      "use Shift_JIS for both input and output",
+      NULL, CmdOptCharEnc },
+    { "-language <lang>",
+      "set the two-letter language code <lang> (for future use)",
+      "language: <lang>", CmdOptCharEnc },
+#endif
+    { "-version",
+      "show the version of Tidy",
+      NULL, CmdOptMisc, "-v" },
+    { "-help",
+      "list the command line options",
+      NULL, CmdOptMisc, "-h", "-?" },
+    { "-xml-help",
+      "list the command line options in XML format",
+      NULL, CmdOptMisc },
+    { "-help-config",
+      "list all configuration options",
+      NULL, CmdOptMisc },
+    { "-xml-config",
+      "list all configuration options in XML format",
+      NULL, CmdOptMisc },
+    { "-show-config",
+      "list the current configuration settings",
+      NULL, CmdOptMisc },
+    { NULL, NULL, NULL, CmdOptMisc }
+};
+
+static tmbstr get_option_names( const CmdOptDesc* pos )
+{
+    tmbstr name;
+    uint len = strlen(pos->name1);
+    if (pos->name2)
+        len += 2+strlen(pos->name2);
+    if (pos->name3)
+        len += 2+strlen(pos->name3);
+
+    name = (tmbstr)malloc(len+1);
+    strcpy(name, pos->name1);
+    if (pos->name2)
+    {
+        strcat(name, ", ");
+        strcat(name, pos->name2);
+    }
+    if (pos->name3)
+    {
+        strcat(name, ", ");
+        strcat(name, pos->name3);
+    }
+    return name;
+}
+
+static tmbstr get_escaped_name( ctmbstr name )
+{
+    tmbstr escpName;
+    char aux[2];
+    uint len = 0;
+    ctmbstr c;
+    for(c=name; *c!='\0'; ++c)
+        switch(*c)
+        {
+        case '<':
+        case '>':
+            len += 4;
+            break;
+        case '"':
+            len += 6;
+            break;
+        default:
+            len += 1;
+            break;
+        }
+
+    escpName = (tmbstr)malloc(len+1);
+    escpName[0] = '\0';
+
+    aux[1] = '\0';
+    for(c=name; *c!='\0'; ++c)
+        switch(*c)
+        {
+        case '<':
+            strcat(escpName, "&lt;");
+            break;
+        case '>':
+            strcat(escpName, "&gt;");
+            break;
+        case '"':
+            strcat(escpName, "&quot;");
+            break;
+        default:
+            aux[0] = *c;
+            strcat(escpName, aux);
+            break;
+        }
+
+    return escpName;
+}
+
+static void print_help_option( void )
+{
+    CmdOptCategory cat = CmdOptCatFIRST;
+    const CmdOptDesc* pos = cmdopt_defs;
+
+    for( cat=CmdOptCatFIRST; cat!=CmdOptCatLAST; ++cat)
+    {
+        size_t len =  strlen(cmdopt_catname[cat].name);
+        printf("%s\n", cmdopt_catname[cat].name );
+        printf("%*.*s\n", (int)len, (int)len, helpul );
+        for( pos=cmdopt_defs; pos->name1; ++pos)
+        {
+            tmbstr name;
+            if (pos->cat != cat)
+                continue;
+            name = get_option_names( pos );
+            print2Columns( helpfmt, 19, 58, name, pos->desc );
+            free(name);
+        }
+        printf("\n");
+    }
+}
+
+static void print_xml_help_option_element( ctmbstr element, ctmbstr name )
+{
+    tmbstr escpName;
+    if (!name)
+        return;
+    printf("  <%s>%s</%s>\n", element, escpName = get_escaped_name(name),
+           element);
+    free(escpName);
+}
+
+static void print_xml_help_option( void )
+{
+    const CmdOptDesc* pos = cmdopt_defs;
+
+    for( pos=cmdopt_defs; pos->name1; ++pos)
+    {
+        printf(" <option class=\"%s\">\n", cmdopt_catname[pos->cat].mnemonic );
+        print_xml_help_option_element("name", pos->name1);
+        print_xml_help_option_element("name", pos->name2);
+        print_xml_help_option_element("name", pos->name3);
+        print_xml_help_option_element("description", pos->desc);
+        if (pos->eqconfig)
+            print_xml_help_option_element("eqconfig", pos->eqconfig);
+        else
+            printf("  <eqconfig />\n");
+        printf(" </option>\n");
+    }
+}
+
+static void xml_help( void )
+{
+    printf( "<?xml version=\"1.0\"?>\n"
+            "<cmdline version=\"%s\">\n", tidyReleaseDate());
+    print_xml_help_option();
+    printf( "</cmdline>\n" );
+}
+
+static void help( ctmbstr prog )
 {
     printf( "%s [option...] [file...] [option...] [file...]\n", prog );
     printf( "Utility to clean up and pretty print HTML/XHTML/XML\n");
@@ -42,71 +414,8 @@ static void help( TidyDoc tdoc, ctmbstr prog )
 #endif
     printf( "\n");
 
-    printf( "File manipulation\n");
-    printf( "-----------------\n");
-    printf( "  -out or -o <file> specify the output markup file\n");
-    printf( "  -config <file>    set configuration options from the specified <file>\n");
-    printf( "  -f      <file>    write errors to the specified <file>\n");
-    printf( "  -modify or -m     modify the original input files\n");
-    printf( "\n");
+    print_help_option();
 
-    printf( "Processing directives\n");
-    printf( "---------------------\n");
-    printf( "  -indent  or -i    indent element content\n");
-    printf( "  -wrap <column>    wrap text at the specified <column> (default is 68)\n");
-    printf( "  -upper   or -u    force tags to upper case (default is lower case)\n");
-    printf( "  -clean   or -c    replace FONT, NOBR and CENTER tags by CSS\n");
-    printf( "  -bare    or -b    strip out smart quotes and em dashes, etc.\n");
-    printf( "  -numeric or -n    output numeric rather than named entities\n");
-    printf( "  -errors  or -e    only show errors\n");
-    printf( "  -quiet   or -q    suppress nonessential output\n");
-    printf( "  -omit             omit optional end tags\n");
-    printf( "  -xml              specify the input is well formed XML\n");
-    printf( "  -asxml            convert HTML to well formed XHTML\n");
-    printf( "  -asxhtml          convert HTML to well formed XHTML\n");
-    printf( "  -ashtml           force XHTML to well formed HTML\n");
-
-/* TRT */
-#if SUPPORT_ACCESSIBILITY_CHECKS
-    printf( "  -access <level>   do additional accessibility checks (<level> = 1, 2, 3)\n");
-#endif
-
-    printf( "\n");
-
-    printf( "Character encodings\n");
-    printf( "-------------------\n");
-    printf( "  -raw              output values above 127 without conversion to entities\n");
-    printf( "  -ascii            use US-ASCII for output, ISO-8859-1 for input\n");
-    printf( "  -latin0           use US-ASCII for output, ISO-8859-15 for input\n");
-    printf( "  -latin1           use ISO-8859-1 for both input and output\n");
-#ifndef NO_NATIVE_ISO2022_SUPPORT
-    printf( "  -iso2022          use ISO-2022 for both input and output\n");
-#endif
-    printf( "  -utf8             use UTF-8 for both input and output\n");
-    printf( "  -mac              use MacRoman for input, US-ASCII for output\n");
-    printf( "  -win1252          use Windows-1252 for input, US-ASCII for output\n");
-    printf( "  -ibm858           use IBM-858 (CP850+Euro) for input, US-ASCII for output\n");
-
-#if SUPPORT_UTF16_ENCODINGS
-    printf( "  -utf16le          use UTF-16LE for both input and output\n");
-    printf( "  -utf16be          use UTF-16BE for both input and output\n");
-    printf( "  -utf16            use UTF-16 for both input and output\n");
-#endif
-
-#if SUPPORT_ASIAN_ENCODINGS /* #431953 - RJ */
-    printf( "  -big5             use Big5 for both input and output\n"); 
-    printf( "  -shiftjis         use Shift_JIS for both input and output\n");
-    printf( "  -language <lang>  set the two-letter language code <lang> (for future use)\n");
-#endif
-    printf( "\n");
-
-    printf( "Miscellaneous\n");
-    printf( "-------------\n");
-    printf( "  -version  or -v   show the version of Tidy\n");
-    printf( "  -help, -h or -?   list the command line options\n");
-    printf( "  -help-config      list all configuration options\n");
-    printf( "  -show-config      list the current configuration settings\n");
-    printf( "\n");
     printf( "Use --blah blarg for any configuration option \"blah\" with argument \"blarg\"\n");
     printf( "\n");
 
@@ -117,18 +426,391 @@ static void help( TidyDoc tdoc, ctmbstr prog )
     printf( "\n");
 }
 
-#define kMaxValFieldWidth 40
-static const char* fmt = "%-27.27s %-9.9s  %-40.40s\n";
-static const char* valfmt = "%-27.27s %-9.9s %-1.1s%-39.39s\n";
-static const char* ul 
-        = "=================================================================";
+static Bool isAutoBool( TidyOption topt )
+{
+    TidyIterator pos;
+    ctmbstr def;
 
-static void optionhelp( TidyDoc tdoc, ctmbstr prog )
+    if ( tidyOptGetType( topt ) != TidyInteger)
+        return no;
+
+    pos = tidyOptGetPickList( topt );
+    while ( pos )
+    {
+        def = tidyOptGetNextPick( topt, &pos );
+        if (0==strcmp(def,"yes"))
+           return yes;
+    }
+    return no;
+}
+
+static
+ctmbstr ConfigCategoryName( TidyConfigCategory id )
+{
+    switch( id )
+    {
+    case TidyMarkup:
+        return "markup";
+    case TidyDiagnostics:
+        return "diagnostics";
+    case TidyPrettyPrint:
+        return "print";
+    case TidyEncoding:
+        return "encoding";
+    case TidyMiscellaneous:
+        return "misc";
+    }
+    fprintf(stderr, "Fatal error: impossible value for id='%d'.\n", (int)id);
+    assert(0);
+    abort();
+}
+
+/* Description of an option */
+typedef struct {
+    ctmbstr name;  /**< Name */
+    ctmbstr cat;   /**< Category */
+    ctmbstr type;  /**< "String, ... */
+    ctmbstr vals;  /**< Potential values. If NULL, use an external function */
+    ctmbstr def;   /**< default */
+    tmbchar tempdefs[80]; /**< storage for default such as integer */
+    Bool haveVals; /**< if yes, vals is valid */
+} OptionDesc;
+
+typedef void (*OptionFunc)( TidyDoc, TidyOption, OptionDesc * );
+
+
+/* Create description "d" related to "opt" */
+static
+void GetOption( TidyDoc tdoc, TidyOption topt, OptionDesc *d )
+{
+    TidyOptionId optId = tidyOptGetId( topt );
+    TidyOptionType optTyp = tidyOptGetType( topt );
+
+    d->name = tidyOptGetName( topt );
+    d->cat = ConfigCategoryName( tidyOptGetCategory( topt ) );
+    d->vals = NULL;
+    d->def = NULL;
+    d->haveVals = yes;
+
+    /* Handle special cases first.
+     */
+    switch ( optId )
+    {
+    case TidyDuplicateAttrs:
+    case TidyNewline:
+    case TidyAccessibilityCheckLevel:
+        d->type = "enum";
+        d->vals = NULL;
+        d->def =
+            optId==TidyNewline ?
+            "<em>Platform dependent</em>"
+            :tidyOptGetCurrPick( tdoc, optId );
+        break;
+
+    case TidyDoctype:
+        d->type = "DocType";
+        d->vals = NULL;
+        {
+            ctmbstr sdef = NULL;
+            sdef = tidyOptGetCurrPick( tdoc, TidyDoctypeMode );
+            if ( !sdef || *sdef == '*' )
+                sdef = tidyOptGetValue( tdoc, TidyDoctype );
+            d->def = sdef;
+        }
+        break;
+
+    case TidyInlineTags:
+    case TidyBlockTags:
+    case TidyEmptyTags:
+    case TidyPreTags:
+        d->type = "Tag names";
+        d->vals = "tagX, tagY, ...";
+        d->def = NULL;
+        break;
+
+    case TidyCharEncoding:
+    case TidyInCharEncoding:
+    case TidyOutCharEncoding:
+        d->type = "Encoding";
+        d->def = tidyOptGetEncName( tdoc, optId );
+        if (!d->def)
+            d->def = "?";
+        d->vals = NULL;
+        break;
+
+        /* General case will handle remaining */
+    default:
+        switch ( optTyp )
+        {
+        case TidyBoolean:
+            d->type = "Boolean";
+            d->vals = "y/n, yes/no, t/f, true/false, 1/0";
+            d->def = tidyOptGetCurrPick( tdoc, optId );
+            break;
+
+        case TidyInteger:
+            if (isAutoBool(topt))
+            {
+                d->type = "AutoBool";
+                d->vals = "auto, y/n, yes/no, t/f, true/false, 1/0";
+                d->def = tidyOptGetCurrPick( tdoc, optId );
+            }
+            else
+            {
+                uint idef;
+                d->type = "Integer";
+                if ( optId == TidyWrapLen )
+                    d->vals = "0 (no wrapping), 1, 2, ...";
+                else
+                    d->vals = "0, 1, 2, ...";
+
+                idef = tidyOptGetInt( tdoc, optId );
+                sprintf(d->tempdefs, "%u", idef);
+                d->def = d->tempdefs;
+            }
+            break;
+
+        case TidyString:
+            d->type = "String";
+            d->vals = NULL;
+            d->haveVals = no;
+            d->def = tidyOptGetValue( tdoc, optId );
+            break;
+        }
+    }
+}
+
+/* Array holding all options. Contains a trailing sentinel. */
+typedef struct {
+    TidyOption topt[N_TIDY_OPTIONS];
+} AllOption_t;
+
+static
+int cmpOpt(const void* e1_, const void *e2_)
+{
+    const TidyOption* e1 = (const TidyOption*)e1_;
+    const TidyOption* e2 = (const TidyOption*)e2_;
+    return strcmp(tidyOptGetName(*e1), tidyOptGetName(*e2));
+}
+
+static
+void getSortedOption( TidyDoc tdoc, AllOption_t *tOption )
+{
+    TidyIterator pos = tidyGetOptionList( tdoc );
+    uint i = 0;
+
+    while ( pos )
+    {
+        TidyOption topt = tidyGetNextOption( tdoc, &pos );
+        tOption->topt[i] = topt;
+        ++i;
+    }
+    tOption->topt[i] = NULL; /* sentinel */
+
+    qsort(tOption->topt,
+          /* Do not sort the sentinel: hence `-1' */
+          sizeof(tOption->topt)/sizeof(tOption->topt[0])-1,
+          sizeof(tOption->topt[0]),
+          cmpOpt);
+}
+
+static void ForEachSortedOption( TidyDoc tdoc, OptionFunc OptionPrint )
+{
+    AllOption_t tOption;
+    const TidyOption *topt;
+
+    getSortedOption( tdoc, &tOption );
+    for( topt = tOption.topt; *topt; ++topt)
+    {
+        OptionDesc d;
+
+        GetOption( tdoc, *topt, &d );
+        (*OptionPrint)( tdoc, *topt, &d );
+    }
+}
+
+static void ForEachOption( TidyDoc tdoc, OptionFunc OptionPrint )
 {
     TidyIterator pos = tidyGetOptionList( tdoc );
 
+    while ( pos )
+    {
+        TidyOption topt = tidyGetNextOption( tdoc, &pos );
+        OptionDesc d;
+
+        GetOption( tdoc, topt, &d );
+        (*OptionPrint)( tdoc, topt, &d );
+    }
+}
+
+static
+void PrintAllowedValuesFromPick( TidyOption topt )
+{
+    TidyIterator pos = tidyOptGetPickList( topt );
+    Bool first = yes;
+    ctmbstr def;
+    while ( pos )
+    {
+        if (first)
+            first = no;
+        else
+            printf(", ");
+        def = tidyOptGetNextPick( topt, &pos );
+        printf("%s", def);
+    }
+}
+
+static
+void PrintAllowedValues( TidyOption topt, const OptionDesc *d )
+{
+    if (d->vals)
+        printf( "%s", d->vals );
+    else
+        PrintAllowedValuesFromPick( topt );
+}
+
+static
+void printXMLDescription( TidyDoc tdoc, TidyOption topt )
+{
+    ctmbstr doc = tidyOptGetDoc( tdoc, topt );
+
+    if (doc)
+        printf("  <description>%s</description>\n", doc);
+    else
+    {
+        printf("  <description />\n");
+        fprintf(stderr, "Warning: option `%s' is not documented.\n",
+                tidyOptGetName( topt ));
+    }
+}
+
+static
+void printXMLCrossRef( TidyDoc tdoc, TidyOption topt )
+{
+    TidyOption optLinked;
+    TidyIterator pos = tidyOptGetDocLinksList(tdoc, topt);
+    while( pos )
+    {
+        optLinked = tidyOptGetNextDocLinks(tdoc, &pos );
+        printf("  <seealso>%s</seealso>\n",tidyOptGetName(optLinked));
+    }
+}
+
+static
+void printXMLOption( TidyDoc tdoc, TidyOption topt, OptionDesc *d )
+{
+    if ( tidyOptIsReadOnly(topt) )
+        return;
+
+    printf( " <option class=\"%s\">\n", d->cat );
+    printf  ("  <name>%s</name>\n",d->name);
+    printf  ("  <type>%s</type>\n",d->type);
+    if (d->def)
+        printf("  <default>%s</default>\n",d->def);
+    else
+        printf("  <default />\n");
+    if (d->haveVals)
+    {
+        printf("  <example>");
+        PrintAllowedValues( topt, d );
+        printf("</example>\n");
+    }
+    else
+    {
+        printf("  <example />\n");
+    }
+    printXMLDescription( tdoc, topt );
+    printXMLCrossRef( tdoc, topt );
+    printf( " </option>\n" );
+}
+
+static void XMLoptionhelp( TidyDoc tdoc )
+{
+    printf( "<?xml version=\"1.0\"?>\n"
+            "<config version=\"%s\">\n", tidyReleaseDate());
+    ForEachOption( tdoc, printXMLOption );
+    printf( "</config>\n" );
+}
+
+static
+tmbstr GetAllowedValuesFromPick( TidyOption topt )
+{
+    TidyIterator pos;
+    Bool first;
+    ctmbstr def;
+    uint len = 0;
+    tmbstr val;
+
+    pos = tidyOptGetPickList( topt );
+    first = yes;
+    while ( pos )
+    {
+        if (first)
+            first = no;
+        else
+            len += 2;
+        def = tidyOptGetNextPick( topt, &pos );
+        len += strlen(def);
+    }
+    val = (tmbstr)malloc(len+1);
+    val[0] = '\0';
+    pos = tidyOptGetPickList( topt );
+    first = yes;
+    while ( pos )
+    {
+        if (first)
+            first = no;
+        else
+            strcat(val, ", ");
+        def = tidyOptGetNextPick( topt, &pos );
+        strcat(val, def);
+    }
+    return val;
+}
+
+static
+tmbstr GetAllowedValues( TidyOption topt, const OptionDesc *d )
+{
+    if (d->vals)
+    {
+        tmbstr val = (tmbstr)malloc(1+strlen(d->vals));
+        strcpy(val, d->vals);
+        return val;
+    }
+    else
+        return GetAllowedValuesFromPick( topt );
+}
+
+static
+void printOption( TidyDoc ARG_UNUSED(tdoc), TidyOption topt,
+                  OptionDesc *d )
+{
+    if ( tidyOptIsReadOnly(topt) )
+        return;
+
+    if ( *d->name || *d->type )
+    {
+        ctmbstr pval = d->vals;
+        tmbstr val = NULL;
+        if (!d->haveVals)
+        {
+            pval = "-";
+        }
+        else if (pval == NULL)
+        {
+            val = GetAllowedValues( topt, d);
+            pval = val;
+        }
+        print3Columns( fmt, 27, 9, 40, d->name, d->type, pval );
+        if (val)
+            free(val);
+    }
+}
+
+static void optionhelp( TidyDoc tdoc )
+{
     printf( "\nHTML Tidy Configuration Settings\n\n" );
-    printf( "Within a file, use the form:\n\n" ); 
+    printf( "Within a file, use the form:\n\n" );
     printf( "wrap: 72\n" );
     printf( "indent: no\n\n" );
     printf( "When specified on the command line, use the form:\n\n" );
@@ -137,242 +819,69 @@ static void optionhelp( TidyDoc tdoc, ctmbstr prog )
     printf( fmt, "Name", "Type", "Allowable values" );
     printf( fmt, ul, ul, ul );
 
-    while ( pos )
+    ForEachSortedOption( tdoc, printOption );
+}
+
+static
+void printOptionValues( TidyDoc ARG_UNUSED(tdoc), TidyOption topt,
+                        OptionDesc *d )
+{
+    TidyOptionId optId = tidyOptGetId( topt );
+    ctmbstr ro = tidyOptIsReadOnly( topt ) ? "*" : "" ;
+
+    switch ( optId )
     {
-        TidyOption topt = tidyGetNextOption( tdoc, &pos );
-        TidyOptionId optId = tidyOptGetId( topt );
-        TidyOptionType optTyp = tidyOptGetType( topt );
-
-        ctmbstr name = (tmbstr) tidyOptGetName( topt );
-        ctmbstr type = "String";
-        tmbchar tempvals[80] = {0};
-        ctmbstr vals = &tempvals[0];
-
-        if ( tidyOptIsReadOnly(topt) )
-            continue;
-
-        /* Handle special cases first.
-        */
-        switch ( optId )
+    case TidyInlineTags:
+    case TidyBlockTags:
+    case TidyEmptyTags:
+    case TidyPreTags:
         {
-        case TidyIndentContent:
-#if SUPPORT_UTF16_ENCODINGS
-        case TidyOutputBOM:
-#endif
-            type = "AutoBool";
-            vals = "auto, y/n, yes/no, t/f, true/false, 1/0";
-            break;
-
-        case TidyDuplicateAttrs:
-            type = "enum";
-            vals = "keep-first, keep-last";
-            break;
-
-        case TidyDoctype:
-            type = "DocType";
-            vals = "auto, omit, strict, loose, transitional,";
-            printf( fmt, name, type, vals );
-            name = "";
-            type = "";
-            vals = "user specified fpi (string)";
-            break;
-
-        case TidyCSSPrefix:
-            type = "Name";
-            vals = "CSS1 selector";
-            break;
-
-        case TidyInlineTags:
-        case TidyBlockTags:
-        case TidyEmptyTags:
-        case TidyPreTags:
-            type = "Tag names";
-            vals = "tagX, tagY, ...";
-            break;
-
-        case TidyCharEncoding:
-        case TidyInCharEncoding:
-        case TidyOutCharEncoding:
-            type = "Encoding";
-            vals = "ascii, latin0, latin1, raw, utf8, iso2022,";
-            printf( fmt, name, type, vals );
-            name = "";
-            type = "";
-
-#if SUPPORT_UTF16_ENCODINGS
-            vals = "utf16le, utf16be, utf16,";
-            printf( fmt, name, type, vals );
-#endif
-#if SUPPORT_ASIAN_ENCODINGS
-            vals = "mac, win1252, ibm858, big5, shiftjis";
-#else
-            vals = "mac, win1252, ibm858";
-#endif
-            break;
-
-        case TidyNewline:
-            type = "enum";
-            vals = "LF, CRLF, CR";
-            break;
-
-        /* General case will handle remaining */
-        default:
-            switch ( optTyp )
+            TidyIterator pos = tidyOptGetDeclTagList( tdoc );
+            while ( pos )
             {
-            case TidyBoolean:
-                type = "Boolean";
-                vals = "y/n, yes/no, t/f, true/false, 1/0";
-                break;
-
-            case TidyInteger:
-                type = "Integer";
-                if ( optId == TidyWrapLen )
-                    vals = "0 (no wrapping), 1, 2, ...";
-                else
-                    vals = "0, 1, 2, ...";
-                break;
-
-            case TidyString:
-                type = "String";
-                vals = "-";
-                break;
+                d->def = tidyOptGetNextDeclTag(tdoc, optId, &pos);
+                if ( pos )
+                {
+                    if ( *d->name )
+                        printf( valfmt, d->name, d->type, ro, d->def );
+                    else
+                        printf( fmt, d->name, d->type, d->def );
+                    d->name = "";
+                    d->type = "";
+                }
             }
         }
+        break;
+    case TidyNewline:
+        d->def = tidyOptGetCurrPick( tdoc, optId );
+        break;
+    }
 
-        if ( *name || *type || *vals )
-            printf( fmt, name, type, vals );
+    /* fix for http://tidy.sf.net/bug/873921 */
+    if ( *d->name || *d->type || (d->def && *d->def) )
+    {
+        if ( ! d->def )
+            d->def = "";
+        if ( *d->name )
+            printf( valfmt, d->name, d->type, ro, d->def );
+        else
+            printf( fmt, d->name, d->type, d->def );
     }
 }
 
-static void optionvalues( TidyDoc tdoc, ctmbstr prog )
+static void optionvalues( TidyDoc tdoc )
 {
-    TidyIterator pos = tidyGetOptionList( tdoc );
-
     printf( "\nConfiguration File Settings:\n\n" );
     printf( fmt, "Name", "Type", "Current Value" );
     printf( fmt, ul, ul, ul );
 
-    while ( pos )
-    {
-        TidyOption topt = tidyGetNextOption( tdoc, &pos );
-        TidyOptionId optId = tidyOptGetId( topt );
-        TidyOptionType optTyp = tidyOptGetType( topt );
-        Bool isReadOnly = tidyOptIsReadOnly( topt );
-
-        ctmbstr sval = NULL;
-        uint ival = 0;
-
-        ctmbstr name = (tmbstr) tidyOptGetName( topt );
-        ctmbstr type = "String";
-        tmbchar tempvals[80] = {0};
-        ctmbstr vals = &tempvals[0];
-        ctmbstr ro   = ( isReadOnly ? "*" : "" );
-
-        /* Handle special cases first.
-        */
-        switch ( optId )
-        {
-        case TidyIndentContent:
-#if SUPPORT_UTF16_ENCODINGS
-        case TidyOutputBOM:
-#endif
-            type = "AutoBool";
-            vals = (tmbstr) tidyOptGetCurrPick( tdoc, optId );
-            break;
-
-        case TidyDuplicateAttrs:
-            type = "enum";
-            vals = (tmbstr) tidyOptGetCurrPick( tdoc, optId );
-            break;
-
-        case TidyDoctype:
-            sval = (tmbstr) tidyOptGetCurrPick( tdoc, TidyDoctypeMode );
-            type = "DocType";
-            if ( !sval || *sval == '*' )
-                sval = (tmbstr) tidyOptGetValue( tdoc, TidyDoctype );
-            vals = (tmbstr) sval;
-            break;
-
-        case TidyCSSPrefix:
-            type = "Name";
-            vals = (tmbstr) tidyOptGetValue( tdoc, TidyCSSPrefix );
-            break;
-
-        case TidyInlineTags:
-        case TidyBlockTags:
-        case TidyEmptyTags:
-        case TidyPreTags:
-            {
-                TidyIterator pos = tidyOptGetDeclTagList( tdoc );
-                type = "Tag names";
-                while ( pos )
-                {
-                    vals = (tmbstr) tidyOptGetNextDeclTag(tdoc, optId, &pos);
-                    if ( pos )
-                    {
-                        if ( *name )
-                            printf( valfmt, name, type, ro, vals );
-                        else
-                            printf( fmt, name, type, vals );
-                        name = "";
-                        type = "";
-                    }
-                }
-            }
-            break;
-
-        case TidyCharEncoding:
-        case TidyInCharEncoding:
-        case TidyOutCharEncoding:
-            type = "Encoding";
-            sval = tidyOptGetEncName( tdoc, optId );
-            vals = (tmbstr) sval;
-            break;
-
-        case TidyNewline:
-            type = "enum";
-            vals = (tmbstr) tidyOptGetCurrPick( tdoc, optId );
-            break;
-
-        /* General case will handle remaining */
-        default:
-            switch ( optTyp )
-            {
-            case TidyBoolean:
-                type = "Boolean";   /* curr pick handles inverse */
-                vals = (tmbstr) tidyOptGetCurrPick( tdoc, optId );
-                break;
-
-            case TidyInteger:
-                type = "Integer";
-                ival = tidyOptGetInt( tdoc, optId );
-                sprintf( tempvals, "%u", ival );
-                break;
-
-            case TidyString:
-                type = "String";
-                vals = (tmbstr) tidyOptGetValue( tdoc, optId );
-                break;
-            }
-        }
-
-        /* fix for http://tidy.sf.net/bug/873921 */
-        if ( *name || *type || (vals && *vals) )
-        {
-            if ( ! vals )
-                vals = "";
-            if ( *name )
-                printf( valfmt, name, type, ro, vals );
-            else
-                printf( fmt, name, type, vals );
-        }
-    }
+    ForEachSortedOption( tdoc, printOptionValues );
 
     printf( "\n\nValues marked with an *asterisk are calculated \n"
             "internally by HTML Tidy\n\n" );
 }
 
-static void version( TidyDoc tdoc, ctmbstr prog )
+static void version( void )
 {
 #ifdef PLATFORM_NAME
     printf( "HTML Tidy for %s released on %s\n",
@@ -382,7 +891,7 @@ static void version( TidyDoc tdoc, ctmbstr prog )
 #endif
 }
 
-static void unknownOption( TidyDoc tdoc, uint c )
+static void unknownOption( uint c )
 {
     fprintf( errout, "HTML Tidy: unknown option: %c\n", (char)c );
 }
@@ -506,19 +1015,31 @@ int main( int argc, char** argv )
             else if ( strcasecmp(arg, "help") == 0 ||
                       strcasecmp(arg,    "h") == 0 || *arg == '?' )
             {
-                help( tdoc, prog );
+                help( prog );
+                tidyRelease( tdoc );
+                return 0; /* success */
+            }
+            else if ( strcasecmp(arg, "xml-help") == 0)
+            {
+                xml_help( );
                 tidyRelease( tdoc );
                 return 0; /* success */
             }
             else if ( strcasecmp(arg, "help-config") == 0 )
             {
-                optionhelp( tdoc, prog );
+                optionhelp( tdoc );
+                tidyRelease( tdoc );
+                return 0; /* success */
+            }
+            else if ( strcasecmp(arg, "xml-config") == 0 )
+            {
+                XMLoptionhelp( tdoc );
                 tidyRelease( tdoc );
                 return 0; /* success */
             }
             else if ( strcasecmp(arg, "show-config") == 0 )
             {
-                optionvalues( tdoc, prog );
+                optionvalues( tdoc );
                 tidyRelease( tdoc );
                 return 0; /* success */
             }
@@ -586,17 +1107,20 @@ int main( int argc, char** argv )
                 if ( argc >= 3 )
                 {
                     uint wraplen = 0;
-                    sscanf( argv[2], "%u", &wraplen );
+                    int nfields = sscanf( argv[2], "%u", &wraplen );
                     tidyOptSetInt( tdoc, TidyWrapLen, wraplen );
-                    --argc;
-                    ++argv;
+                    if (nfields > 0)
+                    {
+                        --argc;
+                        ++argv;
+                    }
                 }
             }
             else if ( strcasecmp(arg,  "version") == 0 ||
                       strcasecmp(arg, "-version") == 0 ||
                       strcasecmp(arg,        "v") == 0 )
             {
-                version( tdoc, prog );
+                version();
                 tidyRelease( tdoc );
                 return 0;  /* success */
 
@@ -624,10 +1148,13 @@ int main( int argc, char** argv )
                 if ( argc >= 3 )
                 {
                     uint acclvl = 0;
-                    sscanf( argv[2], "%u", &acclvl );
+                    int nfields = sscanf( argv[2], "%u", &acclvl );
                     tidyOptSetInt( tdoc, TidyAccessibilityCheckLevel, acclvl );
-                    --argc;
-                    ++argv;
+                    if (nfields > 0)
+                    {
+                        --argc;
+                        ++argv;
+                    }
                 }
             }
 #endif
@@ -682,7 +1209,7 @@ int main( int argc, char** argv )
                         break;
 
                     default:
-                        unknownOption( tdoc, c );
+                        unknownOption( c );
                         break;
                     }
                 }
@@ -765,3 +1292,11 @@ int main( int argc, char** argv )
     return 0;
 }
 
+/*
+ * local variables:
+ * mode: c
+ * indent-tabs-mode: nil
+ * c-basic-offset: 4
+ * eval: (c-set-offset 'substatement-open 0)
+ * end:
+ */

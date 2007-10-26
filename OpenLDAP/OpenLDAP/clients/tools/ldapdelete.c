@@ -1,8 +1,8 @@
 /* ldapdelete.c - simple program to delete an entry using LDAP */
-/* $OpenLDAP: pkg/ldap/clients/tools/ldapdelete.c,v 1.99.2.7 2004/03/17 19:54:53 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldapdelete.c,v 1.109.2.5 2006/05/13 03:55:00 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *
@@ -39,6 +39,7 @@
 #include <ac/ctype.h>
 #include <ac/string.h>
 #include <ac/unistd.h>
+#include <ac/time.h>
 
 #include <ldap.h>
 #include "lutil.h"
@@ -74,7 +75,7 @@ usage( void )
 
 
 const char options[] = "r"
-	"cd:D:e:f:h:H:IkKMnO:p:P:QR:U:vVw:WxX:y:Y:Z";
+	"cd:D:e:f:h:H:IkKMnNO:p:P:QR:U:vVw:WxX:y:Y:Z";
 
 int
 handle_private_option( int i )
@@ -169,7 +170,7 @@ main( int argc, char **argv )
 
 	tool_bind( ld );
 
-	if ( assertion || authzid || manageDSAit || noop ) {
+	if ( assertion || authzid || manageDIT || manageDSAit || noop ) {
 		tool_server_controls( ld, NULL, 0 );
 	}
 
@@ -197,9 +198,9 @@ main( int argc, char **argv )
 		}
 	}
 
-	ldap_unbind_ext( ld, NULL, NULL );
-
-    return( retval );
+	tool_unbind( ld );
+	tool_destroy();
+    return retval;
 }
 
 
@@ -233,10 +234,25 @@ static int dodelete(
 		return rc;
 	}
 
-	rc = ldap_result( ld, LDAP_RES_ANY, LDAP_MSG_ALL, NULL, &res );
-	if ( rc < 0 ) {
-		ldap_perror( ld, "ldapdelete: ldap_result" );
-		return rc;
+	for ( ; ; ) {
+		struct timeval tv;
+
+		if ( tool_check_abandon( ld, id ) ) {
+			return LDAP_CANCELLED;
+		}
+
+		tv.tv_sec = 0;
+		tv.tv_usec = 100000;
+
+		rc = ldap_result( ld, LDAP_RES_ANY, LDAP_MSG_ALL, &tv, &res );
+		if ( rc < 0 ) {
+			ldap_perror( ld, "ldapdelete: ldap_result" );
+			return rc;
+		}
+
+		if ( rc != 0 ) {
+			break;
+		}
 	}
 
 	rc = ldap_parse_result( ld, res, &code, &matcheddn, &text, &refs, NULL, 1 );
@@ -247,10 +263,13 @@ static int dodelete(
 		return rc;
 	}
 
-	if( verbose || code != LDAP_SUCCESS ||
-		(matcheddn && *matcheddn) || (text && *text) || (refs && *refs) )
+	if( code != LDAP_SUCCESS ) {
+		tool_perror( "ldap_delete", code, NULL, matcheddn, text, refs );
+	} else if ( verbose && 
+		((matcheddn && *matcheddn) || (text && *text) || (refs && *refs) ))
 	{
-		printf( _("Delete Result: %s (%d)\n"), ldap_err2string( code ), code );
+		printf( _("Delete Result: %s (%d)\n"),
+			ldap_err2string( code ), code );
 
 		if( text && *text ) {
 			printf( _("Additional info: %s\n"), text );
@@ -286,8 +305,12 @@ static int deletechildren(
 	int entries;
 	int rc;
 	static char *attrs[] = { LDAP_NO_ATTRS, NULL };
+	LDAPControl c, *ctrls[2];
+	BerElement *ber = NULL;
+	LDAPMessage *res_se;
 
 	if ( verbose ) printf ( _("deleting children of: %s\n"), dn );
+
 	/*
 	 * Do a one level search at dn for children.  For each, delete its children.
 	 */
@@ -344,5 +367,73 @@ static int deletechildren(
 	}
 
 	ldap_msgfree( res );
+
+	/*
+	 * Do a one level search at dn for subentry children.
+	 */
+
+	if ((ber = ber_alloc_t(LBER_USE_DER)) == NULL) {
+		return EXIT_FAILURE;
+	}
+	rc = ber_printf( ber, "b", 1 );
+	if ( rc == -1 ) {
+		ber_free( ber, 1 );
+		fprintf( stderr, _("Subentries control encoding error!\n"));
+		return EXIT_FAILURE;
+	}
+	if ( ber_flatten2( ber, &c.ldctl_value, 0 ) == -1 ) {
+		return EXIT_FAILURE;
+	}
+	c.ldctl_oid = LDAP_CONTROL_SUBENTRIES;
+	c.ldctl_iscritical = 1;
+	ctrls[0] = &c;
+	ctrls[1] = NULL;
+
+	rc = ldap_search_ext_s( ld, dn, LDAP_SCOPE_ONELEVEL, NULL, attrs, 1,
+		ctrls, NULL, NULL, -1, &res_se );
+	if ( rc != LDAP_SUCCESS ) {
+		ldap_perror( ld, "ldap_search" );
+		return( rc );
+	}
+	ber_free( ber, 1 );
+
+	entries = ldap_count_entries( ld, res_se );
+
+	if ( entries > 0 ) {
+		int i;
+
+		for (e = ldap_first_entry( ld, res_se ), i = 0; e != NULL;
+			e = ldap_next_entry( ld, e ), i++ )
+		{
+			char *dn = ldap_get_dn( ld, e );
+
+			if( dn == NULL ) {
+				ldap_perror( ld, "ldap_prune" );
+				ldap_get_option( ld, LDAP_OPT_ERROR_NUMBER, &rc );
+				ber_memfree( dn );
+				return rc;
+			}
+
+			if ( verbose ) {
+				printf( _("\tremoving %s\n"), dn );
+			}
+
+			rc = ldap_delete_s( ld, dn );
+			if ( rc == -1 ) {
+				ldap_perror( ld, "ldap_delete" );
+				ber_memfree( dn );
+				return rc;
+
+			}
+			
+			if ( verbose ) {
+				printf( _("\t%s removed\n"), dn );
+			}
+
+			ber_memfree( dn );
+		}
+	}
+
+	ldap_msgfree( res_se );
 	return rc;
 }

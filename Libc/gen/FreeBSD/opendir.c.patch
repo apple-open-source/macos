@@ -1,5 +1,5 @@
---- /Volumes/XDisk/tmp/Libc/gen/FreeBSD/opendir.c.orig	2004-08-14 10:46:10.000000000 -0700
-+++ /Volumes/XDisk/tmp/Libc/gen/FreeBSD/opendir.c	2004-10-24 17:08:28.000000000 -0700
+--- opendir.c.orig	2007-01-24 14:10:41.000000000 -0800
++++ opendir.c	2007-01-28 01:37:51.000000000 -0800
 @@ -48,6 +48,7 @@
  #include <stdlib.h>
  #include <string.h>
@@ -8,7 +8,62 @@
  #include "un-namespace.h"
  
  #include "telldir.h"
-@@ -269,7 +270,7 @@
+@@ -72,27 +73,15 @@
+ 	int incr;
+ 	int saved_errno;
+ 	int unionstack;
+-	struct stat statb;
+ 
+ 	/*
+-	 * stat() before _open() because opening of special files may be
+-	 * harmful.  _fstat() after open because the file may have changed.
++	 * Use O_DIRECTORY to only open directories (because opening of
++	 * special files may be harmful).  errno is set to ENOTDIR if
++	 * not a directory.
+ 	 */
+-	if (stat(name, &statb) != 0)
+-		return (NULL);
+-	if (!S_ISDIR(statb.st_mode)) {
+-		errno = ENOTDIR;
+-		return (NULL);
+-	}
+-	if ((fd = _open(name, O_RDONLY | O_NONBLOCK)) == -1)
++	if ((fd = _open(name, O_RDONLY | O_NONBLOCK | O_DIRECTORY)) == -1)
+ 		return (NULL);
+ 	dirp = NULL;
+-	if (_fstat(fd, &statb) != 0)
+-		goto fail;
+-	if (!S_ISDIR(statb.st_mode)) {
+-		errno = ENOTDIR;
+-		goto fail;
+-	}
+ 	if (_fcntl(fd, F_SETFD, FD_CLOEXEC) == -1 ||
+ 	    (dirp = malloc(sizeof(DIR) + sizeof(struct _telldir))) == NULL)
+ 		goto fail;
+@@ -154,7 +143,11 @@
+ 				ddptr = buf + (len - space);
+ 			}
+ 
++#if __DARWIN_64_BIT_INO_T
++			n = __getdirentries64(fd, ddptr, space, &dirp->dd_td->seekoff);
++#else /* !__DARWIN_64_BIT_INO_T */
+ 			n = _getdirentries(fd, ddptr, space, &dirp->dd_seek);
++#endif /* __DARWIN_64_BIT_INO_T */
+ 			if (n > 0) {
+ 				ddptr += n;
+ 				space -= n;
+@@ -262,14 +255,18 @@
+ 		dirp->dd_buf = malloc(dirp->dd_len);
+ 		if (dirp->dd_buf == NULL)
+ 			goto fail;
++#if __DARWIN_64_BIT_INO_T
++		dirp->dd_td->seekoff = 0;
++#else /* !__DARWIN_64_BIT_INO_T */
+ 		dirp->dd_seek = 0;
++#endif /* __DARWIN_64_BIT_INO_T */
+ 		flags &= ~DTF_REWIND;
+ 	}
+ 
  	dirp->dd_loc = 0;
  	dirp->dd_fd = fd;
  	dirp->dd_flags = flags;

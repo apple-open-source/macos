@@ -26,6 +26,7 @@
 				PreprocessorDefinitions="WIN32,_DEBUG,_CONSOLE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				TreatWChar_tAsBuiltInType="TRUE"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderFile=".\Debug/writer.pch"
 				AssemblerListingLocation=".\Debug/"
@@ -39,7 +40,6 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="icutud.lib"
 				OutputFile=".\Debug/writer.exe"
 				LinkIncremental="2"
@@ -89,6 +89,7 @@
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderFile=".\Release/writer.pch"
 				AssemblerListingLocation=".\Release/"
@@ -101,7 +102,6 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="icutu.lib"
 				OutputFile=".\Release/writer.exe"
 				LinkIncremental="1"

@@ -2,7 +2,7 @@
 " You can also use this as a start for your own set of menus.
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2003 May 04
+" Last Change:	2006 Apr 17
 
 " Note that ":an" (short for ":anoremenu") is often used to make a menu work
 " in all modes and avoid side effects from mappings defined by the user.
@@ -30,27 +30,37 @@ if exists("v:lang") || &langmenu != ""
   endif
   " A language name must be at least two characters, don't accept "C"
   if strlen(s:lang) > 1
+    " When the language does not include the charset add 'encoding'
+    if s:lang =~ '^\a\a$\|^\a\a_\a\a$'
+      let s:lang = s:lang . '.' . &enc
+    endif
+
     " We always use a lowercase name.
     " Change "iso-8859" to "iso_8859" and "iso8859" to "iso_8859", some
     " systems appear to use this.
     " Change spaces to underscores.
-    let s:lang = substitute(tolower(s:lang), "\\.iso-", ".iso_", "")
-    let s:lang = substitute(s:lang, "\\.iso8859", ".iso_8859", "")
+    let s:lang = substitute(tolower(s:lang), '\.iso-', ".iso_", "")
+    let s:lang = substitute(s:lang, '\.iso8859', ".iso_8859", "")
     let s:lang = substitute(s:lang, " ", "_", "g")
     " Remove "@euro", otherwise "LC_ALL=de_DE@euro gvim" will show English menus
     let s:lang = substitute(s:lang, "@euro", "", "")
+    " Change "iso_8859-1" and "iso_8859-15" to "latin1", we always use the
+    " same menu file for them.
+    let s:lang = substitute(s:lang, 'iso_8859-15\=$', "latin1", "")
     menutrans clear
     exe "runtime! lang/menu_" . s:lang . ".vim"
 
     if !exists("did_menu_trans")
       " There is no exact match, try matching with a wildcard added
       " (e.g. find menu_de_de.iso_8859-1.vim if s:lang == de_DE).
-      exe "runtime! lang/menu_" . s:lang . "*.vim"
+      let s:lang = substitute(s:lang, '\.[^.]*', "", "")
+      exe "runtime! lang/menu_" . s:lang . "[^a-z]*vim"
 
-      if !exists("did_menu_trans") && strlen($LANG) > 1
+      if !exists("did_menu_trans") && strlen($LANG) > 1 && s:lang !~ '^en_us'
 	" On windows locale names are complicated, try using $LANG, it might
-	" have been set by set_init_1().
-	exe "runtime! lang/menu_" . tolower($LANG) . "*.vim"
+	" have been set by set_init_1().  But don't do this for "en" or "en_us".
+	" But don't match "slovak" when $LANG is "sl".
+	exe "runtime! lang/menu_" . tolower($LANG) . "[^a-z]*vim"
       endif
     endif
   endif
@@ -65,6 +75,7 @@ an <silent> 9999.40 &Help.&Find\.\.\.	:call <SID>Helpfind()<CR>
 an 9999.45 &Help.-sep1-			<Nop>
 an 9999.50 &Help.&Credits		:help credits<CR>
 an 9999.60 &Help.Co&pying		:help copying<CR>
+an 9999.70 &Help.&Sponsor/Register	:help sponsor<CR>
 an 9999.70 &Help.O&rphans		:help kcc<CR>
 an 9999.75 &Help.-sep2-			<Nop>
 an 9999.80 &Help.&Version		:version<CR>
@@ -87,6 +98,7 @@ endfun
 " File menu
 an 10.310 &File.&Open\.\.\.<Tab>:e		:browse confirm e<CR>
 an 10.320 &File.Sp&lit-Open\.\.\.<Tab>:sp	:browse sp<CR>
+an 10.320 &File.Open\ Tab\.\.\.<Tab>:tabnew	:browse tabnew<CR>
 an 10.325 &File.&New<Tab>:enew			:confirm enew<CR>
 an <silent> 10.330 &File.&Close<Tab>:close
 	\ :if winheight(2) < 0 <Bar>
@@ -119,29 +131,10 @@ an 10.600 &File.-SEP4-				<Nop>
 an 10.610 &File.Sa&ve-Exit<Tab>:wqa		:confirm wqa<CR>
 an 10.620 &File.E&xit<Tab>:qa			:confirm qa<CR>
 
-" Pasting blockwise and linewise selections is not possible in Insert and
-" Visual mode without the +virtualedit feature.  They are pasted as if they
-" were characterwise instead.  Add to that some tricks to leave the cursor in
-" the right position, also for "gi".
-if has("virtualedit")
-  nnoremap <silent> <script> <SID>Paste :call <SID>Paste()<CR>
-  func! <SID>Paste()
-    let ove = &ve
-    set ve=all
-    normal `^
-    if @+ != ''
-      normal "+gP
-    endif
-    let c = col(".")
-    normal i
-    if col(".") < c	" compensate for i<ESC> moving the cursor left
-      normal l
-    endif
-    let &ve = ove
-  endfunc
-else
-  nnoremap <silent> <script> <SID>Paste "=@+.'xy'<CR>gPFx"_2x
-endif
+func! <SID>SelectAll()
+  exe "norm gg" . (&slm == "" ? "VG" : "gH\<C-O>G")
+endfunc
+
 
 " Edit menu
 an 20.310 &Edit.&Undo<Tab>u			u
@@ -154,13 +147,8 @@ vnoremenu 20.350 &Edit.&Copy<Tab>"+y		"+y
 cnoremenu 20.350 &Edit.&Copy<Tab>"+y		<C-Y>
 nnoremenu 20.360 &Edit.&Paste<Tab>"+gP		"+gP
 cnoremenu	 &Edit.&Paste<Tab>"+gP		<C-R>+
-if has("virtualedit")
-  vnoremenu <script>	 &Edit.&Paste<Tab>"+gP	"-c<Esc><SID>Paste
-  inoremenu <script>	 &Edit.&Paste<Tab>"+gP	<Esc><SID>Pastegi
-else
-  vnoremenu <script>	 &Edit.&Paste<Tab>"+gP	"-c<Esc>gix<Esc><SID>Paste"_x
-  inoremenu <script>	 &Edit.&Paste<Tab>"+gP	x<Esc><SID>Paste"_s
-endif
+exe 'vnoremenu <script> &Edit.&Paste<Tab>"+gP	' . paste#paste_cmd['v']
+exe 'inoremenu <script> &Edit.&Paste<Tab>"+gP	' . paste#paste_cmd['i']
 nnoremenu 20.370 &Edit.Put\ &Before<Tab>[p	[p
 inoremenu	 &Edit.Put\ &Before<Tab>[p	<C-O>[p
 nnoremenu 20.380 &Edit.Put\ &After<Tab>]p	]p
@@ -168,16 +156,18 @@ inoremenu	 &Edit.Put\ &After<Tab>]p	<C-O>]p
 if has("win32") || has("win16")
   vnoremenu 20.390 &Edit.&Delete<Tab>x		x
 endif
-an <silent> 20.400 &Edit.&Select\ all<Tab>ggVG	:if &slm != ""<Bar>exe ":norm gggH<C-O>G"<Bar>else<Bar>exe ":norm ggVG"<Bar>endif<CR>
+noremenu  <script> <silent> 20.400 &Edit.&Select\ All<Tab>ggVG	:<C-U>call <SID>SelectAll()<CR>
+inoremenu <script> <silent> 20.400 &Edit.&Select\ All<Tab>ggVG	<C-O>:call <SID>SelectAll()<CR>
+cnoremenu <script> <silent> 20.400 &Edit.&Select\ All<Tab>ggVG	<C-U>call <SID>SelectAll()<CR>
 
 an 20.405	 &Edit.-SEP2-				<Nop>
-if has("win32")  || has("win16") || has("gui_gtk") || has("gui_motif")
+if has("win32")  || has("win16") || has("gui_gtk") || has("gui_kde") || has("gui_motif")
   an 20.410	 &Edit.&Find\.\.\.			:promptfind<CR>
   vunmenu	 &Edit.&Find\.\.\.
-  vnoremenu	 &Edit.&Find\.\.\.			y:promptfind <C-R>"<CR>
+  vnoremenu <silent>	 &Edit.&Find\.\.\.		y:promptfind <C-R>=<SID>FixFText()<CR><CR>
   an 20.420	 &Edit.Find\ and\ Rep&lace\.\.\.	:promptrepl<CR>
   vunmenu	 &Edit.Find\ and\ Rep&lace\.\.\.
-  vnoremenu	 &Edit.Find\ and\ Rep&lace\.\.\.	y:promptrepl <C-R>"<CR>
+  vnoremenu <silent>	 &Edit.Find\ and\ Rep&lace\.\.\. y:promptrepl <C-R>=<SID>FixFText()<CR><CR>
 else
   an 20.410	 &Edit.&Find<Tab>/			/
   an 20.420	 &Edit.Find\ and\ Rep&lace<Tab>:%s	:%s/
@@ -187,6 +177,33 @@ endif
 
 an 20.425	 &Edit.-SEP3-				<Nop>
 an 20.430	 &Edit.Settings\ &Window		:options<CR>
+an 20.435	 &Edit.Startup\ &Settings		:call <SID>EditVimrc()<CR>
+
+fun! s:EditVimrc()
+  if $MYVIMRC != ''
+    let fname = "$MYVIMRC"
+  elseif has("win32") || has("dos32") || has("dos16") || has("os2")
+    if $HOME != ''
+      let fname = "$HOME/_vimrc"
+    else
+      let fname = "$VIM/_vimrc"
+    endif
+  elseif has("amiga")
+    let fname = "s:.vimrc"
+  else
+    let fname = "$HOME/.vimrc"
+  endif
+  if &mod
+    exe "split " . fname
+  else
+    exe "edit " . fname
+  endif
+endfun
+
+fun! s:FixFText()
+  " Fix text in nameless register to be used with :promptfind.
+  return substitute(@", "[\r\n]", '\\n', 'g')
+endfun
 
 " Edit/Global Settings
 an 20.440.100 &Edit.&Global\ Settings.Toggle\ Pattern\ &Highlight<Tab>:set\ hls!	:set hls! hls?<CR>
@@ -360,24 +377,91 @@ if has("keymap")
   endif
   unlet s:n
 endif
-if has("win32") || has("win16") || has("gui_gtk") || has("gui_photon")
+if has("win32") || has("win16") || has("gui_motif") || has("gui_gtk") || has("gui_kde") || has("gui_photon") || has("gui_mac")
   an 20.470 &Edit.Select\ Fo&nt\.\.\.	:set guifont=*<CR>
 endif
 
 " Programming menu
+if !exists("g:ctags_command")
+  if has("vms")
+    let g:ctags_command = "mc vim:ctags ."
+  else
+    let g:ctags_command = "ctags -R ."
+  endif
+endif
+
 an 40.300 &Tools.&Jump\ to\ this\ tag<Tab>g^]	g<C-]>
 vunmenu &Tools.&Jump\ to\ this\ tag<Tab>g^]
 vnoremenu &Tools.&Jump\ to\ this\ tag<Tab>g^]	g<C-]>
 an 40.310 &Tools.Jump\ &back<Tab>^T		<C-T>
-if has("vms")
-  an 40.320 &Tools.Build\ &Tags\ File		:!mc vim:ctags .<CR>
-else
-  an 40.320 &Tools.Build\ &Tags\ File		:!ctags -R .<CR>
+an 40.320 &Tools.Build\ &Tags\ File		:exe "!" . g:ctags_command<CR>
+
+if has("folding") || has("spell")
+  an 40.330 &Tools.-SEP1-						<Nop>
+endif
+
+" Tools.Spelling Menu
+if has("spell")
+  an 40.335.110 &Tools.&Spelling.&Spell\ Check\ On		:set spell<CR>
+  an 40.335.120 &Tools.&Spelling.Spell\ Check\ &Off		:set nospell<CR>
+  an 40.335.130 &Tools.&Spelling.To\ &Next\ error<Tab>]s	]s
+  an 40.335.130 &Tools.&Spelling.To\ &Previous\ error<Tab>[s	[s
+  an 40.335.140 &Tools.&Spelling.Suggest\ &Corrections<Tab>z=	z=
+  an 40.335.150 &Tools.&Spelling.&Repeat\ correction<Tab>:spellrepall	:spellrepall<CR>
+  an 40.335.200 &Tools.&Spelling.-SEP1-				<Nop>
+  an 40.335.210 &Tools.&Spelling.Set\ language\ to\ "en"	:set spl=en spell<CR>
+  an 40.335.220 &Tools.&Spelling.Set\ language\ to\ "en_au"	:set spl=en_au spell<CR>
+  an 40.335.230 &Tools.&Spelling.Set\ language\ to\ "en_ca"	:set spl=en_ca spell<CR>
+  an 40.335.240 &Tools.&Spelling.Set\ language\ to\ "en_gb"	:set spl=en_gb spell<CR>
+  an 40.335.250 &Tools.&Spelling.Set\ language\ to\ "en_nz"	:set spl=en_nz spell<CR>
+  an 40.335.260 &Tools.&Spelling.Set\ language\ to\ "en_us"	:set spl=en_us spell<CR>
+  an <silent> 40.335.270 &Tools.&Spelling.&Find\ More\ Languages	:call <SID>SpellLang()<CR>
+
+  let s:undo_spellang = ['aun &Tools.&Spelling.&Find\ More\ Languages']
+  func! s:SpellLang()
+    for cmd in s:undo_spellang
+      exe "silent! " . cmd
+    endfor
+    let s:undo_spellang = []
+
+    if &enc == "iso-8859-15"
+      let enc = "latin1"
+    else
+      let enc = &enc
+    endif
+
+    let found = 0
+    let s = globpath(&rtp, "spell/*." . enc . ".spl")
+    if s != ""
+      let n = 300
+      for f in split(s, "\n")
+	let nm = substitute(f, '.*spell[/\\]\(..\)\.[^/\\]*\.spl', '\1', "")
+	if nm != "en" && nm !~ '/'
+	  let found += 1
+	  let menuname = '&Tools.&Spelling.Set\ language\ to\ "' . nm . '"'
+	  exe 'an 40.335.' . n . ' ' . menuname . ' :set spl=' . nm . ' spell<CR>'
+	  let s:undo_spellang += ['aun ' . menuname]
+	endif
+	let n += 10
+      endfor
+    endif
+    if found == 0
+      echomsg "Could not find other spell files"
+    elseif found == 1
+      echomsg "Found spell file " . nm
+    else
+      echomsg "Found " . found . " more spell files"
+    endif
+    " Need to redo this when 'encoding' is changed.
+    augroup spellmenu
+    au! EncodingChanged * call <SID>SpellLang()
+    augroup END
+  endfun
+
 endif
 
 " Tools.Fold Menu
 if has("folding")
-  an 40.330 &Tools.-SEP1-						<Nop>
   " open close folds
   an 40.340.110 &Tools.&Folding.&Enable/Disable\ folds<Tab>zi		zi
   an 40.340.120 &Tools.&Folding.&View\ Cursor\ Line<Tab>zv		zv
@@ -492,7 +576,7 @@ while strlen(s:n) > 0
   endif
   " Ignore case for VMS and windows
   let s:name = substitute(s:name, '\c.*[/\\:\]]\([^/\\:]*\)\.vim', '\1', '')
-  exe "an 30.440." . s:idx . ' &Tools.&Set\ Compiler.' . s:name . " :compiler " . s:name . "<CR>"
+  exe "an 30.440." . s:idx . ' &Tools.Se&T\ Compiler.' . s:name . " :compiler " . s:name . "<CR>"
   unlet s:name
   unlet s:i
   let s:idx = s:idx + 10
@@ -562,10 +646,10 @@ func! s:BMShow(...)
   let cpo_save = &cpo
   set cpo&vim
   exe 'an <silent> ' . g:bmenu_priority . ".2 &Buffers.&Refresh\\ menu :call <SID>BMShow()<CR>"
-  exe 'an ' . g:bmenu_priority . ".4 &Buffers.&Delete :bd<CR>"
-  exe 'an ' . g:bmenu_priority . ".6 &Buffers.&Alternate :b #<CR>"
-  exe 'an ' . g:bmenu_priority . ".7 &Buffers.&Next :bnext<CR>"
-  exe 'an ' . g:bmenu_priority . ".8 &Buffers.&Previous :bprev<CR>"
+  exe 'an ' . g:bmenu_priority . ".4 &Buffers.&Delete :confirm bd<CR>"
+  exe 'an ' . g:bmenu_priority . ".6 &Buffers.&Alternate :confirm b #<CR>"
+  exe 'an ' . g:bmenu_priority . ".7 &Buffers.&Next :confirm bnext<CR>"
+  exe 'an ' . g:bmenu_priority . ".8 &Buffers.&Previous :confirm bprev<CR>"
   exe 'an ' . g:bmenu_priority . ".9 &Buffers.-SEP- :"
   let &cpo = cpo_save
   unmenu &Buffers.Dummy
@@ -650,7 +734,7 @@ func! s:BMFilename(name, num)
   " set 'cpo' to include the <CR>
   let cpo_save = &cpo
   set cpo&vim
-  exe name . ' :b' . a:num . '<CR>'
+  exe name . ' :confirm b' . a:num . '<CR>'
   let &cpo = cpo_save
 endfunc
 
@@ -754,26 +838,114 @@ vnoremenu 1.30 PopUp.&Copy		"+y
 cnoremenu 1.30 PopUp.&Copy		<C-Y>
 nnoremenu 1.40 PopUp.&Paste		"+gP
 cnoremenu 1.40 PopUp.&Paste		<C-R>+
-if has("virtualedit")
-  vnoremenu <script> 1.40 PopUp.&Paste	"-c<Esc><SID>Paste
-  inoremenu <script> 1.40 PopUp.&Paste	<Esc><SID>Pastegi
-else
-  vnoremenu <script> 1.40 PopUp.&Paste	"-c<Esc>gix<Esc><SID>Paste"_x
-  inoremenu <script> 1.40 PopUp.&Paste	x<Esc><SID>Paste"_s
-endif
+exe 'vnoremenu <script> 1.40 PopUp.&Paste	' . paste#paste_cmd['v']
+exe 'inoremenu <script> 1.40 PopUp.&Paste	' . paste#paste_cmd['i']
 vnoremenu 1.50 PopUp.&Delete		x
 an 1.55 PopUp.-SEP2-			<Nop>
 vnoremenu 1.60 PopUp.Select\ Blockwise	<C-V>
-an 1.70 PopUp.Select\ &Word		vaw
-an 1.80 PopUp.Select\ &Line		V
-an 1.90 PopUp.Select\ &Block		<C-V>
-an 1.100 PopUp.Select\ &All		ggVG
+
+nnoremenu 1.70 PopUp.Select\ &Word	vaw
+onoremenu 1.70 PopUp.Select\ &Word	aw
+vnoremenu 1.70 PopUp.Select\ &Word	<C-C>vaw
+inoremenu 1.70 PopUp.Select\ &Word	<C-O>vaw
+cnoremenu 1.70 PopUp.Select\ &Word	<C-C>vaw
+
+nnoremenu 1.73 PopUp.Select\ &Sentence	vas
+onoremenu 1.73 PopUp.Select\ &Sentence	as
+vnoremenu 1.73 PopUp.Select\ &Sentence	<C-C>vas
+inoremenu 1.73 PopUp.Select\ &Sentence	<C-O>vas
+cnoremenu 1.73 PopUp.Select\ &Sentence	<C-C>vas
+
+nnoremenu 1.77 PopUp.Select\ Pa&ragraph	vap
+onoremenu 1.77 PopUp.Select\ Pa&ragraph	ap
+vnoremenu 1.77 PopUp.Select\ Pa&ragraph	<C-C>vap
+inoremenu 1.77 PopUp.Select\ Pa&ragraph	<C-O>vap
+cnoremenu 1.77 PopUp.Select\ Pa&ragraph	<C-C>vap
+
+nnoremenu 1.80 PopUp.Select\ &Line	V
+onoremenu 1.80 PopUp.Select\ &Line	<C-C>V
+vnoremenu 1.80 PopUp.Select\ &Line	<C-C>V
+inoremenu 1.80 PopUp.Select\ &Line	<C-O>V
+cnoremenu 1.80 PopUp.Select\ &Line	<C-C>V
+
+nnoremenu 1.90 PopUp.Select\ &Block	<C-V>
+onoremenu 1.90 PopUp.Select\ &Block	<C-C><C-V>
+vnoremenu 1.90 PopUp.Select\ &Block	<C-C><C-V>
+inoremenu 1.90 PopUp.Select\ &Block	<C-O><C-V>
+cnoremenu 1.90 PopUp.Select\ &Block	<C-C><C-V>
+
+noremenu  <script> <silent> 1.100 PopUp.Select\ &All	:<C-U>call <SID>SelectAll()<CR>
+inoremenu <script> <silent> 1.100 PopUp.Select\ &All	<C-O>:call <SID>SelectAll()<CR>
+cnoremenu <script> <silent> 1.100 PopUp.Select\ &All	<C-U>call <SID>SelectAll()<CR>
+
+if has("spell")
+  " Spell suggestions in the popup menu.  Note that this will slow down the
+  " appearance of the menu!
+  func! <SID>SpellPopup()
+    if exists("s:changeitem") && s:changeitem != ''
+      call <SID>SpellDel()
+    endif
+    if !&spell || &spelllang == ''
+      return
+    endif
+
+    let curcol = col('.')
+    let [w, a] = spellbadword()
+    if col('.') > curcol		" don't use word after the cursor
+      let w = ''
+      call cursor(0, curcol)	" put the cursor back where it was
+    endif
+    if w != ''
+      if a == 'caps'
+	let s:suglist = [substitute(w, '.*', '\u&', '')]
+      else
+	let s:suglist = spellsuggest(w, 10)
+      endif
+      if len(s:suglist) <= 0
+	call cursor(0, curcol)	" put the cursor back where it was
+      else
+	let s:changeitem = 'change\ "' . escape(w, ' .'). '"\ to'
+	let s:fromword = w
+	let pri = 1
+	for sug in s:suglist
+	  exe 'amenu 1.5.' . pri . ' PopUp.' . s:changeitem . '.' . escape(sug, ' .')
+		\ . ' :call <SID>SpellReplace(' . pri . ')<CR>'
+	  let pri += 1
+	endfor
+
+	let s:additem = 'add\ "' . escape(w, ' .') . '"\ to\ word\ list'
+	exe 'amenu 1.6 PopUp.' . s:additem . ' :spellgood ' . w . '<CR>'
+
+	let s:ignoreitem = 'ignore\ "' . escape(w, ' .') . '"'
+	exe 'amenu 1.7 PopUp.' . s:ignoreitem . ' :spellgood! ' . w . '<CR>'
+
+	amenu 1.8 PopUp.-SpellSep- :
+      endif
+    endif
+  endfunc
+
+  func! <SID>SpellReplace(n)
+    let l = getline('.')
+    call setline('.', strpart(l, 0, col('.') - 1) . s:suglist[a:n - 1]
+	  \ . strpart(l, col('.') + len(s:fromword) - 1))
+  endfunc
+
+  func! <SID>SpellDel()
+    exe "aunmenu PopUp." . s:changeitem
+    exe "aunmenu PopUp." . s:additem
+    exe "aunmenu PopUp." . s:ignoreitem
+    aunmenu PopUp.-SpellSep-
+    let s:changeitem = ''
+  endfun
+
+  au! MenuPopup * call <SID>SpellPopup()
+endif
 
 " The GUI toolbar (for MS-Windows and GTK)
 if has("toolbar")
   an 1.10 ToolBar.Open			:browse confirm e<CR>
   an <silent> 1.20 ToolBar.Save		:if expand("%") == ""<Bar>browse confirm w<Bar>else<Bar>confirm w<Bar>endif<CR>
-  an 1.30 ToolBar.SaveAll		:wa<CR>
+  an 1.30 ToolBar.SaveAll		:browse confirm wa<CR>
 
   if has("printer")
     an 1.40   ToolBar.Print		:hardcopy<CR>
@@ -795,37 +967,17 @@ if has("toolbar")
   cnoremenu 1.80 ToolBar.Copy		<C-Y>
   nnoremenu 1.90 ToolBar.Paste		"+gP
   cnoremenu	 ToolBar.Paste		<C-R>+
-  if has("virtualedit")
-    vnoremenu <script>	 ToolBar.Paste	"-c<Esc><SID>Paste
-    inoremenu <script>	 ToolBar.Paste	<Esc><SID>Pastegi
-  else
-    vnoremenu <script>	 ToolBar.Paste	"-c<Esc>gix<Esc><SID>Paste"_x
-    inoremenu <script>	 ToolBar.Paste	x<Esc><SID>Paste"_s
-  endif
+  exe 'vnoremenu <script>	 ToolBar.Paste	' . paste#paste_cmd['v']
+  exe 'inoremenu <script>	 ToolBar.Paste	' . paste#paste_cmd['i']
 
   if !has("gui_athena")
     an 1.95   ToolBar.-sep3-		<Nop>
-    an 1.100  ToolBar.Find		:promptfind<CR>
-    vunmenu   ToolBar.Find
-    vnoremenu ToolBar.Find		y:promptfind <C-R>"<CR>
+    an 1.100  ToolBar.Replace		:promptrepl<CR>
+    vunmenu   ToolBar.Replace
+    vnoremenu ToolBar.Replace		y:promptrepl <C-R>=<SID>FixFText()<CR><CR>
     an 1.110  ToolBar.FindNext		n
     an 1.120  ToolBar.FindPrev		N
-    an 1.130  ToolBar.Replace		:promptrepl<CR>
-    vunmenu   ToolBar.Replace
-    vnoremenu ToolBar.Replace		y:promptrepl <C-R>"<CR>
   endif
-
-if 0	" disabled; These are in the Windows menu
-  an 1.135 ToolBar.-sep4-		<Nop>
-  an 1.140 ToolBar.New			<C-W>n
-  an 1.150 ToolBar.WinSplit		<C-W>s
-  an 1.160 ToolBar.WinMax		:resize 200<CR>
-  an 1.170 ToolBar.WinMin		:resize 1<CR>
-  an 1.180 ToolBar.WinVSplit		<C-W>v
-  an 1.190 ToolBar.WinMaxWidth		<C-W>500>
-  an 1.200 ToolBar.WinMinWidth		<C-W>1\|
-  an 1.210 ToolBar.WinClose		:close<CR>
-endif
 
   an 1.215 ToolBar.-sep5-		<Nop>
   an <silent> 1.220 ToolBar.LoadSesn	:call <SID>LoadVimSesn()<CR>
@@ -834,7 +986,7 @@ endif
 
   an 1.245 ToolBar.-sep6-		<Nop>
   an 1.250 ToolBar.Make			:make<CR>
-  an 1.270 ToolBar.RunCtags		:!ctags -R .<CR>
+  an 1.270 ToolBar.RunCtags		:exe "!" . g:ctags_command<CR>
   an 1.280 ToolBar.TagJump		g<C-]>
 
   an 1.295 ToolBar.-sep7-		<Nop>
@@ -861,21 +1013,11 @@ else
     tmenu ToolBar.FindPrev	Find Previous
     tmenu ToolBar.Replace		Find / Replace...
   endif
- if 0	" disabled; These are in the Windows menu
-  tmenu ToolBar.New		New Window
-  tmenu ToolBar.WinSplit	Split Window
-  tmenu ToolBar.WinMax		Maximise Window
-  tmenu ToolBar.WinMin		Minimise Window
-  tmenu ToolBar.WinVSplit	Split Window Vertically
-  tmenu ToolBar.WinMaxWidth	Maximise Window Width
-  tmenu ToolBar.WinMinWidth	Minimise Window Width
-  tmenu ToolBar.WinClose	Close Window
- endif
-  tmenu ToolBar.LoadSesn	Load session
+  tmenu ToolBar.LoadSesn	Chose a session to load
   tmenu ToolBar.SaveSesn	Save current session
-  tmenu ToolBar.RunScript	Run a Vim Script
-  tmenu ToolBar.Make		Make current project
-  tmenu ToolBar.RunCtags	Build tags in current directory tree
+  tmenu ToolBar.RunScript	Chose a Vim Script to run
+  tmenu ToolBar.Make		Make current project (:make)
+  tmenu ToolBar.RunCtags	Build tags in current directory tree (!ctags -R .)
   tmenu ToolBar.TagJump		Jump to tag under cursor
   tmenu ToolBar.Help		Vim Help
   tmenu ToolBar.FindHelp	Search Vim Help
@@ -884,7 +1026,7 @@ endif
 " Select a session to load; default to current session name if present
 fun! s:LoadVimSesn()
   if strlen(v:this_session) > 0
-    let name = v:this_session
+    let name = escape(v:this_session, ' \t#%$|<>"*?[{`')
   else
     let name = "Session.vim"
   endif
@@ -896,7 +1038,7 @@ fun! s:SaveVimSesn()
   if strlen(v:this_session) == 0
     let v:this_session = "Session.vim"
   endif
-  execute "browse mksession! " . v:this_session
+  execute "browse mksession! " . escape(v:this_session, ' \t#%$|<>"*?[{`')
 endfun
 
 endif
@@ -943,8 +1085,8 @@ endif
 an 50.210 &Syntax.&Off			:syn off<CR>
 an 50.700 &Syntax.-SEP3-		<Nop>
 an 50.710 &Syntax.Co&lor\ test		:sp $VIMRUNTIME/syntax/colortest.vim<Bar>so %<CR>
-an 50.720 &Syntax.&Highlight\ test	:so $VIMRUNTIME/syntax/hitest.vim<CR>
-an 50.730 &Syntax.&Convert\ to\ HTML	:so $VIMRUNTIME/syntax/2html.vim<CR>
+an 50.720 &Syntax.&Highlight\ test	:runtime syntax/hitest.vim<CR>
+an 50.730 &Syntax.&Convert\ to\ HTML	:runtime syntax/2html.vim<CR>
 
 endif " !exists("did_install_syntax_menu")
 

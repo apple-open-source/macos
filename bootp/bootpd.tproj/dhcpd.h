@@ -42,19 +42,14 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 boolean_t
 dhcp_bootp_allocate(char * idstr, char * hwstr, struct dhcp * rq,
 		    interface_t * if_p, struct timeval * time_in_p,
-		    struct in_addr * iaddr_p, id * subnet_p);
+		    struct in_addr * iaddr_p, SubnetRef * subnet_p);
 
 #define DHCP_CLIENT_TYPE		"dhcp"
 
 /* default time to leave an ip address pending before re-using it */
 #define DHCP_PENDING_SECS		60
 
-#define DHCP_MIN_LEASE	((dhcp_lease_t)60 * 60) /* one hour */
-#define DHCP_MAX_LEASE	((dhcp_lease_t)60 * 60 * 24 * 30) /* one month */
 #define DHCP_DECLINE_WAIT_SECS (60 * 10)		/* 10 minutes */
-
-#define SUBNETPROP_LEASE_MIN		"lease_min"
-#define SUBNETPROP_LEASE_MAX		"lease_max"
 
 #define TIME_DRIFT_PERCENT		0.99
 

@@ -79,7 +79,9 @@ bool MacRISC2PE::start(IOService *provider)
     setChipSetType(kChipSetTypeCore2001);
 	
     // Set the machine type.
-    provider_name = provider->getName(); 
+    provider_name = provider->getName();
+    
+
     determinePlatformNumber();
 
 	machineType = kMacRISC2TypeUnknown;
@@ -109,11 +111,11 @@ bool MacRISC2PE::start(IOService *provider)
         int         newCompatiblePropertySize;
         char        newCompatiblePropertyData[ 36 ];            // actual constructed property size is 36 bytes (see sizes below)
 
-        strcpy( newCompatiblePropertyData, "RackMac1,1" );      // sizeof( string ) always contains the '\0' byte as part of the size
+        strncpy( newCompatiblePropertyData, "RackMac1,1", sizeof("RackMac1,1") );      // sizeof( string ) always contains the '\0' byte as part of the size
         newCompatiblePropertySize = sizeof( "RackMac1,1" );     // == 11
-        strcpy( &newCompatiblePropertyData[newCompatiblePropertySize], "MacRISC3" );
+        strncpy( &newCompatiblePropertyData[newCompatiblePropertySize], "MacRISC3", sizeof( "MacRISC3" ) );
         newCompatiblePropertySize += sizeof( "MacRISC3" );      // ==  9
-        strcpy( &newCompatiblePropertyData[newCompatiblePropertySize], "Power Macintosh" );
+        strncpy( &newCompatiblePropertyData[newCompatiblePropertySize], "Power Macintosh", sizeof( "Power Macintosh" ) );
         newCompatiblePropertySize += sizeof( "Power Macintosh" );//== 16; total = 11+9+16 = 36
         provider->setProperty( "compatible", (void *)newCompatiblePropertyData, newCompatiblePropertySize );
     }
@@ -285,12 +287,12 @@ bool MacRISC2PE::start(IOService *provider)
 		char tmpName[32], tmpCompat[128];
 		
 		nameKey = OSSymbol::withCStringNoCopy("name");
-		strcpy(tmpName, "IOPlatformFunction");
+		strncpy(tmpName, "IOPlatformFunction", sizeof( "IOPlatformFunction" ));
 		nameValueSymbol = OSSymbol::withCString(tmpName);
 		nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
 		dict->setObject (nameKey, nameValueData);
 		compatKey = OSSymbol::withCStringNoCopy("compatible");
-		strcpy (tmpCompat, "IOPlatformFunctionNub");
+		strncpy (tmpCompat, "IOPlatformFunctionNub", sizeof( "IOPlatformFunctionNub" ) );
 		compatValueData = OSData::withBytes(tmpCompat, strlen(tmpCompat)+1);
 		dict->setObject (compatKey, compatValueData);
 		if (plFuncNub = IOPlatformExpert::createNub (dict)) {
@@ -345,38 +347,38 @@ bool MacRISC2PE::start(IOService *provider)
                     dict->setObject (pHandleKey, pHandle);
                 pHandleKey->release();
 
-                strcpy (tmpName, "IOPlatformPlugin");
+                strncpy (tmpName, "IOPlatformPlugin", sizeof( "IOPlatformPlugin" ) );
                 if (( pMonPlatformNumber == kPB56MachineModel ) ||
                     ( pMonPlatformNumber == kPB57MachineModel ) ||
                     ( pMonPlatformNumber == kPB58MachineModel ) ||
                     ( pMonPlatformNumber == kPB59MachineModel )) {
-                    strcpy (tmpCompat, "PBG4");
+                    strncpy (tmpCompat, "PBG4", sizeof( "PBG4" ) );
                 } else
-                    strcpy (tmpCompat, "MacRISC4");		// Generic plugin
-                strcat (tmpCompat, "_PlatformPlugin");
+                    strncpy (tmpCompat, "MacRISC4", sizeof( "MacRISC4" ) );		// Generic plugin
+                strncat (tmpCompat, "_PlatformPlugin", sizeof( "_PlatformPlugin" ) );
            } else {
-                strcpy(tmpName, "IOPlatformMonitor");
+                strncpy(tmpName, "IOPlatformMonitor", sizeof( "IOPlatformMonitor" ));
     
                 if ( pMonPlatformNumber == kPB51MachineModel )
                 {
-                    strcpy (tmpCompat, "PB5_1");
+                    strncpy (tmpCompat, "PB5_1", sizeof( "PB5_1" ) );
                 }
                 else if (( pMonPlatformNumber == kPB52MachineModel ) ||
                         ( pMonPlatformNumber == kPB53MachineModel ))
                 {
-                    strcpy (tmpCompat, "Portable2003");
+                    strncpy (tmpCompat, "Portable2003", sizeof( "Portable2003" ) );
                 }
                 else if (( pMonPlatformNumber == kPB54MachineModel ) ||
                         ( pMonPlatformNumber == kPB55MachineModel ) ||
                         ( pMonPlatformNumber == kPB56MachineModel ) ||
                         ( pMonPlatformNumber == kPB57MachineModel ))
                 {
-                    strcpy (tmpCompat, "Portable2004");
+                    strncpy (tmpCompat, "Portable2004", sizeof( "Portable2004" ) );
                 }
                 else 
-                    strcpy (tmpCompat, "Portable");
+                    strncpy (tmpCompat, "Portable", sizeof( "Portable" ) );
                 
-                strcat (tmpCompat, "_PlatformMonitor");
+                strncat (tmpCompat, "_PlatformMonitor", sizeof( "_PlatformMonitor" ) );
             }
             
             nameValueSymbol = OSSymbol::withCString(tmpName);
@@ -403,12 +405,11 @@ bool MacRISC2PE::start(IOService *provider)
             // NOTE - this assumes *all* such properties need to be moved to the plugin nub
             //   as the properties in our nub will get deleted
             if (hasPPlugin) {
-                OSDictionary			*propTable;
-                OSCollectionIterator	*propIter;
+                OSDictionary			*propTable = NULL;
+                OSCollectionIterator	*propIter = NULL;
                 OSSymbol				*propKey;
                 OSData					*propData;
 
-                propTable = NULL;
                 if ( ((propTable = provider->dictionaryWithProperties()) == 0) ||
                     ((propIter = OSCollectionIterator::withCollection(propTable)) == 0) ) {
                     if (propTable) propTable->release();
@@ -783,7 +784,7 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
     if (!strcmp(service->getName(), "pmu"))
     {
         // Change the interrupt mapping for pmu source 4.
-        OSArray              *tmpArray;
+        OSArray              *tmpArray, *tmpArrayCopy;
         OSCollectionIterator *extIntList;
         IORegistryEntry      *extInt;
         OSObject             *extIntControllerName;
@@ -811,10 +812,17 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
     
         // Replace the interrupt infomation for pmu source 4.
         tmpArray = (OSArray *)service->getProperty(gIOInterruptControllersKey);
-        tmpArray->replaceObject(4, extIntControllerName);
+        tmpArrayCopy = (OSArray *)tmpArray->copyCollection();           // Make a copy so we can modify it outside the IORegistry
+        tmpArrayCopy->replaceObject(4, extIntControllerName);
+        service->setProperty(gIOInterruptControllersKey, tmpArrayCopy); // Put it back in registry
+        tmpArrayCopy->release();
+        
         tmpArray = (OSArray *)service->getProperty(gIOInterruptSpecifiersKey);
-        tmpArray->replaceObject(4, extIntControllerData);
-    
+        tmpArrayCopy = (OSArray *)tmpArray->copyCollection();           // Make a copy so we can modify it outside the IORegistry
+        tmpArrayCopy->replaceObject(4, extIntControllerData);
+        service->setProperty(gIOInterruptSpecifiersKey, tmpArrayCopy);  // Put it back in registry
+        tmpArrayCopy->release();
+  
         extIntList->release();
         
         return true;
@@ -1011,7 +1019,11 @@ IOReturn MacRISC2PE::callPlatformFunction(const OSSymbol *functionName,
 		
 		return kIOReturnUnsupported;
     }
-  
+
+    if (functionName->isEqualTo("IOPMSetSleepSupported")) {
+		return slotsMacRISC2->determineSleepSupport ();
+    }
+      
     return super::callPlatformFunction(functionName, waitForFunction, param1, param2, param3, param4);
 }
 
@@ -1294,11 +1306,17 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
     IOPMUSBMacRISC2 		*usbMacRISC2;
     IORegistryEntry 		*devicetreeRegEntry;
     OSData					*tmpData;
+    OSArray                 *tmpArray;
 
 	// Move our power tree description from our driver (where it's a property in the driver)
 	// to our provider
 	kprintf ("MacRISC2PE::PMInstantiatePowerDomains - getting pmtree property\n");
-    thePowerTree = OSDynamicCast(OSArray, getProperty(desc));
+    tmpArray = OSDynamicCast(OSArray, getProperty(desc));
+    
+    if (tmpArray)
+        thePowerTree = (OSArray *)tmpArray->copyCollection ();
+    else
+        thePowerTree = NULL;
 
     if( 0 == thePowerTree)
     {
@@ -1307,7 +1325,7 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
     }
 	kprintf ("MacRISC2PE::PMInstantiatePowerDomains - got pmtree property\n");
 
-    getProvider()->setProperty (desc, thePowerTree);
+    //getProvider()->setProperty (desc, thePowerTree);
 	
 	// No need to keep original around
 	removeProperty(desc);

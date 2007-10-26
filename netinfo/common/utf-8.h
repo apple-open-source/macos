@@ -87,4 +87,4 @@ void dsutil_utf8_set_callbacks(dsutil_utf8_callbacks *callbacks);
 dsdata *dsutil_utf8_normalize(dsdata *, u_int32_t);
 int32_t dsutil_utf8_compare(dsdata *, dsdata *, u_int32_t);
 
-#endif __UTF_8_H__
+#endif /* __UTF_8_H__ */

@@ -108,25 +108,25 @@ MSC_RV msc_CallbackForTokenEvent(
   MSCPVoid32            appData            /* Application data       */
 )
 {
-    MSC_RV rv;
-
+    MSC_RV rv = SCARD_E_UNSUPPORTED_FEATURE;
+#if 0
     rv = MSCCallbackForTokenEvent(
       tokenArray,
       arraySize,
       callBack,
       appData
     );
-
+#endif
     return rv;
 }
 
     /* Cancels all callback registrations */
 MSC_RV msc_CallbackCancelEvent()
 {
-    MSC_RV rv;
-
+    MSC_RV rv = SCARD_E_UNSUPPORTED_FEATURE;
+#if 0
     rv = MSCCallbackCancelEvent();
-
+#endif
     return rv;
 }
 

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -38,7 +38,7 @@ enum
 };
 
 
-class AppleUSBOHCIedMemoryBlock : public IOBufferMemoryDescriptor
+class AppleUSBOHCIedMemoryBlock : public OSObject
 {
     OSDeclareDefaultStructors(AppleUSBOHCIedMemoryBlock);
     
@@ -49,6 +49,7 @@ private:
     OHCIEndpointDescriptorSharedPtr		_sharedLogical;
     AppleUSBOHCIedMemoryBlock			*_nextBlock;
     AppleOHCIEndpointDescriptor			_eds[EDsPerBlock];	// the non shared data
+	IOBufferMemoryDescriptor			*_buffer;
     
 public:
 
@@ -64,7 +65,7 @@ public:
 
 
 
-class AppleUSBOHCIgtdMemoryBlock : public IOBufferMemoryDescriptor
+class AppleUSBOHCIgtdMemoryBlock : public OSObject
 {
     OSDeclareDefaultStructors(AppleUSBOHCIgtdMemoryBlock);
     
@@ -75,6 +76,7 @@ private:
     OHCIGeneralTransferDescriptorSharedPtr		_sharedLogical;
     AppleUSBOHCIgtdMemoryBlock					*_nextBlock;
     AppleOHCIGeneralTransferDescriptor			_gtds[GTDsPerBlock];	// the non shared data
+	IOBufferMemoryDescriptor					*_buffer;
     
 public:
 
@@ -91,7 +93,7 @@ public:
 
 
 
-class AppleUSBOHCIitdMemoryBlock : public IOBufferMemoryDescriptor
+class AppleUSBOHCIitdMemoryBlock : public OSObject
 {
     OSDeclareDefaultStructors(AppleUSBOHCIitdMemoryBlock);
     
@@ -102,6 +104,7 @@ private:
     OHCIIsochTransferDescriptorSharedPtr			_sharedLogical;
     AppleUSBOHCIitdMemoryBlock						*_nextBlock;
     AppleOHCIIsochTransferDescriptor				_itds[ITDsPerBlock];	// the non shared data
+	IOBufferMemoryDescriptor						*_buffer;
     
 public:
 

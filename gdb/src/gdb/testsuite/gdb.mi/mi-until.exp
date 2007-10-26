@@ -1,4 +1,4 @@
-#   Copyright 1999, 2000 Free Software Foundation, Inc.
+# Copyright 1999, 2000, 2001, 2005 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -80,7 +80,7 @@ proc test_running_to_foo {} {
 
 proc test_until {} {
     global mi_gdb_prompt
-    global hex
+    global hex fullname_syntax srcfile
 
     send_gdb "111-exec-until\n"
     gdb_expect {

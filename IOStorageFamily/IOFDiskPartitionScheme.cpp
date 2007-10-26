@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,6 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
-#include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/storage/IOFDiskPartitionScheme.h>
 #include <libkern/OSByteOrder.h>
@@ -34,7 +33,7 @@ OSDefineMetaClassAndStructors(IOFDiskPartitionScheme, IOPartitionScheme);
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // Notes
 //
-// o the on-disk structure's fields are: 16-bit packed, little-endian formatted
+// o the on-disk structure's fields are little-endian formatted
 // o the relsect and numsect block values assume the drive's natural block size
 // o the relsect block value is:
 //   o for data partitions:
@@ -194,6 +193,44 @@ void IOFDiskPartitionScheme::stop(IOService * provider)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+IOReturn IOFDiskPartitionScheme::requestProbe(IOOptionBits options)
+{
+    //
+    // Request that the provider media be re-scanned for partitions.
+    //
+
+    OSSet * partitions    = 0;
+    OSSet * partitionsNew;
+    SInt32  score         = 0;
+
+    // Scan the provider media for partitions.
+
+    partitionsNew = scan( &score );
+
+    if ( partitionsNew )
+    {
+        if ( lockForArbitration( false ) )
+        {
+            partitions = juxtaposeMediaObjects( _partitions, partitionsNew );
+
+            if ( partitions )
+            {
+                _partitions->release( );
+
+                _partitions = partitions;
+            }
+
+            unlockForArbitration( );
+        }
+
+        partitionsNew->release( );
+    }
+
+    return partitions ? kIOReturnSuccess : kIOReturnError;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 OSSet * IOFDiskPartitionScheme::scan(SInt32 * score)
 {
     //
@@ -240,7 +277,7 @@ OSSet * IOFDiskPartitionScheme::scan(SInt32 * score)
 
     // Open the media with read access.
 
-    mediaIsOpen = media->open(this, 0, kIOStorageAccessReader);
+    mediaIsOpen = open(this, 0, kIOStorageAccessReader);
     if ( mediaIsOpen == false )  goto scanErr;
 
     // Scan the media for FDisk partition map(s).
@@ -338,7 +375,7 @@ OSSet * IOFDiskPartitionScheme::scan(SInt32 * score)
 
     // Release our resources.
 
-    media->close(this);
+    close(this);
     buffer->release();
 
     return partitions;
@@ -347,7 +384,7 @@ scanErr:
 
     // Release our resources.
 
-    if ( mediaIsOpen )  media->close(this);
+    if ( mediaIsOpen )  close(this);
     if ( partitions )  partitions->release();
     if ( buffer )  buffer->release();
 
@@ -380,16 +417,19 @@ bool IOFDiskPartitionScheme::isPartitionUsed(fdisk_part * partition)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOFDiskPartitionScheme::isPartitionCorrupt( 
-                                                fdisk_part * /* partition   */ ,
-                                                UInt32       /* partitionID */ ,
-                                                UInt32       /* fdiskBlock  */ )
+bool IOFDiskPartitionScheme::isPartitionCorrupt( fdisk_part * partition,
+                                                 UInt32       partitionID,
+                                                 UInt32       fdiskBlock )
 {
     //
     // Ask whether the given partition appears to be corrupt.  A partition that
     // is corrupt will cause the failure of the FDisk partition map recognition
     // altogether.
     //
+
+    // Determine whether the boot indicator is valid.
+
+    if ( (partition->bootid & 0x7F) )  return true;
 
     return false;
 }
@@ -471,7 +511,7 @@ IOMedia * IOFDiskPartitionScheme::instantiateMediaObject(
         char       hintIndex[5];
         OSString * hintValue;
 
-        sprintf(hintIndex, "0x%02X", partition->systid & 0xFF);
+        snprintf(hintIndex, sizeof(hintIndex), "0x%02X", partition->systid & 0xFF);
 
         hintValue = OSDynamicCast(OSString, hintTable->getObject(hintIndex));
 
@@ -499,13 +539,13 @@ IOMedia * IOFDiskPartitionScheme::instantiateMediaObject(
             // Set a name for this partition.
 
             char name[24];
-            sprintf(name, "Untitled %ld", partitionID);
+            snprintf(name, sizeof(name), "Untitled %ld", partitionID);
             newMedia->setName(name);
 
             // Set a location value (the partition number) for this partition.
 
             char location[12];
-            sprintf(location, "%ld", partitionID);
+            snprintf(location, sizeof(location), "%ld", partitionID);
             newMedia->setLocation(location);
 
             // Set the "Partition ID" key for this partition.
@@ -538,61 +578,26 @@ IOMedia * IOFDiskPartitionScheme::instantiateDesiredMediaObject(
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOFDiskPartitionScheme::attachMediaObjectToDeviceTree( IOMedia * media )
+bool IOFDiskPartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
 {
     //
     // Attach the given media object to the device tree plane.
     //
 
-    IORegistryEntry * parent = this;
-
-    while ( (parent = parent->getParentEntry(gIOServicePlane)) )
-    {
-        if ( parent->inPlane(gIODTPlane) )
-        {
-            char         location[ 32 ];
-            const char * locationOfParent = parent->getLocation(gIODTPlane);
-            const char * nameOfParent     = parent->getName(gIODTPlane);
-
-            if ( locationOfParent == 0 )  break;
-
-            if ( OSDynamicCast(IOMedia, parent) == 0 )  break;
-
-            parent = parent->getParentEntry(gIODTPlane);
-
-            if ( parent == 0 )  break;
-
-            if ( media->attachToParent(parent, gIODTPlane) == false )  break;
-
-            strcpy(location, locationOfParent);
-            if ( strchr(location, ':') )  *(strchr(location, ':') + 1) = 0;
-            strcat(location, media->getLocation());
-            media->setLocation(location, gIODTPlane);
-            media->setName(nameOfParent, gIODTPlane);
-
-            return true;
-        }
-    }
-
-    return false;
+    return super::attachMediaObjectToDeviceTree(media);
 }
 
 OSMetaClassDefineReservedUsed(IOFDiskPartitionScheme, 0);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOFDiskPartitionScheme::detachMediaObjectFromDeviceTree( IOMedia * media )
+void IOFDiskPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
 {
     //
     // Detach the given media object from the device tree plane.
     //
 
-    IORegistryEntry * parent;
-
-    if ( (parent = media->getParentEntry(gIODTPlane)) )
-    {
-        media->detachFromParent(parent, gIODTPlane);
-    }
+    super::detachMediaObjectFromDeviceTree(media);
 }
 
 OSMetaClassDefineReservedUsed(IOFDiskPartitionScheme, 1);

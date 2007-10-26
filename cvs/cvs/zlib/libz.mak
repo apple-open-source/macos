@@ -25,9 +25,6 @@ NULL=
 NULL=nul
 !ENDIF 
 
-CPP=cl.exe
-RSC=rc.exe
-
 !IF  "$(CFG)" == "libz - Win32 Release"
 
 OUTDIR=.\WinRel
@@ -45,12 +42,9 @@ CLEAN :
 	-@erase "$(INTDIR)\crc32.obj"
 	-@erase "$(INTDIR)\deflate.obj"
 	-@erase "$(INTDIR)\gzio.obj"
-	-@erase "$(INTDIR)\infblock.obj"
-	-@erase "$(INTDIR)\infcodes.obj"
 	-@erase "$(INTDIR)\inffast.obj"
 	-@erase "$(INTDIR)\inflate.obj"
 	-@erase "$(INTDIR)\inftrees.obj"
-	-@erase "$(INTDIR)\infutil.obj"
 	-@erase "$(INTDIR)\trees.obj"
 	-@erase "$(INTDIR)\uncompr.obj"
 	-@erase "$(INTDIR)\vc60.idb"
@@ -60,95 +54,8 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
+CPP=cl.exe
 CPP_PROJ=/nologo /ML /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /Fp"$(INTDIR)\libz.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
-BSC32=bscmake.exe
-BSC32_FLAGS=/nologo /o"$(OUTDIR)\libz.bsc" 
-BSC32_SBRS= \
-	
-LIB32=link.exe -lib
-LIB32_FLAGS=/nologo /out:"$(OUTDIR)\libz.lib" 
-LIB32_OBJS= \
-	"$(INTDIR)\adler32.obj" \
-	"$(INTDIR)\compress.obj" \
-	"$(INTDIR)\crc32.obj" \
-	"$(INTDIR)\deflate.obj" \
-	"$(INTDIR)\gzio.obj" \
-	"$(INTDIR)\infblock.obj" \
-	"$(INTDIR)\infcodes.obj" \
-	"$(INTDIR)\inffast.obj" \
-	"$(INTDIR)\inflate.obj" \
-	"$(INTDIR)\inftrees.obj" \
-	"$(INTDIR)\infutil.obj" \
-	"$(INTDIR)\trees.obj" \
-	"$(INTDIR)\uncompr.obj" \
-	"$(INTDIR)\zutil.obj"
-
-"$(OUTDIR)\libz.lib" : "$(OUTDIR)" $(DEF_FILE) $(LIB32_OBJS)
-    $(LIB32) @<<
-  $(LIB32_FLAGS) $(DEF_FLAGS) $(LIB32_OBJS)
-<<
-
-!ELSEIF  "$(CFG)" == "libz - Win32 Debug"
-
-OUTDIR=.\WinDebug
-INTDIR=.\WinDebug
-# Begin Custom Macros
-OutDir=.\WinDebug
-# End Custom Macros
-
-ALL : "$(OUTDIR)\libz.lib"
-
-
-CLEAN :
-	-@erase "$(INTDIR)\adler32.obj"
-	-@erase "$(INTDIR)\compress.obj"
-	-@erase "$(INTDIR)\crc32.obj"
-	-@erase "$(INTDIR)\deflate.obj"
-	-@erase "$(INTDIR)\gzio.obj"
-	-@erase "$(INTDIR)\infblock.obj"
-	-@erase "$(INTDIR)\infcodes.obj"
-	-@erase "$(INTDIR)\inffast.obj"
-	-@erase "$(INTDIR)\inflate.obj"
-	-@erase "$(INTDIR)\inftrees.obj"
-	-@erase "$(INTDIR)\infutil.obj"
-	-@erase "$(INTDIR)\trees.obj"
-	-@erase "$(INTDIR)\uncompr.obj"
-	-@erase "$(INTDIR)\vc60.idb"
-	-@erase "$(INTDIR)\zutil.obj"
-	-@erase "$(OUTDIR)\libz.lib"
-
-"$(OUTDIR)" :
-    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
-
-CPP_PROJ=/nologo /MLd /W3 /GX /Z7 /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /Fp"$(INTDIR)\libz.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
-BSC32=bscmake.exe
-BSC32_FLAGS=/nologo /o"$(OUTDIR)\libz.bsc" 
-BSC32_SBRS= \
-	
-LIB32=link.exe -lib
-LIB32_FLAGS=/nologo /out:"$(OUTDIR)\libz.lib" 
-LIB32_OBJS= \
-	"$(INTDIR)\adler32.obj" \
-	"$(INTDIR)\compress.obj" \
-	"$(INTDIR)\crc32.obj" \
-	"$(INTDIR)\deflate.obj" \
-	"$(INTDIR)\gzio.obj" \
-	"$(INTDIR)\infblock.obj" \
-	"$(INTDIR)\infcodes.obj" \
-	"$(INTDIR)\inffast.obj" \
-	"$(INTDIR)\inflate.obj" \
-	"$(INTDIR)\inftrees.obj" \
-	"$(INTDIR)\infutil.obj" \
-	"$(INTDIR)\trees.obj" \
-	"$(INTDIR)\uncompr.obj" \
-	"$(INTDIR)\zutil.obj"
-
-"$(OUTDIR)\libz.lib" : "$(OUTDIR)" $(DEF_FILE) $(LIB32_OBJS)
-    $(LIB32) @<<
-  $(LIB32_FLAGS) $(DEF_FLAGS) $(LIB32_OBJS)
-<<
-
-!ENDIF 
 
 .c{$(INTDIR)}.obj::
    $(CPP) @<<
@@ -179,6 +86,120 @@ LIB32_OBJS= \
    $(CPP) @<<
    $(CPP_PROJ) $< 
 <<
+
+RSC=rc.exe
+BSC32=bscmake.exe
+BSC32_FLAGS=/nologo /o"$(OUTDIR)\libz.bsc" 
+BSC32_SBRS= \
+	
+LIB32=link.exe -lib
+LIB32_FLAGS=/nologo /out:"$(OUTDIR)\libz.lib" 
+LIB32_OBJS= \
+	"$(INTDIR)\adler32.obj" \
+	"$(INTDIR)\compress.obj" \
+	"$(INTDIR)\crc32.obj" \
+	"$(INTDIR)\deflate.obj" \
+	"$(INTDIR)\gzio.obj" \
+	"$(INTDIR)\inffast.obj" \
+	"$(INTDIR)\inflate.obj" \
+	"$(INTDIR)\inftrees.obj" \
+	"$(INTDIR)\trees.obj" \
+	"$(INTDIR)\uncompr.obj" \
+	"$(INTDIR)\zutil.obj"
+
+"$(OUTDIR)\libz.lib" : "$(OUTDIR)" $(DEF_FILE) $(LIB32_OBJS)
+    $(LIB32) @<<
+  $(LIB32_FLAGS) $(DEF_FLAGS) $(LIB32_OBJS)
+<<
+
+!ELSEIF  "$(CFG)" == "libz - Win32 Debug"
+
+OUTDIR=.\WinDebug
+INTDIR=.\WinDebug
+# Begin Custom Macros
+OutDir=.\WinDebug
+# End Custom Macros
+
+ALL : "$(OUTDIR)\libz.lib"
+
+
+CLEAN :
+	-@erase "$(INTDIR)\adler32.obj"
+	-@erase "$(INTDIR)\compress.obj"
+	-@erase "$(INTDIR)\crc32.obj"
+	-@erase "$(INTDIR)\deflate.obj"
+	-@erase "$(INTDIR)\gzio.obj"
+	-@erase "$(INTDIR)\inffast.obj"
+	-@erase "$(INTDIR)\inflate.obj"
+	-@erase "$(INTDIR)\inftrees.obj"
+	-@erase "$(INTDIR)\trees.obj"
+	-@erase "$(INTDIR)\uncompr.obj"
+	-@erase "$(INTDIR)\vc60.idb"
+	-@erase "$(INTDIR)\zutil.obj"
+	-@erase "$(OUTDIR)\libz.lib"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+CPP=cl.exe
+CPP_PROJ=/nologo /MLd /W3 /GX /Z7 /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /Fp"$(INTDIR)\libz.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+
+.c{$(INTDIR)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cpp{$(INTDIR)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cxx{$(INTDIR)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.c{$(INTDIR)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cpp{$(INTDIR)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cxx{$(INTDIR)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+RSC=rc.exe
+BSC32=bscmake.exe
+BSC32_FLAGS=/nologo /o"$(OUTDIR)\libz.bsc" 
+BSC32_SBRS= \
+	
+LIB32=link.exe -lib
+LIB32_FLAGS=/nologo /out:"$(OUTDIR)\libz.lib" 
+LIB32_OBJS= \
+	"$(INTDIR)\adler32.obj" \
+	"$(INTDIR)\compress.obj" \
+	"$(INTDIR)\crc32.obj" \
+	"$(INTDIR)\deflate.obj" \
+	"$(INTDIR)\gzio.obj" \
+	"$(INTDIR)\inffast.obj" \
+	"$(INTDIR)\inflate.obj" \
+	"$(INTDIR)\inftrees.obj" \
+	"$(INTDIR)\trees.obj" \
+	"$(INTDIR)\uncompr.obj" \
+	"$(INTDIR)\zutil.obj"
+
+"$(OUTDIR)\libz.lib" : "$(OUTDIR)" $(DEF_FILE) $(LIB32_OBJS)
+    $(LIB32) @<<
+  $(LIB32_FLAGS) $(DEF_FLAGS) $(LIB32_OBJS)
+<<
+
+!ENDIF 
 
 
 !IF "$(NO_EXTERNAL_DEPS)" != "1"
@@ -216,16 +237,6 @@ SOURCE=.\gzio.c
 "$(INTDIR)\gzio.obj" : $(SOURCE) "$(INTDIR)"
 
 
-SOURCE=.\infblock.c
-
-"$(INTDIR)\infblock.obj" : $(SOURCE) "$(INTDIR)"
-
-
-SOURCE=.\infcodes.c
-
-"$(INTDIR)\infcodes.obj" : $(SOURCE) "$(INTDIR)"
-
-
 SOURCE=.\inffast.c
 
 "$(INTDIR)\inffast.obj" : $(SOURCE) "$(INTDIR)"
@@ -239,11 +250,6 @@ SOURCE=.\inflate.c
 SOURCE=.\inftrees.c
 
 "$(INTDIR)\inftrees.obj" : $(SOURCE) "$(INTDIR)"
-
-
-SOURCE=.\infutil.c
-
-"$(INTDIR)\infutil.obj" : $(SOURCE) "$(INTDIR)"
 
 
 SOURCE=.\trees.c

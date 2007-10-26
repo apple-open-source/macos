@@ -1,5 +1,6 @@
 /* Define wait system call interface for Emacs.
-   Copyright (C) 1993, 1994, 1995, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 2000, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Define the structure that the wait system call stores.
    On many systems, there is a structure defined for this.
@@ -27,57 +28,45 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef VMS
 
-/* Try the approach recommended by autoconf.  If this doesn't cause
-   trouble anywhere, remove the original code, which is #if'd out
-   below.  */
+/* This is now really the approach recommended by Autoconf.  If this
+   doesn't cause trouble anywhere, remove the original code, which is
+   #if'd out below.  */
 
 #if 1
 #include <sys/types.h>
 
-/* Old code included a comment that HPUX version 7 has broken
-   definitions of some of the macros and `the convex' does too.
-   HAVE_SYS_WAIT_H probably won't be defined on them if they still get
-   used, but for safety...  -- fx */
-/* ISC 4.1 doesn't have wait3, but does have sys/wait.h.  */
-#if (defined(HPUX) && !defined(HPUX8)) || defined(convex) || defined(ISC4_1)
-#undef HAVE_SYS_WAIT_H
-#endif
-
-#if defined HAVE_SYS_WAIT_H	/* We have sys/wait.h with POSIXoid
-				   definitions. */
-
+#ifdef HAVE_SYS_WAIT_H	/* We have sys/wait.h with POSIXoid definitions. */
 #include <sys/wait.h>
+#endif  /* !HAVE_SYS_WAIT_H */
+
 #ifndef WCOREDUMP		/* not POSIX */
 #define WCOREDUMP(status) ((status) & 0x80)
 #endif
-
-#else  /* !HAVE_SYS_WAIT_H */
-
-/* Note that sys/wait.h may still be included by stdlib.h or something
-   according to XPG.  */
-
-#undef WEXITSTATUS
+#ifndef WEXITSTATUS
 #define WEXITSTATUS(status) (((status)  & 0xff00) >> 8)
-#undef WIFEXITED
+#endif
+#ifndef WIFEXITED
 #define WIFEXITED(status) (WTERMSIG(status) == 0)
-#undef WIFSTOPPED
+#endif
+#ifndef WIFSTOPPED
 #define WIFSTOPPED(status) (((status) & 0xff) == 0x7f)
-#undef WIFSIGNALED
+#endif
+#ifndef WIFSIGNALED
 #define WIFSIGNALED(status) (!WIFSTOPPED(status) && !WIFEXITED(status))
-#undef WSTOPSIG
+#endif
+#ifndef WSTOPSIG
 #define WSTOPSIG(status) WEXITSTATUS(status)
-#undef WTERMSIG
+#endif
+#ifndef WTERMSIG
 #define WTERMSIG(status) ((status) & 0x7f)
-#undef WCOREDUMP
-#define WCOREDUMP(status) ((status) & 0x80)
-#endif /* HAVE_SYS_WAIT_H */
+#endif
 
 #undef WAITTYPE
 #define WAITTYPE int
 #undef WRETCODE
 #define WRETCODE(status) WEXITSTATUS (status)
 
-#else  /* !1 */
+#else  /* 0 */
 
 #ifndef WAITTYPE
 
@@ -102,7 +91,7 @@ Boston, MA 02111-1307, USA.  */
 #define WCOREDUMP(w) ((w&0200) != 0)
 #endif
 
-#else 
+#else
 
 #ifdef BSD4_1
 #include <wait.h>
@@ -144,7 +133,7 @@ Boston, MA 02111-1307, USA.  */
 #endif /* not WAIT_USE_INT */
 #endif /* no WAITTYPE */
 
-#endif /* 1 */
+#endif /* 0 */
 
 #else /* VMS */
 
@@ -164,3 +153,6 @@ Boston, MA 02111-1307, USA.  */
 #endif /* VMS */
 
 #endif /* EMACS_SYSWAIT_H */
+
+/* arch-tag: 7e5d9719-ec66-4b6f-89bb-563eea16a899
+   (do not change this comment) */

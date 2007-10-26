@@ -37,7 +37,7 @@
 // it has died (or been unable to start at all). It's then our owner's responsibility
 // to manage us from there, including deleting us eventually.
 //
-TokenDaemon::TokenDaemon(RefPointer<GenericBundle> code,
+TokenDaemon::TokenDaemon(RefPointer<Bundle> code,
 		const string &reader, const PCSC::ReaderState &readerState, TokenCache &cache)
 	: Tokend::ClientSession(Allocator::standard(), Allocator::standard()),
 	  mMe(code), mReaderName(reader), mState(readerState),
@@ -171,10 +171,17 @@ bool TokenDaemon::probe()
 {
 	secdebug("tokend", "%p probing", this);
 	ClientSession::probe(mScore, mTokenUid);
-	secdebug("tokend", "%p probed score=%ld tokenUid=\"%s\"", this, mScore, mTokenUid.c_str());
+	secdebug("tokend", "%p probed score=%d tokenUid=\"%s\"", this, mScore, mTokenUid.c_str());
 	mProbed = true;
 	return mScore > 0;
 }
+
+
+//
+// FaultRelay
+//
+FaultRelay::~FaultRelay()
+{ /* virtual */ }
 
 
 //

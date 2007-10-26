@@ -1,29 +1,28 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*-
  * Copyright (c) 1990, 1993, 1994
- *      The Regents of the University of California.  All rights reserved.
+ *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,8 +34,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *      This product includes software developed by the University of
- *      California, Berkeley and its contributors.
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -54,6 +53,16 @@
  * SUCH DAMAGE.
  */
 
+#if 0
+#if 0
+#ifndef lint
+static const char sccsid[] = "@(#)table.c	8.3 (Berkeley) 4/2/94";
+#endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/chpass/table.c,v 1.10 2003/05/03 19:44:45 obrien Exp $");
+#endif
+
 #include <sys/types.h>
 #include <stddef.h>
 #include "chpass.h"
@@ -61,38 +70,48 @@
 char e1[] = ": ";
 char e2[] = ":,";
 
-#ifdef DIRECTORY_SERVICE
+#ifdef OPEN_DIRECTORY
+#include "open_directory.h"
+
 ENTRY list[] = {
-	{ "login",		d_login,        p_login,  0,   5, e1,   },
-	{ "password",		d_passwd,       p_passwd, 0,   8, e1,   },
-	{ "uid",		d_uid,          p_uid,    0,   3, e1,   },
-	{ "gid",		d_gid,          p_gid,    0,   3, e1,   },
-	{ "change",		d_change,       p_change, 0,   6, NULL, },
-	{ "expire",		d_expire,       p_expire, 0,   6, NULL, },
-	{ "class",		d_class,        p_class,  0,   5, e1,   },
-	{ "home directory",	d_hdir,         p_hdir,   0,  14, e1,   },
-	{ "shell",		d_shell,        p_shell,  0,   5, e1,   },
-	{ "full name",		d_fullname,     p_gecos,  0,   9, e2,   },
-	{ "location",		d_location,     p_gecos,  0,   8, e2,   },
-	{ "office phone",	d_officephone,  p_gecos,  0,  12, e2,   },
-	{ "home phone",		d_homephone,    p_gecos,  0,  10, e2,   },
-	{ NULL },
+	{ "Login",						display_string,	p_login,	1,   5, e1,	CFSTR(kDSNAttrRecordName), },
+	{ "Password",					display_string,	p_passwd,	1,   8, e1,	CFSTR(kDS1AttrPassword), },
+	{ "Uid [#]",					display_string,	p_uid,		1,   3, e1,	CFSTR(kDS1AttrUniqueID), },
+	{ "Gid [# or name]",			display_string,	p_gid,		1,   3, e1,	CFSTR(kDS1AttrPrimaryGroupID), },
+	{ "Generated uid",				display_string,	p_uuid,		1,	13,	NULL,	CFSTR(kDS1AttrGeneratedUID), },
+#if 0
+	{ "Change [month day year]",	display_time,	p_change,	1,   6, NULL,	CFSTR(kDS1AttrChange), },
+	{ "Expire [month day year]",	display_time,	p_expire,	1,   6, NULL,	CFSTR(kDS1AttrExpire), },
+	{ "Class",						display_string,	p_class,	0,   5, e1,	CFSTR(""),			"Class" },
+#endif
+	{ "Home directory",				display_string,	p_hdir,		1,  14, e1,	CFSTR(kDS1AttrNFSHomeDirectory), },
+	{ "Shell",						display_string,	p_shell,	1,   5, e1,	CFSTR(kDS1AttrUserShell), },
+	{ "Full Name",					display_string,	p_gecos,	1,   9, e2,	CFSTR(kDS1AttrDistinguishedName), },
+	{ "Office Location",			display_string,	p_gecos,	1,   8, e2,	CFSTR(kDSNAttrBuilding), },
+	{ "Office Phone",				display_string,	p_gecos,	1,  12, e2,	CFSTR(kDSNAttrPhoneNumber),	},
+	{ "Home Phone",					display_string,	p_gecos,	1,  10, e2,	CFSTR(kDSNAttrHomePhoneNumber),	},
+	{ NULL,							NULL,			NULL,		0,	0,	NULL,	NULL,},
 };
-#else /* DIRECTORY_SERVICE */
+#else /* OPEN_DIRECTORY */
 ENTRY list[] = {
-	{ "login",		p_login,  1,   5, e1,   },
-	{ "password",		p_passwd, 1,   8, e1,   },
-	{ "uid",		p_uid,    1,   3, e1,   },
-	{ "gid",		p_gid,    1,   3, e1,   },
-	{ "class",		p_class,  1,   5, e1,   },
-	{ "change",		p_change, 1,   6, NULL, },
-	{ "expire",		p_expire, 1,   6, NULL, },
-	{ "full name",		p_gecos,  0,   9, e2,   },
-	{ "office phone",	p_gecos,  0,  12, e2,   },
-	{ "home phone",		p_gecos,  0,  10, e2,   },
-	{ "location",		p_gecos,  0,   8, e2,   },
-	{ "home directory",	p_hdir,   1,  14, e1,   },
-	{ "shell",		p_shell,  0,   5, e1,   },
-	{ NULL, 0, },
+	{ "login",		p_login,  1,   5, e1,   NULL },
+	{ "password",		p_passwd, 1,   8, e1,   NULL },
+	{ "uid",		p_uid,    1,   3, e1,   NULL },
+	{ "gid",		p_gid,    1,   3, e1,   NULL },
+	{ "class",		p_class,  1,   5, e1,   NULL },
+	{ "change",		p_change, 1,   6, NULL, NULL },
+	{ "expire",		p_expire, 1,   6, NULL, NULL },
+#ifdef RESTRICT_FULLNAME_CHANGE		/* do not allow fullname changes */
+	{ "full name",		p_gecos,  1,   9, e2,   NULL },
+#else
+	{ "full name",		p_gecos,  0,   9, e2,   NULL },
+#endif
+	{ "office phone",	p_gecos,  0,  12, e2,   NULL },
+	{ "home phone",		p_gecos,  0,  10, e2,   NULL },
+	{ "office location",	p_gecos,  0,  15, e2,   NULL },
+	{ "other information",	p_gecos,  0,  11, e1,   NULL },
+	{ "home directory",	p_hdir,   1,  14, e1,   NULL },
+	{ "shell",		p_shell,  0,   5, e1,   NULL },
+	{ NULL, NULL, 0, 0, NULL, NULL },
 };
-#endif /* DIRECTORY_SERVICE */
+#endif /* OPEN_DIRECTORY */

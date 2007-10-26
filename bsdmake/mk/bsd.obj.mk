@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.obj.mk,v 1.51 2004/04/13 12:36:00 ru Exp $
+# $FreeBSD: src/share/mk/bsd.obj.mk,v 1.54 2005/04/11 07:13:29 harti Exp $
 #
 # The include file <bsd.obj.mk> handles creating the 'obj' directory
 # and cleaning up object files, etc.
@@ -9,7 +9,7 @@
 #
 # CLEANFILES	Additional files to remove for the clean target.
 #
-# MAKEOBJDIR 	A pathname for the directory where the targets 
+# MAKEOBJDIR 	A pathname for the directory where the targets
 #		are built.  Note: MAKEOBJDIR is an *environment* variable
 #		and works properly only if set as an environment variable,
 #		not as a global or command line variable!
@@ -23,7 +23,7 @@
 #
 #		E.g. use `env MAKEOBJDIRPREFIX=/somewhere/obj make'
 #
-# NOOBJ		Do not create object directories.  This should not be set
+# NO_OBJ	Do not create object directories.  This should not be set
 #		if anything is built.
 #
 # +++ targets +++
@@ -65,7 +65,7 @@ CANONICALOBJDIR:=/usr/obj${.CURDIR}
 # issue a warning differentiating between cases 6 and (3 or 4).
 #
 objwarn:
-.if !defined(NOOBJ) && ${.OBJDIR} != ${CANONICALOBJDIR} && \
+.if !defined(NO_OBJ) && ${.OBJDIR} != ${CANONICALOBJDIR} && \
     !(defined(MAKEOBJDIRPREFIX) && exists(${CANONICALOBJDIR}/)) && \
     !(defined(MAKEOBJDIR) && exists(${MAKEOBJDIR}/))
 .if ${.OBJDIR} == ${.CURDIR}
@@ -76,7 +76,7 @@ objwarn:
 .endif
 .endif
 
-.if !defined(NOOBJ)
+.if !defined(NO_OBJ)
 .if !target(obj)
 obj: .PHONY
 	@if ! test -d ${CANONICALOBJDIR}/; then \
@@ -98,7 +98,7 @@ objlink:
 		echo "No ${CANONICALOBJDIR} to link to - do a make obj."; \
 	fi
 .endif
-.endif !defined(NOOBJ)
+.endif # !defined(NO_OBJ)
 
 #
 # where would that obj directory be?
@@ -119,7 +119,7 @@ cleanobj: clean cleandepend
 .if !target(clean)
 clean:
 .if defined(CLEANFILES) && !empty(CLEANFILES)
-	rm -f ${CLEANFILES} 
+	rm -f ${CLEANFILES}
 .endif
 .if defined(CLEANDIRS) && !empty(CLEANDIRS)
 	rm -rf ${CLEANDIRS}
@@ -130,4 +130,4 @@ cleandir: cleanobj
 
 .include <bsd.subdir.mk>
 
-.endif !target(__<bsd.obj.mk>__)
+.endif # !target(__<bsd.obj.mk>__)

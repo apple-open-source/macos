@@ -1,9 +1,9 @@
 dnl
-dnl $Id: config.m4,v 1.22.2.2 2003/10/01 02:53:56 sniper Exp $
+dnl $Id: config.m4,v 1.25 2005/05/29 23:16:40 sniper Exp $
 dnl
 
 PHP_ARG_WITH(fdftk, for FDF support,
-[  --with-fdftk[=DIR]      Include FDF support.])
+[  --with-fdftk[=DIR]      Include FDF support])
 
 if test "$PHP_FDFTK" != "no"; then
 

@@ -1370,6 +1370,8 @@ create_loop_notes (void)
   struct loop **stack, **top;
   /* APPLE LOCAL 4203984 */
   unsigned int i;
+  /* APPLE LOCAL 4390273 */
+  bool prev_bb_moved;
 
 #ifdef ENABLE_CHECKING
   /* Verify that there really are no loop notes.  */
@@ -1394,7 +1396,7 @@ create_loop_notes (void)
   free_dominance_info (CDI_DOMINATORS);
   if (loops.num > 1)
     {
-      /* APPLE LOCAL begin 4203984 */
+      /* APPLE LOCAL begin 4203984 4390273 */
       basic_block * shadow;
       signed char * in_body;
       /* Make a pass to find a spot in each loop where we might be able
@@ -1436,11 +1438,15 @@ create_loop_notes (void)
       /* Make a pass to find code outside the loop that belongs inside, and
 	 moves it in. */
       memset (in_body, 0, sizeof(char) * loops.num);
+      prev_bb_moved = false;
       FOR_EACH_BB (bb)
 	{
 	  loop = bb->loop_father;
 	  if (loop->num == 0 || shadow[loop->num] == 0)
-	    continue;
+	    {
+	      prev_bb_moved = false;
+	      continue;
+	    }
 	  if (bb == loop->header)
 	    {
 	      if (in_body[loop->num] == 0)
@@ -1485,13 +1491,15 @@ create_loop_notes (void)
 		    }
  		}
 	      /* If we have a fallthrough edge leading into this block, and the source is
-		 not in the same loop as we are, we must fix up the predecessor similarly.
-		 (If the predecessor is in the same loop, at this point it has been
-		 moved and is no longer prev_bb but the edge is still there; we need do
+		 not in the same loop as we are or was not moved on the previous iteration, 
+		 we must fix up the predecessor similarly.  (If the predecessor is in the
+		 same loop and was moved on the previous iteration, at this point it
+		 is no longer prev_bb but the edge is still there; we need do
 		 nothing, the edge will be correct again after we move this block.
 		 If the predecessor is not in the same loop and we moved it, the
 		 fallthrough edge was removed earlier by the code above.) */
-	      if (e2 && (e2->flags & EDGE_FALLTHRU) && prev_bb->loop_father != loop)
+	      if (e2 && (e2->flags & EDGE_FALLTHRU) && 
+		  (prev_bb->loop_father != loop || !prev_bb_moved))
 		{
 		  basic_block new_bb = force_nonfallthru (e2);
 		  if (new_bb)
@@ -1516,11 +1524,14 @@ create_loop_notes (void)
 	      /* Next block to be moved will go after this one. */
 	      shadow[loop->num] = bb;
 	      bb = restart_bb;
+	      prev_bb_moved = true;
 	    }
+	  else
+	    prev_bb_moved = false;
 	}
       free (in_body);
       free (shadow);
-      /* APPLE LOCAL end 4203984 */
+      /* APPLE LOCAL end 4203984 4390273 */
 
       /* APPLE LOCAL begin 4321079 */
       /* Look for 2-block loops, where the first block contains both header and exit test, and

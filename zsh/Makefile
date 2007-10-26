@@ -7,7 +7,7 @@ Project		      = zsh
 UserType	      = Administration
 ToolType	      = Commands
 Extra_CC_Flags	      = -no-cpp-precomp
-Extra_Configure_Flags = --bindir="$(BINDIR)" --with-tcsetpgrp
+Extra_Configure_Flags = --bindir="$(BINDIR)" --with-tcsetpgrp --enable-multibyte
 Extra_Install_Flags   = bindir="$(DSTROOT)$(BINDIR)"
 GnuAfterInstall	      = post-install install-plist
 
@@ -15,19 +15,24 @@ GnuAfterInstall	      = post-install install-plist
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 post-install:
-	ln $(DSTROOT)/$(MANDIR)/man1/zsh.1 $(DSTROOT)/$(MANDIR)/man1/zsh-4.2.3.1
+	ln $(DSTROOT)/$(MANDIR)/man1/zsh.1 $(DSTROOT)/$(MANDIR)/man1/zsh-4.3.4.1
+	rm -f $(DSTROOT)/$(MANDIR)/man1/zshall.1
 	find $(DSTROOT) -type f -perm +111 -exec strip -x '{}' \;
-	rm $(DSTROOT)/bin/zsh-4.2.3
-	ln $(DSTROOT)/bin/zsh $(DSTROOT)/bin/zsh-4.2.3
+	rm -f $(DSTROOT)/bin/zsh-4.3.4
+	ln $(DSTROOT)/bin/zsh $(DSTROOT)/bin/zsh-4.3.4
+	rm $(DSTROOT)/usr/share/zsh/4.3.4/scripts/newuser
+	mkdir -p $(DSTROOT)/private/etc
+	install -m 0444 -o root -g wheel zprofile $(DSTROOT)/private/etc
 
 # Automatic Extract & Patch
 AEP	       = YES
 AEP_Project    = $(Project)
-AEP_Version    = 4.2.3
+AEP_Version    = 4.3.4
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = utmpx_ut_user.patch no_strip.patch
+AEP_Patches    = utmpx_ut_user.patch no_strip.patch arg_zero.patch \
+		 _groups.patch zsh-Doc.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
     AEP_ExtractOption = j
@@ -41,7 +46,7 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(AEP_Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
 	for patchfile in $(AEP_Patches); do \
-	    cd $(SRCROOT)/$(Project) && patch -lp0 < $(SRCROOT)/patches/$$patchfile; \
+	    ( cd $(SRCROOT)/$(Project) && patch -lp0 < $(SRCROOT)/patches/$$patchfile ) || exit 1 ; \
 	done
 endif
 

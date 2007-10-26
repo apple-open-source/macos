@@ -1,13 +1,13 @@
-Dies ist eine Mailman-Verständigung betreffend die Unzustellbarkeit von
-Emails an eine bestimmte Adresse ("bounce").
+
+Eine Mailadresse war mehrfach unzustellbar:
 
     Liste:      %(listname)s
-    Abonnent:   %(addr)s
+    Mitglied:   %(addr)s
     Vorgang:    Abonnement %(negative)s%(did)s.
     Grund:      Zu viele oder fatale Bounces
     %(but)s
 
 %(reenable)s
-Die auslösende Nachricht ist weiter unten angehängt.
+Die letzte betroffene Nachricht ist an diese Mail angehängt.
 
 Fragen? Kontaktieren Sie den Mailman Systemverwalter unter %(owneraddr)s.

@@ -243,7 +243,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
-				MODULE_VERSION = 9.0.0d30;
+				MODULE_VERSION = 9.1;
 				PRODUCT_NAME = IOSerialFamily;
 				WRAPPER_EXTENSION = kext;
 			};
@@ -256,7 +256,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
-				MODULE_VERSION = 9.0.0d30;
+				MODULE_VERSION = 9.1;
 				PRODUCT_NAME = IOSerialFamily;
 				WRAPPER_EXTENSION = kext;
 			};

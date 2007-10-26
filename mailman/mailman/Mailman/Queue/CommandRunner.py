@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 """-request robot command queue runner."""
 
@@ -75,9 +75,11 @@ class Results:
         subj = msg.get('subject', '')
         try:
             subj = make_header(decode_header(subj)).__unicode__()
+            # TK: Currently we don't allow 8bit or multibyte in mail command.
+            subj = subj.encode('us-ascii')
             # Always process the Subject: header first
             self.commands.append(subj)
-        except HeaderParseError:
+        except (HeaderParseError, UnicodeError, LookupError):
             # We couldn't parse it so ignore the Subject header
             pass
         # Find the first text/plain part
@@ -168,7 +170,7 @@ To obtain instructions, send a message containing just the word "help".
         resp.append(_('\n- Done.\n\n'))
         # Encode any unicode strings into the list charset, so we don't try to
         # join unicode strings and invalid ASCII.
-        charset = Utils.GetCharSet(self.mlist.preferred_language)
+        charset = Utils.GetCharSet(self.msgdata['lang'])
         encoded_resp = []
         for item in resp:
             if isinstance(item, UnicodeType):
@@ -184,13 +186,13 @@ To obtain instructions, send a message containing just the word "help".
         # BAW: We wait until now to make this decision since our sender may
         # not be self.msg.get_sender(), but I'm not sure this is right.
         recip = self.returnaddr or self.msg.get_sender()
-        if not self.mlist.autorespondToSender(recip):
+        if not self.mlist.autorespondToSender(recip, self.msgdata['lang']):
             return
         msg = Message.UserNotification(
             recip,
             self.mlist.GetBouncesEmail(),
             _('The results of your email commands'),
-            lang=self.mlist.preferred_language)
+            lang=self.msgdata['lang'])
         msg.set_type('multipart/mixed')
         msg.attach(results)
         orig = MIMEMessage(self.msg)

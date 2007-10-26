@@ -1,6 +1,6 @@
---- realpath.c.orig	2003-08-15 19:22:17.000000000 -0700
-+++ realpath.c	2004-12-04 14:47:52.000000000 -0800
-@@ -35,13 +35,35 @@
+--- realpath.c.orig	2006-09-16 19:12:28.000000000 -0700
++++ realpath.c	2006-09-16 20:18:25.000000000 -0700
+@@ -35,13 +35,41 @@
  #include "namespace.h"
  #include <sys/param.h>
  #include <sys/stat.h>
@@ -23,7 +23,8 @@
 +	char buf[PATH_MAX];
 +};
 +
-+static struct attrlist alist = {
++#ifndef BUILDING_VARIANT
++__private_extern__ struct attrlist _rp_alist = {
 +	ATTR_BIT_MAP_COUNT,
 +	0,
 +	ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_OBJTYPE | ATTR_CMN_OBJID,
@@ -32,11 +33,16 @@
 +	0,
 +	0,
 +};
++#else /* BUILDING_VARIANT */
++__private_extern__ struct attrlist _rp_alist;
++#endif /* BUILDING_VARIANT */
++
++extern char * __private_getcwd(char *, size_t, int);
 +
  /*
   * char *realpath(const char *path, char resolved[PATH_MAX]);
   *
-@@ -52,13 +74,25 @@
+@@ -52,24 +80,55 @@
  char *
  realpath(const char *path, char resolved[PATH_MAX])
  {
@@ -55,29 +61,62 @@
 +	static int rootdev_inited = 0;
 +	ino_t inode;
  
++	if (path == NULL) {
++		errno = EINVAL;
++		return (NULL);
++	}
++#if __DARWIN_UNIX03
++	if (*path == 0) {
++		errno = ENOENT;
++		return (NULL);
++	}
++#endif /* __DARWIN_UNIX03 */
 +	if (!rootdev_inited) {
 +		rootdev_inited = 1;
-+		if (stat("/", &sb) < 0)
++		if (stat("/", &sb) < 0) {
 +			return (NULL);
++			}
 +		rootdev = sb.st_dev;
 +	}
  	serrno = errno;
  	symlinks = 0;
  	if (path[0] == '/') {
-@@ -80,6 +114,12 @@
+ 		resolved[0] = '/';
+ 		resolved[1] = '\0';
+-		if (path[1] == '\0')
++		if (path[1] == '\0') {
+ 			return (resolved);
++		}
+ 		resolved_len = 1;
+ 		left_len = strlcpy(left, path + 1, sizeof(left));
+ 	} else {
+-		if (getcwd(resolved, PATH_MAX) == NULL) {
++#if !defined(VARIANT_DARWINEXTSN) && __DARWIN_UNIX03
++		/* 4447159: don't use GETPATH, so this will fail if */
++		/* if parent directories are not readable, as per POSIX */
++		if (__private_getcwd(resolved, PATH_MAX, 0) == NULL)
++#else /* VARIANT_DARWINEXTSN || !__DARWIN_UNIX03 */
++		if (__private_getcwd(resolved, PATH_MAX, 1) == NULL)
++#endif /* !VARIANT_DARWINEXTSN && __DARWIN_UNIX03 */
++		{
+ 			strlcpy(resolved, ".", PATH_MAX);
+ 			return (NULL);
+ 		}
+@@ -80,6 +139,13 @@
  		errno = ENAMETOOLONG;
  		return (NULL);
  	}
 +	if (resolved_len > 1) {
-+		if (stat(resolved, &sb) < 0)
++		if (stat(resolved, &sb) < 0) {
 +			return (NULL);
++		}
 +		lastdev = sb.st_dev;
 +	} else
 +		lastdev = rootdev;
  
  	/*
  	 * Iterate over path components in `left'.
-@@ -127,6 +167,13 @@
+@@ -127,6 +193,13 @@
  		}
  
  		/*
@@ -91,17 +130,17 @@
  		 * Append the next path component and lstat() it. If
  		 * lstat() fails we still can return successfully if
  		 * there are no more path components left.
-@@ -136,14 +183,72 @@
+@@ -136,25 +209,87 @@
  			errno = ENAMETOOLONG;
  			return (NULL);
  		}
 -		if (lstat(resolved, &sb) != 0) {
-+		if (getattrlist(resolved, &alist, &attrs, sizeof(attrs), FSOPT_NOFOLLOW) == 0) {
++		if (getattrlist(resolved, &_rp_alist, &attrs, sizeof(attrs), FSOPT_NOFOLLOW) == 0) {
 +			useattrs = 1;
 +			islink = (attrs.type == VLNK);
 +			dev = attrs.dev;
 +			inode = attrs.id.fid_objno;
-+		} else if (errno == EOPNOTSUPP || errno == EINVAL) {
++		} else if (errno == ENOTSUP || errno == EINVAL) {
 +			if ((useattrs = lstat(resolved, &sb)) == 0) {
 +				islink = S_ISLNK(sb.st_mode);
 +				dev = sb.st_dev;
@@ -110,10 +149,12 @@
 +		} else
 +			useattrs = -1;
 +		if (useattrs < 0) {
++#if !__DARWIN_UNIX03
  			if (errno == ENOENT && p == NULL) {
  				errno = serrno;
  				return (resolved);
  			}
++#endif /* !__DARWIN_UNIX03 */
  			return (NULL);
  		}
 -		if (S_ISLNK(sb.st_mode)) {
@@ -166,7 +207,13 @@
  			if (symlinks++ > MAXSYMLINKS) {
  				errno = ELOOP;
  				return (NULL);
-@@ -155,6 +260,7 @@
+ 			}
+ 			slen = readlink(resolved, symlink, sizeof(symlink) - 1);
+-			if (slen < 0)
++			if (slen < 0) {
+ 				return (NULL);
++			}
+ 			symlink[slen] = '\0';
  			if (symlink[0] == '/') {
  				resolved[1] = 0;
  				resolved_len = 1;
@@ -174,7 +221,7 @@
  			} else if (resolved_len > 1) {
  				/* Strip the last path component. */
  				resolved[resolved_len - 1] = '\0';
-@@ -184,7 +290,30 @@
+@@ -184,7 +319,30 @@
  				}
  			}
  			left_len = strlcpy(left, symlink, sizeof(left));

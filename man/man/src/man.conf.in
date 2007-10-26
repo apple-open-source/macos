@@ -36,20 +36,16 @@
 #
 # Every automatically generated MANPATH includes these fields
 #
-MANPATH /usr/share/man
+MANPATH	/usr/share/man
 MANPATH	/usr/local/share/man
-MANPATH	/usr/X11R6/man
+MANPATH	/usr/X11/man
 #
 # Uncomment if you want to include one of these by default
 #
-#MANPATH /opt/teTeX/man
-#MANPATH /usr/lib/perl5/man
-#MANPATH /usr/share/perl5/man
-#MANPATH /usr/share/tcl-8.0/man
-#MANPATH /usr/share/tk-8.0/man
-#MANPATH /usr/share/tix-4.1/man
-#MANPATH /usr/share/coas/man
-#MANPATH /usr/kerberos/man
+# MANPATH	/opt/*/man
+# MANPATH	/usr/lib/*/man
+# MANPATH	/usr/share/*/man
+# MANPATH	/usr/kerberos/man
 #
 # Set up PATH to MANPATH mapping
 #
@@ -66,8 +62,8 @@ MANPATH_MAP	/usr/bin		/usr/share/man
 MANPATH_MAP	/usr/sbin		/usr/share/man
 MANPATH_MAP	/usr/local/bin		/usr/local/share/man
 MANPATH_MAP	/usr/local/sbin		/usr/local/share/man
-MANPATH_MAP	/usr/X11R6/bin		/usr/X11R6/man
-MANPATH_MAP	/usr/bin/X11		/usr/X11R6/man
+MANPATH_MAP	/usr/X11/bin		/usr/X11/man
+MANPATH_MAP	/usr/bin/X11		/usr/X11/man
 MANPATH_MAP	/usr/bin/mh		/usr/share/man
 #
 # NOAUTOPATH keeps man from automatically adding directories that look like
@@ -103,6 +99,8 @@ PIC		@pic@
 VGRIND		@vgrind@
 GRAP		@grap@
 PAGER		@pager@
+BROWSER		@browser@
+HTMLPAGER	@htmlpager@
 CAT		@cat@
 #
 # The command "man -a xyzzy" will show all man pages for xyzzy.

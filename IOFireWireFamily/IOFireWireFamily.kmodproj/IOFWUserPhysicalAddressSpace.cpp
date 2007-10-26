@@ -43,27 +43,23 @@ IOFWUserPhysicalAddressSpace::initWithDesc(
 	if (!IOFWPhysicalAddressSpace::initWithDesc(bus, mem))
 		return false ;
 	
-	if ( kIOReturnSuccess != mem->prepare() )
-	{
-		fMemPrepared = false ;
-		return false ;
-	}
+	fDescriptor = mem;
+	fDescriptor->retain();
 	
-	fMemPrepared = true ;
 	fSegmentCount = 0 ;
 
 	{ //scope
 		UInt32 			currentOffset = 0 ;
 		IOByteCount 	length ;
 			
-		while (0 != fMem->getPhysicalSegment(currentOffset, & length))
+		while (0 != fDescriptor->getPhysicalSegment(currentOffset, & length))
 		{
 			currentOffset += length ;
 			++fSegmentCount ;
 		}
 	}
 
-	DebugLog("new phys addr space - segmentCount=%ld length=0x%lx\n", fSegmentCount, (UInt32)fMem->getLength() ) ;
+	DebugLog("new phys addr space - segmentCount=%ld length=0x%lx\n", fSegmentCount, (UInt32)fDescriptor->getLength() ) ;
 	
 	return true ;
 }
@@ -71,10 +67,13 @@ IOFWUserPhysicalAddressSpace::initWithDesc(
 void
 IOFWUserPhysicalAddressSpace::free()
 {
-	if (fMemPrepared)
-		fMem->complete() ;
+	if( fDescriptor )
+	{
+		fDescriptor->release();
+		fDescriptor = NULL;
+	}
 
-	IOFWPhysicalAddressSpace::free() ;
+	IOFWPhysicalAddressSpace::free();
 }
 
 // exporterCleanup
@@ -82,11 +81,13 @@ IOFWUserPhysicalAddressSpace::free()
 //
 
 void
-IOFWUserPhysicalAddressSpace::exporterCleanup ()
+IOFWUserPhysicalAddressSpace::exporterCleanup( const OSObject * self )
 {
+	IOFWUserPhysicalAddressSpace * me = (IOFWUserPhysicalAddressSpace*)self;
+	
 	DebugLog("IOFWUserPseudoAddressSpace::exporterCleanup\n");
 	
-	deactivate();
+	me->deactivate();
 }
 
 IOReturn
@@ -97,16 +98,21 @@ IOFWUserPhysicalAddressSpace::getSegmentCount( UInt32 * outSegmentCount )
 }
 
 IOReturn
-IOFWUserPhysicalAddressSpace :: getSegments (
+IOFWUserPhysicalAddressSpace::getSegments (
 	UInt32*				ioSegmentCount,
 	IOMemoryCursor::IOPhysicalSegment	outSegments[] )
 {
-	unsigned segmentCount = *ioSegmentCount <? fSegmentCount ;	// min
+	unsigned segmentCount = *ioSegmentCount;
+	if( fSegmentCount < segmentCount )
+	{
+		segmentCount = fSegmentCount;
+	}
+
 	IOByteCount currentOffset = 0 ;
 	
 	for( unsigned index = 0; index < segmentCount; ++index )
 	{
-		outSegments[ index ].location = fMem->getPhysicalSegment( currentOffset, & outSegments[ index ].length ) ;
+		outSegments[ index ].location = fDescriptor->getPhysicalSegment( currentOffset, & outSegments[ index ].length ) ;
 		currentOffset += outSegments[ index ].length ;
 	}
 

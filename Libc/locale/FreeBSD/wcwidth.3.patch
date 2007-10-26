@@ -1,6 +1,6 @@
---- wcwidth.3.orig	Fri Mar 11 19:44:47 2005
-+++ wcwidth.3	Fri Mar 11 19:46:47 2005
-@@ -28,7 +28,8 @@
+--- _SB/Libc/locale/FreeBSD/wcwidth.3	2004-11-25 11:38:21.000000000 -0800
++++ _SB/Libc/locale/FreeBSD/wcwidth.3.edit	2006-06-28 16:55:51.000000000 -0700
+@@ -28,20 +28,38 @@
  .Dt WCWIDTH 3
  .Os
  .Sh NAME
@@ -10,13 +10,20 @@
  .Nd "number of column positions of a wide-character code"
  .Sh LIBRARY
  .Lb libc
-@@ -36,12 +37,23 @@
+ .Sh SYNOPSIS
  .In wchar.h
  .Ft int
- .Fn wcwidth "wchar_t wc"
+-.Fn wcwidth "wchar_t wc"
++.Fo wcwidth
++.Fa "wchar_t wc"
++.Fc
++.In wchar.h
 +.In xlocale.h
 +.Ft int
-+.Fn wcwidth_l "wchar_t wc" "locale_t loc"
++.Fo wcwidth_l
++.Fa "wchar_t wc"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn wcwidth
@@ -24,7 +31,7 @@
  display the wide character
  .Fa wc .
 +.Pp
-+While the
++Although the
 +.Fn wcwidth
 +function uses the current locale, the
 +.Fn wcwidth_l
@@ -34,7 +41,18 @@
  .Sh RETURN VALUES
  The
  .Fn wcwidth
-@@ -79,7 +91,8 @@
+@@ -50,8 +68,8 @@
+ argument is a null wide character (L'\e0'),
+ \-1 if
+ .Fa wc
+-is not printable,
+-otherwise it returns the number of column positions the
++is not printable;
++otherwise, it returns the number of column positions the
+ character occupies.
+ .Sh EXAMPLES
+ This code fragment reads text from standard input and
+@@ -79,7 +97,8 @@
  .Ed
  .Sh SEE ALSO
  .Xr iswprint 3 ,

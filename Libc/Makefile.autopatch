@@ -1,0 +1,6 @@
+autopatch: $(AUTOPATCHHDRS) $(AUTOPATCHSRCS) $(AUTOPATCHMAN)
+
+.SUFFIXES: .3-uuid.in .3
+
+.3-uuid.in.3:
+	sed -f ${SRCROOT}/uuid/uuidman.sed ${.IMPSRC} > ${.TARGET}

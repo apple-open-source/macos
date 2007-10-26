@@ -32,20 +32,36 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-if [istarget "powerpc-*altivec"] {
-    set compile_flags { debug additional_flags=-w }
-} elseif [istarget "powerpc-apple-*"] {
-    set compile_flags { debug additional_flags=-w additional_flags=-faltivec }
-} else {
-    verbose "Skipping altivec register tests."
+if {![istarget "powerpc*"] || [skip_altivec_tests]} then {
+    verbose "Skipping altivec abi tests."
+    verbose -log "Skipping altivec abi tests."
     return
+}
+
+if [istarget "powerpc-apple-*"] {
+    set compile_flags { debug additional_flags=-faltivec }
 }
 
 set testfile "altivec-abi"
 set binfile ${objdir}/${subdir}/${testfile}
 set srcfile ${testfile}.c
 
-if  { [gdb_compile ${srcdir}/${subdir}/${srcfile} ${binfile} executable ${compile_flags}] != "" } {
+set compile_flags {debug additional_flags=-w}
+if [get_compiler_info $binfile] {
+    warning "get_compiler failed"
+    return -1
+}
+
+if [test_compiler_info gcc*] {
+    set compile_flags "$compile_flags additional_flags=-faltivec"
+} elseif [test_compiler_info xlc*] {
+    set compile_flags "$compile_flags additional_flags=-qaltivec"
+} else {
+    warning "unknown compiler"
+    return -1
+}
+
+if  { [gdb_compile ${srcdir}/${subdir}/${srcfile} ${binfile} executable $compile_flags] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 

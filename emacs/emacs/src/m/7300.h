@@ -1,5 +1,6 @@
 /* machine description file for AT&T UNIX PC model 7300
-   Copyright (C) 1986 Free Software Foundation, Inc.
+   Copyright (C) 1986, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
    Modified for this machine by mtxinu!rtech!gonzo!daveb
 
 This file is part of GNU Emacs.
@@ -16,11 +17,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="usg5-2-2"  */
 
@@ -59,22 +60,16 @@ Boston, MA 02111-1307, USA.  */
 
 /* Data type of load average, as read out of kmem.  */
 /* These are commented out since it is not supported by this machine.  */
-  
+
 /* #define LOAD_AVE_TYPE long */
 
 /* Convert that into an integer that is 100 for a load average of 1.0  */
 
 /* #define LOAD_AVE_CVT(x) (int) (((double) (x)) * 100.0) */
 
-#ifdef __GNUC__
-
-#define HAVE_ALLOCA
-
-#else
+#ifndef __GNUC__
 
 #define SWITCH_ENUM_BUG
-#define C_ALLOCA
-#define STACK_DIRECTION -1
 
 #endif
 
@@ -98,3 +93,6 @@ Boston, MA 02111-1307, USA.  */
 /* Insist on using cc when compiling this.  GCC may have been
    configured to use GAS syntax, which causes problems.  */
 #define CRT0_COMPILE cc -c -O -Demacs
+
+/* arch-tag: 66219dc7-ef45-4f0c-bb98-f35421f39c8d
+   (do not change this comment) */

@@ -1,8 +1,8 @@
 # Makefile.in for tests
-# $OpenLDAP: pkg/ldap/tests/Makefile.in,v 1.38.2.6 2004/01/01 18:16:42 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/Makefile.in,v 1.54.2.4 2006/01/03 22:16:27 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2004 The OpenLDAP Foundation.
+## Copyright 1998-2006 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -19,15 +19,21 @@ SUBDIRS= progs
 BUILD_BDB=@BUILD_BDB@
 BUILD_HDB=@BUILD_HDB@
 BUILD_LDBM=@BUILD_LDBM@
+BUILD_SQL=@BUILD_SQL@
 
+# test primary backends (default)
 test tests:
 	@$(MAKE) bdb
 	@$(MAKE) hdb
+
+# test all backends
+alltests: tests
 	@$(MAKE) ldbm
+	@$(MAKE) sql
 
 bdb test-bdb:	bdb-$(BUILD_BDB)
 bdb-no:
-	@echo "run configure with --enable-bdb"
+	@echo "run configure with --enable-bdb to run BDB tests"
 
 bdb-yes bdb-mod: FORCE
 	@echo "Initiating LDAP tests for BDB..."
@@ -35,7 +41,7 @@ bdb-yes bdb-mod: FORCE
 
 hdb test-hdb:	hdb-$(BUILD_HDB)
 hdb-no:
-	@echo "run configure with --enable-hdb"
+	@echo "run configure with --enable-hdb to run HDB tests"
 
 hdb-yes hdb-mod: FORCE
 	@echo "Initiating LDAP tests for HDB..."
@@ -43,15 +49,23 @@ hdb-yes hdb-mod: FORCE
 
 ldbm test-ldbm:	ldbm-$(BUILD_LDBM)
 ldbm-no:
-	@echo "run configure with --enable-ldbm"
+	@echo "run configure with --enable-ldbm to run LDBM tests"
 
 ldbm-yes ldbm-mod:	FORCE
 	@echo "Initiating LDAP tests for LDBM..."
 	@$(RUN) -b ldbm all
 
+sql test-sql:	sql-$(BUILD_SQL)
+sql-no:
+	@echo "run configure with --enable-sql to run SQL tests"
+
+sql-yes sql-mod:	FORCE
+	@echo "Initiating LDAP tests for SQL..."
+	@$(RUN) -b sql sql-all
+
 clean-local:	FORCE
 	-$(RM) -r testrun *leak *gmon *core
 
 veryclean-local: FORCE
-	@-$(RM) data schema ucdata
+	@-$(RM) run testdata schema ucdata
 

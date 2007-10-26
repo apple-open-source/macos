@@ -1,0 +1,571 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		0563D445063ED9AC00ED568D /* world */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C27AD46D0987FCE9001272E0 /* Build configuration list for PBXAggregateTarget "world" */;
+			buildPhases = (
+			);
+			dependencies = (
+				05C6EDAD06BFFD3800D0BEF2 /* PBXTargetDependency */,
+				05B8665906C02183005E1549 /* PBXTargetDependency */,
+			);
+			name = world;
+			productName = world;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		0517F3200AC20123005F506E /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0517F31F0AC20123005F506E /* SystemConfiguration.framework */; };
+		0517F32D0AC20361005F506E /* security_asn1.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0517F32C0AC20361005F506E /* security_asn1.framework */; };
+		055D01A806486CC700531252 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 055D01A706486CC700531252 /* Foundation.framework */; };
+		0582D1920648269E00577DEB /* AppleDotMacTP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0563D47B063EDAE400ED568D /* AppleDotMacTP.cpp */; };
+		0582D1930648269F00577DEB /* AppleDotMacTP.h in Sources */ = {isa = PBXBuildFile; fileRef = 0563D47C063EDAE400ED568D /* AppleDotMacTP.h */; };
+		0582D194064826A000577DEB /* AppleDotMacTPPlugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0563D47D063EDAE400ED568D /* AppleDotMacTPPlugin.cpp */; };
+		0582D195064826A100577DEB /* AppleDotMacTPSession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0563D47E063EDAE400ED568D /* AppleDotMacTPSession.cpp */; };
+		0582D196064826A200577DEB /* AppleDotMacTPSession.h in Sources */ = {isa = PBXBuildFile; fileRef = 0563D47F063EDAE400ED568D /* AppleDotMacTPSession.h */; };
+		0582D197064826A300577DEB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0563D546063EDCEA00ED568D /* CoreFoundation.framework */; };
+		0582D198064826A400577DEB /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05D01AE006405574004A4E75 /* CoreServices.framework */; };
+		0582D199064826A500577DEB /* dotmac_tp_common.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 0563D4A0063EDB5600ED568D /* dotmac_tp_common.mdsinfo */; };
+		0582D19A064826A600577DEB /* dotmac_tp_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 0563D4A1063EDB5600ED568D /* dotmac_tp_primary.mdsinfo */; };
+		0582D19B064826A700577DEB /* dotMacCredRequest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0563D484063EDAE400ED568D /* dotMacCredRequest.cpp */; };
+		0582D19C064826A800577DEB /* dotMacTp.h in Sources */ = {isa = PBXBuildFile; fileRef = 0563D485063EDAE400ED568D /* dotMacTp.h */; };
+		0582D19D064826A900577DEB /* dotMacTpAsn1Templates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0582D0A80648160200577DEB /* dotMacTpAsn1Templates.cpp */; };
+		0582D19E064826A900577DEB /* dotMacTpAsn1Templates.h in Sources */ = {isa = PBXBuildFile; fileRef = 0582D06A064813B500577DEB /* dotMacTpAsn1Templates.h */; };
+		0582D19F064826AB00577DEB /* dotMacTpDebug.h in Sources */ = {isa = PBXBuildFile; fileRef = 0563D486063EDAE400ED568D /* dotMacTpDebug.h */; };
+		0582D1A0064826AB00577DEB /* dotMacTpMutils.h in Sources */ = {isa = PBXBuildFile; fileRef = 05D01E5B06415E85004A4E75 /* dotMacTpMutils.h */; };
+		0582D1A1064826AC00577DEB /* dotMacTpMutils.m in Sources */ = {isa = PBXBuildFile; fileRef = 05D01E5706415E44004A4E75 /* dotMacTpMutils.m */; };
+		0582D1A2064826AD00577DEB /* dotMacTpRpcGlue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0563D487063EDAE400ED568D /* dotMacTpRpcGlue.cpp */; };
+		0582D1A3064826AE00577DEB /* dotMacTpRpcGlue.h in Sources */ = {isa = PBXBuildFile; fileRef = 0563D488063EDAE400ED568D /* dotMacTpRpcGlue.h */; };
+		0582D1A4064826AE00577DEB /* dotMacTpUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0563D489063EDAE400ED568D /* dotMacTpUtils.cpp */; };
+		0582D1A5064826AF00577DEB /* dotMacTpUtils.h in Sources */ = {isa = PBXBuildFile; fileRef = 0563D48A063EDAE400ED568D /* dotMacTpUtils.h */; };
+		0582D1A6064826B100577DEB /* dotMacXmlRpc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05D01A5E06404571004A4E75 /* dotMacXmlRpc.cpp */; };
+		0582D1A7064826B200577DEB /* dotMacXmlRpc.h in Sources */ = {isa = PBXBuildFile; fileRef = 05D01A4F06404527004A4E75 /* dotMacXmlRpc.h */; };
+		0582D1A8064826B400577DEB /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0563D4FB063EDCE000ED568D /* Security.framework */; };
+		0582D1AA064826B900577DEB /* security_cdsa_plugin.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0563D590063EDD2800ED568D /* security_cdsa_plugin.framework */; };
+		0582D1AB064826BA00577DEB /* security_cdsa_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0563D5CF063EDD7000ED568D /* security_cdsa_utilities.framework */; };
+		0582D1AC064826BB00577DEB /* security_cdsa_utils.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05D01DB306407A31004A4E75 /* security_cdsa_utils.framework */; };
+		0582D1AD064826BC00577DEB /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0563D5FB063EDD8400ED568D /* security_utilities.framework */; };
+		05B8665A06C02193005E1549 /* dotMacTp.h in Headers */ = {isa = PBXBuildFile; fileRef = 0563D485063EDAE400ED568D /* dotMacTp.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		05C6EE9B06C00E9D00D0BEF2 /* dotmac_policyOids.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 05C6EE9A06C00E9D00D0BEF2 /* dotmac_policyOids.mdsinfo */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		05B8665806C02183005E1549 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0563D43E063ED98800ED568D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 05B8665306C0211B005E1549;
+			remoteInfo = security_dotmac_tp;
+		};
+		05C6EDAC06BFFD3800D0BEF2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0563D43E063ED98800ED568D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0582D18D0648269100577DEB;
+			remoteInfo = dotmac_tp.bundle;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0517F31F0AC20123005F506E /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
+		0517F32C0AC20361005F506E /* security_asn1.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_asn1.framework; path = /usr/local/SecurityPieces/Components/Security/security_asn1.framework; sourceTree = "<absolute>"; };
+		055D01A706486CC700531252 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		0563D47B063EDAE400ED568D /* AppleDotMacTP.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleDotMacTP.cpp; path = lib/AppleDotMacTP.cpp; sourceTree = "<group>"; };
+		0563D47C063EDAE400ED568D /* AppleDotMacTP.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleDotMacTP.h; path = lib/AppleDotMacTP.h; sourceTree = "<group>"; };
+		0563D47D063EDAE400ED568D /* AppleDotMacTPPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleDotMacTPPlugin.cpp; path = lib/AppleDotMacTPPlugin.cpp; sourceTree = "<group>"; };
+		0563D47E063EDAE400ED568D /* AppleDotMacTPSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleDotMacTPSession.cpp; path = lib/AppleDotMacTPSession.cpp; sourceTree = "<group>"; };
+		0563D47F063EDAE400ED568D /* AppleDotMacTPSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleDotMacTPSession.h; path = lib/AppleDotMacTPSession.h; sourceTree = "<group>"; };
+		0563D484063EDAE400ED568D /* dotMacCredRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = dotMacCredRequest.cpp; path = lib/dotMacCredRequest.cpp; sourceTree = "<group>"; };
+		0563D485063EDAE400ED568D /* dotMacTp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dotMacTp.h; path = lib/dotMacTp.h; sourceTree = "<group>"; };
+		0563D486063EDAE400ED568D /* dotMacTpDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dotMacTpDebug.h; path = lib/dotMacTpDebug.h; sourceTree = "<group>"; };
+		0563D487063EDAE400ED568D /* dotMacTpRpcGlue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = dotMacTpRpcGlue.cpp; path = lib/dotMacTpRpcGlue.cpp; sourceTree = "<group>"; };
+		0563D488063EDAE400ED568D /* dotMacTpRpcGlue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dotMacTpRpcGlue.h; path = lib/dotMacTpRpcGlue.h; sourceTree = "<group>"; };
+		0563D489063EDAE400ED568D /* dotMacTpUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = dotMacTpUtils.cpp; path = lib/dotMacTpUtils.cpp; sourceTree = "<group>"; };
+		0563D48A063EDAE400ED568D /* dotMacTpUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dotMacTpUtils.h; path = lib/dotMacTpUtils.h; sourceTree = "<group>"; };
+		0563D4A0063EDB5600ED568D /* dotmac_tp_common.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = dotmac_tp_common.mdsinfo; path = mds/dotmac_tp_common.mdsinfo; sourceTree = "<group>"; };
+		0563D4A1063EDB5600ED568D /* dotmac_tp_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = dotmac_tp_primary.mdsinfo; path = mds/dotmac_tp_primary.mdsinfo; sourceTree = "<group>"; };
+		0563D4FB063EDCE000ED568D /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		0563D546063EDCEA00ED568D /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		0563D590063EDD2800ED568D /* security_cdsa_plugin.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_cdsa_plugin.framework; path = /usr/local/SecurityPieces/Frameworks/security_cdsa_plugin.framework; sourceTree = "<absolute>"; };
+		0563D5CF063EDD7000ED568D /* security_cdsa_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_cdsa_utilities.framework; path = /usr/local/SecurityPieces/Frameworks/security_cdsa_utilities.framework; sourceTree = "<absolute>"; };
+		0563D5FB063EDD8400ED568D /* security_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_utilities.framework; path = /usr/local/SecurityPieces/Frameworks/security_utilities.framework; sourceTree = "<absolute>"; };
+		0582D06A064813B500577DEB /* dotMacTpAsn1Templates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dotMacTpAsn1Templates.h; path = lib/dotMacTpAsn1Templates.h; sourceTree = "<group>"; };
+		0582D0A80648160200577DEB /* dotMacTpAsn1Templates.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dotMacTpAsn1Templates.cpp; path = lib/dotMacTpAsn1Templates.cpp; sourceTree = "<group>"; };
+		0582D18E0648269100577DEB /* dotmac_tp.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = dotmac_tp.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		0582D18F0648269100577DEB /* dotmac_tp-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "dotmac_tp-Info.plist"; sourceTree = SOURCE_ROOT; };
+		05B8665406C0211B005E1549 /* security_dotmac_tp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = security_dotmac_tp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		05C6EE9A06C00E9D00D0BEF2 /* dotmac_policyOids.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = dotmac_policyOids.mdsinfo; path = mds/dotmac_policyOids.mdsinfo; sourceTree = "<group>"; };
+		05D01A4F06404527004A4E75 /* dotMacXmlRpc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dotMacXmlRpc.h; path = lib/dotMacXmlRpc.h; sourceTree = "<group>"; };
+		05D01A5E06404571004A4E75 /* dotMacXmlRpc.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = dotMacXmlRpc.cpp; path = lib/dotMacXmlRpc.cpp; sourceTree = "<group>"; };
+		05D01AE006405574004A4E75 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
+		05D01DB306407A31004A4E75 /* security_cdsa_utils.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_cdsa_utils.framework; path = /usr/local/SecurityPieces/Frameworks/security_cdsa_utils.framework; sourceTree = "<absolute>"; };
+		05D01E5706415E44004A4E75 /* dotMacTpMutils.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = dotMacTpMutils.m; path = lib/dotMacTpMutils.m; sourceTree = "<group>"; };
+		05D01E5B06415E85004A4E75 /* dotMacTpMutils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dotMacTpMutils.h; path = lib/dotMacTpMutils.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0582D18C0648269100577DEB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0582D197064826A300577DEB /* CoreFoundation.framework in Frameworks */,
+				0582D198064826A400577DEB /* CoreServices.framework in Frameworks */,
+				0582D1A8064826B400577DEB /* Security.framework in Frameworks */,
+				0582D1AA064826B900577DEB /* security_cdsa_plugin.framework in Frameworks */,
+				0582D1AB064826BA00577DEB /* security_cdsa_utilities.framework in Frameworks */,
+				0582D1AC064826BB00577DEB /* security_cdsa_utils.framework in Frameworks */,
+				0582D1AD064826BC00577DEB /* security_utilities.framework in Frameworks */,
+				055D01A806486CC700531252 /* Foundation.framework in Frameworks */,
+				0517F3200AC20123005F506E /* SystemConfiguration.framework in Frameworks */,
+				0517F32D0AC20361005F506E /* security_asn1.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		051AB4920643239A00C4AC77 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		0563D43A063ED98800ED568D = {
+			isa = PBXGroup;
+			children = (
+				0563D475063EDABD00ED568D /* lib */,
+				0563D478063EDAC300ED568D /* MDS */,
+				051AB4920643239A00C4AC77 /* Resources */,
+				0563D4F8063EDCB100ED568D /* Frameworks and Libraries */,
+				0563D44F063ED9D300ED568D /* Products */,
+				0582D18F0648269100577DEB /* dotmac_tp-Info.plist */,
+			);
+			sourceTree = "<group>";
+		};
+		0563D44F063ED9D300ED568D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0582D18E0648269100577DEB /* dotmac_tp.bundle */,
+				05B8665406C0211B005E1549 /* security_dotmac_tp.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0563D475063EDABD00ED568D /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				0563D47B063EDAE400ED568D /* AppleDotMacTP.cpp */,
+				0563D47C063EDAE400ED568D /* AppleDotMacTP.h */,
+				0563D47D063EDAE400ED568D /* AppleDotMacTPPlugin.cpp */,
+				0563D47E063EDAE400ED568D /* AppleDotMacTPSession.cpp */,
+				0563D47F063EDAE400ED568D /* AppleDotMacTPSession.h */,
+				0563D484063EDAE400ED568D /* dotMacCredRequest.cpp */,
+				0563D485063EDAE400ED568D /* dotMacTp.h */,
+				0563D486063EDAE400ED568D /* dotMacTpDebug.h */,
+				0563D487063EDAE400ED568D /* dotMacTpRpcGlue.cpp */,
+				0563D488063EDAE400ED568D /* dotMacTpRpcGlue.h */,
+				05D01A4F06404527004A4E75 /* dotMacXmlRpc.h */,
+				05D01A5E06404571004A4E75 /* dotMacXmlRpc.cpp */,
+				0563D489063EDAE400ED568D /* dotMacTpUtils.cpp */,
+				0563D48A063EDAE400ED568D /* dotMacTpUtils.h */,
+				05D01E5706415E44004A4E75 /* dotMacTpMutils.m */,
+				05D01E5B06415E85004A4E75 /* dotMacTpMutils.h */,
+				0582D0A80648160200577DEB /* dotMacTpAsn1Templates.cpp */,
+				0582D06A064813B500577DEB /* dotMacTpAsn1Templates.h */,
+			);
+			name = lib;
+			sourceTree = "<group>";
+		};
+		0563D478063EDAC300ED568D /* MDS */ = {
+			isa = PBXGroup;
+			children = (
+				05C6EE9A06C00E9D00D0BEF2 /* dotmac_policyOids.mdsinfo */,
+				0563D4A0063EDB5600ED568D /* dotmac_tp_common.mdsinfo */,
+				0563D4A1063EDB5600ED568D /* dotmac_tp_primary.mdsinfo */,
+			);
+			name = MDS;
+			sourceTree = "<group>";
+		};
+		0563D4F8063EDCB100ED568D /* Frameworks and Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				0517F32C0AC20361005F506E /* security_asn1.framework */,
+				0517F31F0AC20123005F506E /* SystemConfiguration.framework */,
+				055D01A706486CC700531252 /* Foundation.framework */,
+				0563D4FB063EDCE000ED568D /* Security.framework */,
+				0563D590063EDD2800ED568D /* security_cdsa_plugin.framework */,
+				0563D5CF063EDD7000ED568D /* security_cdsa_utilities.framework */,
+				0563D5FB063EDD8400ED568D /* security_utilities.framework */,
+				05D01AE006405574004A4E75 /* CoreServices.framework */,
+				0563D546063EDCEA00ED568D /* CoreFoundation.framework */,
+				05D01DB306407A31004A4E75 /* security_cdsa_utils.framework */,
+			);
+			name = "Frameworks and Libraries";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		05B8664F06C0211B005E1549 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				05B8665A06C02193005E1549 /* dotMacTp.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		0582D18D0648269100577DEB /* dotmac_tp.bundle */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD4650987FCE9001272E0 /* Build configuration list for PBXNativeTarget "dotmac_tp.bundle" */;
+			buildPhases = (
+				0582D18A0648269100577DEB /* Resources */,
+				0582D18B0648269100577DEB /* Sources */,
+				0582D18C0648269100577DEB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = dotmac_tp.bundle;
+			productName = security_apple_dotmac_tp;
+			productReference = 0582D18E0648269100577DEB /* dotmac_tp.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+		05B8665306C0211B005E1549 /* security_dotmac_tp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD4690987FCE9001272E0 /* Build configuration list for PBXNativeTarget "security_dotmac_tp" */;
+			buildPhases = (
+				05B8664F06C0211B005E1549 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = security_dotmac_tp;
+			productName = security_dotmac_tp;
+			productReference = 05B8665406C0211B005E1549 /* security_dotmac_tp.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0563D43E063ED98800ED568D /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD4710987FCE9001272E0 /* Build configuration list for PBXProject "security_dotmac_tp" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 0563D43A063ED98800ED568D;
+			productRefGroup = 0563D44F063ED9D300ED568D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
+			targets = (
+				0563D445063ED9AC00ED568D /* world */,
+				0582D18D0648269100577DEB /* dotmac_tp.bundle */,
+				05B8665306C0211B005E1549 /* security_dotmac_tp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		0582D18A0648269100577DEB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0582D199064826A500577DEB /* dotmac_tp_common.mdsinfo in Resources */,
+				0582D19A064826A600577DEB /* dotmac_tp_primary.mdsinfo in Resources */,
+				05C6EE9B06C00E9D00D0BEF2 /* dotmac_policyOids.mdsinfo in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0582D18B0648269100577DEB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0582D1920648269E00577DEB /* AppleDotMacTP.cpp in Sources */,
+				0582D1930648269F00577DEB /* AppleDotMacTP.h in Sources */,
+				0582D194064826A000577DEB /* AppleDotMacTPPlugin.cpp in Sources */,
+				0582D195064826A100577DEB /* AppleDotMacTPSession.cpp in Sources */,
+				0582D196064826A200577DEB /* AppleDotMacTPSession.h in Sources */,
+				0582D19B064826A700577DEB /* dotMacCredRequest.cpp in Sources */,
+				0582D19C064826A800577DEB /* dotMacTp.h in Sources */,
+				0582D19D064826A900577DEB /* dotMacTpAsn1Templates.cpp in Sources */,
+				0582D19E064826A900577DEB /* dotMacTpAsn1Templates.h in Sources */,
+				0582D19F064826AB00577DEB /* dotMacTpDebug.h in Sources */,
+				0582D1A0064826AB00577DEB /* dotMacTpMutils.h in Sources */,
+				0582D1A1064826AC00577DEB /* dotMacTpMutils.m in Sources */,
+				0582D1A2064826AD00577DEB /* dotMacTpRpcGlue.cpp in Sources */,
+				0582D1A3064826AE00577DEB /* dotMacTpRpcGlue.h in Sources */,
+				0582D1A4064826AE00577DEB /* dotMacTpUtils.cpp in Sources */,
+				0582D1A5064826AF00577DEB /* dotMacTpUtils.h in Sources */,
+				0582D1A6064826B100577DEB /* dotMacXmlRpc.cpp in Sources */,
+				0582D1A7064826B200577DEB /* dotMacXmlRpc.h in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		05B8665906C02183005E1549 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 05B8665306C0211B005E1549 /* security_dotmac_tp */;
+			targetProxy = 05B8665806C02183005E1549 /* PBXContainerItemProxy */;
+		};
+		05C6EDAD06BFFD3800D0BEF2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0582D18D0648269100577DEB /* dotmac_tp.bundle */;
+			targetProxy = 05C6EDAC06BFFD3800D0BEF2 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD4660987FCE9001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 32199;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "dotmac_tp-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				PRODUCT_NAME = dotmac_tp;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		C27AD4670987FCE9001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 32199;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				INFOPLIST_FILE = "dotmac_tp-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				OTHER_CFLAGS = "-DNDEBUG";
+				PRODUCT_NAME = dotmac_tp;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		C27AD4680987FCE9001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 32199;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				INFOPLIST_FILE = "dotmac_tp-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				OTHER_CFLAGS = "-DNDEBUG";
+				PRODUCT_NAME = dotmac_tp;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD46A0987FCE9001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 32199;
+				FRAMEWORK_VERSION = A;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_dotmac_tp;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		C27AD46B0987FCE9001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 32199;
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				OTHER_CFLAGS = "-DNDEBUG";
+				PRODUCT_NAME = security_dotmac_tp;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		C27AD46C0987FCE9001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 32199;
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_dotmac_tp;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD46E0987FCE9001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = world;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		C27AD46F0987FCE9001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				OTHER_CFLAGS = "-DNDEBUG";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = world;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		C27AD4700987FCE9001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = world;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD4720987FCE9001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD4730987FCE9001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD4740987FCE9001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD4650987FCE9001272E0 /* Build configuration list for PBXNativeTarget "dotmac_tp.bundle" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4660987FCE9001272E0 /* Development */,
+				C27AD4670987FCE9001272E0 /* Deployment */,
+				C27AD4680987FCE9001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD4690987FCE9001272E0 /* Build configuration list for PBXNativeTarget "security_dotmac_tp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD46A0987FCE9001272E0 /* Development */,
+				C27AD46B0987FCE9001272E0 /* Deployment */,
+				C27AD46C0987FCE9001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD46D0987FCE9001272E0 /* Build configuration list for PBXAggregateTarget "world" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD46E0987FCE9001272E0 /* Development */,
+				C27AD46F0987FCE9001272E0 /* Deployment */,
+				C27AD4700987FCE9001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD4710987FCE9001272E0 /* Build configuration list for PBXProject "security_dotmac_tp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4720987FCE9001272E0 /* Development */,
+				C27AD4730987FCE9001272E0 /* Deployment */,
+				C27AD4740987FCE9001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0563D43E063ED98800ED568D /* Project object */;
+}

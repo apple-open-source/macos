@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.66.2.12.4.6 2007/03/30 00:29:32 iliaa Exp $ */
+/* $Id: mail.c,v 1.87.2.1.2.7 2007/07/11 17:36:56 johannes Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -36,7 +36,6 @@
 #include "safe_mode.h"
 #include "exec.h"
 
-#if HAVE_SENDMAIL
 #ifdef PHP_WIN32
 #include "win32/sendmail.h"
 #endif
@@ -94,6 +93,7 @@ PHP_FUNCTION(mail)
 	char *subject=NULL, *extra_cmd=NULL;
 	int to_len, message_len, headers_len;
 	int subject_len, extra_cmd_len, i;
+	char *force_extra_parameters = INI_STR("mail.force_extra_parameters");
 	char *to_r, *subject_r;
 	char *p, *e;
 
@@ -144,7 +144,7 @@ PHP_FUNCTION(mail)
 		}
 	} else {
 		to_r = to;
-	}
+  	}
 
 	if (subject_len > 0) {
 		subject_r = estrndup(subject, subject_len);
@@ -154,7 +154,7 @@ PHP_FUNCTION(mail)
 			}
 			subject_r[subject_len - 1] = '\0';
 		}
-		for(i = 0; subject[i]; i++) {
+		for(i = 0; subject_r[i]; i++) {
 			if (iscntrl((unsigned char) subject_r[i])) {
 				SKIP_LONG_HEADER_SEP(subject_r, i);
 				subject_r[i] = ' ';
@@ -164,7 +164,9 @@ PHP_FUNCTION(mail)
 		subject_r = subject;
 	}
 
-	if (extra_cmd) {
+	if (force_extra_parameters) {
+		extra_cmd = php_escape_shell_cmd(force_extra_parameters);
+	} else if (extra_cmd) {
 		extra_cmd = php_escape_shell_cmd(extra_cmd);
 	}
 
@@ -202,7 +204,7 @@ PHPAPI int php_mail(char *to, char *subject, char *message, char *headers, char 
 	if (!sendmail_path) {
 #if (defined PHP_WIN32 || defined NETWARE)
 		/* handle old style win smtp sending */
-		if (TSendMail(INI_STR("SMTP"), &tsm_err, &tsm_errmsg, headers, subject, to, message, NULL, NULL, NULL) == FAILURE) {
+		if (TSendMail(INI_STR("SMTP"), &tsm_err, &tsm_errmsg, headers, subject, to, message, NULL, NULL, NULL TSRMLS_CC) == FAILURE) {
 			if (tsm_errmsg) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", tsm_errmsg);
 				efree(tsm_errmsg);
@@ -217,10 +219,7 @@ PHPAPI int php_mail(char *to, char *subject, char *message, char *headers, char 
 #endif
 	}
 	if (extra_cmd != NULL) {
-		sendmail_cmd = emalloc (strlen (sendmail_path) + strlen (extra_cmd) + 2);
-		strcpy (sendmail_cmd, sendmail_path);
-		strcat (sendmail_cmd, " ");
-		strcat (sendmail_cmd, extra_cmd);
+		spprintf(&sendmail_cmd, 0, "%s %s", sendmail_path, extra_cmd);
 	} else {
 		sendmail_cmd = sendmail_path;
 	}
@@ -294,13 +293,6 @@ PHP_MINFO_FUNCTION(mail)
 #endif
 }
 /* }}} */
-
-#else
-
-PHP_FUNCTION(mail) {}
-PHP_MINFO_FUNCTION(mail) {}
-
-#endif
 
 /*
  * Local variables:

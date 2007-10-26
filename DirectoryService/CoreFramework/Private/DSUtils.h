@@ -28,39 +28,57 @@
 #ifndef __DSUtils_h__
 #define __DSUtils_h__	1
 
+#include <sys/types.h>
 #include <DirectoryServiceCore/PrivateTypes.h>
+#include <CoreFoundation/CoreFoundation.h>
+
+//files and directories
+#define kDSLDAPPrefsDirPath						"/Library/Preferences/DirectoryService"
+#define kDSLDAPPrefsFilePath					kDSLDAPPrefsDirPath "/DSLDAPv3PlugInConfig.plist"
+#define kDSLDAPPrefsTempFilePath				kDSLDAPPrefsDirPath "/DSLDAPv3PlugInConfig.plist.XXXXXXXXXX"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-tDataBufferPtr	dsDataBufferAllocatePriv		( unsigned long inBufferSize );
-tDirStatus		dsDataBufferDeallocatePriv		( tDataBufferPtr inDataBufferPtr );
-tDataListPtr	dsDataListAllocatePriv			( void );
-tDirStatus		dsDataListDeallocatePriv		( tDataListPtr inDataList );
-char*			dsGetPathFromListPriv			( tDataListPtr inDataList, const char *inDelimiter );
-tDataListPtr	dsBuildFromPathPriv				( const char *inPathCString, const char *inPathSeparatorCString );
-tDataListPtr	dsBuildListFromStringsPriv		( const char *in1stCString, ... );
-tDirStatus		dsAppendStringToListAllocPriv	( tDataList *inOutDataList, const char *inCString );
-tDataNodePtr	dsAllocListNodeFromStringPriv	( const char *inString );
-tDataNodePtr	dsGetThisNodePriv				( tDataNode *inFirsNode, const unsigned long inIndex );
-tDataNodePtr	dsGetLastNodePriv				( tDataNode *inFirsNode );
-tDirStatus		dsAppendStringToListPriv		( tDataList *inDataList, const char *inCString );
-tDirStatus		dsDeleteLastNodePriv			( tDataList *inDataList );
-unsigned long	dsDataListGetNodeCountPriv		( tDataList *inDataList );
-unsigned long	dsGetDataLengthPriv				( tDataList *inDataList );
-tDirStatus		dsDataListGetNodePriv			( tDataList *inDataList, unsigned long inNodeIndex, tDataNodePtr *outDataListNode );
-char*			dsDataListGetNodeStringPriv		( tDataListPtr inDataList, unsigned long inNodeIndex );
-tDirStatus		dsDataListGetNodeAllocPriv		( const tDataList *inDataList, const unsigned long inNodeIndex, tDataNode **outDataNode );
-tDataListPtr	dsAuthBufferGetDataListAllocPriv	( tDataBufferPtr inAuthBuff );
-tDirStatus		dsAuthBufferGetDataListPriv		( tDataBufferPtr inAuthBuff, tDataListPtr inOutDataList );
+tDataBufferPtr			dsDataBufferAllocatePriv			( UInt32 inBufferSize );
+tDirStatus				dsDataBufferDeallocatePriv			( tDataBufferPtr inDataBufferPtr );
+tDataListPtr			dsDataListAllocatePriv				( void );
+tDirStatus				dsDataListDeallocatePriv			( tDataListPtr inDataList );
+char*					dsGetPathFromListPriv				( tDataListPtr inDataList, const char *inDelimiter );
+tDataListPtr			dsBuildFromPathPriv					( const char *inPathCString, const char *inPathSeparatorCString );
+tDataListPtr			dsBuildListFromStringsPriv			( const char *in1stCString, ... );
+tDirStatus				dsAppendStringToListAllocPriv		( tDataList *inOutDataList, const char *inCString );
+tDataNodePtr			dsAllocListNodeFromStringPriv		( const char *inString );
+tDataNodePtr			dsGetThisNodePriv					( tDataNode *inFirsNode, const UInt32 inIndex );
+tDataNodePtr			dsGetLastNodePriv					( tDataNode *inFirsNode );
+tDirStatus				dsAppendStringToListPriv			( tDataList *inDataList, const char *inCString );
+tDirStatus				dsDeleteLastNodePriv				( tDataList *inDataList );
+UInt32					dsDataListGetNodeCountPriv			( tDataList *inDataList );
+UInt32					dsGetDataLengthPriv					( tDataList *inDataList );
+tDirStatus				dsDataListGetNodePriv				( tDataList *inDataList, UInt32 inNodeIndex, tDataNodePtr *outDataListNode );
+char*					dsDataListGetNodeStringPriv			( tDataListPtr inDataList, UInt32 inNodeIndex );
+tDirStatus				dsDataListGetNodeAllocPriv			( const tDataList *inDataList, const UInt32 inNodeIndex, tDataNode **outDataNode );
+tDataListPtr			dsAuthBufferGetDataListAllocPriv	( tDataBufferPtr inAuthBuff );
+tDirStatus				dsAuthBufferGetDataListPriv			( tDataBufferPtr inAuthBuff, tDataListPtr inOutDataList );
+char*					dsCStrFromCharacters				( const char *inChars, size_t inLen );
 
-void			BinaryToHexConversion			( const unsigned char *inBinary, unsigned long inLength, char *outHexStr );
-void			HexToBinaryConversion			( const char *inHexStr, unsigned long *outLength, unsigned char *outBinary );
+void					BinaryToHexConversion				( const unsigned char *inBinary, UInt32 inLength, char *outHexStr );
+void					HexToBinaryConversion				( const char *inHexStr, UInt32 *outLength, unsigned char *outBinary );
 
-double			dsTimestamp						(void);
-tDirStatus		dsGetAuthMethodEnumValue		( tDataNode *inData, unsigned long *outAuthMethod );
-const char*		dsGetPatternMatchName			( tDirPatternMatch inPatternMatchEnum );
+double					dsTimestamp							( void );
+tDirStatus				dsGetAuthMethodEnumValue			( tDataNode *inData, UInt32 *outAuthMethod );
+const char*				dsGetPatternMatchName				( tDirPatternMatch inPatternMatchEnum );
+
+CFArrayRef				dsConvertAuthBufferToCFArray		( tDataBufferPtr inAuthBuff );
+CFArrayRef				dsConvertDataListToCFArray			( tDataList *inDataList );
+tDataListPtr			dsConvertCFArrayToDataList			( CFArrayRef inArray );
+
+char*					dsGetNameForProcessID				( pid_t inPID );
+CFMutableDictionaryRef	dsCreateEventLogDict				( CFStringRef inEventType, const char *inUser, CFDictionaryRef inDetails );
+
+int						dsCreatePrefsDirectory				( void );
+CFStringRef				dsCreatePrefsFilename				( const char *inFileNameBase );
 
 #ifdef __cplusplus
 }

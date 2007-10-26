@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,7 @@
 #include "AppleIntelPIIXATAHW.h"
 #include "AppleIntelPIIXATAKeys.h"
 #include "AppleIntelPIIXATAChannel.h"
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
 
 class AppleIntelPIIXPATA : public IOPCIATA
 {
@@ -75,6 +76,10 @@ protected:
     UInt16                        _ideConfig;
     bool                          _initTimingRegisters;
 
+	IOACPIPlatformDevice*         _pciACPIDevice;
+	bool							_drivePowerOn;
+	IONotifier*						_interestNotifier;
+
     /* Interrupt event source action */
     
     static void interruptOccurred( OSObject *               owner,
@@ -114,6 +119,27 @@ protected:
     virtual IOReturn synchronousIO( void );
 
     virtual void initForPM( IOService * provider );
+	
+	// acpi media notify
+	IOACPIPlatformDevice* getACPIParent( void );
+	bool hasMediaNotify(IOACPIPlatformDevice* acpi_device);
+	void turnOffDrive( void );
+	void turnOnDrive( void );
+	
+	static IOReturn mediaInterestHandler( void* target, 
+										void* refCon,
+										UInt32 messageType, 
+										IOService* provider,
+										void* messageArgument,
+										vm_size_t argSize);
+	
+	IOReturn handleInsert( void );									
+																												
+	// override from IOATAController
+	virtual void completeIO( IOReturn commandResult);
+	virtual IOReturn dispatchNext( void );
+	
+	virtual IOATAController::transState	determineATAPIState(void);
 
 public:
     /* IOService overrides */
@@ -160,6 +186,11 @@ public:
     virtual IOReturn createChannelCommands( void );
 
     virtual bool freeDMAChannel( void );
+	
+    /* Optional IOPCIATA override to prevent spurius interrupts */
+	
+	virtual IOReturn selectDevice( ataUnitID unit );
+
 };
 
 #endif /* !_APPLEINTELPIIXPATA_H */

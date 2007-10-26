@@ -1,5 +1,5 @@
---- wcsftime.3.orig	Fri Mar 11 19:44:47 2005
-+++ wcsftime.3	Fri Mar 11 19:49:00 2005
+--- _SB/Libc/locale/FreeBSD/wcsftime.3	2003-05-20 15:21:44.000000000 -0700
++++ _SB/Libc/locale/FreeBSD/wcsftime.3.edit	2006-06-28 16:55:51.000000000 -0700
 @@ -28,7 +28,8 @@
  .Dt WCSFTIME 3
  .Os
@@ -10,20 +10,34 @@
  .Nd "convert date and time to a wide-character string"
  .Sh LIBRARY
  .Lb libc
-@@ -39,6 +40,12 @@
- .Fa "wchar_t * restrict wcs" "size_t maxsize"
- .Fa "const wchar_t * restrict format" "const struct tm * restrict timeptr"
- .Fc
+@@ -36,29 +37,50 @@
+ .In wchar.h
+ .Ft size_t
+ .Fo wcsftime
+-.Fa "wchar_t * restrict wcs" "size_t maxsize"
+-.Fa "const wchar_t * restrict format" "const struct tm * restrict timeptr"
++.Fa "wchar_t *restrict wcs"
++.Fa "size_t maxsize"
++.Fa "const wchar_t *restrict format"
++.Fa "const struct tm *restrict timeptr"
++.Fc
++.In wchar.h
 +.In xlocale.h
 +.Ft size_t
 +.Fo wcsftime_l
-+.Fa "wchar_t * restrict wcs" "size_t maxsize"
-+.Fa "const wchar_t * restrict format" "const struct tm * restrict timeptr" "locale_t loc"
-+.Fc
++.Fa "wchar_t *restrict wcs"
++.Fa "size_t maxsize"
++.Fa "const wchar_t *restrict format"
++.Fa "const struct tm *restrict timeptr"
++.Fa "locale_t loc"
+ .Fc
  .Sh DESCRIPTION
  The
  .Fn wcsftime
-@@ -48,6 +55,14 @@
+ function is equivalent to the
+ .Fn strftime
+-function except for the types of its arguments.
++function, except for the types of its arguments.
  Refer to
  .Xr strftime 3
  for a detailed description.
@@ -38,7 +52,11 @@
  .Sh COMPATIBILITY
  Some early implementations of
  .Fn wcsftime
-@@ -58,7 +73,8 @@
+ had a
+ .Fa format
+ argument with type
+-.Vt "const char *"
++.Vt "const char *" ,
  instead of
  .Vt "const wchar_t *" .
  .Sh SEE ALSO

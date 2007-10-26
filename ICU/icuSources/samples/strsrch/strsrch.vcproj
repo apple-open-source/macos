@@ -25,6 +25,7 @@
 				PreprocessorDefinitions="WIN32,_DEBUG,_CONSOLE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
+				TreatWChar_tAsBuiltInType="TRUE"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderFile=".\Debug/strsrch.pch"
 				AssemblerListingLocation=".\Debug/"
@@ -39,7 +40,6 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="icuind.lib icuucd.lib"
 				OutputFile=".\Debug/strsrch.exe"
 				LinkIncremental="2"
@@ -88,6 +88,7 @@
 				StringPooling="TRUE"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderFile=".\Release/strsrch.pch"
 				AssemblerListingLocation=".\Release/"
@@ -100,7 +101,6 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="icuin.lib icuuc.lib"
 				OutputFile=".\Release/strsrch.exe"
 				LinkIncremental="1"

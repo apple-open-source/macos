@@ -1,7 +1,7 @@
 Tere tulemast listi %(real_name)s@%(host_name)s!
 %(welcome)s
 
-Listi postitamiseks kirjuta aadressil
+Listi kirjutamiseks on aadress
 
   %(emailaddr)s
 
@@ -9,27 +9,27 @@ Taustinfot listi kohta saab aadressil
 
   %(listinfo_url)s
 
-Kui soovid listi tellimust lõpetada või tellimuse profiili
-muuta (näiteks kirjade kättetoimetamise moodust, parooli
-vahetada, jmt), siis külasta veebilehte
+Tellimuse lõpetamiseks ja tellimuse profiili muutmiseks
+(kirjade saatmise moodus, parooli vahetamine, jms)
+on veebileht 
 
   %(optionsurl)s
 %(umbrella)s
 
-Kõiki neid toimingud on võimalik teha ka meili teel. Selleks
+Kõiki neid toiminguid saab teha ka meili teel. Selleks
 tuleb aadressile
 
   %(real_name)s-request@%(host_name)s
 
 saata kiri, mille sisuks üksainus sõna - help
 
-Vastuseks saad listserverilt kasutusjuhendi.
+Listserver vastab sellele kasutusjuhendiga.
 
 Profiili muutmiseks (k.a. parooli muutmiseks) või listi
-tellimuse katkestamiseks on vaja parooli. Sinu parool on:
+tellimuse lõpetamiseks on vaja parooli. Teie parool on:
 
   %(password)s
 
-Mailman saadab kord kuus meeldetuletusi kõigi sinu
-%(host_name)s listide tellimuste kohta, kuid sul
-on võimalik nendest meeldetuletustest ka loobuda.
+Mailman saadab kord kuus meeldetuletusi kõigi teie
+%(host_name)s listide tellimuste kohta, kuid soovi korral
+saad nendest meeldetuletustest loobuda.

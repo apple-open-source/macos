@@ -321,7 +321,6 @@ _uw_install_context_1
 _init_dwarf_reg_size_table
 eh_rest_world_r10
 rest_world_eh_r7r8
-__Unwind_Resume
 ___cxa_begin_catch
 __ZN8Security9CssmError9cssmErrorERKNS_11CommonErrorEl
 __ZNK13Authorization5Error8osStatusEv

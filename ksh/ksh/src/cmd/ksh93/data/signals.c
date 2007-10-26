@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #include	<ast.h>
 #include	"shtable.h"
 #include	"fault.h"
@@ -59,6 +55,9 @@ const struct shtable2 shtab_signals[] =
 #ifdef SIGBUS
 	"BUS",		VAL(SIGBUS,SH_SIGDONE),		S("Bus error"),
 #endif /* SIGBUS */
+#ifdef SIGCANCEL
+	"CANCEL",	VAL(SIGCANCEL,SH_SIGIGNORE), 	S("Thread cancellation"),
+#endif /*SIGCANCEL */
 #ifdef SIGCHLD
 	"CHLD",		VAL(SIGCHLD,SH_SIGFAULT), 	S("Death of Child"),
 #   ifdef SIGCLD
@@ -75,6 +74,9 @@ const struct shtable2 shtab_signals[] =
 	"CONT",		VAL(SIGCONT,SH_SIGIGNORE),	S("Stopped process continued"),
 #endif	/* SIGCONT */
 	"DEBUG",	VAL(TRAP(SH_DEBUGTRAP),0),	"",
+#ifdef SIGDANGER
+	"DANGER",	VAL(SIGDANGER,0),	S("System crash soon"),
+#endif	/* SIGDANGER */
 #ifdef SIGDIL
 	"DIL",		VAL(SIGDIL,0),			S("DIL signal"),
 #endif	/* SIGDIL */
@@ -82,6 +84,9 @@ const struct shtable2 shtab_signals[] =
 	"EMT",		VAL(SIGEMT,SH_SIGDONE),		S("EMT trap"),
 #endif	/* SIGEMT */
 	"ERR",		VAL(TRAP(SH_ERRTRAP),0),	"",
+#ifdef SIGERR
+	"ERR",		VAL(SIGERR,0),			"",
+#endif /* SIGERR */
 	"EXIT",		VAL(0,0),			"",
 	"FPE",		VAL(SIGFPE,SH_SIGDONE),		S("Floating exception"),
 #ifdef SIGFREEZE
@@ -100,6 +105,12 @@ const struct shtable2 shtab_signals[] =
 #ifdef SIGIOT
 	"IOT",		VAL(SIGIOT,SH_SIGDONE),		S("Abort"),
 #endif	/* SIGIOT */
+#ifdef SIGJVM1
+	"JVM1",		VAL(SIGJVM1,SH_SIGIGNORE), 	S("Special signal used by Java Virtual Machine"),
+#endif /*SIGJVM1 */
+#ifdef SIGJVM2
+	"JVM2",		VAL(SIGJVM2,SH_SIGIGNORE), 	S("Special signal used by Java Virtual Machine"),
+#endif /*SIGJVM2 */
 	"KEYBD",	VAL(TRAP(SH_KEYTRAP),0),	"",
 #ifdef SIGKILL
 	"KILL",		VAL(SIGKILL,0),			S("Killed"),
@@ -136,20 +147,30 @@ const struct shtable2 shtab_signals[] =
 #endif	/* SIGPWR */
 #ifdef SIGQUIT
 	"QUIT",		VAL(SIGQUIT,SH_SIGDONE|SH_SIGINTERACTIVE),	S("Quit"),
+#ifdef __SIGRTMIN
+#undef	SIGRTMIN
+#define SIGRTMIN	__SIGRTMIN
+#else
 #ifdef _SIGRTMIN
-	"RTMIN",	VAL(_SIGRTMIN,0),		S("Lowest priority realtime signal"),
-#else
-#   ifdef SIGRTMIN
+#undef	SIGRTMIN
+#define SIGRTMIN	_SIGRTMIN
+#endif 
+#endif
+#if defined(SIGRTMIN) && SIGRTMIN > 0
 	"RTMIN",	VAL(SIGRTMIN,0),		S("Lowest priority realtime signal"),
-#   endif /* SIGRTMIN */
-#endif	/* _SIGRTMIN */
-#ifdef _SIGRTMAX
-	"RTMAX",	VAL(_SIGRTMAX,0),		S("Highest priority realtime signal"),
+#endif	/* SIGRTMIN */
+#ifdef __SIGRTMAX
+#undef	SIGRTMAX
+#define SIGRTMAX	__SIGRTMAX
 #else
-#   ifdef SIGRTMAX
+#ifdef _SIGRTMAX
+#undef	SIGRTMAX
+#define SIGRTMAX	_SIGRTMAX
+#endif 
+#endif
+#if defined(SIGRTMAX) && SIGRTMAX > 0
 	"RTMAX",	VAL(SIGRTMAX,0),		S("Highest priority realtime signal"),
-#   endif /* SIGRTMAX */
-#endif	/* _SIGRTMAX */
+#endif	/* SIGRTMAX */
 #endif	/* SIGQUIT */
 	"SEGV",		VAL(SIGSEGV,0),			S("Memory fault"),
 #ifdef SIGSTOP
@@ -196,9 +217,6 @@ const struct shtable2 shtab_signals[] =
 #ifdef SIGMIGRATE
 	"MIGRATE",		VAL(SIGMIGRATE,0),	S("Migrate process"),
 #endif	/* SIGMIGRATE */
-#ifdef SIGDANGER
-	"DANGER",		VAL(SIGDANGER,0),	S("System crash soon"),
-#endif	/* SIGDANGER */
 #ifdef SIGSOUND
 	"SOUND",		VAL(SIGSOUND,0),	S("Sound completed"),
 #endif	/* SIGSOUND */
@@ -214,5 +232,8 @@ const struct shtable2 shtab_signals[] =
 #ifdef SIGXFSZ
 	"XFSZ",		VAL(SIGXFSZ,SH_SIGDONE|SH_SIGINTERACTIVE),	S("Exceeded file size limit"),
 #endif	/* SIGXFSZ */
+#ifdef SIGXRES
+	"XRES",		VAL(SIGXRES,SH_SIGDONE|SH_SIGINTERACTIVE),	S("Exceeded resource control"),
+#endif	/* SIGRES */
 	"",	0,	0
 };

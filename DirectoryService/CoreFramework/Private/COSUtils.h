@@ -47,13 +47,14 @@ enum eAppInfoStringOffsets {
 	kStrInfoLogFileName,
 	kStrPluginExtension,
 	kStrOtherPlugInsFolder,
+	kStrLocalProductFolder,
 	kStrAppStrEnd
 };
 
 class COSUtils
 {
 public:
-	static	const char*	GetStringFromList	( const uInt32 inListID, const sInt32 inIndex );
+	static	const char*	GetStringFromList	( const UInt32 inListID, const SInt32 inIndex );
 };
 
 int dsTouch( const char* path );

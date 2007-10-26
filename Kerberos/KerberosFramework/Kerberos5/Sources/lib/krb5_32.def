@@ -64,6 +64,8 @@ EXPORTS
 	krb5_c_keyed_checksum_types
 	krb5_c_make_checksum
 	krb5_c_make_random_key
+krb5_c_prf
+krb5_c_prf_length
 	krb5_c_random_make_octets
 	krb5_c_random_seed
 	krb5_c_string_to_key
@@ -72,6 +74,9 @@ krb5_c_string_to_key_with_params
 	krb5_c_valid_enctype
 	krb5_c_verify_checksum
 	krb5_calculate_checksum
+	krb5_cccol_cursor_free
+	krb5_cccol_cursor_new
+	krb5_cccol_cursor_next
 	krb5_cc_close
 	krb5_cc_copy_creds
 	krb5_cc_default
@@ -83,6 +88,7 @@ krb5_c_string_to_key_with_params
 	krb5_cc_get_principal
 	krb5_cc_get_type
 	krb5_cc_initialize
+	krb5_cc_new_unique
 	krb5_cc_next_cred
 	krb5_cc_remove_cred
 	krb5_cc_resolve
@@ -98,6 +104,7 @@ krb5_c_string_to_key_with_params
 	krb5_copy_authdata
 	krb5_copy_authenticator
 	krb5_copy_checksum
+	krb5_copy_context
 	krb5_copy_creds
 	krb5_copy_data
 	krb5_copy_keyblock
@@ -148,10 +155,16 @@ krb5_c_string_to_key_with_params
 	krb5_get_in_tkt_with_password		; DEPRECATED
 	krb5_get_in_tkt_with_skey		; DEPRECATED
 	krb5_get_init_creds_keytab
+	krb5_get_init_creds_opt_alloc
+	krb5_get_init_creds_opt_free
+	krb5_get_init_creds_opt_free_pa
+	krb5_get_init_creds_opt_get_pa
 	krb5_get_init_creds_opt_init
+	krb5_get_init_creds_opt_set_pa
 	krb5_get_init_creds_opt_set_address_list
 	krb5_get_init_creds_opt_set_etype_list
 	krb5_get_init_creds_opt_set_forwardable
+	krb5_get_init_creds_opt_set_change_password_prompt
 	krb5_get_init_creds_opt_set_preauth_list
 	krb5_get_init_creds_opt_set_proxiable
 	krb5_get_init_creds_opt_set_renew_life
@@ -168,6 +181,7 @@ krb5_c_string_to_key_with_params
 	krb5_init_keyblock
 	krb5_init_random_key
 	krb5_init_secure_context
+	krb5_is_referral_realm
         krb5_is_thread_safe
 	krb5_kt_add_entry
 	krb5_kt_close
@@ -210,6 +224,7 @@ krb5_c_string_to_key_with_params
 	krb5_recvauth_version
 	krb5_salttype_to_string
 	krb5_sendauth
+	krb5_server_decrypt_ticket_keytab
 	krb5_set_default_realm
 	krb5_set_default_tgs_enctypes
         krb5_set_password
@@ -280,4 +295,9 @@ krb5_c_string_to_key_with_params
 	krb5_rc_close				; PRIVATE GSSAPI krb5.hin
 	krb5_free_enc_tkt_part			; PRIVATE GSSAPI krb5.hin
 	krb5_decrypt_tkt_part			; PRIVATE GSSAPI krb5.hin
-    
+
+	krb5_set_error_message
+	krb5_vset_error_message
+	krb5_get_error_message
+	krb5_free_error_message
+	krb5_clear_error_message

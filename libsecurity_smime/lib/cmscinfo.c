@@ -130,6 +130,7 @@ SecCmsContentInfoGetChildContentInfo(SecCmsContentInfoRef cinfo)
 	ccinfo = &(cinfo->content.encryptedData->contentInfo);
 	break;
     case SEC_OID_PKCS7_DATA:
+    case SEC_OID_OTHER:
     default:
 	break;
     }
@@ -212,6 +213,37 @@ SecCmsContentInfoSetContentEncryptedData(SecCmsMessageRef cmsg, SecCmsContentInf
     return SecCmsContentInfoSetContent(cmsg, cinfo, SEC_OID_PKCS7_ENCRYPTED_DATA, (void *)encd);
 }
 
+OSStatus
+SecCmsContentInfoSetContentOther(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached, const CSSM_OID *eContentType)
+{
+    SECStatus srtn;
+    SECOidData *tmpOidData;
+    
+    /* just like SecCmsContentInfoSetContentData, except override the contentType and
+     * contentTypeTag. This OID is for encoding... */
+    srtn = SECITEM_CopyItem (cmsg->poolp, &(cinfo->contentType), eContentType);
+    if (srtn != SECSuccess) {
+	return memFullErr;
+    }
+    
+    /* this serves up a contentTypeTag with an empty OID */
+    tmpOidData = SECOID_FindOIDByTag(SEC_OID_OTHER);
+    /* but that's const: cook up a new one we can write to */
+    cinfo->contentTypeTag = (SECOidData *)PORT_ArenaZAlloc(cmsg->poolp, sizeof(SECOidData));
+    *cinfo->contentTypeTag = *tmpOidData;
+    /* now fill in the OID */
+    srtn = SECITEM_CopyItem (cmsg->poolp, &(cinfo->contentTypeTag->oid), eContentType);
+    if (srtn != SECSuccess) {
+	return memFullErr;
+    }
+    cinfo->content.pointer = data;
+    cinfo->rawContent = (detached) ? 
+			    NULL : (data) ? 
+				data : SECITEM_AllocItem(cmsg->poolp, NULL, 1);
+    return noErr;
+}
+
+
 /*
  * SecCmsContentInfoGetContent - get pointer to inner content
  *
@@ -222,13 +254,14 @@ SecCmsContentInfoGetContent(SecCmsContentInfoRef cinfo)
 {
     SECOidTag tag = (cinfo && cinfo->contentTypeTag) 
 		     ? cinfo->contentTypeTag->offset 
-		     : SEC_OID_UNKNOWN;
+		     : cinfo->contentType.Data ? SEC_OID_OTHER : SEC_OID_UNKNOWN;
     switch (tag) {
     case SEC_OID_PKCS7_DATA:
     case SEC_OID_PKCS7_SIGNED_DATA:
     case SEC_OID_PKCS7_ENVELOPED_DATA:
     case SEC_OID_PKCS7_DIGESTED_DATA:
     case SEC_OID_PKCS7_ENCRYPTED_DATA:
+    case SEC_OID_OTHER:
 	return cinfo->content.pointer;
     default:
 	return NULL;
@@ -243,32 +276,32 @@ SecCmsContentInfoGetContent(SecCmsContentInfoRef cinfo)
 CSSM_DATA_PTR
 SecCmsContentInfoGetInnerContent(SecCmsContentInfoRef cinfo)
 {
-    SecCmsContentInfoRef ccinfo;
     SECOidTag tag;
-    CSSM_DATA_PTR pItem;
 
-    tag = SecCmsContentInfoGetContentTypeTag(cinfo);
-    switch (tag) {
-    case SEC_OID_PKCS7_DATA:
-	/* end of recursion - every message has to have a data cinfo */
-	pItem = cinfo->content.data; 
-	break;
-    case SEC_OID_PKCS7_DIGESTED_DATA:
-    case SEC_OID_PKCS7_ENCRYPTED_DATA:
-    case SEC_OID_PKCS7_ENVELOPED_DATA:
-    case SEC_OID_PKCS7_SIGNED_DATA:
-	ccinfo = SecCmsContentInfoGetChildContentInfo(cinfo);
-	if (ccinfo == NULL)
-	    pItem = NULL;
-	else
-	    pItem = SecCmsContentInfoGetContent(ccinfo);
-	break;
-    default:
-	PORT_Assert(0);
-	pItem = NULL;
-	break;
+    for(;;) {
+	tag = SecCmsContentInfoGetContentTypeTag(cinfo);
+	switch (tag) {
+	case SEC_OID_PKCS7_DATA:
+	case SEC_OID_OTHER:
+	    /* end of recursion - every message has to have a data cinfo */
+	    return cinfo->content.data; 
+	case SEC_OID_PKCS7_DIGESTED_DATA:
+	case SEC_OID_PKCS7_ENCRYPTED_DATA:
+	case SEC_OID_PKCS7_ENVELOPED_DATA:
+	case SEC_OID_PKCS7_SIGNED_DATA:
+	    cinfo = SecCmsContentInfoGetChildContentInfo(cinfo);
+	    if (cinfo == NULL) {
+		return NULL;
+	    }
+	    /* else recurse */
+	    break;
+	default:
+	    PORT_Assert(0);
+	    return NULL;
+	}
     }
-    return pItem;
+    /* NOT REACHED */
+    return NULL;
 }
 
 /*
@@ -282,7 +315,7 @@ SecCmsContentInfoGetContentTypeTag(SecCmsContentInfoRef cinfo)
 	cinfo->contentTypeTag = SECOID_FindOID(&(cinfo->contentType));
 
     if (cinfo->contentTypeTag == NULL)
-	return SEC_OID_UNKNOWN;
+	return SEC_OID_OTHER;	// was...SEC_OID_UNKNOWN OK?
 
     return cinfo->contentTypeTag->offset;
 }
@@ -293,9 +326,15 @@ SecCmsContentInfoGetContentTypeOID(SecCmsContentInfoRef cinfo)
     if (cinfo->contentTypeTag == NULL)
 	cinfo->contentTypeTag = SECOID_FindOID(&(cinfo->contentType));
 
-    if (cinfo->contentTypeTag == NULL)
-	return NULL;
-
+    if (cinfo->contentTypeTag == NULL) {
+	/* if we have an OID but we just don't recognize it, return that */
+	if(cinfo->contentType.Data != NULL) {
+	    return &cinfo->contentType;
+	}
+	else {
+	    return NULL;
+	}
+    }
     return &(cinfo->contentTypeTag->oid);
 }
 

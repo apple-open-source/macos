@@ -1,11 +1,36 @@
 --- system.c.orig	2003-05-20 15:23:25.000000000 -0700
-+++ system.c	2004-08-31 12:00:07.000000000 -0700
-@@ -58,8 +58,12 @@
++++ system.c	2006-06-24 18:48:47.000000000 -0700
+@@ -49,6 +49,16 @@
+ #include "un-namespace.h"
+ #include "libc_private.h"
+ 
++#if __DARWIN_UNIX03
++#include <pthread.h>
++
++static pthread_mutex_t __systemfn_mutex = PTHREAD_MUTEX_INITIALIZER;
++extern int __unix_conforming;
++#ifdef VARIANT_CANCELABLE
++extern void _pthread_testcancel(pthread_t thread, int isconforming);
++#endif /* VARIANT_CANCELABLE */
++#endif /* __DARWIN_UNIX03 */
++
+ int
+ __system(command)
+ 	const char *command;
+@@ -58,9 +68,24 @@
  	struct sigaction ign, intact, quitact;
  	sigset_t newsigblock, oldsigblock;
  
 -	if (!command)		/* just checking... */
 -		return(1);
++#if __DARWIN_UNIX03
++	if (__unix_conforming == 0)
++		__unix_conforming = 1;
++#ifdef VARIANT_CANCELABLE
++	_pthread_testcancel(pthread_self(), 1);
++#endif /* VARIANT_CANCELABLE */
++#endif /* __DARWIN_UNIX03 */
++
 +	if (!command) {		/* just checking... */
 +		if (access(_PATH_BSHELL, F_OK) == -1)	/* if no sh or no access */
 +			return(0);
@@ -13,5 +38,29 @@
 +			return(1);
 +	}
  
++#if __DARWIN_UNIX03
++	pthread_mutex_lock(&__systemfn_mutex);
++#endif /* __DARWIN_UNIX03 */
  	/*
  	 * Ignore SIGINT and SIGQUIT, block SIGCHLD. Remember to save
+ 	 * existing signal dispositions.
+@@ -83,6 +108,9 @@
+ 		(void)_sigaction(SIGINT, &intact, NULL);
+ 		(void)_sigaction(SIGQUIT,  &quitact, NULL);
+ 		(void)_sigprocmask(SIG_SETMASK, &oldsigblock, NULL);
++#if __DARWIN_UNIX03
++		pthread_mutex_unlock(&__systemfn_mutex);
++#endif /* __DARWIN_UNIX03 */
+ 		execl(_PATH_BSHELL, "sh", "-c", command, (char *)NULL);
+ 		_exit(127);
+ 	default:			/* parent */
+@@ -95,6 +123,9 @@
+ 	(void)_sigaction(SIGINT, &intact, NULL);
+ 	(void)_sigaction(SIGQUIT,  &quitact, NULL);
+ 	(void)_sigprocmask(SIG_SETMASK, &oldsigblock, NULL);
++#if __DARWIN_UNIX03
++	pthread_mutex_unlock(&__systemfn_mutex);
++#endif /* __DARWIN_UNIX03 */
+ 	return(pid == -1 ? -1 : pstat);
+ }
+ 

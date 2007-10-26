@@ -54,8 +54,6 @@ include $(CoreOSMakefiles)/ReleaseControl/Common.make
 Sources     = $(SRCROOT)/$(Project)
 ConfigStamp = $(BuildDirectory)/configure-stamp
 
-Workaround_3678855 = /BogusHTMLInstallationDir
-
 ifndef Install_Prefix
 Install_Prefix = $(USRDIR)
 endif
@@ -67,7 +65,7 @@ Install_Info = $(SHAREDIR)/info
 endif
 ifndef Install_HTML
 ifeq "$(UserType)" "Developer"
-Install_HTML = $(Workaround_3678855)
+Install_HTML = $(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)/$(ProjectName)
 else
 Install_HTML = $(NSDOCUMENTATIONDIR)/$(ToolType)/$(ProjectName)
 endif
@@ -117,8 +115,8 @@ install:: build
 ifneq ($(GnuNoInstall),YES)
 	@echo "Installing $(Project)..."
 	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) $(Install_Target)
-	$(_v) $(FIND) $(DSTROOT) $(Find_Cruft) | $(XARGS) $(RMDIR)
-	$(_v) $(FIND) $(SYMROOT) $(Find_Cruft) | $(XARGS) $(RMDIR)
+	$(_v) $(FIND) $(DSTROOT) $(Find_Cruft) -depth -exec $(RMDIR) "{}" \;
+	$(_v) $(FIND) $(SYMROOT) $(Find_Cruft) -depth -exec $(RMDIR) "{}" \;
 ifneq ($(GnuNoChown),YES)
 	$(_v)- $(CHOWN) -R $(Install_User):$(Install_Group) $(DSTROOT) $(SYMROOT)
 endif
@@ -126,11 +124,7 @@ endif
 ifdef GnuAfterInstall
 	$(_v) $(MAKE) $(GnuAfterInstall)
 endif
-	$(_v) if [ -d "$(DSTROOT)$(Workaround_3678855)" ]; then \
-		$(INSTALL_DIRECTORY) "$(DSTROOT)$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)"; \
-		$(MV) "$(DSTROOT)$(Workaround_3678855)" \
-			"$(DSTROOT)$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)/$(ProjectName)"; \
-	fi
+	$(_v) $(MAKE) compress_man_pages
 
 build:: configure
 ifneq ($(GnuNoBuild),YES)

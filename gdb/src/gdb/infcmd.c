@@ -1,6 +1,7 @@
 /* Memory-access and commands for "inferior" process, for GDB.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
+   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -34,24 +35,36 @@
 #include "gdbcore.h"
 #include "target.h"
 #include "language.h"
+/* APPLE LOCAL - subroutine inlining  */
+#include "annotate.h"
 #include "symfile.h"
 #include "objfiles.h"
 #include "completer.h"
 #include "ui-out.h"
 #include "event-top.h"
 #include "parser-defs.h"
+/* APPLE LOCAL top.h */
 #include "top.h"
 #include "regcache.h"
 #include "reggroups.h"
 #include "block.h"
+#include "solib.h"
 #include <ctype.h>
 #include "gdb_assert.h"
+/* APPLE LOCAL - subroutine inlining  */
+#include "inlining.h"
+#include "exceptions.h"
 
+/* APPLE LOCAL checkpoints */
+#include "checkpoint.h"
+
+/* APPLE LOCAL begin process completer */
 #ifndef PROCESS_COMPLETER
 #define PROCESS_COMPLETER noop_completer
 #endif
 
 extern char **process_completer (char *, char *);
+/* APPLE LOCAL end process completer */
 
 /* Functions exported for general use, in inferior.h: */
 
@@ -99,6 +112,7 @@ static void environment_info (char *, int);
 
 static void program_info (char *, int);
 
+/* APPLE LOCAL pid info */
 void pid_info (char *, int);
 
 static void finish_command (char *, int);
@@ -108,7 +122,14 @@ static void signal_command (char *, int);
 static void jump_command (char *, int);
 
 static void step_1 (int, int, char *);
+/* APPLE LOCAL make step_once globally visible */
 static void step_1_continuation (struct continuation_arg *arg);
+
+/* APPLE LOCAL begin checkpoints */
+void re_exec_1 ();
+void re_exec_1_continuation (struct continuation_arg *arg);
+void re_exec_once (int count);
+/* APPLE LOCAL end checkpoints */
 
 static void next_command (char *, int);
 
@@ -127,7 +148,7 @@ void _initialize_infcmd (void);
 #define GO_USAGE   "Usage: go <location>\n"
 
 #define ERROR_NO_INFERIOR \
-   if (!target_has_execution) error ("The program is not being run.");
+   if (!target_has_execution) error (_("The program is not being run."));
 
 /* String containing arguments to give to the program, separated by spaces.
    Empty string (pointer to '\0') means no args.  */
@@ -140,16 +161,18 @@ static char *inferior_args;
 static int inferior_argc;
 static char **inferior_argv;
 
+/* APPLE LOCAL begin start with shell */
 /* Use this to tell whether we go to start the inferior using a shell or
    not.  This has to be here, rather than in fork-child.c, because it is
    used in construct_inferior_arguments, which is also used here, but not
    everyone uses fork-child... */
 
 int start_with_shell_flag = STARTUP_WITH_SHELL;
+/* APPLE LOCAL end start with shell */
 
 /* File name for default use for standard in/out in the inferior.  */
 
-char *inferior_io_terminal;
+static char *inferior_io_terminal;
 
 /* Pid of our debugged inferior, or 0 if no inferior now.
    Since various parts of infrun.c test this to see whether there is a program
@@ -188,6 +211,17 @@ int stop_stack_dummy;
 
 int stopped_by_random_signal;
 
+/* APPLE LOCAL begin subroutine inlining  */
+
+/* Nonzero if user requested stepping over an inlined subroutine.  */
+
+int stepping_over_inlined_subroutine;
+
+/* Nonzero if user requested finishing out of an inlined subroutine.  */
+
+int finishing_inlined_subroutine;
+/* APPLE LOCAL end subroutine inlining  */
+
 /* Range to single step within.
    If this is nonzero, respond to a single-step signal
    by continuing to step if the pc is in this range.  */
@@ -195,15 +229,19 @@ int stopped_by_random_signal;
 CORE_ADDR step_range_start;	/* Inclusive */
 CORE_ADDR step_range_end;	/* Exclusive */
 
+/* APPLE LOCAL begin step ranges  */
+/* Same as step_range_start and step_range_end, except for use with
+   functions (inlined) that have multiple non-contiguous ranges of
+   addresses.  */
+
+struct address_range_list *stepping_ranges;
+/* APPLE LOCAL end step ranges  */
+
 /* Stack frame address as of when stepping command was issued.
    This is how we know when we step into a subroutine call,
    and how to set the frame for the breakpoint used to step out.  */
 
 struct frame_id step_frame_id;
-
-/* Our notion of the current stack pointer.  */
-
-CORE_ADDR step_sp;
 
 enum step_over_calls_kind step_over_calls;
 
@@ -216,9 +254,27 @@ int step_multi;
 /* Environment to use for running inferior,
    in format described in environ.h.  */
 
-struct environ *inferior_environ;
+struct gdb_environ *inferior_environ;
 
 /* Accessor routines. */
+
+void 
+set_inferior_io_terminal (const char *terminal_name)
+{
+  if (inferior_io_terminal)
+    xfree (inferior_io_terminal);
+
+  if (!terminal_name)
+    inferior_io_terminal = NULL;
+  else
+    inferior_io_terminal = savestring (terminal_name, strlen (terminal_name));
+}
+
+const char *
+get_inferior_io_terminal (void)
+{
+  return inferior_io_terminal;
+}
 
 char *
 get_inferior_args (void)
@@ -268,8 +324,10 @@ notice_args_set (char *args, int from_tty, struct cmd_list_element *c)
 
 /* Notice when `show args' is run.  */
 static void
-notice_args_read (char *args, int from_tty, struct cmd_list_element *c)
+notice_args_read (struct ui_file *file, int from_tty,
+		  struct cmd_list_element *c, const char *value)
 {
+  deprecated_show_value_hack (file, from_tty, c, value);
   /* Might compute the value.  */
   get_inferior_args ();
 }
@@ -282,6 +340,7 @@ construct_inferior_arguments (struct gdbarch *gdbarch, int argc, char **argv)
 {
   char *result;
 
+  /* APPLE LOCAL start with shell */
   if (start_with_shell_flag)
     {
       /* This holds all the characters considered special to the
@@ -337,7 +396,7 @@ construct_inferior_arguments (struct gdbarch *gdbarch, int argc, char **argv)
 	  if (cp == NULL)
 	    cp = strchr (argv[i], '\n');
 	  if (cp != NULL)
-	    error ("can't handle command-line argument containing whitespace");
+	    error (_("can't handle command-line argument containing whitespace"));
 	  length += strlen (argv[i]) + 1;
 	}
 
@@ -359,6 +418,7 @@ construct_inferior_arguments (struct gdbarch *gdbarch, int argc, char **argv)
    background execution) has been added as *the last* of the arguments ARGS
    of a command. If it has, it removes it and returns 1. Otherwise it
    does nothing and returns 0. */
+/* APPLE LOCAL make globally visible */
 int
 strip_bg_char (char **args)
 {
@@ -389,37 +449,67 @@ void
 tty_command (char *file, int from_tty)
 {
   if (file == 0)
-    error_no_arg ("terminal name for running target process");
+    error_no_arg (_("terminal name for running target process"));
 
-  inferior_io_terminal = savestring (file, strlen (file));
+  set_inferior_io_terminal (file);
 }
 
-static void
-run_command (char *args, int from_tty)
+/* Kill the inferior if already running.  This function is designed
+   to be called when we are about to start the execution of the program
+   from the beginning.  Ask the user to confirm that he wants to restart
+   the program being debugged when FROM_TTY is non-null.  */
+
+void
+kill_if_already_running (int from_tty)
 {
-  char *exec_file;
-
-  dont_repeat ();
-
   if (! ptid_equal (inferior_ptid, null_ptid) && target_has_execution)
     {
       if (from_tty
 	  && !query ("The program being debugged has been started already.\n\
 Start it from the beginning? "))
-	error ("Program not restarted.");
+	error (_("Program not restarted."));
       target_kill ();
 #if defined(SOLIB_RESTART)
       SOLIB_RESTART ();
 #endif
+      /* APPLE LOCAL checkpoints */
+      clear_all_checkpoints ();
+
       init_wait_for_inferior ();
     }
+}
 
+/* Implement the "run" command. If TBREAK_AT_MAIN is set, then insert
+   a temporary breakpoint at the begining of the main program before
+   running the program.  */
+
+static void
+run_command_1 (char *args, int from_tty, int tbreak_at_main)
+{
+  char *exec_file;
+
+  dont_repeat ();
+
+  kill_if_already_running (from_tty);
   clear_breakpoint_hit_counts ();
+
+  /* APPLE LOCAL checkpoints */
+  clear_all_checkpoints ();
 
   /* Purge old solib objfiles. */
   objfile_purge_solibs ();
 
   do_run_cleanups (NULL);
+
+  /* APPLE LOCAL begin subroutine inlining  */
+  /* On our first 'run' of the program, set up the data for keeping
+     track of inlined function calls.  On subsequent runs, blank out
+     the data but re-use the space.  */
+  if (inlined_function_call_stack_initialized_p())
+    inlined_function_reinitialize_call_stack ();
+  else
+    inlined_function_initialize_call_stack ();
+  /* APPLE LOCAL end subroutine inlining  */
 
   /* The comment here used to read, "The exec file is re-read every
      time we do a generic_mourn_inferior, so we just have to worry
@@ -430,6 +520,10 @@ Start it from the beginning? "))
      if the timestamp hasn't changed, I don't see the harm.  */
   reopen_exec_file ();
   reread_symbols ();
+
+  /* Insert the temporary breakpoint if a location was specified.  */
+  if (tbreak_at_main)
+    tbreak_command (main_name (), 0);
 
   exec_file = (char *) get_exec_file (0);
 
@@ -443,7 +537,7 @@ Start it from the beginning? "))
 
   if (!args)
     {
-      if (event_loop_p && target_can_async_p ())
+      if (target_can_async_p ())
 	async_disable_stdin ();
     }
   else
@@ -452,12 +546,12 @@ Start it from the beginning? "))
 
       /* If we get a request for running in the bg but the target
          doesn't support it, error out. */
-      if (event_loop_p && async_exec && !target_can_async_p ())
-	error ("Asynchronous execution not supported on this target.");
+      if (async_exec && !target_can_async_p ())
+	error (_("Asynchronous execution not supported on this target."));
 
       /* If we don't get a request of running in the bg, then we need
          to simulate synchronous (fg) execution. */
-      if (event_loop_p && !async_exec && target_can_async_p ())
+      if (!async_exec && target_can_async_p ())
 	{
 	  /* Simulate synchronous execution */
 	  async_disable_stdin ();
@@ -485,37 +579,46 @@ Start it from the beginning? "))
       ui_out_flush (uiout);
     }
 
+  /* APPLE LOCAL begin */
   if (state_change_hook)
     {
       state_change_hook (STATE_INFERIOR_LOGICALLY_RUNNING);
     }
-  
-  if (run_command_hook) {        
-      if (run_command_hook() == 0) {
+  /* APPLE LOCAL end */
+  /* APPLE LOCAL begin run command hook */
+  if (run_command_hook)
+    {
+      if (run_command_hook() == 0)
         return;
-      }
-  }
+    }
+  /* APPLE LOCAL end run command hook */
+
   /* We call get_inferior_args() because we might need to compute
      the value now.  */
   target_create_inferior (exec_file, get_inferior_args (),
-			  environ_vector (inferior_environ));
+			  environ_vector (inferior_environ), from_tty);
 
+  /* APPLE LOCAL begin async */
   if (ptid_equal (inferior_ptid, null_ptid))
     {
       /* The target didn't manage to start for some reason.  Just in case
 	 we didn't clean up, let's set target_executing to 0 here. */
       target_executing = 0;
       
-      if (event_loop_p && target_can_async_p ())
+      if (target_can_async_p ())
         {
           /* Simulate synchronous execution */
           async_enable_stdin (0);
         }
-
     }
-      
+  /* APPLE LOCAL end async */
 }
 
+static void
+run_command (char *args, int from_tty)
+{
+  run_command_1 (args, from_tty, 0);
+}
 
 static void
 run_no_args_command (char *args, int from_tty)
@@ -524,6 +627,22 @@ run_no_args_command (char *args, int from_tty)
   xfree (old_args);
 }
 
+
+/* Start the execution of the program up until the beginning of the main
+   program.  */
+
+static void
+start_command (char *args, int from_tty)
+{
+  /* Some languages such as Ada need to search inside the program
+     minimal symbols for the location where to put the temporary
+     breakpoint before starting.  */
+  if (!have_minimal_symbols ())
+    error (_("No symbol table loaded.  Use the \"file\" command."));
+
+  /* Run the program until reaching the main procedure...  */
+  run_command_1 (args, from_tty, 1);
+} 
 
 void
 continue_command (char *proc_count_exp, int from_tty)
@@ -537,12 +656,12 @@ continue_command (char *proc_count_exp, int from_tty)
 
   /* If we must run in the background, but the target can't do it,
      error out. */
-  if (event_loop_p && async_exec && !target_can_async_p ())
-    error ("Asynchronous execution not supported on this target.");
+  if (async_exec && !target_can_async_p ())
+    error (_("Asynchronous execution not supported on this target."));
 
   /* If we are not asked to run in the bg, then prepare to run in the
      foreground, synchronously. */
-  if (event_loop_p && !async_exec && target_can_async_p ())
+  if (!async_exec && target_can_async_p ())
     {
       /* Simulate synchronous execution */
       async_disable_stdin ();
@@ -577,12 +696,14 @@ continue_command (char *proc_count_exp, int from_tty)
     }
 
   if (from_tty)
-    printf_filtered ("Continuing.\n");
+    printf_filtered (_("Continuing.\n"));
 
   clear_proceed_status ();
 
+  /* APPLE LOCAL begin */
   if (state_change_hook)
       state_change_hook (STATE_INFERIOR_LOGICALLY_RUNNING);
+  /* APPLE LOCAL end */
       
   if (continue_command_hook) 
     continue_command_hook();
@@ -633,6 +754,11 @@ step_1 (int skip_subroutines, int single_inst, char *count_string)
   struct frame_info *frame;
   struct cleanup *cleanups = 0;
   int async_exec = 0;
+  /* APPLE LOCAL begin subroutine inlining  */
+  char *file_name = NULL;
+  int line_num = 0;
+  int column = 0;
+  /* APPLE LOCAL end subroutine inlining  */
 
   ERROR_NO_INFERIOR;
 
@@ -641,12 +767,17 @@ step_1 (int skip_subroutines, int single_inst, char *count_string)
 
   /* If we get a request for running in the bg but the target
      doesn't support it, error out. */
-  if (event_loop_p && async_exec && !target_can_async_p ())
-    error ("Asynchronous execution not supported on this target.");
+  if (async_exec && !target_can_async_p ())
+    error (_("Asynchronous execution not supported on this target."));
 
   /* If we don't get a request of running in the bg, then we need
      to simulate synchronous (fg) execution. */
-  if (event_loop_p && !async_exec && target_can_async_p ())
+  /* APPLE LOCAL begin subroutine inlining  */
+  if (!async_exec && target_can_async_p ()
+      && !single_inst
+      && (skip_subroutines 
+	  || !at_inlined_call_site_p (&file_name, &line_num, &column)))
+  /* APPLE LOCAL end subroutine inlining  */
     {
       /* Simulate synchronous execution */
       async_disable_stdin ();
@@ -657,14 +788,14 @@ step_1 (int skip_subroutines, int single_inst, char *count_string)
   if (!single_inst || skip_subroutines)		/* leave si command alone */
     {
       enable_longjmp_breakpoint ();
-      if (!event_loop_p || !target_can_async_p ())
+      if (!target_can_async_p ())
 	cleanups = make_cleanup (disable_longjmp_breakpoint_cleanup, 0 /*ignore*/);
       else
         make_exec_cleanup (disable_longjmp_breakpoint_cleanup, 0 /*ignore*/);
     }
 
   /* In synchronous case, all is well, just use the regular for loop. */
-  if (!event_loop_p || !target_can_async_p ())
+  if (!target_can_async_p ())
     {
       for (; count > 0; count--)
 	{
@@ -672,9 +803,8 @@ step_1 (int skip_subroutines, int single_inst, char *count_string)
 
 	  frame = get_current_frame ();
 	  if (!frame)		/* Avoid coredump here.  Why tho? */
-	    error ("No current frame");
+	    error (_("No current frame"));
 	  step_frame_id = get_frame_id (frame);
-	  step_sp = read_sp ();
 
 	  if (!single_inst)
 	    {
@@ -684,12 +814,12 @@ step_1 (int skip_subroutines, int single_inst, char *count_string)
 		  char *name;
 		  if (find_pc_partial_function (stop_pc, &name, &step_range_start,
 						&step_range_end) == 0)
-		    error ("Cannot find bounds of current function");
+		    error (_("Cannot find bounds of current function"));
 
 		  target_terminal_ours ();
-		  printf_filtered ("\
+		  printf_filtered (_("\
 Single stepping until exit from function %s, \n\
-which has no line number information.\n", name);
+which has no line number information.\n"), name);
 		}
 	    }
 	  else
@@ -720,15 +850,17 @@ which has no line number information.\n", name);
   /* In case of asynchronous target things get complicated, do only
      one step for now, before returning control to the event loop. Let
      the continuation figure out how many other steps we need to do,
-    and handle them one at the time, through step_once(). */
+     and handle them one at the time, through step_once(). */
   else
     {
-      if (event_loop_p && target_can_async_p ()) {
-        if (stepping_command_hook) {
-            stepping_command_hook();
-        }
-	step_once (skip_subroutines, single_inst, count);
-      }
+      if (target_can_async_p ())
+	/* APPLE LOCAL begin step command hook */
+	{
+	  if (stepping_command_hook)
+            stepping_command_hook ();
+	  step_once (skip_subroutines, single_inst, count);
+	}
+	/* APPLE LOCAL end step command hook */
     }
 }
 
@@ -762,6 +894,7 @@ step_1_continuation (struct continuation_arg *arg)
    one to be done before proceed() and one afterwards. This function is
    called in case of step n with n>1, after the first step operation has
    been completed.*/
+/* APPLE LOCAL make step_once globally visible */
 void 
 step_once (int skip_subroutines, int single_inst, int count)
 { 
@@ -769,70 +902,499 @@ step_once (int skip_subroutines, int single_inst, int count)
   struct continuation_arg *arg2;
   struct continuation_arg *arg3; 
   struct frame_info *frame;
+  /* APPLE LOCAL begin subroutine inlining  */
+  char *file_name = NULL;
+  int line_num = 0;
+  int column = 0;
+  int stack_pos;
+  CORE_ADDR end_of_line = (CORE_ADDR) 0;
+  CORE_ADDR inline_start_pc = (CORE_ADDR) 0;
+  CORE_ADDR tmp_end = (CORE_ADDR) 0;
 
-  if (count > 0)
+  if (!single_inst
+      && (stack_pos = at_inlined_call_site_p (&file_name, &line_num, &column)
+	  || rest_of_line_contains_inlined_subroutine (&end_of_line)) 
+      && skip_subroutines)
     {
-      clear_proceed_status ();
+      /* We're trying to 'next' over an inlined function call.  If so,
+	 find the pc for the end of the 'current' inlined subroutine
+	 (we may be nested several inlinings deep), and set the
+	 step-resume breakpoint there.  */
+
+      struct symtab_and_line sal;
+      struct symtab_and_line *cur = NULL;
+
+      /* Find end PC for current inlined subroutine.  */
 
       frame = get_current_frame ();
-      if (!frame)		/* Avoid coredump here.  Why tho? */
-	error ("No current frame");
-      step_frame_id = get_frame_id (frame);
-      step_sp = read_sp ();
 
-      if (!single_inst)
+      if (line_num != 0)
 	{
-	  find_pc_line_pc_range (stop_pc, &step_range_start, &step_range_end);
+	  /* The inlined subroutine is the first bit of code for the line;
+	     it might not be ALL the code for the line, however.  First find
+	     the sal for the inlined subroutine.  */
+	  CORE_ADDR start_pc;
 
-	  /* If we have no line info, switch to stepi mode.  */
-	  if (step_range_end == 0 && step_stop_if_no_debug)
-	    {
-	      step_range_start = step_range_end = 1;
-	    }
-	  else if (step_range_end == 0)
-	    {
-	      char *name;
-	      if (find_pc_partial_function (stop_pc, &name, &step_range_start,
-					    &step_range_end) == 0)
-		error ("Cannot find bounds of current function");
+	  start_pc = global_inlined_call_stack.records[stack_pos].start_pc;
 
-	      target_terminal_ours ();
-	      printf_filtered ("\
-Single stepping until exit from function %s, \n\
-which has no line number information.\n", name);
+	  sal = find_pc_line (start_pc, 0);
+	  while (sal.entry_type != INLINED_CALL_SITE_LT_ENTRY
+		 ||  sal.line != line_num)
+	    {
+	      cur = sal.next;
+	      if (!cur)
+		break;
+	      sal = *cur;
 	    }
+
+	  if (sal.entry_type == INLINED_CALL_SITE_LT_ENTRY
+	      && sal.line == line_num)
+	    sal.pc = sal.end;
+	  
+	  /* If there is more code to the line than the inlined
+	     subroutine, make the 'next' command step over the rest of
+	     the line as well.  */
+	  
+	  if (end_of_line != 0
+	      && sal.pc != end_of_line)
+	    sal.pc = end_of_line;
 	}
       else
 	{
-	  /* Say we are stepping, but stop after one insn whatever it does.  */
-	  step_range_start = step_range_end = 1;
-	  if (!skip_subroutines)
-	    /* It is stepi.
-	       Don't step over function calls, not even to functions lacking
-	       line numbers.  */
-	    step_over_calls = STEP_OVER_NONE;
+	  /*  There is code for this line before we get to the inlined
+	      subroutine; there may be code for this line after the
+	      inlined subroutine as well.  We want the 'next' command
+	      to step over ALL the code for the line.  */
+	  
+	  gdb_assert (end_of_line != 0);
+	 
+	  if (in_inlined_function_call_p (&tmp_end))
+	    {
+	      if (tmp_end && tmp_end < end_of_line)
+		end_of_line = tmp_end;
+	    }
+ 
+	  sal = find_pc_line (stop_pc, 0);
+	  sal.pc = end_of_line;
+	  sal.end = end_of_line;
 	}
 
-      if (skip_subroutines)
-	step_over_calls = STEP_OVER_ALL;
+      /* Set the breakpoint for the 'next'.  */
 
-      step_multi = (count > 1);
-      arg1 =
-	(struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
-      arg2 =
-	(struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
-      arg3 =
-	(struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
-      arg1->next = arg2;
-      arg1->data.integer = skip_subroutines;
-      arg2->next = arg3;
-      arg2->data.integer = single_inst;
-      arg3->next = NULL;
-      arg3->data.integer = count;
-      add_intermediate_continuation (step_1_continuation, arg1);
+      clear_proceed_status ();
+
+      /* Tell the user what's going on.  */
+
+      ui_out_text  (uiout, "** Stepping over inlined function code. **\n");
+	  
+      /* Set up various necessary variables to make sure we actually stop when
+	 we get to the breakpoint.  */
+
+      if (!frame)		/* Avoid coredump here.  Why tho? */
+	error (_("No current frame"));
+      step_frame_id = get_frame_id (frame);
+      step_range_start = stop_pc;
+      step_range_end = sal.pc;
+      step_over_calls = STEP_OVER_ALL;
+      stepping_over_inlined_subroutine = 1;
+      if (current_inlined_subroutine_stack_size() > 0
+	  && stack_pos > 0
+	  && stack_pos < current_inlined_subroutine_stack_size ())
+	stepping_ranges = global_inlined_call_stack.records[stack_pos].ranges;
+      else
+	stepping_ranges = 0;
+
       proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 1);
     }
+  else if (!single_inst 
+	   && at_inlined_call_site_p (&file_name, &line_num, &column))
+    {
+      struct symtab_and_line sal;
+      struct symtab_and_line tmp_sal;
+      struct symtab_and_line *cur = NULL;
+      struct symbol *func_sym = NULL;
+      struct symtab *tmp_symtab;
+      char *func_name = NULL;
+      int func_first_line = 0;
+      int found = 0;
+
+      stepping_into_inlined_subroutine = 1;
+
+      func_name = current_inlined_subroutine_function_name ();
+      if (func_name)
+	func_sym = lookup_symbol ((const char *) func_name,
+				  get_selected_block (0), VAR_DOMAIN, 0, 
+				  &tmp_symtab);
+
+      if (func_sym)
+	{
+	  struct gdb_exception e;
+	  TRY_CATCH (e, RETURN_MASK_ERROR)
+	  {
+	    tmp_sal = find_function_start_sal (func_sym, 1);
+	  }
+	  if (e.reason != NO_ERROR)
+	    error ("Can't step into \"%s\" - try \"next\" instead.", func_name);
+				
+	  func_first_line = tmp_sal.line;
+	}
+      
+      if (current_inlined_subroutine_stack_position ()
+	   < current_inlined_subroutine_stack_size ())
+	{
+	  /* Set up the SAL for printing out the current source location.  */
+
+	  sal = find_pc_line (current_inlined_subroutine_call_stack_start_pc (),
+			      0);
+
+	  for (cur = &sal; cur; cur = cur->next)
+	    if (cur->entry_type == INLINED_SUBROUTINE_LT_ENTRY
+		&& cur->pc == current_inlined_subroutine_call_stack_start_pc ()
+		&& cur->end == current_inlined_subroutine_call_stack_end_pc ())
+	      {
+		sal.symtab = cur->symtab;
+		sal.pc = cur->pc;
+		sal.end = cur->end;
+		sal.line = cur->line;
+		sal.entry_type = cur->entry_type;
+		break;
+	      }
+	  
+	  step_into_current_inlined_subroutine ();
+
+	  /* Flush the existing frames.  This is necessary because we will need
+	     to create a new INLINED_FRAME at level zero for the inlined 
+	     subroutine we are "stepping" into.  */
+	  
+	  flush_cached_frames ();
+
+	}
+      else
+	{
+	  /* We're stepping from the call site of our innermost
+	     inlined subroutine into the innermost inlined subroutine.
+	     We don't actually run the inferior, because the PC is
+	     already AT the beginning of the inlined subroutine.  This
+	     is purely a context change from the user's perspective to
+	     make maneuvering through inlined subroutines less
+	     confusing: We've forced a stop at the call site, where
+	     there is no executable code, before diving into the
+	     subroutine.  */
+	  
+	  
+	  /* Find the INLINED_SUBROUTINE line table entry for the current PC,
+	     with information matching the current record in the 
+	     global_inlined_call_stack.  */
+	  
+	  sal = find_pc_line (stop_pc, 0);
+	  
+	  while (!found)
+	    {
+	      if (sal.entry_type == INLINED_SUBROUTINE_LT_ENTRY
+		  && sal.pc == current_inlined_subroutine_call_stack_start_pc ()
+		  && sal.end == current_inlined_subroutine_call_stack_end_pc ())
+		found = 1;
+	      else
+		{
+		  cur = sal.next;
+		  if (!cur)
+		    break;
+		  sal = *cur;
+		}
+	    }
+	  
+	  /* Stepping into an inlined function requires creating a new
+	     INLINED_FRAME, at level 0, so we need to flush the current
+	     set of frames.  */
+	  
+	  flush_cached_frames ();
+
+	  /* Update the global_inlined_call_stack data appropriately.  */
+	  
+	  step_into_current_inlined_subroutine ();
+	  
+	}
+
+      /* Tell the user what we are doing.  */
+	  
+      ui_out_text (uiout, 
+		   "** Simulating stepping into inlined subroutine.  **\n");
+	  
+      /* Tell emacs (or anything else using annotations) to update the 
+	 location.  */
+
+      if (at_inlined_call_site_p (&file_name, &line_num, &column))
+	func_first_line = line_num;
+
+      if (!func_first_line)
+	func_first_line = sal.line;
+
+      annotate_starting ();
+      annotate_frames_invalid ();
+      breakpoints_changed ();
+      annotate_frames_invalid ();
+      if (annotation_level == 0)
+	print_source_lines (sal.symtab, func_first_line, 1, 0);
+      else
+	identify_source_line (sal.symtab, func_first_line, 0, sal.pc);
+      annotate_frame_end ();
+      annotate_stopped ();
+	  
+      /* Make sure the mi interpreter updates the current location
+	 appropriately (including fooling it into believing the
+	 inferior has run, so it can properly finish its 'step'
+	 command).  */
+	  
+      target_executing = 0;
+    }
+  else
+    {
+  /* APPLE LOCAL end subroutine inlining  */
+      if (count > 0)
+	{
+	  /* APPLE LOCAL begin subroutine inlining  */
+	  if (!single_inst
+	      && rest_of_line_contains_inlined_subroutine (&end_of_line))
+	    find_next_inlined_subroutine (stop_pc, &inline_start_pc);
+	  /* APPLE LOCAL end subroutine inlining  */
+	      
+	  clear_proceed_status ();
+
+	  frame = get_current_frame ();
+
+	  while (frame 
+		 && get_frame_type (frame) == INLINED_FRAME)
+	    frame = get_prev_frame (frame);
+
+	  if (!frame)		/* Avoid coredump here.  Why tho? */
+	    error (_("No current frame"));
+	  step_frame_id = get_frame_id (frame);
+
+	  if (!single_inst)
+	    {
+	      find_pc_line_pc_range (stop_pc, &step_range_start, &step_range_end);
+
+	      /* APPLE LOCAL begin subroutine inlining  */
+	      if (inline_start_pc)
+		{
+		  step_range_end = inline_start_pc;
+		  stepping_into_inlined_subroutine = 1;
+		  ui_out_text (uiout, 
+			 "** Stepping to beginning of inlined subroutine.  **\n");
+		}
+	      /* APPLE LOCAL end subroutine inlining  */
+
+
+	      /* If we have no line info, switch to stepi mode.  */
+	      if (step_range_end == 0 && step_stop_if_no_debug)
+		{
+		  step_range_start = step_range_end = 1;
+		}
+	      else if (step_range_end == 0)
+		{
+		  char *name;
+		  if (find_pc_partial_function (stop_pc, &name, &step_range_start,
+						&step_range_end) == 0)
+		    error (_("Cannot find bounds of current function"));
+
+		  target_terminal_ours ();
+		  printf_filtered (_("\
+Single stepping until exit from function %s, \n\
+which has no line number information.\n"), name);
+		}
+	    }
+	  else
+	    {
+	      /* Say we are stepping, but stop after one insn whatever it does. */
+	      step_range_start = step_range_end = 1;
+	      if (!skip_subroutines)
+		/* It is stepi.
+		   Don't step over function calls, not even to functions lacking
+		   line numbers.  */
+		step_over_calls = STEP_OVER_NONE;
+	    }
+
+	  if (skip_subroutines)
+	    step_over_calls = STEP_OVER_ALL;
+
+	  step_multi = (count > 1);
+	  arg1 =
+	   (struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
+	  arg2 =
+	   (struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
+	  arg3 =
+	   (struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
+	  arg1->next = arg2;
+	  arg1->data.integer = skip_subroutines;
+	  arg2->next = arg3;
+	  arg2->data.integer = single_inst;
+	  arg3->next = NULL;
+	  arg3->data.integer = count;
+	  add_intermediate_continuation (step_1_continuation, arg1);
+	  proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 1);
+	}
+    /* APPLE LOCAL begin subroutine inlining  */  
+    }
+    /* APPLE LOCAL end subroutine inlining  */
 }
+
+/* APPLE LOCAL begin checkpoints */
+/* Experimental for re-execution from a checkpoint, used to reach
+   points in a program between checkpoints.  */
+
+struct checkpoint *rx_cp;
+struct checkpoint *active_checkpoint;
+int magic_flag = 0;
+
+void
+re_execute_command (char *args, int from_tty)
+{
+  int cpn = (args ? parse_and_eval_long (args) : 1);
+
+  rx_cp = find_checkpoint (cpn);
+
+  if (rx_cp == NULL)
+    {
+      printf ("Checkpoint not found\n");
+      return;
+    }
+
+  printf ("Re-executing to ");
+  print_checkpoint_info (rx_cp);
+
+  re_exec_1 ();
+}
+
+void
+re_exec_1 ()
+{
+  int count = 1;
+  struct frame_info *frame;
+  int async_exec = 0;
+
+  magic_flag = 0;
+
+  ERROR_NO_INFERIOR;
+
+  /* If we get a request for running in the bg but the target
+     doesn't support it, error out. */
+  if (async_exec && !target_can_async_p ())
+    error (_("Asynchronous execution not supported on this target."));
+
+  /* If we don't get a request of running in the bg, then we need
+     to simulate synchronous (fg) execution. */
+  if (!async_exec && target_can_async_p ())
+    {
+      /* Simulate synchronous execution */
+      async_disable_stdin ();
+    }
+
+  count = 100;
+
+  /* In synchronous case, all is well, just use the regular for loop. */
+  if (!target_can_async_p ())
+    {
+      for (; count > 0; count--)
+	{
+	  clear_proceed_status ();
+
+	  frame = get_current_frame ();
+	  if (!frame)		/* Avoid coredump here.  Why tho? */
+	    error (_("No current frame"));
+	  step_frame_id = get_frame_id (frame);
+
+	  /* Say we are stepping, but stop after one insn whatever it does.  */
+	  step_range_start = step_range_end = 1;
+	  step_over_calls = STEP_OVER_NONE;
+
+	  step_multi = (count > 1);
+	  proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 1);
+
+	  if (!stop_step)
+	    break;
+	}
+
+      return;
+    }
+  /* In case of asynchronous target things get complicated, do only
+     one step for now, before returning control to the event loop. Let
+     the continuation figure out how many other steps we need to do,
+     and handle them one at the time, through step_once(). */
+  else
+    {
+      if (target_can_async_p ())
+	/* APPLE LOCAL begin step command hook */
+	{
+	  if (stepping_command_hook)
+            stepping_command_hook ();
+	  re_exec_once (count);
+	}
+	/* APPLE LOCAL end step command hook */
+    }
+}
+
+void
+re_exec_1_continuation (struct continuation_arg *arg)
+{
+  int count;
+
+  count            = arg->data.integer;
+
+  if (stop_step)
+    re_exec_once (count - 1);
+}
+
+void 
+re_exec_once (int count)
+{ 
+  struct continuation_arg *arg1; 
+  struct frame_info *frame;
+
+  if (count <= 0)
+    {
+      printf ("Re-execution failed\n");
+      rx_cp = NULL;
+      return;
+    }
+
+  if (magic_flag)
+    {
+      magic_flag = 0;
+      rx_cp = NULL;
+      return;
+    }
+
+
+  clear_proceed_status ();
+
+  frame = get_current_frame ();
+  if (!frame)		/* Avoid coredump here.  Why tho? */
+    error (_("No current frame"));
+  step_frame_id = get_frame_id (frame);
+
+  /* Say we are stepping, but stop after one insn whatever it does.  */
+  step_range_start = step_range_end = 1;
+  step_over_calls = STEP_OVER_NONE;
+
+  step_multi = (count > 1);
+
+  printf("Comparing against ");
+  print_checkpoint_info (active_checkpoint);
+  if (checkpoint_compare (rx_cp, active_checkpoint))
+    {
+      step_multi = 0;
+      magic_flag = 1;
+      rx_cp = NULL;
+    }
+
+  arg1 = (struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
+  arg1->next = NULL;
+  arg1->data.integer = count;
+  add_intermediate_continuation (re_exec_1_continuation, arg1);
+
+  proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 1);
+}
+/* APPLE LOCAL end checkpoints */
 
 
 /* Continue program at specified address.  */
@@ -855,23 +1417,25 @@ jump_command (char *arg, int from_tty)
 
   /* If we must run in the background, but the target can't do it,
      error out. */
-  if (event_loop_p && async_exec && !target_can_async_p ())
-    error ("Asynchronous execution not supported on this target.");
+  if (async_exec && !target_can_async_p ())
+    error (_("Asynchronous execution not supported on this target."));
+
+  /* APPLE LOCAL move async bit down */
 
   if (!arg)
-    error_no_arg ("starting address");
+    error_no_arg (_("starting address"));
 
   sals = decode_line_spec_1 (arg, 1);
   if (sals.nelts != 1)
     {
-      error ("Unreasonable jump request");
+      error (_("Unreasonable jump request"));
     }
 
   sal = sals.sals[0];
   xfree (sals.sals);
 
   if (sal.symtab == 0 && sal.pc == 0)
-    error ("No source file has been specified.");
+    error (_("No source file has been specified."));
 
   resolve_sal_pc (&sal);	/* May error out */
 
@@ -883,7 +1447,7 @@ jump_command (char *arg, int from_tty)
       if (!query ("Line %d is not in `%s'.  Jump anyway? ", sal.line,
 		  SYMBOL_PRINT_NAME (fn)))
 	{
-	  error ("Not confirmed.");
+	  error (_("Not confirmed."));
 	  /* NOTREACHED */
 	}
     }
@@ -896,7 +1460,7 @@ jump_command (char *arg, int from_tty)
 	{
 	  if (!query ("WARNING!!!  Destination is in unmapped overlay!  Jump anyway? "))
 	    {
-	      error ("Not confirmed.");
+	      error (_("Not confirmed."));
 	      /* NOTREACHED */
 	    }
 	}
@@ -906,18 +1470,20 @@ jump_command (char *arg, int from_tty)
 
   if (from_tty)
     {
-      printf_filtered ("Continuing at ");
-      print_address_numeric (addr, 1, gdb_stdout);
+      printf_filtered (_("Continuing at "));
+      deprecated_print_address_numeric (addr, 1, gdb_stdout);
       printf_filtered (".\n");
     }
 
+  /* APPLE LOCAL end async */
   /* If we are not asked to run in the bg, then prepare to run in the
      foreground, synchronously. */
-  if (event_loop_p && !async_exec && target_can_async_p ())
+  if (!async_exec && target_can_async_p ())
     {
       /* Simulate synchronous execution */
       async_disable_stdin ();
     }
+  /* APPLE LOCAL end async */
 
   clear_proceed_status ();
   proceed (addr, TARGET_SIGNAL_0, 0);
@@ -949,7 +1515,7 @@ signal_command (char *signum_exp, int from_tty)
   ERROR_NO_INFERIOR;
 
   if (!signum_exp)
-    error_no_arg ("signal number");
+    error_no_arg (_("signal number"));
 
   /* It would be even slicker to make signal names be valid expressions,
      (the type could be "enum $signal" or some such), then the user could
@@ -970,18 +1536,20 @@ signal_command (char *signum_exp, int from_tty)
   if (from_tty)
     {
       if (oursig == TARGET_SIGNAL_0)
-	printf_filtered ("Continuing with no signal.\n");
+	printf_filtered (_("Continuing with no signal.\n"));
       else
-	printf_filtered ("Continuing with signal %s.\n",
+	printf_filtered (_("Continuing with signal %s.\n"),
 			 target_signal_to_name (oursig));
     }
 
   clear_proceed_status ();
 
+  /* APPLE LOCAL begin */
   if (state_change_hook)
     {
       state_change_hook (STATE_INFERIOR_LOGICALLY_RUNNING);
     }
+  /* APPLE LOCAL end */
 
   /* "signal 0" should not get stuck if we are stopped at a breakpoint.
      FIXME: Neither should "signal foo" but when I tried passing
@@ -1022,7 +1590,7 @@ until_next_command (int from_tty)
       struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (pc);
 
       if (msymbol == NULL)
-	error ("Execution is not within a known function.");
+	error (_("Execution is not within a known function."));
 
       step_range_start = SYMBOL_VALUE_ADDRESS (msymbol);
       step_range_end = pc;
@@ -1031,13 +1599,17 @@ until_next_command (int from_tty)
     {
       sal = find_pc_line (pc, 0);
 
-      step_range_start = BLOCK_START (SYMBOL_BLOCK_VALUE (func));
+      /* APPLE LOCAL begin address range; FIXME: just changing the following line
+	 from BLOCK_START to BLOCK_LOWEST_PC may not be enough to make
+	 sure this function really does the right thing for functions with
+	 non-contiguous ranges of addresses. -- ctice  */
+      step_range_start = BLOCK_LOWEST_PC (SYMBOL_BLOCK_VALUE (func));
+      /* APPLE LOCAL end address range  */
       step_range_end = sal.end;
     }
 
   step_over_calls = STEP_OVER_ALL;
   step_frame_id = get_frame_id (frame);
-  step_sp = read_sp ();
 
   step_multi = 0;		/* Only one call to proceed */
 
@@ -1050,7 +1622,7 @@ until_command (char *arg, int from_tty)
   int async_exec = 0;
 
   if (!target_has_execution)
-    error ("The program is not running.");
+    error (_("The program is not running."));
 
   /* Find out whether we must run in the background. */
   if (arg != NULL)
@@ -1058,12 +1630,12 @@ until_command (char *arg, int from_tty)
 
   /* If we must run in the background, but the target can't do it,
      error out. */
-  if (event_loop_p && async_exec && !target_can_async_p ())
-    error ("Asynchronous execution not supported on this target.");
+  if (async_exec && !target_can_async_p ())
+    error (_("Asynchronous execution not supported on this target."));
 
   /* If we are not asked to run in the bg, then prepare to run in the
      foreground, synchronously. */
-  if (event_loop_p && !async_exec && target_can_async_p ())
+  if (!async_exec && target_can_async_p ())
     {
       /* Simulate synchronous execution */
       async_disable_stdin ();
@@ -1081,10 +1653,10 @@ advance_command (char *arg, int from_tty)
   int async_exec = 0;
 
   if (!target_has_execution)
-    error ("The program is not running.");
+    error (_("The program is not running."));
 
   if (arg == NULL)
-    error_no_arg ("a location");
+    error_no_arg (_("a location"));
 
   /* Find out whether we must run in the background.  */
   if (arg != NULL)
@@ -1092,12 +1664,12 @@ advance_command (char *arg, int from_tty)
 
   /* If we must run in the background, but the target can't do it,
      error out.  */
-  if (event_loop_p && async_exec && !target_can_async_p ())
-    error ("Asynchronous execution not supported on this target.");
+  if (async_exec && !target_can_async_p ())
+    error (_("Asynchronous execution not supported on this target."));
 
   /* If we are not asked to run in the bg, then prepare to run in the
      foreground, synchronously.  */
-  if (event_loop_p && !async_exec && target_can_async_p ())
+  if (!async_exec && target_can_async_p ())
     {
       /* Simulate synchronous execution.  */
       async_disable_stdin ();
@@ -1106,10 +1678,7 @@ advance_command (char *arg, int from_tty)
   until_break_command (arg, from_tty, 1);
 }
 
-
 /* Print the result of a function at the end of a 'finish' command.  */
-/* APPLE LOCAL: I back ported the version of this function from the
-   current gdb (11-2004).  */
 
 static void
 print_return_value (int struct_return, struct type *value_type)
@@ -1135,13 +1704,13 @@ print_return_value (int struct_return, struct type *value_type)
       value = allocate_value (value_type);
       CHECK_TYPEDEF (value_type);
       gdbarch_return_value (current_gdbarch, value_type, stop_registers,
-                            VALUE_CONTENTS_RAW (value), NULL);
+			    value_contents_raw (value), NULL);
       break;
     case RETURN_VALUE_STRUCT_CONVENTION:
       value = NULL;
       break;
     default:
-      internal_error (__FILE__, __LINE__, "bad switch");
+      internal_error (__FILE__, __LINE__, _("bad switch"));
     }
 
   if (value)
@@ -1151,7 +1720,7 @@ print_return_value (int struct_return, struct type *value_type)
       old_chain = make_cleanup_ui_out_stream_delete (stb);
       ui_out_text (uiout, "Value returned is ");
       ui_out_field_fmt (uiout, "gdb-result-var", "$%d",
-                        record_latest_value (value));
+			record_latest_value (value));
       ui_out_text (uiout, " = ");
       value_print (value, stb->stream, 0, Val_no_prettyprint);
       ui_out_field_stream (uiout, "return-value", stb);
@@ -1197,7 +1766,7 @@ finish_command_continuation (struct continuation_arg *arg)
       value_type = TYPE_TARGET_TYPE (SYMBOL_TYPE (function));
       if (!value_type)
 	internal_error (__FILE__, __LINE__,
-			"finish_command: function has no target type");
+			_("finish_command: function has no target type"));
 
       if (TYPE_CODE (value_type) == TYPE_CODE_VOID)
 	{
@@ -1215,6 +1784,184 @@ finish_command_continuation (struct continuation_arg *arg)
   do_exec_cleanups (cleanups);
 }
 
+/* APPLE LOCAL begin subroutine inlining  */
+
+/* Stuff that needs to be done by the finish command, when performed on
+   an inlined subroutine, after the target has stopped.  Very similar to
+   finish_command_continuation (see that function for further comments). */
+
+static void
+finish_inlined_subroutine_command_continuation (struct continuation_arg *arg)
+{
+  struct cleanup *cleanups;
+  struct symbol *function;
+
+  function = (struct symbol *) arg->data.pointer;
+  cleanups = (struct cleanup *) arg->next->data.pointer;
+
+  if (function != NULL)
+    {
+      struct type *value_type;
+      int struct_return;
+      int gcc_compiled;
+
+      value_type = TYPE_TARGET_TYPE (SYMBOL_TYPE (function));
+      if (!value_type)
+	internal_error (__FILE__, __LINE__,
+			_("finish_inlined_subroutine_command: function has no target type"));
+      
+      if (TYPE_CODE (value_type) == TYPE_CODE_VOID)
+	{
+	  do_exec_cleanups (cleanups);
+	  return;
+	}
+
+      CHECK_TYPEDEF (value_type);
+      gcc_compiled = BLOCK_GCC_COMPILED (SYMBOL_BLOCK_VALUE (function));
+      struct_return = using_struct_return (value_type, gcc_compiled);
+
+      print_return_value (struct_return, value_type);
+    }
+
+  do_exec_cleanups (cleanups);
+}
+
+/* Finish out of an inlined subroutine.  This is acutally done by setting
+   things up as if the user requested a 'next' at the inlined call site
+   (temporary breakpoints cannot be used because, due to the way the
+   compiler lays out inlined code, the requested breakpoint address is often
+   never hit).  Also, call finish_inlined_suborutine_command_continuation
+   to make sure return values are printed out, etc.  */
+
+static void
+finish_inlined_subroutine_command (CORE_ADDR inline_end_pc)
+{
+  int i;  /* Position, in inlined call stack, of subroutine to be 
+	     'finish'ed  */
+  char *file_name;
+  int line_num;
+  int column;
+  struct symtab_and_line sal;
+  struct symtab_and_line *cur = NULL;
+  struct frame_info *frame;
+  CORE_ADDR start_pc;
+  struct symbol *function;
+  struct cleanup *old_chain = NULL;
+  struct continuation_arg *arg1;
+  struct continuation_arg *arg2;
+
+  /* Find the record corresponding to the inlined subroutine we wish
+     to 'finish'.  */
+
+  i = current_inlined_subroutine_stack_position ();
+  if (i > 0
+      && !global_inlined_call_stack.records[i].stepped_into)
+    i--;
+
+  /* If we aren't at an active record on the inlining stack, then we
+     have gotten here by mistake.  */
+
+  gdb_assert (i >= 1);
+  gdb_assert (global_inlined_call_stack.records[i].stepped_into);
+
+  /* Collect the call site information.  */
+
+  file_name = global_inlined_call_stack.records[i].call_site_filename;
+  line_num  = global_inlined_call_stack.records[i].call_site_line;
+  column    = global_inlined_call_stack.records[i].call_site_column;
+  start_pc = global_inlined_call_stack.records[i].start_pc;
+  
+  /* Get the correct sal.  */
+
+  frame = get_current_frame ();
+  sal = find_pc_line (start_pc, 0);
+  while (sal.entry_type != INLINED_CALL_SITE_LT_ENTRY
+	 || sal.line != line_num)
+    {
+      cur = sal.next;
+      if (!cur)
+	break;
+      sal = *cur;
+    }
+
+  if (sal.entry_type == INLINED_CALL_SITE_LT_ENTRY
+      && sal.line == line_num)
+    sal.pc = sal.end;
+
+  /* Proceed as if we are doing 'next' over the inlined subroutine, but 
+     make sure to use prev_frame.  */
+  
+  clear_proceed_status ();
+  if (!frame)
+    error (_("No current frame"));
+  step_frame_id = get_frame_id (get_prev_frame (frame));
+  step_range_start = start_pc;
+  step_range_end = sal.pc;
+  step_over_calls = STEP_OVER_ALL;
+  stepping_over_inlined_subroutine = 1;
+  stepping_ranges = global_inlined_call_stack.records[i].ranges;
+  
+  /* Clena up global inlined call stack to refect no longer being in
+     the subroutien.  */
+
+  global_inlined_call_stack.records[i].stepped_into = 0;
+  adjust_current_inlined_subroutine_stack_position (-1);
+
+  frame = get_prev_frame (deprecated_selected_frame);
+
+  function = find_pc_function (get_frame_pc (frame));
+
+  /* Take care of printing out the return value, if any, of the function
+     we are finishing.  */
+
+  if (target_can_async_p ())
+    {
+      arg1 = 
+	(struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
+      arg2 = 
+	(struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
+      arg1->next = arg2;
+      arg2->next = NULL;
+      arg1->data.pointer = function;
+      arg2->data.pointer = old_chain;
+      add_continuation (finish_inlined_subroutine_command_continuation, arg1);
+    }
+
+  finishing_inlined_subroutine = 1;
+  proceed_to_finish = 1;
+  proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 1);
+  
+  if (!target_can_async_p ())
+    {
+      if (function != NULL)
+	{
+	  struct type *value_type;
+	  int struct_return;
+	  int gcc_compiled;
+	  
+	  value_type = TYPE_TARGET_TYPE (SYMBOL_TYPE (function));
+	  if (!value_type)
+	    internal_error (__FILE__, __LINE__,
+	  _("finish_inlined_subroutine_command: function has no target type"));
+	  
+	  if (TYPE_CODE (value_type) == TYPE_CODE_VOID)
+	    {
+	      do_exec_cleanups (old_chain);
+	      return;
+	    }
+	  
+	  CHECK_TYPEDEF (value_type);
+	  gcc_compiled = BLOCK_GCC_COMPILED (SYMBOL_BLOCK_VALUE (function));
+	  struct_return = using_struct_return (value_type, gcc_compiled);
+	  
+	  print_return_value (struct_return, value_type);
+	}
+      
+      do_exec_cleanups (old_chain);
+    }
+}
+/* APPLE LOCAL end subroutine inlining  */
+
 /* "finish": Set a temporary breakpoint at the place the selected
    frame will return to, then continue.  */
 
@@ -1227,117 +1974,134 @@ finish_command (char *arg, int from_tty)
   struct breakpoint *breakpoint;
   struct cleanup *old_chain;
   struct continuation_arg *arg1, *arg2, *arg3;
+  /* APPLE LOCAL begin subroutine inlining  */
+  CORE_ADDR inline_end_pc = 0;
+  /* APPLE LOCAL end subroutine inlining  */
 
   int async_exec = 0;
 
-  /* Find out whether we must run in the background.  */
-  if (arg != NULL)
-    async_exec = strip_bg_char (&arg);
-
-  /* If we must run in the background, but the target can't do it,
-     error out.  */
-  if (event_loop_p && async_exec && !target_can_async_p ())
-    error ("Asynchronous execution not supported on this target.");
-
-  /* If we are not asked to run in the bg, then prepare to run in the
-     foreground, synchronously.  */
-  if (event_loop_p && !async_exec && target_can_async_p ())
+  /* APPLE LOCAL begin subroutine inlining  */
+  /* Check to see if we're trying to finish out of an inlined subroutine
+     call.  If so, we need to use a completely different mechanism (much
+     more similar to stepping over a function).  */
+  if (in_inlined_function_call_p (&inline_end_pc))
+    finish_inlined_subroutine_command (inline_end_pc);
+  else /* Proceed with normal finish.  */
     {
-      /* Simulate synchronous execution.  */
-      async_disable_stdin ();
-    }
+      /* APPLE LOCAL end subroutine inlining  */
 
-  if (arg)
-    error ("The \"finish\" command does not take any arguments.");
-  if (!target_has_execution)
-    error ("The program is not running.");
-  if (deprecated_selected_frame == NULL)
-    error ("No selected frame.");
+      /* Find out whether we must run in the background.  */
+      if (arg != NULL)
+	async_exec = strip_bg_char (&arg);
 
-  frame = get_prev_frame (deprecated_selected_frame);
-  if (frame == 0)
-    error ("\"finish\" not meaningful in the outermost frame.");
+      /* If we must run in the background, but the target can't do it,
+	 error out.  */
+      if (async_exec && !target_can_async_p ())
+	error (_("Asynchronous execution not supported on this target."));
 
-  clear_proceed_status ();
-
-  sal = find_pc_line (get_frame_pc (frame), 0);
-  sal.pc = get_frame_pc (frame);
-
-  breakpoint = set_momentary_breakpoint (sal, get_frame_id (frame), bp_finish);
-
-  if (!event_loop_p || !target_can_async_p ())
-    old_chain = make_cleanup_delete_breakpoint (breakpoint);
-  else
-    old_chain = make_exec_cleanup_delete_breakpoint (breakpoint);
-
-  /* Find the function we will return from.  */
-
-  function = find_pc_function (get_frame_pc (deprecated_selected_frame));
-
-  /* Print info on the selected frame, including level number but not
-     source.  */
-  if (from_tty)
-    {
-      printf_filtered ("Run till exit from ");
-      print_stack_frame (deprecated_selected_frame,
-			 frame_relative_level (deprecated_selected_frame), 0);
-    }
-
-  /* If running asynchronously and the target support asynchronous
-     execution, set things up for the rest of the finish command to be
-     completed later on, when gdb has detected that the target has
-     stopped, in fetch_inferior_event.  */
-  if (event_loop_p && target_can_async_p ())
-    {
-      arg1 =
-	(struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
-      arg2 =
-	(struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
-      arg3 =
-	(struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
-      arg1->next = arg2;
-      arg2->next = arg3;
-      arg3->next = NULL;
-      arg1->data.pointer = breakpoint;
-      arg2->data.pointer = function;
-      arg3->data.pointer = old_chain;
-      add_continuation (finish_command_continuation, arg1);
-    }
-
-  proceed_to_finish = 1;	/* We want stop_registers, please...  */
-  proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 0);
-
-  /* Do this only if not running asynchronously or if the target
-     cannot do async execution.  Otherwise, complete this command when
-     the target actually stops, in fetch_inferior_event.  */
-  if (!event_loop_p || !target_can_async_p ())
-    {
-      /* Did we stop at our breakpoint?  */
-      if (bpstat_find_breakpoint (stop_bpstat, breakpoint) != NULL
-	  && function != NULL)
+      /* If we are not asked to run in the bg, then prepare to run in the
+	 foreground, synchronously.  */
+      if (!async_exec && target_can_async_p ())
 	{
-	  struct type *value_type;
-	  int struct_return;
-	  int gcc_compiled;
-
-	  value_type = TYPE_TARGET_TYPE (SYMBOL_TYPE (function));
-	  if (!value_type)
-	    internal_error (__FILE__, __LINE__,
-			    "finish_command: function has no target type");
-
-	  /* FIXME: Shouldn't we do the cleanups before returning?  */
-	  if (TYPE_CODE (value_type) == TYPE_CODE_VOID)
-	    return;
-
-	  CHECK_TYPEDEF (value_type);
-	  gcc_compiled = BLOCK_GCC_COMPILED (SYMBOL_BLOCK_VALUE (function));
-	  struct_return = using_struct_return (value_type, gcc_compiled);
-
-	  print_return_value (struct_return, value_type); 
+	  /* Simulate synchronous execution.  */
+	  async_disable_stdin ();
 	}
 
-      do_cleanups (old_chain);
+      if (arg)
+	error (_("The \"finish\" command does not take any arguments."));
+      if (!target_has_execution)
+	error (_("The program is not running."));
+      if (deprecated_selected_frame == NULL)
+	error (_("No selected frame."));
+
+      frame = get_prev_frame (deprecated_selected_frame);
+      if (frame == 0)
+	error (_("\"finish\" not meaningful in the outermost frame."));
+
+      clear_proceed_status ();
+
+      sal = find_pc_line (get_frame_pc (frame), 0);
+      sal.pc = get_frame_pc (frame);
+
+      breakpoint = set_momentary_breakpoint (sal, get_frame_id (frame), 
+					     bp_finish);
+
+
+      if (!target_can_async_p ())
+	old_chain = make_cleanup_delete_breakpoint (breakpoint);
+      else
+	old_chain = make_exec_cleanup_delete_breakpoint (breakpoint);
+
+      /* Find the function we will return from.  */
+      
+      function = find_pc_function (get_frame_pc (deprecated_selected_frame));
+      
+      /* Print info on the selected frame, including level number but not
+	 source.  */
+      if (from_tty)
+	{
+	  printf_filtered (_("Run till exit from "));
+	  print_stack_frame (get_selected_frame (NULL), 1, LOCATION);
+	}
+  
+      /* If running asynchronously and the target support asynchronous
+	 execution, set things up for the rest of the finish command to be
+	 completed later on, when gdb has detected that the target has
+	 stopped, in fetch_inferior_event.  */
+      if (target_can_async_p ())
+	{
+	  arg1 =
+	    (struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
+	  arg2 =
+	    (struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
+	  arg3 =
+	    (struct continuation_arg *) xmalloc (sizeof (struct continuation_arg));
+	  arg1->next = arg2;
+	  arg2->next = arg3;
+	  arg3->next = NULL;
+	  arg1->data.pointer = breakpoint;
+	  arg2->data.pointer = function;
+	  arg3->data.pointer = old_chain;
+	  add_continuation (finish_command_continuation, arg1);
+	}
+      
+      proceed_to_finish = 1;	/* We want stop_registers, please...  */
+      proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 0);
+      
+      /* Do this only if not running asynchronously or if the target
+	 cannot do async execution.  Otherwise, complete this command when
+	 the target actually stops, in fetch_inferior_event.  */
+      if (!target_can_async_p ())
+	{
+	  /* Did we stop at our breakpoint?  */
+	  if (bpstat_find_breakpoint (stop_bpstat, breakpoint) != NULL
+	      && function != NULL)
+	    {
+	      struct type *value_type;
+	      int struct_return;
+	      int gcc_compiled;
+	      
+	      value_type = TYPE_TARGET_TYPE (SYMBOL_TYPE (function));
+	      if (!value_type)
+		internal_error (__FILE__, __LINE__,
+				_("finish_command: function has no target type"));
+	      
+	      /* FIXME: Shouldn't we do the cleanups before returning?  */
+	      if (TYPE_CODE (value_type) == TYPE_CODE_VOID)
+		return;
+	      
+	      CHECK_TYPEDEF (value_type);
+	      gcc_compiled = BLOCK_GCC_COMPILED (SYMBOL_BLOCK_VALUE (function));
+	      struct_return = using_struct_return (value_type, gcc_compiled);
+	      
+	      print_return_value (struct_return, value_type); 
+	    }
+	  
+	  do_cleanups (old_chain);
+	}
+    /* APPLE LOCAL begin subroutine inlining  */
     }
+    /* APPLE LOCAL end subroutine inlining  */
 }
 
 
@@ -1349,15 +2113,15 @@ program_info (char *args, int from_tty)
 
   if (!target_has_execution)
     {
-      printf_filtered ("The program being debugged is not being run.\n");
+      printf_filtered (_("The program being debugged is not being run.\n"));
       return;
     }
 
   target_files_info ();
-  printf_filtered ("Program stopped at %s.\n",
-		   local_hex_string ((unsigned long) stop_pc));
+  printf_filtered (_("Program stopped at %s.\n"),
+		   hex_string ((unsigned long) stop_pc));
   if (stop_step)
-    printf_filtered ("It stopped after being stepped.\n");
+    printf_filtered (_("It stopped after being stepped.\n"));
   else if (num != 0)
     {
       /* There may be several breakpoints in the same place, so this
@@ -1366,25 +2130,25 @@ program_info (char *args, int from_tty)
 	{
 	  if (num < 0)
 	    {
-	      printf_filtered ("It stopped at a breakpoint that has ");
-	      printf_filtered ("since been deleted.\n");
+	      printf_filtered (_("\
+It stopped at a breakpoint that has since been deleted.\n"));
 	    }
 	  else
-	    printf_filtered ("It stopped at breakpoint %d.\n", num);
+	    printf_filtered (_("It stopped at breakpoint %d.\n"), num);
 	  num = bpstat_num (&bs);
 	}
     }
   else if (stop_signal != TARGET_SIGNAL_0)
     {
-      printf_filtered ("It stopped with signal %s, %s.\n",
+      printf_filtered (_("It stopped with signal %s, %s.\n"),
 		       target_signal_to_name (stop_signal),
 		       target_signal_to_string (stop_signal));
     }
 
   if (!from_tty)
     {
-      printf_filtered ("Type \"info stack\" or \"info registers\" ");
-      printf_filtered ("for more information.\n");
+      printf_filtered (_("\
+Type \"info stack\" or \"info registers\" for more information.\n"));
     }
 }
 
@@ -1442,7 +2206,7 @@ set_environment_command (char *arg, int from_tty)
   int nullset = 0;
 
   if (arg == 0)
-    error_no_arg ("environment variable and value");
+    error_no_arg (_("environment variable and value"));
 
   /* Find seperation between variable name and value */
   p = (char *) strchr (arg, '=');
@@ -1466,7 +2230,7 @@ set_environment_command (char *arg, int from_tty)
     p = val;
 
   if (p == arg)
-    error_no_arg ("environment variable to set");
+    error_no_arg (_("environment variable to set"));
 
   if (p == 0 || p[1] == 0)
     {
@@ -1488,8 +2252,9 @@ set_environment_command (char *arg, int from_tty)
   var = savestring (arg, p - arg);
   if (nullset)
     {
-      printf_filtered ("Setting environment variable ");
-      printf_filtered ("\"%s\" to null value.\n", var);
+      printf_filtered (_("\
+Setting environment variable \"%s\" to null value.\n"),
+		       var);
       set_in_environ (inferior_environ, var, "");
     }
   else
@@ -1504,7 +2269,7 @@ unset_environment_command (char *var, int from_tty)
     {
       /* If there is no argument, delete all environment variables.
          Ask for confirmation if reading from the terminal.  */
-      if (!from_tty || query ("Delete all environment variables? "))
+      if (!from_tty || query (_("Delete all environment variables? ")))
 	{
 	  free_environ (inferior_environ);
 	  inferior_environ = make_environ ();
@@ -1566,14 +2331,7 @@ default_print_registers_info (struct gdbarch *gdbarch,
 {
   int i;
   const int numregs = NUM_REGS + NUM_PSEUDO_REGS;
-  char raw_buffer[MAX_REGISTER_SIZE];
-  char virtual_buffer[MAX_REGISTER_SIZE];
-
-  if (DEPRECATED_DO_REGISTERS_INFO_P ())
-    {
-      DEPRECATED_DO_REGISTERS_INFO (regnum, print_all);
-      return;
-    }
+  gdb_byte buffer[MAX_REGISTER_SIZE];
 
   for (i = 0; i < numregs; i++)
     {
@@ -1607,28 +2365,13 @@ default_print_registers_info (struct gdbarch *gdbarch,
       print_spaces_filtered (15 - strlen (REGISTER_NAME (i)), file);
 
       /* Get the data in raw format.  */
-      if (! frame_register_read (frame, i, raw_buffer))
+      if (! frame_register_read (frame, i, buffer))
 	{
 	  fprintf_filtered (file, "*value not available*\n");
 	  continue;
 	}
 
-      /* FIXME: cagney/2002-08-03: This code shouldn't be necessary.
-         The function frame_register_read() should have returned the
-         pre-cooked register so no conversion is necessary.  */
-      /* Convert raw data to virtual format if necessary.  */
-      if (DEPRECATED_REGISTER_CONVERTIBLE_P ()
-	  && DEPRECATED_REGISTER_CONVERTIBLE (i))
-	{
-	  DEPRECATED_REGISTER_CONVERT_TO_VIRTUAL (i, register_type (current_gdbarch, i),
-				       raw_buffer, virtual_buffer);
-	}
-      else
-	{
-	  memcpy (virtual_buffer, raw_buffer,
-		  DEPRECATED_REGISTER_VIRTUAL_SIZE (i));
-	}
-
+      /* APPLE LOCAL begin */
       /* For floating and vector registers, print the value in natural
 	 format, followed by the contents of the register in hex.  For
 	 all other registers, pring the contents of the register in
@@ -1636,33 +2379,38 @@ default_print_registers_info (struct gdbarch *gdbarch,
 
       if ((TYPE_CODE (register_type (current_gdbarch, i)) == TYPE_CODE_FLT)
 	  || TYPE_VECTOR (register_type (current_gdbarch, i)))
+	/* APPLE LOCAL end */
 	{
 	  int j;
 
-	  val_print (register_type (current_gdbarch, i), virtual_buffer, 0, 0,
+	  val_print (register_type (current_gdbarch, i), buffer, 0, 0,
 		     file, 0, 1, 0, Val_pretty_default);
 
 	  fprintf_filtered (file, "\t(raw 0x");
-	  for (j = 0; j < DEPRECATED_REGISTER_RAW_SIZE (i); j++)
+	  for (j = 0; j < register_size (current_gdbarch, i); j++)
 	    {
 	      int idx;
 	      if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
 		idx = j;
 	      else
-		idx = DEPRECATED_REGISTER_RAW_SIZE (i) - 1 - j;
-	      fprintf_filtered (file, "%02x", (unsigned char) raw_buffer[idx]);
+		idx = register_size (current_gdbarch, i) - 1 - j;
+	      fprintf_filtered (file, "%02x", (unsigned char) buffer[idx]);
 	    }
 	  fprintf_filtered (file, ")");
 	}
       else
 	{
 	  /* Print the register in hex.  */
-	  val_print (register_type (current_gdbarch, i), virtual_buffer, 0, 0,
+	  val_print (register_type (current_gdbarch, i), buffer, 0, 0,
 		     file, 'x', 1, 0, Val_pretty_default);
-          /* Also print it according to its natural format.  */
-	  fprintf_filtered (file, "\t");
-	  val_print (register_type (current_gdbarch, i), virtual_buffer, 0, 0,
-		     file, 0, 1, 0, Val_pretty_default);
+          /* If not a vector register, print it also according to its
+             natural format.  */
+	  if (TYPE_VECTOR (register_type (current_gdbarch, i)) == 0)
+	    {
+	      fprintf_filtered (file, "\t");
+	      val_print (register_type (current_gdbarch, i), buffer, 0, 0,
+			 file, 0, 1, 0, Val_pretty_default);
+	    }
 	}
 
       fprintf_filtered (file, "\n");
@@ -1672,13 +2420,15 @@ default_print_registers_info (struct gdbarch *gdbarch,
 void
 registers_info (char *addr_exp, int fpregs)
 {
-  int regnum, numregs;
-  char *end;
+  /* APPLE LOCAL begin eliminate unused variable warnings  */
+  /* int regnum, numregs;  */
+  /* char *end; */
+  /* APPLE LOCAL end eliminate unused variable warnings  */
 
   if (!target_has_registers)
-    error ("The program has no registers now.");
+    error (_("The program has no registers now."));
   if (deprecated_selected_frame == NULL)
-    error ("No selected frame.");
+    error (_("No selected frame."));
 
   if (!addr_exp)
     {
@@ -1704,7 +2454,7 @@ registers_info (char *addr_exp, int fpregs)
       if (addr_exp[0] == '$')
 	addr_exp++;
       if (isspace ((*addr_exp)) || (*addr_exp) == '\0')
-	error ("Missing register name");
+	error (_("Missing register name"));
 
       /* Find the start/end of this register name/num/group.  */
       start = addr_exp;
@@ -1769,7 +2519,7 @@ registers_info (char *addr_exp, int fpregs)
       }
 
       /* Nothing matched.  */
-      error ("Invalid register `%.*s'", (int) (end - start), start);
+      error (_("Invalid register `%.*s'"), (int) (end - start), start);
     }
 }
 
@@ -1790,9 +2540,9 @@ print_vector_info (struct gdbarch *gdbarch, struct ui_file *file,
 		   struct frame_info *frame, const char *args)
 {
   if (!target_has_registers)
-    error ("The program has no registers now.");
+    error (_("The program has no registers now."));
   if (deprecated_selected_frame == NULL)
-    error ("No selected frame.");
+    error (_("No selected frame."));
 
   if (gdbarch_print_vector_info_p (gdbarch))
     gdbarch_print_vector_info (gdbarch, file, frame, args);
@@ -1850,17 +2600,39 @@ attach_command (char *args, int from_tty)
       if (query ("A program is being debugged already.  Kill it? "))
 	target_kill ();
       else
-	error ("Not killed.");
+	error (_("Not killed."));
     }
+
+  /* Clear out solib state. Otherwise the solib state of the previous
+     inferior might have survived and is entirely wrong for the new
+     target.  This has been observed on Linux using glibc 2.3. How to
+     reproduce:
+
+     bash$ ./foo&
+     [1] 4711
+     bash$ ./foo&
+     [1] 4712
+     bash$ gdb ./foo
+     [...]
+     (gdb) attach 4711
+     (gdb) detach
+     (gdb) attach 4712
+     Cannot access memory at address 0xdeadbeef
+  */
+#ifdef CLEAR_SOLIB
+      CLEAR_SOLIB ();
+#else
+      clear_solib ();
+#endif
+
+  /* APPLE LOCAL checkpoints */
+  clear_all_checkpoints ();
 
   target_attach (args, from_tty);
 
   /* Set up the "saved terminal modes" of the inferior
      based on what modes we are starting it with.  */
   target_terminal_init ();
-
-  /* Install inferior's terminal modes.  */
-  target_terminal_inferior ();
 
   /* Set up execution context to know that we should return from
      wait_for_inferior as soon as the target reports a stop.  */
@@ -1904,22 +2676,32 @@ attach_command (char *args, int from_tty)
 	  symbol_file_add_main (full_exec_path, from_tty);
 	}
     }
+  else
+    {
+      reopen_exec_file ();
+      reread_symbols ();
+    }
 
 #ifdef SOLIB_ADD
   /* Add shared library symbols from the newly attached process, if any.  */
   SOLIB_ADD ((char *) 0, from_tty, &current_target, auto_solib_add);
+#else
+  solib_add (NULL, from_tty, &current_target, auto_solib_add);
+#endif
   /* APPLE LOCAL control breakpoint re-enable messages */
   re_enable_breakpoints_in_shlibs (0);
-#endif
 
   /* Take any necessary post-attaching actions for this platform.
    */
   target_post_attach (PIDGET (inferior_ptid));
 
+  /* Install inferior's terminal modes.  */
+  target_terminal_inferior ();
+
   normal_stop ();
 
-  if (attach_hook)
-    attach_hook ();
+  if (deprecated_attach_hook)
+    deprecated_attach_hook ();
 }
 
 /*
@@ -1936,13 +2718,13 @@ attach_command (char *args, int from_tty)
 static void
 detach_command (char *args, int from_tty)
 {
-  dont_repeat ();		/* Not for the faint of heart */
+  dont_repeat ();		/* Not for the faint of heart.  */
   target_detach (args, from_tty);
 #if defined(SOLIB_RESTART)
   SOLIB_RESTART ();
 #endif
-  if (detach_hook)
-    detach_hook ();
+  if (deprecated_detach_hook)
+    deprecated_detach_hook ();
 }
 
 /* Disconnect from the current target without resuming it (leaving it
@@ -1961,8 +2743,8 @@ disconnect_command (char *args, int from_tty)
 #if defined(SOLIB_RESTART)
   SOLIB_RESTART ();
 #endif
-  if (detach_hook)
-    detach_hook ();
+  if (deprecated_detach_hook)
+    deprecated_detach_hook ();
 }
 
 /* Stop the execution of the target while running in async mode, in
@@ -1970,7 +2752,7 @@ disconnect_command (char *args, int from_tty)
 void
 interrupt_target_command (char *args, int from_tty)
 {
-  if (event_loop_p && target_can_async_p ())
+  if (target_can_async_p ())
     {
       dont_repeat ();		/* Not for the faint of heart */
       target_stop ();
@@ -1982,9 +2764,9 @@ print_float_info (struct gdbarch *gdbarch, struct ui_file *file,
 		  struct frame_info *frame, const char *args)
 {
   if (!target_has_registers)
-    error ("The program has no registers now.");
+    error (_("The program has no registers now."));
   if (deprecated_selected_frame == NULL)
-    error ("No selected frame.");
+    error (_("No selected frame."));
 
   if (gdbarch_print_float_info_p (gdbarch))
     gdbarch_print_float_info (gdbarch, file, frame, args);
@@ -2010,82 +2792,87 @@ No floating-point info available for this processor.\n");
 static void
 float_info (char *args, int from_tty)
 {
-  print_float_info (current_gdbarch, gdb_stdout, deprecated_selected_frame, args);
+  print_float_info (current_gdbarch, gdb_stdout, 
+		    deprecated_selected_frame, args);
 }
 
 static void
 unset_command (char *args, int from_tty)
 {
-  printf_filtered ("\"unset\" must be followed by the name of ");
-  printf_filtered ("an unset subcommand.\n");
+  printf_filtered (_("\
+\"unset\" must be followed by the name of an unset subcommand.\n"));
   help_list (unsetlist, "unset ", -1, gdb_stdout);
 }
 
 void
 _initialize_infcmd (void)
 {
-  struct cmd_list_element *c;
+  struct cmd_list_element *c = NULL;
 
-  c = add_com ("tty", class_run, tty_command,
-	       "Set terminal for future runs of program being debugged.");
-  set_cmd_completer (c, filename_completer);
+  /* add the filename of the terminal connected to inferior I/O */
+  add_setshow_filename_cmd ("inferior-tty", class_run,
+			    &inferior_io_terminal, _("\
+Set terminal for future runs of program being debugged."), _("\
+Show terminal for future runs of program being debugged."), _("\
+Usage: set inferior-tty /dev/pts/1"), NULL, NULL, &setlist, &showlist);
+  add_com_alias ("tty", "set inferior-tty", class_alias, 0);
 
-  c = add_set_cmd ("args", class_run, var_string_noescape,
-		   (char *) &inferior_args,
-		   "Set argument list to give program being debugged when it is started.\n\
-Follow this command with any number of args, to be passed to the program.",
-		   &setlist);
-  set_cmd_completer (c, filename_completer);
   /* c->completer_word_break_characters = gdb_completer_filename_word_break_characters; */ /* FIXME */
-  set_cmd_sfunc (c, notice_args_set);
-  c = add_show_from_set (c, &showlist);
-  set_cmd_sfunc (c, notice_args_read);
 
-  c = add_cmd
-    ("environment", no_class, environment_info,
-     "The environment to give the program, or one variable's value.\n\
+  add_setshow_optional_filename_cmd ("args", class_run,
+				     &inferior_args, _("\
+Set argument list to give program being debugged when it is started."), _("\
+Show argument list to give program being debugged when it is started."), _("\
+Follow this command with any number of args, to be passed to the program."),
+				     notice_args_set,
+				     notice_args_read,
+				     &setlist, &showlist);
+
+  c = add_cmd ("environment", no_class, environment_info, _("\
+The environment to give the program, or one variable's value.\n\
 With an argument VAR, prints the value of environment variable VAR to\n\
 give the program being debugged.  With no arguments, prints the entire\n\
-environment to be given to the program.", &showlist);
+environment to be given to the program."), &showlist);
   set_cmd_completer (c, noop_completer);
 
   add_prefix_cmd ("unset", no_class, unset_command,
-		  "Complement to certain \"set\" commands.",
+		  _("Complement to certain \"set\" commands."),
 		  &unsetlist, "unset ", 0, &cmdlist);
 
-  c = add_cmd ("environment", class_run, unset_environment_command,
-	       "Cancel environment variable VAR for the program.\n\
-This does not affect the program until the next \"run\" command.",
+  c = add_cmd ("environment", class_run, unset_environment_command, _("\
+Cancel environment variable VAR for the program.\n\
+This does not affect the program until the next \"run\" command."),
 	       &unsetlist);
   set_cmd_completer (c, noop_completer);
 
-  c = add_cmd ("environment", class_run, set_environment_command,
-	       "Set environment variable value to give the program.\n\
+  c = add_cmd ("environment", class_run, set_environment_command, _("\
+Set environment variable value to give the program.\n\
 Arguments are VAR VALUE where VAR is variable name and VALUE is value.\n\
 VALUES of environment variables are uninterpreted strings.\n\
-This does not affect the program until the next \"run\" command.",
+This does not affect the program until the next \"run\" command."),
 	       &setlist);
   set_cmd_completer (c, noop_completer);
 
-  c = add_com ("path", class_files, path_command,
-	       "Add directory DIR(s) to beginning of search path for object files.\n\
+  c = add_com ("path", class_files, path_command, _("\
+Add directory DIR(s) to beginning of search path for object files.\n\
 $cwd in the path means the current working directory.\n\
 This path is equivalent to the $PATH shell variable.  It is a list of\n\
 directories, separated by colons.  These directories are searched to find\n\
-fully linked executable files and separately compiled object files as needed.");
+fully linked executable files and separately compiled object files as needed."));
   set_cmd_completer (c, filename_completer);
 
-  c = add_cmd ("paths", no_class, path_info,
-	       "Current search path for finding object files.\n\
+  c = add_cmd ("paths", no_class, path_info, _("\
+Current search path for finding object files.\n\
 $cwd in the path means the current working directory.\n\
 This path is equivalent to the $PATH shell variable.  It is a list of\n\
 directories, separated by colons.  These directories are searched to find\n\
-fully linked executable files and separately compiled object files as needed.",
+fully linked executable files and separately compiled object files as needed."),
 	       &showlist);
   set_cmd_completer (c, noop_completer);
 
-  c = add_cmd ("attach", class_run, attach_command,
-	   "Attach to a process or file outside of GDB.\n\
+  /* APPLE LOCAL process completer */
+  c = add_com ("attach", class_run, attach_command, _("\
+Attach to a process or file outside of GDB.\n\
 This command attaches to another target, of the same type as your last\n\
 \"target\" command (\"info files\" will show your target stack).\n\
 The command may take as argument a process id, a process name\n\
@@ -2096,138 +2883,152 @@ When using \"attach\" to an existing process, the debugger finds the\n\
 program running in the process, looking first in the current working\n\
 directory, or (if not found there) using the source file search path\n\
 (see the \"directory\" command).  You can also use the \"file\" command\n\
-to specify the program, and to load its symbol table.", &cmdlist);
+to specify the program, and to load its symbol table.\n\
+As an Apple extension, the attach command can be given the name of a process.\n\
+You may use tab completion.  The process name is case sensitive.\n\
+You may also use the '-waitfor' argument followed by a process name -- gdb\n\
+will poll and loop waiting for the process by that name to launch."));
+
+  /* APPLE LOCAL process completer */
   set_cmd_completer (c, PROCESS_COMPLETER);
 #ifdef PROCESS_COMPLETER_WORD_BREAK_CHARACTERS
   /* c->completer_word_break_characters = PROCESS_COMPLETER_WORD_BREAK_CHARACTERS; */ /* FIXME */
 #endif
 
-  add_com ("detach", class_run, detach_command,
-	   "Detach a process or file previously attached.\n\
+  add_com ("detach", class_run, detach_command, _("\
+Detach a process or file previously attached.\n\
 If a process, it is no longer traced, and it continues its execution.  If\n\
-you were debugging a file, the file is closed and gdb no longer accesses it.");
+you were debugging a file, the file is closed and gdb no longer accesses it."));
 
-  add_com ("disconnect", class_run, disconnect_command,
-	   "Disconnect from a target.\n\
+  add_com ("disconnect", class_run, disconnect_command, _("\
+Disconnect from a target.\n\
 The target will wait for another debugger to connect.  Not available for\n\
-all targets.");
+all targets."));
 
-  add_com ("signal", class_run, signal_command,
-	   "Continue program giving it signal specified by the argument.\n\
-An argument of \"0\" means continue program without giving it a signal.");
+  add_com ("signal", class_run, signal_command, _("\
+Continue program giving it signal specified by the argument.\n\
+An argument of \"0\" means continue program without giving it a signal."));
 
-  add_com ("stepi", class_run, stepi_command,
-	   "Step one instruction exactly.\n\
-Argument N means do this N times (or till program stops for another reason).");
+  add_com ("stepi", class_run, stepi_command, _("\
+Step one instruction exactly.\n\
+Argument N means do this N times (or till program stops for another reason)."));
   add_com_alias ("si", "stepi", class_alias, 0);
 
-  add_com ("nexti", class_run, nexti_command,
-	   "Step one instruction, but proceed through subroutine calls.\n\
-Argument N means do this N times (or till program stops for another reason).");
+  add_com ("nexti", class_run, nexti_command, _("\
+Step one instruction, but proceed through subroutine calls.\n\
+Argument N means do this N times (or till program stops for another reason)."));
   add_com_alias ("ni", "nexti", class_alias, 0);
 
-  add_com ("finish", class_run, finish_command,
-	   "Execute until selected stack frame returns.\n\
-Upon return, the value returned is printed and put in the value history.");
+  add_com ("finish", class_run, finish_command, _("\
+Execute until selected stack frame returns.\n\
+Upon return, the value returned is printed and put in the value history."));
 
-  add_com ("next", class_run, next_command,
-	   "Step program, proceeding through subroutine calls.\n\
+  add_com ("next", class_run, next_command, _("\
+Step program, proceeding through subroutine calls.\n\
 Like the \"step\" command as long as subroutine calls do not happen;\n\
 when they do, the call is treated as one instruction.\n\
-Argument N means do this N times (or till program stops for another reason).");
+Argument N means do this N times (or till program stops for another reason)."));
   add_com_alias ("n", "next", class_run, 1);
   if (xdb_commands)
     add_com_alias ("S", "next", class_run, 1);
 
-  add_com ("step", class_run, step_command,
-	   "Step program until it reaches a different source line.\n\
-Argument N means do this N times (or till program stops for another reason).");
+  add_com ("step", class_run, step_command, _("\
+Step program until it reaches a different source line.\n\
+Argument N means do this N times (or till program stops for another reason)."));
   add_com_alias ("s", "step", class_run, 1);
 
-  c = add_com ("until", class_run, until_command,
-	       "Execute until the program reaches a source line greater than the current\n\
-or a specified location (same args as break command) within the current frame.");
+  c = add_com ("until", class_run, until_command, _("\
+Execute until the program reaches a source line greater than the current\n\
+or a specified location (same args as break command) within the current frame."));
   set_cmd_completer (c, location_completer);
   add_com_alias ("u", "until", class_run, 1);
 
-  c = add_com ("advance", class_run, advance_command,
-	       "Continue the program up to the given location (same form as args for break command).\n\
-Execution will also stop upon exit from the current stack frame.");
+  c = add_com ("advance", class_run, advance_command, _("\
+Continue the program up to the given location (same form as args for break command).\n\
+Execution will also stop upon exit from the current stack frame."));
   set_cmd_completer (c, location_completer);
 
-  c = add_com ("jump", class_run, jump_command,
-	       "Continue program being debugged at specified line or address.\n\
+  c = add_com ("jump", class_run, jump_command, _("\
+Continue program being debugged at specified line or address.\n\
 Give as argument either LINENUM or *ADDR, where ADDR is an expression\n\
-for an address to start at.");
+for an address to start at."));
   set_cmd_completer (c, location_completer);
 
   if (xdb_commands)
     {
-      c = add_com ("go", class_run, go_command,
-		   "Usage: go <location>\n\
+      c = add_com ("go", class_run, go_command, _("\
+Usage: go <location>\n\
 Continue program being debugged, stopping at specified line or \n\
 address.\n\
 Give as argument either LINENUM or *ADDR, where ADDR is an \n\
 expression for an address to start at.\n\
-This command is a combination of tbreak and jump.");
+This command is a combination of tbreak and jump."));
       set_cmd_completer (c, location_completer);
     }
 
   if (xdb_commands)
     add_com_alias ("g", "go", class_run, 1);
 
-  add_com ("continue", class_run, continue_command,
-	   "Continue program being debugged, after signal or breakpoint.\n\
+  add_com ("continue", class_run, continue_command, _("\
+Continue program being debugged, after signal or breakpoint.\n\
 If proceeding from breakpoint, a number N may be used as an argument,\n\
 which means to set the ignore count of that breakpoint to N - 1 (so that\n\
-the breakpoint won't break until the Nth time it is reached).");
+the breakpoint won't break until the Nth time it is reached)."));
   add_com_alias ("c", "cont", class_run, 1);
   add_com_alias ("fg", "cont", class_run, 1);
 
-  c = add_com ("run", class_run, run_command,
-	   "Start debugged program.  You may specify arguments to give it.\n\
+  c = add_com ("run", class_run, run_command, _("\
+Start debugged program.  You may specify arguments to give it.\n\
 If 'start-with-shell' is set to 1, args may include \"*\", or \"[...]\";\n\
 they will be expanded using \"sh\".  Input and output redirection with\n\
 \">\", \"<\", or \">>\" will also be allowed.\n\n\
 With no arguments, uses arguments last specified (with \"run\" or \"set args\").\n\
 To cancel previous arguments and run with no arguments,\n\
-use \"set args\" without arguments.");
+use \"set args\" without arguments."));
   set_cmd_completer (c, filename_completer);
   /* c->completer_word_break_characters = gdb_completer_filename_word_break_characters; */ /* FIXME */
   add_com_alias ("r", "run", class_run, 1);
   if (xdb_commands)
     add_com ("R", class_run, run_no_args_command,
-	     "Start debugged program with no arguments.");
+	     _("Start debugged program with no arguments."));
+
+  c = add_com ("start", class_run, start_command, _("\
+Run the debugged program until the beginning of the main procedure.\n\
+You may specify arguments to give to your program, just as with the\n\
+\"run\" command."));
+  set_cmd_completer (c, filename_completer);
 
   add_com ("interrupt", class_run, interrupt_target_command,
-	   "Interrupt the execution of the debugged program.");
+	   _("Interrupt the execution of the debugged program."));
 
-  add_info ("registers", nofp_registers_info,
-	    "List of integer registers and their contents, for selected stack frame.\n\
-Register name as argument means describe only that register.");
+  add_info ("registers", nofp_registers_info, _("\
+List of integer registers and their contents, for selected stack frame.\n\
+Register name as argument means describe only that register."));
   add_info_alias ("r", "registers", 1);
 
   if (xdb_commands)
-    add_com ("lr", class_info, nofp_registers_info,
-	     "List of integer registers and their contents, for selected stack frame.\n\
-  Register name as argument means describe only that register.");
-  add_info ("all-registers", all_registers_info,
-	    "List of all registers and their contents, for selected stack frame.\n\
-Register name as argument means describe only that register.");
+    add_com ("lr", class_info, nofp_registers_info, _("\
+List of integer registers and their contents, for selected stack frame.\n\
+Register name as argument means describe only that register."));
+  add_info ("all-registers", all_registers_info, _("\
+List of all registers and their contents, for selected stack frame.\n\
+Register name as argument means describe only that register."));
 
   add_info ("program", program_info,
-	    "Execution status of the program.");
+	    _("Execution status of the program."));
 
-  /* APPLE LOCAL: "info pid" & MI's "-pid-info" are Apple local cmds for
+  /* APPLE LOCAL begin info pid */
+  /* "info pid" & MI's "-pid-info" are Apple local cmds for
      use by Xcode.  */
   add_info ("pid", pid_info,
 	    "Process ID of the program.");
+  /* APPLE LOCAL end info pid */
 
   add_info ("float", float_info,
-	    "Print the status of the floating point unit\n");
+	    _("Print the status of the floating point unit\n"));
 
   add_info ("vector", vector_info,
-	    "Print the status of the vector unit\n");
+	    _("Print the status of the vector unit\n"));
 
   inferior_environ = make_environ ();
   init_environ (inferior_environ);

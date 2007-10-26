@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -159,32 +159,38 @@ enum {
 };
 
 
+#pragma pack(4)
 typedef struct {
 	uint32_t	type;
 	uint32_t	length;
 	uint8_t		attribute[0];
 } dns_attribute_t;
+#pragma pack()
 
 
+#pragma pack(4)
 typedef struct {
 	dns_config_t	config;
 	uint32_t	n_attribute;
 	uint32_t	n_padding;
 	uint8_t		attribute[0];
 } _dns_config_buf_t;
+#pragma pack()
 
 
+#pragma pack(4)
 typedef struct {
 	dns_resolver_t	resolver;
 	uint32_t	n_attribute;
 	uint8_t		attribute[0];
 } _dns_resolver_buf_t;
+#pragma pack()
 
 
 __BEGIN_DECLS
 
-const char *    _dns_configuration_notify_key()		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
-mach_port_t	_dns_configuration_server_port()	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+const char *    _dns_configuration_notify_key	(void)	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+mach_port_t	_dns_configuration_server_port	(void)	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 __END_DECLS
 

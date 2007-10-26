@@ -1,4 +1,4 @@
-*mlang.txt*     For Vim version 6.2.  Last change: 2003 May 18
+*mlang.txt*     For Vim version 7.0.  Last change: 2004 Feb 24
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -14,6 +14,8 @@ The basics are explained in the user manual: |usr_45.txt|.
 1. Messages			|multilang-messages|
 2. Menus			|multilang-menus|
 3. Scripts			|multilang-scripts|
+
+Also see |help-translated| for multi-language help.
 
 {Vi does not have any of these features}
 {not available when compiled without the |+multi_lang| feature}

@@ -1,0 +1,13 @@
+--- asctime.c.orig	2004-11-25 11:38:44.000000000 -0800
++++ asctime.c	2004-12-07 23:48:08.000000000 -0800
+@@ -23,9 +23,7 @@
+ */
+ 
+ char *
+-asctime_r(timeptr, buf)
+-const struct tm *	timeptr;
+-char *			buf;
++asctime_r(const struct tm * __restrict timeptr, char * __restrict buf)
+ {
+ 	static const char	wday_name[][3] = {
+ 		"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"

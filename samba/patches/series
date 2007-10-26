@@ -1,0 +1,91 @@
+svn-rev23105 -p0
+svn-rev23106 -p0
+manpage-idmap-odsam -p0
+manpage-pdb-odsam -p0
+stop-readdir-test-on-first-error -p0
+smbclient-add-rap_netserverenum3-support -p0
+set-vendor-version-field -p0
+apple-headers-configure-check -p0
+# upstream 000-build-issues.diff -p0
+allow-module-type-disambiguation -p0 # upstream in SAMBA_3_0_26
+free-fsp-extension-on-close -p0
+fetch-fsp-extension-talloc-context -p0
+libiconv-cross-compile -p0 # upstream in SAMBA_3_0_26
+pam-headers-configure-check -p0 # upstream in SAMBA_3_0_26
+123-pam.diff -p0 # upstream in SAMBA_3_0_26
+siocgifconf-check-structure-length-field -p0
+fix-usershare-directory-permissions-check -p0
+allow-home-share-as-usershare -p0
+allow-arbitrary-params-in-usershares -p0
+open-directory-library-code -p0
+101-loadparam.c.diff -p0
+102-srv_netlog_nt.c.diff -p0
+link-smbd-against-directory-services -p0
+103-chgpasswd.c.diff -p0
+memberd-configure-check -p0
+107-srv_samr_nt.c.diff -p0
+113-cups-remote-printing.diff -p0
+115-nmbd_responserecordsdb.diff -p0
+121-pdb_get_set.c.diff -p0
+124-sesssetup.c.diff -p0
+126-net_rpc_samsync.c.diff -p0
+# Dropped, pending 4856128 or 4949394 # 127-sacl.diff -p0
+darwin-stats-configure-check -p0
+enable-shared-idmap-ldap -p0 # upstream in SAMBA_3_0_26
+enable-share-passwd-ldap-nds -p0 # upstream in SAMBA_3_0_26
+darwin-utmp-compatibility -p0
+dprintf-off-by-one -p0
+darwin-performance-statistics -p0
+configure-add-darwin-picflags -p0
+vfs-add-statfs-capabilities -p0
+support-case-sensitive-filesystems -p0
+add-streams-support-parameter -p0
+pass-ntfs-stream-paths-to-vfs -p0
+vfs-add-stream-info-operation -p0
+vfs-add-setcreatetime-operation -p0
+vfs-add-get-preserved-name-operation -p0
+add-server-streams-support -p0
+add-sendfile-capability-bit-to-fsp -p0
+add-leopard-sendfile-support -p0
+vfs-module-darwin-streams -p0
+support-case-perserving-filenames -p0
+support-rename-case-insensitive-filenames -p0
+clean-posix-locking-error-message -p0 # upstream in SAMBA_3_0_26
+vfs-module-darwin-acls -p0
+pdb-module-open-directory -p0
+auth-module-open-directory -p0
+idmap-add-apple-wellknown-sid -p0
+fix-nametogid-status-return -p0
+idmap-module-open-directory -p0
+configure-optionally-disable-swat -p0 # upstream in SAMBA_3_0_26
+support-stflags-stat-field-rdonly -p0
+support-darwin-quota-interface -p0
+# not for Leopard # spotlight-virtual-auth-support
+fix-osxcharset-includes-case -p0 # upstream in SAMBA_3_0_26
+configure-darwin-initgroups-syscall -p0
+support-darwin-initgroups-syscall -p0
+fix-vfs-prealloc-build -p0
+detect-fdatasync-api -p0
+support-kdebug-tracing -p0
+trans2-support-set-create-time -p0
+init-vfs-only-on-disk-shared -p0
+clean-up-server-modes -p0
+support-launchd-init-mode -p0
+map-enoattr-error-code -p0
+map-createtime-to-birthtime -p0
+mit-spnego-kerb-ap-rep -p0
+configure-list-all-volumes -p0
+param-separately-enable-smbd-services -p0
+fix-wrong-arch-settings -p0
+filter-sharelist-by-access -p0
+remove-name-to-fqdn-api -p0
+winbindd-add-realm-as-local-sam-altname -p0
+add-smb-panic-string-to-crashreporter -p0
+support-findfirst-for-write-only-directories -p0
+smbspool-support-cups-1.3-auth -p0
+dns-update-register-AD-style-name -p0
+deny-trust-accounts-disk-or-print-access -p0
+add-local-kdc-support -p0
+allow-guest-auth-for-local-account -p0
+support-cmdline-workgroup-in-net-setdomainsid -p0
+create-computer-account-in-od -p0

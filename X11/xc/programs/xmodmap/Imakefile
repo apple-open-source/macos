@@ -1,8 +1,0 @@
-XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:54 cpqbld Exp $
-        DEPLIBS = $(DEPXONLYLIB)
-LOCAL_LIBRARIES = $(XONLYLIB)
-       LINTLIBS = $(LINTXLIB)
-           SRCS = xmodmap.c pf.c handle.c exec.c 
-           OBJS = xmodmap.o pf.o handle.o exec.o 
-
-ComplexProgramTarget(xmodmap)

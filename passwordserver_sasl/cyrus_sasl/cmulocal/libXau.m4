@@ -1,5 +1,6 @@
-AC_DEFUN(CMU_XAU_INC_WHERE1, [
-AC_REQUIRE([AC_PROG_CC_GNU])
+dnl $Id: libXau.m4,v 1.4 2006/01/20 20:21:08 snsimon Exp $
+
+AC_DEFUN([CMU_XAU_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS
 CPPFLAGS="$saved_CPPFLAGS -I$1"
 AC_TRY_COMPILE([
@@ -11,7 +12,7 @@ ac_cv_found_Xau_inc=no)
 CPPFLAGS=$saved_CPPFLAGS
 ])
 
-AC_DEFUN(CMU_XAU_INC_WHERE, [
+AC_DEFUN([CMU_XAU_INC_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for Xau headers in $i)
       CMU_XAU_INC_WHERE1($i)
@@ -26,8 +27,7 @@ AC_DEFUN(CMU_XAU_INC_WHERE, [
     done
 ])
 
-AC_DEFUN(CMU_XAU_LIB_WHERE1, [
-AC_REQUIRE([AC_PROG_CC_GNU])
+AC_DEFUN([CMU_XAU_LIB_WHERE1], [
 saved_LIBS=$LIBS
 LIBS="$saved_LIBS -L$1 -lXau $LIB_SOCKET"
 AC_TRY_LINK(,
@@ -37,7 +37,7 @@ ac_cv_found_Xau_lib=no)
 LIBS=$saved_LIBS
 ])
 
-AC_DEFUN(CMU_XAU_LIB_WHERE, [
+AC_DEFUN([CMU_XAU_LIB_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for Xau libraries in $i)
       CMU_XAU_LIB_WHERE1($i)
@@ -53,7 +53,8 @@ AC_DEFUN(CMU_XAU_LIB_WHERE, [
     done
 ])
 
-AC_DEFUN(CMU_XAU, [
+AC_DEFUN([CMU_XAU], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_REQUIRE([CMU_SOCKETS])
 AC_ARG_WITH(Xau,
 	[  --with-Xau=PREFIX      Compile with Xau support],
@@ -73,7 +74,7 @@ AC_ARG_WITH(Xau-include,
 
 	if test "X$with_Xau" != "X"; then
 	  if test "$with_Xau" != "yes"; then
-	    ac_cv_Xau_where_lib=$with_Xau/lib
+	    ac_cv_Xau_where_lib=$with_Xau/$CMU_LIB_SUBDIR
 	    ac_cv_Xau_where_inc=$with_Xau/include
 	  fi
 	fi
@@ -82,7 +83,7 @@ AC_ARG_WITH(Xau-include,
 	  ac_cv_Xau_where_lib=$with_Xau_lib
 	fi
 	if test "X$ac_cv_Xau_where_lib" = "X"; then
-	  CMU_XAU_LIB_WHERE(/usr/X11R6/lib /usr/local/lib /usr/openwin/lib)
+	  CMU_XAU_LIB_WHERE(/usr/X11R6/$CMU_LIB_SUBDIR /usr/local/$CMU_LIB_SUBDIR /usr/openwin/$CMU_LIB_SUBDIR)
 	fi
 
 	if test "X$with_Xau_include" != "X"; then

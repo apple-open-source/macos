@@ -336,7 +336,7 @@ void nodecache_invalidate_caches(void)
 
 /*****************************************************************************/
 
-#ifdef DEBUG
+#if 0
 
 static int gtabs;
 

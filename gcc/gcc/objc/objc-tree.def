@@ -30,15 +30,21 @@ DEFTREECODE (CATEGORY_INTERFACE_TYPE, "category_interface_type", tcc_type, 0)
 DEFTREECODE (CATEGORY_IMPLEMENTATION_TYPE,"category_implementation_type",
 	     tcc_type, 0)
 DEFTREECODE (PROTOCOL_INTERFACE_TYPE, "protocol_interface_type", tcc_type, 0)
+/* APPLE LOCAL radar 4695109 */
+/* PROTOCOL_IMPLEMENTATION_TYPE removed */
 
 /* Objective-C decls.  */
 DEFTREECODE (KEYWORD_DECL, "keyword_decl", tcc_declaration, 0)
 DEFTREECODE (INSTANCE_METHOD_DECL, "instance_method_decl", tcc_declaration, 0)
 DEFTREECODE (CLASS_METHOD_DECL, "class_method_decl", tcc_declaration, 0)
+/* APPLE LOCAL C* property (Radar 4436866) */
+DEFTREECODE (PROPERTY_DECL, "property_decl", tcc_declaration, 0)
 
 /* Objective-C expressions.  */
 DEFTREECODE (MESSAGE_SEND_EXPR, "message_send_expr", tcc_expression, 3)
 DEFTREECODE (CLASS_REFERENCE_EXPR, "class_reference_expr", tcc_expression, 1)
+/* APPLE LOCAL radar 5276085 */
+DEFTREECODE (OBJC_WEAK_REFERENCE_EXPR, "weak_object_reference_expr", tcc_expression, 1)
 
 /*
 Local variables:

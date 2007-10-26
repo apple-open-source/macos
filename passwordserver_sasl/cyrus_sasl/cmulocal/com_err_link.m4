@@ -2,10 +2,10 @@ dnl damnit, i don't want to figure out if I need to build an integral com_err
 dnl library with the collection, I just want to know where it's installed,
 dnl so don't bitch, Rob...
 dnl Derrick Brashear
+dnl $Id: com_err_link.m4,v 1.4 2006/01/20 20:21:08 snsimon Exp $
 
 
-AC_DEFUN(CMU_COMERR_INC_WHERE1, [
-AC_REQUIRE([AC_PROG_CC_GNU])
+AC_DEFUN([CMU_COMERR_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS
 CPPFLAGS="$saved_CPPFLAGS -I$1"
 AC_TRY_COMPILE([#include <com_err.h>],
@@ -15,7 +15,7 @@ ac_cv_found_com_err_inc=no)
 CPPFLAGS=$saved_CPPFLAGS
 ])
 
-AC_DEFUN(CMU_COMERR_INC_WHERE, [
+AC_DEFUN([CMU_COMERR_INC_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for com_err headers in $i)
       CMU_COMERR_INC_WHERE1($i)
@@ -34,8 +34,7 @@ AC_DEFUN(CMU_COMERR_INC_WHERE, [
 # Test for lib files
 #
 
-AC_DEFUN(CMU_COMERR_LIB_WHERE1, [
-AC_REQUIRE([AC_PROG_CC_GNU])
+AC_DEFUN([CMU_COMERR_LIB_WHERE1], [
 saved_LIBS=$LIBS
 LIBS="$saved_LIBS -L$1 -lcom_err"
 AC_TRY_LINK(,
@@ -45,7 +44,7 @@ ac_cv_found_com_err_lib=no)
 LIBS=$saved_LIBS
 ])
 
-AC_DEFUN(CMU_COMERR_LIB_WHERE, [
+AC_DEFUN([CMU_COMERR_LIB_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for com_err libraries in $i)
       CMU_COMERR_LIB_WHERE1($i)
@@ -60,7 +59,8 @@ AC_DEFUN(CMU_COMERR_LIB_WHERE, [
     done
 ])
 
-AC_DEFUN(CMU_USE_COMERR, [
+AC_DEFUN([CMU_USE_COMERR], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_ARG_WITH(comerr,
 	[  --with-comerr=PREFIX      Compile with com_err support],
 	[if test "X$with_comerr" = "X"; then
@@ -79,7 +79,7 @@ AC_ARG_WITH(comerr-include,
 
 	if test "X$with_comerr" != "X"; then
 	  if test "$with_comerr" != "yes"; then
-	    ac_cv_comerr_where_lib=$with_comerr/lib
+	    ac_cv_comerr_where_lib=$with_comerr/$CMU_LIB_SUBDIR
 	    ac_cv_comerr_where_inc=$with_comerr/include
 	  fi
 	fi
@@ -88,7 +88,7 @@ AC_ARG_WITH(comerr-include,
 	  ac_cv_comerr_where_lib=$with_comerr_lib
 	fi
 	if test "X$ac_cv_comerr_where_lib" = "X"; then
-	  CMU_COMERR_LIB_WHERE(/usr/athena/lib /usr/lib /usr/local/lib)
+	  CMU_COMERR_LIB_WHERE(/usr/athena/$CMU_LIB_SUBDIR /usr/$CMU_LIB_SUBDIR /usr/local/$CMU_LIB_SUBDIR)
 	fi
 
 	if test "X$with_comerr_include" != "X"; then

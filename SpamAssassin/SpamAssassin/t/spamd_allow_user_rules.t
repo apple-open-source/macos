@@ -4,18 +4,13 @@ use lib '.'; use lib 't';
 use SATest; sa_t_init("spamd_allow_user_rules");
 use Test;
 
-use constant HAS_STORABLE => eval { require Storable; };
-
 BEGIN { 
 
-  plan tests => ($SKIP_SPAMD_TESTS || !HAS_STORABLE ? 0 : 5)
+  plan tests => ($SKIP_SPAMD_TESTS ? 0 : 5)
 
 };
 
 exit if $SKIP_SPAMD_TESTS;
-
-exit if !HAS_STORABLE;
-
 
 # ---------------------------------------------------------------------------
 
@@ -41,10 +36,10 @@ print OUT "
 ";
 close OUT;
 
-ok (start_spamd ("--virtual-config-dir=log/virtualconfig/%u -L"));
+ok (start_spamd ("--virtual-config-dir=log/virtualconfig/%u -L -u $current_user"));
 ok (spamcrun ("-u testuser < data/spam/009", \&patterns_run_cb));
 ok (stop_spamd ());
 
-checkfile ("spamd_allow_user_rules-spamd.err", \&patterns_run_cb);
+checkfile ($spamd_stderr, \&patterns_run_cb);
 ok_all_patterns();
 

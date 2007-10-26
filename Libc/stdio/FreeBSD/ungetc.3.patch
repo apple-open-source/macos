@@ -1,0 +1,43 @@
+--- _SB/Libc/stdio/FreeBSD/ungetc.3	2003-05-20 15:22:44.000000000 -0700
++++ _SB/Libc/stdio/FreeBSD/ungetc.3.edit	2006-06-28 16:55:52.000000000 -0700
+@@ -47,7 +47,10 @@
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft int
+-.Fn ungetc "int c" "FILE *stream"
++.Fo ungetc
++.Fa "int c"
++.Fa "FILE *stream"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn ungetc
+@@ -56,20 +59,20 @@
+ (converted to an unsigned char)
+ back onto the input stream pointed to by
+ .Fa stream .
+-The pushed-back characters will be returned by subsequent reads on the
+-stream (in reverse order).
+-A successful intervening call,
+-using the same stream,
++The pushed-back characters will be returned (in reverse order)
++by subsequent reads on the stream.
++A successful intervening call
+ to one of the file positioning functions
+ .Xr ( fseek 3 ,
+ .Xr fsetpos 3 ,
+ or
+-.Xr rewind 3 )
+-will discard the pushed back characters.
++.Xr rewind 3 ) ,
++using the same stream,
++will discard the pushed-back characters.
+ .Pp
+-One character of push-back is guaranteed,
++Only one character of push-back is guaranteed,
+ but as long as there is sufficient memory,
+-an effectively infinite amount of pushback is allowed.
++an effectively infinite amount of push-back is allowed.
+ .Pp
+ If a character is successfully pushed-back,
+ the end-of-file indicator for the stream is cleared.

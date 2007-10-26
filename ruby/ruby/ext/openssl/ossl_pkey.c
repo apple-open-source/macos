@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_pkey.c,v 1.4.2.1 2004/01/08 12:30:37 gotoyuzo Exp $
+ * $Id: ossl_pkey.c 12043 2007-03-12 04:12:32Z knu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -96,10 +96,21 @@ GetPrivPKeyPtr(VALUE obj)
 {
     EVP_PKEY *pkey;
 	
-    SafeGetPKey(obj, pkey);
-    if (rb_funcall(obj, id_private_q, 0, NULL) != Qtrue) { /* returns Qtrue */
+    if (rb_funcall(obj, id_private_q, 0, NULL) != Qtrue) {
 	ossl_raise(rb_eArgError, "Private key is needed.");
     }
+    SafeGetPKey(obj, pkey);
+
+    return pkey;
+}
+
+EVP_PKEY *
+DupPKeyPtr(VALUE obj)
+{
+    EVP_PKEY *pkey;
+
+    SafeGetPKey(obj, pkey);
+    CRYPTO_add(&pkey->references, 1, CRYPTO_LOCK_EVP_PKEY);
 
     return pkey;
 }
@@ -109,10 +120,10 @@ DupPrivPKeyPtr(VALUE obj)
 {
     EVP_PKEY *pkey;
 	
-    SafeGetPKey(obj, pkey);
-    if (rb_funcall(obj, id_private_q, 0, NULL) != Qtrue) { /* returns Qtrue */
+    if (rb_funcall(obj, id_private_q, 0, NULL) != Qtrue) {
 	ossl_raise(rb_eArgError, "Private key is needed.");
     }
+    SafeGetPKey(obj, pkey);
     CRYPTO_add(&pkey->references, 1, CRYPTO_LOCK_EVP_PKEY);
 
     return pkey;
@@ -152,10 +163,10 @@ ossl_pkey_sign(VALUE self, VALUE digest, VALUE data)
     int buf_len;
     VALUE str;
 
-    GetPKey(self, pkey);
     if (rb_funcall(self, id_private_q, 0, NULL) != Qtrue) {
 	ossl_raise(rb_eArgError, "Private key is needed.");
     }
+    GetPKey(self, pkey);
     EVP_SignInit(&ctx, GetDigestPtr(digest));
     StringValue(data);
     EVP_SignUpdate(&ctx, RSTRING(data)->ptr, RSTRING(data)->len);
@@ -197,6 +208,10 @@ ossl_pkey_verify(VALUE self, VALUE digest, VALUE sig, VALUE data)
 void
 Init_ossl_pkey()
 {
+#if 0 /* let rdoc know about mOSSL */
+    mOSSL = rb_define_module("OpenSSL");
+#endif
+        
     mPKey = rb_define_module_under(mOSSL, "PKey");
 	
     ePKeyError = rb_define_class_under(mPKey, "PKeyError", eOSSLError);

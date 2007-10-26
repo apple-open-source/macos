@@ -47,7 +47,7 @@ SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID* oid)
 {
     BEGIN_SECAPI
     Required(oid) = Policy::required(policyRef)->oid();
-	END_SECAPI
+	END_SECAPI2("SecPolicyGetOID")
 }
 
 
@@ -56,15 +56,17 @@ SecPolicyGetValue(SecPolicyRef policyRef, CSSM_DATA* value)
 {
     BEGIN_SECAPI
     Required(value) = Policy::required(policyRef)->value();
-	END_SECAPI
+	END_SECAPI2("SecPolicyGetValue")
 }
 
 OSStatus
 SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 {
 	BEGIN_SECAPI
-	Policy::required(policyRef)->value() = value ? (*value) : CssmData();
-	END_SECAPI
+    Required(value);
+    const CssmData newValue(value->Data, value->Length);
+	Policy::required(policyRef)->setValue(newValue);
+	END_SECAPI2("SecPolicySetValue")
 }
 
 
@@ -73,7 +75,7 @@ SecPolicyGetTPHandle(SecPolicyRef policyRef, CSSM_TP_HANDLE* tpHandle)
 {
     BEGIN_SECAPI
     Required(tpHandle) = Policy::required(policyRef)->tp()->handle();
-	END_SECAPI
+	END_SECAPI2("SecPolicyGetTPHandle")
 }
 
 OSStatus
@@ -96,36 +98,23 @@ SecPolicyCopyAll(CSSM_CERT_TYPE certificateType, CFArrayRef* policies)
 		CFRelease(currPolicies);
 		CFRelease(cursor->handle());
 	}
-	END_SECAPI
+	END_SECAPI2("SecPolicyCopyAll")
 }
 
 OSStatus
 SecPolicyCopy(CSSM_CERT_TYPE certificateType, const CSSM_OID *policyOID, SecPolicyRef* policy)
 {
-    BEGIN_SECAPI
 	Required(policy);
 	Required(policyOID);
-	CFArrayRef policies = NULL;
-	OSStatus result = noErr;
-	result = SecPolicyCopyAll(certificateType, &policies);
-	if ( policies && result == noErr )
-	{
-		SecPolicyRef currPolicy;
-		unsigned int i,c = CFArrayGetCount(policies);
-		Boolean done = FALSE;
-		for (i=0; i < c && !done; i++)
-		{
-			currPolicy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, i);
-			CssmOid oid1 = CssmOid::overlay(Policy::required(currPolicy)->oid());
-			CssmOid oid2 = CssmOid::overlay(*policyOID);
-			if ( oid1 == oid2 )
-			{
-				CFRetain(currPolicy);
-				*policy = currPolicy;
-				done = TRUE;
-			}
-		}
-		CFRelease(policies);
+	
+	SecPolicySearchRef srchRef = NULL;
+	OSStatus ortn;
+	
+	ortn = SecPolicySearchCreate(certificateType, policyOID, NULL, &srchRef);
+	if(ortn) {
+		return ortn;
 	}
-	END_SECAPI
+	ortn = SecPolicySearchCopyNext(srchRef, policy);
+	CFRelease(srchRef);
+	return ortn;
 }

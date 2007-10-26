@@ -1,0 +1,39 @@
+#! /usr/bin/perl
+
+use FindBin qw($Bin);
+use lib "$Bin/lib";
+use TestHelper;
+
+my ($status, $analyze, @exts, @dirs);
+GetOptions ('ext=s' => \@exts,
+	    'dir=s' => \@dirs,
+	    'status' => \$status,
+	    'short' => \$short,
+	    'long' => \$long,
+	    'flavors=s' => \@selected_flavors);
+
+#Set up default behavior.  
+my $file_count = @exts; my $dir_count = @dirs;
+if (!$file_count) { @exts = (""); $file_count = @exts; }
+if (!$dir_count) { @dirs = ("$gdb_dir"); }
+if ($file_count < $dir_count) { $exts[1] = $exts[0];}
+if ($file_count > $dir_count) { $dirs[1] = $dirs[0];}
+my @flavors = lookup_info (\@flavor_lists, @selected_flavors);
+			   
+for $test (@flavors) {
+    my @files = (); my $file;
+    for ($i=0; $i<$file_count; $i++) {
+	$file = get_log_filename ("gdb.sum", $dirs[$i], $exts[$i], $test);
+	push (@files, $file);
+    }
+    $stats = "tail -n 12 $files[-1]";
+    $analyze = "$tools/analyze @files";
+    if ($short) { $analyze .= " -short" }
+    if ($long) { $analyze .= " -long" }
+
+    print"\n\n$$test{flavor}:$$test{dir}==================================\n";
+    if ($status) { $command = $stats; } 
+    elsif ($long) { $command = "$stats; $analyze" }
+    else { $command = $analyze; }
+    system ("$command");
+}

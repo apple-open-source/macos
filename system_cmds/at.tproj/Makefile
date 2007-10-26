@@ -16,8 +16,7 @@ HFILES = at.h panic.h parsetime.h pathnames.h privs.h perm.h
 
 CFILES = at.c panic.c parsetime.c perm.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble Makefile.dist\
-            at.1
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble at.man
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -35,7 +34,8 @@ PROJECT_HEADERS = privs.h pathnames.h
 
 NEXTSTEP_PB_CFLAGS += -D__FBSDID=__RCSID -DDAEMON_UID=1 -DDAEMON_GID=1 \
 	-DDEFAULT_AT_QUEUE=\'a\' -DDEFAULT_BATCH_QUEUE=\'b\' \
-	-DPERM_PATH=\"/var/at/\" -I/System/Library/Frameworks/System.framework/PrivateHeaders
+	-DPERM_PATH=\"/usr/lib/cron/\" \
+	-I/System/Library/Frameworks/System.framework/PrivateHeaders
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build
 

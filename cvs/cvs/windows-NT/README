@@ -18,26 +18,18 @@ distribution's top directory.  At least with the tar port I'm using,
 the sources get extracted without carriage returns and you must add
 carriage returns to the end of every line in cvsnt.mak.  It doesn't
 seem to be necessary to add them to any other file.  This makefile was
-generated with Visual C++ 4.x.  For Visual C++ 5.x you can try
-cvsnet.dsp.  For Visual C++ 2.x you probably are in the position of
+generated with Visual C++ 5.x.  With Visual C++ 6.x you can also try
+cvsnt.dsw.  For Visual C++ 2.x you probably are in the position of
 digging through old versions of CVS for a cvsnt.mak and then updating
 it.  Feel free to let us know about problems of this sort as with
 other bug reports.
 
-Update as of 13 Oct 1998: I (Jim Kingdon) do build CVS successfully
-with Visual C++ on a regular basis.  The builds on download.cyclic.com
-(CVS 1.10, CVS 1.10.3, &c) are built using Visual C++ 4.0 and
-cvsnt.mak from the Debug (not release) configuration.  I have pretty
-much given up on getting the Visual C++ IDE to generate a makefile
-that works for anyone except me :-(.  If I knew an easy fix for this,
-I'd do it, but it is easier to just complain about Microsoft's finicky
-IDE and makefile/project file format du jour :-).  Having people send
-in "fixed" versions of cvsnt.mak and cvsnt.dsp regularly, as has been
-happening, is fine but it isn't an "easy fix", unfortunately, as it is
-rarely clear to me whether a particular submission will improve things
-or not.
+If you end up regenerating the MSVC makefiles and submitting a patch back to
+us, please be careful.  MSVC appears to be trying to write absolute paths into
+the diff/libdiff.mak file and a relative path to a file in the local MSVC
+install in cvsnt.dep (this last only with MSVC 6.x).
 
-Send bug reports to bug-cvs@gnu.org.
+Send bug reports to bug-cvs@nongnu.org.
 
 As of May 1996, this port passed all of the tests in src/sanity.sh,
 save the one that deals with reserved all-upper-case tags (BASE and

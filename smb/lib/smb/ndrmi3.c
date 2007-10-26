@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -38,6 +41,7 @@
 #include <dce/idlddefs.h>
 #include <ndrmi.h>
 #include <lsysdep.h>
+#include <asl.h>
 
 /******************************************************************************/
 /*                                                                            */
@@ -175,8 +179,7 @@ void rpc_ss_ndr_marsh_scalar
             return;
         default:
 #ifdef DEBUG_INTERP
-            printf("rpc_ss_ndr_marsh_scalar: unrecognized type %d\n",
-                        type_byte);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_marsh_scalar: unrecognized type %d\n", type_byte);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);
@@ -294,8 +297,7 @@ static void rpc_ss_ndr_marsh_union_body
             break;
         default:
 #ifdef DEBUG_INTERP
-            printf("rpc_ss_ndr_marsh_union_body: unrecognized type %d\n",
-                        type_byte);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_marsh_union_body: unrecognized type %d\n", type_byte);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);
@@ -715,8 +717,7 @@ void rpc_ss_ndr_marsh_xmit_as
             break;
         default:
 #ifdef DEBUG_INTERP
-            printf("rpc_ss_ndr_marsh_xmit_as: unrecognized type %d\n",
-                        transmitted_type);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_marsh_xmit_as: unrecognized type %d\n", transmitted_type);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);

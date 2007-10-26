@@ -37,6 +37,8 @@ function switch_flags (flags)
 			result = result " | " macros[j]
 	}
 	if (flags ~ " Common ") result = result " | CL_COMMON"
+	# APPLE LOCAL mainline
+	if (flags ~ " Target ") result = result " | CL_TARGET"
 	if (flags ~ " Joined ") result = result " | CL_JOINED"
 	if (flags ~ " JoinedOrMissing ") \
 	    result = result " | CL_JOINED | CL_MISSING_OK"

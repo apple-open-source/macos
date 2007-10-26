@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,15 +46,193 @@
 #include <SystemConfiguration/SCValidation.h>
 
 
+
+
+/* globals */
 static SCPreferencesRef		prefs		= NULL;
 static SCDynamicStoreRef	store		= NULL;
 
+/* preferences "initialization" globals */
+static CFStringRef		initKey		= NULL;
+static CFRunLoopSourceRef	initRls		= NULL;
+
+/* SCDynamicStore (Setup:) */
 static CFMutableDictionaryRef	currentPrefs;		/* current prefs */
 static CFMutableDictionaryRef	newPrefs;		/* new prefs */
 static CFMutableArrayRef	unchangedPrefsKeys;	/* new prefs keys which match current */
 static CFMutableArrayRef	removedPrefsKeys;	/* old prefs keys to be removed */
 
 static Boolean			_verbose	= FALSE;
+
+
+static void
+establishNewPreferences()
+{
+	CFBundleRef     bundle;
+	Boolean		ok		= FALSE;
+	int		sc_status	= kSCStatusFailed;
+	SCNetworkSetRef	set		= NULL;
+	CFStringRef	setName		= NULL;
+
+	while (TRUE) {
+		ok = SCPreferencesLock(prefs, TRUE);
+		if (ok) {
+			break;
+		}
+
+		sc_status = SCError();
+		if (sc_status == kSCStatusStale) {
+			(void) SCPreferencesSynchronize(prefs);
+		} else {
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("Could not acquire network configuration lock: %s"),
+			      SCErrorString(sc_status));
+			return;
+		}
+	}
+
+	set = SCNetworkSetCreate(prefs);
+	if (set == NULL) {
+		ok = FALSE;
+		sc_status = SCError();
+		goto done;
+	}
+
+	bundle = _SC_CFBundleGet();
+	if (bundle != NULL) {
+		setName = CFBundleCopyLocalizedString(bundle,
+						      CFSTR("DEFAULT_SET_NAME"),
+						      CFSTR("Automatic"),
+						      NULL);
+	}
+
+	ok = SCNetworkSetSetName(set, (setName != NULL) ? setName : CFSTR("Automatic"));
+	if (!ok) {
+		sc_status = SCError();
+		goto done;
+	}
+
+	ok = SCNetworkSetSetCurrent(set);
+	if (!ok) {
+		sc_status = SCError();
+		goto done;
+	}
+
+	ok = SCNetworkSetEstablishDefaultConfiguration(set);
+	if (!ok) {
+		sc_status = SCError();
+		goto done;
+	}
+
+    done :
+
+	if (ok) {
+		ok = SCPreferencesCommitChanges(prefs);
+		if (ok) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("New network configuration saved"));
+		} else {
+			sc_status = SCError();
+			if (sc_status == EROFS) {
+				/* a read-only fileysstem is OK */
+				ok = TRUE;
+			}
+		}
+
+		/* apply (committed or temporary/read-only) changes */
+		(void) SCPreferencesApplyChanges(prefs);
+	} else if (set != NULL) {
+		(void) SCNetworkSetRemove(set);
+	}
+
+	if (!ok) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("Could not establish network configuration: %s"),
+		      SCErrorString(sc_status));
+	}
+
+	(void)SCPreferencesUnlock(prefs);
+	if (setName != NULL) CFRelease(setName);
+	if (set != NULL) CFRelease(set);
+	return;
+}
+
+
+static Boolean
+quiet()
+{
+	CFDictionaryRef	dict;
+	Boolean		quiet	= FALSE;
+
+	// check if quiet
+	dict = SCDynamicStoreCopyValue(store, initKey);
+	if (dict != NULL) {
+		if (isA_CFDictionary(dict) &&
+		    (CFDictionaryContainsKey(dict, CFSTR("*QUIET*")) ||
+		     CFDictionaryContainsKey(dict, CFSTR("*TIMEOUT*")))) {
+			quiet = TRUE;
+		}
+		CFRelease(dict);
+	}
+
+	return quiet;
+}
+
+
+static void
+watchQuietDisable()
+{
+	if ((initKey == NULL) && (initRls == NULL)) {
+		return;
+	}
+
+	(void) SCDynamicStoreSetNotificationKeys(store, NULL, NULL);
+
+	CFRunLoopSourceInvalidate(initRls);
+	CFRelease(initRls);
+	initRls = NULL;
+
+	CFRelease(initKey);
+	initKey = NULL;
+
+	return;
+}
+
+
+static void
+watchQuietEnable()
+{
+	CFArrayRef	keys;
+	Boolean		ok;
+
+	initKey = SCDynamicStoreKeyCreate(NULL,
+					  CFSTR("%@" "InterfaceNamer"),
+					  kSCDynamicStoreDomainPlugin);
+
+	initRls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), initRls, kCFRunLoopDefaultMode);
+
+	keys = CFArrayCreate(NULL, (const void **)&initKey, 1, &kCFTypeArrayCallBacks);
+	ok = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
+	CFRelease(keys);
+	if (!ok) {
+		SCPrint(TRUE, stderr,
+			CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s\n"), SCErrorString(SCError()));
+		watchQuietDisable();
+	}
+
+	return;
+}
+
+static void
+watchQuietCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
+{
+	if (quiet()) {
+		watchQuietDisable();
+		establishNewPreferences();
+	}
+
+	return;
+}
 
 
 static void
@@ -183,9 +361,7 @@ flatten(SCPreferencesRef	prefs,
 
 
 static void
-updateConfiguration(SCPreferencesRef		prefs,
-		    SCPreferencesNotification   notificationType,
-		    void			*info)
+updateSCDynamicStore(SCPreferencesRef prefs)
 {
 	CFStringRef		current		= NULL;
 	CFDateRef		date		= NULL;
@@ -197,12 +373,6 @@ updateConfiguration(SCPreferencesRef		prefs,
 	CFStringRef		pattern;
 	CFMutableArrayRef	patterns;
 	CFDictionaryRef		set		= NULL;
-
-	if ((notificationType & kSCPreferencesNotificationApply) != kSCPreferencesNotificationApply) {
-		return;
-	}
-
-	SCLog(_verbose, LOG_DEBUG, CFSTR("updating configuration"));
 
 	/*
 	 * initialize old preferences, new preferences, an array
@@ -366,9 +536,6 @@ updateConfiguration(SCPreferencesRef		prefs,
 		      SCErrorString(SCError()));
 	}
 
-	/* finished with current prefs, wait for changes */
-	SCPreferencesSynchronize(prefs);
-
 	CFRelease(currentPrefs);
 	CFRelease(newPrefs);
 	CFRelease(unchangedPrefsKeys);
@@ -380,11 +547,47 @@ updateConfiguration(SCPreferencesRef		prefs,
 }
 
 
+static void
+updateConfiguration(SCPreferencesRef		prefs,
+		    SCPreferencesNotification   notificationType,
+		    void			*info)
+{
+
+
+	if ((notificationType & kSCPreferencesNotificationCommit) == kSCPreferencesNotificationCommit) {
+		SCNetworkSetRef	current;
+
+		current = SCNetworkSetCopyCurrent(prefs);
+		if (current != NULL) {
+			/* network configuration available, disable template creation */
+			watchQuietDisable();
+			CFRelease(current);
+		}
+	}
+
+	if ((notificationType & kSCPreferencesNotificationApply) != kSCPreferencesNotificationApply) {
+		return;
+	}
+
+	SCLog(_verbose, LOG_DEBUG, CFSTR("updating configuration"));
+
+	/* update SCDynamicStore (Setup:) */
+	updateSCDynamicStore(prefs);
+
+	/* finished with current prefs, wait for changes */
+	SCPreferencesSynchronize(prefs);
+
+	return;
+}
+
+
 __private_extern__
 void
 stop_PreferencesMonitor(CFRunLoopSourceRef stopRls)
 {
 	// cleanup
+
+	watchQuietDisable();
 
 	if (prefs != NULL) {
 		if (!SCPreferencesUnscheduleFromRunLoop(prefs,
@@ -425,6 +628,8 @@ __private_extern__
 void
 load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 {
+	Boolean	initPrefs	= TRUE;
+
 	if (bundleVerbose) {
 		_verbose = TRUE;
 	}
@@ -433,7 +638,10 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	SCLog(_verbose, LOG_DEBUG, CFSTR("  bundle ID = %@"), CFBundleGetIdentifier(bundle));
 
 	/* open a SCDynamicStore session to allow cache updates */
-	store = SCDynamicStoreCreate(NULL, CFSTR("PreferencesMonitor.bundle"), NULL, NULL);
+	store = SCDynamicStoreCreate(NULL,
+				     CFSTR("PreferencesMonitor.bundle"),
+				     watchQuietCallback,
+				     NULL);
 	if (store == NULL) {
 		SCLog(TRUE, LOG_ERR,
 		      CFSTR("SCDynamicStoreCreate() failed: %s"),
@@ -443,16 +651,18 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 
 	/* open a SCPreferences session */
 	prefs = SCPreferencesCreate(NULL, CFSTR("PreferencesMonitor.bundle"), NULL);
-	if (prefs == NULL) {
+	if (prefs != NULL) {
+		SCNetworkSetRef	current;
+
+		current = SCNetworkSetCopyCurrent(prefs);
+		if (current != NULL) {
+			/* network configuration available, disable template creation */
+			initPrefs = FALSE;
+			CFRelease(current);
+		}
+	} else {
 		SCLog(TRUE, LOG_ERR,
 		      CFSTR("SCPreferencesCreate() failed: %s"),
-		      SCErrorString(SCError()));
-		goto error;
-	}
-
-	if (!SCPreferencesSetCallback(prefs, updateConfiguration, NULL)) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCPreferencesSetCallBack() failed: %s"),
 		      SCErrorString(SCError()));
 		goto error;
 	}
@@ -460,6 +670,13 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	/*
 	 * register for change notifications.
 	 */
+	if (!SCPreferencesSetCallback(prefs, updateConfiguration, NULL)) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("SCPreferencesSetCallBack() failed: %s"),
+		      SCErrorString(SCError()));
+		goto error;
+	}
+
 	if (!SCPreferencesScheduleWithRunLoop(prefs, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
 		SCLog(TRUE, LOG_ERR,
 		      CFSTR("SCPreferencesScheduleWithRunLoop() failed: %s"),
@@ -467,12 +684,22 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 		goto error;
 	}
 
+	/*
+	 * if no preferences, initialize with a template (now or
+	 * when IOKit has quiesced).
+	 */
+	if (initPrefs) {
+		watchQuietEnable();
+		watchQuietCallback(store, NULL, NULL);
+	}
+
 	return;
 
     error :
 
-	if (store)	CFRelease(store);
-	if (prefs)	CFRelease(prefs);
+	watchQuietDisable();
+	if (store != NULL)	CFRelease(store);
+	if (prefs != NULL)	CFRelease(prefs);
 
 	return;
 }

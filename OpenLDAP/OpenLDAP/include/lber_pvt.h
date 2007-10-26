@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/lber_pvt.h,v 1.22.2.5 2004/04/11 16:57:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/lber_pvt.h,v 1.30.2.4 2006/01/03 22:16:06 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -135,6 +135,10 @@ LBER_F( char * )
 ber_strdup_x LDAP_P((
 	LDAP_CONST char *, void *ctx ));
 
+LBER_F( struct berval * )
+ber_bvreplace_x LDAP_P((
+	struct berval *dst, LDAP_CONST struct berval *src, void *ctx ));
+
 LBER_F( void )
 ber_bvarray_free_x LDAP_P(( BerVarray p, void *ctx ));
 
@@ -163,9 +167,38 @@ ber_bvarray_add_x LDAP_P(( BerVarray *p, BerValue *bv, void *ctx ));
 	( (s)[0] == (c) && (s)[1] == '\0' )
 
 #define ber_bvchr(bv,c) \
-	memchr( (bv)->bv_val, (c), (bv)->bv_len )
+	((char *) memchr( (bv)->bv_val, (c), (bv)->bv_len ))
 
-#define BER_BVC(s)		{ sizeof(s) - 1, (s) }
+#define ber_bvrchr(bv,c) \
+	((char *) memrchr( (bv)->bv_val, (c), (bv)->bv_len ))
+
+#define ber_bvchr_right(dst,bv,c) \
+	do { \
+		(dst)->bv_val = memchr( (bv)->bv_val, (c), (bv)->bv_len ); \
+		(dst)->bv_len = (dst)->bv_val ? (bv)->bv_len - ((dst)->bv_val - (bv)->bv_val) : 0; \
+	} while (0)
+
+#define ber_bvchr_left(dst,bv,c) \
+	do { \
+		(dst)->bv_val = memchr( (bv)->bv_val, (c), (bv)->bv_len ); \
+		(dst)->bv_len = (dst)->bv_val ? ((dst)->bv_val - (bv)->bv_val) : (bv)->bv_len; \
+		(dst)->bv_val = (bv)->bv_val; \
+	} while (0)
+
+#define ber_bvrchr_right(dst,bv,c) \
+	do { \
+		(dst)->bv_val = memrchr( (bv)->bv_val, (c), (bv)->bv_len ); \
+		(dst)->bv_len = (dst)->bv_val ? (bv)->bv_len - ((dst)->bv_val - (bv)->bv_val) : 0; \
+	} while (0)
+
+#define ber_bvrchr_left(dst,bv,c) \
+	do { \
+		(dst)->bv_val = memrchr( (bv)->bv_val, (c), (bv)->bv_len ); \
+		(dst)->bv_len = (dst)->bv_val ? ((dst)->bv_val - (bv)->bv_val) : (bv)->bv_len; \
+		(dst)->bv_val = (bv)->bv_val; \
+	} while (0)
+
+#define BER_BVC(s)		{ STRLENOF(s), (s) }
 #define BER_BVNULL		{ 0L, NULL }
 #define BER_BVZERO(bv) \
 	do { \
@@ -174,7 +207,7 @@ ber_bvarray_add_x LDAP_P(( BerVarray *p, BerValue *bv, void *ctx ));
 	} while (0)
 #define BER_BVSTR(bv,s)	\
 	do { \
-		(bv)->bv_len = sizeof(s)-1; \
+		(bv)->bv_len = STRLENOF(s); \
 		(bv)->bv_val = (s); \
 	} while (0)
 #define BER_BVISNULL(bv)	((bv)->bv_val == NULL)

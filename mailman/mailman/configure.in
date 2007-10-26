@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,10 +12,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 dnl Process this file with autoconf to produce a configure script.
-AC_REVISION($Revision: 1.1.1.2 $)
+AC_REVISION($Revision: 7462 $)
 AC_PREREQ(2.0)
 AC_INIT(src/common.h)
 
@@ -568,6 +568,7 @@ bin/newlist \
 bin/pygettext.py \
 bin/qrunner \
 bin/remove_members \
+bin/reset_pw.py \
 bin/rmlist \
 bin/show_qfiles \
 bin/sync_members \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,14 +23,14 @@
 
 #include "DACallback.h"
 
-DACallbackRef DACallbackCreate( CFAllocatorRef  allocator,
-                                DASessionRef    session,
-                                vm_offset_t     address,
-                                vm_offset_t     context,
-                                _DACallbackKind kind,
-                                CFIndex         order,
-                                CFDictionaryRef match,
-                                CFArrayRef      watch )
+DACallbackRef DACallbackCreate( CFAllocatorRef   allocator,
+                                DASessionRef     session,
+                                mach_vm_offset_t address,
+                                mach_vm_offset_t context,
+                                _DACallbackKind  kind,
+                                CFIndex          order,
+                                CFDictionaryRef  match,
+                                CFArrayRef       watch )
 {
     CFMutableDictionaryRef callback;
 
@@ -57,7 +57,7 @@ DACallbackRef DACallbackCreateCopy( CFAllocatorRef allocator, DACallbackRef call
     return ( void * ) CFDictionaryCreateMutableCopy( allocator, 0, ( void * ) callback );
 }
 
-vm_offset_t DACallbackGetAddress( DACallbackRef callback )
+mach_vm_offset_t DACallbackGetAddress( DACallbackRef callback )
 {
     return ___CFDictionaryGetIntegerValue( ( void * ) callback, _kDACallbackAddressKey );
 }
@@ -72,7 +72,7 @@ CFTypeRef DACallbackGetArgument1( DACallbackRef callback )
     return CFDictionaryGetValue( ( void * ) callback, _kDACallbackArgument1Key );
 }
 
-vm_offset_t DACallbackGetContext( DACallbackRef callback )
+mach_vm_offset_t DACallbackGetContext( DACallbackRef callback )
 {
     return ___CFDictionaryGetIntegerValue( ( void * ) callback, _kDACallbackContextKey );
 }

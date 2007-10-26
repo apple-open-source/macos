@@ -22,20 +22,43 @@
 
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
 #include <IOKit/IOReturn.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/ps/IOPSKeys.h>
+#include <mach/mach.h>
+#include <grp.h>
+#include <pwd.h>
 #include <syslog.h>
 #include "PrivateLib.h"
 
 enum
 {
-    PowerMangerScheduledShutdown = 1,
-    PowerMangerScheduledSleep
+    PowerManagerScheduledShutdown = 1,
+    PowerManagerScheduledSleep,
+    PowerManagerScheduledRestart
+};
+
+/* If the battery doesn't specify an alternative time, we wait 16 seconds
+   of ignoring the battery's (or our own) time remaining estimate. We choose
+   the number 16 seconds because PMU based PPC machines have a 15 second
+   battery polling cycle, and this 16 second timer should guarantee a 
+   valid time remaining estimate on PPC.
+*/   
+enum
+{
+    kInvalidWakeSecsDefault = 16
 };
 
 #define kPowerManagerActionNotificationName "com.apple.powermanager.action"
 #define kPowerManagerActionKey "action"
 #define kPowerManagerValueKey "value"
+
+// Tracks system battery state
+static int batCount = 0;
+static IOPMBattery **batteries = NULL;
 
 /******
  * Do not remove DUMMY macros
@@ -74,19 +97,20 @@ enum
             CFSTR("Please connect your computer to AC power. If you do not, your computer will go to sleep in a few minutes to preserve the contents of memory."), \
             NULL);
 
+
 __private_extern__ IOReturn 
 _setRootDomainProperty(
     CFStringRef                 key, 
     CFTypeRef                   val) 
 {
-    mach_port_t                 masterPort;
     io_iterator_t               it;
     io_registry_entry_t         root_domain;
     IOReturn                    ret;
 
-    IOMasterPort(bootstrap_port, &masterPort);
-    if(!masterPort) return kIOReturnError;
-    IOServiceGetMatchingServices(masterPort, IOServiceNameMatching("IOPMrootDomain"), &it);
+    IOServiceGetMatchingServices(
+                    MACH_PORT_NULL, 
+                    IOServiceNameMatching("IOPMrootDomain"), 
+                    &it);
     if(!it) return kIOReturnError;
     root_domain = (io_registry_entry_t)IOIteratorNext(it);
     if(!root_domain) return kIOReturnError;
@@ -95,14 +119,13 @@ _setRootDomainProperty(
 
     IOObjectRelease(root_domain);
     IOObjectRelease(it);
-    IOObjectRelease(masterPort);
     return ret;
 }
 
 
 static void sendNotification(int command)
 {
-    CFMutableDictionaryRef	dict = NULL;
+    CFMutableDictionaryRef   dict = NULL;
     int numberOfSeconds = 600;
     
     CFNumberRef secondsValue = CFNumberCreate( NULL, kCFNumberIntType, &numberOfSeconds );
@@ -127,31 +150,224 @@ static void sendNotification(int command)
 
 __private_extern__ void _askNicelyThenShutdownSystem(void)
 {
-    sendNotification(PowerMangerScheduledShutdown);
+    sendNotification( PowerManagerScheduledShutdown );
 }
 
 __private_extern__ void _askNicelyThenSleepSystem(void)
 {
-    sendNotification(PowerMangerScheduledSleep);
+    sendNotification( PowerManagerScheduledSleep );
 }
 
-/*
-__private_extern__ void _doNiceShutdown(void)
+__private_extern__ void _askNicelyThenRestartSystem(void)
 {
+    sendNotification( PowerManagerScheduledRestart );
 }
-*/
 
-__private_extern__ CFArrayRef _copyBatteryInfo(void) 
+// Accessor for internal battery structs
+__private_extern__ IOPMBattery **_batteries(void)
 {
-    static mach_port_t 		master_device_port = 0;
-    kern_return_t       	kr;
-    int				ret;
-    CFArrayRef			battery_info = NULL;
+    return batteries;
+}
+
+__private_extern__ bool _batterySupports(
+    io_registry_entry_t which, 
+    CFStringRef what)
+{
+    int         i = 0;
+    bool        found = false;
     
-    if(!master_device_port) kr = IOMasterPort(bootstrap_port,&master_device_port);
+    for(i=0; i<batCount; i++) 
+    {
+        if(which != batteries[i]->me) continue;
+        if(CFDictionaryGetValue(batteries[i]->properties, what)) 
+        {
+            found = true;
+            break;
+        }
+    }
+    
+    return found;
+}
+
+static void _unpackBatteryState(IOPMBattery *b, CFDictionaryRef prop)    
+{
+    CFBooleanRef    boo;
+    CFNumberRef     n;
+    
+    if(!isA_CFDictionary(prop)) return;
+    
+    boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSExternalConnectedKey));
+    b->externalConnected = (kCFBooleanTrue == boo);
+
+    boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSExternalChargeCapableKey));
+    b->externalChargeCapable = (kCFBooleanTrue == boo);
+
+    boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSBatteryInstalledKey));
+    b->isPresent = (kCFBooleanTrue == boo);
+
+    boo = CFDictionaryGetValue(prop, CFSTR(kIOPMPSIsChargingKey));
+    b->isCharging = (kCFBooleanTrue == boo);
+
+    b->failureDetected = (CFStringRef)CFDictionaryGetValue(prop, CFSTR(kIOPMPSErrorConditionKey));
+
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSCurrentCapacityKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->currentCap);
+    }
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSMaxCapacityKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->maxCap);
+    }
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSDesignCapacityKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->designCap);
+    }
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSTimeRemainingKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->hwAverageTR);
+    }
+    
+
+    n = CFDictionaryGetValue(prop, CFSTR("InstantAmperage"));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->instantAmperage);
+    }    
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSAmperageKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->avgAmperage);
+    }
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSMaxErrKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->maxerr);
+    }
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSCycleCountKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->cycleCount);
+    }
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSLocationKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->location);
+    }
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSInvalidWakeSecondsKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->invalidWakeSecs);
+    } else {
+        b->invalidWakeSecs = kInvalidWakeSecsDefault;
+    }
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSBatteryHealthKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->health);
+    }
+    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSHealthConfidenceKey));
+    if(n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->healthConfidence);
+    }
+
+    return;
+}
+
+__private_extern__ int  _batteryCount(void)
+{
+    return batCount;
+}
+
+__private_extern__ IOPMBattery *_newBatteryFound(io_registry_entry_t where)
+{
+    int             new_battery_index = batCount++;
+    IOPMBattery     **new_batteries_holder = NULL;
+    IOPMBattery     *new_battery = NULL;
+    int             i;
+    
+    new_batteries_holder = (IOPMBattery **)malloc( 
+                                batCount * sizeof(IOPMBattery *) );
+
+    if( batteries && (batCount > 1) )
+    {
+        // Copy existing batteries into new array
+        for(i=0; i<new_battery_index; i++)
+        {
+            new_batteries_holder[i] = batteries[i];
+        }
+
+        // Free older, smaller array
+        free(batteries); batteries = NULL;
+    }
+
+    batteries = new_batteries_holder;
+
+    // Populate new battery in array
+    new_battery = calloc(1, sizeof(IOPMBattery));
+    batteries[new_battery_index] = new_battery;
+    
+    new_battery->me = where;
+
+    new_battery->name = CFStringCreateWithFormat(
+                            kCFAllocatorDefault, 
+                            NULL, 
+                            CFSTR("InternalBattery-%d"), 
+                            new_battery_index);                            
+    new_battery->dynamicStoreKey = SCDynamicStoreKeyCreate(
+                            kCFAllocatorDefault, 
+                            CFSTR("%@%@/InternalBattery-%d"),
+                            kSCDynamicStoreDomainState, 
+                            CFSTR(kIOPSDynamicStorePath), 
+                            new_battery_index);
+
+    _batteryChanged(new_battery);
+
+    return new_battery;
+}
+
+
+__private_extern__ void _batteryChanged(IOPMBattery *changed_battery)
+{
+    kern_return_t       kr;
+    
+    if(0 == batCount) return;
+    
+    if(!changed_battery) { 
+        // This is unexpected; we're not tracking this battery
+        return;
+    }
+    
+    // Free the last set of properties
+    if(changed_battery->properties) { 
+        CFRelease(changed_battery->properties);
+        changed_battery->properties = NULL;
+    }
+    
+    kr = IORegistryEntryCreateCFProperties(
+                            changed_battery->me, 
+                            &(changed_battery->properties),
+                            kCFAllocatorDefault, 0);
+    if(KERN_SUCCESS != kr) {
+        changed_battery->properties = NULL;
+        goto exit;
+    }
+
+    _unpackBatteryState(changed_battery, changed_battery->properties);    
+exit:
+    return;
+}
+
+__private_extern__ bool _batteryHas(IOPMBattery *b, CFStringRef property)
+{
+    if(!property || !b->properties) return false;
+    
+    // If the battery's descriptior dictionary has an entry at all for the
+    // given 'property' it is supported, i.e. the battery 'has' it.
+    return CFDictionaryGetValue(b->properties, property) ? true : false;
+}
+
+
+// Returns 10.0 - 10.4 style IOPMCopyBatteryInfo dictionary, when possible.
+__private_extern__ CFArrayRef _copyLegacyBatteryInfo(void) 
+{
+    CFArrayRef          battery_info = NULL;
+    IOReturn            ret;
     
     // PMCopyBatteryInfo
-    ret = IOPMCopyBatteryInfo(master_device_port, &battery_info);
+    ret = IOPMCopyBatteryInfo(MACH_PORT_NULL, &battery_info);
     if(ret != kIOReturnSuccess || !battery_info)
     {
         return NULL;
@@ -197,60 +413,152 @@ __private_extern__ CFUserNotificationRef _showUPSWarning(void)
     }
 
     return note_ref;
-#endif // STANDALONE    
+#else 
+    return NULL;
+#endif
 }
-/*
-__private_extern__ CFUserNotificationRef _showLowBatteryWarning(void)
+
+/************************* One off hack for AppleSMC
+ *************************
+ ************************* Send AppleSMC a kCFPropertyTrue
+ ************************* on time discontinuities.
+ *************************/
+
+static CFMachPortRef        calChangeReceivePort = NULL;
+
+static void setSMCProperty(void)
 {
+    static io_registry_entry_t     _smc = MACH_PORT_NULL;
+    IOReturn                ret;
 
-// _showLowBatteryWarning is a no-op until
-// we resolve the TalkingAlerts issue. Need this to generate a speakable alert,
-// but the plumbing involved in doing that from configd is complicated.
-// For the time being, BatteryMonitor will continue to issue this alert.
-    CFMutableDictionaryRef      alert_dict;
-    SInt32                      error;
-    CFUserNotificationRef       note_ref;
-    CFBundleRef                 myBundle;
-    CFURLRef                    low_batt_image_URL;    
-    CFURLRef                    bundle_url;
-    CFStringRef                 header_unlocalized;
-    CFStringRef                 message_unlocalized;
-    
-    myBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.SystemConfiguration.PowerManagement"));
-    
-    // Create alert dictionary
-    alert_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, 
-        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if(!alert_dict) return NULL;
-    
-    bundle_url = CFBundleCopyBundleURL(myBundle);
-    CFDictionarySetValue(alert_dict, kCFUserNotificationLocalizationURLKey, bundle_url);
-    CFRelease(bundle_url);
-
-    
-    low_batt_image_URL = CFBundleCopyResourceURL(myBundle, CFSTR("low-batt"), CFSTR("icns"), 0);
-    if(low_batt_image_URL) 
-    {
-        CFShow(low_batt_image_URL);
-        CFDictionaryAddValue(alert_dict, kCFUserNotificationIconURLKey, low_batt_image_URL);
-        CFRelease(low_batt_image_URL);
+    if(MACH_PORT_NULL == _smc) {
+        _smc = IOServiceGetMatchingService( MACH_PORT_NULL,
+                        IOServiceMatching("AppleSMCFamily"));
     }
     
-    header_unlocalized = CFSTR("YOU ARE NOW RUNNING ON RESERVE BATTERY POWER.");
-    message_unlocalized = CFSTR("PLEASE CONNECT YOUR COMPUTER TO AC POWER. IF YOU DO NOT, YOUR COMPUTER WILL GO TO SLEEP IN A FEW MINUTES TO PRESERVE THE CONTENTS OF MEMORY.");
-    
-    CFDictionaryAddValue(alert_dict, kCFUserNotificationAlertHeaderKey, header_unlocalized);
-    CFDictionaryAddValue(alert_dict, kCFUserNotificationAlertMessageKey, message_unlocalized);
-    
-    note_ref = CFUserNotificationCreate(kCFAllocatorDefault, 0, 0, &error, alert_dict);
-    CFRelease(alert_dict);
-    if(0 != error)
-    {
-        syslog(LOG_INFO, "PowerManagement: battery warning error = %d\n", error);
-        return NULL;    
+    if(!_smc) {
+        return;
     }
-
-    return note_ref;
-
+    
+    // And simply AppleSMC with kCFBooleanTrue to let them know time is changed.
+    // We don't pass any information down.
+    ret = IORegistryEntrySetCFProperty( _smc, 
+                        CFSTR("TheTimesAreAChangin"), 
+                        kCFBooleanTrue);
 }
-*/
+
+static void handleMachCalendarMessage(CFMachPortRef port, void *msg, 
+                                            CFIndex size, void *info)
+{
+	kern_return_t  result;
+    mach_port_t    mport = CFMachPortGetPort(port); 
+	
+	// Re-register for notification
+	result = host_request_notification(mach_host_self(), HOST_NOTIFY_CALENDAR_CHANGE, mport);
+	if (result != KERN_SUCCESS) {
+        // Pretty fatal error. Oh well.
+        return;
+	}
+
+    setSMCProperty();
+}
+
+
+static void registerForCalendarChangedNotification(void)
+{
+	mach_port_t tport;
+	kern_return_t result;
+	CFRunLoopSourceRef rls;
+
+	// allocate the mach port we'll be listening to
+	result = mach_port_allocate(mach_task_self(),MACH_PORT_RIGHT_RECEIVE, &tport);
+	if (result != KERN_SUCCESS) {
+        return;
+    }
+
+    calChangeReceivePort = CFMachPortCreateWithPort(
+            kCFAllocatorDefault,
+            tport,
+            (CFMachPortCallBack)handleMachCalendarMessage,
+            NULL, /* context */
+            false); /* shouldFreeInfo */
+
+    rls = CFMachPortCreateRunLoopSource(
+            kCFAllocatorDefault, 
+            calChangeReceivePort,
+            0); /* index Order */
+
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+
+	// register for notification
+	result = host_request_notification(mach_host_self(),HOST_NOTIFY_CALENDAR_CHANGE, tport);
+}
+
+
+__private_extern__ int
+callerIsRoot(
+    int uid,
+    int gid
+)
+{
+    return (0 == uid);
+}
+
+__private_extern__ int
+callerIsAdmin(
+    int uid,
+    int gid
+)
+{
+    int         ngroups = NGROUPS_MAX+1;
+    int         group_list[NGROUPS_MAX+1];
+    int         i;
+    struct group    *adminGroup;
+    struct passwd   *pw;
+        
+    
+    pw = getpwuid(uid);
+    if(!pw) return false;
+    
+    getgrouplist(pw->pw_name, pw->pw_gid, group_list, &ngroups);
+
+    adminGroup = getgrnam("admin");
+    if (adminGroup != NULL) {
+        gid_t    adminGid = adminGroup->gr_gid;
+        for(i=0; i<ngroups; i++)
+        {
+            if (group_list[i] == adminGid) {
+                return TRUE;    // if a member of group "admin"
+            }
+        }
+    }
+    return false;
+}
+
+__private_extern__ int
+callerIsConsole(
+    int uid,
+    int gid)
+{
+    CFStringRef                 user_name = NULL;
+    uid_t                       console_uid;
+    gid_t                       console_gid;
+    
+    user_name = (CFStringRef)SCDynamicStoreCopyConsoleUser(NULL, 
+                                    &console_uid, &console_gid);
+
+    if(user_name) {
+        CFRelease(user_name);
+        return ((uid == console_uid) && (gid == console_gid));
+    } else {
+        // no data returned re: console user's uid or gid; return "false"
+        return false;
+    }
+    
+}
+
+
+void _oneOffHacksSetup(void) 
+{
+    registerForCalendarChangedNotification();
+}

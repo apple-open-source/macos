@@ -36,7 +36,9 @@
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_mutex_unlock "pthread_mutex_t *mutex"
+.Fo pthread_mutex_unlock
+.Fa "pthread_mutex_t *mutex"
+.Fc
 .Sh DESCRIPTION
 If the current thread holds the lock on
 .Fa mutex ,
@@ -47,10 +49,10 @@ function unlocks
 .Sh RETURN VALUES
 If successful,
 .Fn pthread_mutex_unlock
-will return zero, otherwise an error number will be returned to
-indicate the error.
+will return zero.
+Otherwise, an error number will be returned to indicate the error.
 .Sh ERRORS
-.Fn pthread_mutex_trylock
+.Fn pthread_mutex_unlock
 will fail if:
 .Bl -tag -width Er
 .It Bq Er EINVAL

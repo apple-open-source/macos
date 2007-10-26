@@ -39,7 +39,7 @@
 .Nm chown
 .Nd change file owner and group
 .Sh SYNOPSIS
-.Nm
+.Nm chown
 .Op Fl fhv
 .Oo
 .Fl R
@@ -47,7 +47,7 @@
 .Oc
 .Ar owner Ns Op : Ns Ar group
 .Ar
-.Nm
+.Nm chown
 .Op Fl fhv
 .Oo
 .Fl R
@@ -57,7 +57,7 @@
 .Ar
 .Sh DESCRIPTION
 The
-.Nm
+.Nm chown
 utility changes the user ID and/or the group ID of the specified files.
 Symbolic links named by arguments are silently left unchanged unless
 .Fl h
@@ -65,11 +65,17 @@ is used.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
+.It Fl f
+Don't report any failure to change file owner or group, nor modify
+the exit status to reflect such failures.
 .It Fl H
 If the
 .Fl R
 option is specified, symbolic links on the command line are followed.
 (Symbolic links encountered in the tree traversal are not followed.)
+.It Fl h
+If the file is a symbolic link, change the user ID and/or the
+group ID of the link itself.
 .It Fl L
 If the
 .Fl R
@@ -78,19 +84,14 @@ option is specified, all symbolic links are followed.
 If the
 .Fl R
 option is specified, no symbolic links are followed.
+Instead, the user and/or group ID of the link itself are modified.
 This is the default.
 .It Fl R
 Change the user ID and/or the group ID for the file hierarchies rooted
 in the files instead of just the files themselves.
-.It Fl f
-Don't report any failure to change file owner or group, nor modify
-the exit status to reflect such failures.
-.It Fl h
-If the file is a symbolic link, change the user ID and/or the
-group ID of the link itself.
 .It Fl v
 Cause
-.Nm
+.Nm chown
 to be verbose, showing files as the owner is modified.
 .El
 .Pp
@@ -109,7 +110,8 @@ The
 .Ar owner
 and
 .Ar group
-operands are both optional, however, one must be specified.
+operands are both optional;
+however, at least one must be specified.
 If the
 .Ar group
 operand is specified, it must be preceded by a colon (``:'') character.
@@ -125,37 +127,47 @@ may be either a numeric group ID or a group name.
 If a group name is also a numeric group ID, the operand is used as a
 group name.
 .Pp
-The ownership of a file may only be altered by a super-user for
-obvious security reasons.
+For obvious security reasons,
+the ownership of a file may only be altered by a super-user.
+Similarly, only a member of a group can change a file's group ID
+to that group.
 .Sh DIAGNOSTICS
 .Ex -std
 .Sh COMPATIBILITY
 Previous versions of the
-.Nm
+.Nm chown
 utility used the dot (``.'') character to distinguish the group name.
-This has been changed to be a colon (``:'') character so that user and
-group names may contain the dot character.
+This has been changed to be a colon (``:'') character,
+so that user and group names may contain the dot character.
 .Pp
-On previous versions of this system, symbolic links did not have
-owners.
+On previous versions of this system,
+symbolic links did not have owners.
 .Pp
 The
 .Fl v
 option is non-standard and its use in scripts is not recommended.
+.Sh LEGACY DESCRIPTION
+In legacy mode, the
+.Fl R
+and
+.Fl RP
+options do not change the user ID
+or the group ID of symbolic links.
 .Sh SEE ALSO
 .Xr chgrp 1 ,
 .Xr find 1 ,
 .Xr chown 2 ,
 .Xr fts 3 ,
+.Xr compat 5 ,
 .Xr symlink 7
 .Sh STANDARDS
 The
-.Nm
+.Nm chown
 utility is expected to be
 .St -p1003.2
 compliant.
 .Sh HISTORY
 A
-.Nm
+.Nm chown
 utility appeared in
 .At v1 .

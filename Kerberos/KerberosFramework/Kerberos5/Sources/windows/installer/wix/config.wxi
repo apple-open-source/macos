@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
 
-  Copyright (C) 2004 by the Massachusetts Institute of Technology.
+  Copyright (C) 2004, 2005, 2006 by the Massachusetts Institute of Technology.
   All rights reserved.
  
   Export of this software from the United States of America may
@@ -48,6 +48,7 @@
     <?define IncDir="$(var.TargetDir)inc\"?>
     <?define LibDir="$(var.TargetDir)lib\i386\"?>
     <?define InstallDir="$(var.TargetDir)install\"?>
+    <?define SampleDir="$(var.TargetDir)sample\"?>
     <?define SystemDir="$(env.SystemRoot)\System32\"?>
 
     <?include lang\config_$(var.BuildLang).wxi?>
@@ -150,5 +151,12 @@
     <?endif?>
     <?ifndef Krb5PreserveIdentity?>
         <?define Krb5PreserveIdentity="1"?>
+    <?endif?>
+
+    <!-- If neither NetIDMgr or Leash is specified, we default to NetIDMgr -->
+    <?ifndef UseNetIDMgr?>
+        <?ifndef UseLeash?>
+             <?define UseNetIDMgr="1"?>
+        <?endif?>
     <?endif?>
 </Include>

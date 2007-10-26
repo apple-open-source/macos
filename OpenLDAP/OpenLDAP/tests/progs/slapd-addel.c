@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-addel.c,v 1.22.2.4 2004/01/01 18:16:43 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-addel.c,v 1.27.2.8 2006/01/03 22:16:28 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,20 +32,32 @@
 
 #define LDAP_DEPRECATED 1
 #include <ldap.h>
+#include <lutil.h>
 
 #define LOOPS	100
+#define RETRIES	0
 
 static char *
 get_add_entry( char *filename, LDAPMod ***mods );
 
 static void
 do_addel( char *uri, char *host, int port, char *manager, char *passwd,
-	char *dn, LDAPMod **attrs, int maxloop );
+	char *dn, LDAPMod **attrs, int maxloop, int maxretries, int delay,
+	int friendly );
 
 static void
 usage( char *name )
 {
-	fprintf( stderr, "usage: %s [-h <host>] -p port -D <managerDN> -w <passwd> -f <addfile> [-l <loops>]\n",
+        fprintf( stderr,
+		"usage: %s "
+		"-H <uri> | ([-h <host>] -p <port>) "
+		"-D <manager> "
+		"-w <passwd> "
+		"-f <addfile> "
+		"[-l <loops>] "
+		"[-r <maxretries>] "
+		"[-t <delay>] "
+		"[-F]\n",
 			name );
 	exit( EXIT_FAILURE );
 }
@@ -54,48 +66,72 @@ int
 main( int argc, char **argv )
 {
 	int		i;
-	char        *host = "localhost";
+	char		*host = "localhost";
 	char		*uri = NULL;
-	int			port = -1;
+	int		port = -1;
 	char		*manager = NULL;
 	char		*passwd = NULL;
 	char		*filename = NULL;
 	char		*entry = NULL;
-	int			loops = LOOPS;
-	LDAPMod     **attrs = NULL;
+	int		loops = LOOPS;
+	int		retries = RETRIES;
+	int		delay = 0;
+	int		friendly = 0;
+	LDAPMod		**attrs = NULL;
 
-	while ( (i = getopt( argc, argv, "H:h:p:D:w:f:l:" )) != EOF ) {
+	while ( (i = getopt( argc, argv, "FH:h:p:D:w:f:l:r:t:" )) != EOF ) {
 		switch( i ) {
-			case 'H':		/* the server's URI */
-				uri = strdup( optarg );
+		case 'F':
+			friendly++;
 			break;
-			case 'h':		/* the servers host */
-				host = strdup( optarg );
-			break;
-
-			case 'p':		/* the servers port */
-				port = atoi( optarg );
-				break;
-
-			case 'D':		/* the servers manager */
-				manager = strdup( optarg );
+			
+		case 'H':		/* the server's URI */
+			uri = strdup( optarg );
 			break;
 
-			case 'w':		/* the server managers password */
-				passwd = strdup( optarg );
+		case 'h':		/* the servers host */
+			host = strdup( optarg );
 			break;
 
-			case 'f':		/* file with entry search request */
-				filename = strdup( optarg );
-				break;
-
-			case 'l':		/* the number of loops */
-				loops = atoi( optarg );
-				break;
-
-			default:
+		case 'p':		/* the servers port */
+			if ( lutil_atoi( &port, optarg ) != 0 ) {
 				usage( argv[0] );
-				break;
+			}
+			break;
+
+		case 'D':		/* the servers manager */
+			manager = strdup( optarg );
+			break;
+
+		case 'w':		/* the server managers password */
+			passwd = strdup( optarg );
+			break;
+
+		case 'f':		/* file with entry search request */
+			filename = strdup( optarg );
+			break;
+
+		case 'l':		/* the number of loops */
+			if ( lutil_atoi( &loops, optarg ) != 0 ) {
+				usage( argv[0] );
+			}
+			break;
+
+		case 'r':		/* number of retries */
+			if ( lutil_atoi( &retries, optarg ) != 0 ) {
+				usage( argv[0] );
+			}
+			break;
+
+		case 't':		/* delay in seconds */
+			if ( lutil_atoi( &delay, optarg ) != 0 ) {
+				usage( argv[0] );
+			}
+			break;
+
+		default:
+			usage( argv[0] );
+			break;
 		}
 	}
 
@@ -120,7 +156,8 @@ main( int argc, char **argv )
 
 	}
 
-	do_addel( uri, host, port, manager, passwd, entry, attrs, loops );
+	do_addel( uri, host, port, manager, passwd, entry, attrs,
+			loops, retries, delay, friendly );
 
 	exit( EXIT_SUCCESS );
 }
@@ -249,13 +286,18 @@ do_addel(
 	char *passwd,
 	char *entry,
 	LDAPMod **attrs,
-	int maxloop
+	int maxloop,
+	int maxretries,
+	int delay,
+	int friendly
 )
 {
 	LDAP	*ld = NULL;
-	int  	i;
+	int  	i = 0, do_retry = maxretries;
 	pid_t	pid = getpid();
+	int	rc = LDAP_SUCCESS;
 
+retry:;
 	if ( uri ) {
 		ldap_initialize( &ld, uri );
 	} else {
@@ -272,24 +314,58 @@ do_addel(
 			&version ); 
 	}
 
-	if ( ldap_bind_s( ld, manager, passwd, LDAP_AUTH_SIMPLE )
-				!= LDAP_SUCCESS ) {
-		ldap_perror( ld, "ldap_bind" );
-		 exit( EXIT_FAILURE );
+	if ( do_retry == maxretries ) {
+		fprintf( stderr, "PID=%ld - Add/Delete(%d): entry=\"%s\".\n",
+			(long) pid, maxloop, entry );
 	}
 
+	rc = ldap_bind_s( ld, manager, passwd, LDAP_AUTH_SIMPLE );
+	if ( rc != LDAP_SUCCESS ) {
+		ldap_perror( ld, "ldap_bind" );
+		switch ( rc ) {
+		case LDAP_BUSY:
+		case LDAP_UNAVAILABLE:
+			if ( do_retry > 0 ) {
+				do_retry--;
+				if ( delay != 0 ) {
+				    sleep( delay );
+				}
+				goto retry;
+			}
+		/* fallthru */
+		default:
+			break;
+		}
+		exit( EXIT_FAILURE );
+	}
 
-	fprintf( stderr, "PID=%ld - Add/Delete(%d): entry=\"%s\".\n",
-					(long) pid, maxloop, entry );
-
-	for ( i = 0; i < maxloop; i++ ) {
+	for ( ; i < maxloop; i++ ) {
 
 		/* add the entry */
-		if ( ldap_add_s( ld, entry, attrs ) != LDAP_SUCCESS ) {
-
+		rc = ldap_add_s( ld, entry, attrs );
+		if ( rc != LDAP_SUCCESS ) {
 			ldap_perror( ld, "ldap_add" );
-			break;
+			switch ( rc ) {
+			case LDAP_ALREADY_EXISTS:
+				/* NOTE: this likely means
+				 * the delete failed
+				 * during the previous round... */
+				if ( !friendly ) {
+					goto done;
+				}
+				break;
 
+			case LDAP_BUSY:
+			case LDAP_UNAVAILABLE:
+				if ( do_retry > 0 ) {
+					do_retry--;
+					goto retry;
+				}
+				/* fall thru */
+
+			default:
+				goto done;
+			}
 		}
 
 #if 0
@@ -299,16 +375,35 @@ do_addel(
 #endif
 
 		/* now delete the entry again */
-		if ( ldap_delete_s( ld, entry ) != LDAP_SUCCESS ) {
-
+		rc = ldap_delete_s( ld, entry );
+		if ( rc != LDAP_SUCCESS ) {
 			ldap_perror( ld, "ldap_delete" );
-			break;
+			switch ( rc ) {
+			case LDAP_NO_SUCH_OBJECT:
+				/* NOTE: this likely means
+				 * the add failed
+				 * during the previous round... */
+				if ( !friendly ) {
+					goto done;
+				}
+				break;
 
+			case LDAP_BUSY:
+			case LDAP_UNAVAILABLE:
+				if ( do_retry > 0 ) {
+					do_retry--;
+					goto retry;
+				}
+				/* fall thru */
+
+			default:
+				goto done;
+			}
 		}
-
 	}
 
-	fprintf( stderr, " PID=%ld - Add/Delete done.\n", (long) pid );
+done:;
+	fprintf( stderr, " PID=%ld - Add/Delete done (%d).\n", (long) pid, rc );
 
 	ldap_unbind( ld );
 }

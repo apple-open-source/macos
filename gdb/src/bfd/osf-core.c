@@ -1,5 +1,5 @@
 /* BFD back-end for OSF/1 core files.
-   Copyright 1993, 1994, 1995, 1998, 1999, 2001, 2002
+   Copyright 1993, 1994, 1995, 1998, 1999, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* This file can only be compiled on systems which use OSF/1 style
    core files.  */
@@ -56,11 +56,11 @@ struct osf_core_struct
 #define core_command(bfd) (core_hdr(bfd)->cmd)
 
 static asection *
-make_bfd_asection (abfd, name, flags, _raw_size, vma, filepos)
+make_bfd_asection (abfd, name, flags, size, vma, filepos)
      bfd *abfd;
      const char *name;
      flagword flags;
-     bfd_size_type _raw_size;
+     bfd_size_type size;
      bfd_vma vma;
      file_ptr filepos;
 {
@@ -71,7 +71,7 @@ make_bfd_asection (abfd, name, flags, _raw_size, vma, filepos)
     return NULL;
 
   asect->flags = flags;
-  asect->_raw_size = _raw_size;
+  asect->size = size;
   asect->vma = vma;
   asect->filepos = filepos;
   asect->alignment_power = 8;
@@ -185,10 +185,13 @@ swap_abort()
 {
   abort(); /* This way doesn't require any declaration for ANSI to fuck up */
 }
-#define	NO_GET	((bfd_vma (*) PARAMS ((   const bfd_byte *))) swap_abort )
-#define	NO_PUT	((void    (*) PARAMS ((bfd_vma, bfd_byte *))) swap_abort )
-#define	NO_SIGNED_GET \
-  ((bfd_signed_vma (*) PARAMS ((const bfd_byte *))) swap_abort )
+
+#define	NO_GET ((bfd_vma (*) (const void *)) swap_abort)
+#define	NO_PUT ((void (*) (bfd_vma, void *)) swap_abort)
+#define	NO_GETS ((bfd_signed_vma (*) (const void *)) swap_abort)
+#define	NO_GET64 ((bfd_uint64_t (*) (const void *)) swap_abort)
+#define	NO_PUT64 ((void (*) (bfd_uint64_t, void *)) swap_abort)
+#define	NO_GETS64 ((bfd_int64_t (*) (const void *)) swap_abort)
 
 const bfd_target osf_core_vec =
   {
@@ -203,26 +206,26 @@ const bfd_target osf_core_vec =
     0,			                                   /* symbol prefix */
     ' ',						   /* ar_pad_char */
     16,							   /* ar_max_namelen */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 64 bit data */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 32 bit data */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 16 bit data */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 64 bit hdrs */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 32 bit hdrs */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 16 bit hdrs */
+    NO_GET64, NO_GETS64, NO_PUT64,	/* 64 bit data */
+    NO_GET, NO_GETS, NO_PUT,		/* 32 bit data */
+    NO_GET, NO_GETS, NO_PUT,		/* 16 bit data */
+    NO_GET64, NO_GETS64, NO_PUT64,	/* 64 bit hdrs */
+    NO_GET, NO_GETS, NO_PUT,		/* 32 bit hdrs */
+    NO_GET, NO_GETS, NO_PUT,		/* 16 bit hdrs */
 
     {				/* bfd_check_format */
-     _bfd_dummy_target,		/* unknown format */
-     _bfd_dummy_target,		/* object file */
-     _bfd_dummy_target,		/* archive */
-     osf_core_core_file_p	/* a core file */
+      _bfd_dummy_target,		/* unknown format */
+      _bfd_dummy_target,		/* object file */
+      _bfd_dummy_target,		/* archive */
+      osf_core_core_file_p		/* a core file */
     },
     {				/* bfd_set_format */
-     bfd_false, bfd_false,
-     bfd_false, bfd_false
+      bfd_false, bfd_false,
+      bfd_false, bfd_false
     },
     {				/* bfd_write_contents */
-     bfd_false, bfd_false,
-     bfd_false, bfd_false
+      bfd_false, bfd_false,
+      bfd_false, bfd_false
     },
 
     BFD_JUMP_TABLE_GENERIC (_bfd_generic),
@@ -238,4 +241,4 @@ const bfd_target osf_core_vec =
     NULL,
 
     (PTR) 0			/* backend_data */
-};
+  };

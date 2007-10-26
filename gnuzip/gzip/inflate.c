@@ -1,6 +1,7 @@
 /* Inflate deflated data
 
-   Copyright (C) 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2002, 2006 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -9,13 +10,12 @@
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-   See the GNU General Public License for more details.
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; see the file COPYING.
-   If not, write to the Free Software Foundation,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Not copyrighted 1992 by Mark Adler
    version c10p1, 10 January 1993 */
@@ -62,8 +62,8 @@
    chunks), otherwise the dynamic method is used.  In the latter case, the
    codes are customized to the probabilities in the current block, and so
    can code it much better than the pre-determined fixed codes.
- 
-   The Huffman codes themselves are decoded using a mutli-level table
+
+   The Huffman codes themselves are decoded using a multi-level table
    lookup, in order to maximize the speed of decoding plus the speed of
    building the decoding tables.  See the comments below that precede the
    lbits and dbits tuning parameters.
@@ -116,7 +116,7 @@
  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: inflate.c,v 0.14 1993/06/10 13:27:04 jloup Exp $";
+static char rcsid[] = "$Id: inflate.c,v 1.6 2006/12/20 23:30:17 eggert Exp $";
 #endif
 
 #include <config.h>
@@ -193,7 +193,7 @@ static ush cpdext[] = {         /* Extra bits for distance codes */
 
 /* Macros for inflate() bit peeking and grabbing.
    The usage is:
-   
+
         NEEDBITS(j)
         x = b & mask_bits[j];
         DUMPBITS(j)
@@ -328,16 +328,23 @@ int *m;                 /* maximum lookup bits, returns actual */
   memzero(c, sizeof(c));
   p = b;  i = n;
   do {
-    Tracecv(*p, (stderr, (n-i >= ' ' && n-i <= '~' ? "%c %d\n" : "0x%x %d\n"), 
+    Tracecv(*p, (stderr, (n-i >= ' ' && n-i <= '~' ? "%c %d\n" : "0x%x %d\n"),
 	    n-i, *p));
     c[*p]++;                    /* assume all entries <= BMAX */
     p++;                      /* Can't combine with above line (Solaris bug) */
   } while (--i);
   if (c[0] == n)                /* null input--all zero length codes */
   {
-    *t = (struct huft *)NULL;
-    *m = 0;
-    return 2;
+    q = (struct huft *) malloc (2 * sizeof *q);
+    if (!q)
+      return 3;
+    hufts += 2;
+    q[0].v.t = (struct huft *) NULL;
+    q[1].e = 99;    /* invalid code marker */
+    q[1].b = 1;
+    *t = q + 1;
+    *m = 1;
+    return 0;
   }
 
 
@@ -505,7 +512,7 @@ struct huft *t;         /* table to free */
     q = (--p)->v.t;
     free((char*)p);
     p = q;
-  } 
+  }
   return 0;
 }
 
@@ -856,7 +863,7 @@ int inflate_dynamic()
   if ((i = huft_build(ll, nl, 257, cplens, cplext, &tl, &bl)) != 0)
   {
     if (i == 1) {
-      fprintf(stderr, " incomplete literal tree\n");
+      Trace ((stderr, " incomplete literal tree\n"));
       huft_free(tl);
     }
     return i;                   /* incomplete code set */
@@ -865,7 +872,7 @@ int inflate_dynamic()
   if ((i = huft_build(ll + nl, nd, 0, cpdist, cpdext, &td, &bd)) != 0)
   {
     if (i == 1) {
-      fprintf(stderr, " incomplete distance tree\n");
+      Trace ((stderr, " incomplete distance tree\n"));
 #ifdef PKZIP_BUG_WORKAROUND
       i = 0;
     }
@@ -976,8 +983,6 @@ int inflate()
 
 
   /* return success */
-#ifdef DEBUG
-  fprintf(stderr, "<%u> ", h);
-#endif /* DEBUG */
+  Trace ((stderr, "<%u> ", h));
   return 0;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,7 +30,7 @@
 /*
  * Modification History
  *
- * July 19, 2000 	Dieter Siegmund (dieter@apple.com)
+ * July 19, 2000	Dieter Siegmund (dieter@apple.com)
  * - initial revision
  *
  * November 15, 2000	Dieter Siegmund (dieter@apple.com)
@@ -60,6 +60,9 @@
  *
  * March 22, 2004	Allan Nathanson (ajn@apple.com)
  * - create expanded DNS configuration
+ *
+ * June 20, 2006	Allan Nathanson (ajn@apple.com)
+ * - add SMB configuration
  */
 
 #include <stdlib.h>
@@ -76,54 +79,57 @@
 #include <arpa/inet.h>
 #include <sys/sysctl.h>
 #include <limits.h>
+#include <notify.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>	/* for SCLog() */
-
 #include <dnsinfo.h>
 
-void load_hostname(Boolean verbose);
-void dns_configuration_init(CFBundleRef bundle);
-void dns_configuration_set(CFDictionaryRef      defaultResolver,
-			   CFDictionaryRef      services,
-			   CFArrayRef		serviceOrder);
+#include <dns_sd.h>
+#ifndef	kDNSServiceCompPrivateDNS
+#define	kDNSServiceCompPrivateDNS	"PrivateDNS"
+#endif
+
+#include "set-hostname.h"
+#include "dns-configuration.h"
+#include "smb-configuration.h"
 
 #define IP_FORMAT	"%d.%d.%d.%d"
 #define IP_CH(ip)	((u_char *)(ip))
 #define IP_LIST(ip)	IP_CH(ip)[0],IP_CH(ip)[1],IP_CH(ip)[2],IP_CH(ip)[3]
 
 /* debug output on/off */
-static boolean_t 		S_IPMonitor_debug = FALSE;
+static boolean_t		S_IPMonitor_debug = FALSE;
 
 /* are we netbooted?  If so, don't touch the default route */
 static boolean_t		S_netboot = FALSE;
-
-/* notification key indicating dns configuration has been changed */
-static CFStringRef		S_notify_dnsinfo = NULL;
 
 /* dictionary to hold per-service state: key is the serviceID */
 static CFMutableDictionaryRef	S_service_state_dict = NULL;
 
 /* if set, a PPP interface overrides the primary */
-static boolean_t		S_ppp_override_primary = TRUE;
+static boolean_t		S_ppp_override_primary = FALSE;
 
 /* the current primary serviceID's */
 static CFStringRef		S_primary_ipv4 = NULL;
 static CFStringRef		S_primary_ipv6 = NULL;
 static CFStringRef		S_primary_dns = NULL;
 static CFStringRef		S_primary_proxies = NULL;
+static CFStringRef		S_primary_smb = NULL;
 
 static CFStringRef		S_state_global_ipv4 = NULL;
 static CFStringRef		S_state_global_ipv6 = NULL;
 static CFStringRef		S_state_global_dns = NULL;
-static CFStringRef		S_state_global_netinfo = NULL;
 static CFStringRef		S_state_global_proxies = NULL;
+static CFStringRef		S_state_global_smb = NULL;
 static CFStringRef		S_state_service_prefix = NULL;
 static CFStringRef		S_setup_global_ipv4 = NULL;
-static CFStringRef		S_setup_global_netinfo = NULL;
 static CFStringRef		S_setup_global_proxies = NULL;
+static CFStringRef		S_setup_global_smb = NULL;
 static CFStringRef		S_setup_service_prefix = NULL;
+
+static CFStringRef		S_private_resolvers = NULL;
 
 static struct in_addr		S_router_subnet = { 0 };
 static struct in_addr		S_router_subnet_mask = { 0 };
@@ -135,8 +141,7 @@ static const struct in6_addr	S_ip6_zeros = IN6ADDR_ANY_INIT;
 #define kRouterNeedsLocalIP	CFSTR("com.apple.IPMonitor.RouterNeedsLocalIP")
 #define kRouterIsDirect		CFSTR("com.apple.IPMonitor.IsDirect")
 
-#define VAR_RUN_RESOLV_CONF		"/var/run/resolv.conf"
-#define VAR_RUN_NICONFIG_LOCAL_XML	"/var/run/niconfig_local.xml"
+#define VAR_RUN_RESOLV_CONF	"/var/run/resolv.conf"
 
 #ifndef KERN_NETBOOT
 #define KERN_NETBOOT		40	/* int: are we netbooted? 1=yes,0=no */
@@ -148,11 +153,11 @@ static const struct in6_addr	S_ip6_zeros = IN6ADDR_ANY_INIT;
  **/
 #define ENTITY_TYPES_COUNT	5
 enum {
-    kEntityTypeIPv4 	= 0,
-    kEntityTypeIPv6 	= 1,
-    kEntityTypeDNS 	= 2,
-    kEntityTypeNetInfo 	= 3,
-    kEntityTypeProxies 	= 4,
+    kEntityTypeIPv4	= 0,
+    kEntityTypeIPv6	= 1,
+    kEntityTypeDNS	= 2,
+    kEntityTypeProxies	= 3,
+    kEntityTypeSMB	= 4,
 };
 typedef uint32_t	EntityType;
 
@@ -167,8 +172,8 @@ typedef GetEntityChangesFunc * GetEntityChangesFuncRef;
 static GetEntityChangesFunc get_ipv4_changes;
 static GetEntityChangesFunc get_ipv6_changes;
 static GetEntityChangesFunc get_dns_changes;
-static GetEntityChangesFunc get_netinfo_changes;
 static GetEntityChangesFunc get_proxies_changes;
+static GetEntityChangesFunc get_smb_changes;
 
 static void
 my_CFRelease(void * t);
@@ -179,12 +184,12 @@ my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new);
 static void
 my_CFArrayRemoveValue(CFMutableArrayRef arr, CFStringRef key);
 
-static GetEntityChangesFuncRef entityChangeFunc[ENTITY_TYPES_COUNT] = {
-    get_ipv4_changes, 	/* 0 */
-    get_ipv6_changes, 	/* 1 */
-    get_dns_changes,  	/* 2 */
-    get_netinfo_changes,/* 3 */
-    get_proxies_changes,/* 4 */
+static const GetEntityChangesFuncRef entityChangeFunc[ENTITY_TYPES_COUNT] = {
+    get_ipv4_changes,	/* 0 */
+    get_ipv6_changes,	/* 1 */
+    get_dns_changes,	/* 2 */
+    get_proxies_changes,/* 3 */
+    get_smb_changes,	/* 4 */
 };
 
 /**
@@ -247,6 +252,7 @@ keyChangeListApplyToStore(keyChangeListRef keys, SCDynamicStoreRef session)
     CFArrayRef		notify = keys->notify;
     CFArrayRef		remove = keys->remove;
     CFDictionaryRef	set = keys->set;
+    int			status;
 
     if (CFArrayGetCount(notify) == 0) {
 	notify = NULL;
@@ -272,6 +278,15 @@ keyChangeListApplyToStore(keyChangeListRef keys, SCDynamicStoreRef session)
 	}
     }
     (void)SCDynamicStoreSetMultiple(session, set, remove, notify);
+
+    status = notify_post("com.apple.system.config.network_change");
+    if (status == NOTIFY_STATUS_OK) {
+	    SCLog(TRUE, LOG_INFO, CFSTR("network configuration changed."));
+    } else {
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR("IPMonitor: notify_post() failed: error=%ld"), status);
+    }
+
     return;
 }
 
@@ -334,18 +349,6 @@ my_CFDictionaryGetDictionary(CFDictionaryRef dict, CFStringRef key)
 	return (NULL);
     }
     return (isA_CFDictionary(CFDictionaryGetValue(dict, key)));
-}
-
-static CFDictionaryRef
-my_SCDCopy(SCDynamicStoreRef session, CFStringRef key)
-{
-    CFDictionaryRef 	dict;
-
-    dict = SCDynamicStoreCopyValue(session, key);
-    if (isA_CFDictionary(dict) == NULL) {
-	my_CFRelease(&dict);
-    }
-    return dict;
 }
 
 static boolean_t
@@ -428,159 +431,6 @@ parse_component(CFStringRef key, CFStringRef prefix)
     return (comp);
 }
 
-static void
-append_netinfo_arrays(CFDictionaryRef dict, CFMutableArrayRef ni_addrs,
-		      CFMutableArrayRef ni_tags)
-{
-    CFArrayRef 	addrs;
-    CFArrayRef 	tags;
-
-    if (isA_CFDictionary(dict) == NULL)
-	return;
-
-    addrs = isA_CFArray(CFDictionaryGetValue(dict, kSCPropNetNetInfoServerAddresses));
-    tags  = isA_CFArray(CFDictionaryGetValue(dict, kSCPropNetNetInfoServerTags));
-    if (addrs && tags) {
-	CFIndex		addrs_count = CFArrayGetCount(addrs);
-	CFIndex 	tags_count = CFArrayGetCount(tags);
-
-	if (addrs_count > 0) {
-	    if (addrs_count == tags_count) {
-		CFArrayAppendArray(ni_addrs, addrs,
-				   CFRangeMake(0, addrs_count));
-		CFArrayAppendArray(ni_tags, tags,
-				   CFRangeMake(0, tags_count));
-	    }
-
-	}
-
-    }
-    return;
-}
-
-static void
-append_netinfo_broadcast_addresses(CFDictionaryRef netinfo_dict,
-				   CFDictionaryRef ipv4_dict,
-				   CFMutableArrayRef ni_addrs,
-				   CFMutableArrayRef ni_tags)
-{
-    CFArrayRef		addrs;
-    CFIndex		addrs_count;
-    CFIndex		i;
-    CFArrayRef		masks;
-    CFIndex 		masks_count;
-    CFStringRef		tag;
-
-    tag = CFDictionaryGetValue(netinfo_dict,
-			       kSCPropNetNetInfoBroadcastServerTag);
-    tag = isA_CFString(tag);
-    if (tag == NULL) {
-	tag = kSCValNetNetInfoDefaultServerTag;
-    }
-    addrs = isA_CFArray(CFDictionaryGetValue(ipv4_dict,
-					     kSCPropNetIPv4Addresses));
-    masks = isA_CFArray(CFDictionaryGetValue(ipv4_dict,
-					     kSCPropNetIPv4SubnetMasks));
-    if (addrs == NULL || masks == NULL) {
-	return;
-    }
-    masks_count = CFArrayGetCount(masks);
-    addrs_count = CFArrayGetCount(addrs);
-    if (addrs_count != masks_count) {
-	return;
-    }
-
-    for (i = 0; i < addrs_count; i++) {
-	struct in_addr	addr;
-	CFStringRef	broadcast = NULL;
-	struct in_addr	mask;
-
-	if (cfstring_to_ip(CFArrayGetValueAtIndex(addrs, i), &addr)
-	    && cfstring_to_ip(CFArrayGetValueAtIndex(masks, i), &mask)) {
-	    struct in_addr 		b;
-
-	    b.s_addr = htonl(ntohl(addr.s_addr) | ~ntohl(mask.s_addr));
-	    broadcast = CFStringCreateWithFormat(NULL, NULL,
-						 CFSTR(IP_FORMAT),
-						 IP_LIST(&b));
-	    CFArrayAppendValue(ni_addrs, broadcast);
-	    CFArrayAppendValue(ni_tags, tag);
-	    my_CFRelease(&broadcast);
-	}
-    }
-    return;
-}
-
-static CFDictionaryRef
-make_netinfo_dict(CFDictionaryRef state_dict,
-		  CFDictionaryRef setup_dict,
-		  CFDictionaryRef ipv4_dict)
-{
-    boolean_t			has_manual = FALSE;
-    boolean_t			has_broadcast = FALSE;
-    boolean_t			has_dhcp = FALSE;
-    CFIndex			i;
-    CFArrayRef			m = NULL;
-    CFIndex			n;
-    CFMutableArrayRef		ni_addrs = NULL;
-    CFMutableDictionaryRef	ni_dict = NULL;
-    CFMutableArrayRef		ni_tags = NULL;
-
-    if (setup_dict == NULL || ipv4_dict == NULL) {
-	goto netinfo_done;
-    }
-    m = isA_CFArray(CFDictionaryGetValue(setup_dict,
-					 kSCPropNetNetInfoBindingMethods));
-    if (m == NULL) {
-	goto netinfo_done;
-    }
-    ni_addrs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    ni_tags = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-
-    /* find out which are configured */
-    n = CFArrayGetCount(m);
-    for (i = 0; i < n; i++) {
-	CFStringRef method = CFArrayGetValueAtIndex(m, i);
-
-	if (CFEqual(method,
-		    kSCValNetNetInfoBindingMethodsManual)) {
-	    has_manual = TRUE;
-	}
-	else if (CFEqual(method,
-			 kSCValNetNetInfoBindingMethodsDHCP)) {
-	    has_dhcp = TRUE;
-	}
-	else if (CFEqual(method,
-			 kSCValNetNetInfoBindingMethodsBroadcast)) {
-	    has_broadcast = TRUE;
-	}
-    }
-    if (has_dhcp && state_dict != NULL) {
-	append_netinfo_arrays(state_dict, ni_addrs, ni_tags);
-    }
-    if (has_manual) {
-	append_netinfo_arrays(setup_dict, ni_addrs, ni_tags);
-    }
-    if (has_broadcast) {
-	append_netinfo_broadcast_addresses(setup_dict, ipv4_dict,
-					   ni_addrs, ni_tags);
-    }
-    if (CFArrayGetCount(ni_addrs) == 0) {
-	goto netinfo_done;
-    }
-    ni_dict = CFDictionaryCreateMutable(NULL, 0,
-					&kCFTypeDictionaryKeyCallBacks,
-					&kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(ni_dict, kSCPropNetNetInfoServerAddresses,
-			 ni_addrs);
-    CFDictionarySetValue(ni_dict, kSCPropNetNetInfoServerTags,
-			 ni_tags);
- netinfo_done:
-    my_CFRelease(&ni_addrs);
-    my_CFRelease(&ni_tags);
-    return (ni_dict);
-}
-
 static CFMutableDictionaryRef
 service_dict_copy(CFStringRef serviceID)
 {
@@ -651,6 +501,121 @@ service_dict_get(CFStringRef serviceID, CFStringRef entity)
 	return (NULL);
     }
     return (CFDictionaryGetValue(service_dict, entity));
+}
+
+#define	ALLOW_EMTPY_STRING	1<<0
+
+static CFTypeRef
+sanitize_prop(CFTypeRef val, uint32_t flags)
+{
+    if (val != NULL) {
+	if (isA_CFString(val)) {
+	    CFMutableStringRef	str;
+
+	    str = CFStringCreateMutableCopy(NULL, 0, (CFStringRef)val);
+	    CFStringTrimWhitespace(str);
+	    if (!(flags & ALLOW_EMTPY_STRING) && (CFStringGetLength(str) == 0)) {
+		CFRelease(str);
+		str = NULL;
+	    }
+	    val = str;
+	} else {
+	    CFRetain(val);
+	}
+    }
+
+    return val;
+}
+
+static void
+merge_array_prop(CFMutableDictionaryRef	dict,
+		 CFStringRef		key,
+		 CFDictionaryRef	state_dict,
+		 CFDictionaryRef	setup_dict,
+		 uint32_t		flags,
+		 Boolean		append)
+{
+    CFMutableArrayRef	merge_prop;
+    CFArrayRef		setup_prop = NULL;
+    CFArrayRef		state_prop = NULL;
+
+    if (setup_dict != NULL) {
+	setup_prop = isA_CFArray(CFDictionaryGetValue(setup_dict, key));
+    }
+    if (state_dict != NULL) {
+	state_prop = isA_CFArray(CFDictionaryGetValue(state_dict, key));
+    }
+
+    if ((setup_prop == NULL) && (state_prop == NULL)) {
+	return;
+    }
+
+    merge_prop = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (setup_prop != NULL) {
+	CFIndex	i;
+	CFIndex	n;
+
+	n = CFArrayGetCount(setup_prop);
+	for (i = 0; i < n; i++) {
+	    CFTypeRef   val;
+
+	    val = CFArrayGetValueAtIndex(setup_prop, i);
+	    val = sanitize_prop(val, flags);
+	    if (val != NULL) {
+		CFArrayAppendValue(merge_prop, val);
+		CFRelease(val);
+	    }
+	}
+    }
+    if (state_prop != NULL) {
+	CFIndex	i;
+	CFIndex	n;
+	CFRange	setup_range	= CFRangeMake(0, CFArrayGetCount(merge_prop));
+
+	n = CFArrayGetCount(state_prop);
+	for (i = 0; i < n; i++) {
+	    CFTypeRef   val;
+
+	    val = CFArrayGetValueAtIndex(state_prop, i);
+	    val = sanitize_prop(val, flags);
+	    if (val != NULL) {
+		if (append || !CFArrayContainsValue(merge_prop, setup_range, val)) {
+		    CFArrayAppendValue(merge_prop, val);
+		}
+		CFRelease(val);
+	    }
+	}
+    }
+    if (CFArrayGetCount(merge_prop) > 0) {
+	CFDictionarySetValue(dict, key, merge_prop);
+    }
+    CFRelease(merge_prop);
+    return;
+}
+
+static void
+pick_prop(CFMutableDictionaryRef	dict,
+	  CFStringRef			key,
+	  CFDictionaryRef		state_dict,
+	  CFDictionaryRef		setup_dict,
+	  uint32_t			flags)
+{
+	CFTypeRef	val	= NULL;
+
+	if (setup_dict != NULL) {
+	    val = CFDictionaryGetValue(setup_dict, key);
+	    val = sanitize_prop(val, flags);
+	}
+	if (val == NULL && state_dict != NULL) {
+	    val = CFDictionaryGetValue(state_dict, key);
+	    val = sanitize_prop(val, flags);
+	}
+	if (val != NULL) {
+	    CFDictionarySetValue(dict, key, val);
+	    CFRelease(val);
+	}
+
+	return;
 }
 
 /**
@@ -726,7 +691,7 @@ get_ipv4_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 		     != subnet_addr(router_ip, mask).s_addr) {
 		/* router is not on the same subnet */
 		CFDictionarySetValue(dict, kRouterNeedsLocalIP,
-				     CFArrayGetValueAtIndex(addrs, 0));
+				     kCFBooleanTrue);
 	    }
 	}
     }
@@ -800,56 +765,6 @@ dns_has_supplemental(CFStringRef serviceID)
     return CFDictionaryContainsKey(dns_dict, kSCPropNetDNSSupplementalMatchDomains);
 }
 
-static void
-merge_dns_prop(CFMutableDictionaryRef dict, CFStringRef key,
-		 CFDictionaryRef state_dict, CFDictionaryRef setup_dict,
-		 Boolean append)
-{
-    CFArrayRef		setup_prop = NULL;
-    CFArrayRef		state_prop = NULL;
-
-    if (setup_dict != NULL) {
-	setup_prop = isA_CFArray(CFDictionaryGetValue(setup_dict, key));
-    }
-    if (state_dict != NULL) {
-	state_prop = isA_CFArray(CFDictionaryGetValue(state_dict, key));
-    }
-    if ((setup_prop != NULL) && (state_prop != NULL)) {
-	CFMutableArrayRef       merge_prop;
-
-	/* create a new list by merging the setup and state lists */
-	merge_prop = CFArrayCreateMutableCopy(NULL, 0, setup_prop);
-	if (append) {
-	    CFRange state_range = CFRangeMake(0, CFArrayGetCount(state_prop));
-
-	    CFArrayAppendArray(merge_prop, state_prop, state_range);
-	} else {
-	    CFIndex     i;
-	    CFIndex     n;
-	    CFRange     setup_range = CFRangeMake(0, CFArrayGetCount(setup_prop));
-
-	    n = CFArrayGetCount(state_prop);
-	    for (i = 0; i < n; i++) {
-		CFTypeRef   val;
-
-		val = CFArrayGetValueAtIndex(state_prop, i);
-		if (!CFArrayContainsValue(setup_prop, setup_range, val)) {
-		    CFArrayAppendValue(merge_prop, val);
-		}
-	    }
-	}
-	CFDictionarySetValue(dict, key, merge_prop);
-	my_CFRelease(&merge_prop);
-    }
-    else if (setup_prop != NULL) {
-	CFDictionarySetValue(dict, key, setup_prop);
-    }
-    else if (state_prop != NULL) {
-	CFDictionarySetValue(dict, key, state_prop);
-    }
-    return;
-}
-
 static boolean_t
 get_dns_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 		CFDictionaryRef setup_dict, CFDictionaryRef info)
@@ -859,32 +774,32 @@ get_dns_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
     int				i;
     struct {
 	CFStringRef     key;
+	uint32_t	flags;
 	Boolean		append;
     } merge_list[] = {
-	{ kSCPropNetDNSSearchDomains, FALSE },
-	{ kSCPropNetDNSServerAddresses, FALSE },
-	{ kSCPropNetDNSSortList, FALSE },
-	{ kSCPropNetDNSSupplementalMatchDomains, TRUE },
-	{ kSCPropNetDNSSupplementalMatchOrders, TRUE },
-	{ NULL, FALSE }
+	{ kSCPropNetDNSSearchDomains,			0,			FALSE },
+	{ kSCPropNetDNSServerAddresses,			0,			FALSE },
+	{ kSCPropNetDNSSortList,			0,			FALSE },
+	{ kSCPropNetDNSSupplementalMatchDomains,	ALLOW_EMTPY_STRING,	TRUE  },
+	{ kSCPropNetDNSSupplementalMatchOrders,		0,			TRUE  },
     };
     CFMutableDictionaryRef      new_dict = NULL;
-    CFStringRef			pick_list[] = {
+    CFStringRef		pick_list[] = {
 	kSCPropNetDNSDomainName,
 	kSCPropNetDNSOptions,
 	kSCPropNetDNSSearchOrder,
 	kSCPropNetDNSServerPort,
 	kSCPropNetDNSServerTimeout,
-	NULL
     };
 
-    if (state_dict == NULL && setup_dict == NULL) {
+    if ((state_dict == NULL) && (setup_dict == NULL)) {
 	/* there is no DNS */
 	goto done;
     }
-    if (service_dict_get(serviceID, kSCEntNetIPv4) == NULL
-	&& service_dict_get(serviceID, kSCEntNetIPv6) == NULL) {
-	/* no point in remembering the DNS */
+
+    if ((service_dict_get(serviceID, kSCEntNetIPv4) == NULL) &&
+	(service_dict_get(serviceID, kSCEntNetIPv6) == NULL)) {
+	/* there is no IPv4 nor IPv6 */
 	goto done;
     }
 
@@ -893,26 +808,22 @@ get_dns_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 					 &kCFTypeDictionaryKeyCallBacks,
 					 &kCFTypeDictionaryValueCallBacks);
 
-    for (i = 0; merge_list[i].key != NULL; i++) {
-	merge_dns_prop(new_dict,
+    for (i = 0; i < sizeof(merge_list)/sizeof(merge_list[0]); i++) {
+	merge_array_prop(new_dict,
 			 merge_list[i].key,
 			 state_dict,
 			 setup_dict,
+			 merge_list[i].flags,
 			 merge_list[i].append);
     }
-    for (i = 0; pick_list[i]; i++) {
-	CFTypeRef	val = NULL;
-
-	if (setup_dict != NULL) {
-	    val = CFDictionaryGetValue(setup_dict, pick_list[i]);
-	}
-	if (val == NULL && state_dict != NULL) {
-	    val = CFDictionaryGetValue(state_dict, pick_list[i]);
-	}
-	if (val != NULL) {
-	    CFDictionarySetValue(new_dict, pick_list[i], val);
-	}
+    for (i = 0; i < sizeof(pick_list)/sizeof(pick_list[0]); i++) {
+	pick_prop(new_dict,
+		  pick_list[i],
+		  state_dict,
+		  setup_dict,
+		  0);
     }
+
     if (CFDictionaryGetCount(new_dict) == 0) {
 	my_CFRelease(&new_dict);
 	goto done;
@@ -945,32 +856,15 @@ get_dns_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 }
 
 static boolean_t
-get_netinfo_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
-		    CFDictionaryRef setup_dict, CFDictionaryRef info)
-{
-    boolean_t			changed = FALSE;
-    CFDictionaryRef		global_dict;
-    CFDictionaryRef		ipv4_dict;
-    CFDictionaryRef		new_dict = NULL;
-
-    global_dict = my_CFDictionaryGetDictionary(info, S_setup_global_netinfo);
-    ipv4_dict = service_dict_get(serviceID, kSCEntNetIPv4);
-    new_dict = make_netinfo_dict(state_dict, global_dict, ipv4_dict);
-    changed = service_dict_set(serviceID, kSCEntNetNetInfo, new_dict);
-    my_CFRelease(&new_dict);
-    return (changed);
-}
-
-static boolean_t
 get_proxies_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 		    CFDictionaryRef setup_dict, CFDictionaryRef info)
 {
     boolean_t			changed = FALSE;
     CFDictionaryRef		new_dict = NULL;
 
-    if (service_dict_get(serviceID, kSCEntNetIPv4) == NULL
-	&& service_dict_get(serviceID, kSCEntNetIPv6) == NULL) {
-	/* no point in remembering the Proxies */
+    if ((service_dict_get(serviceID, kSCEntNetIPv4) == NULL) &&
+	(service_dict_get(serviceID, kSCEntNetIPv6) == NULL)) {
+	/* there is no IPv4 nor IPv6 */
 	goto done;
     }
     if (setup_dict != NULL) {
@@ -981,6 +875,60 @@ get_proxies_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
     }
  done:
     changed = service_dict_set(serviceID, kSCEntNetProxies, new_dict);
+    return (changed);
+}
+
+static boolean_t
+get_smb_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
+		CFDictionaryRef setup_dict, CFDictionaryRef info)
+{
+    boolean_t			changed = FALSE;
+    int				i;
+    CFMutableDictionaryRef      new_dict = NULL;
+    CFStringRef			pick_list[] = {
+	kSCPropNetSMBNetBIOSName,
+	kSCPropNetSMBNetBIOSNodeType,
+	kSCPropNetSMBNetBIOSScope,
+	kSCPropNetSMBWorkgroup,
+    };
+
+    if (service_dict_get(serviceID, kSCEntNetIPv4) == NULL) {
+	/* there is no IPv4 */
+	goto done;
+    }
+
+    if (state_dict == NULL && setup_dict == NULL) {
+	/* there is no SMB */
+	goto done;
+    }
+
+    // merge SMB configuration
+    new_dict = CFDictionaryCreateMutable(NULL, 0,
+					 &kCFTypeDictionaryKeyCallBacks,
+					 &kCFTypeDictionaryValueCallBacks);
+
+    merge_array_prop(new_dict,
+		     kSCPropNetSMBWINSAddresses,
+		     state_dict,
+		     setup_dict,
+		     0,
+		     FALSE);
+    for (i = 0; i < sizeof(pick_list)/sizeof(pick_list[0]); i++) {
+	pick_prop(new_dict,
+		  pick_list[i],
+		  state_dict,
+		  setup_dict,
+		  0);
+    }
+
+    if (CFDictionaryGetCount(new_dict) == 0) {
+	my_CFRelease(&new_dict);
+	goto done;
+    }
+
+ done:
+    changed = service_dict_set(serviceID, kSCEntNetSMB, new_dict);
+    my_CFRelease(&new_dict);
     return (changed);
 }
 
@@ -1014,9 +962,10 @@ services_info_copy(SCDynamicStoreRef session, CFArrayRef service_list)
     count = CFArrayGetCount(service_list);
     get_keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
-    CFArrayAppendValue(get_keys, S_setup_global_netinfo);
-    CFArrayAppendValue(get_keys, S_setup_global_proxies);
     CFArrayAppendValue(get_keys, S_setup_global_ipv4);
+    CFArrayAppendValue(get_keys, S_setup_global_proxies);
+    CFArrayAppendValue(get_keys, S_setup_global_smb);
+    CFArrayAppendValue(get_keys, S_private_resolvers);
 
     for (s = 0; s < count; s++) {
 	CFStringRef	serviceID = CFArrayGetValueAtIndex(service_list, s);
@@ -1065,29 +1014,31 @@ get_service_state_entity(CFDictionaryRef service_info, CFStringRef serviceID,
     return (state_dict);
 }
 
-static int 			rtm_seq = 0;
+static int			rtm_seq = 0;
 
 static boolean_t
 ipv4_route(int cmd, struct in_addr gateway, struct in_addr netaddr,
-	   struct in_addr netmask, char * ifname, boolean_t is_direct)
+	   struct in_addr netmask, char * ifname, struct in_addr ifa,
+	   boolean_t is_direct)
 {
     boolean_t			default_route = (netaddr.s_addr == 0);
-    int 			len;
+    int				len;
     boolean_t			ret = TRUE;
     struct {
 	struct rt_msghdr	hdr;
 	struct sockaddr_in	dst;
 	struct sockaddr_in	gway;
 	struct sockaddr_in	mask;
-	struct sockaddr_dl	link;
-    } 				rtmsg;
-    int 			sockfd = -1;
+	struct sockaddr_dl	ifp;
+	struct sockaddr_in	ifa;
+    }				rtmsg;
+    int				sockfd = -1;
 
     if (default_route && S_netboot) {
 	return (TRUE);
     }
 
-    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
+    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) == -1) {
 	SCLog(TRUE, LOG_INFO,
 	      CFSTR("IPMonitor: ipv4_route: open routing socket failed, %s"),
 	      strerror(errno));
@@ -1123,18 +1074,23 @@ ipv4_route(int cmd, struct in_addr gateway, struct in_addr netaddr,
 
     len = sizeof(rtmsg);
     if (ifname) {
-	rtmsg.link.sdl_len = sizeof(rtmsg.link);
-	rtmsg.link.sdl_family = AF_LINK;
-	rtmsg.link.sdl_nlen = strlen(ifname);
-	rtmsg.hdr.rtm_addrs |= RTA_IFP;
-	bcopy(ifname, rtmsg.link.sdl_data, rtmsg.link.sdl_nlen);
+	rtmsg.hdr.rtm_addrs |= RTA_IFP | RTA_IFA;
+	/* copy the interface name */
+	rtmsg.ifp.sdl_len = sizeof(rtmsg.ifp);
+	rtmsg.ifp.sdl_family = AF_LINK;
+	rtmsg.ifp.sdl_nlen = strlen(ifname);
+	bcopy(ifname, rtmsg.ifp.sdl_data, rtmsg.ifp.sdl_nlen);
+	/* and the interface address */
+	rtmsg.ifa.sin_len = sizeof(rtmsg.ifa);
+	rtmsg.ifa.sin_family = AF_INET;
+	rtmsg.ifa.sin_addr = ifa;
     }
     else {
-	/* no link information */
-	len -= sizeof(rtmsg.link);
+	/* no ifp/ifa information */
+	len -= sizeof(rtmsg.ifp) + sizeof(rtmsg.ifa);
     }
     rtmsg.hdr.rtm_msglen = len;
-    if (write(sockfd, &rtmsg, len) < 0) {
+    if (write(sockfd, &rtmsg, len) == -1) {
 	if ((cmd == RTM_ADD) && (errno == EEXIST)) {
 	    /* no sense complaining about a route that already exists */
 	}
@@ -1158,16 +1114,16 @@ ipv6_route(int cmd, struct in6_addr gateway, struct in6_addr netaddr,
 	   struct in6_addr netmask, char * ifname, boolean_t is_direct)
 {
     boolean_t			default_route;
-    int 			len;
+    int				len;
     boolean_t			ret = TRUE;
     struct {
 	struct rt_msghdr	hdr;
 	struct sockaddr_in6	dst;
 	struct sockaddr_in6	gway;
 	struct sockaddr_in6	mask;
-	struct sockaddr_dl	link;
-    } 				rtmsg;
-    int 			sockfd = -1;
+	struct sockaddr_dl	ifp;
+    }				rtmsg;
+    int				sockfd = -1;
     struct in6_addr		zeroes = IN6ADDR_ANY_INIT;
 
     default_route = (bcmp(&zeroes, &netaddr, sizeof(netaddr)) == 0);
@@ -1178,7 +1134,7 @@ ipv6_route(int cmd, struct in6_addr gateway, struct in6_addr netaddr,
 	/* add the scope id to the link local address */
 	gateway.__u6_addr.__u6_addr16[1] = (uint16_t)htons(index);
     }
-    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
+    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) == -1) {
 	SCLog(TRUE, LOG_INFO,
 	      CFSTR("IPMonitor ipv6_route: open routing socket failed, %s"),
 	      strerror(errno));
@@ -1213,18 +1169,18 @@ ipv6_route(int cmd, struct in6_addr gateway, struct in6_addr netaddr,
 
     len = sizeof(rtmsg);
     if (ifname) {
-	rtmsg.link.sdl_len = sizeof(rtmsg.link);
-	rtmsg.link.sdl_family = AF_LINK;
-	rtmsg.link.sdl_nlen = strlen(ifname);
+	rtmsg.ifp.sdl_len = sizeof(rtmsg.ifp);
+	rtmsg.ifp.sdl_family = AF_LINK;
+	rtmsg.ifp.sdl_nlen = strlen(ifname);
 	rtmsg.hdr.rtm_addrs |= RTA_IFP;
-	bcopy(ifname, rtmsg.link.sdl_data, rtmsg.link.sdl_nlen);
+	bcopy(ifname, rtmsg.ifp.sdl_data, rtmsg.ifp.sdl_nlen);
     }
     else {
-	/* no link information */
-	len -= sizeof(rtmsg.link);
+	/* no ifp information */
+	len -= sizeof(rtmsg.ifp);
     }
     rtmsg.hdr.rtm_msglen = len;
-    if (write(sockfd, &rtmsg, len) < 0) {
+    if (write(sockfd, &rtmsg, len) == -1) {
 	if ((cmd == RTM_ADD) && (errno == EEXIST)) {
 	    /* no sense complaining about a route that already exists */
 	}
@@ -1253,7 +1209,8 @@ ipv4_subnet_route_add(struct in_addr local_ip,
 		    IP_FORMAT " -netmask %s interface %s"),
 	      IP_LIST(&subnet), inet_ntoa(mask), ifname);
     }
-    return (ipv4_route(RTM_ADD, local_ip, subnet, mask, ifname, FALSE));
+    return (ipv4_route(RTM_ADD, local_ip, subnet, mask, ifname, local_ip,
+		       FALSE));
 }
 
 static boolean_t
@@ -1265,7 +1222,8 @@ ipv4_subnet_route_delete(struct in_addr subnet, struct in_addr mask)
 		    IP_FORMAT " %s"),
 	      IP_LIST(&subnet), inet_ntoa(mask));
     }
-    return (ipv4_route(RTM_DELETE, S_ip_zeros, subnet, mask, NULL, FALSE));
+    return (ipv4_route(RTM_DELETE, S_ip_zeros, subnet, mask, NULL,
+		       S_ip_zeros, FALSE));
 }
 
 
@@ -1275,12 +1233,13 @@ ipv4_default_route_delete(void)
     if (S_IPMonitor_debug) {
 	SCLog(TRUE, LOG_INFO, CFSTR("IPMonitor: IPv4 route delete default"));
     }
-    return (ipv4_route(RTM_DELETE, S_ip_zeros, S_ip_zeros, S_ip_zeros, NULL, FALSE));
+    return (ipv4_route(RTM_DELETE, S_ip_zeros, S_ip_zeros, S_ip_zeros, NULL,
+		       S_ip_zeros, FALSE));
 }
 
 static boolean_t
 ipv4_default_route_add(struct in_addr router, char * ifname,
-		       boolean_t is_direct)
+		       struct in_addr local_ip, boolean_t is_direct)
 {
     if (S_IPMonitor_debug) {
 	SCLog(TRUE, LOG_INFO,
@@ -1288,12 +1247,13 @@ ipv4_default_route_add(struct in_addr router, char * ifname,
 		    " %s interface %s direct %d"),
 	      inet_ntoa(router), ifname, is_direct);
     }
-    return (ipv4_route(RTM_ADD, router, S_ip_zeros, S_ip_zeros, ifname, is_direct));
+    return (ipv4_route(RTM_ADD, router, S_ip_zeros, S_ip_zeros, ifname,
+		       local_ip, is_direct));
 }
 
 static boolean_t
 ipv4_default_route_change(struct in_addr router, char * ifname,
-			  boolean_t is_direct)
+			  struct in_addr local_ip, boolean_t is_direct)
 {
     if (S_IPMonitor_debug) {
 	SCLog(TRUE, LOG_INFO,
@@ -1302,7 +1262,7 @@ ipv4_default_route_change(struct in_addr router, char * ifname,
 	      inet_ntoa(router), ifname, is_direct);
     }
     return (ipv4_route(RTM_CHANGE, router, S_ip_zeros, S_ip_zeros, ifname,
-		       is_direct));
+		       local_ip, is_direct));
 }
 
 static boolean_t
@@ -1340,7 +1300,8 @@ multicast_route_delete()
     struct in_addr netaddr = { htonl(INADDR_UNSPEC_GROUP) };
     struct in_addr netmask = { htonl(IN_CLASSD_NET) };
 
-    return (ipv4_route(RTM_DELETE, gateway, netaddr, netmask, "lo0", FALSE));
+    return (ipv4_route(RTM_DELETE, gateway, netaddr, netmask, "lo0",
+		       gateway, FALSE));
 }
 
 static boolean_t
@@ -1350,11 +1311,13 @@ multicast_route_add()
     struct in_addr netaddr = { htonl(INADDR_UNSPEC_GROUP) };
     struct in_addr netmask = { htonl(IN_CLASSD_NET) };
 
-    return (ipv4_route(RTM_ADD, gateway, netaddr, netmask, "lo0", FALSE));
+    return (ipv4_route(RTM_ADD, gateway, netaddr, netmask, "lo0",
+		       gateway, FALSE));
 }
 
 static void
-set_ipv4_router(struct in_addr * router, char * ifname, boolean_t is_direct)
+set_ipv4_router(struct in_addr * router, char * ifname,
+		struct in_addr * local_ip, boolean_t is_direct)
 {
     if (S_router_subnet.s_addr != 0) {
 	ipv4_subnet_route_delete(S_router_subnet, S_router_subnet_mask);
@@ -1363,7 +1326,10 @@ set_ipv4_router(struct in_addr * router, char * ifname, boolean_t is_direct)
     /* assign the new default route, ensure local multicast route available */
     (void)ipv4_default_route_delete();
     if (router != NULL) {
-	(void)ipv4_default_route_add(*router, ifname, is_direct);
+	(void)ipv4_default_route_add(*router, ifname,
+				     (local_ip != NULL)
+				     ? *local_ip : S_ip_zeros,
+				     is_direct);
 	(void)multicast_route_delete();
     }
     else {
@@ -1388,19 +1354,6 @@ static __inline__ void
 empty_dns()
 {
     (void)unlink(VAR_RUN_RESOLV_CONF);
-}
-
-static void
-empty_netinfo(SCDynamicStoreRef session)
-{
-    int fd = open(VAR_RUN_NICONFIG_LOCAL_XML "-",
-		  O_CREAT|O_TRUNC|O_WRONLY, 0644);
-    if (fd >= 0) {
-	close(fd);
-	rename(VAR_RUN_NICONFIG_LOCAL_XML "-", VAR_RUN_NICONFIG_LOCAL_XML);
-    }
-
-    return;
 }
 
 static void
@@ -1466,31 +1419,10 @@ set_dns(CFArrayRef val_search_domains,
     return;
 }
 
-static void
-set_netinfo(CFDictionaryRef dict)
-{
-    int fd = open(VAR_RUN_NICONFIG_LOCAL_XML "-",
-		  O_CREAT|O_TRUNC|O_WRONLY, 0644);
-    if (fd >= 0) {
-	/* publish new netinfo config */
-	CFDataRef	contents;
-	contents = CFPropertyListCreateXMLData(NULL, dict);
-	if (contents) {
-	    CFIndex	len = CFDataGetLength(contents);
-
-	    write(fd, CFDataGetBytePtr(contents), len);
-	    CFRelease(contents);
-	}
-	close(fd);
-	rename(VAR_RUN_NICONFIG_LOCAL_XML "-", VAR_RUN_NICONFIG_LOCAL_XML);
-    }
-    return;
-}
-
 static boolean_t
 router_is_our_ipv6_address(CFStringRef router, CFArrayRef addr_list)
 {
-    CFIndex 		i;
+    CFIndex		i;
     CFIndex		n = CFArrayGetCount(addr_list);
     struct in6_addr	r;
 
@@ -1507,13 +1439,14 @@ router_is_our_ipv6_address(CFStringRef router, CFArrayRef addr_list)
 }
 
 static void
-update_ipv4(SCDynamicStoreRef session, CFDictionaryRef service_info,
-	    CFStringRef primary, keyChangeListRef keys)
+update_ipv4(CFDictionaryRef	service_info,
+	    CFStringRef		primary,
+	    keyChangeListRef	keys)
 {
     CFDictionaryRef	ipv4_dict = NULL;
 
     if (primary != NULL) {
-	CFDictionaryRef 	service_dict;
+	CFDictionaryRef	service_dict;
 
 	service_dict = CFDictionaryGetValue(S_service_state_dict, primary);
 	if (service_dict != NULL) {
@@ -1521,18 +1454,25 @@ update_ipv4(SCDynamicStoreRef session, CFDictionaryRef service_info,
 	}
     }
     if (ipv4_dict != NULL) {
-	CFMutableDictionaryRef 	dict = NULL;
+	CFMutableDictionaryRef	dict = NULL;
 	CFStringRef		if_name = NULL;
 	char			ifn[IFNAMSIZ + 1] = { '\0' };
 	char *			ifn_p = NULL;
 	boolean_t		is_direct = FALSE;
 	struct in_addr		local_ip = { 0 };
-	CFStringRef		val_router = NULL;
+	CFStringRef		local_ip_cf;
+	CFArrayRef		local_ip_list;
+	boolean_t		needs_local_ip = FALSE;
 	struct in_addr		router = { 0 };
+	CFStringRef		val_router = NULL;
 
 	dict = CFDictionaryCreateMutable(NULL, 0,
 					 &kCFTypeDictionaryKeyCallBacks,
 					 &kCFTypeDictionaryValueCallBacks);
+	local_ip_list = CFDictionaryGetValue(ipv4_dict,
+					     kSCPropNetIPv4Addresses);
+	local_ip_cf = CFArrayGetValueAtIndex(local_ip_list, 0);
+	cfstring_to_ip(local_ip_cf, &local_ip);
 	val_router = CFDictionaryGetValue(ipv4_dict, kSCPropNetIPv4Router);
 	if (val_router != NULL) {
 	    cfstring_to_ip(val_router, &router);
@@ -1540,24 +1480,13 @@ update_ipv4(SCDynamicStoreRef session, CFDictionaryRef service_info,
 	    if (CFDictionaryContainsKey(ipv4_dict, kRouterIsDirect)) {
 		is_direct = TRUE;
 	    }
-	    else {
-		CFStringRef		local_ip_str;
-
-		local_ip_str = CFDictionaryGetValue(ipv4_dict,
-						    kRouterNeedsLocalIP);
-		if (local_ip_str != NULL) {
-		    cfstring_to_ip(local_ip_str, &local_ip);
-		}
+	    else if (CFDictionaryContainsKey(ipv4_dict, kRouterNeedsLocalIP)) {
+		needs_local_ip = TRUE;
 	    }
 	}
 	else {
-	    CFArrayRef 		addrs;
-
-	    addrs = CFDictionaryGetValue(ipv4_dict,
-					 kSCPropNetIPv4Addresses);
-	    val_router = CFArrayGetValueAtIndex(addrs, 0);
-	    cfstring_to_ip(val_router, &router);
 	    is_direct = TRUE;
+	    router = local_ip;
 	}
 	if_name = CFDictionaryGetValue(ipv4_dict, kSCPropInterfaceName);
 	if (if_name) {
@@ -1575,35 +1504,36 @@ update_ipv4(SCDynamicStoreRef session, CFDictionaryRef service_info,
 	CFRelease(dict);
 
 	/* route add default ... */
-	if (local_ip.s_addr != 0) {
+	if (needs_local_ip) {
 	    struct in_addr	m;
 
 	    m.s_addr = htonl(INADDR_BROADCAST);
 	    ipv4_subnet_route_add(local_ip, router, m, ifn_p);
-	    set_ipv4_router(&local_ip, ifn_p, FALSE);
-	    ipv4_default_route_change(router, ifn_p, FALSE);
+	    set_ipv4_router(&local_ip, ifn_p, &local_ip, FALSE);
+	    ipv4_default_route_change(router, ifn_p, local_ip, FALSE);
 	    S_router_subnet = router;
 	    S_router_subnet_mask = m;
 	}
 	else {
-	    set_ipv4_router(&router, ifn_p, is_direct);
+	    set_ipv4_router(&router, ifn_p, &local_ip, is_direct);
 	}
     }
     else {
 	keyChangeListRemoveValue(keys, S_state_global_ipv4);
-	set_ipv4_router(NULL, NULL, FALSE);
+	set_ipv4_router(NULL, NULL, NULL, FALSE);
     }
     return;
 }
 
 static void
-update_ipv6(SCDynamicStoreRef session, CFDictionaryRef service_info,
-	    CFStringRef primary, keyChangeListRef keys)
+update_ipv6(CFDictionaryRef	service_info,
+	    CFStringRef		primary,
+	    keyChangeListRef	keys)
 {
     CFDictionaryRef	ipv6_dict = NULL;
 
     if (primary != NULL) {
-	CFDictionaryRef 	service_dict;
+	CFDictionaryRef	service_dict;
 
 	service_dict = CFDictionaryGetValue(S_service_state_dict, primary);
 	if (service_dict != NULL) {
@@ -1611,8 +1541,8 @@ update_ipv6(SCDynamicStoreRef session, CFDictionaryRef service_info,
 	}
     }
     if (ipv6_dict != NULL) {
-	CFArrayRef 		addrs;
-	CFMutableDictionaryRef 	dict = NULL;
+	CFArrayRef		addrs;
+	CFMutableDictionaryRef	dict = NULL;
 	CFStringRef		if_name = NULL;
 	char			ifn[IFNAMSIZ + 1] = { '\0' };
 	char *			ifn_p = NULL;
@@ -1665,13 +1595,14 @@ update_ipv6(SCDynamicStoreRef session, CFDictionaryRef service_info,
 }
 
 static void
-update_dns(SCDynamicStoreRef session, CFDictionaryRef service_info,
-	   CFStringRef primary, keyChangeListRef keys)
+update_dns(CFDictionaryRef	service_info,
+	   CFStringRef		primary,
+	   keyChangeListRef	keys)
 {
-    CFDictionaryRef		dict = NULL;
+    CFDictionaryRef	dict = NULL;
 
     if (primary != NULL) {
-	CFDictionaryRef		service_dict;
+	CFDictionaryRef	service_dict;
 
 	service_dict = CFDictionaryGetValue(S_service_state_dict, primary);
 	if (service_dict != NULL) {
@@ -1693,77 +1624,42 @@ update_dns(SCDynamicStoreRef session, CFDictionaryRef service_info,
 }
 
 static void
-update_dnsinfo(CFStringRef primary, CFArrayRef service_order, keyChangeListRef keys)
+update_dnsinfo(CFDictionaryRef	service_info,
+	       CFStringRef	primary,
+	       keyChangeListRef	keys,
+	       CFArrayRef	service_order)
 {
-    CFDictionaryRef		dict = NULL;
+    CFArrayRef	privateResolvers;
+
+    privateResolvers = CFDictionaryGetValue(service_info, S_private_resolvers);
 
     if (primary == NULL) {
-	dns_configuration_set(NULL, NULL, NULL);
+	dns_configuration_set(NULL, NULL, NULL, privateResolvers);
     } else {
-	CFDictionaryRef		service_dict;
+	CFDictionaryRef	dict		= NULL;
+	CFDictionaryRef	service_dict;
 
 	service_dict = CFDictionaryGetValue(S_service_state_dict, primary);
 	if (service_dict != NULL) {
 	    dict = CFDictionaryGetValue(service_dict, kSCEntNetDNS);
 	}
 
-	dns_configuration_set(dict, S_service_state_dict, service_order);
+	dns_configuration_set(dict, S_service_state_dict, service_order, privateResolvers);
     }
-    keyChangeListNotifyKey(keys, S_notify_dnsinfo);
+    keyChangeListNotifyKey(keys, S_state_global_dns);
     return;
 }
 
 static void
-update_netinfo(SCDynamicStoreRef session, CFDictionaryRef service_info,
-	       CFStringRef primary, keyChangeListRef keys)
+update_proxies(CFDictionaryRef	service_info,
+	       CFStringRef	primary,
+	       keyChangeListRef	keys)
 {
     CFDictionaryRef	dict = NULL;
 
     if (primary != NULL) {
-	CFDictionaryRef		ipv4_dict = NULL;
-	CFDictionaryRef 	service_dict;
-	CFDictionaryRef		setup_dict;
-	CFStringRef		state_key;
-	CFDictionaryRef		state_dict;
+	CFDictionaryRef	service_dict;
 
-	service_dict = CFDictionaryGetValue(S_service_state_dict, primary);
-	if (service_dict != NULL) {
-	    ipv4_dict = CFDictionaryGetValue(service_dict, kSCEntNetIPv4);
-	}
-	state_key = state_service_key(primary, kSCEntNetNetInfo);
-	state_dict = my_CFDictionaryGetDictionary(service_info, state_key);
-	if (state_dict != NULL) {
-	    CFRetain(state_dict);
-	}
-	else {
-	    state_dict = my_SCDCopy(session, state_key);
-	}
-	setup_dict = my_CFDictionaryGetDictionary(service_info,
-						  S_setup_global_netinfo);
-	dict = make_netinfo_dict(state_dict, setup_dict, ipv4_dict);
-	my_CFRelease(&state_key);
-	my_CFRelease(&state_dict);
-    }
-    if (dict == NULL) {
-	empty_netinfo(session);
-	keyChangeListRemoveValue(keys, S_state_global_netinfo);
-    }
-    else {
-	set_netinfo(dict);
-	keyChangeListSetValue(keys, S_state_global_netinfo, dict);
-	my_CFRelease(&dict);
-    }
-    return;
-}
-
-static void
-update_proxies(SCDynamicStoreRef session, CFDictionaryRef service_info,
-	       CFStringRef primary, keyChangeListRef keys)
-{
-    CFDictionaryRef		dict = NULL;
-
-    if (primary != NULL) {
-	CFDictionaryRef 		service_dict;
 	service_dict = CFDictionaryGetValue(S_service_state_dict, primary);
 	if (service_dict != NULL) {
 	    dict = CFDictionaryGetValue(service_dict, kSCEntNetProxies);
@@ -1782,11 +1678,40 @@ update_proxies(SCDynamicStoreRef session, CFDictionaryRef service_info,
     return;
 }
 
+static void
+update_smb(CFDictionaryRef	service_info,
+	   CFStringRef		primary,
+	   keyChangeListRef	keys)
+{
+    CFDictionaryRef	dict	= NULL;
+
+    if (primary != NULL) {
+	CFDictionaryRef	service_dict;
+
+	service_dict = CFDictionaryGetValue(S_service_state_dict, primary);
+	if (service_dict != NULL) {
+	    dict = CFDictionaryGetValue(service_dict, kSCEntNetSMB);
+	    if (dict == NULL) {
+		dict = my_CFDictionaryGetDictionary(service_info,
+						    S_setup_global_smb);
+	    }
+	}
+    }
+    if (dict == NULL) {
+	keyChangeListRemoveValue(keys, S_state_global_smb);
+    }
+    else {
+	keyChangeListSetValue(keys, S_state_global_smb, dict);
+    }
+
+    return;
+}
+
 static unsigned int
 get_service_rank(CFStringRef proto_key, CFArrayRef order, CFStringRef serviceID)
 {
     CFDictionaryRef	d;
-    CFIndex 		i;
+    CFIndex		i;
     CFDictionaryRef	proto_dict;
 
     if (serviceID == NULL) {
@@ -1800,7 +1725,7 @@ get_service_rank(CFStringRef proto_key, CFArrayRef order, CFStringRef serviceID)
     proto_dict = CFDictionaryGetValue(d, proto_key);
     if (proto_dict) {
 	CFStringRef	if_name;
-	CFNumberRef    	override = NULL;
+	CFNumberRef	override = NULL;
 
 	if_name = CFDictionaryGetValue(proto_dict, kSCPropInterfaceName);
 	if (S_ppp_override_primary == TRUE
@@ -1876,7 +1801,7 @@ static void
 elect_protocol(const void * key, const void * value, void * context)
 {
     struct election_state *	elect_p = (struct election_state *)context;
-    CFDictionaryRef 		proto_dict = NULL;
+    CFDictionaryRef		proto_dict = NULL;
     CFStringRef			router;
     boolean_t			router_valid = FALSE;
     CFStringRef			serviceID = (CFStringRef)key;
@@ -1954,14 +1879,15 @@ service_changed(CFDictionaryRef services_info, CFStringRef serviceID)
 static CFArrayRef
 service_order_get(CFDictionaryRef services_info)
 {
-    CFArrayRef	 		order = NULL;
-    CFNumberRef		 	ppp_override = NULL;
-    int				ppp_val = TRUE;
-    CFDictionaryRef 		ipv4_dict = NULL;
+    CFArrayRef		order = NULL;
+    CFDictionaryRef	ipv4_dict;
 
     ipv4_dict = my_CFDictionaryGetDictionary(services_info,
 					     S_setup_global_ipv4);
     if (ipv4_dict != NULL) {
+	CFNumberRef	ppp_override;
+	int		ppp_val = 0;
+
 	order = CFDictionaryGetValue(ipv4_dict, kSCPropNetServiceOrder);
 	order = isA_CFArray(order);
 
@@ -1975,7 +1901,7 @@ service_order_get(CFDictionaryRef services_info)
 	S_ppp_override_primary = (ppp_val != 0) ? TRUE : FALSE;
     }
     else {
-	S_ppp_override_primary = TRUE;
+	S_ppp_override_primary = FALSE;
     }
     return (order);
 }
@@ -2055,15 +1981,18 @@ IPMonitorNotify(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	    global_ipv4_changed = TRUE;
 	    global_ipv6_changed = TRUE;
 	}
-	else if (CFEqual(change, S_setup_global_netinfo)) {
-	    if (S_primary_ipv4 != NULL) {
-		my_CFArrayAppendUniqueValue(service_changes, S_primary_ipv4);
-	    }
-	}
 	else if (CFEqual(change, S_setup_global_proxies)) {
 	    if (S_primary_proxies != NULL) {
 		my_CFArrayAppendUniqueValue(service_changes, S_primary_proxies);
 	    }
+	}
+	else if (CFEqual(change, S_setup_global_smb)) {
+	    if (S_primary_smb != NULL) {
+		my_CFArrayAppendUniqueValue(service_changes, S_primary_smb);
+	    }
+	}
+	else if (CFEqual(change, S_private_resolvers)) {
+	    dnsinfo_changed = TRUE;
 	}
 	else if (CFStringHasPrefix(change, S_state_service_prefix)) {
 	    CFStringRef serviceID = parse_component(change,
@@ -2102,11 +2031,8 @@ IPMonitorNotify(SCDynamicStoreRef session, CFArrayRef changed_keys,
 
 	if (S_primary_ipv4 != NULL && CFEqual(S_primary_ipv4, serviceID)) {
 	    if ((changes & (1 << kEntityTypeIPv4)) != 0) {
-		update_ipv4(session, services_info, serviceID, &keys);
+		update_ipv4(services_info, serviceID, &keys);
 		global_ipv4_changed = TRUE;
-	    }
-	    if ((changes & (1 << kEntityTypeNetInfo)) != 0) {
-		update_netinfo(session, services_info, serviceID, &keys);
 	    }
 	}
 	else if ((changes & (1 << kEntityTypeIPv4)) != 0) {
@@ -2114,13 +2040,13 @@ IPMonitorNotify(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	}
 	if ((changes & (1 << kEntityTypeIPv6)) != 0) {
 	    if (S_primary_ipv6 != NULL && CFEqual(S_primary_ipv6, serviceID)) {
-		update_ipv6(session, services_info, serviceID, &keys);
+		update_ipv6(services_info, serviceID, &keys);
 	    }
 	    global_ipv6_changed = TRUE;
 	}
 	if ((changes & (1 << kEntityTypeDNS)) != 0) {
 	    if (S_primary_dns != NULL && CFEqual(S_primary_dns, serviceID)) {
-		update_dns(session, services_info, serviceID, &keys);
+		update_dns(services_info, serviceID, &keys);
 		dnsinfo_changed = TRUE;
 	    }
 	    else if (wasSupplemental || dns_has_supplemental(serviceID)) {
@@ -2129,7 +2055,12 @@ IPMonitorNotify(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	}
 	if ((changes & (1 << kEntityTypeProxies)) != 0) {
 	    if (S_primary_proxies != NULL && CFEqual(S_primary_proxies, serviceID)) {
-		update_proxies(session, services_info, serviceID, &keys);
+		update_proxies(services_info, serviceID, &keys);
+	    }
+	}
+	if ((changes & (1 << kEntityTypeSMB)) != 0) {
+	    if (S_primary_smb != NULL && CFEqual(S_primary_smb, serviceID)) {
+		update_smb(services_info, serviceID, &keys);
 	    }
 	}
     }
@@ -2142,8 +2073,7 @@ IPMonitorNotify(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	new_primary = elect_new_primary(service_order,
 					kSCEntNetIPv4, kSCPropNetIPv4Router);
 	if (set_new_primary(&S_primary_ipv4, new_primary, "IPv4")) {
-	    update_ipv4(session, services_info, S_primary_ipv4, &keys);
-	    update_netinfo(session, services_info, S_primary_ipv4, &keys);
+	    update_ipv4(services_info, S_primary_ipv4, &keys);
 	}
 	my_CFRelease(&new_primary);
     }
@@ -2155,13 +2085,14 @@ IPMonitorNotify(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	new_primary = elect_new_primary(service_order,
 					kSCEntNetIPv6, kSCPropNetIPv6Router);
 	if (set_new_primary(&S_primary_ipv6, new_primary, "IPv6")) {
-	    update_ipv6(session, services_info, S_primary_ipv6, &keys);
+	    update_ipv6(services_info, S_primary_ipv6, &keys);
 	}
 	my_CFRelease(&new_primary);
     }
     if (global_ipv4_changed || global_ipv6_changed) {
 	CFStringRef	new_primary_dns;
 	CFStringRef	new_primary_proxies;
+	CFStringRef	new_primary_smb;
 
 	if (S_primary_ipv4 != NULL && S_primary_ipv6 != NULL) {
 	    /* decide between IPv4 and IPv6 */
@@ -2183,28 +2114,46 @@ IPMonitorNotify(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	    else {
 		new_primary_proxies = S_primary_ipv6;
 	    }
+	    if (rank_service_entity(service_order, S_primary_ipv4,
+				    kSCEntNetIPv4, kSCEntNetSMB)
+		<= rank_service_entity(service_order, S_primary_ipv6,
+				       kSCEntNetIPv6, kSCEntNetSMB)) {
+		new_primary_smb = S_primary_ipv4;
+	    }
+	    else {
+		new_primary_smb = S_primary_ipv6;
+	    }
 
 	}
 	else if (S_primary_ipv6 != NULL) {
-	    new_primary_dns = new_primary_proxies = S_primary_ipv6;
+	    new_primary_dns     = S_primary_ipv6;
+	    new_primary_proxies = S_primary_ipv6;
+	    new_primary_smb     = S_primary_ipv6;
 	}
 	else if (S_primary_ipv4 != NULL) {
-	    new_primary_dns = new_primary_proxies = S_primary_ipv4;
+	    new_primary_dns     = S_primary_ipv4;
+	    new_primary_proxies = S_primary_ipv4;
+	    new_primary_smb     = S_primary_ipv4;
 	}
 	else {
-	    new_primary_dns = new_primary_proxies = NULL;
+	    new_primary_dns     = NULL;
+	    new_primary_proxies = NULL;
+	    new_primary_smb     = NULL;
 	}
 
 	if (set_new_primary(&S_primary_dns, new_primary_dns, "DNS")) {
-	    update_dns(session, services_info, S_primary_dns, &keys);
+	    update_dns(services_info, S_primary_dns, &keys);
 	    dnsinfo_changed = TRUE;
 	}
 	if (set_new_primary(&S_primary_proxies, new_primary_proxies, "Proxies")) {
-	    update_proxies(session, services_info, S_primary_proxies, &keys);
+	    update_proxies(services_info, S_primary_proxies, &keys);
+	}
+	if (set_new_primary(&S_primary_smb, new_primary_smb, "SMB")) {
+	    update_smb(services_info, S_primary_smb, &keys);
 	}
     }
     if (dnsinfo_changed) {
-	update_dnsinfo(S_primary_dns, service_order, &keys);
+	update_dnsinfo(services_info, S_primary_dns, &keys, service_order);
     }
     my_CFRelease(&service_changes);
     my_CFRelease(&services_info);
@@ -2216,11 +2165,11 @@ IPMonitorNotify(SCDynamicStoreRef session, CFArrayRef changed_keys,
 static void
 initEntityNames(void)
 {
-    entityTypeNames[0] = kSCEntNetIPv4; 	/* 0 */
-    entityTypeNames[1] = kSCEntNetIPv6; 	/* 1 */
-    entityTypeNames[2] = kSCEntNetDNS;  	/* 2 */
-    entityTypeNames[3] = kSCEntNetNetInfo; 	/* 3 */
-    entityTypeNames[4] = kSCEntNetProxies; 	/* 4 */
+    entityTypeNames[0] = kSCEntNetIPv4;		/* 0 */
+    entityTypeNames[1] = kSCEntNetIPv6;		/* 1 */
+    entityTypeNames[2] = kSCEntNetDNS;		/* 2 */
+    entityTypeNames[3] = kSCEntNetProxies;	/* 3 */
+    entityTypeNames[4] = kSCEntNetSMB;		/* 4 */
     return;
 }
 
@@ -2258,26 +2207,26 @@ ip_plugin_init()
 	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
 						     kSCDynamicStoreDomainState,
 						     kSCEntNetDNS);
-    S_state_global_netinfo
-	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
-						     kSCDynamicStoreDomainState,
-						     kSCEntNetNetInfo);
     S_state_global_proxies
 	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
 						     kSCDynamicStoreDomainState,
 						     kSCEntNetProxies);
+    S_state_global_smb
+	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+						     kSCDynamicStoreDomainState,
+						     kSCEntNetSMB);
     S_setup_global_ipv4
 	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
 						     kSCDynamicStoreDomainSetup,
 						     kSCEntNetIPv4);
-    S_setup_global_netinfo
-	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
-						     kSCDynamicStoreDomainSetup,
-						     kSCEntNetNetInfo);
     S_setup_global_proxies
 	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
 						     kSCDynamicStoreDomainSetup,
 						     kSCEntNetProxies);
+    S_setup_global_smb
+	= SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+						     kSCDynamicStoreDomainSetup,
+						     kSCEntNetSMB);
     S_state_service_prefix
 	= SCDynamicStoreKeyCreate(NULL, CFSTR("%@/%@/%@/"),
 				  kSCDynamicStoreDomainState,
@@ -2293,12 +2242,6 @@ ip_plugin_init()
 				    &kCFTypeDictionaryKeyCallBacks,
 				    &kCFTypeDictionaryValueCallBacks);
 
-    key = CFStringCreateWithCString(NULL,
-				    dns_configuration_notify_key(),
-				    kCFStringEncodingASCII);
-    S_notify_dnsinfo = CFStringCreateWithFormat(NULL, NULL, CFSTR("Notify:%@"), key);
-    CFRelease(key);
-
     keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
@@ -2312,15 +2255,19 @@ ip_plugin_init()
 	CFRelease(key);
     }
 
-    /* add notifier for setup global netinfo */
-    CFArrayAppendValue(keys, S_setup_global_netinfo);
-
     /* add notifier for ServiceOrder/PPPOverridePrimary changes for IPv4 */
     key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
 						     kSCDynamicStoreDomainSetup,
 						     kSCEntNetIPv4);
     CFArrayAppendValue(keys, key);
     CFRelease(key);
+
+    /* add notifier for Private DNS configuration */
+    S_private_resolvers = SCDynamicStoreKeyCreate(NULL, CFSTR("%@/%@/%@"),
+						  kSCDynamicStoreDomainState,
+						  kSCCompNetwork,
+						  CFSTR(kDNSServiceCompPrivateDNS));
+    CFArrayAppendValue(keys, S_private_resolvers);
 
     if (!SCDynamicStoreSetNotificationKeys(session, keys, patterns)) {
 	SCLog(TRUE, LOG_ERR,
@@ -2343,13 +2290,12 @@ ip_plugin_init()
     CFRelease(rls);
 
     /* initialize dns configuration */
-    dns_configuration_set(NULL, NULL, NULL);
+    dns_configuration_set(NULL, NULL, NULL, NULL);
     empty_dns();
     (void)SCDynamicStoreRemoveValue(session, S_state_global_dns);
 
-    /* initialize netinfo state */
-    empty_netinfo(session);
-    (void)SCDynamicStoreRemoveValue(session, S_state_global_netinfo);
+    /* initialize SMB configuration */
+    (void)SCDynamicStoreRemoveValue(session, S_state_global_smb);
 
   done:
     my_CFRelease(&keys);
@@ -2363,7 +2309,7 @@ void
 prime_IPMonitor()
 {
     /* initialize multicast route */
-    set_ipv4_router(NULL, NULL, FALSE);
+    set_ipv4_router(NULL, NULL, NULL, FALSE);
 }
 
 __private_extern__
@@ -2378,6 +2324,7 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
     ip_plugin_init();
 
     load_hostname(S_IPMonitor_debug);
+    load_smb_configuration(S_IPMonitor_debug);
 
     return;
 }

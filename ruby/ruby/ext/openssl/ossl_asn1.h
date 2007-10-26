@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_asn1.h,v 1.3 2003/10/04 18:45:53 gotoyuzo Exp $
+ * $Id: ossl_asn1.h 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' team members
  * Copyright (C) 2003
  * All rights reserved.
@@ -16,6 +16,11 @@
  */
 VALUE asn1time_to_time(ASN1_TIME *);
 time_t time_to_time_t(VALUE);
+
+/*
+ * ASN1_STRING conversions
+ */
+VALUE asn1str_to_str(ASN1_STRING *);
 
 /*
  * ASN1_INTEGER conversions

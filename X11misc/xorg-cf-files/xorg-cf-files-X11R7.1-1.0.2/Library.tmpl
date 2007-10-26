@@ -1,0 +1,582 @@
+/*
+ * Library imakefile info  - this contains any special redefinitions, etc.
+ * that Imakefiles in the various library subtrees will need.
+ *
+ * Before including this, you must set the following boolean variables:
+ * DoNormalLib, DoSharedLib, DoDebugLib, DoProfileLib
+ *
+ * To get automatic generation of standard rules, also set the variables:
+ * LibName, SoRev, HasSharedData, and optionally HugeLibrary and IncSubdir.
+ *
+ * To suppress installation of the library define LibInstall NO.
+ * To suppress creating (and installing) the library define LibCreate NO.
+ * To suppress installing headers define LibHeaders NO.
+ * Define LargePICTable YES if large (32-bit) PIC tables are needed.
+ */
+
+XCOMM $Xorg: Library.tmpl,v 1.3 2000/08/17 19:41:46 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/config/cf/Library.tmpl,v 3.23tsi Exp $
+
+#ifndef DoNormalLib
+#define DoNormalLib NO
+#endif
+#ifndef DoSharedLib
+#define DoSharedLib NO
+#endif
+#ifndef DoDebugLib
+#define DoDebugLib NO
+#endif
+#ifndef DoProfileLib
+#define DoProfileLib NO
+#endif
+#ifndef DoExtraLib
+#define DoExtraLib NO
+#endif
+
+#ifndef HasSharedData
+#define HasSharedData NO
+#endif
+#ifndef HugeLibrary
+#define HugeLibrary NO
+#endif
+
+#ifndef ShlibBindGlobals
+#define ShlibBindGlobals NO
+#endif
+
+#if ShlibBindGlobals && defined(ShlibGlobalsFlags)
+SHLIBGLOBALSFLAGS = ShlibGlobalsFlags
+#endif
+
+#ifndef LibraryCplusplusOptions
+# if DoSharedLib && defined(SharedLibraryCplusplusOptions)
+#  define LibraryCplusplusOptions SharedLibraryCplusplusOptions
+# else
+#  define LibraryCplusplusOptions DefaultCplusplusOptions
+# endif
+#endif
+#ifndef LibraryDefines
+# define LibraryDefines StandardDefines
+#endif
+#ifndef LibraryDebugOpt
+# define LibraryDebugOpt /**/
+#endif
+/* Note: Changing LibraryCDebugFlags has no effect because CDEBUGFLAGS is over-
+   ridden by PassCDebugFlags in the parent Makefile or toplevel xmakefile. */
+#ifndef LibraryCDebugFlags
+# define LibraryCDebugFlags DefaultCDebugFlags
+#endif
+#ifndef LibraryCplusplusDebugFlags
+# define LibraryCplusplusDebugFlags DefaultCplusplusDebugFlags
+#endif
+#ifndef SeparateSharedCompile
+# define SeparateSharedCompile YES
+#endif
+
+#ifdef CrossCompileDir
+# ifndef StripPath
+#  define StripPath(x) `echo x|sed "s%.*/%%"`
+# endif
+#endif
+
+#ifndef CplusplusSource
+# ifndef LibraryCcCmd
+#  if DoSharedLib && defined(SharedLibraryCcCmd)
+#   define LibraryCcCmd SharedLibraryCcCmd
+#  else
+#   define LibraryCcCmd CcCmd
+#  endif
+# endif
+# ifndef LibraryCCOptions
+#  if DoSharedLib && defined(SharedLibraryCCOptions)
+#   define LibraryCCOptions SharedLibraryCCOptions
+#  else
+#   define LibraryCCOptions DefaultCCOptions
+#  endif
+# endif
+
+#ifdef CrossCompileDir
+# ifndef CrossLibraryCcCmd
+#  define CrossLibraryCcCmd Concat3(CrossCompileDir,/,StripPath(LibraryCcCmd))
+# endif
+#endif
+
+#ifdef CrossCompileDir
+         CC = CrossLibraryCcCmd
+#else
+         CC = LibraryCcCmd
+#endif
+  CCOPTIONS = LibraryCCOptions
+STD_DEFINES = LibraryDefines $(PROJECT_DEFINES)
+CDEBUGFLAGS = LibraryCDebugFlags
+CLIBDEBUGFLAGS = LibraryDebugOpt
+     CFLAGS = $(CDEBUGFLAGS) $(CLIBDEBUGFLAGS) $(CCOPTIONS) $(THREADS_CFLAGS) $(ALLDEFINES)
+# if defined(LargePICTable) && LargePICTable && defined(LargePositionIndependentCFlags)
+   PICFLAGS = LargePositionIndependentCFlags
+# endif
+#else
+# ifndef CrossCompileDir
+#  ifndef LibraryCplusplusCmd
+#   if DoSharedLib && defined(SharedLibraryCplusplusCmd)
+#    define LibraryCplusplusCmd SharedLibraryCplusplusCmd
+#   else
+#    define LibraryCplusplusCmd CplusplusCmd
+#   endif
+#  endif
+# else
+#  ifndef CrossLibraryCplusplusCmd
+#   if DoSharedLib && defined(SharedLibraryCplusplusCmd)
+#    define CrossLibraryCplusplusCmd Concat3(CrossCompileDir,/,StripPath(SharedLibraryCplusplusCmd))
+#   else
+#    define CrossLibraryCplusplusCmd Concat3(CrossCompileDir,/,StripPath(CplusplusCmd))
+#   endif
+#  endif
+# endif
+
+# ifndef LibraryCplusplusOptions
+#  if DoSharedLib && defined(SharedLibraryCplusplusOptions)
+#   define LibraryCplusplusOptions SharedLibraryCplusplusOptions
+#  else
+#   define LibraryCplusplusOptions DefaultCplusplusOptions
+#  endif
+# endif
+
+#ifdef CrossCompileDir
+          CXX = CrossLibraryCplusplusCmd
+#else
+          CXX = LibraryCplusplusCmd
+#endif
+   CXXOPTIONS = LibraryCplusplusOptions
+  STD_DEFINES = LibraryDefines $(PROJECT_DEFINES)
+CXXDEBUGFLAGS = LibraryCplusplusDebugFlags
+CXXLIBDEBUGFLAGS = LibraryDebugOpt
+     CXXFLAGS = $(CXXDEBUGFLAGS) $(CXXLIBDEBUGFLAGS) $(CXXOPTIONS) $(THREADS_CXXFLAGS) $(CXXDEFINES)
+# if defined(LargePICTable) && LargePICTable
+#  ifdef LargePositionIndependentCplusplusFlags
+  CXXPICFLAGS = LargePositionIndependentCplusplusFlags
+#  elif defined(LargePositionIndependentCFlags)
+  CXXPICFLAGS = LargePositionIndependentCFlags
+#  endif
+# endif
+#endif
+
+#ifdef LibraryMTDefines
+LIB_MT_DEFINES = LibraryMTDefines
+#endif
+
+#if defined(IHaveSubdirs) && HasSymLinks && !defined(NoLibSubdirs)
+#define _LibMkdir LibMkdirLinkSubdirs
+#else
+#define _LibMkdir LibMkdir
+#endif
+
+#if DoDebugLib
+# define _DebuggedLibMkdir() _LibMkdir(debugger)
+# define _DebuggedObjCompile(options) DebuggedLibObjCompile(options)
+# define _DebuggedObjCplusplusCompile(options) DebuggedLibObjCplusplusCompile(options)
+# define _DebuggedCleanDir() LibCleanDir(debugger)
+#else
+# define _DebuggedLibMkdir() $(_NULLCMD_)
+# define _DebuggedObjCompile(options) $(_NULLCMD_)
+# define _DebuggedObjCplusplusCompile(options) $(_NULLCMD_)
+# define _DebuggedCleanDir() $(_NULLCMD_)
+#endif
+
+#if DoProfileLib
+# define _ProfiledLibMkdir() _LibMkdir(profiled)
+# define _ProfiledObjCompile(options) ProfiledLibObjCompile(options)
+# define _ProfiledObjCplusplusCompile(options) ProfiledLibObjCplusplusCompile(options)
+# define _ProfiledCleanDir() LibCleanDir(profiled)
+#else
+# define _ProfiledLibMkdir() $(_NULLCMD_)
+# define _ProfiledObjCompile(options) $(_NULLCMD_)
+# define _ProfiledObjCplusplusCompile(options) $(_NULLCMD_)
+# define _ProfiledCleanDir() $(_NULLCMD_)
+#endif
+
+#if !DoNormalLib
+# define _NormalLibMkdir() $(_NULLCMD_)
+# define _NormalObjCompile(options) $(_NULLCMD_)
+# define _NormalObjCplusplusCompile(options) $(_NULLCMD_)
+# define _NormalCleanDir() $(_NULLCMD_)
+#else
+# if DoSharedLib && SeparateSharedCompile
+#  define _NormalLibMkdir() _LibMkdir(unshared)
+#  define _NormalObjCompile(options) UnsharedLibObjCompile(options)
+#  define _NormalObjCplusplusCompile(options) UnsharedLibObjCplusplusCompile(options)
+#  define _NormalCleanDir() LibCleanDir(unshared)
+# else
+#  define _NormalLibMkdir() $(_NULLCMD_)
+#  if !DoSharedLib &&  defined(IncludeSharedObjectInNormalLib)
+#   define _NormalObjCompile(options) NormalRelocLibObjCompile(options)
+#  else
+#   define _NormalObjCompile(options) NormalLibObjCompile(options)
+#  endif
+#  define _NormalObjCplusplusCompile(options) NormalLibObjCplusplusCompile(options)
+#  define _NormalCleanDir() $(_NULLCMD_)
+# endif
+#endif
+
+#if !DoSharedLib || (DoNormalLib && !SeparateSharedCompile)
+# define _SharedObjCompile(options) $(_NULLCMD_)
+# define _SharedObjCplusplusCompile(options) $(_NULLCMD_)
+#else
+# if SeparateSharedCompile
+#  define _SharedObjCompile(options) NormalSharedLibObjCompile(options)
+#  define _SharedObjCplusplusCompile(options) NormalSharedLibObjCplusplusCompile(options)
+#else
+# define _SharedObjCompile(options) NormalLibObjCompile(options)
+# define _SharedObjCplusplusCompile(options) NormalLibObjCplusplusCompile(options)
+#endif
+#endif
+
+#ifndef LibInstallBuild
+#define LibInstallBuild NO
+#endif
+
+#if DoExtraLib && defined(ExtraLibRules)
+# define _ExtraLibMkdir() ExtraLibMkdir()
+# define _ExtraObjCompile(options) ExtraObjCompile(options)
+# define _ExtraObjCplusplusCompile(options) ExtraObjCplusplusCompile(options)
+# define _ExtraCleanDir() ExtraCleanDir()
+#else
+# define _ExtraLibMkdir() $(_NULLCMD_)
+# define _ExtraObjCompile(options) $(_NULLCMD_)
+# define _ExtraObjCplusplusCompile(options) $(_NULLCMD_)
+# define _ExtraCleanDir() $(_NULLCMD_)
+#endif
+
+#ifndef CplusplusSource
+# define SRCsuf c
+# define Isuf i
+#else
+# define SRCsuf CCsuf
+# define Isuf ii
+# ifdef SunArchitecture
+.SUFFIXES: Concat(.,CCsuf)
+# endif
+#endif
+
+#define _CompileObj(target, options)					@@\
+target									@@\
+	_DebuggedObjCompile(options)					@@\
+	_ProfiledObjCompile(options)					@@\
+	_NormalObjCompile(options)					@@\
+	_ExtraObjCompile(options)					@@\
+	_SharedObjCompile(options)
+
+#ifndef SeparateSharedCompile
+# define _CompileObjSeparateOpts(target,staticopts,sharedopts) \
+	_CompileObj(target,sharedopts)
+#else
+# define _CompileObjSeparateOpts(target,staticopts,sharedopts)		@@\
+target									@@\
+	_DebuggedObjCompile(staticopts)					@@\
+	_ProfiledObjCompile(staticopts)					@@\
+	_NormalObjCompile(staticopts)					@@\
+	_ExtraObjCompile(staticopts)					@@\
+	_SharedObjCompile(sharedopts)
+#endif
+
+#ifdef CplusplusSource
+# define _CompileObjCplusplus(target, options)				@@\
+target									@@\
+	_DebuggedObjCplusplusCompile(options)				@@\
+	_ProfiledObjCplusplusCompile(options)				@@\
+	_NormalObjCplusplusCompile(options)				@@\
+	_ExtraObjCplusplusCompile(options)				@@\
+	_SharedObjCplusplusCompile(options)
+#else
+# define _CompileObjCplusplus(target, options)
+#endif
+
+#ifndef LibraryObjectRule
+# define LibraryObjectRule()						@@\
+all::									@@\
+	_DebuggedLibMkdir()						@@\
+	_ProfiledLibMkdir()						@@\
+	_NormalLibMkdir()						@@\
+	_ExtraLibMkdir()						@@\
+									@@\
+includes::								@@\
+	_DebuggedLibMkdir()						@@\
+	_ProfiledLibMkdir()						@@\
+	_NormalLibMkdir()						@@\
+	_ExtraLibMkdir()						@@\
+									@@\
+_CompileObj(.c.Osuf:,$(_NOOP_))						@@\
+_CompileObjCplusplus(.SRCsuf.Osuf:,$(_NOOP_))				@@\
+									@@\
+clean::									@@\
+	_DebuggedCleanDir()						@@\
+	_ProfiledCleanDir()						@@\
+	_NormalCleanDir()						@@\
+	_ExtraCleanDir()						@@\
+
+#endif /* LibraryObjectRule */
+
+#ifndef SpecialLibObjectRule
+# define SpecialLibObjectRule(objs,depends,options)			@@\
+_CompileObj(objs: depends,options)
+#endif /* SpecialLibObjectRule */
+
+#ifndef SpecialCLibObjectRule
+# define SpecialCLibObjectRule(basename,depends,options)		@@\
+_CompileObj(basename.Osuf: basename.SRCsuf depends,options)		@@\
+									@@\
+basename.Isuf: basename.SRCsuf depends					@@\
+	CPPOnlyCompile(basename.SRCsuf,options)				@@\
+									@@\
+CenterLoadTarget(debug_src,basename.SRCsuf,NullParameter,$(ALLDEFINES) options)
+#endif /* SpecialCLibObjectRule */
+
+#ifndef SpecialCLibObjectRuleSeparateOpts
+# define SpecialCLibObjectRuleSeparateOpts(basename,depends,staticopts,shopts) @@\
+_CompileObjSeparateOpts(basename.Osuf: basename.SRCsuf depends,staticopts,shopts)	@@\
+									@@\
+basename.Isuf: basename.SRCsuf depends					@@\
+	CPPOnlyCompile(basename.SRCsuf,sharedopts)			@@\
+									@@\
+CenterLoadTarget(debug_src,basename.SRCsuf,NullParameter,$(ALLDEFINES) options)
+#endif /* SpecialCLibObjectRuleSepareateOpts */
+
+#ifndef SpecialCplusplusLibObjectRule
+# define SpecialCplusplusLibObjectRule(basename,depends,options)	@@\
+_CompileObjCplusplus(basename.Osuf: basename.SRCsuf depends,options)	@@\
+									@@\
+CenterLoadTarget(debug_src,basename.SRCsuf,NullParameter,$(ALLDEFINES) options)
+#endif /* SpecialCplusplusLibObjectRule */
+
+/*
+ * ToolkitMakeStrings generates a string-table, i.e., a C source
+ * file and the matching header(s), e.g., Xt's StringDefs.c, StringDefs.h,
+ * and Shell.h files; or Motif's XmStrDefs.c and XmStrDefs.h files.
+ *
+ * The 'files' argument is the list of files that will be produced by
+ * this rule, e.g., for Xt they would be "Shell.h StringDefs.c StringDefs.h"
+ * and for Motif they would be "XmStrDefs.c XmStrDefs.h".
+ *
+ * The 'source' argument is the string-list file to be parsed, e.g., in
+ * Xt that would be "util/string.list".  For Motif 2.0 it would be
+ * "../../tools/makestr/xmstring.list", and for Motif-CDE1 it would be
+ * "util/xmstring.list".
+ *
+ * The 'options' argument is passed by the library's Imakefile, see the
+ * Xt Imakefile for an example.  Typically this would be nothing, -intelabi,
+ * or -sparcabi; there are other choices, but these are typical.
+ *
+ * The 'depends' argument names additional files the target files
+ * depend on.  It should name the #ctmpl and #htmpl files from the
+ * 'source' file.
+ *
+ * The 'dest' argument is the C source output file.  For Xt this should
+ * be "StringDefs.c", and for all versions of Motif it would be "XmStrDefs.c"
+ *
+ * Headers are generated and named according to data in the 'source'
+ * file.
+ */
+/*
+ * The NoCmpScript
+ * prevents clearmake from trying to remake makestrs if it exists.
+ * Including both $(MAKESTRS) and $(MAKESTRS).o as primary targets
+ * prevents clearmake from trying to recompile makestrs from here.
+ * We have includes, not files, depend on makestrs to try to get
+ * clearmake to wink in the files.  Bug in clearmake 2.0.2?
+ */
+
+#ifndef MakeStringsDependency
+# ifndef UseInstalled
+#  define MakeStringsDependency						@@\
+MAKESTRS = $(CONFIGSRC)/util/makestrs					@@\
+NoCmpScript(HostProgramTargetName($(MAKESTRS)) $(MAKESTRS).Osuf)	@@\
+									@@\
+HostProgramTargetName($(MAKESTRS)) $(MAKESTRS).Osuf:			@@\
+	cd $(CONFIGSRC)/util && $(MAKE) HostProgramTargetName(makestrs)	@@\
+									@@\
+includes:: HostProgramTargetName($(MAKESTRS))
+# else
+#  define MakeStringsDependency  /**/
+# endif
+#endif
+
+#ifndef ToolkitMakeStrings
+# if defined(LibTookitMakeStringsDependency) && LibTookitMakeStringsDependency
+#  define ToolkitMakeStrings(files,source,options,depends,dest)		@@\
+files: source depends							@@\
+	RemoveFiles(files)						@@\
+	RunProgram(MAKESTRS,options < source > dest)			@@\
+									@@\
+AllTarget(files)							@@\
+									@@\
+includes:: files							@@\
+									@@\
+depend:: files								@@\
+									@@\
+clean::									@@\
+	RemoveFiles(files)
+# else
+#  define ToolkitMakeStrings(files,source,options,depends,dest)		@@\
+MakeStringsDependency							@@\
+									@@\
+files: source depends							@@\
+	RemoveFiles(files)						@@\
+	RunProgram(MAKESTRS,options < source > dest)			@@\
+									@@\
+AllTarget(files)							@@\
+									@@\
+includes:: files							@@\
+									@@\
+depend:: files								@@\
+									@@\
+clean::									@@\
+	RemoveFiles(files)
+# endif
+#endif /* ToolkitMakeStrings */
+
+#ifdef LibName
+
+LIBNAME = LibName
+
+# if defined(LibTookitMakeStringsDependency) && LibTookitMakeStringsDependency
+/*
+ * Do ToolkitMakeStrings() before BuildIncludes so makestrs is still
+ * built first, even if the generated header will be installed.
+ */
+MakeStringsDependency
+# endif
+
+LibraryObjectRule()
+
+# undef _LinkBuildLibrary
+# if !defined(LibInstall) || LibInstall || LibInstallBuild
+#  define _LinkBuildLibrary(lib) LinkBuildLibrary(lib)
+# else
+#  define _LinkBuildLibrary(lib) $(_NULLCMD_)
+# endif
+
+# if defined(LibBuild) && !LibBuild
+#  define LibCreate NO
+# endif
+
+# if !defined(LibCreate) || LibCreate
+#  if DoSharedLib
+#   if HugeLibrary && defined(SharedLibraryTarget3)
+SharedLibraryTarget3($(LIBNAME),$(SoRev),$(OBJS1),$(OBJS2),$(OBJS3) $(EXTRASHAREDOBJS),.,.)
+#   else
+#    if defined(SharedLibtoolRev) && defined(SharedLibtoolLibraryTarget)
+SharedLibtoolLibraryTarget($(LIBNAME),SharedLibtoolRev,$(OBJS) $(EXTRASHAREDOBJS),.,.)
+#    else
+SharedLibraryTarget($(LIBNAME),$(SoRev),$(OBJS) $(EXTRASHAREDOBJS),.,.)
+#    endif
+#   endif
+#   if !defined(LibInstall) || LibInstall
+#    if defined(SharedLibtoolRev) && defined(InstallSharedLibtoolLibrary)
+InstallSharedLibtoolLibrary($(LIBNAME),SharedLibtoolRev,$(SHLIBDIR))
+#    else
+InstallSharedLibrary($(LIBNAME),$(SoRev),$(SHLIBDIR))
+#    endif
+#   endif
+#   if HasSharedData
+SharedLibraryDataTarget($(LIBNAME),$(SoRev),$(UNSHAREDOBJS))
+#    if !defined(LibInstall) || LibInstall
+InstallSharedLibraryData($(LIBNAME),$(SoRev),$(SHLIBDIR))
+#    endif
+#   endif
+#  endif
+#  if DoNormalLib
+#   if HugeLibrary
+#    if DoSharedLib && SeparateSharedCompile
+UnsharedLibraryTarget3($(LIBNAME),$(OBJS1),$(OBJS2),$(OBJS3) $(EXTRAUNSHAREDOBJS),unshared,..)
+#    else
+NormalLibraryTarget3($(LIBNAME),$(OBJS1),$(OBJS2),$(OBJS3) $(EXTRAUNSHAREDOBJS))
+#    endif
+#   else
+#    if DoSharedLib && SeparateSharedCompile
+UnsharedLibraryTarget($(LIBNAME),$(OBJS) $(EXTRAUNSHAREDOBJS),unshared,..)
+#    else
+NormalLibraryTarget($(LIBNAME),$(OBJS) $(EXTRAUNSHAREDOBJS))
+#    endif
+#   endif
+#   if !defined(LibInstall) || LibInstall
+InstallLibrary($(LIBNAME),$(USRLIBDIR))
+#   endif
+#  endif
+#  if DoProfileLib
+ProfiledLibraryTarget($(LIBNAME),$(OBJS) $(EXTRAUNSHAREDOBJS))
+#   if !defined(LibInstall) || LibInstall
+InstallLibrary($(LIBNAME)_p,$(USRLIBDIR))
+#   endif
+#  endif
+#  if DoDebugLib
+DebuggedLibraryTarget($(LIBNAME),$(OBJS) $(EXTRAUNSHAREDOBJS))
+#   if !defined(LibInstall) || LibInstall
+InstallLibrary($(LIBNAME)_d,$(USRLIBDIR))
+#   endif
+#  endif
+#  if DoExtraLib && defined(ExtraLibRules)
+ExtraLibraryTarget($(LIBNAME),$(SoRev),$(OBJS) $(EXTRAUNSHAREDOBJS))
+#   if !defined(LibInstall) || LibInstall
+ExtraInstallLibrary($(LIBNAME),$(SoRev))
+#   endif
+#  endif
+
+LintLibraryTarget($(LIBNAME),$(SRCS))
+#  if !defined(LibInstall) || LibInstall
+InstallLintLibrary($(LIBNAME),$(LINTLIBDIR))
+#  endif
+# else /* not LibCreate */
+#  if LibBuild
+#   if HugeLibrary
+AllTarget($(OBJS1))
+AllTarget($(OBJS2))
+AllTarget($(OBJS3))
+#   else
+AllTarget($(OBJS))
+#   endif
+#   if DoSharedLib
+AllTarget($(EXTRASHAREDOBJS))
+#   endif
+#   if DoNormalLib
+AllTarget($(EXTRAUNSHAREDOBJS))
+#   endif
+#  endif /* LibBuild */
+# endif /* LibCreate */
+# ifdef IncSubdir
+#  ifdef IncSubSubdir
+#   if !defined(LibHeaders) || LibHeaders
+BuildIncludes($(HEADERS),IncSubdir/IncSubSubdir,../..)
+#    if BuildLibraries
+InstallMultipleFlags($(HEADERS),$(INCDIR)/IncSubdir/IncSubSubdir,$(INSTINCFLAGS))
+#     endif
+#   endif
+#  else
+#   if !defined(LibHeaders) || LibHeaders
+BuildIncludes($(HEADERS),IncSubdir,..)
+#    if BuildLibraries
+InstallMultipleFlags($(HEADERS),$(INCDIR)/IncSubdir,$(INSTINCFLAGS))
+#    endif
+#   endif
+#  endif
+# else
+#  ifndef CplusplusSource
+#   if !defined(LibHeaders) || LibHeaders
+BuildIncludesTop($(HEADERS))
+#    if BuildLibraries
+InstallMultipleFlags($(HEADERS),$(INCDIR),$(INSTINCFLAGS))
+#    endif
+#   endif
+#  endif
+# endif
+
+NormalLintTarget($(SRCS))
+#endif /* defined(LibName) */
+
+#ifdef NoSoSymlink
+SOSYMLINK = false
+#else
+SOSYMLINK = true
+#endif

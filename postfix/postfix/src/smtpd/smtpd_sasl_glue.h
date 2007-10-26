@@ -4,14 +4,14 @@
 /* SUMMARY
 /*	Postfix SMTP server, SASL support interface
 /* SYNOPSIS
-/*	#include "smtpd_sasl.h"
+/*	#include "smtpd_sasl_glue.h"
 /* DESCRIPTION
 /* .nf
 
  /*
   * SASL protocol interface
   */
-#ifdef __APPLE__
+#ifdef __APPLE_OS_X_SERVER__
 #define	ODA_NO_ERROR			0
 #define	ODA_AUTH_FAILED			-2000
 #define	ODA_AUTH_CANCEL			-2001
@@ -44,12 +44,12 @@ typedef enum
 
 extern void smtpd_sasl_initialize(int);
 extern char *smtpd_pw_server_authenticate(SMTPD_STATE *, const char *, const char *);
-#else /* __APPLE__ */
+#else /* __APPLE_OS_X_SERVER__ */
 extern void smtpd_sasl_initialize(void);
-#endif /* __APPLE__ */
+#endif /* __APPLE_OS_X_SERVER__ */
 extern void smtpd_sasl_connect(SMTPD_STATE *, const char *, const char *);
 extern void smtpd_sasl_disconnect(SMTPD_STATE *);
-extern char *smtpd_sasl_authenticate(SMTPD_STATE *, const char *, const char *);
+extern int smtpd_sasl_authenticate(SMTPD_STATE *, const char *, const char *);
 extern void smtpd_sasl_logout(SMTPD_STATE *);
 extern int permit_sasl_auth(SMTPD_STATE *, int, int);
 

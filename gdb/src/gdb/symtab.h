@@ -42,7 +42,7 @@ struct agent_expr;
      struct symbol
      struct partial_symbol
 
-   These structures are layed out to encourage good packing.
+   These structures are laid out to encourage good packing.
    They use ENUM_BITFIELD and short int fields, and they order the
    structure members so that fields less than a word are next
    to each other so they can be packed together. */
@@ -265,6 +265,20 @@ extern char *symbol_demangled_name (struct general_symbol_info *symbol);
 #define SYMBOL_MATCHES_NATURAL_NAME(symbol, name)			\
   (strcmp_iw (SYMBOL_NATURAL_NAME (symbol), (name)) == 0)
 
+/* Macro that returns the name to be used when sorting and searching symbols. 
+   In  C++, Chill, and Java, we search for the demangled form of a name,
+   and so sort symbols accordingly.  In Ada, however, we search by mangled
+   name.  If there is no distinct demangled name, then SYMBOL_SEARCH_NAME
+   returns the same value (same pointer) as SYMBOL_LINKAGE_NAME. */
+#define SYMBOL_SEARCH_NAME(symbol)					 \
+   (symbol_search_name (&(symbol)->ginfo))
+extern char *symbol_search_name (const struct general_symbol_info *);
+
+/* Analogous to SYMBOL_MATCHES_NATURAL_NAME, but uses the search
+   name.  */
+#define SYMBOL_MATCHES_SEARCH_NAME(symbol, name)			\
+  (strcmp_iw (SYMBOL_SEARCH_NAME (symbol), (name)) == 0)
+
 /* Classification types for a minimal symbol.  These should be taken as
    "advisory only", since if gdb can't easily figure out a
    classification it simply selects mst_unknown.  It may also have to
@@ -339,7 +353,8 @@ struct minimal_symbol
 
   unsigned long size;
 
-#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+/* APPLE LOCAL: We don't need the struct minimal_symbol member filename.  */
+#if defined(SOFUN_ADDRESS_MAYBE_MISSING) && !defined(TM_NEXTSTEP)
   /* Which source file is this symbol in?  Only relevant for mst_file_*.  */
   char *filename;
 #endif
@@ -694,6 +709,20 @@ struct partial_symbol
 #define PSYMBOL_CLASS(psymbol)		(psymbol)->aclass
 
 
+/* APPLE LOCAL begin subroutine inlining  */
+/* Various types of entries that might populate the line table.  */
+
+enum line_table_entry_type
+{
+  NORMAL_LT_ENTRY = 0,                /* "Normal" line table entry  */
+  INLINED_SUBROUTINE_LT_ENTRY,        /* Entry for the actual inlined code of an 
+					 inlined subroutine  */
+  INLINED_CALL_SITE_LT_ENTRY          /* Entry for the call site of an inlined 
+					 subroutine  */
+};
+
+/* APPLE LOCAL end subroutine inlining  */
+
 /* Each item represents a line-->pc (or the reverse) mapping.  This is
    somewhat more wasteful of space than one might wish, but since only
    the files which are actually debugged are read in to core, we don't
@@ -703,6 +732,18 @@ struct linetable_entry
 {
   int line;
   CORE_ADDR pc;
+  /* APPLE LOCAL begin subroutine inlining  */
+
+ /* Normally zero; a non-zero value indicates the range of an inlined
+    function call.  For now.  */
+
+  CORE_ADDR end_pc;
+
+/* For use as we expand the types of information that are stored in
+   the line table, to keep track of which entry is of which type.  */
+
+  enum line_table_entry_type  entry_type; 
+  /* APPLE LOCAL end subroutine inlining  */
 };
 
 /* The order of entries in the linetable is significant.  They should
@@ -750,7 +791,7 @@ struct section_offsets
 
 #define	ANOFFSET(secoff, whichone) \
    ((whichone == -1) \
-    ? (internal_error (__FILE__, __LINE__, "Section index is uninitialized"), (CORE_ADDR) -1) \
+    ? (internal_error (__FILE__, __LINE__, _("Section index is uninitialized")), (CORE_ADDR) -1) \
     : secoff->offsets[whichone])
 
 /* The size of a section_offsets table for N sections.  */
@@ -867,6 +908,74 @@ struct symtab
 /* APPLE LOCAL fix-and-continue */
 #define SYMTAB_OBSOLETED(symtab) (symtab)->obsolete
 
+/* APPLE LOCAL: Definitions of structures that go in the partial_symtab
+   struct to support leaving full debug information in the .o files with
+   only stub information in the final linked image.  */
+
+/* APPLE LOCAL: These two structures are used to store the STSYM &
+   LCSYM addresses from the final linked image to match them up
+   against the .o files when we are reading symbols out of the .o.
+
+   For the stabs/Essential Symbols case -
+     We have to store them indexed by both function and name since
+     you could have the same named static appearing in many different
+     functions in the file.
+
+     We'll keep both the functions and the symbols FIFO, since when
+     we replay them while building up the symtab, we will encounter
+     the functions and symbols in the same order in the .o.  We
+     take advantage of this in read_ofile_symtab_from_oso.  When
+     we get done with a static entry, we dump it from the oso_fun_static
+     list, and when we get done with a whole function we dump it
+     from the oso_fun_list.
+     FIXME: If we were REALLY confident of this, we could leave the
+     name off the two lists, and just always pop the first one.  It
+     should also be a hard error if the top element isn't the one
+     we want.  I just give a warning right now.
+
+   For the DWARF/debug map case -
+     We can't depend on the order of the nlist records so the function
+     association is not useful - we have a single struct_oso_fun_list per
+     partial_symtab which nas null NEXT/NAME fields and a list of the
+     statics for that pst.  */
+  
+struct oso_fun_static {
+  struct oso_fun_static *next;
+  char *name;
+  CORE_ADDR address;   
+};
+    
+struct oso_fun_list { 
+  struct oso_fun_list *next;
+  char *name;
+  struct oso_fun_static *statics;
+  struct oso_fun_static *tail;
+};
+   
+/* This structure is used to build the list of partial symtabs that
+   share an N_OSO .o file.  Each pst that gets its symbols from one
+   .o file has a pointer to it.  It has two uses:
+
+   1) When we do psymtab->symtab for a pst, we want to do a
+   preliminary scan of the .o file to build up the EXCL->BINCL/EINCL
+   dependencies.  Once we've done this we set READIN to 1.   
+
+   2) When we are doing the initial scan of a .o we need to update the
+   dependencies of all the pst's it contains.  This way we only need
+   to scan it once, and then we can use the ordinary dependencies
+   method to bring in the necessary N_SO partial symtabs...  We use
+   PST_LIST to track this
+
+   It is allocated on the objfile's obstack.  */
+
+struct oso_pst_list {
+  char *oso_name;
+  int readin;
+  struct partial_symtab **pst_list;
+};
+   
+/* END APPLE LOCAL */
+
 
 /* Each source file that has not been fully read in is represented by
    a partial_symtab.  This contains the information on where in the
@@ -893,6 +1002,10 @@ struct partial_symtab
   /* Full path of the source file.  NULL if not known.  */
 
   char *fullname;
+
+  /* Directory in which it was compiled, or NULL if we don't know.  */
+
+  char *dirname;
 
   /* Information about the object file from which symbols should be read.  */
 
@@ -974,10 +1087,29 @@ struct partial_symtab
      FIXME: If we do this in DWARF, we'll need to set this in the DWARF
      reader at that point.  */
   enum language language;
+
+  /* APPLE LOCAL: This is the value of the N_OSO stab, used to find the
+     .o file in the case where the symbols are being kept in the .o file.  */
+  char *oso_name;
+  /* The n_value field of the N_OSO stab is the mtime of the .o file when
+     the linked image was built.  If this is 0 we don't check the times.  */
+  long oso_mtime;
+  /* This is the list of pst's that share this OSO .o file.  */  
+  struct oso_pst_list *oso_pst_list;
+  /* This is the list of statics in the final linked image which  
+     we use to map the address of the statics in the OSO .o file.  */
+  struct oso_fun_list *statics_list;
+  /* END APPLE LOCAL */
 };
 
 /* APPLE LOCAL fix-and-continue */
 #define PSYMTAB_OBSOLETED(psymtab) (psymtab)->obsolete
+
+#define PSYMTAB_OSO_NAME(p) ((p)->oso_name)
+#define PSYMTAB_OSO_MTIME(p) ((p)->oso_mtime)
+#define PSYMTAB_OSO_STATICS(p) ((p)->statics_list)
+#define PSYMTAB_OSO_PST_LIST(p) ((p)->oso_pst_list)
+
 
 /* A fast way to get from a psymtab to its symtab (after the first time).  */
 #define	PSYMTAB_TO_SYMTAB(pst)  \
@@ -1016,6 +1148,10 @@ extern int asm_demangle;
 /* lookup a symbol table by source file name */
 
 extern struct symtab *lookup_symtab (const char *);
+
+/* APPLE LOCAL: lookup a symbol table by source file name,
+   returning all matches.  */
+extern struct symtab **lookup_symtab_all (const char *);
 
 /* lookup a symbol by name (optional block, optional symtab) */
 
@@ -1082,6 +1218,15 @@ extern struct symbol *lookup_block_symbol (const struct block *, const char *,
 					   const char *,
 					   const domain_enum);
 
+/* APPLE LOCAL begin return multiple symbols  */
+/* lookup a symbol by name, within a specified block, and return
+   all matching symbols in the block.  */
+
+extern struct symbol_search *lookup_block_symbol_all (const struct block *,
+						      const char *, const char *,
+						      const domain_enum);
+/* APPLE LOCAL end return multiple symbols  */
+
 /* lookup a [struct, union, enum] by name, within a specified block */
 
 extern struct type *lookup_struct (char *, struct block *);
@@ -1091,6 +1236,9 @@ extern struct type *lookup_union (char *, struct block *);
 extern struct type *lookup_enum (char *, struct block *);
 
 /* from blockframe.c: */
+
+/* APPLE LOCAL */
+int addr_inside_main_func (CORE_ADDR pc);
 
 /* lookup the function symbol corresponding to the address */
 
@@ -1107,14 +1255,14 @@ extern int find_pc_partial_function (CORE_ADDR, char **, CORE_ADDR *,
 
 extern void clear_pc_function_cache (void);
 
-extern int find_pc_sect_partial_function (CORE_ADDR, asection *,
-					  char **, CORE_ADDR *, CORE_ADDR *);
-
 /* from symtab.c: */
 
 /* lookup partial symbol table by filename */
 
 extern struct partial_symtab *lookup_partial_symtab (const char *);
+
+/* APPLE LOCAL: This version returns all the matches to the argument.  */
+extern struct partial_symtab **lookup_partial_symtab_all (const char *, int);
 
 /* lookup partial symbol table by address */
 
@@ -1180,6 +1328,10 @@ extern void
 add_minsym_to_hash_table (struct minimal_symbol *sym,
 			  struct minimal_symbol **table);
 
+/* APPLE LOCAL: Add prototype; called over in dwarf2read.c  */
+extern struct minimal_symbol *lookup_minimal_symbol_by_pc_section_from_objfile
+  (CORE_ADDR pc, asection *section, struct objfile *objfile);
+
 extern struct minimal_symbol *lookup_minimal_symbol (const char *,
 						     const char *,
 						     struct objfile *);
@@ -1224,12 +1376,19 @@ struct symtab_and_line
      information is not available.  */
   int line;
 
-  /* Character range. */
-  unsigned int startchar;
-  unsigned int endchar;
-
   CORE_ADDR pc;
   CORE_ADDR end;
+  /* APPLE LOCAL begin subroutine inlining  */
+  
+  /* Type of linetable entry this represents.  */
+  enum line_table_entry_type  entry_type; 
+
+  /* If multiple LT entries exist for same address, make a linked list
+     of them.  This happens most often if there are one or more levels of
+     subroutine inlining that occurred at that address.  */
+
+  struct symtab_and_line *next; 
+  /* APPLE LOCAL end subroutine inlining  */
 };
 
 extern void init_sal (struct symtab_and_line *sal);
@@ -1260,6 +1419,7 @@ struct exception_event_record
   enum exception_event_kind kind;
   struct symtab_and_line throw_sal;
   struct symtab_and_line catch_sal;
+  /* APPLE LOCAL exception types */
   char *exception_type;
   /* This may need to be extended in the future, if
      some platforms allow reporting more information,
@@ -1276,6 +1436,7 @@ struct exception_event_record
 #define CURRENT_EXCEPTION_THROW_LINE (current_exception_event->throw_sal.line)
 #define CURRENT_EXCEPTION_THROW_FILE (current_exception_event->throw_sal.symtab->filename)
 #define CURRENT_EXCEPTION_THROW_PC   (current_exception_event->throw_sal.pc)
+/* APPLE LOCAL exception types */
 #define CURRENT_EXCEPTION_TYPE       (current_exception_event->exception_type)
 
 
@@ -1332,14 +1493,6 @@ extern struct symtab *psymtab_to_symtab (struct partial_symtab *);
 
 extern void clear_solib (void);
 
-struct section_addr_info;
-
-extern struct objfile *symbol_file_add (const char *, int,
-					struct section_addr_info *, int, int);
- 
-extern struct objfile *symbol_file_add_bfd (bfd *, int,
-					    struct section_addr_info *, int, int);
- 
 /* source.c */
 
 extern int identify_source_line (struct symtab *, int, int, CORE_ADDR);
@@ -1369,6 +1522,7 @@ extern struct symtab_and_line find_function_start_sal (struct symbol *sym,
 
 extern void clear_symtab_users (void);
 
+/* APPLE LOCAL const */
 extern enum language deduce_language_from_filename (const char *);
 
 /* symtab.c */
@@ -1409,6 +1563,13 @@ struct symbol_search
   struct symbol_search *next;
 };
 
+/* APPLE LOCAL begin return multiple symbols  */
+/* lookup by name and return all matching symbols found  */
+extern int lookup_symbol_all (const char *, const struct block *,
+			      const domain_enum, int *, struct symtab **,
+			      struct symbol_search **);
+/* APPLE LOCAL end return multiple symbols  */
+
 extern void search_symbols (char *, domain_enum, int, char **,
 			    struct symbol_search **);
 extern void free_search_symbols (struct symbol_search *);
@@ -1430,5 +1591,15 @@ void equivalence_table_add (struct objfile *, const char *, const char *, struct
 void equivalence_table_build (struct objfile *);
 struct minimal_symbol **find_equivalent_msymbol (struct minimal_symbol *msymbol);
 /* END APPLE LOCAL */
+
+/* Global to indicate presence of HP-compiled objects,
+   in particular, SOM executable file with SOM debug info 
+   Defined in symtab.c, used in hppa-tdep.c. */
+extern int deprecated_hp_som_som_object_present;
+
+/* APPLE LOCAL begin address ranges  */
+extern void update_inlined_function_line_table_entry (CORE_ADDR, CORE_ADDR,
+						      CORE_ADDR);
+/* APPLE LOCAL end address ranges  */
 
 #endif /* !defined(SYMTAB_H) */

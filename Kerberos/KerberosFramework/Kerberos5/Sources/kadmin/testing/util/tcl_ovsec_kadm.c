@@ -1,3 +1,4 @@
+#include "autoconf.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_TCL_H
@@ -8,10 +9,10 @@
 #define USE_KADM5_API_VERSION 1
 #include <kadm5/admin.h>
 #include <com_err.h>
-#include <k5-int.h>
 #include <errno.h>
 #include <stdlib.h>
 #include "tcl_kadm5.h"
+#include <adb_err.h>
 
 struct flagval {
      char *name;
@@ -1017,7 +1018,7 @@ static int tcl_ovsec_kadm_init(ClientData clientData, Tcl_Interp *interp,
 
      argv++, argc--;
 
-     krb5_init_context(&context);
+     kadm5_init_krb5_context(&context);
 
      if (argc != 7) {
 	  Tcl_AppendResult(interp, whoami, ": ", arg_error, 0);
@@ -1044,7 +1045,7 @@ static int tcl_ovsec_kadm_init(ClientData clientData, Tcl_Interp *interp,
      }
      
      ret = ovsec_kadm_init(client_name, pass, service_name, realm,
-			   struct_version, api_version, &server_handle);
+			   struct_version, api_version, NULL, &server_handle);
 
      if (ret != OVSEC_KADM_OK) {
 	  stash_error(interp, ret);

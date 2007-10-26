@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,7 +86,7 @@ identifyKeyForPattern(const void *key, void *val, void *context)
 	}
 
 	/* convert store key to C string */
-	len = CFStringGetLength(storeKey) + 1;
+	len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(storeKey), kCFStringEncodingASCII) + 1;
 	if (len > (CFIndex)sizeof(str_q))
 		str = CFAllocatorAllocate(NULL, len, 0);
 	if (_SC_cfstring_to_cstring(storeKey, str, len, kCFStringEncodingASCII) == NULL) {
@@ -120,7 +120,7 @@ identifyKeyForPattern(const void *key, void *val, void *context)
 }
 
 
-__private_extern__ Boolean
+static Boolean
 patternCompile(CFStringRef pattern, regex_t *preg, CFStringRef *error)
 {
 	Boolean		append		= FALSE;
@@ -190,8 +190,7 @@ patternCompile(CFStringRef pattern, regex_t *preg, CFStringRef *error)
 }
 
 
-__private_extern__
-CFMutableArrayRef
+static CFMutableArrayRef
 patternCopy(CFStringRef	pattern)
 {
 	CFArrayRef	pInfo;
@@ -201,12 +200,11 @@ patternCopy(CFStringRef	pattern)
 }
 
 
-__private_extern__
-CFMutableArrayRef
+static CFMutableArrayRef
 patternNew(CFStringRef pattern)
 {
 	addContext		context;
-	CFStringRef		err;
+	CFStringRef		err	= NULL;
 	CFMutableArrayRef	pInfo;
 	CFMutableDataRef	pRegex;
 	CFArrayRef		pSessions;
@@ -245,6 +243,41 @@ patternNew(CFStringRef pattern)
 
 
 __private_extern__
+CFArrayRef
+patternCopyMatches(CFStringRef pattern)
+{
+	Boolean			isNew	= FALSE;
+	CFArrayRef		keys;
+	CFMutableArrayRef	pInfo;
+
+	/* find (or create new instance of) this pattern */
+	pInfo = patternCopy(pattern);
+	if (pInfo == NULL) {
+		/* if new pattern */
+		pInfo = patternNew(pattern);
+		if (pInfo == NULL) {
+			return NULL;
+		}
+
+		isNew = TRUE;
+	}
+
+	if (isNew) {
+		CFDataRef	pRegex;
+
+		pRegex = CFArrayGetValueAtIndex(pInfo, 0);
+		regfree((regex_t *)CFDataGetBytePtr(pRegex));
+	}
+
+	CFArrayReplaceValues(pInfo, CFRangeMake(0, 2), NULL, 0);
+	keys = CFArrayCreateCopy(NULL, pInfo);
+	CFRelease(pInfo);
+
+	return keys;
+}
+
+
+__private_extern__
 Boolean
 patternAddSession(CFStringRef pattern, CFNumberRef sessionNum)
 {
@@ -255,10 +288,10 @@ patternAddSession(CFStringRef pattern, CFNumberRef sessionNum)
 
 	/* find (or create new instance of) this pattern */
 	pInfo = patternCopy(pattern);
-	if (!pInfo) {
+	if (pInfo == NULL) {
 		/* if new pattern */
 		pInfo = patternNew(pattern);
-		if (!pInfo) {
+		if (pInfo == NULL) {
 			return FALSE;
 		}
 	}
@@ -349,7 +382,7 @@ addKeyForPattern(const void *key, void *val, void *context)
 	char *			str		= str_q;
 
 	/* convert store key to C string */
-	len = CFStringGetLength(storeKey) + 1;
+	len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(storeKey), kCFStringEncodingASCII) + 1;
 	if (len > (CFIndex)sizeof(str_q))
 		str = CFAllocatorAllocate(NULL, len, 0);
 	if (_SC_cfstring_to_cstring(storeKey, str, len, kCFStringEncodingASCII) == NULL) {

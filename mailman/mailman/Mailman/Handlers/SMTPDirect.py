@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Local SMTP direct drop-off.
 
@@ -135,6 +136,12 @@ def process(mlist, msg, msgdata):
     t0 = time.time()
     # Open the initial connection
     origrecips = msgdata['recips']
+    # MAS: get the message sender now for logging.  If we're using 'sender'
+    # and not 'from', bulkdeliver changes it for bounce processing.  If we're
+    # VERPing, it doesn't matter because bulkdeliver is working on a copy, but
+    # otherwise msg gets changed.  If the list is anonymous, the original
+    # sender is long gone, but Cleanse.py has logged it.
+    origsender = msgdata.get('original_sender', msg.get_sender())
     # `undelivered' is a copy of chunks that we pop from to do deliveries.
     # This seems like a good tradeoff between robustness and resource
     # utilization.  If delivery really fails (i.e. qfiles/shunt type
@@ -169,7 +176,7 @@ def process(mlist, msg, msgdata):
                           '#recips' : len(recips),
                           '#refused': len(refused),
                           'listname': mlist.internal_name(),
-                          'sender'  : msg.get_sender(),
+                          'sender'  : origsender,
                           })
     # We have to use the copy() method because extended call syntax requires a
     # concrete dictionary object; it does not allow a generic mapping.  It's

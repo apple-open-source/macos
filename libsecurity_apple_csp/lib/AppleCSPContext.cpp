@@ -39,8 +39,8 @@ void AppleCSPContext::symmetricKeyBits(
 	AppleCSPSession &session,
 	CSSM_ALGORITHMS	requiredAlg,	// throws if this doesn't match key alg
 	CSSM_KEYUSE 	intendedUse,	// throws if key usage doesn't match this
-	UInt8			*&keyBits,		// RETURNED (not mallocd or copied)
-	UInt32			&keyLen)		// RETURNED
+	uint8			*&keyBits,		// RETURNED (not mallocd or copied)
+	CSSM_SIZE		&keyLen)		// RETURNED
 {
 	/* key must be present and it must be a session key matching caller's spec */
     CssmKey &key = 
@@ -84,6 +84,9 @@ void AppleCSPContext::symmetricKeyBits(
 	}
 	return;
 }
+
+AppleKeyPairGenContext::~AppleKeyPairGenContext()
+{ /* virtual */ }
 
 // Called from subclass after it allocates its BinaryKeys.
 // Caller frees BinaryKeys if we throw any exception. 

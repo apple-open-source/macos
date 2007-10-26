@@ -119,7 +119,12 @@ void _cthread_fork_prepare()
 	struct pthread_atfork_entry *e;
 
 	_spin_lock(&pthread_atfork_lock);
-	TAILQ_FOREACH_REVERSE(e, &pthread_atfork_queue, qentry, pthread_atfork_queue_head) {
+#ifdef TAILQ_FOREACH_REVERSE_LEGACY_ORDER
+	TAILQ_FOREACH_REVERSE(e, &pthread_atfork_queue, qentry, pthread_atfork_queue_head)
+#else /* !TAILQ_FOREACH_REVERSE_LEGACY_ORDER */
+	TAILQ_FOREACH_REVERSE(e, &pthread_atfork_queue, pthread_atfork_queue_head, qentry)
+#endif /* TAILQ_FOREACH_REVERSE_LEGACY_ORDER */
+	{
 		if (e->prepare != NULL)
 			e->prepare();
 	}

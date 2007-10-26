@@ -1,8 +1,7 @@
-/*	$NetBSD: nohup.c,v 1.8 1997/12/23 18:21:34 ross Exp $	*/
-
 /*
- * Copyright (c) 1989 The Regents of the University of California.
- * All rights reserved.
+ * Copyright (c) 1989, 1993
+ *	The Regents of the University of California.  All rights reserved.
+ * Portions copyright (c) 2007 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,11 +11,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,115 +28,121 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__COPYRIGHT(
-    "@(#) Copyright (c) 1989 The Regents of the University of California.\n\
- All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)nohup.c	5.4 (Berkeley) 6/1/90";
-#endif
-__RCSID("$NetBSD: nohup.c,v 1.8 1997/12/23 18:21:34 ross Exp $");
+static char sccsid[] = "@(#)nohup.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+#ifndef __APPLE__
+__FBSDID("$FreeBSD: src/usr.bin/nohup/nohup.c,v 1.10 2003/05/03 19:44:46 obrien Exp $");
+#endif
 
 #include <sys/param.h>
-#include <sys/file.h>
 #include <sys/stat.h>
+
+#include <err.h>
+#include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
+#include <unistd.h>
 
-static void dofile __P((void));
-static void usage __P((void));
-int main __P((int, char **));
+#ifdef __APPLE__
+#include <vproc.h>
+#include <vproc_priv.h>
+#endif
 
-/* nohup shall exit with one of the following values:
-   126 - The utility was found but could not be invoked.
-   127 - An error occured in the nohup utility, or the utility could
-         not be found. */
-#define EXIT_NOEXEC	126
-#define EXIT_NOTFOUND	127
-#define EXIT_MISC	127
+static void dofile(void);
+static void usage(void);
+
+#define	FILENAME	"nohup.out"
+/*
+ * POSIX mandates that we exit with:
+ * 126 - If the utility was found, but failed to execute.
+ * 127 - If any other error occurred. 
+ */
+#define	EXIT_NOEXEC	126
+#define	EXIT_NOTFOUND	127
+#define	EXIT_MISC	127
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char *argv[])
 {
 	int exit_status;
 
-	if (argc > 1 && !strcmp(argv[1], "--")) {
-		argv++;
-		argc--;
-	}
-	if (argc < 2)
+	while (getopt(argc, argv, "") != -1)
+		usage();
+	argc -= optind;
+	argv += optind;
+	if (argc < 1)
 		usage();
 
 	if (isatty(STDOUT_FILENO))
 		dofile();
-	if (isatty(STDERR_FILENO) && dup2(STDOUT_FILENO, STDERR_FILENO) == -1) {
+	if (isatty(STDERR_FILENO) && dup2(STDOUT_FILENO, STDERR_FILENO) == -1)
 		/* may have just closed stderr */
-		(void)fprintf(stdin, "nohup: %s\n", strerror(errno));
-		exit(EXIT_MISC);
-	}
+		err(EXIT_MISC, "%s", argv[0]);
 
-	/* The nohup utility shall take the standard action for all signals
-	   except that SIGHUP shall be ignored. */
 	(void)signal(SIGHUP, SIG_IGN);
 
-	execvp(argv[1], &argv[1]);
+#ifdef __APPLE__
+	if (_vprocmgr_move_subset_to_user(geteuid(), "Background") != NULL)
+		err(EXIT_MISC, "can't migrate to background session");
+#endif
+	execvp(*argv, argv);
 	exit_status = (errno == ENOENT) ? EXIT_NOTFOUND : EXIT_NOEXEC;
-	(void)fprintf(stderr, "nohup: %s: %s\n", argv[1], strerror(errno));
-	exit(exit_status);
+	err(exit_status, "%s", argv[0]);
 }
 
 static void
-dofile()
+dofile(void)
 {
 	int fd;
-	char *p, path[MAXPATHLEN];
+	char path[MAXPATHLEN];
+	const char *p;
 
-	/* If the standard output is a terminal, all output written to 
-	   its standard output shall be appended to the end of the file
-	   nohup.out in the current directory.  If nohup.out cannot be
-	   created or opened for appending, the output shall be appended
-	   to the end of the file nohup.out in the directory specified 
-	   by the HOME environment variable.
-
-	   If a file is created, the file's permission bits shall be
-	   set to S_IRUSR | S_IWUSR. */
-#define	FILENAME	"nohup.out"
+	/*
+	 * POSIX mandates if the standard output is a terminal, the standard
+	 * output is appended to nohup.out in the working directory.  Failing
+	 * that, it will be appended to nohup.out in the directory obtained
+	 * from the HOME environment variable.  If file creation is required,
+	 * the mode_t is set to S_IRUSR | S_IWUSR.
+	 */
 	p = FILENAME;
-	if ((fd = open(p, O_RDWR|O_CREAT|O_APPEND, S_IRUSR|S_IWUSR)) >= 0)
+	fd = open(p, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
+	if (fd != -1)
 		goto dupit;
-	if ((p = getenv("HOME")) != NULL) {
-		(void)strcpy(path, p);
-		(void)strcat(path, "/");
-		(void)strcat(path, FILENAME);
-		if ((fd = open(p = path, O_RDWR|O_CREAT|O_APPEND, S_IRUSR|S_IWUSR)) >= 0)
+	if ((p = getenv("HOME")) != NULL && *p != '\0' &&
+	    (size_t)snprintf(path, sizeof(path), "%s/%s", p, FILENAME) <
+	    sizeof(path)) {
+		fd = open(p = path, O_RDWR | O_CREAT | O_APPEND,
+		    S_IRUSR | S_IWUSR);
+		if (fd != -1)
 			goto dupit;
 	}
-	(void)fprintf(stderr, "nohup: can't open a nohup.out file.\n");
-	exit(EXIT_MISC);
+	errx(EXIT_MISC, "can't open a nohup.out file");
 
-dupit:	(void)lseek(fd, 0L, SEEK_END);
-	if (dup2(fd, STDOUT_FILENO) == -1) {
-		(void)fprintf(stderr, "nohup: %s\n", strerror(errno));
-		exit(EXIT_MISC);
-	}
-	(void)fprintf(stderr, "sending output to %s\n", p);
+dupit:
+#ifdef __APPLE__
+	(void)lseek(fd, 0L, SEEK_END);
+#endif
+	if (dup2(fd, STDOUT_FILENO) == -1)
+		err(EXIT_MISC, NULL);
+	(void)fprintf(stderr, "appending output to %s\n", p);
 }
 
 static void
-usage()
+usage(void)
 {
-	(void)fprintf(stderr, "usage: nohup command\n");
+	(void)fprintf(stderr, "usage: nohup [--] utility [arguments]\n");
 	exit(EXIT_MISC);
 }

@@ -39,7 +39,7 @@
 __COPYRIGHT(
 "@(#) Copyright (c) 1999\
  The NetBSD Foundation, Inc.  All rights reserved.");
-__RCSID("$FreeBSD: src/usr.bin/nl/nl.c,v 1.8 2003/08/17 10:33:54 tjr Exp $");
+__RCSID("$FreeBSD: src/usr.bin/nl/nl.c,v 1.10 2005/04/09 14:31:41 stefanf Exp $");
 #endif    
 
 #include <sys/types.h>
@@ -53,6 +53,7 @@ __RCSID("$FreeBSD: src/usr.bin/nl/nl.c,v 1.8 2003/08/17 10:33:54 tjr Exp $");
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wchar.h>
 
 typedef enum {
 	number_all,		/* number all lines */
@@ -107,11 +108,13 @@ static size_t buffersize;
  */
 static char *intbuffer;
 
+/* delimiter characters that indicate the start of a logical page section */
+static char delim[2 * MB_LEN_MAX];
+static int delimlen;
+
 /*
  * Configurable parameters.
  */
-/* delimiter characters that indicate the start of a logical page section */
-static char delim[2] = { '\\', ':' };
 
 /* line numbering format */
 static const char *format = FORMAT_RN;
@@ -145,7 +148,9 @@ main(argc, argv)
 	long val;
 	unsigned long uval;
 	char *ep;
-	size_t intbuffersize;
+	size_t intbuffersize, clen;
+	char delim1[MB_LEN_MAX] = { '\\' }, delim2[MB_LEN_MAX] = { ':' };
+	size_t delim1len = 1, delim2len = 1;
 
 	(void)setlocale(LC_ALL, "");
 
@@ -158,16 +163,23 @@ main(argc, argv)
 			parse_numbering(optarg, BODY);
 			break;
 		case 'd':
-			if (optarg[0] != '\0')
-				delim[0] = optarg[0];
-			if (optarg[1] != '\0') {	/* is a second delimiter character specified? */
-				delim[1] = optarg[1];	/* yup, set it */
-				/* at most two delimiter characters */
-				if (optarg[2] != '\0') {
+			clen = mbrlen(optarg, MB_CUR_MAX, NULL);
+			if (clen == (size_t)-1 || clen == (size_t)-2)
+				errc(EXIT_FAILURE, EILSEQ, NULL);
+			if (clen != 0) {
+				memcpy(delim1, optarg, delim1len = clen);
+				clen = mbrlen(optarg + delim1len,
+				    MB_CUR_MAX, NULL);
+				if (clen == (size_t)-1 ||
+				    clen == (size_t)-2)
+					errc(EXIT_FAILURE, EILSEQ, NULL);
+				if (clen != 0) {
+					memcpy(delim2, optarg + delim1len,
+					    delim2len = clen);
+				if (optarg[delim1len + clen] != '\0')
 					errx(EXIT_FAILURE,
-						"invalid delim argument -- %s",
-						optarg);
-					/* NOTREACHED */
+					    "invalid delim argument -- %s",
+					    optarg);
 				}
 			}
 			break;
@@ -239,11 +251,12 @@ main(argc, argv)
 	}
 	argc -= optind;
 	argv += optind;
-
+	
 	switch (argc) {
 	case 0:
 		break;
 	case 1:
+                if (!*argv) usage();
 		if (freopen(argv[0], "r", stdin) == NULL)
 			err(EXIT_FAILURE, "%s", argv[0]);
 		break;
@@ -251,6 +264,11 @@ main(argc, argv)
 		usage();
 		/* NOTREACHED */
 	}
+
+	/* Generate the delimiter sequence */
+	memcpy(delim, delim1, delim1len);
+	memcpy(delim + delim1len, delim2, delim2len);
+	delimlen = delim1len + delim2len;
 
 	/* Determine the maximum input line length to operate on. */
 	if ((val = sysconf(_SC_LINE_MAX)) == -1) /* ignore errno */
@@ -291,18 +309,24 @@ filter()
 	while (fgets(buffer, (int)buffersize, stdin) != NULL) {
 		for (idx = FOOTER; idx <= NP_LAST; idx++) {
 			/* Does it look like a delimiter? */
-			if (buffer[2 * idx + 0] == delim[0] &&
-			    buffer[2 * idx + 1] == delim[1]) {
+			if (memcmp(buffer + delimlen * idx, delim,
+			    delimlen) == 0) {
 				/* Was this the whole line? */
-				if (buffer[2 * idx + 2] == '\n') {
+				if (buffer[delimlen * (idx + 1)] == '\n') {
+#ifdef __APPLE__
 					/* if user wishes to restart line numbering on each logical page, AND
 					 * the new section is logically "before", or the same as, the current
 					 * section (thereby starting a new logical page), reset the line numbers.
 					 */
 					if (restart && idx >= section)
 						line = startnum;
+#endif /* __APPLE __*/
 					section = idx;
 					adjblank = 0;
+#ifndef __APPLE__
+					if (restart)
+						line = startnum;
+#endif /* !__APPLE__ */
 					goto nextline;
 				}
 			} else {

@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: Xaw
+Description: X Athena Widgets Library
+Version: @PACKAGE_VERSION@
+Requires: xproto xt xmu printproto
+Requires.private: x11 xext xt xmu xpm xp
+Cflags: -I${includedir}
+Libs: -L${libdir} -lXaw8

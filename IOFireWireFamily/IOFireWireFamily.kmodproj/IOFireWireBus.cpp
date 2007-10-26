@@ -83,7 +83,7 @@ OSDefineAbstractStructors(IOFireWireBus, IOService)
 //OSMetaClassDefineReservedUnused(IOFireWireBus, 7);
 
 IOFWBufferFillIsochPort *
-IOFireWireBus :: createBufferFillIsochPort()
+IOFireWireBus::createBufferFillIsochPort()
 {
 	return fAuxiliary->createBufferFillIsochPort() ;
 }

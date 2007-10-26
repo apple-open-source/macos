@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 
 #include "scutil.h"
 #include "commands.h"
+#include "prefs.h"
 #include "net.h"
 #include "net_interface.h"
 #include "net_protocol.h"
@@ -39,8 +40,6 @@
 
 #include <unistd.h>
 
-
-__private_extern__ Boolean			net_changed	= FALSE;
 
 __private_extern__ CFMutableArrayRef		new_interfaces	= NULL;
 
@@ -251,9 +250,11 @@ _process_options(optionsRef options, int nOptions, int argc, char **argv, CFMuta
 				}
 
 				if        ((strcasecmp(argv[0], "disable") == 0) ||
+					   (strcasecmp(argv[0], "no"     ) == 0) ||
 					   (strcasecmp(argv[0], "0"      ) == 0)) {
 					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), CFNumberRef_0);
 				} else if ((strcasecmp(argv[0], "enable") == 0) ||
+					   (strcasecmp(argv[0], "yes"   ) == 0) ||
 					   (strcasecmp(argv[0], "1"     ) == 0)) {
 					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), CFNumberRef_1);
 				} else {
@@ -423,126 +424,9 @@ _show_entity(CFDictionaryRef entity, CFStringRef prefix)
 /* -------------------- */
 
 
-static Boolean
-commitRequired(int argc, char **argv, const char *command)
+static void
+_net_close()
 {
-	if (net_changed) {
-		if ((currentInput != NULL)			&&
-		    isatty(fileno(currentInput->fp))		&&
-		    ((argc < 1) || (strcmp(argv[0], "!") != 0))
-		   ) {
-			SCPrint(TRUE, stdout,
-				CFSTR("configuration changes have not been committed\n"
-				      "use \"commit\" to save changes"));
-			if (command != NULL) {
-				SCPrint(TRUE, stdout,
-					CFSTR(" or \"%s !\" to abandon changes"),
-					command);
-			}
-			SCPrint(TRUE, stdout, CFSTR("\n"));
-			return TRUE;
-		}
-
-		SCPrint(TRUE, stdout, CFSTR("configuration changes abandoned\n"));
-	}
-
-	return FALSE;
-}
-
-
-__private_extern__
-void
-do_net_init()
-{
-	int	one	= 1;
-	int	zero	= 0;
-
-	CFNumberRef_0 = CFNumberCreate(NULL, kCFNumberIntType, &zero);
-	CFNumberRef_1 = CFNumberCreate(NULL, kCFNumberIntType, &one);
-
-	return;
-}
-
-
-__private_extern__
-void
-do_net_open(int argc, char **argv)
-{
-	CFStringRef	prefsID	= NULL;
-
-	if (prefs != NULL) {
-		if (commitRequired(argc, argv, "close")) {
-			return;
-		}
-		do_net_close(0, NULL);
-	}
-
-	if (argc > 0) {
-		prefsID = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
-	}
-
-	prefs = SCPreferencesCreate(NULL, CFSTR("scutil --net"), prefsID);
-	if (prefsID != NULL) CFRelease(prefsID);
-
-	if (prefs == NULL) {
-		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
-		return;
-	}
-
-	net_changed = FALSE;
-
-	net_set = SCNetworkSetCopyCurrent(prefs);
-	if (net_set != NULL) {
-		CFStringRef	setName;
-
-		setName = SCNetworkSetGetName(net_set);
-		if (setName != NULL) {
-			SCPrint(TRUE, stdout, CFSTR("set \"%@\" selected\n"), setName);
-		} else {
-			SCPrint(TRUE, stdout,
-				CFSTR("set ID \"%@\" selected\n"),
-				SCNetworkSetGetSetID(net_set));
-		}
-	}
-
-	return;
-}
-
-
-__private_extern__
-void
-do_net_commit(int argc, char **argv)
-{
-	if (!SCPreferencesCommitChanges(prefs)) {
-		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
-		return;
-	}
-
-	net_changed = FALSE;
-
-	return;
-}
-
-
-__private_extern__
-void
-do_net_apply(int argc, char **argv)
-{
-	if (!SCPreferencesApplyChanges(prefs)) {
-		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
-	}
-	return;
-}
-
-
-__private_extern__
-void
-do_net_close(int argc, char **argv)
-{
-	if (commitRequired(argc, argv, "close")) {
-		return;
-	}
-
 	if (net_interface != NULL) {
 		CFRelease(net_interface);
 		net_interface = NULL;
@@ -588,12 +472,107 @@ do_net_close(int argc, char **argv)
 		new_interfaces = NULL;
 	}
 
+	return;
+}
+
+
+__private_extern__
+void
+do_net_init()
+{
+	int	one	= 1;
+	int	zero	= 0;
+
+	CFNumberRef_0 = CFNumberCreate(NULL, kCFNumberIntType, &zero);
+	CFNumberRef_1 = CFNumberCreate(NULL, kCFNumberIntType, &one);
+
+	return;
+}
+
+
+__private_extern__
+void
+do_net_open(int argc, char **argv)
+{
+	Boolean		ok;
+	CFStringRef	prefsID	= NULL;
+
 	if (prefs != NULL) {
-		CFRelease(prefs);
-		prefs = NULL;
+		if (_prefs_commitRequired(argc, argv, "close")) {
+			return;
+		}
+
+		_net_close();
+		_prefs_close();
 	}
 
-	net_changed = FALSE;
+	if (argc > 0) {
+		prefsID = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+	}
+
+	ok = _prefs_open(CFSTR("scutil --net"), prefsID);
+	if (prefsID != NULL) CFRelease(prefsID);
+	if (!ok) {
+		SCPrint(TRUE,
+			stdout,
+			CFSTR("Could not open prefs: %s\n"),
+			SCErrorString(SCError()));
+		return;
+	}
+
+	net_set = SCNetworkSetCopyCurrent(prefs);
+	if (net_set != NULL) {
+		CFStringRef	setName;
+
+		setName = SCNetworkSetGetName(net_set);
+		if (setName != NULL) {
+			SCPrint(TRUE, stdout, CFSTR("set \"%@\" selected\n"), setName);
+		} else {
+			SCPrint(TRUE, stdout,
+				CFSTR("set ID \"%@\" selected\n"),
+				SCNetworkSetGetSetID(net_set));
+		}
+	}
+
+	return;
+}
+
+
+__private_extern__
+void
+do_net_commit(int argc, char **argv)
+{
+	if (!SCPreferencesCommitChanges(prefs)) {
+		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+		return;
+	}
+
+	_prefs_changed = FALSE;
+	return;
+}
+
+
+__private_extern__
+void
+do_net_apply(int argc, char **argv)
+{
+	if (!SCPreferencesApplyChanges(prefs)) {
+		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+	}
+	return;
+}
+
+
+__private_extern__
+void
+do_net_close(int argc, char **argv)
+{
+	if (_prefs_commitRequired(argc, argv, "close")) {
+		return;
+	}
+
+	_net_close();
+	_prefs_close();
 
 	return;
 }
@@ -603,9 +582,12 @@ __private_extern__
 void
 do_net_quit(int argc, char **argv)
 {
-	if (commitRequired(argc, argv, "quit")) {
+	if (_prefs_commitRequired(argc, argv, "quit")) {
 		return;
 	}
+
+	_net_close();
+	_prefs_close();
 
 	termRequested = TRUE;
 	return;
@@ -856,6 +838,114 @@ do_net_show(int argc, char **argv)
 }
 
 
+__private_extern__
+void
+do_net_update(int argc, char **argv)
+{
+	SCNetworkSetRef	set;
+	Boolean		setCreated	= FALSE;
+	Boolean		setUpdated	= FALSE;
+
+	if (prefs == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("network configuration not open\n"));
+		return;
+	}
+
+	if (net_set != NULL) {
+		set = CFRetain(net_set);
+	} else {
+		set = SCNetworkSetCopyCurrent(prefs);
+		if (set == NULL) {
+			CFBundleRef	bundle;
+			Boolean		ok;
+			CFArrayRef	sets;
+			CFStringRef	setName	= NULL;
+
+			sets = SCNetworkSetCopyAll(prefs);
+			if (sets != NULL) {
+				CFIndex	n;
+
+				n = CFArrayGetCount(sets);
+				CFRelease(sets);
+				if (n > 0) {
+					SCPrint(TRUE, stdout, CFSTR("no current set\n"));
+					return;
+				}
+			}
+
+			bundle = _SC_CFBundleGet();
+			if (bundle != NULL) {
+				setName = CFBundleCopyLocalizedString(bundle,
+								      CFSTR("DEFAULT_SET_NAME"),
+								      CFSTR("Automatic"),
+								      NULL);
+			}
+			if (setName == NULL) {
+				setName = CFSTR("Automatic");
+				CFRetain(setName);
+			}
+
+			set = SCNetworkSetCreate(prefs);
+			if (set == NULL) {
+				SCPrint(TRUE, stdout,
+					CFSTR("could not initialize \"%@\": %s\n"),
+					setName,
+					SCErrorString(SCError()));
+				CFRelease(setName);
+				return;
+			}
+
+			(void) SCNetworkSetSetName(set, setName);
+
+			ok = SCNetworkSetSetCurrent(set);
+			if (!ok) {
+				SCPrint(TRUE, stdout,
+					CFSTR("could not initialize \"%@\": %s\n"),
+					setName,
+					SCErrorString(SCError()));
+				(void) SCNetworkSetRemove(set);
+				CFRelease(setName);
+				CFRelease(set);
+				return;
+			}
+
+			if (net_set != NULL) CFRelease(net_set);
+			net_set = set;
+
+			setCreated = TRUE;
+			setUpdated = TRUE;
+
+			CFRelease(setName);
+			CFRetain(set);
+		}
+	}
+
+	setUpdated = SCNetworkSetEstablishDefaultConfiguration(set);
+	if (setUpdated) {
+		CFStringRef	setName;
+
+		_prefs_changed = TRUE;
+
+		setName = SCNetworkSetGetName(set);
+		if (setName != NULL) {
+			SCPrint(TRUE, stdout,
+				CFSTR("set \"%@\" (%@) %supdated\n"),
+				setName,
+				SCNetworkSetGetSetID(set),
+				setCreated ? "created, selected, and " : "");
+		} else {
+			SCPrint(TRUE, stdout,
+				CFSTR("set ID \"%@\" %supdated\n"),
+				SCNetworkSetGetSetID(set),
+				setCreated ? "created, selected, and " : "");
+		}
+	}
+
+	CFRelease(set);
+	return;
+}
+
+
 #include "SCPreferencesInternal.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -878,15 +968,20 @@ do_net_snapshot(int argc, char **argv)
 			CFDataRef	xmlData;
 
 			asprintf(&path, "/tmp/prefs_snapshot_%d", n_snapshot++);
-			fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+			(void)unlink(path);
+			fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, 0644);
 			free(path);
+			if (fd == -1) {
+				SCPrint(TRUE, stdout, CFSTR("could not write snapshot: open() failed : %s\n"), strerror(errno));
+				return;
+			}
 
 			xmlData = CFPropertyListCreateXMLData(NULL, prefsPrivate->prefs);
 			if (xmlData != NULL) {
 				(void) write(fd, CFDataGetBytePtr(xmlData), CFDataGetLength(xmlData));
 				CFRelease(xmlData);
 			} else {
-				SCLog(TRUE, LOG_ERR, CFSTR("CFPropertyListCreateXMLData() failed"));
+				SCPrint(TRUE, stdout, CFSTR("could not write snapshot: CFPropertyListCreateXMLData() failed\n"));
 			}
 
 			(void) close(fd);

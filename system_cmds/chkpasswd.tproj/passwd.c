@@ -21,7 +21,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#define INFO_NETINFO 0
 #define INFO_FILE 1
 #define INFO_NIS 2
 #define INFO_DIRECTORYSERVICES 3
@@ -39,7 +38,6 @@
 #include <ctype.h>
 #include <string.h>
 #include <pwd.h>
-#include <netinfo/ni.h>
 #include "stringops.h"
 
 #ifdef __SLICK__
@@ -49,7 +47,6 @@
 static int literal = 0;
 
 extern int file_check_passwd(char *, char *);
-extern int netinfo_check_passwd(char *, char *);
 extern int nis_check_passwd(char *, char *);
 extern int ds_check_passwd(char *, char *);
 
@@ -84,11 +81,9 @@ usage()
 {
 	fprintf(stderr, "usage: chkpasswd [-i infosystem] [-l location] [-c] [name]\n");
 	fprintf(stderr, "supported infosystems are:\n");
-	fprintf(stderr, "    netinfo\n");
 	fprintf(stderr, "    file\n");
 	fprintf(stderr, "    nis\n");
 	fprintf(stderr, "    opendirectory\n");
-	fprintf(stderr, "for netinfo, location may be a domain name or server/tag\n");
 	fprintf(stderr, "for file, location may be a file name (%s is the default)\n",
 		_PASSWD_FILE);
 	fprintf(stderr, "for nis, location may be a NIS domainname\n");
@@ -119,9 +114,7 @@ main(int argc, char *argv[])
 				usage();
 			}
 
-			if (!strcmp(argv[i], "NetInfo")) infosystem = INFO_NETINFO;
-			else if (!strcmp(argv[i], "netinfo")) infosystem = INFO_NETINFO;
-			else if (!strcmp(argv[i], "File")) infosystem = INFO_FILE;
+			if (!strcmp(argv[i], "File")) infosystem = INFO_FILE;
 			else if (!strcmp(argv[i], "file")) infosystem = INFO_FILE;
 			else if (!strcmp(argv[i], "NIS")) infosystem = INFO_NIS;
 			else if (!strcmp(argv[i], "nis")) infosystem = INFO_NIS;
@@ -161,9 +154,6 @@ main(int argc, char *argv[])
 	
 	switch (infosystem)
 	{
-		case INFO_NETINFO:
-			netinfo_check_passwd(user, locn);
-			break;
 		case INFO_FILE:
 			file_check_passwd(user, locn);
 			break;

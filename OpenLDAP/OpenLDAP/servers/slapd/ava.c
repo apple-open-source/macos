@@ -1,8 +1,8 @@
 /* ava.c - routines for dealing with attribute value assertions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/ava.c,v 1.34.2.4 2004/04/12 18:13:21 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/ava.c,v 1.40.2.5 2006/01/03 22:16:13 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,18 +33,22 @@
 
 #include "slap.h"
 
+#ifdef LDAP_COMP_MATCH
+#include "component.h"
+#endif
 
 void
 ava_free(
 	Operation *op,
 	AttributeAssertion *ava,
-	int	freeit
-)
+	int	freeit )
 {
+#ifdef LDAP_COMP_MATCH
+	if ( ava->aa_cf && ava->aa_cf->cf_ca->ca_comp_data.cd_mem_op )
+		nibble_mem_free ( ava->aa_cf->cf_ca->ca_comp_data.cd_mem_op );
+#endif
 	op->o_tmpfree( ava->aa_value.bv_val, op->o_tmpmemctx );
-	if ( freeit ) {
-		op->o_tmpfree( (char *) ava, op->o_tmpmemctx );
-	}
+	if ( freeit ) op->o_tmpfree( (char *) ava, op->o_tmpmemctx );
 }
 
 int
@@ -59,15 +63,14 @@ get_ava(
 	ber_tag_t rtag;
 	struct berval type, value;
 	AttributeAssertion *aa;
+#ifdef LDAP_COMP_MATCH
+	AttributeAliasing* a_alias = NULL;
+#endif
 
 	rtag = ber_scanf( ber, "{mm}", &type, &value );
 
 	if( rtag == LBER_ERROR ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( FILTER, ERR, "get_ava:  ber_scanf failure\n", 0, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "  get_ava ber_scanf\n", 0, 0, 0 );
-#endif
 		*text = "Error decoding attribute value assertion";
 		return SLAPD_DISCONNECT;
 	}
@@ -75,19 +78,22 @@ get_ava(
 	aa = op->o_tmpalloc( sizeof( AttributeAssertion ), op->o_tmpmemctx );
 	aa->aa_desc = NULL;
 	aa->aa_value.bv_val = NULL;
+#ifdef LDAP_COMP_MATCH
+	aa->aa_cf = NULL;
+#endif
 
 	rc = slap_bv2ad( &type, &aa->aa_desc, text );
 
 	if( rc != LDAP_SUCCESS ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( FILTER, ERR,
-		"get_ava: unknown attributeType %s\n", type.bv_val, 0, 0 );
-#else
-		Debug( LDAP_DEBUG_FILTER,
-		"get_ava: unknown attributeType %s\n", type.bv_val, 0, 0 );
-#endif
-		op->o_tmpfree( aa, op->o_tmpmemctx );
-		return rc;
+		rc = slap_bv2undef_ad( &type, &aa->aa_desc, text,
+				SLAP_AD_PROXIED|SLAP_AD_NOINSERT );
+
+		if( rc != LDAP_SUCCESS ) {
+			Debug( LDAP_DEBUG_FILTER,
+			"get_ava: unknown attributeType %s\n", type.bv_val, 0, 0 );
+			op->o_tmpfree( aa, op->o_tmpmemctx );
+			return rc;
+		}
 	}
 
 	rc = asserted_value_validate_normalize(
@@ -95,18 +101,25 @@ get_ava(
 		usage, &value, &aa->aa_value, text, op->o_tmpmemctx );
 
 	if( rc != LDAP_SUCCESS ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( FILTER, ERR,
-		"get_ava: illegal value for attributeType %s\n", type.bv_val, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_FILTER,
 		"get_ava: illegal value for attributeType %s\n", type.bv_val, 0, 0 );
-#endif
 		op->o_tmpfree( aa, op->o_tmpmemctx );
 		return rc;
 	}
 
+#ifdef LDAP_COMP_MATCH
+	if( is_aliased_attribute ) {
+		a_alias = is_aliased_attribute ( aa->aa_desc );
+		if ( a_alias ) {
+			rc = get_aliased_filter_aa ( op, aa, a_alias, text );
+			if( rc != LDAP_SUCCESS ) {
+				Debug( LDAP_DEBUG_FILTER,
+						"get_ava:Invalid Attribute Aliasing\n", 0, 0, 0 );
+				return rc;
+			}
+		}
+	}
+#endif
 	*ava = aa;
-
 	return LDAP_SUCCESS;
 }

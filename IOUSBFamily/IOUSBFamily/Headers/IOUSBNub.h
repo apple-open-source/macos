@@ -38,10 +38,13 @@ class IOUSBNub : public IOService
     OSDeclareDefaultStructors(IOUSBNub)
 
 public:
-    virtual bool    USBCompareProperty(OSDictionary   * matching,
-                                    const char     * key );
+	
+	// IOKit method
+	virtual void	joinPMtree ( IOService * driver );
+
+    virtual bool    USBCompareProperty(OSDictionary   * matching, const char     * key );
     
-    bool            IsWildCardMatch( OSDictionary   * matching, const char     * key );
+    bool        IsWildCardMatch( OSDictionary   * matching, const char     * key );
     bool	    USBComparePropertyWithMask( OSDictionary *matching, const char *key, const char * maskKey );
 };
 

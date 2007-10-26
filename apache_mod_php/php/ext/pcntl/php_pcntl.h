@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcntl.h,v 1.11.4.3.2.2 2007/01/01 09:46:45 sebastian Exp $ */
+/* $Id: php_pcntl.h,v 1.20.2.1.2.1 2007/01/01 09:36:04 sebastian Exp $ */
 
 #ifndef PHP_PCNTL_H
 #define PHP_PCNTL_H
@@ -42,6 +42,7 @@ PHP_MINFO_FUNCTION(pcntl);
 PHP_FUNCTION(pcntl_alarm);
 PHP_FUNCTION(pcntl_fork);
 PHP_FUNCTION(pcntl_waitpid);
+PHP_FUNCTION(pcntl_wait);
 PHP_FUNCTION(pcntl_wifexited);
 PHP_FUNCTION(pcntl_wifstopped);
 PHP_FUNCTION(pcntl_wifsignaled);
@@ -50,6 +51,12 @@ PHP_FUNCTION(pcntl_wtermsig);
 PHP_FUNCTION(pcntl_wstopsig);
 PHP_FUNCTION(pcntl_signal);
 PHP_FUNCTION(pcntl_exec);
+#ifdef HAVE_GETPRIORITY
+PHP_FUNCTION(pcntl_getpriority);
+#endif
+#ifdef HAVE_SETPRIORITY
+PHP_FUNCTION(pcntl_setpriority);
+#endif
 
 struct php_pcntl_pending_signal {
 	struct php_pcntl_pending_signal *next;

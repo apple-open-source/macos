@@ -98,7 +98,12 @@ typedef struct HPDevice
  * Pointer to a list of (currently) known hotplug reader devices (and their
                                                                   * drivers).
  */
-static HPDeviceList sDeviceList = NULL;
+static HPDeviceList				sDeviceList			= NULL;
+static IONotificationPortRef	sNotificationPort	= NULL;
+static io_iterator_t			sUSBAppearedIter	= NULL;
+static io_iterator_t			sUSBRemovedIter		= NULL;
+static io_iterator_t			sPCCardAppearedIter	= NULL;
+static io_iterator_t			sPCCardRemovedIter	= NULL;
 
 /*
  * A callback to handle the asynchronous appearance of new devices that are
@@ -294,8 +299,9 @@ HPDriversGetFromDirectory(const char* driverBundlePath)
                                                      CFSTR(PCSCLITE_HP_NAMEKEY_NAME));
         if (!strValue)
         {
-            DebugLogA("error getting product friendly name from bundle");
-            driverBundle->m_friendlyName = "unnamed device";
+            DebugLogB("Product friendly name absent in driver folder: %s.",
+				driverBundle->m_libPath);
+            driverBundle->m_friendlyName = strdup("unnamed device");
         }
         else
         {
@@ -470,116 +476,125 @@ HPDriversMatchUSBDevices(HPDriverVector driverBundle, HPDeviceList* readerList)
         return 1;
     }
     
-    IOIteratorReset(usbIter);
     io_object_t usbDevice = 0;
     while ((usbDevice = IOIteratorNext(usbIter)))
     {
-         IOCFPlugInInterface** iodev;
+        IOCFPlugInInterface** iodev;
         SInt32                score;
         kret = IOCreatePlugInInterfaceForService(usbDevice,
                                                  kIOUSBDeviceUserClientTypeID, 
                                                  kIOCFPlugInInterfaceID,
                                                  &iodev,
                                                  &score);
+        IOObjectRelease(usbDevice);
         if (kret != 0)
         {
             DebugLogA("error getting plugin interface from IOCreatePlugInInterfaceForService()");
-            return 1;
+            continue;
         }
-        IOObjectRelease(usbDevice);
         
-        IOUSBDeviceInterface** usbdev;
+        IOUSBDeviceInterface245** usbdev;
         HRESULT hres = (*iodev)->QueryInterface(iodev,
-                                                CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID),
+                                                CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID245),
                                                 (LPVOID*)&usbdev);
-        (*iodev)->Release(iodev);
         if (hres)
         {
             DebugLogA("error querying interface in QueryInterface()");
-            return 1;
+            IODestroyPlugInInterface ( iodev );
+            continue;
         }
         
-        UInt16 vendorId  = 0;
-        UInt16 productId = 0;
-        UInt32 usbAddress = 0;
-        kret = (*usbdev)->GetDeviceVendor(usbdev, &vendorId);
-        kret = (*usbdev)->GetDeviceProduct(usbdev, &productId);
-        kret = (*usbdev)->GetLocationID(usbdev, &usbAddress);
+        else
+		{
         
-        HPDriver* driver = driverBundle;
-        int match = 0;
-        for (; driver->m_NotEOV; ++driver)
-        {
-            if (!driver->m_initialized)
-            {
-                // Malformed driver, skip
-                continue;
-            }
-            if ( (driver->m_type == PCSCLITE_HP_Proprietary)
-                && (driver->m_vendorId == vendorId)
-                && (driver->m_productId == productId))
-            {
-                *readerList = HPDeviceListInsert(*readerList, driver, usbAddress);
-                match = 1;
-            }
-        }
-        if (!match)
-        {
-            // Now try to locate Interfaces with supported classes
-            // We create an interface iterator for each of the 
-            // classes supported by drivers of PCSCLITE_HP_InterfaceClass
-            // type.
-
-            // Using IOServiceMatching(kIOUSBInterfaceClassName)
-            // does not seem feasible as there does not seem to be a 
-            // way to limit the search to the device we are currently 
-            // analysing
-
-            // Another option would be to iterate on all interfaces
-            // and get the class of each of them. This is probably
-            // not interesting as the list of PCSCLITE_HP_InterfaceClass
-            // type of readers should only have one element (CCID)
-            
-            // Restart scan at the begining of the array
-            driver = driverBundle;     
-            // Iterate on PCSCLITE_HP_InterfaceClass driver types
-            for (; driver->m_NotEOV; ++driver)
-            {
-                if (!driver->m_initialized)
-                {
-                    // Malformed driver, skip
-                    continue;
-                }
-                if ( driver->m_type == PCSCLITE_HP_InterfaceClass)
-                {
-                    // Iterate on interfaces of the current device
-                    IOUSBFindInterfaceRequest interfaceClassRequest;
-                    io_iterator_t			  interfaceIterator;
-                    io_service_t			  interface;
-                    
-                    interfaceClassRequest.bInterfaceClass = driver->m_class;
-                    interfaceClassRequest.bInterfaceSubClass = driver->m_subClass;	
-                    interfaceClassRequest.bInterfaceProtocol = driver->m_protocol;	
-                    interfaceClassRequest.bAlternateSetting = kIOUSBFindInterfaceDontCare;
-                    hres = (*usbdev)->CreateInterfaceIterator(usbdev, 
-                                                              &interfaceClassRequest, 
-                                                              &interfaceIterator);
-                    if (hres)
-                    {
-                        // Continue to next driver class
-                        continue;
-                    }
-                    while ( (interface = IOIteratorNext(interfaceIterator)) )
-                    {
-                        // Found a matching device
-                        *readerList = HPDeviceListInsert(*readerList, driver, usbAddress);
-                        match = 1;
-                    }
-                }
-            }
-            // Add another if (!match) for other driver types
-        }   
-        (*usbdev)->Release(usbdev);
+			UInt16 vendorId  = 0;
+			UInt16 productId = 0;
+			UInt32 usbAddress = 0;
+			kret = (*usbdev)->GetDeviceVendor(usbdev, &vendorId);
+			kret = (*usbdev)->GetDeviceProduct(usbdev, &productId);
+			kret = (*usbdev)->GetLocationID(usbdev, &usbAddress);
+			
+			HPDriver* driver = driverBundle;
+			int match = 0;
+			for (; driver->m_NotEOV; ++driver)
+			{
+				if (!driver->m_initialized)
+				{
+					// Malformed driver, skip
+					continue;
+				}
+				if ( (driver->m_type == PCSCLITE_HP_Proprietary)
+					&& (driver->m_vendorId == vendorId)
+					&& (driver->m_productId == productId))
+				{
+					*readerList = HPDeviceListInsert(*readerList, driver, usbAddress);
+					match = 1;
+				}
+			}
+			if (!match)
+			{
+				// Now try to locate Interfaces with supported classes
+				// We create an interface iterator for each of the 
+				// classes supported by drivers of PCSCLITE_HP_InterfaceClass
+				// type.
+	
+				// Using IOServiceMatching(kIOUSBInterfaceClassName)
+				// does not seem feasible as there does not seem to be a 
+				// way to limit the search to the device we are currently 
+				// analysing
+	
+				// Another option would be to iterate on all interfaces
+				// and get the class of each of them. This is probably
+				// not interesting as the list of PCSCLITE_HP_InterfaceClass
+				// type of readers should only have one element (CCID)
+				
+				// Restart scan at the begining of the array
+				driver = driverBundle;     
+				// Iterate on PCSCLITE_HP_InterfaceClass driver types
+				for (; driver->m_NotEOV; ++driver)
+				{
+					if (!driver->m_initialized)
+					{
+						// Malformed driver, skip
+						continue;
+					}
+					if ( driver->m_type == PCSCLITE_HP_InterfaceClass)
+					{
+						// Iterate on interfaces of the current device
+						IOUSBFindInterfaceRequest interfaceClassRequest;
+						io_iterator_t			  interfaceIterator;
+						io_service_t			  interface;
+						
+						interfaceClassRequest.bInterfaceClass = driver->m_class;
+						interfaceClassRequest.bInterfaceSubClass = driver->m_subClass;	
+						interfaceClassRequest.bInterfaceProtocol = driver->m_protocol;	
+						interfaceClassRequest.bAlternateSetting = kIOUSBFindInterfaceDontCare;
+						hres = (*usbdev)->CreateInterfaceIterator(usbdev, 
+																  &interfaceClassRequest, 
+																  &interfaceIterator);
+						if (hres)
+						{
+							// Continue to next driver class
+							continue;
+						}
+						
+						while ( (interface = IOIteratorNext(interfaceIterator)) )
+						{
+							// Found a matching device
+							*readerList = HPDeviceListInsert(*readerList, driver, usbAddress);
+							match = 1;
+							IOObjectRelease ( interface );
+						}
+						
+						IOObjectRelease ( interfaceIterator );
+						
+					}
+				}
+				// Add another if (!match) for other driver types
+			}   
+			(*usbdev)->Release(usbdev);
+			IODestroyPlugInInterface ( iodev );
+		}
     }
     
     IOObjectRelease(usbIter);
@@ -608,22 +623,15 @@ HPDriversMatchPCCardDevices(HPDriver* driverBundle, HPDeviceList* readerList)
         return 1;
     }
     
-    IOIteratorReset(pccIter);
     io_object_t pccDevice = 0;
     while ((pccDevice = IOIteratorNext(pccIter)))
     {
-        char namebuf[1024];
-        kret = IORegistryEntryGetName(pccDevice, namebuf);
-        if (kret != 0)
-        {
-            DebugLogA("error getting plugin interface from IOCreatePlugInInterfaceForService()");
-            return 1;
-        }
+        
         UInt32 vendorId   = 0;
         UInt32 productId  = 0;
         UInt32 pccAddress = 0;
         CFTypeRef valueRef = IORegistryEntryCreateCFProperty(pccDevice, CFSTR("VendorID"),
-                                                             kCFAllocatorDefault, NULL);
+                                                             kCFAllocatorDefault, 0);
         if (!valueRef)
         {
             DebugLogA("error getting vendor");
@@ -631,9 +639,10 @@ HPDriversMatchPCCardDevices(HPDriver* driverBundle, HPDeviceList* readerList)
         else
         {
             CFNumberGetValue((CFNumberRef)valueRef, kCFNumberSInt32Type, &vendorId);
+            CFRelease ( valueRef );
         }
         valueRef = IORegistryEntryCreateCFProperty(pccDevice, CFSTR("DeviceID"),
-                                                   kCFAllocatorDefault, NULL);
+                                                   kCFAllocatorDefault, 0);
         if (!valueRef)
         {
             DebugLogA("error getting device");
@@ -641,9 +650,10 @@ HPDriversMatchPCCardDevices(HPDriver* driverBundle, HPDeviceList* readerList)
         else
         {
             CFNumberGetValue((CFNumberRef)valueRef, kCFNumberSInt32Type, &productId);
+            CFRelease ( valueRef );
         }
         valueRef = IORegistryEntryCreateCFProperty(pccDevice, CFSTR("SocketNumber"),
-                                                   kCFAllocatorDefault, NULL);
+                                                   kCFAllocatorDefault, 0);
         if (!valueRef)
         {
             DebugLogA("error getting PC Card socket");
@@ -651,6 +661,7 @@ HPDriversMatchPCCardDevices(HPDriver* driverBundle, HPDeviceList* readerList)
         else
         {
             CFNumberGetValue((CFNumberRef)valueRef, kCFNumberSInt32Type, &pccAddress);
+            CFRelease ( valueRef );
         }
         HPDriver* driver = driverBundle;
         for (; driver->m_vendorId; ++driver)
@@ -661,6 +672,9 @@ HPDriversMatchPCCardDevices(HPDriver* driverBundle, HPDeviceList* readerList)
                 *readerList = HPDeviceListInsert(*readerList, driver, pccAddress);
             }
         }
+        
+        IOObjectRelease ( pccDevice );
+        
     }
     IOObjectRelease(pccIter);
     return 0;
@@ -670,15 +684,15 @@ HPDriversMatchPCCardDevices(HPDriver* driverBundle, HPDeviceList* readerList)
 static void
 HPEstablishUSBNotification()
 {
-    io_iterator_t           deviceAddedIterator;
-    io_iterator_t           deviceRemovedIterator;
+
     CFMutableDictionaryRef  matchingDictionary;
-    IONotificationPortRef   notificationPort;
     IOReturn                kret;
     
-    notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+    if ( sNotificationPort == NULL )
+		sNotificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+	
     CFRunLoopAddSource(CFRunLoopGetCurrent(),
-                       IONotificationPortGetRunLoopSource(notificationPort),
+                       IONotificationPortGetRunLoopSource(sNotificationPort),
                        kCFRunLoopDefaultMode);
     
     matchingDictionary = IOServiceMatching("IOUSBDevice");
@@ -688,41 +702,42 @@ HPEstablishUSBNotification()
     }
     matchingDictionary = (CFMutableDictionaryRef)CFRetain(matchingDictionary);
     
-    kret = IOServiceAddMatchingNotification(notificationPort,
+    kret = IOServiceAddMatchingNotification(sNotificationPort,
                                             kIOMatchedNotification,
                                             matchingDictionary,
                                             HPDeviceAppeared, NULL,
-                                            &deviceAddedIterator);
+                                            &sUSBAppearedIter);
     if (kret)
     {
         DebugLogB("IOServiceAddMatchingNotification()-1 failed with code %d", kret);
     }
-    HPDeviceAppeared(NULL, deviceAddedIterator);
+	
+    HPDeviceAppeared(NULL, sUSBAppearedIter);
     
-    kret = IOServiceAddMatchingNotification(notificationPort,
+    kret = IOServiceAddMatchingNotification(sNotificationPort,
                                             kIOTerminatedNotification,
                                             matchingDictionary,
                                             HPDeviceDisappeared, NULL,
-                                            &deviceRemovedIterator);
+                                            &sUSBRemovedIter);
     if (kret)
     {
         DebugLogB("IOServiceAddMatchingNotification()-2 failed with code %d", kret);
     }
-    HPDeviceDisappeared(NULL, deviceRemovedIterator);
+    HPDeviceDisappeared(NULL, sUSBRemovedIter);
 }
 
 static void
 HPEstablishPCCardNotification()
 {
-    io_iterator_t           deviceAddedIterator;
-    io_iterator_t           deviceRemovedIterator;
-    CFMutableDictionaryRef  matchingDictionary;
-    IONotificationPortRef   notificationPort;
+	
+	CFMutableDictionaryRef  matchingDictionary;
     IOReturn                kret;
-    
-    notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+
+	if ( sNotificationPort == NULL )
+		sNotificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+	
     CFRunLoopAddSource(CFRunLoopGetCurrent(),
-                       IONotificationPortGetRunLoopSource(notificationPort),
+                       IONotificationPortGetRunLoopSource(sNotificationPort),
                        kCFRunLoopDefaultMode);
     
     matchingDictionary = IOServiceMatching("IOPCCard16Device");
@@ -732,27 +747,27 @@ HPEstablishPCCardNotification()
     }
     matchingDictionary = (CFMutableDictionaryRef)CFRetain(matchingDictionary);
     
-    kret = IOServiceAddMatchingNotification(notificationPort,
+    kret = IOServiceAddMatchingNotification(sNotificationPort,
                                             kIOMatchedNotification,
                                             matchingDictionary,
                                             HPDeviceAppeared, NULL,
-                                            &deviceAddedIterator);
+                                            &sPCCardAppearedIter);
     if (kret)
     {
         DebugLogB("IOServiceAddMatchingNotification()-1 failed with code %d", kret);
     }
-    HPDeviceAppeared(NULL, deviceAddedIterator);
+    HPDeviceAppeared(NULL, sPCCardAppearedIter);
     
-    kret = IOServiceAddMatchingNotification(notificationPort,
+    kret = IOServiceAddMatchingNotification(sNotificationPort,
                                             kIOTerminatedNotification,
                                             matchingDictionary,
                                             HPDeviceDisappeared, NULL,
-                                            &deviceRemovedIterator);
+                                            &sPCCardRemovedIter);
     if (kret)
     {
         DebugLogB("IOServiceAddMatchingNotification()-2 failed with code %d", kret);
     }
-    HPDeviceDisappeared(NULL, deviceRemovedIterator);
+    HPDeviceDisappeared(NULL, sPCCardRemovedIter);
 }
 
 /*

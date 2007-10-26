@@ -22,6 +22,8 @@
 
 #ifdef WITH_FAKE_KASERVER
 
+#define NO_ASN1_TYPEDEFS 1
+
 #include <afs/stds.h>
 #include <afs/afs.h>
 #include <afs/auth.h>
@@ -124,9 +126,13 @@ static BOOL afs_createtoken(const char *username, const char *cell,
 
 	p += 8;
 
-	/* Ticket lifetime. We fake everything here, so go as long as
-	   possible. This is in 5-minute intervals, so 255 is 21 hours
-	   and 15 minutes.*/
+	/* This is a kerberos 4 life time. The life time is expressed
+	 * in units of 5 minute intervals up to 38400 seconds, after
+	 * that a table is used up to lifetime 0xBF. Values between
+	 * 0xC0 and 0xFF is undefined. 0xFF is defined to be the
+	 * infinite time that never expire.
+	 *
+	 * So here we cheat and use the infinite time */
 	*p = 255;
 	p += 1;
 
@@ -135,7 +141,11 @@ static BOOL afs_createtoken(const char *username, const char *cell,
 	SIVAL(p, 0, now);
 	ct->BeginTimestamp = now;
 
-	ct->EndTimestamp = now + (255*60*5);
+	if(lp_afs_token_lifetime() == 0)
+		ct->EndTimestamp = NEVERDATE;
+	else
+		ct->EndTimestamp = now + lp_afs_token_lifetime();
+
 	if (((ct->EndTimestamp - ct->BeginTimestamp) & 1) == 1) {
 		ct->BeginTimestamp += 1; /* Lifetime must be even */
 	}
@@ -201,16 +211,26 @@ char *afs_createtoken_str(const char *username, const char *cell)
 
 BOOL afs_login(connection_struct *conn)
 {
+	extern userdom_struct current_user_info;
+	extern struct current_user current_user;
 	DATA_BLOB ticket;
 	pstring afs_username;
 	char *cell;
 	BOOL result;
 	char *ticket_str;
+	const DOM_SID *user_sid;
 
 	struct ClearToken ct;
 
 	pstrcpy(afs_username, lp_afs_username_map());
-	standard_sub_conn(conn, afs_username, sizeof(afs_username));
+	standard_sub_advanced(SNUM(conn), conn->user,
+			      conn->connectpath, conn->gid,
+			      get_current_username(),
+			      current_user_info.domain,
+			      afs_username, sizeof(afs_username));
+
+	user_sid = &current_user.nt_user_token->user_sids[0];
+	pstring_sub(afs_username, "%s", sid_string_static(user_sid));
 
 	/* The pts command always generates completely lower-case user
 	 * names. */

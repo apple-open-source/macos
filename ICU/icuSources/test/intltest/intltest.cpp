@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -33,6 +33,11 @@
 #include "umutex.h"
 #include "uassert.h"
 #include "cmemory.h"
+#include "uoptions.h"
+
+#include "putilimp.h" // for uprv_getUTCtime()
+#include "unicode/locid.h"
+
 
 #ifdef XP_MAC_CONSOLE
 #include <console.h>
@@ -87,10 +92,10 @@ Int64ToUnicodeString(int64_t num)
     char buffer[64];    // nos changed from 10 to 64
     char danger = 'p';  // guard against overrunning the buffer (rtg)
 
-#ifdef WIN32
+#ifdef U_WINDOWS
     sprintf(buffer, "%I64d", num);
 #else
-    sprintf(buffer, "%lld", num);
+    sprintf(buffer, "%lld", (long long)num);
 #endif
     assert(danger == 'p');
 
@@ -340,68 +345,6 @@ IntlTest::prettify(const UnicodeString &source, UBool parseBackslash)
     return target;
 }
 
-#if defined(_WIN32) || defined(WIN32) || defined(__OS2__) || defined(OS2)
-#define PREV_DIR ".."
-#else
-#define PREV_DIR "/../"
-#endif
-
-void
-IntlTest::pathnameInContext( char* fullname, int32_t maxsize, const char* relPath ) //nosmac
-{
-    const char* mainDir;
-    char  sepChar;
-    const char inpSepChar = '|';
-
-    // So what's going on is that ICU_DATA during tests points to:
-    //              ICU | source | data
-    //and we want   ICU | source |
-    //
-    // We'll add                 | test | testdata
-    //
-    // So, just add a .. here - back up one level
-
-    mainDir = u_getDataDirectory();
-    sepChar = U_FILE_SEP_CHAR;
-    char sepString[] = U_FILE_SEP_STRING;
-
-#if defined(XP_MAC)
-    Str255 volName;
-    int16_t volNum;
-    OSErr err = GetVol( volName, &volNum );
-    if (err != noErr)
-        volName[0] = 0;
-    mainDir = (char*) &(volName[1]);
-    mainDir[volName[0]] = 0;
-#else
-    char mainDirBuffer[255];
-    if(mainDir!=NULL) {
-        strcpy(mainDirBuffer, mainDir);
-        strcat(mainDirBuffer, PREV_DIR);
-    } else {
-        mainDirBuffer[0]='\0';
-    }
-    mainDir=mainDirBuffer;
-#endif
-
-    if (relPath[0] == '|')
-        relPath++;
-    int32_t lenMainDir = strlen(mainDir);
-    int32_t lenRelPath = strlen(relPath);
-    if (maxsize < lenMainDir + lenRelPath + 2) {
-        fullname[0] = 0;
-        return;
-    }
-    strcpy(fullname, mainDir);
-    strcat(fullname, sepString);
-    strcat(fullname, relPath);
-    char* tmp = strchr(fullname, inpSepChar);
-    while (tmp) {
-        *tmp = sepChar;
-        tmp = strchr(tmp+1, inpSepChar);
-    }
-}
-
 /*  IntlTest::setICU_DATA  - if the ICU_DATA environment variable is not already
  *                       set, try to deduce the directory in which ICU was built,
  *                       and set ICU_DATA to "icu/source/data" in that location.
@@ -541,15 +484,28 @@ void it_errln( UnicodeString message )
         IntlTest::gTest->errln( message );
 }
 
+void it_dataerr( UnicodeString message )
+{
+    if (IntlTest::gTest)
+        IntlTest::gTest->dataerr( message );
+}
+
+void it_dataerrln( UnicodeString message )
+{
+    if (IntlTest::gTest)
+        IntlTest::gTest->dataerrln( message );
+}
 
 IntlTest::IntlTest()
 {
     caller = NULL;
-    path = NULL;
+    testPath = NULL;
     LL_linestart = TRUE;
     errorCount = 0;
+    dataErrorCount = 0;
     verbose = FALSE;
     no_err_msg = FALSE;
+    warn_on_missing_data = FALSE;
     quick = FALSE;
     leaks = FALSE;
     testoutfp = stdout;
@@ -572,18 +528,25 @@ UBool IntlTest::callTest( IntlTest& testToBeCalled, char* par )
 {
     execCount--; // correct a previously assumed test-exec, as this only calls a subtest
     testToBeCalled.setCaller( this );
-    return testToBeCalled.runTest( path, par );
+    return testToBeCalled.runTest( testPath, par );
 }
 
 void IntlTest::setPath( char* pathVal )
 {
-    this->path = pathVal;
+    this->testPath = pathVal;
 }
 
 UBool IntlTest::setVerbose( UBool verboseVal )
 {
     UBool rval = this->verbose;
     this->verbose = verboseVal;
+    return rval;
+}
+
+UBool IntlTest::setWarnOnMissingData( UBool warn_on_missing_dataVal )
+{
+    UBool rval = this->warn_on_missing_data;
+    this->warn_on_missing_data = warn_on_missing_dataVal;
     return rval;
 }
 
@@ -613,6 +576,11 @@ int32_t IntlTest::getErrors( void )
     return errorCount;
 }
 
+int32_t IntlTest::getDataErrors( void )
+{
+    return dataErrorCount;
+}
+
 UBool IntlTest::runTest( char* name, char* par )
 {
     UBool rval;
@@ -621,10 +589,10 @@ UBool IntlTest::runTest( char* name, char* par )
     if (name)
         pos = strchr( name, delim ); // check if name contains path (by looking for '/')
     if (pos) {
-        path = pos+1;   // store subpath for calling subtest
+        testPath = pos+1;   // store subpath for calling subtest
         *pos = 0;       // split into two strings
     }else{
-        path = NULL;
+        testPath = NULL;
     }
 
     if (!name || (name[0] == 0) || (strcmp(name, "*") == 0)) {
@@ -773,7 +741,15 @@ int32_t IntlTest::IncErrorCount( void )
     return errorCount;
 }
 
-void IntlTest::err() {
+int32_t IntlTest::IncDataErrorCount( void )
+{
+    dataErrorCount++;
+    if (caller) caller->IncDataErrorCount();
+    return dataErrorCount;
+}
+
+void IntlTest::err()
+{
     IncErrorCount();
 }
 
@@ -786,6 +762,28 @@ void IntlTest::err( const UnicodeString &message )
 void IntlTest::errln( const UnicodeString &message )
 {
     IncErrorCount();
+    if (!no_err_msg) LL_message( message, TRUE );
+}
+
+void IntlTest::dataerr( const UnicodeString &message )
+{
+    IncDataErrorCount();
+
+    if (!warn_on_missing_data) {
+        IncErrorCount();
+    }
+
+    if (!no_err_msg) LL_message( message, FALSE );
+}
+
+void IntlTest::dataerrln( const UnicodeString &message )
+{
+    IncDataErrorCount();
+
+    if (!warn_on_missing_data) {
+        IncErrorCount();
+    }
+
     if (!no_err_msg) LL_message( message, TRUE );
 }
 
@@ -865,6 +863,17 @@ void IntlTest::errln(const char *fmt, ...)
     errln(UnicodeString(buffer, ""));
 }
 
+void IntlTest::dataerrln(const char *fmt, ...)
+{
+    char buffer[4000];
+    va_list ap;
+
+    va_start(ap, fmt);
+    vsprintf(buffer, fmt, ap);
+    va_end(ap);
+    dataerrln(UnicodeString(buffer, ""));
+}
+
 void IntlTest::printErrors()
 {
      IntlTest::LL_message(errorList, TRUE);
@@ -904,6 +913,7 @@ void IntlTest::LL_message( UnicodeString message, UBool newline )
     // stream out the message
     length = message.extract(0, message.length(), buffer, sizeof(buffer));
     if (length > 0) {
+        length = length > 10000 ? 10000 : length;
         fwrite(buffer, sizeof(*buffer), length, (FILE *)testoutfp);
     }
 
@@ -968,27 +978,16 @@ main(int argc, char* argv[])
     UBool name = FALSE;
     UBool leaks = FALSE;
     UBool warnOnMissingData = FALSE;
+    UBool defaultDataFound = FALSE;
     UErrorCode errorCode = U_ZERO_ERROR;
     UConverter *cnv = NULL;
     const char *warnOrErr = "Failure";
+    UDate startTime, endTime;
+    int32_t diffTime;
 
-#ifdef XP_MAC_CONSOLE
-    argc = ccommand( &argv );
-#endif
+    U_MAIN_INIT_ARGS(argc, argv);
 
-    /* Initialize ICU */
-    IntlTest::setICU_DATA();   // Must set data directory before u_init() is called.
-    u_init(&errorCode);
-    if (U_FAILURE(errorCode)) {
-        fprintf(stderr,
-                "#### %s: u_init() failed, error is \"%s\".\n"
-                "#### Most commonly indicates that the ICU data is not accesible.\n"
-                "#### Check setting of ICU_DATA, or check that ICU data library is available\n"
-                "#### ICU_DATA is currently set to \"%s\"\n", argv[0], u_errorName(errorCode), u_getDataDirectory());
-        u_cleanup();
-        return 1;
-    }
-
+    startTime = uprv_getUTCtime();
 
     for (int i = 1; i < argc; ++i) {
         if (argv[i][0] == '-') {
@@ -1053,31 +1052,55 @@ main(int argc, char* argv[])
     major.setNoErrMsg( no_err_msg );
     major.setQuick( quick );
     major.setLeaks( leaks );
+    major.setWarnOnMissingData( warnOnMissingData );
     fprintf(stdout, "-----------------------------------------------\n");
     fprintf(stdout, " IntlTest (C++) Test Suite for                 \n");
     fprintf(stdout, "   International Components for Unicode %s\n", U_ICU_VERSION);
     fprintf(stdout, "-----------------------------------------------\n");
     fprintf(stdout, " Options:                                       \n");
-    fprintf(stdout, "   all (a)               : %s\n", (all?        "On" : "Off"));
-    fprintf(stdout, "   Verbose (v)           : %s\n", (verbose?    "On" : "Off"));
-    fprintf(stdout, "   No error messages (n) : %s\n", (no_err_msg? "On" : "Off"));
-    fprintf(stdout, "   Exhaustive (e)        : %s\n", (!quick?     "On" : "Off"));
-    fprintf(stdout, "   Leaks (l)             : %s\n", (leaks?      "On" : "Off"));
+    fprintf(stdout, "   all (a)                  : %s\n", (all?               "On" : "Off"));
+    fprintf(stdout, "   Verbose (v)              : %s\n", (verbose?           "On" : "Off"));
+    fprintf(stdout, "   No error messages (n)    : %s\n", (no_err_msg?        "On" : "Off"));
+    fprintf(stdout, "   Exhaustive (e)           : %s\n", (!quick?            "On" : "Off"));
+    fprintf(stdout, "   Leaks (l)                : %s\n", (leaks?             "On" : "Off"));
+    fprintf(stdout, "   Warn on missing data (w) : %s\n", (warnOnMissingData? "On" : "Off"));
     fprintf(stdout, "-----------------------------------------------\n");
 
-    // Check that u_init() works
-    errorCode = U_ZERO_ERROR;
+    /* Check whether ICU will initialize without forcing the build data directory into
+     *  the ICU_DATA path.  Success here means either the data dll contains data, or that
+     *  this test program was run with ICU_DATA set externally.  Failure of this check
+     *  is normal when ICU data is not packaged into a shared library.
+     *
+     *  Whether or not this test succeeds, we want to cleanup and reinitialize
+     *  with a data path so that data loading from individual files can be tested.
+     */
     u_init(&errorCode);
     if (U_FAILURE(errorCode)) {
-        fprintf(stdout,
-            "*** u_init() failed with error code = %s\n"
-                "*** Check the ICU_DATA environment variable and\n"
-                "*** check that the data files are present.\n",
-                u_errorName(errorCode));
-        if(!warnOnMissingData) {
-          fprintf(stdout, "*** Exiting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
-          return 1;
-        }
+        fprintf(stderr,
+            "#### Note:  ICU Init without build-specific setDataDirectory() failed.\n");
+        defaultDataFound = FALSE;
+    }
+    else {
+        defaultDataFound = TRUE;
+    }
+    u_cleanup();
+    errorCode = U_ZERO_ERROR;
+
+    /* Initialize ICU */
+    if (!defaultDataFound) {
+        IntlTest::setICU_DATA();   // Must set data directory before u_init() is called.
+    }
+    u_init(&errorCode);
+    if (U_FAILURE(errorCode)) {
+        fprintf(stderr,
+            "#### ERROR! %s: u_init() failed with status = \"%s\".\n"
+            "*** Check the ICU_DATA environment variable and \n"
+            "*** check that the data files are present.\n", argv[0], u_errorName(errorCode));
+            if(warnOnMissingData == 0) {
+                fprintf(stderr, "*** Exiting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
+                u_cleanup();
+                return 1;
+            }
     }
 
 
@@ -1128,6 +1151,8 @@ main(int argc, char* argv[])
         }
     }
 
+    Locale originalLocale;  // Save the default locale for comparison later on.
+
     /* TODO: Add option to call u_cleanup and rerun tests. */
     if (all) {
         major.runTest();
@@ -1164,17 +1189,33 @@ main(int argc, char* argv[])
     free(_testDataPath);
     _testDataPath = 0;
 
+    Locale lastDefaultLocale;
+    if (originalLocale != lastDefaultLocale) {
+        major.errln("FAILURE: A test changed the default locale without resetting it.");
+    }
+
     fprintf(stdout, "\n--------------------------------------\n");
     if (major.getErrors() == 0) {
         /* Call it twice to make sure that the defaults were reset. */
         /* Call it before the OK message to verify proper cleanup. */
         u_cleanup();
-     u_cleanup();
+        u_cleanup();
 
         fprintf(stdout, "OK: All tests passed without error.\n");
+
+        if (major.getDataErrors() != 0) {
+            fprintf(stdout, "\t*WARNING* some data-loading errors were ignored by the -w option.\n");
+        }
     }else{
         fprintf(stdout, "Errors in total: %ld.\n", (long)major.getErrors());
         major.printErrors();
+
+
+        if (major.getDataErrors() != 0) {
+            fprintf(stdout, "\t*Note* some errors are data-loading related. If the data used is not the \n"
+                    "\tstock ICU data (i.e some have been added or removed), consider using\n"
+                    "\tthe '-w' option to turn these errors into warnings.\n");
+        }
 
         /* Call afterwards to display errors. */
         u_cleanup();
@@ -1185,6 +1226,13 @@ main(int argc, char* argv[])
     if (execCount <= 0) {
         fprintf(stdout, "***** Not all called tests actually exist! *****\n");
     }
+    endTime = uprv_getUTCtime();
+    diffTime = (int32_t)(endTime - startTime);
+    printf("Elapsed Time: %02d:%02d:%02d.%03d\n",
+        (int)((diffTime%U_MILLIS_PER_DAY)/U_MILLIS_PER_HOUR),
+        (int)((diffTime%U_MILLIS_PER_HOUR)/U_MILLIS_PER_MINUTE),
+        (int)((diffTime%U_MILLIS_PER_MINUTE)/U_MILLIS_PER_SECOND),
+        (int)(diffTime%U_MILLIS_PER_SECOND));
     return major.getErrors();
 }
 

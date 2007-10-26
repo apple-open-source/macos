@@ -3,9 +3,8 @@
 " Maintainer:	Johannes Zellner <johannes@zellner.org>
 "		Author and previous maintainer:
 "		Daniel Amyot <damyot@site.uottawa.ca>
-" Last Change:	Wed, 06 Jun 2001 14:07:20 +0200
+" Last Change:	Tue, 27 Apr 2004 14:54:59 CEST
 " Filenames:	*.dtd
-" URL:		http://www.zellner.org/vim/syntax/dtd.vim
 "
 " REFERENCES:
 "   http://www.w3.org/TR/html40/
@@ -36,9 +35,12 @@ endif
 
 " the following line makes the opening <! and
 " closing > highlighted using 'dtdFunction'.
+"
+" PROVIDES: @dtdTagHook
+"
 syn region dtdTag matchgroup=dtdFunction
     \ start=+<!+ end=+>+ matchgroup=NONE
-    \ contains=dtdTag,dtdTagName,dtdError,dtdComment,dtdString,dtdAttrType,dtdAttrDef,dtdEnum,dtdParamEntityInst,dtdParamEntityDecl,dtdCard
+    \ contains=dtdTag,dtdTagName,dtdError,dtdComment,dtdString,dtdAttrType,dtdAttrDef,dtdEnum,dtdParamEntityInst,dtdParamEntityDecl,dtdCard,@dtdTagHook
 
 if !exists("dtd_no_tag_errors")
     " mark everything as an error which starts with a <!
@@ -50,11 +52,11 @@ endif
 
 " if this is a html like comment hightlight also
 " the opening <! and the closing > as Comment.
-syn region dtdComment		start=+<![ \t]*--+ end=+-->+ contains=dtdTodo
+syn region dtdComment		start=+<![ \t]*--+ end=+-->+ contains=dtdTodo,@Spell
 
 
 " proper DTD comment
-syn region dtdComment contained start=+--+ end=+--+ contains=dtdTodo
+syn region dtdComment contained start=+--+ end=+--+ contains=dtdTodo,@Spell
 
 
 " Start tags (keywords). This is contained in dtdFunction.
@@ -106,7 +108,10 @@ syn region dtdString    start=+"+ skip=+\\\\\|\\"+  end=+"+ contains=dtdAttrDef,
 syn region dtdString    start=+'+ skip=+\\\\\|\\'+  end=+'+ contains=dtdAttrDef,dtdAttrType,dtdEnum,dtdParamEntityInst,dtdEntity,dtdCard
 
 " Enumeration of elements or data between parenthesis
-syn region dtdEnum matchgroup=dtdType start="(" end=")" matchgroup=NONE contains=dtdEnum,dtdParamEntityInst,dtdCard
+"
+" PROVIDES: @dtdEnumHook
+"
+syn region dtdEnum matchgroup=dtdType start="(" end=")" matchgroup=NONE contains=dtdEnum,dtdParamEntityInst,dtdCard,@dtdEnumHook
 
 "Attribute types
 syn keyword dtdAttrType NMTOKEN  ENTITIES  NMTOKENS  ID  CDATA

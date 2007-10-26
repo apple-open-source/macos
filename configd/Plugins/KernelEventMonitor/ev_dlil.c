@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -144,7 +144,7 @@ link_update_status(const char *if_name, boolean_t attach)
 	int			sock;
 
 	sock = dgram_socket(AF_INET);
-	if (sock < 0) {
+	if (sock == -1) {
 		SCLog(TRUE, LOG_NOTICE, CFSTR("link_update_status: socket open failed,  %s"), strerror(errno));
 		goto done;
 	}
@@ -174,7 +174,7 @@ link_update_status(const char *if_name, boolean_t attach)
 
  done:
 	interface_update_status(if_name, active, attach);
-	if (sock >= 0)
+	if (sock != -1)
 		close(sock);
 	return;
 }
@@ -199,7 +199,7 @@ link_add(const char *if_name)
 	if (dict) {
 		if (isA_CFDictionary(dict)) {
 			newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
-			ifList  = CFDictionaryGetValue(newDict, kSCDynamicStorePropNetInterfaces);
+			ifList  = CFDictionaryGetValue(newDict, kSCPropNetInterfaces);
 			if (isA_CFArray(ifList)) {
 				newIFList = CFArrayCreateMutableCopy(NULL, 0, ifList);
 			}
@@ -222,9 +222,7 @@ link_add(const char *if_name)
 				 CFRangeMake(0, CFArrayGetCount(newIFList)),
 				 interface) == FALSE) {
 		CFArrayAppendValue(newIFList, interface);
-		CFDictionarySetValue(newDict,
-				     kSCDynamicStorePropNetInterfaces,
-				     newIFList);
+		CFDictionarySetValue(newDict, kSCPropNetInterfaces, newIFList);
 	}
 	cache_SCDynamicStoreSetValue(store, cacheKey, newDict);
 	link_update_status(if_name, TRUE);
@@ -257,7 +255,7 @@ link_remove(const char *if_name)
 	if (dict) {
 		if (isA_CFDictionary(dict)) {
 			newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
-			ifList  = CFDictionaryGetValue(newDict, kSCDynamicStorePropNetInterfaces);
+			ifList  = CFDictionaryGetValue(newDict, kSCPropNetInterfaces);
 			if (isA_CFArray(ifList)) {
 				newIFList = CFArrayCreateMutableCopy(NULL, 0, ifList);
 			}
@@ -275,7 +273,7 @@ link_remove(const char *if_name)
 	}
 
 	CFArrayRemoveValueAtIndex(newIFList, i);
-	CFDictionarySetValue(newDict, kSCDynamicStorePropNetInterfaces, newIFList);
+	CFDictionarySetValue(newDict, kSCPropNetInterfaces, newIFList);
 	cache_SCDynamicStoreSetValue(store, cacheKey, newDict);
 
 	interface_remove(if_name);

@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"sfhdr.h"
 
 /*	Synchronize data in buffers with the file system.
@@ -90,7 +86,7 @@ int sfsync(f)
 reg Sfio_t*	f;	/* stream to be synchronized */
 #endif
 {
-	int	local, rv, mode;
+	int	local, rv, mode, lock;
 	Sfio_t*	origf;
 
 	if(!(origf = f) )
@@ -104,6 +100,10 @@ reg Sfio_t*	f;	/* stream to be synchronized */
 		(void)sfclose((*_Sfstack)(origf,NIL(Sfio_t*)));
 
 	rv = 0;
+
+	lock = origf->mode&SF_LOCK;
+	if(origf->mode == (SF_SYNCED|SF_READ) ) /* already synced */
+		goto done;
 
 	if((origf->mode&SF_RDWR) != SFMODE(origf,local) && _sfmode(origf,0,local) < 0)
 	{	rv = -1;
@@ -145,7 +145,7 @@ reg Sfio_t*	f;	/* stream to be synchronized */
 		{	/* make sure the file pointer is at the right place */
 			f->here -= (f->endb-f->next);
 			f->endr = f->endw = f->data;
-			f->mode = SF_READ|SF_SYNCED|SF_LOCK;
+			f->mode = SF_READ|SF_SYNCED|lock;
 			(void)SFSK(f,f->here,SEEK_SET,f->disc);
 
 			if((f->flags&SF_SHARE) && !(f->flags&SF_PUBLIC) &&

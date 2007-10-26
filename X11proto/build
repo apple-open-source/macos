@@ -1,0 +1,226 @@
+#!/usr/bin/perl
+
+$target=shift @ARGV;
+sys_print("mkdir $ENV{SRCROOT}") unless -e $ENV{SRCROOT};
+
+sub sys_print {
+    $command=shift;
+    print "$command\n";
+    system $command;
+    $retval=$? >> 8;
+    die "returned code $retval" if $retval;
+}
+
+sub sys_print_nodie {
+    $command=shift;
+    print "$command\n";
+    system $command;
+    $retval=$? >> 8;
+    print "returned code $retval\n" if $retval;
+}
+
+if($target eq 'installsrc') {
+    sys_print("ditto . $ENV{SRCROOT}");
+    chdir($ENV{SRCROOT});
+    foreach $module (glob('*')) {
+	next if $module =~ /build/;
+	next if $module =~ /Make/;
+	next if $module =~ /uvn/;
+	next if $module =~ /\./;
+	print "installing source for $module\n";
+	chdir($module);
+	sys_print("../uvn extract; ../uvn patch");
+	chdir('..');
+    }
+    exit();
+}
+
+if($target eq 'clean') {
+    print "Cleaning out directory $ENV{SRCROOT}\n";
+    chdir($ENV{SRCROOT});
+    sys_print("find . -name .svn | xargs rm -rf");
+    sys_print("find . -name .uvn | xargs rm -rf");
+    sys_print("find . -name \"*.gz\" | xargs rm");
+    sys_print("find . -name \"*.bz2\" | xargs rm");
+    sys_print("find . -name patches | xargs rm -rf");
+    exit();
+}
+
+if($target eq 'install') {
+sys_print("mkdir $ENV{DSTROOT}") unless -e $ENV{DSTROOT};
+sys_print("mkdir $ENV{OBJROOT}") unless -e $ENV{OBJROOT};
+$ENV{DESTDIR}=$ENV{DSTROOT};
+    print "Install phase: \n";
+    $prefix="/usr/X11";
+    
+    ($osx_version)=(`sw_vers -productVersion` =~ /(10\.\d)/);
+    print "Building on $osx_version\n";
+    
+# Must create local aclocal dir or aclocal fails
+    $ACLOCAL_LOCALDIR="$ENV{DSTROOT}$prefix/share/aclocal";
+    system "mkdir -p $ACLOCAL_LOCALDIR";
+    
+# The following is required to make aclocal find our .m4 macros
+    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR";
+    $ENV{LIBTOOLIZE}="$ENV{DSTROOT}$prefix/bin/libtoolize";
+    
+# The following is required to make pkg-config find our .pc metadata files
+    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
+    
+# Set the library path so that locally built libs will be found by apps
+    $ENV{LD_LIBRARY_PATH}="$ENV{DSTROOT}$prefix/lib:$ENV{LD_LIBRARY_PATH}";
+    
+    $ENV{PATH}="$ENV{DSTROOT}$prefix/bin:$ENV{PATH}";
+    
+# Set the default font path for xserver/xorg unless it's already set
+    $ENV{FONTPATH}="$prefix/lib/X11/fonts/misc/,$prefix/lib/X11/fonts/Type1/,$prefix/lib/X11/fonts/75dpi/,$prefix/lib/X11/fonts/100dpi/,$prefix/lib/X11/fonts/cyrillic/,$prefix/lib/X11/fonts/TTF/";
+    
+    foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
+	$arch_flags_all .= "-arch $arch ";
+	$arch_flags_32 .= " -arch $arch " unless $arch =~ /64/;
+    }
+    
+    $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
+    
+    set_arch_32();
+    build('util-macros');
+    build('pkg-config');
+    set_arch_all();
+    build('freetype');
+    fix_la();
+    build('fontconfig');
+    fix_la_reverse();
+    if($ENV{RC_x86_64} eq 'YES') {
+	foreach (qw/fc-cache fc-cat fc-list fc-match/) {
+	    sys_print("lipo -remove x86_64 -output $ENV{DSTROOT}$prefix/bin/$_ $ENV{DSTROOT}$prefix/bin/$_");
+	}
+    }
+
+    if($ENV{RC_ppc64} eq 'YES') {
+	foreach (qw/fc-cache fc-cat fc-list fc-match/) {
+	    sys_print("lipo -remove ppc64 -output $ENV{DSTROOT}$prefix/bin/$_ $ENV{DSTROOT}$prefix/bin/$_");
+	}
+    }
+
+    set_arch_32();
+    build_proto();
+    sys_print("sed -i.bak 's_$ENV{DSTROOT}__g' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+    make_dsyms();
+}
+
+sub get_workdir {
+    foreach (glob('*')) {
+	if(-e "$_/configure") {
+	    return $_;
+	}
+    }
+    die "Unable to determine workdir";
+}
+
+sub build {
+    ($module)=@_;
+    $m1=$module;
+
+    print("build($module): ");
+    
+    die "$module not found" unless -e "$ENV{SRCROOT}/$module";
+    chdir ("$ENV{SRCROOT}/$module");
+    $full_path="/$module/".get_workdir();
+    sys_print("mkdir -p $ENV{OBJROOT}/$full_path");
+    sys_print("ditto $ENV{SRCROOT}/$full_path $ENV{OBJROOT}/$full_path");
+    sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
+
+    chdir("$ENV{OBJROOT}/$full_path");
+    if($module eq 'freetype') {
+	chdir('builds/unix');
+#	sys_print("autoreconf -fvi");
+	sys_print("/usr/bin/glibtoolize --force --copy");
+	chdir('../..');
+    }
+    print "Configuring...\n";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --mandir=/usr/X11/man ";
+
+    $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
+
+    if(-e $conf_flags_path) {
+	$conf_flags .= `cat $conf_flags_path`;
+	chomp $conf_flags;
+    }
+
+    sys_print("./configure $conf_flags");
+    sys_print("make -j2");
+    sys_print("make install");
+    chdir('../..');
+}
+
+# protocol headers have no build order dependencies
+sub build_proto {
+    build("applewmproto");
+    build("bigreqsproto");
+    build("compositeproto");
+    build("damageproto");
+    build("dmxproto");
+    build("evieext");
+    build("fixesproto");
+    build("fontcacheproto");
+    build("fontsproto");
+    build("glproto");
+    build("inputproto");
+    build("kbproto");
+    build("printproto");
+    build("randrproto");
+    build("recordproto");
+    build("renderproto");
+    build("resourceproto");
+    build("scrnsaverproto");
+    build("videoproto");
+    build("xcmiscproto");
+    build("xextproto");
+    build("xcbproto");
+    build("xf86dgaproto");
+    build("xf86driproto");
+    build("xf86miscproto");
+    build("xf86vidmodeproto");
+    build("xineramaproto");
+    build("xproto");
+    build("xproxymanagementprotocol");
+    build("trapproto");
+}
+
+
+sub make_dsyms {
+    open(FIND,"find $ENV{DSTROOT} -type f -exec file {} +|");
+    while(<FIND>) {
+	if(/(.*): .*Mach-O/) {
+	    $basename=$1;
+	    $fullpath=$1;
+	    $basename =~ s/\/.*\///;
+	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullpath");
+	    sys_print_nodie("strip -S $fullpath");
+	}
+    }
+    close FIND;
+}
+
+sub set_arch_32 {
+    $ENV{CFLAGS}="-D__DEBUG__ -g3 -pipe $arch_flags_32";
+    $ENV{LDFLAGS}="-pipe $arch_flags_32";
+}
+
+sub set_arch_all {
+    $ENV{CFLAGS}="-D__DEBUG__ -g3 -pipe $arch_flags_all";
+    $ENV{LDFLAGS}="-pipe $arch_flags_all";
+}
+
+sub fix_la {
+    sys_print("sed -i.bak 's_libdir=.*_libdir=$ENV{DSTROOT}$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print("sed -i.bak 's_ ".$prefix."_ ".$ENV{DSTROOT}.$prefix."_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+}
+
+sub fix_la_reverse {
+    sys_print("sed -i.bak 's_libdir=.*_libdir=$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print("sed -i.bak 's_$ENV{DSTROOT}__g' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+}

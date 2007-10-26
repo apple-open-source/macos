@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,9 +26,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Feb 28 2002.
- *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2002-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: bless_private.h,v 1.21 2005/11/15 23:59:52 ssen Exp $
+ *  $Id: bless_private.h,v 1.22 2006/05/31 22:30:26 ssen Exp $
  *
  */
 
@@ -37,11 +37,49 @@
 
 #include <sys/types.h>
 #include <sys/mount.h>
+#include <sys/cdefs.h>
+#include <TargetConditionals.h>
+#include <AvailabilityMacros.h>
 
 #include "bless.h"
 
 #define kBootBlocksSize 1024
 #define kBootBlockTradOSSig 0x4c4b
+
+#ifndef BLESS_EMBEDDED
+#if defined(TARGET_OS_EMBEDDED) && TARGET_OS_EMBEDDED
+#define BLESS_EMBEDDED 1
+#else
+#define BLESS_EMBEDDED 0
+#endif
+#endif
+
+#if BLESS_EMBEDDED
+
+#define USE_DISKARBITRATION		0
+#define USE_CORETEXT			0
+#define USE_COREGRAPHICS		0
+#define USE_MEDIAKIT			0
+#define SUPPORT_RAID			0
+
+#else
+
+#define USE_DISKARBITRATION		1
+#if defined(MAC_OS_X_VERSION_10_5) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_5)
+#define USE_CORETEXT			1
+#else
+#define USE_CORETEXT			0
+#endif
+#define USE_COREGRAPHICS		1
+#define USE_MEDIAKIT			1
+#define SUPPORT_RAID			1
+
+#endif
+
+#if DISABLE_DISK_ARBITRATION
+#undef  USE_DISKARBITRATION
+#define USE_DISKARBITRATION		0
+#endif
 
 /* Calculate a shift-1-left & add checksum of all
  * 32-bit words
@@ -54,12 +92,15 @@ uint32_t BLBlockChecksum(const void *buf , uint32_t length);
 int BLCopyFileFromCFData(BLContextPtr context, const CFDataRef data,
 	     const char * dest, int shouldPreallocate);
 
+/*
+ * convert to a char * description
+ */
+char *BLGetCStringDescription(CFTypeRef typeRef);
 
 /*
  * check if the context is null. if not, check if the log funcion is null
  */
-int contextprintf(BLContextPtr context, int loglevel, char const *fmt, ...)
-    __attribute__ ((format (printf, 3, 4)));
+int contextprintf(BLContextPtr context, int loglevel, char const *fmt, ...) __printflike(3, 4);;
 
 /*
  * stringify the OSType into the caller-provided buffer

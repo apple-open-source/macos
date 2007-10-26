@@ -1,0 +1,8 @@
+#! /bin/bash
+
+CSCOPEDB=cscope.db
+CSFILES=.csfiles
+
+find samba \( \( -name .pc -o -name .svn \) -prune \) -o -name \*.c -o -name \*.h | \
+    grep -v -e \\.pc -e \\.svn > $CSFILES
+cscope -i$CSFILES -q -v -b -f $CSCOPEDB

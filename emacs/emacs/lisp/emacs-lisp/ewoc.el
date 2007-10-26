@@ -1,6 +1,7 @@
 ;;; ewoc.el --- utility to maintain a view of a list of objects in a buffer
 
-;; Copyright (C) 1991, 92, 93, 94, 95, 96, 97, 98, 99, 2000   Free Software Foundation
+;; Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+;;   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Per Cederqvist <ceder@lysator.liu.se>
 ;;	Inge Wallin <inge@lysator.liu.se>
@@ -22,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -87,34 +88,7 @@
 ;; limit!  It is even possible to have another ewoc as an
 ;; element.  In that way some kind of tree hierarchy can be created.
 ;;
-;; Full documentation will, God willing, soon be available in a
-;; Texinfo manual.
-
-;; In the mean time `grep '^(.*ewoc-[^-]' emacs-lisp/ewoc.el' can help
-;; you find all the exported functions:
-;; 
-;; (defun ewoc-create (pretty-printer &optional header footer)
-;; (defalias 'ewoc-data 'ewoc--node-data)
-;; (defun ewoc-location (node)
-;; (defun ewoc-enter-first (ewoc data)
-;; (defun ewoc-enter-last (ewoc data)
-;; (defun ewoc-enter-after (ewoc node data)
-;; (defun ewoc-enter-before (ewoc node data)
-;; (defun ewoc-next (ewoc node)
-;; (defun ewoc-prev (ewoc node)
-;; (defun ewoc-nth (ewoc n)
-;; (defun ewoc-map (map-function ewoc &rest args)
-;; (defun ewoc-filter (ewoc predicate &rest args)
-;; (defun ewoc-locate (ewoc &optional pos guess)
-;; (defun ewoc-invalidate (ewoc &rest nodes)
-;; (defun ewoc-goto-prev (ewoc arg)
-;; (defun ewoc-goto-next (ewoc arg)
-;; (defun ewoc-goto-node (ewoc node)
-;; (defun ewoc-refresh (ewoc)
-;; (defun ewoc-collect (ewoc predicate &rest args)
-;; (defun ewoc-buffer (ewoc)
-;; (defun ewoc-get-hf (ewoc)
-;; (defun ewoc-set-hf (ewoc header footer)
+;; The Emacs Lisp Reference Manual documents ewoc.el's "public interface".
 
 ;;     Coding conventions
 ;;     ==================
@@ -122,78 +96,43 @@
 ;; All functions of course start with `ewoc'.  Functions and macros
 ;; starting with the prefix `ewoc--' are meant for internal use,
 ;; while those starting with `ewoc-' are exported for public use.
-;; There are currently no global or buffer-local variables used.
-
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))	;because of CL compiler macros
+(eval-when-compile (require 'cl))
 
-;; The doubly linked list is implemented as a circular list
-;; with a dummy node first and last. The dummy node is used as
-;; "the dll" (or rather is the dll handle passed around).
-
+;; The doubly linked list is implemented as a circular list with a dummy
+;; node first and last. The dummy node is used as "the dll".
 (defstruct (ewoc--node
-	    (:type vector)		;required for ewoc--node-branch hack
+	    (:type vector)		;ewoc--node-nth needs this
+            (:constructor nil)
 	    (:constructor ewoc--node-create (start-marker data)))
   left right data start-marker)
 
-(defalias 'ewoc--node-branch 'aref)
-
-(defun ewoc--dll-create ()
-  "Create an empty doubly linked list."
-  (let ((dummy-node (ewoc--node-create 'DL-LIST 'DL-LIST)))
-    (setf (ewoc--node-right dummy-node) dummy-node)
-    (setf (ewoc--node-left dummy-node) dummy-node)
-    dummy-node))
-
-(defun ewoc--node-enter-before (node elemnode)
-  "Insert ELEMNODE before NODE in a DLL."
-  (assert (and (null (ewoc--node-left elemnode)) (null (ewoc--node-right elemnode))))
-  (setf (ewoc--node-left elemnode) (ewoc--node-left node))
-  (setf (ewoc--node-right elemnode) node)
-  (setf (ewoc--node-right (ewoc--node-left node)) elemnode)
-  (setf (ewoc--node-left node) elemnode))
-
-(defun ewoc--node-enter-first (dll node)
-  "Add a free floating NODE first in DLL."
-  (ewoc--node-enter-before (ewoc--node-right dll) node))
-
-(defun ewoc--node-enter-last (dll node)
-  "Add a free floating NODE last in DLL."
-  (ewoc--node-enter-before dll node))
-
 (defun ewoc--node-next (dll node)
   "Return the node after NODE, or nil if NODE is the last node."
-  (unless (eq (ewoc--node-right node) dll) (ewoc--node-right node)))
+  (let ((R (ewoc--node-right node)))
+    (unless (eq dll R) R)))
 
 (defun ewoc--node-prev (dll node)
   "Return the node before NODE, or nil if NODE is the first node."
-  (unless (eq (ewoc--node-left node) dll) (ewoc--node-left node)))
-
-(defun ewoc--node-delete (node)
-  "Unbind NODE from its doubly linked list and return it."
-  ;; This is a no-op when applied to the dummy node. This will return
-  ;; nil if applied to the dummy node since it always contains nil.
-  (setf (ewoc--node-right (ewoc--node-left node)) (ewoc--node-right node))
-  (setf (ewoc--node-left (ewoc--node-right node)) (ewoc--node-left node))
-  (setf (ewoc--node-left node) nil)
-  (setf (ewoc--node-right node) nil)
-  node)
+  (let ((L (ewoc--node-left node)))
+    (unless (eq dll L) L)))
 
 (defun ewoc--node-nth (dll n)
-  "Return the Nth node from the doubly linked list DLL.
-N counts from zero. If DLL is not that long, nil is returned.
-If N is negative, return the -(N+1)th last element.
+  "Return the Nth node from the doubly linked list `dll'.
+N counts from zero.  If N is negative, return the -(N+1)th last element.
+If N is out of range, return nil.
 Thus, (ewoc--node-nth dll 0) returns the first node,
 and (ewoc--node-nth dll -1) returns the last node."
+  ;; Presuming a node is ":type vector", starting with `left' and `right':
   ;; Branch 0 ("follow left pointer") is used when n is negative.
   ;; Branch 1 ("follow right pointer") is used otherwise.
   (let* ((branch (if (< n 0) 0 1))
-	 (node   (ewoc--node-branch dll branch)))
+	 (node   (aref dll branch)))
     (if (< n 0) (setq n (- -1 n)))
     (while (and (not (eq dll node)) (> n 0))
-      (setq node (ewoc--node-branch node branch))
+      (setq node (aref node branch))
       (setq n (1- n)))
     (unless (eq dll node) node)))
 
@@ -206,27 +145,22 @@ and (ewoc--node-nth dll -1) returns the last node."
 
 (defstruct (ewoc
 	    (:constructor nil)
-	    (:constructor ewoc--create
-			  (buffer pretty-printer header footer dll))
+	    (:constructor ewoc--create (buffer pretty-printer dll))
 	    (:conc-name ewoc--))
-  buffer pretty-printer header footer dll last-node)
+  buffer pretty-printer header footer dll last-node hf-pp)
 
 (defmacro ewoc--set-buffer-bind-dll-let* (ewoc varlist &rest forms)
   "Execute FORMS with ewoc--buffer selected as current buffer,
-dll bound to ewoc--dll, and VARLIST bound as in a let*.
-dll will be bound when VARLIST is initialized, but the current
-buffer will *not* have been changed.
+`dll' bound to the dll, and VARLIST bound as in a let*.
+`dll' will be bound when VARLIST is initialized, but
+the current buffer will *not* have been changed.
 Return value of last form in FORMS."
-  (let ((old-buffer (make-symbol "old-buffer"))
-	(hnd (make-symbol "ewoc")))
-    (` (let* (((, old-buffer) (current-buffer))
-	      ((, hnd) (, ewoc))
-	      (dll (ewoc--dll (, hnd)))
-	      (,@ varlist))
-	 (set-buffer (ewoc--buffer (, hnd)))
-	 (unwind-protect
-	     (progn (,@ forms))
-	   (set-buffer (, old-buffer)))))))
+  (let ((hnd (make-symbol "ewoc")))
+    `(let* ((,hnd ,ewoc)
+            (dll (ewoc--dll ,hnd))
+            ,@varlist)
+       (with-current-buffer (ewoc--buffer ,hnd)
+         ,@forms))))
 
 (defmacro ewoc--set-buffer-bind-dll (ewoc &rest forms)
   `(ewoc--set-buffer-bind-dll-let* ,ewoc nil ,@forms))
@@ -238,152 +172,163 @@ BUT if it is the header or the footer in EWOC return nil instead."
 	      (eq node (ewoc--footer ewoc)))
     node))
 
+(defun ewoc--adjust (beg end node dll)
+  ;; "Manually reseat" markers for NODE and its successors (including footer
+  ;; and dll), in the case where they originally shared start position with
+  ;; BEG, to END.  BEG and END are buffer positions describing NODE's left
+  ;; neighbor.  This operation is functionally equivalent to temporarily
+  ;; setting these nodes' markers' insertion type to t around the pretty-print
+  ;; call that precedes the call to `ewoc--adjust', and then changing them back
+  ;; to nil.
+  (when (< beg end)
+    (let (m)
+      (while (and (= beg (setq m (ewoc--node-start-marker node)))
+                  ;; The "dummy" node `dll' actually holds the marker that
+                  ;; points to the end of the footer, so we check `dll'
+                  ;; *after* reseating the marker.
+                  (progn
+                    (set-marker m end)
+                    (not (eq dll node))))
+        (setq node (ewoc--node-right node))))))
 
-(defun ewoc--create-node (data pretty-printer pos)
-  "Call PRETTY-PRINTER with point set at POS in current buffer.
-Remember the start position. Create a wrapper containing that
-start position and the element DATA."
+(defun ewoc--insert-new-node (node data pretty-printer dll)
+  "Insert before NODE a new node for DATA, displayed by PRETTY-PRINTER.
+Fourth arg DLL -- from `(ewoc--dll EWOC)' -- is for internal purposes.
+Call PRETTY-PRINTER with point at NODE's start, thus pushing back
+NODE and leaving the new node's start there.  Return the new node."
   (save-excursion
-    ;; Remember the position as a number so that it doesn't move
-    ;; when we insert the string.
-    (when (markerp pos) (setq pos (marker-position pos)))
-    (goto-char pos)
-    (let ((inhibit-read-only t))
-      ;; Insert the trailing newline using insert-before-markers
-      ;; so that the start position for the next element is updated.
-      (insert-before-markers ?\n)
-      ;; Move back, and call the pretty-printer.
-      (backward-char 1)
-      (funcall pretty-printer data)
-      (ewoc--node-create (copy-marker pos) data))))
+    (let ((elemnode (ewoc--node-create
+                     (copy-marker (ewoc--node-start-marker node)) data)))
+      (setf (ewoc--node-left  elemnode) (ewoc--node-left node)
+            (ewoc--node-right elemnode)                  node
+            (ewoc--node-right (ewoc--node-left node)) elemnode
+            (ewoc--node-left                   node)  elemnode)
+      (ewoc--refresh-node pretty-printer elemnode dll)
+      elemnode)))
 
-
-(defun ewoc--delete-node-internal (ewoc node)
-  "Delete a data string from EWOC.
-Can not be used on the footer. Returns the wrapper that is deleted.
-The start-marker in the wrapper is set to nil, so that it doesn't
-consume any more resources."
-  (let ((dll (ewoc--dll ewoc))
-	(inhibit-read-only t))
-    ;; If we are about to delete the node pointed at by last-node,
-    ;; set last-node to nil.
-    (if (eq (ewoc--last-node ewoc) node)
-	(setf (ewoc--last-node ewoc) nil))
-
-    (delete-region (ewoc--node-start-marker node)
-		   (ewoc--node-start-marker (ewoc--node-next dll node)))
-    (set-marker (ewoc--node-start-marker node) nil)
-    ;; Delete the node, and return the wrapper.
-    (ewoc--node-delete node)))
-
-
-(defun ewoc--refresh-node (pp node)
+(defun ewoc--refresh-node (pp node dll)
   "Redisplay the element represented by NODE using the pretty-printer PP."
-  (let ((inhibit-read-only t))
-    (save-excursion
-      ;; First, remove the string from the buffer:
-      (delete-region (ewoc--node-start-marker node)
-		     (1- (marker-position
-			  (ewoc--node-start-marker (ewoc--node-right node)))))
-      ;; Calculate and insert the string.
-      (goto-char (ewoc--node-start-marker node))
-      (funcall pp (ewoc--node-data node)))))
+  (let ((inhibit-read-only t)
+        (m (ewoc--node-start-marker node))
+        (R (ewoc--node-right node)))
+    ;; First, remove the string from the buffer:
+    (delete-region m (ewoc--node-start-marker R))
+    ;; Calculate and insert the string.
+    (goto-char m)
+    (funcall pp (ewoc--node-data node))
+    (ewoc--adjust m (point) R dll)))
+
+(defun ewoc--wrap (func)
+  (lexical-let ((ewoc--user-pp func))
+    (lambda (data)
+      (funcall ewoc--user-pp data)
+      (insert "\n"))))
+
 
 ;;; ===========================================================================
 ;;;                  Public members of the Ewoc package
 
-
-(defun ewoc-create (pretty-printer &optional header footer)
+;;;###autoload
+(defun ewoc-create (pretty-printer &optional header footer nosep)
   "Create an empty ewoc.
 
 The ewoc will be inserted in the current buffer at the current position.
 
 PRETTY-PRINTER should be a function that takes one argument, an
 element, and inserts a string representing it in the buffer (at
-point). The string PRETTY-PRINTER inserts may be empty or span
-several linse. A trailing newline will always be inserted
-automatically. The PRETTY-PRINTER should use insert, and not
-insert-before-markers.
+point).  The string PRETTY-PRINTER inserts may be empty or span
+several lines.  The PRETTY-PRINTER should use `insert', and not
+`insert-before-markers'.
 
-Optional third argument HEADER is a string that will always be
-present at the top of the ewoc. HEADER should end with a
-newline.  Optionaly fourth argument FOOTER is similar, and will
-be inserted at the bottom of the ewoc."
-  (let ((new-ewoc
-	 (ewoc--create (current-buffer)
-		       pretty-printer nil nil (ewoc--dll-create)))
-	(pos (point)))
+Optional second and third arguments HEADER and FOOTER are strings,
+possibly empty, that will always be present at the top and bottom,
+respectively, of the ewoc.
+
+Normally, a newline is automatically inserted after the header,
+the footer and every node's printed representation.  Optional
+fourth arg NOSEP non-nil inhibits this."
+  (let* ((dummy-node (ewoc--node-create 'DL-LIST 'DL-LIST))
+         (dll (progn (setf (ewoc--node-right dummy-node) dummy-node)
+                     (setf (ewoc--node-left dummy-node) dummy-node)
+                     dummy-node))
+         (wrap (if nosep 'identity 'ewoc--wrap))
+         (new-ewoc (ewoc--create (current-buffer)
+                                 (funcall wrap pretty-printer)
+                                 dll))
+         (hf-pp (funcall wrap 'insert))
+         (pos (point))
+         head foot)
     (ewoc--set-buffer-bind-dll new-ewoc
       ;; Set default values
       (unless header (setq header ""))
       (unless footer (setq footer ""))
-      (setf (ewoc--node-start-marker dll) (copy-marker pos))
-      (let ((foot (ewoc--create-node footer (lambda (x) (insert footer)) pos))
-	    (head (ewoc--create-node header (lambda (x) (insert header)) pos)))
-	(ewoc--node-enter-first dll head)
-	(ewoc--node-enter-last  dll foot)
-	(setf (ewoc--header new-ewoc) head)
-	(setf (ewoc--footer new-ewoc) foot)))
+      (setf (ewoc--node-start-marker dll) (copy-marker pos)
+            foot (ewoc--insert-new-node  dll footer hf-pp dll)
+            head (ewoc--insert-new-node foot header hf-pp dll)
+            (ewoc--hf-pp new-ewoc) hf-pp
+            (ewoc--footer new-ewoc) foot
+            (ewoc--header new-ewoc) head))
     ;; Return the ewoc
     new-ewoc))
 
-(defalias 'ewoc-data 'ewoc--node-data)
+(defalias 'ewoc-data 'ewoc--node-data
+  "Extract the data encapsulated by NODE and return it.
+
+\(fn NODE)")
+
+(defun ewoc-set-data (node data)
+  "Set NODE to encapsulate DATA."
+  (setf (ewoc--node-data node) data))
 
 (defun ewoc-enter-first (ewoc data)
-  "Enter DATA first in EWOC."
+  "Enter DATA first in EWOC.
+Return the new node."
   (ewoc--set-buffer-bind-dll ewoc
     (ewoc-enter-after ewoc (ewoc--node-nth dll 0) data)))
 
 (defun ewoc-enter-last (ewoc data)
-  "Enter DATA last in EWOC."
+  "Enter DATA last in EWOC.
+Return the new node."
   (ewoc--set-buffer-bind-dll ewoc
     (ewoc-enter-before ewoc (ewoc--node-nth dll -1) data)))
 
-
 (defun ewoc-enter-after (ewoc node data)
   "Enter a new element DATA after NODE in EWOC.
-Returns the new NODE."
+Return the new node."
   (ewoc--set-buffer-bind-dll ewoc
     (ewoc-enter-before ewoc (ewoc--node-next dll node) data)))
 
 (defun ewoc-enter-before (ewoc node data)
   "Enter a new element DATA before NODE in EWOC.
-Returns the new NODE."
+Return the new node."
   (ewoc--set-buffer-bind-dll ewoc
-    (ewoc--node-enter-before
-     node
-     (ewoc--create-node
-      data
-      (ewoc--pretty-printer ewoc)
-      (ewoc--node-start-marker node)))))
+    (ewoc--insert-new-node node data (ewoc--pretty-printer ewoc) dll)))
 
 (defun ewoc-next (ewoc node)
-  "Get the next node.
-Returns nil if NODE is nil or the last element."
+  "Return the node in EWOC that follows NODE.
+Return nil if NODE is nil or the last element."
   (when node
     (ewoc--filter-hf-nodes
      ewoc (ewoc--node-next (ewoc--dll ewoc) node))))
 
 (defun ewoc-prev (ewoc node)
-  "Get the previous node.
-Returns nil if NODE is nil or the first element."
+  "Return the node in EWOC that precedes NODE.
+Return nil if NODE is nil or the first element."
   (when node
     (ewoc--filter-hf-nodes
-     ewoc
-     (ewoc--node-prev (ewoc--dll ewoc) node))))
-
+     ewoc (ewoc--node-prev (ewoc--dll ewoc) node))))
 
 (defun ewoc-nth (ewoc n)
   "Return the Nth node.
-N counts from zero. Nil is returned if there is less than N elements.
+N counts from zero.  Return nil if there is less than N elements.
 If N is negative, return the -(N+1)th last element.
-Thus, (ewoc-nth dll 0) returns the first node,
-and (ewoc-nth dll -1) returns the last node.
-Use `ewoc--node-data' to extract the data from the node."
+Thus, (ewoc-nth ewoc 0) returns the first node,
+and (ewoc-nth ewoc -1) returns the last node.
+Use `ewoc-data' to extract the data from the node."
   ;; Skip the header (or footer, if n is negative).
   (setq n (if (< n 0) (1- n) (1+ n)))
   (ewoc--filter-hf-nodes ewoc
-		  (ewoc--node-nth (ewoc--dll ewoc) n)))
+                         (ewoc--node-nth (ewoc--dll ewoc) n)))
 
 (defun ewoc-map (map-function ewoc &rest args)
   "Apply MAP-FUNCTION to all elements in EWOC.
@@ -391,48 +336,71 @@ MAP-FUNCTION is applied to the first element first.
 If MAP-FUNCTION returns non-nil the element will be refreshed (its
 pretty-printer will be called once again).
 
-Note that the buffer for EWOC will be current buffer when MAP-FUNCTION 
-is called.  MAP-FUNCTION must restore the current buffer to BUFFER before 
-it returns, if it changes it.
+Note that the buffer for EWOC will be the current buffer when
+MAP-FUNCTION is called.  MAP-FUNCTION must restore the current
+buffer before it returns, if it changes it.
 
 If more than two arguments are given, the remaining
 arguments will be passed to MAP-FUNCTION."
   (ewoc--set-buffer-bind-dll-let* ewoc
       ((footer (ewoc--footer ewoc))
+       (pp (ewoc--pretty-printer ewoc))
        (node (ewoc--node-nth dll 1)))
-    (while (not (eq node footer))
-      (if (apply map-function (ewoc--node-data node) args)
-	  (ewoc--refresh-node (ewoc--pretty-printer ewoc) node))
-      (setq node (ewoc--node-next dll node)))))
+    (save-excursion
+      (while (not (eq node footer))
+        (if (apply map-function (ewoc--node-data node) args)
+            (ewoc--refresh-node pp node dll))
+        (setq node (ewoc--node-next dll node))))))
+
+(defun ewoc-delete (ewoc &rest nodes)
+  "Delete NODES from EWOC."
+  (ewoc--set-buffer-bind-dll-let* ewoc
+      ((L nil) (R nil) (last (ewoc--last-node ewoc)))
+    (dolist (node nodes)
+      ;; If we are about to delete the node pointed at by last-node,
+      ;; set last-node to nil.
+      (when (eq last node)
+        (setf last nil (ewoc--last-node ewoc) nil))
+      (delete-region (ewoc--node-start-marker node)
+                     (ewoc--node-start-marker (ewoc--node-next dll node)))
+      (set-marker (ewoc--node-start-marker node) nil)
+      (setf L (ewoc--node-left  node)
+            R (ewoc--node-right node)
+            ;; Link neighbors to each other.
+            (ewoc--node-right L) R
+            (ewoc--node-left  R) L
+            ;; Forget neighbors.
+            (ewoc--node-left  node) nil
+            (ewoc--node-right node) nil))))
 
 (defun ewoc-filter (ewoc predicate &rest args)
   "Remove all elements in EWOC for which PREDICATE returns nil.
-Note that the buffer for EWOC will be current-buffer when PREDICATE 
-is called. PREDICATE must restore the current buffer before it returns
+Note that the buffer for EWOC will be current-buffer when PREDICATE
+is called.  PREDICATE must restore the current buffer before it returns
 if it changes it.
-The PREDICATE is called with the element as its first argument. If any
+The PREDICATE is called with the element as its first argument.  If any
 ARGS are given they will be passed to the PREDICATE."
   (ewoc--set-buffer-bind-dll-let* ewoc
       ((node (ewoc--node-nth dll 1))
        (footer (ewoc--footer ewoc))
-       (next nil))
+       (goodbye nil)
+       (inhibit-read-only t))
     (while (not (eq node footer))
-      (setq next (ewoc--node-next dll node))
       (unless (apply predicate (ewoc--node-data node) args)
-	(ewoc--delete-node-internal ewoc node))
-      (setq node next))))
+        (push node goodbye))
+      (setq node (ewoc--node-next dll node)))
+    (apply 'ewoc-delete ewoc goodbye)))
 
 (defun ewoc-locate (ewoc &optional pos guess)
   "Return the node that POS (a buffer position) is within.
 POS may be a marker or an integer.  It defaults to point.
-GUESS should be a node that it is likely that POS is near.
+GUESS should be a node that it is likely to be near POS.
 
 If POS points before the first element, the first node is returned.
 If POS points after the last element, the last node is returned.
 If the EWOC is empty, nil is returned."
   (unless pos (setq pos (point)))
-  (ewoc--set-buffer-bind-dll-let* ewoc
-      ((footer (ewoc--footer ewoc)))
+  (ewoc--set-buffer-bind-dll ewoc
 
     (cond
      ;; Nothing present?
@@ -465,7 +433,7 @@ If the EWOC is empty, nil is returned."
 	    (setq distance d)
 	    (setq best-guess g)))
 
-	(when (ewoc--last-node ewoc) ;Check "previous".
+	(when (ewoc--last-node ewoc)    ;Check "previous".
 	  (let* ((g (ewoc--last-node ewoc))
 		 (d (abs (- pos (ewoc--node-start-marker g)))))
 	    (when (< d distance)
@@ -475,7 +443,7 @@ If the EWOC is empty, nil is returned."
 	;; best-guess is now a "best guess".
 	;; Find the correct node. First determine in which direction
 	;; it lies, and then move in that direction until it is found.
-    
+
 	(cond
 	 ;; Is pos after the guess?
 	 ((>= pos
@@ -493,16 +461,18 @@ If the EWOC is empty, nil is returned."
 	  best-guess)))))))
 
 (defun ewoc-invalidate (ewoc &rest nodes)
-  "Refresh some elements.
-The pretty-printer that for EWOC will be called for all NODES."
-  (ewoc--set-buffer-bind-dll ewoc
-    (dolist (node nodes)
-      (ewoc--refresh-node (ewoc--pretty-printer ewoc) node))))
+  "Call EWOC's pretty-printer for each element in NODES.
+Delete current text first, thus effecting a \"refresh\"."
+  (ewoc--set-buffer-bind-dll-let* ewoc
+      ((pp (ewoc--pretty-printer ewoc)))
+    (save-excursion
+      (dolist (node nodes)
+        (ewoc--refresh-node pp node dll)))))
 
 (defun ewoc-goto-prev (ewoc arg)
-  "Move point to the ARGth previous element.
+  "Move point to the ARGth previous element in EWOC.
 Don't move if we are at the first element, or if EWOC is empty.
-Returns the node we moved to."
+Return the node we moved to."
   (ewoc--set-buffer-bind-dll-let* ewoc
       ((node (ewoc-locate ewoc (point))))
     (when node
@@ -518,8 +488,8 @@ Returns the node we moved to."
       (ewoc-goto-node ewoc node))))
 
 (defun ewoc-goto-next (ewoc arg)
-  "Move point to the ARGth next element.
-Returns the node (or nil if we just passed the last node)."
+  "Move point to the ARGth next element in EWOC.
+Return the node (or nil if we just passed the last node)."
   (ewoc--set-buffer-bind-dll-let* ewoc
       ((node (ewoc-locate ewoc (point))))
     (while (and node (> arg 0))
@@ -531,7 +501,7 @@ Returns the node (or nil if we just passed the last node)."
     (ewoc-goto-node ewoc node)))
 
 (defun ewoc-goto-node (ewoc node)
-  "Move point to NODE."
+  "Move point to NODE in EWOC."
   (ewoc--set-buffer-bind-dll ewoc
     (goto-char (ewoc--node-start-marker node))
     (if goal-column (move-to-column goal-column))
@@ -549,25 +519,24 @@ number of elements needs to be refreshed."
       (delete-region (ewoc--node-start-marker (ewoc--node-nth dll 1))
 		     (ewoc--node-start-marker footer))
       (goto-char (ewoc--node-start-marker footer))
-      (let ((node (ewoc--node-nth dll 1)))
+      (let ((pp (ewoc--pretty-printer ewoc))
+            (node (ewoc--node-nth dll 1)))
 	(while (not (eq node footer))
 	  (set-marker (ewoc--node-start-marker node) (point))
-	  (funcall (ewoc--pretty-printer ewoc)
-		   (ewoc--node-data node))
-	  (insert "\n")
+	  (funcall pp (ewoc--node-data node))
 	  (setq node (ewoc--node-next dll node)))))
     (set-marker (ewoc--node-start-marker footer) (point))))
 
 (defun ewoc-collect (ewoc predicate &rest args)
   "Select elements from EWOC using PREDICATE.
 Return a list of all selected data elements.
-PREDICATE is a function that takes a data element as its first argument.
-The elements on the returned list will appear in the same order as in
-the buffer.  You should not rely on in which order PREDICATE is
-called.
-Note that the buffer the EWOC is displayed in is current-buffer
-when PREDICATE is called.  If PREDICATE must restore current-buffer if
-it changes it.
+PREDICATE is a function that takes a data element as its first
+argument.  The elements on the returned list will appear in the
+same order as in the buffer.  You should not rely on the order of
+calls to PREDICATE.
+Note that the buffer the EWOC is displayed in is the current
+buffer when PREDICATE is called.  PREDICATE must restore it if it
+changes it.
 If more than two arguments are given the
 remaining arguments will be passed to PREDICATE."
   (ewoc--set-buffer-bind-dll-let* ewoc
@@ -582,7 +551,7 @@ remaining arguments will be passed to PREDICATE."
 
 (defun ewoc-buffer (ewoc)
   "Return the buffer that is associated with EWOC.
-Returns nil if the buffer has been deleted."
+Return nil if the buffer has been deleted."
   (let ((buf (ewoc--buffer ewoc)))
     (when (buffer-name buf) buf)))
 
@@ -593,17 +562,23 @@ Returns nil if the buffer has been deleted."
 
 (defun ewoc-set-hf (ewoc header footer)
   "Set the HEADER and FOOTER of EWOC."
-  (setf (ewoc--node-data (ewoc--header ewoc)) header)
-  (setf (ewoc--node-data (ewoc--footer ewoc)) footer)
-  (ewoc--refresh-node (lambda (x) (insert header)) (ewoc--header ewoc))
-  (ewoc--refresh-node (lambda (x) (insert footer)) (ewoc--footer ewoc)))
+  (ewoc--set-buffer-bind-dll-let* ewoc
+      ((head (ewoc--header ewoc))
+       (foot (ewoc--footer ewoc))
+       (hf-pp (ewoc--hf-pp ewoc)))
+    (setf (ewoc--node-data head) header
+          (ewoc--node-data foot) footer)
+    (save-excursion
+      (ewoc--refresh-node hf-pp head dll)
+      (ewoc--refresh-node hf-pp foot dll))))
 
 
 (provide 'ewoc)
 
-;;; Local Variables:
-;;; eval: (put 'ewoc--set-buffer-bind-dll 'lisp-indent-hook 1)
-;;; eval: (put 'ewoc--set-buffer-bind-dll-let* 'lisp-indent-hook 2)
-;;; End:
+;; Local Variables:
+;; eval: (put 'ewoc--set-buffer-bind-dll 'lisp-indent-hook 1)
+;; eval: (put 'ewoc--set-buffer-bind-dll-let* 'lisp-indent-hook 2)
+;; End:
 
+;; arch-tag: d78915b9-9a07-44bf-aac6-04a1fc1bd6d4
 ;;; ewoc.el ends here

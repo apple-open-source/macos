@@ -9,7 +9,7 @@
         H_FILES = (); 
         M_FILES = (); 
         OTHER_LINKED = (); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, BootX.plist, BootX.txt); 
         SUBPROJECTS = ("macho-to-xcoff.tproj", "fcode-to-c.tproj", bootx.tproj); 
         TOOLS = (); 
     }; 

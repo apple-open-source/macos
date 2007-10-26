@@ -1,0 +1,121 @@
+Index: framework/src/objc/RBRuntime.m
+===================================================================
+--- framework/src/objc/RBRuntime.m	(revision 1899)
++++ framework/src/objc/RBRuntime.m	(working copy)
+@@ -549,8 +549,115 @@
+ 
+ #else /* > TIGER */
+ 
+-#error No implementation yet for this system (please contact lsansonetti@apple.com)
++#include <setjmp.h>
+ 
++typedef struct {
++  jmp_buf _state;
++  void *_exception;
++  void *_others;
++  void *_thread;
++  void *_reserved1;
++} NSHandler2;
++
++typedef struct {
++  CFIndex _qstate;
++  CFIndex _altHandlerCtr;
++  CFIndex _numHandlerSlots;
++  CFIndex _numHandlers;
++  NSHandler2 *_handlers[0];
++} NSEHData;
++
++typedef struct _NSAPPage {
++  struct _NSAPPage *_higherPage;
++  struct _NSAPPage *_lowerPage;
++  NSUInteger _numItems;
++  void *_items[0];
++} NSAPPage;
++
++typedef struct {
++  NSUInteger _startSlot;
++  NSAPPage *_startPage;
++  NSAutoreleasePool *_instance;
++} NSAPPoolTuple;
++
++typedef struct {
++  NSAPPage *_topPage;
++  NSUInteger _numItems;
++  NSUInteger _highWat;
++  NSUInteger _highWatRes;
++  NSUInteger _poppingCount;
++  BOOL _releaseEnabled;
++  BOOL _freedObjectCheck;
++  BOOL _ignoreExceptions;
++  BOOL _topIsSubclass;
++  CFIndex _qstate;
++  NSAPPage *_freePages;
++  NSAutoreleasePool *_poolCache[4];
++  NSUInteger _numPoolSlots;
++  NSUInteger _numPools;
++  NSAPPoolTuple _pools[0];
++} NSAPData;
++
++extern void *_NSAutoreleasePoolGetRubyToken(void);
++extern void _NSAutoreleasePoolSetRubyToken(void *t);
++extern void *_NSExceptionGetRubyToken(void);
++extern void _NSExceptionSetRubyToken(void *t);
++
++# define NSTHREAD_autoreleasePool_set(t, d) (_NSAutoreleasePoolSetRubyToken(d))
++# define NSTHREAD_autoreleasePool_get(t)    (_NSAutoreleasePoolGetRubyToken())
++
++static void *NSTHREAD_autoreleasePool_init(void *thread)
++{
++  NSAPData *newData;
++
++  newData = malloc(sizeof(NSAPData) + 8 * sizeof(NSAPPoolTuple));
++  ASSERT_ALLOC(newData);
++
++  newData->_topPage = NULL;
++  newData->_numItems = 0;
++  newData->_highWat = 0;
++  newData->_highWatRes = 0;
++  newData->_poppingCount = 0;
++  newData->_releaseEnabled = YES;
++  newData->_freedObjectCheck = NO;
++  newData->_ignoreExceptions = NO;
++  newData->_topIsSubclass = NO;
++  newData->_qstate = 0;
++  newData->_freePages = NULL;
++  newData->_poolCache[0] = nil;
++  newData->_poolCache[1] = nil;
++  newData->_poolCache[2] = nil;
++  newData->_poolCache[3] = nil;
++  newData->_numPoolSlots = 8;
++  newData->_numPools = 0;
++  unsigned idx;
++  for (idx = 0; idx < 8; idx++) {
++    newData->_pools[idx]._startSlot = 0;
++    newData->_pools[idx]._startPage = NULL;
++    newData->_pools[idx]._instance = nil;
++  }
++  return newData;
++}
++  
++# define NSTHREAD_excHandlers_get(t)      (_NSExceptionGetRubyToken())
++# define NSTHREAD_excHandlers_set(t, d)   (_NSExceptionSetRubyToken(d))
++# define NSTHREAD_excHandlers_free(t, d)  (free(d))
++
++static void *NSTHREAD_excHandlers_init(void *t)
++{
++  NSEHData *new_data;
++
++  new_data = (NSEHData *)malloc(sizeof(NSEHData) + (32 * sizeof(NSHandler2 *)));
++  new_data->_numHandlerSlots = 32;
++  new_data->_numHandlers = 0;
++  new_data->_altHandlerCtr = 0;
++  new_data->_qstate = 0;
++
++  return new_data;
++}
++
++# define NSTHREAD_NEEDS_TO_SAVE 0 
++
+ #endif
+ 
+ struct rb_cocoa_thread_context

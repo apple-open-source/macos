@@ -83,8 +83,8 @@ void BlockCryptor::setup(
 		mInBuf = (uint8 *)session().malloc(blockSizeIn);
 	}
 	
-	/* set up chain buf, decrypt/CBC only */
-	if((mMode == BCM_CBC) && !encoding()) {
+	/* set up chain buf, decrypt/CBC only; skip if algorithm does its own chaining */
+	if((mMode == BCM_CBC) && !encoding() && !mCbcCapable) {
 		if(mChainBuf != NULL) {
 			/* only reuse if same size */
 			if(mInBlockSize != blockSizeIn) {
@@ -117,12 +117,14 @@ void BlockCryptor::setup(
 				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_INIT_VECTOR);
 			}
 			/* save IV as appropriate */
-			if(encoding()) {
-				memmove(mInBuf, iv->Data, blockSizeIn);
-			}
-			else {
-				assert(mChainBuf != NULL);
-				memmove(mChainBuf, iv->Data, blockSizeIn);
+			if(!mCbcCapable) {
+				if(encoding()) {
+					memmove(mInBuf, iv->Data, blockSizeIn);
+				}
+				else {
+					assert(mChainBuf != NULL);
+					memmove(mChainBuf, iv->Data, blockSizeIn);
+				}
 			}
 			break;
 	}
@@ -237,8 +239,8 @@ void BlockCryptor::update(
 	void 			*outp, 
 	size_t 			&outSize)			// in/out
 {
-	UInt8 		*uInp = (UInt8 *)inp;
-	UInt8 		*uOutp = (UInt8 *)outp;
+	uint8 		*uInp = (UInt8 *)inp;
+	uint8 		*uOutp = (UInt8 *)outp;
 	size_t	 	uInSize = inSize;		// input bytes to go
 	size_t 		uOutSize = 0;			// ouput bytes generated
 	size_t		uOutLeft = outSize;		// bytes remaining in outp
@@ -246,6 +248,7 @@ void BlockCryptor::update(
 	size_t		actMoved;
 	unsigned	i;
 	bool		needLeftOver = mNeedFinalData || (!encoding() && mPkcsPadding);
+	bool		doCbc = (mMode == BCM_CBC) && !mCbcCapable;
 	
 	assert(mInBuf != NULL);
 	mOpStarted = true;
@@ -256,7 +259,7 @@ void BlockCryptor::update(
 		if(toMove > uInSize) {
 			toMove = uInSize;
 		}
-		if(encoding() && (mMode == BCM_CBC)) {
+		if(encoding() && doCbc) {
 			/* xor into last cipherblock or IV */
 			for(i=0; i<toMove; i++) {
 				mInBuf[mInBufSize + i] ^= *uInp++;
@@ -279,15 +282,15 @@ void BlockCryptor::update(
 			actMoved = uOutLeft;
 			if(encoding()) {
 				encryptBlock(mInBuf, mInBlockSize, uOutp, actMoved, false);
-				if(mMode == BCM_CBC) {
+				if(doCbc) {
 					/* save ciphertext for chaining next block */
 					assert(mInBlockSize == actMoved);
 					memmove(mInBuf, uOutp, mInBlockSize);
 				}
 			}
 			else {
-				decryptBlock(mInBuf, uOutp, actMoved, false);
-				if(mMode == BCM_CBC) {
+				decryptBlock(mInBuf, mInBlockSize, uOutp, actMoved, false);
+				if(doCbc) {
 					/* xor in last ciphertext */
 					assert(mInBlockSize == actMoved);
 					for(i=0; i<mInBlockSize; i++) {
@@ -312,6 +315,7 @@ void BlockCryptor::update(
 		return;
 	}
 	
+	
 	/* 
 	 * en/decrypt even blocks in (remaining) inp.  
 	 */
@@ -325,10 +329,31 @@ void BlockCryptor::update(
 		leftOver = mInBlockSize; 
 	}
 	toMove = uInSize - leftOver;
-	if(encoding()) {
+	size_t blocks = toMove / mInBlockSize;
+	if(mMultiBlockCapable && !doCbc && (blocks != 0)) {
+		/* 
+		 * Optimization for algorithms that are multi-block capable and that
+		 * can do their own CBC (if necessary).
+		 */
+		size_t thisMove = blocks * mInBlockSize;
+		actMoved = uOutLeft;
+		if(encoding()) {
+			encryptBlock(uInp, thisMove, uOutp, actMoved, false);
+		}
+		else {
+			decryptBlock(uInp, thisMove, uOutp, actMoved, false);
+		}
+		uOutSize += actMoved;
+		uOutp    += actMoved;
+		uInp	 += thisMove;
+		uOutLeft -= actMoved;
+		toMove   -= thisMove; 
+		assert(uOutSize <= outSize);
+	}
+	else if(encoding()) {
 		while(toMove) {
 			actMoved = uOutLeft;
-			if(mMode == BCM_ECB) {
+			if(!doCbc) {
 				/* encrypt directly from input to output */
 				encryptBlock(uInp, mInBlockSize, uOutp, actMoved, false);
 			}
@@ -355,10 +380,10 @@ void BlockCryptor::update(
 		/* decrypting */
 		while(toMove) {
 			actMoved = uOutLeft;
-			if(mMode == BCM_CBC) {
+			if(doCbc) {
 				/* save this ciphertext for chain; don't assume in != out */
 				memmove(mInBuf, uInp, mInBlockSize);
-				decryptBlock(uInp, uOutp, actMoved, false);
+				decryptBlock(uInp, mInBlockSize, uOutp, actMoved, false);
 				
 				/* chain in previous ciphertext */
 				assert(mInBlockSize == actMoved);
@@ -371,7 +396,7 @@ void BlockCryptor::update(
 			}
 			else {
 				/* ECB */
-				decryptBlock(uInp, uOutp, actMoved, false);
+				decryptBlock(uInp, mInBlockSize, uOutp, actMoved, false);
 			}
 			uOutSize += actMoved;
 			uOutp    += actMoved;
@@ -384,7 +409,7 @@ void BlockCryptor::update(
 	
 	/* leftover bytes from inp --> mInBuf */
 	if(leftOver) {
-		if(encoding() && (mMode == BCM_CBC)) {
+		if(encoding() && doCbc) {
 			/* xor into last cipherblock or IV */
 			for(i=0; i<leftOver; i++) {
 				mInBuf[i] ^= *uInp++;
@@ -407,6 +432,7 @@ void BlockCryptor::final(
 	size_t		actMoved;
 	size_t		uOutLeft = out.Length;	// bytes remaining in out
 	unsigned	i;
+	bool		doCbc = (mMode == BCM_CBC) && !mCbcCapable;
 	
 	assert(mInBuf != NULL);
 	mOpStarted = true;
@@ -417,18 +443,18 @@ void BlockCryptor::final(
 		CssmError::throwMe(CSSMERR_CSP_INPUT_LENGTH_ERROR);
 	}
 	if(encoding()) {
-		UInt8 *ctext = out.Data;
+		uint8 *ctext = out.Data;
 		
 		if(mPkcsPadding) {
 			/* 
-			Ê* PKCS5/7 padding: pad byte = size of padding. 
+			 * PKCS5/7 padding: pad byte = size of padding. 
 			 * This assertion courtesy of the limitation on the mutual
 			 * exclusivity of mPkcsPadding and mNeedFinalData. 
 			 */
 			assert(mInBufSize < mInBlockSize);
 			size_t padSize = mInBlockSize - mInBufSize;
-			UInt8 *padPtr  = mInBuf + mInBufSize;
-			if(mMode == BCM_ECB) {
+			uint8 *padPtr  = mInBuf + mInBufSize;
+			if(!doCbc) {
 				for(i=0; i<padSize; i++) {
 					*padPtr++ = padSize;
 				}
@@ -481,10 +507,10 @@ void BlockCryptor::final(
 			CssmError::throwMe(CSSMERR_CSP_INPUT_LENGTH_ERROR);
 		}
 		
-		UInt8 *ptext = out.Data;
+		uint8 *ptext = out.Data;
 		actMoved = uOutLeft;
-		decryptBlock(mInBuf, ptext, actMoved, true);
-		if(mMode == BCM_CBC) {
+		decryptBlock(mInBuf, mInBlockSize, ptext, actMoved, true);
+		if(doCbc) {
 			/* chain in previous ciphertext one more time */
 			assert(mInBlockSize == actMoved);
 			for(i=0; i<mInBlockSize; i++) {
@@ -500,7 +526,7 @@ void BlockCryptor::final(
 				BlockCryptDebug("BlockCryptor::final malformed ciphertext (1)");
 				CssmError::throwMe(CSSM_ERRCODE_INVALID_DATA);
 			}
-			UInt8 *padPtr = ptext + mOutBlockSize - padSize;
+			uint8 *padPtr = ptext + mOutBlockSize - padSize;
 			for(unsigned i=0; i<padSize; i++) {
 				if(*padPtr++ != padSize) {
 					BlockCryptDebug("BlockCryptor::final malformed ciphertext "

@@ -22,6 +22,7 @@
    bug-gdb@gnu.org  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 
@@ -53,7 +54,8 @@ char ascii_string[NUM_CHARS];
 char iso_8859_1_string[NUM_CHARS];
 char ebcdic_us_string[NUM_CHARS];
 char ibm1047_string[NUM_CHARS];
-
+/* APPLE LOCAL: UTF-8 */
+char utf_8_string[NUM_CHARS];
 
 void
 init_string (char string[],
@@ -145,6 +147,17 @@ int main ()
   fill_run (ibm1047_string, 51, 8, 162);
   /* The digits, at least, are contiguous.  */
   fill_run (ibm1047_string, 59, 10, 240);
+
+  /* APPLE LOCAL: UTF-8: The parts of the UTF-8 that we
+     care about are all the same as ASCII...  */
+  init_string (utf_8_string,
+               120,
+               7, 8, 12,
+               10, 13, 9,
+               11, 120, 17);
+  fill_run (utf_8_string, 7, 26, 65);
+  fill_run (utf_8_string, 33, 26, 97);
+  fill_run (utf_8_string, 59, 10, 48);
 
   puts ("All set!");            /* all strings initialized */
 }

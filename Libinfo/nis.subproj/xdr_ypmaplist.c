@@ -77,5 +77,5 @@ struct ypmaplist *objp;
 		return FALSE;
 	}
 	return xdr_pointer(xdrs, (caddr_t *)&objp->next,
-	    sizeof(struct ypmaplist), xdr_ypmaplist);
+	    sizeof(struct ypmaplist), (xdrproc_t)xdr_ypmaplist);
 }

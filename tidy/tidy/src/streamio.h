@@ -3,14 +3,14 @@
 
 /* streamio.h -- handles character stream I/O
 
-  (c) 1998-2003 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
 
   CVS Info :
 
-    $Author: rbraun $ 
-    $Date: 2004/05/04 20:05:14 $ 
-    $Revision: 1.1.1.1 $ 
+    $Author: iccir $ 
+    $Date: 2007/01/30 23:46:52 $ 
+    $Revision: 1.3 $ 
 
   Wrapper around Tidy input source and output sink
   that calls appropriate interfaces, and applies 
@@ -34,6 +34,27 @@ typedef enum
   UserIO
 } IOType;
 
+/* states for ISO 2022
+
+ A document in ISO-2022 based encoding uses some ESC sequences called
+ "designator" to switch character sets. The designators defined and
+ used in ISO-2022-JP are:
+
+    "ESC" + "(" + ?     for ISO646 variants
+
+    "ESC" + "$" + ?     and
+    "ESC" + "$" + "(" + ?   for multibyte character sets
+*/
+typedef enum
+{
+  FSM_ASCII,
+  FSM_ESC,
+  FSM_ESCD,
+  FSM_ESCDP,
+  FSM_ESCP,
+  FSM_NONASCII
+} ISO2022State;
+
 /************************
 ** Source
 ************************/
@@ -43,7 +64,7 @@ typedef enum
 /* non-raw input is cleaned up*/
 struct _StreamIn
 {
-    int    state;     /* FSM for ISO2022 */
+    ISO2022State    state;     /* FSM for ISO2022 */
     Bool   pushed;
     tchar* charbuf;
     uint   bufpos;
@@ -71,17 +92,17 @@ struct _StreamIn
     TidyDocImpl* doc;
 };
 
-void freeStreamIn(StreamIn* in);
+StreamIn* TY_(initStreamIn)( TidyDocImpl* doc, int encoding );
+void TY_(freeStreamIn)(StreamIn* in);
 
-StreamIn* FileInput( TidyDocImpl* doc, FILE* fp, int encoding );
-StreamIn* BufferInput( TidyDocImpl* doc, TidyBuffer* content, int encoding );
-StreamIn* UserInput( TidyDocImpl* doc, TidyInputSource* source, int encoding );
+StreamIn* TY_(FileInput)( TidyDocImpl* doc, FILE* fp, int encoding );
+StreamIn* TY_(BufferInput)( TidyDocImpl* doc, TidyBuffer* content, int encoding );
+StreamIn* TY_(UserInput)( TidyDocImpl* doc, TidyInputSource* source, int encoding );
 
-int       ReadBOMEncoding(StreamIn *in);
-uint      ReadChar( StreamIn* in );
-void      UngetChar( uint c, StreamIn* in );
-uint      PopChar( StreamIn *in );
-Bool      IsEOF( StreamIn* in );
+int       TY_(ReadBOMEncoding)(StreamIn *in);
+uint      TY_(ReadChar)( StreamIn* in );
+void      TY_(UngetChar)( uint c, StreamIn* in );
+Bool      TY_(IsEOF)( StreamIn* in );
 
 
 /************************
@@ -91,7 +112,7 @@ Bool      IsEOF( StreamIn* in );
 struct _StreamOut
 {
     int   encoding;
-    int   state;     /* for ISO 2022 */
+    ISO2022State   state;     /* for ISO 2022 */
     uint  nl;
 
 #ifdef TIDY_WIN32_MLANG_SUPPORT
@@ -102,18 +123,20 @@ struct _StreamOut
     TidyOutputSink sink;
 };
 
-StreamOut* FileOutput( FILE* fp, int encoding, uint newln );
-StreamOut* BufferOutput( TidyBuffer* buf, int encoding, uint newln );
-StreamOut* UserOutput( TidyOutputSink* sink, int encoding, uint newln );
+StreamOut* TY_(FileOutput)( FILE* fp, int encoding, uint newln );
+StreamOut* TY_(BufferOutput)( TidyBuffer* buf, int encoding, uint newln );
+StreamOut* TY_(UserOutput)( TidyOutputSink* sink, int encoding, uint newln );
 
-StreamOut* StdErrOutput(void);
-StreamOut* StdOutOutput(void);
-void       ReleaseStreamOut( StreamOut* out );
+StreamOut* TY_(StdErrOutput)(void);
+/* StreamOut* StdOutOutput(void); */
+void       TY_(ReleaseStreamOut)( StreamOut* out );
 
-void WriteChar( uint c, StreamOut* out );
-void outBOM( StreamOut *out );
+void TY_(WriteChar)( uint c, StreamOut* out );
+void TY_(outBOM)( StreamOut *out );
 
-ctmbstr GetEncodingNameFromTidyId(uint id);
+ctmbstr TY_(GetEncodingNameFromTidyId)(uint id);
+ctmbstr TY_(GetEncodingOptNameFromTidyId)(uint id);
+int TY_(GetCharEncodingFromOptName)(ctmbstr charenc);
 
 /************************
 ** Misc
@@ -156,45 +179,19 @@ ctmbstr GetEncodingNameFromTidyId(uint id);
 #define WIN32MLANG  36
 #endif
 
-/* states for ISO 2022
-
- A document in ISO-2022 based encoding uses some ESC sequences called
- "designator" to switch character sets. The designators defined and
- used in ISO-2022-JP are:
-
-    "ESC" + "(" + ?     for ISO646 variants
-
-    "ESC" + "$" + ?     and
-    "ESC" + "$" + "(" + ?   for multibyte character sets
-*/
-#define FSM_ASCII    0
-#define FSM_ESC      1
-#define FSM_ESCD     2
-#define FSM_ESCDP    3
-#define FSM_ESCP     4
-#define FSM_NONASCII 5
-
 
 /* char encoding used when replacing illegal SGML chars,
 ** regardless of specified encoding.  Set at compile time
 ** to either Windows or Mac.
 */
-extern const int ReplacementCharEncoding;
+extern const int TY_(ReplacementCharEncoding);
 
 /* Function for conversion from Windows-1252 to Unicode */
-uint DecodeWin1252(uint c);
+uint TY_(DecodeWin1252)(uint c);
 
 /* Function to convert from MacRoman to Unicode */
-uint DecodeMacRoman(uint c);
+uint TY_(DecodeMacRoman)(uint c);
 
-/* Function for conversion from OS/2-850 to Unicode */
-uint DecodeIbm850(uint c);
-
-/* Function for conversion from Latin0 to Unicode */
-uint DecodeLatin0(uint c);
-
-/* Function to convert from Symbol Font chars to Unicode */
-uint DecodeSymbolFont(uint c);
 #ifdef __cplusplus
 }
 #endif

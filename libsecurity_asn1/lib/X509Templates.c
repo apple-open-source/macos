@@ -20,10 +20,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  *
- * asn1Templates.c - Common ASN1 templates for use with libNSSDer.
+ * X509Templates.c - Common ASN1 templates for use with libNSSDer.
  */
 
-#include "asn1Templates.h"
+#include "SecAsn1Templates.h"
 #include "X509Templates.h"
 #include "keyTemplates.h"
 #include <assert.h>

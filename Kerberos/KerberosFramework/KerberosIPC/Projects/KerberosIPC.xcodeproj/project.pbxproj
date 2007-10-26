@@ -7,13 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A1032DB905DD7BEC0070BF06 /* LoginSessions.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C9C333021AF01401650119 /* LoginSessions.h */; };
-		A1032DBA05DD7BEC0070BF06 /* mach_client_utilities.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C9C334021AF01401650119 /* mach_client_utilities.h */; };
-		A1032DBB05DD7BEC0070BF06 /* mach_server_utilities.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C9C335021AF01401650119 /* mach_server_utilities.h */; };
-		A1032DBD05DD7BEC0070BF06 /* LoginSessions.c in Sources */ = {isa = PBXBuildFile; fileRef = F5C9C2F7021ADE3501650119 /* LoginSessions.c */; };
-		A1032DBE05DD7BEC0070BF06 /* mach_client_utilities.c in Sources */ = {isa = PBXBuildFile; fileRef = F5C9C2F8021ADE3501650119 /* mach_client_utilities.c */; };
-		A1032DBF05DD7BEC0070BF06 /* mach_server_utilities.c in Sources */ = {isa = PBXBuildFile; fileRef = F5C9C2FA021ADE3501650119 /* mach_server_utilities.c */; };
+		A1032DBD05DD7BEC0070BF06 /* kipc_session.c in Sources */ = {isa = PBXBuildFile; fileRef = F5C9C2F7021ADE3501650119 /* kipc_session.c */; };
+		A1032DBE05DD7BEC0070BF06 /* kipc_client.c in Sources */ = {isa = PBXBuildFile; fileRef = F5C9C2F8021ADE3501650119 /* kipc_client.c */; };
+		A1032DBF05DD7BEC0070BF06 /* kipc_server.c in Sources */ = {isa = PBXBuildFile; fileRef = F5C9C2FA021ADE3501650119 /* kipc_server.c */; };
 		A1032DC105DD7BEC0070BF06 /* notify.defs in Sources */ = {isa = PBXBuildFile; fileRef = A1DB1EAF04C87A9700120112 /* notify.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		A19DCF6B0A0FE508004C4A58 /* kipc_common.c in Sources */ = {isa = PBXBuildFile; fileRef = A19DCF6A0A0FE507004C4A58 /* kipc_common.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -30,39 +28,19 @@
 		};
 /* End PBXBuildRule section */
 
-/* Begin PBXBuildStyle section */
-		F5C9C2F1021ADE0F01650119 /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		F5C9C2F2021ADE0F01650119 /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXFileReference section */
 		A1032DC505DD7BEC0070BF06 /* libKerberosIPC.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libKerberosIPC.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A108E64C0A41E534008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E64D0A41E534008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A19DCF620A0FE4E4004C4A58 /* kipc_common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kipc_common.h; sourceTree = "<group>"; };
+		A19DCF6A0A0FE507004C4A58 /* kipc_common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kipc_common.c; sourceTree = "<group>"; };
 		A1DB1EAF04C87A9700120112 /* notify.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = notify.defs; sourceTree = "<group>"; };
-		F5C9C2F7021ADE3501650119 /* LoginSessions.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = LoginSessions.c; sourceTree = "<group>"; };
-		F5C9C2F8021ADE3501650119 /* mach_client_utilities.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mach_client_utilities.c; sourceTree = "<group>"; };
-		F5C9C2FA021ADE3501650119 /* mach_server_utilities.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mach_server_utilities.c; sourceTree = "<group>"; };
-		F5C9C333021AF01401650119 /* LoginSessions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = LoginSessions.h; sourceTree = "<group>"; };
-		F5C9C334021AF01401650119 /* mach_client_utilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mach_client_utilities.h; sourceTree = "<group>"; };
-		F5C9C335021AF01401650119 /* mach_server_utilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mach_server_utilities.h; sourceTree = "<group>"; };
+		F5C9C2F7021ADE3501650119 /* kipc_session.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kipc_session.c; sourceTree = "<group>"; };
+		F5C9C2F8021ADE3501650119 /* kipc_client.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kipc_client.c; sourceTree = "<group>"; };
+		F5C9C2FA021ADE3501650119 /* kipc_server.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kipc_server.c; sourceTree = "<group>"; };
+		F5C9C333021AF01401650119 /* kipc_session.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kipc_session.h; sourceTree = "<group>"; };
+		F5C9C334021AF01401650119 /* kipc_client.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kipc_client.h; sourceTree = "<group>"; };
+		F5C9C335021AF01401650119 /* kipc_server.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kipc_server.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +57,8 @@
 		F5C9C2F0021ADE0F01650119 = {
 			isa = PBXGroup;
 			children = (
+				A108E64C0A41E534008545E5 /* Release.xcconfig */,
+				A108E64D0A41E534008545E5 /* Debug.xcconfig */,
 				F5C9C330021AF01401650119 /* Headers */,
 				F5C9C2F3021ADE3501650119 /* Sources */,
 				F5C9C304021ADEDF01650119 /* Products */,
@@ -88,9 +68,10 @@
 		F5C9C2F3021ADE3501650119 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				F5C9C2F7021ADE3501650119 /* LoginSessions.c */,
-				F5C9C2F8021ADE3501650119 /* mach_client_utilities.c */,
-				F5C9C2FA021ADE3501650119 /* mach_server_utilities.c */,
+				A19DCF6A0A0FE507004C4A58 /* kipc_common.c */,
+				F5C9C2F8021ADE3501650119 /* kipc_client.c */,
+				F5C9C2FA021ADE3501650119 /* kipc_server.c */,
+				F5C9C2F7021ADE3501650119 /* kipc_session.c */,
 				A1DB1EAF04C87A9700120112 /* notify.defs */,
 			);
 			name = Sources;
@@ -117,9 +98,10 @@
 		F5C9C331021AF01401650119 /* Kerberos */ = {
 			isa = PBXGroup;
 			children = (
-				F5C9C333021AF01401650119 /* LoginSessions.h */,
-				F5C9C334021AF01401650119 /* mach_client_utilities.h */,
-				F5C9C335021AF01401650119 /* mach_server_utilities.h */,
+				A19DCF620A0FE4E4004C4A58 /* kipc_common.h */,
+				F5C9C334021AF01401650119 /* kipc_client.h */,
+				F5C9C335021AF01401650119 /* kipc_server.h */,
+				F5C9C333021AF01401650119 /* kipc_session.h */,
 			);
 			path = Kerberos;
 			sourceTree = "<group>";
@@ -131,9 +113,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1032DB905DD7BEC0070BF06 /* LoginSessions.h in Headers */,
-				A1032DBA05DD7BEC0070BF06 /* mach_client_utilities.h in Headers */,
-				A1032DBB05DD7BEC0070BF06 /* mach_server_utilities.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -152,23 +131,6 @@
 			buildRules = (
 				A1C0263005F6959F00D42F99 /* PBXBuildRule */,
 			);
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_NO_COMMON_BLOCKS = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
-					"$(SRCROOT)/../../KerberosDebug/Headers",
-				);
-				LIBRARY_STYLE = STATIC;
-				PRODUCT_NAME = KerberosIPC;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = KerberosIPC;
@@ -183,12 +145,6 @@
 		F5C9C2EF021ADE0F01650119 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = A1518F08086C85E80042CBBC /* Build configuration list for PBXProject "KerberosIPC" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				F5C9C2F1021ADE0F01650119 /* Development */,
-				F5C9C2F2021ADE0F01650119 /* Deployment */,
-			);
 			hasScannedForEncodings = 1;
 			mainGroup = F5C9C2F0021ADE0F01650119;
 			productRefGroup = F5C9C304021ADEDF01650119 /* Products */;
@@ -215,92 +171,53 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1032DC105DD7BEC0070BF06 /* notify.defs in Sources */,
-				A1032DBD05DD7BEC0070BF06 /* LoginSessions.c in Sources */,
-				A1032DBE05DD7BEC0070BF06 /* mach_client_utilities.c in Sources */,
-				A1032DBF05DD7BEC0070BF06 /* mach_server_utilities.c in Sources */,
+				A1032DBD05DD7BEC0070BF06 /* kipc_session.c in Sources */,
+				A1032DBE05DD7BEC0070BF06 /* kipc_client.c in Sources */,
+				A1032DBF05DD7BEC0070BF06 /* kipc_server.c in Sources */,
+				A19DCF6B0A0FE508004C4A58 /* kipc_common.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A1518F05086C85E80042CBBC /* Development */ = {
+		A1518F05086C85E80042CBBC /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E64D0A41E534008545E5 /* Debug.xcconfig */;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/../Headers",
 					"$(SRCROOT)/../../KerberosDebug/Headers",
 				);
-				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = KerberosIPC;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		A1518F06086C85E80042CBBC /* Deployment */ = {
+		A1518F06086C85E80042CBBC /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E64C0A41E534008545E5 /* Release.xcconfig */;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/../Headers",
 					"$(SRCROOT)/../../KerberosDebug/Headers",
 				);
-				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = KerberosIPC;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		A1518F07086C85E80042CBBC /* Default */ = {
+		A1518F09086C85E80042CBBC /* Debug */ = {
 			isa = XCBuildConfiguration;
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_NO_COMMON_BLOCKS = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
-					"$(SRCROOT)/../../KerberosDebug/Headers",
-				);
-				LIBRARY_STYLE = STATIC;
-				PRODUCT_NAME = KerberosIPC;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wall";
-			};
-			name = Default;
-		};
-		A1518F09086C85E80042CBBC /* Development */ = {
-			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E64D0A41E534008545E5 /* Debug.xcconfig */;
 			buildSettings = {
 			};
-			name = Development;
+			name = Debug;
 		};
-		A1518F0A086C85E80042CBBC /* Deployment */ = {
+		A1518F0A086C85E80042CBBC /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E64C0A41E534008545E5 /* Release.xcconfig */;
 			buildSettings = {
 			};
-			name = Deployment;
-		};
-		A1518F0B086C85E80042CBBC /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -308,22 +225,20 @@
 		A1518F04086C85E80042CBBC /* Build configuration list for PBXNativeTarget "KerberosIPC" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1518F05086C85E80042CBBC /* Development */,
-				A1518F06086C85E80042CBBC /* Deployment */,
-				A1518F07086C85E80042CBBC /* Default */,
+				A1518F05086C85E80042CBBC /* Debug */,
+				A1518F06086C85E80042CBBC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Debug;
 		};
 		A1518F08086C85E80042CBBC /* Build configuration list for PBXProject "KerberosIPC" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1518F09086C85E80042CBBC /* Development */,
-				A1518F0A086C85E80042CBBC /* Deployment */,
-				A1518F0B086C85E80042CBBC /* Default */,
+				A1518F09086C85E80042CBBC /* Debug */,
+				A1518F0A086C85E80042CBBC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};

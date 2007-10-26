@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -15,7 +15,8 @@
    | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: safe_mode.c,v 1.51.2.5.2.2 2007/01/01 09:46:50 sebastian Exp $ */
+
+/* $Id: safe_mode.c,v 1.62.2.1.2.9 2007/07/21 01:43:33 jani Exp $ */
 
 #include "php.h"
 
@@ -44,7 +45,7 @@
  * 5 - only check file
  */
 
-PHPAPI int php_checkuid_ex(const char *filename, char *fopen_mode, int mode, int flags)
+PHPAPI int php_checkuid_ex(const char *filename, const char *fopen_mode, int mode, int flags)
 {
 	struct stat sb;
 	int ret, nofile=0;
@@ -53,6 +54,8 @@ PHPAPI int php_checkuid_ex(const char *filename, char *fopen_mode, int mode, int
 	char *s, filenamecopy[MAXPATHLEN];
 	php_stream_wrapper *wrapper = NULL;
 	TSRMLS_FETCH();
+
+	path[0] = '\0';
 
 	if (!filename) {
 		return 0; /* path must be provided */
@@ -83,7 +86,7 @@ PHPAPI int php_checkuid_ex(const char *filename, char *fopen_mode, int mode, int
 	 * If that fails, passthrough and check directory...
 	 */
 	if (mode != CHECKUID_ALLOW_ONLY_DIR) {
-		VCWD_REALPATH(filename, path);
+		expand_filepath(filename, path TSRMLS_CC);
 		ret = VCWD_STAT(path, &sb);
 		if (ret < 0) {
 			if (mode == CHECKUID_DISALLOW_FILE_NOT_EXISTS) {
@@ -96,7 +99,7 @@ PHPAPI int php_checkuid_ex(const char *filename, char *fopen_mode, int mode, int
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to access %s", filename);
 				}
 				return 1;
-			}
+			} 
 			nofile = 1;
 		} else {
 			uid = sb.st_uid;
@@ -152,8 +155,6 @@ PHPAPI int php_checkuid_ex(const char *filename, char *fopen_mode, int mode, int
  		} else if (PG(safe_mode_gid) && dgid == php_getgid()) {
  			return 1;
 		} else {
-			TSRMLS_FETCH();
-
 			if (SG(rfc1867_uploaded_files)) {
 				if (zend_hash_exists(SG(rfc1867_uploaded_files), (char *) filename, strlen(filename)+1)) {
 					return 1;
@@ -187,13 +188,18 @@ PHPAPI int php_checkuid_ex(const char *filename, char *fopen_mode, int mode, int
 	return 0;
 }
 
-PHPAPI int php_checkuid(const char *filename, char *fopen_mode, int mode) {
+PHPAPI int php_checkuid(const char *filename, const char *fopen_mode, int mode)
+{
+#ifdef NETWARE
+/* NetWare don't have uid*/
+	return 1;
+#else
 	return php_checkuid_ex(filename, fopen_mode, mode, 0);
+#endif
 }
 
-PHPAPI char *php_get_current_user()
+PHPAPI char *php_get_current_user(void)
 {
-	struct passwd *pwd;
 	struct stat *pstat;
 	TSRMLS_FETCH();
 
@@ -208,16 +214,49 @@ PHPAPI char *php_get_current_user()
 	pstat = sapi_get_stat(TSRMLS_C);
 
 	if (!pstat) {
-		return empty_string;
-	}
+		return "";
+	} else {
+#ifdef PHP_WIN32
+		char name[256];
+		DWORD len = sizeof(name)-1;
 
-	if ((pwd=getpwuid(pstat->st_uid))==NULL) {
-		return empty_string;
-	}
-	SG(request_info).current_user_length = strlen(pwd->pw_name);
-	SG(request_info).current_user = estrndup(pwd->pw_name, SG(request_info).current_user_length);
-	
-	return SG(request_info).current_user;		
+		if (!GetUserName(name, &len)) {
+			return "";
+		}
+		name[len] = '\0';
+		SG(request_info).current_user_length = len;
+		SG(request_info).current_user = estrndup(name, len);
+		return SG(request_info).current_user;		
+#else
+		struct passwd *pwd;
+#if defined(ZTS) && defined(HAVE_GETPWUID_R) && defined(_SC_GETPW_R_SIZE_MAX)
+		struct passwd _pw;
+		struct passwd *retpwptr = NULL;
+		int pwbuflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+		char *pwbuf;
+
+		if (pwbuflen < 1) {
+			return "";
+		}
+		pwbuf = emalloc(pwbuflen);
+		if (getpwuid_r(pstat->st_uid, &_pw, pwbuf, pwbuflen, &retpwptr) != 0) {
+			efree(pwbuf);
+			return "";
+		}
+		pwd = &_pw;
+#else
+		if ((pwd=getpwuid(pstat->st_uid))==NULL) {
+			return "";
+		}
+#endif
+		SG(request_info).current_user_length = strlen(pwd->pw_name);
+		SG(request_info).current_user = estrndup(pwd->pw_name, SG(request_info).current_user_length);
+#if defined(ZTS) && defined(HAVE_GETPWUID_R) && defined(_SC_GETPW_R_SIZE_MAX)
+		efree(pwbuf);
+#endif
+		return SG(request_info).current_user;		
+#endif
+	}	
 }	
 
 /*

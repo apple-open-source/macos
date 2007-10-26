@@ -1,0 +1,32 @@
+--- _SB/Libc/locale/FreeBSD/setlocale.3	2004-11-25 11:38:19.000000000 -0800
++++ _SB/Libc/locale/FreeBSD/setlocale.3.edit	2006-06-28 16:55:51.000000000 -0700
+@@ -46,7 +46,10 @@
+ .Sh SYNOPSIS
+ .In locale.h
+ .Ft char *
+-.Fn setlocale "int category" "const char *locale"
++.Fo setlocale
++.Fa "int category"
++.Fa "const char *locale"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn setlocale
+@@ -105,14 +108,14 @@
+ function.
+ .El
+ .Pp
+-Only three locales are defined by default,
++Only three locales are defined by default:
+ the empty string
+ .Li "\&""\|""
+-which denotes the native environment, and the
++(which denotes the native environment) and the
+ .Li "\&""C""
+ and
+ .Li "\&""POSIX""
+-locales, which denote the C language environment.
++locales (which denote the C-language environment).
+ A
+ .Fa locale
+ argument of

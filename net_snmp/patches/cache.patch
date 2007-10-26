@@ -1,0 +1,47 @@
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/include/net-snmp/agent/cache_handler.h APPLE/include/net-snmp/agent/cache_handler.h
+--- SVN/include/net-snmp/agent/cache_handler.h
++++ APPLE/include/net-snmp/agent/cache_handler.h
+@@ -85,6 +85,8 @@ extern          "C" {
+     netsnmp_cache_create(int timeout, NetsnmpCacheLoad * load_hook,
+                          NetsnmpCacheFree * free_hook,
+                          oid * rootoid, int rootoid_len);
++    int netsnmp_cache_free(netsnmp_cache *cache);
++
+     netsnmp_mib_handler *
+     netsnmp_cache_handler_get(netsnmp_cache* cache);
+ 
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/helpers/cache_handler.c APPLE/agent/helpers/cache_handler.c
+--- SVN/agent/helpers/cache_handler.c
++++ APPLE/agent/helpers/cache_handler.c
+@@ -173,6 +173,31 @@ netsnmp_cache_create(int timeout, Netsnm
+     return cache;
+ }
+ 
++/** frees a cache
++ */
++int
++netsnmp_cache_free(netsnmp_cache *cache)
++{
++    netsnmp_cache  *pos;
++
++    if (NULL == cache)
++        return SNMPERR_SUCCESS;
++
++    for (pos = cache_head; pos; pos = pos->next) {
++        if (pos == cache) {
++            snmp_log(LOG_WARNING, "not freeing cache (still in list)\n");
++            return SNMP_ERR_GENERR;
++        }
++    }
++
++    if (cache->rootoid)
++        free(cache->rootoid);
++
++    free(cache);
++
++    return SNMPERR_SUCCESS;
++}
++
+ /** callback function to call cache load function */
+ static void
+ _timer_reload(unsigned int regNo, void *clientargs)

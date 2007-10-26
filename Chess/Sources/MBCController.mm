@@ -2,7 +2,7 @@
 	File:		MBCController.mm
 	Contains:	The controller tying the various agents together
 	Version:	1.0
-	Copyright:	© 2002-2004 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,30 @@
 	Change History (most recent first):
 
 		$Log: MBCController.mm,v $
+		Revision 1.44.2.1  2007/03/31 03:47:35  neerache
+		Make document/save system work without UI changes <rdar://problem/4186113>
+		
+		Revision 1.44  2007/03/02 07:40:46  neerache
+		Revise document handling & saving <rdar://problems/3776337&4186113>
+		
+		Revision 1.43  2007/03/01 23:51:26  neerache
+		Offer option to speak human moves <rdar://problem/4038206>
+		
+		Revision 1.42  2007/03/01 19:53:31  neerache
+		Update move window on load <rdar://problem/3852844>
+		
+		Revision 1.41  2007/01/17 06:10:12  neerache
+		Make last move / hint speakable <rdar://problem/4510483>
+		
+		Revision 1.40  2007/01/16 08:29:39  neerache
+		Log from beginning
+		
+		Revision 1.39  2007/01/16 03:55:02  neerache
+		TTS works again in LP64 <rdar://problem/4899456>
+		
+		Revision 1.38  2006/07/27 04:06:05  neerache
+		Disable TTS for LP64 <rdar://problem/4654447>
+		
 		Revision 1.37  2004/12/20 09:39:29  neerache
 		Implement self test (RADAR 3590419 / Feature 8905)
 		
@@ -157,6 +181,7 @@ NSString * kMBCListenForMoves	= @"MBCListenForMoves";
 NSString * kMBCPieceStyle		= @"MBCPieceStyle";
 NSString * kMBCSearchTime		= @"MBCSearchTime";
 NSString * kMBCSpeakMoves		= @"MBCSpeakMoves";
+NSString * kMBCSpeakHumanMoves	= @"MBCSpeakHumanMoves";
 NSString * kMBCDefaultVoice		= @"MBCDefaultVoice";
 NSString * kMBCAlternateVoice 	= @"MBCAlternateVoice";
 
@@ -218,7 +243,6 @@ static id	sInstance;
 	fVariant		= kVarNormal;
 	fWhiteType		= kMBCHumanPlayer;
 	fBlackType		= kMBCEnginePlayer;
-	fLastSaved		= nil;
 	fStyleLocMap	= [[NSMutableDictionary alloc] initWithCapacity:10];
 
 	//
@@ -281,6 +305,19 @@ static id	sInstance;
 		name:MBCTakebackNotification
 		object:nil];
 	
+	fIsLogging		= false;
+	fEngineBuffer	= [[NSMutableString alloc] init];
+
+	//
+	// Turn on logging if desired
+	//
+	int debug = 0;
+
+	if (getenv("MBC_DEBUG"))
+		debug = atoi(getenv("MBC_DEBUG"));
+	if (debug & 2)
+		[self toggleLogging:self];
+	
 	//
 	// Initialize agents (the board view will report to us itself)
 	//
@@ -288,9 +325,8 @@ static id	sInstance;
 	fBoard		= [[MBCBoard alloc] init];
 	fEngine		= [[MBCEngine alloc] init];
 	fInteractive= [[MBCInteractivePlayer alloc] initWithController:self];
-	
-	fIsLogging		= false;
-	fEngineBuffer	= [[NSMutableString alloc] init];
+
+	[[MBCDocumentController alloc] init];
 
 	return self;
 }
@@ -385,6 +421,11 @@ static id	sInstance;
 	return [fSpeakMoves intValue];
 }
 
+- (BOOL) speakHumanMoves
+{
+	return [fSpeakHumanMoves intValue];
+}
+
 - (BOOL) listenForMoves
 {
 	return [fListenForMoves intValue];
@@ -431,6 +472,7 @@ static id	sInstance;
 							   [defaults objectForKey:kMBCPieceStyle]]];
 	[fListenForMoves setIntValue:[defaults boolForKey:kMBCListenForMoves]];
 	[fSpeakMoves setIntValue:[defaults boolForKey:kMBCSpeakMoves]];
+	[fSpeakHumanMoves setIntValue:[defaults boolForKey:kMBCSpeakHumanMoves]];
 	int searchTime = [defaults integerForKey:kMBCSearchTime];
 	[fEngine setSearchTime:searchTime];
 	if (searchTime < 0)
@@ -466,6 +508,8 @@ static id	sInstance;
 			  forKey:kMBCListenForMoves];
 	[defaults setBool:[fSpeakMoves intValue]
 			  forKey:kMBCSpeakMoves];
+	[defaults setBool:[fSpeakHumanMoves intValue]
+			  forKey:kMBCSpeakHumanMoves];
 }
 
 - (IBAction) updateSearchTime:(id)sender
@@ -564,10 +608,19 @@ static id	sInstance;
 	[fView needsUpdate];
 }
 
+- (MBCDocument *)document
+{
+	//
+	// We don't really track changes
+	//
+	MBCDocument * doc = [[[NSDocumentController sharedDocumentController] documents] objectAtIndex:0];
+	[doc updateChangeCount:NSChangeDone];
+
+	return doc;
+}
+
 - (void)startNewGame
 {
-	[fLastSaved autorelease];
-	fLastSaved = nil;
 	[fBoard startGame:fVariant];
 	[self startGame];
 }
@@ -692,22 +745,13 @@ static id	sInstance;
 - (IBAction) showHint:(id)sender
 {
 	[fView showHint:[fEngine lastPonder]];
+	[fInteractive announceHint:[fEngine lastPonder]];
 }
 
 - (IBAction) showLastMove:(id)sender
 {
 	[fView showLastMove:[fBoard lastMove]];
-}
-
-- (NSWindowController *) windowController
-{
-	NSWindow *				window 	= [fView window];
-	NSWindowController * 	ctrl 	= [window windowController];
-	if (!ctrl) {
-		ctrl = [[NSWindowController alloc] initWithWindow:window];
-		[window setWindowController:ctrl];
-	}
-	return ctrl;
+	[fInteractive announceLastMove:[fBoard lastMove]];
 }
 
 - (IBAction) openGame:(id)sender
@@ -718,34 +762,28 @@ static id	sInstance;
 
 - (IBAction) saveGame:(id)sender
 {
-	NSDocument * doc = [[MBCDocument alloc] initWithController:self];	
-
-	if (fLastSaved)
-		[doc setFileName:fLastSaved];
-	[doc setFileType:@"game"];
-	[doc saveDocument:sender];
-	[fLastSaved autorelease];	
-	fLastSaved = [[doc fileName] retain];
-	[fGameInfo performSelector:@selector(updateTitle:) withObject:self afterDelay:0.010];
+	[[self document] saveDocument:sender];
 }
 
 - (IBAction) saveGameAs:(id)sender
 {
-	NSDocument * doc = [[MBCDocument alloc] initWithController:self];	
-
-	[doc setFileType:@"game"];
-	[doc saveDocument:sender];
-	[fLastSaved autorelease];	
-	fLastSaved = [[doc fileName] retain];
+	[[self document] saveDocumentAs:sender];
 }
 
 - (IBAction) saveMoves:(id)sender
 {
-	NSDocument * doc = [[MBCDocument alloc] initWithController:self];	
+	NSDocument * doc = [self document];
+	NSURL * 	 url = [doc fileURL];
 
 	[doc setFileType:@"moves"];
-	[doc saveDocumentAs:sender];
-	[fGameInfo updateTitle:self];
+	[doc setFileURL:nil];
+	[doc runModalSavePanelForSaveOperation:NSSaveToOperation delegate:self didSaveSelector:@selector(movesSaved:didSave:contextInfo:) contextInfo:url];
+}
+
+- (void) movesSaved:(NSDocument *)doc didSave:(BOOL)whoCares contextInfo:(NSURL*)oldURL
+{
+	[doc setFileType:@"game"];
+	[doc setFileURL:oldURL];
 }
 
 #if HAS_FLOATING_BOARD
@@ -762,10 +800,8 @@ static id	sInstance;
 
 - (BOOL) loadGame:(NSString *)fileName fromDict:(NSDictionary *)dict
 {
-	[fLastSaved autorelease];	
-	fLastSaved = [fileName retain];
-	[fLastLoad release];
-	fLastLoad = [dict retain]; // So we can store values
+	[fLastLoad autorelease];
+	fLastLoad = [dict retain]; // So we can store key values
 	NSString * v = [dict objectForKey:@"Variant"];
 	
 	for (fVariant = kVarNormal; ![v isEqual:sVariants[fVariant]]; )
@@ -782,7 +818,8 @@ static id	sInstance;
 	[fBoard setFen:fen holding:holding moves:moves];
 	[fEngine setGame:fVariant fen:fen holding:holding moves:moves];
 	[fGameInfo setInfo:dict];
-	[fGameInfo performSelector:@selector(updateTitle:) withObject:self afterDelay:0.010];
+	[fGameInfo performSelector:@selector(updateMoves:) withObject:nil afterDelay:0.010];
+	[fGameInfo performSelector:@selector(updateTitle:) withObject:self afterDelay:0.050];
 
 	[self startGame];
 
@@ -818,19 +855,19 @@ static id	sInstance;
 	// Add variant tag (nonstandard, but used by xboard & Co.)
 	//
 	if (fVariant != kVarNormal)
-		fprintf(f, "[Variant \"%s\"]\n", [sVariants[fVariant] cString]);
+		fprintf(f, "[Variant \"%s\"]\n", [sVariants[fVariant] UTF8String]);
 	//
 	// Mark nonhuman players
 	//
 	if (![fWhiteType isEqual: kMBCHumanPlayer]) 
-		fprintf(f, "[WhiteType: \"%s\"]\n", [fWhiteType cString]);
+		fprintf(f, "[WhiteType: \"%s\"]\n", [fWhiteType UTF8String]);
 	if (![fBlackType isEqual: kMBCHumanPlayer]) 
-		fprintf(f, "[BlackType: \"%s\"]\n", [fBlackType cString]);
+		fprintf(f, "[BlackType: \"%s\"]\n", [fBlackType UTF8String]);
 
 	[fBoard saveMovesTo:f];
 	
 	fputc('\n', f);
-	fputs([[fGameInfo pgnResult] cString], f);
+	fputs([[fGameInfo pgnResult] UTF8String], f);
 	fputc('\n', f);
 
 	fclose(f);
@@ -864,8 +901,6 @@ static id	sInstance;
 		NSLog(@"Chess finished starting\n");			
 	if (debug & 1)
 		[self profileDraw:self];
-	if (debug & 2)
-		[self toggleLogging:self];
 	if (debug & 8)
 		sleep(30);
 #if HAS_FLOATING_BOARD
@@ -953,6 +988,42 @@ const int kNumFixedMenuItems = 2;
 
 	[defaults setObject:defaultID forKey:kMBCDefaultVoice];
 	[defaults setObject:alternateID forKey:kMBCAlternateVoice];
+}
+
+@end
+
+@implementation MBCDocumentController 
+
+- (id)init
+{
+	[super init];
+
+	[self newDocument:self];
+
+	return self;
+}
+
+- (void) addDocument:(NSDocument *)doc
+{
+	//
+	// There can only be one!
+	//
+	[[self documents] makeObjectsPerformSelector:@selector(close)];
+
+	[super addDocument:doc];
+}
+
+- (void) removeDocument:(NSDocument *)doc
+{
+	[super removeDocument:doc];
+}
+
+- (BOOL) hasEditedDocuments
+{
+	//	
+	// Prevent review on quitting
+	//
+	return NO;
 }
 
 @end

@@ -1740,7 +1740,7 @@ int LTPBundleFindValueWithKey(char *fileName, char *tokenKey,
 
 	if (!file)
 	{
-		DebugLogC("Could not open bundle file : %s\n", fileName);
+		DebugLogB("Could not open bundle file : %s\n", fileName);
 		return 1;
 	}
 
@@ -1759,7 +1759,7 @@ int LTPBundleFindValueWithKey(char *fileName, char *tokenKey,
 			/*
 			 * Not defined at all 
 			 */
-			DebugLogC("Value/Key not defined for: %s\n", tokenKey);
+			DebugLogB("Value/Key not defined for: %s\n", tokenKey);
 		}
 		fclose(file);
 		return -1;

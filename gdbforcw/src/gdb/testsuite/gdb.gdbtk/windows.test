@@ -1,0 +1,131 @@
+# Basic window tests
+# Copyright 2001, 2003 Red Hat, Inc.
+#
+# This Program Is Free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# This file was written by Keith Seitz (keiths@cygnus.com)
+
+# Read in the standard defs file
+if {![gdbtk_read_defs]} {
+  break
+}
+
+global objdir test_ran
+
+# Windows to test
+# FIXME: TfindArgs needs to be updated before it can go in the list...
+set windows [list BpWin BrowserWin Console DebugWin KodWin LocalsWin \
+	     MemWin ProcessWin RegWin StackWin TdumpWin WatchWin]
+
+# Dialogs to test
+# FIXME: ActionhDlg,TraceDlg cannot be independently opened
+set dialogs [list About AttachDlg GlobalPref SrcPref TargetSelection]
+
+# Helper proc to do all the testing
+proc do_open_close {num winlist} {
+  set i 1
+  foreach win $winlist {
+
+    # Test: windows-$num.*
+    # Desc: Open each window before running
+    set win_obj ""
+    gdbtk_test windows-$num.$i "open $win before running" {
+      set err [catch {ManagedWin::open $win} txt]
+      if {$err} {
+	# display error
+	set txt
+      } else {
+	# display "0"
+	set win_obj $txt
+	set err
+      }
+    } {0}
+
+    # Update screen
+    update idletasks
+
+    # Test: windows-{$num+1}.*
+    # Desc: Close each window before running
+    gdbtk_test windows-[expr {$num+1}].$i "close $win before running" {
+      set err [catch {delete object $win_obj} txt]
+      if {$err} {
+	# display error
+	set txt
+      } else {
+	# display "0"
+	set err
+      }
+    } {0}
+
+    # Update screen
+    update idletasks
+    incr i
+  }
+}
+
+#
+# Tests start here
+#
+
+# Counter for tests. Increment by 2 after each call to do_open_close.
+set num 1
+
+#
+# Check if all windows open with no file loaded
+#
+do_open_close $num $windows
+incr num 2
+
+# Sadly, there is no good way to unpost dialogs (except for setting
+# an after callback). Until something better comes along, skip them.
+# do_open_close $num $dialogs
+# incr num 2
+
+#
+# Check if all windows open with file loaded
+#
+
+# Load in a file
+set program [file join $objdir c_variable]
+if {[catch {gdbtk_test_file $program} t]} {
+  # This isn't a test case, since if this fails, we're hosed.
+  gdbtk_test_error "loading \"$program\": $t"
+}
+
+do_open_close $num $windows
+incr num 2
+#do_open_close $num $dialogs
+incr num 2
+
+#
+# Check if all windows open after running
+#
+
+# Break in main and run
+gdb_cmd "break main"
+gdbtk_test_run
+
+do_open_close $num $windows
+incr num 2
+#do_open_close $num $dialogs
+#incr num 2
+
+#
+#  Exit
+#
+gdbtk_test_done

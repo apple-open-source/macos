@@ -2,7 +2,7 @@
 # Makefile for mod_ssl
 ##
 
-APXS = $(USRSBINDIR)/apxs
+APXS = $(USRSBINDIR)/apxs-1.3
 
 # Project info
 Project               = mod_ssl
@@ -11,7 +11,7 @@ UserType              = Administration
 ToolType              = Services
 Extra_Configure_Flags = --with-apxs="$(APXS)" --with-ssl=SYSTEM
 Extra_Install_Flags   = APXS="$(APXS) -S LIBEXECDIR=\"$(DSTROOT)$(shell $(APXS) -q LIBEXECDIR)\""
-GnuAfterInstall       = strip
+GnuAfterInstall       = strip install-plist
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -23,7 +23,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 2.8.24-1.3.33
+AEP_Version    = 2.8.30-1.3.39
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -61,6 +61,15 @@ install::
 				 $(BuildDirectory)/pkg.ssldoc/*.gif	\
 				 $(BuildDirectory)/pkg.ssldoc/*.jpg	\
 				 $(DSTROOT)$(Install_HTML)
+
+OSV = $(DSTROOT)/usr/local/OpenSourceVersions
+OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
+
+install-plist:
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) $(Sources)/LICENSE $(OSL)/$(Project).txt
 
 strip:
 	$(_v) strip -S $(DSTROOT)$(shell $(APXS) -q LIBEXECDIR)/libssl.so

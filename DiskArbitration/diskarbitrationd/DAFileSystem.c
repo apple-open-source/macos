@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,8 +77,8 @@ typedef struct __DAFileSystemProbeContext __DAFileSystemProbeContext;
 
 struct __DAFileSystemRenameBuffer
 {
-    attrreference_t           data;
-    UInt8                     name[MAXNAMLEN + 1];
+    attrreference_t data;
+    char            name[MAXNAMLEN + 1];
 };
 
 typedef struct __DAFileSystemRenameBuffer __DAFileSystemRenameBuffer;
@@ -104,16 +104,16 @@ static const CFRuntimeClass __DAFileSystemClass =
 
 static CFTypeID __kDAFileSystemTypeID = _kCFRuntimeNotATypeID;
 
-const CFStringRef kDAFileSystemMountArgumentForce       = CFSTR( "force"  );
-const CFStringRef kDAFileSystemMountArgumentNoDevice    = CFSTR( "nodev"  );
-const CFStringRef kDAFileSystemMountArgumentNoExecute   = CFSTR( "noexec" );
-const CFStringRef kDAFileSystemMountArgumentNoOwnership = CFSTR( "noperm" );
-const CFStringRef kDAFileSystemMountArgumentNoSetUserID = CFSTR( "nosuid" );
-const CFStringRef kDAFileSystemMountArgumentNoWrite     = CFSTR( "rdonly" );
-const CFStringRef kDAFileSystemMountArgumentUnion       = CFSTR( "union"  );
-const CFStringRef kDAFileSystemMountArgumentUpdate      = CFSTR( "update" );
+const CFStringRef kDAFileSystemMountArgumentForce       = CFSTR( "force"    );
+const CFStringRef kDAFileSystemMountArgumentNoDevice    = CFSTR( "nodev"    );
+const CFStringRef kDAFileSystemMountArgumentNoExecute   = CFSTR( "noexec"   );
+const CFStringRef kDAFileSystemMountArgumentNoOwnership = CFSTR( "noowners" );
+const CFStringRef kDAFileSystemMountArgumentNoSetUserID = CFSTR( "nosuid"   );
+const CFStringRef kDAFileSystemMountArgumentNoWrite     = CFSTR( "rdonly"   );
+const CFStringRef kDAFileSystemMountArgumentUnion       = CFSTR( "union"    );
+const CFStringRef kDAFileSystemMountArgumentUpdate      = CFSTR( "update"   );
 
-const CFStringRef kDAFileSystemUnmountArgumentForce     = CFSTR( "force"  );
+const CFStringRef kDAFileSystemUnmountArgumentForce     = CFSTR( "force" );
 
 static void __DAFileSystemProbeCallbackStage1( int status, CFDataRef output, void * context );
 static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, void * context );
@@ -414,6 +414,42 @@ static void __DAFileSystemProbeCallbackStageS( int status, CFDataRef output, voi
                           context->devicePath,
                           NULL );
     }
+}
+
+CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoint )
+{
+    struct attr_name_t
+    {
+        size_t          size;
+        attrreference_t data;
+        char            name[MAXNAMLEN + 1];
+    };
+
+    struct attr_name_t attr     = { 0 };
+    struct attrlist    attrlist = { 0 };
+    CFStringRef        name     = NULL;
+    char *             path     = NULL;
+    int                status   = 0;
+
+    attrlist.bitmapcount = ATTR_BIT_MAP_COUNT;
+    attrlist.volattr     = ATTR_VOL_INFO | ATTR_VOL_NAME;
+
+    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+    if ( path == NULL )  goto _DAFileSystemCopyNameErr;
+
+    status = getattrlist( path, &attrlist, &attr, sizeof( attr ), 0 );
+    if ( status == -1 )  goto _DAFileSystemCopyNameErr;
+
+    if ( attr.name[0] )
+    {
+        name = CFStringCreateWithCString( kCFAllocatorDefault, attr.name, kCFStringEncodingUTF8 );
+    }
+
+_DAFileSystemCopyNameErr:
+
+    if ( path )  free( path );
+
+    return name;
 }
 
 CFUUIDRef _DAFileSystemCreateUUIDFromString( CFAllocatorRef allocator, CFStringRef string )

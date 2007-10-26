@@ -23,13 +23,17 @@
 #include <security_cdsa_client/cryptoclient.h>
 #include <security_cdsa_utilities/uniformrandom.h>
 #include <security_utilities/devrandom.h>
+#include <security_utilities/errors.h>
 #include <security_cdsa_client/wrapkey.h>
 #include <security_cdsa_client/genkey.h>
 #include <security_cdsa_utilities/Schema.h>
+#include <security_cdsa_utilities/cssmendian.h>
 #include <securityd_client/ssblob.h>
 #include <securityd_client/ssclient.h>
 #include <Security/cssmapple.h>
 #include <cstdarg>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include "TokenIDHelper.h"
 
 using namespace SecurityServer;
 using namespace CssmClient;
@@ -72,6 +76,12 @@ void fail(const char *fmt, ...);
 void labelForMasterKey(Db &db, CssmOwnedData &data);
 void deleteKey(Db &db, const CssmData &label);	// delete key with this label
 
+void addReferralRecord(Db &srcDb, const DLDbIdentifier &ident, CssmData *refData, CFDataRef labelData);
+void createUnlockConfig(CSP &csp, Db &db);
+void createAKeychain(const char *kcName, const char *passphrase, CSP &csp, DL &dl, Db &db, Key *masterKeyRef);
+OSStatus createTokenProtectedKeychain(const char *kcName);
+void createMasterKey(CSP &csp, Key &masterKeyRef);
+void flattenKey  (const CssmKey &rawKey, CssmDataContainer &flatKey);
 
 //
 // Main program: parse options and dispatch, catching exceptions
@@ -82,13 +92,15 @@ int main (int argc, char * argv[])
 		showUsage,
 		setupSystem,
 		copyKey,
-		testUnlock
+		testUnlock,
+		tokenProtectedKCCreate
 	} action = showUsage;
 
 	extern int optind;
 	extern char *optarg;
 	int arg;
-	while ((arg = getopt(argc, argv, "cCfk:stv")) != -1) {
+	OSStatus status;
+	while ((arg = getopt(argc, argv, "cCfk:stvT:")) != -1) {
 		switch (arg) {
 		case 'c':
 			createIfNeeded = true;
@@ -111,6 +123,10 @@ int main (int argc, char * argv[])
 		case 'v':
 			verbose = true;
 			break;
+		case 'T':					// Create token protected keychain
+			action = tokenProtectedKCCreate;
+			systemKCName = optarg;
+			break;
 		default:
 			usage();
 		}
@@ -132,6 +148,13 @@ int main (int argc, char * argv[])
 		case testUnlock:
 			test(systemKCName);
 			break;
+		case tokenProtectedKCCreate:
+			if (status = createTokenProtectedKeychain(systemKCName))
+			{
+				cssmPerror("unable to create token protected keychain", status);
+				exit(1);
+			}
+			break;
 		default:
 			usage();
 		}
@@ -142,7 +165,11 @@ int main (int argc, char * argv[])
 	} catch (const UnixError &error) {
 		fail("%s: %s", systemKCName, strerror(error.error));
 		exit(1);
-	} catch (...) {
+	} catch (const MacOSError &error) {
+		cssmPerror(systemKCName, error.error);
+		exit(1);
+	} 
+	catch (...) {
 		fail("Unexpected exception");
 		exit(1);
 	}
@@ -154,8 +181,9 @@ int main (int argc, char * argv[])
 //
 void usage()
 {
-	fprintf(stderr, "Usage: systemkeychain -S [passphrase]  # (re)create system root keychain"
+	fprintf(stderr, "Usage: systemkeychain -C [passphrase]  # (re)create system root keychain"
 		"\n\tsystemkeychain [-k destination-keychain] -s source-keychain ..."
+		"\n\tsystemkeychain -T token-protected-keychain-name"
 		"\n");
 	exit(2);
 }
@@ -175,10 +203,21 @@ void createSystemKeychain(const char *kcName, const char *passphrase)
 	
 	// create the keychain, using appropriate credentials
 	Db db(dl, kcName);
+	Key masterKey;
+
+	createMasterKey(csp, masterKey);
+	createAKeychain(kcName, passphrase, csp, dl, db, &masterKey);
+	createUnlockConfig(csp, db);
+	
+	notice("%s installed as system keychain", kcName);
+}
+
+void createAKeychain(const char *kcName, const char *passphrase, CSP &csp, DL &dl, Db &db, Key *masterKeyRef)
+{
+	// create the keychain, using appropriate credentials
 	Allocator &alloc = db->allocator();
 	AutoCredentials cred(alloc);	// will leak, but we're quitting soon :-)
 	CSSM_CSP_HANDLE cspHandle = csp->handle();
-	Key masterKey;
 	if (passphrase) {
 		// use this passphrase
 		cred += TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK,
@@ -188,20 +227,21 @@ void createSystemKeychain(const char *kcName, const char *passphrase)
 			new(alloc) ListElement(CSSM_SAMPLE_TYPE_PASSWORD),
 			new(alloc) ListElement(StringData(passphrase)));
 		db->accessCredentials(&cred);
-	} else {
+	}
+	else
+	{
 		// generate a random key
 		notice("warning: this keychain cannot be unlocked with any passphrase");
-		GenerateKey generate(csp, CSSM_ALGID_3DES_3KEY_EDE, 64 * 3);
-		masterKey =	generate(KeySpec(CSSM_KEYUSE_ANY,
-			CSSM_KEYATTR_RETURN_REF | CSSM_KEYATTR_EXTRACTABLE));
+		if (!masterKeyRef)				// caller does not need it returned for later use
+			MacOSError::throwMe(paramErr);
 		cred += TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK,
-			new(alloc) ListElement(CSSM_WORDID_SYMMETRIC_KEY),
+			new(alloc) ListElement(CSSM_SAMPLE_TYPE_SYMMETRIC_KEY),
 			new(alloc) ListElement(CssmData::wrap(cspHandle)),
-			new(alloc) ListElement(CssmData::wrap(static_cast<const CssmKey &>(masterKey))));
+			new(alloc) ListElement(CssmData::wrap(static_cast<const CssmKey &>(*masterKeyRef))));
 		cred += TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
-			new(alloc) ListElement(CSSM_WORDID_SYMMETRIC_KEY),
+			new(alloc) ListElement(CSSM_SAMPLE_TYPE_SYMMETRIC_KEY),
 			new(alloc) ListElement(CssmData::wrap(cspHandle)),
-			new(alloc) ListElement(CssmData::wrap(static_cast<const CssmKey &>(masterKey))),
+			new(alloc) ListElement(CssmData::wrap(static_cast<const CssmKey &>(*masterKeyRef))),
 			new(alloc) ListElement(CssmData()));
 		db->accessCredentials(&cred);
 	}
@@ -216,8 +256,18 @@ void createSystemKeychain(const char *kcName, const char *passphrase)
 		} else
 			throw;
 	}
-	chmod(db->name(), 0644);
+	chmod(db->name(), 0644);	
+}
 
+void createMasterKey(CSP &csp, Key &masterKeyRef)
+{
+	// generate a random key
+	CssmClient::GenerateKey generate(csp, CSSM_ALGID_3DES_3KEY_EDE, 64 * 3);
+	masterKeyRef =	generate(KeySpec(CSSM_KEYUSE_ANY, CSSM_KEYATTR_RETURN_REF | CSSM_KEYATTR_EXTRACTABLE));
+}
+
+void createUnlockConfig(CSP &csp, Db &db)
+{
 	// extract the key into the CSPDL
 	DeriveKey derive(csp, CSSM_ALGID_KEYCHAIN_KEY, CSSM_ALGID_3DES_3KEY, 3 * 64);
 	CSSM_DL_DB_HANDLE dlDb = db->handle();
@@ -253,10 +303,7 @@ void createSystemKeychain(const char *kcName, const char *passphrase)
 	}
 	blobFile.close();
 	::rename(tempFile.c_str(), unlockConfig);
-	
-	notice("%s installed as system keychain", kcName);
 }
-
 
 //
 // Extract the master secret from a keychain and install it in another keychain for unlocking
@@ -306,29 +353,49 @@ void extract(const char *srcName, const char *dstName)
 		derive(&dlDbData, spec, masterKey);
 	}
 	
+	addReferralRecord(srcDb, dstDb->dlDbIdentifier(), NULL, NULL);
+	
+	notice("%s can now be unlocked with a key in %s", srcName, dstName);
+}
+
+void addReferralRecord(Db &srcDb, const DLDbIdentifier &ident, CssmData *refData, CFDataRef label)
+{
+	// If you have a Db dstDb, call with dstDb->dlDbIdentifier() as second parameter
+	using namespace KeychainCore;
 	// now add a referral record to the source database
+	uint32 referralType = (!refData)?CSSM_APPLE_UNLOCK_TYPE_KEY_DIRECT:CSSM_APPLE_UNLOCK_TYPE_WRAPPED_PRIVATE;
 	try {
 		// build attribute vector
-		DLDbIdentifier ident = dstDb->dlDbIdentifier();
+		CssmAutoData masterKeyLabel(Allocator::standard());
+		CssmData externalLabel;
+		if (label)
+		{
+			externalLabel.Data = const_cast<uint8 *>(CFDataGetBytePtr(label));
+			externalLabel.Length = CFDataGetLength(label);
+		}
+		else
+			labelForMasterKey(srcDb, masterKeyLabel);
 		CssmAutoDbRecordAttributeData refAttrs(9);
-		refAttrs.add(Schema::kUnlockReferralType, uint32(CSSM_APPLE_UNLOCK_TYPE_KEY_DIRECT));
+		refAttrs.add(Schema::kUnlockReferralType, uint32(referralType));
 		refAttrs.add(Schema::kUnlockReferralDbName, ident.dbName());
 		refAttrs.add(Schema::kUnlockReferralDbNetname, CssmData());
 		refAttrs.add(Schema::kUnlockReferralDbGuid, ident.ssuid().guid());
 		refAttrs.add(Schema::kUnlockReferralDbSSID, ident.ssuid().subserviceId());
 		refAttrs.add(Schema::kUnlockReferralDbSSType, ident.ssuid().subserviceType());
-		refAttrs.add(Schema::kUnlockReferralKeyLabel, keyLabel.get());
+		refAttrs.add(Schema::kUnlockReferralKeyLabel, label?externalLabel:masterKeyLabel.get());
 		refAttrs.add(Schema::kUnlockReferralKeyAppTag, CssmData());
 		refAttrs.add(Schema::kUnlockReferralPrintName,
 			StringData("Keychain Unlock Referral Record"));
 
 		// no reference data for this form
-		CssmData refData;
-		
+		CssmData emptyRefData;
+		if (!refData)
+			refData = &emptyRefData;
+			
 		try {
 			srcDb->insert(CSSM_DL_DB_RECORD_UNLOCK_REFERRAL,
 				&refAttrs,
-				&refData);
+				refData);
 			secdebug("kcreferral", "referral record stored in %s", srcDb->name());
 		} catch (const CssmError &e) {
 			if (e.error != CSSMERR_DL_INVALID_RECORDTYPE)
@@ -343,16 +410,128 @@ void extract(const char *srcName, const char *dstName)
 				Schema::UnlockReferralSchemaIndexList);
 			srcDb->insert(CSSM_DL_DB_RECORD_UNLOCK_REFERRAL,
 				&refAttrs,
-				&refData);
+				refData);
 			secdebug("kcreferral", "referral record inserted in %s (on retry)", srcDb->name());
 		}
 	} catch (...) {
-		fail("cannot store referral in %s", srcDb->name());
+		notice("kcreferral", "cannot store referral in %s", srcDb->name());
+		throw;
 	}
-	
-	notice("%s can now be unlocked with a key in %s", srcName, dstName);
 }
 
+//
+// Create a keychain protected with an asymmetric key stored on a token (e.g. smartcard)
+// See createSystemKeychain for a similar call
+//
+#include <Security/SecKey.h>
+#include <Security/SecKeychain.h>
+#include <Security/SecKeychainItem.h>
+
+OSStatus createTokenProtectedKeychain(const char *kcName)
+{
+	// In the notation of "extract", srcDb is the keychain to be unlocked
+	// (e.g. login keychain), and dstDb is the one to unlock with (e.g. smartcard/token)
+	// @@@ A later enhancement should allow lookup by public key hash
+	
+	SecKeychainRef keychainRef = NULL;
+	SecKeyRef publicKeyRef = NULL;
+	const CSSM_KEY *pcssmKey;
+	CssmKey pubEncryptionKey;
+	CssmKey nullWrappedPubEncryptionKey;
+	CFDataRef label = NULL;
+	OSStatus status = findFirstEncryptionPublicKeyOnToken(&publicKeyRef, &keychainRef, &label);
+	if (status)
+		return status;
+	
+	status = SecKeyGetCSSMKey(publicKeyRef,  &pcssmKey);
+	if (status)
+		return status;
+	pubEncryptionKey = *pcssmKey;
+
+	CSSM_DL_DB_HANDLE dstdldbHandle;
+	status = SecKeychainGetDLDBHandle(keychainRef, &dstdldbHandle);
+	if (status)
+		return status;
+
+	char *tokenName;
+	CSSM_SUBSERVICE_UID tokenUID;
+
+	CSSM_RETURN cx;
+	cx = CSSM_DL_GetDbNameFromHandle (dstdldbHandle, &tokenName);
+	if (cx)
+		return cx;
+
+	cx = CSSM_GetSubserviceUIDFromHandle (dstdldbHandle.DLHandle, &tokenUID);
+	if (cx)
+		return cx;
+
+	secdebug("kcreferral", "Key found on token with subserviceId: %d", tokenUID.SubserviceId);
+	DLDbIdentifier tokenIdentifier(tokenName, Guid(gGuidAppleSdCSPDL), tokenUID.SubserviceId, 
+			CSSM_SERVICE_CSP | CSSM_SERVICE_DL , NULL);
+
+	CSP csp(gGuidAppleCSPDL);
+	DL dl(gGuidAppleCSPDL);
+	
+	// create the keychain, using appropriate credentials
+	Db srcdb(dl, kcName);
+	Key masterKey;
+
+	createMasterKey(csp, masterKey);
+	createAKeychain(kcName, NULL, csp, dl, srcdb, &masterKey);
+
+	// Turn the raw key into a reference key in the local csp with a NULL unwrap
+	CssmClient::Key publicEncryptionKey(csp, pubEncryptionKey, true);
+
+	UnwrapKey tunwrap(csp, CSSM_ALGID_NONE);
+	CSSM_KEYUSE uu = CSSM_KEYUSE_ANY;
+	CSSM_KEYATTR_FLAGS attrs = CSSM_KEYATTR_RETURN_REF | CSSM_KEYATTR_EXTRACTABLE;
+	tunwrap(publicEncryptionKey, KeySpec(uu, attrs), nullWrappedPubEncryptionKey);
+	CssmClient::Key nullWrappedPubEncryptionKeyX(csp, nullWrappedPubEncryptionKey, true);
+
+	// use a CMS wrap to encrypt the key
+	CssmKey wrappedKey;
+	WrapKey wrap(csp, CSSM_ALGID_RSA);		// >>>> will be key on token -- WrapKey wrap
+	wrap.key(nullWrappedPubEncryptionKeyX);
+	wrap.mode(CSSM_ALGMODE_NONE);
+	wrap.padding(CSSM_PADDING_PKCS1);
+	// only add if not CSSM_KEYBLOB_WRAPPED_FORMAT_NONE
+	wrap.add(CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT, uint32(CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7));
+	wrap(masterKey, wrappedKey);
+
+	CssmDataContainer flatKey;
+	flattenKey(wrappedKey, flatKey);
+	addReferralRecord(srcdb, tokenIdentifier, &flatKey, label);
+
+	if (publicKeyRef)
+		CFRelease(publicKeyRef);
+	if (label)
+		CFRelease(label);
+		
+	return noErr;
+}
+
+void flattenKey(const CssmKey &rawKey, CssmDataContainer &flatKey)
+{
+	// Flatten the raw input key naively: key header then key data
+	// We also convert it to network byte order in case the referral
+	// record ends up being used on a different machine
+	// A CSSM_KEY is a CSSM_KEYHEADER followed by a CSSM_DATA
+	
+	CssmKey rawKeyCopy(rawKey);
+	const uint32 keyDataLength = rawKeyCopy.length();
+	uint32 sz = (sizeof(CSSM_KEY) + keyDataLength);
+	flatKey.Data = flatKey.mAllocator.alloc<uint8>(sz);
+	flatKey.Length = sz;
+	
+	Security::h2ni(rawKeyCopy.KeyHeader);	// convert it to network byte order
+	
+	// Now copy: header, then key struct, then key data
+	memcpy(flatKey.Data, &rawKeyCopy.header(), sizeof(CSSM_KEYHEADER));
+	memcpy(flatKey.Data + sizeof(CSSM_KEYHEADER), &rawKeyCopy.keyData(), sizeof(CSSM_DATA));
+	memcpy(flatKey.Data + sizeof(CSSM_KEYHEADER) + sizeof(CSSM_DATA), rawKeyCopy.data(), keyDataLength);
+	// Note that the Data pointer in the CSSM_DATA portion will not be meaningful when unpacked later
+	// We will also fill in the unflattened key length based on the size of flatKey
+}
 
 //
 // Run a simple test to see if the system-root keychain can auto-unlock.

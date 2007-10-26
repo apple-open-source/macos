@@ -1,0 +1,256 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		014CEA520018CE5811CA2923 = {
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBC/build/Development ../../mac/iODBC/build ../../mac/iODBCinst/build/Development ../../mac/iODBCinst/build";
+				FRAMEWORK_VERSION = 3.52;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
+				HEADER_SEARCH_PATHS = "../../include";
+				INSTALL_PATH = "/Library/Application Support/iODBC/bin";
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-DUNICODE";
+				RESMERGER_SOURCES_FORK = data;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		014CEA530018CE5811CA2923 = {
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBC/build/Deployment ../../mac/iODBC/build ../../mac/iODBCinst/build/Deployment ../../mac/iODBCinst/build";
+				FRAMEWORK_VERSION = 3.52;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				HEADER_SEARCH_PATHS = "../../include";
+				INSTALL_PATH = "/Library/Application Support/iODBC/bin";
+				OPTIMIZATION_CFLAGS = "-DUNICODE -O2";
+				RESMERGER_SOURCES_FORK = data;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//010
+//011
+//012
+//013
+//014
+//030
+//031
+//032
+//033
+//034
+		034768E8FF38A79811DB9C8B = {
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
+			path = iodbctestw;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+//030
+//031
+//032
+//033
+//034
+//080
+//081
+//082
+//083
+//084
+		08FB7793FE84155DC02AAC07 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				014CEA520018CE5811CA2923,
+				014CEA530018CE5811CA2923,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 08FB7794FE84155DC02AAC07;
+			projectDirPath = "";
+			targets = (
+				08FB779FFE84155DC02AAC07,
+			);
+		};
+		08FB7794FE84155DC02AAC07 = {
+			children = (
+				08FB7795FE84155DC02AAC07,
+				F535B3B802780F5F01A801DE,
+				1AB674ADFE9D54B511CA2CBB,
+			);
+			isa = PBXGroup;
+			name = iodbctestw;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 = {
+			children = (
+				F535B3B702780F5F01A801DE,
+			);
+			isa = PBXGroup;
+			name = Source;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		08FB779FFE84155DC02AAC07 = {
+			buildPhases = (
+				08FB77A0FE84155DC02AAC07,
+				08FB77A1FE84155DC02AAC07,
+				08FB77A3FE84155DC02AAC07,
+				08FB77A5FE84155DC02AAC07,
+			);
+			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBC/build/Deployment ../../mac/iODBC/build ../../mac/iODBCinst/build/Deployment ../../mac/iODBCinst/build";
+				HEADER_SEARCH_PATHS = "../../include";
+				INSTALL_PATH = "/Library/Application Support/iODBC/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = iodbctestw;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = iodbctestw;
+			productInstallPath = "/Library/Application Support/iODBC/bin";
+			productName = iodbctestw;
+			productReference = 034768E8FF38A79811DB9C8B;
+		};
+		08FB77A0FE84155DC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		08FB77A1FE84155DC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				F535B3B902780F5F01A801DE,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		08FB77A3FE84155DC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				F5CD650D0497672D01A801EC,
+				F5CD65130497673F01A801EC,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		08FB77A5FE84155DC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+//080
+//081
+//082
+//083
+//084
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+		1AB674ADFE9D54B511CA2CBB = {
+			children = (
+				034768E8FF38A79811DB9C8B,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F535B3B702780F5F01A801DE = {
+			explicitFileType = sourcecode.c.c;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = iodbctest.c;
+			path = ../../samples/iodbctest.c;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		F535B3B802780F5F01A801DE = {
+			children = (
+				F5CD65030497672D01A801EC,
+				F5CD650E0497673F01A801EC,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			path = ..;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		F535B3B902780F5F01A801DE = {
+			fileRef = F535B3B702780F5F01A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CD65030497672D01A801EC = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = iODBC.framework;
+			path = ../iODBC/build/iODBC.framework;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5CD650D0497672D01A801EC = {
+			fileRef = F5CD65030497672D01A801EC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5CD650E0497673F01A801EC = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = iODBCinst.framework;
+			path = ../iODBCinst/build/iODBCinst.framework;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		F5CD65130497673F01A801EC = {
+			fileRef = F5CD650E0497673F01A801EC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 08FB7793FE84155DC02AAC07;
+}

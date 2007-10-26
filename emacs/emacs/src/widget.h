@@ -1,5 +1,6 @@
 /* The emacs frame widget public header file.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Emacs 19 face widget ported by Fred Pierresteguy */
 
@@ -99,3 +100,6 @@ void EmacsFrameSetCharSize P_ ((Widget, int, int));
 void widget_store_internal_border P_ ((Widget widget));
 
 #endif /* _EmacsFrame_h */
+
+/* arch-tag: 98be17cc-8878-4701-abfa-66f1c04e9cb7
+   (do not change this comment) */

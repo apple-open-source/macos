@@ -4,7 +4,8 @@
 /* { dg-do run } */
 /* { dg-options "-O2" } */
 
-#include <objc/Object.h>
+/* APPLE LOCAL radar 4894756 */
+#include "../objc/execute/Object2.h"
 #include <string.h>
 #include <stdlib.h>
 

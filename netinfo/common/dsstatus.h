@@ -57,4 +57,4 @@ typedef enum
 
 char *dsstatus_message(dsstatus);
 
-#endif __DSSTATUS_H__
+#endif /* __DSSTATUS_H__ */

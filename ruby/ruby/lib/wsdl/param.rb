@@ -33,7 +33,15 @@ class Param < Info
   end
 
   def find_message
-    root.message(@message)
+    root.message(@message) or raise RuntimeError.new("#{@message} not found")
+  end
+
+  def soapbody_use
+    if @soapbody
+      @soapbody.use || :literal
+    else
+      raise RuntimeError.new("soap:body not found")
+    end
   end
 
   def parse_element(element)
@@ -61,6 +69,9 @@ class Param < Info
   def parse_attr(attr, value)
     case attr
     when MessageAttrName
+      if value.namespace.nil?
+        value = XSD::QName.new(targetnamespace, value.source)
+      end
       @message = value
     when NameAttrName
       @name = XSD::QName.new(targetnamespace, value.source)

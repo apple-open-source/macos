@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,7 +46,7 @@ __SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 	CFStringRef			sessionKey;
 	CFDictionaryRef			info;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -107,7 +107,7 @@ _notifyviasignal(mach_port_t	server,
 		return KERN_SUCCESS;
 	}
 
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
 	}

@@ -1,6 +1,7 @@
 ;;; gnus-draft.el --- draft message support for Gnus
-;; Copyright (C) 1997, 1998, 1999, 2000
-;;        Free Software Foundation, Inc.
+
+;; Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -46,6 +47,7 @@
 
   (gnus-define-keys gnus-draft-mode-map
     "Dt" gnus-draft-toggle-sending
+    "e"  gnus-draft-edit-message ;; Use `B w' for `gnus-summary-edit-article'
     "De" gnus-draft-edit-message
     "Ds" gnus-draft-send-message
     "DS" gnus-draft-send-all-messages))
@@ -74,7 +76,6 @@
       (when (gnus-visual-p 'draft-menu 'menu)
 	(gnus-draft-make-menu-bar))
       (gnus-add-minor-mode 'gnus-draft-mode " Draft" gnus-draft-mode-map)
-      (mml-mode)
       (gnus-run-hooks 'gnus-draft-mode-hook))))
 
 ;;; Commands
@@ -94,13 +95,19 @@
 (defun gnus-draft-edit-message ()
   "Enter a mail/post buffer to edit and send the draft."
   (interactive)
-  (let ((article (gnus-summary-article-number)))
+  (let ((article (gnus-summary-article-number))
+	(group gnus-newsgroup-name))
+    (gnus-draft-check-draft-articles (list article))
     (gnus-summary-mark-as-read article gnus-canceled-mark)
-    (gnus-draft-setup article gnus-newsgroup-name t)
+    (gnus-draft-setup article group t)
     (set-buffer-modified-p t)
+    (save-excursion
+      (save-restriction
+	(message-narrow-to-headers)
+	(message-remove-header "date")))
     (save-buffer)
     (let ((gnus-verbose-backends nil))
-      (gnus-request-expire-articles (list article) gnus-newsgroup-name t))
+      (gnus-request-expire-articles (list article) group t))
     (push
      `((lambda ()
 	 (when (gnus-buffer-exists-p ,gnus-summary-buffer)
@@ -115,32 +122,47 @@
   (let* ((articles (gnus-summary-work-articles n))
 	 (total (length articles))
 	 article)
+    (gnus-draft-check-draft-articles articles)
     (while (setq article (pop articles))
       (gnus-summary-remove-process-mark article)
       (unless (memq article gnus-newsgroup-unsendable)
-	(let ((message-sending-message 
-	       (format "Sending message %d of %d..." 
+	(let ((message-sending-message
+	       (format "Sending message %d of %d..."
 		       (- total (length articles)) total)))
 	  (gnus-draft-send article gnus-newsgroup-name t))
 	(gnus-summary-mark-article article gnus-canceled-mark)))))
 
 (defun gnus-draft-send (article &optional group interactive)
   "Send message ARTICLE."
-  (let ((message-syntax-checks (if interactive nil
-				 'dont-check-for-anything-just-trust-me))
-	(message-inhibit-body-encoding (or (not group) 
-					   (equal group "nndraft:queue")
-					   message-inhibit-body-encoding))
-	(message-send-hook (and group (not (equal group "nndraft:queue"))
-				message-send-hook))
-	(message-setup-hook (and group (not (equal group "nndraft:queue"))
-				 message-setup-hook))
-	type method)
+  (let* ((is-queue (or (not group)
+                       (equal group "nndraft:queue")))
+         (message-syntax-checks (if interactive message-syntax-checks
+                                  'dont-check-for-anything-just-trust-me))
+         (message-hidden-headers nil)
+         (message-inhibit-body-encoding (or is-queue
+                                            message-inhibit-body-encoding))
+         (message-send-hook (and (not is-queue)
+                                 message-send-hook))
+         (message-setup-hook (and (not is-queue)
+                                  message-setup-hook))
+	 (message-signature (and (not is-queue)
+				 message-signature))
+         (gnus-agent-queue-mail (and (not is-queue)
+                                     gnus-agent-queue-mail))
+	 (rfc2047-encode-encoded-words nil)
+         type method move-to)
     (gnus-draft-setup article (or group "nndraft:queue"))
     ;; We read the meta-information that says how and where
     ;; this message is to be sent.
     (save-restriction
-      (message-narrow-to-head)
+      (message-narrow-to-headers)
+      (when (re-search-forward
+	     (concat "^" (regexp-quote gnus-agent-target-move-group-header)
+		     ":") nil t)
+	(skip-syntax-forward "-")
+	(setq move-to (buffer-substring (point) (gnus-point-at-eol)))
+	(message-remove-header gnus-agent-target-move-group-header))
+      (goto-char (point-min))
       (when (re-search-forward
 	     (concat "^" (regexp-quote gnus-agent-meta-information-header) ":")
 	     nil t)
@@ -159,8 +181,12 @@
 			 (message-this-is-mail (eq type 'mail))
 			 (gnus-post-method method)
 			 (message-post-method method))
-		     (message-send-and-exit))
-		 (message-send-and-exit)))
+		     (if move-to
+			 (gnus-inews-do-gcc move-to)
+		       (message-send-and-exit)))
+		 (if move-to
+		     (gnus-inews-do-gcc move-to)
+		   (message-send-and-exit))))
       (let ((gnus-verbose-backends nil))
 	(gnus-request-expire-articles
 	 (list article) (or group "nndraft:queue") t)))))
@@ -168,27 +194,49 @@
 (defun gnus-draft-send-all-messages ()
   "Send all the sendable drafts."
   (interactive)
-  (gnus-uu-mark-buffer)
-  (gnus-draft-send-message))
+  (when (or
+	 gnus-expert-user
+	 (gnus-y-or-n-p
+	  "Send all drafts? "))
+    (gnus-uu-mark-buffer)
+    (gnus-draft-send-message)))
 
-(defun gnus-group-send-drafts ()
+(defun gnus-group-send-queue ()
   "Send all sendable articles from the queue group."
   (interactive)
-  (gnus-activate-group "nndraft:queue")
-  (save-excursion
-    (let* ((articles (nndraft-articles))
-	   (unsendable (gnus-uncompress-range
-			(cdr (assq 'unsend
-				   (gnus-info-marks
-				    (gnus-get-info "nndraft:queue"))))))
-	   (total (length articles))
-	   article)
-      (while (setq article (pop articles))
-	(unless (memq article unsendable)
-	  (let ((message-sending-message 
-		 (format "Sending message %d of %d..." 
-			 (- total (length articles)) total)))
-	    (gnus-draft-send article)))))))
+  (when (or gnus-plugged
+	    (not gnus-agent-prompt-send-queue)
+	    (gnus-y-or-n-p "Gnus is unplugged; really send queue? "))
+    (gnus-activate-group "nndraft:queue")
+    (save-excursion
+      (let* ((articles (nndraft-articles))
+	     (unsendable (gnus-uncompress-range
+			  (cdr (assq 'unsend
+				     (gnus-info-marks
+				      (gnus-get-info "nndraft:queue"))))))
+	     (gnus-posting-styles nil)
+	     (total (length articles))
+	     article)
+	(while (setq article (pop articles))
+	  (unless (memq article unsendable)
+	    (let ((message-sending-message
+		   (format "Sending message %d of %d..."
+			   (- total (length articles)) total)))
+	      (gnus-draft-send article))))))))
+
+;;;###autoload
+(defun gnus-draft-reminder ()
+  "Reminder user if there are unsent drafts."
+  (interactive)
+  (if (gnus-alive-p)
+      (let (active)
+	(catch 'continue
+	  (dolist (group '("nndraft:drafts" "nndraft:queue"))
+	    (setq active (gnus-activate-group group))
+	    (if (and active (>= (cdr active) (car active)))
+		(if (y-or-n-p "There are unsent drafts.  Confirm to exit? ")
+		    (throw 'continue t)
+		  (error "Stop!"))))))))
 
 ;;; Utility functions
 
@@ -199,26 +247,77 @@
 
 (progn
   (defun gnus-draft-setup (narticle group &optional restore)
-    (gnus-setup-message 'forward
-      (let ((article narticle))
-	(message-mail)
-	(erase-buffer)
-	(if (not (gnus-request-restore-buffer article group))
-	    (error "Couldn't restore the article")
-	  (if (and restore (equal group "nndraft:queue"))
+    (let (ga)
+      (gnus-setup-message 'forward
+	(let ((article narticle))
+	  (message-mail)
+	  (erase-buffer)
+	  (if (not (gnus-request-restore-buffer article group))
+	      (error "Couldn't restore the article")
+	    (when (and restore
+		       (equal group "nndraft:queue"))
 	      (mime-to-mml))
-	  ;; Insert the separator.
-	  (goto-char (point-min))
-	  (search-forward "\n\n")
-	  (forward-char -1)
-	  (insert mail-header-separator)
-	  (forward-line 1)
-	  (message-set-auto-save-file-name))))))
+	    ;; Insert the separator.
+	    (goto-char (point-min))
+	    (search-forward "\n\n")
+	    (forward-char -1)
+	    (save-restriction
+	      (narrow-to-region (point-min) (point))
+	      (setq ga
+		    (message-fetch-field gnus-draft-meta-information-header)))
+	    (insert mail-header-separator)
+	    (forward-line 1)
+	    (message-set-auto-save-file-name))))
+      (gnus-backlog-remove-article group narticle)
+      (when (and ga
+		 (ignore-errors (setq ga (car (read-from-string ga)))))
+	(setq gnus-newsgroup-name
+	      (if (equal (car ga) "") nil (car ga)))
+	(gnus-configure-posting-styles)
+	(setq gnus-message-group-art (cons gnus-newsgroup-name (cadr ga)))
+	(setq message-post-method
+	      `(lambda (arg)
+		 (gnus-post-method arg ,(car ga))))
+	(unless (equal (cadr ga) "")
+	  (dolist (article (cdr ga))
+	    (message-add-action
+	     `(progn
+		(gnus-add-mark ,(car ga) 'replied ,article)
+		(gnus-request-set-mark ,(car ga) (list (list (list ,article)
+							     'add '(reply)))))
+	     'send)))))))
 
 (defun gnus-draft-article-sendable-p (article)
   "Say whether ARTICLE is sendable."
   (not (memq article gnus-newsgroup-unsendable)))
 
+(defun gnus-draft-check-draft-articles (articles)
+  "Check whether the draft articles ARTICLES are under edit."
+  (when (equal gnus-newsgroup-name "nndraft:drafts")
+    (let ((buffers (buffer-list))
+	  file buffs buff)
+      (save-current-buffer
+	(while (and articles
+		    (not buff))
+	  (setq file (nndraft-article-filename (pop articles))
+		buffs buffers)
+	  (while buffs
+	    (set-buffer (setq buff (pop buffs)))
+	    (if (and buffer-file-name
+		     (string-equal (file-truename buffer-file-name)
+				   (file-truename file))
+		     (buffer-modified-p))
+		(setq buffs nil)
+	      (setq buff nil)))))
+      (when buff
+	(let* ((window (get-buffer-window buff t))
+	       (frame (and window (window-frame window))))
+	  (if frame
+	      (gnus-select-frame-set-input-focus frame)
+	    (pop-to-buffer buff t)))
+	(error "The draft %s is under edit" file)))))
+
 (provide 'gnus-draft)
 
+;;; arch-tag: 3d92af58-8c97-4a5c-9db4-a98e85198022
 ;;; gnus-draft.el ends here

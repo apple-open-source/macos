@@ -37,11 +37,11 @@
 .Os
 .Sh NAME
 .Nm cfgetispeed ,
-.Nm cfsetispeed ,
 .Nm cfgetospeed ,
+.Nm cfmakeraw ,
+.Nm cfsetispeed ,
 .Nm cfsetospeed ,
 .Nm cfsetspeed ,
-.Nm cfmakeraw ,
 .Nm tcgetattr ,
 .Nm tcsetattr
 .Nd manipulating the termios structure
@@ -50,25 +50,47 @@
 .Sh SYNOPSIS
 .In termios.h
 .Ft speed_t
-.Fn cfgetispeed "const struct termios *t"
-.Ft int
-.Fn cfsetispeed "struct termios *t" "speed_t speed"
+.Fo cfgetispeed
+.Fa "const struct termios *termios_p"
+.Fc
 .Ft speed_t
-.Fn cfgetospeed "const struct termios *t"
-.Ft int
-.Fn cfsetospeed "struct termios *t" "speed_t speed"
-.Ft int
-.Fn cfsetspeed "struct termios *t" "speed_t speed"
+.Fo cfgetospeed
+.Fa "const struct termios *termios_p"
+.Fc
 .Ft void
-.Fn cfmakeraw "struct termios *t"
+.Fo cfmakeraw
+.Fa "struct termios *termios_p"
+.Fc
 .Ft int
-.Fn tcgetattr "int fd" "struct termios *t"
+.Fo cfsetispeed
+.Fa "struct termios *termios_p"
+.Fa "speed_t speed"
+.Fc
 .Ft int
-.Fn tcsetattr "int fd" "int action" "const struct termios *t"
+.Fo cfsetospeed
+.Fa "struct termios *termios_p"
+.Fa "speed_t speed"
+.Fc
+.Ft int
+.Fo cfsetspeed
+.Fa "struct termios *termios_p"
+.Fa "speed_t speed"
+.Fc
+.Ft int
+.Fo tcgetattr
+.Fa "int fildes"
+.Fa "struct termios *termios_p"
+.Fc
+.Ft int
+.Fo tcsetattr
+.Fa "int fildes"
+.Fa "int optional_actions"
+.Fa "const struct termios *termios_p"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn cfmakeraw ,
-.Fn tcgetattr
+.Fn tcgetattr ,
 and
 .Fn tcsetattr
 functions are provided for getting and setting the termios structure.
@@ -77,17 +99,18 @@ The
 .Fn cfgetispeed ,
 .Fn cfsetispeed ,
 .Fn cfgetospeed ,
-.Fn cfsetospeed
+.Fn cfsetospeed ,
 and
 .Fn cfsetspeed
 functions are provided for getting and setting the baud rate values in
 the termios structure.
-The effects of the functions on the terminal as described below
-do not become effective, nor are all errors detected, until the
+As described below,
+the effects of the functions on the terminal do not become effective,
+nor are all errors detected, until the
 .Fn tcsetattr
 function is called.
-Certain values for baud rates set in the termios structure and passed to
-.Fn tcsetattr
+Certain values for baud rates, set in the termios structure and passed to
+.Fn tcsetattr ,
 have special meanings.
 These are discussed in the portion of the manual page that describes the
 .Fn tcsetattr
@@ -96,10 +119,10 @@ function.
 The input and output baud rates are found in the termios structure.
 The unsigned integer
 .Li speed_t
-is typdef'd in the include file
+is typedef'd in the include file
 .Aq Pa termios.h .
 The value of the integer corresponds directly to the baud rate being
-represented, however, the following symbolic values are defined.
+represented; however, the following symbolic values are defined:
 .Bd -literal
 #define B0	0
 #define B50	50
@@ -126,24 +149,24 @@ represented, however, the following symbolic values are defined.
 The
 .Fn cfgetispeed
 function returns the input baud rate in the termios structure referenced by
-.Fa tp .
+.Fa termios_p .
 .Pp
 The
 .Fn cfsetispeed
 function sets the input baud rate in the termios structure referenced by
-.Fa tp
+.Fa termios_p
 to
 .Fa speed .
 .Pp
 The
 .Fn cfgetospeed
 function returns the output baud rate in the termios structure referenced by
-.Fa tp .
+.Fa termios_p .
 .Pp
 The
 .Fn cfsetospeed
 function sets the output baud rate in the termios structure referenced by
-.Fa tp
+.Fa termios_p
 to
 .Fa speed .
 .Pp
@@ -151,7 +174,7 @@ The
 .Fn cfsetspeed
 function sets both the input and output baud rate in the termios structure
 referenced by
-.Fa tp
+.Fa termios_p
 to
 .Fa speed .
 .Pp
@@ -174,11 +197,11 @@ a SIGTTOU signal.
 If the calling process is blocking or ignoring SIGTTOU signals, the process
 is allowed to perform the operation and the SIGTTOU signal is not sent.
 .Pp
-In all the functions, although
-.Fa fd
+In all of the functions, although
+.Fa fildes
 is an open file descriptor, the functions affect the underlying terminal
-file, not just the open file description associated with the particular
-file descriptor.
+file, not just the open file description that is associated
+with the particular file descriptor.
 .Pp
 The
 .Fn cfmakeraw
@@ -186,8 +209,8 @@ function sets the flags stored in the termios structure to a state disabling
 all input and output processing, giving a
 .Dq raw I/O path .
 It should be noted that there is no function to reverse this effect.
-This is because there are a variety of processing options that could be
-re-enabled and the correct method is for an application to snapshot the
+Because a variety of processing options could be re-enabled,
+the correct method is for an application to snapshot the
 current terminal state using the function
 .Fn tcgetattr ,
 setting raw mode with
@@ -202,19 +225,20 @@ The
 .Fn tcgetattr
 function copies the parameters associated with the terminal referenced
 by
-.Fa fd
+.Fa fildes
 in the termios structure referenced by
-.Fa tp .
-This function is allowed from a background process, however, the terminal
-attributes may be subsequently changed by a foreground process.
+.Fa termios_p .
+This function is allowed from a background process;
+however, the terminal attributes may be subsequently changed
+by a foreground process.
 .Pp
 The
 .Fn tcsetattr
 function sets the parameters associated with the terminal from the
 termios structure referenced by
-.Fa tp .
+.Fa termios_p .
 The
-.Fa action
+.Fa optional_actions
 field is created by
 .Em or Ns 'ing
 the following values, as specified in the include file
@@ -224,21 +248,21 @@ the following values, as specified in the include file
 The change occurs immediately.
 .It Fa TCSADRAIN
 The change occurs after all output written to
-.Fa fd
+.Fa fildes
 has been transmitted to the terminal.
 This value of
-.Fa action
+.Fa optional_actions
 should be used when changing parameters that affect output.
 .It Fa TCSAFLUSH
 The change occurs after all output written to
-.Fa fd
+.Fa fildes
 has been transmitted to the terminal.
 Additionally, any input that has been received but not read is discarded.
 .It Fa TCSASOFT
 If this value is
 .Em or Ns 'ed
 into the
-.Fa action
+.Fa optional_actions
 value, the values of the
 .Em c_cflag ,
 .Em c_ispeed ,
@@ -278,7 +302,7 @@ is set to indicate the error, as follows:
 .Bl -tag -width Er
 .It Bq Er EBADF
 The
-.Fa fd
+.Fa fildes
 argument to
 .Fn tcgetattr
 or
@@ -290,14 +314,14 @@ The
 function was interrupted by a signal.
 .It Bq Er EINVAL
 The
-.Fa action
+.Fa optional_actions
 argument to the
 .Fn tcsetattr
 function was not valid, or an attempt was made to change an attribute
 represented in the termios structure to an unsupported value.
 .It Bq Er ENOTTY
 The file associated with the
-.Fa fd
+.Fa fildes
 argument to
 .Fn tcgetattr
 or
@@ -313,7 +337,7 @@ The
 .Fn cfsetispeed ,
 .Fn cfgetospeed ,
 .Fn cfsetospeed ,
-.Fn tcgetattr
+.Fn tcgetattr ,
 and
 .Fn tcsetattr
 functions are expected to be compliant with the

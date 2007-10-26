@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/tcpdump/tcpdump/nfsfh.h,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL) */
+/* @(#) $Header: /tcpdump/master/tcpdump/nfsfh.h,v 1.13 2002/04/24 06:27:05 guy Exp $ (LBL) */
 
 /*
  * Copyright (c) 1993, 1994 Jeffrey C. Mogul, Digital Equipment Corporation,

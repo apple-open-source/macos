@@ -15,45 +15,6 @@
 
 #include "vim.h"
 
-/*
- * Avoid clashes between Perl and Vim namespace.
- */
-#undef NORMAL
-#undef STRLEN
-#undef FF
-#undef OP_DELETE
-#undef OP_JOIN
-#ifdef __BORLANDC__
-# define NOPROTO 1
-#endif
-/* remove MAX and MIN, included by glib.h, redefined by sys/param.h */
-#ifdef MAX
-# undef MAX
-#endif
-#ifdef MIN
-# undef MIN
-#endif
-/* We use _() for gettext(), Perl uses it for function prototypes... */
-#ifdef _
-# undef _
-#endif
-#ifdef DEBUG
-# undef DEBUG
-#endif
-#ifdef _DEBUG
-# undef _DEBUG
-#endif
-
-#ifdef __BORLANDC__
-/* Borland has the structure stati64 but not _stati64 */
-# define _stati64 stati64
-#endif
-
-/* OK, nasty namespace hacking over... */
-
-#include <EXTERN.h>
-#include <perl.h>
-#include <XSUB.h>
 
 /*
  * Work around clashes between Perl and Vim namespace.	proto.h doesn't
@@ -110,7 +71,15 @@ EXTERN_C void boot_DynaLoader __ARGS((pTHX_ CV*));
 # define perl_free dll_perl_free
 # define Perl_get_context dll_Perl_get_context
 # define Perl_croak dll_Perl_croak
-# define Perl_croak_nocontext dll_Perl_croak_nocontext
+# ifndef PROTO
+#  define Perl_croak_nocontext dll_Perl_croak_nocontext
+#  define Perl_call_argv dll_Perl_call_argv
+#  define Perl_call_pv dll_Perl_call_pv
+#  define Perl_eval_sv dll_Perl_eval_sv
+#  define Perl_get_sv dll_Perl_get_sv
+#  define Perl_eval_pv dll_Perl_eval_pv
+#  define Perl_call_method dll_Perl_call_method
+# endif
 # define Perl_dowantarray dll_Perl_dowantarray
 # define Perl_free_tmps dll_Perl_free_tmps
 # define Perl_gv_stashpv dll_Perl_gv_stashpv
@@ -120,12 +89,6 @@ EXTERN_C void boot_DynaLoader __ARGS((pTHX_ CV*));
 # define Perl_newSV dll_Perl_newSV
 # define Perl_newSViv dll_Perl_newSViv
 # define Perl_newSVpv dll_Perl_newSVpv
-# define Perl_call_argv dll_Perl_call_argv
-# define Perl_call_pv dll_Perl_call_pv
-# define Perl_eval_sv dll_Perl_eval_sv
-# define Perl_get_sv dll_Perl_get_sv
-# define Perl_eval_pv dll_Perl_eval_pv
-# define Perl_call_method dll_Perl_call_method
 # define Perl_pop_scope dll_Perl_pop_scope
 # define Perl_push_scope dll_Perl_push_scope
 # define Perl_save_int dll_Perl_save_int
@@ -464,9 +427,10 @@ msg_split(s, attr)
  * work properly.
  */
     char_u *
-eval_to_string(arg, nextcmd)
+eval_to_string(arg, nextcmd, dolist)
     char_u	*arg;
     char_u	**nextcmd;
+    int		dolist;
 {
     return NULL;
 }
@@ -474,35 +438,50 @@ eval_to_string(arg, nextcmd)
 
 /*
  * Create a new reference to an SV pointing to the SCR structure
- * The perl_private part of the SCR structure points to the SV,
- * so there can only be one such SV for a particular SCR structure.
- * When the last reference has gone (DESTROY is called),
- * perl_private is reset; When the screen goes away before
+ * The b_perl_private/w_perl_private part of the SCR structure points to the
+ * SV, so there can only be one such SV for a particular SCR structure.  When
+ * the last reference has gone (DESTROY is called),
+ * b_perl_private/w_perl_private is reset; When the screen goes away before
  * all references are gone, the value of the SV is reset;
  * any subsequent use of any of those reference will produce
  * a warning. (see typemap)
  */
-#define newANYrv(TYPE, TNAME)					\
-static SV *							\
-new ## TNAME ## rv(rv, ptr)					\
-    SV *rv;							\
-    TYPE *ptr;							\
-{								\
-    sv_upgrade(rv, SVt_RV);					\
-    if (!ptr->perl_private)					\
-    {								\
-	ptr->perl_private = newSV(0);				\
-	sv_setiv(ptr->perl_private, (IV)ptr);			\
-    }								\
-    else							\
-	SvREFCNT_inc(ptr->perl_private);			\
-    SvRV(rv) = ptr->perl_private;				\
-    SvROK_on(rv);						\
-    return sv_bless(rv, gv_stashpv("VI" #TNAME, TRUE));		\
+
+    static SV *
+newWINrv(rv, ptr)
+    SV	    *rv;
+    win_T   *ptr;
+{
+    sv_upgrade(rv, SVt_RV);
+    if (ptr->w_perl_private == NULL)
+    {
+	ptr->w_perl_private = newSV(0);
+	sv_setiv(ptr->w_perl_private, (IV)ptr);
+    }
+    else
+	SvREFCNT_inc(ptr->w_perl_private);
+    SvRV(rv) = ptr->w_perl_private;
+    SvROK_on(rv);
+    return sv_bless(rv, gv_stashpv("VIWIN", TRUE));
 }
 
-newANYrv(win_T, WIN)
-newANYrv(buf_T, BUF)
+    static SV *
+newBUFrv(rv, ptr)
+    SV	    *rv;
+    buf_T   *ptr;
+{
+    sv_upgrade(rv, SVt_RV);
+    if (ptr->b_perl_private == NULL)
+    {
+	ptr->b_perl_private = newSV(0);
+	sv_setiv(ptr->b_perl_private, (IV)ptr);
+    }
+    else
+	SvREFCNT_inc(ptr->b_perl_private);
+    SvRV(rv) = ptr->b_perl_private;
+    SvROK_on(rv);
+    return sv_bless(rv, gv_stashpv("VIBUF", TRUE));
+}
 
 /*
  * perl_win_free
@@ -512,8 +491,8 @@ newANYrv(buf_T, BUF)
 perl_win_free(wp)
     win_T *wp;
 {
-    if (wp->perl_private)
-	sv_setiv((SV *)wp->perl_private, 0);
+    if (wp->w_perl_private)
+	sv_setiv((SV *)wp->w_perl_private, 0);
     return;
 }
 
@@ -521,8 +500,8 @@ perl_win_free(wp)
 perl_buf_free(bp)
     buf_T *bp;
 {
-    if (bp->perl_private)
-	sv_setiv((SV *)bp->perl_private, 0);
+    if (bp->b_perl_private)
+	sv_setiv((SV *)bp->b_perl_private, 0);
     return;
 }
 
@@ -604,12 +583,20 @@ ex_perl(eap)
     SV		*sv;
     SV		*safe;
 
+    script = (char *)script_get(eap, eap->arg);
+    if (eap->skip)
+    {
+	vim_free(script);
+	return;
+    }
+
     if (perl_interp == NULL)
     {
 #ifdef DYNAMIC_PERL
 	if (!perl_enabled(TRUE))
 	{
 	    EMSG(_(e_noperl));
+	    vim_free(script);
 	    return;
 	}
 #endif
@@ -621,7 +608,6 @@ ex_perl(eap)
     ENTER;
     SAVETMPS;
 
-    script = (char *)script_get(eap, eap->arg);
     if (script == NULL)
 	sv = newSVpv((char *)eap->arg, 0);
     else
@@ -714,8 +700,8 @@ ex_perldo(eap)
     {
     dSP;
     length = strlen((char *)eap->arg);
-    sv = newSV(length + sizeof("sub VIM::perldo {")-1 + 1);
-    sv_setpvn(sv, "sub VIM::perldo {", sizeof("sub VIM::perldo {")-1);
+    sv = newSV(length + sizeof("sub VIM::perldo {") - 1 + 1);
+    sv_setpvn(sv, "sub VIM::perldo {", sizeof("sub VIM::perldo {") - 1);
     sv_catpvn(sv, (char *)eap->arg, length);
     sv_catpvn(sv, "}", 1);
     perl_eval_sv(sv, G_DISCARD | G_NOARGS);
@@ -731,7 +717,7 @@ ex_perldo(eap)
     SAVETMPS;
     for (i = eap->line1; i <= eap->line2; i++)
     {
-	sv_setpv(GvSV(PL_defgv),(char *)ml_get(i));
+	sv_setpv(GvSV(PL_defgv), (char *)ml_get(i));
 	PUSHMARK(sp);
 	perl_call_pv("VIM::perldo", G_SCALAR | G_EVAL);
 	str = SvPV(GvSV(PL_errgv), length);
@@ -842,7 +828,7 @@ Eval(str)
     PREINIT:
 	char_u *value;
     PPCODE:
-	value = eval_to_string((char_u *)str, (char_u**)0);
+	value = eval_to_string((char_u *)str, (char_u **)0, TRUE);
 	if (value == NULL)
 	{
 	    XPUSHs(sv_2mortal(newSViv(0)));
@@ -943,7 +929,7 @@ DESTROY(win)
 
     CODE:
     if (win_valid(win))
-	win->perl_private = 0;
+	win->w_perl_private = 0;
 
 SV *
 Buffer(win)
@@ -1007,7 +993,7 @@ DESTROY(vimbuf)
 
     CODE:
     if (buf_valid(vimbuf))
-	vimbuf->perl_private = 0;
+	vimbuf->b_perl_private = 0;
 
 void
 Name(vimbuf)

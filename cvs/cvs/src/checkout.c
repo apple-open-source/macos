@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -33,14 +38,13 @@
  * edited by the user, if necessary (when the repository is moved, e.g.)
  */
 
-#include <assert.h>
 #include "cvs.h"
 
-static char *findslash PROTO((char *start, char *p));
-static int checkout_proc PROTO((int argc, char **argv, char *where,
+static char *findslash (char *start, char *p);
+static int checkout_proc (int argc, char **argv, char *where,
 		          char *mwhere, char *mfile, int shorten,
 		          int local_specified, char *omodule,
-		          char *msg));
+		          char *msg);
 
 static const char *const checkout_usage[] =
 {
@@ -67,13 +71,13 @@ static const char *const checkout_usage[] =
 
 static const char *const export_usage[] =
 {
-    "Usage: %s %s [-NRfln] [-r rev] [-D date] [-d dir] [-k kopt] module...\n",
+    "Usage: %s %s [-NRfln] [-r tag] [-D date] [-d dir] [-k kopt] module...\n",
     "\t-N\tDon't shorten module paths if -d specified.\n",
     "\t-f\tForce a head revision match if tag/date not found.\n",
     "\t-l\tLocal directory only, not recursive\n",
     "\t-R\tProcess directories recursively (default).\n",
     "\t-n\tDo not run module program (if any).\n",
-    "\t-r rev\tExport revision or tag.\n",
+    "\t-r tag\tExport tagged revisions.\n",
     "\t-D date\tExport revisions as of date.\n",
     "\t-d dir\tExport into dir instead of module name.\n",
     "\t-k kopt\tUse RCS kopt -k option on checkout.\n",
@@ -87,19 +91,17 @@ static int pipeout;
 static int aflag;
 static char *options;
 static char *tag;
-static int tag_validated;
+static bool tag_validated;
 static char *date;
-static char *join_rev1;
-static char *join_rev2;
-static int join_tags_validated;
+static char *join_rev1, *join_date1;
+static char *join_rev2, *join_date2;
+static bool join_tags_validated;
 static char *preload_update_dir;
 static char *history_name;
 static enum mtype m_type;
 
 int
-checkout (argc, argv)
-    int argc;
-    char **argv;
+checkout (int argc, char **argv)
 {
     int i;
     int c;
@@ -109,8 +111,9 @@ checkout (argc, argv)
     int local = 0;
     int shorten = -1;
     char *where = NULL;
-    char *valid_options;
+    const char *valid_options;
     const char *const *valid_usage;
+    char *join_orig1, *join_orig2;
 
     /* initialize static options */
     force_tag_match = 1;
@@ -119,9 +122,10 @@ checkout (argc, argv)
 	free (options);
 	options = NULL;
     }
-    tag = date = join_rev1 = join_rev2 = preload_update_dir = NULL;
+    tag = date = join_rev1 = join_date1 = join_rev2 = join_date2 =
+	  join_orig1 = join_orig2 = preload_update_dir = NULL;
     history_name = NULL;
-    tag_validated = join_tags_validated = 0;
+    tag_validated = join_tags_validated = false;
 
 
     /*
@@ -170,11 +174,9 @@ checkout (argc, argv)
 		break;
 	    case 'Q':
 	    case 'q':
-#ifdef SERVER_SUPPORT
 		/* The CVS 1.5 client sends these options (in addition to
 		   Global_option requests), so we must ignore them.  */
 		if (!server_active)
-#endif
 		    error (1, 0,
 			   "-q or -Q must be specified before \"%s\"",
 			   cvs_cmd_name);
@@ -208,20 +210,29 @@ checkout (argc, argv)
 		force_tag_match = 0;
 		break;
 	    case 'r':
-		tag = optarg;
+		parse_tagdate (&tag, &date, optarg);
 		checkout_prune_dirs = 1;
 		break;
 	    case 'D':
+		if (date) free (date);
 		date = Make_Date (optarg);
 		checkout_prune_dirs = 1;
 		break;
 	    case 'j':
-		if (join_rev2)
+		if (join_rev2 || join_date2)
 		    error (1, 0, "only two -j options can be specified");
-		if (join_rev1)
-		    join_rev2 = optarg;
+		if (join_rev1 || join_date1)
+		{
+		    if (join_orig2) free (join_orig2);
+		    join_orig2 = xstrdup (optarg);
+		    parse_tagdate (&join_rev2, &join_date2, optarg);
+		}
 		else
-		    join_rev1 = optarg;
+		{
+		    if (join_orig1) free (join_orig1);
+		    join_orig1 = xstrdup (optarg);
+		    parse_tagdate (&join_rev1, &join_date1, optarg);
+		}
 		break;
 	    case '?':
 	    default:
@@ -249,7 +260,7 @@ checkout (argc, argv)
 	if (!tag && !date)
 	    error (1, 0, "must specify a tag or date");
 
-	if (tag && isdigit ((unsigned char) tag[0]))
+	if (tag && isdigit (tag[0]))
 	    error (1, 0, "tag `%s' must be a symbolic tag", tag);
     }
 
@@ -260,8 +271,9 @@ checkout (argc, argv)
     }
 #endif
 
-    if (!cat && !pipeout && !safe_location( where )) {
-        error(1, 0, "Cannot check out files into the repository itself");
+    if (!cat && !pipeout && !safe_location (where))
+    {
+        error (1, 0, "Cannot check out files into the repository itself");
     }
 
 #ifdef CLIENT_SUPPORT
@@ -294,27 +306,27 @@ checkout (argc, argv)
 	if (!force_tag_match)
 	    send_arg ("-f");
 	if (aflag)
-	    send_arg("-A");
+	    send_arg ("-A");
 	if (!shorten)
-	    send_arg("-N");
+	    send_arg ("-N");
 	if (checkout_prune_dirs && m_type == CHECKOUT)
-	    send_arg("-P");
+	    send_arg ("-P");
 	client_prune_dirs = checkout_prune_dirs;
 	if (cat && !status)
-	    send_arg("-c");
+	    send_arg ("-c");
 	if (where != NULL)
 	    option_with_arg ("-d", where);
 	if (status)
-	    send_arg("-s");
+	    send_arg ("-s");
 	if (options != NULL && options[0] != '\0')
 	    send_arg (options);
 	option_with_arg ("-r", tag);
 	if (date)
 	    client_senddate (date);
-	if (join_rev1 != NULL)
-	    option_with_arg ("-j", join_rev1);
-	if (join_rev2 != NULL)
-	    option_with_arg ("-j", join_rev2);
+	if (join_orig1)
+	    option_with_arg ("-j", join_orig1);
+	if (join_orig2)
+	    option_with_arg ("-j", join_orig2);
 	send_arg ("--");
 
 	if (expand_modules)
@@ -342,7 +354,7 @@ checkout (argc, argv)
 	    free (options);
 	    options = NULL;
 	}
-	return (0);
+	return 0;
     }
     db = open_module ();
 
@@ -366,17 +378,14 @@ checkout (argc, argv)
 	else if (!tag)
 	    history_name = date;
 	else
-	{
-	    history_name = xmalloc (strlen (tag) + strlen (date) + 2);
-	    sprintf (history_name, "%s:%s", tag, date);
-	}
+	    history_name = Xasprintf ("%s:%s", tag, date);
     }
 
 
     for (i = 0; i < argc; i++)
 	err += do_module (db, argv[i], m_type, "Updating", checkout_proc,
 			  where, shorten, local, run_module_prog, !pipeout,
-			  (char *) NULL);
+			  NULL);
     close_module (db);
     if (options)
     {
@@ -385,8 +394,10 @@ checkout (argc, argv)
     }
     if (history_name != tag && history_name != date && history_name != NULL)
 	free (history_name);
-    return (err);
+    return err;
 }
+
+
 
 /* FIXME: This is and emptydir_name are in checkout.c for historical
    reasons, probably want to move them.  */
@@ -414,91 +425,84 @@ checkout (argc, argv)
  *  being able to resolve a path or failing ot chdir to a path.
  */
 int
-safe_location (where)
-    char *where;
+safe_location (char *where)
 {
     char *current;
-    char *where_location;
     char *hardpath;
     size_t hardpath_len;
     int retval;
 
-    if (trace)
-	(void) fprintf (stderr, "%s-> safe_location( where=%s )\n",
-			CLIENT_SERVER_STR,
-			where ? where : "(null)");
+    TRACE (TRACE_FUNCTION, "safe_location( where=%s )",
+           where ? where : "(null)");
 
-#ifdef CLIENT_SUPPORT
     /* Don't compare remote CVSROOTs to our destination directory. */
-    if ( current_parsed_root->isremote ) return 1;
-#endif /* CLIENT_SUPPORT */
+    if (current_parsed_root->isremote) return 1;
 
     /* set current - even if where is set we'll need to cd back... */
-    current = xgetwd ();
+    current = xgetcwd ();
     if (current == NULL)
 	error (1, errno, "could not get working directory");
 
-    hardpath = xresolvepath ( current_parsed_root->directory );
+    hardpath = xcanonicalize_file_name (current_parsed_root->directory);
 
-    /* if where is set, set current to where, where - last_component( where ),
-     * or fail, depending on whether the directories exist or not.
+    /* if where is set, set current to as much of where as exists,
+     * or fail.
      */
-    if( where != NULL )
+    if (where != NULL)
     {
-	if( chdir( where ) != -1 )
+	char *where_this_pass = xstrdup (where);
+	while (1)
 	{
-	    /* where */
-	    where_location = xgetwd();
-	    if( where_location == NULL )
-		error( 1, errno, "could not get working directory" );
-
-	    if( chdir( current ) == -1 )
-		error( 1, errno, "could not change directory to `%s'", current );
-
-	    free( current );
-	    current = where_location;
-        }
-	else if( errno == ENOENT )
-	{
-	    if ( last_component( where ) != where )
+	    if (CVS_CHDIR (where_this_pass) != -1)
 	    {
-		/* where - last_component( where ) */
+		/* where */
+		free (where_this_pass);
+		where_this_pass = xgetcwd ();
+		if (where_this_pass == NULL)
+		    error (1, errno, "could not get working directory");
+
+		if (CVS_CHDIR (current) == -1)
+		    error (1, errno,
+			   "could not restore directory to `%s'", current);
+
+		free (current);
+		current = where_this_pass;
+		break;
+	    }
+	    else if (errno == ENOENT)
+	    {
+		/* where_this_pass - last_component (where_this_pass) */
 		char *parent;
 
-		/* strip the last_component */
-		where_location = xstrdup (where);
-                /* It's okay to cast out the const below since we know we just
-                 * allocated where_location and can do what we like with it.
-                 */
-		parent = (char *)last_component (where_location);
-		parent[-1] = '\0';
-
-		if( chdir( where_location ) != -1 )
+		/* It's okay to cast out the const below since we know we
+		 * allocated where_this_pass and have control of it.
+		 */
+		if ((parent = (char *)last_component (where_this_pass))
+		        != where_this_pass)
 		{
-		    free( where_location );
-		    where_location = xgetwd();
-		    if( where_location == NULL )
-			error( 1, errno, "could not get working directory (nominally `%s')", where_location );
-
-		    if( chdir( current ) == -1 )
-			error( 1, errno, "could not change directory to `%s'", current );
-
-		    free( current );
-		    current = where_location;
+		    /* strip the last_component */
+		    parent[-1] = '\0';
+		    /* continue */
 		}
 		else
-		    /* fail */
-		    error( 1, errno, "could not change directory to requested checkout directory `%s'", where_location );
+		{
+		    /* ERRNO == ENOENT
+		     *   && last_component (where_this_pass) == where_this_pass
+		     * means we've tried all the parent diretories and not one
+		     * exists, so there is no need to test any portion of where
+		     * - it is all being created.
+		     */
+		    free (where_this_pass);
+		    break;
+		}
 	    }
-	    /* else: ERRNO == ENOENT & last_component(where) == where
-	     * for example, 'cvs co -d newdir module', where newdir hasn't
-	     * been created yet, so leave current set to '.' and check that
-	     */
-	}
-	else
-	    /* fail */
-	    error( 1, errno, "could not change directory to requested checkout directory `%s'", where );
-    }
+	    else
+		/* we don't know how to handle other errors, so fail */
+		error (1, errno, "\
+could not change directory to requested checkout directory `%s'",
+		       where_this_pass);
+	} /* while (1) */
+    } /* where != NULL */
 
     hardpath_len = strlen (hardpath);
     if (strlen (current) >= hardpath_len
@@ -522,6 +526,8 @@ safe_location (where)
     return retval;
 }
 
+
+
 struct dir_to_build
 {
     /* What to put in CVS/Repository.  */
@@ -529,23 +535,16 @@ struct dir_to_build
     /* The path to the directory.  */
     char *dirpath;
 
-    /* If set, don't build the directory, just change to it.
-       The caller will also want to set REPOSITORY to NULL.  */
-    int just_chdir;
-
     struct dir_to_build *next;
 };
 
-static int build_dirs_and_chdir PROTO ((struct dir_to_build *list,
-					int sticky));
 
-static void build_one_dir PROTO ((char *, char *, int));
+
+static int build_dirs_and_chdir (struct dir_to_build *list,
+					int sticky);
 
 static void
-build_one_dir (repository, dirpath, sticky)
-    char *repository;
-    char *dirpath;
-    int sticky;
+build_one_dir (char *repository, char *dirpath, int sticky)
 {
     FILE *fp;
 
@@ -561,8 +560,8 @@ build_one_dir (repository, dirpath, sticky)
 	    error (1, 0, "there is no repository %s", repository);
 
 	if (Create_Admin (".", dirpath, repository,
-			  sticky ? tag : (char *) NULL,
-			  sticky ? date : (char *) NULL,
+			  sticky ? tag : NULL,
+			  sticky ? date : NULL,
 
 			  /* FIXME?  This is a guess.  If it is important
 			     for nonbranch to be set correctly here I
@@ -575,7 +574,7 @@ build_one_dir (repository, dirpath, sticky)
 
 	if (!noexec)
 	{
-	    fp = open_file (CVSADM_ENTSTAT, "w+");
+	    fp = xfopen (CVSADM_ENTSTAT, "w+");
 	    if (fclose (fp) == EOF)
 		error (1, errno, "cannot close %s", CVSADM_ENTSTAT);
 #ifdef SERVER_SUPPORT
@@ -586,22 +585,16 @@ build_one_dir (repository, dirpath, sticky)
     }
 }
 
+
+
 /*
  * process_module calls us back here so we do the actual checkout stuff
  */
 /* ARGSUSED */
 static int
-checkout_proc (argc, argv, where_orig, mwhere, mfile, shorten,
-	       local_specified, omodule, msg)
-    int argc;
-    char **argv;
-    char *where_orig;
-    char *mwhere;
-    char *mfile;
-    int shorten;
-    int local_specified;
-    char *omodule;
-    char *msg;
+checkout_proc (int argc, char **argv, char *where_orig, char *mwhere,
+	       char *mfile, int shorten, int local_specified, char *omodule,
+	       char *msg)
 {
     char *myargv[2];
     int err = 0;
@@ -610,6 +603,15 @@ checkout_proc (argc, argv, where_orig, mwhere, mfile, shorten,
     char *repository;
     char *oldupdate = NULL;
     char *where;
+
+    TRACE (TRACE_FUNCTION, "checkout_proc (%s, %s, %s, %d, %d, %s, %s)\n",
+	   where_orig ? where_orig : "(null)",
+	   mwhere ? mwhere : "(null)",
+	   mfile ? mfile : "(null)",
+	   shorten, local_specified,
+	   omodule ? omodule : "(null)",
+	   msg ? msg : "(null)"
+	  );
 
     /*
      * OK, so we're doing the checkout! Our args are as follows: 
@@ -628,7 +630,8 @@ checkout_proc (argc, argv, where_orig, mwhere, mfile, shorten,
 			  + strlen (argv[0])
 			  + (mfile == NULL ? 0 : strlen (mfile))
 			  + 10);
-    (void) sprintf (repository, "%s/%s", current_parsed_root->directory, argv[0]);
+    (void) sprintf (repository, "%s/%s",
+                    current_parsed_root->directory, argv[0]);
     Sanitize_Repository_Name (repository);
 
 
@@ -696,7 +699,7 @@ checkout_proc (argc, argv, where_orig, mwhere, mfile, shorten,
            directory, let the user override it with the command-line
            -d option. */
 
-	if ((mwhere != NULL) && (! isabsolute (mwhere)))
+	if (mwhere && !ISABSOLUTE (mwhere))
 	    (void) strcat (where, mwhere);
 	else
 	    (void) strcat (where, argv[0]);
@@ -749,8 +752,7 @@ checkout_proc (argc, argv, where_orig, mwhere, mfile, shorten,
 
 	/* Now mfile is a single path element. */
 
-	path = xmalloc (strlen (repository) + strlen (mfile) + 5);
-	(void) sprintf (path, "%s/%s", repository, mfile);
+	path = Xasprintf ("%s/%s", repository, mfile);
 	if (isdir (path))
 	{
 	    /* It's a directory, so tack it on to repository and
@@ -812,14 +814,12 @@ internal error: %s doesn't start with %s in checkout_proc",
 
 	/* We always create at least one directory, which corresponds to
 	   the entire strings for WHERE and REPOSITORY.  */
-	head = (struct dir_to_build *) xmalloc (sizeof (struct dir_to_build));
+	head = xmalloc (sizeof (struct dir_to_build));
 	/* Special marker to indicate that we don't want build_dirs_and_chdir
 	   to create the CVSADM directory for us.  */
 	head->repository = NULL;
 	head->dirpath = xstrdup (where);
 	head->next = NULL;
-	head->just_chdir = 0;
-
 
 	/* Make a copy of the repository name to play with. */
 	reposcopy = xstrdup (repository);
@@ -837,8 +837,7 @@ internal error: %s doesn't start with %s in checkout_proc",
 	    if (cp == NULL)
 		break;		/* we're done */
 
-	    new = (struct dir_to_build *)
-		xmalloc (sizeof (struct dir_to_build));
+	    new = xmalloc (sizeof (struct dir_to_build));
 	    new->dirpath = xmalloc (strlen (where));
 
 	    /* If the user specified an absolute path for where, the
@@ -858,23 +857,6 @@ internal error: %s doesn't start with %s in checkout_proc",
 	    }
 	    new->next = head;
 	    head = new;
-
-	    /* If where consists of multiple pathname components,
-	       then we want to just cd into it, without creating
-	       directories or modifying CVS directories as we go.
-	       In CVS 1.9 and earlier, the code actually does a
-	       CVS_CHDIR up-front; I'm not going to try to go back
-	       to that exact code but this is somewhat similar
-	       in spirit.  */
-	    if (where_orig != NULL
-		&& cp - where < strlen (where_orig))
-	    {
-		new->repository = NULL;
-		new->just_chdir = 1;
-		continue;
-	    }
-
-	    new->just_chdir = 0;
 
 	    /* Now figure out what repository directory to generate.
                The most complete case would be something like this:
@@ -914,8 +896,6 @@ internal error: %s doesn't start with %s in checkout_proc",
 			   reposcopy);
 			   
 		*rp = '\0';
-		new->repository = xmalloc (strlen (reposcopy) + 5);
-		(void) strcpy (new->repository, reposcopy);
 		    
 		if (strcmp (reposcopy, current_parsed_root->directory) == 0)
 		{
@@ -924,8 +904,10 @@ internal error: %s doesn't start with %s in checkout_proc",
 		       is important).  We might be able to get rid
 		       of this after the we check out the other
 		       code that handles repository names. */
-		    (void) strcat (new->repository, "/.");
+		    new-> repository = Xasprintf ("%s/.", reposcopy);
 		}
+		else
+		    new->repository = xstrdup (reposcopy);
 	    }
 	}
 
@@ -938,12 +920,13 @@ internal error: %s doesn't start with %s in checkout_proc",
 	   may not have a thing to do with where the sources are
 	   being checked out.  If it does, build_dirs_and_chdir
 	   will take care of creating adm files here. */
-	/* FIXME: checking is_absolute (where) is a horrid kludge;
+	/* FIXME: checking where_is_absolute is a horrid kludge;
 	   I suspect we probably can just skip the call to
 	   build_one_dir whenever the -d command option was specified
 	   to checkout.  */
 
-	if (!isabsolute (where) && top_level_admin && m_type == CHECKOUT)
+	if (!ISABSOLUTE (where) && config->top_level_admin
+	    && m_type == CHECKOUT)
 	{
 	    /* It may be argued that we shouldn't set any sticky
 	       bits for the top-level repository.  FIXME?  */
@@ -988,11 +971,10 @@ internal error: %s doesn't start with %s in checkout_proc",
 		    error (1, 0, "there is no repository %s", repository);
 
 		Create_Admin (".", preload_update_dir, repository,
-			      (char *) NULL, (char *) NULL, 0, 0,
-			      m_type == CHECKOUT);
-		fp = open_file (CVSADM_ENTSTAT, "w+");
-		if (fclose(fp) == EOF)
-		    error(1, errno, "cannot close %s", CVSADM_ENTSTAT);
+			      NULL, NULL, 0, 0, m_type == CHECKOUT);
+		fp = xfopen (CVSADM_ENTSTAT, "w+");
+		if (fclose (fp) == EOF)
+		    error (1, errno, "cannot close %s", CVSADM_ENTSTAT);
 #ifdef SERVER_SUPPORT
 		if (server_active)
 		    server_set_entstat (where, repository);
@@ -1023,13 +1005,18 @@ internal error: %s doesn't start with %s in checkout_proc",
 		error (1, 0, "cannot export into working directory");
 
 	    /* get the contents of the previously existing repository */
-	    repos = Name_Repository ((char *) NULL, preload_update_dir);
+	    repos = Name_Repository (NULL, preload_update_dir);
 	    if (fncmp (repository, repos) != 0)
 	    {
+		char *prepos = xstrdup (primary_root_inverse_translate (repos));
+		char *prepository =
+		    xstrdup (primary_root_inverse_translate (repository));
 		error (0, 0, "existing repository %s does not match %s",
-		       repos, repository);
+		       prepos, prepository);
 		error (0, 0, "ignoring module %s", omodule);
 		free (repos);
+		free (prepos);
+		free (prepository);
 		err = 1;
 		goto out;
 	    }
@@ -1044,42 +1031,43 @@ internal error: %s doesn't start with %s in checkout_proc",
      */
     if (pipeout)
     {
-	if ( CVS_CHDIR (repository) < 0)
+	if (CVS_CHDIR (repository) < 0)
 	{
 	    error (0, errno, "cannot chdir to %s", repository);
 	    err = 1;
 	    goto out;
 	}
 	which = W_REPOS;
-	if (tag != NULL && !tag_validated)
+	if (tag && !tag_validated)
 	{
-	    tag_check_valid (tag, argc - 1, argv + 1, 0, aflag, NULL);
-	    tag_validated = 1;
+	    tag_check_valid (tag, argc - 1, argv + 1, 0, aflag,
+			     repository, false);
+	    tag_validated = true;
 	}
     }
     else
     {
 	which = W_LOCAL | W_REPOS;
-	if (tag != NULL && !tag_validated)
+	if (tag && !tag_validated)
 	{
 	    tag_check_valid (tag, argc - 1, argv + 1, 0, aflag,
-			     repository);
-	    tag_validated = 1;
+			     repository, false);
+	    tag_validated = true;
 	}
     }
 
-    if (tag != NULL || date != NULL || join_rev1 != NULL)
+    if (tag || date || join_rev1 || join_date2)
 	which |= W_ATTIC;
 
-    if (! join_tags_validated)
+    if (!join_tags_validated)
     {
-        if (join_rev1 != NULL)
-	    tag_check_valid_join (join_rev1, argc - 1, argv + 1, 0, aflag,
-				  repository);
-	if (join_rev2 != NULL)
-	    tag_check_valid_join (join_rev2, argc - 1, argv + 1, 0, aflag,
-				  repository);
-	join_tags_validated = 1;
+        if (join_rev1)
+	    tag_check_valid (join_rev1, argc - 1, argv + 1, 0, aflag,
+			     repository, false);
+	if (join_rev2)
+	    tag_check_valid (join_rev2, argc - 1, argv + 1, 0, aflag,
+			     repository, false);
+	join_tags_validated = true;
     }
 
     /*
@@ -1092,10 +1080,11 @@ internal error: %s doesn't start with %s in checkout_proc",
 	if (!pipeout)
 	    history_write (m_type == CHECKOUT ? 'O' : 'E', preload_update_dir,
 			   history_name, where, repository);
-	err += do_update (0, (char **) NULL, options, tag, date,
-			  force_tag_match, 0 /* !local */ ,
-			  1 /* update -d */ , aflag, checkout_prune_dirs,
-			  pipeout, which, join_rev1, join_rev2,
+	err += do_update (0, NULL, options, tag, date,
+			  force_tag_match, false /* !local */ ,
+			  true /* update -d */ , aflag, checkout_prune_dirs,
+			  pipeout, which, join_rev1, join_date1,
+			  join_rev2, join_date2,
 			  preload_update_dir, m_type == CHECKOUT,
 			  repository);
 	goto out;
@@ -1129,12 +1118,11 @@ internal error: %s doesn't start with %s in checkout_proc",
 			       force_tag_match, 0);
 	    if (vers->ts_user == NULL)
 	    {
-		line = xmalloc (strlen (finfo.file) + 15);
-		(void) sprintf (line, "Initial %s", finfo.file);
+		line = Xasprintf ("Initial %s", finfo.file);
 		Register (entries, finfo.file,
 			  vers->vn_rcs ? vers->vn_rcs : "0",
 			  line, vers->options, vers->tag,
-			  vers->date, (char *) 0);
+			  vers->date, NULL);
 		free (line);
 	    }
 	    freevers_ts (&vers);
@@ -1151,22 +1139,22 @@ internal error: %s doesn't start with %s in checkout_proc",
 
     /* go ahead and call update now that everything is set */
     err += do_update (argc - 1, argv + 1, options, tag, date,
-		      force_tag_match, local_specified, 1 /* update -d */,
+		      force_tag_match, local_specified, true /* update -d */,
 		      aflag, checkout_prune_dirs, pipeout, which, join_rev1,
-		      join_rev2, preload_update_dir, m_type == CHECKOUT,
-		      repository);
+		      join_date1, join_rev2, join_date2, preload_update_dir,
+		      m_type == CHECKOUT, repository);
 out:
     free (preload_update_dir);
     preload_update_dir = oldupdate;
     free (where);
     free (repository);
-    return (err);
+    return err;
 }
 
+
+
 static char *
-findslash (start, p)
-    char *start;
-    char *p;
+findslash (char *start, char *p)
 {
     for (;;)
     {
@@ -1177,21 +1165,19 @@ findslash (start, p)
     return NULL;
 }
 
+
+
 /* Return a newly malloc'd string containing a pathname for CVSNULLREPOS,
    and make sure that it exists.  If there is an error creating the
    directory, give a fatal error.  Otherwise, the directory is guaranteed
    to exist when we return.  */
 char *
-emptydir_name ()
+emptydir_name (void)
 {
     char *repository;
 
-    repository = xmalloc (strlen (current_parsed_root->directory) 
-			  + sizeof (CVSROOTADM)
-			  + sizeof (CVSNULLREPOS)
-			  + 3);
-    (void) sprintf (repository, "%s/%s/%s", current_parsed_root->directory,
-		    CVSROOTADM, CVSNULLREPOS);
+    repository = Xasprintf ("%s/%s/%s", current_parsed_root->directory,
+			    CVSROOTADM, CVSNULLREPOS);
     if (!isfile (repository))
     {
 	mode_t omask;
@@ -1202,6 +1188,8 @@ emptydir_name ()
     }
     return repository;
 }
+
+
 
 /* Build all the dirs along the path to DIRS with CVS subdirs with appropriate
  * repositories.  If DIRS->repository is NULL or the directory already exists,
@@ -1227,9 +1215,7 @@ emptydir_name ()
  *  The only nonfatal error this function may return is if the CHDIR fails.
  */
 static int
-build_dirs_and_chdir (dirs, sticky)
-    struct dir_to_build *dirs;
-    int sticky;
+build_dirs_and_chdir (struct dir_to_build *dirs, int sticky)
 {
     int retval = 0;
     struct dir_to_build *nextdir;
@@ -1237,12 +1223,10 @@ build_dirs_and_chdir (dirs, sticky)
     while (dirs != NULL)
     {
 	const char *dir = last_component (dirs->dirpath);
+	int made_dir = 0;
 
-	if (!dirs->just_chdir)
-	{
-	    mkdir_if_needed (dir);
-	    Subdir_Register (NULL, NULL, dir);
-	}
+	made_dir = !mkdir_if_needed (dir);
+	if (made_dir) Subdir_Register (NULL, NULL, dir);
 
 	if (CVS_CHDIR (dir) < 0)
 	{
@@ -1252,7 +1236,8 @@ build_dirs_and_chdir (dirs, sticky)
 	}
 	if (dirs->repository != NULL)
 	{
-	    build_one_dir (dirs->repository, dirs->dirpath, sticky);
+	    if (made_dir)
+		build_one_dir (dirs->repository, dirs->dirpath, sticky);
 	    free (dirs->repository);
 	}
 	nextdir = dirs->next;

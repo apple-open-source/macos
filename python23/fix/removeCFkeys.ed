@@ -1,0 +1,3 @@
+g/^CFBundleShortVersionString =/d
+g/^CFBundleGetInfoString =/d
+w

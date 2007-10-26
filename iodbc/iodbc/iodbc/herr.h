@@ -1,21 +1,25 @@
 /*
  *  herr.h
  *
- *  $Id: herr.h,v 1.3 2004/11/11 01:52:37 luesang Exp $
+ *  $Id: herr.h,v 1.12 2006/07/10 13:49:29 source Exp $
  *
  *  Error stack management functions
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,6 +74,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef	_HERR_H
 #define	_HERR_H
 
@@ -85,6 +90,7 @@ typedef enum
     en_01S02,
     en_01S03,
     en_01S04,
+    en_01S08,
     en_07001,
     en_07006,
     en_08001,
@@ -118,6 +124,7 @@ typedef enum
     en_HY024,
     en_HY091,
     en_HY092,
+    en_HY110,
     en_HYC00,
     en_IM001,
     en_IM002,

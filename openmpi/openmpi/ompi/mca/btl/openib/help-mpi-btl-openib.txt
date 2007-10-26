@@ -1,0 +1,178 @@
+# -*- text -*-
+#
+# Copyright (c) 2004-2005 The Trustees of Indiana University and Indiana
+#                         University Research and Technology
+#                         Corporation.  All rights reserved.
+# Copyright (c) 2004-2005 The University of Tennessee and The University
+#                         of Tennessee Research Foundation.  All rights
+#                         reserved.
+# Copyright (c) 2004-2005 High Performance Computing Center Stuttgart, 
+#                         University of Stuttgart.  All rights reserved.
+# Copyright (c) 2004-2006 The Regents of the University of California.
+#                         All rights reserved.
+# Copyright (c) 2006-2007 Cisco Systems, Inc.  All rights reserved.
+# $COPYRIGHT$
+# 
+# Additional copyrights may follow
+# 
+# $HEADER$
+#
+# This is the US/English general help file for Open MPI.
+#
+[ini file:file not found]
+The Open MPI OpenIB BTL component was unable to find or read an INI
+file that was requested via the btl_openib_hca_param_files MCA
+parameter.  Please check this file and/or modify the
+btl_openib_hca_param_files MCA parameter:
+
+    %s
+[ini file:not in a section]
+In parsing OpenIB BTL parameter file, values were found that were not
+in a valid INI section.  These values will be ignored.  Please
+re-check this file:
+
+    %s
+
+At line %d, near the following text:
+
+    %s
+[ini file:unexpected token]
+In parsing OpenIB BTL parameter file, unexpected tokens were found
+(this may cause significant portions of the INI file to be ignored).
+Please re-check this file:
+
+    %s
+
+At line %d, near the following text:
+
+    %s
+[ini file:expected equals]
+In parsing OpenIB BTL parameter file, unexpected tokens were found
+(this may cause significant portions of the INI file to be ignored).
+An equals sign ("=") was expected but was not found.  Please re-check
+this file:
+
+    %s
+
+At line %d, near the following text:
+
+    %s
+[ini file:expected newline]
+In parsing OpenIB BTL parameter file, unexpected tokens were found
+(this may cause significant portions of the INI file to be ignored).
+A newline was expected but was not found.  Please re-check this file:
+
+    %s
+
+At line %d, near the following text:
+
+    %s
+[ini file:unknown field]
+In parsing OpenIB BTL parameter file, an unrecognized field name was
+found.  Please re-check this file:
+
+    %s
+
+At line %d, the field named:
+
+    %s
+
+This field, and any other unrecognized fields, will be skipped.
+[no hca params found]
+WARNING: No HCA parameters were found for the HCA that Open MPI
+detected:
+
+    Hostname:           %s
+    HCA vendor ID:      0x%04x
+    HCA vendor part ID: %d
+
+Default HCA parameters will be used, which may result in lower
+performance.  You can edit any of the files specified by the
+btl_openib_hca_param_files MCA parameter to set values for your HCA.
+
+NOTE: You can turn off this warning by setting the MCA parameter
+      btl_openib_warn_no_hca_params_found to 0.
+[init-fail-no-mem]
+The OpenIB BTL failed to initialize while trying to allocate some
+locked memory.  This typically can indicate that the memlock limits
+are set too low.  For most HPC installations, the memlock limits
+should be set to "unlimited".  The failure occured here:
+
+    Host:          %s
+    OMPI source:   %s:%d
+    Function:      %s()
+    Device:        %s
+    Memlock limit: %s
+
+You may need to consult with your system administrator to get this
+problem fixed.  This FAQ entry on the Open MPI web site may also be
+helpful:
+
+    http://www.open-mpi.org/faq/?category=openfabrics#ib-locked-pages
+[init-fail-create-q]
+The OpenIB BTL failed to initialize while trying to create an internal
+queue.  This typically indicates a failed OpenFabrics installation or
+faulty hardware.  The failure occured here:
+
+    Host:        %s
+    OMPI source: %s:%d
+    Function:    %s()
+    Error:       %s (errno=%d)
+    Device:      %s
+
+You may need to consult with your system administrator to get this
+problem fixed.
+[btl_openib:retry-exceeded]
+The InfiniBand retry count between two MPI processes has been
+exceeded.  "Retry count" is defined in the InfiniBand spec 1.2
+(section 12.7.38):
+
+    The total number of times that the sender wishes the receiver to
+    retry timeout, packet sequence, etc. errors before posting a
+    completion error.
+
+This error typically means that there is something awry within the
+InfiniBand fabric itself.  You should note the hosts on which this
+error has occurred; it has been observed that rebooting or removing a
+particular host from the job can sometimes resolve this issue.  
+
+Two MCA parameters can be used to control Open MPI's behavior with
+respect to the retry count:
+
+* btl_openib_ib_retry_count - The number of times the sender will
+  attempt to retry (defaulted to 7, the maximum value).
+
+* btl_openib_ib_timeout - The local ACK timeout parameter (defaulted
+  to 10).  The actual timeout value used is calculated as:
+
+     4.096 microseconds * (2^btl_openib_ib_timeout)
+
+  See the InfiniBand spec 1.2 (section 12.7.34) for more details.
+[no active ports found]
+WARNING: There is at least on IB HCA found on host '%s', but there is
+no active ports detected. This is most certainly not what you wanted.
+Check your cables and SM configuration.
+[error in hca init]
+WARNING: There were errors during IB HCA initialization on host '%s'.
+[default subnet prefix]
+WARNING: There are more than one active ports on host '%s', but the
+default subnet GID prefix was detected on more than one of these
+ports.  If these ports are connected to different physical IB
+networks, this configuration will fail in Open MPI.  This version of
+Open MPI requires that every physically separate IB subnet that is
+used between connected MPI processes must have different subnet ID
+values.
+
+Please see this FAQ entry for more details:
+
+  http://www.open-mpi.org/faq/?category=openfabrics#ofa-default-subnet-gid
+
+NOTE: You can turn off this warning by setting the MCA parameter
+      btl_openib_warn_default_gid_prefix to 0.
+[ibv_fork requested but not supported]
+WARNING: fork() support was requested for the openib BTL, but it is
+not supported on the host %s.  Deactivating the openib BTL.
+[ibv_fork_init fail]
+WARNING: fork() support was requested for the openib BTL, but the
+library call ibv_fork_init() failed on the host %s.
+Deactivating the openib BTL.

@@ -24,7 +24,7 @@ set MIFLAGS "-i=mi1"
 set prms_id 0
 set bug_id 0
 
-if [istarget "powerpc64-apple-darwin*"] {
+if [target_info exists nocarbon64] {
     verbose "Skipping Carbon tests on 64-bit PowerPC."
     return
 }

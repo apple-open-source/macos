@@ -1,4 +1,4 @@
-/* Copyright (C) 1992,93,94,95,96,97,98,99,2000, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 1992-2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    This program is free software; you can redistribute it and/or modify
@@ -13,19 +13,57 @@
 
    You should have received a copy of the GNU General Public License along
    with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
 
+#include "getpass.h"
+
 #include <stdio.h>
-#ifndef SEEK_CUR
-#define SEEK_CUR 1
+
+#if !defined _WIN32
+
+#include <stdbool.h>
+
+#if HAVE_STDIO_EXT_H
+# include <stdio_ext.h>
 #endif
-#include <termios.h>
-#include <unistd.h>
+#if !HAVE___FSETLOCKING
+# define __fsetlocking(stream, type)	/* empty */
+#endif
+
+#if HAVE_TERMIOS_H
+# include <termios.h>
+#endif
+
 #include "getline.h"
+
+#if USE_UNLOCKED_IO
+# include "unlocked-io.h"
+#else
+# if !HAVE_DECL_FFLUSH_UNLOCKED
+#  undef fflush_unlocked
+#  define fflush_unlocked(x) fflush (x)
+# endif
+# if !HAVE_DECL_FLOCKFILE
+#  undef flockfile
+#  define flockfile(x) ((void) 0)
+# endif
+# if !HAVE_DECL_FUNLOCKFILE
+#  undef funlockfile
+#  define funlockfile(x) ((void) 0)
+# endif
+# if !HAVE_DECL_FPUTS_UNLOCKED
+#  undef fputs_unlocked
+#  define fputs_unlocked(str,stream) fputs (str, stream)
+# endif
+# if !HAVE_DECL_PUTC_UNLOCKED
+#  undef putc_unlocked
+#  define putc_unlocked(c,stream) putc (c, stream)
+# endif
+#endif
 
 /* It is desirable to use this bit on systems that have it.
    The only bit of terminal state we want to twiddle is echoing, which is
@@ -36,12 +74,20 @@
 # define TCSASOFT 0
 #endif
 
+static void
+call_fclose (void *arg)
+{
+  if (arg != NULL)
+    fclose (arg);
+}
+
 char *
 getpass (const char *prompt)
 {
+  FILE *tty;
   FILE *in, *out;
   struct termios s, t;
-  int tty_changed;
+  bool tty_changed = false;
   static char *buf;
   static size_t bufsize;
   ssize_t nread;
@@ -49,34 +95,52 @@ getpass (const char *prompt)
   /* Try to write to and read from the terminal if we can.
      If we can't open the terminal, use stderr and stdin.  */
 
-  in = fopen ("/dev/tty", "w+");
-  if (in == NULL)
+  tty = fopen ("/dev/tty", "w+");
+  if (tty == NULL)
     {
       in = stdin;
       out = stderr;
     }
   else
-    out = in;
+    {
+      /* We do the locking ourselves.  */
+      __fsetlocking (tty, FSETLOCKING_BYCALLER);
+
+      out = in = tty;
+    }
+
+  flockfile (out);
 
   /* Turn echoing off if it is on now.  */
-
+#if HAVE_TCGETATTR
   if (tcgetattr (fileno (in), &t) == 0)
     {
       /* Save the old one. */
       s = t;
       /* Tricky, tricky. */
-      t.c_lflag &= ~(ECHO|ISIG);
-      tty_changed = (tcsetattr (fileno (in), TCSAFLUSH|TCSASOFT, &t) == 0);
+      t.c_lflag &= ~(ECHO | ISIG);
+      tty_changed = (tcsetattr (fileno (in), TCSAFLUSH | TCSASOFT, &t) == 0);
     }
-  else
-    tty_changed = 0;
+#endif
 
   /* Write the prompt.  */
-  fputs (prompt, out);
-  fflush (out);
+  fputs_unlocked (prompt, out);
+  fflush_unlocked (out);
 
   /* Read the password.  */
   nread = getline (&buf, &bufsize, in);
+
+  /* According to the C standard, input may not be followed by output
+     on the same stream without an intervening call to a file
+     positioning function.  Suppose in == out; then without this fseek
+     call, on Solaris, HP-UX, AIX, OSF/1, the previous input gets
+     echoed, whereas on IRIX, the following newline is not output as
+     it should be.  POSIX imposes similar restrictions if fileno (in)
+     == fileno (out).  The POSIX restrictions are tricky and change
+     from POSIX version to POSIX version, so play it safe and invoke
+     fseek even if in != out.  */
+  fseek (out, 0, SEEK_CUR);
+
   if (buf != NULL)
     {
       if (nread < 0)
@@ -88,19 +152,75 @@ getpass (const char *prompt)
 	  if (tty_changed)
 	    {
 	      /* Write the newline that was not echoed.  */
-	      if (out == in) fseek (out, 0, SEEK_CUR);
-	      putc ('\n', out);
+	      putc_unlocked ('\n', out);
 	    }
 	}
     }
 
   /* Restore the original setting.  */
+#if HAVE_TCSETATTR
   if (tty_changed)
-    (void) tcsetattr (fileno (in), TCSAFLUSH|TCSASOFT, &s);
+    tcsetattr (fileno (in), TCSAFLUSH | TCSASOFT, &s);
+#endif
 
-  if (in != stdin)
-    /* We opened the terminal; now close it.  */
-    fclose (in);
+  funlockfile (out);
+
+  call_fclose (tty);
 
   return buf;
 }
+
+#else /* WIN32 */
+
+/* Windows implementation by Martin Lambers <marlam@marlam.de>,
+   improved by Simon Josefsson. */
+
+/* For PASS_MAX. */
+#include <limits.h>
+
+#ifndef PASS_MAX
+# define PASS_MAX 512
+#endif
+
+char *
+getpass (const char *prompt)
+{
+  char getpassbuf[PASS_MAX + 1];
+  size_t i = 0;
+  int c;
+
+  if (prompt)
+    {
+      fputs (prompt, stderr);
+      fflush (stderr);
+    }
+
+  for (;;)
+    {
+      c = _getch ();
+      if (c == '\r')
+	{
+	  getpassbuf[i] = '\0';
+	  break;
+	}
+      else if (i < PASS_MAX)
+	{
+	  getpassbuf[i++] = c;
+	}
+
+      if (i >= PASS_MAX)
+	{
+	  getpassbuf[i] = '\0';
+	  break;
+	}
+    }
+
+  if (prompt)
+    {
+      fputs ("\r\n", stderr);
+      fflush (stderr);
+    }
+
+  return strdup (getpassbuf);
+}
+#endif

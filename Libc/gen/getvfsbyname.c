@@ -85,7 +85,7 @@ getvfsbyname(fsname, vfcp)
 	for (cnt = 0; cnt < maxtypenum; cnt++) {
 		name[3] = cnt;
 		if (sysctl(name, 4, vfcp, &buflen, (void *)0, (size_t)0) < 0) {
-			if (errno != EOPNOTSUPP)
+			if (errno != ENOTSUP)
 				return (-1);
 			continue;
 		}

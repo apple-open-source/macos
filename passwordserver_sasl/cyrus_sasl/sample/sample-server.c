@@ -1,6 +1,6 @@
 /* sample-server.c -- sample SASL server
  * Rob Earhart
- * $Id: sample-server.c,v 1.2 2004/07/07 22:53:08 snsimon Exp $
+ * $Id: sample-server.c,v 1.3 2005/05/17 21:56:45 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -260,7 +260,7 @@ samp_recv()
   if (strncmp(buf, "C: ", 3)!=0)
     fail("Line must start with 'C: '");
     
-  result = sasl_decode64(buf + 3, strlen(buf + 3), buf,
+  result = sasl_decode64(buf + 3, (unsigned) strlen(buf + 3), buf,
 			 SAMPLE_SEC_BUF_SIZE, &len);
   if (result != SASL_OK)
     saslfail(result, "Decoding data from base64", NULL);
@@ -519,7 +519,7 @@ main(int argc, char *argv[])
     data = strdup(mech);
     if (! data)
       osfail();
-    len = strlen(data);
+    len = (unsigned) strlen(data);
     count = 1;
   } else {
     puts("Generating client mechanism list...");

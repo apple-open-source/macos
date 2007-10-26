@@ -124,7 +124,7 @@
 
 	* server.el (server-kill-emacs-query-function): Ignore killed buffers.
 
-1994-05-24  Kenneth Manheimer (ken.manheimer@nist.gov)
+1994-05-24  Kenneth Manheimer  (ken.manheimer@nist.gov)
 
 	* allout.el (outline-chart-subtree): include outline-next-
 	heading in loop conditions to detect end-of-buffer (and avoid
@@ -553,10 +553,10 @@
 	Delete duplicate entry for ISO calendar.
 	(calendar-event-to-date): Set buffer in case calendar isn't current.
 
-1994-05-08  David K}gedal  (davidk@lysator.liu.se)
+1994-05-08  David Kågedal  (davidk@lysator.liu.se)
 
-	* tempo.el (tempo-insert-region, tempo-show-completion-buffer,
-	tempo-leave-completion-buffer): New variables.
+	* tempo.el (tempo-insert-region, tempo-show-completion-buffer)
+	(tempo-leave-completion-buffer): New variables.
 	(tempo-complete-tag): Added a completion buffer mechanism.
 	(tempo-display-completions): New function.
 	(tempo-insert-template): An extension to the (p ...) tag
@@ -585,7 +585,7 @@
 
 	* skeleton.el (mirror-mode): Commented out.
 
-1994-05-06  Andreas Schwab (schwab@issan.informatik.uni-dortmund.de)
+1994-05-06  Andreas Schwab  (schwab@issan.informatik.uni-dortmund.de)
 
 	* asm-mode.el (asm-comment): Don't match newline.
 
@@ -1215,7 +1215,7 @@
 
 	* ange-ftp.el (ange-ftp-add-file-entry-alist): Fix typo in prev change.
 
-1994-04-22  Jamie Zawinski (jwz@lucid.com)
+1994-04-22  Jamie Zawinski  (jwz@lucid.com)
 
 	* mail-extr.el: Major changes by jwz and drw.
 
@@ -4023,7 +4023,7 @@
 
 	* paths.el (manual-program): Deleted.
 
-1993-01-01  Martin Boyer <mboyer@ireq-robot.hydro.qc.ca>
+1993-01-01  Martin Boyer  <mboyer@ireq-robot.hydro.qc.ca>
 
   	* bibtex.el (bibtex-field-name, bibtex-field-const, bibtex-field-text):
   	Adapted to Emacs 19 regex rules.
@@ -4078,7 +4078,7 @@
 	* rmailsum.el (rmail-summary-delete-forward): Move to next or prev msg
 	among those included in the summary.
 
-1993-12-29  Ken Manheimer (klm@nist.gov)
+1993-12-29  Ken Manheimer  (klm@nist.gov)
 
 	* icomplete.el (icomplete-pre-command-hook): Reconciled with
 	keyboard macro operation.
@@ -4331,7 +4331,7 @@
 
 	* gnuspost.el (gnus-post-news): Call gnus-read-distributions-file.
 
-1993-12-06  Anders Holst (aho@sans.kth.se)
+1993-12-06  Anders Holst  (aho@sans.kth.se)
 
 	* hippie-exp.el (;; Keywords:): Changed to "abbrev".
         (hippie-expand-ignore-buffers): New variable.
@@ -4807,9 +4807,9 @@
 	* comint.el (comint-read-input-ring, comint-write-input-ring):
 	Treat "" like nil in comint-input-ring-file-name.
 
-1993-11-15  Robert J. Chassell (bob@grackle.stockbridge.ma.us)
+1993-11-15  Robert J. Chassell  (bob@grackle.stockbridge.ma.us)
 
-        * page.el Add `provide'.
+        * page.el: Add `provide'.
         (narrow-to-page): Enable page-delimiter to span lines.
 
         * page-ext.el: Revise documentation.  Add `provide'.
@@ -5952,7 +5952,7 @@
 	when displaying region and when setting it.
 	(mouse-skip-word, mouse-start-end): New functions.
 
-1993-09-17  Stig@netcom.com (Jonathan Stigelman)
+1993-09-17  Jonathan Stigelman  <Stig@netcom.com>
 
         * hilit19.el:
         - (hilit-rehighlight-region): added (save-restriction (widen))
@@ -6131,7 +6131,7 @@
 
 	* cal-dst.el (calendar-time-zone-daylight-rules): Remove
 	special case for Israel.  Israel has changed its daylight
-	savings time rules.  We don't know what the current rules are,
+	saving time rules.  We don't know what the current rules are,
 	but the special case was definitely incorrect.
 
 1993-09-06  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
@@ -7074,7 +7074,7 @@
 
 	* calendar.el (hebrew-holidays): Split into 4 sub-variables.
 
-1993-07-19  Masanobu UMEDA  (umerin at orchid)
+1993-07-19  Masanobu UMEDA  (umerin@orchid)
 
 	* gnus.el (gnus-emacs-version): New variable.
 	(gnus-version): Updated to 4.1.
@@ -7462,7 +7462,8 @@
 
 1993-07-08  Roland McGrath  (roland@churchy.gnu.ai.mit.edu)
 
-	* Make everything that deactivates the mark do it consistently.
+	Make everything that deactivates the mark do it consistently.
+
 	* simple.el (deactivate-mark): New function.
 	(kill-ring-save, pop-mark, keyboard-quit): Call it.
 	* ispell.el (ispell):
@@ -7500,7 +7501,7 @@
 	as well as auto-fill-function.
 	(texinfo-sequential-node-update): Likewise.
 
-1993-07-07  Robert J. Chassell  (bob at grackle)
+1993-07-07  Robert J. Chassell  (bob@grackle)
 
         * texnfo-upd.el: Fix typo re `texinfo-sequential-node-update.'
         Ensure that no commands depend on the value of
@@ -8086,7 +8087,7 @@
         (general-holidays, calendar-holidays, hebrew-holidays,
         christian-holidays, islamic-holidays,
         solar-holidays): Rewritten to include require of cal-dst.el and to
-        show the time of the change to/from daylight savings time.
+        show the time of the change to/from daylight saving time.
         (calendar-current-time-zone, calendar-time-zone,
         calendar-daylight-time-offset, calendar-standard-time-zone-name,
         calendar-daylight-time-zone-name, calendar-daylight-savings-starts,
@@ -8771,12 +8772,12 @@
         (solar-time-string): Use calendar-daylight-time-offset instead of
         1 hr, and use calendar-daylight-savings-switchover-time instead of
         midnight.  Add an optional parameter to allow forcing the use of
-        standard or daylight savings time.  Fix code so it works in
+        standard or daylight saving time.  Fix code so it works in
         southern hemisphere (start of dst precedes end of dst in a
         calendar year) and when dst either starts or ends in a calendar
         year, but not both.
 
-1993-06-01  Ken  Manheimer  (klm@coil.nist.gov)
+1993-06-01  Ken Manheimer  (klm@coil.nist.gov)
 
 	* allout.el (outlineify-sticky): Reconciled provisions for
 	non-standard and standard prefix leaders.
@@ -8812,7 +8813,7 @@
 
 	* c++-mode-1.el: New file.
 
-1993-06-01  Ken  Manheimer  (klm@coil.nist.gov)
+1993-06-01  Ken Manheimer  (klm@coil.nist.gov)
 
 	* allout.el (move-to-column): Pass zero instead of negative arg.
 	Added some free variables defvars, so byte-comple doesn't complain.
@@ -8938,6 +8939,24 @@
 
 See ChangeLog.3 for earlier changes.
 
-    Copyright (C) 1993, 1994 Free Software Foundation, Inc.
-  Copying and distribution of this file, with or without modification,
-  are permitted provided the copyright notice and this notice are preserved.
+    Copyright (C) 1993, 1994, 2001, 2002, 2003, 2004, 2005, 2006,
+      2007  Free Software Foundation, Inc.
+
+  This file is part of GNU Emacs.
+
+  GNU Emacs is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2, or (at your option)
+  any later version.
+
+  GNU Emacs is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with GNU Emacs; see the file COPYING.  If not, write to the
+  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+  Boston, MA 02110-1301, USA.
+
+;;; arch-tag: 91035822-35c7-44a9-8417-2454b88c3db2

@@ -1,6 +1,7 @@
 ;;; vms-pmail.el --- use Emacs as the editor within VMS mail
 
-;; Copyright (C) 1992 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Roland B Roberts <roberts@panix.com>
 ;; Maintainer: FSF
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -39,9 +40,9 @@
 ;;;     then execute them as though emacs were just starting up.
 ;;;
 (defun vms-pmail-save-and-exit ()
-  "Save current buffer and exit emacs.
-If this emacs cannot be suspended, you will be prompted about modified
-buffers other than the mail buffer.  BEWARE --- suspending emacs without
+  "Save current buffer and exit Emacs.
+If this Emacs cannot be suspended, you will be prompted about modified
+buffers other than the mail buffer.  BEWARE --- suspending Emacs without
 saving your mail buffer causes mail to abort the send (potentially useful
 since the mail buffer is still here)."
   (interactive)
@@ -54,7 +55,7 @@ since the mail buffer is still here)."
     (suspend-emacs)))
 
 (defun vms-pmail-abort ()
-  "Mark buffer as unmodified and exit emacs.
+  "Mark buffer as unmodified and exit Emacs.
 When the editor is exited without saving its buffer, VMS mail does not
 send a message.  If you have other modified buffers you will be
 prompted for what to do with them."
@@ -77,7 +78,7 @@ following bindings are established.
 \\[vms-pmail-save-and-exit]	vms-pmail-save-and-exit
 \\[vms-pmail-abort]	vms-pmail-abort
 
-All other emacs commands are still available."
+All other Emacs commands are still available."
   (interactive)
   (auto-save-mode -1)
   (text-mode)
@@ -119,4 +120,5 @@ If neither file exists, fails quietly."
 
 (provide 'vms-pmail)
 
+;;; arch-tag: 336850fc-7812-4663-8e4d-b9c13f47dce1
 ;;; vms-pmail.el ends here

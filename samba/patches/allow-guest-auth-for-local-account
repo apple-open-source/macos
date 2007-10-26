@@ -1,0 +1,46 @@
+<rdar://problem/5340507> SMB/PFS : Guest connection fails
+
+The problem here is that smbfs does guest as -Uguest%. This means
+that it's not the same an anonymous (no creds at all), which is
+assumed by the builtin guest auth module. Additionally, we can
+sometime have a real system account called "guest", which messes
+up the "map to guest" configuration.
+
+The solution is to check whether the account is the well-known guest
+account and allow it if it is (even if it's a real system account).
+Index: samba/source/auth/auth_builtin.c
+===================================================================
+--- samba/source/auth/auth_builtin.c.orig
++++ samba/source/auth/auth_builtin.c
+@@ -41,9 +41,29 @@ static NTSTATUS check_guest_security(con
+ 	/* mark this as 'not for me' */
+ 	NTSTATUS nt_status = NT_STATUS_NOT_IMPLEMENTED;
+ 
+-	if (!(user_info->internal_username 
+-	      && *user_info->internal_username)) {
++	if (!(user_info->internal_username && *user_info->internal_username)) {
++		/* An unmapped user counts as guest. */
+ 		nt_status = make_server_info_guest(server_info);
++	} else {
++		/* Any user whose SAM account maps to the well-known guest
++		 * account also counts as guest.
++		 */
++		struct samu *sampass = samu_new(mem_ctx);
++
++		if (sampass == NULL) {
++			return NT_STATUS_NO_MEMORY;
++		}
++
++		if (pdb_getsampwnam(sampass, user_info->internal_username)) {
++			uint32 rid = 0;
++
++			sid_peek_rid(pdb_get_user_sid(sampass), &rid);
++			if (rid == DOMAIN_USER_RID_GUEST) {
++			    nt_status = make_server_info_guest(server_info);
++			}
++		}
++
++		TALLOC_FREE(sampass);
+ 	}
+ 
+ 	return nt_status;

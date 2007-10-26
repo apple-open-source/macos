@@ -1,5 +1,7 @@
-# $OpenLDAP: pkg/ldap/build/top.mk,v 1.78.2.8 2004/07/25 21:52:18 hyc Exp $
-## Copyright 1998-2004 The OpenLDAP Foundation.
+# $OpenLDAP: pkg/ldap/build/top.mk,v 1.93.2.8 2006/01/03 22:16:01 kurt Exp $
+## This work is part of OpenLDAP Software <http://www.openldap.org/>.
+##
+## Copyright 1998-2006 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -49,10 +51,16 @@ OBJEXT = @OBJEXT@
 
 BUILD_LIBS_DYNAMIC = @BUILD_LIBS_DYNAMIC@
 
-INSTALL = @INSTALL@
-INSTALL_PROGRAM = @INSTALL_PROGRAM@
-INSTALL_DATA = @INSTALL_DATA@
-INSTALL_SCRIPT = @INSTALL_SCRIPT@
+BUILD_SLAPD = @BUILD_SLAPD@
+
+SHTOOL = $(top_srcdir)/build/shtool
+
+INSTALL = $(SHTOOL) install -c
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA = $(INSTALL) -m 644
+INSTALL_SCRIPT = $(INSTALL)
+
+STRIP = -s
 
 LINT = lint
 5LINT = 5lint
@@ -63,8 +71,6 @@ MKDEP_CC	= @OL_MKDEP@
 MKDEP_CFLAGS = @OL_MKDEP_FLAGS@
 
 MKVERSION = $(top_srcdir)/build/mkversion -v "$(VERSION)"
-
-SHTOOL = $(top_srcdir)/build/shtool
 
 LIBTOOL = @LIBTOOL@
 LIBRELEASE = @OPENLDAP_LIBRELEASE@
@@ -77,9 +83,9 @@ LTONLY_LIB = $(@PLAT@_LTONLY_LIB)
 
 # libtool --only flag for modules: depends on linkage of module
 # The BUILD_MOD macro is defined in each backend Makefile.in file
-LTONLY_yes = static
-LTONLY_mod = shared
-LTONLY_MOD = # --only-$(BUILD_MOD)
+LTONLY_yes = --tag=disable-shared
+LTONLY_mod = --tag=disable-static
+LTONLY_MOD = $(LTONLY_$(BUILD_MOD))
 
 # platform-specific libtool flags
 NT_LTFLAGS_LIB = -no-undefined -avoid-version -rpath $(libdir)
@@ -125,17 +131,19 @@ BASENAME = basename
 CAT = cat
 CHMOD = chmod
 DATE = date
+ECHO = $(SHTOOL) echo
 HOSTNAME = $(SHTOOL) echo -e "%h%d"
-LN = ln
-LN_H = @LN_H@
-LN_S = @LN_S@
+LN = $(SHTOOL) mkln
+LN_H = $(LN)
+LN_S = $(LN) -s
 MAKEINFO = @MAKEINFO@
 MKDIR = $(SHTOOL) mkdir -p
-MV = mv
+MV = $(SHTOOL) move
 PWD = pwd
 RANLIB = @RANLIB@
 RM = rm -f
 SED = sed
+SUBST = $(SHTOOL) subst
 
 # For manual pages
 # MANCOMPRESS=@MANCOMPRESS@
@@ -191,7 +199,7 @@ SLAPD_SQL_LDFLAGS = @SLAPD_SQL_LDFLAGS@
 SLAPD_SQL_INCLUDES = @SLAPD_SQL_INCLUDES@
 SLAPD_SQL_LIBS = @SLAPD_SQL_LIBS@
 
-SLAPD_LIBS = @SLAPD_LIBS@ @SLAPD_PERL_LDFLAGS@ @SLAPD_SQL_LDFLAGS@ @SLAPD_SQL_LIBS@ @SLAPD_SLP_LIBS@
+SLAPD_LIBS = @SLAPD_LIBS@ @SLAPD_PERL_LDFLAGS@ @SLAPD_SQL_LDFLAGS@ @SLAPD_SQL_LIBS@ @SLAPD_SLP_LIBS@ @SLAPD_GMP_LIBS@
 SLURPD_LIBS = @SLURPD_LIBS@
 
 # Our Defaults

@@ -1,0 +1,24 @@
+--- wait.c.orig	2006-09-13 16:57:37.000000000 -0700
++++ wait.c	2006-09-13 17:00:15.000000000 -0700
+@@ -44,10 +44,20 @@
+ #include <sys/resource.h>
+ #include "un-namespace.h"
+ 
++#ifdef VARIANT_CANCELABLE
++int __wait4(pid_t, int *, int , struct rusage *);
++#else /* !VARIANT_CANCELABLE */
++int __wait4_nocancel(pid_t, int *, int , struct rusage *);
++#endif /* VARIANT_CANCELABLE */
++
+ pid_t
+ __wait(int *istat)
+ {
+-	return (_wait4(WAIT_ANY, istat, 0, (struct rusage *)0));
++#ifdef VARIANT_CANCELABLE
++	return (__wait4(WAIT_ANY, istat, 0, (struct rusage *)0));
++#else /* !VARIANT_CANCELABLE */
++	return (__wait4_nocancel(WAIT_ANY, istat, 0, (struct rusage *)0));
++#endif /* VARIANT_CANCELABLE */
+ }
+ 
+ __weak_reference(__wait, wait);

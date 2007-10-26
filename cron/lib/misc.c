@@ -17,7 +17,7 @@
 
 #if !defined(lint) && !defined(LINT)
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/cron/lib/misc.c,v 1.11 2002/08/04 04:32:27 tjr Exp $";
+  "$FreeBSD: src/usr.sbin/cron/lib/misc.c,v 1.13 2005/08/24 17:51:36 pjd Exp $";
 #endif
 
 /* vix 26jan87 [RCS has the rest of the log]
@@ -222,65 +222,6 @@ set_cron_cwd()
 }
 
 
-/* acquire_daemonlock() - write our PID into /etc/cron.pid, unless
- *	another daemon is already running, which we detect here.
- *
- * note: main() calls us twice; once before forking, once after.
- *	we maintain static storage of the file pointer so that we
- *	can rewrite our PID into the PIDFILE after the fork.
- *
- * it would be great if fflush() disassociated the file buffer.
- */
-void
-acquire_daemonlock(closeflag)
-	int closeflag;
-{
-	static	FILE	*fp = NULL;
-
-	if (closeflag && fp) {
-		fclose(fp);
-		fp = NULL;
-		return;
-	}
-
-	if (!fp) {
-		char	pidfile[MAX_FNAME];
-		char	buf[MAX_TEMPSTR];
-		int	fd, otherpid;
-
-		(void) sprintf(pidfile, PIDFILE, PIDDIR);
-		if ((-1 == (fd = open(pidfile, O_RDWR|O_CREAT, 0644)))
-		    || (NULL == (fp = fdopen(fd, "r+")))
-		    ) {
-			sprintf(buf, "can't open or create %s: %s",
-				pidfile, strerror(errno));
-			log_it("CRON", getpid(), "DEATH", buf);
-			errx(ERROR_EXIT, "%s", buf);
-		}
-
-		if (flock(fd, LOCK_EX|LOCK_NB) < OK) {
-			int save_errno = errno;
-
-			fscanf(fp, "%d", &otherpid);
-			sprintf(buf, "can't lock %s, otherpid may be %d: %s",
-				pidfile, otherpid, strerror(save_errno));
-			log_it("CRON", getpid(), "DEATH", buf);
-			errx(ERROR_EXIT, "%s", buf);
-		}
-
-		(void) fcntl(fd, F_SETFD, 1);
-	}
-
-	rewind(fp);
-	fprintf(fp, "%d\n", getpid());
-	fflush(fp);
-	(void) ftruncate(fileno(fp), ftell(fp));
-
-	/* abandon fd and fp even though the file is open. we need to
-	 * keep it open and locked, but we don't need the handles elsewhere.
-	 */
-}
-
 /* get_char(file) : like getc() but increment LineNumber on newlines
  */
 int
@@ -406,15 +347,20 @@ in_file(string, file)
  *	or (DENY_FILE exists and user is NOT listed)
  *	or (neither file exists but user=="root" so it's okay)
  */
+#ifdef __APPLE__
+int allowed(char* username, int allow_only_root)
+#else
 int
 allowed(username)
 	char *username;
+#endif /* __APPLE__ */
 {
-	FILE	*allow = NULL, *deny = NULL;
+	FILE	*allow, *deny;
 	int	isallowed;
 
 	isallowed = FALSE;
 
+	deny = NULL;
 #if defined(ALLOW_FILE) && defined(DENY_FILE)
 	if ((allow = fopen(ALLOW_FILE, "r")) == NULL && errno != ENOENT)
 		goto out;
@@ -423,7 +369,6 @@ allowed(username)
 	Debug(DMISC, ("allow/deny enabled, %d/%d\n", !!allow, !!deny))
 #else
 	allow = NULL;
-	deny = NULL;
 #endif
 
 	if (allow)
@@ -431,10 +376,18 @@ allowed(username)
 	else if (deny)
 		isallowed = !in_file(username, deny);
 	else {
+#ifdef __APPLE__
+		if (allow_only_root) {
+			isallowed = (strcmp(username, ROOT_USER) == 0);
+		} else {
+			isallowed = TRUE;
+		}
+#else
 #if defined(ALLOW_ONLY_ROOT)
 		isallowed = (strcmp(username, ROOT_USER) == 0);
 #else
 		isallowed = TRUE; 
+#endif
 #endif
 	}
 out:	if (allow)

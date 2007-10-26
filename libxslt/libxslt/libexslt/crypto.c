@@ -237,7 +237,7 @@ exsltCryptoCryptoApiRc4Encrypt (xmlXPathParserContextPtr ctxt,
 	exsltCryptoCryptoApiReportError (ctxt, __LINE__);
 	goto fail;
     }
-// Now encrypt data.
+/* Now encrypt data. */
     dwDataLen = msglen;
     memcpy (dest, msg, msglen);
     if (!CryptEncrypt (hKey, 0, TRUE, 0, dest, &dwDataLen, msglen)) {
@@ -288,7 +288,7 @@ exsltCryptoCryptoApiRc4Decrypt (xmlXPathParserContextPtr ctxt,
 	exsltCryptoCryptoApiReportError (ctxt, __LINE__);
 	goto fail;
     }
-// Now encrypt data.
+/* Now encrypt data. */
     dwDataLen = msglen;
     memcpy (dest, msg, msglen);
     if (!CryptDecrypt (hKey, 0, TRUE, 0, dest, &dwDataLen)) {
@@ -353,7 +353,8 @@ exsltCryptoGcryptInit (void) {
  */
 static void
 exsltCryptoGcryptHash (xmlXPathParserContextPtr ctxt ATTRIBUTE_UNUSED,
-		       enum gcry_md_algos algorithm, const char *msg,
+/* changed the enum to int */
+		       int algorithm, const char *msg,
 		       unsigned long msglen,
 		       char dest[HASH_DIGEST_LENGTH]) {
     exsltCryptoGcryptInit ();

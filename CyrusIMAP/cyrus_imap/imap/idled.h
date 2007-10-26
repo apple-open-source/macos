@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: idled.h,v 1.5 2005/03/05 00:36:54 dasenbro Exp $ */
+/* $Id: idled.h,v 1.5 2006/11/30 17:11:18 murch Exp $ */
 
 #ifndef IDLED_H
 #define IDLED_H
@@ -61,7 +61,8 @@ typedef struct idle_data_s {
 typedef enum {
     IDLE_INIT,
     IDLE_DONE,
-    IDLE_NOTIFY
+    IDLE_NOTIFY,
+    IDLE_NOOP
 } idle_msg_t;
 
 #endif

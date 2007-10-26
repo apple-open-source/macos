@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -15,7 +15,7 @@
    | Author: Edin Kadribasic <edink@php.net>                              |
    +----------------------------------------------------------------------+
 */
-/* $Id: php_embed.c,v 1.1.2.5.2.2 2007/01/01 09:46:52 sebastian Exp $ */
+/* $Id: php_embed.c,v 1.11.2.1.2.5 2007/08/08 21:57:30 stas Exp $ */
 
 #include "php_embed.h"
 
@@ -23,6 +23,14 @@
 #include <io.h>
 #include <fcntl.h>
 #endif
+
+#define HARDCODED_INI			\
+	"html_errors=0\n"			\
+	"register_argc_argv=1\n"	\
+	"implicit_flush=1\n"		\
+	"output_buffering=0\n"		\
+	"max_execution_time=0\n"	\
+	"max_input_time=-1\n"
 
 static char* php_embed_read_cookies(TSRMLS_D)
 {
@@ -125,10 +133,8 @@ sapi_module_struct php_embed_module = {
   
 	php_embed_register_variables,   /* register server variables */
 	php_embed_log_message,          /* Log message */
+	NULL,							/* Get request time */
   
-	NULL,                          /* Block interruptions */
-	NULL,                          /* Unblock interruptions */
-
 	STANDARD_SAPI_MODULE_PROPERTIES
 };
 /* }}} */
@@ -137,12 +143,9 @@ int php_embed_init(int argc, char **argv PTSRMLS_DC)
 {
 	zend_llist global_vars;
 #ifdef ZTS
-	zend_compiler_globals *compiler_globals;
-	zend_executor_globals *executor_globals;
-	php_core_globals *core_globals;
-	sapi_globals_struct *sapi_globals;
-	void ***tsrm_ls;
+	void ***tsrm_ls = NULL;
 #endif
+	int ini_entries_len = 0;
 
 #ifdef HAVE_SIGNAL_H
 #if defined(SIGPIPE) && defined(SIG_IGN)
@@ -164,36 +167,29 @@ int php_embed_init(int argc, char **argv PTSRMLS_DC)
 
 #ifdef ZTS
   tsrm_startup(1, 1, 0, NULL);
-#endif
-
-#ifdef ZTS
-  compiler_globals = ts_resource(compiler_globals_id);
-  executor_globals = ts_resource(executor_globals_id);
-  core_globals = ts_resource(core_globals_id);
-  sapi_globals = ts_resource(sapi_globals_id);
   tsrm_ls = ts_resource(0);
   *ptsrm_ls = tsrm_ls;
 #endif
 
+  ini_entries_len = strlen(HARDCODED_INI);
+  php_embed_module.ini_entries = malloc(ini_entries_len+2);
+  memcpy(php_embed_module.ini_entries, HARDCODED_INI, ini_entries_len+1);
+  php_embed_module.ini_entries[ini_entries_len+1] = 0;
+
   sapi_startup(&php_embed_module);
+
+  if (argv) {
+	php_embed_module.executable_location = argv[0];
+  }
 
   if (php_embed_module.startup(&php_embed_module)==FAILURE) {
 	  return FAILURE;
   }
  
-  if (argv) {
-	php_embed_module.executable_location = argv[0];
-  }
-
   zend_llist_init(&global_vars, sizeof(char *), NULL, 0);  
 
   /* Set some Embedded PHP defaults */
   SG(options) |= SAPI_OPTION_NO_CHDIR;
-  zend_alter_ini_entry("register_argc_argv", 19, "1", 1, PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
-  zend_alter_ini_entry("html_errors", 12, "0", 1, PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
-  zend_alter_ini_entry("implicit_flush", 15, "1", 1, PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
-  zend_alter_ini_entry("max_execution_time", 19, "0", 1, PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE);
-
   SG(request_info).argc=argc;
   SG(request_info).argv=argv;
 
@@ -217,6 +213,10 @@ void php_embed_shutdown(TSRMLS_D)
 #ifdef ZTS
     tsrm_shutdown();
 #endif
+	if (php_embed_module.ini_entries) {
+		free(php_embed_module.ini_entries);
+		php_embed_module.ini_entries = NULL;
+	}
 }
 
 /*

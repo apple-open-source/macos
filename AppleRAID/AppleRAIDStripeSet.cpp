@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,8 +22,6 @@
 
 #include "AppleRAID.h"
 
-const OSSymbol * gAppleRAIDStripeName;
-
 #define super AppleRAIDSet
 OSDefineMetaClassAndStructors(AppleRAIDStripeSet, AppleRAIDSet);
 
@@ -33,8 +31,6 @@ AppleRAIDSet * AppleRAIDStripeSet::createRAIDSet(AppleRAIDMember * firstMember)
 
     IOLog1("AppleRAIDStripeSet::createRAIDSet(%p) called, new set = %p  *********\n", firstMember, raidSet);
 
-    if (!gAppleRAIDStripeName) gAppleRAIDStripeName = OSSymbol::withCString(kAppleRAIDLevelNameStripe);  // XXX free
-            
     while (raidSet){
 
 	if (!raidSet->init()) break;
@@ -98,46 +94,14 @@ bool AppleRAIDStripeSet::startSet(void)
 {
     if (super::startSet() == false) return false;
 
-    // Publish larger segment sizes for Stripes.
-    UInt32	pagesPerChunk;
-    UInt64	maxBlockCount, maxSegmentCount;
-    OSNumber	* tmpNumber, * tmpNumber2;
+    // scale up these properties by the member count of the stripe
+    setSmallest64BitMemberPropertyFor(kIOMaximumBlockCountReadKey, arMemberCount);
+    setSmallest64BitMemberPropertyFor(kIOMaximumBlockCountWriteKey, arMemberCount);
+    setSmallest64BitMemberPropertyFor(kIOMaximumByteCountReadKey, arMemberCount);
+    setSmallest64BitMemberPropertyFor(kIOMaximumByteCountWriteKey, arMemberCount);
 
-    pagesPerChunk = arSetBlockSize / PAGE_SIZE;
-        
-    AppleRAIDMember * anyMember = NULL;
-    for (UInt32 memberIndex = 0; memberIndex < arMemberCount; memberIndex++) {
-	if ((anyMember = arMembers[memberIndex])) break;
-    }
-    if (!anyMember) return false;
-
-    // XXX move this to initWithHeader()
-	
-    tmpNumber  = OSDynamicCast(OSNumber, anyMember->getProperty(kIOMaximumBlockCountReadKey, gIOServicePlane));
-    tmpNumber2 = OSDynamicCast(OSNumber, anyMember->getProperty(kIOMaximumSegmentCountReadKey, gIOServicePlane));
-    if ((tmpNumber != 0) && (tmpNumber2 != 0)) {
-	maxBlockCount   = tmpNumber->unsigned64BitValue();
-	maxSegmentCount = tmpNumber2->unsigned64BitValue();
-            
-	maxBlockCount *= arMemberCount;
-	maxSegmentCount *= arMemberCount;
-            
-	setProperty(kIOMaximumBlockCountReadKey, maxBlockCount, 64);
-	setProperty(kIOMaximumSegmentCountReadKey, maxSegmentCount, 64);
-    }
-        
-    tmpNumber  = OSDynamicCast(OSNumber, anyMember->getProperty(kIOMaximumBlockCountWriteKey, gIOServicePlane));
-    tmpNumber2 = OSDynamicCast(OSNumber, anyMember->getProperty(kIOMaximumSegmentCountWriteKey, gIOServicePlane));
-    if ((tmpNumber != 0) && (tmpNumber2 != 0)) {
-	maxBlockCount   = tmpNumber->unsigned64BitValue();
-	maxSegmentCount = tmpNumber2->unsigned64BitValue();
-            
-	maxBlockCount *= arMemberCount;
-	maxSegmentCount *= arMemberCount;
-            
-	setProperty(kIOMaximumBlockCountWriteKey, maxBlockCount, 64);
-	setProperty(kIOMaximumSegmentCountWriteKey, maxSegmentCount, 64);
-    }
+    setSmallest64BitMemberPropertyFor(kIOMaximumSegmentCountReadKey, arMemberCount);
+    setSmallest64BitMemberPropertyFor(kIOMaximumSegmentCountWriteKey, arMemberCount);
 
     return true;
 }
@@ -182,28 +146,29 @@ bool AppleRAIDStripeMemoryDescriptor::initWithStorageRequest(AppleRAIDStorageReq
 
 bool AppleRAIDStripeMemoryDescriptor::configureForMemoryDescriptor(IOMemoryDescriptor *memoryDescriptor, UInt64 byteStart, UInt32 activeIndex)
 {
-    UInt32 raidBlockStop, raidBlockEndOffset;
-    UInt32 startMember, stopMember;
-    UInt32 blockCount, memberBlockCount, memberBlockStart;
     UInt32 byteCount = memoryDescriptor->getLength();
+    UInt32 blockCount, memberBlockCount;
+    UInt64 memberBlockStart, setBlockStop;
+    UInt32 setBlockEndOffset;
+    UInt32 startMember, stopMember;
 
-    assert(mdMemberIndex == activeIndex);
-    
     mdSetBlockStart	= byteStart / mdSetBlockSize;
     mdSetBlockOffset	= byteStart % mdSetBlockSize;
-    startMember		= mdSetBlockStart % mdMemberCount;
-    raidBlockStop	= (byteStart + byteCount - 1) / mdSetBlockSize;
-    raidBlockEndOffset	= (byteStart + byteCount - 1) % mdSetBlockSize;
-    stopMember		= raidBlockStop % mdMemberCount;
-    blockCount		= raidBlockStop - mdSetBlockStart + 1;
+    setBlockStop	= (byteStart + byteCount - 1) / mdSetBlockSize;
+    setBlockEndOffset	= (byteStart + byteCount - 1) % mdSetBlockSize;
+    blockCount		= setBlockStop - mdSetBlockStart + 1;
     memberBlockCount	= blockCount / mdMemberCount;
     memberBlockStart	= mdSetBlockStart / mdMemberCount;
+    startMember		= mdSetBlockStart % mdMemberCount;
+    stopMember		= setBlockStop % mdMemberCount;
     
+    // per member stuff
+    assert(mdMemberIndex == activeIndex);
     if (((mdMemberCount + mdMemberIndex - startMember) % mdMemberCount) < (blockCount % mdMemberCount)) memberBlockCount++;
     
     if (startMember > mdMemberIndex) memberBlockStart++;
     
-    mdMemberByteStart = (UInt64)memberBlockStart * mdSetBlockSize;
+    mdMemberByteStart = memberBlockStart * mdSetBlockSize;
     _length = memberBlockCount * mdSetBlockSize;
     
     if (startMember == mdMemberIndex) {
@@ -211,7 +176,7 @@ bool AppleRAIDStripeMemoryDescriptor::configureForMemoryDescriptor(IOMemoryDescr
         _length -= mdSetBlockOffset;
     }
         
-    if (stopMember == mdMemberIndex) _length -= mdSetBlockSize - raidBlockEndOffset - 1;
+    if (stopMember == mdMemberIndex) _length -= mdSetBlockSize - setBlockEndOffset - 1;
     
     mdMemoryDescriptor = memoryDescriptor;
     
@@ -222,16 +187,32 @@ bool AppleRAIDStripeMemoryDescriptor::configureForMemoryDescriptor(IOMemoryDescr
 
 IOPhysicalAddress AppleRAIDStripeMemoryDescriptor::getPhysicalSegment(IOByteCount offset, IOByteCount *length)
 {
-    UInt32		memberBlockNumber = (mdMemberByteStart + offset) / mdSetBlockSize;
+    UInt32		memberBlockStart = (mdMemberByteStart + offset) / mdSetBlockSize;
     UInt32		memberBlockOffset = (mdMemberByteStart + offset) % mdSetBlockSize;
-    UInt32		raidBlockNumber = memberBlockNumber * mdMemberCount + mdMemberIndex - mdSetBlockStart;
-    IOByteCount		raidOffset = raidBlockNumber * mdSetBlockSize + memberBlockOffset - mdSetBlockOffset;
+    UInt32		setBlockNumber = memberBlockStart * mdMemberCount + mdMemberIndex - mdSetBlockStart;
+    IOByteCount		setOffset = setBlockNumber * mdSetBlockSize + memberBlockOffset - mdSetBlockOffset;
     IOPhysicalAddress	physAddress;
     
-    physAddress = mdMemoryDescriptor->getPhysicalSegment(raidOffset, length);
+    physAddress = mdMemoryDescriptor->getPhysicalSegment(setOffset, length);
     
     memberBlockOffset = mdSetBlockSize - memberBlockOffset;
-    if (length && *length > memberBlockOffset) *length = memberBlockOffset;
+    if (length && (*length > memberBlockOffset)) *length = memberBlockOffset;
+    
+    return physAddress;
+}
+
+addr64_t AppleRAIDStripeMemoryDescriptor::getPhysicalSegment64(IOByteCount offset, IOByteCount *length)
+{
+    UInt32		memberBlockStart = (mdMemberByteStart + offset) / mdSetBlockSize;
+    UInt32		memberBlockOffset = (mdMemberByteStart + offset) % mdSetBlockSize;
+    UInt32		setBlockNumber = memberBlockStart * mdMemberCount + mdMemberIndex - mdSetBlockStart;
+    IOByteCount		setOffset = setBlockNumber * mdSetBlockSize + memberBlockOffset - mdSetBlockOffset;
+    addr64_t		physAddress;
+    
+    physAddress = mdMemoryDescriptor->getPhysicalSegment64(setOffset, length);
+    
+    memberBlockOffset = mdSetBlockSize - memberBlockOffset;
+    if (length && (*length > memberBlockOffset)) *length = memberBlockOffset;
     
     return physAddress;
 }

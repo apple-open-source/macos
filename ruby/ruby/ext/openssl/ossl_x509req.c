@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509req.c,v 1.5.2.1 2004/12/15 01:54:38 matz Exp $
+ * $Id: ossl_x509req.c 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -400,7 +400,7 @@ ossl_x509req_set_attributes(VALUE self, VALUE ary)
     X509_REQ *req;
     X509_ATTRIBUTE *attr;
     int i;
-    VALUE tmp, item;
+    VALUE item;
 
     Check_Type(ary, T_ARRAY);
     for (i=0;i<RARRAY(ary)->len; i++) {

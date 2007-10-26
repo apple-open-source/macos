@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,6 +69,7 @@
 
 #ifdef __APPLE__
 #include <sys/quota.h>
+#include <libkern/OSByteOrder.h>
 #else
 #include <ufs/ufs/quota.h>
 #endif /* __APPLE__ */
@@ -127,7 +128,7 @@ main(argc, argv)
 	extern int optind, errno;
 
 #if 0
-	if (quotactl("/", 0, 0, (caddr_t)0) < 0 && errno == EOPNOTSUPP) {
+	if (quotactl("/", 0, 0, (caddr_t)0) < 0 && errno == ENOTSUP) {
 		fprintf(stderr, "There are no quotas on this system\n");
 		exit(0);
 	}
@@ -497,6 +498,7 @@ getprivs(id, quotatype)
         struct statfs *fst;
 	register struct quotause *qup, *quptail;
 	struct quotause *quphead;
+	struct dqblk dqb;
 	char *qfpathname;
 	int qcmd, fd;
 	int nfst, i;
@@ -513,17 +515,21 @@ getprivs(id, quotatype)
         }
 
         for (i=0; i<nfst; i++) {
-	        if(strcmp(fst[i].f_fstypename, "hfs")) {
-		    if (strcmp(fst[i].f_fstypename, "ufs"))
-		        continue;
-		}	
-		if (!hasquota(&fst[i], quotatype, &qfpathname))
-			continue;
+		error = quotactl(fst[i].f_mntonname, qcmd, id, (char *)&dqb);
+		if (error) {
+			if (strcmp(fst[i].f_fstypename, "hfs") &&
+			    strcmp(fst[i].f_fstypename, "ufs"))
+				continue;
+			if (!hasquota(&fst[i], quotatype, &qfpathname))
+				continue;
+		}
 		if ((qup = (struct quotause *)malloc(sizeof *qup)) == NULL) {
 			fprintf(stderr, "quota: out of memory\n");
 			exit(2);
 		}
-		if (quotactl(fst[i].f_mntonname, qcmd, id, (char *)&qup->dqblk) != 0) {
+		if (!error) {
+			bcopy(&dqb, &qup->dqblk, sizeof(dqb));
+		} else {
 			if ((fd = open(qfpathname, O_RDONLY)) < 0) {
 				perror(qfpathname);
 				free(qup);
@@ -641,14 +647,14 @@ qflookup(fd, id, type, dqbp)
 	}
 
 	/* Sanity check the quota file header. */
-	if ((dqhdr.dqh_magic != quotamagic[type]) ||
-	    (dqhdr.dqh_version > QF_VERSION) ||
-	    (!powerof2(dqhdr.dqh_maxentries))) {
+	if ((OSSwapBigToHostInt32(dqhdr.dqh_magic) != quotamagic[type]) ||
+	    (OSSwapBigToHostInt32(dqhdr.dqh_version) > QF_VERSION) ||
+	    (!powerof2(OSSwapBigToHostInt32(dqhdr.dqh_maxentries)))) {
 		fprintf(stderr, "quota: invalid quota file header\n");
 		return (EINVAL);
 	}
 
-	m = dqhdr.dqh_maxentries;
+	m = OSSwapBigToHostInt32(dqhdr.dqh_maxentries);
 	mask = m - 1;
 	i = dqhash1(id, dqhashshift(m), mask);
 	skip = dqhash2(id, mask);
@@ -665,9 +671,20 @@ qflookup(fd, id, type, dqbp)
 		 * Stop when an empty entry is found
 		 * or we encounter a matching id.
 		 */
-		if (dqbp->dqb_id == 0 || dqbp->dqb_id == id)
+		if (dqbp->dqb_id == 0 || OSSwapBigToHostInt32(dqbp->dqb_id) == id)
 			break;
 	}
+	/* Put data in host native byte order. */
+	dqbp->dqb_bhardlimit = OSSwapBigToHostInt64(dqbp->dqb_bhardlimit);
+	dqbp->dqb_bsoftlimit = OSSwapBigToHostInt64(dqbp->dqb_bsoftlimit);
+	dqbp->dqb_curbytes   = OSSwapBigToHostInt64(dqbp->dqb_curbytes);
+	dqbp->dqb_ihardlimit = OSSwapBigToHostInt32(dqbp->dqb_ihardlimit);
+	dqbp->dqb_isoftlimit = OSSwapBigToHostInt32(dqbp->dqb_isoftlimit);
+	dqbp->dqb_curinodes  = OSSwapBigToHostInt32(dqbp->dqb_curinodes);
+	dqbp->dqb_btime      = OSSwapBigToHostInt32(dqbp->dqb_btime);
+	dqbp->dqb_itime      = OSSwapBigToHostInt32(dqbp->dqb_itime);
+	dqbp->dqb_id         = OSSwapBigToHostInt32(dqbp->dqb_id);
+
 	return (0);
 }
 #endif /* __APPLE__ */

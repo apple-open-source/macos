@@ -3,8 +3,8 @@ getopt
 --ARGS--
 -v -h -d test -m 1234 -t -j
 --INI--
-variables_order="GPCSE"
-register_argc_argv=1
+register_argc_argv=On
+variables_order=GPS
 --SKIPIF--
 <?php
 	if (substr(PHP_OS, 0, 3) == 'WIN') {

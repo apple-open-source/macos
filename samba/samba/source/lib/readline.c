@@ -50,7 +50,7 @@
  Display the prompt and wait for input. Call callback() regularly
 ****************************************************************************/
 
-static char *smb_readline_replacement(char *prompt, void (*callback)(void), 
+static char *smb_readline_replacement(const char *prompt, void (*callback)(void), 
 				char **(completion_fn)(const char *text, int start, int end))
 {
 	fd_set fds;
@@ -59,8 +59,11 @@ static char *smb_readline_replacement(char *prompt, void (*callback)(void),
 	int fd = x_fileno(x_stdin);
 	char *ret;
 
-	x_fprintf(dbf, "%s", prompt);
-	x_fflush(dbf);
+	/* Prompt might be NULL in non-interactive mode. */
+	if (prompt) {
+		x_fprintf(x_stdout, "%s", prompt);
+		x_fflush(x_stdout);
+	}
 
 	while (1) {
 		timeout.tv_sec = 5;
@@ -82,37 +85,47 @@ static char *smb_readline_replacement(char *prompt, void (*callback)(void),
  Display the prompt and wait for input. Call callback() regularly.
 ****************************************************************************/
 
-char *smb_readline(char *prompt, void (*callback)(void), 
+char *smb_readline(const char *prompt, void (*callback)(void), 
 		   char **(completion_fn)(const char *text, int start, int end))
 {
+	char *ret;
+	BOOL interactive;
+
+	interactive = isatty(x_fileno(x_stdin)) || getenv("CLI_FORCE_INTERACTIVE");
+	if (!interactive) {
+	    return smb_readline_replacement(NULL, callback, completion_fn);
+	}
+
 #if HAVE_LIBREADLINE
-	if (isatty(x_fileno(x_stdin))) {
-		char *ret;
 
-		/* Aargh!  Readline does bizzare things with the terminal width
-		that mucks up expect(1).  Set CLI_NO_READLINE in the environment
-		to force readline not to be used. */
+	/* Aargh!  Readline does bizzare things with the terminal width
+	that mucks up expect(1).  Set CLI_NO_READLINE in the environment
+	to force readline not to be used. */
 
-		if (getenv("CLI_NO_READLINE"))
-			return smb_readline_replacement(prompt, callback, completion_fn);
+	if (getenv("CLI_NO_READLINE"))
+		return smb_readline_replacement(prompt, callback, completion_fn);
 
-		if (completion_fn) {
-			/* The callback prototype has changed slightly between
-			different versions of Readline, so the same function
-			works in all of them to date, but we get compiler
-			warnings in some.  */
-			rl_attempted_completion_function = RL_COMPLETION_CAST completion_fn;
-		}
+	if (completion_fn) {
+		/* The callback prototype has changed slightly between
+		different versions of Readline, so the same function
+		works in all of them to date, but we get compiler
+		warnings in some.  */
+		rl_attempted_completion_function = RL_COMPLETION_CAST completion_fn;
+	}
 
-		if (callback)
-			rl_event_hook = (Function *)callback;
-		ret = readline(prompt);
-		if (ret && *ret)
-			add_history(ret);
-		return ret;
-	} else
+#if HAVE_DECL_RL_EVENT_HOOK
+	if (callback)
+		rl_event_hook = (Function *)callback;
 #endif
-	return smb_readline_replacement(prompt, callback, completion_fn);
+	ret = readline(prompt);
+	if (ret && *ret)
+		add_history(ret);
+
+#else
+	ret = smb_readline_replacement(prompt, callback, completion_fn);
+#endif
+
+	return ret;
 }
 
 /****************************************************************************
@@ -143,7 +156,7 @@ history
 ****************************************************************************/
 int cmd_history(void)
 {
-#if defined(HAVE_LIBREADLINE)
+#if defined(HAVE_LIBREADLINE) && defined(HAVE_HISTORY_LIST)
 	HIST_ENTRY **hlist;
 	int i;
 

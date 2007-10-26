@@ -42,17 +42,11 @@ extern "C" {
  *
  * DotMacTpPendingRequest ::=  SEQUENCE {
  *		userName			UTF8String,
- *		reqType				INTEGER }
+ *		certTypeTag			INTEGER }		// CSSM_DOT_MAC_TYPE_ICHAT, etc. 
  */
-typedef enum {
-	RT_Identity = 0,
-	RT_EmailSign = 1,
-	RT_EmailEncrypt = 2
-} DotMacPendingRequestType;
-
 typedef struct {
 	CSSM_DATA			userName;
-	CSSM_DATA			reqType;
+	CSSM_DATA			certTypeTag;
 } DotMacTpPendingRequest;
 
 extern const SecAsn1Template DotMacTpPendingRequestTemplate[];

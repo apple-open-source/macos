@@ -6,6 +6,18 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFWDCLPool.h,v $
+ *	Revision 1.13  2007/01/26 20:52:31  ayanowit
+ *	changes to user-space isoch stuff to support 64-bit apps.
+ *	
+ *	Revision 1.12  2006/02/09 00:21:50  niels
+ *	merge chardonnay branch to tot
+ *	
+ *	Revision 1.11  2005/04/12 20:09:13  niels
+ *	fix memory leak importing NuDCL programs from user space
+ *	
+ *	Revision 1.10.20.2  2006/01/31 04:49:50  collin
+ *	*** empty log message ***
+ *	
  *	Revision 1.10  2003/11/07 21:24:28  niels
  *	*** empty log message ***
  *	
@@ -74,6 +86,7 @@ class IOFWDCLPool : public OSObject
 		UInt8					fCurrentTag ;
 		UInt8					fCurrentSync ;
 		OSArray*				fProgram ;
+		DCLNuDCLLeader			fLeader ;
 	
 	public:
 		
@@ -104,7 +117,7 @@ class IOFWDCLPool : public OSObject
 		IOReturn							importUserProgram (
 													IOMemoryDescriptor *	userExportDesc,
 													unsigned				bufferRangeCount,
-													IOVirtualRange			bufferRanges[],
+													IOAddressRange			bufferRanges[],
 													IOMemoryMap *			bufferMap ) ;
 		IOReturn							importUserDCL(
 													IOFWDCL *				dcl,

@@ -32,12 +32,14 @@ extern "C"{
 #include <IOKit/firewire/IOFWCommand.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
-#include "ip_firewire.h"
+#include "IOFWIPDefinitions.h"
 #include "IOFireWireIP.h"
 
 #define MAX_ALLOWED_SEGS	7
 
 class IOFireWireIP;
+class IOFWIPMBufCommand;
+class IOFWIPBusInterface;
 
 /*! @class IOFWIPAsyncWriteCommand
 */
@@ -52,7 +54,7 @@ protected:
     const UInt8					*fCommand;
     // Maximum length for the pre allocated buffer, can be changed dynamically
     UInt32						maxBufLen;
-    mbuf_t						fMBuf;
+	IOFWIPMBufCommand			*fMBufCommand;
     mbuf_t						fTailMbuf;
 	UInt8*						fCursorBuf;
 	UInt32						fOffset;
@@ -63,9 +65,9 @@ protected:
 	UInt32						fHeaderSize;
 	FragmentType				fLinkFragmentType;
     IOFireWireIP				*fIPLocalNode;
+	IOFWIPBusInterface			*fIPBusIf;
 	UInt32						reInitCount;
 	UInt32						resetCount;
-
 	
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -85,8 +87,8 @@ public:
 		Initializes the Asynchronous write command object
         @result true if successfull.
     */
-	bool initAll(IOFireWireIP *networkObject, UInt32 cmdLen,FWAddress devAddress,
-             FWDeviceCallback completion, void *refcon, bool failOnReset);
+	bool initAll(IOFireWireIP *networkObject, IOFWIPBusInterface *fwIPBusIfObject,
+					UInt32 cmdLen,FWAddress devAddress, FWDeviceCallback completion, void *refcon, bool failOnReset);
 
 	/*!
         @function reinit
@@ -109,6 +111,8 @@ public:
 	void wait();
 	
 	bool notDoubleComplete();
+
+	void gotAck(int ackCode);
 	
 	/*!
 		@function createFragmentedDescriptors
@@ -148,22 +152,15 @@ public:
 		@abstract resets the IOMemoryDescriptor & reinitializes the cursorbuf.
 		@result void.
 	*/
-	void resetDescriptor(IOReturn status, bool forceFree = false);
+	void resetDescriptor(IOReturn status);
 
 	/*!
-		@function getDescriptorHeader
+		@function initPacketHeader
 		@abstract returns a descriptor header based on fragmentation and copying
 				  of payload.
 		@result void.
 	*/
-	void* getDescriptorHeader(const mbuf_t pkt, bool doCopy, FragmentType unfragmented, UInt32 headerSize, UInt32 offset);
-
-	/*!
-		@function getMbuf
-		@abstract returns the Mbuf from the current command object.
-		@result void.
-	*/
-	mbuf_t getMbuf();
+	void* initPacketHeader(IOFWIPMBufCommand *mBufCommand, bool doCopy, FragmentType unfragmented, UInt32 headerSize, UInt32 offset);
 
 	/*!
 		@function getCursorBuf
@@ -209,6 +206,7 @@ protected:
     // Maximum length for the pre allocated buffer, can be changed dynamically
     UInt32						maxBufLen;
     IOFireWireIP				*fIPLocalNode;
+	IOFWIPBusInterface			*fIPBusIf;
     
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -230,6 +228,7 @@ public:
     virtual bool	initAll(
 							IOFireWireIP			*networkObject,
   							IOFireWireController 	*control,
+							IOFWIPBusInterface		*fwIPBusIfObject,
                             UInt32 					generation, 
                             UInt32 					channel,
                             UInt32 					sync,

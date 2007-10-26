@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+connect to non-listen
+FAILURE
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -9,6 +17,9 @@
 <server>
 none
 </server>
+<features>
+http
+</features>
  <name>
 attempt connect to non-listening socket
  </name>
@@ -23,3 +34,4 @@ attempt connect to non-listening socket
 7
 </errorcode>
 </verify>
+</testcase>

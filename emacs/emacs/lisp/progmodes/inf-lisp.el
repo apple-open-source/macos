@@ -1,6 +1,7 @@
 ;;; inf-lisp.el --- an inferior-lisp mode
 
-;; Copyright (C) 1988, 1993, 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1988, 1993, 1994, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;; Free Software Foundation, Inc.
 
 ;; Author: Olin Shivers <shivers@cs.cmu.edu>
 ;; Keywords: processes, lisp
@@ -19,18 +20,18 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;; Hacked from tea.el by Olin Shivers (shivers@cs.cmu.edu). 8/88
 
-;; This file defines a a lisp-in-a-buffer package (inferior-lisp
-;; mode) built on top of comint mode.  This version is more
-;; featureful, robust, and uniform than the Emacs 18 version.  The
-;; key bindings are also more compatible with the bindings of Hemlock
-;; and Zwei (the Lisp Machine emacs).
+;; This file defines a lisp-in-a-buffer package (inferior-lisp mode)
+;; built on top of comint mode.  This version is more featureful,
+;; robust, and uniform than the Emacs 18 version.  The key bindings are
+;; also more compatible with the bindings of Hemlock and Zwei (the
+;; Lisp Machine emacs).
 
 ;; Since this mode is built on top of the general command-interpreter-in-
 ;; a-buffer mode (comint mode), it shares a common base functionality,
@@ -66,12 +67,20 @@
 (require 'lisp-mode)
 
 
+(defgroup inferior-lisp nil
+  "Run an outside Lisp in an Emacs buffer."
+  :group 'lisp
+  :version "22.1")
+
 ;;;###autoload
-(defvar inferior-lisp-filter-regexp "\\`\\s *\\(:\\(\\w\\|\\s_\\)\\)?\\s *\\'"
+(defcustom inferior-lisp-filter-regexp
+  "\\`\\s *\\(:\\(\\w\\|\\s_\\)\\)?\\s *\\'"
   "*What not to save on inferior Lisp's input history.
 Input matching this regexp is not saved on the input history in Inferior Lisp
 mode.  Default is whitespace followed by 0 or 1 single-letter colon-keyword
-\(as in :a, :c, etc.)")
+\(as in :a, :c, etc.)"
+  :type 'regexp
+  :group 'inferior-lisp)
 
 (defvar inferior-lisp-mode-map nil)
 (unless inferior-lisp-mode-map
@@ -111,7 +120,7 @@ mode.  Default is whitespace followed by 0 or 1 single-letter colon-keyword
 ;;;where they are more accessible. C-c <letter> bindings are reserved for the
 ;;;user, so these bindings are non-standard. If you want them, you should
 ;;;have this function called by the inferior-lisp-load-hook:
-;;;    (setq inferior-lisp-load-hook '(inferior-lisp-install-letter-bindings))
+;;;  (add-hook 'inferior-lisp-load-hook 'inferior-lisp-install-letter-bindings)
 ;;;You can modify this function to install just the bindings you want."
 (defun inferior-lisp-install-letter-bindings ()
   (define-key lisp-mode-map "\C-ce" 'lisp-eval-defun-and-go)
@@ -133,37 +142,42 @@ mode.  Default is whitespace followed by 0 or 1 single-letter colon-keyword
   (define-key inferior-lisp-mode-map "\C-cv"
     'lisp-show-variable-documentation))
 
+;;;###autoload
+(defcustom inferior-lisp-program "lisp"
+  "*Program name for invoking an inferior Lisp in Inferior Lisp mode."
+  :type 'string
+  :group 'inferior-lisp)
 
 ;;;###autoload
-(defvar inferior-lisp-program "lisp"
-  "*Program name for invoking an inferior Lisp with for Inferior Lisp mode.")
-
-;;;###autoload
-(defvar inferior-lisp-load-command "(load \"%s\")\n"
+(defcustom inferior-lisp-load-command "(load \"%s\")\n"
   "*Format-string for building a Lisp expression to load a file.
 This format string should use `%s' to substitute a file name
 and should result in a Lisp expression that will command the inferior Lisp
 to load that file.  The default works acceptably on most Lisps.
 The string \"(progn (load \\\"%s\\\" :verbose nil :print t) (values))\\n\"
 produces cosmetically superior output for this application,
-but it works only in Common Lisp.")
+but it works only in Common Lisp."
+  :type 'string
+  :group 'inferior-lisp)
 
 ;;;###autoload
-(defvar inferior-lisp-prompt "^[^> \n]*>+:? *"
-  "Regexp to recognise prompts in the Inferior Lisp mode.
+(defcustom inferior-lisp-prompt "^[^> \n]*>+:? *"
+  "Regexp to recognize prompts in the Inferior Lisp mode.
 Defaults to \"^[^> \\n]*>+:? *\", which works pretty good for Lucid, kcl,
 and franz.  This variable is used to initialize `comint-prompt-regexp' in the
 Inferior Lisp buffer.
 
 This variable is only used if the variable
-`comint-use-prompt-regexp-instead-of-fields' is non-nil.
+`comint-use-prompt-regexp' is non-nil.
 
 More precise choices:
 Lucid Common Lisp: \"^\\\\(>\\\\|\\\\(->\\\\)+\\\\) *\"
 franz: \"^\\\\(->\\\\|<[0-9]*>:\\\\) *\"
 kcl: \"^>+ *\"
 
-This is a fine thing to set in your .emacs file.")
+This is a fine thing to set in your .emacs file or through Custom."
+  :type 'regexp
+  :group 'inferior-lisp)
 
 (defvar inferior-lisp-buffer nil "*The current inferior-lisp process buffer.
 
@@ -219,35 +233,43 @@ documentation for variable `inferior-lisp-buffer'.
 
 \\{inferior-lisp-mode-map}
 
-Customisation: Entry to this mode runs the hooks on `comint-mode-hook' and
+Customization: Entry to this mode runs the hooks on `comint-mode-hook' and
 `inferior-lisp-mode-hook' (in that order).
 
 You can send text to the inferior Lisp process from other buffers containing
 Lisp source.
-    switch-to-lisp switches the current buffer to the Lisp process buffer.
-    lisp-eval-defun sends the current defun to the Lisp process.
-    lisp-compile-defun compiles the current defun.
-    lisp-eval-region sends the current region to the Lisp process.
-    lisp-compile-region compiles the current region.
+    `switch-to-lisp' switches the current buffer to the Lisp process buffer.
+    `lisp-eval-defun' sends the current defun to the Lisp process.
+    `lisp-compile-defun' compiles the current defun.
+    `lisp-eval-region' sends the current region to the Lisp process.
+    `lisp-compile-region' compiles the current region.
 
     Prefixing the lisp-eval/compile-defun/region commands with
     a \\[universal-argument] causes a switch to the Lisp process buffer after sending
     the text.
 
-Commands:
-Return after the end of the process' output sends the text from the
+Commands:\\<inferior-lisp-mode-map>
+\\[comint-send-input] after the end of the process' output sends the text from the
     end of process to point.
-Return before the end of the process' output copies the sexp ending at point
+\\[comint-send-input] before the end of the process' output copies the sexp ending at point
     to the end of the process' output, and sends it.
-Delete converts tabs to spaces as it moves back.
-Tab indents for Lisp; with argument, shifts rest
+\\[comint-copy-old-input] copies the sexp ending at point to the end of the process' output,
+    allowing you to edit it before sending it.
+If `comint-use-prompt-regexp' is nil (the default), \\[comint-insert-input] on old input
+   copies the entire old input to the end of the process' output, allowing
+   you to edit it before sending it.  When not used on old input, or if
+   `comint-use-prompt-regexp' is non-nil, \\[comint-insert-input] behaves according to
+   its global binding.
+\\[backward-delete-char-untabify] converts tabs to spaces as it moves back.
+\\[lisp-indent-line] indents for Lisp; with argument, shifts rest
     of expression rigidly with the current line.
-C-M-q does Tab on each line starting within following expression.
+\\[indent-sexp] does \\[lisp-indent-line] on each line starting within following expression.
 Paragraphs are separated only by blank lines.  Semicolons start comments.
 If you accidentally suspend your process, use \\[comint-continue-subjob]
 to continue it."
   (interactive)
-  (comint-mode)
+  (delay-mode-hooks
+    (comint-mode))
   (setq comint-prompt-regexp inferior-lisp-prompt)
   (setq major-mode 'inferior-lisp-mode)
   (setq mode-name "Inferior Lisp")
@@ -256,7 +278,7 @@ to continue it."
   (use-local-map inferior-lisp-mode-map)    ;c-c c-k for "kompile" file
   (setq comint-get-old-input (function lisp-get-old-input))
   (setq comint-input-filter (function lisp-input-filter))
-  (run-hooks 'inferior-lisp-mode-hook))
+  (run-mode-hooks 'inferior-lisp-mode-hook))
 
 (defun lisp-get-old-input ()
   "Return a string containing the sexp ending at point."
@@ -427,16 +449,18 @@ With argument, positions cursor at end of buffer."
 This holds a cons cell of the form `(DIRECTORY . FILE)'
 describing the last `lisp-load-file' or `lisp-compile-file' command.")
 
-(defvar lisp-source-modes '(lisp-mode)
+(defcustom lisp-source-modes '(lisp-mode)
   "*Used to determine if a buffer contains Lisp source code.
 If it's loaded into a buffer that is in one of these major modes, it's
 considered a Lisp source file by `lisp-load-file' and `lisp-compile-file'.
-Used by these commands to determine defaults.")
+Used by these commands to determine defaults."
+  :type '(repeat symbol)
+  :group 'inferior-lisp)
 
 (defun lisp-load-file (file-name)
   "Load a Lisp file into the inferior Lisp process."
   (interactive (comint-get-source "Load Lisp file: " lisp-prev-l/c-dir/file
-				  lisp-source-modes nil)) ; NIL because LOAD
+				  lisp-source-modes nil)) ; nil because LOAD
 					; doesn't need an exact name
   (comint-check-source file-name) ; Check to see if buffer needs saved.
   (setq lisp-prev-l/c-dir/file (cons (file-name-directory    file-name)
@@ -449,7 +473,7 @@ Used by these commands to determine defaults.")
 (defun lisp-compile-file (file-name)
   "Compile a Lisp file in the inferior Lisp process."
   (interactive (comint-get-source "Compile Lisp file: " lisp-prev-l/c-dir/file
-				  lisp-source-modes nil)) ; NIL = don't need
+				  lisp-source-modes nil)) ; nil = don't need
 					; suffix .lisp
   (comint-check-source file-name) ; Check to see if buffer needs saved.
   (setq lisp-prev-l/c-dir/file (cons (file-name-directory    file-name)
@@ -574,8 +598,7 @@ See variable `lisp-describe-sym-command'."
 ;;; Do the user's customisation...
 ;;;===============================
 (defvar inferior-lisp-load-hook nil
-  "This hook is run when the library `inf-lisp' is loaded.
-This is a good place to put keybindings.")
+  "This hook is run when the library `inf-lisp' is loaded.")
 
 (run-hooks 'inferior-lisp-load-hook)
 
@@ -625,4 +648,5 @@ This is a good place to put keybindings.")
 
 (provide 'inf-lisp)
 
+;;; arch-tag: 5b74abc3-a085-4b91-8ab8-8da6899d3b92
 ;;; inf-lisp.el ends here

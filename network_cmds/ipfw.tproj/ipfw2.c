@@ -1277,11 +1277,11 @@ show_ipfw(struct ip_fw *rule, int pcwidth, int bcwidth)
 				break;
 
 			case O_TCPACK:
-				printf(" tcpack %ld", ntohl(cmd32->d[0]));
+				printf(" tcpack %d", ntohl(cmd32->d[0]));
 				break;
 
 			case O_TCPSEQ:
-				printf(" tcpseq %ld", ntohl(cmd32->d[0]));
+				printf(" tcpseq %d", ntohl(cmd32->d[0]));
 				break;
 
 			case O_UID:
@@ -2488,7 +2488,7 @@ end_mask:
 			break;
 
 		default:
-			errx(EX_DATAERR, "unrecognised option ``%s''", *av);
+			errx(EX_DATAERR, "unrecognised option ``%s''", *(--av));
 		}
 	}
 	if (do_pipe == 1) {

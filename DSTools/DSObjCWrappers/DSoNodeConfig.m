@@ -58,7 +58,7 @@
     DSRef			dirRef		= 0;
     DSoBuffer      *bufNodeList = nil;
     const char     *cNodeName   = nil;
-    unsigned long   nodeCount   = 0;
+    UInt32			nodeCount   = 0;
     tDirStatus		nError		= eDSNoErr;
 	
     [self init];
@@ -89,7 +89,7 @@
     return [[[DSoRecord alloc] initInNode:self type:inType name:inName create:NO] autorelease] ;
 }
 
-- (NSArray*) getPluginList;
+- (NSArray*) getPluginList
 {
     return [self findRecordNames:@"dsConfigType::GetAllRecords"
 					ofType:"dsConfigType::Plugins"
@@ -98,7 +98,7 @@
 
 - (NSDictionary*)getAttributesAndValuesForPlugin:(NSString*)inPluginName
 {
-    tContextData 		localcontext		= NULL;
+    tContextData 		localcontext		= 0;
     tRecordEntryPtr		pRecEntry			= nil;
     tAttributeListRef	attrListRef			= 0;
     DSoDataList		   *recName				= [[DSoDataList alloc] initWithDir:mDirectory cString:"dsConfigType::GetAllRecords"];
@@ -108,7 +108,7 @@
     id					pluginAttributes	= nil;
     tDirStatus 			err					= eDSNoErr;
     unsigned long		i					= 0;
-	unsigned long		returnCount			= 0;
+	UInt32				returnCount			= 0;
     unsigned short		len					= 0;
 
     err = dsGetRecordList([self dsNodeReference], [recordBuf dsDataBuffer],
@@ -149,7 +149,12 @@
 
 - (void)setPlugin:(NSString*)inPluginName enabled:(BOOL)enabled
 {
-	tContextData 		localcontext = NULL;
+    [self setPlugin:inPluginName enabled:enabled withAuthorization:NULL];
+}
+
+- (void)setPlugin:(NSString*)inPluginName enabled:(BOOL)enabled withAuthorization:(void*)inAuthExtForm
+{
+	tContextData 		localcontext = 0;
     tRecordEntryPtr		pRecEntry = NULL;
 	tAttributeEntryPtr  pAttrEntry = NULL;
 	tAttributeValueEntryPtr  pAttrValueEntry = NULL;
@@ -163,7 +168,7 @@
     DSoBuffer			*recordBuf = [[DSoBuffer alloc] initWithDir:mDirectory bufferSize:4096];
 
     tDirStatus 			err = eDSNoErr;
-    unsigned long		i, j, returnCount = 0;
+    UInt32				i, j, returnCount = 0;
 	BOOL				wasEnabled = NO;
 	int					pluginIndex = 0;
 
@@ -228,10 +233,10 @@
 				} // loop over j -- all attributes
 				
 				i = returnCount; // Abort the search loop by forcing the iterator to the max.
-				if (localcontext != NULL)
+				if (localcontext != 0)
 				{
 					dsReleaseContinueData([self dsNodeReference], localcontext);
-					localcontext = NULL;
+					localcontext = 0;
 				}
 			}
 			if (nameStr != NULL)
@@ -242,17 +247,16 @@
 			dsDeallocRecordEntry([mDirectory dsDirRef], pRecEntry);
 			dsCloseAttributeList(attrListRef);
 		}
-	} while (err == eDSBufferTooSmall || localcontext != NULL);
+	} while (err == eDSBufferTooSmall || localcontext != 0);
 	if (err == eDSNoErr && wasEnabled != enabled) {
 		// need to toggle the state
 		AuthorizationExternalForm authExtForm;
-		NSData* inputData = nil;
-		bzero(&authExtForm,sizeof(authExtForm));
-		inputData = [[NSData alloc] initWithBytes:&authExtForm 
-			length:sizeof(authExtForm)];
+		if (inAuthExtForm == NULL) {
+			bzero(&authExtForm,sizeof(authExtForm));
+			inAuthExtForm = &authExtForm;
+		}
 
-		err = [self customCall:1000+pluginIndex inputData:inputData outputData:nil];
-		[inputData release];
+		err = [self customCall:1000+pluginIndex withAuthorization:inAuthExtForm];
 	}
 	
     [recordBuf release];
@@ -266,7 +270,12 @@
 
 - (NSArray*) findRecordTypes
 {
-	NSMutableArray     *setOfTypes  = [mTypeList mutableCopy];
+	NSMutableArray     *setOfTypes  = (NSMutableArray*)[super findRecordTypes];
+    
+    if ([setOfTypes count] > 0) 
+        return setOfTypes;
+    
+    setOfTypes = [mTypeList mutableCopy];
 
     // Alphabetize the list.
     [setOfTypes sortUsingSelector:@selector(caseInsensitiveCompare:)];

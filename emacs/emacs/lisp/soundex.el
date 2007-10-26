@@ -1,9 +1,10 @@
 ;;; soundex.el --- implement Soundex algorithm
 
-;; Copyright (C) 1993 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Christian Plaunt <chris@bliss.berkeley.edu>
-;; Maintainer: FSF 
+;; Maintainer: FSF
 ;; Keywords: matching
 ;; Created: Sat May 15 14:48:18 1993
 
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -73,4 +74,5 @@ and Searching\", Addison-Wesley (1973), pp. 391-392."
 
 (provide 'soundex)
 
+;;; arch-tag: b2615a98-feb7-430e-a717-171086738953
 ;;; soundex.el ends here

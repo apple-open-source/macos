@@ -68,7 +68,7 @@
 
 #define	FNM_NOSYS	(-1)	/* Reserved. */
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 #define	FNM_LEADING_DIR	0x08	/* Ignore /<tail> after Imatch. */
 #define	FNM_CASEFOLD	0x10	/* Case insensitive search. */
 #define	FNM_IGNORECASE	FNM_CASEFOLD
@@ -76,7 +76,15 @@
 #endif
 
 __BEGIN_DECLS
-int	 fnmatch(const char *, const char *, int);
+//Begin-Libc
+#ifndef LIBC_ALIAS_FNMATCH
+//End-Libc
+int	 fnmatch(const char *, const char *, int) __DARWIN_ALIAS(fnmatch);
+//Begin-Libc
+#else /* LIBC_ALIAS_FNMATCH */
+int	 fnmatch(const char *, const char *, int) LIBC_ALIAS(fnmatch);
+#endif /* !LIBC_ALIAS_FNMATCH */
+//End-Libc
 __END_DECLS
 
 #endif /* !_FNMATCH_H_ */

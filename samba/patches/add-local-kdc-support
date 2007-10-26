@@ -1,0 +1,152 @@
+Index: samba/source/libads/kerberos_verify.c
+===================================================================
+--- samba/source/libads/kerberos_verify.c.orig
++++ samba/source/libads/kerberos_verify.c
+@@ -50,13 +50,18 @@ static BOOL ads_keytab_verify_ticket(krb
+ 	krb5_keytab keytab = NULL;
+ 	krb5_kt_cursor kt_cursor;
+ 	krb5_keytab_entry kt_entry;
+-	char *valid_princ_formats[7] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
++	char *valid_princ_formats[9];
+ 	char *entry_princ_s = NULL;
+ 	fstring my_name, my_fqdn;
+ 	int i;
+ 	int number_matched_principals = 0;
+ 	krb5_data packet;
+ 
++	const char * lkdc_realm = lp_parm_talloc_string(GLOBAL_SECTION_SNUM,
++					"com.apple", "lkdc realm", NULL);
++
++	ZERO_ARRAY(valid_princ_formats);
++
+ 	*pp_tkt = NULL;
+ 	*keyblock = NULL;
+ 	*perr = 0;
+@@ -78,6 +83,13 @@ static BOOL ads_keytab_verify_ticket(krb
+ 	asprintf(&valid_princ_formats[5], "cifs/%s@%s", my_fqdn, lp_realm());
+ 	asprintf(&valid_princ_formats[6], "cifs/%s.%s@%s", my_name, lp_realm(), lp_realm());
+ 
++	if (lkdc_realm) {
++		asprintf(&valid_princ_formats[7],
++			"host/%s@%s", lkdc_realm, lkdc_realm);
++		asprintf(&valid_princ_formats[8],
++			"cifs/%s@%s", lkdc_realm, lkdc_realm);
++	}
++
+ 	ZERO_STRUCT(kt_entry);
+ 	ZERO_STRUCT(kt_cursor);
+ 
+@@ -160,6 +172,8 @@ static BOOL ads_keytab_verify_ticket(krb
+ 
+   out:
+ 	
++	TALLOC_FREE(lkdc_realm);
++
+ 	for (i = 0; i < ARRAY_SIZE(valid_princ_formats); i++) {
+ 		SAFE_FREE(valid_princ_formats[i]);
+ 	}
+Index: samba/source/smbd/negprot.c
+===================================================================
+--- samba/source/smbd/negprot.c.orig
++++ samba/source/smbd/negprot.c
+@@ -225,12 +225,31 @@ static DATA_BLOB negprot_spnego(void)
+ 	} else {
+ 		fstring myname;
+ 		char *host_princ_s = NULL;
++
++		const char * lkdc_realm =
++			lp_parm_talloc_string(GLOBAL_SECTION_SNUM,
++				"com.apple", "lkdc realm", NULL);
++
+ 		myname[0] = '\0';
+ 		get_mydnsfullname(myname);
+ 		strlower_m(myname);
+-		asprintf(&host_princ_s, "cifs/%s@%s", myname, lp_realm());
++
++		/* If we have a LKDC, use it unless there is a managed realm
++		 * also configured. The managed realm should have precedence.
++		 */
++		if (lkdc_realm && (*lp_realm() == '\0' ||
++				strcmp(lkdc_realm, lp_realm()) == 0)) {
++			asprintf(&host_princ_s,
++				"cifs/%s@%s", lkdc_realm, lkdc_realm);
++		} else {
++			asprintf(&host_princ_s, "cifs/%s@%s",
++					myname, lp_realm());
++		}
++
+ 		blob = spnego_gen_negTokenInit(guid, OIDs_krb5, host_princ_s);
++
+ 		SAFE_FREE(host_princ_s);
++		TALLOC_FREE(lkdc_realm);
+ 	}
+ 
+ 	return blob;
+Index: samba/source/smbd/sesssetup.c
+===================================================================
+--- samba/source/smbd/sesssetup.c.orig
++++ samba/source/smbd/sesssetup.c
+@@ -271,6 +271,28 @@ static int reply_spnego_kerberos(connect
+ 
+ 	ret = ads_verify_ticket(mem_ctx, lp_realm(), 0, &ticket, &client, &pac_data, &ap_rep, &session_key);
+ 
++	if (!NT_STATUS_IS_OK(ret)) {
++		DEBUG(4, ("reply_spnego_kerberos: %s for managed realm '%s'\n",
++			nt_errstr(ret),
++			lp_realm()));
++	} else {
++	    goto skip_lkdc_verify;
++	}
++
++	 ret = ads_verify_ticket(mem_ctx,
++			lp_parm_const_string(GLOBAL_SECTION_SNUM,
++				"com.apple", "lkdc realm", ""),
++			 0, &ticket, &client, &pac_data, &ap_rep, &session_key);
++
++	if (!NT_STATUS_IS_OK(ret)) {
++		DEBUG(4, ("reply_spnego_kerberos: %s for lkdc realm '%s'\n",
++			nt_errstr(ret),
++			lp_parm_const_string(GLOBAL_SECTION_SNUM,
++				"com.apple", "lkdc realm", "")));
++	}
++
++skip_lkdc_verify:
++
+ 	data_blob_free(&ticket);
+ 
+ 	if (!NT_STATUS_IS_OK(ret)) {
+Index: samba/source/utils/ntlm_auth.c
+===================================================================
+--- samba/source/utils/ntlm_auth.c.orig
++++ samba/source/utils/ntlm_auth.c
+@@ -1171,6 +1171,30 @@ static void manage_gss_spnego_request(en
+ 						   &principal, NULL, &ap_rep,
+ 						   &session_key);
+ 
++			if (!NT_STATUS_IS_OK(status)) {
++				DEBUG(4, ("manage_gss_spnego_request: %s for "
++					"managed realm '%s'\n",
++					nt_errstr(status), lp_realm()));
++			} else {
++			    goto skip_lkdc_verify;
++			}
++
++			status = ads_verify_ticket(mem_ctx,
++					lp_parm_const_string(GLOBAL_SECTION_SNUM,
++						    "com.apple", "lkdc realm", ""),
++					0, &request.negTokenInit.mechToken,
++					&principal, NULL, &ap_rep,
++					&session_key);
++
++
++			if (!NT_STATUS_IS_OK(status)) {
++				DEBUG(4, ("manage_gss_spnego_request: %s for "
++					"lkdc realm '%s'\n", nt_errstr(status),
++				    lp_parm_const_string(GLOBAL_SECTION_SNUM,
++					    "com.apple", "lkdc realm", "")));
++			}
++
++skip_lkdc_verify:
+ 			talloc_destroy(mem_ctx);
+ 
+ 			/* Now in "principal" we have the name we are

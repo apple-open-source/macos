@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: ntgroups.c,v 1.5.200.5 2006/10/03 23:50:50 marka Exp $ */
+/* $Id: ntgroups.c,v 1.6.18.2 2006/10/03 23:50:51 marka Exp $ */
 
 /*
  * The NT Groups have two groups that are not well documented and are

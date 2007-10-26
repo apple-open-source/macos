@@ -45,10 +45,10 @@
     
     deviceClass = GetDeviceClassAndSubClass(&dev->bDeviceClass);
     [thisDevice setDeviceClassInfo:deviceClass];
-    [thisDevice addProperty:"Device Class:" withValue:(char *)[[deviceClass classDescription] cString] atDepth:DEVICE_DESCRIPTOR_LEVEL];
-    [thisDevice addProperty:"Device Subclass:" withValue:(char *)[[deviceClass subclassDescription] cString] atDepth:DEVICE_DESCRIPTOR_LEVEL];
+    [thisDevice addProperty:"Device Class:" withValue:(char *)[[deviceClass classDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:DEVICE_DESCRIPTOR_LEVEL];
+    [thisDevice addProperty:"Device Subclass:" withValue:(char *)[[deviceClass subclassDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:DEVICE_DESCRIPTOR_LEVEL];
     
-    [thisDevice addProperty:"Device Protocol:" withValue:(char *)[[deviceClass protocolDescription] cString] atDepth:DEVICE_DESCRIPTOR_LEVEL];
+    [thisDevice addProperty:"Device Protocol:" withValue:(char *)[[deviceClass protocolDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:DEVICE_DESCRIPTOR_LEVEL];
     [thisDevice addNumberProperty:"Device MaxPacketSize:" value: dev->bMaxPacketSize0 size:sizeof(dev->bMaxPacketSize0) atDepth:DEVICE_DESCRIPTOR_LEVEL usingStyle:kIntegerOutputStyle];
     
     cstr1 = GetStringFromNumber(dev->idVendor, sizeof(dev->idVendor), kHexOutputStyle);
@@ -57,7 +57,7 @@
     [thisDevice setVendorID: (UInt32)dev->idVendor];
     [thisDevice setProductID: (UInt32)dev->idProduct];
     
-    [thisDevice addProperty:"Device VendorID/ProductID:" withValue:(char *)[[NSString stringWithFormat:@"%s/%s   (%@)",cstr1,cstr2,VendorNameFromVendorID([NSString stringWithCString:cstr3])]  cString] atDepth:DEVICE_DESCRIPTOR_LEVEL];
+    [thisDevice addProperty:"Device VendorID/ProductID:" withValue:(char *)[[NSString stringWithFormat:@"%s/%s   (%@)", cstr1, cstr2, VendorNameFromVendorID([NSString stringWithCString:cstr3 encoding:NSUTF8StringEncoding])]  cStringUsingEncoding:NSUTF8StringEncoding] atDepth:DEVICE_DESCRIPTOR_LEVEL];
     FreeString(cstr1);
     FreeString(cstr2);
     FreeString(cstr3);
@@ -101,7 +101,7 @@
 		tempString3 = [NSString stringWithFormat:@""];
 
     if (strcmp(cstr1,"0x00") == 0) {
-        tempString2 = [NSString stringWithFormat:@"%@ device from %@%@", tempString1, VendorNameFromVendorID([NSString stringWithCString:cstr2]), tempString3];
+        tempString2 = [NSString stringWithFormat:@"%@ device from %@%@", tempString1, VendorNameFromVendorID([NSString stringWithCString:cstr2 encoding:NSUTF8StringEncoding]), tempString3];
     } else {
         tempString2 = [NSString stringWithFormat:@"%@ device: %s%@", tempString1, cstr1, tempString3];
     }

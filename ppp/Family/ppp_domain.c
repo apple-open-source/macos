@@ -40,6 +40,7 @@ Includes
 #include <sys/syslog.h>
 #include <sys/protosw.h>
 #include <sys/domain.h>
+#include <sys/sysctl.h>
 #include <kern/locks.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -98,6 +99,8 @@ u_char pppproto_inited = 0;
 
 lck_mtx_t   *ppp_domain_mutex;
 
+SYSCTL_NODE(_net, PF_PPP, ppp, CTLFLAG_RW, 0, "");
+
 /* -----------------------------------------------------------------------------
 Initialization function
 ----------------------------------------------------------------------------- */
@@ -108,6 +111,8 @@ int ppp_domain_init()
     net_add_domain(&ppp_domain);    
 	ppp_domain_mutex = ppp_domain.dom_mtx;
 	ppp_domain.dom_flags = DOM_REENTRANT;  // tell dlil not to take our lock
+
+    sysctl_register_oid(&sysctl__net_ppp);
 	        
     return 0;
 }
@@ -156,6 +161,8 @@ int ppp_domain_dispose()
     ret = net_del_domain(&ppp_domain);
 	LOGRETURN(ret, ret, "ppp_domain_terminate : can't del PPP domain, error = 0x%x\n");
     
+    sysctl_unregister_oid(&sysctl__net_ppp);
+
     return 0;
 }
 
@@ -270,7 +277,11 @@ int ppp_proto_send(struct socket *so, int flags, struct mbuf *m,
             break;
         default:
             error = EINVAL;
+			if (m)
+				mbuf_freem(m);
     }
+	if (control)
+		mbuf_freem(control);
     return error;
 }
 
@@ -315,8 +326,9 @@ int ppp_proto_input(void *data, mbuf_t m)
 
     // if there is no pppd attached yet, or if buffer is full, free the packet
     if (!so || sbspace(&so->so_rcv) < mbuf_pkthdr_len(m)) {
+        if (so)
+	  log(LOGVAL, "ppp_proto_input no space, so = 0x%x, len = %d\n", so, mbuf_pkthdr_len(m));
         mbuf_freem(m);
-        log(LOGVAL, "ppp_proto_input no space, so = 0x%x, len = %d\n", so, mbuf_pkthdr_len(m));
         return 0;
     }
 

@@ -1,0 +1,19 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {addEmail = id; addMailbox = id; removeEmail = id; removeMailbox = id; }; 
+            CLASS = MyController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                emailStatusLine = id; 
+                emailTable = id; 
+                mailboxStatusLine = id; 
+                mailboxTable = id; 
+                previewPane = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

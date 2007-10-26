@@ -1,0 +1,37 @@
+Index: configure.host
+===================================================================
+--- gcc-4.0.0/libstdc++-v3/configure.host 2006-10-12 14:30:38.000000000 -0400
++++ libstdc++-v3/configure.host    2006-10-12 16:03:08.000000000 -0400
+@@ -186,6 +186,11 @@ case "${host_os}" in
+     # On Darwin, performance is improved if libstdc++ is single-module,
+     # and on 8+ compatibility is better if not -flat_namespace.
+     OPT_LDFLAGS="${OPT_LDFLAGS} -Wl,-single_module"
++    case "${host_cpu}" in
++      i[34567]86 | x86_64)
++        OPTIMIZE_CXXFLAGS="${OPTIMIZE_CXXFLAGS} -fvisibility-inlines-hidden"
++        ;;
++    esac
+     os_include_dir="os/bsd/darwin"
+     port_specific_symbol_files="\$(srcdir)/../config/os/bsd/darwin/eprintf.ver"
+     ;;
+Index: acinclude.m4
+===================================================================
+--- gcc-4.0.0/libstdc++-v3/acinclude.m4      2006-10-11 12:57:13.000000000 -0400
++++ libstdc++-v3/acinclude.m4   2006-10-11 12:57:26.000000000 -0400
+@@ -703,7 +703,6 @@ AC_DEFUN([GLIBCXX_EXPORT_FLAGS], [
+   # Optimization flags that are probably a good idea for thrill-seekers. Just
+   # uncomment the lines below and make, everything else is ready to go...
+   # OPTIMIZE_CXXFLAGS = -O3 -fstrict-aliasing -fvtable-gc
+-  OPTIMIZE_CXXFLAGS=
+   AC_SUBST(OPTIMIZE_CXXFLAGS)
+ 
+   WARN_FLAGS='-Wall -Wextra -Wwrite-strings -Wcast-qual'
+Index: configure
+===================================================================
+--- gcc-4.0.0/libstdc++-v3/configure	2006-10-12 14:30:38.000000000 -0400
++++ libstdc++-v3/configure	2006-10-12 14:51:47.000000000 -0400
+@@ -99407,7 +99407,6 @@ echo "${ECHO_T}$gxx_include_dir" >&6
+   # Optimization flags that are probably a good idea for thrill-seekers. Just
+   # uncomment the lines below and make, everything else is ready to go...
+   # OPTIMIZE_CXXFLAGS = -O3 -fstrict-aliasing -fvtable-gc
+-  OPTIMIZE_CXXFLAGS=

@@ -4,14 +4,12 @@
 ## Do not edit by hand.  ##
 ## --------------------- ##
 
-# Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 AT_BANNER([Testing autoconf/specific macros.])
 
 # Modern macros.
-AT_CHECK_MACRO([AC_AIX])
 AT_CHECK_MACRO([AC_ISC_POSIX])
-AT_CHECK_MACRO([AC_MINIX])
 AT_CHECK_MACRO([AC_SYS_INTERPRETER])
 AT_CHECK_MACRO([AC_SYS_LARGEFILE])
 AT_CHECK_MACRO([AC_SYS_LONG_FILE_NAMES])

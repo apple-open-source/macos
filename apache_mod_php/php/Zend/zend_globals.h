@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_globals.h,v 1.141.2.3.2.7 2007/01/01 09:35:46 sebastian Exp $ */
 
 #ifndef ZEND_GLOBALS_H
 #define ZEND_GLOBALS_H
@@ -30,8 +31,9 @@
 #include "zend_ptr_stack.h"
 #include "zend_hash.h"
 #include "zend_llist.h"
-#include "zend_fast_cache.h"
-#include "zend_execute_globals.h"
+#include "zend_objects.h"
+#include "zend_objects_API.h"
+#include "zend_modules.h"
 
 #ifdef ZEND_MULTIBYTE
 #include "zend_multibyte.h"
@@ -45,7 +47,6 @@
 BEGIN_EXTERN_C()
 ZEND_API extern int compiler_globals_id;
 ZEND_API extern int executor_globals_id;
-ZEND_API extern int alloc_globals_id;
 END_EXTERN_C()
 
 #endif
@@ -71,8 +72,7 @@ struct _zend_compiler_globals {
 	zend_stack object_stack;
 	zend_stack declare_stack;
 
-	zend_class_entry class_entry, *active_class_entry;
-	zval active_ce_parent_class_name;
+	zend_class_entry *active_class_entry;
 
 	/* variables for list() compilation */
 	zend_llist list_llist;
@@ -114,22 +114,39 @@ struct _zend_compiler_globals {
 
 	zend_llist open_files;
 
+	long catch_begin;
+
 	struct _zend_ini_parser_param *ini_parser_param;
 
 	int interactive;
 
+	zend_uint start_lineno;
 	zend_bool increment_lineno;
+
+	znode implementing_class;
+
+	zend_uint access_type;
+
+	char *doc_comment;
+	zend_uint doc_comment_len;
 
 #ifdef ZEND_MULTIBYTE
 	zend_encoding **script_encoding_list;
 	int script_encoding_list_size;
+	zend_bool detect_unicode;
 
 	zend_encoding *internal_encoding;
 
+	/* multibyte utility functions */
 	zend_encoding_detector encoding_detector;
 	zend_encoding_converter encoding_converter;
-	zend_multibyte_oddlen multibyte_oddlen;
+	zend_encoding_oddlen encoding_oddlen;
 #endif /* ZEND_MULTIBYTE */
+
+#ifdef ZTS
+	HashTable **static_members;
+	int last_static_member;
+#endif
 };
 
 
@@ -152,14 +169,12 @@ struct _zend_executor_globals {
 
 	zend_op **opline_ptr;
 
-	zend_execute_data *current_execute_data;
-    
 	HashTable *active_symbol_table;
 	HashTable symbol_table;		/* main symbol table */
 
 	HashTable included_files;	/* files already included */
 
-	jmp_buf bailout;
+	jmp_buf *bailout;
 
 	int error_reporting;
 	int orig_error_reporting;
@@ -171,13 +186,19 @@ struct _zend_executor_globals {
 	HashTable *class_table;		/* class table */
 	HashTable *zend_constants;	/* constants table */
 
+	zend_class_entry *scope;
+
+	zval *This;
+
 	long precision;
 
 	int ticks_count;
 
 	zend_bool in_execution;
-	zend_bool bailout_set;
+	HashTable *in_autoload;
+	zend_function *autoload_func;
 	zend_bool full_tables_cleanup;
+	zend_bool ze1_compatibility_mode;
 
 	/* for extended information support */
 	zend_bool no_extensions;
@@ -190,15 +211,13 @@ struct _zend_executor_globals {
 	HashTable persistent_list;
 
 	zend_ptr_stack argument_stack;
-	int free_op1, free_op2;
-	int (*unary_op)(zval *result, zval *op1);
-	int (*binary_op)(zval *result, zval *op1, zval *op2 TSRMLS_DC);
 
-	zval *garbage[2];
-	int garbage_ptr;
-
+	int user_error_handler_error_reporting;
 	zval *user_error_handler;
+	zval *user_exception_handler;
+	zend_stack user_error_handlers_error_reporting;
 	zend_ptr_stack user_error_handlers;
+	zend_ptr_stack user_exception_handlers;
 
 	/* timeout support */
 	int timeout_seconds;
@@ -206,32 +225,21 @@ struct _zend_executor_globals {
 	int lambda_count;
 
 	HashTable *ini_directives;
+	HashTable *modified_ini_directives;
+
+	zend_objects_store objects_store;
+	zval *exception;
+	zend_op *opline_before_exception;
+
+	struct _zend_execute_data *current_execute_data;
+
+	struct _zend_module_entry *current_module;
+
+	zend_property_info std_property_info;
+
+	zend_bool active; 
 
 	void *reserved[ZEND_MAX_RESERVED_RESOURCES];
-};
-
-
-struct _zend_alloc_globals {
-	zend_mem_header *head;		/* standard list */
-	void *cache[MAX_CACHED_MEMORY][MAX_CACHED_ENTRIES];
-	unsigned int cache_count[MAX_CACHED_MEMORY];
-	void *fast_cache_list_head[MAX_FAST_CACHE_TYPES];
-
-#ifdef ZEND_WIN32
-	HANDLE memory_heap;
-#endif
-
-#if ZEND_DEBUG
-	/* for performance tuning */
-	int cache_stats[MAX_CACHED_MEMORY][2];
-	int fast_cache_stats[MAX_FAST_CACHE_TYPES][2];
-#endif
-#if MEMORY_LIMIT
-	unsigned int memory_limit;
-	unsigned int allocated_memory;
-	unsigned int allocated_memory_peak;
-	unsigned char memory_exhausted;
-#endif
 };
 
 struct _zend_scanner_globals {
@@ -243,6 +251,7 @@ struct _zend_scanner_globals {
 	char *c_buf_p;
 	int init;
 	int start;
+	int lineno;
 	char _yy_hold_char;
 	int yy_n_chars;
 	int _yy_did_buffer_switch_on_eof;
@@ -255,19 +264,30 @@ struct _zend_scanner_globals {
 	int yy_start_stack_ptr;
 	int yy_start_stack_depth;
 	int *yy_start_stack;
-	
-	int lineno;		/* line number */
 
 #ifdef ZEND_MULTIBYTE
-	char *code;				/* original */
-	int code_size;
-	char *current_code;		/* filtered */
-	int current_code_size;
-	zend_multibyte_filter input_filter;
-	zend_multibyte_filter output_filter;
+	/* original (unfiltered) script */
+	char *script_org;
+	int script_org_size;
+
+	/* filtered script */
+	char *script_filtered;
+	int script_filtered_size;
+
+	/* input/ouput filters */
+	zend_encoding_filter input_filter;
+	zend_encoding_filter output_filter;
 	zend_encoding *script_encoding;
 	zend_encoding *internal_encoding;
 #endif /* ZEND_MULTIBYTE */
 };
 
 #endif /* ZEND_GLOBALS_H */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

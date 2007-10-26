@@ -1,35 +1,31 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1982-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#                David Korn <dgk@research.att.com>                 #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                  David Korn <dgk@research.att.com>                   #
+#                                                                      #
+########################################################################
 function err_exit
 {
 	print -u2 -n "\t"
-	print -u2 -r $Command[$1]: "${@:2}"
+	print -u2 -r ${Command}[$1]: "${@:2}"
 	let Errors+=1
 }
 alias err_exit='err_exit $LINENO'
 
-Command=$0
+Command=${0##*/}
 integer Errors=0
 r=readonly u=Uppercase l=Lowercase i=22 i8=10 L=abc L5=def uL5=abcdef xi=20
 x=export t=tagged H=hostname LZ5=026 RZ5=026 Z5=123 lR5=ABcdef R5=def n=l
@@ -185,4 +181,36 @@ x+=$b1
 [[  $(printf "%B" x) == $t1$t1 ]] || err_exit 'typeset -b append not working'
 typeset -b -Z20 z=$b1
 (( $(printf "%B" z | wc -c) == 20 )) || err_exit 'typeset -b -Z20 not storing 20 bytes'
+{
+	typeset -b v1 v2
+	read -N11 v1
+	read -N22 v2
+} << !
+hello worldhello worldhello world
+!
+[[ $v1 == "$b1" ]] || err_exit "v1=$v1 should be $b1"
+[[ $v2 == "$x" ]] || err_exit "v1=$v2 should be $x"
+[[ $(env '!=1' $SHELL -c 'echo ok' 2>/dev/null) == ok ]] || err_exit 'malformed environment terminates shell'
+unset var
+typeset -b var
+printf '12%Z34' | read -r -N 5 var
+[[ $var == MTIAMzQ= ]] || err_exit 'binary files with zeros not working'
+unset var
+if	command typeset -usi var=0xfffff 2> /dev/null
+then	(( $var == 0xffff )) || err_exit 'unsigned short integers not working'
+else	err_exit 'typeset -usi cannot be used for unsigned short'
+fi
+[[ $($SHELL -c 'unset foo;typeset -Z2 foo; print ${foo:-3}' 2> /dev/null) == 3 ]]  || err_exit  '${foo:-3} not 3 when typeset -Z2 field undefined'
+[[ $($SHELL -c 'unset foo;typeset -Z2 foo; print ${foo:=3}' 2> /dev/null) == 03 ]]  || err_exit  '${foo:=-3} not 3 when typeset -Z2 foo undefined'
+unset foo bar
+unset -f fun
+function fun
+{
+	export foo=hello 
+	typeset -x  bar=world
+	[[ $foo == hello ]] || err_exit 'export scoping problem in function'
+} 
+fun
+[[ $(export | grep foo) == 'foo=hello' ]] || err_exit 'export not working in functions'
+[[ $(export | grep bar) ]] && err_exit 'typeset -x not local'
 exit	$((Errors))

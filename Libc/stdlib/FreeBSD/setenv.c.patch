@@ -1,33 +1,48 @@
---- setenv.c.orig	2003-05-20 15:23:25.000000000 -0700
-+++ setenv.c	2004-11-05 17:15:11.000000000 -0800
-@@ -40,81 +40,137 @@
+--- setenv.c.orig	2006-12-12 18:14:46.000000000 -0800
++++ setenv.c	2006-12-12 18:22:12.000000000 -0800
+@@ -40,32 +40,60 @@
  #include <stddef.h>
  #include <stdlib.h>
  #include <string.h>
 +#include <crt_externs.h>
 +#include <errno.h>
++#include <sys/types.h>
++#include <fcntl.h>
++#include <malloc/malloc.h>
  
- char *__findenv(const char *, int *);
-+__private_extern__ int __setenv(const char *, const char *, int, int);
+-char *__findenv(const char *, int *);
++#define	ZONE_OWNS_PTR(zone, ptr)	(malloc_zone_from_ptr((ptr)) == zone)
  
--/*
++extern malloc_zone_t *__zone0;
++extern void __malloc_check_env_name(const char *);
++
++__private_extern__ char *__findenv(const char *, int *, char **);
++__private_extern__ int __setenv(const char *, const char *, int, int, char ***, malloc_zone_t *);
++__private_extern__ void __unsetenv(const char *, char **, malloc_zone_t *);
++
++#ifndef BUILDING_VARIANT
+ /*
 - * setenv --
 - *	Set the value of the environmental variable "name" to be
 - *	"value".  If rewrite is set, replace any current value.
-- */
++ * The copy flag may have 3 values:
++ *  1 - make a copy of the name/value pair
++ *  0 - take the name as a user-supplied name=value string
++ * -1 - like 0, except we copy of the name=value string in name
+  */
 -int
 -setenv(name, value, rewrite)
-+#ifndef BUILDING_VARIANT
 +__private_extern__ int
-+__setenv(name, value, rewrite, copy)
++__setenv(name, value, rewrite, copy, environp, envz)
  	const char *name;
  	const char *value;
 -	int rewrite;
 +	int rewrite, copy;
++	char ***environp;
++	malloc_zone_t *envz;
  {
 -	extern char **environ;
-+	char ***environp = _NSGetEnviron();
- 	static char **alloced;			/* if allocated space before */
+-	static char **alloced;			/* if allocated space before */
  	char *c;
 -	int l_value, offset;
 +	int offset;
@@ -35,17 +50,33 @@
 -	if (*value == '=')			/* no `=' in value */
 -		++value;
 -	l_value = strlen(value);
- 	if ((c = __findenv(name, &offset))) {	/* find if already exists */
+-	if ((c = __findenv(name, &offset))) {	/* find if already exists */
++	if ((c = __findenv(name, &offset, *environp))) { /* find if already exists */
++		char *e;
  		if (!rewrite)
  			return (0);
 -		if (strlen(c) >= l_value) {	/* old larger; copy over */
--			while ( (*c++ = *value++) );
--			return (0);
--		}
-+		/* In UNIX03, we can't overwrite even if the string is long
-+		 * enough, because the putenv() string is owned by the user
-+		 * (ie, always malloc() a new string) */
- 	} else {					/* create new slot */
++		/*
++		 * In UNIX03, we can overwrite only if we allocated the
++		 * string.  Then we can realloc it if it is too small.
++		 */
++		e = (*environp)[offset];
++		if (copy > 0 && ZONE_OWNS_PTR(envz, e)) {
++			size_t l_value = strlen(value);
++			if (strlen(c) < l_value) {	/* old smaller; resize*/
++				char *r;
++				size_t len = c - e;
++				if ((r = realloc(e, l_value + len + 1)) == NULL)
++					return (-1);
++				if (r != e) {
++					(*environp)[offset] = r;
++					c = r + len;
++				}
++			}
+ 			while ( (*c++ = *value++) );
+ 			return (0);
+ 		}
+@@ -73,48 +101,250 @@
  		int cnt;
  		char **p;
  
@@ -53,23 +84,24 @@
 -		if (alloced == environ) {			/* just increase size */
 -			p = (char **)realloc((char *)environ,
 +		for (p = *environp, cnt = 0; *p; ++p, ++cnt);
-+		if (alloced == *environp) {			/* just increase size */
++		if (ZONE_OWNS_PTR(envz, *environp)) {	/* just increase size */
 +			p = (char **)realloc((char *)*environp,
  			    (size_t)(sizeof(char *) * (cnt + 2)));
  			if (!p)
  				return (-1);
 -			alloced = environ = p;
-+			alloced = *environp = p;
++			*environp = p;
  		}
  		else {				/* get new space */
  						/* copy old entries into it */
- 			p = malloc((size_t)(sizeof(char *) * (cnt + 2)));
+-			p = malloc((size_t)(sizeof(char *) * (cnt + 2)));
++			p = malloc_zone_malloc(envz, (size_t)(sizeof(char *) * (cnt + 2)));
  			if (!p)
  				return (-1);
 -			bcopy(environ, p, cnt * sizeof(char *));
 -			alloced = environ = p;
 +			bcopy(*environp, p, cnt * sizeof(char *));
-+			alloced = *environp = p;
++			*environp = p;
  		}
 -		environ[cnt + 1] = NULL;
 +		(*environp)[cnt + 1] = NULL;
@@ -84,17 +116,141 @@
 +	/* For non Unix03, or UnixO3 setenv(), we make a copy of the user's
 +	 * strings.  For Unix03 putenv(), we put the string directly in
 +	 * the environment. */
-+	if (copy) {
++	if (copy > 0) {
 +		for (c = (char *)name; *c && *c != '='; ++c);	/* no `=' in name */
 +		if (!((*environp)[offset] =			/* name + `=' + value */
-+		    malloc((size_t)((int)(c - name) + strlen(value) + 2))))
++		    malloc_zone_malloc(envz, (size_t)((int)(c - name) + strlen(value) + 2))))
 +			return (-1);
 +		for (c = (*environp)[offset]; (*c = *name++) && *c != '='; ++c);
 +		for (*c++ = '='; (*c++ = *value++); );
-+	} else
-+		(*environp)[offset] = name;
++	} else {
++		/* the legacy behavior copies the string */
++		if (copy < 0) {
++			size_t len = strlen(name);
++			if((c = malloc_zone_malloc(envz, len + 1)) == NULL)
++				return (-1);
++			memcpy(c, name, len + 1);
++			name = c;
++		}
++		/* if we malloc-ed the previous value, free it first */
++		if ((*environp)[offset] != NULL && ZONE_OWNS_PTR(envz, (*environp)[offset]))
++			free((*environp)[offset]);
++		(*environp)[offset] = (char *)name;
++	}
  	return (0);
  }
+ 
++__private_extern__ void
++__unsetenv(const char *name, char **environ, malloc_zone_t *envz)
++{
++	char **p;
++	int offset;
++
++	while (__findenv(name, &offset, environ)) { /* if set multiple times */
++		/* if we malloc-ed it, free it first */
++		if (ZONE_OWNS_PTR(envz, environ[offset]))
++			free(environ[offset]);
++		for (p = &environ[offset];; ++p)
++			if (!(*p = *(p + 1)))
++				break;
++	}
++}
++
++/****************************************************************************/
++/*
++ * _allocenvstate -- SPI that creates a new state (opaque)
++ */
++void *
++_allocenvstate(void)
++{
++	return (void *)malloc_create_zone(1000 /* unused */, 0 /* unused */);
++}
++
++/*
++ * _copyenv -- SPI that copies a NULL-tereminated char * array in a newly
++ * allocated buffer, compatible with the other SPI env routines.  If env
++ * is NULL, a char * array composed of a single NULL is returned.  NULL
++ * is returned on error.  (This isn't needed anymore, as __setenv will
++ * automatically make a copy in the zone.)
++ */
++char **
++_copyenv(char **env)
++{
++	char **p;
++	int cnt = 1;
++
++	if (env)
++		for (p = env; *p; ++p, ++cnt);
++	p = (char **)malloc((size_t)(sizeof(char *) * cnt));
++	if (!p)
++		return (NULL);
++	if (env)
++		bcopy(env, p, cnt * sizeof(char *));
++	else
++		*p = NULL;
++	return p;
++}
++
++/*
++ * _deallocenvstate -- SPI that frees all the memory associated with the state
++ * and all allocated strings, including the environment array itself if it
++ * was copied.
++ */
++int
++_deallocenvstate(void *state)
++{
++	malloc_zone_t *envz;
++
++	if (!(envz = (malloc_zone_t *)state) || envz == __zone0) {
++		errno = EINVAL;
++		return -1;
++	}
++	malloc_destroy_zone(envz);
++	return 0;
++}
++
++/*
++ * setenvp -- SPI using an arbitrary pointer to string array and an env state,
++ * created by _allocenvstate().  Initial checking is not done.
++ *
++ *	Set the value of the environmental variable "name" to be
++ *	"value".  If rewrite is set, replace any current value.
++ */
++int
++_setenvp(const char *name, const char *value, int rewrite, char ***envp, void *state)
++{
++	/* insure __zone0 is set up */
++	if (!__zone0) {
++	    __zone0 = malloc_create_zone(0, 0);
++	    if (!__zone0) {
++		    errno = ENOMEM;
++		    return (-1);
++	    }
++	}
++	return (__setenv(name, value, rewrite, 1, envp, (state ? (malloc_zone_t *)state : __zone0)));
++}
++
++/*
++ * unsetenv(name) -- SPI using an arbitrary pointer to string array and an env
++ * state, created by _allocenvstate().  Initial checking is not done.
++ *
++ *	Delete environmental variable "name".
++ */
++int
++_unsetenvp(const char *name, char ***envp, void *state)
++{
++	/* insure __zone0 is set up */
++	if (!__zone0) {
++	    __zone0 = malloc_create_zone(0, 0);
++	    if (!__zone0) {
++		    errno = ENOMEM;
++		    return (-1);
++	    }
++	}
++	__unsetenv(name, *envp, (state ? (malloc_zone_t *)state : __zone0));
++	return 0;
++}
++
 +#endif /* !BUILD_VARIANT */
 +
 +/*
@@ -124,9 +280,18 @@
 +
 +	if (*value == '=')			/* no `=' in value */
 +		++value;
-+	return (__setenv(name, value, rewrite, 1));
++	/* insure __zone0 is set up before calling __malloc_check_env_name */
++	if (!__zone0) {
++	    __zone0 = malloc_create_zone(0, 0);
++	    if (!__zone0) {
++		    errno = ENOMEM;
++		    return (-1);
++	    }
++	}
++	__malloc_check_env_name(name); /* see if we are changing a malloc environment variable */
++	return (__setenv(name, value, rewrite, 1, _NSGetEnviron(), __zone0));
 +}
- 
++
  /*
   * unsetenv(name) --
   *	Delete environmental variable "name".
@@ -140,31 +305,45 @@
  	const char *name;
  {
 -	extern char **environ;
-+	char **environ = *_NSGetEnviron();
- 	char **p;
- 	int offset;
- 
+-	char **p;
+-	int offset;
 +#if __DARWIN_UNIX03
 +	/* no null ptr or empty str */
 +	if(name == NULL || *name == 0) {
 +		errno = EINVAL;
 +		return (-1);
 +	}
-+
+ 
+-	while (__findenv(name, &offset))	/* if set multiple times */
+-		for (p = &environ[offset];; ++p)
+-			if (!(*p = *(p + 1)))
+-				break;
 +	/* no '=' in name */
 +	if (strchr(name, '=')) {
 +		errno = EINVAL;
 +		return (-1);
 +	}
++	/* insure __zone0 is set up before calling __malloc_check_env_name */
++	if (!__zone0) {
++	    __zone0 = malloc_create_zone(0, 0);
++	    if (!__zone0) {
++		    errno = ENOMEM;
++		    return (-1);
++	    }
++	}
 +#else /* !__DARWIN_UNIX03 */
 +	/* no null ptr or empty str */
 +	if(name == NULL || *name == 0)
 +		return;
++	/* insure __zone0 is set up before calling __malloc_check_env_name */
++	if (!__zone0) {
++	    __zone0 = malloc_create_zone(0, 0);
++	    if (!__zone0)
++		    return;
++	}
 +#endif /* __DARWIN_UNIX03 */
- 	while (__findenv(name, &offset))	/* if set multiple times */
- 		for (p = &environ[offset];; ++p)
- 			if (!(*p = *(p + 1)))
- 				break;
++	__malloc_check_env_name(name); /* see if we are changing a malloc environment variable */
++	__unsetenv(name, *_NSGetEnviron(), __zone0);
 +#if __DARWIN_UNIX03
 +	return 0;
 +#endif /* __DARWIN_UNIX03 */

@@ -25,9 +25,6 @@ NULL=
 NULL=nul
 !ENDIF 
 
-CPP=cl.exe
-RSC=rc.exe
-
 !IF  "$(CFG)" == "libdiff - Win32 Release"
 
 OUTDIR=.\WinRel
@@ -70,7 +67,40 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
+CPP=cl.exe
 CPP_PROJ=/nologo /ML /W3 /GX /O2 /I "..\windows-NT" /I "..\lib" /D "_WINDOWS" /D "HAVE_TIME_H" /D "CLOSEDIR_VOID" /D "NDEBUG" /D "WIN32" /D "WANT_WIN_COMPILER_VERSION" /Fp"$(INTDIR)\libdiff.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+
+.c{$(INTDIR)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cpp{$(INTDIR)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cxx{$(INTDIR)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.c{$(INTDIR)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cpp{$(INTDIR)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cxx{$(INTDIR)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+RSC=rc.exe
 BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)\libdiff.bsc" 
 BSC32_SBRS= \
@@ -140,35 +170,8 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
+CPP=cl.exe
 CPP_PROJ=/nologo /MLd /W3 /GX /Z7 /Od /I "..\windows-NT" /I "..\lib" /D "_DEBUG" /D "_WINDOWS" /D "WIN32" /D "HAVE_TIME_H" /D "CLOSEDIR_VOID" /Fp"$(INTDIR)\libdiff.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
-BSC32=bscmake.exe
-BSC32_FLAGS=/nologo /o"$(OUTDIR)\libdiff.bsc" 
-BSC32_SBRS= \
-	
-LIB32=link.exe -lib
-LIB32_FLAGS=..\lib\WinDebug\libcvs.lib /nologo /out:"$(OUTDIR)\libdiff.lib" 
-LIB32_OBJS= \
-	"$(INTDIR)\analyze.obj" \
-	"$(INTDIR)\cmpbuf.obj" \
-	"$(INTDIR)\context.obj" \
-	"$(INTDIR)\diff.obj" \
-	"$(INTDIR)\diff3.obj" \
-	"$(INTDIR)\dir.obj" \
-	"$(INTDIR)\ed.obj" \
-	"$(INTDIR)\ifdef.obj" \
-	"$(INTDIR)\io.obj" \
-	"$(INTDIR)\normal.obj" \
-	"$(INTDIR)\side.obj" \
-	"$(INTDIR)\util.obj" \
-	"$(INTDIR)\version.obj" \
-	"..\lib\WinDebug\libcvs.lib"
-
-"$(OUTDIR)\libdiff.lib" : "$(OUTDIR)" $(DEF_FILE) $(LIB32_OBJS)
-    $(LIB32) @<<
-  $(LIB32_FLAGS) $(DEF_FLAGS) $(LIB32_OBJS)
-<<
-
-!ENDIF 
 
 .c{$(INTDIR)}.obj::
    $(CPP) @<<
@@ -199,6 +202,36 @@ LIB32_OBJS= \
    $(CPP) @<<
    $(CPP_PROJ) $< 
 <<
+
+RSC=rc.exe
+BSC32=bscmake.exe
+BSC32_FLAGS=/nologo /o"$(OUTDIR)\libdiff.bsc" 
+BSC32_SBRS= \
+	
+LIB32=link.exe -lib
+LIB32_FLAGS=..\lib\WinDebug\libcvs.lib /nologo /out:"$(OUTDIR)\libdiff.lib" 
+LIB32_OBJS= \
+	"$(INTDIR)\analyze.obj" \
+	"$(INTDIR)\cmpbuf.obj" \
+	"$(INTDIR)\context.obj" \
+	"$(INTDIR)\diff.obj" \
+	"$(INTDIR)\diff3.obj" \
+	"$(INTDIR)\dir.obj" \
+	"$(INTDIR)\ed.obj" \
+	"$(INTDIR)\ifdef.obj" \
+	"$(INTDIR)\io.obj" \
+	"$(INTDIR)\normal.obj" \
+	"$(INTDIR)\side.obj" \
+	"$(INTDIR)\util.obj" \
+	"$(INTDIR)\version.obj" \
+	"..\lib\WinDebug\libcvs.lib"
+
+"$(OUTDIR)\libdiff.lib" : "$(OUTDIR)" $(DEF_FILE) $(LIB32_OBJS)
+    $(LIB32) @<<
+  $(LIB32_FLAGS) $(DEF_FLAGS) $(LIB32_OBJS)
+<<
+
+!ENDIF 
 
 
 !IF "$(NO_EXTERNAL_DEPS)" != "1"

@@ -41,6 +41,7 @@
 #include    <unistd.h>
 #include    <netinet/in.h>
 #include    <arpa/inet.h>  /* inet_ntoa */
+#include    <netdb.h>
 #include    <gssrpc/rpc.h>
 #include    <gssapi/gssapi.h>
 #include    "gssapiP_krb5.h" /* for kg_get_context */
@@ -48,8 +49,8 @@
 #include    <kadm5/admin.h>
 #include    <kadm5/kadm_rpc.h>
 #include    <kadm5/server_acl.h>
-#include    <krb5/adm_proto.h>
-#include    "krb5/kdb_kt.h"	/* for krb5_ktkdb_set_context */
+#include    <adm_proto.h>
+#include    "kdb_kt.h"	/* for krb5_ktkdb_set_context */
 #include    <string.h>
 #include    "kadm5/server_internal.h" /* XXX for kadm5_server_handle_t */
 
@@ -130,11 +131,14 @@ void kadm5_set_use_password_server (void);
 
 static void usage()
 {
-     fprintf(stderr, "Usage: kadmind [-r realm] [-m] [-nofork] "
+     fprintf(stderr, "Usage: kadmind [-x db_args]* [-r realm] [-m] [-nofork] "
 #ifdef USE_PASSWORD_SERVER
              "[-passwordserver] "
 #endif
-	     "[-port port-number]\n");
+	     "[-port port-number]\n"
+	     "\nwhere,\n\t[-x db_args]* - any number of database specific arguments.\n"
+	     "\t\t\tLook at each database documentation for supported arguments\n"
+	     );
      exit(1);
 }
 
@@ -210,6 +214,9 @@ int main(int argc, char *argv[])
      gss_buffer_desc gssbuf;
      gss_OID nt_krb5_name_oid;
      kadm5_config_params params;
+     char **db_args      = NULL;
+     int    db_args_size = 0;
+     char *errmsg;
 
      setvbuf(stderr, NULL, _IONBF, 0);
 
@@ -222,7 +229,7 @@ int main(int argc, char *argv[])
 	     display_status("str_to_oid", major_status, minor_status);
 	     exit(1);
      }
-     
+
      names[0].name = names[1].name = names[2].name = names[3].name = NULL;
      names[0].type = names[1].type = names[2].type = names[3].type =
 	     nt_krb5_name_oid;
@@ -238,7 +245,24 @@ int main(int argc, char *argv[])
      
      argc--; argv++;
      while (argc) {
-	  if (strcmp(*argv, "-r") == 0) {
+          if (strcmp(*argv, "-x") == 0) {
+	       argc--; argv++;
+	       if (!argc)
+		    usage();
+	       db_args_size++;
+	       {
+		   char **temp = realloc( db_args, sizeof(char*) * (db_args_size+1)); /* one for NULL */
+		   if( temp == NULL )
+		   {
+		       fprintf(stderr,"%s: cannot initialize. Not enough memory\n",
+			       whoami);
+		       exit(1);
+		   }
+		   db_args = temp;
+	       }
+	       db_args[db_args_size-1] = *argv;
+	       db_args[db_args_size]   = NULL;
+	  }else if (strcmp(*argv, "-r") == 0) {
 	       argc--; argv++;
 	       if (!argc)
 		    usage();
@@ -269,7 +293,7 @@ int main(int argc, char *argv[])
      if (argc != 0)
 	  usage();
 
-     if ((ret = krb5_init_context(&context))) {
+     if ((ret = kadm5_init_krb5_context(&context))) {
 	  fprintf(stderr, "%s: %s while initializing context, aborting\n",
 		  whoami, error_message(ret));
 	  exit(1);
@@ -277,35 +301,33 @@ int main(int argc, char *argv[])
 
      krb5_klog_init(context, "admin_server", whoami, 1);
 
-
-     krb5_klog_syslog(LOG_INFO, "Seeding random number generator");
-          ret = krb5_c_random_os_entropy(context, 1, NULL);
-	  if(ret) {
-	    krb5_klog_syslog(LOG_ERR, "Error getting random seed: %s, aborting",
-			     error_message(ret));
-	    exit(1);
-	  }
-	  
      if((ret = kadm5_init("kadmind", NULL,
 			  NULL, &params,
 			  KADM5_STRUCT_VERSION,
 			  KADM5_API_VERSION_2,
-			  &global_server_handle)) != 
-	KADM5_OK) {
+			  db_args,
+		     &global_server_handle)) != KADM5_OK) {
+	  const char *e_txt = krb5_get_error_message (context, ret);
 	  krb5_klog_syslog(LOG_ERR, "%s while initializing, aborting",
-		 error_message(ret));
+			   e_txt);
 	  fprintf(stderr, "%s: %s while initializing, aborting\n",
-		  whoami, error_message(ret));
+		  whoami, e_txt);
 	  krb5_klog_close(context);
 	  exit(1);
      }
+
+     if( db_args )
+     {
+	 free(db_args), db_args=NULL;
+     }
      
-     if ((ret = kadm5_get_config_params(context, NULL, NULL, &params,
+     if ((ret = kadm5_get_config_params(context, 1, &params,
 					&params))) {
+	  const char *e_txt = krb5_get_error_message (context, ret);
 	  krb5_klog_syslog(LOG_ERR, "%s: %s while initializing, aborting",
-			   whoami, error_message(ret));
+			   whoami, e_txt);
 	  fprintf(stderr, "%s: %s while initializing, aborting\n",
-		  whoami, error_message(ret));
+		  whoami, e_txt);
 	  kadm5_destroy(global_server_handle);
 	  krb5_klog_close(context);
 	  exit(1);
@@ -331,21 +353,23 @@ int main(int argc, char *argv[])
      addr.sin_port = htons(params.kadmind_port);
 
      if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+	  const char *e_txt = krb5_get_error_message (context, ret);
 	  krb5_klog_syslog(LOG_ERR, "Cannot create TCP socket: %s",
-			   error_message(errno));
+			   e_txt);
 	  fprintf(stderr, "Cannot create TCP socket: %s",
-		  error_message(errno));
+		  e_txt);
 	  kadm5_destroy(global_server_handle);
 	  krb5_klog_close(context);	  
 	  exit(1);
      }
 
      if ((schpw = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+	 const char *e_txt = krb5_get_error_message (context, ret);
 	 krb5_klog_syslog(LOG_ERR,
-			   "cannot create simple chpw socket: %s",
-			   error_message(errno));
+			  "cannot create simple chpw socket: %s",
+			  e_txt);
 	 fprintf(stderr, "Cannot create simple chpw socket: %s",
-		 error_message(errno));
+		 e_txt);
 	 kadm5_destroy(global_server_handle);
 	 krb5_klog_close(context);
 	 exit(1);
@@ -369,22 +393,23 @@ int main(int argc, char *argv[])
 			SO_REUSEADDR,
 			(char *) &allowed,
 			sizeof(allowed)) < 0) {
+	     const char *e_txt = krb5_get_error_message (context, ret);
 	     krb5_klog_syslog(LOG_ERR, "Cannot set SO_REUSEADDR: %s",
-			      error_message(errno));
-	     fprintf(stderr, "Cannot set SO_REUSEADDR: %s",
-		     error_message(errno));
+			      e_txt);
+	     fprintf(stderr, "Cannot set SO_REUSEADDR: %s", e_txt);
 	     kadm5_destroy(global_server_handle);
 	     krb5_klog_close(context);	  
 	     exit(1);
 	 }
 	 if (setsockopt(schpw, SOL_SOCKET, SO_REUSEADDR,
 			(char *) &allowed, sizeof(allowed)) < 0) {
+	     const char *e_txt = krb5_get_error_message (context, ret);
 	     krb5_klog_syslog(LOG_ERR, "main",
 			      "cannot set SO_REUSEADDR on simple chpw socket: %s", 
-			      error_message(errno));
+			      e_txt);
 	     fprintf(stderr,
 		     "Cannot set SO_REUSEADDR on simple chpw socket: %s",
- 		     error_message(errno));
+ 		     e_txt);
  	     kadm5_destroy(global_server_handle);
  	     krb5_klog_close(context);
 	 }
@@ -398,11 +423,11 @@ int main(int argc, char *argv[])
 
      if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 	  int oerrno = errno;
+	  const char *e_txt = krb5_get_error_message (context, errno);
 	  fprintf(stderr, "%s: Cannot bind socket.\n", whoami);
-	  fprintf(stderr, "bind: %s\n", error_message(oerrno));
+	  fprintf(stderr, "bind: %s\n", e_txt);
 	  errno = oerrno;
-	  krb5_klog_syslog(LOG_ERR, "Cannot bind socket: %s",
-			   error_message(errno));
+	  krb5_klog_syslog(LOG_ERR, "Cannot bind socket: %s", e_txt);
 	  if(oerrno == EADDRINUSE) {
 	       char *w = strrchr(whoami, '/');
 	       if (w) {
@@ -438,12 +463,13 @@ int main(int argc, char *argv[])
      if (bind(schpw, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 	  char portbuf[32];
 	  int oerrno = errno;
+	  const char *e_txt = krb5_get_error_message (context, errno);
 	  fprintf(stderr, "%s: Cannot bind socket.\n", whoami);
-	  fprintf(stderr, "bind: %s\n", error_message(oerrno));
+	  fprintf(stderr, "bind: %s\n", e_txt);
 	  errno = oerrno;
 	  sprintf(portbuf, "%d", ntohs(addr.sin_port));
 	  krb5_klog_syslog(LOG_ERR, "cannot bind simple chpw socket: %s",
-			   error_message(oerrno));
+			   e_txt);
 	  if(oerrno == EADDRINUSE) {
 	       char *w = strrchr(whoami, '/');
 	       if (w) {
@@ -529,7 +555,7 @@ int main(int argc, char *argv[])
      }
 kterr:
      if (ret) {
-	  krb5_klog_syslog(LOG_ERR, "%s", error_message(ret));
+	  krb5_klog_syslog(LOG_ERR, "%s", krb5_get_error_message (context, ret));
 	  fprintf(stderr, "%s: Can't set up keytab for RPC.\n", whoami);
 	  kadm5_destroy(global_server_handle);
 	  krb5_klog_close(context);
@@ -581,10 +607,11 @@ kterr:
      }
 
      if ((ret = kadm5int_acl_init(context, 0, params.acl_file))) {
+	  errmsg = krb5_get_error_message (context, ret);
 	  krb5_klog_syslog(LOG_ERR, "Cannot initialize acl file: %s",
-		 error_message(ret));
+		 errmsg);
 	  fprintf(stderr, "%s: Cannot initialize acl file: %s\n",
-		  whoami, error_message(ret));
+		  whoami, errmsg);
 	  svcauth_gssapi_unset_names();
 	  kadm5_destroy(global_server_handle);
 	  krb5_klog_close(context);
@@ -593,15 +620,27 @@ kterr:
 
      if (!nofork && (ret = daemon(0, 0))) {
 	  ret = errno;
-	  krb5_klog_syslog(LOG_ERR, "Cannot detach from tty: %s", error_message(ret));
+	  errmsg = krb5_get_error_message (context, ret);
+	  krb5_klog_syslog(LOG_ERR, "Cannot detach from tty: %s", errmsg);
 	  fprintf(stderr, "%s: Cannot detach from tty: %s\n",
-		  whoami, error_message(ret));
+		  whoami, errmsg);
 	  svcauth_gssapi_unset_names();
 	  kadm5_destroy(global_server_handle);
 	  krb5_klog_close(context);
 	  exit(1);
      }
      
+     krb5_klog_syslog(LOG_INFO, "Seeding random number generator");
+     ret = krb5_c_random_os_entropy(context, 1, NULL);
+     if (ret) {
+	  krb5_klog_syslog(LOG_ERR, "Error getting random seed: %s, aborting",
+			   krb5_get_error_message(context, ret));
+	  svcauth_gssapi_unset_names();
+	  kadm5_destroy(global_server_handle);
+	  krb5_klog_close(context);
+	  exit(1);
+     }
+	  
      setup_signal_handlers();
      krb5_klog_syslog(LOG_INFO, "starting");
      kadm_svc_run(&params);
@@ -810,11 +849,12 @@ void reset_db(void)
 {
 #ifdef notdef
      kadm5_ret_t ret;
+     char *errmsg;
      
      if (ret = kadm5_flush(global_server_handle)) {
 	  krb5_klog_syslog(LOG_ERR, "FATAL ERROR!  %s while flushing databases.  "
 		 "Databases may be corrupt!  Aborting.",
-		 error_message(ret));
+		 krb5_get_error_message (context, ret));
 	  krb5_klog_close(context);
 	  exit(3);
      }
@@ -952,13 +992,30 @@ void log_badverf(gss_name_t client_name, gss_name_t server_name,
      rpcproc_t proc;
      int i;
      const char *procname;
+     size_t clen, slen;
+     char *cdots, *sdots;
+
+     client.length = 0;
+     client.value = NULL;
+     server.length = 0;
+     server.value = NULL;
 
      (void) gss_display_name(&minor, client_name, &client, &gss_type);
      (void) gss_display_name(&minor, server_name, &server, &gss_type);
-     if (client.value == NULL)
+     if (client.value == NULL) {
 	 client.value = "(null)";
-     if (server.value == NULL)
+	 clen = sizeof("(null)") -1;
+     } else {
+	 clen = client.length;
+     }
+     trunc_name(&clen, &cdots);
+     if (server.value == NULL) {
 	 server.value = "(null)";
+	 slen = sizeof("(null)") - 1;
+     } else {
+	 slen = server.length;
+     }
+     trunc_name(&slen, &sdots);
      a = inet_ntoa(rqst->rq_xprt->xp_raddr.sin_addr);
 
      proc = msg->rm_call.cb_proc;
@@ -971,14 +1028,14 @@ void log_badverf(gss_name_t client_name, gss_name_t server_name,
      }
      if (procname != NULL)
 	  krb5_klog_syslog(LOG_NOTICE, "WARNING! Forged/garbled request: %s, "
-			   "claimed client = %s, server = %s, addr = %s",
-			   procname, client.value,
-			   server.value, a);
+			   "claimed client = %.*s%s, server = %.*s%s, addr = %s",
+			   procname, clen, client.value, cdots,
+			   slen, server.value, sdots, a);
      else
 	  krb5_klog_syslog(LOG_NOTICE, "WARNING! Forged/garbled request: %d, "
-			   "claimed client = %s, server = %s, addr = %s",
-			   proc, client.value,
-			   server.value, a);
+			   "claimed client = %.*s%s, server = %.*s%s, addr = %s",
+			   proc, clen, client.value, cdots,
+			   slen, server.value, sdots, a);
 
      (void) gss_release_buffer(&minor, &client);
      (void) gss_release_buffer(&minor, &server);
@@ -1097,13 +1154,13 @@ void do_schpw(int s1, kadm5_config_params *params)
     if ((len = recvfrom(s1, req, sizeof(req), 0, (struct sockaddr *)&from,
 			&fromlen)) < 0) {
 	krb5_klog_syslog(LOG_ERR, "chpw: Couldn't receive request: %s",
-			 error_message(errno));
+			 krb5_get_error_message (context, errno));
 	return;
     }
 
     if ((ret = krb5_kt_resolve(context, "KDB:", &kt))) {
 	krb5_klog_syslog(LOG_ERR, "chpw: Couldn't open admin keytab %s",
-			 error_message(ret));
+			 krb5_get_error_message (context, ret));
 	return;
     }
 
@@ -1127,10 +1184,11 @@ void do_schpw(int s1, kadm5_config_params *params)
        interoperate if the client is single-homed. */
 
     if ((s2 = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+	const char *errmsg = krb5_get_error_message (context, errno);
 	krb5_klog_syslog(LOG_ERR, "cannot create connecting socket: %s",
-			 error_message(errno));
+			 errmsg);
 	fprintf(stderr, "Cannot create connecting socket: %s",
-		error_message(errno));
+		errmsg);
 	svcauth_gssapi_unset_names();
 	kadm5_destroy(global_server_handle);
 	krb5_klog_close(context);	  
@@ -1139,7 +1197,7 @@ void do_schpw(int s1, kadm5_config_params *params)
 
     if (connect(s2, (struct sockaddr *) &from, sizeof(from)) < 0) {
 	krb5_klog_syslog(LOG_ERR, "chpw: Couldn't connect to client: %s",
-			 error_message(errno));
+			 krb5_get_error_message (context, errno));
 	goto cleanup;
     }
 
@@ -1147,7 +1205,7 @@ void do_schpw(int s1, kadm5_config_params *params)
 				    params->realm, s2, kt, &from,
 				    &reqdata, &repdata))) {
 	krb5_klog_syslog(LOG_ERR, "chpw: Error processing request: %s", 
-			 error_message(ret));
+			 krb5_get_error_message (context, ret));
     }
 
     close(s2);
@@ -1164,7 +1222,7 @@ void do_schpw(int s1, kadm5_config_params *params)
 	krb5_xfree(repdata.data);
 
 	krb5_klog_syslog(LOG_ERR, "chpw: Error sending reply: %s", 
-			 error_message(errno));
+			 krb5_get_error_message (context, errno));
 	goto cleanup;
     }
 
@@ -1175,4 +1233,3 @@ cleanup:
 
     return;
 }
-

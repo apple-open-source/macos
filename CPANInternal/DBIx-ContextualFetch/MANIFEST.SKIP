@@ -1,0 +1,15 @@
+^aegis.log
+^config
+^build
+,D$
+^Makefile$
+^pm_to_blib
+^\.
+~$
+\.ERR$
+\.old$
+\.bak$
+\.swp$
+\.tdy$
+^blib/
+^MakeMaker-\d

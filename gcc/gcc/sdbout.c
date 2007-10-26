@@ -332,10 +332,14 @@ const struct gcc_debug_hooks sdb_debug_hooks =
   sdbout_symbol,			 /* type_decl */
   debug_nothing_tree_tree,               /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
-  debug_nothing_tree,		         /* outlining_inline_function */
+  /* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
+  debug_nothing_tree_loc,	         /* outlining_inline_function */
+  /* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
   sdbout_label,			         /* label */
   debug_nothing_int,		         /* handle_pch */
   debug_nothing_rtx,		         /* var_location */
+  /* APPLE LOCAL opt diary */
+  debug_nothing_od_msg_loc,              /* Optimization Diary Entry */
   0                                      /* start_end_main_source_file */
 };
 

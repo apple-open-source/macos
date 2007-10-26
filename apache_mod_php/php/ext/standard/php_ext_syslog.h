@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Stig Sæther Bakken <ssb@fast.no>                             |
+   | Author: Stig Sæther Bakken <ssb@php.net>                             |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ext_syslog.h,v 1.7.8.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: php_ext_syslog.h,v 1.12.2.2.2.2 2007/05/17 06:38:13 rasmus Exp $ */
 
 #ifndef PHP_EXT_SYSLOG_H
 #define PHP_EXT_SYSLOG_H
@@ -27,7 +27,10 @@
 
 PHP_MINIT_FUNCTION(syslog);
 PHP_RINIT_FUNCTION(syslog);
+#ifdef PHP_WIN32
 PHP_RSHUTDOWN_FUNCTION(syslog);
+#endif
+PHP_MSHUTDOWN_FUNCTION(syslog);
 
 PHP_FUNCTION(openlog);
 PHP_FUNCTION(syslog);

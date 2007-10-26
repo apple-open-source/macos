@@ -125,6 +125,7 @@ rt_xaddrs(cp, cplim, rtinfo)
  * ARPANET IMP), set the lookforinterfaces flag so we'll
  * come back later and look again.
  */
+void
 ifinit()
 {
 	struct interface ifs, *ifp;
@@ -133,7 +134,7 @@ ifinit()
 	char *buf, *cplim, *cp;
 	register struct if_msghdr *ifm;
 	register struct ifa_msghdr *ifam;
-	struct sockaddr_dl *sdl;
+	struct sockaddr_dl *sdl = NULL;
         struct sockaddr_in *sin;
 	u_long i;
 
@@ -287,6 +288,7 @@ ifinit()
  * otherwise a route to this (sub)network.
  * INTERNET SPECIFIC.
  */
+void
 addrouteforif(ifp)
 	register struct interface *ifp;
 {
@@ -350,6 +352,7 @@ addrouteforif(ifp)
  * If a route to this network is being sent to neighbors on other nets,
  * mark this route as subnet so we don't have to propagate it too.
  */
+void
 add_ptopt_localrt(ifp)
 	register struct interface *ifp;
 {
@@ -393,6 +396,7 @@ add_ptopt_localrt(ifp)
  *
  * PASSIVE ENTRIES AREN'T NEEDED OR USED ON GATEWAYS RUNNING EGP.
  */
+void
 gwkludge()
 {
 	struct sockaddr_in dst, gate;
@@ -451,7 +455,7 @@ gwkludge()
 			 * to prevent overriding them
 			 * with something else.
 			 */
-			rtadd(&dst, &gate, metric, RTS_EXTERNAL|RTS_PASSIVE);
+			rtadd((struct sockaddr *)&dst, (struct sockaddr *)&gate, metric, RTS_EXTERNAL|RTS_PASSIVE);
 			continue;
 		}
 		/* assume no duplicate entries */
@@ -474,6 +478,7 @@ gwkludge()
 	fclose(fp);
 }
 
+int
 getnetorhostname(type, name, sin)
 	char *type, *name;
 	struct sockaddr_in *sin;
@@ -519,6 +524,7 @@ getnetorhostname(type, name, sin)
 	return (0);
 }
 
+int
 gethostnameornumber(name, sin)
 	char *name;
 	struct sockaddr_in *sin;

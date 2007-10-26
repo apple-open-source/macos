@@ -10,7 +10,8 @@ if [ x"$1" != x ] ; then
 fi
 
 for i in basic-eh-app-jaguar-2.95 basic-eh-app-jaguar-3.1 \
-         basic-eh-app-tiger-4.0 3043647/main 3464244/3464244 ; do
+	 basic-eh-app-tiger-4.0 basic-eh-app-10.4u-4.0 \
+	 3043647/main 3464244/3464244 ; do
   rm -f $i
   uudecode -o $i ${i}.uu || echo "uudecode failed for $i"
   chmod +x $i || echo "chmod failed for $i"

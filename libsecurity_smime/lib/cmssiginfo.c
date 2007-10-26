@@ -64,6 +64,12 @@
     (var) = ((p)[0] - '0') * 10 + ((p)[1] - '0');         \
 }
 
+#define SIGINFO_DEBUG	0
+#if	SIGINFO_DEBUG
+#define dprintf(args...)      printf(args)
+#else
+#define dprintf(args...)
+#endif
 
 static OSStatus
 DER_UTCTimeToCFDate(const CSSM_DATA_PTR utcTime, CFAbsoluteTime *date)
@@ -235,6 +241,8 @@ nss_cmssignerinfo_create(SecCmsMessageRef cmsg, SecCmsSignerIDSelector type, Sec
 	    goto loser;
         if ((signerinfo->signerIdentifier.id.issuerAndSN = CERT_GetCertIssuerAndSN(poolp, cert)) == NULL)
 	    goto loser;
+	dprintf("nss_cmssignerinfo_create: SecCmsSignerIDIssuerSN: cert.rc %d\n",
+	    (int)CFGetRetainCount(signerinfo->cert));
         break;
     case SecCmsSignerIDSubjectKeyID:
         signerinfo->signerIdentifier.identifierType = SecCmsSignerIDSubjectKeyID;
@@ -283,12 +291,16 @@ loser:
 void
 SecCmsSignerInfoDestroy(SecCmsSignerInfoRef si)
 {
-    if (si->cert != NULL)
+    if (si->cert != NULL) {
+	dprintf("SecCmsSignerInfoDestroy top: certp %p cert.rc %d\n",
+	    si->cert, (int)CFGetRetainCount(si->cert));
 	CERT_DestroyCertificate(si->cert);
-
-    if (si->certList != NULL) 
+    }
+    if (si->certList != NULL) {
+	dprintf("SecCmsSignerInfoDestroy top: certList.rc %d\n",
+	    (int)CFGetRetainCount(si->certList));
 	CFRelease(si->certList);
-
+    }
     /* XXX storage ??? */
 }
 
@@ -437,6 +449,11 @@ loser:
 	SECITEM_FreeItem (&signature, PR_FALSE);
     if (privkey)
 	SECKEY_DestroyPrivateKey(privkey);
+    if((algID != NULL) & (algID != &freeAlgID)) {
+	/* this is dicey - this was actually mallocd by either SecCertificate or 
+	 * by SecKey...it all boils down to a free() in the end though. */
+	SECOID_DestroyAlgorithmID((SECAlgorithmID *)algID, PR_FALSE);
+    }
     return SECFailure;
 }
 
@@ -447,8 +464,10 @@ SecCmsSignerInfoVerifyCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef
     SecCertificateRef cert;
     CFAbsoluteTime stime;
     OSStatus rv;
-
+    CSSM_DATA_PTR *otherCerts;
+    
     if ((cert = SecCmsSignerInfoGetSigningCertificate(signerinfo, keychainOrArray)) == NULL) {
+	dprintf("SecCmsSignerInfoVerifyCertificate: no signing cert\n");
 	signerinfo->verificationStatus = SecCmsVSSigningCertNotFound;
 	return SECFailure;
     }
@@ -460,8 +479,13 @@ SecCmsSignerInfoVerifyCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef
      */
     if (SecCmsSignerInfoGetSigningTime(signerinfo, &stime) != SECSuccess)
 	stime = CFAbsoluteTimeGetCurrent();
-
-    rv = CERT_VerifyCert(keychainOrArray, cert, policies, stime, trustRef);
+    rv = SecCmsSignedDataRawCerts(signerinfo->sigd, &otherCerts);
+    if(rv) {
+	return rv;
+    }
+    rv = CERT_VerifyCert(keychainOrArray, cert, otherCerts, policies, stime, trustRef);
+    dprintf("SecCmsSignerInfoVerifyCertificate after vfy: certp %p cert.rc %d\n",
+	    cert, (int)CFGetRetainCount(cert));
     if (rv || !trustRef)
     {
 	if (PORT_GetError() == SEC_ERROR_UNTRUSTED_CERT)
@@ -471,7 +495,8 @@ SecCmsSignerInfoVerifyCertificate(SecCmsSignerInfoRef signerinfo, SecKeychainRef
 		signerinfo->verificationStatus = SecCmsVSSigningCertNotTrusted;
 	}
     }
-
+    /* FIXME isn't this leaking the cert? */
+    dprintf("SecCmsSignerInfoVerifyCertificate: CertVerify rtn %d\n", (int)rv);
     return rv;
 }
 
@@ -491,16 +516,19 @@ SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSS
     SecCmsVerificationStatus vs = SecCmsVSUnverified;
     PLArenaPool *poolp;
     SECOidTag digestAlgTag, digestEncAlgTag;
-
+    
     if (signerinfo == NULL)
 	return SECFailure;
-
+    
     /* SecCmsSignerInfoGetSigningCertificate will fail if 2nd parm is NULL and */
     /* cert has not been verified */
     if ((cert = SecCmsSignerInfoGetSigningCertificate(signerinfo, NULL)) == NULL) {
+	dprintf("SecCmsSignerInfoVerify: no signing cert\n");
 	vs = SecCmsVSSigningCertNotFound;
 	goto loser;
     }
+    dprintf("SecCmsSignerInfoVerify top: cert %p cert.rc %d\n",
+	    cert, (int)CFGetRetainCount(cert));
 
     if (SecCertificateCopyPublicKey(cert, &publickey)) {
 	vs = SecCmsVSProcessingError;
@@ -613,6 +641,8 @@ SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSS
 	CFRelease(publickey);
 
     signerinfo->verificationStatus = vs;
+    dprintf("SecCmsSignerInfoVerify end: cerp %p cert.rc %d\n",
+	    cert, (int)CFGetRetainCount(cert));
 
     return (vs == SecCmsVSGoodSignature) ? SECSuccess : SECFailure;
 
@@ -653,6 +683,8 @@ SecCmsSignerInfoGetDigestAlgTag(SecCmsSignerInfoRef signerinfo)
 CFArrayRef
 SecCmsSignerInfoGetCertList(SecCmsSignerInfoRef signerinfo)
 {
+    dprintf("SecCmsSignerInfoGetCertList: certList.rc %d\n",
+	    (int)CFGetRetainCount(signerinfo->certList));
     return signerinfo->certList;
 }
 
@@ -711,13 +743,21 @@ SecCmsSignerInfoGetSigningCertificate(SecCmsSignerInfoRef signerinfo, SecKeychai
 {
     SecCertificateRef cert;
     SecCmsSignerIdentifier *sid;
-
-    if (signerinfo->cert != NULL)
+    OSStatus ortn;
+    CSSM_DATA_PTR *rawCerts;
+    
+    if (signerinfo->cert != NULL) {
+	dprintf("SecCmsSignerInfoGetSigningCertificate top: cert %p cert.rc %d\n",
+	    signerinfo->cert, (int)CFGetRetainCount(signerinfo->cert));
 	return signerinfo->cert;
-
-    /* @@@ Make sure we search though all the certs in the cms message itself as well, it's silly
-       to require them to be added to a keychain first. */
-
+    }
+    ortn = SecCmsSignedDataRawCerts(signerinfo->sigd, &rawCerts);
+    if(ortn) {
+	return NULL;
+    }
+    dprintf("SecCmsSignerInfoGetSigningCertificate: numRawCerts %d\n", 
+	SecCmsArrayCount((void **)rawCerts));
+    
     /*
      * This cert will also need to be freed, but since we save it
      * in signerinfo for later, we do not want to destroy it when
@@ -727,10 +767,11 @@ SecCmsSignerInfoGetSigningCertificate(SecCmsSignerInfoRef signerinfo, SecKeychai
     sid = &signerinfo->signerIdentifier;
     switch (sid->identifierType) {
     case SecCmsSignerIDIssuerSN:
-	cert = CERT_FindCertByIssuerAndSN(keychainOrArray, sid->id.issuerAndSN);
+	cert = CERT_FindCertByIssuerAndSN(keychainOrArray, rawCerts, signerinfo->cmsg->poolp,
+	    sid->id.issuerAndSN);
 	break;
     case SecCmsSignerIDSubjectKeyID:
-	cert = CERT_FindCertBySubjectKeyID(keychainOrArray, sid->id.subjectKeyID);
+	cert = CERT_FindCertBySubjectKeyID(keychainOrArray, rawCerts, sid->id.subjectKeyID);
 	break;
     default:
 	cert = NULL;
@@ -739,6 +780,8 @@ SecCmsSignerInfoGetSigningCertificate(SecCmsSignerInfoRef signerinfo, SecKeychai
 
     /* cert can be NULL at that point */
     signerinfo->cert = cert;	/* earmark it */
+    dprintf("SecCmsSignerInfoGetSigningCertificate end: certp %p cert.rc %d\n",
+	    signerinfo->cert, (int)CFGetRetainCount(signerinfo->cert));
 
     return cert;
 }

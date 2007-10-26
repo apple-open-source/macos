@@ -4,7 +4,7 @@ Sua requisição para o endereço %(requestaddr)s:
 
 foi direcionada para a pessoa que toma conta da lista.
 
-Uma provável causa é quando se você tenta se inscrever em uma 
+Uma provável causa é a tentativa de inscrição em uma
 lista "fechada".
 
 Você receberá uma notificação da decisão do dono da lista sobre 

@@ -1372,9 +1372,20 @@ else
     hardcode_shlibpath_var=no
     ;;
 
-  darwin* | rhapsody*)
+  darwin[15]* | rhapsody*)
     allow_undefined_flag='-undefined error'
-    archive_cmds='$CC $(test x$module = xyes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib $libobjs $deplibs $linkopts /usr/local/lib/libdl.dylib -install_name $rpath/$soname $(test -n "$verstring" -a x$verstring != x0.0 && echo $verstring)'
+    archive_cmds='$CC $(test x$module = xyes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib $libobjs $deplibs $linkopts -install_name $rpath/$soname $(test -n "$verstring" -a x$verstring != x0.0 && echo $verstring)'
+    # We need to add '_' to the symbols in $export_symbols first
+    #archive_expsym_cmds="$archive_cmds"' && strip -s $export_symbols $lib'
+    hardcode_direct=yes
+    hardcode_shlibpath_var=no
+    whole_archive_flag_spec='-all_load $convenience'
+    ;;
+
+  # Mac OS X v10.2 uses bash for /bin/sh instead of zsh, and the quoting syntax is incompatible
+  darwin*)
+    allow_undefined_flag='-undefined error'
+    archive_cmds='$CC $(test x$module = xyes && echo -bundle || echo -dynamiclib) $allow_undefined_flag -o $lib $libobjs $deplibs $linkopts $(test x$module != xyes && echo -install_name $rpath/$soname $tmp_verstring)'
     # We need to add '_' to the symbols in $export_symbols first
     #archive_expsym_cmds="$archive_cmds"' && strip -s $export_symbols $lib'
     hardcode_direct=yes
@@ -2235,6 +2246,9 @@ echo "$ac_t$enable_shared" 1>&6
 
 # Make sure either enable_shared or enable_static is yes.
 test "$enable_shared" = yes || enable_static=yes
+
+# Propagate what we've learned...
+ac_cv_can_build_shared="$can_build_shared"
 
 echo "checking whether to build static libraries... $enable_static" 1>&6
 

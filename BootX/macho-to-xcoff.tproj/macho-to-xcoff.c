@@ -27,6 +27,7 @@
  *  DRI: Josh de Cesare
  */
 
+#define __srr0 srr0					// works with or without conformance
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -260,7 +261,7 @@ int main (int argc, char **argv)
       
     case LC_THREAD:
     case LC_UNIXTHREAD:
-      xHead.opt.entryPoint = ((ppc_saved_state_t *) 
+      xHead.opt.entryPoint = ((ppc_thread_state_t *) 
 			      (cp + sizeof(struct thread_command)
 			       + 2 * sizeof(unsigned long)) )->srr0;
       printf("Entry point %lx\n\n", SWAPL(xHead.opt.entryPoint));

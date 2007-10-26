@@ -1,16 +1,12 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* Define this if your regexec() function segfaults when passed an empty
-   string under certain conditions. */
-#undef BROKEN_REGEXEC
-
 /* Define this to enable nano debug messages and assert warnings. */
 #undef DEBUG
 
-/* Define this to disable the built-in (crappy) file browser. */
+/* Define this to disable the built-in file browser. */
 #undef DISABLE_BROWSER
 
-/* Define this to disable the ^G help menu. */
+/* Define this to disable the help text display. */
 #undef DISABLE_HELP
 
 /* Define this to disable the justify routine. */
@@ -24,9 +20,9 @@
 #undef DISABLE_OPERATINGDIR
 
 /* Define this to disable wrapping as root by default. */
-#undef DISABLE_ROOTWRAP
+#undef DISABLE_ROOTWRAPPING
 
-/* Define this to disable the use(full|less) spelling functions. */
+/* Define this to disable the spell checker functions. */
 #undef DISABLE_SPELLER
 
 /* Define to disable the tab completion code Chris worked so hard on! */
@@ -35,7 +31,8 @@
 /* Define this to disable any and all text wrapping. */
 #undef DISABLE_WRAPPING
 
-/* Define this to have syntax highlighting, requires ENABLE_NANORC too! */
+/* Define this to have syntax highlighting, requires regex.h and ENABLE_NANORC
+   too! */
 #undef ENABLE_COLOR
 
 /* Define this to enable multiple file buffers. */
@@ -48,6 +45,11 @@
    language is requested. */
 #undef ENABLE_NLS
 
+/* Define this if your system has sufficient UTF-8 support (a wide curses
+   library, iswalnum(), iswpunct(), iswblank() or iswspace(), mblen(),
+   mbstowcs(), mbtowc(), wctomb(), and wcwidth()). */
+#undef ENABLE_UTF8
+
 /* Define to 1 if you have the <curses.h> header file. */
 #undef HAVE_CURSES_H
 
@@ -58,8 +60,11 @@
 /* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
 #undef HAVE_DOPRNT
 
-/* Define to 1 if you have the <fcntl.h> header file. */
-#undef HAVE_FCNTL_H
+/* Define to 1 if you have the `getdelim' function. */
+#undef HAVE_GETDELIM
+
+/* Define to 1 if you have the `getline' function. */
+#undef HAVE_GETLINE
 
 /* Define to 1 if you have the <getopt.h> header file. */
 #undef HAVE_GETOPT_H
@@ -76,11 +81,35 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have the `isblank' function. */
+#undef HAVE_ISBLANK
+
+/* Define to 1 if you have the `iswalnum' function. */
+#undef HAVE_ISWALNUM
+
+/* Define to 1 if you have the `iswblank' function. */
+#undef HAVE_ISWBLANK
+
+/* Define to 1 if you have the `iswpunct' function. */
+#undef HAVE_ISWPUNCT
+
+/* Define to 1 if you have the `iswspace' function. */
+#undef HAVE_ISWSPACE
+
 /* Define to 1 if you have the <libintl.h> header file. */
 #undef HAVE_LIBINTL_H
 
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
+
+/* Define to 1 if you have the `mblen' function. */
+#undef HAVE_MBLEN
+
+/* Define to 1 if you have the `mbstowcs' function. */
+#undef HAVE_MBSTOWCS
+
+/* Define to 1 if you have the `mbtowc' function. */
+#undef HAVE_MBTOWC
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
@@ -91,9 +120,6 @@
 /* Define to 1 if you have the <regex.h> header file. */
 #undef HAVE_REGEX_H
 
-/* Define to 1 if you have the `snprintf' function. */
-#undef HAVE_SNPRINTF
-
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
 
@@ -102,6 +128,9 @@
 
 /* Define to 1 if you have the `strcasecmp' function. */
 #undef HAVE_STRCASECMP
+
+/* Define to 1 if you have the `strcasestr' function. */
+#undef HAVE_STRCASESTR
 
 /* Define to 1 if you have the <strings.h> header file. */
 #undef HAVE_STRINGS_H
@@ -112,25 +141,22 @@
 /* Define to 1 if you have the `strncasecmp' function. */
 #undef HAVE_STRNCASECMP
 
+/* Define to 1 if you have the `strnlen' function. */
+#undef HAVE_STRNLEN
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#undef HAVE_SYS_PARAM_H
+
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
 
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
 
-/* Define to 1 if you have the <termios.h> header file. */
-#undef HAVE_TERMIOS_H
-
-/* Define to 1 if you have the <termio.h> header file. */
-#undef HAVE_TERMIO_H
-
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Define this if your curses lib has the _use_keypad flag. */
-#undef HAVE_USEKEYPAD
-
-/* Define this if your curses library has the use_default_colors command. */
+/* Define this if your curses library has the use_default_colors() command. */
 #undef HAVE_USE_DEFAULT_COLORS
 
 /* Define to 1 if you have the `vprintf' function. */
@@ -139,11 +165,23 @@
 /* Define to 1 if you have the `vsnprintf' function. */
 #undef HAVE_VSNPRINTF
 
+/* Define to 1 if you have the <wchar.h> header file. */
+#undef HAVE_WCHAR_H
+
+/* Define to 1 if you have the `wctomb' function. */
+#undef HAVE_WCTOMB
+
+/* Define to 1 if you have the <wctype.h> header file. */
+#undef HAVE_WCTYPE_H
+
+/* Define to 1 if you have the `wcwidth' function. */
+#undef HAVE_WCWIDTH
+
 /* Define this to enable the extra stuff. */
 #undef NANO_EXTRA
 
 /* Define this to make the nano executable as small as possible. */
-#undef NANO_SMALL
+#undef NANO_TINY
 
 /* Shut up the assert warnings :-) */
 #undef NDEBUG
@@ -166,6 +204,9 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
+/* Where data are placed to. */
+#undef PKGDATADIR
+
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
 
@@ -180,6 +221,11 @@
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS
+
+/* Enable GNU extensions on systems that have them.  */
+#ifndef _GNU_SOURCE
+# undef _GNU_SOURCE
+#endif
 
 /* Define for large files, on AIX-style hosts. */
 #undef _LARGE_FILES

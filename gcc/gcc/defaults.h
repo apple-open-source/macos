@@ -831,6 +831,12 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define LEGITIMATE_PIC_OPERAND_P(X) 1
 #endif
 
+/* APPLE LOCAL begin ARM -mdynamic-no-pic support */
+#ifndef LEGITIMATE_INDIRECT_OPERAND_P
+#define LEGITIMATE_INDIRECT_OPERAND_P(X) (! flag_pic || LEGITIMATE_PIC_OPERAND_P(X))
+#endif
+/* APPLE LOCAL end ARM -mdynamic-no-pic support */
+
 #ifndef REVERSIBLE_CC_MODE
 #define REVERSIBLE_CC_MODE(MODE) 0
 #endif
@@ -839,5 +845,16 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #ifndef MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT BIGGEST_ALIGNMENT
 #endif
+
+/* APPLE LOCAL begin KEXT */
+#ifndef TARGET_KEXTABI
+#define TARGET_KEXTABI false
+#endif
+/* APPLE LOCAL end KEXT */
+/* APPLE LOCAL begin mainline */
+#ifndef FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 0
+#endif
+/* APPLE LOCAL end mainline */
 
 #endif  /* ! GCC_DEFAULTS_H */

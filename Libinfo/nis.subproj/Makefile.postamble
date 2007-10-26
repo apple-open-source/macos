@@ -112,9 +112,11 @@
 
 MAN3DIR=/usr/share/man/man3
 MAN5DIR=/usr/share/man/man5
+MAN8DIR=/usr/share/man/man8
 
 install-nis-man:
 	install -m 755 -o root -g wheel -d $(DSTROOT)$(MAN3DIR)
+	install -m 755 -o root -g wheel -d $(DSTROOT)$(MAN8DIR)
 	install -m 644 -o root -g wheel -c yp_all.3                "$(DSTROOT)$(MAN3DIR)"
 	install -m 644 -o root -g wheel -c yp_bind.3               "$(DSTROOT)$(MAN3DIR)"
 	install -m 644 -o root -g wheel -c yp_first.3              "$(DSTROOT)$(MAN3DIR)"
@@ -127,3 +129,5 @@ install-nis-man:
 	install -m 644 -o root -g wheel -c ypclnt.3                "$(DSTROOT)$(MAN3DIR)"
 	install -m 644 -o root -g wheel -c yperr_string.3          "$(DSTROOT)$(MAN3DIR)"
 	install -m 644 -o root -g wheel -c ypprot_err.3            "$(DSTROOT)$(MAN3DIR)"
+	install -m 644 -o root -g wheel -c yp.8                    "$(DSTROOT)$(MAN8DIR)"
+

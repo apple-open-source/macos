@@ -1,0 +1,59 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -1248,7 +1248,8 @@ fi
+ AC_CHECK_FUNCS(waitpid getcwd strdup strndup strnlen strerror chown fchown lchown chmod fchmod chroot link mknod mknod64)
+ AC_CHECK_FUNCS(strtol strtoll strtoul strtoull strtouq __strtoull)
+ AC_CHECK_FUNCS(fstat strchr utime utimes chflags)
+-AC_CHECK_FUNCS(getrlimit fsync memset strlcpy strlcat setpgid)
++AC_CHECK_FUNCS(getrlimit memset strlcpy strlcat setpgid)
++AC_CHECK_FUNCS(fsync fdatasync)
+ AC_CHECK_FUNCS(memmove vsnprintf snprintf asprintf vasprintf setsid glob strpbrk pipe crypt16 getauthuid)
+ AC_CHECK_FUNCS(strftime sigprocmask sigblock sigaction sigset innetgr setnetgrent getnetgrent endnetgrent)
+ AC_CHECK_FUNCS(initgroups select poll rdchk getgrnam getgrent pathconf realpath)
+Index: samba/source/modules/vfs_commit.c
+===================================================================
+--- samba/source/modules/vfs_commit.c.orig
++++ samba/source/modules/vfs_commit.c
+@@ -46,6 +46,22 @@ struct commit_info
+         SMB_OFF_T dthresh;	/* Dirty data threshold */
+ };
+ 
++static void flush_fd_data(int fd)
++{
++#if defined(HAVE_FDATASYNC)
++	fdatasync(fd);
++#elif defined(HAVE_FSYNC)
++	fsync(fd);
++#else
++	/* Constantly emit an annoying message so the admin
++	 * will get the hint that this module isn't doing
++	 * anything.
++	 */
++	DEBUG(0, ("%s: WARNING: no commit support "
++		"on this platform\n", MODULE));
++#endif
++}
++
+ static void commit_all(
+         struct vfs_handle_struct *	handle,
+         files_struct *		        fsp)
+@@ -58,7 +74,7 @@ static void commit_all(
+                                 ("%s: flushing %lu dirty bytes\n",
+                                  MODULE, (unsigned long)c->dbytes));
+ 
+-                        fdatasync(fsp->fh->fd);
++			flush_fd_data(fsp->fh->fd);
+                         c->dbytes = 0;
+                 }
+         }
+@@ -82,7 +98,7 @@ static void commit(
+                                 ("%s: flushing %lu dirty bytes\n",
+                                  MODULE, (unsigned long)c->dbytes));
+ 
+-                        fdatasync(fsp->fh->fd);
++			flush_fd_data(fsp->fh->fd);
+                         c->dbytes = 0;
+                 }
+         }

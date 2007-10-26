@@ -1194,7 +1194,7 @@ rtCheckRoutineArgs(rt)
     }
 }
 
-static void
+boolean_t
 rtCheckTrailerType(arg)
     register argument_t *arg;
 {
@@ -1209,6 +1209,8 @@ rtCheckTrailerType(arg)
      * the type/size of the desciption provided by the user
      * with the one defined in message.h.
      */
+
+    return TRUE;
 }
 
 static void

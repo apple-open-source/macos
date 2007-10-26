@@ -6,11 +6,11 @@
 
 MISRCS+= gmon.c 
 
-#.if ${LIB} == "c"
-#MAN+=	moncontrol.3
-#
-#MLINKS+=moncontrol.3 monstartup.3
-#.endif
+.if ${LIB} == "c"
+MAN3 += moncontrol.3
+
+MLINKS += moncontrol.3 monstartup.3
+.endif
 
 # mcount cannot be compiled with profiling
 gmon.po: 

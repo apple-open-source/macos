@@ -55,7 +55,7 @@ Boolean DSTCPListener::sInitialized = false;
 //------------------------------------------------------------------------------
 // DSTCPListener
 //------------------------------------------------------------------------------
-DSTCPListener::DSTCPListener( const uInt16 inPort )
+DSTCPListener::DSTCPListener( const UInt16 inPort )
 	:DSCThread(kTSTCPListenerThread),
 	mListening(false),
 	mStop(false),
@@ -65,7 +65,7 @@ DSTCPListener::DSTCPListener( const uInt16 inPort )
 	fMaxConnections(kDefaultMaxConnections),
 	fUsedConnections(0)
 {
-	fConnectionLock = new DSMutexSemaphore();
+	fConnectionLock = new DSMutexSemaphore("DSTCPListener::fConnectionLock");
 	fTCPEndpoint	= nil;
 	memset(fConnections,0,sizeof(tConnectStruct*)*(kMaxConnections+1));
 }
@@ -73,7 +73,7 @@ DSTCPListener::DSTCPListener( const uInt16 inPort )
 //------------------------------------------------------------------------------
 // DSTCPListener
 //------------------------------------------------------------------------------
-DSTCPListener::DSTCPListener( const uInt16 inPort, const uInt32 inMaxConnections )
+DSTCPListener::DSTCPListener( const UInt16 inPort, const UInt32 inMaxConnections )
 	:DSCThread(kTSTCPListenerThread),
 	mListening(false),
 	mStop(false),
@@ -84,7 +84,7 @@ DSTCPListener::DSTCPListener( const uInt16 inPort, const uInt32 inMaxConnections
 	fUsedConnections(0)
 
 {
-	fConnectionLock = new DSMutexSemaphore();
+	fConnectionLock = new DSMutexSemaphore("DSTCPListener::fConnectionLock");
 	fTCPEndpoint	= nil;
 	memset(fConnections,0,sizeof(tConnectStruct*)*(kMaxConnections+1));
 }
@@ -106,15 +106,15 @@ DSTCPListener::~DSTCPListener ( void )
 	if (fConnectionLock != nil)
 	{
 		//TODO need to tear down any existing connections before we go away
-		fConnectionLock->Wait();
+		fConnectionLock->WaitLock();
 	
-		for (uInt32 idx = 0; idx < fUsedConnections; idx++)
+		for (UInt32 idx = 0; idx < fUsedConnections; idx++)
 		{
 			if (fConnections[idx]->pConnection != nil)
 			{
 				//log the closing of this connection here
 				gettimeofday(&timeNow,NULL);
-				DBGLOG3( kLogConnection, "Connection Shutdown by Listener Cleanup:: %s connected from PID %u for %u usec", fConnections[idx]->fRemoteIP, fConnections[idx]->fRemotePID, 1000000*(timeNow.tv_sec - (fConnections[idx]->startTime).tv_sec) + timeNow.tv_usec - (fConnections[idx]->startTime).tv_usec );
+				DbgLog( kLogConnection, "Connection Shutdown by Listener Cleanup:: %s connected from PID %u for %u usec", fConnections[idx]->fRemoteIP, fConnections[idx]->fRemotePID, 1000000*(timeNow.tv_sec - (fConnections[idx]->startTime).tv_sec) + timeNow.tv_usec - (fConnections[idx]->startTime).tv_usec );
 				
 				//stop the connection thread
 				//this assumes that the TCP endpoint has a timeout at which it will retry if
@@ -126,7 +126,7 @@ DSTCPListener::~DSTCPListener ( void )
 		}
 		fUsedConnections = 0;
 	
-		fConnectionLock->Signal();
+		fConnectionLock->SignalLock();
 		
 		delete(fConnectionLock);
 		fConnectionLock = nil;
@@ -170,10 +170,10 @@ DSTCPListener::Initialize(void)
 //
 //--------------------------------------------------------------------------------------------------
 
-long DSTCPListener::ThreadMain ( void )
+SInt32 DSTCPListener::ThreadMain ( void )
 {
 	bool		done		= false;
-	sInt32		result		= eDSNoErr;
+	SInt32		result		= eDSNoErr;
 
 //KW need to consider this
 /*
@@ -188,7 +188,7 @@ long DSTCPListener::ThreadMain ( void )
 
 		if (pthread_getschedparam( pthread_self(), &myPolicy, &myStruct) == 0)
 		{
-			DBGLOG1( kLogThreads, "Thread priority defaults to %d for TCP listener thread.", myStruct.sched_priority );
+			DbgLog( kLogThreads, "Thread priority defaults to %d for TCP listener thread.", myStruct.sched_priority );
 			minPriority = sched_get_priority_min(myPolicy);
 			maxPriority = sched_get_priority_max(myPolicy);
 			if (maxPriority > myStruct.sched_priority)
@@ -197,7 +197,7 @@ long DSTCPListener::ThreadMain ( void )
 
 				if (pthread_setschedparam( pthread_self(), myPolicy, &myStruct) == 0)
 				{
-					DBGLOG3( kLogThreads, "Thread priority set to %d for TCP listener thread within range of [ %d , %d ].", myStruct.sched_priority, minPriority, maxPriority );
+					DbgLog( kLogThreads, "Thread priority set to %d for TCP listener thread within range of [ %d , %d ].", myStruct.sched_priority, minPriority, maxPriority );
 				}
 			}
 		}
@@ -212,10 +212,10 @@ long DSTCPListener::ThreadMain ( void )
 			result = CreateTCPEndpoint();
 			if ( result != eDSNoErr )
 			{
-				DBGLOG2( kLogThreads, "File: %s. Line: %d", __FILE__, __LINE__ );
-				DBGLOG1( kLogThreads, "  ***CreateTCPEndpoint() returned = %d", result );
+				DbgLog( kLogThreads, "File: %s. Line: %d", __FILE__, __LINE__ );
+				DbgLog( kLogThreads, "  ***CreateTCPEndpoint() returned = %d", result );
 
-				ERRORLOG1( kLogEndpoint, "Unable to create TCP connection: %d", result );
+				ErrLog( kLogEndpoint, "Unable to create TCP connection: %d", result );
 			}
 			if ( result != eDSNoErr ) throw( result );
 
@@ -234,10 +234,10 @@ long DSTCPListener::ThreadMain ( void )
 			}
 		}
 
-		catch( sInt32 err )
+		catch( SInt32 err )
 		{
-			DBGLOG2( kLogThreads, "File: %s. Line: %d", __FILE__, __LINE__ );
-			DBGLOG1( kLogThreads, "  ***DSTCPListener::ThreadMain error = %d", err );
+			DbgLog( kLogThreads, "File: %s. Line: %d", __FILE__, __LINE__ );
+			DbgLog( kLogThreads, "  ***DSTCPListener::ThreadMain error = %d", err );
 			this->SetThreadRunState( kThreadStop );
 		}
 	}
@@ -261,7 +261,7 @@ Boolean DSTCPListener::WaitForConnection ( void )
 	if ( fTCPEndpoint->AcceptConnection() )
 	{
 		// at this point, we returned from an accept and have an open connection
-		DBGLOG1( kLogConnection, "Got a connection from %s.", fTCPEndpoint->GetReverseAddressString() );
+		DbgLog( kLogConnection, "Got a connection from %s.", fTCPEndpoint->GetReverseAddressString() );
 		gotRequest = true;
 	}
 	
@@ -282,7 +282,7 @@ void DSTCPListener::BindSocket( DSTCPEndpoint* &sock )
 	DSTCPConnection	   *aConnection			= NULL;
 	try
 	{
-		fConnectionLock->Wait();
+		fConnectionLock->WaitLock();
 		// Create the Connection object, and tell it which socket to use.
 		if ( fUsedConnections < fMaxConnections )
 		{
@@ -296,11 +296,11 @@ void DSTCPListener::BindSocket( DSTCPEndpoint* &sock )
 			fConnections[fUsedConnections] = aConnectStructPtr;
 			fUsedConnections++;
 		}
-		fConnectionLock->Signal();
+		fConnectionLock->SignalLock();
 	}
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
-		fConnectionLock->Signal();
+		fConnectionLock->SignalLock();
 		throw(err);
 	}
 	
@@ -322,24 +322,24 @@ void DSTCPListener::BindSocket( DSTCPEndpoint* &sock )
 void DSTCPListener::CreateConnection ( void )
 {
 	static DSTCPEndpoint	   *pNewEndpoint	= NULL;
-	static uInt32			sessionID		= ::time(NULL);
+	static UInt32			sessionID		= ::time(NULL);
 
 	// Create a copy of this endpoint 
 
-	fConnectionLock->Wait();
+	fConnectionLock->WaitLock();
 	//check to make sure number of connections NOT exceeded
 	if ( fUsedConnections < fMaxConnections )
 	{
 		pNewEndpoint = new DSEncryptedEndpoint( fTCPEndpoint, sessionID );
 	}
-	fConnectionLock->Signal();
+	fConnectionLock->SignalLock();
 
 	if ( pNewEndpoint != NULL )
 	{
 		try
 		{
 			this->BindSocket( (DSTCPEndpoint *&)pNewEndpoint ); // binds the socket to a connection
-			DBGLOG2(kLogConnection, "Created TCP connection to %s on port %d", fTCPEndpoint->GetReverseAddressString(), mPort);
+			DbgLog(kLogConnection, "Created TCP connection to %s on port %d", fTCPEndpoint->GetReverseAddressString(), mPort);
 		}
 
 		catch ( int err )
@@ -349,7 +349,7 @@ void DSTCPListener::CreateConnection ( void )
 				delete( pNewEndpoint );
 				pNewEndpoint = nil;
 			}
-			throw( (sInt32)err );
+			throw( (SInt32)err );
 		}
 
 		catch ( ... )
@@ -362,7 +362,7 @@ void DSTCPListener::CreateConnection ( void )
 			throw( -1 );
 		}
 
- 		if ( pNewEndpoint != nil ) throw( (sInt32)eMemoryError ); // fTCPEndpoint should have been set to NULL in BindSocket.
+ 		if ( pNewEndpoint != nil ) throw( (SInt32)eMemoryError ); // fTCPEndpoint should have been set to NULL in BindSocket.
 	}
 	else
 	{
@@ -377,13 +377,13 @@ void DSTCPListener::CreateConnection ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 DSTCPListener::CreateTCPEndpoint ( void )
+SInt32 DSTCPListener::CreateTCPEndpoint ( void )
 {
-	sInt32		result = eDSNoErr;
+	SInt32		result = eDSNoErr;
 
 	if ( fTCPEndpoint == nil )
 	{
-		fTCPEndpoint = new DSTCPEndpoint((uInt32)::time(NULL), kTCPOpenTimeout, kTCPRWTimeout);
+		fTCPEndpoint = new DSTCPEndpoint((UInt32)::time(NULL), kTCPOpenTimeout, kTCPRWTimeout);
 		if ( fTCPEndpoint != nil )
 		{
 			// set up for listening to a port
@@ -409,7 +409,7 @@ sInt32 DSTCPListener::CreateTCPEndpoint ( void )
 
 void DSTCPListener::StartThread ( void )
 {
-	if ( this == nil ) throw((sInt32)eMemoryError);
+	if ( this == nil ) throw((SInt32)eMemoryError);
 
 	this->Resume();
 } // StartThread
@@ -423,7 +423,7 @@ void DSTCPListener::StartThread ( void )
 
 void DSTCPListener::StopThread ( void )
 {
-	if ( this == nil ) throw((sInt32)eMemoryError);
+	if ( this == nil ) throw((SInt32)eMemoryError);
 
 	SetThreadRunState( kThreadStop );		// Tell our thread to stop
 
@@ -435,7 +435,7 @@ void DSTCPListener::StopThread ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-uInt32 DSTCPListener::GetUsedConnections ( void )
+UInt32 DSTCPListener::GetUsedConnections ( void )
 {
 
 	return fUsedConnections;
@@ -448,18 +448,18 @@ uInt32 DSTCPListener::GetUsedConnections ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-Boolean DSTCPListener::SetMaxConnections ( uInt32 inMaxConnections )
+Boolean DSTCPListener::SetMaxConnections ( UInt32 inMaxConnections )
 {
 	Boolean	succeeded	= false;
 
-	fConnectionLock->Wait();
+	fConnectionLock->WaitLock();
 	//only allow the number to go up from the default OR up from used connections
 	if ( ( inMaxConnections >= fUsedConnections ) && ( inMaxConnections > kDefaultMaxConnections ) && ( inMaxConnections <= kMaxConnections ) )
 	{
 		fMaxConnections = inMaxConnections;
 		succeeded = true;
 	}
-	fConnectionLock->Signal();
+	fConnectionLock->SignalLock();
 	
 	return succeeded;
 
@@ -471,7 +471,7 @@ Boolean DSTCPListener::SetMaxConnections ( uInt32 inMaxConnections )
 //
 //--------------------------------------------------------------------------------------------------
 
-uInt32 DSTCPListener::GetMaxConnections ( void )
+UInt32 DSTCPListener::GetMaxConnections ( void )
 {
 
 	return fMaxConnections;
@@ -490,11 +490,11 @@ void DSTCPListener::ConnectionClosed ( DSTCPConnection *inConnection )
 	struct timeval	timeNow;
 	Boolean			bSlide = false;
 	
-	fConnectionLock->Wait();
+	fConnectionLock->WaitLock();
 
 	if (inConnection != nil)
 	{
-		for (uInt32 idx = 0; idx < fUsedConnections; idx++)
+		for (UInt32 idx = 0; idx < fUsedConnections; idx++)
 		{
 			if (bSlide)
 			{
@@ -505,7 +505,7 @@ void DSTCPListener::ConnectionClosed ( DSTCPConnection *inConnection )
 				bSlide = true;
 				//log the closing of this connection here
 				gettimeofday(&timeNow,NULL);
-				SRVRLOG3( kLogConnection, "Connection:: %s connected from PID %u for %u usec", fConnections[idx]->fRemoteIP, fConnections[idx]->fRemotePID, 1000000*(timeNow.tv_sec - (fConnections[idx]->startTime).tv_sec) + timeNow.tv_usec - (fConnections[idx]->startTime).tv_usec );
+				SrvrLog( kLogConnection, "Connection:: %s connected from PID %u for %u usec", fConnections[idx]->fRemoteIP, fConnections[idx]->fRemotePID, 1000000*(timeNow.tv_sec - (fConnections[idx]->startTime).tv_sec) + timeNow.tv_usec - (fConnections[idx]->startTime).tv_usec );
 
 				free(fConnections[idx]);
 				fConnections[idx] = fConnections[idx+1];
@@ -517,7 +517,7 @@ void DSTCPListener::ConnectionClosed ( DSTCPConnection *inConnection )
 		}
 	}
 
-	fConnectionLock->Signal();
+	fConnectionLock->SignalLock();
 
 } // ConnectionClosed
 
@@ -527,13 +527,13 @@ void DSTCPListener::ConnectionClosed ( DSTCPConnection *inConnection )
 //
 //--------------------------------------------------------------------------------------------------
 
-void DSTCPListener::AddPIDForConnectionStat ( DSTCPConnection *inConnection, uInt32 inPID )
+void DSTCPListener::AddPIDForConnectionStat ( DSTCPConnection *inConnection, UInt32 inPID )
 {
-	fConnectionLock->Wait();
+	fConnectionLock->WaitLock();
 
 	if (inConnection != nil)
 	{
-		for (uInt32 idx = 0; idx < fUsedConnections; idx++)
+		for (UInt32 idx = 0; idx < fUsedConnections; idx++)
 		{
 			if (fConnections[idx]->pConnection == inConnection)
 			{
@@ -543,7 +543,7 @@ void DSTCPListener::AddPIDForConnectionStat ( DSTCPConnection *inConnection, uIn
 		}
 	}
 
-	fConnectionLock->Signal();
+	fConnectionLock->SignalLock();
 
 } // AddPIDForConnectionStat
 

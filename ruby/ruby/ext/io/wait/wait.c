@@ -2,8 +2,8 @@
 
   io/wait.c -
 
-  $Author: knu $
-  $Date: 2003/11/01 11:24:40 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Tue Aug 28 09:08:06 JST 2001
 
   All the files in this distribution are covered under the Ruby's
@@ -15,7 +15,24 @@
 #include "rubyio.h"
 
 #include <sys/types.h>
+#if defined(FIONREAD_HEADER)
 #include FIONREAD_HEADER
+#endif
+
+#ifdef HAVE_RB_W32_IOCTLSOCKET
+#define ioctl ioctlsocket
+#define ioctl_arg u_long
+#define ioctl_arg2num(i) ULONG2NUM(i)
+#else
+#define ioctl_arg int
+#define ioctl_arg2num(i) INT2NUM(i)
+#endif
+
+#ifdef HAVE_RB_W32_IS_SOCKET
+#define FIONREAD_POSSIBLE_P(fd) rb_w32_is_socket(fd)
+#else
+#define FIONREAD_POSSIBLE_P(fd) ((fd),Qtrue)
+#endif
 
 static VALUE io_ready_p _((VALUE io));
 static VALUE io_wait _((int argc, VALUE *argv, VALUE io));
@@ -41,15 +58,16 @@ io_ready_p(io)
 {
     OpenFile *fptr;
     FILE *fp;
-    int n;
+    ioctl_arg n;
 
     GetOpenFile(io, fptr);
     rb_io_check_readable(fptr);
+    if (!FIONREAD_POSSIBLE_P(fileno(fptr->f))) return Qfalse;
     fp = fptr->f;
     if (feof(fp)) return Qfalse;
     if (rb_read_pending(fp)) return Qtrue;
     if (ioctl(fileno(fp), FIONREAD, &n)) rb_sys_fail(0);
-    if (n > 0) return INT2NUM(n);
+    if (n > 0) return ioctl_arg2num(n);
     return Qnil;
 }
 
@@ -69,7 +87,8 @@ io_wait(argc, argv, io)
     OpenFile *fptr;
     fd_set rd;
     FILE *fp;
-    int fd, n;
+    int fd;
+    ioctl_arg n;
     VALUE timeout;
     struct timeval *tp, timerec;
 
@@ -93,6 +112,7 @@ io_wait(argc, argv, io)
     if (rb_thread_select(fd + 1, &rd, NULL, NULL, tp) < 0)
 	rb_sys_fail(0);
     rb_io_check_closed(fptr);
+    if (!FIONREAD_POSSIBLE_P(fileno(fptr->f))) return Qfalse;
     if (ioctl(fileno(fp), FIONREAD, &n)) rb_sys_fail(0);
     if (n > 0) return io;
     return Qnil;

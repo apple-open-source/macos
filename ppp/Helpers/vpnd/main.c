@@ -53,6 +53,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -116,6 +117,7 @@ int main (int argc, char *argv[])
 	exit(EXIT_NOT_ROOT);
     }
     
+
     params = (struct vpn_params*)malloc(sizeof (struct vpn_params));
     if (params == 0)
         exit(EXIT_FATAL_ERROR);
@@ -188,7 +190,6 @@ int main (int argc, char *argv[])
     	vpnlog(LOG_ERR, "Error getting arguments from plugin\n");
         exit(EXIT_OPTION_ERROR);
     }
-
 
     if (params->debug)
         dump_params(params);
@@ -543,6 +544,19 @@ static void dump_params(struct vpn_params *params)
     vpnlog(LOG_DEBUG, "params->server_type = %s\n", servertype);
     if (subtype)
 		vpnlog(LOG_DEBUG, "params->server_subtype = %s\n", subtype);
+		
+    vpnlog(LOG_DEBUG, "params->lb_enable = %d\n", params->lb_enable);
+    if (params->lb_enable) {
+		char str[32];
+		//vpnlog(LOG_DEBUG, "params->lb_priority = %d\n", params->lb_priority);
+		vpnlog(LOG_DEBUG, "params->lb_interface = %s\n", params->lb_interface);
+		inet_ntop(AF_INET, &params->lb_cluster_address, str, sizeof(str));
+		vpnlog(LOG_DEBUG, "params->lb_cluster_address = %s\n", str);
+		inet_ntop(AF_INET, &params->lb_redirect_address, str, sizeof(str));
+		vpnlog(LOG_DEBUG, "params->lb_redirect_address = %s\n", str);
+		vpnlog(LOG_DEBUG, "params->lb_port = %d\n", ntohs(params->lb_port));
+	}
+
     if (params->plugin_path)
 		vpnlog(LOG_DEBUG, "params->plugin_path = %s\n", params->plugin_path);
     vpnlog(LOG_DEBUG, "params->log_path = %s\n", params->log_path);
@@ -718,8 +732,8 @@ int update_prefs(void)
         vpnlog(LOG_ERR, "Update preferences - plugin arguments invalid or inconsistent\n");
         goto fail;
     }
-             
-    //
+	
+	//
     // success
     //
     CFRelease(old_params->serverSubTypeRef);
@@ -746,6 +760,8 @@ fail:
 		CFRelease(params->serverRef);
 	if (params->serverIDRef)
 		CFRelease(params->serverIDRef);
+    if (params->plugin_path)
+		free(params->plugin_path);
     if (params->plugin_path)
 		free(params->plugin_path);
 	for (i = 0; i < params->next_arg_index; i++)

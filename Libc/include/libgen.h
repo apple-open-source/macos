@@ -35,8 +35,17 @@
 
 __BEGIN_DECLS
 
+#if __DARWIN_UNIX03
+
+char	*basename(char *);
+char	*dirname(char *);
+
+#else  /* !__DARWIN_UNIX03 */
+
 char	*basename(const char *);
 char	*dirname(const char *);
+
+#endif /* __DARWIN_UNIX_03 */
 
 __END_DECLS
 

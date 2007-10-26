@@ -1,5 +1,0 @@
-/^	,NULL/i
-	,"23953 - fix for File::Path::rmtree CAN-2004-0452 security issue"
-	,"33990 - fix for setuid perl security issues"
-.
-w

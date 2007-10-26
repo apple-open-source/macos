@@ -29,7 +29,6 @@
 #define __CPluginHandler_h__ 1
 
 #include "CInternalDispatchThread.h"
-#include "DSEventSemaphore.h"
 #include "PrivateTypes.h"
 #include "SharedConsts.h"
 
@@ -42,14 +41,14 @@ public:
 					CPluginHandler		( void );
 	virtual		   ~CPluginHandler		( void );
 
-	virtual	long	ThreadMain			( void );		// we manage out own thread top level
+	virtual	SInt32	ThreadMain			( void );		// we manage out own thread top level
 	virtual	void	StartThread			( void );
 	virtual	void	StopThread			( void );
 
 protected:
 
 private:
-	sInt32			LoadPlugins			( void );
+	UInt32			LoadPlugins			( UInt32 inCount );
 
 };
 

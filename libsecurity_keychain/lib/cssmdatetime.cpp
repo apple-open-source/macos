@@ -49,21 +49,21 @@ namespace CSSMDateTimeUtils
 
 
 void
-GetCurrentMacLongDateTime(SInt64 &outMacDate)
+GetCurrentMacLongDateTime(sint64 &outMacDate)
 {
 	CFTimeZoneRef timeZone = CFTimeZoneCopyDefault();
 	CFAbsoluteTime absTime = CFAbsoluteTimeGetCurrent();
 	absTime += CFTimeZoneGetSecondsFromGMT(timeZone, absTime);
 	CFRelease(timeZone);
-	outMacDate = SInt64(double(absTime + kCFAbsoluteTimeIntervalSince1904));
+	outMacDate = sint64(double(absTime + kCFAbsoluteTimeIntervalSince1904));
 }
 
 void
-TimeStringToMacSeconds (const CSSM_DATA &inUTCTime, UInt32 &ioMacDate)
+TimeStringToMacSeconds (const CSSM_DATA &inUTCTime, uint32 &ioMacDate)
 {
-    SInt64 ldt;
+    sint64 ldt;
     TimeStringToMacLongDateTime(inUTCTime, ldt);
-    ioMacDate = UInt32(ldt);
+    ioMacDate = uint32(ldt);
 }
 
 /*
@@ -72,7 +72,7 @@ TimeStringToMacSeconds (const CSSM_DATA &inUTCTime, UInt32 &ioMacDate)
  * Returns nonzero on error. 
  */
 void
-TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, SInt64 &outMacDate)
+TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 {
 	char 		szTemp[5];
 	unsigned 	len;
@@ -222,17 +222,17 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, SInt64 &outMacDate)
 	absTime += CFTimeZoneGetSecondsFromGMT(timeZone, absTime);
 	CFRelease(timeZone);
 
-	outMacDate = SInt64(double(absTime + kCFAbsoluteTimeIntervalSince1904));
+	outMacDate = sint64(double(absTime + kCFAbsoluteTimeIntervalSince1904));
 }
 
-void MacSecondsToTimeString(UInt32 inMacDate, UInt32 inLength, void *outData)
+void MacSecondsToTimeString(uint32 inMacDate, uint32 inLength, void *outData)
 {
-    SInt64 ldt = SInt64(UInt64(inMacDate));
+    sint64 ldt = sint64(uint64(inMacDate));
     MacLongDateTimeToTimeString(ldt, inLength, outData);
 }
 
-void MacLongDateTimeToTimeString(const SInt64 &inMacDate,
-                                        UInt32 inLength, void *outData)
+void MacLongDateTimeToTimeString(const sint64 &inMacDate,
+                                        uint32 inLength, void *outData)
 {
 	// @@@ this code is close, but on the fringe case of a daylight savings time it will be off for a little while
 	CFAbsoluteTime absTime = inMacDate - kCFAbsoluteTimeIntervalSince1904;

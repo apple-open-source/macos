@@ -10,11 +10,19 @@
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_setcancelstate "int state" "int *oldstate"
+.Fo pthread_setcancelstate
+.Fa "int state"
+.Fa "int *oldstate"
+.Fc
 .Ft int
-.Fn pthread_setcanceltype "int type" "int *oldtype"
+.Fo pthread_setcanceltype
+.Fa "int type"
+.Fa "int *oldtype"
+.Fc
 .Ft void
-.Fn pthread_testcancel "void"
+.Fo pthread_testcancel
+.Fa "void"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_setcancelstate
@@ -156,7 +164,7 @@ Second, the cancelability type may be explicitly set to either
 or
 .Em asynchronous
 upon entry to an object.
-But as with the cancelability state, on exit from
+But, as with the cancelability state, on exit from
 an object that cancelability type should always be restored to its value on
 entry to the object.
 .Pp

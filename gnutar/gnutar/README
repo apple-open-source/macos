@@ -48,14 +48,22 @@ in the environment before configuring (the behavior of `-[0-7]' or
 
 ** Selecting full pathname of the "rmt" binary.
 
-Previous versions of tar always looked for "rmt" binary using
-hardcoded path "/etc/rmt". However, the "rmt" program included
+Previous versions of tar always looked for "rmt" binary in the
+directory "/etc/rmt". However, the "rmt" program included
 in the distribution was installed under "$prefix/libexec/rmt".
 To fix this discrepancy, tar now looks for "$prefix/libexec/rmt".
 If you do not want this behavior, specify full path name of
-"rmt" binary using DEFAULT_RMT_COMMAND variable, e.g.:
+"rmt" binary using DEFAULT_RMT_DIR variable, e.g.:
 
-./configure DEFAULT_RMT_COMMAND=/etc/rmt
+./configure DEFAULT_RMT_DIR=/etc
+
+If you already have a copy of "rmt" installed and wish to use it
+instead of the version supplied with the distribution, use --with-rmt
+option:
+
+./configure --with-rmt=/etc/rmt
+
+This will also disable building the included version of rmt.
 
 ** Installing backup scripts.
 

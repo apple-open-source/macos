@@ -7,12 +7,12 @@ I.e. it can resolv many hostnames concurrently.
 It is possible to lookup various resources of DNS using DNS module directly.
 
 == example
-  Resolv.getaddress("www.ruby-lang.org")
-  Resolv.getname("210.251.121.214")
+  p Resolv.getaddress("www.ruby-lang.org")
+  p Resolv.getname("210.251.121.214")
 
   Resolv::DNS.open {|dns|
-    dns.getresources("www.ruby-lang.org", Resolv::DNS::Resource::IN::A).collect {|r| r.address}
-    dns.getresources("ruby-lang.org", Resolv::DNS::Resource::IN::MX).collect {|r| [r.exchange.to_s, r.preference]}
+    p dns.getresources("www.ruby-lang.org", Resolv::DNS::Resource::IN::A).collect {|r| r.address}
+    p dns.getresources("ruby-lang.org", Resolv::DNS::Resource::IN::MX).collect {|r| [r.exchange.to_s, r.preference]}
   }
 
 == Resolv class
@@ -319,6 +319,7 @@ class Resolv
           @initialized = true
         end
       }
+      self
     end
 
     def getaddress(name)
@@ -397,6 +398,7 @@ class Resolv
           @initialized = true
         end
       }
+      self
     end
 
     def close
@@ -619,7 +621,7 @@ class Resolv
           super()
           @host = host
           @port = port
-          @sock = UDPSocket.new
+          @sock = UDPSocket.new(host.index(':') ? Socket::AF_INET6 : Socket::AF_INET)
           @sock.connect(host, port)
           @sock.fcntl(Fcntl::F_SETFD, 1) if defined? Fcntl::F_SETFD
           @id = -1
@@ -734,9 +736,18 @@ class Resolv
             when 'nameserver'
               nameserver += args
             when 'domain'
+              next if args.empty?
               search = [args[0]]
             when 'search'
+              next if args.empty?
               search = args
+            when 'options'
+              args.each {|arg|
+                case arg
+                when /\Andots:(\d+)\z/
+                  ndots = $1.to_i
+                end
+              }
             end
           }
         }
@@ -812,6 +823,7 @@ class Resolv
             @initialized = true
           end
         }
+        self
       end
 
       def single?
@@ -867,10 +879,8 @@ class Resolv
             rescue NXDomain
             end
           }
-        rescue OtherResolvError
-          raise ResolvError.new("DNS error: #{$!.message}")
+        rescue ResolvError
         end
-        raise ResolvError.new("DNS resolv error: #{name}")
       end
 
       class NXDomain < ResolvError
@@ -968,14 +978,37 @@ class Resolv
         @absolute = absolute
       end
 
+      def inspect
+        "#<#{self.class}: #{self.to_s}#{@absolute ? '.' : ''}>"
+      end
+
       def absolute?
         return @absolute
       end
 
       def ==(other)
+        return false unless Name === other
         return @labels == other.to_a && @absolute == other.absolute?
       end
       alias eql? ==
+
+      # tests subdomain-of relation.
+      #
+      #   domain = Resolv::DNS::Name.create("y.z")
+      #   p Resolv::DNS::Name.create("w.x.y.z").subdomain_of?(domain) #=> true
+      #   p Resolv::DNS::Name.create("x.y.z").subdomain_of?(domain) #=> true
+      #   p Resolv::DNS::Name.create("y.z").subdomain_of?(domain) #=> false
+      #   p Resolv::DNS::Name.create("z").subdomain_of?(domain) #=> false
+      #   p Resolv::DNS::Name.create("x.y.z.").subdomain_of?(domain) #=> false
+      #   p Resolv::DNS::Name.create("w.z").subdomain_of?(domain) #=> false
+      #
+      def subdomain_of?(other)
+        raise ArgumentError, "not a domain name: #{other.inspect}" unless Name === other
+        return false if @absolute != other.absolute?
+        other_len = other.length
+        return false if @labels.length <= other_len
+        return @labels[-other_len, other_len] == other.to_a
+      end
 
       def hash
         return @labels.hash ^ @absolute.hash
@@ -993,6 +1026,14 @@ class Resolv
         return @labels[i]
       end
 
+      # returns the domain name as a string.
+      #
+      # The domain name doesn't have a trailing dot even if the name object is
+      # absolute.
+      #
+      #   p Resolv::DNS::Name.create("x.y.z.").to_s #=> "x.y.z"
+      #   p Resolv::DNS::Name.create("x.y.z").to_s #=> "x.y.z"
+      #
       def to_s
         return @labels.join('.')
       end
@@ -1144,6 +1185,12 @@ class Resolv
           @data << d
         end
 
+        def put_string_list(ds)
+          ds.each {|d|
+            self.put_string(d)
+          }
+        end
+
         def put_name(d)
           put_labels(d.to_a)
         end
@@ -1254,6 +1301,14 @@ class Resolv
           d = @data[@index + 1, len]
           @index += 1 + len
           return d
+        end
+
+        def get_string_list
+          strings = []
+          while @index < @limit
+            strings << self.get_string
+          end
+          strings
         end
 
         def get_name
@@ -1498,18 +1553,22 @@ class Resolv
       class TXT < Resource
         TypeValue = 16
 
-        def initialize(data)
-          @data = data
+        def initialize(first_string, *rest_strings)
+          @strings = [first_string, *rest_strings]
         end
-        attr_reader :data
+        attr_reader :strings
+
+        def data
+          @strings[0]
+        end
 
         def encode_rdata(msg)
-          msg.put_string(@data)
+          msg.put_string_list(@strings)
         end
 
         def self.decode_rdata(msg)
-          data = msg.get_string
-          return self.new(data)
+          strings = msg.get_string_list
+          return self.new(*strings)
         end
       end
 
@@ -1590,6 +1649,64 @@ class Resolv
             return self.new(IPv6.new(msg.get_bytes(16)))
           end
         end
+
+        # SRV resource record defined in RFC 2782
+        # 
+        # These records identify the hostname and port that a service is
+        # available at.
+        # 
+        # The format is:
+        #   _Service._Proto.Name TTL Class SRV Priority Weight Port Target
+        #
+        # The fields specific to SRV are defined in RFC 2782 as meaning:
+        # - +priority+ The priority of this target host.  A client MUST attempt
+        #   to contact the target host with the lowest-numbered priority it can
+        #   reach; target hosts with the same priority SHOULD be tried in an
+        #   order defined by the weight field.  The range is 0-65535.  Note that
+        #   it is not widely implemented and should be set to zero.
+        # 
+        # - +weight+ A server selection mechanism.  The weight field specifies
+        #   a relative weight for entries with the same priority. Larger weights
+        #   SHOULD be given a proportionately higher probability of being
+        #   selected. The range of this number is 0-65535.  Domain administrators
+        #   SHOULD use Weight 0 when there isn't any server selection to do, to
+        #   make the RR easier to read for humans (less noisy). Note that it is
+        #   not widely implemented and should be set to zero.
+        #
+        # - +port+  The port on this target host of this service.  The range is 0-
+        #   65535.
+        # 
+        # - +target+ The domain name of the target host. A target of "." means
+        #   that the service is decidedly not available at this domain.
+        class SRV < Resource
+          ClassHash[[TypeValue = 33, ClassValue = ClassValue]] = self
+
+          # Create a SRV resource record.
+          def initialize(priority, weight, port, target)
+            @priority = priority.to_int
+            @weight = weight.to_int
+            @port = port.to_int
+            @target = Name.create(target)
+          end
+
+          attr_reader :priority, :weight, :port, :target
+
+          def encode_rdata(msg)
+            msg.put_pack("n", @priority)
+            msg.put_pack("n", @weight)
+            msg.put_pack("n", @port)
+            msg.put_name(@target)
+          end
+
+          def self.decode_rdata(msg)
+            priority, = msg.get_unpack("n")
+            weight,   = msg.get_unpack("n")
+            port,     = msg.get_unpack("n")
+            target    = msg.get_name
+            return self.new(priority, weight, port, target)
+          end
+        end
+
       end
     end
   end

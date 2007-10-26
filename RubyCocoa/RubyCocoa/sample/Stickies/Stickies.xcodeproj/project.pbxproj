@@ -1,0 +1,339 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0DD034A607A8A5FA00DB4C24 /* Stickies.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0DD034A507A8A5FA00DB4C24 /* Stickies.icns */; };
+		4D22C2EA0B4D72790072EB07 /* RubyCocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D22C2E90B4D72790072EB07 /* RubyCocoa.framework */; };
+		4D22C3DB0B4D728B0072EB07 /* rb_main.rb in Resources */ = {isa = PBXBuildFile; fileRef = 4D22C3DA0B4D728B0072EB07 /* rb_main.rb */; };
+		4D22C3E30B4D72C30072EB07 /* StickiesAppDelegate.rb in Resources */ = {isa = PBXBuildFile; fileRef = 4D22C3E20B4D72C30072EB07 /* StickiesAppDelegate.rb */; };
+		4D22C3F10B4D74A30072EB07 /* Sticky.rb in Resources */ = {isa = PBXBuildFile; fileRef = 4D22C3F00B4D74A30072EB07 /* Sticky.rb */; };
+		4D22C3F50B4D76BA0072EB07 /* StickyResizeCornerView.rb in Resources */ = {isa = PBXBuildFile; fileRef = 4D22C3F40B4D76BA0072EB07 /* StickyResizeCornerView.rb */; };
+		4D22C3F70B4D77BC0072EB07 /* StickyWindow.rb in Resources */ = {isa = PBXBuildFile; fileRef = 4D22C3F60B4D77BC0072EB07 /* StickyWindow.rb */; };
+		4D22C3F90B4D78240072EB07 /* StickyTitleBarView.rb in Resources */ = {isa = PBXBuildFile; fileRef = 4D22C3F80B4D78240072EB07 /* StickyTitleBarView.rb */; };
+		4D22C5660B4DC1CE0072EB07 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 4D22C5640B4DC1CE0072EB07 /* MainMenu.nib */; };
+		770B37ED0679A11B001EADE2 /* Stickies_DataModel.xcdatamodel in Sources */ = {isa = PBXBuildFile; fileRef = 770B37EC0679A11B001EADE2 /* Stickies_DataModel.xcdatamodel */; };
+		7721BE2107AED7110021D625 /* Sticky.nib in Resources */ = {isa = PBXBuildFile; fileRef = 7721BE2007AED7110021D625 /* Sticky.nib */; };
+		8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
+		8D11072D0486CEB800E47090 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 29B97316FDCFA39411CA2CEA /* main.m */; settings = {ATTRIBUTES = (); }; };
+		8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		089C165DFE840E0CC02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		0DBA893907A1D15D00A2FA49 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/Sticky.nib; sourceTree = "<group>"; };
+		0DD034A507A8A5FA00DB4C24 /* Stickies.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Stickies.icns; sourceTree = "<group>"; };
+		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		29B97316FDCFA39411CA2CEA /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
+		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		4D22C2E90B4D72790072EB07 /* RubyCocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RubyCocoa.framework; path = /System/Library/Frameworks/RubyCocoa.framework; sourceTree = "<absolute>"; };
+		4D22C3DA0B4D728B0072EB07 /* rb_main.rb */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.ruby; path = rb_main.rb; sourceTree = "<group>"; };
+		4D22C3E20B4D72C30072EB07 /* StickiesAppDelegate.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = StickiesAppDelegate.rb; sourceTree = "<group>"; };
+		4D22C3F00B4D74A30072EB07 /* Sticky.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = Sticky.rb; sourceTree = "<group>"; };
+		4D22C3F40B4D76BA0072EB07 /* StickyResizeCornerView.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = StickyResizeCornerView.rb; sourceTree = "<group>"; };
+		4D22C3F60B4D77BC0072EB07 /* StickyWindow.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = StickyWindow.rb; sourceTree = "<group>"; };
+		4D22C3F80B4D78240072EB07 /* StickyTitleBarView.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = StickyTitleBarView.rb; sourceTree = "<group>"; };
+		4D22C5650B4DC1CE0072EB07 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MainMenu.nib; sourceTree = "<group>"; };
+		770B37EC0679A11B001EADE2 /* Stickies_DataModel.xcdatamodel */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = wrapper.xcdatamodel; path = Stickies_DataModel.xcdatamodel; sourceTree = "<group>"; };
+		8D1107310486CEB800E47090 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8D1107320486CEB800E47090 /* CoreData Stickies.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "CoreData Stickies.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8D11072E0486CEB800E47090 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */,
+				4D22C2EA0B4D72790072EB07 /* RubyCocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		080E96DDFE201D6D7F000001 /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				0D368EAF07AEB56000334144 /* Model and Controller Code */,
+				0D368EAC07AEB53C00334144 /* UI Implementation */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		0D368EAC07AEB53C00334144 /* UI Implementation */ = {
+			isa = PBXGroup;
+			children = (
+				4D22C3F40B4D76BA0072EB07 /* StickyResizeCornerView.rb */,
+				4D22C3F60B4D77BC0072EB07 /* StickyWindow.rb */,
+				4D22C3F80B4D78240072EB07 /* StickyTitleBarView.rb */,
+			);
+			name = "UI Implementation";
+			sourceTree = "<group>";
+		};
+		0D368EAF07AEB56000334144 /* Model and Controller Code */ = {
+			isa = PBXGroup;
+			children = (
+				4D22C3E20B4D72C30072EB07 /* StickiesAppDelegate.rb */,
+				4D22C3F00B4D74A30072EB07 /* Sticky.rb */,
+			);
+			name = "Model and Controller Code";
+			sourceTree = "<group>";
+		};
+		1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4D22C2E90B4D72790072EB07 /* RubyCocoa.framework */,
+				1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */,
+			);
+			name = "Linked Frameworks";
+			sourceTree = "<group>";
+		};
+		1058C7A2FEA54F0111CA2CBB /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				29B97325FDCFA39411CA2CEA /* Foundation.framework */,
+				29B97324FDCFA39411CA2CEA /* AppKit.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		19C28FACFE9D520D11CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8D1107320486CEB800E47090 /* CoreData Stickies.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		29B97314FDCFA39411CA2CEA /* Stickies */ = {
+			isa = PBXGroup;
+			children = (
+				7756732906782D8800D1FEB8 /* Models */,
+				080E96DDFE201D6D7F000001 /* Classes */,
+				29B97315FDCFA39411CA2CEA /* Other Sources */,
+				29B97317FDCFA39411CA2CEA /* Resources */,
+				29B97323FDCFA39411CA2CEA /* Frameworks */,
+				19C28FACFE9D520D11CA2CBB /* Products */,
+			);
+			name = Stickies;
+			sourceTree = "<group>";
+		};
+		29B97315FDCFA39411CA2CEA /* Other Sources */ = {
+			isa = PBXGroup;
+			children = (
+				4D22C3DA0B4D728B0072EB07 /* rb_main.rb */,
+				29B97316FDCFA39411CA2CEA /* main.m */,
+			);
+			name = "Other Sources";
+			sourceTree = "<group>";
+		};
+		29B97317FDCFA39411CA2CEA /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				4D22C5640B4DC1CE0072EB07 /* MainMenu.nib */,
+				0DD034A507A8A5FA00DB4C24 /* Stickies.icns */,
+				7721BE2007AED7110021D625 /* Sticky.nib */,
+				8D1107310486CEB800E47090 /* Info.plist */,
+				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
+				1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		7756732906782D8800D1FEB8 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				770B37EC0679A11B001EADE2 /* Stickies_DataModel.xcdatamodel */,
+			);
+			name = Models;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8D1107260486CEB800E47090 /* CoreData Stickies */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2644ADA108B68B980014924E /* Build configuration list for PBXNativeTarget "CoreData Stickies" */;
+			buildPhases = (
+				8D1107290486CEB800E47090 /* Resources */,
+				8D11072C0486CEB800E47090 /* Sources */,
+				8D11072E0486CEB800E47090 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "CoreData Stickies";
+			productInstallPath = "$(HOME)/Applications";
+			productName = Stickies;
+			productReference = 8D1107320486CEB800E47090 /* CoreData Stickies.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		29B97313FDCFA39411CA2CEA /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 2644ADA508B68B980014924E /* Build configuration list for PBXProject "Stickies" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 29B97314FDCFA39411CA2CEA /* Stickies */;
+			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
+			targets = (
+				8D1107260486CEB800E47090 /* CoreData Stickies */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8D1107290486CEB800E47090 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */,
+				7721BE2107AED7110021D625 /* Sticky.nib in Resources */,
+				0DD034A607A8A5FA00DB4C24 /* Stickies.icns in Resources */,
+				4D22C3DB0B4D728B0072EB07 /* rb_main.rb in Resources */,
+				4D22C3E30B4D72C30072EB07 /* StickiesAppDelegate.rb in Resources */,
+				4D22C3F10B4D74A30072EB07 /* Sticky.rb in Resources */,
+				4D22C3F50B4D76BA0072EB07 /* StickyResizeCornerView.rb in Resources */,
+				4D22C3F70B4D77BC0072EB07 /* StickyWindow.rb in Resources */,
+				4D22C3F90B4D78240072EB07 /* StickyTitleBarView.rb in Resources */,
+				4D22C5660B4DC1CE0072EB07 /* MainMenu.nib in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8D11072C0486CEB800E47090 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D11072D0486CEB800E47090 /* main.m in Sources */,
+				770B37ED0679A11B001EADE2 /* Stickies_DataModel.xcdatamodel in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		089C165CFE840E0CC02AAC07 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				089C165DFE840E0CC02AAC07 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		4D22C5640B4DC1CE0072EB07 /* MainMenu.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				4D22C5650B4DC1CE0072EB07 /* English */,
+			);
+			name = MainMenu.nib;
+			sourceTree = "<group>";
+		};
+		7721BE2007AED7110021D625 /* Sticky.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				0DBA893907A1D15D00A2FA49 /* English */,
+			);
+			name = Sticky.nib;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		2644ADA208B68B980014924E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(HOME)/Applications";
+				PRODUCT_NAME = "CoreData Stickies";
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		2644ADA308B68B980014924E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(HOME)/Applications";
+				PRODUCT_NAME = "CoreData Stickies";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+		2644ADA608B68B980014924E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+			};
+			name = Debug;
+		};
+		2644ADA708B68B980014924E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2644ADA108B68B980014924E /* Build configuration list for PBXNativeTarget "CoreData Stickies" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2644ADA208B68B980014924E /* Debug */,
+				2644ADA308B68B980014924E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2644ADA508B68B980014924E /* Build configuration list for PBXProject "Stickies" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2644ADA608B68B980014924E /* Debug */,
+				2644ADA708B68B980014924E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 29B97313FDCFA39411CA2CEA /* Project object */;
+}

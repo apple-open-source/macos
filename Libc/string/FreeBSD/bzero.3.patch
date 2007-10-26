@@ -1,0 +1,25 @@
+--- _SB/Libc/string/FreeBSD/bzero.3	2004-11-25 11:38:46.000000000 -0800
++++ _SB/Libc/string/FreeBSD/bzero.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -46,17 +46,17 @@
+ .Sh SYNOPSIS
+ .In strings.h
+ .Ft void
+-.Fn bzero "void *b" "size_t len"
++.Fn bzero "void *s" "size_t n"
+ .Sh DESCRIPTION
+ The
+ .Fn bzero
+ function
+ writes
+-.Fa len
+-zero bytes to the string
+-.Fa b .
++.Fa n
++zeroed bytes to the string
++.Fa s .
+ If
+-.Fa len
++.Fa n
+ is zero,
+ .Fn bzero
+ does nothing.

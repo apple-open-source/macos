@@ -1,5 +1,5 @@
 \input texinfo  @comment -*-texinfo-*-
-@comment 3.47
+@comment 3.48
 @comment %**start of header (This is for running Texinfo on a region.)
 @setfilename ../info/sc
 @settitle Supercite Version 3.1 User's Manual
@@ -7,28 +7,20 @@
 @finalout
 @end iftex
 
-@dircategory Emacs
-@direntry
-* SC: (sc).		Supercite lets you cite parts of messages you're 
-			  replying to, in flexible ways.
-@end direntry
-
 @c @setchapternewpage odd		% For book style double sided manual.
 @comment %**end of header (This is for running Texinfo on a region.)
-@c      @smallbook
-@tex
-\overfullrule=0pt
-%\global\baselineskip 30pt      % For printing in double spaces
-@end tex
-@ifinfo
+
+@copying
 This document describes the Supercite Version 3.1 package for citing and
 attributing the replies for various GNU Emacs mail and news reading
 subsystems.
 
-Copyright @copyright{} 1993, 2001 Free Software Foundation, Inc.
+Copyright @copyright{} 1993, 2001, 2002, 2003, 2004,
+2005, 2006, 2007 Free Software Foundation, Inc.
 
+@quotation
 Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
+under the terms of the GNU Free Documentation License, Version 1.2 or
 any later version published by the Free Software Foundation; with no
 Invariant Sections, with the Front-Cover texts being ``A GNU
 Manual'', and with the Back-Cover Texts as in (a) below.  A copy of the
@@ -43,43 +35,35 @@ This document is part of a collection distributed under the GNU Free
 Documentation License.  If you want to distribute this document
 separately from the collection, you can do so by adding a copy of the
 license to the document, as described in section 6 of the license.
-@end ifinfo
-@c
+@end quotation
+@end copying
+
+@c      @smallbook
+
+@dircategory Emacs
+@direntry
+* SC: (sc).		Supercite lets you cite parts of messages you're
+			  replying to, in flexible ways.
+@end direntry
+
 @titlepage
 @sp 6
 @center @titlefont{Supercite User's Manual}
 @sp 2
 @center @titlefont{Supercite Version 3.1}
 @sp 4
-@center Manual Revision: 3.47
-@center August 1993
+@center Manual Revision: 3.48
+@center April 2007
 @sp 5
 @center Barry A@. Warsaw
 @center @t{bwarsaw@@cen.com}
 @center @t{@dots{}!uunet!cen.com!bwarsaw}
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1993 Free Software Foundation, Inc.
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
-any later version published by the Free Software Foundation; with no
-Invariant Sections, with the Front-Cover texts being ``A GNU
-Manual'', and with the Back-Cover Texts as in (a) below.  A copy of the
-license is included in the section entitled ``GNU Free Documentation
-License'' in the Emacs manual.
-
-(a) The FSF's Back-Cover Text is: ``You have freedom to copy and modify
-this GNU Manual, like GNU software.  Copies published by the Free
-Software Foundation raise funds for GNU development.''
-
-This document is part of a collection distributed under the GNU Free
-Documentation License.  If you want to distribute this document
-separately from the collection, you can do so by adding a copy of the
-license to the document, as described in section 6 of the license.
+@insertcopying
 @end titlepage
-@page
-@ifinfo
+
+@ifnottex
 @node Top, Introduction, (dir), (dir)
 @comment  node-name,  next,  previous,  up
 
@@ -102,12 +86,14 @@ subsystems.  The manual is divided into the following chapters.
 * Thanks and History::
 * The Supercite Mailing List::
 
+* GNU Free Documentation License::
 * Concept Index::
 * Command Index::
 * Key Index::
 * Variable Index::
 @end menu
-@end ifinfo
+@end ifnottex
+
 
 @node  Introduction, Usage Overview, Top, Top
 @comment  node-name,  next,  previous,  up
@@ -964,7 +950,7 @@ to:
 (setq mail-citation-hook 'sc-cite-original)
 @end example
 
-Note the lack of of a single quote on the first argument to @code{setq}.
+Note the lack of a single quote on the first argument to @code{setq}.
 
 @node  MH-E with any Emacsen, VM with any Emacsen, Emacs 18 MUAs, Getting Connected
 @comment  node-name,  next,  previous,  up
@@ -1194,7 +1180,7 @@ Executing @code{sc-cite-original} performs the following steps as it
 initializes the reply buffer:
 
 @enumerate
-@item 
+@item
 @vindex sc-pre-hook
 @vindex pre-hook (sc-)
 @emph{Runs @code{sc-pre-hook}.}
@@ -1238,7 +1224,7 @@ Supercite sets an undo boundary before it begins to modify the original
 yanked text.  This allows you to easily undo Supercite's changes to
 affect alternative citing styles.
 
-@item 
+@item
 @emph{Processes the mail headers.}
 @vindex sc-confirm-always-p
 @vindex confirm-always-p (sc-)
@@ -1291,7 +1277,7 @@ Once the mail headers have been processed, Supercite selects a
 attribution string and a citation string which it will use to cite the
 original message.  @xref{Selecting an Attribution}, for details.
 
-@item 
+@item
 @emph{Cites the message body.}
 @vindex sc-cite-region-limit
 @vindex cite-region-limit (sc-)b
@@ -1332,7 +1318,7 @@ wouldn't encounter them all anyway.  But you can configure Supercite to
 recognize those styles you see often.
 @xref{Configuring the Citation Engine}, for details.@refill
 
-@item 
+@item
 @emph{Runs @code{sc-post-hook}.}
 @vindex sc-post-hook
 @vindex post-hook (sc-)
@@ -1581,7 +1567,7 @@ incorrectly.
 @vindex sc-use-only-preference-p
 @vindex use-only-preference-p (sc-)
 Also, if the preferred attribution, which you specified in your
-@code{sc-preferred-attribution-alist} variable cannot be found, a
+@code{sc-preferred-attribution-list} variable cannot be found, a
 secondary method can be employed to find a valid attribution string. The
 variable @code{sc-use-only-preference-p} controls what happens in this
 case.  If the variable's value is non-@code{nil}, then
@@ -1597,7 +1583,7 @@ Use the last selected attribution, if there is one.
 @item
 Use the value of the @code{"x-attribution"} key.
 
-@item 
+@item
 Use the author's first name.
 
 @item
@@ -1606,11 +1592,11 @@ Use the author's last name.
 @item
 Use the author's initials.
 
-@item 
+@item
 Find the first non-@code{nil}, non-empty attribution string in the
 attribution alist.
 
-@item 
+@item
 @code{sc-default-attribution} is used.
 @end enumerate
 
@@ -1826,7 +1812,7 @@ of the following elements:@refill
 @table @asis
 @item the symbol @code{continue}
 This tells Regi to continue processing entries after a match, instead of
-reseting the frame and moving @samp{point}. In this way, lines of text
+resetting the frame and moving @samp{point}. In this way, lines of text
 can have multiple matches, but you have to be careful to avoid entering
 infinite loops.
 
@@ -2151,7 +2137,7 @@ together is bound on @kbd{C-c C-p C-p}.@refill
 
 Finally, the command @kbd{C-c C-p C-t h} (also @kbd{C-c C-p C-t ?})
 brings up a Help message on the toggling keymap.
-  
+
 
 @node  Mail Field Commands, Miscellaneous Commands, Variable Toggling Shortcuts, Post-yank Formatting Commands
 @comment  node-name,  next,  previous,  up
@@ -2315,7 +2301,7 @@ setting up a reply or forward buffer, your MUA should follow these
 steps:
 
 @enumerate
-@item 
+@item
 Insert the original message, including the mail headers into the reply
 buffer. At this point you should not modify the raw text in any way, and
 you should place all the original headers into the body of the reply.
@@ -2323,7 +2309,7 @@ This means that many of the mail headers will be duplicated, one copy
 above the @code{mail-header-separator} line and one copy below,
 however there will probably be more headers below this line.@refill
 
-@item 
+@item
 Set @samp{point} to the beginning of the line containing the first mail
 header in the body of the reply. Set @samp{mark} at the end of the
 message text.  It is very important that the region be set around the
@@ -2335,7 +2321,7 @@ Emacs 19, the region need not be set active.  Supercite will work
 properly when the region is inactive, as should any other like-minded
 package.@refill
 
-@item 
+@item
 Run the hook @code{mail-citation-hook}. You will probably want to
 provide some kind of default citation functions in cases where the user
 does not have Supercite installed.  By default, your MUA should
@@ -2459,7 +2445,7 @@ for adding the magic lisp to their code to support this.
 
 All who have helped and contributed have been greatly appreciated.
 
-@node  The Supercite Mailing List, Concept Index, Thanks and History, Top
+@node  The Supercite Mailing List, GNU Free Documentation License, Thanks and History, Top
 @comment  node-name,  next,  previous,  up
 @cindex supercite mailing list address
 @cindex mailing list address
@@ -2496,7 +2482,11 @@ will set up a mail buffer automatically with this address on the
 supercite-help@@python.org
 @end example
 
-@node  Concept Index, Command Index, The Supercite Mailing List, Top
+@node GNU Free Documentation License, Concept Index, The Supercite Mailing List, Top
+@appendix GNU Free Documentation License
+@include doclicense.texi
+
+@node  Concept Index, Command Index, GNU Free Documentation License, Top
 @comment  node-name,  next,  previous,  up
 @unnumbered Concept Index
 @printindex cp
@@ -2537,3 +2527,7 @@ its @var{variable} name.
 @summarycontents
 @contents
 @bye
+
+@ignore
+   arch-tag: 0521847a-4680-44b6-ae6e-13ce20e18436
+@end ignore

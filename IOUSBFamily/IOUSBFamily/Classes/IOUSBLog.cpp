@@ -349,7 +349,7 @@ void IOUSBLog::USBLogPrintf(UInt32 level, char *format,...)
     char		msgBuf[255];
     
     va_start( ap, format );
-    vsprintf(msgBuf, format, ap);
+    vsnprintf(msgBuf, sizeof(msgBuf), format, ap);
     va_end( ap );
 
     USBLog(level,msgBuf);

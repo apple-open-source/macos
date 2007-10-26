@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,55 +16,58 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: sha1.c,v 1.3.4.4.2.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: sha1.c,v 1.13.2.1.2.3 2007/05/27 14:50:09 sniper Exp $ */
 
 #include "php.h"
 
 /* This code is heavily based on the PHP md5 implementation */ 
 
 #include "sha1.h"
+#include "md5.h"
 
 PHPAPI void make_sha1_digest(char *sha1str, unsigned char *digest)
 {
-	int i;
-
-	for (i = 0; i < 20; i++) {
-		sprintf(sha1str, "%02x", digest[i]);
-		sha1str += 2;
-	}
-
-	*sha1str = '\0';
+	make_digest_ex(sha1str, digest, 20);
 }
 
-/* {{{ proto string sha1(string str)
+/* {{{ proto string sha1(string str [, bool raw_output])
    Calculate the sha1 hash of a string */
 PHP_FUNCTION(sha1)
 {
-	zval **arg;
+	char *arg;
+	int arg_len;
+	zend_bool raw_output = 0;
 	char sha1str[41];
 	PHP_SHA1_CTX context;
 	unsigned char digest[20];
 	
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b", &arg, &arg_len, &raw_output) == FAILURE) {
+		return;
 	}
-	convert_to_string_ex(arg);
 
 	sha1str[0] = '\0';
 	PHP_SHA1Init(&context);
-	PHP_SHA1Update(&context, Z_STRVAL_PP(arg), Z_STRLEN_PP(arg));
+	PHP_SHA1Update(&context, arg, arg_len);
 	PHP_SHA1Final(digest, &context);
-	make_sha1_digest(sha1str, digest);
-	RETVAL_STRING(sha1str, 1);
+	if (raw_output) {
+		RETURN_STRINGL(digest, 20, 1);
+	} else {
+		make_digest_ex(sha1str, digest, 20);
+		RETVAL_STRING(sha1str, 1);
+	}
+
 }
 
 /* }}} */
 
-/* {{{ proto string sha1_file(string filename)
+
+/* {{{ proto string sha1_file(string filename [, bool raw_output])
    Calculate the sha1 hash of given filename */
 PHP_FUNCTION(sha1_file)
 {
-	zval          **arg;
+	char          *arg;
+	int           arg_len;
+	zend_bool raw_output = 0;
 	char          sha1str[41];
 	unsigned char buf[1024];
 	unsigned char digest[20];
@@ -72,13 +75,11 @@ PHP_FUNCTION(sha1_file)
 	int           n;
 	php_stream    *stream;
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|b", &arg, &arg_len, &raw_output) == FAILURE) {
+		return;
 	}
-
-	convert_to_string_ex(arg);
-
-	stream = php_stream_open_wrapper(Z_STRVAL_PP(arg), "rb", REPORT_ERRORS | ENFORCE_SAFE_MODE, NULL);
+	
+	stream = php_stream_open_wrapper(arg, "rb", REPORT_ERRORS | ENFORCE_SAFE_MODE, NULL);
 	if (!stream) {
 		RETURN_FALSE;
 	}
@@ -97,9 +98,12 @@ PHP_FUNCTION(sha1_file)
 		RETURN_FALSE;
 	}
 
-	make_sha1_digest(sha1str, digest);
-
-	RETVAL_STRING(sha1str, 1);
+	if (raw_output) {
+		RETURN_STRINGL(digest, 20, 1);
+	} else {
+		make_digest_ex(sha1str, digest, 20);
+		RETVAL_STRING(sha1str, 1);
+	}
 }
 /* }}} */
 

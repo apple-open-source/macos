@@ -69,12 +69,6 @@
 #define BSDLIMIT
 
 /*
- * BSDNICE	Your system uses setpriority() instead of nice, to
- *		change a processes scheduling priority
- */
-#define BSDNICE
-
-/*
  * TERMIO	You have struct termio instead of struct sgttyb.
  * 		This is usually the case for SYSV systems, where
  *		BSD uses sgttyb. POSIX systems should define this
@@ -104,37 +98,6 @@
 #undef NISPLUS
 
 /*
- * SIGVOID	Define this if your signal handlers return void.  On older
- *		systems, signal returns int, but on newer ones, it returns void.
- */
-#define SIGVOID 
-
-/*
- * HAVEDUP2	Define this if your system supports dup2().
- */
-#define HAVEDUP2
-
-/*
- * HAVEUTMPX	Define if you have extended utmp (utmpx).
- *		(common for svr4 systems)
- */
-#define HAVEUTMPX
-
-/*
- * UTHOST	Does the utmp file have a host field?
- */
-#ifdef HAVEUTMPX
-# define UTHOST
-#else
-# undef UTHOST
-#endif /* HAVEUTMPX */
-
-/*
- * DIRENT	Your system has <dirent.h> instead of <sys/dir.h>
- */
-#define DIRENT
-
-/*
  * ECHO_STYLE	Optionally change the behavior of the builtin echo
  *		BOTH_ECHO: Support both bsd options (-n) and sysv escapes (\nnn)
  *		BSD_ECHO:  Support only -n
@@ -144,14 +107,6 @@
 #define ECHO_STYLE BOTH_ECHO
 
 /****************** local defines *********************/
-#ifndef BSDTIMES
-# define NEEDgethostname
-#endif
-/*
- * Shadow passwd file
- */
-#undef PW_SHADOW
-
 /*
  * OS Release dependent
  * Work around OS deficiency which cannot start #!/bin/sh scripts
@@ -183,9 +138,5 @@
 #ifndef __MVS__
 #define __MVS__
 #endif
-
-/****************** configurable hacks ****************/
-/* have been moved to config_f.h */
-#include "config_f.h"
 
 #endif /* _h_config */

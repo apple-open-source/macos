@@ -89,6 +89,6 @@ tinit()
 	else
 		homedir = savestr(cp);
 	if (debug)
-		printf("user = %s, homedir = %s\n", myname,
+		fprintf(stderr, "user = %s, homedir = %s\n", myname,
 		    homedir ? homedir : "NONE");
 }

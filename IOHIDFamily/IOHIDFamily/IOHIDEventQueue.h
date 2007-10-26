@@ -27,6 +27,7 @@
 
 #include <IOKit/IODataQueue.h>
 #include <IOKit/IOLocks.h>
+#include "IOHIDKeys.h"
 #include "IOHIDElementPrivate.h"
 
 #define DEFAULT_HID_ENTRY_SIZE  sizeof(IOHIDElementValue)+ sizeof(void *)
@@ -54,6 +55,8 @@ protected:
     OSSet *                 _elementSet;
 
     IOMemoryDescriptor *    _descriptor;
+    
+    IOHIDQueueOptionsType   _options;
 
     struct ExpansionData { };
     /*! @var reserved
@@ -74,6 +77,9 @@ public:
     virtual void start();
     virtual void stop();
     virtual Boolean isStarted();
+    
+    virtual void setOptions(IOHIDQueueOptionsType flags);
+    virtual IOHIDQueueOptionsType getOptions();
 
     virtual void enable();
     virtual void disable();

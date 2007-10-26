@@ -1,5 +1,3 @@
-/*	$NetBSD: io.c,v 1.4 1997/07/20 06:35:38 thorpej Exp $	*/
-
 /* io.c: This file contains the i/o routines for the ed line editor */
 /*-
  * Copyright (c) 1993 Andrew Moore, Talke Studio.
@@ -28,13 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-#if 0
-static char *rcsid = "@(#)io.c,v 1.1 1994/02/01 00:34:41 alm Exp";
-#else
-__RCSID("$NetBSD: io.c,v 1.4 1997/07/20 06:35:38 thorpej Exp $");
-#endif
-#endif /* not lint */
+__FBSDID("$FreeBSD: src/bin/ed/io.c,v 1.14 2003/01/01 18:48:39 schweikh Exp $");
 
 #include "ed.h"
 
@@ -43,9 +35,7 @@ extern int scripted;
 
 /* read_file: read a named file/pipe into the buffer; return line count */
 long
-read_file(fn, n)
-	char *fn;
-	long n;
+read_file(char *fn, long n)
 {
 	FILE *fp;
 	long size;
@@ -54,13 +44,13 @@ read_file(fn, n)
 	fp = (*fn == '!') ? popen(fn + 1, "r") : fopen(strip_escapes(fn), "r");
 	if (fp == NULL) {
 		fprintf(stderr, "%s: %s\n", fn, strerror(errno));
-		sprintf(errmsg, "cannot open input file");
+		errmsg = "cannot open input file";
 		return ERR;
 	} else if ((size = read_stream(fp, n)) < 0)
 		return ERR;
 	 else if (((*fn == '!') ?  pclose(fp) : fclose(fp)) < 0) {
 		fprintf(stderr, "%s: %s\n", fn, strerror(errno));
-		sprintf(errmsg, "cannot close input file");
+		errmsg = "cannot close input file";
 		return ERR;
 	}
 	fprintf(stdout, !scripted ? "%lu\n" : "", size);
@@ -76,9 +66,7 @@ int newline_added;		/* if set, newline appended to input file */
 
 /* read_stream: read a stream into the editor buffer; return status */
 long
-read_stream(fp, n)
-	FILE *fp;
-	long n;
+read_stream(FILE *fp, long n)
 {
 	line_t *lp = get_addressed_line_node(n);
 	undo_t *up = NULL;
@@ -127,8 +115,7 @@ read_stream(fp, n)
 
 /* get_stream_line: read a line of text from a stream; return line length */
 int
-get_stream_line(fp)
-	FILE *fp;
+get_stream_line(FILE *fp)
 {
 	int c;
 	int i = 0;
@@ -144,7 +131,7 @@ get_stream_line(fp)
 		sbuf[i++] = c;
 	else if (ferror(fp)) {
 		fprintf(stderr, "%s\n", strerror(errno));
-		sprintf(errmsg, "cannot read input file");
+		errmsg = "cannot read input file";
 		return ERR;
 	} else if (i) {
 		sbuf[i++] = '\n';
@@ -157,11 +144,7 @@ get_stream_line(fp)
 
 /* write_file: write a range of lines to a named file/pipe; return line count */
 long
-write_file(fn, mode, n, m)
-	char *fn;
-	char *mode;
-	long n;
-	long m;
+write_file(char *fn, const char *mode, long n, long m)
 {
 	FILE *fp;
 	long size;
@@ -169,13 +152,13 @@ write_file(fn, mode, n, m)
 	fp = (*fn == '!') ? popen(fn+1, "w") : fopen(strip_escapes(fn), mode);
 	if (fp == NULL) {
 		fprintf(stderr, "%s: %s\n", fn, strerror(errno));
-		sprintf(errmsg, "cannot open output file");
+		errmsg = "cannot open output file";
 		return ERR;
 	} else if ((size = write_stream(fp, n, m)) < 0)
 		return ERR;
 	 else if (((*fn == '!') ?  pclose(fp) : fclose(fp)) < 0) {
 		fprintf(stderr, "%s: %s\n", fn, strerror(errno));
-		sprintf(errmsg, "cannot close output file");
+		errmsg = "cannot close output file";
 		return ERR;
 	}
 	fprintf(stdout, !scripted ? "%lu\n" : "", size);
@@ -185,10 +168,7 @@ write_file(fn, mode, n, m)
 
 /* write_stream: write a range of lines to a stream; return status */
 long
-write_stream(fp, n, m)
-	FILE *fp;
-	long n;
-	long m;
+write_stream(FILE *fp, long n, long m)
 {
 	line_t *lp = get_addressed_line_node(n);
 	unsigned long size = 0;
@@ -217,25 +197,20 @@ write_stream(fp, n, m)
 
 /* put_stream_line: write a line of text to a stream; return status */
 int
-put_stream_line(fp, s, len)
-	FILE *fp;
-	char *s;
-	int len;
+put_stream_line(FILE *fp, const char *s, int len)
 {
 	while (len--)
 		if ((des ? put_des_char(*s++, fp) : fputc(*s++, fp)) < 0) {
 			fprintf(stderr, "%s\n", strerror(errno));
-			sprintf(errmsg, "cannot write file");
+			errmsg = "cannot write file";
 			return ERR;
 		}
 	return 0;
 }
 
-/* get_extended_line: get a an extended line from stdin */
+/* get_extended_line: get an extended line from stdin */
 char *
-get_extended_line(sizep, nonl)
-	int *sizep;
-	int nonl;
+get_extended_line(int *sizep, int nonl)
 {
 	static char *cvbuf = NULL;		/* buffer */
 	static int cvbufsz = 0;			/* buffer size */
@@ -258,7 +233,7 @@ get_extended_line(sizep, nonl)
 		if ((n = get_tty_line()) < 0)
 			return NULL;
 		else if (n == 0 || ibuf[n - 1] != '\n') {
-			sprintf(errmsg, "unexpected end-of-file");
+			errmsg = "unexpected end-of-file";
 			return NULL;
 		}
 		REALLOC(cvbuf, cvbufsz, l + n, NULL);
@@ -278,7 +253,7 @@ get_extended_line(sizep, nonl)
 
 /* get_tty_line: read a line of text from stdin; return line length */
 int
-get_tty_line()
+get_tty_line(void)
 {
 	int oi = 0;
 	int i = 0;
@@ -299,7 +274,7 @@ get_tty_line()
 		case EOF:
 			if (ferror(stdin)) {
 				fprintf(stderr, "stdin: %s\n", strerror(errno));
-				sprintf(errmsg, "cannot read stdin");
+				errmsg = "cannot read stdin";
 				clearerr(stdin);
 				ibufp = NULL;
 				return ERR;
@@ -326,16 +301,12 @@ extern int cols;
 
 /* put_tty_line: print text to stdout */
 int
-put_tty_line(s, l, n, gflag)
-	char *s;
-	int l;
-	long n;
-	int gflag;
+put_tty_line(const char *s, int l, long n, int gflag)
 {
 	int col = 0;
 	char *cp;
 
-	if (gflag & GNP) {
+	if ((gflag & GNP) && !(gflag & GINT)) {
 		printf("%ld\t", n);
 		col = 8;
 	}
@@ -363,7 +334,7 @@ put_tty_line(s, l, n, gflag)
 		} else
 			putchar(*s);
 	}
-	if (posixly_correct && (gflag & GLS))
+	if (posixly_correct && (gflag & GLS) && !(gflag & GINT))
 		putchar('$');
 	putchar('\n');
 	return 0;

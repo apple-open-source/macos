@@ -3,7 +3,7 @@
 # Read stdin if no arguments were given.
 
 if test $# = 0; then
-  vim -c 'so $VIMRUNTIME/macros/less.vim' -
+  vim --cmd 'let no_plugin_maps = 1' -c 'runtime! macros/less.vim' -
 else
-  vim -c 'so $VIMRUNTIME/macros/less.vim' "$@"
+  vim --cmd 'let no_plugin_maps = 1' -c 'runtime! macros/less.vim' "$@"
 fi

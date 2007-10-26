@@ -46,8 +46,8 @@ Cocoa
 
 D
 
-  Written by Charles Sanders and James Wavro
-  http://www.atari-soldiers.com/libcurl.html
+  Written by Kenneth Bogert
+  http://curl.haxx.se/libcurl/d/
 
 Dylan
 
@@ -75,10 +75,15 @@ Java
   Maintained by Vic Hanson
   http://curl.haxx.se/libcurl/java/
 
+Lisp
+
+  Written by Liam Healy
+  http://common-lisp.net/project/cl-curl/
+
 Lua
 
-  Written by Steve Dekorte
-  http://curl.haxx.se/libcurl/lua/
+  LuaCURL Written by Alexander Marinov
+  http://luacurl.luaforge.net/
 
 Mono
 
@@ -137,13 +142,28 @@ Rexx
 
 Ruby
 
-  Written by Hirotaka Matsuyuki
-  http://www.d1.dion.ne.jp/~matuyuki/ruby.html
+  Written by Ross Bamford
+  http://curb.rubyforge.org/
 
 Scheme
 
   Bigloo binding written by Kirill Lisovsky
   http://curl.haxx.se/libcurl/scheme/
+
+S-Lang
+
+  S-Lang binding written by John E Davis
+  http://www.jedsoft.org/slang/modules/curl.html
+
+Smalltalk
+
+  Smalltalk binding written by Danil Osipchuk
+  http://www.squeaksource.com/CurlPlugin/
+
+SPL
+
+  SPL binding written by Clifford Wolf
+  http://www.clifford.at/spl/
 
 Tcl
 
@@ -156,10 +176,15 @@ Visual Basic
   http://sourceforge.net/projects/libcurl-vb/
 
 Q
-
+  The libcurl module is part of the default install
   http://q-lang.sourceforge.net/
 
 wxWidgets
 
   Written by Casey O'Donnell
-  http://homepage.mac.com/codonnell/wxcurldav/
+  http://wxcode.sourceforge.net/components/wxcurl/
+
+XBLite
+
+  Written by David Szafranski
+  http://perso.wanadoo.fr/xblite/libraries.html

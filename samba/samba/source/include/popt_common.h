@@ -28,6 +28,7 @@ extern struct poptOption popt_common_samba[];
 extern struct poptOption popt_common_connection[];
 extern struct poptOption popt_common_version[];
 extern struct poptOption popt_common_credentials[];
+extern const struct poptOption popt_common_dynconfig[];
 
 #ifndef POPT_TABLEEND
 #define POPT_TABLEEND { NULL, '\0', 0, 0, 0, NULL, NULL }
@@ -37,6 +38,9 @@ extern struct poptOption popt_common_credentials[];
 #define POPT_COMMON_CONNECTION { NULL, 0, POPT_ARG_INCLUDE_TABLE, popt_common_connection, 0, "Connection options:", NULL },
 #define POPT_COMMON_VERSION { NULL, 0, POPT_ARG_INCLUDE_TABLE, popt_common_version, 0, "Common samba options:", NULL },
 #define POPT_COMMON_CREDENTIALS { NULL, 0, POPT_ARG_INCLUDE_TABLE, popt_common_credentials, 0, "Authentication options:", NULL },
+#define POPT_COMMON_DYNCONFIG { NULL, 0, POPT_ARG_INCLUDE_TABLE, \
+    CONST_DISCARD(poptOption *, popt_common_dynconfig), 0, \
+    "Build-time configuration overrides:", NULL },
 
 struct user_auth_info {
 	pstring username;
@@ -44,6 +48,18 @@ struct user_auth_info {
 	BOOL got_pass;
 	BOOL use_kerberos;
 	int signing_state;
+};
+
+enum smb_server_mode {
+	/* Daemonize and manage our own sockets */
+	SERVER_MODE_DAEMON,
+	/* Don't daemonize or manage sockets */
+	SERVER_MODE_INETD,
+	/* Don't daemonize, but do manage sockets */
+	SERVER_MODE_FOREGROUND,
+	/* Run in the foreground, log to stdout, don't fork children */
+	SERVER_MODE_INTERACTIVE
+
 };
 
 extern struct user_auth_info cmdline_auth_info;

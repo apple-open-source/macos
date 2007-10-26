@@ -70,31 +70,31 @@ public:
 					CBuff					( void );
 	virtual		   ~CBuff					( void );
 
-	sInt32			Initialize				( tDataBuffer *inBuff, bool inClear = false );
+	SInt32			Initialize				( tDataBuffer *inBuff, bool inClear = false );
 
-	sInt32			GetBuffType				( uInt32 *outType );
-	sInt32			SetBuffType				( uInt32 inBuffType );
+	SInt32			GetBuffType				( UInt32 *outType );
+	SInt32			SetBuffType				( UInt32 inBuffType );
 
-	sInt32			SetBuffLen				( uInt32 inBuffLen );
+	SInt32			SetBuffLen				( UInt32 inBuffLen );
 
 	tDataBuffer*	GetBuffer				( void );
-	sInt32			GetBuffStatus			( void );
+	SInt32			GetBuffStatus			( void );
 
-	sInt32			AddData					( char *inData, uInt32 inLen );
-	sInt32			GetDataBlockCount		( uInt32 *outCount );
-	char*			GetDataBlock			( uInt32 inIndex, uInt32 *outOffset );
-	uInt32			GetDataBlockLength		( uInt32 inIndex );
+	SInt32			AddData					( char *inData, UInt32 inLen );
+	SInt32			GetDataBlockCount		( UInt32 *outCount );
+	char*			GetDataBlock			( UInt32 inIndex, UInt32 *outOffset );
+	UInt32			GetDataBlockLength		( UInt32 inIndex );
 
 	void			ClearBuff				( void );
 	void			SetLengthToSize			( void );
 
 protected:
-	sInt32			SetNextOffset			( uInt32 inLen );
+	SInt32			SetNextOffset			( UInt32 inLen );
 
 private:
-	sInt32			fStatus;
-	uInt32			fOffset;
-	uInt32			fWhatsLeft;
+	SInt32			fStatus;
+	UInt32			fOffset;
+	UInt32			fWhatsLeft;
 	tDataBuffer	   *fBuff;
 };
 

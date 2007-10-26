@@ -1,3 +1,75 @@
+24-Aug-2005
+	diffstat 1.41
+
+	update usage message for options added in 1.40 (report by Eric Blake).
+
+15-Aug-2005
+	diffstat 1.40
+
+	add options -l, -r and -t.  add to -f option (patch, comments by
+	Jean Delvare, Michael Burian).
+
+	improve I/O on Linux using fgetc_locked().
+
+	improve searching of long sorted lists using tsearch()
+
+	improve configure-script checks for Intel compiler warnings.
+
+10-Apr-2005
+	diffstat 1.39
+
+	change order of merging and prefix-stripping so stripping all prefixes,
+	e.g., with -p9, will be sorted as expected (patch by Jean Delvare).
+
+	correct a reference to freed memory after merging found with valgrind.
+
+16-Jan-2005
+	diffstat 1.38
+
+	add makefile.wnt, etc., for win32 port.
+
+	fix "make check" to work even when PATH or the build directory has
+	spaces in it (patch by Eric Blake).
+
+	add support for '--help' and '--version' command line arguments, for a
+	consistent interface with GNU tools, and still compatible to POSIX
+	requirements on utility options (patch by Eric Blake).
+
+18-Dec-2004
+
+	modify makefile.in and run_test.sh to allow "make check" to be run from
+	a build directory which is not the same as the source directory, i.e.,
+	when the configure --srcdir option is used (request by Eric Blake).
+
+	modify distribution to include sample of regression tests, so a
+	"make check" will work (request by Eric Blake).
+
+16-Dec-2004
+	diffstat 1.37
+
+	fix a different case for data beginning with "--" which was treated as
+	a header line.
+
+14-Dec-2004
+	diffstat 1.36
+
+	Fix allocation problems.  Open files in binary mode for reading.
+	Getopt returns -1, not necessarily EOF.  Add const where useful.  Use
+	NO_IDENT where necessary.  malloc() comes from <stdlib.h> in standard
+	systems (Patch by Eric Blake <ebb9@byu.net>.)
+
+08-Nov-2004
+	diffstat 1.35
+
+	modify makefile.in to work with configure --srcdir option (report by
+	Eric Blake).
+
+	minor fix for resync of unified diffs checks for range (line beginning
+	with '@' without header lines (successive lines beginning with "---"
+	and "+++") (Debian #264098).
+
+	miscellaneous updates for configure script
+
 09-Nov-2003
 	diffstat 1.34
 
@@ -11,7 +83,7 @@
 	diffstat 1.33
 
 	modified to work around a case where the filename+date was incomplete,
-	i.e., missing one of the components such as the day of the month. 
+	i.e., missing one of the components such as the day of the month.
 	While diffstat does not use the date directly, it helps distinguish
 	some lines from non-patches (report by Moritz Barsnick
 	<moritz@barsnick.net>).

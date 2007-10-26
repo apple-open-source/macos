@@ -89,8 +89,11 @@ registerrpc(prognum, versnum, procnum, progname, inproc, outproc)
 {
 	
 	if (procnum == NULLPROC) {
-		(void) fprintf(stderr,
-		    "can't reassign procedure number %ld\n", NULLPROC);
+#ifdef __LP64__
+		(void) fprintf(stderr, "can't reassign procedure number %d\n", NULLPROC);
+#else
+		(void) fprintf(stderr, "can't reassign procedure number %ld\n", NULLPROC);
+#endif
 		return (-1);
 	}
 	if (transp == 0) {
@@ -136,7 +139,7 @@ universal(rqstp, transp)
 	 * enforce "procnum 0 is echo" convention
 	 */
 	if (rqstp->rq_proc == NULLPROC) {
-		if (svc_sendreply(transp, xdr_void, (char *)NULL) == FALSE) {
+		if (svc_sendreply(transp, (xdrproc_t)xdr_void, (char *)NULL) == FALSE) {
 			(void) fprintf(stderr, "xxx\n");
 			exit(1);
 		}
@@ -153,7 +156,7 @@ universal(rqstp, transp)
 				return;
 			}
 			outdata = (*(pl->p_progname))(xdrbuf);
-			if (outdata == NULL && pl->p_outproc != xdr_void)
+			if (outdata == NULL && pl->p_outproc != (xdrproc_t)xdr_void)
 				/* there was an error */
 				return;
 			if (!svc_sendreply(transp, pl->p_outproc, outdata)) {

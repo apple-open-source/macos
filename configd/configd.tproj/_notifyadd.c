@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,7 +60,7 @@ __SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean 
 	CFNumberRef			sessionNum	= NULL;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -111,7 +111,7 @@ __SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean 
 
     done :
 
-	if (sessionNum)	CFRelease(sessionNum);
+	if (sessionNum != NULL)	CFRelease(sessionNum);
 	return sc_status;
 }
 
@@ -139,7 +139,7 @@ _notifyadd(mach_port_t 			server,
 		goto done;
 	}
 
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		goto done;
 	}
@@ -175,7 +175,7 @@ removeOldKey(const void *value, void *context)
 		return;
 	}
 
-	if (!myContextRef->newKeys ||
+	if ((myContextRef->newKeys == NULL) ||
 	    !CFArrayContainsValue(myContextRef->newKeys,
 				  CFRangeMake(0, CFArrayGetCount(myContextRef->newKeys)),
 				  oldKey)) {
@@ -200,7 +200,7 @@ addNewKey(const void *value, void *context)
 		return;
 	}
 
-	if (!myContextRef->oldKeys ||
+	if ((myContextRef->oldKeys == NULL) ||
 	    !CFSetContainsValue(myContextRef->oldKeys, newKey)) {
 		/* if this is a new notification key */
 		myContextRef->sc_status = __SCDynamicStoreAddWatchedKey(myContextRef->store,
@@ -220,7 +220,7 @@ __SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef store, CFArrayRef keys, CF
 	updateKeysContext		myContext;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -240,7 +240,7 @@ __SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef store, CFArrayRef keys, CF
 	myContext.newKeys = keys;
 	myContext.isRegex = FALSE;
 	my_CFSetApplyFunction(storePrivate->keys, removeOldKey, &myContext);
-	if (keys) {
+	if (keys != NULL) {
 		CFArrayApplyFunction(keys,
 				     CFRangeMake(0, CFArrayGetCount(keys)),
 				     addNewKey,
@@ -253,7 +253,7 @@ __SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef store, CFArrayRef keys, CF
 	myContext.newKeys = patterns;
 	myContext.isRegex = TRUE;
 	my_CFSetApplyFunction(storePrivate->patterns, removeOldKey, &myContext);
-	if (patterns) {
+	if (patterns != NULL) {
 		CFArrayApplyFunction(patterns,
 				     CFRangeMake(0, CFArrayGetCount(patterns)),
 				     addNewKey,
@@ -281,35 +281,46 @@ _notifyset(mach_port_t 			server,
 
 	*sc_status = kSCStatusOK;
 
-	if (keysRef && (keysLen > 0)) {
+	if ((keysRef != NULL) && (keysLen > 0)) {
 		/* un-serialize the keys */
 		if (!_SCUnserialize((CFPropertyListRef *)&keys, NULL, (void *)keysRef, keysLen)) {
 			*sc_status = kSCStatusFailed;
-		} else if (!isA_CFArray(keys)) {
-			*sc_status = kSCStatusInvalidArgument;
 		}
 	}
 
-	if (patternsRef && (patternsLen > 0)) {
+	if ((patternsRef != NULL) && (patternsLen > 0)) {
 		/* un-serialize the patterns */
 		if (!_SCUnserialize((CFPropertyListRef *)&patterns, NULL, (void *)patternsRef, patternsLen)) {
 			*sc_status = kSCStatusFailed;
-		} else if (!isA_CFArray(patterns)) {
-			*sc_status = kSCStatusInvalidArgument;
 		}
 	}
 
-	if (!mySession) {
+	if (*sc_status != kSCStatusOK) {
+		goto done;
+	}
+
+	if ((keys != NULL) && !isA_CFArray(keys)) {
+		*sc_status = kSCStatusInvalidArgument;
+		goto done;
+	}
+
+	if ((patterns != NULL) && !isA_CFArray(patterns)) {
+		*sc_status = kSCStatusInvalidArgument;
+		goto done;
+	}
+
+	if (mySession == NULL) {
 		/* you must have an open session to play */
 		*sc_status = kSCStatusNoStoreSession;
+		goto done;
 	}
 
-	if (*sc_status == kSCStatusOK) {
-		*sc_status = __SCDynamicStoreSetNotificationKeys(mySession->store, keys, patterns);
-	}
+	*sc_status = __SCDynamicStoreSetNotificationKeys(mySession->store, keys, patterns);
 
-	if (keys)	CFRelease(keys);
-	if (patterns)	CFRelease(patterns);
+    done :
+
+	if (keys != NULL)	CFRelease(keys);
+	if (patterns != NULL)	CFRelease(patterns);
 
 	return KERN_SUCCESS;
 }

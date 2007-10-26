@@ -62,15 +62,16 @@
  *	instead.
  *
  */
+#include "config.h"
 
-int searchp (path,file,fullname,func)
-char *path,*file,*fullname;
-int (*func)();
+int
+searchp(const char *spath, char *file, char *fullname, int (*func)(char *))
 {
-	register char *nextpath,*nextchar,*fname,*lastchar;
+	const char *nextpath, *nextchar, *lastchar;
+	char *fname;
 	int failure;
 
-	nextpath = ((*file == '/') ? "" : path);
+	nextpath = ((*file == '/') ? "" : spath);
 	do {
 		fname = fullname;
 		nextchar = nextpath;

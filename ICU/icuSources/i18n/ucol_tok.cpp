@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2004, International Business Machines
+*   Copyright (C) 2001-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -31,7 +31,7 @@
 #include "util.h"
 
 U_CDECL_BEGIN
-static int32_t U_EXPORT2 U_CALLCONV
+static int32_t U_CALLCONV
 uhash_hashTokens(const UHashTok k)
 {
     int32_t hash = 0;
@@ -54,7 +54,7 @@ uhash_hashTokens(const UHashTok k)
     return hash;
 }
 
-static UBool U_EXPORT2 U_CALLCONV
+static UBool U_CALLCONV
 uhash_compareTokens(const UHashTok key1, const UHashTok key2)
 {
     //uint32_t p1 = (uint32_t) key1.integer;
@@ -1554,7 +1554,7 @@ uint32_t ucol_tok_assembleTokenList(UColTokenParser *src, UParseError *parseErro
           } else { /* there is both explicit and implicit expansion. We need to make a combination */
             uprv_memcpy(src->extraCurrent, src->source + (expandNext & 0xFFFFFF), (expandNext >> 24)*sizeof(UChar));
             uprv_memcpy(src->extraCurrent+(expandNext >> 24), src->source + src->parsedToken.extensionOffset, src->parsedToken.extensionLen*sizeof(UChar));
-            sourceToken->expansion = (uint32_t)(((expandNext >> 24) + src->parsedToken.extensionLen)<<24 | (src->extraCurrent - src->source));
+            sourceToken->expansion = (uint32_t)(((expandNext >> 24) + src->parsedToken.extensionLen)<<24 | (uint32_t)(src->extraCurrent - src->source));
             src->extraCurrent += (expandNext >> 24) + src->parsedToken.extensionLen;
           }
         }
@@ -1583,7 +1583,7 @@ uint32_t ucol_tok_assembleTokenList(UColTokenParser *src, UParseError *parseErro
           /* if the previous token was also a reset, */
           /*this means that we have two consecutive resets */
           /* and we want to remove the previous one if empty*/
-          if(ListList[src->resultLen-1].first == NULL) {
+          if(src->resultLen > 0 && ListList[src->resultLen-1].first == NULL) {
             src->resultLen--;
           }
         }
@@ -1820,7 +1820,7 @@ void ucol_tok_initTokenList(UColTokenParser *src, const UChar *rules, const uint
   if(U_FAILURE(*status)) {
     return;
   }
-  src->tailored = uhash_open(uhash_hashTokens, uhash_compareTokens, status);
+  src->tailored = uhash_open(uhash_hashTokens, uhash_compareTokens, NULL, status);
   if(U_FAILURE(*status)) {
     return;
   }

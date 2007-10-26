@@ -37,6 +37,11 @@ if ![istarget "i\[3-6\]86-apple-darwin*"] {
     return
 }
 
+if [target_info exists darwin64] {
+   verbose "This test file not yet adapted for x86-64, skipping."
+   return
+}
+
 if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable {debug}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this fil
 e will automatically fail."

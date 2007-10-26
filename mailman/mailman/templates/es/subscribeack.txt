@@ -30,8 +30,8 @@ cambio de la propia clave) o para anular su subscripción. Su clave es:
   %(password)s
 
 Normalmente, Mailman le recordará  mensualmente las claves  que tenga en
-las listas de distribución de %(host_name)s, aunque si lo prefiere puede
+las listas de distribución de %(host_name)s, aunque si lo prefiere, puede
 inhabilitar este comportamiento.  El recordatorio también incluirá
-instrucciones sobre como anular su subscripción o como cambiar los
+instrucciones sobre como anular su subscripción o cómo cambiar los
 parámetros de subscripción. En la página de opciones hay un botón que le
 enviará un mensaje de correo electrónico con su clave.

@@ -15,11 +15,13 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.3</string>
+	<string>1.9.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>0.0.1d1</string>
+	<key>Builtin</key>
+	<true/>
 	<key>Requires</key>
 	<array>
 		<string>com.apple.SystemConfiguration.InterfaceNamer</string>

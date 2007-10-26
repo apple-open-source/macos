@@ -1,5 +1,3 @@
-/*	$NetBSD: fold.c,v 1.8 1997/10/20 10:20:52 mrg Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -36,57 +34,61 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1990, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1990, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)fold.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: fold.c,v 1.8 1997/10/20 10:20:52 mrg Exp $");
 #endif /* not lint */
 
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/fold/fold.c,v 1.13 2004/06/24 15:12:29 tjr Exp $");
+
+#include <err.h>
+#include <limits.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <err.h>
+#include <wchar.h>
+#include <wctype.h>
 
 #define	DEFLINEWIDTH	80
 
-	int	main __P((int, char **));
-static	void	fold __P((int));
-static	int	new_column_position __P((int, int));
+void fold(int);
+static int newpos(int, wint_t);
+static void usage(void);
 
-int count_bytes = 0;
-int split_words = 0;
+int bflag;			/* Count bytes, not columns */
+int sflag;			/* Split on word boundaries */
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char **argv)
 {
 	int ch;
-	int width;
+	int rval, width;
 	char *p;
+
+	(void) setlocale(LC_CTYPE, "");
 
 	width = -1;
 	while ((ch = getopt(argc, argv, "0123456789bsw:")) != -1)
 		switch (ch) {
 		case 'b':
-			count_bytes = 1;
+			bflag = 1;
 			break;
 		case 's':
-			split_words = 1;
+			sflag = 1;
 			break;
 		case 'w':
 			if ((width = atoi(optarg)) <= 0) {
-				(void)fprintf(stderr,
-				    "fold: illegal width value.\n");
-				exit(1);
+				errx(1, "illegal width value");
 			}
 			break;
 		case '0': case '1': case '2': case '3': case '4':
@@ -100,115 +102,106 @@ main(argc, argv)
 			}
 			break;
 		default:
-			(void)fprintf(stderr,
-			    "usage: fold [-bs] [-w width] [file ...]\n");
-			exit(1);
+			usage();
 		}
 	argv += optind;
 	argc -= optind;
 
 	if (width == -1)
 		width = DEFLINEWIDTH;
-
+	rval = 0;
 	if (!*argv)
 		fold(width);
 	else for (; *argv; ++argv)
 		if (!freopen(*argv, "r", stdin)) {
-			err (1, "%s", *argv);
-			/* NOTREACHED */
+			warn("%s", *argv);
+			rval = 1;
 		} else
 			fold(width);
-	exit(0);
+	exit(rval);
+}
+
+static void
+usage(void)
+{
+	(void)fprintf(stderr, "usage: fold [-bs] [-w width] [file ...]\n");
+	exit(1);
 }
 
 /*
- * Fold the contents of standard input to fit within WIDTH columns
- * (or bytes) and write to standard output.
+ * Fold the contents of standard input to fit within WIDTH columns (or bytes)
+ * and write to standard output.
  *
- * If split_words is set, split the line at the last space character
- * on the line.  This flag necessitates storing the line in a buffer
- * until the current column > width, or a newline or EOF is read.
+ * If sflag is set, split the line at the last space character on the line.
+ * This flag necessitates storing the line in a buffer until the current
+ * column > width, or a newline or EOF is read.
  *
  * The buffer can grow larger than WIDTH due to backspaces and carriage
  * returns embedded in the input stream.
  */
-static void
-fold(width)
-	int width;
+void
+fold(int width)
 {
-	static char *buf = NULL;
-	static int   buf_max = 0;
-	int ch, col;
-	int indx;
+	static wchar_t *buf;
+	static int buf_max;
+	int col, i, indx, space;
+	wint_t ch;
 
 	col = indx = 0;
-	while ((ch = getchar()) != EOF) {
+	while ((ch = getwchar()) != WEOF) {
 		if (ch == '\n') {
-			if (indx != 0)
-				fwrite (buf, 1, indx, stdout);
-			putchar('\n');
+			wprintf(L"%.*ls\n", indx, buf);
 			col = indx = 0;
 			continue;
 		}
-
-		col = new_column_position (col, ch);
-		if (col > width) {
-			int i, last_space;
-
-#ifdef __GNUC__
-			last_space = 0;	/* XXX gcc */
-#endif
-			if (split_words) {
-				for (i = 0, last_space = -1; i < indx; i++)
-					if (buf[i] == ' ')
-						last_space = i;
+		if ((col = newpos(col, ch)) > width) {
+			if (sflag) {
+				i = indx;
+				while (--i >= 0 && !iswblank(buf[i]))
+					;
+				space = i;
 			}
-
-			if (split_words && last_space != -1) {
-				last_space++;
-
-				fwrite (buf, 1, last_space, stdout);
-				memmove (buf, buf+last_space, indx-last_space);
-
-				indx -= last_space;
+			if (sflag && space != -1) {
+				space++;
+				wprintf(L"%.*ls\n", space, buf);
+				wmemmove(buf, buf + space, indx - space);
+				indx -= space;
 				col = 0;
-				for (i = 0; i < indx; i++) {
-					col = new_column_position (col, ch);
-				}
+				for (i = 0; i < indx; i++)
+					col = newpos(col, buf[i]);
 			} else {
-				fwrite (buf, 1, indx, stdout);
+				wprintf(L"%.*ls\n", indx, buf);
 				col = indx = 0;
 			}
-			putchar('\n');
-
-			/* calculate the column position for the next line. */
-			col = new_column_position (col, ch);
+			col = newpos(col, ch);
 		}
-
 		if (indx + 1 > buf_max) {
-			/* Allocate buffer in LINE_MAX increments */
-			buf_max += 2048;
-			if((buf = realloc (buf, buf_max)) == NULL) {
-				err (1, "realloc");
-				/* NOTREACHED */
-			}
+			buf_max += LINE_MAX;
+			buf = realloc(buf, sizeof(*buf) * buf_max);
+			if (buf == NULL)
+				err(1, "realloc()");
 		}
 		buf[indx++] = ch;
 	}
 
 	if (indx != 0)
-		fwrite (buf, 1, indx, stdout);
+		wprintf(L"%.*ls", indx, buf);
 }
 
 /*
- * calculate the column position 
+ * Update the current column position for a character.
  */
 static int
-new_column_position (col, ch)
-	int col;
-	int ch;
+newpos(int col, wint_t ch)
 {
-	if (!count_bytes) {
+	char buf[MB_LEN_MAX];
+	size_t len;
+	int w;
+
+	if (bflag) {
+		len = wcrtomb(buf, ch, NULL);
+		col += len;
+	} else
 		switch (ch) {
 		case '\b':
 			if (col > 0)
@@ -221,12 +214,10 @@ new_column_position (col, ch)
 			col = (col + 8) & ~7;
 			break;
 		default:
-			++col;
+			if ((w = wcwidth(ch)) > 0)
+				col += w;
 			break;
 		}
-	} else {
-		++col;
-	}
 
-	return col;
+	return (col);
 }

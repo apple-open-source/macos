@@ -1,8 +1,8 @@
 /* root_dse.c - Provides the Root DSA-Specific Entry */
-/* $OpenLDAP: pkg/ldap/servers/slapd/root_dse.c,v 1.81.2.11 2004/04/06 18:16:01 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/root_dse.c,v 1.95.2.10 2006/01/03 22:16:15 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,15 +29,14 @@
 #endif
 
 static struct berval supportedFeatures[] = {
+	BER_BVC(LDAP_FEATURE_MODIFY_INCREMENT),		/* Modify/increment */
 	BER_BVC(LDAP_FEATURE_ALL_OP_ATTRS),			/* All Op Attrs (+) */
 	BER_BVC(LDAP_FEATURE_OBJECTCLASS_ATTRS),	/* OCs in Attrs List (@class) */
 	BER_BVC(LDAP_FEATURE_ABSOLUTE_FILTERS),		/* (&) and (|) search filters */
 	BER_BVC(LDAP_FEATURE_LANGUAGE_TAG_OPTIONS), /* Language Tag Options */
 	BER_BVC(LDAP_FEATURE_LANGUAGE_RANGE_OPTIONS),/* Language Range Options */
-
-#ifdef LDAP_DEVEL
+#ifdef LDAP_FEATURE_SUBORDINATE_SCOPE
 	BER_BVC(LDAP_FEATURE_SUBORDINATE_SCOPE),	/* "children" search scope */
-	BER_BVC(LDAP_FEATURE_MODIFY_INCREMENT),		/* Modify/increment */
 #endif
 	{0,NULL}
 };
@@ -51,10 +50,13 @@ root_dse_info(
 	const char **text )
 {
 	Entry		*e;
-	struct berval vals[2], *bv;
-	struct berval nvals[2];
+	struct berval val;
+#ifdef LDAP_SLAPI
+	struct berval *bv;
+#endif
 	int		i, j;
 	char ** supportedSASLMechanisms;
+	BackendDB *be;
 
 	AttributeDescription *ad_structuralObjectClass
 		= slap_schema.si_ad_structuralObjectClass;
@@ -62,8 +64,10 @@ root_dse_info(
 		= slap_schema.si_ad_objectClass;
 	AttributeDescription *ad_namingContexts
 		= slap_schema.si_ad_namingContexts;
+#ifdef LDAP_SLAPI
 	AttributeDescription *ad_supportedExtension
 		= slap_schema.si_ad_supportedExtension;
+#endif
 	AttributeDescription *ad_supportedLDAPVersion
 		= slap_schema.si_ad_supportedLDAPVersion;
 	AttributeDescription *ad_supportedSASLMechanisms
@@ -72,22 +76,16 @@ root_dse_info(
 		= slap_schema.si_ad_supportedFeatures;
 	AttributeDescription *ad_monitorContext
 		= slap_schema.si_ad_monitorContext;
+	AttributeDescription *ad_configContext
+		= slap_schema.si_ad_configContext;
 	AttributeDescription *ad_ref
 		= slap_schema.si_ad_ref;
-
-	vals[1].bv_val = NULL;
-	nvals[1].bv_val = NULL;
 
 	e = (Entry *) SLAP_CALLOC( 1, sizeof(Entry) );
 
 	if( e == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR,
-			"root_dse_info: SLAP_CALLOC failed", 0, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"root_dse_info: SLAP_CALLOC failed", 0, 0, 0 );
-#endif
 		return LDAP_OTHER;
 	}
 
@@ -103,42 +101,51 @@ root_dse_info(
 
 	e->e_private = NULL;
 
-	vals[0].bv_val = "top";
-	vals[0].bv_len = sizeof("top")-1;
-	if( attr_merge( e, ad_objectClass, vals, NULL ) ) {
+	BER_BVSTR( &val, "top" );
+	if( attr_merge_one( e, ad_objectClass, &val, NULL ) ) {
 		return LDAP_OTHER;
 	}
 
-	vals[0].bv_val = "OpenLDAProotDSE";
-	vals[0].bv_len = sizeof("OpenLDAProotDSE")-1;
-	if( attr_merge( e, ad_objectClass, vals, NULL ) ) {
+	BER_BVSTR( &val, "OpenLDAProotDSE" );
+	if( attr_merge_one( e, ad_objectClass, &val, NULL ) ) {
 		return LDAP_OTHER;
 	}
-	if( attr_merge( e, ad_structuralObjectClass, vals, NULL ) ) {
+	if( attr_merge_one( e, ad_structuralObjectClass, &val, NULL ) ) {
 		return LDAP_OTHER;
 	}
 
-	for ( i = 0; i < nbackends; i++ ) {
-		if ( backends[i].be_suffix == NULL
-				|| backends[i].be_nsuffix == NULL ) {
+	LDAP_STAILQ_FOREACH( be, &backendDB, be_next ) {
+		if ( be->be_suffix == NULL
+				|| be->be_nsuffix == NULL ) {
 			/* no suffix! */
 			continue;
 		}
-		if ( SLAP_MONITOR( &backends[i] )) {
-			vals[0] = backends[i].be_suffix[0];
-			nvals[0] = backends[i].be_nsuffix[0];
-			if( attr_merge( e, ad_monitorContext, vals, nvals ) ) {
+		if ( SLAP_MONITOR( be )) {
+			if( attr_merge_one( e, ad_monitorContext,
+					&be->be_suffix[0],
+					&be->be_nsuffix[0] ) )
+			{
 				return LDAP_OTHER;
 			}
 			continue;
 		}
-		if ( SLAP_GLUE_SUBORDINATE( &backends[i] ) ) {
+		if ( SLAP_CONFIG( be )) {
+			if( attr_merge_one( e, ad_configContext,
+					&be->be_suffix[0],
+					& be->be_nsuffix[0] ) )
+			{
+				return LDAP_OTHER;
+			}
 			continue;
 		}
-		for ( j = 0; backends[i].be_suffix[j].bv_val != NULL; j++ ) {
-			vals[0] = backends[i].be_suffix[j];
-			nvals[0] = backends[i].be_nsuffix[0];
-			if( attr_merge( e, ad_namingContexts, vals, nvals ) ) {
+		if ( SLAP_GLUE_SUBORDINATE( be ) && !SLAP_GLUE_ADVERTISE( be ) ) {
+			continue;
+		}
+		for ( j = 0; be->be_suffix[j].bv_val != NULL; j++ ) {
+			if( attr_merge_one( e, ad_namingContexts,
+					&be->be_suffix[j],
+					&be->be_nsuffix[0] ) )
+			{
 				return LDAP_OTHER;
 			}
 		}
@@ -159,8 +166,7 @@ root_dse_info(
 #ifdef LDAP_SLAPI
 	/* netscape supportedExtension */
 	for ( i = 0; (bv = slapi_int_get_supported_extop(i)) != NULL; i++ ) {
-		vals[0] = *bv;
-		if( attr_merge( e, ad_supportedExtension, vals, NULL )) {
+		if( attr_merge_one( e, ad_supportedExtension, bv, NULL ) ) {
 			return LDAP_OTHER;
 		}
 	}
@@ -172,18 +178,17 @@ root_dse_info(
 	}
 
 	/* supportedLDAPVersion */
-	for ( i=LDAP_VERSION_MIN; i<=LDAP_VERSION_MAX; i++ ) {
+		/* don't publish version 2 as we don't really support it
+		 * (even when configured to accept version 2 Bind requests)
+		 * and the value would never be used by true LDAPv2 (or LDAPv3)
+		 * clients.
+		 */
+	for ( i=LDAP_VERSION3; i<=LDAP_VERSION_MAX; i++ ) {
 		char buf[BUFSIZ];
-		if (!( global_allows & SLAP_ALLOW_BIND_V2 ) &&
-			( i < LDAP_VERSION3 ) )
-		{
-			/* version 2 and lower are disallowed */
-			continue;
-		}
 		snprintf(buf, sizeof buf, "%d", i);
-		vals[0].bv_val = buf;
-		vals[0].bv_len = strlen( vals[0].bv_val );
-		if( attr_merge( e, ad_supportedLDAPVersion, vals, NULL ) ) {
+		val.bv_val = buf;
+		val.bv_len = strlen( val.bv_val );
+		if( attr_merge_one( e, ad_supportedLDAPVersion, &val, NULL ) ) {
 			return LDAP_OTHER;
 		}
 	}
@@ -193,9 +198,9 @@ root_dse_info(
 
 	if( supportedSASLMechanisms != NULL ) {
 		for ( i=0; supportedSASLMechanisms[i] != NULL; i++ ) {
-			vals[0].bv_val = supportedSASLMechanisms[i];
-			vals[0].bv_len = strlen( vals[0].bv_val );
-			if( attr_merge( e, ad_supportedSASLMechanisms, vals, NULL ) ) {
+			val.bv_val = supportedSASLMechanisms[i];
+			val.bv_len = strlen( val.bv_val );
+			if( attr_merge_one( e, ad_supportedSASLMechanisms, &val, NULL ) ) {
 				return LDAP_OTHER;
 			}
 		}
@@ -231,11 +236,11 @@ root_dse_info(
  */
 int read_root_dse_file( const char *fname )
 {
-	FILE	*fp;
+	struct LDIFFP	*fp;
 	int rc = 0, lineno = 0, lmax = 0;
 	char	*buf = NULL;
 
-	if ( (fp = fopen( fname, "r" )) == NULL ) {
+	if ( (fp = ldif_open( fname, "r" )) == NULL ) {
 		Debug( LDAP_DEBUG_ANY,
 			"could not open rootdse attr file \"%s\" - absolute path?\n",
 			fname, 0, 0 );
@@ -245,14 +250,9 @@ int read_root_dse_file( const char *fname )
 
 	usr_attr = (Entry *) SLAP_CALLOC( 1, sizeof(Entry) );
 	if( usr_attr == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR,
-			"read_root_dse_file: SLAP_CALLOC failed", 0, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"read_root_dse_file: SLAP_CALLOC failed", 0, 0, 0 );
-#endif
-		fclose( fp );
+		ldif_close( fp );
 		return LDAP_OTHER;
 	}
 	usr_attr->e_attrs = NULL;
@@ -304,8 +304,83 @@ int read_root_dse_file( const char *fname )
 
 	ch_free( buf );
 
-	fclose( fp );
+	ldif_close( fp );
 
 	Debug(LDAP_DEBUG_CONFIG, "rootDSE file %s read.\n", fname, 0, 0);
 	return rc;
 }
+
+int
+slap_discover_feature(
+	const char	*uri,
+	int		version,
+	const char	*attr,
+	const char	*val )
+{
+	LDAP		*ld;
+	LDAPMessage	*res = NULL, *entry;
+	int		rc, i;
+	struct berval	cred = BER_BVC( "" ),
+			bv_val,
+			**values = NULL;
+	char		*attrs[ 2 ] = { NULL, NULL };
+
+	ber_str2bv( val, 0, 0, &bv_val );
+	attrs[ 0 ] = (char *) attr;
+
+	rc = ldap_initialize( &ld, uri );
+	if ( rc != LDAP_SUCCESS ) {
+		return rc;
+	}
+
+	rc = ldap_set_option( ld, LDAP_OPT_PROTOCOL_VERSION, &version );
+	if ( rc != LDAP_SUCCESS ) {
+		goto done;
+	}
+
+	rc = ldap_sasl_bind_s( ld, "", LDAP_SASL_SIMPLE,
+			&cred, NULL, NULL, NULL );
+	if ( rc != LDAP_SUCCESS ) {
+		goto done;
+	}
+
+	rc = ldap_search_ext_s( ld, "", LDAP_SCOPE_BASE, "(objectClass=*)",
+			attrs, 0, NULL, NULL, NULL, 0, &res );
+	if ( rc != LDAP_SUCCESS ) {
+		goto done;
+	}
+
+	entry = ldap_first_entry( ld, res );
+	if ( entry == NULL ) {
+		goto done;
+	}
+
+	values = ldap_get_values_len( ld, entry, attrs[ 0 ] );
+	if ( values == NULL ) {
+		rc = LDAP_NO_SUCH_ATTRIBUTE;
+		goto done;
+	}
+
+	for ( i = 0; values[ i ] != NULL; i++ ) {
+		if ( bvmatch( &bv_val, values[ i ] ) ) {
+			rc = LDAP_COMPARE_TRUE;
+			goto done;
+		}
+	}
+
+	rc = LDAP_COMPARE_FALSE;
+
+done:;
+	if ( values != NULL ) {
+		ldap_value_free_len( values );
+	}
+
+	if ( res != NULL ) {
+		ldap_msgfree( res );
+	}
+
+	ldap_unbind_ext( ld, NULL, NULL );
+
+	return rc;
+}
+

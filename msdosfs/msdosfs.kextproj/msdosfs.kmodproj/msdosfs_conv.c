@@ -126,7 +126,7 @@ static __inline u_int8_t find_lcode __P((u_int16_t code, u_int16_t *u2w));
  * throughout the year.  Of course, the GUI would have to do the opposite
  * conversion when converting to local time for display to the user.
  */
-long msdos_secondsWest = 0;
+__private_extern__ long msdos_secondsWest = 0;
 
 /*
  * Convert the unix version of time to dos's idea of time to be used in
@@ -972,7 +972,7 @@ getunicodefn(wep, ucfn, unichars, chksum)
 	int chksum;
 {
 	u_int8_t *cp;
-	u_int16_t *np, *ep = unichars + WIN_MAXLEN;
+	u_int16_t *np, *ep = ucfn + WIN_MAXLEN;
 	u_int16_t code;
 	int i;
 
@@ -1102,6 +1102,7 @@ winSlotCnt(un, unlen)
 	const u_int16_t *un;
 	int unlen;
 {
+#pragma unused (un)
 	if (unlen > WIN_MAXLEN)
 		return 0;
 	return howmany(unlen, WIN_CHARS);

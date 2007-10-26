@@ -254,7 +254,6 @@ typedef struct {
     int				last_eap_type_index;
     OSStatus			trust_ssl_error;
     EAPClientStatus		trust_status;
-    int32_t			trust_proceed_id;
     bool			trust_proceed;
     bool			key_data_valid;
     char			key_data[128];
@@ -555,7 +554,6 @@ peap_start(EAPClientPluginDataRef plugin)
     context->last_client_status = kEAPClientStatusOK;
     context->handshake_complete = FALSE;
     context->trust_proceed = FALSE;
-    context->trust_proceed_id++;
     context->inner_auth_state = kPEAPInnerAuthStateUnknown;
     context->key_data_valid = FALSE;
     context->last_write_size = 0;
@@ -585,7 +583,6 @@ peap_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 	goto failed;
     }
     bzero(context, sizeof(*context));
-    context->trust_proceed_id = random();
     context->mtu = plugin->mtu;
     context->resume_sessions
 	= my_CFDictionaryGetBooleanValue(plugin->properties, 
@@ -1033,7 +1030,6 @@ peap_verify_server(EAPClientPluginDataRef plugin,
     }
     context->trust_status
 	= EAPTLSVerifyServerCertificateChain(plugin->properties, 
-					     context->trust_proceed_id,
 					     context->server_certs,
 					     &context->trust_ssl_error);
     if (context->trust_status != kEAPClientStatusOK) {
@@ -1587,10 +1583,6 @@ peap_publish_props(EAPClientPluginDataRef plugin)
 			     &context->trust_status);
 	CFDictionarySetValue(dict, kEAPClientPropTLSTrustClientStatus, num);
 	CFRelease(num);
-	num = CFNumberCreate(NULL, kCFNumberSInt32Type,
-			     &context->trust_proceed_id);
-	CFDictionarySetValue(dict, kEAPClientPropTLSUserTrustProceed, num);
-	CFRelease(num);
     }
     return (dict);
 }
@@ -1605,7 +1597,7 @@ peap_require_props(EAPClientPluginDataRef plugin)
 	goto done;
     }
     if (context->trust_proceed == FALSE) {
-	CFStringRef	str = kEAPClientPropTLSUserTrustProceed;
+	CFStringRef	str = kEAPClientPropTLSUserTrustProceedCertificateChain;
 	array = CFArrayCreate(NULL, (const void **)&str,
 			      1, &kCFTypeArrayCallBacks);
     }

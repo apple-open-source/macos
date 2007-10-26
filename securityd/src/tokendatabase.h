@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,20 +60,20 @@ public:
 	Token &token() const;
 	
 	uint32 subservice() const { return token().subservice(); }
-	const std::string &dbName() const;
-
+	std::string dbName() const;
+	
 	Adornable &store();
 	void resetAcls();
-	
-	void notify(NotificationEvent event);
 
+	void notify(NotificationEvent event);
+	
 	void lockProcessing();
 
 	typedef Token::ResetGeneration ResetGeneration;
 
 private:
 	std::string mDbName;			// name given during open
-	Adornable mAdornments;			// Adornable for ACL store
+	bool mHasAclState;				// Adornment is carrying active ACL state
 
 	ResetGeneration mResetLevel;	// validity tag
 };
@@ -97,10 +97,12 @@ public:
 	bool transient() const;
 	
 	SecurityServerAcl &acl();		// it's our Token
+	void getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls);	// post-processing
 
-	bool isLocked() const;
+	bool isLocked();
+	bool pinState(uint32 pin, int *count = NULL);
 
-	void notify(NotificationEvent event) { return common().notify(event); }
+    void notify(NotificationEvent event) { return common().notify(event); }
 
 	bool validateSecret(const AclSubject *subject, const AccessCredentials *cred);
 	
@@ -215,7 +217,7 @@ public:
 private:
 	// internal utilities
 	RefPointer<Key> makeKey(KeyHandle hKey, const CssmKey *key,
-		const AclEntryPrototype *owner);
+		uint32 moreAttributes, const AclEntryPrototype *owner);
 	
 	class InputKey {
 	public:

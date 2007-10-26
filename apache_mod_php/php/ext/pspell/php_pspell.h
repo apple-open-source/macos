@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,33 +16,13 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_pspell.h,v 1.10.8.1.8.2 2007/01/01 09:46:46 sebastian Exp $ */
+/* $Id: php_pspell.h,v 1.15.2.1.2.3 2007/01/01 09:36:05 sebastian Exp $ */
 
 #ifndef _PSPELL_H
 #define _PSPELL_H
 #if HAVE_PSPELL
 extern zend_module_entry pspell_module_entry;
 #define pspell_module_ptr &pspell_module_entry
-
-PHP_MINIT_FUNCTION(pspell);
-PHP_MINFO_FUNCTION(pspell);
-PHP_FUNCTION(pspell_new);
-PHP_FUNCTION(pspell_new_personal);
-PHP_FUNCTION(pspell_new_config);
-PHP_FUNCTION(pspell_check);
-PHP_FUNCTION(pspell_suggest);
-PHP_FUNCTION(pspell_store_replacement);
-PHP_FUNCTION(pspell_add_to_personal);
-PHP_FUNCTION(pspell_add_to_session);
-PHP_FUNCTION(pspell_clear_session);
-PHP_FUNCTION(pspell_save_wordlist);
-PHP_FUNCTION(pspell_config_create);
-PHP_FUNCTION(pspell_config_runtogether);
-PHP_FUNCTION(pspell_config_mode);
-PHP_FUNCTION(pspell_config_ignore);
-PHP_FUNCTION(pspell_config_personal);
-PHP_FUNCTION(pspell_config_repl);
-PHP_FUNCTION(pspell_config_save_repl);
 #else
 #define pspell_module_ptr NULL
 #endif

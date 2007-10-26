@@ -1,3 +1,4 @@
+/*$Header: /src/pub/tcsh/win32/dirent.h,v 1.5 2005/01/05 16:06:19 christos Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -48,7 +49,6 @@
 #define IS_ROOT 0x01
 #define IS_NET  0x02
 
-#define d_fileno d_ino
 struct dirent {
 	long            d_ino;
 	int             d_off;

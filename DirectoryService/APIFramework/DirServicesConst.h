@@ -45,6 +45,24 @@
  */
 #define		kDSStdMachPortName	"com.apple.DirectoryService"
 
+/*!
+ * @defined kDSStdMachDebugPortName
+ * @discussion Registered name used with mach_init for DirectoryService debug daemon.
+ */
+#define		kDSStdMachDebugPortName	"com.apple.DirectoryServiceDebug"
+
+/*!
+ * @defined kDSStdMachLocalPortName
+ * @discussion Registered name used with mach_init for DirectoryService local only daemon.
+ */
+#define		kDSStdMachLocalPortName	"com.apple.DirectoryService.localonly"
+
+/*!
+ * @defined kDSStdMachDSLookupPortName
+ * @discussion Registered name used with mach_init for DirectoryService Lookup MIG server for the DirectoryService daemon.
+ */
+#define		kDSStdMachDSLookupPortName	"com.apple.system.DirectoryService.libinfo_v1"
+
 #pragma mark -
 #pragma mark Meta Record Type Constants
 #pragma mark -
@@ -96,6 +114,30 @@
  */
 #define		kDSStdUserNamesMeta						"dsRecTypeStandard:MetaUserNames"
 
+/*!
+ * @defined kDSStdRecordTypePlugins
+ * @discussion Identifies records that represent specific DS plugin data.
+ */
+#define		kDSStdRecordTypePlugins					"dsRecTypeStandard:Plugins"
+
+/*!
+ * @defined kDSStdRecordTypeRefTableEntries
+ * @discussion Identifies records that represent a DS reference table entry.
+ */
+#define		kDSStdRecordTypeRefTableEntries			"dsRecTypeStandard:RefTableEntries"
+
+/*!
+ * @defined kDSStdRecordTypeRecordTypes
+ * @discussion Identifies records that represent each possible record type.
+ */
+#define		kDSStdRecordTypeRecordTypes				"dsRecTypeStandard:RecordTypes"
+
+/*!
+ * @defined kDSStdRecordTypeAttributeTypes
+ * @discussion Identifies records that represent each possible attribute type.
+ */
+#define		kDSStdRecordTypeAttributeTypes			"dsRecTypeStandard:AttributeTypes"
+
 #pragma mark -
 #pragma mark Specific Record Type Constants
 #pragma mark -
@@ -129,6 +171,24 @@
 #define		kDSStdRecordTypeAliases					"dsRecTypeStandard:Aliases"
 
 /*!
+ * @defined kDSStdRecordTypeAugments
+ * @discussion Used to store augmented record data.
+ */
+#define		kDSStdRecordTypeAugments				"dsRecTypeStandard:Augments"
+
+/*!
+ * @defined kDSStdRecordTypeAutomount
+ * @discussion Used to store automount record data.
+ */
+#define		kDSStdRecordTypeAutomount				"dsRecTypeStandard:Automount"
+
+/*!
+ * @defined kDSStdRecordTypeAutomountMap
+ * @discussion Used to store automountMap record data.
+ */
+#define		kDSStdRecordTypeAutomountMap			"dsRecTypeStandard:AutomountMap"
+
+/*!
  * @defined kDSStdRecordTypeAutoServerSetup
  * @discussion Used to discover automated server setup information.
  */
@@ -151,6 +211,12 @@
  * @discussion Identifies computer list records.
  */
 #define		kDSStdRecordTypeComputerLists			"dsRecTypeStandard:ComputerLists"
+
+/*!
+ * @defined kDSStdRecordTypeComputerGroups
+ * @discussion Identifies computer group records.
+ */
+#define		kDSStdRecordTypeComputerGroups			"dsRecTypeStandard:ComputerGroups"
 
 /*!
  * @defined kDSStdRecordTypeComputers
@@ -287,6 +353,18 @@
 #define		kDSStdRecordTypePeople					"dsRecTypeStandard:People"
 
 /*!
+ * @defined kDSStdRecordTypePresetComputers
+ * @discussion The computer record type used for presets in record creation.
+ */
+#define		kDSStdRecordTypePresetComputers			"dsRecTypeStandard:PresetComputers"
+
+/*!
+ * @defined kDSStdRecordTypePresetComputerGroups
+ * @discussion The computer group record type used for presets in record creation.
+ */
+#define		kDSStdRecordTypePresetComputerGroups	"dsRecTypeStandard:PresetComputerGroups"
+
+/*!
  * @defined kDSStdRecordTypePresetComputerLists
  * @discussion The computer list record type used for presets in record creation.
  */
@@ -339,6 +417,12 @@
  * @discussion Identifies quicktime streaming server records.
  */
 #define		kDSStdRecordTypeQTSServer				"dsRecTypeStandard:QTSServer"
+
+/*!
+ * @defined kDSStdRecordTypeResources
+ * @discussion Identifies resources used in group services.
+ */
+#define		kDSStdRecordTypeResources				"dsRecTypeStandard:Resources"
 
 /*!
  * @defined kDSStdRecordTypeRPC
@@ -492,6 +576,12 @@
 #define		kDS1AttrAuthenticationHint				"dsAttrTypeStandard:AuthenticationHint"
 
 /*!
+ * @defined kDSNAttrAttributeTypes
+ * @discussion Used to indicated recommended attribute types for a record type in the Config node.
+ */
+#define		kDSNAttrAttributeTypes                  "dsAttrTypeStandard:AttributeTypes"
+
+/*!
  * @defined kDS1AttrAuthorityRevocationList
  * @discussion Attribute containing the binary of the authority revocation list.
  * A certificate revocation list that defines certificate authority certificates
@@ -499,6 +589,14 @@
  * Usually found in kDSStdRecordTypeCertificateAuthority records.
  */
 #define		kDS1AttrAuthorityRevocationList			"dsAttrTypeStandard:AuthorityRevocationList"
+
+/*!
+ * @defined kDS1AttrBirthday
+ * @discussion Single-valued attribute that defines the user's birthday.
+ * Format is x.208 standard YYYYMMDDHHMMSSZ which we will require as GMT time.
+ */
+#define		kDS1AttrBirthday						"dsAttrTypeStandard:Birthday"
+
 
 /*!
  * @defined kDS1AttrBootFile
@@ -521,6 +619,14 @@
  * API capabilities for this Directory Node.
  */
 #define		kDS1AttrCapabilities					"dsAttrTypeStandard:Capabilities"
+
+/*!
+ * @defined kDS1AttrCapacity
+ * @discussion Attribute type for the capacity of a resource. 
+ *	 found in resource records (kDSStdRecordTypeResources). 
+ *	Example: 50
+ */
+#define		kDS1AttrCapacity					"dsAttrTypeStandard:Capacity"
 
 /*!
  *	@defined kDS1AttrCategory
@@ -547,6 +653,13 @@
  * @discussion Attribute used for unformatted comment.
  */
 #define		kDS1AttrComment							"dsAttrTypeStandard:Comment"
+
+/*!
+ * @defined kDS1AttrContactGUID
+ * @discussion Attribute type for the contact GUID of a group. 
+ *	 found in group records (kDSStdRecordTypeGroups). 
+ */
+#define		kDS1AttrContactGUID					"dsAttrTypeStandard:ContactGUID"
 
 /*!
  * @defined kDS1AttrContactPerson
@@ -577,7 +690,7 @@
 #define		kDS1AttrDataStamp						"dsAttrTypeStandard:DataStamp"
 
 /*!
- * @defined kDS1AttrDataStamp
+ * @defined kDS1AttrDistinguishedName
  * @discussion Users distinguished or real name
  */
 #define		kDS1AttrDistinguishedName				"dsAttrTypeStandard:RealName"
@@ -668,12 +781,24 @@
 #define		kDS1AttrLastName						"dsAttrTypeStandard:LastName"
 
 /*!
+ * @defined kDS1AttrLDAPSearchBaseSuffix
+ * @discussion Search base suffix for a LDAP server.
+ */
+#define		kDS1AttrLDAPSearchBaseSuffix					"dsAttrTypeStandard:LDAPSearchBaseSuffix"
+
+/*!
  * @defined kDS1AttrLocation
  * @discussion Represents the location a service is available from (usually domain name).
  *     Typically found in service record types including kDSStdRecordTypeAFPServer,
  *     kDSStdRecordTypeLDAPServer, and kDSStdRecordTypeWebServer.
  */
 #define		kDS1AttrLocation						"dsAttrTypeStandard:Location"
+
+/*!
+ * @defined kDS1AttrMapGUID
+ * @discussion Represents the GUID for a record's map.
+ */
+#define		kDS1AttrMapGUID						"dsAttrTypeStandard:MapGUID"
 
 /*!
  * @defined kDS1AttrMCXFlags
@@ -692,6 +817,13 @@
  * @discussion Holds the mail account config data.
  */
 #define		kDS1AttrMailAttribute					"dsAttrTypeStandard:MailAttribute"
+
+/*!
+ * @defined kDS1AttrMetaAutomountMap
+ * @discussion Used to query for kDSStdRecordTypeAutomount entries associated with a specific 
+ * kDSStdRecordTypeAutomountMap.
+ */
+#define		kDS1AttrMetaAutomountMap				"dsAttrTypeStandard:MetaAutomountMap"
 
 /*!
  * @defined kDS1AttrMiddleName
@@ -742,6 +874,13 @@
  *		Typically the value is a LDAP distinguished name.
  */
 #define		kDS1AttrOwner							"dsAttrTypeStandard:Owner"
+
+/*!
+ * @defined kDS1AttrOwnerGUID
+ * @discussion Attribute type for the owner GUID of a group. 
+ *	 found in group records (kDSStdRecordTypeGroups). 
+ */
+#define		kDS1AttrOwnerGUID					"dsAttrTypeStandard:OwnerGUID"
 
 /*!
  * @defined kDS1AttrPassword
@@ -796,6 +935,19 @@
  *		by default. Found in kDSStdRecordTypePresetUsers records.
  */
 #define		kDS1AttrPresetUserIsAdmin				"dsAttrTypeStandard:PresetUserIsAdmin"
+
+/*!
+ * @defined kDS1AttrPrimaryComputerGUID
+ * @discussion Single-valued attribute that defines a primary computer of the computer group.  
+ * added via extensible object for computer group record type (kDSStdRecordTypeComputerGroups)
+ */
+#define     kDS1AttrPrimaryComputerGUID                   "dsAttrTypeStandard:PrimaryComputerGUID"
+
+/*!
+ * @defined kDS1AttrPrimaryComputerList
+ * @discussion The GUID of the computer list with which this computer record is associated.
+ */
+#define		kDS1AttrPrimaryComputerList             "dsAttrTypeStandard:PrimaryComputerList"
 
 /*!
  * @defined kDS1AttrPrimaryGroupID
@@ -1095,6 +1247,27 @@
  */
 #define		kDS1AttrXMLPlist						"dsAttrTypeStandard:XMLPlist"
 
+/*!
+ * @defined kDS1AttrProtocolNumber
+ * @discussion Single-valued attribute that defines a protocol number.  Usually found
+ *  in protocol records (kDSStdRecordTypeProtocols)
+ */
+#define     kDS1AttrProtocolNumber                  "dsAttrTypeStandard:ProtocolNumber"
+
+/*!
+ * @defined kDS1AttrRPCNumber
+ * @discussion Single-valued attribute that defines an RPC number.  Usually found
+ *  in RPC records (kDSStdRecordTypeRPC)
+ */
+#define     kDS1AttrRPCNumber                       "dsAttrTypeStandard:RPCNumber"
+
+/*!
+ * @defined kDS1AttrNetworkNumber
+ * @discussion Single-valued attribute that defines a network number.  Usually found
+ *  in network records (kDSStdRecordTypeNetworks)
+ */
+#define     kDS1AttrNetworkNumber                   "dsAttrTypeStandard:NetworkNumber"
+
 #pragma mark -
 #pragma mark Multiple Valued Specific Attribute Type Constants
 #pragma mark -
@@ -1142,6 +1315,12 @@
 #define		kDSNAttrAuthenticationAuthority			"dsAttrTypeStandard:AuthenticationAuthority"
 
 /*!
+ * @defined kDSNAttrAutomountInformation
+ * @discussion Used to store automount information in kDSStdRecordTypeAutomount records.
+ */
+#define		kDSNAttrAutomountInformation			"dsAttrTypeStandard:AutomountInformation"
+
+/*!
  * @defined kDSNAttrBootParams
  * @discussion Attribute type in host or machine records for storing boot params.
  */
@@ -1156,12 +1335,25 @@
 #define		kDSNAttrBuilding						"dsAttrTypeStandard:Building"
 
 /*!
+ * @defined kDSNAttrServicesLocator
+ * @discussion the URI for a record's calendar
+ */
+#define		kDSNAttrServicesLocator			"dsAttrTypeStandard:ServicesLocator"
+
+/*!
  * @defined kDSNAttrCity
  * @discussion Usually, city for a user or person record.
  * Usually found in user or people records (kDSStdRecordTypeUsers or 
  * kDSStdRecordTypePeople).
  */
 #define		kDSNAttrCity							"dsAttrTypeStandard:City"
+
+/*!
+ * @defined kDSNAttrCompany
+ * @discussion attribute that defines the user's company.
+ * Example: Apple Computer, Inc
+ */
+#define		kDSNAttrCompany						"dsAttrTypeStandard:Company"
 
 /*!
  * @defined kDSNAttrComputerAlias
@@ -1205,6 +1397,14 @@
 #define		kDSNAttrEMailAddress					"dsAttrTypeStandard:EMailAddress"
 
 /*!
+ * @defined kDSNAttrEMailContacts
+ * @discussion multi-valued attribute that defines a record's custom email addresses .
+ *	 found in user records (kDSStdRecordTypeUsers). 
+ *	Example: home:johndoe@mymail.com
+ */
+#define		kDSNAttrEMailContacts				"dsAttrTypeStandard:EMailContacts"
+
+/*!
  * @defined kDSNAttrFaxNumber
  * @discussion Represents the FAX numbers of a user or person.
  * Usually found in user or people records (kDSStdRecordTypeUsers or 
@@ -1229,6 +1429,19 @@
  * @discussion Usually a list of users that below to a given group record.
  */
 #define		kDSNAttrGroupMembership					"dsAttrTypeStandard:GroupMembership"
+
+/*!
+ * @defined kDSNAttrGroupServices
+ * @discussion xml-plist attribute that defines a group's services .
+ *	 found in group records (kDSStdRecordTypeGroups). 
+ */
+#define		kDSNAttrGroupServices				"dsAttrTypeStandard:GroupServices"
+
+/*!
+ * @defined kDSNAttrHomePhoneNumber
+ * @discussion Home telephone number of a user or person.
+ */
+#define		kDSNAttrHomePhoneNumber				"dsAttrTypeStandard:HomePhoneNumber"
 
 /*!
  * @defined kDSNAttrHTML
@@ -1256,6 +1469,32 @@
  * @discussion IP address expressed either as domain or IP notation.
  */
 #define		kDSNAttrIPAddress						"dsAttrTypeStandard:IPAddress"
+
+/*!
+ * @defined	kDSNAttrIPAddressAndENetAddress
+ * @discussion A pairing of IPv4 or IPv6 addresses with Ethernet addresses 
+ * (e.g., "10.1.1.1/00:16:cb:92:56:41").  Usually found on kDSStdRecordTypeComputers for use by 
+ * services that need specific pairing of the two values.  This should be in addition to 
+ * kDSNAttrIPAddress, kDSNAttrIPv6Address and kDS1AttrENetAddress. This is necessary because not
+ * all directories return attribute values in a guaranteed order.
+ */
+#define		kDSNAttrIPAddressAndENetAddress			"dsAttrTypeStandard:IPAddressAndENetAddress"
+
+/*!
+ * @defined kDSNAttrIPv6Address
+ * @discussion IPv6 address expressed in the standard notation (e.g., "fe80::236:caff:fcc2:5641" )
+ * Usually found on kDSStdRecordTypeComputers, kDSStdRecordTypeHosts, and 
+ * kDSStdRecordTypeMachines.
+ */
+#define		kDSNAttrIPv6Address						"dsAttrTypeStandard:IPv6Address"
+
+/*!
+ * @defined kDSNAttrJPEGPhoto
+ * @discussion Used to store binary picture data in JPEG format. 
+ * Usually found in user, people or group records (kDSStdRecordTypeUsers, 
+ * kDSStdRecordTypePeople, kDSStdRecordTypeGroups).
+ */
+#define		kDSNAttrJPEGPhoto						"dsAttrTypeStandard:JPEGPhoto"
 
 /*!
  * @defined kDSNAttrJobTitle
@@ -1295,6 +1534,22 @@
  *		domains served.
  */
 #define		kDSNAttrMachineServes					"dsAttrTypeStandard:MachineServes"
+
+/*!
+ * @defined kDSNAttrMapCoordinates
+ * @discussion attribute that defines coordinates for a user's location .
+*	 found in user records (kDSStdRecordTypeUsers) and resource records (kDSStdRecordTypeResources).
+ *	Example: 7.7,10.6
+ */
+#define		kDSNAttrMapCoordinates				"dsAttrTypeStandard:MapCoordinates"
+
+/*!
+ * @defined kDSNAttrMapURI
+ * @discussion attribute that defines the URI of a user's location.
+ *	Usually found in user records (kDSStdRecordTypeUsers). 
+ *	Example: http://example.com/bldg1
+ */
+#define		kDSNAttrMapURI						"dsAttrTypeStandard:MapURI"
 
 /*!
  * @defined kDSNAttrMCXSettings
@@ -1357,6 +1612,12 @@
 #define		kDSNAttrNodePathXMLPlist				"dsAttrTypeStandard:NodePathXMLPlist"
 
 /*!
+ * @defined kDSNAttrOrganizationInfo
+ * @discussion Usually the organization info of a user.
+ */
+#define		kDSNAttrOrganizationInfo				"dsAttrTypeStandard:OrganizationInfo"
+
+/*!
  * @defined kDSNAttrOrganizationName
  * @discussion Usually the organization of a user.
  */
@@ -1369,6 +1630,15 @@
  * kDSStdRecordTypePeople).
  */
 #define		kDSNAttrPagerNumber						"dsAttrTypeStandard:PagerNumber"
+
+/*!
+ * @defined kDSNAttrPhoneContacts
+ * @discussion multi-valued attribute that defines a record's custom phone numbers .
+ *	 found in user records (kDSStdRecordTypeUsers). 
+ *	Example: home fax:408-555-4444
+ */
+#define		kDSNAttrPhoneContacts				"dsAttrTypeStandard:PhoneContacts"
+
 
 /*!
  * @defined kDSNAttrPhoneNumber
@@ -1387,6 +1657,13 @@
  * @discussion The postal address usually excluding postal code.
  */
 #define		kDSNAttrPostalAddress					"dsAttrTypeStandard:PostalAddress"
+
+/*!
+* @defined kDSNAttrPostalAddressContacts
+* @discussion multi-valued attribute that defines a record's alternate postal addresses .
+*	 found in user records (kDSStdRecordTypeUsers) and resource records (kDSStdRecordTypeResources).
+*/
+#define		kDSNAttrPostalAddressContacts				"dsAttrTypeStandard:PostalAddressContacts"
 
 /*!
  * @defined kDSNAttrPostalCode
@@ -1414,6 +1691,28 @@
  * @discussion List of names/keys for this record.
  */
 #define		kDSNAttrRecordName						"dsAttrTypeStandard:RecordName"
+
+/*!
+ * @defined kDSNAttrRelationships
+ * @discussion multi-valued attribute that defines the relationship to the record type .
+ *	 found in user records (kDSStdRecordTypeUsers). 
+ *	Example: brother:John
+ */
+#define		kDSNAttrRelationships				"dsAttrTypeStandard:Relationships"
+
+/*!
+* @defined kDSNAttrResourceInfo
+* @discussion multi-valued attribute that defines a resource record's info.
+*/
+#define		kDSNAttrResourceInfo				"dsAttrTypeStandard:ResourceInfo"
+
+/*!
+ * @defined kDSNAttrResourceType
+ * @discussion Attribute type for the kind of resource. 
+ *	 found in resource records (kDSStdRecordTypeResources). 
+ *	Example: ConferenceRoom
+ */
+#define		kDSNAttrResourceType					"dsAttrTypeStandard:ResourceType"
 
 /*!
  * @defined kDSNAttrState
@@ -1652,6 +1951,14 @@
  * @discussion No longer supported in Mac OS X 10.4 or later.
  */
 #define		kStandardTargetAlias					"dsAttrTypeStandard:AppleMetaAliasTarget"
+
+/*!
+ * @defined kDSNAttrNetGroupTriplet
+ * @discussion Multivalued attribute that defines the host, user and domain triplet combinations
+ *  to support NetGroups.  Each attribute value is comma separated string to maintain the
+ *  triplet (e.g., host,user,domain).
+ */
+#define     kDSNAttrNetGroupTriplet                 "dsAttrTypeStandard:NetGroupTriplet"
 
 #pragma mark -
 #pragma mark Search Node attribute type Constants
@@ -2079,6 +2386,18 @@
 #define		kDSStdAuthGetUserName					"dsAuthMethodStandard:dsAuthGetUserName"
 
 /*!
+ * @defined kDSStdAuthKerberosTickets
+ * @discussion Provides write-access to LDAP with an existing Kerberos ticket
+ *     The buffer is packed as follows:
+ *
+ *     4 byte length of authenticator name,
+ *     user name in UTF8 encoding
+ *     4 byte length of krb5_data
+ *     krb5_data struct containing a service ticket
+ */
+#define		kDSStdAuthKerberosTickets				"dsAuthMethodStandard:dsAuthKerberosTickets"
+
+/*!
  * @defined kDSStdAuthMASKE_A
  * @discussion Retained only for backward compatibility.
  */
@@ -2137,8 +2456,9 @@
 
 /*!
  * @defined kDSStdAuthNTLMv2
- * @discussion If the NTLMv2 session key is supported, it is returned in the 
- *     step buffer. The input buffer is packed as follows:
+ * @discussion Verifies an NTLMv2 challenge and response. The session keys
+ *	(if any) must be retrieved separately with a trusted authentication.
+ *	The input buffer is packed as follows:
  *
  *     4 byte length of user name,
  *     user name in UTF8 encoding,
@@ -2153,6 +2473,32 @@
  *     the samba domain in UTF8 encoding
  */
 #define		kDSStdAuthNTLMv2						"dsAuthMethodStandard:dsAuthNodeNTLMv2"
+
+/*!
+ * @defined kDSStdAuthNTLMv2WithSessionKey
+ * @discussion An optimized method that checks the user's challenge and response
+ *	and retrieves session keys in a single call. If the NTLMv2 session key is
+ *	supported, it is returned in the step buffer.
+ *
+ *	The input buffer is packed as follows:
+ *
+ *     4 byte length of user name,
+ *     user name in UTF8 encoding,
+ *     4 byte length of samba server challenge,
+ *     samba server challenge
+ *     4 byte length of the NTLMv2 client "blob"
+ *     the client "blob" which includes 16 bytes of
+ *     client digest prefixed to the the blob data
+ *     4 byte length of the user name used to calculate the digest,
+ *     the user name used to calculate the digest  in UTF8 encoding
+ *     4 byte length of the samba domain,
+ *     the samba domain in UTF8 encoding,
+ *     4 byte length of authenticator name,
+ *     user name in UTF8 encoding,
+ *     4 byte length of authenticator password,
+ *     user name in UTF8 encoding,
+ */
+#define		kDSStdAuthNTLMv2WithSessionKey			"dsAuthMethodStandard:dsAuthNodeNTLMv2WithSessionKey"
 
 /*!
  * @defined kDSStdAuthNewUser
@@ -2222,8 +2568,16 @@
 
 /*!
  * @defined kDSStdAuthReadSecureHash
- * @discussion
- *     Supports ONLY a root process to be able to directly read the secure hash of a user record.
+ * @discussion Returns the SHA1 or Seeded SHA1 hash for a local user
+ *     Only accessible by root processes. Only implemented by the local node.
+ *     The buffer is packed as follows:
+ *
+ *     4 byte length of user's name,
+ *     user's name in UTF8 encoding
+ *
+ *     The output buffer format:
+ *     4 byte length (20 or 24)
+ *     value, either the old 20-byte SHA1 or the new seeded 24-byte SHA1.
  */
 #define		kDSStdAuthReadSecureHash				"dsAuthMethodStandard:dsAuthReadSecureHash"
 
@@ -2284,13 +2638,50 @@
 
 /*!
  * @defined kDSStdAuthSMB_NT_UserSessionKey
- * @discussion Supports PDC SMB interaction with DS.
+ * @discussion Used by Samba to get session keys
+ *         This authentication method is only implemented by the PasswordServer node.
+ *     The buffer is packed as follows:
+ *
+ *     4 byte length of user's Password Server ID,
+ *     Password Server ID in UTF8 encoding
+ *
+ *     The output buffer format:
+ *     4 byte length,
+ *     MD4( ntHash )
  */
 #define		kDSStdAuthSMB_NT_UserSessionKey			"dsAuthMethodStandard:dsAuthSMBNTUserSessionKey"
 
 /*!
+ * @defined kDSStdAuthSMB_NT_WithSessionKey
+ * @discussion Used by Samba to authenticate and get session keys
+ *		The buffer is packed as follows:
+ *
+ *     4 byte length of user name,
+ *     user name in UTF8 encoding,
+ *     4 byte length of server challenge (always 8 bytes)
+ *     8 byte server challenge
+ *     4 byte length of client response (always 24 bytes)
+ *     24 byte client response
+ *     4 byte length of authenticator name,
+ *     authenticator name in UTF8 encoding,
+ *     4 byte length of authenticator password,
+ *     authenticator password in UTF8 encoding,
+ *
+ *     The output buffer format:
+ *     4 byte length,
+ *     MD4( ntHash )
+ */
+#define		kDSStdAuthSMB_NT_WithUserSessionKey		"dsAuthMethodStandard:dsAuthNTWithSessionKey"
+
+/*!
  * @defined kDSStdAuthSecureHash
  * @discussion Auth specifically using the secure hash.
+ *     The buffer is packed as follows:
+ *
+ *     4 byte length of user name,
+ *     user name in UTF8 encoding,
+ *     4 byte length of salted SHA1 hash (24 bytes),
+ *     salted SHA1 hash
  */
 #define		kDSStdAuthSecureHash					"dsAuthMethodStandard:dsAuthSecureHash"
 
@@ -2318,7 +2709,7 @@
  *
  *     4 byte length of user name,
  *     user name in UTF8 encoding,
- *     4 byte length of LAN Manager hash (24 bytes),
+ *     4 byte length of LAN Manager hash (16 bytes),
  *     LAN Manager hash buffer
  */
 #define		kDSStdAuthSetLMHash						"dsAuthMethodStandard:dsAuthSetLMHash"
@@ -2333,7 +2724,7 @@
  *
  *     4 byte length of user name,
  *     user name in UTF8 encoding,
- *     4 byte length of NT hash (24 bytes),
+ *     4 byte length of NT hash (16 bytes),
  *     NT hash buffer
  */
 #define		kDSStdAuthSetNTHash						"dsAuthMethodStandard:dsAuthSetNTHash"
@@ -2455,8 +2846,33 @@
  * @defined kDSStdAuthWriteSecureHash
  * @discussion
  *     Supports ONLY a root process to be able to directly write the secure hash of a user record.
+ *     The buffer is packed as follows:
+ *
+ *     4 byte length of user name,
+ *     user name in UTF8 encoding,
+ *     4 byte length of salted SHA1 hash (24 bytes),
+ *     salted SHA1 hash
  */
 #define		kDSStdAuthWriteSecureHash				"dsAuthMethodStandard:dsAuthWriteSecureHash"
+
+/*!
+ * @defined kDSStdAuthGetMethodsForUser
+ * @discussion
+ *     Allows a service to query the authentication methods available for a user at the
+ *	   time of authentication. 
+ *     The buffer is packed as follows:
+ *
+ *     4 byte length of user name,
+ *     user name in UTF8 encoding.
+ *
+ *     The output buffer contains a list of the form:
+ *     4 byte length,
+ *     authentication method constant (example: "dsAuthMethodStandard:dsAuthNodeCRAM-MD5")
+ *     4 byte length,
+ *     next authentication method constant, etc.
+ *
+ */
+#define		kDSStdAuthGetMethodsForUser				"dsAuthMethodStandard:dsAuthGetMethodsForUser"
 
 #pragma mark -
 #pragma mark NSL Neighborhood Constants
@@ -2489,5 +2905,145 @@
  * @discussion Value type of Neighborhood record
  */
 #define		kDSValueNSLTopLevelNeighborhoodType		"NSLTopLevelNeighborhoodType"
+
+#pragma mark -
+#pragma mark Configure Node attribute type Constants
+#pragma mark -
+
+/*!
+ * @functiongroup Configure Node attribute type Constants
+ */
+ 
+/*!
+ * @defined kDS1AttrBuildVersion
+ * @discussion Build version for reference.
+ */
+#define		kDS1AttrBuildVersion				"dsAttrTypeStandard:BuildVersion"
+
+/*!
+ * @defined kDS1AttrConfigAvail
+ * @discussion Config avail tag.
+ */
+#define		kDS1AttrConfigAvail					"dsAttrTypeStandard:ConfigAvail"
+
+/*!
+ * @defined kDS1AttrConfigFile
+ * @discussion Config file name.
+ */
+#define		kDS1AttrConfigFile					"dsAttrTypeStandard:ConfigFile"
+
+/*!
+ * @defined kDS1AttrCoreFWVersion
+ * @discussion Core FW version for reference.
+ */
+#define		kDS1AttrCoreFWVersion					"dsAttrTypeStandard:CoreFWVersion"
+
+/*!
+ * @defined kDS1AttrFunctionalState
+ * @discussion Functional state of plugin for example.
+ */
+#define		kDS1AttrFunctionalState				"dsAttrTypeStandard:FunctionalState"
+
+/*!
+ * @defined kDS1AttrFWVersion
+ * @discussion FW version for reference.
+ */
+#define		kDS1AttrFWVersion					"dsAttrTypeStandard:FWVersion"
+
+/*!
+ * @defined kDS1AttrPluginIndex
+ * @discussion Plugin index for reference.
+ */
+#define		kDS1AttrPluginIndex					"dsAttrTypeStandard:PluginIndex"
+
+/*!
+ * @defined kDS1AttrRefNumTableList
+ * @discussion Summary of the reference table entries presented as attr values from the Configure node via dsGetDirNodeInfo.
+ */
+#define		kDS1AttrRefNumTableList				"dsAttrTypeStandard:RefNumTableList"
+
+/*!
+ * @defined kDS1AttrVersion
+ * @discussion Version label.
+ */
+#define		kDS1AttrVersion						"dsAttrTypeStandard:Version"
+
+/*!
+ * @defined kDS1AttrPIDValue
+ * @discussion PID value.
+ */
+#define		kDS1AttrPIDValue					"dsAttrTypeStandard:PIDValue"
+
+/*!
+ * @defined kDS1AttrProcessName
+ * @discussion Process Name.
+ */
+#define		kDS1AttrProcessName					"dsAttrTypeStandard:ProcessName"
+
+/*!
+ * @defined kDS1AttrTotalRefCount
+ * @discussion Total count of references for a process.
+ */
+#define		kDS1AttrTotalRefCount				"dsAttrTypeStandard:TotalRefCount"
+
+/*!
+ * @defined kDS1AttrDirRefCount
+ * @discussion Directory reference count for a process.
+ */
+#define		kDS1AttrDirRefCount					"dsAttrTypeStandard:DirRefCount"
+
+/*!
+ * @defined kDS1AttrNodeRefCount
+ * @discussion Node reference count for a process.
+ */
+#define		kDS1AttrNodeRefCount				"dsAttrTypeStandard:NodeRefCount"
+
+/*!
+ * @defined kDS1AttrRecRefCount
+ * @discussion Record reference count for a process.
+ */
+#define		kDS1AttrRecRefCount					"dsAttrTypeStandard:RecRefCount"
+
+/*!
+ * @defined kDS1AttrAttrListRefCount
+ * @discussion Attr List reference count for a process.
+ */
+#define		kDS1AttrAttrListRefCount			"dsAttrTypeStandard:AttrListRefCount"
+
+/*!
+ * @defined kDS1AttrAttrListValueRefCount
+ * @discussion Attr List Value reference count for a process.
+ */
+#define		kDS1AttrAttrListValueRefCount		"dsAttrTypeStandard:AttrListValueRefCount"
+
+/*!
+ * @defined kDSNAttrDirRefs
+ * @discussion All the directory references for a process.
+ */
+#define		kDSNAttrDirRefs						"dsAttrTypeStandard:DirRefs"
+
+/*!
+ * @defined kDSNAttrNodeRefs
+ * @discussion All the node references for a process.
+ */
+#define		kDSNAttrNodeRefs					"dsAttrTypeStandard:NodeRefs"
+
+/*!
+ * @defined kDSNAttrRecRefs
+ * @discussion All the record references for a process.
+ */
+#define		kDSNAttrRecRefs						"dsAttrTypeStandard:RecRefs"
+
+/*!
+ * @defined kDSNAttrAttrListRefs
+ * @discussion All the attr list references for a process.
+ */
+#define		kDSNAttrAttrListRefs				"dsAttrTypeStandard:AttrListRefs"
+
+/*!
+ * @defined kDSNAttrAttrListValueRefs
+ * @discussion All the attr list value references for a process.
+ */
+#define		kDSNAttrAttrListValueRefs			"dsAttrTypeStandard:AttrListValueRefs"
 
 #endif

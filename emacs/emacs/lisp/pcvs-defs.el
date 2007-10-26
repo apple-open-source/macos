@@ -1,10 +1,10 @@
 ;;; pcvs-defs.el --- variable definitions for PCL-CVS
 
-;; Copyright (C) 1991, 92, 93, 94, 95, 96, 97, 98, 99, 2000  Free Software Foundation, Inc.
+;; Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+;;   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Stefan Monnier <monnier@cs.yale.edu>
+;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: pcl-cvs
-;; Revision: $Id: pcvs-defs.el,v 1.1.1.1 2001/10/31 17:55:59 jevans Exp $
 
 ;; This file is part of GNU Emacs.
 
@@ -20,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -38,11 +38,14 @@
   "*Name or full path of the cvs executable.")
 
 (defvar cvs-version
+  ;; With the divergence of the CVSNT codebase and version numbers, this is
+  ;; not really good any more.
   (ignore-errors
     (with-temp-buffer
-      (call-process "cvs" nil t nil "-v")
+      (call-process cvs-program nil t nil "-v")
       (goto-char (point-min))
-      (when (re-search-forward "(CVS) \\([0-9]+\\)\\.\\([0-9]+\\)" nil t)
+      (when (re-search-forward "(CVS\\(NT\\)?) \\([0-9]+\\)\\.\\([0-9]+\\)"
+                               nil t)
 	(cons (string-to-number (match-string 1))
 	      (string-to-number (match-string 2))))))
   "*Version of `cvs' installed on your system.
@@ -95,7 +98,7 @@ repositories. It can be set interactively with \\[cvs-change-cvsroot.]
 There is no need to set this if $CVSROOT is set to a correct value.")
 
 (defcustom cvs-auto-remove-handled nil
-  "*If up-to-date files should be acknowledged automatically.
+  "If up-to-date files should be acknowledged automatically.
 If T, they will be removed from the *cvs* buffer after every command.
 If DELAYED, they will be removed from the *cvs* buffer before every command.
 If STATUS, they will only be removed after a `cvs-mode-status' command.
@@ -104,24 +107,24 @@ Else, they will never be automatically removed from the *cvs* buffer."
   :type '(choice (const nil) (const status) (const delayed) (const t)))
 
 (defcustom cvs-auto-remove-directories 'handled
-  "*If ALL, directory entries will never be shown.
-If HANLDED, only non-handled directories will be shown.
+  "If ALL, directory entries will never be shown.
+If HANDLED, only non-handled directories will be shown.
 If EMPTY, only non-empty directories will be shown."
   :group 'pcl-cvs
   :type '(choice (const :tag "No" nil) (const all) (const handled) (const empty)))
 
 (defcustom cvs-auto-revert t
-  "*Non-nil if changed files should automatically be reverted."
+  "Non-nil if changed files should automatically be reverted."
   :group 'pcl-cvs
   :type '(boolean))
 
 (defcustom cvs-sort-ignore-file t
-  "*Non-nil if `cvs-mode-ignore' should sort the .cvsignore automatically."
+  "Non-nil if `cvs-mode-ignore' should sort the .cvsignore automatically."
   :group 'pcl-cvs
   :type '(boolean))
 
 (defcustom cvs-force-dir-tag t
-  "*If non-nil, tagging can only be applied to directories.
+  "If non-nil, tagging can only be applied to directories.
 Tagging should generally be applied a directory at a time, but sometimes it is
 useful to be able to tag a single file.  The normal way to do that is to use
 `cvs-mode-force-command' so as to temporarily override the restrictions,"
@@ -129,7 +132,7 @@ useful to be able to tag a single file.  The normal way to do that is to use
   :type '(boolean))
 
 (defcustom cvs-default-ignore-marks nil
-  "*Non-nil if cvs mode commands should ignore any marked files.
+  "Non-nil if cvs mode commands should ignore any marked files.
 Normally they run on the files that are marked (with `cvs-mode-mark'),
 or the file under the cursor if no files are marked.  If this variable
 is set to a non-nil value they will by default run on the file on the
@@ -137,8 +140,9 @@ current line.  See also `cvs-invert-ignore-marks'"
   :group 'pcl-cvs
   :type '(boolean))
 
-(defvar cvs-diff-ignore-marks t
-  "Obsolete: use `cvs-invert-ignore-marks' instead.")
+(defvar cvs-diff-ignore-marks t)
+(make-obsolete-variable 'cvs-diff-ignore-marks
+                        'cvs-invert-ignore-marks)
 
 (defcustom cvs-invert-ignore-marks
   (let ((l ()))
@@ -147,7 +151,7 @@ current line.  See also `cvs-invert-ignore-marks'"
     (when (and cvs-force-dir-tag (not cvs-default-ignore-marks))
       (push "tag" l))
     l)
-  "*List of cvs commands that invert the default ignore-mark behavior.
+  "List of cvs commands that invert the default ignore-mark behavior.
 Commands in this set will use the opposite default from the one set
 in `cvs-default-ignore-marks'."
   :group 'pcl-cvs
@@ -156,7 +160,7 @@ in `cvs-default-ignore-marks'."
 	      (const "ignore")))
 
 (defcustom cvs-confirm-removals t
-  "*Ask for confirmation before removing files.
+  "Ask for confirmation before removing files.
 Non-nil means that PCL-CVS will ask confirmation before removing files
 except for files whose content can readily be recovered from the repository.
 A value of `list' means that the list of files to be deleted will be
@@ -167,14 +171,15 @@ displayed when asking for confirmation."
 		 (const nil)))
 
 (defcustom cvs-add-default-message nil
-  "*Default message to use when adding files.
-If set to NIL, `cvs-mode-add' will always prompt for a message."
+  "Default message to use when adding files.
+If set to nil, `cvs-mode-add' will always prompt for a message."
   :group 'pcl-cvs
   :type '(choice (const :tag "Prompt" nil)
 		 (string)))
 
-(defvar cvs-diff-buffer-name "*cvs-diff*"
-  "Obsolete variable: use `cvs-buffer-name-alist' instead.")
+(defvar cvs-diff-buffer-name "*cvs-diff*")
+(make-obsolete-variable 'cvs-diff-buffer-name
+                        'cvs-buffer-name-alist)
 
 (defcustom cvs-find-file-and-jump nil
   "Jump to the modified area when finding a file.
@@ -190,7 +195,7 @@ have no effect."
     ("tree" "*cvs-info*" cvs-status-mode)
     ("message" "*cvs-commit*" nil log-edit)
     ("log" "*cvs-info*" log-view-mode))
-  "*Buffer name and mode to be used for each command.
+  "Buffer name and mode to be used for each command.
 This is a list of elements of the form
 
 	(CMD BUFNAME MODE &optional POSTPROC)
@@ -234,7 +239,10 @@ The CMD used for `cvs-mode-commit' is \"message\".  For that special
 This expression will be evaluated in an environment where DIR is set to
 the directory name of the cvs buffer.")
 
-(defvar cvs-temp-buffer-name '(expand-file-name " *cvs-tmp*" dir)
+(defvar cvs-temp-buffer-name
+  ;; Was '(expand-file-name " *cvs-tmp*" dir), but that causes them to
+  ;; become non-hidden if uniquification is done `forward'.
+  " *cvs-tmp*"
   "*Name of the cvs temporary buffer.
 Output from cvs is placed here for asynchronous commands.")
 
@@ -242,13 +250,10 @@ Output from cvs is placed here for asynchronous commands.")
   (if (fboundp 'ediff)
       '(cvs-ediff-diff . cvs-ediff-merge)
     '(cvs-emerge-diff . cvs-emerge-merge))
-  "*Pair of functions to be used for resp.  diff'ing and merg'ing interactively."
+  "Pair of functions to be used for resp.  diff'ing and merg'ing interactively."
   :group 'pcl-cvs
   :type '(choice (const :tag "Ediff" (cvs-ediff-diff . cvs-ediff-merge))
 		 (const :tag "Emerge" (cvs-emerge-diff . cvs-emerge-merge))))
-
-(defvar pcl-cvs-load-hook nil
-  "Run after loading pcl-cvs.")
 
 (defvar cvs-mode-hook nil
   "Run after `cvs-mode' was setup.")
@@ -303,6 +308,8 @@ This variable is buffer local and only used in the *cvs* buffer.")
     ("d" "diff" .	cvs-mode-diff)
     ("b" "backup" .	cvs-mode-diff-backup)
     ("h" "head" .	cvs-mode-diff-head)
+    ("r" "repository" .	cvs-mode-diff-repository)
+    ("y" "yesterday" .	cvs-mode-diff-yesterday)
     ("v" "vendor" .	cvs-mode-diff-vendor))
   "Keymap for diff-related operations in `cvs-mode'."
   :name "Diff")
@@ -324,7 +331,8 @@ This variable is buffer local and only used in the *cvs* buffer.")
     ("q" .	cvs-bury-buffer)
     ("z" .	kill-this-buffer)
     ("F" .	cvs-mode-set-flags)
-    ("\M-f" .	cvs-mode-force-command)
+    ;; ("\M-f" .	cvs-mode-force-command)
+    ("!" .	cvs-mode-force-command)
     ("\C-c\C-c" . cvs-mode-kill-process)
     ;; marking
     ("m" .	cvs-mode-mark)
@@ -352,7 +360,7 @@ This variable is buffer local and only used in the *cvs* buffer.")
     ("=" .	cvs-mode-diff)
     ("d" .	cvs-mode-diff-map)
     ;; keys that operate on individual files
-    ("\C-k".	cvs-mode-acknowledge)
+    ("\C-k" .	cvs-mode-acknowledge)
     ("A" .	cvs-mode-add-change-log-entry-other-window)
     ;;("B" .	cvs-mode-byte-compile-files)
     ("C" .	cvs-mode-commit-setup)
@@ -365,19 +373,21 @@ This variable is buffer local and only used in the *cvs* buffer.")
     ("c" .	cvs-mode-commit)
     ("e" .	cvs-mode-examine)
     ("f" .	cvs-mode-find-file)
-    ([RET] .	cvs-mode-find-file)
+    ("\C-m" .	cvs-mode-find-file)
     ("i" .	cvs-mode-ignore)
     ("l" .	cvs-mode-log)
     ("o" .	cvs-mode-find-file-other-window)
     ("r" .	cvs-mode-remove)
     ("s" .	cvs-mode-status)
     ("t" .	cvs-mode-tag)
-    ;;("v" .	cvs-mode-diff-vendor)
+    ("v" .	cvs-mode-view-file)
     ("x" .	cvs-mode-remove-handled)
     ;; cvstree bindings
     ("+" .	cvs-mode-tree)
     ;; mouse bindings
     ([mouse-2] . cvs-mode-find-file)
+    ([follow-link] . (lambda (pos)
+		       (if (eq (get-char-property pos 'face) 'cvs-filename) t)))
     ([(down-mouse-3)] . cvs-menu)
     ;; dired-like bindings
     ("\C-o" .   cvs-mode-display-file)
@@ -410,15 +420,18 @@ This variable is buffer local and only used in the *cvs* buffer.")
     ["Update"			cvs-mode-update		(cvs-enabledp 'update)]
     ["Re-examine"		cvs-mode-examine	t]
     ["Commit"			cvs-mode-commit-setup	(cvs-enabledp 'commit)]
+    ["Tag"			cvs-mode-tag		(cvs-enabledp (when cvs-force-dir-tag 'tag))]
     ["Undo changes"		cvs-mode-undo		(cvs-enabledp 'undo)]
     ["Add"			cvs-mode-add		(cvs-enabledp 'add)]
     ["Remove"			cvs-mode-remove		(cvs-enabledp 'remove)]
     ["Ignore"			cvs-mode-ignore		(cvs-enabledp 'ignore)]
     ["Add ChangeLog"		cvs-mode-add-change-log-entry-other-window t]
     "----"
+    ["Mark"                     cvs-mode-mark t]
     ["Mark all"			cvs-mode-mark-all-files	t]
     ["Mark by regexp..."        cvs-mode-mark-matching-files t]
     ["Mark by state..."         cvs-mode-mark-on-state t]
+    ["Unmark"                   cvs-mode-unmark	t]
     ["Unmark all"		cvs-mode-unmark-all-files t]
     ["Hide handled"		cvs-mode-remove-handled	t]
     "----"
@@ -433,7 +446,9 @@ This variable is buffer local and only used in the *cvs* buffer.")
   :group 'pcl-cvs)
 
 (easy-mmode-defmap cvs-minor-mode-map
-  `((,cvs-minor-mode-prefix . cvs-mode-map))
+  `((,cvs-minor-mode-prefix . cvs-mode-map)
+    ("e" . (menu-item nil cvs-mode-edit-log
+	    :filter (lambda (x) (if (derived-mode-p 'log-view-mode) x)))))
   "Keymap for `cvs-minor-mode', used in buffers related to PCL-CVS.")
 
 (defvar cvs-buffer nil
@@ -475,14 +490,17 @@ It is expected to call the function.")
     (define-key m [examine]
       '(menu-item "Examine Directory" cvs-examine
 		  :help "Examine the current state of a workarea"))
-    m))
+    (fset 'cvs-global-menu m)))
 
 
 ;; cvs-1.10 and above can take file arguments in other directories
 ;; while others need to be executed once per directory
 (defvar cvs-execute-single-dir
-  (if (and (consp cvs-version)
-	    (or (>= (cdr cvs-version) 10) (> (car cvs-version) 1)))
+  (if (or (null cvs-version)
+          (or (>= (cdr cvs-version) 10) (> (car cvs-version) 1)))
+      ;; Supposedly some recent versions of CVS output some directory info
+      ;; as they recurse downthe tree, but it's not good enough in the case
+      ;; where we run "cvs status foo bar/foo".
       '("status")
     t)
   "Whether cvs commands should be executed a directory at a time.
@@ -495,11 +513,12 @@ whether to use the new feature or not.
 Sadly, even with a new cvs executable, if you connect to an older cvs server
 \(typically a cvs-1.9 on the server), the old restriction applies.  In such
 a case the sanity check made by pcl-cvs fails and you will have to manually
-set this variable to T (until the cvs server is upgraded).
+set this variable to t (until the cvs server is upgraded).
 When the above problem occurs, pcl-cvs should (hopefully) catch cvs' error
-message and replace it with a message tell you to change this variable.")
+message and replace it with a message telling you to change this variable.")
 
 ;;
 (provide 'pcvs-defs)
 
+;; arch-tag: c7c701d0-d1d4-4aa9-a302-007bb03aca5e
 ;;; pcvs-defs.el ends here

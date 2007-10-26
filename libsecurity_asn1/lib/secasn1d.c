@@ -2723,7 +2723,7 @@ dump_states(SEC_ASN1DecoderContext *cx)
 
 SECStatus
 SEC_ASN1DecoderUpdate (SEC_ASN1DecoderContext *cx,
-		       const char *buf, unsigned long len)
+		       const char *buf, size_t len)
 {
     sec_asn1d_state *state = NULL;
     unsigned long consumed;
@@ -3129,7 +3129,7 @@ SEC_ASN1DecoderAbort(SEC_ASN1DecoderContext *cx, int error)
 SECStatus
 SEC_ASN1Decode (PRArenaPool *poolp, void *dest,
 		const SecAsn1Template *theTemplate,
-		const char *buf, unsigned long len)
+		const char *buf, size_t len)
 {
     SEC_ASN1DecoderContext *dcx;
     SECStatus urv, frv;

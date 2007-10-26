@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Stig Sæther Bakken <ssb@fast.no>                             |
+   | Author: Stig Sæther Bakken <ssb@php.net>                             |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: syslog.c,v 1.40.4.2.2.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: syslog.c,v 1.49.2.3.2.2 2007/05/17 06:38:13 rasmus Exp $ */
 
 #include "php.h"
 
@@ -75,7 +75,7 @@ PHP_MINIT_FUNCTION(syslog)
 	/* AIX doesn't have LOG_AUTHPRIV */
 	REGISTER_LONG_CONSTANT("LOG_AUTHPRIV", LOG_AUTHPRIV, CONST_CS | CONST_PERSISTENT);
 #endif
-#if !defined(PHP_WIN32)
+#ifndef PHP_WIN32
 	REGISTER_LONG_CONSTANT("LOG_LOCAL0", LOG_LOCAL0, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("LOG_LOCAL1", LOG_LOCAL1, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("LOG_LOCAL2", LOG_LOCAL2, CONST_CS | CONST_PERSISTENT);
@@ -97,6 +97,7 @@ PHP_MINIT_FUNCTION(syslog)
 	/* AIX doesn't have LOG_PERROR */
 	REGISTER_LONG_CONSTANT("LOG_PERROR", LOG_PERROR, CONST_CS | CONST_PERSISTENT); /*log to stderr*/
 #endif
+	BG(syslog_device)=NULL;
 
 	return SUCCESS;
 }
@@ -109,19 +110,23 @@ PHP_RINIT_FUNCTION(syslog)
 	} else {
 		BG(syslog_started)=0;
 	}
-	BG(syslog_device)=NULL;
 	return SUCCESS;
 }
 
 
+#ifdef PHP_WIN32
 PHP_RSHUTDOWN_FUNCTION(syslog)
 {
-	if (BG(syslog_device)) {
-		efree(BG(syslog_device));
-	}
-#ifdef PHP_WIN32
 	closelog();
+	return SUCCESS;
+}
 #endif
+
+PHP_MSHUTDOWN_FUNCTION(syslog)
+{
+	if (BG(syslog_device)) {
+		free(BG(syslog_device));
+	}
 	return SUCCESS;
 }
 
@@ -144,7 +149,9 @@ static void start_syslog(TSRMLS_D)
 	SET_VAR_LONG("LOG_MAIL", LOG_MAIL); /* log to email */
 	SET_VAR_LONG("LOG_DAEMON", LOG_DAEMON); /* other system daemons */
 	SET_VAR_LONG("LOG_AUTH", LOG_AUTH);
+#ifndef NETWARE
 	SET_VAR_LONG("LOG_SYSLOG", LOG_SYSLOG);
+#endif
 	SET_VAR_LONG("LOG_LPR", LOG_LPR);
 #ifdef LOG_NEWS
 	/* No LOG_NEWS on HP-UX */
@@ -162,7 +169,7 @@ static void start_syslog(TSRMLS_D)
 	/* AIX doesn't have LOG_AUTHPRIV */
 	SET_VAR_LONG("LOG_AUTHPRIV", LOG_AUTHPRIV);
 #endif
-#if !defined(PHP_WIN32)
+#if !defined(PHP_WIN32) && !defined(NETWARE)
 	SET_VAR_LONG("LOG_LOCAL0", LOG_LOCAL0);
 	SET_VAR_LONG("LOG_LOCAL1", LOG_LOCAL1);
 	SET_VAR_LONG("LOG_LOCAL2", LOG_LOCAL2);
@@ -195,8 +202,7 @@ static void start_syslog(TSRMLS_D)
 PHP_FUNCTION(define_syslog_variables)
 {
 	if (ZEND_NUM_ARGS() != 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "expects no parameters, %d given", ZEND_NUM_ARGS());
-		return;
+		WRONG_PARAM_COUNT;
 	}
 
 	if (!BG(syslog_started)) {
@@ -223,9 +229,9 @@ PHP_FUNCTION(openlog)
 		return;
 	}
 	if (BG(syslog_device)) {
-		efree(BG(syslog_device));
+		free(BG(syslog_device));
 	}
-	BG(syslog_device) = estrndup(ident, ident_len);
+	BG(syslog_device) = zend_strndup(ident, ident_len);
 	openlog(BG(syslog_device), option, facility);
 	RETURN_TRUE;
 }
@@ -236,13 +242,12 @@ PHP_FUNCTION(openlog)
 PHP_FUNCTION(closelog)
 {
 	if (ZEND_NUM_ARGS() != 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "expects no parameters, %d given", ZEND_NUM_ARGS());
-		return;
+		WRONG_PARAM_COUNT;
 	}
 
 	closelog();
 	if (BG(syslog_device)) {
-		efree(BG(syslog_device));
+		free(BG(syslog_device));
 		BG(syslog_device)=NULL;
 	}
 	RETURN_TRUE;
@@ -262,12 +267,7 @@ PHP_FUNCTION(syslog)
 		return;
 	}
 
-	/*
-	 * CAVEAT: if the message contains patterns such as "%s",
-	 * this will cause problems.
-	 */
-
-	php_syslog(priority, "%.500s", message);
+	php_syslog(priority, "%s", message);
 	RETURN_TRUE;
 }
 /* }}} */

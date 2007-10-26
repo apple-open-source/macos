@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -33,7 +29,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: paste (AT&T Labs Research) 1999-06-22 $\n]"
+"[-?\n@(#)$Id: paste (AT&T Research) 1999-06-22 $\n]"
 USAGE_LICENSE
 "[+NAME?paste - merge lines of files]"
 "[+DESCRIPTION?\bpaste\b concatenates the corresponding lines of a "
@@ -74,7 +70,7 @@ USAGE_LICENSE
 ;
 
 
-#include <cmdlib.h>
+#include <cmd.h>
 
 /*
  * paste the lines of the <nstreams> defined in <streams> and put results
@@ -165,14 +161,13 @@ int
 b_paste(int argc,register char *argv[], void* context)
 {
 	register int		n, sflag=0;
-	register Sfio_t	*fp, **streams;
+	register Sfio_t		*fp, **streams;
 	register char 		*cp, *delim;
 	int			dlen;
+	char			defdelim[2];
 
-	static char		defdelim[] = "\t";
-
-	cmdinit(argv, context, ERROR_CATALOG, 0);
-	delim = defdelim;
+	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
+	delim = 0;
 	while (n = optget(argv, usage)) switch (n)
 	{
 	    case 'd':
@@ -191,7 +186,13 @@ b_paste(int argc,register char *argv[], void* context)
 	argv += opt_info.index;
 	if(error_info.errors)
 		error(ERROR_usage(2),"%s", optusage(NiL));
-	dlen = stresc(delim);
+	if(delim)
+		dlen = stresc(delim);
+	else
+	{
+		*(delim = defdelim) = '\t';
+		dlen = 1;
+	}
 	if(cp = *argv)
 	{
 		n = argc - opt_info.index;

@@ -1,4 +1,3 @@
-# Generated automatically from Makefile.in by configure.
 # Makefile.in generated automatically by automake 1.4 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
@@ -41,7 +40,8 @@ SHELL = /bin/sh
 
 srcdir = .
 top_srcdir = ../..
-prefix = /usr/local
+
+prefix = /usr
 exec_prefix = ${prefix}
 
 bindir = ${exec_prefix}/bin
@@ -65,15 +65,15 @@ pkgincludedir = $(includedir)/cyrus-sasl
 
 top_builddir = ../..
 
-ACLOCAL = /SASL/cyrus-sasl-2.1.1/cyrus-sasl-2.1.1/config/missing aclocal -I $(top_srcdir)/cmulocal -I $(top_srcdir)/config
-AUTOCONF = autoconf
-AUTOMAKE = /SASL/cyrus-sasl-2.1.1/cyrus-sasl-2.1.1/config/missing automake
-AUTOHEADER = autoheader
+ACLOCAL = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run aclocal-1.7 -I $(top_srcdir)/cmulocal -I $(top_srcdir)/config
+AUTOCONF = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run autoconf
+AUTOMAKE = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run automake-1.7
+AUTOHEADER = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run autoheader
 
 INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL} $(AM_INSTALL_PROGRAM_FLAGS)
 INSTALL_DATA = ${INSTALL} -m 644
-INSTALL_SCRIPT = ${INSTALL_PROGRAM}
+INSTALL_SCRIPT = ${INSTALL}
 transform = s,x,x,
 
 NORMAL_INSTALL = :
@@ -82,12 +82,12 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-host_alias = powerpc-apple-darwin6.0
-host_triplet = powerpc-apple-darwin6.0
+host_alias = 
+host_triplet = powerpc-apple-darwin9.0.0d4
 AS = @AS@
 AWK = awk
-CC = cc
-CPP = cc -E -traditional-cpp
+CC = gcc
+CPP = gcc -E
 DIRS = 
 DLLTOOL = @DLLTOOL@
 DMALLOC_LIBS = 
@@ -95,7 +95,7 @@ DYNSASLFLAGS = @DYNSASLFLAGS@
 GETADDRINFOOBJS = 
 GETNAMEINFOOBJS = 
 GETSUBOPT = 
-GSSAPIBASE_LIBS = 
+GSSAPIBASE_LIBS =  -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err -lresolv
 GSSAPI_LIBS = 
 JAVAC = true
 JAVADOC = true
@@ -107,7 +107,7 @@ LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LIB_CRYPT = 
 LIB_DES = -lcrypto
 LIB_DYN_SASL = @LIB_DYN_SASL@
-LIB_PAM = -lpam
+LIB_PAM = @LIB_PAM@
 LIB_SASL = @LIB_SASL@
 LIB_SOCKET = 
 LN_S = ln -s
@@ -115,10 +115,10 @@ LTGETADDRINFOOBJS =
 LTGETNAMEINFOOBJS = 
 LTLIBOBJS = 
 LTSNPRINTFOBJS = 
-MAKEINFO = /SASL/cyrus-sasl-2.1.1/cyrus-sasl-2.1.1/config/missing makeinfo
+MAKEINFO = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run makeinfo
 NM = /usr/bin/nm -p
 OBJDUMP = @OBJDUMP@
-OTP_LIBS = -lcrypto ../sasldb/libsasldb.la $(SASL_DB_LIB)
+OTP_LIBS = -lcrypto 
 PACKAGE = cyrus-sasl
 PLAIN_LIBS = 
 PURECOV = 
@@ -132,11 +132,11 @@ SASL_DB_INC =
 SASL_DB_LIB = 
 SASL_DB_MANS = saslpasswd2.8 sasldblistusers2.8
 SASL_DB_UTILS = saslpasswd2 sasldblistusers2
-SASL_DL_LIB = 
-SASL_KRB_LIB =  -lcrypto 
-SASL_MECHS =  libsasldb.la libcrammd5.la libdigestmd5.la libotp.la libkerberos4.la libplain.la libanonymous.la
+SASL_DL_LIB = -ldl
+SASL_KRB_LIB = 
+SASL_MECHS =  libsasldb.la libcrammd5.la libdigestmd5.la libotp.la libgssapiv2.la libplain.la libanonymous.la
 SASL_STATIC_LIBS = 
-SASL_STATIC_OBJS =  ../plugins/sasldb.o ../plugins/cram.o ../plugins/digestmd5.o ../plugins/otp.o ../plugins/kerberos4.o ../plugins/plain.o ../plugins/anonymous.o ../plugins/plugin_common.o
+SASL_STATIC_OBJS =  ../plugins/gssapi.o
 SASL_UTIL_HEADERS_EXTRA = 
 SASL_UTIL_LIBS_EXTRA = 
 SFIO_INC_FLAGS = 
@@ -144,7 +144,7 @@ SFIO_LIB_FLAGS =
 SMTPTEST_PROGRAM = 
 SNPRINTFOBJS = 
 SRP_LIBS = 
-VERSION = 2.1.1
+VERSION = 2.1.18
 plugindir = /usr/lib/sasl2
 
 EXTRA_DIST = ServerHandler.java Handler.java jimtest.java testserver.java 	     jimtest-compile.sh jimtest.sh

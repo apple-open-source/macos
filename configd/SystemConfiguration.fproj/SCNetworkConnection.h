@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -266,7 +266,7 @@ SCNetworkConnectionCreateWithServiceID		(
 
 
 /*!
-	@function SCNetworkConnectionCopyService
+	@function SCNetworkConnectionCopyServiceID
 	@discussion Returns the service ID associated with the SCNetworkConnection.
 	@param connection The SCNetworkConnection to obtain status from.
 	@result Returns the service ID associated with the SCNetworkConnection.
@@ -462,7 +462,7 @@ SCNetworkConnectionStop				(
 
 
 /*!
-	@function SCNetworkConnectionCopyCurrentOptions
+	@function SCNetworkConnectionCopyUserOptions
 	@discussion Copies the user options used to start the connection.
 		This is a mechanism a client can use to retrieve the user options
 		previously passed to the SCNetworkConnectionStart function.

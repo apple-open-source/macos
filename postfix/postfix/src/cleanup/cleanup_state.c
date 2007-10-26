@@ -6,7 +6,8 @@
 /* SYNOPSIS
 /*	#include "cleanup.h"
 /*
-/*	CLEANUP_STATE *cleanup_state_alloc(void)
+/*	CLEANUP_STATE *cleanup_state_alloc(src)
+/*	VSTREAM	*src;
 /*
 /*	void	cleanup_state_free(state)
 /*	CLEANUP_STATE *state;
@@ -44,6 +45,11 @@
 #include <been_here.h>
 #include <mail_params.h>
 #include <mime_state.h>
+#include <mail_proto.h>
+
+/* Milter library. */
+
+#include <milter.h>
 
 /* Application-specific. */
 
@@ -51,21 +57,23 @@
 
 /* cleanup_state_alloc - initialize global state */
 
-CLEANUP_STATE *cleanup_state_alloc(void)
+CLEANUP_STATE *cleanup_state_alloc(VSTREAM *src)
 {
     CLEANUP_STATE *state = (CLEANUP_STATE *) mymalloc(sizeof(*state));
 
+    state->attr_buf = vstring_alloc(10);
     state->temp1 = vstring_alloc(10);
     state->temp2 = vstring_alloc(10);
+    if (cleanup_strip_chars)
+	state->stripped_buf = vstring_alloc(10);
+    state->src = src;
     state->dst = 0;
     state->handle = 0;
     state->queue_name = 0;
     state->queue_id = 0;
-    state->time = 0;
+    state->arrival_time.tv_sec = state->arrival_time.tv_usec = 0;
     state->fullname = 0;
     state->sender = 0;
-    state->from = 0;
-    state->resent_from = 0;
     state->recip = 0;
     state->orig_rcpt = 0;
     state->return_receipt = 0;
@@ -80,14 +88,36 @@ CLEANUP_STATE *cleanup_state_alloc(void)
     state->dups = been_here_init(var_dup_filter_limit, BH_FLAG_FOLD);
     state->action = cleanup_envelope;
     state->data_offset = -1;
+    state->body_offset = -1;
     state->xtra_offset = -1;
+    state->cont_length = 0;
+    state->append_rcpt_pt_offset = -1;
+    state->append_rcpt_pt_target = -1;
+    state->append_hdr_pt_offset = -1;
+    state->append_hdr_pt_target = -1;
     state->rcpt_count = 0;
     state->reason = 0;
     state->attr = nvtable_create(10);
+    nvtable_update(state->attr, MAIL_ATTR_LOG_ORIGIN, MAIL_ATTR_ORG_LOCAL);
     state->mime_state = 0;
     state->mime_errs = 0;
+    state->hdr_rewrite_context = MAIL_ATTR_RWR_LOCAL;
     state->filter = 0;
     state->redirect = 0;
+    state->dsn_envid = 0;
+    state->dsn_ret = 0;
+    state->dsn_notify = 0;
+    state->dsn_orcpt = 0;
+    state->verp_delims = 0;
+    state->milters = 0;
+    state->client_name = 0;
+    state->reverse_name = 0;
+    state->client_addr = 0;
+    state->client_af = 0;
+    state->client_port = 0;
+    state->milter_ext_from = 0;
+    state->milter_ext_rcpt = 0;
+    state->free_regions = state->body_regions = state->curr_body_region = 0;
     return (state);
 }
 
@@ -95,16 +125,15 @@ CLEANUP_STATE *cleanup_state_alloc(void)
 
 void    cleanup_state_free(CLEANUP_STATE *state)
 {
+    vstring_free(state->attr_buf);
     vstring_free(state->temp1);
     vstring_free(state->temp2);
+    if (cleanup_strip_chars)
+	vstring_free(state->stripped_buf);
     if (state->fullname)
 	myfree(state->fullname);
     if (state->sender)
 	myfree(state->sender);
-    if (state->from)
-	myfree(state->from);
-    if (state->resent_from)
-	myfree(state->resent_from);
     if (state->recip)
 	myfree(state->recip);
     if (state->orig_rcpt)
@@ -127,5 +156,18 @@ void    cleanup_state_free(CLEANUP_STATE *state)
 	myfree(state->filter);
     if (state->redirect)
 	myfree(state->redirect);
+    if (state->dsn_envid)
+	myfree(state->dsn_envid);
+    if (state->dsn_orcpt)
+	myfree(state->dsn_orcpt);
+    if (state->verp_delims)
+	myfree(state->verp_delims);
+    if (state->milters)
+	milter_free(state->milters);
+    if (state->milter_ext_from)
+	vstring_free(state->milter_ext_from);
+    if (state->milter_ext_rcpt)
+	vstring_free(state->milter_ext_rcpt);
+    cleanup_region_done(state);
     myfree((char *) state);
 }

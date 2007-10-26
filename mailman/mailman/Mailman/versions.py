@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 
 """Routines which rectify an old mailing list with current structure.
@@ -29,7 +30,6 @@ changes.  Note that the routines have only one pass - when .CheckVersions()
 finds a version change it runs this routine and then updates the data_version
 number of the list, and then does a .Save(), so the transformations won't be
 run again until another version change is detected.
-
 """
 
 
@@ -394,6 +394,18 @@ def NewVars(l):
     add_only_if_missing('encode_ascii_prefixes', encode)
     add_only_if_missing('news_moderation', 0)
     add_only_if_missing('header_filter_rules', [])
+    # Scrubber in regular delivery
+    add_only_if_missing('scrub_nondigest', 0)
+    # ContentFilter by file extensions
+    add_only_if_missing('filter_filename_extensions',
+                        mm_cfg.DEFAULT_FILTER_FILENAME_EXTENSIONS)
+    add_only_if_missing('pass_filename_extensions', [])
+    # automatic discard
+    add_only_if_missing('max_days_to_hold', 0)
+    add_only_if_missing('nonmember_rejection_notice', '')
+    # multipart/alternative collapse
+    add_only_if_missing('collapse_alternatives',
+                        mm_cfg.DEFAULT_COLLAPSE_ALTERNATIVES)
 
 
 

@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -41,18 +37,16 @@
 #include <ast.h>
 #include <ast_ccode.h>
 
-/* _cc_map[] for backwards compatibility -- drop 20050101 */
-
-#if _BLD_ast && defined(__EXPORT__)
-#define extern		extern __EXPORT__
-#endif
-#if !_BLD_ast && defined(__IMPORT__)
-#define extern		extern __IMPORT__
-#endif
-
-extern const unsigned char*	_cc_map[];
-
-#undef	extern
+typedef struct Ccmap_s
+{
+	const char*	name;	/* code set name		*/
+	const char*	match;	/* strmatch() pattern		*/
+	const char*	desc;	/* code set description		*/
+	const char*	canon;	/* canonical name format	*/
+	const char*	index;	/* default index		*/
+	int		ccode;	/* <ccode.h> code index		*/
+	void*		data;	/* map specific data		*/
+} Ccmap_t;
 
 #if _BLD_ast && defined(__EXPORT__)
 #define extern		__EXPORT__
@@ -65,6 +59,7 @@ extern void*		_ccmapstr(unsigned char*, void*, size_t);
 extern int		ccmapid(const char*);
 extern char*		ccmapname(int);
 extern void*		ccnative(void*, const void*, size_t);
+extern Ccmap_t*		ccmaplist(Ccmap_t*);
 
 #undef	extern
 
@@ -75,7 +70,7 @@ extern void*		ccnative(void*, const void*, size_t);
 
 #define CCCVT(x)		CCMAP(x,0)
 #define CCMAP(i,o)		((i)==(o)?(unsigned char*)0:_ccmap(i,o))
-#define CCMAPCHR(m,c)		((m)?m[c]:(c))
+#define CCMAPCHR(m,c)		((m)?(m)[c]:(c))
 #define CCMAPCPY(m,t,f,n)	((m)?_ccmapcpy(m,t,f,n):memcpy(t,f,n))
 #define CCMAPSTR(m,s,n)		((m)?_ccmapstr(m,s,n):(void*)(s))
 

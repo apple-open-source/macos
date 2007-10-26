@@ -53,10 +53,20 @@
  * SUCH DAMAGE.
  */
 
+#if __DARWIN_UNIX03
+#ifdef VARIANT_CANCELABLE
+#include <pthread.h>
+
+extern void _pthread_testcancel(pthread_t thread, int isconforming);
+#endif /* VARIANT_CANCELABLE */
+extern int __unix_conforming;
+#endif /* __DARWIN_UNIX03 */
 
 #include <sys/param.h>
 #include <signal.h>
 #include <errno.h>
+
+#ifndef BUILDING_VARIANT
 #if defined(__DYNAMIC__)
 extern int _sigaction_nobind (int sig, const struct sigaction *nsv, struct sigaction *osv);
 #endif
@@ -126,14 +136,41 @@ sigblock(mask)
 		return (n);
 	return (omask);
 }
+#endif /* !BUILDING_VARIANT */
 
+#if __DARWIN_UNIX03
+int
+sigpause(sig)
+	int sig;
+{
+	sigset_t mask;
+
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+#ifdef VARIANT_CANCELABLE
+	_pthread_testcancel(pthread_self(), 1);
+#endif /* VARIANT_CANCELABLE */
+
+	if ((sig <= 0) || (sig >= NSIG)) {
+		errno = EINVAL;
+		return(-1);
+	}
+	if (sigprocmask(SIG_BLOCK, (sigset_t *) 0, (sigset_t *) &mask) < 0) {
+		return(-1);
+	}
+	sigdelset(&mask, sig);
+	return (sigsuspend(&mask));
+}
+#else
 int
 sigpause(mask)
 	int mask;
 {
 	return (sigsuspend((sigset_t *)&mask));
 }
+#endif /* __DARWIN_UNIX03 */
 
+#ifndef BUILDING_VARIANT
 int
 sighold(sig)
 	int sig;
@@ -203,3 +240,4 @@ void (*sigset(int sig, void (*disp)(int)))(int) {
 			return (rv);
 	}
 }
+#endif /* !BUILDING_VARIANT */

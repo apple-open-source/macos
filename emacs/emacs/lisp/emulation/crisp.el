@@ -1,6 +1,7 @@
 ;;; crisp.el --- CRiSP/Brief Emacs emulator
 
-;; Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Gary D. Foster <Gary.Foster@Corp.Sun.COM>
 ;; Keywords: emulations brief crisp
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -338,7 +339,7 @@ consecutive use moves point to the end of the buffer."
   "Go back one buffer."
   (interactive)
   (switch-to-buffer (car (last (buffer-list)))))
- 
+
 (defun crisp-meta-x-wrapper ()
   "Wrapper function to conditionally override the normal M-x bindings.
 When `crisp-override-meta-x' is non-nil, M-x will exit Emacs (the
@@ -385,7 +386,12 @@ With ARG, turn CRiSP mode on if ARG is positive, off otherwise."
       (setq minor-mode-map-alist (cons (cons 'crisp-mode crisp-mode-map)
 				       minor-mode-map-alist))))
 
+;; Interaction with other packages.
+(put 'crisp-home 'CUA 'move)
+(put 'crisp-end  'CUA 'move)
+
 (run-hooks 'crisp-load-hook)
 (provide 'crisp)
 
+;;; arch-tag: e5369375-fafb-4240-b7ae-4cb460ef05ee
 ;;; crisp.el ends here

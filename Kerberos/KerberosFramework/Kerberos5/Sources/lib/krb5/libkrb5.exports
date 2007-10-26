@@ -239,7 +239,6 @@ et_kdb5_error_table
 et_krb5_error_table
 et_kv5m_error_table
 et_prof_error_table
-gmt_mktime
 initialize_asn1_error_table
 initialize_k524_error_table
 initialize_kdb5_error_table
@@ -291,6 +290,9 @@ krb5_auth_to_rep
 krb5_build_principal
 krb5_build_principal_ext
 krb5_build_principal_va
+krb5_cccol_cursor_free
+krb5_cccol_cursor_new
+krb5_cccol_cursor_next
 krb5_cc_close
 krb5_cc_copy_creds
 krb5_cc_default
@@ -304,6 +306,7 @@ krb5_cc_get_name
 krb5_cc_get_principal
 krb5_cc_get_type
 krb5_cc_initialize
+krb5_cc_new_unique
 krb5_cc_next_cred
 krb5_cc_register
 krb5_cc_remove_cred
@@ -324,6 +327,7 @@ krb5_copy_addresses
 krb5_copy_authdata
 krb5_copy_authenticator
 krb5_copy_checksum
+krb5_copy_context
 krb5_copy_creds
 krb5_copy_data
 krb5_copy_keyblock
@@ -432,10 +436,16 @@ krb5_get_in_tkt_with_password
 krb5_get_in_tkt_with_skey
 krb5_get_init_creds
 krb5_get_init_creds_keytab
+krb5_get_init_creds_opt_alloc
+krb5_get_init_creds_opt_free
+krb5_get_init_creds_opt_free_pa
+krb5_get_init_creds_opt_get_pa
 krb5_get_init_creds_opt_init
 krb5_get_init_creds_opt_set_address_list
+krb5_get_init_creds_opt_set_change_password_prompt
 krb5_get_init_creds_opt_set_etype_list
 krb5_get_init_creds_opt_set_forwardable
+krb5_get_init_creds_opt_set_pa
 krb5_get_init_creds_opt_set_preauth_list
 krb5_get_init_creds_opt_set_proxiable
 krb5_get_init_creds_opt_set_renew_life
@@ -458,6 +468,7 @@ krb5_init_keyblock
 krb5_init_secure_context
 krb5_internalize_opaque
 krb5_is_permitted_enctype
+krb5_is_referral_realm
 krb5_is_thread_safe
 krb5_kdc_rep_decrypt_proc
 krb5_kt_add_entry
@@ -608,6 +619,7 @@ krb5_ser_rcache_init
 krb5_ser_unpack_bytes
 krb5_ser_unpack_int32
 krb5_ser_unpack_int64
+krb5_server_decrypt_ticket_keytab
 krb5_set_config_files
 krb5_set_debugging_time
 krb5_set_default_in_tkt_ktypes
@@ -726,3 +738,9 @@ profile_update_file_data
 profile_update_relation
 profile_verify_node
 profile_write_tree_file
+krb5_set_error_message
+krb5_vset_error_message
+krb5_get_error_message
+krb5_free_error_message
+krb5_clear_error_message
+krb5int_init_context_kdc

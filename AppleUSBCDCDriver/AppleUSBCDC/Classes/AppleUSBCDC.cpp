@@ -57,83 +57,9 @@
 
     // Globals
 
-#if USE_ELG
-    com_apple_iokit_XTrace	*gXTrace = 0;
-    UInt32			gTraceID;
-#endif
-
 #define super IOService
 
 OSDefineMetaClassAndStructors(AppleUSBCDC, IOService);
-
-#if USE_ELG
-#define DEBUG_NAME "AppleUSBCDC"
-
-/****************************************************************************************************/
-//
-//		Function:	findKernelLoggerCDC
-//
-//		Inputs:		
-//
-//		Outputs:	
-//
-//		Desc:		Just like the name says
-//
-/****************************************************************************************************/
-
-IOReturn findKernelLoggerCDC()
-{
-    OSIterator		*iterator = NULL;
-    OSDictionary	*matchingDictionary = NULL;
-    IOReturn		error = 0;
-	
-	// Get matching dictionary
-	
-    matchingDictionary = IOService::serviceMatching("com_apple_iokit_XTrace");
-    if (!matchingDictionary)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerCDC] Couldn't create a matching dictionary.\n");
-        goto exit;
-    }
-	
-	// Get an iterator
-	
-    iterator = IOService::getMatchingServices(matchingDictionary);
-    if (!iterator)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerCDC] No XTrace logger found.\n");
-        goto exit;
-    }
-	
-	// User iterator to find each com_apple_iokit_XTrace instance. There should be only one, so we
-	// won't iterate
-	
-    gXTrace = (com_apple_iokit_XTrace*)iterator->getNextObject();
-    if (gXTrace)
-    {
-        IOLog(DEBUG_NAME "[findKernelLoggerCDC] Found XTrace logger at %p.\n", gXTrace);
-    }
-	
-exit:
-	
-    if (error != kIOReturnSuccess)
-    {
-        gXTrace = NULL;
-        IOLog(DEBUG_NAME "[findKernelLoggerCDC] Could not find a logger instance. Error = %X.\n", error);
-    }
-	
-    if (matchingDictionary)
-        matchingDictionary->release();
-            
-    if (iterator)
-        iterator->release();
-		
-    return error;
-    
-}/* end findKernelLoggerCDC */
-#endif
 
 /****************************************************************************************************/
 //
@@ -184,21 +110,6 @@ bool AppleUSBCDC::start(IOService *provider)
 
     fTerminate = false;
     fStopping = false;
-    
-#if USE_ELG
-    XTraceLogInfo	*logInfo;
-    
-    findKernelLoggerCDC();
-    if (gXTrace)
-    {
-        gXTrace->retain();		// don't let it unload ...
-        XTRACE(this, 0, 0xbeefbeef, "Hello from start");
-        logInfo = gXTrace->LogGetInfo();
-        IOLog("AppleUSBCDC: start - Log is at %x\n", (unsigned int)logInfo);
-    } else {
-        return false;
-    }
-#endif
 
     XTRACE(this, 0, provider, "start - provider.");
     if(!super::start(provider))
@@ -321,7 +232,8 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
     UInt8				cval;
 //    UInt8				config = 0;
 	UInt16				dataClass;
-    bool				configOK = false;
+	bool				configOK = true;				// Assume it's good
+	bool				cdc = false;					// We really only want these
        
     XTRACE(this, 0, numConfigs, "initDevice");
 	
@@ -340,6 +252,7 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
      	if (!cd)
     	{
             XTRACE(this, 0, 0, "initDevice - Error getting the full configuration descriptor");
+			configOK = false;
             break;
         } else {
             intf = NULL;
@@ -355,7 +268,8 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
                 {
                     if (intf)
                     {
-                        XTRACE(this, intf, 0, "initDevice - Interface descriptor found");
+                        XTRACE(this, intf, intf->bInterfaceNumber, "initDevice - Interface descriptor found");
+						configOK = true;			// No errors is all this means
                         
                             // Let's make sure it's something we can really work with (Data or Comm)
 						
@@ -366,25 +280,17 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 						} else {
 							if (intf->bInterfaceClass == kUSBCommClass)
 							{
-								switch (intf->bInterfaceSubClass)
+								cdc = true;
+								if (intf->bInterfaceSubClass == kUSBAbstractControlModel)
 								{
-									case kUSBAbstractControlModel:
-										if (intf->bInterfaceProtocol == kUSBv25)
-										{
-											configOK = true;
-										}
-										break;
-									case kUSBEthernetControlModel:
-										configOK = true;
-										break;
-									case kUSBWirelessHandsetControlModel:
-										configOK = true;
-										break;
-									case kUSBDeviceManagementModel:
-										configOK = true;
-										break;
-									default:
-										break;
+										// Hard coded for now - We ignore the ACM configuration on this 
+										// Broadcom device in favor of the ECM configuration
+									
+									if ((fpDevice->GetVendorID() == 0xA5C) && (fpDevice->GetProductID() == 0x6300))
+									{
+										XTRACE(this, 0, 0, "initDevice - Ignoring the ACM configuration...");
+										cdc = false;
+									}
 								}
 							}
 						}
@@ -393,13 +299,9 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
                     XTRACE(this, ior, cval, "initDevice - FindNextInterfaceDescriptor returned error");
                     break;
                 }
-//                if (configOK)
-//				{
-//					break;
-//				}
             } while (intf);
             
-            if (configOK)
+            if ((configOK) && (cdc))
             {
                 break;
             }
@@ -408,23 +310,29 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
     
     if (configOK)
     {
-		if (dataClass > 1)				// Can only be one in order to save the number
+		XTRACE(this, 0, cd->bConfigurationValue, "initDevice - Configuration is valid");
+		if (cdc)
 		{
-			fDataInterfaceNumber = 0xFF;
+			if (dataClass > 1)				// Can only be one in order to save the number
+			{
+				fDataInterfaceNumber = 0xFF;
+			}
 		}
-        fConfig = cd->bConfigurationValue;
-        fbmAttributes = cd->bmAttributes;
-                                    
-        registerService();			// Better register before we kick off the interface drivers
+		fConfig = cd->bConfigurationValue;
+		fbmAttributes = cd->bmAttributes;
+									
+		registerService();			// Better register before we kick off the interface drivers
 		IOSleep(500);				// Let it happen...
-        
-        ior = fpDevice->SetConfiguration(this, fConfig);
-        if (ior != kIOReturnSuccess)
-        {
-            XTRACE(this, 0, ior, "initDevice - SetConfiguration error");
-            configOK = false;			
-        }
-    }
+		
+		ior = fpDevice->SetConfiguration(this, fConfig);
+		if (ior != kIOReturnSuccess)
+		{
+			XTRACE(this, 0, ior, "initDevice - SetConfiguration error");
+			configOK = false;			
+		}
+	} else {
+		XTRACE(this, 0, configOK, "initDevice - No valid configuration");
+	}
     
     return configOK;
 
@@ -622,7 +530,7 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
                         for (i = 0; i < 6; i++)
                         {
                             fCacheEaddr[i] = (Asciihex_to_binary(ascii_mac[i*2]) << 4) | Asciihex_to_binary(ascii_mac[i*2+1]);
-//                            IOLog("AppleUSBCDC: checkECM - Ethernet address[%d] = %8x\n",(unsigned int)(i),(unsigned int)(fCacheEaddr[i]));
+//                            Log("AppleUSBCDC: checkECM - Ethernet address[%d] = %8x\n",(unsigned int)(i),(unsigned int)(fCacheEaddr[i]));
                         }
                         XTRACE(this, 0, addrString, "checkECM - Ethernet address (cached)");
                     } else {
@@ -799,7 +707,7 @@ bool AppleUSBCDC::confirmControl(UInt8 subClass, IOUSBInterface *CInterface)
     UInt8			intSubClass;
     bool			driverOK = false;
 
-    XTRACE(this, 0, CInterface, "confirmControl");
+    XTRACE(this, subClass, CInterface, "confirmControl");
     
         // We need to look for CDC interfaces of the specified subclass
     
@@ -821,7 +729,7 @@ bool AppleUSBCDC::confirmControl(UInt8 subClass, IOUSBInterface *CInterface)
         intSubClass = Comm->GetInterfaceSubClass();
         if (intSubClass == subClass)					// Just to make sure...
         {
-			XTRACE(this, Comm, CInterface, "confirmControl - Checkink interfaces");
+			XTRACE(this, Comm, CInterface, "confirmControl - Checking interfaces");
             if (Comm == CInterface)
 			{
 				driverOK = true;

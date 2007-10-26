@@ -1,6 +1,5 @@
 --TEST--
-Segfault on printf statement bug #20108
---SKIPIF--
+Bug #20108 (Segfault on printf statement)
 --FILE--
 <?php
 	$a = "boo";

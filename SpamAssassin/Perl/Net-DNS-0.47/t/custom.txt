@@ -1,4 +1,0 @@
-# $Id: custom.txt,v 1.1 2004/04/09 17:04:49 dasenbro Exp $
-domain t2.net-dns.org
-search alt.net-dns.org ext.net-dns.org
-nameserver 10.0.1.42 10.0.2.42

@@ -212,7 +212,7 @@ _PROTOTYPE(static X2DEV_T x2dev,(char *x, char **em));
 
 
 /*
- * Default major, minor, and unit macroes.
+ * Default major, minor, and unit macros.
  */
 
 #if	!defined(major_S)
@@ -355,7 +355,7 @@ ConvLsofDev(dev, ldev)
     if (((tlen = (int)strlen(dp)) < 1) || (tlen > XDINDEV))
 	return("ERROR!!!  bad ConvLsofDev() device length");
 /*
- * Use the pre-defined *_X() macroes to do the decomposition.
+ * Use the pre-defined *_X() macros to do the decomposition.
  */
     ldev->maj = (unsigned int)major_X(dp, &em);
     if (em)
@@ -388,7 +388,7 @@ ConvStatDev(dev, ldev)
     if (!ldev)
 	return("ERROR!!!  no ConvStatDev() result pointer");
 /*
- * Use the pre-defined *_S() macroes to do the decomposition.
+ * Use the pre-defined *_S() macros to do the decomposition.
  */
     ldev->maj = (unsigned int)major_S(*dev);    
     ldev->min = (unsigned int)minor_S(*dev);

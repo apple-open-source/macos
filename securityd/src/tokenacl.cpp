@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -110,8 +110,7 @@ void TokenAcl::changeAcl(const AclEdit &edit, const AccessCredentials *cred, Dat
 	if (TokenDatabase *tokenDb = dynamic_cast<TokenDatabase *>(db))
 		if (edit.mode() == CSSM_ACL_EDIT_MODE_REPLACE)
 			if (const AclEntryInput *input = edit.newEntry()) {
-				unsigned int pin;
-				if (sscanf(input->proto().s_tag().c_str(), "PIN%d", &pin) == 1) {
+				if (unsigned pin = pinFromAclTag(input->proto().tag())) {
 					// assume this is a PIN change request
 					pinChange(pin, edit.handle(), *tokenDb);
 					invalidateAcl();
@@ -160,7 +159,7 @@ SecurityAgent::Reason QueryNewPin::accept(CssmManagedData &passphrase, CssmData 
 			new(alloc) ListElement(passphrase)
 			));
 		proto.authorization() = AuthorizationGroup(CSSM_ACL_AUTHORIZATION_PREAUTH(pin), alloc);
-		char pintag[10]; sprintf(pintag, "PIN%d", pin);
+		char pintag[20]; sprintf(pintag, "PIN%d", pin);
 		proto.tag(pintag);
 		AclEntryInput input(proto);
 		AclEdit edit(CSSM_ACL_EDIT_MODE_REPLACE, handle, &input);

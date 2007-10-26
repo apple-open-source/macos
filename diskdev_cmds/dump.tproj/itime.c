@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,6 +72,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #ifdef __STDC__
 #include <stdlib.h>
 #include <string.h>
@@ -79,6 +81,9 @@
 #endif
 
 #include "dump.h"
+
+#define DUMPDATES_UID 0    /* root user */
+#define DUMPDATES_GID 5    /* operator group */
 
 struct	dumpdates **ddatev = 0;
 int	nddates = 0;
@@ -111,6 +116,11 @@ initdumptimes()
 			/* NOTREACHED */
 		}
 		(void) fclose(df);
+		if (chown(dumpdates, DUMPDATES_UID, DUMPDATES_GID) != 0)
+			quit("cannot set owner on %s\n", dumpdates);
+		if (chmod(dumpdates,
+		    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) != 0)
+			quit("cannot set mode 0664 on %s\n", dumpdates);
 		if ((df = fopen(dumpdates, "r")) == NULL) {
 			quit("cannot read %s even after creating it: %s\n",
 			    dumpdates, strerror(errno));

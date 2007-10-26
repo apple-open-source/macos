@@ -1,21 +1,25 @@
 /*
  *  info.c
  *
- *  $Id: info.c,v 1.3 2004/11/11 01:52:37 luesang Exp $
+ *  $Id: info.c,v 1.36 2007/01/05 12:22:39 source Exp $
  *
  *  Information functions
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -71,12 +75,13 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
 
 #include <sql.h>
 #include <sqlext.h>
 #include <sqlucode.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
 
 #include <unicode.h>
 
@@ -316,6 +321,7 @@ SQLDataSources (
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLDataSourcesA (
   SQLHENV		  henv,
@@ -396,7 +402,7 @@ SQLDataSourcesW (
 	_Desc, cbDescMax * UTF8_MAX_CHAR_LEN, pcbDesc, 
 	'W');
 
-  if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+  if (SQL_SUCCEEDED (retcode))
     {
       dm_StrCopyOut2_U8toW (_DSN, szDSN, cbDSNMax, pcbDSN);
       dm_StrCopyOut2_U8toW (_Desc, szDesc, cbDescMax, pcbDesc);
@@ -412,6 +418,7 @@ SQLDataSourcesW (
 	szDSN, cbDSNMax, pcbDSN,
 	szDesc, cbDescMax, pcbDesc));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -603,6 +610,7 @@ SQLDrivers (
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLDriversA (
   SQLHENV		  henv,
@@ -639,7 +647,7 @@ SQLDriversA (
 
 SQLRETURN SQL_API
 SQLDriversW (SQLHENV henv,
-    SQLUSMALLINT fDir,
+    SQLUSMALLINT 	  fDir,
     SQLWCHAR		* szDrvDesc,
     SQLSMALLINT		  cbDrvDescMax,
     SQLSMALLINT		* pcbDrvDesc,
@@ -682,7 +690,7 @@ SQLDriversW (SQLHENV henv,
 	_Attrs, cbDrvAttrMax * UTF8_MAX_CHAR_LEN, pcbDrvAttr, 
 	'W');
 
-  if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+  if (SQL_SUCCEEDED (retcode))
     {
       dm_StrCopyOut2_U8toW (_Driver, szDrvDesc, cbDrvDescMax, pcbDrvDesc);
       dm_StrCopyOut2_U8toW (_Attrs, szDrvAttr, cbDrvAttrMax, pcbDrvAttr);
@@ -698,6 +706,7 @@ SQLDriversW (SQLHENV henv,
 	szDrvDesc, cbDrvDescMax, pcbDrvDesc, 
 	szDrvAttr, cbDrvAttrMax, pcbDrvAttr));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -996,7 +1005,7 @@ SQLGetInfo_Internal (
         {
           ret = dm_StrCopyOut2_A2W ((SQLCHAR *) "01.00",  
 		(SQLWCHAR *) rgbInfoValue, 
-            cbInfoValueMax / sizeof(wchar_t), pcbInfoValue);
+    		cbInfoValueMax / sizeof(wchar_t), pcbInfoValue);
           if (pcbInfoValue)
             *pcbInfoValue = *pcbInfoValue * sizeof(wchar_t);
         }
@@ -1013,8 +1022,8 @@ SQLGetInfo_Internal (
 
     }
   else if (rgbInfoValue 
-          && (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
-          &&  ((penv->unicode_driver && waMode != 'W') 
+          && SQL_SUCCEEDED (retcode)
+          && ((penv->unicode_driver && waMode != 'W') 
               || (!penv->unicode_driver && waMode == 'W')))
     {
       switch(fInfoType)
@@ -1115,6 +1124,7 @@ SQLGetInfo (SQLHDBC hdbc,
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLGetInfoA (SQLHDBC hdbc,
   SQLUSMALLINT		  fInfoType,
@@ -1168,6 +1178,7 @@ SQLGetInfoW (
 	fInfoType, 
 	rgbInfoValue, cbInfoValueMax, pcbInfoValue));
 }
+#endif
 
 
 static int FunctionNumbers[] =
@@ -1297,8 +1308,7 @@ SQLGetFunctions_Internal (
 
   if (hproc != SQL_NULL_HPROC)
     {
-      CALL_DRIVER (hdbc, pdbc, retcode, hproc, en_GetFunctions,
-	  (pdbc->dhdbc, fFunc, pfExists));
+      CALL_DRIVER (hdbc, pdbc, retcode, hproc, (pdbc->dhdbc, fFunc, pfExists));
 
       return retcode;
     }

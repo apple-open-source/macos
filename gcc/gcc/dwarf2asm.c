@@ -69,13 +69,20 @@ dw2_asm_output_data (int size, unsigned HOST_WIDE_INT value,
 		     const char *comment, ...)
 {
   va_list ap;
+  /* APPLE LOCAL mainline 4.2 2006-04-26 4498201 */
+  const char *op = integer_asm_op (size, FALSE);
 
   va_start (ap, comment);
 
   if (size * 8 < HOST_BITS_PER_WIDE_INT)
     value &= ~(~(unsigned HOST_WIDE_INT) 0 << (size * 8));
 
-  dw2_assemble_integer (size, GEN_INT (value));
+  /* APPLE LOCAL begin mainline 4.2 2006-04-26 4498201 */
+  if (op)
+    fprintf (asm_out_file, "%s" HOST_WIDE_INT_PRINT_HEX, op, value);
+  else
+    assemble_integer (GEN_INT (value), size, BITS_PER_UNIT, 1);
+  /* APPLE LOCAL end mainline 4.2 2006-04-26 4498201 */
 
   if (flag_debug_asm && comment)
     {
@@ -119,22 +126,26 @@ dw2_asm_output_delta (int size, const char *lab1, const char *lab2,
   va_end (ap);
 }
 
-/* Output a section-relative reference to a label.  In general this
-   can only be done for debugging symbols.  E.g. on most targets with
-   the GNU linker, this is accomplished with a direct reference and
-   the knowledge that the debugging section will be placed at VMA 0.
-   Some targets have special relocations for this that we must use.  */
+/* APPLE LOCAL begin mainline 2006-03-16 dwarf 4383509 */
+/* Output a section-relative reference to a LABEL, which was placed in
+   the section named BASE.  In general this can only be done for
+   debugging symbols.  E.g. on most targets with the GNU linker, this
+   is accomplished with a direct reference and the knowledge that the
+   debugging section will be placed at VMA 0.  Some targets have
+   special relocations for this that we must use.  */
 
 void
-dw2_asm_output_offset (int size, const char *label,
+dw2_asm_output_offset (int size, const char *label, const char * base,
 		       const char *comment, ...)
+/* APPLE LOCAL end mainline 2006-03-16 dwarf 4383509 */
 {
   va_list ap;
 
   va_start (ap, comment);
 
 #ifdef ASM_OUTPUT_DWARF_OFFSET
-  ASM_OUTPUT_DWARF_OFFSET (asm_out_file, size, label);
+/* APPLE LOCAL mainline 2006-03-16 dwarf 4383509 */
+  ASM_OUTPUT_DWARF_OFFSET (asm_out_file, size, label, base);
 #else
   dw2_assemble_integer (size, gen_rtx_SYMBOL_REF (Pmode, label));
 #endif

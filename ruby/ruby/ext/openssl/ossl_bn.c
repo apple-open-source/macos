@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_bn.c,v 1.5.2.1 2004/12/15 01:54:39 matz Exp $
+ * $Id: ossl_bn.c 12043 2007-03-12 04:12:32Z knu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Technorama team <oss-ruby@technorama.net>
  * All rights reserved.
@@ -600,6 +600,10 @@ ossl_bn_is_prime_fasttest(int argc, VALUE *argv, VALUE self)
 void
 Init_ossl_bn()
 {
+#if 0 /* let rdoc know about mOSSL */
+    mOSSL = rb_define_module("OpenSSL");
+#endif
+
     if (!(ossl_bn_ctx = BN_CTX_new())) {
 	ossl_raise(rb_eRuntimeError, "Cannot init BN_CTX");
     }

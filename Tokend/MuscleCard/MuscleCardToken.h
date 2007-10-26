@@ -66,4 +66,3 @@ public:
 
 #endif /* !_MUSCLECARDTOKEN_H_ */
 
-/* arch-tag: D2BE545C-F53A-11D8-9AEA-000A9595DEEE */

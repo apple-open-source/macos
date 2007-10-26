@@ -1,6 +1,20 @@
+define ____executor_globals
+	if basic_functions_module.zts
+		set $tsrm_ls = ts_resource_ex(0, 0)
+		set $eg = ((zend_executor_globals) (*((void ***) $tsrm_ls))[executor_globals_id-1])
+	else
+		set $eg = executor_globals
+	end
+end
+
+document ____executor_globals
+	portable way of accessing executor_globals, set $eg
+	ZTS detection is automatically based on ext/standard module struct
+end
+
 define dump_bt
-    set $t = $arg0
-    while $t
+	set $t = $arg0
+	while $t
 		printf "[0x%08x] ", $t
 		if $t->function_state.function->common.function_name
 			printf "%s() ", $t->function_state.function->common.function_name
@@ -12,7 +26,7 @@ define dump_bt
 		end
 		set $t = $t->prev_execute_data
 		printf "\n"
-    end
+	end
 end
 
 document dump_bt
@@ -20,68 +34,46 @@ document dump_bt
 end
 
 define printzv
-	set $ind = 0
+	set $ind = 1
 	____printzv $arg0 0 
 end
 
 document printzv
-	prints content of zval 
+	prints zval contents
 end
 
-define ____printzv
+define ____printzv_contents
 	set $zvalue = $arg0
+	set $type = $zvalue->type
 
-	if $zvalue->type == 0
-		set $typename = "NULL"
+	printf "(refcount=%d", $zvalue->refcount
+	if $zvalue->is_ref
+		printf ",is_ref"
 	end
-	if $zvalue->type == 1
-		set $typename = "long"
+	printf ") "
+	if $type == 0
+		printf "NULL"
 	end
-	if $zvalue->type == 2
-		set $typename = "double"
+	if $type == 1
+		printf "long: %ld", $zvalue->value.lval
 	end
-	if $zvalue->type == 3
-		set $typename = "string"
+	if $type == 2
+		printf "double: %lf", $zvalue->value.dval
 	end
-	if $zvalue->type == 4
-		set $typename = "array"
+	if $type == 3
+		printf "bool: "
+		if $zvalue->value.lval
+			printf "true"
+		else
+			printf "false"
+		end
 	end
-	if $zvalue->type == 5
-		set $typename = "object"
-	end
-	if $zvalue->type == 6
-		set $typename = "bool"
-	end
-	if $zvalue->type == 7
-		set $typename = "resource"
-	end
-	if $zvalue->type == 8 
-		set $typename = "constant"
-	end
-	if $zvalue->type == 9
-		set $typename = "const_array"
-	end
-
-	printf "[0x%08x] ", $zvalue
-
-	if $zvalue == executor_globals.uninitialized_zval_ptr
-		printf "*uninitialized* "
-	end
-	printf "(refcount=%d) %s: ", $zvalue->refcount, $typename
-	if $zvalue->type == 1
-		printf "%ld", $zvalue->value.lval
-	end
-	if $zvalue->type == 2
-		printf "%lf", $zvalue->value.dval
-	end
-	if $zvalue->type == 3
-		printf "\"%s\"(%d)", $zvalue->value.str.val, $zvalue->value.str.len
-	end
-	if $zvalue->type == 4
+	if $type == 4
+		printf "array(%d): ", $zvalue->value.ht->nNumOfElements
 		if ! $arg1
 			printf "{\n"
 			set $ind = $ind + 1
-			____print_ht $zvalue->value.ht
+			____print_ht $zvalue->value.ht 1
 			set $ind = $ind - 1
 			set $i = $ind
 			while $i > 0
@@ -90,42 +82,89 @@ define ____printzv
 			end
 			printf "}"
 		end
+		set $type = 0
 	end
-	if $zvalue->type == 5
-		if ! $arg1
-			printf "(prop examination disabled due to a gdb bug)"
-#			set $ht = $zvalue->value.obj.handlers->get_properties($zvalue)
-#			printf "{\n"
-#			set $ind = $ind + 1
-#			____print_ht $ht
-#			set $ind = $ind - 1
-#			set $i = $ind
-#			while $i > 0
-#				printf "  "
-#				set $i = $i - 1
-#			end
-#			printf "}"
-		end
-	end
-	if $zvalue->type == 6
-		if $zvalue->lval
-			printf "true"
+	if $type == 5
+		printf "object"
+		____executor_globals
+		set $handle = $zvalue->value.obj.handle
+		set $handlers = $zvalue->value.obj.handlers
+		if basic_functions_module.zts
+			set $zobj = zend_objects_get_address($zvalue, $tsrm_ls)
 		else
-			printf "false"
+			set $zobj = zend_objects_get_address($zvalue)
 		end
+		if $handlers->get_class_entry == &zend_std_object_get_class
+			set $cname = $zobj->ce.name
+		else
+			set $cname = "Unknown"
+		end
+		printf "(%s) #%d", $cname, $handle
+		if ! $arg1
+			if $handlers->get_properties == &zend_std_get_properties
+				set $ht = $zobj->properties
+				if $ht
+					printf "(%d): ", $ht->nNumOfElements
+					printf "{\n"
+					set $ind = $ind + 1
+					____print_ht $ht 1
+					set $ind = $ind - 1
+					set $i = $ind
+					while $i > 0
+						printf "  "
+						set $i = $i - 1
+					end
+					printf "}"
+				else
+					echo "no properties found"
+				end
+			end
+		end
+		set $type = 0
 	end
-	if $zvalue->type == 7
-		printf "#%d", $zvalue->value.lval
+	if $type == 6
+		printf "string(%d): ", $zvalue->value.str.len
+		____print_str $zvalue->value.str.val $zvalue->value.str.len
+	end
+	if $type == 7
+		printf "resource: #%d", $zvalue->value.lval
+	end
+	if $type == 8 
+		printf "constant"
+	end
+	if $type == 9
+		printf "const_array"
+	end
+	if $type > 9
+		printf "unknown type %d", $type
 	end
 	printf "\n"
 end
 
-define ____print_ht
+define ____printzv
+	____executor_globals
+	set $zvalue = $arg0
+
+	printf "[0x%08x] ", $zvalue
+
+	if $zvalue == $eg.uninitialized_zval_ptr
+		printf "*uninitialized* "
+	end
+
+	set $zcontents = (zval*) $zvalue
+	if $arg1
+		____printzv_contents $zcontents $arg1
+	else
+		____printzv_contents $zcontents 0 
+	end
+end
+
+define ____print_const_table
 	set $ht = $arg0
 	set $p = $ht->pListHead
 
 	while $p != 0
-		set $zval = *(struct _zval_struct **)$p->pData
+		set $const = (zend_constant *) $p->pData
 
 		set $i = $ind
 		while $i > 0
@@ -133,13 +172,54 @@ define ____print_ht
 			set $i = $i - 1
 		end
 
-		if $p->nKeyLength > 0 
-			printf "\"%s\" => ", $p->arKey
+		if $p->nKeyLength > 0
+			____print_str $p->arKey $p->nKeyLength
+			printf " => "
 		else
 			printf "%d => ", $p->h
 		end
 
-		____printzv $zval 1
+		____printzv_contents &$const->value 0
+		set $p = $p->pListNext
+	end
+end
+
+define print_const_table
+	set $ind = 1
+	printf "[0x%08x] {\n", $arg0
+	____print_const_table $arg0
+	printf "}\n"
+end
+
+define ____print_ht
+	set $ht = (HashTable*)$arg0
+	set $p = $ht->pListHead
+
+	while $p != 0
+		set $i = $ind
+		while $i > 0
+			printf "  "
+			set $i = $i - 1
+		end
+
+		if $p->nKeyLength > 0
+			____print_str $p->arKey $p->nKeyLength
+			printf " => "
+		else
+			printf "%d => ", $p->h
+		end
+		
+		if $arg1 == 0
+			printf "%p\n", (void*)$p->pData
+		end
+		if $arg1 == 1
+			set $zval = *(zval **)$p->pData
+			____printzv $zval 1
+		end
+		if $arg1 == 2
+			printf "%s\n", (char*)$p->pData
+		end
+
 		set $p = $p->pListNext
 	end
 end
@@ -147,7 +227,7 @@ end
 define print_ht
 	set $ind = 1
 	printf "[0x%08x] {\n", $arg0
-	____print_ht $arg0
+	____print_ht $arg0 1
 	printf "}\n"
 end
 
@@ -155,7 +235,173 @@ document print_ht
 	dumps elements of HashTable made of zval
 end
 
+define print_htptr
+	set $ind = 1
+	printf "[0x%08x] {\n", $arg0
+	____print_ht $arg0 0
+	printf "}\n"
+end
+
+document print_htptr
+	dumps elements of HashTable made of pointers
+end
+
+define print_htstr
+	set $ind = 1
+	printf "[0x%08x] {\n", $arg0
+	____print_ht $arg0 2
+	printf "}\n"
+end
+
+document print_htstr
+	dumps elements of HashTable made of strings
+end
+
+define ____print_ft
+	set $ht = $arg0
+	set $p = $ht->pListHead
+
+	while $p != 0
+		set $func = (zend_function*)$p->pData
+
+		set $i = $ind
+		while $i > 0
+			printf "  "
+			set $i = $i - 1
+		end
+
+		if $p->nKeyLength > 0
+			____print_str $p->arKey $p->nKeyLength
+			printf " => "
+		else
+			printf "%d => ", $p->h
+		end
+
+		printf "\"%s\"\n", $func->common.function_name
+		set $p = $p->pListNext
+	end
+end
+
+define print_ft
+	set $ind = 1
+	printf "[0x%08x] {\n", $arg0
+	____print_ft $arg0
+	printf "}\n"
+end
+
+document print_ft
+	dumps a function table (HashTable)
+end
+
+define ____print_inh_class
+	set $ce = $arg0
+	if $ce->ce_flags & 0x10 || $ce->ce_flags & 0x20
+		printf "abstract "
+	else
+		if $ce->ce_flags & 0x40
+			printf "final "
+		end
+	end
+	printf "class %s", $ce->name
+	if $ce->parent != 0
+		printf " extends %s", $ce->parent->name
+	end
+	if $ce->num_interfaces != 0
+		printf " implements"
+		set $tmp = 0
+		while $tmp < $ce->num_interfaces
+			printf " %s", $ce->interfaces[$tmp]->name
+			set $tmp = $tmp + 1
+			if $tmp < $ce->num_interfaces
+				printf ","
+			end
+		end
+	end
+	set $ce = $ce->parent
+end
+
+define ____print_inh_iface
+	set $ce = $arg0
+	printf "interface %s", $ce->name
+	if $ce->num_interfaces != 0
+		set $ce = $ce->interfaces[0]
+		printf " extends %s", $ce->name
+	else
+		set $ce = 0
+	end
+end
+
+define print_inh
+	set $ce = $arg0
+	set $depth = 0
+	while $ce != 0
+		set $tmp = $depth
+		while $tmp != 0
+			printf " "
+			set $tmp = $tmp - 1
+		end
+		set $depth = $depth + 1
+		if $ce->ce_flags & 0x80
+			____print_inh_iface $ce
+		else
+			____print_inh_class $ce
+		end
+		printf " {\n"
+	end
+	while $depth != 0
+		set $tmp = $depth
+		while $tmp != 1
+			printf " "
+			set $tmp = $tmp - 1
+		end
+		printf "}\n"
+		set $depth = $depth - 1
+	end
+end
+
+define print_pi
+	set $pi = $arg0
+	printf "[0x%08x] {\n", $pi
+	printf "    h     = %lu\n", $pi->h
+	printf "    flags = %d (", $pi->flags
+	if $pi->flags & 0x100
+		printf "ZEND_ACC_PUBLIC"
+	else
+		if $pi->flags & 0x200
+			printf "ZEND_ACC_PROTECTED"
+		else
+			if $pi->flags & 0x400
+				printf "ZEND_ACC_PRIVATE"
+			else
+				if $pi->flags & 0x800
+					printf "ZEND_ACC_CHANGED"
+				end
+			end
+		end
+	end
+	printf ")\n"
+	printf "    name  = "
+	____print_str $pi->name $pi->name_length
+	printf "\n}\n"
+end
+
+define ____print_str
+	set $tmp = 0
+	set $str = $arg0
+	printf "\""
+	while $tmp < $arg1
+		if $str[$tmp] > 32 && $str[$tmp] < 127
+			printf "%c", $str[$tmp]
+		else
+			printf "\\%o", $str[$tmp]
+		end
+		set $tmp = $tmp + 1
+	end
+	printf "\""
+end
+
 define printzn
+	____executor_globals
 	set $ind = 0
 	set $znode = $arg0
 	if $znode->op_type == 1
@@ -175,17 +421,17 @@ define printzn
 
 	if $znode->op_type == 1
 		printf ": "
-		____printzv &$znode->u.constant
+		____printzv &$znode->u.constant 0
 	end
 	if $znode->op_type == 2
 		printf ": "
-		set $tvar = (union _temp_variable *)((char *)executor_globals.current_execute_data->Ts + $znode->u.var)
-		____printzv ((union _temp_variable *)$tvar)->tmp_var
+		set $tvar = (union _temp_variable *)((char *)$eg.current_execute_data->Ts + $znode->u.var)
+		____printzv ((union _temp_variable *)$tvar)->tmp_var 0
 	end
 	if $znode->op_type == 4
 		printf ": "
-		set $tvar = (union _temp_variable *)((char *)executor_globals.current_execute_data->Ts + $znode->u.var)
-		____printzv *$tvar->var.ptr_ptr
+		set $tvar = (union _temp_variable *)((char *)$eg.current_execute_data->Ts + $znode->u.var)
+		____printzv *$tvar->var.ptr_ptr 0
 	end
 	if $znode->op_type == 8
 		printf "\n"
@@ -208,6 +454,18 @@ end
 
 document printzops
 	dump operands of the current opline
+end
+
+define zbacktrace
+	____executor_globals
+	dump_bt $eg.current_execute_data
+end
+
+document zbacktrace
+	prints backtrace.
+	This command is almost a short cut for
+	> (gdb) ____executor_globals
+	> (gdb) dump_bt $eg.current_execute_data
 end
 
 define zmemcheck
@@ -282,4 +540,3 @@ document zmemcheck
 	usage: zmemcheck [ptr].
 	if ptr is 0, all blocks will be listed.
 end
-

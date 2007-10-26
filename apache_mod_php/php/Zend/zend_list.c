@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_list.c,v 1.66.2.1.2.1 2007/01/01 09:35:46 sebastian Exp $ */
 
 /* resource lists */
 
@@ -42,6 +43,7 @@ ZEND_API int zend_list_insert(void *ptr, int type)
 	le.refcount=1;
 
 	index = zend_hash_next_free_element(&EG(regular_list));
+
 	zend_hash_index_update(&EG(regular_list), index, (void *) &le, sizeof(zend_rsrc_list_entry), NULL);
 	return index;
 }
@@ -75,7 +77,6 @@ ZEND_API void *_zend_list_find(int id, int *type TSRMLS_DC)
 		return NULL;
 	}
 }
-
 
 ZEND_API int _zend_list_addref(int id TSRMLS_DC)
 {
@@ -113,16 +114,20 @@ ZEND_API void *zend_fetch_resource(zval **passed_id TSRMLS_DC, int default_id, c
 	void *resource;
 	va_list resource_types;
 	int i;
+	char *space;
+	char *class_name;
 
 	if (default_id==-1) { /* use id */
 		if (!passed_id) {
 			if (resource_type_name) {
-				zend_error(E_WARNING, "%s(): no %s resource supplied", get_active_function_name(TSRMLS_C), resource_type_name);
+				class_name = get_active_class_name(&space TSRMLS_CC);
+				zend_error(E_WARNING, "%s%s%s(): no %s resource supplied", class_name, space, get_active_function_name(TSRMLS_C), resource_type_name);
 			}
 			return NULL;
 		} else if ((*passed_id)->type != IS_RESOURCE) {
 			if (resource_type_name) {
-				zend_error(E_WARNING, "%s(): supplied argument is not a valid %s resource", get_active_function_name(TSRMLS_C), resource_type_name);
+				class_name = get_active_class_name(&space TSRMLS_CC);
+				zend_error(E_WARNING, "%s%s%s(): supplied argument is not a valid %s resource", class_name, space, get_active_function_name(TSRMLS_C), resource_type_name);
 			}
 			return NULL;
 		}
@@ -134,7 +139,8 @@ ZEND_API void *zend_fetch_resource(zval **passed_id TSRMLS_DC, int default_id, c
 	resource = zend_list_find(id, &actual_resource_type);
 	if (!resource) {
 		if (resource_type_name) {
-			zend_error(E_WARNING, "%s(): %d is not a valid %s resource", get_active_function_name(TSRMLS_C), id, resource_type_name);
+			class_name = get_active_class_name(&space TSRMLS_CC);
+			zend_error(E_WARNING, "%s%s%s(): %d is not a valid %s resource", class_name, space, get_active_function_name(TSRMLS_C), id, resource_type_name);
 		}
 		return NULL;
 	}
@@ -152,7 +158,8 @@ ZEND_API void *zend_fetch_resource(zval **passed_id TSRMLS_DC, int default_id, c
 	va_end(resource_types);
 
 	if (resource_type_name) {
-		zend_error(E_WARNING, "%s(): supplied resource is not a valid %s resource", get_active_function_name(TSRMLS_C), resource_type_name);
+		class_name = get_active_class_name(&space TSRMLS_CC);
+		zend_error(E_WARNING, "%s%s%s(): supplied resource is not a valid %s resource", class_name, space, get_active_function_name(TSRMLS_C), resource_type_name);
 	}
 
 	return NULL;
@@ -313,7 +320,7 @@ ZEND_API int zend_fetch_list_dtor_id(char *type_name)
 	HashPosition pos;
 
 	zend_hash_internal_pointer_reset_ex(&list_destructors, &pos);
-	while(zend_hash_get_current_data_ex(&list_destructors, (void **)&lde, &pos) == SUCCESS) {
+	while (zend_hash_get_current_data_ex(&list_destructors, (void **)&lde, &pos) == SUCCESS) {
 		if (lde->type_name && (strcmp(type_name, lde->type_name) == 0)) {
 #if 0
 			printf("Found resource id %d for resource type %s\n", (*lde).resource_id, type_name);
@@ -358,10 +365,10 @@ char *zend_rsrc_list_get_rsrc_type(int resource TSRMLS_DC)
 	}
 }
 
-
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
+ * indent-tabs-mode: t
  * End:
  */

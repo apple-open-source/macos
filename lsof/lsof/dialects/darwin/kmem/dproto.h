@@ -33,7 +33,7 @@
 
 
 /*
- * $Id: dproto.h,v 1.6 2006/04/27 20:28:49 ajn Exp $
+ * $Id: dproto.h,v 1.7 2007/05/24 22:35:11 ajn Exp $
  */
 
 _PROTOTYPE(extern int is_file_named,(char *p, int cd));

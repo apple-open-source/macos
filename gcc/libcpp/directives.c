@@ -943,8 +943,69 @@ _cpp_do_file_change (cpp_reader *pfile, enum lc_reason reason,
   if (map != NULL)
     linemap_line_start (pfile->line_table, map->to_line, 127);
 
+  /* APPLE LOCAL begin 4137741 */
   if (pfile->cb.file_change)
-    pfile->cb.file_change (pfile, map);
+    {
+      struct line_map *old_maps = pfile->line_table->maps;
+      source_location old_loc = 0;
+
+      if (map)
+        old_loc = map->start_location;
+
+      pfile->cb.file_change (pfile, map);
+
+      /* The file_change callback could reallocate the line_table maps causing
+         "map" we got to be invalid */
+      if (map && old_maps != pfile->line_table->maps)
+        map = linemap_lookup (pfile->line_table, old_loc);
+    }
+
+
+  /* If file change debug hook callbacks are being deferred, we will
+     need special CPP_BINCL and CPP_EINCL tokens to carry the information
+     to the front-end.  */
+  if (map && CPP_OPTION (pfile, defer_file_change_debug_hooks))
+    {
+      cpp_token *tok;
+
+      if ((reason == LC_ENTER && !MAIN_FILE_P (map)))
+        {
+          uchar *s;
+          cpp_string body;
+
+          /* We can handle '#include' similarly to '#pragma'.  */
+          tok = &pfile->directive_result;
+          tok->type = CPP_BINCL;
+          body.len = strlen (map->to_file);
+          s = _cpp_unaligned_alloc (pfile, body.len + 1);
+          memcpy (s, map->to_file, body.len + 1);
+          body.text = s;
+          tok->val.str = body;
+#ifdef USE_MAPPED_LOCATION
+          tok->src_loc = LAST_SOURCE_LINE_LOCATION (map - 1);
+#else
+          tok->src_loc = LAST_SOURCE_LINE (map - 1);
+#endif
+        }
+      else if (reason == LC_LEAVE)
+        {
+          /* Grow CPP_EINCL buffer if necessary.  This should be extremely
+             rare, since it requires that more than 250 nested headers reach
+             end-of-file simultaneously.  */
+          if (pfile->end_eincl == pfile->cur_eincl->limit)
+            {
+              pfile->cur_eincl = _cpp_next_tokenrun (pfile->cur_eincl);
+              pfile->end_eincl = pfile->cur_eincl->base;
+            }
+
+          tok = pfile->end_eincl++;
+          tok->type = CPP_EINCL;
+          tok->src_loc = map->to_line;
+          tok->flags = 0;
+          pfile->have_eincl = true;
+        }
+    }
+  /* APPLE LOCAL end 4137741 */
 }
 
 /* Report a warning or error detected by the program we are

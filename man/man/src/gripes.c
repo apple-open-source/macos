@@ -26,6 +26,7 @@ getmsg (int n) {
 
 #else /* NONLS */
 
+#include <string.h>
 #include <nl_types.h>
 #include "../catopen/catopen.c"
 
@@ -35,10 +36,17 @@ int cat_is_open = 0;
 static void
 catinit (void) {
     if (!cat_is_open) {
+#ifdef NL_CAT_LOCALE
+	catfd = my_catopen(mantexts,NL_CAT_LOCALE);
+#else
 	catfd = my_catopen(mantexts,0);
+#endif
 	if (catfd == (nl_catd) -1) {
-	    /* Only complain if at least one of NLSPATH and LANG exists,
-	       and LANG != "en" (or when debugging). Also accept en_ZA etc. */
+	    /*
+	     * Only complain if LANG exists, and LANG != "en"
+	     * (or when debugging). Also accept en_ZA etc.
+	     * No messages for C locale.
+	     */
 	    char *s, *lg;
 	    s = getenv("NLSPATH");
 	    lg = getenv("LANG");
@@ -46,13 +54,12 @@ catinit (void) {
 		    lg = getenv("LC_MESSAGES");
 	    if (!lg)
 		    lg = getenv("LC_ALL");
-	    if ((s || lg) && (!lg || strncmp(lg, "en", 2))) {
-		perror(mantexts);
+	    if (lg && strncmp(lg, "en", 2) && strcmp(lg, "C")) {
 		fprintf(stderr,
-"Failed to open the message catalog %s on the path NLSPATH=%s\n\n",
-			mantexts, s ? s : "<none>");
+		  "Cannot open the message catalog \"%s\" for locale \"%s\"\n"
+		  "(NLSPATH=\"%s\")\n\n",
+			mantexts, lg, s ? s : "<none>");
 	    } else if (debug) {
-		perror(mantexts);
 		fprintf(stderr,
 "Looked whether there exists a message catalog %s, but there is none\n"
 "(and for English messages none is needed)\n\n",
@@ -63,20 +70,50 @@ catinit (void) {
     cat_is_open = 1;
 }
 
+/*
+ * This routine is unnecessary, but people ask for such things.
+ *
+ * Maybe man is suid or sgid to some user that owns the cat directories.
+ * Maybe NLSPATH can be manipulated by the user - even though
+ * modern glibc avoids using environment variables when the
+ * program is suid or sgid.
+ * So, maybe the string s that we are returning was user invented
+ * and we have to avoid %n and the like.
+ *
+ * As a random hack, only allow %s,%d,%o, and only two %-signs.
+ */
+static int
+is_suspect (char *s) {
+	int ct = 0;
+
+	while (*s) {
+		if (*s++ == '%') {
+			ct++;
+			if (*s != 's' && *s != 'd' && *s != 'o')
+				return 1;
+		}
+	}
+	return (ct > 2);
+}
+
 static char *
 getmsg (int n) {
-    char *s;
+	char *s = "";
 
-    catinit ();
-    if (catfd == (nl_catd) -1 || !*(s = catgets(catfd, 1, n, ""))) {
-        if (0 < n && n <= MAXMSG)
-          s = msg[n];
-        else {
-	  fprintf (stderr, "man: internal error - cannot find message %d\n", n);
-	  exit (1);
+	catinit ();
+	if (catfd != (nl_catd) -1) {
+		s = catgets(catfd, 1, n, "");
+		if (*s && is_suspect(s))
+			s = "";
+	}
+	if (*s == 0 && 0 < n && n <= MAXMSG)
+		s = msg[n];
+	if (*s == 0) {
+		fprintf(stderr,
+			"man: internal error - cannot find message %d\n", n);
+		exit (1);
         }
-    }
-    return s;
+	return s;
 }
 
 #endif /* NONLS */

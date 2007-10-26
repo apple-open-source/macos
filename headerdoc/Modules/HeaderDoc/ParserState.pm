@@ -3,7 +3,7 @@
 # Class name: 	ParserState
 # Synopsis: 	Used by gatherHeaderDoc.pl to hold parser state
 # Author: David Gatwood(dgatwood@apple.com)
-# Last Updated: $Date: 2004/10/07 17:25:56 $
+# Last Updated: $Date: 2007/04/24 23:34:16 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -31,19 +31,148 @@ package HeaderDoc::ParserState;
 
 use strict;
 use vars qw($VERSION @ISA);
-use HeaderDoc::Utilities qw(isKeyword parseTokens quote stringToFields);
-use HeaderDoc::BlockParse qw(blockParse nspaces);
+use HeaderDoc::Utilities qw(isKeyword quote stringToFields);
 
-$VERSION = '$Revision: 1.1.2.1 $';
+$VERSION = '$Revision: 1.1.2.4 $';
 ################ General Constants ###################################
 my $debugging = 0;
 
 my $treeDebug = 0;
 
+my %defaults = (
+	frozensodname => "",
+	stackFrozen => 0, # set to prevent fake parsed params with inline funcs
+	returntype => "",
+	freezereturn => 0,       # set to prevent fake return types with inline funcs
+	availability => "",      # holds availability string if we find an av macro.
+	lang => "C",
+
+	inComment => 0,
+	inInlineComment => 0,
+	inString => 0,
+	inChar => 0,
+	inTemplate => 0,
+	inOperator => 0,
+	inPrivateParamTypes => 0,  # after a colon in a C++ function declaration.
+	onlyComments => 1,         # set to 0 to avoid switching to macro parse.
+                                  # mode after we have seen a code token.
+	inMacro => 0,
+	inMacroLine => 0,          # for handling macros in middle of data types.
+	seenMacroPart => 0,        # used to control dropping of macro body.
+	macroNoTrunc => 1,         # used to avoid truncating body of macros
+	inBrackets => 0,           # square brackets ([]).
+    # $self->{inPType} = 0;              # in pascal types.
+    # $self->{inRegexp} = 0;             # in perl regexp.
+    # $self->{regexpNoInterpolate} = 0;  # Don't interpolate (e.g. tr)
+    # $self->{inRegexpTrailer} = 0;      # in the cruft at the end of a regexp.
+    # $self->{ppSkipOneToken} = 0;       # Comments are always dropped from parsed
+                                  # parameter lists.  However, inComment goes
+                                  # to 0 on the end-of-comment character.
+                                  # This prevents the end-of-comment character
+                                  # itself from being added....
+
+    # $self->{lastsymbol} = "";          # Name of the last token, wiped by braces,
+                                  # parens, etc.  This is not what you are
+                                  # looking for.  It is used mostly for
+                                  # handling names of typedefs.
+	name => "",                # Name of a basic data type.
+	callbackNamePending => 0,  # 1 if callback name could be here.  This is
+                                  # only used for typedef'ed callbacks.  All
+                                  # other callbacks get handled by the parameter
+                                  # parsing code.  (If we get a second set of
+                                  # parsed parameters for a function, the first
+                                  # one becomes the callback name.)
+	callbackName => "",        # Name of this callback.
+	callbackIsTypedef => 0,    # 1 if the callback is wrapped in a typedef---
+                                  # sets priority order of type matching (up
+                                  # one level in headerdoc2HTML.pl).
+
+	namePending => 0,          # 1 if name of func/variable is coming up.
+	basetype => "",            # The main name for this data type.
+	posstypes => "",           # List of type names for this data type.
+	posstypesPending => 1,     # If this token could be one of the
+                                  # type names of a typedef/struct/union/*
+                                  # declaration, this should be 1.
+	sodtype => "",             # 'start of declaration' type.
+	sodname => "",             # 'start of declaration' name.
+	sodclass => "",            # 'start of declaration' "class".  These
+                                  # bits allow us keep track of functions and
+                                  # callbacks, mostly, but not the name of a
+                                  # callback.
+
+	simpleTypedef => 0,        # High if it's a typedef w/o braces.
+	simpleTDcontents => "",    # Guts of a one-line typedef.  Don't ask.
+	seenBraces => 0,           # Goes high after initial brace for inline
+                                  # functions and macros -only-.  We
+                                  # essentially stop parsing at this point.
+	kr_c_function => 0,        # Goes high if we see a K&R C declaration.
+	kr_c_name => "",           # The name of a K&R function (which would
+                                  # otherwise get lost).
+
+    # $self->{lastchar} = "";            # Ends with the last token, but may be longer.
+    # $self->{lastnspart} = "";          # The last non-whitespace token.
+    # $self->{lasttoken} = "";           # The last token seen (though [\n\r] may be
+                                  # replaced by a space in some cases.
+	startOfDec => 1,           # Are we at the start of a declaration?
+    # $self->{prespace} = 0;             # Used for indentation (deprecated).
+    # $self->{prespaceadjust} = 0;       # Indentation is now handled by the parse
+                                  # tree (colorizer) code.
+    # $self->{scratch} = "";             # Scratch space.
+    # $self->{curline} = "";             # The current line.  This is pushed onto
+                                  # the declaration at a newline and when we
+                                  # enter/leave certain constructs.  This is
+                                  # deprecated in favor of the parse tree.
+    # $self->{curstring} = "";           # The string we're currently processing.
+    # $self->{continuation} = 0;         # An obscure spacing workaround.  Deprecated.
+    # $self->{forcenobreak} = 0;         # An obscure spacing workaround.  Deprecated.
+	occmethod => 0,            # 1 if we're in an ObjC method.
+    # $self->{occspace} = 0;             # An obscure spacing workaround.  Deprecated.
+	occmethodname => "",       # The name of an objective C method (which
+                                  # gets augmented to be this:that:theother).
+	preTemplateSymbol => "",   # The last symbol prior to the start of a
+                                  # C++ template.  Used to determine whether
+                                  # the type returned should be a function or
+                                  # a function template.
+	preEqualsSymbol => "",     # Used to get the name of a variable that
+                                  # is followed by an equals sign.
+	valuepending => 0,         # True if a value is pending, used to
+                                  # return the right value.
+	value => "",               # The current value.
+    # $self->{parsedParam} = "";         # The current parameter being parsed.
+    # $self->{postPossNL} = 0;           # Used to force certain newlines to be added
+                                  # to the parse tree (to end macros, etc.)
+	categoryClass => "",
+	classtype => "",
+	inClass => 0,
+
+	seenTilde => 0,          # set to 1 for C++ destructor.
+
+	# parsedParamList => undef, # currently active parsed parameter list.
+	# pplStack => undef, # stack of parsed parameter lists.  Used to handle
+                       # fields and parameters in nested callbacks/structs.
+	# freezeStack => undef, # copy of pplStack when frozen.
+
+	initbsCount => 0,
+	# hollow => undef,      # a spot in the tree to put stuff.
+	noInsert => 0,
+	bracePending => 0	# set to 1 if lack of a brace would change
+				# from being a struct/enum/union/typedef
+				# to a variable.
+
+
+);
+
+# print "DEFAULTS: startOfDec: ".$defaults{startOfDec}."\n";
+# print "DEFAULTS: inClass: ".$defaults{inClass}."\n";
+
 sub new {
     my($param) = shift;
     my($class) = ref($param) || $param;
-    my $self = {};
+    my %selfhash = %defaults;
+    my $self = \%selfhash;
+
+    # print "startOfDec: ".$self->{startOfDec}."\n";
+    # print "startOfDecX: ".$defaults{startOfDec}."\n";
 
 # print "CREATING NEW PARSER STATE!\n";
     
@@ -60,6 +189,20 @@ sub new {
 
 sub _initialize {
     my($self) = shift;
+    my @arr1 = ();
+    my @arr2 = ();
+    my @arr3 = ();
+
+    $self->{parsedParamList} = \@arr1; # currently active parsed parameter list.
+    $self->{pplStack} = \@arr2; # stack of parsed parameter lists.  Used to handle
+                       # fields and parameters in nested callbacks/structs.
+    $self->{freezeStack} = \@arr3; # copy of pplStack when frozen.
+
+    my %orighash = %{$self};
+
+    return;
+
+    # my($self) = shift;
 
     $self->{frozensodname} = "";
     $self->{stackFrozen} = 0; # set to prevent fake parsed params with inline funcs
@@ -168,17 +311,28 @@ sub _initialize {
 
     $self->{seenTilde} = 0;          # set to 1 for C++ destructor.
 
-    my @emptylist = ();
-    $self->{parsedParamList} = \@emptylist; # currently active parsed parameter list.
-    my @emptylistb = ();
-    $self->{pplStack} = \@emptylistb; # stack of parsed parameter lists.  Used to handle
+    #my @emptylist = ();
+    #$self->{parsedParamList} = \@emptylist; # currently active parsed parameter list.
+    #my @emptylistb = ();
+    #$self->{pplStack} = \@emptylistb; # stack of parsed parameter lists.  Used to handle
                        # fields and parameters in nested callbacks/structs.
-    my @emptylistc = ();
-    $self->{freezeStack} = \@emptylistc; # copy of pplStack when frozen.
+    #my @emptylistc = ();
+    #$self->{freezeStack} = \@emptylistc; # copy of pplStack when frozen.
 
     $self->{initbsCount} = 0;
     $self->{hollow} = undef;      # a spot in the tree to put stuff.
     $self->{noInsert} = 0;
+    $self->{bracePending} = 0;	# set to 1 if lack of a brace would change
+				# from being a struct/enum/union/typedef
+				# to a variable.
+
+    # foreach my $key (keys %{$self}) {
+	# if ($self->{$key} != $orighash{$key}) {
+		# print "HASH DIFFERS FOR KEY $key (".$self->{$key}." != ".$orighash{$key}.")\n";
+	# } else {
+		# print "Hash keys same for key $key\n";
+	# }
+    # }
 
     return $self;
 }

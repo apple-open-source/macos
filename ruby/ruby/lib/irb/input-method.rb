@@ -1,9 +1,9 @@
 #
-#   irb/input-method.rb - input methods using irb
-#   	$Release Version: 0.9$
-#   	$Revision: 1.4 $
-#   	$Date: 2003/03/23 17:58:43 $
-#   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
+#   irb/input-method.rb - input methods used irb
+#   	$Release Version: 0.9.5$
+#   	$Revision: 11708 $
+#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
@@ -18,7 +18,7 @@ module IRB
   #
   STDIN_FILE_NAME = "(line)"
   class InputMethod
-    @RCS_ID='-$Id: input-method.rb,v 1.4 2003/03/23 17:58:43 matz Exp $-'
+    @RCS_ID='-$Id: input-method.rb 11708 2007-02-12 23:01:19Z shyouhei $-'
 
     def initialize(file = STDIN_FILE_NAME)
       @file_name = file
@@ -94,8 +94,8 @@ module IRB
       end
 
       def gets
-	if l = readline(@prompt, true)
-	  HISTORY.pop if l.empty?
+	if l = readline(@prompt, false)
+          HISTORY.push(l) if !l.empty?
 	  @line[@line_no += 1] = l + "\n"
 	else
 	  @eof = true

@@ -1,6 +1,11 @@
---- /Volumes/XDisk/tmp/Libc/db/hash/FreeBSD/hash.c.orig	2004-09-09 22:41:41.000000000 -0700
-+++ /Volumes/XDisk/tmp/Libc/db/hash/FreeBSD/hash.c	2004-10-24 17:08:27.000000000 -0700
-@@ -58,7 +58,7 @@
+Index: hash.c
+===================================================================
+RCS file: /cvs/root/Libc/db/hash/FreeBSD/hash.c,v
+retrieving revision 1.3
+diff -u -d -b -w -p -u -r1.3 hash.c
+--- hash.c	2004/11/25 19:37:57	1.3
++++ hash.c	2004/12/10 20:34:43
+@@ -58,7 +58,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash
  #include <db.h>
  #include "hash.h"
  #include "page.h"
@@ -9,3 +14,13 @@
  
  static int   alloc_segs(HTAB *, int);
  static int   flush_meta(HTAB *);
+@@ -108,8 +108,7 @@ __hash_open(file, flags, mode, info, dfl
+ 	int bpages, hdrsize, new_table, nsegs, save_errno;
+ 
+ 	if ((flags & O_ACCMODE) == O_WRONLY) {
+-		errno = EINVAL;
+-		return (NULL);
++		flags += O_RDWR - O_WRONLY; /* POSIX */
+ 	}
+ 
+ 	if (!(hashp = (HTAB *)calloc(1, sizeof(HTAB))))

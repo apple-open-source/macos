@@ -426,7 +426,7 @@ enum {
 	kIOAudioClockSelectorTypeSMPTE				= 'smpt',
 	kIOAudioClockSelectorTypeVideo				= 'vdeo',
 	kIOAudioClockSelectorTypeControl			= 'cnrl',
-	kIOAudioClockSelectorTypeOther				= 'othr'
+	kIOAudioClockSelectorTypeOther				= 'othr',
 };
 
 enum {
@@ -455,7 +455,9 @@ enum {
 	kIOAudioDeviceTransportTypeFireWire				= '1394',
 	kIOAudioDeviceTransportTypeNetwork				= 'ntwk',
 	kIOAudioDeviceTransportTypeWireless				= 'wrls',
-	kIOAudioDeviceTransportTypeOther				= 'othr'
+	kIOAudioDeviceTransportTypeOther				= 'othr',
+	kIOAudioDeviceTransportTypeBluetooth			= 'blue',
+	kIOAudioDeviceTransportTypeVirtual				= 'virt'
 };
 
 // types that go nowhere

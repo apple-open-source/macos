@@ -30,9 +30,9 @@
 #import "AuthenticationController.h"
 #import "ChangePasswordController.h"
 #import "PrompterController.h"
-#import "LifetimeSlider.h"
-#import "LifetimeFormatter.h"
-#import "ErrorAlert.h"
+#import "KerberosLifetimeSlider.h"
+#import "KerberosLifetimeFormatter.h"
+#import "KerberosErrorAlert.h"
 
 #define AuthControllerString(key) NSLocalizedStringFromTable (key, @"AuthenticationController", NULL)
 
@@ -40,9 +40,9 @@
 
 // ---------------------------------------------------------------------------
 
-- (id) init
+- (id)initWithWindowNibName:(NSString *)windowNibName
 {
-    if ((self = [super initWithWindowNibName: @"AuthenticationController"])) {
+    if ((self = [super initWithWindowNibName:windowNibName])) {
         dprintf ("AuthenticationController initializing");
         
         // Set these to NULL so we don't free random memory on release
@@ -56,8 +56,11 @@
         state.callerIconImage = NULL;
         acquiredPrincipal = NULL;
         acquiredCacheName = NULL;
-        
-        preferences = [[Preferences sharedPreferences] retain];
+        changePasswordController = NULL;
+        _keychainPasswordFromKeychain = NULL;
+		_foundKCItem = NULL;
+		
+        preferences = [[KerberosPreferences sharedPreferences] retain];
         if (preferences == NULL) {
             [self release];
             return NULL;
@@ -81,6 +84,11 @@
     return self;
 }
 
+- (id) init
+{
+	return [self initWithWindowNibName: @"AuthenticationController"];
+}
+
 // ---------------------------------------------------------------------------
 
 - (void) dealloc
@@ -93,10 +101,40 @@
     if (state.callerIconImage         != NULL) { [state.callerIconImage release]; }
     if (acquiredPrincipal             != NULL) { [acquiredPrincipal release]; }
     if (acquiredCacheName             != NULL) { [acquiredCacheName release]; }
+    if (_keychainPasswordFromKeychain != NULL) { [_keychainPasswordFromKeychain release]; }
+    if (_foundKCItem				  != NULL) { CFRelease(_foundKCItem); }
     [super dealloc];
 }
 
 #pragma mark -- Loading --
+
+// ---------------------------------------------------------------------------
+
+- (void) awakeFromNib 
+{
+    // Fill in the version field in the about dialog
+    NSString *name      = [[NSBundle mainBundle] objectForInfoDictionaryKey: @"KfMDisplayName"];
+    NSString *version   = [[NSBundle mainBundle] objectForInfoDictionaryKey: @"KfMDisplayVersion"];
+    NSString *copyright = [[NSBundle mainBundle] objectForInfoDictionaryKey: @"KfMDisplayCopyright"];
+    
+    [aboutVersionTextField setStringValue: [NSString stringWithFormat: @"%@ %@", 
+                                               (name != NULL) ? name : @"", (version != NULL) ? version : @""]];    
+    [aboutCopyrightTextField setStringValue: (copyright != NULL) ? copyright : @""];
+    
+    // Hide the "Remember password" checkbox if preferences dictate
+    CFPropertyListRef savePasswordDisabled = CFPreferencesCopyAppValue(CFSTR("SavePasswordDisabled"), kCFPreferencesCurrentApplication);
+    if (savePasswordDisabled != NULL) {
+        if (CFGetTypeID(savePasswordDisabled) == CFBooleanGetTypeID() && CFBooleanGetValue(savePasswordDisabled)) {
+            [rememberPasswordInKeychainCheckBox setHidden:YES];
+            // Shrink the window by the height of the now-hidden checkbox
+            NSRect frame = [[self window] frame];
+            frame.origin.y += 18;
+            frame.size.height -= 18;
+            [[self window] setFrame:frame display:NO animate:NO];
+        }
+        CFRelease(savePasswordDisabled);
+    }
+}
 
 // ---------------------------------------------------------------------------
 
@@ -123,22 +161,28 @@
     maximizedFrameHeight = [[[self window] contentView] frame].size.height;
     minimizedFrameHeight = [bannerBox frame].size.height;
         
-    // Default Principal
+    // Default KerberosPrincipal
     BOOL callerProvidedPrincipal = (state.callerProvidedPrincipal != NULL);
-    
-    [callerProvidedNameTextField  setEnabled: callerProvidedPrincipal];
-    [callerProvidedRealmTextField setEnabled: callerProvidedPrincipal];
-    [nameTextField                setEnabled: !callerProvidedPrincipal];
-    [realmComboBox                setEnabled: !callerProvidedPrincipal];
-    
-    [callerProvidedNameTextField  setHidden: !callerProvidedPrincipal];
-    [callerProvidedRealmTextField setHidden: !callerProvidedPrincipal];
-    [nameTextField                setHidden: callerProvidedPrincipal];
-    [realmComboBox                setHidden: callerProvidedPrincipal];
-    
+    if ( callerProvidedNameTextField )
+    {
+		[callerProvidedNameTextField  setEnabled: callerProvidedPrincipal];
+		[callerProvidedNameTextField  setHidden: !callerProvidedPrincipal];
+    }
+	if ( callerProvidedNameTextField )
+    {
+		[nameTextField                setEnabled: !callerProvidedPrincipal];
+		[callerProvidedRealmTextField setHidden: !callerProvidedPrincipal];
+    }
+	if ( nameTextField )
+		[nameTextField                setHidden: callerProvidedPrincipal];
+    if ( realmComboBox )
+    {
+		[realmComboBox                setEnabled: !callerProvidedPrincipal];
+		[realmComboBox                setHidden: callerProvidedPrincipal];
+    }
     if (callerProvidedPrincipal) {
 #warning "No support for '\@' in realm names"
-        NSString *principalString = [state.callerProvidedPrincipal displayStringForKLVersion: kerberosVersion_V5];
+        NSString *principalString = [state.callerProvidedPrincipal displayString];
         NSRange separator = [principalString rangeOfString: @"@" options: (NSLiteralSearch | NSBackwardsSearch)];
         
         [callerProvidedNameTextField  setStringValue: [principalString substringToIndex: separator.location]];
@@ -157,7 +201,9 @@
         [realmComboBox setObjectValue: [realmComboBox numberOfItems] > 0 ? [realmComboBox objectValueOfSelectedItem] : @""];
         [realmComboBox setNumberOfVisibleItems: [realmsArray count]];
         [realmComboBox setCompletes: YES];
-    }   
+
+		[self autoFillPasswordWithKeychainPasswordForRealm:[preferences defaultRealm]];
+   }   
 
     // If we have no username and the username field is editable, put the cursor there;
     // otherwise put in in the password text field.
@@ -172,9 +218,28 @@
 
 // ---------------------------------------------------------------------------
 
+- (void)controlTextDidEndEditing: (NSNotification *) notification
+{
+	id obj = [notification object];
+	if ((obj == realmComboBox || obj == nameTextField ) && _didChangeText )
+	{
+		_didChangeText = NO;
+		NSInteger numberOfItems = [realmComboBox numberOfItems];
+		NSString *realm = NULL;
+		realm = [realmComboBox stringValue];
+		[self autoFillPasswordWithKeychainPasswordForRealm:realm];
+	}
+}
+
+
 - (void) controlTextDidChange: (NSNotification *) notification
 {
     [self updateOKButtonState];
+	id obj = [notification object];
+	if (obj == realmComboBox || obj == nameTextField )
+	{
+		_didChangeText = YES;
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -186,6 +251,10 @@
         // we need it for updateOKButton to do the right thing
         [realmComboBox setStringValue: [realmComboBox objectValueOfSelectedItem]];
         [self updateOKButtonState];
+		NSInteger numberOfItems = [realmComboBox numberOfItems];
+		NSString *realm = NULL;
+		realm = [realmComboBox stringValue];
+		[self autoFillPasswordWithKeychainPasswordForRealm:realm];
     }
 }
 
@@ -221,19 +290,46 @@
 
 - (IBAction) changePassword: (id) sender
 {
-    Principal *dialogPrincipal = [self principal];
+    KerberosPrincipal *dialogPrincipal = [self principal];
     if (dialogPrincipal != NULL) {
-        ChangePasswordController *controller = [[ChangePasswordController alloc] initWithPrincipal: dialogPrincipal];
-        if (controller != NULL) {
-            [controller runSheetModalForWindow: [self window]];
-            [controller release];
+        changePasswordController = [[ChangePasswordController alloc] initWithPrincipal: dialogPrincipal];
+        if (changePasswordController != NULL) {
+            [changePasswordController beginSheetModalForWindow: [self window]
+                                                 modalDelegate: self
+                                                didEndSelector: @selector(changePasswordSheetDidEnd:returnCode:contextInfo:)
+                                                   contextInfo: [NSNumber numberWithBool: FALSE]]; // Don't get tickets
         }
     } else {
-        [ErrorAlert alertForError: klBadPrincipalErr
+        [KerberosErrorAlert alertForError: klBadPrincipalErr
                            action: KerberosChangePasswordAction
                    modalForWindow: [self window]];        
     }
 }
+
+// ---------------------------------------------------------------------------
+
+- (void) changePasswordSheetDidEnd: (NSWindow *) sheet 
+                        returnCode: (int) returnCode
+                       contextInfo: (id) contextInfo
+{
+    if (changePasswordController != NULL) { 
+        if (!returnCode && contextInfo && [contextInfo isKindOfClass: [NSNumber class]] && [contextInfo boolValue]) {
+            KLStatus err = [self getTicketsWithPassword: [changePasswordController newPassword]];
+            
+            if (err == klNoErr) {
+                [self stopWithCode: err];
+            } else if (err != klUserCanceledErr) {
+                [KerberosErrorAlert alertForError: err
+                                   action: KerberosGetTicketsAction
+                           modalForWindow: [self window]];
+            }            
+        }
+        
+        [changePasswordController release]; 
+        changePasswordController = NULL;
+    }
+}
+
 
 // ---------------------------------------------------------------------------
 
@@ -286,10 +382,10 @@
     [self setAddressless: ([addresslessCheckbox state] == NSOnState)];
     [self setRenewable:   ([renewableCheckbox   state] == NSOnState)];
     
-    LifetimeFormatter *lifetimeFormatter = [lifetimeTextField formatter];
+    KerberosLifetimeFormatter *lifetimeFormatter = [lifetimeTextField formatter];
     [self setLifetime: [lifetimeFormatter lifetimeForControl: lifetimeSlider]];
     
-    LifetimeFormatter *renewableFormatter =  [renewableTextField formatter];
+    KerberosLifetimeFormatter *renewableFormatter =  [renewableTextField formatter];
     [self setRenewableLifetime: [renewableFormatter lifetimeForControl: renewableSlider]];
 
     [NSApp endSheet: optionsSheet returnCode: klNoErr];
@@ -307,20 +403,49 @@
 
 // ---------------------------------------------------------------------------
 
+- (IBAction) showAboutBox: (id) sender
+{
+    [aboutWindow center];
+    [aboutWindow makeKeyAndOrderFront: self];
+    [NSApp mainMenu];
+}
+
+// ---------------------------------------------------------------------------
+
 - (IBAction) ok: (id) sender
 {
     // Get tickets
-    KLStatus err = [self getTickets];
-
-    if (err == klNoErr) {
-        // If we got tickets, save dialog state to preferences
-        [self loginOptionsToPreferences];
-        
+    KLStatus err = [self getTicketsWithPassword: [passwordSecureTextField stringValue]];
+    
+    if (!err) {
         [self stopWithCode: err];
-    } else if (err != klUserCanceledErr) {
-        [ErrorAlert alertForError: err
-                           action: KerberosGetTicketsAction
-                   modalForWindow: [self window]];
+    } else {
+        if (err == KRB5KDC_ERR_KEY_EXP) {
+            // Ask the user if s/he wants to change the password
+            NSString *question = AuthControllerString (@"AuthControllerStringPasswordExpired");
+            BOOL changePassword = [KerberosErrorAlert alertForYNQuestion: question
+                                                          action: KerberosGetTicketsAction
+                                                  modalForWindow: [self window]];
+            if (changePassword) {
+                // Change the password
+                changePasswordController = [[ChangePasswordController alloc] initWithPrincipal: acquiredPrincipal];
+                if (changePasswordController != NULL) {
+                    [changePasswordController beginSheetModalForWindow: [self window]
+                                                         modalDelegate: self
+                                                        didEndSelector: @selector(changePasswordSheetDidEnd:returnCode:contextInfo:)
+                                                           contextInfo: [NSNumber numberWithBool: TRUE]]; // Get tickets on success
+                }
+            } else {
+                // User doesn't want to change password
+                err = klUserCanceledErr;
+            }
+        }
+        
+        if (err != klUserCanceledErr) {
+            [KerberosErrorAlert alertForError: err
+                               action: KerberosGetTicketsAction
+                       modalForWindow: [self window]];
+        }
     }
 }
 
@@ -357,7 +482,7 @@
 }
 // ---------------------------------------------------------------------------
 
-- (void) setCallerProvidedPrincipal: (Principal *) callerProvidedPrincipal
+- (void) setCallerProvidedPrincipal: (KerberosPrincipal *) callerProvidedPrincipal
 {
     if (state.callerProvidedPrincipal != NULL) { [state.callerProvidedPrincipal release]; }
     state.callerProvidedPrincipal = [callerProvidedPrincipal retain];
@@ -425,13 +550,13 @@
 // ---------------------------------------------------------------------------
 // Note: may return NULL
 
-- (Principal *) principal
+- (KerberosPrincipal *) principal
 {
     if (state.callerProvidedPrincipal != NULL) {
         return state.callerProvidedPrincipal;
     } else {
         NSString *principalString = [NSString stringWithFormat: @"%@@%@", [nameTextField stringValue], [realmComboBox stringValue]];
-        return [[[Principal alloc] initWithString: principalString klVersion: kerberosVersion_V5] autorelease];
+        return [[[KerberosPrincipal alloc] initWithString: principalString] autorelease];
     }
 }
 
@@ -444,9 +569,12 @@
     if ([nameTextField isHidden]) {
         havePrincipal = ([[passwordSecureTextField stringValue] length] > 0);
     } else {
-        havePrincipal = (([[nameTextField           stringValue] length] > 0) && 
-                         ([[realmComboBox           stringValue] length] > 0) &&
-                         ([[passwordSecureTextField stringValue] length] > 0));
+        if ( nameTextField != NULL && realmComboBox != NULL )
+			havePrincipal = (([[nameTextField           stringValue] length] > 0) && 
+							 ([[realmComboBox           stringValue] length] > 0) &&
+							 ([[passwordSecureTextField stringValue] length] > 0));
+        else
+			havePrincipal = ([[passwordSecureTextField stringValue] length] > 0);
     }
     
     [okButton setEnabled: havePrincipal];
@@ -494,7 +622,8 @@
         [okButton        setAutoresizingMask: NSViewMinYMargin];
         [cancelButton    setAutoresizingMask: NSViewMinYMargin];
         [gearPopupButton setAutoresizingMask: NSViewMinYMargin];
-        
+		[rememberPasswordInKeychainCheckBox setAutoresizingMask: NSViewMinYMargin];
+		   
         [self setWindowContentHeight: minimizedFrameHeight];
         
         state.isMinimized = YES;
@@ -512,6 +641,7 @@
         [okButton        setAutoresizingMask: NSViewMinXMargin | NSViewMaxYMargin];
         [cancelButton    setAutoresizingMask: NSViewMinXMargin | NSViewMaxYMargin];
         [gearPopupButton setAutoresizingMask: NSViewMinXMargin | NSViewMaxYMargin];
+        [rememberPasswordInKeychainCheckBox setAutoresizingMask: NSViewMinXMargin | NSViewMaxYMargin];
                 
         state.isMinimized = NO;
     }
@@ -542,7 +672,7 @@
 
 // ---------------------------------------------------------------------------
 
-- (int) getTickets
+- (int) getTicketsWithPassword: (NSString *) password
 {
     KLStatus err = klNoErr;
     KLLoginOptions loginOptions = NULL;
@@ -590,29 +720,15 @@
     
     if (err == klNoErr) {
         __KLSetApplicationPrompter (GraphicalKerberosPrompter);
-        err = [acquiredPrincipal getTicketsWithPassword: [passwordSecureTextField stringValue]
+		NSString *pwdToUse = password ? password : @" "; // use @" " for password when authenticating through pkinit 
+        err = [acquiredPrincipal getTicketsWithPassword: pwdToUse
                                            loginOptions: loginOptions
                                               cacheName: acquiredCacheName];
-        if (err == KRB5KDC_ERR_KEY_EXP) {
-            // Ask the user if s/he wants to change the password
-            NSString *question = AuthControllerString (@"AuthControllerStringPasswordExpired");
-            BOOL changePassword = [ErrorAlert alertForYNQuestion: question
-                                                          action: KerberosGetTicketsAction
-                                                  modalForWindow: [self window]];
-            if (changePassword) {
-                ChangePasswordController *controller = 
-                    [[ChangePasswordController alloc] initWithPrincipal: acquiredPrincipal];
-                if (controller != NULL) {
-                    if ([controller runSheetModalForWindow: [self window]] == klNoErr) {
-                        err = [acquiredPrincipal getTicketsWithPassword: [controller newPassword]
-                                                           loginOptions: loginOptions
-                                                              cacheName: acquiredCacheName];                    
-                        
-                    }
-                    [controller release];
-                }
-            }
-        }
+	}
+
+    if (err == klNoErr) {
+        // If we got tickets, save dialog state to preferences
+        [self loginOptionsToPreferences];
     }
     
     if (loginOptions != NULL) { KLDisposeLoginOptions (loginOptions); }
@@ -622,7 +738,7 @@
 
 // ---------------------------------------------------------------------------
 
-- (Principal *) acquiredPrincipal
+- (KerberosPrincipal *) acquiredPrincipal
 {
     return acquiredPrincipal;
 }
@@ -672,6 +788,71 @@
 {
     result = returnCode;
     [NSApp stop: self];
+}
+
+-(NSString*)enteredPassword
+{
+	return [passwordSecureTextField stringValue];
+}
+
+-(SecKeychainItemRef)foundKCItem
+{
+	return _foundKCItem;
+}
+
+-(BOOL)findKeychainItemWithUser:(NSString*)user serverName:(NSString*)serverName password:(NSString**)password
+{
+	OSStatus findResult = noErr;
+	UInt32 pwdLen = 0;
+	void *outPassword;
+	if ( _foundKCItem )
+	{
+		CFRelease(_foundKCItem);
+		_foundKCItem = NULL;
+	}
+	findResult = SecKeychainFindGenericPassword(nil, [serverName length], [serverName UTF8String],
+					[user length], [user UTF8String],
+					&pwdLen, &outPassword, &_foundKCItem);
+	if ( findResult == noErr )
+	{
+		if ( password )
+			*password = [[[NSString alloc] initWithBytes:outPassword length:pwdLen encoding:NSUTF8StringEncoding] autorelease];
+		if ( _keychainPasswordFromKeychain )
+		{
+			[_keychainPasswordFromKeychain release];
+			_keychainPasswordFromKeychain = NULL;
+		}
+		_keychainPasswordFromKeychain = [[NSString alloc] initWithBytes:outPassword length:pwdLen encoding:NSUTF8StringEncoding];
+		SecKeychainItemFreeAttributesAndData(NULL, outPassword);
+		return YES;
+	}
+	return NO;
+}
+
+-(NSString*)keychainPasswordFromKeychain
+{
+	return _keychainPasswordFromKeychain;
+}
+
+-(void)autoFillPasswordWithKeychainPasswordForRealm:(NSString*)realm
+{
+	// Auto-fill keychain password for the selected realm (if the kc item exists)
+	//
+	NSString *userName = [nameTextField stringValue];
+	if ( [userName length] != 0 && [realm length] != 0 )
+	{
+		NSString *keychainPassword = NULL;
+		if ( [self findKeychainItemWithUser:userName serverName:realm password:&keychainPassword] == YES )
+		{
+			[passwordSecureTextField setStringValue:keychainPassword];
+			[self updateOKButtonState];
+		}
+	}
+}
+
+-(BOOL)rememberPasswordInKeychain
+{
+	return [rememberPasswordInKeychainCheckBox intValue];
 }
 
 @end

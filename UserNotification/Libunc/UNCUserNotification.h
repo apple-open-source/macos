@@ -8,19 +8,19 @@
 typedef struct __UNCUserNotification *UNCUserNotificationRef;
 
 /* Create and dispatch a notification, providing contents as a null-terminated list of key-value pairs */
-extern UNCUserNotificationRef UNCUserNotificationCreate(double timeout, unsigned flags, int *error, const char **contents);
+extern UNCUserNotificationRef UNCUserNotificationCreate(double timeout, unsigned long flags, int *error, const char **contents);
 
 /* Wait for a response */
-extern int UNCUserNotificationReceiveResponse(UNCUserNotificationRef userNotification, double timeout, unsigned *responseFlags);
+extern int UNCUserNotificationReceiveResponse(UNCUserNotificationRef userNotification, double timeout, unsigned long *responseFlags);
 
 /* Retrieve contents (if any) from the response */
-extern const char *UNCUserNotificationGetResponseValue(UNCUserNotificationRef userNotification, const char *key, unsigned index);
+extern const char *UNCUserNotificationGetResponseValue(UNCUserNotificationRef userNotification, const char *key, unsigned long index);
 
 /* Retrieve all response contents as a null-terminated list of key-value pairs */
 extern const char **UNCUserNotificationGetResponseContents(UNCUserNotificationRef userNotification);
 
 /* Update the values associated with a notification */
-extern int UNCUserNotificationUpdate(UNCUserNotificationRef userNotification, double timeout, unsigned flags, const char **contents);
+extern int UNCUserNotificationUpdate(UNCUserNotificationRef userNotification, double timeout, unsigned long flags, const char **contents);
 
 /* Cancel a notification */
 extern int UNCUserNotificationCancel(UNCUserNotificationRef userNotification);
@@ -30,9 +30,9 @@ extern void UNCUserNotificationFree(UNCUserNotificationRef userNotification);
 
 
 /* Convenience APIs for the simplest cases */
-extern int UNCDisplayNotice(double timeout, unsigned flags, const char *iconPath, const char *soundPath, const char *localizationPath, const char *alertHeader, const char *alertMessage, const char *defaultButtonTitle);
+extern int UNCDisplayNotice(double timeout, unsigned long flags, const char *iconPath, const char *soundPath, const char *localizationPath, const char *alertHeader, const char *alertMessage, const char *defaultButtonTitle);
 
-extern int UNCDisplayAlert(double timeout, unsigned flags, const char *iconPath, const char *soundPath, const char *localizationPath, const char *alertHeader, const char *alertMessage, const char *defaultButtonTitle, const char *alternateButtonTitle, const char *otherButtonTitle, unsigned *responseFlags);
+extern int UNCDisplayAlert(double timeout, unsigned long flags, const char *iconPath, const char *soundPath, const char *localizationPath, const char *alertHeader, const char *alertMessage, const char *defaultButtonTitle, const char *alternateButtonTitle, const char *otherButtonTitle, unsigned long *responseFlags);
 
 
 /* Flags */

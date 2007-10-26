@@ -145,6 +145,10 @@ Several of the
 .Xr confstr 3
 variables provide information on the necessary compiler and linker flags
 to use the standard programming environments described above.
+.Pp
+Many of these values are also available through the
+.Xr sysctl 8
+mechanism.
 .Sh DIAGNOSTICS
 .Ex -std
 Use of a
@@ -191,7 +195,8 @@ if the system supports that environment.
 .Sh SEE ALSO
 .Xr pathconf 2 ,
 .Xr confstr 3 ,
-.Xr sysconf 3
+.Xr sysconf 3 ,
+.Xr sysctl 8
 .Sh STANDARDS
 The
 .Nm

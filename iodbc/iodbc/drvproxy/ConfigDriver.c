@@ -1,18 +1,22 @@
 /*
  *  ConfigDriver.c
  *
- *  $Id: ConfigDriver.c,v 1.3 2004/11/11 01:52:35 luesang Exp $
+ *  $Id: ConfigDriver.c,v 1.10 2006/01/24 11:25:07 source Exp $
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -26,8 +30,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,7 +40,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -68,9 +72,11 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
 #include <iodbc_error.h>
+#include <iodbcadm.h>
 
 #include "gui.h"
 
@@ -122,7 +128,7 @@ ConfigDriver (
       if (hwndParent
 	  && SQLGetPrivateProfileString ("ODBC Drivers", lpszDriver, "",
 	      driverread, sizeof (driverread), "odbcinst.ini")
-	  && !create_confirmadm (hwndParent, NULL,
+	  && !create_confirm (hwndParent, NULL,
 	      "Are you sure you want to overwrite this driver ?"))
 #  else
       if (hwndParent

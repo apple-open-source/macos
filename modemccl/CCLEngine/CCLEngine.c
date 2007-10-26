@@ -44,9 +44,16 @@ Includes
 #include <stdarg.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include <sys/param.h>
 #include <CoreFoundation/CoreFoundation.h>
-
+#include <IOKit/IOCFUnserialize.h>
 #include <SystemConfiguration/SystemConfiguration.h>
+
+#include "CCLArgFunctions.h"
+#include "cclkeys.h"
+
+// import System Configuration schema for keys that are prefs
+#include <SystemConfiguration/SCSchemaDefinitions.h>
 
 #include "CCLEngine.h"
 #include "CCLEngine_defs.h"
@@ -56,6 +63,13 @@ Defines
 -------------------------------------------------------------------------- */
 
 #define min(a,b)			(((a)<=(b))?(a):(b))
+#define kNormalDialMode     0
+#define kBlindDialMode      1       // CCL term; SC uses is "IgnoreDialTone"
+#define kManualDialMode     2       // user does the dialing
+
+#define DIR_MODEMS_USER     "/Library/Modem Scripts"
+#define DIR_MODEMS_SYS      "/System/Library/Modem Scripts"
+
 
 enum {
     kUserMsgFLog = 1,
@@ -64,6 +78,7 @@ enum {
 
 #define infd 	STDIN_FILENO
 #define outfd 	STDOUT_FILENO
+#define PPP_ARG_FD	3
 
 enum
 {
@@ -74,7 +89,7 @@ enum
     kBreakTimer
 };
 
-enum {
+enum enginemode {
     mode_connect = 0,
     mode_disconnect,
     mode_listen
@@ -160,10 +175,9 @@ u_int32_t	LastExitError;
 u_int32_t	LastAskedMasked;
 
 FILE* filefd   = (FILE *) 0;
-char *filename    = "";
+char *filename    = NULL;
 char *phone_num   = "";
 char *username  = "";
-char *bundleurl  = "";
 char *password  = "";
 char *alertname  = "";
 char *cancelname  = "";
@@ -171,25 +185,39 @@ char *iconurl  = "";
 CFStringRef	alertNameRef = 0;
 CFStringRef	cancelNameRef = 0;
 CFURLRef	iconURL = 0;
-CFURLRef	bundleURL = 0;
+
+char*		localBunPath  = "";
+CFURLRef	localBundleURL = NULL;
+
+CFBundleRef cclBundle = NULL;
+CFURLRef	cclBundleURL= NULL;
+CFURLRef	appBundleURL= NULL;
+
+
 
 int pulse = 0;
 int dialmode = 0; // 0 = normal, 1 = blind(ignoredialtone), 2 = manual
 int speaker = 1;
 int errorcorrection = 1;
 int datacompression = 1;
-char *serviceID   = NULL;
+u_char *serviceID   = NULL;
+
+/*
+int cellphoneCID= 0;
+int cellphoneQofS= 0;
+int limitBandwidth= 0;
+*/
 
 int verbose 	  = 0;
 u_int32_t debuglevel 	  = 0;
 int sysloglevel = LOG_NOTICE;
-int syslogfacility = LOG_RAS;
-int usestderr 	= 0;
+int syslogfacility = 0; //LOG_RAS; Kevin- variable not defined, punt...
+int usestderr 	= 1;
 int signalerror = 0;
 
 struct callout *callout = NULL;	/* Callout list */
 struct timeval timenow;		/* Current time */
-int mode = mode_connect;
+enum enginemode enginemode = mode_connect;
 
 fd_set	allset;
 int 	maxfd;
@@ -236,6 +264,8 @@ void untimeout(void (*func)(void *), void *arg);
 void ReceiveMatchData(u_int8_t nextChar);
 int publish_entry(u_char *serviceid, CFStringRef entry, CFTypeRef value);
 int unpublish_entry(u_char *serviceid, CFStringRef entry);
+bool SetVarStringFromDict(CFDictionaryRef dict, CFStringRef key, int varStringIndex);
+void sLog(char *fmt, ...);
 
 
 
@@ -248,30 +278,8 @@ int unpublish_entry(u_char *serviceid, CFStringRef entry);
 #define	OPTONLYARG(c,v)	(_O&2&&**v?(_O=1,--c,*v++):(char*)0)
 #define	ARG(c,v)	(c?(--c,*v++):(char*)0)
 
-static int _O = 0;		/* Internal state */
 /*************** Micro getopt() *********************************************/
 
-
-
-
-/* --------------------------------------------------------------------------
--------------------------------------------------------------------------- */
-void *dup_mem(void *b, size_t c)
-{
-    void *ans = malloc (c);
-    if (!ans)
-        terminate(cclErr_NoMemErr);
-    
-    memcpy (ans, b, c);
-    return ans;
-}
-
-/* --------------------------------------------------------------------------
--------------------------------------------------------------------------- */
-void *copy_of(char *s)
-{
-    return dup_mem (s, strlen (s) + 1);
-}
 
 /* --------------------------------------------------------------------------
 -------------------------------------------------------------------------- */
@@ -305,15 +313,447 @@ void StopRead()
     maxfd = 0;
 }
 
+#pragma mark Bundle Configuration/Startup
+
+/* --------------------------------------------------------------------------
+SetVarStringFromDict
+- handles pulling the data out and setting the var value for the passed in key
+- Returns success (true) even if the value is missing from the input dict
+- fails only if the data is not of string type or if it can't be extracted
+-------------------------------------------------------------------------- */
+bool SetVarStringFromDict(CFDictionaryRef dict, CFStringRef key, int varStringIndex)
+{
+    bool retVal= false;
+	u_char 	text[256];
+	CFStringRef varString;
+
+	varString= (CFStringRef)CFDictionaryGetValue(dict, key);
+	if(varString == NULL) {
+		retVal = true;		// missing values are okay (will return gNullString)
+	} else if(CFStringGetTypeID() == CFGetTypeID(varString)) {
+		// X varStrings are defined to be in the system encoding?
+		if(CFStringGetPascalString(varString,text,256,CFStringGetSystemEncoding()))
+		{
+			SetVarString(varStringIndex, text);
+			retVal= true;
+		}
+	} else {
+		sLog("SetVarStringFromDict: value with non-string type");
+		CFShow(key);
+		CFShow(varString);
+	}
+	return retVal;
+}
+
+/* -------------------------------------------------------------------------- 
+// check to make sure that the CCL version is the one we know
+-------------------------------------------------------------------------- */
+bool VerifyCCLBundle(CFBundleRef cclBun)
+{
+	CFDictionaryRef infoDict= CFBundleGetInfoDictionary(cclBun);
+	int verNum = -1;
+
+	if(!infoDict || !GetIntFromDict(infoDict, &verNum, kCCLVersionKey))
+		return false;
+
+	return (verNum == kCCLBundleVersion);
+}
+
+/* -------------------------------------------------------------------------- 
+XX: should merge in keys in case we want to store CCLParameters in SC
+Missing values are ignored by SetVarStringFromDict
+-------------------------------------------------------------------------- */
+bool ConfigureCCLParameters(CFDictionaryRef personalityDict)
+{
+	bool rval = false;
+	CFDictionaryRef cclParms= GetCFDictionaryFromDict(personalityDict, kCCLParametersKey);
+	if(cclParms)
+	{
+		rval = SetVarStringFromDict(cclParms, kCCLVarString27Key, vsString27);
+		rval &= SetVarStringFromDict(cclParms, kCCLVarString28Key, vsString28);
+		rval &= SetVarStringFromDict(cclParms, kCCLVarString29Key, vsString29);
+		rval &= SetVarStringFromDict(cclParms, kCCLVarString30Key, vsString30);
+		rval&=SetVarStringFromDict(cclParms,kCCLConnectSpeedKey,vsConnectSpeed);
+		rval &= SetVarStringFromDict(cclParms, kCCLInitStringKey, vsInit);
+
+		// Preferred* keys are handled by libccl's cclparser + SC.
+		// The user has to confirm that they want those values.
+	}
+	return rval;
+}
+
+/* -------------------------------------------------------------------------- 
+-------------------------------------------------------------------------- */
+CFURLRef 
+CopyScriptWithPersonality(CFBundleRef bundleRef, CFStringRef personalityKey)
+{
+	CFURLRef rval = NULL;
+	CFDictionaryRef infoDict;
+	CFDictionaryRef persDict;
+	CFDictionaryRef persEntry = NULL;
+
+	if (!(infoDict = CFBundleGetInfoDictionary(bundleRef)))
+		goto finish;
+	if (!(persDict = GetCFDictionaryFromDict(infoDict, kCCLPersonalitiesKey)))
+		goto finish;
+
+	// check the provided personality key
+	if (personalityKey)
+		persEntry = GetCFDictionaryFromDict(persDict, personalityKey);
+	// or try the default personality (X could mask missing personality)
+	if (!persEntry)
+		persEntry = GetCFDictionaryFromDict(persDict,kCCLDefaultPersonalityKey);
+
+	// if we found something, get the script name
+	if (persEntry) {
+		CFStringRef scriptName = NULL;
+
+		if (!GetCFStringFromDict(persEntry,&scriptName,kCCLScriptNameKey))
+			goto finish;
+		if (!scriptName)
+			goto finish;
+
+		rval = CFBundleCopyResourceURL(bundleRef, scriptName, NULL, NULL);
+		if (rval) {
+			// We do this here to avoid having to determinepersonality twice...
+			if (!ConfigureCCLParameters(persEntry)) {
+				CFRelease(rval);
+				rval = NULL;
+			}
+			// modemDict CCLParameters (if any) merged in later
+		}
+	}
+
+finish:
+	return rval;
+}
+
+/* -------------------------------------------------------------------------- 
+-------------------------------------------------------------------------- */
+bool ConfigureWithBundle(CFBundleRef bundleRef, CFStringRef personality)
+{
+	bool retVal= false;
+	UInt8 pathBuffer[MAXPATHLEN];
+
+	if(bundleRef!= NULL)
+	{
+		if(VerifyCCLBundle(bundleRef))
+		{
+			CFURLRef scriptURL= CopyScriptWithPersonality(bundleRef, personality);
+			if(scriptURL!= NULL)
+			{
+				if(CFURLGetFileSystemRepresentation(scriptURL, true, pathBuffer, MAXPATHLEN))
+				{
+					if (filename)	free(filename);
+					filename = strdup((char*)pathBuffer);
+					retVal= true;
+					CFRetain(bundleRef);
+					cclBundle= bundleRef;
+				}
+				CFRelease(scriptURL);
+			}
+		}
+	}
+	return retVal;
+}
+
+/* -------------------------------------------------------------------------- 
+ResolveCCLPath() resolves the full path with the following preferences:
+- /full/path/to/foo.ccl
+- /full/path/to/foo
+- /System/Library/Modem Scripts/foo.ccl
+- /System/Library/Modem Scripts/foo
+- /Library/Modem Scripts/foo.ccl
+- /Library/Modem Scripts/foo
+Returns true if it found something
+Side Effects: fullpath used as scratch space
+
+Fairly common case should (eventually) be fully-resolved .ccl path.
+Note: even if foo exists; prefers foo.ccl
+-------------------------------------------------------------------------- */
+bool ResolveCCLPath(char *path, char fullpath[PATH_MAX], struct stat *sb)
+{
+	char *extptr = path + (strlen(path) - (kCCL_BundleExtLen + sizeof('.')));
+	bool cclExt;
+
+	// try to avoid an unnecessary stat()
+	cclExt = (*extptr == '.') && (strcmp(extptr+1, kCCL_BundleExtension) == 0);
+
+	if (path[0] == '/') {
+		if (!cclExt) {
+			snprintf(fullpath, PATH_MAX, "%s.%s", path, kCCL_BundleExtension);
+			if (stat(fullpath, sb) == 0) 	return true;
+		}
+		strlcpy(fullpath, path, PATH_MAX);
+		if (stat(fullpath, sb) == 0) 		return true;
+	} else {
+		// path is not absolute so try the common directories
+		if (!cclExt) {
+			snprintf(fullpath, PATH_MAX, "%s/%s.%s", DIR_MODEMS_SYS, path,
+					kCCL_BundleExtension);
+			if (stat(fullpath, sb) == 0)	return true;
+		}
+		snprintf(fullpath, PATH_MAX, "%s/%s", DIR_MODEMS_SYS, path);
+		if (stat(fullpath, sb) == 0)		return true;
+
+		if (!cclExt) {
+			snprintf(fullpath, PATH_MAX, "%s/%s.%s", DIR_MODEMS_USER, path,
+					kCCL_BundleExtension);
+			if (stat(fullpath, sb) == 0)	return true;
+		}
+		snprintf(fullpath, PATH_MAX, "%s/%s", DIR_MODEMS_USER, path);
+		if (stat(fullpath, sb) == 0)		return true;
+	}
+
+	return false;
+}
+
+#define LOG_MAX 1024
+/* -------------------------------------------------------------------------- 
+sLog(): capture syslog/stderr idiom that was scattered throughout the code
+-------------------------------------------------------------------------- */
+void sLog(char *fmt, ...)
+{
+	va_list ap;
+	char taggedfmt[LOG_MAX], s[64];
+	time_t t;
+
+	va_start(ap, fmt);
+
+	if (sysloglevel)
+		vsyslog(sysloglevel, fmt, ap);
+	if (usestderr) {
+		time(&t);
+		strftime(s, sizeof(s), "%c : ", localtime(&t));
+		strlcpy(taggedfmt, s, LOG_MAX);
+		strlcat(taggedfmt, fmt, LOG_MAX);
+		strlcat(taggedfmt, "\n", LOG_MAX);
+		vfprintf(stderr, taggedfmt, ap);
+	}
+}
+
+/* -------------------------------------------------------------------------- 
+validate path and see if it's a bundle; otherwise it's an old-school flat CCL
+-------------------------------------------------------------------------- */
+bool ConfigureCCL(char* path, CFStringRef personality)
+{
+	bool retVal = false;
+	CFURLRef url;
+	CFBundleRef  bundleRef;
+	char fullpath[PATH_MAX];
+	struct stat sb;
+
+	// it's possible we have only a name
+	// we need to turn it into a path and perhaps add .ccl to it
+	if (!ResolveCCLPath(path, fullpath, &sb)) {
+		sLog("couldn't find CCL '%s'", path);
+		goto finish;
+	}
+
+	url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault,
+		(UInt8*)fullpath, strlen(fullpath), S_ISDIR(sb.st_mode));
+	if (!url)	goto finish;
+
+	bundleRef= CFBundleCreate(kCFAllocatorDefault, url);
+	if(bundleRef) {
+		// retains cclBundle, copies filename, etc
+		retVal = ConfigureWithBundle(bundleRef, personality);
+		CFRelease(bundleRef);
+		if (retVal)
+			cclBundleURL = url;		// keep for loc
+		else {
+			CFRelease(url);
+			sLog("%s does not appear to be a CCL bundle", fullpath);
+		}
+	} else {
+		// maybe it was "old school"
+		if (S_ISREG(sb.st_mode)) {
+			CFRelease(url);
+			if (filename)	free(filename);
+			filename = strdup(fullpath);
+			retVal = true;
+		} else {
+			sLog("%s is neither a bundle nor a file", filename);
+		}
+	}
+
+finish:
+	return retVal;
+}
+
+/* -------------------------------------------------------------------------- 
+-------------------------------------------------------------------------- */
+bool ParseEngineDict(CFDictionaryRef argDict)
+{
+	bool success= false;
+
+	CFDictionaryRef engineDict= GetCFDictionaryFromDict(argDict, kCCLEngineDictKey);
+	if(engineDict!= NULL)
+	{
+		CFStringRef modeString= (CFStringRef) CFDictionaryGetValue(engineDict, kCCLEngineModeKey);
+		if(modeString!= NULL)
+		{	
+			// we assumed mode_connect when we initialized enginemode
+			if((CFStringGetTypeID()== CFGetTypeID(modeString)) && (CFStringCompare(modeString, kCCLEngineModeDisconnect, 0)== kCFCompareEqualTo))
+			{
+				enginemode = mode_disconnect;
+			}
+			// Get*FromDict return success if the value was missing
+			// i.e. the only errors are from conversion problems
+			success = CopyCStringFromDict(engineDict, &alertname, kCCLEngineAlertNameKey);
+			success &= CopyCStringFromDict(engineDict, &localBunPath, kCCLEngineBundlePathKey);
+			success &= CopyCStringFromDict(engineDict, &cancelname, kCCLEngineCancelNameKey);
+			success &= CopyCStringFromDict(engineDict, &iconurl, kCCLEngineIconPathKey);
+			success &= GetIntFromDict(engineDict, &usestderr, kCCLEngineLogToStdErrKey);
+			success &= CopyCStringFromDict(engineDict, (char**) &serviceID, kCCLEngineServiceIDKey);
+			success &= GetIntFromDict(engineDict, &syslogfacility, kCCLEngineSyslogFacilityKey); 
+			success &= GetIntFromDict(engineDict, &sysloglevel, kCCLEngineSyslogLevelKey); 
+			success &= GetIntFromDict(engineDict, &verbose, kCCLEngineVerboseLoggingKey);
+		}
+	}
+
+	return success;
+}
+
+/* -------------------------------------------------------------------------- 
+-------------------------------------------------------------------------- */
+bool ParseModemDict(CFDictionaryRef argDict)
+{
+	bool success= false;
+	CFDictionaryRef modemDict= GetCFDictionaryFromDict(argDict, kSCEntNetModem);
+
+	// CFShow(modemDict);
+	if(modemDict!= NULL)
+	{
+		char* tempFilePath = NULL;
+		CFStringRef personality = NULL;
+
+		if (!CopyCStringFromDict(modemDict, &tempFilePath, kSCPropNetModemConnectionScript))
+			goto finish;
+		if (!tempFilePath)
+			goto finish;
+		if (!GetCFStringFromDict(modemDict, &personality, kSCPropNetModemConnectionPersonality))
+			goto finish;
+
+		// ConfigureCCL extracts default CCLParameters, handles NULL personality
+		success = ConfigureCCL(tempFilePath, personality);
+		free(tempFilePath);
+		if (!success)
+			goto finish;
+					
+		// dialmode is a string which we convert
+		dialmode= kNormalDialMode;		// assume normal dial
+		CFStringRef dialModeStr = (CFStringRef) CFDictionaryGetValue(modemDict, kSCPropNetModemDialMode);
+		if(dialModeStr && CFStringGetTypeID()==CFGetTypeID(dialModeStr)){
+			if (kCFCompareEqualTo == CFStringCompare(dialModeStr,
+					kSCValNetModemDialModeIgnoreDialTone,0))
+				dialmode = kBlindDialMode;
+			else if (kCFCompareEqualTo == CFStringCompare(dialModeStr,
+					kSCValNetModemDialModeManual,0))
+				dialmode = kManualDialMode;
+		}
+
+		// only needed for mode_connect
+		if (enginemode == mode_connect) {
+			// expected, but we have reasonable defaults
+			success &= GetIntFromDict(modemDict, &datacompression, kSCPropNetModemDataCompression);
+			success &= GetIntFromDict(modemDict, &errorcorrection, kSCPropNetModemErrorCorrection);
+			success &= CopyCStringFromDict(modemDict,&phone_num,kModemPhoneNumberKey);
+			success &= GetIntFromDict(modemDict, &pulse, kSCPropNetModemPulseDial);
+			success &= GetIntFromDict(modemDict, &speaker, kSCPropNetModemSpeaker);
+			success &= CopyCStringFromDict(modemDict, &username, kSCPropNetPPPAuthName);
+			success &= CopyCStringFromDict(modemDict, &password, kSCPropNetPPPAuthPassword);
+
+	
+			// optional, and SetVarStringFromDict sets to gNull if missing
+			success &= SetVarStringFromDict(modemDict, kSCPropNetModemAccessPointName, vsAPN);
+			success &= SetVarStringFromDict(modemDict, kSCPropNetModemDeviceContextID, vsCID);
+		}
+
+		// speed might be needed for disconnect?
+		success &= SetVarStringFromDict(modemDict, kSCPropNetModemConnectSpeed, vsConnectSpeed);
+		// stored kSCPropNetModemConnectSpeed could override CCL's static config
+		// X could call ConfigureCCLParameters with modem dict (SC) version here
+	}
+
+finish:
+	return success;
+}
+
+
+/* -------------------------------------------------------------------------- 
+-------------------------------------------------------------------------- */
+bool ParseArgDictionary(CFDictionaryRef argDict)
+{
+	CFBundleRef mainBundle= NULL;
+
+	if(ParseEngineDict(argDict)) {
+		if(ParseModemDict(argDict)) {	
+			mainBundle= CFBundleGetMainBundle();
+			if(mainBundle)
+				appBundleURL= CFBundleCopyBundleURL(mainBundle);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+/* -------------------------------------------------------------------------- 
+-------------------------------------------------------------------------- */
+#define kParseBufferSize 4096
+bool ParsePipeArgs()
+{
+    ssize_t  bRead= 0;
+    ssize_t  tbRead= 0;
+
+    bool retVal= false;
+    
+    void* tempBuf;
+    char* dataBuf= malloc(kParseBufferSize);
+    if (!dataBuf)   goto finish;
+
+    bRead= read(PPP_ARG_FD, dataBuf,  kParseBufferSize);
+    tbRead= bRead;
+    while (bRead == kParseBufferSize) {
+        tempBuf= realloc(dataBuf, (tbRead+ kParseBufferSize));
+        if (tempBuf) {
+            dataBuf= tempBuf;
+            bRead= read(PPP_ARG_FD, &dataBuf[tbRead], kParseBufferSize);
+            tbRead+= bRead;
+        } else {
+            goto finish;
+        }
+        
+    }
+    CFDictionaryRef argDict= IOCFUnserialize(dataBuf, kCFAllocatorDefault, kCFPropertyListImmutable, NULL);
+    if(argDict!= NULL)
+    {
+        retVal= ParseArgDictionary(argDict);
+    }
+
+finish:
+    if (dataBuf)    free(dataBuf);
+    close(PPP_ARG_FD);
+    return retVal;
+}
+
 /* --------------------------------------------------------------------------
 -------------------------------------------------------------------------- */
 int main(int argc, char **argv)
 {
-    int 		option, ret, nready, status, i, len;
-    char 		*arg, c;
-    struct stat 	statbuf;
-    fd_set		rset;
-    struct timeval 	timo;
+    char            c;
+    int             ret, nready, status, i;
+    struct stat     statbuf;
+    fd_set          rset;
+    struct timeval  timo;
+	
+/* DEBUG for attach
+ fprintf(stderr, "CCLEngine pid %d\n", getpid());
+ fflush(stderr);
+ sleep(10);
+*/
     
     signal(SIGHUP, hangup);		/* Hangup */
     signal(SIGINT, hangup);		/* Interrupt */
@@ -329,161 +769,28 @@ int main(int argc, char **argv)
     signal(SIGQUIT, badsignal);
     signal(SIGSEGV, badsignal);
 
-    while ((option = OPTION(argc, argv)) != 0) {
-        switch (option) {
-
-            case 's':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    speaker = atoi(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'e':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    errorcorrection = atoi(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'c':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    datacompression = atoi(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'd':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    dialmode = atoi(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'p':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    pulse = atoi(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'v':
-                verbose = 1;
-                break;
-
-            case 'm': // 0 = connect, 1 = disconnect, 2 = answer
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    mode = atoi(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'l': // service id
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    serviceID = copy_of(arg);
-                else
-                    terminate(cclErr_BadParameter);
-
-                    break;
-
-            case 'f':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    filename = copy_of(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'T':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    phone_num = copy_of(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'B':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    bundleurl = copy_of(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'U':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    username = copy_of(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'P':
-                if ((arg = OPTARG(argc, argv)) != NULL) {
-                    password = copy_of(arg);
-                    len = strlen(arg);
-                    // hide the password parameter
-                    for (i = 0; i < len; arg[i++] = '*');
-                }
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'E':
-                usestderr = 1;
-                break;
-    
-            case 'S':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    sysloglevel = atoi(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'L':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    syslogfacility = atoi(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'I':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    alertname = copy_of(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-                
-            case 'C':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    cancelname = copy_of(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            case 'i':
-                if ((arg = OPTARG(argc, argv)) != NULL)
-                    iconurl = copy_of(arg);
-                else
-                    terminate(cclErr_BadParameter);
-                break;
-
-            default:
-                terminate(cclErr_BadParameter);
-                break;
-        }
-    }
+	// zero all of the strings (removed from InitScript)
+    for (i = 0; i <= vsMax; i++)
+        VarStrings[i] = 0;
 
     openlog("ccl", LOG_PID | LOG_NDELAY, syslogfacility);
+
+    if(!ParsePipeArgs())
+        terminate(cclErr_BadParameter);
+
+    InitScript();       // sets whatever variables PPA() didn't
 
     alertNameRef = CFStringCreateWithCString(NULL, alertname, kCFStringEncodingUTF8);
     cancelNameRef = CFStringCreateWithCString(NULL, cancelname, kCFStringEncodingUTF8);
     if (*iconurl) 
-        iconURL = CFURLCreateWithBytes(NULL, iconurl, strlen(iconurl), kCFStringEncodingUTF8, NULL);
-    if (*bundleurl) 
-        bundleURL = CFURLCreateWithBytes(NULL, bundleurl, strlen(bundleurl), kCFStringEncodingUTF8, NULL);
+        iconURL = CFURLCreateFromFileSystemRepresentation(nil, (UInt8*) iconurl, strlen(iconurl), false /*notDir*/);
+    if (*localBunPath) 
+        localBundleURL = CFURLCreateFromFileSystemRepresentation(NULL, (UInt8*) localBunPath, strlen(localBunPath), true /*isDir*/);
 
-    InitScript();
-
-    ret = stat(filename, &statbuf);
-    if (ret < 0)
-        terminate(cclErr_BadParameter);
+    // figure out file size
+	ret = stat(filename, &statbuf);
+	if (ret < 0)
+		terminate(cclErr_BadParameter);
 
     SV.script = malloc((int)statbuf.st_size);
     if (!SV.script)
@@ -500,9 +807,8 @@ int main(int argc, char **argv)
 
     /* start by unpublishing any remaining information */
     if (serviceID) {
-        unpublish_entry(serviceID, kSCPropNetModemConnectSpeed);
+        unpublish_entry((u_char*) serviceID, kSCPropNetModemConnectSpeed);
     }
-
     StopRead();
     Play();
 
@@ -538,7 +844,6 @@ int main(int argc, char **argv)
 -------------------------------------------------------------------------- */
 void InitScript()
 {
-    int 	i;
     u_char 	text[256], text1[256];
     
     gNullString[0] = 1;
@@ -548,9 +853,6 @@ void InitScript()
     // Initialize script variables and varStrings
     //
     bzero(&SV, sizeof(struct TRScriptVars));
-
-    for (i = 0; i <= vsMax; i++)
-        VarStrings[i] = 0;
 
     LastExitError		= 0;
 
@@ -581,23 +883,23 @@ void InitScript()
     bcopy(password, &text[1], text[0]);
     SetVarString(vsPassWord, text);
 
-    sprintf(text, "%d", speaker);
-    text1[0] =  strlen(text);
+    sprintf((char*) text, "%d", speaker);
+    text1[0] =  strlen((char*) text);
     bcopy(text, &text1[1], text[0]);
     SetVarString(vsModemSpeaker, text1);
 
-    sprintf(text, "%d", errorcorrection);
-    text1[0] =  strlen(text);
+    sprintf((char*) text, "%d", errorcorrection);
+    text1[0] =  strlen((char*) text);
     bcopy(text, &text1[1], text[0]);
     SetVarString(vsErrorCorrection, text1);
 
-    sprintf(text, "%d", datacompression);
-    text1[0] =  strlen(text);
+    sprintf((char*) text, "%d", datacompression);
+    text1[0] =  strlen((char*) text);
     bcopy(text, &text1[1], text[0]);
     SetVarString(vsDataCompression, text1);
 
-    sprintf(text, "%d", dialmode);
-    text1[0] =  strlen(text);
+    sprintf((char*) text, "%d", dialmode);
+    text1[0] =  strlen((char*) text);
     bcopy(text, &text1[1], text[0]);
     SetVarString(vsDialMode, text1);
 
@@ -637,13 +939,12 @@ void DisposeScript()
 }
 
 /* --------------------------------------------------------------------------
-var strings are held in the fVarStrings array.  each element is NULL until
-SetVarString is called, in which case memory is allocated and the data copied in.
-if Set has not been called, Get will return a pointer to gNullString, a zero length
-pstring.
-the reason no attempt was made to flag out-of-memory errors here, is also
-because it results in the varString being retrieved by GetVarString being NULL.
-The CCL script will play, but won't make a connection.
+varStrings are held in the global VarStrings[].  Each element is NULL
+until SetVarString is called, in which case memory is allocated and the
+data copied in.  If Set has not previously succeeded, Get will return a
+pointer to gNullString, a zero length pstring.  Memory errors don't abort
+the script but they may break it if the empty string wasn't acceptable
+for that particular varString's value.
 -------------------------------------------------------------------------- */
 void SetVarString(u_int32_t vs, u_int8_t * data)
 {
@@ -659,6 +960,8 @@ void SetVarString(u_int32_t vs, u_int8_t * data)
         VarStrings[vs] = malloc(*data + 1);
         if (VarStrings[vs])
             bcopy(data, VarStrings[vs], *data + 1 );
+		else
+			sLog("SetVarString: %s", strerror(errno));	// should be ENOMEM
     }
 }
 
@@ -667,11 +970,13 @@ void SetVarString(u_int32_t vs, u_int8_t * data)
 u_int8_t *GetVarString(u_int32_t vs)
 {
     if (vs > vsMax)
+	{
         return gNullString;
-
+	}
     if (VarStrings[vs])
+	{
         return VarStrings[vs];
-
+	}
     return gNullString;
 }
 
@@ -691,6 +996,7 @@ void Play(void)
     if (!SV.scriptPrepped ) { // if the Script has not yet been preflighted...
         if (SV.theAbortErr = PrepScript()) { // if the preflight returns an error...
             SV.scriptPrepFailed = 1;		// so Disconnect won't try to re-preflight the script.
+	    sLog("Script parsing failed after %d lines", SV.scriptLine);
             terminate(SV.theAbortErr);	// a script syntax error was detected
             return;
         }
@@ -700,7 +1006,7 @@ void Play(void)
 
     SV.chrDelayValue	= 0;
 
-    switch (mode) {
+    switch (enginemode) {
         case mode_connect:
             SV.ctlFlags		&= ~cclHangupMode;
             SV.ctlFlags |= cclOriginateMode;		// turn on OriginateMode
@@ -710,6 +1016,7 @@ void Play(void)
             // fetch the dial string from ScriptMod, which received it from either a
             // T_conn_req or a Script_execute message.
 
+			// XX should an empty phone number string -> gNullString?
             text[0] =  strlen(phone_num);
             bcopy(phone_num, &text[1], text[0]);
             if (GetVarString(vsDialString) == gNullString)
@@ -815,7 +1122,7 @@ int PrepScript()
         *((u_int16_t *)bp) = cLastCmd;
         bp += 2;
         for( i = 0; i < cLastCmd; ) {
-            s = Commands[i++];
+            s = (u_int8_t*) Commands[i++];
             d = bp + 1;
             while( c = *s++ )
                 *d++ = c;
@@ -856,9 +1163,9 @@ int PrepScript()
     // result != noErr. If so, the following while
     // loop is not entered.
 
-    while (result == 0 && NextLine()) {	/* process the next line of the script	*/
+    while (result == 0 && NextLine()) {	/*process the next line of the script*/
         cmd = NextCommand();
-        switch (cmd)  {
+		switch (cmd)  {
             case cNoCmd:
                 result = cclErr_BadCommand;
                 break;
@@ -884,7 +1191,7 @@ int PrepScript()
                     SV.hangUpLine = SV.scriptLine;
                 break;
 
-            case cLabel:
+            case cScriptLabel:
                 result = NextInt(&labelIndex);
                 if (result == 0) {
                     labelIndex--;
@@ -930,15 +1237,22 @@ int PrepScript()
                 break;
 
             case cIfStr:
-            case cMatchStr:
                 for (i = 0; result == 0 && i < (kIfStrParamCount - 1); i++)
                     result = NextInt(&labelIndex);
+                break;
+
+            case cMatchStr:
+                if (NextInt(&labelIndex) == 0 && labelIndex > maxMatch) {
+		    result = cclErr_MatchStrIndxErr;
+		    break;
+		}
+		result = NextInt(&labelIndex);
                 SkipBlanks();
                 PrepStr(SV.strBuf, NULL, NULL, 1);
                 //
                 // Don't allow to match empty string
                 //
-                if (SV.strBuf[0] == 0 && cmd == cMatchStr)
+                if (SV.strBuf[0] == 0)
                     result = cclErr_BadParameter;
                 break;
 
@@ -1116,7 +1430,7 @@ int NextCommand()
     if (SV.strBuf[0]) {		/* search for this command in command list */
         bp		= SV.commands + 2;
         cmdIndex	= cFirstCmd;
-        result		= cNoCmd;			/* assume that we don't have a command */
+        result		= cNoCmd;			/*assume that we don't have a command*/
         cmdFound	= 0;
 
         while (cmdIndex <= cLastCmd && !cmdFound) {
@@ -1216,7 +1530,7 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
                     srcStrIndex += 4;
                     s++;                   
                     escChar = ((*s - ((*s++ <= '9') ? '0' : ('A' - 10))) * 16);
-                    escChar += (*s - ((*s++ <= '9') ? '0' : ('A' - 10)));
+					escChar += (*s - ((*s++ <= '9') ? '0' : ('A' - 10)));
                     *d++ = escChar;
                 }
                 else {
@@ -1246,7 +1560,9 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
 
                 switch (vs = *s++) {
                     case '*':		vs = vsAsk;		break;
-                    case 'u': case 'U':	vs = vsUserName;	break;
+                    case 'u': case 'U':
+						vs = vsUserName;
+						break;
                     case 'p': case 'P':	vs = vsPassWord;	break;
                     default: {
                         vs -= '0';
@@ -1292,6 +1608,7 @@ void PrepStr(u_int8_t *destStr, u_int32_t *isVarString, u_int32_t *varIndex, int
 
     *destStr = dstStrLen;			// pascal string - set length
     SV.scriptLineIndex = srcStrIndex + 1;	// skip over the string terminator
+	
 }
 
 /* --------------------------------------------------------------------------
@@ -1304,7 +1621,6 @@ void varSubstitution(u_int8_t *src, u_int8_t *dst, int dstmaxlen)
     u_int8_t	len = 0, dstlen = 0;
 
     while ((len < srclen) && (dstlen < dstmaxlen)) {
-
         // copy & prepare the string
         switch (*s) {
 
@@ -1330,7 +1646,6 @@ void varSubstitution(u_int8_t *src, u_int8_t *dst, int dstmaxlen)
                         break;
                     }
                 }
-
                 if (vsp = GetVarString(vs)) {
                     for (i = 1; (i <= *vsp) && (dstlen < dstmaxlen); i++, dstlen++)
                         *d++ = vsp[i];
@@ -1340,7 +1655,7 @@ void varSubstitution(u_int8_t *src, u_int8_t *dst, int dstmaxlen)
 
             // copy srcStr byte into the dst
             default:
-                len++;
+				len++;
                 dstlen++;
                 *d++ = *s++;
                 break;
@@ -1376,10 +1691,11 @@ int NextInt(u_int32_t *theIntPtr)
     int		sign;
     u_int8_t	*intStrPtr, intStrNdx, intStrLen;
     u_int8_t	intStr[256];
+	u_int32_t	isVarString = 0;
 
     /* skip over blanks in script line, and pull out the number string	*/
     SkipBlanks();
-    PrepStr( intStr, NULL, NULL, 1);
+    PrepStr( intStr, &isVarString, NULL, 1);
 
     *theIntPtr = 0;
     sign = 1;
@@ -1387,6 +1703,10 @@ int NextInt(u_int32_t *theIntPtr)
     intStrPtr = intStr + 1;
     if( intStrLen == 0 )
         return cclErr_BadParameter;
+	// if it's a variable that is null (gNullString is a pstring = " "),
+	// substitute zero instead of failing later
+	if (isVarString && (intStrLen == 1) && *intStrPtr == ' ')
+		*intStrPtr = '0';
 
     /* check for sign operator	*/
     intStrNdx = 1;
@@ -1406,7 +1726,6 @@ int NextInt(u_int32_t *theIntPtr)
         return cclErr_BadParameter;
 
     *theIntPtr *= sign;				// set appropriate sign
-
     return 0;
 }
 
@@ -1442,8 +1761,7 @@ void RunScript()
 
         /* process script line	*/
         cmd = NextCommand();			// get the next CCL Command from the script.
-        //printf("run : cmd = %d\n", cmd);
-       switch (cmd) {
+		switch (cmd) {
             case cAsk:
                 running = !Ask();		// wait until User data arrives in ReceiveDataFromAbove().
                 break;
@@ -1639,7 +1957,9 @@ void RunScript()
                 break;
 
             default:		// "!", "@CCLSCRIPT", "@ORIGINATE", "@ANSWER", "@HANGUP", "@LABEL" (cmd 1-6).
-                break;
+            {
+				break;
+			}
 
         }/* end SWITCH */
     }/* end WHILE running */
@@ -1714,9 +2034,8 @@ int MatchFind(u_int8_t newChar)
 {
     int			i, matchFound;
     TPMatchStrInfo	matchInfo;
-    char 		text[256], s[64];
+    char 		text[256];
     u_int8_t		matchStrChar, c;
-    time_t 		t;
 
     matchFound = 0;								// assume no match found
     newChar &= 0x7f;							// some PADs have bogus high bit
@@ -1861,13 +2180,7 @@ int MatchFind(u_int8_t newChar)
         bcopy(&VerboseBuffer[1], &text[0], VerboseBuffer[0]);
         text[VerboseBuffer[0]] = 0;
         if (verbose) {
-            if (sysloglevel)
-                syslog(sysloglevel, "CCLMatched : %s", text);
-            if (usestderr) {
-                time(&t);
-                strftime(s, sizeof(s), "%c : ", localtime(&t));
-                fprintf(stderr, "%sCCLMatched : %s\n", s, text);
-            }
+			sLog("CCLMatched : %s", text);
         }
     }
 
@@ -2047,18 +2360,139 @@ void SetSpeed(void)
     }
 }
 
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+CFStringRef copyUserLocalizedString(CFBundleRef bundle,
+    CFStringRef key, CFStringRef value, CFArrayRef userLanguages) 
+{
+    CFStringRef 	result = NULL, errStr= NULL;
+    CFDictionaryRef 	stringTable;
+    CFDataRef 		tableData;
+    SInt32 		errCode;
+    CFURLRef 		tableURL;
+    CFArrayRef		locArray, prefArray;
+
+    if (userLanguages == NULL)
+        return CFBundleCopyLocalizedString(bundle, key, value, NULL);
+
+    if (key == NULL)
+        return (value ? CFRetain(value) : CFRetain(CFSTR("")));
+
+    locArray = CFBundleCopyBundleLocalizations(bundle);
+    if (locArray) {
+        prefArray = CFBundleCopyLocalizationsForPreferences(locArray, userLanguages);
+        if (prefArray) {
+            if (CFArrayGetCount(prefArray)) {
+                tableURL = CFBundleCopyResourceURLForLocalization(bundle, CFSTR("Localizable"), CFSTR("strings"), NULL, 
+                                    CFArrayGetValueAtIndex(prefArray, 0));
+                if (tableURL) {
+                    if (CFURLCreateDataAndPropertiesFromResource(NULL, tableURL, &tableData, NULL, NULL, &errCode)) {
+                        stringTable = CFPropertyListCreateFromXMLData(NULL, tableData, kCFPropertyListImmutable, &errStr);
+                        if (errStr)
+                            CFRelease(errStr);
+                        if (stringTable) {
+                            result = CFDictionaryGetValue(stringTable, key);
+                            if (result)
+                                CFRetain(result);
+                            CFRelease(stringTable);
+                        }
+                        CFRelease(tableData);
+                    }
+                    CFRelease(tableURL);
+                }
+            }
+            CFRelease(prefArray);
+        }
+        CFRelease(locArray);
+    }
+        
+    if (result == NULL)
+        result = (value && !CFEqual(value, CFSTR(""))) ?  CFRetain(value) : CFRetain(key);
+    
+    return result;
+}
+
+/* --------------------------------------------------------------------------
+-------------------------------------------------------------------------- */
+bool localizeStringWithBundle(u_char* inString, u_char* outString, CFIndex outSize, CFURLRef curURL)
+{
+	bool retVal= false;
+	if(curURL && inString && outString)
+	{
+		CFStringRef			ref, loggedInUser, msg;
+		CFPropertyListRef		langRef;
+		CFBundleRef			bdl;
+		if(curURL!= NULL) 
+		{
+			loggedInUser = SCDynamicStoreCopyConsoleUser(0, 0, 0);
+			if (loggedInUser) 
+			{
+				CFPreferencesSynchronize(kCFPreferencesAnyApplication, loggedInUser, kCFPreferencesAnyHost);
+				langRef = CFPreferencesCopyValue(CFSTR("AppleLanguages"), kCFPreferencesAnyApplication, 
+								loggedInUser, kCFPreferencesAnyHost);
+				if (langRef) 
+				{
+					ref = CFStringCreateWithPascalString(NULL, inString, kCFStringEncodingUTF8);
+					if (ref) 
+					{
+						bdl = CFBundleCreate(0, curURL);
+						if (bdl) 
+						{
+							msg = copyUserLocalizedString(bdl, ref, ref, langRef);
+							if (msg) 
+							{
+								retVal= CFStringGetPascalString(msg, outString, outSize, kCFStringEncodingUTF8);
+								CFRelease(msg);
+							}
+							CFRelease(bdl);
+						}
+						CFRelease(ref);
+					}
+					CFRelease(langRef);
+				}
+				CFRelease(loggedInUser);
+			}
+		}
+	}
+	return retVal;
+}
+
+/* --------------------------------------------------------------------------
+-------------------------------------------------------------------------- */
+bool localizeString(u_char* inString, u_char* outString, CFIndex outSize)
+{
+	bool retVal= true;
+	outString[0]= 0;
+
+	if(!localizeStringWithBundle(inString, outString, outSize, cclBundleURL))
+	{
+		if(!localizeStringWithBundle(inString, outString, outSize, appBundleURL))
+		{
+			retVal= localizeStringWithBundle(inString, outString, outSize, localBundleURL);
+		}
+	}
+	return retVal;
+}
+
+#pragma mark -
+
 /* --------------------------------------------------------------------------
 pass a string up to the Client, along with where it should be displayed
 -------------------------------------------------------------------------- */
 void Note()
 {
-    char 	text[256], s[64];
+    u_char 	text[256];
+	u_char	localText[256];
     u_int32_t	msgDestination, msgLevel;	// will contain code for destination.
     CFStringRef	ref;
-    time_t 	t;
     
-    SkipBlanks();				// get to the string.
-    PrepStr(SV.strBuf, 0, 0, 1);	// returns a pointer to a Pascal string.
+    SkipBlanks();
+    /* first get the string, do not perform variable substitution */
+    PrepStr(text, 0, 0, 0);
+    /* then get the localized version of the string and perform variable substitution */
+    localizeString(text, localText, 256);
+
+    varSubstitution(localText, SV.strBuf, sizeof(SV.strBuf));
 
     NextInt(&msgLevel);				// get the destination.
     switch (msgLevel) {
@@ -2074,11 +2508,11 @@ void Note()
             break;
     }
 
-    bcopy(&SV.strBuf[1], &text[0], SV.strBuf[0]);
-    text[SV.strBuf[0]] = 0;
-    
+    bcopy(&SV.strBuf[1], &localText[0], SV.strBuf[0]);
+    localText[SV.strBuf[0]] = 0;
+
     if (serviceID && (msgDestination & 2)) {
-        ref = CFStringCreateWithCString(NULL, text, kCFStringEncodingUTF8);
+        ref = CFStringCreateWithCString(NULL, (char*) localText, kCFStringEncodingUTF8);
         if (ref) {
             publish_entry(serviceID, kSCPropNetModemNote, ref);
             CFRelease(ref);
@@ -2086,13 +2520,7 @@ void Note()
     }
     
     if (msgDestination & 1) {
-        if (sysloglevel)
-            syslog(sysloglevel, "%s", text);
-        if (usestderr) {
-            time(&t);
-            strftime(s, sizeof(s), "%c : ", localtime(&t));
-            fprintf(stderr, "%s%s\n", s, text);
-        }
+		sLog("%s", localText);
     }
 }
 
@@ -2106,9 +2534,8 @@ u_int8_t Write()
 {
     u_int32_t	isVarString;
     u_int16_t	i, j;
-    int32_t	varIndex;
-    char 	text[256], s[64];
-    time_t 	t;
+    u_int32_t	varIndex;
+    char 	text[256];
 
     SkipBlanks();
     PrepStr(SV.strBuf, &isVarString, &varIndex, 1);
@@ -2138,13 +2565,7 @@ u_int8_t Write()
         bcopy(&VerboseBuffer[1], &text[0], VerboseBuffer[0]);
         text[VerboseBuffer[0]] = 0;
     if (verbose) {
-        if (sysloglevel)
-            syslog(sysloglevel, "CCLWrite : %s", text);
-        if (usestderr) {
-            time(&t);
-            strftime(s, sizeof(s), "%c : ", localtime(&t));
-            fprintf(stderr, "%sCCLWrite : %s\n", s, text);
-        }
+		sLog("CCLWrite : %s", text);
     }
     
     //
@@ -2218,59 +2639,6 @@ void TimerExpired(long type)
     }
 }
 
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-CFStringRef copyUserLocalizedString(CFBundleRef bundle,
-    CFStringRef key, CFStringRef value, CFArrayRef userLanguages) 
-{
-    CFStringRef 	result = NULL, errStr= NULL;
-    CFDictionaryRef 	stringTable;
-    CFDataRef 		tableData;
-    SInt32 		errCode;
-    CFURLRef 		tableURL;
-    CFArrayRef		locArray, prefArray;
-
-    if (userLanguages == NULL)
-        return CFBundleCopyLocalizedString(bundle, key, value, NULL);
-
-    if (key == NULL)
-        return (value ? CFRetain(value) : CFRetain(CFSTR("")));
-
-    locArray = CFBundleCopyBundleLocalizations(bundle);
-    if (locArray) {
-        prefArray = CFBundleCopyLocalizationsForPreferences(locArray, userLanguages);
-        if (prefArray) {
-            if (CFArrayGetCount(prefArray)) {
-                tableURL = CFBundleCopyResourceURLForLocalization(bundle, CFSTR("Localizable"), CFSTR("strings"), NULL, 
-                                    CFArrayGetValueAtIndex(prefArray, 0));
-                if (tableURL) {
-                    if (CFURLCreateDataAndPropertiesFromResource(NULL, tableURL, &tableData, NULL, NULL, &errCode)) {
-                        stringTable = CFPropertyListCreateFromXMLData(NULL, tableData, kCFPropertyListImmutable, &errStr);
-                        if (errStr)
-                            CFRelease(errStr);
-                        if (stringTable) {
-                            result = CFDictionaryGetValue(stringTable, key);
-                            if (result)
-                                CFRetain(result);
-                            CFRelease(stringTable);
-                        }
-                        CFRelease(tableData);
-                    }
-                    CFRelease(tableURL);
-                }
-            }
-            CFRelease(prefArray);
-        }
-        CFRelease(locArray);
-    }
-        
-    if (result == NULL)
-        result = (value && !CFEqual(value, CFSTR(""))) ?  CFRetain(value) : CFRetain(key);
-    
-    return result;
-}
-
 /* --------------------------------------------------------------------------
 -------------------------------------------------------------------------- */
 u_int8_t Ask()
@@ -2282,10 +2650,8 @@ u_int8_t Ask()
     CFMutableDictionaryRef 	dict;
     SInt32 			error;
     CFMutableArrayRef 		array;
-    char 		        text[256];
-    CFStringRef			loggedInUser, msg;
-    CFPropertyListRef		langRef;
-    CFBundleRef			bdl;
+    u_char 		        text[256];
+    u_char 		        localText[256];
     
     if (alertname[0] == 0)
         return 0;	// no alert to display
@@ -2302,33 +2668,9 @@ u_int8_t Ask()
     PrepStr(text, 0, 0, 0);
     
     /* then get the localized version of the string and perform variable substitution */
-    if (bundleURL) {
-        loggedInUser = SCDynamicStoreCopyConsoleUser(0, 0, 0);
-        if (loggedInUser) {
-            CFPreferencesSynchronize(kCFPreferencesAnyApplication, loggedInUser, kCFPreferencesAnyHost);
-            langRef = CFPreferencesCopyValue(CFSTR("AppleLanguages"), kCFPreferencesAnyApplication, 
-                loggedInUser, kCFPreferencesAnyHost);
-            if (langRef) {
-                ref = CFStringCreateWithPascalString(NULL, text, kCFStringEncodingUTF8);
-                if (ref) {
-                    bdl = CFBundleCreate(0, bundleURL);
-                    if (bdl) {
-                        msg = copyUserLocalizedString(bdl, ref, ref, langRef);
-                        if (msg) {
-                            CFStringGetPascalString(msg, text, sizeof(text), kCFStringEncodingUTF8);
-                            CFRelease(msg);
-                        }
-                        CFRelease(bdl);
-                    }
-                    CFRelease(ref);
-                }
-                CFRelease(langRef);
-            }
-            CFRelease(loggedInUser);
-        }
-    }
-    
-    varSubstitution(text, SV.strBuf, sizeof(SV.strBuf));
+    localizeString(text, localText, 256);
+	
+    varSubstitution(localText, SV.strBuf, sizeof(SV.strBuf));
 
     if (NextInt(&label)) {
         SV.askLabel = 0;
@@ -2389,8 +2731,8 @@ u_int8_t Ask()
             if (iconURL) 
                 CFDictionaryAddValue(dict, kCFUserNotificationIconURLKey, iconURL);
 
-            if (bundleURL)
-                CFDictionaryAddValue(dict, kCFUserNotificationLocalizationURLKey, bundleURL);
+            if (localBundleURL)
+                CFDictionaryAddValue(dict, kCFUserNotificationLocalizationURLKey, localBundleURL);
             
             alert = CFUserNotificationCreate(NULL, 0, alertflags, &error, dict);
             if (alert) {
@@ -2436,6 +2778,7 @@ void CommunicatingAt()
     CFNumberRef		num;
 
     NextInt(&speed);		// modem speed reported by script
+    sLog("Communicating at %d bps.", speed);
 
     if (serviceID) {
         num = CFNumberCreate(NULL, kCFNumberIntType, &speed);
@@ -2637,24 +2980,56 @@ void DTRCommand(short DTRCode)
 /* --------------------------------------------------------------------------
 Send up a user notification about the current CCL exit error.
 -------------------------------------------------------------------------- */
+static char* cclErrStrings[] =
+{
+    "internal error used to abort match read",	// cclErr_AbortMatchRead = -6000
+    "Bad parameter given to the engine",		// cclErr_BadParameter = -6001
+    "Duplicate label",							// cclErr_DuplicateLabel = -6002
+    "Label undefined",							// cclErr_LabelUndefined = -6003
+    "Subroutine overflow",					// cclErr_SubroutineOverFlow = -6004
+    "No memory...",								// cclErr_NoMemErr = -6005
+    "CCL error base",						// (in the middle?) cclErr = -6006
+    "There is at least one script open",		// cclErr_CloseError = -6007
+    "Script Canceled",						// cclErr_ScriptCancelled = -6008
+    "Script contains too many lines",			// cclErr_TooManyLines = -6009
+    "Script contains too many characters",		// cclErr_ScriptTooBig = -6010
+    "CCL has not been initialized",				// cclErr_NotInitialized = -6011
+    "Cancel in progress.",					// cclErr_CancelInProgress = -6012
+    "Play command already in progress.",		// cclErr_PlayInProgress = -6013
+    "Exit with no error.",						// cclErr_ExitOK = -6014
+    "Label out of range.",						// cclErr_BadLabel = -6015
+    "Bad command.",								// cclErr_BadCommand = -6016
+    "End of script reached, expecting Exit.",	// cclErr_EndOfScriptErr = -6017
+    "Match string index is out of bounds.",	// cclErr_MatchStrIndxErr = -6018
+    "Modem error, modem not responding.",		// cclErr_ModemErr = -6019
+    "No dial tone.",							// cclErr_NoDialTone = -6020
+    "No carrier.",								// cclErr_NoCarrierErr = -6021
+    "Line busy.",								// cclErr_LineBusyErr = -6022
+    "No answer.",								// cclErr_NoAnswerErr = -6023
+    "No @ORIGINATE label",					// cclErr_NoOriginateLabel = -6024
+    "No @ANSWER label",							// cclErr_NoAnswerLabel = -6025
+    "No @HANGUP label",							// cclErr_NoHangUpLabel = -6026
+    "Can't connect because number is empty.",	// cclErr_NoNumberErr = -6027
+    "Incorrect script for the modem."			// cclErr_BadScriptErr = -6028 
+};
+
 void terminate(int exitError)
 {
     //u_long m = exitError;
     CFNumberRef		num;
-#if 0
-    char 	s[64];
-    time_t 	t;
-#endif
+#pragma unused(num)
+#if 1
+    if (verbose || exitError != 0) {
+		char *errStr = NULL;
 
-#if 0
-    if (verbose) {
-        if (sysloglevel)
-            syslog(sysloglevel, "CCLExit : %d", exitError);
-        if (usestderr) {
-            time(&t);
-            strftime(s, sizeof(s), "%c : ", localtime(&t));
-            fprintf(stderr, "%sCCLExit : %d\n", s, exitError);
-        }
+		if (exitError <= cclErr_AbortMatchRead &&
+				exitError >= cclErr_BadScriptErr)
+			errStr = cclErrStrings[cclErr_AbortMatchRead - exitError];
+
+		if (errStr)
+			sLog("CCLExit: %d (%s)", exitError, errStr);
+		else
+			sLog("CCLExit: %d", exitError);
     }
 #endif
     //if (ppplink != -1) 
@@ -2664,7 +3039,7 @@ void terminate(int exitError)
      // disconnect mode publish only non-null cause
      // last cause displays connection error, even when plays disconnect sequence
 #if 0
-    if (serviceID && (exitError || (mode != 1))) {
+    if (serviceID && (exitError || (enginemode != mode_disconnect))) {
         num = CFNumberCreate(NULL, kCFNumberIntType, &exitError);
         if (num) {
             publish_entry(serviceID, kSCPropNetPPPLastCause, num);

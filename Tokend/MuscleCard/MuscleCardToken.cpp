@@ -104,7 +104,7 @@ void MuscleCardToken::authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredent
 				}
 				break;
 			default:
-				secdebug("muscleacl", "sample type %ld not supported", sample.type());
+				secdebug("muscleacl", "sample type %d not supported", sample.type());
 				CssmError::throwMe(CSSM_ERRCODE_ACL_SUBJECT_TYPE_NOT_SUPPORTED);
 			}
 		} else
@@ -295,4 +295,3 @@ void MuscleCardToken::populate()
 	secdebug("populate", "MuscleCardToken::populate() end");
 }
 
-/* arch-tag: 2776DBC0-F53B-11D8-99D6-000A9595DEEE */

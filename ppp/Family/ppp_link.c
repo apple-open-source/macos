@@ -234,6 +234,12 @@ int ppp_link_input(struct ppp_link *link, mbuf_t m)
     if (link->lk_ifnet && (ifnet_flags(link->lk_ifnet) & PPP_LOG_INPKT)) 
         ppp_link_logmbuf(link, "ppp_link_input", m);
 
+	if (mbuf_len(m) < PPP_HDRLEN && 
+		mbuf_pullup(&m, PPP_HDRLEN)) {
+			log(LOGVAL, "ppp_link_input: cannot pullup header\n");
+			return 0;
+	}
+
     p = mbuf_data(m);
     if ((p[0] == PPP_ALLSTATIONS) && (p[1] == PPP_UI)) {
         mbuf_adj(m, 2);

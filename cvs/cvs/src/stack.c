@@ -1,7 +1,8 @@
 /*
- * Copyright (c) 2004, Free Software Foundation,
- *                     Derek Price,
- *                     & Ximbiot <http://ximbiot.com>.
+ * Copyright (C) 2004-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 2004-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -15,10 +16,7 @@
 
 
 static void
-do_push (stack, elem, isstring)
-    List *stack;
-    void *elem;
-    int isstring;
+do_push (List *stack, void *elem, int isstring)
 {
     Node *p = getnode();
 
@@ -33,9 +31,7 @@ do_push (stack, elem, isstring)
 
 
 void
-push (stack, elem)
-    List *stack;
-    void *elem;
+push (List *stack, void *elem)
 {
     do_push (stack, elem, 0);
 }
@@ -43,9 +39,7 @@ push (stack, elem)
 
 
 void
-push_string (stack, elem)
-    List *stack;
-    char *elem;
+push_string (List *stack, char *elem)
 {
     do_push (stack, elem, 1);
 }
@@ -53,9 +47,7 @@ push_string (stack, elem)
 
 
 static void *
-do_pop (stack, isstring)
-    List *stack;
-    int isstring;
+do_pop (List *stack, int isstring)
 {
     void *elem;
 
@@ -79,8 +71,7 @@ do_pop (stack, isstring)
 
 
 void *
-pop (stack)
-    List *stack;
+pop (List *stack)
 {
     return do_pop (stack, 0);
 }
@@ -88,8 +79,7 @@ pop (stack)
 
 
 char *
-pop_string (stack)
-    List *stack;
+pop_string (List *stack)
 {
     return do_pop (stack, 1);
 }
@@ -97,10 +87,7 @@ pop_string (stack)
 
 
 static void
-do_unshift (stack, elem, isstring)
-    List *stack;
-    void *elem;
-    int isstring;
+do_unshift (List *stack, void *elem, int isstring)
 {
     Node *p = getnode();
 
@@ -115,9 +102,7 @@ do_unshift (stack, elem, isstring)
 
 
 void
-unshift (stack, elem)
-    List *stack;
-    void *elem;
+unshift (List *stack, void *elem)
 {
     do_unshift (stack, elem, 0);
 }
@@ -125,9 +110,7 @@ unshift (stack, elem)
 
 
 void
-unshift_string (stack, elem)
-    List *stack;
-    char *elem;
+unshift_string (List *stack, char *elem)
 {
     do_unshift (stack, elem, 1);
 }
@@ -135,9 +118,7 @@ unshift_string (stack, elem)
 
 
 static void *
-do_shift (stack, isstring)
-    List *stack;
-    int isstring;
+do_shift (List *stack, int isstring)
 {
     void *elem;
 
@@ -160,8 +141,7 @@ do_shift (stack, isstring)
 
 
 void *
-shift (stack)
-    List *stack;
+shift (List *stack)
 {
     return do_shift (stack, 0);
 }
@@ -169,8 +149,7 @@ shift (stack)
 
 
 char *
-shift_string (stack)
-    List *stack;
+shift_string (List *stack)
 {
     return do_shift (stack, 1);
 }
@@ -178,8 +157,7 @@ shift_string (stack)
 
 
 int
-isempty (stack)
-    List *stack;
+isempty (List *stack)
 {
     if (stack->list == stack->list->next)
 	return 1;

@@ -40,32 +40,50 @@
 .Dt SETJMP 3
 .Os
 .Sh NAME
-.Nm sigsetjmp ,
-.Nm siglongjmp ,
-.Nm setjmp ,
-.Nm longjmp ,
-.Nm _setjmp ,
 .Nm _longjmp ,
-.Nm longjmperror
+.Nm _setjmp ,
+.Nm longjmp ,
+.Nm longjmperror ,
+.Nm setjmp ,
+.Nm siglongjmp ,
+.Nm sigsetjmp
 .Nd non-local jumps
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In setjmp.h
+.Ft void
+.Fo _longjmp
+.Fa "jmp_buf env"
+.Fa "int val"
+.Fc
 .Ft int
-.Fn sigsetjmp "sigjmp_buf env" "int savemask"
+.Fo _setjmp
+.Fa "jmp_buf env"
+.Fc
 .Ft void
-.Fn siglongjmp "sigjmp_buf env" "int val"
+.Fo longjmp
+.Fa "jmp_buf env"
+.Fa "int val"
+.Fc
+.Ft void
+.Fo longjmperror
+.Fa void
+.Fc
 .Ft int
-.Fn setjmp "jmp_buf env"
+.Fo setjmp
+.Fa "jmp_buf env"
+.Fc
 .Ft void
-.Fn longjmp "jmp_buf env" "int val"
+.Fo siglongjmp
+.Fa "sigjmp_buf env"
+.Fa "int val"
+.Fc
 .Ft int
-.Fn _setjmp "jmp_buf env"
-.Ft void
-.Fn _longjmp "jmp_buf env" "int val"
-.Ft void
-.Fn longjmperror void
+.Fo sigsetjmp
+.Fa "sigjmp_buf env"
+.Fa "int savemask"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn sigsetjmp ,
@@ -83,14 +101,15 @@ invocations
 of the
 .Fn setjmp
 function.
-They then return so that program execution continues as if the corresponding
-invocation of the
+They then return, so that program execution continues
+as if the corresponding invocation of the
 .Fn setjmp
-call had just returned  the value specified by
+call had just returned the value specified by
 .Fa val ,
 instead of 0.
 .Pp
-Pairs of calls may be intermixed, i.e. both
+Pairs of calls may be intermixed
+(i.e., both
 .Fn sigsetjmp
 and
 .Fn siglongjmp
@@ -98,13 +117,13 @@ and
 .Fn setjmp
 and
 .Fn longjmp
-combinations may be used in the same program, however, individual
-calls may not, e.g. the
+combinations may be used in the same program); however, individual
+calls may not (e.g. the
 .Fa env
 argument to
 .Fn setjmp
 may not be passed to
-.Fn siglongjmp .
+.Fn siglongjmp ) .
 .Pp
 The
 .Fn longjmp
@@ -136,7 +155,7 @@ The
 function
 pairs save and restore the signal mask if the argument
 .Fa savemask
-is non-zero, otherwise only the register set and the stack are saved.
+is non-zero; otherwise, only the register set and the stack are saved.
 .Sh ERRORS
 If the contents of the
 .Fa env
@@ -147,7 +166,7 @@ routine calls the routine
 .Fn longjmperror 3 .
 If
 .Fn longjmperror
-returns the program is aborted (see
+returns, the program is aborted (see
 .Xr abort 3 ) .
 The default version of
 .Fn longjmperror

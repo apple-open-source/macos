@@ -4,6 +4,7 @@ MAN_DIR=$(DSTROOT)/usr/share/man/man8
 PCSCDIR=$(DSTROOT)/usr/libexec/SmartCardServices
 PKCS11_DIR=$(DSTROOT)/Library/Application\ Support/Mozilla/
 EXTENSIONS_DIR=$(DSTROOT)/System/Library/Extensions
+SCRIPTS_LOCATION=$(DSTROOT)/usr/sbin
 
 build:
 	@echo null build.
@@ -49,12 +50,20 @@ install:
 	-chmod 644 $(EXTENSIONS_DIR)/*.kext/Contents/Resources/*.lproj/*.*
 	/usr/bin/strip -S $(EXTENSIONS_DIR)/*.kext/Contents/MacOS/*
 
+	mkdir -p $(SCRIPTS_LOCATION)
+
+	cp installPhase/scripts/sc_auth $(SCRIPTS_LOCATION)
+	chown root:admin $(SCRIPTS_LOCATION)/sc_auth
+	chmod 755 $(SCRIPTS_LOCATION)/sc_auth
+
 # Copy over man pages
 
 	mkdir -p $(MAN_DIR)
 	cp installPhase/man/pcscd.8 $(MAN_DIR)
 	cp installPhase/man/pcsctool.8 $(MAN_DIR)
 	cp installPhase/man/pcsctest.8 $(MAN_DIR)
+	cp installPhase/man/sc_auth.8 $(MAN_DIR)
+	chown root:wheel $(MAN_DIR)/sc_auth.8
 
 # Deleting CVS subdirectories from the copy phase
 

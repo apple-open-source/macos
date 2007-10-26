@@ -1,0 +1,16 @@
+This directory contains scripts for automating Samba testing via
+BigBrother. 
+
+The only scripts that should live on BigBrother are FetchCurrentSamba
+and SambaServerTest -
+
+    o FetchCurrentSamba is needed to pull the samba source tree
+    that corresponds to the build that is being tested.
+
+    o SambaServerTest is a very simple script that installs the test
+    requirements and traps into CurrentSambaServerTest which is the real
+    implementation of the test suite.
+
+Please copy these scripts to coreos-bb when you update them.
+
+http://coreos-bb.apple.com/bigbrother/scripts

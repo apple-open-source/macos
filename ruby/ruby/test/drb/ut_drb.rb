@@ -49,7 +49,7 @@ class DRbEx
   end
 
   def do_timeout(n)
-    timeout(1) do
+    timeout(0.1) do
       n.sleep(2)
     end
   end
@@ -126,8 +126,21 @@ class DRbEx
     [self]
   end
 
+  def method_missing(msg, *a, &b)
+    if msg == :missing
+      return true
+    else
+      super(msg, *a, &b)
+    end
+  end
+
   private
   def call_private_method
+    true
+  end
+
+  protected
+  def call_protected_method
     true
   end
 end

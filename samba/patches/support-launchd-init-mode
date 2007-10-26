@@ -1,0 +1,1136 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -347,6 +347,35 @@ AC_ARG_ENABLE(swat,
+     AC_SUBST(SWAT_INSTALL_TARGETS)
+ ])
+ 
++AC_ARG_ENABLE(launchd,
++[  --enable-launchd        Support running under launchd (default=auto)])
++
++if test x"enable_launchd" != x"no" ; then
++    AC_CACHE_CHECK([whether to include launchd support],
++	samba_cv_launchd_support,
++	[
++	    AC_TRY_COMPILE(
++	    [
++#include <launch.h>
++	    ],
++	    [
++		launchd_msg(NULL);
++		launchd_data_get_fd(NULL);
++	    ],
++	    samba_cv_launchd_support=yes,
++	    samba_cv_launchd_support=no)
++	])
++
++    if test x"$samba_cv_launchd_support" = x"yes" ; then
++	AC_DEFINE(WITH_LAUNCHD_SUPPORT, 1,
++		    [Whether launchd support should be enabled])
++    else
++	if test x"$enable_launchd" = x"yes" ; then
++	    AC_ERROR(launchd support is not available)
++	fi
++    fi
++fi
++
+ #################################################
+ # set prefix for 'make test'
+ selftest_prefix="./"
+Index: samba/source/include/smb_launchd.h
+===================================================================
+--- /dev/null
++++ samba/source/include/smb_launchd.h
+@@ -0,0 +1,44 @@
++/*
++   Unix SMB/CIFS implementation.
++   Launchd integration wrapper API
++
++   Copyright (C) 2007 Apple Inc. All rights reserved.
++
++   This program is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 2 of the License, or
++   (at your option) any later version.
++
++   This program is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software
++   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++*/
++
++struct smb_launch_info
++{
++	int idle_timeout_secs;
++	int num_sockets;
++	int *socket_list;
++};
++
++/* Retrieve launchd configuration. Returns True if we are running under
++ * launchd, False otherwise. NOTE this does not guarantee to provide a list of
++ * sockets since this is a user configuration option.
++ */
++BOOL smb_launchd_checkin(struct smb_launch_info *linfo);
++
++/* Retrieve launchd configuration. The variadic arguments are a list of
++ * constant null-terminated strings. The strings are the names of the socket
++ * dictionaries to retrieve sockets from. The list of names is terminated by a
++ * NULL.
++ */
++BOOL smb_launchd_checkin_names(struct smb_launch_info *linfo, ...);
++
++
++/* Free any data or state associated with a successful launchd checkin. */
++void smb_launchd_checkout(struct smb_launch_info *linfo);
+Index: samba/source/lib/launchd.c
+===================================================================
+--- /dev/null
++++ samba/source/lib/launchd.c
+@@ -0,0 +1,238 @@
++/*
++   Unix SMB/CIFS implementation.
++   Launchd integration wrapper API
++
++   Copyright (C) 2007 Apple Inc. All rights reserved.
++
++   This program is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 2 of the License, or
++   (at your option) any later version.
++
++   This program is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software
++   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++*/
++
++#include "includes.h"
++#include "smb_launchd.h"
++
++#if defined(WITH_LAUNCHD_SUPPORT)
++
++#include <launch.h>
++#include <stdarg.h>
++
++typedef void (*launchd_iterator)(launch_data_t, const char*, void*);
++
++#define LAUNCHD_TRACE_LEVEL 10
++
++ void smb_launchd_checkout(struct smb_launch_info *linfo)
++{
++	talloc_free(linfo->socket_list);
++}
++
++static void pull_launch_sockets(launch_data_t key,
++				const char *name,
++				struct smb_launch_info *linfo)
++{
++	launch_data_type_t type;
++
++	type = launch_data_get_type(key);
++	DEBUG(LAUNCHD_TRACE_LEVEL,
++		("Searching item name='%s' type=%d for sockets\n",
++		 name ? name : "", (int)type));
++
++	switch (type) {
++	case LAUNCH_DATA_FD:
++		if (!linfo->socket_list) {
++			/* We are counting the number of sockets. */
++			linfo->num_sockets++;
++		} else {
++			/* We are collecting the socket fds. */
++			int fd = launch_data_get_fd(key);
++
++			linfo->socket_list[linfo->num_sockets] = fd;
++			linfo->num_sockets++;
++			DEBUG(LAUNCHD_TRACE_LEVEL,
++				("Added fd=%d to launchd set\n", fd));
++		}
++		return;
++	case LAUNCH_DATA_ARRAY:
++	{
++		int i;
++		launch_data_t item;
++
++		for (i = 0; i < launch_data_array_get_count(key); ++i) {
++			item = launch_data_array_get_index(key, i);
++			pull_launch_sockets(item, name, linfo);
++		}
++		return;
++	}
++	case LAUNCH_DATA_DICTIONARY:
++		launch_data_dict_iterate(key,
++			(launchd_iterator)pull_launch_sockets, linfo);
++		return;
++	default:
++		return;
++	}
++}
++
++ BOOL smb_launchd_checkin_names(struct smb_launch_info *linfo, ...)
++{
++	launch_data_t msg;
++	launch_data_t resp;
++	launch_data_t item;
++	BOOL is_launchd = False;
++
++	ZERO_STRUCTP(linfo);
++
++	msg = launch_data_new_string(LAUNCH_KEY_CHECKIN);
++	resp = launch_msg(msg);
++	if (resp == NULL) {
++		/* IPC to launchd failed. */
++		launch_data_free(msg);
++		return is_launchd;
++	}
++
++	if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
++		errno = launch_data_get_errno(resp);
++		goto done;
++	}
++
++	/* At this point, we know we are running under launchd. */
++	linfo->idle_timeout_secs = 600;
++	is_launchd = True;
++
++	if ((item = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_TIMEOUT))) {
++		linfo->idle_timeout_secs = launch_data_get_integer(item);
++	}
++
++	if ((item = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_SOCKETS))) {
++		int count = 0;
++		const char * sockname = NULL;
++		launch_data_t sockdata;
++		va_list args;
++
++		/* Figure out the maximum number of sockets. */
++		va_start(args, linfo);
++		while ((sockname = va_arg(args, const char *))) {
++		    ++count;
++		}
++		va_end(args);
++
++		DEBUG(LAUNCHD_TRACE_LEVEL, ("Found %d launchd sockets\n",
++					linfo->num_sockets));
++
++		if (launch_data_dict_get_count(item) < count) {
++			DEBUG(0, ("%d launchd sockets requested, "
++			    "but only %d are available\n",
++			    count, launch_data_dict_get_count(item)));
++		}
++
++		linfo->socket_list = talloc_array(NULL, int, count);
++		if (linfo->socket_list == NULL) {
++			goto done;
++		}
++
++		linfo->num_sockets = 0;
++		va_start(args, linfo);
++		while ((sockname = va_arg(args, const char *))) {
++		    sockdata = launch_data_dict_lookup(item, sockname);
++
++		    pull_launch_sockets(sockdata, sockname, linfo);
++		    DEBUG(LAUNCHD_TRACE_LEVEL,
++			    ("Added launchd socket \"%s\"\n", sockname));
++		}
++
++		SMB_ASSERT(count >= linfo->num_sockets);
++	}
++
++done:
++	launch_data_free(msg);
++	launch_data_free(resp);
++	return is_launchd;
++}
++
++ BOOL smb_launchd_checkin(struct smb_launch_info *linfo)
++{
++	launch_data_t msg;
++	launch_data_t resp;
++	launch_data_t item;
++	BOOL is_launchd = False;
++
++	ZERO_STRUCTP(linfo);
++
++	msg = launch_data_new_string(LAUNCH_KEY_CHECKIN);
++	resp = launch_msg(msg);
++	if (resp == NULL) {
++		/* IPC to launchd failed. */
++		launch_data_free(msg);
++		return is_launchd;
++	}
++
++	if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
++		errno = launch_data_get_errno(resp);
++		goto done;
++	}
++
++	/* At this point, we know we are running under launchd. */
++	linfo->idle_timeout_secs = 600;
++	is_launchd = True;
++
++	if ((item = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_TIMEOUT))) {
++		linfo->idle_timeout_secs = launch_data_get_integer(item);
++	}
++
++	if ((item = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_SOCKETS))) {
++		int count;
++
++		pull_launch_sockets(item, NULL, linfo);
++		DEBUG(LAUNCHD_TRACE_LEVEL, ("Found %d launchd sockets\n",
++					linfo->num_sockets));
++
++		count = linfo->num_sockets;
++		linfo->socket_list = talloc_array(NULL, int, count);
++		if (linfo->socket_list == NULL) {
++			goto done;
++		}
++
++		linfo->num_sockets = 0;
++		pull_launch_sockets(item, NULL, linfo);
++
++		DEBUG(LAUNCHD_TRACE_LEVEL, ("Added %d launchd sockets\n",
++					linfo->num_sockets));
++
++		SMB_ASSERT(count == linfo->num_sockets);
++	}
++
++done:
++	launch_data_free(msg);
++	launch_data_free(resp);
++	return is_launchd;
++}
++
++#else /* defined(WITH_LAUNCHD_SUPPORT) */
++
++ BOOL smb_launchd_checkin(struct smb_launch_info * UNUSED(linfo))
++{
++	ZERO_STRUCTP(linfo);
++	return False;
++}
++
++ BOOL smb_launchd_checkin_names(struct smb_launch_info * UNUSED(linfo), ...)
++{
++	ZERO_STRUCTP(linfo);
++	return False;
++}
++
++ void smb_launchd_checkout(struct smb_launch_info * UNUSED(linfo))
++{
++}
++
++#endif /* defined(WITH_LAUNCHD_SUPPORT) */
++
+Index: samba/source/smbd/server.c
+===================================================================
+--- samba/source/smbd/server.c.orig
++++ samba/source/smbd/server.c
+@@ -4,6 +4,7 @@
+    Copyright (C) Andrew Tridgell		1992-1998
+    Copyright (C) Martin Pool			2002
+    Copyright (C) Jelmer Vernooij		2002-2003
++   Copyright (C) 2007 Apple Inc. All rights reserved.
+    
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+@@ -330,14 +331,13 @@ static BOOL allowable_number_of_smbd_pro
+ 
+ static BOOL open_sockets_smbd(enum smb_server_mode server_mode, const char *smb_ports)
+ {
+-	int num_interfaces = iface_count();
+ 	int num_sockets = 0;
+ 	int fd_listenset[FD_SETSIZE];
+ 	fd_set listen_set;
+ 	int s;
+ 	int maxfd = 0;
+ 	int i;
+-	char *ports;
++	struct timeval idle_timeout = {0, 0};
+ 
+ 	if (server_mode == SERVER_MODE_INETD) {
+ 		return open_sockets_inetd();
+@@ -355,116 +355,21 @@ static BOOL open_sockets_smbd(enum smb_s
+ 
+ 	/* Stop zombies */
+ 	CatchSignal(SIGCLD, sig_cld);
+-				
++
+ 	FD_ZERO(&listen_set);
+ 
+-	/* use a reasonable default set of ports - listing on 445 and 139 */
+-	if (!smb_ports) {
+-		ports = lp_smb_ports();
+-		if (!ports || !*ports) {
+-			ports = smb_xstrdup(SMB_PORTS);
+-		} else {
+-			ports = smb_xstrdup(ports);
+-		}
+-	} else {
+-		ports = smb_xstrdup(smb_ports);
++	/* At this point, it doesn't matter what daemon mode we are in, we
++	 * need some sockets to listen on.
++	 */
++	num_sockets = smbd_sockinit(smb_ports, fd_listenset, &idle_timeout);
++	if (num_sockets == 0) {
++		return False;
+ 	}
+ 
+-	if (lp_interfaces() && lp_bind_interfaces_only()) {
+-		/* We have been given an interfaces line, and been 
+-		   told to only bind to those interfaces. Create a
+-		   socket per interface and bind to only these.
+-		*/
+-		
+-		/* Now open a listen socket for each of the
+-		   interfaces. */
+-		for(i = 0; i < num_interfaces; i++) {
+-			struct in_addr *ifip = iface_n_ip(i);
+-			fstring tok;
+-			const char *ptr;
+-
+-			if(ifip == NULL) {
+-				DEBUG(0,("open_sockets_smbd: interface %d has NULL IP address !\n", i));
+-				continue;
+-			}
+-
+-			for (ptr=ports; next_token(&ptr, tok, " \t,", sizeof(tok)); ) {
+-				unsigned port = atoi(tok);
+-				if (port == 0) {
+-					continue;
+-				}
+-				s = fd_listenset[num_sockets] = open_socket_in(SOCK_STREAM, port, 0, ifip->s_addr, True);
+-				if(s == -1)
+-					return False;
+-
+-				/* ready to listen */
+-				set_socket_options(s,"SO_KEEPALIVE"); 
+-				set_socket_options(s,user_socket_options);
+-     
+-				/* Set server socket to non-blocking for the accept. */
+-				set_blocking(s,False); 
+- 
+-				if (listen(s, SMBD_LISTEN_BACKLOG) == -1) {
+-					DEBUG(0,("listen: %s\n",strerror(errno)));
+-					close(s);
+-					return False;
+-				}
+-				FD_SET(s,&listen_set);
+-				maxfd = MAX( maxfd, s);
+-
+-				num_sockets++;
+-				if (num_sockets >= FD_SETSIZE) {
+-					DEBUG(0,("open_sockets_smbd: Too many sockets to bind to\n"));
+-					return False;
+-				}
+-			}
+-		}
+-	} else {
+-		/* Just bind to 0.0.0.0 - accept connections
+-		   from anywhere. */
+-
+-		fstring tok;
+-		const char *ptr;
+-
+-		num_interfaces = 1;
+-		
+-		for (ptr=ports; next_token(&ptr, tok, " \t,", sizeof(tok)); ) {
+-			unsigned port = atoi(tok);
+-			if (port == 0) continue;
+-			/* open an incoming socket */
+-			s = open_socket_in(SOCK_STREAM, port, 0,
+-					   interpret_addr(lp_socket_address()),True);
+-			if (s == -1)
+-				return(False);
+-		
+-			/* ready to listen */
+-			set_socket_options(s,"SO_KEEPALIVE"); 
+-			set_socket_options(s,user_socket_options);
+-			
+-			/* Set server socket to non-blocking for the accept. */
+-			set_blocking(s,False); 
+- 
+-			if (listen(s, SMBD_LISTEN_BACKLOG) == -1) {
+-				DEBUG(0,("open_sockets_smbd: listen: %s\n",
+-					 strerror(errno)));
+-				close(s);
+-				return False;
+-			}
+-
+-			fd_listenset[num_sockets] = s;
+-			FD_SET(s,&listen_set);
+-			maxfd = MAX( maxfd, s);
+-
+-			num_sockets++;
+-
+-			if (num_sockets >= FD_SETSIZE) {
+-				DEBUG(0,("open_sockets_smbd: Too many sockets to bind to\n"));
+-				return False;
+-			}
+-		}
+-	} 
+-
+-	SAFE_FREE(ports);
++	for (i = 0; i < num_sockets; ++i) {
++		FD_SET(fd_listenset[i], &listen_set);
++		maxfd = MAX(maxfd, fd_listenset[i]);
++	}
+ 
+         /* Listen to messages */
+ 
+@@ -504,8 +409,9 @@ static BOOL open_sockets_smbd(enum smb_s
+ 
+ 		memcpy((char *)&lfds, (char *)&listen_set, 
+ 		       sizeof(listen_set));
+-		
+-		num = sys_select(maxfd+1,&lfds,NULL,NULL,NULL);
++
++		num = sys_select(maxfd+1,&lfds,NULL,NULL,
++			idle_timeout.tv_sec ? &idle_timeout : NULL);
+ 		
+ 		if (num == -1 && errno == EINTR) {
+ 			if (got_sig_term) {
+@@ -522,7 +428,15 @@ static BOOL open_sockets_smbd(enum smb_s
+ 
+ 			continue;
+ 		}
+-		
++
++		/* If the idle timeout fired and we don't have any connected
++		 * users, exit gracefully. We should be running under a process
++		 * controller that will restart us if necessry.
++		 */
++		if (num == 0 && count_all_current_connections() == 0) {
++			exit_server_cleanly("idle timeout");
++		}
++
+ 		/* check if we need to reload services */
+ 		check_reload(time(NULL));
+ 
+Index: samba/source/Makefile.in
+===================================================================
+--- samba/source/Makefile.in.orig
++++ samba/source/Makefile.in
+@@ -481,6 +481,7 @@ SMBD_OBJ_SRV = smbd/files.o smbd/chgpass
+ 	       smbd/quotas.o smbd/ntquotas.o $(AFS_OBJ) smbd/msdfs.o \
+ 	       $(AFS_SETTOKEN_OBJ) smbd/aio.o smbd/statvfs.o \
+ 	       smbd/dmapi.o lib/opendirectory.o \
++	       lib/launchd.o smbd/sockinit.o \
+ 	       $(MANGLE_OBJ) @VFS_STATIC@
+ 
+ SMBD_OBJ_BASE = $(PARAM_OBJ) $(SMBD_OBJ_SRV) $(LIBSMB_OBJ) \
+@@ -771,6 +772,7 @@ IDMAP_NSS_OBJ = sam/idmap_nss.o
+ 
+ WINBINDD_OBJ1 = \
+ 		nsswitch/winbindd.o       \
++		nsswitch/winbindd_sockinit.o \
+ 		nsswitch/winbindd_user.o  \
+ 		nsswitch/winbindd_group.o \
+ 		nsswitch/winbindd_util.o  \
+@@ -797,7 +799,7 @@ WINBINDD_OBJ = \
+ 		$(PROFILE_OBJ) $(SLCACHE_OBJ) $(SMBLDAP_OBJ) \
+ 		$(SECRETS_OBJ) $(LIBADS_OBJ) $(KRBCLIENT_OBJ) $(POPT_LIB_OBJ) \
+ 		$(DCUTIL_OBJ) $(IDMAP_OBJ) $(NSS_INFO_OBJ) \
+-		$(AFS_OBJ) $(AFS_SETTOKEN_OBJ) \
++		$(AFS_OBJ) $(AFS_SETTOKEN_OBJ) lib/launchd.o \
+ 		$(LIBADS_SERVER_OBJ) $(SERVER_MUTEX_OBJ)
+ 
+ WBINFO_OBJ = nsswitch/wbinfo.o $(LIBSAMBA_OBJ) $(PARAM_OBJ) $(LIB_NONSMBD_OBJ) \
+Index: samba/source/smbd/connection.c
+===================================================================
+--- samba/source/smbd/connection.c.orig
++++ samba/source/smbd/connection.c
+@@ -114,8 +114,18 @@ static int count_fn( TDB_CONTEXT *the_td
+ 		return 0;
+ 	}
+ 
+-	if (strequal(crec.servicename, cs->name))
++	if (cs->name) {
++		/* We are counting all the connections to a given share. */
++		if (strequal(crec.servicename, cs->name)) {
++			cs->curr_connections++;
++		}
++	} else {
++		/* We are counting all the connections. Static registrations
++		 * like the lpq backgroud process and the smbd daemon process
++		 * have a cnum of -1, so won't be counted here.
++		 */
+ 		cs->curr_connections++;
++	}
+ 
+ 	return 0;
+ }
+@@ -148,6 +158,15 @@ int count_current_connections( const cha
+ }
+ 
+ /****************************************************************************
++ Count the number of connections open across all shares.
++****************************************************************************/
++
++int count_all_current_connections(void)
++{
++	return count_current_connections(NULL, True /* clear stale entries */);
++}
++
++/****************************************************************************
+  Claim an entry in the connections database.
+ ****************************************************************************/
+ 
+Index: samba/source/nsswitch/winbindd.c
+===================================================================
+--- samba/source/nsswitch/winbindd.c.orig
++++ samba/source/nsswitch/winbindd.c
+@@ -7,6 +7,7 @@
+    Copyright (C) Andrew Tridgell 2002
+    Copyright (C) Jelmer Vernooij 2003
+    Copyright (C) Volker Lendecke 2004
++   Copyright (C) 2007 Apple Inc. All rights reserved.
+    
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+@@ -118,13 +119,8 @@ static void flush_caches(void)
+ 
+ static void terminate(void)
+ {
+-	pstring path;
+-
+-	/* Remove socket file */
+-	pstr_sprintf(path, "%s/%s", 
+-		 WINBINDD_SOCKET_DIR, WINBINDD_SOCKET_NAME);
+-	unlink(path);
+ 
++	winbindd_release_sockets();
+ 	idmap_close();
+ 	
+ 	trustdom_cache_shutdown();
+@@ -722,23 +718,14 @@ static BOOL remove_idle_client(void)
+    simultaneous connections while remaining impervious to many denial of
+    service attacks. */
+ 
+-static void process_loop(void)
++static int process_loop(int listen_sock, int listen_priv_sock)
+ {
+ 	struct winbindd_cli_state *state;
+ 	struct fd_event *ev;
+ 	fd_set r_fds, w_fds;
+-	int maxfd, listen_sock, listen_priv_sock, selret;
++	int maxfd, selret;
+ 	struct timeval timeout, ev_timeout;
+ 
+-	/* Open Sockets here to get stuff going ASAP */
+-	listen_sock = open_winbindd_socket();
+-	listen_priv_sock = open_winbindd_priv_socket();
+-
+-	if (listen_sock == -1 || listen_priv_sock == -1) {
+-		perror("open_winbind_socket");
+-		exit(1);
+-	}
+-
+ 	/* We'll be doing this a lot */
+ 
+ 	/* Handle messages */
+@@ -906,6 +893,55 @@ static void process_loop(void)
+ 			winbind_child_died(pid);
+ 		}
+ 	}
++
++
++	return winbindd_num_clients();
++}
++
++static void winbindd_process_loop(enum smb_server_mode server_mode)
++{
++	int idle_timeout_sec;
++	struct timeval starttime;
++	int listen_public, listen_priv;
++
++	errno = 0;
++	if (!winbindd_init_sockets(&listen_public, &listen_priv,
++				    &idle_timeout_sec)) {
++		terminate();
++	}
++
++	starttime = timeval_current();
++
++	if (listen_public == -1 || listen_priv == -1) {
++		DEBUG(0, ("failed to open winbindd pipes: %s\n",
++			    errno ? strerror(errno) : "unknown error"));
++		terminate();
++	}
++
++	for (;;) {
++		int clients = process_loop(listen_public, listen_priv);
++
++		/* Don't bother figuring out the idle time if we won't be
++		 * timing out anyway.
++		 */
++		if (idle_timeout_sec < 0) {
++			continue;
++		}
++
++		if (clients == 0 && server_mode == SERVER_MODE_FOREGROUND) {
++			struct timeval now;
++
++			now = timeval_current();
++			if (timeval_elapsed2(&starttime, &now) >
++				(double)idle_timeout_sec) {
++				DEBUG(0, ("idle for %d secs, exitting\n",
++					    idle_timeout_sec));
++				terminate();
++			}
++		} else {
++			starttime = timeval_current();
++		}
++	}
+ }
+ 
+ /* Main function */
+@@ -1101,9 +1137,7 @@ int main(int argc, char **argv, char **e
+ 	smb_nscd_flush_group_cache();
+ 
+ 	/* Loop waiting for requests */
+-
+-	while (1)
+-		process_loop();
++	winbindd_process_loop(server_mode);
+ 
+ 	return 0;
+ }
+Index: samba/source/nsswitch/winbindd_nss.h
+===================================================================
+--- samba/source/nsswitch/winbindd_nss.h.orig
++++ samba/source/nsswitch/winbindd_nss.h
+@@ -28,7 +28,14 @@
+ #define _WINBINDD_NTDOM_H
+ 
+ #define WINBINDD_SOCKET_NAME "pipe"            /* Name of PF_UNIX socket */
++
++/* Let the build environment override the public winbindd socket location. This
++ * is needed for launchd support -- jpeach.
++ */
++#ifndef WINBINDD_SOCKET_DIR
+ #define WINBINDD_SOCKET_DIR  "/tmp/.winbindd"  /* Name of PF_UNIX dir */
++#endif
++
+ #define WINBINDD_PRIV_SOCKET_SUBDIR "winbindd_privileged" /* name of subdirectory of lp_lockdir() to hold the 'privileged' pipe */
+ #define WINBINDD_DOMAIN_ENV  "WINBINDD_DOMAIN" /* Environment variables */
+ #define WINBINDD_DONT_ENV    "_NO_WINBINDD"
+Index: samba/source/nsswitch/winbindd_sockinit.c
+===================================================================
+--- /dev/null
++++ samba/source/nsswitch/winbindd_sockinit.c
+@@ -0,0 +1,126 @@
++/*
++   Unix SMB/CIFS implementation.
++   Copyright (C) Tim Potter 2000-2001
++   Copyright (C) 2001 by Martin Pool <mbp@samba.org>
++   Copyright (C) James Peach 2007
++
++   This program is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 2 of the License, or
++   (at your option) any later version.
++
++   This program is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software
++   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++*/
++
++#include "includes.h"
++#include "winbindd.h"
++#include "smb_launchd.h"
++
++#undef DBGC_CLASS
++#define DBGC_CLASS DBGC_WINBIND
++
++/* Open the winbindd socket */
++
++static int _winbindd_socket = -1;
++static int _winbindd_priv_socket = -1;
++static BOOL unlink_winbindd_socket = True;
++
++static int open_winbindd_socket(void)
++{
++	if (_winbindd_socket == -1) {
++		_winbindd_socket = create_pipe_sock(
++			WINBINDD_SOCKET_DIR, WINBINDD_SOCKET_NAME, 0755);
++		DEBUG(10, ("open_winbindd_socket: opened socket fd %d\n",
++			   _winbindd_socket));
++	}
++
++	return _winbindd_socket;
++}
++
++static int open_winbindd_priv_socket(void)
++{
++	if (_winbindd_priv_socket == -1) {
++		_winbindd_priv_socket = create_pipe_sock(
++			get_winbind_priv_pipe_dir(), WINBINDD_SOCKET_NAME, 0750);
++		DEBUG(10, ("open_winbindd_priv_socket: opened socket fd %d\n",
++			   _winbindd_priv_socket));
++	}
++
++	return _winbindd_priv_socket;
++}
++
++/* Close the winbindd socket */
++
++static void close_winbindd_socket(void)
++{
++	if (_winbindd_socket != -1) {
++		DEBUG(10, ("close_winbindd_socket: closing socket fd %d\n",
++			   _winbindd_socket));
++		close(_winbindd_socket);
++		_winbindd_socket = -1;
++	}
++	if (_winbindd_priv_socket != -1) {
++		DEBUG(10, ("close_winbindd_socket: closing socket fd %d\n",
++			   _winbindd_priv_socket));
++		close(_winbindd_priv_socket);
++		_winbindd_priv_socket = -1;
++	}
++}
++
++BOOL winbindd_init_sockets(int *public_sock, int *priv_sock,
++				int *idle_timeout_sec)
++{
++	struct smb_launch_info linfo;
++
++	if (smb_launchd_checkin_names(&linfo, "WinbindPublicPipe",
++		    "WinbindPrivilegedPipe", NULL)) {
++		if (linfo.num_sockets != 2) {
++			DEBUG(0, ("invalid launchd configuration, "
++				"expected 2 sockets but got %d\n",
++				linfo.num_sockets));
++			return False;
++		}
++
++		*public_sock = _winbindd_socket = linfo.socket_list[0];
++		*priv_sock = _winbindd_priv_socket = linfo.socket_list[1];
++		*idle_timeout_sec = linfo.idle_timeout_secs;
++
++		unlink_winbindd_socket = False;
++
++		smb_launchd_checkout(&linfo);
++		return True;
++	} else {
++		*public_sock = open_winbindd_socket();
++		*priv_sock = open_winbindd_priv_socket();
++		*idle_timeout_sec = -1;
++
++		if (*public_sock == -1 || *priv_sock == -1) {
++			DEBUG(0, ("failed to open winbindd pipes: %s\n",
++			    errno ? strerror(errno) : "unknown error"));
++			return False;
++		}
++
++		return True;
++	}
++}
++
++void winbindd_release_sockets(void)
++{
++	pstring path;
++
++	close_winbindd_socket();
++
++	/* Remove socket file */
++	if (unlink_winbindd_socket) {
++		pstr_sprintf(path, "%s/%s",
++			 WINBINDD_SOCKET_DIR, WINBINDD_SOCKET_NAME);
++		unlink(path);
++	}
++}
+Index: samba/source/smbd/sockinit.c
+===================================================================
+--- /dev/null
++++ samba/source/smbd/sockinit.c
+@@ -0,0 +1,201 @@
++/*
++   Unix SMB/CIFS implementation.
++
++   Copyright (C) Andrew Tridgell		1992-1998
++   Copyright (C) James Peach			2007
++
++   This program is free software; you can redistribute it and/or modify
++   it under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 2 of the License, or
++   (at your option) any later version.
++
++   This program is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++   GNU General Public License for more details.
++
++   You should have received a copy of the GNU General Public License
++   along with this program; if not, write to the Free Software
++   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++*/
++
++#include "includes.h"
++#include "smb_launchd.h"
++
++extern pstring user_socket_options;
++
++static int init_sockets_smbd(const char *smb_ports, int listenset[FD_SETSIZE])
++{
++	int num_interfaces = iface_count();
++	char * ports;
++	int num_sockets = 0;
++	int i, s;
++
++	/* use a reasonable default set of ports - listing on 445 and 139 */
++	if (!smb_ports) {
++		ports = lp_smb_ports();
++		if (!ports || !*ports) {
++			ports = smb_xstrdup(SMB_PORTS);
++		} else {
++			ports = smb_xstrdup(ports);
++		}
++	} else {
++		ports = smb_xstrdup(smb_ports);
++	}
++
++	if (lp_interfaces() && lp_bind_interfaces_only()) {
++		/* We have been given an interfaces line, and been
++		   told to only bind to those interfaces. Create a
++		   socket per interface and bind to only these.
++		*/
++
++		/* Now open a listen socket for each of the
++		   interfaces. */
++		for(i = 0; i < num_interfaces; i++) {
++			struct in_addr *ifip = iface_n_ip(i);
++			fstring tok;
++			const char *ptr;
++
++			if(ifip == NULL) {
++				DEBUG(0,("init_sockets_smbd: interface %d has NULL IP address !\n", i));
++				continue;
++			}
++
++			for (ptr=ports; next_token(&ptr, tok, " \t,", sizeof(tok)); ) {
++				unsigned port = atoi(tok);
++				if (port == 0) {
++					continue;
++				}
++				s = listenset[num_sockets] = open_socket_in(SOCK_STREAM, port, 0, ifip->s_addr, True);
++				if(s == -1)
++					return 0;
++
++				/* ready to listen */
++				set_socket_options(s,"SO_KEEPALIVE");
++				set_socket_options(s,user_socket_options);
++
++				/* Set server socket to non-blocking for the accept. */
++				set_blocking(s,False);
++
++				if (listen(s, SMBD_LISTEN_BACKLOG) == -1) {
++					DEBUG(0,("listen: %s\n",strerror(errno)));
++					close(s);
++					return 0;
++				}
++
++				num_sockets++;
++				if (num_sockets >= FD_SETSIZE) {
++					DEBUG(0,("init_sockets_smbd: Too many sockets to bind to\n"));
++					return 0;
++				}
++			}
++		}
++	} else {
++		/* Just bind to 0.0.0.0 - accept connections
++		   from anywhere. */
++
++		fstring tok;
++		const char *ptr;
++
++		num_interfaces = 1;
++
++		for (ptr=ports; next_token(&ptr, tok, " \t,", sizeof(tok)); ) {
++			unsigned port = atoi(tok);
++			if (port == 0) continue;
++			/* open an incoming socket */
++			s = open_socket_in(SOCK_STREAM, port, 0,
++					   interpret_addr(lp_socket_address()),True);
++			if (s == -1)
++				return 0;
++
++			/* ready to listen */
++			set_socket_options(s,"SO_KEEPALIVE");
++			set_socket_options(s,user_socket_options);
++
++			/* Set server socket to non-blocking for the accept. */
++			set_blocking(s,False);
++
++			if (listen(s, SMBD_LISTEN_BACKLOG) == -1) {
++				DEBUG(0,("init_sockets_smbd: listen: %s\n",
++					 strerror(errno)));
++				close(s);
++				return 0;
++			}
++
++			listenset[num_sockets] = s;
++			num_sockets++;
++
++			if (num_sockets >= FD_SETSIZE) {
++				DEBUG(0,("init_sockets_smbd: Too many sockets to bind to\n"));
++				return 0;
++			}
++		}
++	}
++
++	SAFE_FREE(ports);
++	return num_sockets;
++}
++
++static int init_sockets_launchd(const struct smb_launch_info *linfo,
++				const char * smb_ports,
++				int listenset[FD_SETSIZE])
++{
++	int num_sockets;
++	int i;
++
++	/* The launchd service configuration does not have to provide sockets,
++	 * even though it's basically useless without it.
++	 */
++	if (!linfo->num_sockets) {
++		return init_sockets_smbd(smb_ports, listenset);
++	}
++
++	/* Make sure we don't get more sockets than we can handle. */
++	num_sockets = MIN(FD_SETSIZE, linfo->num_sockets);
++	memcpy(listenset, linfo->socket_list, num_sockets * sizeof(int));
++
++	/* Get the sockets ready. This could be hoisted into
++	 * open_sockets_smbd(), but the order of socket operations might
++	 * matter for some platforms, so this approach seems less risky.
++	 *	--jpeach
++	 */
++	for (i = 0; i < num_sockets; ++i) {
++		set_socket_options(listenset[i], "SO_KEEPALIVE");
++		set_socket_options(listenset[i], user_socket_options);
++
++		/* Set server socket to non-blocking for the accept. */
++		set_blocking(listenset[i], False);
++	}
++
++	return num_sockets;
++}
++
++/* This function is responsible for opening (or retrieving) all the sockets we
++ * smbd will be listening on. It should apply all the configured socket options
++ * and return the number of valid sockets in listenset.
++ */
++int smbd_sockinit(const char *cmdline_ports, int listenset[FD_SETSIZE],
++			struct timeval *idle)
++{
++	int num_sockets;
++	struct smb_launch_info linfo;
++
++	ZERO_STRUCTP(idle);
++
++	if (smb_launchd_checkin(&linfo)) {
++		/* We are running under launchd and launchd has
++		 * opened some sockets for us.
++		 */
++		num_sockets = init_sockets_launchd(&linfo,
++					    cmdline_ports,
++					    listenset);
++		idle->tv_sec = linfo.idle_timeout_secs;
++		smb_launchd_checkout(&linfo);
++	} else {
++		num_sockets = init_sockets_smbd(cmdline_ports,
++					    listenset);
++	}
++
++	return num_sockets;
++}
++
+Index: samba/source/nsswitch/winbindd_util.c
+===================================================================
+--- samba/source/nsswitch/winbindd_util.c.orig
++++ samba/source/nsswitch/winbindd_util.c
+@@ -36,15 +36,6 @@ extern struct winbindd_methods passdb_me
+  * Winbind daemon for NT domain authentication nss module.
+  **/
+ 
+-
+-/**
+- * Used to clobber name fields that have an undefined value.
+- *
+- * Correct code should never look at a field that has this value.
+- **/
+-
+-static const fstring name_deadbeef = "<deadbeef>";
+-
+ /* The list of trusted domains.  Note that the list can be deleted and
+    recreated using the init_domain_list() function so pointers to
+    individual winbindd_domain structures cannot be made.  Keep a copy of
+@@ -927,53 +918,6 @@ char *get_winbind_priv_pipe_dir(void) 
+ 	return lock_path(WINBINDD_PRIV_SOCKET_SUBDIR);
+ }
+ 
+-/* Open the winbindd socket */
+-
+-static int _winbindd_socket = -1;
+-static int _winbindd_priv_socket = -1;
+-
+-int open_winbindd_socket(void)
+-{
+-	if (_winbindd_socket == -1) {
+-		_winbindd_socket = create_pipe_sock(
+-			WINBINDD_SOCKET_DIR, WINBINDD_SOCKET_NAME, 0755);
+-		DEBUG(10, ("open_winbindd_socket: opened socket fd %d\n",
+-			   _winbindd_socket));
+-	}
+-
+-	return _winbindd_socket;
+-}
+-
+-int open_winbindd_priv_socket(void)
+-{
+-	if (_winbindd_priv_socket == -1) {
+-		_winbindd_priv_socket = create_pipe_sock(
+-			get_winbind_priv_pipe_dir(), WINBINDD_SOCKET_NAME, 0750);
+-		DEBUG(10, ("open_winbindd_priv_socket: opened socket fd %d\n",
+-			   _winbindd_priv_socket));
+-	}
+-
+-	return _winbindd_priv_socket;
+-}
+-
+-/* Close the winbindd socket */
+-
+-void close_winbindd_socket(void)
+-{
+-	if (_winbindd_socket != -1) {
+-		DEBUG(10, ("close_winbindd_socket: closing socket fd %d\n",
+-			   _winbindd_socket));
+-		close(_winbindd_socket);
+-		_winbindd_socket = -1;
+-	}
+-	if (_winbindd_priv_socket != -1) {
+-		DEBUG(10, ("close_winbindd_socket: closing socket fd %d\n",
+-			   _winbindd_priv_socket));
+-		close(_winbindd_priv_socket);
+-		_winbindd_priv_socket = -1;
+-	}
+-}
+-
+ /*
+  * Client list accessor functions
+  */

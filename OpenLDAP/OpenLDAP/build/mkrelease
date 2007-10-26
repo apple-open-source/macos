@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/build/mkrelease,v 1.15.2.2 2004/01/01 18:16:25 kurt Exp $
+# $OpenLDAP: pkg/ldap/build/mkrelease,v 1.18.2.4 2006/01/03 22:16:01 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2004 The OpenLDAP Foundation.
+## Copyright 1998-2006 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -44,23 +44,34 @@ echo Release: $RELNAME
 echo CVS Tag: $CVSTAG
 echo Modules: $*
 
-cvs -q export -r $CVSTAG -d $RELNAME $*
+cvs -q export -kkv -r $CVSTAG -d $RELNAME $*
 
 if test ! -d $RELNAME ; then
 	echo "error: $RELNAME doesn't exists"
 	exit 1
 fi
 
-if test ! -e $RELNAME/build/version.sh ; then
-	echo "No build version"
-	exit 1
+if test -e $RELNAME/doc/guide/admin/guide.sdf ; then
+	echo "build guide..."
+	( cd $RELNAME/doc/guide/admin ; make guide.html )
+else
+	echo "No guide"
 fi
 
-eval `$RELNAME/build/version.sh`
+if test ! -e $RELNAME/build/version.sh ; then
+	echo "No build version"
+	OL_STRING="something"
+else
+	eval `$RELNAME/build/version.sh`
+fi
+
+echo "Rolling up $OL_STRING ..."
+
 
 tar cf $RELNAME.tar $RELNAME
 gzip -9 -c $RELNAME.tar > $RELNAME.tgz
 md5 $RELNAME.tgz > $RELNAME.md5
+sha1 $RELNAME.tgz > $RELNAME.sha1
 rm -f $RELNAME.tar
 
 ls -l $RELNAME.*

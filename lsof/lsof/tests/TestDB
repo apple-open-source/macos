@@ -5,7 +5,7 @@
 #
 # See Add2TestDB for a script that will build a line for this file.
 #
-# $Id: TestDB,v 1.29 2006/03/27 23:05:52 abe Exp abe $
+# $Id: TestDB,v 1.30 2007/04/24 16:44:10 abe Exp $
 
 LT_AIXA=0 LT_BIGF LT_CC LT_DIAL_aix LT_KMEM LT_VERS=4320
 LT_AIXA=0 LT_BIGF LT_CC LT_DIAL_aix LT_KMEM LT_VERS=4330

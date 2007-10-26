@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_var.h,v 1.21.4.5.2.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: php_var.h,v 1.30.2.1.2.6 2007/05/22 14:34:22 tony2001 Exp $ */
 
 #ifndef PHP_VAR_H
 #define PHP_VAR_H
@@ -28,9 +28,8 @@ PHP_FUNCTION(var_export);
 PHP_FUNCTION(debug_zval_dump);
 PHP_FUNCTION(serialize);
 PHP_FUNCTION(unserialize);
-#if MEMORY_LIMIT
 PHP_FUNCTION(memory_get_usage);
-#endif
+PHP_FUNCTION(memory_get_peak_usage);
 
 PHPAPI void php_var_dump(zval **struc, int level TSRMLS_DC);
 PHPAPI void php_var_export(zval **struc, int level TSRMLS_DC);
@@ -67,5 +66,49 @@ PHPAPI void var_destroy(php_unserialize_data_t *var_hash);
 	var_replace((var_hash), (ozval), &(nzval))
 	
 PHPAPI zend_class_entry *php_create_empty_class(char *class_name, int len);
+
+static inline int php_varname_check(char *name, int name_len, zend_bool silent TSRMLS_DC) /* {{{ */
+{
+    if (name_len == sizeof("GLOBALS") && !memcmp(name, "GLOBALS", sizeof("GLOBALS"))) {
+		if (!silent) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Attempted GLOBALS variable overwrite");
+		}
+        return FAILURE;
+    } else if (name[0] == '_' &&
+            (
+             (name_len == sizeof("_GET") && !memcmp(name, "_GET", sizeof("_GET"))) ||
+             (name_len == sizeof("_POST") && !memcmp(name, "_POST", sizeof("_POST"))) ||
+             (name_len == sizeof("_COOKIE") && !memcmp(name, "_COOKIE", sizeof("_COOKIE"))) ||
+             (name_len == sizeof("_ENV") && !memcmp(name, "_ENV", sizeof("_ENV"))) ||
+             (name_len == sizeof("_SERVER") && !memcmp(name, "_SERVER", sizeof("_SERVER"))) ||
+             (name_len == sizeof("_SESSION") && !memcmp(name, "_SESSION", sizeof("_SESSION"))) ||
+             (name_len == sizeof("_FILES") && !memcmp(name, "_FILES", sizeof("_FILES"))) ||
+             (name_len == sizeof("_REQUEST") && !memcmp(name, "_REQUEST", sizeof("_REQUEST")))
+            )
+            ) {
+		if (!silent) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Attempted super-global (%s) variable overwrite", name);
+		}
+        return FAILURE;
+    } else if (name[0] == 'H' &&
+            (
+             (name_len == sizeof("HTTP_POST_VARS") && !memcmp(name, "HTTP_POST_VARS", sizeof("HTTP_POST_VARS"))) ||
+             (name_len == sizeof("HTTP_GET_VARS") && !memcmp(name, "HTTP_GET_VARS", sizeof("HTTP_GET_VARS"))) ||
+             (name_len == sizeof("HTTP_COOKIE_VARS") && !memcmp(name, "HTTP_COOKIE_VARS", sizeof("HTTP_COOKIE_VARS"))) ||
+             (name_len == sizeof("HTTP_ENV_VARS") && !memcmp(name, "HTTP_ENV_VARS", sizeof("HTTP_ENV_VARS"))) ||
+             (name_len == sizeof("HTTP_SERVER_VARS") && !memcmp(name, "HTTP_SERVER_VARS", sizeof("HTTP_SERVER_VARS"))) ||
+             (name_len == sizeof("HTTP_SESSION_VARS") && !memcmp(name, "HTTP_SESSION_VARS", sizeof("HTTP_SESSION_VARS"))) ||
+             (name_len == sizeof("HTTP_RAW_POST_DATA") && !memcmp(name, "HTTP_RAW_POST_DATA", sizeof("HTTP_RAW_POST_DATA"))) ||
+             (name_len == sizeof("HTTP_POST_FILES") && !memcmp(name, "HTTP_POST_FILES", sizeof("HTTP_POST_FILES")))
+            )
+            ) {
+		if (!silent) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Attempted long input array (%s) overwrite", name);
+		}
+        return FAILURE;
+    }
+	return SUCCESS;
+}
+/* }}} */
 
 #endif /* PHP_VAR_H */

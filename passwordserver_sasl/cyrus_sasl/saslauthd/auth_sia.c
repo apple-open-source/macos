@@ -28,7 +28,7 @@
  * END COPYRIGHT */
 
 #ifdef __GNUC__
-#ident "$Id: auth_sia.c,v 1.5 2005/01/10 19:01:35 snsimon Exp $"
+#ident "$Id: auth_sia.c,v 1.9 2006/01/24 00:16:03 snsimon Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */

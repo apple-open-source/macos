@@ -9,7 +9,7 @@ class fooclass
 {
 
 /*!
-	This is a link to {@link foo foo}.
+	This is a link to {@link foo foo}.  And {@link //apple_ref/cpp/instm/IOService/getDeviceMemoryWithIndex/virtualIODeviceMemory*\/(unsignedint) vdm}
  */
 void *bar(int *bar);
 

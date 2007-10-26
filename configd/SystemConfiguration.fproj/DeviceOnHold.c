@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -258,9 +258,9 @@ DeviceOnHoldGetStatus(DeviceOnHoldRef	device)
 {
 	DeviceOnHoldPrivateRef	devicePrivate	= (DeviceOnHoldPrivateRef)device;
 	int			err;
-	u_long			link		= 1;
+	uint32_t		link		= 1;
 	void			*replyBuf;
-	u_long			replyBufLen;
+	size_t			replyBufLen;
 	int32_t			result		= -1;
 
 	if (!device) {
@@ -297,9 +297,9 @@ DeviceOnHoldSuspend(DeviceOnHoldRef	device)
 {
 	DeviceOnHoldPrivateRef	devicePrivate	= (DeviceOnHoldPrivateRef)device;
 	int			err;
-	u_long			link		= 1;
+	uint32_t		link		= 1;
 	void			*replyBuf;
-	u_long			replyBufLen;
+	size_t			replyBufLen;
 	Boolean			result		= FALSE;
 
 	if (!device) {
@@ -336,9 +336,9 @@ DeviceOnHoldResume(DeviceOnHoldRef	device)
 {
 	DeviceOnHoldPrivateRef	devicePrivate	= (DeviceOnHoldPrivateRef)device;
 	int			err;
-	u_long			link		= 1;
+	uint32_t		link		= 1;
 	void			*replyBuf;
-	u_long			replyBufLen;
+	size_t			replyBufLen;
 	Boolean			result		= FALSE;
 
 	if (!device) {

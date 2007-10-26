@@ -55,14 +55,17 @@ CACKeyHandle::~CACKeyHandle()
 void CACKeyHandle::getKeySize(CSSM_KEY_SIZE &keySize)
 {
 	secdebug("crypto", "getKeySize");
-	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
+	keySize.LogicalKeySizeInBits = mKey.sizeInBits();		// Logical key size in bits
+	keySize.EffectiveKeySizeInBits = mKey.sizeInBits();		// Effective key size in bits
 }
 
 uint32 CACKeyHandle::getOutputSize(const Context &context, uint32 inputSize,
 	bool encrypting)
 {
 	secdebug("crypto", "getOutputSize");
-	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
+	if (encrypting)
+		CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
+	return inputSize;       //accurate for crypto used on CAC cards
 }
 
 static const unsigned char sha1sigheader[] =
@@ -91,7 +94,7 @@ static const unsigned char md5sigheader[] =
 void CACKeyHandle::generateSignature(const Context &context,
 	CSSM_ALGORITHMS signOnly, const CssmData &input, CssmData &signature)
 {
-	secdebug("crypto", "generateSignature alg: %lu signOnly: %lu",
+	secdebug("crypto", "generateSignature alg: %u signOnly: %u",
 		context.algorithm(), signOnly);
 	IFDUMPING("crypto", context.dump("signature context"));
 
@@ -228,7 +231,7 @@ void CACKeyHandle::encrypt(const Context &context,
 void CACKeyHandle::decrypt(const Context &context,
 	const CssmData &cipher, CssmData &clear)
 {
-	secdebug("crypto", "decrypt alg: %lu", context.algorithm());
+	secdebug("crypto", "decrypt alg: %u", context.algorithm());
 	IFDUMPING("crypto", context.dump("decrypt context"));
 
 	if (context.type() != CSSM_ALGCLASS_ASYMMETRIC)
@@ -305,4 +308,3 @@ Tokend::KeyHandle *CACKeyHandleFactory::keyHandle(
 }
 
 
-/* arch-tag: 3685A262-0DBC-11D9-BC66-000A9595DEEE */

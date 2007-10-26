@@ -55,8 +55,9 @@ public:
 	
 	Dictionary(
 		const char		*domain,		// e.g., com.apple.security
-		UserOrSystem	userSys);		// US_User  : ~/Library/Preferences/domain.plist
+		UserOrSystem	userSys,		// US_User  : ~/Library/Preferences/domain.plist
 										// US_System: /Library/Preferences/domain.plist
+		bool			loose = false);	// accept failure due to missing file (set NULL)
 
 	/* create from existing CFDictionary */
 	Dictionary(
@@ -102,7 +103,8 @@ protected:
 	void setDict(
 		CFDictionaryRef	newDict);
 	void initFromFile(
-		const char		*path);	
+		const char		*path,
+		bool			loose = false);	
 	void pathForDomain(
 		const char		*domain,	// e.g., com.apple.security
 		UserOrSystem	userSys,	// US_User  : ~/Library/Preferences/domain.plist

@@ -1,6 +1,3 @@
-INSTALL_AS_GROUP = kmem     # (probably want to set both of these) 
-INSTALL_PERMISSIONS = 2555  # If set, 'install' chmod's executable to this
-
 after_install:
 	mkdir -p $(DSTROOT)/usr/share/man/man8
 	install -c -m 444 dmesg.8 $(DSTROOT)/usr/share/man/man8

@@ -33,6 +33,9 @@
 # include <stdlib.h>
 # include <string.h>
 
+/* APPLE LOCAL: get printf() prototype */
+#include <stdio.h>
+
 char char_val1 = 'a';
 char char_val2 = 'b';
 

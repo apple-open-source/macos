@@ -1,0 +1,37 @@
+2005-12-20  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version for X11R7 release.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-11-19  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* xprintapputil.pc.in:
+	Update pkgconfig files to separate library build-time dependencies
+	from application build-time dependencies.
+	* configure.ac:
+	Update dependencies to work with separate build roots.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-07-08  Keith Packard  <keithp@keithp.com>
+
+	* .cvsignore:
+	* include/X11/.cvsignore:
+	* src/.cvsignore:
+	* src/Makefile.am:
+	Add .cvsignore files
+	Switch _la_CFLAGS for AM_CFLAGS to clean up directory
+

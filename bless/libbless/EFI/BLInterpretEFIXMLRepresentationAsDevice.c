@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,7 @@
  *  bless
  *
  *  Created by Shantonu Sen on 12/2/05.
- *  Copyright 2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2005-2007 Apple Inc. All Rights Reserved.
  *
  */
 
@@ -34,10 +34,12 @@
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/IOBSD.h>
 
-#include <DiskArbitration/DiskArbitration.h>
-
 #include "bless.h"
 #include "bless_private.h"
+
+#if USE_DISKARBITRATION
+#include <DiskArbitration/DiskArbitration.h>
+#endif
 
 static int checkForMatch(BLContextPtr context, CFDictionaryRef dict,
 						 char *bsdName);
@@ -205,9 +207,10 @@ static int checkForMatch(BLContextPtr context, CFDictionaryRef dict,
 static CFUUIDRef    copyVolUUIDFromDiskArb(BLContextPtr context,
                                            CFStringRef bsdName)
 {
+    CFUUIDRef       dauuid = NULL;
+#if USE_DISKARBITRATION
     DASessionRef    session = NULL;
     DADiskRef       dadisk = NULL;
-    CFUUIDRef       dauuid = NULL;
     char			lastBSDNameCString[MNAMELEN];
     
     CFStringGetCString(bsdName, lastBSDNameCString, 
@@ -232,6 +235,6 @@ static CFUUIDRef    copyVolUUIDFromDiskArb(BLContextPtr context,
         
         CFRelease(session);
     }
-
+#endif // USE_DISKARBITRATION
     return dauuid;
 }

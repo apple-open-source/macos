@@ -4,11 +4,13 @@ case RUBY_PLATFORM
 when /bccwin32/
   test_func = "WSACleanup"
   have_library("ws2_32", "WSACleanup")
-  have_func("closesocket")
 when /mswin32|mingw/
   test_func = "WSACleanup"
-  have_library("wsock32", "WSACleanup")
-  have_func("closesocket")
+  if with_config("winsock2")
+    have_library("ws2_32", "WSACleanup")
+  else
+    have_library("wsock32", "WSACleanup")
+  end
 when /cygwin/
   test_func = "socket"
 when /beos/
@@ -24,10 +26,21 @@ else
   have_library("socket", "socket")
 end
 
-$ipv6 = false
+unless $mswin or $bccwin or $mingw
+  headers = %w<sys/types.h netdb.h string.h sys/socket.h netinet/in.h>
+end
+if /solaris/ =~ RUBY_PLATFORM and !try_compile("")
+  # bug of gcc 3.0 on Solaris 8 ?
+  headers << "sys/feature_tests.h"
+end
+if have_header("arpa/inet.h")
+  headers << "arpa/inet.h"
+end
+
+ipv6 = false
 default_ipv6 = /cygwin/ !~ RUBY_PLATFORM
 if enable_config("ipv6", default_ipv6)
-  if try_link(<<EOF)
+  if checking_for("ipv6") {try_link(<<EOF)}
 #include <sys/types.h>
 #include <sys/socket.h>
 main()
@@ -35,172 +48,67 @@ main()
   socket(AF_INET6, SOCK_STREAM, 0);
 }
 EOF
-    $CFLAGS+=" -DENABLE_IPV6"
-    $CPPFLAGS+=" -DENABLE_IPV6"
-    $ipv6 = true
+    $defs << "-DENABLE_IPV6" << "-DINET6"
+    ipv6 = true
   end
 end
 
-$ipv6type = nil
-$ipv6lib = nil
-$ipv6libdir = nil
-$ipv6trylibc = nil
-if $ipv6
-  if macro_defined?("IPV6_INRIA_VERSION", <<EOF)
-#include <netinet/in.h>
-EOF
-    $ipv6type = "inria"
-    $CFLAGS="-DINET6 "+$CFLAGS
-    $CPPFLAGS="-DINET6 "+$CPPFLAGS
-  elsif macro_defined?("__KAME__", <<EOF)
-#include <netinet/in.h>
-EOF
-    $ipv6type = "kame"
-    $ipv6lib="inet6"
-    $ipv6libdir="/usr/local/v6/lib"
-    $ipv6trylibc=true
-    $CFLAGS="-DINET6 "+$CFLAGS
-    $CPPFLAGS="-DINET6 "+$CPPFLAGS
-  elsif File.directory? "/usr/inet6"
-    $ipv6type = "linux"
-    $ipv6lib="inet6"
-    $ipv6libdir="/usr/inet6/lib"
-    $CFLAGS="-DINET6 -I/usr/inet6/include "+$CFLAGS
-    $CPPFLAGS="-DINET6 -I/usr/inet6/include "+$CPPFLAGS
-  elsif macro_defined?("_TOSHIBA_INET6", <<EOF)
-#include <sys/param.h>
-EOF
-    $ipv6type = "toshiba"
-    $ipv6lib="inet6"
-    $ipv6libdir="/usr/local/v6/lib"
-    $CFLAGS="-DINET6 "+$CFLAGS
-    $CPPFLAGS="-DINET6 "+$CPPFLAGS
-  elsif macro_defined?("__V6D__", <<EOF)
-#include </usr/local/v6/include/sys/v6config.h>
-EOF
-    $ipv6type = "v6d"
-    $ipv6lib="v6"
-    $ipv6libdir="/usr/local/v6/lib"
-    $CFLAGS="-DINET6 -I/usr/local/v6/include "+$CFLAGS
-    $CPPFLAGS="-DINET6 -I/usr/local/v6/include "+$CPPFLAGS
-  elsif macro_defined?("_ZETA_MINAMI_INET6", <<EOF)
-#include <sys/param.h>
-EOF
-    $ipv6type = "zeta"
-    $ipv6lib="inet6"
-    $ipv6libdir="/usr/local/v6/lib"
-    $CFLAGS="-DINET6 "+$CFLAGS
-    $CPPFLAGS="-DINET6 "+$CPPFLAGS
-  else
-    $ipv6lib=with_config("ipv6-lib", nil)
-    $ipv6libdir=with_config("ipv6-libdir", nil)
-    $CFLAGS="-DINET6 "+$CFLAGS
-    $CPPFLAGS="-DINET6 "+$CPPFLAGS
+if ipv6
+  ipv6lib = nil
+  class << (fmt = "unknown")
+    def %(s) s || self end
   end
-  
-  if $ipv6lib
-    if File.directory? $ipv6libdir and File.exist? "#{$ipv6libdir}/lib#{$ipv6lib}.a"
-      $LOCAL_LIBS = " -L#$ipv6libdir -l#$ipv6lib"
-    elsif !$ipv6trylibc
-      print <<EOS
+  idirs, ldirs = dir_config("inet6", %w[/usr/inet6 /usr/local/v6].find {|d| File.directory?(d)})
+  checking_for("ipv6 type", fmt) do
+    if have_macro("IPV6_INRIA_VERSION", "netinet/in.h")
+      "inria"
+    elsif have_macro("__KAME__", "netinet/in.h")
+      have_library(ipv6lib = "inet6")
+      "kame"
+    elsif have_macro("_TOSHIBA_INET6", "sys/param.h")
+      have_library(ipv6lib = "inet6") and "toshiba"
+    elsif have_macro("__V6D__", "sys/v6config.h")
+      have_library(ipv6lib = "v6") and "v6d"
+    elsif have_macro("_ZETA_MINAMI_INET6", "sys/param.h")
+      have_library(ipv6lib = "inet6") and "zeta"
+    elsif ipv6lib = with_config("ipv6-lib")
+      warn <<EOS
+--with-ipv6-lib and --with-ipv6-libdir option will be obsolete, use
+--with-inet6lib and --with-inet6-{include,lib} options instead.
+EOS
+      find_library(ipv6lib, nil, with_config("ipv6-libdir", ldirs)) and
+        ipv6lib
+    elsif have_library("inet6")
+      "inet6"
+    end
+  end or not ipv6lib or abort <<EOS
 
-Fatal: no #$ipv6lib library found.  cannot continue.
-You need to fetch lib#{$ipv6lib}.a from appropriate
+Fatal: no #{ipv6lib} library found.  cannot continue.
+You need to fetch lib#{ipv6lib}.a from appropriate
 ipv6 kit and compile beforehand.
 EOS
-      exit
-    end
+end
+
+if have_struct_member("struct sockaddr_in", "sin_len", headers)
+  $defs[-1] = "-DHAVE_SIN_LEN"
+end
+
+#   doug's fix, NOW add -Dss_family... only if required!
+[nil, " -Dss_family=__ss_family -Dss_len=__ss_len"].each do |flags|
+  if flags
+    cppflags = $CPPFLAGS
+    $CPPFLAGS += flags
+  end
+  if have_struct_member("struct sockaddr_storage", "ss_family", headers)
+    $defs[-1] = "-DHAVE_SOCKADDR_STORAGE"
+    break
+  elsif flags
+    $CPPFLAGS = cppflags
   end
 end
 
-  if try_link(<<EOF)
-#ifdef _WIN32
-# include <windows.h>
-# include <winsock.h>
-#else
-# include <sys/types.h>
-# include <netdb.h>
-# include <string.h>
-# include <sys/socket.h>
-# include <netinet/in.h>
-#endif
-int
-main()
-{
-   struct sockaddr_in sin;
-
-   sin.sin_len;
-   return 0;
-}
-EOF
-    $CFLAGS="-DHAVE_SIN_LEN "+$CFLAGS
-    $CPPFLAGS="-DHAVE_SIN_LEN "+$CPPFLAGS
-end
-
-  if try_link(<<EOF)
-#ifdef _WIN32
-# include <windows.h>
-# include <winsock.h>
-#else
-# include <sys/types.h>
-# include <netdb.h>
-# include <string.h>
-# include <sys/socket.h>
-#endif
-int
-main()
-{
-   struct sockaddr_storage ss;
-
-   ss.ss_family;
-   return 0;
-}
-EOF
-    $CFLAGS="-DHAVE_SOCKADDR_STORAGE "+$CFLAGS
-    $CPPFLAGS="-DHAVE_SOCKADDR_STORAGE "+$CPPFLAGS
-else      #   doug's fix, NOW add -Dss_family... only if required!
-$CPPFLAGS += " -Dss_family=__ss_family -Dss_len=__ss_len"
-  if try_link(<<EOF)
-#ifdef _WIN32
-# include <windows.h>
-# include <winsock.h>
-#else
-# include <sys/types.h>
-# include <netdb.h>
-# include <string.h>
-# include <sys/socket.h>
-#endif
-int
-main()
-{
-   struct sockaddr_storage ss;
-
-   ss.ss_family;
-   return 0;
-}
-EOF
-    $CFLAGS="-DHAVE_SOCKADDR_STORAGE "+$CFLAGS
-    $CPPFLAGS="-DHAVE_SOCKADDR_STORAGE "+$CPPFLAGS
-end
-end
-
-  if try_link(<<EOF)
-#include <sys/types.h>
-#include <netdb.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-int
-main()
-{
-   struct sockaddr sa;
-
-   sa.sa_len;
-   return 0;
-}
-EOF
-    $CFLAGS="-DHAVE_SA_LEN "+$CFLAGS
-    $CPPFLAGS="-DHAVE_SA_LEN "+$CPPFLAGS
+if have_struct_member("struct sockaddr", "sa_len", headers)
+  $defs[-1] = "-DHAVE_SA_LEN "
 end
 
 have_header("netinet/tcp.h") if not /cygwin/ =~ RUBY_PLATFORM # for cygwin 1.1.5
@@ -211,13 +119,17 @@ if have_func("sendmsg") | have_func("recvmsg")
   have_struct_member('struct msghdr', 'msg_accrights', ['sys/types.h', 'sys/socket.h'])
 end
 
-$getaddr_info_ok = false
-if !enable_config("wide-getaddrinfo", false) and try_run(<<EOF)
-#include <sys/types.h>
-#include <netdb.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+getaddr_info_ok = enable_config("wide-getaddrinfo") do
+  checking_for("wide getaddrinfo") {try_run(<<EOF)}
+#{cpp_include(headers)}
+#include <stdlib.h>
+
+#ifndef EXIT_SUCCESS
+#define EXIT_SUCCESS 0
+#endif
+#ifndef EXIT_FAILURE
+#define EXIT_FAILURE 1
+#endif
 
 #ifndef AF_LOCAL
 #define AF_LOCAL AF_UNIX
@@ -241,8 +153,17 @@ main()
     }
     for (ai = aitop; ai; ai = ai->ai_next) {
       if (ai->ai_family == AF_LOCAL) continue;
-      if (ai->ai_addr == NULL ||
-          ai->ai_addrlen == 0 ||
+      if (ai->ai_addr == NULL)
+        goto bad;
+#if defined(_AIX)
+      if (ai->ai_family == AF_INET6 && passive) {
+        inet6++;
+        continue;
+      }
+      ai->ai_addr->sa_len = ai->ai_addrlen;
+      ai->ai_addr->sa_family = ai->ai_family;
+#endif
+      if (ai->ai_addrlen == 0 ||
           getnameinfo(ai->ai_addr, ai->ai_addrlen,
                       straddr, sizeof(straddr), strport, sizeof(strport),
                       NI_NUMERICHOST|NI_NUMERICSERV) != 0) {
@@ -293,109 +214,57 @@ main()
 
   if (aitop)
     freeaddrinfo(aitop);
-  exit(0);
+  exit(EXIT_SUCCESS);
 
  bad:
   if (aitop)
     freeaddrinfo(aitop);
-  exit(1);
+  exit(EXIT_FAILURE);
 }
 EOF
-  $getaddr_info_ok = true
 end
-if $ipv6 and not $getaddr_info_ok
-      print <<EOS
+if ipv6 and not getaddr_info_ok
+  abort <<EOS
 
 Fatal: --enable-ipv6 is specified, and your OS seems to support IPv6 feature.
 But your getaddrinfo() and getnameinfo() are appeared to be broken.  Sorry,
 you cannot compile IPv6 socket classes with broken these functions.
 You can try --enable-wide-getaddrinfo.
 EOS
-  exit
 end
-      
+
 case with_config("lookup-order-hack", "UNSPEC")
 when "INET"
-  $CFLAGS="-DLOOKUP_ORDER_HACK_INET "+$CFLAGS
-  $CPPFLAGS="-DLOOKUP_ORDER_HACK_INET "+$CPPFLAGS
+  $defs << "-DLOOKUP_ORDER_HACK_INET"
 when "INET6"
-  $CFLAGS="-DLOOKUP_ORDER_HACK_INET6 "+$CFLAGS
-  $CPPFLAGS="-DLOOKUP_ORDER_HACK_INET6 "+$CPPFLAGS
+  $defs << "-DLOOKUP_ORDER_HACK_INET6"
 when "UNSPEC"
   # nothing special
 else
-  print <<EOS
+  abort <<EOS
 
 Fatal: invalid value for --with-lookup-order-hack (expected INET, INET6 or UNSPEC)
 EOS
-  exit
 end
 
 $objs = ["socket.#{$OBJEXT}"]
-    
-if $getaddr_info_ok and have_func("getaddrinfo", "netdb.h") and have_func("getnameinfo", "netdb.h")
-  have_getaddrinfo = true
-else
-  if try_link(<<EOF)
-#ifndef _WIN32
-#  include <sys/types.h>
-#  include <netdb.h>
-#  include <string.h>
-#  include <sys/socket.h>
-#  include <netinet/in.h>
-#else
-#  include <windows.h>
-#  ifdef _WIN32_WCE
-#    include <winsock.h>
-#  else
-#    include <winsock.h>
-#  endif
-#endif
-int
-main()
-{
-   struct in6_addr addr;
-   unsigned char c;
-   c = addr.s6_addr8;
-   return 0;
-}
-EOF
-    $CFLAGS="-DHAVE_ADDR8 "+$CFLAGS
-    $CPPFLAGS="-DHAVE_ADDR8 "+$CPPFLAGS
-  end
-end
 
-if have_getaddrinfo
-  $CFLAGS="-DHAVE_GETADDRINFO "+$CFLAGS
-  $CPPFLAGS="-DHAVE_GETADDRINFO "+$CPPFLAGS
-else
-  $CFLAGS="-I. "+$CFLAGS
+unless getaddr_info_ok and have_func("getnameinfo", "netdb.h") and have_func("getaddrinfo", "netdb.h")
+  if have_struct_member("struct in6_addr", "s6_addr8", headers)
+    $defs[-1] = "-DHAVE_ADDR8"
+  end
   $CPPFLAGS="-I. "+$CPPFLAGS
   $objs += ["getaddrinfo.#{$OBJEXT}"]
   $objs += ["getnameinfo.#{$OBJEXT}"]
   have_func("inet_ntop") or have_func("inet_ntoa")
   have_func("inet_pton") or have_func("inet_aton")
   have_func("getservbyport")
-  have_header("arpa/inet.h")
   have_header("arpa/nameser.h")
   have_header("resolv.h")
 end
 
-if !try_link(<<EOF)
-#include <sys/types.h>
-#include <netdb.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-int
-main()
-{
-   socklen_t len;
-   return 0;
-}
-EOF
-  $CFLAGS="-Dsocklen_t=int "+$CFLAGS
-  $CPPFLAGS="-Dsocklen_t=int "+$CPPFLAGS
+unless have_type("socklen_t", headers)
+  $defs << "-Dsocklen_t=int"
 end
 
 have_header("sys/un.h")
@@ -404,16 +273,15 @@ have_header("sys/uio.h")
 if have_func(test_func)
   have_func("hsterror")
   have_func("getipnodebyname") or have_func("gethostbyname2")
+  have_func("socketpair")
   unless have_func("gethostname")
     have_func("uname")
   end
   if enable_config("socks", ENV["SOCKS_SERVER"])
     if have_library("socks5", "SOCKSinit")
-      $CFLAGS+=" -DSOCKS5 -DSOCKS"
-      $CPPFLAGS+=" -DSOCKS5 -DSOCKS"
+      $defs << "-DSOCKS5" << "-DSOCKS"
     elsif have_library("socks", "Rconnect")
-      $CFLAGS+=" -DSOCKS"
-      $CPPFLAGS+=" -DSOCKS"
+      $defs << "-DSOCKS"
     end
   end
   create_makefile("socket")

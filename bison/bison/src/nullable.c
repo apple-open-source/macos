@@ -1,139 +1,144 @@
-/* Part of the bison parser generator,
-   Copyright (C) 1984, 1989 Free Software Foundation, Inc.
+/* Calculate which nonterminals can expand into the null string for Bison.
 
-This file is part of Bison, the GNU Compiler Compiler.
+   Copyright (C) 1984, 1989, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
-Bison is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   This file is part of Bison, the GNU Compiler Compiler.
 
-Bison is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   Bison is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-You should have received a copy of the GNU General Public License
-along with Bison; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   Bison is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with Bison; see the file COPYING.  If not, write to
+   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 
-/* set up nullable, a vector saying which nonterminals can expand into the null string.
-   nullable[i - ntokens] is nonzero if symbol i can do so.  */
+/* Set up NULLABLE, a vector saying which nonterminals can expand into
+   the null string.  NULLABLE[I - NTOKENS] is nonzero if symbol I can
+   do so.  */
 
-#include <stdio.h>
+#include <config.h>
 #include "system.h"
-#include "types.h"
+
+#include "getargs.h"
 #include "gram.h"
-#include "alloc.h"
+#include "nullable.h"
+#include "reduce.h"
+#include "symtab.h"
 
+/* Linked list of rules.  */
+typedef struct rule_list
+{
+  struct rule_list *next;
+  rule *value;
+} rule_list;
 
-char *nullable;
+bool *nullable = NULL;
 
-void free_nullable PARAMS((void));
-void set_nullable PARAMS((void));
+static void
+nullable_print (FILE *out)
+{
+  int i;
+  fputs ("NULLABLE\n", out);
+  for (i = ntokens; i < nsyms; i++)
+    fprintf (out, "\t%s: %s\n", symbols[i]->tag,
+	     nullable[i - ntokens] ? "yes" : "no");
+  fputs ("\n\n", out);
+}
 
 void
-set_nullable (void)
+nullable_compute (void)
 {
-  register short *r;
-  register short *s1;
-  register short *s2;
-  register int ruleno;
-  register int symbol;
-  register shorts *p;
+  rule_number ruleno;
+  symbol_number *s1;
+  symbol_number *s2;
+  rule_list *p;
 
-  short *squeue;
-  short *rcount;
-  shorts **rsets;
-  shorts *relts;
-  char any_tokens;
-  short *r1;
-
-#ifdef	TRACE
-  fprintf(stderr, _("Entering set_nullable"));
-#endif
-
-  nullable = NEW2(nvars, char) - ntokens;
-
-  squeue = NEW2(nvars, short);
-  s1 = s2 = squeue;
-
-  rcount = NEW2(nrules + 1, short);
-  rsets = NEW2(nvars, shorts *) - ntokens;
+  symbol_number *squeue = xnmalloc (nvars, sizeof *squeue);
+  size_t *rcount = xcalloc (nrules, sizeof *rcount);
+  /* RITEM contains all the rules, including useless productions.
+     Hence we must allocate room for useless nonterminals too.  */
+  rule_list **rsets = xcalloc (nvars, sizeof *rsets);
   /* This is said to be more elements than we actually use.
-     Supposedly nitems - nrules is enough.
-     But why take the risk?  */
-  relts = NEW2(nitems + nvars + 1, shorts);
+     Supposedly NRITEMS - NRULES is enough.  But why take the risk?  */
+  rule_list *relts = xnmalloc (nritems + nvars + 1, sizeof *relts);
+
+  nullable = xcalloc (nvars, sizeof *nullable);
+
+  s1 = s2 = squeue;
   p = relts;
 
-  r = ritem;
-  while (*r)
-    {
-      if (*r < 0)
-	{
-	  symbol = rlhs[-(*r++)];
-	  if (symbol >= 0 && !nullable[symbol])
-	    {
-	      nullable[symbol] = 1;
-	      *s2++ = symbol;
-	    }
-	}
-      else
-	{
-	  r1 = r;
-	  any_tokens = 0;
-	  for (symbol = *r++; symbol > 0; symbol = *r++)
-	    {
-	      if (ISTOKEN(symbol))
-		any_tokens = 1;
-	    }
+  for (ruleno = 0; ruleno < nrules; ++ruleno)
+    if (rules[ruleno].useful)
+      {
+	rule *rules_ruleno = &rules[ruleno];
+	if (rules_ruleno->rhs[0] >= 0)
+	  {
+	    /* This rule has a non empty RHS. */
+	    item_number *rp = NULL;
+	    bool any_tokens = false;
+	    for (rp = rules_ruleno->rhs; *rp >= 0; ++rp)
+	      if (ISTOKEN (*rp))
+		any_tokens = true;
 
-	  if (!any_tokens)
-	    {
-	      ruleno = -symbol;
-	      r = r1;
-	      for (symbol = *r++; symbol > 0; symbol = *r++)
+	    /* This rule has only nonterminals: schedule it for the second
+	       pass.  */
+	    if (!any_tokens)
+	      for (rp = rules_ruleno->rhs; *rp >= 0; ++rp)
 		{
 		  rcount[ruleno]++;
-		  p->next = rsets[symbol];
-		  p->value = ruleno;
-		  rsets[symbol] = p;
+		  p->next = rsets[*rp - ntokens];
+		  p->value = rules_ruleno;
+		  rsets[*rp - ntokens] = p;
 		  p++;
 		}
-	    }
-	}
-    }
+	  }
+	else
+	  {
+	    /* This rule has an empty RHS. */
+	    assert (item_number_as_rule_number (rules_ruleno->rhs[0])
+		    == ruleno);
+	    if (rules_ruleno->useful
+		&& ! nullable[rules_ruleno->lhs->number - ntokens])
+	      {
+		nullable[rules_ruleno->lhs->number - ntokens] = true;
+		*s2++ = rules_ruleno->lhs->number;
+	      }
+	  }
+      }
 
   while (s1 < s2)
-    {
-      p = rsets[*s1++];
-      while (p)
-	{
-	  ruleno = p->value;
-	  p = p->next;
-	  if (--rcount[ruleno] == 0)
+    for (p = rsets[*s1++ - ntokens]; p; p = p->next)
+      {
+	rule *r = p->value;
+	if (--rcount[r->number] == 0)
+	  if (r->useful && ! nullable[r->lhs->number - ntokens])
 	    {
-	      symbol = rlhs[ruleno];
-	      if (symbol >= 0 && !nullable[symbol])
-		{
-		  nullable[symbol] = 1;
-		  *s2++ = symbol;
-		}
+	      nullable[r->lhs->number - ntokens] = true;
+	      *s2++ = r->lhs->number;
 	    }
-	}
-    }
+      }
 
-  FREE(squeue);
-  FREE(rcount);
-  FREE(rsets + ntokens);
-  FREE(relts);
+  free (squeue);
+  free (rcount);
+  free (rsets);
+  free (relts);
+
+  if (trace_flag & trace_sets)
+    nullable_print (stderr);
 }
 
 
 void
-free_nullable (void)
+nullable_free (void)
 {
-  FREE(nullable + ntokens);
+  free (nullable);
 }

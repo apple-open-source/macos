@@ -193,7 +193,7 @@ esac
 
 MYDIR=$PWD      # save where we are
 
-TESTDIR=/tmp/eglob-test
+TESTDIR=/tmp/eglob-test-$$
 mkdir $TESTDIR
 builtin cd $TESTDIR || { echo $0: cannot cd to $TESTDIR >&2 ; exit 1; }
 rm -rf *
@@ -321,6 +321,12 @@ ab**)		echo ok 41;;
 *)		echo bad 41;;
 esac
 
+# bug in all versions up to and including bash-2.05b
+case "123abc" in
+*?(a)bc)	echo ok 42;;
+*)		echo bad 42;;
+esac
+
 # clean up and do the next one
 
 builtin cd /
@@ -347,8 +353,13 @@ echo a@(.|[^[:alnum:]])b
 builtin cd /
 rm -rf $TESTDIR
 
+x=abcdef
+recho "${x#*(a|b)cd}"
+
 # this is for the benefit of pure coverage, so it writes the pcv file
 # in the right place
 builtin cd $MYDIR
+
+${THIS_SH} ./extglob1.sub
 
 exit 0

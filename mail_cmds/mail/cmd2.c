@@ -80,9 +80,12 @@ next(msgvec)
 		 * message list which follows dot.
 		 */
 
-		for (ip = msgvec; *ip != 0; ip++)
+		for (ip = msgvec; *ip != 0; ip++) {
+			if (!sawcom) /* don't skip current message if first command */
+				break;
 			if (*ip > mdot)
 				break;
+		}
 		if (*ip == 0)
 			ip = msgvec;
 		ip2 = ip;
@@ -145,6 +148,18 @@ save(str)
 }
 
 /*
+ * Save a message list in a file named after author.  Mark the message as saved
+ * so we can discard when the user quits.
+ */
+int
+Capsave(str)
+	char str[];
+{
+
+	return (save1(str, 1, "Save", saveignore));
+}
+
+/*
  * Copy a message to a file without affected its saved-ness
  */
 int
@@ -153,6 +168,22 @@ copycmd(str)
 {
 
 	return (save1(str, 0, "copy", saveignore));
+}
+
+/*
+ * Copy a message to a file named after author without affected its saved-ness
+ */
+int
+Capcopycmd(str)
+	char str[];
+{
+
+#if 1
+	printf("Copy command is not yet implemented\n");
+	return (1);
+#else
+	return (save1(str, 0, "Copy", saveignore));
+#endif
 }
 
 /*
@@ -171,9 +202,10 @@ save1(str, mark, cmd, ignore)
 	const char *disp;
 	int f, *msgvec, *ip;
 	FILE *obuf;
+	int doing_Save = !strcmp(cmd,"Save");
 
 	msgvec = (int *)salloc((msgCount + 2) * sizeof(*msgvec));
-	if ((file = snarf(str, &f)) == NULL)
+	if ((file = snarf(str, &f, doing_Save)) == NULL)
 		return (1);
 	if (!f) {
 		*msgvec = first(0, MMNORM);
@@ -185,6 +217,20 @@ save1(str, mark, cmd, ignore)
 	}
 	if (f && getmsglist(str, msgvec, 0) < 0)
 		return (1);
+	/* Save derives file name from author of first message: */
+	if (doing_Save) {
+	        char *rcv;
+		mp = &message[msgvec[0] - 1];
+	        touch(mp);
+		if ((rcv = skin(hfield("from", mp))) == NULL)
+       			rcv = skin(nameof(mp, 1));
+		rcv = getauthor(rcv);
+		if (rcv == NULL) {
+			printf("Failed to find sender: Save not performed\n");
+			return(1);
+		}
+		file = rcv; /* use it as file name */
+	}
 	if ((file = expand(file)) == NULL)
 		return (1);
 	printf("\"%s\" ", file);
@@ -238,9 +284,10 @@ swrite(str)
  */
 
 char *
-snarf(linebuf, flag)
+snarf(linebuf, flag, doing_Save)
 	char linebuf[];
 	int *flag;
+	int doing_Save;
 {
 	char *cp;
 
@@ -262,13 +309,17 @@ snarf(linebuf, flag)
 	while (cp > linebuf && !isspace((unsigned char)*cp))
 		cp--;
 	if (*cp == '\0') {
-		printf("No file specified.\n");
-		return (NULL);
+		if (!doing_Save)
+			printf("No file specified: using MBOX.\n");
+		*flag = 0;	/* no message list found either */
+		return ("&");
 	}
+		
 	if (isspace((unsigned char)*cp))
 		*cp++ = '\0';
-	else
-		*flag = 0;
+	else {
+		if (!doing_Save) *flag = 0;
+	}
 	return (cp);
 }
 

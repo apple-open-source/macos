@@ -269,18 +269,20 @@ int l2tp_outgoing_call(int fd, struct sockaddr *peer_address,
     struct sockaddr	from;
 
     /* ------------- send SCCRQ  -------------*/	 
-    size = prepare_SCCRQ(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
-    SEND_PACKET(fd, control_buf, size, 0, peer_address, "SCCRQ");
+	size = prepare_SCCRQ(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
+	SEND_PACKET(fd, control_buf, size, 0, peer_address, "SCCRQ");
 
     /* ------------- read SCCRP  -------------*/	 
     from.sa_len = sizeof(from);
-    RECV_PACKET(fd, control_buf, MAX_CNTL_BUFFER_SIZE, &size, &from, recv_timeout, "SCCRP");
-    if (size == 0) {	// no reply
+    result = l2tp_recv(fd, control_buf, MAX_CNTL_BUFFER_SIZE, &size, &from, recv_timeout, "SCCRP");
+    if (result == -2) // cancel
+		return result;
+	if (result == -1 || size == 0) { // no reply
         notice("L2TP cannot connect to the server\n");
         return EXIT_L2TP_NOANSWER;
-    }
+	}
     
-    /* the server can reply from an other port, lock our connection to the new received peer address */
+   /* the server can reply from an other port, lock our connection to the new received peer address */
     l2tp_change_peeraddress(fd, &from);
 
     PROCESS_PACKET(control_buf, size, &msg_type, peer_params, L2TP_SCCRP);
@@ -409,6 +411,18 @@ int l2tp_send_hello(int fd, struct l2tp_parameters *our_params)
 
     size = prepare_Hello(control_buf, MAX_CNTL_BUFFER_SIZE);
     return l2tp_send(fd, control_buf, size, 0, 0, "Hello");
+}
+
+/* -----------------------------------------------------------------------------
+        Send a SCCRQ
+----------------------------------------------------------------------------- */
+int l2tp_send_SCCRQ(int fd, struct sockaddr *peer_address, 
+                        struct l2tp_parameters *our_params)	
+{		
+    int 	size;
+
+	size = prepare_SCCRQ(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
+    return l2tp_send(fd, control_buf, size, 0, peer_address, "SCCRQ");
 }
 
 /* -----------------------------------------------------------------------------
@@ -1396,8 +1410,11 @@ int l2tp_recv(int fd, u_int8_t* buf, int len, int *outlen, struct sockaddr *from
             maxfd = fd + 1;
             tv.tv_sec = timeout;
             tv.tv_usec = 0;
-            if ((result = select(maxfd, &rset, 0, 0, timeout != -1 ? &tv : 0)) == 0)
+            if ((result = select(maxfd, &rset, 0, 0, timeout != -1 ? &tv : 0)) == 0) {
+				if (debug > 1)
+					dbglog("L2TP timeout receiving %s\n", text);
                 return -1;
+			}
             if (kill_link)
                 return -2;
             if (result > 0)

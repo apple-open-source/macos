@@ -51,6 +51,7 @@
 #define DSSTORE_FLAGS_REMOTE_NETINFO   0x8000
 #define DSSTORE_FLAGS_OPEN_BY_TAG      0x4000
 #define DSSTORE_FLAGS_NOTIFY_CHANGES   0x0010
+#define DSSTORE_FLAGS_NO_LOCK          0x0020
 
 typedef struct
 {
@@ -121,4 +122,4 @@ void dsstore_set_sync_delegate(dsstore *, void (*)(void *), void *);
 void dsstore_set_notification_name(dsstore *, const char *);
 void dsstore_notify(dsstore *);
 
-#endif __DSSTORE_H__
+#endif /* __DSSTORE_H__ */

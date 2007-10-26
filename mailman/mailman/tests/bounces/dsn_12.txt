@@ -1,0 +1,40 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from ns.jtc-con.co.jp (ns.jtc-con.co.jp [222.228.112.211])
+	by sb7.songbird.com (8.12.11/8.12.11) with ESMTP id k1C5m9cs015476
+	for <wed_ride-bounces@grizz.org>; Sat, 11 Feb 2006 21:48:10 -0800
+Message-Id: <200602120548.k1C5m9cs015476@sb7.songbird.com>
+Received: from SV-03.jtc-con.local ([222.228.112.210]) by ns.jtc-con.co.jp
+	(Post.Office MTA v3.8.5 release 20041112
+	ID# 6001-107U300L100S0V38B) with ESMTP id jp
+	for <wed_ride-bounces@grizz.org>; Sun, 12 Feb 2006 14:47:26 +0900
+Date: 12 Feb 2006 14:47:00 +0900
+From: Mail Delivery Subsystem <mailer-daemon@jtc-con.co.jp>
+To: wed_ride-bounces@grizz.org
+Subject: Delivery Report
+References: <mailman.6301.1139723231.1568.wed_ride@grizz.org>
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status;
+	boundary=12006021214472475
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Found to be clean
+X-Songbird-From: 
+
+--12006021214472475
+Content-Type: text/plain; charset=us-ascii
+
+   ----- The following addresses have delivery notifications -----
+<auaauqdgrdz@jtc-con.co.jp> (failed: Bad destination mailbox address)
+
+--12006021214472475
+Content-Type: message/delivery-status
+
+Reporting-MTA: SV-03.jtc-con.local (TeamWARE Connector for MIME v5.x)
+Original-Envelope-Id: mailman.6301.1139723231.1568.wed_ride@grizz.org
+
+Original-Recipient: rfc822;auaauqdgrdz@jtc-con.co.jp
+Final-Recipient: rfc822;auaauqdgrdz@jtc-con.co.jp
+Action: failed (Bad destination mailbox address)
+Status: 5.1.1
+
+--12006021214472475--
+

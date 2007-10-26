@@ -1,3 +1,13 @@
+2007-07-19  Geoffrey Keating  <geoffk@apple.com>
+
+	* inclhack.def (darwin_macho_swaph_externc): New fix.
+	* fixincl.x: Regenerate.
+	* tests/base/mach-o/swap.h: New.
+
+2007-02-04  Mike Stump  <mrs@apple.com>
+
+	* mkheaders.in: Allow optional isysroot parameter.
+
 2005-06-24  Geoffrey Keating  <geoffk@geoffk.org>
 
 	* inclhack.def (AAB_darwin7_9_long_double_funcs): New.

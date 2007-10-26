@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2007 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,10 +39,12 @@
 #include <sys/fcntl.h>
 #include <uuid/uuid.h>
 #include <sys/errno.h>
+#include <sasl/saslutil.h>
 
 #include "imap_err.h"
 #include "xmalloc.h"
 #include "libconfig.h"
+#include "version.h"
 
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFString.h>
@@ -56,13 +58,11 @@
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
 
-
-static tDirStatus	sOpen_ds			( tDirReference *inOutDirRef );
-static tDirStatus	sGet_search_node	( tDirReference inDirRef, tDirNodeReference *outSearchNodeRef );
-static tDirStatus	sGet_user_attributes( tDirReference inDirRef, tDirNodeReference inSearchNodeRef, const char *inUserID, struct od_user_opts *inOutOpts );
-static tDirStatus	sOpen_user_node		( tDirReference inDirRef, const char *inUserLoc, tDirNodeReference *outUserNodeRef );
-static int			sVerify_version		( CFDictionaryRef inCFDictRef );
-static void			sGet_mail_values	( char *inMailAttribute, struct od_user_opts *inOutOpts );
+static tDirStatus	_get_search_node	( tDirReference inDirRef, tDirNodeReference *outSearchNodeRef );
+static tDirStatus	_get_user_attributes( tDirReference inDirRef, tDirNodeReference inSearchNodeRef, const char *inUserID, struct od_user_opts *inOutOpts );
+static tDirStatus	_open_user_node		( tDirReference inDirRef, const char *inUserLoc, tDirNodeReference *outUserNodeRef );
+static int			_verify_version		( CFDictionaryRef inCFDictRef );
+static void			_get_attr_values	( char *inMailAttribute, struct od_user_opts *inOutOpts );
 static void			sGet_acct_state		( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
 static void			sGet_auto_forward	( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
 static void			sGet_IMAP_login		( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
@@ -70,29 +70,24 @@ static void			sGet_POP3_login		( CFDictionaryRef inCFDictRef, struct od_user_opt
 static void			sGet_disk_quota		( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
 static void			sGet_acct_loc		( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
 static void			sGet_alt_loc		( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
-static int			sDoCryptAuth		( tDirReference inDirRef, tDirNodeReference inUserNodeRef, struct od_user_opts *inUserOpts, const char *inPasswd );
-static int			sValidateResponse	( const char *inChallenge, const char *inResponse, const char *inAuthType, struct od_user_opts *inOutOpts );
+static int			sDoCryptAuth		( tDirReference inDirRef, tDirNodeReference inUserNodeRef, const char *inUserID, const char *inPasswd, const struct od_user_opts *inUserOpts );
+static int			_validate_resp		( const char *inChallenge, const char *inResponse, const char *inAuthType, struct od_user_opts *inOutOpts );
+static int			_validate_clust_resp( const char *inChallenge, const char *inResponse, struct od_user_opts *inUserOpts );
 static int			sGetUserOptions		( const char *inUserID, struct od_user_opts *inOutOpts );
-static int			sEncodeBase64		( const char *inStr, const int inLen, char *outStr, int outLen );
-static int			sDecodeBase64		( const char *inStr, const int inLen, char *outStr, int outLen, int *destLen );
 static void			get_random_chars	( char *out_buf, int in_len );
 static int			checkServiceACL		( struct od_user_opts *inOutOpts, const char *inGroup );
-static int			sDoCRAM_MD5_Auth	( struct protstream *inStreamIn, struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
+static int			_cram_md5_auth		( struct protstream *inStreamIn, struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
 static int			sDoCRAM_MD5_AuthS	( struct protstream *inStreamIn, struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
 static int			sDoPlainAuth		( const char *inCont, const char *inResp, struct protstream *inStreamIn, struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
 static int			sDoPlainAuthS		( const char *inCont, const char *inResp, struct protstream *inStreamIn, struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
 static int			sDoLoginAuth		( struct protstream *inStreamIn, struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
 static int			sDoLoginAuthS		( struct protstream *inStreamIn, struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
 static int			sGetClientResponse	( char *inOutBuf, int inBufSize, struct protstream *inStreamIn );
+static const char  *_make_challenge		( void );
 
-#define kCacheDelta	30
+enum enum_value	config_mupdate_config	= IMAP_ENUM_ZERO;
 
-static int		gSACL_NotEnabled	= 0;
-static time_t	gSACL_CacheTime		= 0;
-
-tDataBuffer  *gTDataBuff    = NULL;
-tDataList    *gUserAttrType	= NULL;
-tDataList    *gUserRecType  = NULL;
+const char *g_mupdate_user	= "apple_mupdate_user";
 
 /* -----------------------------------------------------------
 	- odGetUserOpts
@@ -112,7 +107,7 @@ int odGetUserOpts ( const char *inUserID, struct od_user_opts *inOutOpts )
 			{
 				if ( (inOutOpts->fRecNamePtr != NULL) && (inOutOpts->fUserLocPtr) )
 				{
-					syslog( LOG_DEBUG, "AOD: user opts: no-lookup for: %s", inUserID );
+					syslog( LOG_DEBUG, "AOD: user options: no lookup required for: %s", inOutOpts->fRecNamePtr );
 					return( eDSNoErr );
 				}
 			}
@@ -140,6 +135,15 @@ int odGetUserOpts ( const char *inUserID, struct od_user_opts *inOutOpts )
 			
 			/* are mail service ACL's enabled */
 			checkServiceACL( inOutOpts, "mail" );
+
+			if ( inOutOpts->fAltDataLocPtr != NULL )
+			{
+				lcase( inOutOpts->fAltDataLocPtr );
+			}
+		}
+		else
+		{
+			syslog( LOG_DEBUG, "AOD: user options: lookup failed for: %s (%d)", inUserID, iResult );
 		}
 
 		/* if we failed to find a user record, set record name to user id and
@@ -173,8 +177,6 @@ void odFreeUserOpts ( struct od_user_opts *inUserOpts, int inFreeOD )
 {
 	if ( inUserOpts != NULL )
 	{
-		syslog( LOG_DEBUG, "AOD: user opts: cleaning up user options structure" );
-
 		inUserOpts->fAccountState = eUnknownState;
 
 		if ( inUserOpts->fUserIDPtr != NULL )
@@ -225,29 +227,15 @@ void odFreeUserOpts ( struct od_user_opts *inUserOpts, int inFreeOD )
 			inUserOpts->fUserLocPtr = NULL;
 		}
 
-		if ( inUserOpts->fAuthAuthority != NULL )
-		{
-			int		i = 0;
-			char   *p = NULL;
-			while ( (p = inUserOpts->fAuthAuthority[ i++ ]) != NULL )
-			{
-				free( p );
-			}
-			free( inUserOpts->fAuthAuthority );
-			inUserOpts->fAuthAuthority = NULL;
-		}
-
 		if ( inFreeOD )
 		{
 			if ( inUserOpts->fSearchNodeRef )
 			{
-				syslog( LOG_DEBUG, "AOD: user opts: releasing search node reference" );
 				(void)dsCloseDirNode( inUserOpts->fSearchNodeRef );
 				inUserOpts->fSearchNodeRef = 0;
 			}
 			if ( inUserOpts->fDirRef )
 			{
-				syslog( LOG_DEBUG, "AOD: user opts: releasing directory reference" );
 				(void)dsCloseDirService( inUserOpts->fDirRef );
 				inUserOpts->fDirRef = 0;
 			}
@@ -282,10 +270,10 @@ int odCheckPass ( const char *inPasswd, struct od_user_opts *inUserOpts )
 
 	if ( (inUserOpts != NULL) && (inUserOpts->fUserLocPtr != NULL) )
 	{
-		dsStatus = sOpen_user_node( dirRef, inUserOpts->fUserLocPtr, &userNodeRef );
+		dsStatus = _open_user_node( dirRef, inUserOpts->fUserLocPtr, &userNodeRef );
 		if ( dsStatus == eDSNoErr )
 		{
-			dsStatus = sDoCryptAuth( dirRef, userNodeRef, inUserOpts, inPasswd );
+			dsStatus = sDoCryptAuth( dirRef, userNodeRef, inUserOpts->fRecNamePtr, inPasswd, inUserOpts );
 			switch ( dsStatus )
 			{
 				case eDSNoErr:
@@ -331,7 +319,7 @@ int odCheckAPOP ( const char *inChallenge, const char *inResponse, struct od_use
 {
 	int		iResult	= eAODParamErr;
 	char	*p		= NULL;
-	int		len		= 0;
+	int	len		= 0;
 	char	userBuf	[ MAX_USER_BUF_SIZE ];
 
 	/* check for bogus data */
@@ -368,7 +356,7 @@ int odCheckAPOP ( const char *inChallenge, const char *inResponse, struct od_use
 		if ( p != NULL )
 		{
 			/* make the call */
-			return( sValidateResponse( inChallenge, p, kDSStdAuthAPOP, inOutOpts ) );
+			return( _validate_resp( inChallenge, p, kDSStdAuthAPOP, inOutOpts ) );
 		}
 		else
 		{
@@ -390,16 +378,6 @@ int odCheckAPOP ( const char *inChallenge, const char *inResponse, struct od_use
 
 
 /* -----------------------------------------------------------------
-	odCRAM_MD5 ()
-   ----------------------------------------------------------------- */
-
-int odCRAM_MD5 ( const char *inChallenge, const char *inResponse, struct od_user_opts *inOutOpts  )
-{
-	return( sValidateResponse( inChallenge, inResponse, kDSStdAuthCRAM_MD5, inOutOpts ) );
-} /* odCRAM_MD5 */
-
-
-/* -----------------------------------------------------------------
 	odDoAuthenticate ()
    ----------------------------------------------------------------- */
 
@@ -413,9 +391,9 @@ int odDoAuthenticate (	const char *inMethod,
 {
 	int result = eAODNoErr;
 
-	if ( strcasecmp( inMethod, "CRAM-MD5" ) == 0 )
+	if ( strcasecmp( inMethod, "CRAM-MD5" ) == 0 || strcasecmp( inMethod, "OD-CRAM-MD5" ) == 0 )
 	{
-		result = sDoCRAM_MD5_Auth( inStreamIn, inStreamOut, inOutOpts );
+		result = _cram_md5_auth( inStreamIn, inStreamOut, inOutOpts );
 	}
 	else if ( strcasecmp( inMethod, "LOGIN" ) == 0 )
 	{
@@ -464,14 +442,13 @@ int sDoLoginAuth ( 	struct protstream *inStreamIn,
 					struct protstream *inStreamOut,
 					struct od_user_opts *inOutOpts )
 {
-	int		iResult	= eAODNoErr;
-	int		len		= 0;
-	int		respLen	= 0;
-	char   *p		= NULL;
-	char	userBuf	[ MAX_USER_BUF_SIZE ];
-	char	chalBuf	[ MAX_CHAL_BUF_SIZE ];
-	char	pwdBuf	[ MAX_USER_BUF_SIZE ];
-	char	ioBuf	[ MAX_IO_BUF_SIZE ];
+	int			iResult	= eAODNoErr;
+	unsigned	len		= 0;
+	char	   *p		= NULL;
+	char		userBuf	[ MAX_USER_BUF_SIZE ];
+	char		chalBuf	[ MAX_CHAL_BUF_SIZE ];
+	char		pwdBuf	[ MAX_USER_BUF_SIZE ];
+	char		ioBuf	[ MAX_IO_BUF_SIZE ];
 
 	/* is LOGIN authentication enabled */
 	if ( !config_getswitch( IMAPOPT_IMAP_AUTH_LOGIN ) )
@@ -481,8 +458,15 @@ int sDoLoginAuth ( 	struct protstream *inStreamIn,
 	}
 
 	/* encode the user name prompt and send it */
-	strcpy( chalBuf, "Username:" );
-	sEncodeBase64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE );
+	strlcpy( chalBuf, "Username:", sizeof( chalBuf ) );
+
+	iResult = sasl_encode64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: LOGIN: sasl_encode64 error: %d", iResult );
+		return( eAODAllocError );
+	}
+
 	prot_printf( inStreamOut, "+ %s\r\n", ioBuf );
 
 	/* reset the buffer */
@@ -513,15 +497,26 @@ int sDoLoginAuth ( 	struct protstream *inStreamIn,
 	/* reset the buffer */
 	memset( userBuf, 0, MAX_USER_BUF_SIZE );
 
-	len = strlen( ioBuf );
-	sDecodeBase64( ioBuf, len, userBuf, MAX_USER_BUF_SIZE, &respLen );
+	iResult = sasl_decode64( ioBuf, strlen( ioBuf ), userBuf, MAX_USER_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: LOGIN: sasl_decode64 error: %d", iResult );
+		return( eAODParamErr );
+	}
 
 	/* get user options */
 	odGetUserOpts( userBuf, inOutOpts );
 
 	/* encode the password prompt and send it */
 	strcpy( chalBuf, "Password:" );
-	sEncodeBase64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE );
+
+	iResult = sasl_encode64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: LOGIN: sasl_encode64 error: %d", iResult );
+		return( eAODAllocError );
+	}
+
 	prot_printf( inStreamOut, "+ %s\r\n", ioBuf );
 
 	/* get the client response */
@@ -549,8 +544,12 @@ int sDoLoginAuth ( 	struct protstream *inStreamIn,
 	/* reset the buffer */
 	memset( pwdBuf, 0, MAX_USER_BUF_SIZE );
 
-	len = strlen( ioBuf );
-	sDecodeBase64( ioBuf, len, pwdBuf, MAX_USER_BUF_SIZE, &respLen );
+	iResult = sasl_decode64( ioBuf, strlen( ioBuf ), pwdBuf, MAX_USER_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: LOGIN: sasl_decode64 error: %d", iResult );
+		return( eAODParamErr );
+	}
 
 	/* do the auth */
 	iResult = odCheckPass( pwdBuf, inOutOpts );
@@ -584,13 +583,12 @@ int sDoLoginAuthS ( struct protstream *inStreamIn,
 					struct protstream *inStreamOut,
 					struct od_user_opts *inOutOpts )
 {
-	int		iResult	= eAODNoErr;
-	int		len		= 0;
-	int		respLen	= 0;
-	char	userBuf	[ MAX_USER_BUF_SIZE ];
-	char	chalBuf	[ MAX_CHAL_BUF_SIZE ];
-	char	pwdBuf	[ MAX_USER_BUF_SIZE ];
-	char	ioBuf	[ MAX_IO_BUF_SIZE ];
+	int			iResult	= eAODNoErr;
+	unsigned	len		= 0;
+	char		userBuf	[ MAX_USER_BUF_SIZE ];
+	char		chalBuf	[ MAX_CHAL_BUF_SIZE ];
+	char		pwdBuf	[ MAX_USER_BUF_SIZE ];
+	char		ioBuf	[ MAX_IO_BUF_SIZE ];
 
 	/* is LOGIN authentication enabled */
 	if ( !config_getswitch( IMAPOPT_IMAP_AUTH_LOGIN ) )
@@ -601,7 +599,13 @@ int sDoLoginAuthS ( struct protstream *inStreamIn,
 
 	/* encode the user name prompt and send it */
 	strcpy( chalBuf, "Username:" );
-	sEncodeBase64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE );
+	iResult = sasl_encode64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: LOGIN: sasl_encode64 error: %d", iResult );
+		return( eAODAllocError );
+	}
+
 	prot_printf( inStreamOut, "{%d}\r\n", (int)strlen( ioBuf ) );
 	prot_printf( inStreamOut, "%s\r\n", ioBuf );
 
@@ -614,15 +618,24 @@ int sDoLoginAuthS ( struct protstream *inStreamIn,
 	/* reset the buffer */
 	memset( userBuf, 0, MAX_USER_BUF_SIZE );
 
-	len = strlen( ioBuf );
-	sDecodeBase64( ioBuf, len, userBuf, MAX_USER_BUF_SIZE, &respLen );
+	iResult = sasl_decode64( ioBuf, strlen( ioBuf ), userBuf, MAX_USER_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: LOGIN: sasl_decode64 error: %d", iResult );
+		return( eAODParamErr );
+	}
 
 	/* get user options */
 	odGetUserOpts( userBuf, inOutOpts );
 
 	/* encode the password prompt and send it */
 	strcpy( chalBuf, "Password:" );
-	sEncodeBase64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE );
+	iResult = sasl_encode64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: LOGIN: sasl_encode64 error: %d", iResult );
+		return( eAODAllocError );
+	}
 	prot_printf( inStreamOut, "{%d}\r\n", (int)strlen( ioBuf ) );
 	prot_printf( inStreamOut, "%s\r\n", ioBuf );
 
@@ -635,8 +648,12 @@ int sDoLoginAuthS ( struct protstream *inStreamIn,
 	/* reset the buffer */
 	memset( pwdBuf, 0, MAX_USER_BUF_SIZE );
 
-	len = strlen( ioBuf );
-	sDecodeBase64( ioBuf, len, pwdBuf, MAX_USER_BUF_SIZE, &respLen );
+	iResult = sasl_decode64( ioBuf, strlen( ioBuf ), pwdBuf, MAX_USER_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: LOGIN: sasl_decode64 error: %d", iResult );
+		return( eAODParamErr );
+	}
 
 	/* do the auth */
 	iResult = odCheckPass( pwdBuf, inOutOpts );
@@ -677,15 +694,14 @@ int sDoPlainAuth ( 	const char *inCont,
 					struct protstream *inStreamOut,
 					struct od_user_opts *inOutOpts )
 {
-	int		iResult	= eAODProtocolError;
-	int		len		= 0;
-	int		respLen	= 0;
-	char   *p		= NULL;
-	char	ioBuf	[ MAX_IO_BUF_SIZE ];
-	char	respBuf	[ MAX_IO_BUF_SIZE ];
-	char	userBuf [ MAX_USER_BUF_SIZE ];
-	char	authName[ MAX_USER_BUF_SIZE ];
-	char	passwd	[ MAX_USER_BUF_SIZE ];
+	int			iResult	= eAODProtocolError;
+	unsigned	len		= 0;
+	char	   *p		= NULL;
+	char		ioBuf	[ MAX_IO_BUF_SIZE ];
+	char		respBuf	[ MAX_IO_BUF_SIZE ];
+	char		userBuf [ MAX_USER_BUF_SIZE ];
+	char		authName[ MAX_USER_BUF_SIZE ];
+	char		passwd	[ MAX_USER_BUF_SIZE ];
 
 	/* is PLAIN authentication enabled */
 	if ( !config_getswitch( IMAPOPT_IMAP_AUTH_PLAIN ) )
@@ -729,8 +745,12 @@ int sDoPlainAuth ( 	const char *inCont,
 	memset( respBuf, 0, MAX_IO_BUF_SIZE );
 
 	/* decode the response */
-	len = strlen( ioBuf );
-	sDecodeBase64( ioBuf, len, respBuf, MAX_IO_BUF_SIZE, &respLen );
+	iResult = sasl_decode64( ioBuf, strlen( ioBuf ), respBuf, MAX_IO_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: LOGIN: sasl_decode64 error: %d", iResult );
+		return( eAODParamErr );
+	}
 
 	p = respBuf;
 	if ( *p != '\0' )
@@ -816,17 +836,16 @@ int sDoPlainAuthS ( const char *inCont,
 					struct protstream *inStreamOut,
 					struct od_user_opts *inOutOpts )
 {
-	int		iResult	= eAODProtocolError;
-	int		len		= 0;
-	int		respLen	= 0;
-	char   *p		= NULL;
-	char   *bufPtr	= NULL;
-	char   *bufEnd	= NULL;
-	char	ioBuf	[ MAX_IO_BUF_SIZE ];
-	char	respBuf	[ MAX_IO_BUF_SIZE ];
-	char	authBuf [ MAX_USER_BUF_SIZE ];		//authenticate-id
-	char	userBuf [ MAX_USER_BUF_SIZE ];	// user to authorize
-	char	passwd	[ MAX_USER_BUF_SIZE ];
+	int			iResult	= eAODProtocolError;
+	unsigned	len		= 0;
+	char	   *p		= NULL;
+	char	   *bufPtr	= NULL;
+	char	   *bufEnd	= NULL;
+	char		ioBuf	[ MAX_IO_BUF_SIZE ];
+	char		respBuf	[ MAX_IO_BUF_SIZE ];
+	char		authBuf [ MAX_USER_BUF_SIZE ];		//authenticate-id
+	char		userBuf [ MAX_USER_BUF_SIZE ];	// user to authorize
+	char		passwd	[ MAX_USER_BUF_SIZE ];
 
 	/* is PLAIN authentication enabled */
 	if ( !config_getswitch( IMAPOPT_IMAP_AUTH_PLAIN ) )
@@ -915,8 +934,12 @@ int sDoPlainAuthS ( const char *inCont,
 	memset( userBuf, 0, MAX_USER_BUF_SIZE );
 
 	/* decode the response */
-	len = strlen( ioBuf );
-	sDecodeBase64( ioBuf, len, respBuf, MAX_IO_BUF_SIZE, &respLen );
+	iResult = sasl_decode64( ioBuf, strlen( ioBuf ), respBuf, MAX_IO_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: SIEVE-PLAIN: sasl_decode64 error: %d", iResult );
+		return( eAODParamErr );
+	}
 
 	p = respBuf;
 	if ( *p != '\0' )
@@ -992,8 +1015,7 @@ int sDoCRAM_MD5_AuthS ( struct protstream *inStreamIn,
 						struct od_user_opts *inOutOpts )
 {
 	int				iResult	= eAODAuthFailed;
-	int				len		= 0;
-	int				respLen	= 0;
+	unsigned		len		= 0;
 	char		   *p		= NULL;
 	char			chalBuf	[ MAX_CHAL_BUF_SIZE ];
 	char			userBuf [ MAX_USER_BUF_SIZE ];
@@ -1024,7 +1046,12 @@ int sDoCRAM_MD5_AuthS ( struct protstream *inStreamIn,
 						hostname );
 
 	/* encode the challenge and send it */
-	sEncodeBase64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE );
+	iResult = sasl_encode64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: LOGIN: sasl_encode64 error: %d", iResult );
+		return( eAODAllocError );
+	}
 
 	syslog( LOG_DEBUG, "AOD: SIEVE-CRAM-MD5: challenge: %s", ioBuf );
 	syslog( LOG_DEBUG, "AOD: SIEVE-CRAM-MD5: challenge: %s", chalBuf );
@@ -1049,7 +1076,12 @@ int sDoCRAM_MD5_AuthS ( struct protstream *inStreamIn,
 		return( eAODParamErr );
 	}
 
-	sDecodeBase64( ioBuf, len, respBuf, MAX_IO_BUF_SIZE, &respLen );
+	iResult = sasl_decode64( ioBuf, strlen( ioBuf ), respBuf, MAX_IO_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: CRAM-MD5: sasl_decode64 error: %d", iResult );
+		return( eAODParamErr );
+	}
 
 	/* get the user name */
 	p = strchr( respBuf, ' ' );
@@ -1079,7 +1111,7 @@ int sDoCRAM_MD5_AuthS ( struct protstream *inStreamIn,
 	if ( ++p != NULL )
 	{
 		/* validate the response */
-		iResult = odCRAM_MD5( chalBuf, p, inOutOpts );
+		iResult = _validate_resp( chalBuf, p, kDSStdAuthCRAM_MD5, inOutOpts );
 	}
 	else
 	{
@@ -1093,24 +1125,21 @@ int sDoCRAM_MD5_AuthS ( struct protstream *inStreamIn,
 
 
 /* -----------------------------------------------------------------
-	sDoCRAM_MD5_Auth ()
+	_cram_md5_auth ()
    ----------------------------------------------------------------- */
 
-int sDoCRAM_MD5_Auth ( struct protstream *inStreamIn,
+int _cram_md5_auth ( struct protstream *inStreamIn,
 						struct protstream *inStreamOut,
 						struct od_user_opts *inOutOpts )
 {
-	int				iResult	= eAODAuthFailed;
-	int				len		= 0;
-	int				respLen	= 0;
-	char		   *p		= NULL;
-	char			chalBuf	[ MAX_CHAL_BUF_SIZE ];
-	char			userBuf [ MAX_USER_BUF_SIZE ];
-	char			respBuf	[ MAX_IO_BUF_SIZE ];
+	int				iResult		= eAODAuthFailed;
+	unsigned		len			= 0;
+	char		   *p			= NULL;
+	char		   *p_resp		= NULL;
+	char		   *p_user		= NULL;
+	char		   *p_chal		= NULL;
 	char			ioBuf	[ MAX_IO_BUF_SIZE ];
-	char			hostname[ MAXHOSTNAMELEN + 1 ];
-	struct timeval	tvChalTime;
-	char			randbuf[ 17 ];
+	unsigned		linelen = 0;
 
 	/* is CRAM-MD5 auth enabled */
 	if ( !config_getswitch( IMAPOPT_IMAP_AUTH_CRAM_MD5 ) )
@@ -1119,22 +1148,24 @@ int sDoCRAM_MD5_Auth ( struct protstream *inStreamIn,
 		return ( eAODMethodNotEnabled );
 	}
 
-	/* create the challenge */
-	gethostname( hostname, sizeof( hostname ) );
-	gettimeofday (&tvChalTime, NULL);
+	/* tet the challenge string */
+	p_chal = (char *)_make_challenge();
+	if ( p_chal == NULL )
+	{
+		syslog( LOG_DEBUG, "AOD: CRAM-MD5: Memory allocation error when creating challenge" );
+		return( eAODAllocError );
+	}
 
-	/* get random data string */
-	get_random_chars( randbuf, 17 );
+	/* encode the challenge */
+	iResult = sasl_encode64( p_chal, strlen( p_chal ), ioBuf, MAX_IO_BUF_SIZE, &len );
+	if ( iResult != SASL_OK )
+	{
+		free( p_chal );
+		syslog( LOG_DEBUG, "AOD: CRAM-MD5: sasl_encode64 error: %d", iResult );
+		return( eAODAllocError );
+	}
 
-	sprintf( chalBuf, "<%lu.%s.%lu@%s>",
-						(unsigned long) getpid(),
-						randbuf,
-						(unsigned long)time(0),
-						hostname );
-
-	/* encode the challenge and send it */
-	sEncodeBase64( chalBuf, strlen( chalBuf ), ioBuf, MAX_IO_BUF_SIZE );
-
+	/* send it */
 	prot_printf( inStreamOut, "+ %s\r\n", ioBuf );
 
 	/* reset the buffer */
@@ -1158,60 +1189,134 @@ int sDoCRAM_MD5_Auth ( struct protstream *inStreamIn,
 		if ( ioBuf[ 0 ] == '*' )
 		{
 			syslog( LOG_DEBUG, "AOD: CRAM-MD5: user canceled auth attempt" );
+			free( p_chal );
 			return( eAODAuthCanceled );
 		}
 	}
-
-	/* reset the buffer */
-	memset( respBuf, 0, MAX_IO_BUF_SIZE );
 
 	/* decode the response */
 	len = strlen( ioBuf );
 	if ( len == 0 )
 	{
 		syslog( LOG_DEBUG, "AOD: CRAM-MD5: Zero length response" );
+		free( p_chal );
 		return( eAODParamErr );
 	}
 
-	sDecodeBase64( ioBuf, len, respBuf, MAX_IO_BUF_SIZE, &respLen );
+	len++;
+	p_resp = malloc( len );
+	if ( p_resp == NULL )
+	{
+		syslog( LOG_DEBUG, "AOD: CRAM-MD5: Memory alloc error" );
+		free( p_chal );
+		return( eAODAllocError );
+	}
+
+	iResult = sasl_decode64( ioBuf, len - 1, p_resp, len, &linelen );
+	if ( iResult != SASL_OK )
+	{
+		syslog( LOG_DEBUG, "AOD: CRAM-MD5: sasl_decode64 error: %d", iResult );
+		free( p_resp );
+		free( p_chal );
+		return( eAODParamErr );
+	}
 
 	/* get the user name */
-	p = strchr( respBuf, ' ' );
+	p = strchr( p_resp, ' ' );
 	if ( (p == NULL) || (strspn(p + 1, "0123456789abcdef") != 32) )
 	{
-		syslog( LOG_DEBUG, "AOD: CRAM-MD5: parameter error: bad digest: %s", respBuf );
+		syslog( LOG_DEBUG, "AOD: CRAM-MD5: parameter error: bad digest: %s", p_resp );
+		free( p_resp );
+		free( p_chal );
 		return( eAODParamErr );
 	}
 
-	len = p - respBuf;
+	len = p - p_resp;
 	if ( len > (MAX_USER_BUF_SIZE - 1) )
 	{
-		syslog( LOG_ERR, "AOD: CRAM-MD5: username exceeded maximum limit: (%s)", respBuf );
+		syslog( LOG_ERR, "AOD: CRAM-MD5: username exceeded maximum limit: (%s)", p_resp );
+		free( p_resp );
+		free( p_chal );
 		return( eAODParamErr );
 	}
 
 	/* copy user name from response buf */
-	memset( userBuf, 0, MAX_USER_BUF_SIZE );
-	memcpy( userBuf, respBuf, len );
-
-	/* get user options */
-	odGetUserOpts( userBuf, inOutOpts );
-
+	p_user = calloc( len + 1, sizeof( char ) );
+	if ( p_user == NULL )
+	{
+		syslog( LOG_DEBUG, "AOD: CRAM-MD5: Memory alloc error" );
+		free( p_resp );
+		free( p_chal );
+		return( eAODAllocError );
+	}
+	strncpy( p_user, p_resp, len );
+	
 	/* move past the space */
 	if ( ++p != NULL )
 	{
 		/* validate the response */
-		iResult = odCRAM_MD5( chalBuf, p, inOutOpts );
+		config_mupdate_config = config_getenum( IMAPOPT_MUPDATE_CONFIG );
+		if ( (config_mupdate_config == IMAP_ENUM_MUPDATE_CONFIG_REPLICATED) && (strcmp( g_mupdate_user, p_user ) == 0) )
+		{
+			iResult = _validate_clust_resp( p_chal, p, inOutOpts );
+		}
+		else
+		{
+			/* get user options */
+			odGetUserOpts( p_user, inOutOpts );
+
+			iResult = _validate_resp( p_chal, p, kDSStdAuthCRAM_MD5, inOutOpts );
+		}
 	}
 	else
 	{
-		syslog( LOG_DEBUG, "AOD: CRAM-MD5: configuration error: bad CRAM-MD5 digest: %s", respBuf );
+		syslog( LOG_DEBUG, "AOD: CRAM-MD5: configuration error: bad CRAM-MD5 digest: %s", p_resp );
 		iResult = eAODConfigError;
 	}
 
+	free( p_chal );
+	free( p_resp );
+	free( p_user );
+
 	return( iResult );
 
-} /* sDoCRAM_MD5_Auth */
+} /* _cram_md5_auth */
+
+
+const char *_make_challenge ( void )
+{
+	size_t			len		= 0;
+	char		   *p_out	= NULL;
+	char			host_name[ MAXHOSTNAMELEN + 1 ];
+	char			chal_buf[ MAX_CHAL_BUF_SIZE ];
+	char			rand_buf[ 17 ];
+
+	/* create the challenge */
+	gethostname( host_name, sizeof( host_name ) );
+
+	/* get random data string */
+	get_random_chars( rand_buf, 17 );
+
+	sprintf( chal_buf, "<%lu.%s.%lu@%s>",
+						(unsigned long) getpid(),
+						rand_buf,
+						(unsigned long)time(0),
+						host_name );
+
+	len = strlen( chal_buf );
+
+	if ( len != 0 )
+	{
+		p_out = malloc( strlen( chal_buf ) + 1 );
+		if ( p_out != NULL )
+		{
+			strlcpy( p_out, chal_buf, len + 1 );
+		}
+	}
+
+	return( p_out );
+
+} /* _make_challenge */
 
 
 int sGetClientResponse ( char *inOutBuf, int inBufSize, struct protstream *inStreamIn )
@@ -1227,7 +1332,7 @@ int sGetClientResponse ( char *inOutBuf, int inBufSize, struct protstream *inStr
 	}
 
 	/* clear out the buffer */
-	memset( inOutBuf, 0, inBufSize );
+	memset( inOutBuf, 0, (size_t)inBufSize );
 
 	c = prot_getc( inStreamIn );
 	if ( c == EOF )
@@ -1423,25 +1528,31 @@ int sGetUserOptions ( const char *inUserID, struct od_user_opts *inOutOpts )
 		/* no need to close dir ref if still valid */
 		if ( dsVerifyDirRefNum( inOutOpts->fDirRef ) != eDSNoErr )
 		{
-			syslog( LOG_DEBUG, "AOD: user opts: getting directory reference" );
-
-			dsStatus = sOpen_ds( &inOutOpts->fDirRef );
+			dsStatus = dsOpenDirService( &inOutOpts->fDirRef );
 			if ( dsStatus == eDSNoErr )
 			{
-				syslog( LOG_DEBUG, "AOD: user opts: getting search node reference" );
-
 				/* open search node */
-				dsStatus = sGet_search_node( inOutOpts->fDirRef, &inOutOpts->fSearchNodeRef );
+				dsStatus = _get_search_node( inOutOpts->fDirRef, &inOutOpts->fSearchNodeRef );
+				if ( dsStatus != eDSNoErr )
+				{
+					syslog( LOG_ERR, "AOD: user opts: directory error: %d", dsStatus );
+				}
 			}
 		}
 
 		/* look up the user record */
 		if ( dsStatus == eDSNoErr )
 		{
-			syslog( LOG_DEBUG, "AOD: user opts: looking up user record: %s", inUserID );
-
 			/* get user attributes from applemail attribute */
-			dsStatus = sGet_user_attributes( inOutOpts->fDirRef, inOutOpts->fSearchNodeRef, inUserID, inOutOpts );
+			dsStatus = _get_user_attributes( inOutOpts->fDirRef, inOutOpts->fSearchNodeRef, inUserID, inOutOpts );
+			if ( dsStatus != eDSNoErr )
+			{
+				syslog( LOG_ERR, "AOD: user opts: get attributes for user: %s failed with error: %d", inUserID, dsStatus );
+			}
+		}
+		else
+		{
+			syslog( LOG_ERR, "AOD: user opts: unable to look up user record: %s due to directory error: %d", inUserID, dsStatus );
 		}
 
 		/* if ref is invalid, try to get user options again */
@@ -1470,12 +1581,6 @@ int checkServiceACL ( struct od_user_opts *inUserOpts, const char *inGroup )
 	int			err			= eAODNoErr;
 	int			result		= 0;
 	uuid_t		userUUID;
-
-	if ( gSACL_NotEnabled && (gSACL_CacheTime > time(NULL)) )
-	{
-		syslog( LOG_DEBUG, "AOD: checkServiceACL: No SACL check, mail SACL is not enabled" );
-		return( result );
-	}
 
 	memset( userUUID, 0, sizeof( uuid_t ) );
 
@@ -1516,14 +1621,12 @@ int checkServiceACL ( struct od_user_opts *inUserOpts, const char *inGroup )
 			/* preserve any auto-forwarding settings */
 			if ( inUserOpts->fAccountState & eAutoForwardedEnabled )
 			{
-				syslog( LOG_DEBUG, "AOD: valid service ACL member: auto-forward" );
 				inUserOpts->fAccountState &= ~eIMAPEnabled;
 				inUserOpts->fAccountState &= ~ePOPEnabled;
 			}
 			else
 			{
 				/* enable all mail services */
-				syslog( LOG_DEBUG, "AOD: valid service ACL member: normal access" );
 				inUserOpts->fAccountState |= eAccountEnabled;
 				inUserOpts->fAccountState |= eIMAPEnabled;
 				inUserOpts->fAccountState |= ePOPEnabled;
@@ -1532,22 +1635,15 @@ int checkServiceACL ( struct od_user_opts *inUserOpts, const char *inGroup )
 		else
 		{
 			/* we are not a member override any settings form user record */
-			syslog( LOG_DEBUG, "AOD Warning: mbr_check_service_membership failed with: %d", result );
 			inUserOpts->fAccountState |= eACLNotMember;
 			inUserOpts->fAccountState &= ~eAccountEnabled;
 			inUserOpts->fAccountState &= ~eIMAPEnabled;
 			inUserOpts->fAccountState &= ~ePOPEnabled;
 		}
 	}
-	else if ( err == ENOENT )
-	{
-		syslog( LOG_DEBUG, "AOD: checkServiceACL: Mail SACL not enabled" );
-		gSACL_NotEnabled = 1;
-		gSACL_CacheTime = time(NULL) + kCacheDelta;
-	}
 	else
 	{
-		syslog( LOG_DEBUG, "AOD: mail service ACL NOT enabled (%d)", err );
+		syslog( LOG_DEBUG, "AOD: mail service ACL NOT enabled" );
 	}
 
 	return( result );
@@ -1556,111 +1652,71 @@ int checkServiceACL ( struct od_user_opts *inUserOpts, const char *inGroup )
 
 
 /* -----------------------------------------------------------------
-	sDoesUserBelongToGroup ()
+	_get_search_node ()
    ----------------------------------------------------------------- */
 
-int sDoesUserBelongToGroup ( const char *inUser, const char *inGroup )
-{
-	int isMember = 0;
-
-	if ( (inUser != nil) && (inGroup != nil) )
-	{
-		struct group *passwd_group = getgrnam( inGroup );
-		if ( passwd_group != NULL )
-		{
-			struct passwd *passwd_ent = getpwnam( inUser );
-			if ( passwd_ent != NULL )
-			{
-				isMember = (passwd_ent->pw_gid == passwd_group->gr_gid);
-			}
-			if ( !isMember )
-			{
-				char **gr_mem = passwd_group->gr_mem;
-				while ( *gr_mem )
-				{
-					if ( strcmp( inUser, *gr_mem ) == 0 )
-					{
-						isMember = 1;
-						break;
-					}
-					gr_mem++;
-				}
-			}
-		}
-	}
-
-	return( isMember );
-
-} /* sDoesUserBelongToGroup */
-
-
-/* -----------------------------------------------------------------
-	sOpen_ds ()
-   ----------------------------------------------------------------- */
-
-tDirStatus sOpen_ds ( tDirReference *inOutDirRef )
-{
-	tDirStatus		dsStatus	= eDSNoErr;
-
-	dsStatus = dsOpenDirService( inOutDirRef );
-
-	return( dsStatus );
-
-} /* sOpen_ds */
-
-
-/* -----------------------------------------------------------------
-	sGet_search_node ()
-   ----------------------------------------------------------------- */
-
-tDirStatus sGet_search_node ( tDirReference inDirRef,
+tDirStatus _get_search_node ( tDirReference inDirRef,
 							 tDirNodeReference *outSearchNodeRef )
 {
 	tDirStatus		dsStatus	= eMemoryAllocError;
-	unsigned long	uiCount		= 0;
+	int				iCount		= 0;
+	tDataBuffer	   *pTDataBuff	= NULL;
 	tDataList	   *pDataList	= NULL;
 
-	if ( gTDataBuff == NULL )
+	pTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
+	if ( pTDataBuff != NULL )
 	{
-		gTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
-	}
-	if ( gTDataBuff == NULL )
-	{
-		return( eMemoryAllocError );
-	}
-
-	dsStatus = dsFindDirNodes( inDirRef, gTDataBuff, NULL, eDSSearchNodeName, &uiCount, NULL );
-	if ( dsStatus == eDSNoErr )
-	{
-		dsStatus = eDSNodeNotFound;
-		if ( uiCount == 1 )
+		dsStatus = dsFindDirNodes( inDirRef, pTDataBuff, NULL, eDSSearchNodeName, (unsigned long *)&iCount, NULL );
+		if ( dsStatus == eDSNoErr )
 		{
-			dsStatus = dsGetDirNodeName( inDirRef, gTDataBuff, 1, &pDataList );
-			if ( dsStatus == eDSNoErr )
+			dsStatus = eDSNodeNotFound;
+			if ( iCount == 1 )
 			{
-				dsStatus = dsOpenDirNode( inDirRef, pDataList, outSearchNodeRef );
+				dsStatus = dsGetDirNodeName( inDirRef, pTDataBuff, 1, &pDataList );
+				if ( dsStatus == eDSNoErr )
+				{
+					dsStatus = dsOpenDirNode( inDirRef, pDataList, outSearchNodeRef );
+					if ( dsStatus != eDSNoErr )
+					{
+						syslog( LOG_ERR, "AOD: _get_search_node: dsOpenDirNode failed with: %d", dsStatus );
+					}
+				}
+				else
+				{
+					syslog( LOG_ERR, "AOD: _get_search_node: dsGetDirNodeName failed with: %d", dsStatus );
+				}
+
+				if ( pDataList != NULL )
+				{
+					(void)dsDataListDeAllocate( inDirRef, pDataList, true );
+
+					free( pDataList );
+					pDataList = NULL;
+				}
 			}
-
-			if ( pDataList != NULL )
+			else
 			{
-				(void)dsDataListDeAllocate( inDirRef, pDataList, true );
-
-				free( pDataList );
-				pDataList = NULL;
+				syslog( LOG_ERR, "AOD: _get_search_node: Count form dsFindDirNodes == %ld (should be 1)", iCount );
 			}
 		}
+		else
+		{
+			syslog( LOG_ERR, "AOD: _get_search_node: dsFindDirNodes failed with: %d", dsStatus );
+		}
+		(void)dsDataBufferDeAllocate( inDirRef, pTDataBuff );
+		pTDataBuff = NULL;
 	}
 
 	return( dsStatus );
 
-} /* sGet_search_node */
+} /* _get_search_node */
 
 
 /* -----------------------------------------------------------------
-	sGet_user_attributes ()
+	_get_user_attributes ()
    ----------------------------------------------------------------- */
 
-tDirStatus sGet_user_attributes ( tDirReference inDirRef,
+tDirStatus _get_user_attributes ( tDirReference inDirRef,
 									tDirNodeReference inSearchNodeRef,
 									const char *inUserID,
 									struct od_user_opts *inOutOpts )
@@ -1668,7 +1724,10 @@ tDirStatus sGet_user_attributes ( tDirReference inDirRef,
 	tDirStatus				dsStatus		= eMemoryAllocError;
 	int						done			= FALSE;
 	int						i				= 0;
-	unsigned long			uiRecCount		= 0;
+	int						iRecCount		= 0;
+	tDataBuffer			   *pTDataBuff		= NULL;
+	tDataList			   *pUserRecType	= NULL;
+	tDataList			   *pUserAttrType	= NULL;
 	tRecordEntry		   *pRecEntry		= NULL;
 	tAttributeEntry		   *pAttrEntry		= NULL;
 	tAttributeValueEntry   *pValueEntry		= NULL;
@@ -1679,204 +1738,171 @@ tDirStatus sGet_user_attributes ( tDirReference inDirRef,
 
 	memset( &tdlRecName,  0, sizeof( tDataList ) );
 
-	/* Allocate global tDataBuffer */
-	if ( gTDataBuff == NULL )
+	pTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
+	if ( pTDataBuff != NULL )
 	{
-		gTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
-	}
-	if ( gTDataBuff == NULL )
-	{
-		return( eMemoryAllocError );
-	}
-
-	/* Allocate global user attribute list tDataList */
-	if ( gUserAttrType == NULL )
-	{
-		gUserAttrType = dsBuildListFromStrings( inDirRef,
-												kDS1AttrMailAttribute,
-												kDSNAttrRecordName,
-												kDS1AttrGeneratedUID,
-												kDSNAttrMetaNodeLocation,
-												kDSNAttrAuthenticationAuthority,
-												NULL );
-	}
-	if ( gUserAttrType == NULL )
-	{
-		return( eMemoryAllocError );
-	}
-
-	/* Allocate global record type tDataList */
-	if ( gUserRecType == NULL )
-	{
-		gUserRecType = dsBuildListFromStrings( inDirRef, kDSStdRecordTypeUsers, NULL );
-	}
-	if ( gUserRecType == NULL )
-	{
-		return( eMemoryAllocError );
-	}
-
-	dsStatus = dsBuildListFromStringsAlloc( inDirRef, &tdlRecName, inUserID, NULL );
-	if ( dsStatus != eDSNoErr )
-	{
-		return( dsStatus );
-	}
-
-	do {
-		/* Get the user record(s) that matches the user id */
-		dsStatus = dsGetRecordList( inSearchNodeRef, gTDataBuff, &tdlRecName, eDSiExact, gUserRecType,
-									gUserAttrType, FALSE, &uiRecCount, &pContext );
-
+		dsStatus = dsBuildListFromStringsAlloc( inDirRef, &tdlRecName, inUserID, NULL );
 		if ( dsStatus == eDSNoErr )
 		{
-			dsStatus = eDSInvalidName;
-			/* do we have more than 1 match */
-			if ( uiRecCount == 1 ) 
+			dsStatus = eMemoryAllocError;
+
+			pUserRecType = dsBuildListFromStrings( inDirRef, kDSStdRecordTypeUsers, NULL );
+			if ( pUserRecType != NULL )
 			{
-				dsStatus = dsGetRecordEntry( inSearchNodeRef, gTDataBuff, 1, &attrListRef, &pRecEntry );
-				if ( dsStatus == eDSNoErr )
+				pUserAttrType = dsBuildListFromStrings( inDirRef,
+														kDS1AttrMailAttribute,
+														kDSNAttrRecordName,
+														kDS1AttrGeneratedUID,
+														kDSNAttrMetaNodeLocation,
+														NULL );
+				if ( pUserAttrType != NULL )
 				{
-					/* Get the attributes we care about for the record */
-					for ( i = 1; i <= pRecEntry->fRecordAttributeCount; i++ )
-					{
-						dsStatus = dsGetAttributeEntry( inSearchNodeRef, gTDataBuff, attrListRef, i, &valueRef, &pAttrEntry );
-						if ( (dsStatus == eDSNoErr) && (pAttrEntry != NULL) )
+					do {
+						/* Get the user record(s) that matches the user id */
+						dsStatus = dsGetRecordList( inSearchNodeRef, pTDataBuff, &tdlRecName, eDSiExact, pUserRecType,
+													pUserAttrType, FALSE, (unsigned long *)&iRecCount, &pContext );
+
+						if ( dsStatus == eDSNoErr )
 						{
-							if ( strcasecmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrMailAttribute ) == 0 )
+							dsStatus = eDSInvalidName;
+							/* do we have more than 1 match */
+							if ( iRecCount == 1 ) 
 							{
-								/* Only get the first attribute value */
-								dsStatus = dsGetAttributeValue( inSearchNodeRef, gTDataBuff, 1, valueRef, &pValueEntry );
+								dsStatus = dsGetRecordEntry( inSearchNodeRef, pTDataBuff, 1, &attrListRef, &pRecEntry );
 								if ( dsStatus == eDSNoErr )
 								{
-									syslog( LOG_DEBUG, "AOD: getting mail attribute for user: %s", inUserID );
-
-									/* Get the individual mail attribute values */
-									sGet_mail_values( (char *)pValueEntry->fAttributeValueData.fBufferData, inOutOpts );
-
-									/* If we don't find duplicate users in the same node, we take the first one with
-										a valid mail attribute */
-									done = true;
-								}
-							}
-							else if ( strcasecmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
-							{
-								/* Only get the first attribute value */
-								dsStatus = dsGetAttributeValue( inSearchNodeRef, gTDataBuff, 1, valueRef, &pValueEntry );
-								if ( dsStatus == eDSNoErr )
-								{
-									/* Get the user record name */
-									inOutOpts->fRecNamePtr = malloc( pValueEntry->fAttributeValueData.fBufferLength + 1 );
-									if ( inOutOpts->fRecNamePtr != NULL )
+									/* Get the attributes we care about for the record */
+									for ( i = 1; i <= pRecEntry->fRecordAttributeCount; i++ )
 									{
-										strlcpy( inOutOpts->fRecNamePtr, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength + 1 );
+										dsStatus = dsGetAttributeEntry( inSearchNodeRef, pTDataBuff, attrListRef, (UInt32)i, &valueRef, &pAttrEntry );
+										if ( (dsStatus == eDSNoErr) && (pAttrEntry != NULL) )
+										{
+											if ( strcasecmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrMailAttribute ) == 0 )
+											{
+												/* Only get the first attribute value */
+												dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
+												if ( dsStatus == eDSNoErr )
+												{
+													/* Get the individual mail attribute values */
+													_get_attr_values( (char *)pValueEntry->fAttributeValueData.fBufferData, inOutOpts );
+
+													/* If we don't find duplicate users in the same node, we take the first one with
+														a valid mail attribute */
+													done = true;
+												}
+											}
+											else if ( strcasecmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
+											{
+												/* Only get the first attribute value */
+												dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
+												if ( dsStatus == eDSNoErr )
+												{
+													/* Get the user record name */
+													inOutOpts->fRecNamePtr = malloc( pValueEntry->fAttributeValueData.fBufferLength + 1 );
+													if ( inOutOpts->fRecNamePtr != NULL )
+													{
+														strlcpy( inOutOpts->fRecNamePtr, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength + 1 );
+													}
+												}
+											}
+											else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
+											{
+												/* Only get the first attribute value */
+												dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
+												if ( dsStatus == eDSNoErr )
+												{
+													/* Get the user location */
+													inOutOpts->fUserLocPtr = (char *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 1, sizeof( char ) );
+													memcpy( inOutOpts->fUserLocPtr, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
+												}
+											}
+											else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrGeneratedUID ) == 0 )
+											{
+												/* Only get the first attribute value */
+												dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
+												if ( dsStatus == eDSNoErr )
+												{
+													/* Get the user location */
+													inOutOpts->fUserUUID = (uuid_t *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 1, sizeof( char ) );
+													memcpy( inOutOpts->fUserUUID, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
+												}
+											}
+											if ( pValueEntry != NULL )
+											{
+												(void)dsDeallocAttributeValueEntry( inSearchNodeRef, pValueEntry );
+												pValueEntry = NULL;
+											}
+										}
+										else
+										{
+											syslog( LOG_WARNING, "AOD Warning: dsGetAttributeEntry failed with: %d for user: %s", dsStatus, inUserID );
+										}
+										if ( pAttrEntry != NULL )
+										{
+											(void)dsCloseAttributeValueList( valueRef );
+											(void)dsDeallocAttributeEntry( inSearchNodeRef, pAttrEntry );
+											pAttrEntry = NULL;
+										}
+									}
+
+									if ( pRecEntry != NULL )
+									{
+										(void)dsDeallocRecordEntry( inSearchNodeRef, pRecEntry );
+										pRecEntry = NULL;
 									}
 								}
-							}
-							else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
-							{
-								/* Only get the first attribute value */
-								dsStatus = dsGetAttributeValue( inSearchNodeRef, gTDataBuff, 1, valueRef, &pValueEntry );
-								if ( dsStatus == eDSNoErr )
+								else
 								{
-									/* Get the user location */
-									inOutOpts->fUserLocPtr = (char *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 1, sizeof( char ) );
-									memcpy( inOutOpts->fUserLocPtr, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
+									syslog( LOG_WARNING, "AOD Warning: dsGetRecordEntry failed with: %d for user: %s", dsStatus, inUserID );
 								}
+								// reutrn first entry found
+								done = true;
 							}
-							else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrGeneratedUID ) == 0 )
+							else
 							{
-								/* Only get the first attribute value */
-								dsStatus = dsGetAttributeValue( inSearchNodeRef, gTDataBuff, 1, valueRef, &pValueEntry );
-								if ( dsStatus == eDSNoErr )
+								done = true;
+								if ( iRecCount > 1 )
 								{
-									/* Get the user location */
-									inOutOpts->fUserUUID = (uuid_t *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 1, sizeof( char ) );
-									memcpy( inOutOpts->fUserUUID, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
+									syslog( LOG_NOTICE, "AOD: user attributes: duplicate users found in directory: %s", inUserID );
 								}
-							}
-							else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrAuthenticationAuthority ) == 0 )
-							{
-								int	attrValIndex	= 0;
-								int	attrValCount	= 0;
-
-								attrValCount = pAttrEntry->fAttributeValueCount;
-
-								inOutOpts->fAuthAuthority = (char **)malloc( (attrValCount + 2) * sizeof(char *) );
-
-								// run through the values create a tDataBuffer with the list of authentication authorities.
-								for ( attrValIndex = 0; attrValIndex < attrValCount && dsStatus == eDSNoErr; attrValIndex++ )
-								{
-									dsStatus = dsGetAttributeValue( inSearchNodeRef, gTDataBuff, attrValIndex +1, valueRef, &pValueEntry );
-									if ( dsStatus == eDSNoErr )
-									{
-										inOutOpts->fAuthAuthority[ attrValIndex ] = (char *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 2, sizeof( char ) );
-										memcpy( inOutOpts->fAuthAuthority[ attrValIndex ], pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
-									}
-								}
-								inOutOpts->fAuthAuthority[ attrValIndex ] = NULL;
-							}
-							if ( pValueEntry != NULL )
-							{
-								(void)dsDeallocAttributeValueEntry( inSearchNodeRef, pValueEntry );
-								pValueEntry = NULL;
+								dsStatus = eDSUserUnknown;
 							}
 						}
 						else
 						{
-							syslog( LOG_DEBUG, "AOD Warning: dsGetAttributeEntry failed with: %d for user: %s", dsStatus, inUserID );
+							syslog( LOG_WARNING, "AOD Warning: dsGetRecordList failed with: %d for user: %s", dsStatus, inUserID );
 						}
-						if ( pAttrEntry != NULL )
-						{
-							(void)dsCloseAttributeValueList( valueRef );
-							(void)dsDeallocAttributeEntry( inSearchNodeRef, pAttrEntry );
-							pAttrEntry = NULL;
-						}
-					}
+					} while ( (pContext != NULL) && (dsStatus == eDSNoErr) && (!done) );
 
-					if ( pRecEntry != NULL )
+					if ( pContext != NULL )
 					{
-						(void)dsDeallocRecordEntry( inSearchNodeRef, pRecEntry );
-						pRecEntry = NULL;
+						(void)dsReleaseContinueData( inSearchNodeRef, pContext );
+						pContext = NULL;
 					}
+					(void)dsDataListDeallocate( inDirRef, pUserAttrType );
+					free( pUserAttrType );
+					pUserAttrType = NULL;
 				}
-				else
-				{
-					syslog( LOG_DEBUG, "AOD Warning: dsGetRecordEntry failed with: %d for user: %s", dsStatus, inUserID );
-				}
+				(void)dsDataListDeallocate( inDirRef, pUserRecType );
+				free( pUserRecType );
+				pUserRecType = NULL;
 			}
-			else
-			{
-				done = true;
-				if ( uiRecCount > 1 )
-				{
-					syslog( LOG_NOTICE, "AOD: user attributes: duplicate users found in directory: %s", inUserID );
-				}
-				dsStatus = eDSUserUnknown;
-			}
+			(void)dsDataListDeAllocate( inDirRef, &tdlRecName, TRUE );
 		}
-		else
-		{
-			syslog( LOG_DEBUG, "AOD Warning: dsGetRecordList failed with: %d for user: %s", dsStatus, inUserID );
-		}
-	} while ( (pContext != NULL) && (dsStatus == eDSNoErr) && (!done) );
-
-	if ( pContext != NULL )
-	{
-		(void)dsReleaseContinueData( inSearchNodeRef, pContext );
-		pContext = NULL;
+		(void)dsDataBufferDeAllocate( inDirRef, pTDataBuff );
+		pTDataBuff = NULL;
 	}
-
-	(void)dsDataListDeAllocate( inDirRef, &tdlRecName, TRUE );
 	
 	return( dsStatus );
 
-} /* sGet_user_attributes */
+} /* _get_user_attributes */
 
 
 /* -----------------------------------------------------------------
-	sOpen_user_node ()
+	_open_user_node ()
    ----------------------------------------------------------------- */
 
-tDirStatus sOpen_user_node (  tDirReference inDirRef, const char *inUserLoc, tDirNodeReference *outUserNodeRef )
+tDirStatus _open_user_node (  tDirReference inDirRef, const char *inUserLoc, tDirNodeReference *outUserNodeRef )
 {
 	tDirStatus		dsStatus	= eMemoryAllocError;
 	tDataList	   *pUserNode	= NULL;
@@ -1893,7 +1919,57 @@ tDirStatus sOpen_user_node (  tDirReference inDirRef, const char *inUserLoc, tDi
 
 	return( dsStatus );
 
-} /* sOpen_user_node */
+} /* _open_user_node */
+
+
+/*
+ * Create dictionary for use by event logging
+ * Caller must CFRelease
+ */
+static CFDictionaryRef createServiceDict(const struct od_user_opts *inUserOpts) {
+ 	
+	CFMutableDictionaryRef serviceDict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	
+	/* ClientIP */
+	if (inUserOpts->fClientIPString) {
+		CFStringRef clientIPRef = CFStringCreateWithCString(NULL, inUserOpts->fClientIPString, kCFStringEncodingUTF8);
+		CFDictionaryAddValue(serviceDict, CFSTR("ClientIP"), clientIPRef);
+		CFRelease(clientIPRef);
+	} 
+	
+	/* ClientPort */
+	if (inUserOpts->fClientPortString) {
+		CFStringRef clientPortRef = CFStringCreateWithCString(NULL, inUserOpts->fClientPortString, kCFStringEncodingUTF8);
+		CFDictionaryAddValue(serviceDict, CFSTR("ClientPort"), clientPortRef);
+		CFRelease(clientPortRef);
+	}
+
+	/* HostPort */
+	if (inUserOpts->fHostPortString) {
+		CFStringRef portRef = CFStringCreateWithCString(NULL, inUserOpts->fHostPortString, kCFStringEncodingUTF8);
+		CFDictionaryAddValue(serviceDict, CFSTR("HostPort"), portRef);
+		CFRelease(portRef);
+	}
+	/* ProtocolName */
+	CFDictionaryAddValue(serviceDict, CFSTR("ProtocolName"), CFSTR("IMAP"));
+	 
+	/* ProtocolVersion */
+	//CFStringRef protocolVersionRev = CFStringCreateWithCString(NULL, apr_psprintf(inR->pool, "%d.%d", HTTP_VERSION_MAJOR(inR->proto_num), HTTP_VERSION_MINOR(inR->proto_num)), kCFStringEncodingUTF8);
+	//CFDictionaryAddValue(serviceDict, CFSTR("ProtocolVersion"), protocolVersionRev);
+	//CFRelease(protocolVersionRev);
+
+	/* ServiceName */
+	CFStringRef serviceNameRef = CFStringCreateWithFormat(NULL, NULL, CFSTR("Cyrus IMAP server %s"), _CYRUS_VERSION);
+	CFDictionaryAddValue(serviceDict, CFSTR("ServiceName"), serviceNameRef);
+	CFRelease(serviceNameRef);
+	
+	CFMutableDictionaryRef wrappedServiceDict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+	CFDictionaryAddValue(wrappedServiceDict, CFSTR("ServiceInformation"), serviceDict);
+	CFRelease(serviceDict);
+	
+	return wrappedServiceDict;
+}
 
 
 /* -----------------------------------------------------------------
@@ -1902,108 +1978,77 @@ tDirStatus sOpen_user_node (  tDirReference inDirRef, const char *inUserLoc, tDi
 
 static int sDoCryptAuth ( tDirReference inDirRef,
 						  tDirNodeReference inUserNodeRef,
-						   struct od_user_opts *inUserOpts,
-						   const char *inPasswd )
+						   const char *inUserID, const char *inPasswd, const struct od_user_opts *inUserOpts )
 {
 	tDirStatus				dsStatus		= eAODParamErr;
-	long					nameLen			= 0;
-	long					passwdLen		= 0;
-	unsigned long			curr			= 0;
-	unsigned long			len				= 0;
-	unsigned long			uiBuffSzie		= 0;
+	int						nameLen			= 0;
+	int						passwdLen		= 0;
+	int						curr			= 0;
+	int						len				= 0;
+	int						uiBuffSzie		= 0;
 	tDataBuffer			   *pAuthBuff		= NULL;
 	tDataBuffer			   *pStepBuff		= NULL;
 	tDataNode			   *pAuthType		= NULL;
 
-	if ( (inUserOpts->fRecNamePtr == NULL) || (inPasswd == NULL) )
+	if ( (inUserID == NULL) || (inPasswd == NULL) )
 	{
 		return( eDSAuthParameterError );
 	}
 
-	nameLen = strlen( inUserOpts->fRecNamePtr );
+	nameLen = strlen( inUserID );
 	passwdLen = strlen( inPasswd );
 
-	if ( inUserOpts->fAuthAuthority == NULL )
-	{
-		uiBuffSzie = nameLen + passwdLen + 32;
-	}
-	else
-	{
-		int		i = 0;
-		char   *p = NULL;
-		while ( (p = inUserOpts->fAuthAuthority[ i++ ]) != NULL )
-		{
-			uiBuffSzie += strlen( p );
-		}
-		uiBuffSzie += nameLen + passwdLen + 256;
-	}
+	uiBuffSzie = nameLen + passwdLen + 32;
 
-	pAuthBuff = dsDataBufferAllocate( inDirRef, uiBuffSzie );
+	pAuthBuff = dsDataBufferAllocate( inDirRef, (UInt32)uiBuffSzie );
 	if ( pAuthBuff != NULL )
 	{
-		/* We don't use this buffer for clear text auth */
-		pStepBuff = dsDataBufferAllocate( inDirRef, 128 );
+		/* Gather data required by event logging */
+		CFDictionaryRef wrappedServiceDict = createServiceDict(inUserOpts);
+
+		/* The following allocates the step buffer and packs it with event data */
+		dsStatus = dsServiceInformationAllocate(wrappedServiceDict, 2048, &pStepBuff);
+		if (dsStatus != eDSNoErr) {
+			syslog( LOG_WARNING, "AOD: dsServiceInformationAllocate returned dsStatus=%d. EventMonitor information will not be available for this request.", dsStatus );
+			if (NULL == pStepBuff) {
+				pStepBuff = dsDataBufferAllocate( inDirRef, 256);
+			}
+		}
+
+		CFRelease(wrappedServiceDict);
+		
 		if ( pStepBuff != NULL )
 		{
 			pAuthType = dsDataNodeAllocateString( inDirRef, kDSStdAuthNodeNativeClearTextOK );
 			if ( pAuthType != NULL )
 			{
-				if ( inUserOpts->fAuthAuthority == NULL )
+				/* set user name */
+				len = nameLen;
+				memcpy( &(pAuthBuff->fBufferData[ curr ]), &len, sizeof( int ) );
+				curr += sizeof( int );
+				memcpy( &(pAuthBuff->fBufferData[ curr ]), inUserID, len );
+				curr += len;
+
+				/* set user password */
+				len = passwdLen;
+				memcpy( &(pAuthBuff->fBufferData[ curr ]), &len, sizeof( int ) );
+				curr += sizeof( int );
+				memcpy( &(pAuthBuff->fBufferData[ curr ]), inPasswd, len );
+				curr += len;
+
+				pAuthBuff->fBufferLength = curr;
+
+				dsStatus = dsDoDirNodeAuth( inUserNodeRef, pAuthType, true, pAuthBuff, pStepBuff, NULL );
+				if ( dsStatus != eDSNoErr )
 				{
-					/* set user name */
-					len = nameLen;
-					memcpy( &(pAuthBuff->fBufferData[ curr ]), &len, sizeof( unsigned long ) );
-					curr += sizeof( unsigned long );
-					memcpy( &(pAuthBuff->fBufferData[ curr ]), inUserOpts->fRecNamePtr, len );
-					curr += len;
-
-					/* set user password */
-					len = passwdLen;
-					memcpy( &(pAuthBuff->fBufferData[ curr ]), &len, sizeof( unsigned long ) );
-					curr += sizeof( unsigned long );
-					memcpy( &(pAuthBuff->fBufferData[ curr ]), inPasswd, len );
-					curr += len;
-
-					pAuthBuff->fBufferLength = curr;
-
-					syslog( LOG_DEBUG, "AOD: standard crypt auth for: %s", inUserOpts->fRecNamePtr );
-					dsStatus = dsDoDirNodeAuth( inUserNodeRef, pAuthType, true, pAuthBuff, pStepBuff, NULL );
-					if ( dsStatus != eDSNoErr )
-					{
-						syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserOpts->fRecNamePtr, dsStatus );
-					}
-				}
-				else
-				{
-					dsStatus =  dsAppendAuthBufferWithAuthorityStrings( inUserOpts->fRecNamePtr, (const char **)inUserOpts->fAuthAuthority, pAuthBuff );
-					if ( dsStatus == eDSNoErr )
-					{
-						dsStatus = dsAppendAuthBuffer( pAuthBuff, 1, strlen(inPasswd), inPasswd );
-						if ( dsStatus == eDSNoErr )
-						{
-							syslog( LOG_DEBUG, "AOD: auth-authority crypt auth for: %s", inUserOpts->fRecNamePtr );
-							dsStatus = dsDoDirNodeAuth( inUserNodeRef, pAuthType, true, pAuthBuff, pStepBuff, NULL );
-							if ( dsStatus != eDSNoErr )
-							{
-								syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserOpts->fRecNamePtr, dsStatus );
-							}
-						}
-						else
-						{
-							syslog( LOG_ERR, "AOD: dsAppendAuthBuffer failed with: %d", dsStatus );
-						}
-					}
-					else
-					{
-						syslog( LOG_ERR, "AOD: dsAppendAuthBufferWithAuthorityStrings failed with: %d", dsStatus );
-					}
+					syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserID, dsStatus );
 				}
 				(void)dsDataNodeDeAllocate( inDirRef, pAuthType );
 				pAuthType = NULL;
 			}
 			else
 			{
-				syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserOpts->fRecNamePtr, eDSAllocationFailed );
+				syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserID, eDSAllocationFailed );
 				dsStatus = eDSAllocationFailed;
 			}
 			(void)dsDataNodeDeAllocate( inDirRef, pStepBuff );
@@ -2011,7 +2056,7 @@ static int sDoCryptAuth ( tDirReference inDirRef,
 		}
 		else
 		{
-			syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserOpts->fRecNamePtr, eDSAllocationFailed );
+			syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserID, eDSAllocationFailed );
 			dsStatus = eDSAllocationFailed;
 		}
 		(void)dsDataNodeDeAllocate( inDirRef, pAuthBuff );
@@ -2022,12 +2067,84 @@ static int sDoCryptAuth ( tDirReference inDirRef,
 
 } /* sDoCryptAuth */
 
-
 /* -----------------------------------------------------------------
-	sValidateResponse ()
+	_validate_clust_resp ()
    ----------------------------------------------------------------- */
 
-int sValidateResponse (	const char *inChallenge,
+int _validate_clust_resp (	const char *in_chal, const char *in_resp, struct od_user_opts *inOutOpts )
+{
+	int				iResult		= eAODParamErr;
+	int				i, fd, n, j	= 0;
+	unsigned char	*password	= NULL;
+	unsigned char	*pw_path	= NULL;
+    char			pw_buf[ 65 ];
+	unsigned char	digest[ 16 ];
+	unsigned char	digeststr[ 33 ];
+	unsigned char	h;
+	char *hex = "0123456789abcdef";
+	char *s;
+
+	inOutOpts->fUserIDPtr = malloc( strlen( g_mupdate_user ) + 1 );
+	if ( inOutOpts->fUserIDPtr != NULL )
+	{
+		strlcpy( inOutOpts->fUserIDPtr, g_mupdate_user, strlen( g_mupdate_user ) + 1 );
+	}
+
+	inOutOpts->fRecNamePtr = malloc( strlen( g_mupdate_user ) + 1 );
+	if ( inOutOpts->fRecNamePtr != NULL )
+	{
+		strlcpy( inOutOpts->fRecNamePtr, g_mupdate_user, strlen( g_mupdate_user ) + 1 );
+	}
+
+	inOutOpts->fUserLocPtr = malloc( strlen( "local" ) + 1 );
+	if ( inOutOpts->fUserLocPtr != NULL )
+	{
+		strlcpy( inOutOpts->fUserLocPtr, "local", strlen( "local" ) + 1 );
+	}
+	inOutOpts->fAccountState = eAccountEnabled | eIMAPEnabled;
+
+	/* Get shared secret */
+	pw_path = config_getstring( IMAPOPT_MUPDATE_PASSWORD );
+	if ( pw_path == NULL )
+	{
+		syslog( LOG_ERR, "AOD ERROR: Invalid configuration: empty cluster password file path" );
+		return( eAODConfigError );
+	}
+
+	fd = open( pw_path, O_RDONLY );
+	if ( fd == -1 )
+	{
+		syslog( LOG_ERR, "AOD ERROR: Cannot open cluster passwrod file: %s", pw_path );
+		return( eAODConfigError );
+	}
+
+	memset( pw_buf, 0, sizeof(pw_buf) );
+    n = read( fd, pw_buf, sizeof(pw_buf) );
+
+	hmac_md5( in_chal, strlen( in_chal ), pw_buf, strlen( pw_buf ), digest );
+
+	digeststr[ 32 ]=0;
+	for ( i = 0, s = digeststr; i < 16; i++ )
+	{
+		*s++ = hex[(j = digest[i]) >> 4];
+		*s++ = hex[j & 0xf];
+	}
+	*s = '\0';			/* tie off hash text */
+
+	syslog( LOG_DEBUG, "in digest : %s", in_resp );
+	syslog( LOG_DEBUG, "digeststr : %s", digeststr );
+
+    close( fd );
+
+	return( strcmp(digeststr, in_resp) );
+
+} /* _validate_clust_resp */
+
+/* -----------------------------------------------------------------
+	_validate_resp ()
+   ----------------------------------------------------------------- */
+
+int _validate_resp (	const char *inChallenge,
 						const char *inResponse,
 						const char *inAuthType,
 						struct od_user_opts *inUserOpts )
@@ -2039,12 +2156,12 @@ int sValidateResponse (	const char *inChallenge,
 	tDataBuffer		   *pAuthBuff		= NULL;
 	tDataBuffer		   *pStepBuff		= NULL;
 	tDataNode		   *pAuthType		= NULL;
-	unsigned long		uiNameLen		= 0;
-	unsigned long		uiChalLen		= 0;
-	unsigned long		uiRespLen		= 0;
-	unsigned long		uiBuffSzie		= 0;
-	unsigned long		uiCurr			= 0;
-	unsigned long		uiLen			= 0;
+	int					uiNameLen		= 0;
+	int					uiChalLen		= 0;
+	int					uiRespLen		= 0;
+	int					uiBuffSzie		= 0;
+	int					uiCurr			= 0;
+	int					uiLen			= 0;
 
 	if ( (inUserOpts == NULL) || (inUserOpts->fRecNamePtr == NULL) )
 	{
@@ -2077,13 +2194,23 @@ int sValidateResponse (	const char *inChallenge,
 
 	if ( inUserOpts->fUserLocPtr != NULL )
 	{
-		dsStatus = sOpen_user_node( dirRef, inUserOpts->fUserLocPtr, &userNodeRef );
+		dsStatus = _open_user_node( dirRef, inUserOpts->fUserLocPtr, &userNodeRef );
 		if ( dsStatus == eDSNoErr )
 		{
 			pAuthBuff = dsDataBufferAllocate( dirRef, uiBuffSzie );
 			if ( pAuthBuff != NULL )
 			{
-				pStepBuff = dsDataBufferAllocate( dirRef, 256 );
+				/* Gather data required by event logging */
+				CFDictionaryRef wrappedServiceDict = createServiceDict(inUserOpts);
+				/* The following allocates the step buffer and packs it with event data */
+				dsStatus = dsServiceInformationAllocate(wrappedServiceDict, 2048, &pStepBuff);
+				if (dsStatus != eDSNoErr) {
+					syslog( LOG_WARNING, "_validate_resp: dsServiceInformationAllocate returned dsStatus=%d. EventMonitor information will not be available for this request.", dsStatus );
+					if (NULL == pStepBuff) {
+						pStepBuff = dsDataBufferAllocate( dirRef, 256);
+					}
+				}
+				CFRelease(wrappedServiceDict);
 				if ( pStepBuff != NULL )
 				{
 					pAuthType = dsDataNodeAllocateString( dirRef, inAuthType );
@@ -2091,22 +2218,22 @@ int sValidateResponse (	const char *inChallenge,
 					{
 						/* User name */
 						uiLen = uiNameLen;
-						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( unsigned long ) );
-						uiCurr += sizeof( unsigned long );
+						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( int ) );
+						uiCurr += sizeof( int );
 						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inUserOpts->fRecNamePtr, uiLen );
 						uiCurr += uiLen;
 
 						/* Challenge */
 						uiLen = uiChalLen;
-						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( unsigned long ) );
-						uiCurr += sizeof( unsigned long );
+						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( int ) );
+						uiCurr += sizeof( int );
 						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inChallenge, uiLen );
 						uiCurr += uiLen;
 
 						/* Response */
 						uiLen = uiRespLen;
-						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( unsigned long ) );
-						uiCurr += sizeof( unsigned long );
+						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), &uiLen, sizeof( int ) );
+						uiCurr += sizeof( int );
 						memcpy( &(pAuthBuff->fBufferData[ uiCurr ]), inResponse, uiLen );
 						uiCurr += uiLen;
 
@@ -2175,14 +2302,14 @@ int sValidateResponse (	const char *inChallenge,
 
 	return( iResult );
 
-} /* sValidateResponse */
+} /* _validate_resp */
 
 
 /* -----------------------------------------------------------------
-	sGet_mail_values ()
+	_get_attr_values ()
    ----------------------------------------------------------------- */
 
-void sGet_mail_values ( char *inMailAttribute, struct od_user_opts *inOutOpts )
+void _get_attr_values ( char *inMailAttribute, struct od_user_opts *inOutOpts )
 {
 	int					iResult 	= 0;
 	unsigned long		uiDataLen	= 0;
@@ -2202,7 +2329,7 @@ void sGet_mail_values ( char *inMailAttribute, struct od_user_opts *inOutOpts )
 				if ( CFDictionaryGetTypeID() == CFGetTypeID( cfPlistRef ) )
 				{
 					cfDictRef = (CFDictionaryRef)cfPlistRef;
-					iResult = sVerify_version( cfDictRef );
+					iResult = _verify_version( cfDictRef );
 					if ( iResult == eAODNoErr )
 					{
 						sGet_acct_state( cfDictRef, inOutOpts );
@@ -2218,14 +2345,14 @@ void sGet_mail_values ( char *inMailAttribute, struct od_user_opts *inOutOpts )
 			CFRelease( cfDataRef );
 		}
 	}
-} /* sGet_mail_values */
+} /* _get_attr_values */
 
 
 /* -----------------------------------------------------------------
-	sVerify_version ()
+	_verify_version ()
    ----------------------------------------------------------------- */
 
-int sVerify_version ( CFDictionaryRef inCFDictRef )
+int _verify_version ( CFDictionaryRef inCFDictRef )
 {
 	int				iResult 	= eAODInvalidDataType;
 	CFStringRef		cfStringRef	= NULL;
@@ -2254,7 +2381,7 @@ int sVerify_version ( CFDictionaryRef inCFDictRef )
 
 	return( iResult );
 
-} /* sVerify_version */
+} /* _verify_version */
 
 
 /* -----------------------------------------------------------------
@@ -2282,16 +2409,10 @@ void sGet_acct_state ( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOp
 					if ( strcasecmp( pValue, kXMLValueAcctEnabled ) == 0 )
 					{
 						inOutOpts->fAccountState |= eAccountEnabled;
-						syslog( LOG_DEBUG, "AOD: mail enabled" );
 					}
 					else if ( strcasecmp( pValue, kXMLValueAcctFwd ) == 0 )
 					{
 						sGet_auto_forward( inCFDictRef, inOutOpts );
-						syslog( LOG_DEBUG, "AOD: mail auto-forwarding enabled" );
-					}
-					else
-					{
-						syslog( LOG_DEBUG, "AOD: mail not enabled" );
 					}
 				}
 			}
@@ -2450,6 +2571,7 @@ void sGet_alt_loc ( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts 
 					inOutOpts->fAltDataLocPtr = malloc( strlen( pValue ) + 1 );
 					if ( inOutOpts->fAltDataLocPtr != NULL )
 					{
+						lcase( inOutOpts->fAltDataLocPtr );
 						strlcpy( inOutOpts->fAltDataLocPtr, pValue, strlen( pValue ) + 1 );
 					}
 				}
@@ -2487,168 +2609,6 @@ void sGet_disk_quota ( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOp
 		}
 	}
 } /* sGet_disk_quota */
-
-
-/* -----------------------------------------------------------------
-	sEncodeBase64 ()
-   ----------------------------------------------------------------- */
-
-int sEncodeBase64 ( const char *inStr, const int inLen, char *outStr, int outLen )
-{
-	int						i			= 0;
-	const unsigned char	   *pStr		= NULL;
-	unsigned long			uiInLen		= 0;
-	unsigned char			ucVal		= 0;
-
-	if ( (inStr == NULL) || (outStr == NULL) || (inLen <= 0) || (outLen <= 0) )
-	{
-		return( -1 );
-	}
-
-	pStr = (const unsigned char *)inStr;
-	uiInLen = inLen;
-
-	memset( outStr, 0, outLen );
-
-	while ( uiInLen >= 3 )
-	{
-		if ( (i + 4) > outLen )
-		{
-			return( -1 );
-		}
-		outStr[ i++ ] = ( basis_64[ pStr[ 0 ] >> 2 ] );
-		outStr[ i++ ] = ( basis_64[ ((pStr[ 0 ] << 4) & 0x30) | (pStr[ 1 ] >> 4) ] );
-		outStr[ i++ ] = ( basis_64[ ((pStr[ 1 ] << 2) & 0x3c) | (pStr[ 2 ] >> 6) ] );
-		outStr[ i++ ] = ( basis_64[ pStr[ 2 ] & 0x3f ] );
-
-		pStr += 3;
-		uiInLen -= 3;
-	}
-
-	if ( uiInLen > 0 )
-	{
-		if ( (i + 4) > outLen )
-		{
-			return( -1 );
-		}
-
-		outStr[ i++ ] = ( basis_64[ pStr[0] >> 2] );
-		ucVal = (pStr[0] << 4) & 0x30;
-		if ( uiInLen > 1 )
-		{
-			ucVal |= pStr[1] >> 4;
-		}
-		outStr[ i++ ] = ( basis_64[ ucVal ] );
-		outStr[ i++ ] = ( (uiInLen < 2) ? '=' : basis_64[ (pStr[ 1 ] << 2) & 0x3c ] );
-		outStr[ i++ ] = ( '=' );
-	}
-
-	return( 0 );
-
-} /* sEncodeBase64 */
-
-
-/* -----------------------------------------------------------------
-	sDecodeBase64 ()
-   ----------------------------------------------------------------- */
-
-int sDecodeBase64 ( const char *inStr, const int inLen, char *outStr, int outLen, int *destLen )
-{
-	int				iResult		= 0;
-	unsigned long	i			= 0;
-	unsigned long	j			= 0;
-	unsigned long	c1			= 0;
-	unsigned long	c2			= 0;
-	unsigned long	c3			= 0;
-	unsigned long	c4			= 0;
-	const char	   *pStr		= NULL;
-
-	if ( (inStr == NULL) || (outStr == NULL) || (inLen <= 0) || (outLen <= 0) )
-	{
-		return( -1 );
-	}
-
-	pStr = (const unsigned char *)inStr;
-
-	/* Skip past the '+ ' */
-	if ( (pStr[ 0 ] == '+') && (pStr[ 1 ] == ' ') )
-	{
-		pStr += 2;
-	}
-	if ( *pStr == '\r')
-	{
-		iResult = -1;
-	}
-	else
-	{
-		for ( i = 0; i < inLen / 4; i++ )
-		{
-			c1 = pStr[ 0 ];
-			if ( CHAR64( c1 ) == -1 )
-			{
-				iResult = -1;
-				break;
-			}
-
-			c2 = pStr[ 1 ];
-			if ( CHAR64( c2 ) == -1 )
-			{
-				iResult = -1;
-				break;
-			}
-
-			c3 = pStr[ 2 ];
-			if ( (c3 != '=') && (CHAR64( c3 ) == -1) )
-			{
-				iResult = -1;
-				break;
-			}
-
-			c4 = pStr[ 3 ];
-			if (c4 != '=' && CHAR64( c4 ) == -1)
-			{
-				iResult = -1;
-				break;
-			}
-
-			pStr += 4;
-
-			outStr[ j++ ] = ( (CHAR64(c1) << 2) | (CHAR64(c2) >> 4) );
-
-			if ( j >= outLen )
-			{
-				return( -1 );
-			}
-
-			if ( c3 != '=' )
-			{
-				outStr[ j++ ] = ( ((CHAR64(c2) << 4) & 0xf0) | (CHAR64(c3) >> 2) );
-				if ( j >= outLen )
-				{
-					return( -1 );
-				}
-				if ( c4 != '=' )
-				{
-					outStr[ j++ ] = ( ((CHAR64(c3) << 6) & 0xc0) | CHAR64(c4) );
-					if ( j >= outLen )
-					{
-						return( -1 );
-					}
-				}
-			}
-		}
-		outStr[ j ] = 0;
-	}
-
-	if ( destLen )
-	{
-		*destLen = j;
-	}
-
-	return( iResult );
-
-} /* sDecodeBase64 */
-
 
 
 /* -----------------------------------------------------------------

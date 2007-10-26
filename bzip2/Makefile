@@ -8,6 +8,9 @@ Extra_CC_Flags      = -no-cpp-precomp -D_FILE_OFFSET_BITS=64
 Extra_Install_Flags = PREFIX=$(RC_Install_Prefix)
 GnuAfterInstall     = strip-binaries fix-manpages install-plist
 
+BZIP2_VERSION = 1.0.4
+Extra_Environment = BZIP2_VERSION=$(BZIP2_VERSION)
+
 install:: shadow_source
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -28,8 +31,8 @@ strip-binaries:
 	done
 	$(CP) $(DSTROOT)/usr/local/lib/libbz2.a $(SYMROOT)
 	$(STRIP) -x $(DSTROOT)/usr/local/lib/libbz2.a
-	$(CP) $(DSTROOT)/usr/lib/libbz2.1.0.3.dylib $(SYMROOT)
-	$(STRIP) -x $(DSTROOT)/usr/lib/libbz2.1.0.3.dylib
+	$(CP) $(DSTROOT)/usr/lib/libbz2.$(BZIP2_VERSION).dylib $(SYMROOT)
+	$(STRIP) -x $(DSTROOT)/usr/lib/libbz2.$(BZIP2_VERSION).dylib
 
 fix-manpages:
 	$(MKDIR) $(DSTROOT)/usr/share
@@ -50,7 +53,7 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.0.4
+AEP_Version    = $(BZIP2_VERSION)
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)

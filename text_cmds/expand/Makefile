@@ -14,8 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = expand.c
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble expand.1\
-            unexpand.1
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble expand.1
 
 NEXTSTEP_PB_CFLAGS += -D__FBSDID=__RCSID
 

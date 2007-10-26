@@ -2,8 +2,8 @@
 
   rubysig.h -
 
-  $Author: nobu $
-  $Date: 2004/12/06 08:19:20 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Wed Aug 16 01:15:38 JST 1995
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -79,13 +79,12 @@ void rb_trap_restore_mask _((void));
 
 RUBY_EXTERN int rb_thread_critical;
 void rb_thread_schedule _((void));
-#if defined(HAVE_SETITIMER)
+#if defined(HAVE_SETITIMER) || defined(_THREAD_SAFE)
 RUBY_EXTERN int rb_thread_pending;
 # define CHECK_INTS do {\
-    if (!rb_prohibit_interrupt) {\
+    if (!(rb_prohibit_interrupt || rb_thread_critical)) {\
+        if (rb_thread_pending) rb_thread_schedule();\
 	if (rb_trap_pending) rb_trap_exec();\
-	if (rb_thread_pending && !rb_thread_critical)\
-	    rb_thread_schedule();\
     }\
 } while (0)
 #else
@@ -93,15 +92,13 @@ RUBY_EXTERN int rb_thread_pending;
 RUBY_EXTERN int rb_thread_tick;
 #define THREAD_TICK 500
 #define CHECK_INTS do {\
-    if (!rb_prohibit_interrupt) {\
-	if (rb_trap_pending) rb_trap_exec();\
-	if (!rb_thread_critical) {\
-	    if (rb_thread_tick-- <= 0) {\
-		rb_thread_tick = THREAD_TICK;\
-		rb_thread_schedule();\
-	    }\
+    if (!(rb_prohibit_interrupt || rb_thread_critical)) {\
+	if (rb_thread_tick-- <= 0) {\
+	    rb_thread_tick = THREAD_TICK;\
+            rb_thread_schedule();\
 	}\
     }\
+    if (rb_trap_pending) rb_trap_exec();\
 } while (0)
 #endif
 

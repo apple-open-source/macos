@@ -48,6 +48,7 @@ struct client_opts {
 #define CLIENT_FLAG_NOTIFY_EVENT		0x4		// client wants notifications for events
 #define CLIENT_FLAG_NOTIFY_STATUS		0x8		// client wants notifications for status
 #define CLIENT_FLAG_IS_SOCKET			0x10	// client uses socket API (instead of Mach)
+#define CLIENT_FLAG_SWAP_BYTES			0x20	// client requires bytes swapping (not in network order)
 
 struct client {
 

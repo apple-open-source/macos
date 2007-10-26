@@ -27,6 +27,7 @@
 #include <dos.h>
 
 #include <ndir.h>
+#include "xalloc.h"
 
 static void free_dircontents (struct _dircontents *);
 
@@ -59,34 +60,33 @@ opendir (const char *name)
 
   strcat (strcat (strcpy (name_buf, name), slash), "*.*");
 
-  dirp = (DIR *) xmalloc (sizeof (DIR));
-  if (dirp == (DIR *)0)
-    return (DIR *)0;
+  dirp = xmalloc (sizeof (DIR));
+  if (!dirp) return NULL;
 
   dirp->dd_loc = 0;
-  dirp->dd_contents = dirp->dd_cp = (struct _dircontents *) 0;
+  dirp->dd_contents = dirp->dd_cp = NULL;
 
   if ((hFile = _findfirst (name_buf, &find_buf)) < 0)
     {
       free (dirp);
-      return (DIR *)0;
+      return NULL;
     }
 
   do
     {
-      dp = (struct _dircontents *) xmalloc (sizeof (struct _dircontents));
-      if (dp == (struct _dircontents *)0)
+      dp = xmalloc (sizeof (struct _dircontents));
+      if (!dp)
 	{
 	  free_dircontents (dirp->dd_contents);
-	  return (DIR *)0;
+	  return NULL;
 	}
 
       dp->_d_entry = xmalloc (strlen (find_buf.name) + 1);
-      if (dp->_d_entry == (char *)0)
+      if (!dp->_d_entry)
 	{
 	  free (dp);
 	  free_dircontents (dirp->dd_contents);
-	  return (DIR *)0;
+	  return NULL;
 	}
 
       if (dirp->dd_contents)
@@ -96,7 +96,7 @@ opendir (const char *name)
 
       strcpy (dp->_d_entry, find_buf.name);
 
-      dp->_d_next = (struct _dircontents *)0;
+      dp->_d_next = NULL;
 
     } while (!_findnext (hFile, &find_buf));
 
@@ -112,7 +112,7 @@ void
 closedir (DIR *dirp)
 {
   free_dircontents (dirp->dd_contents);
-  free ((char *) dirp);
+  free (dirp);
 }
 
 
@@ -121,8 +121,7 @@ readdir (DIR *dirp)
 {
   static struct direct dp;
 
-  if (dirp->dd_cp == (struct _dircontents *)0)
-    return (struct direct *)0;
+  if (!dirp->dd_cp) return NULL;
   dp.d_namlen = dp.d_reclen =
     strlen (strcpy (dp.d_name, dirp->dd_cp->_d_entry));
 #if 0 /* JB */
@@ -183,7 +182,7 @@ void
 main (int argc, char *argv[])
 {
   static DIR *directory;
-  struct direct *entry = (struct direct *)0;
+  struct direct *entry = NULL;
 
   char *name = "";
 

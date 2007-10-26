@@ -67,4 +67,4 @@ them.
 You will get about 5 warnings in lib/regex.c concerning "unused variable
 destination".  Ignore them.
 
-Report bugs to tepting@swol.de and bug-cvs@gnu.org.
+Report bugs to tepting@swol.de and bug-cvs@nongnu.org.

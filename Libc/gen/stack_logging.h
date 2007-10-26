@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,7 @@
 
 #import <malloc/malloc.h>
 
-#define stack_logging_type_free	0
+#define stack_logging_type_free		0
 #define stack_logging_type_generic	1	/* anything that is not allocation/deallocation */
 #define stack_logging_type_alloc	2	/* malloc, realloc, etc... */
 #define stack_logging_type_dealloc	4	/* free, realloc, etc... */
@@ -37,7 +37,42 @@
 #define stack_logging_flag_set_handle_size	256	/* (Handle, newSize) treated specially */
 
 /* Macro used to disguise addresses so that leak finding can work */
-#define STACK_LOGGING_DISGUISE(address)	(((unsigned)address) ^ 0x00005555) /* nicely idempotent */
+#define STACK_LOGGING_DISGUISE(address)	((address) ^ 0x00005555) /* nicely idempotent */
+
+extern int stack_logging_enable_logging; /* when clear, no logging takes place */
+extern int stack_logging_dontcompact; /* default is to compact; when set does not compact alloc/free logs; useful for tracing history */
+
+
+extern void stack_logging_log_stack(unsigned type, unsigned arg1, unsigned arg2, unsigned arg3, unsigned result, unsigned num_hot_to_skip);
+	/* This is the old log-to-memory logger, which is now deprecated.  It remains for compatibility with performance tools that haven't been updated to disk_stack_logging_log_stack() yet. */
+
+extern void __disk_stack_logging_log_stack(uint32_t type_flags, uintptr_t zone_ptr, uintptr_t size, uintptr_t ptr_arg, uintptr_t return_val, uint32_t num_hot_to_skip);
+	/* Fits as the malloc_logger; logs malloc/free/realloc events and can log custom events if called directly */
+
+
+/* 64-bit-aware stack log access.  As new SPI, these routines are prefixed with double-underscore to avoid conflict with Libsystem clients. */
+
+typedef struct {
+	uint32_t		type_flags;
+	uint64_t		stack_identifier;
+	uint64_t		argument;
+	mach_vm_address_t	address;
+} mach_stack_logging_record_t;
+
+extern kern_return_t __mach_stack_logging_get_frames(task_t task, mach_vm_address_t address, mach_vm_address_t *stack_frames_buffer, uint32_t max_stack_frames, uint32_t *count);
+    /* Gets the last allocation record (malloc, realloc, or free) about address */
+
+extern kern_return_t __mach_stack_logging_enumerate_records(task_t task, mach_vm_address_t address, void enumerator(mach_stack_logging_record_t, void *), void *context);
+    /* Applies enumerator to all records involving address sending context as enumerator's second parameter; if !address, applies enumerator to all records */
+
+extern kern_return_t __mach_stack_logging_frames_for_uniqued_stack(task_t task, uint64_t stack_identifier, mach_vm_address_t *stack_frames_buffer, uint32_t max_stack_frames, uint32_t *count);
+    /* Given a uniqued_stack fills stack_frames_buffer */
+
+
+#pragma mark -
+#pragma mark Legacy
+
+/* The following is the old 32-bit-only, in-process-memory stack logging.  This is deprecated and clients should move to the above 64-bit-aware disk stack logging SPI. */
 
 typedef struct {
     unsigned	type;
@@ -60,19 +95,8 @@ typedef struct {
     stack_logging_record_t	records[0]; /* records follow here */
 } stack_logging_record_list_t;
 
-extern unsigned stack_logging_get_unique_stack(unsigned **table, unsigned *table_num_pages, unsigned *stack_entries, unsigned count, unsigned num_hot_to_skip);
-    /* stack_entries are from hot to cold */
-
 extern stack_logging_record_list_t *stack_logging_the_record_list;
     /* This is the global variable containing all logs */
-
-extern int stack_logging_enable_logging;
-    /* when clear, no logging takes place */
-
-extern int stack_logging_dontcompact;
-    /* default is to compact; when set does not compact alloc/free logs; useful for tracing history */
-
-extern void stack_logging_log_stack(unsigned type, unsigned arg1, unsigned arg2, unsigned arg3, unsigned result, unsigned num_hot_to_skip);
 
 extern kern_return_t stack_logging_get_frames(task_t task, memory_reader_t reader, vm_address_t address, vm_address_t *stack_frames_buffer, unsigned max_stack_frames, unsigned *num_frames);
     /* Gets the last record in stack_logging_the_record_list about address */
@@ -85,6 +109,8 @@ extern kern_return_t stack_logging_enumerate_records(task_t task, memory_reader_
 
 extern kern_return_t stack_logging_frames_for_uniqued_stack(task_t task, memory_reader_t reader, unsigned uniqued_stack, vm_address_t *stack_frames_buffer, unsigned max_stack_frames, unsigned *num_frames);
     /* Given a uniqued_stack fills stack_frames_buffer */
+
+
 
 extern void thread_stack_pcs(vm_address_t *buffer, unsigned max, unsigned *num);
     /* Convenience to fill buffer with the PCs of the frames, starting with the hot frames;

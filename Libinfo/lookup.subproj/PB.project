@@ -4,13 +4,13 @@
         H_FILES = (
             aliasdb.h, 
             bootparams.h, 
+            kvbuf.h, 
             lookup_types.h, 
             lu_overrides.h, 
             lu_host.h, 
             lu_utils.h, 
             netdb.h, 
             netdb_async.h, 
-            netgr.h, 
             printerdb.h
         ); 
         OTHER_LINKED = (

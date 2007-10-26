@@ -1,7 +1,8 @@
 AS_INIT[]dnl                                            -*- shell-script -*-
 # autoconf -- create `configure' using m4 macros
-# Copyright (C) 1992, 1993, 1994, 1996, 1999, 2000, 2001, 2002, 2003
-# Free Software Foundation, Inc.
+
+# Copyright (C) 1992, 1993, 1994, 1996, 1999, 2000, 2001, 2002, 2003,
+# 2004, 2005, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,8 +16,8 @@ AS_INIT[]dnl                                            -*- shell-script -*-
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 usage=["\
 Usage: $0 [OPTION] ... [TEMPLATE-FILE]
@@ -44,7 +45,7 @@ Warning categories include:
   \`none'          turn off all the warnings
   \`error'         warnings are error
 
-The environment variable \`WARNINGS' is honored.
+The environment variables \`M4' and \`WARNINGS' are honored.
 
 Library directories:
   -B, --prepend-include=DIR  prepend directory DIR to search path
@@ -60,25 +61,24 @@ Report bugs to <bug-autoconf@gnu.org>."]
 
 version=["\
 autoconf (@PACKAGE_NAME@) @VERSION@
-Written by David J. MacKenzie and Akim Demaille.
+Copyright (C) 2006 Free Software Foundation, Inc.
+This is free software.  You may redistribute copies of it under the terms of
+the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.
+There is NO WARRANTY, to the extent permitted by law.
 
-Copyright (C) 2003 Free Software Foundation, Inc.
-This is free software; see the source for copying conditions.  There is NO
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."]
-
-me=`AS_BASENAME([$0])`
+Written by David J. MacKenzie and Akim Demaille."]
 
 help="\
-Try \`$me --help' for more information."
+Try \`$as_me --help' for more information."
 
 exit_missing_arg="\
-echo \"$me: option \\\`\$1' requires an argument\" >&2
+echo \"$as_me: option \\\`\$1' requires an argument\" >&2
 echo \"\$help\" >&2
 exit 1"
 
 # Variables.
 : ${AUTOM4TE='@bindir@/@autom4te-name@'}
-dir=`AS_DIRNAME([$0])`
+autom4te_options=
 outfile=
 verbose=:
 
@@ -90,13 +90,13 @@ while test $# -gt 0 ; do
 	       "x$1" : 'x-.\(.*\)'`]
   case $1 in
     --version | -V )
-       echo "$version" ; exit 0 ;;
+       echo "$version" ; exit ;;
     --help | -h )
-       echo "$usage"; exit 0 ;;
+       echo "$usage"; exit ;;
 
     --verbose | -v )
        verbose=echo
-       AUTOM4TE="$AUTOM4TE $1"; shift ;;
+       autom4te_options="$autom4te_options $1"; shift ;;
 
     # Arguments passed as is to autom4te.
     --debug      | -d   | \
@@ -104,26 +104,25 @@ while test $# -gt 0 ; do
     --include=*  | -I?* | \
     --prepend-include=* | -B?* | \
     --warnings=* | -W?* )
-       AUTOM4TE="$AUTOM4TE $1"; shift ;;
+       autom4te_options="$autom4te_options '$1'"; shift ;;
 
     # Options with separated arg passed as is to autom4te.
-    --include | -I | \
-    --prepend-include | -B | \
+    --include  | -I | \
+    --prepend-include  | -B | \
     --warnings | -W )
        test $# = 1 && eval "$exit_missing_arg"
-       AUTOM4TE="$AUTOM4TE $option $2"
-       shift 2 ;;
+       autom4te_options="$autom4te_options $option '$2'"
+       shift; shift ;;
 
     --trace=* | -t?* )
        traces="$traces --trace='"`echo "$optarg" | sed "s/'/'\\\\\\\\''/g"`"'"
        shift ;;
     --trace | -t )
        test $# = 1 && eval "$exit_missing_arg"
-       shift
-       traces="$traces --trace='"`echo "$1" | sed "s/'/'\\\\\\\\''/g"`"'"
-       shift ;;
+       traces="$traces --trace='"`echo "$2" | sed "s/'/'\\\\\\\\''/g"`"'"
+       shift; shift ;;
     --initialization | -i )
-       AUTOM4TE="$AUTOM4TE --melt"
+       autom4te_options="$autom4te_options --melt"
        shift;;
 
     --output=* | -o?* )
@@ -131,9 +130,8 @@ while test $# -gt 0 ; do
        shift ;;
     --output | -o )
        test $# = 1 && eval "$exit_missing_arg"
-       shift
-       outfile=$1
-       shift ;;
+       outfile=$2
+       shift; shift ;;
 
     -- )     # Stop option processing
        shift; break ;;
@@ -141,7 +139,7 @@ while test $# -gt 0 ; do
        break ;;
     -* )
        exec >&2
-       echo "$me: invalid option $1"
+       echo "$as_me: invalid option $1"
        echo "$help"
        exit 1 ;;
     * )
@@ -154,21 +152,21 @@ case $# in
   0)
     if test -f configure.ac; then
       if test -f configure.in; then
-	echo "$me: warning: both \`configure.ac' and \`configure.in' are present." >&2
-	echo "$me: warning: proceeding with \`configure.ac'." >&2
+	echo "$as_me: warning: both \`configure.ac' and \`configure.in' are present." >&2
+	echo "$as_me: warning: proceeding with \`configure.ac'." >&2
       fi
       infile=configure.ac
     elif test -f configure.in; then
       infile=configure.in
     else
-      echo "$me: no input file" >&2
+      echo "$as_me: no input file" >&2
       exit 1
     fi
     test -z "$traces" && test -z "$outfile" && outfile=configure;;
   1) # autom4te doesn't like `-'.
      test "x$1" != "x-" && infile=$1 ;;
   *) exec >&2
-     echo "$me: invalid number of arguments."
+     echo "$as_me: invalid number of arguments."
      echo "$help"
      (exit 1); exit 1 ;;
 esac
@@ -177,6 +175,8 @@ esac
 test -z "$outfile" && outfile=-
 
 # Run autom4te with expansion.
-eval set \$AUTOM4TE --language=autoconf --output=\$outfile "$traces" \$infile
-$verbose "$me: running $*" >&2
-exec "$@"
+eval set x $autom4te_options \
+  --language=autoconf --output=\$outfile "$traces" \$infile
+shift
+$verbose "$as_me: running $AUTOM4TE $*" >&2
+exec "$AUTOM4TE" "$@"

@@ -2,7 +2,8 @@
 /* Contributed by Devang Patel  <dpatel@apple.com>  */
 
 /* { dg-do compile { target *-*-darwin* } } */
-/* { dg-options "-g -fno-eliminate-unused-debug-symbols" } */
+/* APPLE LOCAL mainline 2006-03-26 */
+/* { dg-options "-gstabs+ -fno-eliminate-unused-debug-symbols" } */
 
 int
 main ()

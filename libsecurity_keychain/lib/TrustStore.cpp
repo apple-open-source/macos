@@ -30,7 +30,7 @@
 #include <security_keychain/KCCursor.h>
 #include <security_keychain/SecCFTypes.h>
 #include <security_cdsa_utilities/Schema.h>
-
+#include <security_keychain/SecTrustSettingsPriv.h>
 
 namespace Security {
 namespace KeychainCore {
@@ -50,15 +50,14 @@ TrustStore::~TrustStore()
 //
 // Retrieve the trust setting for a (certificate, policy) pair.
 //
-SecTrustUserSetting TrustStore::find(Certificate *cert, Policy *policy)
+SecTrustUserSetting TrustStore::find(Certificate *cert, Policy *policy,
+	StorageManager::KeychainList &keychainList)
 {
-	if (Item item = findItem(cert, policy)) {
+	if (Item item = findItem(cert, policy, keychainList)) {
 		// Make sure that the certificate is available in some keychain,
 		// to provide a basis for editing the trust setting that we're returning.
 		if (cert->keychain() == NULL) {
-			StorageManager::KeychainList keychains;
-			globals().storageManager.optionalSearchList((CFTypeRef)nil, keychains);
-			if (cert->findInKeychain(keychains) == NULL) {
+			if (cert->findInKeychain(keychainList) == NULL) {
 				Keychain defaultKeychain = Keychain::optional(NULL);
 				if (Keychain location = item->keychain()) {
 					try {
@@ -100,7 +99,10 @@ void TrustStore::assign(Certificate *cert, Policy *policy, SecTrustUserSetting t
 	TrustData trustData = { UserTrustItem::currentVersion, trust };
 	Keychain defaultKeychain = Keychain::optional(NULL);
 	Keychain trustLocation = defaultKeychain;	// default keychain, unless trust entry found
-	if (Item item = findItem(cert, policy)) {
+	StorageManager::KeychainList searchList;
+	globals().storageManager.getSearchList(searchList);
+
+	if (Item item = findItem(cert, policy, searchList)) {
 		// user has a trust setting in a keychain - modify that
 		trustLocation = item->keychain();
 		if (trust == kSecTrustResultUnspecified)
@@ -128,9 +130,7 @@ void TrustStore::assign(Certificate *cert, Policy *policy, SecTrustUserSetting t
 	// Make sure that the certificate is available in some keychain,
 	// to provide a basis for editing the trust setting that we're assigning.
 	if (cert->keychain() == NULL) {
-		StorageManager::KeychainList keychains;
-		globals().storageManager.optionalSearchList((CFTypeRef)nil, keychains);
-		if (cert->findInKeychain(keychains) == NULL) {
+		if (cert->findInKeychain(searchList) == NULL) {
 			try {
 				cert->copyTo(trustLocation);	// add cert to the trust item's keychain
 			} catch (...) {
@@ -155,7 +155,8 @@ void TrustStore::assign(Certificate *cert, Policy *policy, SecTrustUserSetting t
 // If found, return it (as a TrustItem). Otherwise, return NULL.
 // Note that this function throws if a "real" error is encountered.
 //
-Item TrustStore::findItem(Certificate *cert, Policy *policy)
+Item TrustStore::findItem(Certificate *cert, Policy *policy,
+	StorageManager::KeychainList &keychainList)
 {
 	try {
 		SecKeychainAttribute attrs[2];
@@ -169,7 +170,7 @@ Item TrustStore::findItem(Certificate *cert, Policy *policy)
 		attrs[1].length = policyOid.length();
 		attrs[1].data = policyOid.data();
 		SecKeychainAttributeList attrList = { 2, attrs };
-		KCCursor cursor = globals().storageManager.createCursor(CSSM_DL_DB_RECORD_USER_TRUST, &attrList);
+		KCCursor cursor(keychainList, CSSM_DL_DB_RECORD_USER_TRUST, &attrList);
 		Item item;
 		if (cursor->next(item))
 			return item;
@@ -178,35 +179,6 @@ Item TrustStore::findItem(Certificate *cert, Policy *policy)
 	} catch (const CommonError &error) {
 		return NULL;	// no trust schema, no records, no error
 	}
-}
-
-
-//
-// Return the root certificate list.
-// This list is cached.
-//
-CFArrayRef TrustStore::copyRootCertificates()
-{
-	if (!mRootsValid) {
-		loadRootCertificates();
-		mCFRoots = NULL;
-	}
-	if (!mCFRoots) {
-		uint32 count = mRoots.size();
-		secdebug("anchors", "building %ld CF-style anchor certificates", count);
-		vector<SecCertificateRef> roots(count);
-        for (uint32 n = 0; n < count; n++) {
-            SecPointer<Certificate> cert = new Certificate(mRoots[n],
-                CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER);
-            roots[n] = cert->handle();
-        }
-        mCFRoots = CFArrayCreate(NULL, (const void **)&roots[0], count,
-            &kCFTypeArrayCallBacks);
-        for (uint32 n = 0; n < count; n++)
-            CFRelease(roots[n]);	// undo CFArray's retain
-	}
-    CFRetain(mCFRoots);
-    return mCFRoots;
 }
 
 void TrustStore::getCssmRootCertificates(CertGroup &rootCerts)
@@ -218,83 +190,55 @@ void TrustStore::getCssmRootCertificates(CertGroup &rootCerts)
 	rootCerts.count() = mRoots.size();
 }
 
-void TrustStore::refreshRootCertificates()
-{
-	if (mRootsValid) {
-		secdebug("anchors", "clearing %ld cached anchor certificates", mRoots.size());
-		
-		// throw out the CF version
-		if (mCFRoots) {
-			CFRelease(mCFRoots);
-			mCFRoots = NULL;
-		}
-		
-		// release cert memory
-		mRootBytes.reset();
-		mRoots.clear();
-		
-		// all pristine again
-		mRootsValid = false;
-	}
-}
-
-
 //
 // Load root (anchor) certificates from disk
 //
 void TrustStore::loadRootCertificates()
 {
-	using namespace CssmClient;
-	using namespace KeychainCore::Schema;
-	
-	// release previous cached data (if any)
-	refreshRootCertificates();
-	
-	static const char anchorLibrary[] = "/System/Library/Keychains/X509Anchors";
+	CFRef<CFArrayRef> anchors;
+	OSStatus ortn;
 
-	// open anchor database and formulate query (x509v3 certs)
-	secdebug("anchors", "Loading anchors from %s", anchorLibrary);
-	DL dl(gGuidAppleFileDL);
-	Db db(dl, anchorLibrary);
-	DbCursor search(db);
-	search->recordType(CSSM_DL_DB_RECORD_X509_CERTIFICATE);
-	search->conjunctive(CSSM_DB_OR);
-#if 0	// if we ever need to support v1/v2 certificates...
-	search->add(CSSM_DB_EQUAL, kX509CertificateCertType, UInt32(CSSM_CERT_X_509v1));
-	search->add(CSSM_DB_EQUAL, kX509CertificateCertType, UInt32(CSSM_CERT_X_509v2));
-	search->add(CSSM_DB_EQUAL, kX509CertificateCertType, UInt32(CSSM_CERT_X_509v3));
-#endif
-
-	// collect certificate data
-	typedef list<CssmDataContainer> ContainerList;
-	ContainerList::iterator last;
-	ContainerList certs;
-	for (;;) {
-		DbUniqueRecord id;
-		last = certs.insert(certs.end(), CssmDataContainer());
-		if (!search->next(NULL, &*last, id))
-			break;
+	/* 
+	 * Get the current set of all positively trusted anchors.
+	 */
+	ortn = SecTrustSettingsCopyUnrestrictedRoots(
+		true, true, true,		/* all domains */
+		anchors.take());
+	if(ortn) {
+		MacOSError::throwMe(ortn);
 	}
 
 	// how many data bytes do we need?
 	size_t size = 0;
-	for (ContainerList::const_iterator it = certs.begin(); it != last; it++)
-		size += it->length();
+	CFIndex numCerts = CFArrayGetCount(anchors);
+	CSSM_RETURN crtn;
+	for(CFIndex dex=0; dex<numCerts; dex++) {
+		SecCertificateRef certRef = (SecCertificateRef)CFArrayGetValueAtIndex(anchors, dex);
+		CSSM_DATA certData;
+		crtn = SecCertificateGetData(certRef, &certData);
+		if(crtn) {
+			CssmError::throwMe(crtn);
+		}	
+		size += certData.Length;
+	}
 	mRootBytes.length(size);
 
 	// fill CssmData vector while copying data bytes together
 	mRoots.clear();
 	uint8 *base = mRootBytes.data<uint8>();
-	for (ContainerList::const_iterator it = certs.begin(); it != last; it++) {
-		memcpy(base, it->data(), it->length());
-		mRoots.push_back(CssmData(base, it->length()));
-		base += it->length();
+	for(CFIndex dex=0; dex<numCerts; dex++) {
+		SecCertificateRef certRef = (SecCertificateRef)CFArrayGetValueAtIndex(anchors, dex);
+		CSSM_DATA certData;
+		SecCertificateGetData(certRef, &certData);
+		memcpy(base, certData.Data, certData.Length);
+		mRoots.push_back(CssmData(base, certData.Length));
+		base += certData.Length;
 	}
-	secdebug("anchors", "%ld anchors loaded", mRoots.size());
+
+	secdebug("anchors", "%ld anchors loaded", (long)numCerts);
 
 	mRootsValid = true;			// ready to roll
 }
-
 
 } // end namespace KeychainCore
 } // end namespace Security

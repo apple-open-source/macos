@@ -1,10 +1,11 @@
 " Vim syntax file
 " Language:	Maple V (based on release 4)
-" Maintainer:	Dr. Charles E. Campbell, Jr. <Charles.E.Campbell.1@nasa.gov>
-" Last Change:	Nov 18, 2002
-" Version:	2
-" URL:	http://www.erols.com/astronaut/vim/index.html#vimlinks_syntax
+" Maintainer:	Dr. Charles E. Campbell, Jr. <NdrOchipS@PcampbellAfamily.Mbiz>
+" Last Change:	Apr 12, 2006
+" Version:	8
+" URL:	http://mysite.verizon.net/astronaut/vim/index.html#vimlinks_syntax
 "
+" Package Function Selection: {{{1
 " Because there are a lot of packages, and because of the potential for namespace
 " clashes, this version of <maple.vim> needs the user to select which, if any,
 " package functions should be highlighted.  Select your packages and put into your
@@ -16,6 +17,9 @@
 "
 " *OR* let mvpkg_all=1
 
+" This syntax file contains all the keywords and top-level packages of Maple 9.5
+" but only the contents of packages of Maple V Release 4, and the top-level
+" routines of Release 4.  <Jacques Carette - carette@mcmaster.ca>
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -25,12 +29,14 @@ elseif exists("b:current_syntax")
   finish
 endif
 
+" Iskeyword Effects: {{{1
 if version < 600
   set iskeyword=$,48-57,_,a-z,@-Z
 else
   setlocal iskeyword=$,48-57,_,a-z,@-Z
 endif
 
+" Package Selection: {{{1
 " allow user to simply select all packages for highlighting
 if exists("mvpkg_all")
   let mv_DEtools    = 1
@@ -66,6 +72,9 @@ if exists("mvpkg_all")
   let mv_totorder   = 1
 endif
 
+" Parenthesis/curly/brace sanity checker: {{{1
+syn case match
+
 " parenthesis/curly/brace sanity checker
 syn region mvZone	matchgroup=Delimiter start="(" matchgroup=Delimiter end=")" transparent contains=ALLBUT,mvError,mvBraceError,mvCurlyError
 syn region mvZone	matchgroup=Delimiter start="{" matchgroup=Delimiter end="}" transparent contains=ALLBUT,mvError,mvBraceError,mvParenError
@@ -76,26 +85,53 @@ syn match  mvCurlyError	"[)\]]"	contained
 syn match  mvParenError	"[\]}]"	contained
 syn match  mvComma		"[,;:]"
 syn match  mvSemiError	"[;:]"	contained
+syn match  mvDcolon		"::"
 
-" Maple V Packages, circa Release 4
-syn keyword mvPackage	DEtools	difforms	group	networks	plots	stats
-syn keyword mvPackage	Galois	finance	inttrans	numapprox	plottools	student
-syn keyword mvPackage	GaussInt	genfunc	liesymm	numtheory	powseries	sumtools
-syn keyword mvPackage	LREtools	geometry	linalg	orthopoly	process	tensor
-syn keyword mvPackage	combinat	grobner	logic	padic	simplex	totorder
-syn keyword mvPackage	combstruct
+" Maple Packages, updated for Maple 9.5
+syn keyword mvPackage	algcurves	ArrayTools	Cache	codegen
+syn keyword mvPackage	CodeGeneration	CodeTools	combinat	combstruct
+syn keyword mvPackage	ContextMenu	CurveFitting	DEtools	diffalg
+syn keyword mvPackage	difforms	DiscreteTransforms	Domains	ExternalCalling
+syn keyword mvPackage	FileTools	finance	GaussInt	genfunc
+syn keyword mvPackage	geom3d	geometry	gfun	Groebner
+syn keyword mvPackage	group	hashmset	IntegerRelations	inttrans
+syn keyword mvPackage	LargeExpressions	LibraryTools	liesymm	linalg
+syn keyword mvPackage	LinearAlgebra	LinearFunctionalSystems	LinearOperators
+syn keyword mvPackage	ListTools	Logic	LREtools	Maplets
+syn keyword mvPackage	MathematicalFunctions	MathML	Matlab
+syn keyword mvPackage	MatrixPolynomialAlgebra	MmaTranslator	networks
+syn keyword mvPackage	numapprox	numtheory	Optimization	OreTools
+syn keyword mvPackage	Ore_algebra	OrthogonalSeries	orthopoly	padic
+syn keyword mvPackage	PDEtools	plots	plottools	PolynomialIdeals
+syn keyword mvPackage	PolynomialTools	powseries	process	QDifferenceEquations
+syn keyword mvPackage	RandomTools	RationalNormalForms	RealDomain	RootFinding
+syn keyword mvPackage	ScientificConstants	ScientificErrorAnalysis	simplex
+syn keyword mvPackage	Slode	SNAP	Sockets	SoftwareMetrics
+syn keyword mvPackage	SolveTools	Spread	stats	StringTools
+syn keyword mvPackage	Student	student	sumtools	SumTools
+syn keyword mvPackage	tensor	TypeTools	Units	VariationalCalculus
+syn keyword mvPackage	VectorCalculus	Worksheet	XMLTools
 
-" Language Support
-syn keyword mvTodo	contained	TODO
-syn region  mvString	start=+`+ skip=+``+ end=+`+	keepend	contains=mvTodo
-syn region  mvDelayEval	start=+'+ end=+'+	keepend contains=ALLBUT,mvError,mvBraceError,mvCurlyError,mvParenError,mvSemiError
-syn match   mvVarAssign	"[a-zA-Z_][a-zA-Z_0-9]*[ \t]*:=" contains=mvAssign
-syn match   mvAssign	":="	contained
+" Language Support: {{{1
+syn keyword mvTodo	contained	COMBAK	FIXME	TODO	XXX
+if exists("g:mapleversion") && g:mapleversion < 9
+ syn region  mvString	start=+`+ skip=+``+ end=+`+	keepend	contains=mvTodo
+ syn region  mvString	start=+"+ skip=+""+ end=+"+	keepend
+ syn region  mvDelayEval	start=+'+ end=+'+	keepend contains=ALLBUT,mvError,mvBraceError,mvCurlyError,mvParenError,mvSemiError
+ syn match   mvVarAssign	"[a-zA-Z_][a-zA-Z_0-9]*[ \t]*:=" contains=mvAssign
+ syn match   mvAssign	":="	contained
+else
+ syn region  mvName		start=+`+ skip=+``+ end=+`+	keepend	contains=mvTodo
+ syn region  mvString	start=+"+ skip=+""+ end=+"+	keepend
+ syn region  mvDelayEval	start=+'+ end=+'+	keepend contains=ALLBUT,mvError,mvBraceError,mvCurlyError,mvParenError
+ syn match   mvDelim		"[;:]"	display
+ syn match   mvAssign	":="
+endif
 
-" Lower-Priority Operators
+" Lower-Priority Operators: {{{1
 syn match mvOper	"\."
 
-" Number handling
+" Number handling: {{{1
 syn match mvNumber	"\<\d\+"		" integer
  syn match mvNumber	"[-+]\=\.\d\+"		" . integer
 syn match mvNumber	"\<\d\+\.\d\+"		" integer . integer
@@ -116,15 +152,17 @@ syn match mvNumber	"[-+]\d\+\.\d*e[-+]\=\d\+"	" integer . [integer] e [-+] integ
 
 syn match mvRange	"\.\."
 
-" Operators
-syn keyword mvOper	and not or
+" Operators: {{{1
+syn keyword mvOper	and not or xor implies union intersect subset minus mod
 syn match   mvOper	"<>\|[<>]=\|[<>]\|="
 syn match   mvOper	"&+\|&-\|&\*\|&\/\|&"
 syn match   mvError	"\.\.\."
 
+" MapleV Statements: ? statement {{{1
+
 " MapleV Statements: ? statement
 " Split into booleans, conditionals, operators, repeat-logic, etc
-syn keyword mvBool	true	false
+syn keyword mvBool	true	false	FAIL
 syn keyword mvCond	elif	else	fi	if	then
 
 syn keyword mvRepeat	by	for	in	to
@@ -133,19 +171,29 @@ syn keyword mvRepeat	do	from	od	while
 syn keyword mvSpecial	NULL
 syn match   mvSpecial	"\[\]\|{}"
 
-syn keyword mvStatement	Order	fail	options	read	save
-syn keyword mvStatement	break	local	point	remember	stop
-syn keyword mvStatement	done	mod	proc	restart	with
-syn keyword mvStatement	end	mods	quit	return
-syn keyword mvStatement	error	next
+if exists("g:mapleversion") && g:mapleversion < 9
+ syn keyword mvStatement	Order	fail	options	read	save
+ syn keyword mvStatement	break	local	point	remember	stop
+ syn keyword mvStatement	done	mod	proc	restart	with
+ syn keyword mvStatement	end	mods	quit	return
+ syn keyword mvStatement	error	next
+else
+ syn keyword mvStatement	option	options	read	save
+ syn keyword mvStatement	break	local	remember	stop
+ syn keyword mvStatement	done	mod	proc	restart
+ syn keyword mvStatement	end	mods	quit	return
+ syn keyword mvStatement	error	next	try	catch
+ syn keyword mvStatement	finally	assuming	global	export
+ syn keyword mvStatement	module	description	use
+endif
 
-" Builtin Constants: ? constants
+" Builtin Constants: ? constants {{{1
 syn keyword mvConstant	Catalan	I	gamma	infinity
-syn keyword mvConstant	FAIL	Pi
+syn keyword mvConstant	Pi
 
-" Comments:  DEBUG, if in a comment, is specially highlighted.
+" Comments:  DEBUG, if in a comment, is specially highlighted. {{{1
 syn keyword mvDebug	contained	DEBUG
-syn cluster mvCommentGroup	contains=mvTodo,mvDebug
+syn cluster mvCommentGroup	contains=mvTodo,mvDebug,@Spell
 syn match mvComment "#.*$"	contains=@mvCommentGroup
 
 " Basic Library Functions: ? index[function]
@@ -233,26 +281,26 @@ syn keyword mvLibrary KelvinBer	arcsin	extract	lnGAMMA	resultant	ztrans
 syn keyword mvLibrary KelvinHei	arcsinh
 
 
-" ==  PACKAGES  =======================================================
+" ==  PACKAGES  ======================================================= {{{1
 " Note: highlighting of package functions is now user-selectable by package.
 
-" Package: DEtools     differential equations tools
+" Package: DEtools     differential equations tools {{{2
 if exists("mv_DEtools")
   syn keyword mvPkg_DEtools	DEnormal	Dchangevar	autonomous	dfieldplot	reduceOrder	untranslate
   syn keyword mvPkg_DEtools	DEplot	PDEchangecoords	convertAlg	indicialeq	regularsp	varparam
   syn keyword mvPkg_DEtools	DEplot3d	PDEplot	convertsys	phaseportrait	translate
 endif
 
-" Package: Domains: create domains of computation
+" Package: Domains: create domains of computation {{{2
 if exists("mv_Domains")
 endif
 
-" Package: GF: Galois Fields
+" Package: GF: Galois Fields {{{2
 if exists("mv_GF")
   syn keyword mvPkg_Galois	galois
 endif
 
-" Package: GaussInt: Gaussian Integers
+" Package: GaussInt: Gaussian Integers {{{2
 if exists("mv_GaussInt")
   syn keyword mvPkg_GaussInt	GIbasis	GIfactor	GIissqr	GInorm	GIquadres	GIsmith
   syn keyword mvPkg_GaussInt	GIchrem	GIfactors	GIlcm	GInormal	GIquo	GIsqrfree
@@ -261,14 +309,14 @@ if exists("mv_GaussInt")
   syn keyword mvPkg_GaussInt	GIfacset	GIhermite	GInodiv	GIprime	GIsieve
 endif
 
-" Package: LREtools: manipulate linear recurrence relations
+" Package: LREtools: manipulate linear recurrence relations {{{2
 if exists("mv_LREtools")
   syn keyword mvPkg_LREtools	REcontent	REprimpart	REtodelta	delta	hypergeomsols	ratpolysols
   syn keyword mvPkg_LREtools	REcreate	REreduceorder	REtoproc	dispersion	polysols	shift
   syn keyword mvPkg_LREtools	REplot	REtoDE	constcoeffsol
 endif
 
-" Package: combinat: combinatorial functions
+" Package: combinat: combinatorial functions {{{2
 if exists("mv_combinat")
   syn keyword mvPkg_combinat	Chi	composition	graycode	numbcomb	permute	randperm
   syn keyword mvPkg_combinat	bell	conjpart	inttovec	numbcomp	powerset	stirling1
@@ -278,44 +326,44 @@ if exists("mv_combinat")
   syn keyword mvPkg_combinat	choose	firstpart
 endif
 
-" Package: combstruct: combinatorial structures
+" Package: combstruct: combinatorial structures {{{2
 if exists("mv_combstruct")
   syn keyword mvPkg_combstruct	allstructs	draw	iterstructs	options	specification	structures
   syn keyword mvPkg_combstruct	count	finished	nextstruct
 endif
 
-" Package: difforms: differential forms
+" Package: difforms: differential forms {{{2
 if exists("mv_difforms")
   syn keyword mvPkg_difforms	const	defform	formpart	parity	scalarpart	wdegree
   syn keyword mvPkg_difforms	d	form	mixpar	scalar	simpform	wedge
 endif
 
-" Package: finance: financial mathematics
+" Package: finance: financial mathematics {{{2
 if exists("mv_finance")
   syn keyword mvPkg_finance	amortization	cashflows	futurevalue	growingperpetuity	mv_finance	presentvalue
   syn keyword mvPkg_finance	annuity	effectiverate	growingannuity	levelcoupon	perpetuity	yieldtomaturity
   syn keyword mvPkg_finance	blackscholes
 endif
 
-" Package: genfunc: rational generating functions
+" Package: genfunc: rational generating functions {{{2
 if exists("mv_genfunc")
   syn keyword mvPkg_genfunc	rgf_charseq	rgf_expand	rgf_hybrid	rgf_pfrac	rgf_sequence	rgf_term
   syn keyword mvPkg_genfunc	rgf_encode	rgf_findrecur	rgf_norm	rgf_relate	rgf_simp	termscale
 endif
 
-" Package: geometry: Euclidean geometry
+" Package: geometry: Euclidean geometry {{{2
 if exists("mv_geometry")
   syn keyword mvPkg_geometry	circle	dsegment	hyperbola	parabola	segment	triangle
   syn keyword mvPkg_geometry	conic	ellipse	line	point	square
 endif
 
-" Package: grobner: Grobner bases
+" Package: grobner: Grobner bases {{{2
 if exists("mv_grobner")
   syn keyword mvPkg_grobner	finduni	gbasis	leadmon	normalf	solvable	spoly
   syn keyword mvPkg_grobner	finite	gsolve
 endif
 
-" Package: group: permutation and finitely-presented groups
+" Package: group: permutation and finitely-presented groups {{{2
 if exists("mv_group")
   syn keyword mvPkg_group	DerivedS	areconjugate	cosets	grouporder	issubgroup	permrep
   syn keyword mvPkg_group	LCS	center	cosrep	inter	mulperms	pres
@@ -324,13 +372,13 @@ if exists("mv_group")
   syn keyword mvPkg_group	Sylow	core	groupmember	isnormal	permgroup
 endif
 
-" Package: inttrans: integral transforms
+" Package: inttrans: integral transforms {{{2
 if exists("mv_inttrans")
   syn keyword mvPkg_inttrans	addtable	fouriercos	hankel	invfourier	invlaplace	mellin
   syn keyword mvPkg_inttrans	fourier	fouriersin	hilbert	invhilbert	laplace
 endif
 
-" Package: liesymm: Lie symmetries
+" Package: liesymm: Lie symmetries {{{2
 if exists("mv_liesymm")
   syn keyword mvPkg_liesymm	&^	TD	depvars	getform	mixpar	vfix
   syn keyword mvPkg_liesymm	&mod	annul	determine	hasclosure	prolong	wcollect
@@ -339,7 +387,7 @@ if exists("mv_liesymm")
   syn keyword mvPkg_liesymm	Lrank	d	getcoeff	makeforms	translate	wsubs
 endif
 
-" Package: linalg: Linear algebra
+" Package: linalg: Linear algebra {{{2
 if exists("mv_linalg")
   syn keyword mvPkg_linalg	GramSchmidt	coldim	equal	indexfunc	mulcol	singval
   syn keyword mvPkg_linalg	JordanBlock	colspace	exponential	innerprod	multiply	smith
@@ -361,13 +409,13 @@ if exists("mv_linalg")
   syn keyword mvPkg_linalg	col	entermatrix	ihermite
 endif
 
-" Package: logic: Boolean logic
+" Package: logic: Boolean logic {{{2
 if exists("mv_logic")
   syn keyword mvPkg_logic	MOD2	bsimp	distrib	environ	randbool	tautology
   syn keyword mvPkg_logic	bequal	canon	dual	frominert	satisfy	toinert
 endif
 
-" Package: networks: graph networks
+" Package: networks: graph networks {{{2
 if exists("mv_networks")
   syn keyword mvPkg_networks	acycpoly	connect	dinic	graph	mincut	show
   syn keyword mvPkg_networks	addedge	connectivity	djspantree	graphical	mindegree	shrink
@@ -384,14 +432,14 @@ if exists("mv_networks")
   syn keyword mvPkg_networks	components	diameter	girth
 endif
 
-" Package: numapprox: numerical approximation
+" Package: numapprox: numerical approximation {{{2
 if exists("mv_numapprox")
   syn keyword mvPkg_numapprox	chebdeg	chebsort	fnorm	laurent	minimax	remez
   syn keyword mvPkg_numapprox	chebmult	chebyshev	hornerform	laurent	pade	taylor
   syn keyword mvPkg_numapprox	chebpade	confracform	infnorm	minimax
 endif
 
-" Package: numtheory: number theory
+" Package: numtheory: number theory {{{2
 if exists("mv_numtheory")
   syn keyword mvPkg_numtheory	B	cyclotomic	invcfrac	mcombine	nthconver	primroot
   syn keyword mvPkg_numtheory	F	divisors	invphi	mersenne	nthdenom	quadres
@@ -405,18 +453,18 @@ if exists("mv_numtheory")
   syn keyword mvPkg_numtheory	cfracpol	index	legendre	nextprime
 endif
 
-" Package: orthopoly: orthogonal polynomials
+" Package: orthopoly: orthogonal polynomials {{{2
 if exists("mv_orthopoly")
   syn keyword mvPkg_orthopoly	G	H	L	P	T	U
 endif
 
-" Package: padic: p-adic numbers
+" Package: padic: p-adic numbers {{{2
 if exists("mv_padic")
   syn keyword mvPkg_padic	evalp	function	orderp	ratvaluep	rootp	valuep
   syn keyword mvPkg_padic	expansion	lcoeffp	ordp
 endif
 
-" Package: plots: graphics package
+" Package: plots: graphics package {{{2
 if exists("mv_plots")
   syn keyword mvPkg_plots	animate	coordplot3d	gradplot3d	listplot3d	polarplot	setoptions3d
   syn keyword mvPkg_plots	animate3d	cylinderplot	implicitplot	loglogplot	polygonplot	spacecurve
@@ -429,7 +477,7 @@ if exists("mv_plots")
   syn keyword mvPkg_plots	coordplot
 endif
 
-" Package: plottools: basic graphical objects
+" Package: plottools: basic graphical objects {{{2
 if exists("mv_plottools")
   syn keyword mvPkg_plottools	arc	curve	dodecahedron	hyperbola	pieslice	semitorus
   syn keyword mvPkg_plottools	arrow	cutin	ellipse	icosahedron	point	sphere
@@ -438,7 +486,7 @@ if exists("mv_plottools")
   syn keyword mvPkg_plottools	cuboid	disk	hexahedron
 endif
 
-" Package: powseries: formal power series
+" Package: powseries: formal power series {{{2
 if exists("mv_powseries")
   syn keyword mvPkg_powseries	compose	multiply	powcreate	powlog	powsolve	reversion
   syn keyword mvPkg_powseries	evalpow	negative	powdiff	powpoly	powsqrt	subtract
@@ -446,25 +494,25 @@ if exists("mv_powseries")
   syn keyword mvPkg_powseries	multconst	powcos	powint	powsin
 endif
 
-" Package: process: (Unix)-multi-processing
+" Package: process: (Unix)-multi-processing {{{2
 if exists("mv_process")
   syn keyword mvPkg_process	block	fork	pclose	pipe	popen	wait
   syn keyword mvPkg_process	exec	kill
 endif
 
-" Package: simplex: linear optimization
+" Package: simplex: linear optimization {{{2
 if exists("mv_simplex")
   syn keyword mvPkg_simplex	NONNEGATIVE	cterm	dual	maximize	pivoteqn	setup
   syn keyword mvPkg_simplex	basis	define_zero	equality	minimize	pivotvar	standardize
   syn keyword mvPkg_simplex	convexhull	display	feasible	pivot	ratio
 endif
 
-" Package: stats: statistics
+" Package: stats: statistics {{{2
 if exists("mv_stats")
   syn keyword mvPkg_stats	anova	describe	fit	random	statevalf	statplots
 endif
 
-" Package: student: student calculus
+" Package: student: student calculus {{{2
 if exists("mv_student")
   syn keyword mvPkg_student	D	Product	distance	isolate	middlesum	rightsum
   syn keyword mvPkg_student	Diff	Sum	equate	leftbox	midpoint	showtangent
@@ -475,13 +523,13 @@ if exists("mv_student")
   syn keyword mvPkg_student	Point
 endif
 
-" Package: sumtools: indefinite and definite sums
+" Package: sumtools: indefinite and definite sums {{{2
 if exists("mv_sumtools")
   syn keyword mvPkg_sumtools	Hypersum	extended_gosper	hyperrecursion	hyperterm	sumrecursion	sumtohyper
   syn keyword mvPkg_sumtools	Sumtohyper	gosper	hypersum	simpcomb
 endif
 
-" Package: tensor: tensor computations and General Relativity
+" Package: tensor: tensor computations and General Relativity {{{2
 if exists("mv_tensor")
   syn keyword mvPkg_tensor	Christoffel1	Riemann	connexF	display_allGR	get_compts	partial_diff
   syn keyword mvPkg_tensor	Christoffel2	RiemannF	contract	dual	get_rank	permute_indices
@@ -494,14 +542,13 @@ if exists("mv_tensor")
   syn keyword mvPkg_tensor	Ricciscalar	conj	displayGR
 endif
 
-" Package: totorder: total orders on names
+" Package: totorder: total orders on names {{{2
 if exists("mv_totorder")
   syn keyword mvPkg_totorder	forget	init	ordering	tassume	tis
 endif
+" =====================================================================
 
-" ==  PACKAGES  =======================================================
-
-" Define the default highlighting.
+" Highlighting: Define the default highlighting. {{{1
 " For version 5.7 and earlier: only when not done already
 " For version 5.8 and later: only when an item doesn't have highlighting yet
 if version >= 508 || !exists("did_maplev_syntax_inits")
@@ -512,7 +559,7 @@ if version >= 508 || !exists("did_maplev_syntax_inits")
     command -nargs=+ HiLink hi def link <args>
   endif
 
-  " Maple->Maple Links
+  " Maple->Maple Links {{{2
   HiLink mvBraceError	mvError
   HiLink mvCurlyError	mvError
   HiLink mvDebug		mvTodo
@@ -550,8 +597,9 @@ if version >= 508 || !exists("did_maplev_syntax_inits")
   HiLink mvPkg_totorder	mvPkgFunc
   HiLink mvRange		mvOper
   HiLink mvSemiError	mvError
+  HiLink mvDelim		Delimiter
 
-  " Maple->Standard Links
+  " Maple->Standard Links {{{2
   HiLink mvAssign		Delimiter
   HiLink mvBool		Boolean
   HiLink mvComma		Delimiter
@@ -559,22 +607,25 @@ if version >= 508 || !exists("did_maplev_syntax_inits")
   HiLink mvCond		Conditional
   HiLink mvConstant		Number
   HiLink mvDelayEval	Label
+  HiLink mvDcolon		Delimiter
   HiLink mvError		Error
   HiLink mvLibrary		Statement
   HiLink mvNumber		Number
   HiLink mvOper		Operator
+  HiLink mvAssign		Delimiter
   HiLink mvPackage		Type
   HiLink mvPkgFunc		Function
   HiLink mvPktOption	Special
   HiLink mvRepeat		Repeat
   HiLink mvSpecial		Special
   HiLink mvStatement	Statement
+  HiLink mvName		String
   HiLink mvString		String
   HiLink mvTodo		Todo
 
   delcommand HiLink
 endif
 
+" Current Syntax: {{{1
 let b:current_syntax = "maple"
-
-" vim: ts=20
+" vim: ts=20 fdm=marker

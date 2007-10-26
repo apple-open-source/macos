@@ -321,7 +321,7 @@ mmap_heap_alloc(size_t *n)
     h = (Heap) mmap(NULL, *n, PROT_READ | PROT_WRITE,
 		    MMAP_FLAGS, -1, 0);
     if (h == ((Heap) -1)) {
-	zerr("fatal error: out of heap memory", NULL, 0);
+	zerr("fatal error: out of heap memory");
 	exit(1);
     }
 
@@ -329,6 +329,21 @@ mmap_heap_alloc(size_t *n)
 }
 #endif
 
+/* check whether a pointer is within a memory pool */
+
+/**/
+mod_export void *
+zheapptr(void *p)
+{
+    Heap h;
+    queue_signals();
+    for (h = heaps; h; h = h->next)
+	if ((char *)p >= arena(h) &&
+	    (char *)p + H_ISIZE < arena(h) + ARENA_SIZEOF(h))
+	    break;
+    unqueue_signals();
+    return (h ? p : 0);
+}
 
 /* allocate memory from the current memory pool */
 
@@ -566,7 +581,7 @@ zalloc(size_t size)
 	size = 1;
     queue_signals();
     if (!(ptr = (void *) malloc(size))) {
-	zerr("fatal error: out of memory", NULL, 0);
+	zerr("fatal error: out of memory");
 	exit(1);
     }
     unqueue_signals();
@@ -584,7 +599,7 @@ zshcalloc(size_t size)
 	size = 1;
     queue_signals();
     if (!(ptr = (void *) malloc(size))) {
-	zerr("fatal error: out of memory", NULL, 0);
+	zerr("fatal error: out of memory");
 	exit(1);
     }
     unqueue_signals();
@@ -608,7 +623,7 @@ zrealloc(void *ptr, size_t size)
 	if (size) {
 	    /* Do normal realloc */
 	    if (!(ptr = (void *) realloc(ptr, size))) {
-		zerr("fatal error: out of memory", NULL, 0);
+		zerr("fatal error: out of memory");
 		exit(1);
 	    }
 	    unqueue_signals();

@@ -35,7 +35,7 @@
 /*	VSTREAM *stream;
 /*	int	rec_type;
 /*	const char *data;
-/*	int	len;
+/*	ssize_t	len;
 /*
 /*	int	smtpd_proxy_rec_fprintf(stream, rec_type, format, ...)
 /*	VSTREAM *stream;
@@ -140,6 +140,10 @@
 #include <sys_defs.h>
 #include <ctype.h>
 
+#ifdef STRCASECMP_IN_STRINGS_H
+#include <strings.h>
+#endif
+
 /* Utility library. */
 
 #include <msg.h>
@@ -157,6 +161,8 @@
 #include <mail_params.h>
 #include <rec_type.h>
 #include <mail_proto.h>
+#include <mail_params.h>		/* null_format_string */
+#include <xtext.h>
 
 /* Application-specific. */
 
@@ -171,13 +177,15 @@
 #define SMTPD_PROXY_XFORWARD_PROTO (1<<2)	/* protocol */
 #define SMTPD_PROXY_XFORWARD_HELO  (1<<3)	/* client helo */
 #define SMTPD_PROXY_XFORWARD_IDENT (1<<4)	/* message identifier */
+#define SMTPD_PROXY_XFORWARD_DOMAIN (1<<5)	/* origin type */
 
  /*
   * SLMs.
   */
 #define STR(x)	vstring_str(x)
 #define LEN(x)	VSTRING_LEN(x)
-#define SMTPD_PROXY_CONNECT ((char *) 0)
+#define SMTPD_PROXY_CONNECT null_format_string
+#define STREQ(x, y)	(strcmp((x), (y)) == 0)
 
 /* smtpd_xforward_flush - flush forwarding information */
 
@@ -205,12 +213,20 @@ static int smtpd_xforward(SMTPD_STATE *state, VSTRING *buf, const char *name,
 #define CONSTR_LEN(s)	(sizeof(s) - 1)
 #define PAYLOAD_LIMIT	(512 - CONSTR_LEN("250 " XFORWARD_CMD "\r\n"))
 
-    /*
-     * How much space does this attribute need?
-     */
     if (!value_available)
 	value = XFORWARD_UNAVAILABLE;
-    new_len = strlen(name) + strlen(value) + 2;	/* SPACE name = value */
+
+    /*
+     * Encode the attribute value.
+     */
+    if (state->expand_buf == 0)
+	state->expand_buf = vstring_alloc(100);
+    xtext_quote(state->expand_buf, value, "");
+
+    /*
+     * How much space does this attribute need? SPACE name = value.
+     */
+    new_len = strlen(name) + strlen(STR(state->expand_buf)) + 2;
     if (new_len > PAYLOAD_LIMIT)
 	msg_warn("%s command payload %s=%.10s... exceeds SMTP protocol limit",
 		 XFORWARD_CMD, name, value);
@@ -221,7 +237,7 @@ static int smtpd_xforward(SMTPD_STATE *state, VSTRING *buf, const char *name,
     if (VSTRING_LEN(buf) > 0 && VSTRING_LEN(buf) + new_len > PAYLOAD_LIMIT)
 	if ((ret = smtpd_xforward_flush(state, buf)) < 0)
 	    return (ret);
-    vstring_sprintf_append(buf, " %s=%s", name, value);
+    vstring_sprintf_append(buf, " %s=%s", name, STR(state->expand_buf));
 
     return (0);
 }
@@ -243,8 +259,12 @@ int     smtpd_proxy_open(SMTPD_STATE *state, const char *service,
 	XFORWARD_ADDR, SMTPD_PROXY_XFORWARD_ADDR,
 	XFORWARD_PROTO, SMTPD_PROXY_XFORWARD_PROTO,
 	XFORWARD_HELO, SMTPD_PROXY_XFORWARD_HELO,
+	XFORWARD_DOMAIN, SMTPD_PROXY_XFORWARD_DOMAIN,
 	0, 0,
     };
+    CLEANUP_STAT_DETAIL *detail;
+    int     (*connect_fn) (const char *, int, int);
+    const char *endpoint;
 
     /*
      * This buffer persists beyond the end of a proxy session so we can
@@ -254,14 +274,30 @@ int     smtpd_proxy_open(SMTPD_STATE *state, const char *service,
 	state->proxy_buffer = vstring_alloc(10);
 
     /*
+     * Find connection method (default inet)
+     */
+    if (strncasecmp("unix:", service, 5) == 0) {
+	endpoint = service + 5;
+	connect_fn = unix_connect;
+    } else {
+	if (strncasecmp("inet:", service, 5) == 0)
+	    endpoint = service + 5;
+	else
+	    endpoint = service;
+	connect_fn = inet_connect;
+    }
+
+    /*
      * Connect to proxy.
      */
-    if ((fd = inet_connect(service, BLOCKING, timeout)) < 0) {
+    if ((fd = connect_fn(endpoint, BLOCKING, timeout)) < 0) {
 	state->error_mask |= MAIL_ERROR_SOFTWARE;
 	state->err |= CLEANUP_STAT_PROXY;
 	msg_warn("connect to proxy service %s: %m", service);
+	detail = cleanup_stat_detail(CLEANUP_STAT_PROXY);
 	vstring_sprintf(state->proxy_buffer,
-			"451 Error: queue file write error");
+			"%d %s Error: %s",
+			detail->smtp, detail->dsn, detail->text);
 	return (-1);
     }
     state->proxy = vstream_fdopen(fd, O_RDWR);
@@ -277,8 +313,10 @@ int     smtpd_proxy_open(SMTPD_STATE *state, const char *service,
      * that the client expects a MAIL FROM or RCPT TO reply.
      */
     if (smtpd_proxy_cmd(state, SMTPD_PROX_WANT_OK, SMTPD_PROXY_CONNECT) != 0) {
+	detail = cleanup_stat_detail(CLEANUP_STAT_PROXY);
 	vstring_sprintf(state->proxy_buffer,
-			"451 Error: queue file write error");
+			"%d %s Error: %s",
+			detail->smtp, detail->dsn, detail->text);
 	smtpd_proxy_close(state);
 	return (-1);
     }
@@ -291,8 +329,10 @@ int     smtpd_proxy_open(SMTPD_STATE *state, const char *service,
      * RCPT TO reply.
      */
     if (smtpd_proxy_cmd(state, SMTPD_PROX_WANT_OK, "EHLO %s", ehlo_name) != 0) {
+	detail = cleanup_stat_detail(CLEANUP_STAT_PROXY);
 	vstring_sprintf(state->proxy_buffer,
-			"451 Error: queue file write error");
+			"%d %s Error: %s",
+			detail->smtp, detail->dsn, detail->text);
 	smtpd_proxy_close(state);
 	return (-1);
     }
@@ -318,27 +358,38 @@ int     smtpd_proxy_open(SMTPD_STATE *state, const char *service,
     if (state->proxy_xforward_features) {
 	buf = vstring_alloc(100);
 	bad = 0;
-	if ((state->proxy_xforward_features & SMTPD_PROXY_XFORWARD_NAME)
-	    && !(bad = smtpd_xforward(state, buf, XFORWARD_NAME,
-				  IS_AVAIL_CLIENT_NAME(FORWARD_NAME(state)),
-				      FORWARD_NAME(state)))
-	    && (state->proxy_xforward_features & SMTPD_PROXY_XFORWARD_ADDR)
-	    && !(bad = smtpd_xforward(state, buf, XFORWARD_ADDR,
-				  IS_AVAIL_CLIENT_ADDR(FORWARD_ADDR(state)),
-				      FORWARD_ADDR(state)))
-	    && (state->proxy_xforward_features & SMTPD_PROXY_XFORWARD_HELO)
-	    && !(bad = smtpd_xforward(state, buf, XFORWARD_HELO,
-				  IS_AVAIL_CLIENT_HELO(FORWARD_HELO(state)),
-				      FORWARD_HELO(state)))
-	    && (state->proxy_xforward_features & SMTPD_PROXY_XFORWARD_PROTO)
-	    && !(bad = smtpd_xforward(state, buf, XFORWARD_PROTO,
-				IS_AVAIL_CLIENT_PROTO(FORWARD_PROTO(state)),
-				      FORWARD_PROTO(state))))
+	if (state->proxy_xforward_features & SMTPD_PROXY_XFORWARD_NAME)
+	    bad = smtpd_xforward(state, buf, XFORWARD_NAME,
+				 IS_AVAIL_CLIENT_NAME(FORWARD_NAME(state)),
+				 FORWARD_NAME(state));
+	if (bad == 0
+	    && (state->proxy_xforward_features & SMTPD_PROXY_XFORWARD_ADDR))
+	    bad = smtpd_xforward(state, buf, XFORWARD_ADDR,
+				 IS_AVAIL_CLIENT_ADDR(FORWARD_ADDR(state)),
+				 FORWARD_ADDR(state));
+	if (bad == 0
+	    && (state->proxy_xforward_features & SMTPD_PROXY_XFORWARD_HELO))
+	    bad = smtpd_xforward(state, buf, XFORWARD_HELO,
+				 IS_AVAIL_CLIENT_HELO(FORWARD_HELO(state)),
+				 FORWARD_HELO(state));
+	if (bad == 0
+	    && (state->proxy_xforward_features & SMTPD_PROXY_XFORWARD_PROTO))
+	    bad = smtpd_xforward(state, buf, XFORWARD_PROTO,
+				 IS_AVAIL_CLIENT_PROTO(FORWARD_PROTO(state)),
+				 FORWARD_PROTO(state));
+	if (bad == 0
+	  && (state->proxy_xforward_features & SMTPD_PROXY_XFORWARD_DOMAIN))
+	    bad = smtpd_xforward(state, buf, XFORWARD_DOMAIN, 1,
+			 STREQ(FORWARD_DOMAIN(state), MAIL_ATTR_RWR_LOCAL) ?
+				 XFORWARD_DOM_LOCAL : XFORWARD_DOM_REMOTE);
+	if (bad == 0)
 	    bad = smtpd_xforward_flush(state, buf);
 	vstring_free(buf);
 	if (bad) {
+	    detail = cleanup_stat_detail(CLEANUP_STAT_PROXY);
 	    vstring_sprintf(state->proxy_buffer,
-			    "451 Error: queue file write error");
+			    "%d %s Error: %s",
+			    detail->smtp, detail->dsn, detail->text);
 	    smtpd_proxy_close(state);
 	    return (-1);
 	}
@@ -402,19 +453,21 @@ int     smtpd_proxy_cmd(SMTPD_STATE *state, int expect, const char *fmt,...)
     int     last_char;
     int     err = 0;
     static VSTRING *buffer = 0;
+    CLEANUP_STAT_DETAIL *detail;
 
     /*
      * Errors first. Be prepared for delayed errors from the DATA phase.
      */
-    if (vstream_ftimeout(state->proxy)
-	|| vstream_ferror(state->proxy)
+    if (vstream_ferror(state->proxy)
 	|| vstream_feof(state->proxy)
-	|| ((err = vstream_setjmp(state->proxy) != 0)
+	|| ((err = vstream_setjmp(state->proxy)) != 0
 	    && smtpd_proxy_rdwr_error(state->proxy, err))) {
 	state->error_mask |= MAIL_ERROR_SOFTWARE;
 	state->err |= CLEANUP_STAT_PROXY;
+	detail = cleanup_stat_detail(CLEANUP_STAT_PROXY);
 	vstring_sprintf(state->proxy_buffer,
-			"451 Error: queue file write error");
+			"%d %s Error: %s",
+			detail->smtp, detail->dsn, detail->text);
 	return (-1);
     }
 
@@ -518,15 +571,14 @@ int     smtpd_proxy_cmd(SMTPD_STATE *state, int expect, const char *fmt,...)
 /* smtpd_proxy_rec_put - send message content, rec_put() clone */
 
 int     smtpd_proxy_rec_put(VSTREAM *stream, int rec_type,
-			            const char *data, int len)
+			            const char *data, ssize_t len)
 {
     int     err;
 
     /*
      * Errors first.
      */
-    if (vstream_ftimeout(stream) || vstream_ferror(stream)
-	|| vstream_feof(stream))
+    if (vstream_ferror(stream) || vstream_feof(stream))
 	return (REC_TYPE_ERROR);
     if ((err = vstream_setjmp(stream)) != 0)
 	return (smtpd_proxy_rdwr_error(stream, err), REC_TYPE_ERROR);
@@ -554,8 +606,7 @@ int     smtpd_proxy_rec_fprintf(VSTREAM *stream, int rec_type,
     /*
      * Errors first.
      */
-    if (vstream_ftimeout(stream) || vstream_ferror(stream)
-	|| vstream_feof(stream))
+    if (vstream_ferror(stream) || vstream_feof(stream))
 	return (REC_TYPE_ERROR);
     if ((err = vstream_setjmp(stream)) != 0)
 	return (smtpd_proxy_rdwr_error(stream, err), REC_TYPE_ERROR);

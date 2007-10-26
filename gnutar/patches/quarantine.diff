@@ -1,0 +1,157 @@
+--- src/buffer.c.orig	2007-03-21 15:45:52.000000000 -0700
++++ src/buffer.c	2007-03-21 17:50:54.000000000 -0700
+@@ -368,6 +368,36 @@
+   return result;
+ }
+ 
++void
++init_qtn(const char *file_name)
++{
++	int fd;
++
++	if (strcmp(file_name, "-") == 0)
++		return;
++
++	if ((fd = open(file_name, O_RDONLY)) < 0)
++		return;
++
++	if ((archive_qtn_file = qtn_file_alloc()) != NULL) {
++		if (qtn_file_init_with_fd(archive_qtn_file, fd) != 0) {
++			qtn_file_free(archive_qtn_file);
++			archive_qtn_file = NULL;
++		}
++	}
++
++	close(fd);
++}
++
++void
++finish_qtn(void)
++{
++	if (archive_qtn_file != NULL) {
++		qtn_file_free(archive_qtn_file);
++		archive_qtn_file = NULL;
++	}
++}
++
+ /* Open an archive file.  The argument specifies whether we are
+    reading or writing, or both.  */
+ void
+@@ -508,6 +538,7 @@
+   sys_detect_dev_null_output ();
+   sys_save_archive_dev_ino ();
+   SET_BINARY_MODE (archive);
++  init_qtn(archive_name_array[0]);
+ 
+   switch (wanted_access)
+     {
+@@ -1093,6 +1124,8 @@
+   if (real_s_name)
+     free (real_s_name);
+   free (record_buffer);
++
++  finish_qtn();
+ }
+ 
+ /* Called to initialize the global volume number.  */
+--- src/common.h.orig	2007-03-21 15:44:30.000000000 -0700
++++ src/common.h	2007-03-21 15:59:30.000000000 -0700
+@@ -20,6 +20,8 @@
+ /* Declare the GNU tar archive format.  */
+ #include "tar.h"
+ 
++#include <quarantine.h>
++
+ /* The checksum field is filled with this while the checksum is computed.  */
+ #define CHKBLANKS	"        "	/* 8 blanks, no null */
+ 
+@@ -283,6 +285,7 @@
+ 
+ /* File descriptor for archive file.  */
+ GLOBAL int archive;
++GLOBAL qtn_file_t archive_qtn_file;
+ 
+ /* Nonzero when outputting to /dev/null.  */
+ GLOBAL bool dev_null_output;
+--- src/extract.c.orig	2004-12-21 01:55:12.000000000 -0800
++++ src/extract.c	2007-06-28 14:56:41.000000000 -0700
+@@ -360,6 +360,46 @@
+ 	  quotearg_colon (dir)));
+ }
+ 
++void
++apply_qtn(int fd)
++{
++	int stat_ok;
++	struct stat sb;
++	int qstatus;
++
++	if (archive_qtn_file != NULL) {
++		stat_ok = (fstat(fd, &sb) == 0);
++
++		if (stat_ok) fchmod(fd, sb.st_mode | S_IWUSR);
++		qstatus = qtn_file_apply_to_fd(archive_qtn_file, fd);
++		if (stat_ok) fchmod(fd, sb.st_mode);
++
++		if (qstatus) {
++			warnx("qtn_file_apply_to_fd: %s", qtn_error(qstatus));
++		}
++	}
++}
++
++void
++apply_qtn_to_path(char *path)
++{
++	int stat_ok;
++	struct stat sb;
++	int qstatus;
++
++	if (archive_qtn_file != NULL) {
++		stat_ok = (stat(path, &sb) == 0);
++
++		if (stat_ok) chmod(path, sb.st_mode | S_IWUSR);
++		qstatus = qtn_file_apply_to_path(archive_qtn_file, path);
++		if (stat_ok) chmod(path, sb.st_mode);
++
++		if (qstatus) {
++			warnx("qtn_file_apply_to_path: %s", qtn_error(qstatus));
++		}
++	}
++}
++
+ /* After a file/link/symlink/directory creation has failed, see if
+    it's because some required directory was not present, and if so,
+    create all required directories.  Return non-zero if a directory
+@@ -400,6 +440,8 @@
+ 
+       if (status == 0)
+ 	{
++	  apply_qtn_to_path(file_name);
++
+ 	  /* Create a struct delayed_set_stat even if
+ 	     invert_permissions is zero, because
+ 	     repair_delayed_set_stat may need to update the struct.  */
+@@ -739,6 +781,8 @@
+ 	}
+ 
+     extract_file:
++      apply_qtn(fd);
++
+       if (current_stat_info.is_sparse)
+ 	{
+ 	  sparse_extract_file (fd, &current_stat_info, &size);
+@@ -1088,11 +1132,14 @@
+       if (status == 0
+ 	  || old_files_option == DEFAULT_OLD_FILES
+ 	  || old_files_option == OVERWRITE_OLD_FILES)
++      {
++	apply_qtn_to_path(file_name);
+ 	delay_set_stat (file_name, &current_stat_info.stat,
+ 			MODE_RWX & (mode ^ current_stat_info.stat.st_mode),
+ 			(status == 0
+ 			 ? ARCHIVED_PERMSTATUS
+ 			 : UNKNOWN_PERMSTATUS));
++      }
+       break;
+ 
+     case GNUTYPE_VOLHDR:

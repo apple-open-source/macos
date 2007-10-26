@@ -7,6 +7,8 @@ prefix = SYS$DATA:[
 exec_prefix = $(prefix)
 bindir = $(exec_prefix).bin
 includedir = $(prefix).include
+datadir = $(prefix).share
+localedir = $(datadir).locale
 
 # Programs used by "make":
 
@@ -21,7 +23,7 @@ WARN_CFLAGS = /warning
 OPTIMFLAGS = /optimize
 
 CFLAGS = $(ABIFLAGS) $(WARN_CFLAGS) $(OPTIMFLAGS)
-DEFS = "VMS=1","ENABLE_NLS=1"
+DEFS = "VMS=1","ENABLE_NLS=1","LOCALEDIR=""$(localedir)]"""
 
 INCLUDES = /include=([],[-],[-.include],[-.srclib],[-.lib],$(includedir)])
 
@@ -38,10 +40,10 @@ all : iconv.exe
 	write sys$output "Nothing else to be done for 'all'."
 
 iconv.obj : iconv.c
-	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) iconv.c
+	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS),"INSTALLPREFIX=""$(prefix)]""","INSTALLDIR=""$(bindir)]""") iconv.c
 
-iconv.exe : iconv.obj [-.lib]iconv.olb
-	link /executable=iconv.exe iconv.obj,$(libdir)]intl.olb,[-.lib]iconv.olb
+iconv.exe : iconv.obj [-.srclib]icrt.olb [-.lib]iconv.olb
+	link /executable=iconv.exe iconv.obj,$(libdir)]intl.olb/lib,[-.srclib]icrt.olb/lib,[-.lib]iconv.olb/lib,[-.vms]link_options.opt
 
 install : all
 	create /directory $(prefix)]

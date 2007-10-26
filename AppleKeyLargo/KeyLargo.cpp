@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -180,7 +180,7 @@ void KeyLargo::writeRegUInt8(unsigned long offset, UInt8 data)
 
 void KeyLargo::safeWriteRegUInt8(unsigned long offset, UInt8 mask, UInt8 data)
 {
-	IOInterruptState intState;
+	IOInterruptState intState = NULL;
 
 	if ( mutex  != NULL )
 		intState = IOSimpleLockLockDisableInterrupt(mutex);
@@ -197,7 +197,7 @@ void KeyLargo::safeWriteRegUInt8(unsigned long offset, UInt8 mask, UInt8 data)
 
 UInt8 KeyLargo::safeReadRegUInt8(unsigned long offset)
 {
-	IOInterruptState intState;
+	IOInterruptState intState = NULL;
 
 	if ( mutex  != NULL )
 		intState = IOSimpleLockLockDisableInterrupt(mutex);
@@ -219,13 +219,14 @@ void KeyLargo::writeRegUInt32(unsigned long offset, UInt32 data)
 {
 	stwbrx(data, keyLargoBaseAddress + offset);
 	eieio();
+	sync();
 	
 	return;
 }
 
 UInt32 KeyLargo::safeReadRegUInt32(unsigned long offset)
 {
-	IOInterruptState intState;
+	IOInterruptState intState = NULL;
 
 	if ( mutex  != NULL )
 		intState = IOSimpleLockLockDisableInterrupt(mutex);
@@ -302,7 +303,7 @@ void KeyLargo::restoreVIAState(UInt8* savedK2ViaState)
  */
 void KeyLargo::AdjustBusSpeeds ( void )
   {
-	IOInterruptState 	is;
+	IOInterruptState 	is = NULL;
 	IOSimpleLock		*intLock;
 	UInt32				ticks;
 	UInt64				systemBusHz;

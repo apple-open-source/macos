@@ -1,0 +1,12 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {boldClicked = id; italicClicked = id; savePDF = id; }; 
+            CLASS = BigLetterView; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSView; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }
+    ); 
+    IBVersion = 1; 
+}

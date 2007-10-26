@@ -54,4 +54,3 @@ protected:
 
 #endif /* !_MSCERROR_H_ */
 
-/* arch-tag: 9524FA06-BE68-11D8-A32B-000A95C4302E */

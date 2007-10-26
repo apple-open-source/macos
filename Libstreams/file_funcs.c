@@ -168,6 +168,7 @@ static void file_close(register NXStream *s)
  *	open a stream using a file descriptor.
  */
 
+__private_extern__
 NXStream *NXOpenFile(int fd, int mode)
 {
     NXStream       *s;

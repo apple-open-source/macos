@@ -3,24 +3,22 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2004-11-29</string>
+	<string>2007-04-04</string>
 	<key>OpenSourceLicense</key>
 	<string>IBM PUBLIC LICENSE VERSION 1.0 - SECURE MAILER</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>postfix.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>tls patch: pfixtls-0.8.18-2.1.3-0.9.7d</string>
-		<string>modifications to allow for Open Directory authentication</string>
+		<string>Apple added modifications for Open Directory auto-forwarding integration</string>
+		<string>Apple added modifications to allow for Open Directory authentication for SMTP relay</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>Postfix</string>
-	<key>OpenSourceSHA1</key>
-	<string>SHA1(postfix-2.1.5.tar.gz)= bbc65c9fdc1cbd8e553816a5549b2685255cf69d</string>
 	<key>OpenSourceURL</key>
-	<string>http://mirrors.isc.org/pub/postfix/official/postfix-2.1.5.tar.gz</string>
+	<string>http://postfix.energybeam.com/source/official/postfix-2.4.3.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>postfix-2.1.5</string>
+	<string>postfix-2.4.3</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.postfix.org</string>
 </dict>

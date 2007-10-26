@@ -52,7 +52,7 @@ natural_t percent;
 int	delay;
 char	*pgmname;
 mach_port_t myHost;
-int pageSize = 4096; 	/* set to 4k default */
+vm_size_t pageSize = 4096; 	/* set to 4k default */
 
 void usage(void);
 void banner(void);
@@ -182,7 +182,7 @@ print_stats(void)
 void
 get_stats(struct vm_statistics *stat)
 {
-	int count = HOST_VM_INFO_COUNT;
+	unsigned int count = HOST_VM_INFO_COUNT;
 	if (host_statistics(myHost, HOST_VM_INFO, (host_info_t)stat, &count) != KERN_SUCCESS) {
 		fprintf(stderr, "%s: failed to get statistics.\n", pgmname);
 		exit(EXIT_FAILURE);

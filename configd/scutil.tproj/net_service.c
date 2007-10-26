@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@
 #include "net_service.h"
 #include "net_interface.h"
 #include "net_protocol.h"
+#include "prefs.h"
 
 
 /* -------------------- */
@@ -242,8 +243,6 @@ create_service(int argc, char **argv)
 	SCNetworkInterfaceRef	interface;
 	CFStringRef		interfaceName;
 	Boolean			ok;
-	CFArrayRef		order;
-	CFMutableArrayRef	newOrder;
 	SCNetworkServiceRef	service		= NULL;
 	CFStringRef		serviceName;
 	CFStringRef		setName;
@@ -298,54 +297,20 @@ create_service(int argc, char **argv)
 		ok = SCNetworkServiceSetName(service, serviceName);
 		CFRelease(serviceName);
 		if (!ok) {
-			SCPrint(TRUE, stdout, CFSTR("service not created: %s\n"), SCErrorString(SCError()));
-			CFRelease(service);
-			return;
+			SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+			(void)SCNetworkServiceRemove(service);
+			goto done;
 		}
 	}
 
 	ok = SCNetworkSetAddService(net_set, service);
 	if (!ok) {
-		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+		SCPrint(TRUE, stdout, CFSTR("service not created: %s\n"), SCErrorString(SCError()));
 		(void)SCNetworkServiceRemove(service);
 		goto done;
 	}
 
-	net_changed = TRUE;
-
-	order = SCNetworkSetGetServiceOrder(net_set);
-	if (order == NULL) {
-		newOrder = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	} else {
-		newOrder = CFArrayCreateMutableCopy(NULL, 0, order);
-	}
-	CFArrayAppendValue(newOrder, SCNetworkServiceGetServiceID(service));
-	ok = SCNetworkSetSetServiceOrder(net_set, newOrder);
-	CFRelease(newOrder);
-	if (!ok) {
-		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
-		(void)SCNetworkServiceRemove(service);
-		goto done;
-	}
-
-	interfaceName = SCNetworkInterfaceGetLocalizedDisplayName(interface);
-	if (interfaceName == NULL) {
-		interfaceName = SCNetworkInterfaceGetBSDName(interface);
-	}
-	if (interfaceName != NULL) {
-		if (!SCNetworkServiceSetName(service, interfaceName)) {
-			CFIndex		i;
-
-			for (i = 2; i < 100; i++) {
-				serviceName = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ %d"), interfaceName, i);
-				ok = SCNetworkServiceSetName(service, serviceName);
-				CFRelease(serviceName);
-				if (ok) {
-					break;
-				}
-			}
-		}
-	}
+	_prefs_changed = TRUE;
 
 	if (net_service != NULL) CFRelease(net_service);
 	net_service = CFRetain(service);
@@ -434,8 +399,7 @@ disable_service(int argc, char **argv)
 		return;
 	}
 
-	net_changed = TRUE;
-
+	_prefs_changed = TRUE;
 	return;
 }
 
@@ -466,8 +430,7 @@ enable_service(int argc, char **argv)
 		return;
 	}
 
-	net_changed = TRUE;
-
+	_prefs_changed = TRUE;
 	return;
 }
 
@@ -498,7 +461,7 @@ remove_service(int argc, char **argv)
 		goto done;
 	}
 
-	net_changed = TRUE;
+	_prefs_changed = TRUE;
 
 	serviceName = SCNetworkServiceGetName(service);
 	if (serviceName != NULL) {
@@ -655,7 +618,7 @@ set_service(int argc, char **argv)
 				return;
 			}
 
-			net_changed = TRUE;
+			_prefs_changed = TRUE;
 		} else if (strcmp(command, "order") == 0) {
 
 			char		*end;
@@ -718,7 +681,7 @@ set_service(int argc, char **argv)
 						return;
 					}
 
-					net_changed = TRUE;
+					_prefs_changed = TRUE;
 				} else {
 					SCPrint(TRUE, stdout, CFSTR("set order to what?\n"));
 					return;

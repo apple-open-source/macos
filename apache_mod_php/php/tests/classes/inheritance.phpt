@@ -1,15 +1,13 @@
 --TEST--
 Classes inheritance test
---POST--
---GET--
 --FILE--
 <?php 
 
 /* Inheritance test.  Pretty nifty if I do say so myself! */
 
 class foo {
-  var $a;
-  var $b;
+  public $a;
+  public $b;
   function display() {
   	echo "This is class foo\n";
     echo "a = ".$this->a."\n";
@@ -21,7 +19,7 @@ class foo {
 };
 
 class bar extends foo {
-  var $c;
+  public $c;
   function display() {  /* alternative display function for class bar */
     echo "This is class bar\n";
     echo "a = ".$this->a."\n";

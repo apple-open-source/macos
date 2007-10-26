@@ -60,10 +60,12 @@ static void add_interface(struct in_addr ip, struct in_addr nmask)
 		return;
 	}
 
+#if !defined(__s390__)
 	if (ip_equal(nmask, allones_ip)) {
 		DEBUG(3,("not adding non-broadcast interface %s\n",inet_ntoa(ip)));
 		return;
 	}
+#endif
 
 	iface = SMB_MALLOC_P(struct interface);
 	if (!iface) return;
@@ -185,7 +187,11 @@ void load_interfaces(void)
 	total_probed = get_interfaces(ifaces, MAX_INTERFACES);
 
 	if (total_probed > 0) {
-		probed_ifaces = memdup(ifaces, sizeof(ifaces[0])*total_probed);
+		probed_ifaces = (struct iface_struct *)memdup(ifaces, sizeof(ifaces[0])*total_probed);
+		if (!probed_ifaces) {
+			DEBUG(0,("ERROR: memdup failed\n"));
+			exit(1);
+		}
 	}
 
 	/* if we don't have a interfaces line then use all broadcast capable 
@@ -196,7 +202,10 @@ void load_interfaces(void)
 			exit(1);
 		}
 		for (i=0;i<total_probed;i++) {
-			if (probed_ifaces[i].netmask.s_addr != allones_ip.s_addr &&
+			if (
+#if !defined(__s390__)
+			    probed_ifaces[i].netmask.s_addr != allones_ip.s_addr &&
+#endif
 			    probed_ifaces[i].ip.s_addr != loopback_ip.s_addr) {
 				add_interface(probed_ifaces[i].ip, 
 					      probed_ifaces[i].netmask);
@@ -221,6 +230,18 @@ void load_interfaces(void)
 	}
 }
 
+
+void gfree_interfaces(void)
+{
+	while (local_interfaces) {
+		struct interface *iface = local_interfaces;
+		DLIST_REMOVE(local_interfaces, local_interfaces);
+		ZERO_STRUCTPN(iface);
+		SAFE_FREE(iface);
+	}
+
+	SAFE_FREE(probed_ifaces);
+}
 
 /****************************************************************************
 return True if the list of probed interfaces has changed

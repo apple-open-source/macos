@@ -23,21 +23,27 @@
 
 
 //
-//
+// notifications - handling of securityd-gated notification messages
 //
 #ifndef _H_NOTIFICATIONS
 #define _H_NOTIFICATIONS
 
 #include <security_utilities/mach++.h>
+#include <security_utilities/machserver.h>
 #include <security_utilities/globalizer.h>
 #include <securityd_client/ssclient.h>
 #include <map>
+#include <queue>
+
+#include "SharedMemoryServer.h"
 
 using MachPlusPlus::Port;
+using MachPlusPlus::MachServer;
 using SecurityServer::NotificationDomain;
 using SecurityServer::NotificationEvent;
 using SecurityServer::NotificationMask;
 
+class SharedMemoryListener;
 
 //
 // A registered receiver of notifications.
@@ -56,20 +62,18 @@ using SecurityServer::NotificationMask;
 // If you need another Listener lifetime management strategy, you will probably
 // have to change things around here.
 //
-class Listener {
+class Listener: public RefCount {
 public:
-	Listener(Port port, NotificationDomain domain, NotificationMask events);
-	Listener(NotificationDomain domain, NotificationMask events);	
+	Listener(NotificationDomain domain, NotificationMask events,
+		mach_port_t port = MACH_PORT_NULL);	
 	virtual ~Listener();
 
 	// inject an event into the notification system
     static void notify(NotificationDomain domain,
 		NotificationEvent event, const CssmData &data);
+    static void notify(NotificationDomain domain,
+		NotificationEvent event, uint32 sequence, const CssmData &data);
     static bool remove(Port port);
-	
-	// consume an event for this Listener
-	virtual void notifyMe(NotificationDomain domain,
-		NotificationEvent event, const CssmData &data) = 0;
 
     const NotificationDomain domain;
     const NotificationMask events;
@@ -78,37 +82,59 @@ public:
 	{ return (1 << event) & events; }
 
 protected:
-    Port mPort;
+	class Notification : public RefCount {
+	public:
+		Notification(NotificationDomain domain, NotificationEvent event,
+			uint32 seq, const CssmData &data);
+		virtual ~Notification();
+		
+		const NotificationDomain domain;
+		const NotificationEvent event;
+		const uint32 sequence;
+		const CssmAutoData data;
+		
+		size_t size() const
+		{ return data.length(); }	//@@@ add "slop" here for heuristic?
+	};
+	
+	virtual void notifyMe(Notification *message) = 0;
+	
+public:
+	class JitterBuffer {
+	public:
+		JitterBuffer() : mNotifyLast(0) { }
 
+		bool inSequence(Notification *message);
+		RefPointer<Notification> popNotification();
+		
+	private:
+		uint32 mNotifyLast;		// last notification seq processed
+		typedef std::map<uint32, RefPointer<Notification> > JBuffer;
+		JBuffer mBuffer;		// early messages buffer
+	};
+	
 private:
-	void setup();
+	static void Listener::sendNotification(Notification *message);
     
 private:
-    typedef multimap<mach_port_t, Listener *> ListenerMap;
+    typedef multimap<mach_port_t, RefPointer<Listener> > ListenerMap;
     static ListenerMap listeners;
     static Mutex setLock;
 };
 
 
-//
-// A registered receiver of notifications.
-// Each one is for a particular database (or all), set of events,
-// and to a particular Mach port. A process may have any number
-// of listeners, each independent; so that multiple notifications can
-// be sent to the same process if it registers repeatedly.
-//
-class Process;
 
-class ProcessListener : public Listener {
+class SharedMemoryListener : public Listener, public SharedMemoryServer, public Security::MachPlusPlus::MachServer::Timer
+{
+protected:
+	virtual void action ();
+	virtual void notifyMe(Notification *message);
+
+	bool mActive;
+
 public:
-    ProcessListener(Process &proc, Port receiver, NotificationDomain domain,
-		NotificationMask evs = SecurityServer::kNotificationAllEvents);
-
-    Process &process;
-    
-	void notifyMe(NotificationDomain domain,
-		NotificationEvent event, const CssmData &data);
+	SharedMemoryListener (const char* serverName, u_int32_t serverSize);
+	virtual ~SharedMemoryListener ();
 };
 
-
-#endif //_H_NOTIFICATIONS
+#endif

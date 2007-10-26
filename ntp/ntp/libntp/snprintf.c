@@ -1,5 +1,6 @@
 #include <config.h>
 
+#if !HAVE_SNPRINTF
 #include <sys/types.h>
 
 #ifdef __STDC__
@@ -8,6 +9,8 @@
 #include <varargs.h>
 #endif
 #include <stdio.h>
+
+#include "l_stdlib.h"
 
 #ifdef __STDC__
 int snprintf(char *str, size_t n, const char *fmt, ...)
@@ -41,11 +44,12 @@ int snprintf(str, n, fmt, va_alist)
 }
 
 int
-vsnprintf(str, n, fmt, ap)
-	char *str;
-	size_t n;
-	const char *fmt;
-	va_list ap;
+vsnprintf(
+	char *str,
+	size_t n,
+	const char *fmt,
+	va_list ap
+	)
 {
 #ifdef VSPRINTF_CHARSTAR
 	return (strlen(vsprintf(str, fmt, ap)));
@@ -53,3 +57,6 @@ vsnprintf(str, n, fmt, ap)
 	return (vsprintf(str, fmt, ap));
 #endif
 }
+#else
+int snprintf_bs;
+#endif

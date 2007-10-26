@@ -1,7 +1,9 @@
 #AUTOMAKE_OPTIONS = ../util/ansi2knr no-dependencies
 AUTOMAKE_OPTIONS = ../util/ansi2knr
 ETAGS_ARGS = $(srcdir)/Makefile.am
-#EXTRA_DIST = TAGS
+EXTRA_DIST = version.def
+
+SUBDIRS = isc
 
 noinst_HEADERS = \
 	adjtime.h \
@@ -17,7 +19,6 @@ noinst_HEADERS = \
 	iosignal.h \
 	l_stdlib.h \
 	mbg_gps166.h \
-	md5.h \
 	mx4200.h \
 	ntif.h \
 	ntp.h \
@@ -33,10 +34,14 @@ noinst_HEADERS = \
 	ntp_io.h \
 	ntp_machine.h \
 	ntp_malloc.h \
+	ntp_md5.h \
 	ntp_proto.h \
+	ntp_random.h \
 	ntp_refclock.h \
 	ntp_request.h \
+	ntp_rfc2553.h \
 	ntp_select.h \
+	ntp_sprintf.h \
 	ntp_stdlib.h \
 	ntp_string.h \
 	ntp_syscall.h \
@@ -45,9 +50,13 @@ noinst_HEADERS = \
 	ntp_types.h \
 	ntp_unixtime.h \
 	ntpd.h \
+	ntpsim.h \
 	parse.h \
 	parse_conf.h \
 	recvbuff.h \
+	rsa_md5.h \
+	timepps-SCO.h	\
+	timepps-Solaris.h	\
+	timepps-SunOS.h	\
 	trimble.h
-
 

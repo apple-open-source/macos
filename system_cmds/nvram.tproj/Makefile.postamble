@@ -134,6 +134,3 @@ after_install::
 	$(MKDIRS) $(DSTROOT)$(MANDIR)
 	$(CP) -f $(MANPAGE) $(DSTROOT)$(MANDIR)/$(MANPAGE)
 	$(CHMOD) og-w $(DSTROOT)$(MANDIR)/$(MANPAGE)
-	$(MV) $(DSTROOT)/usr/sbin/nvram $(DSTROOT)/usr/sbin/nvram.tmp
-	lipo -thin ppc -output $(DSTROOT)/usr/sbin/nvram $(DSTROOT)/usr/sbin/nvram.tmp
-	$(RM) -f $(DSTROOT)/usr/sbin/nvram.tmp

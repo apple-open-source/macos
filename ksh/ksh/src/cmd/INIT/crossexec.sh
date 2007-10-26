@@ -1,26 +1,22 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1994-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#               Glenn Fowler <gsf@research.att.com>                #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#                     Copyright (c) 1994-2007 AT&T                     #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                               by AT&T                                #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                 Glenn Fowler <gsf@research.att.com>                  #
+#                                                                      #
+########################################################################
 : cross compiler a.out execution
 
 command=crossexec
@@ -101,7 +97,8 @@ if	test ! -r $info
 then	echo "$command: $info: not found" >&2
 	exit 1
 fi
-ifs=$IFS
+ifs=${IFS-'
+	 '}
 while	:
 do	IFS='	'
 	read hosttype hostname usr dir sh cp
@@ -135,7 +132,7 @@ case $cp in
 scp)	cp="$cp -q" ;;
 esac
 
-trap "rm -f $tmp" 0 1 2 3
+trap "rm -f $tmp" 0 1 2 3 15
 $exec $cp $cmd $cpu$hostname:$dir </dev/null || exit 1
 cmd=./${cmd##*/}
 $exec $sh $shu $hostname "cd $dir; LD_LIBRARY_PATH=: $cmd $@ </dev/null 2>/dev/null; code=\$?; rm -f $cmd; echo $command: exit \$code >&2" </dev/null 2>$tmp

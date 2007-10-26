@@ -68,7 +68,7 @@ private:
 //
 // The server singleton
 //
-extern Server server;
+extern Server *server;
 
 
 }	// namespace Tokend

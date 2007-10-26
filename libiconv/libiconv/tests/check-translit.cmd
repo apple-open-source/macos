@@ -14,7 +14,7 @@ END
 
 PARSE ARG srcdir file fromcode tocode
 
-'..\src\iconv --binary -f 'fromcode' -t 'tocode'//TRANSLIT < 'srcdir'\'file'.'fromcode' > tmp'
+'..\src\iconv -f 'fromcode' -t 'tocode'//TRANSLIT < 'srcdir'\'file'.'fromcode' > tmp'
 'cmp 'srcdir'\'file'.'tocode' tmp'
 'rm -f tmp'
 EXIT

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,11 +26,41 @@
 
 #include <IOKit/IOTypes.h>
 
-#pragma pack(1)                              /* (enable 8-bit struct packing) */
+#pragma pack(push, 1)                        /* (enable 8-bit struct packing) */
 
 /*
- *	The following CPRM Information is taken from Mt. Fuji
- *	Specifications ( INf-8090i Rev 4.0 ) document pp. 425-426
+ * Media Types
+ */
+
+enum
+{
+    kDVDMediaTypeUnknown   = 0x0200,
+    kDVDMediaTypeROM       = 0x0202, /* DVD-ROM    */
+    kDVDMediaTypeRAM       = 0x0203, /* DVD-RAM    */
+    kDVDMediaTypeR         = 0x0204, /* DVD-R      */
+    kDVDMediaTypeRW        = 0x0205, /* DVD-RW     */
+    kDVDMediaTypePlusRW    = 0x0206, /* DVD+RW     */
+    kDVDMediaTypePlusR     = 0x0207, /* DVD+R      */
+    kDVDMediaTypeHDROM     = 0x0212, /* HD DVD-ROM */
+    kDVDMediaTypeHDRAM     = 0x0213, /* HD DVD-RAM */
+    kDVDMediaTypeHDR       = 0x0214, /* HD DVD-R   */
+    kDVDMediaTypeHDRW      = 0x0215, /* HD DVD-RW  */
+
+    kDVDMediaTypeMin       = 0x0200,
+    kDVDMediaTypeMax       = 0x02FF
+};
+
+typedef UInt32 DVDMediaType;
+
+/*
+ * Media Speed (kB/s)
+ */
+
+#define kDVDSpeedMin 0x0546
+#define kDVDSpeedMax 0xFFFF
+
+/*
+ * MMC Formats
  */
 
 typedef UInt8	DVDCPRMRegionCode;
@@ -58,8 +88,13 @@ enum
 	kDVDBookTypeRAM					= 0x1,
 	kDVDBookTypeR					= 0x2,
 	kDVDBookTypeRW					= 0x3,
+	kDVDBookTypeHDROM				= 0x4,
+	kDVDBookTypeHDRAM				= 0x5,
+	kDVDBookTypeHDR					= 0x6,
+	kDVDBookTypeHDRW				= 0x7,
 	kDVDBookTypePlusRW				= 0x9,
 	kDVDBookTypePlusR				= 0xA,
+	kDVDBookTypePlusRWDoubleLayer	= 0xD,
 	kDVDBookTypePlusRDoubleLayer	= 0xE
 };
 
@@ -397,24 +432,6 @@ struct DVDRZoneInfo
 };
 typedef struct DVDRZoneInfo DVDRZoneInfo;
 
-enum DVDMediaType
-{
-	kDVDMediaTypeUnknown   = 0x0200,
-	kDVDMediaTypeROM       = 0x0202, /* DVD-ROM */
-	kDVDMediaTypeRAM       = 0x0203, /* DVD-RAM */
-	kDVDMediaTypeR         = 0x0204, /* DVD-R   */
-	kDVDMediaTypeRW        = 0x0205, /* DVD-RW  */
-	kDVDMediaTypePlusRW    = 0x0206, /* DVD+RW  */
-	kDVDMediaTypePlusR     = 0x0207, /* DVD+R   */
-	
-	kDVDMediaTypeMin       = 0x0200,
-	kDVDMediaTypeMax       = 0x02FF
-};
-typedef enum DVDMediaType DVDMediaType;
-
-#define kDVDSpeedMin 0x0546
-#define kDVDSpeedMax 0xFFFF
-
-#pragma options align=reset              /* (reset to default struct packing) */
+#pragma pack(pop)                        /* (reset to default struct packing) */
 
 #endif /* _IODVDTYPES_H */

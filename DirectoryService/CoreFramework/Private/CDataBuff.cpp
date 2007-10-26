@@ -37,7 +37,7 @@
 //	CDataBuff ()
 // ---------------------------------------------------------------------------
 
-CDataBuff::CDataBuff ( uInt32 inSize )
+CDataBuff::CDataBuff ( UInt32 inSize )
 	: fSize( 0 ), fLength( 0 ), fData( nil )
 {
 	GrowBuff( inSize );
@@ -64,7 +64,7 @@ CDataBuff::~CDataBuff ( void )
 
 void CDataBuff::AppendString ( const char *inStr )
 {
-	uInt32	len	= 0;
+	UInt32	len	= 0;
 
 	if ( inStr != nil )
 	{
@@ -81,9 +81,9 @@ void CDataBuff::AppendString ( const char *inStr )
 //	AppendLong ()
 // ---------------------------------------------------------------------------
 
-void CDataBuff::AppendLong ( uInt32 inLong )
+void CDataBuff::AppendLong ( UInt32 inLong )
 {
-	uInt32	len	= 4;
+	UInt32	len	= 4;
 
    	GrowBuff( fLength + len + 1 );
 
@@ -98,9 +98,9 @@ void CDataBuff::AppendLong ( uInt32 inLong )
 //	AppendShort ()
 // ---------------------------------------------------------------------------
 
-void CDataBuff::AppendShort ( uInt16 inShort )
+void CDataBuff::AppendShort ( UInt16 inShort )
 {
-	uInt32	len	= 2;
+	UInt32	len	= 2;
 
    	GrowBuff( fLength + len + 1 );
 
@@ -115,7 +115,7 @@ void CDataBuff::AppendShort ( uInt16 inShort )
 //	AppendBlock ()
 // ---------------------------------------------------------------------------
 
-void CDataBuff::AppendBlock ( const void *inData, uInt32 inLength )
+void CDataBuff::AppendBlock ( const void *inData, UInt32 inLength )
 {
    	GrowBuff( fLength + inLength + 1 );
 
@@ -130,7 +130,7 @@ void CDataBuff::AppendBlock ( const void *inData, uInt32 inLength )
 //	Clear ()
 // ---------------------------------------------------------------------------
 
-void CDataBuff::Clear ( uInt32 inSize )
+void CDataBuff::Clear ( UInt32 inSize )
 {
 	fLength = 0;
 
@@ -156,7 +156,7 @@ void CDataBuff::Clear ( uInt32 inSize )
 //	GetSize ()
 // ---------------------------------------------------------------------------
 
-uInt32 CDataBuff::GetSize ( void )
+UInt32 CDataBuff::GetSize ( void )
 {
 	return( fSize );
 } // GetSize
@@ -166,7 +166,7 @@ uInt32 CDataBuff::GetSize ( void )
 //	GetLength ()
 // ---------------------------------------------------------------------------
 
-uInt32 CDataBuff::GetLength ( void )
+UInt32 CDataBuff::GetLength ( void )
 {
 	return( fLength );
 } // GetLength
@@ -186,9 +186,9 @@ char* CDataBuff::GetData ( void )
 //	GrowBuff ()
 // ---------------------------------------------------------------------------
 
-void CDataBuff::GrowBuff ( uInt32 inNewSize )
+void CDataBuff::GrowBuff ( UInt32 inNewSize )
 {
-	uInt32	newSize	= inNewSize;
+	UInt32	newSize	= inNewSize;
 
 	// Allocate the default length if requested.
 	if ( newSize == 0 )
@@ -206,7 +206,7 @@ void CDataBuff::GrowBuff ( uInt32 inNewSize )
 	//	The comparison is an optimization for the most common case.
 	if ( newSize != kDefaultSize )
 	{
-		register uInt32 pow2 = 16;
+		register UInt32 pow2 = 16;
 		while ( pow2 < newSize )
 		{
 			pow2 <<= 1;
@@ -233,3 +233,207 @@ void CDataBuff::GrowBuff ( uInt32 inNewSize )
 
 } // Grow
 
+
+SInt32 dsCDataBuffFromAttrTypeAndStringValue( CDataBuff* inOutAttrDataBuff, CDataBuff* inOutDataBuff, bool inbAttrInfoOnly, const char* inAttrType, const char* inAttrValue )
+{
+	if ( (inOutAttrDataBuff == nil) || (inOutDataBuff == nil) )
+	{
+		return((SInt32)eDSNullDataBuff);
+	}
+	
+	if (inAttrType == nil)
+	{
+		return((SInt32)eDSNullAttributeType);
+	}
+
+	inOutDataBuff->Clear();
+	
+	// Append the attribute type
+	inOutDataBuff->AppendShort( ::strlen( inAttrType ) );
+	inOutDataBuff->AppendString( inAttrType );
+
+	if ( ( inbAttrInfoOnly == false ) && (inAttrValue != nil) )
+	{
+		// Attribute value count
+		inOutDataBuff->AppendShort( 1 );
+
+		// Append the attribute value
+		inOutDataBuff->AppendLong( ::strlen( inAttrValue ) );
+		inOutDataBuff->AppendString( inAttrValue );
+
+	}
+	else
+	{
+		inOutDataBuff->AppendShort( 0 );
+	}
+
+	inOutAttrDataBuff->AppendLong( inOutDataBuff->GetLength() );
+	inOutAttrDataBuff->AppendBlock( inOutDataBuff->GetData(), inOutDataBuff->GetLength() );
+
+	return((SInt32)eDSNoErr);
+}
+
+SInt32 dsCDataBuffFromAttrTypeAndStringValues( CDataBuff* inOutAttrDataBuff, CDataBuff* inOutDataBuff, bool inbAttrInfoOnly, const char* inAttrType, const char* inAttrValue, ... )
+{
+	va_list		args;
+	SInt32		result = eDSNoErr;
+
+	va_start( args, inAttrValue );
+	result = dsCDataBuffFromAttrTypeAndStringArgValues(inOutAttrDataBuff, inOutDataBuff, inbAttrInfoOnly, inAttrType, inAttrValue, args);
+	va_end( args );
+	return(result);
+}
+
+SInt32 dsCDataBuffFromAttrTypeAndStringArgValues( CDataBuff* inOutAttrDataBuff, CDataBuff* inOutDataBuff, bool inbAttrInfoOnly, const char* inAttrType, const char* inAttrValue, va_list inAttrValues )
+{
+	if ( (inOutAttrDataBuff == nil) || (inOutDataBuff == nil) )
+	{
+		return((SInt32)eDSNullDataBuff);
+	}
+	
+	if (inAttrType == nil)
+	{
+		return((SInt32)eDSNullAttributeType);
+	}
+
+	if ( (inAttrValue == nil) && !inbAttrInfoOnly )
+	{
+		return((SInt32)eDSNullAttributeValue);
+	}
+	
+	inOutDataBuff->Clear();
+	
+	// Append the attribute type
+	inOutDataBuff->AppendShort( ::strlen( inAttrType ) );
+	inOutDataBuff->AppendString( inAttrType );
+
+	if ( inbAttrInfoOnly == false )
+	{
+		CDataBuff* tmpDataBuff = new CDataBuff();
+		tmpDataBuff->Clear();
+		UInt32 numAttrValues = 0;
+		const char* argString = inAttrValue;
+		while (argString != nil)
+		{
+			numAttrValues++;
+			// Append the attribute value
+			tmpDataBuff->AppendLong( ::strlen( argString ) );
+			tmpDataBuff->AppendString( argString );
+
+			argString = va_arg( inAttrValues, char * );
+		}
+		
+		// Attribute value count
+		inOutDataBuff->AppendShort( numAttrValues );
+		//add the attr values
+		inOutDataBuff->AppendBlock( tmpDataBuff->GetData(), tmpDataBuff->GetLength() );
+		
+		delete(tmpDataBuff);
+		tmpDataBuff = nil;
+	}
+	else
+	{
+		inOutDataBuff->AppendShort( 0 );
+	}
+
+	va_end( inAttrValues );
+	
+	inOutAttrDataBuff->AppendLong( inOutDataBuff->GetLength() );
+	inOutAttrDataBuff->AppendBlock( inOutDataBuff->GetData(), inOutDataBuff->GetLength() );
+
+	return((SInt32)eDSNoErr);
+}
+
+
+SInt32 dsCDataBuffFromAttrTypeAndStringValues( CDataBuff* inOutAttrDataBuff, CDataBuff* inOutDataBuff, bool inbAttrInfoOnly, const char* inAttrType, const char** inAttrValues )
+{
+	if ( (inOutAttrDataBuff == nil) || (inOutDataBuff == nil) )
+	{
+		return((SInt32)eDSNullDataBuff);
+	}
+	
+	if (inAttrType == nil)
+	{
+		return((SInt32)eDSNullAttributeType);
+	}
+
+	inOutDataBuff->Clear();
+	
+	// Append the attribute type
+	inOutDataBuff->AppendShort( ::strlen( inAttrType ) );
+	inOutDataBuff->AppendString( inAttrType );
+
+	if ( ( inbAttrInfoOnly == false ) && (inAttrValues != nil) && (inAttrValues[0] != nil) )
+	{
+		CDataBuff* tmpDataBuff = new CDataBuff();
+		tmpDataBuff->Clear();
+		UInt32 numAttrValues = 0;
+		const char* argString = inAttrValues[numAttrValues];
+		while (argString != nil) //expecting a null terminated char* list
+		{
+			numAttrValues++;
+			// Append the attribute value
+			tmpDataBuff->AppendLong( ::strlen( argString ) );
+			tmpDataBuff->AppendString( argString );
+
+			argString = inAttrValues[numAttrValues];
+		}
+		
+		// Attribute value count
+		inOutDataBuff->AppendShort( numAttrValues );
+		//add the attr values
+		inOutDataBuff->AppendBlock( tmpDataBuff->GetData(), tmpDataBuff->GetLength() );
+		
+		delete(tmpDataBuff);
+		tmpDataBuff = nil;
+	}
+	else
+	{
+		inOutDataBuff->AppendShort( 0 );
+	}
+
+	inOutAttrDataBuff->AppendLong( inOutDataBuff->GetLength() );
+	inOutAttrDataBuff->AppendBlock( inOutDataBuff->GetData(), inOutDataBuff->GetLength() );
+
+	return((SInt32)eDSNoErr);
+}
+
+
+SInt32 dsCDataBuffFromAttrTypeAndData( CDataBuff* inOutAttrDataBuff, CDataBuff* inOutDataBuff, bool inbAttrInfoOnly, const char* inAttrType, 
+                                       const char* inAttrValue, UInt32 inLength )
+{
+	if ( (inOutAttrDataBuff == nil) || (inOutDataBuff == nil) )
+	{
+		return((SInt32)eDSNullDataBuff);
+	}
+	
+	if (inAttrType == nil)
+	{
+		return((SInt32)eDSNullAttributeType);
+	}
+    
+	inOutDataBuff->Clear();
+	
+	// Append the attribute type
+	inOutDataBuff->AppendShort( ::strlen( inAttrType ) );
+	inOutDataBuff->AppendString( inAttrType );
+    
+	if ( ( inbAttrInfoOnly == false ) && (inAttrValue != nil) )
+	{
+		// Attribute value count
+		inOutDataBuff->AppendShort( 1 );
+        
+		// Append the attribute value
+		inOutDataBuff->AppendLong( inLength );
+        inOutDataBuff->AppendBlock( inAttrValue, inLength );
+	}
+	else
+	{
+		inOutDataBuff->AppendShort( 0 );
+	}
+    
+	inOutAttrDataBuff->AppendLong( inOutDataBuff->GetLength() );
+	inOutAttrDataBuff->AppendBlock( inOutDataBuff->GetData(), inOutDataBuff->GetLength() );
+    
+	return((SInt32)eDSNoErr);    
+}

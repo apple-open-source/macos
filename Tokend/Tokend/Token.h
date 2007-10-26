@@ -283,4 +283,3 @@ extern Tokend::Token *token;
 
 #endif /* !_TOKEND_TOKEN_H_ */
 
-/* arch-tag: E93DF9EE-DF80-11D8-991E-000A95C4302E */

@@ -1,3 +1,4 @@
+/* APPLE LOCAL file fix and continue */
 /* Fix and Continue support for gdb
 
    Copyright 2003, 2004 Free Software Foundation, Inc.
@@ -30,6 +31,7 @@
 #include <sys/param.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <dlfcn.h>
 
 #include "defs.h"
 #include "value.h"
@@ -54,6 +56,7 @@
 #include "block.h"
 #include <readline/readline.h>
 #include "osabi.h"
+#include "exceptions.h"
 
 #if defined (TARGET_POWERPC)
 #include "ppc-macosx-frameinfo.h"
@@ -63,7 +66,7 @@
 #include "i386-tdep.h"
 #endif
 
-#ifdef NM_NEXTSTEP
+#ifdef MACOSX_DYLD
 #include "macosx-nat-dyld-process.h"
 #endif
 
@@ -262,10 +265,11 @@ static void redirect_old_function (struct fixinfo *, struct symbol *, struct sym
 
 CORE_ADDR decode_fix_and_continue_trampoline (CORE_ADDR);
 
+#if defined (TARGET_POWERPC)
 static uint16_t encode_lo16 (CORE_ADDR);
 static uint16_t encode_hi16 (CORE_ADDR);
-
 static CORE_ADDR decode_hi16_lo16 (uint16_t, uint16_t);
+#endif
 
 static int in_active_func (const char *, struct active_threads *);
 
@@ -287,7 +291,7 @@ static struct active_threads * create_current_threads_list (const char *);
 
 static struct fixinfo *get_fixinfo_for_new_request (const char *);
 
-static int file_exists_p (const char *);
+int file_exists_p (const char *);
 
 static void do_pre_load_checks (struct fixinfo *, struct objfile *);
 
@@ -299,8 +303,6 @@ static void check_restrictions_locals (struct fixinfo *, struct objfile *);
 
 static void check_restrictions_function (const char *, int, struct block *, 
                                          struct block *);
-
-static void check_restriction_cxx_zerolink (struct objfile *);
 
 static int sym_is_argument (struct symbol *);
 
@@ -786,6 +788,39 @@ free_half_finished_fixinfo (struct fixinfo *f)
   xfree (f);
 }
 
+/* Returns xmalloc()'ed string from dlerror, or NULL if no error message
+   is available.  Caller must xfree() returned memory.  */
+
+static char *
+get_dlerror_message ()
+{
+  char dyld_errmsg[MAXPATHLEN * 3];
+  dyld_errmsg[0] = '\0';
+  struct value *ref_to_dlerror;
+  struct value *retval;
+  CORE_ADDR dlerror_msg_addr;
+  ref_to_dlerror = find_function_in_inferior ("dlerror",
+                                              builtin_type_voidptrfuncptr);
+  retval = call_function_by_hand_expecting_type (ref_to_dlerror,
+                                   builtin_type_void_data_ptr, 0, NULL, 1);
+  dlerror_msg_addr = value_as_address (retval);
+  if (dlerror_msg_addr != 0)
+    {
+      read_memory_string (dlerror_msg_addr, dyld_errmsg, 
+                          sizeof (dyld_errmsg) - 1);
+      if (dyld_errmsg[0] != '\0')
+        {
+          char *c;
+          dyld_errmsg[sizeof (dyld_errmsg) - 1] = '\0';
+          c = dyld_errmsg + strlen (dyld_errmsg) - 1;
+          if (*c == '\r' || *c == '\n')
+            *c = '\0';
+          return xstrdup (dyld_errmsg);
+        }
+    }
+  return NULL;
+}
+
 /* Given a mostly-populated CUR, load the named object file into the
    program via dyld and complete the fixinfo struct, CUR.  */
 
@@ -820,12 +855,17 @@ get_fixed_file (struct fixinfo *cur)
      a new solib was loaded successfully -- clear that out.  */
   if (loaded_ok != 1)
     {
-#ifdef NM_NEXTSTEP
+      char *err = get_dlerror_message ();
+#ifdef MACOSX_DYLD
       if (fixedobj_objfile != NULL)
         remove_objfile_from_dyld_records (fixedobj_objfile);
 #endif
-      error ("NSLinkModule was not able to correctly load the Fix bundle, "
-             "most likely due to unresolved external references.");
+      if (err)
+        error ("Not able to load Fix bundle with error: '%s'", err);
+      else
+        error ("NSLinkModule was not able to correctly load the Fix bundle, "
+               "most likely due to unresolved external references.");
+      xfree (err);
     }
 
   if (fixedobj_objfile == NULL)
@@ -879,16 +919,7 @@ getbasename (const char *name)
   Do inferior function calls as if the inferior had done this:
 
   char *fn = "b2.o";
-  NSObjectFileImage objfile_ref;
-  NSObjectFileImageReturnCode retval1;
-  NSModule retval2;
-
-  retval1 = NSCreateObjectFileImageFromFile (fn, &objfile_ref);
-  
-  retval2 = NSLinkModule (objfile_ref, fn, NSLINKMODULE_OPTION_PRIVATE | NSLINKMODULE_OPTION_DONT_CALL_MOD_INIT_ROUTINES |NSLINKMODULE_OPTION_RETURN_ON_ERROR |NSLINKMODULE_OPTION_BINDNOW);
-
-  Note that objfile_ref is first passed by reference, then by value, so
-  we need to allocate space in the inferior for that ahead of time.
+  retval = dlopen (fn, RTLD_LOCAL | RTLD_NOW);
 
 */
 
@@ -897,22 +928,10 @@ load_fixed_objfile (const char *name)
 {
   struct value **libraryvec, *val, **args;
   int i, librarylen;
-  struct value *objfile_image_ref_memory, *objfile_image_ref;
-  struct value *ref_to_NSCreateObjectFileImageFromFile, *ref_to_NSLinkModule;
-  NSObjectFileImageReturnCode retval;
-  unsigned long nslink_options;
+  struct value *ref_to_dlopen;
 
-  /* NSCreateObjectFileImageFromFile (NSObjectFileImage(3)) returns
-     a pointer to an opaque structure via the 2nd argument you pass to it,
-     which is a reference to a word of memory.  */
-  objfile_image_ref_memory = 
-           value_allocate_space_in_inferior (sizeof (NSObjectFileImage));
-
-  ref_to_NSCreateObjectFileImageFromFile = find_function_in_inferior 
-                        ("NSCreateObjectFileImageFromFile", builtin_type_int);
-
-  ref_to_NSLinkModule = find_function_in_inferior 
-                        ("NSLinkModule", builtin_type_int);
+  ref_to_dlopen = find_function_in_inferior ("dlopen", 
+                                              builtin_type_voidptrfuncptr);
 
   librarylen = strlen (name);
   libraryvec = (struct value **) 
@@ -920,44 +939,14 @@ load_fixed_objfile (const char *name)
   for (i = 0; i < librarylen + 1; i++)
     libraryvec [i] = value_from_longest (builtin_type_char, name[i]);
 
-  /* Call to NSCreateObjectFileImageFromFile() */
-
-  args = (struct value **) alloca (sizeof (struct value *) * 4);
+  args = (struct value **) alloca (sizeof (struct value *) * 3);
   args[0] = value_array (0, librarylen, libraryvec);
-  args[1] = objfile_image_ref_memory;
-  args[2] = value_from_longest (builtin_type_int, 0);
+  args[1] = value_from_longest (builtin_type_int, RTLD_LOCAL | RTLD_NOW);
+  args[2] = NULL;
   val = call_function_by_hand_expecting_type 
-         (ref_to_NSCreateObjectFileImageFromFile, builtin_type_int, 3, args, 1);
-  retval = value_as_long (val);
-  if (retval != NSObjectFileImageSuccess)
-    {
-      error ("NSCreateObjectFileImageFromFile failed. "
-             "This can happen if certain QuickDraw calls are happening in a "
-             "run loop.  Stop your program with a normal breakpoint and "
-             "re-try fix while stopped in your code.");
-    }
-  /* Call to NSLinkModule */
+         (ref_to_dlopen, builtin_type_void_data_ptr, 2, args, 1);
 
-  nslink_options = NSLINKMODULE_OPTION_PRIVATE | 
-                   NSLINKMODULE_OPTION_DONT_CALL_MOD_INIT_ROUTINES |
-                   NSLINKMODULE_OPTION_RETURN_ON_ERROR;
-
-  if (!inferior_is_zerolinked_p ())
-    nslink_options |= NSLINKMODULE_OPTION_BINDNOW;
-
-  objfile_image_ref = value_at (builtin_type_CORE_ADDR, 
-                                value_as_long (objfile_image_ref_memory), NULL);
-  args[0] = objfile_image_ref;
-  args[1] = value_array (0, librarylen, libraryvec);
-  args[2] = value_from_longest (builtin_type_int, 
-                     nslink_options);
-  args[3] = value_from_longest (builtin_type_int, 0);
-  val = call_function_by_hand_expecting_type 
-     (ref_to_NSLinkModule, builtin_type_int, 4, args, 1);
-
-  retval = value_as_long (val);
-
-  if (retval == 0)  /* NSLinkModule returns NULL on failed load.  */
+  if (value_as_address (val) == 0)  /* dlopen returns NULL on failed load.  */
     return 0;
 
   return 1;
@@ -1196,7 +1185,7 @@ redirect_statics (struct file_static_fixups *indirect_entries,
                   int indirect_entry_count)
 {
   int i;
-  char buf[TARGET_ADDRESS_BYTES];
+  gdb_byte buf[TARGET_ADDRESS_BYTES];
 
   for (i = 0; i < indirect_entry_count; i++)
     {
@@ -1231,9 +1220,12 @@ redirect_statics (struct file_static_fixups *indirect_entries,
           indirect_entries[i].addr == (CORE_ADDR) NULL)
         continue;
 
+      if (SYMBOL_VALUE_ADDRESS (indirect_entries[i].original_msym) == 0
+          || SYMBOL_VALUE_ADDRESS (indirect_entries[i].new_msym) == 0)
+        continue;
 
       store_unsigned_integer (buf, TARGET_ADDRESS_BYTES, 
-                        SYMBOL_VALUE_ADDRESS (indirect_entries[i].original_sym));
+                        SYMBOL_VALUE_ADDRESS (indirect_entries[i].original_msym));
       write_memory (indirect_entries[i].addr, buf, TARGET_ADDRESS_BYTES);
 
       SYMBOL_OBSOLETED (indirect_entries[i].original_sym) = 0;
@@ -1244,8 +1236,8 @@ redirect_statics (struct file_static_fixups *indirect_entries,
       if (fix_and_continue_debug_flag)
         printf_filtered ("DEBUG: Redirected file static %s from 0x%s to 0x%s\n",
           SYMBOL_PRINT_NAME (indirect_entries[i].original_sym),
-          paddr_nz (SYMBOL_VALUE_ADDRESS (indirect_entries[i].new_sym)),
-          paddr_nz (SYMBOL_VALUE_ADDRESS (indirect_entries[i].original_sym)));
+          paddr_nz (SYMBOL_VALUE_ADDRESS (indirect_entries[i].new_msym)),
+          paddr_nz (SYMBOL_VALUE_ADDRESS (indirect_entries[i].original_msym)));
     }
 }
 
@@ -1265,7 +1257,7 @@ find_and_parse_nonlazy_ptr_sect (struct fixinfo *cur,
   bfd_size_type indirect_ptr_section_size;
   int nl_symbol_ptr_count = 0;
   int actual_entry_count;
-  char *buf;
+  gdb_byte *buf;
   struct cleanup *wipe;
   int i;
   
@@ -1321,12 +1313,14 @@ find_and_parse_nonlazy_ptr_sect (struct fixinfo *cur,
   for (i = 0; i < nl_symbol_ptr_count; i++)
     {
       CORE_ADDR destination_address;
+      struct obj_section *asect;
       destination_address = extract_unsigned_integer
                        (buf + i * TARGET_ADDRESS_BYTES, TARGET_ADDRESS_BYTES);
 
-      if (destination_address == 0 ||
-          find_pc_section (destination_address)->objfile != 
-                                    most_recent_fix_objfile)
+      if (destination_address == 0)
+        continue;
+      asect = find_pc_section (destination_address);
+      if (asect == NULL || asect->objfile != most_recent_fix_objfile)
         continue;
 
       (*indirect_entries)[actual_entry_count].addr = 
@@ -1438,8 +1432,10 @@ do_final_fix_fixups_global_syms (struct block *newglobals,
             printf_filtered ("DEBUG: fixed up global %s "
                          "(newaddr 0x%s, oldaddr 0x%s)\n", 
                          SYMBOL_PRINT_NAME (newsym), 
-                         paddr_nz (BLOCK_START (SYMBOL_BLOCK_VALUE (newsym))), 
-                         paddr_nz (BLOCK_START (SYMBOL_BLOCK_VALUE (oldsym))));
+			/* APPLE LOCAL begin address ranges  */
+                        paddr_nz (BLOCK_LOWEST_PC (SYMBOL_BLOCK_VALUE (newsym))), 
+                        paddr_nz (BLOCK_LOWEST_PC (SYMBOL_BLOCK_VALUE (oldsym))));
+	                /* APPLE LOCAL end address ranges  */
 
           redirect_old_function (curfixinfo, newsym, oldsym,
                                   in_active_func (SYMBOL_LINKAGE_NAME (cursym), 
@@ -1474,7 +1470,8 @@ do_final_fix_fixups_static_syms (struct block *newstatics,
         continue;
 
       /* FIXME - skip over non-function syms */
-      if (TYPE_CODE (SYMBOL_TYPE (newsym)) != TYPE_CODE_FUNC)
+      if (SYMBOL_TYPE (newsym) == NULL 
+          || TYPE_CODE (SYMBOL_TYPE (newsym)) != TYPE_CODE_FUNC)
         continue;
 
       ALL_OBJFILE_SYMTABS_INCL_OBSOLETED (oldobj, oldsymtab)
@@ -1517,8 +1514,10 @@ do_final_fix_fixups_static_syms (struct block *newstatics,
               printf_filtered ("DEBUG: fixed up static %s "
                          "(newaddr 0x%s, oldaddr 0x%s)\n", 
                          SYMBOL_PRINT_NAME (newsym), 
-                         paddr_nz (BLOCK_START (SYMBOL_BLOCK_VALUE (newsym))), 
-                         paddr_nz (BLOCK_START (SYMBOL_BLOCK_VALUE (oldsym))));
+			/* APPLE LOCAL begin address ranges  */
+                        paddr_nz (BLOCK_LOWEST_PC (SYMBOL_BLOCK_VALUE (newsym))), 
+                        paddr_nz (BLOCK_LOWEST_PC (SYMBOL_BLOCK_VALUE (oldsym))));
+	                /* APPLE LOCAL end address ranges  */
 
             redirect_old_function (curfixinfo, newsym, oldsym,
                          in_active_func (SYMBOL_LINKAGE_NAME (cursym), 
@@ -1534,6 +1533,7 @@ do_final_fix_fixups_static_syms (struct block *newstatics,
    value.  This corresponds to the "hi16()" and "lo16()" address
    transforms you see in assembly output.   */
 
+#if defined (TARGET_POWERPC)
 static uint16_t 
 encode_lo16 (CORE_ADDR addr) 
 {
@@ -1568,6 +1568,7 @@ decode_hi16_lo16 (uint16_t hi16, uint16_t lo16)
 
   return addr;
 }
+#endif /* TARGET_POWERPC */
 
 /* FIXME: This is a copy of objfiles.c:do_free_objfile_cleanup which is static.
    Maybe it shouldn't be. */
@@ -1590,8 +1591,9 @@ pre_load_and_check_file (struct fixinfo *cur)
   struct cleanup *cleanups;
 
   object_bfd = symfile_bfd_open_safe (cur->bundle_filename, 0);
-  new_objfile = symbol_file_add_bfd_safe (object_bfd, 0, 0, 0, 0, 
-                                          OBJF_SYM_ALL, (CORE_ADDR) NULL, NULL);
+  new_objfile = symbol_file_add_bfd_safe (object_bfd, 0, 0, 0, 0, 0, 
+                                          OBJF_SYM_ALL, (CORE_ADDR) NULL, NULL,
+                                          NULL);
 
   /* We need all of the debug symbols for the pre-loaded objfile;
      override any load-rules that might have affected it.  */
@@ -1643,7 +1645,7 @@ create_current_threads_list (const char *source_filename)
   for (tp = thread_list; tp; tp = tp->next)
     {
       snprintf (buf, 79, "%d", tp->num);
-      rc = gdb_thread_select (null_uiout, buf, 0); 
+      rc = gdb_thread_select (null_uiout, buf, 0, 0); 
 
       if (((int) rc < 0 && (enum return_reason) rc == RETURN_ERROR) ||
           ((int) rc >= 0 && rc == GDB_RC_FAIL))
@@ -1734,7 +1736,6 @@ do_pre_load_checks (struct fixinfo *cur, struct objfile *new_objfile)
   check_restrictions_globals (cur, new_objfile);
   check_restrictions_statics (cur, new_objfile);
   check_restrictions_locals (cur, new_objfile);
-  check_restriction_cxx_zerolink (new_objfile);
 }
 
 
@@ -2103,28 +2104,6 @@ check_restrictions_function (const char *funcname, int active,
   do_cleanups (wipe);
 }
 
-/* C++ programs must use ZeroLink, which implies using a shared libstdc++.
-   The static libstdc++ private extern functions cannot be found by dyld
-   after the program is linked together in a traditional link, so the fixed
-   bundle cannot bind to them.  ZeroLink has a shared libstdc++ to deal with
-   these very issues.  */
-
-static void
-check_restriction_cxx_zerolink (struct objfile *obj)
-{
-  struct symtab *s;
-  
-  if (inferior_is_zerolinked_p ())
-    return;
-  
-  ALL_OBJFILE_SYMTABS (obj, s)
-    if (s->primary && 
-        (s->language == language_cplus || s->language == language_objcplus))
-      error ("Target is a C++ program that is not using ZeroLink.  "
-             "This is not supported.  To use Fix and Continue on a C++ program, "
-             "enable ZeroLink.");
-}
-
 static int
 sym_is_argument (struct symbol *s)
 {
@@ -2185,7 +2164,7 @@ expand_all_objfile_psymtabs (struct objfile *obj)
 
 /* Returns 1 if the file is found.  0 if error or not found.  */
 
-static int
+int
 file_exists_p (const char *filename)
 {
   struct stat sb;
@@ -2258,7 +2237,10 @@ create_current_active_funcs_list (const char *source_filename)
               func->level = frame_relative_level (fi);
               func->line = sal.line;
               func->file = xstrdup (sal.symtab->filename);
-              func->dir = xstrdup (sal.symtab->dirname);
+              if (sal.symtab->dirname)
+                func->dir = xstrdup (sal.symtab->dirname);
+              else
+                func->dir = NULL;
               func->fp = get_frame_base (fi);
               func->addr = get_frame_pc (fi);
 
@@ -2304,11 +2286,12 @@ in_active_func (const char *name, struct active_threads *threads)
 }
 
 /* Record the value of a memory location, and update it with the new value. */
+#if defined (TARGET_POWERPC)
 static void
-updatedatum (struct fixinfo *fixinfo, CORE_ADDR addr, char *newval, int size)
+updatedatum (struct fixinfo *fixinfo, CORE_ADDR addr, gdb_byte *newval, int size)
 { 
   struct fixeddatum * fixeddatum;
-  char buf [8];
+  gdb_byte buf[8];
   int oldval;
   target_read_memory (addr, buf, size);
   oldval = extract_unsigned_integer (buf, size);
@@ -2329,6 +2312,7 @@ updatedatum (struct fixinfo *fixinfo, CORE_ADDR addr, char *newval, int size)
        fixinfo->most_recent_fix->lastdatum = fixeddatum;
     }
 }
+#endif /* TARGET_POWERPC */
 
 /* Redirect a function to its new definition, update the gdb
    symbols so the now-obsolete ones are marked as such.  
@@ -2341,10 +2325,24 @@ static void
 redirect_old_function (struct fixinfo *fixinfo, struct symbol *new_sym, 
                        struct symbol *old_sym, int active)
 {
+#if defined (TARGET_POWERPC)
   int inst;
+#endif
   CORE_ADDR oldfuncstart, oldfuncend, newfuncstart, fixup_addr;
   struct minimal_symbol *msym;
   struct obsoletedsym *obsoletedsym;
+
+  /* APPLE LOCAL begin address ranges  */
+  if (BLOCK_RANGES (SYMBOL_BLOCK_VALUE (old_sym))
+      || BLOCK_RANGES (SYMBOL_BLOCK_VALUE (new_sym)))
+    {
+      /* FIXME:  Code needs to be written to do the right thing
+	 with functions that contain non-contiguous ranges of
+	 addresses!  */
+      internal_error (__FILE__, __LINE__,
+		      _("Cannot redirect function with non-contiguous address ranges."));
+    }
+  /* APPLE LOCAL end address ranges  */
 
   oldfuncstart = BLOCK_START (SYMBOL_BLOCK_VALUE (old_sym));
   oldfuncend = BLOCK_END (SYMBOL_BLOCK_VALUE (old_sym));
@@ -2355,23 +2353,23 @@ redirect_old_function (struct fixinfo *fixinfo, struct symbol *new_sym,
 #if defined (TARGET_POWERPC)
   /* li r12,lo16(newfuncstart) */
   inst = 0x39800000 | encode_lo16 (newfuncstart);
-  updatedatum (fixinfo, fixup_addr, (char *)&inst, 4);
+  updatedatum (fixinfo, fixup_addr, (gdb_byte *)&inst, 4);
 
   /* addis r12,r12,hi16(newfuncstart) */
   inst = 0x3d8c0000 | encode_hi16 (newfuncstart);
-  updatedatum (fixinfo, fixup_addr + 4, (char *)&inst, 4);
+  updatedatum (fixinfo, fixup_addr + 4, (gdb_byte *)&inst, 4);
 
   /* mtctr r12  - move contents of r12 (newfuncstart) to count register */
   inst = 0x7d8903a6;
-  updatedatum (fixinfo, fixup_addr + 8, (char *)&inst, 4);
+  updatedatum (fixinfo, fixup_addr + 8, (gdb_byte *)&inst, 4);
 
   /* bctr - branch unconditionally to count reg, don't update link reg */
   inst = 0x4e800420;
-  updatedatum (fixinfo, fixup_addr + 12, (char *)&inst, 4);
+  updatedatum (fixinfo, fixup_addr + 12, (gdb_byte *)&inst, 4);
   
   /* .long 0 - Illegal instruction for trampoline detection */
   inst = 0x0;
-  updatedatum (fixinfo, fixup_addr + 16, (char *)&inst, 4);
+  updatedatum (fixinfo, fixup_addr + 16, (gdb_byte *)&inst, 4);
 #endif
 #if defined (TARGET_I386)
   unsigned char buf[6];
@@ -2536,6 +2534,13 @@ update_picbase_register (struct symbol *new_fun)
   CORE_ADDR ret;
   int pic_base_reg;
   CORE_ADDR pic_base_value;
+
+  /* APPLE LOCAL begin address ranges  */
+  if (BLOCK_RANGES (SYMBOL_BLOCK_VALUE (new_fun)))
+    internal_error (__FILE__, __LINE__,
+		    _("Cannot redirect function with non-contiguous address ranges."));
+
+  /* APPLE LOCAL end address ranges  */
 
   ppc_clear_function_properties (&props);
   ret = ppc_parse_instructions (BLOCK_START (SYMBOL_BLOCK_VALUE (new_fun)),
@@ -2826,9 +2831,10 @@ _initialize_fix (void)
   c = add_com ("fix", class_files, fix_command, "Bring in a fixed objfile.");
   set_cmd_completer (c, filename_completer);
 
-  c = add_set_cmd ("fix-and-continue", class_obscure, var_boolean,
-      (char *) &fix_and_continue_debug_flag,
-      "Set if GDB prints debug information while Fix and Continuing.",
-      &setdebuglist);
-  add_show_from_set (c, &showdebuglist);
+  add_setshow_boolean_cmd ("fix-and-continue", class_obscure,
+			   &fix_and_continue_debug_flag, _("\
+Set if GDB prints debug information while Fix and Continuing."), _("\
+Show if GDB prints debug information while Fix and Continuing."), NULL,
+			   NULL, NULL,
+			   &setdebuglist, &showdebuglist);
 }

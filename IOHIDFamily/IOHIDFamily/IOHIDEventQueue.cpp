@@ -217,6 +217,22 @@ Boolean IOHIDEventQueue::isStarted()
     return ret;
 }
 
+void IOHIDEventQueue::setOptions(IOHIDQueueOptionsType flags) 
+{
+    if ( _lock )
+        IOLockLock(_lock);
+
+	_options = flags;
+
+    if ( _lock )
+        IOLockUnlock(_lock);
+}
+
+IOHIDQueueOptionsType IOHIDEventQueue::getOptions() 
+{ 
+	return _options;
+}
+
 //---------------------------------------------------------------------------
 // Add element to the queue.
 

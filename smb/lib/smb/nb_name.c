@@ -2,6 +2,8 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_name.c,v 1.11.168.1 2005/07/20 05:27:02 lindak Exp $
+ * $Id: nb_name.c,v 1.12 2005/05/06 23:16:29 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -63,12 +65,6 @@ nb_snballoc(int namelen, struct sockaddr_nb **dst)
 	return 0;
 }
 
-void
-nb_snbfree(struct sockaddr *snb)
-{
-	free(snb);
-}
-
 /*
  * Create a full NETBIOS address
  */
@@ -80,7 +76,7 @@ nb_sockaddr(struct sockaddr *peer, struct nb_name *np,
 	struct sockaddr_nb *snb;
 	int nmlen, error;
 
-	if (peer && (peer->sa_family != AF_INET && peer->sa_family != AF_IPX))
+	if (peer && (peer->sa_family != AF_INET))
 		return EPROTONOSUPPORT;
 	nmlen = nb_name_len(np);
 	if (nmlen < NB_ENCNAMELEN)
@@ -97,10 +93,15 @@ nb_sockaddr(struct sockaddr *peer, struct nb_name *np,
 				     that is the question */
 	if (peer)
 		UCflag = 0; /* don't do it! */
-	if (nmlen != nb_name_encode(np, snb->snb_name,UCflag))
-		printf("a bug somewhere in the nb_name* code\n");
+	/* 
+	 * nmlen should already be set to the value return by
+	 * nb_name_encode. The old code had a debug print here
+	 * if they returned different value. Remove the debug 
+	 * code.
+	 */ 
+	nmlen = nb_name_encode(np, snb->snb_name,UCflag);
 	if (peer)
-		memcpy(&snb->snb_tran, peer, peer->sa_len);
+		memcpy(&snb->snb_addrin, peer, peer->sa_len);
 	*dst = snb;
 	return 0;
 }

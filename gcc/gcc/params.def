@@ -446,6 +446,12 @@ DEFPARAM (PARAM_INTEGER_SHARE_LIMIT,
 	  "integer-share-limit",
 	  "The upper bound for sharing integer constants",
 	  256, 2, 2)
+/* APPLE LOCAL begin mainline */
+DEFPARAM (PARAM_SSP_BUFFER_SIZE,
+          "ssp-buffer-size",
+          "The lower bound for a buffer to be considered for stack smashing protection",
+          8, 1, 0)
+/* APPLE LOCAL end mainline */
 
 /*
 Local variables:

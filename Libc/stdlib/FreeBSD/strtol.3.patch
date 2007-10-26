@@ -1,6 +1,109 @@
---- strtol.3.orig	Fri Mar 11 17:24:07 2005
-+++ strtol.3	Fri Mar 11 17:25:18 2005
-@@ -159,6 +159,12 @@
+--- strtol.3	2006-02-14 14:41:58.000000000 -0800
++++ strtol.3.edit	2006-08-09 13:42:57.000000000 -0700
+@@ -40,7 +40,10 @@
+ .Dt STRTOL 3
+ .Os
+ .Sh NAME
+-.Nm strtol , strtoll , strtoimax , strtoq
++.Nm strtoimax ,
++.Nm strtol ,
++.Nm strtoll ,
++.Nm strtoq
+ .Nd "convert a string value to a"
+ .Vt long , "long long" , intmax_t
+ or
+@@ -49,26 +52,41 @@
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
++.In inttypes.h
++.Ft intmax_t
++.Fo strtoimax
++.Fa "const char *restrict str"
++.Fa "char **restrict endptr"
++.Fa "int base"
++.Fc
+ .In stdlib.h
+-.In limits.h
+ .Ft long
+-.Fn strtol "const char * restrict nptr" "char ** restrict endptr" "int base"
++.Fo strtol
++.Fa "const char *restrict str"
++.Fa "char **restrict endptr"
++.Fa "int base"
++.Fc
+ .Ft long long
+-.Fn strtoll "const char * restrict nptr" "char ** restrict endptr" "int base"
+-.In inttypes.h
+-.Ft intmax_t
+-.Fn strtoimax "const char * restrict nptr" "char ** restrict endptr" "int base"
++.Fo strtoll
++.Fa "const char *restrict str"
++.Fa "char **restrict endptr"
++.Fa "int base"
++.Fc
+ .In sys/types.h
+ .In stdlib.h
+ .In limits.h
+ .Ft quad_t
+-.Fn strtoq "const char *nptr" "char **endptr" "int base"
++.Fo strtoq
++.Fa "const char *str"
++.Fa "char **endptr"
++.Fa "int base"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn strtol
+ function
+ converts the string in
+-.Fa nptr
++.Fa str
+ to a
+ .Vt long
+ value.
+@@ -76,7 +94,7 @@
+ .Fn strtoll
+ function
+ converts the string in
+-.Fa nptr
++.Fa str
+ to a
+ .Vt "long long"
+ value.
+@@ -84,7 +102,7 @@
+ .Fn strtoimax
+ function
+ converts the string in
+-.Fa nptr
++.Fa str
+ to an
+ .Vt intmax_t
+ value.
+@@ -92,7 +110,7 @@
+ .Fn strtoq
+ function
+ converts the string in
+-.Fa nptr
++.Fa str
+ to a
+ .Vt quad_t
+ value.
+@@ -147,11 +165,11 @@
+ If there were no digits at all, however,
+ .Fn strtol
+ stores the original value of
+-.Fa nptr
++.Fa str
+ in
+ .Fa *endptr .
+ (Thus, if
+-.Fa *nptr
++.Fa *str
+ is not
+ .Ql \e0
+ but
+@@ -159,11 +177,17 @@
  is
  .Ql \e0
  on return, the entire string was valid.)
@@ -13,13 +116,47 @@
  .Sh RETURN VALUES
  The
  .Fn strtol ,
-@@ -203,7 +209,8 @@
+ .Fn strtoll ,
+-.Fn strtoimax
++.Fn strtoimax ,
+ and
+ .Fn strtoq
+ functions
+@@ -181,8 +205,8 @@
+ .Er ERANGE
+ and the function return value is clamped according
+ to the following table.
+-.Bl -column -offset indent ".Fn strtoimax" ".Sy overflow" ".Sy underflow"
+-.It Sy Function Ta Sy overflow Ta Sy underflow
++.Bl -column -offset indent ".Fn strtoimax" ".Dv INTMAX_MIN" ".Dv INTMAX_MAX"
++.It Sy Function Ta Sy underflow Ta Sy overflow
+ .It Fn strtol Ta Dv LONG_MIN Ta Dv LONG_MAX
+ .It Fn strtoll Ta Dv LLONG_MIN Ta Dv LLONG_MAX
+ .It Fn strtoimax Ta Dv INTMAX_MIN Ta Dv INTMAX_MAX
+@@ -199,13 +223,25 @@
+ .It Bq Er ERANGE
+ The given string was out of range; the value converted has been clamped.
+ .El
++.Sh LEGACY SYNOPSIS
++.Fd #include <stdlib.h>
++.Fd #include <limits.h>
++.Pp
++.In limits.h
++is necessary for the
++.Fn strtol
++and
++.Fn strtoll
++functions.
+ .Sh SEE ALSO
+ .Xr atof 3 ,
+ .Xr atoi 3 ,
  .Xr atol 3 ,
  .Xr strtod 3 ,
++.Xr strtol_l 3 ,
  .Xr strtoul 3 ,
 -.Xr wcstol 3
 +.Xr wcstol 3 ,
-+.Xr strtol_l 3
++.Xr compat 5
  .Sh STANDARDS
  The
  .Fn strtol

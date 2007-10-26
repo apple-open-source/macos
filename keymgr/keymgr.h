@@ -100,6 +100,9 @@ extern int _keymgr_get_lock_count_processwide_ptr (unsigned int key);
 /* C++ runtime EH global data.  */
 #define KEYMGR_EH_GLOBALS_KEY		13
 
+/* atexit() and __cxa_atexit routine list.  */
+#define KEYMGR_ATEXIT_LIST		14
+
 /* KeyMgr 3.x is the first one supporting GCC3 stuff natively.  */
 #define KEYMGR_API_MAJOR_GCC3		3
 /* ... with these keys.  */
@@ -111,7 +114,7 @@ extern int _keymgr_get_lock_count_processwide_ptr (unsigned int key);
  */
  
 /* Major revision number of the keymgr API.  */
-#define KEYMGR_API_REV_MAJOR		4
+#define KEYMGR_API_REV_MAJOR		5
 /* Minor revision number of the keymgr API.  */
 #define KEYMGR_API_REV_MINOR		0
 

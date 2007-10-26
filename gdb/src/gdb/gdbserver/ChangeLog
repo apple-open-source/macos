@@ -1,3 +1,297 @@
+2005-07-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* server.h (error, fatal, warning): Add ATTR_FORMAT.
+
+2005-07-13  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* configure.ac: Define HAVE_LINUX_REGSETS even if PTRACE_GETREGS
+	is not available.  Define HAVE_PTRACE_GETREGS if it is.
+	* config.in, configure: Regenerated.
+	* configure.srv: Set srv_linux_regsets for PowerPC and PowerPC64.
+	* linux-i386-low.c, linux-m68k-low.c: Update to use
+	HAVE_PTRACE_GETREGS.
+	* linux-low.c (regsets_fetch_inferior_registers)
+	(regsets_store_inferior_registers): Only return 0 if we processed
+	GENERAL_REGS.
+	* linux-ppc-low.c (ppc_fill_gregset, target_regsets): New.
+	* linux-ppc64-low.c (ppc_fill_gregset, target_regsets): New.
+
+2005-07-13  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* inferiors.c (struct thread_info): Add gdb_id.
+	(add_thread): Add gdb_id argument.
+	(thread_id_to_gdb_id, thread_to_gdb_id, gdb_id_to_thread_id): New.
+	* linux-low.c (linux_create_inferior, linux_attach_lwp): Update
+	calls to add_thread.
+	* remote-utils.c (prepare_resume_reply: Use thread_to_gdb_id.
+	* server.c (handle_query): Use thread_to_gdb_id.
+	(handle_v_cont, main): Use gdb_id_to_thread_id.
+	* server.h (add_thread): Update prototype.
+	(thread_id_to_gdb_id, thread_to_gdb_id, gdb_id_to_thread_id): New
+	prototypes.
+
+2005-07-13  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* linux-low.c (fetch_register, usr_store_inferior_registers): Handle
+	left-padded registers.
+	* linux-low.h (struct linux_target_ops): Add left_pad_xfer.
+	* linux-ppc64-low.c (the_low_target): Set left_pad_xfer.
+
+2005-07-01  Steve Ellcey  <sje@cup.hp.com>
+
+	* configure.ac (BFD_NEED_DECLARATION): Replace with AC_CHECK_DECLS.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* server.h (NEED_DECLARATION_STRERROR):
+	Replace with !HAVE_DECL_STRERROR.
+
+2005-06-16  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* linux-low.c (linux_wait, linux_send_signal): Don't test
+	an unsigned long variable for > 0 if it could be MAX_ULONG.
+	* server.c (myresume): Likewise.
+	* target.c (set_desired_inferior): Likewise.
+
+2005-06-13  Mark Kettenis  <kettenis@gnu.org>
+
+	* configure.ac: Simplify and improve check for socklen_t.
+	* configure, config.in: Regenerate.
+
+2005-06-12  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* acconfig.h: Remove.
+	* configure.ac: Add a test for socklen_t.  Use three-argument
+	AC_DEFINE throughout.
+	* config.in: Regenerated using autoheader 2.59.
+	* configure: Regenerated.
+
+	* gdbreplay.c (socklen_t): Provide a default.
+	(remote_open): Use socklen_t.
+	* remote-utils.c (socklen_t): Provide a default.
+	(remote_open): Use socklen_t.
+	(convert_int_to_ascii, convert_ascii_to_int, decode_M_packet): Use
+	unsigned char.
+
+	* i387-fp.c (struct i387_fsave, struct i387_fxsave): Use unsigned
+	char for buffers.
+	* linux-low.c (linux_read_memory, linux_write_memory)
+	(linux_read_auxv): Likewise.
+	* mem-break.c (breakpoint_data, set_breakpoint_data, check_mem_read)
+	(check_mem_write): Likewise.
+	* mem-break.h (set_breakpoint_data, check_mem_read, check_mem_write):
+	Likewise.
+	* regcache.c (struct inferior_rgcache_data, registers_to_string)
+	(registers_from_string, register_data): Likewise.
+	* server.c (handle_query, main): Likewise.
+	* server.h (convert_ascii_to_int, convert_int_to_ascii)
+	(decode_M_packet): Likewise.
+	* target.c (read_inferior_memory, write_inferior_memory): Likewise.
+	* target.h (struct target_ops): Update read_memory, write_memory,
+	and read_auxv.
+	(read_inferior_memory, write_inferior_memory): Update.
+	* linux-low.h (struct linux_target_ops): Change type of breakpoint
+	to unsigned char *.
+	* linux-arm-low.c, linux-cris-low.c, linux-crisv32-low.c,
+	linux-i386-low.c, linux-m32r-low.c, linux-m68k-low.c,
+	linux-mips-low.c, linux-ppc-low.c, linux-ppc64-low.c,
+	linux-s390-low.c, linux-sh-low.c: Update for changes in
+	read_inferior_memory and the_low_target->breakpoint.
+
+2005-05-28  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (SFILES): Add linux-ppc64-low.c.
+	(linux-ppc64-low.o, reg-ppc64.c, reg-ppc64.o): New targets.
+	* configure.srv: Add powerpc64-*-linux*.
+	* linux-ppc64-low.c: New file.
+
+2005-05-23  Orjan Friberg  <orjanf@axis.com>
+
+	* linux-cris-low.c: New file with support for CRIS.
+	* linux-crisv32-low.c: Ditto for CRISv32.
+	* Makefile.in (SFILES): Add linux-cris-low.c, linux-crisv32-low.c.
+	(clean): Add reg-cris.c and reg-crisv32.c.
+	Add linux-cris-low.o, linux-crisv32-low.o, reg-cris.o, reg-cris.c, 
+	reg-crisv32.o, and reg-crisv32.c to make rules.
+	* configure.srv: Add cris-*-linux* and crisv32-*-linux* to list of
+	recognized targets.
+
+2005-05-16  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* linux-low.c (fetch_register): Ensure buffer size is a multiple
+	of sizeof (PTRACE_XFER_TYPE).
+	(usr_store_inferior_registers): Likewise.  Zero out excess bytes.
+
+2005-05-12  Orjan Friberg  <orjanf@axis.com>
+
+	* target.h (struct target_ops): Add insert_watchpoint, 
+	remove_watchpoint, stopped_by_watchpoint, stopped_data_address function
+	pointers for hardware watchpoint support.
+	* linux-low.h (struct linux_target_ops): Ditto.
+	* linux-low.c (linux_insert_watchpoint, linux_remove_watchpoint)
+	(linux_stopped_by_watchpoint, linux_stopped_data_address): New.  Add
+	to linux_target_ops.
+	* remote-utils.c (prepare_resume_reply): Add watchpoint information to
+	reply packet.
+	* server.c (main): Recognize 'Z' and 'z' packets.
+
+2005-05-10  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* linux-s390-low.c (s390_breakpoint, s390_breakpoint_len): Define.
+	(s390_get_pc, s390_set_pc, s390_breakpoint_at): New functions.
+	(the_low_target): Add new members.
+
+2005-05-04  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* proc-service.c (ps_lgetregs): Search all_processes instead of
+	all_threads.
+
+2005-05-04  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* server.c (start_inferior): Change return type to int.
+	(attach_inferior): Change sigptr to int *.
+	(handle_v_cont, handle_v_requests): Change signal to int *.
+	(main): Change signal to int.
+
+2005-04-15  Kei Sakamoto  <sakamoto.kei@renesas.com>
+
+	* Makefile.in: Add linux-m32r-low.o, reg-m32r.c and reg-m32r.o.
+	* configure.srv: Add m32r*-*-linux*.
+	* linux-m32r-low.c: New file.
+
+2005-03-04  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.in (stamp-h): Set CONFIG_HEADERS explicitly.
+
+2005-03-03  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* inferiors.c (change_inferior_id, add_thread, find_inferior_id):
+	Take unsigned long arguments for PIDs.
+	* linux-low.c (add_process, linux_attach_lwp, linux_attach)
+	(linux_thread_alive, linux_wait_for_event, kill_lwp, send_sigstop)
+	(wait_for_sigstop, linux_resume_one_process)
+	(regsets_fetch_inferior_registers, linux_send_signal)
+	(linux_read_auxv): Likewise.  Update the types of variables holding
+	PIDs.  Update format string specifiers.
+	* linux-low.h (struct process_info, linux_attach_lwp): Likewise.
+	* remote-utils.c (prepare_resume_reply): Likewise.
+	* server.c (cont_thread, general_thread, step_thread)
+	(thread_from_wait, old_thread_from_wait, signal_pid): Change type to
+	unsigned long.
+	(handle_query): Update format specifiers.
+	(handle_v_cont, main): Use strtoul for thread IDs.
+	* server.h (struct inferior_list_entry): Use unsigned long for ID.
+	(add_thread, find_inferior_id, change_inferior_id, cont_thread)
+	(general_thread, step_thread, thread_from_wait)
+	(old_thread_from_wait): Update.
+	* target.h (struct thread_resume): Use unsigned long for THREAD.
+	(struct target_ops): Use unsigned long for arguments to attach and
+	thread_alive.
+
+2005-02-24  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* acinclude.m4: Include bfd/bfd.m4 directly.
+	* configure.ac: Use AC_ARG_PROGRAM.  Suggested by Aron Griffis
+	<agriffis@toolchain.org>.
+	* aclocal.m4, configure: Regenerated.
+
+2005-01-07  Andrew Cagney  <cagney@gnu.org>
+
+	* configure.ac: Rename configure.in, require autoconf 2.59.
+	* configure: Re-generate.
+
+2004-12-08  Daniel Jacobowitz  <dan@debian.org>
+
+	* acinclude.m4 (SRV_CHECK_THREAD_DB): Add ps_get_thread_area.  Reset
+	LIBS when finished.
+	* aclocal.m4: Regenerated.
+	* configure: Regenerated.
+
+2004-11-21  Andreas Schwab  <schwab@suse.de>
+
+	* linux-m68k-low.c (m68k_num_gregs): Define.
+	(m68k_fill_gregset, m68k_store_gregset, m68k_fill_fpregset)
+	(m68k_store_fpregset, target_regsets) [HAVE_LINUX_REGSETS]: New.
+	(m68k_breakpoint, m68k_breakpoint_len, m68k_get_pc, m68k_set_pc)
+	(m68k_breakpoint_at): New.  Add to the_low_target.
+
+	* configure.srv (m68*-*-linux*): Set srv_linux_regsets and
+	srv_linux_thread_db to yes.
+
+2004-10-20  Joel Brobecker  <brobecker@gnat.com>
+
+	* linux-x86-64-low.c (ARCH_SET_GS): Add definition if missing.
+	(ARCH_SET_FS): Likewise.
+	(ARCH_GET_FS): Likewise.
+	(ARCH_GET_GS): Likewise.
+
+2004-10-16  Daniel Jacobowitz  <dan@debian.org>
+
+	* linux-i386-low.c (ps_get_thread_area): New.
+	* linux-x86-64-low.c (ps_get_thread_area): New.
+	* linux-low.c: Include <sys/syscall.h>.
+	(linux_kill_one_process): Don't kill the first thread here.
+	(linux_kill): Kill the first thread here.
+	(kill_lwp): New function.
+	(send_sigstop, linux_send_signal): Use it.
+	* proc-service.c: Clean up #ifdefs.
+	(fpregset_info): Delete.
+	(ps_lgetregs): Update and enable implementation.
+	(ps_lsetregs, ps_lgetfpregs, ps_lsetfpregs): Remove disabled
+	implementations.
+	* remote-utils.c (struct sym_cache, symbol_cache): New.
+	(input_interrupt): Print a clearer message.
+	(async_io_enabled): New variable.
+	(enable_async_io, disable_async_io): Use it.  Update comments.
+	(look_up_one_symbol): Use the symbol cache.
+	* thread-db.c (thread_db_look_up_symbols): New function.
+	(thread_db_init): Update comments.  Call thread_db_look_up_symbols.
+
+2004-10-16  Daniel Jacobowitz  <dan@debian.org>
+
+	* configure.in: Test for -rdynamic.
+	* configure: Regenerated.
+	* Makefile (INTERNAL_LDFLAGS): New.
+	(gdbserver, gdbreplay): Use it.
+
+2004-09-02  Andrew Cagney  <cagney@gnu.org>
+
+	* Makefile.in (TAGS): Replace TM_FILE with DEPRECATED_TM_FILE.
+
+2004-03-23  Daniel Jacobowitz  <drow@mvista.com>
+
+	* linux-low.c (linux_wait): Clear all_processes list also.
+
+2004-03-12  Daniel Jacobowitz  <drow@mvista.com>
+
+	* linux-low.c: Include <errno.h>.  Remove extern declaration of
+	errno.
+
+2004-03-12  Daniel Jacobowitz  <drow@mvista.com>
+
+	* gdbreplay.c, server.h, utils.c: Update copyright years.
+
+2004-03-04  Nathan J. Williams  <nathanw@wasabisystems.com>
+
+	* server.c (main): Print child status or termination signal from
+	variable 'signal', not 'sig'.
+
+2004-03-04  Nathan J. Williams  <nathanw@wasabisystems.com>
+
+	* linux-low.c (linux_read_memory): Change return type to
+	int.  Check for and return error from ptrace().
+	* target.c (read_inferior_memory): Change return type to int.  Pass
+	back return status from the_target->read_memory().
+	* target.h (struct target_ops): Adapt *read_memory() prototype.
+	Update comment.
+	(read_inferior_memory): Adapt prototype.
+	* server.c (main): Return an error packet if
+	read_inferior_memory() returns an error.
+
+2004-03-04  Daniel Jacobowitz  <drow@mvista.com>
+
+	* Makefile.in (distclean): Remove config.h, stamp-h, and config.log.
+	Unify with other clean targets.
+
 2004-02-29  Daniel Jacobowitz  <drow@mvista.com>
 
 	* server.c (handle_v_cont): Call set_desired_inferior.

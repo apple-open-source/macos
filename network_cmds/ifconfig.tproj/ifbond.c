@@ -103,6 +103,8 @@ bond_status(int s, struct rt_addrinfo * info __unused)
 	struct if_bond_req		ibr;
 	struct if_bond_status *		ibs_p;
 	struct if_bond_status_req *	ibsr_p;
+	char				mode_buf[16];
+	const char *			mode_str;
 
 	bzero((char *)&ibr, sizeof(ibr));
 	ibr.ibr_op = IF_BOND_OP_GET_STATUS;
@@ -114,10 +116,23 @@ bond_status(int s, struct rt_addrinfo * info __unused)
 	if (ioctl(s, SIOCGIFBOND, (caddr_t)&ifr) < 0) {
 		return;
 	}
+	switch (ibsr_p->ibsr_mode) {
+	case IF_BOND_MODE_LACP:
+		mode_str = "lacp";
+		break;
+	case IF_BOND_MODE_STATIC:
+		mode_str = "static";
+		break;
+	default:
+		snprintf(mode_buf, sizeof(mode_buf), "%d", ibsr_p->ibsr_mode);
+		mode_str = mode_buf;
+		break;
+	}
 	if (ibsr_p->ibsr_total == 0) {
 		if (bond_details) {
-			printf("\tbond key: 0x%04x interfaces: <none>\n", 
-			       ibsr_p->ibsr_key);
+			printf("\tbond mode: %s\n"
+			       "\tbond key: 0x%04x interfaces: <none>",
+			       mode_str, ibsr_p->ibsr_key);
 		}
 		else {
 			printf("\tbond interfaces: <none>\n");
@@ -135,8 +150,9 @@ bond_status(int s, struct rt_addrinfo * info __unused)
 	}
 	if (ibsr_p->ibsr_total > 0) {
 		if (bond_details) {
-			printf("\tbond key: 0x%04x interfaces:", 
-			       ibsr_p->ibsr_key);
+			printf("\tbond mode: %s\n"
+			       "\tbond key: 0x%04x interfaces:", 
+			       mode_str, ibsr_p->ibsr_key);
 		}
 		else {
 			printf("\tbond interfaces:");
@@ -157,8 +173,9 @@ bond_status(int s, struct rt_addrinfo * info __unused)
 		}
 	}
 	else if (bond_details) {
-		printf("\tbond key: 0x%04x interfaces: <none>\n", 
-		       ibsr_p->ibsr_key);
+		printf("\tbond mode: %s\n"
+		       "\tbond key: 0x%04x interfaces: <none>\n",
+		       mode_str, ibsr_p->ibsr_key);
 	}
 	else {
 		printf("\tbond interfaces: <none>\n");
@@ -206,4 +223,40 @@ unsetbonddev(const char *val, int d, int s, const struct afswtch * afp)
 
 	return;
 }
+
+void
+setbondmode(const char *val, int d, int s, const struct afswtch * afp)
+{
+	struct if_bond_req		ibr;
+	int				mode;
+
+	if (strcmp(val, "lacp") == 0) {
+		mode = IF_BOND_MODE_LACP;
+	}
+	else if (strcmp(val, "static") == 0) {
+		mode = IF_BOND_MODE_STATIC;
+	}
+	else {
+		mode = strtoul(val, NULL, 0);
+		if (errno != 0) {
+			errx(1, "invalid mode value "
+			     "(must be either \"lacp\" or \"static\")");
+		}
+	}
+
+	bzero((char *)&ibr, sizeof(ibr));
+	if ((unsigned int)snprintf(ibr.ibr_ibru.ibru_if_name, 
+				   sizeof(ibr.ibr_ibru.ibru_if_name),
+				   "%s", val) >= IFNAMSIZ) {
+		errx(1, "interface name too long");
+	}
+	ibr.ibr_op = IF_BOND_OP_SET_MODE;
+	ibr.ibr_ibru.ibru_int_val = mode;
+	ifr.ifr_data = (caddr_t)&ibr;
+	if (ioctl(s, SIOCSIFBOND, (caddr_t)&ifr) == -1)
+		err(1, "SIOCSIFBOND set mode");
+
+	return;
+}
+
 

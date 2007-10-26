@@ -15,5 +15,5 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/root/libpcap/libpcap/pcap-pf.h,v 1.1.1.1 2001/07/07 00:41:36 bbraun Exp $ (LBL)
+ * @(#) $Header: /tcpdump/master/libpcap/pcap-pf.h,v 1.2.1.1 1999/10/07 23:46:40 mcr Exp $ (LBL)
  */

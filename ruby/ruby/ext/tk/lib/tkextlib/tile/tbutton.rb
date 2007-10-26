@@ -9,22 +9,22 @@ module Tk
   module Tile
     class TButton < TkButton
     end
+    Button = TButton
   end
 end
 
 class Tk::Tile::TButton < TkButton
   include Tk::Tile::TileWidget
 
-  TkCommandNames = ['tbutton'.freeze].freeze
+  if Tk::Tile::USE_TTK_NAMESPACE
+    TkCommandNames = ['::ttk::button'.freeze].freeze
+  else
+    TkCommandNames = ['::tbutton'.freeze].freeze
+  end
   WidgetClassName = 'TButton'.freeze
   WidgetClassNames[WidgetClassName] = self
 
-  def create_self(keys)
-    if keys and keys != None
-      tk_call_without_enc('tbutton', @path, *hash_kv(keys, true))
-    else
-      tk_call_without_enc('tbutton', @path)
-    end
+  def self.style(*args)
+    [self::WidgetClassName, *(args.map!{|a| _get_eval_string(a)})].join('.')
   end
-  private :create_self
 end

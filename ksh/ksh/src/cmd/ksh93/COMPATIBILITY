@@ -113,5 +113,17 @@ omitted features that are completely upward compatible.
 	to on standard output as required by X/Open.  With ksh88,
 	this only happened for interactive shells.
 
+26.	As an undocumented feature of ksh-88, a leading 0 to an
+	assignment of an integer variable caused that variable
+	to be treated as unsigned.  This behavior was removed
+	starting in ksh93p.
+
+27.	The getopts builtin in ksh93 requires that optstring contain
+	a leading + to allow options to begin with a +.
+
+28.	In emacs/gmacs mode, control-v will not display the version when
+	the stty lnext character is set to control-v or is unset.
+	The sequence escape control-v will display the shell version.
+
 I am interested in expanding this list so please let me know if you
 uncover any others.

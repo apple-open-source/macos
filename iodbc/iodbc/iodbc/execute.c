@@ -1,21 +1,25 @@
 /*
  *  execute.c
  *
- *  $Id: execute.c,v 1.3 2004/11/11 01:52:37 luesang Exp $
+ *  $Id: execute.c,v 1.24 2006/12/11 14:21:48 source Exp $
  *
  *  Invoke a query
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -71,6 +75,7 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
 
 #include <sql.h>
@@ -98,7 +103,7 @@ _iodbcdm_do_cursoropen (STMT_t * pstmt)
 
   retcode = _iodbcdm_NumResultCols ((SQLHSTMT) pstmt, &ncol);
 
-  if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+  if (SQL_SUCCEEDED (retcode))
     {
       if (ncol)
 	{
@@ -190,8 +195,7 @@ SQLExecute_Internal (SQLHSTMT hstmt)
       return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_Execute,
-      (pstmt->dhstmt));
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, (pstmt->dhstmt));
 
   /* stmt state transition */
   if (pstmt->asyn_on == en_Execute)
@@ -242,9 +246,8 @@ SQLExecute_Internal (SQLHSTMT hstmt)
       switch (retcode)
 	{
 	case SQL_ERROR:
-	  pstmt->state = en_stmt_allocated;
+	  pstmt->state = en_stmt_prepared;
 	  pstmt->cursor_state = en_stmt_cursor_no;
-	  pstmt->prep_state = 0;
 	  break;
 
 	case SQL_NEED_DATA:
@@ -447,6 +450,7 @@ SQLExecDirect (SQLHSTMT hstmt, SQLCHAR * szSqlStr, SQLINTEGER cbSqlStr)
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLExecDirectA (SQLHSTMT hstmt, SQLCHAR * szSqlStr, SQLINTEGER cbSqlStr)
 {
@@ -471,6 +475,7 @@ SQLExecDirectW (SQLHSTMT hstmt, SQLWCHAR * szSqlStr, SQLINTEGER cbSqlStr)
   LEAVE_STMT (hstmt,
     trace_SQLExecDirectW (TRACE_LEAVE, hstmt, szSqlStr, cbSqlStr));
 }
+#endif
 
 
 static SQLRETURN
@@ -519,7 +524,7 @@ SQLPutData_Internal (
       return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_PutData,
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, 
       (pstmt->dhstmt, rgbValue, cbValue));
 
   /* state transition */
@@ -637,8 +642,7 @@ SQLParamData_Internal (SQLHSTMT hstmt, SQLPOINTER * prgbValue)
       return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_ParamData,
-      (pstmt->dhstmt, prgbValue));
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, (pstmt->dhstmt, prgbValue));
 
   /* state transition */
   if (pstmt->asyn_on == en_ParamData)
@@ -789,8 +793,7 @@ SQLNumParams_Internal (SQLHSTMT hstmt, SQLSMALLINT * pcpar)
       return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_NumParams,
-      (pstmt->dhstmt, pcpar));
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, (pstmt->dhstmt, pcpar));
 
   /* state transition */
   if (pstmt->asyn_on == en_NumParams)
@@ -886,7 +889,7 @@ SQLDescribeParam_Internal (
       return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_DescribeParam,
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
       (pstmt->dhstmt, ipar, pfSqlType, pcbColDef, pibScale, pfNullable));
 
   /*

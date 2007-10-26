@@ -21,16 +21,16 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#include "defs.h"
+#include "gdbcmd.h"
+#include "event-loop.h"
+#include "inferior.h"
+
 #include "macosx-nat-sigthread.h"
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-mutils.h"
 
-#include "defs.h"
-#include "gdbcmd.h"
-#include "event-loop.h"
-
 #include <stdlib.h>
-#include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 
@@ -209,13 +209,12 @@ macosx_signal_thread (void *arg)
 void
 _initialize_macosx_nat_sigthread ()
 {
-  struct cmd_list_element *cmd = NULL;
+  sigthread_stderr_re = fdopen (fileno (stderr), "w");
 
-  sigthread_stderr_re = fdopen (fileno (stderr), "w+");
-
-  cmd = add_set_cmd ("signals", no_class, var_boolean,
-                     (char *) &sigthread_debugflag,
-                     "Set if printing signal thread debugging statements.",
-                     &setdebuglist);
-  add_show_from_set (cmd, &showdebuglist);
+  add_setshow_boolean_cmd ("signals", no_class,
+			   &sigthread_debugflag, _("\
+Set if printing signal thread debugging statements."), _("\
+Show if printing signal thread debugging statements."), NULL,
+			   NULL, NULL,
+			   &setdebuglist, &showdebuglist);
 }

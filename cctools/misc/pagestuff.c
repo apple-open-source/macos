@@ -70,11 +70,13 @@ enum mach_o_part_type {
     MP_INDIRECT_SYMBOL_TABLE,
     MP_EXT_RELOCS,
     MP_LOC_RELOCS,
+    MP_SPLIT_INFO,
     MP_SYMBOL_TABLE,
     MP_HINTS_TABLE,
     MP_STRING_TABLE,
     MP_EXT_STRING_TABLE,
     MP_LOC_STRING_TABLE,
+    MP_CODE_SIG,
     MP_EMPTY_SPACE
 };
 static char *mach_o_part_type_names[] = {
@@ -92,11 +94,13 @@ static char *mach_o_part_type_names[] = {
     "MP_INDIRECT_SYMBOL_TABLE",
     "MP_EXT_RELOCS",
     "MP_LOC_RELOCS",
+    "MP_SPLIT_INFO",
     "MP_SYMBOL_TABLE",
     "MP_HINTS_TABLE",
     "MP_STRING_TABLE",
     "MP_EXT_STRING_TABLE",
     "MP_LOC_STRING_TABLE",
+    "MP_CODE_SIG",
     "MP_EMPTY_SPACE"
 };
 
@@ -413,6 +417,7 @@ struct file_part *fp)
     char *strings;
     struct dylib_module *modtab;
     struct dylib_module_64 *modtab64;
+    struct linkedit_data_command *split_info, *code_sig;
 
 	mp = new_mach_o_part();
 	mp->offset = fp->offset;
@@ -444,6 +449,8 @@ struct file_part *fp)
 	symbols = NULL;
 	symbols64 = NULL;
 	strings = NULL;
+	split_info = NULL;
+	code_sig = NULL;
 	lc = ofile.load_commands;
 	for(i = 0; i < ncmds; i++){
 	    if(st == NULL && lc->cmd == LC_SYMTAB){
@@ -454,6 +461,12 @@ struct file_part *fp)
 	    }
 	    else if(hints == NULL && lc->cmd == LC_TWOLEVEL_HINTS){
 		hints = (struct twolevel_hints_command *)lc;
+	    }
+	    else if(split_info == NULL && lc->cmd == LC_SEGMENT_SPLIT_INFO){
+		split_info = (struct linkedit_data_command *)lc;
+	    }
+	    else if(code_sig == NULL && lc->cmd == LC_CODE_SIGNATURE){
+		code_sig = (struct linkedit_data_command *)lc;
 	    }
 	    else if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
@@ -633,6 +646,13 @@ struct file_part *fp)
 		mp->type = MP_HINTS_TABLE;
 		insert_mach_o_part(fp, mp);
 	    }
+	    if(split_info != NULL && split_info->datasize != 0){
+		mp = new_mach_o_part();
+		mp->offset = fp->offset + split_info->dataoff;
+		mp->size = split_info->datasize;
+		mp->type = MP_SPLIT_INFO;
+		insert_mach_o_part(fp, mp);
+	    }
 	    if(dyst->ntoc != 0){
 		mp = new_mach_o_part();
 		mp->offset = fp->offset + dyst->tocoff;
@@ -804,6 +824,13 @@ struct file_part *fp)
 		mp->type = MP_STRING_TABLE;
 		insert_mach_o_part(fp, mp);
 	    }
+	}
+	if(code_sig != NULL && code_sig->datasize != 0){
+	    mp = new_mach_o_part();
+	    mp->offset = fp->offset + code_sig->dataoff;
+	    mp->size = code_sig->datasize;
+	    mp->type = MP_CODE_SIG;
+	    insert_mach_o_part(fp, mp);
 	}
 }
 
@@ -1045,6 +1072,12 @@ unsigned long page_number)
 			print_arch(fp);
 			printed = TRUE;
 			break;
+		    case MP_SPLIT_INFO:
+			printf("File Page %lu contains local of info to split "
+			       "segments", page_number);
+			print_arch(fp);
+			printed = TRUE;
+			break;
 		    case MP_LOCAL_SYMBOLS:
 			printf("File Page %lu contains symbol table for "	
 			       "non-global symbols", page_number);
@@ -1126,6 +1159,12 @@ unsigned long page_number)
 		    case MP_LOC_STRING_TABLE:
 			printf("File Page %lu contains string table for "
 			       "local symbols", page_number);
+			print_arch(fp);
+			printed = TRUE;
+			break;
+		    case MP_CODE_SIG:
+			printf("File Page %lu contains local of code signature",
+			       page_number);
 			print_arch(fp);
 			printed = TRUE;
 			break;
@@ -1271,6 +1310,9 @@ struct mach_o_part *mp)
 	    printf("relocation entries for section (%.16s,%.16s)",
 		   mp->s64->segname, mp->s64->sectname);
 	    break;
+	case MP_SPLIT_INFO:
+	    printf("local of info to split segments");
+	    break;
 	case MP_LOCAL_SYMBOLS:
 	    printf("symbol table for non-global symbols");
 	    break;
@@ -1312,6 +1354,9 @@ struct mach_o_part *mp)
 	    break;
 	case MP_LOC_STRING_TABLE:
 	    printf("string table for local symbols");
+	    break;
+	case MP_CODE_SIG:
+	    printf("local of code signature");
 	    break;
 	case MP_EMPTY_SPACE:
 	    printf("empty space");

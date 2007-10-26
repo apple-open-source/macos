@@ -45,6 +45,9 @@ MAKE_FINI_FUNCTION(com_err_terminate);
 int com_err_initialize(void)
 {
     int err;
+#ifdef SHOW_INITFINI_FUNCS
+    printf("com_err_initialize\n");
+#endif
     terminated = 0;
     err = k5_mutex_finish_init(&et_list_lock);
     if (err)
@@ -61,8 +64,15 @@ int com_err_initialize(void)
 void com_err_terminate(void)
 {
     struct dynamic_et_list *e, *enext;
-    if (! INITIALIZER_RAN(com_err_initialize) || PROGRAM_EXITING())
+    if (! INITIALIZER_RAN(com_err_initialize) || PROGRAM_EXITING()) {
+#ifdef SHOW_INITFINI_FUNCS
+	printf("com_err_terminate: skipping\n");
+#endif
 	return;
+    }
+#ifdef SHOW_INITFINI_FUNCS
+    printf("com_err_terminate\n");
+#endif
     k5_key_delete(K5_KEY_COM_ERR);
     k5_mutex_destroy(&com_err_hook_lock);
     k5_mutex_lock(&et_list_lock);
@@ -80,6 +90,24 @@ void com_err_terminate(void)
 #else
 #define dprintf(X) printf X
 #endif
+
+static char *
+get_thread_buffer ()
+{
+    char *cp;
+    cp = k5_getspecific(K5_KEY_COM_ERR);
+    if (cp == NULL) {
+	cp = malloc(ET_EBUFSIZ);
+	if (cp == NULL) {
+	    return NULL;
+	}
+	if (k5_setspecific(K5_KEY_COM_ERR, cp) != 0) {
+	    free(cp);
+	    return NULL;
+	}
+    }
+    return cp;
+}
 
 const char * KRB5_CALLCONV
 error_message(long code)
@@ -99,39 +127,36 @@ error_message(long code)
 	l_offset = (unsigned long)code & ((1<<ERRCODE_RANGE)-1);
 	offset = l_offset;
 	table_num = ((unsigned long)code - l_offset) & ERRCODE_MAX;
-	if (table_num == 0) {
+	if (table_num == 0
 #ifdef __sgi
-	system_error_code:
+	    /* Irix 6.5 uses a much bigger table than other UNIX
+	       systems I've looked at, but the table is sparse.  The
+	       sparse entries start around 500, but sys_nerr is only
+	       152.  */
+	    || (code > 0 && code <= 1600)
 #endif
+	    ) {
 		if (code == 0)
 			goto oops;
 
 		/* This could trip if int is 16 bits.  */
 		if ((unsigned long)(int)code != code)
 		    abort ();
+#ifdef HAVE_STRERROR_R
+		cp = get_thread_buffer();
+		if (cp && strerror_r((int) code, cp, ET_EBUFSIZ) == 0)
+		    return cp;
+#endif
 #ifdef HAVE_STRERROR
 		cp = strerror((int) code);
 		if (cp)
 			return cp;
-		goto oops;
-#else
-#ifdef HAVE_SYS_ERRLIST
+#elif defined HAVE_SYS_ERRLIST
 		if (offset < sys_nerr)
 			return(sys_errlist[offset]);
-		else
-			goto oops;
-#else
-		goto oops;
-#endif /* HAVE_SYS_ERRLIST */
-#endif /* HAVE_STRERROR */
-	}
-#ifdef __sgi
-	/* Irix 6.5 uses a much bigger table than other UNIX systems
-	   I've looked at, but the table is sparse.  The sparse
-	   entries start around 500, but sys_nerr is only 152.  */
-	if (code > 0 && code <= 1600)
-	    goto system_error_code;
 #endif
+		goto oops;
+	}
 
 	if (CALL_INIT_FUNCTION(com_err_initialize))
 	    return 0;
@@ -211,18 +236,9 @@ error_message(long code)
 			goto oops;
 		} else {
 			char *buffer;
-			cp = k5_getspecific(K5_KEY_COM_ERR);
-			if (cp == NULL) {
-			    cp = malloc(ET_EBUFSIZ);
-			    if (cp == NULL) {
-			    win32_no_specific:
-				return "Unknown error code";
-			    }
-			    if (k5_setspecific(K5_KEY_COM_ERR, cp) != 0) {
-				free(cp);
-				goto win32_no_specific;
-			    }
-			}
+			cp = get_thread_buffer();
+			if (cp == NULL)
+			    return "Unknown error code";
 			buffer = cp;
 			strncpy(buffer, msgbuf, ET_EBUFSIZ);
 			buffer[ET_EBUFSIZ-1] = '\0';
@@ -247,18 +263,9 @@ oops:
 	}
 #endif
 
-	cp = k5_getspecific(K5_KEY_COM_ERR);
-	if (cp == NULL) {
-	    cp = malloc(ET_EBUFSIZ);
-	    if (cp == NULL) {
-	    no_specific:
-		return "Unknown error code";
-	    }
-	    if (k5_setspecific(K5_KEY_COM_ERR, cp) != 0) {
-		free(cp);
-		goto no_specific;
-	    }
-	}
+	cp = get_thread_buffer();
+	if (cp == NULL)
+	    return "Unknown error code";
 	cp1 = cp;
 	strcpy(cp, "Unknown code ");
 	cp += sizeof("Unknown code ") - 1;

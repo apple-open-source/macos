@@ -14,9 +14,9 @@ PROJECT_TYPE = Tool
 
 HFILES = daemon.h
 
-CFILES = asl_action.c asl_in.c bsd_in.c bsd_out.c daemon.c klog_in.c syslogd.c udp_in.c
+CFILES = asl_action.c asl_in.c bsd_in.c bsd_out.c daemon.c dbserver.c klog_in.c syslogd.c udp_in.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble syslogd.8 syslog.conf.5 com.apple.syslogd.plist
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble asl.conf.5 syslogd.8 syslog.conf.5 syslogd.sb com.apple.syslogd.plist
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -24,7 +24,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
 WINDOWS_INSTALLDIR = /usr/sbin
 PDO_UNIX_INSTALLDIR = /usr/sbin
-LIBS = 
+LIBS = -laslcommon
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

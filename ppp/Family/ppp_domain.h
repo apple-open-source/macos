@@ -27,6 +27,7 @@
 
 
 /* ppp_domain is self contained */
+#include <sys/sysctl.h>
 #include "ppp_defs.h"
 #include "if_ppplink.h"
 #include "if_ppp.h"
@@ -69,6 +70,7 @@ int ppp_proto_remove();
 int ppp_proto_input(void *data, mbuf_t m);
 void ppp_proto_free(void *data);
 
+SYSCTL_DECL(_net_ppp);
 
 /* Logs facilities */
 

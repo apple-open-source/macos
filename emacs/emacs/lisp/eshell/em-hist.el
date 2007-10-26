@@ -1,6 +1,7 @@
 ;;; em-hist.el --- history list management
 
-;; Copyright (C) 1999, 2000 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,12 +19,13 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'em-hist)
 
 (eval-when-compile (require 'esh-maint))
+(require 'eshell)
 
 (defgroup eshell-hist nil
   "This module provides command history management."
@@ -104,17 +106,17 @@ This mirrors the optional behavior of bash."
   :type 'boolean
   :group 'eshell-hist)
 
-(defcustom eshell-ask-to-save-history t
+(defcustom eshell-save-history-on-exit 'ask
   "*Determine if history should be automatically saved.
 History is always preserved after sanely exiting an Eshell buffer.
 However, when Emacs is being shut down, this variable determines
 whether to prompt the user.
-If set to nil, it means never ask whether history should be saved.
-If set to t, always ask if any Eshell buffers are open at exit time.
-If set to `always', history will always be saved, silently."
+If set to nil, it means never save history on termination of Emacs.
+If set to `ask', ask if any Eshell buffers are open at exit time.
+If set to t, history will always be saved, silently."
   :type '(choice (const :tag "Never" nil)
-		 (const :tag "Ask" t)
-		 (const :tag "Always save" always))
+		 (const :tag "Ask" ask)
+		 (const :tag "Always save" t))
   :group 'eshell-hist)
 
 (defcustom eshell-input-filter
@@ -203,34 +205,33 @@ element, regardless of any text on the command line.  In that case,
   (define-key eshell-isearch-map [(control ?c)] 'eshell-isearch-cancel-map)
   (define-key eshell-isearch-cancel-map [(control ?c)] 'eshell-isearch-cancel))
 
+(defvar eshell-rebind-keys-alist)
+
 ;;; Functions:
 
 (defun eshell-hist-initialize ()
   "Initialize the history management code for one Eshell buffer."
-  (make-local-hook 'eshell-expand-input-functions)
   (add-hook 'eshell-expand-input-functions
 	    'eshell-expand-history-references nil t)
 
   (when (eshell-using-module 'eshell-cmpl)
-    (make-local-hook 'pcomplete-try-first-hook)
     (add-hook 'pcomplete-try-first-hook
 	      'eshell-complete-history-reference nil t))
 
-  (if (eshell-using-module 'eshell-rebind)
-      (let ((rebind-alist (symbol-value 'eshell-rebind-keys-alist)))
+  (if (and (eshell-using-module 'eshell-rebind)
+	   (not eshell-non-interactive-p))
+      (let ((rebind-alist eshell-rebind-keys-alist))
 	(make-local-variable 'eshell-rebind-keys-alist)
-	(set 'eshell-rebind-keys-alist
-	     (append rebind-alist eshell-hist-rebind-keys-alist))
+	(setq eshell-rebind-keys-alist
+	      (append rebind-alist eshell-hist-rebind-keys-alist))
 	(set (make-local-variable 'search-invisible) t)
 	(set (make-local-variable 'search-exit-option) t)
-	(make-local-hook 'isearch-mode-hook)
 	(add-hook 'isearch-mode-hook
 		  (function
 		   (lambda ()
 		     (if (>= (point) eshell-last-output-end)
 			 (setq overriding-terminal-local-map
 			       eshell-isearch-map)))) nil t)
-	(make-local-hook 'isearch-mode-end-hook)
 	(add-hook 'isearch-mode-end-hook
 		  (function
 		   (lambda ()
@@ -270,13 +271,18 @@ element, regardless of any text on the command line.  In that case,
 
   (make-local-variable 'eshell-history-index)
   (make-local-variable 'eshell-save-history-index)
-  (make-local-variable 'eshell-history-ring)
-  (if eshell-history-file-name
-      (eshell-read-history nil t))
+
+  (if (minibuffer-window-active-p (selected-window))
+      (set (make-local-variable 'eshell-save-history-on-exit) nil)
+    (set (make-local-variable 'eshell-history-ring) nil)
+    (if eshell-history-file-name
+	(eshell-read-history nil t))
+
+    (add-hook 'eshell-exit-hook 'eshell-write-history nil t))
+
   (unless eshell-history-ring
     (setq eshell-history-ring (make-ring eshell-history-size)))
 
-  (make-local-hook 'eshell-exit-hook)
   (add-hook 'eshell-exit-hook 'eshell-write-history nil t)
 
   (add-hook 'kill-emacs-hook 'eshell-save-some-history)
@@ -294,8 +300,8 @@ element, regardless of any text on the command line.  In that case,
 	(with-current-buffer buf
 	  (if (and eshell-mode
 		   eshell-history-file-name
-		   eshell-ask-to-save-history
-		   (or (eq eshell-ask-to-save-history 'always)
+		   eshell-save-history-on-exit
+		   (or (eq eshell-save-history-on-exit t)
 		       (y-or-n-p
 			(format "Save input history for Eshell buffer `%s'? "
 				(buffer-name buf)))))
@@ -360,22 +366,40 @@ unless a different file is specified on the command line.")
   "Get an input line from the history ring."
   (ring-ref (or ring eshell-history-ring) index))
 
-(defun eshell-add-to-history ()
-  "Add INPUT to the history ring.
-The input is entered into the input history ring, if the value of
+(defun eshell-add-input-to-history (input)
+  "Add the string INPUT to the history ring.
+Input is entered into the input history ring, if the value of
 variable `eshell-input-filter' returns non-nil when called on the
 input."
+  (if (and (funcall eshell-input-filter input)
+	   (or (null eshell-hist-ignoredups)
+	       (not (ring-p eshell-history-ring))
+	       (ring-empty-p eshell-history-ring)
+	       (not (string-equal (eshell-get-history 0) input))))
+      (eshell-put-history input))
+  (setq eshell-save-history-index eshell-history-index)
+  (setq eshell-history-index nil))
+
+(defun eshell-add-command-to-history ()
+  "Add the command entered at `eshell-command's prompt to the history ring.
+The command is added to the input history ring, if the value of
+variable `eshell-input-filter' returns non-nil when called on the
+command.
+
+This function is supposed to be called from the minibuffer, presumably
+as a minibuffer-exit-hook."
+  (eshell-add-input-to-history
+   (buffer-substring (minibuffer-prompt-end) (point-max))))
+
+(defun eshell-add-to-history ()
+  "Add last Eshell command to the history ring.
+The command is entered into the input history ring, if the value of
+variable `eshell-input-filter' returns non-nil when called on the
+command."
   (when (> (1- eshell-last-input-end) eshell-last-input-start)
     (let ((input (buffer-substring eshell-last-input-start
 				   (1- eshell-last-input-end))))
-      (if (and (funcall eshell-input-filter input)
-	       (or (null eshell-hist-ignoredups)
-		   (not (ring-p eshell-history-ring))
-		   (ring-empty-p eshell-history-ring)
-		   (not (string-equal (eshell-get-history 0) input))))
-	  (eshell-put-history input))
-      (setq eshell-save-history-index eshell-history-index)
-      (setq eshell-history-index nil))))
+      (eshell-add-input-to-history input))))
 
 (defun eshell-read-history (&optional filename silent)
   "Sets the buffer's `eshell-history-ring' from a history file.
@@ -483,7 +507,7 @@ See also `eshell-read-history'."
 	;; Change "completion" to "history reference"
 	;; to make the display accurate.
 	(with-output-to-temp-buffer history-buffer
-	  (display-completion-list history)
+	  (display-completion-list history prefix)
 	  (set-buffer history-buffer)
 	  (forward-line 3)
 	  (while (search-backward "completion" nil 'move)
@@ -503,7 +527,7 @@ See also `eshell-read-history'."
    ((string= "^" ref) 1)
    ((string= "$" ref) nil)
    ((string= "%" ref)
-    (error "`%' history word designator not yet implemented"))))
+    (error "`%%' history word designator not yet implemented"))))
 
 (defun eshell-hist-parse-arguments (&optional silent b e)
   "Parse current command arguments in a history-code-friendly way."
@@ -819,7 +843,7 @@ If N is negative, find the next or Nth next match."
       (unless (minibuffer-window-active-p (selected-window))
 	(message "History item: %d" (- (ring-length eshell-history-ring) pos)))
        ;; Can't use kill-region as it sets this-command
-      (delete-region (save-excursion (eshell-bol) (point)) (point))
+      (delete-region eshell-last-output-end (point))
       (insert-and-inherit (eshell-get-history pos)))))
 
 (defun eshell-next-matching-input (regexp arg)
@@ -964,4 +988,5 @@ If N is negative, search backwards for the -Nth previous match."
   (isearch-done)
   (eshell-send-input))
 
+;;; arch-tag: 1a847333-f864-4b96-9acd-b549d620b6c6
 ;;; em-hist.el ends here

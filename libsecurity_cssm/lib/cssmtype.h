@@ -33,8 +33,8 @@ extern "C" {
 #endif
 
 /* Handle types. */
-
-typedef uint32 CSSM_HANDLE, *CSSM_HANDLE_PTR;
+	
+typedef CSSM_INTPTR CSSM_HANDLE, *CSSM_HANDLE_PTR;
 
 typedef uint64 CSSM_LONG_HANDLE, *CSSM_LONG_HANDLE_PTR;
 
@@ -81,7 +81,7 @@ enum {
 typedef char CSSM_STRING [CSSM_MODULE_STRING_SIZE + 4];
 
 typedef struct cssm_data {
-    uint32 Length; /* in bytes */
+    CSSM_SIZE Length; /* in bytes */
     uint8 *Data;
 } CSSM_DATA, *CSSM_DATA_PTR;
 
@@ -426,7 +426,7 @@ typedef struct cssm_samplegroup {
 } CSSM_SAMPLEGROUP, *CSSM_SAMPLEGROUP_PTR;
 
 typedef void *(CSSMAPI *CSSM_MALLOC)
-    (uint32 size,
+    (CSSM_SIZE size,
      void *allocref);
 
 typedef void (CSSMAPI *CSSM_FREE)
@@ -435,12 +435,12 @@ typedef void (CSSMAPI *CSSM_FREE)
 
 typedef void *(CSSMAPI *CSSM_REALLOC)
     (void *memblock,
-     uint32 size,
+     CSSM_SIZE size,
      void *allocref);
 
 typedef void *(CSSMAPI *CSSM_CALLOC)
     (uint32 num,
-     uint32 size,
+     CSSM_SIZE size,
      void *allocref);
 
 typedef struct cssm_memory_funcs {

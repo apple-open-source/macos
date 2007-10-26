@@ -1,0 +1,82 @@
+#!/usr/bin/perl
+
+# These are the patches to apply.
+# Paths in patch files are relative to the root of the CPAN project
+my (@patchesToApply) = (
+	# Evolution's Exception.pm module uses a customized version of Error.pm
+	# The modifications to Error.pm are to support the additional features.
+	# The other main modification to Error.pm is to support a catch clause
+	# that operates the same as the standard Error's otherwise clause
+	# (this is used by Evolution's Exception).
+	# Radar 3623559	has been written to back this patch out later.
+	'./PatchFiles/Error.pm.diff',
+
+
+    # We used to patch DBD-SQLite-1.07, but now that we've updated to
+    # DBD-SQLite-1.13, this isn't necessary.
+    # --- Unused: ---
+    # DBD-SQLite-1.07 puts up a warning about being incompatible with SQLite2
+    # and then prompts whether to continue - the default is no, which is what
+    # happens with buildit
+    # We could probably work around this in the Makefile but in order to keep
+    # that as general as possible, this patch just changes the default to
+    # yes
+    # Also, work around unitialized variable warnings in dbdimp.c
+    #'./PatchFiles/DBD-SQLite.diff',
+    
+    
+    ## the self test trys to connect to a unreliable server. 
+    ## so we skip those test
+    './PatchFiles/23connect.t.diff',
+
+    ## expat has to be set up for XML-Parser
+    './PatchFiles/Makefile.PL.diff', 
+
+    ## SOAP::Lite applied a patch for version .65 that
+    ## does not work as advertised. The previous 
+    ## code worked as expected. 
+    './PatchFiles/Lite.pm.diff', 
+    
+    # <rdar://problem/5460193> SOAP::Lite isn't compressing
+    './PatchFiles/SOAP-Transport-HTTP.pm.diff',
+
+   ## JSON-Syck is replaced by YAML-Syck 0.82 which includes JSON-Syck
+   ## 0.21.  It doesn't require this patch.
+   ## --- Unused: ---
+   ## JSON-Syck: in syck.h there is a test on the flag
+   ## HAVE_STDLIB_H which is not set, however the lib does
+   ## exist. Without this library the extension will not bulid
+   ## so removed the existence test and always include the lib
+   #   './PatchFiles/syck.h.diff',
+
+   # 4546994 version perl module builds thin
+   # A Module::Build bug prevents us from doing this in the Makefile
+   # (see http://rt.cpan.org/Public/Bug/Display.html?id=19232)
+   './PatchFiles/version.diff',                   
+
+    # Create a default .inflectrc file for Lingua-EN-Inflect
+    # indicating that the plural of hongo is hongos
+    './PatchFiles/inflectrc.diff',
+
+    # Fix an error attempting to locate the default .inflectrc
+    # file in Lingua-EN-Inflect
+    './PatchFiles/Inflect.pm.diff',
+);
+
+
+foreach my $patchFile (@patchesToApply) {
+    &applyPatch($patchFile);
+}
+exit(0);
+
+# Subroutine that applies the patches
+sub applyPatch
+{
+    my ($patchFile) = @_;
+    
+    my ($status) = system("/usr/bin/patch -p0 < \"$patchFile\"");
+    if ($status != 0) {
+        print "Unable to apply $patchFile\n";
+        exit($status >> 8);
+    }
+}

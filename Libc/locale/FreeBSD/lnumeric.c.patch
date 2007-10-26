@@ -1,6 +1,6 @@
 --- lnumeric.c.orig	2004-11-25 11:38:17.000000000 -0800
-+++ lnumeric.c	2005-03-16 23:02:09.000000000 -0800
-@@ -27,12 +27,14 @@
++++ lnumeric.c	2005-03-16 23:06:13.000000000 -0800
+@@ -27,67 +27,103 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/lnumeric.c,v 1.16 2003/06/26 10:46:16 phantom Exp $");
  
@@ -16,8 +16,14 @@
  extern const char *__fix_locale_grouping_str(const char *);
  
  #define LCNUMERIC_SIZE (sizeof(struct lc_numeric_T) / sizeof(char *))
-@@ -45,49 +47,85 @@
- 	numempty	/* grouping */
+ 
+-static char	numempty[] = { CHAR_MAX, '\0' };
+-
+ static const struct lc_numeric_T _C_numeric_locale = {
+ 	".",     	/* decimal_point */
+ 	"",     	/* thousands_sep */
+-	numempty	/* grouping */
++	""		/* grouping [C99 7.11.2.1]*/
  };
  
 -static struct lc_numeric_T _numeric_locale;

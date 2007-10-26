@@ -1,8 +1,8 @@
 #!/bin/sh
-# $Id: buildconf,v 1.57.4.4.2.1 2005/11/29 22:39:46 sniper Exp $
+# $Id: buildconf,v 1.64.2.1.2.1 2007/07/26 22:45:59 jani Exp $
 
-eval `grep '^EXTRA_VERSION=' configure.in`
-case "$EXTRA_VERSION" in
+eval `grep '^PHP_EXTRA_VERSION=' configure.in`
+case "$PHP_EXTRA_VERSION" in
   *-dev)
     dev=1
     ;;

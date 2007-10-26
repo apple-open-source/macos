@@ -1831,3 +1831,66 @@ diff -u -p -r5.30 expect.test
  puts $fid "a\u0000b"
  close $fid
  
+===================================================================
+--- configure.orig	2005-05-17 21:49:43.000000000 -0700
++++ configure	2005-05-17 21:53:31.000000000 -0700
+@@ -3696,6 +3696,9 @@
+ 
+ if eval "test \"`echo '$ac_cv_func_'openpty`\" = yes"; then
+   echo "$ac_t""yes" 1>&6
++  cat >> confdefs.h <<\EOF
++#define HAVE_OPENPTY 1
++EOF
+   openpty=1 
+ else
+   echo "$ac_t""no" 1>&6
+@@ -3801,6 +3804,9 @@
+ 
+ if eval "test \"`echo '$ac_cv_func_'openpty`\" = yes"; then
+   echo "$ac_t""yes" 1>&6
++  cat >> confdefs.h <<\EOF
++#define HAVE_OPENPTY 1
++EOF
+   openpty=1 
+ else
+   echo "$ac_t""no" 1>&6
+@@ -3903,6 +3909,9 @@
+ 
+ if eval "test \"`echo '$ac_cv_func_'openpty`\" = yes"; then
+   echo "$ac_t""yes" 1>&6
++  cat >> confdefs.h <<\EOF
++#define HAVE_OPENPTY 1
++EOF
+   openpty=1 
+ else
+   echo "$ac_t""no" 1>&6
+===================================================================
+--- exp_chan.c.orig	2004-07-15 13:24:40.000000000 -0700
++++ exp_chan.c	2005-05-24 16:40:14.000000000 -0700
+@@ -219,7 +219,7 @@
+     int *errorCodePtr;			/* Where to store error code. */
+ {
+     ExpState *esPtr = (ExpState *) instanceData;
+-    int written = 0;
++    int written, wrote = 0;
+ 
+     *errorCodePtr = 0;
+ 
+@@ -236,13 +236,16 @@
+ 	    sleep(1);
+ 	    expDiagLogU("write() failed to write anything - will sleep(1) and retry...\n");
+ 	} else if (written < 0) {
++	    if (errno == EAGAIN && wrote > 0)
++		return wrote;
+ 	    *errorCodePtr = errno;
+ 	    return -1;
+ 	}
+ 	buf += written;
+ 	toWrite -= written;
++	wrote += written;
+     }
+-    return written;
++    return wrote;
+ }
+ 
+ /*

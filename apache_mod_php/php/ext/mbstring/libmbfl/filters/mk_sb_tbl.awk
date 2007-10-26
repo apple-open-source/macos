@@ -1,6 +1,6 @@
 #!/usr/bin/awk -f
 #
-# $Id: mk_sb_tbl.awk,v 1.1.4.2.2.1 2005/12/30 05:25:54 hirokawa Exp $
+# $Id: mk_sb_tbl.awk,v 1.2 2005/02/21 07:57:08 moriyoshi Exp $
 #
 # Description: a script that generates a single byte code set to Unicode
 # mapping table.

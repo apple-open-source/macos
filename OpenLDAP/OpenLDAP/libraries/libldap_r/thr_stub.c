@@ -1,8 +1,8 @@
 /* thr_stub.c - stubs for the threads */
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_stub.c,v 1.20.2.2 2004/01/01 18:16:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_stub.c,v 1.22.2.4 2006/01/03 22:16:09 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -18,7 +18,10 @@
 
 #if defined( NO_THREADS )
 
-#include "ldap_pvt_thread.h"
+#include "ldap_pvt_thread.h" /* Get the thread interface */
+#define LDAP_THREAD_IMPLEMENTATION
+#define LDAP_THREAD_POOL_IMPLEMENTATION
+#include "ldap_thr_debug.h"  /* May rename the symbols defined below */
 
 /***********************************************************************
  *                                                                     *
@@ -195,9 +198,29 @@ int ldap_pvt_thread_pool_setkey (
 	return(0);
 }
 
+void ldap_pvt_thread_pool_purgekey( void *key )
+{
+}
+
+int ldap_pvt_thread_pool_pause ( 
+	ldap_pvt_thread_pool_t *tpool )
+{
+	return(0);
+}
+
+int ldap_pvt_thread_pool_resume ( 
+	ldap_pvt_thread_pool_t *tpool )
+{
+	return(0);
+}
+
 void *ldap_pvt_thread_pool_context( )
 {
 	return(NULL);
+}
+
+void ldap_pvt_thread_pool_context_reset( void *vctx )
+{
 }
 
 ldap_pvt_thread_t

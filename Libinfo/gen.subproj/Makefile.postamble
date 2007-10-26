@@ -118,7 +118,6 @@ install-man-page:
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/gethostbyname.3" "$(DSTROOT)/usr/share/man/man3/herror.3"
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/gethostbyname.3" "$(DSTROOT)/usr/share/man/man3/hstrerror.3"
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/gethostbyname.3" "$(DSTROOT)/usr/share/man/man3/sethostent.3"
-	install -c -m 644 ether_addr.3 "$(DSTROOT)/usr/share/man/man3"
 	install -c -m 644 getifaddrs.3 "$(DSTROOT)/usr/share/man/man3"
 	$(LN) -f "$(DSTROOT)/usr/share/man/man3/getifaddrs.3" "$(DSTROOT)/usr/share/man/man3/freeifaddrs.3"
 	install -c -m 644 getipnodebyname.3 "$(DSTROOT)/usr/share/man/man3"

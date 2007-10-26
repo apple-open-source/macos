@@ -1,6 +1,7 @@
 ;;; vt-control.el --- Common VTxxx control functions
 
-;; Copyright (C) 1993, 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Rob Riepel <riepel@networking.stanford.edu>
 ;; Maintainer: Rob Riepel <riepel@networking.stanford.edu>
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -66,14 +67,14 @@
   "Set the screen 132 characters wide."
   (interactive)
   (send-string-to-terminal "\e[?3h")
-  (set-screen-width 132)
+  (set-frame-width (selected-frame) 132)
   (setq vt-wide-p t))
 
 (defun vt-narrow nil
   "Set the screen 80 characters wide."
   (interactive)
   (send-string-to-terminal "\e[?3l")
-  (set-screen-width 80)
+  (set-frame-width (selected-frame) 80)
   (setq vt-wide-p nil))
 
 (defun vt-toggle-screen nil
@@ -106,4 +107,5 @@
 
 (provide 'vt-control)
 
+;;; arch-tag: d4fed1bf-2524-4ba1-a4fe-86bca3d928a2
 ;;; vt-control.el ends here

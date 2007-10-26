@@ -1,7 +1,7 @@
 /* Perform an inferior function call, for GDB, the GNU debugger.
 
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
-   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -35,6 +35,10 @@
 #include "command.h"
 #include "gdb_string.h"
 #include "infcall.h"
+#include "dummy-frame.h"
+/* APPLE LOCAL checkpointing */
+extern void begin_inferior_call_checkpoints (void);
+extern void end_inferior_call_checkpoints (void);
 
 #if defined (NM_NEXTSTEP)
 #include "macosx-nat-infthread.h"
@@ -44,6 +48,22 @@
    the PC in any way) and can terminate the inferior if you try.  */
 int inferior_function_calls_disabled_p = 0;
 #endif
+
+/* APPLE LOCAL: Record the ptid of the thread we are calling functions on.
+   If we get more than one exception while calling a function, prefer the
+   one that we were hand-calling a function on.  */
+ptid_t hand_call_ptid;
+ptid_t get_hand_call_ptid ()
+{
+  return hand_call_ptid;
+}
+
+static void 
+do_reset_hand_call_ptid ()
+{
+  hand_call_ptid = minus_one_ptid;
+}
+/* END APPLE LOCAL  */
 
 /* NOTE: cagney/2003-04-16: What's the future of this code?
 
@@ -73,6 +93,14 @@ int inferior_function_calls_disabled_p = 0;
    with "set coerce-float-to-double 0".  */
 
 static int coerce_float_to_double_p = 1;
+static void
+show_coerce_float_to_double_p (struct ui_file *file, int from_tty,
+			       struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Coercion of floats to doubles when calling functions is %s.\n"),
+		    value);
+}
 
 /* This boolean tells what gdb should do if a signal is received while
    in a function called from gdb (call dummy).  If set, gdb unwinds
@@ -91,6 +119,16 @@ set_unwind_on_signal (int new_val)
   return old_val;
 }
 
+static void
+show_unwind_on_signal_p (struct ui_file *file, int from_tty,
+			 struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Unwinding of stack if a signal is received while in a call dummy is %s.\n"),
+		    value);
+}
+
+
 /* Perform the standard coercions that are specified
    for arguments to be passed to C functions.
 
@@ -101,7 +139,7 @@ static struct value *
 value_arg_coerce (struct value *arg, struct type *param_type,
 		  int is_prototyped)
 {
-  struct type *arg_type = check_typedef (VALUE_TYPE (arg));
+  struct type *arg_type = check_typedef (value_type (arg));
   struct type *type
     = param_type ? check_typedef (param_type) : arg_type;
 
@@ -112,7 +150,7 @@ value_arg_coerce (struct value *arg, struct type *param_type,
 	  && TYPE_CODE (arg_type) != TYPE_CODE_PTR)
 	{
 	  arg = value_addr (arg);
-	  VALUE_TYPE (arg) = param_type;
+	  deprecated_set_value_type (arg, param_type);
 	  return arg;
 	}
       break;
@@ -178,7 +216,7 @@ value_arg_coerce (struct value *arg, struct type *param_type,
 CORE_ADDR
 find_function_addr (struct value *function, struct type **retval_type)
 {
-  struct type *ftype = check_typedef (VALUE_TYPE (function));
+  struct type *ftype = check_typedef (value_type (function));
   enum type_code code = TYPE_CODE (ftype);
   struct type *value_type;
   CORE_ADDR funaddr;
@@ -224,10 +262,11 @@ find_function_addr (struct value *function, struct type **retval_type)
       value_type = builtin_type_error;
     }
   else
-    error ("Invalid data type for function to be called.");
+    error (_("Invalid data type for function to be called."));
 
-  *retval_type = value_type;
-  return funaddr;
+  if (retval_type != NULL)
+    *retval_type = value_type;
+  return funaddr + DEPRECATED_FUNCTION_START_OFFSET;
 }
 
 /* Call breakpoint_auto_delete on the current contents of the bpstat
@@ -237,90 +276,6 @@ static void
 breakpoint_auto_delete_contents (void *arg)
 {
   breakpoint_auto_delete (*(bpstat *) arg);
-}
-
-static CORE_ADDR
-legacy_push_dummy_code (struct gdbarch *gdbarch,
-			CORE_ADDR sp, CORE_ADDR funaddr, int using_gcc,
-			struct value **args, int nargs,
-			struct type *value_type,
-			CORE_ADDR *real_pc, CORE_ADDR *bp_addr)
-{
-  /* CALL_DUMMY is an array of words (DEPRECATED_REGISTER_SIZE), but
-     each word is in host byte order.  Before calling
-     DEPRECATED_FIX_CALL_DUMMY, we byteswap it and remove any extra
-     bytes which might exist because ULONGEST is bigger than
-     DEPRECATED_REGISTER_SIZE.  */
-  /* NOTE: This is pretty wierd, as the call dummy is actually a
-     sequence of instructions.  But CISC machines will have to pack
-     the instructions into DEPRECATED_REGISTER_SIZE units (and so will
-     RISC machines for which INSTRUCTION_SIZE is not
-     DEPRECATED_REGISTER_SIZE).  */
-  /* NOTE: This is pretty stupid.  CALL_DUMMY should be in strict
-     target byte order. */
-  CORE_ADDR start_sp;
-  ULONGEST *dummy = alloca (DEPRECATED_SIZEOF_CALL_DUMMY_WORDS);
-  int sizeof_dummy1 = (DEPRECATED_REGISTER_SIZE
-		       * DEPRECATED_SIZEOF_CALL_DUMMY_WORDS
-		       / sizeof (ULONGEST));
-  char *dummy1 = alloca (sizeof_dummy1);
-  memcpy (dummy, DEPRECATED_CALL_DUMMY_WORDS,
-	  DEPRECATED_SIZEOF_CALL_DUMMY_WORDS);
-  if (INNER_THAN (1, 2))
-    {
-      /* Stack grows down */
-      sp -= sizeof_dummy1;
-      start_sp = sp;
-    }
-  else
-    {
-      /* Stack grows up */
-      start_sp = sp;
-      sp += sizeof_dummy1;
-    }
-  /* NOTE: cagney/2002-09-10: Don't bother re-adjusting the stack
-     after allocating space for the call dummy.  A target can specify
-     a SIZEOF_DUMMY1 (via DEPRECATED_SIZEOF_CALL_DUMMY_WORDS) such
-     that all local alignment requirements are met.  */
-  /* Create a call sequence customized for this function and the
-     number of arguments for it.  */
-  {
-    int i;
-    for (i = 0; i < (int) (DEPRECATED_SIZEOF_CALL_DUMMY_WORDS / sizeof (dummy[0]));
-	 i++)
-      store_unsigned_integer (&dummy1[i * DEPRECATED_REGISTER_SIZE],
-			      DEPRECATED_REGISTER_SIZE,
-			      (ULONGEST) dummy[i]);
-  }
-  /* NOTE: cagney/2003-04-22: This computation of REAL_PC, BP_ADDR and
-     DUMMY_ADDR is pretty messed up.  It comes from constant tinkering
-     with the values.  Instead a DEPRECATED_FIX_CALL_DUMMY replacement
-     (PUSH_DUMMY_BREAKPOINT?) should just do everything.  */
-  if (!gdbarch_push_dummy_call_p (current_gdbarch))
-    {
-#ifdef GDB_TARGET_IS_HPPA
-      (*real_pc) = DEPRECATED_FIX_CALL_DUMMY (dummy1, start_sp, funaddr, nargs,
-					      args, value_type, using_gcc);
-#else
-      if (DEPRECATED_FIX_CALL_DUMMY_P ())
-	{
-	  /* gdb_assert (CALL_DUMMY_LOCATION == ON_STACK) true?  */
-	  DEPRECATED_FIX_CALL_DUMMY (dummy1, start_sp, funaddr, nargs, args,
-				     value_type, using_gcc);
-	}
-      (*real_pc) = start_sp;
-#endif
-    }
-  /* Yes, the offset is applied to the real_pc and not the dummy addr.
-     Ulgh!  Blame the HP/UX target.  */
-  (*bp_addr) = (*real_pc) + DEPRECATED_CALL_DUMMY_BREAKPOINT_OFFSET;
-  /* Yes, the offset is applied to the real_pc and not the
-     dummy_addr.  Ulgh!  Blame the HP/UX target.  */
-  (*real_pc) += DEPRECATED_CALL_DUMMY_START_OFFSET;
-  write_memory (start_sp, (char *) dummy1, sizeof_dummy1);
-  if (DEPRECATED_USE_GENERIC_DUMMY_FRAMES)
-    generic_save_call_dummy_addr (start_sp, start_sp + sizeof_dummy1);
-  return sp;
 }
 
 static CORE_ADDR
@@ -359,8 +314,8 @@ generic_push_dummy_code (struct gdbarch *gdbarch,
   return sp;
 }
 
-/* Provide backward compatibility.  Once DEPRECATED_FIX_CALL_DUMMY is
-   eliminated, this can be simplified.  */
+/* For CALL_DUMMY_ON_STACK, push a breakpoint sequence that the called
+   function returns to.  */
 
 static CORE_ADDR
 push_dummy_code (struct gdbarch *gdbarch,
@@ -372,10 +327,6 @@ push_dummy_code (struct gdbarch *gdbarch,
   if (gdbarch_push_dummy_code_p (gdbarch))
     return gdbarch_push_dummy_code (gdbarch, sp, funaddr, using_gcc,
 				    args, nargs, value_type, real_pc, bp_addr);
-  else if (DEPRECATED_FIX_CALL_DUMMY_P ()
-	   && !gdbarch_push_dummy_call_p (gdbarch))
-    return legacy_push_dummy_code (gdbarch, sp, funaddr, using_gcc,
-				   args, nargs, value_type, real_pc, bp_addr);
   else    
     return generic_push_dummy_code (gdbarch, sp, funaddr, using_gcc,
 				    args, nargs, value_type, real_pc, bp_addr);
@@ -400,12 +351,14 @@ push_dummy_code (struct gdbarch *gdbarch,
    ARGS is modified to contain coerced values. */
 
 struct value *
+/* APPLE LOCAL hand function call */
 hand_function_call (struct value *function, struct type *expect_type,
                     int nargs, struct value **args, int restore_frame)
 {
   CORE_ADDR sp;
   CORE_ADDR dummy_addr;
-  struct type *value_type;
+  struct type *values_type;
+  struct type *orig_return_type = NULL;
   unsigned char struct_return;
   CORE_ADDR struct_addr = 0;
   struct regcache *retbuf;
@@ -415,26 +368,44 @@ hand_function_call (struct value *function, struct type *expect_type,
   CORE_ADDR funaddr;
   int using_gcc;		/* Set to version of gcc in use, or zero if not gcc */
   CORE_ADDR real_pc;
-  struct type *ftype = check_typedef (SYMBOL_TYPE (function));
+  struct type *ftype = check_typedef (value_type (function));
   CORE_ADDR bp_addr;
+  struct regcache *caller_regcache;
+  struct cleanup *caller_regcache_cleanup;
+  struct frame_id dummy_id;
 
   if (!target_has_execution)
     noprocess ();
 
-  funaddr = find_function_addr (function, &value_type);
-  CHECK_TYPEDEF (value_type);
+  /* APPLE LOCAL begin */
+  /* Make sure we have a viable return type for the function being called. */
+
+  funaddr = find_function_addr (function, &orig_return_type);
+  values_type = check_typedef (orig_return_type);
 
   /* We don't require expect_type not to be a typedef, so remember to
      run check_typedef here */
 
-  if ((value_type == NULL) || (TYPE_CODE (value_type) == TYPE_CODE_ERROR))
+  if ((values_type == NULL) || (TYPE_CODE (values_type) == TYPE_CODE_ERROR))
     if (expect_type != NULL)
-      value_type = check_typedef (expect_type);
+      {
+	orig_return_type = expect_type;
+	values_type = check_typedef (expect_type);
+      }
 
-  if ((value_type == NULL) || (TYPE_CODE (value_type) == TYPE_CODE_ERROR))
-    error ("Unable to call function at 0x%lx: no return type information available.\n"
-           "To call this function anyway, you can cast the return type explicitly (e.g. 'print (float) fabs (3.0)')",
-           (unsigned long) funaddr);
+  if ((values_type == NULL) || (TYPE_CODE (values_type) == TYPE_CODE_ERROR))
+    {
+      char *sym_name;
+      find_pc_partial_function (funaddr, &sym_name, NULL, NULL);
+
+      error ("Unable to call function \"%s\" at 0x%s: "
+	     "no return type information available.\n"
+	     "To call this function anyway, you can cast the "
+	     "return type explicitly (e.g. 'print (float) fabs (3.0)')",
+	     sym_name ? sym_name : "<unknown>",
+	     paddr_nz (funaddr));
+    }
+  /* APPLE LOCAL end */
 
   /* Create a cleanup chain that contains the retbuf (buffer
      containing the register values).  This chain is create BEFORE the
@@ -443,6 +414,7 @@ hand_function_call (struct value *function, struct type *expect_type,
   retbuf = regcache_xmalloc (current_gdbarch);
   retbuf_cleanup = make_cleanup_regcache_xfree (retbuf);
 
+  /* APPLE LOCAL begin inferior function call */
 #if defined (NM_NEXTSTEP)
   macosx_setup_registers_before_hand_call ();
 
@@ -450,6 +422,7 @@ hand_function_call (struct value *function, struct type *expect_type,
   if (inferior_function_calls_disabled_p)
     error ("Function calls from gdb not possible when debugging translated processes.");
 #endif
+  /* APPLE LOCAL end inferior function call */
 
   /* A cleanup for the inferior status.  Create this AFTER the retbuf
      so that this can be discarded or applied without interfering with
@@ -457,34 +430,12 @@ hand_function_call (struct value *function, struct type *expect_type,
   inf_status = save_inferior_status (1);
   inf_status_cleanup = make_cleanup_restore_inferior_status (inf_status);
 
-  if (DEPRECATED_PUSH_DUMMY_FRAME_P ())
-    {
-      /* DEPRECATED_PUSH_DUMMY_FRAME is responsible for saving the
-	 inferior registers (and frame_pop() for restoring them).  (At
-	 least on most machines) they are saved on the stack in the
-	 inferior.  */
-      DEPRECATED_PUSH_DUMMY_FRAME;
-    }
-  else
-    {
-      /* FIXME: cagney/2003-02-26: Step zero of this little tinker is
-      to extract the generic dummy frame code from the architecture
-      vector.  Hence this direct call.
-
-      A follow-on change is to modify this interface so that it takes
-      thread OR frame OR ptid as a parameter, and returns a dummy
-      frame handle.  The handle can then be used further down as a
-      parameter to generic_save_dummy_frame_tos().  Hmm, thinking
-      about it, since everything is ment to be using generic dummy
-      frames, why not even use some of the dummy frame code to here -
-      do a regcache dup and then pass the duped regcache, along with
-      all the other stuff, at one single point.
-
-      In fact, you can even save the structure's return address in the
-      dummy frame and fix one of those nasty lost struct return edge
-      conditions.  */
-      generic_push_dummy_frame ();
-    }
+  /* Save the caller's registers so that they can be restored once the
+     callee returns.  To allow nested calls the registers are (further
+     down) pushed onto a dummy frame stack.  Include a cleanup (which
+     is tossed once the regcache has been pushed).  */
+  caller_regcache = frame_save_as_regcache (get_current_frame ());
+  caller_regcache_cleanup = make_cleanup_regcache_xfree (caller_regcache);
 
   /* Ensure that the initial SP is correctly aligned.  */
   {
@@ -551,6 +502,9 @@ hand_function_call (struct value *function, struct type *expect_type,
       sp = old_sp;
   }
 
+  /* APPLE LOCAL move typedef check up */
+  /* The funaddr and typedef checks are moved up for some reason.  */
+
   {
     struct block *b = block_for_pc (funaddr);
     /* If compiled without -g, assume GCC 2.  */
@@ -560,7 +514,7 @@ hand_function_call (struct value *function, struct type *expect_type,
   /* Are we returning a value using a structure return or a normal
      value return? */
 
-  struct_return = using_struct_return (value_type, using_gcc);
+  struct_return = using_struct_return (values_type, using_gcc);
 
   /* Determine the location of the breakpoint (and possibly other
      stuff) that the called function will return to.  The SPARC, for a
@@ -579,7 +533,7 @@ hand_function_call (struct value *function, struct type *expect_type,
       if (INNER_THAN (1, 2))
 	{
 	  sp = push_dummy_code (current_gdbarch, sp, funaddr,
-				using_gcc, args, nargs, value_type,
+				using_gcc, args, nargs, values_type,
 				&real_pc, &bp_addr);
 	  dummy_addr = sp;
 	}
@@ -587,23 +541,11 @@ hand_function_call (struct value *function, struct type *expect_type,
 	{
 	  dummy_addr = sp;
 	  sp = push_dummy_code (current_gdbarch, sp, funaddr,
-				using_gcc, args, nargs, value_type,
+				using_gcc, args, nargs, values_type,
 				&real_pc, &bp_addr);
 	}
       break;
     case AT_ENTRY_POINT:
-      if (DEPRECATED_FIX_CALL_DUMMY_P ()
-	  && !gdbarch_push_dummy_call_p (current_gdbarch))
-	{
-	  /* Sigh.  Some targets use DEPRECATED_FIX_CALL_DUMMY to
-             shove extra stuff onto the stack or into registers.  That
-             code should be in PUSH_DUMMY_CALL, however, in the mean
-             time ...  */
-	  /* If the target is manipulating DUMMY1, it looses big time.  */
-	  void *dummy1 = NULL;
-	  DEPRECATED_FIX_CALL_DUMMY (dummy1, sp, funaddr, nargs, args,
-				     value_type, using_gcc);
-	}
       real_pc = funaddr;
       dummy_addr = entry_point_address ();
       /* Make certain that the address points at real code, and not a
@@ -640,16 +582,11 @@ hand_function_call (struct value *function, struct type *expect_type,
 	break;
       }
     default:
-      internal_error (__FILE__, __LINE__, "bad switch");
+      internal_error (__FILE__, __LINE__, _("bad switch"));
     }
 
-  if (DEPRECATED_USE_GENERIC_DUMMY_FRAMES)
-    /* Save where the breakpoint is going to be inserted so that the
-       dummy-frame code is later able to re-identify it.  */
-    generic_save_call_dummy_addr (bp_addr, bp_addr + 1);
-
   if (nargs < TYPE_NFIELDS (ftype))
-    error ("too few arguments in function call");
+    error (_("too few arguments in function call"));
 
   {
     int i;
@@ -700,13 +637,14 @@ hand_function_call (struct value *function, struct type *expect_type,
 		       this point.  */
 		    /* Go see if the actual parameter is a variable of
 		       type pointer to function or just a function.  */
-		    if (args[i]->lval == not_lval)
+		    if (VALUE_LVAL (args[i]) == not_lval)
 		      {
 			char *arg_name;
-			if (find_pc_partial_function ((CORE_ADDR) args[i]->aligner.contents[0], &arg_name, NULL, NULL))
-			  error ("\
+			/* NOTE: cagney/2005-01-02: THIS IS BOGUS.  */
+			if (find_pc_partial_function ((CORE_ADDR) value_contents (args[i])[0], &arg_name, NULL, NULL))
+			  error (_("\
 You cannot use function <%s> as argument. \n\
-You must use a pointer to function type variable. Command ignored.", arg_name);
+You must use a pointer to function type variable. Command ignored."), arg_name);
 		      }
 	      }
 	  }
@@ -720,7 +658,7 @@ You must use a pointer to function type variable. Command ignored.", arg_name);
 	 pointer to the structure, not the structure itself.  */
       for (i = nargs - 1; i >= 0; i--)
 	{
-	  struct type *arg_type = check_typedef (VALUE_TYPE (args[i]));
+	  struct type *arg_type = check_typedef (value_type (args[i]));
 	  if ((TYPE_CODE (arg_type) == TYPE_CODE_STRUCT
 	       || TYPE_CODE (arg_type) == TYPE_CODE_UNION
 	       || TYPE_CODE (arg_type) == TYPE_CODE_ARRAY
@@ -735,17 +673,10 @@ You must use a pointer to function type variable. Command ignored.", arg_name);
 	      CORE_ADDR addr;
 	      int len;		/*  = TYPE_LENGTH (arg_type); */
 	      int aligned_len;
-	      arg_type = check_typedef (VALUE_ENCLOSING_TYPE (args[i]));
+	      arg_type = check_typedef (value_enclosing_type (args[i]));
 	      len = TYPE_LENGTH (arg_type);
 
-	      if (DEPRECATED_STACK_ALIGN_P ())
-		/* MVS 11/22/96: I think at least some of this
-		   stack_align code is really broken.  Better to let
-		   PUSH_ARGUMENTS adjust the stack in a target-defined
-		   manner.  */
-		aligned_len = DEPRECATED_STACK_ALIGN (len);
-	      else
-		aligned_len = len;
+	      aligned_len = len;
 	      if (INNER_THAN (1, 2))
 		{
 		  /* stack grows downward */
@@ -762,10 +693,10 @@ You must use a pointer to function type variable. Command ignored.", arg_name);
 		  sp += aligned_len;
 		}
 	      /* Push the structure.  */
-	      write_memory (addr, VALUE_CONTENTS_ALL (args[i]), len);
+	      write_memory (addr, value_contents_all (args[i]), len);
 	      /* The value we're going to pass is the address of the
 		 thing we just pushed.  */
-	      /*args[i] = value_from_longest (lookup_pointer_type (value_type),
+	      /*args[i] = value_from_longest (lookup_pointer_type (values_type),
 		(LONGEST) addr); */
 	      args[i] = value_from_pointer (lookup_pointer_type (arg_type),
 					    addr);
@@ -780,11 +711,7 @@ You must use a pointer to function type variable. Command ignored.", arg_name);
 
   if (struct_return)
     {
-      int len = TYPE_LENGTH (value_type);
-      if (DEPRECATED_STACK_ALIGN_P ())
-	/* NOTE: cagney/2003-03-22: Should rely on frame align, rather
-           than stack align to force the alignment of the stack.  */
-	len = DEPRECATED_STACK_ALIGN (len);
+      int len = TYPE_LENGTH (values_type);
       if (INNER_THAN (1, 2))
 	{
 	  /* Stack grows downward.  Align STRUCT_ADDR and SP after
@@ -814,7 +741,7 @@ You must use a pointer to function type variable. Command ignored.", arg_name);
     /* When there is no push_dummy_call method, should this code
        simply error out.  That would the implementation of this method
        for all ABIs (which is probably a good thing).  */
-    sp = gdbarch_push_dummy_call (current_gdbarch, funaddr, current_regcache,
+    sp = gdbarch_push_dummy_call (current_gdbarch, function, current_regcache,
 				  bp_addr, nargs, args, sp, struct_return,
 				  struct_addr);
   else  if (DEPRECATED_PUSH_ARGUMENTS_P ())
@@ -822,114 +749,46 @@ You must use a pointer to function type variable. Command ignored.", arg_name);
     sp = DEPRECATED_PUSH_ARGUMENTS (nargs, args, sp, struct_return,
 				    struct_addr);
   else
-    sp = legacy_push_arguments (nargs, args, sp, struct_return, struct_addr);
+    error (_("This target does not support function calls"));
 
-  if (DEPRECATED_PUSH_RETURN_ADDRESS_P ())
-    /* for targets that use no CALL_DUMMY */
-    /* There are a number of targets now which actually don't write
-       any CALL_DUMMY instructions into the target, but instead just
-       save the machine state, push the arguments, and jump directly
-       to the callee function.  Since this doesn't actually involve
-       executing a JSR/BSR instruction, the return address must be set
-       up by hand, either by pushing onto the stack or copying into a
-       return-address register as appropriate.  Formerly this has been
-       done in PUSH_ARGUMENTS, but that's overloading its
-       functionality a bit, so I'm making it explicit to do it here.  */
-    /* NOTE: cagney/2003-04-22: The first parameter ("real_pc") has
-       been replaced with zero, it turns out that no implementation
-       used that parameter.  This occured because the value being
-       supplied - the address of the called function's entry point
-       instead of the address of the breakpoint that the called
-       function should return to - wasn't useful.  */
-    sp = DEPRECATED_PUSH_RETURN_ADDRESS (0, sp);
+  /* Set up a frame ID for the dummy frame so we can pass it to
+     set_momentary_breakpoint.  We need to give the breakpoint a frame
+     ID so that the breakpoint code can correctly re-identify the
+     dummy breakpoint.  */
+  /* Sanity.  The exact same SP value is returned by PUSH_DUMMY_CALL,
+     saved as the dummy-frame TOS, and used by unwind_dummy_id to form
+     the frame ID's stack address.  */
+  dummy_id = frame_id_build (sp, bp_addr);
 
-  /* NOTE: cagney/2003-03-23: Diable this code when there is a
-     push_dummy_call() method.  Since that method will have already
-     handled any alignment issues, the code below is entirely
-     redundant.  */
-  if (!gdbarch_push_dummy_call_p (current_gdbarch)
-      && DEPRECATED_STACK_ALIGN_P () && !INNER_THAN (1, 2))
-    {
-      /* If stack grows up, we must leave a hole at the bottom, note
-         that sp already has been advanced for the arguments!  */
-      sp = DEPRECATED_STACK_ALIGN (sp);
-    }
-
-  /* Store the address at which the structure is supposed to be
-     written.  */
-  /* NOTE: 2003-03-24: Since PUSH_ARGUMENTS can (and typically does)
-     store the struct return address, this call is entirely redundant.  */
-  if (struct_return && DEPRECATED_STORE_STRUCT_RETURN_P ())
-    DEPRECATED_STORE_STRUCT_RETURN (struct_addr, sp);
-
-  /* Write the stack pointer.  This is here because the statements
-     above might fool with it.  On SPARC, this write also stores the
-     register window into the right place in the new stack frame,
-     which otherwise wouldn't happen (see store_inferior_registers in
-     sparc-nat.c).  */
-  /* NOTE: cagney/2003-03-23: Since the architecture method
-     push_dummy_call() should have already stored the stack pointer
-     (as part of creating the fake call frame), and none of the code
-     following that call adjusts the stack-pointer value, the below
-     call is entirely redundant.  */
-  if (DEPRECATED_DUMMY_WRITE_SP_P ())
-    DEPRECATED_DUMMY_WRITE_SP (sp);
-
-  if (gdbarch_unwind_dummy_id_p (current_gdbarch))
-    {
-      /* Sanity.  The exact same SP value is returned by
-	 PUSH_DUMMY_CALL, saved as the dummy-frame TOS, and used by
-	 unwind_dummy_id to form the frame ID's stack address.  */
-      gdb_assert (DEPRECATED_USE_GENERIC_DUMMY_FRAMES);
-      generic_save_dummy_frame_tos (sp);
-    }
-  else if (DEPRECATED_SAVE_DUMMY_FRAME_TOS_P ())
-    DEPRECATED_SAVE_DUMMY_FRAME_TOS (sp);
-
-  /* Now proceed, having reached the desired place.  */
-  clear_proceed_status ();
-    
   /* Create a momentary breakpoint at the return address of the
      inferior.  That way it breaks when it returns.  */
 
   {
     struct breakpoint *bpt;
     struct symtab_and_line sal;
-    struct frame_id frame;
     init_sal (&sal);		/* initialize to zeroes */
     sal.pc = bp_addr;
     sal.section = find_pc_overlay (sal.pc);
-    /* Set up a frame ID for the dummy frame so we can pass it to
-       set_momentary_breakpoint.  We need to give the breakpoint a
-       frame ID so that the breakpoint code can correctly re-identify
-       the dummy breakpoint.  */
-    if (gdbarch_unwind_dummy_id_p (current_gdbarch))
-      {
-	/* Sanity.  The exact same SP value is returned by
-	 PUSH_DUMMY_CALL, saved as the dummy-frame TOS, and used by
-	 unwind_dummy_id to form the frame ID's stack address.  */
-	gdb_assert (DEPRECATED_USE_GENERIC_DUMMY_FRAMES);
-	frame = frame_id_build (sp, sal.pc);
-      }
-    else
-      {
-	/* The assumption here is that push_dummy_call() returned the
-	   stack part of the frame ID.  Unfortunately, many older
-	   architectures were, via a convoluted mess, relying on the
-	   poorly defined and greatly overloaded
-	   DEPRECATED_TARGET_READ_FP or DEPRECATED_FP_REGNUM to supply
-	   the value.  */
-	if (DEPRECATED_TARGET_READ_FP_P ())
-	  frame = frame_id_build (DEPRECATED_TARGET_READ_FP (), sal.pc);
-	else if (DEPRECATED_FP_REGNUM >= 0)
-	  frame = frame_id_build (read_register (DEPRECATED_FP_REGNUM), sal.pc);
-	else
-	  frame = frame_id_build (sp, sal.pc);
-      }
-    bpt = set_momentary_breakpoint (sal, frame, bp_call_dummy);
+    /* Sanity.  The exact same SP value is returned by
+       PUSH_DUMMY_CALL, saved as the dummy-frame TOS, and used by
+       unwind_dummy_id to form the frame ID's stack address.  */
+    bpt = set_momentary_breakpoint (sal, dummy_id, bp_call_dummy);
     bpt->disposition = disp_del;
   }
 
+  /* Everything's ready, push all the info needed to restore the
+     caller (and identify the dummy-frame) onto the dummy-frame
+     stack.  */
+  dummy_frame_push (caller_regcache, &dummy_id);
+  discard_cleanups (caller_regcache_cleanup);
+
+  /* - SNIP - SNIP - SNIP - SNIP - SNIP - SNIP - SNIP - SNIP - SNIP -
+     If you're looking to implement asynchronous dummy-frames, then
+     just below is the place to chop this function in two..  */
+
+  /* Now proceed, having reached the desired place.  */
+  clear_proceed_status ();
+    
   /* Execute a "stack dummy", a piece of code stored in the stack by
      the debugger to be executed in the inferior.
 
@@ -955,16 +814,31 @@ You must use a pointer to function type variable. Command ignored.", arg_name);
     make_cleanup (breakpoint_auto_delete_contents, &stop_bpstat);
 
     disable_watchpoints_before_interactive_call_start ();
+    /* APPLE LOCAL checkpointing */
+    begin_inferior_call_checkpoints ();
     proceed_to_finish = 1;	/* We want stop_registers, please... */
+
+    if (hand_call_function_hook != NULL)
+      hand_call_function_hook ();
 
     if (target_can_async_p ())
       saved_async = target_async_mask (0);
     
+    /* APPLE LOCAL: Make the current ptid available to the
+       lower level proceed logic so we can prefer that over
+       other stop reasons.  */
+    hand_call_ptid = inferior_ptid;
+    make_cleanup (do_reset_hand_call_ptid, NULL);
+
     proceed (real_pc, TARGET_SIGNAL_0, 0);
-    
+
+    hand_call_ptid = minus_one_ptid;
+
     if (saved_async)
       target_async_mask (saved_async);
     
+    /* APPLE LOCAL checkpointing */
+    end_inferior_call_checkpoints ();
     enable_watchpoints_after_interactive_call_stop ();
       
     discard_cleanups (old_cleanups);
@@ -989,7 +863,7 @@ You must use a pointer to function type variable. Command ignored.", arg_name);
 	  {
 	    /* Can't use a cleanup here.  It is discarded, instead use
                an alloca.  */
-	    char *tmp = xstrprintf ("at %s", local_hex_string (funaddr));
+	    char *tmp = xstrprintf ("at %s", hex_string (funaddr));
 	    char *a = alloca (strlen (tmp) + 1);
 	    strcpy (a, tmp);
 	    xfree (tmp);
@@ -1012,11 +886,11 @@ You must use a pointer to function type variable. Command ignored.", arg_name);
 
 	      /* FIXME: Insert a bunch of wrap_here; name can be very
 		 long if it's a C++ name with arguments and stuff.  */
-	      error ("\
+	      error (_("\
 The program being debugged was signaled while in a function called from GDB.\n\
 GDB has restored the context to what it was before the call.\n\
 To change this behavior use \"set unwindonsignal off\"\n\
-Evaluation of the expression containing the function (%s) will be abandoned.",
+Evaluation of the expression containing the function (%s) will be abandoned."),
 		     name);
 	    }
 	  else
@@ -1032,11 +906,11 @@ Evaluation of the expression containing the function (%s) will be abandoned.",
 	      discard_inferior_status (inf_status);
 	      /* FIXME: Insert a bunch of wrap_here; name can be very
 		 long if it's a C++ name with arguments and stuff.  */
-	      error ("\
+	      error (_("\
 The program being debugged was signaled while in a function called from GDB.\n\
 GDB remains in the frame where the signal was received.\n\
 To change this behavior use \"set unwindonsignal on\"\n\
-Evaluation of the expression containing the function (%s) will be abandoned.",
+Evaluation of the expression containing the function (%s) will be abandoned."),
 		     name);
 	    }
 	}
@@ -1059,15 +933,15 @@ Evaluation of the expression containing the function (%s) will be abandoned.",
 	     someday this will be implemented (it would not be easy).  */
 	  /* FIXME: Insert a bunch of wrap_here; name can be very long if it's
 	     a C++ name with arguments and stuff.  */
-	  error ("\
+	  error (_("\
 The program being debugged stopped while in a function called from GDB.\n\
 When the function (%s) is done executing, GDB will silently\n\
 stop (instead of continuing to evaluate the expression containing\n\
-the function call).", name);
+the function call)."), name);
 	}
 
       /* The above code errors out, so ...  */
-      internal_error (__FILE__, __LINE__, "... should not be here");
+      internal_error (__FILE__, __LINE__, _("... should not be here"));
     }
 
   /* If we get here the called FUNCTION run to completion. */
@@ -1078,10 +952,18 @@ the function call).", name);
   /* Restore the inferior status, via its cleanup.  At this stage,
      leave the RETBUF alone.  */
   do_cleanups (inf_status_cleanup);
+  /* APPLE LOCAL begin subroutine inlining  */
+  inlined_subroutine_restore_after_dummy_call ();
+  /* APPLE LOCAL end subroutine inlining  */
 
-  /* Figure out the value returned by the function.  */
-  if (struct_return)
-    {
+  /* Figure out the value returned by the function, return that.  */
+  {
+    struct value *retval;
+    if (TYPE_CODE (values_type) == TYPE_CODE_VOID)
+      /* If the function returns void, don't bother fetching the
+	 return value.  */
+      retval = allocate_value (values_type);
+    else if (struct_return)
       /* NOTE: cagney/2003-09-27: This assumes that PUSH_DUMMY_CALL
 	 has correctly stored STRUCT_ADDR in the target.  In the past
 	 that hasn't been the case, the old MIPS PUSH_ARGUMENTS
@@ -1090,18 +972,27 @@ the function call).", name);
 	 you're seeing problems with values being returned using the
 	 "struct return convention", check that PUSH_DUMMY_CALL isn't
 	 playing tricks.  */
-      struct value *retval = value_at (value_type, struct_addr, NULL);
-      do_cleanups (retbuf_cleanup);
-      return retval;
-    }
-  else
-    {
-      /* The non-register case was handled above.  */
-      struct value *retval = register_value_being_returned (value_type,
-							    retbuf);
-      do_cleanups (retbuf_cleanup);
-      return retval;
-    }
+      retval = value_at (values_type, struct_addr);
+    else
+      {
+	/* This code only handles "register convention".  */
+	retval = allocate_value (values_type);
+	gdb_assert (gdbarch_return_value (current_gdbarch, values_type,
+					  NULL, NULL, NULL)
+		    == RETURN_VALUE_REGISTER_CONVENTION);
+	gdbarch_return_value (current_gdbarch, values_type, retbuf,
+			      value_contents_raw (retval) /*read*/,
+			      NULL /*write*/);
+      }
+    do_cleanups (retbuf_cleanup);
+    /* APPLE LOCAL: Now reset this value to the original return
+       type.  That way, if the function was returning a typedef,
+       the value we are returning will have the same type.  */
+    if (retval != NULL)
+      deprecated_set_value_type (retval, orig_return_type);
+
+    return retval;
+  }
 }
 
 struct value *
@@ -1123,36 +1014,46 @@ void
 _initialize_infcall (void)
 {
   add_setshow_boolean_cmd ("coerce-float-to-double", class_obscure,
-			   &coerce_float_to_double_p, "\
-Set coercion of floats to doubles when calling functions\n\
+			   &coerce_float_to_double_p, _("\
+Set coercion of floats to doubles when calling functions."), _("\
+Show coercion of floats to doubles when calling functions"), _("\
 Variables of type float should generally be converted to doubles before\n\
 calling an unprototyped function, and left alone when calling a prototyped\n\
 function.  However, some older debug info formats do not provide enough\n\
 information to determine that a function is prototyped.  If this flag is\n\
 set, GDB will perform the conversion for a function it considers\n\
 unprototyped.\n\
-The default is to perform the conversion.\n", "\
-Show coercion of floats to doubles when calling functions\n\
-Variables of type float should generally be converted to doubles before\n\
-calling an unprototyped function, and left alone when calling a prototyped\n\
-function.  However, some older debug info formats do not provide enough\n\
-information to determine that a function is prototyped.  If this flag is\n\
-set, GDB will perform the conversion for a function it considers\n\
-unprototyped.\n\
-The default is to perform the conversion.\n",
-			   NULL, NULL, &setlist, &showlist);
+The default is to perform the conversion.\n"),
+			   NULL,
+			   show_coerce_float_to_double_p,
+			   &setlist, &showlist);
 
   add_setshow_boolean_cmd ("unwindonsignal", no_class,
-			   &unwind_on_signal_p, "\
-Set unwinding of stack if a signal is received while in a call dummy.\n\
+			   &unwind_on_signal_p, _("\
+Set unwinding of stack if a signal is received while in a call dummy."), _("\
+Show unwinding of stack if a signal is received while in a call dummy."), _("\
 The unwindonsignal lets the user determine what gdb should do if a signal\n\
 is received while in a function called from gdb (call dummy).  If set, gdb\n\
 unwinds the stack and restore the context to what as it was before the call.\n\
-The default is to stop in the frame where the signal was received.", "\
-Set unwinding of stack if a signal is received while in a call dummy.\n\
-The unwindonsignal lets the user determine what gdb should do if a signal\n\
-is received while in a function called from gdb (call dummy).  If set, gdb\n\
-unwinds the stack and restore the context to what as it was before the call.\n\
-The default is to stop in the frame where the signal was received.",
-			   NULL, NULL, &setlist, &showlist);
+The default is to stop in the frame where the signal was received."),
+			   NULL,
+			   show_unwind_on_signal_p,
+			   &setlist, &showlist);
+
+#if defined (NM_NEXTSTEP)
+/* APPLE LOCAL for Greg */
+  add_setshow_boolean_cmd ("disable-inferior-function-calls", no_class,
+			   &inferior_function_calls_disabled_p, _("\
+Set disabling of gdb from running calls in the debugee's context"), _("\
+Show disabling of gdb from running calls in the debugee's context"), _("\
+The disable-inferior-function-calls setting lets the user prevent gdb from\n\
+executing functions in the debugee program's context.  Many gdb commands\n\
+can result in functions being run in the target program, e.g. malloc or objc\n\
+class lookup functions, when you may not expect.  It is rare that people need\n\
+to disable these inferior function calls."),
+			   NULL,
+			   NULL,
+			   &setlist, &showlist);
+#endif
+
 }

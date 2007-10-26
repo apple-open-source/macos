@@ -1,6 +1,82 @@
---- /Volumes/XDisk/tmp/Libc/stdio/FreeBSD/tmpnam.3.orig	2004-06-21 12:38:25.000000000 -0700
-+++ /Volumes/XDisk/tmp/Libc/stdio/FreeBSD/tmpnam.3	2004-10-24 17:08:31.000000000 -0700
-@@ -229,11 +229,6 @@
+--- _SB/Libc/stdio/FreeBSD/tmpnam.3	2004-11-25 11:38:35.000000000 -0800
++++ _SB/Libc/stdio/FreeBSD/tmpnam.3.edit	2006-06-28 16:55:52.000000000 -0700
+@@ -49,11 +49,18 @@
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft FILE *
+-.Fn tmpfile void
++.Fo tmpfile
++.Fa void
++.Fc
+ .Ft char *
+-.Fn tmpnam "char *str"
++.Fo tmpnam
++.Fa "char *s"
++.Fc
+ .Ft char *
+-.Fn tempnam "const char *tmpdir" "const char *prefix"
++.Fo tempnam
++.Fa "const char *dir"
++.Fa "const char *pfx"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn tmpfile
+@@ -67,12 +74,13 @@
+ reference to it is closed.
+ The file is opened with the access value
+ .Ql w+ .
+-The file is created in the directory determined by the environment variable
++If the environment variable
+ .Ev TMPDIR
+-if set.
+-The default location if
++is defined,
++the file is created in the specified directory.
++The default location, if
+ .Ev TMPDIR
+-is not set is
++is not set, is
+ .Pa /tmp .
+ .Pp
+ The
+@@ -87,7 +95,7 @@
+ is defined in the include file
+ .In stdio.h .
+ If the argument
+-.Fa str
++.Fa s
+ is
+ .Pf non- Dv NULL ,
+ the file name is copied to the buffer it references.
+@@ -97,7 +105,7 @@
+ returns a pointer to the file name.
+ .Pp
+ The buffer referenced by
+-.Fa str
++.Fa s
+ is expected to be at least
+ .Dv L_tmpnam
+ bytes in length.
+@@ -116,7 +124,7 @@
+ The environment variable
+ .Ev TMPDIR
+ (if set), the argument
+-.Fa tmpdir
++.Fa dir
+ (if
+ .Pf non- Dv NULL ) ,
+ the directory
+@@ -127,7 +135,7 @@
+ temporary file.
+ .Pp
+ The argument
+-.Fa prefix ,
++.Fa pfx ,
+ if
+ .Pf non- Dv NULL ,
+ is used to specify a file name prefix, which will be the
+@@ -229,11 +237,6 @@
  .Sh SEE ALSO
  .Xr mkstemp 3 ,
  .Xr mktemp 3

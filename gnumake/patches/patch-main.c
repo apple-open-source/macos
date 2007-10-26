@@ -1,6 +1,6 @@
---- main.c.orig	Fri Oct 29 17:03:43 2004
-+++ main.c	Fri Oct 29 20:00:02 2004
-@@ -78,6 +78,27 @@
+--- main.c.orig	2006-03-19 18:36:37.000000000 -0800
++++ main.c	2006-11-30 17:48:25.000000000 -0800
+@@ -90,6 +90,27 @@
  static char *quote_for_env PARAMS ((char *out, char *in));
  static void initialize_global_hash_tables PARAMS ((void));
  
@@ -28,7 +28,7 @@
  
  /* The structure that describes an accepted command switch.  */
  
-@@ -197,6 +218,13 @@
+@@ -213,6 +234,13 @@
  
  static struct stringlist *makefiles = 0;
  
@@ -42,7 +42,7 @@
  /* Number of job slots (commands that can be run at once).  */
  
  unsigned int job_slots = 1;
-@@ -325,6 +353,11 @@
+@@ -354,6 +382,11 @@
                                Consider FILE to be infinitely new.\n"),
      N_("\
    --warn-undefined-variables  Warn when an undefined variable is referenced.\n"),
@@ -54,18 +54,18 @@
      NULL
    };
  
-@@ -385,6 +418,9 @@
+@@ -416,6 +449,9 @@
      { 'W', string, (char *) &new_files, 0, 0, 0, 0, 0, "what-if" },
      { CHAR_MAX+4, flag, (char *) &warn_undefined_variables_flag, 1, 1, 0, 0, 0,
- 	"warn-undefined-variables" },
+       "warn-undefined-variables" },
 +#if defined(__APPLE__) || defined(NeXT) || defined(NeXT_PDO)
 +    { 'N', string, (char *) &next_flag_list, 0, 0, 0, 0, 0, "NeXT-option" },
 +#endif /* __APPLE__ || NeXT || NeXT_PDO */
-     { '\0', }
+     { 0, 0, 0, 0, 0, 0, 0, 0, 0 }
    };
  
-@@ -1106,6 +1142,27 @@
-   decode_env_switches ("MFLAGS", 6);
+@@ -1230,6 +1266,27 @@
+   decode_env_switches (STRING_SIZE_TUPLE ("MFLAGS"));
  #endif
    decode_switches (argc, argv, 0);
 +#if defined(__APPLE__) || defined(NeXT) || defined(NeXT_PDO)
@@ -91,8 +91,8 @@
 +#endif	/* __APPLE__ || NeXT || NeXT_PDO */
  #ifdef WINDOWS32
    if (suspend_flag) {
-         fprintf(stderr, "%s (pid = %d)\n", argv[0], GetCurrentProcessId());
-@@ -1262,9 +1319,11 @@
+         fprintf(stderr, "%s (pid = %ld)\n", argv[0], GetCurrentProcessId());
+@@ -1406,9 +1463,11 @@
        makelevel = 0;
    }
  
@@ -104,7 +104,7 @@
  
    /* Let the user disable that with --no-print-directory.  */
    if (inhibit_print_directory_flag)
-@@ -1639,6 +1698,9 @@
+@@ -1804,6 +1863,9 @@
    remote_setup ();
  
    if (read_makefiles != 0)

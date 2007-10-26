@@ -8481,6 +8481,17 @@ tsubst_copy_and_build (tree t,
       if (TREE_CODE (op1) == SCOPE_REF)
 	op1 = tsubst_qualified_id (op1, args, complain, in_decl, 
 				   /*done=*/true, /*address_p=*/true);
+      /* APPLE LOCAL begin constant cfstrings - radar 4557092 */
+      /* CFSTRING is represented as an ADDR_EXPR of a CONST_DECL node whose 
+         DECL_INITIAL field holds the CONSTRUCTOR initializer. We cannot 
+	 fold away CONST_DECL part since this results in ADDR_EXPR of 
+	 CONSTRUCTOR node which is wrong and causes gimplifier to assign 
+	 CONSTRUCTOR to a local temporary and function returning address 
+	 of this temporary. */
+      else if (TREE_CODE (op1) == CONST_DECL 
+	       && TREE_CODE (DECL_INITIAL (op1)) == CONSTRUCTOR)
+	;
+      /* APPLE LOCAL end constant cfstrings - radar 4557092 */
       else
 	op1 = tsubst_non_call_postfix_expression (op1, args, complain, 
 						  in_decl);
@@ -8555,6 +8566,17 @@ tsubst_copy_and_build (tree t,
 	return cxx_sizeof_or_alignof_type (op1, TREE_CODE (t), true);
       else
 	return cxx_sizeof_or_alignof_expr (op1, TREE_CODE (t));
+
+    /* APPLE LOCAL begin radar 4278774 */
+    case AT_ENCODE_EXPR:
+      {
+	op1 = TREE_OPERAND (t, 0);
+	++skip_evaluation;
+	op1 = RECUR (op1);
+	--skip_evaluation;
+	return objc_build_encode_expr (op1);
+      }
+    /* APPLE LOCAL end radar 4278774 */
 
     case MODOP_EXPR:
       {

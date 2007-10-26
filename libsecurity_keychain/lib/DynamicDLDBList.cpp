@@ -28,13 +28,13 @@
 
 #include "DynamicDLDBList.h"
 
-#include "KCEventNotifier.h"
 #include "Globals.h"
 
 #include <security_utilities/debugging.h>
 #include <security_cdsa_utilities/cssmbridge.h> // For Required()
 #include <security_cdsa_client/mdsclient.h>
 #include <security_cdsa_client/mds_standard.h>
+#include "KCEventNotifier.h"
 
 using namespace KeychainCore;
 
@@ -155,7 +155,7 @@ DynamicDLDBList::_load()
 					&& MDSClient::Attribute("SSID") == subserviceID) != csp.end();
 
 				secdebug("dynamic", "Adding databases from %sDL SSID %lu module: %s",
-						hasCSP ? "CSP/" : "", subserviceID, moduleID.c_str());
+						hasCSP ? "CSP/" : "", (unsigned long)subserviceID, moduleID.c_str());
 				list_changed |= _add(moduleGuid, subserviceID,
                                      hasCSP ? CSSM_SERVICE_CSP | CSSM_SERVICE_DL : CSSM_SERVICE_DL);
 			}
@@ -188,7 +188,7 @@ DynamicDLDBList::callback(const Guid &guid, uint32 subserviceID,
 		char buffer[Guid::stringRepLength+1];
 		guid.toString(buffer);
 		debug("event", "Recieved callback from guid: %s ssid: %lu type: %lu event: %lu",
- 			buffer, subserviceID, subserviceType, eventType);
+ 			buffer, (unsigned long)subserviceID, (unsigned long)subserviceType, (unsigned long)eventType);
 	)
 
 	bool list_changed = false;
@@ -200,14 +200,14 @@ DynamicDLDBList::callback(const Guid &guid, uint32 subserviceID,
 		{
 			/* A DL or CSP/DL was inserted. */
 			secdebug("dynamic", "%sDL module: %s SSID: %lu inserted",
-				(subserviceType & CSSM_SERVICE_CSP) ? "CSP/" : "", buffer, subserviceID);
+				(subserviceType & CSSM_SERVICE_CSP) ? "CSP/" : "", buffer, (unsigned long)subserviceID);
 			list_changed = _add(guid, subserviceID, subserviceType);
 		}
 		else if (eventType == CSSM_NOTIFY_REMOVE)
 		{
 			/* A DL or CSP/DL was removed. */
 			secdebug("dynamic", "%sDL module: %s SSID: %lu removed",
-				(subserviceType & CSSM_SERVICE_CSP) ? "CSP/" : "", buffer, subserviceID);
+				(subserviceType & CSSM_SERVICE_CSP) ? "CSP/" : "", buffer, (unsigned long)subserviceID);
 			list_changed = _remove(guid, subserviceID, subserviceType);
 		}
 	}

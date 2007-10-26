@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,7 +64,7 @@
 #include <stdio.h>
 #include <pwd.h>
 #include <termios.h>
-#include <utmp.h>
+#include <available.h>
 
 #define	PIDLOCK_NONBLOCK	1
 #define PIDLOCK_USEHOSTNAME	2
@@ -85,10 +85,11 @@
 #define OPENDEV_BLCK	0x04		/* Open block, not character device. */
 
 __BEGIN_DECLS
-void	login(struct utmp *);
+struct utmp; /* forward reference to /usr/include/utmp.h */
+void	login(struct utmp *)		__DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 int	login_tty(int);
-int	logout(const char *);
-void	logwtmp(const char *, const char *, const char *);
+int	logout(const char *)		__DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+void	logwtmp(const char *, const char *, const char *) __DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 int	opendev(char *, int, int, char **);
 int	openpty(int *, int *, char *, struct termios *,
 		     struct winsize *);
@@ -101,5 +102,8 @@ int	ttyaction(char *tty, char *act, char *user);
 struct iovec;
 char   *ttymsg(struct iovec *, int, const char *, int);
 __END_DECLS
+
+/* Include utmp.h last to avoid deprecation warning above */
+#include <utmp.h>
 
 #endif /* !_UTIL_H_ */

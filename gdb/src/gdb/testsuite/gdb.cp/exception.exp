@@ -1,4 +1,4 @@
-# Copyright 1997, 1998, 2004 Free Software Foundation, Inc.
+# Copyright 1997, 1998, 2004, 2005 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -41,6 +41,8 @@ set nl	"\[\r\n\]+"
 if $tracelevel then {
     strace $tracelevel
 }
+
+if { [skip_cplus_tests] } { continue }
 
 set testfile "exception"
 set srcfile ${testfile}.cc

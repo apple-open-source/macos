@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
- * Copyright (C) 2000, 2001  Internet Software Consortium.
+ * Copyright (C) 2004, 2005, 2007  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: zonetodb.c,v 1.12.4.2.8.6 2005/09/06 02:12:40 marka Exp $ */
+/* $Id: zonetodb.c,v 1.13.18.4 2007/01/18 00:06:11 marka Exp $ */
 
 #include <stdlib.h>
 #include <string.h>

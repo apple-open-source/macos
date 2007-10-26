@@ -35,12 +35,11 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOService.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/IOCommandPool.h>
 #include <IOKit/firewire/IOFireWireUnit.h>
 #include <IOKit/sbp2/IOFireWireSBP2LUN.h>
 
-#include <IOKit/scsi-commands/IOSCSIProtocolServices.h>
+#include <IOKit/scsi/IOSCSIProtocolServices.h>
 
 /*!
 	@class IOFireWireSerialBusProtocolTransport

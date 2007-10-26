@@ -1,6 +1,7 @@
 ;;; pong.el --- classical implementation of pong
 
-;; Copyright 1999, 2000, 2001 by Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Benjamin Drieu <bdrieu@april.org>
 ;; Keywords: games
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to
-;; the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -34,12 +35,12 @@
 
 ;;; Customization
 
-(defgroup pong nil 
+(defgroup pong nil
   "Emacs-Lisp implementation of the classical game pong."
   :tag "Pong"
   :group 'games)
 
-(defcustom pong-buffer-name "*Pong*" 
+(defcustom pong-buffer-name "*Pong*"
   "*Name of the buffer used to play."
   :group 'pong
   :type '(string))
@@ -75,7 +76,7 @@
   :type 'color)
 
 (defcustom pong-border-color "white"
-  "*Color used for pong balls."
+  "*Color used for pong borders."
   :group 'pong
   :type 'color)
 
@@ -155,12 +156,9 @@
   '(((glyph colorize)
      (t ?\+))
     ((color-x color-x)
-     (mono-x grid-x))
-    ;; The colors used to be [0.5 0.5 0.5], but that produces a black
-    ;; color on 8-color tty's, which would make the border invisible.
-    ;; 0.51 produces white on such tty's, and at the same time has
-    ;; almost no effect on X and similar displays.
-    (((glyph color-x) [0.51 0.51 0.51])
+     (mono-x grid-x)
+     (color-tty color-tty))
+    (((glyph color-x) [0.5 0.5 0.5])
      (color-tty pong-border-color))))
 
 (defconst pong-blank	0)
@@ -246,7 +244,7 @@
 
   (gamegrid-init-buffer pong-width
 			(+ 2 pong-height)
-			1)
+			?\s)
 
   (let ((buffer-read-only nil))
     (loop for y from 0 to (1- pong-height) do
@@ -316,15 +314,14 @@ implementations you move with left/right paddle."
 	(gamegrid-set-cell x (1- y) pong-blank))
     (if (< (+ y pong-bat-width) (1- pong-height))
 	(gamegrid-set-cell x (+ y pong-bat-width) pong-blank)))))
-  
+
 
 
 (defun pong-init ()
   "Initialize a game."
-  
+
   (define-key pong-mode-map pong-pause-key 'pong-pause)
 
-  (make-local-hook 'kill-buffer-hook)
   (add-hook 'kill-buffer-hook 'pong-quit nil t)
 
   ;; Initialization of some variables
@@ -349,44 +346,44 @@ updates ball and bats positions.  It is responsible of collision
 detection and checks if a player scores."
   (if (not (eq (current-buffer) pong-buffer))
       (pong-pause)
-	
+
     (let ((old-x pong-x)
 	  (old-y pong-y))
-      
+
       (setq pong-x (+ pong-x pong-xx))
       (setq pong-y (+ pong-y pong-yy))
-      
+
       (if (and (> old-y 0)
 	       (< old-y (- pong-height 1)))
 	  (gamegrid-set-cell old-x old-y pong-blank))
-      
+
       (if (and (> pong-y 0)
 	       (< pong-y (- pong-height 1)))
 	  (gamegrid-set-cell pong-x pong-y pong-ball))
-      
+
       (cond
        ((or (= pong-x 3) (= pong-x 2))
-	(if (and (>= pong-y pong-bat-player1) 
+	(if (and (>= pong-y pong-bat-player1)
 		 (< pong-y (+ pong-bat-player1 pong-bat-width)))
-	    (and 
+	    (and
 	     (setq pong-yy (+ pong-yy
-			      (cond 
+			      (cond
 			       ((= pong-y pong-bat-player1) -1)
 			       ((= pong-y (1+ pong-bat-player1)) 0)
 			       (t 1))))
 	     (setq pong-xx (- pong-xx)))))
 
        ((or (= pong-x (- pong-width 4)) (= pong-x (- pong-width 3)))
-	(if (and (>= pong-y pong-bat-player2) 
+	(if (and (>= pong-y pong-bat-player2)
 		 (< pong-y (+ pong-bat-player2 pong-bat-width)))
-	    (and 
+	    (and
 	     (setq pong-yy (+ pong-yy
-			      (cond 
+			      (cond
 			       ((= pong-y pong-bat-player2) -1)
 			       ((= pong-y (1+ pong-bat-player2)) 0)
 			       (t 1))))
 	     (setq pong-xx (- pong-xx)))))
-   
+
        ((<= pong-y 1)
 	(setq pong-yy (- pong-yy)))
 
@@ -463,4 +460,5 @@ pong-mode keybindings:\\<pong-mode-map>
 
 (provide 'pong)
 
+;;; arch-tag: 1fdf0fc5-13e2-4de4-aae4-09bdd5af99f3
 ;;; pong.el ends here

@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_conn.h,v 1.32.42.2 2005/07/20 05:27:00 lindak Exp $
  */
 #ifndef _NETINET_IN_H_
 #include <sys/socket.h>
@@ -40,20 +41,27 @@
 /*
  * Two levels of connection hierarchy
  */
-#define	SMBL_SM		0
-#define SMBL_VC		1
-#define SMBL_SHARE	2
-#define SMBL_NUM	3
-#define SMBL_NONE	(-1)
+#define	SMBL_SM		0x0000
+#define SMBL_VC		0x0001
+#define SMBL_SHARE	0x0002
+#define SMBL_VALID	0x0003
 
-#define	SMB_CS_NONE	0x0000
-#define	SMB_CS_UPPER	0x0001		/* convert passed string to upper case */
-#define	SMB_CS_LOWER	0x0002		/* convert passed string to lower case */
+/*
+ * Device flags
+ */
+
+#define NSMBFL_OPEN		0x0001
+#define NSMBFL_CANCEL	0x0002
+#define NSMBFL_SHAREVC	0x0004
+#define NSMBFL_TRYBOTH	0x0008
 
 /*
  * Common object flags
+ *
+ * Remember that vc_flags and ss_flags are defined to be co_flags,
+ * so those flags can never reuse this value. 
  */
-#define SMBO_GONE		0x1000000
+#define SMBO_GONE		0x80000000
 
 /*
  * access modes
@@ -68,33 +76,37 @@
 #define	SMBM_WRITEOTH		0002
 #define	SMBM_EXECOTH		0001
 #define	SMBM_MASK		0777
-#define	SMBM_EXACT		010000	/* check for specified mode exactly */
 #define	SMBM_ALL		(SMBM_READ | SMBM_WRITE | SMBM_EXEC)
 #define	SMBM_DEFAULT		(SMBM_READ | SMBM_WRITE | SMBM_EXEC)
-#define	SMBM_ANY_OWNER		((uid_t)-1)
-#define	SMBM_ANY_GROUP		((gid_t)-1)
+
+#define SMBM_RECONNECT_WAIT_TIME	60 * 10	/* Wait 10 minutes for reconnect? */
 
 /*
  * VC flags
  */
-#define	SMBV_NT4		0x0001	/* used when NT4 issues invalid response */
-#define SMBV_PERMANENT		0x0002
-#define SMBV_LONGNAMES		0x0004	/* conn configured to use long names */
-#define	SMBV_ENCRYPT		0x0008	/* server demands encrypted password */
-#define	SMBV_WIN95		0x0010	/* used to apply bugfixes for this OS */
-#define	SMBV_PRIVATE		0x0020	/* conn can be used only by creator */
-#define	SMBV_RECONNECTING	0x0040	/* conn in process of reconnection */
-#define SMBV_SINGLESHARE	0x0080	/* only one share conn is allowed */
-#define SMBV_CREATE		0x0100	/* lookup will create conn */
-/*#define SMBV_FAILED		0x0200*/	/* last reconnect attempt has failed */
-#define SMBV_UNICODE		0x0400	/* conn configured to use Unicode */
-#define SMBV_EXT_SEC		0x0800	/* conn to use extended security */
-#define SMBV_MINAUTH		0x7000	/* minimum auth level for conn */
-#define SMBV_MINAUTH_NONE		0x0000	/* any autherntication OK */
-#define SMBV_MINAUTH_LM			0x1000	/* no plaintext passwords */
-#define SMBV_MINAUTH_NTLM		0x2000	/* don't send LM reply */
-#define SMBV_MINAUTH_NTLMV2		0x3000	/* don't fall back to NTLMv1 */
-#define SMBV_MINAUTH_KERBEROS		0x4000	/* don't do NTLMv1 or v2 */
+#define SMBV_USER_SECURITY			SMB_SM_USER		/* 0x01, server in the user security mode */
+#define SMBV_ENCRYPT_PASSWORD		SMB_SM_ENCRYPT	/* 0x02 use challenge/responce for password */
+#define SMBV_SIGNING				SMB_SM_SIGS		/* 0x04 server does smb signing */
+#define SMBV_SIGNING_REQUIRED		SMB_SM_SIGS_REQ	/* 0x08 serrver requires smb signing */
+#define SMBV_SECURITY_MODE_MASK		0x000000ff		/* Lower byte reserved for the security modes */
+#define	SMBV_NT4					0x00000100		/* Tells us the server is a NT4 */
+#define	SMBV_WIN2K					0x00000200		/* Tells us the server is Windows 2000 */
+#define	SMBV_WIN98					0x00000400		/* The server is a Windows 95, 98 or Me OS */
+#define SMBV_SERVER_MODE_MASK		0x0000ff00		/* This nible is resvered for special server types */
+#define SMBV_PRIVATE_VC				0x00010000		/* Negotiate will create a new VC, that is private */
+#define SMBV_EXT_SEC				0x00020000		/* conn to use extended security */
+#define SMBV_GUEST_ACCESS			0x00040000		/* user is using guess security */
+#define	SMBV_KERBEROS_SUPPORT		0x00080000		/* Server supports Kerberos */
+#define SMBV_MECHTYPE_KRB5			0x00200000		/* Server supports Kerberos Mech Type */
+#define SMBV_MECHTYPE_NTLMSSP		0x00400000		/* Server supports NTLMSSP Mech Type */
+#define	SMBV_AUTH_DONE				0x00800000		/* Security compeleted successfully */
+#define SMBV_MINAUTH				0x0f000000		/* minimum auth level for conn */
+#define SMBV_MINAUTH_LM				0x01000000		/* no plaintext passwords */
+#define SMBV_MINAUTH_NTLM			0x02000000		/* don't send LM reply */
+#define SMBV_MINAUTH_NTLMV2			0x04000000		/* don't fall back to NTLMv1 */
+#define SMBV_MINAUTH_KERBEROS		0x08000000		/* don't do NTLMv1 or NTLMv2 */
+#define SMBV_USER_LAND_MASK			0x0f070000		/* items that are changable by the user */
+#define	SMBV_GONE					SMBO_GONE		/* 0x80000000 - Reserved see above for more details */
 
 /*
  * smb_share flags
@@ -102,14 +114,9 @@
 #define SMBS_PERMANENT		0x0001
 #define SMBS_RECONNECTING	0x0002
 #define SMBS_CONNECTED		0x0004
-#define SMBS_1980		0x0008	/* 
-					 * This partition can't handle
-					 * dates before 1980. It's
-					 * probably a FAT partition but
-					 * could be some other ancient
-					 * FS type
-                                         */
-#define SMBS_RESUMEKEYS		0x0010	/* must use resume keys */ 
+#define SMBS_SFM_VOLUME		0x0020			/* This share was setup as a SFM Volume. */
+#define	SMBS_GONE			SMBO_GONE		/* 0x80000000 - Reserved see above for more details */
+
 /*
  * share types
  */
@@ -128,13 +135,13 @@ struct smb_sopt {
 	int		sv_proto;
 	int16_t		sv_tz;		/* offset in min relative to UTC */
 	u_int32_t	sv_maxtx;	/* maximum transmit buf size */
-	u_char		sv_sm;		/* security mode */
 	u_int16_t	sv_maxmux;	/* max number of outstanding rq's */
 	u_int16_t 	sv_maxvcs;	/* max number of VCs */
 	u_int16_t	sv_rawmode;
 	u_int32_t	sv_maxraw;	/* maximum raw-buffer size */
 	u_int32_t	sv_skey;	/* session key */
 	u_int32_t	sv_caps;	/* capabilites SMB_CAP_ */
+	u_int64_t	sv_unix_caps;	/* unix capabilites  */
 };
 
 /*
@@ -142,12 +149,13 @@ struct smb_sopt {
  */
 enum smbiod_state {
 	SMBIOD_ST_NOTCONN,	/* no connect request was made */
-	SMBIOD_ST_RECONNECT,	/* a [re]connect attempt is in progress */
+	SMBIOD_ST_CONNECT,	/* a connect attempt is in progress */
 	SMBIOD_ST_TRANACTIVE,	/* transport level is up */
 	SMBIOD_ST_NEGOACTIVE,	/* completed negotiation */
 	SMBIOD_ST_SSNSETUP,	/* started (a) session setup */
 	SMBIOD_ST_VCACTIVE,	/* session established */
-	SMBIOD_ST_DEAD		/* connection broken, transport is down */
+	SMBIOD_ST_DEAD,		/* connection broken, transport is down */
+	SMBIOD_ST_RECONNECT	/* We need to attempt to reconnect again */
 };
 
 
@@ -167,20 +175,8 @@ struct smb_vc_info {
 	int		flags;
 	enum smbiod_state iodstate;
 	struct smb_sopt	sopt;
-	char		srvname[SMB_MAXSRVNAMELEN+1];
+	char		srvname[SMB_MAX_DNS_SRVNAMELEN];
 	char		vcname[128];
-};
-
-struct smb_share_info {
-	int		itype;
-	int		usecount;
-	u_short		tid;		/* TID */
-	int		type;		/* share type */
-	uid_t		uid;		/* user id of connection */
-	gid_t		gid;		/* group of connection */
-	mode_t		mode;		/* access mode */
-	int		flags;
-	char		sname[128];
 };
 
 #ifdef _KERNEL
@@ -210,6 +206,7 @@ TAILQ_HEAD(smb_rqhead, smb_rq);
 #define SMB_DIALECT(vcp)	((vcp)->vc_sopt.sv_proto)
 
 struct smb_tran_desc;
+struct smb_dev;
 
 /*
  * Connection object
@@ -219,17 +216,17 @@ struct smb_connobj;
 typedef void smb_co_gone_t (struct smb_connobj *cp, struct smb_cred *scred);
 typedef void smb_co_free_t (struct smb_connobj *cp);
 
-#define	SMB_CO_LOCK(cp)		smb_sl_lock(&(cp)->co_interlock)
-#define	SMB_CO_UNLOCK(cp)	smb_sl_unlock(&(cp)->co_interlock)
+#define	SMB_CO_LOCK(cp)		lck_mtx_lock(&(cp)->co_interlock)
+#define	SMB_CO_UNLOCK(cp)	lck_mtx_unlock(&(cp)->co_interlock)
 
 struct smb_connobj {
 	int			co_level;	/* SMBL_ */
-	int			co_flags;
+	u_int32_t	co_flags;
 	lck_mtx_t   *co_lock;
 	void		 *co_lockowner;
 	int32_t		co_lockcount;
 	uint32_t	co_lock_flags;
-	smb_slock	co_interlock;
+	lck_mtx_t	co_interlock;
 	int			co_usecount;
 	struct smb_connobj *	co_parent;
 	SLIST_HEAD(,smb_connobj)co_children;
@@ -246,6 +243,24 @@ struct smb_connobj {
 
 #define	SMBCO_FOREACH(var, cp)	SMBLIST_FOREACH((var), &(cp)->co_children, co_next)
 
+/*
+ * Data structure to access gssd for the use of SPNEGO/Kerberos
+ */
+struct smb_gss {
+	mach_port_t	gss_mp;					/* Mach port to gssd */
+	char *		gss_spn;				/* Service's principal name */
+	char *		gss_cpn;				/* Client's principal name */
+	uint32_t	gss_spnlen;				/* Length of SPN */
+	uint32_t	gss_tokenlen;			/* Gss token length */
+	uint8_t *	gss_token;				/* Gss token */
+	uint64_t	gss_verif;				/* Verifier for gssd instance */
+	uint32_t	gss_ctx;				/* GSS opaque context handle */
+	uint32_t	gss_cred;				/* GSS opaque cred handle */
+	uint8_t*	gss_skey;				/* GSS session key */
+	uint32_t	gss_skeylen;			/* Session key length */
+	uint32_t	gss_major;				/* GSS major error code */
+	uint32_t	gss_minor;				/* GSS minor (mech) error code */
+};
 
 /*
  * Virtual Circuit (session) to a server.
@@ -261,8 +276,8 @@ struct smb_connobj {
 /*
  * This lock protects vc_flags
  */
-#define	SMBC_ST_LOCK(vcp)	smb_sl_lock(&(vcp)->vc_stlock)
-#define	SMBC_ST_UNLOCK(vcp)	smb_sl_unlock(&(vcp)->vc_stlock)
+#define	SMBC_ST_LOCK(vcp)	lck_mtx_lock(&(vcp)->vc_stlock)
+#define	SMBC_ST_UNLOCK(vcp)	lck_mtx_unlock(&(vcp)->vc_stlock)
 
 
 struct smb_vc {
@@ -281,12 +296,10 @@ struct smb_vc {
 	void *		vc_toupper;	/* local charset */
 	void *		vc_toserver;	/* local charset to server one */
 	void *		vc_tolocal;	/* server charset to local one */
-	int		vc_number;	/* number of this VC from the client side */
-	int		vc_genid;
+	int			vc_number;	/* number of this VC from the client side */
 	uid_t		vc_uid;		/* user id of connection */
 	gid_t		vc_grp;		/* group of connection */
 	mode_t		vc_mode;	/* access mode */
-	struct tnode *	vc_tnode;	/* backing object */
 	u_short		vc_smbuid;	/* unique vc id assigned by server */
 
 	u_char		vc_hflags;	/* or'ed with flags in the smb header */
@@ -297,18 +310,17 @@ struct smb_vc {
 	u_char 		vc_ch[SMB_MAXCHALLENGELEN];
 	u_short		vc_mid;		/* multiplex id */
 	struct smb_sopt	vc_sopt;	/* server options */
-	struct smb_cred*vc_scred;	/* used in reconnect procedure */
-	int		vc_txmax;	/* max tx/rx packet size */
-	int		vc_rxmax;	/* max readx data size */
-	int		vc_wxmax;	/* max writex data size */
+	int			vc_txmax;	/* max tx/rx packet size */
+	int			vc_rxmax;	/* max readx data size */
+	int			vc_wxmax;	/* max writex data size */
 	struct smbiod *	vc_iod;
-	smb_slock vc_stlock;
-	size_t		vc_intoklen;
-	caddr_t		vc_intok;
-	size_t		vc_outtoklen;
-	caddr_t		vc_outtok;
-	size_t		vc_negtoklen;
-	caddr_t		vc_negtok;
+	lck_mtx_t	vc_stlock;
+	u_int32_t	vc_seqno;       /* my next sequence number */
+	u_int8_t	*vc_mackey;     /* MAC key */
+	int			vc_mackeylen;   /* length of MAC key */
+	u_int32_t	reconnect_wait_time;	/* Amount of time to wait while reconnecting */
+	u_int32_t	*connect_flag;
+	struct smb_gss vc_gss;		/* Parameters for gssd */
 };
 
 #define vc_maxmux	vc_sopt.sv_maxmux
@@ -321,25 +333,38 @@ struct smb_vc {
  */
 
 /*
+ * File system types ss_fstype
+ */
+enum smb_fs_types { 
+	SMB_FS_FAT = 0,				/* Fat file system */
+	SMB_FS_CDFS = 1,			/* CD file system */
+	SMB_FS_UDF = 2,				/* DVD file system */
+	SMB_FS_NTFS_UNKNOWN = 3,	/* NTFS file system, sometimes faked by server no streams support */
+	SMB_FS_NTFS = 4,			/* Real NTFS or fully pretending, NTFS share that also supports STREAMS. */
+	SMB_FS_NTFS_UNIX = 5,		/* Pretending to be NTFS file system, no streams, but it is a UNIX system */
+	SMB_FS_MAC_OS_X = 6			/* Mac OS X Leopard SAMBA Server, Support streams. */
+};
+
+/*
  * This lock protects ss_flags
  */
-#define	SMBS_ST_LOCK(ssp)	smb_sl_lock(&(ssp)->ss_stlock)
+#define	SMBS_ST_LOCK(ssp)		lck_mtx_lock(&(ssp)->ss_stlock)
 #define	SMBS_ST_LOCKPTR(ssp)	(&(ssp)->ss_stlock)
-#define	SMBS_ST_UNLOCK(ssp)	smb_sl_unlock(&(ssp)->ss_stlock)
+#define	SMBS_ST_UNLOCK(ssp)		lck_mtx_unlock(&(ssp)->ss_stlock)
 
 struct smb_share {
 	struct smb_connobj obj;
 	char *		ss_name;
 	struct smbmount* ss_mount;	/* used for smb up/down */
 	u_short		ss_tid;		/* TID */
-	int		ss_type;	/* share type */
+	int			ss_type;	/* share type */
+	enum smb_fs_types ss_fstype;	/* file system type of the  share */
 	uid_t		ss_uid;		/* user id of connection */
 	gid_t		ss_grp;		/* group of connection */
 	mode_t		ss_mode;	/* access mode */
-	int		ss_vcgenid;
 	char *		ss_pass;	/* password to a share, can be null */
-	smb_slock ss_stlock;
-	struct smb_cred *ss_cred;	/* used in reconnect procedure */
+	lck_mtx_t	ss_stlock;
+	u_int32_t	ss_attributes;	/* File System Attributes */
 	u_int32_t	ss_maxfilenamelen;
 	char *		ss_fsname;
 };
@@ -368,8 +393,7 @@ struct smb_vcspec {
 	char *		servercs;
 	struct smb_sharespec *shspec;
 	struct smb_share *ssp;		/* returned */
-	size_t		toklen;
-	caddr_t		tok;
+	u_int32_t	reconnect_wait_time;	/* Amount of time to wait while reconnecting */
 	/*
 	 * The rest is an internal data
 	 */
@@ -390,20 +414,20 @@ struct smb_sharespec {
 	struct smb_cred *scred;
 };
 
+struct smbioc_ssnsetup;
+
 /*
  * Session level functions
  */
 int  smb_sm_init(void);
 int  smb_sm_done(void);
-int  smb_sm_negotiate(struct smb_vcspec *vcspec,
-	struct smb_sharespec *shspec, struct smb_cred *scred,
-	struct smb_vc **vcpp);
-int  smb_sm_ssnsetup(struct smb_vcspec *vcspec,
-	struct smb_sharespec *shspec, struct smb_cred *scred,
-	struct smb_vc *vcp);
+int  smb_sm_negotiate(struct smb_vcspec *vcspec, struct smb_cred *scred, struct smb_vc **vcpp, struct smb_dev *sdp);
+int  smb_sm_ssnsetup(struct smbioc_ssnsetup *dp, struct smb_vcspec *vcspec, struct smb_cred *scred, struct smb_vc *vcp);
 int  smb_sm_tcon(struct smb_vcspec *vcspec,
 	struct smb_sharespec *shspec, struct smb_cred *scred,
 	struct smb_vc *vcp);
+uint32_t smb_vc_caps(struct smb_vc *vcp);
+int smb_check_for_win2k(void *refptr, int namelen);
 
 /*
  * Connection object
@@ -419,18 +443,17 @@ void smb_co_lockdrain(struct smb_connobj *cp);
 /*
  * session level functions
  */
-int smb_vc_setup(struct smb_vcspec *vcspec, struct smb_vc *vcp);
 int  smb_vc_create(struct smb_vcspec *vcspec,
 	struct smb_cred *scred, struct smb_vc **vcpp);
 int  smb_vc_negotiate(struct smb_vc *vcp, struct smb_cred *scred);
 int  smb_vc_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred);
-int  smb_vc_access(struct smb_vc *vcp, struct smb_cred *scred, mode_t mode);
+int  smb_vc_access(struct smb_vc *vcp, vfs_context_t context);
 int  smb_vc_get(struct smb_vc *vcp, int flags, struct smb_cred *scred);
 void smb_vc_put(struct smb_vc *vcp, struct smb_cred *scred);
 void smb_vc_ref(struct smb_vc *vcp);
 void smb_vc_rele(struct smb_vc *vcp, struct smb_cred *scred);
-int  smb_vc_lock(struct smb_vc *vcp, struct proc *p);
-void smb_vc_unlock(struct smb_vc *vcp, struct proc *p);
+int  smb_vc_lock(struct smb_vc *vcp);
+void smb_vc_unlock(struct smb_vc *vcp);
 int  smb_vc_lookupshare(struct smb_vc *vcp, struct smb_sharespec *shspec,
 	struct smb_cred *scred, struct smb_share **sspp);
 const char * smb_vc_getpass(struct smb_vc *vcp);
@@ -441,22 +464,20 @@ u_short smb_vc_nextmid(struct smb_vc *vcp);
  */
 int  smb_share_create(struct smb_vc *vcp, struct smb_sharespec *shspec,
 	struct smb_cred *scred, struct smb_share **sspp);
-int  smb_share_access(struct smb_share *ssp, struct smb_cred *scred, mode_t mode);
+int  smb_share_access(struct smb_share *ssp, vfs_context_t context);
 void smb_share_ref(struct smb_share *ssp);
 void smb_share_rele(struct smb_share *ssp, struct smb_cred *scred);
 int  smb_share_get(struct smb_share *ssp, int flags, struct smb_cred *scred);
 void smb_share_put(struct smb_share *ssp, struct smb_cred *scred);
-int  smb_share_lock(struct smb_share *ssp, struct proc *p);
-void smb_share_unlock(struct smb_share *ssp, struct proc *p);
+int  smb_share_lock(struct smb_share *ssp);
+void smb_share_unlock(struct smb_share *ssp);
 void smb_share_invalidate(struct smb_share *ssp);
-int  smb_share_valid(struct smb_share *ssp);
 const char * smb_share_getpass(struct smb_share *ssp);
-int  smb_share_count(void);
 
 /*
  * SMB protocol level functions
  */
-int  smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred);
+int  smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred, struct smb_cred *user_scred);
 int  smb_smb_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred);
 int  smb_smb_ssnclose(struct smb_vc *vcp, struct smb_cred *scred);
 int  smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred);
@@ -468,6 +489,43 @@ int  smb_write(struct smb_share *ssp, u_int16_t fid, uio_t uio,
 int  smb_smb_echo(struct smb_vc *vcp, struct smb_cred *scred, int timo);
 int  smb_smb_checkdir(struct smb_share *ssp, struct smbnode *dnp, char *name, int nmlen, struct smb_cred *scred);
 
+#define SMBIOD_INTR_TIMO		2       
+#define SMBIOD_SLEEP_TIMO       2       
+#define SMBIOD_PING_TIMO        60 * 2	/* 2 minutes for now */
+#define SMB_SEND_WAIT_TIMO		60 * 2	/* How long should we wait for the server to response to a request. */
+#define SMB_RESP_WAIT_TIMO		60		/* How long should we wait for the server to response to any request. */
+
+/*
+ * After this many seconds we want an unresponded-to request to trigger 
+ * some sort of UE (dialogue).  If the connection hasn't responded at all
+ * in this many seconds then the dialogue is of the "connection isn't
+ * responding would you like to force unmount" variety.  If the connection
+ * has been responding (to other requests that is) then we need a dialogue
+ * of the "operation is still pending do you want to cancel it" variety.
+ * At present this latter dialogue does not exist so we have no UE and
+ * just keep waiting for the slow operation.
+ *
+ * Raised from 8 to 12, to improve PPP DSL connections.
+ */
+#define SMBUETIMEOUT 12				/* seconds */
+#define SMB_MAX_SLEEP_CNT 5			/* Max seconds we wait between connections while doing a reconnect. */
+#define NOTIFY_USER_TIMEOUT 5		/* The number of seconds before we will the user there is a problem. */
+#define SOFTMOUNT_TIMEOUT 10		/* The number of seconds to wait before soft mount calls time out */
+
+
+#define SMB_IOD_EVLOCKPTR(iod)  (&((iod)->iod_evlock))
+#define SMB_IOD_EVLOCK(iod)     lck_mtx_lock(&((iod)->iod_evlock))
+#define SMB_IOD_EVUNLOCK(iod)   lck_mtx_unlock(&((iod)->iod_evlock))
+
+#define SMB_IOD_RQLOCKPTR(iod)  (&((iod)->iod_rqlock))
+#define SMB_IOD_RQLOCK(iod)     lck_mtx_lock(&((iod)->iod_rqlock))
+#define SMB_IOD_RQUNLOCK(iod)   lck_mtx_unlock(&((iod)->iod_rqlock))
+
+#define SMB_IOD_FLAGSLOCKPTR(iod)       (&((iod)->iod_flagslock))
+#define SMB_IOD_FLAGSLOCK(iod)          lck_mtx_lock(&((iod)->iod_flagslock))
+#define SMB_IOD_FLAGSUNLOCK(iod)        lck_mtx_unlock(&((iod)->iod_flagslock))
+
+#define smb_iod_wakeup(iod)     wakeup(&(iod)->iod_flags)
 
 /*
  * smbiod thread
@@ -475,9 +533,7 @@ int  smb_smb_checkdir(struct smb_share *ssp, struct smbnode *dnp, char *name, in
 
 #define	SMBIOD_EV_NEWRQ		0x0001
 #define	SMBIOD_EV_SHUTDOWN	0x0002
-#define	SMBIOD_EV_CONNECT	0x0003
 #define	SMBIOD_EV_DISCONNECT	0x0004
-#define	SMBIOD_EV_TREECONNECT	0x0005
 #define	SMBIOD_EV_NEGOTIATE	0x0006
 #define	SMBIOD_EV_SSNSETUP	0x0007
 #define	SMBIOD_EV_MASK		0x00ff
@@ -491,36 +547,42 @@ struct smbiod_event {
 	STAILQ_ENTRY(smbiod_event)	ev_link;
 };
 
-#define	SMBIOD_SHUTDOWN		0x0001
-#define	SMBIOD_RUNNING		0x0002
+#define	SMBIOD_SHUTDOWN			0x0001
+#define	SMBIOD_RUNNING			0x0002
+#define	SMBIOD_RECONNECT		0x0004
+#define	SMBIOD_START_RECONNECT	0x0008
+#define	SMBIOD_VC_NOTRESP		0x0010
 
 struct smbiod {
-	int			iod_id;
-	int			iod_flags;
+	int					iod_id;
+	int					iod_flags;
 	enum smbiod_state	iod_state;
-	smb_slock		iod_flagslock;	/* iod_flags */
-	int			iod_muxcnt;	/* number of active outstanding requests */
+	lck_mtx_t			iod_flagslock;	/* iod_flags */
+	int					iod_muxcnt;	/* number of active outstanding requests */
 	struct timespec 	iod_sleeptimespec;
 	struct smb_vc *		iod_vc;
-	smb_slock		iod_rqlock;	/* iod_rqlist, iod_muxwant */
+	lck_mtx_t			iod_rqlock;	/* iod_rqlist, iod_muxwant */
 	struct smb_rqhead	iod_rqlist;	/* list of outstanding requests */
-	int			iod_muxwant;
+	int					iod_muxwant;
 	struct proc *		iod_p;
 	struct smb_cred		iod_scred;
-	smb_slock		iod_evlock;	/* iod_evlist */
+	lck_mtx_t			iod_evlock;	/* iod_evlist */
 	STAILQ_HEAD(,smbiod_event) iod_evlist;
 	struct timespec 	iod_lastrqsent;
 	struct timespec 	iod_lastrecv;
 	struct timespec 	iod_pingtimo;
-	int			iod_workflag;	/* should be protected with lock */
+	int					iod_workflag;	/* should be protected with lock */
+	struct timespec		reconnectStartTime; /* Time when the reconnect was started */
 };
 
+int  smb_iod_nb_intr(struct smb_vc *vcp);
 int  smb_iod_init(void);
 int  smb_iod_done(void);
+void smb_vc_reset(struct smb_vc *vcp);
 int  smb_iod_create(struct smb_vc *vcp);
 int  smb_iod_destroy(struct smbiod *iod);
 int  smb_iod_request(struct smbiod *iod, int event, void *ident);
-int  smb_iod_addrq(struct smb_rq *rqp);
+int  smb_iod_rq_enqueue(struct smb_rq *rqp);
 int  smb_iod_waitrq(struct smb_rq *rqp);
 int  smb_iod_removerq(struct smb_rq *rqp);
 void smb_iod_shutdown_share(struct smb_share *ssp);

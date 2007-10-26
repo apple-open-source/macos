@@ -8,7 +8,7 @@ local hide_short
 # ask the user which version of baz this is
 if ! zstyle -s ":completion:${curcontext}" baz-version baz_version; then
   # ask baz instead
-  baz_version="${${$($BAZ --version)#baz baz-}%% from regexps.com*}"
+  baz_version="${${$($BAZ --version)#baz Bazaar version }%% \(thelove@canonical.com*}"
 fi
 
 # test whether to hide short options from completion
@@ -20,32 +20,20 @@ if zstyle -s ":completion:${curcontext}" hide-shortopts hide_short; then
 fi
 
 # completion functions
-
 (( $+functions[_baz_archives] )) ||
-_baz_archives () {
-  local expl completions library name_arg='-n'
-  if [[ -n $argv[(r)--library] ]]; then
-    library='library-'
-    # remove parameter from $@ before calling compadd
-    argv[(r)--library]=()
-    name_arg=
-  fi
-  completions=($(_call_program baz $BAZ ${library:-}archives $name_arg))
-  _description -V archives expl "${library:-}archives"
-  compadd "$@" "$expl[@]" -- "$completions[@]"
-}
+_baz_archives () { _arch_archives baz "$@" }
 
 (( $+functions[_baz_categories] )) ||
-_baz_categories () { _baz_namespace 1 "$argv[@]" }
+_baz_categories () { _arch_namespace baz 1 "$argv[@]" }
 
 (( $+functions[_baz_branches] )) ||
-_baz_branches () {_baz_namespace 2 "$argv[@]" }
+_baz_branches () { _arch_namespace baz 2 "$argv[@]" }
 
 (( $+functions[_baz_versions] )) ||
-_baz_versions () { _baz_namespace 3 "$argv[@]" }
+_baz_versions () { _arch_namespace baz 3 "$argv[@]" }
 
 (( $+functions[_baz_revisions] )) ||
-_baz_revisions () { _baz_namespace 4 "$argv[@]" }
+_baz_revisions () { _arch_namespace baz 4 "$argv[@]" }
 
 (( $+functions[_baz_local_revisions] )) ||
 _baz_local_revisions () {
@@ -58,118 +46,20 @@ _baz_local_revisions () {
   # Should complete based on -A, -R, -d
 }
 
-(( $+functions[_baz_namespace] )) ||
-_baz_namespace () { #double as arch_namespace_categories
-# takes an integer argument specifying how many components:
-# 1: category
-# 2: branch
-# 3: version
-# 4: revision
-  local suffix expl archive=`$BAZ my-default-archive 2> /dev/null`
-  local trailing_dashes=0
-  [[ -n $argv[(r)--trailing-dashes] ]] && trailing_dashes=1
-  local library
-  [[ -n $argv[(r)--library] ]] && library='library-';
-  local exclude_library_revisions=0
-  [[ -n $argv[(r)--exclude-library-revisions] ]] && exclude_library_revisions=1
-
-  if [ $1 -gt 1 ] || (( trailing_dashes )); then
-    suffix=(-q -S --)
-  fi
-  if [[ $PREFIX = */* ]]; then
-    compset -P '*/'
-    archive=${IPREFIX%/*}
-    _description -V categories expl "${library:-}categories in $archive"
-    compadd $suffix "$expl[@]" `$BAZ ${library:-}categories -A $archive`
-  elif [ -z $IPREFIX ]; then
-    local index=$(( words[(i)-A] + 1 ))
-    (( index < CURRENT )) || index=$(( words[(i)--archive] + 1 ))
-    (( index < CURRENT )) && archive=$words[$index]
-
-    if [ $archive ]; then
-      _description -V categories expl "${library:-}categories in $archive"
-      compadd "$expl[@]" $suffix `$BAZ ${library:-}categories -A $archive`
-    fi
-
-    _baz_archives -S / ${library:+--library}
-  fi
-  if [ $archive ] && [ $1 -gt 1 ] && [[ $PREFIX != *@* ]] \
-     && [[ $PREFIX = *--* ]]; then
-  #this match could be better
-    _baz_namespace_branches $(($1 - 1))
-  fi
-}
-
-(( $+functions[_baz_namespace_branches] )) ||
-_baz_namespace_branches () {
-  local suffix expl
-  if [ $1 -gt 1 ] || (( $trailing_dashes )); then
-    suffix=(-q -S --)
-  fi
-  if [[ $IPREFIX != *-- ]]; then
-    compset -P 1 '*--'
-    local category=${IPREFIX%--}
-    _description -V branches expl "${library:-}branches"
-    compadd $suffix "$expl[@]" \
-      ${${(@)$($BAZ ${library:-}branches -A $archive $category)}##*--}
-  fi
-  if [ $1 -gt 1 ] && [[ $IPREFIX = *-- ]] && [[ $PREFIX = *--* ]]; then
-    _baz_namespace_versions $(($1 - 1))
-  fi
-}
-
-(( $+functions[_baz_namespace_versions] )) ||
-_baz_namespace_versions () {
-  local suffix expl
-  if [ $1 -gt 1 ]; then
-    suffix=(-q -S --)
-  fi
-  if [[ $IPREFIX != *--*-- ]] || [[ $IPREFIX != */*--*-- ]]; then
-    compset -P 1 '*--'
-    local branch=${IPREFIX%--}
-    _description -V versions expl "${library:-}versions"
-    compadd $suffix "$expl[@]" \
-      ${${(@)$($BAZ ${library:-}versions -A $archive $branch)}##*--}
-  fi
-  if [ $1 -gt 1 ] && [[ $IPREFIX = *--*-- ]] && ([[ $IPREFIX = */*--*-- ]] \
-    || [[ $PREFIX != */* ]]) && [[ $PREFIX = *--* ]]; then
-    _baz_namespace_revisions
-  fi
-}
-
-(( $+functions[_baz_namespace_revisions] )) ||
-_baz_namespace_revisions () {
-  local expl
-  if [[ $IPREFIX != *--*--*-- ]] || [[ $IPREFIX != */*--*--*-- ]]; then
-    compset -P 1 '*--'
-    local version=${IPREFIX%--}
-    _description -V revisions expl "${library:-}revisions"
-    local completions c
-    completions=(
-      ${${(@)$($BAZ ${library:-}revisions -A $archive $version)}##*--}
-    )
-    (( exclude_library_revisions )) && \
-        foreach c ($($BAZ library-revisions -A $archive $version)); do completions[(r)$c]=(); done
-    compadd "$expl[@]" -a completions
-  fi
-}
-
 (( $+functions[_baz_config] )) ||
 _baz_config () {
-
-  # zsh 4.1.1+ is recommended; 4.0.6 gives the error below when doing
-  # baz build-config e<TAB>
-  # _path_files:322: no matches found: configs//e/.(/)
-  # whereas 4.1.1 completes correctly
-
   local configdir root ret=1 n expl
 
   n=$opt_args[(i)(-d|--dir)]
   [[ -n "$n" ]] && configdir=$opt_args[$n]
   root="$(_call_program baz $BAZ tree-root ${configdir} 2>&1)"
   if (( $? )); then
-    _message -e messages "Error: $root"
-    return $ret
+    if [[ -d "configs" ]]; then
+      root=.
+    else
+      _message -e messages "Error: $root"
+      return $ret
+    fi
   fi
 
   if [[ -d "$root/configs" ]]; then
@@ -192,7 +82,7 @@ _baz_limit () { #presently only does push-mirror style limits
 
     if [[ $PREFIX != *--* ]]; then
       _description -V categories expl "categories in $archive"
-      compadd -q -S -- "$expl[@]" `$BAZ categories -A $archive`
+      compadd -q -S -- "$expl[@]" `$BAZ categories $archive`
     else
       _baz_namespace_branches 3
     fi
@@ -233,12 +123,13 @@ _baz_log_versions () {
 # commands with different versions
 
 local cmd_register_archive cmd_archives cmd_ls_archives cmd_redo
-local cmd_redo_changes cmd_changes cmd_what_changed cmd_categories
+local cmd_redo_changes cmd_what_changed cmd_categories
 local cmd_branches cmd_versions cmd_cacherev cmd_logs cmd_log_versions
 local cmd_log_ls cmd_update cmd_join_branch cmd_replay cmd_deltapatch
 local cmd_delta_patch cmd_apply_delta cmd_sync_tree cmd_make_sync_tree
 local cmd_delta cmd_revdelta cmd_library_categories cmd_library_branches
 local cmd_library_versions cmd_library_revisions
+local cmd_status cmd_diff
 
 cmd_log_ls=('*:version:_baz_log_versions')
 cmd_log_versions=()
@@ -247,7 +138,8 @@ cmd_log_versions=()
 cmd_register_archive=('::archive:_baz_archives' ':location:_files -/')
 cmd_archives=('::regex:')
 cmd_redo=('::changeset:_files -/')
-cmd_changes=('::revision:_baz_revisions'
+cmd_status=('::dir:_files -/')
+cmd_diff=('::revision:_baz_revisions'
   #  ':separator:(--)' '*::limit:_files'
   #don't understand the limit usage
 )
@@ -296,14 +188,14 @@ cmd_whereis_archive=(':archive:_baz_archives')
 local cmd_init_tree
 cmd_init_tree=('::version:_baz_versions')
 
+local cmd_tree_id
+cmd_tree_id=('::directory:_files -/')
+
 local cmd_tree_root
 cmd_tree_root=('::directory:_files -/')
 
 local cmd_tree_version
-cmd_tree_version=('::directory:_files -/')
-
-local cmd_set_tree_version
-cmd_set_tree_version=(':version:_baz_versions')
+cmd_tree_version=(':version:_baz_versions')
 
 local cmd_build_config cmd_buildcfg
 cmd_build_config=(':config:_baz_config')
@@ -329,7 +221,7 @@ cmd_inventory=('::separator:(--)' '*:directory:_files -/')
 cmd_srcfind=($cmd_inventory)
 
 local cmd_lint
-cmd__lint=('::directory:_files -/')
+cmd_lint=('::directory:_files -/')
 
 local cmd_id cmd_invtag
 cmd_id=('*:file:_files')
@@ -412,7 +304,7 @@ cmd_import=('::version:_baz_versions')
 cmd_imprev=($cmd_import)
 
 local cmd_commit cmd_cmtrev
-cmd_commit=('::version:_baz_versions' ':separator:(--)' '*:files:_files')
+cmd_commit=('*:files:_files')
 cmd_cmtrev=($cmd_commit)
 
 local cmd_get cmd_getrev
@@ -496,8 +388,8 @@ cmd_new_merges=('::version:_baz_versions')
 local cmd_branch
 cmd_branch=(':SOURCE-REVISION:_baz_revisions' ':TAG-VERSION:_baz_versions')
 
-local cmd_star_merge
-cmd_star_merge=(':FROM:_baz_revisions')
+local cmd_merge
+cmd_merge=(':FROM:_baz_revisions')
 
 local cmd_missing cmd_whats_missing
 cmd_missing=('::revision:_baz_revisions')
@@ -558,6 +450,9 @@ cmd_rm=('*:file:_files')
 local cmd_escape
 cmd_escape=(':string:')
 
+local cmd_switch
+cmd_switch=(':revision:_baz_revisions')
+
 #mutually exclusive options
 
 local -A excludes
@@ -602,8 +497,7 @@ _baz_main () {
 
     arguments=()
     local input
-    input=(${${(f)"$($BAZ $cmd -h)"}#  })
-    shift 6 input
+    input=(${${(M)${(f)"$($BAZ $cmd -h)"}:#  *}#  })
 
     local i j=1
     local short long arg desc action
@@ -625,6 +519,7 @@ _baz_main () {
         (( i++ ))
         desc[j]="$desc[j] ${input[i]##*  }"
       fi
+      [[ "$short[j]" == -[hHV] ]] && continue
       desc[j]="${${desc[j]//\[/\\[}//\]/\\]}" # escape brackets
 
       case $arg[j] in

@@ -6,12 +6,16 @@
 /* SYNOPSIS
 /*	#include <dns.h>
 /*
-/*	DNS_RR	*dns_rr_create(name, fixed, preference, data, data_len)
-/*	const char *name;
-/*	DNS_FIXED *fixed;
+/*	DNS_RR	*dns_rr_create(qname, rname, type, class, ttl, preference,
+/*				data, data_len)
+/*	const char *qname;
+/*	const char *rname;
+/*	unsigned short type;
+/*	unsigned short class;
+/*	unsigned int ttl;
 /*	unsigned preference;
 /*	const char *data;
-/*	unsigned len;
+/*	size_t data_len;
 /*
 /*	void	dns_rr_free(list)
 /*	DNS_RR	*list;
@@ -27,16 +31,23 @@
 /*	DNS_RR	*list
 /*	int	(*compar)(DNS_RR *, DNS_RR *);
 /*
+/*	int	dns_rr_compare_pref(DNS_RR *a, DNS_RR *b)
+/*	DNS_RR	*list
+/*	DNS_RR	*list
+/*
 /*	DNS_RR	*dns_rr_shuffle(list)
 /*	DNS_RR	*list;
+/*
+/*	DNS_RR	*dns_rr_remove(list, record)
+/*	DNS_RR	*list;
+/*	DNS_RR	*record;
 /* DESCRIPTION
 /*	The routines in this module maintain memory for DNS resource record
 /*	information, and maintain lists of DNS resource records.
 /*
 /*	dns_rr_create() creates and initializes one resource record.
-/*	The \fIname\fR record specifies the record name.
-/*	The \fIfixed\fR argument specifies generic resource record
-/*	information such as resource type and time to live;
+/*	The \fIqname\fR field specifies the query name.
+/*	The \fIrname\fR field specifies the reply name.
 /*	\fIpreference\fR is used for MX records; \fIdata\fR is a null
 /*	pointer or specifies optional resource-specific data;
 /*	\fIdata_len\fR is the amount of resource-specific data.
@@ -48,12 +59,20 @@
 /*
 /*	dns_rr_append() appends a resource record to a (list of) resource
 /*	record(s).
+/*	A null input list is explicitly allowed.
 /*
 /*	dns_rr_sort() sorts a list of resource records into ascending
 /*	order according to a user-specified criterion. The result is the
 /*	sorted list.
 /*
+/*	dns_rr_compare_pref() is a dns_rr_sort() helper to sort records
+/*	by their MX preference.
+/*
 /*	dns_rr_shuffle() randomly permutes a list of resource records.
+/*
+/*	dns_rr_remove() removes the specified record from the specified list.
+/*	The updated list is the result value.
+/*	The record MUST be a list member.
 /* LICENSE
 /* .ad
 /* .fi
@@ -83,16 +102,19 @@
 
 /* dns_rr_create - fill in resource record structure */
 
-DNS_RR *dns_rr_create(const char *name, DNS_FIXED *fixed, unsigned pref,
-		              const char *data, unsigned data_len)
+DNS_RR *dns_rr_create(const char *qname, const char *rname,
+		              ushort type, ushort class,
+		              unsigned int ttl, unsigned pref,
+		              const char *data, size_t data_len)
 {
     DNS_RR *rr;
 
     rr = (DNS_RR *) mymalloc(sizeof(*rr) + data_len - 1);
-    rr->name = mystrdup(name);
-    rr->type = fixed->type;
-    rr->class = fixed->class;
-    rr->ttl = fixed->ttl;
+    rr->qname = mystrdup(qname);
+    rr->rname = mystrdup(rname);
+    rr->type = type;
+    rr->class = class;
+    rr->ttl = ttl;
     rr->pref = pref;
     if (data && data_len > 0)
 	memcpy(rr->data, data, data_len);
@@ -108,7 +130,8 @@ void    dns_rr_free(DNS_RR *rr)
     if (rr) {
 	if (rr->next)
 	    dns_rr_free(rr->next);
-	myfree(rr->name);
+	myfree(rr->qname);
+	myfree(rr->rname);
 	myfree((char *) rr);
     }
 }
@@ -117,7 +140,7 @@ void    dns_rr_free(DNS_RR *rr)
 
 DNS_RR *dns_rr_copy(DNS_RR *src)
 {
-    int     len = sizeof(*src) + src->data_len - 1;
+    ssize_t len = sizeof(*src) + src->data_len - 1;
     DNS_RR *dst;
 
     /*
@@ -125,7 +148,8 @@ DNS_RR *dns_rr_copy(DNS_RR *src)
      */
     dst = (DNS_RR *) mymalloc(len);
     memcpy((char *) dst, (char *) src, len);
-    dst->name = mystrdup(src->name);
+    dst->qname = mystrdup(src->qname);
+    dst->rname = mystrdup(src->rname);
     dst->next = 0;
     return (dst);
 }
@@ -140,6 +164,23 @@ DNS_RR *dns_rr_append(DNS_RR *list, DNS_RR *rr)
 	list->next = dns_rr_append(list->next, rr);
     }
     return (list);
+}
+
+/* dns_rr_compare_pref - compare resource records by preference */
+
+int     dns_rr_compare_pref(DNS_RR *a, DNS_RR *b)
+{
+    if (a->pref != b->pref)
+	return (a->pref - b->pref);
+#ifdef HAS_IPV6
+    if (a->type == b->type)			/* 200412 */
+	return 0;
+    if (a->type == T_AAAA)
+	return (-1);
+    if (b->type == T_AAAA)
+	return (+1);
+#endif
+    return 0;
 }
 
 /* dns_rr_sort_callback - glue function */
@@ -241,5 +282,22 @@ DNS_RR *dns_rr_shuffle(DNS_RR *list)
      * Cleanup.
      */
     myfree((char *) rr_array);
+    return (list);
+}
+
+/* dns_rr_remove - remove record from list, return new list */
+
+DNS_RR *dns_rr_remove(DNS_RR *list, DNS_RR *record)
+{
+    if (list == 0)
+	msg_panic("dns_rr_remove: record not found");
+
+    if (list == record) {
+	list = record->next;
+	record->next = 0;
+	dns_rr_free(record);
+    } else {
+	list->next = dns_rr_remove(list->next, record);
+    }
     return (list);
 }

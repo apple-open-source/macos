@@ -56,14 +56,13 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/param.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define	NODEV	((dev_t)-1)
-
 struct file_list {
 	struct	file_list *f_next;	
-	char	*f_fn;			/* the name */
+	const char	*f_fn;		/* the name */
 	u_char	f_type;			/* see below */
 	u_char	f_flags;		/* see below */
 	short	f_special;		/* requires special make rule */
@@ -124,7 +123,7 @@ struct	idlst {
 struct device {
 	int	d_type;			/* CONTROLLER, DEVICE, bus adaptor */
 	struct	device *d_conn;		/* what it is connected to */
-	char	*d_name;		/* name of device (e.g. rk11) */
+	const char	*d_name;	/* name of device (e.g. rk11) */
 	struct	idlst *d_vec;		/* interrupt vectors */
 	int	d_pri;			/* interrupt priority */
 	int	d_addr;			/* address of csr */
@@ -141,9 +140,7 @@ struct device {
 	u_long	d_fields[NFIELDS];	/* fields values (SQT) */
 	int	d_bin;			/* interrupt bin (SQT) */
 	int	d_addrmod;		/* address modifier (MIPS) */
-#if	NeXT
 	char	*d_init;		/* pseudo device init routine name */
-#endif	NeXT
 };
 #define TO_NEXUS	(struct device *)-1
 #define TO_SLOT		(struct device *)-1
@@ -161,7 +158,7 @@ struct config {
  * in the makerules, etc.
  */
 extern int	machine;
-extern char	*machinename;
+extern const char	*machinename;
 #define	MACHINE_VAX	1
 #define	MACHINE_SUN	2
 #define	MACHINE_ROMP	3
@@ -180,7 +177,8 @@ extern char	*machinename;
 #define	MACHINE_M98K	16
 #define MACHINE_HPPA	17
 #define MACHINE_SPARC	18
-#define MACHINE_PPC		19
+#define MACHINE_PPC	19
+#define MACHINE_ARM	20
 
 /*
  * For each machine, a set of CPU's may be specified as supported.
@@ -197,12 +195,12 @@ extern struct cputype  *cputype;
  * In order to configure and build outside the kernel source tree,
  * we may wish to specify where the source tree lives.
  */
-extern char *source_directory;
+extern const char *source_directory;
+extern const char *object_directory;
 extern char *config_directory;
-extern char *object_directory;
 
-extern FILE *fopenp();
-char *get_VPATH();
+FILE *fopenp(const char *fpath, char *file, char *complete, const char *ftype);
+const char *get_VPATH(void);
 #define VPATH	get_VPATH()
 
 /*
@@ -219,20 +217,12 @@ struct opt {
 extern struct opt *opt, *mkopt, *opt_tail, *mkopt_tail;
 
 extern char	*ident;
-char	*ns();
-char	*tc();
-char	*qu();
-char	*get_word();
-char	*path();
-char	*raise();
+const char	*get_word(FILE *fp);
+char	*ns(const char *str);
+char	*qu(int num);
+char	*path(const char *file);
 
 extern int	do_trace;
-
-char	*index();
-char	*rindex();
-/* char	*malloc(); */
-char	*strcpy();
-char	*strcat();
 
 #if	MACHINE_VAX
 extern int	seen_mba, seen_uba;
@@ -240,11 +230,9 @@ extern int	seen_mba, seen_uba;
 
 extern int	seen_vme, seen_mbii;
 
-struct	device *dconnect();
-
 extern struct	device *dtab;
-dev_t	nametodev();
-char	*devtoname();
+dev_t	nametodev(char *name, int defunit, char defpartition);
+char	*devtoname(dev_t dev);
 
 extern char	errbuf[80];
 extern int	yyline;
@@ -265,3 +253,39 @@ extern int	maxusers;
 #define DEV_MASK 0x7
 #define	DEV_SHIFT  3
 #endif	mips
+
+/* External function references */
+char *get_rest(FILE *fp);
+
+int yyparse(void);
+void yyerror(const char *s);
+
+void vax_ioconf(void);
+void sun_ioconf(void);
+void romp_ioconf(void);
+void mmax_ioconf(void);
+void sqt_ioconf(void);
+void i386_ioconf(void);
+void mips_ioconf(void);
+void m68k_ioconf(void);
+void m88k_ioconf(void);
+void m98k_ioconf(void);
+void hppa_ioconf(void);
+void sparc_ioconf(void);
+void ppc_ioconf(void);
+void arm_ioconf(void);
+
+void swapconf(void);
+
+void ubglue(void);
+void mbglue(void);
+
+void makefile(void);
+void headers(void);
+int opteq(const char *cp, const char *dp);
+
+void init_dev(struct device *dp);
+void newdev(struct device *dp);
+void dev_param(struct device *dp, const char *str, long num);
+
+int searchp(const char *spath, char *file, char *fullname, int (*func)(char *));

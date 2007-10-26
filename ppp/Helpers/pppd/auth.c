@@ -95,7 +95,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: auth.c,v 1.19 2005/01/25 00:20:57 lindak Exp $"
+#define RCSID	"$Id: auth.c,v 1.21.20.1 2006/04/17 18:37:14 callie Exp $"
 
 #include <stdio.h>
 #include <stddef.h>
@@ -107,7 +107,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
-#include <utmp.h>
+#include <utmpx.h>
 #include <fcntl.h>
 #if defined(_PATH_LASTLOG) && defined(__linux__)
 #include <lastlog.h>
@@ -298,6 +298,7 @@ static void check_idle __P((void *));
 #endif
 #ifdef __APPLE__
 static int keychainpassword __P((char **));
+static int userkeychainpassword __P((char **));
 #endif
 static void connect_time_expired __P((void *));
 static int  plogin __P((char *, char *, char **));
@@ -480,6 +481,9 @@ option_t auth_options[] = {
 #ifdef __APPLE__
     { "keychainpassword", o_special, (void *)keychainpassword,
       "Get password from keychain", OPT_PRIV },
+
+    { "userkeychainpassword", o_special, (void *)userkeychainpassword,
+      "Get password from userkeychain", OPT_PRIV },
 
     { "tokencard", o_int, &tokencard,
       "Token card type for authentication instead of name/password" },
@@ -1779,6 +1783,20 @@ plogin(user, passwd, msg)
     tty = devnam;
     if (strncmp(tty, "/dev/", 5) == 0)
 	tty += 5;
+#ifdef UTMPX_AUTOFILL_MASK
+    {
+	struct utmpx utx;
+
+	bzero(&utx, sizeof(utx));
+	/*
+	 * This will automatically create a lastlog entry, as well as
+	 * creating a utmpx and wtmpx entry.
+	 */
+	utx.ut_type = UTMPX_AUTOFILL_MASK | LOGIN_PROCESS;
+	(void)strncpy(utx.ut_line, tty, sizeof(utx.ut_line));
+	(void)pututxline(&utx);
+    }
+#else /* !UTMPX_AUTOFILL_MASK */
     logwtmp(tty, user, ifname);		/* Add wtmp login entry */
 
 #if defined(_PATH_LASTLOG) && !defined(USE_PAM)
@@ -1796,6 +1814,7 @@ plogin(user, passwd, msg)
 	    }
     }
 #endif /* _PATH_LASTLOG and not USE_PAM */
+#endif /* UTMPX_AUTOFILL_MASK */
 
     info("user %s logged in", user);
     logged_in = 1;
@@ -1825,7 +1844,23 @@ plogout()
     tty = devnam;
     if (strncmp(tty, "/dev/", 5) == 0)
 	tty += 5;
+#ifdef UTMPX_AUTOFILL_MASK
+    {
+	struct utmpx utx;
+
+	bzero(&utx, sizeof(utx));
+	/*
+	 * This will clear out the utmpx and wtmpx entries, provided
+	 * the plogin pututxline succeeded
+	 */
+	utx.ut_type = UTMPX_AUTOFILL_MASK | UTMPX_DEAD_IF_CORRESPONDING_MASK
+			| DEAD_PROCESS;
+	(void)strncpy(utx.ut_line, tty, sizeof(utx.ut_line));
+	(void)pututxline(&utx);
+    }
+#else /* !UTMPX_AUTOFILL_MASK */
     logwtmp(tty, "", "");		/* Wipe out utmp logout entry */
+#endif /* UTMPX_AUTOFILL_MASK */
 #endif /* ! USE_PAM */
     logged_in = 0;
 }
@@ -2385,8 +2420,16 @@ bad_ip_adrs(addr)
     u_int32_t addr;
 {
     addr = ntohl(addr);
+
+#ifdef __APPLE__
+	/* some ISPs advertise their address as being in the loopback net 
+		it is ok, as long as the stack does not send/receive any packet with this address */
+    return (addr == INADDR_LOOPBACK)
+	|| IN_MULTICAST(addr) || IN_BADCLASS(addr);
+#else 
     return (addr >> IN_CLASSA_NSHIFT) == IN_LOOPBACKNET
 	|| IN_MULTICAST(addr) || IN_BADCLASS(addr);
+#endif
 }
 
 /*
@@ -2716,68 +2759,204 @@ auth_script(script)
 }
 
 #ifdef __APPLE__
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 
+static int read_keychainpassword __P((SecPreferencesDomain , char *, char *, char *, int));
+static int write_keychainpassword __P((SecPreferencesDomain , char *, char *, char *));
+
 /*
- * get actual password from keyChain.
+ * get actual password from System keyChain.
  * the password passed is used as a key
  */
 static int
 keychainpassword(argv)
     char **argv;
 {
+
+	if (read_keychainpassword(kSecPreferencesDomainSystem, *argv, 0, passwd, MAXSECRETLEN)) {
+		strlcpy(passwdkey, *argv, sizeof(passwdkey));
+		passwdfrom = PASSWDFROM_KEYCHAIN;
+	}
+	return 1;
+}
+
+/*
+ * get actual password from User keyChain.
+ * the password passed is used as a key
+ */
+static int
+userkeychainpassword(argv)
+    char **argv;
+{
+
+	if (read_keychainpassword(kSecPreferencesDomainUser, *argv, 0, passwd, MAXSECRETLEN)) {
+		strlcpy(passwdkey, *argv, sizeof(passwdkey));
+		passwdfrom = PASSWDFROM_USERKEYCHAIN;
+	}
+	return 1;
+}
+
+/*
+ * Save the new password to the keychain
+ */
+int
+save_new_password()
+{
+	int ret = 0;
+	
+	switch (passwdfrom) {
+		case PASSWDFROM_KEYCHAIN:
+			ret = write_keychainpassword(kSecPreferencesDomainSystem, passwdkey, 0, new_passwd);
+			break;
+		case PASSWDFROM_USERKEYCHAIN:
+			ret = write_keychainpassword(kSecPreferencesDomainUser, passwdkey, 0, new_passwd);
+			break;
+	}
+
+	return ret;
+}
+
+/*
+ * read password from keyChain.
+ */
+static int
+read_keychainpassword(SecPreferencesDomain domain, char *service, char *account,
+						char *password, int maxlen)
+
+{
 	SecKeychainRef keychain = NULL;
 	void *cur_password = NULL;
 	UInt32 cur_password_len	= 0;
 	OSStatus status;
-        char serviceName[] = "com.apple.ppp";
+	int ret = 0;
+	
+	if (domain == kSecPreferencesDomainUser)
+		seteuid(getuid());
 
-	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
+	status = SecKeychainSetPreferenceDomain(domain);
 	if (status != noErr) {
-                option_error("failed to set system keychain domain", *argv);
+		option_error("failed to set %s keychain domain", domain == kSecPreferencesDomainUser ? "user" : "system");
 		goto end;
 	}
 
-	status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem,
-					      &keychain);
+	status = SecKeychainCopyDomainDefault(domain, &keychain);
 	if (status != noErr) {
-                option_error("failed to get system keychain domain", *argv);
+		option_error("failed to get %s keychain domain", domain == kSecPreferencesDomainUser ? "user" : "system");
 		goto end;
 	}
-
+	
 	status = SecKeychainFindGenericPassword(keychain,
-					        strlen(serviceName),
-					        serviceName,
-					        strlen(*argv),
-					        *argv,
-					        &cur_password_len,
-					        &cur_password,
+					        service ? strlen(service) : 0, service,
+					        account ? strlen(account) : 0, account,
+					        &cur_password_len, &cur_password,
 					        NULL);
-
+	
 	switch (status) {
 
 	    case noErr :
-		break;
+			break;
 
 	    case errSecItemNotFound :
-                option_error("password not found in the system keychain");
-		break;
+			option_error("password not found in the %s keychain", domain == kSecPreferencesDomainUser ? "user" : "system");
+			break;
 
 	    default :
-                option_error("failed to get password from system keychain (error %d)", status);
+			option_error("failed to get password from %s keychain (error %d)", domain == kSecPreferencesDomainUser ? "user" : "system", status);
 	}
 
 end:
 
-        if (cur_password) {
-                strlcpy(passwd, cur_password, MAXSECRETLEN);
-		free(cur_password);
-        }
-        
-        if (keychain)
-            CFRelease(keychain);
+	if (cur_password) {
+		if (cur_password_len < maxlen) {
+			bcopy(cur_password, password, cur_password_len);
+			password[cur_password_len] = 0;
+			free(cur_password);
+			ret = 1;
+		}
+		else 
+			option_error("password too long in %s keychain (error %d)", domain == kSecPreferencesDomainUser ? "user" : "system");
+	}
+	
+	if (keychain)
+		CFRelease(keychain);
 
-	return 1;
+	if (domain == kSecPreferencesDomainUser)
+		seteuid(0);
+
+	return ret;
+}
+
+/*
+ * Save the new password to the keychain
+ */
+static int
+write_keychainpassword(SecPreferencesDomain domain, char *service, char *account,
+						char *password)
+{
+	SecKeychainRef keychain = NULL;
+	OSStatus status;
+	SecKeychainItemRef itemRef = NULL;
+	void *cur_password = NULL;
+	UInt32 cur_password_len	= 0;
+	int	ret = 0;
+
+	if (domain == kSecPreferencesDomainUser)
+		seteuid(getuid());
+
+	status = SecKeychainSetPreferenceDomain(domain);
+	if (status != noErr) {
+		warning("failed to set %s keychain domain", domain == kSecPreferencesDomainUser ? "user" : "system");
+		goto end;
+	}
+
+	status = SecKeychainCopyDomainDefault(domain, &keychain);
+	if (status != noErr) {
+		warning("failed to get %s keychain domain", domain == kSecPreferencesDomainUser ? "user" : "system");
+		goto end;
+	}
+
+	status = SecKeychainFindGenericPassword(keychain,
+					        service ? strlen(service) : 0, service,
+					        account ? strlen(account) : 0, account,
+					        &cur_password_len, &cur_password,
+					        &itemRef);
+	switch (status) {
+
+	    case noErr :
+			status = SecKeychainItemModifyContent(itemRef, NULL, strlen(password), password);
+			switch (status) {
+				case noErr :
+					ret = 1;
+					break;
+				default :
+					warning("Could not save the modify the keychain item (error %d)", status);
+			}
+			break;
+
+	    case errSecItemNotFound :
+			option_error("password not found in the %s keychain", domain == kSecPreferencesDomainUser ? "user" : "system");
+			break;
+
+		default :
+			option_error("failed to get password from %s keychain (error %d)", domain == kSecPreferencesDomainUser ? "user" : "system");
+	}
+
+end:
+        
+	if (cur_password)
+		free(cur_password);
+
+	if (itemRef)
+		CFRelease(itemRef);        
+
+	if (keychain)
+		CFRelease(keychain);
+
+	if (domain == kSecPreferencesDomainUser)
+		seteuid(0);
+
+	return ret;
 }
 #endif

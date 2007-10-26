@@ -12,7 +12,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;
-; About this file ;
+; About php.ini   ;
 ;;;;;;;;;;;;;;;;;;;
 ; This file controls many aspects of PHP's behavior.  In order for PHP to
 ; read it, it must be named 'php.ini'.  PHP looks for it in the current
@@ -55,6 +55,10 @@
 ; dynamically loaded extension (either a PHP extension or a Zend extension),
 ; you may only use these constants *after* the line that loads the extension.
 ;
+;
+;;;;;;;;;;;;;;;;;;;
+; About this file ;
+;;;;;;;;;;;;;;;;;;;
 ; All the values in the php.ini-dist file correspond to the builtin
 ; defaults (that is, if no php.ini is used, or if you delete these lines,
 ; the builtin defaults will be identical).
@@ -67,7 +71,10 @@
 ; Enable the PHP scripting language engine under Apache.
 engine = On
 
-; Allow the <? tag.  Otherwise, only <?php and <script> tags are recognized.  
+; Enable compatibility mode with Zend Engine 1 (PHP 4.x)
+zend.ze1_compatibility_mode = Off
+
+; Allow the <? tag.  Otherwise, only <?php and <script> tags are recognized.
 ; NOTE: Using short tags should be avoided when developing applications or
 ; libraries that are meant for redistribution, or deployment on PHP
 ; servers which are not under your control, because short tags may not
@@ -99,22 +106,25 @@ output_buffering = Off
 ; Setting any output handler automatically turns on output buffering.
 ; Note: People who wrote portable scripts should not depend on this ini
 ;       directive. Instead, explicitly set the output handler using ob_start().
-;       Using this ini directive may cause problems unless you know what script 
+;       Using this ini directive may cause problems unless you know what script
 ;       is doing.
 ; Note: You cannot use both "mb_output_handler" with "ob_iconv_handler"
-;       and you cannot use both "ob_gzhandler" and "zlib.output_compression". 
+;       and you cannot use both "ob_gzhandler" and "zlib.output_compression".
+; Note: output_handler must be empty if this is set 'On' !!!!
+;       Instead you must use zlib.output_handler.
 ;output_handler =
 
 ; Transparent output compression using the zlib library
 ; Valid values for this option are 'off', 'on', or a specific buffer size
 ; to be used for compression (default is 4KB)
-; Note: Resulting chunk size may vary due to nature of compression. PHP 
-;       outputs chunks that are few hundreds bytes each as a result of 
-;       compression. If you prefer a larger chunk size for better 
+; Note: Resulting chunk size may vary due to nature of compression. PHP
+;       outputs chunks that are few hundreds bytes each as a result of
+;       compression. If you prefer a larger chunk size for better
 ;       performance, enable output_buffering in addition.
 ; Note: You need to use zlib.output_handler instead of the standard
 ;       output_handler, or otherwise the output will be corrupted.
 zlib.output_compression = Off
+;zlib.output_compression_level = -1
 
 ; You cannot specify additional output handlers if zlib.output_compression
 ; is activated here. This setting does the same as output_handler but in
@@ -133,7 +143,7 @@ implicit_flush = Off
 ; which should be instantiated.
 ; A warning appears if the specified function is not defined, or if the
 ; function doesn't include/implement the missing class.
-; So only set this entry, if you really want to implement such a 
+; So only set this entry, if you really want to implement such a
 ; callback-function.
 unserialize_callback_func=
 
@@ -153,6 +163,7 @@ serialize_precision = 100
 ; reference).
 allow_call_time_pass_reference = On
 
+;
 ; Safe Mode
 ;
 safe_mode = Off
@@ -166,7 +177,7 @@ safe_mode_gid = Off
 ; including files from this directory and its subdirectories.
 ; (directory must also be in include_path or full path must
 ; be used when including)
-safe_mode_include_dir =								
+safe_mode_include_dir =
 
 ; When safe_mode is on, only executables located in the safe_mode_exec_dir
 ; will be allowed to be executed via the exec family of functions.
@@ -204,7 +215,7 @@ disable_functions =
 disable_classes =
 
 ; Colors for Syntax Highlighting mode.  Anything that's acceptable in
-; <font color="??????"> would work.
+; <span style="color: ???????"> would work.
 ;highlight.string  = #DD0000
 ;highlight.comment = #FF9900
 ;highlight.keyword = #007700
@@ -212,6 +223,20 @@ disable_classes =
 ;highlight.default = #0000BB
 ;highlight.html    = #000000
 
+; If enabled, the request will be allowed to complete even if the user aborts
+; the request. Consider enabling it if executing long request, which may end up
+; being interrupted by the user or a browser timing out.
+; ignore_user_abort = On
+
+; Determines the size of the realpath cache to be used by PHP. This value should
+; be increased on systems where PHP opens many files to reflect the quantity of
+; the file operations performed.
+; realpath_cache_size=16k
+
+; Duration of time, in seconds for which to cache realpath information for a given
+; file or directory. For systems with rarely changing files, consider increasing this
+; value.
+; realpath_cache_ttl=120
 
 ;
 ; Misc
@@ -229,7 +254,9 @@ expose_php = On
 
 max_execution_time = 30     ; Maximum execution time of each script, in seconds
 max_input_time = 60	; Maximum amount of time each script may spend parsing request data
-memory_limit = 8M      ; Maximum amount of memory a script may consume (8MB)
+;max_input_nesting_level = 64 ; Maximum input variable nesting level
+memory_limit = 128M      ; Maximum amount of memory a script may consume (128MB)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Error handling and logging ;
@@ -237,8 +264,9 @@ memory_limit = 8M      ; Maximum amount of memory a script may consume (8MB)
 
 ; error_reporting is a bit-field.  Or each number up to get desired error
 ; reporting level
-; E_ALL             - All errors and warnings
+; E_ALL             - All errors and warnings (doesn't include E_STRICT)
 ; E_ERROR           - fatal run-time errors
+; E_RECOVERABLE_ERROR  - almost fatal run-time errors
 ; E_WARNING         - run-time warnings (non-fatal errors)
 ; E_PARSE           - compile-time parse errors
 ; E_NOTICE          - run-time notices (these are warnings which often result
@@ -246,6 +274,9 @@ memory_limit = 8M      ; Maximum amount of memory a script may consume (8MB)
 ;                     intentional (e.g., using an uninitialized variable and
 ;                     relying on the fact it's automatically initialized to an
 ;                     empty string)
+; E_STRICT          - run-time notices, enable to have PHP suggest changes
+;                     to your code which will ensure the best interoperability
+;                     and forward compatibility of your code
 ; E_CORE_ERROR      - fatal errors that occur during PHP's initial startup
 ; E_CORE_WARNING    - warnings (non-fatal errors) that occur during PHP's
 ;                     initial startup
@@ -257,15 +288,19 @@ memory_limit = 8M      ; Maximum amount of memory a script may consume (8MB)
 ;
 ; Examples:
 ;
-;   - Show all errors, except for notices
+;   - Show all errors, except for notices and coding standards warnings
 ;
 ;error_reporting = E_ALL & ~E_NOTICE
 ;
+;   - Show all errors, except for notices
+;
+;error_reporting = E_ALL & ~E_NOTICE | E_STRICT
+;
 ;   - Show only errors
 ;
-;error_reporting = E_COMPILE_ERROR|E_ERROR|E_CORE_ERROR
+;error_reporting = E_COMPILE_ERROR|E_RECOVERABLE_ERROR|E_ERROR|E_CORE_ERROR
 ;
-;   - Show all errors except for notices
+;   - Show all errors except for notices and coding standards warnings
 ;
 error_reporting  =  E_ALL & ~E_NOTICE
 
@@ -274,6 +309,16 @@ error_reporting  =  E_ALL & ~E_NOTICE
 ; instead (see below).  Keeping display_errors enabled on a production web site
 ; may reveal security information to end users, such as file paths on your Web
 ; server, your database schema or other information.
+;
+; possible values for display_errors:
+;
+; Off        - Do not display any errors
+; stderr     - Display errors to STDERR (affects only CGI/CLI binaries!)
+;
+;display_errors = "stderr"
+;
+; stdout (On) - Display errors to STDOUT
+;
 display_errors = On
 
 ; Even when display_errors is on, errors that occur during PHP's startup
@@ -294,31 +339,35 @@ log_errors_max_len = 1024
 ; line until ignore_repeated_source is set true.
 ignore_repeated_errors = Off
 
-; Ignore source of message when ignoring repeated messages. When this setting 
+; Ignore source of message when ignoring repeated messages. When this setting
 ; is On you will not log errors with repeated messages from different files or
-; sourcelines.
+; source lines.
 ignore_repeated_source = Off
 
 ; If this parameter is set to Off, then memory leaks will not be shown (on
-; stdout or in the log). This has only effect in a debug compile, and if 
+; stdout or in the log). This has only effect in a debug compile, and if
 ; error reporting includes E_WARNING in the allowed list
 report_memleaks = On
+
+;report_zend_debug = 0
 
 ; Store the last error/warning message in $php_errormsg (boolean).
 track_errors = Off
 
 ; Disable the inclusion of HTML tags in error messages.
+; Note: Never use this feature for production boxes.
 ;html_errors = Off
-  
-; If html_errors is set On PHP produces clickable error messages that direct 
+
+; If html_errors is set On PHP produces clickable error messages that direct
 ; to a page describing the error or function causing the error in detail.
-; You can download a copy of the PHP manual from http://www.php.net/docs.php 
+; You can download a copy of the PHP manual from http://www.php.net/docs.php
 ; and change docref_root to the base URL of your local copy including the
-; leading '/'. You must also specify the file extension being used including 
+; leading '/'. You must also specify the file extension being used including
 ; the dot.
+; Note: Never use this feature for production boxes.
 ;docref_root = "/phpmanual/"
 ;docref_ext = .html
-  
+
 ; String to output before an error message.
 ;error_prepend_string = "<font color=ff0000>"
 
@@ -339,11 +388,11 @@ track_errors = Off
 ; Note - track_vars is ALWAYS enabled as of PHP 4.0.3
 
 ; The separator used in PHP generated URLs to separate arguments.
-; Default is "&". 
+; Default is "&".
 ;arg_separator.output = "&amp;"
 
 ; List of separator(s) used by PHP to parse input URLs into variables.
-; Default is "&". 
+; Default is "&".
 ; NOTE: Every character in this directive is considered as separator!
 ;arg_separator.input = ";&"
 
@@ -364,16 +413,25 @@ variables_order = "EGPCS"
 ; to possible security problems, if the code is not very well thought of.
 register_globals = Off
 
+; Whether or not to register the old-style input arrays, HTTP_GET_VARS
+; and friends.  If you're not using them, it's recommended to turn them off,
+; for performance reasons.
+register_long_arrays = On
+
 ; This directive tells PHP whether to declare the argv&argc variables (that
 ; would contain the GET information).  If you don't use these variables, you
 ; should turn it off for increased performance.
 register_argc_argv = On
 
+; When enabled, the SERVER and ENV variables are created when they're first
+; used (Just In Time) instead of when the script starts. If these variables
+; are not used within a script, having this directive on will result in a
+; performance gain. The PHP directives register_globals, register_long_arrays,
+; and register_argc_argv must be disabled for this directive to have any affect.
+auto_globals_jit = On
+
 ; Maximum size of POST data that PHP will accept.
 post_max_size = 8M
-
-; This directive is deprecated.  Use variables_order instead.
-gpc_order = "GPC"
 
 ; Magic quotes
 ;
@@ -382,7 +440,7 @@ gpc_order = "GPC"
 magic_quotes_gpc = On
 
 ; Magic quotes for runtime-generated data, e.g. data from SQL, from exec(), etc.
-magic_quotes_runtime = Off    
+magic_quotes_runtime = Off
 
 ; Use Sybase-style magic quotes (escape ' with '' instead of \').
 magic_quotes_sybase = Off
@@ -407,7 +465,7 @@ default_mimetype = "text/html"
 ; Paths and Directories ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; UNIX: "/path1:/path2"  
+; UNIX: "/path1:/path2"
 ;include_path = ".:/php/includes"
 ;
 ; Windows: "\path1;\path2"
@@ -442,7 +500,7 @@ enable_dl = On
 ; every request.
 ; cgi.nph = 1
 
-; if cgi.force_redirect is turned on, and you are not running under Apache or Netscape 
+; if cgi.force_redirect is turned on, and you are not running under Apache or Netscape
 ; (iPlanet) web servers, you MAY need to set an environment variable name that PHP
 ; will look for to know it is OK to continue execution.  Setting this variable MAY
 ; cause security issues, KNOW WHAT YOU ARE DOING FIRST.
@@ -452,7 +510,7 @@ enable_dl = On
 ; previous behaviour was to set PATH_TRANSLATED to SCRIPT_FILENAME, and to not grok
 ; what PATH_INFO is.  For more information on PATH_INFO, see the cgi specs.  Setting
 ; this to 1 will cause PHP CGI to fix it's paths to conform to the spec.  A setting
-; of zero causes PHP to behave as before.  Default is zero.  You should fix your scripts
+; of zero causes PHP to behave as before.  Default is 1.  You should fix your scripts
 ; to use SCRIPT_FILENAME rather than PATH_TRANSLATED.
 ; cgi.fix_pathinfo=0
 
@@ -464,15 +522,15 @@ enable_dl = On
 ; fastcgi.impersonate = 1;
 
 ; Disable logging through FastCGI connection
-; fastcgi.log = 0
+; fastcgi.logging = 0
 
 ; cgi.rfc2616_headers configuration option tells PHP what type of headers to
 ; use when sending HTTP response code. If it's set 0 PHP sends Status: header that
 ; is supported by Apache. When this option is set to 1 PHP will send
 ; RFC2616 compliant header.
 ; Default is zero.
-;cgi.rfc2616_headers = 0 
- 
+;cgi.rfc2616_headers = 0
+
 
 ;;;;;;;;;;;;;;;;
 ; File Uploads ;
@@ -495,6 +553,9 @@ upload_max_filesize = 2M
 
 ; Whether to allow the treatment of URLs (like http:// or ftp://) as files.
 allow_url_fopen = On
+
+; Whether to allow include/require to open URLs (like http:// or ftp://) as files.
+allow_url_include = Off
 
 ; Define the anonymous ftp password (your email address)
 ;from="john@doe.com"
@@ -530,63 +591,102 @@ default_socket_timeout = 60
 ;
 ;   extension=msql.so
 ;
-; Note that it should be the name of the module only; no directory information 
+; Note that it should be the name of the module only; no directory information
 ; needs to go here.  Specify the location of the extension with the
 ; extension_dir directive above.
 
 
-;Windows Extensions
-;Note that MySQL and ODBC support is now built in, so no dll is needed for it.
-;
-;extension=php_mbstring.dll
+; Windows Extensions
+; Note that ODBC support is built in, so no dll is needed for it.
+; Note that many DLL files are located in the extensions/ (PHP 4) ext/ (PHP 5)
+; extension folders as well as the separate PECL DLL download (PHP 5).
+; Be sure to appropriately set the extension_dir directive.
+
 ;extension=php_bz2.dll
-;extension=php_cpdf.dll
-;extension=php_crack.dll
 ;extension=php_curl.dll
-;extension=php_db.dll
 ;extension=php_dba.dll
 ;extension=php_dbase.dll
-;extension=php_dbx.dll
-;extension=php_domxml.dll
 ;extension=php_exif.dll
 ;extension=php_fdf.dll
-;extension=php_filepro.dll
 ;extension=php_gd2.dll
 ;extension=php_gettext.dll
-;extension=php_hyperwave.dll
-;extension=php_iconv.dll
+;extension=php_gmp.dll
 ;extension=php_ifx.dll
-;extension=php_iisfunc.dll
 ;extension=php_imap.dll
 ;extension=php_interbase.dll
-;extension=php_java.dll
 ;extension=php_ldap.dll
+;extension=php_mbstring.dll
 ;extension=php_mcrypt.dll
 ;extension=php_mhash.dll
 ;extension=php_mime_magic.dll
 ;extension=php_ming.dll
-;extension=php_mssql.dll
 ;extension=php_msql.dll
+;extension=php_mssql.dll
+;extension=php_mysql.dll
+;extension=php_mysqli.dll
 ;extension=php_oci8.dll
 ;extension=php_openssl.dll
-;extension=php_oracle.dll
-;extension=php_pdf.dll
+;extension=php_pdo.dll
+;extension=php_pdo_firebird.dll
+;extension=php_pdo_mssql.dll
+;extension=php_pdo_mysql.dll
+;extension=php_pdo_oci.dll
+;extension=php_pdo_oci8.dll
+;extension=php_pdo_odbc.dll
+;extension=php_pdo_pgsql.dll
+;extension=php_pdo_sqlite.dll
 ;extension=php_pgsql.dll
-;extension=php_printer.dll
+;extension=php_pspell.dll
 ;extension=php_shmop.dll
 ;extension=php_snmp.dll
+;extension=php_soap.dll
 ;extension=php_sockets.dll
+;extension=php_sqlite.dll
 ;extension=php_sybase_ct.dll
-;extension=php_w32api.dll
+;extension=php_tidy.dll
 ;extension=php_xmlrpc.dll
-;extension=php_xslt.dll
-;extension=php_yaz.dll
+;extension=php_xsl.dll
 ;extension=php_zip.dll
-
 
 ;;;;;;;;;;;;;;;;;;;
 ; Module Settings ;
 ;;;;;;;;;;;;;;;;;;;
+
+[Date]
+; Defines the default timezone used by the date functions
+;date.timezone =
+
+;date.default_latitude = 31.7667
+;date.default_longitude = 35.2333
+
+;date.sunrise_zenith = 90.583333
+;date.sunset_zenith = 90.583333
+
+[filter]
+;filter.default = unsafe_raw
+;filter.default_flags =
+
+[iconv]
+;iconv.input_encoding = ISO-8859-1
+;iconv.internal_encoding = ISO-8859-1
+;iconv.output_encoding = ISO-8859-1
+
+[sqlite]
+;sqlite.assoc_case = 0
+
+[xmlrpc]
+;xmlrpc_error_number = 0
+;xmlrpc_errors = 0
+
+[Pcre]
+;PCRE library backtracking limit.
+;pcre.backtrack_limit=100000
+
+;PCRE library recursion limit. 
+;Please note that if you set this value to a high number you may consume all 
+;the available process stack and eventually crash PHP (due to reaching the 
+;stack size limit imposed by the Operating System).
+;pcre.recursion_limit=100000
 
 [Syslog]
 ; Whether or not to define the various syslog variables (e.g. $LOG_PID,
@@ -605,11 +705,10 @@ smtp_port = 25
 ; For Unix only.  You may supply arguments as well (default: "sendmail -t -i").
 ;sendmail_path =
 
-[Java]
-;java.class.path = .\php_java.jar
-;java.home = c:\jdk
-;java.library = c:\jdk\jre\bin\hotspot\jvm.dll 
-;java.library.path = .\
+; Force the addition of the specified parameters to be passed as extra parameters
+; to the sendmail binary. These parameters will always replace the value of
+; the 5th parameter to mail(), even in safe mode.
+;mail.force_extra_parameters =
 
 [SQL]
 sql.safe_mode = Off
@@ -629,16 +728,16 @@ odbc.check_persistent = On
 odbc.max_persistent = -1
 
 ; Maximum number of links (persistent + non-persistent).  -1 means no limit.
-odbc.max_links = -1  
+odbc.max_links = -1
 
 ; Handling of LONG fields.  Returns number of bytes to variables.  0 means
 ; passthru.
-odbc.defaultlrl = 4096  
+odbc.defaultlrl = 4096
 
 ; Handling of binary data.  0 means passthru, 1 return as is, 2 convert to char.
 ; See the documentation on odbc_binmode and odbc_longreadlen for an explanation
 ; of uodbc.defaultlrl and uodbc.defaultbinmode
-odbc.defaultbinmode = 1  
+odbc.defaultbinmode = 1
 
 [MySQL]
 ; Allow or prevent persistent links.
@@ -680,6 +779,37 @@ mysql.connect_timeout = 60
 ; SQL-Errors will be displayed.
 mysql.trace_mode = Off
 
+[MySQLi]
+
+; Maximum number of links.  -1 means no limit.
+mysqli.max_links = -1
+
+; Default port number for mysqli_connect().  If unset, mysqli_connect() will use
+; the $MYSQL_TCP_PORT or the mysql-tcp entry in /etc/services or the
+; compile-time value defined MYSQL_PORT (in that order).  Win32 will only look
+; at MYSQL_PORT.
+mysqli.default_port = 3306
+
+; Default socket name for local MySQL connects.  If empty, uses the built-in
+; MySQL defaults.
+mysqli.default_socket =
+
+; Default host for mysql_connect() (doesn't apply in safe mode).
+mysqli.default_host =
+
+; Default user for mysql_connect() (doesn't apply in safe mode).
+mysqli.default_user =
+
+; Default password for mysqli_connect() (doesn't apply in safe mode).
+; Note that this is generally a *bad* idea to store passwords in this file.
+; *Any* user with PHP access can run 'echo get_cfg_var("mysqli.default_pw")
+; and reveal this password!  And of course, any users with read access to this
+; file will be able to reveal the password as well.
+mysqli.default_pw =
+
+; Allow or prevent reconnect
+mysqli.reconnect = Off
+
 [mSQL]
 ; Allow or prevent persistent links.
 msql.allow_persistent = On
@@ -690,12 +820,44 @@ msql.max_persistent = -1
 ; Maximum number of links (persistent+non persistent).  -1 means no limit.
 msql.max_links = -1
 
+[OCI8]
+; enables privileged connections using external credentials (OCI_SYSOPER, OCI_SYSDBA)
+;oci8.privileged_connect = Off
+
+; Connection: The maximum number of persistent OCI8 connections per
+; process. Using -1 means no limit.
+;oci8.max_persistent = -1
+
+; Connection: The maximum number of seconds a process is allowed to
+; maintain an idle persistent connection. Using -1 means idle
+; persistent connections will be maintained forever.
+;oci8.persistent_timeout = -1
+
+; Connection: The number of seconds that must pass before issuing a
+; ping during oci_pconnect() to check the connection validity. When
+; set to 0, each oci_pconnect() will cause a ping. Using -1 disables
+; pings completely.
+;oci8.ping_interval = 60
+
+; Tuning: This option enables statement caching, and specifies how
+; many statements to cache. Using 0 disables statement caching.
+;oci8.statement_cache_size = 20
+
+; Tuning: Enables statement prefetching and sets the default number of
+; rows that will be fetched automatically after statement execution.
+;oci8.default_prefetch = 10
+
+; Compatibility. Using On means oci_close() will not close
+; oci_connect() and oci_new_connect() connections.
+;oci8.old_oci_close_semantics = Off
+
 [PostgresSQL]
 ; Allow or prevent persistent links.
 pgsql.allow_persistent = On
 
-; Detect broken persistent links always with pg_pconnect(). Need a little overhead.
-pgsql.auto_reset_persistent = Off 
+; Detect broken persistent links always with pg_pconnect().
+; Auto reset feature requires a little overheads.
+pgsql.auto_reset_persistent = Off
 
 ; Maximum number of persistent links.  -1 means no limit.
 pgsql.max_persistent = -1
@@ -704,6 +866,7 @@ pgsql.max_persistent = -1
 pgsql.max_links = -1
 
 ; Ignore PostgreSQL backends Notice message or not.
+; Notice message logging require a little overheads.
 pgsql.ignore_notice = 0
 
 ; Log PostgreSQL backends Noitce message or not.
@@ -728,7 +891,7 @@ sybase.min_error_severity = 10
 ; Minimum message severity to display.
 sybase.min_message_severity = 10
 
-; Compatability mode with old versions of PHP 3.0.
+; Compatibility mode with old versions of PHP 3.0.
 ; If on, this will cause PHP to automatically assign types to results according
 ; to their Sybase type, instead of treating them all as strings.  This
 ; compatibility mode will probably not stay around forever, so try applying
@@ -750,16 +913,6 @@ sybct.min_server_severity = 10
 
 ; Minimum client message severity to display.
 sybct.min_client_severity = 10
-
-[dbx]
-; returned column names can be converted for compatibility reasons
-; possible values for dbx.colnames_case are
-; "unchanged" (default, if not set)
-; "lowercase"
-; "uppercase"
-; the recommended default is either upper- or lowercase, but
-; unchanged is currently set for backwards compatibility
-dbx.colnames_case = "unchanged"
 
 [bcmath]
 ; Number of decimal digits for all bcmath functions.
@@ -810,23 +963,37 @@ ifx.nullformat = 0
 session.save_handler = files
 
 ; Argument passed to save_handler.  In the case of files, this is the path
-; where data files are stored. Note: Windows users have to change this 
+; where data files are stored. Note: Windows users have to change this
 ; variable in order to use PHP's session functions.
+;
 ; As of PHP 4.0.1, you can define the path as:
+;
 ;     session.save_path = "N;/path"
-; where N is an integer.  Instead of storing all the session files in 
-; /path, what this will do is use subdirectories N-levels deep, and 
-; store the session data in those directories.  This is useful if you 
-; or your OS have problems with lots of files in one directory, and is 
+;
+; where N is an integer.  Instead of storing all the session files in
+; /path, what this will do is use subdirectories N-levels deep, and
+; store the session data in those directories.  This is useful if you
+; or your OS have problems with lots of files in one directory, and is
 ; a more efficient layout for servers that handle lots of sessions.
+;
 ; NOTE 1: PHP will not create this directory structure automatically.
 ;         You can use the script in the ext/session dir for that purpose.
 ; NOTE 2: See the section on garbage collection below if you choose to
 ;         use subdirectories for session storage
-;session.save_path = /tmp
+;
+; The file storage module creates files using mode 600 by default.
+; You can change that by using
+;
+;     session.save_path = "N;MODE;/path"
+;
+; where MODE is the octal representation of the mode. Note that this
+; does not overwrite the process's umask.
+;session.save_path = "/tmp"
 
 ; Whether to use cookies.
 session.use_cookies = 1
+
+;session.cookie_secure = 
 
 ; This option enables administrators to make their users invulnerable to
 ; attacks which involve passing session ids in URLs; defaults to 0.
@@ -847,6 +1014,9 @@ session.cookie_path = /
 ; The domain for which the cookie is valid.
 session.cookie_domain =
 
+; Whether or not to add the httpOnly flag to the cookie, which makes it inaccessible to browser scripting languages such as JavaScript.
+session.cookie_httponly = 
+
 ; Handler used to serialize data.  php is the standard serializer of PHP.
 session.serialize_handler = php
 
@@ -865,8 +1035,8 @@ session.gc_maxlifetime = 1440
 
 ; NOTE: If you are using the subdirectory option for storing session files
 ;       (see session.save_path above), then garbage collection does *not*
-;       happen automatically.  You will need to do your own garbage 
-;       collection through a shell script, cron entry, or some other method. 
+;       happen automatically.  You will need to do your own garbage
+;       collection through a shell script, cron entry, or some other method.
 ;       For example, the following script would is the equivalent of
 ;       setting session.gc_maxlifetime to 1440 (1440 seconds = 24 minutes):
 ;          cd /path/to/sessions; find -cmin +24 | xargs rm
@@ -903,7 +1073,7 @@ session.cache_limiter = nocache
 session.cache_expire = 180
 
 ; trans sid support is disabled by default.
-; Use of trans sid may risk your users security. 
+; Use of trans sid may risk your users security.
 ; Use this option with caution.
 ; - User may send URL contains active session ID
 ;   to other person via. email/irc/etc.
@@ -912,6 +1082,19 @@ session.cache_expire = 180
 ; - User may access your site with the same session ID
 ;   always using URL stored in browser's history or bookmarks.
 session.use_trans_sid = 0
+
+; Select a hash function
+; 0: MD5   (128 bits)
+; 1: SHA-1 (160 bits)
+session.hash_function = 0
+
+; Define how many bits are stored in each character when converting
+; the binary hash data to something readable.
+;
+; 4 bits: 0-9, a-f
+; 5 bits: 0-9, a-v
+; 6 bits: 0-9, a-z, A-Z, "-", ","
+session.hash_bits_per_character = 4
 
 ; The URL rewriter will look for URLs in a defined set of HTML tags.
 ; form/fieldset are special; if you include them here, the rewriter will
@@ -936,7 +1119,7 @@ mssql.min_error_severity = 10
 ; Minimum message severity to display.
 mssql.min_message_severity = 10
 
-; Compatability mode with old versions of PHP 3.0.
+; Compatibility mode with old versions of PHP 3.0.
 mssql.compatability_mode = Off
 
 ; Connect timeout
@@ -967,6 +1150,11 @@ mssql.secure_connection = Off
 ; FreeTDS defaults to 4096
 ;mssql.max_procs = -1
 
+; Specify client character set. 
+; If empty or not set the client charset from freetds.comf is used
+; This is only used when compiled with FreeTDS
+;mssql.charset = "ISO-8859-1"
+
 [Assertion]
 ; Assert(expr); active by default.
 ;assert.active = On
@@ -984,61 +1172,17 @@ mssql.secure_connection = Off
 ; error_reporting(0) around the eval().
 ;assert.quiet_eval = 0
 
-[Ingres II]
-; Allow or prevent persistent links.
-ingres.allow_persistent = On
-
-; Maximum number of persistent links.  -1 means no limit.
-ingres.max_persistent = -1
-
-; Maximum number of links, including persistents.  -1 means no limit.
-ingres.max_links = -1
-
-; Default database (format: [node_id::]dbname[/srv_class]).
-ingres.default_database =
-
-; Default user.
-ingres.default_user =
-
-; Default password.
-ingres.default_password =
-
-[Verisign Payflow Pro]
-; Default Payflow Pro server.
-pfpro.defaulthost = "test-payflow.verisign.com"
-
-; Default port to connect to.
-pfpro.defaultport = 443
-
-; Default timeout in seconds.
-pfpro.defaulttimeout = 30
-
-; Default proxy IP address (if required).
-;pfpro.proxyaddress =
-
-; Default proxy port.
-;pfpro.proxyport =
-
-; Default proxy logon.
-;pfpro.proxylogon =
-
-; Default proxy password.
-;pfpro.proxypassword =
-
-[com]
+[COM]
 ; path to a file containing GUIDs, IIDs or filenames of files with TypeLibs
-;com.typelib_file = 
+;com.typelib_file =
 ; allow Distributed-COM calls
 ;com.allow_dcom = true
 ; autoregister constants of a components typlib on com_load()
 ;com.autoregister_typelib = true
 ; register constants casesensitive
 ;com.autoregister_casesensitive = false
-; show warnings on duplicate constat registrations
+; show warnings on duplicate constant registrations
 ;com.autoregister_verbose = true
-
-[Printer]
-;printer.default_printer = ""
 
 [mbstring]
 ; language for internal character representation.
@@ -1056,7 +1200,7 @@ pfpro.defaulttimeout = 30
 ; registered as output buffer to function
 ;mbstring.http_output = SJIS
 
-; enable automatic encoding translation according to 
+; enable automatic encoding translation according to
 ; mbstring.internal_encoding setting. Input chars are
 ; converted to internal encoding by setting this to On.
 ; Note: Do _not_ use automatic encoding translation for
@@ -1064,7 +1208,7 @@ pfpro.defaulttimeout = 30
 ;mbstring.encoding_translation = Off
 
 ; automatic encoding detection order.
-; auto means 
+; auto means
 ;mbstring.detect_order = auto
 
 ; substitute_character used when character cannot be converted
@@ -1084,7 +1228,8 @@ pfpro.defaulttimeout = 30
 [FrontBase]
 ;fbsql.allow_persistent = On
 ;fbsql.autocommit = On
-;fbsql.default_database = 
+;fbsql.show_timestamp_decimals = Off
+;fbsql.default_database =
 ;fbsql.default_database_password =
 ;fbsql.default_host =
 ;fbsql.default_password =
@@ -1094,25 +1239,43 @@ pfpro.defaulttimeout = 30
 ;fbsql.max_links = 128
 ;fbsql.max_persistent = -1
 ;fbsql.max_results = 128
-;fbsql.batchSize = 1000
 
-[Crack]
-; Modify the setting below to match the directory location of the cracklib
-; dictionary files.  Include the base filename, but not the file extension.
-; crack.default_dictionary = "c:\php\lib\cracklib_dict"
+[gd]
+; Tell the jpeg decode to libjpeg warnings and try to create
+; a gd image. The warning will then be displayed as notices
+; disabled by default
+;gd.jpeg_ignore_warning = 0
 
 [exif]
-; Exif UNICODE user comments are handled as UCS-2BE/UCS-2LE and JIS as JIS. 
+; Exif UNICODE user comments are handled as UCS-2BE/UCS-2LE and JIS as JIS.
 ; With mbstring support this will automatically be converted into the encoding
-; given by corresponding encode setting. When empty mbstring.internal_encoding 
-; is used. For the decode settings you can distinguish between motorola and 
+; given by corresponding encode setting. When empty mbstring.internal_encoding
+; is used. For the decode settings you can distinguish between motorola and
 ; intel byte order. A decode setting cannot be empty.
 ;exif.encode_unicode = ISO-8859-15
 ;exif.decode_unicode_motorola = UCS-2BE
 ;exif.decode_unicode_intel    = UCS-2LE
-;exif.encode_jis = 
+;exif.encode_jis =
 ;exif.decode_jis_motorola = JIS
 ;exif.decode_jis_intel    = JIS
+
+[Tidy]
+; The path to a default tidy configuration file to use when using tidy
+;tidy.default_config = /usr/local/lib/php/default.tcfg
+
+; Should tidy clean and repair output automatically?
+; WARNING: Do not use this option if you are generating non-html content
+; such as dynamic images
+tidy.clean_output = Off
+
+[soap]
+; Enables or disables WSDL caching feature.
+soap.wsdl_cache_enabled=1
+; Sets the directory name where SOAP extension will put cache files.
+soap.wsdl_cache_dir="/tmp"
+; (time to live) Sets the number of second while cached file will be used 
+; instead of original one.
+soap.wsdl_cache_ttl=86400
 
 ; Local Variables:
 ; tab-width: 4

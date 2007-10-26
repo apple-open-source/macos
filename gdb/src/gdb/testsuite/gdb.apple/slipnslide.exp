@@ -1,4 +1,4 @@
-# Copyright 2003, 2004
+# Copyright 2003, 2004, 2005
 # Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -134,7 +134,6 @@ load_lib mi-support.exp
 set MIFLAGS "-i=mi1"
 
 mi_gdb_start
-mi_gdb_test "5-gdb-set use-cached-symfiles  off" "5\\^done.*"
 mi_delete_breakpoints
 mi_gdb_reinitialize_dir $srcdir/$subdir
 mi_gdb_load ${binfile}
@@ -207,7 +206,7 @@ if  { [gdb_compile "${srcdir}/${subdir}/${testlibfile}.c" "${libbinfile}" execut
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 
-if [istarget "powerpc64-apple-darwin*"] {
+if [target_info exists darwin64] {
     # work around 4126196 - start-with-shell breaks DYLD_INSERT_LIBRARIES on ppc64
     gdb_test "set start-with-shell 0"
 }
@@ -345,6 +344,9 @@ gdb_expect {
 
 
 
+
+set foo_loaded_address 0
+set puts_loaded_address 0
 
 # See where foo actually loaded.
 send_gdb "p foo\n"

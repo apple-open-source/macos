@@ -118,8 +118,9 @@ static const char AskedForGot[] =
 			  "gethostby*.getanswer: asked for \"%s\", got \"%s\"";
 
 static char *h_addr_ptrs[MAXADDRS + 1];
+#ifdef NOTDEF
 static struct hostent *gethostbyname_ipv4 __P((const char *));
-
+#endif
 static struct hostent host;
 static char *host_aliases[MAXALIASES];
 static char *hostbuf = NULL;
@@ -148,8 +149,6 @@ typedef union {
 } align;
 
 extern int h_errno;
-
-extern int _lu_running(void);
 
 #ifdef DEBUG
 static void
@@ -442,6 +441,7 @@ gethostbyname(name)
 	return (gethostbyname2(name, AF_INET));
 }
 
+#ifdef NOTDEF
 static struct hostent *
 gethostbyname_ipv4(name)
 	const char *name;
@@ -524,6 +524,7 @@ gethostbyname_ipv4(name)
 	}
 	return (getanswer(&buf, n, name, C_IN, T_A));
 }
+#endif
 
 struct hostent *
 gethostbyaddr(vaddr, len, type)

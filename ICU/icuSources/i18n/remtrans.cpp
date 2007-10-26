@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2001-2003, International Business Machines
+*   Copyright (c) 2001-2005, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -13,39 +13,44 @@
 #if !UCONFIG_NO_TRANSLITERATION
 
 #include "remtrans.h"
+#include "unicode/unifilt.h"
 
-static const UChar ID[] = {65, 110, 121, 45, 0x52, 0x65, 0x6D, 0x6F, 0x76, 0x65, 0x00}; /* "Any-Remove" */
+static const UChar CURR_ID[] = {65, 110, 121, 45, 0x52, 0x65, 0x6D, 0x6F, 0x76, 0x65, 0x00}; /* "Any-Remove" */
 
 U_NAMESPACE_BEGIN
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(RemoveTransliterator)
 
 /**
+ * Factory method
+ */
+static Transliterator* RemoveTransliterator_create(const UnicodeString& /*ID*/,
+                                                   Transliterator::Token /*context*/) {
+    /* We don't need the ID or context. We just remove data */
+    return new RemoveTransliterator();
+}
+
+/**
  * System registration hook.
  */
 void RemoveTransliterator::registerIDs() {
 
-    Transliterator::_registerFactory(::ID, _create, integerToken(0));
+    Transliterator::_registerFactory(::CURR_ID, RemoveTransliterator_create, integerToken(0));
 
     Transliterator::_registerSpecialInverse(UNICODE_STRING_SIMPLE("Remove"),
                                             UNICODE_STRING_SIMPLE("Null"), FALSE);
 }
 
-/**
- * Factory method
- */
-Transliterator* RemoveTransliterator::_create(const UnicodeString& /*ID*/,
-                                              Token /*context*/) {
-    /* We don't need the ID or context. We just remove data */
-    return new RemoveTransliterator();
-}
-
-RemoveTransliterator::RemoveTransliterator() : Transliterator(::ID, 0) {}
+RemoveTransliterator::RemoveTransliterator() : Transliterator(::CURR_ID, 0) {}
 
 RemoveTransliterator::~RemoveTransliterator() {}
 
 Transliterator* RemoveTransliterator::clone(void) const {
-    return new RemoveTransliterator();
+    Transliterator* result = new RemoveTransliterator();
+    if (getFilter() != 0) {
+        result->adoptFilter((UnicodeFilter*)(getFilter()->clone()));
+    }
+    return result;
 }
 
 void RemoveTransliterator::handleTransliterate(Replaceable& text, UTransPosition& index,

@@ -1,34 +1,31 @@
 # Make gzip (GNU zip).
 
-## Copyright (C) 1999, 2001, 2002 Free Software Foundation
+# Copyright (C) 1999, 2001, 2002, 2006 Free Software Foundation, Inc.
 
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2, or (at your option)
-## any later version.
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
 
-## This program is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 
-## You should have received a copy of the GNU General Public License
-## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-AUTOMAKE_OPTIONS = gnits dist-shar
+SUBDIRS = lib doc
 ACLOCAL_AMFLAGS = -I m4
+AM_CPPFLAGS = -I$(top_srcdir)/lib
 
 man_MANS = gunzip.1 gzexe.1 gzip.1 \
   zcat.1 zcmp.1 zdiff.1 zforce.1 zgrep.1 zless.1 zmore.1 znew.1
 
-M4DIR = $(srcdir)/m4
-ACINCLUDE_INPUTS = $(M4DIR)/shell.m4
-
 EXTRA_DIST = $(ACINCLUDE_INPUTS) $(man_MANS) \
   algorithm.doc amiga/match.a amiga/Makefile.gcc amiga/Makefile.sasc \
-  amiga/tailor.c amiga/utime.h atari/Makefile.st crypt.h getopt.h \
+  amiga/tailor.c amiga/utime.h atari/Makefile.st crypt.h \
   gzexe.in gzip.doc gzip.h lzw.h msdos/match.asm msdos/tailor.c \
   msdos/gzip.prj msdos/doturboc.bat msdos/Makefile.msc msdos/Makefile.bor \
   msdos/Makefile.djg nt/Makefile.nt os2/gzip.def os2/Makefile.os2 \
@@ -44,36 +41,39 @@ EXTRA_DIST = $(ACINCLUDE_INPUTS) $(man_MANS) \
 bin_PROGRAMS = gzip
 bin_SCRIPTS = gzexe zdiff zgrep zforce zless zmore znew
 gzip_SOURCES = \
-  bits.c crypt.c deflate.c getopt.c getopt1.c gzip.c inflate.c lzw.c \
-  trees.c unlzh.c unlzw.c unpack.c unzip.c util.c yesno.c zip.c
-gzip_LDADD = @LIBOBJS@
-
-AM_MAKEINFOFLAGS = --no-split
-
-info_TEXINFOS = gzip.texi
-gzip_TEXINFOS = fdl.texi
-
-ASCPP = @ASCPP@
-LN_S = @LN_S@
-
-match.$(OBJEXT): match.c
-	cp $(srcdir)/match.c _match.S
-	$(ASCPP) _match.S >_match.s
-	$(CC) -c $(CFLAGS) _match.s
-	mv _match.$(OBJEXT) match.$(OBJEXT)
-	rm -f _match.S _match.s
+  bits.c crypt.c deflate.c gzip.c inflate.c lzw.c \
+  trees.c unlzh.c unlzw.c unpack.c unzip.c util.c zip.c
+gzip_LDADD = lib/libgzip.a
 
 gzip.doc: gzip.1
 	groff -man -Tascii $(srcdir)/gzip.1 | col -b | uniq >$@
 
+gzip.doc.gz: gzip.doc
+	gzip <$? >$@
+
 SUFFIXES = .in
 .in:
 	sed \
-		-e '$(SEDCMD)' \
 		-e 's|/bin/sh|$(SHELL)|g' \
 		-e 's|BINDIR|$(bindir)|g' \
+		-e 's|[@]VERSION@|$(VERSION)|g' \
 		$(srcdir)/$@.in >$@
 	chmod a+x $@
+
+# A simple test, just of gzip -- more of a sanity check than anything else.
+FILES_TO_CHECK = $(bin_SCRIPTS) $(gzip_LDADD) \
+  $(top_srcdir)/ChangeLog $(top_srcdir)/configure $(top_srcdir)/gzip.c
+check-local: $(FILES_TO_CHECK) gzip.doc.gz
+	test '$(srcdir)' != . || ./zdiff -c gzip.doc.gz
+	./zdiff -c $(srcdir)/gzip.doc $(srcdir)/gzip.doc
+	./zdiff $(srcdir)/gzip.doc gzip.doc.gz
+	./zdiff -c - $(srcdir)/gzip.doc <gzip.doc.gz
+	./zdiff -c gzip.doc.gz gzip.doc.gz
+	./zgrep -iV >/dev/null
+	for file in $(FILES_TO_CHECK); do \
+	  ./gzip -cv -- "$$file" | ./gzip -d | cmp - "$$file" || exit; \
+	done
+	@echo 'Test succeeded.'
 
 install-exec-hook: remove-installed-links
 install-exec-hook remove-installed-links:
@@ -88,16 +88,16 @@ install-exec-hook remove-installed-links:
 	  transform='$(transform)'; \
 	  test "X$$prog" = "X$$prog_ext" || \
 	    transform="$$transform"';s/$$/$(EXEEXT)/'; \
-	  source=$(DESTDIR)$(bindir)/`echo "$$prog"|sed "$$transform"`; \
+	  destbindir=$(DESTDIR)$(bindir); \
+	  source=`echo "$$prog"|sed "$$transform"`; \
 	  for alias in $$aliases; do \
-	    dest=$(DESTDIR)$(bindir)/`echo "$$alias"|sed "$$transform"`; \
+	    dest=`echo "$$alias"|sed "$$transform"`; \
 	    (set -x; \
+	     cd "$$destbindir" && \
 	     rm -f "$$dest" && \
 	     case $@ in \
 	     install-exec-hook) \
-	       for ln in ln "$(LN_S)"; do \
-		 $$ln "$$source" "$$dest" && break; \
-	       done;; \
+	       ln "$$source" "$$dest" || $(LN_S) "$$source" "$$dest";; \
 	     esac \
 	    ) || exit; \
 	  done; \
@@ -107,4 +107,5 @@ uninstall-local: remove-installed-links
 
 MAINTAINERCLEANFILES = gzip.doc
 
-MOSTLYCLEANFILES = _match.s gzexe zdiff zforce zgrep zless zmore znew
+MOSTLYCLEANFILES = _match.i match_.s _match.S gzip.doc.gz \
+  gzexe zdiff zforce zgrep zless zmore znew

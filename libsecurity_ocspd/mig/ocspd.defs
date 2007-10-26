@@ -30,8 +30,10 @@ serverprefix ocsp_server_;
 userprefix ocsp_client_;
 
 import <security_ocspd/ocspdTypes.h>; 
+import <stdint.h>;
 
 type Data = array [] of char;
+type OSStatus = int32_t;
 
 //
 // Normal OCSP request. Depending on contents of encoded SecAsn1OCSPDRequests,
@@ -68,10 +70,17 @@ routine certFetch(
 //
 // Fetch a CRL from net with optional cache lookup and store.
 // verify_time only used for cache lookup. 
+// 
+// crl_issuer is optional; it's the normalized issuer of the 
+// CRL to be fetched, used for cache lookup. It is only specified
+// when client klnows that the issuer of the CRL is the same as 
+// the issuer of the cert being verified (i.e., there is no 
+// crlIssuer field in the crlDistribuitionPoints extension).
 //
 routine crlFetch(
 	requestport serverport : mach_port_t;
 	in crl_url : Data;
+	in crl_issuer : Data;
 	in cache_read : boolean_t;
 	in cache_write : boolean_t;
 	in verify_time : Data;
@@ -93,3 +102,24 @@ routine crlRefresh(
 routine crlFlush(
 	requestport serverport : mach_port_t;
 	in cert_url : Data);
+
+//
+// Obtain TrustSettings. The domain argument is a SecTrustSettingsDomain. 
+//
+routine trustSettingsRead(
+	requestport serverport : mach_port_t;
+	serveraudittoken sourceAudit: audit_token_t; 
+	in domain: uint32_t;
+	out trustSettings : Data;
+	out rcode : OSStatus);
+
+//
+// Write TrustSettings to disk. Results in authentication dialog.
+//
+routine trustSettingsWrite(
+	requestport serverport : mach_port_t;
+	serveraudittoken sourceAudit: audit_token_t; 
+	in domain: uint32_t;
+	in authBlob: Data;
+	in trustSettings : Data;
+	out rcode: OSStatus);

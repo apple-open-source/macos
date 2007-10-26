@@ -41,7 +41,7 @@
  */
 
 /*
- * $Id: message.c,v 1.9 2005/05/12 16:57:46 dasenbro Exp $
+ * $Id: message.c,v 1.102 2007/02/05 18:41:47 jeaton Exp $
  */
 
 #include <config.h>
@@ -67,8 +67,11 @@
 #include "message.h"
 #include "parseaddr.h"
 #include "charset.h"
+#include "stristr.h"
 #include "util.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 #include "global.h"
 #include "retry.h"
 
@@ -77,6 +80,7 @@ struct msg {
     const char *base;
     unsigned long len;
     unsigned long offset;
+    int encode;
 };
 
 /* cyrus.cache file item buffer */
@@ -118,7 +122,11 @@ struct body {
      * Only meaningful for body-parts at top level or
      * enclosed in message/rfc-822
      */
+#ifdef APPLE_OS_X_SERVER
+    /* Use the received header to estimate time received.
+		Using creation date could be way off in case of imap copy */
     char *received;
+#endif
     char *date;
     char *subject;
     struct address *from;
@@ -156,6 +164,8 @@ struct boundary {
 /* Default MIME Content-type */
 #define DEFAULT_CONTENT_TYPE "TEXT/PLAIN; CHARSET=us-ascii"
 
+static int message_parse_mapped P((const char *msg_base, unsigned long msg_len,
+				   struct body *body));
 static int message_parse_body P((struct msg *msg,
 				 int format, struct body *body,
 				 char *defaultContentType,
@@ -207,7 +217,6 @@ static void message_ibuf_init P((struct ibuf *ibuf));
 static int message_ibuf_ensure P((struct ibuf *ibuf, unsigned len));
 static void message_ibuf_iov P((struct iovec *iov, struct ibuf *ibuf));
 static void message_ibuf_free P((struct ibuf *ibuf));
-static void message_free_body P((struct body *body));
 
 /*
  * Copy a message of 'size' bytes from 'from' to 'to',
@@ -217,17 +226,19 @@ static void message_free_body P((struct body *body));
  * imapd.conf before calling.
  */
 int
-message_copy_strict(from, to, size)
+message_copy_strict(from, to, size, allow_null)
 struct protstream *from;
 FILE *to;
 unsigned size;
+int allow_null;
 {
     char buf[4096+1];
-    unsigned char *p;
+    unsigned char *p, *endp;
     int r = 0;
     int n;
     int sawcr = 0, sawnl;
     int reject8bit = config_getswitch(IMAPOPT_REJECT8BIT);
+    int munge8bit = config_getswitch(IMAPOPT_MUNGE8BIT);
     int inheader = 1, blankline = 1;
 
     while (size) {
@@ -238,14 +249,23 @@ unsigned size;
 	}
 
 	buf[n] = '\0';
-	if (n != strlen(buf)) r = IMAP_MESSAGE_CONTAINSNULL;
+
+	/* Quick check for NUL in entire buffer, if we're not allowing it */
+	if (!allow_null && (n != strlen(buf))) {
+	    r = IMAP_MESSAGE_CONTAINSNULL;
+	}
 
 	size -= n;
 	if (r) continue;
 
-	for (p = (unsigned char *)buf; *p; p++) {
-	    if (*p == '\n') {
-		if (!sawcr) r = IMAP_MESSAGE_CONTAINSNL;
+	for (p = (unsigned char *)buf, endp = p + n; p < endp; p++) {
+	    if (!*p && inheader) {
+		/* NUL in header is always bad */
+		r = IMAP_MESSAGE_CONTAINSNULL;
+	    }
+	    else if (*p == '\n') {
+		if (!sawcr && (inheader || !allow_null))
+		    r = IMAP_MESSAGE_CONTAINSNL;
 		sawcr = 0;
 		if (blankline) {
 		    inheader = 0;
@@ -263,10 +283,12 @@ unsigned size;
 			/* We have been configured to reject all mail of this
 			   form. */
 			if (!r) r = IMAP_MESSAGE_CONTAINS8BIT;
-		    } else {
+		    } else if (munge8bit) {
 			/* We have been configured to munge all mail of this
 			   form. */
-/*			*p = 'X'; */
+#ifndef APPLE_OS_X_SERVER
+			*p = 'X';
+#endif
 		    }
 		}
 	    }
@@ -315,28 +337,99 @@ unsigned size;
  * cache information to the mailbox's cache file and fills in
  * appropriate information in the index record pointed to by
  * 'message_index'.
+ *
+ * The caller MUST free the allocated body struct.
+ * If msg_base/msg_len are non-NULL, the file will remain memory-mapped
+ * and returned to the caller.  The caller MUST unmap the file.
  */
-int
-message_parse_file(infile, mailbox, message_index)
-FILE *infile;
-struct mailbox *mailbox;
-struct index_record *message_index;
+int message_parse_file(FILE *infile,
+		       const char **msg_base, unsigned long *msg_len,
+		       struct body **body)
 {
+    int fd = fileno(infile);
     struct stat sbuf;
-    const char *msg_base = 0;
-    unsigned long msg_len = 0;
-    int r;
+    const char *tmp_base;
+    unsigned long tmp_len;
+    int unmap = 0, r;
 
-    if (fstat(fileno(infile), &sbuf) == -1) {
-	syslog(LOG_ERR, "IOERROR: fstat on new message in %s: %m",
-	       mailbox->name);
+    if (!msg_base) {
+	unmap = 1;
+	msg_base = &tmp_base;
+	msg_len = &tmp_len;
+    }
+    *msg_base = 0;
+    *msg_len = 0;
+
+    if (fstat(fd, &sbuf) == -1) {
+	syslog(LOG_ERR, "IOERROR: fstat on new message in spool: %m");
 	fatal("can't fstat message file", EC_OSFILE);
     }
-    map_refresh(fileno(infile), 1, &msg_base, &msg_len, sbuf.st_size,
-		"new message", mailbox->name);
-    r = message_parse_mapped(msg_base, msg_len, mailbox, message_index);
-    map_free(&msg_base, &msg_len);
+    map_refresh(fd, 1, msg_base, msg_len, sbuf.st_size,
+		"new message", 0);
+
+    if (!*body) *body = (struct body *) xmalloc(sizeof(struct body));
+    r = message_parse_mapped(*msg_base, *msg_len, *body);
+
+    if (unmap) map_free(msg_base, msg_len);
+
     return r;
+}
+
+
+/*
+ * Parse the message 'infile' in 'mailbox'.  Appends the message's
+ * cache information to the mailbox's cache file and fills in
+ * appropriate information in the index record pointed to by
+ * 'message_index'.
+ *
+ * The caller MUST free the allocated body struct.
+ *
+ * This function differs from message_parse_file() in that we create a
+ * writable buffer rather than memory-mapping the file, so that binary
+ * data can be encoded into the buffer.  The file is rewritten upon
+ * completion.
+ *
+ * XXX can we do this with mmap()?
+ */
+int message_parse_binary_file(FILE *infile, struct body **body)
+{
+    int fd = fileno(infile);
+    struct stat sbuf;
+    struct msg msg;
+    int n;
+
+    if (fstat(fd, &sbuf) == -1) {
+	syslog(LOG_ERR, "IOERROR: fstat on new message in spool: %m");
+	fatal("can't fstat message file", EC_OSFILE);
+    }
+    msg.len = sbuf.st_size;
+    msg.base = xmalloc(msg.len);
+    msg.offset = 0;
+    msg.encode = 1;
+
+    lseek(fd, 0L, SEEK_SET);
+
+    n = retry_read(fd, (char*) msg.base, msg.len);
+    if (n != msg.len) {
+	syslog(LOG_ERR, "IOERROR: reading binary file in spool: %m");
+	return IMAP_IOERROR;
+    }
+
+    if (!*body) *body = (struct body *) xmalloc(sizeof(struct body));
+    message_parse_body(&msg, MAILBOX_FORMAT_NORMAL, *body,
+		       DEFAULT_CONTENT_TYPE, (struct boundary *)0);
+
+    lseek(fd, 0L, SEEK_SET);
+    n = retry_write(fd, msg.base, msg.len);
+
+    free((char*) msg.base);
+
+    if (n != msg.len || fsync(fd)) {
+	syslog(LOG_ERR, "IOERROR: rewriting binary file in spool: %m");
+	return IMAP_IOERROR;
+    }
+
+    return 0;
 }
 
 
@@ -346,39 +439,121 @@ struct index_record *message_index;
  * and fills in appropriate information in the index record pointed to
  * by 'message_index'.
  */
-int
-message_parse_mapped(msg_base, msg_len, mailbox, message_index)
-const char *msg_base;
-unsigned long msg_len;
-struct mailbox *mailbox;
-struct index_record *message_index;
+int message_parse_mapped(const char *msg_base, unsigned long msg_len,
+			 struct body *body)
 {
-    struct body body;
     struct msg msg;
-    int n;
 
     msg.base = msg_base;
     msg.len = msg_len;
     msg.offset = 0;
+    msg.encode = 0;
 
-    message_parse_body(&msg, mailbox->format, &body,
+    message_parse_body(&msg, MAILBOX_FORMAT_NORMAL, body,
 		       DEFAULT_CONTENT_TYPE, (struct boundary *)0);
-    
-    message_index->sentdate = message_parse_date(body.date, 0);
-    message_index->size = body.header_size + body.content_size;
-    message_index->header_size = body.header_size;
-    message_index->content_offset = body.content_offset;
-    message_index->content_lines = body.content_lines;
+
+    return 0;
+}
+
+static void message_find_part(struct body *body, const char *section,
+			      const char **content_types,
+			      const char *msg_base, unsigned long msg_len,
+			      struct bodypart ***parts, int *n)
+{
+    int match;
+    const char **type;
+    char nextsection[128];
+
+    for (match = 0, type = content_types; !match && *type; type++) {
+	const char *subtype = strchr(*type, '/');
+	size_t tlen = subtype ? (subtype++ - *type) : strlen(*type);
+
+	if ((!(*type)[0] || (tlen == strlen(body->type) &&
+			     !strncasecmp(body->type, *type, tlen))) &&
+	    (!subtype || !subtype[0] || !strcasecmp(body->subtype, subtype))) {
+	    match = 1;
+	}
+    }
+
+    if (match) {
+	/* matching part, sanity check the size against the mmap'd file */
+	if (body->content_offset + body->content_size > msg_len) {
+	    syslog(LOG_ERR, "IOERROR: body part exceeds size of message file");
+	    fatal("body part exceeds size of message file", EC_OSFILE);
+	}
+
+	/* grow the array and add the new part */
+	*parts = xrealloc(*parts, (*n+2)*sizeof(struct bodypart *));
+	(*parts)[*n] = xmalloc(sizeof(struct bodypart));
+	strlcpy((*parts)[*n]->section, section, sizeof((*parts)[*n]->section));
+	(*parts)[*n]->content = msg_base + body->content_offset;
+	(*parts)[*n]->encoding = body->encoding;
+	(*parts)[*n]->size = body->content_size;
+	(*parts)[++(*n)] = NULL;
+    }
+    else if (!strcmp(body->type, "MULTIPART")) {
+	int i;
+
+	for (i = 0; i < body->numparts; i++) {
+	    snprintf(nextsection, sizeof(nextsection), "%s.%d", section, i+1);
+	    message_find_part(&body->subpart[i], nextsection, content_types,
+			      msg_base, msg_len, parts, n);
+	}
+    }
+    else if (!strcmp(body->type, "MESSAGE") &&
+	     !strcmp(body->subtype, "RFC822")) {
+	snprintf(nextsection, sizeof(nextsection), "%s.1", section);
+	message_find_part(body->subpart, nextsection, content_types,
+			  msg_base, msg_len, parts, n);
+    }
+}
+
+/*
+ * Fetch the bodypart(s) which match the given content_type and return
+ * them as an allocated array.
+ *
+ * The caller MUST free the array of allocated bodypart(s).
+ */
+void message_fetch_part(struct message_content *msg,
+			const char **content_types,
+			struct bodypart ***parts)
+{
+    int n = 0;  /* running count of the number of matching parts */
+
+    *parts = NULL;
+    message_find_part(msg->body, "1", content_types,
+		      msg->base, msg->len, parts, &n);
+}
+
+/*
+ * Appends the message's cache information to the mailbox's cache file
+ * and fills in appropriate information in the index record pointed to
+ * by 'message_index'.
+ */
+int
+message_create_record(mailbox, message_index, body)
+struct mailbox *mailbox;
+struct index_record *message_index;
+struct body *body;
+{
+    int n;
+
+    message_index->sentdate = message_parse_date(body->date, 0);
+    message_index->size = body->header_size + body->content_size;
+    message_index->header_size = body->header_size;
+    message_index->content_offset = body->content_offset;
+    message_index->content_lines = body->content_lines;
 
     message_index->cache_offset = lseek(mailbox->cache_fd, 0, SEEK_CUR);
 
     message_index->cache_version = MAILBOX_CACHE_MINOR_VERSION;
 
+#ifdef APPLE_OS_X_SERVER
 	if ( message_index->internaldate == 0 )
 	{
-		if ( body.received )
+		if ( body->received )
 		{
-			char *p = strstr( body.received, ";" );
+			char *p = strstr( body->received, ";" );
 			if ( p != NULL )
 			{
 				message_index->internaldate = message_parse_date( p+1, 1 );
@@ -389,12 +564,57 @@ struct index_record *message_index;
 	{
 		message_index->internaldate = message_index->sentdate;
 	}
+#endif
 
-    n = message_write_cache(mailbox->cache_fd, &body);
-    message_free_body(&body);
+    n = message_write_cache(mailbox->cache_fd, body);
 
     if (n == -1) {
 	syslog(LOG_ERR, "IOERROR: appending cache for %s: %m", mailbox->name);
+	return IMAP_IOERROR;
+    }
+
+    return 0;
+}
+
+/* YYY Following used by sync_support.c. Should use message_create_record()
+ *     instead now that is available?
+ *
+ * Parse the message at 'msg_base' of length 'msg_len' in 'mailbox'.
+ * Appends the message's cache information to the mailbox's cache file
+ * and fills in appropriate information in the index record pointed to
+ * by 'message_index'.
+ */
+int
+message_parse_mapped_async(msg_base, msg_len, format, cache_fd, message_index)
+const char *msg_base;
+unsigned long msg_len;
+int format;
+int cache_fd;
+struct index_record *message_index;
+{
+    struct body body;
+    struct msg msg;
+    int n;
+
+    msg.base = msg_base;
+    msg.len = msg_len;
+    msg.offset = 0;
+    msg.encode = 0;
+
+    message_parse_body(&msg, format, &body,
+		       DEFAULT_CONTENT_TYPE, (struct boundary *)0);
+    
+    message_index->sentdate = message_parse_date(body.date, 0);
+    message_index->size = body.header_size + body.content_size;
+    message_index->header_size = body.header_size;
+    message_index->content_offset = body.content_offset;
+
+    message_index->cache_offset = lseek(cache_fd, 0, SEEK_CUR);
+    n = message_write_cache(cache_fd, &body);
+    message_free_body(&body);
+
+    if (n == -1) {
+	syslog(LOG_ERR, "IOERROR: appending cache for sync_server: %m");
 	return IMAP_IOERROR;
     }
 
@@ -601,6 +821,17 @@ struct boundary *boundaries;
 		    case 'T':
 			if (!strncasecmp(next+10, "ransfer-encoding:", 17)) {
 			    message_parse_encoding(next+27, &body->encoding);
+
+			    /* If we're encoding binary, replace "binary"
+			       with "base64" in CTE header body */
+			    if (msg->encode &&
+				!strcmp(body->encoding, "BINARY")) {
+				char *p = (char*)
+				    stristr(msg->base + body->header_offset +
+					    (next - headers) + 27,
+					    "binary");
+				memcpy(p, "base64", 6);
+			    }
 			}
 			else if (!strncasecmp(next+10, "ype:", 4)) {
 			    message_parse_type(next+14, body);
@@ -643,9 +874,11 @@ struct boundary *boundaries;
 		if (!strncasecmp(next+2, "eply-to:", 8)) {
 		    message_parse_address(next+10, &body->reply_to);
 		}
+#ifdef APPLE_OS_X_SERVER
 		else if (!strncasecmp(next+2, "eceived", 7)&&(!body->received)) {
 		    message_parse_string(next+9, &body->received);
 		}
+#endif
 
 		break;
 
@@ -1449,7 +1682,7 @@ unsigned flags;
     if (t >= 0) return (t - zone_off * 60);
     
  baddate:
-    return time(0);
+    return (flags & PARSE_NOCREATE) ? 0 : time(0);
 }
 
 /*
@@ -1631,7 +1864,13 @@ struct body *body;
 struct boundary *boundaries;
 {
     const char *line, *endline;
+    unsigned long s_offset = msg->offset;
+    int encode;
     int len;
+
+    /* Should we encode a binary part? */
+    encode = msg->encode &&
+	body->encoding && !strcasecmp(body->encoding, "binary");
 
     while (msg->offset < msg->len) {
 	line = msg->base + msg->offset;
@@ -1657,14 +1896,49 @@ struct boundary *boundaries;
 		body->content_size -= 2;
 		body->boundary_size += 2;
 	    }
-	    return;
+	    break;
 	}
 
 	body->content_size += len;
 
-	if (endline[-1] == '\n') {
+	/* Count the content lines, unless we're encoding
+	   (we always count blank lines) */
+	if (endline[-1] == '\n' &&
+	    (!encode || line[0] == '\r')) {
 	    body->content_lines++;
 	}
+    }
+
+    if (encode) {
+	int b64_size, b64_lines, delta;
+
+	/* Determine encoded size */
+	charset_encode_mimebody(NULL, body->content_size, NULL,
+				&b64_size, NULL);
+
+	delta = b64_size - body->content_size;
+
+	/* Realloc buffer to accomodate encoding overhead */
+	msg->base = xrealloc((char*) msg->base, msg->len + delta);
+
+	/* Shift content and remaining data by delta */
+	memmove((char*) msg->base + s_offset + delta, msg->base + s_offset,
+		msg->len - s_offset);
+
+	/* Encode content into buffer at current position */
+	charset_encode_mimebody(msg->base + s_offset + delta,
+				body->content_size,
+				(char*) msg->base + s_offset,
+				NULL, &b64_lines);
+
+	/* Adjust buffer position and length to account for encoding */
+	msg->offset += delta;
+	msg->len += delta;
+
+	/* Adjust body structure to account for encoding */
+	strcpy(body->encoding, "BASE64");
+	body->content_size = b64_size;
+	body->content_lines += b64_lines;
     }
 }
 
@@ -2450,7 +2724,7 @@ struct ibuf *ibuf;
 /*
  * Free the parsed body-part 'body'
  */
-static void
+void
 message_free_body(body)
 struct body *body;
 {
@@ -2485,7 +2759,10 @@ struct body *body;
 	free(param->value);
 	free(param);
     }
+
+#ifdef APPLE_OS_X_SERVER
     if (body->received) free(body->received);
+#endif
     if (body->date) free(body->date);
     if (body->subject) free(body->subject);
     if (body->from) parseaddr_free(body->from);

@@ -37,10 +37,16 @@
     NSArray *list = nil;
 
     NS_DURING
-		list = [[_node findRecordNames:@"dsConfigType::GetAllRecords"
-						ofType:[_recordType UTF8String]
-						matchType:eDSExact]
-					sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
+        if ([_recordType hasPrefix:@kDSStdRecordTypePrefix])
+            list = [[_node findRecordNames:@kDSRecordsAll
+                            ofType:[_recordType UTF8String]
+                            matchType:eDSExact]
+                        sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
+        else
+            list = [[_node findRecordNames:@"dsConfigType::GetAllRecords"
+                            ofType:[_recordType UTF8String]
+                            matchType:eDSExact]
+                        sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
 	NS_HANDLER
 		if (!DS_EXCEPTION_STATUS_IS(eDSRecordNotFound) &&
 	        !DS_EXCEPTION_STATUS_IS(eDSInvalidRecordType))

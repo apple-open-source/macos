@@ -1,0 +1,115 @@
+--- /Network/Servers/hills/Volumes/capanna/gkeating/co/gcc-4_0-branch/gcc/libstdc++-v3/testsuite/lib/libstdc++.exp	2005-02-16 13:23:56.000000000 -0800
++++ libstdc++-v3/testsuite/lib/libstdc++.exp	2005-05-16 16:38:23.000000000 -0700
+@@ -134,27 +134,34 @@ proc libstdc++_init { testfile } {
+     v3track gccdir 3
+ 
+     # Compute what needs to be added to the existing LD_LIBRARY_PATH.
+-    set ld_library_path ""
+-    append ld_library_path ":${gccdir}"
+-    set compiler ${gccdir}/g++
+-    if { [is_remote host] == 0 && [which $compiler] != 0 } {
+-      foreach i "[exec $compiler --print-multi-lib]" {
+-        set mldir ""
+-        regexp -- "\[a-z0-9=/\.-\]*;" $i mldir
+-        set mldir [string trimright $mldir "\;@"]
+-        if { "$mldir" == "." } {
+-          continue
+-        }
+-        if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.so.*]] >= 1 } {
+-          append ld_library_path ":${gccdir}/${mldir}"
+-        }
+-      }
+-    }
+-    append ld_library_path ":${blddir}/src/.libs"
+-
+-    set_ld_library_path_env_vars
+-    if [info exists env(LD_LIBRARY_PATH)] {
+-      verbose -log "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
++    # APPLE LOCAL begin mainline
++    if {$gccdir != ""} {
++	set ld_library_path ""
++	append ld_library_path ":${gccdir}"
++	set compiler ${gccdir}/g++
++	append ld_library_path ":${blddir}/src/.libs"
++
++	if { [is_remote host] == 0 && [which $compiler] != 0 } {
++	  foreach i "[exec $compiler --print-multi-lib]" {
++	    set mldir ""
++	    regexp -- "\[a-z0-9=/\.-\]*;" $i mldir
++	    set mldir [string trimright $mldir "\;@"]
++	    if { "$mldir" == "." } {
++	      continue
++	    }
++	    if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.so.*]] >= 1 } {
++	      append ld_library_path ":${gccdir}/${mldir}"
++	    }
++	  }
++	}
++
++	set_ld_library_path_env_vars
++	if [info exists env(LD_LIBRARY_PATH)] {
++	  verbose -log "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
++	}
++    } else {
++	set compiler [transform "g++"]
++	# APPLE LOCAL end mainline
+     }
+ 
+     # Do a bunch of handstands and backflips for cross compiling and
+@@ -176,7 +183,15 @@ proc libstdc++_init { testfile } {
+             set includes [exec sh $flags_file --build-includes]
+         } else {
+             set cxx [transform "g++"]
+-            set cxxflags "-ggdb3"
++	    # APPLE LOCAL begin libstdc++ testing
++	    # For standalone libstdc++ testing, we need to provide all
++	    # the necessary compiler flags, since we do not have a 
++	    # testsuite_flags file to fall back on.
++	    set cxxflags [concat "-g -O2 -D_GLIBCXX_ASSERT" \
++		" -ffunction-sections" \
++		" -fdata-sections -fmessage-length=0 -DAPPLE_KEYMGR" \
++		" -DLOCALEDIR=\"/usr/share/locale\""]
++	    # APPLE LOCAL end libstdc++ testing
+             set includes "-I${srcdir}"
+         }
+     }
+@@ -278,6 +293,39 @@ proc v3_target_compile { source dest typ
+ proc v3-list-tests { filename } {
+     global srcdir
+     global blddir
++    # APPLE LOCAL begin libstdc++ testing
++    global objdir
++    global libiconv
++
++    # If we are not running in a build directory, we will need to generate
++    # our own testsuite_files, and build our own libv3test.a as well.
++    if { $blddir == "" } {
++	set blddir ${objdir}
++	set libiconv "-liconv"
++	set tmp [exec mkdir ${blddir}/testsuite]
++	set tmp [exec touch ${blddir}/testsuite/testsuite_thread]
++	set tmp [exec touch ${blddir}/testsuite/testsuite_wchar_t]
++	set tmp [exec sh ${srcdir}/../scripts/create_testsuite_files \
++		${srcdir} ${blddir}/testsuite]
++	# Build the support objects.
++	foreach f [list testsuite_abi.cc testsuite_allocator.cc \
++		testsuite_hooks.cc] {
++	    set object_file ${blddir}/testsuite/[file rootname $f].o
++	    # Compile with "-w" so that warnings issued by the compiler
++	    # do not prevent compilation.
++	    if { [v3_target_compile $srcdir/$f $object_file "object" \
++		    [list "incdir=$srcdir" "additional_flags=-w"]]
++		    != "" } {
++		error "could not compile $f"
++	    }
++	}
++	set tmp [exec ar cru ${blddir}/testsuite/libv3test.a \
++		${blddir}/testsuite/testsuite_abi.o \
++		${blddir}/testsuite/testsuite_allocator.o \
++		${blddir}/testsuite/testsuite_hooks.o]
++	set tmp [exec ranlib -c ${blddir}/testsuite/libv3test.a]
++    }
++    # APPLE LOCAL end libstdc++ testing
+ 
+     set tests_file "${blddir}/testsuite/${filename}"
+     set sfiles ""

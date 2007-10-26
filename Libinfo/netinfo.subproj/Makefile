@@ -12,14 +12,10 @@ NAME = netinfo
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = clib.h mm.h ni.h ni_util.h sys_interfaces.h
+HFILES = 
+CFILES = ni_stub.c
 
-CFILES = multi_call.c ni_error.c ni_glue.c ni_pwdomain.c ni_useful.c\
-         ni_util.c sys_interfaces.c
-
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble nibind_prot.x\
-            ni_prot.x netinfo.3 netinfo.5
-
+OTHERSRCS = Makefile Makefile.preamble
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -28,12 +24,9 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-
-PRIVATE_HEADERS = ni.h ni_util.h nibind_prot.x ni_prot.x
-
-
-
-NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
+PRIVATE_HEADERS = 
+# NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
+NEXTSTEP_OBJCPLUS_COMPILER = $(CCOMPILER)
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc
 PDO_UNIX_OBJCPLUS_COMPILER = $(NEXTDEV_BIN)/gcc
 NEXTSTEP_JAVA_COMPILER = /usr/bin/javac

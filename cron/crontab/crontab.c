@@ -18,7 +18,7 @@
 
 #if !defined(lint) && !defined(LINT)
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/cron/crontab/crontab.c,v 1.17 2001/06/16 03:16:52 peter Exp $";
+  "$FreeBSD: src/usr.sbin/cron/crontab/crontab.c,v 1.24 2006/09/03 17:52:19 ru Exp $";
 #endif
 
 /* crontab - install and manage per-user crontab files
@@ -36,6 +36,7 @@ static const char rcsid[] =
 #include "cron.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <md5.h>
 #include <paths.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -49,7 +50,7 @@ static const char rcsid[] =
 # include <locale.h>
 #endif
 
-
+#define MD5_SIZE 33
 #define NHEADER_LINES 3
 
 
@@ -67,7 +68,9 @@ static	FILE		*NewCrontab;
 static	int		CheckErrorCount;
 static	enum opt_t	Option;
 static	struct passwd	*pw;
+#ifdef __APPLE__
 static  int             posixly_correct;
+#endif
 static	void		list_cmd __P((void)),
 			delete_cmd __P((void)),
 			edit_cmd __P((void)),
@@ -95,8 +98,9 @@ main(argc, argv)
 	char	*argv[];
 {
 	int	exitstatus;
-
+#ifdef __APPLE__
 	posixly_correct = COMPAT_MODE("bin/crontab", "Unix2003");
+#endif /* __APPLE__ */
 	Pid = getpid();
 	ProgramName = argv[0];
 
@@ -110,7 +114,13 @@ main(argc, argv)
 	parse_args(argc, argv);		/* sets many globals, opens a file */
 	set_cron_uid();
 	set_cron_cwd();
+#ifdef __APPLE__
+	// ALLOW_ONLY_ROOT should be defined for any option other than
+	// list when posixly_correct.
+	if (!allowed(User, (posixly_correct && Option != opt_list))) {
+#else /* __APPLE__ */
 	if (!allowed(User)) {
+#endif /* __APPLE__ */
 		warnx("you (%s) are not allowed to use this program", User);
 		log_it(RealUser, Pid, "AUTH", "crontab command not allowed");
 		exit(ERROR_EXIT);
@@ -140,6 +150,9 @@ parse_args(argc, argv)
 	char	*argv[];
 {
 	int		argch;
+#ifndef __APPLE__
+	char		resolved_path[PATH_MAX];
+#endif
 
 	if (!(pw = getpwuid(getuid())))
 		errx(ERROR_EXIT, "your UID isn't in the passwd file, bailing out");
@@ -195,11 +208,13 @@ parse_args(argc, argv)
 			Filename[(sizeof Filename)-1] = '\0';
 
 		} else {
+#ifdef __APPLE__
 			if (posixly_correct) {
 				Option = opt_replace;
 				strcpy(Filename, "-");
 			} else
-				usage("file name must be specified for replace");
+#endif /* __APPLE__ */
+			usage("file name must be specified for replace");
 		}
 	}
 
@@ -210,6 +225,11 @@ parse_args(argc, argv)
 		 */
 		if (!strcmp(Filename, "-")) {
 			NewCrontab = stdin;
+#ifndef __APPLE__
+		} else if (realpath(Filename, resolved_path) != NULL &&
+		    !strcmp(resolved_path, SYSCRONTAB)) {
+			err(ERROR_EXIT, SYSCRONTAB " must be edited manually");
+#endif
 		} else {
 			/* relinquish the setuid status of the binary during
 			 * the open, lest nonroot users read files they should
@@ -232,12 +252,39 @@ parse_args(argc, argv)
 		      User, Filename, Options[(int)Option]))
 }
 
+static void
+copy_file(FILE *in, FILE *out) {
+	int	x, ch;
+
+	Set_LineNum(1)
+	/* ignore the top few comments since we probably put them there.
+	 */
+	for (x = 0;  x < NHEADER_LINES;  x++) {
+		ch = get_char(in);
+		if (EOF == ch)
+			break;
+		if ('#' != ch) {
+			putc(ch, out);
+			break;
+		}
+		while (EOF != (ch = get_char(in)))
+			if (ch == '\n')
+				break;
+		if (EOF == ch)
+			break;
+	}
+
+	/* copy the rest of the crontab (if any) to the output file.
+	 */
+	if (EOF != ch)
+		while (EOF != (ch = get_char(in)))
+			putc(ch, out);
+}
 
 static void
 list_cmd() {
 	char	n[MAX_FNAME];
 	FILE	*f;
-	int	ch, x;
 
 	log_it(RealUser, Pid, "LIST", User);
 	(void) sprintf(n, CRON_TAB(User));
@@ -250,27 +297,7 @@ list_cmd() {
 
 	/* file is open. copy to stdout, close.
 	 */
-	Set_LineNum(1)
-
-	/* ignore the top few comments since we probably put them there.
-	 */
-	for (x = 0;  x < NHEADER_LINES;  x++) {
-		ch = get_char(f);
-		if (EOF == ch)
-			break;
-		if ('#' != ch) {
-			putchar(ch);
-			break;
-		}
-		while (EOF != (ch = get_char(f)))
-			if (ch == '\n')
-				break;
-		if (EOF == ch)
-			break;
-	}
-
-	while (EOF != (ch = get_char(f)))
-		putchar(ch);
+	copy_file(f, stdout);
 	fclose(f);
 }
 
@@ -280,7 +307,11 @@ delete_cmd() {
 	char	n[MAX_FNAME];
 	int ch, first;
 
+#ifdef __APPLE__
 	if (!posixly_correct && isatty(STDIN_FILENO)) {
+#else
+	if (isatty(STDIN_FILENO)) {
+#endif
 		(void)fprintf(stderr, "remove crontab for %s? ", User);
 		first = ch = getchar();
 		while (ch != '\n' && ch != EOF)
@@ -314,12 +345,14 @@ static void
 edit_cmd() {
 	char		n[MAX_FNAME], q[MAX_TEMPSTR], *editor;
 	FILE		*f;
-	int		ch, t, x;
+	int		t;
 	struct stat	statbuf, fsbuf;
-	time_t		mtime;
 	WAIT_T		waiter;
 	PID_T		pid, xpid;
 	mode_t		um;
+	int		syntax_error = 0;
+	char		orig_md5[MD5_SIZE];
+	char		new_md5[MD5_SIZE];
 
 	log_it(RealUser, Pid, "BEGIN EDIT", User);
 	(void) sprintf(n, CRON_TAB(User));
@@ -352,30 +385,7 @@ edit_cmd() {
 		goto fatal;
 	}
 
-	Set_LineNum(1)
-
-	/* ignore the top few comments since we probably put them there.
-	 */
-	for (x = 0;  x < NHEADER_LINES;  x++) {
-		ch = get_char(f);
-		if (EOF == ch)
-			break;
-		if ('#' != ch) {
-			putc(ch, NewCrontab);
-			break;
-		}
-		while (EOF != (ch = get_char(f)))
-			if (ch == '\n')
-				break;
-		if (EOF == ch)
-			break;
-	}
-
-	/* copy the rest of the crontab (if any) to the temp file.
-	 */
-	if (EOF != ch)
-		while (EOF != (ch = get_char(f)))
-			putc(ch, NewCrontab);
+	copy_file(f, NewCrontab);
 	fclose(f);
 	if (fflush(NewCrontab))
 		err(ERROR_EXIT, "%s", Filename);
@@ -391,7 +401,10 @@ edit_cmd() {
 	}
 	if (statbuf.st_dev != fsbuf.st_dev || statbuf.st_ino != fsbuf.st_ino)
 		errx(ERROR_EXIT, "temp file must be edited in place");
-	mtime = statbuf.st_mtime;
+	if (MD5File(Filename, orig_md5) == NULL) {
+		warn("MD5");
+		goto fatal;
+	}
 
 	if ((!(editor = getenv("VISUAL")))
 	 && (!(editor = getenv("EDITOR")))
@@ -419,7 +432,7 @@ edit_cmd() {
 			err(ERROR_EXIT, "chdir(/tmp)");
 		if (strlen(editor) + strlen(Filename) + 2 >= MAX_TEMPSTR)
 			errx(ERROR_EXIT, "editor or filename too long");
-		execlp(editor, editor, Filename, NULL);
+		execlp(editor, editor, Filename, (char *)NULL);
 		err(ERROR_EXIT, "%s", editor);
 		/*NOTREACHED*/
 	default:
@@ -457,15 +470,19 @@ edit_cmd() {
 	}
 	if (statbuf.st_dev != fsbuf.st_dev || statbuf.st_ino != fsbuf.st_ino)
 		errx(ERROR_EXIT, "temp file must be edited in place");
-	if (mtime == statbuf.st_mtime) {
+	if (MD5File(Filename, new_md5) == NULL) {
+		warn("MD5");
+		goto fatal;
+	}
+	if (strcmp(orig_md5, new_md5) == 0 && !syntax_error) {
 		warnx("no changes made to crontab");
 		goto remove;
 	}
 	warnx("installing new crontab");
 	switch (replace_cmd()) {
-	case 0:
+	case 0:			/* Success */
 		break;
-	case -1:
+	case -1:		/* Syntax error */
 		for (;;) {
 			printf("Do you want to retry the same edit? ");
 			fflush(stdout);
@@ -473,6 +490,7 @@ edit_cmd() {
 			(void) fgets(q, sizeof q, stdin);
 			switch (islower(q[0]) ? q[0] : tolower(q[0])) {
 			case 'y':
+				syntax_error = 1;
 				goto again;
 			case 'n':
 				goto abandon;
@@ -481,7 +499,7 @@ edit_cmd() {
 			}
 		}
 		/*NOTREACHED*/
-	case -2:
+	case -2:		/* Install error */
 	abandon:
 		warnx("edits left in %s", Filename);
 		goto done;
@@ -515,7 +533,7 @@ replace_cmd() {
 	}
 
 	(void) sprintf(n, "tmp.%d", Pid);
-	(void) sprintf(tn, CRON_TAB(n));
+	(void) sprintf(tn, TMP_CRON_TAB(n));
 	if (!(tmp = fopen(tn, "w+"))) {
 		warn("%s", tn);
 		return (-2);
@@ -559,7 +577,11 @@ replace_cmd() {
 			eof = TRUE;
 			break;
 		case FALSE:
+#ifdef __APPLE__
+			e = load_entry(tmp, check_error, pw->pw_name, envp);
+#else
 			e = load_entry(tmp, check_error, pw, envp);
+#endif
 			if (e)
 				free(e);
 			break;

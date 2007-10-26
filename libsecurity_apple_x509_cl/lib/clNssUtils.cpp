@@ -28,6 +28,7 @@
 #include <Security/keyTemplates.h>
 #include <Security/certExtensionTemplates.h>
 #include <Security/oidsalg.h>
+#include <Security/oidsattr.h>
 #include <Security/cssmapple.h>
 #include <string.h>
 
@@ -455,6 +456,7 @@ CSSM_KEY_PTR CL_extractCSSMKeyNSS(
 				break;
 			case CSSM_ALGID_DSA:
 			case CSSM_ALGID_DH:
+			case CSSM_ALGMODE_PKCS1_EME_OAEP:
 				hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_X509;
 				break;
 			case CSSM_ALGID_FEE:
@@ -482,6 +484,7 @@ CSSM_KEY_PTR CL_extractCSSMKeyNSS(
 		switch(hdr.AlgorithmId) {
 			case CSSM_ALGID_DSA:
 			case CSSM_ALGID_DH:
+			case CSSM_ALGMODE_PKCS1_EME_OAEP:
 			{
 				/* 
 				 * Just encode the whole subject public key info blob.
@@ -757,6 +760,153 @@ void CL_freeInfoAccess(
 	alloc.free(cssmInfo.accessDescriptions);
 }
 
+
+#pragma mark ----- CE_QC_Statements <--> NSS_QC_Statements -----
+
+void CL_cssmQualCertStatementsToNss(
+	const CE_QC_Statements	 	&cdsaObj,
+	NSS_QC_Statements 			&nssObj,
+	SecNssCoder 				&coder) 
+{
+	memset(&nssObj, 0, sizeof(nssObj));
+	uint32 numQcs = cdsaObj.numQCStatements;
+	nssObj.qcStatements = 
+		(NSS_QC_Statement **)clNssNullArray(numQcs, coder);
+	for(uint32 dex=0; dex<numQcs; dex++) {
+		nssObj.qcStatements[dex] = (NSS_QC_Statement *)
+			coder.malloc(sizeof(NSS_QC_Statement));
+		NSS_QC_Statement *dst = nssObj.qcStatements[dex];
+		CE_QC_Statement *src = &cdsaObj.qcStatements[dex];
+		memset(dst, 0, sizeof(*dst));
+		coder.allocCopyItem(src->statementId, dst->statementId);
+		if(src->semanticsInfo) {
+			if(src->otherInfo) {
+				/* this is either/or, not both */
+				CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
+			}
+
+			/* encode this CE_SemanticsInformation */
+			CE_SemanticsInformation *srcSI = src->semanticsInfo;
+			NSS_SemanticsInformation dstSI;
+			memset(&dstSI, 0, sizeof(dstSI));
+			if(srcSI->semanticsIdentifier) {
+				dstSI.semanticsIdentifier = (CSSM_DATA_PTR)coder.malloc(sizeof(CSSM_DATA));
+				coder.allocCopyItem(*srcSI->semanticsIdentifier, 
+					*dstSI.semanticsIdentifier);
+			}
+			if(srcSI->nameRegistrationAuthorities) {
+				dstSI.nameRegistrationAuthorities = 
+					(NSS_GeneralNames *)coder.malloc(sizeof(NSS_GeneralNames));
+				CL_cssmGeneralNamesToNss(*srcSI->nameRegistrationAuthorities,
+					*dstSI.nameRegistrationAuthorities, coder);
+			}
+			PRErrorCode prtn = coder.encodeItem(&dstSI, kSecAsn1SemanticsInformationTemplate, 
+				dst->info);
+			if(prtn) {
+				clErrorLog("CL_cssmQualCertStatementsToNss: encode error\n");
+				CssmError::throwMe(CSSMERR_CL_MEMORY_ERROR);
+			}
+			
+		}
+		if(src->otherInfo) {
+			/* drop in as ASN_ANY */
+			coder.allocCopyItem(*src->otherInfo, dst->info);
+		}
+	}
+}
+
+void CL_qualCertStatementsToCssm(
+	const NSS_QC_Statements 		&nssObj,
+	CE_QC_Statements 				&cdsaObj,
+	SecNssCoder 					&coder,	// for temp decoding
+	Allocator						&alloc)
+{
+	memset(&cdsaObj, 0, sizeof(cdsaObj));
+	unsigned numQcs = clNssArraySize((const void **)nssObj.qcStatements);
+	if(numQcs == 0) {
+		return;
+	}
+	cdsaObj.qcStatements = (CE_QC_Statement *)alloc.malloc(
+		numQcs * sizeof(CE_AccessDescription));
+	cdsaObj.numQCStatements = numQcs;
+	for(unsigned dex=0; dex<numQcs; dex++) {
+		CE_QC_Statement *dst = &cdsaObj.qcStatements[dex];
+		NSS_QC_Statement *src = nssObj.qcStatements[dex];
+
+		memset(dst, 0, sizeof(*dst));
+		clAllocCopyData(alloc, src->statementId, dst->statementId);
+
+		/* 
+		 * Whether the optional info is a SemanticsInformation or is uninterpreted
+ 		 * DER data depends on statementId.
+		 */
+		if(src->info.Data) {
+			if(clCompareCssmData(&src->statementId, &CSSMOID_OID_QCS_SYNTAX_V2)) {
+				NSS_SemanticsInformation srcSI;
+				memset(&srcSI, 0, sizeof(srcSI));
+
+				/* decode info as a NSS_SemanticsInformation */
+				PRErrorCode prtn = coder.decodeItem(src->info,
+					kSecAsn1SemanticsInformationTemplate, &srcSI);
+				if(prtn) {
+					clErrorLog("***Error decoding CE_SemanticsInformation\n");
+					CssmError::throwMe(CSSMERR_CL_UNKNOWN_FORMAT);
+				}
+
+				/* NSS_SemanticsInformation --> CE_SemanticsInformation */
+				dst->semanticsInfo = 
+					(CE_SemanticsInformation *)alloc.malloc(sizeof(CE_SemanticsInformation));
+				CE_SemanticsInformation *dstSI = dst->semanticsInfo;
+				memset(dstSI, 0, sizeof(*dstSI));
+				if(srcSI.semanticsIdentifier) {
+					dstSI->semanticsIdentifier = (CSSM_OID *)alloc.malloc(sizeof(CSSM_OID));
+					clAllocCopyData(alloc, *srcSI.semanticsIdentifier, *dstSI->semanticsIdentifier);
+				}
+				if(srcSI.nameRegistrationAuthorities) {
+					dstSI->nameRegistrationAuthorities = 
+						(CE_NameRegistrationAuthorities *)alloc.malloc(
+							sizeof(CE_NameRegistrationAuthorities));
+					CL_nssGeneralNamesToCssm(*srcSI.nameRegistrationAuthorities, 
+						*dstSI->nameRegistrationAuthorities,
+						coder,
+						alloc);
+				}
+			}
+			else {
+				dst->otherInfo = (CSSM_DATA_PTR)alloc.malloc(sizeof(CSSM_DATA));
+				clAllocCopyData(alloc, src->info, *dst->otherInfo);
+			}
+		}
+	}
+}
+
+void CL_freeQualCertStatements(
+	CE_QC_Statements	&cssmQCs,
+	Allocator			&alloc)
+{
+	uint32 numQCs = cssmQCs.numQCStatements;
+	for(unsigned dex=0; dex<numQCs; dex++) {
+		CE_QC_Statement *dst = &cssmQCs.qcStatements[dex];
+		alloc.free(dst->statementId.Data);
+		if(dst->semanticsInfo) {
+			CE_SemanticsInformation *si = dst->semanticsInfo;
+			if(si->semanticsIdentifier) {
+				alloc.free(si->semanticsIdentifier->Data);
+				alloc.free(si->semanticsIdentifier);
+			}
+			if(si->nameRegistrationAuthorities) {
+				CL_freeCssmGeneralNames(si->nameRegistrationAuthorities, alloc);
+				alloc.free(si->nameRegistrationAuthorities);
+			}
+			alloc.free(si);
+		}
+		if(dst->otherInfo) {
+			alloc.free(dst->otherInfo->Data);
+			alloc.free(dst->otherInfo);
+		}
+	}
+	alloc.free(cssmQCs.qcStatements);
+}
 
 #pragma mark ----- decode/encode CE_DistributionPointName -----
 

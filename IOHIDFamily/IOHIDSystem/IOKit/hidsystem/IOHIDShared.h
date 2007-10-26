@@ -298,10 +298,22 @@ typedef struct evioSpecialKeyMsg *evioSpecialKeyMsg_t;
 
 enum {
     kIOHIDCurrentShmemVersion	= 3,
+    kIOHIDEventNotification	= 0,
+};
+
+enum {
     kIOHIDServerConnectType	= 0,
     kIOHIDParamConnectType	= 1,
-    kIOHIDGlobalMemory		= 0,
-    kIOHIDEventNotification	= 0
+    kIOHIDEventSystemConnectType = 3,
+};
+
+enum {
+    kIOHIDGlobalMemory          = 0
+};
+
+enum {
+    kIOHIDEventQueueTypeKernel  = 0,
+    kIOHIDEventQueueTypeUser    = 1
 };
 
 #ifdef KERNEL

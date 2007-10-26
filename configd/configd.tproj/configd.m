@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,7 +30,7 @@
  * June 1, 2001			Allan Nathanson <ajn@apple.com>
  * - public API conversion
  *
- * 24 March 2000		Allan Nathanson (ajn@apple.com)
+ * 24 March 2000		Allan Nathanson <ajn@apple.com>
  * - created
  */
 
@@ -42,8 +42,10 @@
 #include <paths.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <objc/objc-runtime.h>
+#include <servers/bootstrap.h>
 
 #include "configd.h"
 #include "configd_server.h"
@@ -93,35 +95,81 @@ usage(const char *prog)
 
 
 static void
+allow_crash_reports(void)
+{
+	mach_msg_type_number_t	i;
+	exception_mask_t	masks[EXC_TYPES_COUNT];
+	mach_msg_type_number_t	n_masks			= 0;
+	mach_port_t		new_exception_port	= MACH_PORT_NULL;
+	exception_port_t	old_handlers[EXC_TYPES_COUNT];
+	exception_behavior_t	old_behaviors[EXC_TYPES_COUNT];
+	thread_state_flavor_t	old_flavors[EXC_TYPES_COUNT];
+	kern_return_t		status;
+
+	status = bootstrap_look_up(bootstrap_port, "com.apple.ReportCrash.DirectoryService", &new_exception_port);
+	if (status != BOOTSTRAP_SUCCESS) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("allow_crash_reports bootstrap_look_up() failed: %s"),
+		      bootstrap_strerror(status));
+		return;
+	}
+
+	// get information about the original crash exception port for the task
+	status = task_get_exception_ports(mach_task_self(),
+					  EXC_MASK_CRASH,
+					  masks,
+					  &n_masks,
+					  old_handlers,
+					  old_behaviors,
+					  old_flavors);
+	if (status != KERN_SUCCESS) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("allow_crash_reports task_get_exception_ports() failed: %s"),
+		      mach_error_string(status));
+		return;
+	}
+
+	// replace the original crash exception port with our new port
+	for (i = 0; i < n_masks; i++) {
+		status = task_set_exception_ports(mach_task_self(),
+						  masks[i],
+						  new_exception_port,
+						  old_behaviors[i],
+						  old_flavors[i]);
+		if (status != KERN_SUCCESS) {
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("allow_crash_reports task_set_exception_ports() failed: %s"),
+			      mach_error_string(status));
+		}
+	}
+
+	return;
+}
+
+
+static void
 catcher(int signum)
 {
 	switch (signum) {
+		case SIGINT :
 		case SIGTERM :
 			if (termRequested != NULL) {
-				mach_msg_empty_send_t	msg;
-				mach_msg_option_t	options;
-				kern_return_t		status;
+				if (_sc_log > 0) {
+					/*
+					 * if we've received a [shutdown] SIGTERM
+					 * and we are syslog'ing than it's likely
+					 * that syslogd is also being term'd.  As
+					 * such, let's also push any remaining log
+					 * messages to stdout/stderr.
+					 */
+					_sc_log++;
+				}
 
 				/*
 				 * send message to indicate that a request has been made
 				 * for the daemon to be shutdown.
 				 */
-				msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
-				msg.header.msgh_size = sizeof(msg);
-				msg.header.msgh_remote_port = CFMachPortGetPort(termRequested);
-				msg.header.msgh_local_port = MACH_PORT_NULL;
-				msg.header.msgh_id = 0;
-				options = MACH_SEND_TIMEOUT;
-				status = mach_msg(&msg.header,				/* msg */
-							    MACH_SEND_MSG|options,	/* options */
-							    msg.header.msgh_size,	/* send_size */
-							    0,				/* rcv_size */
-							    MACH_PORT_NULL,		/* rcv_name */
-							    0,				/* timeout */
-							    MACH_PORT_NULL);		/* notify */
-				if (status == MACH_SEND_TIMED_OUT) {
-					mach_msg_destroy(&msg.header);
-				}
+				_SC_sendMachMessage(CFMachPortGetPort(termRequested), 0);
 			} else {
 				_exit(EX_OK);
 			}
@@ -188,6 +236,7 @@ init_fds()
 		}
 	}
 
+	SCTrace(TRUE, stdout, CFSTR("start\n"));
 	return;
 }
 
@@ -201,6 +250,7 @@ set_trace()
 	fd = open("/var/log/configd.trace", O_WRONLY|O_APPEND, 0);
 	if (fd != -1) {
 		_configd_trace = fdopen(fd, "a");
+		SCTrace(TRUE, _configd_trace, CFSTR("start\n"));
 	}
 
 	return;
@@ -264,9 +314,22 @@ writepid(void)
 }
 
 
+static CFStringRef
+termMPCopyDescription(const void *info)
+{
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SIGTERM MP>"));
+}
+
+
 int
 main(int argc, char * const argv[])
 {
+	CFMachPortContext	context		= { 0
+						  , (void *)1
+						  , NULL
+						  , NULL
+						  , termMPCopyDescription
+						  };
 	Boolean			enableRestart	= (argc <= 1);	/* only if there are no arguments */
 	Boolean			forceForeground	= FALSE;
 	mach_port_limits_t	limits;
@@ -341,7 +404,7 @@ main(int argc, char * const argv[])
 	if (!forceForeground && (service_port == MACH_PORT_NULL)) {
 		/*
 		 * if we haven't been asked to run in the foreground
-		 * and have not been started by mach_init (i.e. we're
+		 * and have not been started by launchd (i.e. we're
 		 * not already running as a Foreground process) then
 		 * daemonize ourself.
 		 */
@@ -361,16 +424,29 @@ main(int argc, char * const argv[])
 	 * setup logging.
 	 */
 	if (!forceForeground) {
-		int	logopt	= LOG_NDELAY|LOG_PID;
+		int		facility	= LOG_DAEMON;
+		int		logopt		= LOG_CONS|LOG_NDELAY|LOG_PID;
+		struct stat	statbuf;
 
-		init_fds();
+		if (service_port == MACH_PORT_NULL) {
+			init_fds();
+		}
 
-		if (_configd_verbose)
+		if (_configd_verbose) {
 			logopt |= LOG_CONS;
-		openlog("configd", logopt, LOG_DAEMON);
+		}
+
+		if (stat("/etc/rc.cdrom", &statbuf) == 0) {
+			facility = LOG_INSTALL;
+		}
+
+		openlog("configd", logopt, facility);
 	} else {
 		_sc_log = FALSE;	/* redirect SCLog() to stdout/stderr */
 	}
+
+	/* enable crash reporting */
+	allow_crash_reports();
 
 	/* check/enable trace logging */
 	set_trace();
@@ -404,10 +480,17 @@ main(int argc, char * const argv[])
 		      strerror(errno));
 	}
 
-	/* create the "shutdown requested" notification port */
-	termRequested = CFMachPortCreate(NULL, term, NULL, NULL);
+	/* add signal handler to catch a SIGINT */
+	if (sigaction(SIGINT, &nact, NULL) == -1) {
+		SCLog(_configd_verbose, LOG_ERR,
+		      CFSTR("sigaction(SIGINT, ...) failed: %s"),
+		      strerror(errno));
+	}
 
-	// set queue limit
+	/* create the "shutdown requested" notification port */
+	termRequested = CFMachPortCreate(NULL, term, &context, NULL);
+
+	/* set queue limit */
 	limits.mpl_qlimit = 1;
 	status = mach_port_set_attributes(mach_task_self(),
 					  CFMachPortGetPort(termRequested),
@@ -418,7 +501,7 @@ main(int argc, char * const argv[])
 		perror("mach_port_set_attributes");
 	}
 
-	// add to our runloop
+	/* add to our runloop */
 	rls = CFMachPortCreateRunLoopSource(NULL, termRequested, 0);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 	CFRelease(rls);
@@ -428,13 +511,13 @@ main(int argc, char * const argv[])
 		server_init(service_port, enableRestart);
 
 		if (!forceForeground && (service_port == MACH_PORT_NULL)) {
-		    /* synchronize with parent process */
-		    kill(getppid(), SIGTERM);
+			/* synchronize with parent process */
+			kill(getppid(), SIGTERM);
 		}
 
 		/* load/initialize/start bundles into the secondary thread */
 		if (loadBundles) {
-			objc_setMultithreaded(YES);
+			/* start plug-in initialization */
 			plugin_init();
 		}
 
@@ -445,6 +528,6 @@ main(int argc, char * const argv[])
 		plugin_exec((void *)testBundle);
 	}
 
-	exit (EX_OK);	// insure the process exit status is 0
-	return 0;	// ...and make main fit the ANSI spec.
+	exit (EX_OK);	/* insure the process exit status is 0 */
+	return 0;	/* ...and make main fit the ANSI spec. */
 }

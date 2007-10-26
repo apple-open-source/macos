@@ -38,7 +38,12 @@
 #define RPP_FORCEUPPER  0x08		/* Force input to upper case. */
 #define RPP_SEVENBIT    0x10		/* Strip the high bit from input. */
 
-#include <sys/cdefs.h>
+#include <_types.h>
+
+#ifndef _SIZE_T
+#define _SIZE_T
+typedef	__darwin_size_t	size_t;
+#endif
 
 __BEGIN_DECLS
 char * readpassphrase(const char *, char *, size_t, int);

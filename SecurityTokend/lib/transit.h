@@ -59,8 +59,8 @@ using namespace Security::DataWalkers;
 
 
 #define CALL(func,args)	{ \
-	if (server.func) \
-		{ if (*rcode = server.func args) return KERN_SUCCESS; /* and rcode */ } \
+	if (server->func) \
+		{ if (*rcode = server->func args) return KERN_SUCCESS; /* and rcode */ } \
 	else \
 		CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED); }
 
@@ -80,7 +80,7 @@ public:
 	OutputData(void **outP, mach_msg_type_number_t *outLength)
 		: mData(*outP), mLength(*outLength) { }
 	~OutputData()
-	{ mData = data(); mLength = length(); server.releaseWhenDone(mData); }
+	{ mData = data(); mLength = length(); server->releaseWhenDone(mData); }
     
     void operator = (const CssmData &source)
     { CssmData::operator = (source); }
@@ -113,7 +113,7 @@ Return<T>::~Return()
 	Copier<T> copier(static_cast<T*>(this), Allocator::standard());
 	ptr = base = copier;
 	len = copier.length();
-	server.releaseWhenDone(copier.keep());
+	server->releaseWhenDone(copier.keep());
 }
 
 

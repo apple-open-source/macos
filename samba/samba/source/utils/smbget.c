@@ -22,11 +22,17 @@
 
 #if _FILE_OFFSET_BITS==64
 #define OFF_T_FORMAT "%lld"
+#define OFF_T_FORMAT_CAST long long
 #else
 #define OFF_T_FORMAT "%ld"
+#define OFF_T_FORMAT_CAST long
 #endif
 
 int columns = 0;
+
+static int _resume, _recursive, debuglevel;
+static char *outputfile;
+
 
 time_t total_start_time = 0;
 off_t total_bytes = 0;
@@ -44,9 +50,9 @@ const char *username = NULL, *password = NULL, *workgroup = NULL;
 int nonprompt = 0, quiet = 0, dots = 0, keep_permissions = 0, verbose = 0, send_stdout = 0;
 int blocksize = SMB_DEFAULT_BLOCKSIZE;
 
-int smb_download_file(const char *base, const char *name, int recursive, int resume, char *outfile);
+static int smb_download_file(const char *base, const char *name, int recursive, int resume, char *outfile);
 
-int get_num_cols(void)
+static int get_num_cols(void)
 {
 #ifdef TIOCGWINSZ
 	struct winsize ws;
@@ -62,20 +68,20 @@ int get_num_cols(void)
 #endif
 }
 
-void change_columns(int sig)
+static void change_columns(int sig)
 {
 	columns = get_num_cols();
 }
 
-void human_readable(off_t s, char *buffer, int l)
+static void human_readable(off_t s, char *buffer, int l)
 {
 	if(s > 1024 * 1024 * 1024) snprintf(buffer, l, "%.2fGb", 1.0 * s / (1024 * 1024 * 1024));
 	else if(s > 1024 * 1024) snprintf(buffer, l, "%.2fMb", 1.0 * s / (1024 * 1024));
 	else if(s > 1024) snprintf(buffer, l, "%.2fkb", 1.0 * s / 1024);
-	else snprintf(buffer, l, OFF_T_FORMAT"b", s);
+	else snprintf(buffer, l, OFF_T_FORMAT"b", (OFF_T_FORMAT_CAST)s);
 }
 
-void get_auth_data(const char *srv, const char *shr, char *wg, int wglen, char *un, int unlen, char *pw, int pwlen)
+static void get_auth_data(const char *srv, const char *shr, char *wg, int wglen, char *un, int unlen, char *pw, int pwlen)
 {
 	static char hasasked = 0;
 	char *wgtmp, *usertmp;
@@ -101,13 +107,13 @@ void get_auth_data(const char *srv, const char *shr, char *wg, int wglen, char *
 
 	if(workgroup)strncpy(wg, workgroup, wglen-1);
 
-	wgtmp = strndup(wg, wglen); 
-	usertmp = strndup(un, unlen);
+	wgtmp = SMB_STRNDUP(wg, wglen); 
+	usertmp = SMB_STRNDUP(un, unlen);
 	if(!quiet)printf("Using workgroup %s, %s%s\n", wgtmp, *usertmp?"user ":"guest user", usertmp);
 	free(wgtmp); free(usertmp);
 }
 
-int smb_download_dir(const char *base, const char *name, int resume)
+static int smb_download_dir(const char *base, const char *name, int resume)
 {
 	char path[SMB_MAXPATHLEN];
 	int dirhandle;
@@ -128,7 +134,7 @@ int smb_download_dir(const char *base, const char *name, int resume)
 	while(*relname == '/')relname++;
 	mkdir(relname, 0755);
 	
-	tmpname = strdup(name);
+	tmpname = SMB_STRDUP(name);
 
 	while((dirent = smbc_readdir(dirhandle))) {
 		char *newname;
@@ -193,7 +199,7 @@ int smb_download_dir(const char *base, const char *name, int resume)
 	return 1;
 }
 
-char *print_time(long t)
+static char *print_time(long t)
 {
 	static char buffer[100];
 	int secs, mins, hours;
@@ -209,7 +215,7 @@ char *print_time(long t)
 	return buffer;
 }
 
-void print_progress(const char *name, time_t start, time_t now, off_t start_pos, off_t pos, off_t total)
+static void print_progress(const char *name, time_t start, time_t now, off_t start_pos, off_t pos, off_t total)
 {
 	double avg = 0.0;
 	long  eta = -1; 
@@ -230,15 +236,15 @@ void print_progress(const char *name, time_t start, time_t now, off_t start_pos,
 	if(columns) {
 		int required = strlen(name), available = columns - len - strlen("[] ");
 		if(required > available) asprintf(&filename, "...%s", name + required - available + 3);
-		else filename = strndup(name, available);
-	} else filename = strdup(name);
+		else filename = SMB_STRNDUP(name, available);
+	} else filename = SMB_STRDUP(name);
 
 	fprintf(stderr, "\r[%s] %s", filename, status);
 
 	free(filename); free(status);
 }
 
-int smb_download_file(const char *base, const char *name, int recursive, int resume, char *outfile) {
+static int smb_download_file(const char *base, const char *name, int recursive, int resume, char *outfile) {
 	int remotehandle, localhandle;
 	time_t start_time = time(NULL);
 	const char *newpath;
@@ -323,8 +329,10 @@ int smb_download_file(const char *base, const char *name, int recursive, int res
 			offset_download = localstat.st_size - RESUME_DOWNLOAD_OFFSET;
 			offset_check = localstat.st_size - RESUME_CHECK_OFFSET;
 			if(verbose)printf("Trying to start resume of %s at "OFF_T_FORMAT"\n"
-				   "At the moment "OFF_T_FORMAT" of "OFF_T_FORMAT" bytes have been retrieved\n", newpath, offset_check, 
-				   localstat.st_size, remotestat.st_size);
+				   "At the moment "OFF_T_FORMAT" of "OFF_T_FORMAT" bytes have been retrieved\n",
+				newpath, (OFF_T_FORMAT_CAST)offset_check, 
+				(OFF_T_FORMAT_CAST)localstat.st_size,
+				(OFF_T_FORMAT_CAST)remotestat.st_size);
 		}
 
 		if(offset_check) { 
@@ -332,20 +340,24 @@ int smb_download_file(const char *base, const char *name, int recursive, int res
 			/* First, check all bytes from offset_check to offset_download */
 			off1 = lseek(localhandle, offset_check, SEEK_SET);
 			if(off1 < 0) {
-				fprintf(stderr, "Can't seek to "OFF_T_FORMAT" in local file %s\n", offset_check, newpath);
+				fprintf(stderr, "Can't seek to "OFF_T_FORMAT" in local file %s\n",
+					(OFF_T_FORMAT_CAST)offset_check, newpath);
 				smbc_close(remotehandle); close(localhandle);
 				return 0;
 			}
 
 			off2 = smbc_lseek(remotehandle, offset_check, SEEK_SET); 
 			if(off2 < 0) {
-				fprintf(stderr, "Can't seek to "OFF_T_FORMAT" in remote file %s\n", offset_check, newpath);
+				fprintf(stderr, "Can't seek to "OFF_T_FORMAT" in remote file %s\n",
+					(OFF_T_FORMAT_CAST)offset_check, newpath);
 				smbc_close(remotehandle); close(localhandle);
 				return 0;
 			}
 
 			if(off1 != off2) {
-				fprintf(stderr, "Offset in local and remote files is different (local: "OFF_T_FORMAT", remote: "OFF_T_FORMAT")\n", off1, off2);
+				fprintf(stderr, "Offset in local and remote files is different (local: "OFF_T_FORMAT", remote: "OFF_T_FORMAT")\n",
+					(OFF_T_FORMAT_CAST)off1,
+					(OFF_T_FORMAT_CAST)off2);
 				return 0;
 			}
 
@@ -362,7 +374,7 @@ int smb_download_file(const char *base, const char *name, int recursive, int res
 			}
 
 			if(memcmp(checkbuf[0], checkbuf[1], RESUME_CHECK_SIZE) == 0) {
-				if(verbose)printf("Current local and remote file appear to be the same. Starting download from offset "OFF_T_FORMAT"\n", offset_download);
+				if(verbose)printf("Current local and remote file appear to be the same. Starting download from offset "OFF_T_FORMAT"\n", (OFF_T_FORMAT_CAST)offset_download);
 			} else {
 				fprintf(stderr, "Local and remote file appear to be different, not doing resume for %s\n", path);
 				smbc_close(remotehandle); close(localhandle);
@@ -376,13 +388,13 @@ int smb_download_file(const char *base, const char *name, int recursive, int res
 		offset_check = 0;
 	}
 
-	readbuf = malloc(blocksize);
+	readbuf = (char *)SMB_MALLOC(blocksize);
 
 	/* Now, download all bytes from offset_download to the end */
 	for(curpos = offset_download; curpos < remotestat.st_size; curpos+=blocksize) {
 		ssize_t bytesread = smbc_read(remotehandle, readbuf, blocksize);
 		if(bytesread < 0) {
-			fprintf(stderr, "Can't read %d bytes at offset "OFF_T_FORMAT", file %s\n", blocksize, curpos, path);
+			fprintf(stderr, "Can't read %u bytes at offset "OFF_T_FORMAT", file %s\n", (unsigned int)blocksize, (OFF_T_FORMAT_CAST)curpos, path);
 			smbc_close(remotehandle);
 			if (localhandle != STDOUT_FILENO) close(localhandle);
 			free(readbuf);
@@ -392,7 +404,7 @@ int smb_download_file(const char *base, const char *name, int recursive, int res
 		total_bytes += bytesread;
 
 		if(write(localhandle, readbuf, bytesread) < 0) {
-			fprintf(stderr, "Can't write %d bytes to local file %s at offset "OFF_T_FORMAT"\n", bytesread, path, curpos);
+			fprintf(stderr, "Can't write %u bytes to local file %s at offset "OFF_T_FORMAT"\n", (unsigned int)bytesread, path, (OFF_T_FORMAT_CAST)curpos);
 			free(readbuf);
 			smbc_close(remotehandle);
 			if (localhandle != STDOUT_FILENO) close(localhandle);
@@ -435,7 +447,7 @@ int smb_download_file(const char *base, const char *name, int recursive, int res
 	return 1;
 }
 
-void clean_exit(void)
+static void clean_exit(void)
 {
 	char bs[100];
 	human_readable(total_bytes, bs, sizeof(bs));
@@ -443,12 +455,12 @@ void clean_exit(void)
 	exit(0);
 }
 
-void signal_quit(int v)
+static void signal_quit(int v)
 {
 	clean_exit();
 }
 
-int readrcfile(const char *name, const struct poptOption long_options[])
+static int readrcfile(const char *name, const struct poptOption long_options[])
 {
 	FILE *fd = fopen(name, "r");
 	int lineno = 0, i;
@@ -487,7 +499,7 @@ int readrcfile(const char *name, const struct poptOption long_options[])
 				break;
 			case POPT_ARG_STRING:
 				stringdata = (char **)long_options[i].arg;
-				*stringdata = strdup(val);
+				*stringdata = SMB_STRDUP(val);
 				break;
 			default:
 				fprintf(stderr, "Invalid variable %s at line %d in %s\n", var, lineno, name);
@@ -507,16 +519,13 @@ int readrcfile(const char *name, const struct poptOption long_options[])
 
 int main(int argc, const char **argv)
 {
-	int resume = 0, recursive = 0;
 	int c = 0;
-	int debuglevel = 0;
 	const char *file = NULL;
 	char *rcfile = NULL;
-	char *outputfile = NULL;
 	struct poptOption long_options[] = {
 		{"guest", 'a', POPT_ARG_NONE, NULL, 'a', "Work as user guest" },	
-		{"resume", 'r', POPT_ARG_NONE, &resume, 0, "Automatically resume aborted files" },
-		{"recursive", 'R',  POPT_ARG_NONE, &recursive, 0, "Recursively download files" },
+		{"resume", 'r', POPT_ARG_NONE, &_resume, 0, "Automatically resume aborted files" },
+		{"recursive", 'R',  POPT_ARG_NONE, &_recursive, 0, "Recursively download files" },
 		{"username", 'u', POPT_ARG_STRING, &username, 'u', "Username to use" },
 		{"password", 'p', POPT_ARG_STRING, &password, 'p', "Password to use" },
 		{"workgroup", 'w', POPT_ARG_STRING, &workgroup, 'w', "Workgroup to use (optional)" },
@@ -535,9 +544,12 @@ int main(int argc, const char **argv)
 	};
 	poptContext pc;
 
+	load_case_tables();
+
 	/* only read rcfile if it exists */
 	asprintf(&rcfile, "%s/.smbgetrc", getenv("HOME"));
-	if(access(rcfile, F_OK) == 0) readrcfile(rcfile, long_options);
+	if(access(rcfile, F_OK) == 0) 
+		readrcfile(rcfile, long_options);
 	free(rcfile);
 
 #ifdef SIGWINCH
@@ -559,7 +571,7 @@ int main(int argc, const char **argv)
 		}
 	}
 
-	if((send_stdout || outputfile) && recursive) {
+	if((send_stdout || outputfile) && _recursive) {
 		fprintf(stderr, "The -o or -O and -R options can not be used together.\n");
 		return 1;
 	}
@@ -578,9 +590,11 @@ int main(int argc, const char **argv)
 
 	total_start_time = time(NULL);
 
-	while((file = poptGetArg(pc))) {
-		if(!recursive) return smb_download_file(file, "", recursive, resume, outputfile);
-		else return smb_download_dir(file, "", resume);
+	while ( (file = poptGetArg(pc)) ) {
+		if (!_recursive) 
+			return smb_download_file(file, "", _recursive, _resume, outputfile);
+		else 
+			return smb_download_dir(file, "", _resume);
 	}
 
 	clean_exit();

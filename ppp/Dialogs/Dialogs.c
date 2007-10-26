@@ -103,6 +103,7 @@ static void dialog_change_reminder();
  PPP globals
 ----------------------------------------------------------------------------- */
 
+extern int 		kill_link;
 
 static CFBundleRef 	bundle = 0;		/* our bundle ref */
 static CFURLRef		bundleURL = 0;
@@ -114,6 +115,10 @@ static bool 	askpasswordafter = 0;	/* Ask password after physical connection is 
 static bool 	noaskpassword = 0;	/* Don't ask for a password before to connect */
 static bool 	noidleprompt = 0;	/* Don't ask user before to disconnect on idle */
 static int 	reminder = 0;		/* Ask user to stay connected after reminder period */
+
+static pthread_t dialog_ui_thread; /* UI thread */
+static int dialog_ui_fds[2];	/* files descriptors for UI thread */
+static CFUserNotificationRef 	dialog_alert = 0; /* the dialog ref */
 
 
 /* option descriptors */
@@ -242,32 +247,9 @@ void dialog_reminder(void *arg)
 /* -----------------------------------------------------------------------------
 Returns 1 on OK, 0 if cancelled
 user and password have max size 256
-
-Note: in this function, the strings related to retry and change password are hardcoded
-radar 3942343 & 3968665
-They were originally defined as followed :
-
-"Token:" = "Please enter your token:";
-"Incorrectly entered token" = "Your token was entered incorrectly.";
-
-"Expired password" = "Your password has expired.";
-"Expired token" = "Your PIN has expired.";
-
-"Incorrect password" = "Your name or password was incorrect.";
-"Incorrect token" = "Your name or token was incorrect.";
-
-"New password:" = "Please enter your new password:";
-"Confirm new password:" = "Confirm your new password:";
-"New token:" = "Please enter your new PIN:";
-"Confirm new token:" = "Confirm your new PIN:";
-
-"Retry name:" = "Please enter your name:";
-"Retry password:" = "Please enter your password:";
-"Retry token:" = "Please enter your token:";
 ----------------------------------------------------------------------------- */
 int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, int dialog_type, char *message)
 {
-    CFUserNotificationRef 	alert;
     CFOptionFlags 		flags;
     CFMutableDictionaryRef 	dict;
     SInt32 			err;
@@ -295,59 +277,68 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
 			}			
 		}
 
-        if (dialog_type == DIALOG_PASSWORD_CHANGE)
-            CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, (tokencard == 1) ? CFSTR("Your PIN has expired") : CFSTR("Your password has expired."));
-            // HARDCODED STRING CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, (tokencard == 1) ? CFSTR("Expired token") : CFSTR("Expired password"));
-		else if (dialog_type == DIALOG_PASSWORD_RETRY)
-            CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, (tokencard == 1) ? CFSTR("Your name or token was incorrect.") : CFSTR("Your name or password was incorrect."));
-            // HARDCODED STRING CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, (tokencard == 1) ? CFSTR("Incorrect token") : CFSTR("Incorrect password"));
+		switch (dialog_type) {
+			case DIALOG_PASSWORD_CHANGE:
+	            CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, (tokencard == 1) ? CFSTR("Expired token") : CFSTR("Expired password"));
+				break;
+			case DIALOG_PASSWORD_RETRY:
+				CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, (tokencard == 1) ? CFSTR("Incorrect token") : CFSTR("Incorrect password"));
+				break;
+		}
 		
         array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);  
         if (array) {
-			if (dialog_type == DIALOG_PASSWORD_CHANGE) {
-				CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("Please enter your new PIN:") : CFSTR("Please enter your new password:"));
-				// HARDCODED STRING CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("New token:") : CFSTR("New password:"));
-				CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("Confirm your new PIN:") : CFSTR("Confirm your new password:"));
-				// HARDCODED STRING CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("Confirm new token:") : CFSTR("Confirm new password:"));
+			switch (dialog_type) {
+				case DIALOG_PASSWORD_CHANGE:
+					CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("New token:") : CFSTR("New password:"));
+					CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("Confirm new token:") : CFSTR("Confirm new password:"));
+					break;
+				case DIALOG_PASSWORD_RETRY:
+					CFArrayAppendValue(array, CFSTR("Retry name:"));
+					CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("Retry token:") : CFSTR("Retry password:"));
+					break;
+				case DIALOG_PASSWORD_ASK:
+				default:
+					CFArrayAppendValue(array, CFSTR("Account Name:"));
+					CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("Token:") : CFSTR("Password:"));
+					break;
 			}
-			else if (dialog_type == DIALOG_PASSWORD_RETRY) {
-				CFArrayAppendValue(array, CFSTR("Please enter your name:"));
-				// HARDCODED STRING CFArrayAppendValue(array, CFSTR("Retry name:"));
-				CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("Please enter your token:") : CFSTR("Please enter your password:"));
-				// HARDCODED STRING CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("Retry token:") : CFSTR("Retry password:"));
-			}
-			else 
-				CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("Please enter your token:") : CFSTR("Password:"));
-				// HARDCODED STRING CFArrayAppendValue(array, (tokencard == 1) ? CFSTR("Token:") : CFSTR("Password:"));
+			
             CFDictionaryAddValue(dict, kCFUserNotificationTextFieldTitlesKey, array);
             CFRelease(array);
         }
 
         array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);  
         if (array) {
-			if (dialog_type == DIALOG_PASSWORD_RETRY) {
-				if (str = CFStringCreateWithCString(NULL, user, kCFStringEncodingUTF8)) {
-					CFArrayAppendValue(array, str);
-					CFRelease(str);
-				}			
+			switch (dialog_type) {
+				case DIALOG_PASSWORD_CHANGE:
+					break;
+				case DIALOG_PASSWORD_RETRY:
+				case DIALOG_PASSWORD_ASK:
+				default:
+					if (str = CFStringCreateWithCString(NULL, user, kCFStringEncodingUTF8)) {
+						CFArrayAppendValue(array, str);
+						CFRelease(str);
+					}			
 			}
             CFDictionaryAddValue(dict, kCFUserNotificationTextFieldValuesKey, array);
             CFRelease(array);
         }
 
-       CFDictionaryAddValue(dict, kCFUserNotificationLocalizationURLKey, bundleURL);
+		CFDictionaryAddValue(dict, kCFUserNotificationLocalizationURLKey, bundleURL);
         CFDictionaryAddValue(dict, kCFUserNotificationAlertHeaderKey, CFSTR("Internet Connect"));
         if (loop)
-            CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, (tokencard == 1) ? CFSTR("Your token was entered incorrectly") : CFSTR("Incorrectly entered password"));
-            // HARDCODED STRING CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, (tokencard == 1) ? CFSTR("Incorrectly entered token") : CFSTR("Incorrectly entered password"));
+            CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, (tokencard == 1) ? CFSTR("Incorrectly entered token") : CFSTR("Incorrectly entered password"));
         //CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, CFSTR("Enter password"));
         CFDictionaryAddValue(dict, kCFUserNotificationAlternateButtonTitleKey, CFSTR("Cancel"));
         
-        alert = CFUserNotificationCreate(NULL, 0, 
-			(dialog_type != DIALOG_PASSWORD_RETRY ? CFUserNotificationSecureTextField(0) : 0)
-			+ ((dialog_type != DIALOG_PASSWORD_ASK) ? CFUserNotificationSecureTextField(1) : 0), &err, dict);
-        if (alert) {
-            CFUserNotificationReceiveResponse(alert, 0, &flags);
+		flags = CFUserNotificationSecureTextField(1);
+		if (dialog_type == DIALOG_PASSWORD_CHANGE)
+			flags += CFUserNotificationSecureTextField(0);
+			
+        dialog_alert = CFUserNotificationCreate(NULL, 0, flags, &err, dict);
+        if (dialog_alert) {
+            CFUserNotificationReceiveResponse(dialog_alert, 0, &flags);
             // the 2 lower bits of the response flags will give the button pressed
             // 0 --> default
             // 1 --> alternate
@@ -357,31 +348,29 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
             else { 
                 // user clicked OK
                 ret = 1;
-                str = CFUserNotificationGetResponseValue(alert, kCFUserNotificationTextFieldValuesKey, 0);
+                str = CFUserNotificationGetResponseValue(dialog_alert, kCFUserNotificationTextFieldValuesKey, 0);
+				str1 = CFUserNotificationGetResponseValue(dialog_alert, kCFUserNotificationTextFieldValuesKey, 1);
 				
-				if (dialog_type == DIALOG_PASSWORD_CHANGE) {
-					str1 = CFUserNotificationGetResponseValue(alert, kCFUserNotificationTextFieldValuesKey, 1);
-					if (!(str && str1 && CFStringCompare(str, str1, 0) == kCFCompareEqualTo))
-						ret = -1;
-				}
-				
-				if (dialog_type == DIALOG_PASSWORD_RETRY) {
-					str1 = CFUserNotificationGetResponseValue(alert, kCFUserNotificationTextFieldValuesKey, 1);
-					if (str && str1) {
-						if (CFStringGetCString(str, user, maxuserlen, kCFStringEncodingUTF8) == FALSE)
+				switch (dialog_type) {
+					case DIALOG_PASSWORD_CHANGE:
+						if (!(str && str1 
+								&& (CFStringCompare(str, str1, 0) == kCFCompareEqualTo)
+								&& CFStringGetCString(str1, passwd, maxpasswdlen, kCFStringEncodingUTF8)))
 							ret = -1;
-						if (CFStringGetCString(str1, passwd, maxpasswdlen, kCFStringEncodingUTF8) == FALSE)
-							ret = -1;
-					}
+						break;
+					case DIALOG_PASSWORD_RETRY:
+					case DIALOG_PASSWORD_ASK:
+					default:
+						if (!(str && str1
+							&& CFStringGetCString(str, user, maxuserlen, kCFStringEncodingUTF8)
+							&& CFStringGetCString(str1, passwd, maxpasswdlen, kCFStringEncodingUTF8)))
+								ret = -1;
 				}
-				else {
-					if (ret > 0 && str) 
-						if (CFStringGetCString(str, passwd, maxpasswdlen, kCFStringEncodingUTF8) == FALSE)
-							ret = -1;
-				}
+
            }
 
-            CFRelease(alert);
+            CFRelease(dialog_alert);
+			dialog_alert = 0;
         }
         
         CFRelease(dict);
@@ -389,6 +378,99 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
     loop++;
     } while (ret < 0);
     return ret;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static void
+*dialog_UIThread(void *arg)
+{
+    /* int 	unit = (int)arg; */ 
+    char	result = 0;
+    int 	ret;
+
+    if (pthread_detach(pthread_self()) == 0) {
+        
+		// username can be changed
+		ret = dialog_password(username, MAXNAMELEN, passwd, MAXSECRETLEN, DIALOG_PASSWORD_ASK, 0);
+
+		if (ret == 1)
+			result = 1;
+    }
+
+    if (dialog_ui_fds[1] != -1)
+		write(dialog_ui_fds[1], &result, 1);
+		
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static int readn(int ref, void *data, int len)
+{
+    int 	n, left = len;
+    void 	*p = data;
+    
+    while (left > 0) {
+        if ((n = read(ref, p, left)) < 0) {
+            if (kill_link)
+                return 0;
+            if (errno != EINTR) 
+                return -1;
+            n = 0;
+        }
+        else if (n == 0)
+            break; /* EOF */
+            
+        left -= n;
+        p += n;
+    }
+    return (len - left);
+}        
+
+/* -----------------------------------------------------------------------------
+Returns 1 if continue, 0 if cancel.
+----------------------------------------------------------------------------- */
+int dialog_invoke_ui_thread()
+{
+	int ret = 0;
+	char result;
+
+    if (pipe(dialog_ui_fds) < 0) {
+        error("Dialogs failed to create pipe for User Interface...\n");
+        return -1;
+    }
+
+    if (pthread_create(&dialog_ui_thread, NULL, dialog_UIThread, 0 /* unit number */)) {
+        error("Dialogs failed to create thread for client User Interface...\n");
+        close(dialog_ui_fds[0]);
+        close(dialog_ui_fds[1]);
+        return 1;
+    }
+    
+		
+	ret = readn(dialog_ui_fds[0], &result, 1);
+
+	close(dialog_ui_fds[0]);
+	dialog_ui_fds[0] = -1;
+	close(dialog_ui_fds[1]);
+	dialog_ui_fds[1] = -1;
+
+	if (ret <= 0) {
+		
+		if (dialog_alert) {
+			CFUserNotificationCancel(dialog_alert);
+			// ui thread will finish itself
+		}
+		// cancel
+		return 0;
+	}
+		
+	ret = result;
+	if (ret == 1)
+		strncpy(user, username, MAXNAMELEN);
+
+	return ret;
 }
 
 /* -----------------------------------------------------------------------------
@@ -400,7 +482,7 @@ int dialog_start_link()
     if (noaskpassword || *passwd || askpasswordafter) 
         return 1;
    
-    return dialog_password(user, MAXNAMELEN, passwd, MAXSECRETLEN, DIALOG_PASSWORD_ASK, 0);
+   return dialog_invoke_ui_thread();
 }
 
 /* -----------------------------------------------------------------------------
@@ -409,10 +491,15 @@ Returns 1 if continue, 0 if cancel.
 ----------------------------------------------------------------------------- */
 int dialog_change_password(char *msg)
 {
-   // if (noaskpassword) 
-   //     return 1;
+	int ret = 0;
+
+    if (noaskpassword) 
+        return 1;
    
-    return dialog_password(user, MAXNAMELEN, new_passwd, MAXSECRETLEN, DIALOG_PASSWORD_CHANGE, msg);
+	// does not change the username, only the password
+    ret = dialog_password(username, MAXNAMELEN, new_passwd, MAXSECRETLEN, DIALOG_PASSWORD_CHANGE, msg);
+
+	return ret;
 }
 
 /* -----------------------------------------------------------------------------
@@ -421,10 +508,18 @@ Returns 1 if continue, 0 if cancel.
 ----------------------------------------------------------------------------- */
 int dialog_retry_password(char *msg)
 {
-   // if (noaskpassword) 
-   //     return 1;
+	int ret = 0;
+
+    if (noaskpassword) 
+        return 1;
    
-    return dialog_password(user, MAXNAMELEN, passwd, MAXSECRETLEN, DIALOG_PASSWORD_RETRY, msg);
+	// username can be changed
+    ret = dialog_password(username, MAXNAMELEN, passwd, MAXSECRETLEN, DIALOG_PASSWORD_RETRY, msg);
+	
+	if (ret == 1)
+		strncpy(user, username, MAXNAMELEN);
+
+	return ret;
 }
 
 /* -----------------------------------------------------------------------------
@@ -436,7 +531,7 @@ int dialog_link_up()
     if (noaskpassword || *passwd || !askpasswordafter) 
         return 1;
    
-    return dialog_password(user, MAXNAMELEN, passwd, MAXSECRETLEN, DIALOG_PASSWORD_ASK, 0);
+   return dialog_invoke_ui_thread();
 }
 
 #ifdef UNUSED

@@ -3,10 +3,14 @@
 /* code to notify the Apple Password Server of Kerberos logins	*/
 
 
+#ifndef APPLE_KDC_MODS
+#define APPLE_KDC_MODS
+#endif
 #ifdef APPLE_KDC_MODS
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -112,6 +116,8 @@ int kdc_update_pws( const char *inPrinciple, int inError, int inCheck)
 			reply = KDC_ERR_POLICY;
 		else if(pwsReply.err == kAuthUserNotSet) // not found in the db (not really an error)
 			reply = 0;
+		else if(pwsReply.err == kAuthPasswordNeedsChange) // password needs change (not really an error)
+			reply = 0;
 		else
 			reply = KDC_ERR_POLICY;
 	} else {
@@ -136,24 +142,18 @@ int kdc_update_pws( const char *inPrinciple, int inError, int inCheck)
 int kdc_contact_pws(void)
 {
 	int pws_socket;
-	struct sockaddr_in  addr;
+	struct sockaddr_un  addr;
 	struct timeval sendTimeoutVal = { 3 , 0 };  // three seconds
 	int val = 1;
 	
-	addr.sin_family = AF_INET;
-	addr.sin_len = sizeof(struct sockaddr_in);
-	addr.sin_port = htons(kPWSPort);
-	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	addr.sun_family = AF_UNIX;
+	addr.sun_len = sizeof(struct sockaddr_un);
+	strcpy(addr.sun_path, "/var/run/passwordserver");
 
-	pws_socket = socket(AF_INET, SOCK_STREAM, 0);
+	pws_socket = socket(AF_UNIX, SOCK_STREAM, 0);
 	
 	// set a timeout on the socket
-	// SO_USELOOPBACK - avoid hw if possible
 	// SO_SNDTIMEO - send timeout
-    if(setsockopt(pws_socket, SOL_SOCKET, SO_USELOOPBACK, &val, sizeof(val)) == -1)
-	{
-		return -1;	 
-	}
 
     if(setsockopt(pws_socket, SOL_SOCKET, SO_SNDTIMEO, &sendTimeoutVal, sizeof(sendTimeoutVal)) == -1)
 	{
@@ -328,3 +328,4 @@ PWServerError readFromServerGetErrorCode( char *buf )
 }
 
 #endif /* APPLE_KDC_MODS */
+

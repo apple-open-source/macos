@@ -8,17 +8,21 @@ if exists("current_compiler")
 endif
 let current_compiler = "fortran_cv"
 
+if exists(":CompilerSet") != 2		" older Vim always used :setlocal
+  command -nargs=* CompilerSet setlocal <args>
+endif
+
 let s:cposet = &cpoptions
 set cpoptions-=C
 
 " A workable errorformat for Compaq Visual Fortran
-setlocal errorformat=
+CompilerSet errorformat=
 		\%E%f(%l)\ :\ Error:%m,
 		\%W%f(%l)\ :\ Warning:%m,
 		\%-Z%p%^%.%#,
 		\%-G%.%#,
 " Compiler call
-setlocal makeprg=df\ /nologo\ /noobj\ /c\ %
+CompilerSet makeprg=df\ /nologo\ /noobj\ /c\ %
 " Visual fortran defaults to printing output on stderr
 " Adjust option shellpipe accordingly
 

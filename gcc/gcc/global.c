@@ -44,6 +44,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define REWRITE_WEIGHT_COMPUTATION
 #endif
 /* APPLE LOCAL end rewrite weight computation */
+/* APPLE LOCAL begin ARM pseudo-pseudo tying */
+#ifndef TIE_PSEUDOS
+#define TIE_PSEUDOS 0
+#endif
+/* APPLE LOCAL end ARM pseudo-pseudo tying */
 
 /* This pass of the compiler performs global register allocation.
    It assigns hard register numbers to all the pseudo registers
@@ -84,6 +89,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    5. Allocate the variables in that order; each if possible into
    a preferred register, else into another register.  */
 
+/* APPLE LOCAL begin CW asm blocks */
+extern int flag_iasm_blocks;
+/* APPLE LOCAL end CW asm blocks */
+
 /* Number of pseudo-registers which are candidates for allocation.  */
 
 static int max_allocno;
@@ -234,6 +243,39 @@ do {									\
   &= ~((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
 /* APPLE LOCAL end 4321079 */
 
+/* APPLE LOCAL begin 4253848 */
+
+#define ALLOCNO_SET_INITIALIZE(DST)				\
+  (DST = xcalloc (max_allocno * allocno_row_words, sizeof (INT_TYPE)))
+
+#define CLEAR_ALLOCNO_BIT(SET, BIT)				\
+ (SET[((unsigned)(BIT) / INT_BITS) * allocno_row_words]		\
+  &= ~((INT_TYPE) 1 << ((unsigned) (BIT) % INT_BITS)))
+
+#define FOR_EVERY_ALLOCNO_SET_WORD(I)				\
+  for (I = 0; (I) < allocno_row_words; I++)
+
+#define CLEAR_ALLOCNO_SET(DST)					\
+  memset (DST, 0, allocno_row_words * sizeof (INT_TYPE))
+
+#define COPY_ALLOCNO_SET(DST, SRC)				\
+  memcpy (DST, SRC, allocno_row_words * sizeof (INT_TYPE))
+
+#define GO_IF_ALLOCNO_SET_EMPTY(SET, TO)			\
+  do {								\
+    int __i;							\
+    FOR_EVERY_ALLOCNO_SET_WORD (__i)				\
+      if (*(SET + __i))						\
+        goto __not_##TO;					\
+  goto TO;							\
+   __not_##TO:;							\
+  } while (0);
+
+/* Indexing for the pseudo_preferences array.  */
+#define PSEUDO_PREFERENCES(INDEX)				\
+  (pseudo_preferences + (INDEX) * allocno_row_words)
+
+/* APPLE LOCAL end 4253848 */
 /* This doesn't work for non-GNU C due to the way CODE is macro expanded.  */
 #if 0
 /* For any allocno that conflicts with IN_ALLOCNO, set OUT_ALLOCNO to
@@ -261,6 +303,13 @@ static HARD_REG_SET regs_used_so_far;
 
 static int local_reg_n_refs[FIRST_PSEUDO_REGISTER];
 
+/* APPLE LOCAL begin ARM pseudo-pseudo tying */
+/* Set with no registers.  This is not declared const to avoid a warning at the point
+   of use; but it is const.  */
+
+static HARD_REG_SET empty_reg_set;
+/* APPLE LOCAL end ARM pseudo-pseudo tying */
+
 /* APPLE LOCAL begin rewrite weight computation */
 #ifdef REWRITE_WEIGHT_COMPUTATION
 /* Overall weight of each hard reg, as used by local alloc.
@@ -271,7 +320,7 @@ static int local_reg_n_refs[FIRST_PSEUDO_REGISTER];
    Now it is computed as
    SUM (REG_FREQ(i)/REG_LIVE_LENGTH(i)) over all uses. */
 
-static double local_reg_weight[FIRST_PSEUDO_REGISTER];
+static HOST_WIDE_INT local_reg_weight[FIRST_PSEUDO_REGISTER];
 #else
 /* Frequency of uses of given hard reg.  */
 static int local_reg_freq[FIRST_PSEUDO_REGISTER];
@@ -342,6 +391,8 @@ static int allocno_compare (const void *, const void *);
 static void global_conflicts (void);
 static void mirror_conflicts (void);
 static void expand_preferences (void);
+/* APPLE LOCAL 4253848 */
+static void pseudo_preference_transitivity (void);
 static void prune_preferences (void);
 static void find_reg (int, HARD_REG_SET, int, int, int);
 static void record_one_conflict (int);
@@ -408,7 +459,17 @@ global_alloc (FILE *file)
     {
       bool cannot_elim
 	= (! CAN_ELIMINATE (eliminables[i].from, eliminables[i].to)
+/* APPLE LOCAL begin ARM prefer SP to FP */
+#ifdef TARGET_ARM
+	   /* There are certain performance benefits for the ARM target
+	      in using SP instead of FP.  CAN_ELIMINATE will prevent us
+	      from using SP when we can't, so there's no need for us to
+	      prevent elimination to the SP.  */
+	   );
+#else
 	   || (eliminables[i].to == STACK_POINTER_REGNUM && need_fp));
+#endif
+/* APPLE LOCAL end ARM prefer SP to FP */
 
       if (!regs_asm_clobbered[eliminables[i].from])
 	{
@@ -431,8 +492,13 @@ global_alloc (FILE *file)
 	SET_HARD_REG_BIT (no_global_alloc_regs, HARD_FRAME_POINTER_REGNUM);
     }
   else if (need_fp)
+    /* APPLE LOCAL begin CW asm blocks 4443946 */
+    {
+      if (!flag_iasm_blocks)
     error ("%s cannot be used in asm here",
 	   reg_names[HARD_FRAME_POINTER_REGNUM]);
+    }
+    /* APPLE LOCAL end CW asm blocks 4443946 */
   else
     regs_ever_live[HARD_FRAME_POINTER_REGNUM] = 1;
 #endif
@@ -567,8 +633,8 @@ global_alloc (FILE *file)
 	    /* APPLE LOCAL begin rewrite weight computation */
 #ifdef REWRITE_WEIGHT_COMPUTATION
 	    if ( REG_LIVE_LENGTH (i) > 0 )
-	      local_reg_weight[j] += (double)REG_FREQ (i) 
-				    / (double) REG_LIVE_LENGTH (i);
+	      local_reg_weight[j] += (REG_FREQ (i) * 100)
+				      / REG_LIVE_LENGTH (i);
 #else
 	    local_reg_freq[j] += REG_FREQ (i);
 	    local_reg_live_length[j] += REG_LIVE_LENGTH (i);
@@ -661,6 +727,11 @@ global_alloc (FILE *file)
       /* Try to expand the preferences by merging them between allocnos.  */
 
       expand_preferences ();
+
+      /* APPLE LOCAL begin 4253848 */
+      if (!flag_schedule_insns)
+	pseudo_preference_transitivity ();
+      /* APPLE LOCAL end 4253848 */
 
       /* Determine the order to allocate the remaining pseudo registers.  */
 
@@ -1007,48 +1078,267 @@ expand_preferences (void)
 	&& (set = single_set (insn)) != 0
 	&& REG_P (SET_DEST (set))
 	&& reg_allocno[REGNO (SET_DEST (set))] >= 0)
-      for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	if (REG_NOTE_KIND (link) == REG_DEAD
-	    && REG_P (XEXP (link, 0))
-	    && reg_allocno[REGNO (XEXP (link, 0))] >= 0
-	    && ! CONFLICTP (reg_allocno[REGNO (SET_DEST (set))],
-			    reg_allocno[REGNO (XEXP (link, 0))]))
+      /* APPLE LOCAL begin 4253848 */
+      {
+	unsigned int deaths = 0;
+	int commutative = 0;
+	int zero_constraint = 0;
+	int zero_allocno = 0;
+	int zero_commutative_allocno = 0;
+	int i;
+
+	/* Count the pseudo-registers that died at this insn.  */
+	for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+	  if (REG_NOTE_KIND (link) == REG_DEAD)
+	    deaths++;
+
+	extract_insn (insn);
+
+	/* Look for "0" constraints.  */
+	for (i = 1; i < recog_data.n_operands; i++)
 	  {
-            /* APPLE LOCAL 4321079 */
-	    int j;
-	    int a1 = reg_allocno[REGNO (SET_DEST (set))];
-	    int a2 = reg_allocno[REGNO (XEXP (link, 0))];
-
-	    if (XEXP (link, 0) == SET_SRC (set))
+	    const char *constraint = recog_data.constraints[i];
+	    /* Look for "0" or "%0" or "0%" constraint.  */
+	    if (*constraint == '%')	/* Look for "%0".  */
 	      {
-                /* APPLE LOCAL 4321079 */
-		int ialloc_prod = a1 * allocno_row_words;
-		IOR_HARD_REG_SET (allocno[a1].hard_reg_copy_preferences,
-				  allocno[a2].hard_reg_copy_preferences);
-		IOR_HARD_REG_SET (allocno[a2].hard_reg_copy_preferences,
-				  allocno[a1].hard_reg_copy_preferences);
-                /* APPLE LOCAL begin 4321079 */
-		ialloc_prod = a1 * allocno_row_words;
-		for (j = allocno_row_words - 1; j >= 0; j--)
-		  {
-		    pseudo_preferences[a1 * allocno_row_words + j] 
-		      |= pseudo_preferences[a2 * allocno_row_words + j];
-		    pseudo_preferences[a2 * allocno_row_words + j] 
-		      |= pseudo_preferences[a1 * allocno_row_words + j];
-		  }
-                /* APPLE LOCAL end 4321079 */
+		commutative = i;
+		constraint++;
 	      }
-
-	    IOR_HARD_REG_SET (allocno[a1].hard_reg_preferences,
-			      allocno[a2].hard_reg_preferences);
-	    IOR_HARD_REG_SET (allocno[a2].hard_reg_preferences,
-			      allocno[a1].hard_reg_preferences);
-	    IOR_HARD_REG_SET (allocno[a1].hard_reg_full_preferences,
-			      allocno[a2].hard_reg_full_preferences);
-	    IOR_HARD_REG_SET (allocno[a2].hard_reg_full_preferences,
-			      allocno[a1].hard_reg_full_preferences);
+	    if (*constraint == '0')
+	      {
+		zero_constraint = i;
+		constraint++;
+	      }
+	    if (*constraint == '%')	/* Accept "0%".  */
+	      commutative = i;
 	  }
+
+	if (zero_constraint)
+	  {
+	    rtx reg_rtx = recog_data.operand[zero_constraint];
+	    if (GET_CODE (reg_rtx) == SUBREG)
+	      reg_rtx = SUBREG_REG (reg_rtx);
+	    if (REG_P (reg_rtx))
+	      zero_allocno = reg_allocno[REGNO (reg_rtx)];
+	    if (commutative)
+	      {
+		rtx reg2_rtx = recog_data.operand[zero_constraint+1];
+		if (GET_CODE (reg2_rtx) == SUBREG)
+		  reg2_rtx = SUBREG_REG (reg2_rtx);
+		if (REG_P (reg2_rtx))
+		  zero_commutative_allocno = reg_allocno[REGNO (reg2_rtx)];
+	      }
+	  }
+
+	/* For every pseudo-register that dies at this insn:  */
+	for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+	  if (REG_NOTE_KIND (link) == REG_DEAD
+	      && REG_P (XEXP (link, 0))
+	      && reg_allocno[REGNO (XEXP (link, 0))] >= 0
+	      && ! CONFLICTP (reg_allocno[REGNO (SET_DEST (set))],
+			      reg_allocno[REGNO (XEXP (link, 0))]))
+	    {
+	      /* APPLE LOCAL begin 4271691 */
+	      /* APPLE LOCAL 4321079 */
+	      int dest_allocno = reg_allocno[REGNO (SET_DEST (set))];
+	      int dead_allocno = reg_allocno[REGNO (XEXP (link, 0))];
+	      bool hard_reg_copy_preferences_set = FALSE;
+	      rtx set_src = SET_SRC (set);
+	      if (GET_CODE (set_src) == SUBREG)
+		  {
+		    rtx reg = SUBREG_REG (set_src);
+		    if (SUBREG_BYTE (set_src) == 0
+			&& (GET_MODE_SIZE (GET_MODE (set_src))
+			    == GET_MODE_SIZE (GET_MODE (reg))))
+		      set_src = reg;
+		  }
+
+	      /* If the source is a REG, this is a reg-reg move;
+		 record the affinity between these.  */
+	      if (XEXP (link, 0) == set_src)
+		{
+		  IOR_HARD_REG_SET (allocno[dest_allocno].hard_reg_copy_preferences,
+				    allocno[dead_allocno].hard_reg_copy_preferences);
+		  IOR_HARD_REG_SET (allocno[dead_allocno].hard_reg_copy_preferences,
+				    allocno[dest_allocno].hard_reg_copy_preferences);
+		  hard_reg_copy_preferences_set = TRUE;
+		}
+	      /* APPLE LOCAL begin 4385068 */
+	      /* We can establish a new pseudo preference as well; this tends
+		 to cut down on the number of reg-reg copies.  Since two
+		 inputs that both die conflict with each other, we shouldn't
+		 tie both.  Experimentally, neither picking the first nor the second
+		 seems to be a winner, so we tie neither. 
+		 On ppc, this whole idea seems to be a loser; introducing extra
+		 dependencies for scheduling loses more than eliminating reg-reg
+		 copies gains.  We make some attempt to abstract this by looking
+		 at flag_schedule_insns; if this is off, we conclude good scheduling
+		 is relatively unimportant.
+		 The limitation to vectors is not necessary for correctness. */
+	      if (!flag_schedule_insns
+		  && VECTOR_MODE_P (GET_MODE (SET_DEST (set)))
+		  && VECTOR_MODE_P (GET_MODE (XEXP (link, 0))))
+		{
+		  /* We want to discover pseudo-registers that die
+		     in this insn, and prefer one of them for our
+		     destination register.  This is especially
+		     useful for two-address targets like the x86.
+		   
+		     If some input operand has a "0" constraint, that
+		     means it /must/ be the destination register too.
+		     If the constraint is "%0", then the operation is
+		     commutative (e.g. ADD), and the pattern will
+		     still work if the next source operand is
+		     identical to the destination.  Anyway, if this
+		     input operand dies at this insn, it's an ideal
+		     candidate for the destination pseudo-register.
+		     If the "0" input operand does not die at this
+		     insn, pretend there is no "0" constraint, and
+		     fall through to the no-"0"-constraint case:
+		   
+		     If no operand has a "0" constraint, then any
+		     pseudo-register that dies in this insn could be
+		     used for the destination.  If exactly one
+		     pseudo-register dies at this insn, it's probably
+		     a good candidate for the destination register
+		     too.  Previous experience (see comment above)
+		     suggests this is not worthwhile if multiple
+		     pseudo-registers die at this insn.
+		  */
+		  if ((deaths == 1 && !zero_allocno)
+		      || dead_allocno == zero_allocno
+		      || dead_allocno == zero_commutative_allocno
+		      || hard_reg_copy_preferences_set)
+		    {
+		      SET_PSEUDO_PREF (dest_allocno, dead_allocno);
+		      SET_PSEUDO_PREF (dead_allocno, dest_allocno);
+		      break;	/* Break out of the for-every-NOTE_REG_DEAD loop.  */
+		    }
+		  /* APPLE LOCAL end 4271691 */
+		}
+	      /* APPLE LOCAL end 4385068 */
+
+	      IOR_HARD_REG_SET (allocno[dest_allocno].hard_reg_preferences,
+				allocno[dead_allocno].hard_reg_preferences);
+	      IOR_HARD_REG_SET (allocno[dead_allocno].hard_reg_preferences,
+				allocno[dest_allocno].hard_reg_preferences);
+	      IOR_HARD_REG_SET (allocno[dest_allocno].hard_reg_full_preferences,
+				allocno[dead_allocno].hard_reg_full_preferences);
+	      IOR_HARD_REG_SET (allocno[dead_allocno].hard_reg_full_preferences,
+				allocno[dest_allocno].hard_reg_full_preferences);
+	    }
+      }
 }
+/* APPLE LOCAL end 4253848 */
+
+/* APPLE LOCAL begin 4253848 */
+/* If pseudoA has a preference for pseudoB, and pseudoB has such a
+   preference for pseudoC, then arrange for all of these to have
+   preferences for each other.  This is arguably wrong, as the
+   pseudo_preference relation is not transitive; it's possible that
+   pseudoA conflicts with pseudoC while both have a preference for
+   pseudoB.  However, this seems harmless, as expand_preferences()
+   will check for these conflicts before acting on any of these
+   preferences.
+*/
+static void
+pseudo_preference_transitivity (void)
+{
+  /*
+    done = <empty>
+    for j = all allocno[]s
+    if done[j], continue
+    done[j] = true;
+    group_pref = this_pref_set = pseudo_preferences[j];
+    while (this_pref_set non-empty)
+    next_pref_set = <empty>
+    for k = each pref in this_pref_set
+    next_pref_set |= (~group_pref & pseudo_preferences[k])
+    done[k] = true;
+    this_pref_set = next_pref_set
+    for k = every psuedo in group_pref_set
+    pseudo_preferences[k] = group_pref_set
+  */
+  INT_TYPE *group_pref_set, *this_pref_set,
+    *next_pref_set, *tmp_pref_set, *allocno_empty_set;
+  int i, j, k;
+  bool *done = xcalloc (max_allocno, sizeof (bool));
+  INT_TYPE tmp_set;
+
+  ALLOCNO_SET_INITIALIZE (group_pref_set);
+  ALLOCNO_SET_INITIALIZE (this_pref_set);
+  ALLOCNO_SET_INITIALIZE (next_pref_set);
+  ALLOCNO_SET_INITIALIZE (tmp_pref_set);
+  ALLOCNO_SET_INITIALIZE (allocno_empty_set);
+
+  /* In spite of the triple-nesting, this loop-nest is not O(n**3);
+     the "done[]" array insures we visit each allocno exactly once.
+     In other words, this should be O(n), or close to it.  */
+  for (j=0; j < max_allocno; j++)
+    {
+      if (done[j])
+	continue;
+      done[j] = TRUE;
+      /* If this allocno has no pseudo_preferences, no work to do.  */
+      GO_IF_ALLOCNO_SET_EMPTY (PSEUDO_PREFERENCES (j), skip);
+      FOR_EVERY_ALLOCNO_SET_WORD (i)
+      {
+	tmp_set = *(PSEUDO_PREFERENCES (j) + i);
+	*(group_pref_set + i) = tmp_set;
+	*(this_pref_set + i) = tmp_set;
+      }
+      do {
+	CLEAR_ALLOCNO_SET (next_pref_set);
+	EXECUTE_IF_SET_IN_ALLOCNO_SET
+	  (this_pref_set, k,
+	   FOR_EVERY_ALLOCNO_SET_WORD (i)
+	   {
+	     /* Yield bits of any pseudos that should be part of
+		group_pref_set, but aren't.  */
+	     /* Get the set of allocnos that are NOT part of group_pref_set...  */
+	     tmp_set = ~*(group_pref_set + i);
+	     /* ...AND are preferred by this allocno... */
+	     tmp_set &= *(PSEUDO_PREFERENCES (k) + i);
+	     /* IOR these allocnos into our worklist-set for the next
+		pass.  */
+	     *(next_pref_set + i) |= tmp_set;
+	   }
+	   done[k] = TRUE;
+	   );
+	/* If we didn't find any new allocnos that should be part of
+	   this group, we're done with this group.  This is the
+	   infinite do-while-true loop exit.  */
+	GO_IF_ALLOCNO_SET_EMPTY (next_pref_set, propagate);
+	FOR_EVERY_ALLOCNO_SET_WORD (i)
+	{
+	  /* This is our set of allocnos to visit on the next pass of
+	     the infinite do-while-true loop.  */
+	  tmp_set = *(next_pref_set + i);
+	  *(this_pref_set + i) = tmp_set;
+	  /* IOR them into our master set.  */
+	  *(group_pref_set + i) |= tmp_set;
+	}
+      }while (TRUE);
+      /* Update every member of the allocno group with the transitive
+	 closure of their pseudo_preferences.  */
+    propagate:
+      EXECUTE_IF_SET_IN_ALLOCNO_SET
+	(group_pref_set, k,
+	 COPY_ALLOCNO_SET (PSEUDO_PREFERENCES (k), group_pref_set);
+	 /* Allocnos apparently aren't supposed to prefer themselves,
+	    although it's not clear this would be harmful.  */
+	 CLEAR_PSEUDO_PREF (k, k);
+	 );
+    skip: ;
+    }
+  free (done);
+  free (group_pref_set);
+  free (this_pref_set);
+  free (next_pref_set);
+  free (tmp_pref_set);
+  free (allocno_empty_set);
+}
+/* APPLE LOCAL end 4253848 */
 
 /* Prune the preferences for global registers to exclude registers that cannot
    be used.
@@ -1201,6 +1491,12 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 #else
 	  int regno = i;
 #endif
+/* APPLE LOCAL begin ARM add DIMODE_REG_ALLOC_ORDER */
+#ifdef DIMODE_REG_ALLOC_ORDER
+	  if (mode == DImode)
+	    regno = dimode_reg_alloc_order[i];
+#endif
+/* APPLE LOCAL end ARM add DIMODE_REG_ALLOC_ORDER */
 	  if (! TEST_HARD_REG_BIT (used, regno)
 	      && HARD_REGNO_MODE_OK (regno, mode)
 	      && (allocno[num].calls_crossed == 0
@@ -1387,11 +1683,11 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 	    {
 	      /* APPLE LOCAL begin rewrite weight computation */
 #ifdef REWRITE_WEIGHT_COMPUTATION
-	      /* We explicitly evaluate the divide result into a temporary
-		 variable so as to avoid excess precision problems that occur
-		 on an i386-unknown-sysv4.2 (unixware) host.  */
-	      double tmp = ((double) allocno[num].freq
-			    / allocno[num].live_length);
+	      /* The multiplier of 100 is used to help get a couple
+		 of places of difference to mitigate the problem of
+		 having to use integers in the weight calculation.  */
+	      HOST_WIDE_INT tmp = (allocno[num].freq * 100)
+				  / allocno[num].live_length;
 #else
 	    /* APPLE LOCAL end rewrite weight computation */
 	      /* We explicitly evaluate the divide results into temporary
@@ -1472,9 +1768,26 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 	});
 
       /* APPLE LOCAL begin 4321079 */
+      /* APPLE LOCAL begin ARM pseudo-pseudo tying */
       {
 	int k, l;
+	/* If this reg is not live over calls, remove any ties to pseudo-regs
+	   that are live over calls; they cannot use this reg. */
+	if (call_used_regs[best_reg])
+	  {
+	    EXECUTE_IF_SET_IN_ALLOCNO_SET (
+	      pseudo_preferences + num * allocno_row_words, k,
+	      {
+		if (allocno[k].calls_crossed != 0)
+		  {
+		    CLEAR_PSEUDO_PREF (num, k);
+		    CLEAR_PSEUDO_PREF (k, num);
+		  }
+	      });
+	  }
+
 	/* Mark tied pseudo-regs that have not yet been assigned a reg
+	   and do not already have a hard reg preference
 	   and do not conflict as preferring this reg.  Mark pseudo-regs
 	   conflicting with regs tied to this reg and not yet assigned a 
 	   reg as not preferring this reg. */
@@ -1482,9 +1795,19 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 	  pseudo_preferences + num * allocno_row_words, k,
 	  {
 	    if (!CONFLICTP (num, k) && reg_renumber[allocno[k].reg] < 0)
-	      SET_REGBIT (hard_reg_copy_preferences, k, best_reg);
+	      {
+	       /* go-if-equal is not exactly what we want, ugh */
+		GO_IF_HARD_REG_EQUAL (allocno[k].hard_reg_copy_preferences, 
+				      empty_reg_set, none_yet);
+		goto skip;
+		none_yet:;
+		  SET_REGBIT (hard_reg_copy_preferences, k, best_reg);
+		skip:;
+	      }
 
-	    if (num != k && !CONFLICTP (num, k))
+	    if (num != k && !CONFLICTP (num, k) && 
+		(reg_renumber[allocno[k].reg] < 0 ||
+		 reg_renumber[allocno[k].reg] == best_reg))
 	      EXECUTE_IF_SET_IN_ALLOCNO_SET (
 		conflicts + k * allocno_row_words, l,
 		{
@@ -1492,21 +1815,28 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 		    SET_REGBIT (regs_someone_prefers, l, best_reg);
 		});
 	  });
-	/* Mark pseudo-regs tied to conflicting regs and not yet assigned a
-	   reg as not preferring this reg.  */
+	/* Mark pseudo-regs tied to {conflicting allocnos which have either
+	   not yet been assigned a reg, or assigned best_reg}, but are not
+	   tied to this allocno, and not yet assigned a reg, as not preferring
+	   this reg, provided they are not already marked as preferring
+	   this reg.  Got that?  */
 	EXECUTE_IF_SET_IN_ALLOCNO_SET (
 	  conflicts + num * allocno_row_words, k,
 	  {
-	    if (num != k)
+	    if (num != k 
+		&& (reg_renumber[allocno[k].reg] < 0
+		    || reg_renumber[allocno[k].reg] == best_reg))
 	      EXECUTE_IF_SET_IN_ALLOCNO_SET (
 		pseudo_preferences + k * allocno_row_words, l, 
 		{
-		  if (k != l && !CONFLICTP (k, l) 
+		  if (k != l && !CONFLICTP (k, l) && !TEST_PSEUDO_PREF (l, num)
+		      && !TEST_HARD_REG_BIT(allocno[l].hard_reg_preferences, best_reg)
 		      && reg_renumber[allocno[l].reg] < 0)
 		    SET_REGBIT (regs_someone_prefers, l, best_reg);
 		});
 	  });
       }	    
+      /* APPLE LOCAL end ARM pseudo-pseudo tying */
       /* APPLE LOCAL end 4321079 */
     }
 }
@@ -1799,6 +2129,7 @@ mark_reg_live_nc (int regno, enum machine_mode mode)
 
 /* Try to set a preference for an allocno to a hard register.
    We are passed DEST and SRC which are the operands of a SET.  It is known
+APPLE LOCAL 4321079 mainline
    that DEST is a register.  If SRC or the first operand of SRC is a register,
    try to set a preference.  If one of the two is a hard register and the other
    is a pseudo-register, mark the preference.
@@ -1819,11 +2150,19 @@ set_preference (rtx dest, rtx src)
   int copy = 1;
 
   /* APPLE LOCAL begin 4321079 */
-  /* Look under SUBREG for vectors; vector-to-vector SUBREGs are NOPs. */
+  /* APPLE LOCAL begin ARM pseudo-pseudo tying */
+  /* Look under SUBREG for vectors; vector-to-vector SUBREGs are NOPs.
+     This code formerly did less testing, which was OK on PPC and x86
+     as vector-to-nonvector SUBREGs did not occur; but they do on ARM. */
 
   if (GET_RTX_FORMAT (GET_CODE (src))[0] == 'e'
-      && ! (GET_CODE (src) == SUBREG && VECTOR_MODE_P (GET_MODE (dest))))
+      && ! (GET_CODE (src) == SUBREG 
+           && REG_P (SUBREG_REG (src))
+           && VECTOR_MODE_P (GET_MODE (src))
+           && VECTOR_MODE_P (GET_MODE (SUBREG_REG (src)))
+           && VECTOR_MODE_P (GET_MODE (dest))))
     src = XEXP (src, 0), copy = 0;
+  /* APPLE LOCAL end ARM pseudo-pseudo tying */
   /* APPLE LOCAL end 4321079 */
 
   /* Get the reg number for both SRC and DEST.
@@ -1933,19 +2272,19 @@ set_preference (rtx dest, rtx src)
      marked as tied here; the data is only used for pseudos that do not
      conflict. */
 
+  /* APPLE LOCAL begin ARM pseudo-pseudo tying */
   if (src_regno >= FIRST_PSEUDO_REGISTER && reg_allocno[src_regno] >= 0
-      && VECTOR_MODE_P (GET_MODE (src_reg))
+      && (VECTOR_MODE_P (GET_MODE (src_reg)) || TIE_PSEUDOS)
       && dest_regno >= FIRST_PSEUDO_REGISTER && reg_allocno[dest_regno] >= 0
-      && VECTOR_MODE_P (GET_MODE (dest_reg))
+      && (VECTOR_MODE_P (GET_MODE (dest_reg)) || TIE_PSEUDOS)
       && copy)
+  /* APPLE LOCAL end ARM pseudo-pseudo tying */
     {
       src_regno += offset;
       SET_PSEUDO_PREF (reg_allocno[dest_regno], reg_allocno[src_regno]);
     }
-  /* APPLE LOCAL end 4321079 */
 }
 
-/* APPLE LOCAL begin 4321079 */
 /* Callback for reload.  We are going to assign pseudo R a stack slot;
    see if a reg tied to it already has one that we can reuse. */
 rtx find_tied_stack_pseudo (int);
@@ -1961,8 +2300,11 @@ find_tied_stack_pseudo (int r)
       if (!CONFLICTP(i, j) 
 	  && reg_renumber[allocno[j].reg] < 0
 	  && reg_equiv_memory_loc[allocno[j].reg] != 0
+	  /* APPLE LOCAL begin 4405429 */
 	  && PSEUDO_REGNO_BYTES (allocno[j].reg)
-	      == PSEUDO_REGNO_BYTES (allocno[i].reg))
+	      == PSEUDO_REGNO_BYTES (allocno[i].reg)
+	  && strict_memory_address_p (VOIDmode, reg_equiv_memory_loc[allocno[j].reg]))
+	  /* APPLE LOCAL end 4405429 */
 	return copy_rtx (reg_equiv_memory_loc[allocno[j].reg]);
     });
   return 0;
@@ -1996,7 +2338,7 @@ void remove_invalidated_death_notes (rtx first)
 		  continue;
 		regno = REGNO (r);
 		orig_regno = ORIGINAL_REGNO (r);
-		if (orig_regno < FIRST_PSEUDO_REGISTER || regno >= FIRST_PSEUDO_REGISTER)
+	        if (orig_regno < FIRST_PSEUDO_REGISTER || regno >= FIRST_PSEUDO_REGISTER)
 		  continue;
 		if (regno == orig_regno)
 		  continue;

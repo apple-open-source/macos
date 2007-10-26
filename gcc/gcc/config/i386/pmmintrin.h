@@ -45,81 +45,85 @@
 #define _MM_GET_DENORMALS_ZERO_MODE() \
   (_mm_getcsr() & _MM_DENORMALS_ZERO_MASK)
 
+/* APPLE LOCAL begin nodebug inline 4152603 */
+#define __always_inline__ __always_inline__, __nodebug__
+/* APPLE LOCAL end nodebug inline 4152603 */
+
 /* APPLE LOCAL begin radar 4152603 */
-static __inline __m128 __attribute__((__always_inline__, __nodebug__))
+static __inline __m128 __attribute__((__always_inline__))
 _mm_addsub_ps (__m128 __X, __m128 __Y)
 {
   return (__m128) __builtin_ia32_addsubps ((__v4sf)__X, (__v4sf)__Y);
 }
 
-static __inline __m128 __attribute__((__always_inline__, __nodebug__))
+static __inline __m128 __attribute__((__always_inline__))
 _mm_hadd_ps (__m128 __X, __m128 __Y)
 {
   return (__m128) __builtin_ia32_haddps ((__v4sf)__X, (__v4sf)__Y);
 }
 
-static __inline __m128 __attribute__((__always_inline__, __nodebug__))
+static __inline __m128 __attribute__((__always_inline__))
 _mm_hsub_ps (__m128 __X, __m128 __Y)
 {
   return (__m128) __builtin_ia32_hsubps ((__v4sf)__X, (__v4sf)__Y);
 }
 
-static __inline __m128 __attribute__((__always_inline__, __nodebug__))
+static __inline __m128 __attribute__((__always_inline__))
 _mm_movehdup_ps (__m128 __X)
 {
   return (__m128) __builtin_ia32_movshdup ((__v4sf)__X);
 }
 
-static __inline __m128 __attribute__((__always_inline__, __nodebug__))
+static __inline __m128 __attribute__((__always_inline__))
 _mm_moveldup_ps (__m128 __X)
 {
   return (__m128) __builtin_ia32_movsldup ((__v4sf)__X);
 }
 
-static __inline __m128d __attribute__((__always_inline__, __nodebug__))
+static __inline __m128d __attribute__((__always_inline__))
 _mm_addsub_pd (__m128d __X, __m128d __Y)
 {
   return (__m128d) __builtin_ia32_addsubpd ((__v2df)__X, (__v2df)__Y);
 }
 
-static __inline __m128d __attribute__((__always_inline__, __nodebug__))
+static __inline __m128d __attribute__((__always_inline__))
 _mm_hadd_pd (__m128d __X, __m128d __Y)
 {
   return (__m128d) __builtin_ia32_haddpd ((__v2df)__X, (__v2df)__Y);
 }
 
-static __inline __m128d __attribute__((__always_inline__, __nodebug__))
+static __inline __m128d __attribute__((__always_inline__))
 _mm_hsub_pd (__m128d __X, __m128d __Y)
 {
   return (__m128d) __builtin_ia32_hsubpd ((__v2df)__X, (__v2df)__Y);
 }
 
-static __inline __m128d __attribute__((__always_inline__, __nodebug__))
+static __inline __m128d __attribute__((__always_inline__))
 _mm_loaddup_pd (double const *__P)
 {
   return _mm_load1_pd (__P);
 }
 
-static __inline __m128d __attribute__((__always_inline__, __nodebug__))
+static __inline __m128d __attribute__((__always_inline__))
 _mm_movedup_pd (__m128d __X)
 {
   return _mm_shuffle_pd (__X, __X, _MM_SHUFFLE2 (0,0));
 }
 
-static __inline __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline __m128i __attribute__((__always_inline__))
 _mm_lddqu_si128 (__m128i const *__P)
 {
   return (__m128i) __builtin_ia32_lddqu ((char const *)__P);
 }
 
 #if 0
-static __inline void __attribute__((__always_inline__, __nodebug__))
+static __inline void __attribute__((__always_inline__))
 _mm_monitor (void const * __P, unsigned int __E, unsigned int __H)
 {
   __builtin_ia32_monitor (__P, __E, __H);
 }
 
-static __inline void __attribute__((__always_inline__, __nodebug__))
+static __inline void __attribute__((__always_inline__))
 _mm_mwait (unsigned int __E, unsigned int __H)
 {
   __builtin_ia32_mwait (__E, __H);
@@ -129,6 +133,9 @@ _mm_mwait (unsigned int __E, unsigned int __H)
 #define _mm_monitor(P, E, H)	__builtin_ia32_monitor ((P), (E), (H))
 #define _mm_mwait(E, H)		__builtin_ia32_mwait ((E), (H))
 #endif
+/* APPLE LOCAL begin nodebug inline 4152603 */
+#undef __always_inline__
+/* APPLE LOCAL end nodebug inline 4152603 */
 
 #endif /* __SSE3__ */
 

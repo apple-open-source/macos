@@ -35,7 +35,12 @@
 #include <ufs/ufs/dinode.h>
 #include <ufs/ufs/dir.h>
 #include <ufs/ffs/fs.h>
+#include <libkern/version.h>
+#if VERSION_MAJOR < 9
 #include <sys/md5.h>
+#else
+#include <libkern/crypto/md5.h>
+#endif /* VERSION_MAJOR < 9 */
 #include <uuid/uuid.h>
 #include <uuid/namespace.h>
 
@@ -338,6 +343,7 @@ AppleFileSystemDriver::mediaNotificationHandler(
     OSString *                 uuidProperty;
     uuid_t                     uuid;
     bool                       matched        = false;
+    bool                       isRAID         = false;
 
     DEBUG_LOG("%s[%p]::%s -> '%s'\n", kClassName, target, __func__, service->getName());
 
@@ -348,12 +354,33 @@ AppleFileSystemDriver::mediaNotificationHandler(
         media = OSDynamicCast( IOMedia, service );
         if (media == 0) break;
 		
+        // i.e. does it know how big it is / have a block size
         if ( media->isFormatted() == false )  break;
+
+	// the RAID might not be ready yet :P
+        isRAID = (media->getProperty(kAppleRAIDIsRAIDKey) == kOSBooleanTrue);
+	if (isRAID) {
+	    IOStorage *provider;
+	    OSString *status;
+
+	    if (!(provider = media->getProvider()))	goto notraid;
+	    if (!(status = OSDynamicCast(OSString,
+		    provider->getProperty(kAppleRAIDStatusKey))))  goto notraid;
+
+	    // if it decides to start working later, we'll get another shot
+	    if (!status->isEqualTo(kAppleRAIDStatusDegraded) &&
+			!status->isEqualTo(kAppleRAIDStatusOnline)) {
+		VERBOSE_LOG("skipping prematurely available RAID device");
+		break;
+	    }
+	}
+	notraid:
 
         // If the media already has a UUID property, try that first.
         uuidProperty = OSDynamicCast( OSString, media->getProperty("UUID") );
         if (uuidProperty != NULL) {
             if (fs->_uuidString && uuidProperty->isEqualTo(fs->_uuidString)) {
+		VERBOSE_LOG("existing UUID property matched\n");
                 matched = true;
                 break;
             }
@@ -370,13 +397,14 @@ AppleFileSystemDriver::mediaNotificationHandler(
         if ( strcmp(contentStr, "Apple_HFS" ) == 0 ||
              strcmp(contentStr, "Apple_HFSX" ) == 0 ||
              strcmp(contentStr, "Apple_Boot" ) == 0 ||
-             strcmp(contentStr, "48465300-0000-11AA-AA11-00306543ECAC" ) == 0 ||
-             strcmp(contentStr, "426F6F74-0000-11AA-AA11-00306543ECAC" ) == 0 ) {
+             strcmp(contentStr, "Apple_Recovery" ) == 0 ||
+             strcmp(contentStr, "48465300-0000-11AA-AA11-00306543ECAC" ) == 0 ||  /* APPLE_HFS_UUID */
+             strcmp(contentStr, "426F6F74-0000-11AA-AA11-00306543ECAC" ) == 0 ||  /* APPLE_BOOT_UUID */
+             strcmp(contentStr, "5265636F-7665-11AA-AA11-00306543ECAC" ) == 0 ) { /* APPLE_RECOVERY_UUID */
             status = readHFSUUID( media, (void **)&volumeUUID );
         } else if ( strcmp(contentStr, "Apple_UFS") == 0 ) {
             status = readUFSUUID( media, (void **)&volumeUUID );
-        } else if (strlen(contentStr) == 0 &&
-                   media->getProperty(kAppleRAIDIsRAIDKey) == kOSBooleanTrue) {
+        } else if (strlen(contentStr) == 0 && isRAID) {
             // RAIDv1 has a content hint but is empty
             status = readHFSUUID( media, (void **)&volumeUUID );
             if (status != kIOReturnSuccess) {
@@ -398,8 +426,10 @@ AppleFileSystemDriver::mediaNotificationHandler(
         
 #if VERBOSE
         OSString *str = createStringFromUUID(uuid);
+	OSString *bsdn = OSDynamicCast(OSString,media->getProperty("BSD Name"));
         if (str) {
-            IOLog("  UUID %s found on volume '%s'\n", str->getCStringNoCopy(), media->getName());
+            IOLog("  UUID %s found on volume '%s' (%s)\n", str->getCStringNoCopy(),
+		    media->getName(), bsdn ? bsdn->getCStringNoCopy():"");
             str->release();
         }
 #endif

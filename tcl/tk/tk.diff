@@ -410,7 +410,7 @@ diff -u -p -r1.3.2.1 tkMacOSXInt.h
  
 ===================================================================
 --- macosx/Wish.pbproj/project.pbxproj.orig	2004-07-19 23:05:59.000000000 -0700
-+++ macosx/Wish.pbproj/project.pbxproj	2005-07-07 18:03:26.000000000 -0700
++++ macosx/Wish.pbproj/project.pbxproj	2005-07-07 15:32:49.000000000 -0700
 @@ -134,7 +134,7 @@
  			);
  			runOnlyForDeploymentPostprocessing = 0;
@@ -453,12 +453,12 @@ diff -u -p -r1.3.2.1 tkMacOSXInt.h
  	<string>FMWK</string>
  	<key>CFBundleShortVersionString</key>
 -	<string>8.4.7</string>
-+	<string>8.4.7 1</string>
++	<string>8.4.7 b</string>
  	<key>CFBundleSignature</key>
  	<string>WiSH</string>
  	<key>CFBundleVersion</key>
 -	<string>8.4.7</string>
-+	<string>8.4.7 1</string>
++	<string>8.4.7 b</string>
  </dict>
  </plist>
  ";
@@ -467,7 +467,7 @@ diff -u -p -r1.3.2.1 tkMacOSXInt.h
  				OPTIMIZATION_CFLAGS = "-O0";
  				OTHER_CFLAGS = "-DMAC_OSX_TK -DTCL_WIDE_INT_TYPE=\"long long\"";
 -				OTHER_LDFLAGS = "-sectcreate __TEXT __info_plist \"$TEMP_DIR/Info.plist\" -headerpad_max_install_names";
-+				OTHER_LDFLAGS = "-sectcreate __TEXT __info_plist \"${OBJROOT}/$(PROJECT_NAME).build/$(TARGET_NAME).build/Info.plist\" -headerpad_max_install_names";
++				OTHER_LDFLAGS = "-sectcreate __TEXT __info_plist \"${OBJROOT}/Deployment.build/$(PROJECT_NAME).build/$(TARGET_NAME).build/Info.plist\" -headerpad_max_install_names";
  				OTHER_REZFLAGS = "-i \"$(TCL_FRAMEWORK_DIR)/Tcl.framework/Headers\" -i \"../generic\"";
  				PRODUCT_NAME = "Wish Shell";
  				SECTORDER_FLAGS = "";
@@ -485,12 +485,12 @@ diff -u -p -r1.3.2.1 tkMacOSXInt.h
  	<string>APPL</string>
  	<key>CFBundleShortVersionString</key>
 -	<string>8.4.7</string>
-+	<string>8.4.7 1</string>
++	<string>8.4.7 b</string>
  	<key>CFBundleSignature</key>
  	<string>WiSH</string>
  	<key>CFBundleVersion</key>
 -	<string>8.4.7</string>
-+	<string>8.4.7 1</string>
++	<string>8.4.7 b</string>
  </dict>
  </plist>
  ";
@@ -542,7 +542,7 @@ diff -N macosx/tkMacOSXAppInit.c
 - * See the file "license.terms" for information on usage and redistribution
 - * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 - *
-- * RCS: @(#) $Id: tk.diff,v 1.2.10.1 2005/01/08 01:03:30 jkh Exp $
+- * RCS: @(#) $Id: tkMacOSXAppInit.c,v 1.4.2.1 2004/02/16 00:42:34 wolfsuit Exp $
 - */
 -#include <pthread.h>
 -#include <sys/stat.h>
@@ -772,3 +772,206 @@ diff -N macosx/tkMacOSXAppInit.c
 -    error:
 -    return TCL_ERROR;
 -}
+--- macosx/tkMacOSXDraw.c.orig	2005-11-09 14:44:33.000000000 -0800
++++ macosx/tkMacOSXDraw.c	2005-11-09 14:48:55.000000000 -0800
+@@ -464,7 +464,11 @@
+         pixmap.pixelSize = 32;
+         pixmap.cmpCount = 3;
+         pixmap.cmpSize = 8;
++#ifdef __BIG_ENDIAN__
+         pixmap.pixelFormat = k32ARGBPixelFormat;
++#else /* !__BIG_ENDIAN__ */
++        pixmap.pixelFormat = k32BGRAPixelFormat;
++#endif /* !__BIG_ENDIAN__ */
+         pixmap.pmTable = NULL;
+         pixmap.pmExt = 0;
+         pixmap.baseAddr = image->data;
+--- unix/Makefile.in.orig	2006-04-14 16:14:51.000000000 -0700
++++ unix/Makefile.in	2006-04-14 16:17:09.000000000 -0700
+@@ -688,7 +688,8 @@
+ 	    rm -f tkAppInit.sav; \
+ 	    mv tkAppInit.o tkAppInit.sav; \
+ 	fi;
+-	$(CC) -c $(CC_SWITCHES_NO_STUBS) -DTK_TEST $(UNIX_DIR)/tkAppInit.c
++	$(CC) -c $(CC_SWITCHES_NO_STUBS) -DTK_TEST -mdynamic-no-pic \
++	    $(UNIX_DIR)/tkAppInit.c
+ 	rm -f tkTestInit.o
+ 	mv tkAppInit.o tkTestInit.o
+ 	@if test -f tkAppInit.sav ; then \
+@@ -696,7 +697,8 @@
+ 	fi;
+ 
+ tkAppInit.o: $(UNIX_DIR)/tkAppInit.c
+-	$(CC) -c $(CC_SWITCHES_NO_STUBS) $(UNIX_DIR)/tkAppInit.c
++	$(CC) -c $(CC_SWITCHES_NO_STUBS) -mdynamic-no-pic \
++	    $(UNIX_DIR)/tkAppInit.c
+ 
+ tk3d.o: $(GENERIC_DIR)/tk3d.c
+ 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/tk3d.c
+--- doc/FindPhoto.3~	Thu May  4 13:27:21 2006
++++ doc/FindPhoto.3	Thu May  4 13:27:21 2006
+@@ -19,7 +19,6 @@
+ .SH SYNOPSIS
+ .nf
+ \fB#include <tk.h>\fR
+-\fB#include <tkPhoto.h>\fR
+ .sp
+ Tk_PhotoHandle
+ .VS 8.0 br
+--- generic/tkTextTag.c.orig	2006-05-31 15:54:01.000000000 -0700
++++ generic/tkTextTag.c	2006-05-31 15:58:18.000000000 -0700
+@@ -1267,7 +1267,7 @@
+     TkTextTag **copyArrayPtr = NULL;	/* Initialization needed to prevent
+ 					 * compiler warning. */
+ 
+-    int numOldTags, numNewTags, i, j, size;
++    int numOldTags, numNewTags, i, j, size, nearby;
+     XEvent event;
+ 
+     /*
+@@ -1336,9 +1336,14 @@
+ 
+     if (textPtr->pickEvent.type != LeaveNotify) {
+ 	TkTextPixelIndex(textPtr, textPtr->pickEvent.xcrossing.x,
+-		textPtr->pickEvent.xcrossing.y, &index);
+-	newArrayPtr = TkBTreeGetTags(&index, &numNewTags);
+-	SortTags(numNewTags, newArrayPtr);
++			 textPtr->pickEvent.xcrossing.y, &index, &nearby);
++	if (nearby) {
++	    newArrayPtr = NULL;
++	    numNewTags = 0;
++	} else {
++	    newArrayPtr = TkBTreeGetTags(&index, &numNewTags);
++	    SortTags(numNewTags, newArrayPtr);
++	}
+     } else {
+ 	newArrayPtr = NULL;
+ 	numNewTags = 0;
+@@ -1408,10 +1413,11 @@
+      */
+ 
+     TkTextPixelIndex(textPtr, textPtr->pickEvent.xcrossing.x,
+-	    textPtr->pickEvent.xcrossing.y, &index);
++		     textPtr->pickEvent.xcrossing.y, &index, &nearby);
+     TkTextSetMark(textPtr, "current", &index);
+     if (numNewTags != 0) {
+-	if ((textPtr->bindingTable != NULL) && (textPtr->tkwin != NULL)) {
++	if ((textPtr->bindingTable != NULL) && (textPtr->tkwin != NULL)
++	  && !nearby) {
+ 	    event = textPtr->pickEvent;
+ 	    event.type = EnterNotify;
+ 	    event.xcrossing.detail = NotifyAncestor;
+--- generic/tkTextDisp.c.orig	2006-05-31 15:58:52.000000000 -0700
++++ generic/tkTextDisp.c	2006-05-31 16:04:31.000000000 -0700
+@@ -4119,16 +4119,22 @@
+  */
+ 
+ void
+-TkTextPixelIndex(textPtr, x, y, indexPtr)
++TkTextPixelIndex(textPtr, x, y, indexPtr, nearest)
+     TkText *textPtr;		/* Widget record for text widget. */
+     int x, y;			/* Pixel coordinates of point in widget's
+ 				 * window. */
+     TkTextIndex *indexPtr;	/* This index gets filled in with the
+ 				 * index of the character nearest to (x,y). */
++    int *nearest;               /* If non-NULL then gets set to 0 if
++				 * (x,y) is actually over the returned
++				 * index, and 1 if it is just nearby
++				 * (e.g. if x,y is on the border of the
++				 * widget). */
+ {
+     TextDInfo *dInfoPtr = textPtr->dInfoPtr;
+     register DLine *dlPtr, *validdlPtr;
+     register TkTextDispChunk *chunkPtr;
++    int nearby = 0;
+ 
+     /*
+      * Make sure that all of the layout information about what's
+@@ -4148,14 +4154,19 @@
+     if (y < dInfoPtr->y) {
+ 	y = dInfoPtr->y;
+ 	x = dInfoPtr->x;
++	nearby = 1;
+     }
+     if (x >= dInfoPtr->maxX) {
+ 	x = dInfoPtr->maxX - 1;
++	nearby = 1;
+     }
+     if (x < dInfoPtr->x) {
+ 	x = dInfoPtr->x;
++	nearby = 1;
+     }
+ 
++    if (nearest != NULL) *nearest = nearby;
++
+     /*
+      * Find the display line containing the desired y-coordinate.
+      */
+@@ -4170,6 +4181,7 @@
+ 	     */
+ 
+ 	    x = dInfoPtr->maxX - 1;
++	    nearby = 1;
+ 	    break;
+ 	}
+     }
+--- generic/tkTextBTree.c.orig	2006-05-31 16:04:56.000000000 -0700
++++ generic/tkTextBTree.c	2006-05-31 16:07:25.000000000 -0700
+@@ -2347,6 +2347,12 @@
+     TagInfo tagInfo;
+ #define NUM_TAG_INFOS 10
+ 
++    if (numTagsPtr == NULL) return NULL;
++    if (indexPtr == NULL) {
++      *numTagsPtr = 0;
++      return NULL;
++    }
++
+     tagInfo.numTags = 0;
+     tagInfo.arraySize = NUM_TAG_INFOS;
+     tagInfo.tagPtrs = (TkTextTag **) ckalloc((unsigned)
+--- generic/tkText.h.orig	2006-05-31 16:18:46.000000000 -0700
++++ generic/tkText.h	2006-05-31 16:19:54.000000000 -0700
+@@ -881,7 +881,7 @@
+ EXTERN void		TkTextPickCurrent _ANSI_ARGS_((TkText *textPtr,
+ 			    XEvent *eventPtr));
+ EXTERN void		TkTextPixelIndex _ANSI_ARGS_((TkText *textPtr,
+-			    int x, int y, TkTextIndex *indexPtr));
++			    int x, int y, TkTextIndex *indexPtr, int *nearest));
+ EXTERN void		TkTextPrintIndex _ANSI_ARGS_((
+ 			    CONST TkTextIndex *indexPtr, char *string));
+ EXTERN void		TkTextRedrawRegion _ANSI_ARGS_((TkText *textPtr,
+--- generic/tkTextIndex.c.orig	2006-05-31 16:38:27.000000000 -0700
++++ generic/tkTextIndex.c	2006-05-31 16:38:55.000000000 -0700
+@@ -415,7 +415,7 @@
+ 	if (end == cp) {
+ 	    goto error;
+ 	}
+-	TkTextPixelIndex(textPtr, x, y, indexPtr);
++	TkTextPixelIndex(textPtr, x, y, indexPtr, NULL);
+ 	endOfBase = end;
+ 	goto gotBase; 
+     }
+--- macosx/tkMacOSXNotify.c.orig	2004-02-15 16:42:34.000000000 -0800
++++ macosx/tkMacOSXNotify.c	2007-02-22 19:16:37.000000000 -0800
+@@ -405,7 +405,19 @@
+     ThreadSpecificData *tsdPtr = (ThreadSpecificData *) clientData;
+     Tcl_MutexLock(&notifierMutex);
+     tsdPtr->eventReady = 1;
+-    Tcl_ConditionNotify(&tsdPtr->waitCV);
++    if (tsdPtr->isMainLoop) {
++	OSErr err;
++	
++	/* We need to wake up the main loop, and let it have the event. */
++	EventRef fakeEvent = TkMacOSXCreateFakeEvent();
++	EventQueueRef mainEventQueue = GetMainEventQueue();
++	
++	err = PostEventToQueue(mainEventQueue, fakeEvent,
++			       kEventPriorityHigh);
++	ReleaseEvent(fakeEvent);
++    } else {
++	Tcl_ConditionNotify(&tsdPtr->waitCV);
++    }
+     Tcl_MutexUnlock(&notifierMutex);
+ #endif
+ }

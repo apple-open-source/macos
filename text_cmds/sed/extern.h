@@ -14,10 +14,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.bin/sed/extern.h,v 1.11 2002/07/08 06:00:55 tjr Exp $
+ * $FreeBSD: src/usr.bin/sed/extern.h,v 1.13 2004/08/09 15:29:41 dds Exp $
  */
 
 extern struct s_command *prog;
@@ -45,7 +41,8 @@ extern size_t maxnsub;
 extern u_long linenum;
 extern int appendnum;
 extern int aflag, eflag, nflag;
-extern const char *fname;
+extern const char *fname, *outfname;
+extern FILE *infile, *outfile;
 extern int rflags;	/* regex flags to use */
 
 void	 cfclose(struct s_command *, struct s_command *);

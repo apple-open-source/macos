@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Produce and handle the member options."""
 
@@ -218,10 +219,23 @@ def main():
         print doc.Format()
         return
 
-    # Authenticate, possibly using the password supplied in the login page
+    # Get the password from the form.
     password = cgidata.getvalue('password', '').strip()
-    if not mlist.WebAuthenticate((mm_cfg.AuthUser,
-                                  mm_cfg.AuthListAdmin,
+    # Check authentication.  We need to know if the credentials match the user
+    # or the site admin, because they are the only ones who are allowed to
+    # change things globally.  Specifically, the list admin may not change
+    # values globally.
+    if mm_cfg.ALLOW_SITE_ADMIN_COOKIES:
+        user_or_siteadmin_context = (mm_cfg.AuthUser, mm_cfg.AuthSiteAdmin)
+    else:
+        # Site and list admins are treated equal so that list admin can pass
+        # site admin test. :-(
+        user_or_siteadmin_context = (mm_cfg.AuthUser,)
+    is_user_or_siteadmin = mlist.WebAuthenticate(
+        user_or_siteadmin_context, password, user)
+    # Authenticate, possibly using the password supplied in the login page
+    if not is_user_or_siteadmin and \
+       not mlist.WebAuthenticate((mm_cfg.AuthListAdmin,
                                   mm_cfg.AuthSiteAdmin),
                                  password, user):
         # Not authenticated, so throw up the login page again.  If they tried
@@ -259,6 +273,13 @@ def main():
         return
 
     if cgidata.has_key('othersubs'):
+        # Only the user or site administrator can view all subscriptions.
+        if not is_user_or_siteadmin:
+            doc.addError(_("""The list administrator may not view the other
+            subscriptions for this user."""), _('Note: '))
+            options_page(mlist, doc, user, cpuser, userlang)
+            print doc.Format()
+            return
         hostname = mlist.host_name
         title = _('List subscriptions for %(safeuser)s on %(hostname)s')
         doc.SetTitle(title)
@@ -291,9 +312,15 @@ def main():
         oldname = mlist.getMemberName(user)
         set_address = set_membername = 0
 
-        # See if the user wants to change their email address globally
+        # See if the user wants to change their email address globally.  The
+        # list admin is /not/ allowed to make global changes.
         globally = cgidata.getvalue('changeaddr-globally')
-
+        if globally and not is_user_or_siteadmin:
+            doc.addError(_("""The list administrator may not change the names
+            or addresses for this user's other subscriptions.  However, the
+            subscription for this mailing list has been changed."""),
+                         _('Note: '))
+            globally = False
         # We will change the member's name under the following conditions:
         # - membername has a value
         # - membername has no value, but they /used/ to have a membername
@@ -372,6 +399,11 @@ address.  Upon confirmation, any other mailing list containing the address
                 msg = _('Illegal email address provided')
             except Errors.MMAlreadyAMember:
                 msg = _('%(newaddr)s is already a member of the list.')
+            except Errors.MembershipIsBanned:
+                owneraddr = mlist.GetOwnerEmail()
+                msg = _("""%(newaddr)s is banned from this list.  If you
+                      think this restriction is erroneous, please contact
+                      the list owners at %(owneraddr)s.""")
 
         if set_membername:
             mlist.Lock()
@@ -400,9 +432,19 @@ address.  Upon confirmation, any other mailing list containing the address
             print doc.Format()
             return
 
-        # See if the user wants to change their passwords globally
+        # See if the user wants to change their passwords globally, however
+        # the list admin is /not/ allowed to change passwords globally.
+        pw_globally = cgidata.getvalue('pw-globally')
+        if pw_globally and not is_user_or_siteadmin:
+            doc.addError(_("""The list administrator may not change the
+            password for this user's other subscriptions.  However, the
+            password for this mailing list has been changed."""),
+                         _('Note: '))
+            pw_globally = False
+
         mlists = [mlist]
-        if cgidata.getvalue('pw-globally'):
+
+        if pw_globally:
             mlists.extend(lists_of_member(mlist, user))
 
         for gmlist in mlists:
@@ -606,9 +648,17 @@ address.  Upon confirmation, any other mailing list containing the address
                     globalopts.mime = newval
                     break
 
+        # Change options globally, but only if this is the user or site admin,
+        # /not/ if this is the list admin.
         if globalopts:
-            for gmlist in lists_of_member(mlist, user):
-                global_options(gmlist, user, globalopts)
+            if not is_user_or_siteadmin:
+                doc.addError(_("""The list administrator may not change the
+                options for this user's other subscriptions.  However the
+                options for this mailing list subscription has been
+                changed."""), _('Note: '))
+            else:
+                for gmlist in lists_of_member(mlist, user):
+                    global_options(gmlist, user, globalopts)
 
         # Now print the results
         if cantdigest:
@@ -652,7 +702,7 @@ def options_page(mlist, doc, user, cpuser, userlang, message=''):
 
     fullname = Utils.uncanonstr(mlist.getMemberName(user), userlang)
     if fullname:
-        presentable_user += ', %s' % fullname
+        presentable_user += ', %s' % Utils.websafe(fullname)
 
     # Do replacements
     replacements = mlist.GetStandardReplacements(userlang)

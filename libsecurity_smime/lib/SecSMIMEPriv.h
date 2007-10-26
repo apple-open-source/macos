@@ -94,7 +94,7 @@ extern "C" {
  *	SEC_ERROR_XXX (function is being called more times than there
  *		are known/expected ciphers)
  */
-extern OSStatus SecSMIMEEnableCipher(unsigned long which, Boolean on);
+extern OSStatus SecSMIMEEnableCipher(uint32 which, Boolean on);
 
 /*
  * Initialize the local recording of the S/MIME policy.
@@ -109,7 +109,7 @@ extern OSStatus SecSMIMEEnableCipher(unsigned long which, Boolean on);
  *  - If "on" is non-zero then the named cipher is enabled, otherwise
  *    it is disabled.
  */
-extern OSStatus SecSMIMEAllowCipher(unsigned long which, Boolean on);
+extern OSStatus SecSMIMEAllowCipher(uint32 which, Boolean on);
 
 /*
  * Does the current policy allow S/MIME decryption of this particular

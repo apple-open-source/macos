@@ -220,20 +220,19 @@ iaddtoline(int c)
 	return;
     if (qbang && c == bangchar && stophist < 2) {
 	exlast--;
-	spaceinline(1);
-	line[cs++] = '\\';
+	zleaddtolineptr('\\');
     }
-    if (excs > cs) {
+    if (excs > zlemetacs) {
 	excs += 1 + inbufct - exlast;
-	if (excs < cs)
+	if (excs < zlemetacs)
 	    /* this case could be handled better but it is    *
 	     * so rare that it does not worth it              */
-	    excs = cs;
+	    excs = zlemetacs;
     }
     exlast = inbufct;
-    spaceinline(1);
-    line[cs++] = itok(c) ? ztokens[c - Pound] : c;
+    zleaddtolineptr(itok(c) ? ztokens[c - Pound] : c);
 }
+
 
 static int
 ihgetc(void)
@@ -296,13 +295,24 @@ herrflush(void)
 	hwaddc(ingetc());
 }
 
-/* extract :s/foo/bar/ delimiters and arguments */
+/*
+ * Extract :s/foo/bar/ delimiters and arguments
+ *
+ * The first character expected is the first delimiter.
+ * The arguments are stored in the hsubl and hsubr variables.
+ *
+ * subline is the part of the command line to be matched.
+ *
+ * If a ':' was found but was not followed by a 'G',
+ * *cflagp is set to 1 and the input is backed up to the
+ * character following the colon.
+ */
 
 /**/
 static int
-getsubsargs(char *subline)
+getsubsargs(char *subline, int *gbalp, int *cflagp)
 {
-    int del;
+    int del, follow;
     char *ptr1, *ptr2;
 
     del = ingetc();
@@ -313,14 +323,21 @@ getsubsargs(char *subline)
     if (strlen(ptr1)) {
 	zsfree(hsubl);
 	hsubl = ptr1;
-    }
+    } else if (!hsubl)		/* fail silently on this */
+	return 0;
     zsfree(hsubr);
     hsubr = ptr2;
-    if (hsubl && !strstr(subline, hsubl)) {
-	herrflush();
-	zerr("substitution failed", NULL, 0);
-	return 1;
-    }
+    follow = ingetc();
+    if (follow == ':') {
+	follow = ingetc();
+	if (follow == 'G')
+	    *gbalp = 1;
+	else {
+	    inungetc(follow);
+	    *cflagp = 1;
+	}
+    } else
+	inungetc(follow);
     return 0;
 }
 
@@ -331,6 +348,15 @@ static int
 getargc(Histent ehist)
 {
     return ehist->nwords ? ehist->nwords-1 : 0;
+}
+
+/**/
+static int
+substfailed(void)
+{
+    herrflush();
+    zerr("substitution failed");
+    return -1;
 }
 
 /* Perform history substitution, returning the next character afterwards. */
@@ -349,14 +375,21 @@ histsubchar(int c)
 
     /* look, no goto's */
     if (isfirstch && c == hatchar) {
+	int gbal = 0;
+
 	/* Line begins ^foo^bar */
 	isfirstch = 0;
 	inungetc(hatchar);
 	if (!(ehist = gethist(defev))
-	    || !(sline = getargs(ehist, 0, getargc(ehist)))
-	    || getsubsargs(sline) || !hsubl)
+	    || !(sline = getargs(ehist, 0, getargc(ehist))))
 	    return -1;
-	subst(&sline, hsubl, hsubr, 0);
+
+	if (getsubsargs(sline, &gbal, &cflag))
+	    return substfailed();
+	if (!hsubl)
+	    return -1;
+	if (subst(&sline, hsubl, hsubr, gbal))
+	    return substfailed();
     } else {
 	/* Line doesn't begin ^foo^bar */
 	if (c != ' ')
@@ -408,7 +441,7 @@ histsubchar(int c)
 	    if (ev == -1) {
 		herrflush();
 		unqueue_signals();
-		zerr("no such event: %s", buf, 0);
+		zerr("no such event: %s", buf);
 		return -1;
 	    }
 	} else {
@@ -462,7 +495,7 @@ histsubchar(int c)
 	    } else if ((ev = hcomsearch(buf)) == -1) {
 		herrflush();
 		unqueue_signals();
-		zerr("event not found: %s", buf, 0);
+		zerr("event not found: %s", buf);
 		return -1;
 	    } else
 		evset = 1;
@@ -487,7 +520,7 @@ histsubchar(int c)
 		} else {
 		    herrflush();
 		    unqueue_signals();
-		    zerr("Ambiguous history reference", NULL, 0);
+		    zerr("Ambiguous history reference");
 		    return -1;
 		}
 
@@ -544,6 +577,10 @@ histsubchar(int c)
 	    if ((c = ingetc()) == 'g') {
 		gbal = 1;
 		c = ingetc();
+		if (c != 's' && c != '&') {
+		    zerr("'s' or '&' modifier expected after 'g'");
+		    return -1;
+		}
 	    }
 	    switch (c) {
 	    case 'p':
@@ -552,40 +589,41 @@ histsubchar(int c)
 	    case 'h':
 		if (!remtpath(&sline)) {
 		    herrflush();
-		    zerr("modifier failed: h", NULL, 0);
+		    zerr("modifier failed: h");
 		    return -1;
 		}
 		break;
 	    case 'e':
 		if (!rembutext(&sline)) {
 		    herrflush();
-		    zerr("modifier failed: e", NULL, 0);
+		    zerr("modifier failed: e");
 		    return -1;
 		}
 		break;
 	    case 'r':
 		if (!remtext(&sline)) {
 		    herrflush();
-		    zerr("modifier failed: r", NULL, 0);
+		    zerr("modifier failed: r");
 		    return -1;
 		}
 		break;
 	    case 't':
 		if (!remlpaths(&sline)) {
 		    herrflush();
-		    zerr("modifier failed: t", NULL, 0);
+		    zerr("modifier failed: t");
 		    return -1;
 		}
 		break;
 	    case 's':
-		if (getsubsargs(sline))
+		if (getsubsargs(sline, &gbal, &cflag))
 		    return -1; /* fall through */
 	    case '&':
-		if (hsubl && hsubr)
-		    subst(&sline, hsubl, hsubr, gbal);
-		else {
+		if (hsubl && hsubr) {
+		    if (subst(&sline, hsubl, hsubr, gbal))
+			return substfailed();
+		} else {
 		    herrflush();
-		    zerr("no previous substitution", NULL, 0);
+		    zerr("no previous substitution");
 		    return -1;
 		}
 		break;
@@ -608,21 +646,21 @@ histsubchar(int c)
 		quotebreak(&sline);
 		break;
 	    case 'l':
-		downcase(&sline);
+		sline = casemodify(sline, CASMOD_LOWER);
 		break;
 	    case 'u':
-		upcase(&sline);
+		sline = casemodify(sline, CASMOD_UPPER);
 		break;
 	    default:
 		herrflush();
-		zerr("illegal modifier: %c", NULL, c);
+		zerr("illegal modifier: %c", c);
 		return -1;
 	    }
 	} else {
 	    if (c != '}' || !bflag)
 		inungetc(c);
 	    if (c != '}' && bflag) {
-		zerr("'}' expected", NULL, 0);
+		zerr("'}' expected");
 		return -1;
 	    }
 	    break;
@@ -663,8 +701,8 @@ ihungetc(int c)
 	    hungetc('\n'), hungetc('\\');
 
 	if (expanding) {
-	    cs--;
-	    ll--;
+	    zlemetacs--;
+	    zlemetall--;
 	    exlast++;
 	}
 	DPUTS(hptr <= chline, "BUG: hungetc attempted at buffer start");
@@ -835,8 +873,8 @@ histremovedups(void)
     Histent he, next;
     for (he = hist_ring; he; he = next) {
 	next = up_histent(he);
-	if (he->flags & HIST_DUP)
-	    freehistnode((HashNode)he);
+	if (he->node.flags & HIST_DUP)
+	    freehistnode(&he->node);
     }
 }
 
@@ -865,13 +903,13 @@ movehistent(Histent he, int n, int xflags)
     while (n < 0) {
 	if (!(he = up_histent(he)))
 	    return NULL;
-	if (!(he->flags & xflags))
+	if (!(he->node.flags & xflags))
 	    n++;
     }
     while (n > 0) {
 	if (!(he = down_histent(he)))
 	    return NULL;
-	if (!(he->flags & xflags))
+	if (!(he->node.flags & xflags))
 	    n--;
     }
     checkcurline(he);
@@ -928,7 +966,7 @@ putoldhistentryontop(short keep_going)
     static Histent next = NULL;
     Histent he = keep_going? next : hist_ring->down;
     next = he->down;
-    if (isset(HISTEXPIREDUPSFIRST) && !(he->flags & HIST_DUP)) {
+    if (isset(HISTEXPIREDUPSFIRST) && !(he->node.flags & HIST_DUP)) {
 	static zlong max_unique_ct = 0;
 	if (!keep_going)
 	    max_unique_ct = savehistsiz;
@@ -941,7 +979,7 @@ putoldhistentryontop(short keep_going)
 	    }
 	    he = next;
 	    next = he->down;
-	} while (!(he->flags & HIST_DUP));
+	} while (!(he->node.flags & HIST_DUP));
     }
     if (he != hist_ring->down) {
 	he->up->down = he->down;
@@ -962,9 +1000,9 @@ prepnexthistent(void)
 
     if (curline_in_ring)
 	unlinkcurline();
-    if (hist_ring && hist_ring->flags & HIST_TMPSTORE) {
+    if (hist_ring && hist_ring->node.flags & HIST_TMPSTORE) {
 	curhist--;
-	freehistnode((HashNode)hist_ring);
+	freehistnode(&hist_ring->node);
     }
 
     if (histlinect < histsiz) {
@@ -1105,12 +1143,12 @@ hend(Eprog prog)
     }
     if (save || *chline == ' ') {
 	Histent he;
-	for (he = hist_ring; he && he->flags & HIST_FOREIGN;
+	for (he = hist_ring; he && he->node.flags & HIST_FOREIGN;
 	     he = up_histent(he)) ;
-	if (he && he->flags & HIST_TMPSTORE) {
+	if (he && he->node.flags & HIST_TMPSTORE) {
 	    if (he == hist_ring)
 		curline.histnum = curhist--;
-	    freehistnode((HashNode)he);
+	    freehistnode(&he->node);
 	}
     }
     if (save) {
@@ -1133,30 +1171,30 @@ hend(Eprog prog)
 	}
 	newflags = save > 0? 0 : HIST_TMPSTORE;
 	if ((isset(HISTIGNOREDUPS) || isset(HISTIGNOREALLDUPS)) && save > 0
-	 && hist_ring && histstrcmp(chline, hist_ring->text) == 0) {
+	 && hist_ring && histstrcmp(chline, hist_ring->node.nam) == 0) {
 	    /* This history entry compares the same as the previous.
 	     * In case minor changes were made, we overwrite the
 	     * previous one with the current one.  This also gets the
 	     * timestamp right.  Perhaps, preserve the HIST_OLD flag.
 	     */
 	    he = hist_ring;
-	    newflags |= he->flags & HIST_OLD; /* Avoid re-saving */
+	    newflags |= he->node.flags & HIST_OLD; /* Avoid re-saving */
 	    freehistdata(he, 0);
 	    curline.histnum = curhist;
 	} else
 	    he = prepnexthistent();
 
-	he->text = ztrdup(chline);
+	he->node.nam = ztrdup(chline);
 	he->stim = time(NULL);
 	he->ftim = 0L;
-	he->flags = newflags;
+	he->node.flags = newflags;
 
 	if ((he->nwords = chwordpos/2)) {
 	    he->words = (short *)zalloc(chwordpos * sizeof(short));
 	    memcpy(he->words, chwords, chwordpos * sizeof(short));
 	}
 	if (!(newflags & HIST_TMPSTORE))
-	    addhistnode(histtab, he->text, he);
+	    addhistnode(histtab, he->node.nam, he);
     }
     zfree(chline, hlinesz);
     zfree(chwords, chwordlen*sizeof(short));
@@ -1331,12 +1369,12 @@ getargspec(int argc, int marg, int evset)
     else if (c == '%') {
 	if (evset) {
 	    herrflush();
-	    zerr("Ambiguous history reference", NULL, 0);
+	    zerr("Ambiguous history reference");
 	    return -2;
 	}
 	if (marg == -1) {
 	    herrflush();
-	    zerr("%% with no previous word matched", NULL, 0);
+	    zerr("%% with no previous word matched");
 	    return -2;
 	}
 	ret = marg;
@@ -1356,10 +1394,10 @@ hconsearch(char *str, int *marg)
     Histent he;
 
     for (he = up_histent(hist_ring); he; he = up_histent(he)) {
-	if (he->flags & HIST_FOREIGN)
+	if (he->node.flags & HIST_FOREIGN)
 	    continue;
-	if ((s = strstr(he->text, str))) {
-	    int pos = s - he->text;
+	if ((s = strstr(he->node.nam, str))) {
+	    int pos = s - he->node.nam;
 	    while (t1 < he->nwords && he->words[2*t1] <= pos)
 		t1++;
 	    *marg = t1 - 1;
@@ -1379,9 +1417,9 @@ hcomsearch(char *str)
     int len = strlen(str);
 
     for (he = up_histent(hist_ring); he; he = up_histent(he)) {
-	if (he->flags & HIST_FOREIGN)
+	if (he->node.flags & HIST_FOREIGN)
 	    continue;
-	if (strncmp(he->text, str, len) == 0)
+	if (strncmp(he->node.nam, str, len) == 0)
 	    return he->histnum;
     }
     return -1;
@@ -1476,68 +1514,198 @@ remlpaths(char **junkptr)
     return 0;
 }
 
-/**/
-int
-makeuppercase(char **junkptr)
-{
-    char *str = *junkptr;
-
-    for (; *str; str++)
-	*str = tuupper(*str);
-    return 1;
-}
+/*
+ * Return modified version of str from the heap with modification
+ * according to one of the CASMOD_* types defined in zsh.h; CASMOD_NONE
+ * is not handled, for obvious reasons.
+ */
 
 /**/
-int
-makelowercase(char **junkptr)
+char *
+casemodify(char *str, int how)
 {
-    char *str = *junkptr;
+    char *str2 = zhalloc(2 * strlen(str) + 1);
+    char *ptr2 = str2;
+    int nextupper = 1;
 
-    for (; *str; str++)
-	*str = tulower(*str);
-    return 1;
-}
+#ifdef MULTIBYTE_SUPPORT
+    if (isset(MULTIBYTE)) {
+	VARARR(char, mbstr, MB_CUR_MAX);
+	mbstate_t ps;
 
-/**/
-int
-makecapitals(char **junkptr)
-{
-    char *str = *junkptr;
+	mb_metacharinit();
+	memset(&ps, 0, sizeof(ps));
+	while (*str) {
+	    wint_t wc;
+	    int len = mb_metacharlenconv(str, &wc), mod = 0, len2;
+	    /*
+	     * wc is set to WEOF if the start of str couldn't be
+	     * converted.  Presumably WEOF doesn't match iswlower(), but
+	     * better be safe.
+	     */
+	    if (wc == WEOF) {
+		while (len--)
+		    *ptr2++ = *str++;
+		/* not alphanumeric */
+		nextupper = 1;
+		continue;
+	    }
+	    switch (how) {
+	    case CASMOD_LOWER:
+		if (iswupper(wc)) {
+		    wc = towlower(wc);
+		    mod = 1;
+		}
+		break;
 
-    for (; *str;) {
-	for (; *str && !ialnum(*str); str++);
-	if (*str)
-	    *str = tuupper(*str), str++;
-	for (; *str && ialnum(*str); str++)
-	    *str = tulower(*str);
+	    case CASMOD_UPPER:
+		if (iswlower(wc)) {
+		    wc = towupper(wc);
+		    mod = 1;
+		}
+		break;
+
+	    case CASMOD_CAPS:
+	    default:		/* shuts up compiler */
+		if (!iswalnum(wc))
+		    nextupper = 1;
+		else if (nextupper) {
+		    if (iswlower(wc)) {
+			wc = towupper(wc);
+			mod = 1;
+		    }
+		    nextupper = 0;
+		} else if (iswupper(wc)) {
+		    wc = towlower(wc);
+		    mod = 1;
+		}
+		break;
+	    }
+	    if (mod && (len2 = wcrtomb(mbstr, wc, &ps)) > 0) {
+		char *mbptr;
+
+		for (mbptr = mbstr; mbptr < mbstr + len2; mbptr++) {
+		    if (imeta(STOUC(*mbptr))) {
+			*ptr2++ = Meta;
+			*ptr2++ = *mbptr ^ 32;
+		    } else
+			*ptr2++ = *mbptr;
+		}
+		str += len;
+	    } else {
+		while (len--)
+		    *ptr2++ = *str++;
+	    }
+	}
     }
-    return 1;
+    else
+#endif
+	while (*str) {
+	    int c;
+	    if (*str == Meta) {
+		c = str[1] ^ 32;
+		str += 2;
+	    } else
+		c = *str++;
+	    switch (how) {
+	    case CASMOD_LOWER:
+		if (isupper(c))
+		    c = tolower(c);
+		break;
+
+	    case CASMOD_UPPER:
+		if (islower(c))
+		    c = toupper(c);
+		break;
+
+	    case CASMOD_CAPS:
+	    default:		/* shuts up compiler */
+		if (!ialnum(c))
+		    nextupper = 1;
+		else if (nextupper) {
+		    if (islower(c))
+			c = toupper(c);
+		    nextupper = 0;
+		} else if (isupper(c))
+		    c = tolower(c);
+		break;
+	    }
+	    if (imeta(c)) {
+		*ptr2++ = Meta;
+		*ptr2++ = c ^ 32;
+	    } else
+		*ptr2++ = c;
+	}
+    *ptr2 = '\0';
+    return str2;
 }
 
+
+/*
+ * Substitute "in" for "out" in "*strptr" and update "*strptr".
+ * If "gbal", do global substitution.
+ *
+ * This returns a result from the heap.  There seems to have
+ * been some confusion on this point.
+ */
+
 /**/
-void
+int
 subst(char **strptr, char *in, char *out, int gbal)
 {
-    char *str = *strptr, *instr = *strptr, *substcut, *sptr, *oldstr;
+    char *str = *strptr, *substcut, *sptr;
     int off, inlen, outlen;
 
     if (!*in)
 	in = str, gbal = 0;
-    if (!(substcut = (char *)strstr(str, in)))
-	return;
-    inlen = strlen(in);
-    sptr = convamps(out, in, inlen);
-    outlen = strlen(sptr);
 
-    do {
-	*substcut = '\0';
-	off = substcut - *strptr + outlen;
-	substcut += inlen;
-	*strptr = tricat(oldstr = *strptr, sptr, substcut);
-	if (oldstr != instr)
-	    zsfree(oldstr);
-	str = (char *)*strptr + off;
-    } while (gbal && (substcut = (char *)strstr(str, in)));
+    if (isset(HISTSUBSTPATTERN)) {
+	int fl = SUB_LONG|SUB_REST|SUB_RETFAIL;
+	char *oldin = in;
+	if (gbal)
+	    fl |= SUB_GLOBAL;
+	if (*in == '#' || *in == Pound) {
+	    /* anchor at head, flag needed if SUB_END is also set */
+	    fl |= SUB_START;
+	    in++;
+	}
+	if (*in == '%') {
+	    /* anchor at tail */
+	    in++;
+	    fl |= SUB_END;
+	}
+	if (in == oldin) {
+	    /* no anchor, substring match */
+	    fl |= SUB_SUBSTR;
+	}
+	if (in == str)
+	    in = dupstring(in);
+	if (parse_subst_string(in) || errflag)
+	    return 1;
+	if (parse_subst_string(out) || errflag)
+	    return 1;
+	singsub(&in);
+	if (getmatch(strptr, in, fl, 1, out))
+	    return 0;
+    } else {
+	if ((substcut = (char *)strstr(str, in))) {
+	    inlen = strlen(in);
+	    sptr = convamps(out, in, inlen);
+	    outlen = strlen(sptr);
+
+	    do {
+		*substcut = '\0';
+		off = substcut - *strptr + outlen;
+		substcut += inlen;
+		*strptr = zhtricat(*strptr, sptr, substcut);
+		str = (char *)*strptr + off;
+	    } while (gbal && (substcut = (char *)strstr(str, in)));
+
+	    return 0;
+	}
+    }
+
+    return 1;
 }
 
 /**/
@@ -1572,7 +1740,7 @@ mod_export void
 checkcurline(Histent he)
 {
     if (he->histnum == curhist && (histactive & HA_ACTIVE)) {
-	curline.text = chline;
+	curline.node.nam = chline;
 	curline.nwords = chwordpos/2;
 	curline.words = chwords;
     }
@@ -1594,7 +1762,7 @@ gethist(int ev)
     ret = quietgethist(ev);
     if (!ret) {
 	herrflush();
-	zerr("no such event: %d", NULL, ev);
+	zerr("no such event: %d", ev);
     }
     return ret;
 }
@@ -1609,32 +1777,12 @@ getargs(Histent elist, int arg1, int arg2)
     if (arg2 < arg1 || arg1 >= nwords || arg2 >= nwords) {
 	/* remember, argN is indexed from 0, nwords is total no. of words */
 	herrflush();
-	zerr("no such word in event", NULL, 0);
+	zerr("no such word in event");
 	return NULL;
     }
 
     pos1 = words[2*arg1];
-    return dupstrpfx(elist->text + pos1, words[2*arg2+1] - pos1);
-}
-
-/**/
-void
-upcase(char **x)
-{
-    char *pp = *(char **)x;
-
-    for (; *pp; pp++)
-	*pp = tuupper(*pp);
-}
-
-/**/
-void
-downcase(char **x)
-{
-    char *pp = *(char **)x;
-
-    for (; *pp; pp++)
-	*pp = tulower(*pp);
+    return dupstrpfx(elist->node.nam + pos1, words[2*arg2+1] - pos1);
 }
 
 /**/
@@ -1734,7 +1882,7 @@ hdynread(int stop)
     *ptr = 0;
     if (c == '\n') {
 	inungetc('\n');
-	zerr("delimiter expected", NULL, 0);
+	zerr("delimiter expected");
 	zfree(buf, bsiz);
 	return NULL;
     }
@@ -1784,10 +1932,10 @@ resizehistents(void)
 	/* The reason we don't just call freehistnode(hist_ring->down) is
 	 * so that we can honor the HISTEXPIREDUPSFIRST setting. */
 	putoldhistentryontop(0);
-	freehistnode((HashNode)hist_ring);
+	freehistnode(&hist_ring->node);
 	while (histlinect > histsiz) {
 	    putoldhistentryontop(1);
-	    freehistnode((HashNode)hist_ring);
+	    freehistnode(&hist_ring->node);
 	}
     }
 }
@@ -1900,7 +2048,7 @@ readhistfile(char *fn, int err, int readflags)
 	    char *pt = buf;
 
 	    if (l < 0) {
-		zerr("corrupt history file %s", fn, 0);
+		zerr("corrupt history file %s", fn);
 		break;
 	    }
 	    if (*pt == ':') {
@@ -1947,8 +2095,8 @@ readhistfile(char *fn, int err, int readflags)
 	    }
 
 	    he = prepnexthistent();
-	    he->text = ztrdup(pt);
-	    he->flags = newflags;
+	    he->node.nam = ztrdup(pt);
+	    he->node.flags = newflags;
 	    if ((he->stim = stim) == 0)
 		he->stim = he->ftim = tim;
 	    else if (ftim < stim)
@@ -1981,9 +2129,9 @@ readhistfile(char *fn, int err, int readflags)
 		memcpy(he->words, wordlist, nwordpos*sizeof(short));
 	    } else
 		he->words = (short *)NULL;
-	    addhistnode(histtab, he->text, he);
-	    if (he->flags & HIST_DUP) {
-		freehistnode((HashNode)he);
+	    addhistnode(histtab, he->node.nam, he);
+	    if (he->node.flags & HIST_DUP) {
+		freehistnode(&he->node);
 		curhist--;
 	    }
 	}
@@ -1996,7 +2144,7 @@ readhistfile(char *fn, int err, int readflags)
 
 	fclose(in);
     } else if (err)
-	zerr("can't read history file %s", fn, 0);
+	zerr("can't read history file %s", fn);
 
     unlockhistfile(fn);
 }
@@ -2005,7 +2153,7 @@ readhistfile(char *fn, int err, int readflags)
 void
 savehistfile(char *fn, int err, int writeflags)
 {
-    char *t, *start = NULL;
+    char *t, *tmpfile, *start = NULL;
     FILE *out;
     Histent he;
     zlong xcurhist = curhist - !!(histactive & HA_ACTIVE);
@@ -2016,7 +2164,7 @@ savehistfile(char *fn, int err, int writeflags)
 	return;
     if (writeflags & HFILE_FAST) {
 	he = gethistent(lasthist.next_write_ev, GETHIST_DOWNWARD);
-	while (he && he->flags & HIST_OLD) {
+	while (he && he->node.flags & HIST_OLD) {
 	    lasthist.next_write_ev = he->histnum + 1;
 	    he = down_histent(he);
 	}
@@ -2042,23 +2190,48 @@ savehistfile(char *fn, int err, int writeflags)
 	    extended_history = 1;
     }
     if (writeflags & HFILE_APPEND) {
+	tmpfile = NULL;
 	out = fdopen(open(unmeta(fn),
 			O_CREAT | O_WRONLY | O_APPEND | O_NOCTTY, 0600), "a");
-    }
-    else {
+    } else if (!isset(HISTSAVEBYCOPY)) {
+	tmpfile = NULL;
 	out = fdopen(open(unmeta(fn),
 			 O_CREAT | O_WRONLY | O_TRUNC | O_NOCTTY, 0600), "w");
+    } else {
+	tmpfile = bicat(unmeta(fn), ".new");
+	if (unlink(tmpfile) < 0 && errno != ENOENT)
+	    out = NULL;
+	else {
+	    struct stat sb;
+	    int old_exists = stat(unmeta(fn), &sb) == 0;
+
+	    if (old_exists && sb.st_uid != geteuid()) {
+		free(tmpfile);
+		tmpfile = NULL; /* Avoid an error about HISTFILE.new */
+		out = NULL;
+	    } else
+		out = fdopen(open(tmpfile, O_CREAT | O_WRONLY | O_EXCL, 0600), "w");
+
+#ifdef HAVE_FCHMOD
+	    if (old_exists && out) {
+#ifdef HAVE_FCHOWN
+		fchown(fileno(out), sb.st_uid, sb.st_gid);
+#endif
+		fchmod(fileno(out), sb.st_mode);
+	    }
+#endif
+	}
     }
     if (out) {
 	for (; he && he->histnum <= xcurhist; he = down_histent(he)) {
-	    if ((writeflags & HFILE_SKIPDUPS && he->flags & HIST_DUP)
-	     || (writeflags & HFILE_SKIPFOREIGN && he->flags & HIST_FOREIGN)
-	     || he->flags & HIST_TMPSTORE)
+	    if ((writeflags & HFILE_SKIPDUPS && he->node.flags & HIST_DUP)
+	     || (writeflags & HFILE_SKIPFOREIGN && he->node.flags & HIST_FOREIGN)
+	     || he->node.flags & HIST_TMPSTORE)
 		continue;
 	    if (writeflags & HFILE_SKIPOLD) {
-		if (he->flags & HIST_OLD)
+		if (he->node.flags & HIST_OLD)
 		    continue;
-		he->flags |= HIST_OLD;
+		he->node.flags |= HIST_OLD;
 		if (writeflags & HFILE_USE_OPTIONS)
 		    lasthist.next_write_ev = he->histnum + 1;
 	    }
@@ -2067,7 +2240,7 @@ savehistfile(char *fn, int err, int writeflags)
 		lasthist.stim = he->stim;
 		histfile_linect++;
 	    }
-	    t = start = he->text;
+	    t = start = he->node.nam;
 	    if (extended_history) {
 		fprintf(out, ": %ld:%ld;", (long)he->stim,
 			he->ftim? (long)(he->ftim - he->stim) : 0L);
@@ -2092,6 +2265,11 @@ savehistfile(char *fn, int err, int writeflags)
 	    lasthist.text = ztrdup(start);
 	}
 	fclose(out);
+	if (tmpfile) {
+	    if (rename(tmpfile, unmeta(fn)) < 0)
+		zerr("can't rename %s.new to $HISTFILE", fn);
+	    free(tmpfile);
+	}
 
 	if (writeflags & HFILE_SKIPOLD
 	 && !(writeflags & (HFILE_FAST | HFILE_NO_REWRITE))) {
@@ -2111,8 +2289,13 @@ savehistfile(char *fn, int err, int writeflags)
 	    pophiststack();
 	    histactive = remember_histactive;
 	}
-    } else if (err)
-	zerr("can't write history file %s", fn, 0);
+    } else if (err) {
+	if (tmpfile) {
+	    zerr("can't write history file %s.new", fn);
+	    free(tmpfile);
+	} else
+	    zerr("can't write history file %s", fn);
+    }
 
     unlockhistfile(fn);
 }
@@ -2225,15 +2408,27 @@ histfileIsLocked(void)
     return lockhistct > 0;
 }
 
-/* Get the words in the current buffer. Using the lexer. */
+/*
+ * Get the words in the current buffer. Using the lexer. 
+ *
+ * As far as I can make out, this is a gross hack based on a gross hack.
+ * When analysing lines from within zle, we tweak the metafied line
+ * positions (zlemetall and zlemetacs) directly in the lexer.  That's
+ * bad enough, but this function appears to be designed to be called
+ * from outside zle, pretending to be in zle and calling out, so
+ * we set zlemetall and zlemetacs locally and copy the current zle line,
+ * which may not even be valid at this point.
+ *
+ * However, I'm so confused it could simply be baking Bakewell tarts.
+ */
 
 /**/
 mod_export LinkList
 bufferwords(LinkList list, char *buf, int *index)
 {
-    int num = 0, cur = -1, got = 0, ne = noerrs, ocs = cs, oll = ll;
+    int num = 0, cur = -1, got = 0, ne = noerrs;
     int owb = wb, owe = we, oadx = addedx, ozp = zleparse, onc = nocomments;
-    int ona = noaliases;
+    int ona = noaliases, ocs = zlemetacs, oll = zlemetall;
     char *p;
 
     if (!list)
@@ -2251,26 +2446,47 @@ bufferwords(LinkList list, char *buf, int *index)
 	p[l] = ' ';
 	p[l + 1] = '\0';
 	inpush(p, 0, NULL);
-	cs = strlen(p) + 1;
+	zlemetall = strlen(p) ;
+	zlemetacs = zlemetall + 1;
 	nocomments = 1;
-    } else if (!isfirstln && chline) {
-	p = (char *) zhalloc(hptr - chline + ll + 2);
-	memcpy(p, chline, hptr - chline);
-	memcpy(p + (hptr - chline), line, ll);
-	p[(hptr - chline) + ll] = ' ';
-	p[(hptr - chline) + ll + 1] = '\0';
-	inpush(p, 0, NULL);
-	cs += hptr - chline;
     } else {
-	p = (char *) zhalloc(ll + 2);
-	memcpy(p, line, ll);
-	p[ll] = ' ';
-	p[ll + 1] = '\0';
-	inpush(p, 0, NULL);
+	int ll, cs;
+	char *linein;
+
+	if (zlegetlineptr) {
+	    linein = (char *)zlegetlineptr(&ll, &cs);
+	} else {
+	    linein = ztrdup("");
+	    ll = cs = 0;
+	}
+	zlemetall = ll + 1; /* length of line plus space added below */
+	zlemetacs = cs;
+
+	if (!isfirstln && chline) {
+	    p = (char *) zhalloc(hptr - chline + ll + 2);
+	    memcpy(p, chline, hptr - chline);
+	    memcpy(p + (hptr - chline), linein, ll);
+	    p[(hptr - chline) + ll] = ' ';
+	    p[(hptr - chline) + zlemetall] = '\0';
+	    inpush(p, 0, NULL);
+
+	    /*
+	     * advance line length and character position over
+	     * prepended string.
+	     */
+	    zlemetall += hptr - chline;
+	    zlemetacs += hptr - chline;
+	} else {
+	    p = (char *) zhalloc(ll + 2);
+	    memcpy(p, linein, ll);
+	    p[ll] = ' ';
+	    p[zlemetall] = '\0';
+	    inpush(p, 0, NULL);
+	}
+	zsfree(linein);
     }
-    ll = strlen(p);
-    if (cs)
-	cs--;
+    if (zlemetacs)
+	zlemetacs--;
     strinbeg(0);
     noaliases = 1;
     do {
@@ -2326,8 +2542,8 @@ bufferwords(LinkList list, char *buf, int *index)
     nocomments = onc;
     noerrs = ne;
     lexrestore();
-    cs = ocs;
-    ll = oll;
+    zlemetacs = ocs;
+    zlemetall = oll;
     wb = owb;
     we = owe;
     addedx = oadx;

@@ -25,7 +25,9 @@
 # commands needed by the makefiles on MACOS
 #
 
+ifneq "" "$(wildcard /usr/bin/javaconfig)"
 JAVA_HOME := $(shell javaconfig Home)
+endif
 ifeq "" "$(JAVA_HOME)"
 JAVA_HOME = $(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/JavaVM.framework/Home
 endif
@@ -75,6 +77,7 @@ ifneq "" "$(wildcard /bin/chgrp)"
 else
   CHGRP = /usr/bin/chgrp
 endif
+COMPRESSMANPAGES = $(MAKEFILEPATH)/bin/compress-man-pages.pl -d $(DSTROOT)
 
 AWK = /usr/bin/awk
 TR = /usr/bin/tr

@@ -1,6 +1,6 @@
---- mblen.3.orig	Fri Mar 11 19:44:47 2005
-+++ mblen.3	Fri Mar 11 19:57:09 2005
-@@ -41,7 +41,8 @@
+--- _SB/Libc/locale/FreeBSD/mblen.3	2004-11-25 11:38:18.000000000 -0800
++++ _SB/Libc/locale/FreeBSD/mblen.3.edit	2006-06-28 16:55:51.000000000 -0700
+@@ -41,33 +41,53 @@
  .Dt MBLEN 3
  .Os
  .Sh NAME
@@ -10,22 +10,46 @@
  .Nd get number of bytes in a character
  .Sh LIBRARY
  .Lb libc
-@@ -49,6 +50,9 @@
+ .Sh SYNOPSIS
  .In stdlib.h
  .Ft int
- .Fn mblen "const char *mbchar" "size_t nbytes"
+-.Fn mblen "const char *mbchar" "size_t nbytes"
++.Fo mblen
++.Fa "const char *s"
++.Fa "size_t n"
++.Fc
++.In stdlib.h
 +.In xlocale.h
 +.Ft int
-+.Fn mblen_l "const char *mbchar" "size_t nbytes" "locale_t loc"
++.Fo mblen_l
++.Fa "const char *s"
++.Fa "size_t n"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn mblen
-@@ -65,6 +69,14 @@
+-function computes the length in bytes
++function computes the length, in bytes,
+ of a multibyte character
+-.Fa mbchar
++.Fa s ,
+ according to the current conversion state.
+ Up to
+-.Fa nbytes
++.Fa n
+ bytes are examined.
+ .Pp
+ A call with a null
+-.Fa mbchar
++.Fa s
  pointer returns nonzero if the current locale requires shift states,
- zero otherwise;
- if shift states are required, the shift state is reset to the initial state.
+-zero otherwise;
+-if shift states are required, the shift state is reset to the initial state.
++zero otherwise.
++If shift states are required, the shift state is reset to the initial state.
 +.Pp
-+While the
++Although the
 +.Fn mblen
 +function uses the current locale, the
 +.Fn mblen_l
@@ -34,8 +58,30 @@
 +for more information.
  .Sh RETURN VALUES
  If
- .Fa mbchar
-@@ -102,7 +114,8 @@
+-.Fa mbchar
++.Fa s
+ is
+ .Dv NULL ,
+ the
+@@ -76,14 +96,14 @@
+ zero otherwise.
+ .Pp
+ Otherwise, if
+-.Fa mbchar
++.Fa s
+ is not a null pointer,
+ .Fn mblen
+ either returns 0 if
+-.Fa mbchar
++.Fa s
+ represents the null wide character, or returns
+ the number of bytes processed in
+-.Fa mbchar ,
++.Fa s ,
+ or returns \-1 if no multibyte character
+ could be recognized or converted.
+ In this case,
+@@ -102,7 +122,8 @@
  .Sh SEE ALSO
  .Xr mbrlen 3 ,
  .Xr mbtowc 3 ,

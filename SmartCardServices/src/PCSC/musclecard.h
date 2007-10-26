@@ -1001,7 +1001,7 @@ extern "C"
 #ifdef WIN32
 	PCSC_API
 #endif
-	char *msc_error(MSC_RV errorCode);
+	char *msc_error(unsigned long int errorCode);
 
 	/*
 	 * Was the token reset ? 

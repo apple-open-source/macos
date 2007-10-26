@@ -346,7 +346,7 @@ EAPSSLContextCreate(SSLProtocol protocol, bool is_server,
     status = SSLSetIOFuncs(ctx, func_read, func_write);
     if (status) {
 	goto cleanup;
-    } 
+    }
     status = SSLSetProtocolVersion(ctx, protocol);
     if (status) {
 	goto cleanup;
@@ -725,18 +725,29 @@ my_CFArrayCreateByAppendingArrays(CFArrayRef array1, CFArrayRef array2)
     return (ret);
 }
 
+static CFArrayRef
+copy_user_trust_proceed_certs(CFDictionaryRef properties)
+{
+    CFArrayRef		p;
+
+    p = CFDictionaryGetValue(properties,
+			     kEAPClientPropTLSUserTrustProceedCertificateChain);
+    if (p != NULL) {
+	p = EAPCFDataArrayCreateSecCertificateArray(p);
+    }
+    return (p);
+}
+
 EAPClientStatus
 EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties, 
-				   int32_t trust_proceed_id,
 				   CFArrayRef server_certs, 
 				   OSStatus * ret_status)
 {
     bool		allow_any_root;
     EAPClientStatus	client_status;
     int			count;
-    CSSM_RETURN		crtn;
+    OSStatus		crtn;
     SecPolicyRef	policy = NULL;
-    CFNumberRef		proceed_cf;
     bool		replace_roots = FALSE;
     SecCertificateRef	root_cert;
     OSStatus		status;
@@ -746,36 +757,33 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     CFArrayRef		trusted_roots = NULL;
 
     *ret_status = 0;
+    client_status = kEAPClientStatusInternalError;
 
     /* don't bother verifying server's identity */
     if (my_CFDictionaryGetBooleanValue(properties, 
 				       kEAPClientPropTLSVerifyServerCertificate,
 				       TRUE) == FALSE) {
 	client_status = kEAPClientStatusOK;
+    }
+    else {
+	CFArrayRef	proceed;
+
+	proceed = copy_user_trust_proceed_certs(properties);
+	if (proceed != NULL
+	    && EAPSecCertificateListEqual(proceed, server_certs)) {
+	    /* user said it was OK to go */
+	    client_status = kEAPClientStatusOK;
+	}
+	my_CFRelease(&proceed);
+    }
+    if (client_status == kEAPClientStatusOK) {
 	goto done;
     }
-
-    proceed_cf = CFDictionaryGetValue(properties, 
-				      kEAPClientPropTLSUserTrustProceed);
-    if (isA_CFNumber(proceed_cf) != NULL) {
-	int32_t		proceed;
-
-	if (CFNumberGetValue(proceed_cf, kCFNumberSInt32Type, &proceed)) {
-	    if (trust_proceed_id == proceed) {
-		/* user said it was OK to go */
-		client_status = kEAPClientStatusOK;
-		goto done;
-	    }
-	}
-    }
-
     if (server_certs == NULL) {
-	client_status = kEAPClientStatusInternalError;
 	goto done;
     }
     count = CFArrayGetCount(server_certs);
     if (count == 0) {
-	client_status = kEAPClientStatusInternalError;
 	goto done;
     }
     allow_any_root

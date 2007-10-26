@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,13 +20,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CDevice.h,v 1.5 2005/07/01 16:09:52 bwpang Exp $
+ *	File: $Id: IOI2CDevice.h,v 1.6 2007/07/07 19:53:32 raddog Exp $
  *
  *  DRI: Joseph Lehrer
  *
  *		$Log: IOI2CDevice.h,v $
+ *		Revision 1.6  2007/07/07 19:53:32  raddog
+ *		[5143931]-Leopard: IOI2CFamily: platform functions need synchronization
+ *		
  *		Revision 1.5  2005/07/01 16:09:52  bwpang
  *		[4086434] added APSL headers
  *		
@@ -494,15 +497,17 @@ protected:
 		const OSSymbol	*symClientRead;			// CallPlatformFunction Symbol for reading the I2C bus
 		const OSSymbol	*symPowerInterest;
 		bool			fEnableOnDemandPlatformFunctions;
+		IOLock			*fPFLock;
 	};
 
 	/* var reserved		Reserved for future use.  (Internal use only) */
 	ExpansionData *reserved;
 
-	#define symClientWrite		(reserved->symClientWrite)
-	#define symClientRead		(reserved->symClientRead)
-	#define symPowerInterest	(reserved->symPowerInterest)
+	#define symClientWrite						(reserved->symClientWrite)
+	#define symClientRead						(reserved->symClientRead)
+	#define symPowerInterest					(reserved->symPowerInterest)
 	#define fEnableOnDemandPlatformFunctions	(reserved->fEnableOnDemandPlatformFunctions)
+	#define fPFLock								(reserved->fPFLock)
 
 	/*
 		Method space reserved for future expansion.

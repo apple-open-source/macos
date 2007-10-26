@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002-2004, International Business Machines
+* Copyright (c) 2002-2005, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -233,7 +233,7 @@ isPNameAcceptable(void* /*context*/,
         info->formatVersion[0] == PNAME_FORMAT_VERSION;
 }
 
-static UBool U_CALLCONV pname_cleanup() {
+static UBool U_CALLCONV pname_cleanup(void) {
     if (UDATA) {
         udata_close(UDATA);
         UDATA = NULL;
@@ -276,9 +276,8 @@ static UBool _load() {
  * to load it, and return TRUE if the load succeeds.
  */
 static inline UBool load() {
-    umtx_lock(NULL);
-    UBool f = (PNAME!=NULL);
-    umtx_unlock(NULL);
+    UBool f;
+    UMTX_CHECK(NULL, (PNAME!=NULL), f);
     return f || _load();
 }
 
@@ -520,16 +519,18 @@ NameToEnum::swap(const UDataSwapper *ds,
          * which makes testing harder
          */
         cmp.chars=(const char *)outBytes;
-        cmp.propCompare=
-            ds->outCharset==U_ASCII_FAMILY ?
-                uprv_compareASCIIPropertyNames :
-                uprv_compareEBCDICPropertyNames;
+        if (ds->outCharset==U_ASCII_FAMILY) {
+            cmp.propCompare=uprv_compareASCIIPropertyNames;
+        }
+        else {
+            cmp.propCompare=uprv_compareEBCDICPropertyNames;
+        }
         uprv_sortArray(sortArray, tempMap->count, sizeof(NameAndIndex),
                        upname_compareRows, &cmp,
                        TRUE, pErrorCode);
         if(U_FAILURE(*pErrorCode)) {
-            udata_printError(ds, "upname_swap(NameToEnum).uprv_sortArray(%d items) failed - %s\n",
-                             tempMap->count, u_errorName(*pErrorCode));
+            udata_printError(ds, "upname_swap(NameToEnum).uprv_sortArray(%d items) failed\n",
+                             tempMap->count);
             return 0;
         }
 

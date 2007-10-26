@@ -1,0 +1,242 @@
+INTRODUCTION
+============
+
+This module implements a Perl interface to the Gnome libxml2 library. The
+libxml2 libxml2 library provides interfaces for parsing and manipulating XML
+Files. This Module allows Perl programmers to make use of the highly capable
+validating XML parser and the high performance DOM implementation.
+
+
+IMPORTANT NOTES
+===============
+
+XML::LibXML was almost entirely reimplemented between version 1.40 to version
+1.49. This may cause problems on some production machines. With version 1.50 a
+lot of compatibility fixes were applied, so programs written for XML::LibXML
+1.40 or less should run with version 1.50 again.
+
+
+DEPENDENCIES
+============
+
+Prior to installation you MUST have installed the libxml2 library. You can get
+the latest libxml2 version from
+
+http://xmlsoft.org
+
+Without libxml2 installed this module will neither build nor run.
+
+Also XML::LibXML requires the following packages:
+
+   o XML::LibXML::Common - general functions used by various
+          XML::LibXML modules
+   o XML::SAX - DOM building support from SAX
+   o XML::NamespaceSupport - DOM building support from SAX
+
+These packages are required. If one is missing some tests will fail.
+
+Again, libxml2 is required to make XML::LibXML work. The library is not just
+requiered to build XML::LibXML, it has to be accessible during runtime as well.
+Because of this you need to make sure libxml2 is installed properly. To test
+this, run the xmllint program on your system. xmllint is shipped with libxml2
+and therefore should be available.
+
+
+INSTALLATION
+============
+
+To install XML::LibXML just follow the standard installation routine for Perl
+modules:
+
+   1 perl Makefile.PL
+   2 make
+   3 make test
+   4 make install # as superuser
+
+Note that you have to rebuild XML::LibXML once you upgrade libxml2. This avoids
+problems with binary incompatibilities between releases of the library.
+
+
+Notes On libxml2 Versions
+=========================
+
+libxml2 claims binary compatibility between its patch levels. This is not all
+true:
+
+First of all XML::LibXML requires at least libxml2 2.4.25. For most OS this
+means that an update of the prebuild packages is required, since most
+distributors ship ancient libxml2 versions most users will need to upgrade
+their installation.
+
+If you already run an older version of XML::LibXML and you wish to upgrade to a
+bug fixed version of libxml2. libxml2 2.4.25 and 2.5.x versions are not 100%
+binary compatible. So if you intend to upgrade to such a version you will need
+to rebuild XML::LibXML (and XML::LibXML::Common) as well.
+
+Users of perl 5.005_03 and perl 5.6.1 with thread support will also like to
+avoid libxml2 version 2.4.25 and use later versions instead.
+
+If your libxml2 installation is not within your $PATH. you can set the
+environment variable XMLPREFIX=$YOURLIBXMLPREFIX to make XML::LibXML recognize
+the correct libxml2 version in use.
+
+e.g.
+
+>  perl Makefile.PL XMLPREFIX=/usr/brand-new 
+
+will ask '/usr/brand-new/bin/xml2-config' about your real libxml2
+configuration.
+
+Try to avoid to set INC and LIBS on the commandline. One will skip the
+configuration tests in these cases. There will be no report, if the given
+installation is known to be broken.
+
+
+Which Version of libxml2 should be used?
+========================================
+
+XML::LibXML is tested against many versions of libxml2 before it is released.
+Thus there are versions of libxml2 that are known not to work properly with
+XML::LibXML. The Makefile.PL keeps a blacklist of these broken libxml2
+versions.
+
+If one has one of these versions it will be notified during installation. One
+may find that XML::LibXML builds and tests fine in a particular environment.
+But if XML::LibXML is run in such an environment, there will be no support at
+all!
+
+The following versions are tested:
+
+   o past 2.4.20: tested; working.
+   o 2.4.25: tested; not working
+   o past 2.4.25: tested, working
+   o past 2.5.0: tested; brocken Attribute handling
+   o version 2.5.5: tested; tests pass, but known as broken
+   o up to version 2.5.11: tested; working
+   o version 2.6.0: tested; not working
+   o to version 2.6.2: tested; working
+   o version 2.6.3: tested; not working
+   o version 2.6.4: tested; not working (XML Schema errors)
+   o version 2.6.5: tested; not working (broken XIncludes)
+   o up to version 2.6.8: tested; working
+
+It happens, that an older version of libxml2 passes all tests under certain
+conditions. This is no reason to assume that version to work on all platforms.
+If versions of libxml2 are marked as not working this is done for good reasons.
+
+
+Notes for Microsoft Windows
+===========================
+
+Thanks to Randy Kobes there is a precompiled PPM package available on
+
+http://theoryx5.uwinnipeg.ca/ppmpackages/
+
+Usually it takes a little time to build the package for the latest release.
+
+
+Notes for Mac OS X
+==================
+
+Due refactoring the module, XML::LibXML will not run with Mac OS X anymore. It
+appears this is related to special linker options for that OS prior to version
+10.2.2. Since I don't have full access to this OS, help/ patches from OS X
+gurus are highly apprecheated.
+
+It is confirmed that XML::LibXML builds and runs without problems since Mac OS
+X 10.2.6.
+
+
+Notes for HPUX
+==============
+
+XML::LibXML requires libxml2 2.4.25 or later. That means there may not exist a
+usable binary libxml2 package for HPUX and XML::LibXML. For some reasons the
+HPUX cc will not compile libxml2 correctly, which will force you to recompile
+perl with gcc (if you havn't already done that).
+
+Additionally I received the following Note from Rozi Kovesdi:
+
+> Here is my report if someone else runs into the same problem:
+> 
+> Finally I am done with installing all the libraries and XML Perl
+> modules
+> 
+> The combination that worked best for me was:
+> gcc
+> GNU make
+> 
+> Most importantly - before trying to install Perl modules that depend on
+> libxml2:
+> 
+> must set SHLIB_PATH  to include  the path to  libxml2 shared library
+>  
+> assuming that you used the default:
+> 
+> export  SHLIB=/usr/local/lib
+> 
+> also, make sure that the config  files have execute permission:
+> 
+> /usr/local/bin/xml2-config
+> /usr/local/bin/xslt-config
+>  
+> they did not have +x after they were installed by 'make install'
+> and it took me a while to realize that this was my problem
+>  
+> or one can use:
+> 
+> perl Makefile.PL LIBS='-L/path/to/lib' INC='-I/path/to/include'
+
+
+CONTACT
+=======
+
+For suggestions etc. you may contact the maintainer directly
+christian.glahn@uibk.ac.at
+
+For bug reports, please use the CPAN request tracker on
+http://rt.cpan.org/NoAuth/Bugs.html?Dist=XML-LibXML
+
+Also XML::LibXML issues are discussed among other things on the perl XML
+mailing list (perl-xml@listserv.ActiveState.com). In case of problems you
+should check the archives of that list first. Many problems are already
+discussed there. You can find the list's archives at
+http://mailarchive.activestate.com/browse/perl-xml/
+
+
+PACKAGE HISTORY
+===============
+
+Version < 0.98 were maintained by Matt Sergeant
+
+0.98 > Version > 1.49 were maintained by Matt Sergeant and Christian Glahn
+
+Versions >= 1.49 are maintained by Christian Glahn
+
+Versions > 1.56 are co-maintained by Petr Pajas
+
+
+PATCHES AND DEVELOPER VERSION
+=============================
+
+As XML::LibXML is open source software help and patches are appreciated. If you
+find a bug in the current release, make sure this bug still exists in the
+developer version of XML::LibXML. This version can be downloaded from cvs. The
+cvs version can be be loaded via
+
+cvs -d:pserver:anonymous@axkit.org:/home/cvs -z3 co XML-LibXML
+
+Note this account does not allow direct commits.
+
+Please consider the tests as correct. If any test fails it is most certainly
+related to a bug.
+
+If you find documentation bugs, please fix them in the libxml.dkb file, stored
+in the docs directory.
+
+
+KNOWN ISSUES
+============
+
+The push-parser implementation causes memory leaks.
+

@@ -45,7 +45,7 @@
 /*	Bit-wise OR of zero or more of the following:
 /* .RS
 /* .IP MAC_EXP_FLAG_RECURSE
-/*	Expand $name recursively. This should never be done with
+/*	Expand macros in lookup results. This should never be done with
 /*	data whose origin is untrusted.
 /* .PP
 /*	The constant MAC_EXP_FLAG_NONE specifies a manifest null value.
@@ -59,7 +59,7 @@
 /*	MAC_EXP_MODE_TEST to test the existence of the named attribute
 /*	or MAC_EXP_MODE_USE to use the value of the named attribute,
 /*	and the caller context that was given to mac_expand(). A null
-/*	result means that the requested attribute was not defined.
+/*	result value means that the requested attribute was not defined.
 /* .IP context
 /*	Caller context that is passed on to the attribute lookup routine.
 /* DIAGNOSTICS
@@ -116,13 +116,12 @@ typedef struct {
 
 static int mac_expand_callback(int type, VSTRING *buf, char *ptr)
 {
-    char   *myname = "mac_expand_callback";
     MAC_EXP *mc = (MAC_EXP *) ptr;
     int     lookup_mode;
     const char *text;
     char   *cp;
     int     ch;
-    int     len;
+    ssize_t len;
 
     /*
      * Sanity check.
@@ -136,8 +135,11 @@ static int mac_expand_callback(int type, VSTRING *buf, char *ptr)
 
     /*
      * $Name etc. reference.
+     * 
+     * In order to support expansion of lookup results, we must save the lookup
+     * result. We use the input buffer since it will not be needed anymore.
      */
-    if (type == MAC_PARSE_VARNAME) {
+    if (type == MAC_PARSE_EXPR) {
 
 	/*
 	 * Look for the ? or : delimiter. In case of a syntax error, return
@@ -183,7 +185,8 @@ static int mac_expand_callback(int type, VSTRING *buf, char *ptr)
 	    } else if (*text == 0) {
 		 /* void */ ;
 	    } else if (mc->flags & MAC_EXP_FLAG_RECURSE) {
-		mac_parse(text, mac_expand_callback, (char *) mc);
+		vstring_strcpy(buf, text);
+		mac_parse(vstring_str(buf), mac_expand_callback, (char *) mc);
 	    } else {
 		len = VSTRING_LEN(mc->result);
 		vstring_strcat(mc->result, text);
@@ -201,16 +204,8 @@ static int mac_expand_callback(int type, VSTRING *buf, char *ptr)
      * Literal text.
      */
     else {
-	text = vstring_str(buf);
-	vstring_strcat(mc->result, text);
+	vstring_strcat(mc->result, vstring_str(buf));
     }
-
-    /*
-     * Give the poor tester a clue of what is going on.
-     */
-    if (msg_verbose)
-	msg_info("%s: %s = %s", myname, vstring_str(buf),
-		 text ? text : "(undef)");
 
     mc->level--;
 
@@ -248,6 +243,7 @@ int     mac_expand(VSTRING *result, const char *pattern, int flags,
  /*
   * This code certainly deserves a stand-alone test program.
   */
+#include <stdlib.h>
 #include <stringops.h>
 #include <htable.h>
 #include <vstream.h>

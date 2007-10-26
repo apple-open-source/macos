@@ -1,6 +1,6 @@
 Mailman - The GNU Mailing List Management System
 Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 これは Mailman 2.1 の README を菊地＠高知大が和訳したものです． 
 誤訳があるかもしれないので，必ず原本（英文）を参照してください．
@@ -27,23 +27,28 @@ Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
 
     Mailman のホームページは
 
-        http://www.gnu.org/software/mailman
+        http://www.list.org
 
     にあり，そのミラーは
 
-        http://www.list.org
+        http://www.gnu.org/software/mailman
         http://mailman.sf.net
 
-    にあります．（訳注：多少内容が違っています）
+    にあります．
 
     Mailman 2.1 は Python 2.1.3 または以降のバージョンを必要とします． 
-    これは
+    これは次のサイトからダウンロードできます:
 
         http://www.python.org
 
-    からダウンロードできます．Python 2.1.3 または Python 2.2.2 がこれを
-    書いている時点での最新版ですので, お勧めします. Mailman 2.1 は
-    Python 2.0 よりも以前のバージョンでは動きません.
+    これを書いている時点での安定版 Python 2.3.4 を使うとよいかも
+    しれません.
+
+        http://www.python.org/2.3.4
+
+    Mailman は最新の Python 2.4 でも, Python 2.2 系最新の 2.2.3 でも
+    動きます. Mailman 2.1 は Python 2.0 よりも以前のバージョンでは
+    動きません.
 
     また Python と Mailman を入れるには ANSI C コンパイラーも必要です．
     gcc (GNU C コンパイラー)が ピッタシです．Mailman は現在のところ 
@@ -62,7 +67,7 @@ Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
     (沢山の)要望リストについては TODO ファイルを読んでください． 
     Mailman の作動しているところは，
 
-        http://mail.python.org/mailman-21/listinfo
+        http://mail.python.org/mailman/listinfo
 
     で見ることができます．
 
@@ -106,12 +111,9 @@ Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
     が，特定の MTA (Exim と Postfix) を使うと, ウェブを通したリスト
     の作成と削除もサポートできます.
 
-    Mailman は CGI をサポートするどんな web サーバでも使えます． 
+    Mailman は CGI/1.1 をサポートするどんな web サーバでも使えます． 
     生成される HTMLはとても平凡で画像をケチっていますので， ほとんどの
-    ブラウザにとってフレンドリーのはずです． 通常, Windows では 
-    IE5.5, Netscape 4.7x, Mozilla, Linux では Netscape 4.7x と
-    Mozilla で試験しています. (時には Linux の Lynx や MacOS の
-    Netscape と Mozilla でも).
+    ブラウザにとってフレンドリーのはずです．
 
     Mailmanインストールの設定の一部の段階で，ホストマシンでのroot
     権限が必要になります．詳しくは INSTALL を見てください． 

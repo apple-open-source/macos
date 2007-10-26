@@ -78,7 +78,10 @@ gss_krb5int_make_seal_token_v3 (krb5_context context,
     int key_usage;
     unsigned char acceptor_flag;
     const gss_buffer_desc *message2 = message;
-    size_t rrc, ec;
+#ifdef CFX_EXERCISE
+    size_t rrc;
+#endif
+    size_t ec;
     unsigned short tok_id;
     krb5_checksum sum;
     krb5_keyblock *key;
@@ -409,10 +412,16 @@ gss_krb5int_unseal_token_v3(krb5_context *contextptr,
 	    if (load_16_be(althdr) != 0x0504
 		|| althdr[2] != ptr[2]
 		|| althdr[3] != ptr[3]
-		|| memcmp(althdr+8, ptr+8, 8))
+		|| memcmp(althdr+8, ptr+8, 8)) {
+		free(plain.data);
 		goto defective;
+	    }
 	    message_buffer->value = plain.data;
 	    message_buffer->length = plain.length - ec - 16;
+	    if(message_buffer->length == 0) {
+	      free(message_buffer->value);
+	      message_buffer->value = NULL;
+	    }
 	} else {
 	    /* no confidentiality */
 	    if (conf_state)

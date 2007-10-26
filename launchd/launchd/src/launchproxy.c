@@ -1,24 +1,21 @@
 /*
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_APACHE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 #include <Security/Authorization.h>
 #include <Security/AuthorizationTags.h>
@@ -51,12 +48,12 @@ static int kq = 0;
 
 static void find_fds(launch_data_t o, const char *key __attribute__((unused)), void *context __attribute__((unused)))
 {
-        struct kevent kev;
-        size_t i;
+	struct kevent kev;
+	size_t i;
 	int fd;
 
-        switch (launch_data_get_type(o)) {
-        case LAUNCH_DATA_FD:
+	switch (launch_data_get_type(o)) {
+	case LAUNCH_DATA_FD:
 		fd = launch_data_get_fd(o);
 		if (-1 == fd)
 			break;
@@ -64,17 +61,17 @@ static void find_fds(launch_data_t o, const char *key __attribute__((unused)), v
 		EV_SET(&kev, fd, EVFILT_READ, EV_ADD, 0, 0, NULL);
 		if (kevent(kq, &kev, 1, NULL, 0, NULL) == -1)
 			syslog(LOG_DEBUG, "kevent(%d): %m", fd);
-                break;
-        case LAUNCH_DATA_ARRAY:
-                for (i = 0; i < launch_data_array_get_count(o); i++)
-                        find_fds(launch_data_array_get_index(o, i), NULL, NULL);
-                break;
-        case LAUNCH_DATA_DICTIONARY:
-                launch_data_dict_iterate(o, find_fds, NULL);
-                break;
-        default:
-                break;
-        }
+		break;
+	case LAUNCH_DATA_ARRAY:
+		for (i = 0; i < launch_data_array_get_count(o); i++)
+			find_fds(launch_data_array_get_index(o, i), NULL, NULL);
+		break;
+	case LAUNCH_DATA_DICTIONARY:
+		launch_data_dict_iterate(o, find_fds, NULL);
+		break;
+	default:
+		break;
+	}
 }
 
 int main(int argc __attribute__((unused)), char *argv[])
@@ -111,7 +108,7 @@ int main(int argc __attribute__((unused)), char *argv[])
 
 	tmp = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_TIMEOUT);
 	if (tmp)
-		timeout.tv_sec = launch_data_get_integer(tmp);
+		timeout.tv_sec = (int)launch_data_get_integer(tmp);
 
 	tmp = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_PROGRAM);
 	if (tmp)
@@ -184,6 +181,8 @@ int main(int argc __attribute__((unused)), char *argv[])
 				close(r);
 				continue;
 			}
+
+			setpgid(0, 0);
 
 			if ((tmp = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_SESSIONCREATE)) && launch_data_get_bool(tmp)) {
 				if (SessionCreate) {

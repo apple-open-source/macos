@@ -11,31 +11,6 @@
 		01C116BEFFD32EE811CA2918 /* AppleThermal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 01C116BBFFD32EE811CA2918 /* AppleThermal.cpp */; settings = {ATTRIBUTES = (); }; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildStyle section */
-		06AA1265FFB2107B11CA28AA /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		06AA1266FFB2107B11CA28AA /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXBundleTarget section */
 		089C1673FE841209C02AAC07 /* AppleThermal */ = {
 			isa = PBXBundleTarget;
@@ -49,28 +24,6 @@
 				089C1679FE841209C02AAC07 /* Rez */,
 				06AA1264FFB2107B11CA28AA /* ShellScript */,
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleThermal;
-				MODULE_VERSION = 1.0.1f0;
-				OPTIMIZATION_CFLAGS = "";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleThermal;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = AppleThermal;
@@ -86,7 +39,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleThermal</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleThermal version 1.0.1, Copyright 2000 Apple Computer, Inc.</string>
+	<string>AppleThermal version 1.0.1, Copyright 2000-2007 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -102,7 +55,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.1f0</string>
+	<string>1.0.1f2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleThermal</key>
@@ -118,15 +71,13 @@
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright 2000-2007 Apple Computer, Inc.</string>
+	<string>Copyright 2000-2007 Apple Inc.</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.0.0b1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.0.0b1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.0.0b1</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0</string>
 	</dict>
 </dict>
 </plist>
@@ -194,15 +145,12 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 172DAB600B4C7D0800ABE581 /* Build configuration list for PBXProject "AppleThermal" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				06AA1265FFB2107B11CA28AA /* Development */,
-				06AA1266FFB2107B11CA28AA /* Deployment */,
-			);
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 0;
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleThermal */;
 			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
 			targets = (
 				089C1673FE841209C02AAC07 /* AppleThermal */,
 			);
@@ -277,7 +225,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleThermal;
-				MODULE_VERSION = 1.0.1f1;
+				MODULE_VERSION = 1.0.1f2;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -306,7 +254,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleThermal;
-				MODULE_VERSION = 1.0.1f0;
+				MODULE_VERSION = 1.0.1f2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -332,7 +280,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleThermal;
-				MODULE_VERSION = 1.0.1f0;
+				MODULE_VERSION = 1.0.1f2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

@@ -25,7 +25,6 @@
 
 #if ENABLE(SVG)
 
-#include <memory>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/HashMap.h>

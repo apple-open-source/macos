@@ -38,7 +38,7 @@
 ..
 .TH TM 3
 .SH NAME
-tm \- time conversion support
+tm \- seconds resolution time conversion support
 .SH SYNOPSIS
 .L "#include <tm.h>"
 .SH DESCRIPTION
@@ -46,16 +46,27 @@ The
 .I tm
 library supports conversion between
 string date specifications,
+seconds reolution
 .L time_t
 clock values and
+.LR Tm_t .
+.L Tm_t
+contains the elements of
 .L "struct tm"
-values.
+along with these additions:
+.TP
+.L "unsigned _ast_int4_t tm_nsec"
+The subsecond portion of the time in nanoseconds.
+.TP
+.L "Tm_zone_t* tm_zone"
+The time zone name.
+.PP
 .L localtime()
 and
 .L gmtime()
 (see
-.IR ctime (3))
-are used to determine local time zone information.
+.BR ctime (3))
+are used to determine local time zone and savings time information.
 .PP
 .L time_t
 values are the number of seconds since the epoch,
@@ -98,7 +109,7 @@ environment variable.
 Times are relative to
 .B UTC
 (universal coordinated time, i.e.,
-.BR GMT ).
+.BR GMT .)
 Otherwise times are relative to the local time zone.
 Set by
 .L tminit()
@@ -143,7 +154,7 @@ is
 .L NULL
 then the current time is used.
 .TP
-.L "struct tm* tmfix(struct tm* tp)"
+.L "Tm_t* tmfix(Tm_t* tp)"
 Corrects any out of bounds fields in
 .L tp
 and returns
@@ -158,11 +169,12 @@ For example, if
 were 61 then it would change to 1 and
 .L tp->tm_min
 would be incremented by 1, and so on.
-.LR tp->tm_wday ,
-.LR tp->tm_yday
-and
 .L tp->tm_isdst
-are not changed as these can be computed from the other fields.
+is not changed -- call
+.L tmtime()
+to determine its proper value after the
+.L tmfix()
+adjustments.
 .TP
 .L "char* tmfmt(char* buf, size_t len, const char* format, time_t* clock)"
 Formats the date pointed to by
@@ -193,21 +205,42 @@ is returned.
 .RS
 .PP
 .L format
-is in the style of
-.IR printf (3),
-where
-.BI % field
-causes the corresponding fixed size field to be placed in
-.LR buf ,
-zero padded if necessary, and \e\fIc\fP and \e\fInnn\fP
-sequences are interpreted as in the C language.
-Otherwise invalid
-.BI % field
-specifications and all other characters in
-.L format
-are copied into
-.L buf
+is in
+.BR printf (3)
+style, where
+.RI % field
+names a fixed size field, zero padded if necessary,
+and
+.I \ec
+and
+.I \ennn
+sequences are as in C. Invalid
+.RI % field
+specifications and all other characters are copied
 without change.
+.I field
+may be preceded by
+.B %-
+to turn off padding or
+.B %_
+to pad with space, otherwise numeric fields
+are padded with
+.B 0
+and string fields are padded with space.
+.I field
+may also be preceded by
+.B E
+for alternate era representation or
+.B O
+for alternate digit representation (if supported by the current locale.)
+Finally, an integral
+.I width
+preceding
+.I field
+truncates the field to
+.I width
+characters.
+sequences are interpreted as in the C language.
 String field values are taken from the
 .L tm_info.format
 string table.
@@ -230,12 +263,12 @@ Full weekday name.
 Abbreviated month name.
 .TP
 .B c
-.IR ctime (3)
+.BR ctime (3)
 style date without the trailing
 .BR newline .
 .TP
 .B C
-.IR date (1)
+.BR date (1)
 style date.
 .TP
 .B d
@@ -251,6 +284,13 @@ Blank padded day of month number.
 .B E
 Unpadded day of month number.
 .TP
+.B f
+Locale default override date format.
+.TP
+.B F
+Locale default date format
+.RL ( tm_info.format[40] .)
+.TP
 .B h
 Abbreviated month name.
 .TP
@@ -259,8 +299,9 @@ Abbreviated month name.
 .TP
 .B i
 International
-.IR date (1)
-date that includes the time zone type name.
+.BR date (1)
+date that includes the time zone type name
+.RL ( tm_info.format[107] .)
 .TP
 .B I
 12-hour clock hour.
@@ -271,13 +312,24 @@ date that includes the time zone type name.
 .B J
 0-offset Julian date.
 .TP
+.B k
+.BR date (1)
+style date
+.RL ( tm_info.format[106] .)
+.TP
+.B K
+Language neutral, all numeric, no embedded space date
+with larger to smaller time units from left to right,
+suitable for sorting:
+.LR '"%Y-%m-%d+%H:%M:%S"' .
+.TP
 .B l
-.IR ls (1)
+.BR ls (1)
 .B \-l
 date that lists recent dates with
-.IR hh : mm
+.L %g
 and distant dates with
-.IR yyyy .
+.BR %G .
 .TP
 .B m
 Month number.
@@ -289,11 +341,29 @@ Minutes.
 .B newline
 character.
 .TP
+.B N
+The time zone type or nation code.
+.TP
 .B p
 Meridian (e.g.,
 .B AM
 or
-.BR PM ).
+.BR PM .)
+.TP
+.B q
+The nanosecond part of the time.
+.TP
+\fB%Q\fP\fI<delim>recent<delim>distant<delim>\fP
+Recent dates are formatted with
+.I recent
+and distand dates are formatted with
+.IR distant ,
+where
+.I <delim>
+is any character not appearing in
+.I recent
+or
+.IR distant .
 .TP
 .B r
 12-hour time as
@@ -304,8 +374,22 @@ or
 24-hour time as
 .IR hh : mm .
 .TP
+.B s
+Seconds since the epoch.
+.RI . prec
+preceding
+.B s
+appends
+.I prec
+nanosecond digits,
+.B 9
+if
+.I prec
+is omitted.
+.TP
 .B S
-Seconds.
+.I seconds.subseconds
+since the epoch.
 .TP
 .B t
 .B tab
@@ -315,11 +399,17 @@ character.
 24-hour time as
 .IR hh : mm : ss .
 .TP
+.B u
+Weeday number with 1 for Monday, 7 for Sunday.
+.TP
 .B U
 Week number with Sunday as the first day.
 .TP
+.B V
+ISO week number (i18n is \fIfun\fP.)
+.TP
 .B w
-Weekday number.
+Weekday number with 0 for Sunday, 6 for Saturday.
 .TP
 .B W
 Week number with Monday as the first day.
@@ -335,37 +425,69 @@ Local time style, using
 that includes the hours and minutes.
 .TP
 .B y
-2-digit year.
+2-digit year (you'll be sorry.)
 .TP
 .B Y
 4-digit year.
 .TP
 .B z
-Time zone type name.
+Time zone
+.I SHHMM
+west of GMT offset where
+.I S
+is
+.B +
+or
+.BR - .
 .TP
 .B Z
 Time zone name.
 .TP
-.BI + flag
-.TP
-.BI \- flag
-Temporarily (until
-.L tmform()
-returns) sets (+) or clears (\-) the
+=[=]][-+]]\fIflag\fP
+Set (default or +) or clear (-)
+.I flag
+in
 .L tm_info.flags
-flags specified by
-.IR flag :
+for the remainder of
+.IR format ,
+or for the remainder of the process if
+.B ==
+is specified.
+.I flag
+may be:
 .RS
 .TP
 .B l
-.L TM_LEAP
+.L (TM_LEAP)
+Enable leap second adjustments.
+.TP
+.B s
+.L (TM_SUBSECOND)
+Append nanosecond
+.B .%N
+to
+.BR %S .
 .TP
 .B u
-.L TM_UTC
+.L (TM_UTC)
+UTC time zone.
 .RE
 .TP
 .B #
-Number of seconds since the epoch.
+Equivalent to
+.BR %s .
+.TP
+\fP?\fP\fIalternate\fP
+Use
+.I alternate
+format is a default format override has not been specified.
+e.g.,
+.BR ls (1)
+uses
+.BR %?%l .
+Export
+\f5TM_OPTIONS="format='\fP\fIoverride\fP\f5'"\fP
+to override the default.
 .PD
 .RE
 .TP
@@ -409,9 +531,9 @@ Adjustments are only done if the
 flag is set in
 .LR tm_info.flags .
 .TP
-.L "struct tm* tmmake(time_t* clock)"
+.L "Tm_t* tmmake(time_t* clock)"
 Returns a pointer to the
-.L tm
+.L Tm_t
 struct corresponding to the time pointed to by
 .LR clock .
 If
@@ -420,7 +542,7 @@ is
 .L NULL
 then the current time is used.
 .TP
-.L "time_t tmtime(struct tm* tp, int west)"
+.L "time_t tmtime(Tm_t* tp, int west)"
 Returns the
 .L time_t
 value corresponding to
@@ -468,19 +590,19 @@ Full month names.
 Full weekday names.
 .TP
 .B 38
-.L tmform()
+.L tmfmt()
 local time format used by the
 .B %X
 field.
 .TP
 .B 39
-.L tmform()
+.L tmfmt()
 local date format used by the
 .B %x
 field.
 .TP
 .B 40
-.L tmform()
+.L tmfmt()
 format used if the
 .L format
 argument is
@@ -499,7 +621,7 @@ Daylight savings time suffix names: DST.
 .TP
 .B 51-54
 Suffixes to be ignored when matching strings in
-.LR tmform() .
+.LR tmfmt() .
 .TP
 .B 55-61
 Time part names: second, hour, minute, day, week, month, year.
@@ -522,8 +644,80 @@ Future relative time references: next, hence, coming.
 .B 78-80
 Exact relative time references: exactly.
 .TP
-.B 81-85
+.B 81-84
 Noise words to be ignored: at, in, on.
+.TP
+.B 85-94
+Ordinal suffixes: st, nd, rd, th, th, th, th, th, th, th.
+.TP
+.B 95-104
+Digit names.
+.TP
+.B 105
+The
+.L tmfmt()
+format equivalent for
+.BR ctime (3):
+.LR '"%a %b %e %T %Y"' .
+.TP
+.B 106
+The
+.L tmfmt()
+.BR date (1)
+default format:
+.LR '"%a %b %e %T %Z %Y"' .
+.TP
+.B 107
+The
+.L tmfmt()
+.BR date (1)
+international format:
+.LR '"%a %b %e %T %z %Z %Y"' .
+.TP
+.B 108
+The
+.L tmfmt()
+.BR ls (1)
+recent date format:
+.LR '"%b %e %H:%M"' .
+.TP
+.B 109
+The
+.L tmfmt()
+.BR ls (1)
+distant date format:
+.LR '"%b %e  %Y"' .
+.TP
+.B 110
+The
+.L tmfmt()
+.BR date (1)
+meridian date format:
+.LR '"%I:%M:%S %p"' .
+.TP
+.B 111
+The ERA name.
+.TP
+.B 112
+ERA alternative for
+.BR 39 .
+.TP
+.B 113
+ERA alternative for
+.BR 38 .
+.TP
+.B 114
+ERA alternative for
+.BR 40 .
+.TP
+.B 115
+The ERA year.
+.TP
+.B 116-125
+Ordinal names: first, \fIno second!\fP, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth.
+.TP
+.B 126-128
+Final time references, as in \fIthe last in the list\fP: final, ending, nth.
 .PD
 .RE
 .PP
@@ -548,7 +742,7 @@ main() {
     };
     for (i = 0; x[i].date; i++) {
         t = tmdate(x[i].date, (char*)0, (time_t*)0);
-        (void)tmform(buf, x[i].format, &t);
+        (void)tmfmt(buf, sizeof(buf), x[i].format, &t);
         puts(buf);
     }
 }
@@ -561,13 +755,18 @@ Fri Jul  1 00:00:00 EDT 1988
 Friday
 .EE
 .SH "SEE ALSO"
-date(1), time(2), ctime(3)
+.BR date (1),
+.BR time (2),
+.BR ctime (3)
 .SH BUGS
+The C library static
 .L "struct tm"
-values may get clobbered by the
+values may get clobbered by
 .I tm
 library routines as the
-.IR ctime (3)
+.BR ctime (3)
+and
+.BR localtime (3)
 routines typically return pointers to a single static
 .L "struct tm"
 area.

@@ -2,9 +2,7 @@
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
         H_FILES = (
-			membership.h,
 			membershipPriv.h,
-			memberd_defines.h,
 			ntsid.h
         ); 
         OTHER_LINKED = (membership.c); 
@@ -12,7 +10,7 @@
             Makefile.preamble, 
 			Makefile, 
 			Makefile.postamble, 
-			memberd.defs
+			DSmemberdMIG.defs
 		); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 

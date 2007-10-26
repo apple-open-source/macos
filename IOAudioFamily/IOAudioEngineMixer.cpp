@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
  * The contents of this file constitute Original Code as defined in and
  * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
+															   * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
  *
@@ -25,63 +25,32 @@
 #include <IOKit/audio/IOAudioStream.h>
 #include <IOKit/audio/IOAudioTypes.h>
 
+//#include <AppleDSP/OSvKernDSPLib.h>
+
+extern "C" void vDSP_vadd( const float input1[], __darwin_ptrdiff_t stride1, const float input2[], __darwin_ptrdiff_t stride2, float res[], __darwin_ptrdiff_t strideres, __darwin_size_t size);
+
 IOReturn IOAudioEngine::mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-    IOReturn result = kIOReturnBadArgument;
-    
-    //audioDebugIOLog(6, "IOAudioEngine[%p]::mixOutputSamples(%p, %p, 0x%lx, 0x%lx, %p, %p)", sourceBuf, mixBuf, firstSampleFrame, numSampleFrames, streamFormat, audioStream);
-    //audioDebugIOLog(6, "mix(%p,%p,%lx,%lx) cur=(%lx,%lx) erase=%lx", sourceBuf, mixBuf, firstSampleFrame, numSampleFrames, status->fCurrentLoopCount, getCurrentSampleFrame(), status->fEraseHeadSampleFrame);
-
-    if (sourceBuf && mixBuf) {
-        float *floatSourceBuf, *floatMixBuf;
-        UInt32 numSamplesLeft, numPartialSamples;
-        
-        floatSourceBuf = (float *)sourceBuf;
-        floatMixBuf = &(((float *)mixBuf)[firstSampleFrame * streamFormat->fNumChannels]);
-        
-        numSamplesLeft = numSampleFrames * streamFormat->fNumChannels;
-        numPartialSamples = numSamplesLeft % 4;	// Unroll the loop 4x
-        
-        while (numSamplesLeft > numPartialSamples) {
-            register float mixFloat1 = *floatMixBuf;
-            register float sourceFloat1 = *floatSourceBuf;
-            register float mixFloat2 = *(floatMixBuf + 1);
-            register float sourceFloat2 = *(floatSourceBuf + 1);
-            register float mixFloat3 = *(floatMixBuf + 2);
-            register float sourceFloat3 = *(floatSourceBuf + 2);
-            register float mixFloat4 = *(floatMixBuf + 3);
-            register float sourceFloat4 = *(floatSourceBuf + 3);
-            
-            floatSourceBuf += 4;
-            numSamplesLeft -= 4;
-
-            mixFloat1 += sourceFloat1;
-            mixFloat2 += sourceFloat2;
-            mixFloat3 += sourceFloat3;
-            mixFloat4 += sourceFloat4;
-            
-            *floatMixBuf = mixFloat1;
-            *(floatMixBuf + 1) = mixFloat2;
-            *(floatMixBuf + 2) = mixFloat3;
-            *(floatMixBuf + 3) = mixFloat4;
-            
-            floatMixBuf += 4;
-        }
-        
-        while (numSamplesLeft > 0) {
-            register float mixFloat1 = *floatMixBuf;
-            register float sourceFloat1 = *floatSourceBuf;
-            
-            ++floatSourceBuf;
-            --numSamplesLeft;
-
-            mixFloat1 += sourceFloat1;
-            
-            *floatMixBuf = mixFloat1;
-            
-            ++floatMixBuf;
-        }
-        
+	IOReturn result = kIOReturnBadArgument;
+	
+    if (sourceBuf && mixBuf) 
+	{
+		const float * floatSource1Buf;
+		const float * floatSource2Buf;
+		float * floatMixBuf;
+		
+        UInt32 numSamplesLeft = numSampleFrames * streamFormat->fNumChannels;
+		
+		__darwin_size_t numSamps = numSamplesLeft;
+ 		
+		floatMixBuf = &(((float *)mixBuf)[firstSampleFrame * streamFormat->fNumChannels]);
+		floatSource2Buf = floatMixBuf;
+		floatSource1Buf = (const float *)sourceBuf;
+		
+		__darwin_ptrdiff_t strideOne=1, strideTwo=1, resultStride=1;
+		
+		vDSP_vadd(floatSource1Buf, strideOne, floatSource2Buf, strideTwo, floatMixBuf, resultStride, numSamps);
+		
         result = kIOReturnSuccess;
     }
     

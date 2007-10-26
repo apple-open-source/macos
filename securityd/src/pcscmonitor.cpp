@@ -47,6 +47,11 @@ static const char PCSCD_EXEC_PATH[] = "/usr/sbin/pcscd";	// override with $PCSCD
 static const char PCSCD_WORKING_DIR[] = "/var/run/pcscd";	// pcscd's working directory
 static const Time::Interval PCSCD_IDLE_SHUTDOWN(120);		// kill daemon if no devices present
 
+// Apple built-in iSight Device VendorID/ProductID: 0x05AC/0x8501
+
+static const uint32_t kVendorProductMask = 0x0000FFFF;
+static const uint32_t kVendorIDApple = 0x05AC;
+static const uint16_t kProductIDBuiltInISight = 0x8501;
 
 //
 // Construct a PCSCMonitor.
@@ -143,6 +148,24 @@ void PCSCMonitor::pollReaders()
 	}
 }
 
+//
+// Poll PCSC for smartcard status.
+// We are enumerating all readers on each call.
+//
+void PCSCMonitor::clearReaders()
+{
+	if (!mReaders.empty()) {
+		// uh-oh. We had readers connected when pcscd suddenly left
+		secdebug("pcsc", "%ld readers were present when pcscd died", mReaders.size());
+		for (ReaderMap::const_iterator it = mReaders.begin(); it != mReaders.end(); it++) {
+			Reader *reader = it->second;
+			secdebug("pcsc", "removing reader %s", reader->name().c_str());
+			reader->kill();						// prepare to die
+		}
+		mReaders.erase(mReaders.begin(), mReaders.end());
+		secdebug("pcsc", "orphaned readers cleared");
+	}
+}
 
 TokenCache& PCSCMonitor::getTokenCache ()
 {
@@ -204,12 +227,16 @@ void PCSCMonitor::childAction()
 // Event notifier.
 // These events are sent by pcscd for our (sole) benefit.
 //
-void PCSCMonitor::notifyMe(SecurityServer::NotificationDomain domain,
-		SecurityServer::NotificationEvent event, const CssmData &data)
+void PCSCMonitor::notifyMe(Notification *message)
 {
 	Server::active().longTermActivity();
 	StLock<Mutex> _(*this);
 	assert(mServiceLevel == externalDaemon || Child::state() == alive);
+	if (message->event == kNotificationPCSCInitialized)
+	{
+		clearReaders();
+//		mSession.close();
+	}
 	pollReaders();
 	scheduleTimer(mReaders.empty() && !mGoingToSleep);
 }
@@ -373,20 +400,31 @@ PCSCMonitor::DeviceSupport PCSCMonitor::deviceSupport(const IOKit::Device &dev)
 				return definite;
 			case kUSBVendorSpecificInterfaceClass:
 				secdebug("scsel", "  Vendor-specific interface - possible match");
+				if (isExcludedDevice(dev))
+				{
+					secdebug("scsel", "  interface class %d is not a smartcard device (excluded)", clas);
+					return impossible;
+				}
 				return possible;
 			default:
-				secdebug("scsel", "  interface class %ld is not a smartcard device", clas);
+				secdebug("scsel", "  interface class %d is not a smartcard device", clas);
 				return impossible;
 			}
 
                // noncomposite USB device
 		if (CFRef<CFNumberRef> cfDevice = dev.property<CFNumberRef>("bDeviceClass"))
-			if (cfNumber(cfDevice) == kUSBVendorSpecificClass) {
+			if (cfNumber(cfDevice) == kUSBVendorSpecificClass)
+			{
+				if (isExcludedDevice(dev))
+				{
+					secdebug("scsel", "  device class %d is not a smartcard device (excluded)", cfNumber(cfDevice));
+					return impossible;
+				}
 				secdebug("scsel", "  Vendor-specific device - possible match");
 				return possible;
 			}
 
-               // PCCard (aka PCMCIA aka ...) interface (don't know how to recognize a reader here)
+              // PCCard (aka PCMCIA aka ...) interface (don't know how to recognize a reader here)
                if (CFRef<CFStringRef> ioName = dev.property<CFStringRef>("IOName"))
                        if (cfString(ioName).find("pccard", 0, 1) == 0) {
                                secdebug("scsel", "  PCCard - possible match");
@@ -399,6 +437,19 @@ PCSCMonitor::DeviceSupport PCSCMonitor::deviceSupport(const IOKit::Device &dev)
 	}
 }
 
+bool PCSCMonitor::isExcludedDevice(const IOKit::Device &dev)
+{
+	uint32_t vendorID = 0, productID = 0;
+	// Simplified version of getVendorAndProductID in pcscd
+	if (CFRef<CFNumberRef> cfVendorID = dev.property<CFNumberRef>(kUSBVendorID))
+		vendorID = cfNumber(cfVendorID);
+
+	if (CFRef<CFNumberRef> cfProductID = dev.property<CFNumberRef>(kUSBProductID))
+		productID = cfNumber(cfProductID);
+	
+	secdebug("scsel", "  checking device for possible exclusion [vendor id: 0x%08X, product id: 0x%08X]", vendorID, productID);
+	return ((vendorID & kVendorProductMask) == kVendorIDApple && (productID & kVendorProductMask) == kProductIDBuiltInISight);
+}
 
 //
 // This gets called (by the Unix/Child system) when pcscd has died for any reason
@@ -408,16 +459,6 @@ void PCSCMonitor::dying()
 	Server::active().longTermActivity();
 	StLock<Mutex> _(*this);
 	assert(Child::state() == dead);
-	if (!mReaders.empty()) {
-		// uh-oh. We had readers connected when pcscd suddenly left
-		secdebug("pcsc", "%ld readers were present when pcscd died", mReaders.size());
-		for (ReaderMap::const_iterator it = mReaders.begin(); it != mReaders.end(); it++) {
-			Reader *reader = it->second;
-			secdebug("pcsc", "removing reader %s", reader->name().c_str());
-			reader->kill();						// prepare to die
-		}
-		mReaders.erase(mReaders.begin(), mReaders.end());
-		secdebug("pcsc", "orphaned readers cleared");
-	}
+	clearReaders();
 	//@@@ this is where we would attempt a restart, if we wanted to...
 }

@@ -1,7 +1,7 @@
 # 
 # = ftools.rb: Extra tools for the File class
 #
-# Author:: WANTANABE, Hirofumi
+# Author:: WATANABE, Hirofumi
 # Documentation:: Zachary Landau
 #
 # This library can be distributed under the terms of the Ruby license.
@@ -11,25 +11,22 @@
 #
 # == Description
 #
-# +ftools+ adds several (class, not instance) methods to the File class, for copying, moving,
-# deleting, installing, and comparing files, as well as creating a directory path.  See the
-# File class for details.
+# ftools adds several (class, not instance) methods to the File class, for
+# copying, moving, deleting, installing, and comparing files, as well as
+# creating a directory path.  See the File class for details.
 #
-# +fileutils+ contains all or nearly all the same functionality and more, and is a recommended
-# option over +ftools+. 
-#
-
-
+# FileUtils contains all or nearly all the same functionality and more, and
+# is a recommended option over ftools 
 #
 # When you
 #
 #   require 'ftools'
 #
-# then the File class aquires some utility methods for copying, moving, and deleting files, and
-# more.
+# then the File class aquires some utility methods for copying, moving, and
+# deleting files, and more.
 #
-# See the method descriptions below, and consider using +fileutils+ as it is more
-# comprehensive.
+# See the method descriptions below, and consider using FileUtils as it is
+# more comprehensive.
 #
 class File
 end
@@ -45,8 +42,8 @@ class << File
   # in +to+. 
   #
   def catname(from, to)
-    if FileTest.directory? to
-      File.join to.sub(%r([/\\]$), ''), basename(from)
+    if directory? to
+      join to.sub(%r([/\\]$), ''), basename(from)
     else
       to
     end
@@ -88,7 +85,7 @@ class << File
   # is printed.
   #
   def copy(from, to, verbose = false)
-    $deferr.print from, " -> ", catname(from, to), "\n" if verbose
+    $stderr.print from, " -> ", catname(from, to), "\n" if verbose
     syscopy from, to
   end
 
@@ -96,14 +93,14 @@ class << File
 
   #
   # Moves a file +from+ to +to+ using #syscopy. If +to+ is a directory,
-  # copies from +from+ to <tt>to/from</tt>. If +verbose+ is true, <tt>from -> to</tt>
-  # is printed.
+  # copies from +from+ to <tt>to/from</tt>. If +verbose+ is true, <tt>from ->
+  # to</tt> is printed.
   #
   def move(from, to, verbose = false)
     to = catname(from, to)
-    $deferr.print from, " -> ", to, "\n" if verbose
+    $stderr.print from, " -> ", to, "\n" if verbose
 
-    if RUBY_PLATFORM =~ /djgpp|(cyg|ms|bcc)win|mingw/ and FileTest.file? to
+    if RUBY_PLATFORM =~ /djgpp|(cyg|ms|bcc)win|mingw/ and file? to
       unlink to
     end
     fstat = stat(from)
@@ -111,7 +108,7 @@ class << File
       rename from, to
     rescue
       begin
-        symlink File.readlink(from), to and unlink from
+        symlink readlink(from), to and unlink from
       rescue
 	from_stat = stat(from)
 	syscopy from, to and unlink from
@@ -127,11 +124,11 @@ class << File
   alias mv move
 
   #
-  # Returns +true+ iff the contents of files +from+ and +to+ are
+  # Returns +true+ if and only if the contents of files +from+ and +to+ are
   # identical. If +verbose+ is +true+, <tt>from <=> to</tt> is printed.
   #
   def compare(from, to, verbose = false)
-    $deferr.print from, " <=> ", to, "\n" if verbose
+    $stderr.print from, " <=> ", to, "\n" if verbose
 
     return false if stat(from).size != stat(to).size
 
@@ -170,12 +167,22 @@ class << File
   #
   def safe_unlink(*files)
     verbose = if files[-1].is_a? String then false else files.pop end
-    begin
-      $deferr.print files.join(" "), "\n" if verbose
-      chmod 0777, *files
-      unlink(*files)
-    rescue
-#      $deferr.print "warning: Couldn't unlink #{files.join ' '}\n"
+    files.each do |file|
+      begin
+        unlink file
+        $stderr.print "removing ", file, "\n" if verbose
+      rescue Errno::EACCES # for Windows
+        continue if symlink? file
+        begin
+          mode = stat(file).mode
+          o_chmod mode | 0200, file
+          unlink file
+          $stderr.print "removing ", file, "\n" if verbose
+        rescue
+          o_chmod mode, file rescue nil
+        end
+      rescue
+      end
     end
   end
 
@@ -197,18 +204,17 @@ class << File
   #
   def makedirs(*dirs)
     verbose = if dirs[-1].is_a? String then false else dirs.pop end
-#    mode = if dirs[-1].is_a? Fixnum then dirs.pop else 0755 end
     mode = 0755
     for dir in dirs
       parent = dirname(dir)
-      next if parent == dir or FileTest.directory? dir
-      makedirs parent unless FileTest.directory? parent
-      $deferr.print "mkdir ", dir, "\n" if verbose
+      next if parent == dir or directory? dir
+      makedirs parent unless directory? parent
+      $stderr.print "mkdir ", dir, "\n" if verbose
       if basename(dir) != ""
         begin
           Dir.mkdir dir, mode
         rescue SystemCallError
-          raise unless File.directory? dir
+          raise unless directory? dir
         end
       end
     end
@@ -230,7 +236,7 @@ class << File
   #
   def chmod(mode, *files)
     verbose = if files[-1].is_a? String then false else files.pop end
-    $deferr.printf "chmod %04o %s\n", mode, files.join(" ") if verbose
+    $stderr.printf "chmod %04o %s\n", mode, files.join(" ") if verbose
     o_chmod mode, *files
   end
   $VERBOSE = vsave
@@ -243,8 +249,8 @@ class << File
   #
   def install(from, to, mode = nil, verbose = false)
     to = catname(from, to)
-    unless FileTest.exist? to and cmp from, to
-      safe_unlink to if FileTest.exist? to
+    unless exist? to and cmp from, to
+      safe_unlink to if exist? to
       cp from, to, verbose
       chmod mode, to, verbose if mode
     end

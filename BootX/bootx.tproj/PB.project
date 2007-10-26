@@ -21,7 +21,7 @@
     NEXTSTEP_COMPILEROPTIONS = "-static"; 
     NEXTSTEP_INSTALLDIR = /bin; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
-    NEXTSTEP_LINKEROPTIONS = "-nostdlib -e _StartTVector -seg1addr 05600000"; 
+    NEXTSTEP_LINKEROPTIONS = "-nostdlib -e _StartTVector -seg1addr 06600000"; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
     PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
     PDO_UNIX_INSTALLDIR = /bin; 

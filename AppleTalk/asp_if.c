@@ -61,6 +61,8 @@
 
 #include <AppleTalk/at_proto.h>
 
+
+
 extern int ATsocket(int protocol);
 	/* Used to create an old-style (pre-BSD) AppleTalk socket */
 
@@ -205,6 +207,8 @@ void
 initSess(sp)
      session_t *sp;
 {
+
+
 	if (sp) {
 		(void)memset(sp, 0, sizeof(session_t));
 	}

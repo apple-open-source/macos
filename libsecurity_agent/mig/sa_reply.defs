@@ -10,8 +10,6 @@ userprefix sa_reply_client_;
 
 import <security_agent_client/sa_types.h>;
 
-
-
 //
 // Data types
 //

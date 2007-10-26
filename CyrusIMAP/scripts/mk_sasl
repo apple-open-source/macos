@@ -1,6 +1,0 @@
-#!/bin/sh
-
-DIR=`pwd`
-
-make sasl SRCROOT=$DIR
-

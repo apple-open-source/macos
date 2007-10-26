@@ -1,0 +1,375 @@
+.Dd June 1, 2006
+.Dt CODESIGN 1
+.Os
+.Sh NAME
+.Nm codesign
+.Nd Create and manipulate code signatures
+.Sh SYNOPSIS
+.\" sign code (-s)
+.Nm
+.Ar -s identity
+.Op -i identifier
+.Op -r requirements
+.Op Fl fv
+.Op Ar path ...
+.\" verify code (-v)
+.Nm
+.Ar -v
+.Op -R requirement
+.Op Fl v
+.Op Ar path|pid ...
+.\" display code signatures (-d)
+.Nm
+.Ar -d
+.Op Fl v
+.Op Ar path|pid ...
+.\" display hosting paths (-h)
+.Nm
+.Ar -h
+.Op Fl v
+.Op Ar pid ...
+.Sh DESCRIPTION
+The
+.Nm
+command is used to create, check, and display code signatures, as well as
+inquire into the dynamic status of signed code in the system.
+.Pp
+.Nm
+accepts single-character (classic) options, as well as GNU-style long
+options of the form --name and --name=value. Common options have both
+forms; less frequent and specialized options have only long form.
+.Pp
+.Sh OPTIONS
+The options are as follows:
+.Bl -tag -width indent
+.It Fl d, -display
+Display information about the code at the path(s) given. Increasing levels
+of verbosity produce more output.
+The format is designed to be moderately easy to parse by simple scripts while still
+making sense to human eyes.
+In addition, the -r and --file-list options can be used to retrieve additional information.
+.It Fl D, -detached Ar filename
+When signing, designates that a detached signature should be written to
+the specified file. The code being signed is not modified and need not be
+writable.
+When verifying, designates a file containing a detached signature to be used
+for verification. Any embedded signature in the code is ignored.
+.It Fl f, -force
+When signing, causes
+.Nm
+to replace any existing signature on the path(s) given. Without this option,
+existing signatures will not be replaced, and the signing operation fails.
+.It Fl i, -identifier Ar identifier
+During signing, explicitly specify the unique identifier string that is embedded
+in code signatures. If this option is omitted, the identifier is derived from
+either the Info.plist (if present), or the filename of the executable being signed,
+possibly modified by the --prefix option.
+.It Fl o, -options Ar flag,...
+During signing, specifies a set of option flag to be embedded in the code
+signature. The value takes the form of a comma-separated list of names (with
+no spaces). Alternatively, a numeric value can be used to directly
+specify the option mask (CodeDirectory flag word). See OPTION FLAGS below.
+.It Fl P, -pagesize Ar pagesize
+Indicates the granularity of code signing. Pagesize must be a power of two.
+Chunks of pagesize bytes are separately signed and can thus be independently verified as needed.
+As a special case, a pagesize of zero
+indicates that the entire code should be signed and verified as a single,
+possibly gigantic page. This option only applies to the main executable and has
+no effect on the sealing of associated data, including resources.
+.It Fl r, -requirements Ar requirements
+During signing, indicates that internal requirements should be embedded in the
+code path(s) as specified. See "specifying requirements" below.
+.br
+During display, indicates where to write the code's internal requirements. Use -r-
+to write them to standard output.
+.It Fl R, -test-requirement Ar requirement
+During verification, indicates that the path(s) given should be verified against
+the code requirement specified. If this option is omitted, the code is verified
+only for internal integrity and against its own designated requirement.
+.It Fl s, -sign Ar identity
+Sign the code at the path(s) given using this identity. See SIGNING IDENTITIES below.
+.It Fl v, -verbose [n]
+Sets (with a numeric value) or increments the verbosity level of output. Without
+the verbose option, no output is produced upon success, in the classic UNIX style.
+If no other options request a different action, the first -v encountered will be
+interpreted as --verify instead (and does not increase verbosity).
+.It Fl v, -verify
+Requests verification of code signatures.
+If other actions (sign, display, etc.) are also requested, -v is interpreted
+to mean --verbose.
+.It Fl -continue
+Instructs
+.Nm
+to continue processing path arguments even if processing one fails.
+If this option is given, exit due to operational errors is deferred until
+all path arguments have been considered. The exit code will then indicate
+the most severe failure (or, with equal severity, the first such failure encountered).
+.It Fl -dryrun
+During signing, performs almost all signing operations, but does not actually
+write the result anywhere. Cryptographic signatures are still generated,
+actually using the given signing identity and triggering any access control
+checks normally, though the resulting signature is then discarded.
+.It Fl -file-list Ar path
+When signing or displaying a signature,
+.Nm
+writes to the given path a list of
+files that may have been modified as part of the signing process. This is useful
+for installer or patcher programs that need to know what was changed or what files
+are needed to make up the "signature" of a program. The file given is appended-to,
+with one line per absolute path written. An argument of "-" (single dash) denotes standard
+output.
+Note that the list may be
+somewhat pessimistic - all files not listed are guaranteed to be unchanged by the
+signing process, but some of the listed files may not actually have changed.
+Also note that modification may have been made to extended attributes of these
+files.
+.It Fl -ignore-resources
+During static validation, do not validate the contents of the code's resources.
+In effect, this will pass validation on code whose resources have been corrupted
+(or inappropriately signed). On large programs, it will also substantially speed
+up static validation, since all the resources will not be read into memory.
+Obviously, the outcome of such a validation should be considered on its merits.
+.It Fl -keychain Ar filename
+During signing, only search for the signing identity in the keychain file
+specified. This can be used to break any matching ties if you have multiple
+similarly-named identities in several keychains on the user's search list.
+Note that the standard keychain search path is still consulted while constructing
+the certificate chain being embedded in the signature.
+.It Fl -prefix Ar string
+If no explicit unique identifier is specified (using the -i option), and if
+the implicitly generated identifier does not contain any dot (.) characters,
+then the given string is prefixed to the identifier before use. If the implicit
+identifier contains a dot, it is used as-is. Typically,
+this is used to deal with command tools without Info.plists, whose default
+identifier is simply the command's filename; the conventional prefix used
+is com.domain. (note that the final dot needs to be explicit).
+.It Fl -resource-rules=filename
+During signing, this option overrides the default rules for collecting bundle
+resources to be sealed into the signature. The argument is the path to a
+property list (plist) file containing resource scanning instructions.
+.El
+.Pp
+.Sh OPERATION
+.\" Signing
+.\" =============================================================================
+In the first synopsis form,
+.Nm
+attempts to sign the code objects at the
+.Ar path(s)
+given, using the
+.Ar identity
+provided. Internal
+.Ar requirements
+are embedded if requested; if no -r option
+is given, there are no internal requirements. If an
+.Ar identifier
+is explicitly given, it is sealed into all
+.Ar path(s) .
+Otherwise, each path derives its
+.Ar identifier
+independently from its Info.plist or pathname.
+The
+.Ar pagesize
+can be used to control the granularity of the code hash table. Usually, only
+specific sizes are acceptable to the verifying agents; this option should be used
+only in special cases.
+.Pp
+.\" Verification
+.\" =============================================================================
+In the second synopsis form,
+.Nm
+verifies the code signatures on all the
+.Ar path(s)
+given. The verification confirms that the code at those
+.Ar path(s)
+is signed, that the signature is valid, and that all sealed components are
+unaltered. If a
+.Ar requirement
+is given, each
+.Ar path
+is also checked against this requirement (but see DIAGNOSTICS below).
+.br
+If a
+.Ar path
+begins with a decimal digit, it is interpreted as the process id of a running
+process in the system, and dynamic validation is performed on that process instead.
+This includes verifying the process's source on disk, but also extends to that
+particular process's dynamic validity state.
+.Pp
+.\" Display/dump
+.\" =============================================================================
+In the third synopsis form,
+.Nm
+displays the contents of the signatures on the
+.Ar path(s)
+given. More information is displayed as the verbosity level increases.
+This form may not completely verify the signatures
+on the
+.Ar path(s) ;
+though it may perform some verification steps in the process of obtaining information
+about the
+.Ar path(s) .
+If the
+.Ar -r path
+option is given, internal requirements will be extracted from the
+.Ar path(s)
+and written to
+.Ar path ;
+specify a dash "-" to write to standard output. If the code does not contain
+an explicit designated requirement, the implied one will be retrieved and written
+out as a source comment.
+.Pp
+.\" Hosting chain
+.\" =============================================================================
+In the fourth synopsis form,
+.Nm
+constructs the hosting path for each
+.Ar pid
+given and writes it, one host per line, to standard output. The hosting path is the
+chain of code signing hosts starting with the most specific code known to be running,
+and ending with the root of trust (the kernel). If the
+.Ar --verbose
+option is given, the dynamic validity status of each host is also displayed, separated
+from the path by a tab character.
+Note that hosting chains can at times be constructed for invalid or even unsigned code,
+and the output of this form of the
+.Nm
+command should not be taken as a statement of formal code validity. Only
+.Nm
+.Ar --verify
+can do that.
+.Sh SIGNING IDENTITIES
+To be used for code signing, a digital identity must be stored in a keychain that
+is on the calling user's keychain search list. The identity is located by searching
+all such keychains for a certificate whose subject contains the
+.Ar identity
+string given. If there are multiple matches, the invocation fails and no signing
+is performed.
+.br
+If the --keychain argument is used, the identity is only looked-for in the
+specific keychain given. Even in that case, the keychain search list is still
+consulted for additional certificates needed to complete the signature.
+.br
+.Nm
+will attempt to embed the entire certificate chain documenting the signing identity
+in the code signature it generates, including any intermediate certificates and
+the anchor certificate. It looks for those in the keychain search list of the user
+performing the signing operation. If it cannot generate the entire certificate chain,
+signing may still succeed, but verification may fail if the verifying code does not
+have an independent source for the missing certificates.
+.br
+All keychain sources are supported if properly configured. In particular, it is
+possible to sign code with an identity stored on a supported smart card.
+If your signing identity is stored in a different form, you need to import it
+into a keychain to use it with this program.
+.Sh SPECIFYING REQUIREMENTS
+The
+.Ar requirement(s)
+arguments (-r and -R) can be given in various forms. A plain text argument is taken
+to be a path to a file containing the requirement(s).
+.Nm
+will accept both binary files containing properly compiled requirements code, and source files
+that are automatically compiled before use.
+An argument of "-" requests that the requirement(s) are read from standard input.
+Finally, an argument that begins with an equal sign "=" is taken as a literal
+requirements source text, and is compiled accordingly for use.
+.Sh OPTION FLAGS
+When signing, a set of option flags can be specified to change the behavior
+of the system when using the signed code. The following flags are recognized
+by
+.Nm ;
+other flags may exist at the API level. Note that you can specify any valid
+flags by giving a (single) numeric value instead of a list of option names.
+.Bl -tag -width expires
+.It kill
+Forces the signed code's kill flag to be set when the code begins execution.
+Code with the kill flag set will die when it loses its identity. It is therefore
+safe to assume that code marked this way will have a valid identity while alive.
+.It hard
+Forces the signed code's hard flag to be set when the code begins execution.
+The hard flag is a hint to the system that the code prefers to be denied
+access to resources if gaining such access would invalidate its identity.
+.It host
+Marks the code as capable of hosting guest code. You must set this option
+if you want the code to act as a code signing host, controlling subsidiary
+("guest") code.
+This flag is automatically set if the code's internal requirement (-r option)
+contains a guest requirement.
+.It expires
+Forces any validation of the code to consider expiration of the certificates
+involved. Code signatures generated with this flag will fail to verify once any of
+the certificates in the chain has expired, regardless of the intentions of the
+verifier. Note that this flag does not affect any other checks that may cause
+signature validation to fail, including checks for certificate revocation.
+.El
+.Pp
+Note that code can set the hard and kill flags on itself at any time. The signing
+options only affect their initial state. Once set by any means, these flags
+cannot be cleared for the lifetime of the code.
+.Pp
+If the code being signed has an Info.plist that contains a key named CSFlags,
+the value of that key is taken as the default value for the options. The value
+of CSFlags can be a string in the same form as the --options option, or an
+integer number specifying the absolute numeric value.
+.\".Sh FILES
+.\".Bl -tag -width /Library/Keychains/System.keychain -compact
+.\".It Pa /Library/Keychains/System.keychain
+.Sh EXAMPLES
+To sign application Terminal.app with a signing identity named "authority":
+.Dl codesign -s authority Terminal.app
+.Pp
+To sign the command-line tool "helper" with the same identity, overwriting
+any existing signature, using the signing identifier "com.mycorp.helper",
+and embedding a custom designated requirement
+.Dl codesign -f -s authority --prefix=com.mycorp. -r="designated => anchor /tmp/foo" helper
+.Pp
+To verify the signature on Terminal.app and produce some verbose output:
+.Dl codesign -vv Terminal.app
+.Pp
+To verify the dynamic validity of process 666:
+.Dl codesign -v 666
+.Pp
+To display all information about Terminal.app's code signature:
+.Dl codesign -dvvvv Terminal.app
+.Pp
+To extract the internal requirements from Terminal.app to standard output:
+.Dl codesign -d -r- Terminal.app
+.Sh DIAGNOSTICS
+.Nm
+exits 0 if all operations succeed. This indicates that all codes were
+signed, or all codes verified properly as requested. If a signing or verification
+operation fails, the exit code is 1. Exit code 2 indicates invalid arguments
+or parameters. Exit code 3 indicates that during verification, all path(s) were
+properly signed but at least one of them failed to satisfy the requirement specified
+with the
+.Ar -R
+option.
+.Pp
+For verification, all path arguments are always investigated before the program exits.
+For all other operations, the program exits upon the first error encountered,
+and any further path arguments are ignored, unless the --continue option was
+specified, in which case
+.Nm
+will defer the failure exit until after it has attempted to process all path
+arguments in turn.
+.Sh SIGNING ATOMICITY
+When a signing operation fails for a particular code, the code may already have been modified
+in certain ways by adding requisite signature data. Such information will not
+change the operation of the code, and the code will not be considered signed even with
+these pieces in place. You may repeat the signing operation without difficulty.
+Note however that a previous valid signature may have been effectively destroyed
+if you specified the -f option.
+.br
+If you require atomicity of signing stricter than provided by
+.Nm
+, you need to make an explicit copy of your code and sign that.
+.Sh SEE ALSO
+.Xr csreq 1
+.Sh HISTORY
+The
+.Nm
+command first appeared in Mac OS 10.5.0 (Leopard).
+.Sh NOTES
+.Nm
+has several options that are purposely left undocumented in this manual page because they
+are either experimental (and subject to change at any time), or unadvised to the unwary.

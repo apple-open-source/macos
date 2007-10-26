@@ -1,0 +1,22 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>pyOpenSSL</string>
+	<key>OpenSourceVersion</key>
+	<string>0.6</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://pyopenssl.sourceforge.net/</string>
+	<key>OpenSourceURL</key>
+	<string>http://easynews.dl.sourceforge.net/sourceforge/pyopenssl/pyOpenSSL-0.6.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>6200b71d3eb294a312d52c4825fc71c5</string>
+	<key>OpenSourceImportDate</key>
+	<string>2006-06-06</string>
+	<key>OpenSourceModifications</key>
+	<array/>
+	<key>OpenSourceLicense</key>
+	<string>LGPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>pyOpenSSL.txt</string>
+</dict>
+</plist>

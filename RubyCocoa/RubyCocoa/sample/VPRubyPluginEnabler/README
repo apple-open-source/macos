@@ -1,0 +1,19 @@
+VoodooPad Plugin Enabler for Ruby/RubyCocoa
+
+VoodooPad - http://flyingmeat.com/voodoopad/
+
+
+typical script example...
+
+  # the menu item specs
+  vp_spec( :menuTitle      => 'do something', # required
+           :superMenuTitle => 'category',     # optional
+           :shortcutKey    => 'j',            # optional
+           :shortcutMask   => [ :shift ] )    # optional (see all masks in VPRubyScript.rb)
+
+  # the program for the script
+  vp_action do |window_controller|
+    ...
+    OSX.NSRunAlertPanel(window_controller.window.title, "OK", nil, nil, nil)
+    ...
+  end

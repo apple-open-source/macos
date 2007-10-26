@@ -600,7 +600,6 @@ typedef struct {
     int				last_eap_type_index;
     OSStatus			trust_ssl_error;
     EAPClientStatus		trust_status;
-    int32_t			trust_proceed_id;
     bool			trust_proceed;
     bool			master_key_valid;
     uint8_t			master_key[MASTER_KEY_LENGTH];
@@ -1768,7 +1767,6 @@ eapfast_context_clear(EAPFASTPluginDataRef context)
     context->last_client_status = kEAPClientStatusOK;
     context->handshake_complete = FALSE;
     context->trust_proceed = FALSE;
-    context->trust_proceed_id++;
     context->in_message_size = 0;
     context->inner_auth_state = kEAPFASTInnerAuthStateUnknown;
     context->master_key_valid = FALSE;
@@ -1941,7 +1939,6 @@ eapfast_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 	return (kEAPClientStatusAllocationFailed);
     }
     bzero(context, sizeof(*context));
-    context->trust_proceed_id = random();
     context->mtu = plugin->mtu;
     context->resume_sessions
 	= my_CFDictionaryGetBooleanValue(plugin->properties, 
@@ -3039,8 +3036,7 @@ eapfast_verify_server(EAPClientPluginDataRef plugin,
 	return (NULL);
     }
     context->trust_status
-	= EAPTLSVerifyServerCertificateChain(plugin->properties,
-					     context->trust_proceed_id,
+	= EAPTLSVerifyServerCertificateChain(plugin->properties, 
 					     context->server_certs,
 					     &context->trust_ssl_error);
     if (context->trust_status != kEAPClientStatusOK) {
@@ -3591,10 +3587,6 @@ eapfast_publish_props(EAPClientPluginDataRef plugin)
 			     &context->trust_status);
 	CFDictionarySetValue(dict, kEAPClientPropTLSTrustClientStatus, num);
 	CFRelease(num);
-	num = CFNumberCreate(NULL, kCFNumberSInt32Type,
-			     &context->trust_proceed_id);
-	CFDictionarySetValue(dict, kEAPClientPropTLSUserTrustProceed, num);
-	CFRelease(num);
     }
     return (dict);
 }
@@ -3609,7 +3601,7 @@ eapfast_require_props(EAPClientPluginDataRef plugin)
 	goto done;
     }
     if (context->trust_proceed == FALSE) {
-	CFStringRef	str = kEAPClientPropTLSUserTrustProceed;
+	CFStringRef	str = kEAPClientPropTLSUserTrustProceedCertificateChain;
 	array = CFArrayCreate(NULL, (const void **)&str,
 			      1, &kCFTypeArrayCallBacks);
     }

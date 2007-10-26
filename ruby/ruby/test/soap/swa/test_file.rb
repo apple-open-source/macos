@@ -33,13 +33,6 @@ class TestFile < Test::Unit::TestCase
     @t = Thread.new {
       @server.start
     }
-    while @server.status != :Running
-      sleep 0.1
-      unless @t.alive?
-	@t.join
-	raise
-      end
-    end
     @endpoint = "http://localhost:#{Port}/"
     @client = SOAP::RPC::Driver.new(@endpoint, 'http://www.acmetron.com/soap')
     @client.add_method('get_file')
@@ -54,11 +47,14 @@ class TestFile < Test::Unit::TestCase
     @client.reset_stream
   end
 
-  def test_file
+  def test_get_file
     assert_equal(
       File.open(THIS_FILE) { |f| f.read },
       @client.get_file['file'].content
     )
+  end
+
+  def test_put_file
     assert_equal(
       "File 'foo' was received ok.",
       @client.put_file('foo',

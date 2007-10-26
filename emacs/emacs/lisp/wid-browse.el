@@ -1,11 +1,10 @@
 ;;; wid-browse.el --- functions for browsing widgets
 ;;
-;; Copyright (C) 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 ;;
 ;; Author: Per Abrahamsen <abraham@dina.kvl.dk>
 ;; Keywords: extensions
-;; Version: 1.9914
-;; X-URL: http://www.dina.kvl.dk/~abraham/custom/
 
 ;; This file is part of GNU Emacs.
 
@@ -21,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 ;;
@@ -43,18 +42,18 @@
 
 (defvar widget-browse-mode-map nil
   "Keymap for `widget-browse-mode'.")
-  
+
 (unless widget-browse-mode-map
   (setq widget-browse-mode-map (make-sparse-keymap))
   (set-keymap-parent widget-browse-mode-map widget-keymap)
   (define-key widget-browse-mode-map "q" 'bury-buffer))
 
-(easy-menu-define widget-browse-mode-customize-menu 
+(easy-menu-define widget-browse-mode-customize-menu
     widget-browse-mode-map
   "Menu used in widget browser buffers."
   (customize-menu-create 'widgets))
 
-(easy-menu-define widget-browse-mode-menu 
+(easy-menu-define widget-browse-mode-menu
     widget-browse-mode-map
   "Menu used in widget browser buffers."
   '("Widget"
@@ -84,7 +83,7 @@ if that value is non-nil."
   (use-local-map widget-browse-mode-map)
   (easy-menu-add widget-browse-mode-customize-menu)
   (easy-menu-add widget-browse-mode-menu)
-  (run-hooks 'widget-browse-mode-hook))
+  (run-mode-hooks 'widget-browse-mode-hook))
 
 (put 'widget-browse-mode 'mode-class 'special)
 
@@ -111,7 +110,7 @@ if that value is non-nil."
 ;;;###autoload
 (defun widget-browse (widget)
   "Create a widget browser for WIDGET."
-  (interactive (list (completing-read "Widget: " 
+  (interactive (list (completing-read "Widget: "
 				      obarray
 				      (lambda (symbol)
 					(get symbol 'widget-type))
@@ -131,7 +130,7 @@ if that value is non-nil."
     (kill-buffer (get-buffer-create "*Browse Widget*"))
     (switch-to-buffer (get-buffer-create "*Browse Widget*")))
   (widget-browse-mode)
-  
+
   ;; Quick way to get out.
 ;;  (widget-create 'push-button
 ;;		 :action (lambda (widget &optional event)
@@ -194,7 +193,7 @@ The :value of the widget shuld be the widget to be browsed."
   :action 'widget-browse-action)
 
 (defun widget-browse-action (widget &optional event)
-  ;; Create widget browser for WIDGET's :value. 
+  ;; Create widget browser for WIDGET's :value.
   (widget-browse (widget-get widget :value)))
 
 (defun widget-browse-value-create (widget)
@@ -267,8 +266,8 @@ VALUE is assumed to be a list of widgets."
 ;;; Widget Minor Mode.
 
 (defvar widget-minor-mode nil
-  "I non-nil, we are in Widget Minor Mode.")
-  (make-variable-buffer-local 'widget-minor-mode)
+  "If non-nil, we are in Widget Minor Mode.")
+(make-variable-buffer-local 'widget-minor-mode)
 
 (defvar widget-minor-mode-map nil
   "Keymap used in Widget Minor Mode.")
@@ -292,11 +291,12 @@ With arg, turn widget mode on if and only if arg is positive."
 
 (add-to-list 'minor-mode-alist '(widget-minor-mode " Widget"))
 
-(add-to-list 'minor-mode-map-alist 
+(add-to-list 'minor-mode-map-alist
 	     (cons 'widget-minor-mode widget-minor-mode-map))
 
 ;;; The End:
 
 (provide 'wid-browse)
 
+;;; arch-tag: d5ffb18f-8984-4735-8502-edf70456db21
 ;;; wid-browse.el ends here

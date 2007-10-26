@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2004 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_ini.h,v 1.21.2.2.2.1 2006/12/26 17:33:12 iliaa Exp $ */
+/* $Id: zend_ini.h,v 1.34.2.1.2.4 2007/08/02 23:57:21 stas Exp $ */
 
 #ifndef ZEND_INI_H
 #define ZEND_INI_H
@@ -64,7 +64,7 @@ typedef struct _zend_ini_entry zend_ini_entry;
 
 struct _zend_ini_entry {
 	int module_number;
-	int modifyable;
+	int modifiable;
 	char *name;
 	uint name_length;
 	ZEND_INI_MH((*on_modify));
@@ -113,44 +113,44 @@ END_EXTERN_C()
 #define ZEND_INI_BEGIN()		static zend_ini_entry ini_entries[] = {
 #define ZEND_INI_END()		{ 0, 0, NULL, 0, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0, 0, NULL } };
 
-#define ZEND_INI_ENTRY3_EX(name, default_value, modifyable, on_modify, arg1, arg2, arg3, displayer) \
-	{ 0, modifyable, name, sizeof(name), on_modify, arg1, arg2, arg3, default_value, sizeof(default_value)-1, NULL, 0, 0, displayer },
+#define ZEND_INI_ENTRY3_EX(name, default_value, modifiable, on_modify, arg1, arg2, arg3, displayer) \
+	{ 0, modifiable, name, sizeof(name), on_modify, arg1, arg2, arg3, default_value, sizeof(default_value)-1, NULL, 0, 0, displayer },
 
-#define ZEND_INI_ENTRY3(name, default_value, modifyable, on_modify, arg1, arg2, arg3) \
-	ZEND_INI_ENTRY3_EX(name, default_value, modifyable, on_modify, arg1, arg2, arg3, NULL)
+#define ZEND_INI_ENTRY3(name, default_value, modifiable, on_modify, arg1, arg2, arg3) \
+	ZEND_INI_ENTRY3_EX(name, default_value, modifiable, on_modify, arg1, arg2, arg3, NULL)
 
-#define ZEND_INI_ENTRY2_EX(name, default_value, modifyable, on_modify, arg1, arg2, displayer) \
-	ZEND_INI_ENTRY3_EX(name, default_value, modifyable, on_modify, arg1, arg2, NULL, displayer)
+#define ZEND_INI_ENTRY2_EX(name, default_value, modifiable, on_modify, arg1, arg2, displayer) \
+	ZEND_INI_ENTRY3_EX(name, default_value, modifiable, on_modify, arg1, arg2, NULL, displayer)
 
-#define ZEND_INI_ENTRY2(name, default_value, modifyable, on_modify, arg1, arg2) \
-	ZEND_INI_ENTRY2_EX(name, default_value, modifyable, on_modify, arg1, arg2, NULL)
+#define ZEND_INI_ENTRY2(name, default_value, modifiable, on_modify, arg1, arg2) \
+	ZEND_INI_ENTRY2_EX(name, default_value, modifiable, on_modify, arg1, arg2, NULL)
 
-#define ZEND_INI_ENTRY1_EX(name, default_value, modifyable, on_modify, arg1, displayer) \
-	ZEND_INI_ENTRY3_EX(name, default_value, modifyable, on_modify, arg1, NULL, NULL, displayer)
+#define ZEND_INI_ENTRY1_EX(name, default_value, modifiable, on_modify, arg1, displayer) \
+	ZEND_INI_ENTRY3_EX(name, default_value, modifiable, on_modify, arg1, NULL, NULL, displayer)
 
-#define ZEND_INI_ENTRY1(name, default_value, modifyable, on_modify, arg1) \
-	ZEND_INI_ENTRY1_EX(name, default_value, modifyable, on_modify, arg1, NULL)
+#define ZEND_INI_ENTRY1(name, default_value, modifiable, on_modify, arg1) \
+	ZEND_INI_ENTRY1_EX(name, default_value, modifiable, on_modify, arg1, NULL)
 	
-#define ZEND_INI_ENTRY_EX(name, default_value, modifyable, on_modify, displayer) \
-	ZEND_INI_ENTRY3_EX(name, default_value, modifyable, on_modify, NULL, NULL, NULL, displayer)
+#define ZEND_INI_ENTRY_EX(name, default_value, modifiable, on_modify, displayer) \
+	ZEND_INI_ENTRY3_EX(name, default_value, modifiable, on_modify, NULL, NULL, NULL, displayer)
 
-#define ZEND_INI_ENTRY(name, default_value, modifyable, on_modify) \
-	ZEND_INI_ENTRY_EX(name, default_value, modifyable, on_modify, NULL)
+#define ZEND_INI_ENTRY(name, default_value, modifiable, on_modify) \
+	ZEND_INI_ENTRY_EX(name, default_value, modifiable, on_modify, NULL)
 
 #ifdef ZTS
-#define STD_ZEND_INI_ENTRY(name, default_value, modifyable, on_modify, property_name, struct_type, struct_ptr) \
-	ZEND_INI_ENTRY2(name, default_value, modifyable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr##_id)
-#define STD_ZEND_INI_ENTRY_EX(name, default_value, modifyable, on_modify, property_name, struct_type, struct_ptr, displayer) \
-	ZEND_INI_ENTRY2_EX(name, default_value, modifyable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr##_id, displayer)
-#define STD_ZEND_INI_BOOLEAN(name, default_value, modifyable, on_modify, property_name, struct_type, struct_ptr) \
-	ZEND_INI_ENTRY3_EX(name, default_value, modifyable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr##_id, NULL, zend_ini_boolean_displayer_cb)
+#define STD_ZEND_INI_ENTRY(name, default_value, modifiable, on_modify, property_name, struct_type, struct_ptr) \
+	ZEND_INI_ENTRY2(name, default_value, modifiable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr##_id)
+#define STD_ZEND_INI_ENTRY_EX(name, default_value, modifiable, on_modify, property_name, struct_type, struct_ptr, displayer) \
+	ZEND_INI_ENTRY2_EX(name, default_value, modifiable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr##_id, displayer)
+#define STD_ZEND_INI_BOOLEAN(name, default_value, modifiable, on_modify, property_name, struct_type, struct_ptr) \
+	ZEND_INI_ENTRY3_EX(name, default_value, modifiable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr##_id, NULL, zend_ini_boolean_displayer_cb)
 #else
-#define STD_ZEND_INI_ENTRY(name, default_value, modifyable, on_modify, property_name, struct_type, struct_ptr) \
-	ZEND_INI_ENTRY2(name, default_value, modifyable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr)
-#define STD_ZEND_INI_ENTRY_EX(name, default_value, modifyable, on_modify, property_name, struct_type, struct_ptr, displayer) \
-	ZEND_INI_ENTRY2_EX(name, default_value, modifyable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr, displayer)
-#define STD_ZEND_INI_BOOLEAN(name, default_value, modifyable, on_modify, property_name, struct_type, struct_ptr) \
-	ZEND_INI_ENTRY3_EX(name, default_value, modifyable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr, NULL, zend_ini_boolean_displayer_cb)
+#define STD_ZEND_INI_ENTRY(name, default_value, modifiable, on_modify, property_name, struct_type, struct_ptr) \
+	ZEND_INI_ENTRY2(name, default_value, modifiable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr)
+#define STD_ZEND_INI_ENTRY_EX(name, default_value, modifiable, on_modify, property_name, struct_type, struct_ptr, displayer) \
+	ZEND_INI_ENTRY2_EX(name, default_value, modifiable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr, displayer)
+#define STD_ZEND_INI_BOOLEAN(name, default_value, modifiable, on_modify, property_name, struct_type, struct_ptr) \
+	ZEND_INI_ENTRY3_EX(name, default_value, modifiable, on_modify, (void *) XtOffsetOf(struct_type, property_name), (void *) &struct_ptr, NULL, zend_ini_boolean_displayer_cb)
 #endif
 
 #define INI_INT(name) zend_ini_long((name), sizeof(name), 0)
@@ -174,7 +174,7 @@ END_EXTERN_C()
 /* Standard message handlers */
 BEGIN_EXTERN_C()
 ZEND_API ZEND_INI_MH(OnUpdateBool);
-ZEND_API ZEND_INI_MH(OnUpdateInt);
+ZEND_API ZEND_INI_MH(OnUpdateLong);
 ZEND_API ZEND_INI_MH(OnUpdateLongGEZero);
 ZEND_API ZEND_INI_MH(OnUpdateReal);
 ZEND_API ZEND_INI_MH(OnUpdateString);
@@ -189,15 +189,18 @@ END_EXTERN_C()
 #define ZEND_INI_STAGE_ACTIVATE		(1<<2)
 #define ZEND_INI_STAGE_DEACTIVATE	(1<<3)
 #define ZEND_INI_STAGE_RUNTIME		(1<<4)
+#define ZEND_INI_STAGE_HTACCESS		(1<<5)
 
 /* INI parsing engine */
 typedef void (*zend_ini_parser_cb_t)(zval *arg1, zval *arg2, int callback_type, void *arg);
 BEGIN_EXTERN_C()
 ZEND_API int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg);
+ZEND_API int zend_parse_ini_string(char *str, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg);
 END_EXTERN_C()
 
 #define ZEND_INI_PARSER_ENTRY	1
 #define ZEND_INI_PARSER_SECTION	2
+#define ZEND_INI_PARSER_POP_ENTRY	3
 
 typedef struct _zend_ini_parser_param {
 	zend_ini_parser_cb_t ini_parser_cb;

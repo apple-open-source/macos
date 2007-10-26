@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,6 +86,8 @@ public:
 	void timeout(Time::Interval t)	{ workerTimeout = t; }
 	UInt32 maxThreads() const		{ return maxWorkerCount; }
 	void maxThreads(UInt32 n)		{ maxWorkerCount = n; }
+	bool floatingThread() const		{ return useFloatingThread; }
+	void floatingThread(bool t)		{ useFloatingThread = t; }
 	
 	Port primaryServicePort() const	{ return mServerPort; }
 	
@@ -122,6 +124,10 @@ public:
 		
 		Time::Absolute when() const	{ return Event::when(); }
 		bool scheduled() const		{ return Event::scheduled(); }
+		
+		// lifetime management hooks (default does nothing)
+		virtual void select();
+		virtual void unselect();
 	
 	private:
 		bool mLongTerm;				// long-term activity (count as worker thread)
@@ -138,6 +144,7 @@ public:
     public:
         Handler(mach_port_t p) : mPort(p) { }
         Handler() : mPort(MACH_PORT_NULL) { }
+		virtual ~Handler();
         
         mach_port_t port() const	{ return mPort; }
         
@@ -174,6 +181,9 @@ protected:
 	
 	// this will be called if the server wants a new thread but has hit its limit
 	virtual void threadLimitReached(UInt32 limit);
+	
+	// this gets called every time the server finishes an action (any action)
+	virtual void eventDone();
 
 	// don't mess with this unless you know what you're doing
     Bootstrap bootstrap;			// bootstrap port we registered with
@@ -190,8 +200,9 @@ protected:
 	void releaseDeferredAllocations();
 
 protected:
-	void busy() { StLock<Mutex> _(managerLock); idleCount--; }
-	void idle() { StLock<Mutex> _(managerLock); idleCount++; }
+	void busy();
+	void idle();
+	void ensureReadyThread();
 
 protected:
 	class LoadThread : public Thread {
@@ -207,6 +218,8 @@ protected:
 	set<Thread *> workers;	// threads running for this server
 	UInt32 workerCount;		// number of worker threads (including primary)
 	UInt32 maxWorkerCount;	// administrative limit to workerCount
+	bool useFloatingThread;	// keep a "floating" idle thread (instead of using longTermActivity)
+	
 	UInt32 highestWorkerCount; // high water mark for workerCount
 	UInt32 idleCount;		// number of threads waiting for work
 	Time::Interval workerTimeout; // seconds of idle time before a worker retires

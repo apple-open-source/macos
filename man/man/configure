@@ -19,7 +19,7 @@
 #   configure +fhs		(follow FHS: use /var/cache/man)
 #   configure +fsstnd		(follow FSSTND: use /var/catman)
 #
-LANGUAGES="cs,da,de,el,en,es,fi,fr,hr,it,ja,ko,nl,pl,pt,ro,sl"
+LANGUAGES="bg,cs,da,de,el,en,es,fi,fr,hr,it,ja,ko,nl,pl,pt,ro,ru,sl"
 LANGOPT="+lang {$LANGUAGES|all|none}"
 #
 # Some people prefer "-irs", but probably only when they have a broken setup.
@@ -211,6 +211,7 @@ else
 fi
 
 CC=${CC-cc}
+BUILD_CC=${BUILD_CC-${CC}}
 INSTALL=${INSTALL-install}
 INCLUDEDIR=${INCLUDEDIR-/usr/include}
 
@@ -434,7 +435,7 @@ then
 
   FILTERS="pager cmp cat awk"
 else
-  for i in nroff groff geqn gtbl col vgrind grefer grap gpic more less cmp cat awk gawk mawk
+  for i in nroff groff geqn gtbl col vgrind grefer grap gpic more less lynx cmp cat awk gawk mawk
   do
     eval F$i="missing"
     for j in $DEFPATH
@@ -492,6 +493,14 @@ else
   else
     pager="$Fless $DEFAULTLESSOPT"
   fi
+  if test $Flynx = "missing"
+  then
+    browser=$pager
+    htmlpager=$Fcat
+  else
+    browser="$Flynx"
+    htmlpager="$Flynx -dump"
+  fi
   if test $Fawk = "missing"
   then
     Fawk="$Fgawk"
@@ -504,7 +513,7 @@ else
   cat="$Fcat"
   awk="$Fawk"
 
-  FILTERS="troff nroff jnroff eqn neqn jneqn tbl col vgrind refer grap pic pager cmp cat awk"
+  FILTERS="troff nroff jnroff eqn neqn jneqn tbl col vgrind refer grap pic pager browser htmlpager cmp cat awk"
 fi
 
 # Note: older nroff gives an error message for -c
@@ -937,7 +946,7 @@ fi
 
 # What sections do we anticipate?
 
-tmpsections="1 8 2 3 4 5 6 7 9 0p 1p 3p tcl n l p o"
+tmpsections="1 1p 8 2 3 3p 4 5 6 7 9 0p tcl n l p o"
 
 if [ x$default = x ]; then
   echo ""
@@ -1260,6 +1269,7 @@ do
   sed -e '
 s,@version@,$version,
 s,@CC@,$CC,
+s,@BUILD_CC@,$BUILD_CC,
 s,@INSTALL@,$INSTALL,
 s,@DEFS@,$DEFS,
 s,@LIBS@,$LIBS,
@@ -1288,6 +1298,8 @@ s,@compress@,$compress,
 s,@compress_ext@,$compress_ext,
 s,@decompress@,$decompress,
 s,@pager@,$pager,
+s,@browser@,$browser,
+s,@htmlpager@,$htmlpager,
 s,@cmp@,$cmp,
 s,@cat@,$cat,
 s,@awk@,$awk,

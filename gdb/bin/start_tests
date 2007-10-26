@@ -1,0 +1,52 @@
+#! /usr/bin/perl
+
+use FindBin qw($Bin);
+use lib "$Bin/lib";
+use TestHelper;
+
+my $how_to_use_me = 
+    "\nstart_tests [--create|--configure] [--no_run] [-f <flavor>]*\n\n\t".
+    "Creates or configures gdb testsuite directories and site.exp files\n\t".
+    "using info from $config and runs the tests.\n\n\t".
+    "Most common examples:\n\t".
+    "start_tests\tStarts all tests that can be run on this machine\n\t".
+    "start_tests -f powerpc -f powerpc64\tRun powerpc and powerpc64 tests\n\n\t".
+    "--create is usually only required the first time after you run this\n\t".
+    "after checking out the gdb sources and tests. \n\t".
+    "--configure is rarely required but may need to be used after major\n\t". 
+    "changes are made to the gdb test source base\n\n";
+
+my $flavors;
+my $dir = $gdb_dir;
+my ($create_new_dirs, $configure, $no_run, $clean, $remove) = (0,0,0,0,0);
+
+GetOptions ('group' => \$group,
+	    'flavors=s' => \@selected_flavors,
+	    'clean' => \$clean,
+	    'remove' => \$remove,
+	    'create_dirs' => \$create_new_dirs,
+	    'configure' => \$configure,
+	    'no_run' => \$no_run,
+	    'help' => \$help,
+	    'usage' => \$usage);
+
+if ($usage || $help) { print $how_to_use_me; exit }
+$flavors = @selected_flavors;
+if (!$flavors) {
+    @selected_flavors = lookup_info([$flavor_lists[$group]],@selected_flavors);
+} else { @selected_flavors = lookup_info (\@flavor_lists, @selected_flavors); }
+
+if ($remove) { 
+    print "Removing all old testsuite directories\n";
+    System ("rm -rf  $gdb_dir/testsuite*"); 
+}
+
+if ($create_new_dirs) {
+    create_directories (@selected_flavors); 
+    configure_directories (@selected_flavors);
+    system "cd $gdb_dir/src/gdb/testsuite && $tools/ignore_tests";
+    modify_site_files (@selected_flavors);
+} elsif ($configure) {
+    configure_directories (@selected_flavors);
+} elsif ($clean) { clean_all (@selected_flavors); }
+if (!$no_run && !$remove ) { start_tests (\@selected_flavors, \@ARGV); }

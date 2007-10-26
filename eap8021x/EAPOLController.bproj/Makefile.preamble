@@ -136,6 +136,7 @@ OTHER_GENERATED_OFILES = $(VERS_OFILE)
 # and "" on other systems.
 
 OTHER_GARBAGE += *~ #*#
+INCLUDED_ARCHS = i386 ppc
 OTHER_OFILES += eapolcontrollerServer.o
 BEFORE_INSTALLHDRS=eapolcontroller_before_installhdrs
 OTHER_CFLAGS += -DCONFIGD_PLUGIN

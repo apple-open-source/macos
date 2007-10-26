@@ -1,7 +1,7 @@
 diff -u --exclude=CVS -r -udbp config.hin config.hin
 --- config.hin	2004-05-11 01:14:44.000000000 -0700
 +++ config.hin	2005-03-21 13:00:28.000000000 -0800
-@@ -84,6 +84,12 @@
+@@ -91,6 +91,12 @@
  /* Define to 1 if you have the `clock_settime' function. */
  #undef HAVE_CLOCK_SETTIME
  
@@ -17,7 +17,7 @@ diff -u --exclude=CVS -r -udbp config.hin config.hin
 diff -u --exclude=CVS -r -udbp configure configure
 --- configure	2004-05-11 01:13:36.000000000 -0700
 +++ configure	2005-03-21 13:00:28.000000000 -0800
-@@ -21515,6 +21515,258 @@ else
+@@ -24384,6 +24384,258 @@
  fi
  
  
@@ -273,13 +273,13 @@ diff -u --exclude=CVS -r -udbp configure configure
 +done
 +
 +
-                                                                                 ac_config_files="$ac_config_files Makefile doc/Makefile lib/Makefile po/Makefile.in scripts/Makefile src/Makefile tests/Makefile tests/preset"
+                                                                       ac_config_files="$ac_config_files Makefile doc/Makefile lib/Makefile po/Makefile.in scripts/Makefile rmt/Makefile src/Makefile"
  cat >confcache <<\_ACEOF
  # This file is a shell script that caches the results of configure
 diff -u --exclude=CVS -r -udbp configure.ac configure.ac
 --- configure.ac	2004-05-11 01:11:48.000000000 -0700
 +++ configure.ac	2005-03-21 13:00:28.000000000 -0800
-@@ -280,6 +280,8 @@ else
+@@ -259,6 +259,8 @@ else
  	BACKUP_SED_COND='/^\#IF_DATE_FORMAT_OK/,/^\#ELSE_DATE_FORMAT_OK/d;/^\#ENDIF_DATE_FORMAT_OK/d'
  fi
  
@@ -306,7 +306,7 @@ diff -u --exclude=CVS -r -udbp src/create.c src/create.c
  struct link
    {
      dev_t dev;
-@@ -1275,8 +1283,16 @@ dump_file0 (struct tar_stat_info *st, ch
+@@ -1345,8 +1353,16 @@ dump_file0 (struct tar_stat_info *st, ch
    if (interactive_option && !confirm ("add", p))
      return;
  
@@ -323,7 +323,7 @@ diff -u --exclude=CVS -r -udbp src/create.c src/create.c
  
    if (deref_stat (dereference_option, p, &st->stat) != 0)
      {
-@@ -1349,7 +1365,11 @@ dump_file0 (struct tar_stat_info *st, ch
+@@ -1422,7 +1438,11 @@ dump_file0 (struct tar_stat_info *st, ch
  
  	  if (file_dumpable_p (st))
  	    {
@@ -335,7 +335,7 @@ diff -u --exclude=CVS -r -udbp src/create.c src/create.c
  			 O_RDONLY | O_BINARY);
  	      if (fd < 0)
  		{
-@@ -1495,6 +1515,33 @@ void
+@@ -1568,6 +1588,33 @@ void
  dump_file (char *p, int top_level, dev_t parent_device)
  {
    struct tar_stat_info st;
@@ -346,14 +346,14 @@ diff -u --exclude=CVS -r -udbp src/create.c src/create.c
 +	char *md_p = strdup("/tmp/tar.md.XXXXXX");
 +	asprintf(&copyfile_fname, "%s/._%s", dirname(p), basename(p));
 +
-+	if (copyfile(p, NULL, 0, COPYFILE_CHECK | COPYFILE_METADATA))
++	if (copyfile(p, NULL, 0, COPYFILE_CHECK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR))
 +	{
 +	    copyfile_on = 1;
 +	    tar_stat_init (&st);
 +
 +	    if(mktemp(md_p))
 +	    {
-+		copyfile(p, md_p, 0, COPYFILE_METADATA | COPYFILE_PACK);
++		copyfile(p, md_p, 0, COPYFILE_PACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR);
 +		dump_file0 (&st, md_p, top_level, parent_device);
 +	    }
 +
@@ -372,7 +372,7 @@ diff -u --exclude=CVS -r -udbp src/create.c src/create.c
 diff -u --exclude=CVS -r -udbp src/extract.c src/extract.c
 --- src/extract.c	2004-04-05 00:23:51.000000000 -0700
 +++ src/extract.c	2005-03-21 13:01:08.000000000 -0800
-@@ -35,6 +35,19 @@ struct utimbuf
+@@ -36,6 +36,19 @@ struct utimbuf
  
  #include "common.h"
  
@@ -392,7 +392,7 @@ diff -u --exclude=CVS -r -udbp src/extract.c src/extract.c
  bool we_are_root;		/* true if our effective uid == 0 */
  static mode_t newdir_umask;	/* umask when creating new directories */
  static mode_t current_umask;	/* current umask (which is set to 0 if -p) */
-@@ -602,6 +615,10 @@ extract_archive (void)
+@@ -617,6 +630,10 @@ extract_archive (void)
    int interdir_made = 0;
    char typeflag;
    char *file_name;
@@ -403,7 +403,7 @@ diff -u --exclude=CVS -r -udbp src/extract.c src/extract.c
  
    set_next_block_after (current_header);
    decode_header (current_header, &current_stat_info, &current_format, 1);
-@@ -679,6 +696,35 @@ extract_archive (void)
+@@ -694,6 +711,35 @@ extract_archive (void)
  	  goto extract_file;
  	}
  
@@ -439,19 +439,11 @@ diff -u --exclude=CVS -r -udbp src/extract.c src/extract.c
        if (! prepare_to_extract (file_name))
  	{
  	  skip_member ();
-@@ -790,6 +836,7 @@ extract_archive (void)
- 		 ? UNKNOWN_PERMSTATUS
- 		 : ARCHIVED_PERMSTATUS),
- 		typeflag);
-+
-       break;
- 
-     case SYMTYPE:
 diff -u --exclude=CVS -r -udbp src/list.c src/list.c
 --- src/list.c	2004-05-10 04:49:09.000000000 -0700
 +++ src/list.c	2005-03-21 13:03:26.000000000 -0800
 @@ -25,6 +25,19 @@
- #include "system.h"
+ #include <system.h>
  #include <quotearg.h>
  
 +#if HAVE_COPYFILE
@@ -482,15 +474,15 @@ diff -u --exclude=CVS -r -udbp src/list.c src/list.c
 +
    base64_init ();
    name_gather ();
-   open_archive (ACCESS_READ);
-@@ -197,6 +216,21 @@ read_and (void (*do_something) (void))
+
+@@ -199,6 +218,21 @@ read_and (void (*do_something) (void))
      }
    while (!all_names_found (&current_stat_info));
  
 +#ifdef HAVE_COPYFILE
 +      LIST_FOREACH(cle, &copyfile_list, link)
 +	{
-+	  if(disable_copyfile || copyfile(cle->tmp, cle->dst, 0, COPYFILE_UNPACK | COPYFILE_XATTR | COPYFILE_ACL))
++	  if(disable_copyfile || copyfile(cle->tmp, cle->dst, 0, COPYFILE_UNPACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR))
 +	    {    
 +	      rename(cle->tmp, cle->src);
 +	    } else
@@ -508,11 +500,11 @@ diff -u --exclude=CVS -r -udbp src/list.c src/list.c
 diff -u --exclude=CVS -r -udbp src/tar.c src/tar.c
 --- src/tar.c	2004-05-10 04:49:19.000000000 -0700
 +++ src/tar.c	2005-03-21 13:00:28.000000000 -0800
-@@ -1303,6 +1303,7 @@ You may redistribute it under the terms 
- see the file named COPYING for details."));
- 
-       puts (_("Written by John Gilmore and Jay Fenlason."));
-+      puts (_("Modified to support extended attributes."));
- 
-       exit (TAREXIT_SUCCESS);
-     }
+@@ -592,6 +592,7 @@
+ {
+   printf ("tar (%s) %s\n%s\n", PACKAGE_NAME, PACKAGE_VERSION,
+ 	  "Copyright (C) 2004 Free Software Foundation, Inc.\n");
++  puts (_("Modified to support extended attributes.\n"));
+   puts (_("Based on the work of John Gilmore and Jay Fenlason. See AUTHORS\n\
+ for complete list of authors.\n"));
+   printf (_("   GNU tar is free software; you can redistribute it and/or modify\n"

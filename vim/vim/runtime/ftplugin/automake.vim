@@ -1,8 +1,10 @@
 " Vim filetype plugin file
-" Langugage:	Automake
-" Maintainer:	Nikolai 'pcp' Weibull <da.box@home.se>
-" URL:		http://www.pcppopper.org/
-" Revised On:	Tue, 30 Jul 2002 19:49:40 +0200
+" Language:         Automake
+" Maintainer:       Nikolai Weibull <now@bitwi.se>
+" Latest Revision:  2006-04-19
 
-" same as makefile filetype-plugin for now.
-source <sfile>:p:h/make.vim
+if exists("b:did_ftplugin")
+  finish
+endif
+
+runtime! ftplugin/make.vim ftplugin/make_*.vim ftplugin/make/*.vim

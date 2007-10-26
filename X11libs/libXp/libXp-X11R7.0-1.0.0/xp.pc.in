@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: Xp
+Description: X Print Library
+Version: @PACKAGE_VERSION@
+Requires: printproto
+Requires.private: x11 xext xau
+Cflags: -I${includedir}
+Libs: -L${libdir} -lXp

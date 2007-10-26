@@ -45,15 +45,15 @@
 #include "dscommon.h"
 #include "dstools_version.h"
 
-#warning VERIFY the version string before each distinct build submission that changes the dsconfigldap tool
-const char *version = "1.2";
+#warning VERIFY the version string before each major OS build submission that changes the dsconfigldap tool
+const char *version = "10.5.0";	// Matches OS version
 	
 #pragma mark Prototypes
 
 void usage( void );
 
-void AddServer( char *inServerName, char *inConfigName, char *inComputerID, char *inUsername, char *inPassword, bool inSecureAuthOnly, bool bManInMiddle, bool bEncryptionOnly, bool bSignPackets, bool inForceBind, bool inSSL, bool inVerbose );
-void RemoveServer( char *inServerName, char *inUsername, char *inPassword, bool inForceUnbind, bool inVerbose );
+int AddServer( char *inServerName, char *inConfigName, char *inComputerID, char *inUsername, char *inPassword, bool inSecureAuthOnly, bool bManInMiddle, bool bEncryptionOnly, bool bSignPackets, bool inForceBind, bool inSSL, bool inVerbose );
+int RemoveServer( char *inServerName, char *inUsername, char *inPassword, bool inForceUnbind, bool inVerbose );
 
 int GetSecurityLevel( CFDictionaryRef inDict );
 int sendConfig( CFDictionaryRef configDict, CFMutableDictionaryRef *recvDict, int customCode );
@@ -134,16 +134,17 @@ int main(int argc, char *argv[])
 	char		   *serverName		= nil;
 	char		   *serverNameDupe	= nil;
 	char		   *configName		= nil;
-	char		   *computerID		= nil;
+	char		   *computerID		= "";
 	char		   *userName		= nil;
 	char		   *userPassword	= nil;
 	char		   *localName		= nil;
 	char		   *localPassword   = nil;
+	int				status			= 0;
 	
 	if (argc < 2)
 	{
 		usage();
-		exit(0);
+		exit(EINVAL);
 	}
 	
 	if ( strcmp(argv[1], "-appleversion") == 0 )
@@ -214,7 +215,7 @@ int main(int argc, char *argv[])
         case 'h':
         default:
 			usage();
-			exit(0);
+			exit(EINVAL);
         }
     }
 	
@@ -244,7 +245,7 @@ int main(int argc, char *argv[])
 		fprintf( stdout,"dsconfigldap verbose mode\n");
 		fprintf( stdout,"Options selected by user:\n");
 		if (bForceBinding)
-			fprintf( stdout,"Force (un)binding option selected\n");
+			fprintf( stdout,"Force authenticated (un)binding option selected\n");
 		if (bInteractivePwd)
 			fprintf( stdout,"Interactive password option selected\n");
 		if (bSecureAuthOnly)
@@ -288,16 +289,18 @@ int main(int argc, char *argv[])
 		if ( (serverName != nil) && (serverNameDupe != nil) )
 			fprintf( stdout,"Two server names were given <%s> and <%s>.\n", serverName, serverNameDupe);
 		usage();
+		status = EINVAL;
 	}
 	else
 	{
-		if ( ( userName != nil) && ( ( (userPassword == nil) || bInteractivePwd ) ) )
+		if ( userName != nil && (userPassword == nil || bInteractivePwd) )
 		{
 			userPassword = read_passphrase("Please enter network user password: ", 1);
 			//do not verbose output this password value
 		}
 		
-		if ( ( !bDefaultUser && ( (localPassword == nil) || bInteractivePwd ) ) || (bDefaultUser && bInteractivePwd) )
+		// we were asked to prompt for password or we had a user provided but no password
+		if ( bInteractivePwd || (bDefaultUser == false && localName != nil && localPassword == nil) )
 		{
 			localPassword = read_passphrase("Please enter local user password: ", 1);
 			//do not verbose output this password value
@@ -312,21 +315,84 @@ int main(int argc, char *argv[])
 					fprintf( stdout, "Unable to obtain auth rights to update DirectoryService LDAP configuration.\n" );
 					bAddServer		= false;
 					bRemoveServer   = false;
+
+					exit( EACCES );
 				}
 			}
 			
 			if( bAddServer )
 			{
-				AddServer( serverName, configName, computerID, userName, userPassword, bSecureAuthOnly, bManInMiddle, bEncryptionOnly, bSignPackets, bForceBinding, bSSL, bVerbose );
+				status = AddServer( serverName, configName, computerID, userName, userPassword, bSecureAuthOnly, bManInMiddle, bEncryptionOnly, bSignPackets, bForceBinding, bSSL, bVerbose );
 			}
 
 			if( bRemoveServer )
 			{
-				RemoveServer( serverName, userName, userPassword, bForceBinding, bVerbose );
+				status = RemoveServer( serverName, userName, userPassword, bForceBinding, bVerbose );
 			}
 			
 			break; // always leave the do-while
 		} while(true);
+		
+		/* using errno.h for exit codes, we don't exceed 64, this is intentional */
+		/* to follow other tool usage */
+		switch ( status )
+		{
+			case eDSNoErr:
+				break;
+				
+			case eDSBogusServer:
+				fprintf( stderr, "Could not contact a server at that address.\n" );
+				status = ENOENT;
+				break;
+				
+			case eDSInvalidNativeMapping:
+				fprintf( stderr, "Could not use mappings supplied to query directory.\n" );
+				status = EINVAL;
+				break;
+				
+			case eDSNoStdMappingAvailable:
+				fprintf( stderr, "No Computer Mapping available for binding to the directory.\n" );
+				status = EINVAL;
+				break;
+				
+			case eDSInvalidRecordName:
+				fprintf( stderr, "Missing a valid name for the Computer.\n" );
+				status = EINVAL;
+				break;
+				
+			case eDSAuthMethodNotSupported:
+				fprintf( stderr, "Server does not meet security requirements.\n" );
+				status = EINVAL;
+				break;
+				
+			case eDSRecordAlreadyExists:
+				fprintf( stderr, "Computer with the name %s already exists\n", computerID );
+				status = EEXIST;
+				break;
+				
+			case eDSPermissionError:
+				fprintf( stderr, "Permission error\n" );
+				status = EACCES;
+				break;
+				
+			case eDSAuthFailed:
+				fprintf( stderr, "Invalid credentials supplied %s server\n", (bAddServer ? "for binding to the" : "to remove the bound") );
+				status = EINVAL;
+				break;
+				
+			case eDSAuthParameterError:
+				if ( bRemoveServer )
+					fprintf( stderr, "Bound need credentials to unbind\n" );
+				else
+					fprintf( stderr, "Directory is not allowing anonymous queries\n" );
+				status = EINVAL;
+				break;
+				
+			default:
+				fprintf( stderr, "Error %d from DirectoryService\n", status );
+				status = EINVAL;
+				break;
+		}
 		
 	}//add or remove server correctly selected
 
@@ -339,7 +405,7 @@ int main(int argc, char *argv[])
 	if (configName)
 		free(configName);
 	if (computerID)
-		free(computerID);
+		//free(computerID);
 	if (userName)
 		free(userName);
 	if (userPassword)
@@ -349,7 +415,7 @@ int main(int argc, char *argv[])
 	if (localPassword)
 		free(localPassword);
 
-	exit(0);
+	exit( status );
 }
 
 void usage( void )
@@ -363,8 +429,7 @@ void usage( void )
 			 "                    [-q localuserpassword]\n"
 			 "Usage: dsconfigldap [-fvi] -r servername [-u username] [-p password]\n"
 			 "                    [-l localusername] [-q localuserpassword]\n"
-			 "  -f                 force the add or remove (i.e. join/un-join the existing\n"
-			 "                     record)\n"
+			 "  -f                 force authenticated bind/unbind\n"
 			 "  -v                 log details\n"
 			 "  -i                 interactive password entry\n"
 			 "  -s                 enforce not using cleartext authentication via policy\n"
@@ -387,7 +452,7 @@ void usage( void )
 #pragma mark -
 #pragma mark Support Routines
 
-void AddServer( char *inServerName, char *inConfigName, char *inComputerID, char *inUsername, char *inPassword, bool inSecureAuthOnly, bool bManInMiddle, bool bEncryptionOnly, bool bSignPackets, bool inForceBind, bool inSSL, bool inVerbose )
+int AddServer( char *inServerName, char *inConfigName, char *inComputerID, char *inUsername, char *inPassword, bool inSecureAuthOnly, bool bManInMiddle, bool bEncryptionOnly, bool bSignPackets, bool inForceBind, bool inSSL, bool inVerbose )
 {
 	CFStringRef				cfServerName	= CFStringCreateWithCString( kCFAllocatorDefault, inServerName, kCFStringEncodingUTF8 );
 	CFMutableDictionaryRef  xmlConfig		= CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
@@ -555,6 +620,10 @@ void AddServer( char *inServerName, char *inConfigName, char *inComputerID, char
 										{
 											if (inVerbose) fprintf( stdout, "   Status:  Success.\n\n" );
 										}
+                                        else if ( iError == eDSEmptyRecordName )
+                                        {
+                                              if (inVerbose) fprintf( stdout, "      Status: Failed to bind because record name is empty. (computerID=\"%s\"). Make sure that the HOST environment variable is set or that you specified a computer ID with the -c option.\n", inComputerID);
+                                        }
 										else
 										{
 											if (inVerbose) fprintf( stdout, "   Status:  Failed to overwrite.\n\n" );
@@ -664,10 +733,11 @@ void AddServer( char *inServerName, char *inConfigName, char *inComputerID, char
 			}
 		}
 	}
-	return;
+	
+	return iError;
 }
 
-void RemoveServer( char *inServerName, char *inUsername, char *inPassword, bool inForceUnbind, bool inVerbose )
+int RemoveServer( char *inServerName, char *inUsername, char *inPassword, bool inForceUnbind, bool inVerbose )
 {
 	CFStringRef				cfServerName	= CFStringCreateWithCString( kCFAllocatorDefault, inServerName, kCFStringEncodingUTF8 );
 	CFMutableDictionaryRef  cfResponse		= NULL;
@@ -765,7 +835,8 @@ void RemoveServer( char *inServerName, char *inUsername, char *inPassword, bool 
             }
 		}
 	} while (iError != eDSNoErr);
-	return;	
+	
+	return iError;
 }
 
 #pragma mark -

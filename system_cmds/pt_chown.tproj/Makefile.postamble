@@ -1,2 +1,0 @@
-after_install:
-	chmod 4511 $(DSTROOT)/usr/libexec/pt_chown

@@ -21,6 +21,16 @@ class Tk::Iwidgets::Scrolledcanvas
 
   ################################
 
+  def __boolval_optkeys
+    super() << 'autoresize'
+  end
+  private :__boolval_optkeys
+
+  def __strval_optkeys
+    super() << 'textbackground'
+  end
+  private :__strval_optkeys
+
   def initialize(*args)
     super(*args)
     @canvas = component_widget('canvas')
@@ -103,7 +113,7 @@ class Tk::Iwidgets::Scrolledcanvas
   #end
   def itembind(tag, context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -118,7 +128,7 @@ class Tk::Iwidgets::Scrolledcanvas
   #end
   def itembind_append(tag, context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -163,7 +173,9 @@ class Tk::Iwidgets::Scrolledcanvas
   def delete(*args)
     if TkcItem::CItemID_TBL[self.path]
       find('withtag', *args).each{|item| 
-        TkcItem::CItemID_TBL[self.path].delete(item.id)
+        if item.kind_of?(TkcItem)
+          TkcItem::CItemID_TBL[self.path].delete(item.id)
+        end
       }
     end
     tk_send_without_enc('delete', *args.collect{|t| tagid(t)})
@@ -228,8 +240,8 @@ class Tk::Iwidgets::Scrolledcanvas
     self
   end
 
-  def index(tagOrId, index)
-    number(tk_send_without_enc('index', tagid(tagOrId), index))
+  def index(tagOrId, idx)
+    number(tk_send_without_enc('index', tagid(tagOrId), idx))
   end
 
   def insert(tagOrId, index, string)

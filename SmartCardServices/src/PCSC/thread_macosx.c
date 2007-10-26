@@ -64,20 +64,22 @@ int SYS_MutexUnLock(PCSCLITE_MUTEX_T mMutex)
 	return retval;
 }
 
-int SYS_ThreadCreate(PCSCLITE_THREAD_T * pthThread, LPVOID pthAttr,
-	LPVOID pvFunction, LPVOID pvArg)
+int SYS_ThreadCreate(PCSCLITE_THREAD_T * pthThread, int attributes,
+	PCSCLITE_THREAD_FUNCTION(pvFunction), LPVOID pvArg)
 {
+	pthread_attr_t attr;
 
-	int retval;
-	retval = pthread_create(pthThread, NULL, pvFunction, pvArg);
+	if (0 != pthread_attr_init(&attr))
+		return 0;
 
-	if (retval == 0)
-	{
-		return 1;	/* TRUE */
-	} else
-	{
-		return 0;	/* FALSE */
-	}
+	if (0 != pthread_attr_setdetachstate(&attr,
+		attributes & THREAD_ATTR_DETACHED ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE))
+		return 0;
+
+	if (0 == pthread_create(pthThread, &attr, pvFunction, pvArg))
+		return 1;
+	else
+		return 0;
 }
 
 int SYS_ThreadCancel(PCSCLITE_THREAD_T * pthThread)
@@ -97,17 +99,11 @@ int SYS_ThreadCancel(PCSCLITE_THREAD_T * pthThread)
 
 int SYS_ThreadDetach(PCSCLITE_THREAD_T pthThread)
 {
+	// Returns 1 (true) if thread detached OK, 0 (false) otherwise
+	if (pthThread)
+		return (pthread_detach(pthThread) == 0);	// 0 result is success
 
-	int retval;
-	retval = pthread_detach(pthThread);
-
-	if (retval == 0)
-	{
-		return 1;
-	} else
-	{
-		return 0;
-	}
+	return 0;
 }
 
 int SYS_ThreadJoin(PCSCLITE_THREAD_T *pthThread, LPVOID* pvRetVal)

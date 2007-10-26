@@ -1,0 +1,13 @@
+#
+# The UUCP port configuration file.
+#
+
+#
+# Specify connections using TCP
+#
+type tcp
+
+#
+# Specify the IP version number to use.
+#
+version 4

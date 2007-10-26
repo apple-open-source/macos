@@ -1,0 +1,516 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05396DB60417A34400003D05 /* pkcs12BagAttrs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05396DB50417A34400003D05 /* pkcs12BagAttrs.cpp */; };
+		05396DBA0417B81000003D05 /* pkcs12Debug.h in Headers */ = {isa = PBXBuildFile; fileRef = 05396DB90417B81000003D05 /* pkcs12Debug.h */; };
+		054289220416A4EA00003D05 /* pkcs12SafeBag.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289210416A4EA00003D05 /* pkcs12SafeBag.h */; };
+		054289240416A5A800003D05 /* pkcs12BagAttrs.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289230416A5A800003D05 /* pkcs12BagAttrs.h */; };
+		054289260416AA2F00003D05 /* pkcs12Coder.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289250416AA2F00003D05 /* pkcs12Coder.h */; };
+		054289270416AA2F00003D05 /* pkcs12Coder.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289250416AA2F00003D05 /* pkcs12Coder.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		054289290416B3D100003D05 /* pkcs12Coder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 054289280416B3D100003D05 /* pkcs12Coder.cpp */; };
+		0542892C0416B65F00003D05 /* pkcs12Encode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0542892B0416B65F00003D05 /* pkcs12Encode.cpp */; };
+		0542892E0416B6C300003D05 /* pkcs12Decode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0542892D0416B6C300003D05 /* pkcs12Decode.cpp */; };
+		054289300416BBF800003D05 /* pkcs12BagAttrs.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289230416A5A800003D05 /* pkcs12BagAttrs.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		054289310416BC4100003D05 /* pkcs12SafeBag.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289210416A4EA00003D05 /* pkcs12SafeBag.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		054289340416C36700003D05 /* pkcs12SafeBag.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 054289330416C36700003D05 /* pkcs12SafeBag.cpp */; };
+		0592AC9F04156B2B00003D05 /* pkcs7Templates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9804156B2B00003D05 /* pkcs7Templates.cpp */; };
+		0592ACA004156B2B00003D05 /* pkcs12Crypto.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9904156B2B00003D05 /* pkcs12Crypto.cpp */; };
+		0592ACA204156B2B00003D05 /* pkcs12Templates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9B04156B2B00003D05 /* pkcs12Templates.cpp */; };
+		0592ACA304156B2B00003D05 /* pkcs12Utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9C04156B2B00003D05 /* pkcs12Utils.cpp */; };
+		0592ACAD04156B4000003D05 /* pkcs7Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA604156B4000003D05 /* pkcs7Templates.h */; };
+		0592ACAE04156B4000003D05 /* pkcs12Crypto.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA704156B4000003D05 /* pkcs12Crypto.h */; };
+		0592ACB004156B4000003D05 /* pkcs12Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA904156B4000003D05 /* pkcs12Templates.h */; };
+		0592ACB104156B4000003D05 /* pkcs12Utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACAA04156B4000003D05 /* pkcs12Utils.h */; };
+		0592ACB404156B4000003D05 /* pkcs7Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA604156B4000003D05 /* pkcs7Templates.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0592ACB504156B4000003D05 /* pkcs12Crypto.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA704156B4000003D05 /* pkcs12Crypto.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0592ACB704156B4000003D05 /* pkcs12Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA904156B4000003D05 /* pkcs12Templates.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0592ACB804156B4000003D05 /* pkcs12Utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACAA04156B4000003D05 /* pkcs12Utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0592ACD1041665AE00003D05 /* SecPkcs12.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACD0041665AE00003D05 /* SecPkcs12.h */; };
+		0592ACD2041665AE00003D05 /* SecPkcs12.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACD0041665AE00003D05 /* SecPkcs12.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0592ACD404167B1F00003D05 /* SecPkcs12.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592ACD304167B1F00003D05 /* SecPkcs12.cpp */; };
+		05A9EF65041FB7C600003D05 /* pkcs12Keychain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05A9EF64041FB7C600003D05 /* pkcs12Keychain.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4C9A5B87056AB50100B1BEFE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0592AC85041551E100003D05 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0592AC930415527A00003D05;
+			remoteInfo = "SecurityNssPkcs12 Headers";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		05396DB50417A34400003D05 /* pkcs12BagAttrs.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12BagAttrs.cpp; sourceTree = "<group>"; };
+		05396DB90417B81000003D05 /* pkcs12Debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12Debug.h; sourceTree = "<group>"; };
+		054289210416A4EA00003D05 /* pkcs12SafeBag.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12SafeBag.h; sourceTree = "<group>"; };
+		054289230416A5A800003D05 /* pkcs12BagAttrs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12BagAttrs.h; sourceTree = "<group>"; };
+		054289250416AA2F00003D05 /* pkcs12Coder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12Coder.h; sourceTree = "<group>"; };
+		054289280416B3D100003D05 /* pkcs12Coder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Coder.cpp; sourceTree = "<group>"; };
+		0542892B0416B65F00003D05 /* pkcs12Encode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Encode.cpp; sourceTree = "<group>"; };
+		0542892D0416B6C300003D05 /* pkcs12Decode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Decode.cpp; sourceTree = "<group>"; };
+		054289330416C36700003D05 /* pkcs12SafeBag.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12SafeBag.cpp; sourceTree = "<group>"; };
+		0592AC8C0415523C00003D05 /* security_pkcs12 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_pkcs12; sourceTree = BUILT_PRODUCTS_DIR; };
+		0592AC940415527A00003D05 /* security_pkcs12.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_pkcs12.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		0592AC9804156B2B00003D05 /* pkcs7Templates.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs7Templates.cpp; sourceTree = "<group>"; };
+		0592AC9904156B2B00003D05 /* pkcs12Crypto.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Crypto.cpp; sourceTree = "<group>"; };
+		0592AC9B04156B2B00003D05 /* pkcs12Templates.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Templates.cpp; sourceTree = "<group>"; };
+		0592AC9C04156B2B00003D05 /* pkcs12Utils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Utils.cpp; sourceTree = "<group>"; };
+		0592ACA604156B4000003D05 /* pkcs7Templates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs7Templates.h; sourceTree = "<group>"; };
+		0592ACA704156B4000003D05 /* pkcs12Crypto.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs12Crypto.h; sourceTree = "<group>"; };
+		0592ACA904156B4000003D05 /* pkcs12Templates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs12Templates.h; sourceTree = "<group>"; };
+		0592ACAA04156B4000003D05 /* pkcs12Utils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs12Utils.h; sourceTree = "<group>"; };
+		0592ACD0041665AE00003D05 /* SecPkcs12.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecPkcs12.h; sourceTree = "<group>"; };
+		0592ACD304167B1F00003D05 /* SecPkcs12.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecPkcs12.cpp; sourceTree = "<group>"; };
+		05A9EF64041FB7C600003D05 /* pkcs12Keychain.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Keychain.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworkTarget section */
+		0592AC930415527A00003D05 /* security_pkcs12 */ = {
+			isa = PBXFrameworkTarget;
+			buildConfigurationList = C27AD3C00987FCDF001272E0 /* Build configuration list for PBXFrameworkTarget "security_pkcs12" */;
+			buildPhases = (
+				0592AC8E0415527A00003D05 /* Headers */,
+			);
+			dependencies = (
+			);
+			name = security_pkcs12;
+			productInstallPath = /System/Library/PrivateFrameworks;
+			productName = "SecurityNssPkcs12 Headers";
+			productReference = 0592AC940415527A00003D05 /* security_pkcs12.framework */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict/>
+</plist>
+";
+		};
+/* End PBXFrameworkTarget section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0592AC890415523C00003D05 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0592AC81041551E100003D05 = {
+			isa = PBXGroup;
+			children = (
+				0592AC96041552BB00003D05 /* lib */,
+				0592AC8D0415523C00003D05 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		0592AC8D0415523C00003D05 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0592AC8C0415523C00003D05 /* security_pkcs12 */,
+				0592AC940415527A00003D05 /* security_pkcs12.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0592AC96041552BB00003D05 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				05396DB50417A34400003D05 /* pkcs12BagAttrs.cpp */,
+				054289230416A5A800003D05 /* pkcs12BagAttrs.h */,
+				054289280416B3D100003D05 /* pkcs12Coder.cpp */,
+				054289250416AA2F00003D05 /* pkcs12Coder.h */,
+				0592AC9904156B2B00003D05 /* pkcs12Crypto.cpp */,
+				0592ACA704156B4000003D05 /* pkcs12Crypto.h */,
+				05396DB90417B81000003D05 /* pkcs12Debug.h */,
+				0542892D0416B6C300003D05 /* pkcs12Decode.cpp */,
+				0542892B0416B65F00003D05 /* pkcs12Encode.cpp */,
+				05A9EF64041FB7C600003D05 /* pkcs12Keychain.cpp */,
+				054289330416C36700003D05 /* pkcs12SafeBag.cpp */,
+				054289210416A4EA00003D05 /* pkcs12SafeBag.h */,
+				0592AC9B04156B2B00003D05 /* pkcs12Templates.cpp */,
+				0592ACA904156B4000003D05 /* pkcs12Templates.h */,
+				0592AC9C04156B2B00003D05 /* pkcs12Utils.cpp */,
+				0592ACAA04156B4000003D05 /* pkcs12Utils.h */,
+				0592AC9804156B2B00003D05 /* pkcs7Templates.cpp */,
+				0592ACA604156B4000003D05 /* pkcs7Templates.h */,
+				0592ACD304167B1F00003D05 /* SecPkcs12.cpp */,
+				0592ACD0041665AE00003D05 /* SecPkcs12.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		0592AC870415523C00003D05 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0592ACAD04156B4000003D05 /* pkcs7Templates.h in Headers */,
+				0592ACAE04156B4000003D05 /* pkcs12Crypto.h in Headers */,
+				0592ACB004156B4000003D05 /* pkcs12Templates.h in Headers */,
+				0592ACB104156B4000003D05 /* pkcs12Utils.h in Headers */,
+				0592ACD1041665AE00003D05 /* SecPkcs12.h in Headers */,
+				054289220416A4EA00003D05 /* pkcs12SafeBag.h in Headers */,
+				054289240416A5A800003D05 /* pkcs12BagAttrs.h in Headers */,
+				054289260416AA2F00003D05 /* pkcs12Coder.h in Headers */,
+				05396DBA0417B81000003D05 /* pkcs12Debug.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0592AC8E0415527A00003D05 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				054289300416BBF800003D05 /* pkcs12BagAttrs.h in Headers */,
+				054289270416AA2F00003D05 /* pkcs12Coder.h in Headers */,
+				0592ACB504156B4000003D05 /* pkcs12Crypto.h in Headers */,
+				054289310416BC4100003D05 /* pkcs12SafeBag.h in Headers */,
+				0592ACB704156B4000003D05 /* pkcs12Templates.h in Headers */,
+				0592ACB804156B4000003D05 /* pkcs12Utils.h in Headers */,
+				0592ACB404156B4000003D05 /* pkcs7Templates.h in Headers */,
+				0592ACD2041665AE00003D05 /* SecPkcs12.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLibraryTarget section */
+		0592AC8B0415523C00003D05 /* libsecurity_pkcs12 */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = C27AD3C40987FCDF001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_pkcs12" */;
+			buildPhases = (
+				0592AC870415523C00003D05 /* Headers */,
+				0592AC880415523C00003D05 /* Sources */,
+				0592AC890415523C00003D05 /* Frameworks */,
+				4C9A5BB2056AB5EC00B1BEFE /* ShellScript */,
+				4C9A5BB3056AB5EF00B1BEFE /* ShellScript */,
+			);
+			dependencies = (
+				0542892F0416BB4500003D05 /* PBXTargetDependency */,
+			);
+			name = libsecurity_pkcs12;
+			productInstallPath = /usr/local/lib;
+			productName = libnsspkcs12;
+			productReference = 0592AC8C0415523C00003D05 /* security_pkcs12 */;
+		};
+/* End PBXLibraryTarget section */
+
+/* Begin PBXProject section */
+		0592AC85041551E100003D05 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD3C80987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_pkcs12" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 0592AC81041551E100003D05;
+			productRefGroup = 0592AC8D0415523C00003D05 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
+			targets = (
+				0592AC8B0415523C00003D05 /* libsecurity_pkcs12 */,
+				0592AC930415527A00003D05 /* security_pkcs12 */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4C9A5BB2056AB5EC00B1BEFE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
+		};
+		4C9A5BB3056AB5EF00B1BEFE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" ${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework\ndone";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0592AC880415523C00003D05 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				05396DB60417A34400003D05 /* pkcs12BagAttrs.cpp in Sources */,
+				054289290416B3D100003D05 /* pkcs12Coder.cpp in Sources */,
+				0592ACA004156B2B00003D05 /* pkcs12Crypto.cpp in Sources */,
+				0542892E0416B6C300003D05 /* pkcs12Decode.cpp in Sources */,
+				0542892C0416B65F00003D05 /* pkcs12Encode.cpp in Sources */,
+				05A9EF65041FB7C600003D05 /* pkcs12Keychain.cpp in Sources */,
+				054289340416C36700003D05 /* pkcs12SafeBag.cpp in Sources */,
+				0592ACA204156B2B00003D05 /* pkcs12Templates.cpp in Sources */,
+				0592ACA304156B2B00003D05 /* pkcs12Utils.cpp in Sources */,
+				0592AC9F04156B2B00003D05 /* pkcs7Templates.cpp in Sources */,
+				0592ACD404167B1F00003D05 /* SecPkcs12.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0542892F0416BB4500003D05 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0592AC930415527A00003D05 /* security_pkcs12 */;
+			targetProxy = 4C9A5B87056AB50100B1BEFE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD3C10987FCDF001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_pkcs12;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD3C20987FCDF001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_pkcs12;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD3C30987FCDF001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_pkcs12;
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Default;
+		};
+		C27AD3C50987FCDF001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CURRENT_PROJECT_VERSION = 32085;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_pkcs12;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD3C60987FCDF001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32085;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_pkcs12;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD3C70987FCDF001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32085;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_pkcs12;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD3C90987FCDF001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD3CA0987FCDF001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD3CB0987FCDF001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				UNSTRIPPED_PRODUCT = YES;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD3C00987FCDF001272E0 /* Build configuration list for PBXFrameworkTarget "security_pkcs12" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3C10987FCDF001272E0 /* Development */,
+				C27AD3C20987FCDF001272E0 /* Deployment */,
+				C27AD3C30987FCDF001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD3C40987FCDF001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_pkcs12" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3C50987FCDF001272E0 /* Development */,
+				C27AD3C60987FCDF001272E0 /* Deployment */,
+				C27AD3C70987FCDF001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD3C80987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_pkcs12" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3C90987FCDF001272E0 /* Development */,
+				C27AD3CA0987FCDF001272E0 /* Deployment */,
+				C27AD3CB0987FCDF001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0592AC85041551E100003D05 /* Project object */;
+}

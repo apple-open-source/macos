@@ -33,6 +33,7 @@ static void Error(char *format, long item);
 static void FatalError(long exitValue, char *format, long item);
 static void UsageMessage(char *message);
 static void ParseFile(char *fileName);
+static void ParseXMLFile(char *fileName);
 static void SetOrGetOFVariable(char *str);
 static kern_return_t GetOFVariable(char *name, CFStringRef *nameRef,
 				   CFTypeRef *valueRef);
@@ -40,11 +41,15 @@ static kern_return_t SetOFVariable(char *name, char *value);
 static void DeleteOFVariable(char *name);
 static void PrintOFVariables(void);
 static void PrintOFVariable(const void *key,const void *value,void *context);
+static void SetOFVariableFromFile(const void *key, const void *value, void *context);
+static void ClearOFVariables(void);
+static void ClearOFVariable(const void *key,const void *value,void *context);
 static CFTypeRef ConvertValueToCFTypeRef(CFTypeID typeID, char *value);
 
 // Global Variables
 static char                *gToolName;
 static io_registry_entry_t gOptionsRef;
+static bool                gUseXML;
 
 
 int main(int argc, char **argv)
@@ -67,7 +72,7 @@ int main(int argc, char **argv)
   
   gOptionsRef = IORegistryEntryFromPath(masterPort, "IODeviceTree:/options");
   if (gOptionsRef == 0) {
-    FatalError(-1, "Error (%d) getting a reference to /options", -1);
+    FatalError(-1, "nvram is not supported on this system.", -1);
     exit(-1);
   }
   
@@ -80,7 +85,11 @@ int main(int argc, char **argv)
 	case 'p' :
 	  PrintOFVariables();
 	  break;
-	  
+
+	case 'x' :
+          gUseXML = true;
+          break;
+
 	case 'f':
 	  cnt++;
 	  if (cnt < argc && *argv[cnt] != '-') {
@@ -99,6 +108,10 @@ int main(int argc, char **argv)
 	  }
 	  break;
 	  
+	case 'c':
+	  ClearOFVariables();
+	  break;
+	  
 	default:
 	  strcpy(errorMessage, "no such option as --");
 	  errorMessage[strlen(errorMessage)-1] = *str;
@@ -106,7 +119,7 @@ int main(int argc, char **argv)
 	}
       }
     } else {
-      // Other arguments will be Open Firmware variable requests.
+      // Other arguments will be firmware variable requests.
       SetOrGetOFVariable(str);
     }
   }
@@ -151,10 +164,13 @@ static void UsageMessage(char *message)
 {
   Error("(usage: %s)", (long)message);
   
-  printf("%s [-p] [-f filename] [-d name] name[=value] ...\n", gToolName);
-  printf("\t-p         print all Open Firmware variables\n");
-  printf("\t-f         set Open Firmware variables from a text file\n");
+  printf("%s [-x] [-p] [-f filename] [-d name] name[=value] ...\n", gToolName);
+  printf("\t-x         use XML format for printing or reading variables\n");
+  printf("\t           (must appear before -p or -f)\n");
+  printf("\t-p         print all firmware variables\n");
+  printf("\t-f         set firmware variables from a text file\n");
   printf("\t-d         delete the named variable\n");
+  printf("\t-c         delete all variables\n");
   printf("\tname=value set named variable\n");
   printf("\tname       print variable\n");
   printf("Note that arguments and options are executed in order.\n");
@@ -189,6 +205,11 @@ static void ParseFile(char *fileName)
   char name[kMaxNameSize];
   char value[kMaxStringSize];
   FILE *patches;
+
+  if (gUseXML) {
+    ParseXMLFile(fileName);
+    return;
+  }
   
   patches = fopen(fileName, "r");
   if (patches == 0) {
@@ -197,6 +218,10 @@ static void ParseFile(char *fileName)
   
   state = kFirstColumn;
   while ((tc = getc(patches)) != EOF) {
+    if(ni==(kMaxNameSize-1)) 
+      FatalError(-1,"Name exceeded max length of %d",kMaxNameSize);
+    if(vi==(kMaxStringSize-1))
+      FatalError(-1,"Value exceeded max length of %d",kMaxStringSize);
     switch (state) {
     case kFirstColumn :
       ni = 0;
@@ -288,10 +313,73 @@ static void ParseFile(char *fileName)
 }
 
 
+// ParseXMLFile(fileName)
+//
+//   Open and parse the specified file in XML format,
+//   and set variables appropriately.
+//
+static void ParseXMLFile(char *fileName)
+{
+        CFPropertyListRef plist;
+        CFURLRef fileURL = NULL;
+        CFStringRef filePath = NULL;
+        CFStringRef errorString = NULL;
+        CFDataRef data = NULL;
+        SInt32 errorCode = 0;
+
+        filePath = CFStringCreateWithCString(kCFAllocatorDefault, fileName, kCFStringEncodingUTF8);
+        if (filePath == NULL) {
+                FatalError(-1, "Could not create file path string", 0);
+        }
+
+        // Create a URL that specifies the file we will create to 
+        // hold the XML data.
+        fileURL = CFURLCreateWithFileSystemPath( kCFAllocatorDefault,    
+                                                 filePath,
+                                                 kCFURLPOSIXPathStyle,
+                                                 false /* not a directory */ );
+        if (fileURL == NULL) {
+                FatalError(-1, "Could not create file path URL", 0);
+        }
+
+        CFRelease(filePath);
+
+        if (! CFURLCreateDataAndPropertiesFromResource(
+                    kCFAllocatorDefault,
+                    fileURL,
+                    &data,
+                    NULL,      
+                    NULL,
+                    &errorCode) || data == NULL ) {
+                FatalError(-1, "Error reading XML file (%d)", errorCode);
+        }
+
+        CFRelease(fileURL);
+
+        plist = CFPropertyListCreateFromXMLData(kCFAllocatorDefault,
+                                                data,
+                                                kCFPropertyListImmutable,
+                                                &errorString);
+
+        CFRelease(data);
+
+        if (plist == NULL) {
+                FatalError(-1, "Error parsing XML file", 0);
+        }
+
+        if (errorString != NULL) {
+                FatalError(-1, "Error parsing XML file: %s", (long)CFStringGetCStringPtr(errorString, kCFStringEncodingUTF8));
+        }
+
+        CFDictionaryApplyFunction(plist, &SetOFVariableFromFile, 0);
+
+        CFRelease(plist);
+}
+
 // SetOrGetOFVariable(str)
 //
 //   Parse the input string, then set or get the specified
-//   Open Firmware variable.
+//   firmware variable.
 //
 static void SetOrGetOFVariable(char *str)
 {
@@ -338,7 +426,7 @@ static void SetOrGetOFVariable(char *str)
 
 // GetOFVariable(name, nameRef, valueRef)
 //
-//   Get the named Open Firmware variable.
+//   Get the named firmware variable.
 //   Return it and it's symbol in valueRef and nameRef.
 //
 static kern_return_t GetOFVariable(char *name, CFStringRef *nameRef,
@@ -359,7 +447,7 @@ static kern_return_t GetOFVariable(char *name, CFStringRef *nameRef,
 
 // SetOFVariable(name, value)
 //
-//   Set or create an Open Firmware variable with name and value.
+//   Set or create an firmware variable with name and value.
 //
 static kern_return_t SetOFVariable(char *name, char *value)
 {
@@ -424,7 +512,7 @@ static kern_return_t SetOFVariable(char *name, char *value)
 
 // DeleteOFVariable(name)
 //
-//   Delete the named Open Firmware variable.
+//   Delete the named firmware variable.
 //   
 //
 static void DeleteOFVariable(char *name)
@@ -435,7 +523,7 @@ static void DeleteOFVariable(char *name)
 
 // PrintOFVariables()
 //
-//   Print all of the Open Firmware variables.
+//   Print all of the firmware variables.
 //
 static void PrintOFVariables()
 {
@@ -444,17 +532,33 @@ static void PrintOFVariables()
   
   result = IORegistryEntryCreateCFProperties(gOptionsRef, &dict, 0, 0);
   if (result != KERN_SUCCESS) {
-    FatalError(-1, "Error (%d) getting the Open Firmware variables", result);
+    FatalError(-1, "Error (%d) getting the firmware variables", result);
   }
-  CFDictionaryApplyFunction(dict, &PrintOFVariable, 0);
+
+  if (gUseXML) {
+    CFDataRef data;
+
+    data = CFPropertyListCreateXMLData( kCFAllocatorDefault, dict );
+    if (data == NULL) {
+      FatalError(-1, "Error (%d) converting variables to xml", result);
+    }
+
+    fwrite(CFDataGetBytePtr(data), sizeof(UInt8), CFDataGetLength(data), stdout);
+
+    CFRelease(data);
+
+  } else {
+
+    CFDictionaryApplyFunction(dict, &PrintOFVariable, 0);
+
+  }
   
   CFRelease(dict);
 }
 
-
 // PrintOFVariable(key, value, context)
 //
-//   Print the given Open Firmware variable.
+//   Print the given firmware variable.
 //
 static void PrintOFVariable(const void *key, const void *value, void *context)
 {
@@ -534,6 +638,33 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
   if (valueBuffer != 0) free(valueBuffer);
 }
 
+// ClearOFVariables()
+//
+//   Deletes all OF variables
+//
+static void ClearOFVariables(void)
+{
+    kern_return_t          result;
+    CFMutableDictionaryRef dict;
+
+    result = IORegistryEntryCreateCFProperties(gOptionsRef, &dict, 0, 0);
+    if (result != KERN_SUCCESS) {
+      FatalError(-1, "Error (%d) getting the firmware variables", result);
+    }
+    CFDictionaryApplyFunction(dict, &ClearOFVariable, 0);
+
+    CFRelease(dict);
+}
+
+static void ClearOFVariable(const void *key, const void *value, void *context)
+{
+  kern_return_t result;
+  result = IORegistryEntrySetCFProperty(gOptionsRef,
+                                        CFSTR(kIONVRAMDeletePropertyKey), key);
+  if (result != KERN_SUCCESS) {
+    FatalError(-1, "Error (%d) clearing firmware variables", result);
+  }
+}
 
 // ConvertValueToCFTypeRef(typeID, value)
 //
@@ -569,9 +700,32 @@ static CFTypeRef ConvertValueToCFTypeRef(CFTypeID typeID, char *value)
 	value[cnt2] = number;
       } else value[cnt2] = value[cnt];
     }
-    valueRef = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, value,
+    valueRef = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)value,
 					   cnt2, kCFAllocatorDefault);
   } else return 0;
   
   return valueRef;
+}
+
+static void SetOFVariableFromFile(const void *key, const void *value, void *context)
+{
+  kern_return_t result;
+
+  result = IORegistryEntrySetCFProperty(gOptionsRef, key, value);
+  if ( result != KERN_SUCCESS ) {
+          int nameLen;
+          char *nameBuffer;
+          char *nameString;
+
+          // Get the variable's name.
+          nameLen = CFStringGetLength(key) + 1;
+          nameBuffer = malloc(nameLen);
+          if( nameBuffer && CFStringGetCString(key, nameBuffer, nameLen, kCFStringEncodingUTF8) )
+                  nameString = nameBuffer;
+          else {
+                  Error("Error (-1) Unable to convert property name to C string", 0);
+                  nameString = "<UNPRINTABLE>";
+          }
+          FatalError(-1, "Error (-1) setting variable - '%s'", (long)nameString);
+  }
 }

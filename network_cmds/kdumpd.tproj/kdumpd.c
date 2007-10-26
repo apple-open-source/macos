@@ -85,7 +85,7 @@ int	maxtimeout = 10*TIMEOUT;
 char	buf[PKTSIZE];
 char	ackbuf[PKTSIZE];
 struct	sockaddr_in from;
-int	fromlen;
+socklen_t fromlen;
 
 void	kdump __P((struct kdumphdr *, int));
 
@@ -198,7 +198,8 @@ main(argc, argv)
 	 */
 	{
 		int pid;
-		int i, j;
+		int i;
+		socklen_t j;
 
 		for (i = 1; i < 20; i++) {
 		    pid = fork();

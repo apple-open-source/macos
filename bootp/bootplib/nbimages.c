@@ -43,6 +43,7 @@
 #include "dynarray.h"
 #include "nbimages.h"
 #include "cfutil.h"
+#include "util.h"
 #include "NetBootServer.h"
 #include "NetBootImageInfo.h"
 
@@ -57,72 +58,6 @@ struct NBImageList_s {
 
 extern void
 my_log(int priority, const char *message, ...);
-
-static int
-cfstring_to_cstring_and_length_ext(CFStringRef cfstr, char * str, int len,
-				   boolean_t is_external)
-{
-    CFIndex		ret_len = 0;
-
-    CFStringGetBytes(cfstr, CFRangeMake(0, CFStringGetLength(cfstr)),
-		     kCFStringEncodingUTF8, '?', is_external,
-		     str, len - 1, &ret_len);
-    if (str != NULL) {
-	str[ret_len] = '\0';
-    }
-    return (ret_len + 1); /* leave 1 byte for nul-termination */
-}
-
-static __inline__ int
-cfstring_to_cstring_and_length(CFStringRef cfstr, char * str, int len)
-{
-    return (cfstring_to_cstring_and_length_ext(cfstr, str, len, FALSE));
-}
-
-static Boolean
-myCFStringArrayToCStringArray(CFArrayRef arr, char * buffer, int * buffer_size,
-			      int * ret_count)
-{
-    int		count = CFArrayGetCount(arr);
-    int 	i;
-    char *	offset = NULL;	
-    int		space;
-    char * *	strlist = NULL;
-
-    space = count * sizeof(char *);
-    if (buffer != NULL) {
-	if (*buffer_size < space) {
-	    /* not enough space for even the pointer list */
-	    return (FALSE);
-	}
-	strlist = (char * *)buffer;
-	offset = buffer + space; /* the start of the 1st string */
-    }
-    for (i = 0; i < count; i++) {
-	CFIndex		len = 0;
-	CFStringRef	str;
-
-	str = CFArrayGetValueAtIndex(arr, i);
-	if (isA_CFString(str) == NULL) {
-	    return (FALSE);
-	}
-	if (buffer != NULL) {
-	    len = *buffer_size - space;
-	    if (len < 0) {
-		return (FALSE);
-	    }
-	}
-	len = cfstring_to_cstring_and_length(str, offset, len);
-	if (buffer != NULL) {
-	    strlist[i] = offset;
-	    offset += len;
-	}
-	space += len;
-    }
-    *buffer_size = roundup(space, sizeof(char *));
-    *ret_count = count;
-    return (TRUE);
-}
 
 static int
 cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
@@ -403,12 +338,23 @@ dump_strlist(const char * * strlist, int count)
 }
 
 static void
+dump_ether_list(const struct ether_addr * list, int count)
+{
+    int i;
+
+    for (i = 0; i < count; i++) {
+	printf("%s%s", (i != 0) ? ", " : "", ether_ntoa(list + i));
+    }
+    return;
+}
+
+static void
 NBImageEntry_print(NBImageEntryRef entry)
 {
     int		i;
 
     printf("%-12s %-35s 0x%08x %-9s %-12s", 
-	   entry->sharepoint.name,
+	   entry->sharepoint->name,
 	   entry->name,
 	   entry->image_id, 
 	   NBImageTypeStr(entry->type),
@@ -442,8 +388,23 @@ NBImageEntry_print(NBImageEntryRef entry)
 	dump_strlist(entry->sysids, entry->sysids_count);
 	printf(" ]");
     }
+    if (entry->disabled_mac_addresses != NULL) {
+	printf(" -[ ");
+	dump_ether_list(entry->disabled_mac_addresses, 
+			entry->disabled_mac_addresses_count);
+	printf(" ]-");
+    }
+    if (entry->enabled_mac_addresses != NULL) {
+	printf(" +[ ");
+	dump_ether_list(entry->enabled_mac_addresses, 
+			entry->enabled_mac_addresses_count);
+	printf(" ]+");
+    }
     if (entry->filter_only) {
 	printf(" <filter>");
+    }
+    if (entry->diskless) {
+	printf(" <diskless>");
     }
     printf("\n");
     return;
@@ -471,17 +432,57 @@ my_ptrstrcmp(const void * v1, const void * v2)
     return (strcmp(*s1, *s2));
 }
 
+static struct in_addr
+cfhost_to_ip(CFStringRef host)
+{
+    struct in_addr	iaddr = { 0 };
+    char		tmp[PATH_MAX];
+
+    if (isA_CFString(host) == NULL) {
+	goto done;
+    }
+    if (cfstring_to_cstring(host, tmp, sizeof(tmp)) == FALSE) {
+	goto done;
+    }
+
+    /* if the server specification isn't an IP address, look it up by name */
+    if (inet_aton(tmp, &iaddr) != 1) {
+	struct in_addr * * 	addr;
+	struct hostent * 	ent;
+
+	ent = gethostbyname(tmp);
+	if (ent == NULL) {
+	    goto done;
+	}
+	addr = (struct in_addr * *)ent->h_addr_list;
+	if (*addr == NULL) {
+	    goto done;
+	}
+	iaddr = **addr;
+    }
+
+ done:
+    return (iaddr);
+}
+
+typedef int (*qsort_compare_func_t)(const void *, const void *);
+
 static NBImageEntryRef
 NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
-		    char * dir_path, char * info_plist_path)
+		    char * dir_path, char * info_plist_path,
+		    boolean_t allow_diskless)
 {
     CFArrayRef		archlist_prop;
     int			archlist_space = 0;
     u_int16_t		attr = 0;
     CFStringRef		bootfile_prop;
     int			bootfile_space = 0;
+    CFArrayRef		disabled_mac_prop = NULL;
+    int			disabled_mac_space = 0;
     boolean_t		diskless;
     NBImageEntryRef	entry = NULL;
+    CFArrayRef		enabled_mac_prop = NULL;
+    int			enabled_mac_space = 0;
     boolean_t		filter_only;
     int 		i;
     int32_t		idx_val = -1;
@@ -513,8 +514,7 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     CFStringRef		type;
     NBImageType		type_val = kNBImageTypeNone;
 
-    tail_space = strlen(dir_name) + strlen(sharepoint->path) 
-	+ strlen(sharepoint->name) + 3;
+    tail_space = strlen(dir_name) + 1;
     plist = my_CFPropertyListCreateFromFile(info_plist_path);
     if (isA_CFDictionary(plist) == NULL) {
 	goto failed;
@@ -530,6 +530,10 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 					   FALSE);
     diskless = S_get_plist_boolean(plist, kNetBootImageInfoSupportsDiskless, 
 				   FALSE);
+    if (allow_diskless == FALSE) {
+	/* ignore diskless setting if not allowed */
+	diskless = FALSE;
+    }
     filter_only = S_get_plist_boolean(plist, kNetBootImageInfoFilterOnly,
 				      FALSE);
     name_prop = CFDictionaryGetValue(plist, kNetBootImageInfoName);
@@ -537,7 +541,7 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	fprintf(stderr, "missing/invalid Name property\n");
 	goto failed;
     }
-    name_space = cfstring_to_cstring_and_length_ext(name_prop, NULL, 0, TRUE);
+    name_space = my_CFStringToCStringAndLengthExt(name_prop, NULL, 0, TRUE);
     if (name_space <= 1) {
 	printf("empty Name property\n");
 	goto failed;
@@ -565,6 +569,11 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     }
 
     if (CFEqual(type, kNetBootImageInfoTypeClassic)) {
+	if (allow_diskless == FALSE) {
+	    fprintf(stderr,
+		    "ignoring Classic image: diskless resources unavailable\n");
+	    goto failed;
+	}
 	type_val = kNBImageTypeClassic;
 	if (kind_val == -1) {
 	    kind_val = bsdp_image_kind_MacOS9;
@@ -609,9 +618,9 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     if (archlist_prop != NULL) {
 	int archlist_count;
 
-	if (myCFStringArrayToCStringArray(archlist_prop, 
-					  NULL, &archlist_space,
-					  &archlist_count) == FALSE) {
+	if (my_CFStringArrayToCStringArray(archlist_prop, 
+					   NULL, &archlist_space,
+					   &archlist_count) == FALSE) {
 	    fprintf(stderr, 
 		    "Couldn't calculate Archlist length\n");
 	    goto failed;
@@ -634,7 +643,7 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	fprintf(stderr, "no BootFile property specified\n");
 	goto failed;
     }
-    bootfile_space = cfstring_to_cstring_and_length(bootfile_prop, NULL, 0);
+    bootfile_space = my_CFStringToCStringAndLength(bootfile_prop, NULL, 0);
     tail_space += bootfile_space;
 
     /* supported system ids */
@@ -648,8 +657,8 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	    fprintf(stderr, "EnabledSystemIdentifiers isn't an array\n");
 	    goto failed;
 	}
-	if (myCFStringArrayToCStringArray(sysids_prop, NULL, &sysids_space,
-					  &sysids_count) == FALSE) {
+	if (my_CFStringArrayToCStringArray(sysids_prop, NULL, &sysids_space,
+					   &sysids_count) == FALSE) {
 	    fprintf(stderr, 
 		    "Couldn't calculate EnabledSystemIdentifiers length\n");
 	    goto failed;
@@ -662,6 +671,57 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	    tail_space += sysids_space;
 	}
     }
+
+    /* enabled MAC addresses */
+    enabled_mac_prop = CFDictionaryGetValue(plist,
+					    kNetBootImageInfoEnabledMACAddresses);
+    if (enabled_mac_prop != NULL) {
+	int	enabled_mac_count;
+
+	if (isA_CFArray(enabled_mac_prop) == NULL) {
+	    fprintf(stderr, "EnabledMACAddresses isn't an array\n");
+	    goto failed;
+	}
+	if (my_CFStringArrayToEtherArray(enabled_mac_prop, NULL,
+					 &enabled_mac_space,
+					 &enabled_mac_count) == FALSE) {
+	    fprintf(stderr, 
+		    "Couldn't calculate EnabledMACAddresses length\n");
+	    goto failed;
+	}
+	if (enabled_mac_count == 0) {
+	    enabled_mac_prop = NULL;
+	}
+	else {
+	    tail_space += enabled_mac_space;
+	}
+    }
+
+    /* disabled MAC addresses */
+    disabled_mac_prop = CFDictionaryGetValue(plist,
+					    kNetBootImageInfoDisabledMACAddresses);
+    if (disabled_mac_prop != NULL) {
+	int	disabled_mac_count;
+
+	if (isA_CFArray(disabled_mac_prop) == NULL) {
+	    fprintf(stderr, "DisabledMACAddresses isn't an array\n");
+	    goto failed;
+	}
+	if (my_CFStringArrayToEtherArray(disabled_mac_prop, NULL,
+					 &disabled_mac_space,
+					 &disabled_mac_count) == FALSE) {
+	    fprintf(stderr, 
+		    "Couldn't calculate DisabledMACAddresses length\n");
+	    goto failed;
+	}
+	if (disabled_mac_count == 0) {
+	    disabled_mac_prop = NULL;
+	}
+	else {
+	    tail_space += disabled_mac_space;
+	}
+    }
+
     switch (type_val) {
     case kNBImageTypeClassic:
 	/* must have Shared */
@@ -670,8 +730,8 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	    fprintf(stderr, "missing/invalid SharedImage property\n");
 	    goto failed;
 	}
-	shared_space = cfstring_to_cstring_and_length(shared_prop, tmp,
-						      sizeof(tmp));
+	shared_space = my_CFStringToCStringAndLength(shared_prop, tmp,
+						     sizeof(tmp));
 	if (stat_file(dir_path, tmp) == FALSE) {
 	    fprintf(stderr, "SharedImage does not exist\n");
 	    goto failed;
@@ -683,8 +743,8 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	    = isA_CFString(CFDictionaryGetValue(plist, 
 						kNetBootImageInfoPrivateImage));
 	if (private_prop != NULL) {
-	    private_space = cfstring_to_cstring_and_length(private_prop, tmp,
-							   sizeof(tmp));
+	    private_space = my_CFStringToCStringAndLength(private_prop, tmp,
+							  sizeof(tmp));
 	    if (stat_file(dir_path, tmp)) {
 		tail_space += private_space;
 	    }
@@ -790,6 +850,9 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     entry->is_default = image_is_default;
     entry->diskless = diskless;
     entry->filter_only = filter_only;
+    entry->load_balance_ip 
+	= cfhost_to_ip(CFDictionaryGetValue(plist,
+					    kNetBootImageLoadBalanceServer));
 
     offset = (char *)(entry + 1);
 
@@ -798,9 +861,9 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     /* archlist */
     if (archlist_prop != NULL) {
 	entry->archlist = (const char * *)offset;
-	(void)myCFStringArrayToCStringArray(archlist_prop, offset,
-					    &archlist_space,
-					    &entry->archlist_count);
+	(void)my_CFStringArrayToCStringArray(archlist_prop, offset,
+					     &archlist_space,
+					     &entry->archlist_count);
 	offset += archlist_space;
     }
     else {
@@ -812,20 +875,46 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     /* supported system ids */
     if (sysids_prop != NULL) {
 	entry->sysids = (const char * *)offset;
-	(void)myCFStringArrayToCStringArray(sysids_prop, offset,
-					    &sysids_space,
-					    &entry->sysids_count);
+	(void)my_CFStringArrayToCStringArray(sysids_prop, offset,
+					     &sysids_space,
+					     &entry->sysids_count);
 	qsort(entry->sysids, entry->sysids_count, sizeof(char *),
 	      my_ptrstrcmp);
 	offset += sysids_space;
+    }
+
+    /* enabled MAC addresses */
+    if (enabled_mac_prop != NULL) {
+	entry->enabled_mac_addresses = (const struct ether_addr *)offset;
+	(void)my_CFStringArrayToEtherArray(enabled_mac_prop, offset,
+					   &enabled_mac_space,
+					   &entry->enabled_mac_addresses_count);
+	qsort((void *)entry->enabled_mac_addresses,
+	      entry->enabled_mac_addresses_count,
+	      sizeof(*entry->enabled_mac_addresses),
+	      (qsort_compare_func_t)ether_cmp);
+	offset += enabled_mac_space;
+    }
+
+    /* disabled MAC addresses */
+    if (disabled_mac_prop != NULL) {
+	entry->disabled_mac_addresses = (const struct ether_addr *)offset;
+	(void)my_CFStringArrayToEtherArray(disabled_mac_prop, offset,
+					   &disabled_mac_space,
+					   &entry->disabled_mac_addresses_count);
+	qsort((void *)entry->disabled_mac_addresses, 
+	      entry->disabled_mac_addresses_count,
+	      sizeof(*entry->disabled_mac_addresses),
+	      (qsort_compare_func_t)ether_cmp);
+	offset += disabled_mac_space;
     }
 
     /* ... then just strings */
 
     /* bootfile */
     entry->bootfile = offset;
-    (void)cfstring_to_cstring_and_length(bootfile_prop, offset,
-					 bootfile_space);
+    (void)my_CFStringToCStringAndLength(bootfile_prop, offset,
+					bootfile_space);
     /* verify that bootfile exists for every defined architecture */
     for (i = 0; i < entry->archlist_count; i++) {
 	char	path[PATH_MAX];
@@ -845,12 +934,7 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     offset += bootfile_space;
 
     /* sharepoint */
-    entry->sharepoint.path = offset;
-    strcpy(entry->sharepoint.path, sharepoint->path);
-    offset += strlen(sharepoint->path) + 1;
-    entry->sharepoint.name = offset;
-    strcpy(entry->sharepoint.name, sharepoint->name);
-    offset += strlen(sharepoint->name) + 1;
+    entry->sharepoint = sharepoint;
 
     /* dir_name */
     entry->dir_name = offset;
@@ -859,20 +943,20 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 
     /* name */
     entry->name = offset;
-    (void)cfstring_to_cstring_and_length_ext(name_prop, offset, 
-					     name_space, TRUE);
+    (void)my_CFStringToCStringAndLengthExt(name_prop, offset, 
+					   name_space, TRUE);
     entry->name_length = name_space - 1;
     offset += name_space;
 
     switch (type_val) {
     case kNBImageTypeClassic:
 	entry->type_info.classic.shared = offset;
-	(void)cfstring_to_cstring_and_length(shared_prop, offset, shared_space);
+	(void)my_CFStringToCStringAndLength(shared_prop, offset, shared_space);
 	offset += shared_space;
 	if (private_prop != NULL) {
 	    entry->type_info.classic.private = offset;
-	    (void)cfstring_to_cstring_and_length(private_prop, 
-						 offset, private_space);
+	    (void)my_CFStringToCStringAndLength(private_prop, 
+						offset, private_space);
 	    offset += private_space;
 	}
 	break;
@@ -911,7 +995,8 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 boolean_t
 NBImageEntry_supported_sysid(NBImageEntryRef entry, 
 			     const char * arch,
-			     const char * sysid)
+			     const char * sysid,
+			     const struct ether_addr * ether)
 {
     boolean_t	found = FALSE;
     int		i;
@@ -923,13 +1008,33 @@ NBImageEntry_supported_sysid(NBImageEntryRef entry,
 	}
     }
     if (found == FALSE) {
+	/* not a supported architecture */
 	return (FALSE);
     }
-    if (entry->sysids == NULL) {
-	return (TRUE);
+    if (entry->sysids != NULL) {
+	if (bsearch(&sysid, entry->sysids, entry->sysids_count,
+		    sizeof(char *), my_ptrstrcmp) == NULL) {
+	    /* not a supported system identifier */
+	    return (FALSE);
+	}
     }
-    return (bsearch(&sysid, entry->sysids, entry->sysids_count,
-		    sizeof(char *), my_ptrstrcmp) != NULL);
+    if (entry->disabled_mac_addresses != NULL) {
+	if (bsearch(ether, entry->disabled_mac_addresses, 
+		    entry->disabled_mac_addresses_count,
+		    sizeof(*ether), (qsort_compare_func_t)ether_cmp) != NULL) {
+	    /* ethernet address explicitly disabled */
+	    return (FALSE);
+	}
+    }
+    if (entry->enabled_mac_addresses != NULL) {
+	if (bsearch(ether, entry->enabled_mac_addresses, 
+		    entry->enabled_mac_addresses_count,
+		    sizeof(*ether), (qsort_compare_func_t)ether_cmp) == NULL) {
+	    /* ethernet address not explicitly enabled */
+	    return (FALSE);
+	}
+    }
+    return (TRUE);
 }
 
 boolean_t
@@ -1001,7 +1106,8 @@ NBImageList_add_entry(NBImageListRef image_list, NBImageEntryRef entry)
 }
 
 static void
-NBImageList_add_images(NBImageListRef image_list, NBSPEntryRef sharepoint)
+NBImageList_add_images(NBImageListRef image_list, NBSPEntryRef sharepoint,
+		       boolean_t allow_diskless)
 {
     char		dir[PATH_MAX];
     DIR *		dir_p;
@@ -1034,7 +1140,8 @@ NBImageList_add_images(NBImageListRef image_list, NBSPEntryRef sharepoint)
 	if (stat(info_path, &sb) != 0 || (sb.st_mode & S_IFREG) == 0) {
 	    continue;
 	}
-	entry = NBImageEntry_create(sharepoint, scan->d_name, dir, info_path);
+	entry = NBImageEntry_create(sharepoint, scan->d_name, dir, info_path,
+				    allow_diskless);
 	if (entry != NULL) {
 	    NBImageList_add_entry(image_list, entry);
 	}
@@ -1048,6 +1155,7 @@ NBImageList_add_images(NBImageListRef image_list, NBSPEntryRef sharepoint)
 NBImageEntryRef 
 NBImageList_default(NBImageListRef image_list, 
 		    const char * arch, const char * sysid,
+		    const struct ether_addr * ether,
 		    const u_int16_t * attrs, int n_attrs)
 {
     int			count;
@@ -1058,7 +1166,7 @@ NBImageList_default(NBImageListRef image_list,
     for (i = 0; i < count; i++) {
 	NBImageEntryRef	scan = dynarray_element(dlist, i);
 
-	if (NBImageEntry_supported_sysid(scan, arch, sysid)
+	if (NBImageEntry_supported_sysid(scan, arch, sysid, ether)
 	    && NBImageEntry_attributes_match(scan, attrs, n_attrs)) {
 	    return (scan);
 	}
@@ -1067,20 +1175,12 @@ NBImageList_default(NBImageListRef image_list,
 }
 
 NBImageListRef
-NBImageList_init(NBSPListRef sharepoints)
+NBImageList_init(NBSPListRef sharepoints, boolean_t allow_diskless)
 {
     int				count;
     int				i;
     NBImageListRef		image_list = NULL;
-    boolean_t			needs_free = FALSE;
 
-    if (sharepoints == NULL) {
-	needs_free = TRUE;
-	sharepoints = NBSPList_init(NETBOOT_SHAREPOINT_LINK);
-	if (sharepoints == NULL) {
-	    goto done;
-	}
-    }
     image_list = (NBImageListRef)malloc(sizeof(*image_list));
     if (image_list == NULL) {
 	goto done;
@@ -1092,7 +1192,7 @@ NBImageList_init(NBSPListRef sharepoints)
     for (i = 0; i < count; i++) {
 	NBSPEntryRef	entry = NBSPList_element(sharepoints, i);
 
-	NBImageList_add_images(image_list, entry);
+	NBImageList_add_images(image_list, entry, allow_diskless);
     }
  done:
     if (image_list != NULL) {
@@ -1101,9 +1201,6 @@ NBImageList_init(NBSPListRef sharepoints)
 	    free(image_list);
 	    image_list = NULL;
 	}
-    }
-    if (sharepoints != NULL && needs_free) {
-	NBSPList_free(&sharepoints);
     }
     return (image_list);
 }
@@ -1146,21 +1243,25 @@ my_log(int priority, const char *message, ...)
     return;
 }
 #endif 0
-int
-main()
-{
-    NBImageListRef	images = NBImageList_init(NULL);
 
-    if (images != NULL) {
-	NBImageList_print(images);
-	NBImageList_free(&images);
+int
+main(int argc, char * argv[])
+{
+    NBSPListRef		sharepoints;
+
+    sharepoints = NBSPList_init(NETBOOT_SHAREPOINT_LINK,
+				NBSP_READONLY_OK);
+    if (sharepoints != NULL) {
+	NBImageListRef	images;
+
+	images = NBImageList_init(sharepoints, argc == 1);
+	if (images != NULL) {
+	    NBImageList_print(images);
+	    NBImageList_free(&images);
+	}
+	NBSPList_free(&sharepoints);
     }
-    
     exit(0);
 }
 
 #endif TEST_NBIMAGES
-
-
-
-

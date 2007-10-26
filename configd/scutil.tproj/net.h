@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,8 +72,6 @@ typedef const struct {
 } options, *optionsRef;
 
 
-extern Boolean			net_changed;
-                              
 extern CFMutableArrayRef	new_interfaces;
 
 extern CFArrayRef		interfaces;
@@ -110,8 +108,8 @@ CFIndex		_find_selection	(CFStringRef 	choice,
 
 void		_show_entity	(CFDictionaryRef entity, CFStringRef prefix);
 
-void	do_net_init		();
-void	do_net_quit		();
+void	do_net_init		(void);
+void	do_net_quit		(int argc, char **argv);
 
 void	do_net_open		(int argc, char **argv);
 void	do_net_commit		(int argc, char **argv);
@@ -125,6 +123,7 @@ void	do_net_remove		(int argc, char **argv);
 void	do_net_select		(int argc, char **argv);
 void	do_net_set		(int argc, char **argv);
 void	do_net_show		(int argc, char **argv);
+void	do_net_update		(int argc, char **argv);
 
 void	do_net_snapshot		(int argc, char **argv);
 

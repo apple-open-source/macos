@@ -9,7 +9,7 @@
  * chet@ins.cwru.edu
  */
 
-/* Copyright (C) 1997-2002 Free Software Foundation, Inc.
+/* Copyright (C) 1997-2004 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -107,7 +107,7 @@ ARRAY	*a;
 	ARRAY	*a1;
 	ARRAY_ELEMENT	*ae, *new;
 
-	if (!a)
+	if (a == 0)
 		return((ARRAY *) NULL);
 	a1 = array_create();
 	a1->type = a->type;
@@ -120,7 +120,6 @@ ARRAY	*a;
 	return(a1);
 }
 
-#ifdef INCLUDE_UNUSED
 /*
  * Make and return a new array composed of the elements in array A from
  * S to E, inclusive.
@@ -141,29 +140,29 @@ ARRAY_ELEMENT	*s, *e;
 	for (p = s, i = 0; p != e; p = element_forw(p), i++) {
 		n = array_create_element (element_index(p), element_value(p));
 		ADD_BEFORE(a->head, n);
-		mi = element_index(ae);
+		mi = element_index(n);
 	}
 	a->num_elements = i;
 	a->max_index = mi;
 	return a;
 }
-#endif
 
 /*
  * Walk the array, calling FUNC once for each element, with the array
  * element as the argument.
  */
 void
-array_walk(a, func)
+array_walk(a, func, udata)
 ARRAY	*a;
 sh_ae_map_func_t *func;
+void	*udata;
 {
 	register ARRAY_ELEMENT *ae;
 
 	if (a == 0 || array_empty(a))
 		return;
 	for (ae = element_forw(a->head); ae != a->head; ae = element_forw(ae))
-		if ((*func)(ae) < 0)
+		if ((*func)(ae, udata) < 0)
 			return;
 }
 
@@ -242,9 +241,9 @@ char	*s;
 {
 	register ARRAY_ELEMENT	*ae, *new;
 
-	if (a == 0)
+	if (a == 0 || (array_empty(a) && s == 0))
 		return 0;
-	if (n <= 0)
+	else if (n <= 0)
 		return (a->num_elements);
 
 	ae = element_forw(a->head);
@@ -252,9 +251,9 @@ char	*s;
 		new = array_create_element(0, s);
 		ADD_BEFORE(ae, new);
 		a->num_elements++;
+		if (array_num_elements(a) == 1)		/* array was empty */
+			return 1;
 	}
-
-	a->max_index += n;
 
 	/*
 	 * Renumber all elements in the array except the one we just added.
@@ -262,7 +261,24 @@ char	*s;
 	for ( ; ae != a->head; ae = element_forw(ae))
 		element_index(ae) += n;
 
+	a->max_index = element_index(a->head->prev);
+
 	return (a->num_elements);
+}
+
+ARRAY_ELEMENT *
+array_unshift_element(a)
+ARRAY	*a;
+{
+	return (array_shift (a, 1, 0));
+}
+
+int
+array_shift_element(a, v)
+ARRAY	*a;
+char	*v;
+{
+	return (array_rshift (a, 1, v));
 }
 
 ARRAY	*
@@ -272,7 +288,7 @@ ARRAY	*array;
 	ARRAY_ELEMENT	*a;
 	char	*t;
 
-	if (array == 0 || array->head == 0 || array_empty (array))
+	if (array == 0 || array_head(array) == 0 || array_empty(array))
 		return (ARRAY *)NULL;
 	for (a = element_forw(array->head); a != array->head; a = element_forw(a)) {
 		t = quote_string (a->value);
@@ -282,27 +298,78 @@ ARRAY	*array;
 	return array;
 }
 
-char *
-array_subrange (a, start, end, quoted)
-ARRAY	*a;
-arrayind_t	start, end;
-int	quoted;
+ARRAY	*
+array_quote_escapes(array)
+ARRAY	*array;
 {
+	ARRAY_ELEMENT	*a;
+	char	*t;
+
+	if (array == 0 || array_head(array) == 0 || array_empty(array))
+		return (ARRAY *)NULL;
+	for (a = element_forw(array->head); a != array->head; a = element_forw(a)) {
+		t = quote_escapes (a->value);
+		FREE(a->value);
+		a->value = t;
+	}
+	return array;
+}
+
+/*
+ * Return a string whose elements are the members of array A beginning at
+ * index START and spanning NELEM members.  Null elements are counted.
+ * Since arrays are sparse, unset array elements are not counted.
+ */
+char *
+array_subrange (a, start, nelem, starsub, quoted)
+ARRAY	*a;
+arrayind_t	start, nelem;
+int	starsub, quoted;
+{
+	ARRAY		*a2;
 	ARRAY_ELEMENT	*h, *p;
 	arrayind_t	i;
+	char		*ifs, sep[2], *t;
 
-	p = array_head (a);
-	if (p == 0 || array_empty (a) || start > array_num_elements (a))
+	p = a ? array_head (a) : 0;
+	if (p == 0 || array_empty (a) || start > array_max_index(a))
 		return ((char *)NULL);
 
-	for (i = 0, p = element_forw(p); p != a->head && i < start; i++, p = element_forw(p))
+	/*
+	 * Find element with index START.  If START corresponds to an unset
+	 * element (arrays can be sparse), use the first element whose index
+	 * is >= START.  If START is < 0, we count START indices back from
+	 * the end of A (not elements, even with sparse arrays -- START is an
+	 * index).
+	 */
+	for (p = element_forw(p); p != array_head(a) && start > element_index(p); p = element_forw(p))
 		;
+
 	if (p == a->head)
 		return ((char *)NULL);
-	for (h = p; p != a->head && i < end; i++, p = element_forw(p))
+
+	/* Starting at P, take NELEM elements, inclusive. */
+	for (i = 0, h = p; p != a->head && i < nelem; i++, p = element_forw(p))
 		;
 
-	return (array_to_string_internal (h, p, " ", quoted));
+	a2 = array_slice(a, h, p);
+
+	if (quoted & (Q_DOUBLE_QUOTES|Q_HERE_DOCUMENT))
+		array_quote(a2);
+	else
+		array_quote_escapes(a2);
+
+	if (starsub && (quoted & (Q_DOUBLE_QUOTES|Q_HERE_DOCUMENT))) {
+		ifs = getifs();
+		sep[0] = ifs ? *ifs : '\0';
+	} else
+		sep[0] = ' ';
+	sep[1] = '\0';
+
+	t = array_to_string (a2, sep, 0);
+	array_dispose(a2);
+
+	return t;
 }
 
 char *
@@ -313,12 +380,12 @@ int	mflags;
 {
 	ARRAY		*a2;
 	ARRAY_ELEMENT	*e;
-	char	*t;
+	char	*t, *ifs, sifs[2];
 
-	if (array_head (a) == 0 || array_empty (a))
+	if (a == 0 || array_head(a) == 0 || array_empty(a))
 		return ((char *)NULL);
 
-	a2 = array_copy (a);
+	a2 = array_copy(a);
 	for (e = element_forw(a2->head); e != a2->head; e = element_forw(e)) {
 		t = pat_subst(element_value(e), pat, rep, mflags);
 		FREE(element_value(e));
@@ -326,8 +393,16 @@ int	mflags;
 	}
 
 	if (mflags & MATCH_QUOTED)
-		array_quote (a2);
-	t = array_to_string (a2, " ", 0);
+		array_quote(a2);
+	else
+		array_quote_escapes(a2);
+	if (mflags & MATCH_STARSUB) {
+		ifs = getifs();
+		sifs[0] = ifs ? *ifs : '\0';
+		sifs[1] = '\0';
+		t = array_to_string (a2, sifs, 0);
+	} else
+		t = array_to_string (a2, " ", 0);
 	array_dispose (a2);
 
 	return t;
@@ -365,8 +440,10 @@ void
 array_dispose_element(ae)
 ARRAY_ELEMENT	*ae;
 {
-	FREE(ae->value);
-	free(ae);
+	if (ae) {
+		FREE(ae->value);
+		free(ae);
+	}
 }
 
 /*
@@ -380,7 +457,7 @@ char	*v;
 {
 	register ARRAY_ELEMENT *new, *ae;
 
-	if (!a)
+	if (a == 0)
 		return(-1);
 	new = array_create_element(i, v);
 	if (i > array_max_index(a)) {
@@ -404,7 +481,7 @@ char	*v;
 			 */
 			array_dispose_element(new);
 			free(element_value(ae));
-			ae->value = savestring(v);
+			ae->value = v ? savestring(v) : (char *)NULL;
 			return(0);
 		} else if (element_index(ae) > i) {
 			ADD_BEFORE(ae, new);
@@ -426,7 +503,7 @@ arrayind_t	i;
 {
 	register ARRAY_ELEMENT *ae;
 
-	if (!a || array_empty(a))
+	if (a == 0 || array_empty(a))
 		return((ARRAY_ELEMENT *) NULL);
 	for (ae = element_forw(a->head); ae != a->head; ae = element_forw(ae))
 		if (element_index(ae) == i) {
@@ -460,6 +537,7 @@ arrayind_t	i;
 
 /* Convenience routines for the shell to translate to and from the form used
    by the rest of the code. */
+
 WORD_LIST *
 array_to_word_list(a)
 ARRAY	*a;
@@ -485,6 +563,25 @@ WORD_LIST	*list;
 		return((ARRAY *)NULL);
 	a = array_create();
 	return (array_assign_list (a, list));
+}
+
+WORD_LIST *
+array_keys_to_word_list(a)
+ARRAY	*a;
+{
+	WORD_LIST	*list;
+	ARRAY_ELEMENT	*ae;
+	char		*t;
+
+	if (a == 0 || array_empty(a))
+		return((WORD_LIST *)NULL);
+	list = (WORD_LIST *)NULL;
+	for (ae = element_forw(a->head); ae != a->head; ae = element_forw(ae)) {
+		t = itos(element_index(ae));
+		list = make_word_list (make_bare_word(t), list);
+		free(t);
+	}
+	return (REVERSE_LIST(list, WORD_LIST *));
 }
 
 ARRAY *
@@ -767,7 +864,7 @@ print_array(a)
 ARRAY	*a;
 {
 	printf("\n");
-	array_walk(a, print_element);
+	array_walk(a, print_element, (void *)NULL);
 }
 
 main()

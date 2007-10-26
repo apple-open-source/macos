@@ -1,7 +1,0 @@
-#define NormalLibFont YES 
-#define SharedLibFont NO
-#define BuildDPSLibrary YES
-#define XprtServer NO
-#define XnestServer NO
-#define XVirtualFramebufferServer NO
-

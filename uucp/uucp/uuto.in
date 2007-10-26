@@ -1,0 +1,58 @@
+#!/bin/sh
+# uuto
+# Send files to a user on another system.
+#
+# Copyright (C) 1992, 1993, 2002 Ian Lance Taylor
+#
+# Please feel free do whatever you like with this exciting shell
+# script.
+#
+# This is pretty trivial, since all the functionality was moved into
+# uucp itself.  The -t means to interpret the final argument as
+# system!user, the -R means to copy directories recursively, and the
+# -c means to not copy the files to the spool directory (may be
+# overriden by -C or -p).
+#
+
+usage="Taylor UUCP @VERS@, copyright (C) 1991, 92, 93, 94, 1995, 2002 Ian Lance Taylor
+Usage: $0 [options] file1 [file2...] system!user
+ -c,--nocopy: Do not copy local files to spool directory (default)
+ -C,-p,--copy: Copy local files to spool directory
+ -d,--directories: Create necessary directories (default)
+ -f,--nodirectories: Do not create directories (fail if they do not exist)
+ -g,--grade grade: Set job grade (must be alphabetic)
+ -m,--mail: Report status of copy by mail
+ -n,--notify user: Report status of copy by mail to remote user
+ -R,--recursive: Copy directories recursively (default)
+ -r,--nouucico: Do not start uucico daemon
+ -s,--status file: Report completion status to file
+ -j,--jobid: Report job id
+ -W,--noexpand: Do not add current directory to remote filenames
+ -u,--usage name: Set user name
+ -x,--debug debug: Set debugging level
+ -I,--config file: Set configuration file to use
+ -v,--version: Print version and exit
+ --help: Print help and exit
+Report bugs to taylor-uucp@gnu.org"
+
+case $# in
+  1)
+    case "z${1}" in
+      z--help)
+	 echo "$usage"
+	 exit 0
+	 ;;
+      z--version)
+         echo "uuto (Taylor UUCP) @VERS@"
+	 echo "Copyright (C) 1991, 92, 93, 94, 1995, 2002 Ian Lance Taylor"
+	 echo "This program is free software; you may redistribute it under the terms of"
+	 echo "the GNU General Public LIcense.  This program has ABSOLUTELY NO WARRANTY."
+	 exit 0
+	 ;;
+      *) ;;
+    esac
+    ;;
+  *) ;;
+esac
+
+exec @BINDIR@/uucp -t -R -c $*

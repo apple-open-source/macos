@@ -65,6 +65,7 @@
 #include <net/if.h>
 #include <CoreFoundation/CFBundle.h>
 #include <ApplicationServices/ApplicationServices.h>
+#include <SystemConfiguration/SCSchemaDefinitions.h>
 
 #define APPLE 1
 
@@ -75,6 +76,8 @@
 #include "../../../Helpers/pppd/fsm.h"
 #include "../../../Helpers/pppd/lcp.h"
 
+#include <cclkeys.h>		// XX okay to #include Apple-specific header?
+ 
 
 /* -----------------------------------------------------------------------------
  Definitions
@@ -110,12 +113,14 @@ void serial_connect_notifier(void *param, int code);
 void serial_lcpdown_notifier(void *param, int code);
 int serial_terminal_window(char *script, int infd, int outfd);
 
+static int modemdict(char **argv);
 
 /* -----------------------------------------------------------------------------
  PPP globals
 ----------------------------------------------------------------------------- */
 
-extern char *serviceid; 	/* configuration service ID to publish */
+extern char *serviceid;   			/* configuration service ID to publish */
+extern CFStringRef serviceidRef;	/* configuration service ID to publish */
 extern int	kill_link;
 
 static CFBundleRef 	bundle = 0;		/* our bundle ref */
@@ -128,13 +133,17 @@ static bool 	modemcompress = 1;
 static bool 	modempulse = 0;
 static int	modemdialmode = 0; 
 static u_char	fullmodemscript[1024];
+static u_char	fullterminalscript[1024];
 static u_char	connectcommand[1024];
 static u_char	altconnectcommand[1024];
 static u_char	disconnectcommand[1024];
 static u_char	terminalcommand[1024];
 static u_char	cancelstr[32];
+static CFStringRef	cancelstrref;
 static u_char	icstr[32];
+static CFStringRef	icstrref;
 static u_char	iconstr[1024];
+static CFStringRef	iconstrref;
 static u_char	*modemscript = NULL;	
 static u_char	*terminalscript = NULL;	
 static bool 	terminalwindow = 0;
@@ -142,6 +151,19 @@ void (*old_check_options) __P((void));
 int (*old_connect) __P((int *));
 void (*old_process_extra_options) __P((void));
 
+CFDictionaryRef modemdictref = NULL;
+
+static CFMutableDictionaryRef connectdict = NULL;
+static CFDataRef connectdataref = NULL;
+
+static CFMutableDictionaryRef terminaldict = NULL;
+static CFDataRef terminaldataref = NULL;
+
+static CFMutableDictionaryRef altconnectdict = NULL;
+static CFDataRef altconnectdataref = NULL;
+
+static CFMutableDictionaryRef disconnectdict = NULL;
+static CFDataRef disconnectdataref = NULL;
 
 /* option descriptors */
 option_t serial_options[] = {
@@ -169,6 +191,8 @@ option_t serial_options[] = {
       "Terminal CCL to use" },
     { "terminalwindow", o_bool, &terminalwindow,
       "Use terminal window", 1 },
+    { "modemdict", o_special_cfarg, (void *)modemdict,
+      "Serialized Modem Dictionary ", OPT_PRIV },
     { NULL }
 };
 
@@ -201,19 +225,18 @@ int start(CFBundleRef ref)
     add_notifier(&connect_fail_notify, serial_connect_notifier, 0);
     add_notifier(&lcp_lowerdown_notify, serial_lcpdown_notifier, 0);
 
-    strref = CFBundleCopyLocalizedString(bundle, CFSTR("Cancel"), CFSTR("Cancel"), NULL);
-    if (strref == 0) return 1;
-    CFStringGetCString(strref, cancelstr, sizeof(cancelstr), kCFStringEncodingUTF8);
-    CFRelease(strref);
+    cancelstrref = CFBundleCopyLocalizedString(bundle, CFSTR("Cancel"), CFSTR("Cancel"), NULL);
+    if (cancelstrref == 0) return 1;
+    CFStringGetCString(cancelstrref, cancelstr, sizeof(cancelstr), kCFStringEncodingUTF8);
     
-    strref = CFBundleCopyLocalizedString(bundle, CFSTR("Internet Connect"), CFSTR("Internet Connect"), NULL);
-    if (strref == 0) return 1;
-    CFStringGetCString(strref, icstr, sizeof(icstr), kCFStringEncodingUTF8);
-    CFRelease(strref);
+    icstrref = CFBundleCopyLocalizedString(bundle, CFSTR("Internet Connect"), CFSTR("Internet Connect"), NULL);
+    if (icstrref == 0) return 1;
+    CFStringGetCString(icstrref, icstr, sizeof(icstr), kCFStringEncodingUTF8);
     
     urlref = CFBundleCopyResourceURL(bundle, CFSTR("NetworkConnect.icns"), NULL, NULL);
     if (urlref == 0 || ((strref = CFURLGetString(urlref)) == 0)) return 1;
     CFStringGetCString(strref, iconstr, sizeof(iconstr), kCFStringEncodingUTF8);
+	iconstrref = CFStringCreateCopy(NULL, strref);
     CFRelease(urlref);
     
     // add the socket specific options
@@ -268,7 +291,7 @@ void serial_check_options()
     //Fix me : we only get the 8 low bits return code from the wait_pid
     cancelcode = 136; /*cclErr_ScriptCancelled*/
 
-    if (modemscript) {
+    if (modemscript || modemdictref) {
         // actual command will be filled in at connection time
 		connector_uid = 0;
 		disconnector_uid = 0;
@@ -291,75 +314,195 @@ void serial_check_options()
         (*old_check_options)();
 }
 
+/* -------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------- */
+CFDataRef Serialize(CFPropertyListRef obj, void **data, u_int32_t *dataLen)
+{
+    CFDataRef           	xml;
+    
+    xml = CFPropertyListCreateXMLData(NULL, obj);
+    if (xml) {
+        *data = (void*)CFDataGetBytePtr(xml);
+        *dataLen = CFDataGetLength(xml);
+    }
+    return xml;
+}
+
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 int serial_connect(int *errorcode)
 {
-    char 		str[1024];
-    char 		path[128];
     struct stat 	statbuf;
     int 		err;
-
+	CFMutableDictionaryRef ccldict, moddict;
+	int			val;
+	CFNumberRef	numRef;
+	CFStringRef	strRef;
+	
 	*errorcode = 0;
 
-    if (modemscript) {
+    if (modemscript || modemdictref) {
 
-	path[0] = 0;
-	CFURLGetFileSystemRepresentation(url, TRUE, path, sizeof(path));
+		// ---------- connect and altconnect scripts ----------
+		
+		sprintf(connectcommand, "%s -l %s -x", 
+		PATH_CCL, serviceid);
+		
+		// duplicate that into the alternate script
+		strcpy(altconnectcommand, connectcommand);
 
-       /* check for ccl */ 
-        err = 0;
-        if (modemscript[0] != '/') {
-            sprintf(fullmodemscript, "%s%s", DIR_MODEMS_SYS, modemscript);
-            if (stat(fullmodemscript, &statbuf) < 0) {
-                sprintf(fullmodemscript, "%s%s", DIR_MODEMS_USER, modemscript);
-                err = stat(fullmodemscript, &statbuf);
-            }
-        }
-        else {
-            strcpy(fullmodemscript, modemscript);
-            err = stat(fullmodemscript, &statbuf);
-        }
-
-        if (err) {
-            option_error("Could't find modem script '%s'", modemscript);
-            devstatus = EXIT_PPPSERIAL_MODEMSCRIPTNOTFOUND;
+		// ---------- disconnect script ----------
+		sprintf(disconnectcommand, "%s -m 1 -l %s -x", 
+			PATH_CCL, serviceid);
+		
+		connectdict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (!connectdict) {
+            option_error("Could't create the CCLEngine dictionary");
             status = EXIT_CONNECT_FAILED;
             return -1;
-        }
+		}
 
-        // ---------- connect and altconnect scripts ----------
-		
-            sprintf(connectcommand, "%s -l %s -f '%s' -s %d -e %d -c %d -p %d -d %d %s %s -S %d -L %d -I '%s' -i '%s' -C '%s' ", 
-            PATH_CCL, serviceid, fullmodemscript, 
-            modemsound, modemreliable, modemcompress, modempulse, modemdialmode, 
-            debug ? "-v" : "", (log_to_fd >= 0) ? "-E" : "", LOG_NOTICE, LOG_PPP, 
-            icstr, iconstr, cancelstr);
-        
-        if (path[0]) {
-            strcat(connectcommand, " -B ");
-            strcat(connectcommand, path);
-        }
+		/* create the CCLEngine dictionary and add the keys */
+		ccldict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (!ccldict) {
+            option_error("Could't create the CCLEngine dictionary");
+            status = EXIT_CONNECT_FAILED;
+            return -1;
+		}
 
-        // duplicate that into the alternate script
-        strcpy(altconnectcommand, connectcommand);
+		CFDictionaryAddValue(ccldict, kCCLEngineServiceIDKey, serviceidRef);
+		CFDictionaryAddValue(ccldict, kCCLEngineBundlePathKey, CFURLGetString(url));
 
-        // finally add the remote address
-        if (remoteaddress) {
-            sprintf(str, " -T '%s' ", remoteaddress);
-            strcat(connectcommand, str);
-        }
+		val = log_to_fd >= 0 ? 1 : 0;
+		numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+		CFDictionaryAddValue(ccldict, kCCLEngineLogToStdErrKey, numRef);
+		CFRelease(numRef);
 
-        if (altremoteaddress) {
-            sprintf(str, " -T '%s' ", altremoteaddress);
-            strcat(altconnectcommand, str);
-        }
+		val = debug ? 1 : 0;
+		numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+		CFDictionaryAddValue(ccldict, kCCLEngineVerboseLoggingKey, numRef);
+		CFRelease(numRef);
 
-        // ---------- disconnect script ----------
-        sprintf(disconnectcommand, "%s -m 1 -l %s -f '%s' %s %s -S %d -L %d -I '%s' -i '%s' -C '%s' ", 
-            PATH_CCL, serviceid, fullmodemscript, 
-            debug ? "-v" : "", (log_to_fd >= 0) ? "-E" : "", LOG_NOTICE, LOG_PPP, 
-            icstr, iconstr, cancelstr);
+		val = LOG_NOTICE;
+		numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+		CFDictionaryAddValue(ccldict, kCCLEngineSyslogLevelKey, numRef);
+		CFRelease(numRef);
+
+		val = LOG_PPP;
+		numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+		CFDictionaryAddValue(ccldict, kCCLEngineSyslogFacilityKey, numRef);
+		CFRelease(numRef);
+
+		CFDictionaryAddValue(ccldict, kCCLEngineAlertNameKey, icstrref);
+		CFDictionaryAddValue(ccldict, kCCLEngineIconPathKey, iconstrref);
+		CFDictionaryAddValue(ccldict, kCCLEngineCancelNameKey, cancelstrref);
+
+		CFDictionaryAddValue(ccldict, kCCLEngineModeKey, kCCLEngineModeConnect);
+
+		CFDictionaryAddValue(connectdict, kCCLEngineDictKey, ccldict);
+
+		// if a modem dictionary was given, use it 
+		if (modemdictref) {
+			/* create the Modem dictionary and add the keys */
+			moddict = CFDictionaryCreateMutableCopy(NULL, 0, modemdictref);
+			if (!moddict) {
+				option_error("Could't create the Modem dictionary");
+				status = EXIT_CONNECT_FAILED;
+				return -1;
+			}
+		}
+		// if a modem dictionary was not given, build one from arguments 
+		else {
+			/* create the Modem dictionary and add the keys */
+			moddict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			if (!moddict) {
+				option_error("Could't create the Modem dictionary");
+				status = EXIT_CONNECT_FAILED;
+				return -1;
+			}
+
+			if (modemscript) {
+			   /* check for ccl */ 
+				err = 0;
+				if (modemscript[0] != '/') {
+					sprintf(fullmodemscript, "%s%s", DIR_MODEMS_SYS, modemscript);
+					if (stat(fullmodemscript, &statbuf) < 0) {
+						sprintf(fullmodemscript, "%s%s", DIR_MODEMS_USER, modemscript);
+						err = stat(fullmodemscript, &statbuf);
+					}
+				}
+				else {
+					strcpy(fullmodemscript, modemscript);
+					err = stat(fullmodemscript, &statbuf);
+				}
+
+				if (err) {
+					option_error("Could't find modem script '%s'", modemscript);
+					devstatus = EXIT_PPPSERIAL_MODEMSCRIPTNOTFOUND;
+					status = EXIT_CONNECT_FAILED;
+					return -1;
+				}
+				strRef = CFStringCreateWithCString(NULL, fullmodemscript, kCFStringEncodingMacRoman);
+				if (strRef) {
+					CFDictionaryAddValue(moddict, kSCPropNetModemConnectionScript, strRef);
+					CFRelease(strRef);
+				}
+			}
+
+			val = modemsound;
+			numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+			CFDictionaryAddValue(moddict, kSCPropNetModemSpeaker, numRef);
+			CFRelease(numRef);
+
+			val = modempulse;
+			numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+			CFDictionaryAddValue(moddict, kSCPropNetModemPulseDial, numRef);
+			CFRelease(numRef);
+
+			val = modemcompress;
+			numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+			CFDictionaryAddValue(moddict, kSCPropNetModemDataCompression, numRef);
+			CFRelease(numRef);
+
+			val = modemreliable;
+			numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+			CFDictionaryAddValue(moddict, kSCPropNetModemErrorCorrection, numRef);
+			CFRelease(numRef);
+
+			CFDictionaryAddValue(moddict, kSCPropNetModemDialMode, modemdialmode == 1 ? kSCValNetModemDialModeIgnoreDialTone : (modemdialmode == 2 ? kSCValNetModemDialModeManual : kSCValNetModemDialModeWaitForDialTone) );
+		}
+
+		if (remoteaddress) {
+			strRef = CFStringCreateWithCString(NULL, remoteaddress, kCFStringEncodingMacRoman);
+			if (strRef) {
+				CFDictionaryAddValue(moddict, kModemPhoneNumberKey, strRef);
+				CFRelease(strRef);
+			}
+		}			
+
+		CFDictionaryAddValue(connectdict, kSCEntNetModem, moddict);
+
+		connectdataref = Serialize(connectdict, (void**)&connect_data, &connect_data_len);
+	
+		if (altremoteaddress) {
+			strRef = CFStringCreateWithCString(NULL, altremoteaddress, kCFStringEncodingMacRoman);
+			if (strRef) {
+				CFDictionarySetValue(moddict, kModemPhoneNumberKey, strRef);
+				CFRelease(strRef);
+			}
+
+			altconnectdict = CFDictionaryCreateMutableCopy(NULL, 0, connectdict);
+			altconnectdataref = Serialize(altconnectdict, (void**)&altconnect_data, &altconnect_data_len);
+		}
+
+		CFDictionaryRemoveValue(moddict, kModemPhoneNumberKey);
+		CFDictionarySetValue(ccldict, kCCLEngineModeKey, kCCLEngineModeDisconnect);
+		disconnectdict = CFDictionaryCreateMutableCopy(NULL, 0, connectdict);
+		disconnectdataref = Serialize(disconnectdict, (void**)&disconnect_data, &disconnect_data_len);
+
+		CFRelease(ccldict);
+		CFRelease(moddict);
+
     }
         
     if (terminalwindow) {
@@ -369,23 +512,106 @@ int serial_connect(int *errorcode)
     }
 
     if (terminalscript) {
-        
-        sprintf(terminalcommand, "%s -l %s -f '%s%s' %s %s -S %d -L %d -I '%s' -i '%s' -C '%s' ", 
-            PATH_CCL, serviceid, terminalscript[0] == '/' ? "" :  DIR_TERMINALS, terminalscript, 
-            debug ? "-v" : "", (log_to_fd >= 0) ? "-E" : "", LOG_NOTICE, LOG_PPP, 
-            icstr, iconstr, cancelstr);
-        
+        		
+		sprintf(terminalcommand, "%s -l %s -x", PATH_CCL, serviceid);
+		
+		terminaldict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (!terminaldict) {
+            option_error("Could't create the Terminal Script dictionary");
+            status = EXIT_CONNECT_FAILED;
+            return -1;
+		}
+
+		/* create the CCLEngine dictionary and add the keys */
+		ccldict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (!ccldict) {
+            option_error("Could't create the CCLEngine dictionary for Terminal script");
+            status = EXIT_CONNECT_FAILED;
+            return -1;
+		}
+
+		CFDictionaryAddValue(ccldict, kCCLEngineServiceIDKey, serviceidRef);
+		CFDictionaryAddValue(ccldict, kCCLEngineBundlePathKey, CFURLGetString(url));
+
+		val = log_to_fd >= 0 ? 1 : 0;
+		numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+		CFDictionaryAddValue(ccldict, kCCLEngineLogToStdErrKey, numRef);
+		CFRelease(numRef);
+
+		val = debug ? 1 : 0;
+		numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+		CFDictionaryAddValue(ccldict, kCCLEngineVerboseLoggingKey, numRef);
+		CFRelease(numRef);
+
+		val = LOG_NOTICE;
+		numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+		CFDictionaryAddValue(ccldict, kCCLEngineSyslogLevelKey, numRef);
+		CFRelease(numRef);
+
+		val = LOG_PPP;
+		numRef = CFNumberCreate(NULL, kCFNumberIntType, &val);
+		CFDictionaryAddValue(ccldict, kCCLEngineSyslogFacilityKey, numRef);
+		CFRelease(numRef);
+
+		CFDictionaryAddValue(ccldict, kCCLEngineAlertNameKey, icstrref);
+		CFDictionaryAddValue(ccldict, kCCLEngineIconPathKey, iconstrref);
+		CFDictionaryAddValue(ccldict, kCCLEngineCancelNameKey, cancelstrref);
+
+		CFDictionaryAddValue(ccldict, kCCLEngineModeKey, kCCLEngineModeConnect);
+
+		CFDictionaryAddValue(terminaldict, kCCLEngineDictKey, ccldict);
+
+		/* create the Modem dictionary and add the keys */
+		moddict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (!moddict) {
+			option_error("Could't create the Modem dictionary for Terminal script");
+			status = EXIT_CONNECT_FAILED;
+			return -1;
+		}
+
+	   /* check for ccl */ 
+		sprintf(fullterminalscript, "%s%s", (terminalscript[0] == '/') ? "" : DIR_TERMINALS, terminalscript);
+		err = stat(fullterminalscript, &statbuf);
+		if (err) {
+			option_error("Could't find terminal script '%s'", terminalscript);
+			devstatus = EXIT_PPPSERIAL_MODEMSCRIPTNOTFOUND;
+			status = EXIT_CONNECT_FAILED;
+			return -1;
+		}
+		strRef = CFStringCreateWithCString(NULL, fullterminalscript, kCFStringEncodingMacRoman);
+		if (strRef) {
+			CFDictionaryAddValue(moddict, kSCPropNetModemConnectionScript, strRef);
+			CFRelease(strRef);
+		}
+
         if (user) {
-            sprintf(str, " -U '%s' ", user);
-            strcat(terminalcommand, str);
+			strRef = CFStringCreateWithCString(NULL, user, kCFStringEncodingMacRoman);
+			if (strRef) {
+				CFDictionaryAddValue(moddict, kSCPropNetPPPAuthName, strRef);
+				CFRelease(strRef);
+			}
         }
 
         if (passwd) {
-            sprintf(str, " -P '%s' ", passwd);
-            strcat(terminalcommand, str);
-        } 
+			strRef = CFStringCreateWithCString(NULL, passwd, kCFStringEncodingMacRoman);
+			if (strRef) {
+				CFDictionaryAddValue(moddict, kSCPropNetPPPAuthPassword, strRef);
+				CFRelease(strRef);
+			}
+       } 
+
+		CFDictionaryAddValue(terminaldict, kSCEntNetModem, moddict);
+
+		terminaldataref = Serialize(terminaldict, (void**)&terminal_data, &terminal_data_len);
+
+		CFRelease(ccldict);
+		CFRelease(moddict);
+
     }
     
+	if (remoteaddress)
+		set_network_signature("Modem.RemoteAddress", remoteaddress, 0, 0);
+
     if (old_connect)
         return (*old_connect)(errorcode);
 
@@ -517,6 +743,8 @@ static int send_fd(int clifd, int fd)
 ----------------------------------------------------------------------------- */
 static int launch_app(char *app, char *params)
 {
+#ifdef HAVE_LAUNCHSERVICES
+
     CFURLRef 		urlref;
     LSLaunchURLSpec 	urlspec;
     OSStatus 		err;
@@ -524,7 +752,7 @@ static int launch_app(char *app, char *params)
     OSErr		oserr;
     AEDesc		desc;
 #endif
-    
+
     urlref = CFURLCreateFromFileSystemRepresentation(NULL, app, strlen(app), FALSE);
     if (urlref == 0) 
         return -1;
@@ -560,7 +788,8 @@ static int launch_app(char *app, char *params)
     AEDisposeDesc(&desc);
 #endif 
     CFRelease(urlref);
-
+	
+#endif /* HAVE_LAUNCHSERVICES */
     return 0;
 }
 
@@ -685,4 +914,27 @@ int serial_terminal_window(char *script, int infd, int outfd)
     }
         
     return (unsigned char)c;
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static int
+modemdict(argv)
+    char **argv;
+{
+    CFDataRef          	xml;
+    CFStringRef        	xmlError;
+	u_int32_t			len;
+    char *				ptr;
+
+    len = strtoul(argv[0], &ptr, 0);
+
+    xml = CFDataCreate(NULL, argv[1], len);
+    if (xml) {
+        modemdictref = CFPropertyListCreateFromXMLData(NULL,
+                xml,  kCFPropertyListImmutable, &xmlError);
+        CFRelease(xml);
+    }
+
+	return 1;
 }

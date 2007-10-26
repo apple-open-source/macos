@@ -2,6 +2,8 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nbns_rq.c,v 1.9.70.3 2005/09/13 03:42:51 lindak Exp $
+ * $Id: nbns_rq.c,v 1.13.140.1 2006/04/14 23:49:37 gcolley Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -45,11 +47,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define NB_NEEDRESOLVER
 #include <netsmb/netbios.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/nb_lib.h>
-
+#include "charsets.h"
 
 static int  nbns_rq_create(int opcode, struct nb_ctx *ctx, struct nbns_rq **rqpp);
 static void nbns_rq_done(struct nbns_rq *rqp);
@@ -81,9 +82,7 @@ static u_int32_t in_local_subnet(u_char *addr)
 }
 
 /* When invoked from smb_ctx_resolve we need the smb_ctx structure */
-int
-nbns_resolvename(const char *name, struct nb_ctx *ctx, 
-	struct smb_ctx *smbctx, struct sockaddr **adpp)
+static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struct smb_ctx *smbctx, struct sockaddr **adpp)
 {
 	struct nbns_rq *rqp;
 	struct nb_name nn;
@@ -95,12 +94,15 @@ nbns_resolvename(const char *name, struct nb_ctx *ctx,
 
 	wkgrp[0] = '\0';
 	if (strlen(name) > NB_NAMELEN)
-		return NBERROR(NBERR_NAMETOOLONG);
+		return ENAMETOOLONG;
+		
 	error = nbns_rq_create(NBNS_OPCODE_QUERY, ctx, &rqp);
 	if (error)
 		return error;
 	bzero(&nn, sizeof(nn));
 	strcpy((char *)nn.nn_name, name);
+	/* When doing a NetBIOS lookup the name needs to be uppercase */
+	str_upper((char *)nn.nn_name, (char *)nn.nn_name);
 	nn.nn_scope = (u_char *)ctx->nb_scope;
 	nn.nn_type = NBT_SERVER;
 	rqp->nr_nmflags = NBNS_NMFLAG_RD;
@@ -113,7 +115,7 @@ nbns_resolvename(const char *name, struct nb_ctx *ctx,
 	nameserver_sock->sin_family = AF_INET;
 	nameserver_sock->sin_len = sizeof(*nameserver_sock);
 	if (nameserver_sock->sin_port == 0)
-		nameserver_sock->sin_port = htons(137);
+		nameserver_sock->sin_port = htons(NBNS_UDP_PORT_137);
 	if (nameserver_sock->sin_addr.s_addr == INADDR_ANY)
 		nameserver_sock->sin_addr.s_addr = htonl(INADDR_BROADCAST);
 	if (nameserver_sock->sin_addr.s_addr == INADDR_BROADCAST)
@@ -131,7 +133,7 @@ nbns_resolvename(const char *name, struct nb_ctx *ctx,
 			break;
 		if ((rqp->nr_rpnmflags & NBNS_NMFLAG_AA) == 0) {
 			if (rdrcount-- == 0) {
-				error = NBERROR(NBERR_TOOMANYREDIRECTS);
+				error = ETOOMANYREFS;
 				break;
 			}
 			error = nbns_rq_getrr(rqp, &rr);
@@ -145,7 +147,7 @@ nbns_resolvename(const char *name, struct nb_ctx *ctx,
 			continue;
 		}
 		if (rqp->nr_rpancount == 0) {
-			error = NBERROR(NBERR_HOSTNOTFOUND);
+			error = EHOSTUNREACH;
 			break;
 		}
 		error = nbns_rq_getrr(rqp, &rr);
@@ -164,7 +166,7 @@ nbns_resolvename(const char *name, struct nb_ctx *ctx,
 		bzero(session_sock, len);
 		session_sock->sin_len = len;
 		session_sock->sin_family = AF_INET;
-		session_sock->sin_port = htons(SMB_TCP_PORT);
+		session_sock->sin_port = htons(NBSS_TCP_PORT_139);
 		ctx->nb_lastns = rqp->nr_sender;
 
 		end_of_rr = rr.rr_data + rr.rr_rdlength;
@@ -202,19 +204,34 @@ nbns_resolvename(const char *name, struct nb_ctx *ctx,
 		if (!error)
 			break; 
 	} /* end big for loop */
-
+#ifdef OVERRIDE_USER_SETTING_DOMAIN
 	if (!error && smbctx) 
-		if (!smbctx->ct_ssn.ioc_workgroup[0])
-			smb_ctx_setworkgroup(smbctx, 
-				wkgrp, SETWG_NOT_FROMUSER);
+		smb_ctx_setdomain(smbctx,  wkgrp);
+#endif //  OVERRIDE_USER_SETTING_DOMAIN
 	nbns_rq_done(rqp);
-
+		
 	/* 
 	 * After we exit the loop error = return 
 	 * code from last call to nbns_getnodestatus
 	 * or other nbns call
 	 */ 
 
+	return error;
+}
+
+/* When invoked from smb_ctx_resolve we need the smb_ctx structure */
+int nbns_resolvename(const char *name, struct nb_ctx *ctx, struct smb_ctx *smbctx, struct sockaddr **adpp)
+{
+	int error = nbns_resolvename_internal(name, ctx, smbctx, adpp);
+	
+	/* We tried it with WINS and failed try broadcast now */
+	if (error && (ctx->nb_nsname != NULL)) {
+		ctx->nb_ns.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+		ctx->nb_ns.sin_port = htons(NBNS_UDP_PORT_137);
+		ctx->nb_ns.sin_family = AF_INET;
+		ctx->nb_ns.sin_len = sizeof(ctx->nb_ns);
+		error = nbns_resolvename_internal(name, ctx, smbctx, adpp);
+	}
 	return error;
 }
 
@@ -262,7 +279,7 @@ nbns_getnodestatus(struct sockaddr *targethost,
 	*dest = *(struct sockaddr_in *)targethost;
 	dest->sin_family = AF_INET;		/* XXX isn't this set in the copy? */
 	dest->sin_len = sizeof(*dest);		/* XXX isn't this set in the copy? */
-	dest->sin_port = htons(137);
+	dest->sin_port = htons(NBNS_UDP_PORT_137);
 	if (dest->sin_addr.s_addr == INADDR_ANY)
 		dest->sin_addr.s_addr = htonl(INADDR_BROADCAST);
 	if (dest->sin_addr.s_addr == INADDR_BROADCAST)
@@ -278,7 +295,7 @@ nbns_getnodestatus(struct sockaddr *targethost,
 		if (error)
 			break;
 		if (rqp->nr_rpancount == 0) {
-			error = NBERROR(NBERR_HOSTNOTFOUND);
+			error = EHOSTUNREACH;
 			break;
 		}
 		error = nbns_rq_getrr(rqp, &rr);
@@ -303,7 +320,7 @@ nbns_getnodestatus(struct sockaddr *targethost,
 				    (foundgroup != NBT_WKSTA+1 &&
 				     nrtype == NBT_WKSTA)) {
 						smb_optstrncpy(workgroup, nrp->nr_name,
-						       SMB_MAXUSERNAMELEN);
+						       SMB_MAXNetBIOSNAMELEN);
 					foundgroup = nrtype+1;
 				}
 			} else {
@@ -313,12 +330,12 @@ nbns_getnodestatus(struct sockaddr *targethost,
 			}
 			if (nrtype == NBT_SERVER) {
 				smb_optstrncpy(system, nrp->nr_name,
-					       SMB_MAXSRVNAMELEN);
+					       SMB_MAXNetBIOSNAMELEN);
 				foundserver = 1;
 			}
 		}
 		if (!foundserver)
-			smb_optstrncpy(system, retname, SMB_MAXSRVNAMELEN);
+			smb_optstrncpy(system, retname, SMB_MAXNetBIOSNAMELEN);
 		ctx->nb_lastns = rqp->nr_sender;
 		break;
 	}
@@ -376,7 +393,7 @@ nbns_rq_getrr(struct nbns_rq *rqp, struct nbns_rr *rrp)
 	cp = (u_char *)(mbp->mb_pos);
 	len = nb_encname_len((char *)cp);
 	if (len < 1)
-		return NBERROR(NBERR_INVALIDRESPONSE);
+		return EINVAL;
 	rrp->rr_name = cp;
 	error = mb_get_mem(mbp, NULL, len);
 	if (error)
@@ -439,7 +456,7 @@ nbns_rq_prepare(struct nbns_rq *rqp)
 		mb_put_uint16be(mbp, rqp->nr_qdtype);
 		mb_put_uint16be(mbp, rqp->nr_qdclass);
 	}
-	m_lineup(mbp->mb_top, &mbp->mb_top);
+	smb_lib_m_lineup(mbp->mb_top, &mbp->mb_top);
 	if (ctx->nb_timo == 0)
 		ctx->nb_timo = 1;	/* by default 1 second */
 	return 0;
@@ -449,7 +466,7 @@ static int
 nbns_rq_recv(struct nbns_rq *rqp)
 {
 	struct mbdata *mbp = &rqp->nr_rp;
-	void *rpdata = mtod(mbp->mb_top, void *);
+	void *rpdata = SMB_LIB_MTODATA(mbp->mb_top, void *);
 	fd_set rd, wr, ex;
 	struct timeval tv;
 	struct sockaddr_in sender;
@@ -495,7 +512,7 @@ nbns_rq_opensocket(struct nbns_rq *rqp)
 		if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &opt, sizeof(opt)) < 0)
 			return errno;
 		if (rqp->nr_if == NULL)
-			return NBERROR(NBERR_NOBCASTIFS);
+			return ENETDOWN;
 		bzero(&locaddr, sizeof(locaddr));
 		locaddr.sin_family = AF_INET;
 		locaddr.sin_len = sizeof(locaddr);
@@ -513,7 +530,7 @@ nbns_rq_send(struct nbns_rq *rqp)
 	struct mbdata *mbp = &rqp->nr_rq;
 	int s = rqp->nr_fd;
 
-	if (sendto(s, mtod(mbp->mb_top, char *), mbp->mb_count, 0,
+	if (sendto(s, SMB_LIB_MTODATA(mbp->mb_top, char *), mbp->mb_count, 0,
 	      (struct sockaddr*)&rqp->nr_dest, sizeof(rqp->nr_dest)) < 0)
 		return errno;
 	return 0;
@@ -554,10 +571,10 @@ again:
 		}
 		mbp = &rqp->nr_rp;
 		if (mbp->mb_count < 12)
-			return NBERROR(NBERR_INVALIDRESPONSE);
+			return EINVAL;
 		mb_get_uint16be(mbp, &rpid);
 		if (rpid != rqp->nr_trnid)
-			return NBERROR(NBERR_INVALIDRESPONSE);
+			return EINVAL;
 		break;
 	}
 	mb_get_uint8(mbp, &nmflags);
@@ -566,7 +583,8 @@ again:
 	rqp->nr_rpnmflags |= (nmflags & 0xf0) >> 4;
 	rqp->nr_rprcode = nmflags & 0xf;
 	if (rqp->nr_rprcode)
-		return NBERROR(rqp->nr_rprcode);
+		return nb_error_to_errno(rqp->nr_rprcode);
+
 	mb_get_uint16be(mbp, &rpid);	/* QDCOUNT */
 	mb_get_uint16be(mbp, &rqp->nr_rpancount);
 	mb_get_uint16be(mbp, &rqp->nr_rpnscount);

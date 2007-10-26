@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -35,19 +31,24 @@
 
 #include <ast.h>
 #include <ctype.h>
+
 #include <ccode.h>
+#if !_PACKAGE_astsa
 #include <regex.h>
+#endif
 
 int
 chresc(register const char* s, char** p)
 {
 	register const char*	q;
 	register int		c;
-	int			n;
 	const char*		e;
+#if !_PACKAGE_astsa
+	int			n;
 	char			buf[64];
+#endif
 
-	switch (c = *s++)
+	switch (c = mbchar(s))
 	{
 	case 0:
 		s--;
@@ -78,6 +79,7 @@ chresc(register const char* s, char** p)
 			c = '\b';
 			break;
 		case 'c':
+		control:
 			if (c = *s)
 			{
 				s++;
@@ -89,12 +91,19 @@ chresc(register const char* s, char** p)
 			c = ccmapc(c, CC_ASCII, CC_NATIVE);
 			break;
 		case 'C':
+			if (*s == '-' && *(s + 1))
+			{
+				s++;
+				goto control;
+			}
+#if !_PACKAGE_astsa
 			if (*s == '[' && (n = regcollate(s + 1, (char**)&e, buf, sizeof(buf))) >= 0)
 			{
 				if (n == 1)
 					c = buf[0];
 				s = e;
 			}
+#endif
 			break;
 		case 'e':
 		case 'E':
@@ -102,6 +111,13 @@ chresc(register const char* s, char** p)
 			break;
 		case 'f':
 			c = '\f';
+			break;
+		case 'M':
+			if (*s == '-')
+			{
+				s++;
+				c = CC_esc;
+			}
 			break;
 		case 'n':
 			c = '\n';
@@ -116,9 +132,10 @@ chresc(register const char* s, char** p)
 			c = CC_vt;
 			break;
 		case 'u':
+		case 'U':
 		case 'x':
 			c = 0;
-			q = c == 'u' ? (s + 4) : (char*)0;
+			q = c == 'u' ? (s + 4) : c == 'U' ? (s + 8) : (char*)0;
 			e = s;
 			while (!e || !q || s < q)
 			{

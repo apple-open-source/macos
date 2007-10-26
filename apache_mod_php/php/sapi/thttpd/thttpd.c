@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: thttpd.c,v 1.77.2.15.4.2 2007/01/01 09:46:52 sebastian Exp $ */
+/* $Id: thttpd.c,v 1.95.2.1.2.1 2007/01/01 09:36:13 sebastian Exp $ */
 
 #include "php.h"
 #include "SAPI.h"
@@ -393,6 +393,7 @@ static sapi_module_struct thttpd_sapi_module = {
 
 	sapi_thttpd_register_variables,
 	NULL,									/* Log message */
+	NULL,									/* Get request time */
 
 	NULL,									/* php.ini path override */
 	NULL,									/* Block interruptions */
@@ -407,7 +408,7 @@ static sapi_module_struct thttpd_sapi_module = {
 
 static void thttpd_module_main(int show_source TSRMLS_DC)
 {
-	zend_file_handle file_handle = {0};
+	zend_file_handle file_handle;
 
 	if (php_request_startup(TSRMLS_C) == FAILURE) {
 		return;
@@ -450,6 +451,8 @@ static void thttpd_request_ctor(TSRMLS_D)
 	smart_str_0(&s);
 	SG(request_info).request_uri = s.c;
 	SG(request_info).request_method = httpd_method_str(TG(hc)->method);
+	if (TG(hc)->one_one) SG(request_info).proto_num = 1001;
+	else SG(request_info).proto_num = 1000;
 	SG(sapi_headers).http_response_code = 200;
 	if (TG(hc)->contenttype)
 		SG(request_info).content_type = strdup(TG(hc)->contenttype);

@@ -1,7 +1,7 @@
 /* Support for printing C++ values for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   2000, 2001, 2002, 2003
-   Free Software Foundation, Inc.
+
+   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996,
+   1997, 2000, 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -35,15 +35,42 @@
 #include "target.h"
 #include "cp-abi.h"
 #include "valprint.h"
+#include "cp-support.h"
+#include "language.h"
 
-/* Indication of presence of HP-compiled object files */
-extern int hp_som_som_object_present;	/* defined in symtab.c */
+/* Controls printing of vtbl's */
+int vtblprint;
+static void
+show_vtblprint (struct ui_file *file, int from_tty,
+		struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Printing of C++ virtual function tables is %s.\n"),
+		    value);
+}
 
+/* Controls looking up an object's derived type using what we find in
+   its vtables.  */
+int objectprint;
+static void
+show_objectprint (struct ui_file *file, int from_tty,
+		  struct cmd_list_element *c,
+		  const char *value)
+{
+  fprintf_filtered (file, _("\
+Printing of object's derived type based on vtable info is %s.\n"),
+		    value);
+}
 
-int vtblprint;			/* Controls printing of vtbl's */
-int objectprint;		/* Controls looking up an object's derived type
-				   using what we find in its vtables.  */
 int static_field_print;		/* Controls printing of static fields. */
+static void
+show_static_field_print (struct ui_file *file, int from_tty,
+			 struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Printing of C++ static members is %s.\n"),
+		    value);
+}
+
 
 static struct obstack dont_print_vb_obstack;
 static struct obstack dont_print_statmem_obstack;
@@ -54,8 +81,8 @@ static void cp_print_static_field (struct type *, struct value *,
 				   struct ui_file *, int, int,
 				   enum val_prettyprint);
 
-static void cp_print_value (struct type *, struct type *, char *, int,
-			    CORE_ADDR, struct ui_file *, int, int,
+static void cp_print_value (struct type *, struct type *, const gdb_byte *,
+			    int, CORE_ADDR, struct ui_file *, int, int,
 			    enum val_prettyprint, struct type **);
 
 static void cp_print_hpacc_virtual_table_entries (struct type *, int *,
@@ -66,7 +93,7 @@ static void cp_print_hpacc_virtual_table_entries (struct type *, int *,
 
 
 void
-cp_print_class_method (char *valaddr,
+cp_print_class_method (const gdb_byte *valaddr,
 		       struct type *type,
 		       struct ui_file *stream)
 {
@@ -115,12 +142,12 @@ cp_print_class_method (char *valaddr,
       if (sym == 0)
 	{
 	  /* 1997-08-01 Currently unsupported with HP aCC */
-	  if (hp_som_som_object_present)
+	  if (deprecated_hp_som_som_object_present)
 	    {
 	      fputs_filtered ("?? <not supported with HP aCC>", stream);
 	      return;
 	    }
-	  error ("invalid pointer to member function");
+	  error (_("invalid pointer to member function"));
 	}
       len = TYPE_NFN_FIELDS (domain);
       for (i = 0; i < len; i++)
@@ -231,10 +258,11 @@ cp_is_vtbl_member (struct type *type)
    should not print, or zero if called from top level.  */
 
 void
-cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
-		       int offset, CORE_ADDR address, struct ui_file *stream,
-		       int format, int recurse, enum val_prettyprint pretty,
-		       struct type **dont_print_vb, int dont_print_statmem)
+cp_print_value_fields (struct type *type, struct type *real_type,
+		       const gdb_byte *valaddr, int offset, CORE_ADDR address,
+		       struct ui_file *stream, int format, int recurse,
+		       enum val_prettyprint pretty,
+		       struct type **dont_print_vb,int dont_print_statmem)
 {
   int i, len, n_baseclasses;
   struct obstack tmp_obstack;
@@ -321,11 +349,11 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 	      if (TYPE_FIELD_STATIC (type, i))
 		fputs_filtered ("static ", stream);
 	      fprintf_symbol_filtered (stream, TYPE_FIELD_NAME (type, i),
-				       language_cplus,
+				       current_language->la_language,
 				       DMGL_PARAMS | DMGL_ANSI);
 	      fputs_filtered ("\" \"", stream);
 	      fprintf_symbol_filtered (stream, TYPE_FIELD_NAME (type, i),
-				       language_cplus,
+				       current_language->la_language,
 				       DMGL_PARAMS | DMGL_ANSI);
 	      fputs_filtered ("\") \"", stream);
 	    }
@@ -336,7 +364,7 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 	      if (TYPE_FIELD_STATIC (type, i))
 		fputs_filtered ("static ", stream);
 	      fprintf_symbol_filtered (stream, TYPE_FIELD_NAME (type, i),
-				       language_cplus,
+				       current_language->la_language,
 				       DMGL_PARAMS | DMGL_ANSI);
 	      annotate_field_name_end ();
 	      /* do not print leading '=' in case of anonymous unions */
@@ -361,8 +389,7 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
 		    (TYPE_FIELD_TYPE (type, i), 
 		     unpack_field_as_long (type, valaddr + offset, i));
 
-		  val_print (TYPE_FIELD_TYPE (type, i), VALUE_CONTENTS (v),
-			     0, 0, stream, format, 0, recurse + 1, pretty);
+		  common_val_print (v, stream, format, 0, recurse + 1, pretty);
 		}
 	    }
 	  else
@@ -426,8 +453,7 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
       v = value_from_pointer (lookup_pointer_type (builtin_type_unsigned_long),
 			      *(unsigned long *) (valaddr + offset));
 
-      val_print (VALUE_TYPE (v), VALUE_CONTENTS (v), 0, 0,
-		 stream, format, 0, recurse + 1, pretty);
+      common_val_print (v, stream, format, 0, recurse + 1, pretty);
       fields_seen = 1;
 
       if (vtblprint)
@@ -493,10 +519,10 @@ cp_print_value_fields (struct type *type, struct type *real_type, char *valaddr,
    baseclasses.  */
 
 static void
-cp_print_value (struct type *type, struct type *real_type, char *valaddr,
-		int offset, CORE_ADDR address, struct ui_file *stream,
-		int format, int recurse, enum val_prettyprint pretty,
-		struct type **dont_print_vb)
+cp_print_value (struct type *type, struct type *real_type,
+		const gdb_byte *valaddr, int offset, CORE_ADDR address,
+		struct ui_file *stream, int format, int recurse,
+		enum val_prettyprint pretty, struct type **dont_print_vb)
 {
   struct obstack tmp_obstack;
   struct type **last_dont_print
@@ -521,7 +547,7 @@ cp_print_value (struct type *type, struct type *real_type, char *valaddr,
       int skip;
       struct type *baseclass = check_typedef (TYPE_BASECLASS (type, i));
       char *basename = TYPE_NAME (baseclass);
-      char *base_valaddr;
+      const gdb_byte *base_valaddr;
 
       if (BASETYPE_VIA_VIRTUAL (type, i))
 	{
@@ -546,8 +572,8 @@ cp_print_value (struct type *type, struct type *real_type, char *valaddr,
 	  find_rt_vbase_offset (type, TYPE_BASECLASS (type, i),
 				valaddr, offset, &boffset, &skip);
 	  if (skip >= 0)
-	    error ("Virtual base class offset not found from vtable while"
-		   " printing");
+	    error (_("Virtual base class offset not found from vtable while"
+		   " printing"));
 	  base_valaddr = valaddr;
 	}
       else
@@ -568,8 +594,9 @@ cp_print_value (struct type *type, struct type *real_type, char *valaddr,
 		      || (boffset + offset) >= TYPE_LENGTH (type)))
 		{
 		  /* FIXME (alloca): unsafe if baseclass is really really large. */
-		  base_valaddr = (char *) alloca (TYPE_LENGTH (baseclass));
-		  if (target_read_memory (address + boffset, base_valaddr,
+		  gdb_byte *buf = alloca (TYPE_LENGTH (baseclass));
+		  base_valaddr = buf;
+		  if (target_read_memory (address + boffset, buf,
 					  TYPE_LENGTH (baseclass)) != 0)
 		    skip = 1;
 		  address = address + boffset;
@@ -666,18 +693,18 @@ cp_print_static_field (struct type *type,
 		    sizeof (CORE_ADDR));
 
       CHECK_TYPEDEF (type);
-      cp_print_value_fields (type, type, VALUE_CONTENTS_ALL (val),
-			     VALUE_EMBEDDED_OFFSET (val), VALUE_ADDRESS (val),
+      cp_print_value_fields (type, type, value_contents_all (val),
+			     value_embedded_offset (val), VALUE_ADDRESS (val),
 			     stream, format, recurse, pretty, NULL, 1);
       return;
     }
-  val_print (type, VALUE_CONTENTS_ALL (val), 
-	     VALUE_EMBEDDED_OFFSET (val), VALUE_ADDRESS (val),
+  val_print (type, value_contents_all (val), 
+	     value_embedded_offset (val), VALUE_ADDRESS (val),
 	     stream, format, 0, recurse, pretty);
 }
 
 void
-cp_print_class_member (char *valaddr, struct type *domain,
+cp_print_class_member (const gdb_byte *valaddr, struct type *domain,
 		       struct ui_file *stream, char *prefix)
 {
 
@@ -783,16 +810,17 @@ cp_print_hpacc_virtual_table_entries (struct type *type, int *vfuncs,
 
 	  /* Get the address of the vfunction entry */
 	  struct value *vf = value_copy (v);
-	  if (VALUE_LAZY (vf))
+	  if (value_lazy (vf))
 	    (void) value_fetch_lazy (vf);
 	  /* adjust by offset */
-	  vf->aligner.contents[0] += 4 * (HP_ACC_VFUNC_START + vx);
+	  /* NOTE: cagney/2005-01-02: THIS IS BOGUS.  */
+	  value_contents_writeable (vf)[0] += 4 * (HP_ACC_VFUNC_START + vx);
 	  vf = value_ind (vf);	/* get the entry */
-	  VALUE_TYPE (vf) = VALUE_TYPE (v);	/* make it a pointer */
+	  /* make it a pointer */
+	  deprecated_set_value_type (vf, value_type (v));
 
 	  /* print out the entry */
-	  val_print (VALUE_TYPE (vf), VALUE_CONTENTS (vf), 0, 0,
-		     stream, format, 0, recurse + 1, pretty);
+	  common_val_print (vf, stream, format, 0, recurse + 1, pretty);
 	  field_physname
 	    = TYPE_FN_FIELD_PHYSNAME (TYPE_FN_FIELDLIST1 (type, fn), oi);
 	  /* pai: (temp) FIXME Maybe this should be DMGL_ANSI */
@@ -808,26 +836,29 @@ cp_print_hpacc_virtual_table_entries (struct type *type, int *vfuncs,
 void
 _initialize_cp_valprint (void)
 {
-  add_show_from_set
-    (add_set_cmd ("static-members", class_support, var_boolean,
-		  (char *) &static_field_print,
-		  "Set printing of C++ static members.",
-		  &setprintlist),
-     &showprintlist);
+  add_setshow_boolean_cmd ("static-members", class_support,
+			   &static_field_print, _("\
+Set printing of C++ static members."), _("\
+Show printing of C++ static members."), NULL,
+			   NULL,
+			   show_static_field_print,
+			   &setprintlist, &showprintlist);
   /* Turn on printing of static fields.  */
   static_field_print = 1;
 
-  add_show_from_set
-    (add_set_cmd ("vtbl", class_support, var_boolean, (char *) &vtblprint,
-		  "Set printing of C++ virtual function tables.",
-		  &setprintlist),
-     &showprintlist);
+  add_setshow_boolean_cmd ("vtbl", class_support, &vtblprint, _("\
+Set printing of C++ virtual function tables."), _("\
+Show printing of C++ virtual function tables."), NULL,
+			   NULL,
+			   show_vtblprint,
+			   &setprintlist, &showprintlist);
 
-  add_show_from_set
-    (add_set_cmd ("object", class_support, var_boolean, (char *) &objectprint,
-	      "Set printing of object's derived type based on vtable info.",
-		  &setprintlist),
-     &showprintlist);
+  add_setshow_boolean_cmd ("object", class_support, &objectprint, _("\
+Set printing of object's derived type based on vtable info."), _("\
+Show printing of object's derived type based on vtable info."), NULL,
+			   NULL,
+			   show_objectprint,
+			   &setprintlist, &showprintlist);
 
   /* Give people the defaults which they are used to.  */
   objectprint = 0;

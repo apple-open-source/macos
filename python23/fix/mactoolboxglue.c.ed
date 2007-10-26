@@ -1,0 +1,20 @@
+/pymactoolbox\.h/a
+#ifndef WORDS_BIGENDIAN
+#include <arpa/inet.h>
+#endif /* !WORDS_BIGENDIAN */
+.
+/^PyMac_GetOSType/a
+.
+/memcpy/a
+#ifndef WORDS_BIGENDIAN
+	*pr = ntohl(*pr);
+#endif /* !WORDS_BIGENDIAN */
+.
+/^PyMac_BuildOSType/a
+.
+/return PyString_FromStringAndSize/i
+#ifndef WORDS_BIGENDIAN
+	t = htonl(t);
+#endif /* !WORDS_BIGENDIAN */
+.
+w

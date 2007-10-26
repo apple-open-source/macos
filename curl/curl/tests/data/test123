@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+FTP
+EPSV
+Resume
+</keywords>
+</info>
 # Server-side
 <reply>
 </reply>
@@ -22,10 +30,11 @@ ftp://%HOSTIP:%FTPPORT/123 -T log/upload123 -C 51
 <verify>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 EPSV
 TYPE I
 QUIT
 </protocol>
 </verify>
+</testcase>

@@ -51,7 +51,7 @@ typedef struct spnego_negTokenInit {
 
 typedef struct spnego_negTokenTarg {
 	uint8 negResult;
-	const char *supportedMech;
+	char *supportedMech;
 	DATA_BLOB responseToken;
 	DATA_BLOB mechListMIC;
 } negTokenTarg_t;

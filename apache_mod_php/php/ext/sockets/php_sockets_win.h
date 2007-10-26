@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -19,17 +19,10 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sockets_win.h,v 1.5.8.3.2.2 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: php_sockets_win.h,v 1.12.2.1.2.2 2007/07/22 23:01:20 jani Exp $ */
 
 
 #ifdef PHP_WIN32
-
-#define F_SETFL		0
-#define F_GETFL		1
-#define F_SETFD		2
-#define F_GETFD		3
-
-#define O_NONBLOCK FIONBIO
 
 #define EPROTONOSUPPORT	WSAEPROTONOSUPPORT
 #define ECONNRESET		WSAECONNRESET
@@ -41,45 +34,14 @@
 #define errno WSAGetLastError()
 #define h_errno WSAGetLastError()
 #define set_errno(a) WSASetLastError(a)
-#define SET_H_ERRNO(a) WSASetLastError(a)
 #define close(a) closesocket(a)
-#define CMSG_DATA(cmsg) ((cmsg)->cmsg_data)
-
-typedef int ssize_t;
 
 struct	sockaddr_un {
 	short	sun_family;
 	char	sun_path[108];
 };
 
-struct iovec {
-	char *  iov_base;
-	int 	iov_len;
-};
-
-struct msghdr {
-	void*			msg_name;
-	socklen_t		msg_namelen;
-	struct iovec*	msg_iov;
-	int				msg_iovlen;
-	void*			msg_control;
-	socklen_t		msg_controllen;
-	int				msg_flags;
-};
-
-struct cmsghdr {
-	socklen_t	cmsg_len;
-	int			cmsg_level;
-	int			cmsg_type;
-	unsigned char      cmsg_data[];
-};
-
-ssize_t readv(SOCKET sock, const struct iovec *iov, int iovcnt);
-ssize_t writev(SOCKET sock, const struct iovec *iov, int iovcnt);
-ssize_t recvmsg(SOCKET sock, struct msghdr *msg, int flags);
-ssize_t sendmsg(SOCKET sock, struct msghdr *msg, int flags);
 int socketpair(int domain, int type, int protocol, SOCKET sock[2]);
 int inet_aton(const char *cp, struct in_addr *inp);
-int	fcntl(int fd, int cmd, ...);
 
 #endif

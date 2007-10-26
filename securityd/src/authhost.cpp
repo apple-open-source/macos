@@ -28,22 +28,39 @@
 
 #include <grp.h>
 #include <pwd.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <syslog.h>
+#include <pthread.h>
 
+static pthread_once_t agent_cred_init = PTHREAD_ONCE_INIT; 
+static gid_t agent_gid = 92;
+static uid_t agent_uid = 92;
 
+void initialize_agent_creds()
+{
+    struct passwd *agentUser = getpwnam("securityagent");
+    if (agentUser)
+    {
+        agent_uid = agentUser->pw_uid;
+        agent_gid = agentUser->pw_gid;
+        endpwent();
+    }
+}
+  
 AuthHostInstance::AuthHostInstance(Session &session, AuthHostType host) :
 	mHostType(host)
 {
 	secdebug("authhost", "authhost born (%p)", this);
 	referent(session);
 	session.addReference(*this);
+    if (host == securityAgent)
+        pthread_once(&agent_cred_init, initialize_agent_creds); 
 }
 
 AuthHostInstance::~AuthHostInstance()
 { 
 	secdebug("authhost", "authhost died (%p)", this);
-	
-	// clean up
-	servicePort ().destroy ();
 }
 
 Session &AuthHostInstance::session() const
@@ -83,7 +100,6 @@ AuthHostInstance::childAction()
 	if ((mHostType == userAuthHost) || (mHostType == privilegedAuthHost))
 	{
 		snprintf(agentExecutable, sizeof(agentExecutable), "%s/Contents/Resources/authorizationhost", path);
-	
 		secdebug("AuthHostInstance", "execl(%s)", agentExecutable);
 		execl(agentExecutable, agentExecutable, NULL);
 	}
@@ -91,25 +107,15 @@ AuthHostInstance::childAction()
 	{
 		snprintf(agentExecutable, sizeof(agentExecutable), "%s/Contents/MacOS/SecurityAgent", path);
 
-		struct group *agentGroup = getgrnam("securityagent");
-		gid_t agentGID = static_cast<gid_t>(-2);
-		if (agentGroup)
-		{
-			agentGID = agentGroup->gr_gid;
-			endgrent();
-		}
+		pid_t pid = getpid();
+		if ((pid <= 0) ||
+            sysctlbyname("vfs.generic.noremotehang", NULL, NULL, &pid, sizeof(pid)))
+				syslog(LOG_ERR, "Failed to set vfs.generic.noremotehang for pid(%d)", pid);
 
-		struct passwd *agentUser = getpwnam("securityagent");
-		uid_t agentUID = static_cast<uid_t>(-2);
-		if (agentUser)
-		{
-			agentUID = agentUser->pw_uid;
-			endpwent();
-		}
+		setgroups(1, &agent_gid);
+		setgid(agent_gid);
+		setuid(agent_uid);
 
-		setuid(agentUID);
-		setgid(agentGID);
-	
 		CFRef<CFDataRef> userPrefs(session().copyUserPrefs());
 		
 		FILE *mbox = tmpfile();
@@ -127,7 +133,7 @@ AuthHostInstance::childAction()
 			}
 		}
 		
-		secdebug("AuthHostInstance", "execl(%s) as user (%d,%d)", agentExecutable, agentUID, agentGID);
+		secdebug("AuthHostInstance", "execl(%s) as user (%d,%d)", agentExecutable, agent_uid, agent_gid);
 		execl(agentExecutable, agentExecutable, NULL);
 	}
 
@@ -150,7 +156,8 @@ AuthHostInstance::activate()
 	StLock<Mutex> _(*this);
 	if (state() != alive)
 	{
-		if (!(session().attributes() & sessionHasGraphicAccess))
+		if ((mHostType == securityAgent) && 
+		    !(session().attributes() & sessionHasGraphicAccess))
 			CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
 
 		Security::MachPlusPlus::StBootstrap bootSaver(session().bootstrapPort());

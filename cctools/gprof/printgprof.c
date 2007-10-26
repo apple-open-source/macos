@@ -389,7 +389,7 @@ nltype *childp)
 		/*
 		 * selfcall or call among siblings
 		 */
-		printf("%6.6s %5.5s %7.7s %11.11s %7ld %7.7s     ",
+		printf("%6.6s %5.5s %7.7s %11.11s %7u %7.7s     ",
 		       "" , "" , "" , "", arcp->arc_count, "");
 		printname(parentp);
 		printf("\n");
@@ -398,7 +398,7 @@ nltype *childp)
 		/*
 		 * regular parent of child
 		 */
-		printf("%6.6s %5.5s %7.2f %11.2f %7ld/%-7ld     ",
+		printf("%6.6s %5.5s %7.2f %11.2f %7u/%-7ld     ",
 		       "" , "" ,
 		       arcp->arc_time / hz, arcp->arc_childtime / hz,
 		       arcp->arc_count, cycleheadp->ncall);
@@ -425,7 +425,7 @@ nltype *parentp)
 		/*
 		 * self call or call to sibling
 		 */
-		printf("%6.6s %5.5s %7.7s %11.11s %7ld %7.7s     ",
+		printf("%6.6s %5.5s %7.7s %11.11s %7u %7.7s     ",
 		       "", "", "", "", arcp->arc_count, "");
 		printname(childp);
 		printf("\n");
@@ -434,7 +434,7 @@ nltype *parentp)
 		/*
 		 * regular child of parent
 		 */
-		printf("%6.6s %5.5s %7.2f %11.2f %7ld/%-7ld     ",
+		printf("%6.6s %5.5s %7.2f %11.2f %7u/%-7ld     ",
 		       "", "",
 		       arcp->arc_time / hz, arcp->arc_childtime / hz,
 		       arcp->arc_count, childp->cyclehead->ncall);
@@ -725,14 +725,14 @@ arctype *thatp)
 	    printname(thisparentp);
 	    printf(" calls ");
 	    printname(thischildp);
-	    printf(" %f + %f %ld/%ld\n",
+	    printf(" %f + %f %u/%ld\n",
 		   thisp->arc_time, thisp->arc_childtime,
 		   thisp->arc_count, thischildp->ncall);
 	    printf("[arccmp] ");
 	    printname(thatparentp);
 	    printf(" calls ");
 	    printname(thatchildp);
-	    printf(" %f + %f %ld/%ld\n",
+	    printf(" %f + %f %u/%ld\n",
 		thatp->arc_time, thatp->arc_childtime,
 		thatp->arc_count, thatchildp->ncall);
 	    printf("\n");

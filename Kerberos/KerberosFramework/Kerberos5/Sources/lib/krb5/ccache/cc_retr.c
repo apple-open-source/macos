@@ -193,7 +193,9 @@ krb5int_cc_creds_match_request(krb5_context context, krb5_flags whichfields, krb
 }
 
 static krb5_error_code
-krb5_cc_retrieve_cred_seq (krb5_context context, krb5_ccache id, krb5_flags whichfields, krb5_creds *mcreds, krb5_creds *creds, int nktypes, krb5_enctype *ktypes)
+krb5_cc_retrieve_cred_seq (krb5_context context, krb5_ccache id,
+			   krb5_flags whichfields, krb5_creds *mcreds,
+			   krb5_creds *creds, int nktypes, krb5_enctype *ktypes)
 {
      /* This function could be considerably faster if it kept indexing */
      /* information.. sounds like a "next version" idea to me. :-) */
@@ -206,11 +208,20 @@ krb5_cc_retrieve_cred_seq (krb5_context context, krb5_ccache id, krb5_flags whic
        int pref;
      } fetched, best;
      int have_creds = 0;
+     krb5_flags oflags = 0;
 #define fetchcreds (fetched.creds)
 
-     kret = krb5_cc_start_seq_get(context, id, &cursor);
+     kret = krb5_cc_get_flags(context, id, &oflags);
      if (kret != KRB5_OK)
 	  return kret;
+     if (oflags & KRB5_TC_OPENCLOSE)
+	 (void) krb5_cc_set_flags(context, id, oflags & ~KRB5_TC_OPENCLOSE);
+     kret = krb5_cc_start_seq_get(context, id, &cursor);
+     if (kret != KRB5_OK) {
+	  if (oflags & KRB5_TC_OPENCLOSE)
+	       krb5_cc_set_flags(context, id, oflags);
+	  return kret;
+     }
 
      while ((kret = krb5_cc_next_cred(context, id, &cursor, &fetchcreds)) == KRB5_OK) {
       if (krb5int_cc_creds_match_request(context, whichfields, mcreds, &fetchcreds))
@@ -231,6 +242,8 @@ krb5_cc_retrieve_cred_seq (krb5_context context, krb5_ccache id, krb5_flags whic
 	      } else {
 		  krb5_cc_end_seq_get(context, id, &cursor);
 		  *creds = fetchcreds;
+		  if (oflags & KRB5_TC_OPENCLOSE)
+		      krb5_cc_set_flags(context, id, oflags);
 		  return KRB5_OK;
 	      }
 	  }
@@ -241,6 +254,8 @@ krb5_cc_retrieve_cred_seq (krb5_context context, krb5_ccache id, krb5_flags whic
 
      /* If we get here, a match wasn't found */
      krb5_cc_end_seq_get(context, id, &cursor);
+     if (oflags & KRB5_TC_OPENCLOSE)
+	 krb5_cc_set_flags(context, id, oflags);
      if (have_creds) {
 	 *creds = best.creds;
 	 return KRB5_OK;
@@ -271,4 +286,103 @@ krb5_cc_retrieve_cred_default (krb5_context context, krb5_ccache id, krb5_flags 
 	return krb5_cc_retrieve_cred_seq (context, id, flags, mcreds, creds,
 					  0, 0);
     }
+}
+
+/* The following function duplicates some of the functionality above and */
+/* should probably be merged with it at some point.  It is used by the   */
+/* CCAPI krb5_cc_remove to figure out if the opaque credentials object   */
+/* returned by the CCAPI is the same creds as the caller passed in.      */
+/* Unlike the code above it requires that all structures be identical.   */
+
+krb5_boolean KRB5_CALLCONV 
+krb5_creds_compare (krb5_context in_context,
+                    krb5_creds *in_creds,
+                    krb5_creds *in_compare_creds)
+{
+    /* Set to 0 when we hit the first mismatch and then fall through */
+    int equal = 1;
+    
+    if (equal) {
+        equal = krb5_principal_compare (in_context, in_creds->client, 
+                                        in_compare_creds->client);
+    }
+    
+    if (equal) {
+        equal = krb5_principal_compare (in_context, in_creds->server, 
+                                        in_compare_creds->server);
+    }
+    
+    if (equal) {
+        equal = (in_creds->keyblock.enctype == in_compare_creds->keyblock.enctype &&
+                 in_creds->keyblock.length  == in_compare_creds->keyblock.length &&
+                 (!in_creds->keyblock.length ||
+                  !memcmp (in_creds->keyblock.contents, in_compare_creds->keyblock.contents,
+                           in_creds->keyblock.length)));
+    }
+    
+    if (equal) {   
+        equal = (in_creds->times.authtime   == in_compare_creds->times.authtime &&
+                 in_creds->times.starttime  == in_compare_creds->times.starttime &&
+                 in_creds->times.endtime    == in_compare_creds->times.endtime &&
+                 in_creds->times.renew_till == in_compare_creds->times.renew_till);
+    }
+    
+    if (equal) {
+        equal = (in_creds->is_skey == in_compare_creds->is_skey);
+    } 
+    
+    if (equal) {
+        equal = (in_creds->ticket_flags == in_compare_creds->ticket_flags);
+    }
+    
+    if (equal) {
+        krb5_address **addresses = in_creds->addresses;
+        krb5_address **compare_addresses = in_compare_creds->addresses;
+        unsigned int i;
+        
+        if (addresses && compare_addresses) {
+            for (i = 0; (equal && addresses[i] && compare_addresses[i]); i++) {
+                equal = krb5_address_compare (in_context, addresses[i],
+                                              compare_addresses[i]);
+            }
+            if (equal) { equal = (!addresses[i] && !compare_addresses[i]); }
+        } else {
+            if (equal) { equal = (!addresses && !compare_addresses); }
+        }
+    }
+    
+    if (equal) {
+        equal = (in_creds->ticket.length  == in_compare_creds->ticket.length &&
+                 (!in_creds->ticket.length ||
+                  !memcmp (in_creds->ticket.data, in_compare_creds->ticket.data,
+                           in_creds->ticket.length)));
+    }
+    
+    if (equal) {
+        equal = (in_creds->second_ticket.length  == in_compare_creds->second_ticket.length &&
+                 (!in_creds->second_ticket.length ||
+                  !memcmp (in_creds->second_ticket.data, in_compare_creds->second_ticket.data,
+                           in_creds->second_ticket.length)));
+    }
+    
+    if (equal) {
+        krb5_authdata **authdata = in_creds->authdata;
+        krb5_authdata **compare_authdata = in_compare_creds->authdata;
+        unsigned int i;
+        
+        if (authdata && compare_authdata) { 
+            for (i = 0; (equal && authdata[i] && compare_authdata[i]); i++) {
+                equal = (authdata[i]->ad_type == compare_authdata[i]->ad_type &&
+                         authdata[i]->length  == compare_authdata[i]->length &&
+                         (!authdata[i]->length || 
+                          !memcmp (authdata[i]->contents, compare_authdata[i]->contents,
+                                   authdata[i]->length)));
+            }
+            if (equal) { equal = (!authdata[i] && !compare_authdata[i]); }
+        } else {
+            if (equal) { equal = (!authdata && !compare_authdata); }
+        }
+    }
+    
+    return equal;
 }

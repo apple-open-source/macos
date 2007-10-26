@@ -1,6 +1,7 @@
+<testcase>
 # Server-side
 <reply>
-<data nocheck=true>
+<data nocheck="true">
 HTTP/1.1 200 OK swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Content-Length: 9
@@ -54,13 +55,12 @@ surprise2
 <protocol>
 GET /want/160 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 
 GET /wantmore/1600001 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 
 </protocol>
 </verify>
+</testcase>

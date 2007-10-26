@@ -103,6 +103,8 @@ kDSStdRecordTypMounts				"dsRecTypeStandard:Mounts"
 kDSStdRecordTypeMounts				"dsRecTypeStandard:Mounts"
 .Pp
 .Pp
+kDSStdRecordTypeComputerGroups		"dsRecTypeStandard:ComputerGroups"
+.Pp
 kDSStdRecordTypeComputers			"dsRecTypeStandard:Computers"
 .Pp
 kDSStdRecordTypeComputerLists			"dsRecTypeStandard:ComputerLists"
@@ -111,6 +113,10 @@ kDSStdRecordTypeComputerLists			"dsRecTypeStandard:ComputerLists"
 kDSStdRecordTypePresetUsers			"dsRecTypeStandard:PresetUsers"
 .Pp
 kDSStdRecordTypePresetGroups			"dsRecTypeStandard:PresetGroups"
+.Pp
+kDSStdRecordTypePresetComputers	"dsRecTypeStandard:PresetComputers"
+.Pp
+kDSStdRecordTypePresetComputerGroups	"dsRecTypeStandard:PresetComputerGroups"
 .Pp
 kDSStdRecordTypePresetComputerLists	"dsRecTypeStandard:PresetComputerLists"
 .Pp
@@ -205,6 +211,10 @@ kDSStdRecordTypeAccessControls		"dsRecTypeStandard:AccessControls"
 FileMaker servers record type. Describes available FileMaker servers used for service discovery.
 .Pp
 kDSStdRecordTypeFileMakerServers   "dsRecTypeStandard:FileMakerServers"
+.Pp
+Resource record type.
+.Pp
+kDSStdRecordTypeResources			"dsRecTypeStandard:Resources"
 .Pp
 .Nm Well Known Attribute Types...
 .Pp
@@ -672,6 +682,8 @@ kDS1AttrNFSHomeDirectory			"dsAttrTypeStandard:NFSHomeDirectory"
 .Pp
 kDS1AttrUniqueID				"dsAttrTypeStandard:UniqueID"
 .Pp
+kDS1AttrPrimaryGroupID			"dsAttrTypeStandard:PrimaryComputerList"
+.Pp
 kDS1AttrPrimaryGroupID			"dsAttrTypeStandard:PrimaryGroupID"
 .Pp
 kDS1AttrMailAttribute			"dsAttrTypeStandard:MailAttribute"
@@ -797,6 +809,12 @@ kDS1AttrServiceType				"dsAttrTypeStandard:ServiceType"
 Represents the path of the picture for each user displayed in the login window. Found in user records (kDSStdRecordTypeUsers).
 .Pp
 kDS1AttrPicture					"dsAttrTypeStandard:Picture"
+.Pp
+.Nm kDSNAttrJPEGPhoto Discussion:
+.Pp
+Used to store binary picture data in JPEG format. Found in user, people, and group records (kDSStdRecordTypeUsers, kDSStdRecordTypePeople, kDSStdRecordTypeGroups).
+.Pp
+kDSNAttrJPEGPhoto					"dsAttrTypeStandard:JPEGPhoto"
 .Pp
 .Nm Mutivalued meta attribute data
 .Pp
@@ -1008,6 +1026,8 @@ kDSNAttrDNSName				"dsAttrTypeStandard:DNSName"
 .Pp
 kDSNAttrIPAddress			"dsAttrTypeStandard:IPAddress"
 .Pp
+kDSNAttrIPv6Address			"dsAttrTypeStandard:IPv6Address"
+.Pp
 .Nm kDS1AttrENetAddress Discussion:
 .Pp
 Single-valued attribute for hardware Ethernet address (MAC address). Found in machine records (kDSStdRecordTypeMachines) and computer records (kDSStdRecordTypeComputers).
@@ -1052,6 +1072,8 @@ kDSNAttrEMailAddress		"dsAttrTypeStandard:EMailAddress"
 kDSNAttrAreaCode			"dsAttrTypeStandard:AreaCode"
 .Pp
 kDSNAttrPhoneNumber			"dsAttrTypeStandard:PhoneNumber"
+.Pp
+kDSNAttrHomePhoneNumber			"dsAttrTypeStandard:HomePhoneNumber"
 .Pp
 kDSNAttrPostalAddress		"dsAttrTypeStandard:PostalAddress"
 .Pp
@@ -1155,24 +1177,44 @@ Value type of Neighborhood record
 .Pp
 kDSValueNSLLocalNeighborhoodType		"NSLLocalNeighborhoodType"
 .Pp
-.Nm kDSStdNotifyxxxxx Discussion:
-Notification tags that can be registered for with SystemConfiguration
-to receive notifications of events occuring in the DirectoryService daemon on the
-local machine.
+kDS1AttrBirthday				"dsAttrTypeStandard:Birthday"
 .Pp
+kDS1AttrCapacity				"dsAttrTypeStandard:Capacity"
 .Pp
-kDSStdNotifyTypePrefix				"com.apple.DirectoryService.NotifyTypeStandard:"
+kDS1AttrContactGUID				"dsAttrTypeStandard:ContactGUID"
 .Pp
-kDSStdNotifySearchPolicyChanged		"com.apple.DirectoryService.NotifyTypeStandard:SearchPolicyChanged"
+kDS1AttrOwnerGUID				"dsAttrTypeStandard:OwnerGUID"
 .Pp
-kDSStdNotifyDirectoryNodeAdded		"com.apple.DirectoryService.NotifyTypeStandard:DirectoryNodeAdded"
+kDSNAttrCompany					"dsAttrTypeStandard:Company"
 .Pp
-kDSStdNotifyDirectoryNodeDeleted	"com.apple.DirectoryService.NotifyTypeStandard:DirectoryNodeDeleted"
+kDSNAttrEMailContacts			"dsAttrTypeStandard:EMailContacts"
+.Pp
+kDSNAttrGroupServices			"dsAttrTypeStandard:GroupServices"
+.Pp
+kDSNAttrMapCoordinates			"dsAttrTypeStandard:MapCoordinates"
+.Pp
+kDS1AttrMapGUID					"dsAttrTypeStandard:MapGUID"
+.Pp
+kDSNAttrMapURI					"dsAttrTypeStandard:MapURI"
+.Pp
+kDSNAttrPhoneContacts			"dsAttrTypeStandard:PhoneContacts"
+.Pp
+kDSNAttrPostalAddressContacts	"dsAttrTypeStandard:PostalAddressContacts"
+.Pp
+kDSNAttrRelationships			"dsAttrTypeStandard:Relationships"
+.Pp
+kDSNAttrResourceInfo			"dsAttrTypeStandard:ResourceInfo"
+.Pp
+kDSNAttrResourceType			"dsAttrTypeStandard:ResourceType"
+.Pp
+kDSNAttrServicesLocator	"dsAttrTypeStandard:ServicesLocator"
+.Pp
+kDSNAttrOrganizationInfo		"dsAttrTypeStandard:OrganizationInfo"
 .Pp
 .Sh SEE ALSO 
 .\" List links in ascending order by section, alphabetically within a section.
 .\" Please do not reference files that do not exist without filing a bug report
-.Xr DirectoryService 8
+.Xr DirectoryService 8 ,
 .Xr dscl 1
 .\" .Sh BUGS 
 .\" .Sh HISTORY 

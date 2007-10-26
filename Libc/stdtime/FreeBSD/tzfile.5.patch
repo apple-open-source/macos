@@ -1,0 +1,11 @@
+--- tzfile.5.orig	2006-02-03 12:54:23.000000000 -0800
++++ tzfile.5	2006-02-03 12:54:44.000000000 -0800
+@@ -6,7 +6,7 @@
+ .Nm tzfile
+ .Nd timezone information
+ .Sh SYNOPSIS
+-.Fd #include \&"/usr/src/lib/libc/stdtime/tzfile.h\&"
++.In tzfile.h
+ .Sh DESCRIPTION
+ The time zone information files used by
+ .Xr tzset 3

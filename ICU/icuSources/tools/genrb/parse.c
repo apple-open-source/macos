@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1998-2004, International Business Machines
+*   Copyright (C) 1998-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -28,13 +28,14 @@
 #include "read.h"
 #include "ustr.h"
 #include "reslist.h"
+#include "rbt_pars.h"
 #include "unicode/ustring.h"
 #include "unicode/putil.h"
+#include <stdio.h>
 
 /* Number of tokens to read ahead of the current stream position */
 #define MAX_LOOKAHEAD   3
 
-#define U_ICU_UNIDATA   "unidata"
 #define CR               0x000D
 #define LF               0x000A
 #define SPACE            0x0020
@@ -42,52 +43,14 @@
 #define ESCAPE           0x005C
 #define HASH             0x0023
 #define QUOTE            0x0027
+#define ZERO             0x0030
 #define STARTCOMMAND     0x005B
 #define ENDCOMMAND       0x005D
+#define OPENSQBRACKET    0x005B
+#define CLOSESQBRACKET   0x005D
 
-U_STRING_DECL(k_type_string,    "string",    6);
-U_STRING_DECL(k_type_binary,    "binary",    6);
-U_STRING_DECL(k_type_bin,       "bin",       3);
-U_STRING_DECL(k_type_table,     "table",     5);
-U_STRING_DECL(k_type_int,       "int",       3);
-U_STRING_DECL(k_type_integer,   "integer",   7);
-U_STRING_DECL(k_type_array,     "array",     5);
-U_STRING_DECL(k_type_alias,     "alias",     5);
-U_STRING_DECL(k_type_intvector, "intvector", 9);
-U_STRING_DECL(k_type_import,    "import",    6);
-U_STRING_DECL(k_type_include,   "include",   7);
-U_STRING_DECL(k_type_reserved,  "reserved",  8);
-
-enum EResourceType
-{
-     RT_UNKNOWN,
-     RT_STRING,
-     RT_BINARY,
-     RT_TABLE,
-     RT_INTEGER,
-     RT_ARRAY,
-     RT_ALIAS,
-     RT_INTVECTOR,
-     RT_IMPORT,
-     RT_INCLUDE,
-     RT_RESERVED
-};
-
-/* only used for debugging */
-const char *resourceNames[] =
-{
-     "Unknown",
-     "String",
-     "Binary",
-     "Table",
-     "Integer",
-     "Array",
-     "Alias",
-     "Int vector",
-     "Import",
-     "Include",
-     "Reserved",
-};
+typedef struct SResource *
+ParseResourceFunction(char *tag, uint32_t startline, const struct UString* comment, UErrorCode *status);
 
 struct Lookahead
 {
@@ -120,33 +83,12 @@ static UCHARBUF         *buffer;
 static struct SRBRoot *bundle;
 static const char     *inputdir;
 static uint32_t        inputdirLength;
+static const char     *outputdir;
+static uint32_t        outputdirLength;
 
 static UBool gMakeBinaryCollation = TRUE;
 
 static struct SResource *parseResource(char *tag, const struct UString *comment, UErrorCode *status);
-
-void initParser(UBool makeBinaryCollation)
-{
-    uint32_t i;
-
-    U_STRING_INIT(k_type_string,    "string",    6);
-    U_STRING_INIT(k_type_binary,    "binary",    6);
-    U_STRING_INIT(k_type_bin,       "bin",       3);
-    U_STRING_INIT(k_type_table,     "table",     5);
-    U_STRING_INIT(k_type_int,       "int",       3);
-    U_STRING_INIT(k_type_integer,   "integer",   7);
-    U_STRING_INIT(k_type_array,     "array",     5);
-    U_STRING_INIT(k_type_alias,     "alias",     5);
-    U_STRING_INIT(k_type_intvector, "intvector", 9);
-    U_STRING_INIT(k_type_import,    "import",    6);
-    U_STRING_INIT(k_type_reserved,  "reserved",  8);
-    U_STRING_INIT(k_type_include,   "include",   7);
-    for (i = 0; i < MAX_LOOKAHEAD + 1; i++)
-    {
-        ustr_init(&lookahead[i].value);
-    }
-    gMakeBinaryCollation = makeBinaryCollation;
-}
 
 /* The nature of the lookahead buffer:
    There are MAX_LOOKAHEAD + 1 slots, used as a circular buffer.  This provides
@@ -263,14 +205,14 @@ expect(enum ETokenType expectedToken, struct UString **tokenValue, struct UStrin
 
     enum ETokenType token = getToken(tokenValue, comment, &line, status);
 
-    if (U_FAILURE(*status))
-    {
-        return;
-    }
-
     if (linenumber != NULL)
     {
         *linenumber = line;
+    }
+
+    if (U_FAILURE(*status))
+    {
+        return;
     }
 
     if (token != expectedToken)
@@ -316,64 +258,11 @@ static char *getInvariantString(uint32_t *line, struct UString *comment, UErrorC
     return result;
 }
 
-static enum EResourceType
-parseResourceType(UErrorCode *status)
-{
-    struct UString        *tokenValue;
-    struct UString        comment;
-    enum   EResourceType  result = RT_UNKNOWN;
-    uint32_t              line=0;
-    ustr_init(&comment);
-    expect(TOK_STRING, &tokenValue, &comment, &line, status);
-
-    if (U_FAILURE(*status))
-    {
-        return RT_UNKNOWN;
-    }
-
-    *status = U_ZERO_ERROR;
-
-    if (u_strcmp(tokenValue->fChars, k_type_string) == 0) {
-        result = RT_STRING;
-    } else if (u_strcmp(tokenValue->fChars, k_type_array) == 0) {
-        result = RT_ARRAY;
-    } else if (u_strcmp(tokenValue->fChars, k_type_alias) == 0) {
-        result = RT_ALIAS;
-    } else if (u_strcmp(tokenValue->fChars, k_type_table) == 0) {
-        result = RT_TABLE;
-    } else if (u_strcmp(tokenValue->fChars, k_type_binary) == 0) {
-        result = RT_BINARY;
-    } else if (u_strcmp(tokenValue->fChars, k_type_bin) == 0) {
-        result = RT_BINARY;
-    } else if (u_strcmp(tokenValue->fChars, k_type_int) == 0) {
-        result = RT_INTEGER;
-    } else if (u_strcmp(tokenValue->fChars, k_type_integer) == 0) {
-        result = RT_INTEGER;
-    } else if (u_strcmp(tokenValue->fChars, k_type_intvector) == 0) {
-        result = RT_INTVECTOR;
-    } else if (u_strcmp(tokenValue->fChars, k_type_import) == 0) {
-        result = RT_IMPORT;
-    } else if (u_strcmp(tokenValue->fChars, k_type_include) == 0) {
-        result = RT_INCLUDE;
-    } else if (u_strcmp(tokenValue->fChars, k_type_reserved) == 0) {
-        result = RT_RESERVED;
-    } else {
-        char tokenBuffer[1024];
-        u_austrncpy(tokenBuffer, tokenValue->fChars, sizeof(tokenBuffer));
-        tokenBuffer[sizeof(tokenBuffer) - 1] = 0;
-        *status = U_INVALID_FORMAT_ERROR;
-        error(line, "unknown resource type '%s'", tokenBuffer);
-    }
-
-    return result;
-}
-
 static struct SResource *
-parseUCARules(char *tag, uint32_t startline, UErrorCode *status)
+parseUCARules(char *tag, uint32_t startline, const struct UString* comment, UErrorCode *status)
 {
     struct SResource *result = NULL;
     struct UString   *tokenValue;
-    struct UString   comment;
     FileStream       *file          = NULL;
     char              filename[256] = { '\0' };
     char              cs[128]       = { '\0' };
@@ -388,8 +277,7 @@ parseUCARules(char *tag, uint32_t startline, UErrorCode *status)
     UChar *targetLimit = NULL;
     int32_t size = 0;
 
-    ustr_init(&comment);
-    expect(TOK_STRING, &tokenValue, &comment, &line, status);
+    expect(TOK_STRING, &tokenValue, NULL, &line, status);
 
     if(isVerbose()){
         printf(" %s at line %i \n",  (tag == NULL) ? "(null)" : tag, (int)startline);
@@ -418,10 +306,6 @@ parseUCARules(char *tag, uint32_t startline, UErrorCode *status)
     {
         return NULL;
     }
-    uprv_strcat(filename,"..");
-    uprv_strcat(filename,U_FILE_SEP_STRING);
-    uprv_strcat(filename, U_ICU_UNIDATA);
-    uprv_strcat(filename, U_FILE_SEP_STRING);
     uprv_strcat(filename, cs);
 
 
@@ -436,7 +320,7 @@ parseUCARules(char *tag, uint32_t startline, UErrorCode *status)
     * since the actual size needed for storing UChars
     * is not known in UTF-8 byte stream
     */
-    size = ucbuf_size(ucbuf);
+    size        = ucbuf_size(ucbuf) + 1;
     pTarget     = (UChar*) uprv_malloc(U_SIZEOF_UCHAR * size);
     uprv_memset(pTarget, 0, size*U_SIZEOF_UCHAR);
     target      = pTarget;
@@ -447,7 +331,7 @@ parseUCARules(char *tag, uint32_t startline, UErrorCode *status)
     {
         c = ucbuf_getc(ucbuf, status);
         if(c == QUOTE) {
-          quoted = (UBool)!quoted;
+            quoted = (UBool)!quoted;
         }
         /* weiv (06/26/2002): adding the following:
          * - preserving spaces in commands [...]
@@ -455,21 +339,23 @@ parseUCARules(char *tag, uint32_t startline, UErrorCode *status)
          */
         if (c == STARTCOMMAND && !quoted)
         {
-          /* preserve commands
-           * closing bracket will be handled by the
-           * append at the end of the loop
-           */
-          while(c != ENDCOMMAND) {
-            U_APPEND_CHAR32(c, target,len);
-            c = ucbuf_getc(ucbuf, status);
-          }
-        } else if (c == HASH && !quoted) {
-          /* skip comments */
-          while(c != CR && c != LF) {
-            c = ucbuf_getc(ucbuf, status);
-          }
-          continue;
-        } else if (c == ESCAPE)
+            /* preserve commands
+             * closing bracket will be handled by the
+             * append at the end of the loop
+             */
+            while(c != ENDCOMMAND) {
+                U_APPEND_CHAR32(c, target,len);
+                c = ucbuf_getc(ucbuf, status);
+            }
+        }
+        else if (c == HASH && !quoted) {
+            /* skip comments */
+            while(c != CR && c != LF) {
+                c = ucbuf_getc(ucbuf, status);
+            }
+            continue;
+        }
+        else if (c == ESCAPE)
         {
             c = unescape(ucbuf, status);
 
@@ -482,8 +368,8 @@ parseUCARules(char *tag, uint32_t startline, UErrorCode *status)
         }
         else if (!quoted && (c == SPACE || c == TAB || c == CR || c == LF))
         {
-        /* ignore spaces carriage returns
-        * and line feed unless in the form \uXXXX
+            /* ignore spaces carriage returns
+            * and line feed unless in the form \uXXXX
             */
             continue;
         }
@@ -515,15 +401,155 @@ parseUCARules(char *tag, uint32_t startline, UErrorCode *status)
 }
 
 static struct SResource *
+parseTransliterator(char *tag, uint32_t startline, const struct UString* comment, UErrorCode *status)
+{
+    struct SResource *result = NULL;
+    struct UString   *tokenValue;
+    FileStream       *file          = NULL;
+    char              filename[256] = { '\0' };
+    char              cs[128]       = { '\0' };
+    uint32_t          line;
+    UCHARBUF *ucbuf=NULL;
+    const char* cp  = NULL;
+    UChar *pTarget     = NULL;
+    const UChar *pSource     = NULL;
+    int32_t size = 0;
+
+    expect(TOK_STRING, &tokenValue, NULL, &line, status);
+
+    if(isVerbose()){
+        printf(" %s at line %i \n",  (tag == NULL) ? "(null)" : tag, (int)startline);
+    }
+
+    if (U_FAILURE(*status))
+    {
+        return NULL;
+    }
+    /* make the filename including the directory */
+    if (inputdir != NULL)
+    {
+        uprv_strcat(filename, inputdir);
+
+        if (inputdir[inputdirLength - 1] != U_FILE_SEP_CHAR)
+        {
+            uprv_strcat(filename, U_FILE_SEP_STRING);
+        }
+    }
+
+    u_UCharsToChars(tokenValue->fChars, cs, tokenValue->fLength);
+
+    expect(TOK_CLOSE_BRACE, NULL, NULL, NULL, status);
+
+    if (U_FAILURE(*status))
+    {
+        return NULL;
+    }
+    uprv_strcat(filename, cs);
+
+
+    ucbuf = ucbuf_open(filename, &cp, getShowWarning(),FALSE, status);
+
+    if (U_FAILURE(*status)) {
+        error(line, "An error occured while opening the input file %s\n", filename);
+        return NULL;
+    }
+
+    /* We allocate more space than actually required
+    * since the actual size needed for storing UChars
+    * is not known in UTF-8 byte stream
+    */
+    pSource = ucbuf_getBuffer(ucbuf, &size, status);
+    pTarget     = (UChar*) uprv_malloc(U_SIZEOF_UCHAR * (size + 1));
+    uprv_memset(pTarget, 0, size*U_SIZEOF_UCHAR);
+
+#if !UCONFIG_NO_TRANSLITERATION
+    size = utrans_stripRules(pSource, size, pTarget, status);
+#else
+	size = 0;
+    fprintf(stderr, " Warning: writing empty transliteration data ( UCONFIG_NO_TRANSLITERATION ) \n");
+#endif
+    result = string_open(bundle, tag, pTarget, size, NULL, status);
+
+    ucbuf_close(ucbuf);
+    uprv_free(pTarget);
+    T_FileStream_close(file);
+
+    return result;
+}
+static struct SResource* dependencyArray = NULL;
+
+static struct SResource *
+parseDependency(char *tag, uint32_t startline, const struct UString* comment, UErrorCode *status)
+{
+    struct SResource *result = NULL;
+    struct SResource *elem = NULL;
+    struct UString   *tokenValue;
+    uint32_t          line;
+    char              filename[256] = { '\0' };
+    char              cs[128]       = { '\0' };
+    
+    expect(TOK_STRING, &tokenValue, NULL, &line, status);
+
+    if(isVerbose()){
+        printf(" %s at line %i \n",  (tag == NULL) ? "(null)" : tag, (int)startline);
+    }
+
+    if (U_FAILURE(*status))
+    {
+        return NULL;
+    }
+    /* make the filename including the directory */
+    if (outputdir != NULL)
+    {
+        uprv_strcat(filename, outputdir);
+
+        if (outputdir[outputdirLength - 1] != U_FILE_SEP_CHAR)
+        {
+            uprv_strcat(filename, U_FILE_SEP_STRING);
+        }
+    }
+    
+    u_UCharsToChars(tokenValue->fChars, cs, tokenValue->fLength);
+
+    if (U_FAILURE(*status))
+    {
+        return NULL;
+    }
+    uprv_strcat(filename, cs);
+    if(!T_FileStream_file_exists(filename)){
+        if(isStrict()){
+            error(line, "The dependency file %s does not exist. Please make sure it exists.\n",filename);
+        }else{
+            warning(line, "The dependency file %s does not exist. Please make sure it exists.\n",filename);       
+        }
+    }
+    if(dependencyArray==NULL){
+        dependencyArray = array_open(bundle, "%%DEPENDENCY", NULL, status);
+    }
+    if(tag!=NULL){
+        result = string_open(bundle, tag, tokenValue->fChars, tokenValue->fLength, comment, status);
+    }
+    elem = string_open(bundle, NULL, tokenValue->fChars, tokenValue->fLength, comment, status);
+
+    array_add(dependencyArray, elem, status);
+
+    if (U_FAILURE(*status))
+    {
+        return NULL;
+    }
+    expect(TOK_CLOSE_BRACE, NULL, NULL, NULL, status);
+    return result;
+}
+static struct SResource *
 parseString(char *tag, uint32_t startline, const struct UString* comment, UErrorCode *status)
 {
     struct UString   *tokenValue;
     struct SResource *result = NULL;
 
-    if (tag != NULL && uprv_strcmp(tag, "%%UCARULES") == 0)
+/*    if (tag != NULL && uprv_strcmp(tag, "%%UCARULES") == 0)
     {
         return parseUCARules(tag, startline, status);
-    }
+    }*/
     if(isVerbose()){
         printf(" string %s at line %i \n",  (tag == NULL) ? "(null)" : tag, (int)startline);
     }
@@ -693,6 +719,7 @@ addCollation(struct SResource  *result, uint32_t startline, UErrorCode *status)
                 {
                     len = ucol_cloneBinary(coll, NULL, 0, &intStatus);
                     data = (uint8_t *)uprv_malloc(len);
+                    intStatus = U_ZERO_ERROR;
                     len = ucol_cloneBinary(coll, data, len, &intStatus);
                     /*data = ucol_cloneRuleData(coll, &len, &intStatus);*/
 
@@ -778,99 +805,99 @@ parseCollationElements(char *tag, uint32_t startline, UBool newCollation, UError
         printf(" collation elements %s at line %i \n",  (tag == NULL) ? "(null)" : tag, (int)startline);
     }
     if(!newCollation) {
-      return addCollation(result, startline, status);
-    } else {
-      for(;;) {
-        ustr_init(&comment);
-        token = getToken(&tokenValue, &comment, &line, status);
+        return addCollation(result, startline, status);
+    }
+    else {
+        for(;;) {
+            ustr_init(&comment);
+            token = getToken(&tokenValue, &comment, &line, status);
 
-        if (token == TOK_CLOSE_BRACE)
-        {
-            return result;
-        }
-
-        if (token != TOK_STRING)
-        {
-            table_close(result, status);
-            *status = U_INVALID_FORMAT_ERROR;
-
-            if (token == TOK_EOF)
+            if (token == TOK_CLOSE_BRACE)
             {
-                error(startline, "unterminated table");
+                return result;
+            }
+
+            if (token != TOK_STRING)
+            {
+                table_close(result, status);
+                *status = U_INVALID_FORMAT_ERROR;
+
+                if (token == TOK_EOF)
+                {
+                    error(startline, "unterminated table");
+                }
+                else
+                {
+                    error(line, "Unexpected token %s", tokenNames[token]);
+                }
+
+                return NULL;
+            }
+
+            u_UCharsToChars(tokenValue->fChars, subtag, u_strlen(tokenValue->fChars) + 1);
+
+            if (U_FAILURE(*status))
+            {
+                table_close(result, status);
+                return NULL;
+            }
+
+            if (uprv_strcmp(subtag, "default") == 0)
+            {
+                member = parseResource(subtag, NULL, status);
+
+                if (U_FAILURE(*status))
+                {
+                    table_close(result, status);
+                    return NULL;
+                }
+
+                table_add(result, member, line, status);
             }
             else
             {
-                error(line, "Unexpected token %s", tokenNames[token]);
+                token = peekToken(0, &tokenValue, &line, &comment, status);
+                /* this probably needs to be refactored or recursively use the parser */
+                /* first we assume that our collation table won't have the explicit type */
+                /* then, we cannot handle aliases */
+                if(token == TOK_OPEN_BRACE) {
+                    token = getToken(&tokenValue, &comment, &line, status);
+                    collationRes = table_open(bundle, subtag, NULL, status);
+                    table_add(result, addCollation(collationRes, startline, status), startline, status);
+                } else if(token == TOK_COLON) { /* right now, we'll just try to see if we have aliases */
+                    /* we could have a table too */
+                    token = peekToken(1, &tokenValue, &line, &comment, status);
+                    u_UCharsToChars(tokenValue->fChars, typeKeyword, u_strlen(tokenValue->fChars) + 1);
+                    if(uprv_strcmp(typeKeyword, "alias") == 0) {
+                        member = parseResource(subtag, NULL, status);
+
+                        if (U_FAILURE(*status))
+                        {
+                            table_close(result, status);
+                            return NULL;
+                        }
+
+                        table_add(result, member, line, status);
+                    } else {
+                        *status = U_INVALID_FORMAT_ERROR;
+                        return NULL;
+                    }
+                } else {
+                    *status = U_INVALID_FORMAT_ERROR;
+                    return NULL;
+                }
             }
 
-            return NULL;
-        }
+            /*member = string_open(bundle, subtag, tokenValue->fChars, tokenValue->fLength, status);*/
 
-        u_UCharsToChars(tokenValue->fChars, subtag, u_strlen(tokenValue->fChars) + 1);
+            /*expect(TOK_CLOSE_BRACE, NULL, NULL, status);*/
 
-        if (U_FAILURE(*status))
-        {
-            table_close(result, status);
-            return NULL;
-        }
-
-        if (uprv_strcmp(subtag, "default") == 0)
-        {
-          member = parseResource(subtag, NULL, status);
-
-          if (U_FAILURE(*status))
-          {
-              table_close(result, status);
-              return NULL;
-          }
-
-          table_add(result, member, line, status);
-        }
-        else
-        {
-          token = peekToken(0, &tokenValue, &line, &comment, status);
-          /* this probably needs to be refactored or recursively use the parser */
-          /* first we assume that our collation table won't have the explicit type */
-          /* then, we cannot handle aliases */
-          if(token == TOK_OPEN_BRACE) {
-            token = getToken(&tokenValue, &comment, &line, status);
-            collationRes = table_open(bundle, subtag, NULL, status);
-            table_add(result, addCollation(collationRes, startline, status), startline, status);
-          } else if(token == TOK_COLON) { /* right now, we'll just try to see if we have aliases */
-            /* we could have a table too */
-            token = peekToken(1, &tokenValue, &line, &comment, status);
-            u_UCharsToChars(tokenValue->fChars, typeKeyword, u_strlen(tokenValue->fChars) + 1);
-            if(uprv_strcmp(typeKeyword, "alias") == 0) {
-              member = parseResource(subtag, NULL, status);
-
-              if (U_FAILURE(*status))
-              {
-                  table_close(result, status);
-                  return NULL;
-              }
-
-              table_add(result, member, line, status);
-            } else {
-              *status = U_INVALID_FORMAT_ERROR;
-              return NULL;
+            if (U_FAILURE(*status))
+            {
+                table_close(result, status);
+                return NULL;
             }
-          } else {
-            *status = U_INVALID_FORMAT_ERROR;
-            return NULL;
-          }
         }
-
-        /*member = string_open(bundle, subtag, tokenValue->fChars, tokenValue->fLength, status);*/
-
-        /*expect(TOK_CLOSE_BRACE, NULL, NULL, status);*/
-
-        if (U_FAILURE(*status))
-        {
-            table_close(result, status);
-            return NULL;
-        }
-
-      }
     }
 }
 
@@ -1505,11 +1532,156 @@ parseInclude(char *tag, uint32_t startline, const struct UString* comment, UErro
     return result;
 }
 
+
+
+
+
+U_STRING_DECL(k_type_string,    "string",    6);
+U_STRING_DECL(k_type_binary,    "binary",    6);
+U_STRING_DECL(k_type_bin,       "bin",       3);
+U_STRING_DECL(k_type_table,     "table",     5);
+U_STRING_DECL(k_type_table_no_fallback,     "table(nofallback)",         17);
+U_STRING_DECL(k_type_int,       "int",       3);
+U_STRING_DECL(k_type_integer,   "integer",   7);
+U_STRING_DECL(k_type_array,     "array",     5);
+U_STRING_DECL(k_type_alias,     "alias",     5);
+U_STRING_DECL(k_type_intvector, "intvector", 9);
+U_STRING_DECL(k_type_import,    "import",    6);
+U_STRING_DECL(k_type_include,   "include",   7);
+U_STRING_DECL(k_type_reserved,  "reserved",  8);
+
+/* Various non-standard processing plugins that create one or more special resources. */
+U_STRING_DECL(k_type_plugin_uca_rules,      "process(uca_rules)",        18);
+U_STRING_DECL(k_type_plugin_collation,      "process(collation)",        18);
+U_STRING_DECL(k_type_plugin_transliterator, "process(transliterator)",   23);
+U_STRING_DECL(k_type_plugin_dependency,     "process(dependency)",       19);
+
+typedef enum EResourceType
+{
+    RT_UNKNOWN,
+    RT_STRING,
+    RT_BINARY,
+    RT_TABLE,
+    RT_TABLE_NO_FALLBACK,
+    RT_INTEGER,
+    RT_ARRAY,
+    RT_ALIAS,
+    RT_INTVECTOR,
+    RT_IMPORT,
+    RT_INCLUDE,
+    RT_PROCESS_UCA_RULES,
+    RT_PROCESS_COLLATION,
+    RT_PROCESS_TRANSLITERATOR,
+    RT_PROCESS_DEPENDENCY,
+    RT_RESERVED
+} EResourceType;
+
+static struct {
+    const char *nameChars;   /* only used for debugging */
+    const UChar *nameUChars;
+    ParseResourceFunction *parseFunction;
+} gResourceTypes[] = {
+    {"Unknown", NULL, NULL},
+    {"string", k_type_string, parseString},
+    {"binary", k_type_binary, parseBinary},
+    {"table", k_type_table, parseTable},
+    {"table(nofallback)", k_type_table_no_fallback, NULL}, /* parseFunction will never be called */
+    {"integer", k_type_integer, parseInteger},
+    {"array", k_type_array, parseArray},
+    {"alias", k_type_alias, parseAlias},
+    {"intvector", k_type_intvector, parseIntVector},
+    {"import", k_type_import, parseImport},
+    {"include", k_type_include, parseInclude},
+    {"process(uca_rules)", k_type_plugin_uca_rules, parseUCARules},
+    {"process(collation)", k_type_plugin_collation, NULL /* not implemented yet */},
+    {"process(transliterator)", k_type_plugin_transliterator, parseTransliterator},
+    {"process(dependency)", k_type_plugin_dependency, parseDependency},
+    {"reserved", NULL, NULL}
+};
+
+void initParser(UBool makeBinaryCollation)
+{
+    uint32_t i;
+
+    U_STRING_INIT(k_type_string,    "string",    6);
+    U_STRING_INIT(k_type_binary,    "binary",    6);
+    U_STRING_INIT(k_type_bin,       "bin",       3);
+    U_STRING_INIT(k_type_table,     "table",     5);
+    U_STRING_INIT(k_type_table_no_fallback,     "table(nofallback)",         17);
+    U_STRING_INIT(k_type_int,       "int",       3);
+    U_STRING_INIT(k_type_integer,   "integer",   7);
+    U_STRING_INIT(k_type_array,     "array",     5);
+    U_STRING_INIT(k_type_alias,     "alias",     5);
+    U_STRING_INIT(k_type_intvector, "intvector", 9);
+    U_STRING_INIT(k_type_import,    "import",    6);
+    U_STRING_INIT(k_type_reserved,  "reserved",  8);
+    U_STRING_INIT(k_type_include,   "include",   7);
+
+    U_STRING_INIT(k_type_plugin_uca_rules,      "process(uca_rules)",        18);
+    U_STRING_INIT(k_type_plugin_collation,      "process(collation)",        18);
+    U_STRING_INIT(k_type_plugin_transliterator, "process(transliterator)",   23);
+    U_STRING_INIT(k_type_plugin_dependency,     "process(dependency)",       19);
+    
+    for (i = 0; i < MAX_LOOKAHEAD + 1; i++)
+    {
+        ustr_init(&lookahead[i].value);
+    }
+    gMakeBinaryCollation = makeBinaryCollation;
+}
+
+static U_INLINE UBool isTable(enum EResourceType type) {
+    return (UBool)(type==RT_TABLE || type==RT_TABLE_NO_FALLBACK);
+}
+
+static enum EResourceType
+parseResourceType(UErrorCode *status)
+{
+    struct UString        *tokenValue;
+    struct UString        comment;
+    enum   EResourceType  result = RT_UNKNOWN;
+    uint32_t              line=0;
+    ustr_init(&comment);
+    expect(TOK_STRING, &tokenValue, &comment, &line, status);
+
+    if (U_FAILURE(*status))
+    {
+        return RT_UNKNOWN;
+    }
+
+    *status = U_ZERO_ERROR;
+
+    /* Search for normal types */
+    result=RT_UNKNOWN;
+    while (++result < RT_RESERVED) {
+        if (u_strcmp(tokenValue->fChars, gResourceTypes[result].nameUChars) == 0) {
+            break;
+        }
+    }
+    /* Now search for the aliases */
+    if (u_strcmp(tokenValue->fChars, k_type_int) == 0) {
+        result = RT_INTEGER;
+    }
+    else if (u_strcmp(tokenValue->fChars, k_type_bin) == 0) {
+        result = RT_BINARY;
+    }
+    else if (result == RT_RESERVED) {
+        char tokenBuffer[1024];
+        u_austrncpy(tokenBuffer, tokenValue->fChars, sizeof(tokenBuffer));
+        tokenBuffer[sizeof(tokenBuffer) - 1] = 0;
+        *status = U_INVALID_FORMAT_ERROR;
+        error(line, "unknown resource type '%s'", tokenBuffer);
+    }
+
+    return result;
+}
+
+/* parse a non-top-level resource */
 static struct SResource *
 parseResource(char *tag, const struct UString *comment, UErrorCode *status)
 {
     enum   ETokenType      token;
     enum   EResourceType  resType = RT_UNKNOWN;
+    ParseResourceFunction *parseFunction = NULL;
     struct UString        *tokenValue;
     uint32_t                 startline;
     uint32_t                 line;
@@ -1615,32 +1787,29 @@ parseResource(char *tag, const struct UString *comment, UErrorCode *status)
         }
 
         /* printf("Type guessed as %s\n", resourceNames[resType]); */
+    } else if(resType == RT_TABLE_NO_FALLBACK) {
+        *status = U_INVALID_FORMAT_ERROR;
+        error(startline, "error: %s resource type not valid except on top bundle level", gResourceTypes[resType].nameChars);
+        return NULL;
     }
 
     /* We should now know what we need to parse next, so call the appropriate parser
     function and return. */
-    switch (resType)
-    {
-    case RT_STRING:     return parseString    (tag, startline, comment, status);
-    case RT_TABLE:      return parseTable     (tag, startline, comment, status);
-    case RT_ARRAY:      return parseArray     (tag, startline, comment, status);
-    case RT_ALIAS:      return parseAlias     (tag, startline, comment, status);
-    case RT_BINARY:     return parseBinary    (tag, startline, comment, status);
-    case RT_INTEGER:    return parseInteger   (tag, startline, comment, status);
-    case RT_IMPORT:     return parseImport    (tag, startline, comment, status);
-    case RT_INCLUDE:    return parseInclude   (tag, startline, comment, status);
-    case RT_INTVECTOR:  return parseIntVector (tag, startline, comment, status);
-
-    default:
+    parseFunction = gResourceTypes[resType].parseFunction;
+    if (parseFunction != NULL) {
+        return parseFunction(tag, startline, comment, status);
+    }
+    else {
         *status = U_INTERNAL_PROGRAM_ERROR;
-        error(startline, "internal error: unknown resource type found and not handled");
+        error(startline, "internal error: %s resource type found and not handled", gResourceTypes[resType].nameChars);
     }
 
     return NULL;
 }
 
+/* parse the top-level resource */
 struct SRBRoot *
-parse(UCHARBUF *buf, const char *currentInputDir, UErrorCode *status)
+parse(UCHARBUF *buf, const char *inputDir, const char *outputDir, UErrorCode *status)
 {
     struct UString    *tokenValue;
     struct UString    comment;
@@ -1651,8 +1820,10 @@ parse(UCHARBUF *buf, const char *currentInputDir, UErrorCode *status)
 
     initLookahead(buf, status);
 
-    inputdir       = currentInputDir;
+    inputdir       = inputDir;
     inputdirLength = (inputdir != NULL) ? (uint32_t)uprv_strlen(inputdir) : 0;
+    outputdir       = outputDir;
+    outputdirLength = (outputdir != NULL) ? (uint32_t)uprv_strlen(outputdir) : 0;
 
     ustr_init(&comment);
     expect(TOK_STRING, &tokenValue, &comment, NULL, status);
@@ -1670,21 +1841,11 @@ parse(UCHARBUF *buf, const char *currentInputDir, UErrorCode *status)
     /* expect(TOK_OPEN_BRACE, NULL, &line, status); */
     /* The following code is to make Empty bundle work no matter with :table specifer or not */
     token = getToken(NULL, NULL, &line, status);
-
-    if(token==TOK_COLON)
-    {
+    if(token==TOK_COLON) {
         *status=U_ZERO_ERROR;
-    }
-    else
-    {
-        *status=U_PARSE_ERROR;
-    }
-
-    if(U_SUCCESS(*status)){
-
         bundleType=parseResourceType(status);
 
-        if(bundleType==RT_TABLE)
+        if(isTable(bundleType))
         {
             expect(TOK_OPEN_BRACE, NULL, NULL, &line, status);
         }
@@ -1696,12 +1857,17 @@ parse(UCHARBUF *buf, const char *currentInputDir, UErrorCode *status)
     }
     else
     {
+        /* not a colon */
         if(token==TOK_OPEN_BRACE)
         {
             *status=U_ZERO_ERROR;
+            bundleType=RT_TABLE;
         }
         else
         {
+            /* neither colon nor open brace */
+            *status=U_PARSE_ERROR;
+            bundleType=RT_UNKNOWN;
             error(line, "parse error, did not find open-brace '{' or colon ':', stopped with %s", u_errorName(*status));
         }
     }
@@ -1713,11 +1879,25 @@ parse(UCHARBUF *buf, const char *currentInputDir, UErrorCode *status)
         return NULL;
     }
 
+    if(bundleType==RT_TABLE_NO_FALLBACK) {
+        /*
+         * Parse a top-level table with the table(nofallback) declaration.
+         * This is the same as a regular table, but also sets the
+         * URES_ATT_NO_FALLBACK flag in indexes[URES_INDEX_ATTRIBUTES] .
+         */
+        bundle->noFallback=TRUE;
+    }
+    /* top-level tables need not handle special table names like "collations" */
     realParseTable(bundle->fRoot, NULL, line, status);
-
+    
+    if(dependencyArray!=NULL){
+        table_add(bundle->fRoot, dependencyArray, 0, status);
+        dependencyArray = NULL;
+    }
     if (U_FAILURE(*status))
     {
         bundle_close(bundle, status);
+        array_close(dependencyArray, status);
         return NULL;
     }
 

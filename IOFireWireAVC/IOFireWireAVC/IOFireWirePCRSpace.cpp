@@ -22,6 +22,7 @@
  
 #include <IOKit/IOLib.h>
 #include <IOKit/firewire/IOFireWireController.h>
+#include <IOKit/firewire/IOFireWireLocalNode.h>
 #include <IOKit/avc/IOFireWireAVCConsts.h>
 #include <IOKit/avc/IOFireWirePCRSpace.h>
 
@@ -30,6 +31,40 @@ OSMetaClassDefineReservedUnused(IOFireWirePCRSpace, 0);
 OSMetaClassDefineReservedUnused(IOFireWirePCRSpace, 1);
 OSMetaClassDefineReservedUnused(IOFireWirePCRSpace, 2);
 OSMetaClassDefineReservedUnused(IOFireWirePCRSpace, 3);
+
+static IOReturn MyServiceInterestHandler( void * target, 
+										void * refCon,
+										UInt32 messageType, 
+										IOService * provider,
+										void * messageArgument, 
+										vm_size_t argSize )
+{
+    IOReturn res = kIOReturnUnsupported;
+	IOFireWirePCRSpace *pPCRSpace = (IOFireWirePCRSpace*) target;
+   
+	//IOLog( "IOFireWirePCRSpace received MyServiceInterestHandler (message = 0x%08X)\n",(int) messageType);
+	
+	switch (messageType)
+	{
+		case kIOMessageServiceIsTerminated:
+		case kIOMessageServiceIsRequestingClose:
+		case kIOMessageServiceIsResumed:
+			res = kIOReturnSuccess;
+			break;
+		
+		// This message is received when a bus-reset start happens!
+		case kIOMessageServiceIsSuspended:
+			res = kIOReturnSuccess;
+			if (pPCRSpace)
+				pPCRSpace->clearAllP2PConnections();
+			break;
+		
+		default:
+			break;
+	}
+	
+    return res;
+}
 
 bool IOFireWirePCRSpace::init(IOFireWireBus *bus)
 {
@@ -54,18 +89,36 @@ bool IOFireWirePCRSpace::init(IOFireWireBus *bus)
 	}
 	
 	// Output Master Control - 400 Mbit, broadcast channel base 63, 31 output plugs
-    fBuf[0] = (2 << kIOFWPCRDataRatePhase) |
+    fBuf[0] = OSSwapHostToBigInt32((2 << kIOFWPCRDataRatePhase) |
                 (63 << kIOFWPCRBroadcastBasePhase) |
                 (0xff << kIOFWPCRExtensionPhase) |
-                (31 << kIOFWPCRNumPlugsPhase);
+                (31 << kIOFWPCRNumPlugsPhase));
                 
 	// Input Master Control - 400 Mbit, 31 output plugs
-    fBuf[32] = (2 << kIOFWPCRDataRatePhase) |
+    fBuf[32] = OSSwapHostToBigInt32((2 << kIOFWPCRDataRatePhase) |
                 (0xff << kIOFWPCRExtensionPhase) |
-                (31 << kIOFWPCRNumPlugsPhase);
+                (31 << kIOFWPCRNumPlugsPhase));
 
 	fAVCTargetSpace = NULL;
+	
+	// Register for messages from IOFireWireLocalNode to detect bus-resets!
+	IOFireWireController *pFireWireController = OSDynamicCast(IOFireWireController, bus);
+	if (pFireWireController)
+	{
+		IOFireWireLocalNode *pFireWireLocalNode = (pFireWireController)->getLocalNode(pFireWireController);
+		if (pFireWireLocalNode)
+		{
+			// Register with the IOFireWireBus for messages
+			fNotifier = pFireWireLocalNode->registerInterest(gIOGeneralInterest,MyServiceInterestHandler,this,this);
+		}
+	}
 
+	// Get the pointert to the IOFireWireAVCTargetSpace
+	// Note: This will create it, if it doesn't already exist.
+	fAVCTargetSpace = IOFireWireAVCTargetSpace::getAVCTargetSpace((IOFireWireController*)bus);
+	if(fAVCTargetSpace)
+		fAVCTargetSpace->activateWithUserClient((IOFireWireAVCProtocolUserClient*)0xFFFFFFFF);
+	
 	return true;
 }
 
@@ -113,17 +166,17 @@ UInt32 IOFireWirePCRSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddress ad
         
     UInt32 newVal = *(const UInt32 *)buf;
     UInt32 offset = (addr.addressLo - kPCRBaseAddress)/4;
-    UInt32 oldVal = fBuf[offset];
+    UInt32 oldVal = OSSwapBigToHostInt32(fBuf[offset]);
     
     fBuf[offset] = newVal;
     if(fClients[offset].func)
-        (fClients[offset].func)(fClients[offset].refcon, nodeID, (offset-1) & 31, oldVal, newVal);
+        (fClients[offset].func)(fClients[offset].refcon, nodeID, (offset-1) & 31, oldVal, OSSwapBigToHostInt32(newVal));
 
 	// Notify target space object of plug value modification
 	if ((fAVCTargetSpace) && (offset > 0) && (offset < 32))
-		fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochOutputType,(offset-1),newVal);
+		fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochOutputType,(offset-1),OSSwapBigToHostInt32(newVal));
 	else if ((fAVCTargetSpace) && (offset > 32) && (offset < 64))
-		fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochInputType,(offset-33),newVal);
+		fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochInputType,(offset-33),OSSwapBigToHostInt32(newVal));
 
     return kFWResponseComplete;
 }
@@ -145,7 +198,14 @@ void IOFireWirePCRSpace::deactivate()
 	//IOLog( "IOFireWirePCRSpace::deactivate (0x%08X)\n",(int) this);
 
     if(!--fActivations)
+	{
         IOFWAddressSpace::deactivate();
+
+		// If we successfully registered for notifications, remove it now!
+		if (fNotifier)
+			fNotifier->remove();
+		fNotifier = NULL;
+	}
 }
 
 IOReturn IOFireWirePCRSpace::allocatePlug(void *refcon, IOFireWirePCRCallback func, UInt32 &plug, Client* head)
@@ -185,7 +245,7 @@ UInt32 IOFireWirePCRSpace::readPlug(UInt32 plug)
 
     UInt32 val;
     fControl->closeGate();
-    val = fBuf[plug];
+    val = OSSwapBigToHostInt32(fBuf[plug]);
     fControl->openGate();
     return val;
 }
@@ -197,8 +257,8 @@ IOReturn IOFireWirePCRSpace::updatePlug(UInt32 plug, UInt32 oldVal, UInt32 newVa
 
 	IOReturn res;
     fControl->closeGate();
-    if(oldVal == fBuf[plug]) {
-        fBuf[plug] = newVal;
+    if(oldVal == OSSwapBigToHostInt32(fBuf[plug])) {
+        fBuf[plug] = OSSwapHostToBigInt32(newVal);
         res = kIOReturnSuccess;
 
 		// Notify target space object of plug value modification
@@ -310,7 +370,11 @@ void IOFireWirePCRSpace::setAVCTargetSpacePointer(IOFireWireAVCTargetSpace *pAVC
 {
 	//IOLog( "IOFireWirePCRSpace::setAVCTargetSpacePointer (0x%08X)\n",(int) this);
 
-	fAVCTargetSpace = pAVCTargetSpace;
+	// NOTE: This function no longer does anything, since the relationship
+	// between the IOFireWirePCRSpace, and the IOFireWireAVCTargetSpace
+	// is now established in IOFireWirePCRSpace::init(...).
+
+	// fAVCTargetSpace = pAVCTargetSpace;
 	return;
 }
 
@@ -325,18 +389,18 @@ void IOFireWirePCRSpace::clearAllP2PConnections(void)
     for(i=0; i<32; i++)
 	{
 		fControl->closeGate();
-		oldVal = fBuf[i+1];
+		oldVal = OSSwapBigToHostInt32(fBuf[i+1]);
 		if ((oldVal & 0x3F000000) != 0)
 		{
-			fBuf[i+1] &= 0xC0FFFFFF;	// Clear P2P field
+			fBuf[i+1] &= OSSwapHostToBigInt32(0xC0FFFFFF);	// Clear P2P field
 
 			// If this plug has a client, notify it
 			if(fClients[i+1].func)
-				(fClients[i+1].func)(fClients[i+1].refcon, 0xFFFF, i, oldVal, fBuf[i+1]);
+				(fClients[i+1].func)(fClients[i+1].refcon, 0xFFFF, i, oldVal, OSSwapBigToHostInt32(fBuf[i+1]));
 
 			// Notify the AVC Target Space Object of the change
 			if (fAVCTargetSpace)
-				fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochOutputType,i,fBuf[i+1]);
+				fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochOutputType,i,OSSwapBigToHostInt32(fBuf[i+1]));
 		}
 		fControl->openGate();
 	}
@@ -345,18 +409,18 @@ void IOFireWirePCRSpace::clearAllP2PConnections(void)
     for(i=0; i<32; i++)
 	{
 		fControl->closeGate();
-		oldVal = fBuf[i+33];
+		oldVal = OSSwapBigToHostInt32(fBuf[i+33]);
 		if ((oldVal & 0x3F000000) != 0)
 		{
-			fBuf[i+33] &= 0xC0FFFFFF;	// Clear P2P field
+			fBuf[i+33] &= OSSwapHostToBigInt32(0xC0FFFFFF);	// Clear P2P field
 
 			// If this plug has a client, notify it
 			if(fClients[i+33].func)
-				(fClients[i+33].func)(fClients[i+33].refcon, 0xFFFF, i, oldVal, fBuf[i+33]);
+				(fClients[i+33].func)(fClients[i+33].refcon, 0xFFFF, i, oldVal, OSSwapBigToHostInt32(fBuf[i+33]));
 
 			// Notify the AVC Target Space Object of the change
 			if (fAVCTargetSpace)
-				fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochInputType,i,fBuf[i+33]);
+				fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochInputType,i,OSSwapBigToHostInt32(fBuf[i+33]));
 		}
 		fControl->openGate();
 	}

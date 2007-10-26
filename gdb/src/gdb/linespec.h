@@ -21,15 +21,19 @@
 
 struct symtab;
 
+/* APPLE LOCAL begin return multiple symbols: new parameter FIND_ALL_OCCURRENCES  */
 extern struct symtabs_and_lines
 	decode_line_1 (char **argptr, int funfirstline,
 		       struct symtab *default_symtab, int default_line,
-		       char ***canonical, int *not_found_ptr);
+		       char ***canonical, int *not_found_ptr, int find_all_occurrences);
+/* APPLE LOCAL end return multiple symbols  */
 
-/* APPLE LOCAL: A flag to control whether decode_line_1* will look for
-   ObjC selectors in the expression, and a function to reset that
-   value (normally added to a cleanup chain). */
+/* APPLE LOCAL begin selectors in line specs */
+/* A flag to control whether decode_line_1* will look for ObjC
+   selectors in the expression, and a function to reset that value
+   (normally added to a cleanup chain). */
 extern int allow_objc_selectors_flag;
 extern void reset_allow_objc_selectors_flag (PTR dummy);
+/* APPLE LOCAL end selectors in line specs */
 
 #endif /* defined (LINESPEC_H) */

@@ -1,4 +1,4 @@
-/* Copyright (C) 1999-2002 Free Software Foundation, Inc.
+/* Copyright (C) 1999-2004, 2006 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Tools.
 
    This program is free software; you can redistribute it and/or modify
@@ -13,7 +13,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /*
  * Generates a CJK character set table from a .TXT table as found on
@@ -34,7 +34,7 @@
  *
  *   ./cjk_tab_to_h JOHAB johab > johab.h < JOHAB.TXT
  *
- *   ./cjk_tab_to_h JISX0213:2000 jisx0213 > jisx0213.h < JISX0213.TXT
+ *   ./cjk_tab_to_h JISX0213:2004 jisx0213 > jisx0213.h < JISX0213.TXT
  */
 
 #include <stdio.h>
@@ -76,7 +76,7 @@ typedef struct {
 static void output_title (const char *charsetname)
 {
   printf("/*\n");
-  printf(" * Copyright (C) 1999-2002 Free Software Foundation, Inc.\n");
+  printf(" * Copyright (C) 1999-2006 Free Software Foundation, Inc.\n");
   printf(" * This file is part of the GNU LIBICONV Library.\n");
   printf(" *\n");
   printf(" * The GNU LIBICONV Library is free software; you can redistribute it\n");
@@ -91,8 +91,8 @@ static void output_title (const char *charsetname)
   printf(" *\n");
   printf(" * You should have received a copy of the GNU Library General Public\n");
   printf(" * License along with the GNU LIBICONV Library; see the file COPYING.LIB.\n");
-  printf(" * If not, write to the Free Software Foundation, Inc., 59 Temple Place -\n");
-  printf(" * Suite 330, Boston, MA 02111-1307, USA.\n");
+  printf(" * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,\n");
+  printf(" * Fifth Floor, Boston, MA 02110-1301, USA.\n");
   printf(" */\n");
   printf("\n");
   printf("/*\n");
@@ -1651,7 +1651,7 @@ static void do_jisx0213 (const char* name)
   printf("#ifndef _JISX0213_H\n");
   printf("#define _JISX0213_H\n");
   printf("\n");
-  printf("/* JISX0213 plane 1 (= ISO-IR-228) characters are in the range\n");
+  printf("/* JISX0213 plane 1 (= ISO-IR-233) characters are in the range\n");
   printf("   0x{21..7E}{21..7E}.\n");
   printf("   JISX0213 plane 2 (= ISO-IR-229) characters are in the range\n");
   printf("   0x{21,23..25,28,2C..2F,6E..7E}{21..7E}.\n");
@@ -2011,7 +2011,14 @@ static void do_jisx0213 (const char* name)
     #endif
     printf("\n");
   }
-  printf("static inline ucs4_t jisx0213_to_ucs4 (unsigned int row, unsigned int col)\n");
+  printf("#ifdef __GNUC__\n");
+  printf("__inline\n");
+  printf("#else\n");
+  printf("#ifdef __cplusplus\n");
+  printf("inline\n");
+  printf("#endif\n");
+  printf("#endif\n");
+  printf("static ucs4_t jisx0213_to_ucs4 (unsigned int row, unsigned int col)\n");
   printf("{\n");
   printf("  ucs4_t val;\n");
   printf("\n");
@@ -2042,7 +2049,14 @@ static void do_jisx0213 (const char* name)
   printf("  return val;\n");
   printf("}\n");
   printf("\n");
-  printf("static inline unsigned short ucs4_to_jisx0213 (ucs4_t ucs)\n");
+  printf("#ifdef __GNUC__\n");
+  printf("__inline\n");
+  printf("#else\n");
+  printf("#ifdef __cplusplus\n");
+  printf("inline\n");
+  printf("#endif\n");
+  printf("#endif\n");
+  printf("static unsigned short ucs4_to_jisx0213 (ucs4_t ucs)\n");
   printf("{\n");
   printf("  if (ucs < (sizeof(jisx0213_from_ucs_level1)/sizeof(jisx0213_from_ucs_level1[0])) << 6) {\n");
   printf("    int index1 = jisx0213_from_ucs_level1[ucs >> 6];\n");
@@ -2116,7 +2130,8 @@ int main (int argc, char *argv[])
     do_uhc_2(name);
   else if (!strcmp(name,"big5") || !strcmp(name,"cp950ext"))
     do_big5(name);
-  else if (!strcmp(name,"hkscs"))
+  else if (!strcmp(name,"hkscs1999") || !strcmp(name,"hkscs2001")
+           || !strcmp(name,"hkscs2004"))
     do_hkscs(name);
   else if (!strcmp(name,"johab_hangul"))
     do_johab_hangul(name);

@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,7 +14,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 # This file becomes paths.py which is installed in may directories.  By
 # importing this module, sys.path gets `hacked' so that the $prefix/Mailman
@@ -58,3 +59,11 @@ import japanese
 # changes this.
 import korean
 import korean.aliases
+# Arabic and Hebrew (RFC-1556) encoding aliases. (temporary solution)
+import encodings.aliases
+encodings.aliases.aliases.update({
+    'iso_8859_6_e': 'iso8859_6',
+    'iso_8859_6_i': 'iso8859_6',
+    'iso_8859_8_e': 'iso8859_8',
+    'iso_8859_8_i': 'iso8859_8',
+})

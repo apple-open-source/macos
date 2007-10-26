@@ -1,15 +1,106 @@
+2005-09-04  Derek Price  <derek@ximbiot.com>
+
+	* config.h.in (HAVE_PUTENV): Remove.
+
+2005-04-08  Derek Price  <derek@ximbiot.com>
+
+	* .cvsignore: Add stamp-ch.
+
+2005-04-07  Derek Price  <derek@ximbiot.com>
+
+	* stamp-ch: Remove this file.
+
+2005-04-06  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (DISTCLEANFILES): Add stamp-ch for removal on distclean.
+
+2005-03-22  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerated.
+
+2005-03-16  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c (open_file): Remove this function.
+
+2005-03-01  Derek Price  <derek@ximbiot.com>
+
+	* config.h.in: Remove obsolete timeb cruft.
+
+2005-02-21  Derek Price  <derek@ximbiot.com>
+
+	* config.h.in: Undo some changes accidentally imported from 1.11.x.
+
+2005-02-08  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (config.h, stamp-ch): New targets.
+	* config.h.in: New file.
+	(PACKAGE_STRING): Generate automatically.
+	(FOLD_FN_CHAR): Delete this macro...
+	(fncmp, fnfold): ...and these prototypes to pick up default definitions
+	from lib/system.h.
+	* filesubr.c (VMS_filename_classes): Ditto for this global var.
+	(Inspired by report Piet Schuermans <pschuermans@mac.com>.)
+
+	* config.h.in: (inline, SIZE_MAX): Define.
+	(Original patch from Piet Schuermans <pschuermans@mac.com>.)
+
+2005-01-31  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Back copyright date off since Makefile.am hasn't changed
+	since 2002.
+
+2005-01-31  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Update copyright notices.
+
+2004-12-14  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (EXTRA_DIST): Add .cvsignore.
+
+2004-10-20  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerate for new configure.in.
+
+2004-10-18  Derek Price  <derek@ximbiot.com>
+
+	* config.h: Define DEVNULL.
+
 2004-04-04  Derek Price  <derek@ximbiot.com>
 
 	* filesubr.c (isabsolute): Remove this function.
 	* config.h (ISABSOLUTE): Define.
 
+2003-11-25  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerate for new configure.in.
+
 2003-11-10  Mark D. Baushke  <mdb@cvshome.org>
 
 	* filesubr.c (xresolvepath): New function.
 
+2003-07-16  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c: s/PROTO/.
+
+2003-06-11  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerate for new configure.in.
+
 2003-05-21  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.in: Regenerate with Automake version 1.7.5.
+
+2003-05-20  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2003-05-09  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2003-04-30  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
 
 2003-04-10  Larry Jones  <lawrence.jones@eds.com>
 
@@ -18,6 +109,16 @@
 2003-03-24  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.am: Update copyright notice.
+
+	* Makefile.in: Regenerated.
+
+2003-03-19  Mark D. Baushke  <mdb@cvshome.org>
+
+	* config.h (RSH_DFLT): Default to "rsh".
+
+	* Makefile.in: Regenerated.
+
+2003-03-19  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.in: Regenerated.
 

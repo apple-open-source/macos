@@ -183,4 +183,4 @@ u_int64_t dsdata_uint64_at_index(dsdata *d, u_int32_t i);
 
 void dsdata_print(dsdata *d, FILE *f);
 
-#endif __DSDATA_H__
+#endif /* __DSDATA_H__ */

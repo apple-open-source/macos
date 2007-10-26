@@ -1,0 +1,182 @@
+#!/usr/bin/perl
+# 
+# Copyright (c) 2007 Apple Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+#
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+#
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#
+# @APPLE_LICENSE_HEADER_END@
+#
+# This script generates a LocalKDC and provisions LKDC service principals.
+# The script is non-destructive - it can be run multiple times.
+
+use strict;
+use Errno qw(:POSIX);
+use File::Basename;
+
+my $progname = basename ($0);
+
+chdir '/' or die "chdir: $!\n";
+
+if ($< != 0) {
+	print 'Error: '. $progname ." needs to be run by root\n";
+	exit EPERM();
+}
+
+umask 022;
+
+my $system_keychain = '/Library/Keychains/System.keychain';
+
+# certtool requires a system keychain to be present.  Bootstrap one if it is missing.
+if (! -f $system_keychain) {
+	system '/usr/sbin/systemkeychain', '-C';
+}
+
+my $kdc_dir = '/var/db/krb5kdc';
+my $kdc_conf = $kdc_dir .'/kdc.conf';
+my $kdc_local = '/var/db/dslocal/nodes/Default/config/KerberosKDC.plist';
+
+my $plist_set = 0;
+my $make_keytab_flag = 0;
+my $update_plists_flag = 0;
+
+my @kdcsetup_args;
+my $kdcmond_plist = '/System/Library/LaunchDaemons/com.apple.kdcmond.plist';
+
+my $argc = scalar @ARGV;
+my $i;
+for ($i = 0; $i < $argc; ++$i) {
+	if ($ARGV[$i] eq '--plist') {
+		$plist_set = 1;
+		$make_keytab_flag = 0;
+		$update_plists_flag = 1;
+	} elsif ($ARGV[$i] eq '--target') {
+		die "Error: --target requires an argument\n" unless ++$i < $argc;
+		push @kdcsetup_args, '-F', $ARGV[$i];
+	} else {
+		die "Error: unknown argument $ARGV[$i]\n";
+	}
+}
+
+if (! -d $kdc_dir or ! -f $kdc_local) {
+	system '/usr/bin/certtool', 'C', 'com.apple.systemdefault', 'u', 'P', 'v';
+	system '/usr/bin/certtool', 'C', 'com.apple.kerberos.kdc', 'u', 'P', 'v';
+
+	system '/usr/sbin/kdcsetup', '-L', '-n', @kdcsetup_args;
+
+	system '/bin/launchctl', 'load', $kdcmond_plist;
+
+	unless ($plist_set) {
+		$make_keytab_flag = 1;
+		$update_plists_flag = 1;
+	}
+}
+
+if (not open (KDC_LOCAL, '/usr/libexec/PlistBuddy -c "Print :realname:" '. $kdc_local. '|')) {
+	print 'Error: '. $progname ." failed to find $kdc_local\n";
+	exit 1;
+}
+
+my $LKDC_realm = join ('', <KDC_LOCAL>);
+
+$LKDC_realm =~ s/^.*(LKDC:SHA1\.[0-9A-F]{40}).*$/\1/s;
+
+if ($LKDC_realm eq '') {
+	print 'Error: '. $progname ." cannot parse $kdc_local\n";
+	exit 1;
+}
+
+close KDC_LOCAL;
+
+if (not open (KDC_CONF, '<', $kdc_conf)) {
+	print 'Error: '. $progname ." failed to find $kdc_conf\n";
+	exit 1;
+}
+
+my @default_realm = grep /default_realm/, <KDC_CONF>;
+
+if (1 != scalar (@default_realm)) {
+	print 'Error: '. $progname ." cannot parse $kdc_conf\n";
+	exit 1;
+}
+
+my $default_realm = (split (/\s+/, $default_realm[0], 4))[3];
+chomp $default_realm;
+
+close KDC_CONF;
+
+if ($default_realm !~ /^LKDC:/) {
+	$update_plists_flag = 0;
+}
+
+if ($make_keytab_flag or $update_plists_flag) {
+	my %afp_config = (service => 'afpserver', realm => $LKDC_realm,
+			  prefs => '/Library/Preferences/com.apple.AppleFileServer',
+			  key => 'kerberosPrincipal', format => '%s/%s@%2$s');
+
+	my %smb_config = (service => 'cifs', realm => $LKDC_realm,
+			  prefs => '/Library/Preferences/SystemConfiguration/com.apple.smb.server',
+       			  key => 'LocalKerberosRealm', format => '%2$s');
+ 
+	my %ss_config  = (service => 'vnc', realm => $LKDC_realm);
+
+	configure_service (\%afp_config, $make_keytab_flag, $update_plists_flag);
+	configure_service (\%smb_config, $make_keytab_flag, $update_plists_flag);
+	configure_service (\%ss_config,  $make_keytab_flag, $update_plists_flag);
+}
+
+print $LKDC_realm . "\n";
+
+my $rerun_plist = '/System/Library/LaunchDaemons/com.apple.configureLocalKDC.plist';
+
+chomp (my $status = qx{/usr/libexec/PlistBuddy -c "Print :Disabled" $rerun_plist});
+
+if ($status ne 'true') {
+        system '/usr/libexec/PlistBuddy', '-c', 'Add :Disabled bool True', $rerun_plist;
+}
+
+sub configure_service {
+	my $config = shift;
+	my $do_keytab = shift;
+	my $do_plist  = shift;
+	my $realm = $config->{realm};
+
+	my $principal = sprintf "%s/%s@%s", $config->{service}, $realm, $realm;
+
+	if ($do_keytab) {
+		my $kadmin_local = '/usr/sbin/kadmin.local';
+
+		my @args = ('add_principal', '-randkey', $principal);
+
+		# kadmin.local is odd - the -q argument must be a single string argument
+		print  $kadmin_local . join (' ', '-q', @args). "\n";
+		system $kadmin_local, '-q', join (' ', @args);
+
+		@args = ('ktadd', $principal);
+
+		print  $kadmin_local . join (' ', '-q', @args). "\n";
+		system $kadmin_local, '-q', join (' ', @args);
+	} 
+
+	if ($do_plist and defined ($config->{prefs})) {
+		my $value = sprintf $config->{format}, $config->{service}, $realm;
+		my @args = ('write', $config->{prefs}, $config->{key}, $value);
+
+		print  '/usr/bin/defaults '. join (' ', @args). "\n";
+		system '/usr/bin/defaults', @args;
+	}
+}

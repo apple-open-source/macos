@@ -30,10 +30,6 @@ public:
     // not a virtual method, because the return type assumes knowledge of the element type
     UHCIQueueHeadSharedPtr						GetSharedLogical(void);
 
-    // unique to UHCI - alignment buffer
-	UHCIAlignmentBuffer *						GetAlignmentBuffer();
-	void										ReleaseAlignmentBuffer(UHCIAlignmentBuffer*);
-
     UInt16										functionNumber;
     UInt16										endpointNumber;
     UInt16										speed;
@@ -41,6 +37,7 @@ public:
     UInt16										pollingRate;			// For interrupt endpoints.
     UInt8										direction;
     UInt8										type;					// Control, interrupt, etc.
+	UInt8										interruptSlot;			// index into the interrupt queue head tree iff type is kUSBInterrupt
     bool										stalled;
     
     // AbsoluteTime								timestamp;
@@ -48,9 +45,6 @@ public:
     AppleUHCITransferDescriptor					*firstTD;				// Request queue.
     AppleUHCITransferDescriptor					*lastTD;
     
-    queue_head_t								freeBuffers;
-    queue_head_t								allocatedBuffers;		// Data blocks for buffering  unaligned transactions.
-    int											buffersInUse;
 };
 
 #define	kQHTypeDummy		0xDD
@@ -77,7 +71,7 @@ public:
     // not a virtual method, because the return type assumes knowledge of the element type
     UHCITransferDescriptorSharedPtr				GetSharedLogical(void);
     
-    struct UHCIAlignmentBuffer					*buffer;				// Buffer for unaligned transactions
+    UHCIAlignmentBuffer							*alignBuffer;			// Buffer for unaligned transactions
 	IOUSBCommand								*command;				// the command of which this TD is part
 	IOMemoryDescriptor							*logicalBuffer;
 	AppleUHCIQueueHead							*pQH;					// the queue head i am on
@@ -110,28 +104,9 @@ public:
     // not a virtual method, because the return type assumes knowledge of the element type
     UHCITransferDescriptorSharedPtr				GetSharedLogical(void);
     
-    struct UHCIAlignmentBuffer					*buffer;				// Buffer for unaligned transactions
+    UHCIAlignmentBuffer							*alignBuffer;				// Buffer for unaligned transactions
 	IOMemoryDescriptor							*pBuffer;
-	bool										lowLatency;				// is this a LL Isoch transaction
 	IOReturn									frStatus;
-	
-};
-
-
-class AppleUHCIIsochEndpoint : public IOUSBControllerIsochEndpoint
-{
-    OSDeclareDefaultStructors(AppleUHCIIsochEndpoint)
-	
-public:
-	virtual bool					init();
-	
-    // unique to UHCI - alignment buffer
-	UHCIAlignmentBuffer *						GetAlignmentBuffer();
-	void										ReleaseAlignmentBuffer(UHCIAlignmentBuffer*);
-	
-	queue_head_t								freeBuffers;
-    queue_head_t								allocatedBuffers;		// Data blocks for buffering  unaligned transactions.
-    int											buffersInUse;
 	
 };
 

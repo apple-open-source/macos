@@ -1,0 +1,12 @@
+Vì bạn là quản trị hộp thư chung, cần thiết bạn tán thành bài thư này được gởi cho hộp thư :
+
+    Hộp thư :    %(listname)s@%(hostname)s
+    Từ :    %(sender)s
+    Chủ đề : %(subject)s
+    Lý do :  %(reason)s
+
+Vui lòng thăm
+
+    %(admindb_url)s
+        
+để chấp nhận hay từ chối yêu cầu này.

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>1999-04-20</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>enscript.txt</string>
+		<key>OpenSourceProject</key>
+		<string>enscript</string>
+		<key>OpenSourceSHA1</key>
+		<string>f99e21a8366baf331daaa6675d7c9d2dc026eb27</string>
+		<key>OpenSourceURL</key>
+		<string>http://ftp.gnu.org/gnu/enscript/enscript-1.6.1.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>1.6.1</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.gnu.org/software/enscript/</string>
+	</dict>
+</array>
+</plist>

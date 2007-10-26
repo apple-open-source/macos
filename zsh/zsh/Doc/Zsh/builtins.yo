@@ -55,7 +55,7 @@ cindex(parameters, expanding)
 cindex(doing nothing)
 item(tt(:) [ var(arg) ... ])(
 This command does nothing, although normal argument expansions is performed
-which may have effects on shell parameters.  A zero exit code is returned.
+which may have effects on shell parameters.  A zero exit status is returned.
 )
 findex(alias)
 cindex(aliases, defining)
@@ -160,12 +160,22 @@ Change the current directory.  In the first form, change the
 current directory to var(arg), or to the value of tt($HOME) if
 var(arg) is not specified.  If var(arg) is `tt(-)', change to the
 value of tt($OLDPWD), the previous directory.
-Otherwise, if a directory named var(arg) is not found in the current
-directory and var(arg) does not begin with a slash, search each
-component of the shell parameter tt(cdpath).  If no directory is found
-and the option tt(CDABLE_VARS) is set, and a parameter named var(arg)
-exists whose value begins with a slash, treat its value as the
-directory.  In that case, the parameter is added to the named
+
+Otherwise, if var(arg) begins with a slash, attempt to change to the
+director given by var(arg).
+
+If var(arg) does not begin with a slash, the behaviour depends on whether
+the current directory `tt(.)' occurs in the list of directories contained
+in the shell parameter tt(cdpath).  If it does not, first attempt to change
+to the directory var(arg) under the current directory, and if that fails
+but tt(cdpath) is set and contains at least one element attempt to change
+to the directory var(arg) under each component of tt(cdpath) in turn until
+successful.  If `tt(.)' occurs in tt(cdpath), then tt(cdpath) is searched
+strictly in order so that `tt(.)' is only tried at the appropriate point.
+
+If no directory is found, the option tt(CDABLE_VARS) is set, and a
+parameter named var(arg) exists whose value begins with a slash, treat its
+value as the directory.  In that case, the parameter is added to the named
 directory hash table.
 
 The second form of tt(cd) substitutes the string var(new)
@@ -368,8 +378,8 @@ command in the current shell process.
 prefix(exec)
 findex(exit)
 item(tt(exit) [ var(n) ])(
-Exit the shell with the exit code specified by var(n); if none
-is specified, use the exit code from the last command executed.
+Exit the shell with the exit status specified by var(n); if none
+is specified, use the exit status from the last command executed.
 pindex(IGNORE_EOF, use of)
 An EOF condition will also cause the shell to exit, unless
 the tt(IGNORE_EOF) option is set.
@@ -385,7 +395,7 @@ already exist, it is created in the global scope.
 findex(false)
 cindex(doing nothing, unsuccessfully)
 item(tt(false) [ var(arg) ... ])(
-Do nothing and return an exit code of 1.
+Do nothing and return an exit status of 1.
 )
 findex(fc)
 cindex(history, editing)
@@ -410,7 +420,9 @@ pattern (should be quoted) and only the history events matching this
 pattern will be shown.
 Otherwise the editor program var(ename) is invoked on a file containing
 these history events.  If var(ename) is not given, the value
-of the parameter tt(FCEDIT) is used.  If var(ename) is `tt(-)',
+of the parameter tt(FCEDIT) is used; if that is not set the value of the
+parameter tt(EDITOR) is used; if that is not set a builtin default, usually
+`tt(vi)' is used.  If var(ename) is `tt(-)',
 no editor is invoked.  When editing is complete, the edited
 command is executed.
 
@@ -489,8 +501,52 @@ Equivalent to tt(typeset -E), except that options irrelevant to floating
 point numbers are not permitted.
 )
 findex(functions)
-item(tt(functions) [ {tt(PLUS())|tt(-)}tt(UXkmtuz) ] [ var(name) ... ])(
-Equivalent to tt(typeset -f).
+xitem(tt(functions) [ {tt(PLUS())|tt(-)}tt(UXkmtuz) ] [ var(name) ... ])
+xitem(tt(functions -M) var(mathfn) [ var(min) [ var(max) [ var(shellfn) ] ] ])
+xitem(tt(functions -M) [ tt(-m) var(pattern) ... ])
+item(tt(functions +M) [ tt(-m) ] var(mathfn))(
+Equivalent to tt(typeset -f), with the exception of the tt(-M) option.
+Use of the tt(-M) option may not be combined with any of the options
+handled by tt(typeset -f).
+
+tt(functions -M) var(mathfn) defines var(mathfn) as the name of
+a mathematical function recognised in all forms of arithmetical expressions;
+see
+ifzman(the section `Arithmetic Evaluation' in zmanref(zshmisc))\
+ifnzman(noderef(Arithmetic Evaluation))\
+.  By default var(mathfn) may take
+any number of comma-separated arguments.  If var(min) is given,
+it must have exactly var(min) args; if var(min) and var(max) are
+both given, it must have at least var(min) and and at most var(max)
+args.  var(max) may be -1 to indicate that there is no upper limit.
+
+By default the function is implemented by a shell function of the same
+name; if var(shellfn) is specified it gives the name of the corresponding
+shell function while var(mathfn) remains the name used in arithmetical
+expressions.  The name of the function in tt($0) is var(mathfn) (not
+var(shellfn) as would usually be the case), provided the option
+tt(FUNCTION_ARGZERO) is in effect.  The positional parameters in the shell
+function correspond to the arguments of the mathematical function call.
+The result of the last arithmetical expression evaluated
+inside the shell function (even if it is a form that normally only returns
+a status) gives the result of the mathematical function.
+
+tt(functions -M) with no arguments lists all such user-defined functions in
+the same form as a definition.  With the additional option tt(-m) and
+a list of arguments, all functions whose var(mathfn) matches one of
+the pattern arguments are listed.
+
+tt(function +M) removes the list of mathematical functions; with the
+additional option tt(-m) the arguments are treated as patterns and
+all functions whose tt(mathfn) matches the pattern are removed.  Note
+that the shell function implementing the behaviour is not removed
+(regardless of whether its name coincides with tt(mathfn)).
+
+For example, the following prints the cube of 3:
+
+example(zmath_cube+LPAR()RPAR() { (( $1 * $1 * $1 )) }
+functions -M cube 1 1 zmath_cube
+print $(( cube+LPAR()3+RPAR() )))
 )
 module(getcap)(zsh/cap)
 findex(getln)
@@ -507,7 +563,7 @@ item(tt(getopts) var(optstring) var(name) [ var(arg) ... ])(
 Checks the var(arg)s for legal options.  If the var(arg)s are omitted,
 use the positional parameters.  A valid option argument
 begins with a `tt(PLUS())' or a `tt(-)'.  An argument not beginning with
-a `tt(PLUS())' or a `tt(-)', or the argument `tt(--)', ends the options.
+a `tt(PLUS())' or a `tt(-)', or the argument `tt(-)tt(-)', ends the options.
 Note that a single `tt(-)' is not considered a valid option argument.
 var(optstring) contains the letters that tt(getopts)
 recognizes.  If a letter is followed by a `tt(:)', that option
@@ -636,12 +692,17 @@ tt(SIGIO), assuming they correspond to the same signal number.  tt(kill
 show if the alternative form corresponds to a signal number.  For example,
 under Linux tt(kill -l IO) and tt(kill -l POLL) both output 29, hence
 tt(kill -IO) and tt(kill -POLL) have the same effect.
+
+Many systems will allow process IDs to be negative to kill a process
+group or zero to kill the current process group.
 )
 findex(let)
 item(tt(let) var(arg) ...)(
 Evaluate each var(arg) as an arithmetic expression.
-See noderef(Arithmetic Evaluation) for a description
-of arithmetic expressions.  The exit status is 0 if the
+See
+ifzman(the section `Arithmetic Evaluation' in zmanref(zshmisc))\
+ifnzman(noderef(Arithmetic Evaluation))
+for a description of arithmetic expressions.  The exit status is 0 if the
 value of the last expression is nonzero, and 1 otherwise.
 )
 findex(limit)
@@ -679,7 +740,9 @@ sitem(tt(maxproc))(Maximum number of processes.)
 sitem(tt(maxpthreads))(Maximum number of threads per process.)
 sitem(tt(memorylocked))(Maximum amount of memory locked in RAM.)
 sitem(tt(memoryuse))(Maximum resident set size.)
+sitem(tt(msgqueue))(Maximum number of bytes in POSIX message queues.)
 sitem(tt(resident))(Maximum resident set size.)
+sitem(tt(sigpending))(Maximum number of pending signals.)
 sitem(tt(sockbufsize))(Maximum size of all socket buffers.)
 sitem(tt(stacksize))(Maximum stack size for each process.)
 sitem(tt(vmemorysize))(Maximum amount of virtual memory.)
@@ -842,7 +905,9 @@ that allows it to be reused as shell input. With the numeric format
 specifiers, if the corresponding argument starts with a quote character,
 the numeric value of the following character is used as the number to
 print otherwise the argument is evaluated as an arithmetic expression. See
-noderef(Arithmetic Evaluation) for a description of arithmetic
+ifzman(the section `Arithmetic Evaluation' in zmanref(zshmisc))\
+ifnzman(noderef(Arithmetic Evaluation))
+for a description of arithmetic
 expressions. With `tt(%n)', the corresponding argument is taken as an
 identifier which is created as an integer parameter.
 
@@ -931,7 +996,7 @@ not work with the tt(-q) option.
 item(tt(-q))(
 Read only one character from the terminal and set var(name) to
 `tt(y)' if this character was `tt(y)' or `tt(Y)' and to `tt(n)' otherwise.
-With this flag set the return value is zero only if the character was
+With this flag set the return status is zero only if the character was
 `tt(y)' or `tt(Y)'.  Note that this always reads from the terminal, even
 if used with the tt(-p) or tt(-u) or tt(-z) flags or with redirected input.
 This option may also be used within zle widgets.
@@ -941,6 +1006,10 @@ Read only one (or var(num)) characters.  All are assigned to the first
 var(name), without word splitting.  This flag is ignored when tt(-q) is
 present.  Input is read from the terminal unless one of tt(-u) or tt(-p)
 is present.  This option may also be used within zle widgets.
+
+Note that despite the mnemonic `key' this option does read full
+characters, which may consist of multiple bytes if the option
+tt(MULTIBYTE) is set.
 )
 item(tt(-z))(
 Read one entry from the editor buffer stack and assign it to the first
@@ -1083,7 +1152,7 @@ the array.  This means that
 
 example(set -A array -x -- foo)
 
-sets tt(array) to `tt(-x -- foo)' if tt(KSH_ARRAYS) is not set, but sets
+sets tt(array) to `tt(-x -)tt(- foo)' if tt(KSH_ARRAYS) is not set, but sets
 the array to tt(foo) and turns on the option `tt(-x)' if it is set.
 
 If the tt(-A) flag is not present, but there are arguments beyond the
@@ -1094,6 +1163,10 @@ positional parameters will be unset.
 If no arguments and no `tt(-)tt(-)' are given, then the names and values of
 all parameters are printed on the standard output.  If the only argument is
 `tt(PLUS())', the names of all parameters are printed.
+
+For historical reasons, `tt(set -)' is treated as `tt(set +xv)'
+and `tt(set -) var(args)' as `tt(set +xv --) var(args)' when in
+any other emulation mode than zsh's native mode.
 )
 module(setcap)(zsh/cap)
 findex(setopt)
@@ -1152,30 +1225,43 @@ and for processes run from the shell.
 findex(trap)
 cindex(signals, trapping)
 cindex(trapping signals)
-item(tt(trap) [ var(arg) [ var(sig) ... ] ])(
+item(tt(trap) [ var(arg) ] [ var(sig) ... ])(
 var(arg) is a series of commands (usually quoted to protect it from
 immediate evaluation by the shell) to be read and executed when the shell
-receives var(sig).  Each var(sig) can be given as a number
-or as the name of a signal.
-If var(arg) is `tt(-)', then all traps var(sig) are reset to their
-default values.  If var(arg) is the empty string, then this signal
-is ignored by the shell and by the commands it invokes.
+receives any of the signals specified by one or more var(sig) args.
+Each var(sig) can be given as a number,
+or as the name of a signal either with or without the string tt(SIG)
+in front (e.g. 1, HUP, and SIGHUP are all the same signal).
+
+If var(arg) is `tt(-)', then the specified signals are reset to their
+defaults, or, if no var(sig) args are present, all traps are reset.
+
+If var(arg) is an empty string, then the specified signals
+are ignored by the shell (and by the commands it invokes).
+
+If var(arg) is omitted but one or more var(sig) args are provided (i.e.
+the first argument is a valid signal number or name), the effect is the
+same as if var(arg) had been specified as `tt(-)'.
+
+The tt(trap) command with no arguments prints a list of commands
+associated with each signal.
 
 If var(sig) is tt(ZERR) then var(arg) will be executed
-after each command with a nonzero exit status.
+after each command with a nonzero exit status.  tt(ERR) is an alias
+for tt(ZERR) on systems that have no tt(SIGERR) signal (this is the
+usual case).
 If var(sig) is tt(DEBUG) then var(arg) will be executed
 after each command.
 If var(sig) is tt(0) or tt(EXIT)
 and the tt(trap) statement is executed inside the body of a function,
 then the command var(arg) is executed after the function completes.
+The value of tt($?) at the start of execution is the exit status of the
+shell or the return status of the function exiting.
 If var(sig) is tt(0) or tt(EXIT)
 and the tt(trap) statement is not executed inside the body of a function,
 then the command var(arg) is executed when the shell terminates.
 
-tt(ZERR), tt(DEBUG) and tt(EXIT) traps are not executed inside other traps.
-
-The tt(trap) command with no arguments prints a list of commands
-associated with each signal.
+tt(ZERR), tt(DEBUG), and tt(EXIT) traps are not executed inside other traps.
 
 Note that traps defined with the tt(trap) builtin are slightly different
 from those defined as `tt(TRAP)var(NAL) () { ... }', as the latter have
@@ -1187,7 +1273,7 @@ example(trap 'print $LINENO' DEBUG)
 
 will print the line number of a command executed after it has run, while
 
-example(TRAPDEBUG() { print $LINENO; })
+example(TRAPDEBUG+LPAR()RPAR() { print $LINENO; })
 
 will always print the number zero.
 
@@ -1199,7 +1285,7 @@ users stick exclusively to one name or another.
 findex(true)
 cindex(doing nothing, successfully)
 item(tt(true) [ var(arg) ... ])(
-Do nothing and return an exit code of 0.
+Do nothing and return an exit status of 0.
 )
 findex(ttyctl)
 cindex(tty, freezing)
@@ -1322,6 +1408,15 @@ If var(n) is zero, the width is determined by the width of the value of
 the first assignment.  In the case of numeric parameters, the length of the
 complete value assigned to the parameter is used to determine the width,
 not the value that would be output.
+
+The width is the count of characters, which may be multibyte characters
+if the tt(MULTIBYTE) option is in effect.  Note that the screen
+width of the character is not taken into account; if this is required,
+use padding with parameter expansion flags
+tt(${+LPAR()ml)var(...)tt(RPAR())var(...)tt(}) as described in
+`Parameter Expansion Flags' in
+ifzman(zmanref(zshexpn))ifnzman(noderef(Parameter Expansion)).
+
 When the parameter is expanded, it is filled on the right with
 blanks or truncated if necessary to fit the field.
 Note truncation can lead to unexpected results with numeric parameters.
@@ -1368,7 +1463,7 @@ determines how the function is loaded.
 )
 item(tt(-h))(
 Hide: only useful for special parameters (those marked `<S>' in the table in
-ifzman(zmanref(zshparams))\
+ifzman(zmanref(zshparam))\
 ifnzman(noderef(Parameters Set By The Shell))\
 ), and for local parameters with the same name as a special parameter,
 though harmless for others.  A special parameter with this attribute will
@@ -1441,7 +1536,7 @@ enditem()
 findex(ulimit)
 cindex(resource limits)
 cindex(limits, resource)
-item(tt(ulimit) [ [ tt(-SHacdflmnpstv) | tt(-N) var(resource) [ var(limit) ] ... ])(
+item(tt(ulimit) [ [ tt(-SHacdfilmnpqstvx) | tt(-N) var(resource) [ var(limit) ] ... ])(
 Set or display resource limits of the shell and the processes started by
 the shell.  The value of var(limit) can be a number in the unit specified
 below or the value `tt(unlimited)'.  By default, only soft limits are
@@ -1462,14 +1557,17 @@ sitem(tt(-a))(Lists all of the current resource limits.)
 sitem(tt(-c))(512-byte blocks on the size of core dumps.)
 sitem(tt(-d))(K-bytes on the size of the data segment.)
 sitem(tt(-f))(512-byte blocks on the size of files written.)
+sitem(tt(-i))(The number of pending signals.)
 sitem(tt(-l))(K-bytes on the size of locked-in memory.)
 sitem(tt(-m))(K-bytes on the size of physical memory.)
 sitem(tt(-n))(open file descriptors.)
+sitem(tt(-q))(Bytes in POSIX message queues.)
 sitem(tt(-s))(K-bytes on the size of the stack.)
 sitem(tt(-t))(CPU seconds to be used.)
 sitem(tt(-u))(processes available to the user.)
 sitem(tt(-v))(K-bytes on the size of virtual memory.  On some systems this
 refers to the limit called `address space'.)
+sitem(tt(-x))(The number of locks on files.)
 endsitem()
 
 A resource may also be specified by integer in the form `tt(-N)
@@ -1681,7 +1779,7 @@ compiled file.  Without further arguments, the names of the original
 files compiled into it are listed.  The first line of output shows
 the version of the shell which compiled the file and how the file
 will be used (i.e. by reading it directly or by mapping it into memory).
-With arguments, nothing is output and the return value is set to zero if
+With arguments, nothing is output and the return status is set to zero if
 definitions for em(all) var(name)s were found in the compiled
 file, and non-zero if the definition for at least one var(name) was not
 found.
@@ -1766,7 +1864,13 @@ be in a file with a name consisting of the specified var(name) followed by
 a standard suffix, usually `tt(.so)' (`tt(.sl)' on HPUX).
 If the module to be loaded is
 already loaded and the tt(-i) option is given, the duplicate module is
-ignored.  Otherwise tt(zmodload) prints an error message.
+ignored.  Otherwise tt(zmodload) prints an error message and returns
+a non-zero status.  If tt(zmodload) detects an inconsistency, such as an
+invalid module name or circular dependency list, the current code block is 
+aborted.  Hence `tt(zmodload -i) var(module) tt(2>/dev/null)' is sufficient
+to test whether a module is available.
+If it is available, the module is loaded if necessary, while if it
+is not available, non-zero status is silently returned.
 
 The var(name)d module is searched for in the same way a command is, using
 tt($module_path) instead of tt($path).  However, the path search is

@@ -5,6 +5,7 @@
 # Directories used by "make install":
 prefix = SYS$DATA:[
 exec_prefix = $(prefix)
+bindir = $(exec_prefix).bin
 libdir = $(exec_prefix).lib
 
 # Programs used by "make":
@@ -20,7 +21,7 @@ WARN_CFLAGS = /warning
 OPTIMFLAGS = /optimize
 
 CFLAGS = $(ABIFLAGS) $(WARN_CFLAGS) $(OPTIMFLAGS)
-DEFS = "VMS=1","HAVE_CONFIG_H=1"
+DEFS = "VMS=1","HAVE_CONFIG_H=1","ENABLE_RELOCATABLE=1","IN_LIBRARY=1","INSTALLPREFIX=""$(prefix)]""","INSTALLDIR=""$(bindir)]""","NO_XMALLOC=1","set_relocation_prefix=libcharset_set_relocation_prefix","relocate=libcharset_relocate"
 
 INCLUDES = /include=([],[-],[-.include])
 

@@ -1,6 +1,6 @@
---- wcscoll.3.orig	Fri Mar 11 08:27:51 2005
-+++ wcscoll.3	Fri Mar 11 08:29:43 2005
-@@ -41,7 +41,8 @@
+--- _SB/Libc/string/FreeBSD/wcscoll.3	2003-05-20 15:23:55.000000000 -0700
++++ _SB/Libc/string/FreeBSD/wcscoll.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -41,37 +41,57 @@
  .Dt WCSCOLL 3
  .Os
  .Sh NAME
@@ -10,22 +10,41 @@
  .Nd compare wide strings according to current collation
  .Sh LIBRARY
  .Lb libc
-@@ -49,6 +50,9 @@
+ .Sh SYNOPSIS
  .In wchar.h
  .Ft int
- .Fn wcscoll "const wchar_t *s1" "const wchar_t *s2"
+-.Fn wcscoll "const wchar_t *s1" "const wchar_t *s2"
++.Fo wcscoll
++.Fa "const wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fc
++.In wchar.h
 +.In xlocale.h
 +.Ft int
-+.Fn wcscoll_l "const wchar_t *s1" "const wchar_t *s2" "locale_t loc"
++.Fo wcscoll_l
++.Fa "const wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn wcscoll
-@@ -63,6 +67,14 @@
+ function compares the null-terminated strings
+-.Fa s1
++.Fa ws1
+ and
+-.Fa s2
+-according to the current locale collation order.
++.Fa ws2 ,
++according to the current locale's collation order.
+ In the
+ .Dq Li C
+ locale,
  .Fn wcscoll
  is equivalent to
  .Fn wcscmp .
 +.Pp
-+While the
++Although the
 +.Fn wcscoll
 +function uses the current locale, the
 +.Fn wcscoll_l
@@ -35,7 +54,18 @@
  .Sh RETURN VALUES
  The
  .Fn wcscoll
-@@ -95,7 +107,8 @@
+ function
+ returns an integer greater than, equal to, or less than 0,
+ if
+-.Fa s1
++.Fa ws1
+ is greater than, equal to, or less than
+-.Fa s2 .
++.Fa ws2 .
+ .Pp
+ No return value is reserved to indicate errors;
+ callers should set
+@@ -95,7 +115,8 @@
  .Xr setlocale 3 ,
  .Xr strcoll 3 ,
  .Xr wcscmp 3 ,

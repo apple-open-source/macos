@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_ocsp.c,v 1.4.2.1 2004/12/15 01:54:39 matz Exp $
+ * $Id: ossl_ocsp.c 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2003  Michal Rokos <m.rokos@sh.cvut.cz>
  * Copyright (C) 2003  GOTOU Yuuzou <gotoyuzo@notwork.org>
@@ -261,11 +261,11 @@ ossl_ocspreq_to_der(VALUE self)
     unsigned char *p;
     long len;
 
+    GetOCSPReq(self, req);
     if((len = i2d_OCSP_REQUEST(req, NULL)) <= 0)
 	ossl_raise(eOCSPError, NULL);
     str = rb_str_new(0, len);
     p = RSTRING(str)->ptr;
-    GetOCSPReq(self, req);
     if(i2d_OCSP_REQUEST(req, &p) <= 0)
 	ossl_raise(eOCSPError, NULL);
     ossl_str_adjust(str, p);
@@ -681,7 +681,7 @@ Init_ossl_ocsp()
 {
     mOCSP = rb_define_module_under(mOSSL, "OCSP");
 
-    eOCSPError = rb_define_class_under(mOCSP, "OCSPError", rb_cObject);
+    eOCSPError = rb_define_class_under(mOCSP, "OCSPError", eOSSLError);
 
     cOCSPReq = rb_define_class_under(mOCSP, "Request", rb_cObject);
     rb_define_alloc_func(cOCSPReq, ossl_ocspreq_alloc);

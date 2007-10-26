@@ -3,6 +3,8 @@
 /* This is the "-fgnu-runtime" variant of objc.dg/selector-1.m.  */
 /* { dg-options "-Wselector -fgnu-runtime" } */
 /* { dg-do compile } */
+/* APPLE LOCAL radar 4894756 */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 typedef struct objc_object { struct objc_class *class_pointer; } *id;
 typedef const struct objc_selector    *SEL;

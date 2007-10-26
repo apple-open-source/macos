@@ -1,6 +1,6 @@
---- wcsxfrm.3.orig	Fri Mar 11 08:31:43 2005
-+++ wcsxfrm.3	Fri Mar 11 09:44:27 2005
-@@ -41,7 +41,8 @@
+--- _SB/Libc/string/FreeBSD/wcsxfrm.3	2003-05-20 15:23:56.000000000 -0700
++++ _SB/Libc/string/FreeBSD/wcsxfrm.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -41,34 +41,47 @@
  .Dt WCSXFRM 3
  .Os
  .Sh NAME
@@ -10,22 +10,60 @@
  .Nd transform a wide string under locale
  .Sh LIBRARY
  .Lb libc
-@@ -49,6 +50,9 @@
+ .Sh SYNOPSIS
  .In wchar.h
  .Ft size_t
- .Fn wcsxfrm "wchar_t * restrict dst" "const wchar_t * restrict src" "size_t n"
+-.Fn wcsxfrm "wchar_t * restrict dst" "const wchar_t * restrict src" "size_t n"
++.Fo wcsxfrm
++.Fa "wchar_t *restrict ws1"
++.Fa "const wchar_t *restrict ws2"
++.Fa "size_t n"
++.Fc
++.In wchar.h
 +.In xlocale.h
 +.Ft size_t
-+.Fn wcsxfrm_l "wchar_t * restrict dst" "const wchar_t * restrict src" "size_t n" "locale_t loc"
++.Fo wcsxfrm_l
++.Fa "wchar_t *restrict ws1"
++.Fa "const wchar_t *restrict ws2"
++.Fa "size_t n"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn wcsxfrm
-@@ -80,6 +84,14 @@
+ function transforms a null-terminated wide character string pointed to by
+-.Fa src
+-according to the current locale collation order
+-then copies the transformed string
+-into
+-.Fa dst .
++.Fa ws2 ,
++according to the current locale's collation order,
++then copies the transformed string into
++.Fa ws1 .
+ No more than
+ .Fa n
+ wide characters are copied into
+-.Fa dst ,
+-including the terminating null character added.
++.Fa ws1 ,
++including the terminating null character.
+ If
+ .Fa n
+ is set to 0
+ (it helps to determine an actual size needed
+ for transformation),
+-.Fa dst
++.Fa ws1
+ is permitted to be a
+ .Dv NULL
+ pointer.
+@@ -80,6 +93,14 @@
  is equivalent to comparing
  two original strings with
  .Fn wcscoll .
 +.Pp
-+While the
++Although the
 +.Fn wcsxfrm
 +function uses the current locale, the
 +.Fn wcsxfrm_l
@@ -35,7 +73,14 @@
  .Sh RETURN VALUES
  Upon successful completion,
  .Fn wcsxfrm
-@@ -94,7 +106,8 @@
+@@ -88,13 +109,14 @@
+ If this value is
+ .Fa n
+ or more, the contents of
+-.Fa dst
++.Fa ws1
+ are indeterminate.
+ .Sh SEE ALSO
  .Xr setlocale 3 ,
  .Xr strxfrm 3 ,
  .Xr wcscmp 3 ,
@@ -45,3 +90,12 @@
  .Sh STANDARDS
  The
  .Fn wcsxfrm
+@@ -120,7 +142,7 @@
+ .Fn wcscoll ;
+ .Fn wcsxfrm
+ only stores information about primary collation weights into
+-.Fa dst ,
++.Fa ws1 ,
+ whereas
+ .Fn wcscoll
+ compares characters using both primary and secondary weights.

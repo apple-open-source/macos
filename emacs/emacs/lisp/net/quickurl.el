@@ -1,6 +1,7 @@
 ;;; quickurl.el --- insert an URL based on text at point in buffer
 
-;; Copyright (C) 1999,2000,2001 Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Dave Pearson <davep@davep.org>
 ;; Maintainer: Dave Pearson <davep@davep.org>
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 ;;
@@ -256,15 +257,17 @@ returned."
 
 ;; Main code:
 
-(defun* quickurl-read (&optional (buffer (current-buffer)))
+(defun* quickurl-read (&optional buffer)
   "`read' the URL list from BUFFER into `quickurl-urls'.
 
+BUFFER, if nil, defaults to current buffer.
 Note that this function moves point to `point-min' before doing the `read'
 It also restores point after the `read'."
   (save-excursion
     (setf (point) (point-min))
-    (setq quickurl-urls (funcall quickurl-sort-function (read buffer)))))
-                       
+    (setq quickurl-urls (funcall quickurl-sort-function
+                                 (read (or buffer (current-buffer)))))))
+
 (defun quickurl-load-urls ()
   "Load the contents of `quickurl-url-file' into `quickurl-urls'."
   (when (file-exists-p quickurl-url-file)
@@ -280,7 +283,7 @@ It also restores point after the `read'."
       (pp quickurl-urls)
       (princ quickurl-postfix)
       (write-region (point-min) (point-max) quickurl-url-file nil 0))))
-  
+
 (defun quickurl-find-url (lookup)
   "Return URL associated with key LOOKUP.
 
@@ -298,14 +301,15 @@ Also display a `message' saying what the URL was unless SILENT is non-nil."
     (message "Found %s" (quickurl-url-url url))))
 
 ;;;###autoload
-(defun* quickurl (&optional (lookup (funcall quickurl-grab-lookup-function)))
+(defun* quickurl (&optional lookup)
   "Insert an URL based on LOOKUP.
 
 If not supplied LOOKUP is taken to be the word at point in the current
 buffer, this default action can be modifed via
 `quickurl-grab-lookup-function'."
   (interactive)
-  (when lookup
+  (when (or lookup
+            (setq lookup (funcall quickurl-grab-lookup-function)))
     (quickurl-load-urls)
     (let ((url (quickurl-find-url lookup)))
       (if (null url)
@@ -327,7 +331,7 @@ buffer, this default action can be modifed via
   (let ((url (quickurl-find-url lookup)))
     (when url
       (quickurl-insert url))))
-   
+
 (defun quickurl-grab-url ()
   "Attempt to grab a word/url pair from point in the current buffer.
 
@@ -370,7 +374,7 @@ is decided."
                        (read-string "URL: "     (quickurl-url-url word-url))
                        (read-string "Comment: " (quickurl-url-comment word-url)))))
   (if (zerop (length word))
-      (error "You must specify a WORD for lookup")  
+      (error "You must specify a WORD for lookup")
     (quickurl-load-urls)
     (let* ((current-url (quickurl-find-url word))
            (add-it      (if current-url
@@ -392,14 +396,15 @@ is decided."
           (message "Added %s" url))))))
 
 ;;;###autoload
-(defun* quickurl-browse-url (&optional (lookup (funcall quickurl-grab-lookup-function)))
+(defun quickurl-browse-url (&optional lookup)
   "Browse the URL associated with LOOKUP.
 
 If not supplied LOOKUP is taken to be the word at point in the
 current buffer, this default action can be modifed via
 `quickurl-grab-lookup-function'."
   (interactive)
-  (when lookup
+  (when (or lookup
+            (setq lookup (funcall quickurl-grab-lookup-function)))
     (quickurl-load-urls)
     (let ((url (quickurl-find-url lookup)))
       (if url
@@ -454,7 +459,7 @@ The key bindings for `quickurl-list-mode' are:
   (use-local-map quickurl-list-mode-map)
   (setq major-mode 'quickurl-list-mode
         mode-name  "quickurl list")
-  (run-hooks 'quickurl-list-mode-hook)
+  (run-mode-hooks 'quickurl-list-mode-hook)
   (setq buffer-read-only t
         truncate-lines   t))
 
@@ -546,7 +551,8 @@ TYPE dictates what will be inserted, options are:
 (quickurl-list-make-inserter with-lookup)
 (quickurl-list-make-inserter with-desc)
 (quickurl-list-make-inserter lookup)
-  
+
 (provide 'quickurl)
 
+;;; arch-tag: a8183ea5-80c2-4082-a7d1-b0fdf2da467e
 ;;; quickurl.el ends here

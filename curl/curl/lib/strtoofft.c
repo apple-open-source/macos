@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,11 +18,19 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: strtoofft.c,v 1.7 2004/10/10 03:28:51 bagder Exp $
+ * $Id: strtoofft.c,v 1.11 2007-02-16 18:19:36 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
 #include "strtoofft.h"
+
+/*
+ * NOTE:
+ *
+ * In the ISO C standard (IEEE Std 1003.1), there is a strtoimax() function we
+ * could use in case strtoll() doesn't exist...  See
+ * http://www.opengroup.org/onlinepubs/009695399/functions/strtoimax.html
+ */
 
 #ifdef NEED_CURL_STRTOLL
 #include <stdlib.h>
@@ -47,7 +55,7 @@ curlx_strtoll(const char *nptr, char **endptr, int base)
 
   /* Skip leading whitespace. */
   end = (char *)nptr;
-  while (isspace((int)end[0])) {
+  while (ISSPACE(end[0])) {
     end++;
   }
 
@@ -116,7 +124,7 @@ curlx_strtoll(const char *nptr, char **endptr, int base)
     else
       value = CURL_LLONG_MAX;
 
-    errno = ERANGE;
+    SET_ERRNO(ERANGE);
   }
 
   if (endptr)

@@ -99,7 +99,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleADBMouse;
-				MODULE_VERSION = 2.1.0f3;
+				MODULE_VERSION = 2.1.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -124,7 +124,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleADBMouse</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleADBMouse version 2.1.0f3, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>AppleADBMouse version 2.1.1, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -136,11 +136,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.0</string>
+	<string>2.1.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.0f3</string>
+	<string>2.1.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleADBMouseType1</key>

@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -179,9 +179,7 @@ static sapi_module_struct phttpd_sapi_module = {
  
 	NULL,									/* register server variables */
 	NULL,									/* Log message */
-
-	NULL,									/* Block interruptions */
-	NULL,									/* Unblock interruptions */
+	NULL,									/* Get request time */
 
     STANDARD_SAPI_MODULE_PROPERTIES
 };
@@ -247,7 +245,7 @@ php_phttpd_request_dtor(TSRMLS_D TSRMLS_DC)
 int php_doit(TSRMLS_D TSRMLS_DC)
 {
 	struct stat sb;
-	zend_file_handle file_handle = {0};
+	zend_file_handle file_handle;
 	struct httpinfo *hip = PHG(cip)->hip;
 	TSRMLS_FETCH();
 

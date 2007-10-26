@@ -19,7 +19,11 @@ AUTOCONF = .\config.msvc
 !include $(AUTOCONF)
 
 # Names of various input and output components.
+!if "$(DEBUG)" == "1"
+XML_NAME = xml2_debug
+!else
 XML_NAME = xml2
+!endif
 XML_BASENAME = lib$(XML_NAME)
 XML_SO = $(XML_BASENAME).dll
 XML_IMP = $(XML_BASENAME).lib
@@ -66,8 +70,19 @@ LIBS =
 LIBS = $(LIBS) wsock32.lib
 !endif 
 !if "$(WITH_ICONV)" == "1"
+!if "$(DEBUG)" == "1"
+LIBS = $(LIBS) iconv_debug.lib
+!else
 LIBS = $(LIBS) iconv.lib
+!endif
 !endif 
+!if "$(WITH_ICU)" == "1"
+!if "$(DEBUG)" == "1"
+LIBS = $(LIBS) icuuc_debug.lib
+!else
+LIBS = $(LIBS) icuuc.lib
+!endif
+!endif
 !if "$(WITH_ZLIB)" == "1"
 LIBS = $(LIBS) zdll.lib
 !endif
@@ -85,7 +100,7 @@ CFLAGS = $(CFLAGS) /D "_DEBUG" /Od /Z7
 LDFLAGS = $(LDFLAGS) /DEBUG
 !else
 CFLAGS = $(CFLAGS) /D "NDEBUG" /O2 
-LDFLAGS = $(LDFLAGS) /OPT:NOWIN98
+LDFLAGS = $(LDFLAGS) /OPT:NOWIN98 /DEBUG
 !endif
 
 # Libxml object files.

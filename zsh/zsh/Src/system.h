@@ -52,6 +52,18 @@
 # undef HAVE_SYS_UTSNAME_H
 #endif
 
+/*
+ * Solaris by default zeroes all elements of the tm structure in
+ * strptime().  Unfortunately that gives us no way of telling whether
+ * the tm_isdst element has been set from the input pattern.  If it
+ * hasn't we want it to be -1 (undetermined) on input to mktime().  So
+ * we stop strptime() zeroing the struct tm and instead set all the
+ * elements ourselves.
+ *
+ * This is likely to be harmless everywhere else.
+ */
+#define _STRPTIME_DONTZERO
+
 #ifdef PROTOTYPES
 # define _(Args) Args
 #else
@@ -151,6 +163,50 @@ char *alloca _((size_t));
 #  define __MALLOC_0_RETURNS_NULL
 # endif
 # include <stdlib.h>
+#endif
+
+/*
+ * Stuff with variable arguments.  We use definitions to make the
+ * same code work with varargs (the original K&R-style, just to
+ * be maximally compatible) and stdarg (which all modern systems
+ * should have).
+ *
+ * Ideally this should somehow be merged with the tricks performed
+ * with "_" in makepro.awk, but I don't understand makepro.awk.
+ * Currently we simply rely on the fact that makepro.awk has been
+ * hacked to leave alone argument lists that already contains VA_ALIST
+ * except for removing the VA_DCL and turning VA_ALIST into VA_ALIST_PROTO.
+ */
+#ifdef HAVE_STDARG_H
+# include <stdarg.h>
+# define VA_ALIST1(x)		x, ...
+# define VA_ALIST2(x,y)		x, y, ...
+# define VA_ALIST_PROTO1(x)	VA_ALIST1(x)
+# define VA_ALIST_PROTO2(x,y)	VA_ALIST2(x,y)
+# define VA_DCL
+# define VA_DEF_ARG(x)
+# define VA_START(ap,x)		va_start(ap, x)
+# define VA_GET_ARG(ap,x,t)
+#else
+# if HAVE_VARARGS_H
+#  include <varargs.h>
+#  define VA_ALIST1(x)		va_alist
+#  define VA_ALIST2(x,y)	va_alist
+/*
+ * In prototypes, assume K&R form and remove the variable list.
+ * This is about the best we can do without second-guessing the way
+ * varargs works on this system.  The _ trick should be able to
+ * do this for us but we've turned it off here.
+ */
+#  define VA_ALIST_PROTO1(x)
+#  define VA_ALIST_PROTO2(x,y)
+#  define VA_DCL		va_dcl
+#  define VA_DEF_ARG(x)		x
+#  define VA_START(ap,x)	va_start(ap);
+#  define VA_GET_ARG(ap,x,t)	(x = va_arg(ap, t))
+# else
+#  error "Your system has neither stdarg.h or varargs.h."
+# endif
 #endif
 
 #ifdef HAVE_ERRNO_H
@@ -300,6 +356,15 @@ struct timezone {
 # include <sys/socket.h>
 #endif
 
+#if defined(__APPLE__) && defined(HAVE_SELECT)
+/*
+ * Prefer select() to poll() on MacOS X since poll() is known
+ * to be problematic in 10.4
+ */
+#undef HAVE_POLL
+#undef HAVE_POLL_H
+#endif
+
 #ifdef HAVE_SYS_FILIO_H
 # include <sys/filio.h>
 #endif
@@ -328,7 +393,7 @@ struct timezone {
 # endif  /* HAVE_TERMIO_H  */
 #endif   /* HAVE_TERMIOS_H */
 
-#if defined(GWINSZ_IN_SYS_IOCTL) || defined(CLOBBERS_TYPEAHEAD)
+#if defined(GWINSZ_IN_SYS_IOCTL) || defined(IOCTL_IN_SYS_IOCTL)
 # include <sys/ioctl.h>
 #endif
 #ifdef WINSIZE_IN_PTEM
@@ -635,12 +700,6 @@ extern char PC, *BC, *UP;
 extern short ospeed;
 #endif
 
-/* Rename some global zsh variables to avoid *
- * possible name clashes with libc           */
-
-#define cs zshcs
-#define ll zshll
-
 #ifndef O_NOCTTY
 # define O_NOCTTY 0
 #endif
@@ -687,3 +746,48 @@ extern short ospeed;
 #else
 #define UNUSED(x) x
 #endif
+
+/*
+ * The MULTIBYTE_SUPPORT configure-define specifies that we want to enable
+ * complete Unicode conversion between wide characters and multibyte strings.
+ */
+#if defined MULTIBYTE_SUPPORT \
+ || (defined HAVE_WCHAR_H && defined HAVE_WCTOMB && defined __STDC_ISO_10646__)
+/*
+ * If MULTIBYTE_SUPPORT is not defined, these includes provide a subset of
+ * Unicode support that makes the \u and \U printf escape sequences work.
+ */
+# include <wchar.h>
+# include <wctype.h>
+#endif
+#ifdef HAVE_LANGINFO_H
+#  include <langinfo.h>
+#  ifdef HAVE_ICONV
+#    include <iconv.h>
+#  endif
+#endif
+
+#if defined(HAVE_INITGROUPS) && !defined(DISABLE_DYNAMIC_NSS)
+# define USE_INITGROUPS
+#endif
+
+#if defined(HAVE_GETGRGID) && !defined(DISABLE_DYNAMIC_NSS)
+# define USE_GETGRGID
+#endif
+
+#if defined(HAVE_GETGRNAM) && !defined(DISABLE_DYNAMIC_NSS)
+# define USE_GETGRNAM
+#endif
+
+#if defined(HAVE_GETPWENT) && !defined(DISABLE_DYNAMIC_NSS)
+# define USE_GETPWENT
+#endif
+
+#if defined(HAVE_GETPWNAM) && !defined(DISABLE_DYNAMIC_NSS)
+# define USE_GETPWNAM
+#endif
+
+#if defined(HAVE_GETPWUID) && !defined(DISABLE_DYNAMIC_NSS)
+# define USE_GETPWUID
+#endif
+

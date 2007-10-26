@@ -1,6 +1,6 @@
 --- tmac/groff_mdoc.man	Tue May 11 15:10:17 2004
 +++ tmac/groff_mdoc.man	Fri Sep 24 12:33:57 2004
-@@ -1987,6 +1987,8 @@
+@@ -1990,6 +1990,8 @@
  .Pp
  .It Li -susv2
  .St -susv2

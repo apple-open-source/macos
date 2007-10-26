@@ -1,3 +1,24 @@
+/* Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+     Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
+
 /*
   Simple program to start Emacs with its console window hidden.
 
@@ -13,7 +34,7 @@
    is running emacs.exe already, you cannot install a newer version.
    By defining CHOOSE_NEWEST_EXE, you can name your new emacs.exe
    something else which matches "emacs*.exe", and runemacs will
-   automatically select the newest emacs executeable in the bin directory.
+   automatically select the newest emacs executable in the bin directory.
    (So you'll probably be able to delete the old version some hours/days
    later).
 */
@@ -29,7 +50,6 @@ WinMain (HINSTANCE hSelf, HINSTANCE hPrev, LPSTR cmdline, int nShow)
 {
   STARTUPINFO start;
   SECURITY_ATTRIBUTES sec_attrs;
-  SECURITY_DESCRIPTOR sec_desc;
   PROCESS_INFORMATION child;
   int wait_for_child = FALSE;
   DWORD priority_class = NORMAL_PRIORITY_CLASS;
@@ -65,13 +85,13 @@ WinMain (HINSTANCE hSelf, HINSTANCE hPrev, LPSTR cmdline, int nShow)
       goto error;
     do
       {
-        if (wfd.ftLastWriteTime.dwHighDateTime > best_time.dwHighDateTime
-            || (wfd.ftLastWriteTime.dwHighDateTime == best_time.dwHighDateTime
-                && wfd.ftLastWriteTime.dwLowDateTime > best_time.dwLowDateTime))
-          {
-            best_time = wfd.ftLastWriteTime;
-            strcpy (best_name, wfd.cFileName);
-          }
+	if (wfd.ftLastWriteTime.dwHighDateTime > best_time.dwHighDateTime
+	    || (wfd.ftLastWriteTime.dwHighDateTime == best_time.dwHighDateTime
+		&& wfd.ftLastWriteTime.dwLowDateTime > best_time.dwLowDateTime))
+	  {
+	    best_time = wfd.ftLastWriteTime;
+	    strcpy (best_name, wfd.cFileName);
+	  }
       }
     while (FindNextFile (fh, &wfd));
     FindClose (fh);
@@ -89,9 +109,9 @@ WinMain (HINSTANCE hSelf, HINSTANCE hPrev, LPSTR cmdline, int nShow)
     {
       if (strncmp (cmdline+1, "wait", 4) == 0)
 	{
-      wait_for_child = TRUE;
-      cmdline += 5;
-    }
+	  wait_for_child = TRUE;
+	  cmdline += 5;
+	}
       else if (strncmp (cmdline+1, "high", 4) == 0)
 	{
 	  priority_class = HIGH_PRIORITY_CLASS;
@@ -104,7 +124,10 @@ WinMain (HINSTANCE hSelf, HINSTANCE hPrev, LPSTR cmdline, int nShow)
 	}
       else
 	break;
+      /* Look for next argument.  */
+      while (*++cmdline == ' ');
     }
+
   strcat (new_cmdline, cmdline);
 
   /* Set emacs_dir variable if runemacs was in "%emacs_dir%\bin".  */
@@ -118,15 +141,19 @@ WinMain (HINSTANCE hSelf, HINSTANCE hPrev, LPSTR cmdline, int nShow)
 
   memset (&start, 0, sizeof (start));
   start.cb = sizeof (start);
-  start.dwFlags = STARTF_USESHOWWINDOW;
+  start.dwFlags = STARTF_USESHOWWINDOW | STARTF_USECOUNTCHARS;
   start.wShowWindow = SW_HIDE;
+  /* Ensure that we don't waste memory if the user has specified a huge
+     default screen buffer for command windows.  */
+  start.dwXCountChars = 80;
+  start.dwYCountChars = 25;
 
   sec_attrs.nLength = sizeof (sec_attrs);
   sec_attrs.lpSecurityDescriptor = NULL;
   sec_attrs.bInheritHandle = FALSE;
 
   if (CreateProcess (NULL, new_cmdline, &sec_attrs, NULL, TRUE, priority_class,
-		     GetEnvironmentStrings (), NULL, &start, &child))
+		     NULL, NULL, &start, &child))
     {
       if (wait_for_child)
 	{
@@ -144,3 +171,6 @@ error:
   MessageBox (NULL, "Could not start Emacs.", "Error", MB_ICONSTOP);
   return 1;
 }
+
+/* arch-tag: 7e02df73-4df7-4aa0-baea-99c6d047a384
+   (do not change this comment) */

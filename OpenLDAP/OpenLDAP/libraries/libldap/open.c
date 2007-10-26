@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/open.c,v 1.102.2.2 2004/01/01 18:16:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/open.c,v 1.105.2.6 2006/05/15 15:26:46 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -19,7 +19,9 @@
 #include "portable.h"
 
 #include <stdio.h>
+#ifdef HAVE_LIMITS_H
 #include <limits.h>
+#endif
 
 #include <ac/stdlib.h>
 
@@ -33,6 +35,7 @@
 #include "ldap-int.h"
 #include "ldap_log.h"
 
+/* Caller should hold the req_mutex if simultaneous accesses are possible */
 int ldap_open_defconn( LDAP *ld )
 {
 	ld->ld_defconn = ldap_new_connection( ld,
@@ -63,12 +66,8 @@ ldap_open( LDAP_CONST char *host, int port )
 	int rc;
 	LDAP		*ld;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( CONNECTION, ARGS, "ldap_open(%s, %d)\n", host, port, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_open(%s, %d)\n",
 		host, port, 0 );
-#endif
 
 	ld = ldap_init( host, port );
 	if ( ld == NULL ) {
@@ -82,13 +81,8 @@ ldap_open( LDAP_CONST char *host, int port )
 		ld = NULL;
 	}
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( CONNECTION, RESULTS, "ldap_open: %s\n",
-		ld == NULL ? "succeeded" : "failed", 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_open: %s\n",
 		ld == NULL ? "succeeded" : "failed", 0, 0 );
-#endif
 
 	return ld;
 }
@@ -114,11 +108,7 @@ ldap_create( LDAP **ldp )
 			return LDAP_LOCAL_ERROR;
 	}
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( CONNECTION, ENTRY, "ldap_create\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_create\n", 0, 0, 0 );
-#endif
 
 	if ( (ld = (LDAP *) LDAP_CALLOC( 1, sizeof(LDAP) )) == NULL ) {
 		return( LDAP_NO_MEMORY );
@@ -132,6 +122,15 @@ ldap_create( LDAP **ldp )
 	/* but not pointers to malloc'ed items */
 	ld->ld_options.ldo_sctrls = NULL;
 	ld->ld_options.ldo_cctrls = NULL;
+	ld->ld_options.ldo_tm_api = NULL;
+	ld->ld_options.ldo_tm_net = NULL;
+	ld->ld_options.ldo_defludp = NULL;
+
+	ld->ld_options.ldo_noaddr_option = 0;
+	ld->ld_options.ldo_noreverse_option = 0;
+	ld->ld_options.ldo_notifydesc_proc = NULL;
+	ld->ld_options.ldo_notifydesc_params = NULL;
+	ld->ld_options.ldo_sasl_fqdn = NULL;
 
 #ifdef HAVE_CYRUS_SASL
 	ld->ld_options.ldo_def_sasl_mech = gopts->ldo_def_sasl_mech
@@ -144,34 +143,48 @@ ldap_create( LDAP **ldp )
 		? LDAP_STRDUP( gopts->ldo_def_sasl_authzid ) : NULL;
 #endif
 
-	ld->ld_options.ldo_defludp = ldap_url_duplist(gopts->ldo_defludp);
+	if ( gopts->ldo_tm_api &&
+		ldap_int_timeval_dup( &ld->ld_options.ldo_tm_api, gopts->ldo_tm_api ))
+		goto nomem;
 
-	if ( ld->ld_options.ldo_defludp == NULL ) {
-		LDAP_FREE( (char*)ld );
-		return LDAP_NO_MEMORY;
+	if ( gopts->ldo_tm_net &&
+		ldap_int_timeval_dup( &ld->ld_options.ldo_tm_net, gopts->ldo_tm_net ))
+		goto nomem;
+
+	if ( gopts->ldo_defludp ) {
+		ld->ld_options.ldo_defludp = ldap_url_duplist(gopts->ldo_defludp);
+
+		if ( ld->ld_options.ldo_defludp == NULL ) goto nomem;
 	}
 
-	if (( ld->ld_selectinfo = ldap_new_select_info()) == NULL ) {
-		ldap_free_urllist( ld->ld_options.ldo_defludp );
-		LDAP_FREE( (char*) ld );
-		return LDAP_NO_MEMORY;
-	}
+	if (( ld->ld_selectinfo = ldap_new_select_info()) == NULL ) goto nomem;
 
 	ld->ld_lberoptions = LBER_USE_DER;
 
 	ld->ld_sb = ber_sockbuf_alloc( );
-	if ( ld->ld_sb == NULL ) {
-		ldap_free_urllist( ld->ld_options.ldo_defludp );
-		LDAP_FREE( (char*) ld );
-		return LDAP_NO_MEMORY;
-	}
+	if ( ld->ld_sb == NULL ) goto nomem;
 
 #ifdef LDAP_R_COMPILE
 	ldap_pvt_thread_mutex_init( &ld->ld_req_mutex );
 	ldap_pvt_thread_mutex_init( &ld->ld_res_mutex );
+	ldap_pvt_thread_mutex_init( &ld->ld_conn_mutex );
 #endif
 	*ldp = ld;
 	return LDAP_SUCCESS;
+
+nomem:
+	ldap_free_select_info( ld->ld_selectinfo );
+	ldap_free_urllist( ld->ld_options.ldo_defludp );
+	LDAP_FREE( ld->ld_options.ldo_tm_net );
+	LDAP_FREE( ld->ld_options.ldo_tm_api );
+#ifdef HAVE_CYRUS_SASL
+	LDAP_FREE( ld->ld_options.ldo_def_sasl_authzid );
+	LDAP_FREE( ld->ld_options.ldo_def_sasl_authcid );
+	LDAP_FREE( ld->ld_options.ldo_def_sasl_realm );
+	LDAP_FREE( ld->ld_options.ldo_def_sasl_mech );
+#endif
+	LDAP_FREE( (char *)ld );
+	return LDAP_NO_MEMORY;
 }
 
 /*
@@ -246,11 +259,7 @@ ldap_int_open_connection(
 	char *host;
 	int port, proto;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( CONNECTION, ENTRY, "ldap_int_open_connection\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_int_open_connection\n", 0, 0, 0 );
-#endif
 
 	switch ( proto = ldap_pvt_url_scheme2proto( srv->lud_scheme ) ) {
 		case LDAP_PROTO_TCP:

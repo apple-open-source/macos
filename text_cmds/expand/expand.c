@@ -76,7 +76,7 @@ main(int argc, char *argv[])
 	setlocale(LC_CTYPE, "");
 
 	/* handle obsolete syntax */
-	while (argc > 1 && argv[1][0] == '-' &&
+	while (argc > 1 && argv[1] && argv[1][0] == '-' &&
 	    isdigit((unsigned char)argv[1][1])) {
 		getstops(&argv[1][1]);
 		argc--; argv++;
@@ -98,7 +98,7 @@ main(int argc, char *argv[])
 
 	rval = 0;
 	do {
-		if (argc > 0) {
+		if (argc > 0 && *argv) {
 			if (freopen(argv[0], "r", stdin) == NULL) {
 				warn("%s", argv[0]);
 				rval = 1;

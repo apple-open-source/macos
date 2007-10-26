@@ -1,6 +1,7 @@
-/* Native-dependent code for GNU/Linux x86.
+/* Native-dependent code for GNU/Linux i386.
 
-   Copyright 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -62,20 +63,12 @@
 /* Prototypes for supply_gregset etc.  */
 #include "gregset.h"
 
-/* Prototypes for i387_supply_fsave etc.  */
 #include "i387-tdep.h"
-
-/* Defines for XMM0_REGNUM etc. */
 #include "i386-tdep.h"
-
-/* Defines I386_LINUX_ORIG_EAX_REGNUM.  */
 #include "i386-linux-tdep.h"
 
 /* Defines ps_err_e, struct ps_prochandle.  */
 #include "gdb_proc_service.h"
-
-/* Prototypes for local functions.  */
-static void dummy_sse_values (void);
 
 
 /* The register sets used in GNU/Linux ELF core-dumps are identical to
@@ -114,11 +107,8 @@ static int regmap[] =
 #define GETREGS_SUPPLIES(regno) \
   ((0 <= (regno) && (regno) <= 15) || (regno) == I386_LINUX_ORIG_EAX_REGNUM)
 
-#define GETFPREGS_SUPPLIES(regno) \
-  (FP0_REGNUM <= (regno) && (regno) <= LAST_FPU_CTRL_REGNUM)
-
 #define GETFPXREGS_SUPPLIES(regno) \
-  (FP0_REGNUM <= (regno) && (regno) <= MXCSR_REGNUM)
+  (I386_ST0_REGNUM <= (regno) && (regno) < I386_SSE_NUM_REGS)
 
 /* Does the current host support the GETREGS request?  */
 int have_ptrace_getregs =
@@ -179,7 +169,7 @@ fetch_register (int regno)
   gdb_assert (!have_ptrace_getregs);
   if (cannot_fetch_register (regno))
     {
-      supply_register (regno, NULL);
+      regcache_raw_supply (current_regcache, regno, NULL);
       return;
     }
 
@@ -191,10 +181,10 @@ fetch_register (int regno)
   errno = 0;
   val = ptrace (PTRACE_PEEKUSER, tid, register_addr (regno, 0), 0);
   if (errno != 0)
-    error ("Couldn't read register %s (#%d): %s.", REGISTER_NAME (regno),
+    error (_("Couldn't read register %s (#%d): %s."), REGISTER_NAME (regno),
 	   regno, safe_strerror (errno));
 
-  supply_register (regno, &val);
+  regcache_raw_supply (current_regcache, regno, &val);
 }
 
 /* Store one register. */
@@ -215,10 +205,10 @@ store_register (int regno)
     tid = PIDGET (inferior_ptid); /* Not a threaded program.  */
 
   errno = 0;
-  regcache_collect (regno, &val);
+  regcache_raw_collect (current_regcache, regno, &val);
   ptrace (PTRACE_POKEUSER, tid, register_addr (regno, 0), val);
   if (errno != 0)
-    error ("Couldn't write register %s (#%d): %s.", REGISTER_NAME (regno),
+    error (_("Couldn't write register %s (#%d): %s."), REGISTER_NAME (regno),
 	   regno, safe_strerror (errno));
 }
 
@@ -236,10 +226,11 @@ supply_gregset (elf_gregset_t *gregsetp)
   int i;
 
   for (i = 0; i < I386_NUM_GREGS; i++)
-    supply_register (i, regp + regmap[i]);
+    regcache_raw_supply (current_regcache, i, regp + regmap[i]);
 
   if (I386_LINUX_ORIG_EAX_REGNUM < NUM_REGS)
-    supply_register (I386_LINUX_ORIG_EAX_REGNUM, regp + ORIG_EAX);
+    regcache_raw_supply (current_regcache, I386_LINUX_ORIG_EAX_REGNUM,
+			 regp + ORIG_EAX);
 }
 
 /* Fill register REGNO (if it is a general-purpose register) in
@@ -254,11 +245,12 @@ fill_gregset (elf_gregset_t *gregsetp, int regno)
 
   for (i = 0; i < I386_NUM_GREGS; i++)
     if (regno == -1 || regno == i)
-      regcache_collect (i, regp + regmap[i]);
+      regcache_raw_collect (current_regcache, i, regp + regmap[i]);
 
   if ((regno == -1 || regno == I386_LINUX_ORIG_EAX_REGNUM)
       && I386_LINUX_ORIG_EAX_REGNUM < NUM_REGS)
-    regcache_collect (I386_LINUX_ORIG_EAX_REGNUM, regp + ORIG_EAX);
+    regcache_raw_collect (current_regcache, I386_LINUX_ORIG_EAX_REGNUM,
+			  regp + ORIG_EAX);
 }
 
 #ifdef HAVE_PTRACE_GETREGS
@@ -281,7 +273,7 @@ fetch_regs (int tid)
 	  return;
 	}
 
-      perror_with_name ("Couldn't get registers");
+      perror_with_name (_("Couldn't get registers"));
     }
 
   supply_gregset (&regs);
@@ -296,12 +288,12 @@ store_regs (int tid, int regno)
   elf_gregset_t regs;
 
   if (ptrace (PTRACE_GETREGS, tid, 0, (int) &regs) < 0)
-    perror_with_name ("Couldn't get registers");
+    perror_with_name (_("Couldn't get registers"));
 
   fill_gregset (&regs, regno);
   
   if (ptrace (PTRACE_SETREGS, tid, 0, (int) &regs) < 0)
-    perror_with_name ("Couldn't write registers");
+    perror_with_name (_("Couldn't write registers"));
 }
 
 #else
@@ -321,7 +313,6 @@ void
 supply_fpregset (elf_fpregset_t *fpregsetp)
 {
   i387_supply_fsave (current_regcache, -1, fpregsetp);
-  dummy_sse_values ();
 }
 
 /* Fill register REGNO (if it is a floating-point register) in
@@ -345,7 +336,7 @@ fetch_fpregs (int tid)
   elf_fpregset_t fpregs;
 
   if (ptrace (PTRACE_GETFPREGS, tid, 0, (int) &fpregs) < 0)
-    perror_with_name ("Couldn't get floating point status");
+    perror_with_name (_("Couldn't get floating point status"));
 
   supply_fpregset (&fpregs);
 }
@@ -359,12 +350,12 @@ store_fpregs (int tid, int regno)
   elf_fpregset_t fpregs;
 
   if (ptrace (PTRACE_GETFPREGS, tid, 0, (int) &fpregs) < 0)
-    perror_with_name ("Couldn't get floating point status");
+    perror_with_name (_("Couldn't get floating point status"));
 
   fill_fpregset (&fpregs, regno);
 
   if (ptrace (PTRACE_SETFPREGS, tid, 0, (int) &fpregs) < 0)
-    perror_with_name ("Couldn't write floating point status");
+    perror_with_name (_("Couldn't write floating point status"));
 }
 
 #else
@@ -434,7 +425,7 @@ fetch_fpxregs (int tid)
 	  return 0;
 	}
 
-      perror_with_name ("Couldn't read floating-point and SSE registers");
+      perror_with_name (_("Couldn't read floating-point and SSE registers"));
     }
 
   swap_fpxregs (&fpxregs);
@@ -462,7 +453,7 @@ store_fpxregs (int tid, int regno)
 	  return 0;
 	}
 
-      perror_with_name ("Couldn't read floating-point and SSE registers");
+      perror_with_name (_("Couldn't read floating-point and SSE registers"));
     }
 
   swap_fpxregs (&fpxregs);
@@ -470,37 +461,15 @@ store_fpxregs (int tid, int regno)
   swap_fpxregs (&fpxregs);
 
   if (ptrace (PTRACE_SETFPXREGS, tid, 0, &fpxregs) == -1)
-    perror_with_name ("Couldn't write floating-point and SSE registers");
+    perror_with_name (_("Couldn't write floating-point and SSE registers"));
 
   return 1;
-}
-
-/* Fill the XMM registers in the register array with dummy values.  For
-   cases where we don't have access to the XMM registers.  I think
-   this is cleaner than printing a warning.  For a cleaner solution,
-   we should gdbarchify the i386 family.  */
-
-static void
-dummy_sse_values (void)
-{
-  struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch);
-  /* C doesn't have a syntax for NaN's, so write it out as an array of
-     longs.  */
-  static long dummy[4] = { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff };
-  static long mxcsr = 0x1f80;
-  int reg;
-
-  for (reg = 0; reg < tdep->num_xmm_regs; reg++)
-    supply_register (XMM0_REGNUM + reg, (char *) dummy);
-  if (tdep->num_xmm_regs > 0)
-    supply_register (MXCSR_REGNUM, (char *) &mxcsr);
 }
 
 #else
 
 static int fetch_fpxregs (int tid) { return 0; }
 static int store_fpxregs (int tid, int regno) { return 0; }
-static void dummy_sse_values (void) {}
 
 #endif /* HAVE_PTRACE_GETFPXREGS */
 
@@ -596,7 +565,7 @@ fetch_inferior_registers (int regno)
     }
 
   internal_error (__FILE__, __LINE__,
-		  "Got request for bad register number %d.", regno);
+		  _("Got request for bad register number %d."), regno);
 }
 
 /* Store register REGNO back into the child process.  If REGNO is -1,
@@ -656,7 +625,7 @@ store_inferior_registers (int regno)
     }
 
   internal_error (__FILE__, __LINE__,
-		  "Got request to store bad register number %d.", regno);
+		  _("Got request to store bad register number %d."), regno);
 }
 
 
@@ -676,14 +645,14 @@ i386_linux_dr_get (int regnum)
   /* FIXME: kettenis/2001-03-27: Calling perror_with_name if the
      ptrace call fails breaks debugging remote targets.  The correct
      way to fix this is to add the hardware breakpoint and watchpoint
-     stuff to the target vectore.  For now, just return zero if the
+     stuff to the target vector.  For now, just return zero if the
      ptrace call fails.  */
   errno = 0;
   value = ptrace (PTRACE_PEEKUSER, tid,
 		  offsetof (struct user, u_debugreg[regnum]), 0);
   if (errno != 0)
 #if 0
-    perror_with_name ("Couldn't read debug register");
+    perror_with_name (_("Couldn't read debug register"));
 #else
     return 0;
 #endif
@@ -705,7 +674,7 @@ i386_linux_dr_set (int regnum, unsigned long value)
   ptrace (PTRACE_POKEUSER, tid,
 	  offsetof (struct user, u_debugreg[regnum]), value);
   if (errno != 0)
-    perror_with_name ("Couldn't write debug register");
+    perror_with_name (_("Couldn't write debug register"));
 }
 
 void
@@ -757,7 +726,7 @@ ps_get_thread_area (const struct ps_prochandle *ph,
 
      Is this function needed?  I'm guessing that the `base' is the
      address of a a descriptor that libthread_db uses to find the
-     thread local address base that GDB needs.  Perhaphs that
+     thread local address base that GDB needs.  Perhaps that
      descriptor is defined by the ABI.  Anyway, given that
      libthread_db calls this function without prompting (gdb
      requesting tls base) I guess it needs info in there anyway.  */
@@ -786,7 +755,7 @@ static const unsigned char linux_syscall[] = { 0xcd, 0x80 };
 #define LINUX_SYSCALL_LEN (sizeof linux_syscall)
 
 /* The system call number is stored in the %eax register.  */
-#define LINUX_SYSCALL_REGNUM 0	/* %eax */
+#define LINUX_SYSCALL_REGNUM I386_EAX_REGNUM
 
 /* We are specifically interested in the sigreturn and rt_sigreturn
    system calls.  */
@@ -821,7 +790,7 @@ child_resume (ptid_t ptid, int step, enum target_signal signal)
   if (step)
     {
       CORE_ADDR pc = read_pc_pid (pid_to_ptid (pid));
-      unsigned char buf[LINUX_SYSCALL_LEN];
+      gdb_byte buf[LINUX_SYSCALL_LEN];
 
       request = PTRACE_SINGLESTEP;
 
@@ -834,7 +803,7 @@ child_resume (ptid_t ptid, int step, enum target_signal signal)
          that's about to be restored, and set the trace flag there.  */
 
       /* First check if PC is at a system call.  */
-      if (read_memory_nobpt (pc, (char *) buf, LINUX_SYSCALL_LEN) == 0
+      if (deprecated_read_memory_nobpt (pc, buf, LINUX_SYSCALL_LEN) == 0
 	  && memcmp (buf, linux_syscall, LINUX_SYSCALL_LEN) == 0)
 	{
 	  int syscall = read_register_pid (LINUX_SYSCALL_REGNUM,
@@ -853,15 +822,15 @@ child_resume (ptid_t ptid, int step, enum target_signal signal)
 	      /* Set the trace flag in the context that's about to be
                  restored.  */
 	      addr += LINUX_SIGCONTEXT_EFLAGS_OFFSET;
-	      read_memory (addr, (char *) &eflags, 4);
+	      read_memory (addr, (gdb_byte *) &eflags, 4);
 	      eflags |= 0x0100;
-	      write_memory (addr, (char *) &eflags, 4);
+	      write_memory (addr, (gdb_byte *) &eflags, 4);
 	    }
 	}
     }
 
   if (ptrace (request, pid, 0, target_signal_to_host (signal)) == -1)
-    perror_with_name ("ptrace");
+    perror_with_name (("ptrace"));
 }
 
 void

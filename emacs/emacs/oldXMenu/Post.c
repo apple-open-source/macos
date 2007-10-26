@@ -1,7 +1,7 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/Post.c,v 1.1.1.4 2002/09/10 23:34:45 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -9,7 +9,7 @@
  *	XMenuPost -	Maps a given menu to the display and activates
  *			the menu for user selection.  The user is allowed to
  *			specify the mouse button event mask that will be used
- *			to identify a selection request.  When a selection 
+ *			to identify a selection request.  When a selection
  *			request is received (i.e., when the specified mouse
  *			event occurs) the data  returned will be either the
  *			data associated with the particular selection active
@@ -59,11 +59,11 @@ XMenuPost(display, menu, p_num, s_num, x_pos, y_pos, event_mask)
      * Make the procedure call.
      */
     stat = XMenuActivate(
-			 display, 
+			 display,
 			 menu,
-			 p_num, s_num, 
-			 x_pos, y_pos, 
-			 event_mask, 
+			 p_num, s_num,
+			 x_pos, y_pos,
+			 event_mask,
 			 &data, 0);
 
     /*
@@ -83,3 +83,6 @@ XMenuPost(display, menu, p_num, s_num, x_pos, y_pos, event_mask)
 	    return(data);
     }
 }
+
+/* arch-tag: 7b6104e5-fa32-4342-aa17-05296a30dd70
+   (do not change this comment) */

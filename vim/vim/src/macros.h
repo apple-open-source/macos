@@ -29,16 +29,18 @@
 		   : (a)->col != (b)->col \
 		       ? (a)->col < (b)->col \
 		       : (a)->coladd < (b)->coladd)
-# define equal(a, b) (((a).lnum == (b).lnum) && ((a).col == (b).col) && ((a).coladd == (b).coladd))
+# define equalpos(a, b) (((a).lnum == (b).lnum) && ((a).col == (b).col) && ((a).coladd == (b).coladd))
+# define clearpos(a) {(a)->lnum = 0; (a)->col = 0; (a)->coladd = 0;}
 #else
 # define lt(a, b) (((a).lnum != (b).lnum) \
 		   ? ((a).lnum < (b).lnum) : ((a).col < (b).col))
 # define ltp(a, b) (((a)->lnum != (b)->lnum) \
 		   ? ((a)->lnum < (b)->lnum) : ((a)->col < (b)->col))
-# define equal(a, b) (((a).lnum == (b).lnum) && ((a).col == (b).col))
+# define equalpos(a, b) (((a).lnum == (b).lnum) && ((a).col == (b).col))
+# define clearpos(a) {(a)->lnum = 0; (a)->col = 0;}
 #endif
 
-#define ltoreq(a, b) (lt(a, b) || equal(a, b))
+#define ltoreq(a, b) (lt(a, b) || equalpos(a, b))
 
 /*
  * lineempty() - return TRUE if the line is empty
@@ -81,13 +83,13 @@
 
 /*
  * MB_ISLOWER() and MB_ISUPPER() are to be used on multi-byte characters.  But
- * don't use them for negative values or values above 0x100 for DBCS.
+ * don't use them for negative values!
  */
 #ifdef FEAT_MBYTE
-# define MB_ISLOWER(c)	(enc_utf8 && (c) > 0x80 ? utf_islower(c) : islower(c))
-# define MB_ISUPPER(c)	(enc_utf8 && (c) > 0x80 ? utf_isupper(c) : isupper(c))
-# define MB_TOLOWER(c)	(enc_utf8 && (c) > 0x80 ? utf_tolower(c) : TOLOWER_LOC(c))
-# define MB_TOUPPER(c)	(enc_utf8 && (c) > 0x80 ? utf_toupper(c) : TOUPPER_LOC(c))
+# define MB_ISLOWER(c)	vim_islower(c)
+# define MB_ISUPPER(c)	vim_isupper(c)
+# define MB_TOLOWER(c)	vim_tolower(c)
+# define MB_TOUPPER(c)	vim_toupper(c)
 #else
 # define MB_ISLOWER(c)	islower(c)
 # define MB_ISUPPER(c)	isupper(c)
@@ -108,6 +110,12 @@
 # define ASCII_ISLOWER(c) ((c) < 0x7f && islower(c))
 # define ASCII_ISUPPER(c) ((c) < 0x7f && isupper(c))
 #endif
+
+/* Use our own isdigit() replacement, because on MS-Windows isdigit() returns
+ * non-zero for superscript 1.  Also avoids that isdigit() crashes for numbers
+ * below 0 and above 255.  For complicated arguments and in/decrement use
+ * vim_isdigit() instead. */
+#define VIM_ISDIGIT(c) ((c) >= '0' && (c) <= '9')
 
 /* macro version of chartab().
  * Only works with values 0-255!
@@ -149,9 +157,10 @@
 # ifndef WIN32
 #   define mch_access(n, p)	access((n), (p))
 # endif
-# define mch_fopen(n, p)	fopen((n), (p))
+# if !(defined(FEAT_MBYTE) && defined(WIN3264))
+#  define mch_fopen(n, p)	fopen((n), (p))
+# endif
 # define mch_fstat(n, p)	fstat((n), (p))
-# define mch_lstat(n, p)	lstat((n), (p))
 # ifdef MSWIN	/* has it's own mch_stat() function */
 #  define mch_stat(n, p)	vim_stat((n), (p))
 # else
@@ -163,6 +172,12 @@
 #   define mch_stat(n, p)	stat((n), (p))
 #  endif
 # endif
+#endif
+
+#ifdef HAVE_LSTAT
+# define mch_lstat(n, p)	lstat((n), (p))
+#else
+# define mch_lstat(n, p)	mch_stat((n), (p))
 #endif
 
 #ifdef MACOS_CLASSIC
@@ -177,7 +192,20 @@
  */
 #  define mch_open(n, m, p)	open(vms_fixfilename(n), (m), (p))
 # else
-#  define mch_open(n, m, p)	open((n), (m), (p))
+#  if !(defined(FEAT_MBYTE) && defined(WIN3264))
+#   define mch_open(n, m, p)	open((n), (m), (p))
+#  endif
+# endif
+#endif
+
+/* mch_open_rw(): invoke mch_open() with third argument for user R/W. */
+#if defined(UNIX) || defined(VMS)  /* open in rw------- mode */
+# define mch_open_rw(n, f)	mch_open((n), (f), (mode_t)0600)
+#else
+# if defined(MSDOS) || defined(MSWIN) || defined(OS2)  /* open read/write */
+#  define mch_open_rw(n, f)	mch_open((n), (f), S_IREAD | S_IWRITE)
+# else
+#  define mch_open_rw(n, f)	mch_open((n), (f), 0)
 # endif
 #endif
 
@@ -187,10 +215,6 @@
  */
 
 #ifdef FEAT_CRYPT
-
-#ifndef __MINGW32__
-# define PWLEN 80
-#endif
 
 /* encode byte c, using temp t.  Warning: c must not have side effects. */
 # define ZENCODE(c, t)  (t = decrypt_byte(), update_keys(c), t^(c))
@@ -221,4 +245,34 @@
 #ifdef FEAT_RIGHTLEFT
     /* Whether to draw the vertical bar on the right side of the cell. */
 # define CURSOR_BAR_RIGHT (curwin->w_p_rl && (!(State & CMDLINE) || cmdmsg_rl))
+#endif
+
+/*
+ * mb_ptr_adv(): advance a pointer to the next character, taking care of
+ * multi-byte characters if needed.
+ * mb_ptr_back(): backup a pointer to the previous character, taking care of
+ * multi-byte characters if needed.
+ * MB_COPY_CHAR(f, t): copy one char from "f" to "t" and advance the pointers.
+ * PTR2CHAR(): get character from pointer.
+ */
+#ifdef FEAT_MBYTE
+/* Advance multi-byte pointer, skip over composing chars. */
+# define mb_ptr_adv(p)	    p += has_mbyte ? (*mb_ptr2len)(p) : 1
+/* Advance multi-byte pointer, do not skip over composing chars. */
+# define mb_cptr_adv(p)	    p += enc_utf8 ? utf_ptr2len(p) : has_mbyte ? (*mb_ptr2len)(p) : 1
+/* Backup multi-byte pointer. */
+# define mb_ptr_back(s, p)  p -= has_mbyte ? ((*mb_head_off)(s, p - 1) + 1) : 1
+/* get length of multi-byte char, not including composing chars */
+# define mb_cptr2len(p)	    (enc_utf8 ? utf_ptr2len(p) : (*mb_ptr2len)(p))
+
+# define MB_COPY_CHAR(f, t) if (has_mbyte) mb_copy_char(&f, &t); else *t++ = *f++
+# define MB_CHARLEN(p)	    (has_mbyte ? mb_charlen(p) : STRLEN(p))
+# define PTR2CHAR(p)	    (has_mbyte ? mb_ptr2char(p) : (int)*(p))
+#else
+# define mb_ptr_adv(p)		++p
+# define mb_cptr_adv(p)		++p
+# define mb_ptr_back(s, p)	--p
+# define MB_COPY_CHAR(f, t)	*t++ = *f++
+# define MB_CHARLEN(p)		STRLEN(p)
+# define PTR2CHAR(p)		((int)*(p))
 #endif

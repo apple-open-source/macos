@@ -1,17 +1,19 @@
 " Vim indent file
 " Language:	VisualBasic (ft=vb) / Basic (ft=basic) / SaxBasic (ft=vb)
 " Author:	Johannes Zellner <johannes@zellner.org>
-" URL:		http://www.zellner.org/vim/indent/vb.vim
-" Last Change:	Sat, 24 May 2003 13:32:30 CEST
+" Last Change:	Fri, 18 Jun 2004 07:22:42 CEST
 
 if exists("b:did_indent")
     finish
 endif
 let b:did_indent = 1
 
+setlocal autoindent
 setlocal indentexpr=VbGetIndent(v:lnum)
 setlocal indentkeys&
-setlocal indentkeys+==~else,=~elseif,=~end,=~wend,=~case,=~next,=~select,~=loop,<:>
+setlocal indentkeys+==~else,=~elseif,=~end,=~wend,=~case,=~next,=~select,=~loop,<:>
+
+let b:undo_indent = "set ai< indentexpr< indentkeys<"
 
 " Only define the function once.
 if exists("*VbGetIndent")

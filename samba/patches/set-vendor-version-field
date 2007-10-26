@@ -1,0 +1,35 @@
+Index: samba/source/VERSION
+===================================================================
+--- samba/source/VERSION.orig
++++ samba/source/VERSION
+@@ -95,5 +95,5 @@ SAMBA_VERSION_IS_SVN_SNAPSHOT=
+ # e.g. SAMBA_VERSION_VENDOR_SUFFIX=vendor_version()    #
+ #  ->  "CVS 3.0.0rc2-VendorVersion"                    #
+ ########################################################
+-SAMBA_VERSION_VENDOR_SUFFIX=
++SAMBA_VERSION_VENDOR_SUFFIX="apple"
+ SAMBA_VENDOR_PATCH=
+Index: samba/source/script/mkversion.sh
+===================================================================
+--- samba/source/script/mkversion.sh.orig
++++ samba/source/script/mkversion.sh
+@@ -3,6 +3,19 @@
+ VERSION_FILE=$1
+ OUTPUT_FILE=$2
+ 
++# Disable embedding the SVN/SVK revision inthe version string. This isn't a
++# terrible idea, but I can't always run these sensibly in my build environment.
++# --jpeach
++svn()
++{
++    false
++}
++
++svk()
++{
++    false
++}
++
+ if test -z "$VERSION_FILE";then
+ 	VERSION_FILE="VERSION"
+ fi

@@ -2,7 +2,7 @@
   File:		MBCBoardViewAccessibility.mm
   Contains:	Accessibility navigation for chess board
   Version:	1.0
-  Copyright:	© 2004 by Apple Computer, Inc., all rights reserved.
+  Copyright:	© 2004-2007 by Apple Computer, Inc., all rights reserved.
   File Ownership:
   
   DRI:				Matthias Neeracher    x43683
@@ -14,6 +14,15 @@
   Change History (most recent first):
   
   $Log: MBCBoardViewAccessibility.mm,v $
+  Revision 1.3.2.1  2007/06/20 05:02:54  neerache
+  <rdar://problem/5221088> Accessibility Verifier reports Role Verification warnings and errors
+
+  Revision 1.3  2007/03/02 21:45:47  neerache
+  Fix AX verification issues <rdar://problems/4889509&4889596&4889633>
+
+  Revision 1.2  2007/03/02 21:26:15  neerache
+  Reword square description <rdar://problem/4510483>
+
   Revision 1.1  2004/08/16 07:50:55  neerache
   Support accessibility
 
@@ -57,7 +66,6 @@
 	return [NSArray arrayWithObjects:
 					NSAccessibilityRoleAttribute,
 					NSAccessibilityRoleDescriptionAttribute,
-					NSAccessibilitySubroleAttribute,
 					NSAccessibilityParentAttribute,
 					NSAccessibilityWindowAttribute,
 					NSAccessibilityPositionAttribute,
@@ -66,6 +74,7 @@
 					NSAccessibilityDescriptionAttribute,
 					NSAccessibilityFocusedAttribute,
 					NSAccessibilityEnabledAttribute,
+					NSAccessibilityTopLevelUIElementAttribute,
 					nil];
 }
 
@@ -105,15 +114,15 @@
 - (id)accessibilityAttributeValue:(NSString *)attribute 
 {
 	if ([attribute isEqual:NSAccessibilityParentAttribute])
-		return fView;
+		return [fView window];
+	else if ([attribute isEqual:NSAccessibilityChildrenAttribute])
+		return [NSArray array];
 	else if ([attribute isEqual:NSAccessibilityWindowAttribute])
 		return [fView window];
 	else if ([attribute isEqual:NSAccessibilityRoleAttribute])
 		return NSAccessibilityButtonRole;
-	else if ([attribute isEqual:NSAccessibilitySubroleAttribute])
-		return NSAccessibilityUnknownSubrole;
 	else if ([attribute isEqual:NSAccessibilityRoleDescriptionAttribute])
-		return @"";
+		return NSAccessibilityRoleDescription(NSAccessibilityButtonRole, nil);
 	else if ([attribute isEqual:NSAccessibilityPositionAttribute])
 		return [NSValue valueWithPoint:
 							[self accessibilityFocusRingBounds].origin];
@@ -134,6 +143,8 @@
 								 isEqual:self]];
 	else if ([attribute isEqual:NSAccessibilityEnabledAttribute])
 		return [NSNumber numberWithBool:YES];
+	else if ([attribute isEqual:NSAccessibilityTopLevelUIElementAttribute])
+		return [fView window];
 #if 0
 	else
 		NSLog(@"unknown attr: %@\n", attribute);
@@ -165,20 +176,8 @@
 
 @implementation MBCBoardView ( Accessibility )
 
-- (NSArray *)accessibilityAttributeNames {
-	return [[super accessibilityAttributeNames] 
-			   arrayByAddingObject:NSAccessibilityContentsAttribute];
-}
-
-- (NSArray *)accessibilityContentsAttribute {
-    return [self accessibilityChildrenAttribute];
-}
-
-- (BOOL)accessibilityIsContentsAttributeSettable {
-    return NO;
-}
-
-- (NSString *)accessibilityRoleAttribute {
+- (NSString *)accessibilityRoleAttribute 
+{
     return NSAccessibilityGroupRole;
 }
 
@@ -272,8 +271,13 @@ static NSString * sPieceName[] = {
 {
 	MBCPiece p = What([fBoard curContents:square]);
 
-	return [NSString stringWithFormat:@"%c%u: %@", Col(square), Row(square),
-					 NSLocalizedString(sPieceID[p], sPieceName[p])];
+	if (p)
+		return [NSString stringWithFormat:@"%@, %c%u", 
+						 NSLocalizedString(sPieceID[p], sPieceName[p]),
+						 Col(square), Row(square)];
+	else
+		return [NSString stringWithFormat:@"%c%u",
+						 Col(square), Row(square)];
 }
 
 - (void) selectSquare:(MBCSquare)square

@@ -1,8 +1,8 @@
 /* config.c - passwd backend configuration file routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/config.c,v 1.8.2.3 2004/01/01 18:16:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/config.c,v 1.12.2.2 2006/01/03 22:16:21 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,7 +37,7 @@
 #include <ac/time.h>
 
 #include "slap.h"
-#include "external.h"
+#include "back-passwd.h"
 
 int
 passwd_back_db_config(

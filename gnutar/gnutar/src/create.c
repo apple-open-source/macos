@@ -19,7 +19,7 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
+#include <system.h>
 
 #if HAVE_UTIME_H
 # include <utime.h>
@@ -414,6 +414,11 @@ write_short_name (struct tar_stat_info *st)
   return header;
 }
 
+#define FILL(field,byte) do {            \
+  memset(field, byte, sizeof(field)-1);  \
+  (field)[sizeof(field)-1] = 0;          \
+} while (0)
+  
 /* Write a GNUTYPE_LONGLINK or GNUTYPE_LONGNAME block.  */
 static void
 write_gnu_long_link (struct tar_stat_info *st, const char *p, char type)
@@ -421,8 +426,22 @@ write_gnu_long_link (struct tar_stat_info *st, const char *p, char type)
   size_t size = strlen (p) + 1;
   size_t bufsize;
   union block *header;
-
+  char *tmpname;
+  
   header = start_private_header ("././@LongLink", size);
+  FILL(header->header.mtime, '0');
+  FILL(header->header.mode, '0');
+  FILL(header->header.uid, '0');
+  FILL(header->header.gid, '0');
+  FILL(header->header.devmajor, 0);
+  FILL(header->header.devminor, 0);
+  uid_to_uname (0, &tmpname);
+  UNAME_TO_CHARS (tmpname, header->header.uname);
+  free (tmpname);
+  gid_to_gname (0, &tmpname);
+  GNAME_TO_CHARS (tmpname, header->header.gname);
+  free (tmpname);
+  
   strcpy (header->header.magic, OLDGNU_MAGIC);
   header->header.typeflag = type;
   finish_header (st, header, -1);
@@ -672,7 +691,7 @@ start_header (struct tar_stat_info *st)
       else
 	MAJOR_TO_CHARS (st->devminor, header->header.devminor);
     }
-  else
+  else if (archive_format != GNU_FORMAT && archive_format != OLDGNU_FORMAT)
     {
       MAJOR_TO_CHARS (0, header->header.devmajor);
       MINOR_TO_CHARS (0, header->header.devminor);
@@ -911,6 +930,47 @@ dump_regular_finish (int fd, struct tar_stat_info *st, time_t original_ctime)
     }
 }
 
+/* Look in directory DIRNAME for a cache directory tag file
+   with the magic name "CACHEDIR.TAG" and a standard header,
+   as described at:
+	http://www.brynosaurus.com/cachedir
+   Applications can write this file into directories they create
+   for use as caches containing purely regenerable, non-precious data,
+   allowing us to avoid archiving them if --exclude-caches is specified. */
+
+#define CACHEDIR_SIGNATURE "Signature: 8a477f597d28d172789f06886806bc55"
+#define CACHEDIR_SIGNATURE_SIZE (sizeof CACHEDIR_SIGNATURE - 1)
+
+static bool
+check_cache_directory (char *dirname)
+{
+  static char tagname[] = "CACHEDIR.TAG";
+  char *tagpath;
+  int fd;
+  int tag_present = false;
+
+  tagpath = xmalloc (strlen (dirname) + strlen (tagname) + 1);
+  strcpy (tagpath, dirname);
+  strcat (tagpath, tagname);
+
+  fd = open (tagpath, O_RDONLY);
+  if (fd >= 0)
+    {
+      static char tagbuf[CACHEDIR_SIGNATURE_SIZE];
+      
+      if (read (fd, tagbuf, CACHEDIR_SIGNATURE_SIZE)
+	  == CACHEDIR_SIGNATURE_SIZE
+	  && memcmp (tagbuf, CACHEDIR_SIGNATURE, CACHEDIR_SIGNATURE_SIZE) == 0)
+	tag_present = true;
+
+      close (fd);
+    }
+
+  free (tagpath);
+
+  return tag_present;
+}
+
 static void
 dump_dir0 (char *directory,
 	   struct tar_stat_info *st, int top_level, dev_t parent_device)
@@ -997,6 +1057,16 @@ dump_dir0 (char *directory,
       if (verbose_option)
 	WARN ((0, 0,
 	       _("%s: file is on a different filesystem; not dumped"),
+	       quotearg_colon (st->orig_file_name)));
+      return;
+    }
+
+  if (exclude_caches_option
+      && check_cache_directory(st->orig_file_name))
+    {
+      if (verbose_option)
+	WARN ((0, 0,
+	       _("%s: contains a cache directory tag; not dumped"),
 	       quotearg_colon (st->orig_file_name)));
       return;
     }
@@ -1319,16 +1389,19 @@ dump_file0 (struct tar_stat_info *st, char *p,
 #endif
 
   /* See if we want only new files, and check if this one is too old to
-     put in the archive.  */
+     put in the archive.
 
-  if (!S_ISDIR (st->stat.st_mode)
+     This check is omitted if incremental_option is set *and* the
+     requested file is not explicitely listed in the command line. */
+
+  if (!(incremental_option && !is_individual_file (p))
+      && !S_ISDIR (st->stat.st_mode)
       && OLDER_STAT_TIME (st->stat, m)
       && (!after_date_option || OLDER_STAT_TIME (st->stat, c)))
     {
-      if (0 < top_level) /* equivalent to !incremental_option */
+      if (!incremental_option)
 	WARN ((0, 0, _("%s: file is unchanged; not dumped"),
 	       quotearg_colon (p)));
-      /* FIXME: recheck this return.  */
       return;
     }
 
@@ -1522,14 +1595,14 @@ dump_file (char *p, int top_level, dev_t parent_device)
 	char *md_p = strdup("/tmp/tar.md.XXXXXX");
 	asprintf(&copyfile_fname, "%s/._%s", dirname(p), basename(p));
 
-	if (copyfile(p, NULL, 0, COPYFILE_CHECK | COPYFILE_METADATA))
+	if (copyfile(p, NULL, 0, COPYFILE_CHECK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR))
 	{
 	    copyfile_on = 1;
 	    tar_stat_init (&st);
 
 	    if(mktemp(md_p))
 	    {
-		copyfile(p, md_p, 0, COPYFILE_METADATA | COPYFILE_PACK);
+		copyfile(p, md_p, 0, COPYFILE_PACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR);
 		dump_file0 (&st, md_p, top_level, parent_device);
 	    }
 

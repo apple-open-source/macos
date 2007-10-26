@@ -37,7 +37,7 @@ up-to-date.  Many thanks.
 #include <sys/cdefs.h>
 #include <_types.h>
 
-#define	NL_SETD		0
+#define	NL_SETD		1
 #define	NL_CAT_LOCALE	1
 
 #ifndef _NL_ITEM

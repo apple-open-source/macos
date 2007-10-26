@@ -1,22 +1,22 @@
 /*
-   +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
-   +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
-   +----------------------------------------------------------------------+
-   | This source file is subject to version 3.01 of the PHP license,      |
-   | that is bundled with this package in the file LICENSE, and is        |
-   | available through the world-wide-web at the following url:           |
-   | http://www.php.net/license/3_01.txt                                  |
-   | If you did not receive a copy of the PHP license and are unable to   |
-   | obtain it through the world-wide-web, please send a note to          |
-   | license@php.net so we can mail you a copy immediately.               |
-   +----------------------------------------------------------------------+
-   | Author: Sterling Hughes <sterling@php.net>                           |
-   +----------------------------------------------------------------------+
- */
+  +----------------------------------------------------------------------+
+  | PHP Version 5                                                        |
+  +----------------------------------------------------------------------+
+  | Copyright (c) 1997-2007 The PHP Group                                |
+  +----------------------------------------------------------------------+
+  | This source file is subject to version 3.01 of the PHP license,      |
+  | that is bundled with this package in the file LICENSE, and is        |
+  | available through the world-wide-web at the following url:           |
+  | http://www.php.net/license/3_01.txt                                  |
+  | If you did not receive a copy of the PHP license and are unable to   |
+  | obtain it through the world-wide-web, please send a note to          |
+  | license@php.net so we can mail you a copy immediately.               |
+  +----------------------------------------------------------------------+
+  | Author: Sterling Hughes <sterling@php.net>                           |
+  +----------------------------------------------------------------------+
+*/
  
-/* $Id: bz2.c,v 1.1.2.4.2.8 2007/03/14 03:52:16 iliaa Exp $ */
+/* $Id: bz2.c,v 1.14.2.3.2.12 2007/03/14 03:50:18 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -40,17 +40,71 @@
 #define PHP_BZ_ERRSTR  1
 #define PHP_BZ_ERRBOTH 2
 
-function_entry bz2_functions[] = {
-	PHP_FE(bzopen,       NULL)
-	PHP_FE(bzread,       NULL)
+static PHP_MINIT_FUNCTION(bz2);
+static PHP_MSHUTDOWN_FUNCTION(bz2);
+static PHP_MINFO_FUNCTION(bz2);
+static PHP_FUNCTION(bzopen);
+static PHP_FUNCTION(bzread);
+static PHP_FUNCTION(bzerrno);
+static PHP_FUNCTION(bzerrstr);
+static PHP_FUNCTION(bzerror);
+static PHP_FUNCTION(bzcompress);
+static PHP_FUNCTION(bzdecompress);
+
+/* {{{ arginfo */
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_bzread, 0, 0, 1)
+	ZEND_ARG_INFO(0, bz)
+	ZEND_ARG_INFO(0, length)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_bzopen, 0)
+	ZEND_ARG_INFO(0, file)
+	ZEND_ARG_INFO(0, mode)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_bzerrno, 0)
+	ZEND_ARG_INFO(0, bz)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_bzerrstr, 0)
+	ZEND_ARG_INFO(0, bz)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_bzerror, 0)
+	ZEND_ARG_INFO(0, bz)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_bzcompress, 0, 0, 2)
+	ZEND_ARG_INFO(0, source)
+	ZEND_ARG_INFO(0, blocksize)
+	ZEND_ARG_INFO(0, workfactor)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_bzdecompress, 0, 0, 1)
+	ZEND_ARG_INFO(0, source)
+	ZEND_ARG_INFO(0, small)
+ZEND_END_ARG_INFO()
+
+/* }}} */
+
+static zend_function_entry bz2_functions[] = {
+	PHP_FE(bzopen,       arginfo_bzopen)
+	PHP_FE(bzread,       arginfo_bzread)
 	PHP_FALIAS(bzwrite,   fwrite,		NULL)
 	PHP_FALIAS(bzflush,   fflush,		NULL)
 	PHP_FALIAS(bzclose,   fclose,		NULL)
-	PHP_FE(bzerrno,      NULL)
-	PHP_FE(bzerrstr,     NULL)
-	PHP_FE(bzerror,      NULL)
-	PHP_FE(bzcompress,   NULL)
-	PHP_FE(bzdecompress, NULL)
+	PHP_FE(bzerrno,      arginfo_bzerrno)
+	PHP_FE(bzerrstr,     arginfo_bzerrstr)
+	PHP_FE(bzerror,      arginfo_bzerror)
+	PHP_FE(bzcompress,   arginfo_bzcompress)
+	PHP_FE(bzdecompress, arginfo_bzdecompress)
 	{NULL, NULL, NULL}
 };
 
@@ -162,7 +216,7 @@ PHP_BZ2_API php_stream *_php_stream_bz2open(php_stream_wrapper *wrapper,
 	if (strncasecmp("compress.bzip2://", path, 17) == 0) {
 		path += 17;
 	}
-	if (mode[0] != 'w' && mode[0] != 'r' && mode[1] != '\0') {
+	if (mode[0] == '\0' || (mode[0] != 'w' && mode[0] != 'r' && mode[1] != '\0')) {
 		return NULL;
 	}
 
@@ -226,10 +280,14 @@ static php_stream_wrapper_ops bzip2_stream_wops = {
 	NULL, /* fstat */
 	NULL, /* stat */
 	NULL, /* opendir */
-	"BZip2"
+	"BZip2",
+	NULL, /* unlink */
+	NULL, /* rename */
+	NULL, /* mkdir */
+	NULL  /* rmdir */
 };
 
-php_stream_wrapper php_stream_bzip2_wrapper = {
+static php_stream_wrapper php_stream_bzip2_wrapper = {
 	&bzip2_stream_wops,
 	NULL,
 	0 /* is_url */
@@ -237,31 +295,34 @@ php_stream_wrapper php_stream_bzip2_wrapper = {
 
 static void php_bz2_error(INTERNAL_FUNCTION_PARAMETERS, int);
 
-PHP_MINIT_FUNCTION(bz2)
+static PHP_MINIT_FUNCTION(bz2)
 {
 	php_register_url_stream_wrapper("compress.bzip2", &php_stream_bzip2_wrapper TSRMLS_CC);
-
+	php_stream_filter_register_factory("bzip2.*", &php_bz2_filter_factory TSRMLS_CC);
 	return SUCCESS;
 }
 
-PHP_MSHUTDOWN_FUNCTION(bz2)
+static PHP_MSHUTDOWN_FUNCTION(bz2)
 {
 	php_unregister_url_stream_wrapper("compress.bzip2" TSRMLS_CC);
+	php_stream_filter_unregister_factory("bzip2.*" TSRMLS_CC);
 
 	return SUCCESS;
 }
 
-PHP_MINFO_FUNCTION(bz2)
+static PHP_MINFO_FUNCTION(bz2)
 {
 	php_info_print_table_start();
 	php_info_print_table_row(2, "BZip2 Support", "Enabled");
+	php_info_print_table_row(2, "Stream Wrapper support", "compress.bz2://");
+	php_info_print_table_row(2, "Stream Filter support", "bzip2.decompress, bzip2.compress");
 	php_info_print_table_row(2, "BZip2 Version", (char *) BZ2_bzlibVersion());
 	php_info_print_table_end();
 }
 
-/* {{{ proto string bzread(int bz[, int length])
+/* {{{ proto string bzread(resource bz[, int length])
    Reads up to length bytes from a BZip2 stream, or 1024 bytes if length is not specified */
-PHP_FUNCTION(bzread)
+static PHP_FUNCTION(bzread)
 {
 	zval *bz;
 	long len = 1024;
@@ -301,7 +362,7 @@ PHP_FUNCTION(bzread)
 
 /* {{{ proto resource bzopen(string|int file|fp, string mode)
    Opens a new BZip2 stream */
-PHP_FUNCTION(bzopen)
+static PHP_FUNCTION(bzopen)
 {
 	zval    **file,   /* The file to open */
 	        **mode;   /* The mode to open the stream with */
@@ -313,7 +374,7 @@ PHP_FUNCTION(bzopen)
 	}
 	convert_to_string_ex(mode);
 
-	if (Z_STRVAL_PP(mode)[0] != 'r' && Z_STRVAL_PP(mode)[0] != 'w' && Z_STRVAL_PP(mode)[1] != '\0') {
+	if (Z_STRLEN_PP(mode) != 1 || (Z_STRVAL_PP(mode)[0] != 'r' && Z_STRVAL_PP(mode)[0] != 'w')) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "'%s' is not a valid mode for bzopen(). Only 'w' and 'r' are supported.", Z_STRVAL_PP(mode));
 		RETURN_FALSE;
 	}
@@ -321,6 +382,12 @@ PHP_FUNCTION(bzopen)
 	/* If it's not a resource its a string containing the filename to open */
 	if (Z_TYPE_PP(file) != IS_RESOURCE) {
 		convert_to_string_ex(file);
+
+		if (Z_STRLEN_PP(file) == 0) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "filename cannot be empty");
+			RETURN_FALSE;
+		}
+
 		stream = php_stream_bz2open(NULL,
 									Z_STRVAL_PP(file), 
 									Z_STRVAL_PP(mode), 
@@ -329,8 +396,40 @@ PHP_FUNCTION(bzopen)
 	} else {
 		/* If it is a resource, than its a stream resource */
 		int fd;
+		int stream_mode_len;
 
 		php_stream_from_zval(stream, file);
+		stream_mode_len = strlen(stream->mode);
+		
+		if (stream_mode_len != 1 && !(stream_mode_len == 2 && memchr(stream->mode, 'b', 2))) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot use stream opened in mode '%s'", stream->mode);
+			RETURN_FALSE;
+		} else if (stream_mode_len == 1 && stream->mode[0] != 'r' && stream->mode[0] != 'w' && stream->mode[0] != 'a' && stream->mode[0] != 'x') {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot use stream opened in mode '%s'", stream->mode);
+			RETURN_FALSE;
+		}
+
+		switch(Z_STRVAL_PP(mode)[0]) {
+			case 'r':
+				/* only "r" and "rb" are supported */
+				if (stream->mode[0] != Z_STRVAL_PP(mode)[0] && !(stream_mode_len == 2 && stream->mode[1] != Z_STRVAL_PP(mode)[0])) {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot read from a stream opened in write only mode");
+					RETURN_FALSE;
+				}
+				break;
+			case 'w':
+				/* support only "w"(b), "a"(b), "x"(b) */
+				if (stream->mode[0] != Z_STRVAL_PP(mode)[0] && !(stream_mode_len == 2 && stream->mode[1] != Z_STRVAL_PP(mode)[0])
+					&& stream->mode[0] != 'a' && !(stream_mode_len == 2 && stream->mode[1] != 'a')
+					&& stream->mode[0] != 'x' && !(stream_mode_len == 2 && stream->mode[1] != 'x')) {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot write to a stream opened in read only mode");
+					RETURN_FALSE;
+				}
+				break;
+			default:
+				/* not reachable */
+				break;
+		}
 
 		if (FAILURE == php_stream_cast(stream, PHP_STREAM_AS_FD, (void *) &fd, REPORT_ERRORS)) {
 			RETURN_FALSE;
@@ -351,7 +450,7 @@ PHP_FUNCTION(bzopen)
 
 /* {{{ proto int bzerrno(resource bz)
    Returns the error number */
-PHP_FUNCTION(bzerrno)
+static PHP_FUNCTION(bzerrno)
 {
 	php_bz2_error(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_BZ_ERRNO);
 }
@@ -359,7 +458,7 @@ PHP_FUNCTION(bzerrno)
 
 /* {{{ proto string bzerrstr(resource bz)
    Returns the error string */
-PHP_FUNCTION(bzerrstr)
+static PHP_FUNCTION(bzerrstr)
 {
 	php_bz2_error(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_BZ_ERRSTR);
 }
@@ -367,7 +466,7 @@ PHP_FUNCTION(bzerrstr)
 
 /* {{{ proto array bzerror(resource bz)
    Returns the error number and error string in an associative array */
-PHP_FUNCTION(bzerror)
+static PHP_FUNCTION(bzerror)
 {
 	php_bz2_error(INTERNAL_FUNCTION_PARAM_PASSTHRU, PHP_BZ_ERRBOTH);
 }
@@ -375,7 +474,7 @@ PHP_FUNCTION(bzerror)
 
 /* {{{ proto string bzcompress(string source [, int blocksize100k [, int workfactor]])
    Compresses a string into BZip2 encoded data */
-PHP_FUNCTION(bzcompress)
+static PHP_FUNCTION(bzcompress)
 {
 	zval            **source,          /* Source data to compress */
 	                **zblock_size,     /* Optional block size to use */
@@ -433,16 +532,16 @@ PHP_FUNCTION(bzcompress)
 
 /* {{{ proto string bzdecompress(string source [, int small])
    Decompresses BZip2 compressed data */
-PHP_FUNCTION(bzdecompress)
+static PHP_FUNCTION(bzdecompress)
 {
 	char *source, *dest;
 	int source_len, error;
 	long small = 0;
-#if defined(PHP_WIN32) && _MSC_VER < 1300
+#if defined(PHP_WIN32)
 	unsigned __int64 size = 0;
-#else	
+#else
 	unsigned long long size = 0;
-#endif	
+#endif
 	bz_stream bzs;
 
 	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &source, &source_len, &small)) {
@@ -467,13 +566,13 @@ PHP_FUNCTION(bzdecompress)
 		/* compression is better then 2:1, need to allocate more memory */
 		bzs.avail_out = source_len;
 		size = (bzs.total_out_hi32 * (unsigned int) -1) + bzs.total_out_lo32;
-		dest = erealloc(dest, size + bzs.avail_out + 1);
+		dest = safe_erealloc(dest, 1, bzs.avail_out+1, size );
 		bzs.next_out = dest + size;
 	}
 
 	if (error == BZ_STREAM_END || error == BZ_OK) {
 		size = (bzs.total_out_hi32 * (unsigned int) -1) + bzs.total_out_lo32;
-		dest = erealloc(dest, size + 1);
+		dest = safe_erealloc(dest, 1, size, 1);
 		dest[size] = '\0';
 		RETVAL_STRINGL(dest, size, 0);
 	} else { /* real error */

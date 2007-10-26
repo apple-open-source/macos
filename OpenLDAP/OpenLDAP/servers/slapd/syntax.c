@@ -1,8 +1,8 @@
 /* syntax.c - routines to manage syntax definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/syntax.c,v 1.36.2.2 2004/01/01 18:16:35 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/syntax.c,v 1.40.2.3 2006/01/03 22:16:16 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,7 +23,6 @@
 #include <ac/socket.h>
 
 #include "slap.h"
-#include "ldap_pvt.h"
 
 struct sindexrec {
 	char		*sir_name;
@@ -105,12 +104,7 @@ syn_insert(
 		sir = (struct sindexrec *)
 			SLAP_CALLOC( 1, sizeof(struct sindexrec) );
 		if( sir == NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, ERR, 
-				"syn_insert: SLAP_CALLOC Error\n", 0, 0, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY, "SLAP_CALLOC Error\n", 0, 0, 0 );
-#endif
 			return LDAP_OTHER;
 		}
 		sir->sir_name = ssyn->ssyn_oid;
@@ -139,12 +133,7 @@ syn_add(
 
 	ssyn = (Syntax *) SLAP_CALLOC( 1, sizeof(Syntax) );
 	if( ssyn == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			"syn_add: SLAP_CALLOC Error\n", 0, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "SLAP_CALLOC Error\n", 0, 0, 0 );
-#endif
 		return LDAP_OTHER;
 	}
 
@@ -181,34 +170,23 @@ register_syntax(
 
 	syn = ldap_str2syntax( def->sd_desc, &code, &err, LDAP_SCHEMA_ALLOW_ALL);
 	if ( !syn ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( CONFIG, ERR, 
-			"register_syntax: Error - %s before %s in %s.\n",
-			ldap_scherr2str(code), err, def->sd_desc );
-#else
 		Debug( LDAP_DEBUG_ANY, "Error in register_syntax: %s before %s in %s\n",
 		    ldap_scherr2str(code), err, def->sd_desc );
-#endif
 
 		return( -1 );
 	}
 
 	code = syn_add( syn, def, &err );
 
-	ldap_memfree( syn );
-
 	if ( code ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( CONFIG, ERR, 
-			"register_syntax: Error - %s %s in %s\n", 
-			scherr2str(code), err, def->sd_desc );
-#else
 		Debug( LDAP_DEBUG_ANY, "Error in register_syntax: %s %s in %s\n",
 		    scherr2str(code), err, def->sd_desc );
-#endif
+		ldap_syntax_free( syn );
 
 		return( -1 );
 	}
+
+	ldap_memfree( syn );
 
 	return( 0 );
 }
@@ -235,14 +213,8 @@ syn_schema_info( Entry *e )
 			return -1;
 		}
 #if 0
-#ifdef NEW_LOGGING
-		LDAP_LOG( config, ENTRY,
-			   "syn_schema_info: Merging syn [%ld] %s\n",
-			   (long)val.bv_len, val.bv_val, 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE, "Merging syn [%ld] %s\n",
 	       (long) val.bv_len, val.bv_val, 0 );
-#endif
 #endif
 
 		nval.bv_val = syn->ssyn_oid;

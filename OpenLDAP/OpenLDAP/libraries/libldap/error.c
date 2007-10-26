@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/error.c,v 1.50.2.8 2004/01/01 18:16:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/error.c,v 1.64.2.8 2006/04/03 19:49:54 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -85,6 +85,30 @@ static struct ldaperror ldap_builtin_errlist[] = {
 
 	{LDAP_OTHER, 					N_("Internal (implementation specific) error")},
 
+	{LDAP_CANCELLED,				N_("Cancelled")},
+	{LDAP_NO_SUCH_OPERATION,		N_("No Operation to Cancel")},
+	{LDAP_TOO_LATE,					N_("Too Late to Cancel")},
+	{LDAP_CANNOT_CANCEL,			N_("Cannot Cancel")},
+
+	{LDAP_ASSERTION_FAILED,			N_("Assertion Failed")},
+	{LDAP_X_ASSERTION_FAILED,		N_("Assertion Failed (X)")},
+
+	{LDAP_SYNC_REFRESH_REQUIRED,	N_("Content Sync Refresh Required")},
+	{LDAP_X_SYNC_REFRESH_REQUIRED,	N_("Content Sync Refresh Required (X)")},
+
+	{LDAP_X_NO_OPERATION,			N_("No Operation (X)")},
+
+	{LDAP_CUP_RESOURCES_EXHAUSTED,	N_("LCUP Resources Exhausted")},
+	{LDAP_CUP_SECURITY_VIOLATION,	N_("LCUP Security Violation")},
+	{LDAP_CUP_INVALID_DATA,			N_("LCUP Invalid Data")},
+	{LDAP_CUP_UNSUPPORTED_SCHEME,	N_("LCUP Unsupported Scheme")},
+	{LDAP_CUP_RELOAD_REQUIRED,		N_("LCUP Reload Required")},
+
+#ifdef LDAP_X_TXN
+	{LDAP_X_TXN_SPECIFY_OKAY,		N_("TXN specify okay")},
+	{LDAP_X_TXN_ID_INVALID,			N_("TXN ID is invalid")},
+#endif
+
 	/* API ResultCodes */
 	{LDAP_SERVER_DOWN,				N_("Can't contact LDAP server")},
 	{LDAP_LOCAL_ERROR,				N_("Local error")},
@@ -104,16 +128,6 @@ static struct ldaperror ldap_builtin_errlist[] = {
 	{LDAP_MORE_RESULTS_TO_RETURN,	N_("More results to return")},
 	{LDAP_CLIENT_LOOP,				N_("Client Loop")},
 	{LDAP_REFERRAL_LIMIT_EXCEEDED,	N_("Referral Limit Exceeded")},
-
-	{LDAP_SYNC_REFRESH_REQUIRED,	N_("Content Sync Refresh Required")},
-
-	{LDAP_NO_OPERATION,				N_("No Operation")},
-	{LDAP_ASSERTION_FAILED,			N_("Assertion Failed")},
-
-	{LDAP_CANCELLED,				N_("Cancelled")},
-	{LDAP_NO_SUCH_OPERATION,		N_("No Operation to Cancel")},
-	{LDAP_TOO_LATE,					N_("Too Late to Cancel")},
-	{LDAP_CANNOT_CANCEL,			N_("Cannot Cancel")},
 
 	{0, NULL}
 };
@@ -143,15 +157,24 @@ ldap_err2string( int err )
 {
 	const struct ldaperror *e;
 	
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_err2string\n", 0,0,0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_err2string\n", 0, 0, 0 );
-#endif
 
 	e = ldap_int_error( err );
 
-	return e ? _(e->e_reason) : _("Unknown error");
+	if (e) {
+		return e->e_reason;
+
+	} else if ( LDAP_API_ERROR(err) ) {
+		return _("Unknown API error");
+
+	} else if ( LDAP_E_ERROR(err) ) {
+		return _("Unknown (extension) error");
+
+	} else if ( LDAP_X_ERROR(err) ) {
+		return _("Unknown (private extension) error");
+	}
+
+	return _("Unknown error");
 }
 
 /* deprecated */
@@ -160,21 +183,17 @@ ldap_perror( LDAP *ld, LDAP_CONST char *str )
 {
     int i;
 	const struct ldaperror *e;
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_perror\n", 0,0,0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_perror\n", 0, 0, 0 );
-#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
-	assert( str );
+	assert( str != NULL );
 
 	e = ldap_int_error( ld->ld_errno );
 
 	fprintf( stderr, "%s: %s (%d)\n",
 		str ? str : "ldap_perror",
-		e ? _(e->e_reason) : _("unknown LDAP result code"),
+		e ? _(e->e_reason) : _("unknown result code"),
 		ld->ld_errno );
 
 	if ( ld->ld_matched != NULL && ld->ld_matched[0] != '\0' ) {
@@ -221,7 +240,7 @@ ldap_result2error( LDAP *ld, LDAPMessage *r, int freeit )
  *   BindResponse ::= [APPLICATION 1] SEQUENCE {
  *     COMPONENTS OF LDAPResult,
  *     serverSaslCreds  [7] OCTET STRING OPTIONAL }
- * 
+ *
  * and ExtendedOp results:
  *
  *   ExtendedResponse ::= [APPLICATION 24] SEQUENCE {
@@ -247,11 +266,7 @@ ldap_parse_result(
 	ber_tag_t tag;
 	BerElement	*ber;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_parse_result\n", 0,0,0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_parse_result\n", 0, 0, 0 );
-#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
@@ -266,13 +281,19 @@ ldap_parse_result(
 #ifdef LDAP_R_COMPILE
 	ldap_pvt_thread_mutex_lock( &ld->ld_res_mutex );
 #endif
-	/* Find the next result... */
-	for ( lm = r; lm != NULL; lm = lm->lm_chain ) {
-		/* skip over entries and references */
-		if( lm->lm_msgtype != LDAP_RES_SEARCH_ENTRY &&
-			lm->lm_msgtype != LDAP_RES_SEARCH_REFERENCE &&
-			lm->lm_msgtype != LDAP_RES_INTERMEDIATE )
-		{
+	/* Find the result, last msg in chain... */
+	lm = r->lm_chain_tail;
+	/* FIXME: either this is not possible (assert?)
+	 * or it should be handled */
+	if ( lm != NULL ) {
+		switch ( lm->lm_msgtype ) {
+		case LDAP_RES_SEARCH_ENTRY:
+		case LDAP_RES_SEARCH_REFERENCE:
+		case LDAP_RES_INTERMEDIATE:
+			lm = NULL;
+			break;
+
+		default:
 			break;
 		}
 	}
@@ -303,12 +324,24 @@ ldap_parse_result(
 	ber = ber_dup( lm->lm_ber );
 
 	if ( ld->ld_version < LDAP_VERSION2 ) {
+#ifdef LDAP_NULL_IS_NULL
+		tag = ber_scanf( ber, "{iA}",
+			&ld->ld_errno, &ld->ld_error );
+#else /* ! LDAP_NULL_IS_NULL */
 		tag = ber_scanf( ber, "{ia}",
 			&ld->ld_errno, &ld->ld_error );
+#endif /* ! LDAP_NULL_IS_NULL */
+
 	} else {
 		ber_len_t len;
+
+#ifdef LDAP_NULL_IS_NULL
+		tag = ber_scanf( ber, "{iAA" /*}*/,
+			&ld->ld_errno, &ld->ld_matched, &ld->ld_error );
+#else /* ! LDAP_NULL_IS_NULL */
 		tag = ber_scanf( ber, "{iaa" /*}*/,
 			&ld->ld_errno, &ld->ld_matched, &ld->ld_error );
+#endif /* ! LDAP_NULL_IS_NULL */
 
 		if( tag != LBER_ERROR ) {
 			/* peek for referrals */
@@ -369,27 +402,24 @@ ldap_parse_result(
 	}
 	if ( errcode == LDAP_SUCCESS ) {
 		if( matcheddnp != NULL ) {
-			*matcheddnp = LDAP_STRDUP( ld->ld_matched );
+#ifdef LDAP_NULL_IS_NULL
+			if ( ld->ld_matched )
+#endif /* LDAP_NULL_IS_NULL */
+			{
+				*matcheddnp = LDAP_STRDUP( ld->ld_matched );
+			}
 		}
 		if( errmsgp != NULL ) {
-			*errmsgp = LDAP_STRDUP( ld->ld_error );
+#ifdef LDAP_NULL_IS_NULL
+			if ( ld->ld_error )
+#endif /* LDAP_NULL_IS_NULL */
+			{
+				*errmsgp = LDAP_STRDUP( ld->ld_error );
+			}
 		}
 
 		if( referralsp != NULL) {
 			*referralsp = ldap_value_dup( ld->ld_referrals );
-		}
-
-		/* Find the next result... */
-		for ( lm = lm->lm_chain; lm != NULL; lm = lm->lm_chain ) {
-			/* skip over entries and references */
-			if( lm->lm_msgtype != LDAP_RES_SEARCH_ENTRY &&
-				lm->lm_msgtype != LDAP_RES_SEARCH_REFERENCE &&
-				lm->lm_msgtype != LDAP_RES_INTERMEDIATE )
-			{
-				/* more results to return */
-				errcode = LDAP_MORE_RESULTS_TO_RETURN;
-				break;
-			}
 		}
 	}
 

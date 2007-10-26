@@ -17,7 +17,7 @@
 
 <hr>
 
-<h2>WARNING WARNING WARNING </h2>
+<h2>WARNING </h2>
 
 <p> The before-queue content filtering feature described in
 this document is suitable only for low-traffic sites. See the "<a
@@ -27,8 +27,10 @@ href="#pros_cons">Pros and Cons</a>" section below for details.
 <h2>The Postfix before-queue content filter feature</h2>
 
 <p> As of version 2.1, the Postfix SMTP server can forward all
-incoming mail to a content filtering proxy server that inspects
-all mail BEFORE it is stored in the Postfix mail queue. </p>
+incoming mail to a content filtering proxy server that inspects all
+mail BEFORE it is stored in the Postfix mail queue. It is roughly
+equivalent in capabilities to the approach described in <a href="MILTER_README.html">MILTER_README</a>,
+except that the latter uses a dedicated protocol instead of SMTP.
 
 <p> The before-queue content filter is meant to be used as follows: </p>
 
@@ -102,14 +104,13 @@ proxy feature</a>
 <li><a href="#protocol">How Postfix talks to the before-queue content
 filter</a>
 
-<li><a href="#transparency">Transparency</a>
-
 </ul>
 
 <h2><a name="principles">Principles of operation</a></h2>
 
-<p> The before-filter Postfix SMTP server receives mail from the
+<p> The before-filter Postfix SMTP server accepts connections from the
 Internet and does the usual relay access control, SASL authentication,
+TLS negotiation,
 RBL lookups, rejecting non-existent sender or recipient addresses,
 etc.  The before-queue filter receives unfiltered mail content from
 Postfix and does one of the following:  </p>
@@ -118,6 +119,8 @@ Postfix and does one of the following:  </p>
 
     <li> <p> Re-inject the mail back into Postfix via SMTP, perhaps
     after changing its content and/or destination. </p>
+
+    <li> <p> Discard or quarantine the mail. </p>
 
     <li> <p> Reject the mail by sending a suitable SMTP status code
     back to Postfix. Postfix passes the status back to the remote
@@ -220,11 +223,11 @@ PERL/SMTP content filtering framework. See:
 
 </blockquote>
 
-<p> This is configured by editing the master.cf file: </p>
+<p> This is configured by editing the <a href="master.5.html">master.cf</a> file: </p>
 
 <blockquote>
 <pre>
-/etc/postfix/master.cf:
+/etc/postfix/<a href="master.5.html">master.cf</a>:
     # =============================================================
     # service type  private unpriv  chroot  wakeup  maxproc command
     #               (yes)   (yes)   (yes)   (never) (100)
@@ -240,7 +243,7 @@ PERL/SMTP content filtering framework. See:
     # After-filter SMTP server. Receive mail from the content filter
     # on localhost port 10026.
     #
-    :10026    inet  n       -       n       -        -      smtpd
+    127.0.0.1:10026 inet n  -       n       -        -      smtpd
         -o <a href="postconf.5.html#smtpd_authorized_xforward_hosts">smtpd_authorized_xforward_hosts</a>=127.0.0.0/8
         -o <a href="postconf.5.html#smtpd_client_restrictions">smtpd_client_restrictions</a>=
         -o <a href="postconf.5.html#smtpd_helo_restrictions">smtpd_helo_restrictions</a>=
@@ -256,7 +259,7 @@ PERL/SMTP content filtering framework. See:
 
 <p> The before-filter SMTP server entry is a modified version of the
 default Postfix SMTP server entry that is normally configured at
-the top of the master.cf file: </p>
+the top of the <a href="master.5.html">master.cf</a> file: </p>
 
 <ul>
 
@@ -267,23 +270,29 @@ the top of the master.cf file: </p>
     <li> <p> The "-o <a href="postconf.5.html#smtpd_client_connection_count_limit">smtpd_client_connection_count_limit</a>=10" prevents
     one SMTP client from using up all 20 SMTP server processes.
     This limit is not necessary if you receive all mail from a
-    trusted relay host. </p>
+    trusted <a href="postconf.5.html#relayhost">relay host</a>. </p>
 
-    <p> Note: this setting is ignored by the stable Postfix 2.1
-    release. The feature will be available only in the experimental
-    release until Postfix 2.2.  </p>
+    <p> Note: this setting is available in Postfix version 2.2 and
+    later.  Earlier Postfix versions will ignore it.  </p>
 
     <li> <p> The "-o <a href="postconf.5.html#smtpd_proxy_filter">smtpd_proxy_filter</a>=127.0.0.1:10025" tells the
     before filter SMTP server that it should give incoming mail to
-    the content filter that listens on localhost port 10025. </p>
+    the content filter that listens on localhost TCP port 10025.
+
+    <li> <p> Postfix 2.3 supports both TCP and UNIX-domain filters.
+    The above filter could be specified as "inet:127.0.0.1:10025".
+    To specify a UNIX-domain filter, specify "unix:<i>pathname</i>".
+    A relative pathname is interpreted relative to the Postfix queue
+    directory. </p>
 
 </ul>
 
-<p> The after-filter SMTP server is a new master.cf entry: </p>
+<p> The after-filter SMTP server is a new <a href="master.5.html">master.cf</a> entry: </p>
 
 <ul>
 
-    <li> <p> The ":10026" makes the after-filter SMTP server listen
+    <li> <p> The "127.0.0.1:10026" makes the after-filter SMTP
+    server listen
     on the localhost address only, without exposing it to the
     network.  NEVER expose the after-filter SMTP server to the
     Internet :-) </p>
@@ -314,7 +323,7 @@ can't control when the remote SMTP client times out. </p>
 
 <li> <p> <a href="postconf.5.html#smtpd_proxy_filter">smtpd_proxy_filter</a> (syntax: host:port): The host and TCP
 port of the before-queue content filter.  When no host or host:
-is specified, localhost is assumed. </p>
+is specified here, localhost is assumed. </p>
 
 <li> <p> <a href="postconf.5.html#smtpd_proxy_timeout">smtpd_proxy_timeout</a> (default: 100s): Timeout for connecting
 to the before-queue content filter and for sending and receiving
@@ -339,61 +348,23 @@ pipelining.  Postfix generates its own EHLO, XFORWARD (for logging
 the remote client IP address instead of localhost[127.0.0.1]), DATA
 and QUIT commands, and forwards unmodified copies of all the MAIL
 FROM and RCPT TO commands that the before-filter Postfix SMTP server
-didn't reject itself.  The SMTP proxy server should accept the same
-MAIL FROM and RCPT TO command syntax as the Postfix SMTP server.
+didn't reject itself.
 Postfix sends no other SMTP commands. </p>
 
-<p> The content filter is expected to pass on unmodified SMTP
-commands from a before-filter Postfix SMTP server to an after-filter
-Postfix SMTP server that usually listens on a non-standard port.
-When the filter rejects content, it should send a negative SMTP
+<p> The content filter should accept the same MAIL FROM and RCPT
+TO command syntax as the before-filter Postfix SMTP server, and
+should forward the commands without modification to the after-filter
+SMTP server.  If the content filter or after-filter SMTP server
+does not support all the ESMTP features that the before-filter
+Postfix SMTP server supports, then the missing features must be
+turned off in the before-filter Postfix SMTP server with the
+<a href="postconf.5.html#smtpd_discard_ehlo_keywords">smtpd_discard_ehlo_keywords</a> parameter. </p>
+
+<p> When the filter rejects content, it should send a negative SMTP
 response back to the before-filter Postfix SMTP server, and it
 should abort the connection with the after-filter Postfix SMTP
 server without completing the SMTP conversation with the after-filter
 Postfix SMTP server. </p>
-
-<p> More detail on the postfix-to-proxy interaction is in the
-section titled "<a href="#transparency">Transparency</a>". </p>
-
-<h2><a name="transparency">Transparency</a></h2>
-
-<p> The before-filter Postfix SMTP server forwards the MAIL FROM,
-RCPT TO and DATA commands that it has approved, but it does not
-forward other commands such as TLS or SASL commands.  It can
-therefore not be transparent. </p>
-
-<p> The real-time content filter, on the other hand, has to be
-transparent.  In order to support non-transparent real-time content
-filters, Postfix would have to reconcile the before-filter Postfix
-ESMTP feature set with the feature set that Postfix receives from
-the real-time content filter. </p>
-
-<ul>
-
-    <li> <p> When a future Postfix version supports DSN, but the
-    content filter does not announce DSN support in the EHLO reply,
-    then the before-filter SMTP server would have to either 1)
-    suppress the DSN feature in its EHLO announcement, or 2)
-    duplicate all the work that needs to be done when delivering
-    DSN-aware mail to a non-DSN destination. </p>
-
-    <li> <p> When the content filter does not announce 8BITMIME
-    support in the EHLO reply, then the before-filter SMTP server
-    would have to either 1) suppress the 8BITMIME feature in its
-    EHLO announcement, or 2) convert the content to quoted-printable
-    before giving it to the content filter. </p>
-
-    <li> <p> Performance: when Postfix has to suppress elements
-    from the before-filter EHLO reply because they are incompatible
-    with the real-time content filter, then Postfix has to connect
-    to the content filter as soon as the client sends a valid EHLO
-    command.  This wastes a lot of resources when all the MAIL FROM
-    or RCPT TO commands are rejected. </p>
-
-</ul>
-
-<p> Therefore, the Postfix SMTP server cannot be transparent with
-respect to the before-queue content filter. </p>
 
 </body>
 

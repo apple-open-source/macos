@@ -54,7 +54,7 @@ hex_digit_value (int a)
   else if (a >= 'A' && a <= 'F')
     return a - 'A' + 10;
   else
-    error ("Invalid hex digit %d", a);
+    error (_("Invalid hex digit %d"), a);
 }
 
 
@@ -101,8 +101,8 @@ rom68k_supply_one_register (int regno, unsigned char *hex)
   while (is_whitespace (*hex))
     hex++;
 
-  store_unsigned_integer (regbuf, DEPRECATED_REGISTER_RAW_SIZE (regno), value);
-  supply_register (regno, regbuf);
+  store_unsigned_integer (regbuf, register_size (current_gdbarch, regno), value);
+  regcache_raw_supply (current_regcache, regno, regbuf);
 
   return hex;
 }

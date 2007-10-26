@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,10 +12,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
-"""Add the message to the list's current digest and possibly send it.
-"""
+"""Add the message to the list's current digest and possibly send it."""
 
 # Messages are accumulated to a Unix mailbox compatible file containing all
 # the messages destined for the digest.  This file must be parsable by the
@@ -37,8 +37,9 @@ from email.Generator import Generator
 from email.MIMEBase import MIMEBase
 from email.MIMEText import MIMEText
 from email.MIMEMessage import MIMEMessage
-from email.Utils import getaddresses
+from email.Utils import getaddresses, formatdate
 from email.Header import decode_header, make_header, Header
+from email.Charset import Charset
 
 from Mailman import mm_cfg
 from Mailman import Utils
@@ -87,9 +88,18 @@ def process(mlist, msg, msgdata):
     if size / 1024.0 >= mlist.digest_size_threshhold:
         # This is a bit of a kludge to get the mbox file moved to the digest
         # queue directory.
-        mboxfp.seek(0)
-        send_digests(mlist, mboxfp)
-        os.unlink(mboxfile)
+        try:
+            # Enclose in try/except here because a error in send_digest() can
+            # silently stop regular delivery.  Unsuccessful digest delivery
+            # should be tried again by cron and the site administrator will be
+            # notified of any error explicitly by the cron error message.
+            mboxfp.seek(0)
+            send_digests(mlist, mboxfp)
+            os.unlink(mboxfile)
+        except Exception, errmsg:
+            # Bare except is generally prohibited in Mailman, but we can't
+            # forecast what exceptions can occur here.
+            syslog('error', 'send_digests() failed: %s', errmsg)
     mboxfp.close()
 
 
@@ -137,9 +147,11 @@ def send_digests(mlist, mboxfp):
 
 def send_i18n_digests(mlist, mboxfp):
     mbox = Mailbox(mboxfp)
-    # Prepare common information
+    # Prepare common information (first lang/charset)
     lang = mlist.preferred_language
     lcset = Utils.GetCharSet(lang)
+    lcset_out = Charset(lcset).output_charset or lcset
+    # Common Information (contd)
     realname = mlist.real_name
     volume = mlist.volume
     issue = mlist.next_digest_number
@@ -147,6 +159,7 @@ def send_i18n_digests(mlist, mboxfp):
     digestsubj = Header(digestid, lcset, header_name='Subject')
     # Set things up for the MIME digest.  Only headers not added by
     # CookHeaders need be added here.
+    # Date/Message-ID should be added here also.
     mimemsg = Message.Message()
     mimemsg['Content-Type'] = 'multipart/mixed'
     mimemsg['MIME-Version'] = '1.0'
@@ -154,6 +167,8 @@ def send_i18n_digests(mlist, mboxfp):
     mimemsg['Subject'] = digestsubj
     mimemsg['To'] = mlist.GetListEmail()
     mimemsg['Reply-To'] = mlist.GetListEmail()
+    mimemsg['Date'] = formatdate(localtime=1)
+    mimemsg['Message-ID'] = Utils.unique_message_id(mlist)
     # Set things up for the rfc1153 digest
     plainmsg = StringIO()
     rfc1153msg = Message.Message()
@@ -161,6 +176,8 @@ def send_i18n_digests(mlist, mboxfp):
     rfc1153msg['Subject'] = digestsubj
     rfc1153msg['To'] = mlist.GetListEmail()
     rfc1153msg['Reply-To'] = mlist.GetListEmail()
+    rfc1153msg['Date'] = formatdate(localtime=1)
+    rfc1153msg['Message-ID'] = Utils.unique_message_id(mlist)
     separator70 = '-' * 70
     separator30 = '-' * 30
     # In the rfc1153 digest, the masthead contains the digest boilerplate plus
@@ -211,18 +228,19 @@ def send_i18n_digests(mlist, mboxfp):
         if msg == '':
             # It was an unparseable message
             msg = mbox.next()
+            continue
         msgcount += 1
         messages.append(msg)
         # Get the Subject header
         msgsubj = msg.get('subject', _('(no subject)'))
-        subject = oneline(msgsubj, lcset)
+        subject = Utils.oneline(msgsubj, lcset)
         # Don't include the redundant subject prefix in the toc
         mo = re.match('(re:? *)?(%s)' % re.escape(mlist.subject_prefix),
                       subject, re.IGNORECASE)
         if mo:
             subject = subject[:mo.start(2)] + subject[mo.end(2):]
         username = ''
-        addresses = getaddresses([oneline(msg.get('from', ''), lcset)])
+        addresses = getaddresses([Utils.oneline(msg.get('from', ''), lcset)])
         # Take only the first author we find
         if isinstance(addresses, ListType) and addresses:
             username = addresses[0][0]
@@ -310,11 +328,24 @@ def send_i18n_digests(mlist, mboxfp):
         # Honor the default setting
         for h in mm_cfg.PLAIN_DIGEST_KEEP_HEADERS:
             if msg[h]:
-                uh = Utils.wrap('%s: %s' % (h, oneline(msg[h], lcset)))
+                uh = Utils.wrap('%s: %s' % (h, Utils.oneline(msg[h], lcset)))
                 uh = '\n\t'.join(uh.split('\n'))
                 print >> plainmsg, uh
         print >> plainmsg
-        payload = msg.get_payload(decode=True)
+        # If decoded payload is empty, this may be multipart message.
+        # -- just stringfy it.
+        payload = msg.get_payload(decode=True) \
+                  or msg.as_string().split('\n\n',1)[1]
+        mcset = msg.get_content_charset('')
+        if mcset and mcset <> lcset and mcset <> lcset_out:
+            try:
+                payload = unicode(payload, mcset, 'replace'
+                          ).encode(lcset, 'replace')
+            except (UnicodeError, LookupError):
+                # TK: Message has something unknown charset.
+                #     _out means charset in 'outer world'.
+                payload = unicode(payload, lcset_out, 'replace'
+                          ).encode(lcset, 'replace')
         print >> plainmsg, payload
         if not payload.endswith('\n'):
             print >> plainmsg
@@ -380,16 +411,3 @@ def send_i18n_digests(mlist, mboxfp):
                     recips=plainrecips,
                     listname=mlist.internal_name(),
                     isdigest=True)
-
-
-
-def oneline(s, cset):
-    # Decode header string in one line and convert into specified charset
-    try:
-        h = make_header(decode_header(s))
-        ustr = h.__unicode__()
-        oneline = UEMPTYSTRING.join(ustr.splitlines())
-        return oneline.encode(cset, 'replace')
-    except (LookupError, UnicodeError):
-        # possibly charset problem. return with undecoded string in one line.
-        return EMPTYSTRING.join(s.splitlines())

@@ -1,0 +1,20 @@
+--- makeinfo/html.c.orig	2006-11-11 15:27:18.000000000 -0800
++++ makeinfo/html.c	2006-11-11 15:37:41.000000000 -0800
+@@ -445,7 +445,7 @@
+     return 0;
+ 
+   /* Find the end of the previous tag.  */
+-  while (output_paragraph[check_position-1] != '>' && check_position > 0)
++  while (check_position > 0 && output_paragraph[check_position-1] != '>')
+     check_position--;
+ 
+   /* Save stuff between tag's end to output_paragraph's end.  */
+@@ -462,7 +462,7 @@
+     }
+ 
+   /* Find the start of the previous tag.  */
+-  while (output_paragraph[check_position-1] != '<' && check_position > 0)
++  while (check_position > 0 && output_paragraph[check_position-1] != '<')
+     check_position--;
+ 
+   /* Check to see if this is the tag.  */

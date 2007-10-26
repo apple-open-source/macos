@@ -41,9 +41,9 @@ char extern_C_braces[MAX_EXTERN_C_BRACES];
 
 /* APPLE LOCAL begin CW asm blocks */
 /* Dummies needed because we use them in cpplib, yuck.  */
-int flag_cw_asm_blocks;
-int cw_asm_state;
-int cw_asm_in_operands;
+int flag_iasm_blocks;
+int iasm_state;
+bool iasm_in_operands;
 /* APPLE LOCAL end CW asm blocks */
 
 /* True if the function declaration currently being scanned is

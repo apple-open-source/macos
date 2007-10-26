@@ -88,6 +88,7 @@ typedef FourCharCode SecAuthenticationType;
 	@constant kSecAuthenticationTypeHTTPDigest Specifies HTTP Digest Access authentication.
 	@constant kSecAuthenticationTypeHTMLForm Specifies HTML form based authentication.
 	@constant kSecAuthenticationTypeDefault Specifies the default authentication type.
+	@constant kSecAuthenticationTypeAny Specifies that any authentication type is acceptable. When performing a search, use this constant to avoid constraining your search results to a particular authentication type.
 */
 #ifdef __LITTLE_ENDIAN__
 #define AUTH_TYPE_FIX_(x) \
@@ -105,7 +106,8 @@ enum
     kSecAuthenticationTypeHTTPBasic        = AUTH_TYPE_FIX_ ('http'),
     kSecAuthenticationTypeHTTPDigest       = AUTH_TYPE_FIX_ ('httd'),
     kSecAuthenticationTypeHTMLForm         = AUTH_TYPE_FIX_ ('form'),
-    kSecAuthenticationTypeDefault          = AUTH_TYPE_FIX_ ('dflt')
+    kSecAuthenticationTypeDefault          = AUTH_TYPE_FIX_ ('dflt'),
+    kSecAuthenticationTypeAny              = AUTH_TYPE_FIX_ ( 0 )
 };
 
 /*!
@@ -148,6 +150,9 @@ typedef FourCharCode SecProtocolType;
 	@constant kSecProtocolTypeIMAPS Indicates IMAPS (IMAP4 over TLS/SSL).
 	@constant kSecProtocolTypeIRCS Indicates IRCS (IRC over TLS/SSL).
 	@constant kSecProtocolTypePOP3S Indicates POP3S (POP3 over TLS/SSL).
+	@constant kSecProtocolTypeCVSpserver Indicates CVS pserver.
+	@constant kSecProtocolTypeSVN Indicates Subversion.
+	@constant kSecProtocolTypeAny Indicates that any protocol is acceptable. When performing a search, use this constant to avoid constraining your search results to a particular protocol.
 */
 enum
 {
@@ -170,6 +175,7 @@ enum
     kSecProtocolTypeHTTPProxy   = 'htpx',
     kSecProtocolTypeHTTPSProxy  = 'htsx',
     kSecProtocolTypeFTPProxy    = 'ftpx',
+    kSecProtocolTypeCIFS        = 'cifs',
     kSecProtocolTypeSMB         = 'smb ',
     kSecProtocolTypeRTSP        = 'rtsp',
     kSecProtocolTypeRTSPProxy   = 'rtsx',
@@ -181,7 +187,10 @@ enum
     kSecProtocolTypeTelnetS     = 'tels',
     kSecProtocolTypeIMAPS       = 'imps',
     kSecProtocolTypeIRCS        = 'ircs',
-    kSecProtocolTypePOP3S       = 'pops'
+    kSecProtocolTypePOP3S       = 'pops',
+    kSecProtocolTypeCVSpserver  = 'cvsp',
+    kSecProtocolTypeSVN         = 'svn ',
+    kSecProtocolTypeAny         =  0
 };
 
 /*!
@@ -202,18 +211,20 @@ typedef UInt32 SecKeychainEvent;
 	@constant kSecDefaultChangedEvent Indicates that a different keychain was specified as the default.
 	@constant kSecDataAccessEvent Indicates a process has accessed a keychain item's data.
 	@constant kSecKeychainListChangedEvent Indicates the list of keychains has changed.
+	@constant kSecTrustSettingsChangedEvent Indicates Trust Settings changed.
 */
 enum
 {
-    kSecLockEvent                = 1,
-    kSecUnlockEvent              = 2,
-    kSecAddEvent                 = 3,
-    kSecDeleteEvent              = 4,
-    kSecUpdateEvent              = 5,
-    kSecPasswordChangedEvent     = 6,
-    kSecDefaultChangedEvent      = 9,
-    kSecDataAccessEvent          = 10,
-    kSecKeychainListChangedEvent = 11
+    kSecLockEvent                 = 1,
+    kSecUnlockEvent               = 2,
+    kSecAddEvent                  = 3,
+    kSecDeleteEvent               = 4,
+    kSecUpdateEvent               = 5,
+    kSecPasswordChangedEvent      = 6,
+    kSecDefaultChangedEvent       = 9,
+    kSecDataAccessEvent           = 10,
+    kSecKeychainListChangedEvent  = 11,
+	kSecTrustSettingsChangedEvent = 12
 };
 
 /*!
@@ -233,20 +244,22 @@ typedef UInt32 SecKeychainEventMask;
 	@constant kSecPasswordChangedEventMask If the bit specified by this mask is set, your callback function will be invoked when the keychain password is changed.
 	@constant kSecDefaultChangedEventMask If the bit specified by this mask is set, your callback function will be invoked when a different keychain is specified as the default.
 	@constant kSecDataAccessEventMask If the bit specified by this mask is set, your callback function will be invoked when a process accesses a keychain item's data.
+	@constant kSecTrustSettingsChangedEvent If the bit specified by this mask is set, your callback function will be invoked when there is a change in certificate Trust Settings. 
 	@constant kSecEveryEventMask If all the bits are set, your callback function will be invoked whenever any event occurs.
 */
 enum
 {
-    kSecLockEventMask            = 1 << kSecLockEvent,
-    kSecUnlockEventMask          = 1 << kSecUnlockEvent,
-    kSecAddEventMask             = 1 << kSecAddEvent,
-    kSecDeleteEventMask          = 1 << kSecDeleteEvent,
-    kSecUpdateEventMask          = 1 << kSecUpdateEvent,
-    kSecPasswordChangedEventMask = 1 << kSecPasswordChangedEvent,
-    kSecDefaultChangedEventMask  = 1 << kSecDefaultChangedEvent,
-    kSecDataAccessEventMask      = 1 << kSecDataAccessEvent,
-    kSecKeychainListChangedMask  = 1 << kSecKeychainListChangedEvent,
-    kSecEveryEventMask           = 0xffffffff
+    kSecLockEventMask            		= 1 << kSecLockEvent,
+    kSecUnlockEventMask          		= 1 << kSecUnlockEvent,
+    kSecAddEventMask             		= 1 << kSecAddEvent,
+    kSecDeleteEventMask          		= 1 << kSecDeleteEvent,
+    kSecUpdateEventMask          		= 1 << kSecUpdateEvent,
+    kSecPasswordChangedEventMask 		= 1 << kSecPasswordChangedEvent,
+    kSecDefaultChangedEventMask  		= 1 << kSecDefaultChangedEvent,
+    kSecDataAccessEventMask     		= 1 << kSecDataAccessEvent,
+    kSecKeychainListChangedMask  		= 1 << kSecKeychainListChangedEvent,
+	kSecTrustSettingsChangedEventMask 	= 1 << kSecTrustSettingsChangedEvent,
+    kSecEveryEventMask 			        = 0xffffffff
 };
 
 /*!
@@ -282,7 +295,7 @@ CFTypeID SecKeychainGetTypeID(void);
 */
 OSStatus SecKeychainGetVersion(UInt32 *returnVers);
 
-#pragma mark ÑÑÑÑ Keychain Management ÑÑÑÑ
+#pragma mark ---- Keychain Management ----
 /*!
     @function SecKeychainOpen
     @abstract Create a SecKeychainRef for a keychain at pathName.  This keychain might
@@ -310,7 +323,7 @@ OSStatus SecKeychainCreate(const char *pathName, UInt32 passwordLength, const vo
 /*!
 	@function SecKeychainDelete
     @abstract Removes one or more keychains from the current keychain searchlist, and deletes the keychain storage (if the keychains are file-based).
-    @param keychainOrArray A single keychain reference or a reference to an array of keychains to delete.
+    @param keychainOrArray A single keychain reference or a reference to an array of keychains to delete. IMPORTANT: SecKeychainDelete does not dispose the memory occupied by keychain references; use the CFRelease function when you are completely finished with a keychain.
 	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecInvalidKeychain (-25295) may be returned if the keychain parameter is invalid (NULL).
 */
 OSStatus SecKeychainDelete(SecKeychainRef keychainOrArray);
@@ -431,7 +444,7 @@ OSStatus SecKeychainGetStatus(SecKeychainRef keychain, SecKeychainStatus *keycha
 */
 OSStatus SecKeychainGetPath(SecKeychainRef keychain, UInt32 *ioPathLength, char *pathName);
 
-#pragma mark ÑÑÑÑ Keychain Item Attribute Information ÑÑÑÑ
+#pragma mark ---- Keychain Item Attribute Information ----
 /*!
 	@function SecKeychainAttributeInfoForItemID
 	@abstract Obtains tags for all possible attributes for a given item class.
@@ -451,7 +464,7 @@ OSStatus SecKeychainAttributeInfoForItemID(SecKeychainRef keychain,  UInt32 item
 */
 OSStatus SecKeychainFreeAttributeInfo(SecKeychainAttributeInfo *info);
 
-#pragma mark ÑÑÑÑ Keychain Manager Callbacks ÑÑÑÑ
+#pragma mark ---- Keychain Manager Callbacks ----
  
 /*!
 	@typedef SecKeychainCallback
@@ -488,7 +501,7 @@ OSStatus SecKeychainAddCallback(SecKeychainCallback callbackFunction, SecKeychai
 */
 OSStatus SecKeychainRemoveCallback(SecKeychainCallback callbackFunction);
 
-#pragma mark ÑÑÑÑ High Level Keychain Manager Calls ÑÑÑÑ
+#pragma mark ---- High Level Keychain Manager Calls ----
 /*!
 	@function SecKeychainAddInternetPassword
 	@abstract Adds an Internet password to the specified keychain.
@@ -567,7 +580,7 @@ OSStatus SecKeychainAddGenericPassword(SecKeychainRef keychain, UInt32 serviceNa
 */
 OSStatus SecKeychainFindGenericPassword(CFTypeRef keychainOrArray,  UInt32 serviceNameLength, const char *serviceName, UInt32 accountNameLength, const char *accountName, UInt32 *passwordLength, void **passwordData, SecKeychainItemRef *itemRef);
 
-#pragma mark ÑÑÑÑ Managing User Interaction ÑÑÑÑ
+#pragma mark ---- Managing User Interaction ----
 /*!
 	@function SecKeychainSetUserInteractionAllowed
 	@abstract Turns on or off any optional user interaction
@@ -584,7 +597,7 @@ OSStatus SecKeychainSetUserInteractionAllowed(Boolean state);
 */
 OSStatus SecKeychainGetUserInteractionAllowed(Boolean *state);
 
-#pragma mark ÑÑÑÑ CSSM Bridge Functions ÑÑÑÑ
+#pragma mark ---- CSSM Bridge Functions ----
 /*!
 	@function SecKeychainGetCSPHandle
 	@abstract Returns the CSSM_CSP_HANDLE attachment for the given keychain reference. The handle is valid until the keychain reference is released.
@@ -603,7 +616,7 @@ OSStatus SecKeychainGetCSPHandle(SecKeychainRef keychain, CSSM_CSP_HANDLE *cspHa
 */
 OSStatus SecKeychainGetDLDBHandle(SecKeychainRef keychain, CSSM_DL_DB_HANDLE *dldbHandle);
 
-#pragma mark ÑÑÑÑ Keychain Access Management ÑÑÑÑ
+#pragma mark ---- Keychain Access Management ----
 /*!
 	@function SecKeychainCopyAccess
 	@abstract Retrieves the access for a keychain. 

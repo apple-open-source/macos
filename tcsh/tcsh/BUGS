@@ -1,4 +1,4 @@
-# $Id$
+# $Id: BUGS,v 3.4 2004/08/04 17:12:26 christos Exp $
 ============
 Bugs in TCSH
 ============
@@ -316,7 +316,7 @@ Subject: EXEC doesn't close the file descriptors
      */
     main()
     {
-    register int i;
+    int i;
 
     for( i=0; i < 20; i++ ){
         printf("%d = %d\n", i, isatty(i) );

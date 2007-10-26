@@ -29,13 +29,19 @@
 #define	__CSharedData_h__	1
 
 #include <DirectoryServiceCore/PrivateTypes.h>
+#include <DirectoryServiceCore/SharedConsts.h>
 
-#define		kstrDefaultLocalNodeName			"/NetInfo/DefaultLocalNode"
+#define		kstrDefaultLocalNodeName			"/Local/Default"
+#define		kstrBSDLocalNodeName				"/BSD/local"
+
+#define		kstrNIDefaultLocalNodeName			"/NetInfo/DefaultLocalNode"
 #define		kstrAuthenticationNodeName			"/Search"
 #define		kstrContactsNodeName				"/Search/Contacts"
 #define		kstrNetworkNodeName					"/Search/Network"
 #define		kstrAuthenticationConfigFilePrefix	"SearchNodeConfig"
 #define		kstrContactsConfigFilePrefix		"ContactsNodeConfig"
+#define		kstrCacheNodeName					"/Cache"
+#define		kstrCacheStoreNodeName				"/Cache/Store"
 
 /*!
  * @defined kDSNAttrDefaultLDAPPaths
@@ -50,13 +56,14 @@ typedef enum {
 	eDSCustomCallLDAPv2ReadConfigData				= 77,
 	eDSCustomCallLDAPv2WriteConfigData				= 88,
 	eDSCustomCallLDAPv2Reinitialize					= 99,
-
+	
 // LDAPv3 Plugin Request Codes
 	eDSCustomCallLDAPv3WriteServerMappings			= 55,
 	//eDSCustomCallLDAPv3ReadServerMappingsSize		= 56,
 	//eDSCustomCallLDAPv3ReadServerMappingsData		= 57,
 	eDSCustomCallLDAPv3ReadConfigSize				= 66,
 	eDSCustomCallLDAPv3ReadConfigData				= 77,
+	eDSCustomCallLDAPv3ReadConfigDataServerList		= 80,
 	eDSCustomCallLDAPv3WriteConfigData				= 88,
 	eDSCustomCallLDAPv3Reinitialize					= 99,
 	eDSCustomCallLDAPv3AddServerConfig				= 111,
@@ -72,6 +79,7 @@ typedef enum {
 	eDSCustomCallLDAPv3RemoveServerConfig			= 209,
 	eDSCustomCallLDAPv3NewServerBindOther			= 210,
 	eDSCustomCallLDAPv3NewServerForceBindOther		= 211,
+	eDSCustomCallLDAPv3CurrentAuthenticatedUser		= 212,
 	
 // Extended Record Calls - can be used by multiple plug-ins
 	eDSCustomCallExtendedRecordCallsAvailable		= 1000,
@@ -87,7 +95,8 @@ typedef enum {
 	eDSCustomCallSearchReadDHCPLDAPSize				= 555,
 	eDSCustomCallSearchReadDHCPLDAPData				= 556,
 	eDSCustomCallSearchWriteDHCPLDAPData			= 557,
-	
+	eDSCustomCallSearchSubNodesUnreachable			= 666,
+
 // Configure Plugin Request Codes
 	eDSCustomCallConfigureGetAuthRef				= 111,
 	eDSCustomCallConfigureCheckVersion				= 222,
@@ -100,19 +109,41 @@ typedef enum {
 	eDSCustomCallConfigureWriteSCConfigData			= 555,
 	eDSCustomCallActivatePerfMonitor				= 666,
 	eDSCustomCallDeactivatePerfMonitor				= 667,
-        eDSCustomCallDumpStatsPerfMonitor                               = 668,
-        eDSCustomCallFlushStatsPerfMonitor                              = 669,
+	eDSCustomCallDumpStatsPerfMonitor				= 668,
+	eDSCustomCallFlushStatsPerfMonitor				= 669,
 	eDSCustomCallConfigureToggleDSProxy				= 777,
-	eDSCustomCallTogglePlugInStateBase				= 1000
+	eDSCustomCallConfigureIsBSDLocalUsersAndGroupsEnabled = 780,
+	eDSCustomCallConfigureEnableBSDLocalUsersAndGroups	= 781,
+	eDSCustomCallConfigureDisableBSDLocalUsersAndGroups= 782,
+	eDSCustomCallConfigureLocalMountRecordsChanged	= 888,
+	eDSCustomCallTogglePlugInStateBase				= 1000,
+	
+// BaseDirectoryPlugin Request Codes
+	eDSCustomCallReadPluginConfigSize				= 66,
+	eDSCustomCallReadPluginConfigData				= 77,
+	eDSCustomCallWritePluginConfigData				= 88,
+	eDSCustomCallVerifyPluginConfigData				= 99,
+	
+// Cache Plugin request codes
+	eDSCustomCallCacheRegisterLocalSearchPID		= 10000,	// means only local plugins used during lookups
+	eDSCustomCallCacheUnregisterLocalSearchPID		= 10001
+
 } tPluginCustomCallRequestCode;
 
 #ifdef __cplusplus
 class CShared
 {
 public:
-	static	void		LogIt				( uInt32 inMsgType, const char *inFmt, ... );
+	static	void		LogIt				( UInt32 inMsgType, const char *inFmt, ... );
+	static	void		LogItWithPriority	( UInt32 inSignature, UInt32 inMsgType, const char *inFmt, ... );
 };
 #endif
+
+__BEGIN_DECLS
+void dsSetNodeCacheAvailability( char *inNodeName, int inAvailable );
+void dsFlushLibinfoCache( void );
+void dsFlushMembershipCache( void );
+__END_DECLS
 
 #endif // __CSharedData_h__
 

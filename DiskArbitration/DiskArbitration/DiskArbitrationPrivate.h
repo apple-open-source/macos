@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,8 +24,6 @@
 #ifndef __DISKARBITRATION_DISKARBITRATIONPRIVATE__
 #define __DISKARBITRATION_DISKARBITRATIONPRIVATE__
 
-#include <mach/mach.h>
-#include <sys/types.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
 
@@ -34,6 +32,9 @@ extern "C" {
 #endif /* __cplusplus */
 
 #ifndef __DISKARBITRATIOND__
+#ifndef __LP64__
+
+#include <mach/mach.h>
 
 enum
 {
@@ -50,7 +51,6 @@ enum
     kDA_CLIENT_WILL_HANDLE_UNRECOGNIZED_DISK = 11,
     kDA_DISK_APPEARED1                       = 12,
     kDA_DISK_APPEARED_WITH_MT                = 13,
-    kDA_BLUE_BOX_UPDATED                     = 16,
     kDA_DISK_WILL_BE_CHECKED                 = 21,
     kDA_CALL_FAILED                          = 22,
     kDA_CALL_SUCCEEDED                       = 23,
@@ -84,6 +84,7 @@ enum
     kDiskArbDiskAppearedNoSizeMask                 = 1 << 13,
     kDiskArbDiskAppearedCheckFailed                = 1 << 14,
     kDiskArbDiskAppearedInternal                   = 1 << 15,
+    kDiskArbDiskAppearedBDROMMask                  = 1 << 16
 };
 
 enum
@@ -125,10 +126,12 @@ enum
     kDiskArbHandlesUnrecognizedCDMedia              = 1 << 1,
     kDiskArbHandlesUnrecognizedDVDMedia             = 1 << 2,
     kDiskArbHandlesUnrecognizedOtherRemovableMedia  = 1 << 3,
+    kDiskArbHandlesUnrecognizedBDMedia              = 1 << 4,
     kDiskArbHandlesUninitializedFixedMedia          = 1 << 10,
     kDiskArbHandlesUninitializedCDMedia             = 1 << 11,
     kDiskArbHandlesUninitializedDVDMedia            = 1 << 12,
-    kDiskArbHandlesUninitializedOtherRemovableMedia = 1 << 13
+    kDiskArbHandlesUninitializedOtherRemovableMedia = 1 << 13,
+    kDiskArbHandlesUninitializedBDMedia             = 1 << 14
 };
 
 enum
@@ -151,8 +154,6 @@ typedef char DiskArbDiskIdentifier[1024];
 typedef char DiskArbGenericString[1024];
 typedef char DiskArbIOContent[1024];
 typedef char DiskArbMountpoint[1024];
-
-typedef void ( *DiskArbCallback_BlueBoxBootVolumeUpdated_t )( int sequence );
 
 typedef void ( *DiskArbCallback_CallFailedNotification_t )( char * disk, int type, int status );
 
@@ -243,7 +244,6 @@ extern kern_return_t DiskArbMsgLoop( void );
 extern kern_return_t DiskArbMsgLoopWithTimeout( mach_msg_timeout_t timeout );
 extern void          DiskArbNoOp( void );
 extern kern_return_t DiskArbRefresh_auto( void );
-extern void          DiskArbRegisterCallback_BlueBoxBootVolumeUpdated( DiskArbCallback_BlueBoxBootVolumeUpdated_t callback );
 extern void          DiskArbRegisterCallback_CallFailedNotification( DiskArbCallback_CallFailedNotification_t callback );
 extern void          DiskArbRegisterCallback_CallSucceededNotification( DiskArbCallback_CallSucceededNotification_t callback );
 extern void          DiskArbRegisterCallback_ClientDisconnectedNotification( DiskArbCallback_ClientDisconnectedNotification_t callback );
@@ -264,7 +264,6 @@ extern kern_return_t DiskArbRequestDiskChange_auto( char * disk, char * name, in
 extern kern_return_t DiskArbRequestMount_auto( char * disk );
 extern kern_return_t DiskArbRequestMountAndOwn_auto( char * disk );
 extern kern_return_t DiskArbRetainClientReservationForDevice( char * disk );
-extern kern_return_t DiskArbSetBlueBoxBootVolume_async_auto( int pid, int sequence );
 extern kern_return_t DiskArbSetCurrentUser_auto( int user );
 extern kern_return_t DiskArbSetVolumeEncoding_auto( char * disk, int encoding );
 extern kern_return_t DiskArbStart( mach_port_t * port );
@@ -276,6 +275,7 @@ extern kern_return_t DiskArbVSDBAdoptVolume_auto( char * disk );
 extern kern_return_t DiskArbVSDBDisownVolume_auto( char * disk );
 extern int           DiskArbVSDBGetVolumeStatus_auto( char * disk );
 
+#endif /* !__LP64__ */
 #endif /* !__DISKARBITRATIOND__ */
 
 extern const CFStringRef kDAApprovalRunLoopMode;
@@ -284,20 +284,9 @@ extern const CFStringRef kDADiskDescriptionAppearanceTimeKey;
 
 #ifndef __DISKARBITRATIOND__
 
-extern DAReturn _DADiskRefresh( DADiskRef disk );
-
 extern DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption );
 
-extern DAReturn _DADiskSetClassic( DADiskRef disk );
-
 extern DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding );
-
-typedef void ( *_DADiskClassicCallback )( DADiskRef disk, void * context );
-
-extern void _DARegisterDiskClassicCallback( DASessionRef           session,
-                                            CFDictionaryRef        match,
-                                            _DADiskClassicCallback callback,
-                                            void *                 context );
 
 extern DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path );
 

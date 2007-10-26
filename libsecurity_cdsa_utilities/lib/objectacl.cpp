@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,7 +89,6 @@ ObjectAcl::Entry::~Entry()
 // ObjectAcl::validate validates an access authorization claim.
 // Returns normally if 'auth' is granted to the bearer of 'cred'.
 // Otherwise, throws a suitable (ACL-related) CssmError exception.
-// @@@ Should it return a reference to the Entry that granted access?
 //
 class BaseValidationContext : public AclValidationContext {
 public:
@@ -118,7 +117,7 @@ bool ObjectAcl::validates(AclValidationContext &ctx)
 	// make sure we are ready to go
 	instantiateAcl();
 
-	IFDUMPING("acleval", Debug::dump("<<WANT(%ld)<", ctx.authorization()));
+	IFDUMPING("acleval", Debug::dump("<<WANT(%d)<", ctx.authorization()));
 
     //@@@ should pre-screen based on requested auth, maybe?
 
@@ -137,6 +136,7 @@ bool ObjectAcl::validates(AclValidationContext &ctx)
         const AclEntry &slot = it->second;
 		IFDUMPING("acleval", (Debug::dump(" EVAL["), slot.debugDump(), Debug::dump("]")));
         if (slot.authorizes(ctx.authorization())) {
+			ctx.init(this, slot.subject);
 			ctx.entryTag(slot.tag);
 			if (slot.validate(ctx)) {
 				IFDUMPING("acleval", Debug::dump(">PASS>>"));
@@ -649,9 +649,9 @@ void ObjectAcl::AclEntry::debugDump() const
 				it != authorizations.end(); it++) {
 			if (*it >= CSSM_ACL_AUTHORIZATION_PREAUTH_BASE
 					&& *it < CSSM_ACL_AUTHORIZATION_PREAUTH_END)
-				Debug::dump(" PRE(%ld)", *it - CSSM_ACL_AUTHORIZATION_PREAUTH_BASE);
+				Debug::dump(" PRE(%d)", *it - CSSM_ACL_AUTHORIZATION_PREAUTH_BASE);
 			else
-				Debug::dump(" %ld", *it);
+				Debug::dump(" %d", *it);
 		}
 		Debug::dump(")");
 	}

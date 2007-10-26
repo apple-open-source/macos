@@ -1,8 +1,6 @@
 dnl
-dnl $Id: config.m4,v 1.7 2002/03/12 16:13:43 sas Exp $
+dnl $Id: config.m4,v 1.8 2005/05/29 23:16:40 sniper Exp $
 dnl
-
-AC_ARG_WITH(dbase,[],[enable_dbase=$withval])
 
 PHP_ARG_ENABLE(dbase,whether to enable dbase support,
 [  --enable-dbase          Enable the bundled dbase library])

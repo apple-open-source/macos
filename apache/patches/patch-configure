@@ -1,0 +1,13 @@
+--- configure.orig	2006-04-21 20:54:22.000000000 -0700
++++ configure	2006-05-23 15:01:18.000000000 -0700
+@@ -5601,8 +5601,8 @@
+       case $libtoolversion in
+           *1.[45]*)
+               SH_LIBTOOL='$(LIBTOOL)'
+-              SHLTCFLAGS="-prefer-pic"
+-              LTCFLAGS="-prefer-non-pic -static"
++              SHLTCFLAGS=""
++              LTCFLAGS="-mdynamic-no-pic"
+               ;;
+           *)
+               SH_LIBTOOL='$(SHELL) $(top_builddir)/shlibtool $(LTFLAGS)'

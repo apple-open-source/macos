@@ -1,0 +1,26 @@
+<!DOCTYPE article [
+<!ELEMENT article (pubData*, pubArticleID*, pubDate+, pubName+, section+, memo*, headline1*, headline2*, byline*, lead*, rest*, graphics*, keywords*, caption*)>
+<!ELEMENT pubData (#PCDATA)>
+<!ELEMENT pubArticleID (#PCDATA)>
+<!ELEMENT pubDate (#PCDATA)>
+<!ELEMENT pubName (#PCDATA)>
+<!ELEMENT section (#PCDATA)>
+<!ELEMENT memo (#PCDATA)>
+<!ELEMENT headline1 (#PCDATA)>
+<!ELEMENT headline2 (#PCDATA)>
+<!ELEMENT byline (#PCDATA)>
+<!ELEMENT lead (#PCDATA)>
+<!ELEMENT rest (#PCDATA)>
+<!ELEMENT graphics (#PCDATA)>
+<!ELEMENT keywords (#PCDATA)>
+<!ELEMENT caption (#PCDATA)>
+]>
+<article>
+<pubData>Something here</pubData>
+<pubArticleID>12345</pubArticleID>
+<pub_date>2001-04-01</pub_date>
+<pubName>XML.com</pubName>
+<section>Foo</section>
+<lead>Here's some leading text</lead>
+<rest>And here is the rest...</rest>
+</article>

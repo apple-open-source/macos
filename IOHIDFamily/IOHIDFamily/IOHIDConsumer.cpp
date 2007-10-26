@@ -163,22 +163,22 @@ void IOHIDConsumer::dispatchConsumerEvent(
     {
         switch (usage)
         {
-            case kHIDUsage_AppleVendor_BrightnessUp:
+            case kHIDUsage_AV_TopCase_BrightnessUp:
                 keyCode = NX_KEYTYPE_BRIGHTNESS_UP;
                 break;    
-            case kHIDUsage_AppleVendor_BrightnessDown:
+            case kHIDUsage_AV_TopCase_BrightnessDown:
                 keyCode = NX_KEYTYPE_BRIGHTNESS_DOWN;
                 break;    
-            case kHIDUsage_AppleVendor_VideoMirror:
+            case kHIDUsage_AV_TopCase_VideoMirror:
                 keyCode = NX_KEYTYPE_VIDMIRROR;
                 break;    
-            case kHIDUsage_AppleVendor_IlluminationDown:
+            case kHIDUsage_AV_TopCase_IlluminationDown:
                 keyCode = NX_KEYTYPE_ILLUMINATION_DOWN;
                 break;    
-            case kHIDUsage_AppleVendor_IlluminationUp:
+            case kHIDUsage_AV_TopCase_IlluminationUp:
                 keyCode = NX_KEYTYPE_ILLUMINATION_UP;
                 break;    
-            case kHIDUsage_AppleVendor_IlluminationToggle:
+            case kHIDUsage_AV_TopCase_IlluminationToggle:
                 keyCode = NX_KEYTYPE_ILLUMINATION_TOGGLE;
                 break; 
         }
@@ -207,6 +207,7 @@ void IOHIDConsumer::dispatchConsumerEvent(
         currentFlags        = deviceFlags() & ~_cachedEventFlags;
         _cachedEventFlags   = _keyboardNub->deviceFlags();
         currentFlags       |= _cachedEventFlags;
+        _deviceType         = _keyboardNub->deviceType();
                     
         setDeviceFlags(currentFlags);
     }
@@ -307,17 +308,6 @@ bool IOHIDConsumer:: doesKeyLock ( unsigned key)
     
     return false;
 }
-
-UInt32 IOHIDConsumer::deviceType()
-{
-    UInt32 type = 0;
-        
-    type = (_keyboardNub) ? _keyboardNub->deviceType() : super::deviceType();
-    
-    return( type );
-}
-
-
 
 //====================================================================================================
 // defaultKeymapOfLength - IOHIKeyboard override

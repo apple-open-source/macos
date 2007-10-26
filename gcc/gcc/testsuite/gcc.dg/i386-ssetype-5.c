@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
 /* { dg-options "-O2 -msse2 -march=k8" } */
 /* { dg-final { scan-assembler "pand\[^\\n\]*magic" } } */
@@ -10,7 +11,7 @@
 /* Verify that we generate proper instruction with memory operand.  */
 
 #include <xmmintrin.h>
-__m128i magic_a, magic_b;
+static __m128i magic_a, magic_b;
 __m128i
 t1(void)
 {
@@ -31,4 +32,3 @@ t4(void)
 {
 return _mm_xor_si128 (magic_a,magic_b);
 }
-

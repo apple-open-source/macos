@@ -131,9 +131,11 @@ clnt_sperror(rpch, s)
 		break;
 
 	case RPC_VERSMISMATCH:
-		(void) sprintf(str,
-			"; low version = %lu, high version = %lu", 
-			e.re_vers.low, e.re_vers.high);
+#ifdef __LP64__
+		(void) sprintf(str, "; low version = %u, high version = %u", e.re_vers.low, e.re_vers.high);
+#else
+		(void) sprintf(str, "; low version = %lu, high version = %lu", e.re_vers.low, e.re_vers.high);
+#endif
 		str += strlen(str);
 		break;
 
@@ -152,16 +154,20 @@ clnt_sperror(rpch, s)
 		break;
 
 	case RPC_PROGVERSMISMATCH:
-		(void) sprintf(str, 
-			"; low version = %lu, high version = %lu", 
-			e.re_vers.low, e.re_vers.high);
+#ifdef __LP64__
+		(void) sprintf(str, "; low version = %u, high version = %u",  e.re_vers.low, e.re_vers.high);
+#else
+		(void) sprintf(str, "; low version = %lu, high version = %lu",  e.re_vers.low, e.re_vers.high);
+#endif
 		str += strlen(str);
 		break;
 
 	default:	/* unknown */
-		(void) sprintf(str, 
-			"; s1 = %lu, s2 = %lu", 
-			e.re_lb.s1, e.re_lb.s2);
+#ifdef __LP64__
+		(void) sprintf(str, "; s1 = %u, s2 = %u", e.re_lb.s1, e.re_lb.s2);
+#else
+		(void) sprintf(str, "; s1 = %lu, s2 = %lu", e.re_lb.s1, e.re_lb.s2);
+#endif
 		str += strlen(str);
 		break;
 	}

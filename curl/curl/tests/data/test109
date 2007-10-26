@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+FTP
+EPSV
+APPE
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -23,11 +31,9 @@ Moooooooooooo
 
 # Verify data after the test has been "shot"
 <verify>
-<strip>
-</strip>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 EPSV
 TYPE I
@@ -39,3 +45,4 @@ Moooooooooooo
  upload this
 </upload>
 </verify>
+</testcase>

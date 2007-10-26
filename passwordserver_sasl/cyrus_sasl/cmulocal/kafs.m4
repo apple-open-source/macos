@@ -1,9 +1,9 @@
 dnl kerberos_v4.m4--Kafs libraries and includes
 dnl Derrick Brashear
 dnl from KTH kafs and Arla
+dnl $Id: kafs.m4,v 1.4 2006/01/20 20:21:08 snsimon Exp $
 
-AC_DEFUN(CMU_KAFS_INC_WHERE1, [
-AC_REQUIRE([AC_PROG_CC_GNU])
+AC_DEFUN([CMU_KAFS_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS
 CPPFLAGS="$saved_CPPFLAGS -I$1"
 AC_TRY_COMPILE([
@@ -28,7 +28,7 @@ fi
 CPPFLAGS=$saved_CPPFLAGS
 ])
 
-AC_DEFUN(CMU_KAFS_INC_WHERE, [
+AC_DEFUN([CMU_KAFS_INC_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for kafs headers in $i)
       CMU_KAFS_INC_WHERE1($i)
@@ -43,8 +43,7 @@ AC_DEFUN(CMU_KAFS_INC_WHERE, [
     done
 ])
 
-AC_DEFUN(CMU_KAFS_LIB_WHERE1, [
-AC_REQUIRE([AC_PROG_CC_GNU])
+AC_DEFUN([CMU_KAFS_LIB_WHERE1], [
 saved_LIBS=$LIBS
 LIBS="$saved_LIBS -L$1 -lkafs $KRB_LIB_FLAGS $KRB5_LIB_FLAGS"
 AC_TRY_LINK(,
@@ -54,7 +53,7 @@ ac_cv_found_kafs_lib=no)
 LIBS=$saved_LIBS
 ])
 
-AC_DEFUN(CMU_KAFS_LIB_WHERE, [
+AC_DEFUN([CMU_KAFS_LIB_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for kafs libraries in $i)
       CMU_KAFS_LIB_WHERE1($i)
@@ -70,7 +69,8 @@ AC_DEFUN(CMU_KAFS_LIB_WHERE, [
     done
 ])
 
-AC_DEFUN(CMU_KAFS, [
+AC_DEFUN([CMU_KAFS], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_REQUIRE([CMU_SOCKETS])
 AC_REQUIRE([CMU_KRB4])
 AC_REQUIRE([CMU_KRB5])
@@ -92,7 +92,7 @@ AC_ARG_WITH(kafs-include,
 
 	if test "X$with_kafs" != "X"; then
 	  if test "$with_kafs" != "yes" -a "$with_kafs" != no; then
-	    ac_cv_kafs_where_lib=$with_kafs/lib
+	    ac_cv_kafs_where_lib=$with_kafs/$CMU_LIB_SUBDIR
 	    ac_cv_kafs_where_inc=$with_kafs/include
 	  fi
 	fi
@@ -102,7 +102,7 @@ AC_ARG_WITH(kafs-include,
 	    ac_cv_kafs_where_lib=$with_kafs_lib
 	  fi
 	  if test "X$ac_cv_kafs_where_lib" = "X"; then
-	    CMU_KAFS_LIB_WHERE(/usr/athena/lib /usr/local/lib /usr/lib)
+	    CMU_KAFS_LIB_WHERE(/usr/athena/$CMU_LIB_SUBDIR /usr/local/$CMU_LIB_SUBDIR /usr/$CMU_LIB_SUBDIR)
 	  fi
 
 	  if test "X$with_kafs_include" != "X"; then

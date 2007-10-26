@@ -29,75 +29,96 @@
 #define _H_THREADING_INTERNAL
 
 #include <security_utilities/utilities.h>
+#include <libkern/OSAtomic.h>
 
 
 namespace Security {
 
 
 //
-// Architecture-specific atomic operation primitives.
-// AtomicWord is an integer type that works with these;
-// we'll assume that a pointer fits into it (using reinterpret_cast).
+// Do we have 64-bit atomic operations?
 //
-#if TARGET_CPU_PPC
+#define _HAVE_64BIT_ATOMIC (defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
 
-#define _HAVE_ATOMIC_OPERATIONS
 
-typedef unsigned int AtomicWord;
+//
+// The AtomicTypes class is an implementation detail.
+// Do not use it.
+//
+template <unsigned wordsize>
+struct AtomicTypes {
+	// unsupported word size (this will cause compilation errors if used)
+};
 
-inline AtomicWord atomicLoad(AtomicWord &atom)
-{
-    AtomicWord result;
-    asm volatile (
-        "0:	lwarx %0,0,%1 \n"
-        "	stwcx. %0,0,%1 \n"
-        "	bne- 0b"
-        : "=&r"(result)
-        : "b"(&atom)
-        : "cc"
-    );
-    return result;
-}
+template <>
+struct AtomicTypes<32> {
+	typedef int32_t Integer;
+	
+	static Integer add(int delta, Integer &base)
+	{ return OSAtomicAdd32(delta, &base); }
+	static Integer addb(int delta, Integer &base) { return OSAtomicAdd32Barrier(delta, &base); }
+	
+	static bool cas(Integer oldValue, Integer newValue, Integer &base)
+	{ return OSAtomicCompareAndSwap32(oldValue, newValue, &base); }
+	static bool casb(Integer oldValue, Integer newValue, Integer &base)
+	{ return OSAtomicCompareAndSwap32Barrier(oldValue, newValue, &base); }
+};
 
-inline AtomicWord atomicStore(AtomicWord &atom, AtomicWord newValue, AtomicWord oldValue)
-{
-    register bool result;
-    asm volatile (
-        "0:	lwarx %0,0,%1 \n"		// load and reserve -> %0
-        "	cmpw %0,%3 \n"		// compare to old
-        "	bne 1f \n"				// fail if not equal
-        "	stwcx. %2,0,%1 \n"	// store and check
-        "	bne 0b \n"				// retry if contended
-        "1:	"
-        : "=&r"(result)
-        : "b"(&atom), "r"(newValue), "r"(oldValue)
-        : "cc"
-    );
-    return result;
-}
+#if _HAVE_64BIT_ATOMIC
 
-inline AtomicWord atomicOffset(AtomicWord &atom, int offset)
-{
-    AtomicWord result;
-    asm volatile (
-        "0:	lwarx %0,0,%1 \n"
-        "	add %0,%0,%2 \n"
-        "	stwcx. %0,0,%1 \n"
-        "	bne- 0b"
-        : "=&r"(result)
-        : "b"(&atom), "r"(offset)
-        : "cc"
-    );
-    return result;
-}
+template <>
+struct AtomicTypes<64> {
+	typedef int64_t Integer;
+	
+	static Integer add(int delta, Integer &base) { return OSAtomicAdd64(delta, &base); }
+	static Integer addb(int delta, Integer &base) { return OSAtomicAdd64Barrier(delta, &base); }
+	
+	static bool cas(Integer oldValue, Integer newValue, Integer &base)
+	{ return OSAtomicCompareAndSwap64(oldValue, newValue, &base); }
+	static bool casb(Integer oldValue, Integer newValue, Integer &base)
+	{ return OSAtomicCompareAndSwap64Barrier(oldValue, newValue, &base); }
+};
 
-inline AtomicWord atomicIncrement(AtomicWord &atom)
-{ return atomicOffset(atom, +1); }
+#endif //_HAVE_64BIT_ATOMIC
 
-inline AtomicWord atomicDecrement(AtomicWord &atom)
-{ return atomicOffset(atom, -1); }
 
-#endif //TARGET_CPU_PPC
+//
+// Atomic<Type> is a set of (static) operations that can atomically access memory.
+// This is not a wrapper object. Think of it as a generator class that produces
+// the proper atomic memory operations for arbitrary data types.
+// If the underlying system does not support atomicity for a particular type
+// (e.g. 64 bits on ppc, or 16 bits anywhere), you will get compilation errors.
+//
+template <class Type>
+class Atomic {
+	typedef AtomicTypes<sizeof(Type) * 8> _Ops;
+	typedef typename _Ops::Integer _Type;
+
+public:
+	static Type add(int delta, Type &store)
+	{ return Type(_Ops::add(delta, (_Type &)store)); }
+	static Type addb(int delta, Type &store)
+	{ return Type(_Ops::addb(delta, (_Type &)store)); }
+	
+	static bool cas(Type oldValue, Type newValue, Type &store)
+	{ return _Ops::cas(_Type(oldValue), _Type(newValue), (_Type &)store); }
+	static bool casb(Type oldValue, Type newValue, Type &store)
+	{ return _Ops::casb(_Type(oldValue), _Type(newValue), (_Type &)store); }
+	
+	static void barrier() { OSMemoryBarrier(); }
+	static void readBarrier() { OSMemoryBarrier(); }
+	static void writeBarrier() { OSMemoryBarrier(); }
+	
+	// convenience additions (expressed in terms above)
+	
+	static Type increment(Type &store) { return add(1, store); }
+	static Type decrement(Type &store) { return add(-1, store); }
+	
+	static Type load(const Type &store) { readBarrier(); return store; }
+	static Type store(Type value, Type &store)
+	{ while (!casb(store, value, store)) /* again */; return value; }
+};
+
 
 } // end namespace Security
 

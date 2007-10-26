@@ -44,6 +44,7 @@ extern	char	errbuf[];
 
 extern int	compile_time;	/* 1 if compiling, 0 if running */
 extern int	safe;		/* 0 => unsafe, 1 => safe */
+extern int	Unix2003_compat;
 
 #define	RECSIZE	(8 * 1024)	/* sets limit on records, fields, etc., etc. */
 extern int	recsize;	/* size of current record, orig RECSIZE */

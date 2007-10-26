@@ -1,19 +1,20 @@
-.\" $OpenLDAP: pkg/ldap/doc/man/man8/slapd.8,v 1.41.2.6 2004/07/23 19:09:45 kurt Exp $
-.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man8/slapd.8,v 1.53.2.8 2006/05/13 03:55:00 kurt Exp $
+.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .TH SLAPD 8C "RELEASEDATE" "OpenLDAP LDVERSION"
 .SH NAME
 slapd \- Stand-alone LDAP Daemon
 .SH SYNOPSIS
-.B /usr/libexec/slapd 
+.B LIBEXECDIR/slapd 
 .B [\-[4|6]]
-.B [\-T (a|c|i|p)]
+.B [\-T {acl|add|auth|cat|dn|index|passwd|test}]
 .B [\-d debug\-level]
 .B [\-f slapd\-config\-file]
+.B [\-F slapd\-config\-directory]
 .B [\-h URLs]
 .B [\-n service\-name] [\-s syslog\-level] [\-l syslog\-local\-user]
 .B [\-r directory]
-.B [\-u user] [\-g group] [\-t]
+.B [\-u user] [\-g group]
 .B [\-c cookie]
 .SH DESCRIPTION
 .LP
@@ -27,8 +28,7 @@ is typically invoked at boot time, usually out of
 Upon startup,
 .B slapd
 normally forks and disassociates itself from the invoking tty.
-If configured in
-.BR /etc/openldap/slapd.conf ,
+If configured in the config file (or config directory),
 the
 .B slapd
 process will print its process ID (see
@@ -64,13 +64,18 @@ Listen on IPv4 addresses only.
 .B \-6
 Listen on IPv6 addresses only.
 .TP
-.B \-T (a|c|i|p)
+.B \-T {a|c|d|i|p|t|acl|auth}
 Run in Tool mode. The additional argument selects whether to run as
-slapadd, slapcat, slapindex, or slappasswd. This option should be the first
-option specified when it is used. Any remaining options will be interpreted
-by the corresponding slap tool program. Note that these tool programs will
-usually be symbolic links to slapd. This option is provided for situations
-where symbolic links are not provided or not usable.
+slapadd, slapcat, slapdn, slapindex, slappasswd, or slaptest
+(slapacl and slapauth need the entire "\fIacl\fP" and "\fIauth\fP"
+option value to be spelled out, as "\fIa\fP" is reserved to
+.BR slapadd ).
+This option should be the first option specified when it is used;
+any remaining options will be interpreted by the corresponding 
+slap tool program, according to the respective man pages.
+Note that these tool programs will usually be symbolic links to slapd.
+This option is provided for situations where symbolic links 
+are not provided or not usable.
 .TP
 .BI \-d " debug\-level"
 Turn on debugging as defined by
@@ -80,7 +85,7 @@ If this option is specified, even with a zero argument,
 will not fork or disassociate from the invoking terminal.  Some general
 operation and status messages are printed for any value of \fIdebug\-level\fP.
 \fIdebug\-level\fP is taken as a bit string, with each bit corresponding to a
-different kind of debugging information.  See <ldap.h> for details.
+different kind of debugging information.  See <ldap_log.h> for details.
 Remember that if you turn on packet logging, packets containing bind passwords
 will be output, so if you redirect the log to a logfile, that file should
 be read-protected.
@@ -99,11 +104,14 @@ to basename of argv[0], i.e.: "slapd".
 .BI \-l " syslog\-local\-user"
 Selects the local user of the
 .BR syslog (8)
-facility. Values can be 
+facility. Value can be 
 .BR LOCAL0 , 
-.BR LOCAL1 , 
-and so on, up to 
-.BR LOCAL7 . 
+through
+.BR LOCAL7 ,
+as well as
+.B USER
+and
+.BR DAEMON .
 The default is
 .BR LOCAL4 .
 However, this option is only permitted on systems that support
@@ -113,7 +121,22 @@ facility.
 .TP
 .BI \-f " slapd\-config\-file"
 Specifies the slapd configuration file. The default is
-.BR /etc/openldap/slapd.conf .
+.BR ETCDIR/slapd.conf .
+.TP
+.BI \-F " slapd\-config\-directory"
+Specifies the slapd configuration directory. The default is
+.BR ETCDIR/slapd.d .
+If both
+.B -f
+and
+.B -F
+are specified, the config file will be read and converted to
+config directory format and written to the specified directory.
+If neither option is specified, slapd will attempt to read the
+default config directory before trying to use the default
+config file. If a valid config directory exists then the
+default config file is ignored. All of the slap tools that
+use the config options observe this same behavior.
 .TP
 .BI \-h " URLlist"
 .B slapd
@@ -125,82 +148,84 @@ The
 .B \-h
 option may be used to specify LDAP (and other scheme) URLs to serve.
 For example, if slapd is given
-.B "\-h \(dqldap://127.0.0.1:9009/ ldaps:/// ldapi:///\(dq", 
-It will bind 127.0.0.1:9009 for LDAP, 0.0.0.0:636 for LDAP over TLS,
+.BR "\-h \(dqldap://127.0.0.1:9009/ ldaps:/// ldapi:///\(dq" , 
+it will listen on 127.0.0.1:9009 for LDAP, 0.0.0.0:636 for LDAP over TLS,
 and LDAP over IPC (Unix domain sockets).  Host 0.0.0.0 represents
-INADDR_ANY.
+INADDR_ANY (any interface).
 A space separated list of URLs is expected.  The URLs should be of
-LDAP (ldap://) or LDAP over TLS (ldaps://) or LDAP over IPC (ldapi://)
-scheme without a DN or other optional parameters, except an experimental
-extension to indicate the permissions of the underlying listeners.
+the LDAP, LDAPS, or LDAPI schemes, and generally
+without a DN or other optional parameters (excepting as discussed below).
 Support for the latter two schemes depends on selected configuration 
 options.  Hosts may be specified by name or IPv4 and IPv6 address formats.
 Ports, if specified, must be numeric.  The default ldap:// port is 389
 and the default ldaps:// port is 636.
-The socket permissions for LDAP over IPC are indicated by
+
+The listener permissions are indicated by
 "x-mod=-rwxrwxrwx", "x-mod=0777" or "x-mod=777", where any 
-of the "rwx" can be "-" to suppress the related permission (note, 
-however, that sockets only honor the "w" permission), while any 
+of the "rwx" can be "-" to suppress the related permission, while any 
 of the "7" can be any legal octal digit, according to chmod(1).
-While LDAP over IPC requires write permissions on the socket to allow
-any operation, the other listeners can take advantage of the "x-mod"
-extension to apply rough limitations to users, e.g. allow read operations
+The listeners can take advantage of the "x-mod"
+extension to apply rough limitations to operations, e.g. allow read operations
 ("r", which applies to search and compare), write operations ("w", 
 which applies to add, delete, modify and modrdn), and execute operations
 ("x", which means bind is required).
-"User" permissions apply to bound users, while "other" apply
-to anonymous users.
+"User" permissions apply to authenticated users, while "other" apply
+to anonymous users; "group" permissions are ignored.
+For example, "ldap:///????x-mod=-rw-------" means that read and write is only allowed
+for authenticated connections, and bind is required for all operations.
+This feature is experimental, and requires to be manually enabled
+at configure time.
 .TP
 .BI \-r " directory"
-Specifies a chroot "jail" directory.  slapd will
-.BR chdir (2)
+Specifies a directory to become the root directory.  slapd will
+change the current working directory to this directory and
 then
 .BR chroot (2)
-to this directory after opening listeners but before reading
-any configuration file or initializing any backend.
+to this directory.  This is done after opening listeners but before
+reading any configuration file or initializing any backend.  When
+used as a security mechanism, it should be used in conjunction with
+.B -u
+and
+.B -g
+options.
 .TP
 .BI \-u " user"
 .B slapd
 will run slapd with the specified user name or id, and that user's
 supplementary group access list as set with initgroups(3).  The group ID
 is also changed to this user's gid, unless the -g option is used to
-override.
-.TP
-.BI \-g " group"
-.B slapd
-will run with the specified group name or id.
-.LP
+override.  Note when used with
+.BR -r ,
+slapd will use the user database in the change root environment.
+
 Note that on some systems, running as a non-privileged user will prevent
 passwd back-ends from accessing the encrypted passwords.  Note also that
 any shell back-ends will run as the specified non-privileged user.
 .TP
-.BI \-t
+.BI \-g " group"
 .B slapd
-will read the configuration file (the default if none is given with the 
-\fI\-f\fP switch) and check its syntax, without opening any listener 
-or database.
+will run with the specified group name or id.  Note when used with
+.BR -r ,
+slapd will use the group database in the change root environment.
 .TP
 .BI \-c " cookie"
 This option provides a cookie for the syncrepl replication consumer.
 The cookie is a comma separated list of name=value pairs.
 Currently supported syncrepl cookie fields are
-.B csn,
-.B sid,
+.B rid
 and
-.B rid.
-.B csn
-is the commit sequence number received by a previous synchronization
-and represents the state of the consumer replica content which the
-syncrepl engine will synchronize to the current provider content.
-.B sid
-is the identity of the per-scope session log with which the 
-provider server can process this syncrepl request to reduce
-synchronization traffic.
+.B csn.
 .B rid
 identifies a replication thread within the consumer server
 and is used to find the syncrepl specification in 
 .BR slapd.conf (5)
-having the matching replication identifier in its definition.
+having the matching replication identifier in its definition. The
+.B rid
+must be provided in order for any other specified values to be used.
+.B csn
+is the commit sequence number received by a previous synchronization
+and represents the state of the consumer replica content which the
+syncrepl engine will synchronize to the current provider content.
 .SH EXAMPLES
 To start 
 .I slapd
@@ -209,7 +234,7 @@ the LDAP databases defined in the default config file, just type:
 .LP
 .nf
 .ft tt
-	/usr/libexec/slapd
+	LIBEXECDIR/slapd
 .ft
 .fi
 .LP
@@ -220,7 +245,7 @@ on voluminous debugging which will be printed on standard error, type:
 .LP
 .nf
 .ft tt
-	/usr/libexec/slapd -f /var/tmp/slapd.conf -d 255
+	LIBEXECDIR/slapd -f /var/tmp/slapd.conf -d 255
 .ft
 .fi
 .LP
@@ -228,7 +253,7 @@ To test whether the configuration file is correct or not, type:
 .LP
 .nf
 .ft tt
-	/usr/libexec/slapd -t
+	LIBEXECDIR/slapd -Tt
 .ft
 .fi
 .LP
@@ -236,10 +261,14 @@ To test whether the configuration file is correct or not, type:
 .BR ldap (3),
 .BR slapd.conf (5),
 .BR slapd.access (5),
+.BR slapacl (8),
 .BR slapadd (8),
+.BR slapauth (8),
 .BR slapcat (8),
+.BR slapdn (8),
 .BR slapindex (8),
 .BR slappasswd (8),
+.BR slaptest (8),
 .BR slurpd (8)
 .LP
 "OpenLDAP Administrator's Guide" (http://www.OpenLDAP.org/doc/admin/)

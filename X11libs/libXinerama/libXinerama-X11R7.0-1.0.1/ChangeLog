@@ -1,0 +1,46 @@
+2005-12-20  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version for X11R7 release.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-12-02  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	* src/Makefile.am:
+	Add check and cflags for malloc(0) returning NULL.
+
+2005-11-19  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* xinerama.pc.in:
+	Update pkgconfig files to separate library build-time dependencies
+	from application build-time dependencies.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-07-08  Keith Packard  <keithp@keithp.com>
+
+	* .cvsignore:
+	* src/.cvsignore:
+	Add .cvsignore files
+	Switch _la_CFLAGS for AM_CFLAGS to clean up directory
+
+2005-06-21  Alexander Gottwald  <ago at freedesktop dot org>
+
+	* configure.ac
+	* src/Makefile.am
+	Add missing xext.pc and xextproto.pc
+	Add DEPS_CFLAGS to Makefile.am
+

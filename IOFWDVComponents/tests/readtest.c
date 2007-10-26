@@ -484,7 +484,7 @@ static void OpenDV()
     for( i=0; i<nDVDevices; ++i)
     {
             QTAtom isochAtom, dataAtom;
-            UInt32 test[2];
+            UInt64 test;
             int nConfigs;
             char cameraName[256];
             IDHDeviceStatus deviceStatus;
@@ -499,8 +499,8 @@ static void OpenDV()
             dataAtom = QTFindChildByIndex( deviceList, deviceAtom, kIDHUniqueIDType, 1, nil);
             if( dataAtom == nil)
                     goto error;
-            QTCopyAtomDataToPtr( deviceList, dataAtom, true, sizeof( test), test, &size);
-            printf("guid 0x%x%08x ", test[0], test[1]);
+            QTCopyAtomDataToPtr( deviceList, dataAtom, true, sizeof( test), &test, &size);
+            printf("guid 0x%016llx ", test);
 
             dataAtom = QTFindChildByIndex( deviceList, deviceAtom, kIDHNameAtomType, 1, nil);
             if( dataAtom == nil)
@@ -584,7 +584,7 @@ static void OpenDV()
                     printf("\n");
             }
             printf("-----\n");
-            if(sGUID == (((UInt64)test[0]) << 32) + test[1])
+            if(sGUID == test)
                 break;
     }
 

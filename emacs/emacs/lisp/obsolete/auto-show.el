@@ -27,7 +27,7 @@ to auto-show from your init file and code."
   :type 'boolean
   :group 'auto-show)
 
-(defcustom auto-show-shift-amount 8 
+(defcustom auto-show-shift-amount 8
   "*Obsolete."
   :type 'integer
   :group 'auto-show)
@@ -41,11 +41,12 @@ to auto-show from your init file and code."
 (defun auto-show-mode (arg)
   "This command is obsolete."
   (interactive "P"))
-  
+
 (defun auto-show-make-point-visible (&optional ignore-arg)
   "This command is obsolete."
   (interactive))
 
 (provide 'auto-show)
 
+;;; arch-tag: 49587cbf-95cc-4061-b564-274aaec37469
 ;;; auto-show.el ends here

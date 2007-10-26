@@ -786,7 +786,7 @@ static int verify_krb_v4_tgt (realm)
     struct hostent *hp;
     KTEXT_ST ticket;
     AUTH_DAT authdata;
-    unsigned long addr;
+    unsigned KRB4_32 addr;
     static /*const*/ char rcmd_str[] = "rcmd";
 #if 0
     char key[8];
@@ -1648,7 +1648,10 @@ int main(argc, argv)
 	}
 #endif	/* HAVE_SETLUID */
 #ifdef _IBMR2
-    setuidx(ID_LOGIN, pwd->pw_uid);
+    if (setuidx(ID_LOGIN, pwd->pw_uid) < 0) {
+	perror("setuidx");
+	sleepexit(1);
+    };
 #endif
 
     /* This call MUST succeed */

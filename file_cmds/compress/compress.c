@@ -78,6 +78,8 @@ main(int argc, char *argv[])
 	int bits, ch;
 	char *p, newname[MAXPATHLEN];
 
+	if (argc < 1)
+		usage(1);
 	cat = 0;
 	if ((p = rindex(argv[0], '/')) == NULL)
 		p = argv[0];
@@ -402,10 +404,10 @@ setfile(const char *name, struct stat *fs)
 			cwarn("chown: %s", name);
 		fs->st_mode &= ~(S_ISUID|S_ISGID);
 	}
-	if (chmod(name, fs->st_mode) && errno != EOPNOTSUPP)
+	if (chmod(name, fs->st_mode) && errno != ENOTSUP)
 		cwarn("chmod: %s", name);
 
-	if (chflags(name, fs->st_flags) && errno != EOPNOTSUPP)
+	if (chflags(name, fs->st_flags) && errno != ENOTSUP)
 		cwarn("chflags: %s", name);
 }
 

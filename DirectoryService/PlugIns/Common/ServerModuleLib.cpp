@@ -60,7 +60,7 @@ void SetupLinkTable ( SvrLibFtbl *inTable )
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 DSRegisterNode ( const uInt32 inToken, tDataList *inNode, eDirNodeType inNodeType )
+SInt32 DSRegisterNode ( const UInt32 inToken, tDataList *inNode, eDirNodeType inNodeType )
 {
 	if ( !_Funcs.registerNode )
 	{
@@ -77,7 +77,7 @@ sInt32 DSRegisterNode ( const uInt32 inToken, tDataList *inNode, eDirNodeType in
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 DSUnregisterNode ( const uInt32 inToken, tDataList *inNode )
+SInt32 DSUnregisterNode ( const UInt32 inToken, tDataList *inNode )
 {
 	if ( !_Funcs.unregisterNode )
 	{
@@ -94,7 +94,7 @@ sInt32 DSUnregisterNode ( const uInt32 inToken, tDataList *inNode )
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 DSDebugLog ( const char *inFormat, va_list inArgs )
+SInt32 DSDebugLog ( const char *inFormat, va_list inArgs )
 {
 	if ( !_Funcs.debugLog )
 	{
@@ -103,6 +103,24 @@ sInt32 DSDebugLog ( const char *inFormat, va_list inArgs )
 
 	(*_Funcs.debugLog)( inFormat, inArgs );
 
-	return( noErr );
+	return( eDSNoErr );
 
 } // DSDebugLog
+
+//--------------------------------------------------------------------------------------------------
+//	* DSDebugLogWithType()
+//
+//--------------------------------------------------------------------------------------------------
+
+SInt32 DSDebugLogWithType ( const UInt32 inSignature, const UInt32 inLogType, const char *inFormat, va_list inArgs )
+{
+	if ( !_Funcs.debugLogWithType )
+	{
+		return( -2802 );
+	}
+
+	(*_Funcs.debugLogWithType)( inSignature, inLogType, inFormat, inArgs );
+
+	return( eDSNoErr );
+
+} // DSDebugLogWithType

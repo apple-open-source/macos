@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,5 +37,6 @@
 #define kSelectedPIOModeKey       "PIO Mode"
 #define kSelectedDMAModeKey       "DMA Mode"
 #define kSelectedUltraDMAModeKey  "Ultra DMA Mode"
+#define kPCSPortMapKey            "PCS Port Map"
 
 #endif /* !_APPLEINTELPIIXATAKEYS_H */

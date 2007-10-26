@@ -21,9 +21,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include "fsck_debug.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include "fsck_debug.h"
+#include "fsck_hfs.h"
 
 /* Current debug level of fsck_hfs for printing messages via dprintf */
 unsigned long cur_debug_level;
@@ -61,9 +62,9 @@ void dprintf (unsigned long type, char *fmt, ...)
 	if (cur_debug_level & type) {
 		va_list ap;
 
-		printf ("\t");
+		plog ("\t");
 		va_start(ap, fmt);
-		vprintf(fmt, ap);
+		vplog(fmt, ap);
 		va_end(ap);
 	}
 }

@@ -5,7 +5,14 @@
 #include "macosx-nat-mutils.h"
 #include "macosx-nat-threads.h"
 
+#include <mach/mach.h>
+#include <mach/thread_status.h>
 #include <sys/wait.h>
+
+#ifndef HAVE_64_BIT_MACH_EXCEPTIONS
+#define mach_exception_data_t exception_data_t
+#define mach_exception_data_type_t exception_data_type_t
+#endif
 
 struct macosx_exception_info
 {
@@ -41,7 +48,7 @@ struct macosx_exception_thread_message
   task_t task_port;
   thread_t thread_port;
   exception_type_t exception_type;
-  exception_data_t exception_data;
+  mach_exception_data_t exception_data;
   mach_msg_type_number_t data_count;
 };
 typedef struct macosx_exception_thread_message
@@ -52,5 +59,8 @@ void macosx_exception_thread_init (macosx_exception_thread_status *s);
 void macosx_exception_thread_create (macosx_exception_thread_status *s,
                                      task_t task);
 void macosx_exception_thread_destroy (macosx_exception_thread_status *s);
+
+void macosx_exception_get_write_lock (macosx_exception_thread_status *s);
+void macosx_exception_release_write_lock (macosx_exception_thread_status *s);
 
 #endif /* __GDB_MACOSX_NAT_EXCTHREAD_H__ */

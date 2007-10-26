@@ -28,9 +28,9 @@
 
 #include "dotMacTpMutils.h"
 #include <Security/cssmapple.h>
-#include <Cocoa/Cocoa.h>
 
 #if		XML_DEBUG   
+#include <Cocoa/Cocoa.h>
 void logCFstr(
 	const char *cstr,
 	CFStringRef cfstr)

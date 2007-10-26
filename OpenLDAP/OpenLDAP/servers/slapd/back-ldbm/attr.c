@@ -1,8 +1,8 @@
 /* attr.c - backend routines for dealing with attributes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/attr.c,v 1.35.2.3 2004/04/12 18:20:14 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/attr.c,v 1.39.2.3 2006/01/03 22:16:19 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -188,14 +188,8 @@ attr_index_config(
 			return LDAP_INAPPROPRIATE_MATCHING;
 		}
 
-#ifdef NEW_LOGGING
-		LDAP_LOG( BACK_LDBM, DETAIL1, 
-			"attr_index_config: index %s 0x%04lx\n", 
-			ad->ad_cname.bv_val, mask, 0 );
-#else
 		Debug( LDAP_DEBUG_CONFIG, "index %s 0x%04lx\n",
 			ad->ad_cname.bv_val, mask, 0 ); 
-#endif
 
 
 		a->ai_desc = ad;
@@ -207,7 +201,7 @@ attr_index_config(
 
 		if( rc ) {
 			fprintf( stderr, "%s: line %d: duplicate index definition "
-				"for attr \"%s\" (ignored)\n",
+				"for attr \"%s\"" SLAPD_CONF_UNKNOWN_IGNORED ".\n",
 			    fname, lineno, attrs[i] );
 
 			return LDAP_PARAM_ERROR;

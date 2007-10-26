@@ -1,0 +1,16 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         DateTime
+version:      0.30
+version_from: lib/DateTime.pm
+installdirs:  site
+requires:
+    DateTime::Locale:              0.21
+    DateTime::TimeZone:            0.38
+    Params::Validate:              0.76
+    Pod::Man:                      1.14
+    Test::More:                    0.34
+    Time::Local:                   1.04
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.17

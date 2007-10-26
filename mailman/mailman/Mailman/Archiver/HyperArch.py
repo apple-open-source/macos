@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """HyperArch: Pipermail archiving for Mailman
 
@@ -40,9 +41,12 @@ import weakref
 import binascii
 
 from email.Header import decode_header, make_header
+from email.Errors import HeaderParseError
+from email.Charset import Charset
 
 from Mailman import mm_cfg
 from Mailman import Utils
+from Mailman import Errors
 from Mailman import LockFile
 from Mailman import MailList
 from Mailman import i18n
@@ -276,7 +280,11 @@ class Article(pipermail.Article):
             otrans = i18n.get_translation()
             try:
                 i18n.set_language(lang)
-                self.email = re.sub('@', _(' at '), self.email)
+                if self.author == self.email:
+                    self.author = self.email = re.sub('@', _(' at '),
+                                                      self.email)
+                else:
+                    self.email = re.sub('@', _(' at '), self.email)
             finally:
                 i18n.set_translation(otrans)
 
@@ -287,10 +295,9 @@ class Article(pipermail.Article):
         self.ctype = ctype.lower()
         self.cenc = cenc.lower()
         self.decoded = {}
-        charset = message.get_param('charset', 'us-ascii')
-        if isinstance(charset, types.TupleType):
-            # An RFC 2231 charset
-            charset = unicode(charset[2], charset[0])
+        cset = Utils.GetCharSet(mlist.preferred_language)
+        cset_out = Charset(cset).output_charset or cset
+        charset = message.get_content_charset(cset_out)
         if charset:
             charset = charset.lower().strip()
             if charset[0]=='"' and charset[-1]=='"':
@@ -401,23 +408,45 @@ class Article(pipermail.Article):
             if email:
                 self.decoded['email'] = email
         if subject:
+            if mm_cfg.ARCHIVER_OBSCURES_EMAILADDRS:
+                otrans = i18n.get_translation()
+                try:
+                    i18n.set_language(self._lang)
+                    atmark = unicode(_(' at '), Utils.GetCharSet(self._lang))
+                    subject = re.sub(r'([-+,.\w]+)@([-+.\w]+)',
+                              '\g<1>' + atmark + '\g<2>', subject)
+                finally:
+                    i18n.set_translation(otrans)
             self.decoded['subject'] = subject
+        self.decoded['stripped'] = self.strip_subject(subject or self.subject)
+
+    def strip_subject(self, subject):
+        # Strip subject_prefix and Re: for subject sorting
+        # This part was taken from CookHeaders.py (TK)
+        prefix = self._mlist.subject_prefix.strip()
+        if prefix:
+            prefix_pat = re.escape(prefix)
+            prefix_pat = '%'.join(prefix_pat.split(r'\%'))
+            prefix_pat = re.sub(r'%\d*d', r'\s*\d+\s*', prefix_pat)
+            subject = re.sub(prefix_pat, '', subject)
+        subject = subject.lstrip()
+        strip_pat = re.compile('^((RE|AW|SV|VS)(\[\d+\])?:\s*)+', re.I)
+        stripped = strip_pat.sub('', subject)
+        return stripped
 
     def decode_charset(self, field):
-        if field.find("=?") == -1:
-            return None
-        # Get the decoded header as a list of (s, charset) tuples
-        pairs = decode_header(field)
-        # Use __unicode__() until we can guarantee Python 2.2
+        # TK: This function was rewritten for unifying to Unicode.
+        # Convert 'field' into Unicode one line string.
         try:
-            # Use a large number for maxlinelen so it won't get wrapped
-            h = make_header(pairs, 99999)
-            return h.__unicode__()
-        except (UnicodeError, LookupError):
-            # Unknown encoding
-            return None
-        # The last value for c will have the proper charset in it
-        return EMPTYSTRING.join([s for s, c in pairs])
+            pairs = decode_header(field)
+            ustr = make_header(pairs).__unicode__()
+        except (LookupError, UnicodeError, ValueError, HeaderParseError):
+            # assume list's language
+            cset = Utils.GetCharSet(self._mlist.preferred_language)
+            if cset == 'us-ascii':
+                cset = 'iso-8859-1' # assume this for English list
+            ustr = unicode(field, cset, 'replace')
+        return u''.join(ustr.splitlines())
 
     def as_html(self):
         d = self.__dict__.copy()
@@ -536,9 +565,22 @@ class Article(pipermail.Article):
         if d['_message_id']:
             headers.append('Message-ID: %(_message_id)s')
         body = EMPTYSTRING.join(self.body)
-        if isinstance(body, types.UnicodeType):
-            body = body.encode(Utils.GetCharSet(self._lang), 'replace')
-        return NL.join(headers) % d + '\n\n' + body
+        cset = Utils.GetCharSet(self._lang)
+        # Coerce the body to Unicode and replace any invalid characters.
+        if not isinstance(body, types.UnicodeType):
+            body = unicode(body, cset, 'replace')
+        if mm_cfg.ARCHIVER_OBSCURES_EMAILADDRS:
+            otrans = i18n.get_translation()
+            try:
+                atmark = unicode(_(' at '), cset)
+                i18n.set_language(self._lang)
+                body = re.sub(r'([-+,.\w]+)@([-+.\w]+)',
+                              '\g<1>' + atmark + '\g<2>', body)
+            finally:
+                i18n.set_translation(otrans)
+        # Return body to character set of article.
+        body = body.encode(cset, 'replace')
+        return NL.join(headers) % d + '\n\n' + body + '\n'
 
     def _set_date(self, message):
         self.__super_set_date(message)
@@ -564,7 +606,7 @@ class Article(pipermail.Article):
         try:
             del self.html_body
         except AttributeError:
-            pass        
+            pass
 
 
 class HyperArchive(pipermail.T):
@@ -1003,7 +1045,11 @@ class HyperArchive(pipermail.T):
         subject = self.get_header("subject", article)
         author = self.get_header("author", article)
         if mm_cfg.ARCHIVER_OBSCURES_EMAILADDRS:
-            author = re.sub('@', _(' at '), author)
+            try:
+                author = re.sub('@', _(' at '), author)
+            except UnicodeError:
+                # Non-ASCII author contains '@' ... no valid email anyway
+                pass
         subject = CGIescape(subject, self.lang)
         author = CGIescape(author, self.lang)
 

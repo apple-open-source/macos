@@ -1,3 +1,12 @@
+<testcase>
+<info>
+<keywords>
+FTP
+EPSV
+STOR
+--crlf
+</keywords>
+</info>
 # Server-side
 <reply>
 </reply>
@@ -28,7 +37,7 @@ the
 <verify>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 EPSV
 TYPE I
@@ -45,3 +54,4 @@ the
 --crlf option
 </upload>
 </verify>
+</testcase>

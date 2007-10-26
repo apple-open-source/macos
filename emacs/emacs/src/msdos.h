@@ -1,5 +1,6 @@
 /* MS-DOS specific C utilities, interface.
-   Copyright (C) 1993, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1993, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef EMACS_MSDOS_H
 #define EMACS_MSDOS_H
@@ -52,7 +53,7 @@ typedef int Pixmap;
 typedef int Display;
 typedef int Window;
 typedef int XRectangle;
-#define PIX_TYPE int
+#define PIX_TYPE unsigned long
 #define XDISPLAY
 
 /* A stripped version of struct x_display_info in xterm.h, which see.  */
@@ -80,14 +81,16 @@ struct display_info
 
   /* Nonzero means defer mouse-motion highlighting.  */
   int mouse_face_defer;
+
+  /* Nonzero means that the mouse highlight should not be shown.  */
+  int mouse_face_hidden;
 };
+
+typedef struct display_info Display_Info;
 
 /* This is a cut-down version of the one in xterm.h, which see.  */
 struct x_output
 {
-  int left_pos;			/* used in xmenu_show (xmenu.c) */
-  int top_pos;			/* ditto */
-  int line_height;		/* used in x-popup-menu (xmenu.c) */
   PIX_TYPE background_pixel;	/* used in xfaces.c and lots of other places */
   PIX_TYPE foreground_pixel;	/* ditto */
   XFontStruct *font;		/* used in x-popup-menu (xmenu.c) */
@@ -104,21 +107,11 @@ extern struct x_output the_only_x_display;
 #define FRAME_FONT(f) (the_only_x_display.font)
 #define FRAME_X_DISPLAY_INFO(f) (&the_only_x_display.display_info)
 
-#define FRAME_INTERNAL_BORDER_WIDTH(f) (0)
-
 /* Prototypes.  */
 
 /* Forward declarations for prototypes.  */
 struct frame;
 struct window;
-
-/* From xterm.c; emulated on msdos.c */
-
-extern void pixel_to_glyph_coords P_ ((struct frame *f, int pix_x, int pix_y,
-				       int *x, int *y, XRectangle *bounds,
-				       int noclip));
-extern void glyph_to_pixel_coords P_ ((struct frame *f, int x, int y,
-				       int *pix_x, int *pix_y));
 
 /* Defined in xfns.c; emulated on msdos.c */
 
@@ -131,8 +124,8 @@ extern int x_pixel_height P_ ((struct frame *));
 #define x_destroy_bitmap(p1,p2)
 #define load_pixmap(p1,p2,p3,p4) (0)
 #define XGetGeometry(p1,p2,p3,p4,p5,p6,p7,p8,p9)
-#define DisplayWidth(p1,p2) (SELECTED_FRAME()->width)
-#define DisplayHeight(p1,p2) (SELECTED_FRAME()->height)
+#define DisplayWidth(p1,p2) (SELECTED_FRAME()->text_cols)
+#define DisplayHeight(p1,p2) (SELECTED_FRAME()->text_lines)
 #define XMenuSetAEQ (void)
 #define XMenuSetFreeze (void)
 #define XMenuRecompute (void)
@@ -167,3 +160,6 @@ void XMenuDestroy (Display *, XMenu *);
 #endif /* not HAVE_X_WINDOWS */
 
 #endif /* not EMACS_MSDOS_H */
+
+/* arch-tag: ad21eeed-8fdb-4357-8007-36368a6bdbf3
+   (do not change this comment) */

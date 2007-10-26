@@ -1,0 +1,93 @@
+Index: samba/source/include/vfs.h
+===================================================================
+--- samba/source/include/vfs.h.orig
++++ samba/source/include/vfs.h
+@@ -71,7 +71,8 @@
+  * timestamp resolition. JRA. */
+ /* Changed to version21 to add chflags operation -- jpeach */
+ /* Changed to version22 to add lchown operation -- jra */
+-#define SMB_VFS_INTERFACE_VERSION 22
++/* Changed to version 23 to add the streaminfo call. -- jpeach */
++#define SMB_VFS_INTERFACE_VERSION 23
+ 
+ 
+ /* to bug old modules which are trying to compile with the old functions */
+@@ -162,6 +163,7 @@ typedef enum _vfs_op_type {
+ 	SMB_VFS_OP_REALPATH,
+ 	SMB_VFS_OP_NOTIFY_WATCH,
+ 	SMB_VFS_OP_CHFLAGS,
++	SMB_VFS_OP_STREAMINFO,
+ 
+ 	/* NT ACL operations. */
+ 
+@@ -295,6 +297,8 @@ struct vfs_ops {
+ 							  struct notify_event *ev),
+ 					 void *private_data, void *handle_p);
+ 		int (*chflags)(struct vfs_handle_struct *handle, const char *path, uint flags);
++		int (*streaminfo)(struct vfs_handle_struct *handle, struct files_struct *fsp,
++				    const char *fname, char **names, size_t **sizes);
+ 		
+ 		/* NT ACL operations. */
+ 		
+@@ -414,6 +418,7 @@ struct vfs_ops {
+ 		struct vfs_handle_struct *realpath;
+ 		struct vfs_handle_struct *notify_watch;
+ 		struct vfs_handle_struct *chflags;
++		struct vfs_handle_struct *streaminfo;
+ 
+ 		/* NT ACL operations. */
+ 
+Index: samba/source/include/vfs_macros.h
+===================================================================
+--- samba/source/include/vfs_macros.h.orig
++++ samba/source/include/vfs_macros.h
+@@ -81,6 +81,7 @@
+ #define SMB_VFS_REALPATH(conn, path, resolved_path) ((conn)->vfs.ops.realpath((conn)->vfs.handles.realpath, (path), (resolved_path)))
+ #define SMB_VFS_NOTIFY_WATCH(conn, ctx, e, callback, private_data, handle_p) ((conn)->vfs.ops.notify_watch((conn)->vfs.handles.notify_watch, (ctx), (e), (callback), (private_data), (handle_p)))
+ #define SMB_VFS_CHFLAGS(conn, path, flags) ((conn)->vfs.ops.chflags((conn)->vfs.handles.chflags, (path), (flags)))
++#define SMB_VFS_STREAMINFO(conn, fsp, fname, names, sizes) ((conn)->vfs.ops.streaminfo((conn)->vfs.handles.streaminfo, (fsp), (fname), (names), (sizes)))
+ 
+ /* NT ACL operations. */
+ #define SMB_VFS_FGET_NT_ACL(fsp, fd, security_info, ppdesc) ((fsp)->conn->vfs.ops.fget_nt_acl((fsp)->conn->vfs.handles.fget_nt_acl, (fsp), (fd), (security_info), (ppdesc)))
+@@ -198,6 +199,7 @@
+ #define SMB_VFS_OPAQUE_REALPATH(conn, path, resolved_path) ((conn)->vfs_opaque.ops.realpath((conn)->vfs_opaque.handles.realpath, (path), (resolved_path)))
+ #define SMB_VFS_OPAQUE_NOTIFY_WATCH(conn, ctx, e, callback, private_data, handle_p) ((conn)->vfs_opaque.ops.notify_watch((conn)->vfs_opaque.handles.notify_watch, (ctx), (e), (callback), (private_data), (handle_p)))
+ #define SMB_VFS_OPAQUE_CHFLAGS(conn, path, flags) ((conn)->vfs_opaque.ops.chflags((conn)->vfs_opaque.handles.chflags, (path), (flags)))
++#define SMB_VFS_OPAQUE_STREAMINFO(conn, fsp, fname, names, sizes) ((conn)->vfs_opaque.ops.streaminfo((conn)->vfs_opaque.handles.streaminfo, (fsp), (fname), (names), (sizes)))
+ 
+ /* NT ACL operations. */
+ #define SMB_VFS_OPAQUE_FGET_NT_ACL(fsp, fd, security_info, ppdesc) ((fsp)->conn->vfs_opaque.ops.fget_nt_acl((fsp)->conn->vfs_opaque.handles.fget_nt_acl, (fsp), (fd), (security_info), (ppdesc)))
+@@ -316,6 +318,7 @@
+ #define SMB_VFS_NEXT_REALPATH(handle, path, resolved_path) ((handle)->vfs_next.ops.realpath((handle)->vfs_next.handles.realpath, (path), (resolved_path)))
+ #define SMB_VFS_NEXT_NOTIFY_WATCH(conn, ctx, e, callback, private_data, handle_p) ((conn)->vfs_next.ops.notify_watch((conn)->vfs_next.handles.notify_watch, (ctx), (e), (callback), (private_data), (handle_p)))
+ #define SMB_VFS_NEXT_CHFLAGS(handle, path, flags) ((handle)->vfs_next.ops.chflags((handle)->vfs_next.handles.chflags, (path), (flags)))
++#define SMB_VFS_NEXT_STREAMINFO(handle, fsp, fname, names, sizes) ((handle)->vfs.ops.streaminfo((handle)->vfs.handles.streaminfo, (fsp), (fname), (names), (sizes)))
+ 
+ /* NT ACL operations. */
+ #define SMB_VFS_NEXT_FGET_NT_ACL(handle, fsp, fd, security_info, ppdesc) ((handle)->vfs_next.ops.fget_nt_acl((handle)->vfs_next.handles.fget_nt_acl, (fsp), (fd), (security_info), (ppdesc)))
+Index: samba/source/modules/vfs_default.c
+===================================================================
+--- samba/source/modules/vfs_default.c.orig
++++ samba/source/modules/vfs_default.c
+@@ -923,6 +923,12 @@ static int vfswrap_chflags(vfs_handle_st
+ #endif
+ }
+ 
++static int vfswrap_streaminfo(vfs_handle_struct *handle,  struct files_struct *fsp, const char *fname, char **names, size_t **sizes)
++{
++	errno = ENOSYS;
++	return -1;
++}
++
+ static size_t vfswrap_fget_nt_acl(vfs_handle_struct *handle, files_struct *fsp, int fd, uint32 security_info, SEC_DESC **ppdesc)
+ {
+ 	size_t result;
+@@ -1310,6 +1316,8 @@ static vfs_op_tuple vfs_default_ops[] = 
+ 	 SMB_VFS_LAYER_OPAQUE},
+ 	{SMB_VFS_OP(vfswrap_chflags),	SMB_VFS_OP_CHFLAGS,
+ 	 SMB_VFS_LAYER_OPAQUE},
++	{SMB_VFS_OP(vfswrap_streaminfo),SMB_VFS_OP_STREAMINFO,
++	 SMB_VFS_LAYER_OPAQUE},
+ 
+ 	/* NT ACL operations. */
+ 

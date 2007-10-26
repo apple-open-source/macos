@@ -1,25 +1,29 @@
 /* GNU m4 -- A simple macro processor
-   Copyright (C) 1989, 90, 91, 92, 93, 94 Free Software Foundation, Inc.
-  
+
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2006
+   Free Software Foundation, Inc.
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-  
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-  
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301  USA
 */
 
 /* This file contains the functions to evaluate integer expressions for
    the "eval" macro.  It is a little, fairly self-contained module, with
    its own scanner, and a recursive descent parser.  The only entry point
-   is evaluate ().  */
+   is evaluate ().  For POSIX semantics of the "eval" macro, the type
+   eval_t must be a 32-bit signed integer.  */
 
 #include "m4.h"
 
@@ -54,20 +58,20 @@ typedef enum eval_error
   }
 eval_error;
 
-static eval_error logical_or_term _((eval_token, eval_t *));
-static eval_error logical_and_term _((eval_token, eval_t *));
-static eval_error or_term _((eval_token, eval_t *));
-static eval_error xor_term _((eval_token, eval_t *));
-static eval_error and_term _((eval_token, eval_t *));
-static eval_error not_term _((eval_token, eval_t *));
-static eval_error logical_not_term _((eval_token, eval_t *));
-static eval_error cmp_term _((eval_token, eval_t *));
-static eval_error shift_term _((eval_token, eval_t *));
-static eval_error add_term _((eval_token, eval_t *));
-static eval_error mult_term _((eval_token, eval_t *));
-static eval_error exp_term _((eval_token, eval_t *));
-static eval_error unary_term _((eval_token, eval_t *));
-static eval_error simple_term _((eval_token, eval_t *));
+static eval_error logical_or_term (eval_token, eval_t *);
+static eval_error logical_and_term (eval_token, eval_t *);
+static eval_error or_term (eval_token, eval_t *);
+static eval_error xor_term (eval_token, eval_t *);
+static eval_error and_term (eval_token, eval_t *);
+static eval_error not_term (eval_token, eval_t *);
+static eval_error logical_not_term (eval_token, eval_t *);
+static eval_error cmp_term (eval_token, eval_t *);
+static eval_error shift_term (eval_token, eval_t *);
+static eval_error add_term (eval_token, eval_t *);
+static eval_error mult_term (eval_token, eval_t *);
+static eval_error exp_term (eval_token, eval_t *);
+static eval_error unary_term (eval_token, eval_t *);
+static eval_error simple_term (eval_token, eval_t *);
 
 /*--------------------.
 | Lexical functions.  |
@@ -98,7 +102,7 @@ eval_undo (void)
 static eval_token
 eval_lex (eval_t *val)
 {
-  while (isspace (*eval_text))
+  while (isspace (to_uchar (*eval_text)))
     eval_text++;
 
   last_text = eval_text;
@@ -106,7 +110,7 @@ eval_lex (eval_t *val)
   if (*eval_text == '\0')
     return EOTEXT;
 
-  if (isdigit (*eval_text))
+  if (isdigit (to_uchar (*eval_text)))
     {
       int base, digit;
 
@@ -131,7 +135,7 @@ eval_lex (eval_t *val)
 	    case 'R':
 	      base = 0;
 	      eval_text++;
-	      while (isdigit (*eval_text) && base <= 36)
+	      while (isdigit (to_uchar (*eval_text)) && base <= 36)
 		base = 10 * base + *eval_text++ - '0';
 	      if (base == 0 || base > 36 || *eval_text != ':')
 		return ERROR;
@@ -148,19 +152,28 @@ eval_lex (eval_t *val)
       (*val) = 0;
       for (; *eval_text; eval_text++)
 	{
-	  if (isdigit (*eval_text))
+	  if (isdigit (to_uchar (*eval_text)))
 	    digit = *eval_text - '0';
-	  else if (islower (*eval_text))
+	  else if (islower (to_uchar (*eval_text)))
 	    digit = *eval_text - 'a' + 10;
-	  else if (isupper (*eval_text))
+	  else if (isupper (to_uchar (*eval_text)))
 	    digit = *eval_text - 'A' + 10;
 	  else
 	    break;
 
-	  if (digit >= base)
+	  if (base == 1)
+	    {
+	      if (digit == 1)
+		(*val)++;
+	      else if (digit == 0 && !*val)
+		continue;
+	      else
+		break;
+	    }
+	  else if (digit >= base)
 	    break;
-
-	  (*val) = (*val) * base + digit;
+	  else
+	    (*val) = (*val) * base + digit;
 	}
       return NUMBER;
     }
@@ -266,7 +279,7 @@ evaluate (const char *expr, eval_t *val)
 
   if (err == NO_ERROR && *eval_text != '\0')
     err = EXCESS_INPUT;
-    
+
   switch (err)
     {
     case NO_ERROR:
@@ -274,38 +287,38 @@ evaluate (const char *expr, eval_t *val)
 
     case MISSING_RIGHT:
       M4ERROR ((warning_status, 0,
-		"Bad expression in eval (missing right parenthesis): %s",
+		"bad expression in eval (missing right parenthesis): %s",
 		expr));
       break;
 
     case SYNTAX_ERROR:
       M4ERROR ((warning_status, 0,
-		"Bad expression in eval: %s", expr));
+		"bad expression in eval: %s", expr));
       break;
 
     case UNKNOWN_INPUT:
       M4ERROR ((warning_status, 0,
-		"Bad expression in eval (bad input): %s", expr));
+		"bad expression in eval (bad input): %s", expr));
       break;
 
     case EXCESS_INPUT:
       M4ERROR ((warning_status, 0,
-		"Bad expression in eval (excess input): %s", expr));
+		"bad expression in eval (excess input): %s", expr));
       break;
 
     case DIVIDE_ZERO:
       M4ERROR ((warning_status, 0,
-		"Divide by zero in eval: %s", expr));
+		"divide by zero in eval: %s", expr));
       break;
 
     case MODULO_ZERO:
       M4ERROR ((warning_status, 0,
-		"Modulo by zero in eval: %s", expr));
+		"modulo by zero in eval: %s", expr));
       break;
 
     default:
       M4ERROR ((warning_status, 0,
-		"INTERNAL ERROR: Bad error code in evaluate ()"));
+		"INTERNAL ERROR: bad error code in evaluate ()"));
       abort ();
     }
 
@@ -545,7 +558,7 @@ cmp_term (eval_token et, eval_t *v1)
 
 	default:
 	  M4ERROR ((warning_status, 0,
-		    "INTERNAL ERROR: Bad comparison operator in cmp_term ()"));
+		    "INTERNAL ERROR: bad comparison operator in cmp_term ()"));
 	  abort ();
 	}
     }
@@ -576,19 +589,25 @@ shift_term (eval_token et, eval_t *v1)
       if ((er = add_term (et, &v2)) != NO_ERROR)
 	return er;
 
+      /* Shifting by a negative number, or by greater than the width, is
+	 undefined in C, but POSIX requires eval to operate on 32-bit signed
+	 numbers.  Explicitly mask the right argument to ensure defined
+	 behavior.  */
       switch (op)
 	{
 	case LSHIFT:
-	  *v1 = *v1 << v2;
+	  *v1 = *v1 << (v2 & 0x1f);
 	  break;
 
 	case RSHIFT:
-	  *v1 = *v1 >> v2;
+	  /* This assumes 2's-complement with sign-extension, since shifting
+	     a negative number right is implementation-defined in C.  */
+	  *v1 = *v1 >> (v2 & 0x1f);
 	  break;
 
 	default:
 	  M4ERROR ((warning_status, 0,
-		    "INTERNAL ERROR: Bad shift operator in shift_term ()"));
+		    "INTERNAL ERROR: bad shift operator in shift_term ()"));
 	  abort ();
 	}
     }
@@ -658,6 +677,9 @@ mult_term (eval_token et, eval_t *v1)
 	case DIVIDE:
 	  if (v2 == 0)
 	    return DIVIDE_ZERO;
+	  else if (v2 == -1)
+	    /* Avoid the x86 SIGFPE on INT_MIN / -1.  */
+	    *v1 = -*v1;
 	  else
 	    *v1 = *v1 / v2;
 	  break;
@@ -665,13 +687,16 @@ mult_term (eval_token et, eval_t *v1)
 	case MODULO:
 	  if (v2 == 0)
 	    return MODULO_ZERO;
+	  else if (v2 == -1)
+	    /* Avoid the x86 SIGFPE on INT_MIN % -1.  */
+	    *v1 = 0;
 	  else
 	    *v1 = *v1 % v2;
 	  break;
 
 	default:
 	  M4ERROR ((warning_status, 0,
-		    "INTERNAL ERROR: Bad operator in mult_term ()"));
+		    "INTERNAL ERROR: bad operator in mult_term ()"));
 	  abort ();
 	}
     }

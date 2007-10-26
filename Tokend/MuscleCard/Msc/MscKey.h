@@ -63,4 +63,3 @@ protected:
 
 #endif /* !_MSCKEY_H_ */
 
-/* arch-tag: 953187A2-BE68-11D8-8394-000A95C4302E */

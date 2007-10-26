@@ -109,6 +109,10 @@
 /* IBMCPP manual indicates they are void.  */
 #define RETSIGTYPE void
 
+/* The default remote shell to use, if one does not specify the CVS_RSH
+   environment variable. */
+#define RSH_DFLT "rsh"
+
 /* Define to `unsigned' if <sys/types.h> doesn't define.  */
 /* sys/types.h doesn't define it, but stdio.h does, which cvs.h
    #includes, so things should be okay.  */
@@ -257,9 +261,6 @@
 /* Define if you have the <sys/time.h> header file.  */
 #undef HAVE_SYS_TIME_H
 
-/* Define if you have the <sys/timeb.h> header file.  */
-#define HAVE_SYS_TIMEB_H 1
-
 /* Define if you have the <unistd.h> header file.  */
 #undef HAVE_UNISTD_H
 
@@ -298,9 +299,6 @@ extern int readlink (char *path, char *buf, int buf_size);
 #ifndef __WATCOMC__
 extern pid_t getpid (void);
 #endif
-
-/* We definitely have prototypes.  */
-#define USE_PROTOTYPES 1
 
 /* Under OS/2, filenames are case-insensitive, and both / and \
    are path component separators.  */

@@ -1,5 +1,5 @@
 #	from: @(#)bsd.prog.mk	5.26 (Berkeley) 6/25/91
-# $FreeBSD: src/share/mk/bsd.prog.mk,v 1.136 2004/08/13 14:30:26 ru Exp $
+# $FreeBSD: src/share/mk/bsd.prog.mk,v 1.144 2005/04/11 07:13:29 harti Exp $
 
 .include <bsd.init.mk>
 
@@ -22,8 +22,8 @@ CFLAGS+=${CRUNCH_CFLAGS}
 STRIP?=	-s
 .endif
 
-.if defined(NOSHARED) && (${NOSHARED} != "no" && ${NOSHARED} != "NO")
-LDFLAGS+= -static
+.if defined(NO_SHARED) && (${NO_SHARED} != "no" && ${NO_SHARED} != "NO")
+LDFLAGS+=
 .endif
 
 .if defined(PROG_CXX)
@@ -35,7 +35,7 @@ PROG=	${PROG_CXX}
 
 # If there are Objective C sources, link with Objective C libraries.
 .if !empty(SRCS:M*.m)
-OBJCLIBS?= -lobjc
+OBJCLIBS?= -lobjc -lpthread
 LDADD+=	${OBJCLIBS}
 .endif
 
@@ -48,7 +48,7 @@ ${PROG}: ${OBJS}
 	${CC} ${CFLAGS} ${LDFLAGS} -o ${.TARGET} ${OBJS} ${LDADD}
 .endif
 
-.else !defined(SRCS)
+.else	# !defined(SRCS)
 
 .if !target(${PROG})
 .if defined(PROG_CXX)
@@ -74,7 +74,7 @@ ${PROG}: ${OBJS}
 
 .endif
 
-.if	!defined(NOMAN) && !defined(MAN) && \
+.if	!defined(NO_MAN) && !defined(MAN) && \
 	!defined(MAN1) && !defined(MAN2) && !defined(MAN3) && \
 	!defined(MAN4) && !defined(MAN5) && !defined(MAN6) && \
 	!defined(MAN7) && !defined(MAN8) && !defined(MAN9) && \
@@ -85,7 +85,7 @@ MAN1=	${MAN}
 .endif
 
 all: objwarn ${PROG} ${SCRIPTS}
-.if !defined(NOMAN)
+.if !defined(NO_MAN)
 all: _manpages
 .endif
 
@@ -115,6 +115,13 @@ _EXTRADEPEND:
 
 .if !target(install)
 
+.if defined(PRECIOUSPROG)
+.if !defined(NO_FSCHG)
+INSTALLFLAGS+= -fschg
+.endif
+INSTALLFLAGS+= -S
+.endif
+
 _INSTALLFLAGS:=	${INSTALLFLAGS}
 .for ie in ${INSTALLFLAGS_EDIT}
 _INSTALLFLAGS:=	${_INSTALLFLAGS${ie}}
@@ -133,7 +140,7 @@ _proginstall:
 	    ${_INSTALLFLAGS} ${PROG} ${DESTDIR}${BINDIR}
 .endif
 .endif
-.endif !target(realinstall)
+.endif	# !target(realinstall)
 
 .if defined(SCRIPTS) && !empty(SCRIPTS)
 realinstall: _scriptsinstall
@@ -170,7 +177,7 @@ NLSNAME?=	${PROG}
 .include <bsd.incs.mk>
 .include <bsd.links.mk>
 
-.if !defined(NOMAN)
+.if !defined(NO_MAN)
 realinstall: _maninstall
 .ORDER: beforeinstall _maninstall
 .endif
@@ -184,7 +191,7 @@ lint: ${SRCS:M*.c}
 .endif
 .endif
 
-.if !defined(NOMAN)
+.if !defined(NO_MAN)
 .include <bsd.man.mk>
 .endif
 
@@ -197,3 +204,7 @@ ${OBJS}: ${SRCS:M*.h}
 .include <bsd.obj.mk>
 
 .include <bsd.sys.mk>
+
+.if defined(PORTNAME)
+.include <bsd.pkg.mk>
+.endif

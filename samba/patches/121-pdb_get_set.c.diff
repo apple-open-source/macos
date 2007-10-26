@@ -1,23 +1,22 @@
---- samba/source/passdb/pdb_get_set.c.orig	2004-08-06 14:38:21.000000000 -0700
-+++ samba/source/passdb/pdb_get_set.c	2004-08-24 16:03:57.000000000 -0700
-@@ -1178,6 +1178,9 @@
- 	if (!sampass || !plaintext)
+Index: samba/source/passdb/pdb_get_set.c
+===================================================================
+--- samba/source/passdb/pdb_get_set.c.orig
++++ samba/source/passdb/pdb_get_set.c
+@@ -992,6 +992,8 @@ BOOL pdb_set_plaintext_passwd(struct sam
+ 	if (!plaintext)
  		return False;
  
-+#ifdef WITH_OPENDIRECTORY
 +if (!lp_opendirectory()) {
-+#endif
++
  	/* Calculate the MD4 hash (NT compatible) of the password */
  	E_md4hash(plaintext, new_nt_p16);
  
-@@ -1196,7 +1199,9 @@
- 		if (!pdb_set_lanman_passwd (sampass, new_lanman_p16, PDB_CHANGED)) 
+@@ -1011,6 +1013,8 @@ BOOL pdb_set_plaintext_passwd(struct sam
  			return False;
  	}
--
-+#ifdef WITH_OPENDIRECTORY
-+}
-+#endif
+ 
++} /* !lp_opendirectory() */
++
  	if (!pdb_set_plaintext_pw_only (sampass, plaintext, PDB_CHANGED)) 
  		return False;
  

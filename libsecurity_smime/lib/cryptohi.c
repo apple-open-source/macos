@@ -99,6 +99,24 @@ SECOID_FindyCssmAlgorithmByTag(SECOidTag algTag)
     return oidData ? oidData->cssmAlgorithm : CSSM_ALGID_NONE;
 }
 
+static SECStatus SEC_CssmRtnToSECStatus(CSSM_RETURN rv)
+{
+    CSSM_RETURN crtn = CSSM_ERRCODE(rv);
+    switch(crtn) {
+	case CSSM_ERRCODE_USER_CANCELED:
+	case CSSM_ERRCODE_OPERATION_AUTH_DENIED:
+	case CSSM_ERRCODE_OBJECT_USE_AUTH_DENIED:
+	    return SEC_ERROR_USER_CANCELLED;
+	case CSSM_ERRCODE_NO_USER_INTERACTION:
+	    return SEC_ERROR_NO_USER_INTERACTION;
+	case CSSMERR_CSP_KEY_USAGE_INCORRECT:
+	    return SEC_ERROR_INADEQUATE_KEY_USAGE;
+	default:
+	    fprintf(stderr, "CSSM_SignData returned: %08X\n", (uint32_t)rv);
+	    return SEC_ERROR_LIBRARY_FAILURE;
+    }
+}
+
 SECStatus
 SEC_SignData(SECItem *result, unsigned char *buf, int len,
 	    SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag)
@@ -144,20 +162,7 @@ SEC_SignData(SECItem *result, unsigned char *buf, int len,
 
     rv = CSSM_SignData(cc, &dataBuf, 1, CSSM_ALGID_NONE, &sig);
     if (rv) {
-        SECErrorCodes code;
-        if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_USER_CANCELED
-            || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OPERATION_AUTH_DENIED
-	    || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OBJECT_USE_AUTH_DENIED)
-            code = SEC_ERROR_USER_CANCELLED;
-        else if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_NO_USER_INTERACTION
-                 || rv == CSSMERR_CSP_KEY_USAGE_INCORRECT)
-            code = SEC_ERROR_INADEQUATE_KEY_USAGE;
-        else
-	{
-	    fprintf(stderr, "CSSM_SignData returned: %08X\n", (uint32_t)rv);
-            code = SEC_ERROR_LIBRARY_FAILURE;
-	}
-
+        SECErrorCodes code = SEC_CssmRtnToSECStatus(rv);
         PORT_SetError(code);
 	goto loser;
     }
@@ -216,20 +221,7 @@ SGN_Digest(SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag, SECIte
 
     rv = CSSM_SignData(cc, digest, 1, digalg, &sig);
     if (rv) {
-        SECErrorCodes code;
-        if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_USER_CANCELED
-            || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OPERATION_AUTH_DENIED
-	    || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OBJECT_USE_AUTH_DENIED)
-            code = SEC_ERROR_USER_CANCELLED;
-        else if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_NO_USER_INTERACTION
-                 || rv == CSSMERR_CSP_KEY_USAGE_INCORRECT)
-            code = SEC_ERROR_INADEQUATE_KEY_USAGE;
-        else
-	{
-	    fprintf(stderr, "CSSM_SignData returned: %08X\n", (uint32_t)rv);
-            code = SEC_ERROR_LIBRARY_FAILURE;
-	}
-
+        SECErrorCodes code = SEC_CssmRtnToSECStatus(rv);
         PORT_SetError(code);
 	goto loser;
     }

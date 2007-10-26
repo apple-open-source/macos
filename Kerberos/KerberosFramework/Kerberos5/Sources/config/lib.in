@@ -1,10 +1,11 @@
 ### config/lib.in
+# *** keep this in sync with libnover.in
 #
 # Makefile fragment that creates static, shared, and profiled libraries.
 #
 # The following variables must be set in the Makefile.in:
 #
-# LIB		library name without "lib" or extension
+# LIBBASE	library name without "lib" or extension
 # LIBMAJOR	library major version
 # LIBMINOR	library minor version
 # STOBJLISTS	list of files, each of which is an OBJS.ST created by
@@ -23,6 +24,8 @@
 #			form dir1:dir2 ...
 # RELDIR	path to this directory relative to $(TOPLIBD)
 
+LIBPREFIX=lib
+
 # STOBJLISTS=dir1/OBJS.ST dir2/OBJS.ST etc...
 SHOBJLISTS=$(STOBJLISTS:.ST=.SH)
 PFOBJLISTS=$(STOBJLISTS:.ST=.PF)
@@ -30,7 +33,7 @@ PFOBJLISTS=$(STOBJLISTS:.ST=.PF)
 dummy-target-1 $(SUBDIROBJLISTS) $(SUBDIROBJLISTS:.ST=.SH) $(SUBDIROBJLISTS:.ST=.PF): all-recurse
 
 # Gets invoked as $(PARSE_OBJLISTS) list-of-OBJS.*-files
-PARSE_OBJLISTS= set -x && $(PERL) -p -e '$$e=$$ARGV; $$e =~ s/OBJS\...$$//; s/^/ /; s/ $$//; s/ / $$e/g;'
+PARSE_OBJLISTS= set -x && $(PERL) -p -e 'BEGIN { $$SIG{__WARN__} = sub {die @_} }; $$e=$$ARGV; $$e =~ s/OBJS\...$$//; s/^/ /; s/ $$//; s/ / $$e/g;'
 
 lib$(LIBBASE)$(STLIBEXT): $(STOBJLISTS)
 	$(RM) $@
@@ -51,10 +54,14 @@ lib$(LIBBASE)$(SHLIBEXT): lib$(LIBBASE)$(SHLIBVEXT)
 	$(LN_S) lib$(LIBBASE)$(SHLIBVEXT) $@
 
 binutils.versions: $(SHLIB_EXPORT_FILE) Makefile
-	echo >  binutils.versions "HIDDEN { local: __*; _rest*; _save*; *; };"
-	echo >> binutils.versions "$(LIBBASE)_$(LIBMAJOR)_MIT {"
+	echo >  binutils.versions "$(LIBBASE)_$(LIBMAJOR)_MIT {"
 	sed  >> binutils.versions < $(SHLIB_EXPORT_FILE) "s/$$/;/"
 	echo >> binutils.versions "};"
+	echo >> binutils.versions "HIDDEN { local: __*; _rest*; _save*; *; };"
+
+darwin.exports: $(SHLIB_EXPORT_FILE) Makefile
+	sed > darwin-exports.tmp < $(SHLIB_EXPORT_FILE) "s/^/_/"
+	$(MV) darwin-exports.tmp darwin.exports
 
 osf1.exports: $(SHLIB_EXPORT_FILE) Makefile
 	$(RM) osf1.tmp osf1.exports
@@ -69,7 +76,7 @@ osf1.exports: $(SHLIB_EXPORT_FILE) Makefile
 	  if test "$$f" != "." ; then \
 	    a="-fini $$f $$a"; \
 	  else :; fi; \
-	done; echo " $$a" >> osf1.tmp; \
+	done; echo " $$a" >> osf1.tmp
 	mv -f osf1.tmp osf1.exports
 
 hpux10.exports: $(SHLIB_EXPORT_FILE) Makefile
@@ -82,6 +89,8 @@ hpux10.exports: $(SHLIB_EXPORT_FILE) Makefile
 	  else :; fi; \
 	done; echo "$$a" >> hpux10.tmp
 	echo "+e errno" >> hpux10.tmp
+	echo "+e _GLOBAL__FD_lib$(LIBBASE)_$(LIBMAJOR)_$(LIBMINOR)" >> hpux10.tmp
+	echo "+e _GLOBAL__FI_lib$(LIBBASE)_$(LIBMAJOR)_$(LIBMINOR)" >> hpux10.tmp
 	mv -f hpux10.tmp hpux10.exports
 
 lib$(LIBBASE)$(PFLIBEXT): $(PFOBJLISTS)

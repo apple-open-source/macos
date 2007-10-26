@@ -1,6 +1,6 @@
 /* bucomm.h -- binutils common include file.
    Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003 Free Software Foundation, Inc.
 
    This file is part of GNU Binutils.
 
@@ -16,7 +16,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #ifndef _BUCOMM_H
 #define _BUCOMM_H
@@ -28,11 +28,7 @@
 #include "config.h"
 #include "bin-bugs.h"
 
-#ifdef ANSI_PROTOTYPES
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
 #ifdef USE_BINARY_FOPEN
 #include "fopen-bin.h"
@@ -72,21 +68,21 @@ extern char *strrchr ();
 #endif
 #endif
 
-#ifdef NEED_DECLARATION_STRSTR
+#if !HAVE_DECL_STRSTR
 extern char *strstr ();
 #endif
 
 #ifdef HAVE_SBRK
-#ifdef NEED_DECLARATION_SBRK
+#if !HAVE_DECL_SBRK
 extern char *sbrk ();
 #endif
 #endif
 
-#ifdef NEED_DECLARATION_GETENV
+#if !HAVE_DECL_GETENV
 extern char *getenv ();
 #endif
 
-#ifdef NEED_DECLARATION_ENVIRON
+#if !HAVE_DECL_ENVIRON
 extern char **environ;
 #endif
 
@@ -147,12 +143,19 @@ void *alloca ();
 # define N_(String) (String)
 #endif
 
+/* Used by ar.c and objcopy.c.  */
+#define BUFSIZE 8192
+
 /* bucomm.c */
+
+/* Return the filename in a static buffer.  */
+const char *bfd_get_archive_filename (bfd *);
+
 void bfd_nonfatal (const char *);
 
 void bfd_fatal (const char *) ATTRIBUTE_NORETURN;
 
-void report (const char *, va_list);
+void report (const char *, va_list) ATTRIBUTE_PRINTF(1,0);
 
 void fatal (const char *, ...) ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
 

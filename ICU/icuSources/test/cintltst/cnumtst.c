@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -44,6 +44,7 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestNumberFormatPadding);
     TESTCASE(TestInt64Format);
     TESTCASE(TestNonExistentCurrency);
+    TESTCASE(TestCurrencyRegression);
     TESTCASE(TestRBNFFormat);
 }
 
@@ -96,7 +97,7 @@ static void TestNumberFormat()
     int32_t resultlength;
     int32_t resultlengthneeded;
     int32_t parsepos;
-    double d1;
+    double d1 = -1.0;
     int32_t l1;
     double d = -10456.37;
     double a = 1234.56, a1 = 1235.0;
@@ -119,8 +120,13 @@ static void TestNumberFormat()
     status = U_ZERO_ERROR;
     log_verbose("Testing  unum_open() with default style and locale\n");
     def=unum_open(style, NULL,0,NULL, NULL,&status);
+
+    /* Might as well pack it in now if we can't even get a default NumberFormat... */
     if(U_FAILURE(status))
-        log_err("Error in creating NumberFormat default using unum_open(): %s\n", myErrorName(status));
+    {
+        log_err("Error in creating default NumberFormat using unum_open(): %s\n", myErrorName(status));
+        return;
+    }
 
     log_verbose("\nTesting unum_open() with french locale and default style(decimal)\n");
     fr=unum_open(style,NULL,0, "fr_FR",NULL, &status);
@@ -242,7 +248,7 @@ free(result);
     {
         log_err("Error in formatting using unum_formatDouble(.....): %s\n", myErrorName(status));
     }
-    if(u_strcmp(result, temp1)==0)
+    if(result && u_strcmp(result, temp1)==0)
         log_verbose("Pass: Number Formatting using unum_formatDouble() Successful\n");
     else
         log_err("FAIL: Error in number formatting using unum_formatDouble()\n");
@@ -256,9 +262,13 @@ free(result);
     /* Testing unum_parse() and unum_parseDouble() */
     log_verbose("\nTesting unum_parseDouble()\n");
 /*    for (i = 0; i < 100000; i++)*/
+    if (result != NULL)
     {
         parsepos=0;
         d1=unum_parseDouble(cur_def, result, u_strlen(result), &parsepos, &status);
+    }
+    else {
+        log_err("result is NULL\n");
     }
     if(U_FAILURE(status))
     {
@@ -299,26 +309,31 @@ free(result);
     if (pos2.beginIndex == 1 && pos2.endIndex == 6) {
         log_verbose("Pass: Complete number formatting using unum_format() successful\n");
     } else {
-        log_err("Fail: Error in complete number Formatting using unum_formatDouble()\nGot: b=%d end=%d\nExpected: b=1 end=6",
+        log_err("Fail: Error in complete number Formatting using unum_formatDouble()\nGot: b=%d end=%d\nExpected: b=1 end=6\n",
                 pos1.beginIndex, pos1.endIndex);
     }
 
     log_verbose("\nTesting unum_parseDoubleCurrency\n");
     parsepos=0;
-    d1=unum_parseDoubleCurrency(cur_def, result, u_strlen(result), &parsepos, temp2, &status);
-    if (U_FAILURE(status)) {
-        log_err("parse failed. The error is  : %s\n", myErrorName(status));
+    if (result == NULL) {
+        log_err("result is NULL\n");
     }
-    /* Note: a==1234.56, but on parse expect a1=1235.0 */
-    if (d1!=a1) {
-        log_err("Fail: Error in parsing currency, got %f, expected %f\n", d1, a1);
-    } else {
-        log_verbose("Pass: parsed currency ammount successfully\n");
-    }
-    if (u_strcmp(temp2, temp)==0) {
-        log_verbose("Pass: parsed correct currency\n");
-    } else {
-        log_err("Fail: parsed incorrect currency\n");
+    else {
+        d1=unum_parseDoubleCurrency(cur_def, result, u_strlen(result), &parsepos, temp2, &status);
+        if (U_FAILURE(status)) {
+            log_err("parse failed. The error is  : %s\n", myErrorName(status));
+        }
+        /* Note: a==1234.56, but on parse expect a1=1235.0 */
+        if (d1!=a1) {
+            log_err("Fail: Error in parsing currency, got %f, expected %f\n", d1, a1);
+        } else {
+            log_verbose("Pass: parsed currency ammount successfully\n");
+        }
+        if (u_strcmp(temp2, temp)==0) {
+            log_verbose("Pass: parsed correct currency\n");
+        } else {
+            log_err("Fail: parsed incorrect currency\n");
+        }
     }
 
 free(result);
@@ -1279,6 +1294,63 @@ static void TestRBNFFormat() {
     for (i = 0; i < COUNT; ++i) {
         unum_close(formats[i]);
     }
+}
+
+static void TestCurrencyRegression(void) {
+/* 
+ I've found a case where unum_parseDoubleCurrency is not doing what I
+expect.  The value I pass in is $1234567890q123460000.00 and this
+returns with a status of zero error & a parse pos of 22 (I would
+expect a parse error at position 11).
+
+I stepped into DecimalFormat::subparse() and it looks like it parses
+the first 10 digits and then stops parsing at the q but doesn't set an
+error. Then later in DecimalFormat::parse() the value gets crammed
+into a long (which greatly truncates the value).
+
+This is very problematic for me 'cause I try to remove chars that are
+invalid but this allows my users to enter bad chars and truncates
+their data!
+*/
+
+    UChar buf[1024];
+    UChar currency[8];
+    char acurrency[16];
+    double d;
+    UNumberFormat *cur;
+    int32_t pos;
+    UErrorCode status  = U_ZERO_ERROR;
+    const int32_t expected = 11;
+
+    currency[0]=0;
+    u_uastrcpy(buf, "$1234567890q643210000.00");
+    cur = unum_open(UNUM_CURRENCY, NULL,0,"en_US", NULL, &status);
+    
+    if(U_FAILURE(status)) {
+        log_err("unum_open failed: %s\n", u_errorName(status));
+        return;
+    }
+    
+    status = U_ZERO_ERROR; /* so we can test it later. */
+    pos = 0;
+    
+    d = unum_parseDoubleCurrency(cur,
+                         buf,
+                         -1,
+                         &pos, /* 0 = start */
+                         currency,
+                         &status);
+
+    u_austrcpy(acurrency, currency);
+
+    if(U_FAILURE(status) || (pos != expected)) {
+        log_err("unum_parseDoubleCurrency should have failed with pos %d, but gave: value %.9f, err %s, pos=%d, currency [%s]\n",
+            expected, d, u_errorName(status), pos, acurrency);
+    } else {
+        log_verbose("unum_parseDoubleCurrency failed, value %.9f err %s, pos %d, currency [%s]\n", d, u_errorName(status), pos, acurrency);
+    }
+    
+    unum_close(cur);
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

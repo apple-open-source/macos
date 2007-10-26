@@ -30,5 +30,15 @@ enum {
     kAccelScrollConvertPointer  = 0x0008
 };
 
+enum {
+    kScrollTypeContinuous       = 0x0001,
+    kScrollTypeZoom             = 0x0002
+};
+
+#define kIOHIDEventServicePropertiesKey "HIDEventServiceProperties"
+#define kIOHIDTemporaryParametersKey    "HIDTemporaryParameters"
+#define kIOHIDDefaultParametersKey      "HIDDefaultParameters"
+#define kIOHIDDeviceParametersKey       "HIDDeviceParameters"
+
 #endif /* !_IOHIDEVICE_PRIVATE_KEYS_H */
 

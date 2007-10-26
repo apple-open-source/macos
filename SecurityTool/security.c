@@ -44,6 +44,12 @@
 #include "keychain_import.h"
 #include "keychain_export.h"
 #include "mds_install.h"
+#include "trusted_cert_add.h"
+#include "trusted_cert_dump.h"
+#include "user_trust_enable.h"
+#include "trust_settings_impexp.h"
+#include "verify_cert.h"
+#include "authz.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -169,8 +175,10 @@ const command commands[] =
 	  "    -A  Allow any application to access without warning\n"
 	  "    -T  Allow the application specified to access without warning (multiple -T options are allowed).\n"
 	  "If no options are provided ask the user interactively",
-	  "Create an assymetric keypair." },
+	  "Create an asymmetric key pair." },
 
+	#if 0
+	/* this was added in Michael's integration of PR-3420772, but this is an unimplemented command */
     { "create-csr", csr_create,
 	  "[-a alg] [-s size] [-f date] [-t date] [-d days] [-k keychain] [-A|-T app1] description\n"
 	  "    -a  Use alg as the algorithm, can be rsa, dh, dsa or fee (default rsa)\n"
@@ -182,7 +190,8 @@ const command commands[] =
 	  "    -A  Allow any application to access without warning\n"
 	  "    -T  Allow the application specified to access without warning (multiple -T options are allowed).\n"
 	  "If no options are provided ask the user interactively",
-	  "Create an assymetric keypair." },
+	  "Create a certificate signing request." },
+	#endif
 
     { "add-internet-password", keychain_add_internet_password,
 	  "[-a accountName] [-d securityDomain] [-p path] [-P port] [-r protocol] [-s serverName] [-t authenticationType] [-w passwordData] [keychain]\n"
@@ -200,9 +209,9 @@ const command commands[] =
 	{ "add-generic-password", keychain_add_generic_password,
 	  "[-a accountName] [-s serviceName] [-p passwordData] [keychain]\n"
 	  "    -a Use \"accountName\".\n"
-	  "    -s Use \"serverName\".\n"  
+	  "    -s Use \"serviceName\".\n"  
       "    -p Use passwordData.\n"
-	  "If no keychains is specified the password is added to the default keychain.",
+	  "If no keychain is specified, the password is added to the default keychain.",
       "Add a generic password item."},
       
 	{ "add-certificates", keychain_add_certificates,
@@ -248,27 +257,28 @@ const command commands[] =
 	  "    -o  Force using openparams argument\n"
 	  "    -0  Force using version 0 openparams\n"
 	  "If no name is provided ask the user interactively",
-	  "Create an db using the DL." },
+	  "Create a db using the DL." },
 
 	{ "export" , keychain_export,
 	  "[-k keychain] [-t item_type] [-f item_format] [-w] -p [-P passphrase] [-o outfile]\n"
 	  "    -k  keychain to export items from\n"
 	  "    -t  item_type = certs|allKeys|pubKeys|privKeys|identities|all  default=all\n"
-	  "    -f  format = openssl|openssh|bsafe|pkcs7|pkcs8|pkcs12|pemseq|x509\n"
+	  "    -f  format = openssl|openssh1|openssh2|bsafe|pkcs7|pkcs8|pkcs12|pemseq|x509\n"
 	  "        ...default format is pemseq for aggregate, openssl for single\n"
 	  "    -w  Private keys are wrapped\n"
 	  "    -p  PEM encode\n"
 	  "    -P  Specify wrapping passphrase immediately (default is secure passphrase via GUI)\n"
 	  "    -o  Specify output file; default is stdout",
-	  "Export an item into a keychain." },
+	  "Export an item from a keychain." },
 
 	{ "import" , keychain_import,
-	  "inputfile [-k keychain] [-t item_type] [-f item_format] [-w] [-P passphrase]\n"
+	  "inputfile [-k keychain] [-t item_type] [-f item_format] [-w] [-P passphrase] [-a attrName attrValue]\n"
 	  "    -k  Target keychain to import into\n"
 	  "    -t  item = pub|priv|session|cert|agg\n"
-	  "    -f  Format = openssl|openssh|bsafe|raw|pkcs7|pkcs8|pkcs12|netscape|pemseq\n"
+	  "    -f  Format = openssl|openssh1|openssh2|bsafe|raw|pkcs7|pkcs8|pkcs12|netscape|pemseq\n"
 	  "    -w  Private keys are wrapped\n"
-	  "    -P  Specify wrapping passphrase immediately (default is secure passphrase via GUI)\n",
+	  "    -P  Specify wrapping passphrase immediately (default is secure passphrase via GUI)\n"
+	  "    -a  Specify name and value of extended attribute. Can be used multiple times.\n",
 	  "Import an item into a keychain." },
 
 	{ "cms", cms_util,
@@ -313,6 +323,100 @@ const command commands[] =
 	{ "install-mds" , mds_install,
 	  "",		/* no options */
 	  "Install (or re-install) the MDS database." },
+
+	{ "add-trusted-cert" , trusted_cert_add,
+	  " [<options>] [certFile]\n"
+	  "    -d                  Add to admin cert store; default is user\n"
+	  "    -r resultType       resultType = trustRoot|trustAsRoot|deny|unspecified;\n"
+	  "                              default is trustRoot\n"
+	  "    -p policy           Specify policy constraint (ssl, smime, codeSign, IPSec, iChat,\n"
+	  "                              basic, swUpdate, pkgSign, pkinitClient, pkinitServer, eap)\n"
+	  "    -a appPath          Specify application constraint\n"
+	  "    -s policyString     Specify policy-specific string\n"
+	  "    -e allowedError     Specify allowed error, an integer\n"
+  	  "    -u keyUsage         Specify key usage, an integer\n"
+	  "    -k keychain         Specify keychain to which cert is added\n"
+	  "    -i settingsFileIn   Input trust settings file; default is user domain\n"
+	  "    -o settingsFileOut  Output trust settings file; default is user domain\n"
+      "    -D                  Add default setting instead of per-cert setting\n"
+	  "    certFile            Certificate(s)",
+	  "Add trusted certificate(s)." },
+
+	{ "remove-trusted-cert" , trusted_cert_remove,
+	  " [-d] [-D] [certFile]\n"
+	  "    -d                  Remove from admin cert store; default is user\n"
+      "    -D                  Remove default setting instead of per-cert setting\n"
+	  "    certFile            Certificate(s)",
+	  "Remove trusted certificate(s)." },
+
+	{ "dump-trust-settings" , trusted_cert_dump,
+	  " [-s] [-d]\n"
+	  "    -s                  Display trusted system certs; default is user\n"
+	  "    -d                  Display trusted admin certs; default is user\n",
+	  "Display Trust Settings." },
+
+	{ "user-trust-settings-enable", user_trust_enable,
+	  "[-d] [-e]\n"
+	  "    -d    Disable user-level Trust Settings.\n"
+	  "    -e    Ensable user-level Trust Settings.\n"
+	  "With no parameters, show current state of user-level Trust Settings enable.",
+	  "Display or manipulate user-level Trust Settings." },
+
+	{ "trust-settings-export", trust_settings_export,
+	  " [-s] [-d] settings_file\n"
+	  "    -s                  Export system trust settings; default is user\n"
+	  "    -d                  Export admin trust settings; default is user\n",
+	  "Export trust settings." },
+
+	{ "trust-settings-import", trust_settings_import,
+	  " [-d] settings_file\n"
+	  "    -d                  Import admin trust settings; default is user\n",
+	  "Import trust settings." },
+
+	{ "authorize" , authorize,
+	  "[<options>] <right(s)...>\n"
+	  "  -u        Allow user interaction.\n"
+	  "  -c        Use login name and prompt for password.\n"
+	  "  -C login  Use given login name and prompt for password.\n"
+	  "  -x        Do NOT share -c/-C explicit credentials\n"
+#ifndef NDEBUG
+	  "  -E        Don't extend rights.\n"
+#endif
+	  "  -p        Allow returning partial rights.\n"
+	  "  -d        Destroy acquired rights.\n"
+	  "  -P        Pre-authorize rights only.\n"
+	  "  -l        Operate authorizations in least privileged mode.\n"
+	  "  -i        Internalize authref passed on stdin.\n"
+	  "  -e        Externalize authref to stdout.\n"
+	  "  -w        Wait until stdout is closed (to allow reading authref from pipe).\n"
+	  "Extend rights flag is passed per default.",
+	  "Perform authorization operations." },
+
+	{ "authorizationdb" , authorizationdb,
+	  "read <right-name>\n"
+	  "       authorizationdb remove <right-name>\n"
+	  "       authorizationdb write <right-name> [allow|deny|<rulename>]\n"
+	  "If no rulename is specified, write will read a plist from stdin.",
+	  "Perform authorization-db operations." },
+
+	{ "execute-with-privileges" , execute_with_privileges,
+	  "<program> [args...]\n"
+	  "On success stdin will be read and forwarded to the tool.",
+	  "Execute tool with privileges." },
+
+	{ "verify-cert" , verify_cert,
+	  " [<options>]\n"
+	  "    -c certFile         Certificate to verify. Can be specified multiple times, leaf first.\n"
+	  "    -r rootCertFile     Root Certificate. Can be specified multiple times.\n"
+	  "    -p policy           Verify Policy (basic, ssl, smime, codeSign, IPSec, iChat, swUpdate\n"
+	  "                              pkgSign, pkinitClient, pkinitServer, eap); default is basic.\n"
+	  "    -k keychain         Keychain. Can be called multiple times. Default is default search list.\n"
+	  "    -n                  No keychain search list.\n"
+	  "    -l                  Leaf cert is a CA.\n"
+	  "    -e emailAddress     Email address for smime policy.\n"
+	  "    -s sslHost          SSL host name for ssl policy.\n"
+	  "    -q                  Quiet.\n",
+	  "Verify certificate(s)." },
 
 	{ "leaks", leaks,
 	  "[-cycles] [-nocontext] [-nostacks] [-exclude symbol]\n"

@@ -32,7 +32,6 @@
 #include "gdb_string.h"
 #include <signal.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
 #endif
@@ -45,6 +44,10 @@
 
 /* APPLE LOCAL: -exec-abort support */
 #include "ui-out.h"
+
+#ifndef O_NOCTTY
+#define O_NOCTTY 0
+#endif
 
 #if defined (SIGIO) && defined (FASYNC) && defined (FD_SET) && defined (F_SETOWN)
 static void handle_sigio (int);
@@ -94,7 +97,7 @@ static void (*sigquit_ours) ();
 /* The name of the tty (from the `tty' command) that we gave to the inferior
    when it was last started.  */
 
-static char *inferior_thisrun_terminal;
+static const char *inferior_thisrun_terminal;
 
 /* Nonzero if our terminal settings are in effect.  Zero if the
    inferior's settings are in effect.  Ignored if !gdb_has_a_terminal
@@ -440,88 +443,79 @@ term_info (char *arg, int from_tty)
   target_terminal_info (arg, from_tty);
 }
 
-static void
-print_terminal_flags (int flags)
-{
-#ifndef O_ACCMODE
-#define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
-#endif
-  /* (O_ACCMODE) parens are to avoid Ultrix header file bug */
-  switch (flags & (O_ACCMODE))
-    {
-    case O_RDONLY:
-      printf_filtered ("O_RDONLY");
-      break;
-    case O_WRONLY:
-      printf_filtered ("O_WRONLY");
-      break;
-    case O_RDWR:
-      printf_filtered ("O_RDWR");
-      break;
-    }
-  flags &= ~(O_ACCMODE);
-
-#ifdef O_NONBLOCK
-  if (flags & O_NONBLOCK)
-    printf_filtered (" | O_NONBLOCK");
-  flags &= ~O_NONBLOCK;
-#endif
-
-#if defined (O_NDELAY)
-  /* If O_NDELAY and O_NONBLOCK are defined to the same thing, we will
-     print it as O_NONBLOCK, which is good cause that is what POSIX
-     has, and the flag will already be cleared by the time we get here.  */
-  if (flags & O_NDELAY)
-    printf_filtered (" | O_NDELAY");
-  flags &= ~O_NDELAY;
-#endif
-
-  if (flags & O_APPEND)
-    printf_filtered (" | O_APPEND");
-  flags &= ~O_APPEND;
-
-#if defined (O_BINARY)
-  if (flags & O_BINARY)
-    printf_filtered (" | O_BINARY");
-  flags &= ~O_BINARY;
-#endif
-
-  if (flags)
-    printf_filtered (" | 0x%x", flags);
-  printf_filtered ("\n");
-}
-
 void
 child_terminal_info (char *args, int from_tty)
 {
   if (!gdb_has_a_terminal ())
     {
-      printf_filtered ("This GDB does not control a terminal.\n");
+      printf_filtered (_("This GDB does not control a terminal.\n"));
       return;
     }
 
-  printf_filtered ("Inferior's terminal status (currently saved by GDB):\n");
+  printf_filtered (_("Inferior's terminal status (currently saved by GDB):\n"));
 
-  printf_filtered ("File descriptor flags = ");
-  print_terminal_flags (tflags_inferior);
-  
-#ifdef PROCESS_GROUP_TYPE
-  printf_filtered ("Process group = %d\n", inferior_process_group);
+  /* First the fcntl flags.  */
+  {
+    int flags;
+
+    flags = tflags_inferior;
+
+    printf_filtered ("File descriptor flags = ");
+
+#ifndef O_ACCMODE
+#define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
+#endif
+    /* (O_ACCMODE) parens are to avoid Ultrix header file bug */
+    switch (flags & (O_ACCMODE))
+      {
+      case O_RDONLY:
+	printf_filtered ("O_RDONLY");
+	break;
+      case O_WRONLY:
+	printf_filtered ("O_WRONLY");
+	break;
+      case O_RDWR:
+	printf_filtered ("O_RDWR");
+	break;
+      }
+    flags &= ~(O_ACCMODE);
+
+#ifdef O_NONBLOCK
+    if (flags & O_NONBLOCK)
+      printf_filtered (" | O_NONBLOCK");
+    flags &= ~O_NONBLOCK;
 #endif
 
-  printf_filtered ("tty state:\n");
-  if (inferior_ttystate)
-    serial_print_tty_state (stdin_serial, inferior_ttystate, gdb_stdout);
-  else
-    printf_filtered ("Unable to determine inferior tty state.\n");
-  printf_filtered ("GDB's terminal status (currently in use):\n");
-  
-#ifdef PROCESS_GROUP_TYPE
-  printf_filtered ("Process group = %d\n", our_process_group);
+#if defined (O_NDELAY)
+    /* If O_NDELAY and O_NONBLOCK are defined to the same thing, we will
+       print it as O_NONBLOCK, which is good cause that is what POSIX
+       has, and the flag will already be cleared by the time we get here.  */
+    if (flags & O_NDELAY)
+      printf_filtered (" | O_NDELAY");
+    flags &= ~O_NDELAY;
 #endif
-  
-  printf_filtered ("tty state:\n");
-  serial_print_tty_state (stdin_serial, our_ttystate, gdb_stdout);
+
+    if (flags & O_APPEND)
+      printf_filtered (" | O_APPEND");
+    flags &= ~O_APPEND;
+
+#if defined (O_BINARY)
+    if (flags & O_BINARY)
+      printf_filtered (" | O_BINARY");
+    flags &= ~O_BINARY;
+#endif
+
+    if (flags)
+      printf_filtered (" | 0x%x", flags);
+    printf_filtered ("\n");
+  }
+
+#ifdef PROCESS_GROUP_TYPE
+  printf_filtered ("Process group = %d\n",
+		   (int) inferior_process_group);
+#endif
+
+  serial_print_tty_state (stdin_serial, inferior_ttystate, gdb_stdout);
 }
 
 /* NEW_TTY_PREFORK is called before forking a new child process,
@@ -534,7 +528,7 @@ child_terminal_info (char *args, int from_tty)
    the terminal specified in the NEW_TTY_PREFORK call.  */
 
 void
-new_tty_prefork (char *ttyname)
+new_tty_prefork (const char *ttyname)
 {
   /* Save the name for later, for determining whether we and the child
      are sharing a tty.  */
@@ -566,12 +560,7 @@ new_tty (void)
 #endif
 
   /* Now open the specified new terminal.  */
-
-#ifdef USE_O_NOCTTY
   tty = open (inferior_thisrun_terminal, O_RDWR | O_NOCTTY);
-#else
-  tty = open (inferior_thisrun_terminal, O_RDWR);
-#endif
   if (tty == -1)
     {
       print_sys_errmsg (inferior_thisrun_terminal, errno);
@@ -609,11 +598,12 @@ kill_command (char *arg, int from_tty)
      some targets don't have processes! */
 
   if (ptid_equal (inferior_ptid, null_ptid))
-    error ("The program is not being run.");
-  /* APPLE LOCAL: Don't query if we're an MI command.  */
+    error (_("The program is not being run."));
+  /* APPLE LOCAL begin don't query if we're an MI command */
   if (!ui_out_is_mi_like_p (uiout) 
       && !query ("Kill the program being debugged? "))
-    error ("Not confirmed.");
+    /* APPLE LOCAL end don't query if we're an MI command */
+    error (_("Not confirmed."));
   target_kill ();
 
   init_thread_list ();		/* Destroy thread info */
@@ -622,15 +612,17 @@ kill_command (char *arg, int from_tty)
      print the state we are left in.  */
   if (target_has_stack)
     {
-      printf_filtered ("In %s,\n", target_longname);
+      printf_filtered (_("In %s,\n"), target_longname);
       if (deprecated_selected_frame == NULL)
 	fputs_filtered ("No selected stack frame.\n", gdb_stdout);
       else
-	print_stack_frame (deprecated_selected_frame,
-			   frame_relative_level (deprecated_selected_frame), 1);
+	print_stack_frame (get_selected_frame (NULL), 1, SRC_AND_LOC);
     }
+  bfd_cache_close_all ();
+  /* APPLE LOCAL begin */
   if (state_change_hook)
     state_change_hook (STATE_INFERIOR_LOADED);
+  /* APPLE LOCAL end */
 }
 
 /* Call set_sigint_trap when you need to pass a signal on to an attached
@@ -715,14 +707,14 @@ void
 set_sigio_trap (void)
 {
   if (target_activity_function)
-    internal_error (__FILE__, __LINE__, "failed internal consistency check");
+    internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 }
 
 void
 clear_sigio_trap (void)
 {
   if (target_activity_function)
-    internal_error (__FILE__, __LINE__, "failed internal consistency check");
+    internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 }
 #endif /* No SIGIO.  */
 
@@ -768,10 +760,10 @@ void
 _initialize_inflow (void)
 {
   add_info ("terminal", term_info,
-	    "Print inferior's saved terminal status.");
+	    _("Print inferior's saved terminal status."));
 
   add_com ("kill", class_run, kill_command,
-	   "Kill execution of program being debugged.");
+	   _("Kill execution of program being debugged."));
 
   inferior_ptid = null_ptid;
 

@@ -33,7 +33,7 @@ private:
     bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
     bool			fStopping;				// Are we being "stopped"
 //	UInt8			fCDCInterfaceNumber;	// CDC interface number (the first one found)
-	UInt8			fConfig;				// The Configuration value
+	UInt8			fConfig;				// The current Configuration value
 
 public:
 

@@ -2,7 +2,8 @@
    Unix SMB/CIFS implementation.
    Samba system utilities
    Copyright (C) Andrew Tridgell 1992-1998
-   Copyright (C) Jeremy Allison 1998-2002
+   Copyright (C) Jeremy Allison  1998-2005
+   Copyright (C) Timur Bakeyev        2005
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -20,6 +21,10 @@
 */
 
 #include "includes.h"
+
+#ifdef HAVE_SYS_PRCTL_H
+#include <sys/prctl.h>
+#endif
 
 #if defined(HAVE_DARWIN_INITGROUPS)
 #include <sys/syscall.h>
@@ -41,6 +46,42 @@
 */
 
 
+
+/*******************************************************************
+ A wrapper for memalign
+********************************************************************/
+
+void *sys_memalign( size_t align, size_t size )
+{
+#if defined(HAVE_POSIX_MEMALIGN)
+	void *p = NULL;
+	int ret = posix_memalign( &p, align, size );
+	if ( ret == 0 )
+		return p;
+		
+	return NULL;
+#elif defined(HAVE_MEMALIGN)
+	return memalign( align, size );
+#else
+	/* On *BSD systems memaligns doesn't exist, but memory will
+	 * be aligned on allocations of > pagesize. */
+#if defined(SYSCONF_SC_PAGESIZE)
+	size_t pagesize = (size_t)sysconf(_SC_PAGESIZE);
+#elif defined(HAVE_GETPAGESIZE)
+	size_t pagesize = (size_t)getpagesize();
+#else
+	size_t pagesize = (size_t)-1;
+#endif
+	if (pagesize == (size_t)-1) {
+		DEBUG(0,("memalign functionalaity not available on this platform!\n"));
+		return NULL;
+	}
+	if (size < pagesize) {
+		size = pagesize;
+	}
+	return SMB_MALLOC(size);
+#endif
+}
 
 /*******************************************************************
  A wrapper for usleep in case we don't have one.
@@ -103,7 +144,6 @@ ssize_t sys_write(int fd, const void *buf, size_t count)
 	} while (ret == -1 && errno == EINTR);
 	return ret;
 }
-
 
 /*******************************************************************
 A pread wrapper that will deal with EINTR and 64-bit file offsets.
@@ -169,6 +209,20 @@ ssize_t sys_sendto(int s,  const void *msg, size_t len, int flags, const struct 
 
 	do {
 		ret = sendto(s, msg, len, flags, to, tolen);
+	} while (ret == -1 && errno == EINTR);
+	return ret;
+}
+
+/*******************************************************************
+A recv wrapper that will deal with EINTR.
+********************************************************************/
+
+ssize_t sys_recv(int fd, void *buf, size_t count, int flags)
+{
+	ssize_t ret;
+
+	do {
+		ret = recv(fd, buf, count, flags);
 	} while (ret == -1 && errno == EINTR);
 	return ret;
 }
@@ -365,16 +419,106 @@ FILE *sys_fopen(const char *path, const char *type)
 #endif
 }
 
+
+/*******************************************************************
+ A flock() wrapper that will perform the kernel flock.
+********************************************************************/
+
+void kernel_flock(int fd, uint32 share_mode)
+{
+#if HAVE_KERNEL_SHARE_MODES
+	int kernel_mode = 0;
+	if (share_mode == FILE_SHARE_WRITE) {
+		kernel_mode = LOCK_MAND|LOCK_WRITE;
+	} else if (share_mode == FILE_SHARE_READ) {
+		kernel_mode = LOCK_MAND|LOCK_READ;
+	} else if (share_mode == FILE_SHARE_NONE) {
+		kernel_mode = LOCK_MAND;
+	}
+	if (kernel_mode) {
+		flock(fd, kernel_mode);
+	}
+#endif
+	;
+}
+
+
+
+/*******************************************************************
+ An opendir wrapper that will deal with 64 bit filesizes.
+********************************************************************/
+
+SMB_STRUCT_DIR *sys_opendir(const char *name)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_OPENDIR64)
+	return opendir64(name);
+#else
+	return opendir(name);
+#endif
+}
+
 /*******************************************************************
  A readdir wrapper that will deal with 64 bit filesizes.
 ********************************************************************/
 
-SMB_STRUCT_DIRENT *sys_readdir(DIR *dirp)
+SMB_STRUCT_DIRENT *sys_readdir(SMB_STRUCT_DIR *dirp)
 {
 #if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_READDIR64)
 	return readdir64(dirp);
 #else
 	return readdir(dirp);
+#endif
+}
+
+/*******************************************************************
+ A seekdir wrapper that will deal with 64 bit filesizes.
+********************************************************************/
+
+void sys_seekdir(SMB_STRUCT_DIR *dirp, long offset)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_SEEKDIR64)
+	seekdir64(dirp, offset);
+#else
+	seekdir(dirp, offset);
+#endif
+}
+
+/*******************************************************************
+ A telldir wrapper that will deal with 64 bit filesizes.
+********************************************************************/
+
+long sys_telldir(SMB_STRUCT_DIR *dirp)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_TELLDIR64)
+	return (long)telldir64(dirp);
+#else
+	return (long)telldir(dirp);
+#endif
+}
+
+/*******************************************************************
+ A rewinddir wrapper that will deal with 64 bit filesizes.
+********************************************************************/
+
+void sys_rewinddir(SMB_STRUCT_DIR *dirp)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_REWINDDIR64)
+	rewinddir64(dirp);
+#else
+	rewinddir(dirp);
+#endif
+}
+
+/*******************************************************************
+ A close wrapper that will deal with 64 bit filesizes.
+********************************************************************/
+
+int sys_closedir(SMB_STRUCT_DIR *dirp)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_CLOSEDIR64)
+	return closedir64(dirp);
+#else
+	return closedir(dirp);
 #endif
 }
 
@@ -502,6 +646,25 @@ int sys_chown(const char *fname,uid_t uid,gid_t gid)
 }
 
 /*******************************************************************
+ Wrapper for lchown.
+********************************************************************/
+
+int sys_lchown(const char *fname,uid_t uid,gid_t gid)
+{
+#ifndef HAVE_LCHOWN
+	static int done;
+	if (!done) {
+		DEBUG(1,("WARNING: no lchown!\n"));
+		done=1;
+	}
+	errno = ENOSYS;
+	return -1;
+#else
+	return(lchown(fname,uid,gid));
+#endif
+}
+
+/*******************************************************************
 os/2 also doesn't have chroot
 ********************************************************************/
 int sys_chroot(const char *dname)
@@ -562,85 +725,125 @@ struct hostent *sys_gethostbyname(const char *name)
 }
 
 
-#if defined(HAVE_IRIX_SPECIFIC_CAPABILITIES)
+#if defined(HAVE_POSIX_CAPABILITIES)
+
+#ifdef HAVE_SYS_CAPABILITY_H
+
+#if defined(BROKEN_REDHAT_7_SYSTEM_HEADERS) && !defined(_I386_STATFS_H) && !defined(_PPC_STATFS_H)
+#define _I386_STATFS_H
+#define _PPC_STATFS_H
+#define BROKEN_REDHAT_7_STATFS_WORKAROUND
+#endif
+
+#include <sys/capability.h>
+
+#ifdef BROKEN_REDHAT_7_STATFS_WORKAROUND
+#undef _I386_STATFS_H
+#undef _PPC_STATFS_H
+#undef BROKEN_REDHAT_7_STATFS_WORKAROUND
+#endif
+
+#endif /* HAVE_SYS_CAPABILITY_H */
+
 /**************************************************************************
  Try and abstract process capabilities (for systems that have them).
 ****************************************************************************/
-static BOOL set_process_capability( uint32 cap_flag, BOOL enable )
+
+/* Set the POSIX capabilities needed for the given purpose into the effective
+ * capability set of the current process. Make sure they are always removed
+ * from the inheritable set, because there is no circumstance in which our
+ * children should inherit our elevated privileges.
+ */
+static BOOL set_process_capability(enum smbd_capability capability,
+				   BOOL	enable)
 {
-	if(cap_flag == KERNEL_OPLOCK_CAPABILITY) {
-		cap_t cap = cap_get_proc();
+	cap_value_t cap_vals[2] = {0};
+	int num_cap_vals = 0;
 
-		if (cap == NULL) {
-			DEBUG(0,("set_process_capability: cap_get_proc failed. Error was %s\n",
-				strerror(errno)));
-			return False;
-		}
+	cap_t cap;
 
-		if(enable)
-			cap->cap_effective |= CAP_NETWORK_MGT;
-		else
-			cap->cap_effective &= ~CAP_NETWORK_MGT;
-
-		if (cap_set_proc(cap) == -1) {
-			DEBUG(0,("set_process_capability: cap_set_proc failed. Error was %s\n",
-				strerror(errno)));
-			cap_free(cap);
-			return False;
-		}
-
-		cap_free(cap);
-
-		DEBUG(10,("set_process_capability: Set KERNEL_OPLOCK_CAPABILITY.\n"));
+#if defined(HAVE_PRCTL) && defined(PR_GET_KEEPCAPS) && defined(PR_SET_KEEPCAPS)
+	/* On Linux, make sure that any capabilities we grab are sticky
+	 * across UID changes. We expect that this would allow us to keep both
+	 * the effective and permitted capability sets, but as of circa 2.6.16,
+	 * only the permitted set is kept. It is a bug (which we work around)
+	 * that the effective set is lost, but we still require the effective
+	 * set to be kept.
+	 */
+	if (!prctl(PR_GET_KEEPCAPS)) {
+		prctl(PR_SET_KEEPCAPS, 1);
 	}
-	return True;
-}
-
-/**************************************************************************
- Try and abstract inherited process capabilities (for systems that have them).
-****************************************************************************/
-
-static BOOL set_inherited_process_capability( uint32 cap_flag, BOOL enable )
-{
-	if(cap_flag == KERNEL_OPLOCK_CAPABILITY) {
-		cap_t cap = cap_get_proc();
-
-		if (cap == NULL) {
-			DEBUG(0,("set_inherited_process_capability: cap_get_proc failed. Error was %s\n",
-				strerror(errno)));
-			return False;
-		}
-
-		if(enable)
-			cap->cap_inheritable |= CAP_NETWORK_MGT;
-		else
-			cap->cap_inheritable &= ~CAP_NETWORK_MGT;
-
-		if (cap_set_proc(cap) == -1) {
-			DEBUG(0,("set_inherited_process_capability: cap_set_proc failed. Error was %s\n", 
-				strerror(errno)));
-			cap_free(cap);
-			return False;
-		}
-
-		cap_free(cap);
-
-		DEBUG(10,("set_inherited_process_capability: Set KERNEL_OPLOCK_CAPABILITY.\n"));
-	}
-	return True;
-}
 #endif
+
+	cap = cap_get_proc();
+	if (cap == NULL) {
+		DEBUG(0,("set_process_capability: cap_get_proc failed: %s\n",
+			strerror(errno)));
+		return False;
+	}
+
+	switch (capability) {
+		case KERNEL_OPLOCK_CAPABILITY:
+#ifdef CAP_NETWORK_MGT
+			/* IRIX has CAP_NETWORK_MGT for oplocks. */
+			cap_vals[num_cap_vals++] = CAP_NETWORK_MGT;
+#endif
+			break;
+		case DMAPI_ACCESS_CAPABILITY:
+#ifdef CAP_DEVICE_MGT
+			/* IRIX has CAP_DEVICE_MGT for DMAPI access. */
+			cap_vals[num_cap_vals++] = CAP_DEVICE_MGT;
+#elif CAP_MKNOD
+			/* Linux has CAP_MKNOD for DMAPI access. */
+			cap_vals[num_cap_vals++] = CAP_MKNOD;
+#endif
+			break;
+	}
+
+	SMB_ASSERT(num_cap_vals <= ARRAY_SIZE(cap_vals));
+
+	if (num_cap_vals == 0) {
+		cap_free(cap);
+		return True;
+	}
+
+	cap_set_flag(cap, CAP_EFFECTIVE, num_cap_vals, cap_vals,
+		enable ? CAP_SET : CAP_CLEAR);
+
+	/* We never want to pass capabilities down to our children, so make
+	 * sure they are not inherited.
+	 */
+	cap_set_flag(cap, CAP_INHERITABLE, num_cap_vals, cap_vals, CAP_CLEAR);
+
+	if (cap_set_proc(cap) == -1) {
+		DEBUG(0, ("set_process_capability: cap_set_proc failed: %s\n",
+			strerror(errno)));
+		cap_free(cap);
+		return False;
+	}
+
+	cap_free(cap);
+	return True;
+}
+
+#endif /* HAVE_POSIX_CAPABILITIES */
 
 /****************************************************************************
  Gain the oplock capability from the kernel if possible.
 ****************************************************************************/
 
-void oplock_set_capability(BOOL this_process, BOOL inherit)
+void set_effective_capability(enum smbd_capability capability)
 {
-#if HAVE_KERNEL_OPLOCKS_IRIX
-	set_process_capability(KERNEL_OPLOCK_CAPABILITY,this_process);
-	set_inherited_process_capability(KERNEL_OPLOCK_CAPABILITY,inherit);
-#endif
+#if defined(HAVE_POSIX_CAPABILITIES)
+	set_process_capability(capability, True);
+#endif /* HAVE_POSIX_CAPABILITIES */
+}
+
+void drop_effective_capability(enum smbd_capability capability)
+{
+#if defined(HAVE_POSIX_CAPABILITIES)
+	set_process_capability(capability, False);
+#endif /* HAVE_POSIX_CAPABILITIES */
 }
 
 /**************************************************************************
@@ -843,6 +1046,82 @@ void sys_endpwent(void)
  Wrappers for getpwnam(), getpwuid(), getgrnam(), getgrgid()
 ****************************************************************************/
 
+#ifdef ENABLE_BUILD_FARM_HACKS
+
+/*
+ * In the build farm we want to be able to join machines to the domain. As we
+ * don't have root access, we need to bypass direct access to /etc/passwd
+ * after a user has been created via samr. Fake those users.
+ */
+
+static struct passwd *fake_pwd;
+static int num_fake_pwd;
+
+struct passwd *sys_getpwnam(const char *name)
+{
+	int i;
+
+	for (i=0; i<num_fake_pwd; i++) {
+		if (strcmp(fake_pwd[i].pw_name, name) == 0) {
+			DEBUG(10, ("Returning fake user %s\n", name));
+			return &fake_pwd[i];
+		}
+	}
+
+	return getpwnam(name);
+}
+
+struct passwd *sys_getpwuid(uid_t uid)
+{
+	int i;
+
+	for (i=0; i<num_fake_pwd; i++) {
+		if (fake_pwd[i].pw_uid == uid) {
+			DEBUG(10, ("Returning fake user %s\n",
+				   fake_pwd[i].pw_name));
+			return &fake_pwd[i];
+		}
+	}
+
+	return getpwuid(uid);
+}
+
+void faked_create_user(const char *name)
+{
+	int i;
+	uid_t uid;
+	struct passwd new_pwd;
+
+	for (i=0; i<10; i++) {
+		generate_random_buffer((unsigned char *)&uid,
+				       sizeof(uid));
+		if (getpwuid(uid) == NULL) {
+			break;
+		}
+	}
+
+	if (i==10) {
+		/* Weird. No free uid found... */
+		return;
+	}
+
+	new_pwd.pw_name = SMB_STRDUP(name);
+	new_pwd.pw_passwd = SMB_STRDUP("x");
+	new_pwd.pw_uid = uid;
+	new_pwd.pw_gid = 100;
+	new_pwd.pw_gecos = SMB_STRDUP("faked user");
+	new_pwd.pw_dir = SMB_STRDUP("/nodir");
+	new_pwd.pw_shell = SMB_STRDUP("/bin/false");
+
+	ADD_TO_ARRAY(NULL, struct passwd, new_pwd, &fake_pwd,
+		     &num_fake_pwd);
+
+	DEBUG(10, ("Added fake user %s, have %d fake users\n",
+		   name, num_fake_pwd));
+}
+
+#else
+
 struct passwd *sys_getpwnam(const char *name)
 {
 	return getpwnam(name);
@@ -852,6 +1131,8 @@ struct passwd *sys_getpwuid(uid_t uid)
 {
 	return getpwuid(uid);
 }
+
+#endif
 
 struct group *sys_getgrnam(const char *name)
 {
@@ -925,7 +1206,7 @@ FILE *wsys_fopen(const smb_ucs2_t *wfname, const char *type)
  Wide opendir. Just narrow and call sys_xxx.
 ****************************************************************************/
 
-DIR *wsys_opendir(const smb_ucs2_t *wfname)
+SMB_STRUCT_DIR *wsys_opendir(const smb_ucs2_t *wfname)
 {
 	pstring fname;
 	return opendir(unicode_to_unix(fname,wfname,sizeof(fname)));
@@ -935,7 +1216,7 @@ DIR *wsys_opendir(const smb_ucs2_t *wfname)
  Wide readdir. Return a structure pointer containing a wide filename.
 ****************************************************************************/
 
-SMB_STRUCT_WDIRENT *wsys_readdir(DIR *dirp)
+SMB_STRUCT_WDIRENT *wsys_readdir(SMB_STRUCT_DIR *dirp)
 {
 	static SMB_STRUCT_WDIRENT retval;
 	SMB_STRUCT_DIRENT *dirval = sys_readdir(dirp);
@@ -1332,23 +1613,46 @@ int sys_dup2(int oldfd, int newfd)
 
 /**************************************************************************
  Wrappers for extented attribute calls. Based on the Linux package with
- support for IRIX also. Expand as other systems have them.
+ support for IRIX and (Net|Free)BSD also. Expand as other systems have them.
 ****************************************************************************/
 
 ssize_t sys_getxattr (const char *path, const char *name, void *value, size_t size)
 {
 #if defined(HAVE_GETXATTR)
-	#if DARWINOS
-		int options = 0;
-
-		return getxattr(path, name, value, size, 0, options);		
-	#else
+#ifndef XATTR_ADD_OPT
 	return getxattr(path, name, value, size);
-	#endif
+#else
+	int options = 0;
+	return getxattr(path, name, value, size, 0, options);
+#endif
+#elif defined(HAVE_GETEA)
+	return getea(path, name, value, size);
+#elif defined(HAVE_EXTATTR_GET_FILE)
+	char *s;
+	ssize_t retval;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr_m(name, '.')) == NULL) ? name : s + 1;
+	/*
+	 * The BSD implementation has a nasty habit of silently truncating
+	 * the returned value to the size of the buffer, so we have to check
+	 * that the buffer is large enough to fit the returned value.
+	 */
+	if((retval=extattr_get_file(path, attrnamespace, attrname, NULL, 0)) >= 0) {
+		if(retval > size) {
+			errno = ERANGE;
+			return -1;
+		}
+		if((retval=extattr_get_file(path, attrnamespace, attrname, value, size)) >= 0)
+			return retval;
+	}
+
+	DEBUG(10,("sys_getxattr: extattr_get_file() failed with: %s\n", strerror(errno)));
+	return -1;
 #elif defined(HAVE_ATTR_GET)
 	int retval, flags = 0;
 	int valuelength = (int)size;
-	char *attrname = strchr(name,'.') +1;
+	char *attrname = strchr(name,'.') + 1;
 	
 	if (strncmp(name, "system", 6) == 0) flags |= ATTR_ROOT;
 
@@ -1365,10 +1669,33 @@ ssize_t sys_lgetxattr (const char *path, const char *name, void *value, size_t s
 {
 #if defined(HAVE_LGETXATTR)
 	return lgetxattr(path, name, value, size);
+#elif defined(HAVE_GETXATTR) && defined(XATTR_ADD_OPT)
+	int options = XATTR_NOFOLLOW;
+	return getxattr(path, name, value, size, 0, options);
+#elif defined(HAVE_LGETEA)
+	return lgetea(path, name, value, size);
+#elif defined(HAVE_EXTATTR_GET_LINK)
+	char *s;
+	ssize_t retval;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr_m(name, '.')) == NULL) ? name : s + 1;
+
+	if((retval=extattr_get_link(path, attrnamespace, attrname, NULL, 0)) >= 0) {
+		if(retval > size) {
+			errno = ERANGE;
+			return -1;
+		}
+		if((retval=extattr_get_link(path, attrnamespace, attrname, value, size)) >= 0)
+			return retval;
+	}
+	
+	DEBUG(10,("sys_lgetxattr: extattr_get_link() failed with: %s\n", strerror(errno)));
+	return -1;
 #elif defined(HAVE_ATTR_GET)
 	int retval, flags = ATTR_DONTFOLLOW;
 	int valuelength = (int)size;
-	char *attrname = strchr(name,'.') +1;
+	char *attrname = strchr(name,'.') + 1;
 	
 	if (strncmp(name, "system", 6) == 0) flags |= ATTR_ROOT;
 
@@ -1384,17 +1711,36 @@ ssize_t sys_lgetxattr (const char *path, const char *name, void *value, size_t s
 ssize_t sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 {
 #if defined(HAVE_FGETXATTR)
-	#if DARWINOS
-		int options = 0;
-
-		return fgetxattr(filedes, name, value, size, 0, options);		
-	#else
+#ifndef XATTR_ADD_OPT
 	return fgetxattr(filedes, name, value, size);
-	#endif
+#else
+	int options = 0;
+	return fgetxattr(filedes, name, value, size, 0, options);
+#endif
+#elif defined(HAVE_FGETEA)
+	return fgetea(filedes, name, value, size);
+#elif defined(HAVE_EXTATTR_GET_FD)
+	char *s;
+	ssize_t retval;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr_m(name, '.')) == NULL) ? name : s + 1;
+
+	if((retval=extattr_get_fd(filedes, attrnamespace, attrname, NULL, 0)) >= 0) {
+		if(retval > size) {
+			errno = ERANGE;
+			return -1;
+		}
+		if((retval=extattr_get_fd(filedes, attrnamespace, attrname, value, size)) >= 0)
+			return retval;
+	}
+	
+	DEBUG(10,("sys_fgetxattr: extattr_get_fd() failed with: %s\n", strerror(errno)));
+	return -1;
 #elif defined(HAVE_ATTR_GETF)
 	int retval, flags = 0;
 	int valuelength = (int)size;
-	char *attrname = strchr(name,'.') +1;
+	char *attrname = strchr(name,'.') + 1;
 	
 	if (strncmp(name, "system", 6) == 0) flags |= ATTR_ROOT;
 
@@ -1406,6 +1752,99 @@ ssize_t sys_fgetxattr (int filedes, const char *name, void *value, size_t size)
 	return -1;
 #endif
 }
+
+#if defined(HAVE_EXTATTR_LIST_FILE)
+
+#define EXTATTR_PREFIX(s)	(s), (sizeof((s))-1)
+
+static struct {
+        int space;
+	const char *name;
+	size_t len;
+} 
+extattr[] = {
+	{ EXTATTR_NAMESPACE_SYSTEM, EXTATTR_PREFIX("system.") },
+        { EXTATTR_NAMESPACE_USER, EXTATTR_PREFIX("user.") },
+};
+
+typedef union {
+	const char *path;
+	int filedes;
+} extattr_arg;
+
+static ssize_t bsd_attr_list (int type, extattr_arg arg, char *list, size_t size)
+{
+	ssize_t list_size, total_size = 0;
+	int i, t, len;
+	char *buf;
+	/* Iterate through extattr(2) namespaces */
+	for(t = 0; t < (sizeof(extattr)/sizeof(extattr[0])); t++) {
+		switch(type) {
+#if defined(HAVE_EXTATTR_LIST_FILE)
+			case 0:
+				list_size = extattr_list_file(arg.path, extattr[t].space, list, size);
+				break;
+#endif
+#if defined(HAVE_EXTATTR_LIST_LINK)
+			case 1:
+				list_size = extattr_list_link(arg.path, extattr[t].space, list, size);
+				break;
+#endif
+#if defined(HAVE_EXTATTR_LIST_FD)
+			case 2:
+				list_size = extattr_list_fd(arg.filedes, extattr[t].space, list, size);
+				break;
+#endif
+			default:
+				errno = ENOSYS;
+				return -1;
+		}
+		/* Some error happend. Errno should be set by the previous call */
+		if(list_size < 0)
+			return -1;
+		/* No attributes */
+		if(list_size == 0)
+			continue;
+		/* XXX: Call with an empty buffer may be used to calculate
+		   necessary buffer size. Unfortunately, we can't say, how
+		   many attributes were returned, so here is the potential
+		   problem with the emulation.
+		*/
+		if(list == NULL) {
+			/* Take the worse case of one char attribute names - 
+			   two bytes per name plus one more for sanity.
+			*/
+			total_size += list_size + (list_size/2 + 1)*extattr[t].len;
+			continue;
+		}
+		/* Count necessary offset to fit namespace prefixes */
+		len = 0;
+		for(i = 0; i < list_size; i += list[i] + 1)
+			len += extattr[t].len;
+
+		total_size += list_size + len;
+		/* Buffer is too small to fit the results */
+		if(total_size > size) {
+			errno = ERANGE;
+			return -1;
+		}
+		/* Shift results back, so we can prepend prefixes */
+		buf = memmove(list + len, list, list_size);
+
+		for(i = 0; i < list_size; i += len + 1) {
+			len = buf[i];
+			strncpy(list, extattr[t].name, extattr[t].len + 1);
+			list += extattr[t].len;
+			strncpy(list, buf + i + 1, len);
+			list[len] = '\0';
+			list += len + 1;
+		}
+		size -= total_size;
+	}
+	return total_size;
+}
+
+#endif
 
 #if defined(HAVE_ATTR_LIST) && defined(HAVE_SYS_ATTRIBUTES_H)
 static char attr_buffer[ATTR_MAX_VALUELEN];
@@ -1478,12 +1917,18 @@ static ssize_t irix_attr_list(const char *path, int filedes, char *list, size_t 
 ssize_t sys_listxattr (const char *path, char *list, size_t size)
 {
 #if defined(HAVE_LISTXATTR)
-	#if DARWINOS
-		int options = 0;
-		return listxattr(path, list, size, options);	
-	#else
+#ifndef XATTR_ADD_OPT
 	return listxattr(path, list, size);
-	#endif
+#else
+	int options = 0;
+	return listxattr(path, list, size, options);
+#endif
+#elif defined(HAVE_LISTEA)
+	return listea(path, list, size);
+#elif defined(HAVE_EXTATTR_LIST_FILE)
+	extattr_arg arg;
+	arg.path = path;
+	return bsd_attr_list(0, arg, list, size);
 #elif defined(HAVE_ATTR_LIST) && defined(HAVE_SYS_ATTRIBUTES_H)
 	return irix_attr_list(path, 0, list, size, 0);
 #else
@@ -1496,6 +1941,15 @@ ssize_t sys_llistxattr (const char *path, char *list, size_t size)
 {
 #if defined(HAVE_LLISTXATTR)
 	return llistxattr(path, list, size);
+#elif defined(HAVE_LISTXATTR) && defined(XATTR_ADD_OPT)
+	int options = XATTR_NOFOLLOW;
+	return listxattr(path, list, size, options);
+#elif defined(HAVE_LLISTEA)
+	return llistea(path, list, size);
+#elif defined(HAVE_EXTATTR_LIST_LINK)
+	extattr_arg arg;
+	arg.path = path;
+	return bsd_attr_list(1, arg, list, size);
 #elif defined(HAVE_ATTR_LIST) && defined(HAVE_SYS_ATTRIBUTES_H)
 	return irix_attr_list(path, 0, list, size, ATTR_DONTFOLLOW);
 #else
@@ -1507,12 +1961,18 @@ ssize_t sys_llistxattr (const char *path, char *list, size_t size)
 ssize_t sys_flistxattr (int filedes, char *list, size_t size)
 {
 #if defined(HAVE_FLISTXATTR)
-	#if DARWINOS
-		int options = 0;
-		return flistxattr(filedes, list, size, options);	
-	#else
+#ifndef XATTR_ADD_OPT
 	return flistxattr(filedes, list, size);
-	#endif
+#else
+	int options = 0;
+	return flistxattr(filedes, list, size, options);
+#endif
+#elif defined(HAVE_FLISTEA)
+	return flistea(filedes, list, size);
+#elif defined(HAVE_EXTATTR_LIST_FD)
+	extattr_arg arg;
+	arg.filedes = filedes;
+	return bsd_attr_list(2, arg, list, size);
 #elif defined(HAVE_ATTR_LISTF)
 	return irix_attr_list(NULL, filedes, list, size, 0);
 #else
@@ -1524,15 +1984,24 @@ ssize_t sys_flistxattr (int filedes, char *list, size_t size)
 int sys_removexattr (const char *path, const char *name)
 {
 #if defined(HAVE_REMOVEXATTR)
-	#if DARWINOS
-		int options = 0;
-		return removexattr(path, name, options);	
-	#else
+#ifndef XATTR_ADD_OPT
 	return removexattr(path, name);
-	#endif
+#else
+	int options = 0;
+	return removexattr(path, name, options);
+#endif
+#elif defined(HAVE_REMOVEEA)
+	return removeea(path, name);
+#elif defined(HAVE_EXTATTR_DELETE_FILE)
+	char *s;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr_m(name, '.')) == NULL) ? name : s + 1;
+
+	return extattr_delete_file(path, attrnamespace, attrname);
 #elif defined(HAVE_ATTR_REMOVE)
 	int flags = 0;
-	char *attrname = strchr(name,'.') +1;
+	char *attrname = strchr(name,'.') + 1;
 	
 	if (strncmp(name, "system", 6) == 0) flags |= ATTR_ROOT;
 
@@ -1547,9 +2016,21 @@ int sys_lremovexattr (const char *path, const char *name)
 {
 #if defined(HAVE_LREMOVEXATTR)
 	return lremovexattr(path, name);
+#elif defined(HAVE_REMOVEXATTR) && defined(XATTR_ADD_OPT)
+	int options = XATTR_NOFOLLOW;
+	return removexattr(path, name, options);
+#elif defined(HAVE_LREMOVEEA)
+	return lremoveea(path, name);
+#elif defined(HAVE_EXTATTR_DELETE_LINK)
+	char *s;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr_m(name, '.')) == NULL) ? name : s + 1;
+
+	return extattr_delete_link(path, attrnamespace, attrname);
 #elif defined(HAVE_ATTR_REMOVE)
 	int flags = ATTR_DONTFOLLOW;
-	char *attrname = strchr(name,'.') +1;
+	char *attrname = strchr(name,'.') + 1;
 	
 	if (strncmp(name, "system", 6) == 0) flags |= ATTR_ROOT;
 
@@ -1563,15 +2044,24 @@ int sys_lremovexattr (const char *path, const char *name)
 int sys_fremovexattr (int filedes, const char *name)
 {
 #if defined(HAVE_FREMOVEXATTR)
-	#if DARWINOS
-		int options = 0;
-		return fremovexattr(filedes, name, options);	
-	#else
+#ifndef XATTR_ADD_OPT
 	return fremovexattr(filedes, name);
-	#endif
+#else
+	int options = 0;
+	return fremovexattr(filedes, name, options);
+#endif
+#elif defined(HAVE_FREMOVEEA)
+	return fremoveea(filedes, name);
+#elif defined(HAVE_EXTATTR_DELETE_FD)
+	char *s;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr_m(name, '.')) == NULL) ? name : s + 1;
+
+	return extattr_delete_fd(filedes, attrnamespace, attrname);
 #elif defined(HAVE_ATTR_REMOVEF)
 	int flags = 0;
-	char *attrname = strchr(name,'.') +1;
+	char *attrname = strchr(name,'.') + 1;
 	
 	if (strncmp(name, "system", 6) == 0) flags |= ATTR_ROOT;
 
@@ -1590,16 +2080,44 @@ int sys_fremovexattr (int filedes, const char *name)
 int sys_setxattr (const char *path, const char *name, const void *value, size_t size, int flags)
 {
 #if defined(HAVE_SETXATTR)
-	#if DARWINOS
-		int options = 0; 
-				
-		return setxattr(path, name, value, size, 0, options);		
-	#else
+#ifndef XATTR_ADD_OPT
 	return setxattr(path, name, value, size, flags);
-	#endif
+#else
+	int options = 0;
+	return setxattr(path, name, value, size, 0, options);
+#endif
+#elif defined(HAVE_SETEA)
+	return setea(path, name, value, size, flags);
+#elif defined(HAVE_EXTATTR_SET_FILE)
+	char *s;
+	int retval = 0;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr_m(name, '.')) == NULL) ? name : s + 1;
+	if (flags) {
+		/* Check attribute existence */
+		retval = extattr_get_file(path, attrnamespace, attrname, NULL, 0);
+		if (retval < 0) {
+			/* REPLACE attribute, that doesn't exist */
+			if (flags & XATTR_REPLACE && errno == ENOATTR) {
+				errno = ENOATTR;
+				return -1;
+			}
+			/* Ignore other errors */
+		}
+		else {
+			/* CREATE attribute, that already exists */
+			if (flags & XATTR_CREATE) {
+				errno = EEXIST;
+				return -1;
+			}
+		}
+	}
+	retval = extattr_set_file(path, attrnamespace, attrname, value, size);
+	return (retval < 0) ? -1 : 0;
 #elif defined(HAVE_ATTR_SET)
 	int myflags = 0;
-	char *attrname = strchr(name,'.') +1;
+	char *attrname = strchr(name,'.') + 1;
 	
 	if (strncmp(name, "system", 6) == 0) myflags |= ATTR_ROOT;
 	if (flags & XATTR_CREATE) myflags |= ATTR_CREATE;
@@ -1616,9 +2134,42 @@ int sys_lsetxattr (const char *path, const char *name, const void *value, size_t
 {
 #if defined(HAVE_LSETXATTR)
 	return lsetxattr(path, name, value, size, flags);
+#elif defined(HAVE_SETXATTR) && defined(XATTR_ADD_OPT)
+	int options = XATTR_NOFOLLOW;
+	return setxattr(path, name, value, size, 0, options);
+#elif defined(LSETEA)
+	return lsetea(path, name, value, size, flags);
+#elif defined(HAVE_EXTATTR_SET_LINK)
+	char *s;
+	int retval = 0;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr_m(name, '.')) == NULL) ? name : s + 1;
+	if (flags) {
+		/* Check attribute existence */
+		retval = extattr_get_link(path, attrnamespace, attrname, NULL, 0);
+		if (retval < 0) {
+			/* REPLACE attribute, that doesn't exist */
+			if (flags & XATTR_REPLACE && errno == ENOATTR) {
+				errno = ENOATTR;
+				return -1;
+			}
+			/* Ignore other errors */
+		}
+		else {
+			/* CREATE attribute, that already exists */
+			if (flags & XATTR_CREATE) {
+				errno = EEXIST;
+				return -1;
+			}
+		}
+	}
+
+	retval = extattr_set_link(path, attrnamespace, attrname, value, size);
+	return (retval < 0) ? -1 : 0;
 #elif defined(HAVE_ATTR_SET)
 	int myflags = ATTR_DONTFOLLOW;
-	char *attrname = strchr(name,'.') +1;
+	char *attrname = strchr(name,'.') + 1;
 	
 	if (strncmp(name, "system", 6) == 0) myflags |= ATTR_ROOT;
 	if (flags & XATTR_CREATE) myflags |= ATTR_CREATE;
@@ -1634,16 +2185,44 @@ int sys_lsetxattr (const char *path, const char *name, const void *value, size_t
 int sys_fsetxattr (int filedes, const char *name, const void *value, size_t size, int flags)
 {
 #if defined(HAVE_FSETXATTR)
-	#if DARWINOS
-		int options = 0;
-
-		return fsetxattr(filedes, name, value, size, 0, options);		
-	#else
+#ifndef XATTR_ADD_OPT
 	return fsetxattr(filedes, name, value, size, flags);
-	#endif
+#else
+	int options = 0;
+	return fsetxattr(filedes, name, value, size, 0, options);
+#endif
+#elif defined(HAVE_FSETEA)
+	return fsetea(filedes, name, value, size, flags);
+#elif defined(HAVE_EXTATTR_SET_FD)
+	char *s;
+	int retval = 0;
+	int attrnamespace = (strncmp(name, "system", 6) == 0) ? 
+		EXTATTR_NAMESPACE_SYSTEM : EXTATTR_NAMESPACE_USER;
+	const char *attrname = ((s=strchr_m(name, '.')) == NULL) ? name : s + 1;
+	if (flags) {
+		/* Check attribute existence */
+		retval = extattr_get_fd(filedes, attrnamespace, attrname, NULL, 0);
+		if (retval < 0) {
+			/* REPLACE attribute, that doesn't exist */
+			if (flags & XATTR_REPLACE && errno == ENOATTR) {
+				errno = ENOATTR;
+				return -1;
+			}
+			/* Ignore other errors */
+		}
+		else {
+			/* CREATE attribute, that already exists */
+			if (flags & XATTR_CREATE) {
+				errno = EEXIST;
+				return -1;
+			}
+		}
+	}
+	retval = extattr_set_fd(filedes, attrnamespace, attrname, value, size);
+	return (retval < 0) ? -1 : 0;
 #elif defined(HAVE_ATTR_SETF)
 	int myflags = 0;
-	char *attrname = strchr(name,'.') +1;
+	char *attrname = strchr(name,'.') + 1;
 	
 	if (strncmp(name, "system", 6) == 0) myflags |= ATTR_ROOT;
 	if (flags & XATTR_CREATE) myflags |= ATTR_CREATE;
@@ -1679,5 +2258,188 @@ uint32 unix_dev_minor(SMB_DEV_T dev)
         return (uint32)minor(dev);
 #else
         return (uint32)(dev & 0xff);
+#endif
+}
+
+#if defined(WITH_AIO)
+
+/*******************************************************************
+ An aio_read wrapper that will deal with 64-bit sizes.
+********************************************************************/
+                                                                                                                                           
+int sys_aio_read(SMB_STRUCT_AIOCB *aiocb)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_AIOCB64) && defined(HAVE_AIO_READ64)
+        return aio_read64(aiocb);
+#elif defined(HAVE_AIO_READ)
+        return aio_read(aiocb);
+#else
+	errno = ENOSYS;
+	return -1;
+#endif
+}
+
+/*******************************************************************
+ An aio_write wrapper that will deal with 64-bit sizes.
+********************************************************************/
+                                                                                                                                           
+int sys_aio_write(SMB_STRUCT_AIOCB *aiocb)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_AIOCB64) && defined(HAVE_AIO_WRITE64)
+        return aio_write64(aiocb);
+#elif defined(HAVE_AIO_WRITE)
+        return aio_write(aiocb);
+#else
+	errno = ENOSYS;
+	return -1;
+#endif
+}
+
+/*******************************************************************
+ An aio_return wrapper that will deal with 64-bit sizes.
+********************************************************************/
+                                                                                                                                           
+ssize_t sys_aio_return(SMB_STRUCT_AIOCB *aiocb)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_AIOCB64) && defined(HAVE_AIO_RETURN64)
+        return aio_return64(aiocb);
+#elif defined(HAVE_AIO_RETURN)
+        return aio_return(aiocb);
+#else
+	errno = ENOSYS;
+	return -1;
+#endif
+}
+
+/*******************************************************************
+ An aio_cancel wrapper that will deal with 64-bit sizes.
+********************************************************************/
+
+int sys_aio_cancel(int fd, SMB_STRUCT_AIOCB *aiocb)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_AIOCB64) && defined(HAVE_AIO_CANCEL64)
+        return aio_cancel64(fd, aiocb);
+#elif defined(HAVE_AIO_CANCEL)
+        return aio_cancel(fd, aiocb);
+#else
+	errno = ENOSYS;
+	return -1;
+#endif
+}
+
+/*******************************************************************
+ An aio_error wrapper that will deal with 64-bit sizes.
+********************************************************************/
+
+int sys_aio_error(const SMB_STRUCT_AIOCB *aiocb)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_AIOCB64) && defined(HAVE_AIO_ERROR64)
+        return aio_error64(aiocb);
+#elif defined(HAVE_AIO_ERROR)
+        return aio_error(aiocb);
+#else
+	errno = ENOSYS;
+	return -1;
+#endif
+}
+
+/*******************************************************************
+ An aio_fsync wrapper that will deal with 64-bit sizes.
+********************************************************************/
+
+int sys_aio_fsync(int op, SMB_STRUCT_AIOCB *aiocb)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_AIOCB64) && defined(HAVE_AIO_FSYNC64)
+        return aio_fsync64(op, aiocb);
+#elif defined(HAVE_AIO_FSYNC)
+        return aio_fsync(op, aiocb);
+#else
+	errno = ENOSYS;
+	return -1;
+#endif
+}
+
+/*******************************************************************
+ An aio_fsync wrapper that will deal with 64-bit sizes.
+********************************************************************/
+
+int sys_aio_suspend(const SMB_STRUCT_AIOCB * const cblist[], int n, const struct timespec *timeout)
+{
+#if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_AIOCB64) && defined(HAVE_AIO_SUSPEND64)
+        return aio_suspend64(cblist, n, timeout);
+#elif defined(HAVE_AIO_FSYNC)
+        return aio_suspend(cblist, n, timeout);
+#else
+	errno = ENOSYS;
+	return -1;
+#endif
+}
+#else /* !WITH_AIO */
+
+int sys_aio_read(SMB_STRUCT_AIOCB *aiocb)
+{
+	errno = ENOSYS;
+	return -1;
+}
+
+int sys_aio_write(SMB_STRUCT_AIOCB *aiocb)
+{
+	errno = ENOSYS;
+	return -1;
+}
+
+ssize_t sys_aio_return(SMB_STRUCT_AIOCB *aiocb)
+{
+	errno = ENOSYS;
+	return -1;
+}
+
+int sys_aio_cancel(int fd, SMB_STRUCT_AIOCB *aiocb)
+{
+	errno = ENOSYS;
+	return -1;
+}
+
+int sys_aio_error(const SMB_STRUCT_AIOCB *aiocb)
+{
+	errno = ENOSYS;
+	return -1;
+}
+
+int sys_aio_fsync(int op, SMB_STRUCT_AIOCB *aiocb)
+{
+	errno = ENOSYS;
+	return -1;
+}
+
+int sys_aio_suspend(const SMB_STRUCT_AIOCB * const cblist[], int n, const struct timespec *timeout)
+{
+	errno = ENOSYS;
+	return -1;
+}
+#endif /* WITH_AIO */
+
+int sys_getpeereid( int s, uid_t *uid)
+{
+#if defined(HAVE_PEERCRED)
+	struct ucred cred;
+	socklen_t cred_len = sizeof(struct ucred);
+	int ret;
+
+	ret = getsockopt(s, SOL_SOCKET, SO_PEERCRED, (void *)&cred, &cred_len);
+	if (ret != 0) {
+		return -1;
+	}
+
+	if (cred_len != sizeof(struct ucred)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	*uid = cred.uid;
+	return 0;
+#else
+	errno = ENOSYS;
+	return -1;
 #endif
 }

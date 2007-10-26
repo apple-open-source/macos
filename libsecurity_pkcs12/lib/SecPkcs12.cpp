@@ -31,6 +31,7 @@
 #include "pkcs12Utils.h"
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_cdsa_utilities/cssmerrors.h>
+#include <Security/SecBasePriv.h>
 
 /*
  * API function call wrappers, impermeable to C++ exceptions
@@ -41,8 +42,7 @@
 #define END_P12API \
 	} \
 	catch (const MacOSError &err) { return err.osStatus(); } \
-	catch (const CssmError &err) { return err.osStatus(); } \
-	catch (const CommonError &err) { return err.osStatus(); } \
+	catch (const CommonError &err) { return SecKeychainErrFromOSStatus(err.osStatus()); } \
 	catch (const std::bad_alloc &) { return memFullErr; } \
 	catch (...) { return internalComponentErr; } \
     return noErr;
@@ -243,6 +243,42 @@ OSStatus SecPkcs12ExportKeychainItems(
 	
 	END_P12API
 }
+
+OSStatus SecPkcs12SetAccess(
+	SecPkcs12CoderRef		coder,
+	SecAccessRef			access)
+{
+	BEGIN_P12API
+	
+	P12Coder *p12coder = P12CoderCast(coder);
+	p12coder->setAccess(access);
+	
+	END_P12API
+}
+
+OSStatus SecPkcs12SetKeyUsage(
+	SecPkcs12CoderRef		coder,
+	CSSM_KEYUSE				keyUsage)
+{
+	BEGIN_P12API
+	
+	P12Coder *p12coder = P12CoderCast(coder);
+	p12coder->setKeyUsage(keyUsage);
+	
+	END_P12API
+}
+	
+OSStatus SecPkcs12SetKeyAttrs(
+	SecPkcs12CoderRef		coder,
+	CSSM_KEYATTR_FLAGS		keyAttrs)
+{
+	BEGIN_P12API
+	
+	P12Coder *p12coder = P12CoderCast(coder);
+	p12coder->setKeyAttrs(keyAttrs);
+	
+	END_P12API
+}	
 
 #pragma mark --- Decoder Functions ---
 

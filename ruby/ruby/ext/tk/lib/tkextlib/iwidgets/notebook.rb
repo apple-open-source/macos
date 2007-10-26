@@ -23,12 +23,12 @@ class Tk::Iwidgets::Notebook
   include TkItemConfigMethod
 
   def __item_cget_cmd(id)
-    [self.path, 'tabcget', id]
+    [self.path, 'pagecget', id]
   end
   private :__item_cget_cmd
 
   def __item_config_cmd(id)
-    [self.path, 'tabconfigure', id]
+    [self.path, 'pageconfigure', id]
   end
   private :__item_config_cmd
 
@@ -50,6 +50,11 @@ class Tk::Iwidgets::Notebook
   private :itemconfiginfo, :current_itemconfiginfo
 
   ####################################
+
+  def __boolval_optkeys
+    super() << 'auto'
+  end
+  private :__boolval_optkeys
 
   def add(keys={})
     window(tk_call(@path, 'add', *hash_kv(keys)))
@@ -139,24 +144,24 @@ class Tk::Iwidgets::Notebook
   end
   alias scrollbar yscrollbar
 
-  def view(*index)
-    if index.size == 0
+  def view(*idxs)
+    if idxs.size == 0
       window(tk_send_without_enc('view'))
     else
-      tk_send_without_enc('view', *index)
+      tk_send_without_enc('view', *idxs)
       self
     end
   end
   alias xview view
   alias yview view
 
-  def view_moveto(*index)
-    view('moveto', *index)
+  def view_moveto(*idxs)
+    view('moveto', *idxs)
   end
   alias xview_moveto view_moveto
   alias yview_moveto view_moveto
-  def view_scroll(*index)
-    view('scroll', *index)
+  def view_scroll(*idxs)
+    view('scroll', *idxs)
   end
   alias xview_scroll view_scroll
   alias yview_scroll view_scroll

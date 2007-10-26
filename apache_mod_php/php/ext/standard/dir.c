@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.109.2.18.2.4 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: dir.c,v 1.147.2.3.2.10 2007/08/22 14:59:44 jani Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -24,9 +24,11 @@
 #include "fopen_wrappers.h"
 #include "file.h"
 #include "php_dir.h"
+#include "php_string.h"
+#include "php_scandir.h"
 
 #ifdef HAVE_DIRENT_H
-# include <dirent.h>
+#include <dirent.h>
 #endif
 
 #if HAVE_UNISTD_H
@@ -38,6 +40,7 @@
 #ifdef PHP_WIN32
 #include "win32/readdir.h"
 #endif
+
 
 #ifdef HAVE_GLOB
 #ifndef PHP_WIN32
@@ -93,7 +96,7 @@ static zend_class_entry *dir_class_entry_ptr;
 static zend_function_entry php_dir_class_functions[] = {
 	PHP_FALIAS(close,	closedir,	NULL)
 	PHP_FALIAS(rewind,	rewinddir,	NULL)
-	PHP_STATIC_FE("read", php_if_readdir, NULL)
+	PHP_NAMED_FE(read,  php_if_readdir, NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -138,31 +141,56 @@ PHP_MINIT_FUNCTION(dir)
 	REGISTER_STRING_CONSTANT("PATH_SEPARATOR", pathsep_str, CONST_CS|CONST_PERSISTENT);
 
 #ifdef HAVE_GLOB
+
 #ifdef GLOB_BRACE
 	REGISTER_LONG_CONSTANT("GLOB_BRACE", GLOB_BRACE, CONST_CS | CONST_PERSISTENT);
+#else
+# define GLOB_BRACE 0
 #endif
+
 #ifdef GLOB_MARK
 	REGISTER_LONG_CONSTANT("GLOB_MARK", GLOB_MARK, CONST_CS | CONST_PERSISTENT);
+#else
+# define GLOB_MARK 0
 #endif
+
 #ifdef GLOB_NOSORT
 	REGISTER_LONG_CONSTANT("GLOB_NOSORT", GLOB_NOSORT, CONST_CS | CONST_PERSISTENT);
+#else 
+# define GLOB_NOSORT 0
 #endif
+
 #ifdef GLOB_NOCHECK
 	REGISTER_LONG_CONSTANT("GLOB_NOCHECK", GLOB_NOCHECK, CONST_CS | CONST_PERSISTENT);
+#else 
+# define GLOB_NOCHECK 0
 #endif
+
 #ifdef GLOB_NOESCAPE
 	REGISTER_LONG_CONSTANT("GLOB_NOESCAPE", GLOB_NOESCAPE, CONST_CS | CONST_PERSISTENT);
+#else 
+# define GLOB_NOESCAPE 0
+#endif
+
+#ifdef GLOB_ERR
+	REGISTER_LONG_CONSTANT("GLOB_ERR", GLOB_ERR, CONST_CS | CONST_PERSISTENT);
+#else 
+# define GLOB_ERR 0
 #endif
 
 #ifndef GLOB_ONLYDIR
-#define GLOB_ONLYDIR (1<<30)
-#define GLOB_EMULATE_ONLYDIR
-#define GLOB_FLAGMASK (~GLOB_ONLYDIR)
+# define GLOB_ONLYDIR (1<<30)
+# define GLOB_EMULATE_ONLYDIR
+# define GLOB_FLAGMASK (~GLOB_ONLYDIR)
 #else
-#define GLOB_FLAGMASK (~0)
+# define GLOB_FLAGMASK (~0)
 #endif
 
+/* This is used for checking validity of passed flags (passing invalid flags causes segfault in glob()!! */
+#define GLOB_AVAILABLE_FLAGS (0 | GLOB_BRACE | GLOB_MARK | GLOB_NOSORT | GLOB_NOCHECK | GLOB_NOESCAPE | GLOB_ERR | GLOB_ONLYDIR)
+
 	REGISTER_LONG_CONSTANT("GLOB_ONLYDIR", GLOB_ONLYDIR, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("GLOB_AVAILABLE_FLAGS", GLOB_AVAILABLE_FLAGS, CONST_CS | CONST_PERSISTENT);
 
 #endif /* HAVE_GLOB */
 
@@ -173,15 +201,21 @@ PHP_MINIT_FUNCTION(dir)
 /* {{{ internal functions */
 static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 {
-	pval **arg;
+	char *dirname;
+	int dir_len;
+	zval *zcontext = NULL;
+	php_stream_context *context = NULL;
 	php_stream *dirp;
-	
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg) == FAILURE) {
-		WRONG_PARAM_COUNT;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|r", &dirname, &dir_len, &zcontext) == FAILURE) {
+		RETURN_NULL();
 	}
-	convert_to_string_ex(arg);
+
+	if (zcontext) {
+		context = php_stream_context_from_zval(zcontext, 0);
+	}
 	
-	dirp = php_stream_opendir(Z_STRVAL_PP(arg), ENFORCE_SAFE_MODE|REPORT_ERRORS, NULL);
+	dirp = php_stream_opendir(dirname, ENFORCE_SAFE_MODE|REPORT_ERRORS, context);
 
 	if (dirp == NULL) {
 		RETURN_FALSE;
@@ -191,7 +225,7 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 
 	if (createobject) {
 		object_init_ex(return_value, dir_class_entry_ptr);
-		add_property_stringl(return_value, "path", Z_STRVAL_PP(arg), Z_STRLEN_PP(arg), 1);
+		add_property_stringl(return_value, "path", dirname, dir_len, 1);
 		add_property_resource(return_value, "handle", dirp->rsrc_id);
 		php_stream_auto_cleanup(dirp); /* so we don't get warnings under debug */
 	} else {
@@ -200,7 +234,7 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 }
 /* }}} */
 
-/* {{{ proto mixed opendir(string path)
+/* {{{ proto mixed opendir(string path[, resource context])
    Open a directory and return a dir_handle */
 PHP_FUNCTION(opendir)
 {
@@ -208,7 +242,7 @@ PHP_FUNCTION(opendir)
 }
 /* }}} */
 
-/* {{{ proto object dir(string directory)
+/* {{{ proto object dir(string directory[, resource context])
    Directory class with properties, handle and class and methods read, rewind and close */
 PHP_FUNCTION(getdir)
 {
@@ -220,7 +254,7 @@ PHP_FUNCTION(getdir)
    Close directory connection identified by the dir_handle */
 PHP_FUNCTION(closedir)
 {
-	pval **id, **tmp, *myself;
+	zval **id, **tmp, *myself;
 	php_stream *dirp;
 
 	FETCH_DIRP();
@@ -246,12 +280,13 @@ PHP_FUNCTION(chroot)
 	}
 	
 	ret = chroot(str);
-	
 	if (ret != 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s (errno %d)", strerror(errno), errno);
 		RETURN_FALSE;
 	}
 
+	realpath_cache_clean(TSRMLS_C);
+	
 	ret = chdir("/");
 	
 	if (ret != 0) {
@@ -318,7 +353,7 @@ PHP_FUNCTION(getcwd)
    Rewind dir_handle back to the start */
 PHP_FUNCTION(rewinddir)
 {
-	pval **id, **tmp, *myself;
+	zval **id, **tmp, *myself;
 	php_stream *dirp;
 	
 	FETCH_DIRP();
@@ -331,7 +366,7 @@ PHP_FUNCTION(rewinddir)
    Read directory entry from dir_handle */
 PHP_NAMED_FUNCTION(php_if_readdir)
 {
-	pval **id, **tmp, *myself;
+	zval **id, **tmp, *myself;
 	php_stream *dirp;
 	php_stream_dirent entry;
 
@@ -349,9 +384,9 @@ PHP_NAMED_FUNCTION(php_if_readdir)
    Find pathnames matching a pattern */
 PHP_FUNCTION(glob)
 {
-	char cwd[MAXPATHLEN];
 	int cwd_skip = 0;
 #ifdef ZTS
+	char cwd[MAXPATHLEN];
 	char work_pattern[MAXPATHLEN];
 	char *result;
 #endif
@@ -359,10 +394,17 @@ PHP_FUNCTION(glob)
 	int pattern_len;
 	long flags = 0;
 	glob_t globbuf;
-	int n, ret;
+	int n;
+	int ret;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &pattern, &pattern_len, &flags) == FAILURE) 
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &pattern, &pattern_len, &flags) == FAILURE) {
 		return;
+	}
+
+	if ((GLOB_AVAILABLE_FLAGS & flags) != flags) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "At least one of the passed flags is invalid or not supported on this platform");
+		RETURN_FALSE;
+	}
 
 #ifdef ZTS 
 	if (!IS_ABSOLUTE_PATH(pattern, pattern_len)) {
@@ -382,14 +424,35 @@ PHP_FUNCTION(glob)
 	} 
 #endif
 
+	if (PG(safe_mode) || (PG(open_basedir) && *PG(open_basedir))) {
+		int pattern_len = strlen(pattern);
+		char *basename = estrndup(pattern, pattern_len);
+		
+		php_dirname(basename, pattern_len);
+		if (PG(safe_mode) && (!php_checkuid(basename, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+			efree(basename);
+			RETURN_FALSE;
+		}
+		if (php_check_open_basedir(basename TSRMLS_CC)) {
+			efree(basename);
+			RETURN_FALSE;
+		}
+		efree(basename);
+	}
+
+	memset(&globbuf, 0, sizeof(glob_t));
 	globbuf.gl_offs = 0;
 	if (0 != (ret = glob(pattern, flags & GLOB_FLAGMASK, NULL, &globbuf))) {
 #ifdef GLOB_NOMATCH
 		if (GLOB_NOMATCH == ret) {
-			/* Linux handles no matches as an error condition, but FreeBSD
-			 * doesn't. This ensure that if no match is found, an empty array
-			 * is always returned so it can be used without worrying in e.g.
-			 * foreach() */
+			/* Some glob implementation simply return no data if no matches
+			   were found, others return the GLOB_NOMATCH error code.
+			   We don't want to treat GLOB_NOMATCH as an error condition
+			   so that PHP glob() behaves the same on both types of 
+			   implementations and so that 'foreach (glob() as ...'
+			   can be used for simple glob() calls without further error
+			   checking.
+			*/
 			array_init(return_value);
 			return;
 		}
@@ -403,19 +466,9 @@ PHP_FUNCTION(glob)
 		return;
 	}
 
-	/* we assume that any glob pattern will match files from one directory only
-	   so checking the dirname of the first match should be sufficient */
-	strncpy(cwd, globbuf.gl_pathv[0], MAXPATHLEN);
-	if (PG(safe_mode) && (!php_checkuid(cwd, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
-		RETURN_FALSE;
-	}
-	if (php_check_open_basedir(cwd TSRMLS_CC)) {
-		RETURN_FALSE;
-	}
-
 	array_init(return_value);
 	for (n = 0; n < globbuf.gl_pathc; n++) {
-		/* we need to this everytime since GLOB_ONLYDIR does not guarantee that
+		/* we need to do this everytime since GLOB_ONLYDIR does not guarantee that
 		 * all directories will be filtered. GNU libc documentation states the
 		 * following: 
 		 * If the information about the type of the file is easily available 
@@ -441,6 +494,53 @@ PHP_FUNCTION(glob)
 }
 /* }}} */
 #endif 
+
+/* {{{ proto array scandir(string dir [, int sorting_order [, resource context]])
+   List files & directories inside the specified path */
+PHP_FUNCTION(scandir)
+{
+	char *dirn;
+	int dirn_len;
+	long flags = 0;
+	char **namelist;
+	int n, i;
+	zval *zcontext = NULL;
+	php_stream_context *context = NULL;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lr", &dirn, &dirn_len, &flags, &zcontext) == FAILURE) {
+		return;
+	}
+
+	if (dirn_len < 1) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Directory name cannot be empty");
+		RETURN_FALSE;
+	}
+
+	if (zcontext) {
+		context = php_stream_context_from_zval(zcontext, 0);
+	}
+
+	if (!flags) {
+		n = php_stream_scandir(dirn, &namelist, context, (void *) php_stream_dirent_alphasort);
+	} else {
+		n = php_stream_scandir(dirn, &namelist, context, (void *) php_stream_dirent_alphasortr);
+	}
+	if (n < 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "(errno %d): %s", errno, strerror(errno));
+		RETURN_FALSE;
+	}
+	
+	array_init(return_value);
+
+	for (i = 0; i < n; i++) {
+		add_next_index_string(return_value, namelist[i], 0);
+	}
+
+	if (n) {
+		efree(namelist);
+	}
+}
+/* }}} */
 
 /*
  * Local variables:

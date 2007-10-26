@@ -140,7 +140,7 @@ typedef enum {EVNOP, EVHIDE, EVSHOW, EVMOVE, EVLEVEL} EvCmd; /* Cursor state */
 #define EV_SCREEN_MAX_BRIGHTNESS	64
 /* Scale should lie between MIN_BRIGHTNESS and MAX_BRIGHTNESS */
 #define EV_SCALE_BRIGHTNESS( scale, datum ) \
-	((((unsigned long)(datum))*((unsigned long)scale)) >> 6)
+	((((UInt32)(datum))*((UInt32)scale)) >> 6)
 
 /*
  * Definition of a tick, as a time in milliseconds. This controls how

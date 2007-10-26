@@ -54,12 +54,15 @@
 	else
 	{
 		NSArray *recordTypeList = [self getRecordList];
-		NSString *stdDest = [NSString stringWithFormat:@"dsConfigType::%@",dest];
+		NSString *cfgDest = [NSString stringWithFormat:@"dsConfigType::%@",dest];
+        NSString *stdDest = [@kDSStdRecordTypePrefix stringByAppendingString:dest];		
 
 		if ([recordTypeList containsObject:stdDest])
 			dest = stdDest;
-		else
-			dest = nil;
+		else if ([recordTypeList containsObject:cfgDest])
+			dest = cfgDest;
+        else
+            dest = nil;
 
 		if (dest != nil)
 		{

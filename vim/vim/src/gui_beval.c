@@ -12,6 +12,105 @@
 
 #if defined(FEAT_BEVAL) || defined(PROTO)
 
+/*
+ * Common code, invoked when the mouse is resting for a moment.
+ */
+/*ARGSUSED*/
+    void
+general_beval_cb(beval, state)
+    BalloonEval *beval;
+    int state;
+{
+    win_T	*wp;
+    int		col;
+    int		use_sandbox;
+    linenr_T	lnum;
+    char_u	*text;
+    static char_u  *result = NULL;
+    long	winnr = 0;
+    char_u	*bexpr;
+    buf_T	*save_curbuf;
+#ifdef FEAT_WINDOWS
+    win_T	*cw;
+#endif
+    static int	recursive = FALSE;
+
+    /* Don't do anything when 'ballooneval' is off, messages scrolled the
+     * windows up or we have no beval area. */
+    if (!p_beval || balloonEval == NULL || msg_scrolled > 0)
+	return;
+
+    /* Don't do this recursively.  Happens when the expression evaluation
+     * takes a long time and invokes something that checks for CTRL-C typed. */
+    if (recursive)
+	return;
+    recursive = TRUE;
+
+#ifdef FEAT_EVAL
+    if (get_beval_info(balloonEval, TRUE, &wp, &lnum, &text, &col) == OK)
+    {
+	bexpr = (*wp->w_buffer->b_p_bexpr == NUL) ? p_bexpr
+						    : wp->w_buffer->b_p_bexpr;
+	if (*bexpr != NUL)
+	{
+# ifdef FEAT_WINDOWS
+	    /* Convert window pointer to number. */
+	    for (cw = firstwin; cw != wp; cw = cw->w_next)
+		++winnr;
+# endif
+
+	    set_vim_var_nr(VV_BEVAL_BUFNR, (long)wp->w_buffer->b_fnum);
+	    set_vim_var_nr(VV_BEVAL_WINNR, winnr);
+	    set_vim_var_nr(VV_BEVAL_LNUM, (long)lnum);
+	    set_vim_var_nr(VV_BEVAL_COL, (long)(col + 1));
+	    set_vim_var_string(VV_BEVAL_TEXT, text, -1);
+	    vim_free(text);
+
+	    /*
+	     * Temporarily change the curbuf, so that we can determine whether
+	     * the buffer-local balloonexpr option was set insecurly.
+	     */
+	    save_curbuf = curbuf;
+	    curbuf = wp->w_buffer;
+	    use_sandbox = was_set_insecurely((char_u *)"balloonexpr",
+				 *curbuf->b_p_bexpr == NUL ? 0 : OPT_LOCAL);
+	    curbuf = save_curbuf;
+	    if (use_sandbox)
+		++sandbox;
+	    ++textlock;
+
+	    vim_free(result);
+	    result = eval_to_string(bexpr, NULL, TRUE);
+
+	    if (use_sandbox)
+		--sandbox;
+	    --textlock;
+
+	    set_vim_var_string(VV_BEVAL_TEXT, NULL, -1);
+	    if (result != NULL && result[0] != NUL)
+	    {
+		gui_mch_post_balloon(beval, result);
+		recursive = FALSE;
+		return;
+	    }
+	}
+    }
+#endif
+#ifdef FEAT_NETBEANS_INTG
+    if (bevalServers & BEVAL_NETBEANS)
+	netbeans_beval_cb(beval, state);
+#endif
+#ifdef FEAT_SUN_WORKSHOP
+    if (bevalServers & BEVAL_WORKSHOP)
+	workshop_beval_cb(beval, state);
+#endif
+
+    recursive = FALSE;
+}
+
+/* on Win32 only get_beval_info() is required */
+#if !defined(FEAT_GUI_W32) || defined(PROTO)
+
 #ifdef FEAT_GUI_GTK
 # include <gdk/gdkkeysyms.h>
 # include <gtk/gtk.h>
@@ -27,7 +126,11 @@
 # else
    /* Assume Athena */
 #  include <X11/Shell.h>
-#  include <X11/Xaw/Label.h>
+#  ifdef FEAT_GUI_NEXTAW
+#   include <X11/neXtaw/Label.h>
+#  else
+#   include <X11/Xaw/Label.h>
+#  endif
 # endif
 #endif
 
@@ -194,30 +297,38 @@ gui_mch_currently_showing_beval()
     return current_beval;
 }
 #endif
+#endif /* !FEAT_GUI_W32 */
 
-#if defined(FEAT_SUN_WORKSHOP) || defined(FEAT_NETBEANS_INTG) || defined(PROTO)
+#if defined(FEAT_SUN_WORKSHOP) || defined(FEAT_NETBEANS_INTG) \
+    || defined(FEAT_EVAL) || defined(PROTO)
 /*
  * Get the text and position to be evaluated for "beval".
- * When "usingNetbeans" is set the returned text is in allocated memory.
+ * If "getword" is true the returned text is not the whole line but the
+ * relevant word in allocated memory.
  * Returns OK or FAIL.
  */
     int
-gui_mch_get_beval_info(beval, filename, line, text, idx)
+get_beval_info(beval, getword, winp, lnump, textp, colp)
     BalloonEval	*beval;
-    char_u     **filename;
-    int		*line;
-    char_u     **text;
-    int		*idx;
+    int		getword;
+    win_T	**winp;
+    linenr_T	*lnump;
+    char_u	**textp;
+    int		*colp;
 {
     win_T	*wp;
     int		row, col;
     char_u	*lbuf;
     linenr_T	lnum;
 
-    *text = NULL;
+    *textp = NULL;
     row = Y_2_ROW(beval->y);
     col = X_2_COL(beval->x);
+#ifdef FEAT_WINDOWS
     wp = mouse_find_win(&row, &col);
+#else
+    wp = firstwin;
+#endif
     if (wp != NULL && row < wp->w_height && col < W_WIDTH(wp))
     {
 	/* Found a window and the cursor is in the text.  Now find the line
@@ -229,8 +340,7 @@ gui_mch_get_beval_info(beval, filename, line, text, idx)
 	    if (col <= win_linetabsize(wp, lbuf, (colnr_T)MAXCOL))
 	    {
 		/* Not past end of line. */
-# ifdef FEAT_NETBEANS_INTG
-		if (usingNetbeans)
+		if (getword)
 		{
 		    /* For Netbeans we get the relevant part of the line
 		     * instead of the whole line. */
@@ -256,10 +366,10 @@ gui_mch_get_beval_info(beval, filename, line, text, idx)
 		    if (VIsual_active
 			    && wp->w_buffer == curwin->w_buffer
 			    && (lnum == spos->lnum
-				? col >= spos->col
+				? col >= (int)spos->col
 				: lnum > spos->lnum)
 			    && (lnum == epos->lnum
-				? col <= epos->col
+				? col <= (int)epos->col
 				: lnum < epos->lnum))
 		    {
 			/* Visual mode and pointing to the line with the
@@ -279,18 +389,18 @@ gui_mch_get_beval_info(beval, filename, line, text, idx)
 			/* Find the word under the cursor. */
 			++emsg_off;
 			len = find_ident_at_pos(wp, lnum, (colnr_T)col, &lbuf,
-						    FIND_IDENT + FIND_STRING);
+					FIND_IDENT + FIND_STRING + FIND_EVAL);
 			--emsg_off;
 			if (len == 0)
 			    return FAIL;
 			lbuf = vim_strnsave(lbuf, len);
 		    }
 		}
-# endif
-		*filename = wp->w_buffer->b_ffname;
-		*line = (int)lnum;
-		*text = lbuf;
-		*idx = col;
+
+		*winp = wp;
+		*lnump = lnum;
+		*textp = lbuf;
+		*colp = col;
 		beval->ts = wp->w_buffer->b_p_ts;
 		return OK;
 	    }
@@ -299,6 +409,8 @@ gui_mch_get_beval_info(beval, filename, line, text, idx)
 
     return FAIL;
 }
+
+# if !defined(FEAT_GUI_W32) || defined(PROTO)
 
 /*
  * Show a balloon with "mesg".
@@ -314,8 +426,10 @@ gui_mch_post_balloon(beval, mesg)
     else
 	undrawBalloon(beval);
 }
-#endif
+# endif /* FEAT_GUI_W32 */
+#endif /* FEAT_SUN_WORKSHOP || FEAT_NETBEANS_INTG || PROTO */
 
+#if !defined(FEAT_GUI_W32) || defined(PROTO)
 #if defined(FEAT_BEVAL_TIP) || defined(PROTO)
 /*
  * Hide the given balloon.
@@ -363,6 +477,7 @@ addEventHandler(GtkWidget *target, BalloonEval *beval)
     static void
 removeEventHandler(BalloonEval *beval)
 {
+    /* LINTED: avoid warning: dubious operation on enum */
     gtk_signal_disconnect_by_func((GtkObject*)(beval->target),
 				  GTK_SIGNAL_FUNC(target_event_cb),
 				  beval);
@@ -370,6 +485,7 @@ removeEventHandler(BalloonEval *beval)
     if (gtk_socket_id == 0 && gui.mainwin != NULL
 	    && gtk_widget_is_ancestor(beval->target, gui.mainwin))
     {
+	/* LINTED: avoid warning: dubious operation on enum */
 	gtk_signal_disconnect_by_func((GtkObject*)(gui.mainwin),
 				      GTK_SIGNAL_FUNC(mainwin_event_cb),
 				      beval);
@@ -520,7 +636,10 @@ key_event(BalloonEval *beval, unsigned keyval, int is_keypress)
 						 ? (int)GDK_CONTROL_MASK : 0);
 		break;
 	    default:
-		cancelBalloon(beval);
+		/* Don't do this for key release, we apparently get these with
+		 * focus changes in some GTK version. */
+		if (is_keypress)
+		    cancelBalloon(beval);
 		break;
 	}
     }
@@ -837,7 +956,7 @@ set_printable_label_text(GtkLabel *label, char_u *msg)
 	}
 	else
 	{
-	    charlen = utf_ptr2len_check(p);
+	    charlen = utf_ptr2len(p);
 	    uc = utf_ptr2char(p);
 
 	    if (charlen != utf_char2len(uc))
@@ -883,7 +1002,7 @@ set_printable_label_text(GtkLabel *label, char_u *msg)
 	    }
 	    else
 	    {
-		charlen = utf_ptr2len_check(p);
+		charlen = utf_ptr2len(p);
 		uc = utf_ptr2char(p);
 
 		if (charlen != utf_char2len(uc))
@@ -1255,5 +1374,6 @@ createBalloonEvalWindow(beval)
 }
 
 #endif /* !FEAT_GUI_GTK */
+#endif /* !FEAT_GUI_W32 */
 
 #endif /* FEAT_BEVAL */

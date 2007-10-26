@@ -18,12 +18,12 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 # 02111-1307, USA.
 
-AC_INIT([GNU tar], [1.14], [bug-tar@gnu.org])
+AC_INIT([GNU tar], [1.15.1], [bug-tar@gnu.org])
 AC_CONFIG_SRCDIR([src/tar.c])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_HEADERS([config.h:config.hin])
 AC_PREREQ([2.59])
-AM_INIT_AUTOMAKE([1.8 gnits dist-bzip2 dist-shar std-options])
+AM_INIT_AUTOMAKE([1.8 gnu dist-bzip2 dist-shar std-options])
 
 gl_USE_SYSTEM_EXTENSIONS
 AC_PROG_CC
@@ -39,7 +39,7 @@ AC_CHECK_HEADERS(fcntl.h linux/fd.h memory.h net/errno.h \
   sys/param.h sys/device.h sys/gentape.h \
   sys/inet.h sys/io/trioctl.h \
   sys/mtio.h sys/time.h sys/tprintf.h sys/tape.h \
-  unistd.h)
+  unistd.h locale.h)
 
 AC_CHECK_HEADERS([sys/buf.h], [], [],
 [#if HAVE_SYS_PARAM_H
@@ -48,26 +48,6 @@ AC_CHECK_HEADERS([sys/buf.h], [], [],
 
 AC_HEADER_SYS_WAIT
 AM_STDBOOL_H
-
-if test $ac_cv_header_sys_mtio_h = yes; then
-  AC_CACHE_CHECK(for remote tape header files, tar_cv_header_rmt,
-    [AC_TRY_CPP([
-#if HAVE_SGTTY_H
-# include <sgtty.h>
-#endif
-#include <sys/socket.h>],
-    tar_cv_header_rmt=yes, tar_cv_header_rmt=no)])
-  test $tar_cv_header_rmt = yes && RMT='rmt$(EXEEXT)'
-  AC_SUBST(RMT)
-fi
-
-AC_CACHE_CHECK(which ioctl field to test for reversed bytes,
-  tar_cv_header_mtio_check_field,
-  [AC_EGREP_HEADER(mt_model, sys/mtio.h,
-  tar_cv_header_mtio_check_field=mt_model,
-  tar_cv_header_mtio_check_field=mt_type)])
-AC_DEFINE_UNQUOTED(MTIO_CHECK_FIELD, $tar_cv_header_mtio_check_field,
-  [Define to mt_model (v.g., for DG/UX), else to mt_type.])
 
 AC_HEADER_DIRENT
 AC_HEADER_MAJOR
@@ -132,7 +112,6 @@ LIBS=$tar_save_LIBS
 AC_CHECK_FUNCS(fsync lstat mkfifo readlink strerror symlink setlocale utimes)
 AC_CHECK_DECLS([getgrgid],,, [#include <grp.h>])
 AC_CHECK_DECLS([getpwuid],,, [#include <pwd.h>])
-AC_CHECK_DECLS([valloc])
 AC_CHECK_DECLS([time],,, [#include <time.h>])
 
 # Set LIB_SETSOCKOPT to -lnsl -lsocket if necessary.
@@ -239,16 +218,7 @@ AC_DEFINE_UNQUOTED(DEFAULT_BLOCKING, $DEFAULT_BLOCKING,
   [Define to a number giving the default blocking size for archives.])
 AC_MSG_RESULT($DEFAULT_BLOCKING)
 
-AC_ARG_VAR([DEFAULT_RMT_COMMAND],
-           [Define full pathname of rmt program.])
-if test "x$DEFAULT_RMT_COMMAND" != x; then
-  AC_DEFINE_UNQUOTED(DEFAULT_RMT_COMMAND, "$DEFAULT_RMT_COMMAND",
-                     [Define full pathname of rmt program.])
-fi
-
-# Gettext.
-AM_GNU_GETTEXT([external], [need-ngettext])
-AM_GNU_GETTEXT_VERSION(0.12.1)
+PU_RMT
 
 # Iconv
 AM_ICONV
@@ -261,6 +231,15 @@ AC_CHECK_TYPE(iconv_t,:,
 # include <iconv.h>
 #endif
 ])
+
+# Gettext.
+AM_GNU_GETTEXT([external], [need-ngettext])
+AM_GNU_GETTEXT_VERSION(0.12.1)
+
+# Initialize the test suite.
+AC_CONFIG_TESTDIR(tests)
+AC_CONFIG_FILES([tests/Makefile tests/atlocal]) # FIXME: tests/preset?
+AM_MISSING_PROG([AUTOM4TE], [autom4te])
 
 AC_SUBST(BACKUP_LIBEXEC_SCRIPTS)
 AC_SUBST(BACKUP_SBIN_SCRIPTS)
@@ -288,6 +267,5 @@ AC_OUTPUT([Makefile\
            lib/Makefile\
            po/Makefile.in\
            scripts/Makefile\
-           src/Makefile\
-           tests/Makefile\
-           tests/preset])
+           rmt/Makefile\
+           src/Makefile])

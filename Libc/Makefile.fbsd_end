@@ -13,32 +13,55 @@
 FBSDSECTIONS= 1 2 3 4 5 6 7 8 9
 
 .for _src in ${FBSDSRCS}
-${SYMROOT}/${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHSYM
+.ifmake autopatch
+${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHSRCS+= ${_src:R}-fbsd.${_src:E}
+.else # !autopatch
 SRCS+= ${_src}
-AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-fbsd.${_src:E}
+.endif # autopatch
 .endfor
 
 .for _src in ${FBSDMDSRCS}
-${SYMROOT}/${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHSYM
+.ifmake autopatch
+${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHSRCS+= ${_src:R}-fbsd.${_src:E}
+.else # !autopatch
 MDSRCS+= ${_src}
-AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-fbsd.${_src:E}
+.endif # autopatch
 .endfor
 
 .for _src in ${FBSDMISRCS}
-${SYMROOT}/${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHSYM
+.ifmake autopatch
+${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHSRCS+= ${_src:R}-fbsd.${_src:E}
+.else # !autopatch
 MISRCS+= ${_src}
-AUTOPATCHSRCS+= ${SYMROOT}/${_src:R}-fbsd.${_src:E}
+.endif # autopatch
 .endfor
 
-.for _src in ${FBSDHDRS}
-${SYMROOT}/${_src}: FreeBSD/${_src} _AUTOPATCHSYM
-AUTOPATCHHDRS+= ${SYMROOT}/${_src}
+# FBSDPATCHSRCS are for source that need patching, but don't build
+# in base variant (only in other variants)
+.ifmake autopatch
+.for _src in ${FBSDPATCHSRCS}
+${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHSRCS+= ${_src:R}-fbsd.${_src:E}
 .endfor
+.endif # autopatch
+
+.ifmake autopatch
+.for _src in ${FBSDHDRS}
+${_src}: FreeBSD/${_src} _AUTOPATCHCUR
+AUTOPATCHHDRS+= ${_src}
+.endfor
+.endif # autopatch
 
 .for _sect in ${FBSDSECTIONS}
 .for _src in ${FBSDMAN${_sect}}
+.ifmake autopatch
 ${_src}: FreeBSD/${_src} _AUTOPATCH
-MAN${_sect}+= ${_src}
 AUTOPATCHMAN+= ${_src}
+.else # !autopatch
+MAN${_sect}+= ${_src}
+.endif # autopatch
 .endfor
 .endfor

@@ -1,9 +1,10 @@
 #################################################################
+# $Id: Makefile.netware,v 1.40 2007-06-22 21:10:17 gknauf Exp $
 #
 ## Makefile for building curl.nlm (NetWare version - gnu make)
 ## Use: make -f Makefile.netware
 ##
-## Comments to: Guenter Knauf <eflash@gmx.net>
+## Comments to: Guenter Knauf http://www.gknw.de/phpbb
 #
 #################################################################
 
@@ -13,27 +14,32 @@ NDKBASE	= c:/novell
 endif
 
 # Edit the path below to point to the base of your Zlib sources.
-#ZLIB_PATH = ../../zlib-1.2.1
+ifndef ZLIB_PATH
+ZLIB_PATH = ../../zlib-1.2.3
+endif
 
 # Edit the path below to point to the base of your OpenSSL package.
 ifndef OPENSSL_PATH
-OPENSSL_PATH = ../../openssl-0.9.7d
+OPENSSL_PATH = ../../openssl-0.9.8e
+endif
+
+# Edit the path below to point to the base of your LibSSH2 package.
+ifndef LIBSSH2_PATH
+LIBSSH2_PATH = ../../libssh2-0.15
 endif
 
 ifndef INSTDIR
-INSTDIR	= ../curl-$(LIBCURL_VERSION_STR)-bin-nw
+INSTDIR	= ..$(DS)curl-$(LIBCURL_VERSION_STR)-bin-nw
 endif
 
 # Edit the vars below to change NLM target settings.
 TARGET  = curl
 VERSION	= $(LIBCURL_VERSION)
-COPYR	= Copyright (c) 1996 - 2004, Daniel Stenberg, <daniel@haxx.se>
+COPYR	= Copyright (C) 1996 - 2007, Daniel Stenberg, <daniel@haxx.se>
 DESCR	= cURL $(LIBCURL_VERSION_STR) - http://curl.haxx.se
 MTSAFE	= YES
 STACK	= 64000
 SCREEN	= $(TARGET) commandline utility
-MODULES	= libcurl.nlm
-IMPORTS	= @../lib/libcurl.imp
 # Comment the line below if you dont want to load protected automatically.
 LDRING	= 3
 
@@ -42,9 +48,10 @@ ifndef LIBARCH
 LIBARCH = LIBC
 endif
 
-# must be equal to DEBUG or NDEBUG
+# must be equal to NDEBUG or DEBUG, CURLDEBUG
+ifndef DB
 DB	= NDEBUG
-# DB	= DEBUG
+endif
 # Optimization: -O<n> or debugging: -g
 ifeq ($(DB),NDEBUG)
 	OPT	= -O2
@@ -63,11 +70,12 @@ ifdef METROWERKS
 else
 	CC = gcc
 endif
+AWK	= awk
 CP	= cp -afv
 # RM	= rm -f
 # if you want to mark the target as MTSAFE you will need a tool for
 # generating the xdc data for the linker; here's a minimal tool:
-# http://www.gknw.com/development/prgtools/mkxdc.zip
+# http://www.gknw.net/development/prgtools/mkxdc.zip
 MPKXDC	= mkxdc
 
 # Global flags for all compilers
@@ -75,7 +83,8 @@ CFLAGS	= $(OPT) -D$(DB) -DNETWARE -DHAVE_CONFIG_H -nostdinc
 
 ifeq ($(CC),mwccnlm)
 LD	= mwldnlm
-LDFLAGS	= -nostdlib $(PRELUDE) $(OBJDIR)/*.o -o $(TARGET).nlm -commandfile
+LDFLAGS	= -nostdlib $(OBJS) $(PRELUDE) $(LDLIBS) -o $@ -commandfile
+LIBEXT	= lib
 CFLAGS	+= -gccinc -inline off -opt nointrinsics -proc 586
 CFLAGS	+= -relax_pointers
 #CFLAGS	+= -w on
@@ -90,7 +99,8 @@ endif
 else
 LD	= nlmconv
 LDFLAGS	= -T
-CFLAGS	+= -fno-builtin -fpack-struct -fpcc-struct-return -fno-strict-aliasing
+LIBEXT	= a
+CFLAGS	+= -fno-builtin -fpcc-struct-return -fno-strict-aliasing
 CFLAGS	+= -Wall # -pedantic
 ifeq ($(LIBARCH),LIBC)
 	PRELUDE = $(SDK_LIBC)/imports/libcpre.gcc.o
@@ -100,26 +110,49 @@ else
 endif
 endif
 
-LDLIBS	=
-
 NDK_ROOT = $(NDKBASE)/ndk
 SDK_CLIB = $(NDK_ROOT)/nwsdk
 SDK_LIBC = $(NDK_ROOT)/libc
 SDK_LDAP = $(NDK_ROOT)/cldapsdk/netware
 CURL_INC = ../include
 CURL_LIB = ../lib
+ARES_LIB = ../ares
 
 INCLUDES = -I$(CURL_INC) -I$(CURL_LIB)
 
-ifdef ZLIB_PATH
+ifdef LINK_STATIC
+	LDLIBS	= $(CURL_LIB)/libcurl.$(LIBEXT)
+else
+	MODULES	= libcurl.nlm
+	IMPORTS	= @$(CURL_LIB)/libcurl.imp
+endif
+ifdef WITH_ZLIB
 	INCLUDES += -I$(ZLIB_PATH)
-	IMPORTS += @$(ZLIB_PATH)/nw/zlib.imp
+ifdef LINK_STATIC
+	LDLIBS += $(ZLIB_PATH)/nw/libz.$(LIBEXT)
+else
 	MODULES += libz.nlm
+	IMPORTS += @$(ZLIB_PATH)/nw/libz.imp
+endif
+endif
+ifdef WITH_SSH2
+	INCLUDES += -I$(LIBSSH2_PATH)/include
+ifdef LINK_STATIC
+	LDLIBS += $(LIBSSH2_PATH)/nw/libssh2.$(LIBEXT)
+else
+	MODULES += libssh2.nlm
+	IMPORTS += @$(LIBSSH2_PATH)/nw/libssh2.imp
+endif
+endif
+ifdef WITH_SSL
+	LDLIBS += $(OPENSSL_PATH)/out_nw_libc/ssl.$(LIBEXT)
+	LDLIBS += $(OPENSSL_PATH)/out_nw_libc/crypto.$(LIBEXT)
+	IMPORTS += GetProcessSwitchCount RunningProcess
 endif
 
 ifeq ($(LIBARCH),LIBC)
 	INCLUDES += -I$(SDK_LIBC)/include -I$(SDK_LIBC)/include/nks
-	INCLUDES += -I$(SDK_LIBC)/include/winsock
+	# INCLUDES += -I$(SDK_LIBC)/include/winsock
 	# INCLUDES += -I$(SDK_LDAP)/libc/inc
 	CFLAGS += -D_POSIX_SOURCE
 	# CFLAGS += -D__ANSIC__
@@ -142,16 +175,19 @@ endif
 
 ifeq ($(findstring linux,$(OSTYPE)),linux)
 DL	= '
+DS	= /
 #-include $(NDKBASE)/nlmconv/ncpfs.inc
+else
+DS	= \\
 endif
 
 # Makefile.inc provides the CSOURCES and HHEADERS defines
 include Makefile.inc
 
-OBJS	:= $(patsubst %.c,$(OBJDIR)/%.o,$(strip $(CURL_SOURCES)))
 OBJX	:= $(patsubst %.c,$(OBJDIR)/%.o,$(notdir $(strip $(CURLX_ONES))))
+OBJS	:= $(patsubst %.c,$(OBJDIR)/%.o,$(strip $(CURL_SOURCES))) $(OBJX)
 
-vpath %.c ../lib
+vpath %.c $(CURL_LIB)
 
 all: prebuild $(TARGET).nlm 
 
@@ -163,18 +199,25 @@ $(OBJDIR)/%.o: %.c
 
 $(OBJDIR)/version.inc: $(CURL_INC)/curl/curlver.h $(OBJDIR)
 	@echo Creating $@
-	@awk -f ../packages/NetWare/get_ver.awk $< > $@
+	@$(AWK) -f ../packages/NetWare/get_ver.awk $< > $@
 
 dist: all
 	-$(RM) $(OBJDIR)/*.o $(OBJDIR)/$(TARGET).map $(OBJDIR)/$(TARGET).ncv
 	-$(RM) $(OBJDIR)/$(TARGET).def $(OBJDIR)/version.inc $(XDCDATA)
 
 install: $(INSTDIR) all
+	@$(CP) ../docs/$(TARGET).pdf $(INSTDIR)
 	@$(CP) $(TARGET).nlm $(INSTDIR)
 
 clean:
-	-$(RM) config.h hugehelp.c
+ifeq "$(wildcard hugehelp.c.cvs)" "hugehelp.c.cvs"
+	-$(RM) hugehelp.c
+endif
+	-$(RM) config.h
 	-$(RM) -r $(OBJDIR)
+
+distclean: clean
+	-$(RM) -r $(TARGET).nlm
 
 $(INSTDIR):
 	@mkdir $(INSTDIR)
@@ -210,7 +253,7 @@ ifdef SCREEN
 else
 	@echo $(DL)screenname "DEFAULT"$(DL) >> $@
 endif
-ifeq ($(DB),DEBUG)
+ifneq ($(DB),NDEBUG)
 	@echo $(DL)debug$(DL) >> $@
 endif
 	@echo $(DL)threadname "$(TARGET)"$(DL) >> $@
@@ -258,8 +301,10 @@ ifdef IMPORTS
 endif
 ifeq ($(LD),nlmconv)
 	@echo $(DL)input $(OBJS)$(DL) >> $@
-	@echo $(DL)input $(OBJX)$(DL) >> $@
 	@echo $(DL)input $(PRELUDE)$(DL) >> $@
+ifdef LDLIBS
+	@echo $(DL)input $(LDLIBS)$(DL) >> $@
+endif
 	@echo $(DL)output $(TARGET).nlm$(DL) >> $@
 endif
 
@@ -269,9 +314,12 @@ config.h: Makefile.netware
 	@echo $(DL)** Do not edit this file - it is created by make!$(DL) >> $@
 	@echo $(DL)** All your changes will be lost!!$(DL) >> $@
 	@echo $(DL)*/$(DL) >> $@
+	@echo $(DL)#ifndef NETWARE$(DL) >> $@
+	@echo $(DL)#error This $(notdir $@) is created for NetWare platform!$(DL) >> $@
+	@echo $(DL)#endif$(DL) >> $@
 	@echo $(DL)#define OS "i586-pc-NetWare"$(DL) >> $@
 	@echo $(DL)#define VERSION "$(LIBCURL_VERSION_STR)"$(DL) >> $@
-	@echo $(DL)#define PACKAGE_BUGREPORT "curl-bug@haxx.se"$(DL) >> $@
+	@echo $(DL)#define PACKAGE_BUGREPORT "a suitable curl mailing list => http://curl.haxx.se/mail/"$(DL) >> $@
 	@echo $(DL)#define USE_MANUAL 1$(DL) >> $@
 	@echo $(DL)#define HAVE_ARPA_INET_H 1$(DL) >> $@
 	@echo $(DL)#define HAVE_ASSERT_H 1$(DL) >> $@
@@ -280,6 +328,7 @@ config.h: Makefile.netware
 	@echo $(DL)#define HAVE_ERR_H 1$(DL) >> $@
 	@echo $(DL)#define HAVE_FCNTL_H 1$(DL) >> $@
 	@echo $(DL)#define HAVE_FIONBIO 1$(DL) >> $@
+	@echo $(DL)#define HAVE_FTRUNCATE 1$(DL) >> $@
 	@echo $(DL)#define HAVE_GETHOSTBYADDR 1$(DL) >> $@
 	@echo $(DL)#define HAVE_GETTIMEOFDAY 1$(DL) >> $@
 	@echo $(DL)#define HAVE_INET_ADDR 1$(DL) >> $@
@@ -290,9 +339,13 @@ config.h: Makefile.netware
 	@echo $(DL)#define HAVE_LONGLONG 1$(DL) >> $@
 	@echo $(DL)#define HAVE_MALLOC_H 1$(DL) >> $@
 	@echo $(DL)#define HAVE_NETINET_IN_H 1$(DL) >> $@
+	@echo $(DL)#define HAVE_RECV 1$(DL) >> $@
 	@echo $(DL)#define HAVE_SELECT 1$(DL) >> $@
+	@echo $(DL)#define HAVE_SEND 1$(DL) >> $@
 	@echo $(DL)#define HAVE_SETJMP_H 1$(DL) >> $@
 	@echo $(DL)#define HAVE_SIGNAL 1$(DL) >> $@
+	@echo $(DL)#define HAVE_SIGNAL_H 1$(DL) >> $@
+	@echo $(DL)#define HAVE_SIG_ATOMIC_T 1$(DL) >> $@
 	@echo $(DL)#define HAVE_SOCKET 1$(DL) >> $@
 	@echo $(DL)#define HAVE_STDINT_H 1$(DL) >> $@
 	@echo $(DL)#define HAVE_STDLIB_H 1$(DL) >> $@
@@ -311,10 +364,25 @@ config.h: Makefile.netware
 	@echo $(DL)#define HAVE_TIME_H 1$(DL) >> $@
 	@echo $(DL)#define HAVE_UNAME 1$(DL) >> $@
 	@echo $(DL)#define HAVE_UNISTD_H 1$(DL) >> $@
+	@echo $(DL)#define RECV_TYPE_ARG1 int$(DL) >> $@
+	@echo $(DL)#define RECV_TYPE_ARG2 char *$(DL) >> $@
+	@echo $(DL)#define RECV_TYPE_ARG3 int$(DL) >> $@
+	@echo $(DL)#define RECV_TYPE_ARG4 int$(DL) >> $@
+	@echo $(DL)#define RECV_TYPE_RETV int$(DL) >> $@
 	@echo $(DL)#define RETSIGTYPE void$(DL) >> $@
+	@echo $(DL)#define SEND_QUAL_ARG2$(DL) >> $@
+	@echo $(DL)#define SEND_TYPE_ARG1 int$(DL) >> $@
+	@echo $(DL)#define SEND_TYPE_ARG2 char *$(DL) >> $@
+	@echo $(DL)#define SEND_TYPE_ARG3 int$(DL) >> $@
+	@echo $(DL)#define SEND_TYPE_ARG4 int$(DL) >> $@
+	@echo $(DL)#define SEND_TYPE_RETV int$(DL) >> $@
 	@echo $(DL)#define SIZEOF_CURL_OFF_T 4$(DL) >> $@
 	@echo $(DL)#define STDC_HEADERS 1$(DL) >> $@
 	@echo $(DL)#define TIME_WITH_SYS_TIME 1$(DL) >> $@
+	@echo $(DL)#define HAVE_STRUCT_TIMEVAL 1$(DL) >> $@
+ifdef ENABLE_IPV6
+	@echo $(DL)#define ENABLE_IPV6 1$(DL) >> $@
+endif
 ifdef NW_WINSOCK
 	@echo $(DL)#define HAVE_CLOSESOCKET 1$(DL) >> $@
 else
@@ -326,11 +394,11 @@ endif
 ifdef WITH_ARES
 	@echo $(DL)#define USE_ARES 1$(DL) >> $@
 endif
-ifdef ZLIB_PATH
+ifdef WITH_ZLIB
 	@echo $(DL)#define HAVE_ZLIB_H 1$(DL) >> $@
 	@echo $(DL)#define HAVE_LIBZ 1$(DL) >> $@
 endif
-ifdef SSL
+ifdef WITH_SSL
 	@echo $(DL)#define USE_SSLEAY 1$(DL) >> $@
 	@echo $(DL)#define HAVE_OPENSSL_X509_H 1$(DL) >> $@
 	@echo $(DL)#define HAVE_OPENSSL_SSL_H 1$(DL) >> $@
@@ -343,6 +411,15 @@ ifdef SSL
 	@echo $(DL)#define HAVE_LIBCRYPTO 1$(DL) >> $@
 	@echo $(DL)#define OPENSSL_NO_KRB5 1$(DL) >> $@
 endif
+ifdef WITH_SSH2
+	@echo $(DL)#define USE_LIBSSH2 1$(DL) >> $@
+	@echo $(DL)#define HAVE_LIBSSH2_H 1$(DL) >> $@
+endif
+	@echo $(DL)#ifdef __GNUC__$(DL) >> $@
+	@echo $(DL)#define HAVE_VARIADIC_MACROS_GCC 1$(DL) >> $@
+	@echo $(DL)#else$(DL) >> $@
+	@echo $(DL)#define HAVE_VARIADIC_MACROS_C99 1$(DL) >> $@
+	@echo $(DL)#endif$(DL) >> $@
 ifdef OLD_NOVELLSDK
 	@echo $(DL)#define socklen_t int$(DL) >> $@
 endif

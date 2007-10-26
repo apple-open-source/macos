@@ -34,20 +34,11 @@ sub getpartattr {
              ) {
             $inside++;
             my $attr=$1;
-            my @p=split("[\t]", $attr);
-            my $assign;
 
-            foreach $assign (@p) {
-                # $assign is a 'name="contents"' pair
-
-                if($assign =~ / *([^=]*)=\"([^\"]*)\"/) {
-                    # *with* quotes
-                    $hash{$1}=$2;
-                }
-                elsif($assign =~ / *([^=]*)=([^\"]*)/) {
-                    # *without* quotes
-                    $hash{$1}=$2;
-                }
+            while($attr =~ s/ *([^=]*)= *(\"([^\"]*)\"|([^\"> ]*))//) {
+                my ($var, $cont)=($1, $2);
+                $cont =~ s/^\"(.*)\"$/$1/;
+                $hash{$var}=$cont;
             }
             last;
         }
@@ -73,7 +64,7 @@ sub getpart {
             $inside++;
         }
         elsif((1 ==$inside) && ($_ =~ /^ *\<$part[ \>]/)) {
-            if($_ =~ /$part .*base64=/) {
+            if($_ =~ /$part [^>]*base64=/) {
                 # attempt to detect base64 encoded parts
                 $base64=1;
             }
@@ -220,7 +211,11 @@ sub showdiff {
         print TEMP $_;
     }
     close(TEMP);
-    my @out = `diff -u $file2 $file1`;
+    my @out = `diff -u $file2 $file1 2>/dev/null`;
+
+    if(!$out[0]) {
+	@out = `diff -c $file2 $file1 2>/dev/null`;
+    }
 
     return @out;
 }

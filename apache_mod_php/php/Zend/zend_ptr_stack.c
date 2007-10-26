@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_ptr_stack.c,v 1.23.2.1.2.1 2007/01/01 09:35:47 sebastian Exp $ */
 
 #include "zend.h"
 #include "zend_ptr_stack.h"
@@ -37,12 +38,8 @@ ZEND_API void zend_ptr_stack_n_push(zend_ptr_stack *stack, int count, ...)
 	va_list ptr;
 	void *elem;
 	
-	if (stack->top+count > stack->max) {		/* we need to allocate more memory */
-		stack->max *= 2;
-		stack->max += count; 
-		stack->elements = (void **) erealloc(stack->elements, (sizeof(void *) * (stack->max)));
-		stack->top_element = stack->elements+stack->top;
-	}
+	ZEND_PTR_STACK_RESIZE_IF_NEEDED(stack, count)
+
 	va_start(ptr, count);
 	while (count>0) {
 		elem = va_arg(ptr, void *);
@@ -108,3 +105,11 @@ ZEND_API int zend_ptr_stack_num_elements(zend_ptr_stack *stack)
 {
 	return stack->top;
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

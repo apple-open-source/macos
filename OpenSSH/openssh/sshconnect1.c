@@ -47,6 +47,7 @@
 #include "canohost.h"
 #include "hostfile.h"
 #include "auth.h"
+#include "keychain.h"
 
 /* Session id for the current session. */
 u_char session_id[16];
@@ -260,7 +261,9 @@ try_rsa_authentication(int idx)
 		snprintf(buf, sizeof(buf),
 		    "Enter passphrase for RSA key '%.100s': ", comment);
 		for (i = 0; i < options.number_of_password_prompts; i++) {
-			passphrase = read_passphrase(buf, 0);
+			passphrase = keychain_read_passphrase(comment);
+			if (passphrase == NULL)
+				passphrase = read_passphrase(buf, 0);
 			if (strcmp(passphrase, "") != 0) {
 				private = key_load_private_type(KEY_RSA1,
 				    authfile, passphrase, NULL, NULL);

@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Kristian Koehntopp <kris@koehntopp.de>					              |
+   | Author: Kristian Koehntopp <kris@koehntopp.de>					      |
    +----------------------------------------------------------------------+
  */
  
-/* $Id: recode.c,v 1.29.2.1.8.2 2007/01/01 09:46:46 sebastian Exp $ */
+/* $Id: recode.c,v 1.37.2.1.2.3 2007/06/22 00:02:15 stas Exp $ */
 
 /* {{{ includes & prototypes */
 
@@ -64,6 +64,7 @@ ZEND_END_MODULE_GLOBALS(recode)
 #endif
     
 ZEND_DECLARE_MODULE_GLOBALS(recode);
+static PHP_GINIT_FUNCTION(recode);
 
 /* {{{ module stuff */
 static zend_function_entry php_recode_functions[] = {
@@ -83,22 +84,24 @@ zend_module_entry recode_module_entry = {
 	NULL, 
 	PHP_MINFO(recode), 
 	NO_VERSION_YET,
-	STANDARD_MODULE_PROPERTIES
+	PHP_MODULE_GLOBALS(recode),
+	PHP_GINIT(recode),
+	NULL,
+	NULL,
+	STANDARD_MODULE_PROPERTIES_EX
 };
 
 #ifdef COMPILE_DL_RECODE
 ZEND_GET_MODULE(recode)
 #endif
 
-static void php_recode_init_globals (zend_recode_globals *rg)
+static PHP_GINIT_FUNCTION(recode)
 {
-	rg->outer = NULL;
+	recode_globals->outer = NULL;
 }
 
 PHP_MINIT_FUNCTION(recode)
 {
-	ZEND_INIT_MODULE_GLOBALS(recode, php_recode_init_globals, NULL);
-
 	ReSG(outer) = recode_new_outer(false);
 	if (ReSG(outer) == NULL) {
 		return FAILURE;
@@ -119,7 +122,7 @@ PHP_MINFO_FUNCTION(recode)
 {
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Recode Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.29.2.1.8.2 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.37.2.1.2.3 $");
 	php_info_print_table_end();
 }
 
@@ -129,46 +132,37 @@ PHP_FUNCTION(recode_string)
 {
 	RECODE_REQUEST request = NULL;
 	char *r = NULL;
-	zval **str;
-	zval **req;
-	bool success;
-	int r_len=0, r_alen =0;
+	size_t r_len = 0, r_alen = 0;
+	int req_len, str_len;
+	char *req, *str;
 
-	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &req, &str) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss", &req, &req_len, &str, &str_len) == FAILURE) {
+		return;
 	}
-	convert_to_string_ex(str);
-	convert_to_string_ex(req);
 
 	request = recode_new_request(ReSG(outer));
 
 	if (request == NULL) {
-		php_error(E_WARNING, "Cannot allocate request structure");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot allocate request structure");
 		RETURN_FALSE;
 	}
-	
-	success = recode_scan_request(request, Z_STRVAL_PP(req));
-	if (!success) {
-		php_error(E_WARNING, "Illegal recode request '%s'", Z_STRVAL_PP(req));
+
+	if (!recode_scan_request(request, req)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Illegal recode request '%s'", req);
 		goto error_exit;
 	}
 	
-	recode_buffer_to_buffer(request, Z_STRVAL_PP(str), Z_STRLEN_PP(str), &r, &r_len, &r_alen);
+	recode_buffer_to_buffer(request, str, str_len, &r, &r_len, &r_alen);
 	if (!r) {
-		php_error(E_WARNING, "Recoding failed.");
-		goto error_exit;
-	}
-	
-	RETVAL_STRINGL(r, r_len, 1);
-	free(r);
-	/* FALLTHROUGH */
-
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Recoding failed.");
 error_exit:
-	if (request)
-		recode_delete_request(request);
+		RETVAL_FALSE;
+	} else {
+		RETVAL_STRINGL(r, r_len, 1);
+		free(r);
+	}
 
-	if (!r)	
-		RETURN_FALSE;
+	recode_delete_request(request);
 
 	return;
 }
@@ -179,7 +173,6 @@ error_exit:
 PHP_FUNCTION(recode_file)
 {
 	RECODE_REQUEST request = NULL;
-	int success;
 	zval **req;
 	zval **input, **output;
 	php_stream *instream, *outstream;
@@ -204,30 +197,25 @@ PHP_FUNCTION(recode_file)
 
 	request = recode_new_request(ReSG(outer));
 	if (request == NULL) {
-		php_error(E_WARNING, "Cannot allocate request structure");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot allocate request structure");
 		RETURN_FALSE;
 	}
 
-	success = recode_scan_request(request, Z_STRVAL_PP(req));
-	if (!success) {
-		php_error(E_WARNING, "Illegal recode request '%s'", Z_STRVAL_PP(req));
+	if (!recode_scan_request(request, Z_STRVAL_PP(req))) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Illegal recode request '%s'", Z_STRVAL_PP(req));
 		goto error_exit;
 	}
 	
-	success = recode_file_to_file(request, in_fp, out_fp);
-	if (!success) {
-		php_error(E_WARNING, "Recoding failed.");
+	if (!recode_file_to_file(request, in_fp, out_fp)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Recoding failed.");
 		goto error_exit;
 	}
 
-	if (request)
-		recode_delete_request(request);
+	recode_delete_request(request);
 	RETURN_TRUE;
 
 error_exit:
-	if (request)
-		recode_delete_request(request);
-	
+	recode_delete_request(request);
 	RETURN_FALSE;
 }
 /* }}} */

@@ -92,40 +92,37 @@ static struct {
  * or use err_set_exit() and make various structures globals.
  */
 
+#define NAME_USER   (1)
+#define NAME_GROUP  (2)
+#define NAME_EITHER (NAME_USER | NAME_GROUP)
+
 /* Perform a name to uuid mapping - calls through to memberd */
 
 uuid_t *
-name_to_uuid(char *tok) {
+name_to_uuid(char *tok, int nametype) {
 	struct passwd *tpass = NULL;
 	struct group *tgrp = NULL;
 	uuid_t *entryg = NULL;
-	char is_uid = 1;
 
 	if ((entryg = (uuid_t *) calloc(1,sizeof(uuid_t))) == NULL)
 		err(1, "Unable to allocate a uuid");
-	
-	tpass = getpwnam(tok);
 
-	if (tpass == NULL) {
+	if (nametype & NAME_USER)
+		tpass = getpwnam(tok);
+
+	if (NULL == tpass && (nametype & NAME_GROUP))
 		tgrp = getgrnam(tok);
-		if (tgrp == NULL) {
-			errno = EINVAL;
-			err(1, "Unable to translate %s to a UID/GID", tok);
-		}
-		is_uid = 0;
-	}
-	
+
 	if (tpass) {
-		if (0 != mbr_uid_to_uuid(tpass->pw_uid, entryg)) {
-			errno = EINVAL;
-			err(1, "mbr_uid_to_uuid(): Unable to translate");
+		if (0 != mbr_uid_to_uuid(tpass->pw_uid, *entryg)) {
+			errx(1, "mbr_uid_to_uuid(): Unable to translate uid %d", tpass->pw_uid);
 		}
-	}
-	else {
-		if (0 != mbr_gid_to_uuid(tgrp->gr_gid, entryg)) {
-			errno = EINVAL;
-			err(1, "mbr_gid_to_uuid(): Unable to translate");
+	} else if (tgrp) {
+		if (0 != mbr_gid_to_uuid(tgrp->gr_gid, *entryg)) {
+			errx(1, "mbr_gid_to_uuid(): Unable to translate gid %d", tgrp->gr_gid);
 		}
+	} else {
+		errx(1, "Unable to translate '%s' to a UID/GID", tok);
 	}
 	return entryg;
 }
@@ -142,26 +139,36 @@ parse_entry(char *entrybuf, acl_entry_t newent) {
 	acl_flagset_t	flags;
 	unsigned permcount = 0;
 	unsigned pindex = 0;
+	char *delimiter = " ";
+	int nametype = NAME_EITHER;
 
 	acl_get_permset(newent, &perms);
 	acl_get_flagset_np(newent, &flags);
 
 	pebuf = entrybuf;
 
-	tok = strsep(&pebuf, " ");
+	if (0 == strncmp(entrybuf, "user:", 5)) {
+		nametype = NAME_USER;
+		pebuf += 5;
+	} else if (0 == strncmp(entrybuf, "group:", 6)) {
+		nametype = NAME_GROUP;
+		pebuf += 6;
+	}
+
+	if (strchr(pebuf, ':')) /* User/Group names can have spaces */
+		delimiter = ":";
+	tok = strsep(&pebuf, delimiter);
 	
 	if ((tok == NULL) || *tok == '\0') {
-		errno = EINVAL;
-		err(1, "Invalid entry format");
+		errx(1, "Invalid entry format -- expected user or group name");
 	}
 
 	/* parse the name into a qualifier */
-	entryg = name_to_uuid(tok);
+	entryg = name_to_uuid(tok, nametype);
 
-	tok = strsep(&pebuf, " ");
+	tok = strsep(&pebuf, ": "); /* Stick with delimiter? */
 	if ((tok == NULL) || *tok == '\0') {
-		errno = EINVAL;
-		err(1, "Invalid entry format");
+		errx(1, "Invalid entry format -- expected allow or deny");
 	}
 
 	/* is the verb 'allow' or 'deny'? */
@@ -170,8 +177,7 @@ parse_entry(char *entrybuf, acl_entry_t newent) {
 	} else if (!strcmp(tok, "deny")) {
 		tag = ACL_EXTENDED_DENY;
 	} else {
-		errno = EINVAL;
-		err(1, "Unknown tag type '%s'", tok);
+		errx(1, "Unknown tag type '%s'", tok);
 	}
 
 	/* parse permissions */
@@ -195,15 +201,13 @@ parse_entry(char *entrybuf, acl_entry_t newent) {
 					goto found;
 				}
 			}
-			errno = EINVAL;
-			err(1,"Invalid permission type %s", tok);
+			errx(1,"Invalid permission type '%s'", tok);
 		found:
 			continue;
 		}
 	}
 	if (0 == permcount) {
-		errno = EINVAL;
-		err(1, "No permissions specified");
+		errx(1, "No permissions specified");
 	}
 	acl_set_tag_type(newent, tag);
 	acl_set_qualifier(newent, entryg);
@@ -248,12 +252,10 @@ parse_acl_entries(const char *input) {
 			if (0 != acl_create_entry(&acl_input, &newent))
 				err(1, "acl_create_entry() failed");
 			if (0 != parse_entry(*bufp, newent)) {
-				errno = EINVAL;
-				err(1, "Failed parsing entry %s", *bufp);
+				errx(1, "Failed parsing entry '%s'", *bufp);
 			}
 			if (++bufp >= &entryv[ACL_MAX_ENTRIES - 1]) {
-				errno = ERANGE;
-				err(1, "Too many entries");
+				errx(1, "Too many entries");
 			}
 		}
 	
@@ -302,8 +304,7 @@ score_acl_entry(acl_entry_t entry) {
 		score++;
 		break;
 	default:
-		errno = EINVAL;
-		err(1, "Unknown tag type present in ACL entry");
+		errx(1, "Unknown tag type %d present in ACL entry", tag);
 	        /* NOTREACHED */
 	}
 
@@ -476,15 +477,14 @@ find_matching_entry (acl_t acl, acl_entry_t modifier, acl_entry_t *rentryp,
 		if ((cmp == MATCH_EXACT) || (cmp == MATCH_PARTIAL)) {
 			if (match_inherited) {
 				acl_flagset_t eflags, mflags;
-				
+
 				if (0 != acl_get_flagset_np(modifier, &mflags))
 					err(1, "Unable to get flagset");
 				
 				if (0 != acl_get_flagset_np(entry, &eflags))
 					err(1, "Unable to get flagset");
 					
-				if (acl_get_flag_np(mflags, ACL_ENTRY_INHERITED) ==
-				    acl_get_flag_np(eflags, ACL_ENTRY_INHERITED)) {
+				if (compare_acl_flagsets(mflags, eflags) == MATCH_EXACT) {
 					*rentryp = entry;
 					fcmp = cmp;
 				}
@@ -609,8 +609,7 @@ modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 		if (optflags & ACL_DELETE_FLAG) {
 
 			if (flag_new_acl) {
-				errno = EINVAL;
-				err(1, "No ACL present");
+				errx(1, "No ACL present");
 			}
 			if (position != -1 ) {
 				if (0 != acl_get_entry(oacl, position, &rentry))
@@ -639,8 +638,7 @@ modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 					}
 				}
 				if (0 == match_found) {
-					errno = EINVAL;
-					warn("Entry not found when attempting delete");
+					warnx("Entry not found when attempting delete");
 					retval = 1;
 				}
 			}
@@ -759,40 +757,43 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 			if (oacl)
 				acl_free(oacl);
 			oacl = facl;
-		}
-		else
-		if (optflags & ACL_CHECK_CANONICITY) {
+		} else if (optflags & ACL_TO_STDOUT) {
+			ssize_t len; /* need to get printacl() from ls(1) */
+			char *text = acl_to_text(oacl, &len);
+			puts(text);
+			acl_free(text);
+		} else if (optflags & ACL_CHECK_CANONICITY) {
 			if (flag_new_acl) {
-				errno = EINVAL;
-				warn("No ACL currently associated with file %s", path);
+				warnx("No ACL currently associated with file '%s'", path);
 			}
-			return(is_canonical(oacl));
-		}
-		else
-		if ((optflags & ACL_SET_FLAG) && (position == -1) && 
+			retval = is_canonical(oacl);
+		} else if ((optflags & ACL_SET_FLAG) && (position == -1) && 
 		    (!is_canonical(oacl))) {
-			errno = EINVAL;
-			warn("The specified file %s does not have an ACL in canonical order, please specify a position with +a# ", path);
+			warnx("The specified file '%s' does not have an ACL in canonical order, please specify a position with +a# ", path);
 			retval = 1;
-		}
-		else
-		if (((optflags & ACL_DELETE_FLAG) && (position != -1))
+		} else if (((optflags & ACL_DELETE_FLAG) && (position != -1))
 		    || (optflags & ACL_CHECK_CANONICITY)) {
 			retval = modify_acl(&oacl, NULL, optflags, position, 
 				   inheritance_level, flag_new_acl);
-		}
-		else
+		} else if ((optflags & (ACL_REMOVE_INHERIT_FLAG|ACL_REMOVE_INHERITED_ENTRIES)) && flag_new_acl) {
+			warnx("No ACL currently associated with file '%s'", path);
+			retval = 1;
+		} else {
+			if (!modifier) { /* avoid bus error in acl_get_entry */
+				errx(1, "Internal error: modifier should not be NULL");
+			}
 			for (aindex = 0; 
 			     acl_get_entry(modifier, 
 					   (entry == NULL ? ACL_FIRST_ENTRY : 
 					    ACL_NEXT_ENTRY), &entry) == 0; 
 			     aindex++) {
 
-					    retval += modify_acl(&oacl, entry, optflags, 
-								 position, inheritance_level, 
-								 flag_new_acl);
-				    }
+				retval += modify_acl(&oacl, entry, optflags, 
+						     position, inheritance_level, 
+						     flag_new_acl);
 			}
+		}
+	}
 
 /* XXX Potential race here, since someone else could've modified or
  * read the ACL on this file (with the intention of modifying it) in
@@ -802,10 +803,10 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
  * "changeset" mechanism, common locking  strategy, or kernel
  * supplied reservation mechanism to prevent this race.
  */
-	if (!(optflags & ACL_CHECK_CANONICITY) && 
+	if (!(optflags & (ACL_TO_STDOUT|ACL_CHECK_CANONICITY)) && 
 	    (0 != acl_set_file(path, ACL_TYPE_EXTENDED, oacl))){
 		if (!fflag)
-			warn("Failed to set ACL on file %s", path);
+			warn("Failed to set ACL on file '%s'", path);
 		retval = 1;
 	}
 	

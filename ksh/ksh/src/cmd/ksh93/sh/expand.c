@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  *	File name expansion
@@ -128,6 +124,7 @@ int path_expand(const char *pattern, struct argnod **arghead)
 #   endif
 #endif /* KSHELL */
 		flags |= GLOB_COMPLETE;
+		flags &= ~GLOB_NOCHECK;
 	}
 #if SHOPT_BASH
 	if(off = staktell())
@@ -190,6 +187,8 @@ int path_expand(const char *pattern, struct argnod **arghead)
 		gp->gl_suffix = sufstr;
 	gp->gl_intr = &sh.trapnote; 
 	suflen = 0;
+	if(memcmp(pattern,"~(N",3)==0)
+		flags &= ~GLOB_NOCHECK;
 	glob(pattern, flags, 0, gp);
 #if SHOPT_BASH
 	if(off)
@@ -204,7 +203,6 @@ int path_expand(const char *pattern, struct argnod **arghead)
 		if(!ap->argnxt.ap)
 			ap->argchn.ap = *arghead;
 	}
-	*arghead = (struct argnod*)gp->gl_list;
 	if(gp->gl_list)
 		*arghead = (struct argnod*)gp->gl_list;
 	return(gp->gl_pathc+extra);
@@ -255,6 +253,12 @@ int path_complete(const char *name,register const char *suffix, struct argnod **
 #endif
 
 #if SHOPT_BRACEPAT
+
+static int checkfmt(Sfio_t* sp, void* vp, Sffmt_t* fp)
+{
+	return -1;
+}
+
 int path_generate(struct argnod *todo, struct argnod **arghead)
 /*@
 	assume todo!=0;
@@ -266,16 +270,17 @@ int path_generate(struct argnod *todo, struct argnod **arghead)
 	register struct argnod *ap;
 	struct argnod *top = 0;
 	struct argnod *apin;
-	char *pat, *rescan, *bracep;
-	char *sp;
-	char comma;
-	int count = 0;
+	char *pat, *rescan;
+	char *format;
+	char comma, range=0;
+	int first, last, incr, count = 0;
+	char tmp[32], end[1];
 	todo->argchn.ap = 0;
 again:
 	apin = ap = todo;
 	todo = ap->argchn.ap;
 	cp = ap->argval;
-	comma = brace = 0;
+	range = comma = brace = 0;
 	/* first search for {...,...} */
 	while(1) switch(*cp++)
 	{
@@ -289,6 +294,79 @@ again:
 			if(brace==0 && comma && *cp!='(')
 				goto endloop1;
 			comma = brace = 0;
+			break;
+		case '.':
+			if(brace==1 && *cp=='.')
+			{
+				char *endc;
+				incr = 1;
+				if(isdigit(*pat) || *pat=='+' || *pat=='-')
+				{
+					first = strtol(pat,&endc,0);
+					if(endc==(cp-1))
+					{
+						last = strtol(cp+1,&endc,0);
+						if(*endc=='.' && endc[1]=='.')
+							incr = strtol(endc+2,&endc,0);
+						else if(last<first)
+							incr = -1;
+						if(incr)
+						{
+							if(*endc=='%')
+							{
+								Sffmt_t	fmt;
+								memset(&fmt, 0, sizeof(fmt));
+								fmt.version = SFIO_VERSION;
+								fmt.form = endc;
+								fmt.extf = checkfmt;
+								sfprintf(sfstdout, "%!", &fmt);
+								if(!(fmt.flags&(SFFMT_LLONG|SFFMT_LDOUBLE)))
+									switch (fmt.fmt)
+									{
+									case 'c':
+									case 'd':
+									case 'i':
+									case 'o':
+									case 'u':
+									case 'x':
+									case 'X':
+										format = endc;
+										endc = fmt.form;
+										break;
+									}
+							}
+							else
+								format = "%d";
+							if(*endc=='}')
+							{
+								cp = endc+1;
+								range = 2;
+								goto endloop1;
+							}
+						}
+					}
+				}
+				else if((cp[2]=='}' || cp[2]=='.' && cp[3]=='.') && ((*pat>='a'  && *pat<='z' && cp[1]>='a' && cp[1]<='z') || (*pat>='A'  && *pat<='Z' && cp[1]>='A' && cp[1]<='Z')))
+				{
+					first = *pat;
+					last = cp[1];
+					cp += 2;
+					if(*cp=='.')
+					{
+						incr = strtol(cp+2,&endc,0);
+						cp = endc;
+					}
+					else if(first>last)
+						incr = -1;
+					if(incr && *cp=='}')
+					{
+						cp++;
+						range = 1;
+						goto endloop1;
+					}
+				}
+				cp++;
+			}
 			break;
 		case ',':
 			if(brace==1)
@@ -306,27 +384,50 @@ again:
 			for(; ap; ap=apin)
 			{
 				apin = ap->argchn.ap;
-				if((brace = path_expand(ap->argval,arghead)))
-					count += brace;
+				if(!sh_isoption(SH_NOGLOB))
+					brace=path_expand(ap->argval,arghead);
 				else
 				{
 					ap->argchn.ap = *arghead;
 					*arghead = ap;
-					count++;
+					brace=1;
 				}
-				(*arghead)->argflag |= ARG_MAKE;
+				if(brace)
+				{
+					count += brace;
+					(*arghead)->argflag |= ARG_MAKE;
+				}
 			}
 			return(count);
 	}
 endloop1:
 	rescan = cp;
-	bracep = cp = pat-1;
+	cp = pat-1;
 	*cp = 0;
 	while(1)
 	{
 		brace = 0;
+		if(range)
+		{
+			if(range==1)
+			{
+				pat[0] = first;
+				cp = &pat[1];
+			}
+			else
+			{
+				*(rescan - 1) = 0;
+				sfsprintf(pat=tmp,sizeof(tmp),format,first);
+				*(rescan - 1) = '}';
+				*(cp = end) = 0;
+			}
+			if(incr*(first+incr) > last*incr)
+				*cp = '}';
+			else
+				first += incr;
+		}
 		/* generate each pattern and put on the todo list */
-		while(1) switch(*++cp)
+		else while(1) switch(*++cp)
 		{
 			case '\\':
 				cp++;
@@ -343,17 +444,9 @@ endloop1:
 					goto endloop2;
 		}
 	endloop2:
-		/* check for match of '{' */
 		brace = *cp;
 		*cp = 0;
-		if(brace == '}')
-		{
-			apin->argchn.ap = todo;
-			todo = apin;
-			sp = strcopy(bracep,pat);
-			sp = strcopy(sp,rescan);
-			break;
-		}
+		sh_sigcheck();
 		ap = (struct argnod*)stakseek(ARGVAL);
 		ap->argflag = ARG_RAW;
 		ap->argchn.ap = todo;
@@ -361,8 +454,12 @@ endloop1:
 		stakputs(pat);
 		stakputs(rescan);
 		todo = ap = (struct argnod*)stakfreeze(1);
-		pat = cp+1;
+		if(brace == '}')
+			break;
+		if(!range)
+			pat = cp+1;
 	}
 	goto again;
 }
+
 #endif /* SHOPT_BRACEPAT */

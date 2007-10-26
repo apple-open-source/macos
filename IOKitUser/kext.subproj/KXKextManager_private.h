@@ -1,9 +1,11 @@
+#if !__LP64__
+
 #ifndef __KXKEXTMANAGER_PRIVATE_H__
 #define __KXKEXTMANAGER_PRIVATE_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 /*******************************************************************************
 * This file is for declaring private  API used by code other than
@@ -44,9 +46,11 @@ void _KXKextManagerLogMessageAtLevel(KXKextManagerRef aKextManager,
     KXKextManagerLogLevel logLevel,
     KXKextRef aKext,  // may be NULL, in which case kextLogLevel is irrelevant
     KXKextLogLevel kextLogLevel,
-    const char * format, ...);
-void _KXKextManagerLogMessage(KXKextManagerRef aKextManager, const char * format, ...);
-void _KXKextManagerLogError(KXKextManagerRef aKextManager, const char * format, ...);
+    const char * format, ...) __attribute__((format(printf, 5, 6)));
+void _KXKextManagerLogMessage(KXKextManagerRef aKextManager, const char * format, ...)
+     __attribute__((format(printf, 2, 3)));
+void _KXKextManagerLogError(KXKextManagerRef aKextManager, const char * format, ...)
+     __attribute__((format(printf, 2, 3)));
 
 Boolean _KXKextManagerCheckLogLevel(KXKextManagerRef aKextManager,
     KXKextManagerLogLevel logLevel,
@@ -103,10 +107,9 @@ void _KXKextManagerRemoveRepository(
     KXKextManagerRef aKextManager,
     KXKextRepositoryRef aRepository);
 
-#define _kKXKextRepositoryCacheVersion (1)
+#define _kKXKextRepositoryCacheVersion (2)
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif __KXKEXTMANAGER_PRIVATE_H__
+#endif // !__LP64__

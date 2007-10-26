@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2002, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -469,7 +469,7 @@ canon(rawname, canonname)
 		(void) strcpy(canonname, ".");
 	else
 		(void) strcpy(canonname, "./");
-	(void) strcat(canonname, rawname);
+	(void) strlcat(canonname, rawname, MAXPATHLEN);
 	/*
 	 * Eliminate multiple and trailing '/'s
 	 */
@@ -512,7 +512,7 @@ printlist(name, basename)
 	char *name;
 	char *basename;
 {
-	register struct afile *fp, *list, *listp;
+	register struct afile *fp, *list, *listp = NULL;
 	register struct direct *dp;
 	struct afile single;
 	RST_DIR *dirp;
@@ -535,7 +535,7 @@ printlist(name, basename)
 		}
 	} else {
 		entries = 0;
-		while (dp = rst_readdir(dirp))
+		while ((dp = rst_readdir(dirp)))
 			entries++;
 		rst_closedir(dirp);
 		list = (struct afile *)malloc(entries * sizeof(struct afile));
@@ -551,7 +551,7 @@ printlist(name, basename)
 		(void) strncpy(locname, name, MAXPATHLEN);
 		(void) strncat(locname, "/", MAXPATHLEN);
 		namelen = strlen(locname);
-		while (dp = rst_readdir(dirp)) {
+		while ((dp = rst_readdir(dirp))) {
 			if (dp == NULL)
 				break;
 			if (!dflag && TSTINO(dp->d_ino, dumpmap) == 0)

@@ -14,42 +14,48 @@ TODO
 
  LIBCURL
 
- * Introduce an interface to libcurl that allows applications to easier get to
-   know what cookies that are received. CURLINFO_COOKIELIST to get a
-   curl_slist with cookies (netscape/mozilla cookie file formatted), and
-   CURLOPT_COOKIELIST to set a list of cookies (using the same format).
-   http://curl.haxx.se/mail/lib-2004-12/0195.html
-
  * Introduce another callback interface for upload/download that makes one
    less copy of data and thus a faster operation.
    [http://curl.haxx.se/dev/no_copy_callbacks.txt]
 
  * More data sharing. curl_share_* functions already exist and work, and they
    can be extended to share more. For example, enable sharing of the ares
-   channel.
+   channel and the connection cache.
 
  * Introduce a new error code indicating authentication problems (for proxy
    CONNECT error 407 for example). This cannot be an error code, we must not
    return informational stuff as errors, consider a new info returned by
-   curl_easy_getinfo() #845941
+   curl_easy_getinfo() http://curl.haxx.se/bug/view.cgi?id=845941
 
  * Use 'struct lifreq' and SIOCGLIFADDR instead of 'struct ifreq' and
    SIOCGIFADDR on newer Solaris versions as they claim the latter is obsolete.
+   To support ipv6 interface addresses properly.
 
  * Add the following to curl_easy_getinfo(): GET_HTTP_IP, GET_FTP_IP and
    GET_FTP_DATA_IP. Return a string with the used IP. Suggested by Alan.
 
+ * Add option that changes the interval in which the progress callback is
+   called at most.
+
+ * Make libcurl built with c-ares use c-ares' IPv6 abilities. They weren't
+   present when we first added c-ares support but they have been added since!
+   When this is done and works, we can actually start considering making c-ares
+   powered libcurl the default build (which of course would require that we'd
+   bundle the c-ares source code in the libcurl source code releases).
+
+ * Make the curl/*.h headers include the proper system includes based on what
+   was present at the time when configure was run. Currently, the sys/select.h
+   header is for example included by curl/multi.h only on specific platforms
+   we know MUST have it. This is error-prone. We therefore want the header
+   files to adapt to configure results. Those results must be stored in a new
+   header and they must use a curl name space, i.e not be HAVE_* prefix (as
+   that would risk collide with other apps that use libcurl and that runs
+   configure).
+
  LIBCURL - multi interface
 
- * Add a curl_multi_fdset() alternative that returns only two arrays with file
-   desrciptors for reading and writing to allow the app to use whatever
-   function it prefers. Plus, this allows apps to avoid the FD_SETSIZE problem
-   with select().
-
- * Add curl_multi_timeout() to make libcurl's ares-functionality better.
-
  * Make sure we don't ever loop because of non-blocking sockets return
-   EWOULDBLOCK or similar. This FTP command sending, the SSL connection etc.
+   EWOULDBLOCK or similar. The GnuTLS connection etc.
 
  * Make transfers treated more carefully. We need a way to tell libcurl we
    have data to write, as the current system expects us to upload data each
@@ -58,6 +64,13 @@ TODO
    opposite situation should be possible as well, that we tell libcurl we're
    ready to accept read data. Today libcurl feeds the data as soon as it is
    available for reading, no matter what.
+
+ * Make curl_easy_perform() a wrapper-function that simply creates a multi
+   handle, adds the easy handle to it, runs curl_multi_perform() until the
+   transfer is done, then detach the easy handle, destroy the multi handle and
+   return the easy handle's return code. This will thus make everything
+   internally use and assume the multi interface. The select()-loop should use
+   curl_multi_socket().
 
  DOCUMENTATION
 
@@ -68,12 +81,9 @@ TODO
  * Make the detection of (bad) %0d and %0a codes in FTP url parts earlier in
    the process to avoid doing a resolve and connect in vain.
 
- * Code overhaul to make it more state-machine like and to _never_ block on
-   waiting for server responses when used with the multi interface.
-
  * Support GSS/Kerberos 5 for ftp file transfer. This will allow user
    authentication and file encryption.  Possible libraries and example clients
-   are available from MIT or Heimdal. Requsted by Markus Moeller.
+   are available from MIT or Heimdal. Requested by Markus Moeller.
 
  * REST fix for servers not behaving well on >2GB requests. This should fail
    if the server doesn't set the pointer to the requested index. The tricky
@@ -101,10 +111,6 @@ TODO
 
  HTTP
 
- * Pipelining. Sending multiple requests before the previous one(s) are done.
-   This could possibly be implemented using the multi interface to queue
-   requests and the response data.
-
  * When doing CONNECT to a HTTP proxy, libcurl always uses HTTP/1.0. This has
    never been reported as causing trouble to anyone, but should be considered
    to use the HTTP version the user has chosen.
@@ -120,6 +126,10 @@ TODO
    work for telnet.
 
  SSL
+
+ * Provide a libcurl API for setting mutex callbacks in the underlying SSL
+   library, so that the same application code can use mutex-locking
+   independently of OpenSSL or GnutTLS being used.
 
  * Anton Fedorov's "dumpcert" patch:
    http://curl.haxx.se/mail/lib-2004-03/0088.html
@@ -146,14 +156,32 @@ TODO
    it be? There's so much that could be done if it were! (brought by Chris
    Clark)
 
- * Make curl's SSL layer option capable of using other free SSL libraries.
-   Such as the Mozilla Security Services
-   (http://www.mozilla.org/projects/security/pki/nss/) and GnuTLS
-   (http://www.gnu.org/software/gnutls/) This subject has been brought up
-   again recently since GPL-licensed applications that link with libcurl MAY
-   NOT distribute binaries that use OpenSSL without adding an exception clause
-   to the GPL license. See the LICENSE-MIXING document and this:
-   http://www.gnome.org/~markmc/openssl-and-the-gpl.html
+ * Make curl's SSL layer capable of using other free SSL libraries.  Such as
+   MatrixSSL (http://www.matrixssl.org/).
+
+ * Peter Sylvester's patch for SRP on the TLS layer.
+   Awaits OpenSSL support for this, no need to support this in libcurl before
+   there's an OpenSSL release that does it.
+
+ * make the configure --with-ssl option first check for OpenSSL, then GnuTLS,
+   then NSS...
+
+ GnuTLS
+
+ * Get NTLM working using the functions provided by libgcrypt, since GnuTLS
+   already depends on that to function. Not strictly SSL/TLS related, but
+   hey... Another option is to get available DES and MD4 source code from the
+   cryptopp library. They are fine license-wise, but are C++.
+
+ * SSL engine stuff?
+
+ * Work out a common method with Peter Sylvester's OpenSSL-patch for SRP
+   on the TLS to provide name and password
+
+ * Fix the connection phase to be non-blocking when multi interface is used
+
+ * Add a way to check if the connection seems to be alive, to correspond to
+   the SSL_peak() way we use with OpenSSL.
 
  LDAP
 
@@ -163,16 +191,7 @@ TODO
 
  NEW PROTOCOLS
 
- * TFTP - RFC1350 (protocol) and RFC3617 (URI format)
-
-   Dan Fandrich: I wrote a tftp protocol module as part of the I-Boot
-   bootloader under a BSD-style license with attribution clause
-   http://download.intrinsyc.com/supported/tools/i-boot-lite/i-boot-lite-1.8/src/libs/net/tftp.c
-
  * RTSP - RFC2326 (protocol - very HTTP-like, also contains URL description)
-
- * SFTP/SCP/SSH (no RFCs for protocol nor URI/URL format). An implementation
-   should most probably use an existing ssh library, such as OpenSSH.
 
  * RSYNC (no RFCs for protocol nor URI/URL format).  An implementation should
    most probably use an existing rsync library, such as librsync.
@@ -190,7 +209,7 @@ TODO
  * Globbing support for -d and -F, as in 'curl -d "name=foo[0-9]" URL'.
    Requested by Dane Jensen and others. This is easily scripted though.
 
- * Add an option that prevents cURL from overwiting existing local files. When
+ * Add an option that prevents cURL from overwriting existing local files. When
    used, and there already is an existing file with the target file name
    (either -O or -o), a number should be appended (and increased if already
    existing). So that index.html becomes first index.html.1 and then
@@ -241,6 +260,10 @@ TODO
    instead of (g)nroff when building src/hugehelp.c
 
  TEST SUITE
+
+ * Make our own version of stunnel for simple port forwarding to enable HTTPS
+   and FTP-SSL tests without the stunnel dependency, and it could allow us to
+   provide test tools built with either OpenSSL or GnuTLS
 
  * Make the test servers able to serve multiple running test suites. Like if
    two users run 'make test' at once.

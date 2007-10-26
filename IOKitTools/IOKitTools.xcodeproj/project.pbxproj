@@ -1,0 +1,472 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		2D7D901F08F4AEF7003CF2E8 /* IOKitTools */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2D7D902708F4AF47003CF2E8 /* Build configuration list for PBXAggregateTarget "IOKitTools" */;
+			buildPhases = (
+				2D7D902208F4AF1E003CF2E8 /* CopyFiles */,
+			);
+			dependencies = (
+				2D7D903308F4AFE9003CF2E8 /* PBXTargetDependency */,
+				2D7D916508F4B0CB003CF2E8 /* PBXTargetDependency */,
+				2D7D916708F4B0CD003CF2E8 /* PBXTargetDependency */,
+			);
+			name = IOKitTools;
+			productName = IOKitTools;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		2D7D902408F4AF3C003CF2E8 /* ioalloccount.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 97CF609805585D4100A48F3A /* ioalloccount.8 */; };
+		2D7D902508F4AF3C003CF2E8 /* ioclasscount.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 97CF608505585D4100A48F3A /* ioclasscount.8 */; };
+		2D7D902608F4AF3C003CF2E8 /* ioreg.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 97CF603805585D4100A48F3A /* ioreg.8 */; };
+		2D7D903408F4AFF9003CF2E8 /* ioreg.c in Sources */ = {isa = PBXBuildFile; fileRef = 97CF603205585D4100A48F3A /* ioreg.c */; };
+		2D7D903508F4B001003CF2E8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CF60A305585D4100A48F3A /* CoreFoundation.framework */; };
+		2D7D903608F4B001003CF2E8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CF609C05585D4100A48F3A /* IOKit.framework */; };
+		2D7D903708F4B001003CF2E8 /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CF60D005585DC900A48F3A /* libncurses.dylib */; };
+		2D7D915508F4B063003CF2E8 /* ioclasscount.c in Sources */ = {isa = PBXBuildFile; fileRef = 97CF607F05585D4100A48F3A /* ioclasscount.c */; };
+		2D7D915608F4B076003CF2E8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CF60A305585D4100A48F3A /* CoreFoundation.framework */; };
+		2D7D915708F4B076003CF2E8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CF609C05585D4100A48F3A /* IOKit.framework */; };
+		2D7D915C08F4B07A003CF2E8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CF60A305585D4100A48F3A /* CoreFoundation.framework */; };
+		2D7D915D08F4B07A003CF2E8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CF609C05585D4100A48F3A /* IOKit.framework */; };
+		2D7D916308F4B0C2003CF2E8 /* ioalloccount.c in Sources */ = {isa = PBXBuildFile; fileRef = 97CF609205585D4100A48F3A /* ioalloccount.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2D7D903208F4AFE9003CF2E8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97CF60AF05585D4200A48F3A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2D7D902C08F4AFC7003CF2E8;
+			remoteInfo = ioreg;
+		};
+		2D7D916408F4B0CB003CF2E8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97CF60AF05585D4200A48F3A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2D7D914F08F4B017003CF2E8;
+			remoteInfo = ioclasscount;
+		};
+		2D7D916608F4B0CD003CF2E8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97CF60AF05585D4200A48F3A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2D7D915808F4B07A003CF2E8;
+			remoteInfo = ioalloccount;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2D7D902208F4AF1E003CF2E8 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				2D7D902408F4AF3C003CF2E8 /* ioalloccount.8 in CopyFiles */,
+				2D7D902508F4AF3C003CF2E8 /* ioclasscount.8 in CopyFiles */,
+				2D7D902608F4AF3C003CF2E8 /* ioreg.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		056F26F20AFBD911006CB74E /* libMallocDebug.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libMallocDebug.a; path = /usr/lib/libMallocDebug.a; sourceTree = "<absolute>"; };
+		2D7D902D08F4AFC7003CF2E8 /* ioreg */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioreg; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D7D915008F4B017003CF2E8 /* ioclasscount */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioclasscount; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D7D916108F4B07A003CF2E8 /* ioalloccount */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioalloccount; sourceTree = BUILT_PRODUCTS_DIR; };
+		97CF603205585D4100A48F3A /* ioreg.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ioreg.c; sourceTree = "<group>"; };
+		97CF603805585D4100A48F3A /* ioreg.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = ioreg.8; sourceTree = "<group>"; };
+		97CF607F05585D4100A48F3A /* ioclasscount.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ioclasscount.c; sourceTree = "<group>"; };
+		97CF608505585D4100A48F3A /* ioclasscount.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = ioclasscount.8; sourceTree = "<group>"; };
+		97CF609205585D4100A48F3A /* ioalloccount.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ioalloccount.c; sourceTree = "<group>"; };
+		97CF609805585D4100A48F3A /* ioalloccount.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = ioalloccount.8; sourceTree = "<group>"; };
+		97CF609C05585D4100A48F3A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		97CF60A305585D4100A48F3A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		97CF60A805585D4100A48F3A /* System.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = System.framework; path = /System/Library/Frameworks/System.framework; sourceTree = "<absolute>"; };
+		97CF60D005585DC900A48F3A /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = /usr/lib/libncurses.dylib; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2D7D902B08F4AFC7003CF2E8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D7D903508F4B001003CF2E8 /* CoreFoundation.framework in Frameworks */,
+				2D7D903608F4B001003CF2E8 /* IOKit.framework in Frameworks */,
+				2D7D903708F4B001003CF2E8 /* libncurses.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D7D914E08F4B017003CF2E8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D7D915608F4B076003CF2E8 /* CoreFoundation.framework in Frameworks */,
+				2D7D915708F4B076003CF2E8 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D7D915B08F4B07A003CF2E8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D7D915C08F4B07A003CF2E8 /* CoreFoundation.framework in Frameworks */,
+				2D7D915D08F4B07A003CF2E8 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		97CF601A05585D4100A48F3A /* IOKitTools */ = {
+			isa = PBXGroup;
+			children = (
+				97CF602405585D4100A48F3A /* ioreg */,
+				97CF607305585D4100A48F3A /* ioclasscount */,
+				97CF608605585D4100A48F3A /* ioalloccount */,
+				97CF609905585D4100A48F3A /* External Frameworks and Libraries */,
+				97CF602B05585D4100A48F3A /* Products */,
+			);
+			name = IOKitTools;
+			sourceTree = "<group>";
+		};
+		97CF602405585D4100A48F3A /* ioreg */ = {
+			isa = PBXGroup;
+			children = (
+				97CF603205585D4100A48F3A /* ioreg.c */,
+				97CF603805585D4100A48F3A /* ioreg.8 */,
+			);
+			name = ioreg;
+			path = ioreg.tproj;
+			sourceTree = "<group>";
+		};
+		97CF602B05585D4100A48F3A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2D7D902D08F4AFC7003CF2E8 /* ioreg */,
+				2D7D915008F4B017003CF2E8 /* ioclasscount */,
+				2D7D916108F4B07A003CF2E8 /* ioalloccount */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		97CF607305585D4100A48F3A /* ioclasscount */ = {
+			isa = PBXGroup;
+			children = (
+				97CF607F05585D4100A48F3A /* ioclasscount.c */,
+				97CF608505585D4100A48F3A /* ioclasscount.8 */,
+			);
+			name = ioclasscount;
+			path = ioclasscount.tproj;
+			sourceTree = "<group>";
+		};
+		97CF608605585D4100A48F3A /* ioalloccount */ = {
+			isa = PBXGroup;
+			children = (
+				97CF609205585D4100A48F3A /* ioalloccount.c */,
+				97CF609805585D4100A48F3A /* ioalloccount.8 */,
+			);
+			name = ioalloccount;
+			path = ioalloccount.tproj;
+			sourceTree = "<group>";
+		};
+		97CF609905585D4100A48F3A /* External Frameworks and Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				056F26F20AFBD911006CB74E /* libMallocDebug.a */,
+				97CF60D005585DC900A48F3A /* libncurses.dylib */,
+				97CF609C05585D4100A48F3A /* IOKit.framework */,
+				97CF60A305585D4100A48F3A /* CoreFoundation.framework */,
+				97CF60A805585D4100A48F3A /* System.framework */,
+			);
+			name = "External Frameworks and Libraries";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2D7D902C08F4AFC7003CF2E8 /* ioreg */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2D7D902F08F4AFE5003CF2E8 /* Build configuration list for PBXNativeTarget "ioreg" */;
+			buildPhases = (
+				2D7D902A08F4AFC7003CF2E8 /* Sources */,
+				2D7D902B08F4AFC7003CF2E8 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ioreg;
+			productName = ioreg;
+			productReference = 2D7D902D08F4AFC7003CF2E8 /* ioreg */;
+			productType = "com.apple.product-type.tool";
+		};
+		2D7D914F08F4B017003CF2E8 /* ioclasscount */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2D7D915208F4B04A003CF2E8 /* Build configuration list for PBXNativeTarget "ioclasscount" */;
+			buildPhases = (
+				2D7D914D08F4B017003CF2E8 /* Sources */,
+				2D7D914E08F4B017003CF2E8 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ioclasscount;
+			productName = ioclasscount;
+			productReference = 2D7D915008F4B017003CF2E8 /* ioclasscount */;
+			productType = "com.apple.product-type.tool";
+		};
+		2D7D915808F4B07A003CF2E8 /* ioalloccount */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2D7D915E08F4B07A003CF2E8 /* Build configuration list for PBXNativeTarget "ioalloccount" */;
+			buildPhases = (
+				2D7D915908F4B07A003CF2E8 /* Sources */,
+				2D7D915B08F4B07A003CF2E8 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ioalloccount;
+			productName = ioclasscount;
+			productReference = 2D7D916108F4B07A003CF2E8 /* ioalloccount */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		97CF60AF05585D4200A48F3A /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 2D7D900708F4AE49003CF2E8 /* Build configuration list for PBXProject "IOKitTools" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 97CF601A05585D4100A48F3A /* IOKitTools */;
+			productRefGroup = 97CF602B05585D4100A48F3A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2D7D901F08F4AEF7003CF2E8 /* IOKitTools */,
+				2D7D902C08F4AFC7003CF2E8 /* ioreg */,
+				2D7D914F08F4B017003CF2E8 /* ioclasscount */,
+				2D7D915808F4B07A003CF2E8 /* ioalloccount */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2D7D902A08F4AFC7003CF2E8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D7D903408F4AFF9003CF2E8 /* ioreg.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D7D914D08F4B017003CF2E8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D7D915508F4B063003CF2E8 /* ioclasscount.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D7D915908F4B07A003CF2E8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D7D916308F4B0C2003CF2E8 /* ioalloccount.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2D7D903308F4AFE9003CF2E8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2D7D902C08F4AFC7003CF2E8 /* ioreg */;
+			targetProxy = 2D7D903208F4AFE9003CF2E8 /* PBXContainerItemProxy */;
+		};
+		2D7D916508F4B0CB003CF2E8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2D7D914F08F4B017003CF2E8 /* ioclasscount */;
+			targetProxy = 2D7D916408F4B0CB003CF2E8 /* PBXContainerItemProxy */;
+		};
+		2D7D916708F4B0CD003CF2E8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2D7D915808F4B07A003CF2E8 /* ioalloccount */;
+			targetProxy = 2D7D916608F4B0CD003CF2E8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2D7D900808F4AE49003CF2E8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_GROUP = wheel;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+			};
+			name = Development;
+		};
+		2D7D900908F4AE49003CF2E8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_GROUP = wheel;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+			};
+			name = Deployment;
+		};
+		2D7D902808F4AF47003CF2E8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				PRODUCT_NAME = IOKitTools;
+			};
+			name = Development;
+		};
+		2D7D902908F4AF47003CF2E8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				PRODUCT_NAME = IOKitTools;
+			};
+			name = Deployment;
+		};
+		2D7D903008F4AFE5003CF2E8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				PREBINDING = NO;
+				PRODUCT_NAME = ioreg;
+				SKIP_INSTALL = NO;
+			};
+			name = Development;
+		};
+		2D7D903108F4AFE5003CF2E8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				PREBINDING = NO;
+				PRODUCT_NAME = ioreg;
+				SKIP_INSTALL = NO;
+			};
+			name = Deployment;
+		};
+		2D7D915308F4B04A003CF2E8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				PREBINDING = NO;
+				PRODUCT_NAME = ioclasscount;
+				SKIP_INSTALL = NO;
+			};
+			name = Development;
+		};
+		2D7D915408F4B04A003CF2E8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				PREBINDING = NO;
+				PRODUCT_NAME = ioclasscount;
+				SKIP_INSTALL = NO;
+			};
+			name = Deployment;
+		};
+		2D7D915F08F4B07A003CF2E8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				PREBINDING = NO;
+				PRODUCT_NAME = ioalloccount;
+				SKIP_INSTALL = NO;
+			};
+			name = Development;
+		};
+		2D7D916008F4B07A003CF2E8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				PREBINDING = NO;
+				PRODUCT_NAME = ioalloccount;
+				SKIP_INSTALL = NO;
+			};
+			name = Deployment;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2D7D900708F4AE49003CF2E8 /* Build configuration list for PBXProject "IOKitTools" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D7D900808F4AE49003CF2E8 /* Development */,
+				2D7D900908F4AE49003CF2E8 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		2D7D902708F4AF47003CF2E8 /* Build configuration list for PBXAggregateTarget "IOKitTools" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D7D902808F4AF47003CF2E8 /* Development */,
+				2D7D902908F4AF47003CF2E8 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		2D7D902F08F4AFE5003CF2E8 /* Build configuration list for PBXNativeTarget "ioreg" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D7D903008F4AFE5003CF2E8 /* Development */,
+				2D7D903108F4AFE5003CF2E8 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		2D7D915208F4B04A003CF2E8 /* Build configuration list for PBXNativeTarget "ioclasscount" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D7D915308F4B04A003CF2E8 /* Development */,
+				2D7D915408F4B04A003CF2E8 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		2D7D915E08F4B07A003CF2E8 /* Build configuration list for PBXNativeTarget "ioalloccount" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D7D915F08F4B07A003CF2E8 /* Development */,
+				2D7D916008F4B07A003CF2E8 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 97CF60AF05585D4200A48F3A /* Project object */;
+}

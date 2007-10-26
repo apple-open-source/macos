@@ -1,0 +1,66 @@
+--- docs/man/apachectl.8.orig	2007-03-22 19:06:30.000000000 -0700
++++ docs/man/apachectl.8	2007-03-22 19:09:52.000000000 -0700
+@@ -62,13 +62,13 @@
+  
+ .TP
+ start
+-Start the Apache httpd daemon\&. Gives an error if it is already running\&. This is equivalent to apachectl -k start\&.  
++Loads the org\&.apache\&.httpd launchd job\&.
+ .TP
+-stop
+-Stops the Apache httpd daemon\&. This is equivalent to apachectl -k stop\&.  
++stop, graceful-stop
++Unloads the org\&.apache\&.httpd launchd job\&.
+ .TP
+-restart
+-Restarts the Apache httpd daemon\&. If the daemon is not running, it is started\&. This command automatically checks the configuration files as in configtest before initiating the restart to make sure the daemon doesn't die\&. This is equivalent to apachectl -k restart\&.  
++restart, graceful
++Unloads, then loads the org\&.apache\&.httpd launchd job\&.
+ .TP
+ fullstatus
+ Displays a full status report from mod_status\&. For this to work, you need to have mod_status enabled on your server and a text-based browser such as lynx available on your system\&. The URL used to access the status report can be set by editing the STATUSURL variable in the script\&.  
+@@ -76,12 +76,6 @@
+ status
+ Displays a brief status report\&. Similar to the fullstatus option, except that the list of requests currently being served is omitted\&.  
+ .TP
+-graceful
+-Gracefully restarts the Apache httpd daemon\&. If the daemon is not running, it is started\&. This differs from a normal restart in that currently open connections are not aborted\&. A side effect is that old log files will not be closed immediately\&. This means that if used in a log rotation script, a substantial delay may be necessary to ensure that the old log files are closed before processing them\&. This command automatically checks the configuration files as in configtest before initiating the restart to make sure Apache doesn't die\&. This is equivalent to apachectl -k graceful\&.  
+-.TP
+-graceful-stop
+-Gracefully stops the Apache httpd daemon\&. This differs from a normal stop in that currently open connections are not aborted\&. A side effect is that old log files will not be closed immediately\&. This is equivalent to apachectl -k graceful-stop\&.  
+-.TP
+ configtest
+ Run a configuration file syntax test\&. It parses the configuration files and either reports Syntax Ok or detailed information about the particular syntax error\&. This is equivalent to apachectl -t\&.  
+  
+--- support/apachectl.in.orig	2007-03-22 18:49:00.000000000 -0700
++++ support/apachectl.in	2007-03-22 18:58:05.000000000 -0700
+@@ -65,6 +65,9 @@
+ # --------------------                              --------------------
+ # ||||||||||||||||||||   END CONFIGURATION SECTION  ||||||||||||||||||||
+ 
++LAUNCHCTL="/bin/launchctl"
++LAUNCHD_JOB="/System/Library/LaunchDaemons/org.apache.httpd.plist"
++
+ # Set the maximum number of file descriptors allowed per child process.
+ if [ "x$ULIMIT_MAX_FILES" != "x" ] ; then
+     $ULIMIT_MAX_FILES
+@@ -76,8 +79,17 @@
+ fi
+ 
+ case $ARGV in
+-start|stop|restart|graceful|graceful-stop)
+-    $HTTPD -k $ARGV
++start)
++    $LAUNCHCTL load -w $LAUNCHD_JOB
++    ERROR=$?
++    ;;
++stop|graceful-stop)
++    $LAUNCHCTL unload -w $LAUNCHD_JOB
++    ERROR=$?
++    ;;
++restart|graceful)
++    $LAUNCHCTL unload -w $LAUNCHD_JOB 2> /dev/null
++    $LAUNCHCTL load -w $LAUNCHD_JOB
+     ERROR=$?
+     ;;
+ startssl|sslstart|start-SSL)

@@ -1,7 +1,7 @@
 /* Handle SVR4 shared libraries for GDB, the GNU Debugger.
 
    Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999,
-   2000, 2001, 2003, 2004
+   2000, 2001, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -35,30 +35,21 @@
 #include "target.h"
 #include "inferior.h"
 
+#include "gdb_assert.h"
+
 #include "solist.h"
+#include "solib.h"
 #include "solib-svr4.h"
 
 #include "bfd-target.h"
 #include "exec.h"
 
-#ifndef SVR4_FETCH_LINK_MAP_OFFSETS
-#define SVR4_FETCH_LINK_MAP_OFFSETS() svr4_fetch_link_map_offsets ()
-#endif
-
 static struct link_map_offsets *svr4_fetch_link_map_offsets (void);
-static struct link_map_offsets *legacy_fetch_link_map_offsets (void);
 static int svr4_have_link_map_offsets (void);
 
-/* fetch_link_map_offsets_gdbarch_data is a handle used to obtain the
-   architecture specific link map offsets fetching function.  */
-
-static struct gdbarch_data *fetch_link_map_offsets_gdbarch_data;
-
-/* legacy_svr4_fetch_link_map_offsets_hook is a pointer to a function
-   which is used to fetch link map offsets.  It will only be set
-   by solib-legacy.c, if at all. */
-
-struct link_map_offsets *(*legacy_svr4_fetch_link_map_offsets_hook)(void) = 0;
+/* This hook is set to a function that provides native link map
+   offsets if the code in solib-legacy.c is linked in.  */
+struct link_map_offsets *(*legacy_svr4_fetch_link_map_offsets_hook) (void);
 
 /* Link map info to include in an allocated so_list entry */
 
@@ -67,7 +58,7 @@ struct lm_info
     /* Pointer to copy of link map from inferior.  The type is char *
        rather than void *, so that we may use byte offsets to find the
        various fields without the need for a cast.  */
-    char *lm;
+    gdb_byte *lm;
   };
 
 /* On SVR4 systems, a list of symbols in the dynamic linker where
@@ -138,7 +129,7 @@ static char *main_name_list[] =
 static CORE_ADDR
 LM_ADDR (struct so_list *so)
 {
-  struct link_map_offsets *lmo = SVR4_FETCH_LINK_MAP_OFFSETS ();
+  struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
 
   return (CORE_ADDR) extract_signed_integer (so->lm_info->lm + lmo->l_addr_offset, 
 					     lmo->l_addr_size);
@@ -147,7 +138,7 @@ LM_ADDR (struct so_list *so)
 static CORE_ADDR
 LM_NEXT (struct so_list *so)
 {
-  struct link_map_offsets *lmo = SVR4_FETCH_LINK_MAP_OFFSETS ();
+  struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
 
   /* Assume that the address is unsigned.  */
   return extract_unsigned_integer (so->lm_info->lm + lmo->l_next_offset,
@@ -157,7 +148,7 @@ LM_NEXT (struct so_list *so)
 static CORE_ADDR
 LM_NAME (struct so_list *so)
 {
-  struct link_map_offsets *lmo = SVR4_FETCH_LINK_MAP_OFFSETS ();
+  struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
 
   /* Assume that the address is unsigned.  */
   return extract_unsigned_integer (so->lm_info->lm + lmo->l_name_offset,
@@ -167,7 +158,7 @@ LM_NAME (struct so_list *so)
 static int
 IGNORE_FIRST_LINK_MAP_ENTRY (struct so_list *so)
 {
-  struct link_map_offsets *lmo = SVR4_FETCH_LINK_MAP_OFFSETS ();
+  struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
 
   /* Assume that the address is unsigned.  */
   return extract_unsigned_integer (so->lm_info->lm + lmo->l_prev_offset,
@@ -272,133 +263,6 @@ bfd_lookup_symbol (bfd *abfd, char *symname, flagword sect_flags)
   return symaddr;
 }
 
-#ifdef HANDLE_SVR4_EXEC_EMULATORS
-
-/*
-   Solaris BCP (the part of Solaris which allows it to run SunOS4
-   a.out files) throws in another wrinkle. Solaris does not fill
-   in the usual a.out link map structures when running BCP programs,
-   the only way to get at them is via groping around in the dynamic
-   linker.
-   The dynamic linker and it's structures are located in the shared
-   C library, which gets run as the executable's "interpreter" by
-   the kernel.
-
-   Note that we can assume nothing about the process state at the time
-   we need to find these structures.  We may be stopped on the first
-   instruction of the interpreter (C shared library), the first
-   instruction of the executable itself, or somewhere else entirely
-   (if we attached to the process for example).
- */
-
-static char *debug_base_symbols[] =
-{
-  "r_debug",			/* Solaris 2.3 */
-  "_r_debug",			/* Solaris 2.1, 2.2 */
-  NULL
-};
-
-static int look_for_base (int, CORE_ADDR);
-
-/*
-
-   LOCAL FUNCTION
-
-   look_for_base -- examine file for each mapped address segment
-
-   SYNOPSYS
-
-   static int look_for_base (int fd, CORE_ADDR baseaddr)
-
-   DESCRIPTION
-
-   This function is passed to proc_iterate_over_mappings, which
-   causes it to get called once for each mapped address space, with
-   an open file descriptor for the file mapped to that space, and the
-   base address of that mapped space.
-
-   Our job is to find the debug base symbol in the file that this
-   fd is open on, if it exists, and if so, initialize the dynamic
-   linker structure base address debug_base.
-
-   Note that this is a computationally expensive proposition, since
-   we basically have to open a bfd on every call, so we specifically
-   avoid opening the exec file.
- */
-
-static int
-look_for_base (int fd, CORE_ADDR baseaddr)
-{
-  bfd *interp_bfd;
-  CORE_ADDR address = 0;
-  char **symbolp;
-
-  /* If the fd is -1, then there is no file that corresponds to this
-     mapped memory segment, so skip it.  Also, if the fd corresponds
-     to the exec file, skip it as well. */
-
-  if (fd == -1
-      || (exec_bfd != NULL
-	  && fdmatch (fileno ((FILE *) (exec_bfd->iostream)), fd)))
-    {
-      return (0);
-    }
-
-  /* Try to open whatever random file this fd corresponds to.  Note that
-     we have no way currently to find the filename.  Don't gripe about
-     any problems we might have, just fail. */
-
-  if ((interp_bfd = bfd_fdopenr ("unnamed", gnutarget, fd)) == NULL)
-    {
-      return (0);
-    }
-  if (!bfd_check_format (interp_bfd, bfd_object))
-    {
-      /* FIXME-leak: on failure, might not free all memory associated with
-         interp_bfd.  */
-      bfd_close (interp_bfd);
-      return (0);
-    }
-
-  /* Now try to find our debug base symbol in this file, which we at
-     least know to be a valid ELF executable or shared library. */
-
-  for (symbolp = debug_base_symbols; *symbolp != NULL; symbolp++)
-    {
-      address = bfd_lookup_symbol (interp_bfd, *symbolp, 0);
-      if (address != 0)
-	{
-	  break;
-	}
-    }
-  if (address == 0)
-    {
-      /* FIXME-leak: on failure, might not free all memory associated with
-         interp_bfd.  */
-      bfd_close (interp_bfd);
-      return (0);
-    }
-
-  /* Eureka!  We found the symbol.  But now we may need to relocate it
-     by the base address.  If the symbol's value is less than the base
-     address of the shared library, then it hasn't yet been relocated
-     by the dynamic linker, and we have to do it ourself.  FIXME: Note
-     that we make the assumption that the first segment that corresponds
-     to the shared library has the base address to which the library
-     was relocated. */
-
-  if (address < baseaddr)
-    {
-      address += baseaddr;
-    }
-  debug_base = address;
-  /* FIXME-leak: on failure, might not free all memory associated with
-     interp_bfd.  */
-  bfd_close (interp_bfd);
-  return (1);
-}
-#endif /* HANDLE_SVR4_EXEC_EMULATORS */
-
 /*
 
    LOCAL FUNCTION
@@ -429,8 +293,8 @@ elf_locate_base (void)
   struct bfd_section *dyninfo_sect;
   int dyninfo_sect_size;
   CORE_ADDR dyninfo_addr;
-  char *buf;
-  char *bufend;
+  gdb_byte *buf;
+  gdb_byte *bufend;
   int arch_size;
 
   /* Find the start address of the .dynamic section.  */
@@ -474,7 +338,7 @@ elf_locate_base (void)
 	    }
 	  else if (dyn_tag == DT_MIPS_RLD_MAP)
 	    {
-	      char *pbuf;
+	      gdb_byte *pbuf;
 	      int pbuf_size = TARGET_PTR_BIT / HOST_CHAR_BIT;
 
 	      pbuf = alloca (pbuf_size);
@@ -509,7 +373,7 @@ elf_locate_base (void)
 	    }
 	  else if (dyn_tag == DT_MIPS_RLD_MAP)
 	    {
-	      char *pbuf;
+	      gdb_byte *pbuf;
 	      int pbuf_size = TARGET_PTR_BIT / HOST_CHAR_BIT;
 
 	      pbuf = alloca (pbuf_size);
@@ -579,11 +443,6 @@ locate_base (void)
       if (exec_bfd != NULL
 	  && bfd_get_flavour (exec_bfd) == bfd_target_elf_flavour)
 	debug_base = elf_locate_base ();
-#ifdef HANDLE_SVR4_EXEC_EMULATORS
-      /* Try it the hard way for emulated executables.  */
-      else if (!ptid_equal (inferior_ptid, null_ptid) && target_has_execution)
-	proc_iterate_over_mappings (look_for_base);
-#endif
     }
   return (debug_base);
 }
@@ -609,8 +468,8 @@ static CORE_ADDR
 first_link_map_member (void)
 {
   CORE_ADDR lm = 0;
-  struct link_map_offsets *lmo = SVR4_FETCH_LINK_MAP_OFFSETS ();
-  char *r_map_buf = xmalloc (lmo->r_map_size);
+  struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
+  gdb_byte *r_map_buf = xmalloc (lmo->r_map_size);
   struct cleanup *cleanups = make_cleanup (xfree, r_map_buf);
 
   read_memory (debug_base + lmo->r_map_offset, r_map_buf, lmo->r_map_size);
@@ -656,8 +515,8 @@ open_symbol_file_object (void *from_ttyp)
   char *filename;
   int errcode;
   int from_tty = *(int *)from_ttyp;
-  struct link_map_offsets *lmo = SVR4_FETCH_LINK_MAP_OFFSETS ();
-  char *l_name_buf = xmalloc (lmo->l_name_size);
+  struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
+  gdb_byte *l_name_buf = xmalloc (lmo->l_name_size);
   struct cleanup *cleanups = make_cleanup (xfree, l_name_buf);
 
   if (symfile_objfile)
@@ -689,7 +548,7 @@ open_symbol_file_object (void *from_ttyp)
 
   if (errcode)
     {
-      warning ("failed to read exec filename from attached file: %s",
+      warning (_("failed to read exec filename from attached file: %s"),
 	       safe_strerror (errcode));
       return 0;
     }
@@ -744,7 +603,7 @@ svr4_current_sos (void)
   lm = first_link_map_member ();  
   while (lm)
     {
-      struct link_map_offsets *lmo = SVR4_FETCH_LINK_MAP_OFFSETS ();
+      struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
       struct so_list *new
 	= (struct so_list *) xmalloc (sizeof (struct so_list));
       struct cleanup *old_chain = make_cleanup (xfree, new);
@@ -778,10 +637,8 @@ svr4_current_sos (void)
 	  target_read_string (LM_NAME (new), &buffer,
 			      SO_NAME_MAX_PATH_SIZE - 1, &errcode);
 	  if (errcode != 0)
-	    {
-	      warning ("current_sos: Can't read pathname for load map: %s\n",
-		       safe_strerror (errcode));
-	    }
+	    warning (_("Can't read pathname for load map: %s."),
+		     safe_strerror (errcode));
 	  else
 	    {
 	      strncpy (new->so_name, buffer, SO_NAME_MAX_PATH_SIZE - 1);
@@ -828,13 +685,13 @@ svr4_fetch_objfile_link_map (struct objfile *objfile)
   while (lm)
     {
       /* Get info on the layout of the r_debug and link_map structures. */
-      struct link_map_offsets *lmo = SVR4_FETCH_LINK_MAP_OFFSETS ();
+      struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
       int errcode;
       char *buffer;
       struct lm_info objfile_lm_info;
       struct cleanup *old_chain;
       CORE_ADDR name_address;
-      char *l_name_buf = xmalloc (lmo->l_name_size);
+      gdb_byte *l_name_buf = xmalloc (lmo->l_name_size);
       old_chain = make_cleanup (xfree, l_name_buf);
 
       /* Set up the buffer to contain the portion of the link_map
@@ -857,10 +714,8 @@ svr4_fetch_objfile_link_map (struct objfile *objfile)
       			  SO_NAME_MAX_PATH_SIZE - 1, &errcode);
       make_cleanup (xfree, buffer);
       if (errcode != 0)
-    	{
-	  warning ("svr4_fetch_objfile_link_map: Can't read pathname for load map: %s\n",
-  		   safe_strerror (errcode));
-  	}
+	warning (_("Can't read pathname for load map: %s."),
+		 safe_strerror (errcode));
       else
   	{
 	  /* Is this the linkmap for the file we want?  */
@@ -1004,7 +859,7 @@ enable_break (void)
       char *buf;
       CORE_ADDR load_addr = 0;
       int load_addr_found = 0;
-      struct so_list *inferior_sos;
+      struct so_list *so;
       bfd *tmp_bfd = NULL;
       struct target_ops *tmp_bfd_target;
       int tmp_fd = -1;
@@ -1029,7 +884,7 @@ enable_break (void)
 
       tmp_fd  = solib_open (buf, &tmp_pathname);
       if (tmp_fd >= 0)
-	tmp_bfd = bfd_fdopenr (tmp_pathname, gnutarget, tmp_fd);
+	tmp_bfd = bfd_fopen (tmp_pathname, gnutarget, FOPEN_RB, tmp_fd);
 
       if (tmp_bfd == NULL)
 	goto bkpt_at_symbol;
@@ -1037,7 +892,7 @@ enable_break (void)
       /* Make sure the dynamic linker's really a useful object.  */
       if (!bfd_check_format (tmp_bfd, bfd_object))
 	{
-	  warning ("Unable to grok dynamic linker %s as an object file", buf);
+	  warning (_("Unable to grok dynamic linker %s as an object file"), buf);
 	  bfd_close (tmp_bfd);
 	  goto bkpt_at_symbol;
 	}
@@ -1047,23 +902,19 @@ enable_break (void)
          target will also close the underlying bfd.  */
       tmp_bfd_target = target_bfd_reopen (tmp_bfd);
 
-      /* If the entry in _DYNAMIC for the dynamic linker has already
-         been filled in, we can read its base address from there. */
-      inferior_sos = svr4_current_sos ();
-      if (inferior_sos)
+      /* On a running target, we can get the dynamic linker's base
+         address from the shared library table.  */
+      solib_add (NULL, 0, NULL, auto_solib_add);
+      so = master_so_list ();
+      while (so)
 	{
-	  /* Connected to a running target.  Update our shared library table. */
-	  solib_add (NULL, 0, NULL, auto_solib_add);
-	}
-      while (inferior_sos)
-	{
-	  if (strcmp (buf, inferior_sos->so_original_name) == 0)
+	  if (strcmp (buf, so->so_original_name) == 0)
 	    {
 	      load_addr_found = 1;
-	      load_addr = LM_ADDR (inferior_sos);
+	      load_addr = LM_ADDR (so);
 	      break;
 	    }
-	  inferior_sos = inferior_sos->next;
+	  so = so->next;
 	}
 
       /* Otherwise we find the dynamic linker's base address by examining
@@ -1122,7 +973,7 @@ enable_break (void)
       /* For whatever reason we couldn't set a breakpoint in the dynamic
          linker.  Warn and drop into the old code.  */
     bkpt_at_symbol:
-      warning ("Unable to find dynamic linker breakpoint function.\nGDB will be unable to debug shared library initializers\nand track explicitly loaded dynamic code.");
+      warning (_("Unable to find dynamic linker breakpoint function.\nGDB will be unable to debug shared library initializers\nand track explicitly loaded dynamic code."));
     }
 
   /* Scan through the list of symbols, trying to look up the symbol and
@@ -1291,7 +1142,7 @@ svr4_relocate_main_executable (void)
 
    SYNOPSIS
 
-   void svr4_solib_create_inferior_hook()
+   void svr4_solib_create_inferior_hook ()
 
    DESCRIPTION
 
@@ -1343,14 +1194,14 @@ svr4_solib_create_inferior_hook (void)
 
   if (!svr4_have_link_map_offsets ())
     {
-      warning ("no shared library support for this OS / ABI");
+      warning (_("no shared library support for this OS / ABI"));
       return;
 
     }
 
   if (!enable_break ())
     {
-      warning ("shared library handler failed to enable breakpoint");
+      warning (_("shared library handler failed to enable breakpoint"));
       return;
     }
 
@@ -1423,91 +1274,64 @@ svr4_relocate_section_addresses (struct so_list *so,
   sec->addr    = svr4_truncate_ptr (sec->addr    + LM_ADDR (so));
   sec->endaddr = svr4_truncate_ptr (sec->endaddr + LM_ADDR (so));
 }
+
 
+/* Architecture-specific operations.  */
 
-/* Fetch a link_map_offsets structure for native targets using struct
-   definitions from link.h.  See solib-legacy.c for the function
-   which does the actual work.
-   
-   Note: For non-native targets (i.e. cross-debugging situations),
-   a target specific fetch_link_map_offsets() function should be
-   defined and registered via set_solib_svr4_fetch_link_map_offsets().  */
+/* Per-architecture data key.  */
+static struct gdbarch_data *solib_svr4_data;
 
-static struct link_map_offsets *
-legacy_fetch_link_map_offsets (void)
+struct solib_svr4_ops
 {
-  if (legacy_svr4_fetch_link_map_offsets_hook)
-    return legacy_svr4_fetch_link_map_offsets_hook ();
-  else
-    {
-      internal_error (__FILE__, __LINE__,
-                      "legacy_fetch_link_map_offsets called without legacy "
-		      "link_map support enabled.");
-      return 0;
-    }
+  /* Return a description of the layout of `struct link_map'.  */
+  struct link_map_offsets *(*fetch_link_map_offsets)(void);
+};
+
+/* Return a default for the architecture-specific operations.  */
+
+static void *
+solib_svr4_init (struct obstack *obstack)
+{
+  struct solib_svr4_ops *ops;
+
+  ops = OBSTACK_ZALLOC (obstack, struct solib_svr4_ops);
+  ops->fetch_link_map_offsets = legacy_svr4_fetch_link_map_offsets_hook;
+  return ops;
 }
 
-/* Fetch a link_map_offsets structure using the method registered in the
-   architecture vector.  */
-
-static struct link_map_offsets *
-svr4_fetch_link_map_offsets (void)
-{
-  struct link_map_offsets *(*flmo)(void) =
-    gdbarch_data (current_gdbarch, fetch_link_map_offsets_gdbarch_data);
-
-  if (flmo == NULL)
-    {
-      internal_error (__FILE__, __LINE__, 
-                      "svr4_fetch_link_map_offsets: fetch_link_map_offsets "
-		      "method not defined for this architecture.");
-      return 0;
-    }
-  else
-    return (flmo ());
-}
-
-/* Return 1 if a link map offset fetcher has been defined, 0 otherwise.  */
-static int
-svr4_have_link_map_offsets (void)
-{
-  struct link_map_offsets *(*flmo)(void) =
-    gdbarch_data (current_gdbarch, fetch_link_map_offsets_gdbarch_data);
-  if (flmo == NULL
-      || (flmo == legacy_fetch_link_map_offsets 
-          && legacy_svr4_fetch_link_map_offsets_hook == NULL))
-    return 0;
-  else
-    return 1;
-}
-
-/* set_solib_svr4_fetch_link_map_offsets() is intended to be called by
-   a <arch>_gdbarch_init() function.  It is used to establish an
-   architecture specific link_map_offsets fetcher for the architecture
-   being defined.  */
+/* Set the architecture-specific `struct link_map_offsets' fetcher for
+   GDBARCH to FLMO.  */
 
 void
 set_solib_svr4_fetch_link_map_offsets (struct gdbarch *gdbarch,
                                        struct link_map_offsets *(*flmo) (void))
 {
-  set_gdbarch_data (gdbarch, fetch_link_map_offsets_gdbarch_data, flmo);
+  struct solib_svr4_ops *ops = gdbarch_data (gdbarch, solib_svr4_data);
+
+  ops->fetch_link_map_offsets = flmo;
 }
 
-/* Initialize the architecture-specific link_map_offsets fetcher.
-   This is called after <arch>_gdbarch_init() has set up its `struct
-   gdbarch' for the new architecture, and is only called if the
-   link_map_offsets fetcher isn't already initialized (which is
-   usually done by calling set_solib_svr4_fetch_link_map_offsets()
-   above in <arch>_gdbarch_init()).  Therefore we attempt to provide a
-   reasonable alternative (for native targets anyway) if the
-   <arch>_gdbarch_init() fails to call
-   set_solib_svr4_fetch_link_map_offsets().  */
+/* Fetch a link_map_offsets structure using the architecture-specific
+   `struct link_map_offsets' fetcher.  */
 
-static void *
-init_fetch_link_map_offsets (struct gdbarch *gdbarch)
+static struct link_map_offsets *
+svr4_fetch_link_map_offsets (void)
 {
-  return legacy_fetch_link_map_offsets;
+  struct solib_svr4_ops *ops = gdbarch_data (current_gdbarch, solib_svr4_data);
+
+  gdb_assert (ops->fetch_link_map_offsets);
+  return ops->fetch_link_map_offsets ();
 }
+
+/* Return 1 if a link map offset fetcher has been defined, 0 otherwise.  */
+
+static int
+svr4_have_link_map_offsets (void)
+{
+  struct solib_svr4_ops *ops = gdbarch_data (current_gdbarch, solib_svr4_data);
+  return (ops->fetch_link_map_offsets != NULL);
+}
+
 
 /* Most OS'es that have SVR4-style ELF dynamic libraries define a
    `struct r_debug' and a `struct link_map' that are binary compatible
@@ -1587,8 +1411,7 @@ extern initialize_file_ftype _initialize_svr4_solib; /* -Wmissing-prototypes */
 void
 _initialize_svr4_solib (void)
 {
-  fetch_link_map_offsets_gdbarch_data =
-    register_gdbarch_data (init_fetch_link_map_offsets);
+  solib_svr4_data = gdbarch_data_register_pre_init (solib_svr4_init);
 
   svr4_so_ops.relocate_section_addresses = svr4_relocate_section_addresses;
   svr4_so_ops.free_so = svr4_free_so;

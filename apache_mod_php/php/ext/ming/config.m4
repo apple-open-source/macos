@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.19.2.1.4.1 2005/12/21 21:50:08 sniper Exp $
+dnl $Id: config.m4,v 1.22.2.6.2.4 2007/03/06 10:13:40 tony2001 Exp $
 dnl
 
 PHP_ARG_WITH(ming, for MING support,
@@ -9,8 +9,9 @@ if test "$PHP_MING" != "no"; then
   AC_CHECK_LIB(m, sin)
 
   for i in $PHP_MING /usr/local /usr; do
-    if test -f $i/lib/libming.$SHLIB_SUFFIX_NAME -o -f $i/lib/libming.a; then
+    if test -f $i/$PHP_LIBDIR/libming.$SHLIB_SUFFIX_NAME || test -f $i/$PHP_LIBDIR/libming.a; then
       MING_DIR=$i
+      break
     fi
   done
 
@@ -33,15 +34,19 @@ if test "$PHP_MING" != "no"; then
   ],[
     AC_MSG_ERROR([Ming library 0.2a or greater required.])
   ],[
-    -L$MING_DIR/lib
+    -L$MING_DIR/$PHP_LIBDIR
   ])
   
   PHP_ADD_INCLUDE($MING_INC_DIR)
-  PHP_ADD_LIBRARY_WITH_PATH(ming, $MING_DIR/lib, MING_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_WITH_PATH(ming, $MING_DIR/$PHP_LIBDIR, MING_SHARED_LIBADD)
 
-  AC_MSG_CHECKING([for destroySWFBlock])
+  PHP_CHECK_LIBRARY(ming, SWFPrebuiltClip, [ AC_DEFINE(HAVE_SWFPREBUILTCLIP, 1, [ ]) ], [], []) 
+  PHP_CHECK_LIBRARY(ming, SWFMovie_namedAnchor, [ AC_DEFINE(HAVE_SWFMOVIE_NAMEDANCHOR, 1, [ ]) ], [], []) 
+  PHP_CHECK_LIBRARY(ming, Ming_setSWFCompression, [ AC_DEFINE(HAVE_MING_SETSWFCOMPRESSION, 1, [ ]) ], [], []) 
+
   old_CPPFLAGS=$CPPFLAGS
   CPPFLAGS=-I$MING_INC_DIR
+  AC_MSG_CHECKING([for destroySWFBlock])
   AC_TRY_RUN([
 #include "ming.h"
 int destroySWFBlock(int a, int b) {
@@ -59,7 +64,7 @@ int main() {
     AC_MSG_RESULT([unknown])
   ]) 
 
-  dnl Check Ming version (FIXME: if/when ming has some better way to detect the version..)
+dnl Check Ming version (FIXME: if/when ming has some better way to detect the version..)
   AC_EGREP_CPP(yes, [
 #include <ming.h>
 #ifdef SWF_SOUND_COMPRESSION
@@ -70,6 +75,15 @@ yes
     dnl FIXME: This is now unconditional..better check coming later.
     AC_DEFINE(HAVE_MING_ZLIB, 1, [ ])
   ])
+
+  dnl Check if SWFMovie_output() accepts the 4th parameter
+  AC_TRY_COMPILE([
+#include <ming.h>
+  ], [
+SWFMovie_output(NULL, NULL, NULL, 0);
+  ], [
+    AC_DEFINE(HAVE_MING_MOVIE_LEVEL, 1, [ ])
+  ], [])
   CPPFLAGS=$old_CPPFLAGS
 
   PHP_NEW_EXTENSION(ming, ming.c, $ext_shared)

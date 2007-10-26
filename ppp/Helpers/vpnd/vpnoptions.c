@@ -45,6 +45,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -56,9 +57,9 @@
 #include "vpnplugins.h"
 #include "pppoptions.h"
 #include "ipsecoptions.h"
+#include "ipsec_utils.h"
 #include "RASSchemaDefinitions.h"
 
-extern void set_terminate(void);
 static char*	default_log_path = "/var/log/ppp/" DAEMON_NAME ".log";
 
 
@@ -240,8 +241,10 @@ fail:
 static int process_server_prefs(struct vpn_params *params)
 {
     u_int32_t		lval, len;
-    char            	str[MAXPATHLEN] ;
-       
+    char            str[MAXPATHLEN];   
+	int				err ;
+	struct hostent	*hostent;
+	
     get_int_option(params->serverRef, kRASEntServer, kRASPropServerMaximumSessions, &lval, 0);
     if (lval)
         params->max_sessions = lval;
@@ -253,6 +256,55 @@ static int process_server_prefs(struct vpn_params *params)
     if (lval)
         params->log_verbose = lval;
 
+	// Load balancing parameters
+	get_int_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingEnabled, &lval, 0);
+	if (lval) {
+		params->lb_enable = 1;
+		
+		// will determine the interface from the cluster address
+		//get_str_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingInterface, str, &len, "en1");
+		//strncpy(params->lb_interface, str, sizeof(params->lb_interface));
+
+		// is priority really useful ?
+		//get_int_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingPriority, &lval, 5);
+		//if (lval < 1) lval = 1;
+		//else if (lval > LB_MAX_PRIORITY) lval = LB_MAX_PRIORITY;
+		//params->lb_priority = lval;
+		
+		get_int_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingPort, &lval, LB_DEFAULT_PORT);
+		params->lb_port = htons(lval);
+		get_str_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingAddress, str, &len, "");
+		// ask the system to look up the given name.
+		hostent = getipnodebyname (str, AF_INET, 0, &err);
+		if (!hostent) {
+			vpnlog(LOG_ERR, "Incorrect Load Balancing address found '%s'\n", str);
+			params->lb_enable = 0;
+			
+		}
+		else {
+			struct sockaddr_in src, dst;
+			
+			params->lb_cluster_address = *(struct in_addr *)hostent->h_addr_list[0];
+			freehostent(hostent);
+			
+			bzero(&dst, sizeof(dst));
+			dst.sin_family = PF_INET;
+			dst.sin_len = sizeof(dst);
+			dst.sin_addr = params->lb_cluster_address;
+		
+			// look for the interface and primary address of the cluster address			
+			if (get_route_interface((struct sockaddr *)&src, (struct sockaddr *)&dst, params->lb_interface)) {
+			
+				vpnlog(LOG_ERR, "Cannot get load balancing redirect address and interface (errno = %d)\n", errno);
+				params->lb_enable = 0;
+			}
+
+			params->lb_redirect_address = src.sin_addr;
+
+			
+		}
+	}
+	
     return 0;
 }
 

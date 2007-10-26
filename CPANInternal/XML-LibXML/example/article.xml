@@ -1,0 +1,9 @@
+<article>
+<pubData>Something here</pubData>
+<pubArticleID>12345</pubArticleID>
+<pubDate>2001-04-01</pubDate>
+<pubName>XML.com</pubName>
+<section>Foo</section>
+<lead>Here's some leading text</lead>
+<rest>And here is the rest...</rest>
+</article>

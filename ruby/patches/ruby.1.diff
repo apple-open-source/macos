@@ -1,0 +1,7 @@
+--- ruby.1.orig 2006-03-10 19:09:37.000000000 +0100
++++ ruby.1      2006-03-10 19:11:35.000000000 +0100
+@@ -348,3 +348,4 @@
+ .Sh AUTHORS
+ Ruby is designed and implemented by
+ .An Yukihiro Matsumoto Aq matz@netlab.jp .
++You can obtain the Ruby sources at http://www.ruby-lang.org/en.

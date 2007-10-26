@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *   file name:  nfsubs.h
@@ -470,16 +470,25 @@ public:
 class NumeratorSubstitution : public NFSubstitution {
     double denominator;
     int64_t ldenominator;
+    UBool withZeros;
 public:
+    static inline UnicodeString fixdesc(const UnicodeString& desc) {
+      if (desc.endsWith(LTLT, 2)) {
+        UnicodeString result(desc, 0, desc.length()-1);
+        return result;
+      }
+      return desc;
+    }
     NumeratorSubstitution(int32_t _pos,
         double _denominator,
         const NFRuleSet* _ruleSet,
         const RuleBasedNumberFormat* formatter,
         const UnicodeString& description,
         UErrorCode& status)
-        : NFSubstitution(_pos, _ruleSet, formatter, description, status), denominator(_denominator) 
+        : NFSubstitution(_pos, _ruleSet, formatter, fixdesc(description), status), denominator(_denominator) 
     {
         ldenominator = util64_fromDouble(denominator);
+        withZeros = description.endsWith(LTLT, 2);
     }
     
     virtual UBool operator==(const NFSubstitution& rhs) const;
@@ -487,24 +496,22 @@ public:
     virtual int64_t transformNumber(int64_t number) const { return number * ldenominator; }
     virtual double transformNumber(double number) const { return uprv_round(number * denominator); }
     
+    virtual void doSubstitution(int64_t /*number*/, UnicodeString& /*toInsertInto*/, int32_t /*_pos*/) const {}
+    virtual void doSubstitution(double number, UnicodeString& toInsertInto, int32_t pos) const;
     virtual UBool doParse(const UnicodeString& text, 
         ParsePosition& parsePosition,
         double baseValue,
         double upperBound,
         UBool /*lenientParse*/,
-        Formattable& result) const 
-    {
-        // we don't have to do anything special to do the parsing here,
-        // but we have to turn lenient parsing off-- if we leave it on,
-        // it SERIOUSLY messes up the algorithm
-        return NFSubstitution::doParse(text, parsePosition, baseValue, upperBound, FALSE, result);
-    }
+        Formattable& result) const;
+
     virtual double composeRuleValue(double newRuleValue, double oldRuleValue) const { return newRuleValue / oldRuleValue; }
     virtual double calcUpperBound(double /*oldUpperBound*/) const { return denominator; }
     virtual UChar tokenChar() const { return (UChar)0x003c; } // '<'
 private:
     static const char fgClassID;
-    
+    static const UChar LTLT[2];
+
 public:
     static UClassID getStaticClassID(void) { return (UClassID)&fgClassID; }
     virtual UClassID getDynamicClassID(void) const;

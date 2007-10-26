@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002-2003, International Business Machines
+* Copyright (c) 2002-2006, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 **********************************************************************
@@ -8,13 +8,15 @@
 #ifndef _NORMPERF_H
 #define _NORMPERF_H
 
-#include "uperf.h"
 #include "unicode/unorm.h"
 #include "unicode/ustring.h"
 
+#include "unicode/uperf.h"
+#include <stdlib.h>
+
 //  Stubs for Windows API functions when building on UNIXes.
 //
-#if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
+#if defined(U_WINDOWS)
 // do nothing
 #else
 #define _UNICODE
@@ -100,7 +102,7 @@ private:
     ULine* lines;
     int32_t numLines;
     UChar dest[DEST_BUFFER_CAPACITY];
-	UChar* pDest;
+    UChar* pDest;
     int32_t destLen;
     NormFn fn;
     int32_t retVal;
@@ -147,7 +149,7 @@ public:
         numLines = srcNumLines;
         uselen = _uselen;
         destLen = DEST_BUFFER_CAPACITY;
-		pDest = dest;
+        pDest = dest;
         src = NULL;
         srcLen = 0;
         line_mode = TRUE;
@@ -158,16 +160,16 @@ public:
         numLines = 0;
         uselen = _uselen;
         destLen = sourceLen*3;
-		pDest = (UChar*) malloc(destLen * U_SIZEOF_UCHAR);
+        pDest = (UChar*) malloc(destLen * U_SIZEOF_UCHAR);
         src = source;
         srcLen = sourceLen;
         line_mode = FALSE;
     }
-	~NormPerfFunction(){
-		if(dest != pDest){
-			free(pDest);
-		}
-	}
+    ~NormPerfFunction(){
+        if(dest != pDest){
+            free(pDest);
+        }
+    }
 };
 
 
@@ -313,7 +315,7 @@ int32_t ICUIsNormalized(const UChar* src,int32_t srcLen, UNormalizationMode mode
 }
 #endif
 
-#if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
+#if defined(U_WINDOWS)
 
 int32_t WinNormNFD(const UChar* src, int32_t srcLen, UChar* dest, int32_t dstLen, int32_t options, UErrorCode* status) {
     return FoldStringW(MAP_COMPOSITE,src,srcLen,dest,dstLen);
@@ -348,3 +350,4 @@ int32_t WinNormNFKC(const UChar* src, int32_t srcLen, UChar* dest, int32_t dstLe
 
 
 #endif // NORMPERF_H
+

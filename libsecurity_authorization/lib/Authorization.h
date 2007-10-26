@@ -76,21 +76,21 @@ extern "C" {
 */
 
 enum {
-	errAuthorizationSuccess					= 0,      /* The operation completed successfully. */
-    errAuthorizationInvalidSet				= -60001, /* The set parameter is invalid. */
-    errAuthorizationInvalidRef				= -60002, /* The authorization parameter is invalid. */
-    errAuthorizationInvalidTag				= -60003, /* The tag parameter is invalid. */
-    errAuthorizationInvalidPointer			= -60004, /* The authorizedRights parameter is invalid. */
-	errAuthorizationDenied					= -60005, /* The authorization was denied. */
-	errAuthorizationCanceled				= -60006, /* The authorization was cancelled by the user. */
-	errAuthorizationInteractionNotAllowed	= -60007, /* The authorization was denied since no user interaction was possible. */
-	errAuthorizationInternal                = -60008, /* something else went wrong */
-	errAuthorizationExternalizeNotAllowed	= -60009, /* authorization externalization denied */
-	errAuthorizationInternalizeNotAllowed	= -60010, /* authorization internalization denied */
-	errAuthorizationInvalidFlags            = -60011, /* invalid option flag(s) */
-	errAuthorizationToolExecuteFailure      = -60031, /* cannot execute privileged tool */
-	errAuthorizationToolEnvironmentError    = -60032, /* privileged tool environment error */
-	errAuthorizationBadAddress				= -60033, /* invalid socket address requested */
+	errAuthorizationSuccess                 = 0,      /* The operation completed successfully. */
+	errAuthorizationInvalidSet              = -60001, /* The authorization rights are invalid. */
+	errAuthorizationInvalidRef              = -60002, /* The authorization reference is invalid. */
+	errAuthorizationInvalidTag              = -60003, /* The authorization tag is invalid. */
+	errAuthorizationInvalidPointer          = -60004, /* The returned authorization is invalid. */
+	errAuthorizationDenied                  = -60005, /* The authorization was denied. */
+	errAuthorizationCanceled                = -60006, /* The authorization was cancelled by the user. */
+	errAuthorizationInteractionNotAllowed   = -60007, /* The authorization was denied since no user interaction was possible. */
+	errAuthorizationInternal                = -60008, /* Unable to obtain authorization for this operation. */
+	errAuthorizationExternalizeNotAllowed	= -60009, /* The authorization is not allowed to be converted to an external format. */
+	errAuthorizationInternalizeNotAllowed	= -60010, /* The authorization is not allowed to be created from an external format. */
+	errAuthorizationInvalidFlags            = -60011, /* The provided option flag(s) are invalid for this authorization operation. */
+	errAuthorizationToolExecuteFailure      = -60031, /* The specified program could not be executed. */
+	errAuthorizationToolEnvironmentError    = -60032, /* An invalid status was returned during execution of a privileged tool. */
+	errAuthorizationBadAddress              = -60033, /* The requested socket address is invalid (must be 0-1023 inclusive). */
 };
 
 
@@ -155,7 +155,7 @@ typedef const char *AuthorizationString;
 */
 typedef struct {
 	AuthorizationString name;
-	UInt32 valueLength;
+	size_t valueLength;
 	void *value;
 	UInt32 flags;
 } AuthorizationItem;

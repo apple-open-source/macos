@@ -84,7 +84,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: ecp.c,v 1.5 2004/03/04 01:36:32 lindak Exp $"
+#define RCSID	"$Id: ecp.c,v 1.6 2005/12/13 06:30:15 lindak Exp $"
 
 #ifndef lint
 static const char rcsid[] = RCSID;
@@ -143,6 +143,7 @@ struct protent ecp_protent = {
     NULL,
     NULL,
 #ifdef __APPLE__
+    NULL,
     NULL,
     NULL,
     NULL

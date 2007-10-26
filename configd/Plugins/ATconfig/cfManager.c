@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,10 +53,10 @@ configRead(const char *path)
 	CFArrayRef		config	= NULL;
 
 	fd = open(path, O_RDONLY, 0644);
-	if (fd < 0) {
+	if (fd == -1) {
 		goto done;
 	}
-	if (fstat(fd, &statBuf) < 0) {
+	if (fstat(fd, &statBuf) == -1) {
 		goto done;
 	}
 	if ((statBuf.st_mode & S_IFMT) != S_IFREG) {
@@ -78,7 +78,7 @@ configRead(const char *path)
 
     done:
 
-	if (fd >= 0) {
+	if (fd != -1) {
 		close(fd);
 	}
 	if (config == NULL) {
@@ -107,11 +107,11 @@ configWrite(const char *path, CFArrayRef config)
 	int		len;
 
 	str  = CFStringCreateByCombiningStrings(NULL, config, CFSTR("\n"));
-	data = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingMacRoman, '.');
+	data = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingMacRoman, (UInt8)'.');
 	CFRelease(str);
 
 	fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0644);
-	if (fd < 0) {
+	if (fd == -1) {
 		goto done;
 	}
 
@@ -122,7 +122,7 @@ configWrite(const char *path, CFArrayRef config)
 
     done:
 
-	if (fd >= 0)
+	if (fd != -1)
 		close(fd);
 	CFRelease(data);
 	return;

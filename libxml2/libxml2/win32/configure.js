@@ -40,6 +40,7 @@ var withXpath = true;
 var withXptr = true;
 var withXinclude = true;
 var withIconv = true;
+var withIcu = false;
 var withIso8859x = false;
 var withZlib = false;
 var withDebug = true;
@@ -120,6 +121,7 @@ function usage()
 	txt += "  xptr:       Enable XPointer support (" + (withXptr? "yes" : "no")  + ")\n";
 	txt += "  xinclude:   Enable XInclude support (" + (withXinclude? "yes" : "no")  + ")\n";
 	txt += "  iconv:      Enable iconv support (" + (withIconv? "yes" : "no")  + ")\n";
+	txt += "  icu:        Enable ICU support (" + (withIcu? "yes" : "no") + ")\n";
 	txt += "  iso8859x:   Enable ISO8859X support (" + (withIso8859x? "yes" : "no")  + ")\n";
 	txt += "  zlib:       Enable zlib support (" + (withZlib? "yes" : "no")  + ")\n";
 	txt += "  xml_debug:  Enable XML debbugging module (" + (withDebug? "yes" : "no")  + ")\n";
@@ -224,6 +226,7 @@ function discoverVersion()
 	vf.WriteLine("WITH_XPTR=" + (withXptr? "1" : "0"));
 	vf.WriteLine("WITH_XINCLUDE=" + (withXinclude? "1" : "0"));
 	vf.WriteLine("WITH_ICONV=" + (withIconv? "1" : "0"));
+	vf.WriteLine("WITH_ICU=" + (withIcu? "1" : "0"));
 	vf.WriteLine("WITH_ISO8859X=" + (withIso8859x? "1" : "0"));
 	vf.WriteLine("WITH_ZLIB=" + (withZlib? "1" : "0"));
 	vf.WriteLine("WITH_DEBUG=" + (withDebug? "1" : "0"));
@@ -306,6 +309,8 @@ function configureLibxml()
 			of.WriteLine(s.replace(/\@WITH_XINCLUDE\@/, withXinclude? "1" : "0"));
 		} else if (s.search(/\@WITH_ICONV\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_ICONV\@/, withIconv? "1" : "0"));
+		} else if (s.search(/\@WITH_ICU\@/) != -1) {
+			of.WriteLine(s.replace(/\@WITH_ICU\@/, withIcu? "1" : "0"));
 		} else if (s.search(/\@WITH_ISO8859X\@/) != -1) {
 			of.WriteLine(s.replace(/\@WITH_ISO8859X\@/, withIso8859x? "1" : "0"));
 		} else if (s.search(/\@WITH_ZLIB\@/) != -1) {
@@ -441,6 +446,8 @@ for (i = 0; (i < WScript.Arguments.length) && (error == 0); i++) {
 			withXinclude = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "iconv")
 			withIconv = strToBool(arg.substring(opt.length + 1, arg.length));
+		else if (opt == "icu")
+			withIcu = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "iso8859x")
 			withIso8859x = strToBool(arg.substring(opt.length + 1, arg.length));
 		else if (opt == "zlib")
@@ -605,6 +612,7 @@ txtOut += "     XPath support: " + boolToStr(withXpath) + "\n";
 txtOut += "  XPointer support: " + boolToStr(withXptr) + "\n";
 txtOut += "  XInclude support: " + boolToStr(withXinclude) + "\n";
 txtOut += "     iconv support: " + boolToStr(withIconv) + "\n";
+txtOut += "       icu support: " + boolToStr(withIcu) + "\n";
 txtOut += "  iso8859x support: " + boolToStr(withIso8859x) + "\n";
 txtOut += "      zlib support: " + boolToStr(withZlib) + "\n";
 txtOut += "  Debugging module: " + boolToStr(withDebug) + "\n";

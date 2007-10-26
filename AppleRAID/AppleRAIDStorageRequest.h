@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,41 +31,44 @@ class AppleRAIDStorageRequest : public IOCommand
     
     friend class AppleRAIDSet;					// XXX remove this
     friend class AppleRAIDMirrorSet;				// XXX remove this
+    friend class AppleLVMGroup;					// XXX remove this
     friend class AppleRAIDEventSource;				// XXX remove this
     friend class AppleRAIDStripeMemoryDescriptor;		// XXX remove this
     friend class AppleRAIDMirrorMemoryDescriptor;		// XXX remove this
     friend class AppleRAIDConcatMemoryDescriptor;		// XXX remove this
-    
-private:
-    AppleRAIDSet		*srRAIDSet;
-    AppleRAIDEventSource	*srEventSource;
-    AppleRAIDMemoryDescriptor   **srMemberMemoryDescriptors;
-    IOReturn			srStatus;
-    
-    virtual void free(void);
+    friend class AppleLVMMemoryDescriptor;			// XXX remove this
     
 protected:
+    AppleRAIDSet		*srRAIDSet;
+    AppleRAIDEventSource	*srEventSource;
+    AppleRAIDMemoryDescriptor	**srMemoryDescriptors;
+    IOReturn			srStatus;
     UInt64			srSetBlockSize;
     UInt64			srMemberBaseOffset;
     UInt32			srActiveCount;
     UInt32			srMemberCount;
-    IOReturn                    *srMemberStatus;
-    UInt64			*srMemberByteCounts;
+    UInt32			srRequestCount;
+    UInt32			srRequestsAllocated;
+    IOReturn			*srRequestStatus;
+    UInt64			*srRequestByteCounts;
     UInt32			srCompletedCount;
     UInt64			srByteStart;
     UInt64			srByteCount;
+    AppleRAIDMember		**srActiveMembers;
     IOService			*srClient;
     IOStorageCompletion		srCompletion;
     IOMemoryDescriptor		*srMemoryDescriptor;
     IODirection			srMemoryDescriptorDirection;
     
+    virtual void free(void);
+    
     virtual void read(IOService *client, UInt64 byteStart, IOMemoryDescriptor * buffer,
-                      IOStorageCompletion completion);
+		      IOStorageCompletion completion);
     virtual void write(IOService *client, UInt64 byteStart, IOMemoryDescriptor * buffer,
-                       IOStorageCompletion completion);
+		       IOStorageCompletion completion);
 
 public:
-    static AppleRAIDStorageRequest *withAppleRAIDSet(AppleRAIDSet * xsset);
+    static AppleRAIDStorageRequest *withAppleRAIDSet(AppleRAIDSet * set);
     virtual bool initWithAppleRAIDSet(AppleRAIDSet * set);
     virtual void extractRequest(IOService **client, UInt64 *byteStart, IOMemoryDescriptor **buffer, IOStorageCompletion *completion);
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,7 +73,7 @@
 #ifdef __STDC__
 #include <unistd.h>
 #endif
-#include <utmp.h>
+#include <utmpx.h>
 #ifndef __STDC__
 #include <varargs.h>
 #endif
@@ -217,8 +217,7 @@ broadcast(message)
 	char	*message;
 {
 	time_t		clock;
-	FILE	*f_utmp;
-	struct	utmp	utmp;
+	struct	utmpx	*u;
 	char	**np;
 	int	pid, s;
 
@@ -239,31 +238,27 @@ broadcast(message)
 	clock = time((time_t *)0);
 	localclock = localtime(&clock);
 
-	if ((f_utmp = fopen(_PATH_UTMP, "r")) == NULL) {
-		msg("Cannot open %s: %s\n", _PATH_UTMP, strerror(errno));
-		return;
-	}
+	setutxent();
 
-	while (!feof(f_utmp)) {
-		if (fread((char *) &utmp, sizeof (struct utmp), 1, f_utmp) != 1)
-			break;
-		if (utmp.ut_name[0] == 0)
+	while ((u = getutxent()) != NULL) {
+		if (u->ut_user[0] == 0 || u->ut_type != USER_PROCESS)
 			continue;
 		for (np = gp->gr_mem; *np; np++) {
-			if (strncmp(*np, utmp.ut_name, sizeof(utmp.ut_name)) != 0)
+			if (strncmp(*np, u->ut_user, sizeof(u->ut_user)) != 0)
 				continue;
 			/*
 			 *	Do not send messages to operators on dialups
 			 */
-			if (strncmp(utmp.ut_line, DIALUP, strlen(DIALUP)) == 0)
+			if (strncmp(u->ut_line, DIALUP, strlen(DIALUP)) == 0)
 				continue;
 #ifdef DEBUG
-			msg("Message to %s at %s\n", *np, utmp.ut_line);
+			msg("Message to %s at %s\n", *np, u->ut_line);
 #endif
-			sendmes(utmp.ut_line, message);
+			sendmes(u->ut_line, message);
+			break;
 		}
 	}
-	(void) fclose(f_utmp);
+	endutxent();
 	Exit(0);	/* the wait in this same routine will catch this */
 	/* NOTREACHED */
 }

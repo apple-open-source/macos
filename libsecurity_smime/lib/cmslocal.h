@@ -88,8 +88,8 @@ SecCmsCipherContextDestroy(SecCmsCipherContextRef cc);
  * we see the data we do not know how many padding bytes there are
  * (always between 1 and bsize).
  */
-extern unsigned int
-SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, unsigned int input_len, Boolean final);
+extern size_t
+SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, size_t input_len, Boolean final);
 
 /*
  * SecCmsCipherContextEncryptLength - find the output length of the next call to encrypt.
@@ -100,8 +100,8 @@ SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, unsigned int input_l
  *
  * Result can be used to perform memory allocations.
  */
-extern unsigned int
-SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, unsigned int input_len, Boolean final);
+extern size_t
+SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, size_t input_len, Boolean final);
 
 /*
  * SecCmsCipherContextDecrypt - do the decryption
@@ -122,8 +122,8 @@ SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, unsigned int input_l
  */ 
 extern OSStatus
 SecCmsCipherContextDecrypt(SecCmsCipherContextRef cc, unsigned char *output,
-		  unsigned int *output_len_p, unsigned int max_output_len,
-		  const unsigned char *input, unsigned int input_len,
+		  size_t *output_len_p, size_t max_output_len,
+		  const unsigned char *input, size_t input_len,
 		  Boolean final);
 
 /*
@@ -145,8 +145,8 @@ SecCmsCipherContextDecrypt(SecCmsCipherContextRef cc, unsigned char *output,
  */ 
 extern OSStatus
 SecCmsCipherContextEncrypt(SecCmsCipherContextRef cc, unsigned char *output,
-		  unsigned int *output_len_p, unsigned int max_output_len,
-		  const unsigned char *input, unsigned int input_len,
+		  size_t *output_len_p, size_t max_output_len,
+		  const unsigned char *input, size_t input_len,
 		  Boolean final);
 
 /************************************************************************

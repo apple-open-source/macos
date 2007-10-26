@@ -75,7 +75,7 @@ static void print_immediate(
     unsigned long sect_offset,
     struct relocation_info *sorted_relocs,
     unsigned long nsorted_relocs,
-    nlist_t *symbols,
+    struct nlist *symbols,
     unsigned long nsymbols,
     struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
@@ -92,7 +92,7 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-nlist_t *symbols,
+struct nlist *symbols,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
@@ -1034,7 +1034,7 @@ unsigned long value,
 unsigned long sect_offset,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-nlist_t *symbols,
+struct nlist *symbols,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
@@ -1191,7 +1191,7 @@ enum bool verbose)
 	high = nsorted_symbols - 1;
 	mid = (high - low) / 2;
 	while(high >= low){
-	    if(sorted_symbols[mid].nl.n_value == value){
+	    if(sorted_symbols[mid].n_value == value){
 		if(reloc_found){
 		    switch(r_type){
 		    case M88K_RELOC_HI16:
@@ -1232,7 +1232,7 @@ enum bool verbose)
 		}
 		return;
 	    }
-	    if(sorted_symbols[mid].nl.n_value > value){
+	    if(sorted_symbols[mid].n_value > value){
 		high = mid - 1;
 		mid = (high + low) / 2;
 	    }

@@ -1,5 +1,7 @@
 Mailmanで日本語を扱うときの注意 (English summary in the end)
 
+Mailman 2.1.6 では従来必要であったパッチ適用が不要となりました.
+
 日本語のメールは ISO-2022-JP を使うことが、RFC1468に定められており、
 その後、MIMEによる使用可能な文字集合の拡張がなされていても、これが
 事実上の標準規則となっています。一方で、Mailmanのようにプログラムの
@@ -23,15 +25,20 @@ mm_cfg.py から下記の記述を削除してください。
 削除> LC_DESCRIPTIONS['ja'] = ( _('Japanese'),
 削除>                           'euc-jp', ['iso-2022-jp', 'shift_jis'] )
 
-但し、日本語が使えるようになりましたが、いくつかの致命的でない不具合
-が残っています。例えば、平文のメールに付加されるヘッダとフッタが
-MIMEの添付となってしまいます。また、日本でのメーリングリストは番号
-付けができないと使われないというような、文化的不具合も残っています。
-このため、これらの不具合を修正するパッチを作成して
+Mailman 2.1.5 までは, さらに「いくつかの致命的でない不具合」を
+修正するために, 「日本語パッチ」の適用が必要でしたが, Mailman 2.1.6
+からは, それらのパッチが取り込まれたため, パッチ適用の必要はありません.
+なお, email パッケージに対するパッチについては, スパムメールが
+エラーを引き起こして qfiles/shunt に残る程度のことを我慢すれば
+適用の必要はありません.
+
+以下, 過去のバージョンについての注意事項
+
+Mailman 2.1.5 およびそれ以前の、いくつかの致命的でない不具合
+を修正するパッチは以下のように
 http://mm.tkikuchi.net/mailman-2.1.x+patch.YYYYMMDD
 に置くようにしています。
-さらに、Mailman に同梱されている email パッケージにも若干の不具合が
-あり、こちらもパッチを作成しています。
+さらに、Mailman に同梱されている email パッケージ用には
 http://mm.tkikuchi.net/email.patch.YYYYMMDD
 (これらのURLは変更される可能性があります. http://mm.tkikuchi.net/
 の情報を読んでください)
@@ -73,7 +80,10 @@ rev. for 2.1.4+ (2004/01/22)
 
 I18N Jananization Note
 #
-There is one problem in Japanese message handling; Web documents
+You don't have to apply 'Japanese patch' for mailman 2.1.6.
+
+There was one problem in Japanese message handling before 2.1.6; 
+Web documents
 are best treated with EUC-JP charset, while Mail messages should
 be in ISO-2022-JP. While Mailman-2.1.1 is now capable of treating
 these differences, I made a patch to brush up some small gritches
@@ -89,6 +99,7 @@ Patch and install procedure is ...
     % patch -p0 < /path/to/email.patch.YYYYMMDD
     - start mailman
 
+Revised 2004/12/12
 Revised 2002/03/26
 Revised for multi-charset 2002/12/10
 Revised for 2.1.1 2003/02/14

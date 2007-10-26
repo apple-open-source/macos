@@ -34,7 +34,7 @@ mi_getopt (const char *prefix,
   /* We assume that argv/argc are ok. */
   if (*optind > argc || *optind < 0)
     internal_error (__FILE__, __LINE__,
-		    "mi_getopt_long: optind out of bounds");
+		    _("mi_getopt_long: optind out of bounds"));
   if (*optind == argc)
     return -1;
   arg = argv[*optind];
@@ -60,7 +60,7 @@ mi_getopt (const char *prefix,
 	{
 	  /* A non-simple optarg option. */
 	  if (argc < *optind + 2)
-	    error ("%s: Option %s requires an argument", prefix, arg);
+	    error (_("%s: Option %s requires an argument"), prefix, arg);
 	  *optarg = argv[(*optind) + 1];
 	  *optind = (*optind) + 2;
 	  return opt->index;
@@ -72,7 +72,7 @@ mi_getopt (const char *prefix,
 	  return opt->index;
 	}
     }
-  error ("%s: Unknown option ``%s''", prefix, arg + 1);
+  error (_("%s: Unknown option ``%s''"), prefix, arg + 1);
 }
 
 int 

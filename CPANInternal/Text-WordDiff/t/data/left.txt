@@ -1,0 +1,5 @@
+This is a tst;
+it is only a
+test. Had it been an
+actual diff, the results would
+have been output to HTML.

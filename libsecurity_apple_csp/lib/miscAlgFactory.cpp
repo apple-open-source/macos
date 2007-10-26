@@ -65,7 +65,7 @@
 
 #if	(!MAF_DES_ENABLE || !MAF_DES3_ENABLE || !MAF_RC2_ENABLE || !MAF_RC4_ENABLE || \
 		!MAF_RC5_ENABLE || !MAF_MAC_ENABLE)
-#warning	Internal DES/RC2/RC4/RC5/Mac implementation disabled! 
+#warning	Internal DES/RC2/RC4/RC5/Mac implementation disabled!
 #endif
 
 bool MiscAlgFactory::setup(
@@ -191,6 +191,13 @@ bool MiscAlgFactory::setup(
 						/* reuse is OK */
 						cspCtx = new DigestContext(session, 
 								*(new MD2Object));
+					}
+					return true;
+				case CSSM_ALGID_SHA224:
+					if(cspCtx == NULL) {
+						/* reuse is OK */
+						cspCtx = new DigestContext(session, 
+								*(new SHA224Object));
 					}
 					return true;
 				case CSSM_ALGID_SHA256:

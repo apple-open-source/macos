@@ -1,30 +1,46 @@
 /*
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_APACHE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_APACHE_LICENSE_HEADER_END@
  */
+
+static const char *const __rcs_file_version__ = "$Revision: 23400 $";
+
+#include "liblaunch_public.h"
+#include "liblaunch_private.h"
+#include "libbootstrap_public.h"
+#include "libvproc_public.h"
+#include "libvproc_private.h"
+#include "libvproc_internal.h"
+
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFPriv.h>
+#include <TargetConditionals.h>
+#if !TARGET_OS_EMBEDDED
+#include <Security/Security.h>
+#include <Security/AuthSession.h>
+#endif
+#include <IOKit/IOKitLib.h>
+#include <NSSystemDirectories.h>
 #include <mach/mach.h>
-#include <servers/bootstrap.h>
 #include <sys/types.h>
+#include <sys/sysctl.h>
 #include <sys/time.h>
+#include <sys/sysctl.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -32,7 +48,12 @@
 #include <sys/event.h>
 #include <sys/resource.h>
 #include <sys/param.h>
+#include <sys/mount.h>
+#include <sys/reboot.h>
+#include <net/if.h>
 #include <netinet/in.h>
+#include <netinet/in_var.h>
+#include <netinet6/nd6.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <libgen.h>
@@ -43,20 +64,37 @@
 #include <grp.h>
 #include <netdb.h>
 #include <syslog.h>
+#include <glob.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <dns_sd.h>
+#include <paths.h>
+#include <utmp.h>
+#include <utmpx.h>
+#include <bootfiles.h>
+#include <sysexits.h>
+#include <util.h>
 
-#include "launch.h"
-#include "launch_priv.h"
 
 #define LAUNCH_SECDIR "/tmp/launch-XXXXXX"
 
 #define MACHINIT_JOBKEY_ONDEMAND	"OnDemand"
 #define MACHINIT_JOBKEY_SERVICENAME	"ServiceName"
 #define MACHINIT_JOBKEY_COMMAND		"Command"
-#define MACHINIT_JOBKEY_ISKUNCSERVER	"isKUNCServer"
+#define MACHINIT_JOBKEY_SERVERPORT	"ServerPort"
+#define MACHINIT_JOBKEY_SERVICEPORT	"ServicePort"
 
+#define assumes(e)	\
+	(__builtin_expect(!(e), 0) ? _log_launchctl_bug(__rcs_file_version__, __FILE__, __LINE__, #e), false : true)
+
+
+struct load_unload_state {
+	launch_data_t pass0;
+	launch_data_t pass1;
+	launch_data_t pass2;
+	char *session_type;
+	unsigned int editondisk:1, load:1, forceload:1, __pad:29;
+};
 
 static void myCFDictionaryApplyFunction(const void *key, const void *value, void *context);
 static bool launch_data_array_append(launch_data_t a, launch_data_t o);
@@ -68,22 +106,62 @@ static launch_data_t CF2launch_data(CFTypeRef);
 static launch_data_t read_plist_file(const char *file, bool editondisk, bool load);
 static CFPropertyListRef CreateMyPropertyListFromFile(const char *);
 static void WriteMyPropertyListToFile(CFPropertyListRef, const char *);
-static void readpath(const char *, launch_data_t, launch_data_t, bool editondisk, bool load, bool forceload);
-static void readfile(const char *, launch_data_t, launch_data_t, bool editondisk, bool load, bool forceload);
+static bool path_goodness_check(const char *path, bool forceload);
+static void readpath(const char *, struct load_unload_state *);
+static void readfile(const char *, struct load_unload_state *);
 static int _fd(int);
 static int demux_cmd(int argc, char *const argv[]);
-static void do_rendezvous_magic(const struct addrinfo *res, const char *serv, const char *label);
-static void workaround_bonjour_asynchronously(void);
+static launch_data_t do_rendezvous_magic(const struct addrinfo *res, const char *serv);
 static void submit_job_pass(launch_data_t jobs);
 static void submit_mach_jobs(launch_data_t jobs);
-static void let_go_of_mach_jobs(void);
+static void let_go_of_mach_jobs(launch_data_t jobs);
 static void do_mgroup_join(int fd, int family, int socktype, int protocol, const char *mgroup);
-static void print_jobs(launch_data_t j, const char *label, void *context);
+static mach_port_t str2bsport(const char *s);
+static void print_jobs(launch_data_t j, const char *key, void *context);
+static void print_obj(launch_data_t obj, const char *key, void *context);
 static bool is_legacy_mach_job(launch_data_t obj);
+static bool delay_to_second_pass(launch_data_t o);
+static void delay_to_second_pass2(launch_data_t o, const char *key, void *context);
+static bool str2lim(const char *buf, rlim_t *res);
+static const char *lim2str(rlim_t val, char *buf);
+static const char *num2name(int n);
+static ssize_t name2num(const char *n);
+static void unloadjob(launch_data_t job);
+static void print_key_value(launch_data_t obj, const char *key, void *context);
+static void print_launchd_env(launch_data_t obj, const char *key, void *context);
+static void _log_launchctl_bug(const char *rcs_rev, const char *path, unsigned int line, const char *test);
+static void loopback_setup_ipv4(void);
+static void loopback_setup_ipv6(void);
+static pid_t fwexec(const char *const *argv, bool _wait);
+static void do_potential_fsck(void);
+static bool path_check(const char *path);
+static bool is_safeboot(void);
+static bool is_netboot(void);
+static void apply_sysctls_from_file(const char *thefile);
+static void empty_dir(const char *thedir, struct stat *psb);
+static int touch_file(const char *path, mode_t m);
+static void do_sysversion_sysctl(void);
+static void do_application_firewall_magic(int sfd, launch_data_t thejob);
+static void preheat_page_cache_hack(void);
+static void do_bootroot_magic(void);
+static void do_single_user_mode(bool);
+static bool do_single_user_mode2(void);
+static void read_launchd_conf(void);
+static bool job_disabled_logic(launch_data_t obj);
 
+typedef enum {
+	BOOTCACHE_START = 1,
+	BOOTCACHE_TAG,
+	BOOTCACHE_STOP,
+} BootCache_action_t;
+
+static void do_BootCache_magic(BootCache_action_t what);
+
+static int bootstrap_cmd(int argc, char *const argv[]);
 static int load_and_unload_cmd(int argc, char *const argv[]);
 //static int reload_cmd(int argc, char *const argv[]);
-static int start_and_stop_cmd(int argc, char *const argv[]);
+static int start_stop_remove_cmd(int argc, char *const argv[]);
+static int submit_cmd(int argc, char *const argv[]);
 static int list_cmd(int argc, char *const argv[]);
 
 static int setenv_cmd(int argc, char *const argv[]);
@@ -96,7 +174,10 @@ static int fyi_cmd(int argc, char *const argv[]);
 static int logupdate_cmd(int argc, char *const argv[]);
 static int umask_cmd(int argc, char *const argv[]);
 static int getrusage_cmd(int argc, char *const argv[]);
+static int bsexec_cmd(int argc, char *const argv[]);
+static int bslist_cmd(int argc, char *const argv[]);
 
+static int exit_cmd(int argc, char *const argv[]) __attribute__((noreturn));
 static int help_cmd(int argc, char *const argv[]);
 
 static const struct {
@@ -107,8 +188,11 @@ static const struct {
 	{ "load",	load_and_unload_cmd,	"Load configuration files and/or directories" },
 	{ "unload",	load_and_unload_cmd,	"Unload configuration files and/or directories" },
 //	{ "reload",	reload_cmd,		"Reload configuration files and/or directories" },
-	{ "start",	start_and_stop_cmd,	"Start specified jobs" },
-	{ "stop",	start_and_stop_cmd,	"Stop specified jobs" },
+	{ "start",	start_stop_remove_cmd,	"Start specified job" },
+	{ "stop",	start_stop_remove_cmd,	"Stop specified job" },
+	{ "submit",	submit_cmd,		"Submit a job from the command line" },
+	{ "remove",	start_stop_remove_cmd,	"Remove specified job" },
+	{ "bootstrap",	bootstrap_cmd,		"Bootstrap launchd" },
 	{ "list",	list_cmd,		"List jobs and information about jobs" },
 	{ "setenv",	setenv_cmd,		"Set an environmental variable in launchd" },
 	{ "unsetenv",	unsetenv_cmd,		"Unset an environmental variable in launchd" },
@@ -118,50 +202,96 @@ static const struct {
 	{ "stdout",	stdio_cmd,		"Redirect launchd's standard out to the given path" },
 	{ "stderr",	stdio_cmd,		"Redirect launchd's standard error to the given path" },
 	{ "shutdown",	fyi_cmd,		"Prepare for system shutdown" },
-	{ "reloadttys",	fyi_cmd,		"Reload /etc/ttys" },
+	{ "singleuser",	fyi_cmd,		"Switch to single-user mode" },
 	{ "getrusage",	getrusage_cmd,		"Get resource usage statistics from launchd" },
 	{ "log",	logupdate_cmd,		"Adjust the logging level or mask of launchd" },
 	{ "umask",	umask_cmd,		"Change launchd's umask" },
+	{ "bsexec",	bsexec_cmd,		"Execute a process within a different Mach bootstrap subset" },
+	{ "bslist",	bslist_cmd,		"List Mach bootstrap services and optional servers" },
+	{ "exit",	exit_cmd,		"Exit the interactive invocation of launchctl" },
+	{ "quit",	exit_cmd,		"Quit the interactive invocation of launchctl" },
 	{ "help",	help_cmd,		"This help output" },
 };
 
-int main(int argc, char *const argv[])
+static bool istty;
+static bool verbose;
+static bool is_managed;
+
+int
+main(int argc, char *const argv[])
 {
-	bool istty = isatty(STDIN_FILENO);
+	int64_t is_managed_val = 0;
 	char *l;
 
-	if (argc > 1)
-		exit(demux_cmd(argc - 1, argv + 1));
+	if (vproc_swap_integer(NULL, VPROC_GSK_IS_MANAGED, NULL, &is_managed_val) == NULL && is_managed_val) {
+		is_managed = true;
+	}
+
+	if (getuid() == 0 && !is_managed) {
+		mach_port_t root_bs = str2bsport("/");
+		task_set_bootstrap_port(mach_task_self(), root_bs);
+		mach_port_deallocate(mach_task_self(), bootstrap_port);
+		bootstrap_port = root_bs;
+	}
+
+	istty = isatty(STDIN_FILENO);
+
+	argc--, argv++;
+
+	if (argc > 0 && argv[0][0] == '-') {
+		char *flago;
+
+		for (flago = argv[0] + 1; *flago; flago++) {
+			switch (*flago) {
+			case 'v':
+				verbose = true;
+				break;
+			default:
+				fprintf(stderr, "Unknown argument: '-%c'\n", *flago);
+				break;
+			}
+		}
+		argc--, argv++;
+	}
 
 	if (NULL == readline) {
 		fprintf(stderr, "missing library: readline\n");
 		exit(EXIT_FAILURE);
 	}
 
-	while ((l = readline(istty ? "launchd% " : NULL))) {
-		char *inputstring = l, *argv2[100], **ap = argv2;
-		int i = 0;
+	if (argc == 0) {
+		while ((l = readline(istty ? "launchd% " : NULL))) {
+			char *inputstring = l, *argv2[100], **ap = argv2;
+			int i = 0;
 
-		while ((*ap = strsep(&inputstring, " \t"))) {
-			if (**ap != '\0') {
-				ap++;
-				i++;
+			while ((*ap = strsep(&inputstring, " \t"))) {
+				if (**ap != '\0') {
+					ap++;
+					i++;
+				}
 			}
+
+			if (i > 0) {
+				demux_cmd(i, argv2);
+			}
+
+			free(l);
 		}
 
-		if (i > 0)
-			demux_cmd(i, argv2);
-
-		free(l);
+		if (istty) {
+			fputc('\n', stdout);
+		}
 	}
 
-	if (istty)
-		fputc('\n', stdout);
+	if (argc > 0) {
+		exit(demux_cmd(argc, argv));
+	}
 
 	exit(EXIT_SUCCESS);
 }
 
-static int demux_cmd(int argc, char *const argv[])
+int
+demux_cmd(int argc, char *const argv[])
 {
 	size_t i;
 
@@ -169,15 +299,50 @@ static int demux_cmd(int argc, char *const argv[])
 	optreset = 1;
 
 	for (i = 0; i < (sizeof cmds / sizeof cmds[0]); i++) {
-		if (!strcmp(cmds[i].name, argv[0]))
+		if (!strcmp(cmds[i].name, argv[0])) {
 			return cmds[i].func(argc, argv);
+		}
 	}
 
 	fprintf(stderr, "%s: unknown subcommand \"%s\"\n", getprogname(), argv[0]);
 	return 1;
 }
 
-static int unsetenv_cmd(int argc, char *const argv[])
+void
+read_launchd_conf(void)
+{
+	char s[1000], *c, *av[100];
+	size_t len, i;
+	FILE *f;
+
+	if (!(f = fopen("/etc/launchd.conf", "r"))) {
+		return;
+	}
+
+	while ((c = fgets(s, sizeof(s), f))) {
+		len = strlen(c);
+		if (len && c[len - 1] == '\n') {
+			c[len - 1] = '\0';
+		}
+
+		i = 0;
+
+		while ((av[i] = strsep(&c, " \t"))) {
+			if (*(av[i]) != '\0') {
+				i++;
+			}
+		}
+
+		if (i > 0) {
+			demux_cmd(i, av);
+		}
+	}
+
+	fclose(f);
+}
+
+int
+unsetenv_cmd(int argc, char *const argv[])
 {
 	launch_data_t resp, tmp, msg;
 
@@ -204,7 +369,8 @@ static int unsetenv_cmd(int argc, char *const argv[])
 	return 0;
 }
 
-static int setenv_cmd(int argc, char *const argv[])
+int
+setenv_cmd(int argc, char *const argv[])
 {
 	launch_data_t resp, tmp, tmpv, msg;
 
@@ -232,34 +398,41 @@ static int setenv_cmd(int argc, char *const argv[])
 	return 0;
 }
 
-static void print_launchd_env(launch_data_t obj, const char *key, void *context)
+void
+print_launchd_env(launch_data_t obj, const char *key, void *context)
 {
 	bool *is_csh = context;
 
-	if (*is_csh)
-		fprintf(stdout, "setenv %s %s;\n", key, launch_data_get_string(obj));
-	else
-		fprintf(stdout, "%s=%s; export %s;\n", key, launch_data_get_string(obj), key);
+	/* XXX escape the double quotes */
+	if (*is_csh) {
+		fprintf(stdout, "setenv %s \"%s\";\n", key, launch_data_get_string(obj));
+	} else {
+		fprintf(stdout, "%s=\"%s\"; export %s;\n", key, launch_data_get_string(obj), key);
+	}
 }
 
-static void print_key_value(launch_data_t obj, const char *key, void *context)
+void
+print_key_value(launch_data_t obj, const char *key, void *context)
 {
 	const char *k = context;
 
-	if (!strcmp(key, k))
+	if (!strcmp(key, k)) {
 		fprintf(stdout, "%s\n", launch_data_get_string(obj));
+	}
 }
 
-static int getenv_and_export_cmd(int argc, char *const argv[] __attribute__((unused)))
+int
+getenv_and_export_cmd(int argc, char *const argv[])
 {
-	launch_data_t resp, msg;
+	launch_data_t resp;
 	bool is_csh = false;
 	char *k;
 	
 	if (!strcmp(argv[0], "export")) {
 		char *s = getenv("SHELL");
-		if (s)
+		if (s) {
 			is_csh = strstr(s, "csh") ? true : false;
+		}
 	} else if (argc != 2) {
 		fprintf(stderr, "%s usage: getenv <key>\n", getprogname());
 		return 1;
@@ -267,30 +440,26 @@ static int getenv_and_export_cmd(int argc, char *const argv[] __attribute__((unu
 
 	k = argv[1];
 
-	msg = launch_data_new_string(LAUNCH_KEY_GETUSERENVIRONMENT);
-
-	resp = launch_msg(msg);
-	launch_data_free(msg);
-
-	if (resp) {
-		if (!strcmp(argv[0], "export"))
+	if (vproc_swap_complex(NULL, VPROC_GSK_ENVIRONMENT, NULL, &resp) == NULL) {
+		if (!strcmp(argv[0], "export")) {
 			launch_data_dict_iterate(resp, print_launchd_env, &is_csh);
-		else
+		} else {
 			launch_data_dict_iterate(resp, print_key_value, k);
+		}
 		launch_data_free(resp);
+		return 0;
 	} else {
-		fprintf(stderr, "launch_msg(\"" LAUNCH_KEY_GETUSERENVIRONMENT "\"): %s\n", strerror(errno));
+		return 1;
 	}
+
 	return 0;
 }
 
-static void unloadjob(launch_data_t job)
+void
+unloadjob(launch_data_t job)
 {
-	launch_data_t resp, tmp, tmps, msg;
-	int e;
+	launch_data_t tmps;
 
-	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-	tmp = launch_data_alloc(LAUNCH_DATA_STRING);
 	tmps = launch_data_dict_lookup(job, LAUNCH_JOBKEY_LABEL);
 
 	if (!tmps) {
@@ -298,19 +467,9 @@ static void unloadjob(launch_data_t job)
 		return;
 	}
 
-	launch_data_set_string(tmp, launch_data_get_string(tmps));
-	launch_data_dict_insert(msg, tmp, LAUNCH_KEY_REMOVEJOB);
-	resp = launch_msg(msg);
-	launch_data_free(msg);
-	if (!resp) {
-		fprintf(stderr, "%s: Error: launch_msg(): %s\n", getprogname(), strerror(errno));
-		return;
+	if (_vproc_send_signal_by_label(launch_data_get_string(tmps), VPROC_MAGIC_UNLOAD_SIGNAL) != NULL) {
+		fprintf(stderr, "%s: Error unloading: %s\n", getprogname(), launch_data_get_string(tmps));
 	}
-	if (LAUNCH_DATA_ERRNO == launch_data_get_type(resp)) {
-		if ((e = launch_data_get_errno(resp)))
-			fprintf(stderr, "%s\n", strerror(e));
-	}
-	launch_data_free(resp);
 }
 
 launch_data_t
@@ -325,10 +484,11 @@ read_plist_file(const char *file, bool editondisk, bool load)
 	}
 
 	if (editondisk) {
-		if (load)
+		if (load) {
 			CFDictionaryRemoveValue((CFMutableDictionaryRef)plist, CFSTR(LAUNCH_JOBKEY_DISABLED));
-		else
+		} else {
 			CFDictionarySetValue((CFMutableDictionaryRef)plist, CFSTR(LAUNCH_JOBKEY_DISABLED), kCFBooleanTrue);
+		}
 		WriteMyPropertyListToFile(plist, file);
 	}
 
@@ -340,66 +500,289 @@ read_plist_file(const char *file, bool editondisk, bool load)
 }
 
 void
-readfile(const char *what, launch_data_t pass0, launch_data_t pass1, bool editondisk, bool load, bool forceload)
+delay_to_second_pass2(launch_data_t o, const char *key, void *context)
 {
-	launch_data_t tmpd, thejob;
-	bool job_disabled = false;
+	bool *res = context;
+	size_t i;
 
-	if (NULL == (thejob = read_plist_file(what, editondisk, load))) {
+	if (key && 0 == strcmp(key, LAUNCH_JOBSOCKETKEY_BONJOUR)) {
+		*res = true;
+		return;
+	}
+
+	switch (launch_data_get_type(o)) {
+	case LAUNCH_DATA_DICTIONARY:
+		launch_data_dict_iterate(o, delay_to_second_pass2, context);
+		break;
+	case LAUNCH_DATA_ARRAY:
+		for (i = 0; i < launch_data_array_get_count(o); i++) {
+			delay_to_second_pass2(launch_data_array_get_index(o, i), NULL, context);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+bool
+delay_to_second_pass(launch_data_t o)
+{
+	bool res = false;
+
+	launch_data_t socks = launch_data_dict_lookup(o, LAUNCH_JOBKEY_SOCKETS);
+
+	if (NULL == socks) {
+		return false;
+	}
+
+	delay_to_second_pass2(socks, NULL, &res);
+
+	return res;
+}
+
+void
+readfile(const char *what, struct load_unload_state *lus)
+{
+	char ourhostname[1024];
+	launch_data_t tmpd, tmps, thejob, tmpa;
+	bool job_disabled = false;
+	size_t i, c;
+
+	gethostname(ourhostname, sizeof(ourhostname));
+
+	if (NULL == (thejob = read_plist_file(what, lus->editondisk, lus->load))) {
 		fprintf(stderr, "%s: no plist was returned for: %s\n", getprogname(), what);
 		return;
 	}
 
 	if (is_legacy_mach_job(thejob)) {
-		launch_data_array_append(pass0, thejob);
+		fprintf(stderr, "%s: Please convert the following to launchd: %s\n", getprogname(), what);
+		launch_data_array_append(lus->pass0, thejob);
 		return;
 	}
 
 	if (NULL == launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LABEL)) {
 		fprintf(stderr, "%s: missing the Label key: %s\n", getprogname(), what);
-		launch_data_free(thejob);
-		return;
+		goto out_bad;
 	}
 
-	if ((tmpd = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_DISABLED)))
-		job_disabled = launch_data_get_bool(tmpd);
+	if (NULL != (tmpa = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LIMITLOADFROMHOSTS))) {
+		c = launch_data_array_get_count(tmpa);
 
-	if (forceload)
+		for (i = 0; i < c; i++) {
+			launch_data_t oai = launch_data_array_get_index(tmpa, i);
+			if (!strcasecmp(ourhostname, launch_data_get_string(oai))) {
+				goto out_bad;
+			}
+		}
+	}
+
+	if (NULL != (tmpa = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LIMITLOADTOHOSTS))) {
+		c = launch_data_array_get_count(tmpa);
+
+		for (i = 0; i < c; i++) {
+			launch_data_t oai = launch_data_array_get_index(tmpa, i);
+			if (!strcasecmp(ourhostname, launch_data_get_string(oai))) {
+				break;
+			}
+		}
+
+		if (i == c) {
+			goto out_bad;
+		}
+	}
+
+	if (lus->session_type && !(tmpa = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LIMITLOADTOSESSIONTYPE))) {
+		tmpa = launch_data_new_string("Aqua");
+		launch_data_dict_insert(thejob, tmpa, LAUNCH_JOBKEY_LIMITLOADTOSESSIONTYPE);
+	}
+
+	if ((tmpa = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LIMITLOADTOSESSIONTYPE))) {
+		const char *allowed_session;
+		bool skipjob = true;
+
+		if (lus->session_type) switch (launch_data_get_type(tmpa)) {
+		case LAUNCH_DATA_ARRAY:
+			c = launch_data_array_get_count(tmpa);
+			for (i = 0; i < c; i++) {
+				tmps = launch_data_array_get_index(tmpa, i);
+				allowed_session = launch_data_get_string(tmps);
+				if (strcasecmp(lus->session_type, allowed_session) == 0) {
+					skipjob = false;
+					/* we have to do the following so job_reparent_hack() works within launchd */
+					tmpa = launch_data_new_string(lus->session_type);
+					launch_data_dict_insert(thejob, tmpa, LAUNCH_JOBKEY_LIMITLOADTOSESSIONTYPE);
+					break;
+				}
+			}
+			break;
+		case LAUNCH_DATA_STRING:
+			allowed_session = launch_data_get_string(tmpa);
+			if (strcasecmp(lus->session_type, allowed_session) == 0) {
+				skipjob = false;
+			}
+			break;
+		default:
+			break;
+		}
+
+		if (skipjob) {
+			goto out_bad;
+		}
+	}
+
+	if ((tmpd = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_DISABLED))) {
+		job_disabled = job_disabled_logic(tmpd);
+	}
+
+	if (lus->forceload) {
 		job_disabled = false;
+	}
 
-	if (job_disabled && load) {
-		launch_data_free(thejob);
+	if (job_disabled && lus->load) {
+		goto out_bad;
+	}
+
+	if (delay_to_second_pass(thejob)) {
+		launch_data_array_append(lus->pass2, thejob);
+	} else {
+		launch_data_array_append(lus->pass1, thejob);
+	}
+
+	if (verbose) {
+		fprintf(stdout, "Will load: %s\n", what);
+	}
+
+	return;
+out_bad:
+	if (verbose) {
+		fprintf(stdout, "Ignored: %s\n", what);
+	}
+	launch_data_free(thejob);
+}
+
+static bool
+sysctl_hw_streq(int mib_slot, const char *str)
+{
+	char buf[1000];
+	size_t bufsz = sizeof(buf);
+	int mib[] = { CTL_HW, mib_slot };
+
+	if (sysctl(mib, 2, buf, &bufsz, NULL, 0) != -1) {
+		if (strcmp(buf, str) == 0) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static void
+job_disabled_dict_logic(launch_data_t obj, const char *key, void *context)
+{
+	bool *r = context;
+
+	if (launch_data_get_type(obj) != LAUNCH_DATA_STRING) {
 		return;
 	}
 
-	launch_data_array_append(pass1, thejob);
+	if (strcasecmp(key, LAUNCH_JOBKEY_DISABLED_MACHINETYPE) == 0) {
+		if (sysctl_hw_streq(HW_MACHINE, launch_data_get_string(obj))) {
+			*r = true;
+		}
+	} else if (strcasecmp(key, LAUNCH_JOBKEY_DISABLED_MODELNAME) == 0) {
+		if (sysctl_hw_streq(HW_MODEL, launch_data_get_string(obj))) {
+			*r = true;
+		}
+	}
+}
+
+bool
+job_disabled_logic(launch_data_t obj)
+{
+	bool r = false;
+
+	switch (launch_data_get_type(obj)) {
+	case LAUNCH_DATA_DICTIONARY:
+		launch_data_dict_iterate(obj, job_disabled_dict_logic, &r);
+		break;
+	case LAUNCH_DATA_BOOL:
+		r = launch_data_get_bool(obj);
+		break;
+	default:
+		break;
+	}
+
+	return r;
+}
+
+bool
+path_goodness_check(const char *path, bool forceload)
+{
+	struct stat sb;
+
+	if (stat(path, &sb) == -1) {
+		fprintf(stderr, "%s: Couldn't stat(\"%s\"): %s\n", getprogname(), path, strerror(errno));
+		return false;
+	}
+
+	if (forceload) {
+		return true;
+	}
+
+	if (sb.st_mode & (S_IWOTH|S_IWGRP)) {
+		fprintf(stderr, "%s: Dubious permissions on file (skipping): %s\n", getprogname(), path);
+		return false;
+	}
+
+	if (sb.st_uid != 0 && sb.st_uid != getuid()) {
+		fprintf(stderr, "%s: Dubious ownership on file (skipping): %s\n", getprogname(), path);
+		return false;
+	}
+
+	if (!(S_ISREG(sb.st_mode) || S_ISDIR(sb.st_mode))) {
+		fprintf(stderr, "%s: Dubious path. Not a regular file or directory (skipping): %s\n", getprogname(), path);
+		return false;
+	}
+
+	return true;
 }
 
 void
-readpath(const char *what, launch_data_t pass0, launch_data_t pass1, bool editondisk, bool load, bool forceload)
+readpath(const char *what, struct load_unload_state *lus)
 {
 	char buf[MAXPATHLEN];
 	struct stat sb;
 	struct dirent *de;
 	DIR *d;
 
-	if (stat(what, &sb) == -1)
+	if (!path_goodness_check(what, lus->forceload)) {
 		return;
+	}
 
-	if (S_ISREG(sb.st_mode) && !(sb.st_mode & S_IWOTH)) {
-		readfile(what, pass0, pass1, editondisk, load, forceload);
-	} else {
+	if (stat(what, &sb) == -1) {
+		return;
+	}
+
+	if (S_ISREG(sb.st_mode)) {
+		readfile(what, lus);
+	} else if (S_ISDIR(sb.st_mode)) {
 		if ((d = opendir(what)) == NULL) {
 			fprintf(stderr, "%s: opendir() failed to open the directory\n", getprogname());
 			return;
 		}
 
 		while ((de = readdir(d))) {
-			if ((de->d_name[0] == '.'))
+			if ((de->d_name[0] == '.')) {
 				continue;
+			}
 			snprintf(buf, sizeof(buf), "%s/%s", what, de->d_name);
 
-			readfile(buf, pass0, pass1, editondisk, load, forceload);
+			if (!path_goodness_check(buf, lus->forceload)) {
+				continue;
+			}
+
+			readfile(buf, lus);
 		}
 		closedir(d);
 	}
@@ -425,14 +808,15 @@ distill_config_file(launch_data_t id_plist)
 	struct distill_context dc = { id_plist, NULL };
 	launch_data_t tmp;
 
-	if ((tmp = launch_data_dict_lookup(id_plist, LAUNCH_JOBKEY_SOCKETS))) {
+	if ((tmp = launch_data_dict_lookup(dc.base, LAUNCH_JOBKEY_SOCKETS))) {
 		dc.newsockdict = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
 		launch_data_dict_iterate(tmp, sock_dict_cb, &dc);
 		launch_data_dict_insert(dc.base, dc.newsockdict, LAUNCH_JOBKEY_SOCKETS);
 	}
 }
 
-static void sock_dict_cb(launch_data_t what, const char *key, void *context)
+void
+sock_dict_cb(launch_data_t what, const char *key, void *context)
 {
 	struct distill_context *dc = context;
 	launch_data_t fdarray = launch_data_alloc(LAUNCH_DATA_ARRAY);
@@ -452,15 +836,12 @@ static void sock_dict_cb(launch_data_t what, const char *key, void *context)
 	}
 }
 
-static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data_t fdarray, launch_data_t thejob)
+void
+sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data_t fdarray, launch_data_t thejob)
 {
 	launch_data_t a, val;
-	const char *joblabel;
 	int sfd, st = SOCK_STREAM;
 	bool passive = true;
-
-	assert((val = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LABEL)) != NULL);
-	joblabel = launch_data_get_string(val);
 
 	if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_TYPE))) {
 		if (!strcasecmp(launch_data_get_string(val), "stream")) {
@@ -472,8 +853,9 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 		}
 	}
 
-	if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_PASSIVE)))
+	if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_PASSIVE))) {
 		passive = launch_data_get_bool(val);
+	}
 
 	if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_SECUREWITHKEY))) {
 		char secdir[] = LAUNCH_SECDIR, buf[1024];
@@ -506,17 +888,18 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 
 		strncpy(sun.sun_path, launch_data_get_string(val), sizeof(sun.sun_path));
 	
-		if ((sfd = _fd(socket(AF_UNIX, st, 0))) == -1)
+		if ((sfd = _fd(socket(AF_UNIX, st, 0))) == -1) {
 			return;
+		}
 
 		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_PATHMODE))) {
 			sun_mode = (mode_t)launch_data_get_integer(val);
 			setm = true;
 		}
 
-		if (passive) {                  
+		if (passive) {
 			if (unlink(sun.sun_path) == -1 && errno != ENOENT) {
-				close(sfd);     
+				close(sfd);
 				return;
 			}
 			oldmask = umask(S_IRWXG|S_IRWXO);
@@ -529,8 +912,7 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 			if (setm) {
 				chmod(sun.sun_path, sun_mode);
 			}
-			if ((st == SOCK_STREAM || st == SOCK_SEQPACKET)
-					&& listen(sfd, SOMAXCONN) == -1) {
+			if ((st == SOCK_STREAM || st == SOCK_SEQPACKET) && listen(sfd, SOMAXCONN) == -1) {
 				close(sfd);
 				return;
 			}
@@ -552,13 +934,16 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 		memset(&hints, 0, sizeof(hints));
 
 		hints.ai_socktype = st;
-		if (passive)
+		if (passive) {
 			hints.ai_flags |= AI_PASSIVE;
+		}
 
-		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_NODENAME)))
+		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_NODENAME))) {
 			node = launch_data_get_string(val);
-		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_MULTICASTGROUP)))
+		}
+		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_MULTICASTGROUP))) {
 			mgroup = launch_data_get_string(val);
+		}
 		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_SERVICENAME))) {
 			if (LAUNCH_DATA_INTEGER == launch_data_get_type(val)) {
 				sprintf(servnbuf, "%lld", launch_data_get_integer(val));
@@ -568,14 +953,18 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 			}
 		}
 		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_FAMILY))) {
-			if (!strcasecmp("IPv4", launch_data_get_string(val)))
+			if (!strcasecmp("IPv4", launch_data_get_string(val))) {
 				hints.ai_family = AF_INET;
-			else if (!strcasecmp("IPv6", launch_data_get_string(val)))
+			} else if (!strcasecmp("IPv6", launch_data_get_string(val))) {
 				hints.ai_family = AF_INET6;
+			}
 		}
 		if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_PROTOCOL))) {
-			if (!strcasecmp("TCP", launch_data_get_string(val)))
+			if (!strcasecmp("TCP", launch_data_get_string(val))) {
 				hints.ai_protocol = IPPROTO_TCP;
+			} else if (!strcasecmp("UDP", launch_data_get_string(val))) {
+				hints.ai_protocol = IPPROTO_UDP;
+			}
 		}
 		if ((rnames = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_BONJOUR))) {
 			rendezvous = true;
@@ -591,10 +980,14 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 		}
 
 		for (res = res0; res; res = res->ai_next) {
+			launch_data_t rvs_fd = NULL;
 			if ((sfd = _fd(socket(res->ai_family, res->ai_socktype, res->ai_protocol))) == -1) {
 				fprintf(stderr, "socket(): %s\n", strerror(errno));
 				return;
 			}
+
+			do_application_firewall_magic(sfd, thejob);
+
 			if (hints.ai_flags & AI_PASSIVE) {
 				if (AF_INET6 == res->ai_family && -1 == setsockopt(sfd, IPPROTO_IPV6, IPV6_V6ONLY,
 							(void *)&sock_opt, sizeof(sock_opt))) {
@@ -616,33 +1009,50 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 					fprintf(stderr, "bind(): %s\n", strerror(errno));
 					return;
 				}
+				/* The kernel may have dynamically assigned some part of the
+				 * address. (The port being a common example.)
+				 */
+				if (getsockname(sfd, res->ai_addr, &res->ai_addrlen) == -1) {
+					fprintf(stderr, "getsockname(): %s\n", strerror(errno));
+					return;
+				}
 
 				if (mgroup) {
 					do_mgroup_join(sfd, res->ai_family, res->ai_socktype, res->ai_protocol, mgroup);
 				}
-				if ((res->ai_socktype == SOCK_STREAM || res->ai_socktype == SOCK_SEQPACKET)
-						&& listen(sfd, SOMAXCONN) == -1) {
+				if ((res->ai_socktype == SOCK_STREAM || res->ai_socktype == SOCK_SEQPACKET) && listen(sfd, SOMAXCONN) == -1) {
 					fprintf(stderr, "listen(): %s\n", strerror(errno));
 					return;
 				}
 				if (rendezvous && (res->ai_family == AF_INET || res->ai_family == AF_INET6) &&
 						(res->ai_socktype == SOCK_STREAM || res->ai_socktype == SOCK_DGRAM)) {
+					launch_data_t rvs_fds = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_BONJOURFDS);
+					if (NULL == rvs_fds) {
+						rvs_fds = launch_data_alloc(LAUNCH_DATA_ARRAY);
+						launch_data_dict_insert(thejob, rvs_fds, LAUNCH_JOBKEY_BONJOURFDS);
+					}
 					if (NULL == rnames) {
-						do_rendezvous_magic(res, serv, joblabel);
+						rvs_fd = do_rendezvous_magic(res, serv);
+						if (rvs_fd) {
+							launch_data_array_append(rvs_fds, rvs_fd);
+						}
 					} else if (LAUNCH_DATA_STRING == launch_data_get_type(rnames)) {
-						do_rendezvous_magic(res, launch_data_get_string(rnames), joblabel);
+						rvs_fd = do_rendezvous_magic(res, launch_data_get_string(rnames));
+						if (rvs_fd) {
+							launch_data_array_append(rvs_fds, rvs_fd);
+						}
 					} else if (LAUNCH_DATA_ARRAY == launch_data_get_type(rnames)) {
 						size_t rn_i, rn_ac = launch_data_array_get_count(rnames);
 
 						for (rn_i = 0; rn_i < rn_ac; rn_i++) {
 							launch_data_t rn_tmp = launch_data_array_get_index(rnames, rn_i);
 
-							do_rendezvous_magic(res, launch_data_get_string(rn_tmp), joblabel);
+							rvs_fd = do_rendezvous_magic(res, launch_data_get_string(rn_tmp));
+							if (rvs_fd) {
+								launch_data_array_append(rvs_fds, rvs_fd);
+							}
 						}
 					}
-					/* <rdar://problem/3964648> Launchd should not register the same service more than once */
-					/* <rdar://problem/3965154> Switch to DNSServiceRegisterAddrInfo() */
-					rendezvous = false;
 				}
 			} else {
 				if (connect(sfd, res->ai_addr, res->ai_addrlen) == -1) {
@@ -651,12 +1061,18 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 				}
 			}
 			val = launch_data_new_fd(sfd);
+			if (rvs_fd) {
+				/* <rdar://problem/3964648> Launchd should not register the same service more than once */
+				/* <rdar://problem/3965154> Switch to DNSServiceRegisterAddrInfo() */
+				rendezvous = false;
+			}
 			launch_data_array_append(fdarray, val);
 		}
 	}
 }
 
-static void do_mgroup_join(int fd, int family, int socktype, int protocol, const char *mgroup)
+void
+do_mgroup_join(int fd, int family, int socktype, int protocol, const char *mgroup)
 {
 	struct addrinfo hints, *res0, *res;
 	struct ip_mreq mreq;
@@ -701,90 +1117,45 @@ static void do_mgroup_join(int fd, int family, int socktype, int protocol, const
 	freeaddrinfo(res0);
 }
 
-struct bonjour_magic {
-	SLIST_ENTRY(bonjour_magic) sle;
-	char *str;
-	int port;
-	char label[0];
-};
 
-static SLIST_HEAD(, bonjour_magic) bm_later = { NULL };
-
-void
-do_rendezvous_magic(const struct addrinfo *res, const char *serv, const char *joblabel)
+launch_data_t
+do_rendezvous_magic(const struct addrinfo *res, const char *serv)
 {
-	struct bonjour_magic *bm = calloc(1, sizeof(struct bonjour_magic) + strlen(joblabel) + 1);
-	const char *typestr = "udp";
+	struct stat sb;
+	DNSServiceRef service;
+	DNSServiceErrorType error;
+	char rvs_buf[200];
+	short port;
+	static int statres = 1;
 
-	if (res->ai_socktype == SOCK_STREAM)
-		typestr = "tcp";
+	if (1 == statres) {
+		statres = stat("/usr/sbin/mDNSResponder", &sb);
+	}
 
-	strcpy(bm->label, joblabel);
+	if (-1 == statres) {
+		return NULL;
+	}
 
-	asprintf(&bm->str, "_%s._%s.", serv, typestr);
+	sprintf(rvs_buf, "_%s._%s.", serv, res->ai_socktype == SOCK_STREAM ? "tcp" : "udp");
 
 	if (res->ai_family == AF_INET) {
-		bm->port = ((struct sockaddr_in *)res->ai_addr)->sin_port;
+		port = ((struct sockaddr_in *)res->ai_addr)->sin_port;
 	} else {
-		bm->port = ((struct sockaddr_in6 *)res->ai_addr)->sin6_port;
+		port = ((struct sockaddr_in6 *)res->ai_addr)->sin6_port;
 	}
 
-	SLIST_INSERT_HEAD(&bm_later, bm, sle);
+	error = DNSServiceRegister(&service, 0, 0, NULL, rvs_buf, NULL, NULL, port, 0, NULL, NULL, NULL);
+
+	if (error == kDNSServiceErr_NoError) {
+		return launch_data_new_fd(DNSServiceRefSockFD(service));
+	}
+
+	fprintf(stderr, "DNSServiceRegister(\"%s\"): %d\n", serv, error);
+	return NULL;
 }
 
-
-void
-workaround_bonjour_asynchronously(void)
-{
-	launch_data_t resp, msg, msgpayload, tmpa;
-	struct bonjour_magic *bm;
-	DNSServiceErrorType error;
-	DNSServiceRef service;
-	int fd;
-
-	if (fork() != 0)
-		return;
-	
-	signal(SIGHUP, SIG_IGN);
-	setsid();
-	sleep(30);
-
-	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-	msgpayload = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-
-	SLIST_FOREACH(bm, &bm_later, sle) {
-		service = NULL;
-		error = DNSServiceRegister(&service, 0, 0, NULL, bm->str, NULL, NULL, bm->port, 0, NULL, NULL, NULL);
-		if (error != kDNSServiceErr_NoError) {
-			fprintf(stderr, "DNSServiceRegister(\"%s\"): %d\n", bm->str, error);
-			continue;
-		}
-		fd = DNSServiceRefSockFD(service);
-		tmpa = launch_data_dict_lookup(msgpayload, bm->label);
-		if (!tmpa) {
-			tmpa = launch_data_alloc(LAUNCH_DATA_ARRAY);
-			launch_data_dict_insert(msgpayload, tmpa, bm->label);
-		}
-		launch_data_array_append(tmpa, launch_data_new_fd(fd));
-	}
-
-	launch_data_dict_insert(msg, msgpayload, LAUNCH_KEY_WORKAROUNDBONJOUR);
-
-	resp = launch_msg(msg);
-
-	launch_data_free(msg);
-
-	if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
-		errno = launch_data_get_errno(resp);
-		fprintf(stderr, "Workaround Bonjour: %s\n", strerror(errno));
-	}
-
-	launch_data_free(resp);
-
-	_exit(EXIT_SUCCESS);
-}
-
-static CFPropertyListRef CreateMyPropertyListFromFile(const char *posixfile)
+CFPropertyListRef
+CreateMyPropertyListFromFile(const char *posixfile)
 {
 	CFPropertyListRef propertyList;
 	CFStringRef       errorString;
@@ -793,34 +1164,42 @@ static CFPropertyListRef CreateMyPropertyListFromFile(const char *posixfile)
 	CFURLRef          fileURL;
 
 	fileURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)posixfile, strlen(posixfile), false);
-	if (!fileURL)
+	if (!fileURL) {
 		fprintf(stderr, "%s: CFURLCreateFromFileSystemRepresentation(%s) failed\n", getprogname(), posixfile);
-	if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, fileURL, &resourceData, NULL, NULL, &errorCode))
+	}
+	if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, fileURL, &resourceData, NULL, NULL, &errorCode)) {
 		fprintf(stderr, "%s: CFURLCreateDataAndPropertiesFromResource(%s) failed: %d\n", getprogname(), posixfile, (int)errorCode);
+	}
 	propertyList = CFPropertyListCreateFromXMLData(kCFAllocatorDefault, resourceData, kCFPropertyListMutableContainers, &errorString);
-	if (!propertyList)
+	if (!propertyList) {
 		fprintf(stderr, "%s: propertyList is NULL\n", getprogname());
+	}
 
 	return propertyList;
 }
 
-static void WriteMyPropertyListToFile(CFPropertyListRef plist, const char *posixfile)
+void
+WriteMyPropertyListToFile(CFPropertyListRef plist, const char *posixfile)
 {
 	CFDataRef	resourceData;
 	CFURLRef	fileURL;
 	SInt32		errorCode;
 
 	fileURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)posixfile, strlen(posixfile), false);
-	if (!fileURL)
+	if (!fileURL) {
 		fprintf(stderr, "%s: CFURLCreateFromFileSystemRepresentation(%s) failed\n", getprogname(), posixfile);
+	}
 	resourceData = CFPropertyListCreateXMLData(kCFAllocatorDefault, plist);
-	if (resourceData == NULL)
+	if (resourceData == NULL) {
 		fprintf(stderr, "%s: CFPropertyListCreateXMLData(%s) failed", getprogname(), posixfile);
-	if (!CFURLWriteDataAndPropertiesToResource(fileURL, resourceData, NULL, &errorCode))
+	}
+	if (!CFURLWriteDataAndPropertiesToResource(fileURL, resourceData, NULL, &errorCode)) {
 		fprintf(stderr, "%s: CFURLWriteDataAndPropertiesToResource(%s) failed: %d\n", getprogname(), posixfile, (int)errorCode);
+	}
 }
 
-void myCFDictionaryApplyFunction(const void *key, const void *value, void *context)
+void
+myCFDictionaryApplyFunction(const void *key, const void *value, void *context)
 {
 	launch_data_t ik, iw, where = context;
 
@@ -831,7 +1210,8 @@ void myCFDictionaryApplyFunction(const void *key, const void *value, void *conte
 	launch_data_free(ik);
 }
 
-static launch_data_t CF2launch_data(CFTypeRef cfr)
+launch_data_t
+CF2launch_data(CFTypeRef cfr)
 {
 	launch_data_t r;
 	CFTypeID cft = CFGetTypeID(cfr);
@@ -896,7 +1276,8 @@ static launch_data_t CF2launch_data(CFTypeRef cfr)
 	return r;
 }
 
-static int help_cmd(int argc, char *const argv[])
+int
+help_cmd(int argc, char *const argv[])
 {
 	FILE *where = stdout;
 	int l, cmdwidth = 0;
@@ -906,53 +1287,407 @@ static int help_cmd(int argc, char *const argv[])
 		where = stderr;
 
 	fprintf(where, "usage: %s <subcommand>\n", getprogname());
+
 	for (i = 0; i < (sizeof cmds / sizeof cmds[0]); i++) {
 		l = strlen(cmds[i].name);
 		if (l > cmdwidth)
 			cmdwidth = l;
 	}
-	for (i = 0; i < (sizeof cmds / sizeof cmds[0]); i++)
+
+	for (i = 0; i < (sizeof cmds / sizeof cmds[0]); i++) {
 		fprintf(where, "\t%-*s\t%s\n", cmdwidth, cmds[i].name, cmds[i].desc);
+	}
 
 	return 0;
 }
 
-static int _fd(int fd)
+int
+exit_cmd(int argc __attribute__((unused)), char *const argv[] __attribute__((unused)))
+{
+	exit(0);
+}
+
+int
+_fd(int fd)
 {
 	if (fd >= 0)
 		fcntl(fd, F_SETFD, 1);
 	return fd;
 }
 
-static int load_and_unload_cmd(int argc, char *const argv[])
+void
+do_single_user_mode(bool sflag)
 {
-	launch_data_t pass0, pass1;
-	int i, ch;
-	bool wflag = false;
-	bool lflag = false;
-	bool Fflag = false;
+	if (sflag) {
+		while (!do_single_user_mode2()) {
+			sleep(1);
+		}
+	}
+}
 
-	if (!strcmp(argv[0], "load"))
-		lflag = true;
+bool
+do_single_user_mode2(void)
+{
+	bool runcom_fsck = true; /* should_fsck(); */
+	int wstatus;
+	int fd;
+	pid_t p;
 
-	while ((ch = getopt(argc, argv, "wF")) != -1) {
+	switch ((p = fork())) {
+	case -1:
+		syslog(LOG_ERR, "can't fork single-user shell, trying again: %m");
+		return false;
+	case 0:
+		break;
+	default:
+		assumes(waitpid(p, &wstatus, 0) != -1);
+		if (WIFEXITED(wstatus)) {
+			if (WEXITSTATUS(wstatus) == EXIT_SUCCESS) {
+				return true;
+			} else {
+				fprintf(stdout, "single user mode: exit status: %d\n", WEXITSTATUS(wstatus));
+			}
+		} else {
+			fprintf(stdout, "single user mode shell: %s\n", strsignal(WTERMSIG(wstatus)));
+		}
+		return false;
+	}
+
+	revoke(_PATH_CONSOLE);
+	if (!assumes((fd = open(_PATH_CONSOLE, O_RDWR)) != -1)) {
+		_exit(EXIT_FAILURE);
+	}
+	if (!assumes(login_tty(fd) != -1)) {
+		_exit(EXIT_FAILURE);
+	}
+	setenv("TERM", "vt100", 1);
+	if (runcom_fsck) {
+		fprintf(stdout, "Singleuser boot -- fsck not done\n");
+		fprintf(stdout, "Root device is mounted read-only\n\n");
+		fprintf(stdout, "If you want to make modifications to files:\n");
+		fprintf(stdout, "\t/sbin/fsck -fy\n\t/sbin/mount -uw /\n\n");
+		fprintf(stdout, "If you wish to boot the system:\n");
+		fprintf(stdout, "\texit\n\n");
+		fflush(stdout);
+	}
+
+	execl(_PATH_BSHELL, "-sh", NULL);
+	syslog(LOG_ERR, "can't exec %s for single user: %m", _PATH_BSHELL);
+	_exit(EXIT_FAILURE);
+}
+
+static void
+system_specific_bootstrap(bool sflag)
+{
+	int hnmib[] = { CTL_KERN, KERN_HOSTNAME };
+	struct kevent kev;
+	int kq;
+
+
+	do_sysversion_sysctl();
+
+	do_single_user_mode(sflag);
+
+	assumes((kq = kqueue()) != -1);
+
+	EV_SET(&kev, 0, EVFILT_TIMER, EV_ADD|EV_ONESHOT, NOTE_SECONDS, 60, 0);
+	assumes(kevent(kq, &kev, 1, NULL, 0, NULL) != -1);
+
+	EV_SET(&kev, SIGTERM, EVFILT_SIGNAL, EV_ADD, 0, 0, 0);
+	assumes(kevent(kq, &kev, 1, NULL, 0, NULL) != -1);
+	assumes(signal(SIGTERM, SIG_IGN) != SIG_ERR);
+
+	assumes(sysctl(hnmib, 2, NULL, NULL, "localhost", sizeof("localhost")) != -1);
+
+	loopback_setup_ipv4();
+	loopback_setup_ipv6();
+
+	if (path_check("/etc/rc.server")) {
+		const char *rcserver_tool[] = { _PATH_BSHELL, "/etc/rc.server", NULL };
+		assumes(fwexec(rcserver_tool, true) != -1);
+	}
+
+	apply_sysctls_from_file("/etc/sysctl.conf");
+
+	if (path_check("/etc/rc.cdrom")) {
+		const char *rccdrom_tool[] = { _PATH_BSHELL, "/etc/rc.cdrom", "multiuser", NULL };
+		assumes(fwexec(rccdrom_tool, true) != -1);
+		assumes(reboot(RB_HALT) != -1);
+		_exit(EXIT_FAILURE);
+	} else if (is_netboot()) {
+		const char *rcnetboot_tool[] = { _PATH_BSHELL, "/etc/rc.netboot", "init", NULL };
+		if (!assumes(fwexec(rcnetboot_tool, true) != -1)) {
+			assumes(reboot(RB_HALT) != -1);
+			_exit(EXIT_FAILURE);
+		}
+	} else {
+		do_potential_fsck();
+	}
+
+	read_launchd_conf();
+
+	if (path_check("/var/account/acct")) {
+		assumes(acct("/var/account/acct") != -1);
+	}
+
+	if (path_check("/etc/fstab")) {
+		const char *mount_tool[] = { "mount", "-vat", "nonfs", NULL };
+		assumes(fwexec(mount_tool, true) != -1);
+	}
+
+	if (path_check("/etc/rc.installer_cleanup")) {
+		const char *rccleanup_tool[] = { _PATH_BSHELL, "/etc/rc.installer_cleanup", "multiuser", NULL };
+		assumes(fwexec(rccleanup_tool, true) != -1);
+	}
+
+	empty_dir(_PATH_VARRUN, NULL);
+	empty_dir(_PATH_TMP, NULL);
+	remove(_PATH_NOLOGIN);
+
+	if (path_check("/usr/libexec/dirhelper")) {
+		const char *dirhelper_tool[] = { "/usr/libexec/dirhelper", "-machineBoot", NULL };
+		assumes(fwexec(dirhelper_tool, true) != -1);
+	}
+
+	assumes(touch_file(_PATH_UTMPX, DEFFILEMODE) != -1);
+	assumes(touch_file(_PATH_VARRUN "/.systemStarterRunning", DEFFILEMODE) != -1);
+
+	if (path_check("/etc/security/rc.audit")) {
+		const char *audit_tool[] = { _PATH_BSHELL, "/etc/security/rc.audit", NULL };
+		assumes(fwexec(audit_tool, true) != -1);
+	}
+
+	do_BootCache_magic(BOOTCACHE_START);
+
+	preheat_page_cache_hack();
+
+	_vproc_set_global_on_demand(true);
+
+	char *load_launchd_items[] = { "load", "-D", "all", "/etc/mach_init.d", NULL };
+
+	if (is_safeboot()) {
+		load_launchd_items[2] = "system";
+	}
+
+	assumes(load_and_unload_cmd(4, load_launchd_items) == 0);
+
+	/*
+	 * 5066316
+	 *
+	 * We need to revisit this after Leopard ships.
+	 *
+	 * I want a plist defined knob for jobs to give advisory hints that
+	 * will "hopefully" serialize bootstrap. Reasons for doing so include
+	 * pragmatic performance optimizations and attempts to workaround bugs
+	 * in jobs. My current thought is something like what follows.
+	 *
+	 * The BootCache would switch to launchd and add this to the plist:
+	 *
+	 * <key>HopefullyStartsSerially<key>
+	 * <dict>
+	 * 	<key>ReadyTimeout</key>
+	 * 	<integer>2</integer>
+	 * </dict>
+	 *
+	 * And kextd would add the following:
+	 *
+	 * <key>HopefullyStartsSerially<key>
+	 * <dict>
+	 * 	<key>ReadyTimeout</key>
+	 * 	<integer>5</integer>
+	 * 	<key>HopefullyStartsAfter</key>
+	 * 	<string>com.apple.BootCache.daemon</string>
+	 * </dict>
+	 *
+	 *
+	 * Then both the BootCache and kextd could call something like:
+	 *
+	 * vproc_declare_ready_state();
+	 *
+	 * To tell launchd to short circuit the readiness timeout and let the
+	 * next wave of jobs start.
+	 *
+	 * Yes, this mechanism smells a lot like SystemStarter, rc.d and
+	 * friends. I think as long as we document that artificial
+	 * serialization is only advisory and not guaranteed, we should be
+	 * fine. Remember: IPC is the preferred way to serialize operations.
+	 *
+	 */
+	mach_timespec_t w = { 5, 0 };
+	IOKitWaitQuiet(kIOMasterPortDefault, &w);
+
+	do_BootCache_magic(BOOTCACHE_TAG);
+
+	do_bootroot_magic();
+
+	_vproc_set_global_on_demand(false);
+
+	assumes(kevent(kq, NULL, 0, &kev, 1, NULL) == 1);
+
+	do_BootCache_magic(BOOTCACHE_STOP);
+
+	assumes(close(kq) != -1);
+}
+
+void
+do_BootCache_magic(BootCache_action_t what)
+{
+	const char *bcc_tool[] = { "BootCacheControl", "-f", "/var/db/BootCache.playlist", NULL, NULL };
+
+	if (is_safeboot()) {
+		return;
+	}
+
+	switch (what) {
+	case BOOTCACHE_START:
+		bcc_tool[3] = "start";
+		break;
+	case BOOTCACHE_TAG:
+		bcc_tool[3] = "tag";
+		break;
+	case BOOTCACHE_STOP:
+		bcc_tool[3] = "stop";
+		break;
+	default:
+		assumes(false);
+		return;
+	}
+
+	fwexec(bcc_tool, true);
+}
+
+int
+bootstrap_cmd(int argc, char *const argv[])
+{
+	char *session_type = NULL;
+	bool sflag = false;
+	int ch;
+
+	while ((ch = getopt(argc, argv, "sS:")) != -1) {
 		switch (ch) {
-		case 'w': wflag = true; break;
-		case 'F': Fflag = true; break;
+		case 's':
+			sflag = true;
+			break;
+		case 'S':
+			session_type = optarg;
+			break;
+		case '?':
 		default:
-			fprintf(stderr, "usage: %s load [-wF] paths...\n", getprogname());
-			return 1;
+			break;
+		}
+	}
+
+	optind = 1;
+	optreset = 1;
+
+	if (!session_type) {
+		fprintf(stderr, "usage: %s bootstrap [-s] -S <session-type>\n", getprogname());
+		return 1;
+	}
+
+	if (strcasecmp(session_type, "System") == 0) {
+		system_specific_bootstrap(sflag);
+	} else {
+		char *load_launchd_items[] = { "load", "-S", session_type, "-D", "all", NULL, NULL, NULL, NULL };
+		int the_argc = 5;
+
+		if (is_safeboot()) {
+			load_launchd_items[4] = "system";
+		}
+
+		if (strcasecmp(session_type, VPROCMGR_SESSION_BACKGROUND) == 0 || strcasecmp(session_type, VPROCMGR_SESSION_LOGINWINDOW) == 0) {
+			load_launchd_items[4] = "system";
+			if (!is_safeboot()) {
+				load_launchd_items[5] = "-D";
+				load_launchd_items[6] = "local";
+				the_argc += 2;
+			}
+			if (strcasecmp(session_type, VPROCMGR_SESSION_LOGINWINDOW) == 0) {
+				load_launchd_items[the_argc] = "/etc/mach_init_per_login_session.d";
+				the_argc += 1;
+			}
+		} else if (strcasecmp(session_type, VPROCMGR_SESSION_AQUA) == 0) {
+			load_launchd_items[5] = "/etc/mach_init_per_user.d";
+			the_argc += 1;
+		}
+
+#if !TARGET_OS_EMBEDDED
+		if (strcasecmp(session_type, VPROCMGR_SESSION_BACKGROUND) == 0) {
+			assumes(SessionCreate(sessionKeepCurrentBootstrap, 0) == 0);
+		}
+#endif
+
+		return load_and_unload_cmd(the_argc, load_launchd_items);
+	}
+
+	return 0;
+}
+
+int
+load_and_unload_cmd(int argc, char *const argv[])
+{
+	NSSearchPathEnumerationState es = 0;
+	char nspath[PATH_MAX * 2]; /* safe side, we need to append */
+	bool badopts = false;
+	struct load_unload_state lus;
+	size_t i;
+	int ch;
+
+	memset(&lus, 0, sizeof(lus));
+
+	if (strcmp(argv[0], "load") == 0) {
+		lus.load = true;
+	}
+
+	while ((ch = getopt(argc, argv, "wFS:D:")) != -1) {
+		switch (ch) {
+		case 'w':
+			lus.editondisk = true;
+			break;
+		case 'F':
+			lus.forceload = true;
+			break;
+		case 'S':
+			lus.session_type = optarg;
+			break;
+		case 'D':
+			if (strcasecmp(optarg, "all") == 0) {
+				es |= NSAllDomainsMask;
+			} else if (strcasecmp(optarg, "user") == 0) {
+				es |= NSUserDomainMask;
+			} else if (strcasecmp(optarg, "local") == 0) {
+				es |= NSLocalDomainMask;
+			} else if (strcasecmp(optarg, "network") == 0) {
+				es |= NSNetworkDomainMask;
+			} else if (strcasecmp(optarg, "system") == 0) {
+				es |= NSSystemDomainMask;
+			} else {
+				badopts = true;
+			}
+			break;
+		case '?':
+		default:
+			badopts = true;
+			break;
 		}
 	}
 	argc -= optind;
 	argv += optind;
 
-	if (argc == 0) {
-		fprintf(stderr, "usage: %s load [-w] paths...\n", getprogname());
+	if (lus.session_type == NULL) {
+		es &= ~NSUserDomainMask;
+	}
+
+	if (argc == 0 && es == 0) {
+		badopts = true;
+	}
+
+	if (badopts) {
+		fprintf(stderr, "usage: %s load [-wF] [-D <user|local|network|system|all>] paths...\n", getprogname());
 		return 1;
 	}
 
-	/* I wish I didn't need to do multiple passes, but I need to load mDNSResponder and use it too.
+	/* I wish I didn't need to do three passes, but I need to load mDNSResponder and use it too.
 	 * And loading legacy mach init jobs is extra fun.
 	 *
 	 * In later versions of launchd, I hope to load everything in the first pass,
@@ -961,36 +1696,63 @@ static int load_and_unload_cmd(int argc, char *const argv[])
 	 * launchd doesn't have reload support right now.
 	 */
 
-	pass0 = launch_data_alloc(LAUNCH_DATA_ARRAY);
-	pass1 = launch_data_alloc(LAUNCH_DATA_ARRAY);
+	lus.pass0 = launch_data_alloc(LAUNCH_DATA_ARRAY);
+	lus.pass1 = launch_data_alloc(LAUNCH_DATA_ARRAY);
+	lus.pass2 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 
-	for (i = 0; i < argc; i++)
-		readpath(argv[i], pass0, pass1, wflag, lflag, Fflag);
+	es = NSStartSearchPathEnumeration(NSLibraryDirectory, es);
 
-	if (launch_data_array_get_count(pass0) == 0 &&
-			launch_data_array_get_count(pass1) == 0) {
-		fprintf(stderr, "nothing found to %s\n", lflag ? "load" : "unload");
-		launch_data_free(pass0);
-		launch_data_free(pass1);
-		return 1;
+	while ((es = NSGetNextSearchPathEnumeration(es, nspath))) {
+		glob_t g;
+
+		if (lus.session_type) {
+			strcat(nspath, "/LaunchAgents");
+		} else {
+			strcat(nspath, "/LaunchDaemons");
+		}
+
+		if (glob(nspath, GLOB_TILDE|GLOB_NOSORT, NULL, &g) == 0) {
+			for (i = 0; i < g.gl_pathc; i++) {
+				readpath(g.gl_pathv[i], &lus);
+			}
+			globfree(&g);
+		}
+	}
+
+	for (i = 0; i < (size_t)argc; i++) {
+		readpath(argv[i], &lus);
+	}
+
+	if (launch_data_array_get_count(lus.pass0) == 0 &&
+			launch_data_array_get_count(lus.pass1) == 0 &&
+			launch_data_array_get_count(lus.pass2) == 0) {
+		if (!is_managed) {
+			fprintf(stderr, "nothing found to %s\n", lus.load ? "load" : "unload");
+		}
+		launch_data_free(lus.pass0);
+		launch_data_free(lus.pass1);
+		launch_data_free(lus.pass2);
+		return is_managed ? 0 : 1;
 	}
 	
-	if (lflag) {
-		distill_jobs(pass1);
-		submit_mach_jobs(pass0);
-		workaround_bonjour_asynchronously();
-		submit_job_pass(pass1);
-		let_go_of_mach_jobs();
+	if (lus.load) {
+		distill_jobs(lus.pass1);
+		submit_mach_jobs(lus.pass0);
+		submit_job_pass(lus.pass1);
+		let_go_of_mach_jobs(lus.pass0);
+		distill_jobs(lus.pass2);
+		submit_job_pass(lus.pass2);
 	} else {
-		for (i = 0; i < (int)launch_data_array_get_count(pass1); i++)
-			unloadjob(launch_data_array_get_index(pass1, i));
+		for (i = 0; i < launch_data_array_get_count(lus.pass1); i++) {
+			unloadjob(launch_data_array_get_index(lus.pass1, i));
+		}
+		for (i = 0; i < launch_data_array_get_count(lus.pass2); i++) {
+			unloadjob(launch_data_array_get_index(lus.pass2, i));
+		}
 	}
 
 	return 0;
 }
-
-static mach_port_t *msrvs = NULL;
-static size_t msrvs_cnt = 0;
 
 void
 submit_mach_jobs(launch_data_t jobs)
@@ -999,21 +1761,16 @@ submit_mach_jobs(launch_data_t jobs)
 
 	c = launch_data_array_get_count(jobs);
 
-	msrvs = calloc(1, sizeof(mach_port_t) * c);
-	msrvs_cnt = c;
-
 	for (i = 0; i < c; i++) {
 		launch_data_t tmp, oai = launch_data_array_get_index(jobs, i);
 		const char *sn = NULL, *cmd = NULL;
-		bool d = true, k = false;
-		mach_port_t msr, msv, mhp;
+		bool d = true;
+		mach_port_t msr, msv;
 		kern_return_t kr;
 		uid_t u = getuid();
 
 		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_ONDEMAND)))
 			d = launch_data_get_bool(tmp);
-		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_ISKUNCSERVER)))
-			k = launch_data_get_bool(tmp);
 		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_SERVICENAME)))
 			sn = launch_data_get_string(tmp);
 		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_COMMAND)))
@@ -1028,24 +1785,29 @@ submit_mach_jobs(launch_data_t jobs)
 			mach_port_destroy(mach_task_self(), msr);
 			continue;
 		}
-		if (k) {
-			mhp = mach_host_self();
-			if ((kr = host_set_UNDServer(mhp, msv)) != KERN_SUCCESS)
-				fprintf(stderr, "%s: host_set_UNDServer(): %s\n", getprogname(), mach_error_string(kr));
-			mach_port_deallocate(mach_task_self(), mhp);
-		}
-		mach_port_deallocate(mach_task_self(), msv);
-		msrvs[i] = msr;
+		launch_data_dict_insert(oai, launch_data_new_machport(msr), MACHINIT_JOBKEY_SERVERPORT);
+		launch_data_dict_insert(oai, launch_data_new_machport(msv), MACHINIT_JOBKEY_SERVICEPORT);
 	}
 }
 
 void
-let_go_of_mach_jobs(void)
+let_go_of_mach_jobs(launch_data_t jobs)
 {
-	size_t i;
+	size_t i, c = launch_data_array_get_count(jobs);
 
-	for (i = 0; i < msrvs_cnt; i++)
-		mach_port_destroy(mach_task_self(), msrvs[i]);
+	for (i = 0; i < c; i++) {
+		launch_data_t tmp, oai = launch_data_array_get_index(jobs, i);
+		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_SERVICEPORT))) {
+			mach_port_destroy(mach_task_self(), launch_data_get_machport(tmp));
+		} else {
+			fprintf(stderr, "%s: ack! missing service port!\n", getprogname());
+		}
+		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_SERVERPORT))) {
+			mach_port_destroy(mach_task_self(), launch_data_get_machport(tmp));
+		} else {
+			fprintf(stderr, "%s: ack! missing server port!\n", getprogname());
+		}
+	}
 }
 
 void
@@ -1104,14 +1866,18 @@ submit_job_pass(launch_data_t jobs)
 	launch_data_free(msg);
 }
 
-static int start_and_stop_cmd(int argc, char *const argv[])
+int
+start_stop_remove_cmd(int argc, char *const argv[])
 {
 	launch_data_t resp, msg;
 	const char *lmsgcmd = LAUNCH_KEY_STOPJOB;
 	int e, r = 0;
 
-	if (!strcmp(argv[0], "start"))
+	if (0 == strcmp(argv[0], "start"))
 		lmsgcmd = LAUNCH_KEY_STARTJOB;
+
+	if (0 == strcmp(argv[0], "remove"))
+		lmsgcmd = LAUNCH_KEY_REMOVEJOB;
 
 	if (argc != 2) {
 		fprintf(stderr, "usage: %s %s <job label>\n", getprogname(), argv[0]);
@@ -1141,34 +1907,114 @@ static int start_and_stop_cmd(int argc, char *const argv[])
 	return r;
 }
 
-static void print_jobs(launch_data_t j __attribute__((unused)), const char *label, void *context __attribute__((unused)))
+void
+print_jobs(launch_data_t j, const char *key __attribute__((unused)), void *context __attribute__((unused)))
 {
+	static size_t depth = 0;
+	launch_data_t lo = launch_data_dict_lookup(j, LAUNCH_JOBKEY_LABEL);
+	launch_data_t pido = launch_data_dict_lookup(j, LAUNCH_JOBKEY_PID);
+	launch_data_t stato = launch_data_dict_lookup(j, LAUNCH_JOBKEY_LASTEXITSTATUS);
+	const char *label = launch_data_get_string(lo);
+	size_t i;
+
+	if (pido) {
+		fprintf(stdout, "%lld\t-\t", launch_data_get_integer(pido));
+	} else if (stato) {
+		int wstatus = (int)launch_data_get_integer(stato);
+		if (WIFEXITED(wstatus)) {
+			fprintf(stdout, "-\t%d\t", WEXITSTATUS(wstatus));
+		} else if (WIFSIGNALED(wstatus)) {
+			fprintf(stdout, "-\t-%d\t", WTERMSIG(wstatus));
+		} else {
+			fprintf(stdout, "-\t???\t");
+		}
+	} else {
+		fprintf(stdout, "-\t-\t");
+	}
+	for (i = 0; i < depth; i++)
+		fprintf(stdout, "\t");
+
 	fprintf(stdout, "%s\n", label);
 }
 
-static int list_cmd(int argc, char *const argv[])
+void
+print_obj(launch_data_t obj, const char *key, void *context __attribute__((unused)))
+{
+	static size_t indent = 0;
+	size_t i, c;
+
+	for (i = 0; i < indent; i++)
+		fprintf(stdout, "\t");
+
+	if (key)
+		fprintf(stdout, "\"%s\" = ", key);
+
+	switch (launch_data_get_type(obj)) {
+	case LAUNCH_DATA_STRING:
+		fprintf(stdout, "\"%s\";\n", launch_data_get_string(obj));
+		break;
+	case LAUNCH_DATA_INTEGER:
+		fprintf(stdout, "%lld;\n", launch_data_get_integer(obj));
+		break;
+	case LAUNCH_DATA_REAL:
+		fprintf(stdout, "%f;\n", launch_data_get_real(obj));
+		break;
+	case LAUNCH_DATA_BOOL:
+		fprintf(stdout, "%s;\n", launch_data_get_bool(obj) ? "true" : "false");
+		break;
+	case LAUNCH_DATA_ARRAY:
+		c = launch_data_array_get_count(obj);
+		fprintf(stdout, "(\n");
+		indent++;
+		for (i = 0; i < c; i++)
+			print_obj(launch_data_array_get_index(obj, i), NULL, NULL);
+		indent--;
+		for (i = 0; i < indent; i++)
+			fprintf(stdout, "\t");
+		fprintf(stdout, ");\n");
+		break;
+	case LAUNCH_DATA_DICTIONARY:
+		fprintf(stdout, "{\n");
+		indent++;
+		launch_data_dict_iterate(obj, print_obj, NULL);
+		indent--;
+		for (i = 0; i < indent; i++)
+			fprintf(stdout, "\t");
+		fprintf(stdout, "};\n");
+		break;
+	case LAUNCH_DATA_FD:
+		fprintf(stdout, "file-descriptor-object;\n");
+		break;
+	case LAUNCH_DATA_MACHPORT:
+		fprintf(stdout, "mach-port-object;\n");
+		break;
+	default:
+		fprintf(stdout, "???;\n");
+		break;
+	}
+}
+
+int
+list_cmd(int argc, char *const argv[])
 {
 	launch_data_t resp, msg;
-	int ch, r = 0;
-	bool vflag = false;
+	int r = 0;
 
-	while ((ch = getopt(argc, argv, "v")) != -1) {
-		switch (ch) {
-		case 'v':
-			vflag = true;
-			break;
-		default:
-			fprintf(stderr, "usage: %s list [-v]\n", getprogname());
-			return 1;
-		}
-	}
-
-	if (vflag) {
-		fprintf(stderr, "usage: %s list: \"-v\" flag not implemented yet\n", getprogname());
+	if (argc > 2) {
+		fprintf(stderr, "usage: %s list [label]\n", getprogname());
+		return 1;
+	} else if (argc == 2) {
+		msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+		launch_data_dict_insert(msg, launch_data_new_string(argv[1]), LAUNCH_KEY_GETJOB);
+	} else if (vproc_swap_complex(NULL, VPROC_GSK_ALLJOBS, NULL, &resp) == NULL) {
+		fprintf(stdout, "PID\tStatus\tLabel\n");
+		launch_data_dict_iterate(resp, print_jobs, NULL);
+		launch_data_free(resp);
+		return 0;
+	} else {
 		return 1;
 	}
 
-	msg = launch_data_new_string(LAUNCH_KEY_GETJOBS);
 	resp = launch_msg(msg);
 	launch_data_free(msg);
 
@@ -1176,7 +2022,7 @@ static int list_cmd(int argc, char *const argv[])
 		fprintf(stderr, "launch_msg(): %s\n", strerror(errno));
 		return 1;
 	} else if (launch_data_get_type(resp) == LAUNCH_DATA_DICTIONARY) {
-		launch_data_dict_iterate(resp, print_jobs, NULL);
+		print_obj(resp, NULL, NULL);
 	} else {
 		fprintf(stderr, "%s %s returned unknown response\n", getprogname(), argv[0]);
 		r = 1;
@@ -1187,60 +2033,18 @@ static int list_cmd(int argc, char *const argv[])
 	return r;
 }
 
-static int stdio_cmd(int argc, char *const argv[])
+int
+stdio_cmd(int argc __attribute__((unused)), char *const argv[])
 {
-	launch_data_t resp, msg, tmp;
-	int e, fd = -1, r = 0;
-
-	if (argc != 2) {
-		fprintf(stderr, "usage: %s %s <path>\n", getprogname(), argv[0]);
-		return 1;
-	}
-
-	fd = open(argv[1], O_CREAT|O_APPEND|O_WRONLY, DEFFILEMODE);
-
-	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-
-	if (fd == -1) {
-		tmp = launch_data_new_string(argv[1]);
-	} else {
-		tmp = launch_data_new_fd(fd);
-	}
-
-	if (!strcmp(argv[0], "stdout")) {
-		launch_data_dict_insert(msg, tmp, LAUNCH_KEY_SETSTDOUT);
-	} else {
-		launch_data_dict_insert(msg, tmp, LAUNCH_KEY_SETSTDERR);
-	}
-
-	resp = launch_msg(msg);
-	launch_data_free(msg);
-
-	if (resp == NULL) {
-		fprintf(stderr, "launch_msg(): %s\n", strerror(errno));
-		return 1;
-	} else if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
-		if ((e = launch_data_get_errno(resp))) {
-			fprintf(stderr, "%s %s error: %s\n", getprogname(), argv[0], strerror(e));
-			r = 1;
-		}
-	} else {
-		fprintf(stderr, "%s %s returned unknown response\n", getprogname(), argv[0]);
-		r = 1;
-	}
-
-	if (fd != -1)
-		close(fd);
-
-	launch_data_free(resp);
-
-	return r;
+	fprintf(stderr, "%s %s: This sub-command no longer does anything\n", getprogname(), argv[0]);
+	return 1;
 }
 
-static int fyi_cmd(int argc, char *const argv[])
+int
+fyi_cmd(int argc, char *const argv[])
 {
 	launch_data_t resp, msg;
-	const char *lmsgk = LAUNCH_KEY_RELOADTTYS;
+	const char *lmsgk = NULL;
 	int e, r = 0;
 
 	if (argc != 1) {
@@ -1248,8 +2052,13 @@ static int fyi_cmd(int argc, char *const argv[])
 		return 1;
 	}
 
-	if (!strcmp(argv[0], "shutdown"))
+	if (!strcmp(argv[0], "shutdown")) {
 		lmsgk = LAUNCH_KEY_SHUTDOWN;
+	} else if (!strcmp(argv[0], "singleuser")) {
+		lmsgk = LAUNCH_KEY_SINGLEUSER;
+	} else {
+		return 1;
+	}
 
 	msg = launch_data_new_string(lmsgk);
 	resp = launch_msg(msg);
@@ -1273,12 +2082,12 @@ static int fyi_cmd(int argc, char *const argv[])
 	return r;
 }
 
-static int logupdate_cmd(int argc, char *const argv[])
+int
+logupdate_cmd(int argc, char *const argv[])
 {
-	launch_data_t resp, msg;
-	int e, i, j, r = 0, m = 0;
+	int64_t inval, outval;
+	int i, j, m = 0;
 	bool badargs = false, maskmode = false, onlymode = false, levelmode = false;
-	const char *whichcmd = LAUNCH_KEY_SETLOGMASK;
 	static const struct {
 		const char *name;
 		int level;
@@ -1333,9 +2142,7 @@ static int logupdate_cmd(int argc, char *const argv[])
 		}
 		if (j == logtblsz)
 			badargs = true;
-	} else if (argc == 1) {
-		whichcmd = LAUNCH_KEY_GETLOGMASK;
-	} else {
+	} else if (argc != 1) {
 		badargs = true;
 	}
 
@@ -1344,41 +2151,21 @@ static int logupdate_cmd(int argc, char *const argv[])
 		return 1;
 	}
 
-	if (whichcmd == LAUNCH_KEY_SETLOGMASK) {
-		msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-		launch_data_dict_insert(msg, launch_data_new_integer(m), whichcmd);
-	} else {
-		msg = launch_data_new_string(whichcmd);
-	}
+	inval = m;
 
-	resp = launch_msg(msg);
-	launch_data_free(msg);
-
-	if (resp == NULL) {
-		fprintf(stderr, "launch_msg(): %s\n", strerror(errno));
-		return 1;
-	} else if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
-		if ((e = launch_data_get_errno(resp))) {
-			fprintf(stderr, "%s %s error: %s\n", getprogname(), argv[0], strerror(e));
-			r = 1;
-		}
-	} else if (launch_data_get_type(resp) == LAUNCH_DATA_INTEGER) {
-		if (whichcmd == LAUNCH_KEY_GETLOGMASK) {
-			m = launch_data_get_integer(resp);
+	if (vproc_swap_integer(NULL, VPROC_GSK_GLOBAL_LOG_MASK, argc != 1 ? &inval : NULL, &outval) == NULL) {
+		if (argc == 1) {
 			for (j = 0; j < logtblsz; j++) {
-				if (m & LOG_MASK(logtbl[j].level))
+				if (outval & LOG_MASK(logtbl[j].level)) {
 					fprintf(stdout, "%s ", logtbl[j].name);
+				}
 			}
 			fprintf(stdout, "\n");
 		}
+		return 0;
 	} else {
-		fprintf(stderr, "%s %s returned unknown response\n", getprogname(), argv[0]);
-		r = 1;
+		return 1;
 	}
-
-	launch_data_free(resp);
-
-	return r;
 }
 
 static const struct {
@@ -1398,7 +2185,8 @@ static const struct {
 
 static const size_t limlookupcnt = sizeof limlookup / sizeof limlookup[0];
 
-static ssize_t name2num(const char *n)
+ssize_t
+name2num(const char *n)
 {
 	size_t i;
 
@@ -1410,7 +2198,8 @@ static ssize_t name2num(const char *n)
 	return -1;
 }
 
-static const char *num2name(int n)
+const char *
+num2name(int n)
 {
 	size_t i;
 
@@ -1421,7 +2210,8 @@ static const char *num2name(int n)
 	return NULL;
 }
 
-static const char *lim2str(rlim_t val, char *buf)
+const char *
+lim2str(rlim_t val, char *buf)
 {
 	if (val == RLIM_INFINITY)
 		strcpy(buf, "unlimited");
@@ -1430,7 +2220,8 @@ static const char *lim2str(rlim_t val, char *buf)
 	return buf;
 }
 
-static bool str2lim(const char *buf, rlim_t *res)
+bool
+str2lim(const char *buf, rlim_t *res)
 {
 	char *endptr;
 	*res = strtoll(buf, &endptr, 10);
@@ -1443,7 +2234,8 @@ static bool str2lim(const char *buf, rlim_t *res)
 	return true;
 }
 
-static int limit_cmd(int argc __attribute__((unused)), char *const argv[])
+int
+limit_cmd(int argc __attribute__((unused)), char *const argv[])
 {
 	char slimstr[100];
 	char hlimstr[100];
@@ -1537,13 +2329,13 @@ static int limit_cmd(int argc __attribute__((unused)), char *const argv[])
 	return r;
 }
 
-static int umask_cmd(int argc, char *const argv[])
+int
+umask_cmd(int argc, char *const argv[])
 {
-	launch_data_t resp, msg;
 	bool badargs = false;
 	char *endptr;
 	long m = 0;
-	int r = 0;
+	int64_t inval, outval;
 
 	if (argc == 2) {
 		m = strtol(argv[1], &endptr, 8);
@@ -1556,27 +2348,72 @@ static int umask_cmd(int argc, char *const argv[])
 		return 1;
 	}
 
+	inval = m;
 
-	if (argc == 1) {
-		msg = launch_data_new_string(LAUNCH_KEY_GETUMASK);
+	if (vproc_swap_integer(NULL, VPROC_GSK_GLOBAL_UMASK, argc == 2 ? &inval : NULL, &outval) == NULL) {
+		if (argc == 1) {
+			fprintf(stdout, "%o\n", (unsigned int)outval);
+		}
+		return 0;
 	} else {
-		msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-		launch_data_dict_insert(msg, launch_data_new_integer(m), LAUNCH_KEY_SETUMASK);
+		return 1;
 	}
+}
+
+int
+submit_cmd(int argc, char *const argv[])
+{
+	launch_data_t msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+	launch_data_t job = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+	launch_data_t resp, largv = launch_data_alloc(LAUNCH_DATA_ARRAY);
+	int ch, i, r = 0;
+
+	launch_data_dict_insert(job, launch_data_new_bool(false), LAUNCH_JOBKEY_ONDEMAND);
+
+	while ((ch = getopt(argc, argv, "l:p:o:e:")) != -1) {
+		switch (ch) {
+		case 'l':
+			launch_data_dict_insert(job, launch_data_new_string(optarg), LAUNCH_JOBKEY_LABEL);
+			break;
+		case 'p':
+			launch_data_dict_insert(job, launch_data_new_string(optarg), LAUNCH_JOBKEY_PROGRAM);
+			break;
+		case 'o':
+			launch_data_dict_insert(job, launch_data_new_string(optarg), LAUNCH_JOBKEY_STANDARDOUTPATH);
+			break;
+		case 'e':
+			launch_data_dict_insert(job, launch_data_new_string(optarg), LAUNCH_JOBKEY_STANDARDERRORPATH);
+			break;
+		default:
+			fprintf(stderr, "usage: %s submit ...\n", getprogname());
+			return 1;
+		}
+	}
+	argc -= optind;
+	argv += optind;
+
+	for (i = 0; argv[i]; i++) {
+		launch_data_array_append(largv, launch_data_new_string(argv[i]));
+	}
+
+	launch_data_dict_insert(job, largv, LAUNCH_JOBKEY_PROGRAMARGUMENTS);
+
+	launch_data_dict_insert(msg, job, LAUNCH_KEY_SUBMITJOB);
+
 	resp = launch_msg(msg);
 	launch_data_free(msg);
 
 	if (resp == NULL) {
 		fprintf(stderr, "launch_msg(): %s\n", strerror(errno));
 		return 1;
-	} else if (launch_data_get_type(resp) == LAUNCH_DATA_STRING) {
-		fprintf(stderr, "%s %s error: %s\n", getprogname(), argv[0], launch_data_get_string(resp));
-		r = 1;
-	} else if (launch_data_get_type(resp) != LAUNCH_DATA_INTEGER) {
-		fprintf(stderr, "%s %s returned unknown response\n", getprogname(), argv[0]);
-		r = 1;
-	} else if (argc == 1) {
-		fprintf(stdout, "%o\n", (unsigned int)launch_data_get_integer(resp));
+	} else if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
+		errno = launch_data_get_errno(resp);
+		if (errno) {
+			fprintf(stderr, "%s %s error: %s\n", getprogname(), argv[0], strerror(errno));
+			r = 1;
+		}
+	} else {
+		fprintf(stderr, "%s %s error: %s\n", getprogname(), argv[0], "unknown response");
 	}
 
 	launch_data_free(resp);
@@ -1584,7 +2421,8 @@ static int umask_cmd(int argc, char *const argv[])
 	return r;
 }
 
-static int getrusage_cmd(int argc, char *const argv[])
+int
+getrusage_cmd(int argc, char *const argv[])
 {
 	launch_data_t resp, msg;
 	bool badargs = false;
@@ -1645,19 +2483,629 @@ static int getrusage_cmd(int argc, char *const argv[])
 	return r;
 }
 
-static bool launch_data_array_append(launch_data_t a, launch_data_t o)
+bool
+launch_data_array_append(launch_data_t a, launch_data_t o)
 {
 	size_t offt = launch_data_array_get_count(a);
 
 	return launch_data_array_set_index(a, o, offt);
 }
 
+mach_port_t
+str2bsport(const char *s)
+{
+	bool getrootbs = strcmp(s, "/") == 0;
+	mach_port_t last_bport, bport = bootstrap_port;
+	task_t task = mach_task_self();
+	kern_return_t result;
+
+	if (strcmp(s, "..") == 0 || getrootbs) {
+		do {
+			last_bport = bport;
+			result = bootstrap_parent(last_bport, &bport);
+
+			if (result == BOOTSTRAP_NOT_PRIVILEGED) {
+				fprintf(stderr, "Permission denied\n");
+				return 1;
+			} else if (result != BOOTSTRAP_SUCCESS) {
+				fprintf(stderr, "bootstrap_parent() %d\n", result);
+				return 1;
+			}
+		} while (getrootbs && last_bport != bport);
+	} else {
+		int pid = atoi(s);
+
+		result = task_for_pid(mach_task_self(), pid, &task);
+
+		if (result != KERN_SUCCESS) {
+			fprintf(stderr, "task_for_pid() %s\n", mach_error_string(result));
+			return 1;
+		}
+
+		result = task_get_bootstrap_port(task, &bport);
+
+		if (result != KERN_SUCCESS) {
+			fprintf(stderr, "Couldn't get bootstrap port: %s\n", mach_error_string(result));
+			return 1;
+		}
+	}
+
+	return bport;
+}
+
+int
+bsexec_cmd(int argc, char *const argv[])
+{
+	kern_return_t result;
+	mach_port_t bport;
+
+	if (argc < 3) {
+		fprintf(stderr, "usage: %s bsexec <PID> prog...\n", getprogname());
+		return 1;
+	}
+
+	bport = str2bsport(argv[1]);
+
+	result = task_set_bootstrap_port(mach_task_self(), bport);
+
+	if (result != KERN_SUCCESS) {
+		fprintf(stderr, "Couldn't switch to new bootstrap port: %s\n", mach_error_string(result));
+		return 1;
+	}
+
+	setgid(getgid());
+	setuid(getuid());
+
+	if (fwexec((const char *const *)argv + 2, true) == -1) {
+		fprintf(stderr, "%s bsexec failed: %s\n", getprogname(), strerror(errno));
+		return 1;
+	}
+
+	return 0;
+}
+
+int
+bslist_cmd(int argc, char *const argv[])
+{
+	kern_return_t result;
+	mach_port_t bport = bootstrap_port;
+	name_array_t service_names;
+	mach_msg_type_number_t service_cnt, service_active_cnt;
+	bootstrap_status_array_t service_actives;
+	unsigned int i;
+
+	if (argc == 2)
+		bport = str2bsport(argv[1]);
+
+	if (bport == MACH_PORT_NULL) {
+		fprintf(stderr, "Invalid bootstrap port\n");
+		return 1;
+	}
+
+	result = bootstrap_info(bport, &service_names, &service_cnt, &service_actives, &service_active_cnt);
+	if (result != BOOTSTRAP_SUCCESS) {
+		fprintf(stderr, "bootstrap_info(): %d\n", result);
+		return 1;
+	}
+
+#define bport_state(x)	(((x) == BOOTSTRAP_STATUS_ACTIVE) ? "A" : ((x) == BOOTSTRAP_STATUS_ON_DEMAND) ? "D" : "I")
+
+	for (i = 0; i < service_cnt ; i++)
+		fprintf(stdout, "%-3s%s\n", bport_state((service_actives[i])), service_names[i]);
+
+	return 0;
+}
+
 bool
 is_legacy_mach_job(launch_data_t obj)
 {
 	bool has_servicename = launch_data_dict_lookup(obj, MACHINIT_JOBKEY_SERVICENAME);
-	bool has_command  = launch_data_dict_lookup(obj, MACHINIT_JOBKEY_COMMAND);
+	bool has_command = launch_data_dict_lookup(obj, MACHINIT_JOBKEY_COMMAND);
 	bool has_label = launch_data_dict_lookup(obj, LAUNCH_JOBKEY_LABEL);
 
 	return has_command && has_servicename && !has_label;
+}
+
+void
+_log_launchctl_bug(const char *rcs_rev, const char *path, unsigned int line, const char *test)
+{
+	int saved_errno = errno;
+	char buf[100];
+	const char *file = strrchr(path, '/');
+	char *rcs_rev_tmp = strchr(rcs_rev, ' ');
+
+	if (!file) {
+		file = path;
+	} else {
+		file += 1;
+	}
+
+	if (!rcs_rev_tmp) {
+		strlcpy(buf, rcs_rev, sizeof(buf));
+	} else {
+		strlcpy(buf, rcs_rev_tmp + 1, sizeof(buf));
+		rcs_rev_tmp = strchr(buf, ' ');
+		if (rcs_rev_tmp)
+			*rcs_rev_tmp = '\0';
+	}
+
+	fprintf(stderr, "Bug: %s:%u (%s):%u: %s\n", file, line, buf, saved_errno, test);
+}
+
+void
+loopback_setup_ipv4(void)
+{
+	struct ifaliasreq ifra;
+	struct ifreq ifr;
+	int s;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strcpy(ifr.ifr_name, "lo0");
+
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+		return;
+
+	if (assumes(ioctl(s, SIOCGIFFLAGS, &ifr) != -1)) {
+		ifr.ifr_flags |= IFF_UP;
+		assumes(ioctl(s, SIOCSIFFLAGS, &ifr) != -1);
+	}
+
+	memset(&ifra, 0, sizeof(ifra));
+	strcpy(ifra.ifra_name, "lo0");
+	((struct sockaddr_in *)&ifra.ifra_addr)->sin_family = AF_INET;
+	((struct sockaddr_in *)&ifra.ifra_addr)->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	((struct sockaddr_in *)&ifra.ifra_addr)->sin_len = sizeof(struct sockaddr_in);
+	((struct sockaddr_in *)&ifra.ifra_mask)->sin_family = AF_INET;
+	((struct sockaddr_in *)&ifra.ifra_mask)->sin_addr.s_addr = htonl(IN_CLASSA_NET);
+	((struct sockaddr_in *)&ifra.ifra_mask)->sin_len = sizeof(struct sockaddr_in);
+
+	assumes(ioctl(s, SIOCAIFADDR, &ifra) != -1);
+
+	assumes(close(s) == 0);
+}
+
+void
+loopback_setup_ipv6(void)
+{
+	struct in6_aliasreq ifra6;
+	struct ifreq ifr;
+	int s6;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strcpy(ifr.ifr_name, "lo0");
+
+	if ((s6 = socket(AF_INET6, SOCK_DGRAM, 0)) == -1)
+		return;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strcpy(ifr.ifr_name, "lo0");
+
+	if (assumes(ioctl(s6, SIOCGIFFLAGS, &ifr) != -1)) {
+		ifr.ifr_flags |= IFF_UP;
+		assumes(ioctl(s6, SIOCSIFFLAGS, &ifr) != -1);
+	}
+
+	memset(&ifra6, 0, sizeof(ifra6));
+	strcpy(ifra6.ifra_name, "lo0");
+
+	ifra6.ifra_addr.sin6_family = AF_INET6;
+	ifra6.ifra_addr.sin6_addr = in6addr_loopback;
+	ifra6.ifra_addr.sin6_len = sizeof(struct sockaddr_in6);
+	ifra6.ifra_prefixmask.sin6_family = AF_INET6;
+	memset(&ifra6.ifra_prefixmask.sin6_addr, 0xff, sizeof(struct in6_addr));
+	ifra6.ifra_prefixmask.sin6_len = sizeof(struct sockaddr_in6);
+	ifra6.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
+	ifra6.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
+
+	assumes(ioctl(s6, SIOCAIFADDR_IN6, &ifra6) != -1);
+
+	assumes(close(s6) == 0);
+}
+
+pid_t
+fwexec(const char *const *argv, bool _wait)
+{
+	int wstatus;
+	pid_t p;
+
+	switch ((p = fork())) {
+	case -1:
+		break;
+	case 0:
+		if (!_wait) {
+			setsid();
+		}
+		execvp(argv[0], (char *const *)argv);
+		_exit(EXIT_FAILURE);
+		break;
+	default:
+		if (!_wait)
+			return p;
+		if (p == waitpid(p, &wstatus, 0)) {
+			if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == EXIT_SUCCESS)
+				return p;
+		}
+		break;
+	}
+
+	return -1;
+}
+
+void
+do_potential_fsck(void)
+{
+	const char *safe_fsck_tool[] = { "fsck", "-fy", NULL };
+	const char *fsck_tool[] = { "fsck", "-p", NULL };
+	const char *remount_tool[] = { "mount", "-uw", "/", NULL };
+	struct statfs sfs;
+
+	if (!assumes(statfs("/", &sfs) != -1)) {
+		return;
+	}
+
+	if (!(sfs.f_flags & MNT_RDONLY)) {
+		return;
+	}
+
+	if (!is_safeboot()) {
+#if 0
+		/* We have disabled this block for now. We need to revisit this optimization after Leopard. */
+		if (sfs.f_flags & MNT_JOURNALED) {
+			goto out;
+		}
+#endif
+
+		if (fwexec(fsck_tool, true) != -1) {
+			goto out;
+		}
+	}
+
+	if (fwexec(safe_fsck_tool, true) != -1) {
+		goto out;
+	}
+
+	fprintf(stderr, "fsck failed! Leaving the root file system read-only...\n");
+
+	return;
+out:
+	/* 
+	 * Once this is fixed:
+	 *
+	 * <rdar://problem/3948774> Mount flag updates should be possible with NULL as the forth argument to mount()
+	 *
+	 * We can then do this one system call instead of calling out a full blown process.
+	 *
+	 * assumes(mount(sfs.f_fstypename, "/", MNT_UPDATE, NULL) != -1);
+	 */
+
+	assumes(fwexec(remount_tool, true) != -1);
+}
+
+bool
+path_check(const char *path)
+{
+	struct stat sb;
+
+	if (stat(path, &sb) == 0)
+		return true;
+	return false;
+}
+
+bool
+is_safeboot(void)
+{
+	int sbmib[] = { CTL_KERN, KERN_SAFEBOOT };
+	uint32_t sb = 0;
+	size_t sbsz = sizeof(sb);
+
+	if (!assumes(sysctl(sbmib, 2, &sb, &sbsz, NULL, 0) == 0))
+		return false;
+
+	return (bool)sb;
+}
+
+bool
+is_netboot(void)
+{
+	int nbmib[] = { CTL_KERN, KERN_NETBOOT };
+	uint32_t nb = 0;
+	size_t nbsz = sizeof(nb);
+
+	if (!assumes(sysctl(nbmib, 2, &nb, &nbsz, NULL, 0) == 0))
+		return false;
+
+	return (bool)nb;
+}
+
+void
+empty_dir(const char *thedir, struct stat *psb)
+{
+	struct dirent *de;
+	struct stat psb2;
+	DIR *od;
+	int currend_dir_fd;
+
+	if (!psb) {
+		psb = &psb2;
+		if (!assumes(lstat(thedir, psb) != -1)) {
+			return;
+		}
+	}
+
+	if (!assumes((currend_dir_fd = open(".", 0)) != -1)) {
+		return;
+	}
+
+	if (!assumes(chdir(thedir) != -1)) {
+		goto out;
+	}
+
+	if (!assumes(od = opendir("."))) {
+		goto out;
+	}
+
+	while ((de = readdir(od))) {
+		struct stat sb;
+
+		if (strcmp(de->d_name, ".") == 0) {
+			continue;
+		}
+
+		if (strcmp(de->d_name, "..") == 0) {
+			continue;
+		}
+
+		if (!assumes(lstat(de->d_name, &sb) != -1)) {
+			continue;
+		}
+
+		if (psb->st_dev != sb.st_dev) {
+			assumes(unmount(de->d_name, MNT_FORCE) != -1);
+
+			/* Let's lstat() again to see if the unmount() worked and what was under it */
+			if (!assumes(lstat(de->d_name, &sb) != -1)) {
+				continue;
+			}
+
+			if (!assumes(psb->st_dev == sb.st_dev)) {
+				continue;
+			}
+		}
+
+		if (S_ISDIR(sb.st_mode)) {
+			empty_dir(de->d_name, &sb);
+		}
+
+		assumes(lchflags(de->d_name, 0) != -1);
+		assumes(remove(de->d_name) != -1);
+	}
+
+	assumes(closedir(od) != -1);
+
+out:
+	assumes(fchdir(currend_dir_fd) != -1);
+	assumes(close(currend_dir_fd) != -1);
+}
+
+int
+touch_file(const char *path, mode_t m)
+{
+	int fd = open(path, O_CREAT, m);
+
+	if (fd == -1)
+		return -1;
+
+	return close(fd);
+}
+
+void
+apply_sysctls_from_file(const char *thefile)
+{
+	const char *sysctl_tool[] = { "sysctl", "-w", NULL, NULL };
+	size_t ln_len = 0;
+	char *val, *tmpstr;
+	FILE *sf;
+
+	if (!(sf = fopen(thefile, "r")))
+		return;
+
+	while ((val = fgetln(sf, &ln_len))) {
+		if (ln_len == 0) {
+			continue;
+		}
+		if (!assumes((tmpstr = malloc(ln_len + 1)) != NULL)) {
+			continue;
+		}
+		memcpy(tmpstr, val, ln_len);
+		tmpstr[ln_len] = 0;
+		val = tmpstr;
+
+		if (val[ln_len - 1] == '\n' || val[ln_len - 1] == '\r') {
+			val[ln_len - 1] = '\0';
+		}
+
+		while (*val && isspace(*val))
+			val++;
+		if (*val == '\0' || *val == '#') {
+			goto skip_sysctl_tool;
+		}
+		sysctl_tool[2] = val;
+		assumes(fwexec(sysctl_tool, true) != -1);
+skip_sysctl_tool:
+		free(tmpstr);
+	}
+
+	assumes(fclose(sf) == 0);
+}
+
+void
+do_sysversion_sysctl(void)
+{
+	int mib[] = { CTL_KERN, KERN_OSVERSION };
+	CFDictionaryRef versdict;
+	CFStringRef buildvers;
+	char buf[1024];
+	size_t bufsz = sizeof(buf);
+
+	/* <rdar://problem/4477682> ER: launchd should set kern.osversion very early in boot */
+
+	if (sysctl(mib, 2, buf, &bufsz, NULL, 0) == -1) {
+		fprintf(stderr, "sysctl(): %s\n", strerror(errno));
+		return;
+	}
+
+	if (buf[0] != '\0') {
+		return;
+	}
+
+	if (!assumes((versdict = _CFCopySystemVersionDictionary()))) {
+		return;
+	}
+
+	if (assumes((buildvers = CFDictionaryGetValue(versdict, _kCFSystemVersionBuildVersionKey)))) {
+		CFStringGetCString(buildvers, buf, sizeof(buf), kCFStringEncodingUTF8);
+
+		assumes(sysctl(mib, 2, NULL, 0, buf, strlen(buf) + 1) != -1);
+	}
+
+	CFRelease(versdict);
+}
+
+void
+do_application_firewall_magic(int sfd, launch_data_t thejob)
+{
+	const char *prog = NULL, *partialprog = NULL;
+	char *path, *pathtmp, **pathstmp;
+	char *paths[100];
+	launch_data_t tmp;
+
+	/*
+	 * Sigh...
+	 * <rdar://problem/4684434> setsockopt() with the executable path as the argument
+	 */
+
+	if ((tmp = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_PROGRAM))) {
+		prog = launch_data_get_string(tmp);
+	}
+
+	if (!prog) {
+		if ((tmp = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_PROGRAMARGUMENTS))) {
+			if ((tmp = launch_data_array_get_index(tmp, 0))) {
+				if (assumes((partialprog = launch_data_get_string(tmp)) != NULL)) {
+					if (partialprog[0] == '/') {
+						prog = partialprog;
+					}
+				}
+			}
+		}
+	}
+
+	if (!prog) {
+		pathtmp = path = strdup(getenv("PATH"));
+
+		pathstmp = paths;
+
+		while ((*pathstmp = strsep(&pathtmp, ":"))) {
+			if (**pathstmp != '\0') {
+				pathstmp++;
+			}
+		}
+
+		free(path);
+		pathtmp = alloca(MAXPATHLEN);
+
+		pathstmp = paths;
+
+		for (; *pathstmp; pathstmp++) {
+			snprintf(pathtmp, MAXPATHLEN, "%s/%s", *pathstmp, partialprog);
+			if (path_check(pathtmp)) {
+				prog = pathtmp;
+				break;
+			}
+		}
+	}
+
+	if (assumes(prog != NULL)) {
+		/* The networking team has asked us to ignore the failure of this API if errno == ENOPROTOOPT */
+		assumes(setsockopt(sfd, SOL_SOCKET, SO_EXECPATH, prog, strlen(prog) + 1) != -1 || errno == ENOPROTOOPT);
+	}
+}
+
+
+void
+preheat_page_cache_hack(void)
+{
+	struct dirent *de;
+	DIR *thedir;
+
+	/* Disable this hack for now */
+	return;
+
+	if ((thedir = opendir("/etc/preheat_at_boot")) == NULL) {
+		return;
+	}
+
+	while ((de = readdir(thedir))) {
+		struct stat sb;
+		void *junkbuf;
+		int fd;
+
+		if (de->d_name[0] == '.') {
+			continue;
+		}
+
+		if ((fd = open(de->d_name, O_RDONLY)) == -1) {
+			continue;
+		}
+
+		if (fstat(fd, &sb) != -1) { 
+			if ((sb.st_size < 10*1024*1024) && (junkbuf = malloc((size_t)sb.st_size)) != NULL) {
+				assumes(read(fd, junkbuf, (size_t)sb.st_size) == (ssize_t)sb.st_size);
+				free(junkbuf);
+			}
+		}
+
+		close(fd);
+	}
+
+	closedir(thedir);
+}
+
+
+void
+do_bootroot_magic(void)
+{
+	const char *kextcache_tool[] = { "kextcache", "-U", "/", NULL };
+	CFTypeRef bootrootProp;
+	io_service_t chosen;
+	int wstatus;
+	pid_t p;
+	
+	chosen = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/chosen");
+
+	if (!assumes(chosen)) {
+		return;
+	}
+
+	bootrootProp = IORegistryEntryCreateCFProperty(chosen, CFSTR(kBootRootActiveKey), kCFAllocatorDefault, 0);
+
+	IOObjectRelease(chosen);
+
+	if (!bootrootProp) {
+		return;
+	}
+
+	CFRelease(bootrootProp);
+
+	if (!assumes((p = fwexec(kextcache_tool, false)) != -1)) {
+		return;
+	}
+
+	if (!assumes(waitpid(p, &wstatus, 0) != -1)) {
+		return;
+	}
+
+	if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == EX_OSFILE) {
+		assumes(reboot(RB_AUTOBOOT) != -1);
+	}
 }

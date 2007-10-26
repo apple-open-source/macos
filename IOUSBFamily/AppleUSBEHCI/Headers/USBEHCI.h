@@ -33,6 +33,11 @@
 #include <IOKit/usb/IOUSBCommand.h>
 #endif
 
+// OHCI needed for error codes which we translate to
+#ifndef _USBOHCI_H_
+#include "USBOHCI.h"
+#endif
+
 #define		APPLE_USB_EHCI_64	1
 
 
@@ -99,6 +104,8 @@ enum
 #define kEHCIPageOffsetMask	( kEHCIPageSize - 1 )		// mask off just the offset bits (low 12)
 #define kEHCIPageMask 		(~(kEHCIPageOffsetMask))	// mask off just the page number (high 20)
 
+#define	kEHCIStructureAllocationPhysicalMask	0x00000000FFFFF000ULL			// for use with inTaskWithPhysicalMask (below 4GB and 4K aligned)
+
 enum{
 	kEHCIMaxPoll 			= 256,
 	kEHCIMaxPeriodicBandwidth 	= 54000
@@ -117,24 +124,24 @@ enum {
 
 enum
 {
-	kEHCIPortSC_Connect		= kEHCIBit0,
-	kEHCIPortSC_ConnectChange	= kEHCIBit1,
-	kEHCIPortSC_Enabled		= kEHCIBit2,
-	kEHCIPortSC_EnableChange	= kEHCIBit3,
-	kEHCIPortSC_OverCurrent		= kEHCIBit4,
-	kEHCIPortSC_OCChange		= kEHCIBit5,
-	kEHCIPortSC_Resume		= kEHCIBit6,
-	kEHCIPortSC_Suspend		= kEHCIBit7,
-	kEHCIPortSC_Reset		= kEHCIBit8,
-	kEHCIPortSC_LineSt		= EHCIBitRange (10, 11),
-	kEHCIPortSC_LineStPhase		= EHCIBitRangePhase (10, 11),
-	kEHCIPortSC_Power		= kEHCIBit12,
-	kEHCIPortSC_Owner		= kEHCIBit13,
-	kEHCIPortSC_TestControl		= EHCIBitRange(16, 19),
+	kEHCIPortSC_Connect				= kEHCIBit0,
+	kEHCIPortSC_ConnectChange		= kEHCIBit1,
+	kEHCIPortSC_Enabled				= kEHCIBit2,
+	kEHCIPortSC_EnableChange		= kEHCIBit3,
+	kEHCIPortSC_OverCurrent			= kEHCIBit4,
+	kEHCIPortSC_OCChange			= kEHCIBit5,
+	kEHCIPortSC_Resume				= kEHCIBit6,
+	kEHCIPortSC_Suspend				= kEHCIBit7,
+	kEHCIPortSC_Reset				= kEHCIBit8,
+	kEHCIPortSC_LineSt				= EHCIBitRange (10, 11),
+	kEHCIPortSC_LineStPhase			= EHCIBitRangePhase (10, 11),
+	kEHCIPortSC_Power				= kEHCIBit12,
+	kEHCIPortSC_Owner				= kEHCIBit13,
+	kEHCIPortSC_TestControl			= EHCIBitRange(16, 19),
 	kEHCIPortSC_TestControlPhase	= EHCIBitRangePhase(16, 19),
-	kEHCIPortSC_WKCNNT_E		= kEHCIBit20,
-	kEHCIPortSC_WKDSCNNT_E		= kEHCIBit21,
-	kEHCILine_Low			= 1
+	kEHCIPortSC_WKCNNT_E			= kEHCIBit20,
+	kEHCIPortSC_WKDSCNNT_E			= kEHCIBit21,
+	kEHCILine_Low					= 1
 };
 
 
@@ -204,7 +211,7 @@ enum
 	kEHCIEDSplitFlags_SMask		= EHCIBitRange (0, 7),
 	kEHCIEDSplitFlags_SMaskPhase	= EHCIBitRangePhase (0, 7),
 
-	kUniqueNumNoDirMask		= kEHCIEDFlags_EN | kEHCIEDFlags_FA,
+	kEHCIUniqueNumNoDirMask				= kEHCIEDFlags_EN | kEHCIEDFlags_FA,
 
 
 	kEHCIEDDirectionTD			= 2,
@@ -326,22 +333,6 @@ enum
 	
 };
 
-enum {
-
-// These are the OHCI codes to map EHCI status to
-	kOHCIITDConditionCRC					= 1,
-	kOHCIITDConditionBitStuffing			= 2,
-	kOHCIITDConditionDataToggleMismatch		= 3,
-	kOHCIITDConditionStall					= 4,
-	kOHCIITDConditionDeviceNotResponding	= 5,
-	kOHCIITDConditionPIDCheckFailure		= 6,
-	kOHCIITDConditionUnExpectedPID			= 7,
-	kOHCIITDConditionDataOverrun			= 8,
-	kOHCIITDConditionDataUnderrun			= 9,
-	kOHCIITDConditionBufferOverrun			= 12,
-	kOHCIITDConditionBufferUnderrun			= 13
-
-};
 
 typedef  UInt8		EHCIEDFormat;			// really only need 1 bit
 
@@ -493,40 +484,7 @@ struct EHCISplitIsochTransferDescriptorShared
 };															// 0x40 length of data structure
 #endif
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-* * * * * *
- * Configuration Registers
- *
- */
-enum 
-{
-	kConfigStart			= 0x00,
-	cwVendorID			= 0x00,			/* 0x1000									*/
-	cwDeviceID			= 0x02,			/* 0x0003									*/
-	cwCommand			= 0x04,
-	cwStatus			= 0x06,
-	clUSBBASE			= 0x10,
-	kConfigEnd			= 0x1000
-};
 
-/*
- * 0x04 cwCommand					Command Register (read/write)
- */
-enum 
-{
-	cwCommandSERREnable			= kEHCIBit8,
-	cwCommandEnableParityError	= kEHCIBit6,
-	cwCommandEnableBusMaster	= kEHCIBit2,		// Set this on initialization
-	cwCommandEnableMemorySpace	= kEHCIBit1,		// Respond at Base Address One if set
-	cwCommandEnableIOSpace		= kEHCIBit0			// Respond at Base Address Zero if set
-};
-
-
-// Config space defs.
-enum
-{
-	kEHCIConfigRegBaseAddressRegisterNumber	= 0x10
-};
 
 enum
 {

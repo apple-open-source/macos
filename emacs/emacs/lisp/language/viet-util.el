@@ -1,7 +1,11 @@
 ;;; viet-util.el --- utilities for Vietnamese  -*- coding: iso-2022-7bit; -*-
 
-;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
+;; Copyright (C) 1998, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Keywords: mule, multilingual, Vietnamese
 
@@ -19,21 +23,24 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;; Vietnamese uses ASCII characters and additional 134 unique
 ;; characters (these are Latin alphabets with various diacritical and
-;; tone marks).  As far as I know, Vietnamese now has 4 different ways
-;; for representing these characters: VISCII, VSCII, VIQR, and
-;; Unicode.  VISCII and VSCII are simple 1-byte code which assigns 134
-;; unique characters in control-code area (0x00..0x1F) and right half
-;; area (0x80..0xFF).  VIQR is a menmonic encoding specification
-;; representing diacritical marks by following ASCII characters.
+;; tone marks).  As far as I know, Vietnamese now has 5 different ways
+;; for representing these characters: VISCII, TCVN-5712, VPS, VIQR,
+;; and Unicode.  VISCII, TCVN-5712 and VPS are simple 1-byte code
+;; which assigns 134 unique characters in control-code area
+;; (0x00..0x1F) and right half area (0x80..0xFF).  VIQR is a menmonic
+;; encoding specification representing diacritical marks by following
+;; ASCII characters.
 
 ;;; Code:
+
+(defvar viet-viscii-nonascii-translation-table)
 
 ;;;###autoload
 (defun viet-encode-viscii-char (char)
@@ -221,7 +228,7 @@
 
 ;;;###autoload
 (defun viet-decode-viqr-region (from to)
-  "Convert `VIQR' mnemonics of the current region to Vietnamese characaters.
+  "Convert `VIQR' mnemonics of the current region to Vietnamese characters.
 When called from a program, expects two arguments,
 positions (integers or markers) specifying the stretch of the region."
   (interactive "r")
@@ -238,13 +245,13 @@ positions (integers or markers) specifying the stretch of the region."
 
 ;;;###autoload
 (defun viet-decode-viqr-buffer ()
-  "Convert `VIQR' mnemonics of the current buffer to Vietnamese characaters."
+  "Convert `VIQR' mnemonics of the current buffer to Vietnamese characters."
   (interactive)
   (viet-decode-viqr-region (point-min) (point-max)))
 
 ;;;###autoload
 (defun viet-encode-viqr-region (from to)
-  "Convert Vietnamese characaters of the current region to `VIQR' mnemonics.
+  "Convert Vietnamese characters of the current region to `VIQR' mnemonics.
 When called from a program, expects two arguments,
 positions (integers or markers) specifying the stretch of the region."
   (interactive "r")
@@ -261,7 +268,7 @@ positions (integers or markers) specifying the stretch of the region."
 
 ;;;###autoload
 (defun viet-encode-viqr-buffer ()
-  "Convert Vietnamese characaters of the current buffer to `VIQR' mnemonics."
+  "Convert Vietnamese characters of the current buffer to `VIQR' mnemonics."
   (interactive)
   (viet-encode-viqr-region (point-min) (point-max)))
 
@@ -289,4 +296,5 @@ positions (integers or markers) specifying the stretch of the region."
 ;;;
 (provide 'viet-util)
 
+;;; arch-tag: 082a4d3b-168f-45b4-b3e1-82bfa1b5a194
 ;;; viet-util.el ends here

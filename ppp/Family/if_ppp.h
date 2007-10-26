@@ -103,6 +103,11 @@
 #define SC_DC_FERROR	0x00800000	/* fatal decomp error detected */
 #define SC_DC_ERROR	0x00400000	/* non-fatal decomp error detected */
 
+
+#if __DARWIN_ALIGN_POWER
+#pragma options align=power
+#endif
+
 /*
  * Ioctl definitions.
  */
@@ -119,10 +124,18 @@ struct npafioctl {
 
 /* Structure describing a CCP configuration option, for PPPIOCSCOMPRESS */
 struct ppp_option_data {
-	void		*ptr;
+	void *		ptr;
 	u_int32_t	length;
 	int		transmit;
 };
+
+#ifdef KERNEL_PRIVATE
+struct ppp_option_data64 {
+	u_int64_t		ptr;
+	u_int32_t	length;
+	int		transmit;
+};
+#endif KERNEL_PRIVATE
 
 struct ifpppstatsreq {
     char ifr_name[IFNAMSIZ];
@@ -133,6 +146,10 @@ struct ifpppcstatsreq {
     char ifr_name[IFNAMSIZ];
     struct ppp_comp_stats stats;
 };
+
+#if __DARWIN_ALIGN_POWER
+#pragma options align=reset
+#endif
 
 /*
  * Ioctl definitions.
@@ -152,6 +169,9 @@ struct ifpppcstatsreq {
 #define PPPIOCSXASYNCMAP _IOW('t', 79, ext_accm) /* set extended ACCM */
 #define PPPIOCXFERUNIT	_IO('t', 78)		/* transfer PPP unit */
 #define PPPIOCSCOMPRESS	_IOW('t', 77, struct ppp_option_data)
+#ifdef KERNEL_PRIVATE
+#define PPPIOCSCOMPRESS64	_IOW('t', 77, struct ppp_option_data64)
+#endif KERNEL_PRIVATE
 #define PPPIOCGNPMODE	_IOWR('t', 76, struct npioctl) /* get NP mode */
 #define PPPIOCSNPMODE	_IOW('t', 75, struct npioctl)  /* set NP mode */
 #define PPPIOCSPASS	_IOW('t', 71, struct sock_fprog) /* set pass filter */

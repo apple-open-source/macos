@@ -6,7 +6,7 @@ $O || exec /bin/sh "$0" "$@"		  # we're in a buggy zsh
 #									#
 #	Created by S.R. van den Berg, The Netherlands			#
 #########################################################################
-#$Id: dirname,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $
+#$Id: dirname,v 1.1 1999/09/23 17:30:07 wsanchez Exp $
 
 t=`expr "$1" : "\(.*/\)[^/]*$"`
 

@@ -1,5 +1,9 @@
+<testcase>
 # Server-side
 <reply>
+<servercmd>
+REPLY PASS 530 temporarily not available
+</servercmd>
 </reply>
 
 # Client-side
@@ -13,9 +17,6 @@ FTP response 530 after PASS, temporarily not allowed access
  <command>
 ftp://%HOSTIP:%FTPPORT/195
 </command>
-<file name="log/ftpserver.cmd">
-REPLY PASS 530 temporarily not available
-</file>
 </client>
 
 # Verify data after the test has been "shot"
@@ -25,6 +26,7 @@ REPLY PASS 530 temporarily not available
 </errorcode>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 </protocol>
 </verify>
+</testcase>

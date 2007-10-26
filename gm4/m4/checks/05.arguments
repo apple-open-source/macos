@@ -1,5 +1,0 @@
-dnl ../doc/m4.texinfo:1004: Origin of test
-define(`foo', `This is macro `foo'.')
-dnl @result{}
-foo
-dnl @result{}This is macro foo.

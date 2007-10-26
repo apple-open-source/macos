@@ -21,7 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <sys/mman.h>
-#include <sys/syscall.h>
 #include <mach/vm_param.h>
 #include <errno.h>
 
@@ -30,11 +29,12 @@ void *__mmap(void *addr, size_t len, int prot, int flags, int fildes, off_t off)
 /*
  * mmap stub, with preemptory failures due to extra parameter checking
  * mandated for conformance.
+ *
+ * This is for UNIX03 only.
  */
 void *
 mmap(void *addr, size_t len, int prot, int flags, int fildes, off_t off)
 {
-#if __DARWIN_UNIX03
 	/*
 	 * Preemptory failures:
 	 * 
@@ -50,7 +50,6 @@ mmap(void *addr, size_t len, int prot, int flags, int fildes, off_t off)
 		cthread_set_errno_self(EINVAL);
 		return(MAP_FAILED);
 	}
-#endif	/* __DARWIN_UNIX03 */
 
 	return(__mmap(addr, len, prot, flags, fildes, off));
 }

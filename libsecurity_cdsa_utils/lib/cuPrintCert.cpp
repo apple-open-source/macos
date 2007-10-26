@@ -323,6 +323,9 @@ static void printRdn(
 			/* deprecated, used by Thawte */
 			fieldName = "Email addrs   ";      
 		}
+		else if(compareOids(&ptvp->type, &CSSMOID_Description)) {
+			fieldName = "Description   ";      
+		}
 		else {
 			fieldName = "Other name    ";      
 		}
@@ -518,11 +521,14 @@ static int printCdsaExtensionCommon(
 	}
 	
 	/* currently (since Radar 3593624), these are both always valid */
+	#if 0
+	/* this prevents printing pre-encoded extensions in clxutils/extenTest */
 	if((cssmExt->BERvalue.Data == NULL) || 
 	   (cssmExt->value.parsedValue == NULL)) {  /* actually, one of three variants */
 		printf("***Malformed CSSM_X509_EXTENSION (1)\n");
 		return 1;
 	}
+	#endif	
 	switch(cssmExt->format) {
 		case CSSM_X509_DATAFORMAT_ENCODED:
 			if(expectParsed) {
@@ -812,13 +818,45 @@ static void printAuthorityInfoAccess(
 	CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)value.Data;
 	CE_AuthorityInfoAccess	*info = (CE_AuthorityInfoAccess *)cssmExt->value.parsedValue;
 
-	printf("   numDescriptions : %lu\n", info->numAccessDescriptions);
+	printf("   numDescriptions : %lu\n", (unsigned long)info->numAccessDescriptions);
 	for(unsigned dex=0; dex<info->numAccessDescriptions; dex++) {
 		printf("   description %u   : \n", dex);
 		printf("   accessMethod    : ");
 		CE_AccessDescription *descr = &info->accessDescriptions[dex];
 		printOid(parser, &descr->accessMethod);
 		printGeneralName(&descr->accessLocation, parser);
+	}
+}
+
+static void printQualCertStatements(
+	const CSSM_DATA 	&value,
+	OidParser 			&parser)
+{
+	CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)value.Data;
+	CE_QC_Statements	*qcss = (CE_QC_Statements *)cssmExt->value.parsedValue;
+
+	printf("   numQCStatements : %lu\n", (unsigned long)qcss->numQCStatements);
+	for(unsigned dex=0; dex<qcss->numQCStatements; dex++) {
+		CE_QC_Statement *qcs = &qcss->qcStatements[dex];
+
+		printf("   statement %u     : \n", dex);
+		printf("   statementId     : ");
+		printOid(parser, &qcs->statementId);
+		if(qcs->semanticsInfo) {
+			printf("   semanticsInfo   :\n");
+			CE_SemanticsInformation *si = qcs->semanticsInfo;
+			if(si->semanticsIdentifier) {
+				printf("   semanticsId     : ");
+				printOid(parser, si->semanticsIdentifier);
+			}
+			if(si->nameRegistrationAuthorities) {
+				printf("   nameRegAuth     :\n");
+				printGeneralNames(si->nameRegistrationAuthorities, parser);
+			}
+		}
+		if(qcs->otherInfo) {
+			printf("   otherInfo       : "); printDataAsHex(qcs->otherInfo, 8);
+		}
 	}
 }
 
@@ -1047,6 +1085,12 @@ void printCertField(
 			return;
 		}
 		printAuthorityInfoAccess(*thisData, parser);
+	}
+	else if(cuCompareCssmData(thisOid, &CSSMOID_QC_Statements)) {
+		if(printExtensionCommon(*thisData, parser, verbose)) {
+			return;
+		}
+		printQualCertStatements(*thisData, parser);
 	}
 	else if(cuCompareCssmData(thisOid, &CSSMOID_X509V1IssuerName)) {
 		if(verbose) {

@@ -1,0 +1,30 @@
+.Dd February 27, 2006
+.Dt RAILS 1
+.Os
+.Sh NAME
+.Nm rails
+.Nd Web-application framework 
+.Sh SYNOPSIS
+.Nm rails
+.Ar path 
+.Op Ar options...
+.Sh DESCRIPTION
+.Nm Rails
+is a web-application and persistence framework that includes everything needed to create database-backed web-applications according to the Model-View-Control pattern of separation. This pattern splits the view (also called the presentation) into "dumb" templates that are primarily responsible for inserting pre-built data in between HTML tags. The model contains the "smart" domain objects (such as Account, Product, Person, Post) that holds all the business logic and knows how to persist themselves to a database. The controller handles the incoming requests (such as Save New Account, Update Product, Show Post) by manipulating the model and directing data to the view.
+.Pp
+.Nm Rails 
+is written with the
+.Xr ruby 1
+language. For more information about
+.Nm Rails
+you can use its
+.Fl --help
+flag. There is also online documentation available at "http://rubyonrails.org".
+.Sh SEE ALSO
+.Xr ruby 1
+.Xr mongrel_rails 1
+.Xr cap 1
+.Sh AUTHORS
+Rails was created by
+.An David Heinemeier Hansson Aq david@loudthinking.com
+then extended and improved by hundreds of open-source contributors.

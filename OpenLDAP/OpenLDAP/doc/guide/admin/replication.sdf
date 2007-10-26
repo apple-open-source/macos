@@ -1,0 +1,351 @@
+# $OpenLDAP: pkg/openldap-guide/admin/replication.sdf,v 1.30.2.1 2006/01/03 22:16:03 kurt Exp $
+# Copyright 1999-2006 The OpenLDAP Foundation, All Rights Reserved.
+# COPYING RESTRICTIONS APPLY, see COPYRIGHT.
+H1: Replication with slurpd
+
+In certain configurations, a single {{slapd}}(8) instance may be
+insufficient to handle the number of clients requiring
+directory service via LDAP. It may become necessary to
+run more than one slapd instance.  At many sites,
+for instance, there are multiple slapd servers: one
+master and one or more slaves.  {{TERM:DNS}} can be setup such that
+a lookup of {{EX:ldap.example.com}} returns the {{TERM:IP}} addresses
+of these servers, distributing the load among them (or
+just the slaves). This master/slave arrangement provides
+a simple and effective way to increase capacity, availability
+and reliability.
+
+{{slurpd}}(8) provides the capability for a master slapd to
+propagate changes to slave slapd instances,
+implementing the master/slave replication scheme
+described above.  slurpd runs on the same host as the
+master slapd instance.
+
+
+
+H2: Overview
+
+{{slurpd}}(8) provides replication services "in band". That is, it
+uses the LDAP protocol to update a slave database from
+the master. Perhaps the easiest way to illustrate this is
+with an example. In this example, we trace the propagation
+of an LDAP modify operation from its initiation by the LDAP
+client to its distribution to the slave slapd instance.
+
+
+{{B: Sample replication scenario:}}
+
+^ The LDAP client submits an LDAP modify operation to
+the slave slapd.
+
++ The slave slapd returns a referral to the LDAP
+client referring the client to the master slapd.
+
++ The LDAP client submits the LDAP modify operation to
+the master slapd.
+
++ The master slapd performs the modify operation,
+writes out the change to its replication log file and returns
+a success code to the client. 
+
++ The slurpd process notices that a new entry has
+been appended to the replication log file, reads the
+replication log entry, and sends the change to the slave
+slapd via LDAP. 
+
++ The slave slapd performs the modify operation and
+returns a success code to the slurpd process. 
+
+
+Note: {{ldapmodify}}(1) and other clients distributed as part of
+OpenLDAP Software do not support automatic referral chasing
+(for security reasons).
+
+
+
+H2: Replication Logs
+
+When slapd is configured to generate a replication logfile, it
+writes out a file containing {{TERM:LDIF}} change records.  The
+replication log gives the replication site(s), a timestamp, the DN
+of the entry being modified, and a series of lines which specify
+the changes to make. In the example below, Barbara ({{EX:uid=bjensen}})
+has replaced the {{EX:description}} value.  The change is to be
+propagated to the slapd instance running on {{EX:slave.example.net}}
+Changes to various operational attributes, such as {{EX:modifiersName}}
+and {{EX:modifyTimestamp}}, are included in the change record and
+will be propagated to the slave slapd.
+
+>	replica: slave.example.com:389
+>	time: 809618633
+>	dn: uid=bjensen,dc=example,dc=com
+>	changetype: modify
+>	replace: multiLineDescription
+>	description: A dreamer...
+>	-
+>	replace: modifiersName
+>	modifiersName: uid=bjensen,dc=example,dc=com
+>	-
+>	replace: modifyTimestamp
+>	modifyTimestamp: 20000805073308Z
+>	-
+
+The modifications to {{EX:modifiersName}} and {{EX:modifyTimestamp}}
+operational attributes were added by the master {{slapd}}.
+
+
+
+H2: Command-Line Options
+
+This section details commonly used {{slurpd}}(8) command-line options.
+
+>	-d <level> | ?
+
+This option sets the slurpd debug level to {{EX: <level>}}. When
+level is a `?' character, the various debugging levels are printed
+and slurpd exits, regardless of any other options you give it.
+Current debugging levels (a subset of slapd's debugging levels) are
+
+!block table; colaligns="RL"; align=Center; \
+	title="Table 13.1: Debugging Levels"
+Level	Description
+4	heavy trace debugging
+64	configuration file processing
+65535	enable all debugging
+!endblock
+
+Debugging levels are additive. That is, if you want heavy trace
+debugging and want to watch the config file being processed, you
+would set level to the sum of those two levels (in this case, 68).
+
+>	-f <filename>
+
+This option specifies an alternate slapd configuration file.  Slurpd
+does not have its own configuration file. Instead, all configuration
+information is read from the slapd configuration file.
+
+>	-r <filename>
+
+This option specifies an alternate slapd replication log file.
+Under normal circumstances, slurpd reads the name of the slapd
+replication log file from the slapd configuration file. However,
+you can override this with the -r flag, to cause slurpd to process
+a different replication log file. See the {{SECT:Advanced slurpd
+Operation}} section for a discussion of how you might use this
+option.
+
+>	-o
+
+Operate in "one-shot" mode. Under normal circumstances, when slurpd
+finishes processing a replication log, it remains active and
+periodically checks to see if new entries have been added to the
+replication log.  In one-shot mode, by comparison, slurpd processes
+a replication log and exits immediately. If the -o option is given,
+the replication log file must be explicitly specified with the -r
+option.  See the {{SECT:One-shot mode and reject files}} section
+for  a discussion of this mode.
+
+>	-t <directory>
+
+Specify an alternate directory for slurpd's temporary copies of
+replication logs. The default location is {{F:/usr/tmp}}.
+
+
+H2: Configuring slurpd and a slave slapd instance
+
+To bring up a replica slapd instance, you must configure the master
+and slave slapd instances for replication, then shut down the master
+slapd so you can copy the database. Finally, you bring up the master
+slapd instance, the slave slapd instance, and the slurpd instance.
+These steps are detailed in the following sections. You can set up
+as many slave slapd instances as you wish.
+
+
+H3: Set up the master {{slapd}}
+
+The following section assumes you have a properly working {{slapd}}(8)
+instance. To configure your working {{slapd}}(8) server as a
+replication master, you need to make the following changes to your
+{{slapd.conf}}(5).
+
+^ Add a {{EX:replica}} directive for each replica. The {{EX:binddn=}}
+parameter should match the {{EX:updatedn}} option in the corresponding
+slave slapd configuration file, and should name an entry with write
+permission to the slave database (e.g., an entry allowed access via
+{{EX:access}} directives in the slave slapd configuration file).
+This DN generally {{should not}} be the same as the master's
+{{EX:rootdn}}.
+
++ Add a {{EX:replogfile}} directive, which tells slapd where to log
+changes. This file will be read by slurpd.
+
+
+H3: Set up the slave {{slapd}}
+
+Install the slapd software on the host which is to be the slave
+slapd server. The configuration of the slave server should be
+identical to that of the master, with the following exceptions:
+
+^ Do not include a {{EX:replica}} directive. While it is possible
+to create "chains" of replicas, in most cases this is inappropriate.
+
++ Do not include a {{EX:replogfile}} directive.
+
++ Do include an {{EX:updatedn}} line. The DN given should match the
+DN given in the {{EX:binddn=}} parameter of the corresponding
+{{EX:replica=}} directive in the master slapd config file.  The
+{{EX:updatedn}} generally {{should not}} be the same as the
+{{EX:rootdn}} of the master database.
+
++ Make sure the DN given in the {{EX:updatedn}} directive has
+permission to write the database (e.g., it is is allowed {{EX:access}}
+by one or more access directives).
+
++ Use the {{EX:updateref}} directive to define the URL the slave
+should return if an update request is received.
+
+
+H3: Shut down the master server
+
+In order to ensure that the slave starts with an exact copy of the
+master's data, you must shut down the master slapd. Do this by
+sending the master slapd process an interrupt signal with
+{{EX:kill -INT <pid>}}, where {{EX:<pid>}} is the process-id of the master
+slapd process.
+
+If you like, you may restart the master slapd in read-only mode
+while you are replicating the database. During this time, the master
+slapd will return an "unwilling to perform" error to clients that
+attempt to modify data.
+
+
+H3: Copy the master slapd's database to the slave
+
+Copy the master's database(s) to the slave. For an {{TERM:BDB}} and
+{{TERM:LDBM}} databases, you must copy all database files located
+in the database {{EX:directory}} specified in {{slapd.conf}}(5).
+In general, you should copy each file found in the database {{EX:
+directory}} unless you know it is not used by {{slapd}}(8).
+
+Note: This copy process assumes homogeneous servers with identically
+configured OpenLDAP installations. Alternatively, you may use
+{{slapcat}} to output the master's database in LDIF format and use
+the LDIF with {{slapadd}} to populate the slave. Using LDIF avoids
+any potential incompatibilities due to differing server architectures
+or software configurations.  See the {{SECT:Database Creation and
+Maintenance Tools}} chapter for details on these tools.
+
+
+H3: Configure the master slapd for replication
+
+To configure slapd to generate a replication logfile, you add a
+"{{EX: replica}}" configuration option to the master slapd's config
+file. For example, if we wish to propagate changes to the slapd
+instance running on host {{EX:slave.example.com}}:
+
+>	replica uri=ldap://slave.example.com:389
+>		binddn="cn=Replicator,dc=example,dc=com"
+>		bindmethod=simple credentials=secret
+
+In this example, changes will be sent to port 389 (the standard
+LDAP port) on host slave.example.com. The slurpd process will bind
+to the slave slapd as "{{EX:cn=Replicator,dc=example,dc=com}}" using
+simple authentication with password "{{EX:secret}}".
+
+If we wish to perform the same replication using ldaps on port 636:  
+
+>	replica uri=ldaps://slave.example.com:636
+>		binddn="cn=Replicator,dc=example,dc=com"
+>		bindmethod=simple credentials=secret
+
+The host option is deprecated in favor of uri, but the following 
+replica configuration is still supported:
+
+>	replica host=slave.example.com:389
+>		binddn="cn=Replicator,dc=example,dc=com"
+>		bindmethod=simple credentials=secret
+
+Note that the DN given by the {{EX:binddn=}} directive must exist
+in the slave slapd's database (or be the rootdn specified in the
+slapd config file) in order for the bind operation to succeed.  The
+DN should also be listed as the {{EX:updatedn}} for the database
+in the slave's slapd.conf(5).  It is generally recommended that
+this DN be different than the {{EX:rootdn}} of the master database.
+
+Note: The use of strong authentication and transport security is
+highly recommended.
+
+
+H3: Restart the master slapd and start the slave slapd
+
+Restart the master slapd process. To check that it is
+generating replication logs, perform a modification of any
+entry in the database, and check that data has been
+written to the log file.
+
+
+H3: Start slurpd
+
+Start the slurpd process. Slurpd should immediately send
+the test modification you made to the slave slapd. Watch
+the slave slapd's logfile to be sure that the modification
+was sent.
+
+>	slurpd -f <masterslapdconfigfile>
+
+
+
+H2: Advanced slurpd Operation
+
+H3: Replication errors
+
+When slurpd propagates a change to a slave slapd and receives an
+error return code, it writes the reason for the error and the
+replication record to a reject file. The reject file is located in
+the same directory as the per-replica replication logfile, and has
+the same name, but with the string "{{F:.rej}}" appended. For
+example, for a replica running on host {{EX:slave.example.com}},
+port 389, the reject file, if it exists, will be named
+
+>	/usr/local/var/openldap/replog.slave.example.com:389.rej
+
+A sample rejection log entry follows:
+
+>	ERROR: No such attribute
+>	replica: slave.example.com:389
+>	time: 809618633
+>	dn: uid=bjensen,dc=example,dc=com
+>	changetype: modify
+>	replace: description
+>	description: A dreamer...
+>	-
+>	replace: modifiersName
+>	modifiersName: uid=bjensen,dc=example,dc=com
+>	-
+>	replace: modifyTimestamp
+>	modifyTimestamp: 20000805073308Z
+>	-
+
+Note that this is precisely the same format as the original replication
+log entry, but with an {{EX:ERROR}} line prepended to the entry.
+
+
+
+H3: One-shot mode and reject files
+
+It is possible to use slurpd to process a rejection log with its
+"one-shot mode." In normal operation, slurpd watches for more
+replication records to be appended to the replication log file. In
+one-shot mode, by contrast, slurpd processes a single log file and
+exits. Slurpd ignores {{EX:ERROR}} lines at the beginning of
+replication log entries, so it's not necessary to edit them out
+before feeding it the rejection log.
+
+To use one-shot mode, specify the name of the rejection log on the
+command line as the argument to the -r flag, and specify one-shot
+mode with the -o flag. For example, to process the rejection log
+file {{F:/usr/local/var/openldap/replog.slave.example.com:389}} and
+exit, use the command
+
+>	slurpd -r /usr/tmp/replog.slave.example.com:389 -o
+

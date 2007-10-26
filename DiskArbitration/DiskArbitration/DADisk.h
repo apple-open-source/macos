@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,6 +55,7 @@ extern const CFStringRef kDADiskDescriptionMediaPathKey;       /* ( CFString    
 extern const CFStringRef kDADiskDescriptionMediaRemovableKey;  /* ( CFBoolean    ) */
 extern const CFStringRef kDADiskDescriptionMediaSizeKey;       /* ( CFNumber     ) */
 extern const CFStringRef kDADiskDescriptionMediaTypeKey;       /* ( CFString     ) */
+extern const CFStringRef kDADiskDescriptionMediaUUIDKey;       /* ( CFUUID       ) */
 extern const CFStringRef kDADiskDescriptionMediaWholeKey;      /* ( CFBoolean    ) */
 extern const CFStringRef kDADiskDescriptionMediaWritableKey;   /* ( CFBoolean    ) */
 
@@ -91,7 +92,7 @@ extern CFTypeID DADiskGetTypeID( void );
  * @abstract   Creates a new disk object.
  * @param      allocator The allocator object to be used to allocate memory.
  * @param      session   The DASession in which to contact Disk Arbitration.
- * @param      path      The BSD device name.
+ * @param      name      The BSD device name.
  * @result     A reference to a new DADisk.
  * @discussion
  * The caller of this function receives a reference to the returned object.  The

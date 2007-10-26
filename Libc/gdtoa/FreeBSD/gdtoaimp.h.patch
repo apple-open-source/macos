@@ -1,5 +1,5 @@
---- gdtoaimp.h.orig	2005-01-20 20:12:37.000000000 -0800
-+++ gdtoaimp.h	2005-02-17 02:10:26.000000000 -0800
+--- gdtoaimp.h.orig	2007-10-04 15:00:21.000000000 -0700
++++ gdtoaimp.h	2007-10-04 15:35:46.000000000 -0700
 @@ -167,6 +167,7 @@
  
  #ifndef GDTOAIMP_H_INCLUDED
@@ -30,7 +30,18 @@
  #undef IEEE_Arith
  #undef Avoid_Underflow
  #ifdef IEEE_MC68k
-@@ -449,10 +456,16 @@
+@@ -233,6 +240,10 @@
+ 
+ #else /* ifndef Bad_float_h */
+ #include "float.h"
++/* force the correct definition of FLT_ROUNDS */
++extern int __fegetfltrounds( void );
++#undef FLT_ROUNDS
++#define FLT_ROUNDS (__fegetfltrounds ())
+ #endif /* Bad_float_h */
+ 
+ #ifdef IEEE_Arith
+@@ -449,10 +460,16 @@
  #define ALL_ON 0xffff
  #endif
  
@@ -51,7 +62,7 @@
  
  #define Kmax 15
  
-@@ -475,51 +488,89 @@
+@@ -475,51 +492,89 @@
  #define Bcopy(x,y) memcpy(&x->sign,&y->sign,y->wds*sizeof(ULong) + 2*sizeof(int))
  #endif /* NO_STRING_H */
  
@@ -186,7 +197,7 @@
  
   extern char *dtoa_result;
   extern CONST double bigtens[], tens[], tinytens[];
-@@ -542,8 +593,11 @@
+@@ -542,8 +597,11 @@
   extern Bigint *diff ANSI((Bigint*, Bigint*));
   extern char *dtoa ANSI((double d, int mode, int ndigits,
  			int *decpt, int *sign, char **rve));
@@ -199,11 +210,15 @@
   extern void hexdig_init_D2A(Void);
   extern int hexnan ANSI((CONST char**, FPI*, ULong*));
   extern int hi0bits_D2A ANSI((ULong));
-@@ -563,8 +617,29 @@
-  extern Bigint *s2b ANSI((CONST char*, int, int, ULong));
+@@ -560,11 +618,32 @@
+  extern double ratio ANSI((Bigint*, Bigint*));
+  extern void rshift ANSI((Bigint*, int));
+  extern char *rv_alloc ANSI((int));
+- extern Bigint *s2b ANSI((CONST char*, int, int, ULong));
++ extern Bigint *s2b ANSI((CONST char*, int, int, ULong, int));
   extern Bigint *set_ones ANSI((Bigint*, int));
   extern char *strcp ANSI((char*, const char*));
-+ extern int strtodg ANSI((CONST char*, char**, FPI*, Long*, ULong*, locale_t));
++ extern int strtodg ANSI((CONST char*, char**, FPI*, Long*, ULong*, locale_t)) __DARWIN_ALIAS(strtodg);
 +
 + extern int strtoId ANSI((CONST char *, char **, double *, double *));
 + extern int strtoIdd ANSI((CONST char *, char **, double *, double *));

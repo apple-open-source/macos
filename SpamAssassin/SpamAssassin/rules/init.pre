@@ -3,15 +3,16 @@
 # See 'perldoc Mail::SpamAssassin::Conf' for details of what can be
 # tweaked.
 #
-# This file will be loaded before *all other* configuration files, including
-# the system configuration.  As such, it's a good place to set things that
-# will affect how those files are parsed, like which plugins are loaded
-# etc.
+# This file contains plugin activation commands for plugins included
+# in SpamAssassin 3.0.x releases.  It will not be installed if you
+# already have a file in place called "init.pre".
 #
 ###########################################################################
 
 # RelayCountry - add metadata for Bayes learning, marking the countries
 # a message was relayed through
+#
+# Note: This requires the IP::Country::Fast Perl module
 #
 # loadplugin Mail::SpamAssassin::Plugin::RelayCountry
 

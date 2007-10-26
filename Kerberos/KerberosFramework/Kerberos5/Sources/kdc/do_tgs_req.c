@@ -27,7 +27,6 @@
  * KDC Routines to deal with TGS_REQ's
  */
 
-#define NEED_SOCKETS
 #include "k5-int.h"
 #include "com_err.h"
 
@@ -475,6 +474,8 @@ tgt_again:
 	    goto cleanup;
 	}
 	enc_tkt_transited.tr_type = KRB5_DOMAIN_X500_COMPRESS;
+	enc_tkt_transited.magic = 0;
+	enc_tkt_transited.tr_contents.magic = 0;
 	enc_tkt_transited.tr_contents.data = 0;
 	enc_tkt_transited.tr_contents.length = 0;
 	enc_tkt_reply.transited = enc_tkt_transited;
@@ -490,27 +491,40 @@ tgt_again:
 	newtransited = 1;
     }
     if (!isflagset (request->kdc_options, KDC_OPT_DISABLE_TRANSITED_CHECK)) {
+	unsigned int tlen;
+	char *tdots;
+
 	errcode = krb5_check_transited_list (kdc_context,
 					     &enc_tkt_reply.transited.tr_contents,
 					     krb5_princ_realm (kdc_context, header_ticket->enc_part2->client),
 					     krb5_princ_realm (kdc_context, request->server));
+	tlen = enc_tkt_reply.transited.tr_contents.length;
+	tdots = tlen > 125 ? "..." : "";
+	tlen = tlen > 125 ? 125 : tlen;
+
 	if (errcode == 0) {
 	    setflag (enc_tkt_reply.flags, TKT_FLG_TRANSIT_POLICY_CHECKED);
 	} else if (errcode == KRB5KRB_AP_ERR_ILL_CR_TKT)
 	    krb5_klog_syslog (LOG_INFO,
-			      "bad realm transit path from '%s' to '%s' via '%.*s'",
+			      "bad realm transit path from '%s' to '%s' "
+			      "via '%.*s%s'",
 			      cname ? cname : "<unknown client>",
 			      sname ? sname : "<unknown server>",
-			      enc_tkt_reply.transited.tr_contents.length,
-			      enc_tkt_reply.transited.tr_contents.data);
-	else
-	    krb5_klog_syslog (LOG_ERR,
-			      "unexpected error checking transit from '%s' to '%s' via '%.*s': %s",
-			      cname ? cname : "<unknown client>",
-			      sname ? sname : "<unknown server>",
-			      enc_tkt_reply.transited.tr_contents.length,
+			      tlen,
 			      enc_tkt_reply.transited.tr_contents.data,
-			      error_message (errcode));
+			      tdots);
+	else {
+	    const char *emsg = krb5_get_error_message(kdc_context, errcode);
+	    krb5_klog_syslog (LOG_ERR,
+			      "unexpected error checking transit from "
+			      "'%s' to '%s' via '%.*s%s': %s",
+			      cname ? cname : "<unknown client>",
+			      sname ? sname : "<unknown server>",
+			      tlen,
+			      enc_tkt_reply.transited.tr_contents.data,
+			      tdots, emsg);
+	    krb5_free_error_message(kdc_context, emsg);
+	}
     } else
 	krb5_klog_syslog (LOG_INFO, "not checking transit path");
     if (reject_bad_transit
@@ -538,6 +552,9 @@ tgt_again:
 	if (!krb5_principal_compare(kdc_context, request->server, client2)) {
 		if ((errcode = krb5_unparse_name(kdc_context, client2, &tmp)))
 			tmp = 0;
+		if (tmp != NULL)
+		    limit_string(tmp);
+
 		krb5_klog_syslog(LOG_INFO,
 				 "TGS_REQ %s: 2ND_TKT_MISMATCH: "
 				 "authtime %d, %s for %s, 2nd tkt client %s",
@@ -644,9 +661,12 @@ tgt_again:
     
 cleanup:
     if (status) {
+	const char * emsg = NULL;
 	if (!errcode)
 	    rep_etypes2str(rep_etypestr, sizeof(rep_etypestr), &reply);
-        krb5_klog_syslog(LOG_INFO,
+	if (errcode) 
+	    emsg = krb5_get_error_message (kdc_context, errcode);
+	krb5_klog_syslog(LOG_INFO,
 			 "TGS_REQ (%s) %s: %s: authtime %d, "
 			 "%s%s %s for %s%s%s",
 			 ktypestr,
@@ -656,18 +676,27 @@ cleanup:
 			 cname ? cname : "<unknown client>",
 			 sname ? sname : "<unknown server>",
 			 errcode ? ", " : "",
-			 errcode ? error_message(errcode) : "");
+			 errcode ? emsg : "");
+	if (errcode)
+	    krb5_free_error_message (kdc_context, emsg);
     }
     
     if (errcode) {
-	if (status == 0)
-	    status = error_message (errcode);
+        int got_err = 0;
+	if (status == 0) {
+	    status = krb5_get_error_message (kdc_context, errcode);
+	    got_err = 1;
+	}
 	errcode -= ERROR_TABLE_BASE_krb5;
 	if (errcode < 0 || errcode > 128)
 	    errcode = KRB_ERR_GENERIC;
 	    
 	retval = prepare_error_tgs(request, header_ticket, errcode,
 				   fromstring, response, status);
+	if (got_err) {
+	    krb5_free_error_message (kdc_context, status);
+	    status = 0;
+	}
     }
     
     if (header_ticket)
@@ -800,6 +829,7 @@ find_alternate_tgs(krb5_kdc_req *request, krb5_db_entry *server,
 		krb5_klog_syslog(LOG_INFO,
 		       "TGS_REQ: issuing alternate <un-unparseable> TGT");
 	    } else {
+		limit_string(sname);
 		krb5_klog_syslog(LOG_INFO,
 		       "TGS_REQ: issuing TGT %s", sname);
 		free(sname);

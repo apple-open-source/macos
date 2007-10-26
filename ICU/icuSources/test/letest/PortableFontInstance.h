@@ -2,7 +2,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 1999-2003, International Business Machines
+ *   Copyright (C) 1999-2006, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -30,11 +30,12 @@ class PortableFontInstance : public LEFontInstance, protected FontTableCache
 private:
     FILE *fFile;
 
-    float    fPointSize;
-    le_int32 fUnitsPerEM;
-    le_int32 fAscent;
-    le_int32 fDescent;
-    le_int32 fLeading;
+    float     fPointSize;
+    le_int32  fUnitsPerEM;
+    le_uint32 fFontChecksum;
+    le_int32  fAscent;
+    le_int32  fDescent;
+    le_int32  fLeading;
 
     const SFNTDirectory *fDirectory;
     le_uint16 fDirPower;
@@ -42,6 +43,10 @@ private:
 
     float fDeviceScaleX;
     float fDeviceScaleY;
+
+    const NAMETable *fNAMETable;
+    le_uint16 fNameCount;
+    le_uint16 fNameStringOffset;
 
     CMAPMapper *fCMAPMapper;
 
@@ -62,60 +67,47 @@ protected:
     const void *readFontTable(LETag tableTag) const;
 
 public:
-    PortableFontInstance(char *fileName, float pointSize, LEErrorCode &status);
+    PortableFontInstance(const char *fileName, float pointSize, LEErrorCode &status);
 
     virtual ~PortableFontInstance();
 
     virtual const void *getFontTable(LETag tableTag) const;
 
-    virtual le_int32 getUnitsPerEM() const
-    {
-        return fUnitsPerEM;
-    };
+    virtual const char *getNameString(le_uint16 nameID, le_uint16 platform, le_uint16 encoding, le_uint16 language) const;
 
-    virtual le_int32 getAscent() const
-    {
-        return fAscent;
-    }
+    virtual void deleteNameString(const char *name) const;
 
-    virtual le_int32 getDescent() const
-    {
-        return fDescent;
-    }
+    virtual le_int32 getUnitsPerEM() const;
 
-    virtual le_int32 getLeading() const
-    {
-        return fLeading;
-    }
+    virtual le_uint32 getFontChecksum() const;
 
-    virtual LEGlyphID mapCharToGlyph(LEUnicode32 ch) const
-    {
-        return fCMAPMapper->unicodeToGlyph(ch);
-    }
+    virtual le_int32 getAscent() const;
+
+    virtual le_int32 getDescent() const;
+
+    virtual le_int32 getLeading() const;
+
+    // We really want to inherit this method from the superclass, but some compilers
+    // issue a warning if we don't implement it...
+    virtual LEGlyphID mapCharToGlyph(LEUnicode32 ch, const LECharMapper *mapper, le_bool filterZeroWidth) const;
+    
+    // We really want to inherit this method from the superclass, but some compilers
+    // issue a warning if we don't implement it...
+    virtual LEGlyphID mapCharToGlyph(LEUnicode32 ch, const LECharMapper *mapper) const;
+
+    virtual LEGlyphID mapCharToGlyph(LEUnicode32 ch) const;
 
     virtual void getGlyphAdvance(LEGlyphID glyph, LEPoint &advance) const;
 
     virtual le_bool getGlyphPoint(LEGlyphID glyph, le_int32 pointNumber, LEPoint &point) const;
 
-    float getXPixelsPerEm() const
-    {
-        return fPointSize;
-    };
+    float getXPixelsPerEm() const;
 
-    float getYPixelsPerEm() const
-    {
-        return fPointSize;
-    };
+    float getYPixelsPerEm() const;
 
-    float getScaleFactorX() const
-    {
-        return 1.0;
-    }
+    float getScaleFactorX() const;
 
-    float getScaleFactorY() const
-    {
-        return 1.0;
-    }
+    float getScaleFactorY() const;
 
 };
 

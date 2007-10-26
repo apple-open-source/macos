@@ -1,5 +1,5 @@
 # Makefile.in - notifyd makefile
-# $Id: Makefile.in,v 1.7 2005/03/05 00:37:30 dasenbro Exp $
+# $Id: Makefile.in,v 1.11 2006/11/30 17:11:23 murch Exp $
 # @configure_input@
 # 
 # Copyright (c) 1998-2000 Carnegie Mellon University.  All rights reserved.
@@ -55,7 +55,7 @@ CYRUS_GROUP=@cyrus_group@
 DEFS = @DEFS@ @LOCALDEFS@
 CPPFLAGS = -I.. -I$(srcdir)/../sieve -I$(srcdir)/../imap -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @CPPFLAGS@ @SASLFLAGS@
 CFLAGS = @CFLAGS@ @BI_RC_CFLAGS@
-LDFLAGS = @LDFLAGS@ @BI_RC_CFLAGS@ -bind_at_load
+LDFLAGS = @LDFLAGS@ @BI_RC_CFLAGS@ -bind_at_load -framework DirectoryService -framework Security -framework CoreFoundation
 
 prefix = @prefix@
 exec_prefix = @exec_prefix@
@@ -80,7 +80,7 @@ PUREOPT=-best-effort
 all: notifyd
 
 install:
-	$(INSTALL) -s -m 755 notifyd $(DESTDIR)$(service_path)
+	$(INSTALL) -m 755 notifyd $(DESTDIR)$(service_path)
 
 OBJS= notifyd.o notify_null.o notify_log.o notify_mailto.o notify_zephyr.o
 

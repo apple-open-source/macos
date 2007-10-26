@@ -2,8 +2,8 @@
 
   hash.c -
 
-  $Author: matz $
-  $Date: 2004/12/18 02:07:29 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Mon Nov 22 18:51:18 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -121,17 +121,14 @@ struct foreach_safe_arg {
 };
 
 static int
-foreach_safe_i(key, value, arg, err)
+foreach_safe_i(key, value, arg)
     st_data_t key, value;
     struct foreach_safe_arg *arg;
 {
     int status;
 
-    if (err) {
-	rb_raise(rb_eRuntimeError, "hash modified during iteration");
-    }
     if (key == Qundef) return ST_CONTINUE;
-    status = (*arg->func)(key, value, arg->arg, err);
+    status = (*arg->func)(key, value, arg->arg);
     if (status == ST_CONTINUE) {
 	return ST_CHECK;
     }
@@ -149,7 +146,9 @@ st_foreach_safe(table, func, a)
     arg.tbl = table;
     arg.func = func;
     arg.arg = a;
-    st_foreach(table, foreach_safe_i, (st_data_t)&arg);
+    if (st_foreach(table, foreach_safe_i, (st_data_t)&arg)) {
+	rb_raise(rb_eRuntimeError, "hash modified during iteration");
+    }
 }
 
 struct hash_foreach_arg {
@@ -159,17 +158,13 @@ struct hash_foreach_arg {
 };
 
 static int
-hash_foreach_iter(key, value, arg, err)
+hash_foreach_iter(key, value, arg)
     VALUE key, value;
     struct hash_foreach_arg *arg;
-    int err;
 {
     int status;
     st_table *tbl;
 
-    if (err) {
- 	rb_raise(rb_eRuntimeError, "hash modified during iteration");
-    }
     tbl = RHASH(arg->hash)->tbl;    
     if (key == Qundef) return ST_CONTINUE;
     status = (*arg->func)(key, value, arg->arg);
@@ -207,7 +202,9 @@ static VALUE
 hash_foreach_call(arg)
     struct hash_foreach_arg *arg;
 {
-    st_foreach(RHASH(arg->hash)->tbl, hash_foreach_iter, (st_data_t)arg);
+    if (st_foreach(RHASH(arg->hash)->tbl, hash_foreach_iter, (st_data_t)arg)) {
+ 	rb_raise(rb_eRuntimeError, "hash modified during iteration");
+    }
     return Qnil;
 }
 
@@ -226,18 +223,29 @@ rb_hash_foreach(hash, func, farg)
     rb_ensure(hash_foreach_call, (VALUE)&arg, hash_foreach_ensure, hash);
 }
 
+static VALUE hash_alloc0 _((VALUE));
 static VALUE hash_alloc _((VALUE));
 static VALUE
-hash_alloc(klass)
+hash_alloc0(klass)
     VALUE klass;
 {
     NEWOBJ(hash, struct RHash);
     OBJSETUP(hash, klass, T_HASH);
 
     hash->ifnone = Qnil;
-    hash->tbl = st_init_table(&objhash);
 
     return (VALUE)hash;
+}
+
+static VALUE
+hash_alloc(klass)
+    VALUE klass;
+{
+    VALUE hash = hash_alloc0(klass);
+
+    RHASH(hash)->tbl = st_init_table(&objhash);
+
+    return hash;
 }
 
 VALUE
@@ -328,9 +336,7 @@ rb_hash_s_create(argc, argv, klass)
     int i;
 
     if (argc == 1 && TYPE(argv[0]) == T_HASH) {
-	hash = hash_alloc(klass);
-	    
-	RHASH(hash)->ifnone = Qnil;
+	hash = hash_alloc0(klass);
 	RHASH(hash)->tbl = st_copy(RHASH(argv[0])->tbl);
 
 	return hash;
@@ -511,6 +517,7 @@ rb_hash_default(argc, argv, hash)
 
     rb_scan_args(argc, argv, "01", &key);
     if (FL_TEST(hash, HASH_PROC_DEFAULT)) {
+	if (argc == 0) return Qnil;
 	return rb_funcall(RHASH(hash)->ifnone, id_call, 2, hash, key);
     }
     return RHASH(hash)->ifnone;
@@ -883,8 +890,6 @@ static VALUE
 rb_hash_clear(hash)
     VALUE hash;
 {
-    void *tmp;
-
     rb_hash_modify(hash);
     if (RHASH(hash)->tbl->num_entries > 0) {
 	rb_hash_foreach(hash, clear_i, 0);
@@ -1817,7 +1822,7 @@ ruby_setenv(name, value)
      *         RTL's environ global variable directly yet.
      */
     SetEnvironmentVariable(name,value);
-#elif defined __CYGWIN__
+#elif defined(HAVE_SETENV) && defined(HAVE_UNSETENV)
 #undef setenv
 #undef unsetenv
     if (value)
@@ -1825,7 +1830,7 @@ ruby_setenv(name, value)
     else
 	unsetenv(name);
 #else  /* WIN32 */
-
+    size_t len;
     int i=envix(name);		        /* where does it go? */
 
     if (environ == origenviron) {	/* need we copy environment? */
@@ -1840,30 +1845,28 @@ ruby_setenv(name, value)
 	tmpenv[max] = 0;
 	environ = tmpenv;		/* tell exec where it is now */
     }
-    if (!value) {
-	if (environ != origenviron) {
-	    char **envp = origenviron;
-	    while (*envp && *envp != environ[i]) envp++;
-	    if (!*envp)
-		free(environ[i]);
+    if (environ[i]) {
+	char **envp = origenviron;
+	while (*envp && *envp != environ[i]) envp++;
+	if (!*envp)
+	    free(environ[i]);
+	if (!value) {
+	    while (environ[i]) {
+		environ[i] = environ[i+1];
+		i++;
+	    }
+	    return;
 	}
-	while (environ[i]) {
-	    environ[i] = environ[i+1];
-	    i++;
-	}
-	return;
     }
-    if (!environ[i]) {			/* does not exist yet */
+    else {			/* does not exist yet */
+	if (!value) return;
 	REALLOC_N(environ, char*, i+2);	/* just expand it a bit */
 	environ[i+1] = 0;	/* make sure it's null terminated */
     }
-    else {
-	if (environ[i] != origenviron[i])
-	    free(environ[i]);
-    }
-    environ[i] = ALLOC_N(char, strlen(name) + strlen(value) + 2);
+    len = strlen(name) + strlen(value) + 2;
+    environ[i] = ALLOC_N(char, len);
 #ifndef MSDOS
-    sprintf(environ[i],"%s=%s",name,value); /* all that work just for this */
+    snprintf(environ[i],len,"%s=%s",name,value); /* all that work just for this */
 #else
     /* MS-DOS requires environment variable names to be in uppercase */
     /* [Tom Dinger, 27 August 1990: Well, it doesn't _require_ it, but
@@ -1891,7 +1894,7 @@ env_aset(obj, nm, val)
     char *name, *value;
 
     if (rb_safe_level() >= 4) {
-	rb_raise(rb_eSecurityError, "cannot change environment variable");
+	rb_raise(rb_eSecurityError, "can't change environment variable");
     }
 
     if (NIL_P(val)) {
@@ -2411,7 +2414,39 @@ env_update(env, hash)
  *  Hashes have a <em>default value</em> that is returned when accessing
  *  keys that do not exist in the hash. By default, that value is
  *  <code>nil</code>.
- *     
+ *  
+ *  <code>Hash</code> uses <code>key.eql?</code> to test keys for equality.
+ *  If you need to use instances of your own classes as keys in a <code>Hash</code>,
+ *  it is recommended that you define both the <code>eql?</code> and <code>hash</code>
+ *  methods. The <code>hash</code> method must have the property that 
+ *  <code>a.eql?(b)</code> implies <code>a.hash == b.hash</code>.
+ *
+ *    class MyClass
+ *      attr_reader :str
+ *      def initialize(str)
+ *        @str = str
+ *      end
+ *      def eql?(o)
+ *        o.is_a?(MyClass) && str == o.str
+ *      end
+ *      def hash
+ *        @str.hash
+ *      end
+ *    end
+ *    
+ *    a = MyClass.new("some string")
+ *    b = MyClass.new("some string")
+ *    a.eql? b  #=> true
+ *    
+ *    h = {}
+ *    
+ *    h[a] = 1
+ *    h[a]      #=> 1
+ *    h[b]      #=> 1
+ *    
+ *    h[b] = 2
+ *    h[a]      #=> 2
+ *    h[b]      #=> 2
  */
 
 void

@@ -138,3 +138,4 @@ DSTROOT = $(HOME)
 
 AFTER_INSTALL += install-man-page
 
+OTHER_CFLAGS += -mdynamic-no-pic

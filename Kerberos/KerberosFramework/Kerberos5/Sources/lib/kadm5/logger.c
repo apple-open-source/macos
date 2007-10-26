@@ -171,6 +171,7 @@ static struct log_entry	def_log_entry;
  * klog_com_err_proc()	- Handle com_err(3) messages as specified by the
  *			  profile.
  */
+static krb5_context err_context;
 static void
 klog_com_err_proc(const char *whoami, long int code, const char *format, va_list ap)
 {
@@ -193,9 +194,13 @@ klog_com_err_proc(const char *whoami, long int code, const char *format, va_list
 
     /* If reporting an error message, separate it. */
     if (code) {
+        char *emsg;
         outbuf[sizeof(outbuf) - 1] = '\0';
-	strncat(outbuf, error_message(code), sizeof(outbuf) - 1 - strlen(outbuf));
+
+	emsg = krb5_get_error_message (err_context, code);
+	strncat(outbuf, emsg, sizeof(outbuf) - 1 - strlen(outbuf));
 	strncat(outbuf, " - ", sizeof(outbuf) - 1 - strlen(outbuf));
+	krb5_free_error_message(err_context, emsg);
     }
     cp = &outbuf[strlen(outbuf)];
     
@@ -257,7 +262,7 @@ klog_com_err_proc(const char *whoami, long int code, const char *format, va_list
 
     /* Now format the actual message */
 #if	HAVE_VSNPRINTF
-	vsnprintf(cp, sizeof(outbuf) - (cp - outbuf), actual_format, ap);
+    vsnprintf(cp, sizeof(outbuf) - (cp - outbuf), actual_format, ap);
 #elif	HAVE_VSPRINTF
     vsprintf(cp, actual_format, ap);
 #else	/* HAVE_VSPRINTF */
@@ -361,6 +366,8 @@ krb5_klog_init(krb5_context kcontext, char *ename, char *whoami, krb5_boolean do
     /* Initialize */
     do_openlog = 0;
     log_facility = 0;
+
+    err_context = kcontext;
 
     /*
      * Look up [logging]-><ename> in the profile.  If that doesn't
@@ -505,7 +512,7 @@ krb5_klog_init(krb5_context kcontext, char *ename, char *whoami, krb5_boolean do
 			 * If there is a facility present, then parse that.
 			 */
 			if (cp2) {
-			    const struct {
+			    static const struct {
 				const char *name;
 				int value;
 			    } facilities[] = {

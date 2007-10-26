@@ -103,16 +103,6 @@
 #endif 
 
 /*
- * BSDNICE	Your system uses setpriority() instead of nice, to
- *		change a processes scheduling priority
- */
-#ifndef aiws
-# define BSDNICE
-#else
-# undef BSDNICE
-#endif
-
-/*
  * TERMIO	You have struct termio instead of struct sgttyb.
  * 		This is usually the case for SYSV systems, where
  *		BSD uses sgttyb. POSIX systems should define this
@@ -142,35 +132,6 @@
  *		to send command output to /dev/null
  */
 #undef YPBUGS
-
-/*
- * SIGVOID	Define this if your signal handlers return void.  On older
- *		systems, signal returns int, but on newer ones, it returns void.
- */
-#if (defined(_AIX) && defined(_I386)) || defined(aiws)
-# undef SIGVOID
-#else /* _AIX && _I386 */
-# define SIGVOID 
-#endif /* (_AIX && _I386) || aiws */
-
-/*
- * HAVEDUP2	Define this if your system supports dup2().
- */
-#define HAVEDUP2
-
-/*
- * UTHOST	Does the utmp file have a host field?
- */
-#ifndef aiws
-# define UTHOST
-#else
-# undef UTHOST
-#endif
-
-/*
- * DIRENT	Your system has <dirent.h> instead of <sys/dir.h>
- */
-#define DIRENT
 
 /****************** local defines *********************/
 /*
@@ -222,11 +183,6 @@
 
 /* > 2GB file support (stat64 etc.) */
 #define _LARGE_FILES
-
-/****************** configurable hacks ****************/
-/* have been moved to config_f.h */
-
-#include "config_f.h"
 
 #if defined(_AIXPS2) || defined(aiws)
 # undef NLS

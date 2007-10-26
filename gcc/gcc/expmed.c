@@ -655,6 +655,8 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	    bestmode = GET_MODE (op0);
 
 	  if (bestmode == VOIDmode
+	      /* APPLE LOCAL 4345871 mainline */
+	      || GET_MODE_SIZE (bestmode) < GET_MODE_SIZE (fieldmode)
 	      || (SLOW_UNALIGNED_ACCESS (bestmode, MEM_ALIGN (op0))
 		  && GET_MODE_BITSIZE (bestmode) > MEM_ALIGN (op0)))
 	    goto insv_loses;
@@ -2270,19 +2272,8 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
 	  temp = expand_binop (mode,
 			       left ? rotl_optab : rotr_optab,
 			       shifted, op1, target, unsignedp, methods);
-
-	  /* If we don't have the rotate, but we are rotating by a constant
-	     that is in range, try a rotate in the opposite direction.  */
-
-	  if (temp == 0 && GET_CODE (op1) == CONST_INT
-	      && INTVAL (op1) > 0
-	      && (unsigned int) INTVAL (op1) < GET_MODE_BITSIZE (mode))
-	    temp = expand_binop (mode,
-				 left ? rotr_optab : rotl_optab,
-				 shifted,
-				 GEN_INT (GET_MODE_BITSIZE (mode)
-					  - INTVAL (op1)),
-				 target, unsignedp, methods);
+	  /* APPLE LOCAL mainline pr17886 */
+	  /* Deleted code here for pr17886 */
 	}
       else if (unsignedp)
 	temp = expand_binop (mode,

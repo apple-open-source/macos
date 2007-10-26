@@ -176,7 +176,6 @@ extern	char version[];
 extern	char *home;		/* pointer to home directory for glob */
 extern	FILE *ftpd_popen(), *fopen(), *freopen();
 extern	int  ftpd_pclose(), fclose();
-extern	char *getline();
 extern	char cbuf[];
 extern	off_t restart_point;
 
@@ -1368,7 +1367,9 @@ getdatasock(fmode)
 			goto bad;
 		sleep(tries);
 	}
-	(void) krb5_seteuid((uid_t)pw->pw_uid);
+	if (krb5_seteuid((uid_t)pw->pw_uid)) {
+		fatal("seteuid user");
+	}
 #ifdef IP_TOS
 #ifdef IPTOS_THROUGHPUT
 	on = IPTOS_THROUGHPUT;
@@ -1378,7 +1379,9 @@ getdatasock(fmode)
 #endif
 	return (fdopen(s, fmode));
 bad:
-	(void) krb5_seteuid((uid_t)pw->pw_uid);
+	if (krb5_seteuid((uid_t)pw->pw_uid)) {
+		fatal("seteuid user");
+	}
 	(void) close(s);
 	return (NULL);
 }
@@ -2139,7 +2142,7 @@ myoob(sig)
 	if (!transflag)
 		return;
 	cp = tmpline;
-	if (getline(cp, sizeof(tmpline), stdin) == NULL) {
+	if (ftpd_getline(cp, sizeof(tmpline), stdin) == NULL) {
 		reply(221, "You could at least say goodbye.");
 		dologout(0);
 	}
@@ -2187,7 +2190,9 @@ passive()
 		(void) krb5_seteuid((uid_t)pw->pw_uid);
 		goto pasv_error;
 	}
-	(void) krb5_seteuid((uid_t)pw->pw_uid);
+	if (krb5_seteuid((uid_t)pw->pw_uid)) {
+		fatal("seteuid user");
+	}
 	len = sizeof(pasv_addr);
 	if (getsockname(pdata, (struct sockaddr *) &pasv_addr, &len) < 0)
 		goto pasv_error;
@@ -2390,7 +2395,9 @@ char *adata;
 		char service_name[MAXHOSTNAMELEN+10];
 		char **gservice;
 		struct hostent *hp;
-
+		stat_maj = 0;
+		accept_maj = 0;
+		acquire_maj = 0;
 
 		kerror = radix_encode(adata, gout_buf, &length, 1);
 		if (kerror) {

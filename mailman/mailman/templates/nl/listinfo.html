@@ -1,7 +1,7 @@
-<!-- $Revision: 1.1.1.1 $ -->
+<!-- $Revision: 7947 $ -->
 <HTML>
   <HEAD>
-    <TITLE><MM-List-Name> Informatie Pagina</TITLE>
+    <TITLE><MM-List-Name> Informatiepagina</TITLE>
   
   </HEAD>
   <BODY BGCOLOR="#ffffff">
@@ -21,7 +21,7 @@
 	  </tr>
 	  <tr>
 	    <TD COLSPAN="1" WIDTH="100%" BGCOLOR="#FFF0D0">
-	      <B><FONT COLOR="#000000">Lijst omschrijving <MM-List-Name></FONT></B>
+	      <B><FONT COLOR="#000000">Over <MM-List-Name></FONT></B>
 	    </TD>
             <TD COLSPAN="1" WIDTH="100%" BGCOLOR="#FFF0D0">
               <MM-lang-form-start><MM-displang-box> <MM-list-langs>
@@ -32,47 +32,56 @@
 	    <tr>
 	      <td colspan="2">
 		<P><MM-List-Info></P>
-	  <p> Bezoek het archief van <MM-Archive><MM-List-Name></MM-Archive>.
+	  <p>Om alle eerdere berichten op deze lijst te raadplegen, kijk in het <MM-Archive><MM-List-Name> Archief</MM-Archive>.
 	      <MM-Restricted-List-Message>
 	  </p>
 	</TD>
       </TR>
       <TR>
 	<TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0">
-	  <B><FONT COLOR="#000000">Mail Info <MM-List-Name></FONT></B>
+	  <B><FONT COLOR="#000000">Gebruik van <MM-List-Name></FONT></B>
 	</TD>
       </TR>
       <tr>
 	<td colspan="2">
-	  Om een bericht naar de lijst te sturen gebruik je dit e-mail adres:<br>
+	  Om een bericht naar alle leden van de lijst te sturen, adresseert u het aan:<br>
 	  <A HREF="mailto:<MM-Posting-Addr>"><MM-Posting-Addr></A>.
-	  <p></td>
+	  
+	  <p>Hieronder kunt u uzelf aanmelden als lid van de lijst of uw persoonlijke instellingen wijzigen.
+	    </td>
       </tr>
       <TR>
 	<TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0">
-	  <B><FONT COLOR="#000000">Lid worden van deze lijst : <MM-List-Name></FONT></B>
+	  <B><FONT COLOR="#000000">Aanmelden bij <MM-List-Name></FONT></B>
 	</TD>
       </TR>
       <tr>
 	<td colspan="2">
 	  <P>
-	    Om je aan te melden op de <MM-List-Name> Mailing lijst vul het onderstaande formulier in.
+	    Om u aan te melden bij <MM-List-Name> vult u onderstaand formulier in.
 	  <MM-List-Subscription-Msg>
 	  <ul>
 	      <TABLE BORDER="0" CELLSPACING="2" CELLPADDING="2"
 		WIDTH="70%" HEIGHT= "112">
 		<TR>
-		  <TD BGCOLOR="#dddddd" WIDTH="55%">Je EMail adres:</TD>
+		  <TD BGCOLOR="#dddddd" WIDTH="55%">Uw e-mailadres:</TD>
 		  <TD WIDTH="33%"><MM-Subscribe-Box>
 	</TD>
 	<TD WIDTH="12%">&nbsp;</TD></TR>
       <tr>
-        <td bgcolor="#dddddd" width="55%">Je voor/achter naam (Optioneel):</td>
+        <td bgcolor="#dddddd" width="55%">Uw naam (optioneel):</td>
         <td width="33%"><mm-fullname-box></td>
 	<TD WIDTH="12%">&nbsp;</TD></TR>
       <TR>
-	<TD COLSPAN="3"><FONT SIZE=-1>Vul je eigen wachtwoord in of vul niets in zodat het systeem een wachtwoord aanmaakt.
-								  Dit wachtwoord zal opgestuurd worden naar je opgegeven email adres.
+	<TD COLSPAN="3"><FONT SIZE=-1>U kunt hieronder een wachtwoord invullen. Dit voorziet
+	in een zekere mate van bescherming en moet voorkomen dat anderen kunnen knoeien met
+	uw lidmaatschap. <b>Gebruik niet een eerder door u gebruikt wachtwoord</b>,
+	omdat het af en toe onversleuteld naar u gemaild zal worden.
+	
+            <p>Als u ervoor kiest om geen wachtwoord in te vullen, wordt een automatisch 
+            gegenereerd wachtwoord naar u toegezonden zodra u uw aanmelding hebt
+            bevestigd. U kunt steeds om toezending van uw wachtwoord vragen wanneer u uw
+            persoonlijke instellingen wilt wijzigen.
 	    <MM-Reminder>
 	</TD>
       </TR>  
@@ -81,18 +90,18 @@
 	<TD><MM-New-Password-Box></TD>
 	<TD>&nbsp;</TD></TR>
       <TR> 
-	<TD BGCOLOR="#dddddd">Vul het wachtwoord nogmaals in:</TD>
+	<TD BGCOLOR="#dddddd">Herhaal het wachtwoord ter bevestiging:</TD>
 	<TD><MM-Confirm-Password></TD>
 	<TD>&nbsp; </TD></TR>
       <tr>
-        <TD BGCOLOR="#dddddd">Welke taal wil je?</TD> 
+        <TD BGCOLOR="#dddddd">Wat is uw voorkeurstaal voor de berichten?</TD> 
         <TD> <MM-list-langs></TD>
         <TD>&nbsp; </TD></TR>
       <tr>
-	<td>Wil je een dagelijkse digest ontvangen (Alle mail verzameld van 1 dag in 1 mailtje) in plaats van losse emailtjes?
+	<td>Wilt u de berichten gebundeld ontvangen in een dagelijkse verzamelmail?
 	  </td>
-	<td><MM-Undigest-Radio-Button> No
-	    <MM-Digest-Radio-Button>  Yes
+	<td><MM-Undigest-Radio-Button> Nee
+	    <MM-Digest-Radio-Button>  Ja
 	</TD>
       </tr>
       <tr>
@@ -106,7 +115,7 @@
     <TR>
       <TD COLSPAN="2" WIDTH="100%" BGCOLOR="#FFF0D0">
 	<a name="Subscribers">
-        <B><FONT COLOR="#000000"><MM-List-Name> gebruikers</FONT></B></a>
+        <B><FONT COLOR="#000000"><MM-List-Name> leden</FONT></B></a>
       </TD>
     </TR>
     <tr>

@@ -7,7 +7,7 @@ import os
 import re
 import sys
 import time
-from email.Utils import parseaddr, parsedate_tz, mktime_tz
+from email.Utils import parseaddr, parsedate_tz, mktime_tz, formatdate
 import cPickle as pickle
 from cStringIO import StringIO
 from string import lowercase
@@ -20,6 +20,13 @@ from Mailman import Errors
 from Mailman.Mailbox import ArchiverMailbox
 from Mailman.Logging.Syslog import syslog
 from Mailman.i18n import _
+
+# True/False
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
 
 SPACE = ' '
 
@@ -217,7 +224,8 @@ class Article:
                 self.headers[i] = message[i]
 
         # Read the message body
-        s = StringIO(message.get_payload())
+        s = StringIO(message.get_payload(decode=True)\
+                     or message.as_string().split('\n\n',1)[1])
         self.body = s.readlines()
 
     def _set_date(self, message):
@@ -239,6 +247,9 @@ class Article:
             date = self._last_article_time + 1
         self._last_article_time = date
         self.date = '%011i' % date
+        self.datestr = message.get('date') \
+                       or message.get('x-list-received-date') \
+                       or formatdate(date)
 
     def __repr__(self):
         return '<Article ID = '+repr(self.msgid)+'>'
@@ -609,8 +620,14 @@ class T:
             self.write_article(arch, temp, os.path.join(archivedir,
                                                         filename))
 
-            author = fixAuthor(article.author)
-            subject = article.subject.lower()
+            if article.decoded.has_key('author'):
+                author = fixAuthor(article.decoded['author'])
+            else:
+                author = fixAuthor(article.author)
+            if article.decoded.has_key('stripped'):
+                subject = article.decoded['stripped'].lower()
+            else:
+                subject = article.subject.lower()
 
             article.parentID = parentID = self.get_parent_info(arch, article)
             if parentID:

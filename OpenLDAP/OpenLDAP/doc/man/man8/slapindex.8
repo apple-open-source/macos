@@ -1,17 +1,20 @@
 .TH SLAPINDEX 8C "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man8/slapindex.8,v 1.8.2.2 2004/01/01 18:16:27 kurt Exp $
-.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man8/slapindex.8,v 1.10.2.9 2006/01/03 22:16:06 kurt Exp $
+.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 slapindex \- SLAPD index to LDIF utility
 .SH SYNOPSIS
-.B /usr/sbin/slapindex
+.B SBINDIR/slapindex
 .B [\-v]
 .B [\-c]
+.B [\-g]
+.B [\-q]
 .B [\-d level]
 .B [\-b suffix]
 .B [\-n dbnum]
 .B [\-f slapd.conf]
+.B [\-F confdir]
 .B 
 .LP
 .SH DESCRIPTION
@@ -23,6 +26,9 @@ indices based upon the current contents of a database.
 It opens the given database determined by the database number or
 suffix and updates the indices for all values of all attributes
 of all entries.
+Databases configured as
+.B subordinate
+of this one are also re-indexed, unless \fB-g\fP is specified.
 .SH OPTIONS
 .TP
 .B \-v
@@ -30,6 +36,17 @@ enable verbose mode.
 .TP
 .B \-c
 enable continue (ignore errors) mode.
+.TP
+.B \-g
+disable subordinate gluing.  Only the specified database will be
+processed, and not its glued subordinates (if any).
+.TP
+.B \-q
+enable quick (fewer integrity checks) mode. Performs no consistency checks
+when writing the database. Improves indexing time,
+.B however
+the database will most likely be unusable if any errors or
+interruptions occur.
 .TP
 .BI \-d " level"
 enable debugging messages as defined by the specified
@@ -54,6 +71,19 @@ option.
 specify an alternative
 .BR slapd.conf (5)
 file.
+.TP
+.BI \-F " confdir"
+specify a config directory.
+If both
+.B -f
+and
+.B -F
+are specified, the config file will be read and converted to
+config directory format and written to the specified directory.
+If neither option is specified, an attempt to read the
+default config directory will be made before trying to use the default
+config file. If a valid config directory exists then the
+default config file is ignored.
 .SH LIMITATIONS
 Your
 .BR slapd (8)
@@ -67,7 +97,7 @@ To reindex your SLAPD database, give the command:
 .LP
 .nf
 .ft tt
-	/usr/sbin/slapindex
+	SBINDIR/slapindex
 .ft
 .fi
 .SH "SEE ALSO"

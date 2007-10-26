@@ -1,22 +1,22 @@
 .TH SLAPADD 8C "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man8/slapadd.8,v 1.15.2.7 2004/07/25 21:53:13 hyc Exp $
-.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man8/slapadd.8,v 1.23.2.8 2006/01/03 22:16:06 kurt Exp $
+.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 slapadd \- Add entries to a SLAPD database
 .SH SYNOPSIS
-.B /usr/sbin/slapadd
+.B SBINDIR/slapadd
 .B [\-v]
 .B [\-c]
+.B [\-g]
 .B [\-u]
-.B [\-p]
-.B [\-r]
+.B [\-q]
 .B [\-w]
 .B [\-d level]
 .B [\-b suffix]
 .B [\-n dbnum]
-.B [\-i rid1,rid2,...]
 .B [\-f slapd.conf]
+.B [\-F confdir]
 .B [\-l ldif-file]
 .SH DESCRIPTION
 .LP
@@ -27,8 +27,11 @@ is used to add entries specified in LDAP Directory Interchange Format
 database.
 It opens the given database determined by the database number or
 suffix and adds entries corresponding to the provided LDIF to
-the database.  The LDIF input is read from standard input or
-the specified file.
+the database.
+Databases configured as
+.B subordinate
+of this one are also updated, unless \fB-g\fP is specified.
+The LDIF input is read from standard input or the specified file.
 .LP
 As
 .B slapadd
@@ -46,27 +49,23 @@ enable verbose mode.
 .B \-c
 enable continue (ignore errors) mode.
 .TP
+.B \-g
+disable subordinate gluing.  Only the specified database will be
+processed, and not its glued subordinates (if any).
+.TP
 .B \-u
 enable dry-run (don't write to backend) mode.
 .TP
-.BI \-p
-If the LDIF input represents a syncrepl consumer replica,
-promote it to the syncrepl provider's content after adding
-the entries.
-.TP
-.BI \-r
-If  the  LDIF  input represents a  syncrepl  provider, demote 
-it  to  the syncrepl consumer replica after adding the entries.
+.B \-q
+enable quick (fewer integrity checks) mode.  Does fewer consistency checks
+on the input data, and no consistency checks when writing the database.
+Improves the load time but if any errors or interruptions occur the resulting
+database will be unusable.
 .TP
 .BI \-w
-When used with either 
-.B \-p
-or
-.B \-r,
-rebuild the new syncrepl
-information from the contents of the added entries.
-The syncrepl information contained in the LDIF input
-file is ignored.
+write syncrepl context information.
+After all entries are added, the contextCSN
+will be updated with the greatest CSN in the database.
 .TP
 .BI \-d " level"
 enable debugging messages as defined by the specified
@@ -87,15 +86,24 @@ cannot be used in conjunction with the
 .B \-b
 option.
 .TP
-.BI \-i " rid1,rid2,..."
-Specify the replication ids for one or more syncrepl consumer
-replicas contained in the LDIF input. If omitted, 0 is used
-as the replication id.
-.TP
 .BI \-f " slapd.conf"
 specify an alternative
 .BR slapd.conf (5)
 file.
+.TP
+.BI \-F " confdir"
+specify a config directory.
+If both
+.B -f
+and
+.B -F
+are specified, the config file will be read and converted to
+config directory format and written to the specified directory.
+If neither option is specified, an attempt to read the
+default config directory will be made before trying to use the default
+config file. If a valid config directory exists then the
+default config file is ignored. If dryrun mode is also specified,
+no conversion will occur.
 .TP
 .BI \-l " ldif-file"
 Read LDIF from the specified file instead of standard input.
@@ -119,7 +127,7 @@ database give the command:
 .LP
 .nf
 .ft tt
-	/usr/sbin/slapadd -l ldif
+	SBINDIR/slapadd -l ldif
 .ft
 .fi
 .SH "SEE ALSO"

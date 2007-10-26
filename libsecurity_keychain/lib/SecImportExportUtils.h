@@ -28,6 +28,7 @@
 
 #include "SecImportExport.h"
 #include "SecKeychainPriv.h"
+#include "SecBasePriv.h"
 #include <security_utilities/debugging.h>
 #include <security_utilities/errors.h>
 

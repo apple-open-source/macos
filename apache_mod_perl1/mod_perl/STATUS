@@ -1,0 +1,366 @@
+mod_perl 1.3 STATUS:
+   Last modified at [$Date: 2007-03-29 22:53:43 -0700 (Thu, 29 Mar 2007) $]
+
+
+Release:
+       1.30: Released March 29, 2007.
+       1.29: Released Oct 7, 2003.
+       1.28: Released July 2, 2003.
+       1.27: Released June 1, 2002.
+       1.26: Released July 11, 2001.
+   
+
+Available Patches:
+
+    * Need to correct the order of PERL5LIB entries insert into @INC.
+      and document that 'arch' is not automatically inserted
+      Report: +Patch by Gordon Lack 
+      http://marc.theaimsgroup.com/?t=110779533400004&r=1&w=2
+
+    * Improper signal handler restoration with sigaction()
+      Report: +Patch
+      http://marc.theaimsgroup.com/?l=apache-modperl&m=107177256515969&w=2
+      http://marc.theaimsgroup.com/?l=apache-modperl&m=103374262313616&w=2
+      Status: Rafael Garcia-Suarez says the patch looks good at the
+              first glance
+      Followup from Eric:
+      http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=107244468206637&w=2
+
+    * if the requested number of bytes was less
+      than or equal to the available amount of input then the call
+      would be successful, otherwise the buffer would come back
+      undefined. In the case that the requested number of bytes was
+      larger than the available number of bytes, the returned number
+      of bytes would still equal the available number of bytes.
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=105903751619552&w=2
+        Status: 
+
+    * per_request_cleanup() only cleans up the current request. As one 
+      consequence, pnotes of parent requests will not get cleaned up.
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=104176956128093&w=2
+        Status:
+            Patch available at 
+            http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=104185397922327&w=2
+
+    * $r->print() ignores $\
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=102874705105904&w=2
+        Status: 
+            Patch available at 
+            http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=105359253610093&w=2
+
+    * Apache->request(bless {r => $r}, 'My::Apache')
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=98600785703290&w=2
+	    Status:
+            Patch needs to get further testing
+        Patch:
+            http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=105412732722992&w=2
+
+    * mp_preload_module and method handlers broken.
+        Report: 
+            http://marc.theaimsgroup.com/?t=105532710700003&r=1&w=2
+        Status:
+            When using Perl*Handler Foo->bar. mp_preload_module will not correctly
+            load the module at all. And if the module is preloaded with PerlModule
+            or added to the startup scripts, Foo->bar(undef) will be called on startup
+            without a valid $r to speak of. Similar broken behaviour happens with
+            Perl*Handler $My::Obj->foo.
+        Patch:
+            http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=105591097807663&w=2
+
+Needs Patch or Further Investigation
+
+    * *0 = "foo"; doesn't change the process name (at least at the server 
+      startup) it probably used to work:
+      http://gossamer-threads.com/lists/modperl/modperl/35091
+
+    * make sure that DO_HTTPD=1 and PREP_HTTPD=1 aren't passed at the same time
+    http://marc.theaimsgroup.com/?t=110053652600001&r=1&w=2
+
+    * ACL support
+        Report: 
+            http://marc.theaimsgroup.com/?t=105042055700005&r=1&w=2
+        Status:
+            Patch available with the orignial report, but needs to make sure it will work
+            across all platforms, POSIX or not.
+
+    * src/modules/ApacheModulePerl has been deprecated and replaced by src/modules/win32.
+      Since it's not even distributed anymore, can that directory be deleted?
+
+    * LWP used to be optional for running 'make test', now I get:
+
+         /home/stas/perl/5.6.0-ithread/bin/perl t/TEST 0
+         Can't locate LWP/UserAgent.pm in @INC ... 
+         ...
+         Must skip important tests without LWP...
+
+      but the test suite won't start
+
+    * $r->print() ignores $,
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=102902480103484&w=2
+    Status:
+          Patch available with the original report, but needs to be simplified a bit and
+          currently will not work with perl 5.8+, see the patch for $\
+
+    * make test fails when a wrong combination of URI and LWP are
+      installed. (e.g. lwp 5.64 and URI 1.09). LWP's Makefile.PL
+      requires the right URI version, but certain binary distributors
+      miss this requirement and distribute LWP without making a
+      dependency on the right version of the URI package
+        Report: many reports in the last year.
+        Status: ???
+        Suggestion: require libwww-perl 5.64 and URI 1.1 
+
+    * two identical directives in <Perl> configuration
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=97449481013350&w=2
+	Status: 
+          doc patch at http://marc.theaimsgroup.com/?l=apache-modperl&m=97450363501652&w=2
+          however: this documented feature should be supported.
+
+    * readdir() broken on linux with glibc 2.2
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=98824089613574&w=2
+	Status:
+        does anybody have an example to reproduce the bug?
+        
+    * warn() going to the wrong log
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=98190005604037&w=2
+	Status:
+          coincidentially, I've noticed that s->error_fname is not populated
+          in a vhost when the vhost relies on the ErrorLog from the main 
+          server --Geoff 
+
+          s->error_fname == NULL is expected, see ap_open_logs(), only
+          s->error_log is inherited.
+
+          i would expect stderr to only ever be opened to the main
+          server log at startup.  otherwise, we'd need to redirect stderr at the
+          start of every request and restore it at the end.  seems expensive.
+          i would be suprised if this every worked as matt expected it
+          to.  -dougm
+
+    * segfaults with DBI->connect (mysql)
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=96392180616185&w=2
+	Status:
+
+    * revisit send_http_header and r->status
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=99063926111686&w=2
+	Status:
+
+    * recursion triggered by internal_redirect() called by a pushed handler
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=94792974200198&w=2
+	Status:
+
+    * IPC::Open3 issues
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=98839218229712&w=2
+	Status:
+
+    * Prototype mismatch in Apache::PerlRun
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=97934624332223&w=2
+	Status:
+
+    * files that have been created after the server's (child?) startup are
+      being reported with negative age with -M test under Apache::Registry.
+      The workaround is to add $^T = time; at the beginning of the scripts. But
+      it would be much better if the Apache::Registry will do that
+        Report: ?
+	Status:
+
+    * Apache::DProf seg-fault via Devel::DProf's prof_mark()
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=101923951812332&w=2
+	Status:
+
+    * collisions between Apache::Status and English.pm
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=102096856215178&w=2
+	Status:
+
+
+Open Issues or Core Enhancements:
+
+    * we need a script that will generate a bug report, similar to
+      mp2bug in mp2 (mp1bug?)
+
+    * method handler cached-CVs
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=99789775715863&w=2
+	Status:
+          patch available 
+            http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=101164617829467&w=2
+
+    * "$ENV{FOO} = 'foo'" is cleared from the %ENV array, but left in the
+      environ[], making it visible to subprocesses.
+      perl_util.c:perl_clear_env() only deletes from %ENV on purpose to
+      prevent other problems.  need to rethink this.
+
+    * option to startup with something other than /dev/null
+
+    * PerlChildInitHandler should not be allowed inside <VirtualHost>
+
+    * rid Apache->can_stack_handlers, make Apache->can('push_handlers') work
+
+    * fileno(STD{IN,OUT}) should be r->connection->client->fd or
+      fileno(std{in,out}), rather than hardcoded fileno(stdout)
+
+    * close STDERR;
+
+    * Apache::FakeRequest improvments [Gary Richardson <gary@atdot.org>]
+
+    * xsubpp -nolinenumbers is not supported with 5.004
+
+    * 'make test' as root permissions problems
+
+    * USE_APXS=1 + DYNAMIC=1 do not work together
+
+    * support SSL_BASE=SYSTEM (i.e. test -d $SSL_BASE in Makefile.PL)
+
+    * disable PERL_SSI unless mod_include is listed in httpd -l
+      and Action unless mod_action, etc.
+
+
+Documentation:
+
+    * Consider removing the following files from the distribution,
+      they were already removed from the site and not maintained:
+        - cgi_to_mod_perl.pod
+        - mod_perl.pod
+        - mod_perl_tuning.pod
+        - mod_perl_method_handlers.pod
+        - mod_perl_traps.pod
+        - mod_perl_cvs.pod
+        - faq/mjtg-news.txt
+        - faq/mod_perl_api.pod
+        - faq/mod_perl_cgi.pod
+        - faq/mod_perl_faq.pod
+        - benchmark/lwp-simple.pod
+        - benchmark/stopwatch.pod
+
+
+    * document Apache::Status Apache::Request preference over CGI.pm
+      and make it more clear that Apache::Status should not be used in a
+      production environment, as it adds quite a bit of bloat
+
+    * docs: update CREDITS, cleanup install docs
+
+Patches unlikely to be applied:
+
+    * print() dereferencing issues
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=99905070209305&w=2
+	Status:
+          patch available
+            http://marc.theaimsgroup.com/?l=apache-modperl&m=99999116330145&w=2
+
+          the feature of print() dereferencing scalars should be deprecated.
+          therefor, i don't think this patch should be applied as it
+          would introduce overhead to support a deprecated feature.
+          user should simply dereference themselves, print $$foo; -dougm
+
+    * Apache::test
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl-dev&m=98278446807561&w=2
+	Status:
+         patch available
+
+         any further development of testing framework should be put
+         into Apache-Test within httpd-test/perl-framework
+         http://httpd.apache.org/test/  -dougm
+
+    * get/set handlers issues
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=95721313917562&w=2
+	Status:
+         patch available
+           http://perl.apache.org/~dougm/set_handlers.pat
+
+         modperl 1.x is in maintainance mode, this change puts the
+         core stablity at risk to support functionality that few
+         require.  -dougm
+
+    * $r->args parsing of one=&two=2
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=98018719907031&w=2
+	Status: 
+          patch available at
+          http://marc.theaimsgroup.com/?l=apache-modperl&m=98048943129379&w=2
+
+          $r->args and $r->content methods are cheap hacks that
+          probably never should have been written.  if they are not
+          good enough as-is, user should use Apache::Request or another
+          library with more robustness.
+
+Known bugs unlikely to be fixed:
+
+    * $r cannot use many api methods during ChildInit/ChildExit -> SEGV
+        Report: ?
+	Status:
+          "don't do that".  these hooks were introduced after modperl
+          had already been written around all the hooks which took
+          only a request_rec argument.  the "fake" request_rec passed
+          to these new hooks was a quick and dirty hack and will
+          probably stay that way.  2.0 does the right thing.
+
+    * Apache->server->register_cleanup
+        Report: if modperl is linked static, Apache->server->register_cleanup
+          is only called on the first pass during server startup.
+
+	Status:
+          this is a legacy bug related to modperl not doing a complete
+          teardown/startup of the interpreter on every restart, so it
+          only happens the first time a Perl{Require,Module} is loaded.
+          this is done properly with dso however.  static users can
+          workaround the bug with PerlFreshRestart or delete $INC{__FILE__}
+
+    * bytes_sent are not logged if header don't go through send_http_header(),
+        e.g CGI->header(-nph => 1, ...) Eric Cholet <cholet@logilune.com>
+        Report: ?
+
+	Status:
+          does anybody actually use nph script anymore?
+
+    * perl_config should not av_shift ARRAY refs from %Apache::ReadConfig::
+        Report: ?
+
+	Status:
+          i don't think this is actually a problem for anybody.
+
+    * die and AUTOLOADed DESTROY == empty $@ (Perl or mod_perl bug?)
+        Report: ?
+
+	Status:
+          this report is ages old and haven't heard any reports since.
+          if it is a bug, it is likely in perl.  solution in that any
+          case: don't AUTOLOAD DESTROY.
+
+    * can't multiple Apache::Include->virtual in a single request
+        Report: ?
+
+	Status:
+          Apache::Include was indented as an example.  the subrequest
+          api is not complicated, just use it directly for this
+          functionality.
+
+    * Apache::Include->virtual should return run() value, not status()
+        Report: ?
+
+	Status: see above.
+
+    * SERVER_MERGE and DIR_MERGE
+        Report: http://marc.theaimsgroup.com/?l=apache-modperl&m=97351976714878&w=2
+	Status:
+          The require() part may be legitimate.  personally, I never
+          understood the DIR_CREATE happening before SERVER_CREATE
+          either, but it doesn't seem to affect anything.  the double 
+          DIR_MERGE is just a misunderstanding on Andy's part and is
+          a result of how Apache handles <Location> before and
+          after translation.  --Geoff
+
+          '.' is part of the default @INC, so this shouldn't be a problem.
+
+          as for when the CREATE/MERGE functions are called, that's up
+          to apache when that happens.  unless somebody can illustrate
+          that Perl directive handlers are treated any different than
+          C handlers, this is a documentation enhancement, not a bug.
+          the extra DIR_{CREATE,MERGE} is likely related to
+          s->lookup_defaults.  -dougm
+
+Known bugs unlikely to be fixed because they aren't under our (mod_perl) control:
+
+    * /perl/perl-status?sig dumps core under hpux 10.20 
+        [David-Michael.Lincke@unisg.ch] and [Silvio.Wanka@alcatel.de]
+    Status:
+        SIGRTMAX is not being picked up by ./Configure under certain circumstances.
+    Patch:
+        http://www.xray.mpe.mpg.de/mailing-lists/perl5-porters/2002-04/msg01458.html

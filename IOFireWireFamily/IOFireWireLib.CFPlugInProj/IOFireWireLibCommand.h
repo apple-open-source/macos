@@ -64,7 +64,20 @@ namespace IOFireWireLib {
 			virtual void			GetBuffer( UInt32* outSize, void** outBuf ) ;
 			virtual IOReturn		SetMaxPacket( IOByteCount maxBytes ) ;
 			virtual void			SetFlags( UInt32 inFlags ) ;
-			static void				CommandCompletionHandler( void* refcon, IOReturn result, IOByteCount bytesTransferred ) ;									
+			virtual void			SetTimeoutDuration( UInt32 duration );
+			virtual void			SetMaxRetryCount( UInt32 count );
+			virtual UInt32			GetAckCode();	
+			virtual UInt32			GetResponseCode();
+			virtual void			SetMaxPacketSpeed( IOFWSpeed speed );
+
+			virtual IOReturn		PrepareForVectorSubmit( CommandSubmitParams * submit_params );
+			virtual void			VectorIsExecuting( void );
+	
+			static void				CommandCompletionHandler( 
+											void*			refcon, 
+											IOReturn		result,
+											void*			quads[],
+											UInt32			numQuads) ;									
 
 			// --- getters -----------------------
 			static IOReturn			SGetStatus( IOFireWireLibCommandRef	self) ;
@@ -87,6 +100,13 @@ namespace IOFireWireLib {
 			static IOReturn			SSetMaxPacket ( IOFireWireLibCommandRef self, IOByteCount maxBytes ) ;
 			static void				SSetFlags ( IOFireWireLibCommandRef self, UInt32 flags ) ;
 
+			static void				SSetTimeoutDuration( IOFireWireLibCommandRef self, UInt32 duration );
+			static void				SSetMaxRetryCount( IOFireWireLibCommandRef self, UInt32 count );
+			static UInt32			SGetAckCode( IOFireWireLibCommandRef self );
+			static UInt32			SGetResponseCode( IOFireWireLibCommandRef self );
+			static void				SSetMaxPacketSpeed( IOFireWireLibCommandRef self, IOFWSpeed speed );
+			static void *			SGetRefCon ( IOFireWireLibCommandRef self );
+	
 		protected:
 		
 			static IOFireWireCommandInterface	sInterface ;
@@ -95,14 +115,17 @@ namespace IOFireWireLib {
 		
 			Device &						mUserClient ;
 			io_object_t						mDevice ;
-			io_async_ref_t					mAsyncRef ;
 			IOByteCount						mBytesTransferred ;	
 			Boolean							mIsExecuting ;
 			IOReturn						mStatus ;
 			void*							mRefCon ;
 			CommandCallback					mCallback ;
 			
+			UInt32							mAckCode;
+			UInt32							mResponseCode;
+			
 			CommandSubmitParams* 			mParams ;
+			
 	} ;
 
 #pragma mark -
@@ -148,8 +171,8 @@ namespace IOFireWireLib {
 	class ReadQuadCmd: public Cmd
 	{	
 		protected:
-			typedef ::IOFireWireReadQuadletCommandInterface		Interface ;
-			typedef ::IOFireWireLibReadQuadletCommandRef		CmdRef ;
+			typedef ::IOFireWireReadQuadletCommandInterface			Interface ;
+			typedef ::IOFireWireLibReadQuadletCommandRef			CmdRef ;
 
 		public:
 										ReadQuadCmd(
@@ -192,8 +215,9 @@ namespace IOFireWireLib {
 											void*					quads[],
 											UInt32					numQuads) ;		
 		protected:
-			static Interface	sInterface ;
-			unsigned int		mNumQuads ;
+			static Interface		sInterface ;
+			unsigned int			mNumQuads ;
+			
 	} ;
 
 #pragma mark -
@@ -243,6 +267,45 @@ namespace IOFireWireLib {
 	} ;
 
 #pragma mark -
+	class PHYCmd: public Cmd
+	{
+		protected:
+			typedef ::IOFireWirePHYCommandInterface 	Interface;
+	
+		public:
+									PHYCmd(
+											Device& 			userclient,
+											UInt32				data1,
+											UInt32				data2,
+											CommandCallback		callback, 
+											bool 				failOnReset, 
+											UInt32 				generation, 
+											void* 				inRefCon );
+			virtual					~PHYCmd() {}
+			static IUnknownVTbl**	Alloc(
+											Device& inUserClient,
+											UInt32				data1,
+											UInt32				data2,
+											CommandCallback		callback,
+											bool				failOnReset,
+											UInt32				generation,
+											void*				inRefCon );
+											
+			virtual HRESULT 		QueryInterface( REFIID iid, LPVOID* ppv );
+			inline static PHYCmd* GetThis( IOFireWireLibWriteCommandRef self )		{ return IOFireWireIUnknown::InterfaceMap<PHYCmd>::GetThis(self); }
+	
+			// required Submit() method
+			virtual IOReturn		Submit() ;		
+
+			static void S_SetDataQuads(	IOFireWireLibPHYCommandRef	self,
+										UInt32						data1, 
+										UInt32						data2 );
+
+		protected:
+			static Interface		sInterface;
+	};
+
+#pragma mark -
 	class WriteQuadCmd: public Cmd
 	{
 		protected:
@@ -279,16 +342,18 @@ namespace IOFireWireLib {
 											UInt32				inNumQuads) ;
 		
 		protected:
-			static Interface	sInterface ;
-			UInt8*											mParamsExtra ;
+			static Interface		sInterface;
+			UInt8*					mParamsExtra;
+
 	} ;
 
 #pragma mark -
 	class CompareSwapCmd: public Cmd
 	{
 		protected:
-			typedef ::IOFireWireLibCompareSwapCommandRef 		CmdRef ;
-			typedef ::IOFireWireCompareSwapCommandInterface		Interface ;
+			typedef ::IOFireWireLibCompareSwapCommandRef			CmdRef;
+			typedef ::IOFireWireCompareSwapCommandInterface			Interface;
+			typedef ::IOFireWireCompareSwapCommandInterface_v3		Interface_v3;
 	
 			// --- ctor/dtor ----------------
 											CompareSwapCmd(	
@@ -351,15 +416,64 @@ namespace IOFireWireLib {
 											UInt64* 			oldValue) ;
 			static void				SSetFlags( CmdRef self, UInt32 inFlags) ;
 			static void				CommandCompletionHandler(
-											void*				refcon,
-											IOReturn			result,
-											void*				quads[],
-											UInt32				numQuads) ;
+											void*					refcon,
+											IOReturn				result,
+											io_user_reference_t		quads[],
+											UInt32					numQuads) ;
 											
 		
 		protected:
 			static Interface				sInterface ;
+			static Interface_v3				sInterface_v3;
 			UInt8*							mParamsExtra ;
 			CompareSwapSubmitResult			mSubmitResult ;
+
+		private:
+			mutable InterfaceMap<IOFireWireIUnknown>	mInterface_v3;
 	} ;
+
+#pragma mark -
+	class AsyncStreamCmd: public Cmd
+	{
+		protected:
+			typedef ::IOFireWireAsyncStreamCommandInterface 	Interface ;
+	
+		public:
+									AsyncStreamCmd(
+											Device& 			userclient, 
+											UInt32				channel,
+											UInt32				sync,
+											UInt32				tag,
+											void*				buf, 
+											UInt32				size,
+											CommandCallback		callback, 
+											Boolean				failOnReset,
+											UInt32				generation,
+											void*				inRefCon) ;
+											
+			virtual					~AsyncStreamCmd() {}
+			
+			static IUnknownVTbl**	Alloc(
+											Device& 			userclient, 
+											UInt32				channel,
+											UInt32				sync,
+											UInt32				tag,
+											void*				buf, 
+											UInt32				size,
+											CommandCallback		callback, 
+											Boolean				failOnReset,
+											UInt32				generation,
+											void*				inRefCon) ;
+											
+			virtual HRESULT 		QueryInterface(REFIID iid, LPVOID* ppv) ;
+			
+			inline static AsyncStreamCmd* GetThis(IOFireWireLibAsyncStreamCommandRef self)		{ return IOFireWireIUnknown::InterfaceMap<AsyncStreamCmd>::GetThis(self) ; };
+	
+			// required Submit() method
+			virtual IOReturn		Submit() ;		
+
+		protected:
+			static Interface		sInterface ;
+	} ;
+	
 }

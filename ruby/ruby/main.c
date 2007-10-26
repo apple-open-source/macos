@@ -2,8 +2,8 @@
 
   main.c -
 
-  $Author: eban $
-  $Date: 2004/10/31 16:06:57 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Fri Aug 19 13:19:58 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -41,8 +41,11 @@ main(argc, argv, envp)
     argc = ccommand(&argv);
 #endif
 
-    ruby_init();
-    ruby_options(argc, argv);
-    ruby_run();
+    {
+        RUBY_INIT_STACK
+        ruby_init();
+        ruby_options(argc, argv);
+        ruby_run();
+    }
     return 0;
 }

@@ -35,7 +35,7 @@
 //	* LogIt
 // ---------------------------------------------------------------------------
 
-void CShared::LogIt ( uInt32 inMsgType, const char *inFmt, ... )
+void CShared::LogIt ( UInt32 inMsgType, const char *inFmt, ... )
 {
 	va_list		args;
 
@@ -45,6 +45,22 @@ void CShared::LogIt ( uInt32 inMsgType, const char *inFmt, ... )
 	DSDebugLog( inFmt, args );
 
 } // LogIt
+
+
+// ---------------------------------------------------------------------------
+//	* LogItWithType
+// ---------------------------------------------------------------------------
+
+void CShared::LogItWithPriority ( UInt32 inSignature, UInt32 inMsgType, const char *inFmt, ... )
+{
+	va_list		args;
+
+	// va_end is called for args in the server
+	va_start( args, inFmt );
+
+	DSDebugLogWithType( inSignature, inMsgType, inFmt, args );
+
+} // LogItWithPriority
 
 
 

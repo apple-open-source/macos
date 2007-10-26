@@ -30,57 +30,103 @@
 .Dt PTHREAD_ATTR 3
 .Os
 .Sh NAME
-.Nm pthread_attr_init ,
 .Nm pthread_attr_destroy ,
-.Nm pthread_attr_setstacksize ,
-.Nm pthread_attr_getstacksize ,
-.Nm pthread_attr_setstackaddr ,
-.Nm pthread_attr_getstackaddr ,
-.Nm pthread_attr_setdetachstate ,
 .Nm pthread_attr_getdetachstate ,
-.Nm pthread_attr_setinheritsched ,
 .Nm pthread_attr_getinheritsched ,
-.Nm pthread_attr_setschedparam ,
 .Nm pthread_attr_getschedparam ,
-.Nm pthread_attr_setschedpolicy ,
 .Nm pthread_attr_getschedpolicy ,
+.Nm pthread_attr_getscope ,
+.Nm pthread_attr_getstackaddr ,
+.Nm pthread_attr_getstacksize ,
+.Nm pthread_attr_init ,
+.Nm pthread_attr_setdetachstate ,
+.Nm pthread_attr_setinheritsched ,
+.Nm pthread_attr_setschedparam ,
+.Nm pthread_attr_setschedpolicy ,
 .Nm pthread_attr_setscope ,
-.Nm pthread_attr_getscope
+.Nm pthread_attr_setstackaddr ,
+.Nm pthread_attr_setstacksize
 .Nd thread attribute operations
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_attr_init "pthread_attr_t *attr"
+.Fo pthread_attr_destroy
+.Fa "pthread_attr_t *attr"
+.Fc
 .Ft int
-.Fn pthread_attr_destroy "pthread_attr_t *attr"
+.Fo pthread_attr_getdetachstate
+.Fa "const pthread_attr_t *attr"
+.Fa "int *detachstate"
+.Fc
 .Ft int
-.Fn pthread_attr_setstacksize "pthread_attr_t *attr" "size_t stacksize"
+.Fo pthread_attr_getinheritsched
+.Fa "const pthread_attr_t *restrict attr"
+.Fa "int *restrict inheritsched"
+.Fc
 .Ft int
-.Fn pthread_attr_getstacksize "const pthread_attr_t *attr" "size_t *stacksize"
+.Fo pthread_attr_getschedparam
+.Fa "const pthread_attr_t *restrict attr"
+.Fa "struct sched_param *restrict param"
+.Fc
 .Ft int
-.Fn pthread_attr_setstackaddr "pthread_attr_t *attr" "void *stackaddr"
+.Fo pthread_attr_getschedpolicy
+.Fa "const pthread_attr_t *restrict attr"
+.Fa "int *restrict policy"
+.Fc
 .Ft int
-.Fn pthread_attr_getstackaddr "const pthread_attr_t *attr" "void **stackaddr"
+.Fo pthread_attr_getscope
+.Fa "const pthread_attr_t *restrict attr"
+.Fa "int *restrict contentionscope"
+.Fc
 .Ft int
-.Fn pthread_attr_setdetachstate "pthread_attr_t *attr" "int detachstate"
+.Fo pthread_attr_getstackaddr
+.Fa "const pthread_attr_t *restrict attr"
+.Fa "void **restrict stackaddr"
+.Fc
 .Ft int
-.Fn pthread_attr_getdetachstate "const pthread_attr_t *attr" "int *detachstate"
+.Fo pthread_attr_getstacksize
+.Fa "const pthread_attr_t *restrict attr"
+.Fa "size_t *restrict stacksize"
+.Fc
 .Ft int
-.Fn pthread_attr_setinheritsched "pthread_attr_t *attr" "int inheritsched"
+.Fo pthread_attr_init
+.Fa "pthread_attr_t *attr"
+.Fc
 .Ft int
-.Fn pthread_attr_getinheritsched "const pthread_attr_t *attr" "int *inheritsched"
+.Fo pthread_attr_setdetachstate
+.Fa "pthread_attr_t *attr"
+.Fa "int detachstate"
+.Fc
 .Ft int
-.Fn pthread_attr_setschedparam "pthread_attr_t *attr" "const struct sched_param *param"
+.Fo pthread_attr_setinheritsched
+.Fa "pthread_attr_t *attr"
+.Fa "int inheritsched"
+.Fc
 .Ft int
-.Fn pthread_attr_getschedparam "const pthread_attr_t *attr" "struct sched_param *param"
+.Fo pthread_attr_setschedparam
+.Fa "pthread_attr_t *restrict attr"
+.Fa "const struct sched_param *restrict param"
+.Fc
 .Ft int
-.Fn pthread_attr_setschedpolicy "pthread_attr_t *attr" "int policy"
+.Fo pthread_attr_setschedpolicy
+.Fa "pthread_attr_t *attr"
+.Fa "int policy"
+.Fc
 .Ft int
-.Fn pthread_attr_getschedpolicy "const pthread_attr_t *attr" "int *policy"
+.Fo pthread_attr_setscope
+.Fa "pthread_attr_t *attr"
+.Fa "int contentionscope"
+.Fc
 .Ft int
-.Fn pthread_attr_setscope "pthread_attr_t *attr" "int contentionscope"
+.Fo pthread_attr_setstackaddr
+.Fa "pthread_attr_t *attr"
+.Fa "void *stackaddr"
+.Fc
 .Ft int
-.Fn pthread_attr_getscope "const pthread_attr_t *attr" "int *contentionscope"
+.Fo pthread_attr_setstacksize
+.Fa "pthread_attr_t *attr"
+.Fa "size_t stacksize"
+.Fc
 .Sh DESCRIPTION
 Thread attributes are used to specify parameters to
 .Fn pthread_create .
@@ -114,6 +160,7 @@ Otherwise, an error number is returned to indicate the error.
 .Fn pthread_attr_init
 will fail if:
 .Bl -tag -width Er
+.\" ========
 .It Bq Er ENOMEM
 Out of memory.
 .El
@@ -121,6 +168,7 @@ Out of memory.
 .Fn pthread_attr_destroy
 will fail if:
 .Bl -tag -width Er
+.\" ========
 .It Bq Er EINVAL
 Invalid value for
 .Fa attr .
@@ -129,23 +177,36 @@ Invalid value for
 .Fn pthread_attr_setstacksize
 will fail if:
 .Bl -tag -width Er
+.\" ========
+.It Bq Er EINVAL
+Invalid value for
+.Fa attr .
+.\" ========
 .It Bq Er EINVAL
 .Fa stacksize
 is less than
 .Dv PTHREAD_STACK_MIN .
+.\" ========
+.It Bq Er EINVAL
+.Fa stacksize
+is not a multiple of the system page size.
 .El
 .Pp
 .Fn pthread_attr_setdetachstate
 will fail if:
 .Bl -tag -width Er
+.\" ========
 .It Bq Er EINVAL
 Invalid value for
+.Fa attr
+or
 .Fa detachstate .
 .El
 .Pp
 .Fn pthread_attr_setinheritsched
 will fail if:
 .Bl -tag -width Er
+.\" ========
 .It Bq Er EINVAL
 Invalid value for
 .Fa attr .
@@ -154,9 +215,11 @@ Invalid value for
 .Fn pthread_attr_setschedparam
 will fail if:
 .Bl -tag -width Er
+.\" ========
 .It Bq Er EINVAL
 Invalid value for
 .Fa attr .
+.\" ========
 .It Bq Er ENOTSUP
 Invalid value for
 .Fa param .
@@ -165,6 +228,7 @@ Invalid value for
 .Fn pthread_attr_setschedpolicy
 will fail if:
 .Bl -tag -width Er
+.\" ========
 .It Bq Er EINVAL
 Invalid value for
 .Fa attr .
@@ -176,9 +240,11 @@ Invalid or unsupported value for
 .Fn pthread_attr_setscope
 will fail if:
 .Bl -tag -width Er
+.\" ========
 .It Bq Er EINVAL
 Invalid value for
 .Fa attr .
+.\" ========
 .It Bq Er ENOTSUP
 Invalid or unsupported value for
 .Fa contentionscope .

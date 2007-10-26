@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersion</key>
-	<string>2.2</string>
+	<string>2.3</string>
 	<key>CFBundleSignature</key>
 	<string>USBP</string>
 	<key>CFBundleVersion</key>
-	<string>2.2b3</string>
+	<string>2.3d15</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

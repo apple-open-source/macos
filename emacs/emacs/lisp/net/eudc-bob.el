@@ -1,10 +1,11 @@
 ;;; eudc-bob.el --- Binary Objects Support for EUDC
 
-;; Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Oscar Figueiredo <oscar@xemacs.org>
-;; Maintainer: Oscar Figueiredo <oscar@xemacs.org>
-;; Keywords: help
+;; Author: Oscar Figueiredo <oscar@cpe.fr>
+;; Maintainer: Pavel Janík <Pavel@Janik.cz>
+;; Keywords: comm
 
 ;; This file is part of GNU Emacs.
 
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -42,7 +43,10 @@
   "Keymap for inline sounds.")
 
 (defvar eudc-bob-url-keymap nil
-  "Keymap for inline images.")
+  "Keymap for inline urls.")
+
+(defvar eudc-bob-mail-keymap nil
+  "Keymap for inline e-mail addresses.")
 
 (defconst eudc-bob-generic-menu
   '("EUDC Binary Object Menu"
@@ -56,17 +60,17 @@
     ["Toggle inline display" eudc-bob-toggle-inline-display
      (eudc-bob-can-display-inline-images)]
     ,@(cdr (cdr eudc-bob-generic-menu))))
- 
+
 (defconst eudc-bob-sound-menu
   `("EUDC Sound Menu"
     ["---" nil nil]
     ["Play sound" eudc-bob-play-sound-at-point
      (fboundp 'play-sound)]
     ,@(cdr (cdr eudc-bob-generic-menu))))
- 
+
 (defun eudc-jump-to-event (event)
   "Jump to the window and point where EVENT occurred."
-  (if eudc-xemacs-p
+  (if (fboundp 'event-closest-point)
       (goto-char (event-closest-point event))
     (set-buffer (window-buffer (posn-window (event-start event))))
     (goto-char (posn-point (event-start event)))))
@@ -86,10 +90,10 @@
 
 (defun eudc-bob-can-display-inline-images ()
   "Return non-nil if we can display images inline."
-  (if eudc-xemacs-p
+  (if (fboundp 'console-type)
       (and (memq (console-type) '(x mswindows))
 	   (fboundp 'make-glyph))
-    (and (boundp 'display-graphic-p)
+    (and (fboundp 'display-graphic-p)
 	 (display-graphic-p))))
 
 (defun eudc-bob-make-button (label keymap &optional menu plist)
@@ -117,7 +121,7 @@ LABEL."
   "Display the JPEG DATA at point.
 If INLINE is non-nil, try to inline the image otherwise simply
 display a button."
-  (cond (eudc-xemacs-p
+  (cond ((fboundp 'make-glyph)
 	 (let ((glyph (if (eudc-bob-can-display-inline-images)
 			  (make-glyph (list (vector 'jpeg :data data)
 					    [string :data "[JPEG Picture]"])))))
@@ -131,7 +135,7 @@ display a button."
 				       'start-open t
 				       'end-open t
 				       'object-data data))))
-	((boundp 'create-image)
+	((fboundp 'create-image)
 	 (let* ((image (create-image data nil t))
 		(props (list 'object-data data 'eudc-image image)))
 	   (when (and inline (image-type-available-p 'jpeg))
@@ -206,23 +210,9 @@ display a button."
   (let (sound)
     (if (null (setq sound (eudc-bob-get-overlay-prop 'object-data)))
 	(error "No sound data available here")
-      (cond (eudc-xemacs-p
-	     (if (not (and (boundp 'sound-alist)
-			   sound-alist))
-		 (error "Don't know how to play sound on this Emacs version")
-	       (setq sound-alist
-		     (cons (list 'eudc-sound
-				 :sound sound)
-			   sound-alist))
-	       (condition-case nil
-		   (play-sound 'eudc-sound)
-		 (t
-		  (setq sound-alist (cdr sound-alist))))))
-	    (t
-	     (unless (fboundp 'play-sound)
-	       (error "Playing sounds not supported on this system"))
-	     (play-sound (list 'sound :data sound)))))))
-  
+      (unless (fboundp 'play-sound)
+	(error "Playing sounds not supported on this system"))
+      (play-sound (list 'sound :data sound)))))
 
 (defun eudc-bob-play-sound-at-mouse (event)
   "Play the sound data contained in the button where EVENT occurred."
@@ -230,7 +220,6 @@ display a button."
   (save-excursion
     (eudc-jump-to-event event)
     (eudc-bob-play-sound-at-point)))
-  
 
 (defun eudc-bob-save-object ()
   "Save the object data of the button at point."
@@ -241,6 +230,7 @@ display a button."
       (if (fboundp 'set-buffer-file-coding-system)
 	  (set-buffer-file-coding-system 'binary))
       (set-buffer buffer)
+      (set-buffer-multibyte nil)
       (insert data)
       (save-buffer))
     (kill-buffer buffer)))
@@ -270,7 +260,7 @@ display a button."
 (defun eudc-bob-menu ()
   "Retrieve the menu attached to a binary object."
   (eudc-bob-get-overlay-prop 'menu))
-  
+
 (defun eudc-bob-popup-menu (event)
   "Pop-up a menu of EUDC multimedia commands."
   (interactive "@e")
@@ -291,6 +281,7 @@ display a button."
 (setq eudc-bob-generic-keymap
       (let ((map (make-sparse-keymap)))
 	(define-key map "s" 'eudc-bob-save-object)
+	(define-key map "!" 'eudc-bob-pipe-object-to-external-program)
 	(define-key map (if eudc-xemacs-p
 			    [button3]
 			  [down-mouse-3]) 'eudc-bob-popup-menu)
@@ -317,10 +308,17 @@ display a button."
 			  [down-mouse-2]) 'browse-url-at-mouse)
 	map))
 
+(setq eudc-bob-mail-keymap
+      (let ((map (make-sparse-keymap)))
+	(define-key map [return] 'goto-address-at-point)
+	(define-key map (if eudc-xemacs-p
+			    [button2]
+			  [down-mouse-2]) 'goto-address-at-mouse)
+	map))
+
 (set-keymap-parent eudc-bob-image-keymap eudc-bob-generic-keymap)
 (set-keymap-parent eudc-bob-sound-keymap eudc-bob-generic-keymap)
 
-    
 (if eudc-emacs-p
     (progn
       (easy-menu-define eudc-bob-generic-menu
@@ -348,6 +346,12 @@ display a button."
   (eudc-bob-make-button url eudc-bob-url-keymap))
 
 ;;;###autoload
+(defun eudc-display-mail (mail)
+  "Display e-mail address and make it clickable."
+  (require 'goto-addr)
+  (eudc-bob-make-button mail eudc-bob-mail-keymap))
+
+;;;###autoload
 (defun eudc-display-sound (data)
   "Display a button to play the sound DATA."
   (eudc-bob-display-audio data))
@@ -361,5 +365,6 @@ display a button."
 (defun eudc-display-jpeg-as-button (data)
   "Display a button for the JPEG DATA."
   (eudc-bob-display-jpeg data nil))
-    
+
+;;; arch-tag: 8f1853df-c9b6-4c5a-bdb1-d94dbd651fb3
 ;;; eudc-bob.el ends here

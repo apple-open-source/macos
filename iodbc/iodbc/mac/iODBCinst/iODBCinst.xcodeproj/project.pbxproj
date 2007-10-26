@@ -1,0 +1,612 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CDAE3AD30987CDA2003250F8 /* odbcinst.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B35C0278023701A801DE /* odbcinst.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CDAE3AD40987CDA2003250F8 /* inifile.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3600278027E01A801DE /* inifile.h */; };
+		CDAE3AD50987CDA2003250F8 /* iodbc_error.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3620278027E01A801DE /* iodbc_error.h */; };
+		CDAE3AD60987CDA2003250F8 /* misc.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3650278027E01A801DE /* misc.h */; };
+		CDAE3AD70987CDA2003250F8 /* isqltypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3A702780BB701A801DE /* isqltypes.h */; };
+		CDAE3AD80987CDA2003250F8 /* isql.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3A802780BB701A801DE /* isql.h */; };
+		CDAE3AD90987CDA2003250F8 /* isqlext.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3A902780BB701A801DE /* isqlext.h */; };
+		CDAE3ADA0987CDA2003250F8 /* sql.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3AA02780BB701A801DE /* sql.h */; };
+		CDAE3ADB0987CDA2003250F8 /* sqlext.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3AB02780BB701A801DE /* sqlext.h */; };
+		CDAE3ADC0987CDA2003250F8 /* sqltypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3AC02780BB701A801DE /* sqltypes.h */; };
+		CDAE3ADD0987CDA2003250F8 /* iodbc.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3B302780BD401A801DE /* iodbc.h */; };
+		CDAE3ADE0987CDA2003250F8 /* dlf.h in Headers */ = {isa = PBXBuildFile; fileRef = F535B3C4027827A201A801DE /* dlf.h */; };
+		CDAE3ADF0987CDA2003250F8 /* iodbcadm.h in Headers */ = {isa = PBXBuildFile; fileRef = F59CCFDA0504F64401000DFE /* iodbcadm.h */; };
+		CDAE3AE00987CDA2003250F8 /* iodbcunix.h in Headers */ = {isa = PBXBuildFile; fileRef = 71DF013606A3E372007AF56B /* iodbcunix.h */; };
+		CDAE3AE10987CDA2003250F8 /* unicode.h in Headers */ = {isa = PBXBuildFile; fileRef = 7C530B6007F075D3000BBF8D /* unicode.h */; };
+		CDAE3AE20987CDA2003250F8 /* iodbcinst.h in Headers */ = {isa = PBXBuildFile; fileRef = CD2616E108B138FD00D9BE06 /* iodbcinst.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CDAE3AE40987CDA2003250F8 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C1666FE841158C02AAC07 /* InfoPlist.strings */; };
+		CDAE3AE60987CDA2003250F8 /* SQLRemoveDSNFromIni.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B37B0278027E01A801DE /* SQLRemoveDSNFromIni.c */; };
+		CDAE3AE70987CDA2003250F8 /* Info.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B35E0278027E01A801DE /* Info.c */; };
+		CDAE3AE80987CDA2003250F8 /* inifile.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B35F0278027E01A801DE /* inifile.c */; };
+		CDAE3AE90987CDA2003250F8 /* iodbc_error.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3610278027E01A801DE /* iodbc_error.c */; };
+		CDAE3AEA0987CDA2003250F8 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3640278027E01A801DE /* misc.c */; };
+		CDAE3AEB0987CDA2003250F8 /* SQLConfigDataSource.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3660278027E01A801DE /* SQLConfigDataSource.c */; };
+		CDAE3AEC0987CDA2003250F8 /* SQLConfigDriver.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3670278027E01A801DE /* SQLConfigDriver.c */; };
+		CDAE3AED0987CDA2003250F8 /* SQLCreateDataSource.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3680278027E01A801DE /* SQLCreateDataSource.c */; };
+		CDAE3AEE0987CDA2003250F8 /* SQLGetAvailableDrivers.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3690278027E01A801DE /* SQLGetAvailableDrivers.c */; };
+		CDAE3AEF0987CDA2003250F8 /* SQLGetConfigMode.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B36A0278027E01A801DE /* SQLGetConfigMode.c */; };
+		CDAE3AF00987CDA2003250F8 /* SQLGetInstalledDrivers.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B36B0278027E01A801DE /* SQLGetInstalledDrivers.c */; };
+		CDAE3AF10987CDA2003250F8 /* SQLGetPrivateProfileString.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B36C0278027E01A801DE /* SQLGetPrivateProfileString.c */; };
+		CDAE3AF20987CDA2003250F8 /* SQLGetTranslator.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B36D0278027E01A801DE /* SQLGetTranslator.c */; };
+		CDAE3AF30987CDA2003250F8 /* SQLInstallDriver.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B36E0278027E01A801DE /* SQLInstallDriver.c */; };
+		CDAE3AF40987CDA2003250F8 /* SQLInstallDriverEx.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B36F0278027E01A801DE /* SQLInstallDriverEx.c */; };
+		CDAE3AF50987CDA2003250F8 /* SQLInstallDriverManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3700278027E01A801DE /* SQLInstallDriverManager.c */; };
+		CDAE3AF60987CDA2003250F8 /* SQLInstallerError.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3710278027E01A801DE /* SQLInstallerError.c */; };
+		CDAE3AF70987CDA2003250F8 /* SQLInstallODBC.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3720278027E01A801DE /* SQLInstallODBC.c */; };
+		CDAE3AF80987CDA2003250F8 /* SQLInstallTranslator.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3730278027E01A801DE /* SQLInstallTranslator.c */; };
+		CDAE3AF90987CDA2003250F8 /* SQLInstallTranslatorEx.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3740278027E01A801DE /* SQLInstallTranslatorEx.c */; };
+		CDAE3AFA0987CDA2003250F8 /* SQLManageDataSource.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3750278027E01A801DE /* SQLManageDataSource.c */; };
+		CDAE3AFB0987CDA2003250F8 /* SQLPostInstallerError.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3760278027E01A801DE /* SQLPostInstallerError.c */; };
+		CDAE3AFC0987CDA2003250F8 /* SQLReadFileDSN.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3770278027E01A801DE /* SQLReadFileDSN.c */; };
+		CDAE3AFD0987CDA2003250F8 /* SQLRemoveDefaultDataSource.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3780278027E01A801DE /* SQLRemoveDefaultDataSource.c */; };
+		CDAE3AFE0987CDA2003250F8 /* SQLRemoveDriver.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3790278027E01A801DE /* SQLRemoveDriver.c */; };
+		CDAE3AFF0987CDA2003250F8 /* SQLRemoveDriverManager.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B37A0278027E01A801DE /* SQLRemoveDriverManager.c */; };
+		CDAE3B000987CDA2003250F8 /* SQLRemoveTranslator.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B37C0278027E01A801DE /* SQLRemoveTranslator.c */; };
+		CDAE3B010987CDA2003250F8 /* SQLSetConfigMode.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B37D0278027E01A801DE /* SQLSetConfigMode.c */; };
+		CDAE3B020987CDA2003250F8 /* SQLValidDSN.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B37E0278027E01A801DE /* SQLValidDSN.c */; };
+		CDAE3B030987CDA2003250F8 /* SQLWriteDSNToIni.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B37F0278027E01A801DE /* SQLWriteDSNToIni.c */; };
+		CDAE3B040987CDA2003250F8 /* SQLWriteFileDSN.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3800278027E01A801DE /* SQLWriteFileDSN.c */; };
+		CDAE3B050987CDA2003250F8 /* SQLWritePrivateProfileString.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3810278027E01A801DE /* SQLWritePrivateProfileString.c */; };
+		CDAE3B060987CDA2003250F8 /* dlf.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3C3027827A201A801DE /* dlf.c */; };
+		CDAE3B070987CDA2003250F8 /* iodbcinst.exp in Sources */ = {isa = PBXBuildFile; fileRef = F54DA8D50279584A01A801DE /* iodbcinst.exp */; };
+		CDAE3B080987CDA2003250F8 /* unicode.c in Sources */ = {isa = PBXBuildFile; fileRef = 7C530B5E07F075A7000BBF8D /* unicode.c */; };
+		CDAE3B0A0987CDA2003250F8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F54DA8D902795B3501A801DE /* CoreFoundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		4F0BB7EC011F40E904CA0E50 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				EXPORTED_SYMBOLS_FILE = ../../mac/iodbcinst.exp;
+				FRAMEWORK_VERSION = 3.52;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = (
+					"-DODBCVER=0x351",
+					"-D_MACX",
+					"-DDLDAPI_MACX",
+				);
+				RESMERGER_SOURCES_FORK = data;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		4F0BB7ED011F40E904CA0E50 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				EXPORTED_SYMBOLS_FILE = ../../mac/iodbcinst.exp;
+				FRAMEWORK_VERSION = 3.52;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				OTHER_CFLAGS = (
+					"-DODBCVER=0x351",
+					"-D_MACX",
+					"-DDLDAPI_MACX",
+				);
+				RESMERGER_SOURCES_FORK = data;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		089C1667FE841158C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		71DF013606A3E372007AF56B /* iodbcunix.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = iodbcunix.h; path = ../../include/iodbcunix.h; sourceTree = SOURCE_ROOT; };
+		7C530B5E07F075A7000BBF8D /* unicode.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = unicode.c; path = ../../iodbcinst/unicode.c; sourceTree = SOURCE_ROOT; };
+		7C530B6007F075D3000BBF8D /* unicode.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = unicode.h; path = ../../iodbcinst/unicode.h; sourceTree = SOURCE_ROOT; };
+		CD2616E108B138FD00D9BE06 /* iodbcinst.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = iodbcinst.h; path = ../include/iodbcinst.h; sourceTree = SOURCE_ROOT; };
+		CDAE3B100987CDA2003250F8 /* Info-iODBCinst.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-iODBCinst.plist"; sourceTree = "<group>"; };
+		CDAE3B110987CDA2003250F8 /* iODBCinst.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = iODBCinst.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		F535B35C0278023701A801DE /* odbcinst.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = odbcinst.h; path = ../../include/odbcinst.h; sourceTree = SOURCE_ROOT; };
+		F535B35E0278027E01A801DE /* Info.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = Info.c; path = ../../iodbcinst/Info.c; sourceTree = SOURCE_ROOT; };
+		F535B35F0278027E01A801DE /* inifile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = inifile.c; path = ../../iodbcinst/inifile.c; sourceTree = SOURCE_ROOT; };
+		F535B3600278027E01A801DE /* inifile.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = inifile.h; path = ../../iodbcinst/inifile.h; sourceTree = SOURCE_ROOT; };
+		F535B3610278027E01A801DE /* iodbc_error.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = iodbc_error.c; path = ../../iodbcinst/iodbc_error.c; sourceTree = SOURCE_ROOT; };
+		F535B3620278027E01A801DE /* iodbc_error.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = iodbc_error.h; path = ../../iodbcinst/iodbc_error.h; sourceTree = SOURCE_ROOT; };
+		F535B3640278027E01A801DE /* misc.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = misc.c; path = ../../iodbcinst/misc.c; sourceTree = SOURCE_ROOT; };
+		F535B3650278027E01A801DE /* misc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = misc.h; path = ../../iodbcinst/misc.h; sourceTree = SOURCE_ROOT; };
+		F535B3660278027E01A801DE /* SQLConfigDataSource.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLConfigDataSource.c; path = ../../iodbcinst/SQLConfigDataSource.c; sourceTree = SOURCE_ROOT; };
+		F535B3670278027E01A801DE /* SQLConfigDriver.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLConfigDriver.c; path = ../../iodbcinst/SQLConfigDriver.c; sourceTree = SOURCE_ROOT; };
+		F535B3680278027E01A801DE /* SQLCreateDataSource.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLCreateDataSource.c; path = ../../iodbcinst/SQLCreateDataSource.c; sourceTree = SOURCE_ROOT; };
+		F535B3690278027E01A801DE /* SQLGetAvailableDrivers.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLGetAvailableDrivers.c; path = ../../iodbcinst/SQLGetAvailableDrivers.c; sourceTree = SOURCE_ROOT; };
+		F535B36A0278027E01A801DE /* SQLGetConfigMode.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLGetConfigMode.c; path = ../../iodbcinst/SQLGetConfigMode.c; sourceTree = SOURCE_ROOT; };
+		F535B36B0278027E01A801DE /* SQLGetInstalledDrivers.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLGetInstalledDrivers.c; path = ../../iodbcinst/SQLGetInstalledDrivers.c; sourceTree = SOURCE_ROOT; };
+		F535B36C0278027E01A801DE /* SQLGetPrivateProfileString.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLGetPrivateProfileString.c; path = ../../iodbcinst/SQLGetPrivateProfileString.c; sourceTree = SOURCE_ROOT; };
+		F535B36D0278027E01A801DE /* SQLGetTranslator.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLGetTranslator.c; path = ../../iodbcinst/SQLGetTranslator.c; sourceTree = SOURCE_ROOT; };
+		F535B36E0278027E01A801DE /* SQLInstallDriver.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLInstallDriver.c; path = ../../iodbcinst/SQLInstallDriver.c; sourceTree = SOURCE_ROOT; };
+		F535B36F0278027E01A801DE /* SQLInstallDriverEx.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLInstallDriverEx.c; path = ../../iodbcinst/SQLInstallDriverEx.c; sourceTree = SOURCE_ROOT; };
+		F535B3700278027E01A801DE /* SQLInstallDriverManager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLInstallDriverManager.c; path = ../../iodbcinst/SQLInstallDriverManager.c; sourceTree = SOURCE_ROOT; };
+		F535B3710278027E01A801DE /* SQLInstallerError.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLInstallerError.c; path = ../../iodbcinst/SQLInstallerError.c; sourceTree = SOURCE_ROOT; };
+		F535B3720278027E01A801DE /* SQLInstallODBC.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLInstallODBC.c; path = ../../iodbcinst/SQLInstallODBC.c; sourceTree = SOURCE_ROOT; };
+		F535B3730278027E01A801DE /* SQLInstallTranslator.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLInstallTranslator.c; path = ../../iodbcinst/SQLInstallTranslator.c; sourceTree = SOURCE_ROOT; };
+		F535B3740278027E01A801DE /* SQLInstallTranslatorEx.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLInstallTranslatorEx.c; path = ../../iodbcinst/SQLInstallTranslatorEx.c; sourceTree = SOURCE_ROOT; };
+		F535B3750278027E01A801DE /* SQLManageDataSource.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLManageDataSource.c; path = ../../iodbcinst/SQLManageDataSource.c; sourceTree = SOURCE_ROOT; };
+		F535B3760278027E01A801DE /* SQLPostInstallerError.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLPostInstallerError.c; path = ../../iodbcinst/SQLPostInstallerError.c; sourceTree = SOURCE_ROOT; };
+		F535B3770278027E01A801DE /* SQLReadFileDSN.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLReadFileDSN.c; path = ../../iodbcinst/SQLReadFileDSN.c; sourceTree = SOURCE_ROOT; };
+		F535B3780278027E01A801DE /* SQLRemoveDefaultDataSource.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLRemoveDefaultDataSource.c; path = ../../iodbcinst/SQLRemoveDefaultDataSource.c; sourceTree = SOURCE_ROOT; };
+		F535B3790278027E01A801DE /* SQLRemoveDriver.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLRemoveDriver.c; path = ../../iodbcinst/SQLRemoveDriver.c; sourceTree = SOURCE_ROOT; };
+		F535B37A0278027E01A801DE /* SQLRemoveDriverManager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLRemoveDriverManager.c; path = ../../iodbcinst/SQLRemoveDriverManager.c; sourceTree = SOURCE_ROOT; };
+		F535B37B0278027E01A801DE /* SQLRemoveDSNFromIni.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLRemoveDSNFromIni.c; path = ../../iodbcinst/SQLRemoveDSNFromIni.c; sourceTree = SOURCE_ROOT; };
+		F535B37C0278027E01A801DE /* SQLRemoveTranslator.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLRemoveTranslator.c; path = ../../iodbcinst/SQLRemoveTranslator.c; sourceTree = SOURCE_ROOT; };
+		F535B37D0278027E01A801DE /* SQLSetConfigMode.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLSetConfigMode.c; path = ../../iodbcinst/SQLSetConfigMode.c; sourceTree = SOURCE_ROOT; };
+		F535B37E0278027E01A801DE /* SQLValidDSN.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLValidDSN.c; path = ../../iodbcinst/SQLValidDSN.c; sourceTree = SOURCE_ROOT; };
+		F535B37F0278027E01A801DE /* SQLWriteDSNToIni.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLWriteDSNToIni.c; path = ../../iodbcinst/SQLWriteDSNToIni.c; sourceTree = SOURCE_ROOT; };
+		F535B3800278027E01A801DE /* SQLWriteFileDSN.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLWriteFileDSN.c; path = ../../iodbcinst/SQLWriteFileDSN.c; sourceTree = SOURCE_ROOT; };
+		F535B3810278027E01A801DE /* SQLWritePrivateProfileString.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SQLWritePrivateProfileString.c; path = ../../iodbcinst/SQLWritePrivateProfileString.c; sourceTree = SOURCE_ROOT; };
+		F535B3A702780BB701A801DE /* isqltypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = isqltypes.h; path = ../../include/isqltypes.h; sourceTree = SOURCE_ROOT; };
+		F535B3A802780BB701A801DE /* isql.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = isql.h; path = ../../include/isql.h; sourceTree = SOURCE_ROOT; };
+		F535B3A902780BB701A801DE /* isqlext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = isqlext.h; path = ../../include/isqlext.h; sourceTree = SOURCE_ROOT; };
+		F535B3AA02780BB701A801DE /* sql.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sql.h; path = ../../include/sql.h; sourceTree = SOURCE_ROOT; };
+		F535B3AB02780BB701A801DE /* sqlext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sqlext.h; path = ../../include/sqlext.h; sourceTree = SOURCE_ROOT; };
+		F535B3AC02780BB701A801DE /* sqltypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sqltypes.h; path = ../../include/sqltypes.h; sourceTree = SOURCE_ROOT; };
+		F535B3B302780BD401A801DE /* iodbc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = iodbc.h; path = ../../include/iodbc.h; sourceTree = SOURCE_ROOT; };
+		F535B3C3027827A201A801DE /* dlf.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dlf.c; path = ../../iodbcinst/dlf.c; sourceTree = SOURCE_ROOT; };
+		F535B3C4027827A201A801DE /* dlf.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dlf.h; path = ../../iodbcinst/dlf.h; sourceTree = SOURCE_ROOT; };
+		F54DA8D50279584A01A801DE /* iodbcinst.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; name = iodbcinst.exp; path = ../iodbcinst.exp; sourceTree = SOURCE_ROOT; };
+		F54DA8D902795B3501A801DE /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		F59CCFDA0504F64401000DFE /* iodbcadm.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = iodbcadm.h; path = ../../iodbcadm/iodbcadm.h; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CDAE3B090987CDA2003250F8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CDAE3B0A0987CDA2003250F8 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		034768DDFF38A45A11DB9C8B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CDAE3B110987CDA2003250F8 /* iODBCinst.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0867D691FE84028FC02AAC07 /* iODBCinst */ = {
+			isa = PBXGroup;
+			children = (
+				08FB77ACFE841707C02AAC07 /* Source */,
+				089C1665FE841158C02AAC07 /* Resources */,
+				0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */,
+				034768DDFF38A45A11DB9C8B /* Products */,
+				CDAE3B100987CDA2003250F8 /* Info-iODBCinst.plist */,
+			);
+			name = iODBCinst;
+			sourceTree = "<group>";
+		};
+		0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				F54DA8D902795B3501A801DE /* CoreFoundation.framework */,
+			);
+			name = "External Frameworks and Libraries";
+			sourceTree = "<group>";
+		};
+		089C1665FE841158C02AAC07 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				089C1666FE841158C02AAC07 /* InfoPlist.strings */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		08FB77ACFE841707C02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				F535B35B0278021D01A801DE /* iodbcinst */,
+				F535B3A602780B9C01A801DE /* iODBC */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		F535B35B0278021D01A801DE /* iodbcinst */ = {
+			isa = PBXGroup;
+			children = (
+				CD2616E108B138FD00D9BE06 /* iodbcinst.h */,
+				F535B35C0278023701A801DE /* odbcinst.h */,
+				7C530B5E07F075A7000BBF8D /* unicode.c */,
+				F535B35E0278027E01A801DE /* Info.c */,
+				F535B35F0278027E01A801DE /* inifile.c */,
+				F535B3600278027E01A801DE /* inifile.h */,
+				F535B3610278027E01A801DE /* iodbc_error.c */,
+				F535B3620278027E01A801DE /* iodbc_error.h */,
+				F535B3640278027E01A801DE /* misc.c */,
+				F535B3650278027E01A801DE /* misc.h */,
+				F535B3660278027E01A801DE /* SQLConfigDataSource.c */,
+				F535B3670278027E01A801DE /* SQLConfigDriver.c */,
+				F535B3680278027E01A801DE /* SQLCreateDataSource.c */,
+				F535B3690278027E01A801DE /* SQLGetAvailableDrivers.c */,
+				F535B36A0278027E01A801DE /* SQLGetConfigMode.c */,
+				F535B36B0278027E01A801DE /* SQLGetInstalledDrivers.c */,
+				F535B36C0278027E01A801DE /* SQLGetPrivateProfileString.c */,
+				F535B36D0278027E01A801DE /* SQLGetTranslator.c */,
+				F535B36E0278027E01A801DE /* SQLInstallDriver.c */,
+				F535B36F0278027E01A801DE /* SQLInstallDriverEx.c */,
+				F535B3700278027E01A801DE /* SQLInstallDriverManager.c */,
+				F535B3710278027E01A801DE /* SQLInstallerError.c */,
+				F535B3720278027E01A801DE /* SQLInstallODBC.c */,
+				F535B3730278027E01A801DE /* SQLInstallTranslator.c */,
+				F535B3740278027E01A801DE /* SQLInstallTranslatorEx.c */,
+				F535B3750278027E01A801DE /* SQLManageDataSource.c */,
+				F535B3760278027E01A801DE /* SQLPostInstallerError.c */,
+				F535B3770278027E01A801DE /* SQLReadFileDSN.c */,
+				F535B3780278027E01A801DE /* SQLRemoveDefaultDataSource.c */,
+				F535B3790278027E01A801DE /* SQLRemoveDriver.c */,
+				F535B37A0278027E01A801DE /* SQLRemoveDriverManager.c */,
+				F535B37B0278027E01A801DE /* SQLRemoveDSNFromIni.c */,
+				F535B37C0278027E01A801DE /* SQLRemoveTranslator.c */,
+				F535B37D0278027E01A801DE /* SQLSetConfigMode.c */,
+				F535B37E0278027E01A801DE /* SQLValidDSN.c */,
+				F535B37F0278027E01A801DE /* SQLWriteDSNToIni.c */,
+				F535B3800278027E01A801DE /* SQLWriteFileDSN.c */,
+				F535B3810278027E01A801DE /* SQLWritePrivateProfileString.c */,
+				F54DA8D50279584A01A801DE /* iodbcinst.exp */,
+			);
+			name = iodbcinst;
+			sourceTree = "<group>";
+		};
+		F535B3A602780B9C01A801DE /* iODBC */ = {
+			isa = PBXGroup;
+			children = (
+				71DF013606A3E372007AF56B /* iodbcunix.h */,
+				F535B3C3027827A201A801DE /* dlf.c */,
+				F535B3C4027827A201A801DE /* dlf.h */,
+				F535B3A702780BB701A801DE /* isqltypes.h */,
+				F535B3A802780BB701A801DE /* isql.h */,
+				F535B3A902780BB701A801DE /* isqlext.h */,
+				7C530B6007F075D3000BBF8D /* unicode.h */,
+				F535B3AA02780BB701A801DE /* sql.h */,
+				F535B3AB02780BB701A801DE /* sqlext.h */,
+				F535B3AC02780BB701A801DE /* sqltypes.h */,
+				F535B3B302780BD401A801DE /* iodbc.h */,
+				F59CCFDA0504F64401000DFE /* iodbcadm.h */,
+			);
+			name = iODBC;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		CDAE3AD20987CDA2003250F8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CDAE3AD30987CDA2003250F8 /* odbcinst.h in Headers */,
+				CDAE3AD40987CDA2003250F8 /* inifile.h in Headers */,
+				CDAE3AD50987CDA2003250F8 /* iodbc_error.h in Headers */,
+				CDAE3AD60987CDA2003250F8 /* misc.h in Headers */,
+				CDAE3AD70987CDA2003250F8 /* isqltypes.h in Headers */,
+				CDAE3AD80987CDA2003250F8 /* isql.h in Headers */,
+				CDAE3AD90987CDA2003250F8 /* isqlext.h in Headers */,
+				CDAE3ADA0987CDA2003250F8 /* sql.h in Headers */,
+				CDAE3ADB0987CDA2003250F8 /* sqlext.h in Headers */,
+				CDAE3ADC0987CDA2003250F8 /* sqltypes.h in Headers */,
+				CDAE3ADD0987CDA2003250F8 /* iodbc.h in Headers */,
+				CDAE3ADE0987CDA2003250F8 /* dlf.h in Headers */,
+				CDAE3ADF0987CDA2003250F8 /* iodbcadm.h in Headers */,
+				CDAE3AE00987CDA2003250F8 /* iodbcunix.h in Headers */,
+				CDAE3AE10987CDA2003250F8 /* unicode.h in Headers */,
+				CDAE3AE20987CDA2003250F8 /* iodbcinst.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		CDAE3AD10987CDA2003250F8 /* iODBCinst */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CDAE3B0C0987CDA2003250F8 /* Build configuration list for PBXNativeTarget "iODBCinst" */;
+			buildPhases = (
+				CDAE3AD20987CDA2003250F8 /* Headers */,
+				CDAE3AE30987CDA2003250F8 /* Resources */,
+				CDAE3AE50987CDA2003250F8 /* Sources */,
+				CDAE3B090987CDA2003250F8 /* Frameworks */,
+				CDAE3B0B0987CDA2003250F8 /* Rez */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = ../../mac/iodbcinst.exp;
+				FRAMEWORK_SEARCH_PATHS = (
+					../../mac/iODBC/build/Deployment,
+					../../mac/iODBC/build,
+				);
+				FRAMEWORK_VERSION = 3.52;
+				HEADER_SEARCH_PATHS = (
+					../../include,
+					../../iodbcinst,
+					../../iodbc,
+				);
+				INSTALL_PATH = /Library/Frameworks;
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = (
+					"-DODBCVER=0x351",
+					"-D_MACX",
+					"-DDLDAPI_MACX",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = iODBCinst;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+			);
+			name = iODBCinst;
+			productInstallPath = /Library/Frameworks;
+			productName = iODBCinst;
+			productReference = CDAE3B110987CDA2003250F8 /* iODBCinst.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0867D690FE84028FC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = CDAE3ACB0987CD92003250F8 /* Build configuration list for PBXProject "iODBCinst" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				4F0BB7EC011F40E904CA0E50 /* Development */,
+				4F0BB7ED011F40E904CA0E50 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 0867D691FE84028FC02AAC07 /* iODBCinst */;
+			productRefGroup = 034768DDFF38A45A11DB9C8B /* Products */;
+			projectDirPath = "";
+			targets = (
+				CDAE3AD10987CDA2003250F8 /* iODBCinst */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CDAE3AE30987CDA2003250F8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CDAE3AE40987CDA2003250F8 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		CDAE3B0B0987CDA2003250F8 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CDAE3AE50987CDA2003250F8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CDAE3AE60987CDA2003250F8 /* SQLRemoveDSNFromIni.c in Sources */,
+				CDAE3AE70987CDA2003250F8 /* Info.c in Sources */,
+				CDAE3AE80987CDA2003250F8 /* inifile.c in Sources */,
+				CDAE3AE90987CDA2003250F8 /* iodbc_error.c in Sources */,
+				CDAE3AEA0987CDA2003250F8 /* misc.c in Sources */,
+				CDAE3AEB0987CDA2003250F8 /* SQLConfigDataSource.c in Sources */,
+				CDAE3AEC0987CDA2003250F8 /* SQLConfigDriver.c in Sources */,
+				CDAE3AED0987CDA2003250F8 /* SQLCreateDataSource.c in Sources */,
+				CDAE3AEE0987CDA2003250F8 /* SQLGetAvailableDrivers.c in Sources */,
+				CDAE3AEF0987CDA2003250F8 /* SQLGetConfigMode.c in Sources */,
+				CDAE3AF00987CDA2003250F8 /* SQLGetInstalledDrivers.c in Sources */,
+				CDAE3AF10987CDA2003250F8 /* SQLGetPrivateProfileString.c in Sources */,
+				CDAE3AF20987CDA2003250F8 /* SQLGetTranslator.c in Sources */,
+				CDAE3AF30987CDA2003250F8 /* SQLInstallDriver.c in Sources */,
+				CDAE3AF40987CDA2003250F8 /* SQLInstallDriverEx.c in Sources */,
+				CDAE3AF50987CDA2003250F8 /* SQLInstallDriverManager.c in Sources */,
+				CDAE3AF60987CDA2003250F8 /* SQLInstallerError.c in Sources */,
+				CDAE3AF70987CDA2003250F8 /* SQLInstallODBC.c in Sources */,
+				CDAE3AF80987CDA2003250F8 /* SQLInstallTranslator.c in Sources */,
+				CDAE3AF90987CDA2003250F8 /* SQLInstallTranslatorEx.c in Sources */,
+				CDAE3AFA0987CDA2003250F8 /* SQLManageDataSource.c in Sources */,
+				CDAE3AFB0987CDA2003250F8 /* SQLPostInstallerError.c in Sources */,
+				CDAE3AFC0987CDA2003250F8 /* SQLReadFileDSN.c in Sources */,
+				CDAE3AFD0987CDA2003250F8 /* SQLRemoveDefaultDataSource.c in Sources */,
+				CDAE3AFE0987CDA2003250F8 /* SQLRemoveDriver.c in Sources */,
+				CDAE3AFF0987CDA2003250F8 /* SQLRemoveDriverManager.c in Sources */,
+				CDAE3B000987CDA2003250F8 /* SQLRemoveTranslator.c in Sources */,
+				CDAE3B010987CDA2003250F8 /* SQLSetConfigMode.c in Sources */,
+				CDAE3B020987CDA2003250F8 /* SQLValidDSN.c in Sources */,
+				CDAE3B030987CDA2003250F8 /* SQLWriteDSNToIni.c in Sources */,
+				CDAE3B040987CDA2003250F8 /* SQLWriteFileDSN.c in Sources */,
+				CDAE3B050987CDA2003250F8 /* SQLWritePrivateProfileString.c in Sources */,
+				CDAE3B060987CDA2003250F8 /* dlf.c in Sources */,
+				CDAE3B070987CDA2003250F8 /* iodbcinst.exp in Sources */,
+				CDAE3B080987CDA2003250F8 /* unicode.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		089C1666FE841158C02AAC07 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				089C1667FE841158C02AAC07 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		CDAE3ACC0987CD92003250F8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.3;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Development;
+		};
+		CDAE3ACD0987CD92003250F8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.3;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Deployment;
+		};
+		CDAE3B0D0987CDA2003250F8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				EXPORTED_SYMBOLS_FILE = ../../mac/iodbcinst.exp;
+				FRAMEWORK_SEARCH_PATHS = (
+					../../mac/iODBC/build/Deployment,
+					../../mac/iODBC/build,
+				);
+				FRAMEWORK_VERSION = 3.52;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"ODBCVER=0x351",
+					_MACX,
+					DLDAPI_MACX,
+				);
+				HEADER_SEARCH_PATHS = (
+					../../include,
+					../../iodbcinst,
+					../../iodbc,
+				);
+				INFOPLIST_FILE = "Info-iODBCinst.plist";
+				INSTALL_PATH = /Library/Frameworks;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = iODBCinst;
+				RESMERGER_SOURCES_FORK = data;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		CDAE3B0E0987CDA2003250F8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				EXPORTED_SYMBOLS_FILE = ../../mac/iodbcinst.exp;
+				FRAMEWORK_SEARCH_PATHS = (
+					../../mac/iODBC/build/Deployment,
+					../../mac/iODBC/build,
+				);
+				FRAMEWORK_VERSION = 3.52;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = 2;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"ODBCVER=0x351",
+					_MACX,
+					DLDAPI_MACX,
+				);
+				HEADER_SEARCH_PATHS = (
+					../../include,
+					../../iodbcinst,
+					../../iodbc,
+				);
+				INFOPLIST_FILE = "Info-iODBCinst.plist";
+				INSTALL_PATH = /Library/Frameworks;
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = iODBCinst;
+				RESMERGER_SOURCES_FORK = data;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CDAE3ACB0987CD92003250F8 /* Build configuration list for PBXProject "iODBCinst" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CDAE3ACC0987CD92003250F8 /* Development */,
+				CDAE3ACD0987CD92003250F8 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		CDAE3B0C0987CDA2003250F8 /* Build configuration list for PBXNativeTarget "iODBCinst" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CDAE3B0D0987CDA2003250F8 /* Development */,
+				CDAE3B0E0987CDA2003250F8 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0867D690FE84028FC02AAC07 /* Project object */;
+}

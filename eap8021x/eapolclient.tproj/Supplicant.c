@@ -129,6 +129,8 @@ struct Supplicant_s {
     int				username_length;
     char *			password;
     int				password_length;
+    bool			one_time_password;
+    bool			ignore_password;
 
     EAPAcceptTypes		eap_accept;
 
@@ -477,6 +479,18 @@ EAPAcceptTypesUseIdentity(EAPAcceptTypesRef accept)
  **/
 
 static void
+clear_password(SupplicantRef supp)
+{
+    supp->ignore_password = TRUE;
+
+    /* clear the password */
+    free(supp->password);
+    supp->password = NULL;
+    supp->password_length = 0;
+    return;
+}
+
+static void
 free_last_packet(SupplicantRef supp)
 {
     if (supp->last_rx_packet.eapol_p != NULL) {
@@ -675,9 +689,6 @@ Supplicant_force_renew(SupplicantRef supp)
 static void
 clear_wpa_key_info(SupplicantRef supp)
 {
-    if (EAPOLSocket_set_wpa_server_key(supp->sock, NULL, 0) == FALSE) {
-	my_log(LOG_DEBUG, "clearing wpa server key failed");
-    }
     if (EAPOLSocket_set_wpa_session_key(supp->sock, NULL, 0) == FALSE) {
 	my_log(LOG_DEBUG, "clearing wpa session key failed");
     }
@@ -687,18 +698,9 @@ clear_wpa_key_info(SupplicantRef supp)
 static void
 set_wpa_key_info(SupplicantRef supp)
 {
-    uint8_t *	server_key;
-    int		server_key_length;
     uint8_t *	session_key;
     int		session_key_length;
 
-    server_key = eap_client_server_key(supp, &server_key_length);
-    if (server_key != NULL) {
-	if (EAPOLSocket_set_wpa_server_key(supp->sock, server_key,
-					   server_key_length) == FALSE) {
-	    my_log(LOG_DEBUG, "setting wpa server key failed");
-	}
-    }
     session_key = eap_client_session_key(supp, &session_key_length);
     if (session_key != NULL) {
 	if (EAPOLSocket_set_wpa_session_key(supp->sock, session_key,
@@ -726,6 +728,9 @@ Supplicant_authenticated(SupplicantRef supp, SupplicantEvent event,
 	    supp->authenticated = TRUE;
 	}
 	UserPasswordDialogue_free(&supp->pw_prompt);
+	if (supp->one_time_password) {
+	    clear_password(supp);
+	}
 	Supplicant_report_status(supp);
 	EAPOLSocket_enable_receive(supp->sock, 
 				   (void *)Supplicant_authenticated,
@@ -1441,7 +1446,7 @@ trust_callback(const void * arg1, const void * arg2,
     CFDictionaryRef		config_dict = NULL;
     SupplicantRef		supp = (SupplicantRef)arg1;
     CFDictionaryRef		trust_info;
-    CFNumberRef			trust_proceed;
+    CFArrayRef			trust_proceed;
 
     if (supp->trust_prompt == NULL) {
 	return;
@@ -1455,8 +1460,9 @@ trust_callback(const void * arg1, const void * arg2,
 	return;
     }
     if (response->proceed == FALSE) {
-	supp->last_status = kEAPClientStatusUserCancelledAuthentication;
-	Supplicant_held(supp, kSupplicantEventStart, NULL);
+	my_log(LOG_NOTICE, "%s: user cancelled", 
+	       EAPOLSocket_if_name(supp->sock, NULL));
+	EAPOLControlStop(EAPOLSocket_if_name(supp->sock, NULL));
 	goto done;
     }
     if (supp->last_status != kEAPClientStatusUserInputRequired
@@ -1468,14 +1474,15 @@ trust_callback(const void * arg1, const void * arg2,
 			     kEAPClientPropTLSServerCertificateChain)
 	== FALSE) {
 	CFDictionaryRemoveValue(supp->ui_config_dict, 
-				kEAPClientPropTLSUserTrustProceed);
+				kEAPClientPropTLSUserTrustProceedCertificateChain);
     }
     else {
-	trust_proceed = CFDictionaryGetValue(supp->eap.published_props,
-					     kEAPClientPropTLSUserTrustProceed);
+	trust_proceed
+	    = CFDictionaryGetValue(supp->eap.published_props,
+				   kEAPClientPropTLSServerCertificateChain);
 	if (trust_proceed != NULL) {
 	    CFDictionarySetValue(supp->ui_config_dict, 
-				 kEAPClientPropTLSUserTrustProceed,
+				 kEAPClientPropTLSUserTrustProceedCertificateChain,
 				 trust_proceed);
 	}
     }
@@ -1500,8 +1507,9 @@ password_callback(const void * arg1, const void * arg2,
 
     UserPasswordDialogue_free(&supp->pw_prompt);
     if (response->user_cancelled) {
-	supp->last_status = kEAPClientStatusUserCancelledAuthentication;
-	Supplicant_held(supp, kSupplicantEventStart, NULL);
+	my_log(LOG_NOTICE, "%s: user cancelled", 
+	       EAPOLSocket_if_name(supp->sock, NULL));
+	EAPOLControlStop(EAPOLSocket_if_name(supp->sock, NULL));
 	return;
     }
     if (supp->last_status != kEAPClientStatusUserInputRequired) {
@@ -1516,7 +1524,9 @@ password_callback(const void * arg1, const void * arg2,
 	CFDictionarySetValue(supp->ui_config_dict, 
 			     kEAPClientPropUserPassword,
 			     response->password);
+	supp->ignore_password = FALSE;
     }
+    supp->one_time_password = response->one_time_password;
     if (supp->orig_config_dict != NULL) {
 	config_dict = CFDictionaryCreateCopy(NULL, supp->orig_config_dict);
     }
@@ -1582,7 +1592,7 @@ Supplicant_report_status(SupplicantRef supp)
 					      kEAPClientPropUserPassword);
 		need_trust
 		    = my_CFArrayContainsValue(supp->eap.required_props,
-					      kEAPClientPropTLSUserTrustProceed);
+					      kEAPClientPropTLSUserTrustProceedCertificateChain);
 	    }
 	}
 	dictInsertPublishedProperties(dict, supp->eap.published_props);
@@ -1612,7 +1622,8 @@ Supplicant_report_status(SupplicantRef supp)
 	    supp->pw_prompt 
 		= UserPasswordDialogue_create(password_callback, supp,
 					      NULL, NULL, 
-					      username, password);
+					      username, password,
+					      supp->one_time_password);
 	}
     }
     if (need_trust) {
@@ -1650,6 +1661,10 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
 	Supplicant_report_status(supp);
 	supp->previous_identifier = BAD_IDENTIFIER;
 	EAPAcceptTypesReset(&supp->eap_accept);
+	if (supp->eap.module != NULL && supp->system_mode == FALSE
+	    && supp->last_status == kEAPClientStatusFailed) {
+	    clear_password(supp);
+	}
 	supp->last_status = kEAPClientStatusOK;
 	supp->last_error = 0;
 	free_last_packet(supp);
@@ -1863,6 +1878,22 @@ S_copy_password_from_keychain(bool use_system_keychain,
     return ((char *)password);
 }
 
+static Boolean
+myCFDictionaryGetBooleanValue(CFDictionaryRef properties, CFStringRef propname,
+			       Boolean def_value)
+{
+    bool		ret = def_value;
+
+    if (properties != NULL) {
+	CFBooleanRef	val;
+
+	val = CFDictionaryGetValue(properties, propname);
+	if (isA_CFBoolean(val)) {
+	    ret = CFBooleanGetValue(val);
+	}
+    }
+    return (ret);
+}
 static bool
 S_set_user_password(SupplicantRef supp)
 {
@@ -1897,28 +1928,35 @@ S_set_user_password(SupplicantRef supp)
 	supp->username_length = 0;
     }
 
+    /* check whether one-time use password */
+    supp->one_time_password = 
+	myCFDictionaryGetBooleanValue(supp->config_dict,
+				      kEAPClientPropOneTimeUserPassword,
+				      supp->one_time_password);
     /* extract the password */
-    password_cf = CFDictionaryGetValue(supp->config_dict, 
-				       kEAPClientPropUserPassword);
-    password_cf = isA_CFString(password_cf);
-    if (password_cf != NULL) {
-	password = my_CFStringToCString(password_cf, 
-					kCFStringEncodingMacRoman);
-    }
-    else {
-	CFStringRef	item_cf;
-
-	item_cf 
-	    = CFDictionaryGetValue(supp->config_dict, 
-				   kEAPClientPropUserPasswordKeychainItemID);
-	item_cf = isA_CFString(item_cf);
-	if (item_cf != NULL) {
-	    password = S_copy_password_from_keychain(supp->system_mode, 
-						     item_cf);
-	    if (password == NULL) {
-		my_log(LOG_NOTICE, 
-		       "%s: failed to retrieve password from keychain",
-		       EAPOLSocket_if_name(supp->sock, NULL));
+    if (supp->ignore_password == FALSE) {
+	password_cf = CFDictionaryGetValue(supp->config_dict, 
+					   kEAPClientPropUserPassword);
+	password_cf = isA_CFString(password_cf);
+	if (password_cf != NULL) {
+	    password = my_CFStringToCString(password_cf, 
+					    kCFStringEncodingMacRoman);
+	}
+	else {
+	    CFStringRef	item_cf;
+	    
+	    item_cf 
+		= CFDictionaryGetValue(supp->config_dict, 
+				       kEAPClientPropUserPasswordKeychainItemID);
+	    item_cf = isA_CFString(item_cf);
+	    if (item_cf != NULL) {
+		password = S_copy_password_from_keychain(supp->system_mode, 
+							 item_cf);
+		if (password == NULL) {
+		    my_log(LOG_NOTICE, 
+			   "%s: failed to retrieve password from keychain",
+			   EAPOLSocket_if_name(supp->sock, NULL));
+		}
 	    }
 	}
     }

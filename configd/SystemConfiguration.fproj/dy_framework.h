@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,9 @@
 #include <Security/Security.h>
 
 __BEGIN_DECLS
+
+#pragma mark -
+#pragma mark IOKit.framework APIs
 
 CFMutableDictionaryRef
 _IOBSDNameMatching			(
@@ -148,6 +151,74 @@ _IOServiceMatching			(
 					);
 #define IOServiceMatching _IOServiceMatching
 
+#pragma mark -
+#pragma mark Security.framework APIs
+
+OSStatus
+_AuthorizationMakeExternalForm		(
+					AuthorizationRef		authorization,
+					AuthorizationExternalForm	*extForm
+					);
+#define AuthorizationMakeExternalForm _AuthorizationMakeExternalForm
+
+OSStatus
+_SecAccessCopySelectedACLList		(
+					SecAccessRef			accessRef,
+					CSSM_ACL_AUTHORIZATION_TAG	action,
+					CFArrayRef			*aclList
+					);
+#define SecAccessCopySelectedACLList _SecAccessCopySelectedACLList
+
+OSStatus
+_SecAccessCreate			(
+					CFStringRef			descriptor,
+					CFArrayRef			trustedlist,
+					SecAccessRef			*accessRef
+					);
+#define SecAccessCreate _SecAccessCreate
+
+OSStatus
+_SecAccessCreateFromOwnerAndACL		(
+					const CSSM_ACL_OWNER_PROTOTYPE	*owner,
+					uint32				aclCount,
+					const CSSM_ACL_ENTRY_INFO	*acls,
+					SecAccessRef			*accessRef
+					);
+#define SecAccessCreateFromOwnerAndACL _SecAccessCreateFromOwnerAndACL
+
+OSStatus
+_SecKeychainCopyDomainDefault		(
+					SecPreferencesDomain			domain,
+					SecKeychainRef				*keychain
+					);
+#define SecKeychainCopyDomainDefault _SecKeychainCopyDomainDefault
+
+OSStatus
+_SecKeychainGetPreferenceDomain		(
+					SecPreferencesDomain			*domain
+					);
+#define SecKeychainGetPreferenceDomain _SecKeychainGetPreferenceDomain
+
+OSStatus
+_SecKeychainOpen			(
+					const char				*pathName,
+					SecKeychainRef				*keychain
+					);
+#define SecKeychainOpen _SecKeychainOpen
+
+OSStatus
+_SecKeychainSetDomainDefault		(
+					SecPreferencesDomain			domain,
+					SecKeychainRef				keychain
+					);
+#define SecKeychainSetDomainDefault _SecKeychainSetDomainDefault
+
+OSStatus
+_SecKeychainSetPreferenceDomain		(
+					SecPreferencesDomain			domain
+					);
+#define SecKeychainSetPreferenceDomain _SecKeychainSetPreferenceDomain
+
 OSStatus
 _SecKeychainItemCopyContent		(
 					SecKeychainItemRef		itemRef,
@@ -157,6 +228,40 @@ _SecKeychainItemCopyContent		(
 					void				**outData
 					);
 #define SecKeychainItemCopyContent _SecKeychainItemCopyContent
+
+OSStatus
+_SecKeychainItemCreateFromContent	(
+					SecItemClass			itemClass,
+					SecKeychainAttributeList	*attrList,
+					UInt32				length,
+					const void			*data,
+					SecKeychainRef			keychainRef,
+					SecAccessRef			initialAccess,
+					SecKeychainItemRef		*itemRef
+					);
+#define SecKeychainItemCreateFromContent _SecKeychainItemCreateFromContent
+
+OSStatus
+_SecKeychainItemDelete			(
+					SecKeychainItemRef		itemRef
+					);
+#define SecKeychainItemDelete _SecKeychainItemDelete
+
+OSStatus
+_SecKeychainItemFreeContent		(
+					SecKeychainAttributeList	*attrList,
+					void				*data
+					);
+#define SecKeychainItemFreeContent _SecKeychainItemFreeContent
+
+OSStatus
+_SecKeychainItemModifyContent		(
+					SecKeychainItemRef		itemRef,
+					const SecKeychainAttributeList	*attrList,
+					UInt32				length,
+					const void			*data
+					);
+#define SecKeychainItemModifyContent _SecKeychainItemModifyContent
 
 OSStatus
 _SecKeychainSearchCopyNext		(
@@ -173,6 +278,13 @@ _SecKeychainSearchCreateFromAttributes	(
 					SecKeychainSearchRef		*searchRef
 					);
 #define SecKeychainSearchCreateFromAttributes _SecKeychainSearchCreateFromAttributes
+
+OSStatus
+_SecTrustedApplicationCreateFromPath	(
+					const char			*path,
+					SecTrustedApplicationRef	*app
+					);
+#define SecTrustedApplicationCreateFromPath _SecTrustedApplicationCreateFromPath
 
 __END_DECLS
 

@@ -1,4 +1,4 @@
-# $Id: termcap.vms,v 1.1.1.2 2001/06/28 23:10:56 bbraun Exp $
+# $Id: termcap.vms,v 1.2 1992/10/27 16:18:15 christos Exp $
 # posix /etc/termcap 1992 
 #
 # Minimal termcap for VMS/POSIX

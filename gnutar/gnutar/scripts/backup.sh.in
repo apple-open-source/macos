@@ -104,6 +104,10 @@ test_root() {
     if [ ! -w ${ROOT_FS-/} ]; then
 	bailout "The backup must be run as root or else some files will fail to be dumped."
     fi
+    case "${ROOT_FS}" in
+    */)	  ;;
+    *)	  ROOT_FS="${ROOT_FS}/"
+    esac
 }
 
 advice() {

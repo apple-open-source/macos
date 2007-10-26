@@ -1,0 +1,59 @@
+--- _SB/Libc/stdlib/FreeBSD/rand.3	2004-11-25 11:38:42.000000000 -0800
++++ _SB/Libc/stdlib/FreeBSD/rand.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -41,22 +41,30 @@
+ .Os
+ .Sh NAME
+ .Nm rand ,
++.Nm rand_r ,
+ .Nm srand ,
+-.Nm sranddev ,
+-.Nm rand_r
++.Nm sranddev
+ .Nd bad random number generator
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+ .In stdlib.h
+-.Ft void
+-.Fn srand "unsigned seed"
+-.Ft void
+-.Fn sranddev void
+ .Ft int
+-.Fn rand void
++.Fo rand
++.Fa void
++.Fc
+ .Ft int
+-.Fn rand_r "unsigned *ctx"
++.Fo rand_r
++.Fa "unsigned *seed"
++.Fc
++.Ft void
++.Fo srand
++.Fa "unsigned seed"
++.Fc
++.Ft void
++.Fo sranddev
++.Fa void
++.Fc
+ .Sh DESCRIPTION
+ .Bf -symbolic
+ These interfaces are obsoleted by
+@@ -89,7 +97,7 @@
+ .Pp
+ The
+ .Fn sranddev
+-function initializes a seed using the
++function initializes a seed, using the
+ .Xr random 4
+ random number device which returns good random numbers,
+ suitable for cryptographic use.
+@@ -100,7 +108,7 @@
+ provides the same functionality as
+ .Fn rand .
+ A pointer to the context value
+-.Fa ctx
++.Fa seed
+ must be supplied by the caller.
+ .Sh SEE ALSO
+ .Xr random 3 ,

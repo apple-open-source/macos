@@ -505,7 +505,9 @@ have to be specially tailored to reduce the residual error below
 this limit.
 Once this is done, the drift file is automatically
 updated once per hour and is available to initialize the frequency
-on subsequent daemon restarts.
+on subsequent daemon restarts. If the system is conserving energy by spinning
+down the disk or sleeping when idle then the update is deferred until 
+ntpd terminates.
 .Ss "The huff-n'-puff filter"
 In scenarios where a considerable amount of data are to be
 downloaded or uploaded over telephone modems, timekeeping quality

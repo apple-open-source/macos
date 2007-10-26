@@ -81,8 +81,11 @@ sh_double_quote (string)
 
   for (s = string; s && (c = *s); s++)
     {
-      if (sh_syntaxtab[c] & CBSDQUOTE)
+      /* Backslash-newline disappears within double quotes, so don't add one. */
+      if ((sh_syntaxtab[c] & CBSDQUOTE) && c != '\n')
 	*r++ = '\\';
+      else if (c == CTLESC || c == CTLNUL)
+	*r++ = CTLESC;		/* could be '\\'? */
 
       *r++ = c;
     }
@@ -93,8 +96,35 @@ sh_double_quote (string)
   return (result);
 }
 
+/* Turn S into a simple double-quoted string.  If FLAGS is non-zero, quote
+   double quote characters in S with backslashes. */
+char *
+sh_mkdoublequoted (s, slen, flags)
+     const char *s;
+     int slen, flags;
+{
+  char *r, *ret;
+  int rlen;
+
+  rlen = (flags == 0) ? slen + 3 : (2 * slen) + 1;
+  ret = r = (char *)xmalloc (rlen);
+  
+  *r++ = '"';
+  while (*s)
+    {
+      if (flags && *s == '"')
+	*r++ = '\\';
+      *r++ = *s++;
+    }
+  *r++ = '"';
+  *r = '\0';
+
+  return ret;
+}
+
 /* Remove backslashes that are quoting characters that are special between
-   double quotes.  Return a new string. */
+   double quotes.  Return a new string.  XXX - should this handle CTLESC
+   and CTLNUL? */
 char *
 sh_un_double_quote (string)
      char *string;
@@ -125,7 +155,11 @@ sh_un_double_quote (string)
 }
 
 /* Quote special characters in STRING using backslashes.  Return a new
-   string. */
+   string.  NOTE:  if the string is to be further expanded, we need a
+   way to protect the CTLESC and CTLNUL characters.  As I write this,
+   the current callers will never cause the string to be expanded without
+   going through the shell parser, which will protect the internal
+   quoting characters. */
 char *
 sh_backslash_quote (string)
      char *string;
@@ -157,7 +191,13 @@ sh_backslash_quote (string)
 	    *r++ = '\\';
 	  *r++ = c;
 	  break;
+
+	case CTLESC: case CTLNUL:		/* internal quoting characters */
+	  *r++ = CTLESC;			/* could be '\\'? */
+	  *r++ = c;
+	  break;
 #endif
+
 	case '#':				/* comment char */
 	  if (s == string)
 	    *r++ = '\\';
@@ -188,6 +228,9 @@ sh_backslash_quote_for_double_quotes (string)
     {
       if (sh_syntaxtab[c] & CBSDQUOTE)
 	*r++ = '\\';
+      /* I should probably add flags for these to sh_syntaxtab[] */
+      else if (c == CTLESC || c == CTLNUL)
+	*r++ = CTLESC;		/* could be '\\'? */
 
       *r++ = c;
     }

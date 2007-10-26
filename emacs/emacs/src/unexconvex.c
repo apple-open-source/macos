@@ -7,7 +7,8 @@
    think about it, or about whether other Emacs maintenance might
    break it.
 
-   Copyright (C) 1985, 1986, 1988 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1988, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -23,8 +24,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* modified for C-1 arch by jthomp@convex 871103 */
@@ -137,7 +138,7 @@ before writing it (above and beyond the number of bytes of actual
 program text).  HDR's standard fields are already correct, except that
 this adjustment to the `a_text' field has not yet been made;
 thus, the amount of offset can depend on the data in the file.
-  
+
 * A_TEXT_SEEK(HDR)
 
 If defined, this macro specifies the number of bytes to seek into the
@@ -244,7 +245,7 @@ unsigned data_start, bss_start, entry_address;
       || copy_text_and_data (new) < 0
       || copy_sym (new, a_out, a_name, new_name) < 0 ) {
 	close (new);
-	return -1;	
+	return -1;
     }
 
     close (new);
@@ -600,3 +601,5 @@ first_pty_letter ()
   return 'a';
 }
 
+/* arch-tag: 8199e06d-69b5-4f79-84d8-00f6ea929af9
+   (do not change this comment) */

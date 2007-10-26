@@ -2,6 +2,8 @@
  * Copyright (c) 2000 Doug Rabson
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -23,7 +25,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	$FreeBSD: src/sys/sys/kobj.h,v 1.3 2000/05/01 10:45:14 dfr Exp $
  */
 
 #ifndef _SYS_KOBJ_H_

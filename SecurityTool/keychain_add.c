@@ -32,6 +32,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <Security/SecCertificate.h>
+#include <libkern/OSByteOrder.h>
 
 
 
@@ -251,11 +252,10 @@ int keychain_add_internet_password(int argc, char * const *argv)
             port = atoi(optarg);
             break;
         case 'r':
-            memcpy(&protocol,optarg,4);
-            //protocol = (SecProtocolType)optarg;
+			protocol = OSSwapHostToBigInt32(*(u_int32_t*) optarg);
             break;
         case 't':
-           memcpy(&authenticationType,optarg,4);
+		   authenticationType = OSSwapHostToBigInt32(*(u_int32_t*) optarg);
             break;
         case 'w':
             passwordData = optarg;

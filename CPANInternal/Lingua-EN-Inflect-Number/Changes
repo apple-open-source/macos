@@ -1,0 +1,6 @@
+Revision history for Perl extension Lingua::EN::Inflect::Number.
+
+0.01  Wed Dec 31 17:24:48 2003
+	- original version; created by h2xs 1.21 with options
+		-AX -n Lingua::EN::Inflect::Number
+

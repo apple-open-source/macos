@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -21,7 +21,7 @@
 
 	Contains:	Public API for Apple SSL/TLS Implementation
 
-	Copyright: (c) 1999-2002 by Apple Computer, Inc., all rights reserved.
+	Copyright: (c) 1999-2006 by Apple Computer, Inc., all rights reserved.
 
 */
 
@@ -57,10 +57,10 @@
  * be reused for multiple sessions.  
  */ 
  
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <CoreFoundation/CFArray.h>
 #include <Security/CipherSuite.h>
 #include <sys/types.h>
+#include <AvailabilityMacros.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -525,26 +525,61 @@ SSLSetTrustedRoots			(SSLContextRef 		context,
  * Obtain an array of SecCertificateRefs representing the current
  * set of trusted roots. If SSLSetTrustedRoots() has never been called
  * for this session, this returns the system's default root set.
+ *
+ * Caller must CFRelease the returned CFArray and each SecCertificateRef
+ * in the array. For this reason this is deprecated in favor of 
+ * SSLCopyTrustedRoots(), which has proper CF semantics. 
  */
 OSStatus 
 SSLGetTrustedRoots			(SSLContextRef 		context,
+							 CFArrayRef 		*trustedRoots)	/* RETURNED */
+							 DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+ /*
+  * Obtain an array of SecCertificateRefs representing the current
+  * set of trusted roots. If SSLSetTrustedRoots() has never been called
+  * for this session, this returns the system's default root set.
+  *
+  * Caller must CFRelease the returned CFArray. 
+  */
+OSStatus 
+SSLCopyTrustedRoots			(SSLContextRef 		context,
 							 CFArrayRef 		*trustedRoots);	/* RETURNED */
+
+														 
+/*
+ * Request peer certificates. Valid anytime, subsequent to
+ * a handshake attempt.
+ *
+ * The certs argument is a CFArray containing SecCertificateRefs.
+ * Caller must CFRelease the returned array as well as each 
+ * SecCertificateRef in it. For this reason this function is 
+ * deprecated in favor of SSLCopyPeerCertificates(). 
+ * 
+ * The cert at index 0 of the returned array is the subject (end 
+ * entity) cert; the root cert (or the closest cert to it) is at 
+ * the end of the returned array. 
+ */	
+OSStatus 
+SSLGetPeerCertificates		(SSLContextRef 		context, 
+							 CFArrayRef			*certs)		/* RETURNED */
+							 DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*
  * Request peer certificates. Valid anytime, subsequent to
  * a handshake attempt.
  *
  * The certs argument is a CFArray containing SecCertificateRefs.
- * The entire array is created by the SecureTransport library 
- * and must be released by the caller. The cert at index 0 of 
- * the returned array is the subject (end entity) cert; the 
- * root cert (or the closest cert to it) is at the end of the 
- * returned array. 
+ * Caller must CFRelease the returned array.
+ * 
+ * The cert at index 0 of the returned array is the subject (end 
+ * entity) cert; the root cert (or the closest cert to it) is at 
+ * the end of the returned array. 
  */	
 OSStatus 
-SSLGetPeerCertificates		(SSLContextRef 		context, 
+SSLCopyPeerCertificates		(SSLContextRef 		context, 
 							 CFArrayRef			*certs);	/* RETURNED */
-							 								 
+						 								 
 /*
  * Specify some data, opaque to this library, which is sufficient
  * to uniquely identify the peer of the current session. An example
@@ -648,6 +683,52 @@ SSLAddDistinguishedName		(SSLContextRef 		context,
 							 const void 		*derDN,
 							 size_t 			derDNLen);
 
+/* 
+* Add a SecCertificateRef, or a CFArray of them, to a server's list
+ * of acceptable Certificate Authorities (CAs) to present to the client
+ * when client authentication is performed. 
+ *
+ * If replaceExisting is true, the specified certificate(s) will replace
+ * a possible existing list of acceptable CAs. If replaceExisting is
+ * false, the specified certificate(s) will be appended to the existing
+ * list of acceptable CAs, if any. 
+ *
+ * Returns paramErr is this is called on an SSLContextRef which 
+ * is configured as a client, or when a session is active. 
+ */
+OSStatus
+SSLSetCertificateAuthorities(SSLContextRef		context,
+							 CFTypeRef			certificateOrArray,
+							 Boolean 			replaceExisting);
+
+/*
+ * Obtain the certificates specified in SSLSetCertificateAuthorities(),
+ * if any. Returns a NULL array if SSLSetCertificateAuthorities() has not
+ * been called. 
+ * Caller must CFRelease the returned array.
+ */
+OSStatus
+SSLCopyCertificateAuthorities(SSLContextRef		context,
+							  CFArrayRef		*certificates);	/* RETURNED */
+							  
+							  
+/* 
+ * Obtain the list of acceptable distinguished names as provided by 
+ * a server (if the SSLContextRef is configured as a client), or as
+ * specified by SSLSetCertificateAuthorities() (if the SSLContextRef 
+ * is configured as a server). 
+ * The returned array contains CFDataRefs, each of which represents 
+ * one DER-encoded RDN. This array is suitable for use in 
+ * SecIdentitySearchCreateWithAttributes() in order to find
+ * a client identity matching a server's requirements. 
+ *
+ * Caller must CFRelease the returned array. 
+ */
+OSStatus 
+SSLCopyDistinguishedNames	(SSLContextRef		context,
+							 CFArrayRef			*names);
+							  
+							  
 /*
  * Obtain client certificate exhange status. Can be called 
  * any time. Reflects the *last* client certificate state change;
@@ -736,7 +817,7 @@ SSLHandshake				(SSLContextRef		context);
 OSStatus 
 SSLWrite					(SSLContextRef		context,
 							 const void *		data,
-							 size_t				dataLength,
+							 size_t				dataLength,  // X64 incompatible with impl (UInt32)
 							 size_t 			*processed);	/* RETURNED */ 
 
 /*

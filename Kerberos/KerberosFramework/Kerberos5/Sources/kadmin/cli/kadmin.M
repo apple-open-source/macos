@@ -15,7 +15,7 @@ kadmin \- Kerberos V5 database administration program
 .B kadmin.local
 [\fB\-r\fP \fIrealm\fP] [\fB\-p\fP \fIprincipal\fP] [\fB\-q\fP \fIquery\fP]
 .br
-[\fB\-d\fP \fIdbname\fP] [\fB\-e \fI"enc:salt ..."\fP] [\fB-m\fP]
+[\fB\-d\fP \fIdbname\fP] [\fB\-e \fI"enc:salt ..."\fP] [\fB-m\fP] [\fB\-x\fP \fIdb_args\fP]
 .ad b
 .SH DESCRIPTION
 .B kadmin
@@ -28,8 +28,10 @@ and
 .B kadmin.local
 provide identical functionalities; the difference is that
 .B kadmin.local
-runs on the master KDC and does not use Kerberos to authenticate to the
-database.  Except as explicitly noted otherwise, this man page will use
+runs on the master KDC if the database is db2 and
+does not use Kerberos to authenticate to the
+database. Except as explicitly noted otherwise, 
+this man page will use
 .B kadmin
 to refer to both versions.
 .B kadmin
@@ -58,7 +60,7 @@ has determined the principal name, it requests a
 Kerberos service ticket from the KDC, and uses that service ticket to
 authenticate to KADM5.
 .PP
-The local client
+If the database is db2, the local client
 .BR kadmin.local ,
 is intended to run directly on the master KDC without Kerberos
 authentication.  The local version provides all of the functionality of
@@ -68,6 +70,7 @@ except for database dump and load, which is now provided by the
 .IR kdb5_util (8)
 utility.
 .PP
+If the database is LDAP, kadmin.local need not be run on the KDC. 
 .SH OPTIONS
 .TP
 \fB\-r\fP \fIrealm\fP
@@ -130,6 +133,7 @@ and then exit.  This can be useful for writing scripts.
 .TP
 \fB\-d\fP \fIdbname\fP
 Specifies the name of the Kerberos database.
+This option does not apply to the LDAP database.
 .TP
 \fB\-s\fP \fIadmin_server[:port]\fP
 Specifies the admin server which kadmin should contact.
@@ -147,6 +151,27 @@ Force use of old AUTH_GSSAPI authentication flavor.
 .TP
 .B \-N
 Prevent fallback to AUTH_GSSAPI authentication flavor.
+.TP
+\fB\-x\fP \fIdb_args\fP
+Specifies the database specific arguments.
+
+Options supported for LDAP database are:
+.RS
+.TP
+\-x host=<hostname>
+specifies the LDAP server to connect to by a LDAP URI.
+.TP
+\-x binddn=<bind_dn>
+.fi
+specifies the DN of the object used by the administration server to bind to the LDAP server.
+This object should have the read and write rights on the realm container, principal container
+and the subtree that is referenced by the realm.
+.TP
+\-x bindpwd=<bind_password>
+.fi
+specifies the password for the above mentioned binddn. It is recommended not to use this option.
+Instead, the password can be stashed using the stashsrvpw command of kdb5_ldap_util.
+.RE
 .SH DATE FORMAT 
 Various commands in kadmin can take a variety of date formats,
 specifying durations or absolute times.  Examples of valid formats are:
@@ -194,6 +219,26 @@ and
 .BR ank .
 The options are:
 .RS
+.TP
+\fB\-x\fP \fIdb_princ_args\fP
+Denotes the database specific options. The options for LDAP database are:
+.RS
+.TP
+\-x dn=<dn>
+Specifies the LDAP object that will contain the Kerberos principal being 
+created.
+.TP
+\-x linkdn=<dn>
+.fi
+Specifies the LDAP object to which the newly created Kerberos principal object
+will point to.
+.TP
+\-x containerdn=<container_dn>
+Specifies the container object under which the Kerberos principal is to be created. 
+.TP
+\-x tktpolicy=<policy>
+Associates a ticket policy to the Kerberos principal.
+.RE
 .TP
 \fB\-expire\fP \fIexpdate\fP
 expiration date of the principal
@@ -365,6 +410,15 @@ Enter password for principal tlyu/admin@BLEEP.COM:
 Re-enter password for principal tlyu/admin@BLEEP.COM:
 Principal "tlyu/admin@BLEEP.COM" created.
 kadmin:
+
+kadmin: addprinc -x dn=cn=mwm_user,o=org mwm_user
+WARNING: no policy specified for "mwm_user@BLEEP.COM";
+defaulting to no policy.
+Enter password for principal mwm_user@BLEEP.COM: 
+Re-enter password for principal mwm_user@BLEEP.COM: 
+Principal "mwm_user@BLEEP.COM" created.
+kadmin:
+
 .TP
 ERRORS:
 KADM5_AUTH_ADD (requires "add" privilege)
@@ -383,7 +437,7 @@ option is given. This command requires the
 .I delete
 privilege.  Aliased
 to
-.BR delprinc .
+.BR delprinc.
 .sp
 .nf
 .RS
@@ -414,9 +468,20 @@ will clear the current policy of a principal.  This command requires the
 .I modify
 privilege.  Aliased to
 .BR modprinc .
-.sp
-.nf
 .RS
+.TP
+\fB\-x\fP \fIdb_princ_args\fP
+Denotes the database specific options. The options for LDAP database are:
+.RS
+.TP
+\-x tktpolicy=<policy>
+Associates a ticket policy to the Kerberos principal.
+.TP
+\-x linkdn=<dn>
+.fi
+Associates a Kerberos principal with a LDAP object. This option is honored only
+if the Kerberos principal is not already associated with a LDAP object. 
+.RE
 .TP
 ERRORS:
 KADM5_AUTH_MODIFY (requires "modify" privilege)
@@ -457,7 +522,7 @@ daemons earlier than krb5\-1.2.
 Keeps the previous kvno's keys around.  There is no
 easy way to delete the old keys, and this flag is usually not
 necessary except perhaps for TGS keys.  Don't use this flag unless you
-know what you're doing.
+know what you're doing. This option is not supported for the LDAP database.
 .nf
 .TP
 EXAMPLE:
@@ -569,9 +634,13 @@ sets the minimum length of a password
 sets the minimum number of character classes allowed in a password
 .TP
 \fB\-history\fP \fInumber\fP
-sets the number of past keys kept for a principal
+sets the number of past keys kept for a principal. This option is not supported for LDAP database
 .sp
 .nf
+.TP
+EXAMPLES:
+kadmin: add_policy -maxlife "2 days" -minlength 5 guests
+kadmin:
 .TP
 ERRORS:
 KADM5_AUTH_ADD (requires the add privilege)
@@ -739,9 +808,9 @@ option is specified, less verbose status information is displayed.
 .RS
 .TP
 EXAMPLE:
-kadmin: ktremove -k /usr/local/var/krb5kdc/kadmind.keytab kadmin/admin
+kadmin: ktremove -k /var/db/krb5kdc/kadmind.keytab kadmin/admin
 Entry for principal kadmin/admin with kvno 3 removed
-	from keytab WRFILE:/usr/local/var/krb5kdc/kadmind.keytab.
+	from keytab WRFILE:/db/var/krb5kdc/kadmind.keytab.
 kadmin:
 .RE
 .fi
@@ -762,6 +831,9 @@ will exit with an error if this file does
 .I not
 exist.
 .TP
+.B Note:
+The above three files are specific to db2 database.
+.TP 
 kadm5.acl
 file containing list of principals and their
 .B kadmin

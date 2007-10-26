@@ -28,7 +28,7 @@ modentry(int boot, Module m)
 	break;
 
     default:
-	zerr("bad call to modentry", NULL, 0);
+	zerr("bad call to modentry");
 	return 1;
 	break;
     }

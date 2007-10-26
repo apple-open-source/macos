@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,7 +64,11 @@
 struct	outmp {
 	char	out_line[8];		/* tty name */
 	char	out_name[8];		/* user id */
+#ifdef __LP64__
+	int	out_time;		/* time on */
+#else /* !__LP64__ */
 	long	out_time;		/* time on */
+#endif /* __LP64__ */
 };
 
 struct	whod {

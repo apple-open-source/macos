@@ -52,6 +52,7 @@
 #define ACL_REMOVE_INHERITED_ENTRIES (1<<10)
 #define ACL_NO_TRANSLATE (1<<11)
 #define ACL_INVOKE_EDITOR (1<<12)
+#define ACL_TO_STDOUT (1<<13)
 #define ACL_CLEAR_FLAG (1<<14)
 
 #define INHERITANCE_TIER (-5)
@@ -80,5 +81,5 @@ extern unsigned find_canonical_position(acl_t acl, acl_entry_t modifier);
 extern int subtract_from_entry(acl_entry_t rentry, acl_entry_t  modifier);
 extern int modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags, int position, int inheritance_level, unsigned flag_new_acl);
 extern int modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int position, int inheritance_level);
-extern uuid_t *name_to_uuid(char *tok);
+extern uuid_t *name_to_uuid(char *tok, int nametype);
 #endif /* __APPLE__*/

@@ -42,7 +42,7 @@ void P12Coder::decode(
 
 	p12DecodeLog("decode");
 	memset(&pfx, 0, sizeof(pfx));
-	const CSSM_DATA rawBlob = {(uint32)CFDataGetLength(cdpfx),
+	const CSSM_DATA rawBlob = {CFDataGetLength(cdpfx),
 		(uint8 *)CFDataGetBytePtr(cdpfx)};
 		
 	if(localCdr.decodeItem(rawBlob, NSS_P12_DecodedPFXTemplate, &pfx)) {
@@ -56,7 +56,6 @@ void P12Coder::decode(
 		P12_THROW_DECODE;
 	}
 	mIntegrityMode = kSecPkcs12ModePassword;
-	authSafeParse(*dci.content.data, localCdr);
 
 	if(pfx.macData == NULL) {
 		/* not present is an error in kSecPkcs12ModePassword */
@@ -75,9 +74,11 @@ void P12Coder::decode(
 		macPassKey, localCdr);
 	if(crtn) {
 		p12LogCssmError("p12VerifyMac", crtn);
-		CssmError::throwMe(CSSMERR_CSP_VERIFY_FAILED);
+		CssmError::throwMe(errSecPkcs12VerifyFailure);
 	}
 	
+	authSafeParse(*dci.content.data, localCdr);
+
 	/*
 	 * On success, if we have a keychain, store certs and CRLs there
 	 */
@@ -265,10 +266,14 @@ void P12Coder::shroudedKeyBagParse(
 		passKey,
 		localCdr, 
 		labelData,
+		mAccess,
+		mNoAcl,
+		mKeyUsage,
+		mKeyAttrs,
 		privKey);
 	if(crtn) {
 		p12ErrorLog("Error unwrapping private key\n");
-		P12_THROW_DECODE;
+		CssmError::throwMe(crtn);
 	}
 	p12DecodeLog("unwrapped shrouded key bag");
 

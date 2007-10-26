@@ -90,8 +90,10 @@ extern "C" {
  * So I've chosen long...
  *					<appro@fy.chalmers.se>
  */
+#elif defined(__LP64__)
+#define BF_LONG unsigned int
 #else
-#warning BF_LONG really should be explicitly defined\
+#warning BF_LONG really should be explicitly defined
 #define BF_LONG unsigned int
 #endif
 

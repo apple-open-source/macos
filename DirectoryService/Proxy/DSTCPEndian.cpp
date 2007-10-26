@@ -47,6 +47,7 @@
 #else
 
 #include "CDSRefMap.h"
+#include "DirServicesPriv.h"
 
 #endif
 
@@ -125,11 +126,11 @@ char* objectTypes[] =
 
 FILE* gDumpFile = NULL;
 
-void DumpBuf(char* buf, uInt32 len)
+void DumpBuf(char* buf, UInt32 len)
 {
     char acsiiBuf[17];
     
-    for (uInt32 i = 0; i < len; i++)
+    for (UInt32 i = 0; i < len; i++)
     {
         if ((i % 16) == 0) ::memset(acsiiBuf, 0, 17);
         fprintf(gDumpFile, "%02X ", buf[i]);
@@ -143,7 +144,7 @@ void DumpBuf(char* buf, uInt32 len)
 #endif
 
 
-DSTCPEndian::DSTCPEndian(sComProxyData* fMessage, int direction) : fMessage(fMessage)
+DSTCPEndian::DSTCPEndian(sComProxyData* message, int direction) : fMessage(message)
 {
     toBig = (direction == kDSSwapToBig);
 	fIPAddress = 0;
@@ -155,12 +156,12 @@ void DSTCPEndian::SwapMessage()
     short i;
     sObject* object;
     bool isTwoWay = false;
-	uInt32 ourMsgID = 0;
+	UInt32 ourMsgID = 0;
     
     if (fMessage == nil) return;
     
 #if DUMP_BUFFER
-    uInt32 bufSize = 0;
+    UInt32 bufSize = 0;
     if (gDumpFile == NULL)
         gDumpFile = fopen("/Library/Logs/DirectoryService/PacketDump", "w");
         
@@ -171,9 +172,9 @@ void DSTCPEndian::SwapMessage()
     for (i=0; i< 10; i++)
     {
         object = &fMessage->obj[i];
-        uInt32 objType = DSGetLong(&object->type, toBig);
-        uInt32 offset = DSGetLong(&object->offset, toBig);
-        uInt32 length = DSGetLong(&object->length, toBig);
+        UInt32 objType = DSGetLong(&object->type, toBig);
+        UInt32 offset = DSGetLong(&object->offset, toBig);
+        UInt32 length = DSGetLong(&object->length, toBig);
         char* type = "unknown";
         if (objType >= kResult && objType <= kAttrValueList)
             type = objectTypes[objType - kResult];
@@ -186,7 +187,7 @@ void DSTCPEndian::SwapMessage()
         }
         if (length > 0)
         {
-            uInt32 size = offset + length - sizeof(sComProxyData) + 4;
+            UInt32 size = offset + length - sizeof(sComProxyData) + 4;
             if (size > bufSize) bufSize = size;
         }
     }
@@ -201,20 +202,20 @@ void DSTCPEndian::SwapMessage()
     DSSwapLong(&fMessage->fPID, toBig); //FW side uses PID BUT the server receiving side uses the TCP port instead
     //DSSwapLong(&fMessage->fIPAddress, toBig); //obtained directly from the endpoint and not present yet in this value
     
-	uInt32 aNodeRef = 0;
+	UInt32 aNodeRef = 0;
 #ifndef DSSERVERTCP
-	uInt32 aNodeRefMap = 0; //used with ktNodeRefMap only for FW
+	UInt32 aNodeRefMap = 0; //used with ktNodeRefMap only for FW
 #endif
 	//handle CustomCall endian issues - need to determine which plugin is being used
 	bool bCustomCall = false;
-	uInt32 aCustomRequestNum = 0;
+	UInt32 aCustomRequestNum = 0;
 	bool bIsAPICallResponse = false;
 	const char* aPluginName = nil;
     // if this is the auth case, we need to do some checks
     for (i=0; i< 10; i++)
     {
         object = &fMessage->obj[i];
-        uInt32 objType = DSGetLong(&object->type, toBig);
+        UInt32 objType = DSGetLong(&object->type, toBig);
 
         // check for two-way random special case before we start swapping stuff
         if (objType == kAuthMethod)
@@ -228,9 +229,9 @@ void DSTCPEndian::SwapMessage()
 		if (objType == kCustomRequestCode)
 		{
 			bCustomCall = true;
-			aCustomRequestNum = (uInt32)DSGetLong(&object->count, toBig);
+			aCustomRequestNum = (UInt32)DSGetLong(&object->count, toBig);
 #ifdef DSSERVERTCP
-DBGLOG1(kLogTCPEndpoint, "DSSERVERTCP>DSTCPEndian::SwapMessage(): kCustomRequestCode with code %u", aCustomRequestNum );
+DbgLog(kLogTCPEndpoint, "DSSERVERTCP>DSTCPEndian::SwapMessage(): kCustomRequestCode with code %u", aCustomRequestNum );
 #else
 LOG1(kStdErr, "FW-DSTCPEndian::SwapMessage(): kCustomRequestCode with code %u", aCustomRequestNum );
 #endif
@@ -239,13 +240,13 @@ LOG1(kStdErr, "FW-DSTCPEndian::SwapMessage(): kCustomRequestCode with code %u", 
 		if (objType == ktNodeRef)
 		{
 			//need to determine the nodename for discrimination of duplicate custom call codes - server and FW sends
-			aNodeRef = (uInt32)DSGetLong(&object->count, toBig);
+			aNodeRef = (UInt32)DSGetLong(&object->count, toBig);
 		}
 #ifndef DSSERVERTCP
 		if (objType == ktNodeRefMap)
 		{
 			//need to determine the nodename for discrimination of duplicate custom call codes - FW only
-			aNodeRefMap = (uInt32)DSGetLong(&object->count, toBig);
+			aNodeRefMap = (UInt32)DSGetLong(&object->count, toBig);
 			//need to keep this since it should come back as well from the server
 		}
 #endif
@@ -278,13 +279,10 @@ LOG1(kStdErr, "FW-DSTCPEndian::SwapMessage(): kCustomRequestCode with code %u", 
 		if (aNodeRef != 0)
 		{
 			CServerPlugin *aPluginPtr = nil;
-			sInt32 myResult = CRefTable::VerifyNodeRef( aNodeRef, &aPluginPtr, fPort, fIPAddress );
+			SInt32 myResult = CRefTable::VerifyNodeRef( aNodeRef, &aPluginPtr, fPort, fIPAddress );
 			if (myResult == eDSNoErr)
 			{
 				aPluginName = aPluginPtr->GetPluginName();
-				if (aPluginName != nil)
-				{
-				}
 			}
 		}
 #else
@@ -292,24 +290,17 @@ LOG1(kStdErr, "FW-DSTCPEndian::SwapMessage(): kCustomRequestCode with code %u", 
 		{
 			CDSRefMap::MapMsgIDToServerRef( ourMsgID, aNodeRef );
 			CDSRefMap::MapMsgIDToCustomCode( ourMsgID, aCustomRequestNum );
-			aPluginName = CDSRefMap::GetPluginName( aNodeRefMap, getpid() ); //FW side this PID should work but on server side we use the IP Port instead
-			if (aPluginName != nil)
-			{
-			}
+			aPluginName = dsGetPluginNamePriv( aNodeRefMap, getpid() ); //FW side this PID should work but on server side we use the IP Port instead
 		}
 		else
 		{
 			if (bIsAPICallResponse)
 			{
-				uInt32 ourServerRef = 0;
+				UInt32 ourServerRef = 0;
 				ourServerRef = CDSRefMap::GetServerRefFromMsgIDMap( ourMsgID );
 				CDSRefMap::RemoveMsgIDToServerRefMap( ourMsgID );
 				aNodeRefMap = CDSRefMap::GetLocalRefFromServerMap( ourServerRef );
-				
-				aPluginName = CDSRefMap::GetPluginName( aNodeRefMap, getpid() ); //FW side this PID should work but on server side we use the IP Port instead
-				if (aPluginName != nil)
-				{
-				}
+				aPluginName = dsGetPluginNamePriv( aNodeRefMap, getpid() ); //FW side this PID should work but on server side we use the IP Port instead
 			}
 		}
 #endif
@@ -323,11 +314,11 @@ LOG1(kStdErr, "FW-DSTCPEndian::SwapMessage(): kCustomRequestCode with code %u", 
         if (object->type == 0)
             continue;
             
-        uInt32 objType = DSGetAndSwapLong(&object->type, toBig);
+        UInt32 objType = DSGetAndSwapLong(&object->type, toBig);
         DSSwapLong(&object->count, toBig);
-        uInt32 objOffset = DSGetAndSwapLong(&object->offset, toBig);
+        UInt32 objOffset = DSGetAndSwapLong(&object->offset, toBig);
         DSSwapLong(&object->used, toBig);
-        uInt32 objLength = DSGetAndSwapLong(&object->length, toBig);
+        UInt32 objLength = DSGetAndSwapLong(&object->length, toBig);
             
         DSSwapObjectData(objType, (char *)fMessage + objOffset, objLength, (!isTwoWay), bCustomCall, aCustomRequestNum, (const char*)aPluginName, bIsAPICallResponse, toBig);
     }
@@ -342,7 +333,7 @@ LOG1(kStdErr, "FW-DSTCPEndian::SwapMessage(): kCustomRequestCode with code %u", 
 #endif
 }
 
-void DSTCPEndian::AddIPAndPort( uInt32 inIPAddress, uInt32 inPort)
+void DSTCPEndian::AddIPAndPort( UInt32 inIPAddress, UInt32 inPort)
 {
 	fIPAddress = inIPAddress;
 	fPort = inPort;

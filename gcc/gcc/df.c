@@ -1035,6 +1035,8 @@ df_uses_record (struct df *df, rtx *loc, enum df_ref_type ref_type,
 	      /* Fall through.  */
 	    case REG:
 	    case PARALLEL:
+	      /* APPLE LOCAL mainline */
+	    case SCRATCH:
 	    case PC:
 	    case CC0:
 		break;

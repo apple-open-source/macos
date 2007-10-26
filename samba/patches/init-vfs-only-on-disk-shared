@@ -1,0 +1,23 @@
+Index: samba/source/smbd/vfs.c
+===================================================================
+--- samba/source/smbd/vfs.c.orig
++++ samba/source/smbd/vfs.c
+@@ -274,9 +274,17 @@ BOOL smbd_vfs_init(connection_struct *co
+ 	const char **vfs_objects;
+ 	unsigned int i = 0;
+ 	int j = 0;
+-	
++
+ 	/* Normal share - initialise with disk access functions */
+ 	vfs_init_default(conn);
++
++	/* Don't bother loading VFS for IPC or printer connections. VFS
++	 * modules only apply to disk shares.
++	 */
++	if (conn->ipc || conn->printer) {
++		return True;
++	}
++
+ 	vfs_objects = lp_vfs_objects(SNUM(conn));
+ 
+ 	/* Override VFS functions if 'vfs object' was not specified*/

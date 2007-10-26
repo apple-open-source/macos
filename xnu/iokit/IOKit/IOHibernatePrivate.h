@@ -1,23 +1,29 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
 #include <stdint.h>
@@ -65,7 +71,10 @@ struct IOHibernateImageHeader
     uint32_t	signature;
     uint32_t	processorFlags;
 
-    uint8_t	reserved2[24];
+    uint32_t    runtimePages;
+    uint32_t    runtimePageCount;
+
+    uint8_t	reserved2[16];
     
     uint64_t	encryptStart;
     uint64_t	machineSignature;
@@ -75,7 +84,13 @@ struct IOHibernateImageHeader
 
     uint32_t	diag[4];
 
-    uint32_t	reserved[82];		// make sizeof == 512
+    int32_t	graphicsInfoOffset;
+    int32_t	cryptVarsOffset;
+    int32_t	memoryMapOffset;
+    uint32_t    memoryMapSize;
+    uint32_t    systemTableOffset;
+
+    uint32_t	reserved[77];		// make sizeof == 512
 
     uint32_t		fileExtentMapSize;
     IOPolledFileExtent	fileExtentMap[2];
@@ -101,26 +116,22 @@ struct hibernate_page_list_t
 };
 typedef struct hibernate_page_list_t hibernate_page_list_t;
 
+#if defined(_AES_H)
+
 struct hibernate_cryptwakevars_t
 {
-#ifdef _AES_H
     uint8_t aes_iv[AES_BLOCK_SIZE];
-#else
-#warning undef _AES_H
-#endif
 };
 typedef struct hibernate_cryptwakevars_t hibernate_cryptwakevars_t;
 
 struct hibernate_cryptvars_t
 {
-#ifdef _AES_H
     uint8_t aes_iv[AES_BLOCK_SIZE];
     aes_ctx ctx;
-#else
-#warning undef _AES_H
-#endif
 };
 typedef struct hibernate_cryptvars_t hibernate_cryptvars_t;
+
+#endif /* defined(_AES_H) */
 
 
 enum 
@@ -138,16 +149,25 @@ enum
     kIOHibernateProgressDarkGray      = 92
 };
 
+enum
+{
+    kIOHibernatePostWriteSleep   = 0,
+    kIOHibernatePostWriteWake    = 1,
+    kIOHibernatePostWriteHalt    = 2,
+    kIOHibernatePostWriteRestart = 3
+};
+
+
 struct hibernate_graphics_t
 {
-    unsigned long physicalAddress;	// Base address of video memory
-    unsigned long mode;    		// 
-    unsigned long rowBytes;   		// Number of bytes per pixel row
-    unsigned long width;      		// Width
-    unsigned long height;     		// Height
-    unsigned long depth;      		// Pixel Depth
+    uint32_t physicalAddress;		// Base address of video memory
+    uint32_t mode;			// 
+    uint32_t rowBytes;   		// Number of bytes per pixel row
+    uint32_t width;      		// Width
+    uint32_t height;     		// Height
+    uint32_t depth;      		// Pixel Depth
 
-    uint8_t	  progressSaveUnder[kIOHibernateProgressCount][kIOHibernateProgressSaveUnderSize];
+    uint8_t progressSaveUnder[kIOHibernateProgressCount][kIOHibernateProgressSaveUnderSize];
 };
 typedef struct hibernate_graphics_t hibernate_graphics_t;
 
@@ -200,7 +220,7 @@ void
 kern_close_file_for_direct_io(struct kern_direct_file_io_ref_t * ref);
 int
 kern_write_file(struct kern_direct_file_io_ref_t * ref, off_t offset, caddr_t addr, vm_size_t len);
-int get_kernel_symfile(struct proc *p, char **symfile);
+int get_kernel_symfile(struct proc *p, char const **symfile);
 #endif /* _SYS_CONF_H_ */
 
 hibernate_page_list_t *
@@ -225,15 +245,25 @@ hibernate_vm_lock(void);
 void
 hibernate_vm_unlock(void);
 
+// mark pages not to be saved, based on VM system accounting
 void
 hibernate_page_list_setall(hibernate_page_list_t * page_list,
 			   hibernate_page_list_t * page_list_wired,
 			   uint32_t * pagesOut);
 
+// mark pages to be saved, or pages not to be saved but available 
+// for scratch usage during restore
 void
 hibernate_page_list_setall_machine(hibernate_page_list_t * page_list,
                                     hibernate_page_list_t * page_list_wired,
                                     uint32_t * pagesOut);
+
+// mark pages not to be saved and not for scratch usage during restore
+void
+hibernate_page_list_set_volatile( hibernate_page_list_t * page_list,
+				  hibernate_page_list_t * page_list_wired,
+				  uint32_t * pagesOut);
+
 void
 hibernate_page_list_discard(hibernate_page_list_t * page_list);
 
@@ -243,24 +273,33 @@ hibernate_set_page_state(hibernate_page_list_t * page_list, hibernate_page_list_
 
 void 
 hibernate_page_bitset(hibernate_page_list_t * list, boolean_t set, uint32_t page);
+
 boolean_t 
 hibernate_page_bittst(hibernate_page_list_t * list, uint32_t page);
 
+hibernate_bitmap_t *
+hibernate_page_bitmap_pin(hibernate_page_list_t * list, uint32_t * page);
+
 uint32_t
-hibernate_page_list_count(hibernate_page_list_t *list, uint32_t set, uint32_t page);
+hibernate_page_bitmap_count(hibernate_bitmap_t * bitmap, uint32_t set, uint32_t page);
 
 void 
 hibernate_restore_phys_page(uint64_t src, uint64_t dst, uint32_t len, uint32_t procFlags);
 
 void
 hibernate_machine_init(void);
-boolean_t
+
+uint32_t
 hibernate_write_image(void);
 
 long
 hibernate_machine_entrypoint(IOHibernateImageHeader * header, void * p2, void * p3, void * p4);
 long
 hibernate_kernel_entrypoint(IOHibernateImageHeader * header, void * p2, void * p3, void * p4);
+void
+hibernate_newruntime_map(void * map, vm_size_t map_size, 
+			    uint32_t system_table_offset);
+
 
 extern uint32_t    gIOHibernateState;
 extern uint32_t    gIOHibernateMode;
@@ -293,9 +332,10 @@ enum
     kIOHibernateModeOn      = 0x00000001,
     kIOHibernateModeSleep   = 0x00000002,
     kIOHibernateModeEncrypt = 0x00000004,
-
     kIOHibernateModeDiscardCleanInactive = 0x00000008,
-    kIOHibernateModeDiscardCleanActive   = 0x00000010
+    kIOHibernateModeDiscardCleanActive   = 0x00000010,
+    kIOHibernateModeSwitch	= 0x00000020,
+    kIOHibernateModeRestart	= 0x00000040
 };
 
 // IOHibernateImageHeader.signature
@@ -322,6 +362,13 @@ enum
 #define kIOHibernateFeatureKey		"Hibernation"
 #define kIOHibernatePreviewBufferKey	"IOPreviewBuffer"
 
+#define kIOHibernatePreviewActiveKey	"IOHibernatePreviewActive"
+// values for kIOHibernatePreviewActiveKey
+enum {
+    kIOHibernatePreviewActive  = 0x00000001,
+    kIOHibernatePreviewUpdates = 0x00000002
+};
+
 #define kIOHibernateBootImageKey	"boot-image"
 #define kIOHibernateBootImageKeyKey	"boot-image-key"
 #define kIOHibernateBootSignatureKey	"boot-signature"
@@ -329,6 +376,11 @@ enum
 #define kIOHibernateMemorySignatureKey	  "memory-signature"
 #define kIOHibernateMemorySignatureEnvKey "mem-sig"
 #define kIOHibernateMachineSignatureKey	  "machine-signature"
+
+#define kIOHibernateRTCVariablesKey	"IOHibernateRTCVariables"
+
+#define kIOHibernateBootSwitchVarsKey			"boot-switch-vars"
+
 
 #ifdef __cplusplus
 }

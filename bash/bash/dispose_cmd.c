@@ -1,6 +1,6 @@
 /* dispose_command.c -- dispose of a COMMAND structure. */
 
-/* Copyright (C) 1987,1991 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2005 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -186,9 +186,7 @@ dispose_command (command)
 	register FUNCTION_DEF *c;
 
 	c = command->value.Function_def;
-	dispose_word (c->name);
-	dispose_command (c->command);
-	free (c);
+	dispose_function_def (c);
 	break;
       }
 
@@ -218,17 +216,39 @@ dispose_cond_node (cond)
 }
 #endif /* COND_COMMAND */
 
+void
+dispose_function_def_contents (c)
+     FUNCTION_DEF *c;
+{
+  dispose_word (c->name);
+  dispose_command (c->command);
+  FREE (c->source_file);
+}
+
+void
+dispose_function_def (c)
+     FUNCTION_DEF *c;
+{
+  dispose_function_def_contents (c);
+  free (c);
+}
+
 /* How to free a WORD_DESC. */
 void
 dispose_word (w)
      WORD_DESC *w;
 {
   FREE (w->word);
-#if 0
-  free (w);
-#else
   ocache_free (wdcache, WORD_DESC, w);
-#endif
+}
+
+/* Free a WORD_DESC, but not the word contained within. */
+void
+dispose_word_desc (w)
+     WORD_DESC *w;
+{
+  w->word = 0;
+  ocache_free (wdcache, WORD_DESC, w);
 }
 
 /* How to get rid of a linked list of words.  A WORD_LIST. */

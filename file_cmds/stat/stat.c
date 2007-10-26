@@ -41,16 +41,14 @@ __RCSID("$NetBSD: stat.c,v 1.13 2003/07/25 03:21:17 atatat Exp $");
 #endif
 #endif
 
-/* Commenting FBSDID, as it is not needed in OSX.
 __FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp $");
-*/
 
 #if HAVE_CONFIG_H
 #include "config.h" 
 #else  /* HAVE_CONFIG_H */
 #define HAVE_STRUCT_STAT_ST_FLAGS 1
 #define HAVE_STRUCT_STAT_ST_GEN 1
-#define HAVE_STRUCT_STAT_ST_BIRTHTIME 0 /* was 1; not needed if ! __BSD_VISIBLE ? */
+#define HAVE_STRUCT_STAT_ST_BIRTHTIME 1
 #define HAVE_STRUCT_STAT_ST_MTIMENSEC 1
 #define HAVE_DEVNAME 1
 #endif /* HAVE_CONFIG_H */
@@ -68,6 +66,12 @@ __FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp 
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+#ifdef __APPLE__
+#define stat stat64
+#define fstat fstat64
+#define lstat lstat64
+#endif /* __APPLE__ */
 
 #if HAVE_STRUCT_STAT_ST_FLAGS
 #define DEF_F "%#Xf "
@@ -110,7 +114,7 @@ __FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp 
 #define LINUX_FORMAT \
 	"  File: \"%N\"%n" \
 	"  Size: %-11z  FileType: %HT%n" \
-	"  Mode: (%04OLp/%.10Sp)         Uid: (%5u/%8Su)  Gid: (%5g/%8Sg)%n" \
+	"  Mode: (%04OA/%.10Sp)         Uid: (%5u/%8Su)  Gid: (%5g/%8Sg)%n" \
 	"Device: %Hd,%Ld   Inode: %i    Links: %l%n" \
 	"Access: %Sa%n" \
 	"Modify: %Sm%n" \
@@ -162,6 +166,7 @@ __FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp 
 #define SHOW_st_dev	'd'
 #define SHOW_st_ino	'i'
 #define SHOW_st_mode	'p'
+#define SHOW_st_mode2	'A'
 #define SHOW_st_nlink	'l'
 #define SHOW_st_uid	'u'
 #define SHOW_st_gid	'g'
@@ -487,6 +492,7 @@ output(const struct stat *st, const char *file,
 			fmtcase(what, SHOW_st_dev);
 			fmtcase(what, SHOW_st_ino);
 			fmtcase(what, SHOW_st_mode);
+			fmtcase(what, SHOW_st_mode2);
 			fmtcase(what, SHOW_st_nlink);
 			fmtcase(what, SHOW_st_uid);
 			fmtcase(what, SHOW_st_gid);
@@ -601,6 +607,7 @@ format1(const struct stat *st,
 			ofmt = FMTF_UNSIGNED;
 		break;
 	case SHOW_st_mode:
+	case SHOW_st_mode2:
 		small = (sizeof(st->st_mode) == 4);
 		data = st->st_mode;
 		strmode(st->st_mode, smode);
@@ -608,6 +615,8 @@ format1(const struct stat *st,
 		l = strlen(sdata);
 		if (sdata[l - 1] == ' ')
 			sdata[--l] = '\0';
+		if (what == SHOW_st_mode2)
+			data &= 07777;
 		if (hilo == HIGH_PIECE) {
 			data >>= 12;
 			sdata += 1;

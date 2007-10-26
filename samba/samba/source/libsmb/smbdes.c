@@ -172,7 +172,7 @@ static void concat(char *out, char *in1, char *in2, int l1, int l2)
 		*out++ = *in2++;
 }
 
-static void xor(char *out, char *in1, char *in2, int n)
+static void x_or(char *out, char *in1, char *in2, int n)
 {
 	int i;
 	for (i=0;i<n;i++)
@@ -223,7 +223,7 @@ static void dohash(char *out, char *in, char *key, int forw)
 
 		permute(er, r, perm4, 48);
 
-		xor(erk, er, ki[forw ? i : 15 - i], 48);
+		x_or(erk, er, ki[forw ? i : 15 - i], 48);
 
 		for (j=0;j<8;j++)
 			for (k=0;k<6;k++)
@@ -244,7 +244,7 @@ static void dohash(char *out, char *in, char *key, int forw)
 				cb[j*4+k] = b[j][k];
 		permute(pcb, cb, perm5, 32);
 
-		xor(r2, l, pcb, 32);
+		x_or(r2, l, pcb, 32);
 
 		for (j=0;j<32;j++)
 			l[j] = r[j];
@@ -258,7 +258,8 @@ static void dohash(char *out, char *in, char *key, int forw)
 	permute(out, rl, perm6, 64);
 }
 
-static void str_to_key(const unsigned char *str,unsigned char *key)
+/* Convert a 7 byte string to an 8 byte key. */
+static void str_to_key(const unsigned char str[7], unsigned char key[8])
 {
 	int i;
 
@@ -276,7 +277,7 @@ static void str_to_key(const unsigned char *str,unsigned char *key)
 }
 
 
-static void smbhash(unsigned char *out, const unsigned char *in, const unsigned char *key, int forw)
+void des_crypt56(unsigned char *out, const unsigned char *in, const unsigned char *key, int forw)
 {
 	int i;
 	char outb[64];
@@ -307,134 +308,99 @@ static void smbhash(unsigned char *out, const unsigned char *in, const unsigned 
 void E_P16(const unsigned char *p14,unsigned char *p16)
 {
 	unsigned char sp8[8] = {0x4b, 0x47, 0x53, 0x21, 0x40, 0x23, 0x24, 0x25};
-	smbhash(p16, sp8, p14, 1);
-	smbhash(p16+8, sp8, p14+7, 1);
+	des_crypt56(p16, sp8, p14, 1);
+	des_crypt56(p16+8, sp8, p14+7, 1);
 }
 
 void E_P24(const unsigned char *p21, const unsigned char *c8, unsigned char *p24)
 {
-	smbhash(p24, c8, p21, 1);
-	smbhash(p24+8, c8, p21+7, 1);
-	smbhash(p24+16, c8, p21+14, 1);
+	des_crypt56(p24, c8, p21, 1);
+	des_crypt56(p24+8, c8, p21+7, 1);
+	des_crypt56(p24+16, c8, p21+14, 1);
 }
 
 void D_P16(const unsigned char *p14, const unsigned char *in, unsigned char *out)
 {
-	smbhash(out, in, p14, 0);
-        smbhash(out+8, in+8, p14+7, 0);
+	des_crypt56(out, in, p14, 0);
+        des_crypt56(out+8, in+8, p14+7, 0);
 }
 
 void E_old_pw_hash( unsigned char *p14, const unsigned char *in, unsigned char *out)
 {
-        smbhash(out, in, p14, 1);
-        smbhash(out+8, in+8, p14+7, 1);
+        des_crypt56(out, in, p14, 1);
+        des_crypt56(out+8, in+8, p14+7, 1);
 }
 
-void cred_hash1(unsigned char *out, const unsigned char *in, const unsigned char *key)
+/* forward des encryption with a 128 bit key */
+void des_crypt128(unsigned char out[8], const unsigned char in[8], const unsigned char key[16])
 {
 	unsigned char buf[8];
 
-	smbhash(buf, in, key, 1);
-	smbhash(out, buf, key+9, 1);
+	des_crypt56(buf, in, key, 1);
+	des_crypt56(out, buf, key+9, 1);
 }
 
-void cred_hash2(unsigned char *out, const unsigned char *in, const unsigned char *key)
+/* forward des encryption with a 64 bit key */
+void des_crypt64(unsigned char out[8], const unsigned char in[8], const unsigned char key[8])
 {
 	unsigned char buf[8];
-	static unsigned char key2[8];
+	unsigned char key2[8];
 
-	smbhash(buf, in, key, 1);
+	memset(key2,'\0',8);
+	des_crypt56(buf, in, key, 1);
 	key2[0] = key[7];
-	smbhash(out, buf, key2, 1);
+	des_crypt56(out, buf, key2, 1);
 }
 
-void cred_hash3(unsigned char *out, unsigned char *in, const unsigned char *key, int forw)
-{
-        static unsigned char key2[8];
+/* des encryption with a 112 bit (14 byte) key */
+/* Note that if the forw is 1, and key is actually 8 bytes of key, followed by 6 bytes of zeros,
+   this is identical to des_crypt64(). JRA. */
 
-        smbhash(out, in, key, forw);
+void des_crypt112(unsigned char out[8], const unsigned char in[8], const unsigned char key[14], int forw)
+{
+	unsigned char buf[8];
+	des_crypt56(buf, in, key, forw);
+	des_crypt56(out, buf, key+7, forw);
+}
+
+void cred_hash3(unsigned char *out, const unsigned char *in, const unsigned char *key, int forw)
+{
+        unsigned char key2[8];
+
+	memset(key2,'\0',8);
+        des_crypt56(out, in, key, forw);
         key2[0] = key[7];
-        smbhash(out + 8, in + 8, key2, forw);
+        des_crypt56(out + 8, in + 8, key2, forw);
 }
 
-void SamOEMhash( unsigned char *data, const unsigned char *key, int val)
+/* des encryption of a 16 byte lump of data with a 112 bit key */
+/* Note that if the key is actually 8 bytes of key, followed by 6 bytes of zeros,
+   this is identical to cred_hash3(). JRA. */
+
+void des_crypt112_16(unsigned char out[16], unsigned char in[16], const unsigned char key[14], int forw)
 {
-  unsigned char s_box[256];
-  unsigned char index_i = 0;
-  unsigned char index_j = 0;
-  unsigned char j = 0;
-  int ind;
-
-  for (ind = 0; ind < 256; ind++)
-  {
-    s_box[ind] = (unsigned char)ind;
-  }
-
-  for( ind = 0; ind < 256; ind++)
-  {
-     unsigned char tc;
-
-     j += (s_box[ind] + key[ind%16]);
-
-     tc = s_box[ind];
-     s_box[ind] = s_box[j];
-     s_box[j] = tc;
-  }
-  for( ind = 0; ind < val; ind++)
-  {
-    unsigned char tc;
-    unsigned char t;
-
-    index_i++;
-    index_j += s_box[index_i];
-
-    tc = s_box[index_i];
-    s_box[index_i] = s_box[index_j];
-    s_box[index_j] = tc;
-
-    t = s_box[index_i] + s_box[index_j];
-    data[ind] = data[ind] ^ s_box[t];
-  }
+	des_crypt56(out, in, key, forw);
+	des_crypt56(out + 8, in + 8, key+7, forw);
 }
 
-void SamOEMhashBlob( unsigned char *data, int len, DATA_BLOB *key)
+/*****************************************************************
+ arc4 crypt/decrypt with a 16 byte key.
+*****************************************************************/
+
+void SamOEMhash( unsigned char *data, const unsigned char key[16], size_t len)
 {
-  unsigned char s_box[256];
-  unsigned char index_i = 0;
-  unsigned char index_j = 0;
-  unsigned char j = 0;
-  int ind;
+	unsigned char arc4_state[258];
 
-  for (ind = 0; ind < 256; ind++)
-  {
-    s_box[ind] = (unsigned char)ind;
-  }
+	smb_arc4_init(arc4_state, key, 16);
+	smb_arc4_crypt(arc4_state, data, len);
+}
 
-  for( ind = 0; ind < 256; ind++)
-  {
-     unsigned char tc;
+void SamOEMhashBlob( unsigned char *data, size_t len, DATA_BLOB *key)
+{
+	unsigned char arc4_state[258];
 
-     j += (s_box[ind] + key->data[ind%key->length]);
-
-     tc = s_box[ind];
-     s_box[ind] = s_box[j];
-     s_box[j] = tc;
-  }
-  for( ind = 0; ind < len; ind++)
-  {
-    unsigned char tc;
-    unsigned char t;
-
-    index_i++;
-    index_j += s_box[index_i];
-
-    tc = s_box[index_i];
-    s_box[index_i] = s_box[index_j];
-    s_box[index_j] = tc;
-
-    t = s_box[index_i] + s_box[index_j];
-    data[ind] = data[ind] ^ s_box[t];
-  }
+	smb_arc4_init(arc4_state, key->data, key->length);
+	smb_arc4_crypt(arc4_state, data, len);
 }
 
 /* Decode a sam password hash into a password.  The password hash is the
@@ -450,6 +416,6 @@ void sam_pwd_hash(unsigned int rid, const uchar *in, uchar *out, int forw)
 	s[2] = s[6] = s[10]        = (uchar)((rid >> 16) & 0xFF);
 	s[3] = s[7] = s[11]        = (uchar)((rid >> 24) & 0xFF);
 
-	smbhash(out, in, s, forw);
-	smbhash(out+8, in+8, s+7, forw);
+	des_crypt56(out, in, s, forw);
+	des_crypt56(out+8, in+8, s+7, forw);
 }

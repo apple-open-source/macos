@@ -1,31 +1,45 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please
- * obtain a copy of the License at http://www.apple.com/publicsource and
- * read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please
- * see the License for the specific language governing rights and
- * limitations under the License.
+ *  Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * 
+ *  @APPLE_LICENSE_HEADER_START@
+ *  
+ *  This file contains Original Code and/or Modifications of Original Code
+ *  as defined in and that are subject to the Apple Public Source License
+ *  Version 2.0 (the 'License'). You may not use this file except in
+ *  compliance with the License. Please obtain a copy of the License at
+ *  http://www.opensource.apple.com/apsl/ and read it before using this
+ *  file.
+ *  
+ *  The Original Code and all software distributed under the License are
+ *  distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *  EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ *  INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ *  Please see the License for the specific language governing rights and
+ *  limitations under the License.
+ *  
+ *  @APPLE_LICENSE_HEADER_END@
  */
 
-/*****************************************************************
-/
-/ File   :   ifdhandler.h
-/ Author :   David Corcoran
-/ Date   :   November 7, 1998
-/ License:   Copyright (C) 1999 David Corcoran
-/	     <corcoran@linuxnet.com>
-/ Purpose:   This provides reader specific low-level calls.
-/            See http://www.linuxnet.com for more information.
-/
-******************************************************************/
+/*
+ *  ifdhandler.h
+ *  SmartCardServices
+ */
+
+/*
+ * MUSCLE SmartCard Development ( http://www.linuxnet.com )
+ *
+ * Copyright (C) 1999-2004
+ *  David Corcoran <corcoran@linuxnet.com>
+ *  Damien Sauveron <damien.sauveron@labri.fr>
+ *
+ * $Id: ifdhandler.h 2348 2007-01-20 15:12:19Z rousseau $
+ */
+
+/**
+ * @file
+ * @brief This provides reader specific low-level calls.
+ */
 
 #ifndef _ifd_handler_h_
 #define _ifd_handler_h_
@@ -36,12 +50,11 @@ extern "C"
 #endif
 
 	/*
-	 * List of data structures available to ifdhandler 
+	 * List of data structures available to ifdhandler
 	 */
 
 	typedef struct _DEVICE_CAPABILITIES
 	{
-
 		LPSTR Vendor_Name;		/* Tag 0x0100 */
 		LPSTR IFD_Type;			/* Tag 0x0101 */
 		DWORD IFD_Version;		/* Tag 0x0102 */
@@ -60,24 +73,20 @@ extern "C"
 		DWORD User_Auth_Device;	/* Tag 0x0142 */
 		DWORD Mechanics_Supported;	/* Tag 0x0150 */
 		DWORD Vendor_Features;	/* Tag 0x0180 - 0x01F0 User Defined. */
-
 	}
 	DEVICE_CAPABILITIES, *PDEVICE_CAPABILITIES;
 
 	typedef struct _ICC_STATE
 	{
-
 		UCHAR ICC_Presence;		/* Tag 0x0300 */
 		UCHAR ICC_Interface_Status;	/* Tag 0x0301 */
 		UCHAR ATR[MAX_ATR_SIZE];	/* Tag 0x0303 */
 		UCHAR ICC_Type;			/* Tag 0x0304 */
-
 	}
 	ICC_STATE, *PICC_STATE;
 
 	typedef struct _PROTOCOL_OPTIONS
 	{
-
 		DWORD Protocol_Type;	/* Tag 0x0201 */
 		DWORD Current_Clock;	/* Tag 0x0202 */
 		DWORD Current_F;		/* Tag 0x0203 */
@@ -100,34 +109,37 @@ extern "C"
 	SCARD_IO_HEADER, *PSCARD_IO_HEADER;
 
 	/*
-	 * End of structure list 
+	 * End of structure list
 	 */
 
 	/*
 	 * The list of tags should be alot more but this is all I use in the
-	 * meantime 
+	 * meantime
 	 */
 
-#define TAG_IFD_ATR			0x0303
+#define TAG_IFD_ATR                     0x0303
 #define TAG_IFD_SLOTNUM                 0x0180
+#define TAG_IFD_SLOT_THREAD_SAFE        0x0FAC
+#define TAG_IFD_THREAD_SAFE             0x0FAD
 #define TAG_IFD_SLOTS_NUMBER            0x0FAE
 #define TAG_IFD_SIMULTANEOUS_ACCESS     0x0FAF
 
 	/*
-	 * End of tag list 
+	 * End of tag list
 	 */
 
 	/*
-	 * IFD Handler version number enummerations 
+	 * IFD Handler version number enummerations
 	 */
 #define IFD_HVERSION_1_0               0x00010000
 #define IFD_HVERSION_2_0               0x00020000
+#define IFD_HVERSION_3_0               0x00030000
 	/*
-	 * End of version number enummerations 
+	 * End of version number enummerations
 	 */
 
 	/*
-	 * List of defines available to ifdhandler 
+	 * List of defines available to ifdhandler
 	 */
 
 #define IFD_POWER_UP			500
@@ -154,11 +166,43 @@ extern "C"
 #define IFD_NOT_SUPPORTED		614
 #define IFD_ICC_PRESENT			615
 #define IFD_ICC_NOT_PRESENT		616
+#define IFD_NO_SUCH_DEVICE		617
+
+//	typedef long RESPONSECODE;
 
 	/*
-	 * List of Defined Functions Available to IFD_Handler 2.0 
+	 * If you want to compile a V2.0 IFDHandler, define IFDHANDLERv2 before you
+	 * include this file.
+	 *
+	 * By default it is setup for for most recent version of the API (V3.0)
 	 */
 
+#ifndef IFDHANDLERv2
+
+	/*
+	 * List of Defined Functions Available to IFD_Handler 3.0
+	 *
+	 * All the functions of IFD_Handler 2.0 are available
+	 * IFDHCreateChannelByName() is new
+	 * IFDHControl() API changed
+	 */
+
+	RESPONSECODE IFDHCreateChannelByName(DWORD, LPSTR);
+	RESPONSECODE IFDHControl(DWORD, DWORD, PUCHAR, DWORD, PUCHAR,
+		DWORD, LPDWORD);
+#else
+
+	/*
+	 * List of Defined Functions Available to IFD_Handler 2.0
+	 */
+
+	RESPONSECODE IFDHControl(DWORD, PUCHAR, DWORD, PUCHAR, PDWORD);
+
+#endif
+
+	/*
+	 * common functions in IFD_Handler 2.0 and 3.0
+	 */
 	RESPONSECODE IFDHCreateChannel(DWORD, DWORD);
 	RESPONSECODE IFDHCloseChannel(DWORD);
 	RESPONSECODE IFDHGetCapabilities(DWORD, DWORD, PDWORD, PUCHAR);
@@ -168,11 +212,10 @@ extern "C"
 	RESPONSECODE IFDHPowerICC(DWORD, DWORD, PUCHAR, PDWORD);
 	RESPONSECODE IFDHTransmitToICC(DWORD, SCARD_IO_HEADER, PUCHAR,
 		DWORD, PUCHAR, PDWORD, PSCARD_IO_HEADER);
-	RESPONSECODE IFDHControl(DWORD, PUCHAR, DWORD, PUCHAR, PDWORD);
 	RESPONSECODE IFDHICCPresence(DWORD);
 
 	/*
-	 * List of Defined Functions Available to IFD_Handler 1.0 
+	 * List of Defined Functions Available to IFD_Handler 1.0
 	 */
 
 	RESPONSECODE IO_Create_Channel(DWORD);

@@ -72,4 +72,4 @@ dsx500dit *dsx500dit_new(dsengine *s);
 dsx500dit *dsx500dit_retain(dsx500dit *i);
 void dsx500dit_release(dsx500dit *i);
 
-#endif  __DSX500DIT_H__
+#endif  /* __DSX500DIT_H__ */

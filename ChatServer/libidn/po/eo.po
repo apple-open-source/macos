@@ -1,0 +1,183 @@
+# Translation of 'libidn' messages to Esperanto.
+# Esperantaj mesaĝoj por libidn.
+# Copyright (C) 2004 Free Software Foundation, Inc.
+# This file is distributed under the same license as the libidn package.
+# Edmund GRIMLEY EVANS <edmundo@rano.org>, 2004-2005.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: libidn 0.5.16\n"
+"Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
+"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"PO-Revision-Date: 2005-05-12 16:53+0100\n"
+"Last-Translator: Edmund GRIMLEY EVANS <edmundo@rano.org>\n"
+"Language-Team: Esperanto <translation-team-eo@lists.sourceforge.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Success"
+msgstr "Sukceso"
+
+msgid "String preparation failed"
+msgstr "Pretigo de signoĉeno malsukcesis"
+
+msgid "Punycode failed"
+msgstr "Punycode malsukcesis"
+
+msgid "Non-digit/letter/hyphen in input"
+msgstr "Signo ne-cifero/litero/dividstreko en enigo"
+
+msgid "Forbidden leading or trailing minus sign (`-')"
+msgstr "Malpermesita minuso ('-') ĉe komenco aŭ fino"
+
+msgid "Output would be too large or too small"
+msgstr "Eligo estus tro granda aŭ tro malgranda"
+
+msgid "Input does not start with ACE prefix (`xn--')"
+msgstr "Enigo ne komenciĝas per ACE-prefikso ('xn--')"
+
+msgid "String not idempotent under ToASCII"
+msgstr "Ĉeno ŝanĝiĝas ĉe dua apliko de ToASCII"
+
+msgid "Input already contain ACE prefix (`xn--')"
+msgstr "Enigo jam havas ACE-prefikson ('xn--')"
+
+msgid "System iconv failed"
+msgstr "Sistema iconv malsukcesis"
+
+msgid "Cannot allocate memory"
+msgstr "Ne povas akiri memoron"
+
+msgid "System dlopen failed"
+msgstr "Sistema dlopen malsukcesis"
+
+msgid "Unknown error"
+msgstr "Nekonata eraro"
+
+msgid "String not idempotent under Unicode NFKC normalization"
+msgstr "Ĉeno ŝanĝiĝas ĉe dua apliko de unikoda NFKC-normigo"
+
+msgid "Invalid input"
+msgstr "Nevalida enigo"
+
+msgid "Output would exceed the buffer space provided"
+msgstr "Eligo estus tro granda por donita bufro"
+
+msgid "String size limit exceeded"
+msgstr "Signoĉena grandolimo superita"
+
+msgid "Forbidden unassigned code points in input"
+msgstr "Malpermesita neatribuita kodero en enigo"
+
+msgid "Prohibited code points in input"
+msgstr "Malpermesita kodero en enigo"
+
+msgid "Conflicting bidirectional properties in input"
+msgstr "Malkongruaj dudirektaj trajtoj en enigo"
+
+msgid "Malformed bidirectional string"
+msgstr "Misformita dudirekta ĉeno"
+
+msgid "Prohibited bidirectional code points in input"
+msgstr "Malpermesita dudirekta kodero en enigo"
+
+msgid "Error in stringprep profile definition"
+msgstr "Eraro en difino de stringprep-profilo"
+
+msgid "Flag conflict with profile"
+msgstr "Flaga malkongruo kun profilo"
+
+msgid "Unknown profile"
+msgstr "Nekonata profilo"
+
+msgid "Unicode normalization failed (internal error)"
+msgstr "Unikoda normigo malsukcesis (interna eraro)"
+
+msgid "Code points prohibited by top-level domain"
+msgstr "Koderoj malpermesitaj de supera retregiono"
+
+msgid "Missing input"
+msgstr "Mankanta enigo"
+
+msgid "No top-level domain found in input"
+msgstr "Nenia supera retregiono trovita en enigo"
+
+msgid "Only one of -s, -e, -d, -a or -u can be specified."
+msgstr "Nur unu el -s, -e -d, -a aŭ -u povas esti donita."
+
+#, c-format
+msgid "Charset `%s'.\n"
+msgstr "Signaro '%s'.\n"
+
+#, c-format
+msgid ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+msgstr ""
+"Tajpu ĉiun enigan ĉenon en propra linio, kun linifina signo ĉe la\n"
+"fino.\n"
+
+msgid "Input error"
+msgstr "Enig-eraro"
+
+#, c-format
+msgid "Could not convert from %s to UTF-8."
+msgstr "Ne povis konverti de %s al UTF-8."
+
+msgid "Could not convert from UTF-8 to UCS-4."
+msgstr "Ne povis konverti de UTF-8 al UCS-4."
+
+#, c-format
+msgid "input[%d] = U+%04x\n"
+msgstr "enigo[%d] = U+%04x\n"
+
+#, c-format
+msgid "stringprep_profile: %s"
+msgstr "stringprep_profile: %s"
+
+#, c-format
+msgid "output[%d] = U+%04x\n"
+msgstr "eligo[%d] = U+%04x\n"
+
+#, c-format
+msgid "Could not convert from UTF-8 to %s."
+msgstr "Ne povis konverti de UTF-8 al %s."
+
+#, c-format
+msgid "punycode_encode: %s"
+msgstr "punycode_encode: %s"
+
+msgid "malloc"
+msgstr "malloc"
+
+#, c-format
+msgid "punycode_decode: %s"
+msgstr "punycode_decode: %s"
+
+msgid "Could not convert from UCS-4 to UTF-8."
+msgstr "Ne povis konverti de UCS-4 al UTF-8."
+
+#, c-format
+msgid "idna_to_ascii_4z: %s"
+msgstr "idna_to_ascii_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z (TLD): %s"
+msgstr "idna_to_unicode_8z4z (TLD): %s"
+
+#, c-format
+msgid "tld[%d] = U+%04x\n"
+msgstr "tld[%d] = U+%04x\n"
+
+#, c-format
+msgid "tld_check_4z (position %d): %s"
+msgstr "tld_check_4z (loko %d): %s"
+
+#, c-format
+msgid "tld_check_4z: %s"
+msgstr "tld_check_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z: %s"
+msgstr "idna_to_unicode_8z4z: %s"

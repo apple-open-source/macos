@@ -1,5 +1,0 @@
-<jboss-app>
-   <module>
-      <service>loading.sar</service>
-   </module>
-</jboss-app>

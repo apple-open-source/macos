@@ -1,6 +1,7 @@
 ;;; edmacro.el --- keyboard macro editor
 
-;; Copyright (C) 1993, 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Dave Gillespie <daveg@synaptics.com>
 ;; Maintainer: Dave Gillespie <daveg@synaptics.com>
@@ -21,18 +22,18 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;;; Usage:
 ;;
-;; The `C-x C-k' (`edit-kbd-macro') command edits a keyboard macro
+;; The `C-x C-k e' (`edit-kbd-macro') command edits a keyboard macro
 ;; in a special buffer.  It prompts you to type a key sequence,
 ;; which should be one of:
 ;;
-;;  * RET or `C-x e' (call-last-kbd-macro), to edit the most 
+;;  * RET or `C-x e' (call-last-kbd-macro), to edit the most
 ;;    recently defined keyboard macro.
 ;;
 ;;  * `M-x' followed by a command name, to edit a named command
@@ -73,9 +74,9 @@
 (eval-when-compile
  (require 'cl))
 
-;;; The user-level commands for editing macros.
+(require 'kmacro)
 
-;;;###autoload (define-key ctl-x-map "\C-k" 'edit-kbd-macro)
+;;; The user-level commands for editing macros.
 
 ;;;###autoload
 (defvar edmacro-eight-bits nil
@@ -103,24 +104,29 @@ With a prefix argument, format the macro in a more concise way."
   (interactive "kKeyboard macro to edit (C-x e, M-x, C-h l, or keys): \nP")
   (when keys
     (let ((cmd (if (arrayp keys) (key-binding keys) keys))
-	  (mac nil))
+	  (mac nil) (mac-counter nil) (mac-format nil)
+	  kmacro)
       (cond (store-hook
 	     (setq mac keys)
 	     (setq cmd nil))
-	    ((or (eq cmd 'call-last-kbd-macro)
+	    ((or (memq cmd '(call-last-kbd-macro kmacro-call-macro
+			     kmacro-end-or-call-macro kmacro-end-and-call-macro))
 		 (member keys '("\r" [return])))
 	     (or last-kbd-macro
 		 (y-or-n-p "No keyboard macro defined.  Create one? ")
 		 (keyboard-quit))
 	     (setq mac (or last-kbd-macro ""))
+	     (setq keys nil)
 	     (setq cmd 'last-kbd-macro))
 	    ((eq cmd 'execute-extended-command)
 	     (setq cmd (read-command "Name of keyboard macro to edit: "))
 	     (if (string-equal cmd "")
 		 (error "No command name given"))
+	     (setq keys nil)
 	     (setq mac (symbol-function cmd)))
 	    ((memq cmd '(view-lossage electric-view-lossage))
 	     (setq mac (recent-keys))
+	     (setq keys nil)
 	     (setq cmd 'last-kbd-macro))
 	    ((null cmd)
 	     (error "Key sequence %s is not defined" (key-description keys)))
@@ -129,6 +135,10 @@ With a prefix argument, format the macro in a more concise way."
 	    (t
 	     (setq mac cmd)
 	     (setq cmd nil)))
+      (when (setq kmacro (kmacro-extract-lambda mac))
+	(setq mac (car kmacro)
+	      mac-counter (nth 1 kmacro)
+	      mac-format (nth 2 kmacro)))
       (unless (arrayp mac)
 	(error "Key sequence %s is not a keyboard macro"
 	       (key-description keys)))
@@ -154,11 +164,15 @@ With a prefix argument, format the macro in a more concise way."
 	(insert ";; Original keys: " fmt "\n")
 	(unless store-hook
 	  (insert "\nCommand: " (if cmd (symbol-name cmd) "none") "\n")
-	  (let ((keys (where-is-internal (or cmd mac) '(keymap))))
-	    (if keys
-		(while keys
-		  (insert "Key: " (edmacro-format-keys (pop keys) 1) "\n"))
-	      (insert "Key: none\n"))))
+	  (let ((gkeys (where-is-internal (or cmd mac) '(keymap))))
+	    (if (and keys (not (member keys gkeys)))
+		(setq gkeys (cons keys gkeys)))
+	    (if gkeys
+		(while gkeys
+		  (insert "Key: " (edmacro-format-keys (pop gkeys) 1) "\n"))
+	      (insert "Key: none\n")))
+	  (when (and mac-counter mac-format)
+	    (insert (format "Counter: %d\nFormat: \"%s\"\n" mac-counter mac-format))))
 	(insert "\nMacro:\n\n")
 	(save-excursion
 	  (insert fmtv "\n"))
@@ -218,6 +232,7 @@ or nil, use a compact 80-column format."
      "This command is valid only in buffers created by `edit-kbd-macro'"))
   (run-hooks 'edmacro-finish-hook)
   (let ((cmd nil) (keys nil) (no-keys nil)
+	(mac-counter nil) (mac-format nil) (kmacro nil)
 	(top (point-min)))
     (goto-char top)
     (let ((case-fold-search nil))
@@ -232,6 +247,7 @@ or nil, use a compact 80-column format."
 			(setq cmd (and (not (equal str "none"))
 				       (intern str)))
 			(and (fboundp cmd) (not (arrayp (symbol-function cmd)))
+			     (not (setq kmacro (get cmd 'kmacro)))
 			     (not (y-or-n-p
 				   (format "Command %s is already defined; %s"
 					   cmd "proceed? ")))
@@ -249,13 +265,31 @@ or nil, use a compact 80-column format."
 			  (push key keys)
 			  (let ((b (key-binding key)))
 			    (and b (commandp b) (not (arrayp b))
+				 (not (kmacro-extract-lambda b))
 				 (or (not (fboundp b))
-				     (not (arrayp (symbol-function b))))
+				     (not (or (arrayp (symbol-function b))
+					      (get b 'kmacro))))
 				 (not (y-or-n-p
 				       (format "Key %s is already defined; %s"
 					       (edmacro-format-keys key 1)
 					       "proceed? ")))
 				 (keyboard-quit))))))
+		    t)
+		   ((looking-at "Counter:[ \t]*\\([^ \t\n]*\\)[ \t]*$")
+		    (when edmacro-store-hook
+		      (error "\"Counter\" line not allowed in this context"))
+		    (let ((str (buffer-substring (match-beginning 1)
+						 (match-end 1))))
+		      (unless (equal str "")
+			(setq mac-counter (string-to-number str))))
+		    t)
+		   ((looking-at "Format:[ \t]*\"\\([^\n]*\\)\"[ \t]*$")
+		    (when edmacro-store-hook
+		      (error "\"Format\" line not allowed in this context"))
+		    (let ((str (buffer-substring (match-beginning 1)
+						 (match-end 1))))
+		      (unless (equal str "")
+			(setq mac-format str)))
 		    t)
 		   ((looking-at "Macro:[ \t\n]*")
 		    (goto-char (match-end 0))
@@ -286,7 +320,10 @@ or nil, use a compact 80-column format."
 	    (when cmd
 	      (if (= (length mac) 0)
 		  (fmakunbound cmd)
-		(fset cmd mac)))
+		(fset cmd
+		      (if (and mac-counter mac-format)
+			  (kmacro-lambda-form mac mac-counter mac-format)
+			mac))))
 	    (if no-keys
 		(when cmd
 		  (loop for key in (where-is-internal cmd '(keymap)) do
@@ -295,7 +332,11 @@ or nil, use a compact 80-column format."
 		(if (= (length mac) 0)
 		    (loop for key in keys do (global-unset-key key))
 		  (loop for key in keys do
-			(global-set-key key (or cmd mac)))))))))
+			(global-set-key key
+					(or cmd
+					    (if (and mac-counter mac-format)
+						(kmacro-lambda-form mac mac-counter mac-format)
+					      mac))))))))))
       (kill-buffer buf)
       (when (buffer-name obuf)
 	(switch-to-buffer obuf))
@@ -419,7 +460,7 @@ doubt, use whitespace."
 			 (while (memq (aref rest-mac i) (cdr mdigs))
 			   (incf i))
 			 (and (not (memq (aref rest-mac i) pkeys))
-			      (prog1 (concat "M-" (edmacro-subseq rest-mac 0 i) " ")
+			      (prog1 (vconcat "M-" (edmacro-subseq rest-mac 0 i) " ")
 				(callf edmacro-subseq rest-mac i)))))
 		  (and (eq (aref rest-mac 0) ?\C-u)
 		       (eq (key-binding [?\C-u]) 'universal-argument)
@@ -438,7 +479,7 @@ doubt, use whitespace."
 				      '(?0 ?1 ?2 ?3 ?4 ?5 ?6 ?7 ?8 ?9))
 			   (incf i))
 			 (and (not (memq (aref rest-mac i) pkeys))
-			      (prog1 (concat "C-u " (edmacro-subseq rest-mac 1 i) " ")
+			      (prog1 (vconcat "C-u " (edmacro-subseq rest-mac 1 i) " ")
 				(callf edmacro-subseq rest-mac i)))))))
 	     (bind-len (apply 'max 1
 			      (loop for map in maps
@@ -526,7 +567,8 @@ doubt, use whitespace."
 			       (t
 				(error "Unrecognized item in macro: %s" ch)))))
 			   (or fkey key) " "))))
-	(if prefix (setq desc (concat prefix desc)))
+	(if prefix
+	    (setq desc (concat (edmacro-sanitize-for-string prefix) desc)))
 	(unless (string-match " " desc)
 	  (let ((times 1) (pos bind-len))
 	    (while (not (edmacro-mismatch rest-mac rest-mac
@@ -597,7 +639,7 @@ If START or END is negative, it counts from the end."
 	     (if end
 		 (let ((res nil))
 		   (while (>= (setq end (1- end)) start)
-		     (cl-push (cl-pop seq) res))
+		     (push (pop seq) res))
 		   (nreverse res))
 	       (copy-sequence seq)))
 	    (t
@@ -609,23 +651,41 @@ If START or END is negative, it counts from the end."
 		 (setq i (1+ i) start (1+ start)))
 	       res))))))
 
-(defun edmacro-fix-menu-commands (macro)
-  (when (vectorp macro)
-    (let ((i 0) ev)
-      (while (< i (length macro))
-	(when (consp (setq ev (aref macro i)))
-	  (cond ((equal (cadadr ev) '(menu-bar))
-		 (setq macro (vconcat (edmacro-subseq macro 0 i)
-				      (vector 'menu-bar (car ev))
-				      (edmacro-subseq macro (1+ i))))
-		 (incf i))
+(defun edmacro-sanitize-for-string (seq)
+  "Convert a key sequence vector into a string.
+The string represents the same events; Meta is indicated by bit 7.
+This function assumes that the events can be stored in a string."
+  (setq seq (copy-sequence seq))
+  (loop for i below (length seq) do
+        (when (logand (aref seq i) 128)
+          (setf (aref seq i) (logand (aref seq i) 127))))
+  seq)
+
+(defun edmacro-fix-menu-commands (macro &optional noerror)
+  (if (vectorp macro)
+      (let (result)
+	;; Make a list of the elements.
+	(setq macro (append macro nil))
+	(dolist (ev macro)
+	  (cond ((atom ev)
+		 (push ev result))
+		((eq (car ev) 'help-echo))
+		((eq (car ev) 'switch-frame))
+		((equal ev '(menu-bar))
+		 (push 'menu-bar result))
+		((equal (cadadr ev) '(menu-bar))
+		 (push (vector 'menu-bar (car ev)) result))
 		;; It would be nice to do pop-up menus, too, but not enough
 		;; info is recorded in macros to make this possible.
+		(noerror
+		 ;; Just ignore mouse events.
+		 nil)
 		(t
 		 (error "Macros with mouse clicks are not %s"
 			"supported by this command"))))
-	(incf i))))
-  macro)
+	;; Reverse them again and make them back into a vector.
+	(vconcat (nreverse result)))
+    macro))
 
 ;;; Parsing a human-readable keyboard macro.
 
@@ -640,7 +700,7 @@ If START or END is negative, it counts from the end."
 	    (times 1))
 	(setq pos (match-end 0))
 	(when (string-match "\\([0-9]+\\)\\*." word)
-	  (setq times (string-to-int (substring word 0 (match-end 1))))
+	  (setq times (string-to-number (substring word 0 (match-end 1))))
 	  (setq word (substring word (1+ (match-end 1)))))
 	(cond ((string-match "^<<.+>>$" word)
 	       (setq key (vconcat (if (eq (key-binding [?\M-x])
@@ -721,4 +781,5 @@ If START or END is negative, it counts from the end."
 
 (provide 'edmacro)
 
+;;; arch-tag: 726807b4-3ae6-49de-b0ae-b9590973e0d7
 ;;; edmacro.el ends here

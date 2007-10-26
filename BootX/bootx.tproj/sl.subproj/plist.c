@@ -30,6 +30,8 @@
 
 #include <sl.h>
 
+//#define PLIST_DEBUG 1   // whether to report detailed parsing errors
+
 #define kXMLTagPList   "plist"
 #define kXMLTagDict    "dict"
 #define kXMLTagKey     "key"
@@ -211,13 +213,15 @@ long ParseXML(char *buffer, TagPtr *dict)
     }
   }
 
-  *dict = moduleDict;
   
+  if (length != -1) {
+    *dict = moduleDict;
 #if PLIST_DEBUG
-  if (length == -1)
-    printf("ParseXML gagged (-1) after %s (%d tags); buf+pos: %s\n",
+  } else {
+    printf("ParseXML gagged (-1) after '%s' (%d tags); buf+pos: %s\n",
 	gLastTag,gTagsParsed,buffer+pos);
 #endif 
+  }
 
   // for tidyness even though kext parsing resets all of malloc
   FreeTagCache();

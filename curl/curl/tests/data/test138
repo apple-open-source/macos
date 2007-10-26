@@ -1,3 +1,4 @@
+<testcase>
 # Server-side
 <reply>
 <data>
@@ -6,6 +7,9 @@ this is file contents
 <size>
 -1
 </size>
+<servercmd>
+RETRNOSIZE
+</servercmd>
 </reply>
 
 # Client-side
@@ -19,16 +23,13 @@ FTP download without size in RETR string and no SIZE command
  <command>
 ftp://%HOSTIP:%FTPPORT/blalbla/lululul/138
 </command>
-<file name="log/ftpserver.cmd">
-RETRNOSIZE
-</file>
 </client>
 
 # Verify data after the test has been "shot"
 <verify>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 CWD blalbla
 CWD lululul
@@ -39,3 +40,4 @@ RETR 138
 QUIT
 </protocol>
 </verify>
+</testcase>

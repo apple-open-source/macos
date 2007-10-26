@@ -1,6 +1,6 @@
---- tolower.3.orig	Fri Mar 11 19:44:47 2005
-+++ tolower.3	Fri Mar 11 19:52:07 2005
-@@ -40,7 +40,8 @@
+--- _SB/Libc/locale/FreeBSD/tolower.3	2004-11-25 11:38:19.000000000 -0800
++++ _SB/Libc/locale/FreeBSD/tolower.3.edit	2006-06-28 16:55:51.000000000 -0700
+@@ -40,14 +40,24 @@
  .Dt TOLOWER 3
  .Os
  .Sh NAME
@@ -10,22 +10,36 @@
  .Nd upper case to lower case letter conversion
  .Sh LIBRARY
  .Lb libc
-@@ -48,6 +49,9 @@
+ .Sh SYNOPSIS
  .In ctype.h
  .Ft int
- .Fn tolower "int c"
+-.Fn tolower "int c"
++.Fo tolower
++.Fa "int c"
++.Fc
++.In ctype.h
 +.In xlocale.h
 +.Ft int
-+.Fn tolower_l "int c" "locale_t loc"
++.Fo tolower_l
++.Fa "int c"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn tolower
-@@ -62,6 +66,14 @@
+@@ -56,17 +66,25 @@
+ For single C
+ .Va char Ns s
+ locales (see
+-.Xr multibyte 3 )
++.Xr multibyte 3 ) ,
+ the value of the argument is
+ representable as an
  .Li unsigned char
  or the value of
  .Dv EOF .
 +.Pp
-+While the
++Although the
 +.Fn tolower
 +function uses the current locale, the
 +.Fn tolower_l
@@ -35,7 +49,13 @@
  .Sh RETURN VALUES
  If the argument is an upper-case letter, the
  .Fn tolower
-@@ -81,7 +93,8 @@
+ function returns the corresponding lower-case letter if there is
+-one; otherwise the argument is returned unchanged.
++one; otherwise, the argument is returned unchanged.
+ .Sh COMPATIBILITY
+ The
+ .Bx 4.4
+@@ -81,7 +99,8 @@
  .Xr ctype 3 ,
  .Xr islower 3 ,
  .Xr multibyte 3 ,

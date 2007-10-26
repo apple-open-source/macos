@@ -1,8 +1,8 @@
 /* ldapmodify.c - generic program to modify or add entries using LDAP */
-/* $OpenLDAP: pkg/ldap/clients/tools/ldapmodify.c,v 1.139.2.9 2004/07/25 21:08:56 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldapmodify.c,v 1.158.2.9 2006/04/04 03:23:28 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * Portions Copyright 1998-2001 Net Boolean Incorporated.
  * Portions Copyright 2001-2003 IBM Corporation.
@@ -42,6 +42,7 @@
 #include <ac/ctype.h>
 #include <ac/string.h>
 #include <ac/unistd.h>
+#include <ac/time.h>
 
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
@@ -152,7 +153,7 @@ usage( void )
 
 
 const char options[] = "aE:FrS:"
-	"cd:D:e:f:h:H:IkKMnO:p:P:QR:U:vVw:WxX:y:Y:Z";
+	"cd:D:e:f:h:H:IkKMnNO:p:P:QR:U:vVw:WxX:y:Y:Z";
 
 int
 handle_private_option( int i )
@@ -309,18 +310,18 @@ main( int argc, char **argv )
 	}
 #endif
 
-	if ( assertion || authzid || manageDSAit || noop || preread || postread
+	if ( assertion || authzid || manageDIT || manageDSAit || noop
 #ifdef LDAP_GROUP_TRANSACTION
 		|| txn
 #endif
-		)
+		|| preread || postread )
 	{
-		int err;
 		int i = 0;
 		LDAPControl c[1];
 
 #ifdef LDAP_GROUP_TRANSACTION
 		if( txn ) {
+			int err;
 			txnber = ber_alloc_t( LBER_USE_DER );
 			if( txnber == NULL ) return EXIT_FAILURE;
 
@@ -405,13 +406,14 @@ main( int argc, char **argv )
 #endif
 
 	if ( !not ) {
-		ldap_unbind_ext( ld, NULL, NULL );
+		tool_unbind( ld );
 	}
 
 	if ( rejfp != NULL ) {
 		fclose( rejfp );
 	}
 
+	tool_destroy();
 	return( retval );
 }
 
@@ -465,7 +467,12 @@ process_ldif_rec( char *rbuf, int count )
 					replicaport = 0;
 				} else {
 					*p++ = '\0';
-					replicaport = atoi( p );
+					if ( lutil_atoi( &replicaport, p ) != 0 ) {
+						fprintf( stderr, _("%s: unable to parse replica port \"%s\" (line %d) entry: \"%s\"\n"),
+							prog, p, linenum, dn == NULL ? "" : dn );
+						rc = LDAP_PARAM_ERROR;
+						break;
+					}
 				}
 				if ( ldaphost != NULL &&
 					strcasecmp( val.bv_val, ldaphost ) == 0 &&
@@ -473,10 +480,11 @@ process_ldif_rec( char *rbuf, int count )
 				{
 					use_record = 1;
 				}
-	    	} else if ( count == 1 && linenum == 1 && 
+	    		} else if ( count == 1 && linenum == 1 && 
 				strcasecmp( type, T_VERSION_STR ) == 0 )
 			{
-				if( val.bv_len == 0 || atoi(val.bv_val) != 1 ) {
+				int	v;
+				if( val.bv_len == 0 || lutil_atoi( &v, val.bv_val) != 0 || v != 1 ) {
 					fprintf( stderr,
 						_("%s: invalid version %s, line %d (ignored)\n"),
 						prog, val.bv_val, linenum );
@@ -645,6 +653,12 @@ process_ldif_rec( char *rbuf, int count )
 				prog, linenum, dn );
 			rc = LDAP_PARAM_ERROR;
 		} else {
+			if ( new_entry && strcasecmp( type, T_DN_STR ) == 0 ) {
+				fprintf( stderr, _("%s: attributeDescription \"%s\":"
+					" (possible missing newline"
+						" after line %d of entry \"%s\"?)\n"),
+					prog, type, linenum - 1, dn );
+			}
 			addmodifyop( &pmods, modop, type, &val );
 		}
 
@@ -717,6 +731,9 @@ end_line:
 	}
 	if ( newrdn != NULL ) {
 		free( newrdn );
+	}
+	if ( newsup != NULL ) {
+		free( newsup );
 	}
 	if ( pmods != NULL ) {
 		ldap_mods_free( pmods, 1 );
@@ -955,47 +972,51 @@ domodify(
 	}
 
 	if ( pmods == NULL ) {
-		fprintf( stderr,
-			_("%s: no attributes to change or add (entry=\"%s\")\n"),
-			prog, dn );
-		return( LDAP_PARAM_ERROR );
-	} 
+		/* implement "touch" (empty sequence)
+		 * modify operation (note that there
+		 * is no symmetry with the UNIX command,
+		 * since \"touch\" on a non-existent entry
+		 * will fail)*/
+		printf( "warning: no attributes to %sadd (entry=\"%s\")\n",
+			newentry ? "" : "change or ", dn );
 
-	for ( i = 0; pmods[ i ] != NULL; ++i ) {
-		op = pmods[ i ]->mod_op & ~LDAP_MOD_BVALUES;
-		if( op == LDAP_MOD_ADD && ( pmods[i]->mod_bvalues == NULL )) {
-			fprintf( stderr,
-				_("%s: attribute \"%s\" has no values (entry=\"%s\")\n"),
-				prog, pmods[i]->mod_type, dn );
-			return LDAP_PARAM_ERROR;
-		}
-	}
-
-	if ( verbose ) {
+	} else {
 		for ( i = 0; pmods[ i ] != NULL; ++i ) {
 			op = pmods[ i ]->mod_op & ~LDAP_MOD_BVALUES;
-			printf( "%s %s:\n",
-				op == LDAP_MOD_REPLACE ? _("replace") :
-					op == LDAP_MOD_ADD ?  _("add") :
-						op == LDAP_MOD_INCREMENT ?  _("increment") :
-							op == LDAP_MOD_DELETE ?  _("delete") :
-								_("unknown"),
-				pmods[ i ]->mod_type );
+			if( op == LDAP_MOD_ADD && ( pmods[i]->mod_bvalues == NULL )) {
+				fprintf( stderr,
+					_("%s: attribute \"%s\" has no values (entry=\"%s\")\n"),
+					prog, pmods[i]->mod_type, dn );
+				return LDAP_PARAM_ERROR;
+			}
+		}
 
-			if ( pmods[ i ]->mod_bvalues != NULL ) {
-				for ( j = 0; pmods[ i ]->mod_bvalues[ j ] != NULL; ++j ) {
-					bvp = pmods[ i ]->mod_bvalues[ j ];
-					notascii = 0;
-					for ( k = 0; (unsigned long) k < bvp->bv_len; ++k ) {
-						if ( !isascii( bvp->bv_val[ k ] )) {
-							notascii = 1;
-							break;
+		if ( verbose ) {
+			for ( i = 0; pmods[ i ] != NULL; ++i ) {
+				op = pmods[ i ]->mod_op & ~LDAP_MOD_BVALUES;
+				printf( "%s %s:\n",
+					op == LDAP_MOD_REPLACE ? _("replace") :
+						op == LDAP_MOD_ADD ?  _("add") :
+							op == LDAP_MOD_INCREMENT ?  _("increment") :
+								op == LDAP_MOD_DELETE ?  _("delete") :
+									_("unknown"),
+					pmods[ i ]->mod_type );
+	
+				if ( pmods[ i ]->mod_bvalues != NULL ) {
+					for ( j = 0; pmods[ i ]->mod_bvalues[ j ] != NULL; ++j ) {
+						bvp = pmods[ i ]->mod_bvalues[ j ];
+						notascii = 0;
+						for ( k = 0; (unsigned long) k < bvp->bv_len; ++k ) {
+							if ( !isascii( bvp->bv_val[ k ] )) {
+								notascii = 1;
+								break;
+							}
 						}
-					}
-					if ( notascii ) {
-						printf( _("\tNOT ASCII (%ld bytes)\n"), bvp->bv_len );
-					} else {
-						printf( "\t%s\n", bvp->bv_val );
+						if ( notascii ) {
+							printf( _("\tNOT ASCII (%ld bytes)\n"), bvp->bv_len );
+						} else {
+							printf( "\t%s\n", bvp->bv_val );
+						}
 					}
 				}
 			}
@@ -1009,7 +1030,7 @@ domodify(
 	}
 
 	if ( !not ) {
-		int msgid;
+		int	msgid;
 		if ( newentry ) {
 			rc = ldap_add_ext( ld, dn, pmods, pctrls, NULL, &msgid );
 		} else {
@@ -1090,10 +1111,10 @@ dorename(
 			pctrls, NULL, &msgid );
 		if ( rc != LDAP_SUCCESS ) {
 			fprintf( stderr, _("%s: rename failed: %s\n"), prog, dn );
-			ldap_perror( ld, "ldap_modrdn" );
+			ldap_perror( ld, "ldap_rename" );
 			goto done;
 		} else {
-			printf( _("modrdn completed\n") );
+			printf( _("rename completed\n") );
 		}
 
 		rc = process_response( ld, msgid, "ldap_rename", dn );
@@ -1113,21 +1134,36 @@ static int process_response(
 	const char *opstr,
 	const char *dn )
 {
-	LDAPMessage *res;
-	int rc = LDAP_OTHER;
+	LDAPMessage	*res;
+	int		rc = LDAP_OTHER;
+	struct timeval	tv = { 0, 0 };
 
-	if( ldap_result( ld, msgid,
+	for ( ; ; ) {
+		tv.tv_sec = 0;
+		tv.tv_usec = 100000;
+
+		rc = ldap_result( ld, msgid,
 #ifdef LDAP_GROUP_TRANSACTION
-		txn ? 0 : 1,
+			txn ? 0 : 1,
 #else
-		1,
+			1,
 #endif
-		NULL, &res ) == -1 ) {
-		ldap_get_option( ld, LDAP_OPT_ERROR_NUMBER, &rc );
-		return rc;
+			&tv, &res );
+		if ( tool_check_abandon( ld, msgid ) ) {
+			return LDAP_CANCELLED;
+		}
+
+		if ( rc == -1 ) {
+			ldap_get_option( ld, LDAP_OPT_ERROR_NUMBER, &rc );
+			return rc;
+		}
+
+		if ( rc != 0 ) {
+			break;
+		}
 	}
 
-	if( ldap_msgtype( res ) != LDAP_RES_INTERMEDIATE ) {
+	if ( ldap_msgtype( res ) != LDAP_RES_INTERMEDIATE ) {
 		rc = ldap_result2error( ld, res, 1 );
 		if( rc != LDAP_SUCCESS ) ldap_perror( ld, opstr );
 		return rc;

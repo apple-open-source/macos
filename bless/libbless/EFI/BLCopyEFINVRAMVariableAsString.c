@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,7 @@
  *  bless
  *
  *  Created by Shantonu Sen on 12/2/05.
- *  Copyright 2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2005-2007 Apple Inc. All Rights Reserved.
  *
  */
 

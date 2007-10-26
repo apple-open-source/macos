@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2001, 2005 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -14,15 +14,15 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
- * If not, write to the Free Software Foundation, Inc., 59 Temple Place -
- * Suite 330, Boston, MA 02111-1307, USA.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 /*
  * GB18030 four-byte extension
  */
 
-static const unsigned short gb18030uni_charset2uni_ranges[388] = {
+static const unsigned short gb18030uni_charset2uni_ranges[412] = {
   0x0000, 0x0023,  0x0024, 0x0025,  0x0026, 0x002c,  0x002d, 0x0031,
   0x0032, 0x0050,  0x0051, 0x0058,  0x0059, 0x005e,  0x005f, 0x005f,
   0x0060, 0x0063,  0x0064, 0x0066,  0x0067, 0x0067,  0x0068, 0x0068,
@@ -66,7 +66,12 @@ static const unsigned short gb18030uni_charset2uni_ranges[388] = {
   0x45c3, 0x45f4,  0x45f5, 0x45f6,  0x45f7, 0x45fa,  0x45fb, 0x45fb,
   0x45fc, 0x460f,  0x4610, 0x4612,  0x4613, 0x4628,  0x4629, 0x48e7,
   0x48e8, 0x490e,  0x490f, 0x497d,  0x497e, 0x4a11,  0x4a12, 0x4a62,
-  0x4a63, 0x82bc,  0x830e, 0x93d4,  0x93d5, 0x9420,  0x9421, 0x943b,
+  0x4a63, 0x82bc,
+                   0x82bd, 0x82bd,  0x82be, 0x82be,  0x82bf, 0x82cb,
+  0x82cc, 0x82cc,  0x82cd, 0x82d1,  0x82d2, 0x82d8,  0x82d9, 0x82dc,
+  0x82dd, 0x82e0,  0x82e1, 0x82e8,  0x82e9, 0x82ef,  0x82f0, 0x82ff,
+  0x8300, 0x830d,
+                   0x830e, 0x93d4,  0x93d5, 0x9420,  0x9421, 0x943b,
   0x943c, 0x948c,  0x948d, 0x9495,  0x9496, 0x94af,  0x94b0, 0x94b0,
   0x94b1, 0x94b1,  0x94b2, 0x94b4,  0x94b5, 0x94ba,  0x94bb, 0x94bb,
   0x94bc, 0x94bd,  0x94be, 0x98c3,  0x98c4, 0x98c4,  0x98c5, 0x98c8,
@@ -74,7 +79,7 @@ static const unsigned short gb18030uni_charset2uni_ranges[388] = {
   0x9961, 0x99e1,  0x99e2, 0x99fb
 };
 
-static const unsigned short gb18030uni_uni2charset_ranges[388] = {
+static const unsigned short gb18030uni_uni2charset_ranges[412] = {
   0x0080, 0x00a3,  0x00a5, 0x00a6,  0x00a9, 0x00af,  0x00b2, 0x00b6,
   0x00b8, 0x00d6,  0x00d8, 0x00df,  0x00e2, 0x00e7,  0x00eb, 0x00eb,
   0x00ee, 0x00f1,  0x00f4, 0x00f6,  0x00f8, 0x00f8,  0x00fb, 0x00fb,
@@ -118,7 +123,12 @@ static const unsigned short gb18030uni_uni2charset_ranges[388] = {
   0x4948, 0x4979,  0x497b, 0x497c,  0x497e, 0x4981,  0x4984, 0x4984,
   0x4987, 0x499a,  0x499c, 0x499e,  0x49a0, 0x49b5,  0x49b8, 0x4c76,
   0x4c78, 0x4c9e,  0x4ca4, 0x4d12,  0x4d1a, 0x4dad,  0x4daf, 0x4dff,
-  0x9fa6, 0xd7ff,  0xe865, 0xf92b,  0xf92d, 0xf978,  0xf97a, 0xf994,
+  0x9fa6, 0xd7ff,
+                   0xe76c, 0xe76c,  0xe7c8, 0xe7c8,  0xe7e7, 0xe7f3,
+  0xe815, 0xe815,  0xe819, 0xe81d,  0xe81f, 0xe825,  0xe827, 0xe82a,
+  0xe82d, 0xe830,  0xe833, 0xe83a,  0xe83c, 0xe842,  0xe844, 0xe853,
+  0xe856, 0xe863,
+                   0xe865, 0xf92b,  0xf92d, 0xf978,  0xf97a, 0xf994,
   0xf996, 0xf9e6,  0xf9e8, 0xf9f0,  0xf9f2, 0xfa0b,  0xfa10, 0xfa10,
   0xfa12, 0xfa12,  0xfa15, 0xfa17,  0xfa19, 0xfa1e,  0xfa22, 0xfa22,
   0xfa25, 0xfa26,  0xfa2a, 0xfe2f,  0xfe32, 0xfe32,  0xfe45, 0xfe48,
@@ -126,7 +136,7 @@ static const unsigned short gb18030uni_uni2charset_ranges[388] = {
   0xff5f, 0xffdf,  0xffe6, 0xffff
 };
 
-static const unsigned short gb18030uni_ranges[194] = {
+static const unsigned short gb18030uni_ranges[206] = {
     128,   129,   131,   133,   134,   135,   137,   140,
     142,   144,   145,   147,   148,   149,   150,   151,
     152,   153,   154,   155,   156,   157,   158,   159,
@@ -148,10 +158,13 @@ static const unsigned short gb18030uni_ranges[194] = {
     885,   886,   887,   888,   889,   890,   891,   892,
     893,   894,   895,   896,   897,   898,   899,   900,
     901,   902,   903,   905,   907,   908,   909,   911,
-    912,   917,   924,   925, 21827, 25943, 25944, 25945,
-  25946, 25947, 25948, 25952, 25953, 25955, 25956, 25959,
-  25961, 25964, 25966, 25984, 25994, 25998, 26012, 26016,
-  26110, 26116
+    912,   917,   924,   925, 21827,
+                                     25775, 25866, 25896,
+  25929, 25932, 25933, 25934, 25936, 25938, 25939, 25940,
+  25942,
+         25943, 25944, 25945, 25946, 25947, 25948, 25952,
+  25953, 25955, 25956, 25959, 25961, 25964, 25966, 25984,
+  25994, 25998, 26012, 26016, 26110, 26116
 };
 
 static int
@@ -171,7 +184,7 @@ gb18030uni_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
                 unsigned int i = (((c1 - 0x81) * 10 + (c2 - 0x30)) * 126 + (c3 - 0x81)) * 10 + (c4 - 0x30);
                 if (i >= 0 && i <= 39419) {
                   unsigned int k1 = 0;
-                  unsigned int k2 = 193;
+                  unsigned int k2 = 205;
                   while (k1 < k2) {
                     unsigned int k = (k1 + k2) / 2;
                     if (i <= gb18030uni_charset2uni_ranges[2*k+1])
@@ -210,7 +223,7 @@ gb18030uni_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
     unsigned int i = wc;
     if (i >= 0x0080 && i <= 0xffff) {
       unsigned int k1 = 0;
-      unsigned int k2 = 193;
+      unsigned int k2 = 205;
       while (k1 < k2) {
         unsigned int k = (k1 + k2) / 2;
         if (i <= gb18030uni_uni2charset_ranges[2*k+1])

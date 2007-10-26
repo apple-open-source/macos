@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2002-2004, International Business Machines Corporation and
+ * Copyright (c) 2002-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -8,8 +8,9 @@
 
 #include "unicode/testdata.h"
 
-TestData::TestData(const char* name)
-: name(name),
+
+TestData::TestData(const char* testName)
+: name(testName),
 fInfo(NULL),
 fCurrSettings(NULL),
 fCurrCase(NULL),
@@ -40,8 +41,8 @@ const char * TestData::getName() const
 
 
 
-RBTestData::RBTestData(const char* name)
-: TestData(name),
+RBTestData::RBTestData(const char* testName)
+: TestData(testName),
 fData(NULL),
 fHeaders(NULL),
 fSettings(NULL),
@@ -137,4 +138,5 @@ UBool RBTestData::nextCase(const DataMap *& nextCase, UErrorCode &status)
     return FALSE;
   }
 }
+
 

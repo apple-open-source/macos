@@ -1,9 +1,0 @@
-XCOMM $XFree86: xc/doc/specs/xtrans/Imakefile,v 1.4 2003/10/19 00:59:30 dawes Exp $
-
-
-MSMACROS = -mm
-
-MakeTblDoc(Xtrans,Xtrans.mm)
-
-InstallRoffDoc(Xtrans)
-

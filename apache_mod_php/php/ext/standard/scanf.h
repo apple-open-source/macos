@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: scanf.h,v 1.9.8.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: scanf.h,v 1.14.2.2.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
 #ifndef  SCANF_H
 #define  SCANF_H
@@ -27,7 +27,6 @@
                                 /* upper limit to keep resources in check and   */
                                 /* minimize the possibility of exploits         */
 
-#define SCAN_MAX_FSCANF_BUFSIZE		512  /* Max input buffer allocated for fscanf */
 #define SCAN_SUCCESS			SUCCESS	
 #define SCAN_ERROR_EOF			-1	/* indicates premature termination of scan 	*/
 									/* can be caused by bad parameters or format*/
@@ -44,7 +43,7 @@
  */
 PHPAPI int ValidateFormat(char *format, int numVars, int *totalVars);
 PHPAPI int php_sscanf_internal(char *string,char *format,int argCount,zval ***args,
-				int varStart, pval **return_value TSRMLS_DC);
+				int varStart, zval **return_value TSRMLS_DC);
 
 
 #endif /* SCANF_H */

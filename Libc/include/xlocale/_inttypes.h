@@ -33,6 +33,11 @@ intmax_t  wcstoimax_l(const wchar_t * __restrict nptr,
 		wchar_t ** __restrict endptr, int base, locale_t);
 uintmax_t wcstoumax_l(const wchar_t * __restrict nptr,
 		wchar_t ** __restrict endptr, int base, locale_t);
+
+/* Poison the following routines if -fshort-wchar is set */
+#if !defined(__cplusplus) && defined(__WCHAR_MAX__) && __WCHAR_MAX__ <= 0xffffU
+#pragma GCC poison wcstoimax_l wcstoumax_l
+#endif
 __END_DECLS
 
 #endif /* _XLOCALE__INTTYPES_H_ */

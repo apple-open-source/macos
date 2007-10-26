@@ -69,7 +69,7 @@
 #include "lock.h"
 #include "xmalloc.h"
 
-static char rcsid[] = "$Id: ptexpire.c,v 1.5 2005/03/05 00:37:36 dasenbro Exp $";
+static char rcsid[] = "$Id: ptexpire.c,v 1.19 2006/11/30 17:11:24 murch Exp $";
 
 /* global */
 time_t timenow;

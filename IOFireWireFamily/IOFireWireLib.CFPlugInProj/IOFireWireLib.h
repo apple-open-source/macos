@@ -59,6 +59,105 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 */
 /*
 	$Log: IOFireWireLib.h,v $
+	Revision 1.72  2007/06/21 04:08:45  collin
+	*** empty log message ***
+	
+	Revision 1.71  2007/05/12 01:10:45  arulchan
+	Asyncstream transmit command interface
+	
+	Revision 1.70  2007/05/03 01:21:29  arulchan
+	Asyncstream transmit APIs
+	
+	Revision 1.69  2007/04/28 02:54:23  collin
+	*** empty log message ***
+	
+	Revision 1.68  2007/04/28 01:42:35  collin
+	*** empty log message ***
+	
+	Revision 1.67  2007/04/11 03:37:41  collin
+	*** empty log message ***
+	
+	Revision 1.66  2007/04/05 22:32:09  collin
+	*** empty log message ***
+	
+	Revision 1.65  2007/03/23 01:47:17  collin
+	*** empty log message ***
+	
+	Revision 1.64  2007/03/22 00:30:00  collin
+	*** empty log message ***
+	
+	Revision 1.63  2007/03/14 02:29:35  collin
+	*** empty log message ***
+	
+	Revision 1.62  2007/03/06 06:30:05  collin
+	*** empty log message ***
+	
+	Revision 1.61  2007/03/06 04:50:21  collin
+	*** empty log message ***
+	
+	Revision 1.60  2007/03/03 05:52:20  collin
+	*** empty log message ***
+	
+	Revision 1.59  2007/03/03 04:47:15  collin
+	*** empty log message ***
+	
+	Revision 1.58  2007/02/16 19:09:15  arulchan
+	*** empty log message ***
+	
+	Revision 1.57  2007/02/16 17:41:00  ayanowit
+	More Leopard changes.
+	
+	Revision 1.56  2007/02/15 22:02:38  ayanowit
+	More fixes for new IRMAllocation stuff.
+	
+	Revision 1.55  2007/02/14 22:43:34  collin
+	*** empty log message ***
+	
+	Revision 1.54  2007/02/10 02:40:58  collin
+	*** empty log message ***
+	
+	Revision 1.53  2007/02/09 20:36:46  ayanowit
+	More Leopard IRMAllocation changes.
+	
+	Revision 1.52  2007/01/17 23:22:40  collin
+	*** empty log message ***
+	
+	Revision 1.51  2007/01/17 03:46:27  collin
+	*** empty log message ***
+	
+	Revision 1.50  2007/01/11 04:34:18  collin
+	*** empty log message ***
+	
+	Revision 1.49  2007/01/04 04:07:25  collin
+	*** empty log message ***
+	
+	Revision 1.48  2006/12/22 05:15:13  collin
+	*** empty log message ***
+	
+	Revision 1.47  2006/12/22 03:50:40  collin
+	*** empty log message ***
+	
+	Revision 1.46  2006/12/06 00:01:10  arulchan
+	Isoch Channel 31 Generic Receiver
+	
+	Revision 1.45  2006/10/26 00:39:16  calderon
+	Changed headerdoc to specify release() need on GetConfigDirectory
+	
+	Revision 1.44  2006/09/28 23:50:05  collin
+	*** empty log message ***
+	
+	Revision 1.43  2006/09/28 22:47:06  ayanowit
+	Another tweak to new APIs.
+	
+	Revision 1.42  2006/09/28 22:31:31  arulchan
+	New Feature rdar::3413505
+	
+	Revision 1.41  2006/09/27 22:42:12  ayanowit
+	Merged in Leopard changes for new IRMAllocation API.
+	
+	Revision 1.40  2006/09/22 06:45:19  collin
+	*** empty log message ***
+	
 	Revision 1.39  2004/06/10 20:57:37  niels
 	*** empty log message ***
 	
@@ -124,6 +223,15 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 // ============================================================
 // device/unit/nub interfaces (newest first)
 // ============================================================
+
+//
+// version 9  // 10.5 Leopard
+//
+// kIOFireWireDeviceInterface_v9
+//		uuid: EE0A94D7-29B4-4D76-A857-57CA477C73B1
+#define kIOFireWireDeviceInterfaceID_v9	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0xEE, 0x0A, 0x94, 0xD7, 0x29, 0xB4, 0x4D, 0x76, \
+											0xA8, 0x57, 0x57, 0xCA, 0x47, 0x7C, 0x73, 0xB1 )
 
 //
 // version 8
@@ -267,6 +375,52 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 // command objects
 // ============================================================
 
+// version 3 interfaces:
+//
+//	availability:
+//		Mac OS X "Leopard" and later
+//
+
+//		uuid string : 18B932AA-697A-4C7E-8F22-80EE746773A9
+#define kIOFireWireAsyncStreamCommandInterfaceID CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault, \
+													0x18, 0xB9, 0x32, 0xAA, 0x69, 0x7A, 0x4C, 0x7E, \
+													0x8F, 0x22, 0x80, 0xEE, 0x74, 0x67, 0x73, 0xA9 )
+
+
+//		uuid string : F3FF3AC6-FE88-47A0-ACB7-509009808128
+#define kIOFireWirePHYCommandInterfaceID CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0xF3, 0xFF, 0x3A, 0xC6, 0xFE, 0x88, 0x47, 0xA0, \
+											0xAC, 0xB7, 0x50, 0x90, 0x09, 0x80, 0x81, 0x28 )
+
+//		uuid string : FAF5529D-9F99-42CB-B0E8-67860807F551
+#define kIOFireWireVectorCommandInterfaceID	CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0xFA, 0xF5, 0x52, 0x9D, 0x9F, 0x99, 0x42, 0xCB,\
+											0xB0, 0xE8, 0x67, 0x86, 0x08, 0x07, 0xF5, 51)
+											
+//		uuid: 12DE8E37-0BE4-4094-882F-FD0B932A3174
+#define kIOFireWireIRMAllocationInterfaceID	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0x12, 0xDE, 0x8E, 0x37, 0x0B, 0xE4, 0x40, 0x94, \
+											0x88, 0x2F, 0xFD, 0x0B, 0x93, 0x2A, 0x31, 0x74 )
+
+//	uuid string: 577B1AFE-1A48-4137-8993-71077820E0CD
+#define kIOFireWireCommandInterfaceID_v3	CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0x57, 0x7B, 0x1A, 0xFE, 0x1A, 0x48, 0x41, 0x37,\
+											0x89, 0x93, 0x71, 0x07, 0x78, 0x20, 0xE0, CD )
+
+//  uuid string: 30FB7D2A-FF2E-4236-871B-2A473B0B7B3B
+#define kIOFireWireReadCommandInterfaceID_v3 CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0x30, 0xFB, 0x7D, 0x2A, 0xFF, 0x2E, 0x42, 0x36,\
+											0x87, 0x1B, 0x2A, 0x47, 0x3B, 0x0B, 0x7B, 0x3B )
+											
+//	uuid string: EF55343D-40A4-4007-BF99-DF1413251309
+#define kIOFireWireWriteCommandInterfaceID_v3 CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0xEF, 0x55, 0x34, 0x3D, 0x40, 0xA4, 0x40, 0x07,\
+											0xBF, 0x99, 0xDF, 0x14, 0x13, 0x25, 0x13, 0x09 )
+											
+//	uuid string: 037F5D98-F5F9-4FBF-9267-4B9BFE9642D6
+#define kIOFireWireCompareSwapCommandInterfaceID_v3	CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0x03, 0x7F, 0x5D, 0x98, 0xF5, 0xF9, 0x4F, 0xBF,\
+											0x92, 0x67, 0x4B, 0x9B, 0xFE, 0x96, 0x42, 0xD6 )											
 //
 //	version 2 interfaces:
 //
@@ -344,6 +498,12 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 											0x48, 0x91, 0x10, 0xF6, 0xF1, 0x98, 0x11, 0xD4,\
 											0x8B, 0xEB, 0x00, 0x05, 0x02, 0x07, 0x2F, 0x80)
 
+
+//	uuid string: 763F18CA-5E84-4612-A2BD-10011730E131
+#define kIOFireWirePHYPacketListenerInterfaceID CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0x76, 0x3F, 0x18, 0xCA, 0x5E, 0x84, 0x46, 0x12,\
+											0xA2, 0xBD, 0x10, 0x01, 0x17, 0x30, 0xE1, 0x31)
+
 #pragma mark -
 #pragma mark CONFIG ROM UUIDs
 // ============================================================
@@ -380,6 +540,13 @@ typedef struct 	IOFireWireReadQuadletCommandInterface_t**	IOFireWireLibReadQuadl
 typedef struct 	IOFireWireWriteCommandInterface_t**			IOFireWireLibWriteCommandRef ;
 typedef struct 	IOFireWireWriteQuadletCommandInterface_t**	IOFireWireLibWriteQuadletCommandRef ;
 typedef struct 	IOFireWireCompareSwapCommandInterface_t**	IOFireWireLibCompareSwapCommandRef ;
+typedef struct	IOFireWireLibVectorCommandInterface_t**		IOFireWireLibVectorCommandRef;
+typedef struct	IOFireWirePHYCommandInterface_t**			IOFireWireLibPHYCommandRef;
+typedef struct	IOFireWireAsyncStreamCommandInterface_t**	IOFireWireLibAsyncStreamCommandRef;
+
+typedef struct 	IOFireWireCompareSwapCommandInterface_v3_t**	IOFireWireLibCompareSwapCommandV3Ref ;
+
+typedef struct  IOFireWireLibIRMAllocationInterface_t**		IOFireWireLibIRMAllocationRef ; 
 
 // --- isoch interfaces ----------
 typedef struct 	IOFireWireIsochChannelInterface_t**			IOFireWireLibIsochChannelRef ;
@@ -389,6 +556,8 @@ typedef struct 	IOFireWireLocalIsochPortInterface_t**		IOFireWireLibLocalIsochPo
 typedef struct 	IOFireWireDCLCommandPoolInterface_t**		IOFireWireLibDCLCommandPoolRef ;
 typedef struct	IOFireWireNuDCLPoolInterface_t**			IOFireWireLibNuDCLPoolRef ;
 typedef struct	IOFireWireBufferFillIsochPortInterface_t**	IOFireWireLibBufferFillIsochPortRef ;
+typedef struct  IOFWAsyncStreamListenerInterface_t**		IOFWAsyncStreamListenerInterfaceRef;
+typedef struct  IOFireWireLibPHYPacketListenerInterface_t**	IOFireWireLibPHYPacketListenerRef;
 
 #pragma mark -
 #pragma mark CALLBACK TYPES
@@ -418,7 +587,7 @@ typedef UInt32	(*IOFireWirePseudoAddressSpaceReadHandler)(
 					UInt16								srcNodeID,		// nodeID of requester
 					UInt32								destAddressHi,	// destination on this node
 					UInt32								destAddressLo,
-					UInt32								refCon) ;
+					void *								refCon) ;
 
 /*!	@typedef IOFireWirePseudoAddressSpaceSkippedPacketHandler
 	@abstract Callback called when incoming packets have been dropped from the internal queue
@@ -450,7 +619,7 @@ typedef UInt32 (*IOFireWirePseudoAddressSpaceWriteHandler)(
 					UInt16								srcNodeID,		// nodeID of sender
 					UInt32								destAddressHi,	// destination on this node
 					UInt32								destAddressLo,
-					UInt32								refCon) ;
+					void *								refCon) ;
 
 /*!	@typedef IOFireWireBusResetHandler
 	@abstract Called when a bus reset has occured, but before FireWire has completed
@@ -480,6 +649,66 @@ typedef void 	(*IOFireWireBusResetDoneHandler)(
 typedef void	(*IOFireWireLibCommandCallback)(
 					void*								refCon,
 					IOReturn							completionStatus) ;
+
+/*!	@typedef IOFireWireLibPHYPacketCallback
+	@abstract Callback called to handle incoming PHY packets
+	@param listener The listener which received the callback
+	@param commandID An FWClientCommandID to be passed to ClientCommandIsComplete()
+	@param data1 first quad of received PHY packet
+	@param data2 second quad of received PHY packet	
+	@param refCon user specified reference value specified on the listener  
+*/
+typedef void	(*IOFireWireLibPHYPacketCallback)(
+					IOFireWireLibPHYPacketListenerRef	listener,
+					FWClientCommandID					commandID,
+					UInt32								data1,
+					UInt32								data2,
+					void *								refCon );
+
+/*!	@typedef IOFireWireLibPHYPacketSkippedCallback
+	@abstract Callback called when incoming packets have been dropped from the internal queue
+	@param listener The listener which dropped the packets
+	@param commandID An FWClientCommandID to be passed to ClientCommandIsComplete()
+	@param skippedPacketCount The number of skipped packets
+	@param refCon user specified reference value specified on the listener  
+*/
+typedef void	(*IOFireWireLibPHYPacketSkippedCallback)(
+					IOFireWireLibPHYPacketListenerRef	listener,
+					FWClientCommandID					commandID,
+					UInt32								skippedPacketCount,
+					void *								refCon );
+
+/*!	@typedef IOFireWireLibIRMAllocationLostNotificationProc
+@abstract Callback called when an IOFireWireLibIRMAllocationRef fails to reclaim IRM resources after a bus-reset
+*/
+typedef void	(*IOFireWireLibIRMAllocationLostNotificationProc)(IOFireWireLibIRMAllocationRef irmAllocation, void *refCon);
+
+/*! @typedef IOFWAsyncStreamListenerHandler
+	@abstract Callback called to handle Async Stream packets.
+	@param listener The listener which received the callback
+	@param commandID An FWClientCommandID to be passed to ClientCommandIsComplete()
+	@param packet Pointer to the received data
+	@param refCon user specified reference number passed in when async stream 
+	                 interface is created   
+*/
+typedef UInt32 (*IOFWAsyncStreamListenerHandler)(
+					IOFWAsyncStreamListenerInterfaceRef	listener,
+					FWClientCommandID					commandID,
+					UInt32								size,
+					void*								packet,
+					void*								refCon) ;
+
+
+/*!	@typedef IOFWAsyncStreamListenerSkippedPacketHandler
+	@abstract Callback called when incoming packets have been dropped from the internal queue
+	@param listener The listener which dropped the packets
+	@param commandID An FWClientCommandID to be passed to ClientCommandIsComplete()
+	@param skippedPacketCount The number of skipped packets
+*/
+typedef void	(*IOFWAsyncStreamListenerSkippedPacketHandler)(
+					IOFWAsyncStreamListenerInterfaceRef	listener,
+					FWClientCommandID					commandID,
+					UInt32								skippedPacketCount) ;
 
 #pragma mark -
 #pragma mark DEVICE INTERFACE
@@ -933,7 +1162,8 @@ public:
 		@param self The device interface to use.
 		@param iid An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the
 			type of interface to be returned for the created config directory object.
-		@result An IOFireWireLibConfigDirectoryRef. Returns 0 upon failure */
+		@result An IOFireWireLibConfigDirectoryRef which should be released using Release().
+			Returns 0 upon failure. */
 	IOFireWireLibConfigDirectoryRef (*GetConfigDirectory)( IOFireWireLibDeviceRef  self, REFIID  iid) ;
 
 	/*!	@function CreateConfigDirectoryWithIOObject
@@ -1195,6 +1425,9 @@ public:
 				<li>kFWAddressSpaceShareIfExists -- Allows creation of this address space even if another client
 					already has an address space at the requested address. All clients will be notified of writes to
 					covered addresses.</li>
+				<li>kFWAddressSpaceExclusive -- Ensures that the allocation of this address space will fail if any portion
+					of this address range is already allocated. If the allocation is successful this flag ensures that any 
+					future allocations overlapping this range will fail even if allocted with kFWAddressSpaceShareIfExists.</li>
 			</ul>
 		@param iid An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the
 			type of interface to be returned for the created pseudo address space object.
@@ -1467,6 +1700,214 @@ public:
 			IOFWIsochPortOptions	options,
 			REFIID 					iid) ; 
 
+	//
+	// v9
+	//
+	
+	/*!	@function CreateVectorCommand
+		@abstract Create a vector command object.
+		@param self The device interface to use.
+		@param callback Command completion callback. Setting the callback value to nil defaults to synchronous execution.
+		@param refcon Reference constant for 3rd party use.
+		@result An IOFireWireLibVectorCommandRef interface*/
+		IOFireWireLibVectorCommandRef (*CreateVectorCommand)( IOFireWireLibDeviceRef self, IOFireWireLibCommandCallback callback, void* inRefCon, REFIID iid) ;
+
+		/*!	@function AllocateIRMBandwidthInGeneration
+			@abstract Attempt to allocate some isochronous bandwidth from the IRM
+			@discussion
+			
+			Attempts to allocates some isochronous bandwidth from the IRM, if the generation matches the current generation.
+			Availability: IOFireWireDeviceInterface_v9 and newer
+			
+			@param bandwidthUnits The number of bandwidth units to allocate
+			
+			@param generation The bus generation that this allocation attempt is to take place in.
+			
+			@result Returns kIOReturnSuccess if bandwidth allocation was successful. Returns kIOFireWireBusReset if 
+			'generation' does not match the current bus generation number. Returns kIOReturnError for any other
+			error (such as the allocation failed) */	
+		IOReturn (*AllocateIRMBandwidthInGeneration)(IOFireWireLibDeviceRef self, UInt32 bandwidthUnits, UInt32 generation) ;
+		
+		/*!	@function ReleaseIRMBandwidthInGeneration
+			@abstract Attempt to release some isochronous bandwidth from the IRM
+			@discussion
+			
+			Attempts to release some isochronous bandwidth from the IRM, if the generation matches the current generation.
+				Availability: IOFireWireDeviceInterface_v9 and newer
+			
+			@param bandwidthUnits The number of bandwidth units to release
+			
+			@param generation The bus generation that this release attempt is to take place in.
+			
+			@result Returns kIOReturnSuccess if bandwidth release was successful. Returns kIOFireWireBusReset if 
+			'generation' does not match the current bus generation number. Returns kIOReturnError for any other
+			error (such as the allocation failed) */	
+		IOReturn (*ReleaseIRMBandwidthInGeneration)(IOFireWireLibDeviceRef self, UInt32 bandwidthUnits, UInt32 generation) ;
+		
+		/*!	@function AllocateIRMChannelInGeneration
+			@abstract Attempt to allocate an isochronous channel from the IRM
+			@discussion
+			
+			Attempts to allocates an isochronous channel from the IRM, if the generation matches the current generation.
+			Availability: IOFireWireDeviceInterface_v9 and newer
+			
+			@param isochChannel The isochronous channel to allocate
+			
+			@param generation The bus generation that this allocation attempt is to take place in.
+			
+			@result Returns kIOReturnSuccess if channel allocation was successful. Returns kIOFireWireBusReset if 
+			'generation' does not match the current bus generation number. Returns kIOReturnError for any other
+			error (such as the allocation failed) */	
+		IOReturn (*AllocateIRMChannelInGeneration)(IOFireWireLibDeviceRef self, UInt8 isochChannel, UInt32 generation) ;
+		
+		/*!	@function ReleaseIRMChannelInGeneration
+			@abstract Attempt to release an isochronous channel from the IRM
+			@discussion
+			
+			Attempts to release an isochronous channel from the IRM, if the generation matches the current generation.
+			Availability: IOFireWireDeviceInterface_v9 and newer
+			
+			@param isochChannel The isochronous channel to release
+			
+			@param generation The bus generation that this release attempt is to take place in.
+			
+			@result Returns kIOReturnSuccess if channel relase was successful. Returns kIOFireWireBusReset if 
+			'generation' does not match the current bus generation number. Returns kIOReturnError for any other
+			error (such as the allocation failed) */	
+		IOReturn (*ReleaseIRMChannelInGeneration)(IOFireWireLibDeviceRef self, UInt8 isochChannel, UInt32 generation) ;
+		
+		/*!	@function CreateIRMAllocation
+			@abstract Attempt to create an IRM allocation that persists accross bus-resets.
+			@discussion
+			
+			Create an IOFireWireIRMAllocation object, which can be used to allocate IRM resources, and will reallocate automatically after bus-resets (if possible).
+			
+			Availability: IOFireWireDeviceInterface_v9 and newer
+			
+			@param releaseIRMResourcesOnFree Specify whether or not the IRM resources shall be released when the IOFireWireLibIRMAllocation is destroyed. Can be overrided later.
+			
+			@param callback The handler to notify clients of failure to reclaim IRM resources after bus-reset.
+			
+			@param pLostNotificationProcRefCon The refCon passed with the callback.
+			
+			@result Returns a pointer to the newly created IRM allocation object, if successful, NULL otherwise.
+			*/	
+		IOFireWireLibIRMAllocationRef (*CreateIRMAllocation)( IOFireWireLibDeviceRef	self, 
+															  Boolean					releaseIRMResourcesOnFree, 
+															  IOFireWireLibIRMAllocationLostNotificationProc callback,
+															  void						*pLostNotificationProcRefCon,
+															  REFIID					iid) ; 
+
+	/*!	@function CreateAsyncStreamListener
+		@abstract Creates a async stream listener object and returns an interface to it.
+		@param self		The device interface to use.
+		@param channel	The channel to allocate.
+		@param inRefCon A user specified reference value. This will be passed to all callback functions.
+		@param inQueueBufferSize The size of the queue which receives packets from the bus before they are handed to
+			the client. A larger queue can help eliminate dropped packets
+			when receiving large bursts of data. When a packet is received which can not fit into the queue, 
+			the packet dropped callback will be called. 
+		@param iid An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the
+			type of interface to be returned for the created ayns stream listener object.
+		@result An IOFWAsyncStreamListenerInterfaceRef. Returns 0 upon failure */
+		IOFWAsyncStreamListenerInterfaceRef	(*CreateAsyncStreamListener)(  IOFireWireLibDeviceRef			self, 
+																			UInt32							channel,
+																			IOFWAsyncStreamListenerHandler	callback,																			
+																			void*							inRefCon, 
+																			UInt32							inQueueBufferSize, 
+																			REFIID							iid) ;
+
+
+		/*!	@function GetIsochAsyncPort
+			@abstract Returns the notification port used for async and isoch callbacks
+			@discussion
+			
+			If necessary GetIsochAsyncPort will allocate the port. 
+			
+			Availability: IOFireWireDeviceInterface_v9 and newer
+			
+			@param self		The device interface to use.
+			@result Returns the mach_port used for notifications */	
+
+		mach_port_t (*GetIsochAsyncPort)( IOFireWireLibDeviceRef self ); 
+															  
+	/*!
+		@function CreatePHYCommand
+		@abstract Create a command object for sending a PHY packet
+		@param self The device interface to use.
+		@param data1 phy packet quadlet 1
+		@param data2 phy packet quadlet 1
+		@param callback completion callback
+		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
+			specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
+			obtained by calling GetBusGeneration()
+		@param generation The FireWire bus generation during which the command should be executed. Ignored
+			if failOnReset is false.
+		@param iid An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the
+			type of interface to be returned for the created phy command object.
+		@result An IOReturn error code
+	*/
+		
+		IOFireWireLibCommandRef		(*CreatePHYCommand)( IOFireWireLibDeviceRef			self,
+														UInt32							data1,
+														UInt32							data2,
+														IOFireWireLibCommandCallback	callback,
+														Boolean							failOnReset, 
+														UInt32							generation,
+														void*							inRefCon, 
+														REFIID							iid );
+														
+	/*!
+		@function CreatePHYPacketListener
+		@abstract Create a listener object for receiving PHY packets
+		@param self The device interface to use.
+		@param queueCount The maximum queue size to use to buffer phy packets between kernel and user space
+		@param iid An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the
+			type of interface to be returned for the created phy packet listener object.
+		@result An IOReturn error code
+	*/
+		
+		IOFireWireLibPHYPacketListenerRef	(*CreatePHYPacketListener)( IOFireWireLibDeviceRef			self,
+																		UInt32							queueCount,
+																		REFIID							iid );														
+																		
+
+		/*!
+			@function CreateAsyncStreamCommand
+			@abstract Create a command object for sending Async Stream packets
+			@param self			The device interface to use.
+			@param channel		The channel number to use.
+			@param buf			A pointer to the buffer containing the data to be written
+			@param size			Number of bytes to write
+			@param callback		Command completion callback.
+			@param failOnReset	Pass true if the command should only be executed during the FireWire bus generation
+								specified in 'generation'. Pass false to ignore the generation parameter. The generation can be
+								obtained by calling GetBusGeneration(). Must be 'true' when using 64-bit addressing.
+			@param inRefCon		A user specified reference value. This will be passed to all callback functions.
+			@param iid			An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the
+								type of interface to be returned for the created phy packet listener object.
+			@result An IOReturn error code
+		*/
+		IOFireWireLibCommandRef	(*CreateAsyncStreamCommand)(IOFireWireLibDeviceRef				self, 
+																UInt32							channel,
+																UInt32							sync,
+																UInt32							tag,
+																void*							buf, 
+																UInt32							size,
+																IOFireWireLibCommandCallback	callback, 
+																Boolean							failOnReset,
+																UInt32							generation,
+																void*							inRefCon,
+																REFIID							iid);
+	
+		/*!	@function GetCycleTimeAndUpTime
+			@abstract Get bus cycle time and cpu uptime.
+			@param self The device interface to use.
+			@param outCycleTime A pointer to a UInt32 to hold the result
+			@param outUpTime A pointer to a UInt64 to hold the result
+			@result An IOReturn error code.	*/	
+		IOReturn (*GetCycleTimeAndUpTime)( IOFireWireLibDeviceRef  self, UInt32*  outCycleTime, UInt64*  outUpTime) ;
+					
 } IOFireWireDeviceInterface, IOFireWireUnitInterface, IOFireWireNubInterface ;
 #endif // ifdef KERNEL
 
@@ -1485,7 +1926,8 @@ typedef enum
 	kFWAddressSpaceAutoWriteReply	= (1 << 2) ,
 	kFWAddressSpaceAutoReadReply	= (1 << 3) ,
 	kFWAddressSpaceAutoCopyOnWrite	= (1 << 4) ,
-	kFWAddressSpaceShareIfExists	= (1 << 5)
+	kFWAddressSpaceShareIfExists	= (1 << 5) ,
+	kFWAddressSpaceExclusive		= (1 << 6)
 } FWAddressSpaceFlags ;
 
 #ifndef KERNEL
@@ -1581,6 +2023,74 @@ public:
 
 
 } IOFireWirePseudoAddressSpaceInterface ;
+
+#pragma mark -
+#pragma mark IRM ALLOCATION
+// ============================================================
+// IOFireWireLibIRMAllocationInterface
+// ============================================================
+typedef struct IOFireWireLibIRMAllocationInterface_t
+{
+	IUNKNOWN_C_GUTS ;
+	UInt32 version, revision ;
+
+	/*!	@function setReleaseIRMResourcesOnFree
+	 @abstract Set a new value for releaseIRMResourcesOnFree
+	 @param self The IRMAllocation interface to use.
+	 @param doRelease The new value for releaseIRMResourcesOnFree. */
+	const void (*setReleaseIRMResourcesOnFree)( IOFireWireLibIRMAllocationRef self, Boolean doRelease) ;
+	
+	/*!	@function allocateIsochResources
+	 @abstract Use this interface to allocate isochronous resources
+	 @param self The IRMAllocation interface to use.
+	 @param isochChannel The isoch channel to allocate.
+	 @param bandwidthUnits The bandwidth units to allocate.
+	 @result Returns true if allocation success */
+	IOReturn (*allocateIsochResources)(IOFireWireLibIRMAllocationRef self, UInt8 isochChannel, UInt32 bandwidthUnits);
+	
+	/*!	@function deallocateIsochResources
+	 @abstract Deallocate previously allocated resources
+	 @param self The IRMAllocation interface to use.
+	 @result Returns true if deallocation success */
+	IOReturn (*deallocateIsochResources)(IOFireWireLibIRMAllocationRef self);
+
+	/*!	@function areIsochResourcesAllocated
+	 @abstract Poll to see if IRM resources are still allocated
+	 @param self The IRMAllocation interface to use.
+	 @param pAllocatedIsochChannel If allocated, the channel
+	 @param pAllocatedBandwidthUnits If allocated, the amount of bandwidth
+	 @result Returns true if currently allocated, false otherwise */
+	Boolean (*areIsochResourcesAllocated)(IOFireWireLibIRMAllocationRef self, UInt8 *pAllocatedIsochChannel, UInt32 *pAllocatedBandwidthUnits);
+	
+	/*!	@function NotificationIsOn
+	 @abstract Is notification on?
+	 @param self The IRMAllocation interface to use.
+	 @result Returns true if notifications for this IRMAllocation are enabled */
+	Boolean (*NotificationIsOn)(IOFireWireLibIRMAllocationRef self) ;
+	
+	/*!	@function TurnOnNotification
+	 @abstract Try to turn on notifications
+	 @param self The IRMAllocation interface to use.
+	 @result Returns true upon success */
+	Boolean (*TurnOnNotification)(IOFireWireLibIRMAllocationRef self) ;
+	
+	/*!	@function TurnOffNotification
+	 @abstract Force notification off.
+	 @param self The IRMAllocation interface to use. */
+	void (*TurnOffNotification)(IOFireWireLibIRMAllocationRef self) ;
+	
+	/*!	@function SetRefCon
+	 @abstract Set a new refcon
+	 @param self The IRMAllocation interface to use.
+	 @param refCon The new refcon value. */
+	void (*SetRefCon)(IOFireWireLibIRMAllocationRef self, void* refCon) ;
+
+	/*!	@function GetRefCon
+	 @abstract Get the current refcon
+	 @param self The IRMAllocation interface to use.
+	 @result Returns the current refcon value */
+	void* (*GetRefCon)(IOFireWireLibIRMAllocationRef self) ;
+}IOFireWireLibIRMAllocationInterface;
 
 #pragma mark -
 #pragma mark LOCAL UNIT DIRECTORY INTERFACE
@@ -1757,11 +2267,13 @@ public:
 //
 enum
 {
-	kFWCommandNoFlags					= 0 ,
-	kFWCommandInterfaceForceNoCopy		= (1 << 0) ,
-	kFWCommandInterfaceForceCopyAlways	= (1 << 1) ,
-	kFWCommandInterfaceSyncExecute		= (1 << 2) ,
-	kFWCommandInterfaceAbsolute			= (1 << 3)
+	kFWCommandNoFlags						= 0,
+	kFWCommandInterfaceForceNoCopy			= (1 << 0),
+	kFWCommandInterfaceForceCopyAlways		= (1 << 1),
+	kFWCommandInterfaceSyncExecute			= (1 << 2),
+	kFWCommandInterfaceAbsolute				= (1 << 3),
+	kFWVectorCommandInterfaceOrdered		= (1 << 4),
+	kFWCommandInterfaceForceBlockRequest	= (1 << 5)
 } ;
 
 enum
@@ -1800,6 +2312,14 @@ enum {
 	IOReturn			(*SetMaxPacket)(IOFireWireLibCommandRef self, IOByteCount maxPacketSize) ;	\
 	void				(*SetFlags)(IOFireWireLibCommandRef self, UInt32 inFlags)
 
+#define IOFIREWIRELIBCOMMAND_C_GUTS_v3 \
+	void				(*SetTimeoutDuration)(IOFireWireLibCommandRef self, UInt32 duration ); \
+	void				(*SetMaxRetryCount)(IOFireWireLibCommandRef self, UInt32 count ); \
+	UInt32				(*GetAckCode)( IOFireWireLibCommandRef self ); \
+	UInt32				(*GetResponseCode)( IOFireWireLibCommandRef self ); \
+	void				(*SetMaxPacketSpeed)( IOFireWireLibCommandRef self, IOFWSpeed speed ); \
+	void *				(*GetRefCon)( IOFireWireLibCommandRef self )
+	
 typedef struct IOFireWireCommandInterface_t
 {
 /*!	@class IOFireWireCommandInterface
@@ -1862,6 +2382,11 @@ public:
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>YES</td>
 			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
 		</table>
 					
 		@param self The command object interface of interest
@@ -1911,6 +2436,11 @@ public:
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>YES</td>
 			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
 		</table>
 		@param self The command object interface of interest
 		@result A UInt32 containing the bytes transferred value	*/
@@ -1956,6 +2486,11 @@ public:
 				<td width="20%"></td>
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>YES</td>
+			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>NO</td>
 			</tr>
 		</table>
 		@param self The command object interface of interest
@@ -2003,6 +2538,11 @@ public:
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>YES</td>
 			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>NO</td>
+			</tr>
 		</table>
 		@param self The command object interface of interest
 		@param addr A pointer to an FWAddress. */
@@ -2049,6 +2589,11 @@ public:
 			<tr>
 				<td width="20%"></td>
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
 				<td>YES</td>
 			</tr>
 		</table>
@@ -2099,6 +2644,11 @@ public:
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>YES</td>
 			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
 		</table>
 		@param self The command object interface of interest
 		@param inCallback A callback handler. Passing nil forces the command object to 
@@ -2147,6 +2697,11 @@ public:
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>YES</td>
 			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
 		</table> */
 		/*
 		void				(*SetRefCon)(IOFireWireLibCommandRef self, void* refCon) ;
@@ -2189,6 +2744,11 @@ public:
 			<tr>
 				<td width="20%"></td>
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
 				<td>YES</td>
 			</tr>
 		</table>
@@ -2235,6 +2795,11 @@ public:
 			<tr>
 				<td width="20%"></td>
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
 				<td>YES</td>
 			</tr>
 		</table>
@@ -2285,6 +2850,11 @@ public:
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>YES</td>
 			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
 		</table>
 		@param self The command object interface of interest
 		@result An IOReturn result code indicating whether or not the command was successfully
@@ -2330,6 +2900,11 @@ public:
 			<tr>
 				<td width="20%"></td>
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
 				<td>YES</td>
 			</tr>
 		</table>
@@ -2381,6 +2956,11 @@ public:
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>NO</td>
 			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
 		</table>
 		@param self The command object interface of interest
 		@param size Size in bytes of the receive buffer.
@@ -2429,6 +3009,11 @@ public:
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>NO</td>
 			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
 		</table>
 		@param self The command object interface of interest */
 		/*
@@ -2473,6 +3058,11 @@ public:
 				<td width="20%"></td>
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>NO</td>
+			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>YES</td>
 			</tr>
 		</table>
 		@param self The command object interface of interest
@@ -2523,6 +3113,11 @@ public:
 				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
 				<td>NO</td>
 			</tr>
+			<tr>
+				<td width="20%"></td>
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
+				<td>YES</td>
+			</tr>
 		</table>
 		@param self The command object interface of interest
 		@param inFlags A UInt32 with bits set corresponding to the flags that should be set
@@ -2543,11 +3138,75 @@ public:
 					object has completed execution or an error occurs. Using synchronous execution
 					can avoid kernel transitions associated with asynchronous completion and often
 					remove the need for a state machine.</li>
+				<li>kFWCommandInterfaceForceBlockRequest -- Setting this flag causes read and write
+					transactions to use block request packets even if the payload is 4 bytes. If this
+					flag is not set 4 byte transactions will occur using quadlet transactions.</li>
 			</ul>*/
 		/*
 		void				(*SetFlags)(IOFireWireLibCommandRef self, UInt32 inFlags) ;
 		*/
 	IOFIREWIRELIBCOMMAND_C_GUTS_v2 ;
+	
+	/*!	@function SetTimeoutDuration
+		@abstract Sets the duration of the timeout for this command.
+		@param self A reference to the command
+		@param duration A timeout value in microseconds
+		@result void	*/
+		
+	/*
+		void				(*SetTimeoutDuration)(IOFireWireLibCommandRef self, UInt32 duration );
+	*/
+
+	/*!	@function SetMaxRetryCount
+		@abstract Sets the maximum number of retries for this command.
+		@param self A reference to the command
+		@param count The number of retires
+		@result void	*/
+			
+	/*
+		void				(*SetMaxRetryCount)(IOFireWireLibCommandRef self, UInt32 count ); \
+	*/
+	
+	/*!	@function GetAckCode
+		@abstract Gets the most recently received ack code for this transaction. 
+		@param self A reference to the command
+		@result The FireWire ack code. */
+		
+	/*
+		UInt32				(*GetAckCode)( IOFireWireLibCommandRef self ); \
+	*/
+	
+	
+	/*!	@function GetResponseCode
+		@abstract Gets the most recently received response code for this transaction. 
+		@param self A reference to the command
+		@result The FireWire response code. */
+		
+	/*	
+		UInt32				(*GetResponseCode)( IOFireWireLibCommandRef self ); \
+	*/
+	
+	
+	/*!	@function SetMaxPacketSpeed
+		@abstract Gets the most recently received ack code for this transaction. 
+		@param self A reference to the command
+		@param IOFWSpeed the desired maximum packet speed
+		@result void */
+		
+	/*	
+		void				(*SetMaxPacketSpeed)( IIOFireWireLibCommandRef self, OFWSpeed speed );
+	*/
+
+	/*!	@function GetRefCon
+		@abstract Gets the refcon associated with this command
+		@param self A reference to the command
+		@result void */
+		
+	/*	
+		void				(*GetRefCon)( IOFireWireLibCommandRef self );
+	*/
+		
+	IOFIREWIRELIBCOMMAND_C_GUTS_v3 ;
 
 } IOFireWireCommandInterface ;
 
@@ -2574,6 +3233,8 @@ public:
 	// following functions
 	// available only in IOFireWireReadCommandInterface interface v2 and newer
 	IOFIREWIRELIBCOMMAND_C_GUTS_v2 ;
+	
+	IOFIREWIRELIBCOMMAND_C_GUTS_v3 ;
 } IOFireWireReadCommandInterface ;
 
 typedef struct IOFireWireWriteCommandInterface_t
@@ -2599,6 +3260,8 @@ public:
 	// following functions
 	// available only in IOFireWireWriteCommandInterface_v2 and newer
 	IOFIREWIRELIBCOMMAND_C_GUTS_v2 ;
+	
+	IOFIREWIRELIBCOMMAND_C_GUTS_v3 ;
 
 } IOFireWireWriteCommandInterface ;
 
@@ -2674,9 +3337,122 @@ public:
 	
 } IOFireWireCompareSwapCommandInterface ;
 
-//
-// obsolete: do not use. Use IOFireWireWriteCommandInterface_v2 and its function SetMaxPacket().
-//
+typedef struct IOFireWireCompareSwapCommandInterface_v3_t
+{
+/*!	@class IOFireWireCompareSwapCommandInterface_v3
+*/
+
+/* headerdoc parse workaround	
+class IOFireWireCompareSwapCommandInterface_v3: public IOFireWireCommandInterface {
+public:
+*/
+	IUNKNOWN_C_GUTS;
+	UInt32 version, revision;
+	
+	IOFIREWIRELIBCOMMAND_C_GUTS;
+
+	IOFIREWIRELIBCOMMAND_C_GUTS_v2;
+
+	IOFIREWIRELIBCOMMAND_C_GUTS_v3;
+
+	/*!	@function SetValues
+		@abstract Set values for 32-bit compare swap operation. Calling this function will
+			make the command object perform 32-bit compare swap transactions on the bus. To perform
+			64-bit compare swap operations, use the SetValues64() call, below.
+		@discussion Available in v2 and newer.
+		@param self The command object interface of interest
+		@param cmpVal The value expected at the address targeted by this command object
+		@param newVal The value to be written at the address targeted by this command object */
+	void	(*SetValues)(IOFireWireLibCompareSwapCommandRef self, UInt32 cmpVal, UInt32 newVal) ;
+	
+	// --- v2 ---
+	
+	/*!	@function SetValues64
+		@abstract Set values for 64-bit compare swap operation. Calling this function will
+			make the command object perform 64-bit compare swap transactions on the bus. To perform
+			32-bit compare swap operations, use the SetValues() call, above.
+		@discussion Available in v2 and newer.
+		@param self The command object interface of interest
+		@param cmpVal The value expected at the address targeted by this command object
+		@param newVal The value to be written at the address targeted by this command object */
+	void	(*SetValues64)(IOFireWireLibCompareSwapCommandRef self, UInt64 cmpVal, UInt64 newVal) ;
+
+	/*!	@function DidLock
+		@abstract Was the last lock operation successful?
+		@discussion Available in v2 and newer.
+		@param self The command object interface of interest
+		@result Returns true if the last lock operation performed by this command object was successful,
+			false otherwise. */
+	Boolean	(*DidLock)(IOFireWireLibCompareSwapCommandRef self) ;
+
+	/*!	@function Locked
+		@abstract Get the 32-bit value returned on the last compare swap operation.
+		@discussion Available in v2 and newer.
+		@param self The command object interface of interest
+		@param oldValue A pointer to contain the value returned by the target of this command
+			on the last compare swap operation
+		@result Returns kIOReturnBadArgument if the last compare swap operation performed was 64-bit. */
+	IOReturn (*Locked)(IOFireWireLibCompareSwapCommandRef self, UInt32* oldValue) ;
+
+	/*!	@function Locked64
+		@abstract Get the 64-bit value returned on the last compare swap operation.
+		@discussion Available in v2 and newer.
+		@param self The command object interface of interest
+		@param oldValue A pointer to contain the value returned by the target of this command
+			on the last compare swap operation
+		@result Returns kIOReturnBadArgument if the last compare swap performed was 32-bit. */
+	IOReturn (*Locked64)(IOFireWireLibCompareSwapCommandRef self, UInt64* oldValue) ;
+	
+} IOFireWireCompareSwapCommandInterface_v3 ;
+
+typedef struct IOFireWirePHYCommandInterface_t
+{
+/*!	@class IOFireWirePHYCommandInterface
+*/
+
+/* headerdoc parse workaround	
+class IOFireWirePHYCommandInterface: public IOFireWireCommandInterface {
+public:
+*/
+	IUNKNOWN_C_GUTS;
+	UInt32 version, revision;
+	
+	IOFIREWIRELIBCOMMAND_C_GUTS;
+
+	IOFIREWIRELIBCOMMAND_C_GUTS_v2;
+
+	IOFIREWIRELIBCOMMAND_C_GUTS_v3;
+
+	/*!	@function SetDataQuads
+		@abstract Set the 2 quadlets of data to be sent in a PHY packet.
+		@discussion Available in v1 and newer.
+		@param self The command object interface of interest
+		@param data1 The value of the first quad of the phy packet
+		@param data2 The value of the second quad of the phy packet */
+	void	(*SetDataQuads)( IOFireWireLibPHYCommandRef self, UInt32 data1, UInt32 data2 );
+		
+} IOFireWirePHYCommandInterface;
+
+typedef struct IOFireWireAsyncStreamCommandInterface_t
+{
+/*!	@class IOFireWireAsyncStreamCommandInterface
+*/
+
+/* headerdoc parse workaround	
+class IOFireWireAsyncStreamCommandInterface: public IOFireWireCommandInterface {
+public:
+*/
+	IUNKNOWN_C_GUTS;
+	UInt32 version, revision;
+	
+	IOFIREWIRELIBCOMMAND_C_GUTS;
+
+	IOFIREWIRELIBCOMMAND_C_GUTS_v2;
+
+	IOFIREWIRELIBCOMMAND_C_GUTS_v3;
+		
+} IOFireWireAsyncStreamCommandInterface;
+
 typedef struct IOFireWireReadQuadletCommandInterface_t
 {
 /*!	@class IOFireWireReadQuadletCommandInterface
@@ -2700,9 +3476,6 @@ public:
 	void (*SetQuads)(IOFireWireLibReadQuadletCommandRef self, UInt32 inQuads[], UInt32 inNumQuads) ;
 } IOFireWireReadQuadletCommandInterface ;
 
-//
-// obsolete: do not use. Use IOFireWireWriteCommandInterface_v2 and its function SetMaxPacket().
-//
 typedef struct IOFireWireWriteQuadletCommandInterface_t
 {
 /*!	@class IOFireWireWriteQuadletCommandInterface
@@ -2781,6 +3554,276 @@ IOVirtualRangeMake( IOVirtualAddress address, IOByteCount length )
 	range.length = length ;
 	return range ;
 }
+
+#pragma mark -
+#pragma mark VECTOR COMMAND INTERFACE
+// ============================================================
+// IOFireWireVectorCommandInterface
+// ============================================================
+
+
+typedef struct IOFireWireLibVectorCommandInterface_t
+{
+/*!	@class IOFireWireVectorCommandInterface
+	@abstract IOFireWireLib command object for grouping commands execution.
+	@discussion Read and Write commands can be attached in order to the vector command. When 
+		the vector command is submitted all the commands are sent to the kernel for execution.
+		When all the commands in a vector command are complete the vector command's completion is called.
+		The advantage over submitting and completeing each command simultaneously is that only one kernel transition
+		will be used for submission and one for completion, regardless of the number of commands in the vector.*/
+/* headerdoc parse workaround	
+class IOFireWireVectorCommandInterface: public IUnknown {
+public:
+*/
+
+	IUNKNOWN_C_GUTS ;
+	UInt32 version, revision ;
+	
+	/*!	@function Submit
+		@abstract Submit this command object to FireWire for execution.
+		@param self A reference to the vector command object
+		@result An IOReturn result code	*/
+
+	IOReturn					(*Submit)(IOFireWireLibVectorCommandRef self);
+
+	/*!	@function Submit
+		@abstract Submit this command object to FireWire for execution.
+		@discussion A convienence method to set the callback and refcon and then submit.
+		@param self A reference to the vector command object
+		@param refCon A reference constant for 3rd party use. This is the same refcon set with SetRefCon and retreived with GetRefCon.
+		@param inCallback A callback function to be called upon command completion.
+		@result An IOReturn result code	*/
+
+	IOReturn					(*SubmitWithRefconAndCallback)(IOFireWireLibVectorCommandRef self, void* refCon, IOFireWireLibCommandCallback inCallback);
+	
+	/*!	@function IsExecuting
+		@abstract Checks if the vector command is currently executing.
+		@param self A reference to the vector command object
+		@result True if the command is executing, false otherwise */
+
+	Boolean						(*IsExecuting)(IOFireWireLibVectorCommandRef self);
+
+	/*!	@function SetCallback
+		@abstract Set the callback routine for this command.
+		@param self A reference to the vector command object
+		@param inCallback A callback function to be called upon command completion.
+		@result void	*/
+	
+	void						(*SetCallback)(IOFireWireLibVectorCommandRef self, IOFireWireLibCommandCallback inCallback);
+
+	/*!	@function SetRefCon
+		@abstract Set the reference constant for this command.
+		@param self A reference to the vector command object
+		@param refCon A reference constant for 3rd party use.
+		@result void	*/
+			
+	void						(*SetRefCon)(IOFireWireLibVectorCommandRef self, void* refCon);
+	
+	/*!	@function GetRefCon
+		@abstract Get the reference constant for this command.
+		@param self A reference to the vector command object
+		@result The reference contant set in SetRefCon	*/
+		
+	void *						(*GetRefCon)(IOFireWireLibVectorCommandRef self);
+
+	/*!	@function SetRefCon
+		@abstract Set flags governing this command's execution.
+		@param self A reference to the vector command object
+		@param inFlags A UInt32 with bits set corresponding to the flags that should be set
+			for this command object. The following values may be used:<br>
+			<ul>
+				<li>kFWCommandNoFlags -- all flags off</li>
+				<li>kFWCommandInterfaceSyncExecute -- Setting this flag causes the command object
+					to execute synchronously. The calling context will block until the command
+					object has completed execution or an error occurs. Using synchronous execution
+					can avoid kernel transitions associated with asynchronous completion and often
+					remove the need for a state machine.</li>
+				<li>kFWVectorCommandInterfaceOrdered - Normally all commands in a vector are executed
+				    simultaneously. Setting this flag will dispatch a command only after the prior 
+					command has completed.
+			</ul>
+			@result void	*/
+	
+	void						(*SetFlags)(IOFireWireLibVectorCommandRef self, UInt32 inFlags);
+	
+	/*!	@function GetFlags
+		@abstract Get the flags currently set for this command.
+		@param self A reference to the vector command object
+		@result The flags set in SetFlags	*/
+		
+	UInt32						(*GetFlags)(IOFireWireLibVectorCommandRef self);
+	
+	/*!	@function EnsureCapacity
+		@abstract Sets the number of commands this vector can hold.
+		@discussion The vector can grow dynamically, but for performance
+			reasons developers may want the storage preallocated for a certain 
+			number of commmands
+		@param self A reference to the vector command object
+		@param capacity The number of commands this vector command should expect to hold
+		@result  An IOReturn result code	*/
+		
+	IOReturn					(*EnsureCapacity)(IOFireWireLibVectorCommandRef self, UInt32 capacity);
+	
+	/*!	@function AddCommand
+		@abstract Adds a command to the vector command.
+		@param self A reference to the vector command object
+		@param command A reference to the command to add
+		@result An IOReturn result code	*/
+	
+	void					(*AddCommand)(IOFireWireLibVectorCommandRef self, IOFireWireLibCommandRef command);
+	
+	/*!	@function RemoveCommand
+		@abstract Removes a command to the vector command.
+		@param self A reference to the vector command object
+		@param command A reference to the command to be removed
+		@result An IOReturn result code	*/
+		
+	void					(*RemoveCommand)(IOFireWireLibVectorCommandRef self, IOFireWireLibCommandRef command);
+	
+	/*!	@function InsertCommandAtIndex
+		@abstract Inserts a command at a given index. Commands at and after 
+			this index will be moved to their next sequential index.
+		@param self A reference to the vector command object
+		@param command A reference to the command to be inserted
+		@param index The index to insert the command at.
+	*/
+		
+	void					(*InsertCommandAtIndex)(IOFireWireLibVectorCommandRef self, IOFireWireLibCommandRef command, UInt32 index);
+	
+	/*!	@function GetCommandAtIndex
+		@abstract Returns the command at a given index.
+		@discussion Returns kIOReturnBadArgument if the index is out of bounds.
+		@param self A reference to the vector command object
+		@param index The index to return a command from
+		@result The IOFireWireLibCommandRef at the specified index on return	*/
+		
+	IOFireWireLibCommandRef		(*GetCommandAtIndex)(IOFireWireLibVectorCommandRef self, UInt32 index);
+		
+	/*!	@function GetIndexOfCommand
+		@abstract Returns the index of the specified command. 
+		@discussion Returns kIOReturnNotFound if the command does not exist in this vector.
+		@param self A reference to the vector command object
+		@param command The command in question
+		@result The index of the specified command	*/
+		
+	UInt32						(*GetIndexOfCommand)(IOFireWireLibVectorCommandRef self, IOFireWireLibCommandRef command);
+
+	/*!	@function RemoveCommandAtIndex
+		@abstract Removes the command at a give index. Commands at and afte
+			this index will be moved to their previous sequential index.
+		@discussion Returns kIOReturnBadArgument if the index is out of bounds.
+		@param self A reference to the vector command object
+		@param command The command in question
+		@param outIndex Will be set to the index of the specified command.
+	*/
+		
+	void					(*RemoveCommandAtIndex)(IOFireWireLibVectorCommandRef self, UInt32 index);
+	
+	/*!	@function RemoveAllCommands
+		@abstract Removes all commands from the vector.
+		@param self A reference to the vector command object
+	*/
+		
+	void						(*RemoveAllCommands)(IOFireWireLibVectorCommandRef self);
+	
+	/*!	@function GetCommandCount
+		@abstract Returns the number of commands currently in this vector.
+		@param self A reference to the vector command object
+		@result UInt32 The number of commands in this vector	*/
+		
+	UInt32						(*GetCommandCount)(IOFireWireLibVectorCommandRef self);
+	
+} IOFireWireLibVectorCommandInterface;
+
+#pragma mark -
+#pragma mark PHY PACKET LISTENER INTERFACE
+// ============================================================
+// IOFireWireLibPHYPacketListenerInterface Interface
+// ============================================================
+
+typedef struct IOFireWireLibPHYPacketListenerInterface_t
+{
+/*!	@class IOFireWireLibPHYPacketListenerInterface (IOFireWireLib)
+	@discussion Represents and provides management functions for a phy packet listener object.
+*/
+/* headerdoc parse workaround	
+class IOFireWireLibPHYPacketListenerInterface: public IUnknown {
+public:
+*/
+	IUNKNOWN_C_GUTS ;
+	UInt16 version, revision ;
+
+	/*!	@function SetListenerCallback
+		@abstract Set the callback that should be called to handle incoming phy packets
+		@param self The PHY packet listener object.
+		@param inCallback The callback to set.
+	*/
+	void (*SetListenerCallback)( IOFireWireLibPHYPacketListenerRef self, IOFireWireLibPHYPacketCallback inCallback );
+
+	/*!	@function SetSkippedPacketCallback
+		@abstract Set the callback that should be called when incoming phy packets are
+			dropped by the listener space.
+		@param self The PHY packet listener object.
+		@param inCallback The callback to set.
+	*/
+	void (*SetSkippedPacketCallback)( IOFireWireLibPHYPacketListenerRef self, IOFireWireLibPHYPacketSkippedCallback inCallback );
+
+	/*!	@function NotificationIsOn
+		@abstract Is notification on?
+		@param self The PHY packet listener object.
+		@result Returns true if packet notifications for this listener are active 
+	*/
+	Boolean (*NotificationIsOn)( IOFireWireLibPHYPacketListenerRef self );
+
+	/*!	@function TurnOnNotification
+		@abstract Try to turn on packet notifications for this listener.
+		@param self The PHY packet listener object.
+		@result Returns kIOReturnSuccess if successful */
+	IOReturn (*TurnOnNotification)( IOFireWireLibPHYPacketListenerRef self );
+
+	/*!	@function TurnOffNotification
+		@abstract Turn packet notification off.
+		@param self The PHY packet listener object. */
+	void (*TurnOffNotification)( IOFireWireLibPHYPacketListenerRef self );
+
+	/*!	@function ClientCommandIsComplete
+		@abstract Notify the PHY packet listener object that a packet notification handler has completed.
+		@discussion Packet notifications are received one at a time, in order. This function
+			must be called after a packet handler has completed its work.
+		@param self The PHY packet listener object.
+		@param commandID The ID of the packet notification being completed. This is the same
+			ID that was passed when a packet notification handler is called.
+	*/
+	void (*ClientCommandIsComplete)(IOFireWireLibPHYPacketListenerRef self, FWClientCommandID commandID );
+
+	// --- accessors ----------
+
+	/*!	@function SetRefCon
+		@abstract Sets the user refCon value for this interface.
+		@param self The PHY packet listener object.
+		@param refcon the refcon */
+	void (*SetRefCon)( IOFireWireLibPHYPacketListenerRef self, void * refcon );
+		
+	/*!	@function GetRefCon
+		@abstract Returns the user refCon value for thisinterface.
+		@param self The PHY packet listener object.
+		@result returns the refcon */
+	void* (*GetRefCon)( IOFireWireLibPHYPacketListenerRef self );
+
+	/*!	@function SetFlags
+		@abstract set flags for the listener.
+		@param self The PHY packet listener object.
+		@param flags No current flags are defined.
+	*/	
+	void (*SetFlags)( IOFireWireLibPHYPacketListenerRef self, UInt32 flags );
+		
+	/*!	@function GetFlags
+		@abstract get the flags of listener.
+		@param self The PHY packet listener object.
+		@result flags No current flags are defined.	*/	
+	UInt32 (*GetFlags)( IOFireWireLibPHYPacketListenerRef self );
+
+} IOFireWireLibPHYPacketListenerInterface;
 
 #endif // ifndef KERNEL
 

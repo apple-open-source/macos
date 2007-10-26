@@ -29,6 +29,96 @@
  */
 /*
 	$Log: IOFireWireLibPriv.h,v $
+	Revision 1.62  2007/08/24 01:14:31  collin
+	fix resp code on sync command execution
+	
+	Revision 1.61  2007/05/12 01:10:45  arulchan
+	Asyncstream transmit command interface
+	
+	Revision 1.60  2007/04/28 01:42:35  collin
+	*** empty log message ***
+	
+	Revision 1.59  2007/04/24 02:50:09  collin
+	*** empty log message ***
+	
+	Revision 1.58  2007/03/22 00:30:01  collin
+	*** empty log message ***
+	
+	Revision 1.57  2007/03/10 07:48:25  collin
+	*** empty log message ***
+	
+	Revision 1.56  2007/03/10 05:11:36  collin
+	*** empty log message ***
+	
+	Revision 1.55  2007/03/10 02:58:03  collin
+	*** empty log message ***
+	
+	Revision 1.54  2007/03/09 23:57:53  collin
+	*** empty log message ***
+	
+	Revision 1.53  2007/03/08 02:37:13  collin
+	*** empty log message ***
+	
+	Revision 1.52  2007/02/16 19:04:21  arulchan
+	*** empty log message ***
+	
+	Revision 1.51  2007/02/16 00:28:26  ayanowit
+	More work on IRMAllocation APIs
+	
+	Revision 1.50  2007/02/09 20:36:46  ayanowit
+	More Leopard IRMAllocation changes.
+	
+	Revision 1.49  2007/02/07 01:35:36  collin
+	*** empty log message ***
+	
+	Revision 1.48  2007/02/06 01:08:41  ayanowit
+	More work on Leopard features such as new User-space IRM allocation APIs.
+	
+	Revision 1.47  2007/01/26 20:52:32  ayanowit
+	changes to user-space isoch stuff to support 64-bit apps.
+	
+	Revision 1.46  2007/01/24 04:10:14  collin
+	*** empty log message ***
+	
+	Revision 1.45  2007/01/16 02:41:25  collin
+	*** empty log message ***
+	
+	Revision 1.44  2007/01/11 08:48:24  collin
+	*** empty log message ***
+	
+	Revision 1.43  2007/01/06 06:20:44  collin
+	*** empty log message ***
+	
+	Revision 1.42  2007/01/05 04:56:31  collin
+	*** empty log message ***
+	
+	Revision 1.41  2007/01/04 21:59:38  ayanowit
+	more changes for 64-bit apps.
+	
+	Revision 1.40  2007/01/04 04:07:25  collin
+	*** empty log message ***
+	
+	Revision 1.39  2006/12/06 00:01:10  arulchan
+	Isoch Channel 31 Generic Receiver
+	
+	Revision 1.38  2006/11/29 18:42:53  ayanowit
+	Modified the IOFireWireUserClient to use the Leopard externalMethod method of dispatch.
+	
+	Revision 1.37  2006/02/09 00:21:55  niels
+	merge chardonnay branch to tot
+	
+	Revision 1.36  2005/09/24 00:55:28  niels
+	*** empty log message ***
+	
+	Revision 1.35  2005/04/02 02:43:46  niels
+	exporter works outside IOFireWireFamily
+	
+	Revision 1.34.6.3  2006/01/31 04:49:57  collin
+	*** empty log message ***
+	
+	Revision 1.34.6.1  2006/01/17 00:35:00  niels
+	<rdar://problem/4399365> FireWire NuDCL APIs need Rosetta support
+	
 	Revision 1.34  2004/05/04 22:52:20  niels
 	*** empty log message ***
 	
@@ -86,6 +176,8 @@
 
 #pragma mark USER SPACE
 
+#import "IOFWUserObjectExporter.h"
+
 #ifndef KERNEL
 
 #import "IOFireWireLib.h"
@@ -106,6 +198,13 @@
 
 #define InfoLog(x...) {}
 
+/* Macros for min/max. */
+#ifndef MIN
+#define	MIN(a,b) (((a)<(b))?(a):(b))
+#endif /* MIN */
+#ifndef MAX
+#define	MAX(a,b) (((a)>(b))?(a):(b))
+#endif	/* MAX */
 
 extern "C"
 {
@@ -120,8 +219,6 @@ extern "C"
 #define kIOFireWireLibConnection 11
 
 namespace IOFireWireLib {
-
-	typedef struct AKernelObject* UserObjectHandle ;
 
 	//
 	// command objects
@@ -138,7 +235,10 @@ namespace IOFireWireLib {
 	enum {
 		kFireWireCommandStale				= (1 << 0),
 		kFireWireCommandStale_Buffer		= (1 << 1),
-		kFireWireCommandStale_MaxPacket		= (1 << 2)
+		kFireWireCommandStale_MaxPacket		= (1 << 2),
+		kFireWireCommandStale_Timeout		= (1 << 3),
+		kFireWireCommandStale_Retries		= (1 << 4),
+		kFireWireCommandStale_Speed			= (1 << 5)
 	} ;
 
 	typedef enum IOFireWireCommandType_t {
@@ -146,7 +246,9 @@ namespace IOFireWireLib {
 		kFireWireCommandType_ReadQuadlet,
 		kFireWireCommandType_Write,
 		kFireWireCommandType_WriteQuadlet,
-		kFireWireCommandType_CompareSwap
+		kFireWireCommandType_CompareSwap,
+		kFireWireCommandType_PHY,
+		kFireWireCommandType_AsyncStream
 	} IOFireWireCommandType ;
 	
 	struct WriteQuadParams
@@ -161,7 +263,7 @@ namespace IOFireWireLib {
 	typedef struct
 	{	
 		FWAddress					addr ;
-		const void*  			 	buf ;
+		mach_vm_address_t			buf ;
 		UInt32						size ;
 		Boolean						failOnReset ;
 		UInt32						generation ;
@@ -183,25 +285,36 @@ namespace IOFireWireLib {
 	{
 		UserObjectHandle			kernCommandRef ;
 		IOFireWireCommandType		type ;
-		void*						callback ;
-		void*						refCon ;
+		mach_vm_address_t			callback ;
+		mach_vm_address_t			refCon ;
 		UInt32						flags ;
 		
 		UInt32						staleFlags ;
-		FWAddress					newTarget ;
-		void*						newBuffer ;
+		UInt64						newTarget ;
+		mach_vm_address_t			newBuffer ;
 		IOByteCount					newBufferSize ;	// note: means numQuads for quadlet commands!
 		Boolean						newFailOnReset ;
 		UInt32						newGeneration ;
 		IOByteCount					newMaxPacket ;
-	}  ;
+		
+		UInt32						timeoutDuration;
+		UInt32						retryCount;
+		UInt32						maxPacketSpeed;
+		UInt32						data1;
+		UInt32						data2;
+		UInt32						tag;
+		UInt32						sync;
+	} __attribute__ ((packed));
 	
 	struct CommandSubmitResult
 	{
-		UserObjectHandle				kernCommandRef ;
+		UserObjectHandle			kernCommandRef ;
 		IOReturn					result ;
 		IOByteCount					bytesTransferred ;
-	}  ;
+		UInt32						ackCode;
+		UInt32						responseCode;
+		mach_vm_address_t			refCon;
+	} __attribute__ ((packed));
 	
 	struct FWCompareSwapLockInfo
 	{
@@ -211,35 +324,39 @@ namespace IOFireWireLib {
 	
 	struct CompareSwapSubmitResult
 	{
-		UserObjectHandle				kernCommandRef ;
+		UserObjectHandle			kernCommandRef ;
 		IOReturn					result ;
 		IOByteCount					bytesTransferred ;
+		UInt32						ackCode;
+		UInt32						responseCode;
 		FWCompareSwapLockInfo		lockInfo ;
-	}  ;
+	}  __attribute__ ((packed));
 		
 	//
 	// DCL stuff
 	//
 	
-	struct LocalIsochPortAllocateParams
+	typedef struct LocalIsochPortAllocateParamsStruct
 	{
-		unsigned			version ;
+		UInt32				version ;
 
-		bool				talking ;
-		unsigned			startEvent ;
-		unsigned			startState ;
-		unsigned			startMask ;
+		UInt32				startEvent ;
+		UInt32				startState ;
+		UInt32				startMask ;
 
-		IOByteCount			programExportBytes ;
-		IOVirtualAddress	programData ;
+		mach_vm_address_t	programData ;
+		UInt32				programExportBytes ;
 		
-		unsigned			bufferRangeCount ;
-		IOVirtualRange *	bufferRanges ;
-		
-		IOFWIsochPortOptions options ;
+		UInt32				bufferRangeCount ;
+		mach_vm_address_t	bufferRanges ;
 
-		void*				userObj ;
-	}  ;
+		mach_vm_address_t	userObj ;
+
+		UInt32				talking ;
+
+		UInt32				options ;
+
+	}  __attribute__ ((packed)) LocalIsochPortAllocateParams;
 	
 	//
 	// address spaces
@@ -252,17 +369,27 @@ namespace IOFireWireLib {
 
 	struct AddressSpaceCreateParams
 	{
-		UInt32		size ;
-		void*		backingStore ;
-		UInt32		queueSize ;
-		void*		queueBuffer ;
-		UInt32		flags ;
-		void*		refCon ;
+		mach_vm_size_t			size ;
+		mach_vm_address_t		backingStore ;
+		mach_vm_size_t			queueSize ;
+		mach_vm_address_t		queueBuffer ;
+		UInt32					flags ;
+		mach_vm_address_t		refCon ;
 	
 		// for initial units address spaces:
 		Boolean		isInitialUnits ;
 		UInt32		addressLo ;
-	}  ;
+	}  __attribute__ ((packed));
+
+	struct FWUserAsyncStreamListenerCreateParams
+	{
+		UInt32					channel;
+		mach_vm_size_t			queueSize ;
+		mach_vm_address_t		queueBuffer ;
+		UInt32					flags ;
+		mach_vm_address_t		callback ;
+		mach_vm_address_t		refCon ;
+	}  __attribute__ ((packed));
 	
 //	struct PhysicalAddressSpaceCreateParams
 //	{
@@ -308,18 +435,22 @@ namespace IOFireWireLib {
 		kNuDCLUser			= BIT( 18 )		// set back to BIT(18) when we want to support user space update before callback
 	} ;
 	
-	//
-	// trap table
-	//
+	enum
+	{
+		kDCLExportDataLegacyVersion = 0
+		, kDCLExportDataNuDCLRosettaVersion = 8
+	} ;
 	
+	/////////////////////////////////////////
+	//
+	// Method Selectors For User Client
+	//
+	/////////////////////////////////////////
 	enum MethodSelector
 	{
-		// --- open/close ----------------------------
 		kOpen = 0,
 		kOpenWithSessionRef,
 		kClose,
-		
-		// --- user client general methods -----------
 		kReadQuad,
 		kRead,
 		kWriteQuad,
@@ -331,12 +462,8 @@ namespace IOFireWireLib {
 		kGetLocalNodeID,
 		kGetResetTime,
 		kReleaseUserObject,
-		
-		// --- conversion helpers --------------------
 		kGetOSStringData,
 		kGetOSDataData,
-		
-		// --- user unit directory methods -----------
 		kLocalConfigDirectory_Create,
 		kLocalConfigDirectory_AddEntry_Buffer,
 		kLocalConfigDirectory_AddEntry_UInt32,
@@ -344,21 +471,12 @@ namespace IOFireWireLib {
 		kLocalConfigDirectory_AddEntry_UnitDir,
 		kLocalConfigDirectory_Publish,
 		kLocalConfigDirectory_Unpublish,
-		
-		// --- pseudo address space methods ----------
 		kPseudoAddrSpace_Allocate,
 		kPseudoAddrSpace_GetFWAddrInfo,
 		kPseudoAddrSpace_ClientCommandIsComplete,
-		
-		// --- physical address space methods ----------
 		kPhysicalAddrSpace_Allocate,
 		kPhysicalAddrSpace_GetSegmentCount_d,
 		kPhysicalAddrSpace_GetSegments,
-		
-		// --- command completion --------------------
-//		kClientCommandIsComplete,
-		
-		// --- config directory ----------------------
 		kConfigDirectory_Create,
 		kConfigDirectory_GetKeyType,
 		kConfigDirectory_GetKeyValue_UInt32,
@@ -378,109 +496,69 @@ namespace IOFireWireLib {
 		kConfigDirectory_GetKeySubdirectories,
 		kConfigDirectory_GetType,
 		kConfigDirectory_GetNumEntries,
-		
-		// --- isoch port methods ----------------------------
-//		kIsochPort_Allocate,
-//		kIsochPort_Release,
 		kIsochPort_GetSupported,
 		kIsochPort_AllocatePort_d,
 		kIsochPort_ReleasePort_d,
 		kIsochPort_Start_d,
 		kIsochPort_Stop_d,
-//		kIsochPort_SetSupported,
-		
-		// --- local isoch port methods ----------------------
 		kLocalIsochPort_Allocate,
 		kLocalIsochPort_ModifyJumpDCL_d,
 		kLocalIsochPort_Notify_d,
 		kLocalIsochPort_SetChannel,
-//		kLocalIsochPort_ModifyTransferPacketDCLSize,
-//		kLocalIsochPort_ModifyTransferPacketDCL,
-		
-		// --- isoch channel methods -------------------------
 		kIsochChannel_Allocate,
 		kIsochChannel_UserAllocateChannelBegin,
 		kIsochChannel_UserReleaseChannelComplete_d,
-		
-		// --- firewire command objects ----------------------
-//		kCommand_Release,
 		kCommand_Cancel_d,
-//		kCommand_DidLock,
-//		kCommand_Locked32,
-//		kCommand_Locked64,
-		
-		// --- seize service ----------
 		kSeize,
-		
-		// --- firelog ----------
 		kFireLog,
-		
-		// --- More user client general methods (new in v3)
 		kGetBusCycleTime,
-		
-		//
-		// v4
-		//
-		
 		kGetBusGeneration,
 		kGetLocalNodeIDWithGeneration,
 		kGetRemoteNodeID,
 		kGetSpeedToNode,
 		kGetSpeedBetweenNodes,
-		
-		//
-		// v5
-		//
-		
 		kGetIRMNodeID,
-		
-		// v6
-		
 		kClipMaxRec2K,
 		kIsochPort_SetIsochResourceFlags_d,
-//		kIsochPort_RunNuDCLUpdateList_d,
-//		kBufferFillIsochPort_Create,
-		
-		// v7
-		
 		kGetSessionRef,
-		
-		// -------------------------------------------
-		kNumMethods
-		
-	} ;
-
-
-	typedef enum
-	{
-	
+		kAsyncStreamListener_Allocate,
+		kAsyncStreamListener_ClientCommandIsComplete,
+		kAsyncStreamListener_GetOverrunCounter,
+		kAsyncStreamListener_SetFlags,
+		kAsyncStreamListener_GetFlags,
+		kAsyncStreamListener_TurnOnNotification,
+		kAsyncStreamListener_TurnOffNotification,
+		kAllocateIRMBandwidth,
+		kReleaseIRMBandwidth,
+		kAllocateIRMChannel,
+		kReleaseIRMChannel,
 		kSetAsyncRef_BusReset,
 		kSetAsyncRef_BusResetDone,
-	
-		//
-		// pseudo address space
-		//
 		kSetAsyncRef_Packet,
 		kSetAsyncRef_SkippedPacket,
 		kSetAsyncRef_Read,
-	
-		//
-		// user command objects
-		//
 		kCommand_Submit,
-		
-		//
-		// isoch channel
-		//
 		kSetAsyncRef_IsochChannelForceStop,
-	
-		//
-		// isoch port
-		//
 		kSetAsyncRef_DCLCallProc,
-		
-		kNumAsyncMethods
-	
-	} AsyncMethodSelector ;
+		kSetAsyncStreamRef_Packet,
+		kSetAsyncStreamRef_SkippedPacket,
+		kIRMAllocation_Allocate,
+		kIRMAllocation_SetRef,
+		kIRMAllocation_AllocateResources,
+		kIRMAllocation_DeallocateResources,
+		kIRMAllocation_areResourcesAllocated,
+		kIRMAllocation_setDeallocateOnRelease,
+		kCommandCreateAsync,
+		kVectorCommandSetBuffers,
+		kVectorCommandSubmit,
+		kVectorCommandCreate,
+		kPHYPacketListenerCreate,
+		kPHYPacketListenerSetPacketCallback,
+		kPHYPacketListenerSetSkippedCallback,
+		kPHYPacketListenerActivate,
+		kPHYPacketListenerDeactivate,
+		kPHYPacketListenerClientCommandIsComplete,
+		kNumMethods
+	} ;
 
 }	// namespace IOFireWireLib

@@ -1,56 +1,644 @@
 <HTML>
-<!--This file created 7/12/06 10:59 AM by Claris Home Page version 3.0-->
+<!--This file created 7/31/07 5:38 PM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Private Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
-   <X-CLARIS-WINDOW TOP=137 BOTTOM=1026 LEFT=277 RIGHT=1024>
+   <X-CLARIS-WINDOW TOP=94 BOTTOM=983 LEFT=495 RIGHT=1242>
    <X-CLARIS-TAGVIEW MODE=minimal>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
 <P><FONT SIZE="-1">Mac OS X Xcode 3.0 Developer Release Copyright
-2006 by Apple Computer, Inc. All Rights Reserved.</FONT></P>
+2007 by Apple Computer, Inc. All Rights Reserved.</FONT></P>
 
 <H2>Private Mac OS X Xcode 3.0 Developer Release:<BR>
-Compiler Tools (cctools-622.3)</H2>
+Compiler Tools (cctools-667.3)</H2>
 
-<P>This file contains release notes for the 5.23 release of the
+<P>This file contains release notes for the 5.24 release of the
 Compiler Tools for the Mac OS X Xcode 3.0 Developer Release. This
 file contains information about the following topics:</P>
 
 <UL>
    <LI>The Mac OS X Mach-O GNU-based assemblers</LI>
    
-   <LI>The Mac OS X 32-bit Mach-O static link editor</LI>
+   <LI>The classic Mac OS X 32-bit Mach-O static link editor</LI>
    
    <LI>Mach-O object tools (<B>nm</B>, <B>otool</B>, and so
    on)&nbsp;</LI>
 </UL>
 
-<H2>Notes Specific to Release 5.23 (Mac OS X Xcode 3.0 Developer
+<H2>Notes Specific to Release 5.24 (Mac OS X Xcode 3.0 Developer
 Release)</H2>
 
-<H5><FONT SIZE="+1">Changes since the last release (cctools-622.2 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+<H5><FONT SIZE="+1">Changes since the last release (cctools-667.1 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
-   <LI>Changed the command otool(1) to be build dynamically. Radar
-   bug #4624240.</LI>
+   <LI>Changed codesign_allocate(1) to never update the LC_ID_DYLIB
+   timestamps. Radar bug #5374218.</LI>
 </UL>
 
-<H5><FONT SIZE="+1">Changes since the last release (cctools-622.1 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+<H5><FONT SIZE="+1">Changes since the last release (cctools-667.1 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem codesign_allocate(1) that was incorrectly
+   rounding up the __LINKEDIT segement for 64-bit Mach-O files to 8K
+   not 4K. Radar bug #5363873.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-667 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the x86_64 assembler to use local relocation entries
+   in a debug section for a defined symbol. Radar bug #5259877.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-666 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problme with the change below to strip(1)'s -c option
+   to always remove the LC_CODE_SIGNATURE load command and signature
+   data from the output. Radar bug #5207629.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-665 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed strip(1)'s -c option to always remove the
+   LC_CODE_SIGNATURE load command and signature data from the output.
+   Radar bug #5207629.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-664 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added support for the Intel SSE4.1 and SSE4.2 instructions.
+   Radar bug #4943015.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-663 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that would cause an internal error when ranlib(1)
+   was used on two or more libraries. Radar bug #5169741.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-662 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed ld_classic(1)'s -macosx_version_min argument and
+   MACOSX_DEPLOYMENT_TARGET to support minor version numbers. Radar
+   bug #5132019.</LI>
+   
+   <LI>Changed the as(1) man page's reference to the the assembler
+   manual. Radar bug #5143784.</LI>
+   
+   <LI>Changed libtool(1) to not make the computer unresponsive when
+   building large static libraries. Radar bug #5052598.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-661 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the x86_64 assembler(1) to allow the .mod_init_func
+   and .mod_term_funcs directives when -static is used. Radar bug
+   #5127668.</LI>
+   
+   <LI>Changed kld(3) to keep the LC_UUID (if any) from the last
+   object loaded in the linked output. Radar bug #5137807.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-660 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed strip(1) to not change LC_ID_DYLIB timestamp in
+   unprebound dylibs. Radar bug #5093170.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-659 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed the header file &lt;mach-o/swap.h&gt; to include an
+   extern "C". Radar bug #5075908.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-658 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed otool(1) to handle the change of the ObjcC 2.0 section
+   names for the -ov option. Radar bug #5066149.</LI>
+   
+   <LI>Fixed otool(1) for disassembly of the MOV instruction with
+   64-bit offsets for "accumulator from memory" and "accumulator to
+   memory" and also use the mnemonic "movabsl". Radar bug
+   #4693534</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-657 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in nmedit(1) and strip(1) where when run on a
+   64-bit relocatable object files where the string table was on an 8
+   byte offset in the file with padding before it, it would produce a
+   corrupt output file. Radar bug #5054452.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-656 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in nm(1) where when run with a -arch flags on a
+   fat file archive of the non-native bytesex it crashes. Radar bug
+   #5055223.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-655 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in codesign_allocate(1) such that when run on a
+   64-bit Mach-O file when the string table offset is not on an 8
+   byte boundary the resulting output file is malformed such that the
+   symbol names appear incorrect. Radar bug #5047066</LI>
+   
+   <LI>Added MH_PIE to &lt;mach-o/loader.h&gt;. Radar bug
+   #5041291.</LI>
+   
+   <LI>Fixed a bug in nm(1) where when run with multiple -arch flags
+   on a fat file does not print symbol names. Radar bug
+   #5047924.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-654 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in strip(1) so that when the -no_uuid option is
+   used on a binary with a&nbsp;LC_SEGMENT_SPLIT_INFO load command it
+   does not produce a corrupt binary. Radar bug #5033393.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-653 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed libtool(1) to work with Xcode coexistence and correctly
+   open files for -lx options based on the -syslibroot and -L flags.
+   Radar bug #5029099.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-652 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Updated otool(1) to print the Objective-C garbage collection
+   status. Radar bug #4983418.</LI>
+   
+   <LI>Added support for the LC_REEXPORT_DYLIB load command. Radar
+   bug #4986624.</LI>
+   
+   <LI>Fixed gprof(1) to work with dyld shared cache. Radar bug
+   #4960162.</LI>
+   
+   <LI>Backed out the change for Radar bug #4930693 in kld(1) when it
+   called the address_func it is passed the allocated_size of memory
+   including the symbol table. Radar bug #4994738</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-651 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added project version information to libmacho. Radar bug
+   #4980378.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-650 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in ld_classic(1) which was causing a crash when
+   linking against a dyanmic library built by the unified linker that
+   has an LC_SEGMENT_SPLIT_INFO load command. Radar bug
+   #4953247.</LI>
+   
+   <LI>Fixed a bug in nm(1) that caused it to show the symbols
+   swapped when multiple -arch flags were specified for a fat file.
+   Radar bug #4970647.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-649 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed kld(1) so when it calls the address_func it is passed
+   the allocated_size of memory including the symbol table. Radar bug
+   #4930693.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-648 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added an open source cctools.plist. Radar bug #4898129.</LI>
+   
+   <LI>Fixed a bug in ld_classic(1) which was getting an internal
+   error when the -s option (strip all symbols) was used and there
+   was a symbol that was both a private external and marked
+   referenced dynamically. Radar bug #4885434.</LI>
+   
+   <LI>Updated otool(1)'s -ov option to print out the objc 2.0
+   metadata in 64-bit objects. Radar bug #4560930.</LI>
+   
+   <LI>Added S_DTRACE_DOF to &lt;mach-o/loader.h&gt;. Radar bug
+   #4918330.</LI>
+   
+   <LI>Added checks to ld_classic(1) so that you can't create a bad
+   .o file with -r when the r_address field of a scattered relocation
+   over flows. Radar bug #4921122.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-647 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Enhanced otool(1)'s -s option when printing
+   S_MOD_{INIT,TERM}_FUNC_POINTERS section types to print them as
+   pointers with the -v option and print symbol names of the pointers
+   with the -V option. Radar bug #4880624.</LI>
+   
+   <LI>Ported gprof(1) to work with 64-bit Mach-O files. Radar bug
+   #4601274.</LI>
+   
+   <LI>Changed the cctools project to now install these private
+   release notes in
+   /Developer/Documentation/DocSets/com.apple.ADC_Reference_Library.DeveloperTools.docset/Contents/Resources/Documents/documentation/DeveloperTools
+   for Xcode coexistence.</LI>
+   
+   <LI>Fixed bugs in otool(1), lipo(1), nm(1), and strings(1) that
+   caused crashes with malformed fat file when the number of
+   architectures in the fat header is a large number.&nbsp; Radar bug
+   #4860769.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-646 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed problems with codesign_allocate(1) not correctly
+   matching architectures with new&nbsp;capability bits set in the
+   cpusubtype. Radar bug #4849153.</LI>
+   
+   <LI>Changed the cctools project to stop installing
+   the&nbsp;deprecated&nbsp;dyld_debug(3) man page. Radar bug
+   #4734305.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-645 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the assembler driver, /usr/bin/as, to execute the
+   target specific assemblers relative to where the assembler driver
+   is installed. Radar bug #4841943.</LI>
+   
+   <LI>Fixed otool(1)'s Intel disassembler to correctly disassemble
+   call &lt;constant&gt;. Radar bug #4523901.</LI>
+   
+   <LI>Fixed otool(1)'s Intel disassembler to correctly use the rep
+   not repz prefix with the instructions ins, outs, movs, lods, and
+   stos. Radar bug #4467453.</LI>
+   
+   <LI>Fixed otool(1)'s 64-bit Intel disassembler to correctly
+   disassemble the MOV accumulator to memory operand as a 64-bit
+   immediate. Radar bug #4693534.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-644 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed strip(1) and otool(1) to support LC_RPATH
+   commands.&nbsp;Radar bug #4822880.</LI>
+   
+   <LI>Changed ld_classic(1) to support libtool(1) options. Radar bug
+   #4758790.</LI>
+   
+   <LI>Changed the header file &lt;mach-o/getsect.h&gt; to be
+   protected by extern "C" for use in C++ apps. Radar bug
+   #4814441.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-643 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed otool(1) -c work with 64-bit Mach-O files. &nbsp;Radar
+   bug #4458775</LI>
+   
+   <LI>Added support for the CPU_SUBTYPE_VEO_3 and CPU_SUBTYPE_VEO_4
+   cpusubtypes. Radar bug #4799550.</LI>
+   
+   <LI>Fixed a problem with the libredo_prebinding API's leaking file
+   descriptors and mmap(2) mappings. Radar bug #4800981.</LI>
+   
+   <LI>Fixed a problem with checksyms(l) failing to work with empty
+   files. Radar bug #4795458.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-642 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed strip(1) -X on x86_64 objects to silently do nothing.
+   Radar bug #4800628.</LI>
+   
+   <LI>Ported cmpdylib(1) to work with 64-bit Mach-O files. Radar bug
+   #4040804.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-641 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed needs_redo_prebinding(3) when passed a Mach-O file
+   that only has 64-bit architectures to return NOT_PREBOUND. Radar
+   bug #4788385.</LI>
+   
+   <LI>Fixed otool(1) so it understands the x86 branch
+   prediction.&nbsp;Radar bug #4474395</LI>
+   
+   <LI>Fixed the 64-bit assemblers not allowing a value larger
+   than&nbsp;2GB with a .lcomm directive.&nbsp; Radar bug
+   #4098028.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-640.1 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the x86_64 assembler to always save assembler
+   temporary symbols in cstring literal sections and use external
+   relocation entries when they are referenced. Radar bug
+   #4765733.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-640 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem with NXGetArchInfoFromCpuType(3) and using
+   CPU_SUBTYPE_MULTIPLE. Radar bug #4787007.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-639 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Updated the tools to deal with cpusubtypes that have the new
+   capability bits set. Radar bug #4754462.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-638 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed problems with the updated strip(1) and nmedit(1) with
+   trying to correctly handle 64-bit Mach-O files with an odd number
+   of indirect table entires (with or without padding). Radar bug
+   #4762627.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-637 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Updated strip(1) and codesign_allocate(1) to correctly handle
+   64-bit Mach-O files with an odd number of indirect table entires
+   (with or without padding). Radar bug #4747408.</LI>
+   
+   <LI>Fixed the i386 assembler to not crash or get internal erors
+   when .org is used. Radar bug #4750873.</LI>
+   
+   <LI>Changed the x86_64 assembler to always emit a relocation entry
+   for @GOTPCREL reference. Radar bug #4742404,</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-636 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed strip(1) to correctly handle keeping symbols marked as
+   weak defintions by default. Radar bug #4732639.</LI>
+   
+   <LI>Fixed a bug in strip(1) that was incorrectly causing an error
+   when creating a stub library and not all the global symbols were
+   kept. Radar bug #4742051.</LI>
+   
+   <LI>Fixed a bug in libtool(1) that caused it to crash when an
+   input file had a bad symbol table entry for an N_SECT symbol which
+   had a bad section number. Radar bug #4739572.</LI>
+   
+   <LI>Updated strip(1), codesign_allocate(1) and redo_prebinding(3)
+   to correctly handle 64-bit Mach-O files with an odd number of
+   indirect table entires. Radar bug #4737991.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-635 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem with ld_classing iincorrectly generated a
+   warning, ntroduced with the change to 4695477. Radar bug
+   #4733384.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-634 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem introduced with the change to 4141844 with the
+   Intel assembler not expanding macros correctly. Radar bug
+   #4729012.</LI>
+   
+   <LI>Added the -verify_arch flag to lipo(1). Radar bug
+   #4496521.</LI>
+   
+   <LI>Changed strings(1) to with files that have parenthesis in
+   their names. Radar bug #4172811.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-633 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Updated the tools to handle the LC_SEGMENT_SPLIT_INFO load
+   command and its data. Radar bug #4695477.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-632 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Ported the code in libredo_prebinding and libsyminfo to work
+   for 64-bit hosts and now build them for all architectures. Radar
+   bug #4407440.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-631 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that caused the assembler with -static to produce
+   incorrectly assembed files introduced with Radar bug #4096964.
+   Radar bug #4700558.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-630 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that caused the assembler to crash introduced with
+   Radar bug #4096964. Radar bug #4685058.</LI>
+   
+   <LI>Fixed a bug that casued libkld to have undefined symbols
+   introduced with Radar bug #4599790. Radar bug #4685060.</LI>
+   
+   <LI>Changed libtool(1) to not invoke ld64(1). Radar bug
+   #4682470.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-629 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that caused the assembler to crash introduced with
+   Radar bug #4096964. Radar bug #4666308.</LI>
+   
+   <LI>Picked up the changes from cctools-625.1 in Radar bug #4664658
+   that were missed. Radar bug #4678307.</LI>
+   
+   <LI>Fixed a problem with the assembler not returning a failure
+   status for bogus arguments introduced with changes in
+   cctools-590.31.1 . Radar bug #4674902.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-628 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the codesign_allocate(1) tool that caused it to
+   build programs that would not execute. Radar bug #4666308.</LI>
+   
+   <LI>Changed the x86 assemblers to use optimal NOP's for alignment
+   padding in sections containing instructions. Radar bug
+   #4096964.</LI>
+   
+   <LI>Fixed a bug in ld_classic(1) that was misaligning coalesced
+   section contents. Radar bug #4599790.</LI>
+   
+   <LI>Updated the ld_classic(1) man page with the description that
+   CPU subtypes get combined. Radar bug #3820769.</LI>
+   
+   <LI>Added an example to the strip(1) man page on how to create a
+   stub library. Radar bug #4399175.</LI>
+   
+   <LI>Fixed a typo on the ld_classic(1) man page. Radar bug
+   #4099445.</LI>
+   
+   <LI>Added the description of the -arch option to the strip(1) man
+   page. Radar bug #4470756.</LI>
+   
+   <LI>Added the description of the -arch option to the strings(1)
+   man page. Radar bug #4416906.</LI>
+   
+   <LI>Fixed a warning when building the x86_64 assembler. Radar bug
+   #4504314.</LI>
+   
+   <LI>Clarified the error message for unknown architecture in the
+   assembler driver. Radar bug #4666302.</LI>
+   
+   <LI>Updated otool(1) to print MH_DSYM symbolically. Radar bug
+   #4511760.</LI>
+   
+   <LI>Changed strip(1) -R on x86_64 objects to silently do nothing.
+   Radar bug #4568747.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-627 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the i386 assembler to allow a prefix with a space
+   before the instruction. Radar bug #4141844.</LI>
+   
+   <LI>Changed the strip(1) tool to support blank stubs. Radar bug
+   #4511628.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-626 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Ported otool(1) to work with 64-bit Mach-O files and removed
+   otool64(1). Radar bug #3903136 and Radar bug #4593267.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-625 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added the codesign_allocate(1) tool that allocates space in a
+   Mach-O file for code signing data. Updated the other tools to
+   allow them to work on Mach-O files with code signing data. Radar
+   bug #4588023.</LI>
+   
+   <LI>Changed the command otool(1) to be build dynamically. Radar
+   bug #4624240 and Radar bug #4633942.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-624 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Track symbols by definition order, not value. Radar bug
-   #4501115.</LI>
-   
-   <LI>Add in a few lines which were approved but not checked in for
-   4577120. Radar bug #4577120.</LI>
+   #4619741.</LI>
 </UL>
 
+<H5><FONT SIZE="+1">Changes since the last release (cctools-623 for
+the 5.24 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added new constants and strcutures to &lt;mach-o/loader.h&gt;
+   to support Mac OS X 10.5 features. Radar bug #4614861.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-622.1 for
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the cctools project to install the static link editor
+   as /usr/bin/ld_classic and changed the man page to ld_classic(1).
+   Radar bug #4606627.</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.23 (Mac OS X Xcode 2.4 Developer
+Release)</H2>
+
 <H5><FONT SIZE="+1">Changes since the last release (cctools-622 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Add S_16BYTE_LITERALS as a fixed-size data section. Radar bug
@@ -58,7 +646,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-621 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>In x86-64 code, synthesize a symbol for each fixup, which
@@ -67,7 +655,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-620 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Changed symbol_list_sort_by_value to perform a stable sort.
@@ -75,7 +663,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-619 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Added the routines to byteswap the other x86-64 thread states.
@@ -90,7 +678,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-618 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed otool64(1) correctly disassemble call instructions for
@@ -115,7 +703,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-617 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Changed checksyms(1) to not report unprebound executables when
@@ -130,7 +718,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-616 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed the disassembly of i386 instructions in otool(1) like
@@ -153,7 +741,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-615 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>The x86-64 assembler was fixed so it does not corrupt line
@@ -176,7 +764,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-614 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed the assembler's .comm directive so it would correctly
@@ -187,7 +775,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-613 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Made the needed changes to the source code and project to
@@ -195,7 +783,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-612 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in the x86_64 assembler in that was not generating
@@ -204,7 +792,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-611 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Changed strip(1) so that using the -x option on an x86_64
@@ -212,7 +800,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-610 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug in the x86_64 assembler in the way it generates
@@ -221,7 +809,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-609 for
-the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
+the 5.23 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 
 <UL>
    <LI>Changed the sources so they can build on Tiger. Radar bug
@@ -244,7 +832,7 @@ the 5.23 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.41.4
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>The sources for cctools-590.41.4 were moved from the
@@ -256,7 +844,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 Release)</H2>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.41.3
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Change the previous fix to not reference the reserved1 field
@@ -265,7 +853,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.41.2
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed nmedit(1) so that it sets the value of symbol pointers
@@ -280,7 +868,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.41.1
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>When stripping coalesced symbols from 64-bit files, only save
@@ -289,7 +877,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.38.3
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Ignore multiple -syslibroot flags if they specify the same
@@ -297,7 +885,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.38.2
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Force GOT and GOT_LOAD relocations to be PC-relative, as they
@@ -327,7 +915,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.38.1
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Don't convert external relocation entries to internal ones
@@ -336,14 +924,14 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.37.3
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Merged in cctools-590.38.</LI>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.37.2
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Add back support for the E9 form of the jmp instruction for
@@ -375,7 +963,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.37.1
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Don't go down the scattered relocation code path in the
@@ -400,7 +988,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.36.3
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Don't allow illegal section types in x86-64 assembly. Radar
@@ -408,7 +996,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.36.2
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Add support for the new relocation entry types for x86-64.
@@ -431,7 +1019,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.36.1
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Add #defines to ensure that libmacho builds on systems with
@@ -439,7 +1027,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.34.1
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fix suffixes in x86-64 disassembly for push, pop, and moves to
@@ -448,7 +1036,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.31.4
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Improve the message that appears when we try to assemble
@@ -479,7 +1067,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.31.2
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Modified lipo to only require 4-byte alignment for load
@@ -501,7 +1089,7 @@ for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
 </UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.31.1
-for the 5.22 Mac OS X Xcode 2.4 Developer release)</FONT></H5>
+for the 5.22 Mac OS X Xcode 2.3.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed an incorrect merge of i386 relocation entry generation

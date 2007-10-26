@@ -486,16 +486,16 @@ DoMakeJournaled(char *volname, int jsize)
     }
     
     // swap the data before we copy it
-    jib.flags  = NXSwapBigLongToHost(jib.flags);
-    jib.offset = NXSwapBigLongLongToHost(jib.offset);
-    jib.size   = NXSwapBigLongLongToHost(jib.size);
+    jib.flags  = OSSwapBigToHostInt32(jib.flags);
+    jib.offset = OSSwapBigToHostInt64(jib.offset);
+    jib.size   = OSSwapBigToHostInt64(jib.size);
     
     memcpy(buf, &jib, sizeof(jib));
 
     // now put it back the way it was
-    jib.size   = NXSwapBigLongLongToHost(jib.size);
-    jib.offset = NXSwapBigLongLongToHost(jib.offset);
-    jib.flags  = NXSwapBigLongToHost(jib.flags);
+    jib.size   = OSSwapBigToHostInt64(jib.size);
+    jib.offset = OSSwapBigToHostInt64(jib.offset);
+    jib.flags  = OSSwapBigToHostInt32(jib.flags);
 
     if (write(fd, buf, block_size) != block_size) {
 	fprintf(stderr, "Failed to write journal info block on volume %s (%s)!\n",
@@ -647,4 +647,189 @@ DoGetJournalInfo(char *volname)
     }
 
     return 0;
+}
+
+
+int
+RawDisableJournaling(char *devname)
+{
+    int fd = -1, ret = 0;
+    char *buff = NULL, rawdev[256];
+    u_int64_t disksize;
+    u_int64_t blkcnt;
+    u_int32_t blksize;
+    daddr_t   mdb_offset;
+    HFSMasterDirectoryBlock *mdbp;
+    HFSPlusVolumeHeader *vhp;
+    off_t embeddedOffset, hdr_offset;
+    struct statfs sfs;
+    struct stat   st;
+	
+  restart:
+    if (stat(devname, &st) != 0) {
+	fprintf(stderr, "Could not access %s (%s)\n", devname, strerror(errno));
+	ret = -1;
+	goto out;
+    }
+
+    if (S_ISCHR(st.st_mode) == 0) {
+	// hmmm, it's not the character special raw device so we
+	// should try to figure out the real device.
+	if (S_ISBLK(st.st_mode)) {
+	    strcpy(rawdev, "/dev/r");
+	    strcat(rawdev, devname + 5);
+	} else {
+	    if (statfs(devname, &sfs) != 0) {
+		fprintf(stderr, "Can't find out any info about the fs for path %s (%s)\n",
+		    devname, strerror(errno));
+		ret = -1;
+		goto out;
+	    }
+
+	    // copy the "/dev/"
+	    strncpy(rawdev, sfs.f_mntfromname, 5);
+	    rawdev[5] = 'r';
+	    strcpy(&rawdev[6], &sfs.f_mntfromname[5]);
+	}
+
+	devname = &rawdev[0];
+	goto restart;
+    }
+
+    fd = open(devname, O_RDWR);
+    if (fd < 0) {
+	fprintf(stderr, "can't open: %s (%s)\n", devname, strerror(errno));
+	ret = -1;
+	goto out;
+    }
+
+    /* Get the real physical block size. */
+    if (ioctl(fd, DKIOCGETBLOCKSIZE, (caddr_t)&blksize) != 0) {
+	fprintf(stderr, "can't get the device block size (%s). assuming 512\n", strerror(errno));
+	blksize = 512;
+	ret = -1;
+	goto out;
+    }
+
+    /* Get the number of physical blocks. */
+    if (ioctl(fd, DKIOCGETBLOCKCOUNT, (caddr_t)&blkcnt)) {
+	struct stat st;
+
+	if (fstat(fd, &st) != 0) {
+	    ret = -1;
+	    goto out;
+	}
+
+	blkcnt = st.st_size / blksize;
+    }
+
+    /* Compute an accurate disk size */
+    disksize = blkcnt * (u_int64_t)blksize;
+
+    /*
+     * There are only 31 bits worth of block count in
+     * the buffer cache.  So for large volumes a 4K
+     * physical block size is needed.
+     */
+    if (blksize == 512 && blkcnt > (u_int64_t)0x000000007fffffff) {
+	blksize = 4096;
+    }
+
+    /*
+     * At this point:
+     *   blksize has our prefered physical block size
+     *   blkcnt has the total number of physical blocks
+     */
+
+    buff  = (char *)malloc(blksize);
+	
+    hdr_offset = HFS_PRI_SECTOR(blksize)*blksize;
+    if (pread(fd, buff, blksize, hdr_offset) != blksize) {
+	fprintf(stderr, "failed to read volume header @ offset %lld (%s)\n",
+	    hdr_offset, strerror(errno));
+	ret = -1;
+	goto out;
+    }
+
+    // if we read in an empty bunch of junk at location zero, then
+    // retry at offset 0x400 which is where the header normally is.
+    if (*(int *)buff == 0 && hdr_offset == 0) {
+	hdr_offset = 0x400;
+	if (pread(fd, buff, blksize, hdr_offset) != blksize) {
+	    fprintf(stderr, "failed to read volume header @ offset %lld (%s)\n",
+		hdr_offset, strerror(errno));
+	    ret = -1;
+	    goto out;
+	}
+    }
+
+
+
+    mdbp = (HFSMasterDirectoryBlock *)buff;
+    if ((SWAP_BE16(mdbp->drSigWord) == kHFSSigWord) && (SWAP_BE16(mdbp->drEmbedSigWord) != kHFSPlusSigWord)) {
+	// normal hfs can not ever be journaled
+	fprintf(stderr, "disable_journaling: volume is only regular HFS, not HFS+\n");
+	goto out;
+    } 
+	
+    /* Get the embedded Volume Header */
+    if (SWAP_BE16(mdbp->drEmbedSigWord) == kHFSPlusSigWord) {
+	embeddedOffset = SWAP_BE16(mdbp->drAlBlSt) * 512;
+	embeddedOffset += (u_int64_t)SWAP_BE16(mdbp->drEmbedExtent.startBlock) * (u_int64_t)SWAP_BE32(mdbp->drAlBlkSiz);
+
+	/*
+	 * If the embedded volume doesn't start on a block
+	 * boundary, then switch the device to a 512-byte
+	 * block size so everything will line up on a block
+	 * boundary.
+	 */
+	if ((embeddedOffset % blksize) != 0) {
+	    fprintf(stderr, "HFS Mount: embedded volume offset not"
+		" a multiple of physical block size (%d);"
+		" switching to 512\n", blksize);
+		
+	    blkcnt  *= (blksize / 512);
+	    blksize  = 512;
+	}
+
+	disksize = (u_int64_t)SWAP_BE16(mdbp->drEmbedExtent.blockCount) * (u_int64_t)SWAP_BE32(mdbp->drAlBlkSiz);
+
+	mdb_offset = (embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize);
+	hdr_offset = mdb_offset * blksize;
+	if (pread(fd, buff, blksize, hdr_offset) != blksize) {
+	    fprintf(stderr, "failed to read the embedded vhp @ offset %d\n", mdb_offset * blksize);
+	    ret = -1;
+	    goto out;
+	}
+
+	vhp = (HFSPlusVolumeHeader*) buff;
+    } else /* pure HFS+ */ {
+	embeddedOffset = 0;
+	vhp = (HFSPlusVolumeHeader*) mdbp;
+    }
+
+
+    if ((SWAP_BE32(vhp->attributes) & kHFSVolumeJournaledMask) != 0) {
+	unsigned int tmp = SWAP_BE32(vhp->attributes);
+
+	tmp &= ~kHFSVolumeJournaledMask;
+	vhp->attributes = SWAP_BE32(tmp);
+	if ((tmp = pwrite(fd, buff, blksize, hdr_offset)) != blksize) {
+	    fprintf(stderr, "Update of super-block on %s failed! (%d != %d, %s)\n",
+		devname, tmp, blksize, strerror(errno));
+	} else {
+	    fprintf(stderr, "Turned off the journaling bit for %s\n", devname);
+	}
+    } else {
+	fprintf(stderr, "disable_journaling: volume was not journaled.\n");
+    }
+
+	
+  out:
+    if (buff)
+	free(buff);
+    if (fd >= 0) 
+	close(fd);
+
+    return ret;
 }

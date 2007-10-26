@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001,2007 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,7 +17,7 @@
 
 
 //
-// keyclient 
+// aclclient
 //
 #include <security_cdsa_client/cssmclient.h>
 #include <security_cdsa_client/aclclient.h>
@@ -107,6 +107,7 @@ struct Statics {
 	AutoCredentials nullCred;
 	AutoCredentials promptCred;
 	AutoCredentials unlockCred;
+	AutoCredentials cancelCred;
 	
 	AclOwnerPrototype anyOwner;
 	AclEntryInfo anyAcl;
@@ -127,6 +128,7 @@ Statics::Statics()
 	  nullCred(alloc, 1),
 	  promptCred(alloc, 3),
 	  unlockCred(alloc, 1),
+	  cancelCred(alloc, 1),
 	  anyOwner(TypedList(alloc, CSSM_ACL_SUBJECT_TYPE_ANY)),
 	  anyAcl(AclEntryPrototype(TypedList(alloc, CSSM_ACL_SUBJECT_TYPE_ANY), 1))
 {
@@ -148,6 +150,9 @@ Statics::Statics()
 	// unlockCred: ???
 	unlockCred.sample(0) = TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
 		new(alloc) ListElement(CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT));
+	
+	cancelCred.sample(0) = TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
+		new(alloc) ListElement(CSSM_WORDID_CANCELED));
 }
 
 
@@ -172,6 +177,10 @@ const AccessCredentials *AclFactory::promptCred() const
 
 const AccessCredentials *AclFactory::unlockCred() const
 { return &statics().unlockCred; }
+
+
+const AccessCredentials *AclFactory::cancelCred() const
+{ return &statics().cancelCred; }
 
 
 //
@@ -273,12 +282,10 @@ AclFactory::PinSubject::PinSubject(Allocator &alloc, uint32 slot)
 	append(new(alloc) ListElement(CSSM_ACL_AUTHORIZATION_PREAUTH(slot)));
 }
 
-AclFactory::PinSourceSubject::PinSourceSubject(Allocator &alloc,
-	const TypedList &form, CSSM_ACL_PREAUTH_TRACKING_STATE state)
+AclFactory::PinSourceSubject::PinSourceSubject(Allocator &alloc, const TypedList &form)
 	: Subject(alloc, CSSM_ACL_SUBJECT_TYPE_PREAUTH_SOURCE)
 {
 	append(new(alloc) ListElement(form));
-	append(new(alloc) ListElement(state));
 }
 
 

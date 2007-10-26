@@ -1,13 +1,18 @@
 /* APPLE LOCAL file ObjC direct dispatch */
-/* Check that 4015820 is fixed.   That does not appear except
-   with -O0, so the sibcall case cannot occur.  */
+/* The code should call to fffeff00 directly, not through objc_msgSend.  */
 /* { dg-do compile { target powerpc*-*-darwin* } } */
-/* { dg-options "-O0 -fobjc-direct-dispatch" } */
+/* APPLE LOCAL ObjC direct dispatch */
+/* { dg-options "-O0 -fobjc-direct-dispatch -fnext-runtime" } */
+/* { dg-skip-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
+/* Radar 4015820 */
+
 #include <objc/Object.h>
 
 void foo(void) {
   Object *o;
   [o++ free];
 }
+/* APPLE LOCAL begin ObjC direct dispatch */
 /* { dg-final { scan-assembler-not "objc_msgSend" } } */
 /* { dg-final { scan-assembler "bla.*fffeff00" } } */
+/* APPLE LOCAL end ObjC direct dispatch */

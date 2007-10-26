@@ -1,0 +1,29 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>distcc</string>
+        <key>OpenSourceVersion</key>
+        <string>2.18.5</string>
+        <key>OpenSourceWebsiteURL></key>
+        <string>http://distcc.samba.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://distcc.samba.org/ftp/distcc/distcc-2.18.3.tar.bz2</string>
+        <key>OpenSourceSHA1</key>
+        <string>88e4c15826bdbc5a3de0f7c1bcb429e558c6976d</string>
+        <key>OpenSourceImportDate</key>
+        <string>2005-07-08</string>
+        <key>OpenSourceModifications</key>
+        <array>
+                <string>Add --host-info arg to both distcc and distccd.</string>
+                <string>Add Bonjour advertisement to distccd.</string>
+                <string>Add support for pulling pch files from the client.</string>
+        </array>
+        <key>OpenSourceLicense</key>
+        <string>GPL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>distcc.txt</string>
+</dict>
+</array>
+</plist>
+

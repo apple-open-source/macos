@@ -314,4 +314,159 @@ IOATABusCommand::setCommandInUse( bool inUse /* = true */)
 
 }
 
+#pragma mark -- IOATABusCommand64 --
 
+#undef super 
+
+#define super IOATABusCommand
+
+OSDefineMetaClassAndStructors( IOATABusCommand64, super )
+
+/*-----------------------------------------------------------------------------
+ *  Static allocator.
+ *
+ *-----------------------------------------------------------------------------*/
+IOATABusCommand64* 
+IOATABusCommand64::allocateCmd32(void)
+{
+	IOATABusCommand64* cmd = new IOATABusCommand64;
+	
+	if( cmd == 0L)
+		return 0L;
+		
+		
+	if( ! cmd->init() )
+	{
+		cmd->free();
+		return 0L;
+	}
+		
+		
+	return cmd;
+	
+}
+
+/*-----------------------------------------------------------------------------
+ *
+ *
+ *-----------------------------------------------------------------------------*/
+bool
+IOATABusCommand64::init()
+{
+	if( ! super::init() )
+		return false;
+
+	zeroCommand();
+
+	_dmaCmd = IODMACommand::withSpecification(IODMACommand::OutputHost32,
+								32,
+								0x10000,
+								IODMACommand::kMapped,
+								512 * 2048,
+								2);
+	
+
+	if( ! _dmaCmd )
+	{
+		return false;	
+	}
+
+	
+	return true;
+
+}
+
+/*-----------------------------------------------------------------------------
+ *
+ *
+ *-----------------------------------------------------------------------------*/
+void 
+IOATABusCommand64::zeroCommand(void)
+{
+	if(_dmaCmd != NULL)
+	{
+		if( _dmaCmd->getMemoryDescriptor() != NULL)
+		{
+			_dmaCmd->clearMemoryDescriptor();
+		}
+	}
+	
+	super::zeroCommand();
+
+}
+
+/*-----------------------------------------------------------------------------
+ *
+ *
+ *-----------------------------------------------------------------------------*/
+
+void 
+IOATABusCommand64::free()
+{
+
+	if( _dmaCmd != NULL )
+	{	
+		_dmaCmd->clearMemoryDescriptor();
+		_dmaCmd->release();
+		_dmaCmd = NULL;
+	}
+	
+	super::free();
+
+}
+
+void 
+IOATABusCommand64::setBuffer ( IOMemoryDescriptor* inDesc)
+{
+
+	super::setBuffer( inDesc );
+
+}
+
+void 
+IOATABusCommand64::executeCallback(void)
+{
+	if( _dmaCmd != NULL
+		&& _desc != NULL
+		&& ( _flags & mATAFlagUseDMA ) )
+	{	
+		_dmaCmd->complete();
+	}
+	
+	_dmaCmd->clearMemoryDescriptor();
+	
+	super::executeCallback();
+
+}
+
+
+IODMACommand* 
+IOATABusCommand64::GetDMACommand( void )
+{
+
+	return _dmaCmd;
+
+}
+
+void
+IOATABusCommand64::setCommandInUse( bool inUse /* = true */)
+{
+
+	if( inUse )
+	{
+	
+		if( _dmaCmd != NULL
+			&& _desc != NULL
+			&& ( _flags & mATAFlagUseDMA ) )
+		{	
+			_dmaCmd->setMemoryDescriptor( _desc, true );
+		
+		
+		}
+	
+	
+	}
+
+	super::setCommandInUse( inUse);
+
+}

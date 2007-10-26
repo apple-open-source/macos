@@ -37,12 +37,12 @@ extern void coff_clear_solib (void);
 
 extern void coff_solib_add (char *, int, struct target_ops *, int);
 
-/* Function to be called when the inferior starts up, to discover the names
-   of shared libraries that are dynamically linked, the base addresses to
-   which they are linked, and sufficient information to read in their symbols
-   at a later time. */
+/* Function to be called when the inferior starts up, to discover the
+   names of shared libraries that are dynamically linked, the base
+   addresses to which they are linked, and sufficient information to
+   read in their symbols at a later time.  */
 
-#define SOLIB_CREATE_INFERIOR_HOOK(PID)	coff_solib_create_inferior_hook()
+#define SOLIB_CREATE_INFERIOR_HOOK(PID)	coff_solib_create_inferior_hook ()
 
 extern void coff_solib_create_inferior_hook (void);	/* solib.c */
 
@@ -61,8 +61,8 @@ extern void coff_solib_create_inferior_hook (void);	/* solib.c */
 
    Presently, this functionality is not implemented.
  */
-#define SOLIB_CREATE_CATCH_LOAD_HOOK(pid,tempflag,filename,cond_string) \
-   error("catch of library loads/unloads not yet implemented on this platform")
+#define SOLIB_CREATE_CATCH_LOAD_HOOK(pid, tempflag, filename, cond_string) \
+   error (_("catch of library loads/unloads not yet implemented on this platform"))
 
 /* This function is called by the "catch unload" command.  It allows
    the debugger to be notified by the dynamic linker when a specified
@@ -70,8 +70,8 @@ extern void coff_solib_create_inferior_hook (void);	/* solib.c */
 
    Presently, this functionality is not implemented.
  */
-#define SOLIB_CREATE_CATCH_UNLOAD_HOOK(pid,tempflag,filename,cond_string) \
-   error("catch of library loads/unloads not yet implemented on this platform")
+#define SOLIB_CREATE_CATCH_UNLOAD_HOOK(pid, tempflag, filename, cond_string) \
+   error (_("catch of library loads/unloads not yet implemented on this platform"))
 
 /* This function returns TRUE if the dynamic linker has just reported
    a load of a library.

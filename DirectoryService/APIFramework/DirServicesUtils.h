@@ -34,6 +34,7 @@
 
 #include <AvailabilityMacros.h>
 #include <DirectoryService/DirServicesTypes.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,8 +45,8 @@ extern "C" {
 /*!
  * @function dsDataBufferAllocate
  */
-tDataBufferPtr	dsDataBufferAllocate		(	tDirReference	inDirReference,
-												unsigned long	inBufferSize );
+tDataBufferPtr	dsDataBufferAllocate		(	tDirReference		inDirReference,
+												UInt32				inBufferSize );
 
 /*!
  * @function dsDataBufferDeAllocate
@@ -63,10 +64,10 @@ tDirStatus		dsDataBufferDeAllocate		(	tDirReference	inDirReference,
 /*!
  * @function dsDataNodeAllocateBlock
  */
-tDataNodePtr	dsDataNodeAllocateBlock		(	tDirReference	inDirReference,
-												unsigned long	inDataNodeSize,
-												unsigned long	inDataNodeLength,
-												tBuffer			inDataNodeBuffer );
+tDataNodePtr	dsDataNodeAllocateBlock		(	tDirReference		inDirReference,
+												UInt32				inDataNodeSize,
+												UInt32				inDataNodeLength,
+												tBuffer				inDataNodeBuffer );
 
 /*!
  * @function dsDataNodeAllocateString
@@ -83,18 +84,18 @@ tDirStatus		dsDataNodeDeAllocate		(	tDirReference	inDirReference,
 /*!
  * @function dsDataNodeSetLength
  */
-tDirStatus		dsDataNodeSetLength			(	tDataNodePtr	inDataNodePtr,
-												unsigned long	inDataNodeLength );
+tDirStatus		dsDataNodeSetLength			(	tDataNodePtr		inDataNodePtr,
+												UInt32				inDataNodeLength );
 
 /*!
  * @function dsDataNodeGetLength
  */
-unsigned long	dsDataNodeGetLength			(	tDataNodePtr	inDataNodePtr );
+UInt32	dsDataNodeGetLength					(	tDataNodePtr	inDataNodePtr );
 
 /*!
  * @function dsDataNodeGetSize
  */
-unsigned long	dsDataNodeGetSize			(	tDataNodePtr	inDataNodePtr );
+UInt32	dsDataNodeGetSize					(	tDataNodePtr	inDataNodePtr );
 
 
 
@@ -110,16 +111,6 @@ unsigned long	dsDataNodeGetSize			(	tDataNodePtr	inDataNodePtr );
 tDataListPtr	dsDataListAllocate			(	tDirReference	inDirReference );
 
 /*!
- * @function dsDataListDeAllocate
- * @discussion Please Note: ******** API Change Soon ********
- * 		dsDataListDeAllocate() will be soon be obsoleted and no longer supported.
- * 		Please discontinue using it and instead use --> dsDataListDeallocate()   ( <-lower case 'a' ).
- */
-tDirStatus		dsDataListDeAllocate		(	tDirReference	inDirReference,
-												tDataListPtr	inDataList,
-												dsBool			inDeAllocateNodesFlag );
-
-/*!
  * @function dsDataListDeallocate
  * @discussion Note that if the tDataListPtr is a heap based tDataList rather than
  *		stack based, that you must also call free() to release the memory for the
@@ -127,6 +118,14 @@ tDirStatus		dsDataListDeAllocate		(	tDirReference	inDirReference,
  */
 tDirStatus		dsDataListDeallocate		(	tDirReference	inDirReference,
 												tDataListPtr	inDataList );
+
+/*!
+ * @function dsDataListDeAllocate
+ * @discussion Included only for backward compatibility. Equivalent to dsDataListDeallocate.
+ */
+tDirStatus		dsDataListDeAllocate		(	tDirReference	inDirReference,
+												tDataListPtr	inDataList,
+												dsBool			inDeAllocateNodesFlag );
 
 //-----------------------------------------------
 
@@ -152,16 +151,6 @@ tDirStatus		dsBuildListFromPathAlloc	(	tDirReference	inDirReference,
 												const char		*inPathCString,
 												const char		*inPathSeparatorCString );
 
-
-/*!
- * @function dsBuildListFromNodes
- * @discussion Please Note: ******** API Change Soon ********
- * 		dsBuildListFromNodes() will be soon be obsoleted and no longer supported.
- * 		Please discontinue using it and instead use --> dsBuildListFromNodesAlloc().
- */
-tDataListPtr	dsBuildListFromNodes		(	tDirReference	inDirReferences,
-												tDataNodePtr	in1stDataNodePtr,
-												... );
 
 /*!
  * @function dsBuildListFromNodesAlloc
@@ -195,15 +184,6 @@ tDirStatus		dsBuildListFromStringsAllocV ( tDirReference	inDirRef,
 												va_list			args );
 
 /*!
- * @function dsAppendStringToList
- * @discussion Please Note: ******** API Change Soon ********
- * 		dsAppendStringToList() will be soon be obsoleted and no longer supported.
- * 		Please discontinue using it and instead use --> dsAppendStringToListAlloc().
- */
-tDirStatus		dsAppendStringToList		(	tDataListPtr	inDataList,
-												const char		* inCString );
-
-/*!
  * @function dsAppendStringToListAlloc
  */
 tDirStatus		dsAppendStringToListAlloc	(	tDirReference	inDirReferences,
@@ -215,7 +195,7 @@ tDirStatus		dsAppendStringToListAlloc	(	tDirReference	inDirReferences,
 /*!
  * @function dsDataListGetNodeCount
  */
-unsigned long	dsDataListGetNodeCount		(	const tDataList	*inDataList );
+UInt32	dsDataListGetNodeCount				(	const tDataList	*inDataList );
 
 /*!
  * @function dsAllocStringsFromList
@@ -227,18 +207,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 /*!
  * @function dsGetDataLength
  */
-unsigned long	dsGetDataLength				(	const tDataList	*inDataList );
+UInt32	dsGetDataLength						(	const tDataList	*inDataList );
 
-
-/*!
- * @function dsDataListInsertNode
- * @discussion Please Note: ******** API Change Soon ********
- * 		dsDataListInsertNode() will be soon be obsoleted and no longer supported.
- * 		Please discontinue using it and instead use --> dsDataListInsertAfter().
- */
-tDirStatus		dsDataListInsertNode		(	tDataListPtr	inDataList,
-												tDataNodePtr	inAfterDataNode,
-												tDataNodePtr	inInsertDataNode );
 
 /*!
  * @function dsDataListInsertAfter
@@ -250,24 +220,14 @@ tDirStatus		dsDataListInsertNode		(	tDataListPtr	inDataList,
 tDirStatus		dsDataListInsertAfter		(	tDirReference	inDirReferences,
 												tDataListPtr	inDataList,
 												tDataNodePtr	inInsertDataNode,
-												const unsigned long	inNodeIndex );
-
-/*!
- * @function dsDataListMergeList
- * @discussion Please Note: ******** API Change Soon ********
- * 		dsDataListMergeList() will be soon be obsoleted and no longer supported.
- * 		Please discontinue using it and instead use --> dsDataListMergeListAfter().
- */
-tDirStatus		dsDataListMergeList			(	tDataListPtr	inDataList,
-												tDataNodePtr	inAfterDataNode,
-												tDataListPtr	inMergeDataList );
+												const UInt32	inNodeIndex );
 
 /*!
  * @function dsDataListMergeListAfter
  */
 tDirStatus		dsDataListMergeListAfter	(	tDataListPtr	inTargetList,
 												tDataListPtr	inSourceList,
-												const unsigned long	inNodeIndex );
+												const UInt32	inNodeIndex );
 
 /*!
  * @function dsDataListCopyList
@@ -276,49 +236,19 @@ tDataListPtr	dsDataListCopyList			(	tDirReference	inDirReference,
 												const tDataList	*inDataListSource );
 
 /*!
- * @function dsDataListRemoveNodes
- * @discussion Please Note: ******** API Change Soon ********
- * 		dsDataListRemoveNodes() will be soon be obsoleted and no longer supported.
- * 		Please discontinue using them and instead use --> dsDataListDeleteThisNode()
- */
-tDirStatus		dsDataListRemoveNodes		(	tDataListPtr	inDataList,
-												tDataNodePtr	in1stDataNode,
-												unsigned long	inDeleteCount );
-
-/*!
- * @function dsDataListRemoveThisNode
- * @discussion Please Note: ******** API Change Soon ********
- * 		dsDataListRemoveThisNode() will be soon be obsoleted and no longer supported.
- * 		Please discontinue using them and instead use --> dsDataListDeleteThisNode()
- */
-tDirStatus		dsDataListRemoveThisNode	(	tDataListPtr	inDataList,
-												unsigned long	inNodeIndex,
-												unsigned long	inDeleteCount );
-
-/*!
  * @function dsDataListDeleteThisNode
  */
-tDirStatus		dsDataListDeleteThisNode	(	tDirReference	inDirReference,
-												tDataListPtr	inDataList,
-												unsigned long	inNodeIndex );
-
-/*!
- * @function dsDataListGetNode
- * @discussion Please Note: ******** API Change Soon ********
- * 		dsDataListGetNode() will be soon be obsoleted and no longer supported.
- * 		Please discontinue using it and instead use --> dsDataListGetNodeAlloc().
- */
-tDirStatus		dsDataListGetNode			(	tDataListPtr	inDataListPtr,
-												unsigned long	inNodeIndex,
-												tDataNodePtr	*outDataNode );
+tDirStatus		dsDataListDeleteThisNode	(	tDirReference		inDirReference,
+												tDataListPtr		inDataList,
+												UInt32				inNodeIndex );
 
 /*!
  * @function dsDataListGetNodeAlloc
  */
-tDirStatus		dsDataListGetNodeAlloc		(	tDirReference	inDirReference,
-												const tDataList	*inDataListPtr,
-												unsigned long	inNodeIndex,
-												tDataNodePtr	*outDataNode );
+tDirStatus		dsDataListGetNodeAlloc		(	tDirReference		inDirReference,
+												const tDataList		*inDataListPtr,
+												UInt32				inNodeIndex,
+												tDataNodePtr		*outDataNode );
 
 //-----------------------------------------------
 
@@ -326,9 +256,9 @@ tDirStatus		dsDataListGetNodeAlloc		(	tDirReference	inDirReference,
  * @function dsAllocAttributeValueEntry
  */
 tAttributeValueEntryPtr		dsAllocAttributeValueEntry		(	tDirReference			inDirRef,
-																unsigned long			inAttrValueID,
+																UInt32					inAttrValueID,
 																void				   *inAttrValueData,
-																unsigned long			inAttrValueDataLen );
+																UInt32					inAttrValueDataLen );
 
 /*!
  * @function dsDeallocAttributeValueEntry
@@ -382,8 +312,110 @@ AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
  * Memory for the char* is the responsibility of the client
  * and can be cleaned up using free().
  */
-char*			dsCopyDirStatusName			(   long inDirStatus ) 
+char*			dsCopyDirStatusName			(   SInt32 inDirStatus ) 
 AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+/*!
+ * @function	dsFillAuthBuffer
+ * @abstract	Fills a buffer with a list of items.
+ * @discussion	Use this function as a convenient way to compose the buffer
+				for calls to dsDoDirNodeAuth().
+ * @param		inOutAuthBuffer pass in a preallocated buffer to be filled.
+ * @param		inCount the number of length/data pairs on the stack
+ * @param		inLen the length of one buffer item
+ * @param		inData a pointer to inLen bytes of data
+ */
+tDirStatus	dsFillAuthBuffer			(	tDataBufferPtr inOutAuthBuffer,
+												UInt32			inCount,
+												UInt32			inLen,
+												const void *inData, ... )
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+ * @function dsAppendAuthBuffer
+ * @abstract	Appends a list of items to an existing buffer.
+ * @discussion	Use this function as a convenient way to compose the buffer
+				for calls to dsDoDirNodeAuth().
+ * @param		inOutAuthBuffer pass in a preallocated buffer.
+ * @param		inCount the number of length/data pairs on the stack
+ * @param		inLen the length of one buffer item
+ * @param		inData a pointer to inLen bytes of data
+ */
+tDirStatus		dsAppendAuthBuffer				(	tDataBufferPtr inOutAuthBuffer,
+												UInt32			inCount,
+												UInt32			inLen,
+													const void *inData, ... )
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+ * @function dsAppendAuthBufferWithAuthorityAttribute
+ * @abstract	Inserts a user name with authentication authority data into
+ *				an existing buffer.
+ * @discussion	Use this function for authentication methods that contain user
+ *				or authenticator names and the authentication authority attribute
+ *				has already been retrieved.
+ * @param		inNodeRef a node reference for the record to parse
+ * @param		inRecordListBuffPtr the data returned from dsGetDataList
+ * @param		inAttributePtr an attribute with authentication authority data
+ * @param		inValueRef the reference for the kDSNAttrAuthenticationAuthority
+ *				attribute.
+ * @param		inUserName the name of the user to authenticate
+ * @param		inOutAuthBuffer pass in a preallocated buffer, returns with
+ *				the user data appended.
+ * @result		tDirStatus code
+ */
+tDirStatus	dsAppendAuthBufferWithAuthorityAttribute
+												(	tDirNodeReference inNodeRef,
+													tDataBufferPtr inRecordListBuffPtr,
+													tAttributeEntryPtr inAttributePtr,
+													tAttributeValueListRef inValueRef,
+													const char *inUserName,
+													tDataBufferPtr inOutAuthBuffer )
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+ * @function dsAppendAuthBufferWithAuthorityStrings
+ * @abstract	Inserts a user name with authentication authority data into
+ *				an existing buffer.
+ * @discussion	Use this function for authentication methods that contain user
+ *				or authenticator names and the authentication authority attribute
+ *				has already been retrieved.
+ * @param		inUserName the name of the user to authenticate
+ * @param		inAuthAuthority a NULL terminated array of C strings
+ * @param		inOutAuthBuffer pass in a preallocated buffer, returns with
+ *				the user data appended.
+ * @result		tDirStatus code
+ */
+
+tDirStatus dsAppendAuthBufferWithAuthorityStrings
+												(	const char *inUserName,
+													const char *inAuthAuthority[],
+													tDataBufferPtr inOutAuthBuffer )
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+ * @function dsServiceInformationAllocate
+ * @abstract	Allocate a buffer that contains the xml plist form of a
+ *				CFDictionary.
+ * @discussion	Services can use this function to obtain a buffer suitable for
+ *				providing additional information to dsDoDirNodeAuth(). This buffer
+ *				is also used to return data from an authentication method, so it
+ *				needs to be large enough to handle the context information and
+ *				the data returned by the authentication method.
+ * @param		inServiceInfo A dictionary that contains context information
+				from a service
+ * @param		inBufferSize The desired size of the buffer. It is expanded if
+ *				necessary to fit the context information. The buffer must be large
+ *				enough to hold the data returned by the authentication method used.
+ * @param		outPackedServiceInfo A constructed buffer containing the data
+ *				from inServiceInfo.
+ * @result		tDirStatus code
+*/
+
+tDirStatus dsServiceInformationAllocate			(	CFDictionaryRef inServiceInfo,
+													UInt32 inBufferSize,
+													tDataBufferPtr *outPackedServiceInfo )
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 #ifdef __cplusplus
 }

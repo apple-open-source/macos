@@ -1,0 +1,41 @@
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/include/net-snmp/system/darwin9.h APPLE/include/net-snmp/system/darwin9.h
+--- SVN/include/net-snmp/system/darwin9.h
++++ APPLE/include/net-snmp/system/darwin9.h
+@@ -35,6 +35,9 @@
+  * This section defines Mac OS X 10.5 (and later) specific additions.
+  */
+ #define darwin 9
++#ifndef darwin9
++#   define darwin9 darwin
++#endif
+ 
+ /*
+  * Mac OS X should only use the modern API and definitions.
+@@ -50,6 +53,19 @@
+ #define NETSNMP_INCLUDE_IFTABLE_REWRITES
+ 
+ /*
++ * use new host resources files as well
++ */
++#define NETSNMP_INCLUDE_HRSWINST_REWRITES
++#define NETSNMP_INCLUDE_HRSWRUN_REWRITES
++#undef NETSNMP_INCLUDE_HRSWRUN_WRITE_SUPPORT
++#define NETSNMP_CAN_GET_DISK_LABEL 1
++
++/*
++ * use new lmSensors rewrites as well
++ */
++#define NETSNMP_INCLUDE_LMSENSORS_REWRITES 1
++
++/*
+  * Enabling this restricts the compiler to mostly public APIs.
+  */
+ #ifndef __APPLE_API_STRICT_CONFORMANCE
+@@ -118,3 +134,7 @@
+  */
+ /* #define USE_UNIFIED_IPV6_STRUCTS 1 */
+ #undef STRUCT_in6pcb_HAS_inp_vflag
++
++
++#define SNMP_CFRelease(x) do { if (x) { CFRelease(x); x = NULL; } } while(0)
++

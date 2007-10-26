@@ -1,0 +1,11 @@
+--- src/Makefile.in.orig	2005-09-13 17:53:18.000000000 -0700
++++ src/Makefile.in	2005-09-13 17:53:28.000000000 -0700
+@@ -161,7 +161,7 @@
+ depcomp = $(SHELL) $(top_srcdir)/build-aux/depcomp
+ am__depfiles_maybe = depfiles
+ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+-	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
++	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -mdynamic-no-pic
+ CCLD = $(CC)
+ LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+ SOURCES = $(cvs_SOURCES) $(EXTRA_cvs_SOURCES)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2002  Mark Nudelman
+ * Copyright (C) 1984-2004  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -33,8 +33,13 @@
 #include "less.h"
 #include "cmd.h"
 #include "lesskey.h"
+#ifdef __APPLE__
+#include "get_compat.h"
+#else
+#define COMPAT_MODE(func, mode) 1
+#endif
 
-extern int erase_char, kill_char;
+extern int erase_char, erase2_char, kill_char;
 extern int secure;
 
 #define SK(k) \
@@ -164,6 +169,16 @@ static unsigned char cmdtable[] =
 	'Z','Z',0,			A_QUIT
 };
 
+/* 
+ * Command table for UNIX 2003 compatibility: added first before builtin
+ * so that these commands override the normal LESS commands
+ */
+
+static unsigned char UNIX03cmdtable[] =
+{
+	's',0,				A_F_LINE
+};
+
 static unsigned char edittable[] =
 {
 	'\t',0,	    			EC_F_COMPLETE,	/* TAB */
@@ -215,6 +230,7 @@ struct tablelist
 /*
  * List of command tables and list of line-edit tables.
  */
+static struct tablelist *list_UNIX03cmd_tables = NULL;
 static struct tablelist *list_fcmd_tables = NULL;
 static struct tablelist *list_ecmd_tables = NULL;
 static struct tablelist *list_var_tables = NULL;
@@ -291,6 +307,9 @@ init_cmds()
 	/*
 	 * Add the default command tables.
 	 */
+	if (COMPAT_MODE("bin/more", "unix2003")) {
+		add_UNIX03cmd_table((char*)UNIX03cmdtable, sizeof(UNIX03cmdtable));
+	}
 	add_fcmd_table((char*)cmdtable, sizeof(cmdtable));
 	add_ecmd_table((char*)edittable, sizeof(edittable));
 #if USERFILE
@@ -340,6 +359,18 @@ add_cmd_table(tlist, buf, len)
 	t->t_next = *tlist;
 	*tlist = t;
 	return (0);
+}
+
+/*
+ * Add the UNIX2003 command table.
+ */
+	public void
+add_UNIX03cmd_table(buf, len)
+	char *buf;
+	int len;
+{
+	if (add_cmd_table(&list_UNIX03cmd_tables, buf, len) < 0)
+		error("Warning: some commands disabled", NULL_PARG);
 }
 
 /*
@@ -506,6 +537,11 @@ fcmd_decode(cmd, sp)
 	char *cmd;
 	char **sp;
 {
+	if (list_UNIX03cmd_tables != NULL) {
+		/* If it exists, try to decode it first */
+		int v = cmd_decode(list_UNIX03cmd_tables, cmd, sp);
+		if (v != A_INVALID) return v;
+	}
 	return (cmd_decode(list_fcmd_tables, cmd, sp));
 }
 
@@ -754,7 +790,7 @@ editchar(c, flags)
 	 * but give it the edit-commands command table
 	 * This table is constructed to match the user's keyboard.
 	 */
-	if (c == erase_char)
+	if (c == erase_char || c == erase2_char)
 		return (EC_BACKSPACE);
 	if (c == kill_char)
 		return (EC_LINEKILL);

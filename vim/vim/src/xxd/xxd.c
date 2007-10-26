@@ -40,7 +40,7 @@
  * 29.08.96 Added size_t to strncmp() for Amiga.
  * 24.03.97 Windows NT support (Phil Hanna). Clean exit for Amiga WB (Bram)
  * 02.04.97 Added -E option, to have EBCDIC translation instead of ASCII
- *	    (antonio.colombo@jrc.it)
+ *	    (azc10@yahoo.com)
  * 22.05.97 added -g (group octets) option (jcook@namerica.kla.com).
  * 23.09.98 nasty -p -r misfeature fixed: slightly wrong output, when -c was
  *	    missing or wrong.
@@ -58,6 +58,13 @@
  * make money and share with me,
  * lose money and don't ask me.
  */
+
+/* Visual Studio 2005 has 'deprecated' many of the standard CRT functions */
+#if _MSC_VER >= 1400
+# define _CRT_SECURE_NO_DEPRECATE
+# define _CRT_NONSTDC_NO_DEPRECATE
+#endif
+
 #include <stdio.h>
 #ifdef VAXC
 # include <file.h>
@@ -146,16 +153,18 @@ char osver[] = "";
 #if !defined(CYGWIN) && (defined(CYGWIN32) || defined(__CYGWIN__) || defined(__CYGWIN32__))
 # define CYGWIN
 #endif
-#if defined(MSDOS) || defined(WIN32) || defined(OS2) || defined(CYGWIN)
+#if defined(MSDOS) || defined(WIN32) || defined(OS2)
 # define BIN_READ(yes)  ((yes) ? "rb" : "rt")
 # define BIN_WRITE(yes) ((yes) ? "wb" : "wt")
 # define BIN_CREAT(yes) ((yes) ? (O_CREAT|O_BINARY) : O_CREAT)
 # define BIN_ASSIGN(fp, yes) setmode(fileno(fp), (yes) ? O_BINARY : O_TEXT)
-# if defined(CYGWIN)
-#  define PATH_SEP '/'
-# else
-#  define PATH_SEP '\\'
-# endif
+# define PATH_SEP '\\'
+#elif defined(CYGWIN)
+# define BIN_READ(yes)  ((yes) ? "rb" : "rt")
+# define BIN_WRITE(yes) ((yes) ? "wb" : "w")
+# define BIN_CREAT(yes) ((yes) ? (O_CREAT|O_BINARY) : O_CREAT)
+# define BIN_ASSIGN(fp, yes) ((yes) ? (void) setmode(fileno(fp), O_BINARY) : (void) (fp))
+# define PATH_SEP '/'
 #else
 # ifdef VMS
 #  define BIN_READ(dummy)  "r"
@@ -266,6 +275,12 @@ long base_off;
       if (c == '\r')	/* Doze style input file? */
 	continue;
 
+#if 0	/* this doesn't work when there is normal text after the hex codes in
+	   the last line that looks like hex */
+      if (c == ' ' || c == '\n' || c == '\t')  /* allow multiple spaces */
+	continue;
+#endif
+
       n3 = n2;
       n2 = n1;
 
@@ -325,7 +340,7 @@ long base_off;
 	  n1 = -1;
 	  if ((++p >= cols) && !hextype)
 	    {
-	      /* skip rest of line as garbaga */
+	      /* skip rest of line as garbage */
 	      want_off = 0;
 	      while ((c = getc(fpi)) != '\n' && c != EOF)
 		;

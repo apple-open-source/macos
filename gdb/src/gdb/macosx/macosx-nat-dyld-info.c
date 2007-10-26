@@ -143,8 +143,11 @@ dyld_objfile_entry_clear (struct dyld_objfile_entry *e)
   e->dyld_slide = 0;
   e->dyld_valid = 0;
   e->dyld_length = 0;
+  e->dyld_section_offsets = NULL;
 
+#if WITH_CFM
   e->cfm_container = 0;
+#endif
 
   e->user_name = NULL;
 
@@ -153,6 +156,9 @@ dyld_objfile_entry_clear (struct dyld_objfile_entry *e)
 
   e->image_addr = 0;
   e->image_addr_valid = 0;
+
+  e->pre_run_slide_addr = 0;
+  e->pre_run_slide_addr_valid = 0;
 
   e->text_name = NULL;
   e->text_name_valid = 0;
@@ -210,12 +216,12 @@ void
 dyld_objfile_info_pack (struct dyld_objfile_info *i)
 {
   int j;
-  for (j = 0; j < i->nents; j++)
+  for (j = 0; j < i->nents - 1; j++)
     {
       if (!i->entries[j].allocated)
         {
           memmove (&i->entries[j], &i->entries[j + 1],
-                   (i->nents - j) * sizeof (struct dyld_objfile_entry));
+                   (i->nents - j - 1) * sizeof (struct dyld_objfile_entry));
           i->nents--;
           j--;
         }
@@ -264,7 +270,9 @@ dyld_objfile_entry_compare (struct dyld_objfile_entry *a,
   COMPARE_SCALAR (dyld_slide);
   COMPARE_SCALAR (dyld_valid);
 
+#if WITH_CFM
   COMPARE_SCALAR (cfm_container);
+#endif
 
   COMPARE_STRING (user_name);
 
@@ -345,6 +353,9 @@ dyld_objfile_info_copy_entries (struct dyld_objfile_info *d,
         {
           n = dyld_objfile_entry_alloc (d);
           *n = *e;
+	  if (e->dyld_section_offsets != NULL)
+	    /* FIXME: COPY SECTION OFFSETS HERE? */
+	    n->dyld_section_offsets = 0;
         }
     }
 }
@@ -520,7 +531,8 @@ dyld_entry_string (struct dyld_objfile_entry *e, int print_basenames)
   char *ret;
   int maxlen = 0;
 
-  dyld_entry_info (e, print_basenames, &name, &objname, &symname, NULL, NULL,
+  dyld_entry_info (e, print_basenames, &name, &objname, &symname, 
+		   NULL, NULL, NULL,
                    &addr, &slide, &prefix);
 
   maxlen = 0;
@@ -578,6 +590,7 @@ dyld_entry_info (struct dyld_objfile_entry *e, int print_basenames,
                  char **name,
                  char **objname, char **symname,
                  char **auxobjname, char **auxsymname,
+		 char **dsymobjname,
                  char **addr, char **slide, char **prefix)
 {
   CHECK_FATAL (e != NULL);
@@ -592,6 +605,8 @@ dyld_entry_info (struct dyld_objfile_entry *e, int print_basenames,
     *auxobjname = NULL;
   if (auxsymname != NULL)
     *auxsymname = NULL;
+  if (dsymobjname != NULL)
+    *dsymobjname = NULL;
   *addr = NULL;
   *slide = NULL;
   *prefix = NULL;
@@ -609,7 +624,6 @@ dyld_entry_info (struct dyld_objfile_entry *e, int print_basenames,
         {
           xasprintf (addr, "0x%s", paddr_nz (e->loaded_memaddr));
         }
-
     }
 
   if (e->objfile)
@@ -624,6 +638,8 @@ dyld_entry_info (struct dyld_objfile_entry *e, int print_basenames,
         (e->commpage_objfile != NULL) ? e->commpage_objfile->name : NULL;
       const char *loaded_auxsymname =
         (e->commpage_objfile != NULL) ? e->commpage_objfile->name : NULL;
+      const char *loaded_dsymobjname =
+        (e->objfile->separate_debug_objfile != NULL) ? e->objfile->separate_debug_objfile->name : NULL;
 
       /* If we're printing only the basenames of paths, point to the base
          name in every non-NULL string.  */
@@ -647,6 +663,10 @@ dyld_entry_info (struct dyld_objfile_entry *e, int print_basenames,
       if (!print_basenames && loaded_auxsymname != NULL)
         if (strrchr (loaded_auxsymname, '/') != NULL)
           loaded_auxsymname = strrchr (loaded_auxsymname, '/') + 1;
+
+      if (!print_basenames && loaded_dsymobjname != NULL)
+        if (strrchr (loaded_dsymobjname, '/') != NULL)
+          loaded_dsymobjname = strrchr (loaded_dsymobjname, '/') + 1;
 
       /* Copy over all non-NULL strings to our arguments, if they were
          provided.  */
@@ -686,6 +706,13 @@ dyld_entry_info (struct dyld_objfile_entry *e, int print_basenames,
           memcpy (*auxsymname, loaded_auxsymname, namelen);
         }
 
+      if (loaded_dsymobjname != NULL && dsymobjname != NULL)
+        {
+          int namelen = strlen (loaded_dsymobjname) + 1;
+          *dsymobjname = (char *) xmalloc (namelen);
+          memcpy (*dsymobjname, loaded_dsymobjname, namelen);
+        }
+
       if (e->loaded_addrisoffset)
         {
           if (e->image_addr_valid)
@@ -707,7 +734,12 @@ dyld_entry_info (struct dyld_objfile_entry *e, int print_basenames,
             }
           else
             {
-              if (e->image_addr_valid)
+              if (e->pre_run_slide_addr_valid && e->pre_run_slide_addr != 0)
+                {
+                  *slide = dyld_offset_string (e->pre_run_slide_addr);
+                  xasprintf (addr, "0x%s", paddr_nz (e->image_addr + e->pre_run_slide_addr));
+                }
+              else if (e->image_addr_valid)
                 {
                   *slide =
                     dyld_offset_string (e->loaded_addr - e->image_addr);
@@ -997,6 +1029,7 @@ dyld_print_entry_info (struct dyld_objfile_entry *j, int shlibnum, int baselen)
   char *symname;
   char *auxobjname;
   char *auxsymname;
+  char *dsymobjname;
   char *addr;
   char *slide;
   char *prefix;
@@ -1009,7 +1042,8 @@ dyld_print_entry_info (struct dyld_objfile_entry *j, int shlibnum, int baselen)
   const char *ptr;
   struct cleanup *list_cleanup;
 
-  dyld_entry_info (j, 1, &name, &objname, &symname, &auxobjname, &auxsymname,
+  dyld_entry_info (j, 1, &name, &objname, &symname, 
+		   &auxobjname, &auxsymname, &dsymobjname,
                    &addr, &slide, &prefix);
 
   if (name == NULL)
@@ -1060,11 +1094,19 @@ dyld_print_entry_info (struct dyld_objfile_entry *j, int shlibnum, int baselen)
   ui_out_spaces (uiout, 1);
 
   ui_out_field_string (uiout, "dyld-addr", addrbuf);
-  ui_out_spaces (uiout, 10 - strlen (addrbuf));
+  /* For a 64-bit program, the number 10 here is not correct.  
+     I don't want to change the formatting for all 32-bit but
+     make sure ui_out_spaces gets a non-negative value.  */
+  if (strlen (addrbuf) < 10)
+    ui_out_spaces (uiout, 10 - strlen (addrbuf));
   ui_out_spaces (uiout, 1);
 
   ptr = dyld_reason_string (j->reason);
-  ui_out_spaces (uiout, 11 - strlen (ptr));
+  /* For a 64-bit program, the number 11 here is not correct.  
+     I don't want to change the formatting for all 32-bit but
+     make sure ui_out_spaces gets a non-negative value.  */
+  if (strlen (ptr) < 11)
+    ui_out_spaces (uiout, 11 - strlen (ptr));
   ui_out_field_string (uiout, "reason", ptr);
   ui_out_spaces (uiout, 1);
 
@@ -1263,6 +1305,16 @@ dyld_print_entry_info (struct dyld_objfile_entry *j, int shlibnum, int baselen)
         ui_out_field_string (uiout, "commpage-sympath", auxsymname);
       }
 
+  if (dsymobjname != NULL)
+    {
+      const char *tag = "(dSYM file is)";
+      ui_out_text (uiout, "\n");
+      ui_out_spaces (uiout, baselen + 34 - strlen (tag) - 1);
+      ui_out_text (uiout, tag);
+      ui_out_text (uiout, " ");
+      ui_out_field_string (uiout, "dsym-objpath", dsymobjname);
+    }
+
   do_cleanups (list_cleanup);
 
   ui_out_text (uiout, "\n");
@@ -1272,6 +1324,7 @@ dyld_print_entry_info (struct dyld_objfile_entry *j, int shlibnum, int baselen)
   xfree (symname);
   xfree (auxobjname);
   xfree (auxsymname);
+  xfree (dsymobjname);
   xfree (addr);
   xfree (slide);
   xfree (prefix);
@@ -1355,36 +1408,46 @@ dyld_print_shlib_info (struct dyld_objfile_info *s, unsigned int reason_mask,
   /* Then, print all the remaining objfiles. */
 
   ALL_OBJFILES_SAFE (objfile, temp)
-  {
-    int found = 0;
-    struct dyld_objfile_entry *j;
+    {
+      int found = 0;
+      struct dyld_objfile_entry *j;
+      
+      /* Don't print out the dSYM files here.  They are printed with
+	 the objfile in dyld_print_entry_info above.  */
+      
+      if (objfile->separate_debug_objfile_backlink != NULL)
+	{
+	  found = 1;
+	}
+      else
+	{
+	  DYLD_ALL_OBJFILE_INFO_ENTRIES (s, j, i)
+	    {
+	      if (j->objfile == objfile || j->commpage_objfile == objfile)
+		{
+		  found = 1;
+		}
+	    }
+	}
 
-    DYLD_ALL_OBJFILE_INFO_ENTRIES (s, j, i)
-      {
-        if (j->objfile == objfile || j->commpage_objfile == objfile)
-          {
-            found = 1;
-          }
-      }
-
-    if (!found)
-      {
-
-        struct dyld_objfile_entry tentry;
-        shlibnum++;
-
-        if (!(reason_mask & dyld_reason_user))
-          {
-            continue;
-          }
-
-        if (args == NULL || dyld_entry_shlib_num_matches (shlibnum, args, 0))
-          {
-            dyld_convert_entry (objfile, &tentry);
-            dyld_print_entry_info (&tentry, shlibnum, baselen);
-          }
-      }
-  }
+      if (!found)
+	{
+	  
+	  struct dyld_objfile_entry tentry;
+	  shlibnum++;
+	  
+	  if (!(reason_mask & dyld_reason_user))
+	    {
+	      continue;
+	    }
+	  
+	  if (args == NULL || dyld_entry_shlib_num_matches (shlibnum, args, 0))
+	    {
+	      dyld_convert_entry (objfile, &tentry);
+	      dyld_print_entry_info (&tentry, shlibnum, baselen);
+	    }
+	}
+    }
 }
 
 /* There is one struct dyld_objfile_info per program.  Within INFO,

@@ -428,23 +428,27 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
             if (sampleRateDict) {
                 formatDict->setObject(gMinimumSampleRateKey, sampleRateDict);
                 sampleRateDict->release();
+				
                 sampleRateDict = IOAudioEngine::createDictionaryFromSampleRate(maxRate);
                 if (sampleRateDict) {
 					OSArray *newAvailableFormats;
 					OSArray *oldAvailableFormats;
-
-					oldAvailableFormats = availableFormatDictionaries;
-					newAvailableFormats = OSArray::withArray(availableFormatDictionaries);
 					
-                    formatDict->setObject(gMaximumSampleRateKey, sampleRateDict);
-                    sampleRateDict->release();
-                    newAvailableFormats->setObject(formatDict);
-					availableFormatDictionaries = newAvailableFormats;
-					setProperty(kIOAudioStreamAvailableFormatsKey, availableFormatDictionaries);
-					oldAvailableFormats->release();
-                    if (streamFormat->fNumChannels > maxNumChannels) {
-                        maxNumChannels = streamFormat->fNumChannels;
-                    }
+					oldAvailableFormats = availableFormatDictionaries;
+					newAvailableFormats = OSDynamicCast(OSArray, availableFormatDictionaries->copyCollection());  // copyCollection() does a deep copy
+					
+					if (newAvailableFormats) {
+						formatDict->setObject(gMaximumSampleRateKey, sampleRateDict);
+						newAvailableFormats->setObject(formatDict);
+						availableFormatDictionaries = newAvailableFormats;
+						setProperty(kIOAudioStreamAvailableFormatsKey, availableFormatDictionaries);
+						oldAvailableFormats->release();
+						if (streamFormat->fNumChannels > maxNumChannels) {
+							maxNumChannels = streamFormat->fNumChannels;
+						}
+					}
+					
+					sampleRateDict->release();
                 }
             }
             formatDict->release();
@@ -459,7 +463,7 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
 
 bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc)
 {
-	validateFormat(streamFormat, formatExtension, formatDesc, audioEngine->getSampleRate());
+	return validateFormat(streamFormat, formatExtension, formatDesc, audioEngine->getSampleRate());
 }
 
 void IOAudioStream::setTerminalType(const UInt32 terminalType)
@@ -1081,9 +1085,21 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
 
 void IOAudioStream::clearAvailableFormats()
 {
+	OSArray*	oldAvailableFormats;
+	OSArray*	clearedAvailableFormats;
+	
     assert(availableFormatDictionaries);
-
-    availableFormatDictionaries->flushCollection();
+	
+	oldAvailableFormats = availableFormatDictionaries;
+	
+    clearedAvailableFormats = OSArray::withCapacity(1);
+    if (!clearedAvailableFormats) {
+        return;
+    }
+	availableFormatDictionaries = clearedAvailableFormats;
+    setProperty(kIOAudioStreamAvailableFormatsKey, availableFormatDictionaries);
+	
+    oldAvailableFormats->release();
 }
 
 bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatDesc *formatDesc)

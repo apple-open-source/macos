@@ -88,20 +88,37 @@
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
+#ifdef __LP64__
+extern bool_t		pmap_set	__P((unsigned int, unsigned int, int, int));
+extern bool_t		pmap_unset	__P((unsigned int, unsigned int));
+extern enum clnt_stat	pmap_rmtcall	__P((struct sockaddr_in *,
+											 unsigned int, unsigned int, unsigned int,
+											 xdrproc_t, caddr_t,
+											 xdrproc_t, caddr_t,
+											 struct timeval, unsigned int *));
+extern enum clnt_stat	clnt_broadcast	__P((unsigned int, unsigned int, unsigned int,
+											 xdrproc_t, char *,
+											 xdrproc_t, char *,
+											 bool_t (*)()));
+extern unsigned short		pmap_getport	__P((struct sockaddr_in *,
+												 unsigned int, unsigned int, unsigned int));
+#else
 extern bool_t		pmap_set	__P((unsigned long, unsigned long, int, int));
 extern bool_t		pmap_unset	__P((unsigned long, unsigned long));
-extern struct pmaplist	*pmap_getmaps	__P((struct sockaddr_in *));
 extern enum clnt_stat	pmap_rmtcall	__P((struct sockaddr_in *,
-					     unsigned long, unsigned long, unsigned long,
-					     xdrproc_t, caddr_t,
-					     xdrproc_t, caddr_t,
-					     struct timeval, unsigned long *));
+											 unsigned long, unsigned long, unsigned long,
+											 xdrproc_t, caddr_t,
+											 xdrproc_t, caddr_t,
+											 struct timeval, unsigned long *));
 extern enum clnt_stat	clnt_broadcast	__P((unsigned long, unsigned long, unsigned long,
-					     xdrproc_t, char *,
-					     xdrproc_t, char *,
-					     bool_t (*)()));
+											 xdrproc_t, char *,
+											 xdrproc_t, char *,
+											 bool_t (*)()));
 extern unsigned short		pmap_getport	__P((struct sockaddr_in *,
-					     unsigned long, unsigned long, unsigned int));
+												 unsigned long, unsigned long, unsigned int));
+#endif
+extern struct pmaplist	*pmap_getmaps	__P((struct sockaddr_in *));
+extern int		getrpcport	__P((char *, int, int, int));
 __END_DECLS
 
 #endif /* !_RPC_PMAPCLNT_H */

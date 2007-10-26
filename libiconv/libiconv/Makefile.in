@@ -9,6 +9,7 @@ srcdir = @srcdir@
 prefix = @prefix@
 local_prefix = /usr/local
 exec_prefix = @exec_prefix@
+datarootdir = @datarootdir@
 datadir = @datadir@
 libdir = @libdir@
 includedir = @includedir@
@@ -22,7 +23,7 @@ RM = rm -f
 INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_DATA = @INSTALL_DATA@
-mkinstalldirs = $(SHELL) @top_srcdir@/autoconf/mkinstalldirs
+mkinstalldirs = $(SHELL) @top_srcdir@/build-aux/mkinstalldirs
 
 #### End of system configuration section. ####
 
@@ -44,7 +45,7 @@ lib/localcharset.h :
 install-lib : all force
 	cd lib && $(MAKE) install-lib libdir='$(libdir)' includedir='$(includedir)'
 	if [ ! -d $(includedir) ] ; then $(mkinstalldirs) $(includedir) ; fi
-	$(INSTALL_DATA) include/iconv.h $(includedir)/iconv.h
+	$(INSTALL_DATA) include/iconv.h.inst $(includedir)/iconv.h
 
 install : lib/localcharset.h force
 	cd libcharset && $(MAKE) install prefix='$(prefix)' exec_prefix='$(exec_prefix)' libdir='$(libdir)'
@@ -54,9 +55,9 @@ install : lib/localcharset.h force
 	if [ ! -d $(DESTDIR)$(prefix) ] ; then $(mkinstalldirs) $(DESTDIR)$(prefix) ; fi
 	if [ ! -d $(DESTDIR)$(exec_prefix) ] ; then $(mkinstalldirs) $(DESTDIR)$(exec_prefix) ; fi
 	if [ ! -d $(DESTDIR)$(includedir) ] ; then $(mkinstalldirs) $(DESTDIR)$(includedir) ; fi
-	$(INSTALL_DATA) include/iconv.h $(DESTDIR)$(includedir)/iconv.h
-	cd po && $(MAKE) install prefix='$(prefix)' exec_prefix='$(exec_prefix)' datadir='$(datadir)'
-	cd man && $(MAKE) install prefix='$(prefix)' exec_prefix='$(exec_prefix)' datadir='$(datadir)' mandir='$(mandir)'
+	$(INSTALL_DATA) include/iconv.h.inst $(DESTDIR)$(includedir)/iconv.h
+	cd po && $(MAKE) install prefix='$(prefix)' exec_prefix='$(exec_prefix)' datarootdir='$(datarootdir)' datadir='$(datadir)'
+	cd man && $(MAKE) install prefix='$(prefix)' exec_prefix='$(exec_prefix)' datarootdir='$(datarootdir)' datadir='$(datadir)' mandir='$(mandir)'
 
 installdirs : force
 	cd libcharset && $(MAKE) installdirs prefix='$(prefix)' exec_prefix='$(exec_prefix)' libdir='$(libdir)'
@@ -66,8 +67,8 @@ installdirs : force
 	if [ ! -d $(DESTDIR)$(prefix) ] ; then $(mkinstalldirs) $(DESTDIR)$(prefix) ; fi
 	if [ ! -d $(DESTDIR)$(exec_prefix) ] ; then $(mkinstalldirs) $(DESTDIR)$(exec_prefix) ; fi
 	if [ ! -d $(DESTDIR)$(includedir) ] ; then $(mkinstalldirs) $(DESTDIR)$(includedir) ; fi
-	cd po && $(MAKE) installdirs prefix='$(prefix)' exec_prefix='$(exec_prefix)' datadir='$(datadir)'
-	cd man && $(MAKE) installdirs prefix='$(prefix)' exec_prefix='$(exec_prefix)' datadir='$(datadir)' mandir='$(mandir)'
+	cd po && $(MAKE) installdirs prefix='$(prefix)' exec_prefix='$(exec_prefix)' datarootdir='$(datarootdir)' datadir='$(datadir)'
+	cd man && $(MAKE) installdirs prefix='$(prefix)' exec_prefix='$(exec_prefix)' datarootdir='$(datarootdir)' datadir='$(datadir)' mandir='$(mandir)'
 
 uninstall : force
 	cd libcharset && $(MAKE) uninstall prefix='$(prefix)' exec_prefix='$(exec_prefix)' libdir='$(libdir)'
@@ -75,8 +76,8 @@ uninstall : force
 	cd srclib && $(MAKE) uninstall prefix='$(prefix)' exec_prefix='$(exec_prefix)' libdir='$(libdir)'
 	cd src && $(MAKE) uninstall prefix='$(prefix)' exec_prefix='$(exec_prefix)' libdir='$(libdir)'
 	$(RM) $(DESTDIR)$(includedir)/iconv.h
-	cd po && $(MAKE) uninstall prefix='$(prefix)' exec_prefix='$(exec_prefix)' datadir='$(datadir)'
-	cd man && $(MAKE) uninstall prefix='$(prefix)' exec_prefix='$(exec_prefix)' datadir='$(datadir)' mandir='$(mandir)'
+	cd po && $(MAKE) uninstall prefix='$(prefix)' exec_prefix='$(exec_prefix)' datarootdir='$(datarootdir)' datadir='$(datadir)'
+	cd man && $(MAKE) uninstall prefix='$(prefix)' exec_prefix='$(exec_prefix)' datarootdir='$(datarootdir)' datadir='$(datadir)' mandir='$(mandir)'
 
 check : all force
 	cd libcharset && $(MAKE) check
@@ -96,6 +97,7 @@ mostlyclean : force
 	cd po && $(MAKE) mostlyclean
 	cd man && $(MAKE) mostlyclean
 	if test -d tests; then cd tests && $(MAKE) mostlyclean; fi
+	rm -rf bin
 
 clean : force
 	cd libcharset && $(MAKE) clean
@@ -106,6 +108,7 @@ clean : force
 	cd po && $(MAKE) clean
 	cd man && $(MAKE) clean
 	if test -d tests; then cd tests && $(MAKE) clean; fi
+	rm -rf bin
 
 distclean : force
 	cd libcharset && if test -f Makefile; then $(MAKE) distclean; fi
@@ -118,7 +121,8 @@ distclean : force
 	if test -d tests; then cd tests && if test -f Makefile; then $(MAKE) distclean; fi; fi
 	$(RM) config.status config.log config.cache Makefile libtool
 	$(RM) config.h stamp-h1 lib/stamp-h2
-	$(RM) include/iconv.h
+	$(RM) include/iconv.h include/iconv.h.inst
+	rm -rf bin
 
 maintainer-clean : force
 	cd libcharset && if test -f Makefile; then $(MAKE) maintainer-clean; fi
@@ -131,7 +135,10 @@ maintainer-clean : force
 	if test -d tests; then cd tests && if test -f Makefile; then $(MAKE) maintainer-clean; fi; fi
 	$(RM) config.status config.log config.cache Makefile libtool
 	$(RM) config.h stamp-h1 lib/stamp-h2
-	$(RM) include/iconv.h
+	$(RM) include/iconv.h include/iconv.h.inst
+	rm -rf bin
 
 force :
 
+# Work around an automake-1.8 bug.
+am--refresh:

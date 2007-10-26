@@ -26,6 +26,7 @@
 				StringPooling="TRUE"
 				RuntimeLibrary="4"
 				EnableFunctionLevelLinking="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderFile=".\Release/break.pch"
 				AssemblerListingLocation=".\Release/"
@@ -38,7 +39,6 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="icuuc.lib icuin.lib"
 				OutputFile=".\Release/break.exe"
 				LinkIncremental="1"
@@ -89,6 +89,7 @@
 				PreprocessorDefinitions="WIN32,_DEBUG,_WINDOWS"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="5"
+				TreatWChar_tAsBuiltInType="TRUE"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderFile=".\Debug/break.pch"
 				AssemblerListingLocation=".\Debug/"
@@ -102,7 +103,6 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="icuucd.lib icuind.lib"
 				OutputFile=".\Debug/break.exe"
 				LinkIncremental="2"

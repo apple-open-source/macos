@@ -1,8 +1,8 @@
-" Python indent file
-" Language:	Python
-" Maintainer:	Bram Moolenaar <Bram@vim.org>
+" Vim indent file
+" Language:		Python
+" Maintainer:		Bram Moolenaar <Bram@vim.org>
 " Original Author:	David Bustos <bustos@caltech.edu>
-" Last Change:	2003 May 11
+" Last Change:		2006 Apr 30
 
 " Only load this indent file when no other was loaded.
 if exists("b:did_indent")
@@ -22,21 +22,24 @@ if exists("*GetPythonIndent")
   finish
 endif
 
+" Come here when loading the script the first time.
+
 let s:maxoff = 50	" maximum number of lines to look backwards for ()
 
 function GetPythonIndent(lnum)
+
   " If this line is explicitly joined: If the previous line was also joined,
   " line it up with that one, otherwise add two 'shiftwidth'
   if getline(a:lnum - 1) =~ '\\$'
     if a:lnum > 1 && getline(a:lnum - 2) =~ '\\$'
       return indent(a:lnum - 1)
     endif
-    return indent(a:lnum - 1) + (&sw * 2)
+    return indent(a:lnum - 1) + (exists("g:pyindent_continue") ? eval(g:pyindent_continue) : (&sw * 2))
   endif
 
   " If the start of the line is in a string don't change the indent.
   if has('syntax_items')
-	\ && synIDattr(synID(a:lnum, 1, 1), "name") == "pythonString"
+	\ && synIDattr(synID(a:lnum, 1, 1), "name") =~ "String$"
     return -1
   endif
 
@@ -53,10 +56,10 @@ function GetPythonIndent(lnum)
   " Trick: use the non-existing "dummy" variable to break out of the loop when
   " going too far back.
   call cursor(plnum, 1)
-  let parlnum = searchpair('(', '', ')', 'nbW',
+  let parlnum = searchpair('(\|{\|\[', '', ')\|}\|\]', 'nbW',
 	  \ "line('.') < " . (plnum - s:maxoff) . " ? dummy :"
 	  \ . " synIDattr(synID(line('.'), col('.'), 1), 'name')"
-	  \ . " =~ 'python\\(Comment\\|String\\)'")
+	  \ . " =~ '\\(Comment\\|String\\)$'")
   if parlnum > 0
     let plindent = indent(parlnum)
     let plnumstart = parlnum
@@ -72,21 +75,21 @@ function GetPythonIndent(lnum)
   "       + b
   "       + c)
   call cursor(a:lnum, 1)
-  let p = searchpair('(', '', ')', 'bW',
+  let p = searchpair('(\|{\|\[', '', ')\|}\|\]', 'bW',
 	  \ "line('.') < " . (a:lnum - s:maxoff) . " ? dummy :"
 	  \ . " synIDattr(synID(line('.'), col('.'), 1), 'name')"
-	  \ . " =~ 'python\\(Comment\\|String\\)'")
+	  \ . " =~ '\\(Comment\\|String\\)$'")
   if p > 0
     if p == plnum
       " When the start is inside parenthesis, only indent one 'shiftwidth'.
-      let pp = searchpair('(', '', ')', 'bW',
+      let pp = searchpair('(\|{\|\[', '', ')\|}\|\]', 'bW',
 	  \ "line('.') < " . (a:lnum - s:maxoff) . " ? dummy :"
 	  \ . " synIDattr(synID(line('.'), col('.'), 1), 'name')"
-	  \ . " =~ 'python\\(Comment\\|String\\)'")
+	  \ . " =~ '\\(Comment\\|String\\)$'")
       if pp > 0
-	return indent(plnum) + &sw
+	return indent(plnum) + (exists("g:pyindent_nested_paren") ? eval(g:pyindent_nested_paren) : &sw)
       endif
-      return indent(plnum) + (&sw * 2)
+      return indent(plnum) + (exists("g:pyindent_open_paren") ? eval(g:pyindent_open_paren) : (&sw * 2))
     endif
     if plnumstart == p
       return indent(plnum)
@@ -99,15 +102,33 @@ function GetPythonIndent(lnum)
   " Use syntax highlighting attributes when possible.
   let pline = getline(plnum)
   let pline_len = strlen(pline)
-  let col = 0
-  while col < pline_len
-    if pline[col] == '#' && (!has('syntax_items')
-	    \ || synIDattr(synID(plnum, col + 1, 1), "name") == "pythonComment")
-      let pline = strpart(pline, 0, col)
-      break
+  if has('syntax_items')
+    " If the last character in the line is a comment, do a binary search for
+    " the start of the comment.  synID() is slow, a linear search would take
+    " too long on a long line.
+    if synIDattr(synID(plnum, pline_len, 1), "name") =~ "Comment$"
+      let min = 1
+      let max = pline_len
+      while min < max
+	let col = (min + max) / 2
+	if synIDattr(synID(plnum, col, 1), "name") =~ "Comment$"
+	  let max = col
+	else
+	  let min = col + 1
+	endif
+      endwhile
+      let pline = strpart(pline, 0, min - 1)
     endif
-    let col = col + 1
-  endwhile
+  else
+    let col = 0
+    while col < pline_len
+      if pline[col] == '#'
+	let pline = strpart(pline, 0, col)
+	break
+      endif
+      let col = col + 1
+    endwhile
+  endif
 
   " If the previous line ended with a colon, indent this line
   if pline =~ ':\s*$'
@@ -129,10 +150,8 @@ function GetPythonIndent(lnum)
   if getline(a:lnum) =~ '^\s*\(except\|finally\)\>'
     let lnum = a:lnum - 1
     while lnum >= 1
-      echomsg 'got here'
       if getline(lnum) =~ '^\s*\(try\|except\)\>'
 	let ind = indent(lnum)
-	echomsg 'got here, indent is ' . ind
 	if ind >= indent(a:lnum)
 	  return -1	" indent is already less than this
 	endif
@@ -140,7 +159,6 @@ function GetPythonIndent(lnum)
       endif
       let lnum = lnum - 1
     endwhile
-    echomsg 'got to the end'
     return -1		" no matching "try"!
   endif
 

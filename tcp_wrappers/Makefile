@@ -45,11 +45,21 @@ install::
 	ln -fs libwrap.$(MAJOR).dylib $(DSTROOT)/usr/lib/libwrap.dylib
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/tcpd.h          $(DSTROOT)/usr/include
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/hosts_access.3  $(DSTROOT)/usr/share/man/man3
+	ln -fs hosts_access.3 $(DSTROOT)/usr/share/man/man3/hosts_ctl.3
+	ln -fs hosts_access.3 $(DSTROOT)/usr/share/man/man3/request_init.3
+	ln -fs hosts_access.3 $(DSTROOT)/usr/share/man/man3/request_set.3
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/hosts_access.5  $(DSTROOT)$(MANDIR)/man5
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/hosts_options.5  $(DSTROOT)$(MANDIR)/man5
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/tcpd.8          $(DSTROOT)$(MANDIR)/man8
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/tcpdchk.8       $(DSTROOT)$(MANDIR)/man8
 	$(INSTALL_FILE) -c $(Sources)/$(Project)/tcpdmatch.8     $(DSTROOT)$(MANDIR)/man8
+	@for binary in libexec/tcpd sbin/tcpdchk sbin/tcpdmatch; do \
+		for arch in ppc64 x86_64; do \
+			file=$(DSTROOT)/usr/$$binary; \
+			echo lipo -remove $$arch -output $$file $$file; \
+			lipo -remove $$arch -output $$file $$file || true; \
+		done \
+	done
 
 build:: shadow_source
 	$(_v) $(MAKE) -C $(BuildDirectory)/$(Project) $(Environment) macos

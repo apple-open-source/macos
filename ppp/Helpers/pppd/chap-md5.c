@@ -57,11 +57,11 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <CommonCrypto/CommonDigest.h>
 #include "pppd.h"
 #include "chap-new.h"
 #include "chap-md5.h"
 #include "magic.h"
-#include "md5.h"
 
 #define MD5_HASH_SIZE		16
 #define MD5_MIN_CHALLENGE	16
@@ -93,11 +93,11 @@ chap_md5_verify_response(int id, char *name,
 	response_len = *response++;
 	if (response_len == MD5_HASH_SIZE) {
 		/* Generate hash of ID, secret, challenge */
-		MD5Init(&ctx);
-		MD5Update(&ctx, &idbyte, 1);
-		MD5Update(&ctx, secret, secret_len);
-		MD5Update(&ctx, challenge, challenge_len);
-		MD5Final(hash, &ctx);
+		MD5_Init(&ctx);
+		MD5_Update(&ctx, &idbyte, 1);
+		MD5_Update(&ctx, secret, secret_len);
+		MD5_Update(&ctx, challenge, challenge_len);
+		MD5_Final(hash, &ctx);
 
 		/* Test if our hash matches the peer's response */
 		if (memcmp(hash, response, MD5_HASH_SIZE) == 0) {
@@ -118,11 +118,11 @@ chap_md5_make_response(unsigned char *response, int id, char *our_name,
 	unsigned char idbyte = id;
 	int challenge_len = *challenge++;
 
-	MD5Init(&ctx);
-	MD5Update(&ctx, &idbyte, 1);
-	MD5Update(&ctx, secret, secret_len);
-	MD5Update(&ctx, challenge, challenge_len);
-	MD5Final(&response[1], &ctx);
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, &idbyte, 1);
+	MD5_Update(&ctx, secret, secret_len);
+	MD5_Update(&ctx, challenge, challenge_len);
+	MD5_Final(&response[1], &ctx);
 	response[0] = MD5_HASH_SIZE;
 }
 

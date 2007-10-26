@@ -43,10 +43,10 @@
 #endif
 
 typedef void AltProc(void *context, int code, const void *data1, const void *data2);
-OBJC_EXPORT NXHandler *_NXAddAltHandler (AltProc *proc, void *context);
-OBJC_EXPORT void _NXRemoveAltHandler (NXHandler *handler);
+NXHandler *_NXAddAltHandler (AltProc *proc, void *context);
+void _NXRemoveAltHandler (NXHandler *handler);
 
-OBJC_EXPORT void _NXLogError(const char *format, ...);
+void _NXLogError(const char *format, ...);
 
 #if defined(KERNEL)
     #import <mach/machine/simple_lock.h>
@@ -381,6 +381,7 @@ static void trickyRemoveHandler (NXHandler *handler, int removingAlt)
 }
 
 
+__private_extern__
 NXHandler *_NXAddAltHandler (AltProc *proc, void *context)
 {
   AltHandler *new;
@@ -407,6 +408,7 @@ NXHandler *_NXAddAltHandler (AltProc *proc, void *context)
 }
 
 
+__private_extern__
 void _NXRemoveAltHandler (NXHandler *handler)
 {
   ExceptionHandlerStack *me;
@@ -425,6 +427,7 @@ void _NXRemoveAltHandler (NXHandler *handler)
 }
 
 
+__private_extern__
 void _NXAddHandler (NXHandler *handler)
 {
   ExceptionHandlerStack *me = findme ();
@@ -435,6 +438,7 @@ void _NXAddHandler (NXHandler *handler)
 }
 
 
+__private_extern__
 void _NXRemoveHandler (NXHandler *handler)
 {
   ExceptionHandlerStack *me;
@@ -450,6 +454,7 @@ void _NXRemoveHandler (NXHandler *handler)
 }
 
 /* forwards the error to the next handler */
+__private_extern__
 volatile void NXDefaultExceptionRaiser(int code, const void *data1, const void *data2)
 {
     NXHandler *destination;
@@ -492,17 +497,20 @@ volatile void NXDefaultExceptionRaiser(int code, const void *data1, const void *
 
 static NXExceptionRaiser *ExceptionRaiser = &NXDefaultExceptionRaiser;
 
+__private_extern__
 void NXSetExceptionRaiser(NXExceptionRaiser *proc)
 {
     ExceptionRaiser = proc;
 }
 
 
+__private_extern__
 NXExceptionRaiser *NXGetExceptionRaiser (void)
 {
     return ExceptionRaiser;
 }
 
+__private_extern__
 #if defined(__GNUC__)
     #if !defined(__STRICT_ANSI__)
         #if !defined(NeXT_PDO)
@@ -523,6 +531,7 @@ void _NXRaiseError(int code, const void *data1, const void *data2)
 
 
 /* stack allocates some space from the error buffer */
+__private_extern__
 void NXAllocErrorData(int size, void **data)
 {
     ErrorBuffer *buffer;
@@ -542,6 +551,7 @@ void NXAllocErrorData(int size, void **data)
     UNLOCK (ErrorDataLock);
 }
 
+__private_extern__
 void NXResetErrorData(void)
 {
    ErrorBuffer *chain, *next;

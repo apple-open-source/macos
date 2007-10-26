@@ -1,12 +1,10 @@
---- islower.3.orig	Fri Mar 11 19:25:22 2005
-+++ islower.3	Fri Mar 11 19:26:51 2005
-@@ -92,7 +92,8 @@
+--- islower.3	2004-11-25 11:38:17.000000000 -0800
++++ islower.3.edit	2006-08-09 13:24:14.000000000 -0700
+@@ -89,6 +89,7 @@
+ function should be used instead.
+ .Sh SEE ALSO
+ .Xr ctype 3 ,
++.Xr isalnum_l 3 ,
  .Xr iswlower 3 ,
  .Xr multibyte 3 ,
  .Xr tolower 3 ,
--.Xr ascii 7
-+.Xr ascii 7 ,
-+.Xr isalnum_l
- .Sh STANDARDS
- The
- .Fn islower

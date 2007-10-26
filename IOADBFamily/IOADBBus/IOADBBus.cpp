@@ -30,7 +30,7 @@ OSDefineAbstractStructors(IOADBBus,IOService)
 // init
 //
 // **********************************************************************************
-bool IOADBBus::init( OSDictionary * properties = 0 )
+bool IOADBBus::init( OSDictionary * properties )
 {
 return super::init(properties);
 }

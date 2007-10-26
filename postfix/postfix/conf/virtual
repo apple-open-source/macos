@@ -1,7 +1,7 @@
-# VIRTUAL(5)                                             VIRTUAL(5)
+# VIRTUAL(5)                                                          VIRTUAL(5)
 # 
 # NAME
-#        virtual - format of Postfix virtual alias table
+#        virtual - Postfix virtual alias table format
 # 
 # SYNOPSIS
 #        postmap /etc/postfix/virtual
@@ -11,10 +11,12 @@
 #        postmap -q - /etc/postfix/virtual <inputfile
 # 
 # DESCRIPTION
-#        The  optional virtual alias table specifies address alias-
-#        ing for arbitrary local or non-local recipient  addresses.
-#        Virtual  aliasing is recursive, and is done by the Postfix
-#        cleanup(8) daemon.
+#        The  optional  virtual(5)  alias  table rewrites recipient
+#        addresses for all local, all virtual, and all remote  mail
+#        destinations.   This  is unlike the aliases(5) table which
+#        is used only for local(8) delivery.  Virtual  aliasing  is
+#        recursive,  and  is  implemented by the Postfix cleanup(8)
+#        daemon before mail is queued.
 # 
 #        The main applications of virtual aliasing are:
 # 
@@ -32,27 +34,33 @@
 #               address can have its own mailbox.
 # 
 #        Virtual  aliasing  is  applied  only to recipient envelope
-#        addresses, and does not  affect  message  headers.   Think
-#        Sendmail  rule  set S0, if you like. Use canonical(5) map-
-#        ping to rewrite header and envelope addresses in  general.
+#        addresses, and  does  not  affect  message  headers.   Use
+#        canonical(5)   mapping  to  rewrite  header  and  envelope
+#        addresses in general.
 # 
-#        Normally,  the  virtual alias table is specified as a text
-#        file that serves as input to the postmap(1) command.   The
-#        result,  an  indexed file in dbm or db format, is used for
-#        fast searching by the mail  system.  Execute  the  command
-#        postmap  /etc/postfix/virtual  in  order  to  rebuild  the
-#        indexed file after changing the text file.
+#        Normally, the virtual(5) alias table  is  specified  as  a
+#        text  file that serves as input to the postmap(1) command.
+#        The result, an indexed file in dbm or db format,  is  used
+#        for fast searching by the mail system. Execute the command
+#        "postmap /etc/postfix/virtual" to rebuild an indexed  file
+#        after changing the corresponding text file.
 # 
-#        When the table is provided via other means  such  as  NIS,
-#        LDAP  or  SQL,  the  same lookups are done as for ordinary
+#        When  the  table  is provided via other means such as NIS,
+#        LDAP or SQL, the same lookups are  done  as  for  ordinary
 #        indexed files.
 # 
-#        Alternatively, the table can be  provided  as  a  regular-
+#        Alternatively,  the  table  can  be provided as a regular-
 #        expression map where patterns are given as regular expres-
-#        sions, or lookups can be directed to TCP-based server.  In
-#        that  case,  the  lookups are done in a slightly different
-#        way as described below under "REGULAR  EXPRESSION  TABLES"
-#        and "TCP-BASED TABLES".
+#        sions,  or lookups can be directed to TCP-based server. In
+#        those case, the lookups are done in a  slightly  different
+#        way  as  described below under "REGULAR EXPRESSION TABLES"
+#        or "TCP-BASED TABLES".
+# 
+# CASE FOLDING
+#        The search string is folded to lowercase  before  database
+#        lookup.  As  of Postfix 2.3, the search string is not case
+#        folded with database types such as regexp: or pcre:  whose
+#        lookup fields can match both upper and lower case.
 # 
 # TABLE FORMAT
 #        The input format for the postmap(1) command is as follows:
@@ -71,32 +79,52 @@
 #               line that starts with whitespace continues a  logi-
 #               cal line.
 # 
+# TABLE SEARCH ORDER
 #        With lookups from indexed files such as DB or DBM, or from
 #        networked tables such as NIS, LDAP or  SQL,  patterns  are
 #        tried in the order as listed below:
 # 
 #        user@domain address, address, ...
-#               Mail  for  user@domain  is  redirected  to address.
-#               This form has the highest precedence.
+#               Redirect  mail  for  user@domain  to address.  This
+#               form has the highest precedence.
 # 
 #        user address, address, ...
-#               Mail for user@site is redirected  to  address  when
-#               site  is equal to $myorigin, when site is listed in
-#               $mydestination,   or   when   it   is   listed   in
-#               $inet_interfaces or $proxy_interfaces.
+#               Redirect mail for user@site to address when site is
+#               equal  to $myorigin, when site is listed in $mydes-
+#               tination, or when it is listed in  $inet_interfaces
+#               or $proxy_interfaces.
 # 
 #               This  functionality  overlaps with functionality of
 #               the local aliases(5) database.  The  difference  is
-#               that  virtual  mapping  can be applied to non-local
+#               that virtual(5) mapping can be applied to non-local
 #               addresses.
 # 
 #        @domain address, address, ...
-#               Mail for  any  user  in  domain  is  redirected  to
-#               address.  This form has the lowest precedence.
+#               Redirect mail for other users in domain to address.
+#               This form has the lowest precedence.
 # 
-#        In  all the above forms, when address has the form @other-
-#        domain, the result is the same user in otherdomain.   This
-#        works for the first address in the expansion only.
+#               Note:  @domain  is a wild-card. With this form, the
+#               Postfix SMTP server accepts mail for any  recipient
+#               in  domain,  regardless  of  whether that recipient
+#               exists.  This may turn  your  mail  system  into  a
+#               backscatter  source: Postfix first accepts mail for
+#               non-existent recipients and then  tries  to  return
+#               that  mail  as  "undeliverable" to the often forged
+#               sender address.
+# 
+# RESULT ADDRESS REWRITING
+#        The lookup result is subject to address rewriting:
+# 
+#        o      When the result  has  the  form  @otherdomain,  the
+#               result  becomes the same user in otherdomain.  This
+#               works only for the first address in a multi-address
+#               lookup result.
+# 
+#        o      When  "append_at_myorigin=yes", append "@$myorigin"
+#               to addresses without "@domain".
+# 
+#        o      When "append_dot_mydomain=yes", append ".$mydomain"
+#               to addresses without ".domain".
 # 
 # ADDRESS EXTENSION
 #        When a mail address localpart contains the optional recip-
@@ -130,15 +158,15 @@
 #        /etc/postfix/main.cf:
 #            virtual_alias_maps = hash:/etc/postfix/virtual
 # 
-#            Note:  some systems use dbm databases instead of hash.
-#            See the output from postconf -m for available database
-#            types.
+#        Note: some systems use dbm databases instead of hash.  See
+#        the output  from  "postconf  -m"  for  available  database
+#        types.
 # 
 #        /etc/postfix/virtual:
-#            virtual-alias.domain anything (right-hand content does not matter)
-#            postmaster@virtual-alias.domain      postmaster
-#            user1@virtual-alias.domain   address1
-#            user2@virtual-alias.domain   address2, address3
+#            virtual-alias.domain     anything (right-hand content does not matter)
+#            postmaster@virtual-alias.domain  postmaster
+#            user1@virtual-alias.domain       address1
+#            user2@virtual-alias.domain       address2, address3
 # 
 #        The  virtual-alias.domain anything entry is required for a
 #        virtual alias domain. Without this entry, mail is rejected
@@ -171,8 +199,8 @@
 #        constituent parts, nor is user+foo broken up into user and
 #        foo.
 # 
-#        Patterns  are  applied  in  the  order as specified in the
-#        table, until a pattern is found that  matches  the  search
+#        Patterns  are applied in the order as specified in the ta-
+#        ble, until a pattern is  found  that  matches  the  search
 #        string.
 # 
 #        Results  are  the  same as with indexed file lookups, with
@@ -182,9 +210,9 @@
 # TCP-BASED TABLES
 #        This  section  describes how the table lookups change when
 #        lookups are directed to a TCP-based server. For a descrip-
-#        tion   of  the  TCP  client/server  lookup  protocol,  see
-#        tcp_table(5).  This feature is not  available  in  Postfix
-#        version 2.1.
+#        tion of the TCP client/server lookup protocol, see tcp_ta-
+#        ble(5).  This feature is not available up to and including
+#        Postfix version 2.4.
 # 
 #        Each lookup operation uses the entire address once.  Thus,
 #        user@domain mail addresses are not broken  up  into  their
@@ -199,7 +227,7 @@
 # CONFIGURATION PARAMETERS
 #        The  following  main.cf parameters are especially relevant
 #        to this topic. See the Postfix  main.cf  file  for  syntax
-#        details  and  for  default  values. Use the postfix reload
+#        details  and  for default values. Use the "postfix reload"
 #        command after a configuration change.
 # 
 #        virtual_alias_maps
@@ -213,8 +241,8 @@
 #               A  list  of  address rewriting or forwarding mecha-
 #               nisms that propagate an address extension from  the
 #               original  address  to  the result.  Specify zero or
-#               more of  canonical,  virtual,  alias,  forward,  or
-#               include.
+#               more  of  canonical,   virtual,   alias,   forward,
+#               include, or generic.
 # 
 #        Other parameters of interest:
 # 
@@ -249,8 +277,8 @@
 # README FILES
 #        Use "postconf readme_directory" or  "postconf  html_direc-
 #        tory" to locate this information.
-#        DATABASE_README, Postfix lookup table overview
 #        ADDRESS_REWRITING_README, address rewriting guide
+#        DATABASE_README, Postfix lookup table overview
 #        VIRTUAL_README, domain hosting guide
 # 
 # LICENSE
@@ -263,4 +291,4 @@
 #        P.O. Box 704
 #        Yorktown Heights, NY 10598, USA
 # 
-#                                                        VIRTUAL(5)
+#                                                                     VIRTUAL(5)

@@ -44,16 +44,8 @@
 .Sh DESCRIPTION
 .Nm Dmesg
 displays the contents of the system message buffer.
+This command needs to be run as root.
 .Pp
-The options are as follows:
-.Bl -tag -width Ds
-.It Fl M
-Extract values associated with the name list from the specified core
-instead of the default ``/dev/kmem''.
-.It Fl N
-Extract the name list from the specified system instead of the default
-``/vmunix''.
-.El
 .Sh SEE ALSO
 .Xr syslogd 8
 .Sh HISTORY

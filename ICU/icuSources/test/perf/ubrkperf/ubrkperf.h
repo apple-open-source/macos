@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002, International Business Machines
+* Copyright (c) 2002-2005, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 **********************************************************************
@@ -8,7 +8,7 @@
 #ifndef _UBRKPERF_H
 #define _UBRKPERF_H
 
-#include "uperf.h"
+#include "unicode/uperf.h"
 
 #include <unicode/brkiter.h>
 

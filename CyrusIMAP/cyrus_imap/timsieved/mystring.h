@@ -1,7 +1,7 @@
 /* mystring.h -- base datatype used by timsieved
  * Tim Martin
  * 9/21/99
- * $Id: mystring.h,v 1.4 2005/03/05 00:37:39 dasenbro Exp $
+ * $Id: mystring.h,v 1.6 2003/02/13 20:15:59 rjs3 Exp $
  */
 /*
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.

@@ -1,6 +1,6 @@
 /* sample-client.c -- sample SASL client
  * Rob Earhart
- * $Id: sample-client.c,v 1.2 2004/07/07 22:53:08 snsimon Exp $
+ * $Id: sample-client.c,v 1.3 2005/05/17 21:56:45 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -223,12 +223,12 @@ simple(void *context,
   case SASL_CB_USER:
     *result = value;
     if (len)
-      *len = value ? strlen(value) : 0;
+      *len = value ? (unsigned) strlen(value) : 0;
     break;
   case SASL_CB_AUTHNAME:
     *result = value;
     if (len)
-      *len = value ? strlen(value) : 0;
+      *len = value ? (unsigned) strlen(value) : 0;
     break;
   case SASL_CB_LANGUAGE:
     *result = NULL;
@@ -259,7 +259,7 @@ getsecret(sasl_conn_t *conn,
 	  sasl_secret_t **psecret)
 {
   char *password;
-  size_t len;
+  unsigned len;
 
   if (! conn || ! psecret || id != SASL_CB_PASS)
     return SASL_BADPARAM;
@@ -268,7 +268,7 @@ getsecret(sasl_conn_t *conn,
   if (! password)
     return SASL_FAIL;
 
-  len = strlen(password);
+  len = (unsigned) strlen(password);
 
   *psecret = (sasl_secret_t *) malloc(sizeof(sasl_secret_t) + len);
   
@@ -328,7 +328,7 @@ prompt(void *context __attribute__((unused)),
   if (! *result)
     return SASL_NOMEM;
 
-  *len = strlen(*result);
+  *len = (unsigned) strlen(*result);
   
   return SASL_OK;
 }
@@ -398,7 +398,7 @@ samp_recv()
   if (! fgets(buf, SAMPLE_SEC_BUF_SIZE, stdin)
       || strncmp(buf, "S: ", 3))
     fail("Unable to parse input");
-  result = sasl_decode64(buf + 3, strlen(buf + 3), buf,
+  result = sasl_decode64(buf + 3, (unsigned) strlen(buf + 3), buf,
 			 SAMPLE_SEC_BUF_SIZE, &len);
   if (result != SASL_OK)
     saslfail(result, "Decoding data from base64", NULL);
@@ -785,10 +785,10 @@ main(int argc, char *argv[])
       fail("Not enough buffer space");
     puts("Preparing initial.");
     memcpy(buf + strlen(buf) + 1, data, len);
-    len += strlen(buf) + 1;
+    len += (unsigned) strlen(buf) + 1;
     data = NULL;
   } else {
-    len = strlen(buf);
+    len = (unsigned) strlen(buf);
   }
   
   puts("Sending initial response...");

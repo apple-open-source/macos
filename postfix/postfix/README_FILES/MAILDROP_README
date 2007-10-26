@@ -20,7 +20,9 @@ typically do this for hosted domains with recipients that don't have UNIX home
 directories.
 
 The following example shows how to use maildrop for some.domain and for
-someother.domain.
+someother.domain. The example comes in two parts.
+
+Part 1 describes changes to the main.cf file:
 
      1 /etc/postfix/main.cf:
      2     maildrop_destination_recipient_limit = 1
@@ -64,16 +66,21 @@ appropriate owner to deliver the mail.
 
 Note: Do not use the postfix user as the maildrop user.
 
+Part 2 describes changes to the master.cf file:
+
     /etc/postfix/master.cf:
         maildrop  unix  -       n       n       -       -       pipe
-          flags=DRhu user=vmail argv=/path/to/maildrop -d ${recipient}
+          flags=ODRhu user=vmail argv=/path/to/maildrop -d ${recipient}
+
+The pipe(8) manual page gives a detailed description of the above command line
+arguments, and more.
 
 If you want to support user+extension@domain style addresses, use the following
 instead:
 
     /etc/postfix/master.cf:
         maildrop  unix  -       n       n       -       -       pipe
-          flags=DRhu user=vmail argv=/path/to/maildrop
+          flags=ODRhu user=vmail argv=/path/to/maildrop
           -d ${user}@${nexthop} ${extension} ${recipient} ${user} ${nexthop}
 
 The mail is delivered to ${user}@${nexthop} (match key for maildrop userdb
@@ -100,7 +107,7 @@ To enable maildrop delivery for specific users only, you can use the Postfix
 local(8) delivery agent's mailbox_command_maps feature:
 
     /etc/postfix/main.cf:
-        mailbox_command_maps = /etc/postfix/mailbox_commands
+        mailbox_command_maps = hash:/etc/postfix/mailbox_commands
 
     /etc/postfix/mailbox_commands:
         you    /path/to/maildrop -d ${USER}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -90,31 +90,24 @@ typedef struct {
     boolean_t			needs_write;
 } lease_info_t;
 
-#define RIFLAGS_IADDR_VALID	(uint32_t)0x1
-#define RIFLAGS_HWADDR_VALID	(uint32_t)0x2
-#define RIFLAGS_ARP_VERIFIED	(uint32_t)0x4
-#define RIFLAGS_DISCOVERING	(uint32_t)0x1000
-
-typedef struct {
-    uint32_t			flags;
-    int				state;
-    struct in_addr		iaddr;
-    u_char			hwaddr[MAX_LINK_ADDR_LEN];
-} router_info_t;
-
 typedef struct {
     arp_client_t *	arp;
     bootp_client_t *	client;
     void *		client_id;
     int			client_id_len;
-    boolean_t		enable_arp_collision_detection;
+    boolean_t		disable_arp_collision_detection;
     boolean_t		gathering;
+    boolean_t		got_nak;
     boolean_t		in_use;
     lease_info_t	lease;
+    DHCPLeaseList	lease_list;
+    absolute_time_t	ip_assigned_time;
+    absolute_time_t	ip_conflict_time;
+    int			ip_conflict_count;
     boolean_t		must_broadcast;
     struct dhcp * 	request;
     int			request_size;
-    router_info_t	router;
+    boolean_t		resolve_router_timed_out;
     struct saved_pkt	saved;
     dhcp_cstate_t	state;
     absolute_time_t	start_secs;
@@ -130,10 +123,10 @@ typedef struct {
     arp_client_t *	arp;
     bootp_client_t *	client;
     boolean_t		gathering;
-    struct in_addr	our_ip;
     struct in_addr	our_mask;
     struct dhcp * 	request;
     int			request_size;
+    boolean_t		resolve_router_timed_out;
     struct saved_pkt	saved;
     absolute_time_t	start_secs;
     timer_callout_t *	timer;
@@ -180,53 +173,33 @@ static boolean_t
 dhcp_check_lease(Service_t * service_p, absolute_time_t current_time);
 
 static boolean_t
-dhcp_update_router_address(Service_t * service_p);
-
-
-static boolean_t
 get_server_identifier(dhcpol_t * options, struct in_addr * server_ip)
 {
     struct in_addr * 	ipaddr_p;
-    int			len;
 
     ipaddr_p = (struct in_addr *) 
-	dhcpol_find(options, dhcptag_server_identifier_e, &len, NULL);
-    if (ipaddr_p != NULL && len >= 4) {
+	dhcpol_find_with_length(options, dhcptag_server_identifier_e,
+				sizeof(*ipaddr_p));
+    if (ipaddr_p != NULL) {
 	*server_ip = *ipaddr_p;
     }
     return (ipaddr_p != NULL);
 }
 
-static void *
-find_option_with_length(dhcpol_t * options, dhcptag_t tag, int min_length)
-{
-    int		real_length;
-    void * 	val;
-
-    val = dhcpol_find(options, tag, &real_length, NULL);
-    if (val == NULL) {
-	return (NULL);
-    }
-    if (real_length < min_length) {
-	return (NULL);
-    }
-    return (val);
-}
-
-static void
-get_lease(dhcpol_t * options, time_interval_t * lease, 
-	  time_interval_t * t1, time_interval_t * t2)
+void
+dhcp_get_lease_from_options(dhcpol_t * options, time_interval_t * lease, 
+			    time_interval_t * t1, time_interval_t * t2)
 {
     time_interval_t *	lease_opt;
     time_interval_t *	t1_opt;
     time_interval_t *	t2_opt;
 
     lease_opt = (time_interval_t *)
-	find_option_with_length(options, dhcptag_lease_time_e, 4);
+	dhcpol_find_with_length(options, dhcptag_lease_time_e, 4);
     t1_opt = (time_interval_t *)
-	find_option_with_length(options, dhcptag_renewal_t1_time_value_e, 4);
+	dhcpol_find_with_length(options, dhcptag_renewal_t1_time_value_e, 4);
     t2_opt = (time_interval_t *)
-	find_option_with_length(options, dhcptag_rebinding_t2_time_value_e, 4);
+	dhcpol_find_with_length(options, dhcptag_rebinding_t2_time_value_e, 4);
     if (lease_opt != NULL) {
 	*lease = ntohl(*lease_opt);
 	if (*lease < MIN_LEASE_LENGTH) {
@@ -268,28 +241,28 @@ get_lease(dhcpol_t * options, time_interval_t * lease,
     return;
 }
 
-static const u_char dhcp_static_default_params[] = {
+static const uint8_t dhcp_static_default_params[] = {
     dhcptag_subnet_mask_e, 
     dhcptag_router_e,
     dhcptag_domain_name_server_e,
     dhcptag_domain_name_e,
-    dhcptag_netinfo_server_address_e,
-    dhcptag_netinfo_server_tag_e,
-    dhcptag_slp_directory_agent_e,
-    dhcptag_slp_service_scope_e,
+    dhcptag_domain_search_e,
     dhcptag_ldap_url_e,
     dhcptag_proxy_auto_discovery_url_e,
+    dhcptag_nb_over_tcpip_name_server_e,
+    dhcptag_nb_over_tcpip_node_type_e,
+    dhcptag_nb_over_tcpip_scope_e,
 };
 #define	N_DHCP_STATIC_DEFAULT_PARAMS 	(sizeof(dhcp_static_default_params) / sizeof(dhcp_static_default_params[0]))
 
-static u_char * dhcp_default_params = (u_char *)dhcp_static_default_params;
+static uint8_t * dhcp_default_params = (uint8_t *)dhcp_static_default_params;
 static int	n_dhcp_default_params = N_DHCP_STATIC_DEFAULT_PARAMS;
 
-static u_char * dhcp_params = (u_char *)dhcp_static_default_params;
+static uint8_t * dhcp_params = (uint8_t *)dhcp_static_default_params;
 static int	n_dhcp_params = N_DHCP_STATIC_DEFAULT_PARAMS;
 
 void
-dhcp_set_default_parameters(u_char * params, int n_params)
+dhcp_set_default_parameters(uint8_t * params, int n_params)
 {
     static boolean_t	done = FALSE;
 
@@ -302,7 +275,7 @@ dhcp_set_default_parameters(u_char * params, int n_params)
 	n_dhcp_default_params = n_params;
     }
     else {
-	dhcp_default_params = (u_char *)dhcp_static_default_params;
+	dhcp_default_params = (uint8_t *)dhcp_static_default_params;
 	n_dhcp_default_params = N_DHCP_STATIC_DEFAULT_PARAMS;
     }
     dhcp_params = dhcp_default_params;
@@ -310,12 +283,12 @@ dhcp_set_default_parameters(u_char * params, int n_params)
     return;
 }
 
-static u_char *
-S_merge_parameters(u_char * params, int n_params, int * n_ret)
+static uint8_t *
+S_merge_parameters(uint8_t * params, int n_params, int * n_ret)
 {
     int		i;
-    u_char *	ret = dhcp_default_params;
-    u_char *	new = NULL;
+    uint8_t *	ret = dhcp_default_params;
+    uint8_t *	new = NULL;
     int		new_end = 0;
 
     *n_ret = n_dhcp_default_params;
@@ -323,7 +296,7 @@ S_merge_parameters(u_char * params, int n_params, int * n_ret)
 	goto done;
     }
     /* allocate the worst case size ie. no duplicates */
-    new = (u_char *)malloc(n_dhcp_default_params + n_params);
+    new = (uint8_t *)malloc(n_dhcp_default_params + n_params);
     if (new == NULL) {
 	goto done;
     }
@@ -356,7 +329,7 @@ S_merge_parameters(u_char * params, int n_params, int * n_ret)
 }
 
 static void
-S_print_char_array(u_char * params, int n_params)
+S_print_char_array(uint8_t * params, int n_params)
 {
     int i;
 
@@ -370,7 +343,7 @@ S_print_char_array(u_char * params, int n_params)
 }
 
 void
-dhcp_set_additional_parameters(u_char * params, int n_params)
+dhcp_set_additional_parameters(uint8_t * params, int n_params)
 {
     if (dhcp_params && dhcp_params != dhcp_default_params) {
 	free(dhcp_params);
@@ -384,6 +357,32 @@ dhcp_set_additional_parameters(u_char * params, int n_params)
 	S_print_char_array(dhcp_params, n_dhcp_params);
 	printf("}\n");
     }
+}
+
+bool
+dhcp_parameter_is_ok(uint8_t param)
+{
+    int i;
+
+    switch (param) {
+    case dhcptag_lease_time_e:
+    case dhcptag_dhcp_message_type_e:
+    case dhcptag_server_identifier_e:
+    case dhcptag_message_e:
+    case dhcptag_renewal_t1_time_value_e:
+    case dhcptag_rebinding_t2_time_value_e:
+    case dhcptag_vendor_class_identifier_e:
+    case dhcptag_client_identifier_e:
+	return (TRUE);
+    default:
+	break;
+    }
+    for (i = 0; i < n_dhcp_params; i++) {
+	if (dhcp_params[i] == param) {
+	    return (TRUE);
+	}
+    }
+    return (FALSE);
 }
 
 static void
@@ -405,12 +404,12 @@ add_computer_name(dhcpoa_t * options_p)
 static struct dhcp * 
 make_dhcp_request(struct dhcp * request, int pkt_size,
 		  dhcp_msgtype_t msg, 
-		  u_char * hwaddr, u_char hwtype, u_char hwlen, 
-		  void * cid, int cid_len, boolean_t must_broadcast,
+		  const uint8_t * hwaddr, uint8_t hwtype, uint8_t hwlen, 
+		  const void * cid, int cid_len, boolean_t must_broadcast,
 		  dhcpoa_t * options_p)
 {
     char * 	buf = NULL;
-    u_char 	cid_type = 0;
+    uint8_t 	cid_type = 0;
 
     /* if no client id was specified, use the hardware address */
     if (cid == NULL || cid_len == 0) {
@@ -508,7 +507,7 @@ verify_packet(bootp_receive_data_t * pkt, u_long xid, interface_t * if_p,
 	      boolean_t * is_dhcp)
 {
     if (dhcp_packet_match((struct bootp *)pkt->data, xid, 
-			  (u_char) if_link_arptype(if_p),
+			  (uint8_t) if_link_arptype(if_p),
 			  if_link_address(if_p),
 			  if_link_length(if_p))) {
 	/* 
@@ -542,7 +541,6 @@ verify_packet(bootp_receive_data_t * pkt, u_long xid, interface_t * if_p,
     return (FALSE);
 }
 
-
 /**
  **
  ** INFORM Functions
@@ -563,7 +561,7 @@ inform_cancel_pending_events(Service_t * service_p)
 	bootp_client_disable_receive(inform->client);
     }
     if (inform->arp) {
-	arp_client_cancel_probe(inform->arp);
+	arp_client_cancel(inform->arp);
     }
     return;
 }
@@ -597,25 +595,86 @@ inform_failed(Service_t * service_p, ipconfig_status_t status, char * msg)
 }
 
 static void
+inform_resolve_router_callback(Service_t * service_p,
+			       router_arp_status_t status);
+
+static void
+inform_resolve_router_retry(void * arg0, void * arg1, void * arg2)
+{
+    Service_t * 	service_p = (Service_t *)arg0;
+    Service_inform_t *	inform = (Service_inform_t *)service_p->private;
+
+    service_resolve_router(service_p, inform->arp,
+			   inform_resolve_router_callback,
+			   inform->saved.our_ip);
+    return;
+}
+
+static void
+inform_resolve_router_callback(Service_t * service_p,
+			       router_arp_status_t status)
+{
+    Service_inform_t *	inform = (Service_inform_t *)service_p->private;
+    struct timeval	tv;
+
+    switch (status) {
+    case router_arp_status_no_response_e:
+	/* try again in 60 seconds */
+	tv.tv_sec = 60;
+	tv.tv_usec = 0;
+	timer_set_relative(inform->timer, tv, 
+			   (timer_func_t *)inform_resolve_router_retry,
+			   service_p, NULL, NULL);
+	if (inform->resolve_router_timed_out) {
+	    break;
+	}
+	/* publish what we have so far */
+	inform->resolve_router_timed_out = TRUE;
+	service_publish_success(service_p, inform->saved.pkt, 
+				inform->saved.pkt_size);
+	break;
+    case router_arp_status_success_e:
+	inform->resolve_router_timed_out = FALSE;
+	service_publish_success(service_p, inform->saved.pkt, 
+				inform->saved.pkt_size);
+	break;
+    default:
+    case router_arp_status_failed_e:
+	break;
+    }
+}
+
+static void
 inform_success(Service_t * service_p)
 {
     Service_inform_t *	inform = (Service_inform_t *)service_p->private;
-    int 		len;
     void *		option;
 	
-    option = dhcpol_find(&inform->saved.options, dhcptag_subnet_mask_e,
-			 &len, NULL);
-    if (option != NULL && len >= 4) {
+    option = dhcpol_find_with_length(&inform->saved.options,
+				     dhcptag_subnet_mask_e,
+				     sizeof(struct in_addr));
+    if (service_requested_ip_mask(service_p).s_addr == 0
+	&& option != NULL) {
 	inform->our_mask = *((struct in_addr *)option);
-	
+
 	/* reset the interface address with the new mask */
-	(void)service_set_address(service_p, inform->our_ip, 
-				  inform->our_mask, G_ip_zeroes);
+	(void)service_set_address(service_p,
+				  service_requested_ip_addr(service_p),
+				  inform->our_mask,
+				  G_ip_zeroes);
     }
     inform_cancel_pending_events(service_p);
-
-    service_publish_success(service_p, inform->saved.pkt, 
-			    inform->saved.pkt_size);
+    inform->resolve_router_timed_out = FALSE;
+    if (service_update_router_address(service_p, &inform->saved)
+	&& service_resolve_router(service_p, inform->arp,
+				  inform_resolve_router_callback,
+				  service_requested_ip_addr(service_p))) {
+	/* router resolution started */
+    }
+    else {
+	service_publish_success(service_p, inform->saved.pkt, 
+				inform->saved.pkt_size);
+    }
     return;
 }
 
@@ -650,7 +709,7 @@ inform_request(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      status = ipconfig_status_allocation_failed_e;
 	      goto error;
 	  }
-	  inform->request->dp_ciaddr = inform->our_ip;
+	  inform->request->dp_ciaddr = service_requested_ip_addr(service_p);
 	  add_computer_name(&options);
 	  if (dhcpoa_add(&options, dhcptag_end_e, 0, 0)
 	      != dhcpoa_success_e) {
@@ -771,7 +830,6 @@ inform_request(Service_t * service_p, IFEventID_t event_id, void * event_data)
 		  (void)dhcpol_parse_packet(&inform->saved.options, 
 					    (void *)inform->saved.pkt, 
 					    inform->saved.pkt_size, NULL);
-		  inform->saved.our_ip = pkt->data->dp_yiaddr;
 		  inform->saved.server_ip = server_ip;
 		  inform->saved.is_dhcp = is_dhcp;
 		  if (is_dhcp && rating == n_dhcp_params) {
@@ -817,7 +875,7 @@ inform_start(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  arp_client_probe(inform->arp, 
 			   (arp_result_func_t *)inform_start, service_p,
 			   (void *)IFEventID_arp_e, G_ip_zeroes,
-			   inform->our_ip);
+			   service_requested_ip_addr(service_p));
 	  break;
       }
       case IFEventID_arp_e: {
@@ -836,10 +894,11 @@ inform_start(Service_t * service_p, IFEventID_t event_id, void * event_data)
 
 		  snprintf(msg, sizeof(msg),
 			   IP_FORMAT " in use by " EA_FORMAT,
-			   IP_LIST(&inform->our_ip), EA_LIST(result->hwaddr));
+			   IP_LIST(service_requested_ip_addr_ptr(service_p)),
+			   EA_LIST(result->addr.target_hardware));
 		  service_report_conflict(service_p,
-					  &inform->our_ip,
-					  result->hwaddr,
+					  service_requested_ip_addr_ptr(service_p),
+					  result->addr.target_hardware,
 					  NULL);
 		  my_log(LOG_ERR, "INFORM %s: %s", if_name(if_p), 
 			 msg);
@@ -856,8 +915,10 @@ inform_start(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 
 	  /* set the primary address */
-	  (void)service_set_address(service_p, inform->our_ip, 
-				    inform->our_mask, G_ip_zeroes);
+	  (void)service_set_address(service_p,
+				    service_requested_ip_addr(service_p),
+				    inform->our_mask,
+				    G_ip_zeroes);
 	  inform_request(service_p, IFEventID_start_e, 0);
 	  break;
       }
@@ -906,8 +967,9 @@ inform_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  service_p->private = inform;
 	  bzero(inform, sizeof(*inform));
 	  dhcpol_init(&inform->saved.options);
-	  inform->our_ip = ipcfg->ip[0].addr;
-	  inform->our_mask = ipcfg->ip[0].mask;
+	  service_set_requested_ip_addr(service_p, ipcfg->ip[0].addr);
+	  service_set_requested_ip_mask(service_p, ipcfg->ip[0].mask);
+	  inform->our_mask = service_requested_ip_mask(service_p);
 	  inform->timer = timer_callout_init();
 	  if (inform->timer == NULL) {
 	      my_log(LOG_ERR, "INFORM %s: timer_callout_init failed", 
@@ -975,13 +1037,17 @@ inform_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  if (status != ipconfig_status_success_e)
 	      return (status);
 	  evdata->needs_stop = FALSE;
-	  if (ipcfg->ip[0].addr.s_addr != inform->our_ip.s_addr) {
+	  if (ipcfg->ip[0].addr.s_addr
+	      != service_requested_ip_addr(service_p).s_addr) {
 	      evdata->needs_stop = TRUE;
 	  }
 	  else if (ipcfg->ip[0].mask.s_addr != 0
-		   && ipcfg->ip[0].mask.s_addr != inform->our_mask.s_addr) {
-	      inform->our_mask = ipcfg->ip[0].mask;
-	      (void)service_set_address(service_p, inform->our_ip,
+		   && (ipcfg->ip[0].mask.s_addr 
+		       != service_requested_ip_mask(service_p).s_addr)) {
+	      service_set_requested_ip_mask(service_p, ipcfg->ip[0].mask);
+	      inform->our_mask = service_requested_ip_mask(service_p);
+	      (void)service_set_address(service_p,
+					service_requested_ip_addr(service_p),
 					inform->our_mask, G_ip_zeroes);
 	  }
 	  return (ipconfig_status_success_e);
@@ -994,7 +1060,8 @@ inform_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  if (inform == NULL) {
 	      return (ipconfig_status_internal_error_e);
 	  }
-	  if (arpc->ip_addr.s_addr != inform->our_ip.s_addr) {
+	  if (arpc->ip_addr.s_addr
+	      != service_requested_ip_addr(service_p).s_addr) {
 	      break;
 	  }
 	  snprintf(msg, sizeof(msg), 
@@ -1056,15 +1123,9 @@ dhcp_cancel_pending_events(Service_t * service_p)
 
     if (dhcp == NULL)
 	return;
-    if (dhcp->timer) {
-	timer_cancel(dhcp->timer);
-    }
-    if (dhcp->client) {
-	bootp_client_disable_receive(dhcp->client);
-    }
-    if (dhcp->arp) {
-	arp_client_cancel_probe(dhcp->arp);
-    }
+    timer_cancel(dhcp->timer);
+    bootp_client_disable_receive(dhcp->client);
+    arp_client_cancel(dhcp->arp);
     return;
 }
 
@@ -1080,11 +1141,6 @@ dhcp_failed(Service_t * service_p, ipconfig_status_t status, char * msg,
     service_disable_autoaddr(service_p);
     dhcpol_free(&dhcp->saved.options);
     service_remove_address(service_p);
-#if 0
-    dhcp->saved.our_ip.s_addr = 0;
-    dhcp->lease.valid = FALSE;
-    dhcp->router.flags = 0;
-#endif 0
     service_publish_failure_sync(service_p, status, msg, sync);
     dhcp->state = dhcp_cstate_none_e;
     return;
@@ -1150,7 +1206,7 @@ dhcp_link_timer(void * arg0, void * arg1, void * arg2)
 
 static void
 get_client_id(Service_dhcp_t * dhcp, interface_t * if_p, const void * * cid_p, 
-	      u_char * cid_type_p, int * cid_length_p)
+	      uint8_t * cid_type_p, int * cid_length_p)
 {
     if (dhcp->client_id != NULL) {
 	*cid_type_p = 0;
@@ -1165,97 +1221,188 @@ get_client_id(Service_dhcp_t * dhcp, interface_t * if_p, const void * * cid_p,
     return;
 }
 
-static boolean_t
-_dhcp_lease_read(Service_t * service_p, absolute_time_t * lease_start,
-		 char * pkt, int * pkt_size, char * router_hwaddr,
-		 int * router_hwaddr_size)
-{
-    Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
-    interface_t *	if_p = service_interface(service_p);
-    const void *	cid;
-    u_char 		cid_type;
-    int 		cid_length;
-
-    get_client_id(dhcp, if_p, &cid, &cid_type, &cid_length);
-    return (dhcp_lease_read(if_name(if_p), cid_type, cid, cid_length,
-			    lease_start, pkt, pkt_size, router_hwaddr,
-			    router_hwaddr_size));
-}
-
-static boolean_t
+static void
 _dhcp_lease_write(Service_t * service_p, absolute_time_t lease_start,
-		  const char * pkt, int pkt_size, const char * router_hwaddr,
-		  int router_hwaddr_size)
+		  const uint8_t * pkt, int pkt_size)
 {
     Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
     interface_t *	if_p = service_interface(service_p);
     const void *	cid;
-    u_char 		cid_type;
+    uint8_t 		cid_type;
     int 		cid_length;
+    struct in_addr	router_ip = { 0 };
+    const uint8_t * 	router_hwaddr = NULL;
+    int 		router_hwaddr_length = 0;
 
+    if (service_router_is_iaddr_valid(service_p)) {
+	router_ip = service_router_iaddr(service_p);
+	if (service_router_is_hwaddr_valid(service_p)) {
+	    /* we have the router h/w address, save it too */
+	    router_hwaddr = service_router_hwaddr(service_p);
+	    router_hwaddr_length = if_link_length(if_p);
+	}
+    }
     get_client_id(dhcp, if_p, &cid, &cid_type, &cid_length);
-    return (dhcp_lease_write(if_name(if_p), cid_type, cid, cid_length,
-			     lease_start, pkt, pkt_size, router_hwaddr,
-			     router_hwaddr_size));
+    DHCPLeaseListUpdateLease(&dhcp->lease_list, dhcp->saved.our_ip,
+			     router_ip, router_hwaddr, router_hwaddr_length,
+			     dhcp->lease.start, dhcp->lease.length,
+			     pkt, pkt_size);
+    DHCPLeaseListWrite(&dhcp->lease_list,
+		       if_name(if_p), cid_type, cid, cid_length);
+    return;
 }
 
 static void
-_dhcp_lease_clear(Service_t * service_p)
+_dhcp_lease_clear(Service_t * service_p, bool nak)
 {
     Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
     interface_t *	if_p = service_interface(service_p);
-    const void *	cid;
-    u_char 		cid_type;
-    int 		cid_length;
+    struct in_addr	router_ip = { 0 };
+    const uint8_t * 	router_hwaddr = NULL;
+    int 		router_hwaddr_length = 0;
 
-    get_client_id(dhcp, if_p, &cid, &cid_type, &cid_length);
-    dhcp_lease_clear(if_name(if_p), cid_type, cid, cid_length);
+    if (service_router_is_iaddr_valid(service_p)) {
+	router_ip = service_router_iaddr(service_p);
+	if (service_router_is_hwaddr_valid(service_p)) {
+	    router_hwaddr = service_router_hwaddr(service_p);
+	    router_hwaddr_length = if_link_length(if_p);
+	}
+    }
+    if (nak == FALSE 
+	|| router_ip.s_addr == 0
+	|| router_hwaddr_length == 0) {
+	const void *	cid;
+	uint8_t		cid_type;
+	int 		cid_length;
+
+	get_client_id(dhcp, if_p, &cid, &cid_type, &cid_length);
+	DHCPLeaseListRemoveLease(&dhcp->lease_list,
+				 dhcp->saved.our_ip, router_ip,
+				 router_hwaddr, router_hwaddr_length);
+	DHCPLeaseListWrite(&dhcp->lease_list,
+			   if_name(if_p), cid_type, cid, cid_length);
+    }
+    else {
+	DHCPLeaseRef	lease_p;
+	int		where;
+
+	where = DHCPLeaseListFindLease(&dhcp->lease_list, 
+				       dhcp->saved.our_ip,
+				       router_ip,
+				       router_hwaddr,
+				       router_hwaddr_length);
+	if (where != -1) {
+	    lease_p = DHCPLeaseListElement(&dhcp->lease_list, where);
+	    DHCPLeaseSetNAK(lease_p, TRUE);
+	}
+    }
     return;
+}
+
+static boolean_t
+switch_to_lease(Service_t * service_p, DHCPLeaseRef lease_p)
+{
+    Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
+    interface_t *	if_p = service_interface(service_p);
+    time_interval_t	lease_time;
+    time_interval_t	t1_time;
+    time_interval_t	t2_time;
+
+    if (lease_p->our_ip.s_addr == dhcp->saved.our_ip.s_addr) {
+	if (ip_is_private(lease_p->our_ip) == FALSE) {
+	    /* same lease */
+	    if (G_IPConfiguration_verbose) {
+		my_log(LOG_NOTICE, "DHCP %s: switch_to_lease returns FALSE, "
+		       "public IP is the same", if_name(if_p));
+	    }
+	    return (FALSE);
+	}
+	if (service_router_is_iaddr_valid(service_p)
+	    && service_router_is_hwaddr_valid(service_p)
+	    && (lease_p->router_ip.s_addr
+		== service_router_iaddr(service_p).s_addr)
+	    && (bcmp(lease_p->router_hwaddr, 
+		     service_router_hwaddr(service_p),
+		     if_link_length(if_p)) == 0)) {
+	    if (G_IPConfiguration_verbose) {
+		my_log(LOG_NOTICE, "DHCP %s: switch_to_lease returns FALSE, "
+		       "private IP has same router", if_name(if_p));
+	    }
+	    return (FALSE);
+	}
+    }
+    /* make sure we stop using the old IP address */
+    (void)service_remove_address(service_p);
+    if (lease_p->pkt_length > sizeof(dhcp->saved.pkt)) {
+	dhcp->saved.pkt_size = sizeof(dhcp->saved.pkt);
+    }
+    else {
+	dhcp->saved.pkt_size = lease_p->pkt_length;
+    }
+    bcopy(lease_p->pkt, dhcp->saved.pkt, dhcp->saved.pkt_size);
+    dhcpol_free(&dhcp->saved.options);
+    (void)dhcpol_parse_packet(&dhcp->saved.options, 
+			      (void *)dhcp->saved.pkt, 
+			      dhcp->saved.pkt_size, NULL);
+    dhcp_get_lease_from_options(&dhcp->saved.options, &lease_time, 
+				&t1_time, &t2_time);
+    dhcp_set_lease_params(service_p, "RECOVERED", 
+			  TRUE, lease_p->lease_start, lease_time, 
+			  t1_time, t2_time);
+    dhcp->lease.valid = TRUE;
+    dhcp->saved.rating = 0;
+    dhcp->saved.our_ip = lease_p->our_ip;
+    get_server_identifier(&dhcp->saved.options, &dhcp->saved.server_ip);
+    dhcp->saved.is_dhcp = TRUE;
+    service_router_clear(service_p);
+    if (lease_p->router_ip.s_addr != 0) {
+	service_router_set_iaddr(service_p, lease_p->router_ip);
+	service_router_set_iaddr_valid(service_p);
+	if (lease_p->router_hwaddr_length > 0) {
+	    int		len;
+	    
+	    len = lease_p->router_hwaddr_length;
+	    if (len > service_router_hwaddr_size(service_p)) {
+		len = service_router_hwaddr_size(service_p);
+	    }
+	    bcopy(lease_p->router_hwaddr,
+		  service_router_hwaddr(service_p), len);
+	    service_router_set_hwaddr_valid(service_p);
+	}
+    }
+    if (G_IPConfiguration_verbose) {
+	my_log(LOG_NOTICE, "DHCP %s: switch_to_lease returning TRUE",
+	       if_name(if_p));
+    }
+    return (TRUE);
 }
 
 static boolean_t
 recover_lease(Service_t * service_p, struct in_addr * our_ip)
 {
-    absolute_time_t 	current_time = timer_current_secs();
+    const void *	cid;
+    uint8_t		cid_type;
+    int			cid_length;
+    int			count;
     Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
     interface_t *	if_p = service_interface(service_p);
-    time_interval_t	lease;
-    absolute_time_t	lease_start;
-    int			pkt_size = sizeof(dhcp->saved.pkt);
-    int			router_hwaddr_size = sizeof(dhcp->router.hwaddr);
-    time_interval_t	t1;
-    time_interval_t	t2;
+    DHCPLeaseRef	lease_p;
 
-    if (_dhcp_lease_read(service_p, &lease_start, dhcp->saved.pkt, &pkt_size,
-			 dhcp->router.hwaddr, &router_hwaddr_size) == FALSE) {
+    /* read the DHCP lease */
+    get_client_id(dhcp, if_p, &cid, &cid_type, &cid_length);
+    DHCPLeaseListRead(&dhcp->lease_list, if_name(if_p),
+		      cid_type, cid, cid_length);
+    count = DHCPLeaseListCount(&dhcp->lease_list);
+    if (count == 0) {
 	goto failed;
     }
-    dhcp->saved.pkt_size = pkt_size;
-    (void)dhcpol_parse_packet(&dhcp->saved.options, 
-			      (void *)dhcp->saved.pkt, 
-			      dhcp->saved.pkt_size, NULL);
-    get_lease(&dhcp->saved.options, &lease, &t1, &t2);
-    dhcp_set_lease_params(service_p, "RECOVERED", 
-			  TRUE, lease_start, lease, t1, t2);
-    if (dhcp->lease.length != DHCP_INFINITE_LEASE
-	&& current_time >= dhcp->lease.expiration) {
-	my_log(LOG_DEBUG, 
-	       "DHCP %s: lease is expired: current 0x%x >= expire 0x%x",
-	       if_name(if_p), current_time, dhcp->lease.expiration);
-	goto failed;
+    lease_p = DHCPLeaseListElement(&dhcp->lease_list, count - 1);
+    (void)switch_to_lease(service_p, lease_p);
+    *our_ip = lease_p->our_ip;
+    if (G_IPConfiguration_verbose) {
+	my_log(LOG_NOTICE, "DHCP %s: recovered lease for IP " IP_FORMAT, 
+	       if_name(if_p), IP_LIST(our_ip));
     }
-    dhcp->lease.valid = TRUE;
-    dhcp->saved.rating = 0;
-    dhcp->saved.our_ip = ((struct dhcp *)dhcp->saved.pkt)->dp_yiaddr;
-    get_server_identifier(&dhcp->saved.options, &dhcp->saved.server_ip);
-    dhcp->saved.is_dhcp = TRUE;
-    *our_ip = dhcp->saved.our_ip;
-    (void)dhcp_update_router_address(service_p);
-    if (router_hwaddr_size > 0) {
-	dhcp->router.flags |= RIFLAGS_HWADDR_VALID;
-    }
-    my_log(LOG_DEBUG, "DHCP %s: recovered lease for IP " IP_FORMAT, 
-	   if_name(if_p), IP_LIST(our_ip));
     return (TRUE);
 
  failed:
@@ -1269,9 +1416,9 @@ dhcp_check_lease(Service_t * service_p, absolute_time_t current_time)
 
     if (dhcp->lease.valid) {
 	if (dhcp->lease.length != DHCP_INFINITE_LEASE
-	    && (current_time + 16) >= dhcp->lease.expiration) {
+	    && (current_time >= dhcp->lease.expiration)) {
 	    dhcp->lease.valid = FALSE;
-	    dhcp->router.flags = 0;
+	    service_router_clear(service_p);
 	    (void)service_remove_address(service_p);
 	}
     }
@@ -1290,7 +1437,7 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
       case IFEventID_start_e: {
 	  start_event_data_t *   	evdata = ((start_event_data_t *)event_data);
 	  ipconfig_method_data_t*	ipcfg = evdata->config.data;
-	  struct in_addr		our_ip;
+	  struct in_addr		our_ip = { 0 };
 
 	  if (if_flags(if_p) & IFF_LOOPBACK) {
 	      status = ipconfig_status_invalid_operation_e;
@@ -1302,7 +1449,6 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      status = ipconfig_status_internal_error_e;
 	      break;
 	  }
-
 	  dhcp = malloc(sizeof(*dhcp));
 	  if (dhcp == NULL) {
 	      my_log(LOG_ERR, "DHCP %s: malloc failed", 
@@ -1316,7 +1462,7 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  service_p->private = dhcp;
 
 	  dhcp->lease.valid = FALSE;
-	  dhcp->router.flags = 0;
+	  service_router_clear(service_p);
 	  dhcp->state = dhcp_cstate_none_e;
 	  dhcp->timer = timer_callout_init();
 	  if (dhcp->timer == NULL) {
@@ -1356,6 +1502,7 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  my_log(LOG_DEBUG, "DHCP %s: start", if_name(if_p));
 	  dhcp->xid = random();
+	  DHCPLeaseListInit(&dhcp->lease_list);
 	  if (service_ifstate(service_p)->netboot == TRUE
 	      || recover_lease(service_p, &our_ip)) {
 	      dhcp_init_reboot(service_p, IFEventID_start_e, &our_ip);
@@ -1397,6 +1544,7 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      free(dhcp->client_id);
 	      dhcp->client_id = NULL;
 	  }
+	  DHCPLeaseListFree(&dhcp->lease_list);
 	  dhcpol_free(&dhcp->saved.options);
 	  if (dhcp)
 	      free(dhcp);
@@ -1431,7 +1579,7 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
       }
       case IFEventID_arp_collision_e: {
 	  arp_collision_data_t *	arpc;
-	  char				msg[128];
+	  absolute_time_t 		current_time;
 	  struct timeval 		tv;
 
 	  arpc = (arp_collision_data_t *)event_data;
@@ -1439,26 +1587,53 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  if (dhcp == NULL) {
 	      return (ipconfig_status_internal_error_e);
 	  }
-	  if (dhcp->state != dhcp_cstate_bound_e
-	      || dhcp->enable_arp_collision_detection == FALSE
+	  if (dhcp->disable_arp_collision_detection
+	      || service_p->info.addr.s_addr != dhcp->saved.our_ip.s_addr
 	      || arpc->ip_addr.s_addr != dhcp->saved.our_ip.s_addr) {
 	      break;
 	  }
-	  /* defend our address, don't just give it up XXX */
-	  snprintf(msg, sizeof(msg),
-		   IP_FORMAT " in use by " EA_FORMAT 
-		   ", DHCP Server " 
-		   IP_FORMAT, IP_LIST(&dhcp->saved.our_ip),
-		   EA_LIST(arpc->hwaddr),
-		   IP_LIST(&dhcp->saved.server_ip));
-	  my_log(LOG_ERR, "DHCP %s: %s", if_name(if_p), msg);
+
+	  /* defend our address, don't just give it up */
+	  current_time = timer_current_secs();
+	  if ((current_time - dhcp->ip_assigned_time) > 
+	      G_dhcp_defend_ip_address_interval_secs) {
+	      if (dhcp->ip_conflict_count > 0
+		  && ((current_time - dhcp->ip_conflict_time)
+		      > G_dhcp_defend_ip_address_interval_secs)) {
+		  /*
+		   * if it's been awhile since we last had to defend
+		   * our IP address, assume we defended it successfully
+		   * and start the conflict counter over again
+		   */
+		  dhcp->ip_conflict_count = 0;
+	      }
+	      dhcp->ip_conflict_time = current_time;
+	      dhcp->ip_conflict_count++;
+	      if (dhcp->ip_conflict_count <= G_dhcp_defend_ip_address_count) {
+		  arp_client_defend(dhcp->arp, dhcp->saved.our_ip);
+		  my_log(LOG_ERR, "DHCP %s: defending IP " IP_FORMAT 
+			 " against " EA_FORMAT " %d (of %d)",
+			 if_name(if_p), IP_LIST(&dhcp->saved.our_ip),
+			 EA_LIST(arpc->hwaddr),
+			 dhcp->ip_conflict_count, 
+			 G_dhcp_defend_ip_address_count);
+		  break;
+	      }
+	  }
+	  my_log(LOG_ERR, "DHCP %s: " 
+		 IP_FORMAT " in use by " EA_FORMAT ", DHCP Server " 
+		 IP_FORMAT,
+		 if_name(if_p),
+		 IP_LIST(&dhcp->saved.our_ip),
+		 EA_LIST(arpc->hwaddr),
+		 IP_LIST(&dhcp->saved.server_ip));
 	  service_report_conflict(service_p,
 				  &dhcp->saved.our_ip,
 				  arpc->hwaddr,
 				  &dhcp->saved.server_ip);
-	  _dhcp_lease_clear(service_p);
+	  _dhcp_lease_clear(service_p, FALSE);
 	  service_publish_failure(service_p, 
-				  ipconfig_status_address_in_use_e, msg);
+				  ipconfig_status_address_in_use_e, NULL);
 	  if (dhcp->saved.is_dhcp) {
 	      dhcp_decline(service_p, IFEventID_start_e, NULL);
 	      break;
@@ -1467,7 +1642,7 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  (void)service_disable_autoaddr(service_p);
 	  dhcp->saved.our_ip.s_addr = 0;
 	  dhcp->lease.valid = FALSE;
-	  dhcp->router.flags = 0;
+	  service_router_clear(service_p);
 	  tv.tv_sec = 10; /* retry in a bit */
 	  tv.tv_usec = 0;
 	  timer_set_relative(dhcp->timer, tv, 
@@ -1475,19 +1650,20 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 			     service_p, (void *)IFEventID_start_e, NULL);
 	  break;
       }
-      case IFEventID_network_changed_e:
-	  /* switched networks, remove the IP address to avoid IP collisions */
-	  (void)service_remove_address(service_p);
       case IFEventID_renew_e:
       case IFEventID_media_e: {
 	  struct in_addr	our_ip;
+	  boolean_t		network_changed = (boolean_t)event_data;
 
 	  if (dhcp == NULL) {
 	      return (ipconfig_status_internal_error_e);
 	  }
+	  if (network_changed) {
+	      /* switched networks, remove IP address to avoid IP collisions */
+	      (void)service_remove_address(service_p);
+	  }
 	  our_ip = dhcp->saved.our_ip;
 	  if (service_link_status(service_p)->valid == TRUE) {
-	      dhcp->router.flags &= ~RIFLAGS_ARP_VERIFIED;
 	      if (service_link_status(service_p)->active == TRUE) {
 		  dhcp->in_use = dhcp->user_warned = FALSE;
 		  if (dhcp_check_lease(service_p, current_time)) {
@@ -1512,7 +1688,6 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 		  /* ensure that we'll retry when the link goes back up */
 		  dhcp->try = 0;
 		  dhcp->state = dhcp_cstate_none_e;
-		  dhcp->enable_arp_collision_detection = FALSE;
 
 		  /* if link goes down and stays down long enough, unpublish */
 		  dhcp_cancel_pending_events(service_p);
@@ -1531,22 +1706,25 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      return (ipconfig_status_internal_error_e);
 	  }
 	  if (dhcp->lease.valid && dhcp->saved.is_dhcp) {
-	      char *	router_hwaddr = NULL;
-	      int 	router_hwaddr_size = 0;
-	      
-	      if (G_router_arp
-		  && (dhcp->router.flags & RIFLAGS_HWADDR_VALID) != 0) {
-		  /* we have the router h/w address, save it too */
-		  router_hwaddr = dhcp->router.hwaddr;
-		  router_hwaddr_size = if_link_length(if_p);
-	      }
-	      (void)_dhcp_lease_write(service_p, dhcp->lease.start,
-				      dhcp->saved.pkt, dhcp->saved.pkt_size,
-				      router_hwaddr, router_hwaddr_size);
+	      _dhcp_lease_write(service_p, dhcp->lease.start,
+				dhcp->saved.pkt, dhcp->saved.pkt_size);
 	  }
 	  break;
       }
       case IFEventID_wake_e: {
+	  /* make sure that when we wake up, there's no IP address assigned */
+	  service_p->published.status = ipconfig_status_media_inactive_e;
+	  service_remove_address(service_p);
+	  if (woke_from_hibernation()) {
+	      /*
+	       * wake from hibernation is the same as a reboot case, so
+	       * simulate that by removing all but the last lease, and 
+	       * mark the lease as tentative.
+	       */
+	      my_log(LOG_DEBUG, "DHCP %s: wake from hibernation",
+		     if_name(if_p));
+	      DHCPLeaseListRemoveAllButLastLease(&dhcp->lease_list);
+	  }
 	  break;
       }
       default:
@@ -1624,6 +1802,7 @@ dhcp_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  dhcp->xid++;
 	  dhcp->gathering = FALSE;
 	  dhcp->saved.rating = 0;
+	  dhcp->got_nak = FALSE;
 	  (void)service_enable_autoaddr(service_p);
 	  bootp_client_enable_receive(dhcp->client,
 				      (bootp_receive_func_t *)dhcp_init, 
@@ -1650,18 +1829,10 @@ dhcp_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  if (dhcp->try >= (G_dhcp_router_arp_at_retry_count + 1)) {
 	      /* try to confirm the router's address */
-	      if ((dhcp->router.flags & RIFLAGS_IADDR_VALID) != 0
-		  && (dhcp->router.flags & RIFLAGS_ARP_VERIFIED) == 0) {
-		  dhcp_arp_router(service_p, IFEventID_start_e, (void *)FALSE);
-	      }
-	      else if (dhcp_check_lease(service_p, current_time)
-		       && (dhcp->router.flags & RIFLAGS_ARP_VERIFIED) != 0) {
-		  /* lease is still valid, router is still available */
-		  dhcp_bound(service_p, IFEventID_start_e, NULL);
-		  break;
-	      }
+	      dhcp_arp_router(service_p, IFEventID_start_e, NULL);
 	  }
-	  if (dhcp->try >= (G_dhcp_allocate_linklocal_at_retry_count + 1)) {
+	  if (service_router_all_valid(service_p) == FALSE
+	      && dhcp->try >= (G_dhcp_allocate_linklocal_at_retry_count + 1)) {
 	      if (G_dhcp_failure_configures_linklocal) {
 		  service_p->published.status = ipconfig_status_no_server_e;
 		  linklocal_service_change(service_p, FALSE);
@@ -1669,10 +1840,15 @@ dhcp_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  if (dhcp->try > (G_max_retries + 1)) {
 	      /* no server responded */
+	      if (service_router_all_valid(service_p)) {
+		  /* lease is still valid, router is still available */
+		  dhcp_bound(service_p, IFEventID_start_e, NULL);
+		  break;
+	      }
+	      /* DHCP server and router not responding, try again later */
 	      dhcp_no_server(service_p, IFEventID_start_e, NULL);
 	      break; /* out of switch */
 	  }
-
 	  dhcp->request->dp_xid = htonl(dhcp->xid);
 	  dhcp->request->dp_secs 
 	      = htons((u_short)(current_time - dhcp->start_secs));
@@ -1721,7 +1897,7 @@ dhcp_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      || reply_msgtype == dhcp_msgtype_offer_e) {
 	      int rating = 0;
 	      
-	      get_lease(&pkt->options, &lease, &t1, &t2);
+	      dhcp_get_lease_from_options(&pkt->options, &lease, &t1, &t2);
 	      rating = count_params(&pkt->options, dhcp_params, n_dhcp_params);
 	      /* 
 	       * The new packet is "better" than the saved
@@ -1742,6 +1918,7 @@ dhcp_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 					  || rating > dhcp->saved.rating))
 		  || (is_dhcp == FALSE && dhcp->saved.is_dhcp == FALSE
 		      && rating > dhcp->saved.rating)) {
+		  service_router_clear(service_p);
 		  dhcpol_free(&dhcp->saved.options);
 		  bcopy(pkt->data, dhcp->saved.pkt, pkt->size);
 		  dhcp->saved.pkt_size = pkt->size;
@@ -1866,6 +2043,7 @@ dhcp_init_reboot(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      /* pad out to BOOTP-sized packet */
 	      dhcp->request_size = sizeof(struct bootp);
 	  }
+	  dhcp->got_nak = FALSE;
 	  dhcp->gathering = FALSE;
 	  dhcp->xid++;
 	  dhcp->saved.our_ip = our_ip;
@@ -1892,18 +2070,16 @@ dhcp_init_reboot(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  }
 	  if (dhcp->try >= (G_dhcp_router_arp_at_retry_count + 1)) {
 	      /* try to confirm the router's address */
-	      if ((dhcp->router.flags & RIFLAGS_IADDR_VALID) != 0
-		  && (dhcp->router.flags & RIFLAGS_ARP_VERIFIED) == 0) {
-		  dhcp_arp_router(service_p, IFEventID_start_e, (void *)FALSE);
-	      }
-	      else if (dhcp_check_lease(service_p, current_time)
-		       && (dhcp->router.flags & RIFLAGS_ARP_VERIFIED) != 0) {
+	      dhcp_arp_router(service_p, IFEventID_start_e, NULL);
+	      if (service_router_all_valid(service_p)
+		  && dhcp->try >= (G_dhcp_router_arp_at_retry_count + 2)) {
 		  /* lease is still valid, router is still available */
 		  dhcp_bound(service_p, IFEventID_start_e, NULL);
 		  break;
 	      }
 	  }
-	  if (dhcp->try >= (G_dhcp_allocate_linklocal_at_retry_count + 1)) {
+	  if (service_router_all_valid(service_p) == FALSE
+	      && dhcp->try >= (G_dhcp_allocate_linklocal_at_retry_count + 1)) {
 	      if (G_dhcp_failure_configures_linklocal) {
 		  service_p->published.status = ipconfig_status_no_server_e;
 		  linklocal_service_change(service_p, FALSE);
@@ -1964,13 +2140,22 @@ dhcp_init_reboot(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      /* reject the packet */
 	      break; /* out of switch */
 	  }
-	  if (reply_msgtype == dhcp_msgtype_nak_e
-	      && service_ifstate(service_p)->netboot == FALSE) {
-	      service_publish_failure(service_p, 
-				      ipconfig_status_lease_terminated_e,
-				      NULL);
-	      dhcp_unbound(service_p, IFEventID_start_e, NULL);
-	      break; /* out of switch */
+	  if (service_ifstate(service_p)->netboot == FALSE
+	      && reply_msgtype == dhcp_msgtype_nak_e) {
+	      if (G_IPConfiguration_verbose) {
+		  my_log(LOG_NOTICE, "DHCP %s: got DHCP NAK",
+			 if_name(if_p));
+	      }
+	      if (arp_client_is_active(dhcp->arp)) {
+		  dhcp->got_nak = TRUE;
+	      }
+	      else {
+		  service_publish_failure(service_p, 
+					  ipconfig_status_lease_terminated_e,
+					  NULL);
+		  dhcp_unbound(service_p, IFEventID_start_e, (void *)TRUE);
+		  break; /* out of switch */
+	      }
 	  }
 	  if (server_ip.s_addr == 0
 	      || pkt->data->dp_yiaddr.s_addr != dhcp->saved.our_ip.s_addr) {
@@ -1981,7 +2166,7 @@ dhcp_init_reboot(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      || reply_msgtype == dhcp_msgtype_ack_e) {
 	      int rating = 0;
 	      
-	      get_lease(&pkt->options, &lease, &t1, &t2);
+	      dhcp_get_lease_from_options(&pkt->options, &lease, &t1, &t2);
 
 	      rating = count_params(&pkt->options, dhcp_params, n_dhcp_params);
 	      /* 
@@ -2003,6 +2188,7 @@ dhcp_init_reboot(Service_t * service_p, IFEventID_t evid, void * event_data)
 					  || rating > dhcp->saved.rating))
 		  || (is_dhcp == FALSE && dhcp->saved.is_dhcp == FALSE
 		      && rating > dhcp->saved.rating)) {
+		  service_router_clear(service_p);
 		  dhcpol_free(&dhcp->saved.options);
 		  bcopy(pkt->data, dhcp->saved.pkt, pkt->size);
 		  dhcp->saved.pkt_size = pkt->size;
@@ -2160,7 +2346,7 @@ dhcp_select(Service_t * service_p, IFEventID_t evid, void * event_data)
       }
       case IFEventID_data_e: {
 	  boolean_t 		is_dhcp = TRUE;
-	  time_interval_t 		lease = SUGGESTED_LEASE_LENGTH;
+	  time_interval_t 	lease = SUGGESTED_LEASE_LENGTH;
 	  bootp_receive_data_t *pkt = (bootp_receive_data_t *)event_data;
 	  dhcp_msgtype_t	reply_msgtype = dhcp_msgtype_none_e;
 	  struct in_addr	server_ip = { 0 };
@@ -2199,7 +2385,7 @@ dhcp_select(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      /* reject the packet */
 	      break; /* out of switch */
 	  }
-	  get_lease(&pkt->options, &lease, &t1, &t2);
+	  dhcp_get_lease_from_options(&pkt->options, &lease, &t1, &t2);
 	  dhcp_set_lease_params(service_p, "SELECT", is_dhcp, 
 				current_time, lease, t1, t2);
 	  dhcpol_free(&dhcp->saved.options);
@@ -2227,31 +2413,6 @@ dhcp_select(Service_t * service_p, IFEventID_t evid, void * event_data)
     return;
 }
 
-static boolean_t
-dhcp_update_router_address(Service_t * service_p)
-{
-    Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
-    struct in_addr *	router_p;
-
-    dhcp->router.flags = 0;
-    router_p = find_option_with_length(&dhcp->saved.options, 
-				       dhcptag_router_e, 4);
-    if (router_p == NULL) {
-	return (FALSE);
-    }
-    if (router_p->s_addr == dhcp->saved.our_ip.s_addr) {
-	/* proxy arp, use DNS server instead */
-	router_p = find_option_with_length(&dhcp->saved.options, 
-					   dhcptag_domain_name_server_e, 4);
-	if (router_p == NULL) {
-	    return (FALSE);
-	}
-    }
-    dhcp->router.iaddr = *router_p;
-    dhcp->router.flags = RIFLAGS_IADDR_VALID;
-    return (TRUE);
-}
-
 static void
 dhcp_arp_router(Service_t * service_p, IFEventID_t event_id, void * event_data)
 {
@@ -2260,107 +2421,256 @@ dhcp_arp_router(Service_t * service_p, IFEventID_t event_id, void * event_data)
 
     switch (event_id) {
       case IFEventID_start_e: {
-	  boolean_t		discover = (boolean_t)event_data;
-	  int			gratuitous_count;
-	  int			probe_count;
-	  struct timeval	tv;
-	  boolean_t		use_real_ip;
+	  int			info_count;
+	  arp_address_info_t *	info_p;
+	  bool			tentative_ok;
 
 	  if (G_router_arp == FALSE) {
 	      /* don't ARP for the router */
 	      break;
 	  }
-	  dhcp->router.flags &= ~RIFLAGS_ARP_VERIFIED;
-	  if ((dhcp->router.flags & RIFLAGS_IADDR_VALID) == 0) {
+	  if (service_router_is_arp_verified(service_p)) {
+	      /* nothing to be done */
+	      break;
+	  }
+	  if (service_should_do_router_arp(service_p) == FALSE) {
+	      /* don't ARP for the router, stop pending ARP */
+	      arp_client_cancel(dhcp->arp);
+	      break;
+	  }
+	  tentative_ok = (dhcp->state == dhcp_cstate_init_e);
+	  info_p = DHCPLeaseListCopyARPAddressInfo(&dhcp->lease_list,
+						   tentative_ok,
+						   &info_count);
+	  if (info_p == NULL) {
 	      my_log(LOG_DEBUG, 
-		     "DHCP %s: ARP ROUTER: IP address missing",
+		     "DHCP %s: ARP router: No leases to query for",
 		     if_name(if_p));
 	      break;
 	  }
-	  if (discover == FALSE
-	      && (dhcp->router.flags & RIFLAGS_HWADDR_VALID) == 0) {
-	      my_log(LOG_DEBUG, 
-		     "DHCP %s: ARP ROUTER: hardware address missing",
+	  if (G_IPConfiguration_verbose) {
+	      int	i;
+
+	      my_log(LOG_NOTICE, "DHCP %s: ARP detect router starting",
 		     if_name(if_p));
-	      break;
+	      for (i = 0; i < info_count; i++) {
+		  my_log(LOG_NOTICE, "%d. sender "  IP_FORMAT
+			 " target " IP_FORMAT "", i + 1,
+			 IP_LIST(&info_p[i].sender_ip),
+			 IP_LIST(&info_p[i].target_ip));
+	      }
 	  }
-	  if (ip_is_private(dhcp->saved.our_ip) == FALSE) {
-	      use_real_ip = TRUE;
-	  }
-	  else {
-	      use_real_ip = discover;
-	  }
-	  my_log(LOG_DEBUG, "DHCP %s: ARP ROUTER "  IP_FORMAT " started", 
-		 if_name(if_p), IP_LIST(&dhcp->router.iaddr));
-	  gratuitous_count = 0;
-	  tv.tv_sec = 0;
-	  tv.tv_usec = 200 * 1000;
-	  if (discover) {
-	      dhcp->router.flags |= RIFLAGS_DISCOVERING;
-	      probe_count = 10;
-	  }
-	  else {
-	      probe_count = 3;
-	  }
-	  arp_client_set_probe_info(dhcp->arp, &tv,
-				    &probe_count, &gratuitous_count);
-	  arp_client_probe(dhcp->arp,
-			   (arp_result_func_t *)dhcp_arp_router,
-			   service_p,
-			   (void *)IFEventID_arp_e, 
-			   use_real_ip ? dhcp->saved.our_ip : G_ip_zeroes,
-			   dhcp->router.iaddr);
+	  arp_client_detect(dhcp->arp,
+			    (arp_result_func_t *)dhcp_arp_router,
+			    service_p,
+			    (void *)IFEventID_arp_e, 
+			    info_p, info_count);
+	  free(info_p);
 	  break;
       }
       case IFEventID_arp_e: {
+	  arp_address_info_t *	info_p;
+	  DHCPLeaseRef		lease_p;
+	  void *		option;
+	  struct in_addr	mask = {0};
 	  arp_result_t *	result = (arp_result_t *)event_data;
+	  int			where;
 
-	  if (result->error) {
-	      my_log(LOG_ERR, "DHCP %s: ARP ROUTER failed, %s", 
-		     if_name(if_p),
-		     arp_client_errmsg(dhcp->arp));
-	      break;
-	  }
-	  if (result->in_use) {
-	      if ((dhcp->router.flags & RIFLAGS_DISCOVERING) == 0
-		  && bcmp(result->hwaddr, dhcp->router.hwaddr, 
-			  if_link_length(if_p)) != 0) {
-		  my_log(LOG_DEBUG, "DHCP %s: ARP ROUTER " IP_FORMAT 
-			 ": hardware address doesn't match", if_name(if_p),
-			 IP_LIST(&dhcp->router.iaddr));
-		  dhcp->lease.valid = FALSE;
-		  dhcp->router.flags = 0;
-		  (void)service_remove_address(service_p);
+	  if (result->error || result->in_use == FALSE) {
+	      if (result->error) {
+		  my_log(LOG_ERR, "DHCP %s: ARP detect ROUTER failed, %s", 
+			 if_name(if_p),
+			 arp_client_errmsg(dhcp->arp));
 	      }
 	      else {
-		  /* grab the latest router hardware address */
-		  bcopy(result->hwaddr, dhcp->router.hwaddr, 
-			if_link_length(if_p));
-		  dhcp->router.flags = RIFLAGS_IADDR_VALID
-		      | RIFLAGS_HWADDR_VALID | RIFLAGS_ARP_VERIFIED;
-		  my_log(LOG_DEBUG, "DHCP %s: ARP ROUTER " IP_FORMAT 
-			 ": response received", if_name(if_p),
-			 IP_LIST(&dhcp->router.iaddr));
-		  if (dhcp->lease.needs_write) {
-		      dhcp->lease.needs_write = FALSE;
-		      (void)_dhcp_lease_write(service_p, dhcp->lease.start,
-					      dhcp->saved.pkt, 
-					      dhcp->saved.pkt_size,
-					      dhcp->router.hwaddr,
-					      if_link_length(if_p));
-		  }
+		  my_log(LOG_DEBUG,
+			 "DHCP %s: ARP detect router got no response",
+			 if_name(if_p));
+	      }
+	      if (dhcp->got_nak) {
+		  service_publish_failure(service_p, 
+					  ipconfig_status_lease_terminated_e,
+					  NULL);
+		  dhcp_unbound(service_p, IFEventID_start_e, (void *)TRUE);
+		  break; /* out of switch */
+	      }
+	      break;
+	  }
+	  info_p = &result->addr;
+	  if (G_IPConfiguration_verbose) {
+	      my_log(LOG_NOTICE, "DHCP %s: got response for sender "
+		     IP_FORMAT " target " IP_FORMAT,
+		     if_name(if_p), IP_LIST(&info_p->sender_ip),
+		     IP_LIST(&info_p->target_ip));
+	  }
+	  where = DHCPLeaseListFindLease(&dhcp->lease_list, 
+					 info_p->sender_ip,
+					 info_p->target_ip,
+					 info_p->target_hardware,
+					 if_link_length(if_p));
+	  if (where == -1) {
+	      if (G_IPConfiguration_verbose) {
+		  my_log(LOG_NOTICE, "DHCP %s: lease for "
+			 IP_FORMAT " is no longer available",
+			 if_name(if_p), IP_LIST(&info_p->sender_ip));
+	      }
+	      if (dhcp->got_nak) {
+		  service_publish_failure(service_p, 
+					  ipconfig_status_lease_terminated_e,
+					  NULL);
+		  dhcp_unbound(service_p, IFEventID_start_e, NULL);
+		  break; /* out of switch */
 	      }
 	  }
-	  else {
-	      my_log(LOG_DEBUG, "DHCP %s: ARP router " IP_FORMAT 
-		     ": no response", if_name(if_p),
-		     IP_LIST(&dhcp->router.iaddr));
-	      dhcp->router.flags &= ~RIFLAGS_DISCOVERING;
+	  lease_p = DHCPLeaseListElement(&dhcp->lease_list, where);
+	  if (G_IPConfiguration_verbose) {
+	      my_log(LOG_NOTICE, "DHCP %s: identified lease for " IP_FORMAT,
+		     if_name(if_p), IP_LIST(&lease_p->our_ip));
 	  }
+	  if (dhcp->state == dhcp_cstate_init_e) {
+	      if (dhcp->gathering == TRUE) {
+		  /* we got a response, don't bother with old lease */
+		  break;
+	      }
+	      switch_to_lease(service_p, lease_p);
+	      service_router_set_all_valid(service_p);
+	      break;
+	  }
+	  if (dhcp->state != dhcp_cstate_init_reboot_e) {
+	      /* this can't really happen */
+	      break;
+	  }
+	  if (dhcp->gathering == TRUE) {
+	      struct in_addr *	router_p;
+
+	      if (lease_p->our_ip.s_addr != dhcp->saved.our_ip.s_addr) {
+		  /* not the same lease */
+		  break;
+	      }
+	      router_p = get_router_from_options(&dhcp->saved.options,
+						 dhcp->saved.our_ip);
+	      if (router_p == NULL
+		  || router_p->s_addr != lease_p->router_ip.s_addr) {
+		  /* router changed or different, do full refresh */
+		  break;
+	      }
+	  }
+	  else if (switch_to_lease(service_p, lease_p)) {
+	      dhcpol_t		options;
+	      struct in_addr *	req_ip_p;
+
+	      dhcp->request->dp_xid = htonl(++dhcp->xid);
+	      dhcpol_init(&options);
+	      (void)dhcpol_parse_packet(&options,
+					(struct dhcp *)dhcp->txbuf, 
+					sizeof(dhcp->txbuf), NULL);
+	      req_ip_p 
+		  = dhcpol_find_with_length(&options,
+					    dhcptag_requested_ip_address_e,
+					    sizeof(*req_ip_p));
+	      if (req_ip_p != NULL) {
+		  /* switch to the new IP address */
+		  *req_ip_p = lease_p->our_ip;
+		  dhcp->try = 0;
+	      }
+	      dhcpol_free(&options);
+	  }
+	  else if (dhcp->got_nak) {
+	      /* we got a nak and we didn't switch leases */
+	      service_publish_failure(service_p, 
+				      ipconfig_status_lease_terminated_e,
+				      NULL);
+	      dhcp_unbound(service_p, IFEventID_start_e, NULL);
+	      break; /* out of switch */
+	  }
+	  service_router_set_all_valid(service_p);
+
+	  /* lease is still valid, router is still available */
+	  option = dhcpol_find_with_length(&dhcp->saved.options,
+					   dhcptag_subnet_mask_e, 
+					   sizeof(mask));
+	  if (option != NULL) {
+	      mask = *((struct in_addr *)option);
+	  }
+	  
+	  /* stop link local if necessary */
+	  if (G_dhcp_success_deconfigures_linklocal) {
+	      linklocal_service_change(service_p, TRUE);
+	  }
+	  
+	  /* allow user warning to appear */
+	  dhcp->in_use = dhcp->user_warned = FALSE;
+	  
+	  /* set our address */
+	  (void)service_set_address(service_p, dhcp->saved.our_ip, 
+				    mask, G_ip_zeroes);
+	  service_publish_success2(service_p, dhcp->saved.pkt,
+				   dhcp->saved.pkt_size, dhcp->lease.start);
+	  dhcp->ip_assigned_time = timer_current_secs();
+	  dhcp->ip_conflict_count = 0;
 	  break;
       }
       default:
 	  break;
+    }
+    return;
+}
+
+static void
+dhcp_resolve_router_callback(Service_t * service_p, router_arp_status_t status);
+
+
+static void
+dhcp_resolve_router_retry(void * arg0, void * arg1, void * arg2)
+{
+    Service_t * 	service_p = (Service_t *)arg0;
+    Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
+
+    service_resolve_router(service_p, dhcp->arp,
+			   dhcp_resolve_router_callback,
+			   dhcp->saved.our_ip);
+    return;
+}
+
+
+static void
+dhcp_resolve_router_callback(Service_t * service_p, router_arp_status_t status)
+{
+    Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
+    struct timeval	tv;
+
+    switch (status) {
+    case router_arp_status_no_response_e:
+	/* try again in 60 seconds */
+	tv.tv_sec = 60;
+	tv.tv_usec = 0;
+	timer_set_relative(dhcp->timer, tv, 
+			   (timer_func_t *)dhcp_resolve_router_retry,
+			   service_p, NULL, NULL);
+	if (dhcp->resolve_router_timed_out) {
+	    break;
+	}
+	/* publish what we have so far */
+	dhcp->resolve_router_timed_out = TRUE;
+	service_publish_success2(service_p, dhcp->saved.pkt,
+				 dhcp->saved.pkt_size, dhcp->lease.start);
+	_dhcp_lease_write(service_p, dhcp->lease.start,
+			  dhcp->saved.pkt, 
+			  dhcp->saved.pkt_size);
+	break;
+    case router_arp_status_success_e:
+	if (dhcp->lease.needs_write) {
+	    dhcp->lease.needs_write = FALSE;
+	    _dhcp_lease_write(service_p, dhcp->lease.start,
+			      dhcp->saved.pkt, 
+			      dhcp->saved.pkt_size);
+	}
+	service_publish_success2(service_p, dhcp->saved.pkt,
+				 dhcp->saved.pkt_size, dhcp->lease.start);
+	break;
+    default:
+    case router_arp_status_failed_e:
+	break;
     }
 }
 
@@ -2371,20 +2681,23 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
     Service_dhcp_t *	dhcp = (Service_dhcp_t *)service_p->private;
     boolean_t		do_arp = TRUE;
     interface_t *	if_p = service_interface(service_p);
-    int			len;
     struct in_addr	mask = {0};
     void *		option;
     struct timeval 	tv = {0, 0};
 
     switch (event_id) {
       case IFEventID_start_e: {
+	  dhcp_cstate_t		prev_state = dhcp->state;
+
 	  my_log(LOG_DEBUG, "DHCP %s: BOUND", if_name(if_p));
+	  dhcp->state = dhcp_cstate_bound_e;
 	  dhcp->lease.needs_write = TRUE;
-	  dhcp->enable_arp_collision_detection = FALSE;
-	  if (dhcp->state == dhcp_cstate_renew_e
-	      || dhcp->state == dhcp_cstate_rebind_e) {
-	      dhcp->state = dhcp_cstate_bound_e;
-	      dhcp->lease.needs_write = FALSE;
+	  dhcp->disable_arp_collision_detection = TRUE;
+	  if (prev_state != dhcp_cstate_select_e) {
+	      if (prev_state == dhcp_cstate_renew_e
+		  || prev_state == dhcp_cstate_rebind_e) {
+		  dhcp->lease.needs_write = FALSE;
+	      }
 	      break; /* out of switch */
 	  }
 
@@ -2398,7 +2711,6 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      /* no need to probe, we're already using it */
 	      break;
 	  }
-	  arp_client_restore_default_probe_info(dhcp->arp);
 	  arp_client_probe(dhcp->arp, 
 			   (arp_result_func_t *)dhcp_bound, service_p,
 			   (void *)IFEventID_arp_e, G_ip_zeroes,
@@ -2425,22 +2737,22 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
 		       IP_FORMAT " in use by " EA_FORMAT 
 		       ", DHCP Server " 
 		       IP_FORMAT, IP_LIST(&dhcp->saved.our_ip),
-		       EA_LIST(result->hwaddr),
+		       EA_LIST(result->addr.target_hardware),
 		       IP_LIST(&dhcp->saved.server_ip));
 	      if (dhcp->in_use) {
 		  if (dhcp->user_warned == FALSE) {
 		      service_report_conflict(service_p,
 					      &dhcp->saved.our_ip,
-					      result->hwaddr,
+					      result->addr.target_hardware,
 					      &dhcp->saved.server_ip);
 		      dhcp->user_warned = TRUE;
 		  }
 	      }
 	      dhcp->in_use = TRUE;
 	      my_log(LOG_ERR, "DHCP %s: %s", if_name(if_p), msg);
-	      _dhcp_lease_clear(service_p);
+	      _dhcp_lease_clear(service_p, FALSE);
 	      dhcp->lease.valid = FALSE;
-	      dhcp->router.flags = 0;
+	      service_router_clear(service_p);
 	      service_publish_failure(service_p, 
 				      ipconfig_status_address_in_use_e, msg);
 	      if (dhcp->saved.is_dhcp) {
@@ -2450,6 +2762,8 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      dhcp_cancel_pending_events(service_p);
 	      (void)service_disable_autoaddr(service_p);
 	      dhcp->saved.our_ip.s_addr = 0;
+	      dhcp->lease.valid = FALSE;
+	      service_router_clear(service_p);
 	      tv.tv_sec = 10; /* retry in a bit */
 	      tv.tv_usec = 0;
 	      timer_set_relative(dhcp->timer, tv, 
@@ -2466,40 +2780,33 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
     /* the lease is valid */
     dhcp->lease.valid = TRUE;
 
-    if (G_router_arp == FALSE
-	&& dhcp->lease.needs_write && dhcp->saved.is_dhcp) {
-	/* write the lease now since we won't ARP for the router */
-	dhcp->lease.needs_write = FALSE;
-	(void)_dhcp_lease_write(service_p, dhcp->lease.start,
-				dhcp->saved.pkt, dhcp->saved.pkt_size,
-				NULL, 0);
-    }
-
     /* allow user warning to appear */
     dhcp->in_use = dhcp->user_warned = FALSE;
 
     /* set the interface's address and output the status */
-    option = dhcpol_find(&dhcp->saved.options, dhcptag_subnet_mask_e, 
-			 &len, NULL);
-    if (option != NULL && len >= 4) {
+    option = dhcpol_find_with_length(&dhcp->saved.options, 
+				     dhcptag_subnet_mask_e, sizeof(mask));
+    if (option != NULL) {
 	mask = *((struct in_addr *)option);
     }
 
     service_disable_autoaddr(service_p);
 
-    /* set our new address */
-    (void)service_set_address(service_p, dhcp->saved.our_ip, 
-			      mask, G_ip_zeroes);
-    service_publish_success2(service_p, dhcp->saved.pkt,
-			     dhcp->saved.pkt_size, dhcp->lease.start);
-
+    /* set our address */
+    if (dhcp->saved.our_ip.s_addr != service_p->info.addr.s_addr
+	|| mask.s_addr != service_p->info.mask.s_addr) {
+	(void)service_set_address(service_p, dhcp->saved.our_ip, 
+				  mask, G_ip_zeroes);
+	dhcp->ip_assigned_time = timer_current_secs();
+	dhcp->ip_conflict_count = 0;
+    }
     /* stop link local if necessary */
     if (G_dhcp_success_deconfigures_linklocal) {
 	linklocal_service_change(service_p, TRUE);
     }
 
     /* allow us to be called in the event of a subsequent collision */
-    dhcp->enable_arp_collision_detection = TRUE;
+    dhcp->disable_arp_collision_detection = FALSE;
 
     /* clean-up anything that might have come before */
     dhcp_cancel_pending_events(service_p);
@@ -2527,10 +2834,23 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
     }
 
     /* get the router's MAC address */
-    if (do_arp) {
-	if (dhcp_update_router_address(service_p)) {
-	    dhcp_arp_router(service_p, IFEventID_start_e, (void *)TRUE);
+    dhcp->resolve_router_timed_out = FALSE;
+    if (do_arp
+	&& service_update_router_address(service_p, &dhcp->saved)
+	&& service_resolve_router(service_p, dhcp->arp,
+				  dhcp_resolve_router_callback,
+				  dhcp->saved.our_ip)) {
+	/* resolving router's MAC address started */
+    }
+    else {
+	if (dhcp->lease.needs_write && dhcp->saved.is_dhcp) {
+	    /* write the lease now since we won't ARP for the router */
+	    dhcp->lease.needs_write = FALSE;
+	    _dhcp_lease_write(service_p, dhcp->lease.start,
+			      dhcp->saved.pkt, dhcp->saved.pkt_size);
 	}
+	service_publish_success2(service_p, dhcp->saved.pkt,
+				 dhcp->saved.pkt_size, dhcp->lease.start);
     }
 
     return;
@@ -2634,6 +2954,8 @@ dhcp_decline(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  (void)service_remove_address(service_p);
 	  dhcp->saved.our_ip.s_addr = 0;
+	  dhcp->lease.valid = FALSE;
+	  service_router_clear(service_p);
 	  service_disable_autoaddr(service_p);
 	  tv.tv_sec = 10; /* retry in a bit */
 	  tv.tv_usec = 0;
@@ -2660,18 +2982,22 @@ dhcp_unbound(Service_t * service_p, IFEventID_t event_id, void * event_data)
 
     switch (event_id) {
       case IFEventID_start_e: {
-	  my_log(LOG_DEBUG, "DHCP %s: UNBOUND", if_name(if_p));
+	  int		nak = (int)event_data;
+
+	  my_log(LOG_DEBUG, "DHCP %s: UNBOUND%s", if_name(if_p),
+		 nak ? " (NAK)" : "");
 
 	  /* clean-up anything that might have come before */
 	  dhcp_cancel_pending_events(service_p);
 	  dhcp->state = dhcp_cstate_unbound_e;
 
 	  /* stop using the IP address immediately */
+	  _dhcp_lease_clear(service_p, nak);
 	  (void)service_remove_address(service_p);
 	  dhcp->saved.our_ip.s_addr = 0;
 	  dhcp->lease.valid = FALSE;
-	  dhcp->router.flags = 0;
-	  _dhcp_lease_clear(service_p);
+	  dhcp->got_nak = FALSE;
+	  service_router_clear(service_p);
 
 	  tv.tv_sec = 0;
 	  tv.tv_usec = 1000;
@@ -2829,7 +3155,7 @@ dhcp_renew_rebind(Service_t * service_p, IFEventID_t event_id, void * event_data
 	      /* reject the packet */
 	      return;
 	  }
-	  get_lease(&pkt->options, &lease, &t1, &t2);
+	  dhcp_get_lease_from_options(&pkt->options, &lease, &t1, &t2);
 
 	  /* address has to match, otherwise start over */
 	  if (pkt->data->dp_yiaddr.s_addr != dhcp->saved.our_ip.s_addr) {
@@ -2875,9 +3201,9 @@ dhcp_release(Service_t * service_p)
     }
 
     my_log(LOG_DEBUG, "DHCP %s: RELEASE", if_name(if_p));
-    _dhcp_lease_clear(service_p);
+    _dhcp_lease_clear(service_p, FALSE);
     dhcp->lease.valid = FALSE;
-    dhcp->router.flags = 0;
+    service_router_clear(service_p);
 
     /* clean-up anything that might have come before */
     dhcp_cancel_pending_events(service_p);

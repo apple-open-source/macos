@@ -87,7 +87,7 @@ IOUSBIUnknown::~IOUSBIUnknown()
 
 
 
-unsigned long 
+UInt32 
 IOUSBIUnknown::addRef()
 {
     refCount += 1;
@@ -96,7 +96,7 @@ IOUSBIUnknown::addRef()
 
 
 
-unsigned long 
+UInt32 
 IOUSBIUnknown::release()
 {
     unsigned long retVal = refCount - 1;
@@ -124,7 +124,7 @@ genericQueryInterface(void *self, REFIID iid, void **ppv)
 
 
 
-unsigned long 
+UInt32 
 IOUSBIUnknown::genericAddRef(void *self)
 {
     IOUSBIUnknown *me = ((InterfaceMap *) self)->obj;
@@ -133,7 +133,7 @@ IOUSBIUnknown::genericAddRef(void *self)
 
 
 
-unsigned long 
+UInt32 
 IOUSBIUnknown::genericRelease(void *self)
 {
     IOUSBIUnknown *me = ((InterfaceMap *) self)->obj;

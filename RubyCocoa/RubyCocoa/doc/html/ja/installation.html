@@ -1,0 +1,55 @@
+
+<html lang="ja">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Language" content="ja">
+  <title>RubyCocoa - installation</title></head>
+<body>
+<h1>RubyCocoaのインストール</h1>
+
+<h2>ソースをダウンロード</h2>
+
+<p>最新のリリースを使う場合</p>
+
+<p><a href="http://sourceforge.net/project/showfiles.php?group_id=44114">ダウンロードページ</a>から最新の tgz をダウンロードして、展開する。</p>
+
+<p>svn の trunk を使う場合</p>
+
+<pre><code>svn co https://rubycocoa.svn.sourceforge.net/svnroot/rubycocoa/trunk/src rubycocoa
+</code></pre>
+
+<h2>ビルド</h2>
+
+<p>/usr/bin/ruby を使う場合</p>
+
+<pre><code>cd rubycocoa
+/usr/bin/ruby install.rb config --prefix=/usr
+/usr/bin/ruby install.rb setup
+sudo /usr/bin/ruby install.rb install
+</code></pre>
+
+<p>MacPorts で入れた /opt/local/bin/ruby を使う場合</p>
+
+<pre><code>cd rubycocoa
+/opt/local/bin/ruby install.rb config --prefix=/opt/local
+/opt/local/bin/ruby install.rb setup
+sudo /opt/local/bin/ruby install.rb install
+</code></pre>
+
+<p>ユニバーサルバイナリのアプリケーションを開発する場合:</p>
+
+<pre><code>cd rubycocoa
+/usr/bin/ruby install.rb config --prefix=/usr --build-universal
+/usr/bin/ruby install.rb setup
+sudo /usr/bin/ruby install.rb install
+</code></pre>
+
+<h2>サンプルプログムのビルド</h2>
+
+<pre><code>cd /Developer/Examples/RubyCocoa
+mkdir -p apps
+ruby buildall.rb apps
+open /Developer/Examples/RubyCocoa/app
+</code></pre>
+</body>
+</html>

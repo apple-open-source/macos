@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,72 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Sat Jun 01 2002.
- *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2002-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLGetDiskSectorsForFile.c,v 1.16 2005/08/22 20:49:23 ssen Exp $
- *
- *  $Log: BLGetDiskSectorsForFile.c,v $
- *  Revision 1.16  2005/08/22 20:49:23  ssen
- *  Change functions to take "char *foo" instead of "char foo[]".
- *  It should be semantically identical, and be more consistent with
- *  other system APIs
- *
- *  Revision 1.15  2005/06/24 16:39:50  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.14  2005/02/03 00:42:25  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.13  2004/12/16 23:55:08  ssen
- *  <rdar://problem/3924716> bless fails to compile again xnu-719
- *  Go kernel team
- *
- *  Revision 1.12  2004/04/20 21:40:42  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.11  2003/10/16 23:50:05  ssen
- *  Partially finish cleanup of headers to add "const" to char[] arguments
- *  that won't be modified.
- *
- *  Revision 1.10  2003/07/22 15:58:31  ssen
- *  APSL 2.0
- *
- *  Revision 1.9  2003/04/19 00:11:08  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.8  2003/04/16 23:57:31  ssen
- *  Update Copyrights
- *
- *  Revision 1.7  2003/03/20 03:40:57  ssen
- *  Merge in from PR-3202649
- *
- *  Revision 1.6.2.1  2003/03/20 03:29:52  ssen
- *  swap MDB structures
- *
- *  Revision 1.6  2003/03/19 22:57:02  ssen
- *  C99 types
- *
- *  Revision 1.5  2002/06/11 00:50:42  ssen
- *  All function prototypes need to use BLContextPtr. This is really
- *  a minor change in all of the files.
- *
- *  Revision 1.4  2002/06/09 13:14:03  ssen
- *  finish code to get extents of xcoff file in filesystem. Figure out
- *  pdisk invocation. Still doesn't work quite yet because volume is
- *  mounted at this point, so you can't repartition.
- *
- *  Revision 1.3  2002/06/01 20:45:15  ssen
- *  Get extents and allocation block size for file. All that's left
- *  is getting the offset to the embedded volume and adding a pdisk
- *  incantation to write the pmap entries
- *
- *  Revision 1.2  2002/06/01 17:54:30  ssen
- *  Uh. make compile
- *
- *  Revision 1.1  2002/06/01 17:52:45  ssen
- *  Add function to map files to disk sectors
+ *  $Id: BLGetDiskSectorsForFile.c,v 1.17 2006/02/20 22:49:55 ssen Exp $
  *
  */
 

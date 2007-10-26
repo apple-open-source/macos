@@ -26,8 +26,8 @@
  *					  Based upon example provided by Scott Ryder.
  */
 
-/* FIXME these includes are brain dead */
-#include <CoreServices/../Frameworks/WebServicesCore.framework/Headers/WSMethodInvocation.h>
+#include <CoreServices/../Frameworks/OSServices.framework/Headers/WSMethodInvocation.h>
+#include <CoreServices/../Frameworks/CFNetwork.framework/Headers/CFHTTPMessage.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 #include <stdio.h>

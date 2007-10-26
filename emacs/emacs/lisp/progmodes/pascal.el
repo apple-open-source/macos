@@ -1,6 +1,7 @@
 ;;; pascal.el --- major mode for editing pascal source in Emacs
 
-;; Copyright (C) 1993, 94, 95, 96, 97, 98, 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+;;               2003, 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
 
 ;; Author: Espen Skoglund <esk@gnu.org>
 ;; Keywords: languages
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to
-;; the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -43,7 +44,7 @@
 ;;       pascal-auto-endcomments   t
 ;;       pascal-auto-lineup        '(all)
 ;;       pascal-toggle-completions nil
-;;       pascal-type-keywords      '("array" "file" "packed" "char" 
+;;       pascal-type-keywords      '("array" "file" "packed" "char"
 ;; 				     "integer" "real" "string" "record")
 ;;       pascal-start-keywords     '("begin" "end" "function" "procedure"
 ;; 				     "repeat" "until" "while" "read" "readln"
@@ -61,52 +62,51 @@
 ;;; Code:
 
 (defgroup pascal nil
-  "Major mode for editing Pascal source in Emacs"
+  "Major mode for editing Pascal source in Emacs."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :group 'languages)
 
 (defvar pascal-mode-abbrev-table nil
   "Abbrev table in use in Pascal-mode buffers.")
 (define-abbrev-table 'pascal-mode-abbrev-table ())
 
-(defvar pascal-mode-map ()
+(defvar pascal-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map ";"        'electric-pascal-semi-or-dot)
+    (define-key map "."        'electric-pascal-semi-or-dot)
+    (define-key map ":"        'electric-pascal-colon)
+    (define-key map "="        'electric-pascal-equal)
+    (define-key map "#"        'electric-pascal-hash)
+    (define-key map "\r"       'electric-pascal-terminate-line)
+    (define-key map "\t"       'electric-pascal-tab)
+    (define-key map "\M-\t"    'pascal-complete-word)
+    (define-key map "\M-?"     'pascal-show-completions)
+    (define-key map "\177"     'backward-delete-char-untabify)
+    (define-key map "\M-\C-h"  'pascal-mark-defun)
+    (define-key map "\C-c\C-b" 'pascal-insert-block)
+    (define-key map "\M-*"     'pascal-star-comment)
+    (define-key map "\C-c\C-c" 'pascal-comment-area)
+    (define-key map "\C-c\C-u" 'pascal-uncomment-area)
+    (define-key map "\M-\C-a"  'pascal-beg-of-defun)
+    (define-key map "\M-\C-e"  'pascal-end-of-defun)
+    (define-key map "\C-c\C-d" 'pascal-goto-defun)
+    (define-key map "\C-c\C-o" 'pascal-outline-mode)
+    ;; A command to change the whole buffer won't be used terribly
+    ;; often, so no need for a key binding.
+    ;; (define-key map "\C-cd"    'pascal-downcase-keywords)
+    ;; (define-key map "\C-cu"    'pascal-upcase-keywords)
+    ;; (define-key map "\C-cc"    'pascal-capitalize-keywords)
+    map)
   "Keymap used in Pascal mode.")
-(if pascal-mode-map
-    ()
-  (setq pascal-mode-map (make-sparse-keymap))
-  (define-key pascal-mode-map ";"        'electric-pascal-semi-or-dot)
-  (define-key pascal-mode-map "."        'electric-pascal-semi-or-dot)
-  (define-key pascal-mode-map ":"        'electric-pascal-colon)
-  (define-key pascal-mode-map "="        'electric-pascal-equal)
-  (define-key pascal-mode-map "#"        'electric-pascal-hash)
-  (define-key pascal-mode-map "\r"       'electric-pascal-terminate-line)
-  (define-key pascal-mode-map "\t"       'electric-pascal-tab)
-  (define-key pascal-mode-map "\M-\t"    'pascal-complete-word)
-  (define-key pascal-mode-map "\M-?"     'pascal-show-completions)
-  (define-key pascal-mode-map "\177"     'backward-delete-char-untabify)
-  (define-key pascal-mode-map "\M-\C-h"  'pascal-mark-defun)
-  (define-key pascal-mode-map "\C-c\C-b" 'pascal-insert-block)
-  (define-key pascal-mode-map "\M-*"     'pascal-star-comment)
-  (define-key pascal-mode-map "\C-c\C-c" 'pascal-comment-area)
-  (define-key pascal-mode-map "\C-c\C-u" 'pascal-uncomment-area)
-  (define-key pascal-mode-map "\M-\C-a"  'pascal-beg-of-defun)
-  (define-key pascal-mode-map "\M-\C-e"  'pascal-end-of-defun)
-  (define-key pascal-mode-map "\C-c\C-d" 'pascal-goto-defun)
-  (define-key pascal-mode-map "\C-c\C-o" 'pascal-outline)
-;;; A command to change the whole buffer won't be used terribly
-;;; often, so no need for a key binding.
-;  (define-key pascal-mode-map "\C-cd"    'pascal-downcase-keywords)
-;  (define-key pascal-mode-map "\C-cu"    'pascal-upcase-keywords)
-;  (define-key pascal-mode-map "\C-cc"    'pascal-capitalize-keywords)
-  )
 
 (defvar pascal-imenu-generic-expression
   '((nil "^[ \t]*\\(function\\|procedure\\)[ \t\n]+\\([a-zA-Z0-9_.:]+\\)" 2))
   "Imenu expression for Pascal-mode.  See `imenu-generic-expression'.")
 
 (defvar pascal-keywords
-  '("and" "array" "begin" "case" "const" "div" "do" "downto" "else" "end" 
-    "file" "for" "function" "goto" "if" "in" "label" "mod" "nil" "not" "of" 
-    "or" "packed" "procedure" "program" "record" "repeat" "set" "then" "to" 
+  '("and" "array" "begin" "case" "const" "div" "do" "downto" "else" "end"
+    "file" "for" "function" "goto" "if" "in" "label" "mod" "nil" "not" "of"
+    "or" "packed" "procedure" "program" "record" "repeat" "set" "then" "to"
     "type" "until" "var" "while" "with"
     ;; The following are not standard in pascal, but widely used.
     "get" "put" "input" "output" "read" "readln" "reset" "rewrite" "write"
@@ -131,28 +131,31 @@
 (defconst pascal-exclude-str-start "{-----\\/----- EXCLUDED -----\\/-----")
 (defconst pascal-exclude-str-end " -----/\\----- EXCLUDED -----/\\-----}")
 
-(defvar pascal-mode-syntax-table nil
+(defvar pascal-mode-syntax-table
+  (let ((st (make-syntax-table)))
+    (modify-syntax-entry ?\\ "."   st)
+    (modify-syntax-entry ?\( "()1" st)
+    (modify-syntax-entry ?\) ")(4" st)
+    ;; This used to use comment-syntax `b'.  But the only document I could
+    ;; find about the syntax of Pascal's comments said that (* ... } is
+    ;; a valid comment, just as { ... *) or (* ... *) or { ... }.
+    (modify-syntax-entry ?* ". 23" st)
+    (modify-syntax-entry ?{ "<"    st)
+    (modify-syntax-entry ?} ">"    st)
+    (modify-syntax-entry ?+ "."    st)
+    (modify-syntax-entry ?- "."    st)
+    (modify-syntax-entry ?= "."    st)
+    (modify-syntax-entry ?% "."    st)
+    (modify-syntax-entry ?< "."    st)
+    (modify-syntax-entry ?> "."    st)
+    (modify-syntax-entry ?& "."    st)
+    (modify-syntax-entry ?| "."    st)
+    (modify-syntax-entry ?_ "_"    st)
+    (modify-syntax-entry ?\' "\""  st)
+    st)
   "Syntax table in use in Pascal-mode buffers.")
 
-(if pascal-mode-syntax-table
-    ()
-  (setq pascal-mode-syntax-table (make-syntax-table))
-  (modify-syntax-entry ?\\ "."   pascal-mode-syntax-table)
-  (modify-syntax-entry ?( "()1"  pascal-mode-syntax-table)  
-  (modify-syntax-entry ?) ")(4"  pascal-mode-syntax-table)
-  (modify-syntax-entry ?* ". 23b" pascal-mode-syntax-table)
-  (modify-syntax-entry ?{ "<"    pascal-mode-syntax-table)
-  (modify-syntax-entry ?} ">"    pascal-mode-syntax-table)
-  (modify-syntax-entry ?+ "."    pascal-mode-syntax-table)
-  (modify-syntax-entry ?- "."    pascal-mode-syntax-table)
-  (modify-syntax-entry ?= "."    pascal-mode-syntax-table)
-  (modify-syntax-entry ?% "."    pascal-mode-syntax-table)
-  (modify-syntax-entry ?< "."    pascal-mode-syntax-table)
-  (modify-syntax-entry ?> "."    pascal-mode-syntax-table)
-  (modify-syntax-entry ?& "."    pascal-mode-syntax-table)
-  (modify-syntax-entry ?| "."    pascal-mode-syntax-table)
-  (modify-syntax-entry ?_ "_"    pascal-mode-syntax-table)
-  (modify-syntax-entry ?\' "\""  pascal-mode-syntax-table))
+
 
 (defconst pascal-font-lock-keywords (purecopy
   (list
@@ -252,7 +255,7 @@ are handled in another way, and should not be added to this list."
   "*Keywords to complete when standing at the first word of a statement.
 These are keywords such as begin, repeat, until, readln.
 The procedures and variables defined within the Pascal program
-are handled in another way,  and should not be added to this list."
+are handled in another way, and should not be added to this list."
   :type '(repeat (string :tag "Keyword"))
   :group 'pascal)
 
@@ -283,8 +286,8 @@ are handled in another way, and should not be added to this list."
 (defun pascal-declaration-end ()
   (let ((nest 1))
     (while (and (> nest 0)
-		(re-search-forward 
-		 "[:=]\\|\\(\\<record\\>\\)\\|\\(\\<end\\>\\)" 
+		(re-search-forward
+		 "[:=]\\|\\(\\<record\\>\\)\\|\\(\\<end\\>\\)"
 		 (save-excursion (end-of-line 2) (point)) t))
       (cond ((match-beginning 1) (setq nest (1+ nest)))
 	    ((match-beginning 2) (setq nest (1- nest)))
@@ -300,7 +303,7 @@ are handled in another way, and should not be added to this list."
 	    ((match-beginning 3) (setq nest (1+ nest)))))
     (= nest 0)))
 
-  
+
 (defsubst pascal-within-string ()
   (save-excursion
     (nth 3 (parse-partial-sexp (pascal-get-beg-of-line) (point)))))
@@ -326,7 +329,7 @@ Other useful functions are:
 \\[pascal-beg-of-defun]\t- Move to beginning of current function.
 \\[pascal-end-of-defun]\t- Move to end of current function.
 \\[pascal-goto-defun]\t- Goto function prompted for in the minibuffer.
-\\[pascal-outline]\t- Enter pascal-outline-mode (see also pascal-outline).
+\\[pascal-outline-mode]\t- Enter `pascal-outline-mode'.
 
 Variables controlling indentation/edit style:
 
@@ -383,7 +386,7 @@ no args, if that value is non-nil."
   (make-local-variable 'imenu-generic-expression)
   (setq imenu-generic-expression pascal-imenu-generic-expression)
   (setq imenu-case-fold-search t)
-  (run-hooks 'pascal-mode-hook))
+  (run-mode-hooks 'pascal-mode-hook))
 
 
 
@@ -420,7 +423,7 @@ no args, if that value is non-nil."
 			 (search-forward "*)" (pascal-get-end-of-line) t))))
 	     (setq setstar t))))
     ;; If last line was a star comment line then this one shall be too.
-    (if (null setstar)	
+    (if (null setstar)
 	(pascal-indent-line)
       (insert "*  "))))
 
@@ -602,7 +605,7 @@ area.  See also `pascal-comment-area'."
     (if (not (looking-at (concat "\\s \\|\\s)\\|" pascal-defun-re)))
 	(forward-sexp 1))
     (let ((nest 0) (max -1) (func 0)
-	  (reg (concat pascal-beg-block-re "\\|" 
+	  (reg (concat pascal-beg-block-re "\\|"
 		       pascal-end-block-re "\\|"
 		       pascal-defun-re)))
       (while (re-search-backward reg nil 'move)
@@ -634,7 +637,7 @@ area.  See also `pascal-comment-area'."
       (pascal-beg-of-defun))
   (forward-char 1)
   (let ((nest 0) (func 1)
-	(reg (concat pascal-beg-block-re "\\|" 
+	(reg (concat pascal-beg-block-re "\\|"
 		     pascal-end-block-re "\\|"
 		     pascal-defun-re)))
     (while (and (/= func 0)
@@ -686,7 +689,7 @@ area.  See also `pascal-comment-area'."
 	(catch 'found
 	  (while t
 	    (re-search-forward regexp nil 'move)
-	    (setq nest (if (match-end 1) 
+	    (setq nest (if (match-end 1)
 			   (1+ nest)
 			 (1- nest)))
 	    (cond ((eobp)
@@ -791,8 +794,7 @@ on the line which ends a function or procedure named NAME."
 (defun pascal-indent-command ()
   "Indent for special part of code."
   (let* ((indent-str (pascal-calculate-indent))
-	 (type (car indent-str))
-	 (ind (car (cdr indent-str))))
+	 (type (car indent-str)))
     (cond ((and (eq type 'paramlist)
 		(or (memq 'all pascal-auto-lineup)
 		    (memq 'paramlist pascal-auto-lineup)))
@@ -939,7 +941,7 @@ Return a list of two elements: (INDENT-TYPE INDENT-LEVEL)."
 			   )))))
 
       ;; Return type of block and indent level.
-      (if (> par 0)                               ; Unclosed Parenthesis 
+      (if (> par 0)                               ; Unclosed Parenthesis
 	  (list 'contexp par)
 	(list type (pascal-indent-level))))))
 
@@ -970,11 +972,11 @@ Do not count labels, case-statements or records."
 		 (end-of-line)
 		 (point-marker)
 	       (re-search-backward "\\<case\\>" nil t)))
-	(beg (point)) oldpos
+	(beg (point))
 	(ind 0))
     ;; Get right indent
     (while (< (point) end)
-      (if (re-search-forward 
+      (if (re-search-forward
 	   "^[ \t]*[^ \t,:]+[ \t]*\\(,[ \t]*[^ \t,:]+[ \t]*\\)*:"
 	   (marker-position end) 'move)
 	  (forward-char -1))
@@ -985,7 +987,6 @@ Do not count labels, case-statements or records."
 		(setq ind (current-column)))
 	    (pascal-end-of-statement))))
     (goto-char beg)
-    (setq oldpos (marker-position end))
     ;; Indent all case statements
     (while (< (point) end)
       (if (re-search-forward
@@ -998,7 +999,6 @@ Do not count labels, case-statements or records."
 	(forward-char 1)
 	(delete-horizontal-space)
 	(insert " "))
-      (setq oldpos (point))
       (pascal-end-of-statement))
     (goto-char savepos)))
 
@@ -1010,7 +1010,7 @@ indent of the current line in parameterlist."
     (let* ((oldpos (point))
 	   (stpos (progn (goto-char (scan-lists (point) -1 1)) (point)))
 	   (stcol (1+ (current-column)))
-	   (edpos (progn (pascal-declaration-end) 
+	   (edpos (progn (pascal-declaration-end)
 			 (search-backward ")" (pascal-get-beg-of-line) t)
 			 (point)))
 	   (usevar (re-search-backward "\\<var\\>" stpos t)))
@@ -1032,7 +1032,7 @@ indent of the current line in parameterlist."
   (let ((pos (point-marker)))
     (if (and (not (or arg start)) (not (pascal-declaration-beg)))
 	()
-      (let ((lineup (if (or (looking-at "\\<var\\>\\|\\<record\\>") arg start) 
+      (let ((lineup (if (or (looking-at "\\<var\\>\\|\\<record\\>") arg start)
 			":" "="))
 	    (stpos (if start start
 		       (forward-word 2) (backward-word 1) (point)))
@@ -1108,7 +1108,7 @@ indent of the current line in parameterlist."
 	(end-of-line)
 	(skip-chars-backward " \t")
 	(1+ (current-column))))))
-    
+
 
 
 ;;;
@@ -1146,7 +1146,7 @@ indent of the current line in parameterlist."
 			     (t "\\<\\(function\\|procedure\\)\\s +"))
 			    "\\<\\(" pascal-str "[a-zA-Z0-9_.]*\\)\\>"))
 	match)
-    
+
     (if (not (looking-at "\\<\\(function\\|procedure\\)\\>"))
 	(re-search-backward "\\<\\(function\\|procedure\\)\\>" nil t))
     (forward-char 1)
@@ -1171,8 +1171,8 @@ indent of the current line in parameterlist."
     (while (< (point) end)
       (if (re-search-forward "[:=]" (pascal-get-end-of-line) t)
 	  ;; Traverse current line
-	  (while (and (re-search-backward 
-		       (concat "\\((\\|\\<\\(var\\|type\\|const\\)\\>\\)\\|" 
+	  (while (and (re-search-backward
+		       (concat "\\((\\|\\<\\(var\\|type\\|const\\)\\>\\)\\|"
 			       pascal-symbol-re)
 		       (pascal-get-beg-of-line) t)
 		      (not (match-end 1)))
@@ -1232,7 +1232,7 @@ indent of the current line in parameterlist."
 
 (defun pascal-keyword-completion (keyword-list)
   "Give list of all possible completions of keywords in KEYWORD-LIST."
-  (mapcar '(lambda (s) 
+  (mapcar '(lambda (s)
 	     (if (string-match (concat "\\<" pascal-str) s)
 		 (if (or (null pascal-pred)
 			 (funcall pascal-pred s))
@@ -1283,7 +1283,7 @@ indent of the current line in parameterlist."
 	       (save-excursion (pascal-var-completion))
 	       (pascal-func-completion 'function)
 	       (pascal-keyword-completion pascal-separator-keywords))))
-      
+
       ;; Now we have built a list of all matches. Give response to caller
       (pascal-completion-response))))
 
@@ -1352,7 +1352,7 @@ indent of the current line in parameterlist."
 	(progn
 	  ;; Update entry number in list
 	  (setq pascal-last-completions allcomp
-		pascal-last-word-numb 
+		pascal-last-word-numb
 		(if (>= pascal-last-word-numb (1- (length allcomp)))
 		    0
 		  (1+ pascal-last-word-numb)))
@@ -1374,12 +1374,12 @@ indent of the current line in parameterlist."
 	     (if (not (null (cdr allcomp)))
 		 (message "(Complete but not unique)")
 	       (message "(Sole completion)")))
-	    ;; Display buffer if the current completion didn't help 
+	    ;; Display buffer if the current completion didn't help
 	    ;; on completing the label.
 	    ((and (not (null (cdr allcomp))) (= (length pascal-str)
 						(length match)))
 	     (with-output-to-temp-buffer "*Completions*"
-	       (display-completion-list allcomp))
+	       (display-completion-list allcomp pascal-str))
 	     ;; Wait for a keypress. Then delete *Completion*  window
 	     (momentary-string-display "" (point))
 	     (delete-window (get-buffer-window (get-buffer "*Completions*")))
@@ -1399,7 +1399,7 @@ indent of the current line in parameterlist."
 		    (all-completions pascal-str 'pascal-completion))))
     ;; Show possible completions in a temporary buffer.
     (with-output-to-temp-buffer "*Completions*"
-      (display-completion-list allcomp))
+      (display-completion-list allcomp pascal-str))
     ;; Wait for a keypress. Then delete *Completion*  window
     (momentary-string-display "" (point))
     (delete-window (get-buffer-window (get-buffer "*Completions*")))))
@@ -1447,7 +1447,7 @@ With optional second arg non-nil, STR is the complete name of the instruction."
 	    (setq pascal-str (pascal-build-defun-re "[a-zA-Z_]"))
 	  (setq pascal-str (pascal-build-defun-re pascal-str)))
 	(goto-char (point-min))
-      
+
 	;; Build a list of all possible completions
 	(while (re-search-forward pascal-str nil t)
 	  (setq match (buffer-substring (match-beginning 2) (match-end 2)))
@@ -1469,7 +1469,7 @@ The default is a name found in the buffer around point."
 		      default ""))
 	 (label (if (not (string= default ""))
 		    ;; Do completion with default
-		    (completing-read (concat "Label: (default " default ") ")
+		    (completing-read (concat "Label (default " default "): ")
 				     'pascal-comp-defun nil t "")
 		  ;; There is no default value. Complete without it
 		  (completing-read "Label: "
@@ -1489,30 +1489,20 @@ The default is a name found in the buffer around point."
 ;;;
 ;;; Pascal-outline-mode
 ;;;
-(defvar pascal-outline-map nil "Keymap used in Pascal Outline mode.")
+(defvar pascal-outline-map
+  (let ((map (make-sparse-keymap)))
+    (if (fboundp 'set-keymap-name)
+        (set-keymap-name pascal-outline-map 'pascal-outline-map))
+    (define-key map "\M-\C-a"  'pascal-outline-prev-defun)
+    (define-key map "\M-\C-e"  'pascal-outline-next-defun)
+    (define-key map "\C-c\C-d" 'pascal-outline-goto-defun)
+    (define-key map "\C-c\C-s" 'pascal-show-all)
+    (define-key map "\C-c\C-h" 'pascal-hide-other-defuns)
+    map)
+  "Keymap used in Pascal Outline mode.")
 
-(if pascal-outline-map
-    nil
-  (if (boundp 'set-keymap-name)
-      (set-keymap-name pascal-outline-map 'pascal-outline-map))
-  (if (not (boundp 'set-keymap-parent))
-      (setq pascal-outline-map (copy-keymap pascal-mode-map))
-    (setq pascal-outline-map (make-sparse-keymap))
-    (set-keymap-parent pascal-outline-map pascal-mode-map))
-  (define-key pascal-outline-map "\M-\C-a"  'pascal-outline-prev-defun)
-  (define-key pascal-outline-map "\M-\C-e"  'pascal-outline-next-defun)
-  (define-key pascal-outline-map "\C-c\C-d" 'pascal-outline-goto-defun)
-  (define-key pascal-outline-map "\C-c\C-s" 'pascal-show-all)
-  (define-key pascal-outline-map "\C-c\C-h" 'pascal-hide-other-defuns))
-
-(defvar pascal-outline-mode nil "Non-nil while using Pascal Outline mode.")
-(make-variable-buffer-local 'pascal-outline-mode)
-(set-default 'pascal-outline-mode nil)
-(if (not (assoc 'pascal-outline-mode minor-mode-alist))
-    (setq minor-mode-alist (append minor-mode-alist
-				   (list '(pascal-outline-mode " Outl")))))
-
-(defun pascal-outline (&optional arg)
+(define-obsolete-function-alias 'pascal-outline 'pascal-outline-mode)
+(define-minor-mode pascal-outline-mode
   "Outline-line minor mode for Pascal mode.
 When in Pascal Outline mode, portions
 of the text being edited may be made invisible. \\<pascal-outline-map>
@@ -1530,26 +1520,26 @@ Pascal Outline mode provides some additional commands.
 \\[pascal-hide-other-defuns]\
 \t- Hide everything but the current function (function under the cursor).
 \\[pascal-outline]\t- Leave pascal-outline-mode."
-  (interactive "P")
-  (setq pascal-outline-mode
-	(if (null arg) (not pascal-outline-mode) t))
-  (if (boundp 'redraw-mode-line)
-      (redraw-mode-line))
-  (if pascal-outline-mode
-      (progn
-	(setq selective-display t)
-	(use-local-map pascal-outline-map))
-    (progn
-      (setq selective-display nil)
-      (pascal-show-all)
-      (use-local-map pascal-mode-map))))
+  :init-value nil :lighter " Outl" :keymap pascal-outline-map
+  (add-to-invisibility-spec '(pascal . t))
+  (unless pascal-outline-mode
+    (pascal-show-all)))
 
 (defun pascal-outline-change (b e pascal-flag)
-  (let ((modp (buffer-modified-p)))
-    (unwind-protect
-	(subst-char-in-region b e (if (= pascal-flag ?\n) 
-				      ?\^M ?\n) pascal-flag)
-      (set-buffer-modified-p modp))))
+  (save-excursion
+    ;; This used to use selective display so the boundaries used by the
+    ;; callers didn't have to be precise, since it just looked for \n or \^M
+    ;; and switched them.
+    (goto-char b) (setq b (line-end-position))
+    (goto-char e) (setq e (line-end-position)))
+  (when (> e b)
+    ;; We could try and optimize this in the case where the region is
+    ;; already hidden.  But I'm not sure it's worth the trouble.
+    (remove-overlays b e 'invisible 'pascal)
+    (when (eq pascal-flag ?\^M)
+      (let ((ol (make-overlay b e nil t nil)))
+        (overlay-put ol 'invisible 'pascal)
+        (overlay-put ol 'evaporate t)))))
 
 (defun pascal-show-all ()
   "Show all of the text in the buffer."
@@ -1627,4 +1617,5 @@ Pascal Outline mode provides some additional commands.
 
 (provide 'pascal)
 
+;; arch-tag: 04535136-fd93-40b4-a505-c9bebdc051f5
 ;;; pascal.el ends here

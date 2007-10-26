@@ -34,7 +34,7 @@
 
 #define LogThenThrowIfDSErrorMacro( inDSError )																\
 {																											\
-	sInt32 aDSError = inDSError;																			\
+	SInt32 aDSError = inDSError;																			\
 	if ( aDSError != eDSNoErr )																				\
 	{																										\
 		LOG3( kStdErr, "*** DS Error: File: %s. Line: %d. Error = %d\n", __FILE__, __LINE__, aDSError );	\
@@ -44,7 +44,7 @@
 
 #define LogThenThrowIfTrueMacro( inCheck, inDSError )																\
 {																													\
-	sInt32	aDSError	= inDSError;																				\
+	SInt32	aDSError	= inDSError;																				\
 	if ( inCheck )																									\
 	{																												\
 		LOG3( kStdErr, "*** DS If True Error: File: %s. Line: %d. Error = %d\n", __FILE__, __LINE__, aDSError );	\
@@ -54,7 +54,7 @@
 
 #define LogThenThrowIfNilMacro( inPtr, inDSError )																\
 {																												\
-	sInt32	aDSError	= inDSError;																			\
+	SInt32	aDSError	= inDSError;																			\
 	if ( inPtr == nil )																							\
 	{																											\
 		LOG3( kStdErr, "*** DS If nil Error: File: %s. Line: %d. Error = %d\n", __FILE__, __LINE__, aDSError );	\
@@ -62,13 +62,23 @@
 	}																											\
 } if (true)
 
+#define LogThenThrowIfZeroMacro( inValue, inDSError )																\
+{																												\
+	SInt32	aDSError	= inDSError;																			\
+	if ( inValue == 0 )																							\
+	{																											\
+		LOG3( kStdErr, "*** DS If zero Error: File: %s. Line: %d. Error = %d\n", __FILE__, __LINE__, aDSError );	\
+		throw( aDSError );																						\
+	}																											\
+} if (true)
+
 #define LogThenThrowThisIfDSErrorMacro( inDSError, inThrowThisError )																			\
 {																																				\
-	sInt32 aDSError = inDSError;																												\
+	SInt32 aDSError = inDSError;																												\
 	if ( aDSError != eDSNoErr )																													\
 	{																																			\
 		LOG4( kStdErr, "*** DS Error: File: %s. Line: %d. Error = %d. Thrown Error = %d\n", __FILE__, __LINE__, aDSError, inThrowThisError );	\
-		throw( (sInt32)inThrowThisError );																												\
+		throw( (SInt32)inThrowThisError );																												\
 	}																																			\
 } if (true)
 

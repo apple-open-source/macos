@@ -20,7 +20,7 @@ class TkTextMark<TkObject
 
   def initialize(parent, index)
     #unless parent.kind_of?(TkText)
-    #  fail ArguemntError, "expect TkText for 1st argument"
+    #  fail ArgumentError, "expect TkText for 1st argument"
     #end
     @parent = @t = parent
     @tpath = parent.path
@@ -40,18 +40,47 @@ class TkTextMark<TkObject
   end
 
   def exist?
-    if ( tk_split_simplelist(_fromUTF8(tk_call_without_enc(@t.path, 'mark', 'names'))).find{|id| id == @id } )
+    #if ( tk_split_simplelist(_fromUTF8(tk_call_without_enc(@t.path, 'mark', 'names'))).find{|id| id == @id } )
+    if ( tk_split_simplelist(tk_call_without_enc(@t.path, 'mark', 'names'), false, true).find{|id| id == @id } )
       true
     else
       false
     end
   end
 
+=begin
+  # move to TkText::IndexModMethods module
   def +(mod)
-    TkText::IndexString.new(@id + ' + ' + mod)
+    return chars(mod) if mod.kind_of?(Numeric)
+
+    mod = mod.to_s
+    if mod =~ /^\s*[+-]?\d/
+      TkText::IndexString.new(@id + ' + ' + mod)
+    else
+      TkText::IndexString.new(@id + ' ' + mod)
+    end
   end
+
   def -(mod)
-    TkText::IndexString.new(@id + ' - ' + mod)
+    return chars(-mod) if mod.kind_of?(Numeric)
+
+    mod = mod.to_s
+    if mod =~ /^\s*[+-]?\d/
+      TkText::IndexString.new(@id + ' - ' + mod)
+    elsif mod =~ /^\s*[-]\s+(\d.*)$/
+      TkText::IndexString.new(@id + ' - -' + $1)
+    else
+      TkText::IndexString.new(@id + ' ' + mod)
+    end
+  end
+=end
+
+  def pos
+    @t.index(@id)
+  end
+
+  def pos=(where)
+    set(where)
   end
 
   def set(where)
@@ -104,7 +133,7 @@ class TkTextNamedMark<TkTextMark
 
   def initialize(parent, name, index=nil)
     #unless parent.kind_of?(TkText)
-    #  fail ArguemntError, "expect TkText for 1st argument"
+    #  fail ArgumentError, "expect TkText for 1st argument"
     #end
     @parent = @t = parent
     @tpath = parent.path

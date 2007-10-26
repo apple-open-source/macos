@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -170,13 +170,17 @@ bool AppleMPICInterruptController::start(IOService *provider)
 
 	// Set 8259 Cascade Mode.
 	STWBRX(kGCR0Cascade, mpicBaseAddress + kGlobal0Offset);
+	EIEIO();
 
+	// [5376988] - Leave everything disabled at this point
+#if 0
 	// Set the all CPUs Current Task Priority to zero.
 	for(cnt = 0; cnt < numCPUs; cnt++)
 	{
 		STWBRX(0, mpicBaseAddress + kPnCurrTskPriOffset + (kPnStride * cnt));
 		EIEIO();
 	}
+#endif
 
 	// allocates the arrays for the sleep varaibles:
 	originalIpivecPriOffsets = (UInt32*)IOMalloc(sizeof(UInt32) * numCPUs);
@@ -671,8 +675,8 @@ void AppleMPICInterruptController::setUpForSleep(bool goingToSleep, int cpu)
      
 	if ( goingToSleep )
 	{
-		DLOG("AppleMPICInterruptController::setUpForSleep ipivecPriOffset(0x%08lx) = 0x%08lx\n",(UInt32)ipivecPriOffset, 0x00000080);
-		DLOG("AppleMPICInterruptController::setUpForSleep currentTaskPri(0x%08lx) = 0x%08lx\n",(UInt32)currentTaskPri, (0x0000000F << 24));
+		DLOG("AppleMPICInterruptController::setUpForSleep ipivecPriOffset(0x%08lx) = 0x%08lx\n",(UInt32)ipivecPriOffset, 0x80000000);
+		DLOG("AppleMPICInterruptController::setUpForSleep currentTaskPri(0x%08lx) = 0x%08lx\n",(UInt32)currentTaskPri, 0x0000000F);
 
 		if ( resetOnWake && (cpu == 0) )
 		{
@@ -726,19 +730,24 @@ void AppleMPICInterruptController::setUpForSleep(bool goingToSleep, int cpu)
 
 		if (numCPUs > 1)
 		{
-			*ipivecPriOffset = 0x00000080;
+			STWBRX (0x80000000, (unsigned int)ipivecPriOffset);
+			//*ipivecPriOffset = 0x00000080;
 			EIEIO();
 		}
         
-		*currentTaskPri =  (0x0000000F << 24);
+		STWBRX (0xF, (unsigned int)currentTaskPri);
+		//*currentTaskPri =  (0x0000000F << 24);
 		EIEIO();
 
 	}
 	else
 	{
 		// We are waking up
-		DLOG( "AppleMPICInterruptController::setUpForSleep ipivecPriOffset(0x%08lx) = 0x%08lx\n",(UInt32)ipivecPriOffset, originalIpivecPriOffsets[cpu] );
-		DLOG( "AppleMPICInterruptController::setUpForSleep currentTaskPri(0x%08lx)  = 0x%08lx\n",(UInt32)currentTaskPri, originalCurrentTaskPris[cpu] );
+		//DLOG( "AppleMPICInterruptController::setUpForSleep ipivecPriOffset(0x%08lx) = 0x%08lx\n",(UInt32)ipivecPriOffset, originalIpivecPriOffsets[cpu] );
+		//DLOG( "AppleMPICInterruptController::setUpForSleep currentTaskPri(0x%08lx)  = 0x%08lx\n",(UInt32)currentTaskPri, originalCurrentTaskPris[cpu] );
+
+		DLOG( "AppleMPICInterruptController::setUpForSleep on wake ipivecPriOffset(0x%08lx) = 0x%08lx - LWBRX(0x%lx)\n",(UInt32)ipivecPriOffset, *ipivecPriOffset, LWBRX ((unsigned int)ipivecPriOffset) );
+		DLOG( "AppleMPICInterruptController::setUpForSleep on wake currentTaskPri(0x%08lx)  = 0x%08lx - LWBRX(0x%lx)\n",(UInt32)currentTaskPri, *currentTaskPri, LWBRX ((unsigned int)currentTaskPri) );
 
 		if (resetOnWake && (cpu == 0))
 		{
@@ -795,7 +804,8 @@ void AppleMPICInterruptController::setUpForSleep(bool goingToSleep, int cpu)
 			EIEIO();
 		}
 
-		*currentTaskPri =  (0x00000000 << 24); // originalCurrentTaskPris[cpu];
+		STWBRX (0, (unsigned int)currentTaskPri);
+		//*currentTaskPri =  (0x00000000 << 24); // originalCurrentTaskPris[cpu];
 		EIEIO();
 
 		// Set 8259 Cascade Mode - this is needed on K2 machines.

@@ -39,6 +39,7 @@
 #include "webdav_cache.h"
 #include "webdav_network.h"
 #include "OpaqueIDs.h"
+#include "LogMessage.h"
 
 /*****************************************************************************/
 
@@ -674,7 +675,7 @@ int filesystem_create(struct webdav_request_create *request_create, struct webda
 				
 				statbuf.st_dev = 0;
 				statbuf.st_ino = node->fileid;
-				statbuf.st_mode = S_IFREG | ACCESSPERMS;
+				statbuf.st_mode = S_IFREG | S_IRWXU;
 				/* Why 1 for st_nlink?
 				 * Getting the real link count for directories is expensive.
 				 * Setting it to 1 lets FTS(3) (and other utilities that assume
@@ -773,7 +774,7 @@ int filesystem_mkdir(struct webdav_request_mkdir *request_mkdir, struct webdav_r
 				
 				statbuf.st_dev = 0;
 				statbuf.st_ino = node->fileid;
-				statbuf.st_mode = S_IFDIR | ACCESSPERMS;
+				statbuf.st_mode = S_IFDIR | S_IRWXU;
 				/* Why 1 for st_nlink?
 				 * Getting the real link count for directories is expensive.
 				 * Setting it to 1 lets FTS(3) (and other utilities that assume
@@ -954,7 +955,14 @@ int filesystem_remove(struct webdav_request_remove *request_remove)
 	require_action_quiet(!NODE_IS_DELETED(node), deleted_node, error = ESTALE);
 	
 	error = network_remove(request_remove->pcr.pcr_uid, node, &remove_date);
-	if ( !error )
+	
+	/*
+	 *  When connected to an Mac OS X Server, I can delete the main file (ie blah.dmg), but when I try
+	 *  to delete the ._ file (ie ._blah.dmg), I get a file not found error since the vfs layer on the
+	 *  server already deleted the ._ file.  Since I am deleting the ._ anyways, the ENOENT is ok and I
+	 *  should still clean up. 
+	 */
+	if ( (!error) || (error == ENOENT) )
 	{
 		/*
 		 * we just changed the parent_node so update or remove its attributes
@@ -1078,7 +1086,7 @@ int filesystem_fsync(struct webdav_request_fsync *request_fsync)
 
 		statbuf.st_dev = 0;
 		statbuf.st_ino = node->fileid;
-		statbuf.st_mode = S_IFREG | ACCESSPERMS;
+		statbuf.st_mode = S_IFREG | S_IRWXU;
 		/* Why 1 for st_nlink?
 		* Getting the real link count for directories is expensive.
 		* Setting it to 1 lets FTS(3) (and other utilities that assume

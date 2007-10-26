@@ -32,6 +32,7 @@
 #include <sys/mman.h>
 #include <sys/queue.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 
 #include <fcntl.h>

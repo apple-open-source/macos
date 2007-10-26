@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -111,8 +111,9 @@ static void __DACommandExecute( char * const *           argv,
          * Prepare the post-fork execution environment.
          */
 
-        setuid( userUID );
         setgid( userGID );
+        ___initgroups( userUID, userGID );
+        setuid( userUID );
 
         for ( fd = getdtablesize() - 1; fd > -1; fd-- )
         {

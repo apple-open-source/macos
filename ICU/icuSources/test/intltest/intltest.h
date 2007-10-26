@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -78,8 +78,10 @@ public:
     virtual UBool setNoErrMsg( UBool no_err_msg = TRUE );
     virtual UBool setQuick( UBool quick = TRUE );
     virtual UBool setLeaks( UBool leaks = TRUE );
+    virtual UBool setWarnOnMissingData( UBool warn_on_missing_data = TRUE );
 
     virtual int32_t getErrors( void );
+    virtual int32_t getDataErrors (void );
 
     virtual void setCaller( IntlTest* callingTest ); // for internal use only
     virtual void setPath( char* path ); // for internal use only
@@ -102,6 +104,10 @@ public:
 
     virtual void errln( const UnicodeString &message );
 
+    virtual void dataerr( const UnicodeString &message );
+
+    virtual void dataerrln( const UnicodeString &message );
+
     // convenience functions: sprintf() + errln() etc.
     void log(const char *fmt, ...);
     void logln(const char *fmt, ...);
@@ -109,6 +115,8 @@ public:
     void infoln(const char *fmt, ...);
     void err(const char *fmt, ...);
     void errln(const char *fmt, ...);
+    void dataerr(const char *fmt, ...);
+    void dataerrln(const char *fmt, ...);
 
     // Print ALL named errors encountered so far
     void printErrors(); 
@@ -166,21 +174,25 @@ protected:
 
     virtual int32_t IncErrorCount( void );
 
+    virtual int32_t IncDataErrorCount( void );
+
     virtual UBool callTest( IntlTest& testToBeCalled, char* par );
 
 
-    UBool      verbose;
-    UBool      no_err_msg;
-    UBool      quick;
-    UBool      leaks;
+    UBool       verbose;
+    UBool       no_err_msg;
+    UBool       quick;
+    UBool       leaks;
+    UBool       warn_on_missing_data;
 
 private:
-    UBool      LL_linestart;
+    UBool       LL_linestart;
     int32_t     LL_indentlevel;
 
     int32_t     errorCount;
+    int32_t     dataErrorCount;
     IntlTest*   caller;
-    char*       path;           // specifies subtests
+    char*       testPath;           // specifies subtests
 
     //FILE *testoutfp;
     void *testoutfp;
@@ -194,10 +206,6 @@ protected:
     static UnicodeString &prettify(const UnicodeString &source, UnicodeString &target);
     static UnicodeString prettify(const UnicodeString &source, UBool parseBackslash=FALSE);
     static UnicodeString &appendHex(uint32_t number, int32_t digits, UnicodeString &target);
-
-    /* complete a relative path to a full pathname, and convert to platform-specific syntax. */
-    /* The character seperating directories for the relative path is '|'.                    */
-    static void pathnameInContext( char* fullname, int32_t maxsize, const char* relpath );
 
 public:
     static void setICU_DATA();       // Set up ICU_DATA if necessary.
@@ -226,6 +234,8 @@ void it_infoln( void );
 void it_err(void);
 void it_err( UnicodeString message );
 void it_errln( UnicodeString message );
+void it_dataerr( UnicodeString message );
+void it_dataerrln( UnicodeString message );
 
 /**
  * This is a variant of cintltst/ccolltst.c:CharsToUChars().

@@ -35,7 +35,7 @@
 .Sh SYNOPSIS
 .In signal.h
 .Ft int
-.Fn sigwait "const sigset_t *set" "int *sig"
+.Fn sigwait "const sigset_t *restrict set" "int *restrict sig"
 .Sh DESCRIPTION
 The
 .Fn sigwait
@@ -58,8 +58,8 @@ should be blocked, but not ignored, at the time of the call to
 .Pp
 Processes which call 
 .Fn sigwait
-on ignored signals will wait indefinately.  Ignored 
-signals are dropped immeadiately by the system, before delivery 
+on ignored signals will wait indefinitely.  Ignored 
+signals are dropped immediately by the system, before delivery 
 to a waiting process.
 .Sh RETURN VALUES
 If successful,
@@ -77,11 +77,11 @@ will fail if:
 specifies one or more invalid signal numbers.
 .El
 .Sh SEE ALSO
+.Xr pthread_sigmask 2 ,
 .Xr sigaction 2 ,
 .Xr sigpending 2 ,
 .Xr sigsuspend 2 ,
-.Xr pause 3 ,
-.Xr pthread_sigmask 2
+.Xr pause 3
 .Sh STANDARDS
 .Fn sigwait
 conforms to ISO/IEC 9945-1:1996 (``POSIX.1'')

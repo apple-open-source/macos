@@ -41,6 +41,7 @@
 #define kEAPClientPropUserName	       		CFSTR("UserName")
 #define kEAPClientPropUserPassword		CFSTR("UserPassword")
 #define kEAPClientPropUserPasswordKeychainItemID CFSTR("UserPasswordKeychainItemID")
+#define kEAPClientPropOneTimeUserPassword CFSTR("OneTimeUserPassword") /* boolean (false) */
 #define kEAPClientPropAcceptEAPTypes		CFSTR("AcceptEAPTypes") /* array[integer] */
 
 /* 
@@ -58,8 +59,8 @@
 	CFSTR("TLSAllowAnyRoot") 			/* boolean (false) */
 #define kEAPClientPropTLSEnableSessionResumption \
 	CFSTR("TLSEnableSessionResumption") 		/* boolean (true) */
-#define kEAPClientPropTLSUserTrustProceed \
-	CFSTR("TLSUserTrustProceed")			/* integer */
+#define kEAPClientPropTLSUserTrustProceedCertificateChain \
+	CFSTR("TLSUserTrustProceedCertificateChain")	/* array[data] */
 
 /* for TTLS: */
 #define kEAPClientPropTTLSInnerAuthentication	CFSTR("TTLSInnerAuthentication")

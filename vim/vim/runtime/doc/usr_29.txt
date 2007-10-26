@@ -1,4 +1,4 @@
-*usr_29.txt*	For Vim version 6.2.  Last change: 2002 Aug 14
+*usr_29.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -58,7 +58,7 @@ CTRL-].  Now you are at the definition of "write_char".
 	|{				      |
 	|   int i;			      |
 	|   for (i = 0; i < cnt; ++i)	      |
-	|      write_line(s[i);		      |
+	|      write_line(s[i]);	      |
 	|}	    |			      |
 	+-----------|-------------------------+
 		    |
@@ -222,7 +222,7 @@ example, suppose you want to select a tag that starts with "write_": >
 
 	:tselect /^write_
 
-The "^" specifies that the tag starts with "write".  Otherwise it would also
+The "^" specifies that the tag starts with "write_".  Otherwise it would also
 be found halfway a tag name.  Similarly "$" at the end makes sure the pattern
 matches until the end of a tag.
 
@@ -243,10 +243,10 @@ window: >
 	:vsplit functions
 
 The window contains a list of all the functions.  There is some more stuff,
-but you can ignore that.  Do ":set ts=99" to clean it up a bit.
+but you can ignore that.  Do ":setlocal ts=99" to clean it up a bit.
    In this window, define a mapping: >
 
-	:nmap <buffer> <CR> 0ye<C-W>w:tag <C-R>"<CR>
+	:nnoremap <buffer> <CR> 0ye<C-W>w:tag <C-R>"<CR>
 
 Move the cursor to the line that contains the function you want to go to.
 Now press <Enter>.  Vim will go to the other window and jump to the selected
@@ -267,7 +267,7 @@ characters in a tag.
 When you use the SNiFF+ program, you can use the Vim interface to it |sniff|.
 SNiFF+ is a commercial program.
 
-Cscope is a free program.  I does not only find places where an identifier is
+Cscope is a free program.  It does not only find places where an identifier is
 declared, but also where it is used.  See |cscope|.
 
 ==============================================================================
@@ -291,9 +291,9 @@ in the preview window with: >
 	CTRL-W }
 
 There is a script that automatically displays the text where the word under
-the cursor was defined.  See |CursorHold-example|
+the cursor was defined.  See |CursorHold-example|.
 
-To close the preview window again, use this command: >
+To close the preview window use this command: >
 
 	:pclose
 
@@ -345,7 +345,7 @@ the next "#else" or "#endif" use: >
 
 	]#
 
-These two commands skip any "#if" - "#endif" blocks that it encounters.
+These two commands skip any "#if" - "#endif" blocks that they encounter.
 Example:
 
 	#if defined(HAS_INC_H) ~
@@ -362,7 +362,7 @@ With the cursor in the last line, "[#" moves to the first line.  The "#ifdef"
 MOVING IN CODE BLOCKS
 
 In C code blocks are enclosed in {}.  These can get pretty long.  To move to
-the start of the outer block use the "[[" command.  Use "]]" to find the end.
+the start of the outer block use the "[[" command.  Use "][" to find the end.
 This assumes that the "{" and "}" are in the first column.
    The "[{" command moves to the start of the current block.  It skips over
 pairs of {} at the same level.  "]}" jumps to the end.
@@ -377,7 +377,7 @@ pairs of {} at the same level.  "]}" jumps to the end.
 	   |	[{ |	  |	    foo(32);		 |     --+
 	   |	   |   [{ |	    if (bar(a))  --+	 | ]}	 |
 	   +--	   |	  +--		break;	   | ]}  |	 |
-		   |		}		 <-+	 |	 | ]]
+		   |		}		 <-+	 |	 | ][
 		   +--		foobar(a)		 |	 |
 			    }			       <-+	 |
 			}				       <-+
@@ -386,9 +386,9 @@ When writing C++ or Java, the outer {} block is for the class.  The next level
 of {} is for a method.  When somewhere inside a class use "[m" to find the
 previous start of a method.  "]m" finds the next end of a method.
 
-Additionally, "[]" moves backward to the end of a function and "][" moves
-forward to the end of a function.  The end of a function is defined by a "}"
-in the first column.
+Additionally, "[]" moves backward to the end of a function and "]]" moves
+forward to the start of the next function.  The end of a function is defined
+by a "}" in the first column.
 
 				int func1(void)
 				{

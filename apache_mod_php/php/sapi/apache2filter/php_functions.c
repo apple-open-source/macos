@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,11 +16,17 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_functions.c,v 1.31.2.2.8.2 2007/01/01 09:46:51 sebastian Exp $ */
+/* $Id: php_functions.c,v 1.44.2.2.2.2 2007/01/01 09:36:12 sebastian Exp $ */
+
+
+#define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
 #include "php.h"
+#include "ext/standard/php_smart_str.h"
+#include "ext/standard/info.h"
 #include "SAPI.h"
 
+#define CORE_PRIVATE
 #include "apr_strings.h"
 #include "apr_time.h"
 #include "ap_config.h"
@@ -86,7 +92,7 @@ PHP_FUNCTION(virtual)
 #define ADD_LONG(name) \
 		add_property_long(return_value, #name, rr->name)
 #define ADD_TIME(name) \
-		add_property_long(return_value, #name, rr->name / APR_USEC_PER_SEC);
+		add_property_long(return_value, #name, apr_time_sec(rr->name));
 #define ADD_STRING(name) \
 		if (rr->name) add_property_string(return_value, #name, (char *) rr->name, 1)
 
@@ -132,7 +138,6 @@ PHP_FUNCTION(apache_lookup_uri)
 		ADD_LONG(allowed);
 		ADD_LONG(sent_bodyct);
 		ADD_LONG(bytes_sent);
-		ADD_LONG(request_time);
 		ADD_LONG(mtime);
 		ADD_TIME(request_time);
 
@@ -153,15 +158,13 @@ PHP_FUNCTION(apache_request_headers)
 	const apr_array_header_t *arr;
 	char *key, *val;
 
-	if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 	
 	ctx = SG(server_context);
 	arr = apr_table_elts(ctx->f->r->headers_in);
 
 	APR_ARRAY_FOREACH_OPEN(arr, key, val)
-		if (!val) val = empty_string;
+		if (!val) val = "";
 		add_assoc_string(return_value, key, val, 1);
 	APR_ARRAY_FOREACH_CLOSE()
 }
@@ -175,15 +178,13 @@ PHP_FUNCTION(apache_response_headers)
 	const apr_array_header_t *arr;
 	char *key, *val;
 
-	if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 	
 	ctx = SG(server_context);
 	arr = apr_table_elts(ctx->f->r->headers_out);
 
 	APR_ARRAY_FOREACH_OPEN(arr, key, val)
-		if (!val) val = empty_string;
+		if (!val) val = "";
 		add_assoc_string(return_value, key, val, 1);
 	APR_ARRAY_FOREACH_CLOSE()
 }
@@ -286,11 +287,79 @@ PHP_FUNCTION(apache_getenv)
 }
 /* }}} */
 
-PHP_MINFO_FUNCTION(apache)
+static char *php_apache_get_version()
 {
+#if MODULE_MAGIC_NUMBER_MAJOR >= 20060905
+	return (char *) ap_get_server_banner();
+#else
+	return (char *) ap_get_server_version();
+#endif
 }
 
-static function_entry apache_functions[] = {
+/* {{{ proto string apache_get_version(void)
+   Fetch Apache version */
+PHP_FUNCTION(apache_get_version)
+{
+	char *apv = php_apache_get_version();
+
+	if (apv && *apv) {
+		RETURN_STRING(apv, 1);
+	} else {
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+/* {{{ proto array apache_get_modules(void)
+   Get a list of loaded Apache modules */
+PHP_FUNCTION(apache_get_modules)
+{
+	int n;
+	char *p;
+	
+	array_init(return_value);
+	
+	for (n = 0; ap_loaded_modules[n]; ++n) {
+		char *s = (char *) ap_loaded_modules[n]->name;
+		if ((p = strchr(s, '.'))) {
+			add_next_index_stringl(return_value, s, (p - s), 1);
+		} else {
+			add_next_index_string(return_value, s, 1);
+		}
+	}
+}
+/* }}} */
+
+PHP_MINFO_FUNCTION(apache)
+{
+	char *apv = php_apache_get_version();
+	smart_str tmp1 = {0};
+	int n;
+	char *p;
+	
+	for (n = 0; ap_loaded_modules[n]; ++n) {
+		char *s = (char *) ap_loaded_modules[n]->name;
+		if ((p = strchr(s, '.'))) {
+			smart_str_appendl(&tmp1, s, (p - s));
+		} else {
+			smart_str_appends(&tmp1, s);
+		}
+		smart_str_appendc(&tmp1, ' ');
+	}
+	if ((tmp1.len - 1) >= 0) {
+		tmp1.c[tmp1.len - 1] = '\0';
+	}
+            
+	php_info_print_table_start();
+	if (apv && *apv) {
+		php_info_print_table_row(2, "Apache Version", apv);
+	}
+	php_info_print_table_row(2, "Loaded Modules", tmp1.c);
+	smart_str_free(&tmp1);
+	php_info_print_table_end();
+}
+
+static zend_function_entry apache_functions[] = {
 	PHP_FE(apache_lookup_uri, NULL)
 	PHP_FE(virtual, NULL)
 	PHP_FE(apache_request_headers, NULL)
@@ -298,6 +367,8 @@ static function_entry apache_functions[] = {
 	PHP_FE(apache_setenv, NULL)
 	PHP_FE(apache_getenv, NULL)
 	PHP_FE(apache_note, NULL)
+	PHP_FE(apache_get_version, NULL)
+	PHP_FE(apache_get_modules, NULL)
 	PHP_FALIAS(getallheaders, apache_request_headers, NULL)
 	{NULL, NULL, NULL}
 };

@@ -81,7 +81,7 @@ CFTypeID SecCertificateRequestGetTypeID(void);
 	   certificate request. The private key item must be of class type 
 	   kSecAppleKeyItemClass.
 	@param attributeList An optional list of OIDs for the certificate request.
-	@param certRequest A returned reference to the certificate request.
+	@param certRequest A returned reference to the certificate request. Call CFRelease when done with this certificate request.
 	@result noErr 0 No error.
 */
 OSStatus SecCertificateRequestCreate(
@@ -135,7 +135,7 @@ OSStatus SecCertificateRequestGetType(
 	   be retrieved.
 	@param certficateRef The returned certificate reference for a 
 	   CSSM_TP_AUTHORITY_REQUEST_CERTISSUE only. All other request types return 
-	   NULL here.
+	   NULL here. Call CFRelease when done with this certificate reference.
     @result noErr 0 No error.
 */
 OSStatus SecCertificateRequestGetResult(
@@ -161,7 +161,7 @@ OSStatus SecCertificateRequestGetResult(
 	   SecCertificateRequestCreate().
     @param attributeList An optional list of OID/value pairs for finding the 
 	   certificate request.
-    @param certRequest A returned reference to the certificate request.
+    @param certRequest A returned reference to the certificate request. Call CFRelease when done with this reference.
 */
 OSStatus SecCertificateFindRequest(
         const CSSM_OID *policy,

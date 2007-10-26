@@ -59,9 +59,11 @@
 
 #if defined HAVE_SYS_MODEM_H
 #include <sys/modem.h>
+#ifndef __QNXNTO__
 #define TIOCMSET MCSETA
 #define TIOCMGET MCGETA
 #define TIOCM_RTS MRTS
+#endif
 #endif
 
 #ifdef HAVE_TERMIOS_H
@@ -146,6 +148,7 @@ struct palisade_unit {
 	char		rpt_status;	/* TSIP Parser State */
 	short 		rpt_cnt;	/* TSIP packet length so far */
 	char 		rpt_buf[BMAX]; 	 /* packet assembly buffer */
+	int		type;		/* Clock mode type */
 };
 
 /*

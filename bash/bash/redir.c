@@ -1,6 +1,6 @@
 /* redir.c -- Functions to perform input and output redirection. */
 
-/* Copyright (C) 1997-2002 Free Software Foundation, Inc.
+/* Copyright (C) 1997-2005 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -25,7 +25,7 @@
 
 #include <stdio.h>
 #include "bashtypes.h"
-#ifndef _MINIX
+#if !defined (_MINIX) && defined (HAVE_SYS_FILE_H)
 #  include <sys/file.h>
 #endif
 #include "filecntl.h"
@@ -42,6 +42,7 @@ extern int errno;
 #endif
 
 #include "bashansi.h"
+#include "bashintl.h"
 
 #include "memalloc.h"
 #include "shell.h"
@@ -53,6 +54,8 @@ extern int errno;
 #  include "input.h"
 #endif
 
+int expanding_redir;
+
 extern int posixly_correct;
 extern REDIRECT *redirection_undo_list;
 extern REDIRECT *exec_redirection_undo_list;
@@ -60,10 +63,10 @@ extern REDIRECT *exec_redirection_undo_list;
 /* Static functions defined and used in this file. */
 static void add_undo_close_redirect __P((int));
 static void add_exec_redirect __P((REDIRECT *));
-static int add_undo_redirect __P((int));
+static int add_undo_redirect __P((int, enum r_instruction));
 static int expandable_redirection_filename __P((REDIRECT *));
 static int stdin_redirection __P((enum r_instruction, int));
-static int do_redirection_internal __P((REDIRECT *, int, int, int));
+static int do_redirection_internal __P((REDIRECT *, int));
 
 static int write_here_document __P((int, WORD_DESC *));
 static int write_here_string __P((int, WORD_DESC *));
@@ -93,7 +96,7 @@ redirection_error (temp, error)
   if (temp->redirector < 0)
     /* This can happen when read_token_word encounters overflow, like in
        exec 4294967297>x */
-    filename = "file descriptor out of range";
+    filename = _("file descriptor out of range");
 #ifdef EBADF
   else if (temp->redirector >= 0 && errno == EBADF)
     {
@@ -135,21 +138,21 @@ redirection_error (temp, error)
   switch (error)
     {
     case AMBIGUOUS_REDIRECT:
-      internal_error ("%s: ambiguous redirect", filename);
+      internal_error (_("%s: ambiguous redirect"), filename);
       break;
 
     case NOCLOBBER_REDIRECT:
-      internal_error ("%s: cannot overwrite existing file", filename);
+      internal_error (_("%s: cannot overwrite existing file"), filename);
       break;
 
 #if defined (RESTRICTED_SHELL)
     case RESTRICTED_REDIRECT:
-      internal_error ("%s: restricted: cannot redirect output", filename);
+      internal_error (_("%s: restricted: cannot redirect output"), filename);
       break;
 #endif /* RESTRICTED_SHELL */
 
     case HEREDOC_REDIRECT:
-      internal_error ("cannot create temp file for here document: %s", strerror (heredoc_errno));
+      internal_error (_("cannot create temp file for here document: %s"), strerror (heredoc_errno));
       break;
 
     default:
@@ -160,21 +163,21 @@ redirection_error (temp, error)
   FREE (allocname);
 }
 
-/* Perform the redirections on LIST.  If FOR_REAL, then actually make
-   input and output file descriptors, otherwise just do whatever is
-   neccessary for side effecting.  INTERNAL says to remember how to
-   undo the redirections later, if non-zero.  If SET_CLEXEC is non-zero,
-   file descriptors opened in do_redirection () have their close-on-exec
-   flag set. */
+/* Perform the redirections on LIST.  If flags & RX_ACTIVE, then actually
+   make input and output file descriptors, otherwise just do whatever is
+   neccessary for side effecting.  flags & RX_UNDOABLE says to remember
+   how to undo the redirections later, if non-zero.  If flags & RX_CLEXEC
+   is non-zero, file descriptors opened in do_redirection () have their
+   close-on-exec flag set. */
 int
-do_redirections (list, for_real, internal, set_clexec)
+do_redirections (list, flags)
      REDIRECT *list;
-     int for_real, internal, set_clexec;
+     int flags;
 {
   int error;
   REDIRECT *temp;
 
-  if (internal)
+  if (flags & RX_UNDOABLE)
     {
       if (redirection_undo_list)
 	{
@@ -187,7 +190,7 @@ do_redirections (list, for_real, internal, set_clexec)
 
   for (temp = list; temp; temp = temp->next)
     {
-      error = do_redirection_internal (temp, for_real, internal, set_clexec);
+      error = do_redirection_internal (temp, flags);
       if (error)
 	{
 	  redirection_error (temp, error);
@@ -238,7 +241,9 @@ redirection_expand (word)
     w->flags |= W_NOSPLIT;
 
   tlist1 = make_word_list (w, (WORD_LIST *)NULL);
+  expanding_redir = 1;
   tlist2 = expand_words_no_vars (tlist1);
+  expanding_redir = 0;
   dispose_words (tlist1);
 
   if (!tlist2 || tlist2->next)
@@ -263,7 +268,7 @@ write_here_string (fd, redirectee)
   int herelen, n, e;
 
   herestr = expand_string_to_string (redirectee->word, 0);
-  herelen = strlen (herestr);
+  herelen = STRLEN (herestr);
 
   n = write (fd, herestr, herelen);
   if (n == herelen)
@@ -272,7 +277,7 @@ write_here_string (fd, redirectee)
       herelen = 1;
     }
   e = errno;
-  free (herestr);
+  FREE (herestr);
   if (n != herelen)
     {
       if (e == 0)
@@ -501,7 +506,7 @@ redir_special_open (spec, filename, flags, mode, ri)
 #if defined (HAVE_NETWORK)
       fd = netopen (filename);
 #else
-      internal_warning ("/dev/(tcp|udp)/host/port not supported without networking");
+      internal_warning (_("/dev/(tcp|udp)/host/port not supported without networking"));
       fd = open (filename, flags, mode);
 #endif
       break;
@@ -591,7 +596,10 @@ redir_open (filename, flags, mode, ri)
       fd = open (filename, flags, mode);
 #if defined (AFS)
       if ((fd < 0) && (errno == EACCES))
-	fd = open (filename, flags & ~O_CREAT, mode);
+	{
+	  fd = open (filename, flags & ~O_CREAT, mode);
+	  errno = EACCES;	/* restore errno */
+	}
 #endif /* AFS */
     }
 
@@ -600,14 +608,15 @@ redir_open (filename, flags, mode, ri)
 
 /* Do the specific redirection requested.  Returns errno or one of the
    special redirection errors (*_REDIRECT) in case of error, 0 on success.
-   If FOR_REAL is zero, then just do whatever is neccessary to produce the
-   appropriate side effects.   REMEMBERING, if non-zero, says to remember
-   how to undo each redirection.  If SET_CLEXEC is non-zero, then
-   we set all file descriptors > 2 that we open to be close-on-exec.  */
+   If flags & RX_ACTIVE is zero, then just do whatever is neccessary to
+   produce the appropriate side effects.   flags & RX_UNDOABLE, if non-zero,
+   says to remember how to undo each redirection.  If flags & RX_CLEXEC is
+   non-zero, then we set all file descriptors > 2 that we open to be
+   close-on-exec.  */
 static int
-do_redirection_internal (redirect, for_real, remembering, set_clexec)
+do_redirection_internal (redirect, flags)
      REDIRECT *redirect;
-     int for_real, remembering, set_clexec;
+     int flags;
 {
   WORD_DESC *redirectee;
   int redir_fd, fd, redirector, r, oflags;
@@ -620,6 +629,9 @@ do_redirection_internal (redirect, for_real, remembering, set_clexec)
   redir_fd = redirect->redirectee.dest;
   redirector = redirect->redirector;
   ri = redirect->instruction;
+
+  if (redirect->flags & RX_INTERNAL)
+    flags |= RX_INTERNAL;
 
   if (TRANSLATE_REDIRECT (ri))
     {
@@ -739,13 +751,13 @@ do_redirection_internal (redirect, for_real, remembering, set_clexec)
       if (fd < 0)
 	return (errno);
 
-      if (for_real)
+      if (flags & RX_ACTIVE)
 	{
-	  if (remembering)
+	  if (flags & RX_UNDOABLE)
 	    {
 	      /* Only setup to undo it if the thing to undo is active. */
 	      if ((fd != redirector) && (fcntl (redirector, F_GETFD, 0) != -1))
-		add_undo_redirect (redirector);
+		add_undo_redirect (redirector, ri);
 	      else
 		add_undo_close_redirect (redirector);
 	    }
@@ -775,7 +787,7 @@ do_redirection_internal (redirect, for_real, remembering, set_clexec)
 	   * both sh and ksh leave the file descriptors open across execs.
 	   * The Posix standard mentions only the exec builtin.
 	   */
-	  if (set_clexec && (redirector > 2))
+	  if ((flags & RX_CLEXEC) && (redirector > 2))
 	    SET_CLOSE_ON_EXEC (redirector);
 	}
 
@@ -793,10 +805,10 @@ do_redirection_internal (redirect, for_real, remembering, set_clexec)
 	 redirection here. */
       if (ri == r_err_and_out)
 	{
-	  if (for_real)
+	  if (flags & RX_ACTIVE)
 	    {
-	      if (remembering)
-		add_undo_redirect (2);
+	      if (flags & RX_UNDOABLE)
+		add_undo_redirect (2, ri);
 	      if (dup2 (1, 2) < 0)
 		return (errno);
 	    }
@@ -818,13 +830,13 @@ do_redirection_internal (redirect, for_real, remembering, set_clexec)
 	      return (HEREDOC_REDIRECT);
 	    }
 
-	  if (for_real)
+	  if (flags & RX_ACTIVE)
 	    {
-	      if (remembering)
+	      if (flags & RX_UNDOABLE)
 	        {
 		  /* Only setup to undo it if the thing to undo is active. */
 		  if ((fd != redirector) && (fcntl (redirector, F_GETFD, 0) != -1))
-		    add_undo_redirect (redirector);
+		    add_undo_redirect (redirector, ri);
 		  else
 		    add_undo_close_redirect (redirector);
 	        }
@@ -843,7 +855,7 @@ do_redirection_internal (redirect, for_real, remembering, set_clexec)
 	      duplicate_buffered_stream (fd, redirector);
 #endif
 
-	      if (set_clexec && (redirector > 2))
+	      if ((flags & RX_CLEXEC) && (redirector > 2))
 		SET_CLOSE_ON_EXEC (redirector);
 	    }
 
@@ -860,13 +872,13 @@ do_redirection_internal (redirect, for_real, remembering, set_clexec)
     case r_duplicating_output:
     case r_move_input:
     case r_move_output:
-      if (for_real && (redir_fd != redirector))
+      if ((flags & RX_ACTIVE) && (redir_fd != redirector))
 	{
-	  if (remembering)
+	  if (flags & RX_UNDOABLE)
 	    {
 	      /* Only setup to undo it if the thing to undo is active. */
 	      if (fcntl (redirector, F_GETFD, 0) != -1)
-		add_undo_redirect (redirector);
+		add_undo_redirect (redirector, ri);
 	      else
 		add_undo_close_redirect (redirector);
 	    }
@@ -887,11 +899,20 @@ do_redirection_internal (redirect, for_real, remembering, set_clexec)
 	     leaves the flag unset on the new descriptor, which means it
 	     stays open.  Only set the close-on-exec bit for file descriptors
 	     greater than 2 in any case, since 0-2 should always be open
-	     unless closed by something like `exec 2<&-'. */
+	     unless closed by something like `exec 2<&-'.  It should always
+	     be safe to set fds > 2 to close-on-exec if they're being used to
+	     save file descriptors < 2, since we don't need to preserve the
+	     state of the close-on-exec flag for those fds -- they should
+	     always be open. */
 	  /* if ((already_set || set_unconditionally) && (ok_to_set))
 		set_it () */
-	  if (((fcntl (redir_fd, F_GETFD, 0) == 1) || set_clexec) &&
+#if 0
+	  if (((fcntl (redir_fd, F_GETFD, 0) == 1) || redir_fd < 2 || (flags & RX_CLEXEC)) &&
 	       (redirector > 2))
+#else
+	  if (((fcntl (redir_fd, F_GETFD, 0) == 1) || (redir_fd < 2 && (flags & RX_INTERNAL)) || (flags & RX_CLEXEC)) &&
+	       (redirector > 2))
+#endif
 	    SET_CLOSE_ON_EXEC (redirector);
 
 	  /* dup-and-close redirection */
@@ -901,10 +922,10 @@ do_redirection_internal (redirect, for_real, remembering, set_clexec)
       break;
 
     case r_close_this:
-      if (for_real)
+      if (flags & RX_ACTIVE)
 	{
-	  if (remembering && (fcntl (redirector, F_GETFD, 0) != -1))
-	    add_undo_redirect (redirector);
+	  if ((flags & RX_UNDOABLE) && (fcntl (redirector, F_GETFD, 0) != -1))
+	    add_undo_redirect (redirector, ri);
 
 #if defined (BUFFERED_INPUT)
 	  check_bash_input (redirector);
@@ -930,8 +951,9 @@ do_redirection_internal (redirect, for_real, remembering, set_clexec)
    even if REDIRECTION_UNDO_LIST is discarded by the exec builtin
    are also saved on EXEC_REDIRECTION_UNDO_LIST. */
 static int
-add_undo_redirect (fd)
+add_undo_redirect (fd, ri)
      int fd;
+     enum r_instruction ri;
 {
   int new_fd, clexec_flag;
   REDIRECT *new_redirect, *closer, *dummy_redirect;
@@ -940,7 +962,7 @@ add_undo_redirect (fd)
 
   if (new_fd < 0)
     {
-      sys_error ("redirection error: cannot duplicate fd");
+      sys_error (_("redirection error: cannot duplicate fd"));
       return (-1);
     }
 
@@ -948,6 +970,7 @@ add_undo_redirect (fd)
 
   rd.dest = 0;
   closer = make_redirection (new_fd, r_close_this, rd);
+  closer->flags |= RX_INTERNAL;
   dummy_redirect = copy_redirects (closer);
 
   rd.dest = new_fd;
@@ -955,6 +978,7 @@ add_undo_redirect (fd)
     new_redirect = make_redirection (fd, r_duplicating_input, rd);
   else
     new_redirect = make_redirection (fd, r_duplicating_output, rd);
+  new_redirect->flags |= RX_INTERNAL;
   new_redirect->next = closer;
 
   closer->next = redirection_undo_list;
@@ -963,6 +987,21 @@ add_undo_redirect (fd)
   /* Save redirections that need to be undone even if the undo list
      is thrown away by the `exec' builtin. */
   add_exec_redirect (dummy_redirect);
+
+  /* experimental:  if we're saving a redirection to undo for a file descriptor
+     above SHELL_FD_BASE, add a redirection to be undone if the exec builtin
+     causes redirections to be discarded. */
+  if (fd >= SHELL_FD_BASE && ri != r_close_this)
+    {
+      rd.dest = new_fd;
+      new_redirect = make_redirection (fd, r_duplicating_output, rd);
+#if 0
+      closer = copy_redirects (new_redirect);
+      add_exec_redirect (closer);
+#else
+      add_exec_redirect (new_redirect);
+#endif     
+    }
 
   /* File descriptors used only for saving others should always be
      marked close-on-exec.  Unfortunately, we have to preserve the
@@ -988,6 +1027,7 @@ add_undo_close_redirect (fd)
 
   rd.dest = 0;
   closer = make_redirection (fd, r_close_this, rd);
+  closer->flags |= RX_INTERNAL;
   closer->next = redirection_undo_list;
   redirection_undo_list = closer;
 }

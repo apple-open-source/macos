@@ -72,7 +72,7 @@ struct heredocs *hdocs;
 #define YYERROR(O)  { tok = LEXERR; ecused = (O); return 0; }
 #define YYERRORV(O) { tok = LEXERR; ecused = (O); return; }
 #define COND_ERROR(X,Y) do { \
-  zwarn(X,Y,0); \
+  zwarn(X,Y); \
   herrflush(); \
   if (noerrs != 2) \
     errflag = 1; \
@@ -111,6 +111,8 @@ struct heredocs *hdocs;
  *     - must precede command-code (or WC_ASSIGN)
  *     - data contains type (<, >, ...)
  *     - followed by fd1 and name from struct redir
+ *     - for the extended form {var}>... where the fd is assigned
+ *       to var, there is an extra item to contain var
  *
  *   WC_ASSIGN
  *     - data contains type (scalar, array) and number of array-elements
@@ -167,9 +169,9 @@ struct heredocs *hdocs;
  *
  *   WC_CASE
  *     - first CASE is always of type HEAD, data contains offset to esac
- *     - after that CASEs of type OR (;;) and AND (;&), data is offset to
- *       next case
- *     - each OR/AND case is followed by pattern, pattern-number, list
+ *     - after that CASEs of type OR (;;), AND (;&) and TESTAND (;|),
+ *       data is offset to next case
+ *     - each OR/AND/TESTAND case is followed by pattern, pattern-number, list
  *
  *   WC_IF
  *     - first IF is of type HEAD, data contains offset to fi
@@ -737,7 +739,8 @@ par_pline(int *complex)
     } else if (tok == BARAMP) {
 	int r;
 
-	for (r = p + 1; wc_code(ecbuf[r]) == WC_REDIR; r += 3);
+	for (r = p + 1; wc_code(ecbuf[r]) == WC_REDIR;
+	     r += WC_REDIR_WORDS(ecbuf[r]));
 
 	ecispace(r, 3);
 	ecbuf[r] = WCB_REDIR(REDIR_MERGEOUT);
@@ -779,8 +782,7 @@ par_cmd(int *complex)
     if (IS_REDIROP(tok)) {
 	*complex = 1;
 	while (IS_REDIROP(tok)) {
-	    nr++;
-	    par_redir(&r);
+	    nr += par_redir(&r, NULL);
 	}
     }
     switch (tok) {
@@ -871,10 +873,10 @@ par_cmd(int *complex)
 		if (!nr)
 		    return 0;
 	    } else {
-		/* Three codes per redirection. */
+		/* Take account of redirections */
 		if (sr > 1) {
 		    *complex = 1;
-		    r += (sr - 1) * 3;
+		    r += sr - 1;
 		}
 	    }
 	}
@@ -883,7 +885,7 @@ par_cmd(int *complex)
     if (IS_REDIROP(tok)) {
 	*complex = 1;
 	while (IS_REDIROP(tok))
-	    par_redir(&r);
+	    (void)par_redir(&r, NULL);
     }
     incmdpos = 1;
     incasepat = 0;
@@ -1012,7 +1014,7 @@ par_for(int *complex)
 /*
  * case	: CASE STRING { SEPER } ( "in" | INBRACE )
 				{ { SEPER } STRING { BAR STRING } OUTPAR
-					list [ DSEMI | SEMIAMP ] }
+					list [ DSEMI | SEMIAMP | SEMIBAR ] }
 				{ SEPER } ( "esac" | OUTBRACE )
  */
 
@@ -1021,6 +1023,7 @@ static void
 par_case(int *complex)
 {
     int oecused = ecused, brflag, p, pp, n = 1, type;
+    int ona, onc;
 
     p = ecadd(0);
 
@@ -1031,14 +1034,23 @@ par_case(int *complex)
     ecstr(tokstr);
 
     incmdpos = 1;
+    ona = noaliases;
+    onc = nocorrect;
+    noaliases = nocorrect = 1;
     yylex();
     while (tok == SEPER)
 	yylex();
     if (!(tok == STRING && !strcmp(tokstr, "in")) && tok != INBRACE)
+    {
+	noaliases = ona;
+	nocorrect = onc;
 	YYERRORV(oecused);
+    }
     brflag = (tok == INBRACE);
     incasepat = 1;
     incmdpos = 0;
+    noaliases = ona;
+    nocorrect = onc;
     yylex();
 
     for (;;) {
@@ -1129,10 +1141,12 @@ par_case(int *complex)
 	n++;
 	if (tok == SEMIAMP)
 	    type = WC_CASE_AND;
+	else if (tok == SEMIBAR)
+	    type = WC_CASE_TESTAND;
 	ecbuf[pp] = WCB_CASE(type, ecused - 1 - pp);
 	if ((tok == ESAC && !brflag) || (tok == OUTBRACE && brflag))
 	    break;
-	if (tok != DSEMI && tok != SEMIAMP)
+	if (tok != DSEMI && tok != SEMIAMP && tok != SEMIBAR)
 	    YYERRORV(oecused);
 	incasepat = 1;
 	incmdpos = 0;
@@ -1510,6 +1524,9 @@ par_dinbrack(void)
  * simple	: { COMMAND | EXEC | NOGLOB | NOCORRECT | DASH }
 					{ STRING | ENVSTRING | ENVARRAY wordlist OUTPAR | redir }
 					[ INOUTPAR { SEPER } ( list1 | INBRACE list OUTBRACE ) ]
+ *
+ * Returns 0 if no code, else 1 plus the number of code words
+ * used up by redirections.
  */
 
 /**/
@@ -1517,7 +1534,7 @@ static int
 par_simple(int *complex, int nr)
 {
     int oecused = ecused, isnull = 1, r, argc = 0, p, isfunc = 0, sr = 0;
-    int c = *complex;
+    int c = *complex, nrediradd;
 
     r = ecused;
     for (;;) {
@@ -1576,16 +1593,52 @@ par_simple(int *complex, int nr)
 
     for (;;) {
 	if (tok == STRING) {
+	    int redir_var = 0;
+
 	    *complex = 1;
 	    incmdpos = 0;
-	    ecstr(tokstr);
-	    argc++;
-	    yylex();
+
+	    if (!isset(IGNOREBRACES) && *tokstr == Inbrace)
+	    {
+		char *eptr = tokstr + strlen(tokstr) - 1;
+		char *ptr = eptr;
+
+		if (*ptr == Outbrace && ptr > tokstr + 1)
+		{
+		    if (itype_end(tokstr+1, IIDENT, 0) >= ptr - 1)
+		    {
+			char *toksave = tokstr;
+			char *idstring = dupstrpfx(tokstr+1, eptr-tokstr-1);
+			redir_var = 1;
+			yylex();
+
+			if (IS_REDIROP(tok) && tokfd == -1)
+			{
+			    *complex = c = 1;
+			    nrediradd = par_redir(&r, idstring);
+			    p += nrediradd;
+			    sr += nrediradd;
+			}
+			else
+			{
+			    ecstr(toksave);
+			    argc++;
+			}
+		    }
+		}
+	    }
+
+	    if (!redir_var)
+	    {
+		ecstr(tokstr);
+		argc++;
+		yylex();
+	    }
 	} else if (IS_REDIROP(tok)) {
 	    *complex = c = 1;
-	    par_redir(&r);
-	    p += 3;		/* 3 codes per redirection */
-	    sr++;
+	    nrediradd = par_redir(&r, NULL);
+	    p += nrediradd;
+	    sr += nrediradd;
 	} else if (tok == INOUTPAR) {
 	    int oldlineno = lineno, onp, so, oecssub = ecssub;
 
@@ -1629,8 +1682,10 @@ par_simple(int *complex, int nr)
 		pl = ecadd(WCB_PIPE(WC_PIPE_END, 0));
 
 		par_cmd(&c);
-		if (!c)
+		if (!c) {
+		    cmdpop();
 		    YYERROR(oecused);
+		}
 
 		set_sublist_code(sl, WC_SUBLIST_END, 0, ecused - 1 - sl, c);
 		set_list_code(ll, (Z_SYNC | Z_END), c);
@@ -1670,6 +1725,8 @@ par_simple(int *complex, int nr)
 
 /*
  * redir	: ( OUTANG | ... | TRINANG ) STRING
+ *
+ * Return number of code words required for redirection
  */
 
 static int redirtab[TRINANG - OUTANG + 1] = {
@@ -1691,10 +1748,10 @@ static int redirtab[TRINANG - OUTANG + 1] = {
 };
 
 /**/
-static void
-par_redir(int *rp)
+static int
+par_redir(int *rp, char *idstring)
 {
-    int r = *rp, type, fd1, oldcmdpos, oldnc;
+    int r = *rp, type, fd1, oldcmdpos, oldnc, ncodes;
     char *name;
 
     oldcmdpos = incmdpos;
@@ -1706,7 +1763,7 @@ par_redir(int *rp)
     fd1 = tokfd;
     yylex();
     if (tok != STRING && tok != ENVSTRING)
-	YYERRORV(ecused);
+	YYERROR(ecused);
     incmdpos = oldcmdpos;
     nocorrect = oldnc;
 
@@ -1721,23 +1778,35 @@ par_redir(int *rp)
     case REDIR_HEREDOCDASH: {
 	/* <<[-] name */
 	struct heredocs **hd;
+	int htype = type;
 
-	/* If we ever need more than three codes (or less), we have to change
-	 * the factors in par_cmd() and par_simple(), too. */
-	ecispace(r, 3);
-	*rp = r + 3;
+	if (idstring)
+	{
+	    type |= REDIR_VARID_MASK;
+	    ncodes = 4;
+	}
+	else
+	    ncodes = 3;
+
+	/* If we ever to change the number of codes, we have to change
+	 * the definition of WC_REDIR_WORDS. */
+	ecispace(r, ncodes);
+	*rp = r + ncodes;
 	ecbuf[r] = WCB_REDIR(type);
 	ecbuf[r + 1] = fd1;
+
+	if (idstring)
+	    ecbuf[r + 3] = ecstrcode(idstring);
 
 	for (hd = &hdocs; *hd; hd = &(*hd)->next);
 	*hd = zalloc(sizeof(struct heredocs));
 	(*hd)->next = NULL;
-	(*hd)->type = type;
+	(*hd)->type = htype;
 	(*hd)->pc = r;
 	(*hd)->str = tokstr;
 
 	yylex();
-	return;
+	return ncodes;
     }
     case REDIR_WRITE:
     case REDIR_WRITENOW:
@@ -1745,14 +1814,14 @@ par_redir(int *rp)
 	    /* > >(...) */
 	    type = REDIR_OUTPIPE;
 	else if (tokstr[0] == Inang && tokstr[1] == Inpar)
-	    YYERRORV(ecused);
+	    YYERROR(ecused);
 	break;
     case REDIR_READ:
 	if (tokstr[0] == Inang && tokstr[1] == Inpar)
 	    /* < <(...) */
 	    type = REDIR_INPIPE;
 	else if (tokstr[0] == Outang && tokstr[1] == Inpar)
-	    YYERRORV(ecused);
+	    YYERROR(ecused);
 	break;
     case REDIR_READWRITE:
 	if ((tokstr[0] == Inang || tokstr[0] == Outang) && tokstr[1] == Inpar)
@@ -1761,13 +1830,25 @@ par_redir(int *rp)
     }
     yylex();
 
-    /* If we ever need more than three codes (or less), we have to change
-     * the factors in par_cmd() and par_simple(), too. */
-    ecispace(r, 3);
-    *rp = r + 3;
+    /* If we ever to change the number of codes, we have to change
+     * the definition of WC_REDIR_WORDS. */
+    if (idstring)
+    {
+	type |= REDIR_VARID_MASK;
+	ncodes = 4;
+    }
+    else
+	ncodes = 3;
+
+    ecispace(r, ncodes);
+    *rp = r + ncodes;
     ecbuf[r] = WCB_REDIR(type);
     ecbuf[r + 1] = fd1;
     ecbuf[r + 2] = ecstrcode(name);
+    if (idstring)
+	ecbuf[r + 3] = ecstrcode(idstring);
+
+    return ncodes;
 }
 
 /**/
@@ -2100,10 +2181,20 @@ yyerror(int noerr)
     else if (t0)
 	zwarn("parse error near `%l'", t, t0);
     else
-	zwarn("parse error", NULL, 0);
+	zwarn("parse error");
     if (!noerr && noerrs != 2)
 	errflag = 1;
 }
+
+/*
+ * Duplicate a programme list, on the heap if heap is 1, else
+ * in permanent storage.
+ *
+ * Be careful in case p is the Eprog for a function which will
+ * later be autoloaded.  The shf element of the returned Eprog
+ * must be set appropriately by the caller.  (Normally we create
+ * the Eprog in this case by using mkautofn.)
+ */
 
 /**/
 mod_export Eprog
@@ -2306,6 +2397,10 @@ ecgetredirs(Estate s)
 	r->type = WC_REDIR_TYPE(code);
 	r->fd1 = *s->pc++;
 	r->name = ecgetstr(s, EC_DUP, NULL);
+	if (WC_REDIR_VARID(code))
+	    r->varid = ecgetstr(s, EC_DUP, NULL);
+	else
+	    r->varid = NULL;
 
 	addlinknode(ret, r);
 
@@ -2444,11 +2539,11 @@ bin_zcompile(char *nam, char **args, Options ops, UNUSED(int func))
 	(OPT_ISSET(ops,'c') &&
 	 (OPT_ISSET(ops,'U') || OPT_ISSET(ops,'k') || OPT_ISSET(ops,'z'))) ||
 	(!(OPT_ISSET(ops,'c') || OPT_ISSET(ops,'a')) && OPT_ISSET(ops,'m'))) {
-	zwarnnam(nam, "illegal combination of options", NULL, 0);
+	zwarnnam(nam, "illegal combination of options");
 	return 1;
     }
     if ((OPT_ISSET(ops,'c') || OPT_ISSET(ops,'a')) && isset(KSHAUTOLOAD))
-	zwarnnam(nam, "functions will use zsh style autoloading", NULL, 0);
+	zwarnnam(nam, "functions will use zsh style autoloading");
 
     flags = (OPT_ISSET(ops,'k') ? FDHF_KSHLOAD :
 	     (OPT_ISSET(ops,'z') ? FDHF_ZSHLOAD : 0));
@@ -2457,7 +2552,7 @@ bin_zcompile(char *nam, char **args, Options ops, UNUSED(int func))
 	Wordcode f;
 
 	if (!*args) {
-	    zwarnnam(nam, "too few arguments", NULL, 0);
+	    zwarnnam(nam, "too few arguments");
 	    return 1;
 	}
 	if (!(f = load_dump_header(nam, (strsfx(FD_EXT, *args) ? *args :
@@ -2480,7 +2575,7 @@ bin_zcompile(char *nam, char **args, Options ops, UNUSED(int func))
 	}
     }
     if (!*args) {
-	zwarnnam(nam, "too few arguments", NULL, 0);
+	zwarnnam(nam, "too few arguments");
 	return 1;
     }
     map = (OPT_ISSET(ops,'M') ? 2 : (OPT_ISSET(ops,'R') ? 0 : 1));
@@ -2517,7 +2612,7 @@ load_dump_header(char *nam, char *name, int err)
 
     if ((fd = open(name, O_RDONLY)) < 0) {
 	if (err)
-	    zwarnnam(nam, "can't open zwc file: %s", name, 0);
+	    zwarnnam(nam, "can't open zwc file: %s", name);
 	return NULL;
     }
     if (read(fd, buf, (FD_PRELEN + 1) * sizeof(wordcode)) !=
@@ -2525,13 +2620,10 @@ load_dump_header(char *nam, char *name, int err)
 	(v = (fdmagic(buf) != FD_MAGIC && fdmagic(buf) != FD_OMAGIC))) {
 	if (err) {
 	    if (v) {
-		char msg[80];
-
-		sprintf(msg, "zwc file has wrong version (zsh-%s): %%s",
-			fdversion(buf));
-		zwarnnam(nam, msg , name, 0);
+		zwarnnam(nam, "zwc file has wrong version (zsh-%s): %s",
+			 fdversion(buf), name);
 	    } else
-		zwarnnam(nam, "invalid zwc file: %s" , name, 0);
+		zwarnnam(nam, "invalid zwc file: %s" , name);
 	}
 	close(fd);
 	return NULL;
@@ -2549,7 +2641,7 @@ load_dump_header(char *nam, char *name, int err)
 	    if (lseek(fd, o, 0) == -1 ||
 		read(fd, buf, (FD_PRELEN + 1) * sizeof(wordcode)) !=
 		((FD_PRELEN + 1) * sizeof(wordcode))) {
-		zwarnnam(nam, "invalid zwc file: %s" , name, 0);
+		zwarnnam(nam, "invalid zwc file: %s" , name);
 		close(fd);
 		return NULL;
 	    }
@@ -2561,7 +2653,7 @@ load_dump_header(char *nam, char *name, int err)
 	len -= (FD_PRELEN + 1) * sizeof(wordcode);
 	if (read(fd, head + (FD_PRELEN + 1), len) != len) {
 	    close(fd);
-	    zwarnnam(nam, "invalid zwc file: %s" , name, 0);
+	    zwarnnam(nam, "invalid zwc file: %s" , name);
 	    return NULL;
 	}
 	close(fd);
@@ -2662,7 +2754,7 @@ build_dump(char *nam, char *dump, char **files, int ali, int map, int flags)
 
     unlink(dump);
     if ((dfd = open(dump, O_WRONLY|O_CREAT, 0444)) < 0) {
-	zwarnnam(nam, "can't write zwc file: %s", dump, 0);
+	zwarnnam(nam, "can't write zwc file: %s", dump);
 	return 1;
     }
     progs = newlinklist();
@@ -2681,7 +2773,7 @@ build_dump(char *nam, char *dump, char **files, int ali, int map, int flags)
 	    if (fd >= 0)
 		close(fd);
 	    close(dfd);
-	    zwarnnam(nam, "can't open file: %s", *files, 0);
+	    zwarnnam(nam, "can't open file: %s", *files);
 	    noaliases = ona;
 	    unlink(dump);
 	    return 1;
@@ -2693,7 +2785,7 @@ build_dump(char *nam, char *dump, char **files, int ali, int map, int flags)
 	    close(fd);
 	    close(dfd);
 	    zfree(file, flen);
-	    zwarnnam(nam, "can't read file: %s", *files, 0);
+	    zwarnnam(nam, "can't read file: %s", *files);
 	    noaliases = ona;
 	    unlink(dump);
 	    return 1;
@@ -2705,7 +2797,7 @@ build_dump(char *nam, char *dump, char **files, int ali, int map, int flags)
 	    errflag = 0;
 	    close(dfd);
 	    zfree(file, flen);
-	    zwarnnam(nam, "can't read file: %s", *files, 0);
+	    zwarnnam(nam, "can't read file: %s", *files);
 	    noaliases = ona;
 	    unlink(dump);
 	    return 1;
@@ -2742,17 +2834,17 @@ cur_add_func(char *nam, Shfunc shf, LinkList names, LinkList progs,
     Eprog prog;
     WCFunc wcf;
 
-    if (shf->flags & PM_UNDEFINED) {
+    if (shf->node.flags & PM_UNDEFINED) {
 	int ona = noaliases;
 
 	if (!(what & 2)) {
-	    zwarnnam(nam, "function is not loaded: %s", shf->nam, 0);
+	    zwarnnam(nam, "function is not loaded: %s", shf->node.nam);
 	    return 1;
 	}
-	noaliases = (shf->flags & PM_UNALIASED);
-	if (!(prog = getfpfunc(shf->nam, NULL)) || prog == &dummy_eprog) {
+	noaliases = (shf->node.flags & PM_UNALIASED);
+	if (!(prog = getfpfunc(shf->node.nam, NULL)) || prog == &dummy_eprog) {
 	    noaliases = ona;
-	    zwarnnam(nam, "can't load function: %s", shf->nam, 0);
+	    zwarnnam(nam, "can't load function: %s", shf->node.nam);
 	    return 1;
 	}
 	if (prog->dump)
@@ -2760,20 +2852,20 @@ cur_add_func(char *nam, Shfunc shf, LinkList names, LinkList progs,
 	noaliases = ona;
     } else {
 	if (!(what & 1)) {
-	    zwarnnam(nam, "function is already loaded: %s", shf->nam, 0);
+	    zwarnnam(nam, "function is already loaded: %s", shf->node.nam);
 	    return 1;
 	}
 	prog = dupeprog(shf->funcdef, 1);
     }
     wcf = (WCFunc) zhalloc(sizeof(*wcf));
-    wcf->name = shf->nam;
+    wcf->name = shf->node.nam;
     wcf->prog = prog;
     wcf->flags = ((prog->flags & EF_RUN) ? FDHF_KSHLOAD : FDHF_ZSHLOAD);
     addlinknode(progs, wcf);
-    addlinknode(names, shf->nam);
+    addlinknode(names, shf->node.nam);
 
     *hlen += ((sizeof(struct fdhead) / sizeof(wordcode)) +
-	      ((strlen(shf->nam) + sizeof(wordcode)) / sizeof(wordcode)));
+	      ((strlen(shf->node.nam) + sizeof(wordcode)) / sizeof(wordcode)));
     *tlen += (prog->len - (prog->npats * sizeof(Patprog)) +
 	      sizeof(wordcode) - 1) / sizeof(wordcode);
 
@@ -2794,7 +2886,7 @@ build_cur_dump(char *nam, char *dump, char **names, int match, int map,
 
     unlink(dump);
     if ((dfd = open(dump, O_WRONLY|O_CREAT, 0444)) < 0) {
-	zwarnnam(nam, "can't write zwc file: %s", dump, 0);
+	zwarnnam(nam, "can't write zwc file: %s", dump);
 	return 1;
     }
     progs = newlinklist();
@@ -2825,7 +2917,7 @@ build_cur_dump(char *nam, char *dump, char **names, int match, int map,
 	for (; *names; names++) {
 	    tokenize(pat = dupstring(*names));
 	    if (!(pprog = patcompile(pat, PAT_STATIC, NULL))) {
-		zwarnnam(nam, "bad pattern: %s", *names, 0);
+		zwarnnam(nam, "bad pattern: %s", *names);
 		close(dfd);
 		unlink(dump);
 		return 1;
@@ -2846,7 +2938,7 @@ build_cur_dump(char *nam, char *dump, char **names, int match, int map,
 	for (; *names; names++) {
 	    if (errflag ||
 		!(shf = (Shfunc) shfunctab->getnode(shfunctab, *names))) {
-		zwarnnam(nam, "unknown function: %s", *names, 0);
+		zwarnnam(nam, "unknown function: %s", *names);
 		errflag = 0;
 		close(dfd);
 		unlink(dump);
@@ -2861,7 +2953,7 @@ build_cur_dump(char *nam, char *dump, char **names, int match, int map,
 	}
     }
     if (empty(progs)) {
-	zwarnnam(nam, "no functions", NULL, 0);
+	zwarnnam(nam, "no functions");
 	errflag = 0;
 	close(dfd);
 	unlink(dump);
@@ -2876,17 +2968,23 @@ build_cur_dump(char *nam, char *dump, char **names, int match, int map,
     return 0;
 }
 
+/**/
 #if defined(HAVE_SYS_MMAN_H) && defined(HAVE_MMAP) && defined(HAVE_MUNMAP)
 
 #include <sys/mman.h>
 
+/**/
 #if defined(MAP_SHARED) && defined(PROT_READ)
 
+/**/
 #define USE_MMAP 1
 
+/**/
 #endif
+/**/
 #endif
 
+/**/
 #ifdef USE_MMAP
 
 /* List of dump files mapped. */
@@ -2895,7 +2993,7 @@ static FuncDump dumps;
 
 /**/
 static int
-zwcstat(char *filename, struct stat *buf, FuncDump dumps)
+zwcstat(char *filename, struct stat *buf)
 {
     if (stat(filename, buf)) {
 #ifdef HAVE_FSTAT
@@ -2968,8 +3066,9 @@ load_dump_file(char *dump, struct stat *sbuf, int other, int len)
 
 #else
 
-#define zwcstat(f, b, d) stat(f, b)
+#define zwcstat(f, b) (!!stat(f, b))
 
+/**/
 #endif
 
 /* Try to load a function from one of the possible wordcode files for it.
@@ -2995,7 +3094,7 @@ try_dump_file(char *path, char *name, char *file, int *ksh)
     dig = dyncat(path, FD_EXT);
     wc = dyncat(file, FD_EXT);
 
-    rd = zwcstat(dig, &std, dumps);
+    rd = zwcstat(dig, &std);
     rc = stat(wc, &stc);
     rn = stat(file, &stn);
 
@@ -3075,7 +3174,7 @@ check_dump_file(char *file, struct stat *sbuf, char *name, int *ksh)
     struct stat lsbuf;
 
     if (!sbuf) {
-	if (zwcstat(file, &lsbuf, dumps))
+	if (zwcstat(file, &lsbuf))
 	    return NULL;
 	sbuf = &lsbuf;
     }
@@ -3274,10 +3373,10 @@ dump_autoload(char *nam, char *file, int on, Options ops, int func)
     for (n = firstfdhead(h), e = (FDHead) (h + fdheaderlen(h)); n < e;
 	 n = nextfdhead(n)) {
 	shf = (Shfunc) zshcalloc(sizeof *shf);
-	shf->flags = on;
+	shf->node.flags = on;
 	shf->funcdef = mkautofn(shf);
 	shfunctab->addnode(shfunctab, ztrdup(fdname(n) + fdhtail(n)), shf);
-	if (OPT_ISSET(ops,'X') && eval_autoload(shf, shf->nam, ops, func))
+	if (OPT_ISSET(ops,'X') && eval_autoload(shf, shf->node.nam, ops, func))
 	    ret = 1;
     }
     return ret;

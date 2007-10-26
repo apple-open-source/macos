@@ -1,4 +1,4 @@
-/* APPLE LOCAL begin loops-to-memset  (ENTIRE FILE!)  */
+/* APPLE LOCAL file loops-to-memset */
 /*  Loops to memset.
     Copyright (C) 2004 Free Software Foundation, Inc.
     Contributed by Andrew Pinski <apinski@apple.com>.
@@ -729,5 +729,3 @@ tree_ssa_memset (struct loops *loops)
     }
   bitmap_clear (vars_to_rename);
 }
-
-/* APPLE LOCAL end loops-to-memset (ENTIRE FILE!)  */

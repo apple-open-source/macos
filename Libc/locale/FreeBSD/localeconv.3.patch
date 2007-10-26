@@ -1,6 +1,6 @@
---- localeconv.3.orig	Fri Mar 11 19:44:47 2005
-+++ localeconv.3	Fri Mar 11 19:57:53 2005
-@@ -40,7 +40,8 @@
+--- _SB/Libc/locale/FreeBSD/localeconv.3	2004-11-25 11:38:18.000000000 -0800
++++ _SB/Libc/locale/FreeBSD/localeconv.3.edit	2006-06-29 11:04:42.000000000 -0700
+@@ -40,14 +40,22 @@
  .Dt LOCALECONV 3
  .Os
  .Sh NAME
@@ -10,17 +10,22 @@
  .Nd natural language formatting for C
  .Sh LIBRARY
  .Lb libc
-@@ -48,6 +49,9 @@
+ .Sh SYNOPSIS
  .In locale.h
  .Ft struct lconv *
- .Fn localeconv "void"
+-.Fn localeconv "void"
++.Fo localeconv
++.Fa "void"
++.Fc
 +.In xlocale.h
 +.Ft struct lconv *
-+.Fn localeconv_l "void" "locale_t loc"
++.Fo localeconv_l
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn localeconv
-@@ -201,6 +205,14 @@
+@@ -201,6 +209,14 @@
  A
  .Dv CHAR_MAX
  result similarly denotes an unavailable value.
@@ -35,7 +40,7 @@
  .Sh RETURN VALUES
  The
  .Fn localeconv
-@@ -213,7 +225,8 @@
+@@ -213,7 +229,8 @@
  No errors are defined.
  .Sh SEE ALSO
  .Xr setlocale 3 ,

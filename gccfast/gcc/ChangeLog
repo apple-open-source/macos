@@ -1,3 +1,15 @@
+2006-07-13  Matthew Sachs <msachs@apple.com>
+
+	Radar 4584230: gccfast-1624 breaks with flex-17 and bison-9
+	* GNUmakefile: specifically use old bison in /usr/local/bin.
+	* build_gcc: Ditto.
+
+2006-05-15  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4508820
+	* config/rs6000/host-darwin.c: Don't prototype sigaltstack,
+	and use our own ucontext structure definitions.
+
 2004-09-02  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3775798

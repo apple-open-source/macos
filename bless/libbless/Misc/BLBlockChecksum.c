@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,32 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Feb 28 2002.
- *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2002-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLBlockChecksum.c,v 1.7 2005/02/03 00:42:27 ssen Exp $
- *
- *  $Log: BLBlockChecksum.c,v $
- *  Revision 1.7  2005/02/03 00:42:27  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.6  2004/04/20 21:40:44  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.5  2003/07/22 15:58:34  ssen
- *  APSL 2.0
- *
- *  Revision 1.4  2003/04/19 00:11:12  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.3  2003/04/16 23:57:33  ssen
- *  Update Copyrights
- *
- *  Revision 1.2  2003/03/19 22:57:06  ssen
- *  C99 types
- *
- *  Revision 1.1  2002/03/05 00:01:42  ssen
- *  code reorg of secondary loader
- *
+ *  $Id: BLBlockChecksum.c,v 1.8 2006/02/20 22:49:56 ssen Exp $
  *
  */
 

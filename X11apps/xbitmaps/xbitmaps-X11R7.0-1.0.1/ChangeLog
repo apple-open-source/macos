@@ -1,0 +1,22 @@
+2005-12-20  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version for X11R7 release.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-10-05  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am: Add missing xlogo64 and xsnow files
+
+2005-07-11  Daniel Stone  <daniel@freedesktop.org>
+
+	* Initial autotooling.

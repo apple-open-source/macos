@@ -1,5 +1,3 @@
-/*	$NetBSD: head.c,v 1.10 1998/01/31 20:42:07 christos Exp $	*/
-
 /*
  * Copyright (c) 1980, 1987, 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,27 +31,24 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1987, 1992, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1980, 1987, 1992, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)head.c	8.2 (Berkeley) 5/4/95";
-#else
-__RCSID("$NetBSD: head.c,v 1.10 1998/01/31 20:42:07 christos Exp $");
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/head/head.c,v 1.18 2002/07/23 14:39:20 jmallett Exp $");
 
 #include <sys/types.h>
 
 #include <ctype.h>
 #include <err.h>
-#include <errno.h>
-#include <limits.h>
-#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,38 +60,32 @@ __RCSID("$NetBSD: head.c,v 1.10 1998/01/31 20:42:07 christos Exp $");
  * Bill Joy UCB August 24, 1977
  */
 
-void head __P((FILE *, long));
-void obsolete __P((char *[]));
-void usage __P((void));
-int main __P((int, char *[]));
-
-int eval = 0;
+static void head(FILE *, int);
+static void head_bytes(FILE *, size_t);
+static void obsolete(char *[]);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int ch;
 	FILE *fp;
-	int first;
-	long linecnt;
+	int first, linecnt = -1, bytecnt = -1, eval = 0;
 	char *ep;
 
-	(void)setlocale(LC_ALL, "");
 	obsolete(argv);
-	linecnt = 10;
-	while ((ch = getopt(argc, argv, "n:")) != -1)
+	while ((ch = getopt(argc, argv, "n:c:")) != -1)
 		switch(ch) {
+		case 'c':
+			bytecnt = strtol(optarg, &ep, 10);
+			if (*ep || bytecnt <= 0)
+				errx(1, "illegal byte count -- %s", optarg);
+			break;
 		case 'n':
 			linecnt = strtol(optarg, &ep, 10);
-			if ((linecnt == LONG_MIN || linecnt == LONG_MAX) &&
-			    errno == ERANGE)
-				err(1, "illegal line count -- %s", optarg);
-			else if (*ep || linecnt <= 0)
+			if (*ep || linecnt <= 0)
 				errx(1, "illegal line count -- %s", optarg);
 			break;
-
 		case '?':
 		default:
 			usage();
@@ -104,7 +93,11 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
-	if (*argv)
+	if (linecnt != -1 && bytecnt != -1)
+		errx(1, "can't combine line and byte counts");
+	if (linecnt == -1 )
+		linecnt = 10;
+	if (*argv) {
 		for (first = 1; *argv; ++argv) {
 			if ((fp = fopen(*argv, "r")) == NULL) {
 				warn("%s", *argv);
@@ -116,33 +109,56 @@ main(argc, argv)
 				    first ? "" : "\n", *argv);
 				first = 0;
 			}
-			head(fp, linecnt);
+			if (bytecnt == -1)
+				head(fp, linecnt);
+			else
+				head_bytes(fp, bytecnt);
 			(void)fclose(fp);
 		}
-	else
+	} else if (bytecnt == -1)
 		head(stdin, linecnt);
+	else
+		head_bytes(stdin, bytecnt);
+
 	exit(eval);
 }
 
-void
-head(fp, cnt)
-	FILE *fp;
-	long cnt;
+static void
+head(FILE *fp, int cnt)
 {
-	int ch;
+	char *cp;
+	size_t error, readlen;
 
-	while (cnt--)
-		while ((ch = getc(fp)) != EOF) {
-			if (putchar(ch) == EOF)
-				err(1, "stdout");
-			if (ch == '\n')
-				break;
-		}
+	while (cnt && (cp = fgetln(fp, &readlen)) != NULL) {
+		error = fwrite(cp, sizeof(char), readlen, stdout);
+		if (error != readlen)
+			err(1, "stdout");
+		cnt--;
+	}
 }
 
-void
-obsolete(argv)
-	char *argv[];
+static void
+head_bytes(FILE *fp, size_t cnt)
+{
+	char buf[4096];
+	size_t readlen;
+
+	while (cnt) {
+		if (cnt < sizeof(buf))
+			readlen = cnt;
+		else
+			readlen = sizeof(buf);
+		readlen = fread(buf, sizeof(char), readlen, fp);
+		if (readlen == 0)
+			break;
+		if (fwrite(buf, sizeof(char), readlen, stdout) != readlen)
+			err(1, "stdout");
+		cnt -= readlen;
+	}
+}
+
+static void
+obsolete(char *argv[])
 {
 	char *ap;
 
@@ -151,7 +167,7 @@ obsolete(argv)
 		if (ap[0] != '-' || ap[1] == '-' || !isdigit(ap[1]))
 			return;
 		if ((ap = malloc(strlen(*argv) + 2)) == NULL)
-			err(1, "%s", "");
+			err(1, NULL);
 		ap[0] = '-';
 		ap[1] = 'n';
 		(void)strcpy(ap + 2, *argv + 1);
@@ -159,10 +175,10 @@ obsolete(argv)
 	}
 }
 
-void
-usage()
+static void
+usage(void)
 {
-	extern char *__progname;
-	(void)fprintf(stderr, "Usage: %s [-n lines] [file ...]\n", __progname);
+
+	(void)fprintf(stderr, "usage: head [-n lines | -c bytes] [file ...]\n");
 	exit(1);
 }

@@ -40,7 +40,8 @@
  *	specified char in buffer first.  Called by NXPutc.
  */
 
-extern int _NXStreamFlushBuffer(NXStream *s, unsigned char c)
+__private_extern__
+int _NXStreamFlushBuffer(NXStream *s, unsigned char c)
 {
     _NXVerifyStream(s);
     s->buf_left++;		/* compensate for NXPutc */
@@ -55,7 +56,8 @@ extern int _NXStreamFlushBuffer(NXStream *s, unsigned char c)
  *	Called by NXGetc.
  */
 
-extern int _NXStreamFillBuffer(NXStream *s)
+__private_extern__
+int _NXStreamFillBuffer(NXStream *s)
 {
     int             n;
 
@@ -73,7 +75,8 @@ extern int _NXStreamFillBuffer(NXStream *s)
     return ((int)((*(s->buf_ptr++)) & 0xff));
 }
 
-extern int _NXStreamChangeBuffer(NXStream *s, unsigned char ch)
+__private_extern__
+int _NXStreamChangeBuffer(NXStream *s, unsigned char ch)
 {
     int wasReading;
 
@@ -92,6 +95,7 @@ extern int _NXStreamChangeBuffer(NXStream *s, unsigned char ch)
  *	NXDefaultWrite: write data into a stream.
  */
 
+__private_extern__
 int NXDefaultWrite(NXStream *s, const void *buf, int count)
 {
     register int n;
@@ -146,6 +150,7 @@ int NXDefaultWrite(NXStream *s, const void *buf, int count)
  *	NXDefaultRead: read data into specified buffer, return amount
  *	of data read.
  */
+__private_extern__
 int NXDefaultRead(register NXStream *s, register void *buf, register int count)
 {
     register int    n, total;
@@ -194,10 +199,12 @@ int NXDefaultRead(register NXStream *s, register void *buf, register int count)
  *	Create a new stream.  Mode specifies the intended use of the stream.
  */
 
+__private_extern__
 NXStream *NXStreamCreate(int mode, int createBuf)
 {
     return NXStreamCreateFromZone(mode, createBuf, malloc_default_zone());
 }
+__private_extern__
 NXStream *NXStreamCreateFromZone(int mode, int createBuf, NXZone *zone)
 {
     register NXStream *s;
@@ -235,6 +242,7 @@ NXStream *NXStreamCreateFromZone(int mode, int createBuf, NXZone *zone)
  *	Destory an exisiting stream.  Stream should already by flushed.
  */
 
+__private_extern__
 void NXStreamDestroy(NXStream *s)
 {
     _NXVerifyStream(s);
@@ -249,7 +257,8 @@ void NXStreamDestroy(NXStream *s)
 
 
 /* verifies that a pointer really points to a stream */
-extern void _NXVerifyStream(NXStream *s)
+__private_extern__
+void _NXVerifyStream(NXStream *s)
 {
     if (!s || s->magic_number != MAGIC_NUMBER)
 	NX_RAISE(NX_illegalStream, s, 0);

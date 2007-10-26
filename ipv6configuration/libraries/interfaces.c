@@ -51,39 +51,6 @@
 
 static struct sockaddr_in6 init_sin6 = {sizeof(init_sin6), AF_INET6};
 
-
-static int
-if_inet_count(interface_t * if_p)
-{
-    return (dynarray_count(&if_p->inet));
-}
-
-static inet6_addrinfo_t *
-if_inet_addr_at(interface_t * if_p, int i)
-{
-    return (dynarray_element(&if_p->inet, i));
-}
-
-static void *
-inet6_addrinfo_copy(void * p)
-{
-    inet6_addrinfo_t * src = (inet6_addrinfo_t *)p;
-    inet6_addrinfo_t * dest;
-
-    dest = malloc(sizeof(*dest));
-    if (dest) {
-        bcopy(src, dest, sizeof(*dest));
-    }
-    return (dest);
-}
-
-static void
-inet6_addrinfo_free(void * p)
-{
-    free(p);
-    return;
-}
-
 static interface_t *
 if_next_entry(interface_list_t * interfaces, char * name)
 {
@@ -95,7 +62,6 @@ if_next_entry(interface_list_t * interfaces, char * name)
     entry = interfaces->list + interfaces->count++;
     bzero(entry, sizeof(*entry));
     strcpy(entry->name, name);
-    dynarray_init(&entry->inet, inet6_addrinfo_free, inet6_addrinfo_copy);
     return (entry);
 }
 
@@ -132,36 +98,6 @@ if_build_interface_list(interface_list_t * interfaces)
 	    continue;
 	}
 	switch (ifa->ifa_addr->sa_family) {
-	    case AF_INET6: {
-		inet6_addrinfo_t	info;
-		interface_t *		entry;
-		u_char 			name[IFNAMSIZ + 1];
-
-		if (!strcmp(ifa->ifa_name, "lo0")) {
-		    /* Skip loopback for now... */
-		    continue;
-		}
-
-		strncpy(name, ifa->ifa_name, sizeof(name));
-		name[IFNAMSIZ] = '\0';
-		entry = ifl_find_name(interfaces, name);
-		if (entry == NULL) {
-		    /* new entry */
-		    entry = if_next_entry(interfaces, name);
-		    if (entry == NULL) {
-			/* NOT REACHED */
-			syslog(LOG_ERR,
-			    "if_build_interface_list: if_next_entry returns NULL");
-			continue;
-		    }
-		    entry->flags = ifa->ifa_flags;
-		}
-
-		bzero(&info, sizeof(info));
-		info.addr = ((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
-		dynarray_add(&entry->inet, inet6_addrinfo_copy(&info));
-		break;
-	    }
 	    case AF_LINK: {
 		struct sockaddr_dl * 	dl_p;
 		interface_t *		entry;
@@ -233,12 +169,6 @@ ifl_at_index(interface_list_t * list_p, int i)
     return (list_p->list + i);
 }
 
-int
-ifl_index(interface_list_t * list_p, interface_t * if_p)
-{
-    return (if_p - list_p->list);
-}
-
 __private_extern__ interface_t *
 ifl_find_name(interface_list_t * list_p, const char * name)
 {
@@ -270,9 +200,6 @@ ifl_free(interface_list_t * * iflist)
         interface_list_t * 	list_p = *iflist;
         int	i;
 
-        for (i = 0; i < list_p->count; i++) {
-            dynarray_free(&list_p->list[i].inet);
-        }
         if (list_p->list)
             free(list_p->list);
         free(list_p);
@@ -317,7 +244,6 @@ if_free(interface_t * * if_p_p)
     if (if_p == NULL) {
         return;
     }
-    dynarray_free(&if_p->inet);
     free(if_p);
     *if_p_p = NULL;
     return;
@@ -333,14 +259,7 @@ if_dup(interface_t * intface)
         return (NULL);
     }
     *new_p = *intface;
-    (void)dynarray_dup(&new_p->inet, &intface->inet);
     return (new_p);
-}
-
-static __inline__ boolean_t
-if_inet_addr_remove_at(interface_t * if_p, int i)
-{
-    return (dynarray_free_element(&if_p->inet, i));
 }
 
 void

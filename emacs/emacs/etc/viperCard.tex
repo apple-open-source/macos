@@ -1,4 +1,4 @@
-% ViperCard -- The Reference Card for Viper under GNU Emacs 20 and XEmacs 20
+% ViperCard -- The Reference Card for Viper under GNU Emacs 21 and XEmacs 20
 %**start of header
 \newcount\columnsperpage
 
@@ -7,7 +7,8 @@
 
 \columnsperpage=2
 
-% Copyright (c) 1995, 1996, 1997 Free Software Foundation, Inc.
+% Copyright (C) 1995, 1996, 1997, 2001, 2002, 2003, 2004,
+%   2005, 2006, 2007  Free Software Foundation, Inc.
 
 % This file is part of GNU Emacs.
 
@@ -61,8 +62,8 @@
 
 
 \def\versionnumber{3.0}
-\def\year{1997}
-\def\version{August \year\ v\versionnumber}
+\def\year{2007}
+\def\version{August 2006 v\versionnumber}
 
 \def\shortcopyrightnotice{\vskip 1ex plus 2 fill
   \centerline{\small \copyright\ \year\ Free Software Foundation, Inc.
@@ -81,7 +82,7 @@ this card provided the copyright notice and this permission notice
 are preserved on all copies.
 
 For copies of the GNU Emacs manual, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 \endgroup}
 
@@ -95,7 +96,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 \def\ncolumns{\the\columnsperpage}
 
-\message{[\ncolumns\space 
+\message{[\ncolumns\space
   column\if 1\ncolumns\else s\fi\space per page]}
 
 \def\scaledmag#1{ scaled \magstep #1}
@@ -180,7 +181,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   \def\bye{\par\vfill\supereject
     \if a\abc \else\null\vfill\eject\fi
     \if a\abc \else\null\vfill\eject\fi
-    \end}  
+    \end}
 \fi
 
 % we won't be using math mode much, so redefine some of the characters
@@ -262,7 +263,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 \title{ViperCard: Viper Reference Pal}
 
-\centerline{(Version 3.0 (Polyglot) for Emacs 20 and XEmacs 20)}
+\centerline{(Version 3.0 (Polyglot) for Emacs 21 and XEmacs 20)}
 
 %\copyrightnotice
 
@@ -279,7 +280,7 @@ in .emacs
 
 \section{Viper States}
 
-Viper has four states: {\it emacs state}, {\it vi state}, {\it insert state}, 
+Viper has four states: {\it emacs state}, {\it vi state}, {\it insert state},
 {\it replace state}.
 Mode line tells you which state you are in.
 In emacs state you can do all the normal GNU Emacs editing.
@@ -668,7 +669,7 @@ moves 11 lines below current line to the end of buffer.
 
 \section{Ex Commands}
 
-Avoid Ex text manipulation commands except substitute. 
+Avoid Ex text manipulation commands except substitute.
 There are better VI equivalents
 for all of them. Also note that all Ex commands expand \% to
 current file name. To include a \% in the command, escape it with a $\backslash$.
@@ -744,3 +745,5 @@ Ex commands can be made to have history. See the manual for details.
 % Local variables:
 % compile-command: "tex viperCard"
 % End:
+
+% arch-tag: e287b45c-4c5e-4bf9-ae28-ead4cd9f68e3

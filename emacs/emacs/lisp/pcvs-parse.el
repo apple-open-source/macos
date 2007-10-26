@@ -1,10 +1,10 @@
 ;;; pcvs-parse.el --- the CVS output parser
 
-;; Copyright (C) 1991, 92, 93, 94, 95, 96, 97, 98, 99, 2000  Free Software Foundation, Inc.
+;; Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+;;   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Stefan Monnier <monnier@cs.yale.edu>
+;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: pcl-cvs
-;; Revision: $Id: pcvs-parse.el,v 1.1.1.1 2001/10/31 17:55:59 jevans Exp $
 
 ;; This file is part of GNU Emacs.
 
@@ -20,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -199,9 +199,9 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
 
 (defun cvs-parse-table ()
   "Table of message objects for `cvs-parse-process'."
-  (let (c file dir path type base-rev subtype)
+  (let (c file dir path base-rev subtype)
     (cvs-or
-     
+
      (cvs-parse-status)
      (cvs-parse-merge)
      (cvs-parse-commit)
@@ -210,7 +210,7 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
      ;; such duplicate info and luckily the second info is the one we want.
      ;; (and (cvs-match "M \\(.*\\)$" (path 1))
      ;;      (cvs-parse-merge path))
-     
+
      ;; Normal file state indicator.
      (and
       (cvs-match "\\([MARCUPNJ?]\\) \\(.*\\)$" (c 1) (path 2))
@@ -251,7 +251,8 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
 
      ;; A special cvs message
      (and
-      (cvs-match "cvs[.ex]* [a-z]+: ")
+      (let ((case-fold-search t))
+	(cvs-match "cvs[.a-z]* [a-z]+: "))
       (cvs-or
 
        ;; CVS is descending a subdirectory
@@ -264,14 +265,30 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
        ;; [-n update] A new (or pruned) directory appeared but isn't traversed
        (and
 	(cvs-match "New directory `\\(.*\\)' -- ignored$" (dir 1))
-	(cvs-parsed-fileinfo 'MESSAGE " " (file-name-as-directory dir)))
+	;; (cvs-parsed-fileinfo 'MESSAGE " " (file-name-as-directory dir))
+	;; These messages either correspond to a true new directory
+	;; that an update will bring in, or to a directory that's empty
+	;; on the current branch (either because it only exists in other
+	;; branches, or because it's been removed).
+	(if (ignore-errors
+	      (with-temp-buffer
+		(insert-file-contents (expand-file-name
+				       ".cvsignore" (file-name-directory dir)))
+		(goto-char (point-min))
+		(re-search-forward
+		 (concat "^" (regexp-quote (file-name-nondirectory dir)) "/$")
+		 nil t)))
+	    t		       ;The user requested to ignore those messages.
+	  (cvs-parsed-fileinfo '(NEED-UPDATE . NEW-DIR) dir t)))
 
        ;; File removed, since it is removed (by third party) in repository.
        (and
 	(cvs-or
 	 (cvs-match "warning: \\(.*\\) is not (any longer) pertinent$" (file 1))
-	 (cvs-match "\\(.*\\) is no longer in the repository$" (file 1)))
-	(cvs-parsed-fileinfo 'DEAD file))
+	 (cvs-match "`\\(.*\\)' is no longer in the repository$" (file 1))
+         (cvs-match "\\(.*\\) is no longer in the repository$" (file 1)))
+	(cvs-parsed-fileinfo
+	 (if dont-change-disc '(NEED-UPDATE . REMOVED) 'DEAD) file))
 
        ;; [add]
        (and
@@ -284,6 +301,9 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
        (and
 	(cvs-match "\\(.*\\), version \\(.*\\), resurrected$"
 		   (path 1) (base-rev 2))
+	;; FIXME: resurrection only brings back the original version,
+	;; not the latest on the branch, so `up-to-date' is not always
+	;; what we want.
 	(cvs-parsed-fileinfo '(UP-TO-DATE . RESURRECTED) path nil
 			     :base-rev base-rev))
 
@@ -305,7 +325,7 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
 				 'MISSING
 			       '(UP-TO-DATE . UPDATED))
 			     path))
-     
+
        ;; Mode conflicts (rather than contents)
        (and
 	(cvs-match "conflict: ")
@@ -327,7 +347,7 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
 	 (cvs-match "sticky tag .* for file `\\(.*\\)' is not a branch$"
 		    (file 1)))
 	(cvs-parsed-fileinfo 'MESSAGE file))
-     
+
        ;; File unknown.
        (and (cvs-match "use `.+ add' to create an entry for \\(.*\\)$" (path 1))
 	    (cvs-parsed-fileinfo 'UNKNOWN path))
@@ -345,15 +365,16 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
 	     'MESSAGE "" " "
 	     "*** Add (setq cvs-execute-single-dir t) to your .emacs ***
 	See the FAQ file or the variable's documentation for more info."))
-       
+
        ;; Cvs waits for a lock.  Ignored: already handled by the process filter
        (cvs-match "\\[..:..:..\\] \\(waiting for\\|obtained\\) .*lock in .*$")
        ;; File you removed still exists.  Ignore (will be noted as removed).
        (cvs-match ".* should be removed and is still there$")
        ;; just a note
-       (cvs-match "use '.+ commit' to \\sw+ th\\sw+ files? permanently$")
+       (cvs-match "use ['`].+ commit' to \\sw+ th\\sw+ files? permanently$")
        ;; [add,status] followed by a more complete status description anyway
-       (cvs-match "nothing known about .*$")
+       (and (cvs-match "nothing known about \\(.*\\)$" (path 1))
+	    (cvs-parsed-fileinfo 'DEAD path 'trust))
        ;; [update] problem with patch
        (cvs-match "checksum failure after patch to .*; will refetch$")
        (cvs-match "refetching unpatchable files$")
@@ -361,7 +382,7 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
        (cvs-match "Rebuilding administrative file database$")
        ;; ???
        (cvs-match "--> Using per-directory sticky tag `.*'")
-     
+
        ;; CVS is running a *info program.
        (and
 	(cvs-match "Executing.*$")
@@ -373,14 +394,14 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
      (and
       (cvs-match "cvs[.ex]* \\[[a-z]+ aborted\\]:.*$")
       (cvs-parsed-fileinfo 'MESSAGE ""))
-     
+
      ;; sadly you can't do much with these since the path is in the repository
      (cvs-match "Directory .* added to the repository$")
      )))
 
 
 (defun cvs-parse-merge ()
-  (let (path base-rev head-rev handled type)
+  (let (path base-rev head-rev type)
     ;; A merge (maybe with a conflict).
     (and
      (cvs-match "RCS file: .*$")
@@ -435,12 +456,14 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
 		 (type (if nofile 'MISSING 'NEED-UPDATE)))
       (cvs-match "Up-to-date$"
 		 (type (if nofile '(UP-TO-DATE . REMOVED) 'UP-TO-DATE)))
+      (cvs-match "File had conflicts on merge$" (type 'MODIFIED))
       (cvs-match ".*[Cc]onflict.*$"	(type 'CONFLICT))
-      (cvs-match "Locally Added$"		(type 'ADDED))
+      (cvs-match "Locally Added$"	(type 'ADDED))
       (cvs-match "Locally Removed$"	(type 'REMOVED))
       (cvs-match "Locally Modified$"	(type 'MODIFIED))
       (cvs-match "Needs Merge$"		(type 'NEED-MERGE))
-      (cvs-match "Unknown$"		(type 'UNKNOWN)))
+      (cvs-match "Entry Invalid"	(type '(NEED-MERGE . REMOVED)))
+      (cvs-match ".*$"			(type 'UNKNOWN)))
      (cvs-match "$")
      (cvs-or
       (cvs-match " *Version:[ \t]*\\([0-9.]+\\).*$" (base-rev 1))
@@ -453,12 +476,15 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
       (cvs-match " *Repository revision:[ \t]*\\([0-9.]+\\)[ \t]*\\(.*\\)$"
 		 (head-rev 1))
       (cvs-match " *Repository revision:.*"))
+     (cvs-or (cvs-match " *Expansion option:.*") t)  ;Optional CVSNT thingie.
+     (cvs-or (cvs-match " *Commit Identifier:.*") t) ;Optional CVSNT thingie.
      (cvs-or
-      (and;;sometimes those fields are missing
-       (cvs-match " *Sticky Tag:[ \t]*\\(.*\\)$") ; FIXME: use it
-       (cvs-match " *Sticky Date:[ \t]*\\(.*\\)$") ; FIXME: use it
-       (cvs-match " *Sticky Options:[ \t]*\\(.*\\)$")) ; FIXME: use it
+      (and ;; Sometimes those fields are missing.
+       (cvs-match " *Sticky Tag:[ \t]*\\(.*\\)$")      ; FIXME: use it.
+       (cvs-match " *Sticky Date:[ \t]*\\(.*\\)$")     ; FIXME: use it.
+       (cvs-match " *Sticky Options:[ \t]*\\(.*\\)$")) ; FIXME: use it.
       t)
+     (cvs-or (cvs-match " *Merge From:.*") t) ;Optional CVSNT thingie.
      (cvs-match "$")
      ;; ignore the tags-listing in the case of `status -v'
      (cvs-or (cvs-match " *Existing Tags:\n\\(\t.*\n\\)*$") t)
@@ -467,12 +493,14 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
 			  :head-rev head-rev))))
 
 (defun cvs-parse-commit ()
-  (let (path base-rev subtype)
+  (let (path file base-rev subtype)
     (cvs-or
 
      (and
-      (cvs-match "\\(Checking in\\|Removing\\) \\(.*\\);$" (path 2))
-      (cvs-match ".*,v  <--  .*$")
+      (cvs-or
+       (cvs-match "\\(Checking in\\|Removing\\) \\(.*\\);$" (path 2))
+       t)
+      (cvs-match ".*,v  <--  \\(.*\\)$" (file 1))
       (cvs-or
        ;; deletion
        (cvs-match "new revision: delete; previous revision: \\([0-9.]*\\)$"
@@ -483,21 +511,27 @@ The remaining KEYS are passed directly to `cvs-create-fileinfo'."
        ;; update
        (cvs-match "new revision: \\([0-9.]*\\); previous revision: .*$"
 		  (subtype 'COMMITTED) (base-rev 1)))
-      (cvs-match "done$")
+      (cvs-or (cvs-match "done$") t)
+      ;; In cvs-1.12.9 commit messages have been changed and became
+      ;; ambiguous.  More specifically, the `path' above is not given.
+      ;; We assume here that in future releases the corresponding info will
+      ;; be put into `file'.
       (progn
 	;; Try to remove the temp files used by VC.
-	(vc-delete-automatic-version-backups (expand-file-name path))
+	(vc-delete-automatic-version-backups (expand-file-name (or path file)))
 	;; it's important here not to rely on the default directory management
 	;; because `cvs commit' might begin by a series of Examining messages
 	;; so the processing of the actual checkin messages might begin with
 	;; a `current-dir' set to something different from ""
-	(cvs-parsed-fileinfo (cons 'UP-TO-DATE subtype) path 'trust
+	(cvs-parsed-fileinfo (cons 'UP-TO-DATE subtype)
+			     (or path file) 'trust
 			     :base-rev base-rev)))
-     
+
      ;; useless message added before the actual addition: ignored
      (cvs-match "RCS file: .*\ndone$"))))
 
 
 (provide 'pcvs-parse)
 
+;; arch-tag: 35418375-1a23-40a0-957d-96b0262f91d6
 ;;; pcvs-parse.el ends here

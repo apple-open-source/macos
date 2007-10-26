@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/modify.c,v 1.16.2.3 2004/01/01 18:16:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/modify.c,v 1.21.2.3 2006/01/03 22:16:08 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -84,11 +84,7 @@ ldap_modify_ext( LDAP *ld,
 	 *	}
 	 */
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_modify_ext\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_modify_ext\n", 0, 0, 0 );
-#endif
 
 	/* check client controls */
 	rc = ldap_int_client_controls( ld, cctrls );
@@ -107,22 +103,25 @@ ldap_modify_ext( LDAP *ld,
 		return( ld->ld_errno );
 	}
 
-	/* for each modification to be performed... */
-	for ( i = 0; mods[i] != NULL; i++ ) {
-		if (( mods[i]->mod_op & LDAP_MOD_BVALUES) != 0 ) {
-			rc = ber_printf( ber, "{e{s[V]N}N}",
-			    (ber_int_t) ( mods[i]->mod_op & ~LDAP_MOD_BVALUES ),
-			    mods[i]->mod_type, mods[i]->mod_bvalues );
-		} else {
-			rc = ber_printf( ber, "{e{s[v]N}N}",
-				(ber_int_t) mods[i]->mod_op,
-			    mods[i]->mod_type, mods[i]->mod_values );
-		}
+	/* allow mods to be NULL ("touch") */
+	if ( mods ) {
+		/* for each modification to be performed... */
+		for ( i = 0; mods[i] != NULL; i++ ) {
+			if (( mods[i]->mod_op & LDAP_MOD_BVALUES) != 0 ) {
+				rc = ber_printf( ber, "{e{s[V]N}N}",
+				    (ber_int_t) ( mods[i]->mod_op & ~LDAP_MOD_BVALUES ),
+				    mods[i]->mod_type, mods[i]->mod_bvalues );
+			} else {
+				rc = ber_printf( ber, "{e{s[v]N}N}",
+					(ber_int_t) mods[i]->mod_op,
+				    mods[i]->mod_type, mods[i]->mod_values );
+			}
 
-		if ( rc == -1 ) {
-			ld->ld_errno = LDAP_ENCODING_ERROR;
-			ber_free( ber, 1 );
-			return( ld->ld_errno );
+			if ( rc == -1 ) {
+				ld->ld_errno = LDAP_ENCODING_ERROR;
+				ber_free( ber, 1 );
+				return( ld->ld_errno );
+			}
 		}
 	}
 
@@ -175,11 +174,7 @@ ldap_modify( LDAP *ld, LDAP_CONST char *dn, LDAPMod **mods )
 {
 	int rc, msgid;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_modify\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_modify\n", 0, 0, 0 );
-#endif
 
 	rc = ldap_modify_ext( ld, dn, mods, NULL, NULL, &msgid );
 

@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 2003-2004, International Business Machines
+ *   Copyright (C) 2003-2006, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -33,6 +33,7 @@
 #include "udataswp.h"
 #include "ucln_cmn.h"
 #include "unormimp.h"
+#include "ubidi_props.h"
 
 U_CDECL_BEGIN
 
@@ -82,7 +83,7 @@ getSPrepFoldingOffset(uint32_t data) {
 }
 
 /* hashes an entry  */
-static int32_t U_EXPORT2 U_CALLCONV 
+static int32_t U_CALLCONV 
 hashEntry(const UHashTok parm) {
     UStringPrepKey *b = (UStringPrepKey *)parm.pointer;
     UHashTok namekey, pathkey;
@@ -92,7 +93,7 @@ hashEntry(const UHashTok parm) {
 }
 
 /* compares two entries */
-static UBool U_EXPORT2 U_CALLCONV 
+static UBool U_CALLCONV 
 compareEntries(const UHashTok p1, const UHashTok p2) {
     UStringPrepKey *b1 = (UStringPrepKey *)p1.pointer;
     UStringPrepKey *b2 = (UStringPrepKey *)p2.pointer;
@@ -196,19 +197,18 @@ initCache(UErrorCode *status) {
     makeCache = (SHARED_DATA_HASHTABLE ==  NULL);
     umtx_unlock(&usprepMutex);
     if(makeCache) {
-        UHashtable *newCache = uhash_open(hashEntry, compareEntries, status);
-        if (U_FAILURE(*status)) {
-            return;
-        }
-        umtx_lock(&usprepMutex);
-        if(SHARED_DATA_HASHTABLE == NULL) {
-            SHARED_DATA_HASHTABLE = newCache;
-            ucln_common_registerCleanup(UCLN_COMMON_USPREP, usprep_cleanup);
-            newCache = NULL;
-        }
-        umtx_unlock(&usprepMutex);
-        if(newCache != NULL) {
-            uhash_close(newCache);
+        UHashtable *newCache = uhash_open(hashEntry, compareEntries, NULL, status);
+        if (U_SUCCESS(*status)) {
+            umtx_lock(&usprepMutex);
+            if(SHARED_DATA_HASHTABLE == NULL) {
+                SHARED_DATA_HASHTABLE = newCache;
+                ucln_common_registerCleanup(UCLN_COMMON_USPREP, usprep_cleanup);
+                newCache = NULL;
+            }
+            umtx_unlock(&usprepMutex);
+            if(newCache != NULL) {
+                uhash_close(newCache);
+            }
         }
     }
 }
@@ -316,7 +316,9 @@ usprep_getProfile(const char* path,
     stackKey.path = (char*) path;
 
     /* fetch the data from the cache */
+    umtx_lock(&usprepMutex);
     profile = (UStringPrepProfile*) (uhash_get(SHARED_DATA_HASHTABLE,&stackKey));
+    umtx_unlock(&usprepMutex);
     
     if(profile == NULL){
         UStringPrepKey* key   = (UStringPrepKey*) uprv_malloc(sizeof(UStringPrepKey));
@@ -355,7 +357,7 @@ usprep_getProfile(const char* path,
             key->path      = (char*) uprv_malloc(uprv_strlen(path)+1);
             if(key->path == NULL){
                 *status = U_MEMORY_ALLOCATION_ERROR;
-                uprv_free(key->path);
+                uprv_free(key->name);
                 uprv_free(key);
                 uprv_free(profile);
                 return NULL;
@@ -365,12 +367,30 @@ usprep_getProfile(const char* path,
 
         /* load the data */
         if(!loadData(profile, path, name, _SPREP_DATA_TYPE, status) || U_FAILURE(*status) ){
+            uprv_free(key->path);
+            uprv_free(key->name);
+            uprv_free(key);
+            uprv_free(profile);
             return NULL;
         }
         
         /* get the options */
         profile->doNFKC            = (UBool)((profile->indexes[_SPREP_OPTIONS] & _SPREP_NORMALIZATION_ON) > 0);
         profile->checkBiDi         = (UBool)((profile->indexes[_SPREP_OPTIONS] & _SPREP_CHECK_BIDI_ON) > 0);
+
+        if(profile->checkBiDi) {
+            profile->bdp = ubidi_getSingleton(status);
+            if(U_FAILURE(*status)) {
+                usprep_unload(profile);
+                uprv_free(key->path);
+                uprv_free(key->name);
+                uprv_free(key);
+                uprv_free(profile);
+                return NULL;
+            }
+        } else {
+            profile->bdp = NULL;
+        }
         
         umtx_lock(&usprepMutex);
         /* add the data object to the cache */
@@ -397,7 +417,7 @@ usprep_open(const char* path,
     usprep_init();
        
     /* initialize the profile struct members */
-    return usprep_getProfile(path,name,status);;
+    return usprep_getProfile(path,name,status);
 }
 
 U_CAPI void U_EXPORT2
@@ -459,8 +479,12 @@ getValues(uint16_t trieWord, int16_t& value, UBool& isIndex){
          * the source codepoint is copied to the destination
          */
         type = USPREP_TYPE_LIMIT;
+        isIndex =FALSE;
+        value = 0;
     }else if(trieWord >= _SPREP_TYPE_THRESHOLD){
         type = (UStringPrepType) (trieWord - _SPREP_TYPE_THRESHOLD);
+        isIndex =FALSE;
+        value = 0;
     }else{
         /* get the type */
         type = USPREP_MAP;
@@ -468,12 +492,10 @@ getValues(uint16_t trieWord, int16_t& value, UBool& isIndex){
         if(trieWord & 0x02){
             isIndex = TRUE;
             value = trieWord  >> 2; //mask off the lower 2 bits and shift
-
         }else{
             isIndex = FALSE;
             value = (int16_t)trieWord;
             value =  (value >> 2);
-
         }
  
         if((trieWord>>2) == _SPREP_MAX_INDEX_VALUE){
@@ -752,17 +774,19 @@ usprep_prepare(   const UStringPrepProfile* profile,
             goto CLEANUP;
         }
 
-        direction = u_charDirection(ch);
-        if(firstCharDir == U_CHAR_DIRECTION_COUNT){
-            firstCharDir = direction;
-        }
-        if(direction == U_LEFT_TO_RIGHT){
-            leftToRight = TRUE;
-            ltrPos = b2Index-1;
-        }
-        if(direction == U_RIGHT_TO_LEFT || direction == U_RIGHT_TO_LEFT_ARABIC){
-            rightToLeft = TRUE;
-            rtlPos = b2Index-1;
+        if(profile->checkBiDi) {
+            direction = ubidi_getClass(profile->bdp, ch);
+            if(firstCharDir == U_CHAR_DIRECTION_COUNT){
+                firstCharDir = direction;
+            }
+            if(direction == U_LEFT_TO_RIGHT){
+                leftToRight = TRUE;
+                ltrPos = b2Index-1;
+            }
+            if(direction == U_RIGHT_TO_LEFT || direction == U_RIGHT_TO_LEFT_ARABIC){
+                rightToLeft = TRUE;
+                rtlPos = b2Index-1;
+            }
         }
     }           
     if(profile->checkBiDi == TRUE){
@@ -783,7 +807,7 @@ usprep_prepare(   const UStringPrepProfile* profile,
             return FALSE;
         }
     }
-    if(b2Len <= destCapacity){
+    if(b2Len>0 && b2Len <= destCapacity){
         uprv_memmove(dest,b2, b2Len*U_SIZEOF_UCHAR);
     }
 

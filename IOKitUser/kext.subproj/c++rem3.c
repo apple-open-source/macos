@@ -1,3 +1,5 @@
+#if !__LP64__
+//
 // 45678901234567890123456789012345678901234567890123456789012345678901234567890
 /*
 
@@ -239,6 +241,8 @@ signedness and constness.  For instance, CUi is a const unsigned int.
 The restrict qualifier has not appeared in IOKit symbols.
 
 */
+#include <sys/cdefs.h>
+
 #if KERNEL
 
 #include <stdarg.h>
@@ -300,7 +304,7 @@ typedef struct BaseTypeData {
 
 typedef struct CheckPoint {
     const char *fInChar;
-    unsigned char fNumI, fNumO, fNumT, fNumB, fNumS;
+    unsigned short fNumI, fNumO, fNumT, fNumB, fNumS;
 } CheckPoint;
 
 typedef struct ParseContext {
@@ -339,7 +343,7 @@ static __inline__ void resetTo(ParseContext *c, CheckPoint *chk)
     c->fP = *chk;
 }
 
-static __inline__ const char *inCharFromCheck(ParseContext *c, CheckPoint *chk)
+static __inline__ const char *inCharFromCheck(ParseContext * c __unused, CheckPoint *chk)
 {
     return chk->fInChar;
 }
@@ -958,16 +962,16 @@ static Boolean appendArgumentList(ParseContext *c)
             char numbuf[16];	// Bigger than MAX_LONG + 3
             int len;
             len = snprintf(numbuf, sizeof(numbuf),
-                           "A%lu_", (unsigned long) bP->fFundTypeID);
+                           "A%lu_", (uintptr_t) bP->fFundTypeID);
             appendNStr(c, numbuf, len);
             break;
         }
 
         case kNTBuiltIn:
-        case kNTDeclarator:	appendChar(c, (int) bP->fFundTypeID); break;
-        case kNTMethod:		appendChar(c, 'M'); break;
-        case kNTFunction:	appendChar(c, 'F'); break;
-        case kNTFuncEnd:	appendChar(c, 'E'); break;
+        case kNTDeclarator:  appendChar(c, (uintptr_t) bP->fFundTypeID); break;
+        case kNTMethod:	     appendChar(c, 'M'); break;
+        case kNTFunction:    appendChar(c, 'F'); break;
+        case kNTFuncEnd:     appendChar(c, 'E'); break;
 
         case kNTUndefined:
         case kNTKName:
@@ -1262,7 +1266,7 @@ static Boolean parse_fund_type_id(ParseContext *c)
         }
 
         advance(c, 1);	// Consume the input character
-        bP->fFundTypeID = (void *) (int) ch;
+        bP->fFundTypeID = (void *) (uintptr_t) ch;
         bP->fLen = 0;
         bP->fType = kNTBuiltIn;
     }
@@ -1345,7 +1349,7 @@ rotateFunction(ParseContext *c, int argStart, int retStart)
     lenRet = numRet * sizeof(BaseTypeData);
 
     // Copy the return type into a buffer
-    if (lenRet > sizeof(returnTypeBuffer))
+    if ((size_t) lenRet > sizeof(returnTypeBuffer))
         return false;
 
     sArgP = (char *) (&c->fInEntries[argTP->fStartEntry]);
@@ -1474,7 +1478,7 @@ static Boolean cleanMethodFunction(ParseContext *c, int type)
     if (!funcRemain) {
         c->fP.fNumI -= (thisLen - 1);
 
-        bP->fFundTypeID = (void *) (int) 'v';	// Void arg list
+        bP->fFundTypeID = (void *) (uintptr_t) 'v';	// Void arg list
         bP->fLen = 0;
         bP->fType = kNTBuiltIn;
 
@@ -1599,7 +1603,7 @@ static Boolean emitQualifiers(ParseContext *c)
     
         if (isVolatile) {
             bP->fType = kNTDeclarator;
-            bP->fFundTypeID = (void *) (int) 'V';
+            bP->fFundTypeID = (void *) (uintptr_t) 'V';
             bP->fLen = 0;
             bP = newIn(c);
             if (!bP)
@@ -1607,7 +1611,7 @@ static Boolean emitQualifiers(ParseContext *c)
         }
         if (isConst) {
             bP->fType = kNTDeclarator;
-            bP->fFundTypeID = (void *) (int) 'K';
+            bP->fFundTypeID = (void *) (uintptr_t) 'K';
             bP->fLen = 0;
             bP = newIn(c);
             if (!bP)
@@ -1719,7 +1723,7 @@ static Boolean parse_declarators(ParseContext *c)
 
             ch = *curDecl;
             if ('p' == ch) ch = 'P';
-            dP->fFundTypeID = (void *) (int) ch;
+            dP->fFundTypeID = (void *) (uintptr_t) ch;
             dP->fLen = 0;
             continue;	// Go around again
 
@@ -1873,7 +1877,7 @@ static Boolean parse_opinfo(ParseContext *c, const char **opInfoP)
     CheckPoint chk = *checkPoint(c);
     const char *op;
     char ch;
-    int i;
+    unsigned i;
 
     if ('a' == (ch = peekNext(c))) {
         goto abandonParse;
@@ -2207,3 +2211,4 @@ Rem3Return rem3_remangle_name(char *gcc3, int *gcc3size, const char *gcc295)
 
     return result;
 }
+#endif // !__LP64__

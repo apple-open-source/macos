@@ -132,9 +132,10 @@ if $verbose>1 then {
     send_user "Spawning $GDB -nw $GDBFLAGS -core=${corefile}\n"
 }
 
-set oldtimeout $timeout
-set timeout [expr "$timeout + 60"]
-verbose "Timeout is now $timeout seconds" 2
+# APPLE LOCAL: Leave the timeout as-is.
+#set oldtimeout $timeout
+#set timeout [expr "$timeout + 60"]
+#verbose "Timeout is now $timeout seconds" 2
 eval "spawn $GDB -nw $GDBFLAGS -core=${corefile}"
 expect {
     -re "Couldn't find .* registers in core file.*$gdb_prompt $" {
@@ -180,8 +181,9 @@ expect {
     -re ".*$gdb_prompt $"	{ fail "args: execfile -core=corefile" }
     timeout 		{ fail "(timeout) starting with -core" }
 }
-set timeout $oldtimeout
-verbose "Timeout is now $timeout seconds" 2
+# APPLE LOCAL: leave the timeout as it is.
+#set timeout $oldtimeout
+#verbose "Timeout is now $timeout seconds" 2
 
 gdb_exit;
 

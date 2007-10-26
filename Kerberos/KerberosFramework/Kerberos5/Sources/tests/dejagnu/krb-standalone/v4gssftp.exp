@@ -60,7 +60,7 @@ proc start_ftp_daemon { } {
     set ftpd_pid [exp_pid]
 
     # Give the ftp daemon a few seconds to get set up.
-    catch "exec sleep 2"
+    sleep 2
 }
 
 # A procedure to stop the ftp daemon.
@@ -249,7 +249,7 @@ proc v4ftp_test { } {
     expect -nocase -re "$localhostname.*ftp server .version \[0-9.\]*. ready."
     expect -re "Using authentication type GSSAPI; ADAT must follow"
     expect "GSSAPI accepted as authentication type"
-    expect "GSSAPI error major: Miscellaneous failure"
+    expect -re "GSSAPI error major: (Unspecified GSS|Miscellaneous) failure"
     expect {
 	"GSSAPI error minor: Unsupported credentials cache format version number" {}
 	"GSSAPI error minor: No credentials cache found" {}
@@ -501,5 +501,5 @@ if [info exists home] {
 }
 
 if { $status != 0 } {
-    perror "error in gssftp.exp: $msg"
+    perror "error in v4gssftp.exp: $msg"
 }

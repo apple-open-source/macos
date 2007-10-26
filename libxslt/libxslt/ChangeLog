@@ -1,3 +1,75 @@
+Fri Oct 29 17:03:26 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in NEWS doc/*: preparing release of libxslt-1.1.12
+	* libexslt/crypto.c: mini change to avoid breaking apibuild.py
+	* libxslt/templates.c: small fix, first step in adressing #153660
+
+Fri Oct 29 14:18:35 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* doc/xsltproc.1 doc/xsltproc.xml: indicate - means stdin closing
+	  #156626
+
+Wed Oct 27 17:00:54 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/transform.c: another dictionnary/string interning fix
+
+Wed Oct 27 00:00:07 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/transform.c: fix to force string interning on generated
+	  documents
+
+Sat Oct 23 09:36:12 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/crypto.c, libexslt/functions.c, libxslt/keys.c,
+	  libxslt/numbers.c, libxslt/pattern.c, libxslt/transform.c,
+	  libxslt/variables.c: changed some variable names for warning
+	  cleanup when -ansi flag is not present.
+	* libxslt/namespaces.c: fixed potential NULL pointer reference
+	  pointed out by Dennis Dams (bug 156187)
+
+Mon Oct 18 17:04:27 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt.spec.in doc/Makefile.am: fix for RedHat bug #136072
+	  to include EXSLT doc in libxslt package.
+
+Thu Oct 14 22:43:22 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* configure.in, config.h.in, libexslt/date.c: changed date.c to use
+	  gmtime_r if available (bug 129983)
+	* libexslt/functions.c: fixed a namespace problem concerning a
+	  function with a namespace-qualified name (bug 155197)
+
+Tue Oct 12 03:54:44 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/namespaces.c: fixed a bug in namespace lookup exhibited
+	  by the recent namespace tests in libxml2
+
+Thu Oct  7 16:15:15 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/transform.c: fixed a problem of tree structure raised
+	  by the new libxml2 tree checking code.
+
+Thu Sep 30 11:28:03 PDT 2004 William Brack <wbrack@mmm.com.hk>
+
+	* libexslt/date.c: fixed problem with negative periods
+	  (bug 154021)
+	* tests/exslt/date/sum.2.out: changed expected output, now
+	  agrees with comments in sum.2.xml test data file
+	  
+Thu Sep 30 08:19:28 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* libxslt/templates.c: patch from Mark Vakoc about an incorrect
+	  attribute document pointer.
+
+Thu Sep 30 08:13:57 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* doc/tutorial2/libxslt_pipes.*: updated the tutorial from Panagiotis
+	  Louridas
+
+Thu Sep 30 00:10:09 CEST 2004 Daniel Veillard <daniel@veillard.com>
+
+	* configure.in doc/*: release of 1.1.11, rebuilt the docs
+
 Wed Sep 29 15:42:33 CEST 2004 Daniel Veillard <daniel@veillard.com>
 
 	* libxslt/pattern.c: try to fix #153137 but without a test case

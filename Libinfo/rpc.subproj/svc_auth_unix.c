@@ -83,7 +83,11 @@ _svcauth_unix(rqst, msg)
 	register enum auth_stat stat;
 	XDR xdrs;
 	register struct authunix_parms *aup;
+#ifdef __LP64__
+	int *buf;
+#else
 	register long *buf;
+#endif
 	struct area {
 		struct authunix_parms area_aup;
 		char area_machname[MAX_MACHINE_NAME+1];
@@ -98,7 +102,11 @@ _svcauth_unix(rqst, msg)
 	aup->aup_gids = area->area_gids;
 	auth_len = (u_int)msg->rm_call.cb_cred.oa_length;
 	xdrmem_create(&xdrs, msg->rm_call.cb_cred.oa_base, auth_len,XDR_DECODE);
+#ifdef __LP64__
+	buf = (int *)XDR_INLINE(&xdrs, auth_len);
+#else
 	buf = (long *)XDR_INLINE(&xdrs, auth_len);
+#endif
 	if (buf != NULL) {
 		aup->aup_time = IXDR_GET_LONG(buf);
 		str_len = IXDR_GET_U_LONG(buf);
@@ -109,7 +117,11 @@ _svcauth_unix(rqst, msg)
 		bcopy((caddr_t)buf, aup->aup_machname, str_len);
 		aup->aup_machname[str_len] = 0;
 		str_len = RNDUP(str_len);
+#ifdef __LP64__
+		buf += str_len / sizeof (int);
+#else
 		buf += str_len / sizeof (long);
+#endif
 		aup->aup_uid = IXDR_GET_LONG(buf);
 		aup->aup_gid = IXDR_GET_LONG(buf);
 		gid_len = IXDR_GET_U_LONG(buf);
@@ -127,7 +139,8 @@ _svcauth_unix(rqst, msg)
 		 */
 		if ((5 + gid_len) * BYTES_PER_XDR_UNIT + str_len > auth_len) {
 			/* LIBRARY CODE SHOULD NOT PRINT
-			(void) printf("bad auth_len gid %d str %d auth %d\n", gid_len, str_len, auth_len);
+			(void) printf("bad auth_len gid %d str %d auth %d\n",
+			    gid_len, str_len, auth_len);
 			*/
 			stat = AUTH_BADCRED;
 			goto done;

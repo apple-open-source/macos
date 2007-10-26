@@ -107,6 +107,7 @@ private:
 
     struct ExpansionData { 
 		UInt32 altMTU;					//track the physical mtu of controller
+		UInt32 publishedFeatureID;   // id for published wake packet
 	};
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */

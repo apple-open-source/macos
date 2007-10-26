@@ -1,8 +1,8 @@
 /* result.c - shell backend result reading function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/result.c,v 1.17.2.3 2004/04/06 18:27:12 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/result.c,v 1.21.2.2 2006/01/03 22:16:23 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,7 @@ read_and_send_results(
 	int	bsize, len;
 	char	*buf, *bp;
 	char	line[BUFSIZ];
+	char	ebuf[128];
 
 	/* read in the result and send it along */
 	buf = (char *) ch_malloc( BUFSIZ );
@@ -61,7 +62,7 @@ read_and_send_results(
 			if ( errno == EINTR ) continue;
 
 			Debug( LDAP_DEBUG_ANY, "shell: fgets failed: %s (%d)\n",
-				strerror(errno), errno, 0 ); 
+				AC_STRERROR_R(errno, ebuf, sizeof ebuf), errno, 0 ); 
 			break;
 		}
 

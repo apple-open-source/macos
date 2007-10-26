@@ -1,10 +1,11 @@
 ;;; eudc-export.el --- functions to export EUDC query results
 
-;; Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Oscar Figueiredo <oscar@xemacs.org>
-;; Maintainer: Oscar Figueiredo <oscar@xemacs.org>
-;; Keywords: help
+;; Author: Oscar Figueiredo <oscar@cpe.fr>
+;; Maintainer: Pavel Janík <Pavel@Janik.cz>
+;; Keywords: comm
 
 ;; This file is part of GNU Emacs.
 
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -44,7 +45,7 @@ symbol and VALUE is the corresponding value for the record.
 If SILENT is non-nil then the created BBDB record is not displayed."
   ;; This function runs in a special context where lisp symbols corresponding
   ;; to field names in record are bound to the corresponding values
-  (eval 
+  (eval
    `(let* (,@(mapcar '(lambda (c)
 			(list (car c) (if (listp (cdr c))
 					  (list 'quote (cdr c))
@@ -86,8 +87,8 @@ If SILENT is non-nil then the created BBDB record is not displayed."
 					      (cons (car mapping) value))))
 				       conversion-alist)))
       (setq bbdb-notes (delq nil bbdb-notes))
-      (setq bbdb-record (bbdb-create-internal bbdb-name 
-					      bbdb-company 
+      (setq bbdb-record (bbdb-create-internal bbdb-name
+					      bbdb-company
 					      bbdb-net
 					      bbdb-address
 					      bbdb-phones
@@ -98,7 +99,7 @@ If SILENT is non-nil then the created BBDB record is not displayed."
 (defun eudc-parse-spec (spec record recurse)
   "Parse the conversion SPEC using RECORD.
 If RECURSE is non-nil then SPEC may be a list of atomic specs."
-  (cond 
+  (cond
    ((or (stringp spec)
 	(symbolp spec)
 	(and (listp spec)
@@ -149,7 +150,7 @@ LOCATION is used as the address location for bbdb."
 	      zip (string-to-number (match-string 1 last1))))
        (t
 	(error "Cannot parse the address"))))
-    (vector location 
+    (vector location
 	    (or (nth 0 addr-components) "")
 	    (or (nth 1 addr-components) "")
 	    (or (nth 2 addr-components) "")
@@ -162,7 +163,7 @@ LOCATION is used as the address location for bbdb."
 PHONE is either a string supposedly containing a phone number or
 a list of such strings which are concatenated.
 LOCATION is used as the phone location for BBDB."
-  (cond 
+  (cond
    ((stringp phone)
     (let (phone-list)
       (condition-case err
@@ -180,7 +181,7 @@ LOCATION is used as the phone location for BBDB."
     (vector location (mapconcat 'identity phone ", ")))
    (t
     (error "Invalid phone specification"))))
-      
+
 (defun eudc-batch-export-records-to-bbdb ()
   "Insert all the records returned by a directory query into BBDB."
   (interactive)
@@ -215,4 +216,5 @@ This function can only be called from a directory query result buffer."
        (overlay-get (car (overlays-at (point))) 'eudc-record)
        (eudc-insert-record-at-point-into-bbdb)))
 
+;;; arch-tag: 8cbda7dc-3163-47e6-921c-6ec5083df2d7
 ;;; eudc-export.el ends here

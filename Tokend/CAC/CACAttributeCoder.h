@@ -53,4 +53,3 @@ public:
 
 #endif /* !_CACATTRIBUTECODER_H_ */
 
-/* arch-tag: 366E16D4-0DBC-11D9-B030-000A9595DEEE */

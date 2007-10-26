@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,7 @@
  * - initial revision
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
@@ -67,7 +68,9 @@ _dns_configuration_server_port()
 			/* service not currently registered, try again later */
 			return MACH_PORT_NULL;
 		default :
-			mach_error("could not lookup DNS configuration info service:", status);
+			fprintf(stderr,
+				"could not lookup DNS configuration info service: %s\n",
+				bootstrap_strerror(status));
 			return MACH_PORT_NULL;
 	}
 

@@ -2,8 +2,8 @@
 " Language:	MSDOS batch file (with NT command extensions)
 " Maintainer:	Mike Williams <mrw@eandem.co.uk>
 " Filenames:    *.bat
-" Last Change:	27th June 2002
-" URL:		http://www.eandem.co.uk/mrw/vim
+" Last Change:	16th March 2004
+" Web Page:     http://www.eandem.co.uk/mrw/vim
 "
 " Options Flags:
 " dosbatch_cmdextversion	- 1 = Windows NT, 2 = Windows 2000 [default]
@@ -70,6 +70,9 @@ syn match dosbatchIdentifier    contained "\s\h\w*\>"
 syn match dosbatchVariable	"%\h\w*%"
 syn match dosbatchVariable	"%\h\w*:\*\=[^=]*=[^%]*%"
 syn match dosbatchVariable	"%\h\w*:\~\d\+,\d\+%" contains=dosbatchInteger
+syn match dosbatchVariable	"!\h\w*!"
+syn match dosbatchVariable	"!\h\w*:\*\=[^=]*=[^%]*!"
+syn match dosbatchVariable	"!\h\w*:\~\d\+,\d\+!" contains=dosbatchInteger
 syn match dosbatchSet		"\s\h\w*[+-]\==\{-1}" contains=dosbatchIdentifier,dosbatchOperator
 
 " Args to bat files and for loops, etc
@@ -124,12 +127,12 @@ if version >= 508 || !exists("did_dosbatch_syntax_inits")
   HiLink dosbatchConditional	Conditional
   HiLink dosbatchRepeat		Repeat
 
-  HiLink dosbatchOperator       Operator
-  HiLink dosbatchEchoOperator   dosbatchOperator
-  HiLink dosbatchIfOperator     dosbatchOperator
+  HiLink dosbatchOperator	Operator
+  HiLink dosbatchEchoOperator	dosbatchOperator
+  HiLink dosbatchIfOperator	dosbatchOperator
 
   HiLink dosbatchArgument	Identifier
-  HiLink dosbatchIdentifier     Identifier
+  HiLink dosbatchIdentifier	Identifier
   HiLink dosbatchVariable	dosbatchIdentifier
 
   HiLink dosbatchSpecialChar	SpecialChar

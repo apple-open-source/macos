@@ -39,6 +39,8 @@
  */
 #include <stdio.h>
 #include <security_asn1/prtypes.h>
+// @@@ for Boolean
+#include <Security/SecBase.h>
 
 PR_BEGIN_EXTERN_C
 

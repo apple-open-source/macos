@@ -40,7 +40,7 @@
  *
  */
 
-/* $Id: ctl_mboxlist.c,v 1.5 2005/03/05 00:36:47 dasenbro Exp $ */
+/* $Id: ctl_mboxlist.c,v 1.53 2007/02/05 18:41:46 jeaton Exp $ */
 
 /* currently doesn't catch signals; probably SHOULD */
 
@@ -61,8 +61,12 @@
 #include "global.h"
 #include "libcyr_cfg.h"
 #include "mboxlist.h"
-#include "mupdate-client.h"
+#include "mupdate.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
+
+#include "sync_log.h"
 
 /* config.c stuff */
 const int config_need_data = 0;
@@ -125,7 +129,7 @@ static int mupdate_list_cb(struct mupdate_mailboxdata *mdata,
     int ret;
 
     /* the server thinks we have it, do we think we have it? */
-    ret = mboxlist_lookup(mdata->mailbox, NULL, NULL, NULL);
+    ret = mboxlist_lookup(mdata->mailbox, NULL, NULL);
     if(ret) {
 	struct mb_node *next;
 	
@@ -187,7 +191,7 @@ static int dump_cb(void *rockp,
     switch (d->op) {
     case DUMP:
 	if(!d->partition || !strcmp(d->partition, part)) {
-	    printf("%s\t%s\t%s\n", name, part, acl);
+	    printf("%s\t%d %s\t%s\n", name, mbtype, part, acl);
 	    if(d->purge) {
 		config_mboxlist_db->delete(mbdb, key, keylen, &(d->tid), 0);
 	    }
@@ -415,7 +419,8 @@ void do_dump(enum mboxop op, const char *part, int purge)
 	    
 	    unflag_head = unflag_head->next;
 	    
-	    ret = mboxlist_detail(me->mailbox, &type, NULL, &part, &acl, NULL);
+	    ret = mboxlist_detail(me->mailbox, &type, NULL, NULL,
+				  &part, &acl, NULL);
 	    if(ret) {
 		fprintf(stderr,
 			"couldn't perform lookup to un-remote-flag %s\n",
@@ -457,6 +462,7 @@ void do_dump(enum mboxop op, const char *part, int purge)
 	    wipe_head = wipe_head->next;
 	    
 	    ret = mboxlist_deletemailbox(me->mailbox, 1, "", NULL, 0, 1, 1);
+	    if(!ret) sync_log_mailbox(me->mailbox);
 	    if(ret) {
 		fprintf(stderr, "couldn't delete defunct mailbox %s\n",
 			me->mailbox);
@@ -490,7 +496,7 @@ void do_undump(void)
     while (fgets(buf, sizeof(buf), stdin)) {
 	char *name, *partition, *acl;
 	char *p;
-	int tries = 0;
+	int mbtype = 0, tries = 0;
 	
 	line++;
 
@@ -501,6 +507,12 @@ void do_undump(void)
 	    continue;
 	}
 	*p++ = '\0';
+	if (isdigit((int) *p)) {
+	    /* new style dump */
+	    mbtype = strtol(p, &p, 10);
+	    /* skip trailing space */
+	    if (*p == ' ') p++;
+	}
 	partition = p;
 	for (; *p && *p != '\t'; p++) ;
 	if (!*p) {
@@ -523,7 +535,7 @@ void do_undump(void)
 	}
 
 	key = name; keylen = strlen(key);
-	data = mboxlist_makeentry(0, partition, acl); datalen = strlen(data);
+	data = mboxlist_makeentry(mbtype, partition, acl); datalen = strlen(data);
 	
 	tries = 0;
     retry:

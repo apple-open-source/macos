@@ -1,221 +1,119 @@
 ------------------------------------------------------------------------
-r55292 | quinlan | 2004-10-22 01:05:49 +0000 (Fri, 22 Oct 2004) | 2 lines
+r545288 | sidney | 2007-06-07 19:59:41 +0000 (Thu, 07 Jun 2007) | 1 line
 
-bug 3916: deprecate RCVD_IN_RFC_IPWHOIS (trivial patch)
+bug5488: zero some rules causing FPs
+------------------------------------------------------------------------
+r545281 | sidney | 2007-06-07 19:52:06 +0000 (Thu, 07 Jun 2007) | 1 line
+
+bug 5257: revert change made for this bug. ham threshold was too low in practice
+------------------------------------------------------------------------
+r545279 | sidney | 2007-06-07 19:46:14 +0000 (Thu, 07 Jun 2007) | 1 line
+
+bug 5502: add AUTOLEARNSCORE template tag
+------------------------------------------------------------------------
+r545100 | sidney | 2007-06-07 08:26:57 +0000 (Thu, 07 Jun 2007) | 1 line
+
+bug 5102: tighten up regexp for FORGED_HOTMAIL_RCVD to avoid soe FPs
+------------------------------------------------------------------------
+r545094 | dos | 2007-06-07 07:55:51 +0000 (Thu, 07 Jun 2007) | 1 line
+
+bug 5312: add note to INSTALL doc that NetAddr::IP versions before 4.007 trigger PL_sawampersand slow down
+------------------------------------------------------------------------
+r545073 | sidney | 2007-06-07 05:46:44 +0000 (Thu, 07 Jun 2007) | 1 line
+
+bug 5457: spamc build and test should handle not having zlib
+------------------------------------------------------------------------
+r544947 | jm | 2007-06-06 20:50:43 +0000 (Wed, 06 Jun 2007) | 1 line
+
+bug 5379: spamd could crash at startup if its preloading temporary directory already exists. fix
+------------------------------------------------------------------------
+r544945 | sidney | 2007-06-06 20:48:15 +0000 (Wed, 06 Jun 2007) | 1 line
+
+bug4616: spamc config can cause command line options to be ignored
+------------------------------------------------------------------------
+r544604 | dos | 2007-06-05 19:32:06 +0000 (Tue, 05 Jun 2007) | 1 line
+
+bug 5485: zero score DK/DKIM_POLICY_SIGNSOME rules since they'll always fire due to defaults (unless there's an explicit SIGNALL policy)
+------------------------------------------------------------------------
+r544388 | sidney | 2007-06-05 05:33:49 +0000 (Tue, 05 Jun 2007) | 1 line
+
+bug 5492: VBounce rule was looking in header instead of body for whitelisted relays
+------------------------------------------------------------------------
+r544370 | sidney | 2007-06-05 04:27:58 +0000 (Tue, 05 Jun 2007) | 1 line
+
+bug 5422: spamd error, prefork: ordered child N to accept...
+------------------------------------------------------------------------
+r543972 | dos | 2007-06-03 19:55:22 +0000 (Sun, 03 Jun 2007) | 1 line
+
+bug 5487: prevent multiple "urirhssub"s using the same zone from overwriting each other
+------------------------------------------------------------------------
+r543868 | sidney | 2007-06-03 09:51:38 +0000 (Sun, 03 Jun 2007) | 1 line
+
+bug 5432 - Change default in Win32 build to not build spamc
+------------------------------------------------------------------------
+r543854 | dos | 2007-06-03 07:09:19 +0000 (Sun, 03 Jun 2007) | 1 line
+
+bug 5446: add --updatedir option to sa-compile and remove inaccurate re2c required version info from pod
+------------------------------------------------------------------------
+r543627 | dos | 2007-06-01 21:39:53 +0000 (Fri, 01 Jun 2007) | 1 line
+
+bug 5436: correct ifplugin statements missing for scores in 50_scores.cf
+------------------------------------------------------------------------
+r543052 | dos | 2007-05-31 04:34:08 +0000 (Thu, 31 May 2007) | 1 line
+
+doc fix: user LOCAL_RULES_DIR macro where appropriate
+------------------------------------------------------------------------
+r541872 | dos | 2007-05-26 08:49:21 +0000 (Sat, 26 May 2007) | 1 line
+
+bug 5477: prevent Rule2XSBody info message from appearing on stderr during spamd startup
+------------------------------------------------------------------------
+r540411 | duncf | 2007-05-22 03:28:54 +0000 (Tue, 22 May 2007) | 1 line
+
+Document maximum recommended message size for spamassassin
+------------------------------------------------------------------------
+r540408 | duncf | 2007-05-22 03:00:49 +0000 (Tue, 22 May 2007) | 1 line
+
+Clarify how to get languages in a marked up messages from TextCat plugin
+------------------------------------------------------------------------
+r540400 | duncf | 2007-05-22 02:34:47 +0000 (Tue, 22 May 2007) | 1 line
+
+Clean up comments and license blocks
+------------------------------------------------------------------------
+r540384 | duncf | 2007-05-22 01:01:44 +0000 (Tue, 22 May 2007) | 1 line
+
+Fix POD formatting
+------------------------------------------------------------------------
+r540379 | duncf | 2007-05-22 00:19:02 +0000 (Tue, 22 May 2007) | 1 line
+
+Cant use POD formatting codes on lines that begins with space/tab
+------------------------------------------------------------------------
+r536482 | jm | 2007-05-09 10:29:17 +0000 (Wed, 09 May 2007) | 1 line
+
+bug 5312: doc fix: note that Razor-agents 2.83 includes the fix for the perl-interpreter slowdown bug
+------------------------------------------------------------------------
+r534805 | jm | 2007-05-03 11:52:29 +0000 (Thu, 03 May 2007) | 1 line
+
+trivial: removing obsolete change-summary doc
+------------------------------------------------------------------------
+r534514 | fanf | 2007-05-02 15:30:57 +0000 (Wed, 02 May 2007) | 1 line
+
+revert since we are in R-T-C mode on the 3.2 branch
+------------------------------------------------------------------------
+r534510 | fanf | 2007-05-02 15:17:42 +0000 (Wed, 02 May 2007) | 2 lines
+
+Backport fix for bug #5102
 
 ------------------------------------------------------------------------
-r55280 | quinlan | 2004-10-21 22:32:29 +0000 (Thu, 21 Oct 2004) | 2 lines
+r534466 | jm | 2007-05-02 14:01:28 +0000 (Wed, 02 May 2007) | 1 line
 
-bug 3822: warn during "make" if module versions are too low
-
+backport the build/README doc changes
 ------------------------------------------------------------------------
-r55244 | parker | 2004-10-21 18:02:10 +0000 (Thu, 21 Oct 2004) | 1 line
+r534465 | jm | 2007-05-02 13:58:30 +0000 (Wed, 02 May 2007) | 1 line
 
-Bug 3826: Turn copy config on for all cases, it will still turn itself off when max client == 1
+forward-port some trivial documentation fixes from trunk. fix a typo in INSTALL; remove a warning about now-obsolete UTF-8 problems from the Red Hat 8 era; update accuracy figures in the README first paragraph; document /var/lib/spamassassin usage; and update the list of optional plugins/rules in README
 ------------------------------------------------------------------------
-r55157 | hstern | 2004-10-20 15:28:19 +0000 (Wed, 20 Oct 2004) | 4 lines
+r534459 | jm | 2007-05-02 13:54:04 +0000 (Wed, 02 May 2007) | 2 lines
 
-bug 3910:
-
- * spamd/slackware-rc-script.sh: Removed redundant echos, fixed flags to kill and rm.
-
-------------------------------------------------------------------------
-r54970 | sidney | 2004-10-17 18:23:40 +0000 (Sun, 17 Oct 2004) | 1 line
-
-bug 3776: restrict size of message body fed to TextCat to 10kbytes which is enough for reliable classification and prevents excessive time and memory consumption
-------------------------------------------------------------------------
-r54946 | jm | 2004-10-17 02:28:26 +0000 (Sun, 17 Oct 2004) | 4 lines
-
-bug 3895: Mail::SA::Conf::Parser::finish() method is missing; this is required for
-Mail::SpamAssassin::finish() to operate.  the result is that a user of the perl
-modules cannot call finish to GC the entire Spamassassin set of modules, as the
-call dies.  fixed
-------------------------------------------------------------------------
-r54945 | felicity | 2004-10-17 01:06:03 +0000 (Sun, 17 Oct 2004) | 1 line
-
-upped the spec file to 3.0.1
-------------------------------------------------------------------------
-r54728 | parker | 2004-10-13 03:46:18 +0000 (Wed, 13 Oct 2004) | 1 line
-
-Bug 3766: Provide support for specifying the username for virtual environments
-------------------------------------------------------------------------
-r54727 | parker | 2004-10-13 03:39:05 +0000 (Wed, 13 Oct 2004) | 1 line
-
-Bug 3747: Move test to port 8 which is unassigned and hopefully will work on all systems.  Also add an onfail warning that describes why the test might be failing
-------------------------------------------------------------------------
-r54712 | jm | 2004-10-13 00:36:58 +0000 (Wed, 13 Oct 2004) | 1 line
-
-bug 3806: do not run DNSBL and SPF tests as root on non-linux UNIX platforms, due to a stupid bug in Sys::Hostname::Long that renames the hostname
-------------------------------------------------------------------------
-r54699 | felicity | 2004-10-12 21:34:05 +0000 (Tue, 12 Oct 2004) | 1 line
-
-bug 3741: FORGED_MUA_THEBAT_BOUN would FP for The Bat versions > 1, so we should only check for that v1 in the test
-------------------------------------------------------------------------
-r54684 | felicity | 2004-10-12 18:42:29 +0000 (Tue, 12 Oct 2004) | 1 line
-
-added MIME::Base64 to the optional (but highly suggested) section in INSTALL
-------------------------------------------------------------------------
-r54647 | felicity | 2004-10-12 02:53:08 +0000 (Tue, 12 Oct 2004) | 1 line
-
-changing comment since it's IMO exactly what we don't want to do
-------------------------------------------------------------------------
-r54579 | felicity | 2004-10-11 13:08:13 +0000 (Mon, 11 Oct 2004) | 1 line
-
-bug 3865: specifying certain configuration parameters without a value didn't result in an error at parse time, but set an invalid value internally which could cause errors/etc.  do a simple check for numeric, boolean, and string values.
-------------------------------------------------------------------------
-r54578 | felicity | 2004-10-11 13:05:07 +0000 (Mon, 11 Oct 2004) | 1 line
-
-bug 3872: when syncing the journal and getting seen updates, the code would call seen_{put,delete} which defer to the journal when learn_to_journal is set, resulting in the msgid never getting stored and being passed from one journal to the next in certain situations.
-------------------------------------------------------------------------
-r54577 | felicity | 2004-10-11 13:01:35 +0000 (Mon, 11 Oct 2004) | 1 line
-
-bug 3831: due to the RegistrarBoundaries REs being too loose, we would often misparse the given domain into the wrong number of parts.  make the RE more strict to avoid this issue and also skip doing the RE check when the RE can't possibly match based on number of parts in the string.
-------------------------------------------------------------------------
-r54199 | jm | 2004-10-10 02:08:03 +0000 (Sun, 10 Oct 2004) | 1 line
-
-bug 3887: don't record regression test strings unless t/rule_tests.t is being run
-------------------------------------------------------------------------
-r54147 | felicity | 2004-10-09 01:35:45 +0000 (Sat, 09 Oct 2004) | 1 line
-
-bug 3883: spamcop reporting was sending the whole user gecos field, which can give out private information, etc.  since the real name isn't necessary for reporting (just need the email address), we can just stop trying to figure out the full name.
-------------------------------------------------------------------------
-r54104 | parker | 2004-10-08 18:59:26 +0000 (Fri, 08 Oct 2004) | 1 line
-
-Bug 3876: flatten tokens hash returned by tokenizer to save memory, updated Plugin docs to show change, and pass in additional hash for bayes_scan hook
-------------------------------------------------------------------------
-r54099 | parker | 2004-10-08 18:24:42 +0000 (Fri, 08 Oct 2004) | 1 line
-
-Bug 3855: Do not use qr to whitelist entries, Storable does not handle Regexp objects
-------------------------------------------------------------------------
-r54023 | felicity | 2004-10-07 22:24:12 +0000 (Thu, 07 Oct 2004) | 1 line
-
-bug 3854: if no rules hit, _TESTSSCORES_ doesn't return 'none' like _TESTS_ does.
-------------------------------------------------------------------------
-r54022 | felicity | 2004-10-07 22:21:30 +0000 (Thu, 07 Oct 2004) | 1 line
-
-bug 3734: uridnsbl rules work on body data, not header data, so change the rule type from header to body
-------------------------------------------------------------------------
-r54009 | parker | 2004-10-07 19:43:29 +0000 (Thu, 07 Oct 2004) | 1 line
-
-Bug 3875: Remove map/grep combo and replace with foreach loop to avoid odd memory bloat issue
-------------------------------------------------------------------------
-r53902 | felicity | 2004-10-06 20:13:17 +0000 (Wed, 06 Oct 2004) | 1 line
-
-bug 3801: MUAs allow no blank line between the end of the message header and a MIME boundary, so we should too.
-------------------------------------------------------------------------
-r53898 | felicity | 2004-10-06 20:06:07 +0000 (Wed, 06 Oct 2004) | 1 line
-
-bug 3805: add the ability to whitelist (not query) the URIBLs for certain domains.  added the top list (125 or so) from SURBL for queried domains that they whitelist.
-------------------------------------------------------------------------
-r51869 | jm | 2004-10-04 06:25:43 +0000 (Mon, 04 Oct 2004) | 1 line
-
-bug 3812: fix parsing of SMTPSVC headers, as generated by MS IIS, in Received hdr parser
-------------------------------------------------------------------------
-r51867 | jm | 2004-10-04 06:23:12 +0000 (Mon, 04 Oct 2004) | 1 line
-
-bug 3791: add support for XMail Received header formats
-------------------------------------------------------------------------
-r51866 | jm | 2004-10-04 06:19:04 +0000 (Mon, 04 Oct 2004) | 1 line
-
-bug 3830: add support for 'return-path' to extract MAIL FROM address from Received: headers
-------------------------------------------------------------------------
-r51851 | jm | 2004-10-03 21:30:32 +0000 (Sun, 03 Oct 2004) | 1 line
-
-bug 3649: helper_app_pipe_open doesn't do the right thing if STD{IN,OUT,ERR} filehandles != {0,1,2} fds
-------------------------------------------------------------------------
-r51849 | jm | 2004-10-03 21:26:02 +0000 (Sun, 03 Oct 2004) | 1 line
-
-bug 3837: over-broad RE in Received parser gets some rDNS and HELO strings mixed up
-------------------------------------------------------------------------
-r51821 | felicity | 2004-10-03 04:16:27 +0000 (Sun, 03 Oct 2004) | 1 line
-
-bug 3827: typo in the RE for 2TLD
-------------------------------------------------------------------------
-r51815 | felicity | 2004-10-03 00:52:00 +0000 (Sun, 03 Oct 2004) | 1 line
-
-bug 3827: update 2TLD listing in the URIBL Plugin
-------------------------------------------------------------------------
-r51810 | felicity | 2004-10-02 19:39:58 +0000 (Sat, 02 Oct 2004) | 1 line
-
-bug 3427: if a schemeless URI was found, we would add 'http://' to the front, which is very bad since it would do this for 'foo.gif', '#foo', etc.  Also, modify uri.t to give debug output upon failure.
-------------------------------------------------------------------------
-r51753 | quinlan | 2004-10-01 20:28:08 +0000 (Fri, 01 Oct 2004) | 2 lines
-
-some updates from trunk
-
-------------------------------------------------------------------------
-r47589 | mss | 2004-09-30 14:27:30 +0000 (Thu, 30 Sep 2004) | 7 lines
-
-Sort the MANIFESTs here too to ease any merges.
-
-Just did a case-sensitive sort with
-$ export LC_ALL=C
-$ sort < MANIFEST > MANIFEST.TMP && mv MANIFEST.TMP MANIFEST
-$ sort < MANIFEST.SKIP > MANIFEST.TMP && mv MANIFEST.TMP MANIFEST.SKIP
-
-------------------------------------------------------------------------
-r47511 | jm | 2004-09-29 22:33:51 +0000 (Wed, 29 Sep 2004) | 1 line
-
-fix plugin POD docs; Plugin.pm had a sub-section inside a method's =item, which is just totally wrong
-------------------------------------------------------------------------
-r47485 | felicity | 2004-09-29 14:02:07 +0000 (Wed, 29 Sep 2004) | 1 line
-
-bug 3825: document that # characters must be escaped in RE, or else they're considered the start of a comment
-------------------------------------------------------------------------
-r47417 | parker | 2004-09-28 20:36:13 +0000 (Tue, 28 Sep 2004) | 1 line
-
-Added --whitelist option to the other autowhitelist options as one that has been removed
-------------------------------------------------------------------------
-r47412 | parker | 2004-09-28 18:36:57 +0000 (Tue, 28 Sep 2004) | 1 line
-
-Fix typo
-------------------------------------------------------------------------
-r47345 | quinlan | 2004-09-27 23:56:22 +0000 (Mon, 27 Sep 2004) | 2 lines
-
-bug 3822: clean up requirements documentation
-
-------------------------------------------------------------------------
-r47179 | sidney | 2004-09-25 01:55:03 +0000 (Sat, 25 Sep 2004) | 1 line
-
-bug 3804: fix typo that caused X-Languages metadata for _LANGUAGES_ tag to be empty
-------------------------------------------------------------------------
-r47021 | felicity | 2004-09-22 02:25:06 +0000 (Wed, 22 Sep 2004) | 1 line
-
-prep 3.0.1 devel cycle
-------------------------------------------------------------------------
-r47018 | felicity | 2004-09-22 02:15:55 +0000 (Wed, 22 Sep 2004) | 1 line
-
-prep 3.0.0 release
-------------------------------------------------------------------------
-r47002 | quinlan | 2004-09-21 21:43:03 +0000 (Tue, 21 Sep 2004) | 2 lines
-
-bug 3798: remove ninja* images
-
-------------------------------------------------------------------------
-r46967 | quinlan | 2004-09-21 07:23:40 +0000 (Tue, 21 Sep 2004) | 2 lines
-
-new logo
-
-------------------------------------------------------------------------
-r46960 | quinlan | 2004-09-21 05:56:38 +0000 (Tue, 21 Sep 2004) | 2 lines
-
-bug 3794: add some defined() checks for incomplete DNS responses
-
-------------------------------------------------------------------------
-r46138 | duncf | 2004-09-15 23:05:17 +0000 (Wed, 15 Sep 2004) | 1 line
-
-Minor typo in Mail::SpamAssassin::Conf man
-------------------------------------------------------------------------
-r46071 | felicity | 2004-09-15 03:08:35 +0000 (Wed, 15 Sep 2004) | 1 line
-
-add documentation about Plugin::dbg having to be called via package name as it's not available in the plugin package namespace
-------------------------------------------------------------------------
-r46068 | felicity | 2004-09-15 02:46:09 +0000 (Wed, 15 Sep 2004) | 1 line
-
-added documentation for the standard arguments passed to plugins of different types
-------------------------------------------------------------------------
-r46030 | felicity | 2004-09-14 18:28:50 +0000 (Tue, 14 Sep 2004) | 2 lines
-
-Create 3.0 (stable) branch, open up trunk for 3.1 (development) operations.
+argh.  use a more consistent branch naming scheme
 
 ------------------------------------------------------------------------

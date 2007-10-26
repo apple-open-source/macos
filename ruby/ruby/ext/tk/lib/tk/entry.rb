@@ -1,6 +1,6 @@
 #
 #               tk/entry.rb - Tk entry classes
-#                       $Date: 2004/11/05 09:15:07 $
+#                       $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
 #                       by Yukihiro Matsumoto <matz@caelum.co.jp>
 
 require 'tk'
@@ -21,19 +21,26 @@ class TkEntry<TkLabel
   #end
   #private :create_self
 
+  def __strval_optkeys
+    super() + ['show', 'disabledbackground', 'readonlybackground']
+  end
+  private :__strval_optkeys
+
   def bbox(index)
     list(tk_send_without_enc('bbox', index))
   end
   def cursor
     number(tk_send_without_enc('index', 'insert'))
   end
+  alias icursor cursor
   def cursor=(index)
     tk_send_without_enc('icursor', index)
     #self
     index
   end
-  def index(index)
-    number(tk_send_without_enc('index', index))
+  alias icursor= cursor=
+  def index(idx)
+    number(tk_send_without_enc('index', idx))
   end
   def insert(pos,text)
     tk_send_without_enc('insert', pos, _get_eval_enc_str(text))

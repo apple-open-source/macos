@@ -288,6 +288,8 @@ extern unsigned tree_num_loop_insns (struct loop *);
 extern int num_loop_insns (struct loop *);
 extern int average_num_loop_insns (struct loop *);
 extern unsigned get_loop_level (const struct loop *);
+/* APPLE LOCAL 4538899 mainline */
+extern void mark_loop_exit_edges (void);
 
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);

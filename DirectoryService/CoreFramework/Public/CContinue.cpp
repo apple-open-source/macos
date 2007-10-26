@@ -34,9 +34,10 @@
 //	* CContinue
 //------------------------------------------------------------------------------------
 
-CContinue::CContinue ( DeallocateProc *inProcPtr )
+CContinue::CContinue ( DeallocateProc *inProcPtr ) : fMutex("CContinue::fMutex")
 {
 	fHashArrayLength = 32;
+	fRefNumCount = 0;
 	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
 
 	fDeallocProcPtr = inProcPtr;
@@ -44,9 +45,10 @@ CContinue::CContinue ( DeallocateProc *inProcPtr )
 } // CContinue
 
 
-CContinue::CContinue ( DeallocateProc *inProcPtr, uInt32 inHashArrayLength )
+CContinue::CContinue ( DeallocateProc *inProcPtr, UInt32 inHashArrayLength ) : fMutex("CContinue::fMutex")
 {
 	fHashArrayLength = inHashArrayLength;
+	fRefNumCount = 0;
 	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
 
 	fDeallocProcPtr = inProcPtr;
@@ -70,18 +72,18 @@ CContinue::~CContinue ( void )
 //
 //------------------------------------------------------------------------------------
 
-sInt32 CContinue::AddItem ( void *inData, uInt32 inRefNum )
+SInt32 CContinue::AddItem ( void *inData, UInt32 inRefNum )
 {
-	sInt32			siResult	= eDSNoErr;
-	uInt32			uiSlot		= 0;
-	uInt32			uiTmpRef	= 0;
+	SInt32			siResult	= eDSNoErr;
+	UInt32			uiSlot		= 0;
+	UInt32			uiTmpRef	= 0;
 	sDSTableEntry	   *pNewEntry	= nil;
 	sDSTableEntry	   *pCurrEntry	= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	// Change the pointer into a long.
-	uiTmpRef = (uInt32)inData;
+	uiTmpRef = (UInt32)inData;
 
 	// Create the new entry object
 	pNewEntry = (sDSTableEntry *)::malloc( sizeof( sDSTableEntry ) );
@@ -105,6 +107,7 @@ sInt32 CContinue::AddItem ( void *inData, uInt32 inRefNum )
 		{
 			// This slot is currently empty so this is the first one
 			fLookupTable[ uiSlot ] = pNewEntry;
+			fRefNumCount++;
 		}
 		else
 		{
@@ -131,11 +134,12 @@ sInt32 CContinue::AddItem ( void *inData, uInt32 inRefNum )
 				pNewEntry->fNext = pCurrEntry;
 
 				fLookupTable[ uiSlot ] = pNewEntry;
+				fRefNumCount++;
 			}
 		}
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -149,14 +153,14 @@ sInt32 CContinue::AddItem ( void *inData, uInt32 inRefNum )
 bool CContinue::VerifyItem ( void *inData )
 {
 	bool			bResult		= false;
-	uInt32			uiTmpRef	= 0;
-	uInt32			uiSlot		= 0;
+	UInt32			uiTmpRef	= 0;
+	UInt32			uiSlot		= 0;
 	sDSTableEntry	   *pEntry		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	// Change the pointer into a long.
-	uiTmpRef = (uInt32)inData;
+	uiTmpRef = (UInt32)inData;
 
 	// Calculate where we thought we put it last
 	uiSlot = uiTmpRef % fHashArrayLength;
@@ -175,7 +179,7 @@ bool CContinue::VerifyItem ( void *inData )
 		pEntry = pEntry->fNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	// A return of NULL means that we did not find the item
 	return( bResult );
@@ -190,18 +194,22 @@ bool CContinue::VerifyItem ( void *inData )
 //
 //------------------------------------------------------------------------------------
 
-sInt32 CContinue::RemoveItem ( void *inData )
+SInt32 CContinue::RemoveItem ( void *inData )
 {
-	sInt32			siResult	= eDSIndexNotFound;
-	uInt32			uiTmpRef	= 0;
-	uInt32			uiSlot		= 0;
+	SInt32			siResult	= eDSIndexNotFound;
+	UInt32			uiTmpRef	= 0;
+	UInt32			uiSlot		= 0;
 	sDSTableEntry	   *pCurrEntry	= nil;
 	sDSTableEntry	   *pPrevEntry	= nil;
 
-	fMutex.Wait();
+	// nothing to do
+	if ( inData == NULL )
+		return eDSNoErr;
+	
+	fMutex.WaitLock();
 
 	// Change the pointer into a long.
-	uiTmpRef = (uInt32)inData;
+	uiTmpRef = (UInt32)inData;
 
 	// Calculate where we thought we put it last
 	uiSlot = uiTmpRef % fHashArrayLength;
@@ -228,12 +236,13 @@ sInt32 CContinue::RemoveItem ( void *inData )
 
 			if ( (fDeallocProcPtr != nil) && (pCurrEntry->fData != nil) )
 			{
-				fMutex.Signal();
+				fMutex.SignalLock();
 				(fDeallocProcPtr)( pCurrEntry->fData );
-				fMutex.Wait();
+				fMutex.WaitLock();
 			}
 			free( pCurrEntry );
 			pCurrEntry = nil;
+			fRefNumCount--;
 
 			siResult = eDSNoErr;
 
@@ -247,7 +256,7 @@ sInt32 CContinue::RemoveItem ( void *inData )
 		}
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -261,16 +270,16 @@ sInt32 CContinue::RemoveItem ( void *inData )
 //
 //------------------------------------------------------------------------------------
 
-sInt32 CContinue::RemoveItems ( uInt32 inRefNum )
+SInt32 CContinue::RemoveItems ( UInt32 inRefNum )
 {
 	bool			bGetNext	= true;
-	uInt32			i			= 0;
-	sInt32			siResult	= eDSIndexNotFound;
+	UInt32			i			= 0;
+	SInt32			siResult	= eDSIndexNotFound;
 	sDSTableEntry	   *pCurrEntry	= nil;
 	sDSTableEntry	   *pPrevEntry	= nil;
 	sDSTableEntry	   *pDeadEntry	= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	for ( i = 0; i < fHashArrayLength; i++ )
 	{
@@ -306,12 +315,13 @@ sInt32 CContinue::RemoveItems ( uInt32 inRefNum )
 
 				if ( (fDeallocProcPtr != nil) && (pDeadEntry->fData != nil) )
 				{
-					fMutex.Signal();
+					fMutex.SignalLock();
 					(fDeallocProcPtr)( pDeadEntry->fData );
-					fMutex.Wait();
+					fMutex.WaitLock();
 				}
 				free( pDeadEntry );
 				pDeadEntry = nil;
+				fRefNumCount--;
 
 				siResult = eDSNoErr;
 			}
@@ -327,7 +337,7 @@ sInt32 CContinue::RemoveItems ( uInt32 inRefNum )
 		}
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -338,17 +348,17 @@ sInt32 CContinue::RemoveItems ( uInt32 inRefNum )
 //	* GetRefNumForItem
 //------------------------------------------------------------------------------------
 
-uInt32 CContinue::GetRefNumForItem ( void *inData )
+UInt32 CContinue::GetRefNumForItem ( void *inData )
 {
-	uInt32			uiResult	= 0;
-	uInt32			uiTmpRef	= 0;
-	uInt32			uiSlot		= 0;
+	UInt32			uiResult	= 0;
+	UInt32			uiTmpRef	= 0;
+	UInt32			uiSlot		= 0;
 	sDSTableEntry	   *pEntry		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	// Change the pointer into a long.
-	uiTmpRef = (uInt32)inData;
+	uiTmpRef = (UInt32)inData;
 
 	// Calculate where we thought we put it last
 	uiSlot = uiTmpRef % fHashArrayLength;
@@ -367,7 +377,7 @@ uInt32 CContinue::GetRefNumForItem ( void *inData )
 		pEntry = pEntry->fNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	// A return of 0 means that we did not find the item
 	return( uiResult );

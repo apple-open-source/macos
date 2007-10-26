@@ -7,7 +7,8 @@
 /*	\fBvirtual\fR [generic Postfix daemon options]
 /* DESCRIPTION
 /*	The \fBvirtual\fR(8) delivery agent is designed for virtual mail
-/*	hosting services. Originally based on the Postfix local(8) delivery
+/*	hosting services. Originally based on the Postfix \fBlocal\fR(8)
+/*	delivery
 /*	agent, this agent looks up recipients with map lookups of their
 /*	full recipient address, instead of using hard-coded unix password
 /*	file lookups of the address local part only.
@@ -25,8 +26,9 @@
 /*
 /*	The mailbox pathname is constructed as follows:
 /*
-/* .ti +2
-/*	\fB$virtual_mailbox_base/$virtual_mailbox_maps(\fIrecipient\fB)\fR
+/* .nf
+/*	  \fB$virtual_mailbox_base/$virtual_mailbox_maps(\fIrecipient\fB)\fR
+/* .fi
 /*
 /*	where \fIrecipient\fR is the full recipient address.
 /* UNIX MAILBOX FORMAT
@@ -36,7 +38,7 @@
 /*	is delivered in UNIX mailbox format.   This format stores multiple
 /*	messages in one textfile.
 /*
-/*	The \fBvirtual\fR delivery agent prepends a "\fBFrom \fIsender
+/*	The \fBvirtual\fR(8) delivery agent prepends a "\fBFrom \fIsender
 /*	time_stamp\fR" envelope header to each message, prepends a
 /*	\fBDelivered-To:\fR message header with the envelope recipient
 /*	address,
@@ -55,7 +57,7 @@
 /*	When the mailbox location ends in \fB/\fR, the message is delivered
 /*	in qmail \fBmaildir\fR format. This format stores one message per file.
 /*
-/*	The \fBvirtual\fR delivery agent daemon prepends a \fBDelivered-To:\fR
+/*	The \fBvirtual\fR(8) delivery agent prepends a \fBDelivered-To:\fR
 /*	message header with the final envelope recipient address,
 /*	prepends an \fBX-Original-To:\fR header with the recipient address as
 /*	given to Postfix, and prepends a
@@ -74,6 +76,12 @@
 /*	The \fBvirtual_minimum_uid\fR parameter imposes a lower bound on
 /*	numerical user ID values that may be specified in any
 /*	\fBvirtual_uid_maps\fR.
+/* CASE FOLDING
+/* .ad
+/* .fi
+/*	All delivery decisions are made using the full recipient
+/*	address, folded to lower case. See also the next section
+/*	for a few exceptions with optional address extensions.
 /* TABLE SEARCH ORDER
 /* .ad
 /* .fi
@@ -106,9 +114,18 @@
 /* SECURITY
 /* .ad
 /* .fi
-/*	The virtual delivery agent is not security sensitive, provided
+/*	The \fBvirtual\fR(8) delivery agent is not security sensitive, provided
 /*	that the lookup tables with recipient user/group ID information are
 /*	adequately protected. This program is not designed to run chrooted.
+/*
+/*	The \fBvirtual\fR(8) delivery agent disallows regular expression
+/*	substitution of $1 etc. in regular expression lookup tables,
+/*	because that would open a security hole.
+/*
+/*	The \fBvirtual\fR(8) delivery agent will silently ignore requests
+/*	to use the \fBproxymap\fR(8) server. Instead it will open the
+/*	table directly. Before Postfix version 2.2, the virtual
+/*	delivery agent will terminate with a fatal error.
 /* STANDARDS
 /*	RFC 822 (ARPA Internet Text Messages)
 /* DIAGNOSTICS
@@ -133,50 +150,51 @@
 /* CONFIGURATION PARAMETERS
 /* .ad
 /* .fi
-/*	Changes to \fBmain.cf\fR are picked up automatically, as virtual(8)
+/*	Changes to \fBmain.cf\fR are picked up automatically, as
+/*	\fBvirtual\fR(8)
 /*	processes run for only a limited amount of time. Use the command
 /*	"\fBpostfix reload\fR" to speed up a change.
 /*
 /*	The text below provides only a parameter summary. See
-/*	postconf(5) for more details including examples.
+/*	\fBpostconf\fR(5) for more details including examples.
 /* MAILBOX DELIVERY CONTROLS
 /* .ad
 /* .fi
 /* .IP "\fBvirtual_mailbox_base (empty)\fR"
-/*	A prefix that the virtual(8) delivery agent prepends to all pathname
+/*	A prefix that the \fBvirtual\fR(8) delivery agent prepends to all pathname
 /*	results from $virtual_mailbox_maps table lookups.
 /* .IP "\fBvirtual_mailbox_maps (empty)\fR"
 /*	Optional lookup tables with all valid addresses in the domains that
 /*	match $virtual_mailbox_domains.
 /* .IP "\fBvirtual_minimum_uid (100)\fR"
-/*	The minimum user ID value that the virtual(8) delivery agent accepts
-/*	as a result from \fB$virtual_uid_maps\fR table lookup.
+/*	The minimum user ID value that the \fBvirtual\fR(8) delivery agent accepts
+/*	as a result from $virtual_uid_maps table lookup.
 /* .IP "\fBvirtual_uid_maps (empty)\fR"
-/*	Lookup tables with the per-recipient user ID that the virtual(8)
+/*	Lookup tables with the per-recipient user ID that the \fBvirtual\fR(8)
 /*	delivery agent uses while writing to the recipient's mailbox.
 /* .IP "\fBvirtual_gid_maps (empty)\fR"
-/*	Lookup tables with the per-recipient group ID for virtual(8) mailbox
+/*	Lookup tables with the per-recipient group ID for \fBvirtual\fR(8) mailbox
 /*	delivery.
 /* .PP
 /*	Available in Postfix version 2.0 and later:
 /* .IP "\fBvirtual_mailbox_domains ($virtual_mailbox_maps)\fR"
-/*	The list of domains that are delivered via the $virtual_transport
-/*	mail delivery transport.
+/*	Postfix is final destination for the specified list of domains;
+/*	mail is delivered via the $virtual_transport mail delivery transport.
 /* .IP "\fBvirtual_transport (virtual)\fR"
-/*	The default mail delivery transport for domains that match the
-/*	$virtual_mailbox_domains parameter value.
+/*	The default mail delivery transport and next-hop destination for
+/*	final delivery to domains listed with $virtual_mailbox_domains.
 /* LOCKING CONTROLS
 /* .ad
 /* .fi
 /* .IP "\fBvirtual_mailbox_lock (see 'postconf -d' output)\fR"
-/*	How to lock a UNIX-style virtual(8) mailbox before attempting
+/*	How to lock a UNIX-style \fBvirtual\fR(8) mailbox before attempting
 /*	delivery.
 /* .IP "\fBdeliver_lock_attempts (20)\fR"
 /*	The maximal number of attempts to acquire an exclusive lock on a
-/*	mailbox file or bounce(8) logfile.
+/*	mailbox file or \fBbounce\fR(8) logfile.
 /* .IP "\fBdeliver_lock_delay (1s)\fR"
 /*	The time between attempts to acquire an exclusive lock on a mailbox
-/*	file or bounce(8) logfile.
+/*	file or \fBbounce\fR(8) logfile.
 /* .IP "\fBstale_lock_time (500s)\fR"
 /*	The time after which a stale exclusive mailbox lockfile is removed.
 /* RESOURCE AND RATE CONTROLS
@@ -200,15 +218,18 @@
 /* .IP "\fBdaemon_timeout (18000s)\fR"
 /*	How much time a Postfix daemon process may take to handle a
 /*	request before it is terminated by a built-in watchdog timer.
+/* .IP "\fBdelay_logging_resolution_limit (2)\fR"
+/*	The maximal number of digits after the decimal point when logging
+/*	sub-second delay values.
 /* .IP "\fBipc_timeout (3600s)\fR"
 /*	The time limit for sending or receiving information over an internal
 /*	communication channel.
 /* .IP "\fBmax_idle (100s)\fR"
-/*	The maximum amount of time that an idle Postfix daemon process
-/*	waits for the next service request before exiting.
+/*	The maximum amount of time that an idle Postfix daemon process waits
+/*	for an incoming connection before terminating voluntarily.
 /* .IP "\fBmax_use (100)\fR"
-/*	The maximal number of connection requests before a Postfix daemon
-/*	process terminates.
+/*	The maximal number of incoming connections that a Postfix daemon
+/*	process will service before terminating voluntarily.
 /* .IP "\fBprocess_id (read-only)\fR"
 /*	The process ID of a Postfix command or daemon process.
 /* .IP "\fBprocess_name (read-only)\fR"
@@ -283,6 +304,7 @@
 #include <deliver_request.h>
 #include <deliver_completed.h>
 #include <mail_params.h>
+#include <mail_version.h>
 #include <mail_conf.h>
 #include <mail_params.h>
 #include <mail_addr_find.h>
@@ -324,7 +346,7 @@ int     virtual_mbox_lock_mask;
 
 static int local_deliver(DELIVER_REQUEST *rqst, char *service)
 {
-    char   *myname = "local_deliver";
+    const char *myname = "local_deliver";
     RECIPIENT *rcpt_end = rqst->rcpt_list.info + rqst->rcpt_list.len;
     RECIPIENT *rcpt;
     int     rcpt_stat;
@@ -345,8 +367,10 @@ static int local_deliver(DELIVER_REQUEST *rqst, char *service)
     state.msg_attr.fp = rqst->fp;
     state.msg_attr.offset = rqst->data_offset;
     state.msg_attr.sender = rqst->sender;
+    state.msg_attr.dsn_envid = rqst->dsn_envid;
+    state.msg_attr.dsn_ret = rqst->dsn_ret;
     state.msg_attr.relay = service;
-    state.msg_attr.arrival_time = rqst->arrival_time;
+    state.msg_attr.msg_stats = rqst->msg_stats;
     RESET_USER_ATTR(usr_attr, state.level);
     state.request = rqst;
 
@@ -357,15 +381,14 @@ static int local_deliver(DELIVER_REQUEST *rqst, char *service)
      * recipient. Update the per-message delivery status.
      */
     for (msg_stat = 0, rcpt = rqst->rcpt_list.info; rcpt < rcpt_end; rcpt++) {
-	state.msg_attr.orig_rcpt = rcpt->orig_addr;
-	state.msg_attr.recipient = rcpt->address;
-	state.msg_attr.rcpt_offset = rcpt->offset;
+	state.msg_attr.rcpt = *rcpt;
 	rcpt_stat = deliver_recipient(state, usr_attr);
-	if (rcpt_stat == 0)
+	if (rcpt_stat == 0 && (rqst->flags & DEL_REQ_FLAG_SUCCESS))
 	    deliver_completed(state.msg_attr.fp, rcpt->offset);
 	msg_stat |= rcpt_stat;
     }
 
+    deliver_attr_free(&state.msg_attr);
     return (msg_stat);
 }
 
@@ -417,6 +440,9 @@ static void post_init(char *unused_name, char **unused_argv)
      */
     set_eugid(var_owner_uid, var_owner_gid);
 
+    /*
+     * No case folding needed: the recipient address is case folded.
+     */
     virtual_mailbox_maps =
 	maps_create(VAR_VIRT_MAILBOX_MAPS, var_virt_mailbox_maps,
 		    DICT_FLAG_LOCK | DICT_FLAG_PARANOID);
@@ -446,7 +472,7 @@ static void pre_init(char *unused_name, char **unused_argv)
      * file.
      */
     if (var_virt_mailbox_limit) {
-	if (var_virt_mailbox_limit < var_message_limit)
+	if (var_virt_mailbox_limit < var_message_limit || var_message_limit == 0)
 	    msg_fatal("main.cf configuration error: %s is smaller than %s",
 		      VAR_VIRT_MAILBOX_LIMIT, VAR_MESSAGE_LIMIT);
 	set_file_limit(var_virt_mailbox_limit);
@@ -457,6 +483,8 @@ static void pre_init(char *unused_name, char **unused_argv)
      */
     flush_init();
 }
+
+MAIL_VERSION_STAMP_DECLARE;
 
 /* main - pass control to the single-threaded skeleton */
 
@@ -477,11 +505,17 @@ int     main(int argc, char **argv)
 	0,
     };
 
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
+
     single_server_main(argc, argv, local_service,
 		       MAIL_SERVER_INT_TABLE, int_table,
 		       MAIL_SERVER_STR_TABLE, str_table,
 		       MAIL_SERVER_PRE_INIT, pre_init,
 		       MAIL_SERVER_POST_INIT, post_init,
 		       MAIL_SERVER_PRE_ACCEPT, pre_accept,
+		       MAIL_SERVER_PRIVILEGED,
 		       0);
 }

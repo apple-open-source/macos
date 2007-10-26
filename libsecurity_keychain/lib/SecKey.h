@@ -138,6 +138,26 @@ enum
     kSecKeyUnwrap =           26
 };
 
+/*!
+    @typedef SecCredentialType
+    @abstract Determines the type of credential returned by SecKeyGetCredentials.
+*/
+typedef uint32 SecCredentialType;
+
+/*!
+    @enum SecCredentialType
+    @abstract Determines the type of credential returned by SecKeyGetCredentials.
+    @constant kSecCredentialTypeWithUI Operations with this key are allowed to present UI if required.
+    @constant kSecCredentialTypeNoUI Operations with this key are not allowed to present UI, and will fail if UI is required.
+    @constant kSecCredentialTypeDefault The default setting for determining whether to present UI is used. This setting can be changed with a call to SecKeychainSetUserInteractionAllowed.
+*/
+enum
+{
+	kSecCredentialTypeDefault = 0,
+	kSecCredentialTypeWithUI,
+	kSecCredentialTypeNoUI
+};
+
 
 /*!
 	@function SecKeyGetTypeID
@@ -148,19 +168,19 @@ CFTypeID SecKeyGetTypeID(void);
 
 /*!
 	@function SecKeyCreatePair
-	@abstract Creates an asymmetric key pair and stores it in the keychain specified by the keychain parameter.
+	@abstract Creates an asymmetric key pair and stores it in a specified keychain.
 	@param keychainRef A reference to the keychain in which to store the private and public key items. Specify NULL for the default keychain.
-    @param algorithm An algorithm for the key pair.  This parameter is ignored if contextHandle is non 0.
-    @param keySizeInBits A key size for the key pair.  This parameter is ignored if contextHandle is non 0.
-	@param contextHandle An optional CSSM_CC_HANDLE or 0.  If this argument is not 0 the algorithm and keySizeInBits parameters are ignored.  If extra parameters are need to generate a key (some algortihms require this) you should create a context using CSSM_CSP_CreateKeyGenContext(), using the CSPHandle obtained by calling SecKeychainGetCSPHandle(). Then use CSSM_UpdateContextAttributes() to add additional parameters and dispose of the context using CSSM_DeleteContext after calling this function.
-	@param publicKeyUsage A bit mask indicating all permitted uses for the new public key. The bit mask values are defined in cssmtype.h
-    @param publicKeyAttr A bit mask defining attribute values for the new public key. The bit mask values are equivalent to a CSSM_KEYATTR_FLAGS and are defined in cssmtype.h
-    @param privateKeyUsage A bit mask indicating all permitted uses for the new private key. The bit mask values are defined in cssmtype.h
-    @param privateKeyAttr A bit mask defining attribute values for the new private key. The bit mask values are equivalent to a CSSM_KEYATTR_FLAGS and are defined in cssmtype.h
-    @param initialAccess A SecAccess object that determines the initial access rights to the private key.  The public key is given an any/any acl by default.
-    @param publicKey Optional output pointer to the keychain item reference of the imported public key. Use the SecKeyGetCSSMKey function to obtain the CSSM_KEY. The caller must call CFRelease on this value if it is returned.
-    @param privateKey Optional output pointer to the keychain item reference of the imported private key. Use the SecKeyGetCSSMKey function to obtain the CSSM_KEY. The caller must call CFRelease on this value if it is returned.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+    @param algorithm An algorithm for the key pair. This parameter is ignored if a valid (non-zero) contextHandle is supplied.
+    @param keySizeInBits A key size for the key pair. This parameter is ignored if a valid (non-zero) contextHandle is supplied.
+	@param contextHandle (optional) A CSSM_CC_HANDLE, or 0. If this argument is supplied, the algorithm and keySizeInBits parameters are ignored. If extra parameters are needed to generate a key (some algorithms require this), you should create a context using CSSM_CSP_CreateKeyGenContext, using the CSPHandle obtained by calling SecKeychainGetCSPHandle. Then use CSSM_UpdateContextAttributes to add parameters, and dispose of the context using CSSM_DeleteContext after calling this function.
+	@param publicKeyUsage A bit mask indicating all permitted uses for the new public key. CSSM_KEYUSE bit mask values are defined in cssmtype.h.
+    @param publicKeyAttr A bit mask defining attribute values for the new public key. The bit mask values are equivalent to a CSSM_KEYATTR_FLAGS and are defined in cssmtype.h.
+    @param privateKeyUsage A bit mask indicating all permitted uses for the new private key. CSSM_KEYUSE bit mask values are defined in cssmtype.h.
+    @param privateKeyAttr A bit mask defining attribute values for the new private key. The bit mask values are equivalent to a CSSM_KEYATTR_FLAGS and are defined in cssmtype.h.
+    @param initialAccess (optional) A SecAccess object that determines the initial access rights to the private key. The public key is given "any/any" access rights by default.
+    @param publicKey (optional) On return, the keychain item reference of the generated public key. Use the SecKeyGetCSSMKey function to obtain the CSSM_KEY. The caller must call CFRelease on this value if it is returned. Pass NULL if a reference to this key is not required.
+    @param privateKey (optional) On return, the keychain item reference of the generated private key. Use the SecKeyGetCSSMKey function to obtain the CSSM_KEY. The caller must call CFRelease on this value if it is returned. Pass NULL if a reference to this key is not required.
+	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecKeyCreatePair(
         SecKeychainRef keychainRef,
@@ -176,14 +196,61 @@ OSStatus SecKeyCreatePair(
         SecKeyRef* privateKey);
 
 /*!
-	@function SecKeyGetCSSMKey
-	@abstract Returns a pointer to the CSSM_KEY for the given key item reference.
+	@function SecKeyGenerate
+	@abstract Creates a symmetric key and optionally stores it in a specified keychain.
+	@param keychainRef (optional) A reference to the keychain in which to store the generated key. Specify NULL to generate a transient key.
+    @param algorithm An algorithm for the symmetric key. This parameter is ignored if a valid (non-zero) contextHandle is supplied.
+    @param keySizeInBits A key size for the key pair. This parameter is ignored if a valid (non-zero) contextHandle is supplied.
+	@param contextHandle (optional) A CSSM_CC_HANDLE, or 0. If this argument is supplied, the algorithm and keySizeInBits parameters are ignored. If extra parameters are needed to generate a key (some algorithms require this), you should create a context using CSSM_CSP_CreateKeyGenContext, using the CSPHandle obtained by calling SecKeychainGetCSPHandle. Then use CSSM_UpdateContextAttributes to add parameters, and dispose of the context using CSSM_DeleteContext after calling this function.
+	@param keyUsage A bit mask indicating all permitted uses for the new key. CSSM_KEYUSE bit mask values are defined in cssmtype.h.
+    @param keyAttr A bit mask defining attribute values for the new key. The bit mask values are equivalent to a CSSM_KEYATTR_FLAGS and are defined in cssmtype.h.
+    @param initialAccess (optional) A SecAccess object that determines the initial access rights for the key. This parameter is ignored if the keychainRef is NULL.
+    @param keyRef On return, a reference to the generated key. Use the SecKeyGetCSSMKey function to obtain the CSSM_KEY. The caller must call CFRelease on this value if it is returned.
+	@result A result code.  See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecKeyGenerate(
+        SecKeychainRef keychainRef,
+        CSSM_ALGORITHMS algorithm,
+        uint32 keySizeInBits,
+        CSSM_CC_HANDLE contextHandle,
+        CSSM_KEYUSE keyUsage,
+        uint32 keyAttr,
+        SecAccessRef initialAccess,
+        SecKeyRef* keyRef);
+
+/*!
+    @function SecKeyGetCSSMKey
+    @abstract Returns a pointer to the CSSM_KEY for the given key item reference.
     @param key A keychain key item reference. The key item must be of class type kSecAppleKeyItemClass.
-    @param cssmKey A pointer to a CSSM_KEY structure for the given key. The caller should not modify or free this data as it is owned by the library.
-    @result A result code.  See "Security Error Codes" (SecBase.h).
-	@discussion  The CSSM_KEY is valid until the key item reference is released.
+    @param cssmKey On return, a pointer to a CSSM_KEY structure for the given key. This pointer remains valid until the key reference is released. The caller should not attempt to modify or free this data.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+    @discussion  The CSSM_KEY is valid until the key item reference is released.
 */
 OSStatus SecKeyGetCSSMKey(SecKeyRef key, const CSSM_KEY **cssmKey);
+
+/*!
+    @function SecKeyGetCSPHandle
+    @abstract Returns the CSSM_CSP_HANDLE for the given key reference. The handle is valid until the key reference is released.
+    @param keyRef A key reference.
+    @param cspHandle On return, the CSSM_CSP_HANDLE for the given keychain.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecKeyGetCSPHandle(SecKeyRef keyRef, CSSM_CSP_HANDLE *cspHandle);
+
+/*!
+    @function SecKeyGetCredentials
+    @abstract For a given key, return a pointer to a CSSM_ACCESS_CREDENTIALS structure which will allow the key to be used.
+    @param keyRef The key for which a credential is requested.
+    @param operation The type of operation to be performed with this key. See "Authorization tag type" for defined operations (cssmtype.h).
+    @param credentialType The type of credential requested.
+    @param outCredentials On return, a pointer to a CSSM_ACCESS_CREDENTIALS structure. This pointer remains valid until the key reference is released. The caller should not attempt to modify or free this data.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecKeyGetCredentials(
+        SecKeyRef keyRef,
+        CSSM_ACL_AUTHORIZATION_TAG operation,
+        SecCredentialType credentialType,
+        const CSSM_ACCESS_CREDENTIALS **outCredentials);
 
 
 #if defined(__cplusplus)

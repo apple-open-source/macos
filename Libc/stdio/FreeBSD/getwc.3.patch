@@ -1,5 +1,14 @@
---- getwc.3.orig	Fri Mar 11 17:08:31 2005
-+++ getwc.3	Fri Mar 11 16:20:25 2005
+--- getwc.3	2004-11-25 11:38:35.000000000 -0800
++++ getwc.3.edit	2006-08-09 13:40:43.000000000 -0700
+@@ -56,7 +56,7 @@
+ .Ft wint_t
+ .Fn getwc "FILE *stream"
+ .Ft wint_t
+-.Fn getwchar
++.Fn getwchar void
+ .Sh DESCRIPTION
+ The
+ .Fn fgetwc
 @@ -79,6 +79,12 @@
  .Fn getwc
  with the argument
@@ -13,13 +22,19 @@
  .Sh RETURN VALUES
  If successful, these routines return the next wide character
  from the
-@@ -106,7 +112,8 @@
+@@ -104,13 +110,14 @@
+ .Xr fopen 3 ,
+ .Xr fread 3 ,
  .Xr getc 3 ,
++.Xr getwc_l 3 ,
  .Xr putwc 3 ,
  .Xr stdio 3 ,
--.Xr ungetwc 3
-+.Xr ungetwc 3 ,
-+.Xr getwc_l 3
+ .Xr ungetwc 3
  .Sh STANDARDS
  The
  .Fn fgetwc ,
+-.Fn getwc
++.Fn getwc ,
+ and
+ .Fn getwchar
+ functions

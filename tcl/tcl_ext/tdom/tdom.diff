@@ -1,0 +1,54 @@
+--- Makefile.in	2004-07-28 04:53:11.000000000 -0700
++++ Makefile.in	2006-04-19 16:21:47.000000000 -0700
+@@ -365,7 +365,7 @@
+ 	@(echo pkg_mkIndex . $($(PACKAGE)_LIB_FILE) \; exit; ) | $(TCLSH)
+ 
+ pkgIndex.tcl-hand:
+-	@(echo 'package ifneeded $(PACKAGE) $(VERSION)\
++	@(echo 'package ifneeded $(PACKAGE) $(VERSION) \
+ 	"load [list [file join $$dir $($(PACKAGE)_LIB_FILE)]];\
+          source [list [file join $$dir tdom.tcl]]"'\
+ 	) > pkgIndex.tcl
+--- configure~	2004-07-28 04:53:11.000000000 -0700
++++ configure	2007-01-30 20:08:12.000000000 -0800
+@@ -1849,38 +1849,7 @@
+ echo "$as_me:1849: result: $cross_compiling" >&5
+ echo "${ECHO_T}$cross_compiling" >&6
+ 
+-echo "$as_me:1852: checking for executable suffix" >&5
+-echo $ECHO_N "checking for executable suffix... $ECHO_C" >&6
+-if { (eval echo "$as_me:1854: \"$ac_link\"") >&5
+-  (eval $ac_link) 2>&5
+-  ac_status=$?
+-  echo "$as_me:1857: \$? = $ac_status" >&5
+-  (exit $ac_status); }; then
+-  # If both `conftest.exe' and `conftest' are `present' (well, observable)
+-# catch `conftest.exe'.  For instance with Cygwin, `ls conftest' will
+-# work properly (i.e., refer to `conftest.exe'), while it won't with
+-# `rm'.
+-for ac_file in `(ls conftest.exe; ls conftest; ls conftest.*) 2>/dev/null`; do
+-  case $ac_file in
+-    *.$ac_ext | *.o | *.obj | *.xcoff | *.tds | *.d | *.pdb ) ;;
+-    *.* ) ac_cv_exeext=`expr "$ac_file" : '[^.]*\(\..*\)'`
+-          export ac_cv_exeext
+-          break;;
+-    * ) break;;
+-  esac
+-done
+-else
+-  { { echo "$as_me:1873: error: cannot compute EXEEXT: cannot compile and link" >&5
+-echo "$as_me: error: cannot compute EXEEXT: cannot compile and link" >&2;}
+-   { (exit 1); exit 1; }; }
+-fi
+-
+-rm -f conftest$ac_cv_exeext
+-echo "$as_me:1879: result: $ac_cv_exeext" >&5
+-echo "${ECHO_T}$ac_cv_exeext" >&6
+-
+-rm -f conftest.$ac_ext
+-EXEEXT=$ac_cv_exeext
++EXEEXT=
+ ac_exeext=$EXEEXT
+ echo "$as_me:1885: checking for object suffix" >&5
+ echo $ECHO_N "checking for object suffix... $ECHO_C" >&6
+

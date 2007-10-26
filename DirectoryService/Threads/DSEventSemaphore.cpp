@@ -27,109 +27,83 @@
  */
 
 #include <errno.h>
-#include <limits.h>		// for LONG_MAX
-#include <sys/time.h>	// for struct timespec and gettimeofday()
+#include <sys/time.h>	// for struct timespec and gettimeofday();
 
 #include "DSEventSemaphore.h"
 
-/******************************************************************************
-	==>  DSEventSemaphore class implementation  <==
-******************************************************************************/
-
-DSEventSemaphore::DSEventSemaphore (bool posted)
-	: DSSemaphore (posted ? LONG_MAX : 0)
+DSEventSemaphore::DSEventSemaphore( void )
 {
+    fbEvent = false;
+	fMilliSecsTotal = 0;
+    pthread_mutex_init( &fMutex, NULL );
+    pthread_cond_init( &fCondition, NULL );
 }
 
-DSEventSemaphore::~DSEventSemaphore (void)
+DSEventSemaphore::~DSEventSemaphore( void )
 {
+    pthread_mutex_destroy( &fMutex );
+    pthread_cond_destroy( &fCondition );
 }
 
-// ---------------------------------------------------------------------------
-//	Signal()
-//	Make the semaphore available to all waiting threads as well as the threads
-//	that will call Wait() before the next call to Reset()
-// ---------------------------------------------------------------------------
-
-void DSEventSemaphore::Signal ( void )
+bool DSEventSemaphore::WaitForEvent( SInt32 milliSecs )
 {
-	::pthread_mutex_lock( &mConditionLock );
-    //	mExcessSignals = LONG_MAX;
-	if (mExcessSignals < 0)
-	{
-		mExcessSignals = LONG_MAX;
-	}
-	else
-	{
-		mExcessSignals++;
-	}
-	::pthread_cond_broadcast (&mSemaphore);
-	::pthread_mutex_unlock (&mConditionLock);
-}
+    pthread_mutex_lock( &fMutex );
 
-
-// ---------------------------------------------------------------------------
-//	Wait()
-//	Return immediately if Signal() has been called since the last reset.
-//	Otherwise, block until a thread calls Signal().
-//	This implementation is different than DSSemaphore's because it does not
-//	loop over condition_wait(); if it wakes up it assumes things are good to
-//	go. (The thread that calls Signal() almost always immediately calls
-//	Reset().)
-// ---------------------------------------------------------------------------
-
-sInt32 DSEventSemaphore::Wait (sInt32 milliSecs)
-{
-	::pthread_mutex_lock (&mConditionLock);
-	if ( (mExcessSignals <= 0) && (milliSecs == kNever) )
-	{
-		::pthread_mutex_unlock (&mConditionLock);
-		return semTimedOutErr;
-	}
-	// This is the difference between this implementation and its parent's!
-	if (mExcessSignals <= 0)
-	{
-		if (milliSecs == kForever)
-			::pthread_cond_wait (&mSemaphore, &mConditionLock);
-		else {
-			struct timeval	tvNow;
-			struct timespec	tsTimeout;
-
-			// Timeout is passed as an absolute time!
-			::gettimeofday (&tvNow, NULL);
-			TIMEVAL_TO_TIMESPEC (&tvNow, &tsTimeout);
-			tsTimeout.tv_sec += (milliSecs / 1000);
-			tsTimeout.tv_nsec += ((milliSecs % 1000) * 1000000);
-			if (ETIMEDOUT == ::pthread_cond_timedwait (&mSemaphore,
-											&mConditionLock, &tsTimeout)) {
-				::pthread_mutex_unlock (&mConditionLock);
-				return semTimedOutErr;
+    // we only lock if we didn't have a broadcast
+    if( fbEvent == false )
+    {
+        if( milliSecs == 0 ) // wait forever
+        {
+            pthread_cond_wait( &fCondition, &fMutex );
+        }
+        else if( milliSecs > 0 )
+        {
+			// if we've already exceeded how long we are willing to wait, we just return false
+			if (fMilliSecsTotal >= milliSecs)
+			{
+				pthread_mutex_unlock( &fMutex );
+				return false;
 			}
-		}
-	}
+			else
+			{
+				struct timeval	tvNow;
+				struct timespec	tsTimeout;
+				
+				gettimeofday( &tvNow, NULL );
+				TIMEVAL_TO_TIMESPEC ( &tvNow, &tsTimeout );
+				tsTimeout.tv_sec += (milliSecs / 1000);
+				tsTimeout.tv_nsec += ((milliSecs % 1000) * 1000000);
+				
+				if( pthread_cond_timedwait(&fCondition, &fMutex, &tsTimeout) == ETIMEDOUT )
+				{
+					// we grab the lock as a result of the timeout
+					bool bReturn = fbEvent;
+					
+					fMilliSecsTotal += milliSecs; // be sure to increment how long we waited
+					pthread_mutex_unlock( &fMutex );
+					return bReturn;
+				}
+			}
+        }
+    }
 
-	if ( (!mDestroying) && (mExcessSignals > 0) )
-	{
-		mExcessSignals--;
-	}
-	::pthread_mutex_unlock (&mConditionLock);
-	return (mDestroying ? semDestroyedErr : semNoErr);
+    pthread_mutex_unlock( &fMutex );
+
+	return true;
 }
 
-// ---------------------------------------------------------------------------
-//	Reset()
-//	Make the seamphore unavailable to any thread until the next call to
-//	Signal()
-// ---------------------------------------------------------------------------
-uInt32
-DSEventSemaphore::Reset (void)
+void DSEventSemaphore::PostEvent( void )
 {
-	::pthread_mutex_lock (&mConditionLock);
-	if (mExcessSignals <= 0) {
-		::pthread_mutex_unlock (&mConditionLock);
-		return semAlreadyResetErr;
-	}
-	mExcessSignals = 0;
-	::pthread_mutex_unlock (&mConditionLock);
-	return 1;
+    pthread_mutex_lock( &fMutex );
+    fbEvent = true;
+    pthread_cond_broadcast( &fCondition );
+    pthread_mutex_unlock( &fMutex );
+} 
+
+void DSEventSemaphore::ResetEvent( void )
+{
+    pthread_mutex_lock( &fMutex );
+    fbEvent = false;
+	fMilliSecsTotal = 0;
+    pthread_mutex_unlock( &fMutex );
 }

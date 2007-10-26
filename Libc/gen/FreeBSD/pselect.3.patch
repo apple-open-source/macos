@@ -1,6 +1,6 @@
---- pselect.3.orig	Wed Dec 18 02:13:54 2002
-+++ pselect.3	Fri May  2 16:46:17 2003
-@@ -37,7 +37,7 @@
+--- _SB/Libc/gen/FreeBSD/pselect.3	2003-05-20 15:21:02.000000000 -0700
++++ _SB/Libc/gen/FreeBSD/pselect.3.edit	2006-06-28 16:55:51.000000000 -0700
+@@ -37,15 +37,15 @@
  .Sh LIBRARY
  .Lb libc
  .Sh SYNOPSIS
@@ -9,3 +9,43 @@
  .Ft int
  .Fo pselect
  .Fa "int nfds"
+-.Fa "fd_set * restrict readfds"
+-.Fa "fd_set * restrict writefds"
+-.Fa "fd_set * restrict exceptfds"
+-.Fa "const struct timespec * restrict timeout"
+-.Fa "const sigset_t * restrict newsigmask"
++.Fa "fd_set *restrict readfds"
++.Fa "fd_set *restrict writefds"
++.Fa "fd_set *restrict errorfds"
++.Fa "const struct timespec *restrict timeout"
++.Fa "const sigset_t *restrict sigmask"
+ .Fc
+ .Sh DESCRIPTION
+ The
+@@ -57,7 +57,7 @@
+ The
+ .Fa nfds , readfds , writefds ,
+ and
+-.Fa exceptfds
++.Fa errorfds
+ arguments are all identical to the analogous arguments of
+ .Fn select .
+ The
+@@ -65,7 +65,7 @@
+ argument in
+ .Fn pselect
+ points to a
+-.Vt "const struct timespec"
++.Vt "const struct timespec" ,
+ rather than the (modifiable)
+ .Vt "struct timeval"
+ used by
+@@ -76,7 +76,7 @@
+ .Fn pselect
+ should wait indefinitely.
+ Finally,
+-.Fa newsigmask
++.Fa sigmask
+ specifies a signal mask which is set while waiting for input.
+ When
+ .Fn pselect

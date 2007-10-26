@@ -150,6 +150,10 @@ Remove any initial definition of
 The
 .Fl U
 option may be specified more than once.
+.It Fl W Cm 64
+Make pointers 64 bits.  There is presently no
+.Fl W Cm 32
+option, since it is the default.
 .El
 .Pp
 An operand is either in the form of a pathname or the form
@@ -188,10 +192,3 @@ The
 .Nm
 utility interface conforms to
 .St -p1003.1-2001 .
-Since it is a wrapper around
-.Tn GCC ,
-it is limited to the
-.Tn C99
-features that
-.Tn GCC
-actually implements.

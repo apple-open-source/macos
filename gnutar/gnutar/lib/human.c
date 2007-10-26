@@ -32,10 +32,7 @@
 # define UINTMAX_MAX ((uintmax_t) -1)
 #endif
 
-#if HAVE_LOCALE_H && HAVE_LOCALECONV
-# include <locale.h>
-#endif
-
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -158,6 +155,9 @@ group_number (char *number, size_t numberlen,
    so on.  Numbers smaller than the power aren't modified.
    human_autoscale is normally used together with human_SI.
 
+   If (OPTS & human_space_before_unit), use a space to separate the
+   number from any suffix that is appended as described below.
+
    If (OPTS & human_SI), append an SI prefix indicating which power is
    being used.  If in addition (OPTS & human_B), append "B" (if base
    1000) or "iB" (if base 1024) to the SI prefix.  When ((OPTS &
@@ -190,7 +190,6 @@ human_readable (uintmax_t n, char *buf, int opts,
   size_t decimal_pointlen = 1;
   char const *grouping = "";
   char const *thousands_sep = "";
-#if HAVE_LOCALE_H && HAVE_LOCALECONV
   struct lconv const *l = localeconv ();
   size_t pointlen = strlen (l->decimal_point);
   if (0 < pointlen && pointlen <= MB_LEN_MAX)
@@ -201,7 +200,6 @@ human_readable (uintmax_t n, char *buf, int opts,
   grouping = l->grouping;
   if (strlen (l->thousands_sep) <= MB_LEN_MAX)
     thousands_sep = l->thousands_sep;
-#endif
 
   psuffix = buf + LONGEST_HUMAN_READABLE - HUMAN_READABLE_SUFFIX_LENGTH_MAX;
   p = psuffix;
@@ -300,8 +298,8 @@ human_readable (uintmax_t n, char *buf, int opts,
 	  {
 	    do
 	      {
-		unsigned r10 = (amt % base) * 10 + tenths;
-		unsigned r2 = (r10 % base) * 2 + (rounding >> 1);
+		unsigned int r10 = (amt % base) * 10 + tenths;
+		unsigned int r2 = (r10 % base) * 2 + (rounding >> 1);
 		amt /= base;
 		tenths = r10 / base;
 		rounding = (r2 < base
@@ -383,6 +381,9 @@ human_readable (uintmax_t n, char *buf, int opts,
 	    if (++exponent == exponent_max)
 	      break;
 	}
+
+      if ((exponent | (opts & human_B)) && (opts & human_space_before_unit))
+	*psuffix++ = ' ';
 
       if (exponent)
 	*psuffix++ = (! (opts & human_base_1024) && exponent == 1

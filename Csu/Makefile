@@ -1,31 +1,18 @@
-OFLAG = -O
-CFLAGS = $(OFLAG) -g -Wall $(RC_NONARCH_CFLAGS)
-ifneq (,$(findstring ppc, $(RC_ARCHS)))
-CFLAGS += -mlong-branch
-endif
-IFLAGS = -S -S -c -m 444
+OFLAG = -Os
+CFLAGS = $(OFLAG) -Wall $(RC_NONARCH_CFLAGS)
+CFLAGS_DYNANMIC_NO_PIC_ppc    = -mdynamic-no-pic
+CFLAGS_DYNANMIC_NO_PIC_ppc64  = 
+CFLAGS_DYNANMIC_NO_PIC_i386   = -mdynamic-no-pic
+CFLAGS_DYNANMIC_NO_PIC_x86_64 = 
 
 SRCROOT = .
 SYMROOT = .
 OBJROOT = .
 
-USRLIBDIR = /usr/lib
-LOCLIBDIR = /usr/local/lib
-DSTDIRS = $(DSTROOT)$(USRLIBDIR) $(DSTROOT)$(LOCLIBDIR)
-DYLD = $(NEXT_ROOT)/usr/lib/dyld
-#CC = /usr/bin/gcc-x.x
-ifneq "$(wildcard /bin/pax)" ""
 PAX = /bin/pax -rw
-else
-PAX = /bin/cp -p
-endif
-ifneq "$(wildcard /bin/mkdirs)" ""
-MKDIR = /bin/mkdirs
-else
 MKDIR = /bin/mkdir -p
-endif
 CHMOD = /bin/chmod
-INSTALL = /usr/bin/install
+LIPO = /usr/bin/lipo
 
 ifeq (,$(RC_ARCHS))
 # build for the local arch only
@@ -34,148 +21,101 @@ DYNAMIC_ARCH_CFLAGS =
 else
 # assume the toolchain supports static compilation for all request archs
 STATIC_ARCH_CFLAGS = $(patsubst %,-arch %,$(RC_ARCHS))
-
 DYNAMIC_ARCH_CFLAGS = $(patsubst %,-arch %,$(RC_ARCHS))
 endif
 
-CFILES = crt.c icplusplus.c
-SFILES = start.s dyld.s dylib.s bundle1.s
-INSTALLSRC_FILES = $(CFILES) $(SFILES) Makefile PB.project notes
+USRLIBDIR = /usr/lib
+LOCLIBDIR = /usr/local/lib
+DSTDIRS = $(DSTROOT)$(USRLIBDIR) $(DSTROOT)$(LOCLIBDIR)
 
-USRLIB_INSTALL_FILES = crt1.o gcrt1.o dylib1.o bundle1.o
-LOCLIB_INSTALL_FILES = crt0.o gcrt0.o pscrt0.o pscrt1.o
+CFILES = crt.c icplusplus.c 
+SFILES = start.s dyld_glue.s
+INSTALLSRC_FILES = $(CFILES) $(SFILES) Makefile
 
+USRLIB_INSTALL_FILES = $(SYMROOT)/crt1.o $(SYMROOT)/crt1.10.5.o $(SYMROOT)/gcrt1.o $(SYMROOT)/dylib1.o $(SYMROOT)/dylib1.10.5.o $(SYMROOT)/bundle1.o
+LOCLIB_INSTALL_FILES = $(SYMROOT)/crt0.o 
 
+# default target for development builds
 all: $(USRLIB_INSTALL_FILES) $(LOCLIB_INSTALL_FILES)
 
-crt0.o: sstart.o xcrt0.o sdyld.o
-	$(CC) $(CFLAGS) $(STATIC_ARCH_CFLAGS) \
-		-r -static -nostdlib \
-		$(OBJROOT)/sstart.o $(OBJROOT)/xcrt0.o \
-		$(OBJROOT)/sdyld.o \
-		-o $(SYMROOT)/crt0.o
+# rules
+$(OBJROOT)/%.static.o : %.c
+	$(CC) -static -c $(CFLAGS) $(STATIC_ARCH_CFLAGS) $^ -o $@
+	
+$(OBJROOT)/%.static.o : %.s
+	$(CC) -static -c $(CFLAGS) $(STATIC_ARCH_CFLAGS) $^ -o $@
 
-sstart.o: start.s
-	$(CC) -static -DCRT0 $(STATIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/sstart.o $(SRCROOT)/start.s
+$(OBJROOT)/%.dynamic_no_pic.o : %.c
+ifeq (,$(RC_ARCHS))
+	$(CC) -c $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) -mmacosx-version-min=10.3 $^ -o $@
+else
+	$(foreach arch,$(RC_ARCHS), $(CC) -arch $(arch) $(CFLAGS_DYNANMIC_NO_PIC_$(arch)) -mmacosx-version-min=10.3 -c $(CFLAGS) $^ -o $@.$(arch); )
+	$(LIPO) -create  $(patsubst %, $@.%,$(RC_ARCHS)) -o $@
+endif
+	
+$(OBJROOT)/%.10.5.pic.o : %.c
+	$(CC) -c $(CFLAGS) -mmacosx-version-min=10.5 $(DYNAMIC_ARCH_CFLAGS) $^ -o $@
 
-xcrt0.o: crt.c
-	$(CC) -static -DCRT0 $(CFLAGS) $(STATIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/xcrt0.o $(SRCROOT)/crt.c
+$(OBJROOT)/%.dynamic_no_pic.o : %.s
+	$(CC)  -DMACH_HEADER_SYMBOL_NAME=__mh_execute_header -mdynamic-no-pic -mmacosx-version-min=10.3 -c $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) $^ -o $@
 
-sdyld.o: dyld.s
-	$(CC) -static -DCRT0 $(STATIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/sdyld.o $(SRCROOT)/dyld.s
+$(OBJROOT)/%.profile.dynamic_no_pic.o : %.c
+	$(CC) -mdynamic-no-pic -DGCRT -mmacosx-version-min=10.3 -c $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) $^ -o $@
 
-gcrt0.o: sstart.o xgcrt0.o sdyld.o
-	$(CC) $(CFLAGS) $(STATIC_ARCH_CFLAGS) \
-		-r -static -nostdlib \
-		$(OBJROOT)/sstart.o $(OBJROOT)/xgcrt0.o \
-		$(OBJROOT)/sdyld.o \
-		-o $(SYMROOT)/gcrt0.o
+$(OBJROOT)/%.pic.o : %.c
+	$(CC) -c $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) -mmacosx-version-min=10.3 $^ -o $@
 
-xgcrt0.o: crt.c
-	$(CC) -static -DCRT0 -DGCRT $(CFLAGS) $(STATIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/xgcrt0.o $(SRCROOT)/crt.c
+$(OBJROOT)/%.pic.o : %.s
+	$(CC) -c $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) $^ -o $@
 
-pscrt0.o: sstart.o xpscrt0.o sdyld.o
-	$(CC) $(CFLAGS) $(STATIC_ARCH_CFLAGS) \
-		-r -static -nostdlib \
-		$(OBJROOT)/sstart.o $(OBJROOT)/xpscrt0.o \
-		$(OBJROOT)/sdyld.o \
-		-o $(SYMROOT)/pscrt0.o
+$(OBJROOT)/%.crt.pic.o : %.s
+	$(CC)  -DMACH_HEADER_SYMBOL_NAME=__mh_execute_header -DCRT -c $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) $^ -o $@
 
-xpscrt0.o: crt.c
-	$(CC) -static -DCRT0 -DPOSTSCRIPT $(CFLAGS) $(STATIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/xpscrt0.o $(SRCROOT)/crt.c
+$(OBJROOT)/%.bundle.pic.o : %.s
+	$(CC)  -DMACH_HEADER_SYMBOL_NAME=__mh_bundle_header -c $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) $^ -o $@
 
-crt1.o: dstart.o xcrt1.o ddyld.o
-	$(CC) $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) $(DYLD) -arch_errors_fatal \
-		-r -dynamic -nostdlib -keep_private_externs \
-		$(OBJROOT)/dstart.o $(OBJROOT)/xcrt1.o \
-		$(OBJROOT)/ddyld.o \
-		-o $(SYMROOT)/crt1.o
+$(OBJROOT)/%.dylib.pic.o : %.s
+	$(CC)  -DMACH_HEADER_SYMBOL_NAME=__mh_dylib_header -DCFM_GLUE -c $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) $^ -o $@
 
-dstart.o: start.s
-	$(CC) -dynamic -DCRT1 $(DYNAMIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/dstart.o $(SRCROOT)/start.s
+vpath %.s $(SRCROOT)
 
-xcrt1.o: crt.c
-	$(CC) -dynamic -DCRT1 $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/xcrt1.o $(SRCROOT)/crt.c
 
-ddyld.o: dyld.s
-	$(CC) -dynamic -DCRT1 $(DYNAMIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/ddyld.o $(SRCROOT)/dyld.s
+# targets
+$(SYMROOT)/crt1.o: $(OBJROOT)/start.dynamic_no_pic.o $(OBJROOT)/crt.dynamic_no_pic.o $(OBJROOT)/dyld_glue.dynamic_no_pic.o 
+	$(CC) -r $(DYNAMIC_ARCH_CFLAGS) -mmacosx-version-min=10.3 -nostdlib -keep_private_externs $^ /usr/lib/dyld -o $@ 
 
-gcrt1.o: dstart.o xgcrt1.o ddyld.o
-	$(CC) $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) $(DYLD) -arch_errors_fatal \
-		-r -dynamic -nostdlib -keep_private_externs \
-		$(OBJROOT)/dstart.o $(OBJROOT)/xgcrt1.o $(OBJROOT)/ddyld.o \
-		-o $(SYMROOT)/gcrt1.o
+$(SYMROOT)/crt1.10.5.o: $(OBJROOT)/start.pic.o $(OBJROOT)/crt.10.5.pic.o $(OBJROOT)/dyld_glue.crt.pic.o 
+	$(CC) -r $(DYNAMIC_ARCH_CFLAGS) -nostdlib -keep_private_externs $^ -o $@ 
 
-xgcrt1.o: crt.c
-	$(CC) -dynamic -DCRT1 -DGCRT $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/xgcrt1.o $(SRCROOT)/crt.c
+$(SYMROOT)/gcrt1.o: $(OBJROOT)/start.dynamic_no_pic.o $(OBJROOT)/crt.profile.dynamic_no_pic.o $(OBJROOT)/dyld_glue.dynamic_no_pic.o
+	$(CC) -r $(DYNAMIC_ARCH_CFLAGS) -mmacosx-version-min=10.3 -nostdlib -keep_private_externs $^ /usr/lib/dyld -o $@ 
 
-pscrt1.o: dstart.o xpscrt1.o ddyld.o
-	$(CC) $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) $(DYLD) -arch_errors_fatal \
-		-r -dynamic -nostdlib -keep_private_externs \
-		$(OBJROOT)/dstart.o $(OBJROOT)/xpscrt1.o $(OBJROOT)/ddyld.o \
-		-o $(SYMROOT)/pscrt1.o
+$(SYMROOT)/bundle1.o: $(OBJROOT)/dyld_glue.bundle.pic.o
+	cp	$^ $@
+	
+$(SYMROOT)/dylib1.o: $(OBJROOT)/dyld_glue.dylib.pic.o $(OBJROOT)/icplusplus.pic.o
+	$(CC) -r $(DYNAMIC_ARCH_CFLAGS) -mmacosx-version-min=10.3  -nostdlib -keep_private_externs $^ -o $@ 
 
-xpscrt1.o: crt.c
-	$(CC) -dynamic -DCRT1 -DPOSTSCRIPT $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/xpscrt1.o $(SRCROOT)/crt.c
+$(SYMROOT)/dylib1.10.5.o: $(OBJROOT)/dyld_glue.dylib.pic.o 
+	cp	$^ $@
 
-dylib1.o: dylib.o icplusplus.o
-	$(CC) $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) \
-		-r -dynamic -nostdlib -keep_private_externs \
-		$(OBJROOT)/dylib.o $(OBJROOT)/icplusplus.o \
-		-o $(SYMROOT)/dylib1.o
+$(SYMROOT)/crt0.o:   $(OBJROOT)/start.static.o $(OBJROOT)/crt.static.o 
+	$(CC) -r $(DYNAMIC_ARCH_CFLAGS) -nostdlib -keep_private_externs $^ -o $@ 
 
-dylib.o: dylib.s
-	$(CC) -dynamic $(DYNAMIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/dylib.o $(SRCROOT)/dylib.s
 
-icplusplus.o: icplusplus.c
-	$(CC) -dynamic $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) \
-		-c -o $(OBJROOT)/icplusplus.o $(SRCROOT)/icplusplus.c
-
-bundle1.o: bundle1.s
-	$(CC) -dynamic $(CFLAGS) $(DYNAMIC_ARCH_CFLAGS) \
-		-c -o $(SYMROOT)/bundle1.o $(SRCROOT)/bundle1.s
 
 clean:
-	rm -f $(OBJROOT)/sstart.o $(OBJROOT)/dstart.o \
-	      $(OBJROOT)/sdyld.o $(OBJROOT)/ddyld.o
-	rm -f $(OBJROOT)/xcrt0.o \
-	      $(OBJROOT)/xgcrt0.o \
-	      $(OBJROOT)/xpscrt0.o \
-	      $(OBJROOT)/xcrt1.o \
-	      $(OBJROOT)/xgcrt1.o \
-	      $(OBJROOT)/xpscrt1.o
-	rm -f $(SYMROOT)/crt0.o \
-	      $(SYMROOT)/gcrt0.o \
-	      $(SYMROOT)/pscrt0.o \
-	      $(SYMROOT)/crt1.o \
-	      $(SYMROOT)/gcrt1.o \
-	      $(SYMROOT)/pscrt1.o
-	rm -f $(OBJROOT)/dylib.o \
-	      $(OBJROOT)/icplusplus.o
-	rm -f $(SYMROOT)/dylib1.o $(SYMROOT)/bundle1.o
+	rm -f $(OBJROOT)/*.o $(SYMROOT)/*.o
+
 
 install: all $(DSTDIRS)
-	for obj in $(USRLIB_INSTALL_FILES); do					\
-		(set -x;							\
-			$(INSTALL) $(IFLAGS) $(SYMROOT)/$${obj} $(DSTROOT)$(USRLIBDIR)/$${obj}; \
-		)								\
-	done
-	for obj in $(LOCLIB_INSTALL_FILES); do					\
-		(set -x;							\
-			$(INSTALL) $(IFLAGS) $(SYMROOT)/$${obj} $(DSTROOT)$(LOCLIBDIR)/$${obj}; \
-		)								\
-	done
+	cp $(SYMROOT)/crt1.o		$(DSTROOT)$(USRLIBDIR)/crt1.o
+	cp $(SYMROOT)/crt1.10.5.o	$(DSTROOT)$(USRLIBDIR)/crt1.10.5.o
+	cp $(SYMROOT)/gcrt1.o		$(DSTROOT)$(USRLIBDIR)/gcrt1.o
+	cp $(SYMROOT)/dylib1.o		$(DSTROOT)$(USRLIBDIR)/dylib1.o
+	cp $(SYMROOT)/dylib1.10.5.o 	$(DSTROOT)$(USRLIBDIR)/dylib1.10.5.o
+	cp $(SYMROOT)/bundle1.o		$(DSTROOT)$(USRLIBDIR)/bundle1.o
+	cp $(SYMROOT)/crt0.o		$(DSTROOT)$(LOCLIBDIR)/crt0.o
 
 installhdrs:
 

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: post-callback.c,v 1.4 2004/08/23 14:22:44 bagder Exp $
+ * $Id: post-callback.c,v 1.5 2005/12/14 13:10:14 bagder Exp $
  *
  * An example source code that issues a HTTP POST and we provide the actual
  * data through a read callback.
@@ -78,7 +78,7 @@ int main(void)
       curl_slist *chunk = NULL;
 
       chunk = curl_slist_append(chunk, "Transfer-Encoding: chunked");
-      res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER);
+      res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
       /* use curl_slist_free_all() after the *perform() call to free this
          list again */
     }
@@ -101,7 +101,7 @@ int main(void)
       curl_slist *chunk = NULL;
 
       chunk = curl_slist_append(chunk, "Expect:");
-      res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER);
+      res = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
       /* use curl_slist_free_all() after the *perform() call to free this
          list again */
     }

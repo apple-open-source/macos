@@ -122,7 +122,7 @@ static NSComparisonResult sortKextArray(NSDictionary * dict1, NSDictionary * dic
     if (result == NSOKButton) {
         NSString *finalString = [(TableViewWithCopying *)KextOutputTable stringRepresentation];
         
-        if (![finalString writeToFile:[sp filename] atomically:YES])
+        if (![finalString writeToFile:[sp filename] atomically:YES encoding:NSUTF8StringEncoding error:NULL])
             NSBeep();
     }
 }

@@ -1,15 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/root.xml
+// * Source File:<path>/common/main/root.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: ../../../locale/icu/main/root.xml
+ *  ICU <specials> source: <path>/xml/main/root.xml
  */
 root{
+    AuxExemplarCharacters{"[]"}
     Currencies{
         EUR{
             "€",
@@ -52,12 +53,12 @@ root{
         "E",
         "‰",
         "∞",
-        "�",
+        "NaN",
         "+",
     }
     NumberPatterns{
-        "#,##0.###;-#,##0.###",
-        "¤ #,##0.00;-¤ #,##0.00",
+        "#,##0.###",
+        "¤ #,##0.00",
         "#,##0%",
         "#E0",
     }
@@ -65,21 +66,14 @@ root{
         297,
         210,
     }
-    Version{"1.2"}
-    boundaries{
-        grapheme{"char"}
-        line{"line"}
-        sentence{"sent"}
-        title{"title"}
-        word{"word"}
-    }
+    Version{"1.84"}
     calendar{
         buddhist{
             DateTimePatterns{
-                "h:mm:ss a z",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "HH:mm:ss z",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
                 "EEEE, MMMM d, yyyy G",
                 "MMMM d, yyyy G",
                 "MMM d, yyyy G",
@@ -94,10 +88,10 @@ root{
         }
         chinese{
             DateTimePatterns{
-                "h:mm:ss a z",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "HH:mm:ss z",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
                 "EEEE y'x'G-Ml-d",
                 "y'x'G-Ml-d",
                 "y'x'G-Ml-d",
@@ -109,14 +103,82 @@ root{
                 "*",
             }
         }
+        coptic{
+            DateTimePatterns{
+                "HH:mm:ss z",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, yyyy MMMM dd",
+                "yyyy MMMM d",
+                "yyyy MMM d",
+                "yy/MM/dd",
+                "{1} {0}",
+            }
+            monthNames{
+                default{"format"}
+                format{
+                    default{"wide"}
+                    wide{
+                        "Tout",
+                        "Baba",
+                        "Hator",
+                        "Kiahk",
+                        "Toba",
+                        "Amshir",
+                        "Baramhat",
+                        "Baramouda",
+                        "Bashans",
+                        "Paona",
+                        "Epep",
+                        "Mesra",
+                        "Nasie",
+                    }
+                }
+            }
+        }
         default{"gregorian"}
+        ethiopic{
+            DateTimePatterns{
+                "HH:mm:ss z",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, yyyy MMMM dd",
+                "yyyy MMMM d",
+                "yyyy MMM d",
+                "yy/MM/dd",
+                "{1} {0}",
+            }
+            monthNames{
+                default{"format"}
+                format{
+                    default{"wide"}
+                    wide{
+                        "Meskerem",
+                        "Tekemt",
+                        "Hedar",
+                        "Tahsas",
+                        "Ter",
+                        "Yekatit",
+                        "Megabit",
+                        "Miazia",
+                        "Genbot",
+                        "Sene",
+                        "Hamle",
+                        "Nehasse",
+                        "Pagumen",
+                    }
+                }
+            }
+        }
         gregorian{
             AmPmMarkers{
                 "AM",
                 "PM",
             }
             DateTimeElements:intvector{
-                1,
+                2,
                 1,
             }
             DateTimePatterns{
@@ -129,6 +191,19 @@ root{
                 "yyyy MMM d",
                 "yy/MM/dd",
                 "{1} {0}",
+            }
+            appendItems{
+                Day{"{0} ({2}: {1})"}
+                Day-Of-Week{"{0} {1}"}
+                Era{"{0} {1}"}
+                Hour{"{0} ({2}: {1})"}
+                Minute{"{0} ({2}: {1})"}
+                Month{"{0} ({2}: {1})"}
+                Quarter{"{0} ({2}: {1})"}
+                Second{"{0} ({2}: {1})"}
+                Timezone{"{0} {1}"}
+                Week{"{0} ({2}: {1})"}
+                Year{"{0} {1}"}
             }
             dayNames{
                 default{"format"}
@@ -143,15 +218,6 @@ root{
                         "7",
                     }
                     default{"wide"}
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                    }
                     wide{
                         "1",
                         "2",
@@ -163,26 +229,7 @@ root{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                    }
-                    default{"wide"}
                     narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                    }
-                    wide{
                         "1",
                         "2",
                         "3",
@@ -198,39 +245,48 @@ root{
                     "BCE",
                     "CE",
                 }
+                wide:alias{"/LOCALE/calendar/gregorian/eras/abbreviated"}
+            }
+            fields{
+                day{
+                    dn{"Day"}
+                }
+                dayperiod{
+                    dn{"Dayperiod"}
+                }
+                era{
+                    dn{"Era"}
+                }
+                hour{
+                    dn{"Hour"}
+                }
+                minute{
+                    dn{"Minute"}
+                }
+                month{
+                    dn{"Month"}
+                }
+                second{
+                    dn{"Second"}
+                }
+                week{
+                    dn{"Week"}
+                }
+                weekday{
+                    dn{"Day of the Week"}
+                }
+                year{
+                    dn{"Year"}
+                }
+                zone{
+                    dn{"Zone"}
+                }
             }
             monthNames{
                 default{"format"}
                 format{
-                    abbreviated{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                    }
+                    abbreviated:alias{"/LOCALE/calendar/gregorian/monthNames/format/wide"}
                     default{"wide"}
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                    }
                     wide{
                         "1",
                         "2",
@@ -247,21 +303,6 @@ root{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                    }
-                    default{"wide"}
                     narrow{
                         "1",
                         "2",
@@ -276,19 +317,21 @@ root{
                         "11",
                         "12",
                     }
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "Q1",
+                        "Q2",
+                        "Q3",
+                        "Q4",
+                    }
                     wide{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
+                        "Q1",
+                        "Q2",
+                        "Q3",
+                        "Q4",
                     }
                 }
             }
@@ -308,7 +351,7 @@ root{
             monthNames{
                 default{"format"}
                 format{
-                    abbreviated:alias{"root/calendar/hebrew/monthNames/format/wide"}
+                    abbreviated:alias{"/LOCALE/calendar/hebrew/monthNames/format/wide"}
                     default{"wide"}
                     wide{
                         "Tishri",
@@ -329,6 +372,17 @@ root{
             }
         }
         islamic{
+            DateTimePatterns{
+                "HH:mm:ss z",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, yyyy MMMM dd",
+                "yyyy MMMM d",
+                "yyyy MMM d",
+                "yy/MM/dd",
+                "{1} {0}",
+            }
             eras{
                 abbreviated{
                     "AH",
@@ -337,7 +391,7 @@ root{
             monthNames{
                 default{"format"}
                 format{
-                    abbreviated:alias{"root/calendar/islamic/monthNames/format/wide"}
+                    abbreviated:alias{"/LOCALE/calendar/islamic/monthNames/format/wide"}
                     default{"wide"}
                     wide{
                         "Muharram",
@@ -356,13 +410,13 @@ root{
                 }
             }
         }
-        islamic-civil:alias{"root/calendar/islamic"}
+        islamic-civil:alias{"/LOCALE/calendar/islamic"}
         japanese{
             DateTimePatterns{
-                "h:mm:ss a z",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "HH:mm:ss z",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
                 "EEEE, MMMM d, y G",
                 "MMMM d, y G",
                 "MMM d, y G",
@@ -610,16 +664,85 @@ root{
                 }
             }
         }
+        persian{
+            DateTimePatterns{
+                "HH:mm:ss z",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, yyyy MMMM dd",
+                "yyyy MMMM d",
+                "yyyy MMM d",
+                "yy/MM/dd",
+                "{1} {0}",
+            }
+            eras{
+                abbreviated{
+                    "AP",
+                }
+            }
+            monthNames{
+                default{"format"}
+                format{
+                    default{"wide"}
+                    wide{
+                        "Farvardin",
+                        "Ordibehesht",
+                        "Khordad",
+                        "Tir",
+                        "Mordad",
+                        "Shahrivar",
+                        "Mehr",
+                        "Aban",
+                        "Azar",
+                        "Dey",
+                        "Bahman",
+                        "Esfand",
+                    }
+                }
+            }
+        }
     }
-    localPatternChars{"GyMdkHmsSEDFwWahKzYeugAZ"}
+    delimiters{
+        alternateQuotationEnd{"’"}
+        alternateQuotationStart{"‘"}
+        quotationEnd{"”"}
+        quotationStart{"“"}
+    }
+    localPatternChars{"GyMdkHmsSEDFwWahKzYeugAZvcL"}
+    measurementSystemNames{
+        US{"US"}
+        metric{"Metric"}
+    }
     zoneStrings{
-        {
+        ""{
+            ec{""}
+            ld{""}
+            ls{""}
+            sd{""}
+            ss{""}
+        }
+        fallbackFormat{"{0} ({1})"}
+        gmtFormat{"GMT{0}"}
+        hourFormat{"+HH:mm;-HH:mm"}
+        hoursFormat{"{0}/{1}"}
+        preferenceOrdering{
             "",
-            "",
-            "",
-            "",
-            "",
-            "",
+        }
+        regionFormat{"{0}"}
+        singleCountries{
+            "Africa/Bamako",
+            "America/Godthab",
+            "America/Santiago",
+            "America/Guayaquil",
+            "Asia/Shanghai",
+            "Asia/Tashkent",
+            "Asia/Kuala_Lumpur",
+            "Europe/Madrid",
+            "Europe/Lisbon",
+            "Europe/London",
+            "Pacific/Auckland",
+            "Pacific/Tahiti",
         }
     }
 }

@@ -26,9 +26,14 @@
 #import <IOKit/firewire/IOFireWireFamilyCommon.h>
 #import <IOKit/firewire/IOLocalConfigDirectory.h>
 #import <IOKit/firewire/IOFWUtils.h>
+#import <IOKit/firewire/IOFireWireNub.h>
+#import <IOKit/firewire/IOFireWireBus.h>
 
 // private
 #import "IOConfigEntry.h"
+#import "IOFireWireUserClient.h"
+#import "IOFWUserObjectExporter.h"
+
 
 // system
 #import <libkern/c++/OSIterator.h>
@@ -195,7 +200,8 @@ IOReturn IOLocalConfigDirectory::incrementGeneration( void )
 IOReturn IOLocalConfigDirectory::compile(OSData *rom)
 {
     UInt32 header;
-    UInt16 crc = 0;
+    UInt32 big_header;
+	UInt16 crc = 0;
     OSData *tmp;	// Temporary data for directory entries.
     unsigned int size;
     unsigned int numEntries;
@@ -222,6 +228,7 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
 	{
         IOConfigEntry *entry = OSDynamicCast(IOConfigEntry, fEntries->getObject(i));
         UInt32 val;
+		UInt32 big_val;
         if(!entry)
 		{
 			IOLog(__FILE__" %d internal error!\n", __LINE__ )  ;
@@ -248,14 +255,17 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
 		
         val |= entry->fKey << kConfigEntryKeyValuePhase;
         val |= entry->fType << kConfigEntryKeyTypePhase;
-        crc = FWUpdateCRC16(crc, val);
 		
-        tmp->appendBytes(&val, sizeof(UInt32));
+		big_val = OSSwapHostToBigInt32( val );
+        crc = FWUpdateCRC16(crc, big_val);
+		
+        tmp->appendBytes(&big_val, sizeof(UInt32));
     }
 	
     header = numEntries << kConfigLeafDirLengthPhase;
     header |= crc;
-    rom->appendBytes(&header, sizeof(UInt32));
+	big_header = OSSwapHostToBigInt32( header );
+    rom->appendBytes(&big_header, sizeof(UInt32));
     rom->appendBytes(tmp);
     tmp->release();
 
@@ -264,6 +274,7 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
 	{
         IOConfigEntry *entry = OSDynamicCast(IOConfigEntry, fEntries->getObject(i));
         UInt32 val;
+		UInt32 big_val;
         if(!entry)
 		{
             return kIOReturnInternalError;	// Oops!
@@ -298,7 +309,8 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
 				crc = FWComputeCRC16((const UInt32 *)buffer, len / 4);
                 val = (len/4) << kConfigLeafDirLengthPhase;
                 val |= crc;
-                rom->appendBytes(&val, sizeof(UInt32));
+				big_val = OSSwapHostToBigInt32( val );
+				rom->appendBytes(&big_val, sizeof(UInt32));
                 rom->appendBytes(buffer, len);
                 break;
             }
@@ -590,4 +602,11 @@ IOLocalConfigDirectory::getIndexValue(int index, IOConfigDirectory *&value)
 	}
     
 	return error ;
+}
+
+void
+IOLocalConfigDirectory::exporterCleanup( const OSObject * self, IOFWUserObjectExporter * exporter )
+{
+	IOLocalConfigDirectory * me = (IOLocalConfigDirectory*)self;
+	((IOFireWireUserClient*)exporter->getOwner())->getOwner()->getBus()->RemoveUnitDirectory( me ) ;
 }

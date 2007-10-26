@@ -21,6 +21,7 @@ GNU General Public License for more details.
 #define GDIFF_MAIN
 #include "diff.h"
 #include <signal.h>
+#include "error.h"
 #include "getopt.h"
 
 #ifdef HAVE_FNMATCH

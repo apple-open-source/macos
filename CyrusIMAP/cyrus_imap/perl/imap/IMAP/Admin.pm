@@ -37,14 +37,15 @@
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: Admin.pm,v 1.5 2005/03/05 00:37:32 dasenbro Exp $
+# $Id: Admin.pm,v 1.49 2006/11/30 17:11:23 murch Exp $
 
 package Cyrus::IMAP::Admin;
 use strict;
 use Cyrus::IMAP;
 use vars qw($VERSION
 	    *create *delete *deleteacl *listacl *list *rename *setacl
-	    *subscribed *quota *quotaroot *info *setinfo *xfer);
+	    *subscribed *quota *quotaroot *info *setinfo *xfer
+	    *subscribe *unsubscribe);
 
 $VERSION = '1.00';
 
@@ -337,6 +338,7 @@ sub listmailbox {
 			next unless $d{-text} =~ s/^\(([^\)]*)\) //;
 			my $attrs = $1;
 			my $sep = '';
+			my $mbox;
 			# NIL or (attrs) "sep" "str"
 			if ($d{-text} =~ /^N/) {
 			  return if $d{-text} !~ s/^NIL//;
@@ -345,8 +347,10 @@ sub listmailbox {
 			  $sep = $1;
 			}
 			return unless $d{-text} =~ s/^ //;
-			my $mbox;
-			if ($d{-text} =~ /\"(([^\\\"]*\\)*[^\\\"]*)\"/) {
+                        if ($d{-text} =~ /{\d+}(.*)/) {
+			  # cope with literals (?)
+			  (undef, $mbox) = split(/\n/, $d{-text});
+                        } elsif ($d{-text} =~ /\"(([^\\\"]*\\)*[^\\\"]*)\"/) {
 			  ($mbox = $1) =~ s/\\(.)/$1/g;
 			} else {
 			  $d{-text} =~ /^([]!\#-[^-~]+)/;
@@ -594,9 +598,9 @@ my %aclalias = (none => '',
 		read => 'lrs',
 		post => 'lrsp',
 		append => 'lrsip',
-		write => 'lrswipcd',
-		delete => 'lrd',
-		all => 'lrswipcda');
+		write => 'lrswipkxte',
+		delete => 'lrxte',
+		all => 'lrswipkxtea');
 
 sub setaclmailbox {
   my ($self, $mbx, %acl) = @_;
@@ -780,8 +784,10 @@ sub mboxconfig {
   my ($self, $mailbox, $entry, $value) = @_;
 
   my %values = ( "comment" => "/comment",
+		 "condstore" => "/vendor/cmu/cyrus-imapd/condstore",
 		 "news2mail" => "/vendor/cmu/cyrus-imapd/news2mail",
 		 "expire" => "/vendor/cmu/cyrus-imapd/expire",
+		 "sieve" => "/vendor/cmu/cyrus-imapd/sieve",
 		 "squat" => "/vendor/cmu/cyrus-imapd/squat" );
 
   if(!$self->{support_annotatemore}) {
@@ -879,6 +885,76 @@ sub setinfoserver {
   }
 }
 *setinfo = *setinfoserver;
+
+sub subscribemailbox {
+  my ($self, $mbx) = @_;
+  my ($rc, $msg) = $self->send('', '', 'SUBSCRIBE %s', $mbx);
+  if ($rc eq 'OK') {
+    $self->{error} = undef;
+    1;
+  } else {
+    if($self->{support_referrals} && $msg =~ m|^\[REFERRAL\s+([^\]\s]+)\]|) {
+      my ($refserver, $box) = $self->fromURL($1);
+      my $port = 143;
+
+      if($refserver =~ /:/) {
+        $refserver =~ /([^:]+):(\d+)/;
+        $refserver = $1; $port = $2;
+      }
+
+      my $cyradm = Cyrus::IMAP::Admin->new($refserver, $port)
+        or die "cyradm: cannot connect to $refserver\n";
+      $cyradm->addcallback({-trigger => 'EOF',
+                            -callback => \&_cb_ref_eof,
+                            -rock => \$cyradm});
+      $cyradm->authenticate(@{$self->_getauthopts()})
+        or die "cyradm: cannot authenticate to $refserver\n";
+
+      my $ret = $cyradm->subscribemailbox($box);
+      $self->{error} = $cyradm->error;
+      $cyradm = undef;
+      return $ret;
+    }
+    $self->{error} = $msg;
+    undef;
+  }
+}
+*subscribe = *subscribemailbox;
+
+sub unsubscribemailbox {
+  my ($self, $mbx) = @_;
+  my ($rc, $msg) = $self->send('', '', 'UNSUBSCRIBE %s', $mbx);
+  if ($rc eq 'OK') {
+    $self->{error} = undef;
+    1;
+  } else {
+    if($self->{support_referrals} && $msg =~ m|^\[REFERRAL\s+([^\]\s]+)\]|) {
+      my ($refserver, $box) = $self->fromURL($1);
+      my $port = 143;
+
+      if($refserver =~ /:/) {
+        $refserver =~ /([^:]+):(\d+)/;
+        $refserver = $1; $port = $2;
+      }
+
+      my $cyradm = Cyrus::IMAP::Admin->new($refserver, $port)
+        or die "cyradm: cannot connect to $refserver\n";
+      $cyradm->addcallback({-trigger => 'EOF',
+                            -callback => \&_cb_ref_eof,
+                            -rock => \$cyradm});
+      $cyradm->authenticate(@{$self->_getauthopts()})
+        or die "cyradm: cannot authenticate to $refserver\n";
+
+      my $ret = $cyradm->unsubscribemailbox($box);
+      $self->{error} = $cyradm->error;
+      $cyradm = undef;
+      return $ret;
+    }
+    $self->{error} = $msg;
+    undef;
+  }
+}
+*unsubscribe = *unsubscribemailbox;
 
 sub error {
   my $self = shift;
@@ -1013,22 +1089,23 @@ Renames the specified mailbox, optionally moving it to a different partition.
 
 Set ACLs on a mailbox.  The ACL may be one of the special strings C<none>,
 C<read> (C<lrs>), C<post> (C<lrsp>), C<append> (C<lrsip>), C<write>
-(C<lrswipcd>), C<delete> (C<lrd>), or C<all> (C<lrswipcda>), or any combinations 
-of the ACL codes:
+(C<lrswipkxte>), C<delete> (C<lrxte>), or C<all> (C<lrswipkxte>), or
+any combinations of the ACL codes:
 
 =over 4
 
 =item l
 
-Lookup (visible to LIST/LSUB/UNSEEN)
+Lookup (mailbox is visible to LIST/LSUB, SUBSCRIBE mailbox)
 
 =item r
 
-Read (SELECT, CHECK, FETCH, PARTIAL, SEARCH, COPY source)
+Read (SELECT/EXAMINE the mailbox, perform STATUS)
 
 =item s
 
-Seen (STORE \SEEN)
+Seen (set/clear \SEEN flag via STORE, also set \SEEN flag during
+    APPEND/COPY/FETCH BODY[...])
 
 =item w
 
@@ -1042,17 +1119,26 @@ Insert (APPEND, COPY destination)
 
 Post (send mail to mailbox)
 
-=item c
+=item k
 
-Create (subfolders)
+Create mailbox (CREATE new sub-mailboxes, parent for new mailbox in RENAME)
 
-=item d
+=item x
 
-Delete (STORE \DELETED, EXPUNGE)
+Delete mailbox (DELETE mailbox, old mailbox name in RENAME)
+
+=item t
+
+Delete messages (set/clear \DELETED flag via STORE, also set \DELETED
+    flag during APPEND/COPY)
+
+=item e
+
+Perform EXPUNGE and expunge as part of CLOSE
 
 =item a
 
-Administer (SETACL)
+Administer (SETACL/DELETEACL/GETACL/LISTRIGHTS)
 
 =back
 

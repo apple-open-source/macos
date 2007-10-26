@@ -1,0 +1,14 @@
+--- strmode.3	2004-11-25 11:38:47.000000000 -0800
++++ strmode.3.edit	2006-08-12 10:29:49.000000000 -0700
+@@ -43,7 +43,10 @@
+ .Sh SYNOPSIS
+ .In string.h
+ .Ft void
+-.Fn strmode "mode_t mode" "char *bp"
++.Fo strmode
++.Fa "int mode"
++.Fa "char *bp"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn strmode

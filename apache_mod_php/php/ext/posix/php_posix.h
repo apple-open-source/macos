@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
  */
 
 
-/* $Id: php_posix.h,v 1.11.8.2.2.2 2007/01/01 09:46:46 sebastian Exp $ */
+/* $Id: php_posix.h,v 1.18.2.1.2.2 2007/01/01 09:36:05 sebastian Exp $ */
 
 #ifndef PHP_POSIX_H
 #define PHP_POSIX_H
@@ -93,6 +93,12 @@ PHP_FUNCTION(posix_getcwd);
 #ifdef HAVE_MKFIFO
 PHP_FUNCTION(posix_mkfifo);
 #endif
+#ifdef HAVE_MKNOD
+PHP_FUNCTION(posix_mknod);
+#endif
+
+/* POSIX.1, 5.6 */
+PHP_FUNCTION(posix_access);
 
 /* POSIX.1, 9.2 */
 PHP_FUNCTION(posix_getgrnam);
@@ -102,6 +108,10 @@ PHP_FUNCTION(posix_getpwuid);
 
 #ifdef HAVE_GETRLIMIT
 PHP_FUNCTION(posix_getrlimit);
+#endif
+
+#ifdef HAVE_INITGROUPS
+PHP_FUNCTION(posix_initgroups);
 #endif
 
 PHP_FUNCTION(posix_get_last_error);

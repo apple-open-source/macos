@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,6 @@
 
 #include <IOKit/IODeviceTreeSupport.h> // (gIODTPlane, ...)
 #include <IOKit/IOLib.h>               // (IONew, ...)
-#include <IOKit/IOMessage.h>           // (kIOMessageServicePropertyChange, ...)
 #include <IOKit/storage/IOMedia.h>
 
 #define super IOStorage
@@ -31,10 +30,14 @@ OSDefineMetaClassAndStructors(IOMedia, IOStorage)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+extern IOStorageAttributes gIOStorageAttributesUnsupported;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 enum
 {
     kIOStorageAccessWriter       = 0x00000002,
-    kIOStorageAccessInvalid      = 0x0000000C,
+    kIOStorageAccessInvalid      = 0x0000000D,
     kIOStorageAccessReservedMask = 0xFFFFFFF0
 };
 
@@ -115,6 +118,35 @@ IOStorage * IOMedia::getProvider() const
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+bool IOMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
+{
+    //
+    // Compare the properties in the supplied table to this object's properties.
+    //
+
+    // Ask our superclass' opinion.
+
+    if (super::matchPropertyTable(table, score) == false)  return false;
+
+    // We return success if the following expression is true -- individual
+    // comparisions evaluate to truth if the named property is not present
+    // in the supplied table.
+
+    return compareProperty(table, kIOMediaContentKey           ) &&
+           compareProperty(table, kIOMediaContentHintKey       ) &&
+           compareProperty(table, kIOMediaEjectableKey         ) &&
+           compareProperty(table, kIOMediaLeafKey              ) &&
+           compareProperty(table, kIOMediaOpenKey              ) &&
+           compareProperty(table, kIOMediaPreferredBlockSizeKey) &&
+           compareProperty(table, kIOMediaRemovableKey         ) &&
+           compareProperty(table, kIOMediaSizeKey              ) &&
+           compareProperty(table, kIOMediaUUIDKey              ) &&
+           compareProperty(table, kIOMediaWholeKey             ) &&
+           compareProperty(table, kIOMediaWritableKey          );
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 bool IOMedia::init(UInt64         base,
                    UInt64         size,
                    UInt64         preferredBlockSize,
@@ -186,7 +218,7 @@ bool IOMedia::attachToChild(IORegistryEntry *       client,
 
     s = OSDynamicCast(OSString, client->getProperty(gIOMatchCategoryKey));
  
-    if (s && !strcmp(s->getCStringNoCopy(), kIOStorageCategory))
+    if (s && s->isEqualTo(kIOStorageCategory))
     {
         setProperty(kIOMediaLeafKey, false);
 
@@ -233,7 +265,7 @@ void IOMedia::detachFromChild(IORegistryEntry *       client,
 
     s = OSDynamicCast(OSString, client->getProperty(gIOMatchCategoryKey));
  
-    if (s && !strcmp(s->getCStringNoCopy(), kIOStorageCategory))
+    if (s && s->isEqualTo(kIOStorageCategory))
     {
         setProperty(kIOMediaContentKey, getContentHint());
         setProperty(kIOMediaLeafKey, true);
@@ -441,6 +473,8 @@ bool IOMedia::handleOpen(IOService *  client,
 
                 return false;
             }
+
+            setProperty( kIOMediaOpenKey, true );
         }
     }
 
@@ -448,7 +482,7 @@ bool IOMedia::handleOpen(IOService *  client,
     // Process the open.
     //
 
-    object = OSNumber::withNumber( level, 32 );
+    object = OSNumber::withNumber( accessIn, 32 );
 
     assert( object );
 
@@ -598,6 +632,8 @@ void IOMedia::handleClose(IOService * client, IOOptionBits options)
             if ( level == kIOStorageAccessNone )
             {
                 provider->close( this, options );
+
+                setProperty( kIOMediaOpenKey, false );
             }
             else
             {
@@ -645,10 +681,11 @@ void IOMedia::handleClose(IOService * client, IOOptionBits options)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOMedia::read(IOService *          /* client */,
-                   UInt64               byteStart,
-                   IOMemoryDescriptor * buffer,
-                   IOStorageCompletion  completion)
+void IOMedia::read(IOService *           client,
+                   UInt64                byteStart,
+                   IOMemoryDescriptor *  buffer,
+                   IOStorageAttributes * attributes,
+                   IOStorageCompletion * completion)
 {
     //
     // Read data from the storage object at the specified byte offset into the
@@ -659,6 +696,19 @@ void IOMedia::read(IOService *          /* client */,
     //
     // This method will work even when the media is in the terminated state.
     //
+
+    if (IOStorage::_expansionData)
+    {
+        if (attributes == &gIOStorageAttributesUnsupported)
+        {
+            attributes = NULL;
+        }
+        else
+        {
+            IOStorage::read(client, byteStart, buffer, attributes, completion);
+            return;
+        }
+    }
 
     if (isInactive())
     {
@@ -691,15 +741,16 @@ void IOMedia::read(IOService *          /* client */,
     }
 
     byteStart += _mediaBase;
-    getProvider()->read(this, byteStart, buffer, completion);
+    getProvider()->read(this, byteStart, buffer, attributes, completion);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOMedia::write(IOService *          client,
-                    UInt64               byteStart,
-                    IOMemoryDescriptor * buffer,
-                    IOStorageCompletion  completion)
+void IOMedia::write(IOService *           client,
+                    UInt64                byteStart,
+                    IOMemoryDescriptor *  buffer,
+                    IOStorageAttributes * attributes,
+                    IOStorageCompletion * completion)
 {
     //
     // Write data into the storage object at the specified byte offset from the
@@ -710,6 +761,19 @@ void IOMedia::write(IOService *          client,
     //
     // This method will work even when the media is in the terminated state.
     //
+
+    if (IOStorage::_expansionData)
+    {
+        if (attributes == &gIOStorageAttributesUnsupported)
+        {
+            attributes = NULL;
+        }
+        else
+        {
+            IOStorage::write(client, byteStart, buffer, attributes, completion);
+            return;
+        }
+    }
 
     if (isInactive())
     {
@@ -756,7 +820,7 @@ void IOMedia::write(IOService *          client,
     }
 
     byteStart += _mediaBase;
-    getProvider()->write(this, byteStart, buffer, completion);
+    getProvider()->write(this, byteStart, buffer, attributes, completion);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -922,60 +986,6 @@ const char * IOMedia::getContentHint() const
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOMedia::matchPropertyTable(OSDictionary * table, SInt32 * score)
-{
-    //
-    // Compare the properties in the supplied table to this object's properties.
-    //
-
-    OSCollectionIterator * properties;
-    bool                   success = true;
-
-    // Ask our superclass' opinion.
-
-    if (super::matchPropertyTable(table, score) == false)  return false;
-
-    // Compare properties.
-
-    properties = OSCollectionIterator::withCollection(table);
-
-    if (properties)
-    {
-        OSSymbol * property;
-
-        while ((property = (OSSymbol *) properties->getNextObject()))
-        {
-///m:2922205:workaround:added:start
-            extern const OSSymbol * gIOMatchCategoryKey;
-            extern const OSSymbol * gIOProbeScoreKey;
-
-            if ( property->isEqualTo(gIOMatchCategoryKey) ||
-                 property->isEqualTo(gIOProbeScoreKey   ) )
-            {
-                continue;
-            }
-///m:2922205:workaround:added:stop
-            OSObject * valueFromMedia = copyProperty(property);
-            OSObject * valueFromTable = table->getObject(property);
-
-            if (valueFromMedia)
-            {
-                success = valueFromMedia->isEqualTo(valueFromTable);
-
-                valueFromMedia->release();
-
-                if (success == false)  break;
-            }
-        }
-
-        properties->release();
-    }
-
-    return success;
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 bool IOMedia::init(UInt64               base,
                    UInt64               size,
                    UInt64               preferredBlockSize,
@@ -1032,23 +1042,37 @@ bool IOMedia::init(UInt64               base,
     {
         _openClients = OSDictionary::withCapacity(2);
         _openLevel   = kIOStorageAccessNone;
-    }
 
-    if (_openClients == 0)  return false;
+        if (_openClients == 0)  return false;
+
+        setProperty(kIOMediaContentKey, contentHint ? contentHint : "");
+        setProperty(kIOMediaLeafKey,    true);
+        setProperty(kIOMediaOpenKey,    false);
+    }
+    else
+    {
+        IOService * driver;
+        OSObject *  object;
+
+        object = (OSObject *) OSSymbol::withCString(kIOStorageCategory);
+        if (object == 0)  return false;
+
+        driver = getClientWithCategory((OSSymbol *) object);
+        object->release();
+
+        object = driver ? OSDynamicCast(OSString, driver->getProperty(kIOMediaContentMaskKey)) : 0;
+        if (object == 0)  setProperty(kIOMediaContentKey, contentHint ? contentHint : "");
+    }
 
     // Create our registry properties.
 
-    setProperty(kIOMediaContentKey,            contentHint ? contentHint : "");
     setProperty(kIOMediaContentHintKey,        contentHint ? contentHint : "");
     setProperty(kIOMediaEjectableKey,          isEjectable);
-    setProperty(kIOMediaLeafKey,               true);
     setProperty(kIOMediaPreferredBlockSizeKey, preferredBlockSize, 64);
     setProperty(kIOMediaRemovableKey,          isRemovable);
     setProperty(kIOMediaSizeKey,               size, 64);
     setProperty(kIOMediaWholeKey,              isWhole);
     setProperty(kIOMediaWritableKey,           isWritable);
-
-    messageClients(kIOMessageServicePropertyChange);
 
     return true;
 }
@@ -1123,3 +1147,17 @@ OSMetaClassDefineReservedUnused(IOMedia, 14);
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 OSMetaClassDefineReservedUnused(IOMedia, 15);
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern "C" void _ZN7IOMedia4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOMedia * media, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+{
+    media->read( client, byteStart, buffer, NULL, &completion );
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern "C" void _ZN7IOMedia5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOMedia * media, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+{
+    media->write( client, byteStart, buffer, NULL, &completion );
+}

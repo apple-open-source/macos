@@ -304,7 +304,7 @@ AppleX509CLSession::signData(
 		CSSM_ALGID_NONE,	// DigestAlgorithm,
 		&cSig);
 	if(crtn) {
-		clErrorLog("AppleX509CLSession::CSSM_SignData: %ld\n", crtn);
+		clErrorLog("AppleX509CLSession::CSSM_SignData: %ld\n", (long)crtn);
 		CssmError::throwMe(crtn);
 	}
 	sig.set(cSig);

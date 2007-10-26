@@ -1,8 +1,8 @@
 #
 #               getopts.rb - 
 #                       $Release Version: $
-#                       $Revision: 1.8.2.1 $
-#                       $Date: 2004/11/05 16:01:52 $
+#                       $Revision: 11708 $
+#                       $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
 #                       by Yasuo OHBA(SHL Japan Inc. Technology Dept.)
 #
 # --
@@ -15,8 +15,11 @@
 # rewritten by Akinori MUSHA <knu@ruby-lang.org>
 #
 
-$RCS_ID=%q$Header: /src/ruby/lib/getopts.rb,v 1.8.2.1 2004/11/05 16:01:52 matz Exp $
+warn "Warning:#{caller[0].sub(/:in `.*'\z/, '')}: getopts is deprecated after Ruby 1.8.1; use optparse instead" if caller[0] and $VERBOSE
 
+$RCS_ID=%q$Header$
+
+# getopts is obsolete. Use GetoptLong.
 
 def getopts(single_options, *options)
   boolopts = {}

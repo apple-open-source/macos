@@ -1,3 +1,369 @@
+2006-10-25  Jordi Mallach  <jordi@gnu.org>
+
+	* fr.po: Updated French translation by Jean-Philippe Guérard.
+	* nb.po: Updated Norwegian bokmål translation by
+	Geir Helland.
+
+2006-10-16  Jordi Mallach  <jordi@gnu.org>
+
+	* gl.po: Updated Galician translation by
+	Francisco Javier Tsao Santín.
+
+2006-10-16  Jordi Mallach  <jordi@gnu.org>
+
+	* eu.po: Updated Basque translation by Mikel Olasagasti.
+
+2006-10-10  Jordi Mallach  <jordi@gnu.org>
+
+	* gl.po: Updated Galician translation by
+	Francisco Javier Tsao Santín.
+
+2006-10-02  Jordi Mallach  <jordi@gnu.org>
+
+	* pt_BR.po: Refetch the current nano 1.9.99pre0 pt_BR file from
+	the TP, as the latest file offered is apparently for 1.3.11pre1.
+
+2006-10-02  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* pt_BR.po: Restore previous version of pt_BR, as it was for
+	nano 1.9.99pre0, and the current version is for 1.3.11pre1.
+
+2006-09-27  Jordi Mallach  <jordi@gnu.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation by
+	Joao Victor Duarte Martins.
+
+2006-09-10  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* hu.po: Removed unneeded duplicate plural forms again.
+
+2006-09-10  Jordi Mallach  <jordi@gnu.org>
+
+	* hu.po: Updated Hungarian translation by Gabor Kelemen.
+
+2006-09-02  Jordi Mallach  <jordi@gnu.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation by
+	Joao Victor Duarte Martins.
+
+2006-09-01  Benno Schulenberg  <bensberg@justemail.net>
+
+	* ChangeLog: Fix incorrect years in two entries.
+
+2006-08-31  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* bg.po: Fix misplaced space.
+
+2006-08-31  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Catalan translation.
+	* de.po: Updated German translation by Michael Piefel.
+	* es.po: Updated Spanish translation by
+	Ricardo Javier Cardenes Medina.
+
+2006-08-28  Jordi Mallach  <jordi@gnu.org>
+
+	* fr.po: Updated French translation by Jean-Philippe Guérard.
+
+2006-08-25  Jordi Mallach  <jordi@gnu.org>
+
+	* bg.po: Updated Bulgarian translation by Anton Zinoviev.
+	* ca.po: Updated Catalan translation.
+	* ga.po: Updated Irish translation by Kevin Patrick Scannell.
+	* it.po: Updated Italian translation by Marco Colombo.
+	* nl.po: Updated Dutch translation by Benno Schulenberg.
+	* sv.po: Updated Swedish translation by Daniel Nylander.
+
+2006-08-15  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* hu.po: Removed unneeded duplicate plural forms, as gettext
+	  0.15 generates errors upon encountering them.
+	* id.po: Removed unneeded duplicate plural forms, as gettext
+	  0.15 generates errors upon encountering them.
+
+2006-06-20  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Catalan translation.
+	* fr.po: Updated French translation by Jean-Philippe Guérard.
+	* hu.po: Updated Hungarian translation by Gabor Kelemen.
+	* nl.po: Updated Dutch translation by Benno Schulenberg.
+
+2006-06-20  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* fr.po: Fixed incorrect "Project-Id-Version" entry.
+	* hu.po: Fixed incorrect "Project-Id-Version" entry.
+	* it.po: Fixed incorrect "Project-Id-Version" entry.
+
+2006-06-19  Jordi Mallach  <jordi@gnu.org>
+
+	* bg.po: Updated Bulgarian translation by Anton Zinoviev.
+	* ga.po: Updated Irish translation by Kevin Patrick Scannell.
+
+2006-06-17  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Catalan translation.
+	* de.po: Updated German translation by Michael Piefel.
+	* fr.po: Updated French translation by Jean-Philippe Guérard.
+	* hu.po: Updated Hungarian translation by Gabor Kelemen.
+	* it.po: Updated Italian translation by Marco Colombo.
+	* nl.po: Updated Dutch translation by Benno Schulenberg.
+
+2006-06-12  Jordi Mallach  <jordi@gnu.org>
+
+	* fr.po: Updated French translation by Jean-Philippe Guérard.
+	* hu.po: Updated Hungarian translation by Gabor Kelemen.
+
+2006-06-09  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Catalan translation.
+	* ga.po: Updated Irish translation by Kevin Patrick Scannell.
+	* it.po: Updated Italian translation by Marco Colombo.
+	* nl.po: Updated Dutch translation by Benno Schulenberg.
+
+2006-05-17  Jordi Mallach  <jordi@gnu.org>
+
+	* LINGUAS: Added "ga".
+	* ga.po: New Irish translation by
+	Kevin Patrick Scannell <scannell@SLU.EDU>.
+
+2006-05-10  Jordi Mallach  <jordi@gnu.org>
+
+	* nl.po: Updated Dutch translation by Benno Schulenberg.
+
+2006-03-15  Jordi Mallach  <jordi@gnu.org>
+
+	* sv.po: Updated Swedish translation by Daniel Nylander.
+
+2006-03-06  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Vietnamese translation by
+	Phan Vinh Thinh.
+
+2005-12-21  Jordi Mallach  <jordi@gnu.org>
+
+	* bg.po: Updated Bulgarian translation by Anton Zinoviev.
+	* ca.po: Updated Catalan translation.
+	* fr.po: Updated French translation by Jean-Philippe Guérard.
+	* ms.po: Updated Malay translation by Sharuzzaman Ahmat Raslan.
+	* zh_TW: Updated Traditional Chinese translation by
+	Wei-Lun Chao.
+
+2005-12-13  Jordi Mallach  <jordi@gnu.org>
+
+	* it.po: Updated Italian translation by Marco Colombo.
+	* de.po: Updated German translation by Michael Piefel.
+	* nl.po: Updated Dutch translation by Benno Schulenberg.
+
+2005-11-08  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* POTFILES.in: Add prompt.c.
+
+2005-11-05  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* POTFILES.in: Add browser.c.
+
+2005-11-01  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* POTFILES.in: Add help.c.
+
+2005-10-23  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Catalan translation.
+	* eu.po: Updated Basque translation by Mikel Olasagasti.
+	* fr.po: Updated French translation by Jean-Philippe Guérard.
+	* it.po: Updated Italian translation by Marco Colombo.
+	* ms.po: Updated Malay translation by Sharuzzaman Ahmat Raslan.
+	* nl.po: Updated Dutch translation by Benno Schulenberg.
+	* zh_TW: Updated Traditional Chinese translation by
+	Wei-Lun Chao.
+	
+2005-08-22  Jordi Mallach  <jordi@gnu.org>
+	* bg.po: New Bulgarian translation by
+	Yavor Doganov <yavor@doganov.org>.
+
+	* LINGUAS: Added "bg".
+
+2005-08-16  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Catalan translation.
+
+2005-08-16  Jordi Mallach  <jordi@gnu.org>
+
+	* nl.po: Updated Dutch translation by
+	Benno Schulenberg and Reinout van Schouwen.
+
+2005-07-24  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* POTFILES.in: Add text.c.
+
+2005-07-19  Jordi Mallach  <jordi@gnu.org>
+
+	* ms.po: Updated Malay translation by
+	Sharuzzaman Ahmat Raslan.
+
+2005-07-18  Jordi Mallach  <jordi@gnu.org>
+
+	* fr.po: Updated French translation by
+	Jean-Philippe Guérard.
+
+2005-07-07  Jordi Mallach  <jordi@gnu.org>
+
+	* it.po: Updated Italian translation by Marco Colombo.
+	* ca.po: Updated Catalan translation.
+
+2005-06-28  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* POTFILES.in: Remove source files that contain no translatable
+	strings.
+
+2005-06-19  David Lawrence Ramsey  <pooka109@cox.net>
+
+	* pt_BR.po: Typo fix.
+
+2005-06-15  Jordi Mallach  <jordi@gnu.org>
+
+	* de.po: Typo fix by Jens Seidel.
+
+2005-05-23  Jordi Mallach  <jordi@gnu.org>
+
+	* fr.po: Updated French translation by
+	Jean-Philippe Guérard.
+
+2005-04-27  Jordi Mallach  <jordi@gnu.org>
+
+	* ms.po: Updated Malay translation by
+	Sharuzzaman Ahmat Raslan.
+
+2005-04-22  Jordi Mallach  <jordi@gnu.org>
+
+	* nb.po: Updated Norwegian bokmål translation by
+	Geir Helland.
+
+2005-04-20  Jordi Mallach  <jordi@gnu.org>
+
+	* ms.po: Updated Malay translation by
+	Sharuzzaman Ahmat Raslan.
+	* ro.po: Updated Romanian translation by Laurentiu Buzdugan.
+	* zh_TW.po: Updated Traditional Chinese translation by
+	CHAO Wei-Lun.
+
+2005-04-18  Jordi Mallach  <jordi@gnu.org>
+
+	* vi.po: Updated Vietnamese translation by Phan Vinh Thinh.
+
+2005-04-18  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Catalan translation.
+	* it.po: Updated Italian translation by Marco Colombo.
+	* ro.po: Updated Romanian translation by Laurentiu Buzdugan.
+
+2005-04-14  Jordi Mallach  <jordi@gnu.org>
+
+	* es.po: Updated Spanish translation by
+	Ricardo Javier Cárdenes Medina.
+
+2005-04-13  Jordi Mallach  <jordi@gnu.org>
+
+	* vi.po: New Vietnamese translation by Phan Vinh Thinh.
+	* LINGUAS: Added "vi".
+
+2005-04-09  Jordi Mallach  <jordi@gnu.org>
+
+	* zh_TW.po: Added Plural-Forms header and fix format specification
+	typos.
+
+2005-04-08  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Catalan translation.
+	* it.po: Updated Italian translation by Marco Colombo.
+	* zh_TW.po: Updated Traditional Chinese translation by
+	CHAO Wei-Lun.
+
+2005-04-06  Jordi Mallach  <jordi@gnu.org>
+
+	* rw.po: New Kinyarwanda translation by Steve Murphy.
+	* LINGUAS: Added "rw".
+
+2005-04-05  Jordi Mallach  <jordi@gnu.org>
+
+	* fr.po: Updated French translation by
+	Jean-Philippe Guérard.
+	* ro.po: Updated Romanian translation by
+	Laurentiu Buzdugan.
+
+2005-03-11  Jordi Mallach  <jordi@gnu.org>
+
+	* ms.po: Updated Malay translation by
+	Sharuzzaman Ahmat Raslan.
+
+2005-01-17  Jordi Mallach  <jordi@gnu.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation by
+	Joao Victor Duarte Martins.
+
+2004-12-15  Jordi Mallach  <jordi@gnu.org>
+
+	* it.po: Updated Italian translation by Marco Colombo.
+
+2004-12-15  Jordi Mallach  <jordi@gnu.org>
+
+	* sv.po: Updated Swedish translation by Christian Rose.
+
+2004-12-13  Jordi Mallach  <jordi@gnu.org>
+
+	* sv.po: Updated Swedish translation by Christian Rose.
+
+2004-12-07  Jordi Mallach  <jordi@gnu.org>
+
+	* it.po: Updated Italian translation by
+	Marco Colombo.
+	* ro.po: Updated Romanian translation by
+	Laurentiu Buzdugan.
+
+2004-12-01  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Catalan translation.
+	* nb: Updated Norwegian bokmål translation by
+	Geir Helland.
+	* fr.po: Updated French translation by
+	Jean-Philippe Guérard.
+
+2004-11-18  Jordi Mallach  <jordi@gnu.org>
+
+	* fr.po: Updated French translation by
+	Jean-Philippe Guérard.
+
+2004-11-18  Jordi Mallach  <jordi@gnu.org>
+
+	* ms.po: Updated Malay translation by
+	Sharuzzaman Ahmat Raslan.
+
+2004-10-07  Jordi Mallach  <jordi@gnu.org>
+
+	* eu.po: Updated Basque translation by
+	Mikel Olasagasti.
+
+2004-08-31  Jordi Mallach  <jordi@gnu.org>
+
+	* es.po: Updated Spanish translation by
+	Ricardo Javier Cárdenes Medina.
+
+2004-08-31  Jordi Mallach  <jordi@gnu.org>
+
+	* fr.po: Updated Catalan translation by
+	Jean-Philippe Guérard.
+
+2004-08-27  Jordi Mallach  <jordi@gnu.org>
+
+	* ca.po: Updated Catalan translation.
+	* de.po: Updated German translation by Michael Piefel.
+
+2004-06-01  Jordi Mallach  <jordi@gnu.org>
+
+	* zh_TW.po: Added Traditional Chinese translation by
+	CHAO Wei-Lun <chaoweilun@pcmail.com.tw>.
+	* LINGUAS: Added "zh_TW".
+
 2004-02-24  Jordi Mallach  <jordi@gnu.org>
 
 	* ms.po: Updated Malay translation by Sharuzzaman Ahmat Raslan.
@@ -7,9 +373,9 @@
 	* ro.po: Updated Romanian translation by Laurentiu Buzdugan.
 
 2003-11-06  Jordi Mallach  <jordi@gnu.org>
- 
+
 	* sr.po: Added Serbian translation by Danilo Segan <dsegan@gmx.net>.
-	* LINGUAS: Added "sr" (Serbian).
+	* LINGUAS: Added "sr" (Serbian), and alphabetize.
 	* ChangeLog: Recoded as UTF-8.
 
 2003-10-30  Jordi Mallach  <jordi@gnu.org>
@@ -21,6 +387,10 @@
 2003-10-18  Jordi Mallach  <jordi@gnu.org>
 
 	* ca.po: Updated Catalan translation.
+
+2003-09-12  Jordi Mallach  <jordi@gnu.org>
+
+	* POTFILES.in: Updated path to sources.
 
 2003-09-01  Jordi Mallach  <jordi@gnu.org>
 
@@ -542,4 +912,4 @@
 	* es.po: Updated.
 
 
-$Id: ChangeLog,v 1.106.2.7 2004/02/24 14:07:12 jordi Exp $
+$Id: ChangeLog,v 1.191 2006/10/24 22:14:50 jordi Exp $

@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,18 +12,19 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
-"""Cook a message's Subject header.
-"""
+"""Cook a message's Subject header."""
 
 from __future__ import nested_scopes
 import re
 from types import UnicodeType
 
 from email.Charset import Charset
-from email.Header import Header, decode_header
+from email.Header import Header, decode_header, make_header
 from email.Utils import parseaddr, formataddr, getaddresses
+from email.Errors import HeaderParseError
 
 from Mailman import mm_cfg
 from Mailman import Utils
@@ -34,26 +35,33 @@ CONTINUATION = ',\n\t'
 COMMASPACE = ', '
 MAXLINELEN = 78
 
+# True/False
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
 
 
 def _isunicode(s):
     return isinstance(s, UnicodeType)
 
+nonascii = re.compile('[^\s!-~]')
+
 def uheader(mlist, s, header_name=None, continuation_ws='\t', maxlinelen=None):
-    # Get the charset to encode the string in.  If this is us-ascii, we'll use
-    # iso-8859-1 instead, just to get a little extra coverage, and because the
-    # Header class tries us-ascii first anyway.
+    # Get the charset to encode the string in. Then search if there is any
+    # non-ascii character is in the string. If there is and the charset is
+    # us-ascii then we use iso-8859-1 instead. If the string is ascii only
+    # we use 'us-ascii' if another charset is specified.
     charset = Utils.GetCharSet(mlist.preferred_language)
-    if charset == 'us-ascii':
-        charset = 'iso-8859-1'
-    charset = Charset(charset)
-    # Convert the string to unicode so Header will do the 3-charset encoding.
-    # If s is a byte string and there are funky characters in it that don't
-    # match the charset, we might as well replace them now.
-    if not _isunicode(s):
-        codec = charset.input_codec or 'ascii'
-        s = unicode(s, codec, 'replace')
-    # We purposefully leave no space b/w prefix and subject!
+    if nonascii.search(s):
+        # use list charset but ...
+        if charset == 'us-ascii':
+            charset = 'iso-8859-1'
+    else:
+        # there is no nonascii so ...
+        charset = 'us-ascii'
     return Header(s, charset, maxlinelen, header_name, continuation_ws)
 
 
@@ -71,7 +79,12 @@ def process(mlist, msg, msgdata):
     # VirginRunner sets _fasttrack for internally crafted messages.
     fasttrack = msgdata.get('_fasttrack')
     if not msgdata.get('isdigest') and not fasttrack:
-        prefix_subject(mlist, msg, msgdata)
+        try:
+            prefix_subject(mlist, msg, msgdata)
+        except (UnicodeError, ValueError):
+            # TK: Sometimes subject header is not MIME encoded for 8bit
+            # simply abort prefixing.
+            pass
     # Mark message so we know we've been here, but leave any existing
     # X-BeenThere's intact.
     msg['X-BeenThere'] = mlist.GetListEmail()
@@ -127,7 +140,7 @@ def process(mlist, msg, msgdata):
         # because some folks think that some MUAs make it easier to delete
         # addresses from the right than from the left.
         if mlist.reply_goes_to_list == 1:
-            i18ndesc = uheader(mlist, mlist.description)
+            i18ndesc = uheader(mlist, mlist.description, 'Reply-To')
             add((str(i18ndesc), mlist.GetListEmail()))
         del msg['reply-to']
         # Don't put Reply-To: back if there's nothing to add!
@@ -143,14 +156,17 @@ def process(mlist, msg, msgdata):
         # was munged into the Reply-To header, but if not, we'll add it to a
         # Cc header.  BAW: should we force it into a Reply-To header in the
         # above code?
-        if mlist.personalize == 2 and mlist.reply_goes_to_list <> 1:
+        # Also skip Cc if this is an anonymous list as list posting address
+        # is already in From and Reply-To in this case.
+        if mlist.personalize == 2 and mlist.reply_goes_to_list <> 1 \
+           and not mlist.anonymous_list:
             # Watch out for existing Cc headers, merge, and remove dups.  Note
             # that RFC 2822 says only zero or one Cc header is allowed.
             new = []
             d = {}
             for pair in getaddresses(msg.get_all('cc', [])):
                 add(pair)
-            i18ndesc = uheader(mlist, mlist.description)
+            i18ndesc = uheader(mlist, mlist.description, 'Cc')
             add((str(i18ndesc), mlist.GetListEmail()))
             del msg['Cc']
             msg['Cc'] = COMMASPACE.join([formataddr(pair) for pair in new])
@@ -165,21 +181,21 @@ def process(mlist, msg, msgdata):
         return
     # This will act like an email address for purposes of formataddr()
     listid = '%s.%s' % (mlist.internal_name(), mlist.host_name)
+    cset = Utils.GetCharSet(mlist.preferred_language)
     if mlist.description:
         # Don't wrap the header since here we just want to get it properly RFC
         # 2047 encoded.
-        h = uheader(mlist, mlist.description, 'List-Id', maxlinelen=10000)
-        desc = str(h)
+        i18ndesc = uheader(mlist, mlist.description, 'List-Id', maxlinelen=998)
+        listid_h = formataddr((str(i18ndesc), listid))
     else:
-        desc = ''
-    listid_h = formataddr((desc, listid))
-    # BAW: I think the message object should handle any necessary wrapping.
+        # without desc we need to ensure the MUST brackets
+        listid_h = '<%s>' % listid
+    # We always add a List-ID: header.
     del msg['list-id']
     msg['List-Id'] = listid_h
-    # For internally crafted messages, we
-    # also add a (nonstandard), "X-List-Administrivia: yes" header.  For all
-    # others (i.e. those coming from list posts), we adda a bunch of other RFC
-    # 2369 headers.
+    # For internally crafted messages, we also add a (nonstandard),
+    # "X-List-Administrivia: yes" header.  For all others (i.e. those coming
+    # from list posts), we add a bunch of other RFC 2369 headers.
     requestaddr = mlist.GetRequestEmail()
     subfieldfmt = '<%s>, <mailto:%s?subject=%ssubscribe>'
     listinfo = mlist.GetScriptURL('listinfo', absolute=1)
@@ -218,7 +234,9 @@ def prefix_subject(mlist, msg, msgdata):
     # Add the subject prefix unless the message is a digest or is being fast
     # tracked (e.g. internally crafted, delivered to a single user such as the
     # list admin).
-    prefix = mlist.subject_prefix
+    prefix = mlist.subject_prefix.strip()
+    if not prefix:
+        return
     subject = msg.get('subject', '')
     # Try to figure out what the continuation_ws is for the header
     if isinstance(subject, Header):
@@ -229,35 +247,106 @@ def prefix_subject(mlist, msg, msgdata):
     if len(lines) > 1 and lines[1] and lines[1][0] in ' \t':
         ws = lines[1][0]
     msgdata['origsubj'] = subject
-    if not subject:
+    # The subject may be multilingual but we take the first charset as major
+    # one and try to decode.  If it is decodable, returned subject is in one
+    # line and cset is properly set.  If fail, subject is mime-encoded and
+    # cset is set as us-ascii.  See detail for ch_oneline() (CookHeaders one
+    # line function).
+    subject, cset = ch_oneline(subject)
+    # TK: Python interpreter has evolved to be strict on ascii charset code
+    # range.  It is safe to use unicode string when manupilating header
+    # contents with re module.  It would be best to return unicode in
+    # ch_oneline() but here is temporary solution.
+    subject = unicode(subject, cset)
+    # If the subject_prefix contains '%d', it is replaced with the
+    # mailing list sequential number.  Sequential number format allows
+    # '%d' or '%05d' like pattern.
+    prefix_pattern = re.escape(prefix)
+    # unescape '%' :-<
+    prefix_pattern = '%'.join(prefix_pattern.split(r'\%'))
+    p = re.compile('%\d*d')
+    if p.search(prefix, 1):
+        # prefix have number, so we should search prefix w/number in subject.
+        # Also, force new style.
+        prefix_pattern = p.sub(r'\s*\d+\s*', prefix_pattern)
+        old_style = False
+    else:
+        old_style = mm_cfg.OLD_STYLE_PREFIXING
+    subject = re.sub(prefix_pattern, '', subject)
+    rematch = re.match('((RE|AW|SV|VS)(\[\d+\])?:\s*)+', subject, re.I)
+    if rematch:
+        subject = subject[rematch.end():]
+        recolon = 'Re:'
+    else:
+        recolon = ''
+    # At this point, subject may become null if someone post mail with
+    # subject: [subject prefix]
+    if subject.strip() == '':
         subject = _('(no subject)')
-    # The header may be multilingual; decode it from base64/quopri and search
-    # each chunk for the prefix.  BAW: Note that if the prefix contains spaces
-    # and each word of the prefix is encoded in a different chunk in the
-    # header, we won't find it.  I think in practice that's unlikely though.
-    headerbits = decode_header(subject)
-    if prefix and subject:
-        pattern = re.escape(prefix.strip())
-        for decodedsubj, charset in headerbits:
-            if re.search(pattern, decodedsubj, re.IGNORECASE):
-                # The subject's already got the prefix, so don't change it
-                return
-    del msg['subject']
+        cset = Utils.GetCharSet(mlist.preferred_language)
+        subject = unicode(subject, cset)
+    # and substitute %d in prefix with post_id
+    try:
+        prefix = prefix % mlist.post_id
+    except TypeError:
+        pass
+    # If charset is 'us-ascii', try to concatnate as string because there
+    # is some weirdness in Header module (TK)
+    if cset == 'us-ascii':
+        try:
+            if old_style:
+                h = u' '.join([recolon, prefix, subject])
+            else:
+                h = u' '.join([prefix, recolon, subject])
+            h = h.encode('us-ascii')
+            h = uheader(mlist, h, 'Subject', continuation_ws=ws)
+            del msg['subject']
+            msg['Subject'] = h
+            ss = u' '.join([recolon, subject])
+            ss = ss.encode('us-ascii')
+            ss = uheader(mlist, ss, 'Subject', continuation_ws=ws)
+            msgdata['stripped_subject'] = ss
+            return
+        except UnicodeError:
+            pass
     # Get the header as a Header instance, with proper unicode conversion
-    h = uheader(mlist, prefix, 'Subject', continuation_ws=ws)
-    for s, c in headerbits:
-        # Once again, convert the string to unicode.
-        if c is None:
-            c = Charset('iso-8859-1')
-        if not isinstance(c, Charset):
-            c = Charset(c)
-        if not _isunicode(s):
-            codec = c.input_codec or 'ascii'
-            try:
-                s = unicode(s, codec, 'replace')
-            except LookupError:
-                # Unknown codec, is this default reasonable?
-                s = unicode(s, Utils.GetCharSet(mlist.preferred_language),
-                            'replace')
-        h.append(s, c)
+    if old_style:
+        h = uheader(mlist, recolon, 'Subject', continuation_ws=ws)
+        h.append(prefix)
+    else:
+        h = uheader(mlist, prefix, 'Subject', continuation_ws=ws)
+        h.append(recolon)
+    # TK: Subject is concatenated and unicode string.
+    subject = subject.encode(cset, 'replace')
+    h.append(subject, cset)
+    del msg['subject']
     msg['Subject'] = h
+    ss = uheader(mlist, recolon, 'Subject', continuation_ws=ws)
+    ss.append(subject, cset)
+    msgdata['stripped_subject'] = ss
+
+
+
+def ch_oneline(headerstr):
+    # Decode header string in one line and convert into single charset
+    # copied and modified from ToDigest.py and Utils.py
+    # return (string, cset) tuple as check for failure
+    try:
+        d = decode_header(headerstr)
+        # at this point, we should rstrip() every string because some
+        # MUA deliberately add trailing spaces when composing return
+        # message.
+        d = [(s.rstrip(), c) for (s,c) in d]
+        cset = 'us-ascii'
+        for x in d:
+            # search for no-None charset
+            if x[1]:
+                cset = x[1]
+                break
+        h = make_header(d)
+        ustr = h.__unicode__()
+        oneline = u''.join(ustr.splitlines())
+        return oneline.encode(cset, 'replace'), cset
+    except (LookupError, UnicodeError, ValueError, HeaderParseError):
+        # possibly charset problem. return with undecoded string in one line.
+        return ''.join(headerstr.splitlines()), 'us-ascii'

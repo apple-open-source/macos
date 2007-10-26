@@ -1,63 +1,40 @@
 #
-# "$Id: Makefile,v 1.34.2.1 2005/11/16 22:31:14 jlovell Exp $"
+# "$Id: Makefile 6945 2007-09-12 17:08:32Z mike $"
 #
-#   Support library Makefile for the Common UNIX Printing System (CUPS).
+#   Top-level Makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2005 by Easy Software Products, all rights reserved.
+#   Copyright 2007 by Apple Inc.
+#   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
-#   property of Easy Software Products and are protected by Federal
-#   copyright law.  Distribution and use rights are outlined in the file
-#   "LICENSE.txt" which should have been included with this file.  If this
-#   file is missing or damaged please contact Easy Software Products
-#   at:
-#
-#       Attn: CUPS Licensing Information
-#       Easy Software Products
-#       44141 Airport View Drive, Suite 204
-#       Hollywood, Maryland 20636 USA
-#
-#       Voice: (301) 373-9600
-#       EMail: cups-info@cups.org
-#         WWW: http://www.cups.org
-#
-#   This file is subject to the Apple OS-Developed Software exception.
+#   property of Apple Inc. and are protected by Federal copyright
+#   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+#   which should have been included with this file.  If this file is
+#   file is missing or damaged, see the license at "http://www.cups.org/".
 #
 
-include ../Makedefs
+include Makedefs
 
 #
-# Object files...
+# Directories to make...
 #
 
-LIBOBJS	=	attr.o auth.o dest.o emit.o encode.o getputfile.o \
-		http.o http-addr.o http-support.o ipp.o ipp-support.o \
-		language.o mark.o md5.o md5passwd.o options.o page.o \
-		ppd.o snprintf.o string.o tempfile.o usersys.o util.o \
-		globals.o
-OBJS	=	$(LIBOBJS) testhttp.o testipp.o testlang.o
-
-
-#
-# Header files to install...
-#
-
-HEADERS	=	cups.h http.h ipp.h language.h md5.h ppd.h
-
-
-#
-# Targets in this directory...
-#
-
-TARGETS	=	$(LIBCUPS) libcups.a \
-		testhttp testipp testlang
+DIRS	=	cups backend berkeley cgi-bin filter locale man monitor \
+		notifier $(PDFTOPS) scheduler systemv test \
+		$(PHPDIR) \
+		conf data doc $(FONTS) ppd templates
 
 
 #
 # Make all targets...
 #
 
-all:	$(TARGETS)
+all:
+	chmod +x cups-config
+	for dir in $(DIRS); do\
+		echo Making all in $$dir... ;\
+		(cd $$dir ; $(MAKE) $(MFLAGS)) || exit 1;\
+	done
 
 
 #
@@ -65,158 +42,244 @@ all:	$(TARGETS)
 #
 
 clean:
-	$(RM) $(OBJS) $(TARGETS) `basename $(LIBCUPS) .2` libcups.dylib
+	for dir in $(DIRS); do\
+		echo Cleaning in $$dir... ;\
+		(cd $$dir; $(MAKE) $(MFLAGS) clean) || exit 1;\
+	done
 
 
 #
-# Update dependencies (without system header dependencies...)
+# Remove all non-distribution files...
+#
+
+distclean:	clean
+	$(RM) Makedefs config.h config.log config.status
+	$(RM) cups-config conf/cupsd.conf conf/pam.std
+	$(RM) doc/help/ref-cupsd-conf.html doc/help/standard.html
+	$(RM) doc/index.html
+	$(RM) init/cups.sh init/cups-lpd
+	$(RM) man/client.conf.man
+	$(RM) man/cups-deviced.man man/cups-driverd.man
+	$(RM) man/cups-lpd.man man/cupsaddsmb.man man/cupsd.man
+	$(RM) man/cupsd.conf.man man/lpoptions.man
+	$(RM) packaging/cups.list
+	$(RM) templates/header.tmpl
+	-$(RM) doc/*/index.html
+	-$(RM) templates/*/header.tmpl
+	-$(RM) -r autom4te*.cache
+
+
+#
+# Make dependencies
 #
 
 depend:
-	makedepend -Y -I.. -fDependencies $(OBJS:.o=.c) >/dev/null 2>&1
+	for dir in $(DIRS); do\
+		echo Making dependencies in $$dir... ;\
+		(cd $$dir; $(MAKE) $(MFLAGS) depend) || exit 1;\
+	done
+
+
+#
+# Generate a ctags file...
+#
+
+ctags:
+	ctags -R .
 
 
 #
 # Install object and target files...
 #
 
-install:	all	installhdrs
-	$(INSTALL_DIR) $(LIBDIR)
-	$(INSTALL_LIB) $(LIBCUPS) $(LIBDIR)
-	if test $(LIBCUPS) = "libcups.so.2" -o $(LIBCUPS) = "libcups.sl.2"; then \
-		$(RM) $(LIBDIR)/`basename $(LIBCUPS) .2`; \
-		$(LN) $(LIBCUPS) $(LIBDIR)/`basename $(LIBCUPS) .2`; \
+install:	installhdrs
+	for dir in $(DIRS); do\
+		echo Installing in $$dir... ;\
+		(cd $$dir; $(MAKE) $(MFLAGS) install) || exit 1;\
+	done
+	echo Installing cups-config script...
+	$(INSTALL_DIR) -m 755 $(BINDIR)
+	$(INSTALL_SCRIPT) cups-config $(BINDIR)/cups-config
+	if test "x$(INITDIR)" != x; then \
+		echo Installing init scripts...; \
+		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(INITDIR)/init.d; \
+		$(INSTALL_SCRIPT) init/cups.sh $(BUILDROOT)$(INITDIR)/init.d/cups; \
+		for level in $(RCLEVELS); do \
+			$(INSTALL_DIR) -m 755 $(BUILDROOT)$(INITDIR)/rc$${level}.d; \
+			$(LN) ../init.d/cups $(BUILDROOT)$(INITDIR)/rc$${level}.d/S$(RCSTART)cups; \
+			if test `uname` = HP-UX; then \
+				level=`expr $$level - 1`; \
+				$(INSTALL_DIR) -m 755 $(BUILDROOT)$(INITDIR)/rc$${level}.d; \
+			fi; \
+			$(LN) ../init.d/cups $(BUILDROOT)$(INITDIR)/rc$${level}.d/K$(RCSTOP)cups; \
+		done; \
+		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(INITDIR)/rc0.d; \
+		$(LN) ../init.d/cups $(BUILDROOT)$(INITDIR)/rc0.d/K$(RCSTOP)cups; \
 	fi
-	if test $(LIBCUPS) = "libcups.2.dylib"; then \
-		$(STRIP) -x $(LIBDIR)/$(LIBCUPS); \
-		$(RM) $(LIBDIR)/libcups.dylib; \
-		$(LN) $(LIBCUPS) $(LIBDIR)/libcups.dylib; \
+	if test "x$(INITDIR)" = x -a "x$(INITDDIR)" != x; then \
+		$(INSTALL_DIR) $(BUILDROOT)$(INITDDIR); \
+		if test "$(INITDDIR)" = "/System/Library/StartupItems/PrintingServices"; then \
+			echo Installing StartupItems files...; \
+			$(INSTALL_SCRIPT) init/PrintingServices $(BUILDROOT)$(INITDDIR)/PrintingServices; \
+			$(INSTALL_DATA) init/StartupParameters.plist $(BUILDROOT)$(INITDDIR)/StartupParameters.plist; \
+			$(INSTALL_DIR) $(BUILDROOT)$(INITDDIR)/Resources/English.lproj; \
+			$(INSTALL_DATA) init/Localizable.strings $(BUILDROOT)$(INITDDIR)/Resources/English.lproj/Localizable.strings; \
+		elif test "$(INITDDIR)" = "/System/Library/LaunchDaemons"; then \
+			echo Installing LaunchDaemons configuration files...; \
+			$(INSTALL_DATA) init/org.cups.cupsd.plist $(BUILDROOT)$(DEFAULT_LAUNCHD_CONF); \
+			$(INSTALL_DATA) init/org.cups.cups-lpd.plist $(BUILDROOT)/System/Library/LaunchDaemons; \
+			case `uname -r` in \
+				8.*) \
+				$(INSTALL_DIR) $(BUILDROOT)/System/Library/StartupItems/PrintingServices; \
+				$(INSTALL_SCRIPT) init/PrintingServices.launchd $(BUILDROOT)/System/Library/StartupItems/PrintingServices/PrintingServices; \
+				$(INSTALL_DATA) init/StartupParameters.plist $(BUILDROOT)/System/Library/StartupItems/PrintingServices/StartupParameters.plist; \
+				$(INSTALL_DIR) $(BUILDROOT)/System/Library/StartupItems/PrintingServices/Resources/English.lproj; \
+				$(INSTALL_DATA) init/Localizable.strings $(BUILDROOT)/System/Library/StartupItems/PrintingServices/Resources/English.lproj/Localizable.strings; \
+				;; \
+			esac \
+		else \
+			echo Installing RC script...; \
+			$(INSTALL_SCRIPT) init/cups.sh $(BUILDROOT)$(INITDDIR)/cups; \
+		fi \
 	fi
-	if test "x$(SYMROOT)" != "x"; then \
-		$(INSTALL_DIR) $(SYMROOT); \
-		for file in $(TARGETS); do \
-			cp $$file $(SYMROOT); \
-		done \
+	if test "x$(DBUSDIR)" != x; then \
+		echo Installing cups.conf in $(DBUSDIR)...;\
+		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(DBUSDIR)/system.d; \
+		$(INSTALL_DATA) packaging/cups-dbus.conf $(BUILDROOT)$(DBUSDIR)/system.d/cups.conf; \
 	fi
+	if test "x$(XINETD)" != x; then \
+		echo Installing xinetd configuration file for cups-lpd...; \
+		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(XINETD); \
+		$(INSTALL_DATA) init/cups-lpd $(BUILDROOT)$(XINETD)/cups-lpd; \
+	fi
+	if test "x$(MENUDIR)" != x; then \
+		echo Installing desktop menu...; \
+		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(MENUDIR); \
+		$(INSTALL_DATA) desktop/cups.desktop $(BUILDROOT)$(MENUDIR); \
+	fi
+	if test "x$(ICONDIR)" != x; then \
+		echo Installing desktop icons...; \
+		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(ICONDIR)/hicolor/16x16/apps; \
+		$(INSTALL_DATA) desktop/cups-16.png $(BUILDROOT)$(ICONDIR)/hicolor/16x16/apps/cups.png; \
+		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(ICONDIR)/hicolor/32x32/apps; \
+		$(INSTALL_DATA) desktop/cups-32.png $(BUILDROOT)$(ICONDIR)/hicolor/32x32/apps/cups.png; \
+		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(ICONDIR)/hicolor/64x64/apps; \
+		$(INSTALL_DATA) desktop/cups-64.png $(BUILDROOT)$(ICONDIR)/hicolor/64x64/apps/cups.png; \
+		$(INSTALL_DIR) -m 755 $(BUILDROOT)$(ICONDIR)/hicolor/128x128/apps; \
+		$(INSTALL_DATA) desktop/cups-128.png $(BUILDROOT)$(ICONDIR)/hicolor/128x128/apps/cups.png; \
+	fi
+
+
+#
+# Install source and header files...
+#
+
+installsrc:
+	gnutar --dereference --exclude=.svn -cf - . | gnutar -C $(SRCROOT) -xf -
 
 installhdrs:
-	$(INSTALL_DIR) $(INCLUDEDIR)/cups
-	for file in $(HEADERS); do \
-		$(INSTALL_DATA) $$file $(INCLUDEDIR)/cups; \
+	(cd cups ; $(MAKE) $(MFLAGS) installhdrs) || exit 1;\
+	(cd filter ; $(MAKE) $(MFLAGS) installhdrs) || exit 1;
+
+
+#
+# Uninstall object and target files...
+#
+
+uninstall:
+	for dir in $(DIRS); do\
+		echo Uninstalling in $$dir... ;\
+		(cd $$dir; $(MAKE) $(MFLAGS) uninstall) || exit 1;\
 	done
+	echo Uninstalling cups-config script...
+	$(RM) $(BINDIR)/cups-config
+	-$(RMDIR) $(BINDIR)
+	echo Uninstalling startup script...
+	if test "x$(INITDIR)" != x; then \
+		$(RM) $(BUILDROOT)$(INITDIR)/init.d/cups; \
+		$(RMDIR) $(BUILDROOT)$(INITDIR)/init.d; \
+		$(RM)  $(BUILDROOT)$(INITDIR)/rc0.d/K00cups; \
+		$(RMDIR) $(BUILDROOT)$(INITDIR)/rc0.d; \
+		$(RM) $(BUILDROOT)$(INITDIR)/rc2.d/S99cups; \
+		$(RMDIR) $(BUILDROOT)$(INITDIR)/rc2.d; \
+		$(RM) $(BUILDROOT)$(INITDIR)/rc3.d/S99cups; \
+		$(RMDIR) $(BUILDROOT)$(INITDIR)/rc3.d; \
+		$(RM) $(BUILDROOT)$(INITDIR)/rc5.d/S99cups; \
+		$(RMDIR) $(BUILDROOT)$(INITDIR)/rc5.d; \
+	fi
+	if test "x$(INITDIR)" = x -a "x$(INITDDIR)" != x; then \
+		if test "$(INITDDIR)" = "/System/Library/StartupItems/PrintingServices"; then \
+			$(RM) $(BUILDROOT)$(INITDDIR)/PrintingServices; \
+			$(RM) $(BUILDROOT)$(INITDDIR)/StartupParameters.plist; \
+			$(RM) $(BUILDROOT)$(INITDDIR)/Resources/English.lproj/Localizable.strings; \
+			$(RMDIR) $(BUILDROOT)$(INITDDIR)/Resources/English.lproj; \
+		elif test "$(INITDDIR)" = "/System/Library/LaunchDaemons"; then \
+			$(RM) $(BUILDROOT)$(INITDDIR)/org.cups.cupsd.plist; \
+			$(RM) $(BUILDROOT)$(INITDDIR)/org.cups.cups-lpd.plist; \
+			$(RMDIR) $(BUILDROOT)/System/Library/StartupItems/PrintingServices; \
+		else \
+			$(INSTALL_SCRIPT) init/cups.sh $(BUILDROOT)$(INITDDIR)/cups; \
+		fi \
+		$(RMDIR) $(BUILDROOT)$(INITDDIR); \
+	fi
+	if test "x$(DBUSDIR)" != x; then \
+		echo Uninstalling cups.conf in $(DBUSDIR)...;\
+		$(RM) $(BUILDROOT)$(DBUSDIR)/cups.conf; \
+		$(RMDIR) $(BUILDROOT)$(DBUSDIR); \
+	fi
+	$(RM) $(BUILDROOT)/etc/xinetd.d/cups-lpd
+	$(RM) $(BUILDROOT)/usr/share/applications/cups.desktop
+	$(RM) $(BUILDROOT)/usr/share/icons/hicolor/16x16/apps/cups.png
+	$(RM) $(BUILDROOT)/usr/share/icons/hicolor/32x32/apps/cups.png
+	$(RM) $(BUILDROOT)/usr/share/icons/hicolor/64x64/apps/cups.png
+	$(RM) $(BUILDROOT)/usr/share/icons/hicolor/128x128/apps/cups.png
 
 
 #
-# libcups.so.2, libcups.sl.2
+# Run the test suite...
 #
 
-libcups.so.2 libcups.sl.2:	$(LIBOBJS) ../Makedefs
-	echo Linking $@...
-	$(DSO) $(DSOFLAGS) -o $@ $(LIBOBJS) $(SSLLIBS) $(COMMONLIBS)
-	$(RM) `basename $@ .2`
-	$(LN) $@ `basename $@ .2`
+test:	all
+	echo Running CUPS test suite...
+	cd test; ./run-stp-tests.sh
 
 
-#
-# libcups.2.dylib
-#
-
-SECTORDER_FILE=/usr/local/lib/OrderFiles/libcups.2.order
-ifeq "$(shell test -f $(SECTORDER_FILE) && echo YES)" "YES"
-	SECTORDER_FLAGS=-sectorder __TEXT __text $(SECTORDER_FILE)
-endif
-
-libcups.2.dylib:	$(LIBOBJS) ../Makedefs
-	echo Linking $@...
-	$(DSO) $(DSOFLAGS) -o $@ \
-		-install_name $(libdir)/$@ \
-		-current_version 2.7.0 \
-		-compatibility_version 2.0.0 \
-		-exported_symbols_list cups.exp \
-		$(SECTORDER_FLAGS) \
-		$(LIBOBJS) $(SSLLIBS) $(COMMONLIBS) $(LIBCUPSLIBS)
-	$(RM) libcups.dylib
-	$(LN) $@ libcups.dylib
+check:	all
+	echo Running CUPS test suite with defaults...
+	cd test; ./run-stp-tests.sh 1 0 n
 
 
 #
-# libcups_s.a
+# Make software distributions using EPM (http://www.easysw.com/epm/)...
 #
 
-libcups_s.a:	$(LIBOBJS) ../Makedefs
-	echo Creating $@...
-	$(RM) libcups_s.exp
-	(echo _ipp_add_attr; echo _ipp_free_attr) >libcups_s.exp
-	$(DSO) $(DSOFLAGS) -Wl,-bexport:libcups_s.exp -o libcups_s.o $(LIBOBJS) $(SSLLIBS) $(COMMONLIBS) -lm
-	$(RM) $@
-	$(AR) $(ARFLAGS) $@ libcups_s.o
+EPMFLAGS	=	-v --output-dir dist $(EPMARCH)
 
+aix bsd deb depot inst pkg setld slackware swinstall tardist:
+	epm $(EPMFLAGS) -f $@ cups packaging/cups.list
 
-#
-# libcups.la
-#
+epm:
+	epm $(EPMFLAGS) -s packaging/installer.gif cups packaging/cups.list
 
-libcups.la:    $(LIBOBJS) ../Makedefs
-	echo Linking $@...
-	$(DSO) $(DSOFLAGS) -o $@ $(LIBOBJS:.o=.lo) -rpath $(LIBDIR) \
-		-version-info 2:7 $(SSLLIBS) $(COMMONLIBS)
+osx:
+	epm $(EPMFLAGS) -f osx -s packaging/installer.tif cups packaging/cups.list
 
+rpm:
+	epm $(EPMFLAGS) -f rpm -s packaging/installer.gif cups packaging/cups.list
 
-#
-# libcups.a
-#
-
-libcups.a:	$(LIBOBJS)
-	echo Archiving $@...
-	$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(LIBOBJS)
-	$(RANLIB) $@
+.PHONEY:	dist
+dist:	all
+	$(RM) -r dist
+	$(MAKE) $(MFLAGS) epm
+	case `uname` in \
+		*BSD*) $(MAKE) $(MFLAGS) bsd;; \
+		Darwin*) $(MAKE) $(MFLAGS) osx;; \
+		IRIX*) $(MAKE) $(MFLAGS) tardist;; \
+		Linux*) $(MAKE) $(MFLAGS) rpm;; \
+		SunOS*) $(MAKE) $(MFLAGS) pkg;; \
+	esac
 
 
 #
-# cups_C.h - the default POSIX locale that is compiled in.
-#
-
-cups_C.h:	../locale/C/cups_C
-	echo Generating $@...
-	$(RM) cups_C.h
-	$(AWK) '{print "\"" $$0 "\","}' < ../locale/C/cups_C > cups_C.h
-
-
-#
-# testhttp (dependency on static CUPS library is intentional)
-#
-
-testhttp:	testhttp.o libcups.a
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testhttp.o libcups.a $(NETLIBS) $(SSLLIBS) $(COMMONLIBS) $(LIBCUPSLIBS)
-
-
-#
-# testipp (dependency on static CUPS library is intentional)
-#
-
-testipp:	testipp.o libcups.a
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testipp.o libcups.a $(NETLIBS) $(SSLLIBS) $(COMMONLIBS) $(LIBCUPSLIBS)
-
-
-#
-# testlang (dependency on static CUPS library is intentional)
-#
-
-testlang:	testlang.o libcups.a
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testlang.o libcups.a $(NETLIBS) $(SSLLIBS) $(COMMONLIBS) $(LIBCUPSLIBS)
-
-
-#
-# Dependencies...
-#
-
-include Dependencies
-
-
-#
-# End of "$Id: Makefile,v 1.34.2.1 2005/11/16 22:31:14 jlovell Exp $".
+# End of "$Id: Makefile 6945 2007-09-12 17:08:32Z mike $".
 #

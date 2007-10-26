@@ -38,10 +38,17 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ucred.h>
 #include <sys/vnode.h>
 #include <sys/mount.h>
 #include <sys/ioccom.h>
 
+#ifdef KERNEL
+#include <libkern/locks.h>
+	#define DEBUG 0
+#else
+	#define DEBUG 0
+#endif
 /* Webdav file operation constants */
 #define WEBDAV_LOOKUP			1
 #define WEBDAV_CREATE			2
@@ -96,6 +103,14 @@ typedef struct opaque_id_ref *opaque_id;
  * IMPORTANT: struct user_webdav_args, struct webdav_args, and webdav_mount()
  * must all be changed if the structure changes.
  */
+
+/*
+ * kCurrentWebdavArgsVersion MUST be incremented anytime changes are made in
+ * either the WebDAV file system's kernel or user-land code which require both
+ * executables to be released as a set.
+ */
+#define kCurrentWebdavArgsVersion 2
+
 struct user_webdav_args
 {
 	user_addr_t pa_mntfromname;					/* mntfromname */
@@ -115,6 +130,7 @@ struct user_webdav_args
 	int pa_chown_restricted;					/* Return _POSIX_CHOWN_RESTRICTED if appropriate privileges are required for the chown(2) */
 	int pa_no_trunc;							/* Return _POSIX_NO_TRUNC if file names longer than KERN_NAME_MAX are truncated */
 	/* end of webdav_args version 1 */
+	struct vfsstatfs pa_vfsstatfs;				/* need this to fill out the statfs struct during the mount */
 };
 
 struct webdav_args
@@ -136,6 +152,7 @@ struct webdav_args
 	int pa_chown_restricted;					/* Return _POSIX_CHOWN_RESTRICTED if appropriate privileges are required for the chown(2) */
 	int pa_no_trunc;							/* Return _POSIX_NO_TRUNC if file names longer than KERN_NAME_MAX are truncated */
 	/* end of webdav_args version 1 */
+	struct vfsstatfs pa_vfsstatfs;				/* need this to fill out the statfs struct during the mount */
 };
 
 /* Defines for webdav_args pa_flags field */
@@ -467,10 +484,13 @@ struct webdavmount
 	int pm_pipe_buf;							/* The maximum number of bytes that can be written atomically to a pipe (usually PIPE_BUF if supported) */
 	int pm_chown_restricted;					/* Return _POSIX_CHOWN_RESTRICTED if appropriate privileges are required for the chown(2); otherwise 0 */
 	int pm_no_trunc;							/* Return _POSIX_NO_TRUNC if file names longer than KERN_NAME_MAX are truncated; otherwise 0 */
+	size_t pm_iosize;							/* saved iosize to use */
+	lck_mtx_t pm_mutex;							/* Protects pm_status adn pm_open_connections fields */
 };
 
 struct webdavnode
 {
+	lck_rw_t pt_rwlock;							/* this webdavnode's lock */
 	LIST_ENTRY(webdavnode) pt_hash;				/* Hash chain. */
 	struct mount *pt_mountp;					/* vfs structure for this filesystem */
 	vnode_t pt_parent;							/* Pointer to parent vnode */
@@ -484,6 +504,10 @@ struct webdavnode
 	off_t pt_filesize;							/* what we think the filesize is */
 	u_int32_t pt_status;						/* WEBDAV_DIRTY, etc */
 	u_int32_t pt_opencount;						/* reference count of opens */
+	/* SMP debug variables */
+	void *pt_lastvop;							/* tracks last operation that locked this webdavnode */
+	void *pt_activation;						/* tracks last thread that locked this webdavnode */
+    u_int32_t pt_lockState;						/* current lock state */
 };
 
 struct open_associatecachefile
@@ -527,6 +551,7 @@ struct open_associatecachefile
 #define VFSTOWEBDAV(mp) ((struct webdavmount *)(vfs_fsprivate(mp)))
 #define VTOWEBDAV(vp) ((struct webdavnode *)(vnode_fsnode(vp)))
 #define WEBDAVTOV(pt) ((pt)->pt_vnode)
+#define WEBDAVTOMP(pt) (vnode_mount(WEBDAVTOV(pt)))
 
 /* Other defines */
 
@@ -571,7 +596,7 @@ struct open_associatecachefile
  */
 #define WEBDAV_SO_RCVTIMEO_SECONDS 10
 
-#ifdef DEBUG
+#if 0
 	#define START_MARKER(str) \
 	{ \
 		log_vnop_start(str); \
@@ -595,7 +620,7 @@ extern void webdav_hashinit(void);
 extern void webdav_hashdestroy(void);
 extern void webdav_hashrem(struct webdavnode *);
 extern void webdav_hashins(struct webdavnode *);
-extern vnode_t webdav_hashget(struct mount *mp, ino_t fileid);
+extern struct webdavnode *webdav_hashget(struct mount *mp, ino_t fileid, struct webdavnode *pt_new, uint32_t *inserted);
 
 extern void webdav_copy_creds(vfs_context_t context, struct webdav_cred *dest);
 extern int webdav_sendmsg(int vnop, struct webdavmount *fmp,

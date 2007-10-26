@@ -1,0 +1,12 @@
+@deftypefun {uint32_t *} {stringprep_ucs4_nfkc_normalize} (uint32_t * @var{str}, ssize_t @var{len})
+@var{str}: a Unicode string.
+
+@var{len}: length of @code{str} array, or -1 if @code{str} is nul-terminated.
+
+Converts UCS4 string into UTF-8 and runs
+@code{stringprep_utf8_nfkc_normalize()}.
+
+@strong{Return value:} a newly allocated Unicode string, that is the NFKC
+normalized form of @code{str}.
+@end deftypefun
+

@@ -125,6 +125,9 @@ struct cmd_flags {
 	trace_file_path;
     enum bool		/* set if -search_paths_first is specified */
 	search_paths_first;
+    enum bool noflush;	/* don't use the output_flush routine to flush the
+			   static library output file by pages */
+    unsigned long debug;/* debug value to debug output_flush() routine */
 };
 static struct cmd_flags cmd_flags = { 0 };
 
@@ -181,7 +184,7 @@ struct member {
 	*load_commands;
     struct symtab_command *st;	    /* the symbol table command */
     struct section **sections;	    /* array of section structs for 32-bit */
-    struct section_64 **sections64; /* array of section structs for 32-bit */
+    struct section_64 **sections64; /* array of section structs for 64-bit */
 
     /* the name of the member in the output */
     char         *member_name;	    /* the member name */
@@ -229,8 +232,8 @@ static int ranlib_offset_qsort(
     const struct ranlib *ran1,
     const struct ranlib *ran2);
 static enum bool toc_symbol(
-    nlist_t *symbol,
-    section_t **sections);
+    struct nlist *symbol,
+    struct section **sections);
 static enum bool toc_symbol_64(
     struct nlist_64 *symbol64,
     struct section_64 **sections64);
@@ -257,6 +260,38 @@ static void warn_member(
     const char *format, ...) __attribute__ ((format (printf, 3, 4)));
 static void ld_trace(
     const char *format, ...) __attribute__ ((format (printf, 1, 2)));
+
+/*
+ * This structure is used to describe blocks of the output file that are flushed
+ * to the disk file with output_flush.  It is kept in an ordered list starting
+ * with output_blocks.
+ */
+static struct block {
+    unsigned long offset;	/* starting offset of this block */
+    unsigned long size;		/* size of this block */
+    unsigned long written_offset;/* first page offset after starting offset */
+    unsigned long written_size;	/* size of written area from written_offset */
+    struct block *next; /* next block in the list */
+} *output_blocks;
+
+static void output_flush(
+    char *library,
+    unsigned long library_size,
+    int fd,
+    unsigned long offset,
+    unsigned long size);
+static void final_output_flush(
+    char *library,
+    int fd);
+#ifdef DEBUG
+static void print_block_list(void);
+#endif /* DEBUG */
+static struct block *get_block(void);
+static void remove_block(
+    struct block *block);
+static unsigned long trunc(
+    unsigned long v,
+    unsigned long r);
 
 /* apple_version is in vers.c which is created by the Makefile */
 extern char apple_version[];
@@ -893,6 +928,22 @@ char **envp)
 				sizeof(char *) * (cmd_flags.nldflags + 1));
 		    cmd_flags.ldflags[cmd_flags.nldflags++] = argv[i];
 		}
+		else if(strcmp(argv[i], "-noflush") == 0){
+		    cmd_flags.noflush = TRUE;
+		}
+#ifdef DEBUG
+		else if(strcmp(argv[i], "-debug") == 0){
+		    if(i + 1 >= argc){
+			error("not enough arguments follow %s", argv[i]);
+			usage();
+		    }
+		    i++;
+		    cmd_flags.debug |= 1 << strtoul(argv[i], &endp, 10);
+		    if(*endp != '\0' || strtoul(argv[i], &endp, 10) > 32)
+			fatal("argument for -debug %s not a proper "
+			      "decimal number less than 32", argv[i]);
+		}
+#endif /* DEBUG */
 		else{
 		    for(j = 1; argv[i][j] != '\0'; j++){
 			switch(argv[i][j]){
@@ -991,6 +1042,22 @@ char **envp)
 		strcpy(p, next_root);
 		strcat(p, standard_dirs[i]);
 		standard_dirs[i] = p;
+	    }
+	    for(i = 0; i < cmd_flags.nLdirs ; i++){
+		if(cmd_flags.Ldirs[i][1] != 'L')
+		    continue;
+		if(cmd_flags.Ldirs[i][2] == '/'){
+		    p = makestr(next_root, cmd_flags.Ldirs[i] + 2, NULL);
+		    if(access(p, F_OK) != -1){
+			free(p);
+			p = makestr("-L", next_root, cmd_flags.Ldirs[i] + 2,
+				    NULL);
+			cmd_flags.Ldirs[i] = p;
+		    }
+		    else{
+			free(p);
+		    }
+		}
 	    }
 	}
 
@@ -1681,7 +1748,8 @@ struct ofile *ofile)
                     savestr("cputype 1234567890 cpusubtype 1234567890");
                 if(arch->arch_flag.name != NULL)
                     sprintf(arch->arch_flag.name, "cputype %u cpusubtype %u",
-                            ofile->mh_cputype, ofile->mh_cpusubtype);
+                            ofile->mh_cputype, ofile->mh_cpusubtype &
+			    ~CPU_SUBTYPE_MASK);
                     arch->arch_flag.cputype = ofile->mh_cputype;
                     arch->arch_flag.cpusubtype = ofile->mh_cpusubtype;
 	    }
@@ -1922,7 +1990,7 @@ char *output)
 {
     unsigned long i, j, k, l, library_size, offset, pad, *time_offsets;
     enum byte_sex target_byte_sex;
-    char *library, *p;
+    char *library, *p, *flush_start;
     kern_return_t r;
     struct arch *arch;
     struct fat_header *fat_header;
@@ -1992,6 +2060,8 @@ char *output)
 	some_tocs = FALSE;
 	for(i = 0; i < narchs; i++){
 	    make_table_of_contents(archs + i, output);
+	    if(errors != 0)
+		return;
 	    if(archs[i].toc_nranlibs != 0)
 		some_tocs = TRUE;
 	    archs[i].size += SARMAG + archs[i].toc_size;
@@ -2013,6 +2083,22 @@ char *output)
 			    library_size, TRUE)) != KERN_SUCCESS)
 	    mach_fatal(r, "can't vm_allocate() buffer for output file: %s of "
 		       "size %lu", output, library_size);
+
+	/*
+	 * Create the output file.  The unlink() is done to handle the problem
+	 * when the outputfile is not writable but the directory allows the
+	 * file to be removed (since the file may not be there the return code
+	 * of the unlink() is ignored).
+	 */
+	(void)unlink(output);
+	if((fd = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0666)) == -1){
+	    system_error("can't create output file: %s", output);
+	    return;
+	}
+#ifdef F_NOCACHE
+        /* tell filesystem to NOT cache the file when reading or writing */
+	(void)fcntl(fd, F_NOCACHE, 1);
+#endif
 
 	/*
 	 * If there is more than one architecture then fill in the fat file
@@ -2043,6 +2129,9 @@ char *output)
 	else
 	    offset = 0;
 
+	/* flush out the fat headers if any */
+	output_flush(library, library_size, fd, 0, offset);
+
 	/*
 	 * The time_offsets array records the offsets to the table of conternts
 	 * archive header's ar_date fields.
@@ -2054,6 +2143,7 @@ char *output)
 	 */
 	for(i = 0; i < narchs; i++){
 	    p = library + offset;
+	    flush_start = p;
 	    arch = archs + i;
 
 	    /*
@@ -2140,10 +2230,14 @@ char *output)
 	    memcpy(p, (char *)arch->toc_strings, arch->toc_strsize);
 	    p += arch->toc_strsize;
 
+	    output_flush(library, library_size, fd, flush_start - library,
+			 p - flush_start);
+
 	    /*
 	     * Put in the archive header and member contents for each member.
 	     */
 	    for(j = 0; j < arch->nmembers; j++){
+		flush_start = p;
 		memcpy(p, (char *)&(arch->members[j].ar_hdr),
 		       sizeof(struct ar_hdr));
 		p += sizeof(struct ar_hdr);
@@ -2180,30 +2274,37 @@ char *output)
 		}
 		memcpy(p, arch->members[j].object_addr,
 		       arch->members[j].object_size);
+#ifdef VM_SYNC_DEACTIVATE
+		vm_msync(mach_task_self(),
+			 (vm_address_t)arch->members[j].object_addr,
+			 (vm_size_t)arch->members[j].object_size,
+			 VM_SYNC_DEACTIVATE);
+#endif /* VM_SYNC_DEACTIVATE */
 		p += arch->members[j].object_size;
 		pad = round(arch->members[j].object_size, 8) -
 		      arch->members[j].object_size;
 		/* as with the UNIX ar(1) program pad with '\n' characters */
 		for(k = 0; k < pad; k++)
 		    *p++ = '\n';
+
+		output_flush(library, library_size, fd, flush_start - library,
+			     p - flush_start);
 	    }
 	    offset += arch->size;
 	}
 
 	/*
-	 * Create the output file.  The unlink() is done to handle the problem
-	 * when the outputfile is not writable but the directory allows the
-	 * file to be removed (since the file may not be there the return code
-	 * of the unlink() is ignored).
+	 * Write the library to the file or flush the remaining buffer to the
+	 * file.
 	 */
-	(void)unlink(output);
-	if((fd = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0666)) == -1){
-	    system_error("can't create output file: %s", output);
-	    return;
+	if(cmd_flags.noflush == TRUE){
+	    if(write(fd, library, library_size) != (int)library_size){
+		system_error("can't write output file: %s", output);
+		return;
+	    }
 	}
-	if(write(fd, library, library_size) != (int)library_size){
-	    system_error("can't write output file: %s", output);
-	    return;
+	else{
+	    final_output_flush(library, fd);
 	}
 	if(close(fd) == -1){
 	    system_fatal("can't close output file: %s", output);
@@ -2270,6 +2371,365 @@ char *output)
 	    my_mach_error(r, "can't vm_deallocate() buffer for output file");
 	    return;
 	}
+}
+
+/*
+ * output_flush() takes an offset and a size of part of the output library,
+ * known in the comments as the new area, and causes any fully flushed pages to
+ * be written to the library file the new area in combination with previous
+ * areas created.  The data structure output_blocks has ordered blocks of areas
+ * that have been flushed which are maintained by this routine.  Any area can
+ * only be flushed once and an error will result is the new area overlaps with a
+ * previously flushed area.
+ */
+static
+void
+output_flush(
+char *library,
+unsigned long library_size,
+int fd,
+unsigned long offset,
+unsigned long size)
+{ 
+    unsigned long write_offset, write_size, host_pagesize;
+    struct block **p, *block, *before, *after;
+    kern_return_t r;
+
+	host_pagesize = 0x2000;
+
+	if(cmd_flags.noflush == TRUE)
+	    return;
+
+	if(offset + size > library_size)
+	    fatal("internal error: output_flush(offset = %lu, size = %lu) out "
+		  "of range for library_size = %lu", offset, size,library_size);
+
+#ifdef DEBUG
+	if(cmd_flags.debug & (1 << 2))
+	    print_block_list();
+	if(cmd_flags.debug & (1 << 1))
+	    printf("output_flush(offset = %lu, size %lu)", offset, size);
+#endif /* DEBUG */
+
+	if(size == 0){
+#ifdef DEBUG
+	if(cmd_flags.debug & (1 << 1))
+	    printf("\n");
+#endif /* DEBUG */
+	    return;
+	}
+
+	/*
+	 * Search through the ordered output blocks to find the block before the
+	 * new area and after the new area if any exist.
+	 */
+	before = NULL;
+	after = NULL;
+	p = &(output_blocks);
+	while(*p){
+	    block = *p;
+	    if(offset < block->offset){
+		after = block;
+		break;
+	    }
+	    else{
+		before = block;
+	    }
+	    p = &(block->next);
+	}
+
+	/*
+	 * Check for overlap of the new area with the block before and after the
+	 * new area if there are such blocks.
+	 */
+	if(before != NULL){
+	    if(before->offset + before->size > offset){
+		warning("internal error: output_flush(offset = %lu, size = %lu)"
+		      " overlaps with flushed block(offset = %lu, size = %lu)",
+		      offset, size, before->offset, before->size);
+		printf("calling abort()\n");	
+		abort();
+	    }
+	}
+	if(after != NULL){
+	    if(offset + size > after->offset){
+		warning("internal error: output_flush(offset = %lu, size = %lu)"
+		      " overlaps with flushed block(offset = %lu, size = %lu)",
+		      offset, size, after->offset, after->size);
+		printf("calling abort()\n");	
+		abort();
+	    }
+	}
+
+	/*
+	 * Now see how the new area fits in with the blocks before and after it
+	 * (that is does it touch both, one or the other or neither blocks).
+	 * For each case first the offset and size to write (write_offset and
+	 * write_size) are set for the area of full pages that can now be
+	 * written from the block.  Then the area written in the block
+	 * (->written_offset and ->written_size) are set to reflect the total
+	 * area in the block now written.  Then offset and size the block
+	 * refers to (->offset and ->size) are set to total area of the block.
+	 * Finally the links to others blocks in the list are adjusted if a
+	 * block is added or removed.
+	 *
+	 * See if there is a block before the new area and the new area
+	 * starts at the end of that block.
+	 */
+	if(before != NULL && before->offset + before->size == offset){
+	    /*
+	     * See if there is also a block after the new area and the new area
+	     * ends at the start of that block.
+	     */
+	    if(after != NULL && offset + size == after->offset){
+		/*
+		 * This is the case where the new area exactly fill the area
+		 * between two existing blocks.  The total area is folded into
+		 * the block before the new area and the block after the new
+		 * area is removed from the list.
+		 */
+		if(before->offset == 0 && before->written_size == 0){
+		    write_offset = 0;
+		    before->written_offset = 0;
+		}
+		else
+		    write_offset =before->written_offset + before->written_size;
+		if(after->written_size == 0)
+		    write_size = trunc(after->offset + after->size -
+				       write_offset, host_pagesize);
+		else
+		    write_size = trunc(after->written_offset - write_offset,
+				       host_pagesize);
+		if(write_size != 0){
+		    before->written_size += write_size;
+		}
+		if(after->written_size != 0)
+		    before->written_size += after->written_size;
+		before->size += size + after->size;
+
+		/* remove the block after the new area */
+		before->next = after->next;
+		remove_block(after);
+	    }
+	    else{
+		/*
+		 * This is the case where the new area starts at the end of the
+		 * block just before it but does not end where the block after
+		 * it (if any) starts.  The new area is folded into the block
+		 * before the new area.
+		 */
+		write_offset = before->written_offset + before->written_size;
+		write_size = trunc(offset + size - write_offset, host_pagesize);
+		if(write_size != 0)
+		    before->written_size += write_size;
+		before->size += size;
+	    }
+	}
+	/*
+	 * See if the new area and the new area ends at the start of the block
+	 * after it (if any).
+	 */
+	else if(after != NULL && offset + size == after->offset){
+	    /*
+	     * This is the case where the new area ends at the begining of the
+	     * block just after it but does not start where the block before it.
+	     * (if any) ends.  The new area is folded into this block after the
+	     * new area.
+	     */
+	    write_offset = round(offset, host_pagesize);
+	    if(after->written_size == 0)
+		write_size = trunc(after->offset + after->size - write_offset,
+				   host_pagesize);
+	    else
+		write_size = trunc(after->written_offset - write_offset,
+				   host_pagesize);
+	    if(write_size != 0){
+		after->written_offset = write_offset;
+		after->written_size += write_size;
+	    }
+	    else if(write_offset != after->written_offset){
+		after->written_offset = write_offset;
+	    }
+	    after->offset = offset;
+	    after->size += size;
+	}
+	else{
+	    /*
+	     * This is the case where the new area neither starts at the end of
+	     * the block just before it (if any) or ends where the block after
+	     * it (if any) starts.  A new block is created and the new area is
+	     * is placed in it.
+	     */
+	    write_offset = round(offset, host_pagesize);
+	    write_size = trunc(offset + size - write_offset, host_pagesize);
+	    block = get_block();
+	    block->offset = offset;
+	    block->size = size;
+	    block->written_offset = write_offset;
+	    block->written_size = write_size;
+	    /*
+	     * Insert this block in the ordered list in the correct place.
+	     */
+	    if(before != NULL){
+		block->next = before->next;
+		before->next = block;
+	    }
+	    else{
+		block->next = output_blocks;
+		output_blocks = block;
+	    }
+	}
+
+	/*
+	 * Now if there are full pages to write write them to the output file.
+	 */
+	if(write_size != 0){
+#ifdef DEBUG
+	if((cmd_flags.debug & (1 << 1)) || (cmd_flags.debug & (1 << 0)))
+	    printf(" writing (write_offset = %lu write_size = %lu)\n",
+		   write_offset, write_size);
+#endif /* DEBUG */
+	    lseek(fd, write_offset, L_SET);
+	    if(write(fd, library + write_offset, write_size) !=
+	       (int)write_size)
+		system_fatal("can't write to output file");
+	    if((r = vm_deallocate(mach_task_self(), (vm_address_t)(library +
+				  write_offset), write_size)) != KERN_SUCCESS)
+		mach_fatal(r, "can't vm_deallocate() buffer for output file");
+	}
+#ifdef DEBUG
+	else{
+	    if(cmd_flags.debug & (1 << 1))
+		printf(" no write\n");
+	}
+#endif /* DEBUG */
+}
+
+/*
+ * final_output_flush() flushes the last part of the last page of the object
+ * file if it does not round out to exactly a page.
+ */
+static
+void
+final_output_flush(
+char *library,
+int fd)
+{ 
+    struct block *block;
+    unsigned long write_offset, write_size;
+    kern_return_t r;
+
+#ifdef DEBUG
+	/* The compiler "warning: `write_offset' may be used uninitialized in */
+	/* this function" can safely be ignored */
+	write_offset = 0;
+	if((cmd_flags.debug & (1 << 1)) || (cmd_flags.debug & (1 << 0))){
+	    printf("final_output_flush block_list:\n");
+	    print_block_list();
+	}
+#endif /* DEBUG */
+
+	write_size = 0;
+	block = output_blocks;
+	if(block != NULL){
+	    if(block->offset != 0)
+		fatal("internal error: first block not at offset 0");
+	    if(block->written_size != 0){
+		if(block->written_offset != 0)
+		    fatal("internal error: first block written_offset not 0");
+		write_offset = block->written_size;
+		write_size = block->size - block->written_size;
+	    }
+	    else{
+		write_offset = block->offset;
+		write_size = block->size;
+	    }
+	    if(block->next != NULL)
+		fatal("internal error: more than one block in final list");
+	}
+	if(write_size != 0){
+#ifdef DEBUG
+	    if((cmd_flags.debug & (1 << 1)) || (cmd_flags.debug & (1 << 1)))
+		printf(" writing (write_offset = %lu write_size = %lu)\n",
+		       write_offset, write_size);
+#endif /* DEBUG */
+	    lseek(fd, write_offset, L_SET);
+	    if(write(fd, library + write_offset, write_size) !=
+	       (int)write_size)
+		system_fatal("can't write to output file");
+	    if((r = vm_deallocate(mach_task_self(), (vm_address_t)(library +
+				  write_offset), write_size)) != KERN_SUCCESS)
+		mach_fatal(r, "can't vm_deallocate() buffer for output file");
+	}
+	output_blocks = NULL;
+}
+
+#ifdef DEBUG
+/*
+ * print_block_list() prints the list of blocks.  Used for debugging.
+ */
+static
+void
+print_block_list(void)
+{
+    struct block **p, *block;
+
+	p = &(output_blocks);
+	if(*p == NULL)
+	    printf("Empty block list\n");
+	while(*p){
+	    block = *p;
+	    printf("block 0x%x\n", (unsigned int)block);
+	    printf("    offset %lu\n", block->offset);
+	    printf("    size %lu\n", block->size);
+	    printf("    written_offset %lu\n", block->written_offset);
+	    printf("    written_size %lu\n", block->written_size);
+	    printf("    next 0x%x\n", (unsigned int)(block->next));
+	    p = &(block->next);
+	}
+}
+#endif /* DEBUG */
+
+/*
+ * get_block() returns a pointer to a new block.  This could be done by
+ * allocating block of these placing them on a free list and and handing them
+ * out.  For the initial release of this code this number is typicly low and not
+ * a big win so each block just allocated and free'ed.
+ */
+static
+struct block *
+get_block(void)
+{
+    struct block *block;
+
+	block = allocate(sizeof(struct block));
+	return(block);
+}
+
+/*
+ * remove_block() throws away the block specified.  See comments in get_block().
+ */
+static
+void
+remove_block(
+struct block *block)
+{
+	free(block);
+}
+
+/*
+ * trunc() truncates the value 'v' to the power of two value 'r'.  If v is
+ * less than zero it returns zero.
+ */
+static
+unsigned long
+trunc(
+unsigned long v,
+unsigned long r)
+{
+	if(((long)v) < 0)
+	    return(0);
+	return(v & ~(r - 1));
 }
 
 /*
@@ -2354,8 +2814,8 @@ char *output)
 	    family_arch_flag = get_arch_family_from_cputype(
 				    cmd_flags.arch_only_flag.cputype);
 	    if(family_arch_flag != NULL){
-		if(family_arch_flag->cpusubtype !=
-		   cmd_flags.arch_only_flag.cpusubtype)
+		if((family_arch_flag->cpusubtype & ~CPU_SUBTYPE_MASK) !=
+		   (cmd_flags.arch_only_flag.cpusubtype & ~CPU_SUBTYPE_MASK))
 		    use_force_cpusubtype_ALL = FALSE;
 	    }
 	}
@@ -2366,10 +2826,7 @@ char *output)
 	 */
 	for(i = 0; i < narchs || (i == 0 && narchs == 0); i++){
 	    reset_execute_list();
-	    if((archs[i].arch_flag.cputype & CPU_ARCH_ABI64) == CPU_ARCH_ABI64)
-		add_execute_list("ld64");
-	    else
-		add_execute_list("ld");
+	    add_execute_list("ld");
 	    if(narchs != 0 && cmd_flags.arch_only_flag.name == NULL)
 		add_execute_list("-arch_multiple");
 	    if(archs != NULL){
@@ -2546,6 +3003,7 @@ char *output)
     char *ar_name;
     struct section *section;
     struct section_64 *section64;
+    uint8_t n_type, n_sect;
 
 	symbols = NULL;
 	symbols64 = NULL;
@@ -2587,7 +3045,7 @@ char *output)
 		lc = member->load_commands;
 		for(j = 0; j < ncmds; j++){
 		    if(lc->cmd == LC_SEGMENT){
-			sg = (segment_command_t *)lc;
+			sg = (struct segment_command *)lc;
 			section = (struct section *)
 				  ((char *)sg + sizeof(struct segment_command));
 			for(k = 0; k < sg->nsects; k++){
@@ -2621,15 +3079,38 @@ char *output)
 		    }
 		    strings = member->object_addr + member->st->stroff;
 		    for(j = 0; j < member->st->nsyms; j++){
-			if(member->mh != NULL)
+			if(member->mh != NULL){
 			    n_strx = symbols[j].n_un.n_strx;
-			else
+			    n_type = symbols[j].n_type;
+			    n_sect = symbols[j].n_sect;
+			}
+			else{
 			    n_strx = symbols64[j].n_un.n_strx;
+			    n_type = symbols64[j].n_type;
+			    n_sect = symbols64[j].n_sect;
+			}
 			if(n_strx > member->st->strsize){
-			    warn_member(arch, member, "malformed object (symbol"
-					" %lu n_strx field extends past the "
-					"end of the string table)", j);
+			    warn_member(arch, member, "malformed object "
+				"(symbol %lu n_strx field extends past the "
+				"end of the string table)", j);
+			    errors++;
 			    continue;
+			}
+			if((n_type & N_TYPE) == N_SECT){
+			    if(n_sect == NO_SECT){
+				warn_member(arch, member, "malformed object "
+				    "(symbol %lu must not have NO_SECT for its "
+				    "n_sect field given its type (N_SECT))", j);
+				errors++;
+				continue;
+			    }
+			    if(n_sect > nsects){
+				warn_member(arch, member, "malformed object "
+				    "(symbol %lu n_sect field greater than the "
+				    "number of sections in the file)", j);
+				errors++;
+				continue;
+			    }
 			}
 			if(member->mh != NULL)
 			    is_toc_symbol = toc_symbol(symbols + j,
@@ -2653,6 +3134,8 @@ char *output)
 		}
 	    }
 	}
+	if(errors != 0)
+	    return;
 
 	/*
 	 * Allocate the space for the ranlib structs and strings for the

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2002  Mark Nudelman
+ * Copyright (C) 1984-2005  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -21,7 +21,7 @@
 #include "option.h"
 #include "cmd.h"
 
-extern int erase_char, kill_char;
+extern int erase_char, erase2_char, kill_char;
 extern int sigs;
 extern int quit_at_eof;
 extern int quit_if_one_screen;
@@ -55,6 +55,11 @@ extern char *editproto;
 #endif
 extern int screen_trashed;	/* The screen has been overwritten */
 extern int shift_count;
+extern int file_errors;
+extern int unix2003_compat;
+extern int add_newline;
+extern char * active_dashp_command;
+extern int display_next_file_or_exit;
 
 static char ungot[UNGOT_SIZE];
 static char *ungotp = NULL;
@@ -68,6 +73,7 @@ static char optchar;
 static int optflag;
 static int optgetname;
 static POSITION bottompos;
+static int save_hshift;
 #if PIPEC
 static char pipec;
 #endif
@@ -217,7 +223,14 @@ exec_mca()
 	case A_EXAMINE:
 		if (secure)
 			break;
-		edit_list(cbuf);
+		if (edit_list(cbuf)) {
+			/* means cbuf is empty, so it's the current file */
+			if (unix2003_compat) {
+				/* Test 114: expects :e to reset linenum */
+				number = 1;
+				jump_back(number);
+			}
+		}
 #if TAGS
 		/* If tag structure is loaded then clean it up. */
 		cleantags();
@@ -393,7 +406,9 @@ mca_char(c)
 					 * Already have a match for the name.
 					 * Don't accept anything but erase/kill.
 					 */
-					if (c == erase_char || c == kill_char)
+					if (c == erase_char ||
+					    c == erase2_char ||
+					    c == kill_char)
 						return (MCA_DONE);
 					return (MCA_MORE);
 				}
@@ -404,7 +419,7 @@ mca_char(c)
 				if (cmd_char(c) == CC_QUIT)
 					return (MCA_DONE);
 				p = get_cmdbuf();
-				lc = islower(p[0]);
+				lc = ASCII_IS_LOWER(p[0]);
 				o = findopt_name(&p, &oname, NULL);
 				if (o != NULL)
 				{
@@ -414,15 +429,15 @@ mca_char(c)
 					 * display the full option name.
 					 */
 					optchar = o->oletter;
-					if (!lc && islower(optchar))
-						optchar = toupper(optchar);
+					if (!lc && ASCII_IS_LOWER(optchar))
+						optchar = ASCII_TO_UPPER(optchar);
 					cmd_reset();
 					mca_opt_toggle();
 					for (p = oname;  *p != '\0';  p++)
 					{
 						c = *p;
-						if (!lc && islower(c))
-							c = toupper(c);
+						if (!lc && ASCII_IS_LOWER(c))
+							c = ASCII_TO_UPPER(c);
 						if (cmd_char(c) != CC_OK)
 							return (MCA_DONE);
 					}
@@ -431,7 +446,7 @@ mca_char(c)
 			}
 		} else
 		{
-			if (c == erase_char || c == kill_char)
+			if (c == erase_char || c == erase2_char || c == kill_char)
 				break;
 			if (optchar != '\0')
 				/* We already have the option letter. */
@@ -468,6 +483,9 @@ mca_char(c)
 		 *	*  Toggle the PAST_EOF flag
 		 *	@  Toggle the FIRST_FILE flag
 		 */
+		if (active_dashp_command) {
+			add_newline = 1;
+		}
 		if (len_cmdbuf() > 0)
 			/*
 			 * Only works for the first char of the pattern.
@@ -603,12 +621,20 @@ prompt()
 	bottompos = position(BOTTOM_PLUS_ONE);
 
 	/*
-	 * If the -E flag is set and we've hit EOF on the last file, quit.
+	 * If we've hit EOF on the last file, and the -E flag is set
+	 * (or -F is set and this is the first prompt), then quit.
+	 * {{ Relying on "first prompt" to detect a single-screen file
+	 * fails if +G is used, for example. }}
 	 */
 	if ((quit_at_eof == OPT_ONPLUS || quit_if_one_screen) &&
 	    hit_eof && !(ch_getflags() & CH_HELPFILE) && 
 	    next_ifile(curr_ifile) == NULL_IFILE)
+		{
+		if (file_errors)
+			if (unix2003_compat)
+				quit(QUIT_ERROR);
 		quit(QUIT_OK);
+		}
 	quit_if_one_screen = FALSE;
 #if 0 /* This doesn't work well because some "te"s clear the screen. */
 	/*
@@ -632,13 +658,13 @@ prompt()
 	 */
 	clear_cmd();
 	p = pr_string();
-	if (p == NULL)
+	if (p == NULL || *p == '\0')
 		putchr(':');
 	else
 	{
-		so_enter();
+		at_enter(AT_STANDOUT);
 		putstr(p);
-		so_exit();
+		at_exit();
 	}
 }
 
@@ -831,6 +857,9 @@ multi_search(pattern, n)
 		 * Restore the file we were originally viewing.
 		 */
 		reedit_ifile(save_ifile);
+	} else
+	{
+		unsave_ifile(save_ifile);
 	}
 }
 
@@ -854,7 +883,11 @@ commands()
 	char *tagfile;
 
 	search_type = SRCH_FORW;
-	wscroll = (sc_height + 1) / 2;
+	if (unix2003_compat) {
+		wscroll = (sc_height) / 2;
+	} else {
+		wscroll = (sc_height + 1) / 2;
+	}
 	newaction = A_NOACTION;
 
 	for (;;)
@@ -974,6 +1007,7 @@ commands()
 		if (action != A_PREFIX)
 			cmd_reset();
 
+		display_next_file_or_exit = 0;
 		switch (action)
 		{
 		case A_DIGIT:
@@ -994,6 +1028,7 @@ commands()
 			/*
 			 * Forward one screen.
 			 */
+			display_next_file_or_exit = 1;
 			if (number <= 0)
 				number = get_swindow();
 			cmd_exec();
@@ -1023,6 +1058,7 @@ commands()
 			/*
 			 * Forward N (default 1) line.
 			 */
+			display_next_file_or_exit = 1;
 			if (number <= 0)
 				number = 1;
 			cmd_exec();
@@ -1101,6 +1137,7 @@ commands()
 			 * Forward N lines 
 			 * (default same as last 'd' or 'u' command).
 			 */
+			display_next_file_or_exit = 1;
 			if (number > 0)
 				wscroll = (int) number;
 			cmd_exec();
@@ -1216,11 +1253,15 @@ commands()
 				 * just means return to viewing the
 				 * previous file.
 				 */
+				hshift = save_hshift;
 				if (edit_prev(1) == 0)
 					break;
 			}
 			if (extra != NULL)
 				quit(*extra);
+			if (file_errors)
+				if (unix2003_compat)
+					quit(QUIT_ERROR);
 			quit(QUIT_OK);
 			break;
 
@@ -1305,6 +1346,8 @@ commands()
 			if (ch_getflags() & CH_HELPFILE)
 				break;
 			cmd_exec();
+			save_hshift = hshift;
+			hshift = 0;
 			(void) edit(FAKE_HELPFILE);
 			break;
 
@@ -1345,9 +1388,8 @@ commands()
 			}
 			if (curr_altfilename != NULL)
 			{
-				error("Cannot edit file processed with LESSOPEN", 
+				error("WARNING: This file was viewed via LESSOPEN",
 					NULL_PARG);
-				break;
 			}
 			start_mca(A_SHELL, "!", ml_shell, 0);
 			/*
@@ -1529,8 +1571,8 @@ commands()
 				break;
 			start_mca(A_SETMARK, "mark: ", (void*)NULL, 0);
 			c = getcc();
-			if (c == erase_char || c == kill_char ||
-			    c == '\n' || c == '\r')
+			if (c == erase_char || c == erase2_char ||
+			    c == kill_char || c == '\n' || c == '\r')
 				break;
 			setmark(c);
 			break;
@@ -1541,8 +1583,8 @@ commands()
 			 */
 			start_mca(A_GOMARK, "goto mark: ", (void*)NULL, 0);
 			c = getcc();
-			if (c == erase_char || c == kill_char || 
-			    c == '\n' || c == '\r')
+			if (c == erase_char || c == erase2_char ||
+			    c == kill_char || c == '\n' || c == '\r')
 				break;
 			gomark(c);
 			break;
@@ -1556,7 +1598,7 @@ commands()
 			}
 			start_mca(A_PIPE, "|mark: ", (void*)NULL, 0);
 			c = getcc();
-			if (c == erase_char || c == kill_char)
+			if (c == erase_char || c == erase2_char || c == kill_char)
 				break;
 			if (c == '\n' || c == '\r')
 				c = '.';

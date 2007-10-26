@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin id="com.apple.dtrace.ruby" name="ruby" version="1.0">
+  <activation>
+    <rule kind="extension-point" id="com.apple.xray.dtrace.usdt"/>
+  </activation>
+  <extension point="com.apple.xray.dtrace.usdt" id="com.apple.xray.dtrace.usdt.ruby-type" name="RubyStaticProbes" version="1.0" provider="ruby*" providerDisplayName="Ruby" module="" providerDescription="DTrace static probes for Ruby">
+    <probeName name="function-entry" index="0">
+      <field index="0" name="Module" code="copyinstr(arg0)" type="%s" width="40" truncation="left"/>
+      <field index="1" name="Method" code="copyinstr(arg1)" type="%s" width="40" truncation="left"/>
+      <field index="2" name="File" code="copyinstr(arg2)" type="%s" width="40" truncation="left"/>
+      <field index="3" name="Line" code="arg3" type="%d" width="10" truncation="left"/>
+    </probeName>
+    <probeName name="function-return" index="1">
+      <field index="0" name="Module" code="copyinstr(arg0)" type="%s" width="40" truncation="left"/>
+      <field index="1" name="Method" code="copyinstr(arg1)" type="%s" width="40" truncation="left"/>
+      <field index="2" name="File" code="copyinstr(arg2)" type="%s" width="40" truncation="left"/>
+      <field index="3" name="Line" code="arg3" type="%d" width="10" truncation="left"/>
+    </probeName>
+    <probeName name="raise" index="2">
+      <field index="0" name="Class" code="copyinstr(arg0)" type="%s" width="40" truncation="left"/>
+      <field index="1" name="File" code="copyinstr(arg1)" type="%s" width="40" truncation="left"/>
+      <field index="2" name="Line" code="arg2" type="%d" width="10" truncation="left"/>
+    </probeName>
+    <probeName name="rescue" index="3">
+      <field index="0" name="File" code="copyinstr(arg0)" type="%s" width="40" truncation="left"/>
+      <field index="1" name="Line" code="arg1" type="%d" width="10" truncation="left"/>
+    </probeName>
+    <probeName name="line" index="4">
+      <field index="0" name="File" code="copyinstr(arg0)" type="%s" width="40" truncation="left"/>
+      <field index="1" name="Line" code="arg1" type="%d" width="10" truncation="left"/>
+    </probeName>
+    <probeName name="gc-begin" index="5"/>
+    <probeName name="gc-end" index="6"/>
+    <probeName name="object-create-start" index="7">
+      <field index="0" name="Class" code="copyinstr(arg0)" type="%s" width="40" truncation="left"/>
+      <field index="1" name="File" code="copyinstr(arg1)" type="%s" width="40" truncation="left"/>
+      <field index="2" name="Line" code="arg2" type="%d" width="10" truncation="left"/>
+    </probeName>
+    <probeName name="object-create-done" index="8">
+      <field index="0" name="Class" code="copyinstr(arg0)" type="%s" width="40" truncation="left"/>
+      <field index="1" name="File" code="copyinstr(arg1)" type="%s" width="40" truncation="left"/>
+      <field index="2" name="Line" code="arg2" type="%d" width="10" truncation="left"/>
+    </probeName>
+    <probeName name="object-free" index="9">
+      <field index="0" name="Class" code="copyinstr(arg0)" type="%s" width="40" truncation="left"/>
+    </probeName>
+    <probeName name="ruby-probe" index="10">
+      <field index="0" name="Name" code="copyinstr(arg0)" type="%s" width="40" truncation="left"/>
+      <field index="1" name="Value" code="copyinstr(arg1)" type="%s" width="40" truncation="left"/>
+    </probeName>
+  </extension>
+</plugin>

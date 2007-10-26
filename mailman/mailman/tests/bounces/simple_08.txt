@@ -1,0 +1,81 @@
+Return-Path: <email@mydomain.de>
+X-Original-To: newsletter-bounces@mydomain.de
+Delivered-To: newsletter-bounces@mydomain.de
+Received: by mailsrv.mycompanysname.lan (mycompanysname mail service, from userid 1004)
+	id AD5AC100A954; Tue, 28 Feb 2006 18:22:36 +0100 (CET)
+X-Original-To: email@localhost.mydomain.de
+Delivered-To: email@localhost.mydomain.de
+Received: from localhost (localhost [127.0.0.1])
+	by mailsrv.mycompanysname.lan (mycompanysname mail service) with ESMTP id B9B44100BF1B
+	for <email@localhost.mydomain.de>; Tue, 28 Feb 2006 18:22:34 +0100 (CET)
+Received: from mailsrv.mycompanysname.lan ([127.0.0.1])
+ by localhost (mydomain.de [127.0.0.1]) (amavisd-new, port 10024)
+ with ESMTP id 32002-08 for <email@localhost.mydomain.de>;
+ Tue, 28 Feb 2006 18:22:33 +0100 (CET)
+Received: from localhost (localhost [127.0.0.1])
+	by mailsrv.mycompanysname.lan (mycompanysname mail service) with ESMTP id A093B100A955
+	for <email@localhost>; Tue, 28 Feb 2006 18:22:33 +0100 (CET)
+Delivery-Date: Tue, 28 Feb 2006 18:20:00 +0100
+Received-SPF: none (mxeu17: 212.227.126.240 is neither permitted nor denied by domain of mout-bounce.kundenserver.de) client-ip=212.227.126.240; envelope-from=postmaster@mout-bounce.kundenserver.de; helo=mout-bounce.kundenserver.de;
+Received: from pop.1und1.com [212.227.15.161]
+	by localhost with POP3 (fetchmail-6.2.5.2)
+	for email@localhost (single-drop); Tue, 28 Feb 2006 18:22:33 +0100 (CET)
+Received: from [212.227.126.240] (helo=mout-bounce.kundenserver.de)
+	by mx.kundenserver.de (node=mxeu17) with ESMTP (Nemesis),
+	id 0MKxIC-1FE8W00flx-0005g9 for newsletter-bounces@mydomain.de; Tue, 28 Feb 2006 18:20:00 +0100
+Received: from mout by mouteu2.kundenserver.de id 0MKvEC-1FE8V20Bkm-00025n;
+ Tue, 28 Feb 2006 18:19:00 +0100
+Date: Tue, 28 Feb 2006 18:19:00 +0100
+From: Mail Delivery System <mailer-daemon@kundenserver.de>
+To: newsletter-bounces@mydomain.de
+Subject: Mail delivery failed: returning message to sender
+Message-Id: <0MKvEC-1FE8V20Bkm-00025n@mouteu2.kundenserver.de>
+X-Original-Id: 0ML25U-1FE8V12M9j-0006lD
+Envelope-To: newsletter-bounces@mydomain.de
+X-Virus-Scanned: amavisd-new at mydomain.de
+
+This message was created automatically by mail delivery software.
+
+A message that you sent could not be delivered to one or more of
+its recipients. The following addresses failed:
+
+  <severin.XXX@t-online.de>
+
+SMTP error from remote server after RCPT command:
+host mailin02.sul.t-online.de[194.25.134.9]:
+550 user unknown
+
+
+--- The header of the original message is following. ---
+
+Received: from [84.154.27.78] (helo=mailsrv.mycompanysname.lan)
+	by mrelayeu.kundenserver.de (node=mrelayeu5) with ESMTP (Nemesis),
+	id 0ML25U-1FE8V12M9j-0006lD; Tue, 28 Feb 2006 18:18:59 +0100
+Received: from localhost (localhost [127.0.0.1])
+	by mailsrv.mycompanysname.lan (mycompanysname mail service) with ESMTP id EA2CD100A954
+	for <severin.XXX@t-online.de>; Tue, 28 Feb 2006 18:18:58 +0100 (CET)
+Received: from mailsrv.mycompanysname.lan ([127.0.0.1])
+ by localhost (mydomain.de [127.0.0.1]) (amavisd-new, port 10024)
+ with ESMTP id 31861-10 for <severin.XXX@t-online.de>;
+ Tue, 28 Feb 2006 18:18:58 +0100 (CET)
+Received: from mailsrv.mycompanysname.lan (localhost [127.0.0.1])
+	by mailsrv.mycompanysname.lan (mycompanysname mail service) with ESMTP id BB6BD100A308
+	for <severin.XXX@t-online.de>; Tue, 28 Feb 2006 18:18:58 +0100 (CET)
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Subject: =?iso-8859-1?q?Sie_haben_die_Mailingliste_=22newsletter=22_ab?=
+ =?iso-8859-1?q?bestellt?=
+From: newsletter-bounces@mydomain.de
+Message-ID: <mailman.0.1141147137.31940.newsletter@mydomain.de>
+Date: Tue, 28 Feb 2006 18:18:57 +0100
+Precedence: bulk
+X-BeenThere: newsletter@mydomain.de
+X-Mailman-Version: 2.1.6
+List-Id: newsletter <newsletter.mydomain.de>
+X-List-Administrivia: yes
+To: severin.XXX@t-online.de
+Sender: newsletter-bounces@mydomain.de
+Errors-To: newsletter-bounces@mydomain.de
+X-Virus-Scanned: amavisd-new at mydomain.de
+X-Provags-ID: kundenserver.de abuse@kundenserver.de login:50f36a15497f230366e1019f5ac05f49

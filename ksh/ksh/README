@@ -3,13 +3,16 @@ packages in this directory tree are controlled by the command
 
 	bin/package
 
-Binary package files are in the install root directory
+Binary files may be in this directory or in the install root directory
 
 	INSTALLROOT=$PACKAGEROOT/arch/`bin/package`
 
 For more information run
 
 	bin/package help
+
+Many of the packaged commands self-document via the --man and --html
+options; those that do have no separate man page.
 
 Each package has its own license file
 
@@ -28,8 +31,9 @@ A component within a package may have its own license file
 or it may have a separate license detailed in the component
 source directory.
 
+Many of the commands self-document via the --man and --html
+options; those that do have no separate man page.
+
 Any archives, distributions or packages made from source or
 binaries covered by license(s) must contain the corresponding
-license file(s), this README file, and the empty file
-
------------- NOTICE -- LICENSED SOFTWARE -- SEE README FOR DETAILS ------------
+license file(s).

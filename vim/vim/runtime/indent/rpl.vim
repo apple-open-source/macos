@@ -1,10 +1,8 @@
 " Vim indent file
 " Language:	RPL/2
 " Version:	0.2
-" Last Change:	2003 Apr 25
+" Last Change:	2005 Mar 28
 " Maintainer:	BERTRAND Joël <rpl2@free.fr>
-" URL:		http://www.makalis.fr/~bertrand/rpl2/download/vim/indent/rpl.vim
-
 
 " Only load this indent file when no other was loaded.
 if exists("b:did_indent")
@@ -12,6 +10,7 @@ if exists("b:did_indent")
 endif
 let b:did_indent = 1
 
+setlocal autoindent
 setlocal indentkeys+==~end,=~case,=~if,=~then,=~else,=~do,=~until,=~while,=~repeat,=~select,=~default,=~for,=~start,=~next,=~step,<<>,<>>
 
 " Define the appropriate indent function but only once
@@ -19,6 +18,8 @@ setlocal indentexpr=RplGetFreeIndent()
 if exists("*RplGetFreeIndent")
   finish
 endif
+
+let b:undo_indent = "set ai< indentkeys< indentexpr<"
 
 function RplGetIndent(lnum)
   let ind = indent(a:lnum)

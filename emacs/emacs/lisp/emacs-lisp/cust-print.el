@@ -1,6 +1,7 @@
 ;;; cust-print.el --- handles print-level and print-circle
 
-;; Copyright (C) 1992 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Daniel LaLiberte <liberte@holonexus.org>
 ;; Adapted-By: ESR
@@ -24,8 +25,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -34,7 +35,7 @@
 ;; print-length since the standard routines are being replaced.  Also,
 ;; to print custom types constructed from lists and vectors, use
 ;; custom-print-list and custom-print-vector.  See the documentation
-;; strings of these variables for more details.  
+;; strings of these variables for more details.
 
 ;; If the results of your expressions contain circular references to
 ;; other parts of the same structure, the standard Emacs print
@@ -131,7 +132,7 @@
 ;;This is defined by emacs.")
 
 (defcustom print-level nil
-  "*Controls how many levels deep a nested data object will print.  
+  "*Controls how many levels deep a nested data object will print.
 
 If nil, printing proceeds recursively and may lead to
 max-lisp-eval-depth being exceeded or an error may occur:
@@ -147,7 +148,7 @@ level 1."
 
 
 (defcustom print-circle nil
-  "*Controls the printing of recursive structures.  
+  "*Controls the printing of recursive structures.
 
 If nil, printing proceeds recursively and may lead to
 `max-lisp-eval-depth' being exceeded or an error may occur:
@@ -178,7 +179,7 @@ print-level, but not for vectors."
 ;; Custom printers
 ;;==========================================================
 
-(defconst custom-printers nil
+(defvar custom-printers nil
   ;; e.g. '((symbolp . pkg::print-symbol))
   "An alist for custom printing of any type.
 Pairs are of the form (PREDICATE . PRINTER).  If PREDICATE is true
@@ -196,7 +197,7 @@ Don't modify this variable directly.  Use `add-custom-printer' and
 (defun add-custom-printer (pred printer)
   "Add a pair of PREDICATE and PRINTER to `custom-printers'.
 Any pair that has the same PREDICATE is first removed."
-  (setq custom-printers (cons (cons pred printer) 
+  (setq custom-printers (cons (cons pred printer)
 			      (delq (assq pred custom-printers)
 				    custom-printers)))
   ;; Rather than updating here, we could wait until cust-print-top-level is called.
@@ -220,9 +221,9 @@ Any pair that has the same PREDICATE is first removed."
     ;; (byte-compile
     `(lambda (object)
        (cond
-	,@(mapcar (function 
+	,@(mapcar (function
 		   (lambda (pair)
-		     `((,(car pair) object) 
+		     `((,(car pair) object)
 		       (,(cdr pair) object))))
 		  custom-printers)
 	;; Otherwise return nil.
@@ -236,7 +237,7 @@ Any pair that has the same PREDICATE is first removed."
 ;;====================================================
 
 (defun cust-print-set-function-cell (symbol-pair)
-  (defalias (car symbol-pair) 
+  (defalias (car symbol-pair)
     (symbol-function (car (cdr symbol-pair)))))
 
 (defun cust-print-original-princ (object &optional stream)) ; dummy def
@@ -255,7 +256,7 @@ Any pair that has the same PREDICATE is first removed."
 
 (defun custom-print-install ()
   "Replace print functions with general, customizable, Lisp versions.
-The emacs subroutines are saved away, and you can reinstall them
+The Emacs subroutines are saved away, and you can reinstall them
 by running `custom-print-uninstall'."
   (interactive)
   (mapcar 'cust-print-set-function-cell
@@ -268,9 +269,9 @@ by running `custom-print-uninstall'."
 	    (error custom-error)
 	    ))
   t)
-  
+
 (defun custom-print-uninstall ()
-  "Reset print functions to their emacs subroutines."
+  "Reset print functions to their Emacs subroutines."
   (interactive)
   (mapcar 'cust-print-set-function-cell
 	  '((prin1 cust-print-original-prin1)
@@ -335,7 +336,7 @@ second argument NOESCAPE is non-nil.
 
 This is the custom-print replacement for the standard `prin1-to-string'."
   (let ((buf (get-buffer-create " *custom-print-temp*")))
-    ;; We must erase the buffer before printing in case an error 
+    ;; We must erase the buffer before printing in case an error
     ;; occurred during the last prin1-to-string and we are in debugger.
     (save-excursion
       (set-buffer buf)
@@ -364,7 +365,7 @@ This is the custom-print replacement for the standard `print'."
 
 
 (defun custom-format (fmt &rest args)
-  "Format a string out of a control-string and arguments.  
+  "Format a string out of a control-string and arguments.
 The first argument is a control string.  It, and subsequent arguments
 substituted into it, become the value, which is a string.
 It may contain %s or %d or %c to substitute successive following arguments.
@@ -374,7 +375,7 @@ The argument used by %s must be a string or a symbol;
 the argument used by %d, %b, %o, %x or %c must be a number.
 
 This is the custom-print replacement for the standard `format'.  It
-calls the emacs `format' after first making strings for list,
+calls the Emacs `format' after first making strings for list,
 vector, or symbol args.  The format specification for such args should
 be `%s' in any case, so a string argument will also work.  The string
 is generated with `custom-prin1-to-string', which quotes quotable
@@ -385,8 +386,8 @@ characters."
 				 (custom-prin1-to-string arg)
 			       arg)))
 		 args)))
-	    
-  
+
+
 (defun custom-message (fmt &rest args)
   "Print a one-line message at the bottom of the screen.
 The first argument is a control string.
@@ -401,7 +402,7 @@ See `custom-format' for the details."
   ;; It doesn't work to princ the result of custom-format as in:
   ;; (cust-print-original-princ (apply 'custom-format fmt args))
   ;; because the echo area requires special handling
-  ;; to avoid duplicating the output.  
+  ;; to avoid duplicating the output.
   ;; cust-print-original-message does it right.
   (apply 'cust-print-original-message  fmt
 	 (mapcar (function (lambda (arg)
@@ -409,7 +410,7 @@ See `custom-format' for the details."
 				 (custom-prin1-to-string arg)
 			       arg)))
 		 args)))
-	    
+
 
 (defun custom-error (fmt &rest args)
   "Signal an error, making error message by passing all args to `format'.
@@ -435,12 +436,12 @@ See `custom-format' for the details."
   ;; Set up for printing.
   (let ((standard-output (or stream standard-output))
 	;; circle-table will be non-nil if anything is circular.
-	(circle-table (and print-circle 
+	(circle-table (and print-circle
 			   (cust-print-preprocess-circle-tree object)))
 	(cust-print-current-level (or print-level -1)))
 
     (defalias 'cust-print-original-printer emacs-printer)
-    (defalias 'cust-print-low-level-prin 
+    (defalias 'cust-print-low-level-prin
       (cond
        ((or custom-printers
 	    circle-table
@@ -451,7 +452,7 @@ See `custom-format' for the details."
 		(or print-level print-length)))
 	'cust-print-print-object)
        (t 'cust-print-original-printer)))
-    (defalias 'cust-print-prin 
+    (defalias 'cust-print-prin
       (if circle-table 'cust-print-print-circular 'cust-print-low-level-prin))
 
     (cust-print-prin object)
@@ -461,7 +462,7 @@ See `custom-format' for the details."
 (defun cust-print-print-object (object)
   ;; Test object type and print accordingly.
   ;; Could be called as either cust-print-low-level-prin or cust-print-prin.
-  (cond 
+  (cond
    ((null object) (cust-print-original-printer object))
    ((cust-print-use-custom-printer object) object)
    ((consp object) (cust-print-list object))
@@ -561,7 +562,7 @@ See `custom-format' for the details."
 ;;==================================
 
 (defun cust-print-preprocess-circle-tree (object)
-  ;; Fill up the table.  
+  ;; Fill up the table.
   (let (;; Table of tags for each object in an object to be printed.
 	;; A tag is of the form:
 	;; ( <object> <nil-t-or-id-number> )
@@ -600,8 +601,8 @@ See `custom-format' for the details."
 (defun cust-print-walk-circle-tree (object)
   (let (read-equivalent-p tag)
     (while object
-      (setq read-equivalent-p 
-	    (or (numberp object) 
+      (setq read-equivalent-p
+	    (or (numberp object)
 		(and (symbolp object)
 		     ;; Check if it is uninterned.
 		     (eq object (intern-soft (symbol-name object)))))
@@ -617,7 +618,7 @@ See `custom-format' for the details."
 		     (cons (list object)
 			   (cdr circle-table)))))
       (setq object
-	    (cond 
+	    (cond
 	     (tag ;; No need to descend since we have already.
 	      nil)
 
@@ -688,4 +689,5 @@ See `custom-format' for the details."
 
 (provide 'cust-print)
 
+;;; arch-tag: 3a5a8650-622c-48c4-87d8-e01bf72ec580
 ;;; cust-print.el ends here

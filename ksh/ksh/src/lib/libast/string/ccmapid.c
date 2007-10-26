@@ -1,45 +1,160 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
  * Glenn Fowler
  * AT&T Research
  *
- * return ccode map id given name
+ * 8 bit character code map name/id lookup support
  */
 
 #include <ast.h>
 #include <ccode.h>
-#include <iconv.h>
+#include <ctype.h>
+
+static const Ccmap_t	maps[] =
+{
+	{
+	"ascii",
+	"a|ascii|?(iso)?(-)646|?(iso)?(-)8859|latin",
+	"8 bit ascii",
+	"ISO-8859-%s",
+	"1",
+	CC_ASCII,
+	},
+
+	{
+	"ebcdic",
+	"e|ebcdic?(-)?([1e])",
+	"X/Open ebcdic",
+	"EBCDIC",
+	0,
+	CC_EBCDIC_E,
+	},
+
+	{
+	"ebcdic-o",
+	"o|ebcdic?(-)[3o]|?(cp|ibm)1047|open?(-)edition",
+	"mvs OpenEdition ebcdic",
+	"EBCDIC-O",
+	0,
+	CC_EBCDIC_O,
+	},
+
+	{
+	"ebcdic-h",
+	"h|ebcdic?(-)h|?(cp|ibm)?(00)37|[oa]s?(/-)400",
+	"ibm OS/400 AS/400 ebcdic",
+	"EBCDIC-H",
+	0,
+	CC_EBCDIC_H,
+	},
+
+	{
+	"ebcdic-s",
+	"s|ebcdic?(-)s|siemens|posix-bc",
+	"siemens posix-bc ebcdic",
+	"EBCDIC-S",
+	0,
+	CC_EBCDIC_S,
+	},
+
+	{
+	"ebcdic-i",
+	"i|ebcdic?(-)[2i]|ibm",
+	"X/Open ibm ebcdic (not idempotent)",
+	"EBCDIC-I",
+	0,
+	CC_EBCDIC_I,
+	},
+
+	{
+	"ebcdic-m",
+	"m|ebcdic?(-)m|mvs",
+	"mvs ebcdic",
+	"EBCDIC-M",
+	0,
+	CC_EBCDIC_M,
+	},
+
+	{
+	"ebcdic-u",
+	"u|ebcdic?(-)(u|mf)|microfocus",
+	"microfocus cobol ebcdic",
+	"EBCDIC-U",
+	0,
+	CC_EBCDIC_U,
+	},
+
+	{
+	"native",
+	"n|native|local",
+	"native code set",
+	0,
+	0,
+	CC_NATIVE,
+	},
+
+	{ 0 },
+};
+
+/*
+ * ccode map list iterator
+ */
+
+Ccmap_t*
+ccmaplist(Ccmap_t* mp)
+{
+	return !mp ? (Ccmap_t*)maps : (++mp)->name ? mp : (Ccmap_t*)0;
+}
+
+/*
+ * return ccode map id given name
+ */
 
 int
 ccmapid(const char* name)
 {
-	return iconv_name(name, NiL, 0);
+	register const Ccmap_t*	mp;
+	register int		c;
+	const Ccmap_t*		bp;
+	int			n;
+	int			sub[2];
+
+	bp = 0;
+	n = 0;
+	for (mp = maps; mp->name; mp++)
+		if (strgrpmatch(name, mp->match, sub, elementsof(sub) / 2, STR_MAXIMAL|STR_LEFT|STR_ICASE))
+		{
+			if (!(c = name[sub[1]]))
+				return mp->ccode;
+			if (sub[1] > n && !isalpha(c))
+			{
+				n = sub[1];
+				bp = mp;
+			}
+		}
+	return bp ? bp->ccode : -1;
 }
 
 /*
@@ -49,10 +164,10 @@ ccmapid(const char* name)
 char*
 ccmapname(register int id)
 {
-	register iconv_list_t*	ic;
+	register const Ccmap_t*	mp;
 
-	for (ic = iconv_list(NiL); ic; ic = iconv_list(ic))
-		if (id == ic->ccode)
-			return (char*)ic->name;
+	for (mp = maps; mp->name; mp++)
+		if (id == mp->ccode)
+			return (char*)mp->name;
 	return 0;
 }

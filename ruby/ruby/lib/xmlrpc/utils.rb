@@ -6,7 +6,7 @@
 # 
 # Copyright (C) 2001, 2002, 2003 by Michael Neumann (mneumann@ntecs.de)
 #
-# $Id: utils.rb,v 1.2 2003/08/14 17:20:14 matz Exp $ 
+# $Id: utils.rb 11708 2007-02-12 23:01:19Z shyouhei $ 
 #
 
 module XMLRPC
@@ -17,13 +17,6 @@ module XMLRPC
   # key/value pair "___class___" => ClassName
   # 
   module Marshallable
-    def __get_instance_variables
-      instance_variables.collect {|var| [var[1..-1], eval(var)] }
-    end
-
-    def __set_instance_variable(key, value)
-      eval("@#$1 = value") if key =~ /^([\w_][\w_0-9]*)$/
-    end
   end
 
 

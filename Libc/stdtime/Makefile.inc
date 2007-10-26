@@ -3,18 +3,26 @@
 
 .PATH:	${.CURDIR}/stdtime
 
+CFLAGS += -I${.CURDIR}/stdtime
+
 CFLAGS-localtime-fbsd.c += -DNOTIFY_TZ
 
-UNIX03SRCS += strftime.c
+LEGACYSRCS += localtime.c strftime.c strptime.c
 
 MISRCS += getdate.c timezone_unix03.c
+
+# set the LIBC_ALIAS_* macros so we can decorate the symbol independent
+# of other macro settings
+CFLAGS-localtime-fbsd.c += -DLIBC_ALIAS_MKTIME
+CFLAGS-strftime-fbsd.c += -DLIBC_ALIAS_STRFTIME -DLIBC_ALIAS_STRFTIME_L
+CFLAGS-strptime-fbsd.c += -DLIBC_ALIAS_STRPTIME -DLIBC_ALIAS_STRPTIME_L
 
 .include "Makefile.fbsd_begin"
 FBSDMISRCS= asctime.c difftime.c ftime.c localtime.c \
 	strftime.c strptime.c timelocal.c time32.c
 FBSDHDRS= private.h timelocal.h tzfile.h
 .include "Makefile.fbsd_end"
-INSTHDRS_AUTOPATCH += tzfile.h
+INSTHDRS += ${.CURDIR}/stdtime/tzfile.h
 
 .if ${LIB} == "c"
 .include "Makefile.fbsd_begin"

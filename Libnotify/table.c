@@ -83,10 +83,14 @@ static uint32_t
 hash_key(int size, const char *key)
 {
 	uint32_t v;
+	char *p;
 
-	for (v = 0; *key != NULL; *key++)
+	if (key == NULL) return 0;
+
+	v = 0;
+	for (p = (char *)key; *p != '\0'; p++)
 	{
-		v = (v << 1) ^ (v ^ *key);
+		v = (v << 1) ^ (v ^ *p);
 	}
 
 	v %= size;

@@ -1,6 +1,9 @@
-/* Dwarf2 Expression Evaluator
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
-   Contributed by Daniel Berlin (dan@dberlin.org)
+/* DWARF 2 Expression Evaluator.
+
+   Copyright 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
+
+   Contributed by Daniel Berlin <dan@dberlin.org>.
+
    This file is part of GDB.
 
    This program is free software; you can redistribute it and/or modify
@@ -40,14 +43,12 @@ struct dwarf_expr_context
   CORE_ADDR (*read_reg) (void *baton, int regnum);
 
   /* Read LENGTH bytes at ADDR into BUF.  */
-  void (*read_mem) (void *baton, char *buf, CORE_ADDR addr,
-		    size_t length);
+  void (*read_mem) (void *baton, gdb_byte *buf, CORE_ADDR addr, size_t length);
 
   /* Return the location expression for the frame base attribute, in
      START and LENGTH.  The result must be live until the current
      expression evaluation is complete.  */
-  void (*get_frame_base) (void *baton, unsigned char **start,
-			 size_t *length);
+  void (*get_frame_base) (void *baton, gdb_byte **start, size_t *length);
 
   /* Return the thread-local storage address for
      DW_OP_GNU_push_tls_address.  */
@@ -74,6 +75,54 @@ struct dwarf_expr_context
   /* Non-zero if the result is in a register.  The register number
      will be on the expression stack.  */
   int in_reg;
+
+  /* An array of pieces.  PIECES points to its first element;
+     NUM_PIECES is its length.
+
+     Each time DW_OP_piece is executed, we add a new element to the
+     end of this array, recording the current top of the stack, the
+     current in_reg flag, and the size given as the operand to
+     DW_OP_piece.  We then pop the top value from the stack, clear the
+     in_reg flag, and resume evaluation.
+
+     The Dwarf spec doesn't say whether DW_OP_piece pops the top value
+     from the stack.  We do, ensuring that clients of this interface
+     expecting to see a value left on the top of the stack (say, code
+     evaluating frame base expressions or CFA's specified with
+     DW_CFA_def_cfa_expression) will get an error if the expression
+     actually marks all the values it computes as pieces.
+
+     If an expression never uses DW_OP_piece, num_pieces will be zero.
+     (It would be nice to present these cases as expressions yielding
+     a single piece, with in_reg clear, so that callers need not
+     distinguish between the no-DW_OP_piece and one-DW_OP_piece cases.
+     But expressions with no DW_OP_piece operations have no value to
+     place in a piece's 'size' field; the size comes from the
+     surrounding data.  So the two cases need to be handled
+     separately.)  */
+  int num_pieces;
+
+  /* APPLE LOCAL begin initialized variable status  */
+  /* For variables, indicates whether the variable is initialized (1) or not (0).  */
+  int var_status;
+  /* APPLE LOCAL end initialized variable status  */
+  struct dwarf_expr_piece *pieces;
+};
+
+
+/* A piece of an object, as recorded by DW_OP_piece.  */
+struct dwarf_expr_piece
+{
+  /* If IN_REG is zero, then the piece is in memory, and VALUE is its address.
+     If IN_REG is non-zero, then the piece is in a register, and VALUE
+     is the register number.  */
+  int in_reg;
+
+  /* This piece's address or register number.  */
+  CORE_ADDR value;
+
+  /* The length of the piece, in bytes.  */
+  ULONGEST size;
 };
 
 struct dwarf_expr_context *new_dwarf_expr_context (void);
@@ -86,11 +135,16 @@ void dwarf_expr_eval (struct dwarf_expr_context *ctx, unsigned char *addr,
 CORE_ADDR dwarf_expr_fetch (struct dwarf_expr_context *ctx, int n);
 
 
-unsigned char *read_uleb128 (unsigned char *buf, unsigned char *buf_end,
-			     ULONGEST * r);
-unsigned char *read_sleb128 (unsigned char *buf, unsigned char *buf_end,
-			     LONGEST * r);
-CORE_ADDR dwarf2_read_address (unsigned char *buf, unsigned char *buf_end,
+gdb_byte *read_uleb128 (gdb_byte *buf, gdb_byte *buf_end, ULONGEST * r);
+gdb_byte *read_sleb128 (gdb_byte *buf, gdb_byte *buf_end, LONGEST * r);
+CORE_ADDR dwarf2_read_address (gdb_byte *buf, gdb_byte *buf_end,
 			       int *bytes_read);
 
-#endif
+/* APPLE LOCAL begin variable initialized status  */
+
+extern struct type *unsigned_address_type (void);
+extern struct type *signed_address_type (void);
+extern void add_piece (struct dwarf_expr_context *, int, CORE_ADDR, ULONGEST);
+
+/* APPLE LOCAL end variable initialized status  */
+#endif /* dwarf2expr.h */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -91,7 +91,8 @@ enum {
 // an Apple-specific feature of pcscd.
 //
 enum {
-	kNotificationPCSCStateChange		= 1		// general PCSC state change
+	kNotificationPCSCStateChange		= 1,		// general PCSC state change
+	kNotificationPCSCInitialized		= 2			// pcscd has just started up
 };
 
 

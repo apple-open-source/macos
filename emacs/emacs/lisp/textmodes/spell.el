@@ -1,6 +1,7 @@
 ;;; spell.el --- spelling correction interface for Emacs
 
-;; Copyright (C) 1985 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: wp, unix
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -128,9 +129,9 @@ for example, \"word\"."
 	 (forward-char 1)
 	 (delete-region (point-min) (point))
 	 (setq newword
-	       (read-input (concat "`" word
-				   "' not recognized; edit a replacement: ")
-			   word))
+	       (read-string (concat "`" word
+                                    "' not recognized; edit a replacement: ")
+                            word))
 	 (flush-lines (concat "^" (regexp-quote word) "$")))
 	(if (not (equal word newword))
 	    (progn
@@ -163,4 +164,5 @@ for example, \"word\"."
 
 (provide 'spell)
 
+;;; arch-tag: 7eabb848-9c76-431a-bcdb-0e0592d2db04
 ;;; spell.el ends here

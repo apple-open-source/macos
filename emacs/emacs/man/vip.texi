@@ -3,32 +3,13 @@
 @setfilename ../info/vip
 @settitle VIP
 
-@dircategory Emacs
-@direntry
-* VIP: (vip).		An older VI-emulation for Emacs.
-@end direntry
+@copying
+Copyright @copyright{} 1987, 2001, 2002, 2003, 2004,
+2005, 2006, 2007 Free Software Foundation, Inc.
 
-@iftex
-@finalout
-@end iftex
-
-@titlepage
-@sp 10
-@center @titlefont{VIP}
-@sp 1
-@center A Vi Package for GNU Emacs
-@center (Version 3.5, September 15, 1987)
-@sp 2
-@center Masahiko Sato
-@sp 2
-@end titlepage
-
-@unnumbered Distribution
-
-Copyright @copyright{} 1987, 2001 Free Software Foundation, Inc.
-
+@quotation
 Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
+under the terms of the GNU Free Documentation License, Version 1.2 or
 any later version published by the Free Software Foundation; with no
 Invariant Sections, with the Front-Cover texts being ``A GNU
 Manual'', and with the Back-Cover Texts as in (a) below.  A copy of the
@@ -43,8 +24,30 @@ This document is part of a collection distributed under the GNU Free
 Documentation License.  If you want to distribute this document
 separately from the collection, you can do so by adding a copy of the
 license to the document, as described in section 6 of the license.
+@end quotation
+@end copying
 
-@ifinfo
+@titlepage
+@sp 10
+@center @titlefont{VIP}
+@sp 1
+@center A Vi Package for GNU Emacs
+@center (Version 3.5, September 15, 1987)
+@sp 2
+@center Masahiko Sato
+@page
+@vskip 0pt plus1filll
+@insertcopying
+@end titlepage
+
+@dircategory Emacs
+@direntry
+* VIP: (vip).		An older VI-emulation for Emacs.
+@end direntry
+
+@finalout
+
+@ifnottex
 @node Top, Survey,, (DIR)
 @top VIP
 
@@ -63,13 +66,15 @@ Comments and bug reports are welcome.  Please send messages to
 @code{ms@@Sail.Stanford.Edu} if you are outside of Japan and to
 @code{masahiko@@sato.riec.tohoku.junet} if you are in Japan.@refill
 
-@end ifinfo
+@end ifnottex
 
 @menu
 * Survey::		A survey of VIP.
 * Vi Commands::		Details of Vi commands.
 * Ex Commands::		Details of Ex commands.
 * Customization::	How to customize VIP.
+* GNU Free Documentation License:: The license for this documentation.
+
 @end menu
 @iftex
 @unnumbered Introduction
@@ -119,7 +124,7 @@ explained in more detail in the GNU Emacs Manual.
 @cindex end (of buffer)
 @cindex region
 
-Conceptually, a @dfn{buffer} is just a string of ASCII characters and two
+Conceptually, a @dfn{buffer} is just a string of @acronym{ASCII} characters and two
 special characters @key{PNT} (@dfn{point}) and @key{MRK} (@dfn{mark}) such
 that the character @key{PNT} occurs exactly once and @key{MRK} occurs at
 most once.  The @dfn{text} of a buffer is obtained by deleting the
@@ -911,7 +916,7 @@ Use @kbd{V} instead of @kbd{v}, if you wish to visit a file in another
 window.
 
 You can verify which file you are editing by typing @kbd{g}.  (You can also
-type @kbd{X B} to get nformation on other buffers too.)  If you type
+type @kbd{X B} to get information on other buffers too.)  If you type
 @kbd{g} you will get an information like below in the echo area:@refill
 @example
 "/usr/masahiko/man/vip.texinfo" line 921 of 1949
@@ -1001,7 +1006,7 @@ The following commands are used to mark positions in the buffer.
 @item m @var{ch}
 @kindex 155 @kbd{m} (@code{vip-mark-point})
 Store current point in the register @var{ch}.  @var{ch} must be a
-lower-case ASCII letter.
+lower-case @acronym{ASCII} letter.
 @item m <
 Set mark at the beginning of current buffer.
 @item m >
@@ -1565,7 +1570,7 @@ keymap.  See GNU Emacs Manual for details.
 @kindex 000 @kbd{C-@@} (@code{set-mark-command})
 Set mark and push previous mark on mark ring (@code{set-mark-command}).
 @item TAB
-@kindex 011 @kbd{TAB} (@code{indent-for-tab-command})
+@kindex 011 TAB (@code{indent-for-tab-command})
 Indent line for current major mode (@code{indent-for-tab-command}).
 @item C-j
 @kindex 012 @kbd{C-j} (@code{newline-and-indent})
@@ -1662,7 +1667,7 @@ Delete previous word (@code{vip-delete-backward-word}).
 @item C-z
 @kindex 032 @kbd{C-z} (@code{vip-ESC}) (insert mode)
 This key simulates @key{ESC} key in emacs mode.  For instance, typing
-@kbd{C-z x} in insert mode iw the same as typing @kbd{ESC x} in emacs mode
+@kbd{C-z x} in insert mode is the same as typing @kbd{ESC x} in emacs mode
 (@code{vip-ESC}).
 @end table
 @noindent
@@ -1748,7 +1753,7 @@ Place a copy of specified lines after @var{addr}.  If @var{addr} is
 @item (.,.@:) d[elete] @var{register} @var{count} @var{flags}
 Delete specified lines.  Text will be saved in a named @var{register} if a
 lower-case letter is given, and appended to a register if a capital letter is
-given. 
+given.
 @item e[dit] !@: +@var{addr} @var{file}
 @itemx e[x] !@: +@var{addr} @var{file}
 @itemx vi[sual] !@: +@var{addr} @var{file}
@@ -1932,6 +1937,11 @@ file.
 (define-key vip-command-mode-map "X" 'vip-delete-backward-char)
 @end example
 
+@node GNU Free Documentation License,,, Top
+@appendix GNU Free Documentation License
+@include doclicense.texi
+
+
 @unnumbered Key Index
 
 @printindex ky
@@ -1942,3 +1952,7 @@ file.
 @setchapternewpage odd
 @contents
 @bye
+
+@ignore
+   arch-tag: 7c5d17b9-1d21-4261-a88a-b9fdbbf1020b
+@end ignore

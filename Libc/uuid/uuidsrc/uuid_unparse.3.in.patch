@@ -1,0 +1,24 @@
+--- uuid_unparse.3.in	2004-06-02 17:18:30.000000000 -0700
++++ uuid_unparse.3.in.edit	2006-09-07 18:22:58.000000000 -0700
+@@ -36,9 +36,18 @@
+ .nf
+ .B #include <uuid/uuid.h>
+ .sp
+-.BI "void uuid_unparse(uuid_t " uu ", char *" out );
+-.BI "void uuid_unparse_upper(uuid_t " uu ", char *" out );
+-.BI "void uuid_unparse_lower(uuid_t " uu ", char *" out );
++\fIvoid\fP
++.br
++\fBuuid_unparse\fP(\fIuuid_t uu\fP, \fIchar * out\fP);
++.sp
++\fIvoid\fP
++.br
++\fBuuid_unparse_lower\fP(\fIuuid_t uu\fP, \fIchar * out\fP);
++.sp
++\fIvoid\fP
++.br
++\fBuuid_unparse_upper\fP(\fIuuid_t uu\fP, \fIchar * out\fP);
++.sp
+ .fi
+ .SH DESCRIPTION
+ The

@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -76,7 +72,7 @@ typedef struct regsubop_s
 #define RE_DUP_INF	(RE_DUP_MAX+1)	/* infinity, for *		*/
 #define BACK_REF_MAX	9
 
-#define REG_COMP	(REG_DELIMITED|REG_EXTENDED|REG_FIRST|REG_ICASE|REG_NOSUB|REG_NEWLINE|REG_SHELL|REG_AUGMENTED|REG_LEFT|REG_LITERAL|REG_MINIMAL|REG_NULL|REG_RIGHT|REG_LENIENT|REG_MUSTDELIM)
+#define REG_COMP	(REG_DELIMITED|REG_ESCAPE|REG_EXTENDED|REG_FIRST|REG_ICASE|REG_NOSUB|REG_NEWLINE|REG_SHELL|REG_AUGMENTED|REG_LEFT|REG_LITERAL|REG_MINIMAL|REG_NULL|REG_RIGHT|REG_LENIENT|REG_MUSTDELIM)
 #define REG_EXEC	(REG_ADVANCE|REG_INVERT|REG_NOTBOL|REG_NOTEOL|REG_STARTEND)
 
 #define REX_NULL		0	/* null string (internal)	*/
@@ -114,15 +110,16 @@ typedef struct regsubop_s
 #define REX_KMP			32	/* Knuth-Morris-Pratt		*/
 #define REX_NEG			33	/* negation			*/
 #define REX_NEG_CATCH		34	/* REX_NEG catcher		*/
-#define REX_ONECHAR		35	/* a single-character literal	*/
-#define REX_REP			36	/* Kleene closure		*/
-#define REX_REP_CATCH		37	/* REX_REP catcher		*/
-#define REX_STRING		38	/* some chars			*/
-#define REX_TRIE		39	/* alternation of strings	*/
-#define REX_WBEG		40	/* \<				*/
-#define REX_WEND		41	/* \>				*/
-#define REX_WORD		42	/* word boundary		*/
-#define REX_WORD_NOT		43	/* not word boundary		*/
+#define REX_NEST		35	/* nested match			*/
+#define REX_ONECHAR		36	/* a single-character literal	*/
+#define REX_REP			37	/* Kleene closure		*/
+#define REX_REP_CATCH		38	/* REX_REP catcher		*/
+#define REX_STRING		39	/* some chars			*/
+#define REX_TRIE		40	/* alternation of strings	*/
+#define REX_WBEG		41	/* \<				*/
+#define REX_WEND		42	/* \>				*/
+#define REX_WORD		43	/* word boundary		*/
+#define REX_WORD_NOT		44	/* not word boundary		*/
 
 #define T_META		((int)UCHAR_MAX+1)
 #define T_STAR		(T_META+0)
@@ -131,8 +128,9 @@ typedef struct regsubop_s
 #define T_BANG		(T_META+3)
 #define T_AT		(T_META+4)
 #define T_TILDE		(T_META+5)
-#define T_LEFT		(T_META+6)
-#define T_OPEN		(T_META+7)
+#define T_PERCENT	(T_META+6)
+#define T_LEFT		(T_META+7)
+#define T_OPEN		(T_META+8)
 #define T_CLOSE		(T_OPEN+1)
 #define T_RIGHT		(T_OPEN+2)
 #define T_CFLX		(T_OPEN+3)
@@ -204,20 +202,46 @@ extern int		_reg_iswblank(wint_t);
 
 #undef	_lib_wctype
 
+#ifndef iswalnum
 #define iswalnum(x)	isalnum(x)
+#endif
+#ifndef iswalpha
 #define iswalpha(x)	isalpha(x)
+#endif
+#ifndef iswcntrl
 #define iswcntrl(x)	iscntrl(x)
+#endif
+#ifndef iswdigit
 #define iswdigit(x)	isdigit(x)
+#endif
+#ifndef iswgraph
 #define iswgraph(x)	isgraph(x)
+#endif
+#ifndef iswlower
 #define iswlower(x)	islower(x)
+#endif
+#ifndef iswprint
 #define iswprint(x)	isprint(x)
+#endif
+#ifndef iswpunct
 #define iswpunct(x)	ispunct(x)
+#endif
+#ifndef iswspace
 #define iswspace(x)	isspace(x)
+#endif
+#ifndef iswupper
 #define iswupper(x)	isupper(x)
+#endif
+#ifndef iswxdigit
 #define iswxdigit(x)	isxdigit(x)
+#endif
 
+#ifndef towlower
 #define towlower(x)	tolower(x)
+#endif
+#ifndef towupper
 #define towupper(x)	toupper(x)
+#endif
 
 #endif
 
@@ -366,6 +390,24 @@ typedef struct Exec_s
 	size_t		size;
 } Exec_t;
 
+#define REX_NEST_open		0x01
+#define REX_NEST_close		0x02
+#define REX_NEST_escape		0x04
+#define REX_NEST_quote		0x08
+#define REX_NEST_literal	0x10
+#define REX_NEST_delimiter	0x20
+#define REX_NEST_terminator	0x40
+#define REX_NEST_separator	0x80
+
+#define REX_NEST_SHIFT		8
+
+typedef struct Nest_s
+{
+	int		primary;
+	unsigned short	none;		/* for Nest_t.type[-1] */
+	unsigned short	type[1];
+} Nest_t;
+
 /*
  * REX_ALT catcher, solely to get control at the end of an
  * alternative to keep records for comparing matches.
@@ -471,6 +513,7 @@ typedef struct Rex_s
 	Group_t		group;			/* a|b or rep		*/
 	Group_catch_t	group_catch;		/* group catcher	*/
 	Neg_catch_t	neg_catch;		/* neg catcher		*/
+	Nest_t		nest;			/* nested match		*/
 	unsigned char	onechar;		/* single char		*/
 	Rep_catch_t	rep_catch;		/* rep catcher		*/
 	String_t	string;			/* string/kmp		*/
@@ -516,10 +559,10 @@ typedef struct State_s				/* shared state		*/
 	unsigned char	key;
 	short		val[15];
 	}		escape[52];
-	unsigned char	fold[UCHAR_MAX+1];
 	short*		magic[UCHAR_MAX+1];
 	regdisc_t	disc;
 	int		fatal;
+	int		initialized;
 	Dt_t*		attrs;
 	Dt_t*		names;
 	Dtdisc_t	dtdisc;

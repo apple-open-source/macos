@@ -31,7 +31,7 @@
 */
 
 
-static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.3.4.4 2005/04/22 11:57:53 jorton Exp $";
+static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.9.4.1 2006/07/30 11:34:02 tony2001 Exp $";
 
 
 
@@ -44,18 +44,28 @@ static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.3.4.4 2005/04/22 11:57:
  *   06/2000
  * HISTORY
  *   $Log: xml_element.c,v $
- *   Revision 1.3.4.4  2005/04/22 11:57:53  jorton
- *   MFH: Fixed bug #32797 (invalid C code in xmlrpc extension).
+ *   Revision 1.9.4.1  2006/07/30 11:34:02  tony2001
+ *   MFH: fix compile warnings (#38257)
  *
- *   Revision 1.3.4.3  2004/06/01 20:16:18  iliaa
- *   MFH: Fixed bug #28597 (xmlrpc_encode_request() incorrectly encodes chars in
+ *   Revision 1.9  2005/04/22 11:06:53  jorton
+ *   Fixed bug #32797 (invalid C code in xmlrpc extension).
+ *
+ *   Revision 1.8  2005/03/28 00:07:24  edink
+ *   Reshufle includes to make it compile on windows
+ *
+ *   Revision 1.7  2005/03/26 03:13:58  sniper
+ *   - Made it possible to build ext/xmlrpc with libxml2
+ *
+ *   Revision 1.6  2004/06/01 20:16:06  iliaa
+ *   Fixed bug #28597 (xmlrpc_encode_request() incorrectly encodes chars in
  *   200-210 range).
+ *   Patch by: fernando dot nemec at folha dot com dot br
  *
- *   Revision 1.3.4.2  2003/12/16 21:00:35  sniper
- *   MFH: fix compile warnings
+ *   Revision 1.5  2003/12/16 21:00:21  sniper
+ *   Fix some compile warnings (patch by Joe Orton)
  *
- *   Revision 1.3.4.1  2002/11/27 04:07:00  fmk
- *   MFH
+ *   Revision 1.4  2002/11/26 23:01:16  fmk
+ *   removing unused variables
  *
  *   Revision 1.3  2002/07/05 04:43:53  danda
  *   merged in updates from SF project.  bring php repository up to date with xmlrpc-epi version 0.51
@@ -103,6 +113,7 @@ static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.3.4.4 2005/04/22 11:57:
  *   there must be some.
  ******/
  
+#include "ext/xml/expat_compat.h"
 #ifdef _WIN32
 #include "xmlrpc_win32.h"
 #endif
@@ -112,7 +123,6 @@ static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.3.4.4 2005/04/22 11:57:
 
 #include "xml_element.h"
 #include "queue.h"
-#include "expat.h"
 #include "encodings.h"
 
 #define my_free(thing)  if(thing) {free(thing); thing = NULL;}
@@ -577,7 +587,7 @@ typedef struct _xml_elem_data {
 
 
 /* expat start of element handler */
-static void startElement(void *userData, const char *name, const char **attrs)
+static void _xmlrpc_startElement(void *userData, const char *name, const char **attrs)
 {
    xml_element *c;
    xml_elem_data* mydata = (xml_elem_data*)userData;
@@ -605,7 +615,7 @@ static void startElement(void *userData, const char *name, const char **attrs)
 }
 
 /* expat end of element handler */
-static void endElement(void *userData, const char *name)
+static void _xmlrpc_endElement(void *userData, const char *name)
 {
    xml_elem_data* mydata = (xml_elem_data*)userData;
 
@@ -617,7 +627,7 @@ static void endElement(void *userData, const char *name)
 }
 
 /* expat char data handler */
-static void charHandler(void *userData,
+static void _xmlrpc_charHandler(void *userData,
                         const char *s,
                         int len)
 {
@@ -690,8 +700,8 @@ xml_element* xml_elem_parse_buf(const char* in_buf, int len, XML_ELEM_INPUT_OPTI
       mydata.input_options = options;
       mydata.needs_enc_conversion = options->encoding && strcmp(options->encoding, encoding_utf_8);
 
-      XML_SetElementHandler(parser, startElement, endElement);
-      XML_SetCharacterDataHandler(parser, charHandler);
+      XML_SetElementHandler(parser, (XML_StartElementHandler)_xmlrpc_startElement, (XML_EndElementHandler)_xmlrpc_endElement);
+      XML_SetCharacterDataHandler(parser, (XML_CharacterDataHandler)_xmlrpc_charHandler);
 
       /* pass the xml_elem_data struct along */
       XML_SetUserData(parser, (void*)&mydata);

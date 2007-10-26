@@ -277,18 +277,18 @@ rtsol_input(int s)
 	if (icp->icmp6_type != ND_ROUTER_ADVERT) {
 		warnmsg(LOG_ERR, __FUNCTION__,
 			"invalid icmp type(%d) from %s on %s", icp->icmp6_type,
-		       inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf,
+		       inet_ntop(AF_INET6, &from.sin6_addr, (char *)ntopbuf,
 				 INET6_ADDRSTRLEN),
-		       if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+		       if_indextoname(pi->ipi6_ifindex, (char *)ifnamebuf));
 		return;
 	}
 
 	if (icp->icmp6_code != 0) {
 		warnmsg(LOG_ERR, __FUNCTION__,
 			"invalid icmp code(%d) from %s on %s", icp->icmp6_code,
-		       inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf,
+		       inet_ntop(AF_INET6, &from.sin6_addr, (char *)ntopbuf,
 				 INET6_ADDRSTRLEN),
-		       if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+		       if_indextoname(pi->ipi6_ifindex, (char *)ifnamebuf));
 		return;
 	}
 
@@ -296,18 +296,18 @@ rtsol_input(int s)
 		warnmsg(LOG_NOTICE, __FUNCTION__,
 			"invalid RA with hop limit(%d) from %s on %s",
 		       *hlimp,
-		       inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf,
+		       inet_ntop(AF_INET6, &from.sin6_addr, (char *)ntopbuf,
 				 INET6_ADDRSTRLEN),
-		       if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+		       if_indextoname(pi->ipi6_ifindex, (char *)ifnamebuf));
 		return;
 	}
 
 	if (pi && !IN6_IS_ADDR_LINKLOCAL(&from.sin6_addr)) {
 		warnmsg(LOG_NOTICE, __FUNCTION__,
 			"invalid RA with non link-local source from %s on %s",
-		       inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf,
+		       inet_ntop(AF_INET6, &from.sin6_addr, (char *)ntopbuf,
 				 INET6_ADDRSTRLEN),
-		       if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+		       if_indextoname(pi->ipi6_ifindex, (char *)ifnamebuf));
 		return;
 	}
 
@@ -316,15 +316,15 @@ rtsol_input(int s)
 	if ((ifi = find_ifinfo(pi->ipi6_ifindex)) == NULL) {
 		warnmsg(LOG_NOTICE, __FUNCTION__,
 			"received RA from %s on an unexpeced IF(%s)",
-		       inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf,
+		       inet_ntop(AF_INET6, &from.sin6_addr, (char *)ntopbuf,
 				 INET6_ADDRSTRLEN),
-		       if_indextoname(pi->ipi6_ifindex, ifnamebuf));
+		       if_indextoname(pi->ipi6_ifindex, (char *)ifnamebuf));
 		return;
 	}
 
 	warnmsg(LOG_DEBUG, __FUNCTION__,
 		"received RA from %s on %s, state is %d",
-	       inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf,
+	       inet_ntop(AF_INET6, &from.sin6_addr, (char *)ntopbuf,
 			 INET6_ADDRSTRLEN),
 	       ifi->ifname, ifi->state);
 

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: debug.c,v 1.1 2004/08/23 14:22:26 bagder Exp $
+ * $Id: debug.c,v 1.2 2006-10-20 21:26:10 bagder Exp $
  */
 
 #include <stdio.h>
@@ -84,6 +84,9 @@ int my_trace(CURL *handle, curl_infotype type,
   case CURLINFO_DATA_OUT:
     text = "=> Send data";
     break;
+  case CURLINFO_SSL_DATA_OUT:
+    text = "=> Send SSL data";
+    break;
   case CURLINFO_HEADER_IN:
     text = "<= Recv header";
     break;
@@ -92,9 +95,6 @@ int my_trace(CURL *handle, curl_infotype type,
     break;
   case CURLINFO_SSL_DATA_IN:
     text = "<= Recv SSL data";
-    break;
-  case CURLINFO_SSL_DATA_OUT:
-    text = "<= Send SSL data";
     break;
   }
 

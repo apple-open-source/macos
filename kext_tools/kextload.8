@@ -33,7 +33,7 @@
 .Op Fl s Ar directory
 .Op Fl p Ar personality
 \&.\|.\|.
-.Op Fl b bundle_id
+.Op Fl b Ar bundle_id
 \&.\|.\|.
 .Op Fl -
 .Op Ar extension
@@ -155,11 +155,18 @@ to be debugged during its earliest stages of running.
 for the specified kext and all of its dependencies.
 .It Fl k Ar kernel_file
 Link against the given
-.Ar kernel_file
-(default is /mach).
+.Ar kernel_file .
 Allowed only with the
 .Fl n
 option to generate debug symbols.
+By default
+.Nm
+attempts to get link symbols from the running kernel,
+.It Pa /var/run/mach.sym ,
+and
+.It Pa /mach_kernel ,
+in that order
+(the UUIDs must match that of the running kernel for the disk-based files).
 .It Fl l
 Load and start the kext only; don't send I/O Kit personalities
 to the kernel to begin matching.
@@ -548,8 +555,14 @@ so that you can set up your debugging session as needed before proceeding.
 .Bl -tag -width "/System/Library/Extensions" -compact
 .It Pa /System/Library/Extensions
 The standard system repository of kernel extensions
-.It Pa directoryname.kextcache
-A cache of all kext info dictionaries (plists) for a given directory
+.It Pa directoryname/Caches/*
+Cache files for a given directory of kernel extensions
+.It Pa /var/run/mach.sym
+The symbol file for the running kernel, written by
+.Xr kextd 8
+at system startup.
+.It Pa /mach_kernel
+The default kernel file, used for linking as a last resort.
 .El
 .Sh DIAGNOSTICS
 .Nm
@@ -557,6 +570,25 @@ exits with a zero status upon success.
 Upon failure, it prints an error message
 and continues processing any kexts if possible,
 then exits with a nonzero status.
+.Pp
+For a kext to be loadable, it must be valid, authentic,
+have all dependencies met
+(that is, all dependencies must be found and loadable).
+A valid kext has a well formed bundle, info dictionary, and executable.
+An authentic kext's component files are owned by root:wheel,
+with permissions nonwritable by group and other.
+If your kext fails to load, try using the
+.Fl t
+option to print diagnostics related to validation and authentication.
+.Pp
+Also, of course, the executable must contain code
+for the host machine's architecture and link successfully.
+However, since this is expensive to do,
+these checks are not made unless the kext is actually being linked.
+You can confirm these aspects of loadability by attempting
+to generate symbol files using the
+.Fl s
+option.
 .Sh SEE ALSO 
 .Xr kextcache 8 ,
 .Xr kextd 8 ,

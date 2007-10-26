@@ -1,5 +1,5 @@
---- getenv.c.orig	2004-12-01 20:08:48.000000000 -0800
-+++ getenv.c	2004-12-01 20:10:20.000000000 -0800
+--- getenv.c.orig	2006-08-29 00:12:28.000000000 -0700
++++ getenv.c	2006-08-29 00:13:31.000000000 -0700
 @@ -40,8 +40,9 @@
  #include <stdlib.h>
  #include <stddef.h>
@@ -7,16 +7,50 @@
 +#include <crt_externs.h>
  
 -inline char *__findenv(const char *, int *);
-+inline char *__findenv(const char *, int *) __attribute__((always_inline));
++__private_extern__ char *__findenv(const char *, int *, char **);
  
  /*
   * __findenv --
-@@ -57,7 +58,7 @@
+@@ -52,12 +53,12 @@
+  *
+  *	This routine *should* be a static; don't use it.
+  */
+-inline char *
+-__findenv(name, offset)
++__private_extern__ char *
++__findenv(name, offset, environ)
  	const char *name;
  	int *offset;
++	char **environ;
  {
 -	extern char **environ;
-+	char **environ = *_NSGetEnviron();
  	int len, i;
  	const char *np;
  	char **p, *cp;
+@@ -80,6 +81,19 @@
+ }
+ 
+ /*
++ * _getenvp -- SPI using an arbitrary pointer to string array (the array must
++ * have been created with malloc) and an env state, created by _allocenvstate().
++ *	Returns ptr to value associated with name, if any, else NULL.
++ */
++char *
++_getenvp(const char *name, char ***envp, void *state __unused)
++{
++	int offset;
++
++	return (__findenv(name, &offset, *envp));
++}
++
++/*
+  * getenv --
+  *	Returns ptr to value associated with name, if any, else NULL.
+  */
+@@ -89,5 +103,5 @@
+ {
+ 	int offset;
+ 
+-	return (__findenv(name, &offset));
++	return (__findenv(name, &offset, *_NSGetEnviron()));
+ }

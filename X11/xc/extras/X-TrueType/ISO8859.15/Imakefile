@@ -1,9 +1,0 @@
-/* code converter: ISO8859.15 */
-
-#define ModuleName ISO8859_15
-SRCS = main.c
-OBJS = main.o
-
-#include <xttMod.tmpl>
-
-/* end of file */

@@ -25,7 +25,8 @@
 #ifndef __CAuthFileBase__
 #define __CAuthFileBase__
 
-#include "AuthFile.h"
+#include <PasswordServer/AuthFile.h>
+#include <PasswordServer/AuthDBFileDefs.h>
 
 extern "C" {
 #include "DES.h"
@@ -33,42 +34,6 @@ extern "C" {
 //#include "CWeakDict.h"
 };
 #include "CAuthFileUtils.h"
-
-#define kNominalLockInterval				250				// 1/4 second
-#define kOneSecondLockInterval				1000			// 1 second
-#define kLongerLockInterval					15000			// 15 seconds
-
-#define kKerberosRecordScaleLimit			128
-
-// Reposonse Codes (used numerically)
-enum {
-    kAuthOK = 0,
-    kAuthFail = -1,
-    kAuthUserDisabled = -2,
-    kAuthNeedAdminPrivs = -3,
-    kAuthUserNotSet = -4,
-    kAuthUserNotAuthenticated = -5,
-    kAuthPasswordExpired = -6,
-    kAuthPasswordNeedsChange = -7,
-    kAuthPasswordNotChangeable = -8,
-    kAuthPasswordTooShort = -9,
-    kAuthPasswordTooLong = -10,
-    kAuthPasswordNeedsAlpha = -11,
-    kAuthPasswordNeedsDecimal = -12,
-    kAuthMethodTooWeak = -13,
-	kAuthPasswordNeedsMixedCase = -14,
-	kAuthPasswordHasGuessablePattern = -15,
-	kAuthPasswordCannotBeUsername = -16
-};
-
-typedef enum SyncStatus {
-	kSyncStatusNoErr					=  0,
-	kSyncStatusFail						= -1,
-	kSyncStatusIncompatibleDatabases	= -2,
-	kSyncStatusServerDatabaseBusy		= -3,
-	kSyncStatusKerberosLocked			= -4
-};
-
 
 class CAuthFileBase
 {
@@ -169,7 +134,7 @@ class CAuthFileBase
 
 		virtual CAuthFileUtils*			GetUtilsObject( void );
 		
-		int								getPasswordRecFromSpillBucket(PWFileEntry *inRec, PWFileEntry *passRec);
+		int								getPasswordRecFromSpillBucket(PWFileEntry *inRec, PWFileEntry *passRec, bool unObfuscate = true);
 		int								SaveOverflowRecord( PWFileEntry *inPasswordRec, bool obfuscate = true, bool setModDate = true );
 		int								OpenOverflowFile( PWFileEntry *inPasswordRec, bool create, FILE **outFP );
 		void							PWRecToOverflowFileName( PWFileEntry *inPasswordRec, char *outFileName );

@@ -1,9 +1,11 @@
 require 'rexml/parsers/baseparser'
 require 'rexml/parseexception'
 require 'rexml/namespace'
+require 'rexml/text'
 
 module REXML
 	module Parsers
+    # SAX2Parser
 		class SAX2Parser
 			def initialize source
 				@parser = BaseParser.new(source)
@@ -12,7 +14,12 @@ module REXML
 				@namespace_stack = []
 				@has_listeners = false
 				@tag_stack = []
+        @entities = {}
 			end
+
+      def source
+        @parser.source
+      end
 			
       def add_listener( listener )
         @parser.add_listener( listener )
@@ -35,6 +42,10 @@ module REXML
 			# :start_prefix_mapping, :end_prefix_mapping, :characters,
 			# :processing_instruction, :doctype, :attlistdecl, :elementdecl,
 			# :entitydecl, :notationdecl, :cdata, :xmldecl, :comment
+      #
+      # There is an additional symbol that can be listened for: :progress.
+      # This will be called for every event generated, passing in the current 
+      # stream position.
 			#
 			# Array contains regular expressions or strings which will be matched
 			# against fully qualified element names.
@@ -143,12 +154,24 @@ module REXML
 							end
 						end
 					when :text
-						normalized = @parser.normalize( event[1] )
-						handle( :characters, normalized )
+            #normalized = @parser.normalize( event[1] )
+            #handle( :characters, normalized )
+            copy = event[1].clone
+            @entities.each { |key, value| copy = copy.gsub("&#{key};", value) }
+            copy.gsub!( Text::NUMERICENTITY ) {|m|
+              m=$1
+              m = "0#{m}" if m[0] == ?x
+              [Integer(m)].pack('U*')
+            }
+            handle( :characters, copy )
+          when :entitydecl
+            @entities[ event[1] ] = event[2] if event.size == 3
+						handle( *event )
 					when :processing_instruction, :comment, :doctype, :attlistdecl, 
-						:elementdecl, :entitydecl, :cdata, :notationdecl, :xmldecl
+						:elementdecl, :cdata, :notationdecl, :xmldecl
 						handle( *event )
 					end
+          handle( :progress, @parser.position )
 				end
 			end
 

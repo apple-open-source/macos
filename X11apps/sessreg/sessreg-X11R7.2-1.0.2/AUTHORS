@@ -1,0 +1,5 @@
+Original Author:  Keith Packard, MIT X Consortium
+
+Lastlog support and dynamic utmp entry allocation
+   by Andreas Stolcke <stolcke@icsi.berkeley.edu>
+

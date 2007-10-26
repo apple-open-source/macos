@@ -1,5 +1,0 @@
-#if defined(__cplusplus) || defined(c_plusplus)
-}
-#endif
-
-#endif /* DPSOPS_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -123,7 +123,7 @@ public:
 
 	void usage(uint32 u) { header().usage(u); }
 	void clearUsage(uint32 u) { header().clearUsage(u); }
-	
+		
 public:
 	// access to the key data
 	size_t length() const { return KeyData.Length; }

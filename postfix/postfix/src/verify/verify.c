@@ -6,7 +6,7 @@
 /* SYNOPSIS
 /*	\fBverify\fR [generic Postfix daemon options]
 /* DESCRIPTION
-/*	The Postfix address verification server maintains a record
+/*	The \fBverify\fR(8) address verification server maintains a record
 /*	of what recipient addresses are known to be deliverable or
 /*	undeliverable.
 /*
@@ -19,13 +19,14 @@
 /*	MTA for the specified address, and will therefore not detect
 /*	all undeliverable addresses.
 /*
-/*	This server is designed to run under control by the Postfix
+/*	The \fBverify\fR(8) server is designed to run under control
+/*	by the Postfix
 /*	master server. It maintains an optional persistent database.
 /*	To avoid being interrupted by "postfix stop" in the middle
 /*	of a database update, the process runs in a separate process
 /*	group.
 /*
-/*	This server implements the following requests:
+/*	The \fBverify\fR(8) server implements the following requests:
 /* .IP "\fBupdate\fI address status text\fR"
 /*	Update the status and text of the specified address.
 /* .IP "\fBquery\fI address\fR"
@@ -58,12 +59,13 @@
 /* CONFIGURATION PARAMETERS
 /* .ad
 /* .fi
-/*	Changes to \fBmain.cf\fR are not picked up automatically, as verify(8)
+/*	Changes to \fBmain.cf\fR are not picked up automatically,
+/*	as \fBverify\fR(8)
 /*	processes are persistent. Use the command "\fBpostfix reload\fR" after
 /*	a configuration change.
 /*
 /*	The text below provides only a parameter summary. See
-/*	postconf(5) for more details including examples.
+/*	\fBpostconf\fR(5) for more details including examples.
 /* CACHE CONTROLS
 /* .ad
 /* .fi
@@ -178,11 +180,13 @@
 #include <dict_ht.h>
 #include <dict.h>
 #include <split_at.h>
+#include <stringops.h>
 
 /* Global library. */
 
 #include <mail_conf.h>
 #include <mail_params.h>
+#include <mail_version.h>
 #include <mail_proto.h>
 #include <post_mail.h>
 #include <verify_clnt.h>
@@ -223,11 +227,11 @@ static DICT *verify_map;
   * In the case of TODO, we have no information about the address, and the
   * address is being probed.
   * 
-  * probed: if non-zero, the time of the last outstanding address probe. If
-  * zero, there is no outstanding address probe.
+  * probed: if non-zero, the time the currently outstanding address probe was
+  * sent. If zero, there is no outstanding address probe.
   * 
-  * updated: if non-zero, the time of the last processed address probe. If zero,
-  * we have no information about the address, and the address is being
+  * updated: if non-zero, the time the address probe result was received. If
+  * zero, we have no information about the address, and the address is being
   * probed.
   * 
   * text: descriptive text from delivery agents etc.
@@ -256,15 +260,25 @@ static int verify_parse_entry(char *buf, int *status, long *probed,
 
     if ((probed_text = split_at(buf, ':')) != 0
 	&& (updated_text = split_at(probed_text, ':')) != 0
-	&& (*text = split_at(updated_text, ':')) != 0) {
+	&& (*text = split_at(updated_text, ':')) != 0
+	&& alldig(buf)
+	&& alldig(probed_text)
+	&& alldig(updated_text)) {
 	*probed = atol(probed_text);
 	*updated = atol(updated_text);
 	*status = atoi(buf);
+
+	/*
+	 * Coverity 200604: the code incorrectly tested (probed || updated),
+	 * so that the sanity check never detected all-zero time stamps. Such
+	 * records are never written. If we read a record with all-zero time
+	 * stamps, then something is badly broken.
+	 */
 	if ((*status == DEL_RCPT_STAT_OK
 	     || *status == DEL_RCPT_STAT_DEFER
 	     || *status == DEL_RCPT_STAT_BOUNCE
 	     || *status == DEL_RCPT_STAT_TODO)
-	    && (probed || updated))
+	    && (*probed || *updated))
 	    return (0);
     }
     msg_warn("bad address verify table entry: %.100s", buf);
@@ -299,14 +313,16 @@ static void verify_update_service(VSTREAM *client_stream)
 
     if (attr_scan(client_stream, ATTR_FLAG_STRICT,
 		  ATTR_TYPE_STR, MAIL_ATTR_ADDR, addr,
-		  ATTR_TYPE_NUM, MAIL_ATTR_ADDR_STATUS, &addr_status,
+		  ATTR_TYPE_INT, MAIL_ATTR_ADDR_STATUS, &addr_status,
 		  ATTR_TYPE_STR, MAIL_ATTR_WHY, text,
 		  ATTR_TYPE_END) == 3) {
+	/* FIX 200501 IPv6 patch did not neuter ":" in address literals. */
+	translit(STR(addr), ":", "_");
 	if ((status_name = verify_stat2name(addr_status)) == 0) {
 	    msg_warn("bad recipient status %d for recipient %s",
 		     addr_status, STR(addr));
 	    attr_print(client_stream, ATTR_FLAG_NONE,
-		       ATTR_TYPE_NUM, MAIL_ATTR_STATUS, VRFY_STAT_BAD,
+		       ATTR_TYPE_INT, MAIL_ATTR_STATUS, VRFY_STAT_BAD,
 		       ATTR_TYPE_END);
 	} else {
 
@@ -328,7 +344,7 @@ static void verify_update_service(VSTREAM *client_stream)
 		dict_put(verify_map, STR(addr), STR(buf));
 	    }
 	    attr_print(client_stream, ATTR_FLAG_NONE,
-		       ATTR_TYPE_NUM, MAIL_ATTR_STATUS, VRFY_STAT_OK,
+		       ATTR_TYPE_INT, MAIL_ATTR_STATUS, VRFY_STAT_OK,
 		       ATTR_TYPE_END);
 	}
     }
@@ -362,7 +378,6 @@ static void verify_query_service(VSTREAM *client_stream)
     long    probed;
     long    updated;
     char   *text;
-    VSTREAM *post;
 
     if (attr_scan(client_stream, ATTR_FLAG_STRICT,
 		  ATTR_TYPE_STR, MAIL_ATTR_ADDR, addr,
@@ -391,6 +406,8 @@ static void verify_query_service(VSTREAM *client_stream)
     (addr_status != DEL_RCPT_STAT_OK && updated + var_verify_neg_exp < now)
 #define PROBE_TTL	1000
 
+	/* FIX 200501 IPv6 patch did not neuter ":" in address literals. */
+	translit(STR(addr), ":", "_");
 	if ((raw_data = dict_get(verify_map, STR(addr))) == 0	/* not found */
 	    || ((get_buf = vstring_alloc(10)),
 		vstring_strcpy(get_buf, raw_data),	/* malformed */
@@ -414,8 +431,8 @@ static void verify_query_service(VSTREAM *client_stream)
 	 * Respond to the client.
 	 */
 	attr_print(client_stream, ATTR_FLAG_NONE,
-		   ATTR_TYPE_NUM, MAIL_ATTR_STATUS, VRFY_STAT_OK,
-		   ATTR_TYPE_NUM, MAIL_ATTR_ADDR_STATUS, addr_status,
+		   ATTR_TYPE_INT, MAIL_ATTR_STATUS, VRFY_STAT_OK,
+		   ATTR_TYPE_INT, MAIL_ATTR_ADDR_STATUS, addr_status,
 		   ATTR_TYPE_STR, MAIL_ATTR_WHY, text,
 		   ATTR_TYPE_END);
 
@@ -443,8 +460,9 @@ static void verify_query_service(VSTREAM *client_stream)
 			 STR(addr), addr_status, now, updated);
 	    post_mail_fopen_async(strcmp(var_verify_sender, "<>") == 0 ?
 				  "" : var_verify_sender, STR(addr),
-				  CLEANUP_FLAG_MASK_INTERNAL,
-				  DEL_REQ_FLAG_VERIFY,
+				  INT_FILT_NONE,
+				  DEL_REQ_FLAG_MTA_VRFY,
+				  (VSTRING *) 0,
 				  verify_post_mail_action,
 				  (void *) 0);
 	    if (updated != 0 || var_verify_neg_cache != 0) {
@@ -493,7 +511,7 @@ static void verify_service(VSTREAM *client_stream, char *unused_service,
 	} else {
 	    msg_warn("unrecognized request: \"%s\", ignored", STR(request));
 	    attr_print(client_stream, ATTR_FLAG_NONE,
-		       ATTR_TYPE_NUM, MAIL_ATTR_STATUS, VRFY_STAT_BAD,
+		       ATTR_TYPE_INT, MAIL_ATTR_STATUS, VRFY_STAT_BAD,
 		       ATTR_TYPE_END);
 	}
     }
@@ -545,6 +563,8 @@ static void pre_jail_init(char *unused_name, char **unused_argv)
     setsid();
 }
 
+MAIL_VERSION_STAMP_DECLARE;
+
 /* main - pass control to the multi-threaded skeleton */
 
 int     main(int argc, char **argv)
@@ -561,6 +581,11 @@ int     main(int argc, char **argv)
 	VAR_VERIFY_NEG_TRY, DEF_VERIFY_NEG_TRY, &var_verify_neg_try, 1, 0,
 	0,
     };
+
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
 
     multi_server_main(argc, argv, verify_service,
 		      MAIL_SERVER_STR_TABLE, str_table,

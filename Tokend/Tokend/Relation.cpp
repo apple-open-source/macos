@@ -64,4 +64,3 @@ bool Relation::matchesId(RelationId inRelationId) const
 
 } // end namespace Tokend
 
-/* arch-tag: E9350280-DF80-11D8-B395-000A95C4302E */

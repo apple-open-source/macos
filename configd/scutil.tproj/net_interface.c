@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 
 #include "scutil.h"
 #include "net.h"
+#include "prefs.h"
 
 #include <SystemConfiguration/LinkConfiguration.h>
 
@@ -150,12 +151,12 @@ _find_interface(char *match)
 		CFStringRef		bsd_name	= NULL;
 
 		interface = CFArrayGetValueAtIndex(interfaces, i);
-                while ((interface != NULL) && (bsd_name == NULL)) {
-                        bsd_name = SCNetworkInterfaceGetBSDName(interface);
-                        if (bsd_name == NULL) {
-                                interface = SCNetworkInterfaceGetInterface(interface);
-                        }
-                }
+		while ((interface != NULL) && (bsd_name == NULL)) {
+			bsd_name = SCNetworkInterfaceGetBSDName(interface);
+			if (bsd_name == NULL) {
+				interface = SCNetworkInterfaceGetInterface(interface);
+			}
+		}
 
 		if ((bsd_name != NULL) && CFEqual(select_name, bsd_name)) {
 			if (selected == NULL) {
@@ -392,7 +393,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 		int		mtu_min;
 		int		mtu_max;
 
-		if (NetworkInterfaceCopyMTU(if_bsd_name, &mtu_cur, &mtu_min, &mtu_max)) {
+		if (SCNetworkInterfaceCopyMTU(interface, &mtu_cur, &mtu_min, &mtu_max)) {
 			char	isCurrent	= '*';
 
 			if (configuration != NULL) {
@@ -417,7 +418,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 				mtu_max);
 		}
 
-		if (NetworkInterfaceCopyMediaOptions(if_bsd_name, NULL, &active, &available, TRUE)) {
+		if (SCNetworkInterfaceCopyMediaOptions(interface, NULL, &active, &available, TRUE)) {
 			char		isCurrent	= ' ';
 			CFArrayRef	options		= NULL;
 			CFArrayRef	options_req	= NULL;
@@ -480,7 +481,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 				CFIndex		n_subtypes;
 				CFArrayRef	subtypes;
 
-				subtypes   = NetworkInterfaceCopyMediaSubTypes(available);
+				subtypes   = SCNetworkInterfaceCopyMediaSubTypes(available);
 				n_subtypes = (subtypes != NULL) ? CFArrayGetCount(subtypes) : 0;
 				for (i = 0; i < n_subtypes; i++) {
 					CFIndex		j;
@@ -489,7 +490,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 					CFArrayRef	subtype_options;
 
 					subtype = CFArrayGetValueAtIndex(subtypes, i);
-					subtype_options = NetworkInterfaceCopyMediaSubTypeOptions(available, subtype);
+					subtype_options = SCNetworkInterfaceCopyMediaSubTypeOptions(available, subtype);
 					n_subtype_options = (subtype_options != NULL) ? CFArrayGetCount(subtype_options) : 0;
 					for (j = 0; j < n_subtype_options; j++) {
 						char		isCurrent	= ' ';
@@ -575,7 +576,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 
 		if (CFDictionaryGetCount(effective) > 0) {
 			SCPrint(TRUE, stdout, CFSTR("\n%@  per-interface configuration\n"), prefix);
-			_show_entity(configuration, prefix);
+			_show_entity(effective, prefix);
 		}
 
 		CFRelease(effective);
@@ -603,7 +604,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 
 
 static Boolean
-validateMediaOptions(CFStringRef interfaceName, CFMutableDictionaryRef newConfiguration)
+validateMediaOptions(SCNetworkInterfaceRef interface, CFMutableDictionaryRef newConfiguration)
 {
 	Boolean		ok	= TRUE;
 	CFNumberRef	mtu;
@@ -616,7 +617,7 @@ validateMediaOptions(CFStringRef interfaceName, CFMutableDictionaryRef newConfig
 		int	mtu_min;
 		int	mtu_val;
 
-		if (!NetworkInterfaceCopyMTU(interfaceName, NULL, &mtu_min, &mtu_max)) {
+		if (!SCNetworkInterfaceCopyMTU(interface, NULL, &mtu_min, &mtu_max)) {
 			SCPrint(TRUE, stdout, CFSTR("cannot set MTU\n"));
 			return FALSE;
 		}
@@ -644,12 +645,7 @@ validateMediaOptions(CFStringRef interfaceName, CFMutableDictionaryRef newConfig
 			config_options = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
 		}
 
-		if (interfaceName == NULL) {
-			SCPrint(TRUE, stdout, CFSTR("media type / options not available\n"));
-			goto checked;
-		}
-
-		if (!NetworkInterfaceCopyMediaOptions(interfaceName, NULL, NULL, &available, FALSE)) {
+		if (!SCNetworkInterfaceCopyMediaOptions(interface, NULL, NULL, &available, FALSE)) {
 			SCPrint(TRUE, stdout, CFSTR("media type / options not available\n"));
 			goto checked;
 		}
@@ -658,7 +654,7 @@ validateMediaOptions(CFStringRef interfaceName, CFMutableDictionaryRef newConfig
 			goto checked;
 		}
 
-		subtypes = NetworkInterfaceCopyMediaSubTypes(available);
+		subtypes = SCNetworkInterfaceCopyMediaSubTypes(available);
 		if ((subtypes == NULL) ||
 		    !CFArrayContainsValue(subtypes,
 					 CFRangeMake(0, CFArrayGetCount(subtypes)),
@@ -667,7 +663,7 @@ validateMediaOptions(CFStringRef interfaceName, CFMutableDictionaryRef newConfig
 			goto checked;
 		}
 
-		subtype_options = NetworkInterfaceCopyMediaSubTypeOptions(available, subtype);
+		subtype_options = SCNetworkInterfaceCopyMediaSubTypeOptions(available, subtype);
 		if ((subtype_options == NULL) ||
 		    !CFArrayContainsValue(subtype_options,
 					  CFRangeMake(0, CFArrayGetCount(subtype_options)),
@@ -763,12 +759,40 @@ show_interfaces(int argc, char **argv)
 /* -------------------- */
 
 
+static options bondOptions[] = {
+	{ "mtu"       , NULL, isNumber     , &kSCPropNetEthernetMTU         , NULL, NULL },
+// xxx  { "+device"   , ... },
+// xxx  { "-device"   , ... },
+
+	{ "?"         , NULL , isHelp     , NULL                            , NULL,
+	    "\nBond configuration commands\n\n"
+	    " set interface [mtu n] [media type] [mediaopts opts]\n"
+	}
+};
+#define	N_BOND_OPTIONS	(sizeof(bondOptions) / sizeof(bondOptions[0]))
+
+
 static Boolean
 set_interface_bond(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
-// xxxxx ("+device", "-device")
-SCPrint(TRUE, stdout, CFSTR("bond interface management not yet supported\n"));
-	return FALSE;
+	CFStringRef	interfaceName;
+	Boolean		ok;
+
+	interfaceName = SCNetworkInterfaceGetBSDName(net_interface);
+	if (interfaceName == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("no BSD interface\n"));
+		return FALSE;
+	}
+
+	ok = _process_options(bondOptions, N_BOND_OPTIONS, argc, argv, newConfiguration);
+	if (ok) {
+		// validate configuration
+		if (!validateMediaOptions(net_interface, newConfiguration)) {
+			return FALSE;
+		}
+	}
+
+	return ok;
 }
 
 
@@ -803,7 +827,7 @@ set_interface_airport(int argc, char **argv, CFMutableDictionaryRef newConfigura
 	ok = _process_options(airportOptions, N_AIRPORT_OPTIONS, argc, argv, newConfiguration);
 	if (ok) {
 		// validate configuration
-		if (!validateMediaOptions(interfaceName, newConfiguration)) {
+		if (!validateMediaOptions(net_interface, newConfiguration)) {
 			return FALSE;
 		}
 	}
@@ -843,7 +867,7 @@ set_interface_ethernet(int argc, char **argv, CFMutableDictionaryRef newConfigur
 	ok = _process_options(ethernetOptions, N_ETHERNET_OPTIONS, argc, argv, newConfiguration);
 	if (ok) {
 		// validate configuration
-		if (!validateMediaOptions(interfaceName, newConfiguration)) {
+		if (!validateMediaOptions(net_interface, newConfiguration)) {
 			return FALSE;
 		}
 	}
@@ -883,7 +907,7 @@ set_interface_firewire(int argc, char **argv, CFMutableDictionaryRef newConfigur
 	ok = _process_options(firewireOptions, N_FIREWIRE_OPTIONS, argc, argv, newConfiguration);
 	if (ok) {
 		// validate configuration
-		if (!validateMediaOptions(interfaceName, newConfiguration)) {
+		if (!validateMediaOptions(net_interface, newConfiguration)) {
 			return FALSE;
 		}
 	}
@@ -1196,7 +1220,7 @@ set_interface(int argc, char **argv)
 			goto done;
 		}
 
-		net_changed = TRUE;
+		_prefs_changed = TRUE;
 	}
 
     done :

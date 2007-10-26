@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,27 +42,25 @@ extern "C" {
 */
 enum {
     kSecTrustCertAttr 				 = 'tcrt',
-    kSecTrustPolicyAttr				 = 'tpol'
+    kSecTrustPolicyAttr				 = 'tpol',
+	/* Leopard and later */
+	kSecTrustPubKeyAttr				 = 'tpbk',
+	kSecTrustSignatureAttr			 = 'tsig'
 };
 
 /*!
-    @function SecTrustSetPolicies
-    @abstract Set (replace) set of policies to evaluate
-    @param trust The SecTrust object to manipulate
-    @param policies An array of one or more policies. A Single SecPolicyRef may also
-		be passed, representing an array of one policy.
-    @result A result code.  See "Security Error Codes" (SecBase.h).
-*/    
-OSStatus SecTrustSetPolicies(SecTrustRef trust, CFTypeRef policies);
-
-/*!
-	@function SecTrustGetCssmVerifyResult
-	@abstract Gets the actual CSSM return code from the last attempted SecTrustEvaluate call.
-	@param trust A reference to a trust.
-	@param result On return, the CSSM_RETURN produced by the last invocation of the TP.
+	@function SecTrustSetUserTrustLegacy
+	@abstract Sets the user-specified trust settings of a certificate and policy.
+	@param certificate A reference to a certificate.
+	@param policy A reference to a policy.
+	@param trustSetting The user-specified trust settings.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
+
+	@This is the private version of what used to be SecTrustSetUserTrust(); it operates
+	 on UserTrust entries as that function used to. The current SecTrustSetUserTrust()
+	 function operated on Trust Settings. 
 */
-OSStatus SecTrustGetCssmResultCode(SecTrustRef trust, OSStatus *result);
+OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting trustSetting);
 
 /*!
 	@function SecGetAppleTPHandle - NOT EXPORTED YET; copied from SecurityInterface, 

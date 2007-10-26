@@ -1,8 +1,10 @@
 ;;; cal-coptic.el --- calendar functions for the Coptic/Ethiopic calendars
 
-;; Copyright (C) 1995, 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1997, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
 
 ;; Author: Edward M. Reingold <reingold@cs.uiuc.edu>
+;; Maintainer: Glenn Morris <rgm@gnu.org>
 ;; Keywords: calendar
 ;; Human-Keywords: Coptic calendar, Ethiopic calendar, calendar, diary
 
@@ -20,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -29,16 +31,12 @@
 ;; diary.el that deal with the Coptic and Ethiopic calendars.
 
 ;; Technical details of all the calendrical calculations can be found in
-;; ``Calendrical Calculations'' by Nachum Dershowitz and Edward M. Reingold,
-;; Cambridge University Press (1997).
-
-;; Comments, corrections, and improvements should be sent to
-;;  Edward M. Reingold               Department of Computer Science
-;;  (217) 333-6733                   University of Illinois at Urbana-Champaign
-;;  reingold@cs.uiuc.edu             1304 West Springfield Avenue
-;;                                   Urbana, Illinois 61801
+;; ``Calendrical Calculations: The Millennium Edition'' by Edward M. Reingold
+;; and Nachum Dershowitz, Cambridge University Press (2001).
 
 ;;; Code:
+
+(defvar date)
 
 (require 'cal-julian)
 
@@ -49,7 +47,7 @@
 (defvar coptic-calendar-epoch (calendar-absolute-from-julian '(8 29 284))
   "Absolute date of start of Coptic calendar = August 29, 284 A.D. (Julian).")
 
-(defconst coptic-name "Coptic")
+(defvar coptic-name "Coptic")
 
 (defun coptic-calendar-leap-year-p (year)
   "True if YEAR is a leap year on the Coptic calendar."
@@ -77,7 +75,7 @@ Gregorian date Sunday, December 31, 1 BC."
        (/ year 4)                ;; Leap days in prior years
        (* 30 (1- month))         ;; Days in prior months this year
        day)))                    ;; Days so far this month
-       
+
 
 (defun calendar-coptic-from-absolute (date)
   "Compute the Coptic equivalent for absolute date DATE.
@@ -151,14 +149,14 @@ Echo Coptic date unless NOECHO is t."
                   (calendar-coptic-from-absolute
                    (calendar-absolute-from-gregorian today))))))
          (completion-ignore-case t)
-         (month (cdr (assoc-ignore-case
+         (month (cdr (assoc-string
                       (completing-read
                        (format "%s calendar month name: " coptic-name)
                        (mapcar 'list
                                (append coptic-calendar-month-name-array nil))
                        nil t)
                       (calendar-make-alist coptic-calendar-month-name-array
-                                           1))))
+                                           1) t)))
          (last (coptic-calendar-last-day-of-month month year))
          (day (calendar-read
                (format "%s calendar day (1-%d): " coptic-name last)
@@ -234,4 +232,5 @@ Echo Ethiopic date unless NOECHO is t."
 
 (provide 'cal-coptic)
 
+;;; arch-tag: 72d49161-25df-4072-9312-b182cdca7627
 ;;; cal-coptic.el ends here

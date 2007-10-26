@@ -44,15 +44,13 @@ typedef struct __ServerType {
 
 #define kdcType     0
 #define adminType   1
-#define krb524Type  2
-#define kpasswdType 3
+#define kpasswdType 2
 
 const ServerType kServerTypes[] = { 
     { kdcType,     @"kdc" }, 
     { adminType,   @"admin_server" }, 
-    { krb524Type,  @"krb524_server" }, 
     { kpasswdType, @"kpasswd_server" }, 
-    { 4,           NULL } };
+    { 3,           NULL } };
 
 // ---------------------------------------------------------------------------
 
@@ -70,7 +68,6 @@ const ServerType kServerTypes[] = {
         customPort = 0;
         hasCustomPort = FALSE;
         typeMenuIndex = 0;
-        version = kerberosVersion_V5;
     }
     return self;
 }
@@ -78,7 +75,6 @@ const ServerType kServerTypes[] = {
 // ---------------------------------------------------------------------------
     
 - (id) initWithTypeString: (NSString *) serverType 
-                  version: (KLKerberosVersion) serverVersion 
             profileString: (NSString *) profileString
 {
     if ((self = [self init])) {
@@ -98,8 +94,6 @@ const ServerType kServerTypes[] = {
             customPort = [[profileString substringFromIndex: separator.location + separator.length] intValue];
             hasCustomPort = TRUE;
         }
-        
-        version = serverVersion;
     }
     return self;
 }
@@ -109,7 +103,7 @@ const ServerType kServerTypes[] = {
 
 - (void) dealloc
 {
-    if (hostString != NULL) { [hostString release]; }
+    if (hostString) { [hostString release]; }
     [super dealloc];
 }
 
@@ -118,7 +112,7 @@ const ServerType kServerTypes[] = {
 - (NSString *) profileString
 {
     NSMutableString *string = [NSMutableString stringWithCapacity: [[self host] length]];
-    if (string != NULL) {
+    if (string) {
         [string appendFormat: @"%s:%d", [[self host] UTF8String], [[self port] intValue]];
     }
     
@@ -155,20 +149,6 @@ const ServerType kServerTypes[] = {
 
 // ---------------------------------------------------------------------------
 
-- (KLKerberosVersion) version
-{
-    return version;
-}
-
-// ---------------------------------------------------------------------------
-
-- (void) setVersion: (KLKerberosVersion) newVersion
-{
-    version = newVersion;
-}
-
-// ---------------------------------------------------------------------------
-
 - (NSString *) host
 {
     return (hostString != NULL) ? hostString : @"";
@@ -178,7 +158,7 @@ const ServerType kServerTypes[] = {
 
 - (void) setHost: (NSString *) newHost
 {
-    if (hostString != NULL) { [hostString release]; }
+    if (hostString) { [hostString release]; }
     hostString = [newHost retain];
     //NSLog (@"setting host string to '%@'", hostString);
 }
@@ -209,11 +189,9 @@ const ServerType kServerTypes[] = {
     int port = 0;
     
     if (typeMenuIndex == kdcType) {
-        port = (version == kerberosVersion_V4) ? 750 /* KERBEROS_PORT */ : 88 /* KRB5_DEFAULT_PORT */;
+        port = 88 /* KRB5_DEFAULT_PORT */;
     } else if (typeMenuIndex == adminType) {
-        port = (version == kerberosVersion_V4) ? 751 /* KADM_PORT */ : 749 /* DEFAULT_KADM5_PORT */;
-    } else if (typeMenuIndex == krb524Type) {
-        port = 4444; // KRB524_PORT
+        port = 749 /* DEFAULT_KADM5_PORT */;
     } else if (typeMenuIndex == kpasswdType) {
         port = 464; // DEFAULT_KPASSWD_PORT
     }
@@ -258,7 +236,7 @@ const ServerType kServerTypes[] = {
 
 - (void) dealloc
 {
-    if (nameString != NULL) { [nameString release]; }
+    if (nameString) { [nameString release]; }
     [super dealloc];
 }
 
@@ -274,7 +252,7 @@ const ServerType kServerTypes[] = {
 
 - (void) setName: (NSString *) newName
 {
-    if (nameString != NULL) { [nameString release]; }
+    if (nameString) { [nameString release]; }
     nameString = [newName retain];
 }
 
@@ -299,20 +277,18 @@ const ServerType kServerTypes[] = {
         krb5_error_code err = 0;
         nameInProfileString = NULL;
         nameString = NULL;
-        v4NameString = NULL;
         defaultDomainString = NULL;
         serversArray = NULL;
         displayInDialogPopup = YES;
-        version = 0;
         
         if (!err) {
             serversArray = [[NSMutableArray alloc] init];
-            if (serversArray == NULL) { err = ENOMEM; }
+            if (!serversArray) { err = ENOMEM; }
         }
         
         if (!err) {
             domainsArray = [[NSMutableArray alloc] init];
-            if (domainsArray == NULL) { err = ENOMEM; }
+            if (!domainsArray) { err = ENOMEM; }
         }
         
         if (err) {
@@ -334,22 +310,6 @@ const ServerType kServerTypes[] = {
         nameString = [name retain];
         
         if (!err) {
-            const char  *v4NamesList[] = { "realms", [name UTF8String], "v4_realm", NULL };
-            char       **v4Names = NULL;
-
-            err = profile_get_values (profile, v4NamesList, &v4Names);
-            if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
-
-            if (!err && (v4Names != NULL)) {
-                v4NameString = [[NSString alloc] initWithUTF8String: v4Names[0]];
-                if (v4NameString == NULL) { err = ENOMEM; }
-            }
-
-            if (v4Names != NULL) { profile_free_list (v4Names); }
-        }
-        
-        
-        if (!err) {
             const char  *defaultDomainsList[] = { "realms", [name UTF8String], "default_domain", NULL };
             char       **defaultDomains = NULL;
 
@@ -358,20 +318,16 @@ const ServerType kServerTypes[] = {
             
             if (!err && (defaultDomains != NULL) && (defaultDomains[0] != NULL)) {
                 defaultDomainString = [[NSString alloc] initWithUTF8String: defaultDomains[0]];
-                if (defaultDomainString == NULL) { err = ENOMEM; }
+                if (!defaultDomainString) { err = ENOMEM; }
             }
             
-            if (defaultDomains != NULL) { profile_free_list (defaultDomains); }
+            if (defaultDomains) { profile_free_list (defaultDomains); }
         }
         
         if (!err) {
-            err = [self addServersForVersion: kerberosVersion_V5 profile: profile];
+            err = [self addServersFromProfile: profile];
         }
         
-        if (!err) {
-            err = [self addServersForVersion: kerberosVersion_V4 profile: profile];
-        }
-
         // Is the realm in the KLL realms list?
         if (!err) {
             KLIndex popupIndex = 0;
@@ -395,10 +351,9 @@ const ServerType kServerTypes[] = {
 
 - (void) dealloc
 {
-    if (nameString   != NULL) { [nameString release]; }
-    if (v4NameString != NULL) { [v4NameString release]; }
-    if (serversArray != NULL) { [serversArray release]; }
-    if (domainsArray != NULL) { [domainsArray release]; }
+    if (nameString  ) { [nameString release]; }
+    if (serversArray) { [serversArray release]; }
+    if (domainsArray) { [domainsArray release]; }
     [super dealloc];
 }
 
@@ -420,39 +375,7 @@ const ServerType kServerTypes[] = {
         err = profile_rename_section (profile, realmList, [[self name] UTF8String]);
         if (err == PROF_NO_SECTION) { err = 0; }  // OK if there isn't one yet
     }
-    
-    // Change the v4 realm name if necesssary
-    
-    if (!err) {
-        const char  *v4NamesList[] = { "realms", [[self name] UTF8String], "v4_realm", NULL };
-        char       **v4Names = NULL;
-        const char  *v4NameInProfile = NULL;
         
-        if (profile_get_values (profile, v4NamesList, &v4Names) == 0) {
-            v4NameInProfile = v4Names[0];  // profile has a separate v4 realm
-            
-            if ([self hasV4Name]) {
-                err = profile_update_relation (profile, v4NamesList, v4NameInProfile, [[self v4Name] UTF8String]);
-            } else {
-                err = profile_clear_relation (profile, v4NamesList);
-            }
-        } else {
-            v4NameInProfile = [[self nameInProfile] UTF8String];  // Is just the old v5 name
-            
-            if ([self hasV4Name]) {
-                err = profile_add_relation (profile, v4NamesList, [[self v4Name] UTF8String]);  
-            }
-        }
-        
-        if (!err) {
-            const char *v4RealmList[] = { REALMS_V4_PROF_REALMS_SECTION, v4NameInProfile, NULL };
-            err = profile_rename_section (profile, v4RealmList, [[self v4Name] UTF8String]);
-            if (err == PROF_NO_SECTION) { err = 0; }  // OK if there isn't one yet
-        }
-
-        if (v4Names != NULL) { profile_free_list (v4Names); }
-    }
-    
     // Write out the default domain:
     
     if (!err) {
@@ -471,28 +394,20 @@ const ServerType kServerTypes[] = {
             }
         }
 
-        if (defaultDomains != NULL) { profile_free_list (defaultDomains); }
+        if (defaultDomains) { profile_free_list (defaultDomains); }
     }
 
     // Write out the servers:
     
     if (!err) {
-        err = [self flushServersForVersion: kerberosVersion_V5 toProfile: profile];
+        err = [self flushServersToProfile: profile];
     }
-    
-    if (!err) {
-        err = [self flushServersForVersion: kerberosVersion_V4 toProfile: profile];
-    }    
-    
+        
     // Write out the domains:
     
     if (!err) {
-        err = [self flushDomainsForVersion: kerberosVersion_V5 toProfile: profile];
+        err = [self flushDomainsToProfile: profile];
     }
-    
-    if (!err) {
-        err = [self flushDomainsForVersion: kerberosVersion_V4 toProfile: profile];
-    }    
     
     // Is the realm in the KLL realms list?
     if (!err) {
@@ -516,13 +431,11 @@ const ServerType kServerTypes[] = {
 
 // ---------------------------------------------------------------------------
 
-- (krb5_error_code) addServersForVersion: (KLKerberosVersion) serverVersion profile: (profile_t) profile
+- (krb5_error_code) addServersFromProfile: (profile_t) profile
 {
     krb5_error_code err = 0;
     
-    const char       *section = (serverVersion == kerberosVersion_V5) ? "realms" : REALMS_V4_PROF_REALMS_SECTION;
-    NSString         *realmString = (serverVersion == kerberosVersion_V5) ? [self name] : [self v4Name];
-    const char       *serversList[] = { section, [realmString UTF8String], NULL, NULL };
+    const char       *serversList[] = { "realms", [[self name] UTF8String], NULL, NULL };
     const ServerType *typesPtr = NULL;
     
     for (typesPtr = kServerTypes; typesPtr->string != NULL && !err; typesPtr++) {
@@ -537,9 +450,8 @@ const ServerType kServerTypes[] = {
             for (s = servers; *s != NULL && !err; s++) {
                 NSString *profileString = [NSString stringWithUTF8String: *s];
                 KerberosServer *server = [[KerberosServer alloc] initWithTypeString: typeString
-                                                                            version: serverVersion 
                                                                       profileString: profileString];
-                if (server == NULL) {
+                if (!server) {
                     err = ENOMEM; 
                 } else {
                     //NSLog (@"Adding server '%@' of type '%@' for realm '%@'", 
@@ -553,7 +465,7 @@ const ServerType kServerTypes[] = {
         // These errors are ok... there just aren't servers of this type
         if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
         
-        if (servers != NULL) { profile_free_list (servers); }
+        if (servers) { profile_free_list (servers); }
     }
     
     return err;
@@ -561,13 +473,11 @@ const ServerType kServerTypes[] = {
 
 // ---------------------------------------------------------------------------
 
-- (krb5_error_code) flushServersForVersion: (KLKerberosVersion) serverVersion toProfile: (profile_t) profile
+- (krb5_error_code) flushServersToProfile: (profile_t) profile
 {
     krb5_error_code err = 0;
     
-    const char  *section = (serverVersion == kerberosVersion_V5) ? "realms" : REALMS_V4_PROF_REALMS_SECTION;
-    NSString    *realmString = (serverVersion == kerberosVersion_V5) ? [self name] : [self v4Name];
-    const char  *serversList[] = { section, [realmString UTF8String], NULL, NULL };
+    const char  *serversList[] = { "realms", [[self name] UTF8String], NULL, NULL };
     
     // Clear out old servers:
     
@@ -589,7 +499,7 @@ const ServerType kServerTypes[] = {
         
         for (i = 0; i < [serversArray count] && !err; i++) {
             KerberosServer *server = [serversArray objectAtIndex: i];
-            if ((server != NULL) && ([server version] == serverVersion)) {
+            if (server) {
                 serversList[2] = [[server typeString] UTF8String];
                 err = profile_add_relation (profile, serversList, [[server profileString] UTF8String]);
             }
@@ -602,21 +512,20 @@ const ServerType kServerTypes[] = {
 
 // ---------------------------------------------------------------------------
 
-- (krb5_error_code) flushDomainsForVersion: (KLKerberosVersion) serverVersion toProfile: (profile_t) profile
+- (krb5_error_code) flushDomainsToProfile: (profile_t) profile
 {
     krb5_error_code err = 0;
     
-    const char *section = (serverVersion == kerberosVersion_V5) ? "domain_realm" : REALMS_V4_PROF_DOMAIN_SECTION;
-    NSString   *realmString = (serverVersion == kerberosVersion_V5) ? [self name] : [self v4Name];
-    const char *domainMappingList[] = { section, NULL, NULL };
+    NSString   *realmString = [self name];
+    const char *domainMappingList[] = { "domain_realm", NULL, NULL };
     
     unsigned int i = 0;
     
-    if (profile == NULL) { err = ENOMEM; }
+    if (!profile) { err = ENOMEM; }
     
     for (i = 0; i < [self numberOfDomains] && !err; i++) {
         KerberosDomain *domain = [self domainAtIndex: i];
-        if (domain != NULL) {
+        if (domain) {
             char **domainMapping = NULL;
             
             domainMappingList[1] = [[domain name] UTF8String];
@@ -627,7 +536,7 @@ const ServerType kServerTypes[] = {
             }
             
             if (!err) {
-                if (domainMapping != NULL) {
+                if (domainMapping) {
                     if ([realmString compare: [NSString stringWithUTF8String: domainMapping[0]]] != NSOrderedSame) {
                         // Eek!  this domain is already mapped to another realm!
                         NSLog (@"WARNING!  Domain '%s' is mapped to realms '%s' and '%s'", 
@@ -665,34 +574,8 @@ const ServerType kServerTypes[] = {
 
 - (void) setName: (NSString *) newName
 {
-    if (nameString != NULL) { [nameString release]; }
+    if (nameString) { [nameString release]; }
     nameString = ((newName != NULL) && ([newName length] > 0)) ? [newName retain] : NULL;
-}
-
-// ---------------------------------------------------------------------------
-
-- (BOOL) hasV4Name
-{
-    return ((v4NameString != NULL) && ([v4NameString length] > 0));
-}
-
-// ---------------------------------------------------------------------------
-
-- (NSString *) v4Name
-{
-    if (v4NameString != NULL) {
-        return v4NameString;
-    } else {
-        return [self name];
-    }
-}
-
-// ---------------------------------------------------------------------------
-
-- (void) setV4Name: (NSString *) newV4Name
-{
-    if (v4NameString != NULL) { [v4NameString release]; }
-    v4NameString = ((newV4Name != NULL) && ([newV4Name length] > 0)) ? [newV4Name retain] : NULL;
 }
 
 // ---------------------------------------------------------------------------
@@ -713,7 +596,7 @@ const ServerType kServerTypes[] = {
 
 - (void) setDefaultDomain: (NSString *) defaultDomain
 {
-    if (defaultDomainString != NULL) { [defaultDomainString release]; }
+    if (defaultDomainString) { [defaultDomainString release]; }
     defaultDomainString = ((defaultDomain != NULL) && ([defaultDomain length] > 0)) ? [defaultDomain retain] : NULL;
 }
 
@@ -852,7 +735,7 @@ const ServerType kServerTypes[] = {
 
         if (!err) {
             realmsArray = [[NSMutableArray alloc] init];
-            if (realmsArray == NULL) { err = ENOMEM; }
+            if (!realmsArray) { err = ENOMEM; }
         }
         
         if (!err) {
@@ -871,10 +754,10 @@ const ServerType kServerTypes[] = {
 
 - (void) dealloc
 {
-    if (profile                 != NULL) { profile_abandon (profile); }
-    if (configurationPathString != NULL) { [configurationPathString release]; }
-    if (defaultRealmString      != NULL) { [defaultRealmString release]; }
-    if (realmsArray             != NULL) { [realmsArray release]; }
+    if (profile                ) { profile_abandon (profile); }
+    if (configurationPathString) { [configurationPathString release]; }
+    if (defaultRealmString     ) { [defaultRealmString release]; }
+    if (realmsArray            ) { [realmsArray release]; }
     
     [super dealloc];
 }
@@ -886,7 +769,7 @@ const ServerType kServerTypes[] = {
     krb5_error_code err = 0;
     
     // If the profile is NULL, initialize it
-    if (profile == NULL) {
+    if (!profile) {
         NSString *configurationPathStrings[] = { 
             @"~/Library/Preferences/edu.mit.Kerberos", 
             @"/Library/Preferences/edu.mit.Kerberos", 
@@ -902,16 +785,13 @@ const ServerType kServerTypes[] = {
                 break;
             }
         }
-        if (newConfigurationPath == NULL) { err = EACCES; }
-            
-        if (!err) {
-            if (configurationPathString != NULL) { [configurationPathString release]; }
-            configurationPathString = [newConfigurationPath retain];            
-        }
-        
+		// If there were no config files, we need a new one 
+		// (profiles need to be based on a file, so we use /dev/null at a starting place)
+		if (!*paths) { newConfigurationPath = @"/dev/null"; }
+
         // initialize the profile
         if (!err) {
-            const_profile_filespec_t configFiles[] = { [configurationPathString UTF8String], NULL };
+            const_profile_filespec_t configFiles[] = { [newConfigurationPath fileSystemRepresentation], NULL };
             profile_t newProfile = NULL;        
             
             err = profile_init (configFiles, &newProfile);
@@ -919,6 +799,12 @@ const ServerType kServerTypes[] = {
             if (!err) {
                 profile = newProfile;        
             }
+        }
+		
+		if (!err) {
+			if (!*paths) { newConfigurationPath = @"/Library/Preferences/edu.mit.Kerberos"; }
+            if (configurationPathString) { [configurationPathString release]; }
+            configurationPathString = [newConfigurationPath retain]; 
         }
     }
     
@@ -939,10 +825,10 @@ const ServerType kServerTypes[] = {
         
         if (!err && (defaultRealm != NULL)) {
             defaultRealmString = [[NSString alloc] initWithUTF8String: defaultRealm[0]];
-            if (defaultRealmString == NULL) { err = ENOMEM; }
+            if (!defaultRealmString) { err = ENOMEM; }
         }
         
-        if (defaultRealm != NULL) { profile_free_list (defaultRealm); }
+        if (defaultRealm) { profile_free_list (defaultRealm); }
     }
 
     // Do we DNS for realm configuration
@@ -962,23 +848,23 @@ const ServerType kServerTypes[] = {
                               strcasecmp (dnsFallback[0], "1") == 0 || strcasecmp (dnsFallback[0], "on")   == 0)];
         }
         
-        if (dnsFallback != NULL) { profile_free_list (dnsFallback); }
+        if (dnsFallback) { profile_free_list (dnsFallback); }
     }
     
     // Do the v5 realms
     if (!err) {
-        const char  *v5RealmsList[] = { "realms", NULL };
-        char       **v5Realms = NULL;
+        const char  *realmsList[] = { "realms", NULL };
+        char       **realms = NULL;
         
-        err = profile_get_subsection_names (profile, v5RealmsList, &v5Realms);
+        err = profile_get_subsection_names (profile, realmsList, &realms);
         if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
         
-        if (!err && (v5Realms != NULL)) {
+        if (!err && (realms != NULL)) {
             char **r;
-            for (r = v5Realms; *r != NULL && !err; r++) {
+            for (r = realms; *r != NULL && !err; r++) {
                 NSString *name = [NSString stringWithUTF8String: *r];
                 KerberosRealm *realm = [[KerberosRealm alloc] initWithName: name profile: profile];
-                if (realm == NULL) { 
+                if (!realm) { 
                     err = ENOMEM; 
                 } else {
                     [realmsArray addObject: realm];
@@ -987,36 +873,7 @@ const ServerType kServerTypes[] = {
             }
         }
         
-        if (v5Realms  != NULL) { profile_free_list (v5Realms); }
-    }
-    
-    // Do the v4 realms
-    
-    if (!err) {
-        const char  *v4RealmsList[] = { REALMS_V4_PROF_REALMS_SECTION, NULL };
-        char       **v4Realms = NULL;
-        
-        err = profile_get_subsection_names (profile, v4RealmsList, &v4Realms);
-        if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
-        
-        if (!err && (v4Realms != NULL)) {
-            char **r;
-            for (r = v4Realms; *r != NULL && !err; r++) {
-                NSString *name = [NSString stringWithUTF8String: *r];
-                KerberosRealm *existingRealm = [self findRealmByV4Name: name];
-                if (existingRealm == NULL) {
-                    KerberosRealm *realm = [[KerberosRealm alloc] initWithName: name profile: profile];
-                    if (realm == NULL) { 
-                        err = ENOMEM; 
-                    } else {
-                        [realmsArray addObject: realm];
-                        [realm release];
-                    }
-                }
-            }
-        }
-        
-        if (v4Realms  != NULL) { profile_free_list (v4Realms); }
+        if (realms ) { profile_free_list (realms); }
     }
     
     // The reason we don't have the realms load the domains is that some domains don't have a
@@ -1025,17 +882,17 @@ const ServerType kServerTypes[] = {
     // Now do the v5 domain-realm mappings (which depend on the realms)
     
     if (!err) {
-        const char  *v5DomainsList[] = { "domain_realm", NULL };
-        char       **v5Domains = NULL;
+        const char  *domainsList[] = { "domain_realm", NULL };
+        char       **domains = NULL;
         
-        err = profile_get_relation_names (profile, v5DomainsList, &v5Domains);
+        err = profile_get_relation_names (profile, domainsList, &domains);
         if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
         
-        if (!err && (v5Domains != NULL)) {
+        if (!err && (domains != NULL)) {
             char **d;
-            for (d = v5Domains; *d != NULL && !err; d++) {
+            for (d = domains; *d != NULL && !err; d++) {
                 NSString *domainString = [NSString stringWithUTF8String: *d];
-                if (domainString != NULL) {
+                if (domainString) {
                     const char  *domainMappingList[] = { "domain_realm", *d, NULL };
                     char       **domainMapping = NULL;
                     
@@ -1047,15 +904,15 @@ const ServerType kServerTypes[] = {
                     if (!err) {
                         NSString *realmName = [NSString stringWithUTF8String: domainMapping[0]];
                         KerberosRealm *realm = [self findRealmByName: realmName];
-                        if (realm == NULL) {
+                        if (!realm) {
                             // Create it
                             realm = [KerberosRealm emptyRealm];
-                            if (realm != NULL) { [realm setName: realmName]; }
+                            if (realm) { [realm setName: realmName]; }
                         }
                         
-                        if (realm != NULL) {
+                        if (realm) {
                             KerberosDomain *domain = [[KerberosDomain alloc] initWithName: domainString];
-                            if (domain == NULL) { 
+                            if (!domain) { 
                                 err = ENOMEM; 
                             } else {
                                 [realm addDomain: domain];
@@ -1064,62 +921,12 @@ const ServerType kServerTypes[] = {
                         }
                     }
                     
-                    if (domainMapping != NULL) { profile_free_list (domainMapping); }
+                    if (domainMapping) { profile_free_list (domainMapping); }
                 }
             }
         }
         
-        if (v5Domains != NULL) { profile_free_list (v5Domains); }
-    }
-    
-    // Now do the v4 domain-realm mappings (which depend on the realms)
-    
-    if (!err) {
-        const char  *v4DomainsList[] = { REALMS_V4_PROF_DOMAIN_SECTION, NULL };
-        char       **v4Domains = NULL;
-        
-        err = profile_get_relation_names (profile, v4DomainsList, &v4Domains);
-        if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
-        
-        if (!err && (v4Domains != NULL)) {
-            char **d;
-            for (d = v4Domains; *d != NULL && !err; d++) {
-                NSString *domainString = [NSString stringWithUTF8String: *d];
-                if (domainString != NULL) {
-                    const char     *v4DomainMappingList[] = { REALMS_V4_PROF_DOMAIN_SECTION, *d, NULL };
-                    char          **v4DomainMapping = NULL;
-                    
-                    if (!err) {
-                        err = profile_get_values (profile, v4DomainMappingList, &v4DomainMapping);
-                        if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
-                    }
-                    
-                    if (!err) {
-                        NSString *realmName = [NSString stringWithUTF8String: v4DomainMapping[0]];
-                        KerberosRealm *realm = [self findRealmByV4Name: realmName];
-                        if (realm == NULL) {
-                            // Create it
-                            realm = [KerberosRealm emptyRealm];
-                            if (realm != NULL) { [realm setName: realmName]; }
-                        }
-                        
-                        if (realm != NULL) {
-                            KerberosDomain *domain = [[KerberosDomain alloc] initWithName: domainString];
-                            if (domain == NULL) { 
-                                err = ENOMEM; 
-                            } else {
-                                [realm addDomain: domain];
-                                [domain release];
-                            }
-                        }
-                    }
-                    
-                    if (v4DomainMapping != NULL) { profile_free_list (v4DomainMapping); }
-                }
-            }
-        }
-        
-        if (v4Domains != NULL) { profile_free_list (v4Domains); }
+        if (domains) { profile_free_list (domains); }
     }
     
     return err;
@@ -1129,7 +936,7 @@ const ServerType kServerTypes[] = {
 
 - (krb5_error_code) abandon
 {
-    if (profile != NULL) {
+    if (profile) {
         profile_abandon (profile);
         profile = NULL;
     }
@@ -1151,27 +958,27 @@ const ServerType kServerTypes[] = {
         
         for (i = 0; i < [self numberOfRealms] && !err; i++) {
             KerberosRealm *realm = [self realmAtIndex: i];
-            if (realm != NULL) {
+            if (realm) {
                 err = [realm flushToProfile: profile];
             }
         }        
     }
     
-    // Walk over the profile looking for deleted v5 realms:
+    // Walk over the profile looking for deleted realms:
     
     if (!err) {
-        const char     *v5RealmsList[] = { "realms", NULL };
-        char          **v5Realms = NULL;
+        const char     *realmsList[] = { "realms", NULL };
+        char          **realms = NULL;
 
-        err = profile_get_subsection_names (profile, v5RealmsList, &v5Realms);
+        err = profile_get_subsection_names (profile, realmsList, &realms);
         if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
 
-        if (!err && (v5Realms != NULL)) {
+        if (!err && (realms != NULL)) {
             char **r;
-            for (r = v5Realms; *r != NULL && !err; r++) {
+            for (r = realms; *r != NULL && !err; r++) {
                 NSString *name = [NSString stringWithUTF8String: *r];
                 KerberosRealm *existingRealm = [self findRealmByName: name];
-                if (existingRealm == NULL) {
+                if (!existingRealm) {
                     // Realm is not in our array! Delete it.
                     const char *deletedRealmList[] = { "realms", *r, NULL };
                     err = profile_rename_section (profile, deletedRealmList, NULL);
@@ -1179,48 +986,23 @@ const ServerType kServerTypes[] = {
             }
         }
         
-        if (v5Realms  != NULL) { profile_free_list (v5Realms); }
+        if (realms ) { profile_free_list (realms); }
     }
     
-    // Walk over the profile looking for deleted v4 realms:
-
-    if (!err) {
-        const char  *v4RealmsList[] = { REALMS_V4_PROF_REALMS_SECTION, NULL };
-        char       **v4Realms = NULL;
-        
-        err = profile_get_subsection_names (profile, v4RealmsList, &v4Realms);
-        if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
-        
-        if (!err && (v4Realms != NULL)) {
-            char **r;
-            for (r = v4Realms; *r != NULL && !err; r++) {
-                NSString *name = [NSString stringWithUTF8String: *r];
-                KerberosRealm *existingRealm = [self findRealmByV4Name: name];
-                if (existingRealm == NULL) {
-                    // Realm is not in our array! Delete it.
-                    const char *deletedV4RealmList[] = { REALMS_V4_PROF_REALMS_SECTION, *r, NULL };
-                    err = profile_rename_section (profile, deletedV4RealmList, NULL);
-                }
-            }
-        }
-        
-        if (v4Realms  != NULL) { profile_free_list (v4Realms); }
-    }
-    
-    // Walk over the profile looking for deleted v5 domains:
+    // Walk over the profile looking for deleted domains:
     
     if (!err) {
-        const char     *v5DomainsList[] = { "domain_realm", NULL };
-        char          **v5Domains = NULL;
+        const char     *domainsList[] = { "domain_realm", NULL };
+        char          **domains = NULL;
 
-        err = profile_get_relation_names (profile, v5DomainsList, &v5Domains);
+        err = profile_get_relation_names (profile, domainsList, &domains);
         if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
 
-        if (!err && (v5Domains != NULL)) {    
+        if (!err && (domains != NULL)) {    
             char **d;
-            for (d = v5Domains; *d != NULL && !err; d++) {
+            for (d = domains; *d != NULL && !err; d++) {
                 NSString *domain = [NSString stringWithUTF8String: *d];
-                if (domain != NULL) {
+                if (domain) {
                     const char  *domainMappingList[] = { "domain_realm", *d, NULL };
                     char       **domainMapping = NULL;
                     
@@ -1231,58 +1013,19 @@ const ServerType kServerTypes[] = {
                     
                     if (!err) {
                         KerberosRealm *realm = [self findRealmByName: [NSString stringWithUTF8String: domainMapping[0]]];
-                        if ((realm == NULL) || (![realm mappedToByDomainString: domain])) {
+                        if (!(realm) || (![realm mappedToByDomainString: domain])) {
                             // Domain is not in our array or no such realm! Delete it.
                             const char *deletedRealmList[] = { "domain_realm", *d, NULL };
                             err = profile_clear_relation (profile, deletedRealmList);
                         }
                     }
                     
-                    if (domainMapping != NULL) { profile_free_list (domainMapping); }
+                    if (domainMapping) { profile_free_list (domainMapping); }
                 }
             }
         }
          
-        if (v5Domains != NULL) { profile_free_list (v5Domains); }
-    }
-    
-    // Walk over the profile looking for deleted v4 domains:
-    
-    if (!err) {
-        const char     *v4DomainsList[] = { REALMS_V4_PROF_DOMAIN_SECTION, NULL };
-        char          **v4Domains = NULL;
-
-        err = profile_get_relation_names (profile, v4DomainsList, &v4Domains);
-        if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
-        
-        if (!err && (v4Domains != NULL)) {
-            char **d;
-            for (d = v4Domains; *d != NULL && !err; d++) {
-                NSString *domain = [NSString stringWithUTF8String: *d];
-                if (domain != NULL) {
-                    const char     *v4DomainMappingList[] = { REALMS_V4_PROF_DOMAIN_SECTION, *d, NULL };
-                    char          **v4DomainMapping = NULL;
-                    
-                    if (!err) {
-                        err = profile_get_values (profile, v4DomainMappingList, &v4DomainMapping);
-                        if ((err == PROF_NO_SECTION) || (err == PROF_NO_RELATION)) { err = 0; }
-                    }
-                    
-                    if (!err && (v4DomainMapping != NULL)) {
-                        KerberosRealm *realm = [self findRealmByV4Name: [NSString stringWithUTF8String: v4DomainMapping[0]]];
-                        if ((realm == NULL) || (![realm mappedToByDomainString: domain])) {
-                            // Domain is not in our array or no such realm! Delete it.
-                            const char *deletedV4RealmList[] = { REALMS_V4_PROF_DOMAIN_SECTION, *d, NULL };
-                            err = profile_clear_relation (profile, deletedV4RealmList);
-                        }
-                        
-                        if (v4DomainMapping != NULL) { profile_free_list (v4DomainMapping); }
-                    }
-                }
-            }
-        }
-        
-        if (v4Domains != NULL) { profile_free_list (v4Domains); }
+        if (domains) { profile_free_list (domains); }
     }
     
     // Write out the default realm:
@@ -1303,7 +1046,7 @@ const ServerType kServerTypes[] = {
             }
         }
         
-        if (defaultRealm != NULL) { profile_free_list (defaultRealm); }
+        if (defaultRealm) { profile_free_list (defaultRealm); }
     }
     
     // use DNS for realm configuration
@@ -1318,14 +1061,14 @@ const ServerType kServerTypes[] = {
         }
         
         if (!err) {
-            if (dnsFallback != NULL) {
+            if (dnsFallback) {
                 err = profile_update_relation (profile, dnsFallbackList, dnsFallback[0], newValue);
             } else {
                 err = profile_add_relation (profile, dnsFallbackList, newValue);  
             }
         }
         
-        if (dnsFallback != NULL) { profile_free_list (dnsFallback); }
+        if (dnsFallback) { profile_free_list (dnsFallback); }
     }
 
     // See if the profile even needs to be updated
@@ -1340,8 +1083,12 @@ const ServerType kServerTypes[] = {
     
     if (!err && modified) {
         if (writable) {
-            err = profile_flush (profile);
+			err = profile_flush_to_file(profile, [configurationPathString fileSystemRepresentation]);
         } else {
+			err = EACCES;
+		}
+
+		if (err) {
             char            *profileFileData = NULL;
             NSString        *resourcePath = NULL;
             NSString        *toolString = NULL;
@@ -1353,12 +1100,12 @@ const ServerType kServerTypes[] = {
             // Locate the tool to copy the temporary file to the correct location
             if (!err) {
                 resourcePath = [[NSBundle mainBundle] resourcePath];
-                if (resourcePath == NULL) { err = EINVAL; }
+                if (!resourcePath) { err = EINVAL; }
             }
             
             if (!err) {
                 toolString = [NSString stringWithFormat: @"%@/%@", resourcePath, @"SaveNewProfile"];
-                if (toolString == NULL) { err = ENOMEM; }
+                if (!toolString) { err = ENOMEM; }
             }
             
             // Make sure the user is authorized to use the tool
@@ -1407,9 +1154,9 @@ const ServerType kServerTypes[] = {
             }
             
             // free these before abandoning the profile
-            if (profileFileData  != NULL) { profile_free_buffer (profile, profileFileData); }  
-            if (toolPipe         != NULL) { fclose (toolPipe); }
-            if (authorizationRef != NULL) { AuthorizationFree (authorizationRef, kAuthorizationFlagDefaults); }
+            if (profileFileData ) { profile_free_buffer (profile, profileFileData); }  
+            if (toolPipe        ) { fclose (toolPipe); }
+            if (authorizationRef) { AuthorizationFree (authorizationRef, kAuthorizationFlagDefaults); }
 
             // Toss the profile since it still thinks its dirty
             if (!err) {
@@ -1459,7 +1206,7 @@ const ServerType kServerTypes[] = {
 
 - (void) setDefaultRealm: (NSString *) defaultRealm
 {
-    if (defaultRealmString != NULL) { [defaultRealmString release]; }
+    if (defaultRealmString) { [defaultRealmString release]; }
     defaultRealmString = ((defaultRealm != NULL) && ([defaultRealm length] > 0)) ? [defaultRealm retain] : NULL;
 }
 
@@ -1486,22 +1233,6 @@ const ServerType kServerTypes[] = {
     for (i = 0; i < [realmsArray count]; i++) {
         KerberosRealm *r = [realmsArray objectAtIndex: i];
         if ((r != NULL) && ([[r name] compare: realmName] == NSOrderedSame)) {
-            return r;
-        }
-    }
-    
-    return NULL;    
-}
-
-// ---------------------------------------------------------------------------
-
-- (KerberosRealm *) findRealmByV4Name: (NSString *) realmName
-{
-    unsigned int i = 0;
-    
-    for (i = 0; i < [realmsArray count]; i++) {
-        KerberosRealm *r = [realmsArray objectAtIndex: i];
-        if ((r != NULL) && ([[r v4Name] compare: realmName] == NSOrderedSame)) {
             return r;
         }
     }
@@ -1549,7 +1280,7 @@ const ServerType kServerTypes[] = {
         if ((r != NULL) && ([[r name] compare: [realm name]] != NSOrderedSame)) {
             if ([r mappedToByDomainString: domainString]) {
                 // Already mapped to a realm of a different name
-                if (outCurrentRealm != NULL) {
+                if (outCurrentRealm) {
                     *outCurrentRealm = r;
                 }
                 allow = NO;

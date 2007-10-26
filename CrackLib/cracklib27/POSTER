@@ -1,0 +1,34 @@
+
+CrackLib is a library containing a C function (well, lots of functions
+really, but you only need to use one of them) which may be used in a
+"passwd"-like program.
+
+The idea is simple: try to prevent users from choosing passwords that
+could be guessed by "Crack" by filtering them out, at source.
+
+CrackLib is an offshoot of the the version 5 "Crack" software, and
+contains a considerable number of ideas nicked from the new software. 
+At the time of writing, Crack 5 is incomplete (still awaiting purchase
+of my home box) - but I though I could share this with you. 
+
+NOTE THIS WELL: CrackLib is NOT a replacement "passwd" program. 
+CrackLib is a LIBRARY.  CrackLib is what trendy marketdroid types would
+probably call an "enabler". 
+
+The idea is that you wire it into your _own_ "passwd" program (if you
+have source); alternatively, you wire it into something like "shadow"
+from off of the net.  You can use it almost _everywhere_. 
+
+FOR YOUR INFORMATION:
+
+CrackLib has been tested mostly on Suns.  If you can point me at ways
+round portability problems (eg: static linking, other libraries, etc)
+I'd be most grateful. 
+
+A reference copy of CrackLib (+ large dictionary) can be found via
+anonymous FTP at: 
+ 
+	black.ox.ac.uk:~ftp/src/security/cracklib25.tar.Z
+
+
+					- alec

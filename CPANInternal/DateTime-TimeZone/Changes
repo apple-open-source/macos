@@ -1,0 +1,470 @@
+0.41     2006-01-31
+
+- This release is based on version 2006a of the Olson database.
+
+
+0.40     2005-12-27
+
+- This release is based on version 2005r of the Olson database.  This
+includes the latest Canadian changes to match the recent US changes.
+Also note that as of this version several zones which used to be
+links, including "EST", "MST", and "CST6DST", are now separate zones.
+
+
+0.39     2005-06-05
+
+- This release is based on version 2005o of the Olson database.
+
+
+0.3801   2005-11-24  the "not turkey day" release
+
+- The last release included some generated modules for old zones (like
+Europe/Belfast) which are now links to existing zones.  These modules
+referenced the non-existent DateTime::TimeZone::Singleton module.
+Reported by Rafael Garcia-Suarez.
+
+
+0.38     2005-11-21
+
+- Trying to create a DateTime object during DST exactly 11 years in
+the future (really, 1 year after the end of the pre-generated TZ
+change data that ships in the package) cause an error.  Reported by
+Daniel B Boorstein.
+
+- This release is based on version 2005n of the Olson database.
+
+- Added a new method, has_dst_changes(), which indicates whether a
+given zone has any DST changes.
+
+
+0.37     2005-08-22
+
+- Make sure that provided time zone names are valid, because
+DateTime::TimeZone uses them in an eval.  If you were passing
+user-provided data directly to DateTime::TimeZone->new, someone could
+give a string like "America/Chicago; system 'rm -rf /';", which would
+be bad.  Reported by Matthew Reilly.
+
+- Made it possible to call catalog-related functions as methods.
+
+- This release is based on version 2005i of the Olson database.  This
+include some major changes coming up in the US as a whole in 2007,
+along with other changes for just Indiana.
+
+
+0.36     2005-04-21
+
+- This release is based on version 2005i of the Olson database.
+
+
+0.35     2005-03-15  the "I hate this dope" release
+
+- This release is based on version 2005g of the Olson database.
+
+- STORABLE_thaw() now returns $self in preparation for proposed
+changes to Storable.
+
+
+0.34     2005-03-11
+
+- Some time zone short names were incorrectly being given as something
+like "GMT/BST", when it should have been alternating between GMT and
+BST based on the daylight saving time.  Reported by Tom Yandell.
+
+- This release is based on version 2005f of the Olson database.
+
+
+0.33     2005-02-26
+
+- This release is based on version 2005e of the Olson database.
+
+- When trying to determine the local time zone, if /etc/localtime is a
+file, make sure that matching file in /usr/share/zoneinfo is not a
+symlink.
+
+
+0.32     2004-01-05
+
+- Fix for bug revealed by DateTime 0.23, which could cause an
+"undefined value in eq" warning when creating objects for dates in the
+far future that were during DST.
+
+- This release is based on version 2005a of the Olson database.
+
+
+0.31     2004-12-09
+
+- This release is based on version 2004g of the Olson database.
+
+
+0.30     2004-10-13
+
+- This release is based on version 2004e of the Olson database.
+
+
+0.29     2004-09-22
+
+- This release is based on version 2004d of the Olson database.
+
+
+0.28     2004-07-24
+
+- This release is based on version 2004b of the Olson database.  Note
+that some Argentinian time zones have moved from America to
+America/Argentina, though there are aliases for the old names.
+
+
+0.27     2004-05-27
+
+- This release is based on version 2004a of the Olson database.
+
+- /etc/timezone and /etc/TIMEZONE are not the same thing.  Code for
+getting the local time zone name from the latter was supplied by
+Daniel Boorstein.
+
+- Added support for getting the local time zone from
+/etc/default/init.  Suggested by Daniel Boorstein.
+
+
+0.2601   2004-03-16
+
+- Fix test failure which could happen if tests were run before
+DateTime.pm is installed.  Reported by Slaven Rezic.
+
+
+0.26     2004-03-09
+
+- Added DateTime::TimeZone->is_valid_name class method.
+
+- Added Storable freeze & thaw hooks.  This should fix RT ticket
+#5542, reported by Dan Rowles (I hope).
+
+
+0.2507   2004-02-14  the "nothing says love like timezones" release
+
+- Fix a test failure in t/04-local.t on systems where /etc/localtime
+is a copy of a zoneinfo file, not a symlink.  This was a bug in the
+testing code.  Reported by Warren Dodge and a few others.
+
+- If /etc/localtime was a copy of a zoneinfo file, then the current
+working directory could be changed while trying to determine the local
+time zone, because we use File::Find to find a matching zoneinfo file.
+Reported by someone ... (I can't find the message reporting this).
+
+- Update the Makefile.PL to work with Module::Build 0.23.
+
+
+0.2506   2003-12-15
+
+- On systems where /etc/localtime is a copy of a zone info file (like
+FreeBSD), we now look for a matching file in /usr/share/zoneinfo in
+order to determine the local time zone.  Based on a patch from Slaven
+Rezic.
+
+- This release is based on the 2003e Olson database.
+
+
+0.2505   2003-10-27
+
+- The change in 0.2504 to accomodate SuSE's /etc/sysconfig/clock file
+broke this feature on RedHat.  Sigh.  Reported by John Siracusa.
+
+
+0.2504   2003-10-25
+
+- If a timezone module cannot be loaded, give a more useful error
+message if the failure is due to a syntax error in the module, as
+opposed to the specified time zone not existing.  Based on a patch
+from Alexey Mahotkin.
+
+- Require Pod::Man 1.14+, so that head3/head4 markup doesn't cause
+installation to die.
+
+- SuSE puts TIMEZONE="Foo/Bar" in the /etc/sysconfig/clock file, but
+DT::TZ::Local just looked for ZONE="...".  Reported by Pete.
+
+
+0.2503   2003-10-06
+
+- Made the offset string -> number conversion slightly less strict, so
+that 1:00:00 is accepted, as opposed to required 01:00:00.  Without
+colons, it still must be four or six digits, however.
+
+- This release is based on the 2003d Olson database, which contains
+updates for various zones.
+
+- Fixed a bug in DateTime::TimeZone::OlsonDB for zones where an
+observance change occurred at UTC year X, and a new rule started at
+local year X + 1, but the offset meant that these were actually the
+same year.  No zones in the previous release were affected, and this
+bug was only uncovered by the new Olson data.
+
+- Handle rule times of 24:00 in the Olson data.  Again, this was not
+present in previous versions of the Olson data.
+
+
+0.2502   2003-09-09
+
+- Lots of fixes and improvements in how offsets are converted from
+strings to numbers.  Also, a DT::TZ::OffsetOnly object now normalizes
+its offset so that two offsets created from different strings, but
+representing the same offset, now return the same value from the
+name() method.  Patched by Joshua Hoblitt.
+
+- More env vars and files are looked at when trying to determine what
+the local time zone is.  Thanks to Date::Manip for this.
+
+- Added SIGNATURE file to distribution.
+
+
+0.2501   2003-08-10
+
+- Fixed a test that failed because of a change in the DateTime.pm
+from_object() API.
+
+
+0.25     2003-07-20
+
+- Removed a test that only passed with DateTime CVS HEAD installed.
+
+
+0.24     2003-07-20
+
+- Fixed bugs in generated data for many time zones.  Upgrading is
+highly recommended!
+
+- This version is _much_ better tested than any previous version.  The
+script tools/tests_from_zdump can be used to generate fairly
+comprehensive tests for almost every time zone.  The generated tests
+are not shipped with the distribution because they are too huge, and
+take too long to run (400,000+ tests in about 25 minutes).
+
+
+0.23     2003-07-03
+
+- $_ was being overwritten if you specified a time zone of "local".
+This could cause problems in for loops with implicit iterators if you
+were to create a DateTime object with a "local" time zone inside your
+own loops.  Fixed by Iain Truskett.
+
+
+0.22     2003-06-28
+
+- The is_olson method was returning true for all objects.  Reported by
+Flavio Glock.
+
+
+0.21     2003-06-25
+
+- Switched to Module::Build, which should fix the installation
+problems caused by very long Makefile lines on some platforms.
+
+- Fixed a bug in finding the correct data for a given datetime.  This
+could occur when calling set_time_zone on an object that was very
+close to a DST transition, though it only affected some time zones in
+a few specific circumstances.  Reported by Ben Bennett.
+
+
+0.20     2003-06-20
+
+- Load File::Spec in DT::TZ::Local.  Reported by John Siracusa.
+
+
+0.19     2003-06-13
+
+- The name() method will now always return something that can be used
+to recreate the original object by calling DateTime::TimeZone->new().
+The only class which changed was DT::TZ::Floating, but the fact that
+name() is guaranteed to work in recreating the object is an API
+change.
+
+
+0.18     2003-06-06
+
+- Switched the internal data structure for the Olson database to use
+array references instead of hash references.  This seems to save a
+reduce memory usage to about 66% of the hash based version.
+Additionally, the files themselves have gotten much smaller.  This was
+all partially based on a patch by Eugene van der Pijll.
+
+
+0.17     2003-05-25
+
+- Fixed test failures on system where /etc/localtime is not a symlink.
+Diagnosed by Iain Truskett.
+
+- There are now more things looked at to determine the local time
+zone:
+-- Check for /etc/timezone file.
+-- Check for /etc/sysconfig/clock file.  Patch from Rick Measham.
+Testing help from Ben Bennett.
+
+- Added is_olson method so object created from a named Olson database
+time zone can be distinguished from other types of objects.
+
+
+0.16     2003-05-07
+
+- Fixed a bug where a POSIX time zone in $ENV{TZ} could cause the code
+to try to load a module named something like
+"DateTime::TimeZone::5.0::03".
+
+- The feature which attempts to read /etc/localtime to determine the
+time zone was broken.  Reported by John Siracusa.
+
+
+0.15     2003-05-05
+
+- Fixed some bugs in calculations of offsets for future datetimes
+could be incorrect.  This also quiets some warnings from DateTime.pm's
+time zone tests.
+
+
+0.14     2003-05-05
+
+- Make sure tests always run with warnings on.
+
+- The were major bugs in handling time zones where the second to last
+observance had "infinite" rules (rules where the "TO" field is "max")
+and the last observance did not specify rules.  An example of this is
+America/Belem.
+
+- Fixed a bug in the generated time zone code that caused it to do
+more work than it should when calculting offsets for future datetimes.
+
+
+0.13     2003-05-03
+
+- Fixed DateTime::TimeZone::OffsetOnly constructor so that it only
+accepts valid offsets.  Previously, invalid offsets like "foo" were
+turned into zero internally.
+
+- Made "local" look for /etc/localtime symlink as part of determining
+local time zone.
+
+- Added a links() function to DateTime::TimeZone.
+
+- Included all the links from Olson db file named backwards, which
+includes things like "US/Central".
+
+- When searching for the current offset based on the local time, we
+now prefer the later of the two offsets rather than the earlier.
+Otherwise, offset shifts larger than a day can cause some very strange
+problems when doing date math.
+
+- DateTime::TimeZone::OffsetOnly objects now return the offset in
+string form when their name() or short_name_for_datetime() methods are
+called.  Suggested by Rick Measham.
+
+
+0.12     2003-04-12
+
+- Updated to latest Olson database (2003a).
+
+- Fixed a bug in handling time zones with only one historical offset,
+like Pacific/Johnston.
+
+
+0.11     2003-03-26  the "Asia/Baghdad release"
+
+- Fixed two bugs, both of which made some time zones unusable..  One
+affected time zones that do not have any DST changes, and the other
+affected time zones that have exactly two historical offsets (one of
+which would be the current offset), such as Pacific/Tarawa.  Reported
+by Eric Cholet.
+
+
+0.10     2003-03-20
+
+- Fixed a bug in the DateTime::TimeZone::offset_as_seconds bug when
+trying given a negative number that resulted in an offset that
+included minutes (not a whole hour).  Found by Flavio Glock.
+
+
+0.09     2003-02-26
+
+- Fixed an infinite recursion bug in generating future time zone data
+that occurred when $ENV{TZ} was something like "America/Chicago".
+Sort of reported by Eugene van der Pijll ;)
+
+
+0.08     2003-02-22
+
+- Fix handling of "local" time zone so that it passes a string to the
+OffsetOnly constructor instead of a number.  Reported by Eric Cholet.
+
+- Fix DateTime::TimeZone::OffsetOnly documentation to specify that
+offset must be specified as string, not a number.
+
+
+0.07     2003-02-19
+
+- Skip tests unless DateTime.pm 0.06 is installed.  Otherwise we have
+a bootstrapping problem since DateTime 0.06 needs DateTime::TimeZone
+0.06+.
+
+
+0.06     2003-02-16
+
+- Changes to work with DateTime.pm 0.06.
+
+- DateTime::TimeZone::offset_as_seconds handles '0' properly.
+
+- Fix a bug in handling future times for time zones with recurring
+rules.  The symptom would be the error "Invalid local time for date
+..."
+
+- Time zone data is now stored in a simple array, and searched using a
+binary search algorithm.  This eliminates the need to install
+Tree::RedBlack, and makes looking up time zone data quicker.
+Suggested by Jonathan Peacock.
+
+
+0.05     2003-02-13
+
+- The offset_as_string function did not handle negative offsets
+properly.  Patch from Kellan Elliott-McCrea.
+
+- Allow 'Z' as an offset name, equivalent to 'UTC'.  Patch from
+Kellan Elliott-McCrea.
+
+- Make sure DT::TZ subclasses which need to override
+is_dst_for_datetime do so.
+
+- Changed offset_as_seconds and offset_as_string so that the former
+always assumes its arg is a string and the latter always assumes it
+got a number.
+
+
+0.04     2003-02-10
+
+- Be forgiving of bad names in $ENV{TZ} and just calculate local
+offset instead.
+
+
+0.03     2003-02-09
+
+- Fixed bug in new method that should have caused DateTime::TimeZone
+to not be loadable.
+
+- Added is_dst_for_datetime method.
+
+
+0.02     2003-02-09
+
+- Updated version number to non-dev-release so that it's visible when
+CPAN.pm looks for it as a prereq to DateTime.pm.  Otherwise identical
+to 0.02 and still alpha/beta-ish.
+
+
+0.01_01  2003-02-06
+
+- Don't make pod for generated timezone modules.
+
+- Fix a buglet that caused test 01load.t to fail with some versions of
+Test::More.  Reported by John Peacock.
+
+
+0.01_00  2003-02-04
+
+- Initial alpha release

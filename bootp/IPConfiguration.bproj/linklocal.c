@@ -34,6 +34,13 @@
  * January 8, 2002	Dieter Siegmund (dieter@apple.com)
  * - added pseudo-link-local service support i.e. configure the
  *   subnet, but don't configure a link-local address
+ * 
+ * April 13, 2005	Dieter Siegmund (dieter@apple.com)
+ * - for the pseudo-link-local service support, check whether an ARP for
+ *   169.254.255.255 (link-local subnet-specific broadcast) is received.
+ *   If it is, we can assume that a router is configured for proxy ARP, and
+ *   thus link-local to routable communication is not possible, so disable
+ *   link-local ARP on this interface.
  */
 
 #include <stdlib.h>
@@ -88,7 +95,7 @@
 #define LINKLOCAL_RETRY_TIME_SECS	30
 
 typedef struct {
-    arp_client_t *	arp;	/* if NULL, we don't configure an address */
+    arp_client_t *	arp;
     timer_callout_t *	timer;
     int			current;
     struct in_addr	our_ip;
@@ -97,7 +104,64 @@ typedef struct {
     boolean_t		enable_arp_collision_detection;
 } Service_linklocal_t;
 
+/* 
+ * Static: S_last_address
+ * Purpose:
+ *   Keep track of the last address we successfully allocated.  This ensures
+ *   that we try to keep using the same IP address over and over, even when
+ *   services are stopped/started.
+ */
 static struct in_addr	S_last_address;
+
+/* 
+ * Static: S_last_probe
+ * Purpose:
+ *   Keep track of the last address we tried to probe.  This allows multiple
+ *   link-local services that start on multiple interfaces to use the same
+ *   initial IP address, and in all likelihood, end up with the same IP address
+ *   assigned to the interfaces.
+ */
+static struct in_addr	S_last_probe;
+
+static int
+siocarpipll(int s, const char * name, int val)
+{
+    struct ifreq	ifr;
+
+    bzero(&ifr, sizeof(ifr));
+    ifr.ifr_intval = val;
+    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+    return (ioctl(s, SIOCARPIPLL, &ifr));
+}
+
+static void
+set_arp_linklocal(const char * name, int val)
+{
+    int	s;
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s == -1) {
+	my_log(LOG_NOTICE, "set_arp_linklocal(%s) socket() failed, %m",
+	       name);
+	return;
+    }
+    if (siocarpipll(s, name, val) < 0) {
+	my_log(LOG_NOTICE, "set_arp_linklocal(%s) SIOCARPIPLL %d failed, %m",
+	       name, val);
+    }
+    close(s);
+}
+
+static __inline__ void
+arp_linklocal_disable(const char * name)
+{
+    set_arp_linklocal(name, 0);
+}
+
+static __inline__ void
+arp_linklocal_enable(const char * name)
+{
+    set_arp_linklocal(name, 1);
+}
 
 static __inline__ boolean_t
 in_addr_is_linklocal(struct in_addr iaddr)
@@ -105,35 +169,17 @@ in_addr_is_linklocal(struct in_addr iaddr)
     return (IN_LINKLOCAL(iptohl(iaddr)));
 }
 
-static void
-linklocal_subnet_remove()
+static boolean_t
+parent_service_ip_address(Service_t * service_p, struct in_addr * ret_ip)
 {
-    subnet_route_delete(G_ip_zeroes, hltoip(IN_LINKLOCALNETNUM),
-			hltoip(IN_CLASSB_NET), NULL);
-    return;
-}
+    Service_t * parent_service_p = service_parent_service(service_p);
 
-static void
-linklocal_subnet_set(Service_t * service_p)
-{
-    struct in_addr	iaddr = { 0 };
-
-    subnet_route_delete(G_ip_zeroes, hltoip(IN_LINKLOCALNETNUM),
-			hltoip(IN_CLASSB_NET), NULL);
-    if (service_p->info.addr.s_addr != 0) {
-	iaddr = service_p->info.addr;
+    if (parent_service_p == NULL
+	|| parent_service_p->info.addr.s_addr == 0) {
+	return (FALSE);
     }
-    else {
-	Service_t * parent_service_p = service_parent_service(service_p);
-	if (parent_service_p == NULL) {
-	    return;
-	}
-	iaddr = parent_service_p->info.addr;
-    }
-    subnet_route_add(iaddr, hltoip(IN_LINKLOCALNETNUM),
-		     hltoip(IN_CLASSB_NET), 
-		     if_name(service_interface(service_p)));
-    return;
+    *ret_ip = parent_service_p->info.addr;
+    return (TRUE);
 }
 
 struct in_addr
@@ -154,6 +200,9 @@ S_find_linklocal_address(interface_t * if_p)
 	    return (info->addr);
 	}
     }
+    if (S_last_probe.s_addr != 0) {
+	return (S_last_probe);
+    }
     return (G_ip_zeroes);
 }
 
@@ -168,7 +217,7 @@ linklocal_cancel_pending_events(Service_t * service_p)
 	timer_cancel(linklocal->timer);
     }
     if (linklocal->arp) {
-	arp_client_cancel_probe(linklocal->arp);
+	arp_client_cancel(linklocal->arp);
     }
     return;
 }
@@ -181,6 +230,7 @@ linklocal_failed(Service_t * service_p, ipconfig_status_t status, char * msg)
 
     linklocal->enable_arp_collision_detection = FALSE;
     linklocal_cancel_pending_events(service_p);
+    arp_linklocal_disable(if_name(service_interface(service_p)));
     service_remove_address(service_p);
     if (status != ipconfig_status_media_inactive_e) {
 	linklocal->our_ip = G_ip_zeroes;
@@ -197,7 +247,78 @@ linklocal_link_timer(void * arg0, void * arg1, void * arg2)
 }
 
 static void
-linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
+linklocal_detect_proxy_arp(Service_t * service_p, IFEventID_t event_id,
+			   void * event_data)
+{
+    Service_linklocal_t * linklocal = (Service_linklocal_t *)service_p->private;
+    interface_t *	  if_p = service_interface(service_p);
+
+    switch (event_id) {
+      case IFEventID_start_e: {
+	  struct in_addr	iaddr;
+	  struct in_addr	llbroadcast;
+
+	  arp_linklocal_disable(if_name(if_p));
+	  llbroadcast.s_addr = htonl(LINKLOCAL_RANGE_END);
+	  /* clean-up anything that might have come before */
+	  linklocal_cancel_pending_events(service_p);
+	  if (parent_service_ip_address(service_p, &iaddr) == FALSE) {
+	      my_log(LOG_NOTICE, "LINKLOCAL %s: parent has no IP",
+		     if_name(if_p));
+	      break;
+	  }
+	  my_log(LOG_DEBUG, 
+		 "LINKLOCAL %s: ARP Request: Source " IP_FORMAT 
+		 " Target 169.254.255.255", if_name(if_p), IP_LIST(&iaddr));
+	  arp_client_probe(linklocal->arp, 
+			   (arp_result_func_t *)linklocal_detect_proxy_arp, 
+			   service_p, (void *)IFEventID_arp_e, iaddr,
+			   llbroadcast);
+	  /* wait for the results */
+	  break;
+      }
+      case IFEventID_arp_e: {
+	  arp_result_t *	result = (arp_result_t *)event_data;
+
+	  if (result->error) {
+	      my_log(LOG_DEBUG, "LINKLOCAL %s: ARP probe failed, %s", 
+		     if_name(if_p),
+		     arp_client_errmsg(linklocal->arp));
+	      break;
+	  }
+	  linklocal_set_needs_attention();
+	  if (result->in_use) {
+	      my_log(LOG_DEBUG, 
+		     "LINKLOCAL %s: ARP response received for 169.254.255.255" 
+		     " from " EA_FORMAT, 
+		     if_name(if_p), 
+		     EA_LIST(result->addr.target_hardware));
+	      service_publish_failure(service_p, 
+				      ipconfig_status_address_in_use_e,
+				      NULL);
+	      break;
+	  }
+	  if (service_link_status(service_p)->valid == TRUE 
+	      && service_link_status(service_p)->active == FALSE) {
+	      linklocal_failed(service_p,
+			       ipconfig_status_media_inactive_e, NULL);
+	      break;
+	  }
+	  arp_linklocal_enable(if_name(if_p));
+	  service_publish_failure(service_p, 
+				  ipconfig_status_success_e, NULL);
+	  break;
+      }
+      default: {
+	  break;
+      }
+    }
+    return;
+}
+
+static void
+linklocal_allocate(Service_t * service_p, IFEventID_t event_id,
+		   void * event_data)
 {
     Service_linklocal_t * linklocal = (Service_linklocal_t *)service_p->private;
     interface_t *	  if_p = service_interface(service_p);
@@ -206,23 +327,25 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
       case IFEventID_start_e: {
 	  linklocal->enable_arp_collision_detection = FALSE;
 
+	  arp_linklocal_disable(if_name(if_p));
+
 	  /* clean-up anything that might have come before */
 	  linklocal_cancel_pending_events(service_p);
 	  
-	  linklocal->current = 0;
+	  linklocal->current = 1;
 	  if (linklocal->our_ip.s_addr) {
 	      /* try to keep the same address */
 	      linklocal->probe = linklocal->our_ip;
 	  }
 	  else {
-	      linklocal->probe.s_addr 
+	      S_last_probe.s_addr = linklocal->probe.s_addr 
 		  = htonl(LINKLOCAL_FIRST_USEABLE 
 			  + random_range(0, LINKLOCAL_RANGE));
 	  }
 	  my_log(LOG_DEBUG, "LINKLOCAL %s: probing " IP_FORMAT, 
 		 if_name(if_p), IP_LIST(&linklocal->probe));
 	  arp_client_probe(linklocal->arp, 
-			   (arp_result_func_t *)linklocal_init, service_p,
+			   (arp_result_func_t *)linklocal_allocate, service_p,
 			   (void *)IFEventID_arp_e, G_ip_zeroes,
 			   linklocal->probe);
 	  /* wait for the results */
@@ -237,12 +360,12 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 		     arp_client_errmsg(linklocal->arp));
 	      break;
 	  }
-	  else if (result->in_use) {
+	  if (result->in_use) {
 	      my_log(LOG_DEBUG, "LINKLOCAL %s: IP address " 
 		     IP_FORMAT " is in use by " EA_FORMAT, 
 		     if_name(if_p), 
 		     IP_LIST(&linklocal->probe),
-		     EA_LIST(result->hwaddr));
+		     EA_LIST(result->addr.target_hardware));
 	      if (linklocal->our_ip.s_addr == linklocal->probe.s_addr) {
 		  S_last_address = linklocal->our_ip = G_ip_zeroes;
 		  (void)service_remove_address(service_p);
@@ -264,6 +387,7 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      /* ad-hoc IP address is not in use, so use it */
 	      (void)service_set_address(service_p, linklocal->probe, 
 					linklocal_mask, G_ip_zeroes);
+	      arp_linklocal_enable(if_name(if_p));
 	      linklocal_cancel_pending_events(service_p);
 	      S_last_address = linklocal->our_ip = linklocal->probe;
 	      service_publish_success(service_p, NULL, 0);
@@ -271,25 +395,26 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      /* we're done */
 	      break; /* out of switch */
 	  }
-	  linklocal->current++;
 	  if (linklocal->current >= MAX_LINKLOCAL_INITIAL_TRIES) {
 	      struct timeval tv;
 	      /* initial tries threshold reached, try again after a timeout */
 	      tv.tv_sec = LINKLOCAL_RETRY_TIME_SECS;
+	      tv.tv_usec = 0;
 	      timer_set_relative(linklocal->timer, tv, 
-				 (timer_func_t *)linklocal_init,
+				 (timer_func_t *)linklocal_allocate,
 				 service_p, (void *)IFEventID_timeout_e, NULL);
 	      /* don't fall through, wait for timer */
 	      break;
 	  }
+	  linklocal->current++;
 	  /* FALL THROUGH */
       case IFEventID_timeout_e:
 	  /* try the next address */
-	  linklocal->probe.s_addr 
+	  S_last_probe.s_addr = linklocal->probe.s_addr 
 	      = htonl(LINKLOCAL_FIRST_USEABLE 
 		      + random_range(0, LINKLOCAL_RANGE));
 	  arp_client_probe(linklocal->arp, 
-			   (arp_result_func_t *)linklocal_init, service_p,
+			   (arp_result_func_t *)linklocal_allocate, service_p,
 			   (void *)IFEventID_arp_e, G_ip_zeroes,
 			   linklocal->probe);
 	  my_log(LOG_DEBUG, "LINKLOCAL %s probing " IP_FORMAT, 
@@ -301,6 +426,22 @@ linklocal_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  break;
     }
 
+    return;
+}
+
+static void
+linklocal_start(Service_t * service_p, IFEventID_t event_id, void * event_data)
+{
+    Service_linklocal_t *	linklocal;
+
+    linklocal = (Service_linklocal_t *)service_p->private;
+    if (linklocal->allocate) {
+	linklocal_allocate(service_p, IFEventID_start_e, NULL);
+    }
+    else {
+	linklocal_detect_proxy_arp(service_p,
+				   IFEventID_start_e, NULL);
+    }
     return;
 }
 
@@ -363,13 +504,11 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  if (ipcfg != NULL && ipcfg->reserved_0 == TRUE) {
 	      /* don't allocate an IP address, just set the subnet */
 	      linklocal->allocate = FALSE;
-	      linklocal_subnet_set(service_p);
-	      service_publish_failure(service_p, 
-				      ipconfig_status_success_e, NULL);
+	      linklocal_detect_proxy_arp(service_p, IFEventID_start_e, NULL);
 	      break;
 	  }
 	  linklocal->our_ip = S_find_linklocal_address(if_p);
-	  linklocal_init(service_p, IFEventID_start_e, NULL);
+	  linklocal_allocate(service_p, IFEventID_start_e, NULL);
 	  break;
       }
       case IFEventID_stop_e: {
@@ -382,13 +521,9 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      break;
 	  }
 
-	  /* remove IP address(es) */
-	  if (linklocal->allocate) {
-	      service_remove_address(service_p);
-	  }
-	  else {
-	      linklocal_subnet_remove();
-	  }
+	  /* remove IP address */
+	  arp_linklocal_disable(if_name(if_p));
+	  service_remove_address(service_p);
 
 	  /* clean-up the published state */
 	  service_publish_failure(service_p, 
@@ -420,11 +555,12 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      linklocal->allocate = allocate;
 	      if (allocate) {
 		  linklocal->our_ip = S_find_linklocal_address(if_p);
-		  linklocal_init(service_p, IFEventID_start_e, NULL);
+		  linklocal_allocate(service_p, IFEventID_start_e, NULL);
 	      }
 	      else {
 		  linklocal_failed(service_p, ipconfig_status_success_e, NULL);
-		  linklocal_subnet_set(service_p);
+		  linklocal_detect_proxy_arp(service_p,
+					     IFEventID_start_e, NULL);
 	      }
 	  }
 	  break;
@@ -448,29 +584,30 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  service_publish_failure(service_p, 
 				  ipconfig_status_address_in_use_e,
 				  NULL);
-	  linklocal_init(service_p, IFEventID_start_e, NULL);
+	  linklocal_allocate(service_p, IFEventID_start_e, NULL);
 	  break;
       }
       case IFEventID_media_e: {
 	  if (linklocal == NULL) {
 	      return (ipconfig_status_internal_error_e);
 	  }
-	  if (linklocal->allocate == FALSE) {
-	      break;
-	  }
 	  if (service_link_status(service_p)->valid == TRUE) {
+	      struct timeval tv;
+	      
+	      linklocal_cancel_pending_events(service_p);
+	      tv.tv_usec = 0;
 	      if (service_link_status(service_p)->active == TRUE) {
-		  linklocal_init(service_p, IFEventID_start_e, NULL);
+		  tv.tv_sec = 2;
+		  timer_set_relative(linklocal->timer, tv, 
+				     (timer_func_t *)linklocal_start,
+				     service_p, NULL, NULL);
 	      }
 	      else {
-		  struct timeval tv;
-
 		  linklocal->enable_arp_collision_detection = FALSE;
 
 		  /* if link goes down and stays down long enough, unpublish */
 		  linklocal_cancel_pending_events(service_p);
 		  tv.tv_sec = G_link_inactive_secs;
-		  tv.tv_usec = 0;
 		  timer_set_relative(linklocal->timer, tv, 
 				     (timer_func_t *)linklocal_link_timer,
 				     service_p, NULL, NULL);

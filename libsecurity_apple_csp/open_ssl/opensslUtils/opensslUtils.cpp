@@ -90,12 +90,23 @@ int CRYPTO_mem_ctrl(int mode)
 	return 0;
 }
 
+/* Clear openssl error stack. */
+void clearOpensslErrors()
+{
+	while(ERR_get_error()) 
+		;
+}
+
 /*
  * Log error info. Returns the error code we pop off the error queue.
  */
 unsigned long logSslErrInfo(const char *op)
 {
 	unsigned long e = ERR_get_error();
+	
+	/* flush out subsequent errors; we only want the first one */
+	clearOpensslErrors();
+	
 	char outbuf[1024];
 	ERR_error_string(e, outbuf);
 	if(op) {
@@ -185,6 +196,8 @@ void throwRsaDsa(
 					cerr = CSSMERR_CSP_INVALID_ALGORITHM; break;
 				case RSA_R_WRONG_SIGNATURE_LENGTH:
 					cerr = CSSMERR_CSP_VERIFY_FAILED; break;
+				case RSA_R_SSLV3_ROLLBACK_ATTACK:
+					cerr = CSSMERR_CSP_APPLE_SSLv2_ROLLBACK; break;
 				default:
 					cerr = CSSMERR_CSP_INTERNAL_ERROR; break;
 			}

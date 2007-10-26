@@ -945,11 +945,8 @@ void FrameView::updateControlTints()
     // We do a "fake" paint, and when the theme gets a paint call, it can then do an invalidate.
     // This is only done if the theme supports control tinting. It's up to the theme and platform
     // to define when controls get the tint and to call this function when that changes.
-    
-    // Optimize the common case where we bring a window to the front while it's still empty.
-    if (!m_frame || m_frame->loader()->url().isEmpty()) 
+    if (!m_frame)
         return;
-    
     Document* doc = m_frame->document();
     if (doc && theme()->supportsControlTints() && m_frame->renderer()) {
         doc->updateLayout(); // Ensure layout is up to date.

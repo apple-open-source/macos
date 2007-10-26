@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #ifndef ARG_RAW
 /*
@@ -40,6 +36,7 @@ struct ionod
 	char		*iodelim;
 	off_t		iooffset;
 	long		iosize;
+	char		*iovname;
 };
 
 struct comnod
@@ -114,6 +111,7 @@ struct argnod
 /* legal argument flags */
 #define ARG_RAW		0x1	/* string needs no processing */
 #define ARG_MAKE	0x2	/* bit set during argument expansion */
+#define ARG_COMSUB	0x2	/* command sub */
 #define ARG_MAC		0x4	/* string needs macro expansion */
 #define	ARG_EXP		0x8	/* string needs file expansion */
 #define ARG_ASSIGN	0x10	/* argument is an assignment */
@@ -125,6 +123,7 @@ struct argnod
 #define ARG_OPTIMIZE	0x200	/* try to optimize */
 #define ARG_NOGLOB	0x400	/* no file name expansion */
 #define ARG_LET		0x800	/* processing let command arguments */
+#define ARG_ARRAYOK	0x1000	/* $x[sub] ==> ${x[sub]} */
 
 extern char 		**sh_argbuild(int*,const struct comnod*,int);
 extern struct dolnod	*sh_argcreate(char*[]);

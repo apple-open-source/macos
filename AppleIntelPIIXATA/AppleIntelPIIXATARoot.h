@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -76,6 +76,10 @@ public:
     virtual void pciConfigWrite16( UInt8  offset,
                                    UInt16 data,
                                    UInt16 mask = 0xffff );
+
+	virtual void setSerialATAPortEnable( UInt32 port, bool enable );
+
+	virtual bool getSerialATAPortPresentStatus( UInt32 port );
 
     virtual bool serializeProperties( OSSerialize * s ) const;
 };

@@ -1,0 +1,21 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>ruby_dnssd</string>
+        <key>OpenSourceVersion</key>
+        <string>0.6.0</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://dnssd.rubyforge.org</string>
+        <key>OpenSourceImportDate</key>
+        <string>2006-05-23</string>
+        <key>OpenSourceLicense</key>
+        <string>Ruby</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>ruby_dnssd.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+</dict>
+</array>
+</plist>

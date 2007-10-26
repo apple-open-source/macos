@@ -1,6 +1,7 @@
 /* Scheme/Guile language support routines for GDB, the GNU debugger.
 
-   Copyright 1995, 1996, 2000, 2003 Free Software Foundation, Inc.
+   Copyright 1995, 1996, 2000, 2003, 2005 Free Software Foundation,
+   Inc.
 
    This file is part of GDB.
 
@@ -310,10 +311,10 @@ tryagain:
       if (!skipping)
 	{
 	  struct value *val = scm_evaluate_string (str.ptr, lexptr - str.ptr);
-	  if (!is_scmvalue_type (VALUE_TYPE (val)))
+	  if (!is_scmvalue_type (value_type (val)))
 	    error ("quoted scm form yields non-SCM value");
-	  svalue = extract_signed_integer (VALUE_CONTENTS (val),
-					   TYPE_LENGTH (VALUE_TYPE (val)));
+	  svalue = extract_signed_integer (value_contents (val),
+					   TYPE_LENGTH (value_type (val)));
 	  goto handle_immediate;
 	}
       return;

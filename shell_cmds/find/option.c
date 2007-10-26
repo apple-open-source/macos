@@ -38,9 +38,10 @@
 /*
 static char sccsid[] = "@(#)option.c	8.2 (Berkeley) 4/16/94";
 */
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/find/option.c,v 1.9.2.4 2001/05/06 09:53:22 phk Exp $";
 #endif /* not lint */
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/find/option.c,v 1.25 2006/04/05 23:06:11 ceri Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -54,12 +55,20 @@ static const char rcsid[] =
 
 #include "find.h"
 
+int typecompare(const void *, const void *);
+
 /* NB: the following table must be sorted lexically. */
 static OPTION const options[] = {
 	{ "!",		c_simple,	f_not,		0 },
 	{ "(",		c_simple,	f_openparen,	0 },
 	{ ")",		c_simple,	f_closeparen,	0 },
+	{ "-Bmin",	c_Xmin,		f_Xmin,		F_TIME_B },
+	{ "-Bnewer",	c_newer,	f_newer,	F_TIME_B },
+	{ "-Btime",	c_Xtime,	f_Xtime,	F_TIME_B },
 	{ "-a",		c_and,		NULL,		0 },
+#ifndef __APPLE__
+	{ "-acl",	c_acl,		f_acl,		0 },
+#endif /* !__APPLE__ */
 	{ "-amin",	c_Xmin,		f_Xmin,		F_TIME_A },
 	{ "-and",	c_and,		NULL,		0 },
 	{ "-anewer",	c_newer,	f_newer,	F_TIME_A },
@@ -68,20 +77,14 @@ static OPTION const options[] = {
 	{ "-cnewer",	c_newer,	f_newer,	F_TIME_C },
 	{ "-ctime",	c_Xtime,	f_Xtime,	F_TIME_C },
 	{ "-delete",	c_delete,	f_delete,	0 },
-	{ "-depth",	c_depth,	f_always_true,	0 },
+	{ "-depth",	c_depth,	f_depth,	0 },
 	{ "-empty",	c_empty,	f_empty,	0 },
 	{ "-exec",	c_exec,		f_exec,		0 },
 	{ "-execdir",	c_exec,		f_exec,		F_EXECDIR },
 	{ "-false",	c_simple,	f_not,		0 },
 	{ "-flags",	c_flags,	f_flags,	0 },
 	{ "-follow",	c_follow,	f_always_true,	0 },
-/*
- * NetBSD doesn't provide a getvfsbyname(), so this option
- * is not available if using a NetBSD kernel.
- */
-#if !defined(__NetBSD__)
 	{ "-fstype",	c_fstype,	f_fstype,	0 },
-#endif
 	{ "-group",	c_group,	f_group,	0 },
 	{ "-iname",	c_name,		f_name,		F_IGNCASE },
 	{ "-inum",	c_inum,		f_inum,		0 },
@@ -96,14 +99,22 @@ static OPTION const options[] = {
 	{ "-mtime",	c_Xtime,	f_Xtime,	0 },
 	{ "-name",	c_name,		f_name,		0 },
 	{ "-newer",	c_newer,	f_newer,	0 },
+	{ "-newerBB",	c_newer,	f_newer,	F_TIME_B | F_TIME2_B },
+	{ "-newerBa",	c_newer,	f_newer,	F_TIME_B | F_TIME2_A },
+	{ "-newerBc",	c_newer,	f_newer,	F_TIME_B | F_TIME2_C },
+	{ "-newerBm",	c_newer,	f_newer,	F_TIME_B },
+	{ "-newerBt",	c_newer,	f_newer,	F_TIME_B | F_TIME2_T },
+	{ "-neweraB",	c_newer,	f_newer,	F_TIME_A | F_TIME2_B },
 	{ "-neweraa",	c_newer,	f_newer,	F_TIME_A | F_TIME2_A },
 	{ "-newerac",	c_newer,	f_newer,	F_TIME_A | F_TIME2_C },
 	{ "-neweram",	c_newer,	f_newer,	F_TIME_A },
 	{ "-newerat",	c_newer,	f_newer,	F_TIME_A | F_TIME2_T },
+	{ "-newercB",	c_newer,	f_newer,	F_TIME_C | F_TIME2_B },
 	{ "-newerca",	c_newer,	f_newer,	F_TIME_C | F_TIME2_A },
 	{ "-newercc",	c_newer,	f_newer,	F_TIME_C | F_TIME2_C },
 	{ "-newercm",	c_newer,	f_newer,	F_TIME_C },
 	{ "-newerct",	c_newer,	f_newer,	F_TIME_C | F_TIME2_T },
+	{ "-newermB",	c_newer,	f_newer,	F_TIME2_B },
 	{ "-newerma",	c_newer,	f_newer,	F_TIME2_A },
 	{ "-newermc",	c_newer,	f_newer,	F_TIME2_C },
 	{ "-newermm",	c_newer,	f_newer,	0 },
@@ -136,17 +147,16 @@ static OPTION const options[] = {
  *	this switch stuff.
  */
 PLAN *
-find_create(argvp)
-	char ***argvp;
+find_create(char ***argvp)
 {
-	register OPTION *p;
+	OPTION *p;
 	PLAN *new;
 	char **argv;
 
 	argv = *argvp;
 
-	if ((p = option(*argv)) == NULL)
-		errx(1, "%s: unknown expression primary", *argv);
+	if ((p = lookup_option(*argv)) == NULL)
+		errx(1, "%s: unknown option", *argv);
 	++argv;
 
 	new = (p->create)(p, &argv);
@@ -155,11 +165,9 @@ find_create(argvp)
 }
 
 OPTION *
-option(name)
-	char *name;
+lookup_option(const char *name)
 {
 	OPTION tmp;
-	int typecompare __P((const void *, const void *));
 
 	tmp.name = name;
 	return ((OPTION *)bsearch(&tmp, options,
@@ -167,8 +175,7 @@ option(name)
 }
 
 int
-typecompare(a, b)
-	const void *a, *b;
+typecompare(const void *a, const void *b)
 {
-	return (strcmp(((OPTION *)a)->name, ((OPTION *)b)->name));
+	return (strcmp(((const OPTION *)a)->name, ((const OPTION *)b)->name));
 }

@@ -1,4 +1,4 @@
-.\" $Id: curl_share_setopt.3,v 1.3 2004/02/25 12:34:19 bagder Exp $
+.\" $Id: curl_share_setopt.3,v 1.4 2006-07-07 22:07:10 bagder Exp $
 .\"
 .TH curl_share_setopt 3 "8 Aug 2003" "libcurl 7.10.7" "libcurl Manual"
 .SH NAME
@@ -42,7 +42,9 @@ be set to one of the values described below.
 Cookie data will be shared across the easy handles using this shared object.
 .IP CURL_LOCK_DATA_DNS
 Cached DNS hosts will be shared across the easy handles using this shared
-object.
+object. Note that when you use the multi interface, all easy handles added to
+the same multi handle will share DNS cache by default without this having to
+be used!
 .RE
 .IP CURLSHOPT_UNSHARE
 This option does the opposite of \fICURLSHOPT_SHARE\fP. It specifies that

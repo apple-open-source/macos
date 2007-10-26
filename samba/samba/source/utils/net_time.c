@@ -30,8 +30,10 @@ static time_t cli_servertime(const char *host, struct in_addr *ip, int *zone)
 	time_t ret = 0;
 	struct cli_state *cli = NULL;
 
-	cli = cli_initialise(NULL);
-	if (!cli) goto done;
+	cli = cli_initialise();
+	if (!cli) {
+		goto done;
+	}
 
 	if (!cli_connect(cli, host, ip)) {
 		fprintf(stderr,"Can't contact server\n");
@@ -58,7 +60,9 @@ static time_t cli_servertime(const char *host, struct in_addr *ip, int *zone)
 	if (zone) *zone = cli->serverzone;
 
 done:
-	if (cli) cli_shutdown(cli);
+	if (cli) {
+		cli_shutdown(cli);
+	}
 	return ret;
 }
 
@@ -69,12 +73,15 @@ static time_t nettime(int *zone)
 }
 
 /* return a time as a string ready to be passed to /bin/date */
-static char *systime(time_t t)
+static const char *systime(time_t t)
 {
 	static fstring s;
 	struct tm *tm;
 
 	tm = localtime(&t);
+	if (!tm) {
+		return "unknown";
+	}
 	
 	fstr_sprintf(s, "%02d%02d%02d%02d%04d.%02d", 
 		 tm->tm_mon+1, tm->tm_mday, tm->tm_hour, 
@@ -99,6 +106,7 @@ static int net_time_set(int argc, const char **argv)
 {
 	time_t t = nettime(NULL);
 	char *cmd;
+	int result;
 
 	if (t == 0) return -1;
 	
@@ -106,10 +114,13 @@ static int net_time_set(int argc, const char **argv)
 	   roll your own. I'm putting this in as it works on a large number
 	   of systems and the user has a choice in whether its used or not */
 	asprintf(&cmd, "/bin/date %s", systime(t));
-	system(cmd);
+	result = system(cmd);
+	if (result)
+		d_fprintf(stderr, "%s failed.  Error was (%s)\n",
+			cmd, strerror(errno));
 	free(cmd);
 
-	return 0;
+	return result;
 }
 
 /* display the time on a remote box in a format ready for /bin/date */
@@ -161,7 +172,7 @@ int net_time(int argc, const char **argv)
 
 	if (!opt_host && !opt_have_ip && 
 	    !find_master_ip(opt_target_workgroup, &opt_dest_ip)) {
-		d_printf("Could not locate a time server.  Try "\
+		d_fprintf(stderr, "Could not locate a time server.  Try "\
 				 "specifying a target host.\n");
 		net_time_usage(argc,argv);
 		return -1;

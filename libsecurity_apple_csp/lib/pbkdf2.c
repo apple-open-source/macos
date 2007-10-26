@@ -29,35 +29,35 @@
    See: http://www.rsa.com/rsalabs/pubs/PKCS/html/pkcs-5.html for details. 
    tempBuffer is a pointer to at least MAX (hLen, saltLen + 4) + hLen bytes. */
 static void 
-F (PRF prf, UInt32 hLen,
-   const void *passwordPtr, UInt32 passwordLen,
-   const void *saltPtr, UInt32 saltLen,
-   UInt32 iterationCount,
-   UInt32 blockNumber,
+F (PRF prf, uint32 hLen,
+   const void *passwordPtr, uint32 passwordLen,
+   const void *saltPtr, uint32 saltLen,
+   uint32 iterationCount,
+   uint32 blockNumber,
    void *dataPtr,
    void *tempBuffer)
 {
-	UInt8 *inBlock, *outBlock, *resultBlockPtr;
-	UInt32 iteration;
-	outBlock = (UInt8*)tempBuffer;
+	uint8 *inBlock, *outBlock, *resultBlockPtr;
+	uint32 iteration;
+	outBlock = (uint8*)tempBuffer;
 	inBlock = outBlock + hLen;
 	/* Set up inBlock to contain Salt || INT (blockNumber). */
 	memcpy (inBlock, saltPtr, saltLen);
 
-	inBlock[saltLen + 0] = (UInt8)(blockNumber >> 24);
-	inBlock[saltLen + 1] = (UInt8)(blockNumber >> 16);
-	inBlock[saltLen + 2] = (UInt8)(blockNumber >> 8);
-	inBlock[saltLen + 3] = (UInt8)(blockNumber);
+	inBlock[saltLen + 0] = (uint8)(blockNumber >> 24);
+	inBlock[saltLen + 1] = (uint8)(blockNumber >> 16);
+	inBlock[saltLen + 2] = (uint8)(blockNumber >> 8);
+	inBlock[saltLen + 3] = (uint8)(blockNumber);
 
 	/* Caculate U1 (result goes to outBlock) and copy it to resultBlockPtr. */
-	resultBlockPtr = (UInt8*)dataPtr;
+	resultBlockPtr = (uint8*)dataPtr;
 	prf (passwordPtr, passwordLen, inBlock, saltLen + 4, outBlock);
 	memcpy (resultBlockPtr, outBlock, hLen);
 	/* Calculate U2 though UiterationCount. */
 	for (iteration = 2; iteration <= iterationCount; iteration++)
 	{
-		UInt8 *tempBlock;
-		UInt32 byte;
+		uint8 *tempBlock;
+		uint32 byte;
 		/* Swap inBlock and outBlock pointers. */
 		tempBlock = inBlock;
 		inBlock = outBlock;
@@ -70,19 +70,19 @@ F (PRF prf, UInt32 hLen,
 			resultBlockPtr[byte] ^= outBlock[byte];
 	}
 }
-void pbkdf2 (PRF prf, UInt32 hLen,
-			 const void *passwordPtr, UInt32 passwordLen,
-			 const void *saltPtr, UInt32 saltLen,
-			 UInt32 iterationCount,
-			 void *dkPtr, UInt32 dkLen,
+void pbkdf2 (PRF prf, uint32 hLen,
+			 const void *passwordPtr, uint32 passwordLen,
+			 const void *saltPtr, uint32 saltLen,
+			 uint32 iterationCount,
+			 void *dkPtr, uint32 dkLen,
 			 void *tempBuffer)
 {
-	UInt32 completeBlocks = dkLen / hLen;
-	UInt32 partialBlockSize = dkLen % hLen;
-	UInt32 blockNumber;
-	UInt8 *dataPtr = (UInt8*)dkPtr;
-	UInt8 *blkBuffer = (UInt8*)tempBuffer;
-	/* First cacluate all the complete hLen sized blocks required. */
+	uint32 completeBlocks = dkLen / hLen;
+	uint32 partialBlockSize = dkLen % hLen;
+	uint32 blockNumber;
+	uint8 *dataPtr = (uint8*)dkPtr;
+	uint8 *blkBuffer = (uint8*)tempBuffer;
+	/* First calculate all the complete hLen sized blocks required. */
 	for (blockNumber = 1; blockNumber <= completeBlocks; blockNumber++)
 	{
 		F (prf, hLen, passwordPtr, passwordLen, saltPtr, saltLen,

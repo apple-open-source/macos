@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.info.mk,v 1.68 2004/01/27 23:22:15 ru Exp $
+# $FreeBSD: src/share/mk/bsd.info.mk,v 1.71 2005/02/27 22:02:31 obrien Exp $
 #
 # The include file <bsd.info.mk> handles installing GNU (tech)info files.
 # Texinfo is a documentation system that uses a single source
@@ -22,7 +22,7 @@
 # ICOMPRESS_CMD	Program to compress info files. Output is to
 #		stdout. [${COMPRESS_CMD}]
 #
-# INFO		texinfo files, without suffix.  [set in Makefile] 
+# INFO		texinfo files, without suffix.  [set in Makefile]
 #
 # INFO2HTML	A program for converting GNU info files into HTML files
 #		[info2html]
@@ -53,9 +53,9 @@
 #
 # MAKEINFOFLAGS		Options for ${MAKEINFO} command. [--no-split]
 #
-# NOINFO	Do not make or install info files. [not set]
+# NO_INFO	Do not make or install info files. [not set]
 #
-# NOINFOCOMPRESS	If you do not want info files be
+# NO_INFOCOMPRESS	If you do not want info files be
 #			compressed when they are installed. [not set]
 #
 # TEX		A program for converting tex files into dvi files [tex]
@@ -111,11 +111,11 @@ DVIPS2ASCII?=	dvips2ascii
 	mv -f ${.TARGET}.new ${.TARGET}
 
 .dvi.ps:
-	${DVIPS} -o ${.TARGET} ${.IMPSRC} 	
+	${DVIPS} -o ${.TARGET} ${.IMPSRC}
 
 .info.html:
 	${INFO2HTML} ${.IMPSRC}
-	ln -f ${.TARGET:R}.info.Top.html ${.TARGET} 
+	ln -f ${.TARGET:R}.info.Top.html ${.TARGET}
 
 .PATH: ${.CURDIR} ${SRCDIR}
 
@@ -123,9 +123,9 @@ DVIPS2ASCII?=	dvips2ascii
 IFILENS+=	${INFO:S/$/.${_f}/}
 .endfor
 
-.if !defined(NOINFO)
+.if !defined(NO_INFO)
 CLEANFILES+=	${IFILENS}
-.if !defined(NOINFOCOMPRESS)
+.if !defined(NO_INFOCOMPRESS)
 CLEANFILES+=	${IFILENS:S/$/${ICOMPRESS_EXT}/}
 IFILES=	${IFILENS:S/$/${ICOMPRESS_EXT}/:S/.html${ICOMPRESS_EXT}/.html/}
 all: ${IFILES}
@@ -171,7 +171,7 @@ CLEANFILES+=	${INFO:S/$/-la.texi/}
 CLEANFILES+=	${INFO:S/$/.info.*.html/} ${INFO:S/$/.info/}
 .endif
 
-.if !defined(NOINFO) && defined(INFO)
+.if !defined(NO_INFO) && defined(INFO)
 install: ${INSTALLINFODIRS}
 .if !empty(IFILES:N*.html)
 	${INSTALL} -o ${INFOOWN} -g ${INFOGRP} -m ${INFOMODE} \

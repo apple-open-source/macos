@@ -7,7 +7,15 @@
 #include <config.h>
 #endif
 
+#if defined(SYS_WINNT)
+#undef close
+#define close closesocket
+#endif
+
 #if defined(REFCLOCK) && defined(CLOCK_NMEA)
+
+#include <stdio.h>
+#include <ctype.h>
 
 #include "ntpd.h"
 #include "ntp_io.h"
@@ -15,17 +23,8 @@
 #include "ntp_refclock.h"
 #include "ntp_stdlib.h"
 
-#include <stdio.h>
-#include <ctype.h>
-
 #ifdef HAVE_PPSAPI
-# ifdef HAVE_TIMEPPS_H
-#  include <timepps.h>
-# else
-#  ifdef HAVE_SYS_TIMEPPS_H
-#   include <sys/timepps.h>
-#  endif
-# endif
+# include "ppsapi_timepps.h"
 #endif /* HAVE_PPSAPI */
 
 /*
@@ -147,14 +146,60 @@ nmea_start(
 	 */
 	(void)sprintf(device, DEVICE, unit);
 
-	if (!(fd = refclock_open(device, SPEED232, LDISC_CLK)))
-	    return (0);
+	fd = refclock_open(device, SPEED232, LDISC_CLK);
+	if (fd <= 0) {
+#ifdef HAVE_READLINK
+          /* nmead support added by Jon Miner (cp_n18@yahoo.com)
+           *
+           * See http://home.hiwaay.net/~taylorc/gps/nmea-server/
+           * for information about nmead
+           *
+           * To use this, you need to create a link from /dev/gpsX to
+           * the server:port where nmead is running.  Something like this:
+           *
+           * ln -s server:port /dev/gps1
+           */
+          char buffer[80];
+          char *nmea_host;
+          int   nmea_port;
+          int   len;
+          struct hostent *he;
+          struct protoent *p;
+          struct sockaddr_in so_addr;
+
+          if ((len = readlink(device,buffer,sizeof(buffer))) == -1)
+            return(0);
+          buffer[len] = 0;
+
+          if ((nmea_host = strtok(buffer,":")) == NULL)
+            return(0);
+         
+          nmea_port = atoi(strtok(NULL,":"));
+
+          if ((he = gethostbyname(nmea_host)) == NULL)
+            return(0);
+          if ((p = getprotobyname("ip")) == NULL)
+            return(0);
+          so_addr.sin_family = AF_INET;
+          so_addr.sin_port = htons(nmea_port);
+          so_addr.sin_addr = *((struct in_addr *) he->h_addr);
+
+          if ((fd = socket(PF_INET,SOCK_STREAM,p->p_proto)) == -1)
+            return(0);
+          if (connect(fd,(struct sockaddr *)&so_addr,SOCKLEN(&so_addr)) == -1) {
+            close(fd);
+            return (0);
+          }
+#else
+            return (0);
+#endif
+        }
 
 	/*
 	 * Allocate and initialize unit structure
 	 */
-	if (!(up = (struct nmeaunit *)
-	      emalloc(sizeof(struct nmeaunit)))) {
+	up = (struct nmeaunit *)emalloc(sizeof(struct nmeaunit));
+	if (up == NULL) {
 		(void) close(fd);
 		return (0);
 	}
@@ -380,7 +425,7 @@ nmea_receive(
 	peer = (struct peer *)rbufp->recv_srcclock;
 	pp = peer->procptr;
 	up = (struct nmeaunit *)pp->unitptr;
-	rd_lencode = refclock_gtlin(rbufp, rd_lastcode, BMAX, &rd_tmp);
+	rd_lencode = (u_short)refclock_gtlin(rbufp, rd_lastcode, BMAX, &rd_tmp);
 
 	/*
 	 * There is a case that a <CR><LF> gives back a "blank" line
@@ -433,8 +478,8 @@ nmea_receive(
 
 
 	/* See if I want to process this message type */
-	if ( ((peer->ttlmax == 0) && (cmdtype != GPRMC))
-           || ((peer->ttlmax != 0) && !(cmdtype & peer->ttlmax)) )
+	if ( ((peer->ttl == 0) && (cmdtype != GPRMC))
+           || ((peer->ttl != 0) && !(cmdtype & peer->ttl)) )
 		return;
 
 	pp->lencode = rd_lencode;
@@ -530,21 +575,21 @@ nmea_receive(
 	/* Default to 0 milliseconds, if decimal convert milliseconds in
 	   one, two or three digits
 	*/
-	pp->msec = 0; 
+	pp->nsec = 0; 
 	if (dp[6] == '.') {
 		if (isdigit((int)dp[7])) {
-			pp->msec = (dp[7] - '0') * 100;
+			pp->nsec = (dp[7] - '0') * 100000000;
 			if (isdigit((int)dp[8])) {
-				pp->msec += (dp[8] - '0') * 10;
+				pp->nsec += (dp[8] - '0') * 10000000;
 				if (isdigit((int)dp[9])) {
-					pp->msec += (dp[9] - '0');
+					pp->nsec += (dp[9] - '0') * 1000000;
 				}
 			}
 		}
 	}
 
 	if (pp->hour > 23 || pp->minute > 59 || pp->second > 59
-	  || pp->msec > 1000) {
+	  || pp->nsec > 1000000000) {
 		refclock_report(peer, CEVNT_BADTIME);
 		return;
 	}
@@ -604,7 +649,7 @@ nmea_receive(
 	 */
 	if (nmea_pps(up, &rd_tmp) == 1) {
 		pp->lastrec = up->tstamp = rd_tmp;
-		pp->msec = 0;
+		pp->nsec = 0;
 	}
 #endif /* HAVE_PPSAPI */
 
@@ -630,7 +675,7 @@ nmea_receive(
 	if (!up->polled)
 	    return;
 	up->polled = 0;
-
+	pp->lastref = pp->lastrec;
 	refclock_receive(peer);
 
         /* If we get here - what we got from the clock is OK, so say so */

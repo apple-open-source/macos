@@ -167,7 +167,7 @@ void KeyAlgorithmAttributeCoder::decode(Tokend::TokenContext *tokenContext,
 		//algID = CSSM_ALGID_3DES_3KEY_EEE;
 		break;
 	default:
-		secdebug("coder", "unknown MSC_KEY_TYPE: %02X r: %p rid: %08lX aid: %lu", keyType,
+		secdebug("coder", "unknown MSC_KEY_TYPE: %02X r: %p rid: %08X aid: %u", keyType,
 			&record, metaAttribute.metaRecord().relationId(), metaAttribute.attributeId());
 		algID = CSSM_ALGID_CUSTOM;
 		break;
@@ -218,9 +218,7 @@ void MscDataAttributeCoder::decode(TokenContext *tokenContext, const MetaAttribu
 	TokenRecord &trec = dynamic_cast<TokenRecord &>(record);			
 	MscToken &tok = dynamic_cast<MscToken &>(*tokenContext);
 	MscObject &obj = tok.getObject(trec.objid());
-	secdebug("dcoder", "getting object %s of size %ld", trec.objid().c_str(), obj.size());
+	secdebug("dcoder", "getting object %s of size %d", trec.objid().c_str(), obj.size());
 	record.attributeAtIndex(metaAttribute.attributeIndex(), new Attribute(obj.data(), obj.size()));
 }
 
-
-/* arch-tag: C8A090EE-F61D-11D8-9622-000A9595DEEE */

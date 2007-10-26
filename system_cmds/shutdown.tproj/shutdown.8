@@ -39,11 +39,13 @@
 .Nm shutdown
 .Nd "close down the system at a given time"
 .Sh SYNOPSIS
-.Nm
+.Nm shutdown
 .Op Fl
 .Oo
-.Fl h | 
-.Fl r | Fl k
+.Fl h 
+.Op Fl u
+|
+.Fl r | Fl s | Fl k
 .Oc
 .Oo
 .Fl o
@@ -53,7 +55,7 @@
 .Op Ar warning-message ...
 .Sh DESCRIPTION
 The
-.Nm
+.Nm shutdown
 utility provides an automated shutdown procedure for super-users
 to nicely notify users when the system is shutting down,
 saving them from system administrators, hackers, and gurus, who
@@ -64,9 +66,6 @@ The following options are available:
 .It Fl h
 The system is halted at the specified
 .Ar time .
-.It Fl r
-The system is rebooted at the specified
-.Ar time .
 .It Fl k
 Kick everybody off.
 The
@@ -74,20 +73,6 @@ The
 option
 does not actually halt the system, but leaves the
 system multi-user with logins disabled (for all but super-user).
-.It Fl o
-If one of the
-.Fl h ,
-.Fl p
-or
-.Fl r
-is specified,
-.Nm
-will execute
-.Xr halt 8
-or
-.Xr reboot 8
-instead of sending signal to
-.Xr init 8 .
 .It Fl n
 If the
 .Fl o
@@ -98,10 +83,35 @@ option to
 or
 .Xr reboot 8 .
 This option should probably not be used.
+.It Fl o
+If
+.Fl h
+or
+.Fl r
+is specified,
+.Nm shutdown
+will execute
+.Xr halt 8
+or
+.Xr reboot 8
+instead of sending a signal to
+.Xr launchd 8 .
+.It Fl r
+The system is rebooted at the specified
+.Ar time .
+.It Fl s
+The system is put to sleep at the specified
+.Ar time .
+.It Fl u
+The system is halted up until the point of removing system power, but waits 
+before removing power for 5 minutes so that an external UPS 
+(uninterruptible power supply) can forcibly remove power. 
+This simulates a dirty shutdown to permit a later automatic power on. OS X uses
+this mode automatically with supported UPSs in emergency shutdowns.
 .It Ar time
 .Ar Time
 is the time at which
-.Nm
+.Nm shutdown
 will bring the system down and
 may be the word
 .Ar now
@@ -126,60 +136,41 @@ input.
 .Pp
 At intervals, becoming more frequent as apocalypse approaches
 and starting at ten hours before shutdown, warning messages are displayed
-on the terminals of all users logged in.  Five minutes before
-shutdown, or immediately if shutdown is in less than 5 minutes,
-logins are disabled by creating
-.Pa /var/run/nologin
-and copying the
-warning message there.  If this file exists when a user attempts to
-log in,
-.Xr login 1
-prints its contents and exits.  The file is
-removed just before
-.Nm
-exits.
+on the terminals of all users logged in.
 .Pp
 At shutdown time a message is written to the system log, containing the
 time of shutdown, the person who initiated the shutdown and the reason.
 Corresponding signal is then sent to
-.Xr init 8
+.Xr launchd 8
 to respectively halt, reboot or bring the system down to single-user state
 (depending on the above options).
-The time of the shutdown and the warning message
-are placed in
-.Pa /var/run/nologin
-and should be used to
-inform the users about when the system will be back up
-and why it is going down (or anything else).
 .Pp
 A scheduled shutdown can be canceled by killing the
-.Nm
+.Nm shutdown
 process (a
 .Dv SIGTERM
 should suffice).
+.Sh SIGTERM TO SIGKILL INTERVAL
+Upon shutdown, all running processes are sent a SIGTERM followed by a SIGKILL.
 The
-.Pa /var/run/nologin
-file that
-.Nm
-created will be removed automatically.
-.Sh FILES
-.Bl -tag -width /var/run/nologin -compact
-.It Pa /var/run/nologin
-tells login not to let anyone log in
-.El
+.Dv SIGKILL
+will follow the
+.Dv SIGTERM
+by an intentionally indeterminate period of time.
+Programs are expected to take only enough time to flush all dirty data and exit.
+Developers are encouraged to file a bug with the OS vendor, should they encounter an issue with this functionality.
 .Sh SEE ALSO
 .Xr kill 1 ,
 .Xr login 1 ,
 .Xr wall 1 ,
-.Xr nologin 5 ,
 .Xr halt 8 ,
-.Xr init 8 ,
+.Xr launchd 8 ,
 .Xr reboot 8
 .Sh BACKWARD COMPATIBILITY
 The hours and minutes in the second time format may be separated by
 a colon (``:'') for backward compatibility.
 .Sh HISTORY
 The
-.Nm
+.Nm shutdown
 utility appeared in
 .Bx 4.0 .

@@ -59,5 +59,4 @@ protected:
 
 #endif /* !_TOKEND_RELATION_H_ */
 
-/* arch-tag: E936FF49-DF80-11D8-9195-000A95C4302E */
 

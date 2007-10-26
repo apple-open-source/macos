@@ -150,11 +150,19 @@ xprt_unregister(xprt)
  */
 bool_t
 svc_register(xprt, prog, vers, dispatch, protocol)
+#ifdef __LP64__
+	SVCXPRT *xprt;
+	uint32_t prog;
+	uint32_t vers;
+	void (*dispatch)();
+	int32_t protocol;
+#else
 	SVCXPRT *xprt;
 	u_long prog;
 	u_long vers;
 	void (*dispatch)();
 	int protocol;
+#endif
 {
 	struct svc_callout *prev;
 	register struct svc_callout *s;
@@ -186,8 +194,13 @@ pmap_it:
  */
 void
 svc_unregister(prog, vers)
+#ifdef __LP64__
+	uint32_t prog;
+	uint32_t vers;
+#else
 	u_long prog;
 	u_long vers;
+#endif
 {
 	struct svc_callout *prev;
 	register struct svc_callout *s;
@@ -347,9 +360,15 @@ svcerr_noprog(xprt)
  */
 void  
 svcerr_progvers(xprt, low_vers, high_vers)
+#ifdef __LP64__
+	register SVCXPRT *xprt; 
+	uint32_t low_vers;
+	uint32_t high_vers;
+#else
 	register SVCXPRT *xprt; 
 	u_long low_vers;
 	u_long high_vers;
+#endif
 {
 	struct rpc_msg rply;
 

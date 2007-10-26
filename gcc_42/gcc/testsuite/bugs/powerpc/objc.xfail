@@ -1,0 +1,267 @@
+# APPLE LOCAL file testsuite
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be an
+### analyzed non-fail. You should then comment out the test in this
+### file and make sure the Radar is closed.
+###
+###------------------------------------------------------------------
+#
+4239991: objc.dg/encode-7.m (test for excess errors)
+4239991: objc.dg/encode-8.m (test for excess errors)
+4239991: objc.dg/gnu-runtime-3.m (test for excess errors)
+4239991: objc.dg/type-stream-1.m (test for excess errors)
+4943900: objc/execute/string1.m compilation,  -O0  -fnext-runtime
+4943900: objc/execute/string1.m compilation,  -O1  -fnext-runtime
+4943900: objc/execute/string1.m compilation,  -O2  -fnext-runtime
+4943900: objc/execute/string1.m compilation,  -O3 -fomit-frame-pointer  -fnext-runtime
+4943900: objc/execute/string1.m compilation,  -O3 -g  -fnext-runtime
+4943900: objc/execute/string1.m compilation,  -Os  -fnext-runtime
+4943900: objc/execute/string1.m compilation,  -fast  -fnext-runtime
+4943900: objc/execute/string2.m compilation,  -O0  -fnext-runtime
+4943900: objc/execute/string2.m compilation,  -O1  -fnext-runtime
+4943900: objc/execute/string2.m compilation,  -O2  -fnext-runtime
+4943900: objc/execute/string2.m compilation,  -O3 -fomit-frame-pointer  -fnext-runtime
+4943900: objc/execute/string2.m compilation,  -O3 -g  -fnext-runtime
+4943900: objc/execute/string2.m compilation,  -Os  -fnext-runtime
+4943900: objc/execute/string2.m compilation,  -fast  -fnext-runtime
+4943900: objc/execute/string3.m compilation,  -O0  -fnext-runtime
+4943900: objc/execute/string3.m compilation,  -O1  -fnext-runtime
+4943900: objc/execute/string3.m compilation,  -O2  -fnext-runtime
+4943900: objc/execute/string3.m compilation,  -O3 -fomit-frame-pointer  -fnext-runtime
+4943900: objc/execute/string3.m compilation,  -O3 -g  -fnext-runtime
+4943900: objc/execute/string3.m compilation,  -Os  -fnext-runtime
+4943900: objc/execute/string3.m compilation,  -fast  -fnext-runtime
+4943900: objc/execute/string4.m compilation,  -O0  -fnext-runtime
+4943900: objc/execute/string4.m compilation,  -O1  -fnext-runtime
+4943900: objc/execute/string4.m compilation,  -O2  -fnext-runtime
+4943900: objc/execute/string4.m compilation,  -O3 -fomit-frame-pointer  -fnext-runtime
+4943900: objc/execute/string4.m compilation,  -O3 -g  -fnext-runtime
+4943900: objc/execute/string4.m compilation,  -Os  -fnext-runtime
+4943900: objc/execute/string4.m compilation,  -fast  -fnext-runtime
+5095016: objc.dg-struct-layout-encoding-1/t001_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t002_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t003_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t004_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t005_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t006_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t007_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t008_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t009_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t010_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t011_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t012_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t013_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t014_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t015_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t016_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t017_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t018_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t019_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t020_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t021_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t022_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t023_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t024_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t025_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t026_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t027_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t028_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t029_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t030_main.m (test for excess errors)
+5095016: objc.dg-struct-layout-encoding-1/t031_main.m (test for excess errors)
+5299997: objc/execute/bycopy-2.m execution,  -O0  -fgnu-runtime
+5299997: objc/execute/bycopy-2.m execution,  -O1  -fgnu-runtime
+5299997: objc/execute/bycopy-2.m execution,  -O2  -fgnu-runtime
+5299997: objc/execute/bycopy-2.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/bycopy-2.m execution,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/bycopy-2.m execution,  -Os  -fgnu-runtime
+5299997: objc/execute/bycopy-2.m execution,  -fast  -fgnu-runtime
+5299997: objc/execute/formal_protocol-1.m execution,  -O0  -fgnu-runtime
+5299997: objc/execute/formal_protocol-1.m execution,  -O1  -fgnu-runtime
+5299997: objc/execute/formal_protocol-1.m execution,  -O2  -fgnu-runtime
+5299997: objc/execute/formal_protocol-1.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/formal_protocol-1.m execution,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/formal_protocol-1.m execution,  -Os  -fgnu-runtime
+5299997: objc/execute/formal_protocol-1.m execution,  -fast  -fgnu-runtime
+5299997: objc/execute/formal_protocol-2.m execution,  -O0  -fgnu-runtime
+5299997: objc/execute/formal_protocol-2.m execution,  -O1  -fgnu-runtime
+5299997: objc/execute/formal_protocol-2.m execution,  -O2  -fgnu-runtime
+5299997: objc/execute/formal_protocol-2.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/formal_protocol-2.m execution,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/formal_protocol-2.m execution,  -Os  -fgnu-runtime
+5299997: objc/execute/formal_protocol-2.m execution,  -fast  -fgnu-runtime
+5299997: objc/execute/formal_protocol-3.m execution,  -O0  -fgnu-runtime
+5299997: objc/execute/formal_protocol-3.m execution,  -O1  -fgnu-runtime
+5299997: objc/execute/formal_protocol-3.m execution,  -O2  -fgnu-runtime
+5299997: objc/execute/formal_protocol-3.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/formal_protocol-3.m execution,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/formal_protocol-3.m execution,  -Os  -fgnu-runtime
+5299997: objc/execute/formal_protocol-3.m execution,  -fast  -fgnu-runtime
+5299997: objc/execute/formal_protocol-4.m execution,  -O0  -fgnu-runtime
+5299997: objc/execute/formal_protocol-4.m execution,  -O1  -fgnu-runtime
+5299997: objc/execute/formal_protocol-4.m execution,  -O2  -fgnu-runtime
+5299997: objc/execute/formal_protocol-4.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/formal_protocol-4.m execution,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/formal_protocol-4.m execution,  -Os  -fgnu-runtime
+5299997: objc/execute/formal_protocol-4.m execution,  -fast  -fgnu-runtime
+5299997: objc/execute/formal_protocol-7.m execution,  -O0  -fgnu-runtime
+5299997: objc/execute/formal_protocol-7.m execution,  -O1  -fgnu-runtime
+5299997: objc/execute/formal_protocol-7.m execution,  -O2  -fgnu-runtime
+5299997: objc/execute/formal_protocol-7.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/formal_protocol-7.m execution,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/formal_protocol-7.m execution,  -Os  -fgnu-runtime
+5299997: objc/execute/formal_protocol-7.m execution,  -fast  -fgnu-runtime
+5299997: objc/execute/np-1.m execution,  -O0  -fgnu-runtime
+5299997: objc/execute/np-1.m execution,  -O1  -fgnu-runtime
+5299997: objc/execute/np-1.m execution,  -O2  -fgnu-runtime
+5299997: objc/execute/np-1.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/np-1.m execution,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/np-1.m execution,  -Os  -fgnu-runtime
+5299997: objc/execute/np-1.m execution,  -fast  -fgnu-runtime
+5299997: objc/execute/np-2.m execution,  -O0  -fgnu-runtime
+5299997: objc/execute/np-2.m execution,  -O1  -fgnu-runtime
+5299997: objc/execute/np-2.m execution,  -O2  -fgnu-runtime
+5299997: objc/execute/np-2.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/np-2.m execution,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/np-2.m execution,  -Os  -fgnu-runtime
+5299997: objc/execute/np-2.m execution,  -fast  -fgnu-runtime
+5299997: objc/execute/protocol.m execution,  -O0  -fgnu-runtime
+5299997: objc/execute/protocol.m execution,  -O1  -fgnu-runtime
+5299997: objc/execute/protocol.m execution,  -O2  -fgnu-runtime
+5299997: objc/execute/protocol.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/protocol.m execution,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/protocol.m execution,  -Os  -fgnu-runtime
+5299997: objc/execute/protocol.m execution,  -fast  -fgnu-runtime
+5299997: objc/execute/string1.m compilation,  -O0  -fgnu-runtime
+5299997: objc/execute/string1.m compilation,  -O1  -fgnu-runtime
+5299997: objc/execute/string1.m compilation,  -O2  -fgnu-runtime
+5299997: objc/execute/string1.m compilation,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/string1.m compilation,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/string1.m compilation,  -Os  -fgnu-runtime
+5299997: objc/execute/string1.m compilation,  -fast  -fgnu-runtime
+5299997: objc/execute/string2.m compilation,  -O0  -fgnu-runtime
+5299997: objc/execute/string2.m compilation,  -O1  -fgnu-runtime
+5299997: objc/execute/string2.m compilation,  -O2  -fgnu-runtime
+5299997: objc/execute/string2.m compilation,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/string2.m compilation,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/string2.m compilation,  -Os  -fgnu-runtime
+5299997: objc/execute/string2.m compilation,  -fast  -fgnu-runtime
+5299997: objc/execute/string3.m compilation,  -O0  -fgnu-runtime
+5299997: objc/execute/string3.m compilation,  -O1  -fgnu-runtime
+5299997: objc/execute/string3.m compilation,  -O2  -fgnu-runtime
+5299997: objc/execute/string3.m compilation,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/string3.m compilation,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/string3.m compilation,  -Os  -fgnu-runtime
+5299997: objc/execute/string3.m compilation,  -fast  -fgnu-runtime
+5299997: objc/execute/string4.m compilation,  -O0  -fgnu-runtime
+5299997: objc/execute/string4.m compilation,  -O1  -fgnu-runtime
+5299997: objc/execute/string4.m compilation,  -O2  -fgnu-runtime
+5299997: objc/execute/string4.m compilation,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5299997: objc/execute/string4.m compilation,  -O3 -g  -fgnu-runtime
+5299997: objc/execute/string4.m compilation,  -Os  -fgnu-runtime
+5299997: objc/execute/string4.m compilation,  -fast  -fgnu-runtime
+#
+# the following fail with -m64 only
+5245963: objc/execute/protocol-isEqual-3.m execution,  -O0  -fnext-runtime
+5245963: objc/execute/protocol-isEqual-3.m execution,  -O1  -fnext-runtime
+5245963: objc/execute/protocol-isEqual-3.m execution,  -O2  -fnext-runtime
+5245963: objc/execute/protocol-isEqual-3.m execution,  -O3 -fomit-frame-pointer  -fnext-runtime
+5245963: objc/execute/protocol-isEqual-3.m execution,  -O3 -g  -fnext-runtime
+5245963: objc/execute/protocol-isEqual-3.m execution,  -Os  -fnext-runtime
+5245963: objc/execute/protocol-isEqual-3.m execution,  -fast  -fnext-runtime
+5272224: objc.dg/const-str-3.m execution test
+#
+# the following fail for ppc only
+5303263: objc.dg/encode-8.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t001_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t005_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t009_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t010_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t013_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t014_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t016_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t017_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t018_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t019_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t020_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t021_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t023_main.m execution test
+5303263: objc.dg-struct-layout-encoding-1/t024_main.m execution test
+#
+# the following fail for ppc 32-bit only
+5297200: objc.dg/objc-gc-3.m execution test
+#
+# the following fail for ppc 64-bit only
+5303263: objc/execute/bf-14.m execution,  -O0  -fgnu-runtime
+5303263: objc/execute/bf-14.m execution,  -O1  -fgnu-runtime
+5303263: objc/execute/bf-14.m execution,  -O2  -fgnu-runtime
+5303263: objc/execute/bf-14.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5303263: objc/execute/bf-14.m execution,  -O3 -g  -fgnu-runtime
+5303263: objc/execute/bf-14.m execution,  -Os  -fgnu-runtime
+5303263: objc/execute/bf-14.m execution,  -fast  -fgnu-runtime
+5303263: objc/execute/bf-19.m execution,  -O0  -fgnu-runtime
+5303263: objc/execute/bf-19.m execution,  -O1  -fgnu-runtime
+5303263: objc/execute/bf-19.m execution,  -O2  -fgnu-runtime
+5303263: objc/execute/bf-19.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5303263: objc/execute/bf-19.m execution,  -O3 -g  -fgnu-runtime
+5303263: objc/execute/bf-19.m execution,  -Os  -fgnu-runtime
+5303263: objc/execute/bf-19.m execution,  -fast  -fgnu-runtime
+5303263: objc/execute/bf-5.m execution,  -O0  -fgnu-runtime
+5303263: objc/execute/bf-5.m execution,  -O1  -fgnu-runtime
+5303263: objc/execute/bf-5.m execution,  -O2  -fgnu-runtime
+5303263: objc/execute/bf-5.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5303263: objc/execute/bf-5.m execution,  -O3 -g  -fgnu-runtime
+5303263: objc/execute/bf-5.m execution,  -Os  -fgnu-runtime
+5303263: objc/execute/bf-5.m execution,  -fast  -fgnu-runtime
+5303263: objc/execute/bf-6.m execution,  -O0  -fgnu-runtime
+5303263: objc/execute/bf-6.m execution,  -O1  -fgnu-runtime
+5303263: objc/execute/bf-6.m execution,  -O2  -fgnu-runtime
+5303263: objc/execute/bf-6.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5303263: objc/execute/bf-6.m execution,  -O3 -g  -fgnu-runtime
+5303263: objc/execute/bf-6.m execution,  -Os  -fgnu-runtime
+5303263: objc/execute/bf-6.m execution,  -fast  -fgnu-runtime
+5303263: objc/execute/bf-7.m execution,  -O0  -fgnu-runtime
+5303263: objc/execute/bf-7.m execution,  -O1  -fgnu-runtime
+5303263: objc/execute/bf-7.m execution,  -O2  -fgnu-runtime
+5303263: objc/execute/bf-7.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5303263: objc/execute/bf-7.m execution,  -O3 -g  -fgnu-runtime
+5303263: objc/execute/bf-7.m execution,  -Os  -fgnu-runtime
+5303263: objc/execute/bf-7.m execution,  -fast  -fgnu-runtime
+5303263: objc/execute/bf-8.m execution,  -O0  -fgnu-runtime
+5303263: objc/execute/bf-8.m execution,  -O1  -fgnu-runtime
+5303263: objc/execute/bf-8.m execution,  -O2  -fgnu-runtime
+5303263: objc/execute/bf-8.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5303263: objc/execute/bf-8.m execution,  -O3 -g  -fgnu-runtime
+5303263: objc/execute/bf-8.m execution,  -Os  -fgnu-runtime
+5303263: objc/execute/bf-8.m execution,  -fast  -fgnu-runtime
+5303263: objc/execute/bf-9.m execution,  -O0  -fgnu-runtime
+5303263: objc/execute/bf-9.m execution,  -O1  -fgnu-runtime
+5303263: objc/execute/bf-9.m execution,  -O2  -fgnu-runtime
+5303263: objc/execute/bf-9.m execution,  -O3 -fomit-frame-pointer  -fgnu-runtime
+5303263: objc/execute/bf-9.m execution,  -O3 -g  -fgnu-runtime
+5303263: objc/execute/bf-9.m execution,  -Os  -fgnu-runtime
+5303263: objc/execute/bf-9.m execution,  -fast  -fgnu-runtime
+#
+# the following fail for x86
+#
+# the following failures are for x86 -m64 only 
+5297256: objc/execute/exceptions/foward-1.m execution,  -O0  -fnext-runtime
+5297256: objc/execute/exceptions/foward-1.m execution,  -O1  -fnext-runtime
+5297256: objc/execute/exceptions/foward-1.m execution,  -O2  -fnext-runtime
+5297256: objc/execute/exceptions/foward-1.m execution,  -O3 -fomit-frame-pointer  -fnext-runtime
+5297256: objc/execute/exceptions/foward-1.m execution,  -O3 -fomit-frame-pointer -funroll-loops  -fnext-runtime
+5297256: objc/execute/exceptions/foward-1.m execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  -fnext-runtime
+5297256: objc/execute/exceptions/foward-1.m execution,  -O3 -g  -fnext-runtime
+5297256: objc/execute/exceptions/foward-1.m execution,  -Os  -fnext-runtime
+5297256: objc/execute/exceptions/foward-1.m execution,  -fast  -fnext-runtime
+5297325: objc.dg/stubify-1.m scan-assembler-not (bl|call)[ \t]+_objc_msgSend\n
+5297325: objc.dg/stubify-1.m scan-assembler (bl|call)[ \t]+L_objc_msgSend\\$stub\n
+5297325: objc.dg/stubify-1.m scan-assembler-not (bl|call)[ \t]+_bogonic\n
+5297325: objc.dg/stubify-1.m scan-assembler (bl|call)[ \t]+L_bogonic\\$stub\n
+#
+# the following failures are for -mmacosx-version-min=10.5 only

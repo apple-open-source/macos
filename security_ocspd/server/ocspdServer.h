@@ -25,6 +25,13 @@
 #define _OCSPD_SERVER_H_
 
 #include <security_utilities/machserver.h>
+#include <Security/cssmtype.h>
+#include <security_ocspd/ocspd.h>						/* created by MIG */
+
+#define MAX_OCSPD_THREADS		6
+
+void ServerActivity();
+
 
 class OcspdServer : public MachPlusPlus::MachServer
 {
@@ -41,10 +48,36 @@ protected:
     // implementation methods of MachServer
 	boolean_t handle(mach_msg_header_t *in, mach_msg_header_t *out);
 	
+	/* 
+	 * Timer subclass to handle periodic flushes of DB caches.
+	 */
+	class OcspdTimer : public MachServer::Timer
+	{
+		NOCOPY(OcspdTimer)
+	public:
+		/* TImer(false) --> !longTerm --> avoid spawning a thread for this */
+		OcspdTimer(OcspdServer &server) : Timer(true), mServer(server) {}
+		virtual ~OcspdTimer() {}
+		virtual void action();
+	private:
+		OcspdServer &mServer;
+	};
+
 	/* we're not handling dead port notification for now */
 private:
 	Allocator		&mAlloc;
+	OcspdTimer		mTimer;
 };
+
+/*
+ * Given a CSSM_DATA which was allocated in our server's alloc space, 
+ * pass referent data back to caller and schedule a dealloc after the RPC
+ * completes with MachServer.
+ */
+extern void passDataToCaller(
+	CSSM_DATA		&srcData,		// allocd in our server's alloc space
+	Data			*outData,
+	mach_msg_type_number_t *outDataCnt);
 
 #endif	/* _OCSPD_SERVER_H_ */
 

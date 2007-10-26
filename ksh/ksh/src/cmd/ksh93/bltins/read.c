@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * read [-Aprs] [-d delim] [-u filenum] [-t timeout] [-n n] [-N n] [name...]
@@ -47,11 +43,13 @@
 #define	S_FLAG	2	/* save in history file */
 #define	A_FLAG	4	/* read into array */
 #define N_FLAG	8	/* fixed size read at most */
-#define NN_FLAG	16	/* fixed size read exact */
-#define D_FLAG	6	/* must be number of bits for all flags */
+#define NN_FLAG	0x10	/* fixed size read exact */
+#define V_FLAG	0x20	/* use default value */
+#define D_FLAG	8	/* must be number of bits for all flags */
 
 int	b_read(int argc,char *argv[], void *extra)
 {
+	Sfdouble_t sec;
 	register char *name;
 	register int r, flags=0, fd=0;
 	register Shell_t *shp = (Shell_t*)extra;
@@ -65,13 +63,15 @@ int	b_read(int argc,char *argv[], void *extra)
 		flags |= A_FLAG;
 		break;
 	    case 't':
-		timeout = 1000*opt_info.num+1;
+		sec = sh_strnum(opt_info.arg, (char**)0,1);
+		timeout = sec ? 1000*sec : 1;
 		break;
 	    case 'd':
 		if(opt_info.arg && *opt_info.arg!='\n')
 		{
+			char *cp = opt_info.arg;
 			flags &= ~((1<<D_FLAG)-1);
-			flags |= ((*opt_info.arg)<< D_FLAG);
+			flags |= (mbchar(cp)<< D_FLAG);
 		}
 		break;
 	    case 'p':
@@ -82,7 +82,7 @@ int	b_read(int argc,char *argv[], void *extra)
 		flags &= ~((1<<D_FLAG)-1);
 		flags |= (r=='n'?N_FLAG:NN_FLAG);
 		r = (int)opt_info.num;
-		if((unsigned)r> 0xfff)
+		if((unsigned)r > (1<<((8*sizeof(int))-D_FLAG))-1)
 			errormsg(SH_DICT,ERROR_exit(1),e_overlimit,"n");
 		flags |= (r<< D_FLAG);
 		break;
@@ -97,6 +97,9 @@ int	b_read(int argc,char *argv[], void *extra)
 		fd = (int)opt_info.num;
 		if(sh_inuse(fd))
 			fd = -1;
+		break;
+	    case 'v':
+		flags |= V_FLAG;
 		break;
 	    case ':':
 		errormsg(SH_DICT,2, "%s", opt_info.arg);
@@ -117,7 +120,7 @@ int	b_read(int argc,char *argv[], void *extra)
 	if((name = *argv) && (name=strchr(name,'?')) && (r&IOTTY))
 	{
 		r = strlen(++name)+1;
-		if(shp->prompt=(char*)sfreserve(sfstderr,r,1))
+		if(shp->prompt=(char*)sfreserve(sfstderr,r,SF_LOCKR))
 		{
 			memcpy(shp->prompt,name,r);
 			sfwrite(sfstderr,shp->prompt,r-1);
@@ -166,11 +169,12 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 	register Sfio_t	*iop;
 	char			*ifs;
 	unsigned char		*cpmax;
+	unsigned char		*del;
 	char			was_escape = 0;
 	char			use_stak = 0;
 	char			was_write = 0;
 	char			was_share = 1;
-	int			rel;
+	int			rel, wrd;
 	long			array_index = 0;
 	void			*timeslot=0;
 	int			delim = '\n';
@@ -179,36 +183,13 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 	struct	checkpt		buff;
 	if(!(iop=shp->sftable[fd]) && !(iop=sh_iostream(fd)))
 		return(1);
-	if(flags>>D_FLAG)	/* delimiter not new-line or fixed size read */
-	{
-		if(flags&(N_FLAG|NN_FLAG))
-			size = ((unsigned)flags)>>D_FLAG;
-		else
-			delim = ((unsigned)flags)>>D_FLAG;
-		if(shp->fdstatus[fd]&IOTTY)
-			tty_raw(fd,1);
-	}
-	if(!(flags&(N_FLAG|NN_FLAG)))
-	{
-		/* set up state table based on IFS */
-		ifs = nv_getval(np=nv_scoped(IFSNOD));
-		if((flags&R_FLAG) && shp->ifstable['\\']==S_ESC)
-			shp->ifstable['\\'] = 0;
-		else if(!(flags&R_FLAG) && shp->ifstable['\\']==0)
-			shp->ifstable['\\'] = S_ESC;
-		shp->ifstable[delim] = S_NL;
-		if(delim!='\n')
-		{
-			shp->ifstable['\n'] = 0;
-			nv_putval(np, ifs, NV_RDONLY);
-		}
-		shp->ifstable[0] = S_EOF;
-	}
 	if(names && (name = *names))
 	{
 		if(val= strchr(name,'?'))
 			*val = 0;
-		np = nv_open(name,shp->var_tree,NV_NOASSIGN|NV_VARNAME);
+		np = nv_open(name,shp->var_tree,NV_NOASSIGN|NV_VARNAME|NV_ARRAY);
+		if((flags&V_FLAG) && shp->ed_context)
+			((struct edit*)shp->ed_context)->e_default = np;
 		if(flags&A_FLAG)
 		{
 			flags &= ~A_FLAG;
@@ -228,6 +209,32 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
                 	np = nv_open(nv_name(REPLYNOD),shp->var_tree,0);
 		else
 			np = REPLYNOD;
+	}
+	if(flags>>D_FLAG)	/* delimiter not new-line or fixed size read */
+	{
+		if(flags&(N_FLAG|NN_FLAG))
+			size = ((unsigned)flags)>>D_FLAG;
+		else
+			delim = ((unsigned)flags)>>D_FLAG;
+		if(shp->fdstatus[fd]&IOTTY)
+			tty_raw(fd,1);
+	}
+	if(!(flags&(N_FLAG|NN_FLAG)))
+	{
+		Namval_t *mp;
+		/* set up state table based on IFS */
+		ifs = nv_getval(mp=nv_scoped(IFSNOD));
+		if((flags&R_FLAG) && shp->ifstable['\\']==S_ESC)
+			shp->ifstable['\\'] = 0;
+		else if(!(flags&R_FLAG) && shp->ifstable['\\']==0)
+			shp->ifstable['\\'] = S_ESC;
+		shp->ifstable[delim] = S_NL;
+		if(delim!='\n')
+		{
+			shp->ifstable['\n'] = 0;
+			nv_putval(mp, ifs, NV_RDONLY);
+		}
+		shp->ifstable[0] = S_EOF;
 	}
 	sfclrerr(iop);
 	if(np->nvfun && np->nvfun->disc->readf)
@@ -283,9 +290,19 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 		}
 		if(timeslot)
 			timerdel(timeslot);
-		nv_putval(np,var,0);
-		if(c>=sizeof(buf))
-			free((void*)var);
+		if(nv_isattr(np,NV_BINARY))
+		{
+			if(c<sizeof(buf))
+				var = memdup(var,c);
+			nv_putval(np,var, NV_RAW);
+			nv_setsize(np,c);
+		}
+		else
+		{
+			nv_putval(np,var,0);
+			if(c>=sizeof(buf))
+				free((void*)var);
+		}
 		goto done;
 	}
 	else if(cp = (unsigned char*)sfgetr(iop,delim,0))
@@ -321,13 +338,14 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 			/* strip trailing delimiters */
 			if(cpmax[-1] == '\n')
 				cpmax--;
-			*cpmax =0;
 			if(cpmax>cp)
 			{
 				while((c=shp->ifstable[*--cpmax])==S_DELIM || c==S_SPACE);
 				cpmax[1] = 0;
 			}
-			if(nv_isattr (np, NV_RDONLY))
+			else
+				*cpmax =0;
+			if(nv_isattr(np, NV_RDONLY))
 			{
 				errormsg(SH_DICT,ERROR_warn(0),e_readonly, nv_name(np));
 				jmpval = 1;
@@ -344,6 +362,7 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 	rel= staktell();
 	/* val==0 at the start of a field */
 	val = 0;
+	del = 0;
 	while(1)
 	{
 		switch(c)
@@ -423,8 +442,7 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 
 		    case S_SPACE:
 			/* skip over blanks */
-			while(c==S_SPACE)
-				c = shp->ifstable[*cp++];
+			while((c=shp->ifstable[*cp++])==S_SPACE);
 			if(!val)
 				continue;
 #if SHOPT_MULTIBYTE
@@ -443,13 +461,17 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 			if(c!=S_DELIM)
 				break;
 			/* FALL THRU */
+
 		    case S_DELIM:
+			if(!del)
+				del = cp - 1;
 			if(name)
 			{
 				/* skip over trailing blanks */
 				while((c=shp->ifstable[*cp++])==S_SPACE);
 				break;
 			}
+			/* FALL THRU */
 
 		    case 0:
 			if(val==0 || was_escape)
@@ -458,12 +480,21 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 				was_escape = 0;
 			}
 			/* skip over word characters */
+			wrd = -1;
 			while(1)
 			{
-				while((c=shp->ifstable[*cp++])==0);
+				while((c=shp->ifstable[*cp++])==0)
+					if(!wrd)
+						wrd = 1;
+				if(!del&&c==S_DELIM)
+					del = cp - 1;
 				if(name || c==S_NL || c==S_ESC || c==S_EOF || c==S_MBYTE)
 					break;
+				if(wrd<0)
+					wrd = 0;
 			}
+			if(wrd>0)
+				del = (unsigned char*)"";
 			if(c!=S_MBYTE)
 				cp[-1] = 0;
 			continue;
@@ -479,13 +510,19 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 		}
 		if(!name && *val)
 		{
-			/* strip off trailing delimiters */
-			register char	*cp = val + strlen(val);
-			register int n;
-			while((n=shp->ifstable[*--cp])==S_DELIM || n==S_SPACE);
-			cp[1] = 0;
+			/* strip off trailing space delimiters */
+			register unsigned char	*vp = (unsigned char*)val + strlen(val);
+			while(shp->ifstable[*--vp]==S_SPACE);
+			if(vp==del)
+			{
+				if(vp==(unsigned char*)val)
+					vp--;
+				else
+					while(shp->ifstable[*--vp]==S_SPACE);
+			}
+			vp[1] = 0;
 		}
-		if(nv_isattr (np, NV_RDONLY))
+		if(nv_isattr(np, NV_RDONLY))
 		{
 			errormsg(SH_DICT,ERROR_warn(0),e_readonly, nv_name(np));
 			jmpval = 1;
@@ -493,6 +530,7 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 		else
 			nv_putval(np,val,0);
 		val = 0;
+		del = 0;
 		if(use_stak)
 		{
 			stakseek(rel);
@@ -507,13 +545,10 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 		}
 		while(1)
 		{
-			if(sh_isoption(SH_ALLEXPORT)&&!strchr(nv_name(np),'.'))
+			if(sh_isoption(SH_ALLEXPORT)&&!strchr(nv_name(np),'.') && !nv_isattr(np,NV_EXPORT))
 			{
-#ifdef _ENV_H
-				if(!nv_isattr(np,NV_EXPORT))
-					sh_envput(sh.env,np);
-#endif
 				nv_onattr(np,NV_EXPORT);
+				sh_envput(sh.env,np);
 			}
 			if(name)
 			{
@@ -527,7 +562,7 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 				break;
 			if(!np)
 				goto done;
-			if(nv_isattr (np, NV_RDONLY))
+			if(nv_isattr(np, NV_RDONLY))
 			{
 				errormsg(SH_DICT,ERROR_warn(0),e_readonly, nv_name(np));
 				jmpval = 1;
@@ -535,7 +570,6 @@ int sh_readline(register Shell_t *shp,char **names, int fd, int flags,long timeo
 			else
 				nv_putval(np, "", 0);
 		}
-		val = 0;
 	}
 done:
 	if(timeout || (shp->fdstatus[fd]&(IOTTY|IONOSEEK)))

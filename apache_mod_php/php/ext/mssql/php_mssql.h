@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
  */
 
 
-/* $Id: php_mssql.h,v 1.23.4.12.2.2 2007/01/01 09:46:44 sebastian Exp $ */
+/* $Id: php_mssql.h,v 1.42.2.3.2.1 2007/01/01 09:36:03 sebastian Exp $ */
 
 #ifndef PHP_MSSQL_H
 #define PHP_MSSQL_H
@@ -31,13 +31,12 @@
 #define PHP_MSSQL_API
 #endif
 
-
-#define MSSQL_VERSION "7.0"
-#include "sqlfront.h"
-#include "sqldb.h"
+#include <sqlfront.h>
+#include <sqldb.h>
 
 typedef short TDS_SHORT;
-#if HAVE_FREETDS
+#ifdef HAVE_FREETDS
+#define MSSQL_VERSION "FreeTDS"
 #define SQLTEXT SYBTEXT
 #define SQLCHAR SYBCHAR
 #define SQLVARCHAR SYBVARCHAR
@@ -72,6 +71,7 @@ typedef short TDS_SHORT;
 typedef unsigned char	*LPBYTE;
 typedef float           DBFLT4;
 #else
+#define MSSQL_VERSION "7.0"
 #define DBERRHANDLE(a, b) dbprocerrhandle(a, b)
 #define DBMSGHANDLE(a, b) dbprocmsghandle(a, b)
 #define EHANDLEFUNC DBERRHANDLE_PROC
@@ -158,11 +158,14 @@ ZEND_BEGIN_MODULE_GLOBALS(mssql)
 	zend_bool allow_persistent;
 	char *appname;
 	char *server_message;
+#ifdef HAVE_FREETDS
+	char *charset;
+#endif
 	long min_error_severity, min_message_severity;
 	long cfg_min_error_severity, cfg_min_message_severity;
 	long connect_timeout, timeout;
 	zend_bool compatability_mode;
-	void (*get_column_content)(mssql_link *mssql_ptr,int offset,pval *result,int column_type  TSRMLS_DC);
+	void (*get_column_content)(mssql_link *mssql_ptr,int offset,zval *result,int column_type  TSRMLS_DC);
 	long textsize, textlimit, batchsize;
 	zend_bool datetimeconvert;
 	HashTable *resource_list, *resource_plist;
@@ -180,7 +183,7 @@ typedef struct mssql_field {
 } mssql_field;
 
 typedef struct mssql_result {
-	pval **data;
+	zval **data;
 	mssql_field *fields;
 	mssql_link *mssql_ptr;
 	mssql_statement * statement;
@@ -188,7 +191,7 @@ typedef struct mssql_result {
 	int lastresult;
 	int blocks_initialized;
 	int cur_row,cur_field;
-	int num_rows,num_fields;
+	int num_rows,num_fields,have_fields;
 } mssql_result;
 
 

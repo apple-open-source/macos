@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,8 +18,10 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: nwlib.c,v 1.4 2004/06/10 21:20:15 gknauf Exp $
+ * $Id: nwlib.c,v 1.6 2007-02-28 15:10:20 yangtse Exp $
  ***************************************************************************/
+
+#ifdef NETWARE /* Novell NetWare */
 
 #include <errno.h>
 #include <string.h>
@@ -298,3 +300,5 @@ void DisposeThreadData(void    *data)
     free(data);
   }
 }
+
+#endif /* NETWARE */

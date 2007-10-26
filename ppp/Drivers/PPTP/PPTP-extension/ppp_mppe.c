@@ -436,7 +436,7 @@ mppe_compress(void *arg, mbuf_t *m)
 {
     struct ppp_mppe_state 	*state = (struct ppp_mppe_state *) arg;
     mbuf_t			m1;
-    int 			isize, proto = *(u_int16_t *)mbuf_data(*m);
+    int 			isize, proto = ntohs(*(u_int16_t *)mbuf_data(*m));
     u_char 			*p;
 
     /* Check that the protocol is in the range we handle. */

@@ -46,6 +46,7 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 #include <sys/stat.h>
 #ifdef __APPLE__
 #include <sys/acl.h>
+#include <sys/xattr.h>
 #include <sys/types.h>
 #include <grp.h>
 #include <pwd.h>
@@ -70,6 +71,12 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 #include <signal.h>
 #endif
 
+#ifdef __APPLE__ 
+#include <get_compat.h>
+#else 
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
+
 #include "ls.h"
 #include "extern.h"
 
@@ -84,27 +91,6 @@ static int	colortype(mode_t);
 #endif
 
 #define	IS_NOPRINT(p)	((p)->fts_number == NO_PRINT)
-
-#define KILO_SZ(n) (n)
-#define MEGA_SZ(n) ((n) * (n))
-#define GIGA_SZ(n) ((n) * (n) * (n))
-#define TERA_SZ(n) ((n) * (n) * (n) * (n))
-#define PETA_SZ(n) ((n) * (n) * (n) * (n) * (n))
-
-#define KILO_2_SZ (KILO_SZ(1024ULL))
-#define MEGA_2_SZ (MEGA_SZ(1024ULL))
-#define GIGA_2_SZ (GIGA_SZ(1024ULL))
-#define TERA_2_SZ (TERA_SZ(1024ULL))
-#define PETA_2_SZ (PETA_SZ(1024ULL))
-
-static u_int64_t vals_base2[] = {1, KILO_2_SZ, MEGA_2_SZ, GIGA_2_SZ, TERA_2_SZ, PETA_2_SZ};
-
-typedef enum {
-	NONE, KILO, MEGA, GIGA, TERA, PETA, UNIT_MAX
-} unit_t;
-static unit_t unit_adjust(off_t *);
-
-static int unitp[] = {NONE, KILO, MEGA, GIGA, TERA, PETA};
 
 #ifdef COLORLS
 /* Most of these are taken from <sys/stat.h> */
@@ -139,6 +125,11 @@ printscol(DISPLAY *dp)
 {
 	FTSENT *p;
 
+	if (COMPAT_MODE("bin/ls", "Unix2003")) {
+		if (dp->list->fts_level != FTS_ROOTLEVEL && (f_longform || f_size))
+			(void)printf("total %qu\n", (u_int64_t)howmany(dp->btotal, blocksize));
+	}
+
 	for (p = dp->list; p; p = p->fts_link) {
 		if (IS_NOPRINT(p))
 			continue;
@@ -158,7 +149,7 @@ printname(const char *name)
 	else if (f_nonprint)
 		return prn_printable(name);
 	else
-		return printf("%s", name);
+		return prn_normal(name);
 }
 
 /*
@@ -219,8 +210,10 @@ uuid_to_name(uuid_t *uu)
   if (NULL == name)
 	  err(1, "malloc");
 
-  if (0 != mbr_uuid_to_id(uu, &id, &is_gid))
+	if (!f_numericonly) {
+  if (0 != mbr_uuid_to_id(*uu, &id, &is_gid))
 	  goto errout;
+	}
   
   switch (is_gid) {
   case ID_TYPE_UID:
@@ -238,20 +231,43 @@ uuid_to_name(uuid_t *uu)
 	  snprintf(name, MAXNAMETAG, "%s:%s", "group", tgrp->gr_name);
 	  break;
   default:
-	  if (0 != mbr_uuid_to_string(uu, name))
-		  goto errout;
+		goto errout;
   }
   return name;
  errout:
-  fprintf(stderr, "Unable to translate qualifier on ACL\n");
-  strcpy(name, "<UNKNOWN>");
+	if (0 != mbr_uuid_to_string(*uu, name)) {
+		fprintf(stderr, "Unable to translate qualifier on ACL\n");
+		strcpy(name, "<UNKNOWN>");
+	}
   return name;
+}
+
+static void
+printxattr(DISPLAY *dp, char *filename, ssize_t xattr)
+{
+	int flags = XATTR_NOFOLLOW;
+	char *buf = malloc(xattr);
+
+	if (NULL == buf)
+		err(1, "malloc");
+	if (listxattr(filename, buf, xattr, flags) > 0) {
+		char *name;
+		for (name = buf; name < buf+xattr; name += strlen(name) + 1) {
+			ssize_t size = getxattr(filename, name, 0, 0, 0, flags);
+			putchar('\t');
+			printname(name);
+			putchar('\t');
+			printsize(dp->s_size, size);
+			putchar('\n');
+		}
+	}
+	free(buf);
 }
 
 static void
 printacl(acl_t acl, int isdir)
 {
-	acl_entry_t	entry;
+	acl_entry_t	entry = NULL;
 	int		index;
 	uuid_t		*applicable;
 	char		*name = NULL;
@@ -326,7 +342,11 @@ printlong(DISPLAY *dp)
 	char buf[20];
 #ifdef __APPLE__
 	acl_t acl = NULL;
+	acl_entry_t dummy;
 	char full_path[MAXPATHLEN];
+	char *filename;
+	ssize_t xattr = 0;
+	char str[2];
 #endif
 #ifdef COLORLS
 	int color_printed = 0;
@@ -339,34 +359,73 @@ printlong(DISPLAY *dp)
 		if (IS_NOPRINT(p))
 			continue;
 		sp = p->fts_statp;
-		if (f_inode)
+		if (f_inode) 
+#if _DARWIN_FEATURE_64_BIT_INODE
+			(void)printf("%*llu ", dp->s_inode, (u_quad_t)sp->st_ino);
+#else
 			(void)printf("%*lu ", dp->s_inode, (u_long)sp->st_ino);
+#endif
 		if (f_size)
 			(void)printf("%*qu ",
 			    dp->s_block, (u_int64_t)howmany(sp->st_blocks, blocksize));
 		strmode(sp->st_mode, buf);
 		np = p->fts_pointer;
 #ifdef __APPLE__
-		if (p->fts_parent->fts_name && *p->fts_parent->fts_name)
+		buf[10] = '\0';	/* make +/@ abut the mode */
+		filename = p->fts_name;
+		if (p->fts_level != FTS_ROOTLEVEL)
 		{
 		    snprintf(full_path, sizeof full_path, "%s/%s",
-			    p->fts_parent->fts_accpath, p->fts_accpath);
-		    acl = acl_get_file(full_path, ACL_TYPE_EXTENDED);
-		} else
-		    acl = acl_get_file(p->fts_accpath, ACL_TYPE_EXTENDED);
+			    p->fts_parent->fts_accpath, p->fts_name);
+		    filename = full_path;
+		}
+		/* symlinks can not have ACLs */
+		acl = acl_get_link_np(filename, ACL_TYPE_EXTENDED);
+		if (acl && acl_get_entry(acl, ACL_FIRST_ENTRY, &dummy) == -1) {
+			acl_free(acl);
+			acl = NULL;
+		}
+		xattr = listxattr(filename, NULL, 0, XATTR_NOFOLLOW);
+		if (xattr < 0)
+			xattr = 0;
+		str[1] = '\0';
+		if (xattr > 0)
+			str[0] = '@';
+		else if (acl != NULL)
+			str[0] = '+';
+		else
+			str[0] = ' ';
 #endif /* __APPLE__ */
-		if (f_group) {
+		if (f_group && f_owner) {	/* means print neither */
 #ifdef __APPLE__
-			(void)printf("%s%s %*u %-*s  ", buf, acl == NULL ? " " : "+", dp->s_nlink,
+			(void)printf("%s%s %*u   ", buf, str, dp->s_nlink,
+				     sp->st_nlink);
+#else  /* ! __APPLE__ */
+			(void)printf("%s %*u   ", buf, dp->s_nlink,
+				     sp->st_nlink);
+#endif /* __APPLE__ */
+		}
+		else if (f_group) {
+#ifdef __APPLE__
+			(void)printf("%s%s %*u %-*s  ", buf, str, dp->s_nlink,
 				     sp->st_nlink, dp->s_group, np->group);
 #else  /* ! __APPLE__ */
 			(void)printf("%s %*u %-*s  ", buf, dp->s_nlink,
 				     sp->st_nlink, dp->s_group, np->group);
 #endif /* __APPLE__ */
 		}
+		else if (f_owner) {
+#ifdef __APPLE__
+			(void)printf("%s%s %*u %-*s  ", buf, str, dp->s_nlink,
+				     sp->st_nlink, dp->s_user, np->user);
+#else  /* ! __APPLE__ */
+			(void)printf("%s %*u %-*s  ", buf, dp->s_nlink,
+				     sp->st_nlink, dp->s_user, np->user);
+#endif /* __APPLE__ */
+		}
 		else {
 #ifdef __APPLE__
-			(void)printf("%s%s %*u %-*s  %-*s  ", buf, acl == NULL ? " " : "+", dp->s_nlink,
+			(void)printf("%s%s %*u %-*s  %-*s  ", buf, str, dp->s_nlink,
 				     sp->st_nlink, dp->s_user, np->user, dp->s_group,
 				     np->group);
 #else  /* ! __APPLE__ */
@@ -411,9 +470,15 @@ printlong(DISPLAY *dp)
 			printlink(p);
 		(void)putchar('\n');
 #ifdef __APPLE__
-		if (f_acl && (acl != NULL))
-			printacl(acl, S_ISDIR(sp->st_mode));
-		acl_free(acl);
+		if (f_xattr && xattr) {
+			printxattr(dp, filename, xattr);
+		}
+		if (acl != NULL) {
+			if (f_acl)
+				printacl(acl, S_ISDIR(sp->st_mode));
+			acl_free(acl);
+			acl = NULL;
+		}
 #endif /* __APPLE__ */
 	}
 }
@@ -582,6 +647,14 @@ printtime(time_t ftime)
 	if (f_sectime)
 		/* mmm dd hh:mm:ss yyyy || dd mmm hh:mm:ss yyyy */
 		format = d_first ? "%e %b %T %Y " : "%b %e %T %Y ";
+	else if (COMPAT_MODE("bin/ls", "Unix2003")) {
+		if (ftime + SIXMONTHS > now && ftime <= now)
+			/* mmm dd hh:mm || dd mmm hh:mm */
+			format = d_first ? "%e %b %R " : "%b %e %R ";
+		else
+			/* mmm dd  yyyy || dd mmm  yyyy */
+			format = d_first ? "%e %b  %Y " : "%b %e  %Y ";
+	}
 	else if (ftime + SIXMONTHS > now && ftime < now + SIXMONTHS)
 		/* mmm dd hh:mm || dd mmm hh:mm */
 		format = d_first ? "%e %b %R " : "%b %e %R ";
@@ -800,43 +873,13 @@ printlink(FTSENT *p)
 static void
 printsize(size_t width, off_t bytes)
 {
-	unit_t unit;
 
-	if (f_humanval) {
-		unit = unit_adjust(&bytes);
+  if (f_humanval) {
+    char buf[5];
 
-		if (bytes == 0)
-			(void)printf("%*s ", (int)width, "0B");
-		else
-			(void)printf("%*lld%c ", (int)width - 1, bytes,
-			    "BKMGTPE"[unit]);
-	} else
-		(void)printf("%*lld ", (int)width, bytes);
-}
-
-/*
- * Output in "human-readable" format.  Uses 3 digits max and puts
- * unit suffixes at the end.  Makes output compact and easy to read,
- * especially on huge disks.
- *
- */
-unit_t
-unit_adjust(off_t *val)
-{
-	double abval;
-	unit_t unit;
-	unsigned int unit_sz;
-
-	abval = fabs((double)*val);
-
-	unit_sz = abval ? ilogb(abval) / 10 : 0;
-
-	if (unit_sz >= UNIT_MAX) {
-		unit = NONE;
-	} else {
-		unit = unitp[unit_sz];
-		*val /= (double)vals_base2[unit_sz];
-	}
-
-	return (unit);
+    humanize_number(buf, sizeof(buf), (int64_t)bytes, "",
+		    HN_AUTOSCALE, HN_B | HN_NOSPACE | HN_DECIMAL);
+    (void)printf("%5s ", buf);
+  } else
+    (void)printf("%*jd ", (u_int)width, bytes);
 }

@@ -47,11 +47,19 @@
 
 #include "ntp_stdlib.h"
 #include "clockstuff.h"
+#include "ntservice.h"
 #include "ntp_timer.h"
 
 extern double sys_residual;	/* residual from previous adjustment */
 
+char szMsgPath[255];
+BOOL init_randfile();
+
 static long last_Adj = 0;
+
+static void StartClockThread(void);
+static void StopClockThread(void);
+
 
 static CRITICAL_SECTION TimerCritialSection; /* lock for LastTimerCount & LastTimerTime */
 
@@ -144,9 +152,26 @@ void init_winnt_time(void) {
 	BOOL noslew;
 	HANDLE hToken;
 	TOKEN_PRIVILEGES tkp;
+
+	/*
+	 * Make sure the service is initialized
+	 * before we do anything else
+	 */
+	ntservice_init();
+
+	/* Set the Event-ID message-file name. */
+	if (!GetModuleFileName(NULL, szMsgPath, sizeof(szMsgPath))) {
+		msyslog(LOG_ERR, "GetModuleFileName(PGM_EXE_FILE) failed: %m\n");
+		exit(1);
+	}
+
+	/* Initialize random file before OpenSSL checks */
+	if(!init_randfile())
+		msyslog(LOG_ERR, "Unable to initialize .rnd file\n");
+
 	/*
 	 * Get privileges needed for fiddling with the clock
-	  */
+	 */
 
 	  /* get the current process token handle */
 	if (!OpenProcessToken(GetCurrentProcess(),
@@ -189,17 +214,49 @@ void init_winnt_time(void) {
 			(float) (units_per_tick / 10));
 	msyslog(LOG_INFO, "Adjustment rate %5.3f ppm/s", ppm_per_adjust_unit);
 #endif
+
+	/*++++ Gerhard Junker
+	* see Platform SDK for QueryPerformanceCounter
+	* On a multiprocessor machine, it should not matter which processor is called. 
+	* However, you can get different results on different processors due to bugs in the BIOS or the HAL. 
+	* To specify processor affinity for a thread, use the SetThreadAffinityMask function. 
+	* ... we will hope, the apc routine will run on the same processor
+	*/
+
+	SetThreadAffinityMask(GetCurrentThread(), 1L);
+
+	/*---- Gerhard Junker */
+
+	StartClockThread();
+
+	/* Set up the Console Handler */
+	if (!SetConsoleCtrlHandler(OnConsoleEvent, TRUE)) {
+		msyslog(LOG_ERR, "Can't set console control handler: %m");
+	}
+
 }
 
+/*
+ * Shutdown just needs to stop the clock thread
+ */
+void shutdown_winnt_time(void)
+{
+	StopClockThread();
+}
 
 void reset_winnt_time(void) {
 
 	/* restore the clock frequency back to its original value */
-	if (!SetSystemTimeAdjustment(initial_units_per_tick, FALSE)) {
-		msyslog(LOG_ERR, "Failed to reset clock frequency, SetSystemTimeAdjustment(): %m");
-	}
 	if (!SetSystemTimeAdjustment(0, TRUE)) {
 		msyslog(LOG_ERR, "Failed to reset clock state, SetSystemTimeAdjustment(): %m");
+	}
+  	/* read the current system time, and write it back to
+           force CMOS update: */
+      /************ Added back in 2003-01-26 *****************/
+	{
+		SYSTEMTIME st;
+		GetSystemTime(&st);
+		SetSystemTime(&st);
 	}
 }
 
@@ -218,7 +275,7 @@ gettimeofday(
 	LARGE_INTEGER LargeIntNowCount;
 	ULONGLONG Time;
 	ULONGLONG NowCount;
-   ULONGLONG PreCount;                                                  /*FIX*/
+	ULONGLONG PreCount;                                                  /*FIX*/
 	LONGLONG TicksElapsed;
 	LONG time_adjustment;
 
@@ -226,7 +283,7 @@ gettimeofday(
 	 *  be reasonably deterministic
 	 */
 
-   PreCount = LastTimerCount;                                           /*FIX*/
+	PreCount = LastTimerCount;                                           /*FIX*/
 
 	if (!QueryPerformanceCounter(&LargeIntNowCount)) {
 		msyslog(LOG_ERR, "QueryPeformanceCounter failed: %m");
@@ -248,28 +305,28 @@ gettimeofday(
 	 */
 
 	if (NowCount >= Count)
-   {
+	{
 	    TicksElapsed = NowCount - Count; /* linear progression of ticks */
-   }
+	}
 	else
-   {
-     /************************************************************************/
-     /* Differentiate between real rollover and the case of taking a         */
-     /* perfcount then the APC coming in.                                    */
-     /************************************************************************/
-     if (Count > PreCount)                                              /*FIX*/
-     {                                                                  /*FIX*/
-       TicksElapsed = 0;                                                /*FIX*/
-     }                                                                  /*FIX*/
-     else                                                               /*FIX*/
-     {                                                                  /*FIX*/
-       TicksElapsed = NowCount + (RollOverCount - Count);               /*FIX*/
-     }                                                                  /*FIX*/
-   }
+	{
+	/************************************************************************/
+	/* Differentiate between real rollover and the case of taking a         */
+	/* perfcount then the APC coming in.                                    */
+	/************************************************************************/
+		if (Count > PreCount)                                           /*FIX*/
+		{								/*FIX*/
+			TicksElapsed = 0;                                       /*FIX*/
+		}                                                               /*FIX*/
+		else                                                            /*FIX*/
+		{                                                               /*FIX*/
+			TicksElapsed = NowCount + (RollOverCount - Count);	/*FIX*/
+		}                                                               /*FIX*/
+	}
 
 	/*  Calculate the new time (in 100's of nano-seconds)
 	 */
-    time_adjustment = (long) ((TicksElapsed * HECTONANOSECONDS) / PerfFrequency);
+	time_adjustment = (long) ((TicksElapsed * HECTONANOSECONDS) / PerfFrequency);
 	Time += time_adjustment;
 
 	/* Convert the hecto-nano second time to tv format
@@ -359,7 +416,7 @@ static void StartClockThread(void)
 	LARGE_INTEGER Freq = { 0, 0 };
 	
 	/* get the performance counter freq*/
-    if (!QueryPerformanceFrequency(&Freq)) {
+	if (!QueryPerformanceFrequency(&Freq)) {
 		msyslog(LOG_ERR, "QueryPerformanceFrequency failed: %m\n");
 		exit (-1);
 	}
@@ -373,7 +430,7 @@ static void StartClockThread(void)
 
 	/* init sync objects */
 	InitializeCriticalSection(&TimerCritialSection);
-	TimerThreadExitRequest = CreateEvent(NULL, FALSE, FALSE, NULL);
+	TimerThreadExitRequest = CreateEvent(NULL, FALSE, FALSE, "TimerThreadExitRequest");
 
 	ClockThreadHandle = CreateThread(NULL, 0, ClockThread, NULL, 0, &tid);
 	if (ClockThreadHandle != NULL) {
@@ -402,11 +459,3 @@ static void StopClockThread(void)
 	else
 		msyslog(LOG_ERR, "Network Time Protocol Service Failed to Stop");
 }
-
-typedef void (__cdecl *CRuntimeFunction)(void);
-
-#pragma data_seg(".CRT$XIY")
-	CRuntimeFunction _StartClockThread = StartClockThread;
-#pragma data_seg(".CRT$XTY")
-	CRuntimeFunction _StopClockThread = StopClockThread;
-#pragma data_seg()  /* reset */

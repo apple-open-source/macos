@@ -51,7 +51,9 @@ public:
 		static const size_t keySize = 16;	// number of (random) bytes
 		friend class Access;
 	public:
-		Maker(Allocator &alloc = Allocator::standard());
+		enum MakerType {kStandardMakerType, kAnyMakerType};
+	
+		Maker(Allocator &alloc = Allocator::standard(), MakerType makerType = kStandardMakerType);
 		
 		void initialOwner(ResourceControlContext &ctx, const AccessCredentials *creds = NULL);
 		const AccessCredentials *cred();
@@ -60,10 +62,13 @@ public:
 		
 		static const char creationEntryTag[];
 
+		MakerType makerType() {return mMakerType;}
+		
 	private:
 		CssmAutoData mKey;
 		AclEntryInput mInput;
 		AutoCredentials mCreds;
+		MakerType mMakerType;
 	};
 
 public:

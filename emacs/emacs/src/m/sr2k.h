@@ -1,5 +1,6 @@
 /* machine description file for Hitachi SR2001/SR2201 machines.
-   Copyright (C) 1996 Free Software Foundation, Inc.
+   Copyright (C) 1996, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="hpux"  */
 
@@ -61,29 +62,12 @@ Boston, MA 02111-1307, USA.  */
 
 /* The standard definitions of these macros would work ok,
    but these are faster because the constants are short. */
-   
+
 
 #define XUINT(a) (((unsigned)(a) << BITS_PER_INT-VALBITS) >> BITS_PER_INT-VALBITS)
 
 #define XSET(var, type, ptr) \
    ((var) = ((int)(type) << VALBITS) + (((unsigned) (ptr) << BITS_PER_INT-VALBITS) >> BITS_PER_INT-VALBITS))
-
-#define XMARKBIT(a) ((a) < 0)
-#define XSETMARKBIT(a,b) ((a) = ((b) ? (a)|MARKBIT : (a) & ~MARKBIT))
-
-#if 0  /* Loses when sign bit of type field is set.  */
-#define XUNMARK(a) ((a) = (((a) << BITS_PER_INT-GCTYPEBITS-VALBITS) >> BITS_PER_INT-GCTYPEBITS-VALBITS))
-#endif
-
-/* Define the BSTRING functions in terms of the sysV functions. */
-/* On HPUX 8.05, including types.h can include strings.h
-   which declares these as functions.  Hence the #ifndef.  */
-
-#ifndef HAVE_BCOPY
-#define bcopy(a,b,s)	memcpy (b,a,s)
-#define bzero(a,s)	memset (a,0,s)
-#define bcmp		memcmp
-#endif
 
 /* #ifdef __hpux */
 /* Now define a symbol for the cpu type, if your compiler
@@ -119,16 +103,6 @@ Boston, MA 02111-1307, USA.  */
    numerically.  */
 
 #define VIRT_ADDR_VARIES
-
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#define C_ALLOCA
-/* #define HAVE_ALLOCA */
 
 /* the data segment on this machine always starts at address 0x40000000. */
 
@@ -136,8 +110,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define DATA_START    0x40000000
 #define TEXT_START    0x00000000
-
-#define STACK_DIRECTION 1 
 
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
@@ -183,3 +155,6 @@ Boston, MA 02111-1307, USA.  */
 #define rindex strrchr
 
 /* #endif */
+
+/* arch-tag: 4ced5b51-ffe6-4be1-9954-eb40657023a5
+   (do not change this comment) */

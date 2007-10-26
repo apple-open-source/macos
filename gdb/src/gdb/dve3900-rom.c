@@ -461,7 +461,7 @@ fetch_bitmapped_register (int regno, struct bit_field *bf)
 
   if (regno >= sizeof (r3900_regnames) / sizeof (r3900_regnames[0]))
     internal_error (__FILE__, __LINE__,
-                    "fetch_bitmapped_register: regno out of bounds");
+                    _("fetch_bitmapped_register: regno out of bounds"));
   else
     regname = r3900_regnames[regno];
 
@@ -472,8 +472,8 @@ fetch_bitmapped_register (int regno, struct bit_field *bf)
 
   /* supply register stores in target byte order, so swap here */
 
-  store_unsigned_integer (regbuf, DEPRECATED_REGISTER_RAW_SIZE (regno), val);
-  supply_register (regno, regbuf);
+  store_unsigned_integer (regbuf, register_size (current_gdbarch, regno), val);
+  regcache_raw_supply (current_regcache, regno, regbuf);
 
 }
 
@@ -508,7 +508,7 @@ store_bitmapped_register (int regno, struct bit_field *bf)
 
   if (regno >= sizeof (r3900_regnames) / sizeof (r3900_regnames[0]))
     internal_error (__FILE__, __LINE__,
-                    "fetch_bitmapped_register: regno out of bounds");
+                    _("fetch_bitmapped_register: regno out of bounds"));
   else
     regname = r3900_regnames[regno];
 
@@ -652,7 +652,7 @@ ignore_packet (void)
 	break;
     }
   if (len == 8)
-    error ("Packet header byte not found; %02x seen instead.", c);
+    error (_("Packet header byte not found; %02x seen instead."), c);
 
   /* Read the packet type and length.  */
   c = debug_readchar (1);	/* type */
@@ -826,7 +826,7 @@ load_section (bfd *abfd, asection *s, unsigned int *data_count)
       /* Print some fluff about the section being loaded.  */
       printf_filtered ("Loading section %s, size 0x%lx lma ",
 		       bfd_section_name (abfd, s), (long) section_size);
-      print_address_numeric (section_base, 1, gdb_stdout);
+      deprecated_print_address_numeric (section_base, 1, gdb_stdout);
       printf_filtered ("\n");
       gdb_flush (gdb_stdout);
 
@@ -885,9 +885,9 @@ r3900_load (char *filename, int from_tty)
     filename = get_exec_file (1);
   abfd = bfd_openr (filename, 0);
   if (!abfd)
-    error ("Unable to open file %s\n", filename);
+    error (_("Unable to open file %s."), filename);
   if (bfd_check_format (abfd, bfd_object) == 0)
-    error ("File is not an object file\n");
+    error (_("File is not an object file."));
 
   /* Output the "vconsi" command to get the monitor in the communication
      state where it will accept a load command.  This will cause

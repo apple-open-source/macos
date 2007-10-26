@@ -1,24 +1,31 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
+ 
 /*
  *  fs.c - Generic access to the file system modules.
  *
@@ -28,14 +35,14 @@
  */
 
 #include <sl.h>
-#include <sys/md5.h>
+#include "md5.h"
 
 typedef long (* FSLoadFile)(CICell ih, char *filePath);
 typedef long (* FSReadFile)(CICell ih, char *filePath,
 			    void *base, unsigned long offset,
 			    unsigned long length);
 typedef long (* FSGetDirEntry)(CICell ih, char *dirPath,
-			       long *dirIndex, char **name,
+			       unsigned long *dirIndex, char **name,
 			       long *flags, long *time);
 typedef long (* FSGetUUID)(CICell ih, char *uuidStr);
 
@@ -156,7 +163,7 @@ long GetFSUUID(char *spec, char *uuidStr)
 
 
 // from our uuid/namespace.h (UFS and HFS uuids can live in the same space?)
-static char kFSUUIDNamespaceSHA1[] = {0xB3,0xE2,0x0F,0x39,0xF2,0x92,0x11,0xD6,0x97,0xA4,0x00,0x30,0x65,0x43,0xEC,0xAC};
+static unsigned char kFSUUIDNamespaceSHA1[] = {0xB3,0xE2,0x0F,0x39,0xF2,0x92,0x11,0xD6,0x97,0xA4,0x00,0x30,0x65,0x43,0xEC,0xAC};
 
 // filesystem-specific getUUID functions call this shared string generator
 long CreateUUIDString(uint8_t uubytes[], int nbytes, char *uuidStr)
@@ -211,7 +218,8 @@ long CreateUUIDString(uint8_t uubytes[], int nbytes, char *uuidStr)
 
 long GetFileInfo(char *dirSpec, char *name, long *flags, long *time)
 {
-  long ret, index = 0;
+  long ret;
+  unsigned long index = 0;
   char *curName;
 
   if (!dirSpec) {
@@ -236,7 +244,7 @@ long GetFileInfo(char *dirSpec, char *name, long *flags, long *time)
   return ret;
 }
 
-long GetDirEntry(char *dirSpec, long *dirIndex, char **name,
+long GetDirEntry(char *dirSpec, unsigned long *dirIndex, char **name,
 		 long *flags, long *time)
 {
   char          devSpec[256];
@@ -260,7 +268,8 @@ long GetDirEntry(char *dirSpec, long *dirIndex, char **name,
 
 long DumpDir(char *dirSpec)
 {
-  long ret, flags, time, index = 0;
+  long ret, flags, time;
+  unsigned long index = 0;
   char *name;
   
   printf("DumpDir on [%s]\n", dirSpec);

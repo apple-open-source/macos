@@ -1,4 +1,3 @@
-#include <sys/syslog.h>
 /* 
 		efaxos.c - O/S-dependent routines
 		    Copyright 1995, Ed Casas
@@ -44,10 +43,12 @@
 
 #ifdef __APPLE__
 #include <sys/ioctl.h>
+#include <mach/mach_port.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/serial/IOSerialKeys.h>
 #include <IOKit/serial/ioss.h>
+#include <IOKit/usb/IOUSBLib.h>
 #include <pthread.h>
 
 /*
@@ -57,6 +58,8 @@
 #define SYSEVENT_CANSLEEP	0x1	/* Decide whether to allow sleep or not */
 #define SYSEVENT_WILLSLEEP	0x2	/* Computer will go to sleep */
 #define SYSEVENT_WOKE		0x4	/* Computer woke from sleep */
+#define SYSEVENT_MODEMADDED	0x8	/* Modem was added */
+#define SYSEVENT_MODEMREMOVED	0x10	/* Modem was removed */
 
 
 /* 
@@ -65,7 +68,7 @@
 
 typedef struct threaddatastruct		/*** Thread context data  ****/
 {
-  sysevent_t		sysevent;	/* Sys event */
+  sysevent_t		sysevent;	/* System event */
 } threaddata_t;
 
 
@@ -81,7 +84,7 @@ static int		sysEventPipes[2] = { -1, -1 };	/* Pipes for system event notificatio
 sysevent_t		sysevent;			/* The system event */
 
 static int		clientEventFd = -1;		/* Listening socket for client commands */
-static char		clientSocketName[] = "/var/run/efax"; 
+static const char	clientSocketName[] = "/var/run/efax"; 
 							/* Listener's domain socket name */
 
 /* 
@@ -92,6 +95,7 @@ static int  sysEventMonitorUpdate(TFILE *f);
 static void *sysEventThreadEntry();
 static void sysEventPowerNotifier(void *context, io_service_t service, natural_t messageType, void *messageArgument);
 static int clientEventUpdate();
+static void deviceNotifier(void *context, io_iterator_t iterator);
 
 #endif	/* __APPLE__ */
 
@@ -132,13 +136,6 @@ void notify(CFStringRef status, CFTypeRef value)
 
   if (value)
     CFDictionaryAddValue(notification, CFSTR("value"), value);
-
-#if 0
-#pragma warn debugging code!
-  char buf[1024];
-  CFStringGetCString(status, buf, sizeof(buf), kCFStringEncodingUTF8);
-  syslog(LOG_ERR, buf);
-#endif
 
   CFNotificationCenterPostNotificationWithOptions(
 	CFNotificationCenterGetDistributedCenter(),
@@ -194,7 +191,15 @@ void msleep ( int t )
 
 /* Return number of characters ready to read or < 0 on error.  t
    is tenths of a second of idle time before timing out.  If t is
-   negative, waits forever. */
+   negative, waits forever. 
+ 
+    1: characters ready to read
+    0: timeout
+   -2: select() failed
+   -6: preparing to sleep
+   -7: woke / manual answer
+   -8: modem detected / cancel session
+ */
 
 int tdata ( TFILE *f, int t )
 {
@@ -247,7 +252,7 @@ int tdata ( TFILE *f, int t )
       }
 
       msg("Eselect() failed in tdata():");
-      err = -2;
+      err = TDATA_SELECTERR;
       break;
     }
 
@@ -327,7 +332,7 @@ int tgetd ( TFILE *f, int t )
 
 /* Write buffer to modem.  Returns 0 or EOF on error. */
 
-int tput ( TFILE *f, uchar *p, int n )
+int tput ( TFILE *f, const char *p, int n )
 {
   int m=0 ;
 
@@ -469,7 +474,28 @@ int ttyopen ( TFILE *f, char *fname, int reverse, int hwfc )
   int flags, err=0 ;
 
 #if defined(__APPLE__)
-  int fd;
+  int fd, timeout;
+
+  /*
+   * Wait for the device added notification...
+   */
+
+  timeout = 20;
+  while (!modem_found)
+  {
+    if (tdata(f, timeout) == TDATA_MODEMADDED)
+      break;
+
+    if (timeout < 300)
+      timeout += 50;
+
+    msg("Iwaiting for modem (%dsecs)", timeout/10);
+
+#if defined(__APPLE__)
+    notify(CFSTR("nomodem"), NULL);
+#endif
+  }
+
 
   if ((fd = open(fname, O_RDWR | O_NONBLOCK, 0)) >= 0)
   {
@@ -830,7 +856,6 @@ void sysEventMonitorStop(void)
     pthread_cond_destroy(&sysEventThreadCond);
   }
 
-
   if (sysEventPipes[0] >= 0)
   {
     close(sysEventPipes[0]);
@@ -882,7 +907,7 @@ static int sysEventMonitorUpdate(TFILE *f)
       if (waiting)
       {
 	msg("Ipreparing to sleep...");
-	err = -6;
+	err = TDATA_SLEEP;
       }
       else
       {
@@ -896,7 +921,23 @@ static int sysEventMonitorUpdate(TFILE *f)
     {
       IOAllowPowerChange(sysevent.powerKernelPort, sysevent.powerNotificationID);
       if (waiting)
-	err = -7;
+	err = TDATA_WAKE;
+    }
+
+    if ((sysevent.event & SYSEVENT_MODEMADDED))
+    {
+      msg("Imodem detected...");
+      if (!modem_found)
+	err = TDATA_MODEMADDED;
+
+      modem_found = 1;
+    }
+
+    if ((sysevent.event & SYSEVENT_MODEMREMOVED))
+    {
+      msg("Imodem removed...");
+      cleanup(4);
+      exit(4);
     }
   }
 
@@ -911,16 +952,30 @@ static int sysEventMonitorUpdate(TFILE *f)
 
 static void *sysEventThreadEntry()
 {
-  io_object_t		powerNotifierObj;	/* Power notifier object */
-  IONotificationPortRef powerNotifierPort;	/* Power notifier port */
-  CFRunLoopSourceRef	powerRLS = NULL;	/* Power runloop source */
-  threaddata_t		threadData;		/* Thread context data for the runloop notifiers */
-
+  io_object_t		  powerNotifierObj;	/* Power notifier object */
+  IONotificationPortRef   powerNotifierPort;	/* Power notifier port */
+  CFRunLoopSourceRef	  powerRLS = NULL;	/* Power runloop source */
+  threaddata_t		  threadData;		/* Thread context data for the runloop notifiers */
+  IONotificationPortRef	  addNotification,	/* Add notification port */
+			  removeNotification;	/* Remove notification port */
+  io_iterator_t		  addIterator,		/* Add iterator */
+			  removeIterator;	/* Remove iterator */
+  mach_port_t		  masterPort;		/* Master port */
+  kern_return_t		  kr;			/* Kernel error */
+  CFMutableDictionaryRef  classesToMatch;	/* Dictionary to match */
+  static const sysevent_t sysevent_modemadded   = { SYSEVENT_MODEMADDED };
+						/* Modem added event */
+  static const sysevent_t sysevent_modemremoved = { SYSEVENT_MODEMREMOVED };
+						/* Modem removed event */
 
   bzero(&threadData, sizeof(threadData));
+  addNotification    = \
+  removeNotification = NULL;
+  addIterator    = \
+  removeIterator = IO_OBJECT_NULL;
 
  /*
-  * Register for power state change notifications
+  * Register for power state change notifications.
   */
 
   threadData.sysevent.powerKernelPort = IORegisterForSystemPower(&threadData, &powerNotifierPort, sysEventPowerNotifier, &powerNotifierObj);
@@ -928,6 +983,56 @@ static void *sysEventThreadEntry()
   {
     powerRLS = IONotificationPortGetRunLoopSource(powerNotifierPort);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), powerRLS, kCFRunLoopDefaultMode);
+  }
+
+ /*
+  * Register for IOKit serial device added & removed notifications.
+  */
+
+  kr = IOMasterPort(bootstrap_port, &masterPort);
+
+  if (kr == kIOReturnSuccess && masterPort != MACH_PORT_NULL)
+  {
+    if ((classesToMatch = IOServiceMatching(kIOSerialBSDServiceValue)) != NULL)
+    {
+      CFDictionarySetValue(classesToMatch, CFSTR(kIOSerialBSDTypeKey), CFSTR(kIOSerialBSDModemType));
+  
+     /*
+      * Each IOServiceAddMatchingNotification() call consumes a dictionary reference
+      * so retain it for the second call below.
+      */
+  
+      CFRetain(classesToMatch);
+  
+      removeNotification = IONotificationPortCreate(masterPort);
+      kr = IOServiceAddMatchingNotification( removeNotification,
+					     kIOTerminatedNotification,
+					     classesToMatch,
+					     &deviceNotifier,
+					     (void*)&sysevent_modemremoved,
+					     &removeIterator);
+  
+      if (kr == kIOReturnSuccess && removeIterator != IO_OBJECT_NULL)
+      {
+	deviceNotifier((void*)&sysevent_modemremoved, removeIterator);
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), IONotificationPortGetRunLoopSource(removeNotification), kCFRunLoopDefaultMode);
+      }
+  
+      addNotification = IONotificationPortCreate(masterPort);
+      kr = IOServiceAddMatchingNotification(addNotification,
+					    kIOMatchedNotification,
+					    classesToMatch,
+					    &deviceNotifier,
+					    (void*)&sysevent_modemadded,
+					    &addIterator);
+  
+      if (kr == kIOReturnSuccess && addIterator != IO_OBJECT_NULL)
+      {
+	deviceNotifier((void*)&sysevent_modemadded, addIterator);
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), IONotificationPortGetRunLoopSource(addNotification), kCFRunLoopDefaultMode);
+      }
+    }
+    mach_port_deallocate(mach_task_self(), masterPort);
   }
 
  /*
@@ -942,17 +1047,27 @@ static void *sysEventThreadEntry()
   pthread_cond_signal(&sysEventThreadCond);
   pthread_mutex_unlock(&sysEventThreadMutex);
 
-
  /*
   * Disappear into the runloop until it's stopped by the main thread.
   */
 
   CFRunLoopRun();
 
-
  /*
   * Clean up before exiting.
   */
+
+  if (addIterator != IO_OBJECT_NULL)
+    IOObjectRelease(addIterator);
+
+  if (addNotification != NULL)
+    IONotificationPortDestroy(addNotification);
+
+  if (removeIterator != IO_OBJECT_NULL)
+    IOObjectRelease(removeIterator);
+
+  if (removeNotification != NULL)
+    IONotificationPortDestroy(removeNotification);
 
   if (powerRLS)
   {
@@ -1026,13 +1141,14 @@ static int clientEventUpdate()
   fd_set client_fds ;
   struct timeval client_timeout ;
   struct sockaddr_un client_addr;
+  socklen_t addrlen;
   char client_buf[255];
 
   /*
    * Accept the incomming connection request...
    */
 
-  if ((client_fd = accept(clientEventFd, (struct sockaddr *)&client_addr, &n)) < 0)
+  if ((client_fd = accept(clientEventFd, (struct sockaddr *)&client_addr, &addrlen)) < 0)
     msg ( "W0client accept error %d - %s", (int)errno, strerror(errno));
   else
   {
@@ -1066,12 +1182,12 @@ static int clientEventUpdate()
 	  manual_answer = 1;
 
 	  if (answer_wait)		/* Only return an error if we're waiting for activity... */
-	    err = -7;
+	    err = TDATA_MANANSWER;
 	  break;
 
 	case 'c':			/* Cancel current session... */
 	  msg ( "l cancel session");
-	  err = -8;
+	  err = TDATA_CANCEL;
 
 	  /*
 	   * Close the listen socket so we're not interupped while cleaning up...
@@ -1085,7 +1201,7 @@ static int clientEventUpdate()
 #if defined(__APPLE__)
 	  notify(CFSTR("disconnecting"), NULL);
 #endif
-	  exit ( cleanup ( 5 ) ) ;
+	  exit ( cleanup ( 7 ) ) ;
 	  break;			/* anti-compiler warning */
 
 	default:
@@ -1098,6 +1214,50 @@ static int clientEventUpdate()
     }
   }
   return err;
+}
+
+
+/*
+ * 'deviceNotifier()' - Called when a serial or modem device is added or removed.
+ */
+
+static void deviceNotifier(void *context, io_iterator_t iterator)
+{
+  int		matched = false;	/* Matched the right device? */
+  io_service_t	obj;			/* IOKit object */
+  CFTypeRef	cfstr;			/* CFString */
+  char		bsdpath[PATH_MAX + 1];	/* BSD path ("/dev/<something>") */
+
+ /*
+  * Iterate over the devices looking for one that matches the modem to use
+  * (always drain the iterator so we get future notifications).
+  */
+
+  while ((obj = IOIteratorNext(iterator)) != IO_OBJECT_NULL)
+  {
+    if (!matched && (cfstr = IORegistryEntryCreateCFProperty(obj, CFSTR(kIOCalloutDeviceKey), kCFAllocatorDefault, 0)))
+    {
+      CFStringGetCString(cfstr, bsdpath, sizeof(bsdpath), kCFStringEncodingUTF8);
+      CFRelease(cfstr);
+      matched = strcmp(bsdpath, faxfile) == 0;
+    }
+
+    if (!matched && (cfstr = IORegistryEntryCreateCFProperty(obj, CFSTR(kIODialinDeviceKey), kCFAllocatorDefault, 0)))
+    {
+      CFStringGetCString(cfstr, bsdpath, sizeof(bsdpath), kCFStringEncodingUTF8);
+      CFRelease(cfstr);
+      matched = strcmp(bsdpath, faxfile) == 0;
+    }
+
+    IOObjectRelease(obj);
+  }
+
+ /* 
+  * If we matched send the event to the main thread.
+  */
+
+  if (matched)
+    write((int)sysEventPipes[1], (sysevent_t *)context, sizeof(sysevent));
 }
 
 #endif	/* __APPLE__ */

@@ -57,8 +57,8 @@ int NT_set_process_priority(void)
 int
 refclock_open(
 	char *dev,		/* device name pointer */
-	int speed,		/* serial port speed (code) */
-	int flags		/* line discipline flags */
+	u_int speed,		/* serial port speed (code) */
+	u_int flags		/* line discipline flags */
 	)
 {
 	HANDLE Handle = INVALID_HANDLE_VALUE;
@@ -77,21 +77,21 @@ refclock_open(
 		NULL); // not template
 	if (Handle == INVALID_HANDLE_VALUE) {  
 		 
-		msyslog(LOG_ERR, "NT_COM: Device %s: CreateFile ", dev);
+		msyslog(LOG_ERR, "NT_COM: Device %s: CreateFile error: %m", dev);
 		return -1;
 	}
 
 	/*  Change the input/output buffers to be large.
 	*/
 	if (!SetupComm( Handle, 1024, 1024)) {
-		msyslog(LOG_ERR, "NT_COM: Device %s: SetupComm ", dev);
+		msyslog(LOG_ERR, "NT_COM: Device %s: SetupComm error: %m", dev);
 		return -1;
 	}
 
 	dcb.DCBlength = sizeof(dcb);
 	if (!GetCommState(Handle, &dcb)) {
 		// Error getting current DCB settings
-		msyslog(LOG_ERR, "NT_COM: Device %s: GetCommState ", dev);
+		msyslog(LOG_ERR, "NT_COM: Device %s: GetCommState error: %m", dev);
 		return -1;
 	}
 
@@ -101,7 +101,7 @@ refclock_open(
 	  case B2400 :  dcb.BaudRate = 2400; break;
 	  case B4800 :  dcb.BaudRate = 4800; break;
 	  case B9600 :  dcb.BaudRate = 9600; break;
-	  case B19200 : dcb.BaudRate = 9600; break;
+	  case B19200 : dcb.BaudRate = 19200; break;
 	  case B38400 : dcb.BaudRate = 38400; break;
 	  default :
 		msyslog(LOG_ERR, "NT_COM: Device %s: unsupported baud rate", dev);
@@ -131,7 +131,7 @@ refclock_open(
 	dcb.EofChar = 0;
 
 	if (!SetCommState(Handle, &dcb)) {
-		msyslog(LOG_ERR, "NT_COM: Device %s: SetCommState ", dev);
+		msyslog(LOG_ERR, "NT_COM: Device %s: SetCommState error: %m", dev);
 		return -1;
 	}
 
@@ -143,7 +143,7 @@ refclock_open(
 
 	   // Error setting time-outs.
 	if (!SetCommTimeouts(Handle, &timeouts)) {
-		msyslog(LOG_ERR, "NT_COM: Device %s: SetCommTimeouts ", dev);
+		msyslog(LOG_ERR, "NT_COM: Device %s: SetCommTimeouts error: %m", dev);
 		return -1;
 	}
 
@@ -180,17 +180,17 @@ tcsetattr(
 	dcb.DCBlength = sizeof(dcb);
 	if (!GetCommState(Handle, &dcb)) {
 		// Error getting current DCB settings
-		msyslog(LOG_ERR, "NT_COM: GetCommState ");
+		msyslog(LOG_ERR, "NT_COM: GetCommState error: %m");
 		return FALSE;
 	}
 
 	switch (max(s->c_ospeed, s->c_ispeed)) {
 		case B300 :   dcb.BaudRate = 300; break;
 		case B1200 :  dcb.BaudRate = 1200; break;
-		case B2400 :  dcb.BaudRate = 9600; break;
+		case B2400 :  dcb.BaudRate = 2400; break;
 		case B4800 :  dcb.BaudRate = 4800; break;
 		case B9600 :  dcb.BaudRate = 9600; break;
-		case B19200 : dcb.BaudRate = 9600; break;
+		case B19200 : dcb.BaudRate = 19200; break;
 		case B38400 : dcb.BaudRate = 38400; break;
 		default :
 			msyslog(LOG_ERR, "NT_COM: unsupported baud rate");
@@ -237,7 +237,7 @@ tcsetattr(
 	dcb.EofChar = 0;
 
 	if (!SetCommState(Handle, &dcb)) {
-		msyslog(LOG_ERR, "NT_COM: SetCommState ");
+		msyslog(LOG_ERR, "NT_COM: SetCommState error: %m");
 		return FALSE;
 	}
 	return TRUE;
@@ -252,7 +252,7 @@ tcgetattr(
 	dcb.DCBlength = sizeof(dcb);
 	if (!GetCommState(Handle, &dcb)) {
 		// Error getting current DCB settings
-		msyslog(LOG_ERR, "NT_COM: GetCommState ");
+		msyslog(LOG_ERR, "NT_COM: GetCommState error: %m");
 		return FALSE;
 	}
 
@@ -308,12 +308,12 @@ return 0;
 
 extern int cfsetispeed(struct termios *tio, int speed) {
 		
-		
+return 0;		
 };	
 
 
 extern int cfsetospeed(struct termios *tio, int speed) {
 		
-		
+return 0;		
 };	
 

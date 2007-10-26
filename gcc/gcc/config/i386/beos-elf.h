@@ -140,7 +140,9 @@ Boston, MA 02111-1307, USA.  */
    for the BeOS include files relative to TOOL_INCLUDE_DIR.  Yes, we
    use ANSI string concatenation here (FIXME) */
 
-#ifndef CROSS_COMPILE
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #undef INCLUDE_DEFAULTS
 #define INCLUDE_DEFAULTS \
     { \
@@ -182,7 +184,9 @@ Boston, MA 02111-1307, USA.  */
     { "/boot/develop/headers", 0, 0, 0 }, \
     { 0, 0, 0, 0 } \
     }
-#else /* CROSS_COMPILE */
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#else /* CROSS_DIRECTORY_STRUCTURE */
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #undef	INCLUDE_DEFAULTS
 #define INCLUDE_DEFAULTS				\
     { \

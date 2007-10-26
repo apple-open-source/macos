@@ -1,6 +1,7 @@
 ;;; windmove.el --- directional window-selection routines
 ;;
-;; Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 ;;
 ;; Author: Hovav Shacham (hovav@cs.stanford.edu)
 ;; Created: 17 October 1998
@@ -20,8 +21,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 ;;
 ;; --------------------------------------------------------------------
 
@@ -98,7 +99,13 @@
 ;;
 ;; Put the following line in your `.emacs' file:
 ;;
-;;     (windmove-default-keybindings)    ; default keybindings
+;;     (windmove-default-keybindings)         ; shifted arrow keys
+;;
+;; or
+;;
+;;     (windmove-default-keybindings 'hyper)  ; etc.
+;;
+;; to use another modifier key.
 ;;
 ;;
 ;; If you wish to enable wrap-around, also add a line like:
@@ -110,7 +117,7 @@
 ;; causes the occasional creation of a "lost column" between windows,
 ;; so that two adjacent windows do not actually touch, you may want to
 ;; increase the value of `windmove-window-distance-delta' to 2 or 3:
-;;     
+;;
 ;;     (setq windmove-window-distance-delta 2)
 ;;
 
@@ -200,11 +207,8 @@ placement bugs in old versions of Emacs."
 ;; rest.
 ;;
 ;; This work is done by `windmove-reference-loc'.  It can figure out
-;; the locations of the corners by calling `window-edges', but to
-;; calculate the frame-based location of point, it calls the workhorse
-;; function `windmove-coordinates-of-position', which itself calls the
-;; incredibly hairy builtin `compute-motion'.  There is a good deal of
-;; black magic in getting all the arguments to this function just right.
+;; the locations of the corners by calling `window-edges' combined
+;; with the result of `posn-at-point'.
 ;;
 ;; The second step is more messy.  Conceptually, it is fairly simple:
 ;; if we know the reference location, and the coordinates of the
@@ -310,19 +314,20 @@ MIN-N."
 (defun windmove-frame-edges (window)
   "Return (X-MIN Y-MIN X-MAX Y-MAX) for the frame containing WINDOW.
 If WINDOW is nil, return the edges for the selected frame.
-(X-MIN, Y-MIN) is the zero-based coordinate of the top-left corner
+\(X-MIN, Y-MIN) is the zero-based coordinate of the top-left corner
 of the frame; (X-MAX, Y-MAX) is the zero-based coordinate of the
 bottom-right corner of the frame.
 For example, if a frame has 76 rows and 181 columns, the return value
 from `windmove-frame-edges' will be the list (0 0 180 75)."
-  (let ((frame (if window
-                   (window-frame window)
-                 (selected-frame))))
-    (let ((x-min 0)
-          (y-min 0)
-          (x-max (1- (frame-width frame))) ; 1- for last row & col here
-          (y-max (1- (frame-height frame))))
-      (list x-min y-min x-max y-max))))
+  (let* ((frame (if window
+		    (window-frame window)
+		  (selected-frame)))
+	 (top-left (window-edges (frame-first-window frame)))
+	 (x-min (nth 0 top-left))
+	 (y-min (nth 1 top-left))
+	 (x-max (1- (frame-width frame))) ; 1- for last row & col
+	 (y-max (1- (frame-height frame))))
+    (list x-min y-min x-max y-max)))
 
 ;; it turns out that constraining is always a good thing, even when
 ;; wrapping is going to happen.  this is because:
@@ -397,45 +402,6 @@ Returns the wrapped coordinate."
        (windmove-constrain-around-range (cdr coord) min-y max-y)))))
 
 
-
-;; `windmove-coordinates-of-position' is stolen and modified from the
-;; Emacs Lisp Reference Manual, section 27.2.5.  It seems to work
-;; okay, although I am bothered by the fact that tab-offset (the cdr
-;; of the next-to- last argument) is set to 0.  On the other hand, I
-;; can't find a single usage of `compute-motion' anywhere that doesn't
-;; set this component to zero, and I'm too lazy to grovel through the
-;; C source to figure out what's happening in the background.  there
-;; also seems to be a good deal of fun in calculating the correct
-;; width of lines for telling `compute-motion' about; in particular,
-;; it seems we need to subtract 1 (for the continuation column) from
-;; the number that `window-width' gives, or continuation lines aren't
-;; counted correctly.  I haven't seen anyone doing this before,
-;; though.
-(defun windmove-coordinates-of-position (pos &optional window)
-  "Return the coordinates of position POS in window WINDOW.
-Return the window-based coodinates in a cons pair: (HPOS . VPOS),
-where HPOS and VPOS are the zero-based x and y components of the
-screen location of POS.  If WINDOW is nil, return the coordinates in
-the currently selected window.
-As an example, if point is in the top left corner of a window, then
-the return value from `windmove-coordinates-of-position' is (0 . 0)
-regardless of the where point is in the buffer and where the window
-is placed in the frame."
-  (let* ((wind (if (null window) (selected-window) window))
-         (usable-width (1- (window-width wind))) ; 1- for cont. column
-         (usable-height (1- (window-height wind))) ; 1- for mode line
-         (big-hairy-result (compute-motion
-                            (window-start)
-                            '(0 . 0)
-                            pos
-                            (cons usable-width usable-height)
-                            usable-width
-                            (cons (window-hscroll)
-                                  0)    ; why zero?
-                            wind)))
-    (cons (nth 1 big-hairy-result)      ; hpos, not vpos as documented
-          (nth 2 big-hairy-result))))   ; vpos, not hpos as documented
-
 ;; This calculates the reference location in the current window: the
 ;; frame-based (x . y) of either point, the top-left, or the
 ;; bottom-right of the window, depending on ARG.
@@ -447,15 +413,13 @@ currently-selected window, or WINDOW if supplied; otherwise, it is the
 top-left or bottom-right corner of the selected window, or WINDOW if
 supplied, if ARG is greater or smaller than zero, respectively."
   (let ((effective-arg (if (null arg) 0 (prefix-numeric-value arg)))
-        (edges (window-edges window)))
+        (edges (window-inside-edges window)))
     (let ((top-left (cons (nth 0 edges)
                           (nth 1 edges)))
-          ;; if 1-'s are not there, windows actually extend too far.
-          ;; actually, -2 is necessary for bottom: (nth 3 edges) is
-          ;; the height of the window; -1 because we want 0-based max,
-          ;; -1 to get rid of mode line
+	  ;; Subtracting 1 converts the edge to the last column or line
+	  ;; within the window.
           (bottom-right (cons (- (nth 2 edges) 1)
-                              (- (nth 3 edges) 2))))
+                              (- (nth 3 edges) 1))))
       (cond
        ((> effective-arg 0)
           top-left)
@@ -464,8 +428,11 @@ supplied, if ARG is greater or smaller than zero, respectively."
        ((= effective-arg 0)
           (windmove-coord-add
              top-left
-             (windmove-coordinates-of-position (window-point window)
-                                               window)))))))
+	     (let ((col-row
+		    (posn-col-row
+		     (posn-at-point (window-point window) window))))
+	       (cons (- (car col-row) (window-hscroll window))
+		     (cdr col-row)))))))))
 
 ;; This uses the reference location in the current window (calculated
 ;; by `windmove-reference-loc' above) to find a reference location
@@ -488,13 +455,13 @@ movement is relative to."
             (- (nth 1 edges)
                windmove-window-distance-delta))) ; (x, y0-d)
      ((eq dir 'right)
-      (cons (+ (nth 2 edges)
+      (cons (+ (1- (nth 2 edges))	; -1 to get actual max x
                windmove-window-distance-delta)
-            (cdr refpoint)))            ; (x1+d, y)
-     ((eq dir 'down)
+            (cdr refpoint)))            ; (x1+d-1, y)
+     ((eq dir 'down)			; -1 to get actual max y
       (cons (car refpoint)
-            (+ (nth 3 edges)
-               windmove-window-distance-delta))) ; (x, y1+d)
+            (+ (1- (nth 3 edges))
+               windmove-window-distance-delta))) ; (x, y1+d-1)
      (t (error "Invalid direction of movement: %s" dir)))))
 
 (defun windmove-find-other-window (dir &optional arg window)
@@ -525,10 +492,10 @@ DIR, ARG, and WINDOW are handled as by `windmove-other-window-loc'.
 If no window is at direction DIR, an error is signaled."
   (let ((other-window (windmove-find-other-window dir arg window)))
     (cond ((null other-window)
-           (error "No window at %s" dir))
+           (error "No window %s from selected window" dir))
           ((and (window-minibuffer-p other-window)
                 (not (minibuffer-window-active-p other-window)))
-           (error "Can't move to inactive minibuffer"))
+           (error "Minibuffer is inactive"))
           (t
            (select-window other-window)))))
 
@@ -543,7 +510,7 @@ If no window is at direction DIR, an error is signaled."
 With no prefix argument, or with prefix argument equal to zero,
 \"left\" is relative to the position of point in the window; otherwise
 it is relative to the top edge (for positive ARG) or the bottom edge
-(for negative ARG) of the current window.
+\(for negative ARG) of the current window.
 If no window is at the desired location, an error is signaled."
   (interactive "P")
   (windmove-do-window-select 'left arg))
@@ -576,7 +543,7 @@ If no window is at the desired location, an error is signaled."
 With no prefix argument, or with prefix argument equal to zero,
 \"down\" is relative to the position of point in the window; otherwise
 it is relative to the left edge (for positive ARG) or the right edge
-(for negative ARG) of the current window.
+\(for negative ARG) of the current window.
 If no window is at the desired location, an error is signaled."
   (interactive "P")
   (windmove-do-window-select 'down arg))
@@ -589,15 +556,19 @@ If no window is at the desired location, an error is signaled."
 ;; probably want to use different bindings in that case.
 
 ;;;###autoload
-(defun windmove-default-keybindings ()
-  "Set up default keybindings for `windmove'."
+(defun windmove-default-keybindings (&optional modifier)
+  "Set up keybindings for `windmove'.
+Keybindings are of the form MODIFIER-{left,right,up,down}.
+Default MODIFIER is 'shift."
   (interactive)
-  (global-set-key [(shift left)]  'windmove-left)
-  (global-set-key [(shift up)]    'windmove-up)
-  (global-set-key [(shift right)] 'windmove-right)
-  (global-set-key [(shift down)]  'windmove-down))
+  (unless modifier (setq modifier 'shift))
+  (global-set-key (vector (list modifier 'left))  'windmove-left)
+  (global-set-key (vector (list modifier 'right)) 'windmove-right)
+  (global-set-key (vector (list modifier 'up))    'windmove-up)
+  (global-set-key (vector (list modifier 'down))  'windmove-down))
 
 
 (provide 'windmove)
 
+;;; arch-tag: 56267432-bf1a-4296-a9a0-85c6bd9f2375
 ;;; windmove.el ends here

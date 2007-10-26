@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2005 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -107,7 +110,7 @@ void stub_conversion
 	inbytesleft = init_len;
 	outbytesleft = (size_t)conv_l_data_len * sizeof(unsigned_char_t);
 
-	i_ret = iconv(cd, (const char **)&ldata, &inbytesleft, (char **)&wdata, &outbytesleft);
+	i_ret = iconv(cd, (char **)&ldata, &inbytesleft, (char **)&wdata, &outbytesleft);
 
 	if (i_ret)	/* Iconv returns zero when it succeed */
 	{

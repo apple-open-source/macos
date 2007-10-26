@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,10 +12,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
-"""Handle delivery bounces.
-"""
+"""Handle delivery bounces."""
 
 import sys
 import time
@@ -128,7 +128,7 @@ class Bouncer:
             # We've already scored any bounces for this day, so ignore it.
             syslog('bounce', '%s: %s already scored a bounce for date %s',
                    self.internal_name(), member,
-                   time.strftime('%d-%b-%Y', day + (0,)*6))
+                   time.strftime('%d-%b-%Y', day + (0,0,0,0,1,0)))
             # Continue to check phase below
         else:
             # See if this member's bounce information is stale.
@@ -145,17 +145,21 @@ class Bouncer:
                 info.score += weight
                 info.date = day
                 syslog('bounce', '%s: %s current bounce score: %s',
-                       member, self.internal_name(), info.score)
+                       self.internal_name(), member, info.score)
             # Continue to the check phase below
         #
         # Now that we've adjusted the bounce score for this bounce, let's
         # check to see if the disable-by-bounce threshold has been reached.
         if info.score >= self.bounce_score_threshold:
-            syslog('bounce', 'sending %s list probe to: %s (score %s >= %s)',
+            if mm_cfg.VERP_PROBES:
+                syslog('bounce',
+                   'sending %s list probe to: %s (score %s >= %s)',
                    self.internal_name(), member, info.score,
                    self.bounce_score_threshold)
-            self.sendProbe(member, msg)
-            info.reset(0, info.date, info.noticesleft)
+                self.sendProbe(member, msg)
+                info.reset(0, info.date, info.noticesleft)
+            else:
+                self.disableBouncingMember(member, info, msg)
 
     def disableBouncingMember(self, member, info, msg):
         # Initialize their confirmation cookie.  If we do it when we get the
@@ -163,8 +167,13 @@ class Bouncer:
         cookie = self.pend_new(Pending.RE_ENABLE, self.internal_name(), member)
         info.cookie = cookie
         # Disable them
-        syslog('bounce', '%s: %s disabling due to probe bounce received',
-               self.internal_name(), member)
+        if mm_cfg.VERP_PROBES:
+            syslog('bounce', '%s: %s disabling due to probe bounce received',
+                   self.internal_name(), member)
+        else:
+            syslog('bounce', '%s: %s disabling due to bounce score %s >= %s',
+                   self.internal_name(), member,
+                   info.score, self.bounce_score_threshold)
         self.setDeliveryStatus(member, MemberAdaptor.BYBOUNCE)
         self.sendNextNotification(member)
         if self.bounce_notify_owner_on_disable:
@@ -268,6 +277,8 @@ class Bouncer:
         # provided in the exception argument.
         sender = msg.get_sender()
         subject = msg.get('subject', _('(no subject)'))
+        subject = Utils.oneline(subject,
+                                Utils.GetCharSet(self.preferred_language))
         if e is None:
             notice = _('[No bounce details are available]')
         else:

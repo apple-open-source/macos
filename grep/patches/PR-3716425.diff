@@ -1,7 +1,6 @@
-diff -ur ../../old/grep/src/dfa.c ./src/dfa.c
---- ../../old/grep/src/dfa.c	2004-12-20 17:33:01.000000000 -0800
-+++ ./src/dfa.c	2004-12-20 19:20:16.000000000 -0800
-@@ -1053,11 +1053,18 @@
+--- src/dfa.c.orig	2005-05-11 09:35:53.000000000 -0700
++++ src/dfa.c	2005-05-11 09:44:00.000000000 -0700
+@@ -1049,11 +1049,19 @@
  		  if (!match) {
  		    dfaerror(_("invalid collating element or class"));
  		  } else {
@@ -12,6 +11,7 @@ diff -ur ../../old/grep/src/dfa.c ./src/dfa.c
 +			c1 = *match;
 +			lexptr += used;
 +			lexleft -= used;
++			free(match);
 +			goto skip;
 +		      } else {
 +			char *cp = match;
@@ -24,7 +24,7 @@ diff -ur ../../old/grep/src/dfa.c ./src/dfa.c
  		  }
  		  lexptr += used;
  		  lexleft -= used;
-@@ -1097,6 +1104,15 @@
+@@ -1093,6 +1101,15 @@
  		      if (c2 == '\\'
  			  && (syntax_bits & RE_BACKSLASH_ESCAPE_IN_LISTS))
  			FETCH(c2, _("Unbalanced ["));

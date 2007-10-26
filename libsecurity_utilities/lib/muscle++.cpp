@@ -68,7 +68,7 @@ int Error::unixError() const
 #if !defined(NDEBUG)
 void Error::debugDiagnose(const void *id) const
 {
-    secdebug("exception", "%p Muscle::Error %s (%ld) osStatus %ld",
+    secdebug("exception", "%p Muscle::Error %s (%hd) osStatus %ld",
 		id, msc_error(error), error, osStatus());
 }
 #endif //NDEBUG
@@ -255,7 +255,7 @@ ACL &Object::acl()				{ return reinterpret_cast<ACL &>(objectACL); }
 
 void Object::debugDump()
 {
-	printf("Object %s size %ld ACL %s\n",
+	printf("Object %s size %d ACL %s\n",
 		objectID, objectSize, acl().form('e').c_str());
 }
 

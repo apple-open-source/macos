@@ -29,52 +29,32 @@
 #ifndef _DSSemaphore_H_
 #define _DSSemaphore_H_
 
-#include <unistd.h>		// for _POSIX_THREADS
-#include <pthread.h>	// for pthread_*_t
-
-#include <DirectoryServiceCore/PrivateTypes.h>
-
-//	DSSemaphore class definition
+#include <DirectoryServiceCore/DSMutexSemaphore.h> // needed for lock defines
 
 class DSSemaphore
 {
-public:
-	/**** Typedefs, enums and constants. ****/
-	enum eWaitTime {
-		kForever = -1,
-		kNever = 0
-	};
-	enum eErr {
-		semNoErr = 0,
-		semDestroyedErr = 28020,
-		semTimedOutErr,
-		semNotOwnerErr,
-		semAlreadyResetErr,
-		semOtherErr
-	};
+	public:
+					DSSemaphore			( const char *inName = NULL );
+					~DSSemaphore		( void );
 
-	/**** Instance method protoypes. ****/
-	// ctor and dtor.
-			DSSemaphore			( sInt32 initialCount = 0 );
-	virtual	~DSSemaphore			( void );
+		void		Wait				( void ) { WaitDebug(NULL, 0 ); }
+		void		Signal				( void ) { SignalDebug(NULL, 0); }
+		int			WaitTry				( void ) { return WaitTryDebug(NULL, 0); }
+		
+		void		WaitDebug			( char *file, int line );
+		bool		WaitTryDebug		( char *file, int line );
+		void		SignalDebug			( char *file, int line );
 
-	// New methods.
-	virtual void		Signal	( void );
-	virtual sInt32		Wait	( sInt32 milliSecs = kForever );
+		static void	LockCleanup			( void *value );
+		
+		void		WaitDebugHistory	( char *file, int line ) { WaitDebug(file, line); }
+		bool		WaitTryDebugHistory	( char *file, int line ) { return WaitTryDebug(file, line); }
+		void		SignalDebugHistory	( char *file, int line ) { SignalDebug( file, line ); }
 
-protected:
-	/**** Instance variables. ****/
-	pthread_mutex_t		mConditionLock;
-	pthread_cond_t		mSemaphore;
-	volatile sInt32		mExcessSignals;
-	bool				mDestroying;
-
-private:
-	/**** Invalid methods and undefined operations. ****/
-	// Copy constructor
-							DSSemaphore	( const DSSemaphore & );
-	// Assignment
-			DSSemaphore &	operator=	( const DSSemaphore & );
-} ;
+	private:
+		pthread_mutex_t			mMutex;
+		const char				*mMutexName;
+		struct sLockHistoryInfo	*mLockHistoryInfo;
+};
 
 #endif	/* _DSSemaphore_H_ */

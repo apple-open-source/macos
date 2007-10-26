@@ -1,7 +1,8 @@
 /* Target-dependent code for PowerPC systems using the SVR4 ABI
    for GDB, the GNU debugger.
 
-   Copyright 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright 2000, 2001, 2002, 2003, 2005 Free Software Foundation,
+   Inc.
 
    This file is part of GDB.
 
@@ -30,7 +31,9 @@
 #include "ppc-tdep.h"
 #include "target.h"
 #include "objfiles.h"
+#include "infcall.h"
 
+/* APPLE LOCAL begin ppc */
 /* Round x up to the nearest multiple of s, assuming that s is a
    power of 2. */
 
@@ -97,7 +100,7 @@ struct ppc_stack_context
 };
 
 
-/* APPLE LOCAL: This function hides a bit of complexity with 64 bit
+/* This function hides a bit of complexity with 64 bit
    PPC Darwin.  32 bit apps on PPC 64 systems can access all 64 bits
    of the registers, but only store 32 bits on the stack.  So wordsize
    is 4, but the register size is 8, and we have to make sure we get
@@ -106,14 +109,13 @@ struct ppc_stack_context
 
 static void
 ppc_copy_into_greg (struct regcache *regcache, int regno, int wordsize, 
-		    int len, const char *contents)
+		    int len, const gdb_byte *contents)
 {
   int reg_size = register_size (current_gdbarch, regno);
 
   if (reg_size == wordsize)
     {
-      memcpy (&deprecated_registers[DEPRECATED_REGISTER_BYTE (regno)],
-		  contents, len);
+      regcache_raw_write (current_regcache, regno, contents);
     }
   else
     {
@@ -154,7 +156,7 @@ ppc_copy_from_greg (struct regcache *regcache, int regno, int wordsize,
     }
   else
     {
-      char tmpbuf[8];
+      gdb_byte tmpbuf[8];
       int i;
 
       for (i = 0; i < num_regs; i++)
@@ -164,8 +166,6 @@ ppc_copy_from_greg (struct regcache *regcache, int regno, int wordsize,
 	}
     }
 }
-
-/* END APPLE LOCAL */
 
 /* Push the single argument ARG onto C, using the rules in ABI.  The
    parameter ARGNO is used for printing error and diagnostic messages.
@@ -182,10 +182,10 @@ ppc_push_argument (struct ppc_stack_abi *abi,
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch);
 
-  struct type *type = check_typedef (VALUE_TYPE (arg));
+  struct type *type = check_typedef (value_type (arg));
   int len = TYPE_LENGTH (type);
 
-  char buf[16];
+  gdb_byte buf[16];
 
   c->argoffset = ROUND_UP (c->argoffset, 4);
 
@@ -205,7 +205,7 @@ ppc_push_argument (struct ppc_stack_abi *abi,
 	  if (strcmp (TYPE_NAME (type), "long double") != 0)
 	    {
 	      rval  = value_cast (builtin_type_double, arg);
-	      rtype = check_typedef (VALUE_TYPE (rval));
+	      rtype = check_typedef (value_type (rval));
 	      rlen = TYPE_LENGTH (rtype);
 	    }
 	  else
@@ -223,12 +223,12 @@ ppc_push_argument (struct ppc_stack_abi *abi,
 	    error ("floating point parameter had unexpected size");
 
 	  if (do_copy)
-	    memcpy (&deprecated_registers[DEPRECATED_REGISTER_BYTE (FP0_REGNUM + c->freg)],
-		    VALUE_CONTENTS (rval), rlen);
+	    regcache_raw_write (current_regcache, FP0_REGNUM + c->freg, 
+				value_contents (rval));
 	  if (do_copy && ! floatonly && abi->fregs_shadow_gregs)
-	    ppc_copy_into_greg (current_regcache, c->greg, tdep->wordsize, len, VALUE_CONTENTS (arg));
+	    ppc_copy_into_greg (current_regcache, c->greg, tdep->wordsize, len, value_contents (arg));
 	  if (do_copy && ! floatonly && abi->regs_shadow_stack)
-	    write_memory (c->sp + c->argoffset, VALUE_CONTENTS (arg), len);
+	    write_memory (c->sp + c->argoffset, value_contents (arg), len);
 
 	  c->freg++;
 	  /* APPLE LOCAL: We took up two registers...  */
@@ -247,7 +247,7 @@ ppc_push_argument (struct ppc_stack_abi *abi,
 
 	  c->argoffset = ROUND_UP (c->argoffset, len);
 	  if (do_copy)
-	    write_memory (c->sp + c->argoffset, VALUE_CONTENTS (arg), len);
+	    write_memory (c->sp + c->argoffset, value_contents (arg), len);
 	  c->argoffset += len;
 	}
       break;
@@ -259,22 +259,23 @@ ppc_push_argument (struct ppc_stack_abi *abi,
   case TYPE_CODE_REF:
     {
       int nregs;
-      char *value_contents;
+      gdb_byte *val_contents;
 
       if (floatonly)
 	break;
 
-      /* APPLE LOCAL: Huge Hack...  The problem is that if we are a 32 bit app on Mac OS X,
-	 the registers are really 64 bits, but we don't want to pass all 64 bits.  So if we
-	 get passed a value that came from a register, and it's length is > the wordsize,
+      /* APPLE LOCAL: Huge Hack...  The problem is that if we are a 32
+	 bit app on Mac OS X, the registers are really 64 bits, but we
+	 don't want to pass all 64 bits.  So if we get passed a value
+	 that came from a register, and it's length is > the wordsize,
 	 cast it to the wordsize first before passing it in.  */
-      if (arg->regno != -1 && len == 8 && tdep->wordsize == 4)
+      if (VALUE_REGNUM (arg) != -1 && len == 8 && tdep->wordsize == 4)
 	{
 	  len = 4;
-	  value_contents = ((char *) VALUE_CONTENTS (arg)) + 4;
+	  val_contents = value_contents (arg) + 4;
 	}
       else
-	value_contents = (char *) VALUE_CONTENTS (arg);
+	val_contents = value_contents (arg);
       /* END APPLE LOCAL  */
 
       nregs = (len <= 4) ? 1 : 2;
@@ -295,10 +296,10 @@ ppc_push_argument (struct ppc_stack_abi *abi,
 		regs_avaliable = nregs;
 
 	      ppc_copy_into_greg (current_regcache, c->greg, 
-				  tdep->wordsize, regs_avaliable * 4, value_contents);
+				  tdep->wordsize, regs_avaliable * 4, val_contents);
 	    }
 	  if (do_copy && abi->regs_shadow_stack)
-	    write_memory (c->sp + c->argoffset, value_contents, len);
+	    write_memory (c->sp + c->argoffset, val_contents, len);
 
 	  c->greg += nregs;
 	  if (abi->regs_shadow_stack)
@@ -309,7 +310,7 @@ ppc_push_argument (struct ppc_stack_abi *abi,
 	  /* If we've filled up the registers, then just write it on the stack. */
 
 	  if (do_copy)
-	    write_memory (c->sp + c->argoffset, value_contents, len);
+	    write_memory (c->sp + c->argoffset, val_contents, len);
 	  c->argoffset += (nregs * 4);
 	}
       break;
@@ -331,7 +332,7 @@ ppc_push_argument (struct ppc_stack_abi *abi,
 	      c->structoffset = ROUND_UP (c->structoffset, 8);
 	      if (do_copy)
 		{
-		  write_memory (c->sp + c->structoffset, VALUE_CONTENTS (arg), len);
+		  write_memory (c->sp + c->structoffset, value_contents (arg), len);
 		  store_unsigned_integer (buf, 4, c->sp + c->structoffset);
 		}
 	      c->structoffset += ROUND_UP (len, 8);
@@ -340,7 +341,7 @@ ppc_push_argument (struct ppc_stack_abi *abi,
 	    if (do_copy)
 	      {
 		memset (buf, 0, 4);
-		memcpy (buf, VALUE_CONTENTS (arg), len);
+		memcpy (buf, value_contents (arg), len);
 	      }
 
 	  if (c->greg <= abi->last_greg)
@@ -377,7 +378,7 @@ ppc_push_argument (struct ppc_stack_abi *abi,
 
 	  if (do_copy)
 	    {
-	      char *ptr = VALUE_CONTENTS (arg);
+	      gdb_byte *ptr = value_contents (arg);
 	      if (len < 4)
 		{
 		  memset (buf, 0, 4);
@@ -412,8 +413,8 @@ ppc_push_argument (struct ppc_stack_abi *abi,
       if (c->vreg <= abi->last_vreg)
 	{
 	  if (do_copy)
-	    memcpy (&deprecated_registers[DEPRECATED_REGISTER_BYTE (tdep->ppc_vr0_regnum + c->vreg)],
-		    VALUE_CONTENTS (arg), len);
+	    regcache_raw_write (current_regcache, tdep->ppc_vr0_regnum + c->vreg,
+				value_contents (arg));
 	  c->vreg++;
 	}
       else
@@ -422,7 +423,7 @@ ppc_push_argument (struct ppc_stack_abi *abi,
 	     the stack. */
 	  c->argoffset = ROUND_UP (c->argoffset, 16);
 	  if (do_copy)
-	    write_memory (c->sp + c->argoffset, VALUE_CONTENTS (arg), len);
+	    write_memory (c->sp + c->argoffset, value_contents (arg), len);
 	  c->argoffset += len;
 	}
       break;
@@ -447,7 +448,7 @@ ppc_push_arguments (struct ppc_stack_abi *abi, int nargs, struct value **args,
 		    CORE_ADDR sp, int struct_return, CORE_ADDR struct_addr)
 {
   int argno;
-  char buf[4];
+  gdb_byte buf[4];
   CORE_ADDR saved_sp;
 
   struct ppc_stack_context preview;
@@ -491,6 +492,13 @@ ppc_push_arguments (struct ppc_stack_abi *abi, int nargs, struct value **args,
 
   /* Allocate space for backchain and callee's saved lr */
   sp -= abi->backchain_size;
+
+  /* A Hack to make AltiVec happy by keeping pushed parameters from
+     stepping on the next frame up.  Not clear what part of the
+     calculation is messed up, but it doesn't actually hurt to make a
+     dummy frame lower down than other frames.  Empirically, an
+     adjustment of 32 or more fixes, 16 is not enough.  */
+  sp -= 32;
 
   /* Make sure that we maintain 16 byte alignment */
   sp &= ~0x0f;
@@ -542,7 +550,7 @@ ppc_push_arguments (struct ppc_stack_abi *abi, int nargs, struct value **args,
    starting from r4. */
 
 CORE_ADDR
-ppc_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
+ppc_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 			      struct regcache *regcache, CORE_ADDR bp_addr,
 			      int nargs, struct value **args, CORE_ADDR sp,
 			      int struct_return, CORE_ADDR struct_addr)
@@ -590,7 +598,7 @@ ppc_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
    starting from r4.  */
 
 CORE_ADDR
-ppc_darwin_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
+ppc_darwin_abi_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 				struct regcache *regcache, CORE_ADDR bp_addr,
 				int nargs, struct value **args, CORE_ADDR sp,
 				int struct_return, CORE_ADDR struct_addr)
@@ -620,284 +628,7 @@ ppc_darwin_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
   target_store_registers (-1);
   return ret;
 }
-
-#if 0
-/* Pass the arguments in either registers, or in the stack. Using the
-   ppc sysv ABI, the first eight words of the argument list (that might
-   be less than eight parameters if some parameters occupy more than one
-   word) are passed in r3..r10 registers.  float and double parameters are
-   passed in fpr's, in addition to that. Rest of the parameters if any
-   are passed in user stack. 
-
-   If the function is returning a structure, then the return address is passed
-   in r3, then the first 7 words of the parametes can be passed in registers,
-   starting from r4. */
-
-CORE_ADDR
-ppc_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
-			      struct regcache *regcache, CORE_ADDR bp_addr,
-			      int nargs, struct value **args, CORE_ADDR sp,
-			      int struct_return, CORE_ADDR struct_addr)
-{
-  struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch);
-  const CORE_ADDR saved_sp = read_sp ();
-  int argspace = 0;		/* 0 is an initial wrong guess.  */
-  int write_pass;
-
-  /* Go through the argument list twice.
-
-     Pass 1: Figure out how much new stack space is required for
-     arguments and pushed values.  Unlike the PowerOpen ABI, the SysV
-     ABI doesn't reserve any extra space for parameters which are put
-     in registers, but does always push structures and then pass their
-     address.
-
-     Pass 2: Replay the same computation but this time also write the
-     values out to the target.  */
-
-  for (write_pass = 0; write_pass < 2; write_pass++)
-    {
-      int argno;
-      /* Next available floating point register for float and double
-         arguments.  */
-      int freg = 1;
-      /* Next available general register for non-float, non-vector
-         arguments.  */
-      int greg = 3;
-      /* Next available vector register for vector arguments.  */
-      int vreg = 2;
-      /* Arguments start above the "LR save word" and "Back chain".  */
-      int argoffset = 2 * tdep->wordsize;
-      /* Structures start after the arguments.  */
-      int structoffset = argoffset + argspace;
-
-      /* If the function is returning a `struct', then the first word
-         (which will be passed in r3) is used for struct return
-         address.  In that case we should advance one word and start
-         from r4 register to copy parameters.  */
-      if (struct_return)
-	{
-	  if (write_pass)
-	    regcache_cooked_write_signed (regcache,
-					  tdep->ppc_gp0_regnum + greg,
-					  struct_addr);
-	  greg++;
-	}
-
-      for (argno = 0; argno < nargs; argno++)
-	{
-	  struct value *arg = args[argno];
-	  struct type *type = check_typedef (VALUE_TYPE (arg));
-	  int len = TYPE_LENGTH (type);
-	  char *val = VALUE_CONTENTS (arg);
-
-	  if (TYPE_CODE (type) == TYPE_CODE_FLT
-	      && ppc_floating_point_unit_p (current_gdbarch) && len <= 8)
-	    {
-	      /* Floating point value converted to "double" then
-	         passed in an FP register, when the registers run out,
-	         8 byte aligned stack is used.  */
-	      if (freg <= 8)
-		{
-		  if (write_pass)
-		    {
-		      /* Always store the floating point value using
-		         the register's floating-point format.  */
-		      char regval[MAX_REGISTER_SIZE];
-		      struct type *regtype
-			= register_type (gdbarch, FP0_REGNUM + freg);
-		      convert_typed_floating (val, type, regval, regtype);
-		      regcache_cooked_write (regcache, FP0_REGNUM + freg,
-					     regval);
-		    }
-		  freg++;
-		}
-	      else
-		{
-		  /* SysV ABI converts floats to doubles before
-		     writing them to an 8 byte aligned stack location.  */
-		  argoffset = align_up (argoffset, 8);
-		  if (write_pass)
-		    {
-		      char memval[8];
-		      struct type *memtype;
-		      switch (TARGET_BYTE_ORDER)
-			{
-			case BFD_ENDIAN_BIG:
-			  memtype = builtin_type_ieee_double_big;
-			  break;
-			case BFD_ENDIAN_LITTLE:
-			  memtype = builtin_type_ieee_double_little;
-			  break;
-			default:
-			  internal_error (__FILE__, __LINE__, "bad switch");
-			}
-		      convert_typed_floating (val, type, memval, memtype);
-		      write_memory (sp + argoffset, val, len);
-		    }
-		  argoffset += 8;
-		}
-	    }
-	  else if (len == 8 && (TYPE_CODE (type) == TYPE_CODE_INT	/* long long */
-				|| (!ppc_floating_point_unit_p (current_gdbarch) && TYPE_CODE (type) == TYPE_CODE_FLT)))	/* double */
-	    {
-	      /* "long long" or "double" passed in an odd/even
-	         register pair with the low addressed word in the odd
-	         register and the high addressed word in the even
-	         register, or when the registers run out an 8 byte
-	         aligned stack location.  */
-	      if (greg > 9)
-		{
-		  /* Just in case GREG was 10.  */
-		  greg = 11;
-		  argoffset = align_up (argoffset, 8);
-		  if (write_pass)
-		    write_memory (sp + argoffset, val, len);
-		  argoffset += 8;
-		}
-	      else if (tdep->wordsize == 8)
-		{
-		  if (write_pass)
-		    regcache_cooked_write (regcache,
-					   tdep->ppc_gp0_regnum + greg, val);
-		  greg += 1;
-		}
-	      else
-		{
-		  /* Must start on an odd register - r3/r4 etc.  */
-		  if ((greg & 1) == 0)
-		    greg++;
-		  if (write_pass)
-		    {
-		      regcache_cooked_write (regcache,
-					     tdep->ppc_gp0_regnum + greg + 0,
-					     val + 0);
-		      regcache_cooked_write (regcache,
-					     tdep->ppc_gp0_regnum + greg + 1,
-					     val + 4);
-		    }
-		  greg += 2;
-		}
-	    }
-	  else if (len == 16
-		   && TYPE_CODE (type) == TYPE_CODE_ARRAY
-		   && TYPE_VECTOR (type) && tdep->ppc_vr0_regnum >= 0)
-	    {
-	      /* Vector parameter passed in an Altivec register, or
-	         when that runs out, 16 byte aligned stack location.  */
-	      if (vreg <= 13)
-		{
-		  if (write_pass)
-		    regcache_cooked_write (current_regcache,
-					   tdep->ppc_vr0_regnum + vreg, val);
-		  vreg++;
-		}
-	      else
-		{
-		  argoffset = align_up (argoffset, 16);
-		  if (write_pass)
-		    write_memory (sp + argoffset, val, 16);
-		  argoffset += 16;
-		}
-	    }
-	  else if (len == 8
-		   && TYPE_CODE (type) == TYPE_CODE_ARRAY
-		   && TYPE_VECTOR (type) && tdep->ppc_ev0_regnum >= 0)
-	    {
-	      /* Vector parameter passed in an e500 register, or when
-	         that runs out, 8 byte aligned stack location.  Note
-	         that since e500 vector and general purpose registers
-	         both map onto the same underlying register set, a
-	         "greg" and not a "vreg" is consumed here.  A cooked
-	         write stores the value in the correct locations
-	         within the raw register cache.  */
-	      if (greg <= 10)
-		{
-		  if (write_pass)
-		    regcache_cooked_write (current_regcache,
-					   tdep->ppc_ev0_regnum + greg, val);
-		  greg++;
-		}
-	      else
-		{
-		  argoffset = align_up (argoffset, 8);
-		  if (write_pass)
-		    write_memory (sp + argoffset, val, 8);
-		  argoffset += 8;
-		}
-	    }
-	  else
-	    {
-	      /* Reduce the parameter down to something that fits in a
-	         "word".  */
-	      char word[MAX_REGISTER_SIZE];
-	      memset (word, 0, MAX_REGISTER_SIZE);
-	      if (len > tdep->wordsize
-		  || TYPE_CODE (type) == TYPE_CODE_STRUCT
-		  || TYPE_CODE (type) == TYPE_CODE_UNION)
-		{
-		  /* Structs and large values are put on an 8 byte
-		     aligned stack ... */
-		  structoffset = align_up (structoffset, 8);
-		  if (write_pass)
-		    write_memory (sp + structoffset, val, len);
-		  /* ... and then a "word" pointing to that address is
-		     passed as the parameter.  */
-		  store_unsigned_integer (word, tdep->wordsize,
-					  sp + structoffset);
-		  structoffset += len;
-		}
-	      else if (TYPE_CODE (type) == TYPE_CODE_INT)
-		/* Sign or zero extend the "int" into a "word".  */
-		store_unsigned_integer (word, tdep->wordsize,
-					unpack_long (type, val));
-	      else
-		/* Always goes in the low address.  */
-		memcpy (word, val, len);
-	      /* Store that "word" in a register, or on the stack.
-	         The words have "4" byte alignment.  */
-	      if (greg <= 10)
-		{
-		  if (write_pass)
-		    regcache_cooked_write (regcache,
-					   tdep->ppc_gp0_regnum + greg, word);
-		  greg++;
-		}
-	      else
-		{
-		  argoffset = align_up (argoffset, tdep->wordsize);
-		  if (write_pass)
-		    write_memory (sp + argoffset, word, tdep->wordsize);
-		  argoffset += tdep->wordsize;
-		}
-	    }
-	}
-
-      /* Compute the actual stack space requirements.  */
-      if (!write_pass)
-	{
-	  /* Remember the amount of space needed by the arguments.  */
-	  argspace = argoffset;
-	  /* Allocate space for both the arguments and the structures.  */
-	  sp -= (argoffset + structoffset);
-	  /* Ensure that the stack is still 16 byte aligned.  */
-	  sp = align_down (sp, 16);
-	}
-    }
-
-  /* Update %sp.   */
-  regcache_cooked_write_signed (regcache, SP_REGNUM, sp);
-
-  /* Write the backchain (it occupies WORDSIZED bytes).  */
-  write_memory_signed_integer (sp, tdep->wordsize, saved_sp);
-
-  /* Point the inferior function call's return address at the dummy's
-     breakpoint.  */
-  regcache_cooked_write_signed (regcache, tdep->ppc_lr_regnum, bp_addr);
-
-  return sp;
-}
-#endif
+/* APPLE LOCAL end ppc */
 
 /* Handle the return-value conventions specified by the SysV 32-bit
    PowerPC ABI (including all the supplements):
@@ -916,8 +647,10 @@ ppc_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
 
 static enum return_value_convention
 do_ppc_sysv_return_value (struct gdbarch *gdbarch, struct type *type,
-			  struct regcache *regcache, void *readbuf,
-			  const void *writebuf, int broken_gcc)
+			  /* APPLE LOCAL gdb_byte */
+			  struct regcache *regcache, gdb_byte *readbuf,
+			  /* APPLE LOCAL gdb_byte */
+			  const gdb_byte *writebuf, int broken_gcc)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
   gdb_assert (tdep->wordsize == 4);
@@ -929,19 +662,20 @@ do_ppc_sysv_return_value (struct gdbarch *gdbarch, struct type *type,
 	{
 	  /* Floats and doubles stored in "f1".  Convert the value to
 	     the required type.  */
-	  char regval[MAX_REGISTER_SIZE];
-	  struct type *regtype = register_type (gdbarch, FP0_REGNUM + 1);
-	  regcache_cooked_read (regcache, FP0_REGNUM + 1, regval);
+	  gdb_byte regval[MAX_REGISTER_SIZE];
+	  struct type *regtype = register_type (gdbarch,
+                                                tdep->ppc_fp0_regnum + 1);
+	  regcache_cooked_read (regcache, tdep->ppc_fp0_regnum + 1, regval);
 	  convert_typed_floating (regval, regtype, readbuf, type);
 	}
       if (writebuf)
 	{
 	  /* Floats and doubles stored in "f1".  Convert the value to
 	     the register's "double" type.  */
-	  char regval[MAX_REGISTER_SIZE];
-	  struct type *regtype = register_type (gdbarch, FP0_REGNUM);
+	  gdb_byte regval[MAX_REGISTER_SIZE];
+	  struct type *regtype = register_type (gdbarch, tdep->ppc_fp0_regnum);
 	  convert_typed_floating (writebuf, type, regval, regtype);
-	  regcache_cooked_write (regcache, FP0_REGNUM + 1, regval);
+	  regcache_cooked_write (regcache, tdep->ppc_fp0_regnum + 1, regval);
 	}
       return RETURN_VALUE_REGISTER_CONVENTION;
     }
@@ -1095,16 +829,15 @@ do_ppc_sysv_return_value (struct gdbarch *gdbarch, struct type *type,
 	  /* This matches SVr4 PPC, it does not match GCC.  */
 	  /* The value is right-padded to 8 bytes and then loaded, as
 	     two "words", into r3/r4.  */
-
-	  ppc_copy_from_greg (regcache, tdep->ppc_gp0_regnum + 3, 
-			      tdep->wordsize, TYPE_LENGTH (type), readbuf);
+	  ppc_copy_from_greg (regcache, tdep->ppc_gp0_regnum + 3,
+                              tdep->wordsize, TYPE_LENGTH (type), readbuf);
 	}
       if (writebuf)
 	{
 	  /* This matches SVr4 PPC, it does not match GCC.  */
 	  /* The value is padded out to 8 bytes and then loaded, as
 	     two "words" into r3/r4.  */
-	  char regvals[MAX_REGISTER_SIZE * 2];
+	  gdb_byte regvals[MAX_REGISTER_SIZE * 2];
 	  memset (regvals, 0, sizeof regvals);
 	  memcpy (regvals, writebuf, TYPE_LENGTH (type));
 	  regcache_cooked_write (regcache, tdep->ppc_gp0_regnum + 3,
@@ -1118,10 +851,11 @@ do_ppc_sysv_return_value (struct gdbarch *gdbarch, struct type *type,
   return RETURN_VALUE_STRUCT_CONVENTION;
 }
 
+/* APPLE LOCAL begin Darwin */
 enum return_value_convention
 ppc_darwin_abi_return_value (struct gdbarch *gdbarch, struct type *valtype,
-			     struct regcache *regcache, void *readbuf,
-			     const void *writebuf)
+			     struct regcache *regcache, gdb_byte *readbuf,
+			     const gdb_byte *writebuf)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
 
@@ -1130,9 +864,11 @@ ppc_darwin_abi_return_value (struct gdbarch *gdbarch, struct type *valtype,
     {
       if (readbuf != NULL)
 	{
-	  CORE_ADDR addr;
+	  /* CORE_ADDR is more logical, but ULONGEST finesses the situation
+	     of G5 registers in 32-bit mode.  */
+	  ULONGEST addr;
 	  
-	  regcache_cooked_read (regcache, tdep->ppc_gp0_regnum + 3, &addr);
+	  regcache_cooked_read (regcache, tdep->ppc_gp0_regnum + 3, (gdb_byte *) &addr);
 	  read_memory (addr, readbuf, TYPE_LENGTH (valtype));
 	  
 	}
@@ -1142,11 +878,12 @@ ppc_darwin_abi_return_value (struct gdbarch *gdbarch, struct type *valtype,
     return do_ppc_sysv_return_value (gdbarch, valtype, regcache, readbuf,
 				     writebuf, 0);
 }
+/* APPLE LOCAL end Darwin */
 
 enum return_value_convention
 ppc_sysv_abi_return_value (struct gdbarch *gdbarch, struct type *valtype,
-			   struct regcache *regcache, void *readbuf,
-			   const void *writebuf)
+			   struct regcache *regcache, gdb_byte *readbuf,
+			   const gdb_byte *writebuf)
 {
   return do_ppc_sysv_return_value (gdbarch, valtype, regcache, readbuf,
 				   writebuf, 0);
@@ -1156,28 +893,71 @@ enum return_value_convention
 ppc_sysv_abi_broken_return_value (struct gdbarch *gdbarch,
 				  struct type *valtype,
 				  struct regcache *regcache,
-				  void *readbuf, const void *writebuf)
+				  gdb_byte *readbuf, const gdb_byte *writebuf)
 {
   return do_ppc_sysv_return_value (gdbarch, valtype, regcache, readbuf,
 				   writebuf, 1);
 }
 
+/* APPLE LOCAL begin Darwin */
 CORE_ADDR
-ppc64_darwin_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
+ppc64_darwin_abi_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 				struct regcache *regcache, CORE_ADDR bp_addr,
 				int nargs, struct value **args, CORE_ADDR sp,
 				int struct_return, CORE_ADDR struct_addr)
 {
   return ppc64_sysv_abi_push_dummy_call
-    (gdbarch, func_addr, regcache, bp_addr, nargs, args, sp, struct_return, struct_addr);
+    (gdbarch, function, regcache, bp_addr, nargs, args, sp, struct_return, struct_addr);
 }
 
 enum return_value_convention
 ppc64_darwin_abi_return_value (struct gdbarch *gdbarch, struct type *valtype,
-			       struct regcache *regcache, void *readbuf,
-			       const void *writebuf)
+			       struct regcache *regcache, gdb_byte *readbuf,
+			       const gdb_byte *writebuf)
 {
   return ppc64_sysv_abi_return_value (gdbarch, valtype, regcache, readbuf, writebuf);
+}
+/* APPLE LOCAL end Darwin */
+
+/* The helper function for 64-bit SYSV push_dummy_call.  Converts the
+   function's code address back into the function's descriptor
+   address.
+
+   Find a value for the TOC register.  Every symbol should have both
+   ".FN" and "FN" in the minimal symbol table.  "FN" points at the
+   FN's descriptor, while ".FN" points at the entry point (which
+   matches FUNC_ADDR).  Need to reverse from FUNC_ADDR back to the
+   FN's descriptor address (while at the same time being careful to
+   find "FN" in the same object file as ".FN").  */
+
+static int
+convert_code_addr_to_desc_addr (CORE_ADDR code_addr, CORE_ADDR *desc_addr)
+{
+  struct obj_section *dot_fn_section;
+  struct minimal_symbol *dot_fn;
+  struct minimal_symbol *fn;
+  CORE_ADDR toc;
+  /* Find the minimal symbol that corresponds to CODE_ADDR (should
+     have a name of the form ".FN").  */
+  dot_fn = lookup_minimal_symbol_by_pc (code_addr);
+  if (dot_fn == NULL || SYMBOL_LINKAGE_NAME (dot_fn)[0] != '.')
+    return 0;
+  /* Get the section that contains CODE_ADDR.  Need this for the
+     "objfile" that it contains.  */
+  dot_fn_section = find_pc_section (code_addr);
+  if (dot_fn_section == NULL || dot_fn_section->objfile == NULL)
+    return 0;
+  /* Now find the corresponding "FN" (dropping ".") minimal symbol's
+     address.  Only look for the minimal symbol in ".FN"'s object file
+     - avoids problems when two object files (i.e., shared libraries)
+     contain a minimal symbol with the same name.  */
+  fn = lookup_minimal_symbol (SYMBOL_LINKAGE_NAME (dot_fn) + 1, NULL,
+			      dot_fn_section->objfile);
+  if (fn == NULL)
+    return 0;
+  /* Found a descriptor.  */
+  (*desc_addr) = SYMBOL_VALUE_ADDRESS (fn);
+  return 1;
 }
 
 /* Pass the arguments in either registers, or in the stack. Using the
@@ -1188,11 +968,12 @@ ppc64_darwin_abi_return_value (struct gdbarch *gdbarch, struct type *valtype,
    greatly simplifies the logic. */
 
 CORE_ADDR
-ppc64_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
+ppc64_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 				struct regcache *regcache, CORE_ADDR bp_addr,
 				int nargs, struct value **args, CORE_ADDR sp,
 				int struct_return, CORE_ADDR struct_addr)
 {
+  CORE_ADDR func_addr = find_function_addr (function, NULL);
   struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch);
   /* By this stage in the proceedings, SP has been decremented by "red
      zone size" + "struct return size".  Fetch the stack-pointer from
@@ -1280,8 +1061,8 @@ ppc64_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
       for (argno = 0; argno < nargs; argno++)
 	{
 	  struct value *arg = args[argno];
-	  struct type *type = check_typedef (VALUE_TYPE (arg));
-	  char *val = VALUE_CONTENTS (arg);
+	  struct type *type = check_typedef (value_type (arg));
+	  const bfd_byte *val = value_contents (arg);
 	  if (TYPE_CODE (type) == TYPE_CODE_FLT && TYPE_LENGTH (type) <= 8)
 	    {
 	      /* Floats and Doubles go in f1 .. f13.  They also
@@ -1292,11 +1073,12 @@ ppc64_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
 		  if (ppc_floating_point_unit_p (current_gdbarch)
 		      && freg <= 13)
 		    {
-		      char regval[MAX_REGISTER_SIZE];
-		      struct type *regtype = register_type (gdbarch,
-							    FP0_REGNUM);
+		      gdb_byte regval[MAX_REGISTER_SIZE];
+		      struct type *regtype
+                        = register_type (gdbarch, tdep->ppc_fp0_regnum);
 		      convert_typed_floating (val, type, regval, regtype);
-		      regcache_cooked_write (regcache, FP0_REGNUM + freg,
+		      regcache_cooked_write (regcache,
+                                             tdep->ppc_fp0_regnum + freg,
 					     regval);
 		    }
 		  if (greg <= 10)
@@ -1310,7 +1092,7 @@ ppc64_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
 
 		         This code interprets that to mean: store it,
 		         left aligned, in the general register.  */
-		      char regval[MAX_REGISTER_SIZE];
+		      gdb_byte regval[MAX_REGISTER_SIZE];
 		      memset (regval, 0, sizeof regval);
 		      memcpy (regval, val, TYPE_LENGTH (type));
 		      regcache_cooked_write (regcache,
@@ -1348,15 +1130,25 @@ ppc64_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
 		}
 	    }
 	  else if ((TYPE_CODE (type) == TYPE_CODE_INT
-		    || TYPE_CODE (type) == TYPE_CODE_ENUM)
+		    || TYPE_CODE (type) == TYPE_CODE_ENUM
+		    || TYPE_CODE (type) == TYPE_CODE_PTR)
 		   && TYPE_LENGTH (type) <= 8)
 	    {
-	      /* Scalars get sign[un]extended and go in gpr3 .. gpr10.
-	         They can also end up in memory.  */
+	      /* Scalars and Pointers get sign[un]extended and go in
+	         gpr3 .. gpr10.  They can also end up in memory.  */
 	      if (write_pass)
 		{
 		  /* Sign extend the value, then store it unsigned.  */
 		  ULONGEST word = unpack_long (type, val);
+		  /* Convert any function code addresses into
+		     descriptors.  */
+		  if (TYPE_CODE (type) == TYPE_CODE_PTR
+		      && TYPE_CODE (TYPE_TARGET_TYPE (type)) == TYPE_CODE_FUNC)
+		    {
+		      CORE_ADDR desc = word;
+		      convert_code_addr_to_desc_addr (word, &desc);
+		      word = desc;
+		    }
 		  if (greg <= 10)
 		    regcache_cooked_write_unsigned (regcache,
 						    tdep->ppc_gp0_regnum +
@@ -1375,7 +1167,7 @@ ppc64_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
 		{
 		  if (write_pass && greg <= 10)
 		    {
-		      char regval[MAX_REGISTER_SIZE];
+		      gdb_byte regval[MAX_REGISTER_SIZE];
 		      int len = TYPE_LENGTH (type) - byte;
 		      if (len > tdep->wordsize)
 			len = tdep->wordsize;
@@ -1409,6 +1201,11 @@ ppc64_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
 		   value to memory.  Fortunately, doing this
 		   simplifies the code.  */
 		write_memory (gparam, val, TYPE_LENGTH (type));
+	      if (write_pass)
+		/* WARNING: cagney/2004-06-20: It appears that GCC
+		   likes to put structures containing a single
+		   floating-point member in an FP register instead of
+		   general general purpose.  */
 	      /* Always consume parameter stack space.  */
 	      gparam = align_up (gparam + TYPE_LENGTH (type), tdep->wordsize);
 	    }
@@ -1437,43 +1234,18 @@ ppc64_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
      breakpoint.  */
   regcache_cooked_write_signed (regcache, tdep->ppc_lr_regnum, bp_addr);
 
-  /* Find a value for the TOC register.  Every symbol should have both
-     ".FN" and "FN" in the minimal symbol table.  "FN" points at the
-     FN's descriptor, while ".FN" points at the entry point (which
-     matches FUNC_ADDR).  Need to reverse from FUNC_ADDR back to the
-     FN's descriptor address (while at the same time being careful to
-     find "FN" in the same object file as ".FN").  */
+  /* Use the func_addr to find the descriptor, and use that to find
+     the TOC.  */
   {
-    /* Find the minimal symbol that corresponds to FUNC_ADDR (should
-       have the name ".FN").  */
-    struct minimal_symbol *dot_fn = lookup_minimal_symbol_by_pc (func_addr);
-    if (dot_fn != NULL && SYMBOL_LINKAGE_NAME (dot_fn)[0] == '.')
+    CORE_ADDR desc_addr;
+    if (convert_code_addr_to_desc_addr (func_addr, &desc_addr))
       {
-	/* Get the section that contains FUNC_ADR.  Need this for the
-           "objfile" that it contains.  */
-	struct obj_section *dot_fn_section = find_pc_section (func_addr);
-	if (dot_fn_section != NULL && dot_fn_section->objfile != NULL)
-	  {
-	    /* Now find the corresponding "FN" (dropping ".") minimal
-	       symbol's address.  Only look for the minimal symbol in
-	       ".FN"'s object file - avoids problems when two object
-	       files (i.e., shared libraries) contain a minimal symbol
-	       with the same name.  */
-	    struct minimal_symbol *fn =
-	      lookup_minimal_symbol (SYMBOL_LINKAGE_NAME (dot_fn) + 1, NULL,
-				     dot_fn_section->objfile);
-	    if (fn != NULL)
-	      {
-		/* Got the address of that descriptor.  The TOC is the
-		   second double word.  */
-		CORE_ADDR toc =
-		  read_memory_unsigned_integer (SYMBOL_VALUE_ADDRESS (fn)
-						+ tdep->wordsize,
-						tdep->wordsize);
-		regcache_cooked_write_unsigned (regcache,
-						tdep->ppc_gp0_regnum + 2, toc);
-	      }
-	  }
+	/* The TOC is the second double word in the descriptor.  */
+	CORE_ADDR toc =
+	  read_memory_unsigned_integer (desc_addr + tdep->wordsize,
+					tdep->wordsize);
+	regcache_cooked_write_unsigned (regcache,
+					tdep->ppc_gp0_regnum + 2, toc);
       }
   }
 
@@ -1493,28 +1265,36 @@ ppc64_sysv_abi_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
    corresponding register return-value location.  */
 enum return_value_convention
 ppc64_sysv_abi_return_value (struct gdbarch *gdbarch, struct type *valtype,
-			     struct regcache *regcache, void *readbuf,
-			     const void *writebuf)
+			     struct regcache *regcache, gdb_byte *readbuf,
+			     const gdb_byte *writebuf)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
+
+  /* This function exists to support a calling convention that
+     requires floating-point registers.  It shouldn't be used on
+     processors that lack them.  */
+  gdb_assert (ppc_floating_point_unit_p (gdbarch));
+
   /* Floats and doubles in F1.  */
   if (TYPE_CODE (valtype) == TYPE_CODE_FLT && TYPE_LENGTH (valtype) <= 8)
     {
-      char regval[MAX_REGISTER_SIZE];
-      struct type *regtype = register_type (gdbarch, FP0_REGNUM);
+      gdb_byte regval[MAX_REGISTER_SIZE];
+      struct type *regtype = register_type (gdbarch, tdep->ppc_fp0_regnum);
       if (writebuf != NULL)
 	{
 	  convert_typed_floating (writebuf, valtype, regval, regtype);
-	  regcache_cooked_write (regcache, FP0_REGNUM + 1, regval);
+	  regcache_cooked_write (regcache, tdep->ppc_fp0_regnum + 1, regval);
 	}
       if (readbuf != NULL)
 	{
-	  regcache_cooked_read (regcache, FP0_REGNUM + 1, regval);
+	  regcache_cooked_read (regcache, tdep->ppc_fp0_regnum + 1, regval);
 	  convert_typed_floating (regval, regtype, readbuf, valtype);
 	}
       return RETURN_VALUE_REGISTER_CONVENTION;
     }
-  if (TYPE_CODE (valtype) == TYPE_CODE_INT && TYPE_LENGTH (valtype) <= 8)
+  if ((TYPE_CODE (valtype) == TYPE_CODE_INT
+       || TYPE_CODE (valtype) == TYPE_CODE_ENUM)
+      && TYPE_LENGTH (valtype) <= 8)
     {
       /* Integers in r3.  */
       if (writebuf != NULL)
@@ -1571,10 +1351,10 @@ ppc64_sysv_abi_return_value (struct gdbarch *gdbarch, struct type *valtype,
 	  for (i = 0; i < TYPE_LENGTH (valtype) / 8; i++)
 	    {
 	      if (writebuf != NULL)
-		regcache_cooked_write (regcache, FP0_REGNUM + 1 + i,
+		regcache_cooked_write (regcache, tdep->ppc_fp0_regnum + 1 + i,
 				       (const bfd_byte *) writebuf + i * 8);
 	      if (readbuf != NULL)
-		regcache_cooked_read (regcache, FP0_REGNUM + 1 + i,
+		regcache_cooked_read (regcache, tdep->ppc_fp0_regnum + 1 + i,
 				      (bfd_byte *) readbuf + i * 8);
 	    }
 	}
@@ -1589,20 +1369,23 @@ ppc64_sysv_abi_return_value (struct gdbarch *gdbarch, struct type *valtype,
 	  int i;
 	  for (i = 0; i < 2; i++)
 	    {
-	      char regval[MAX_REGISTER_SIZE];
+	      gdb_byte regval[MAX_REGISTER_SIZE];
 	      struct type *regtype =
-		register_type (current_gdbarch, FP0_REGNUM);
+		register_type (current_gdbarch, tdep->ppc_fp0_regnum);
 	      if (writebuf != NULL)
 		{
 		  convert_typed_floating ((const bfd_byte *) writebuf +
 					  i * (TYPE_LENGTH (valtype) / 2),
 					  valtype, regval, regtype);
-		  regcache_cooked_write (regcache, FP0_REGNUM + 1 + i,
+		  regcache_cooked_write (regcache,
+                                         tdep->ppc_fp0_regnum + 1 + i,
 					 regval);
 		}
 	      if (readbuf != NULL)
 		{
-		  regcache_cooked_read (regcache, FP0_REGNUM + 1 + i, regval);
+		  regcache_cooked_read (regcache,
+                                        tdep->ppc_fp0_regnum + 1 + i,
+                                        regval);
 		  convert_typed_floating (regval, regtype,
 					  (bfd_byte *) readbuf +
 					  i * (TYPE_LENGTH (valtype) / 2),
@@ -1621,10 +1404,10 @@ ppc64_sysv_abi_return_value (struct gdbarch *gdbarch, struct type *valtype,
 	  for (i = 0; i < 4; i++)
 	    {
 	      if (writebuf != NULL)
-		regcache_cooked_write (regcache, FP0_REGNUM + 1 + i,
+		regcache_cooked_write (regcache, tdep->ppc_fp0_regnum + 1 + i,
 				       (const bfd_byte *) writebuf + i * 8);
 	      if (readbuf != NULL)
-		regcache_cooked_read (regcache, FP0_REGNUM + 1 + i,
+		regcache_cooked_read (regcache, tdep->ppc_fp0_regnum + 1 + i,
 				      (bfd_byte *) readbuf + i * 8);
 	    }
 	}

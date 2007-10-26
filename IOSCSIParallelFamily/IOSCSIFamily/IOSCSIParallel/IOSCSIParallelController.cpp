@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
  *
  */
 
+#include <libkern/c++/OSMetaClass.h>
 #include <IOKit/IOSyncer.h>
 
 #undef  super 
@@ -97,7 +98,7 @@ bool IOSCSIParallelController::scanSCSIBus()
     SCSITargetLun		targetLun;
     UInt32			i;
     
-    targetLun.lun = 0;
+    bzero( &targetLun, sizeof( targetLun) );
     
     for ( i=0; i < controllerInfo.maxTargetsSupported; i++ )
     {
@@ -191,7 +192,9 @@ bool IOSCSIParallelController::initTarget( SCSITargetLun targetLun )
 
     if ( getWorkLoop()->inGate() == false )
     {
-        return controllerGate->runAction( (IOCommandGate::Action)&IOSCSIParallelController::initTargetGated, (void *)&targetLun );
+        return controllerGate->runAction(
+        	OSMemberFunctionCast(IOCommandGate::Action, this, &IOSCSIParallelController::initTargetGated),
+        	(void *)&targetLun );
     }
 
     target = &targets[targetLun.target];
@@ -281,7 +284,9 @@ void IOSCSIParallelController::releaseTarget( SCSITargetLun targetLun )
 
     if ( getWorkLoop()->inGate() == false )
     {
-        controllerGate->runAction( (IOCommandGate::Action)&IOSCSIParallelController::releaseTargetGated, (void *)&targetLun );
+        controllerGate->runAction(
+        	OSMemberFunctionCast(IOCommandGate::Action, this, &IOSCSIParallelController::releaseTargetGated),
+        	(void *)&targetLun );
         return;
     }
 
@@ -358,7 +363,9 @@ bool IOSCSIParallelController::initDevice( IOSCSIParallelDevice *device )
 {
     if ( getWorkLoop()->inGate() == false )
     {
-        return controllerGate->runAction( (IOCommandGate::Action)&IOSCSIParallelController::initDeviceGated, (void *)device );
+        return controllerGate->runAction(
+        	OSMemberFunctionCast(IOCommandGate::Action, this, &IOSCSIParallelController::initDeviceGated),
+        	(void *)device );
     }
 
     addDevice( device );
@@ -382,7 +389,9 @@ void IOSCSIParallelController::releaseDevice( IOSCSIParallelDevice *device )
 {
     if ( getWorkLoop()->inGate() == false )
     {
-        controllerGate->runAction( (IOCommandGate::Action)&IOSCSIParallelController::releaseDeviceGated, (void *)device );
+        controllerGate->runAction(
+        	OSMemberFunctionCast(IOCommandGate::Action, this, &IOSCSIParallelController::releaseDeviceGated),
+        	(void *)device );
         return;
     }
 
@@ -712,7 +721,7 @@ bool IOSCSIParallelController::createWorkLoop()
         }
     }
 
-    timerEvent = IOTimerEventSource::timerEventSource( this, (IOTimerEventSource::Action) &IOSCSIParallelController::timer );
+    timerEvent = IOTimerEventSource::timerEventSource( this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOSCSIParallelController::timer ) );
     if ( timerEvent == 0 )
     {
         return false;
@@ -724,9 +733,10 @@ bool IOSCSIParallelController::createWorkLoop()
     }
 
 
-    dispatchEvent = IOInterruptEventSource::interruptEventSource( this,
-                                                                  (IOInterruptEventAction) &IOSCSIParallelController::dispatch,
-					                          0 );
+    dispatchEvent = IOInterruptEventSource::interruptEventSource(
+    	this,
+		OSMemberFunctionCast ( IOInterruptEventAction, this, &IOSCSIParallelController::dispatch ),
+		0 );
     if ( dispatchEvent == 0 )
     {
         return false;
@@ -737,7 +747,7 @@ bool IOSCSIParallelController::createWorkLoop()
         return false;
     }
 
-    controllerGate = IOCommandGate::commandGate( this, (IOCommandGate::Action) 0 );
+    controllerGate = IOCommandGate::commandGate( this );
     if ( controllerGate == 0 )
     {
         return false;

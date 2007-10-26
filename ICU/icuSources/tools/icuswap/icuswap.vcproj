@@ -3,6 +3,7 @@
 	ProjectType="Visual C++"
 	Version="7.10"
 	Name="icuswap"
+	ProjectGUID="{39690C2A-AD89-45E4-893A-899496B85785}"
 	SccProjectName=""
 	SccLocalPath="">
 	<Platforms>
@@ -20,10 +21,9 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				InlineFunctionExpansion="2"
 				ImproveFloatingPointConsistency="TRUE"
-				AdditionalIncludeDirectories="..\..\common,..\toolutil"
-				PreprocessorDefinitions="WIN32,NDEBUG,_CONSOLE"
+				AdditionalIncludeDirectories="..\..\common;..\toolutil"
+				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
@@ -83,11 +83,11 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				ImproveFloatingPointConsistency="TRUE"
-				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="..\..\common,..\toolutil"
-				PreprocessorDefinitions="WIN32,_DEBUG,_CONSOLE"
+				AdditionalIncludeDirectories="..\..\common;..\toolutil"
+				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				BufferSecurityCheck="TRUE"
 				DisableLanguageExtensions="TRUE"
 				PrecompiledHeaderFile=".\Debug/icuswap.pch"
 				AssemblerListingLocation=".\Debug/"
@@ -139,21 +139,9 @@
 	<References>
 	</References>
 	<Files>
-		<Filter
-			Name="Source Files"
-			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat">
-			<File
-				RelativePath=".\icuswap.cpp">
-			</File>
-		</Filter>
-		<Filter
-			Name="Header Files"
-			Filter="h;hpp;hxx;hm;inl">
-		</Filter>
-		<Filter
-			Name="Resource Files"
-			Filter="ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe">
-		</Filter>
+		<File
+			RelativePath=".\icuswap.cpp">
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

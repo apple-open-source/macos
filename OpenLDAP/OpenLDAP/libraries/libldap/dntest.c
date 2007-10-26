@@ -1,8 +1,8 @@
 /* dntest.c -- OpenLDAP DN API Test Program */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/dntest.c,v 1.22.2.2 2004/01/01 18:16:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/dntest.c,v 1.24.2.3 2006/01/03 22:16:08 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -171,31 +171,32 @@ main( int argc, char *argv[] )
 		case LDAP_DN_FORMAT_LDAPV3:
 		case LDAP_DN_FORMAT_LDAPV2:
 			n = ldap_dn2domain( strin, &tmp );
-			if( n ) {
+			if ( n ) {
 				fprintf( stdout, "\nldap_dn2domain(\"%s\") FAILED\n", strin );
 			} else {
 				fprintf( stdout, "\nldap_dn2domain(\"%s\")\n"
-					"\t= \"%s\"\n", strin, tmp );
+					"\t= \"%s\"\n", strin, tmp ? tmp : "" );
 			}
 			ldap_memfree( tmp );
 
 			tmp = ldap_dn2ufn( strin );
 			fprintf( stdout, "\nldap_dn2ufn(\"%s\")\n"
-					"\t= \"%s\"\n", strin, tmp );
+					"\t= \"%s\"\n", strin, tmp ? tmp : "" );
 			ldap_memfree( tmp );
 
 			tmp = ldap_dn2dcedn( strin );
 			fprintf( stdout, "\nldap_dn2dcedn(\"%s\")\n"
-					"\t= \"%s\"\n", strin, tmp );
+					"\t= \"%s\"\n", strin, tmp ? tmp : "" );
 			tmp2 = ldap_dcedn2dn( tmp );
 			fprintf( stdout, "\nldap_dcedn2dn(\"%s\")\n"
-					"\t= \"%s\"\n", tmp, tmp2 );
+					"\t= \"%s\"\n",
+					tmp ? tmp : "", tmp2 ? tmp2 : "" );
 			ldap_memfree( tmp );
 			ldap_memfree( tmp2 );
 
 			tmp = ldap_dn2ad_canonical( strin );
 			fprintf( stdout, "\nldap_dn2ad_canonical(\"%s\")\n"
-					"\t= \"%s\"\n", strin, tmp );
+					"\t= \"%s\"\n", strin, tmp ? tmp : "" );
 			ldap_memfree( tmp );
 
 			fprintf( stdout, "\nldap_explode_dn(\"%s\"):\n", str );

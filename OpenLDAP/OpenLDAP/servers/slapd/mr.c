@@ -1,8 +1,8 @@
 /* mr.c - routines to manage matching rule definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/mr.c,v 1.54.2.4 2004/09/23 23:17:09 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/mr.c,v 1.60.2.3 2006/01/03 22:16:14 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,7 +23,6 @@
 #include <ac/socket.h>
 
 #include "slap.h"
-#include "ldap_pvt.h"
 
 struct mindexrec {
 	struct berval	mir_name;
@@ -218,34 +217,19 @@ register_matching_rule(
 	int		code;
 	const char	*err;
 
-	if( def->mrd_usage == SLAP_MR_NONE &&
-		def->mrd_compat_syntaxes == NULL )
-	{
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			"register_matching_rule: %s not usable\n", def->mrd_desc, 0, 0 );
-#else
+	if( def->mrd_usage == SLAP_MR_NONE && def->mrd_compat_syntaxes == NULL ) {
 		Debug( LDAP_DEBUG_ANY, "register_matching_rule: not usable %s\n",
 		    def->mrd_desc, 0, 0 );
-#endif
 
 		return -1;
 	}
 
 	if( def->mrd_associated != NULL ) {
 		amr = mr_find( def->mrd_associated );
-
 		if( amr == NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, ERR,
-			   "register_matching_rule: could not locate associated "
-			   "matching rule %s for %s\n",
+			Debug( LDAP_DEBUG_ANY, "register_matching_rule: "
+				"could not locate associated matching rule %s for %s\n",
 				def->mrd_associated, def->mrd_desc, 0 );
-#else
-			Debug( LDAP_DEBUG_ANY, "register_matching_rule: could not locate "
-				"associated matching rule %s for %s\n",
-				def->mrd_associated, def->mrd_desc, 0 );
-#endif
 
 			return -1;
 		}
@@ -256,32 +240,16 @@ register_matching_rule(
 			if (( def->mrd_usage & SLAP_MR_EQUALITY ) &&
 				(( def->mrd_usage & SLAP_MR_SUBTYPE_MASK ) != SLAP_MR_NONE ))
 			{
-#ifdef NEW_LOGGING
-				LDAP_LOG( OPERATION, ERR,
-				   "register_matching_rule: inappropriate (approx) association "
-						"%s for %s\n",
+				Debug( LDAP_DEBUG_ANY, "register_matching_rule: "
+						"inappropriate (approx) association %s for %s\n",
 					def->mrd_associated, def->mrd_desc, 0 );
-#else
-				Debug( LDAP_DEBUG_ANY,
-				   "register_matching_rule: inappropriate (approx) association "
-						"%s for %s\n",
-					def->mrd_associated, def->mrd_desc, 0 );
-#endif
 				return -1;
 			}
 
 		} else if (!( amr->smr_usage & SLAP_MR_EQUALITY )) {
-#ifdef NEW_LOGGING
-				LDAP_LOG( OPERATION, ERR,
-				   "register_matching_rule: inappropriate (equalilty) association "
-						"%s for %s\n",
+				Debug( LDAP_DEBUG_ANY, "register_matching_rule: "
+					"inappropriate (equalilty) association %s for %s\n",
 					def->mrd_associated, def->mrd_desc, 0 );
-#else
-				Debug( LDAP_DEBUG_ANY,
-				   "register_matching_rule: inappropriate (equalilty) association "
-						"%s for %s\n",
-					def->mrd_associated, def->mrd_desc, 0 );
-#endif
 				return -1;
 		}
 	}
@@ -289,15 +257,9 @@ register_matching_rule(
 	mr = ldap_str2matchingrule( def->mrd_desc, &code, &err,
 		LDAP_SCHEMA_ALLOW_ALL );
 	if ( !mr ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			"register_matching_rule: %s before %s in %s.\n",
-			ldap_scherr2str(code), err, def->mrd_desc );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"Error in register_matching_rule: %s before %s in %s\n",
 		    ldap_scherr2str(code), err, def->mrd_desc );
-#endif
 
 		return -1;
 	}
@@ -308,15 +270,9 @@ register_matching_rule(
 	ldap_memfree( mr );
 
 	if ( code ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			"register_matching_rule: %s for %s in %s.\n",
-			scherr2str(code), err, def->mrd_desc );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"Error in register_matching_rule: %s for %s in %s\n",
 		    scherr2str(code), err, def->mrd_desc );
-#endif
 
 		return -1;
 	}
@@ -353,11 +309,7 @@ matching_rule_use_init( void )
 	MatchingRule	*mr;
 	MatchingRuleUse	**mru_ptr = &LDAP_SLIST_FIRST(&mru_list);
 
-#ifdef NEW_LOGGING
-	LDAP_LOG( OPERATION, INFO, "matching_rule_use_init\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "matching_rule_use_init\n", 0, 0, 0 );
-#endif
 
 	LDAP_SLIST_FOREACH( mr, &mr_list, smr_next ) {
 		AttributeType	*at;
@@ -400,15 +352,9 @@ matching_rule_use_init( void )
 		mru->smru_names = mr->smr_names;
 		mru->smru_desc = mr->smr_desc;
 
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, INFO, "    %s (%s): ", 
-				mru->smru_oid, 
-				mru->smru_names ? mru->smru_names[ 0 ] : "", 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE, "    %s (%s): ", 
 				mru->smru_oid, 
 				mru->smru_names ? mru->smru_names[ 0 ] : "", 0 );
-#endif
 
 		at = NULL;
 		for ( at_start( &at ); at; at_next( &at ) ) {
@@ -426,19 +372,11 @@ matching_rule_use_init( void )
 		 */
 		if ( applies_oids != NULL ) {
 			mru->smru_applies_oids = applies_oids;
-#ifdef NEW_LOGGING
-			{
-				char *str = ldap_matchingruleuse2str( &mru->smru_mruleuse );
-				LDAP_LOG( OPERATION, INFO, "matchingRuleUse: %s\n", str, 0, 0 );
-				ldap_memfree( str );
-			}
-#else
 			{
 				char *str = ldap_matchingruleuse2str( &mru->smru_mruleuse );
 				Debug( LDAP_DEBUG_TRACE, "matchingRuleUse: %s\n", str, 0, 0 );
 				ldap_memfree( str );
 			}
-#endif
 
 			mru = (MatchingRuleUse *)ber_memalloc( sizeof( MatchingRuleUse ) );
 			/* call-forward from MatchingRule to MatchingRuleUse */

@@ -1,3 +1,19 @@
+Changes for the 5.24 release (the cctools-652 release):
+- Added creating a vers.c file and linking in the vers.o into the libmacho
+  archives.  Radar bug #4980378.
+
+Changes for the 5.24 release (the cctools-642 release,
+			      picked up from cctools-640.1):
+- Fixed a problem in NXGetArchInfoFromCpuType() with the use of
+  CPU_SUBTYPE_MULTIPLE and the changes to use CPU_SUBTYPE_MASK to mask out the
+  capability bits.  Since the value of CPU_SUBTYPE_MULTIPLE is -1, the 
+  capability bits can't be masked out of the passed cpusubtype when comparing
+  to this constant.  Radar bug #4787007.
+
+Changes for the 5.24 release (the cctools-640 release):
+- Changed arch.c to use CPU_SUBTYPE_MASK to mask out the capability bits from
+  the cpusubtype on comparisons. Radar bug #4754462.
+
 Changes for the 5.23 release (the cctools-616 release):
 - Added the routines swap_x86_state_hdr(), swap_x86_float_state64(),
   swap_x86_exception_state64(), swap_x86_thread_state(), swap_x86_float_state(),

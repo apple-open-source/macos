@@ -11,7 +11,7 @@ Name_Vers      = $(Name)-$(Version)
 Compress_Type  = bz2
 Tarball        = $(Name_Vers).tar.$(Compress_Type)
 Extract_Dir    = $(Name_Vers)
-Patch_List     = Makefile.in.diff configure.diff zconf.in.h.diff
+Patch_List     = Makefile.in.diff compress.c.diff configure.diff zconf.in.h.diff zlib.h.diff
 
 ## Don't modify below here ##
 

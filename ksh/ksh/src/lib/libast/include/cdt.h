@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #ifndef _CDT_H
 #define _CDT_H		1
 
@@ -31,7 +27,7 @@
 **      Written by Kiem-Phong Vo
 */
 
-#define CDT_VERSION	20020531L
+#define CDT_VERSION	20050420L
 
 #if _PACKAGE_ast
 #include	<ast_std.h>
@@ -87,6 +83,7 @@ struct _dtdata_s
 	int		size;	/* number of objects			*/
 	int		loop;	/* number of nested loops		*/
 	int		minp;	/* min path before splay, always even	*/
+				/* for hash dt, > 0: fixed table size 	*/
 };
 
 /* structure to hold methods that manipulate an object */
@@ -125,6 +122,7 @@ struct _dt_s
 	int		nview;	/* number of parent view dictionaries	*/
 	Dt_t*		view;	/* next on viewpath			*/
 	Dt_t*		walk;	/* dictionary being walked		*/
+	Void_t*		user;	/* for user's usage			*/
 };
 
 /* structure to get status of a dictionary */
@@ -135,6 +133,9 @@ struct _dtstat_s
 	int	dt_max;		/* max size of a chain or a level	*/
 	int*	dt_count;	/* counts of chains or levels by size	*/
 };
+
+/* flag set if the last search operation actually found the object */
+#define DT_FOUND	0100000
 
 /* supported storage methods */
 #define DT_SET		0000001	/* set with unique elements		*/
@@ -172,13 +173,14 @@ struct _dtstat_s
 #define DT_METH		4	/* method is about to be changed	*/
 #define DT_ENDOPEN	5	/* dtopen() is done			*/
 #define DT_ENDCLOSE	6	/* dtclose() is done			*/
+#define DT_HASHSIZE	7	/* setting hash table size		*/
 
 _BEGIN_EXTERNS_	/* public data */
 #if _BLD_cdt && defined(__EXPORT__)
-#define extern		extern __EXPORT__
+#define extern	__EXPORT__
 #endif
 #if !_BLD_cdt && defined(__IMPORT__)
-#define extern		extern __IMPORT__
+#define extern	__IMPORT__
 #endif
 
 extern Dtmethod_t* 	Dtset;
@@ -240,15 +242,15 @@ _END_EXTERNS_
 /* internal functions for translating among holder, object and key */
 #define _DT(dt)		((Dt_t*)(dt))
 #define _DTDSC(dc,ky,sz,lk,cmpf) \
-			(ky = dc->key, sz = dc->size, lk = dc->link, cmpf = dc->comparf)
+			(ky = (dc)->key, sz = (dc)->size, lk = (dc)->link, cmpf = (dc)->comparf)
 #define _DTLNK(o,lk)	((Dtlink_t*)((char*)(o) + lk) )
-#define _DTOBJ(e,lk)	(lk < 0 ? ((Dthold_t*)(e))->obj : (Void_t*)((char*)(e) - lk) )
-#define _DTKEY(o,ky,sz)	(Void_t*)(sz < 0 ? *((char**)((char*)(o)+ky)) : ((char*)(o)+ky))
+#define _DTOBJ(e,lk)	((lk) < 0 ? ((Dthold_t*)(e))->obj : (Void_t*)((char*)(e) - (lk)) )
+#define _DTKEY(o,ky,sz)	(Void_t*)((sz) < 0 ? *((char**)((char*)(o)+(ky))) : ((char*)(o)+(ky)))
 
 #define _DTCMP(dt,k1,k2,dc,cmpf,sz) \
-			(cmpf ? (*cmpf)(dt,k1,k2,dc) : \
-			 (sz <= 0 ? strcmp(k1,k2) : memcmp(k1,k2,sz)) )
-#define _DTHSH(dt,ky,dc,sz) (dc->hashf ? (*dc->hashf)(dt,ky,dc) : dtstrhash(0,ky,sz) )
+			((cmpf) ? (*cmpf)(dt,k1,k2,dc) : \
+			 ((sz) <= 0 ? strcmp(k1,k2) : memcmp(k1,k2,sz)) )
+#define _DTHSH(dt,ky,dc,sz) ((dc)->hashf ? (*(dc)->hashf)(dt,ky,dc) : dtstrhash(0,ky,sz) )
 
 /* special search function for tree structure only */
 #define _DTMTCH(dt,key,action) \
@@ -290,8 +292,10 @@ _END_EXTERNS_
 
 #define dtfirst(d)	(*(_DT(d)->searchf))((d),(Void_t*)(0),DT_FIRST)
 #define dtnext(d,o)	(*(_DT(d)->searchf))((d),(Void_t*)(o),DT_NEXT)
+#define dtleast(d,o)	(*(_DT(d)->searchf))((d),(Void_t*)(o),DT_SEARCH|DT_NEXT)
 #define dtlast(d)	(*(_DT(d)->searchf))((d),(Void_t*)(0),DT_LAST)
 #define dtprev(d,o)	(*(_DT(d)->searchf))((d),(Void_t*)(o),DT_PREV)
+#define dtmost(d,o)	(*(_DT(d)->searchf))((d),(Void_t*)(o),DT_SEARCH|DT_PREV)
 #define dtsearch(d,o)	(*(_DT(d)->searchf))((d),(Void_t*)(o),DT_SEARCH)
 #define dtmatch(d,o)	(*(_DT(d)->searchf))((d),(Void_t*)(o),DT_MATCH)
 #define dtinsert(d,o)	(*(_DT(d)->searchf))((d),(Void_t*)(o),DT_INSERT)
@@ -299,9 +303,9 @@ _END_EXTERNS_
 #define dtattach(d,o)	(*(_DT(d)->searchf))((d),(Void_t*)(o),DT_ATTACH)
 #define dtdetach(d,o)	(*(_DT(d)->searchf))((d),(Void_t*)(o),DT_DETACH)
 #define dtclear(d)	(*(_DT(d)->searchf))((d),(Void_t*)(0),DT_CLEAR)
+#define dtfound(d)	(_DT(d)->type & DT_FOUND)
 
-/* A linear congruential hash: h*63 + c + 97531 */
-#define dtcharhash(h,c)	((((unsigned int)(h))<<6) - ((unsigned int)(h)) + \
-			 ((unsigned char)(c)) + 97531 )
+#define DT_PRIME	17109811 /* 2#00000001 00000101 00010011 00110011 */
+#define dtcharhash(h,c) (((unsigned int)(h) + (unsigned int)(c)) * DT_PRIME )
 
 #endif /* _CDT_H */

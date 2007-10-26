@@ -5,5 +5,6 @@ namespace Out {
   }
 }
 
-class Class : public Out::In {  // { dg-error ".*" "" }
+// APPLE LOCAL mainline 2006-10-13 3904173
+class Klasse : public Out::In {  // { dg-error ".*" "" }
 };

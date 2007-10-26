@@ -1,0 +1,17 @@
+--- _SB/Libc/compat-43/FreeBSD/gethostid.3	2004-11-25 11:37:56.000000000 -0800
++++ _SB/Libc/compat-43/FreeBSD/gethostid.3.edit	2006-06-28 16:55:50.000000000 -0700
+@@ -51,11 +51,9 @@
+ The
+ .Fn sethostid
+ function
+-establishes a 32-bit identifier for the
+-current processor that is intended to be unique among all
+-UNIX systems in existence.
+-This is normally a DARPA Internet
+-address for the local machine.
++establishes a 32-bit identifier for the current processor.
++The id, intended to be unique among all UNIX systems in existence,
++is normally a DARPA Internet address for the local machine.
+ This call is allowed only to the
+ super-user and is normally performed at boot time.
+ .Pp

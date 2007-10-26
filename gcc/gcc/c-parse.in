@@ -151,13 +151,13 @@ do {									\
 %token REALPART IMAGPART VA_ARG CHOOSE_EXPR TYPES_COMPATIBLE_P
 %token FUNC_NAME OFFSETOF
 
-/* APPLE LOCAL begin CW asm blocks */
+/* APPLE LOCAL begin CW asm blocks (in 4.2 ac) */
 /* This token is a pseudo-storage-class.  */
-%token CW_ASM_KEYWORD
-%type <ttype> CW_ASM_KEYWORD
+%token IASM_ASM_KEYWORD
+%type <ttype> IASM_ASM_KEYWORD
 /* These tokens indicate beginning and end of each asm line.  */
-%token CW_ASM_BOL CW_ASM_EOL
-/* APPLE LOCAL end CW asm blocks */
+%token IASM_BOL IASM_EOL
+/* APPLE LOCAL end CW asm blocks (in 4.2 ac) */
 
 /* Add precedence rules to solve dangling else s/r conflict */
 %nonassoc IF
@@ -190,6 +190,19 @@ do {									\
 %token AT_CLASS AT_ALIAS
 %token AT_THROW AT_TRY AT_CATCH AT_FINALLY AT_SYNCHRONIZED
 %token OBJC_STRING
+/* APPLE LOCAL begin C* language (in 4.2 not needed) */
+%token AT_IN AT_OPTIONAL AT_REQUIRED
+/* APPLE LOCAL end C* language (in 4.2 not needed) */
+/* APPLE LOCAL begin C* property (Radar 4436866, 4591909, 4621020) (in 4.2 not needed, except for 4591909, 4621020) */
+%token AT_PROPERTY AT_READONLY AT_PROP_BYCOPY AT_GETTER AT_SETTER AT_IVAR
+%token AT_PROP_BYREF AT_PROP_DYNAMIC AT_WEAK
+/* APPLE LOCAL end C* property (Radar 4436866, 4591909, 4621020) (in 4.2 not needed, except for 4591909, 4621020) */
+/* APPLE LOCAL objc new property */
+%token AT_SYNTHESIZE AT_DYNAMIC AT_READWRITE AT_ASSIGN AT_RETAIN AT_COPY
+/* APPLE LOCAL radar 4947014 - objc atomic property */
+%token AT_NONATOMIC
+/* APPLE LOCAL radar 4564694 */
+%token AT_PACKAGE
 
 %type <code> unop
 %type <ttype> ENUM STRUCT UNION IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
@@ -252,14 +265,14 @@ do {									\
 %type <ttype> identifiers_or_typenames
 
 /* APPLE LOCAL begin CW asm blocks */
-%type <ttype> cw_identifier cw_identifier1 cw_maybe_prefix
-%type <exprtype> cw_asm_expr_no_commas cw_asm_unary_expr 
-%type <exprtype> cw_asm_primary
-%type <ttype> cw_asm_operands cw_nonnull_asm_operands 
-%type <exprtype> cw_asm_operand
-%type <ttype> cw_asm_stmt cw_asm_stmt_nobol single_cw_asm_stmt
-%type <ttype> cw_asm_compstmt cw_asm_compstmt_start 
-/*cw_asm_compstmt_nostart */
+%type <ttype> iasm_identifier iasm_identifier1 iasm_maybe_prefix
+%type <exprtype> iasm_expr_no_commas iasm_unary_expr 
+%type <exprtype> iasm_primary
+%type <ttype> iasm_operands iasm_nonnull_operands 
+%type <exprtype> iasm_operand
+%type <ttype> iasm_stmt iasm_stmt_nobol single_iasm_stmt
+%type <ttype> iasm_compstmt iasm_compstmt_start 
+/* iasm_compstmt_nostart */
 /* APPLE LOCAL end CW asm blocks */
 
 %type <itype> setspecs setspecs_fp extension
@@ -278,11 +291,19 @@ do {									\
 %type <ttype> optparmlist optparms reservedwords objcselectorexpr
 %type <ttype> selectorarg keywordnamelist keywordname objcencodeexpr
 %type <ttype> non_empty_protocolrefs protocolrefs identifier_list objcprotocolexpr
+/* APPLE LOCAL C* language */
+%type <ttype> for_objc_collection
+/* APPLE LOCAL objc new property */
+%type <ttype> property_synthesize_item property_synthesize_list property_implementation
 
 %type <ttype> CLASSNAME OBJC_STRING OBJC_TYPE_QUAL
 
 %type <ttype> superclass objc_quals objc_qual objc_typename
 %type <itype> objc_try_catch_stmt optellipsis
+/* APPLE LOCAL radar 2848255 */
+%type <parmtype> objc_catch_parm
+/* APPLE LOCAL radar 4965989 */
+%type <ttype> optidentifier
 @@end_ifobjc
 
 %{
@@ -362,6 +383,12 @@ static int objc_pq_context = 0;
    exists.  */
 static int objc_need_raw_identifier;
 #define OBJC_NEED_RAW_IDENTIFIER(VAL)	objc_need_raw_identifier = VAL
+/* APPLE LOCAL begin C* property (Radar 4436866) (in 4.2 d) */
+/* For checking property attribute keywords */
+static int objc_property_attr_context = 0;
+/* APPLE LOCAL end C* property (Radar 4436866) (in 4.2 d) */
+/* APPLE LOCAL radar 3803157 - objc attribute (in 4.2 e) */
+static tree objc_method_attributes = NULL_TREE;
 @@end_ifobjc
 
 @@ifc
@@ -372,20 +399,24 @@ static int objc_need_raw_identifier;
 
 #define YYPRINT(FILE,YYCHAR,YYLVAL) yyprint(FILE,YYCHAR,YYLVAL)
 
+/* APPLE LOCAL begin C* language (in 4.2 f) */
+/* For checking for 'foreach' context. */
+static int objc_foreach_context = 0;
+/* APPLE LOCAL end C* language (in 4.2 f) */
 static void yyprint (FILE *, int, YYSTYPE);
 static void yyerror (const char *);
 static int yylexname (void);
 static inline int _yylex (void);
 static int  yylex (void);
 static void init_reswords (void);
-/* APPLE LOCAL begin CW asm blocks */
-static int cw_asm_lineno = 0;
-#ifndef CW_SEE_OPCODE
-#define CW_SEE_OPCODE(YYCHAR, T) YYCHAR
+/* APPLE LOCAL begin CW asm blocks (in 4.2 g) */
+static int iasm_lineno = 0;
+#ifndef IASM_SEE_OPCODE
+#define IASM_SEE_OPCODE(YYCHAR, T) YYCHAR
 #endif
 
-static tree c_parse_cw_maybe_prefix (tree id);
-/* APPLE LOCAL end CW asm blocks */
+static tree c_parse_iasm_maybe_prefix (tree id);
+/* APPLE LOCAL end CW asm blocks (in 4.2 g) */
 
   /* Initialization routine for this file.  */
 void
@@ -567,6 +598,14 @@ unary_expr:
 	| sizeof '(' typename ')'  %prec HYPERUNARY
 		{ skip_evaluation--;
 		  in_sizeof--;
+		  /* APPLE LOCAL begin mainline 2006-05-18 4336222 */
+		  if ($3->declarator->kind == cdk_array
+		      && $3->declarator->u.array.vla_unspec_p)
+		    {
+		      /* C99 6.7.5.2p4 */
+		      error ("%<[*]%> not allowed in other than a declaration");
+		    }
+		  /* APPLE LOCAL end mainline 2006-05-18 4336222 */
 		  $$ = c_expr_sizeof_type ($3); }
 	| alignof unary_expr  %prec UNARY
 		{ skip_evaluation--;
@@ -606,7 +645,13 @@ cast_expr:
 	;
 
 expr_no_commas:
-	  cast_expr
+	  /* APPLE LOCAL begin radar 4426814 */
+	  cast_expr 
+		{ 
+		  if (c_dialect_objc() && flag_objc_gc) 
+		    /* APPLE LOCAL radar 5276085 */
+		    $$.value = objc_build_weak_reference_tree ($1.value); }
+	  /* APPLE LOCAL end radar 4426814 */
 	| expr_no_commas '+' expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
 	| expr_no_commas '-' expr_no_commas
@@ -711,7 +756,7 @@ primary:
 		  finish_init ();
 		  maybe_warn_string_init (type, init);
 
-		  /* APPLE LOCAL AltiVec */
+		  /* APPLE LOCAL AltiVec (in 4.2 o) */
 		  if (pedantic && TREE_CODE (type) != VECTOR_TYPE && !flag_isoc99)
 		    pedwarn ("ISO C90 forbids compound literals");
 		  $$.value = build_compound_literal (type, constructor);
@@ -874,8 +919,8 @@ datadecl:
    where statement labels are allowed.  */
 lineno_decl:
 	  save_location decl
-		/* APPLE LOCAL CW asm blocks */
-		{ if (flag_cw_asm_blocks) cw_asm_in_decl = 0; }
+		/* APPLE LOCAL CW asm blocks (in 4.2 al) */
+		{ if (flag_iasm_blocks) iasm_in_decl = false; }
 	;
 
 /* records the type and storage class specs to use for processing
@@ -1317,15 +1362,29 @@ typespec_nonreserved_nonattr:
 		  $$.spec = objc_get_protocol_qualified_type (NULL_TREE, $1); }
 @@end_ifobjc
 	| typeof '(' expr ')'
-		{ skip_evaluation--;
+		/* APPLE LOCAL begin mainline 2006-05-18 4336222 */
+		{ bool was_vm;
+		  skip_evaluation--;
 		  in_typeof--;
 		  if (TREE_CODE ($3.value) == COMPONENT_REF
 		      && DECL_C_BIT_FIELD (TREE_OPERAND ($3.value, 1)))
 		    error ("%<typeof%> applied to a bit-field");
 		  $$.kind = ctsk_typeof;
 		  $$.spec = TREE_TYPE ($3.value);
-		  pop_maybe_used (variably_modified_type_p ($$.spec,
-							    NULL_TREE)); }
+		  /* APPLE LOCAL begin radar 4204796 (in 4.2 n) */
+		  if (c_dialect_objc() 
+		      && lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES ($$.spec)))
+		    $$.spec = build_qualified_type
+				($$.spec, (TYPE_QUALS ($$.spec) & ~TYPE_QUAL_VOLATILE));
+		  /* APPLE LOCAL end radar 4204796 (in 4.2 n) */
+		  was_vm = variably_modified_type_p ($$.spec, NULL_TREE);
+		  /* This should be returned with the type so that when the type
+		     is evaluated, this can be evaluated.  For now, we avoid
+		     evaluation when the context might.  */
+		  if (!skip_evaluation && was_vm)
+		    c_finish_expr_stmt ($3.value);
+		  pop_maybe_used (was_vm); }
+		/* APPLE LOCAL end mainline 2006-05-18 4336222 */
 	| typeof '(' typename ')'
 		{ skip_evaluation--;
 		  in_typeof--;
@@ -1449,8 +1508,8 @@ any_word:
 
 scspec:
 	  STATIC
-	  /* APPLE LOCAL CW asm blocks */
-	| CW_ASM_KEYWORD
+	  /* APPLE LOCAL CW asm blocks (in 4.2 ac) */
+	| IASM_ASM_KEYWORD
 	| SCSPEC
 	;
 
@@ -1532,9 +1591,10 @@ nested_function:
 	declarator
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids nested functions");
-/* APPLE LOCAL begin 4258406 */
-		    error ("nested functions are not supported on MacOSX");
-/* APPLE LOCAL end 4258406 */
+/* APPLE LOCAL begin nested functions 4258406 4357979 (in 4.2 m) */
+		  else if (flag_nested_functions == 0)
+		    error ("nested functions are disabled, use -fnested-functions to re-enable");
+/* APPLE LOCAL end nested functions 4258406 4357979 (in 4.2 m) */
 
 		  push_function_context ();
 		  if (!start_function (current_declspecs, $1,
@@ -1565,9 +1625,10 @@ notype_nested_function:
 	notype_declarator
 		{ if (pedantic)
 		    pedwarn ("ISO C forbids nested functions");
-/* APPLE LOCAL begin 4258406 */
-		    error ("nested functions are not on MacOSX");
-/* APPLE LOCAL end 4258406 */
+/* APPLE LOCAL begin nested functions 4258406 4357979 (in 4.2 m) */
+		  else if (flag_nested_functions == 0)
+		    error ("nested functions are disabled, use -fnested-functions to re-enable");
+/* APPLE LOCAL end nested functions 4258406 4357979 (in 4.2 m) */
 
 		  push_function_context ();
 		  if (!start_function (current_declspecs, $1,
@@ -1615,6 +1676,12 @@ after_type_declarator:
 		{ $$ = make_pointer_declarator ($2, $3); }
 	| TYPENAME
 		{ $$ = build_id_declarator ($1); }
+/* APPLE LOCAL begin radar 4281748 */
+@@ifobjc
+	| CLASSNAME
+		{ $$ = build_id_declarator ($1); }
+@@end_ifobjc
+/* APPLE LOCAL end radar 4281748 */
 	;
 
 /* Kinds of declarator that can appear in a parameter list
@@ -1787,7 +1854,15 @@ component_decl_list2:	/* empty */
 @@ifobjc
 	/* foo(sizeof(struct{ @defs(ClassName)})); */
 	| AT_DEFS '(' CLASSNAME ')'
-		{ $$ = nreverse (objc_get_class_ivars ($3)); }
+		/* APPLE LOCAL begin C* warnings to easy porting to new abi */
+		{ $$ = nreverse (objc_get_class_ivars ($3)); 
+		  if (flag_objc2_check && flag_objc_abi == 1)
+		    warning ("@defs will not be supported in future");
+		  /* APPLE LOCAL radar 4705250 */
+		  else if (flag_objc_abi == 2 && flag_objc_atdefs != 1)
+		    error ("@defs is not supported in new abi");
+		}
+		/* APPLE LOCAL end C* warnings to easy porting to new abi */
 @@end_ifobjc
 	;
 
@@ -2024,7 +2099,11 @@ errstmt:  error ';'
 
 /* Start and end blocks created for the new scopes of C99.  */
 c99_block_start: /* empty */
-		{ $$ = c_begin_compound_stmt (flag_isoc99); }
+		/* APPLE LOCAL begin radar 4472881 (in 4.2 ah) */
+		{ $$ = c_begin_compound_stmt (
+			 flag_isoc99 
+			 || (c_dialect_objc() && objc_foreach_context)); }
+		/* APPLE LOCAL end radar 4472881 (in 4.2 ah) */
 	;
 
 /* Read zero or more forward-declarations for labels
@@ -2066,9 +2145,10 @@ compstmt_start: '{' { $$ = c_begin_compound_stmt (true); }
 
 compstmt_nostart: '}'
 	| maybe_label_decls compstmt_contents_nonempty '}'
-		/* APPLE LOCAL begin CW asm blocks */
+		/* APPLE LOCAL begin CW asm blocks (in 4.2 am) */
 		{
-		  if (flag_cw_asm_blocks) inside_cw_asm_block = 0;
+		  if (flag_iasm_blocks)
+		    iasm_end_block ();
 		}
 		/* APPLE LOCAL end CW asm blocks */
 	;
@@ -2095,127 +2175,140 @@ compstmt: compstmt_start compstmt_nostart
 	;
 
 /* APPLE LOCAL begin CW asm blocks */
-cw_save_location: save_location
-		{ cw_asm_lineno = input_line; }
+/* (in 4.2 ax) */
+iasm_save_location: save_location
+		{ iasm_lineno = input_line; }
 	;
 
+/* (in 4.2 au) */
 /* A CW-style asm statement is recognized by having a BOL token preceding it.  */
-cw_asm_stmt: CW_ASM_BOL cw_save_location cw_asm_stmt_list CW_ASM_EOL
+iasm_stmt: IASM_BOL iasm_save_location iasm_stmt_list IASM_EOL
 		{ $$ = NULL_TREE; }
 	;
 
-cw_asm_stmt_nobol: cw_save_location cw_asm_stmt_list CW_ASM_EOL
+/* (in 4.2 ay) */
+iasm_stmt_nobol: iasm_save_location iasm_stmt_list IASM_EOL
 		{
 		  $$ = NULL_TREE;
-		  cw_asm_state = cw_asm_none;
-		  cw_asm_at_bol = 0;
+		  iasm_state = iasm_none;
+		  iasm_at_bol = false;
 		}
 	;
 
+/* (in 4.2 ap) */
 /* A single line may have multiple statements separated by ';'.  */
-cw_asm_stmt_list:
+iasm_stmt_list:
 	  /* empty */
-	| single_cw_asm_stmt
+	| single_iasm_stmt
 		{}
-	| cw_asm_stmt_list ';' cw_maybe_comment single_cw_asm_stmt
-	| cw_asm_stmt_list ';' cw_maybe_comment
-	| cw_asm_stmt_list ASM_KEYWORD single_cw_asm_stmt
-	| cw_asm_stmt_list ASM_KEYWORD cw_maybe_comment
+	| iasm_stmt_list ';' iasm_maybe_comment single_iasm_stmt
+	| iasm_stmt_list ';' iasm_maybe_comment
+	| iasm_stmt_list ASM_KEYWORD
+	| iasm_stmt_list ASM_KEYWORD single_iasm_stmt
 	;
 
-cw_maybe_comment:
+/* (in 4.2 ao) */
+iasm_maybe_comment:
 		{
 		  if (flag_ms_asms)
 		    {
-		      cw_skip_to_eol ();
+		      iasm_skip_to_eol ();
 		      yychar = YYEMPTY;
 		    }
 		}
 	;
 
-cw_identifier:
-	  cw_identifier1 ' '
+/* (in 4.2 aq) */
+iasm_identifier:
+	  iasm_identifier1 ' '
 		{ $$ = $1; }
-	| cw_identifier1
-		{ $$ = $1; cw_split_next = 0; }
+	| iasm_identifier1
+		{ $$ = $1; iasm_split_next = 0; }
 	;
 
-cw_identifier1:
+/* (in 4.2 aq) */
+iasm_identifier1:
 	  identifier
 		{
-		  if (cw_split_next &&
+		  if (iasm_split_next &&
 		      (yychar == '.'
 		       || yychar == '+'
 		       || yychar == '-'))
 		    {
-		      cw_insert_saved_token ();
+		      iasm_insert_saved_token ();
 		      yychar = ' ';
 		    }
 		}
-	| cw_identifier1 '.'
-		{ $$ = cw_get_identifier ($1, "."); }
-	| cw_identifier1 '+'
-		{ $$ = cw_get_identifier ($1, "+"); }
-	| cw_identifier1 '-'
-		{ $$ = cw_get_identifier ($1, "-"); }
+	| iasm_identifier1 '.'
+		{ $$ = iasm_get_identifier ($1, "."); }
+	| iasm_identifier1 '+'
+		{ $$ = iasm_get_identifier ($1, "+"); }
+	| iasm_identifier1 '-'
+		{ $$ = iasm_get_identifier ($1, "-"); }
 	| '.' identifier
 		{ $$ = prepend_char_identifier ($2, '.'); }
 	;
 
-cw_maybe_prefix:
-	  cw_identifier
-		{ $$ = c_parse_cw_maybe_prefix ($1); }
+/* (in 4.2 an) */
+iasm_maybe_prefix:
+	  iasm_identifier
+		{ $$ = c_parse_iasm_maybe_prefix ($1); }
 	;
 
+/* (in 4.2 ar) */
 /* A single statement consists of one or more labels (identified by a
    leading '@' and/or a trailing ':'), optionally followed by opcode
    and operands.  */
-single_cw_asm_stmt:
-	  cw_maybe_prefix
-		{ cw_asm_in_operands = 1; }
-	  cw_asm_operands
-		{ $$ = cw_asm_stmt ($1, $3, cw_asm_lineno); }
-	| identifier STATIC cw_asm_operand
-		{ $$ = cw_asm_entry ($1, $2, $3.value); }
-	| identifier SCSPEC cw_asm_operand
-		{ $$ = cw_asm_entry ($1, $2, $3.value); }
-	| cw_asm_label
+single_iasm_stmt:
+	  iasm_maybe_prefix
+		{ iasm_in_operands = true; }
+	  iasm_operands
+		{ $$ = iasm_stmt ($1, $3, iasm_lineno); }
+	| identifier STATIC iasm_operand
+		{ $$ = iasm_entry ($1, $2, $3.value); }
+	| identifier SCSPEC iasm_operand
+		{ $$ = iasm_entry ($1, $2, $3.value); }
+	| iasm_label
 		{}	
-	| cw_asm_label single_cw_asm_stmt
+	| iasm_label single_iasm_stmt
 		{}	
 	;
 
-cw_asm_label:
+/* (in 4.2 ar) */
+iasm_label:
 	  identifier ':'
-		{ cw_asm_label ($1, 0); }
+		{ iasm_label ($1, 0); }
 	| '@' identifier
-		{ cw_asm_label ($2, 1); }
+		{ iasm_label ($2, 1); }
 	| '@' identifier ':'
-		{ cw_asm_label ($2, 1); }
+		{ iasm_label ($2, 1); }
 	| '@' CONSTANT
-		{ cw_asm_label ($2, 1); }
+		{ iasm_label ($2, 1); }
 	| '@' CONSTANT ':'
-		{ cw_asm_label ($2, 1); }
+		{ iasm_label ($2, 1); }
 	;
 
-cw_asm_stmts:
+/* (in 4.2 au) */
+iasm_stmts:
 	  stmt
 		{}
-	| cw_asm_stmts stmt
+	| iasm_stmts stmt
 		{}
 	;
 
+/* (in 4.2 as) */
+/* (in 4.2 at) */
 /* An asm block within a function is simpler than asm functions; no
    declarations are possible, so we switch to the block interior state
    immediately.  */
-cw_asm_compstmt_start: ASM_KEYWORD '{'
+iasm_compstmt_start: ASM_KEYWORD '{'
 		{
-		  if (flag_cw_asm_blocks)
+		  if (flag_iasm_blocks)
 		    {
-		      cw_asm_state = cw_asm_asm;
-		      inside_cw_asm_block = 1;
-		      cw_asm_at_bol = 1;
-		      clear_cw_asm_labels ();
+		      iasm_state = iasm_asm;
+		      inside_iasm_block = true;
+		      iasm_at_bol = true;
+		      iasm_clear_labels ();
 		    }
 		  else
 		    /* This will probably choke badly... */
@@ -2224,58 +2317,65 @@ cw_asm_compstmt_start: ASM_KEYWORD '{'
 		}
         ;
 
-cw_asm_compstmt: ASM_KEYWORD
+iasm_compstmt: ASM_KEYWORD
 		{
-		  if (flag_cw_asm_blocks)
+		  if (flag_iasm_blocks)
 		    {
-		      cw_asm_state = cw_asm_asm;
-		      inside_cw_asm_block = 1;
-		      clear_cw_asm_labels ();
+		      iasm_state = iasm_asm;
+		      inside_iasm_block = true;
+		      iasm_clear_labels ();
 		      if (yychar == ';' && flag_ms_asms)
 			{
-			  cw_skip_to_eol ();
+			  iasm_skip_to_eol ();
 			  yychar = YYEMPTY;
 			}
-		      yychar = CW_SEE_OPCODE (yychar, yylval.ttype);
+		      yychar = IASM_SEE_OPCODE (yychar, yylval.ttype);
 		    }
 		  else
 		    /* This will probably choke badly... */
 		    error ("asm blocks not enabled, use `-fasm-blocks'");
 		  $<ttype>$ = c_begin_compound_stmt (true);
 		}
-	  cw_asm_stmt_nobol
+	  iasm_stmt_nobol
 		{
 		  $$ = c_finish_expr_stmt ($3);
-		  inside_cw_asm_block = 0;
+		  iasm_end_block ();
 		  $<ttype>$ = c_end_compound_stmt ($<ttype>2, true);
 		}
         ;
 
-cw_asm_compstmt_nostart:
+/* (in 4.2 aw) */
+iasm_compstmt_nostart:
 	  '}'
-	| cw_asm_compstmt_contents_nonempty '}'
-		{ inside_cw_asm_block = 0; }
+	| iasm_compstmt_contents_nonempty '}'
+		{
+		  iasm_end_block ();
+		}
 	;
 
-cw_asm_compstmt_contents_nonempty:
-	  cw_asm_stmts
+/* (in 4.2 au) */
+iasm_compstmt_contents_nonempty:
+	  iasm_stmts
 	| error
 	;
 
-cw_asm_compstmt: cw_asm_compstmt_start cw_asm_compstmt_nostart
+/* (in 4.2 av) */
+iasm_compstmt: iasm_compstmt_start iasm_compstmt_nostart
 		{ $$ = c_end_compound_stmt ($1, true); }
 	;
 
-cw_asm_operands:
+/* (in 4.2 az) */
+iasm_operands:
 	  /* empty */
 		{ $$ = NULL_TREE; }
-	| cw_nonnull_asm_operands
+	| iasm_nonnull_operands
 	;
 
-cw_nonnull_asm_operands:
-	  cw_asm_operand
+/* (in 4.2 az) */
+iasm_nonnull_operands:
+	  iasm_operand
 		{ $$ = build_tree_list (NULL_TREE, $1.value); }
-	| cw_nonnull_asm_operands ',' cw_asm_operand
+	| iasm_nonnull_operands ',' iasm_operand
 		{ $$ = chainon ($1, build_tree_list (NULL_TREE, $3.value)); }
 	;
 
@@ -2283,9 +2383,9 @@ cw_nonnull_asm_operands:
    all the semantic actions would need to be tweaked to handle the
    possibility of CW asm coming through.  For example, "offset(reg)"
    would be handled by function call code (bleah).  */
-cw_asm_operand:	cw_asm_expr_no_commas
-	| cw_asm_operand '(' cw_asm_expr_no_commas ')'
-		{ $$.value = cw_asm_build_register_offset ($1.value, $3.value); 
+iasm_operand: iasm_expr_no_commas
+	| iasm_operand '(' iasm_expr_no_commas ')'
+		{ $$.value = iasm_build_register_offset ($1.value, $3.value); 
 		  $$.original_code = ERROR_MARK;  }
 	;
 /* APPLE LOCAL end CW asm blocks */
@@ -2308,7 +2408,11 @@ lineno_labels:
 /* A labeled statement.  In C99 it also generates an implicit block.  */
 c99_block_lineno_labeled_stmt:
 	  c99_block_start lineno_labels lineno_stmt
-                { $$ = c_end_compound_stmt ($1, flag_isoc99); }
+		/* APPLE LOCAL begin radar 4502236 */
+                { $$ = c_end_compound_stmt ($1, 
+					    flag_isoc99 
+					    || (c_dialect_objc() && objc_foreach_context)); }
+		/* APPLE LOCAL end radar 4502236 */
 	;
 
 lineno_stmt:
@@ -2413,12 +2517,14 @@ xexpr:
 		{ $$ = $1.value; }
 	;
 
+/* APPLE LOCAL begin C* language (in 4.2 aj) */
 for_init_stmt:
 	  xexpr ';'
-		{ c_finish_expr_stmt ($1); }
+		{ objc_foreach_context = 0; c_finish_expr_stmt ($1); }
 	| decl
-		{ check_for_loop_decls (); }
+		{ objc_foreach_context = 0; check_for_loop_decls (); }
 	;
+/* APPLE LOCAL end C* language (in 4.2 aj) */
 
 for_cond_expr: save_location xexpr
 		{ if ($2)
@@ -2436,15 +2542,64 @@ for_incr_expr: xexpr
 		{ $$ = c_process_expr_stmt ($1); }
 	;
 
+/* APPLE LOCAL begin C* language */
+@@ifobjc
+for_objc_collection: 
+		declspecs_ts setspecs  declarator maybeasm maybe_attribute AT_IN 
+			{ objc_foreach_context = 0;
+			  $<ttype>$ = start_decl ($3, current_declspecs, true,
+						  chainon ($5, all_prefix_attributes));
+			  if (!$<ttype>$)
+			    $<ttype>$ = error_mark_node;
+			  start_init ($<ttype>$, $4, global_bindings_p ()); }
+		init
+			/* APPLE LOCAL begin radar 4472881 */
+			{  int save_flag_isoc99 = flag_isoc99;
+			   finish_init ();
+			   $$ = build_tree_list ($<ttype>7, $8.value);
+			   POP_DECLSPEC_STACK; 
+			   flag_isoc99 = 1;
+			   check_for_loop_decls ();
+			   flag_isoc99 = save_flag_isoc99;
+			}
+			/* APPLE LOCAL end radar 4472881 */
+		| expr AT_IN init
+		  {
+		    /* APPLE LOCAL radar 4550582 */
+		    objc_foreach_context = 0;
+		    $$ = build_tree_list ($1.value, $3.value);
+		  }
+	;
+@@end_ifobjc
+
+/* APPLE LOCAL radar 4472881 (in 4.2 u) */
+for_keyword: FOR
+	{objc_foreach_context = 1;}
+	;
+
 for_statement:
-	FOR c99_block_start '(' for_init_stmt
+	for_keyword c99_block_start '(' for_init_stmt
+/* APPLE LOCAL end C* language */
 	save_location for_cond_expr ';' for_incr_expr ')'
 	start_break start_continue c99_block_lineno_labeled_stmt
 		{ c_finish_loop ($5, $6, $8, $12, c_break_label,
 				 c_cont_label, true);
-		  add_stmt (c_end_compound_stmt ($2, flag_isoc99));
+		  /* APPLE LOCAL radar 4472881 (in 4.2 ai) */
+		  add_stmt (c_end_compound_stmt ($2, flag_isoc99 || c_dialect_objc ()));
 		  c_break_label = $10; c_cont_label = $11; }
+
+/* APPLE LOCAL begin C* language */
+@@ifobjc
+	| for_keyword c99_block_start '(' for_objc_collection save_location ')'
+	  start_break start_continue c99_block_lineno_labeled_stmt
+	    { objc_finish_foreach_loop ($5, $4,  $9, c_break_label, c_cont_label);
+	      /* APPLE LOCAL radar 4472881 */
+	      add_stmt (c_end_compound_stmt ($2, 1));
+	      c_break_label = $7; c_cont_label = $8;
+	    }
+@@end_ifobjc
 	;
+/* APPLE LOCAL end C* language */
 
 switch_statement:
 	SWITCH c99_block_start '(' expr ')'
@@ -2473,9 +2628,10 @@ stmt_nocomp:
 	| switch_statement
 		{ $$ = NULL_TREE; }
 	/* APPLE LOCAL begin CW asm blocks */
-	| cw_asm_compstmt
+	/* (in 4.2 as) */
+	| iasm_compstmt
 		{ $$ = c_finish_expr_stmt ($1); }
-	| cw_asm_stmt
+	| iasm_stmt
 		{ $$ = c_finish_expr_stmt ($1); }
 	/* APPLE LOCAL end CW asm blocks */
 	| BREAK ';'
@@ -2504,10 +2660,21 @@ stmt_nocomp:
 		{ objc_build_synchronized ($2, $4.value, $6); $$ = NULL_TREE; }
 	;
 
-objc_catch_prefix:
-	AT_CATCH '(' parm ')'
-		{ objc_begin_catch_clause (grokparm ($3)); }
+/* APPLE LOCAL begin radar 2848255  */
+objc_catch_parm:
+	parm 
+		{ $$ = $1; }
+	| ELLIPSIS
+		{ $$ = NULL_TREE; }
 	;
+
+objc_catch_prefix:
+	AT_CATCH '(' objc_catch_parm ')'
+		{ objc_begin_catch_clause ($3 == NULL_TREE 
+					   ? NULL_TREE 
+					   : grokparm ($3)); }
+	;
+/* APPLE LOCAL end radar 2848255 */
 
 objc_catch_clause:
 	  objc_catch_prefix '{' compstmt_nostart
@@ -2687,77 +2854,85 @@ start_string_translation:
         ;
 
 /* APPLE LOCAL begin CW asm blocks */
-cw_asm_expr_no_commas:
-	 cw_asm_unary_expr
-	| cw_asm_expr_no_commas '+' cw_asm_expr_no_commas
+iasm_expr_no_commas:
+	 iasm_unary_expr
+	| iasm_expr_no_commas '+' iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas '-' cw_asm_expr_no_commas
+	| iasm_expr_no_commas '-' iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas '*' cw_asm_expr_no_commas
+	| iasm_expr_no_commas '*' iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas '/' cw_asm_expr_no_commas
+	| iasm_expr_no_commas '/' iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas '%' cw_asm_expr_no_commas
+	| iasm_expr_no_commas '%' iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas LSHIFT cw_asm_expr_no_commas
+	| iasm_expr_no_commas LSHIFT iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas RSHIFT cw_asm_expr_no_commas
+	| iasm_expr_no_commas RSHIFT iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas ARITHCOMPARE cw_asm_expr_no_commas
+	| iasm_expr_no_commas ARITHCOMPARE iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas EQCOMPARE cw_asm_expr_no_commas
+	| iasm_expr_no_commas EQCOMPARE iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas '&' cw_asm_expr_no_commas
+	| iasm_expr_no_commas '&' iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas '|' cw_asm_expr_no_commas
+	| iasm_expr_no_commas '|' iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas '^' cw_asm_expr_no_commas
+	| iasm_expr_no_commas '^' iasm_expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
-	| cw_asm_expr_no_commas ANDAND
+	| iasm_expr_no_commas ANDAND
 		{ $1.value = c_common_truthvalue_conversion
 		    (default_conversion ($1.value));
 		  skip_evaluation += $1.value == boolean_false_node; }
-	  cw_asm_expr_no_commas
+	  iasm_expr_no_commas
 		{ skip_evaluation -= $1.value == boolean_false_node;
 		  $$ = parser_build_binary_op (TRUTH_ANDIF_EXPR, $1, $4); }
-	| cw_asm_expr_no_commas OROR
+	| iasm_expr_no_commas OROR
 		{ $1.value = c_common_truthvalue_conversion
 		    (default_conversion ($1.value));
 		  skip_evaluation += $1.value == boolean_true_node; }
-	  cw_asm_expr_no_commas
+	  iasm_expr_no_commas
 		{ skip_evaluation -= $1.value == boolean_true_node;
 		  $$ = parser_build_binary_op (TRUTH_ORIF_EXPR, $1, $4); }
 	;
 
-cw_asm_unary_expr:
-	cw_asm_primary
-	| cw_asm_primary IDENTIFIER cw_asm_unary_expr
+iasm_unary_expr:
+	iasm_primary
+	/* (in 4.2 bb) */
+	| iasm_primary IDENTIFIER iasm_unary_expr
 		{
 		  /* Handle things like: inc dword ptr [eax]  */
 		  if (strcasecmp (IDENTIFIER_POINTER ($2), "ptr") != 0)
 		    error ("expected %<ptr%>");
-		  $$.value = cw_ptr_conv ($1.value, $3.value);
+		  $$.value = iasm_ptr_conv ($1.value, $3.value);
 		  $$.original_code = ERROR_MARK;
 		}
-	| '*' cw_asm_unary_expr   %prec UNARY
+        | '#' iasm_unary_expr   %prec UNARY
+                { $$.value = $2.value; }
+	| '*' iasm_unary_expr   %prec UNARY
 		{ $$.value = build_indirect_ref ($2.value, "unary *");
                   $$.original_code = ERROR_MARK; }
-	| unop cw_asm_unary_expr  %prec UNARY
+	| unop iasm_unary_expr  %prec UNARY
 		{ 
 		  if (TREE_CODE ($2.value) == COMPOUND_EXPR)
 		    {
 		      tree neg = build_unary_op ($1, TREE_OPERAND ($2.value, 0), 0);
 		      tree reg = TREE_OPERAND ($2.value, 1);
-		      $$.value = cw_asm_build_register_offset (neg, reg);
+		      $$.value = iasm_build_register_offset (neg, reg);
 		    }
 		  else
 		    {
-		      $$.value = build_unary_op ($1, $2.value, 0);
+		      /* (in 4.2 bc) */
+		      if (TREE_CODE ($2.value) == LABEL_DECL
+			  && $1 == ADDR_EXPR)
+			$$.value = finish_label_address_expr (DECL_NAME ($2.value));
+		      else
+			$$.value = build_unary_op ($1, $2.value, 0);
 		      overflow_warning ($$.value);
 		    }
 		  $$.original_code = ERROR_MARK;
 		}
-	| sizeof cw_asm_unary_expr  %prec UNARY
+	| sizeof iasm_unary_expr  %prec UNARY
 		{ skip_evaluation--;
                   if (TREE_CODE ($2.value) == COMPONENT_REF
                       && DECL_C_BIT_FIELD (TREE_OPERAND ($2.value, 1)))
@@ -2773,7 +2948,7 @@ cw_asm_unary_expr:
 		{ skip_evaluation--;
                   $$.value = c_sizeof (groktypename ($3));
                   $$.original_code = ERROR_MARK; }
-	| alignof cw_asm_unary_expr  %prec UNARY
+	| alignof iasm_unary_expr  %prec UNARY
 		{ skip_evaluation--;
                   $$.value = c_alignof_expr ($2.value);
                   $$.original_code = ERROR_MARK; }
@@ -2783,7 +2958,7 @@ cw_asm_unary_expr:
                   $$.original_code = ERROR_MARK; }
 	;
 
-cw_asm_primary:
+iasm_primary:
 	IDENTIFIER
 		{
                   if (yychar == YYEMPTY)
@@ -2803,35 +2978,37 @@ cw_asm_primary:
 		{ $$.value = $1; $$.original_code = ERROR_MARK; }
 	| STRING
 		{ $$.value = $1; $$.original_code = STRING_CST; }
-	| '(' cw_asm_expr_no_commas ')'
+	| '(' iasm_expr_no_commas ')'
 		{ char class = TREE_CODE_CLASS (TREE_CODE ($2.value));
 		  if (IS_EXPR_CODE_CLASS (class))
 		    $2.original_code = ERROR_MARK;
 		  $$ = $2; }
 	| '(' error ')'
 		{ $$.value = error_mark_node; $$.original_code = ERROR_MARK; }
-	| cw_asm_primary '[' cw_asm_expr_no_commas ']'   %prec '.'
+	| iasm_primary '[' iasm_expr_no_commas ']'   %prec '.'
 		{ $$.value = build_array_ref ($1.value, $3.value);
                   $$.original_code = ERROR_MARK; }
-	| '[' cw_asm_expr_no_commas ']'   %prec '.'
-		{ $$.value = cw_build_bracket ($2.value, NULL_TREE);
+	| '[' iasm_expr_no_commas ']'   %prec '.'
+		{ $$.value = iasm_build_bracket ($2.value, NULL_TREE);
                   $$.original_code = ERROR_MARK; }
 	| TYPENAME '.' identifier
-		{ $$.value = cw_asm_c_build_component_ref ($1, $3);
+		{ $$.value = iasm_c_build_component_ref ($1, $3);
                   $$.original_code = ERROR_MARK; }
-	| cw_asm_primary '.' identifier
-		{ $$.value = cw_asm_c_build_component_ref ($1.value, $3);
+	| iasm_primary '.' identifier
+		{ $$.value = iasm_c_build_component_ref ($1.value, $3);
                   $$.original_code = ERROR_MARK; }
-	| cw_asm_primary '.' CONSTANT
+	/* (in 4.2 bc) */
+	| iasm_primary '.' CONSTANT
 		{ /* We allow [eax].16 to refer to [eax + 16].  */
-		  $$.value = cw_asm_c_build_component_ref ($1.value, $3);
+		  $$.value = iasm_c_build_component_ref ($1.value, $3);
                   $$.original_code = ERROR_MARK; }
-	| cw_asm_primary POINTSAT identifier
+	| iasm_primary POINTSAT identifier
 		{
                   tree expr = build_indirect_ref ($1.value, "->");
                   $$.value = build_component_ref (expr, $3);
                   $$.original_code = ERROR_MARK;
                 }
+	/* (in 4.2 ba) */
 	| '.'
 		{
 		  $$.value = get_identifier (".");;
@@ -2868,6 +3045,8 @@ parmlist_1:
 		  $$->parms = 0;
 		  $$->tags = 0;
 		  $$->types = 0;
+		  /* APPLE LOCAL mainline 2006-05-19 4336222 */
+		  $$->had_vla_unspec = 0;
 		  $$->others = 0; }
 	;
 
@@ -2878,12 +3057,16 @@ parmlist_2:  /* empty */
 		  $$->parms = 0;
 		  $$->tags = 0;
 		  $$->types = 0;
+		  /* APPLE LOCAL mainline 2006-05-19 4336222 */
+		  $$->had_vla_unspec = 0;
 		  $$->others = 0; }
 	| ELLIPSIS
 		{ $$ = XOBNEW (&parser_obstack, struct c_arg_info);
 		  $$->parms = 0;
 		  $$->tags = 0;
 		  $$->others = 0;
+		  /* APPLE LOCAL mainline 2006-05-19 4336222 */
+		  $$->had_vla_unspec = 0;
 		  /* Suppress -Wold-style-definition for this case.  */
 		  $$->types = error_mark_node;
 		  error ("ISO C requires a named argument before %<...%>");
@@ -2975,6 +3158,8 @@ parmlist_or_identifiers_1:
 		  $$->tags = 0;
 		  $$->types = $1;
 		  $$->others = 0;
+		  /* APPLE LOCAL mainline 2006-05-19 4336222 */
+		  $$->had_vla_unspec = 0;
 
 		  /* Make sure we have a parmlist after attributes.  */
 		  if ($<ttype>-1 != 0)
@@ -3016,6 +3201,10 @@ objcdef:
 	| aliasdecl
 	| protocoldef
 	| methoddef
+	/* APPLE LOCAL C* property (Radar 4436866) (in 4.2 x) */
+	| property_declaration
+	/* APPLE LOCAL objc new property - also radar 4923440 */
+	| property_implementation {}
 	| AT_END
 		{
 		  objc_finish_implementation ();
@@ -3054,16 +3243,164 @@ class_ivars:
 	| /* NULL */
 	;
 
-classdef:
-	  AT_INTERFACE identifier superclass protocolrefs
+/* APPLE LOCAL begin C* property (Radar 4436866, 4591909) (in 4.2 s, except for 4591909) */
+property_attribute:
+	AT_READONLY
 		{
-		  objc_start_class_interface ($2, $3, $4);
+		  objc_set_property_attr (1, NULL_TREE);
 		}
+	/* APPLE LOCAL begin radar 5168008 */
+	| AT_GETTER '=' identifier
+		{
+		  objc_set_property_attr (2, $3);
+		}
+	| AT_SETTER '=' identifier ':'
+		{
+		  objc_set_property_attr (3, $3);
+		}
+	| AT_IVAR '=' identifier
+		{
+		  objc_set_property_attr (4, $3);
+		}
+	/* APPLE LOCAL end radar 5168008 */
+	| AT_IVAR 
+		{
+		  objc_set_property_attr (4, NULL_TREE);
+		}
+	| AT_PROP_BYCOPY
+		{
+		  objc_set_property_attr (5, NULL_TREE);
+		}
+	| AT_PROP_BYREF
+		{
+		  objc_set_property_attr (6, NULL_TREE);
+		}
+	| AT_PROP_DYNAMIC
+		{
+		  objc_set_property_attr (7, NULL_TREE);
+		}
+	/* APPLE LOCAL begin radar 4621020 */
+	| AT_WEAK
+		{
+		  objc_set_property_attr (8, NULL_TREE);
+		}
+	/* APPLE LOCAL end radar 4621020 */
+	/* APPLE LOCAL begin objc new property */
+	| AT_READWRITE
+		{
+		  objc_set_property_attr (9, NULL_TREE);
+		}
+	| AT_ASSIGN
+		{
+		  objc_set_property_attr (10, NULL_TREE);
+		}
+	| AT_RETAIN
+		{
+		  objc_set_property_attr (11, NULL_TREE);
+		}
+	| AT_COPY
+		{
+		  objc_set_property_attr (12, NULL_TREE);
+		}
+	/* APPLE LOCAL end objc new property */
+	/* APPLE LOCAL begin radar 4947014 - objc atomic property */
+	| AT_NONATOMIC
+		{
+		  objc_set_property_attr (13, NULL_TREE);
+		}
+	/* APPLE LOCAL end radar 4947014 - objc atomic property */
+	;
+
+property_attrlist:
+	property_attribute
+	| property_attrlist ',' property_attribute 
+	;
+
+property_attr_decl:
+	'(' property_attrlist ')'
+		{
+		}
+	| /* NULL */
+	;
+
+property_declaration:
+	AT_PROPERTY 
+		{
+		  objc_property_attr_context = 1;
+		  objc_set_property_attr (0, NULL_TREE);
+		}
+	property_attr_decl 
+		{
+		  objc_property_attr_context = 0;
+		}
+	component_decl ';'
+		{
+		  /* Comma-separated properties are chained together in
+		     reverse order; add them one by one.  */
+		  tree prop = nreverse ($5);
+
+		  for (; prop; prop = TREE_CHAIN (prop))
+		    objc_add_property_variable (copy_node (prop));
+		}
+	;
+/* APPLE LOCAL end C* property (Radar 4436866, 4591909) (in 4.2 s, except for 4591909) */
+/* APPLE LOCAL begin objc new property */
+property_synthesize_item:
+	IDENTIFIER
+	{
+	  $$ = build_tree_list (NULL_TREE, $1);
+	}
+	| IDENTIFIER '=' IDENTIFIER
+	{
+	  $$ = build_tree_list ($3, $1);
+	}
+	;
+
+property_synthesize_list:
+	property_synthesize_item
+	| property_synthesize_list ',' property_synthesize_item
+	{
+	  $$ = chainon ($1, $3);
+	}
+	;
+
+property_implementation:
+	AT_SYNTHESIZE property_synthesize_list ';'
+		{
+		  objc_declare_property_impl (1, $2);
+		}
+	| AT_DYNAMIC identifier_list ';'
+		{
+		  objc_declare_property_impl (2, $2);
+		}
+	;
+/* APPLE LOCAL end objc new property */
+
+/* APPLE LOCAL begin radar 4965989 */
+optidentifier:
+		{
+		  $$ = NULL_TREE;
+		}
+	| identifier
+		{
+		  $$ = $1;
+		}
+	;
+/* APPLE LOCAL end radar 4965989 */
+
+classdef:
+	  /* APPLE LOCAL begin radar 4548636 - class attributes. (in 4.2 p) */
+	  maybe_attribute AT_INTERFACE identifier superclass protocolrefs
+		{
+		  objc_start_class_interface ($3, $4, $5, $1);
+		}
+	  /* APPLE LOCAL end radar 4548636 - class attributes. (in 4.2 p) */
 	  class_ivars
 		{
 		  objc_continue_interface ();
 		}
-	  methodprotolist AT_END
+	  /* APPLE LOCAL C* property (Radar 4436866) (in 4.2 q) */
+	  interfacedecllist AT_END
 		{
 		  objc_finish_interface ();
 		}
@@ -3077,11 +3414,17 @@ classdef:
 		  objc_continue_implementation ();
 		}
 
-	| AT_INTERFACE identifier '(' identifier ')' protocolrefs
+	  /* APPLE LOCAL begin radar 4548636 - class attributes. (in 4.2 t) */
+	  /* APPLE LOCAL radar 4965989 */
+	| maybe_attribute AT_INTERFACE identifier '(' optidentifier ')' protocolrefs
 		{
-		  objc_start_category_interface ($2, $4, $6);
+		  if ($1)
+		    error ("attributes may not be specified on a category"); 
+		  objc_start_category_interface ($3, $5, $7);
 		}
-	  methodprotolist AT_END
+	  /* APPLE LOCAL end radar 4548636 - class attributes. (in 4.2 t) */
+	  /* APPLE LOCAL C* property (Radar 4436866) (in 4.2 q) */
+	  interfacedecllist AT_END
 		{
 		  objc_finish_interface ();
 		}
@@ -3090,6 +3433,12 @@ classdef:
 		{
 		  objc_start_category_implementation ($2, $4);
 		}
+	/* APPLE LOCAL begin radar 4533974 - ObjC new protocol (in 4.2 v) */
+	| AT_IMPLEMENTATION non_empty_protocolrefs
+		{
+		  objc_protocol_implementation ($2);
+		}
+	/* APPLE LOCAL end radar 4533974 - ObjC new protocol (in 4.2 v) */
 	;
 
 protocoldef:
@@ -3098,7 +3447,8 @@ protocoldef:
 		  objc_pq_context = 1;
 		  objc_start_protocol ($2, $3);
 		}
-	  methodprotolist AT_END
+	  /* APPLE LOCAL C* property (Radar 4436866) (in 4.2 r) */
+	  interfacedecllist AT_END
 		{
 		  objc_pq_context = 0;
 		  objc_finish_interface ();
@@ -3140,6 +3490,8 @@ visibility_spec:
 	| AT_PRIVATE { objc_set_visibility (2); }
 	| AT_PROTECTED { objc_set_visibility (0); }
 	| AT_PUBLIC { objc_set_visibility (1); }
+	/* APPLE LOCAL radar 4564694 */
+        | AT_PACKAGE { objc_set_visibility (3); }
 	;
 
 ivar_decls:
@@ -3187,7 +3539,10 @@ methoddef:
 	  methoddecl opt_semi
 		{
 		  objc_pq_context = 0;
-		  objc_start_method_definition ($3);
+		  /* APPLE LOCAL begin radar 3803157 - objc attribute (in 4.2 a) */
+		  objc_start_method_definition ($3, objc_method_attributes);
+		  objc_method_attributes = NULL_TREE;
+		  /* APPLE LOCAL end radar 3803157 - objc attribute (in 4.2 a) */
 		}
 	  compstmt_or_error
 		{
@@ -3199,10 +3554,13 @@ methoddef:
  is so that notype_initdecls when reached via datadef
  can find a valid list of type and sc specs in $0. */
 
-methodprotolist:
+	/* APPLE LOCAL begin C* property (Radar 4436866) (in 4.2 b) */
+interfacedecllist:
 	  /* empty  */
-	| methodprotolist methodproto
-	| methodprotolist { $<ttype>$ = NULL_TREE; } datadef
+	| interfacedecllist methodproto
+	| interfacedecllist { $<ttype>$ = NULL_TREE; } datadef
+   	| interfacedecllist property_declaration
+	/* APPLE LOCAL end C* property (Radar 4436866) (in 4.2 b) */
 	;
 
 semi_or_error:
@@ -3211,6 +3569,11 @@ semi_or_error:
 	;
 
 methodproto:
+	/* APPLE LOCAL begin C* language (in 4.2 w) */
+	AT_REQUIRED { objc_set_method_opt (0); }
+	| AT_OPTIONAL { objc_set_method_opt (1); }
+	|
+	/* APPLE LOCAL end C* language (in 4.2 w) */
 	  methodtype
 		{
 		  objc_set_method_type ($1);
@@ -3221,31 +3584,48 @@ methodproto:
 		{
 		  /* Forget protocol qualifiers here.  */
 		  objc_pq_context = 0;
-		  objc_add_method_declaration ($3);
+		  /* APPLE LOCAL begin radar 3803157 - objc attribute (in 4.2 c) */
+		  objc_add_method_declaration ($3, objc_method_attributes);
+		  objc_method_attributes = NULL_TREE;
+		  /* APPLE LOCAL end radar 3803157 - objc attribute (in 4.2 c) */
 		}
 	  semi_or_error
 	;
 
 methoddecl:
-	  '(' objc_typename ')' unaryselector
+	/* APPLE LOCAL begin radar 3803157 - objc attribute (in 4.2 y) */
+	  '(' objc_typename ')' unaryselector maybe_attribute
 		{
 		  $$ = objc_build_method_signature ($2, $4, NULL_TREE);
+		  objc_method_attributes = $5;
 		}
 
-	| unaryselector
+	| unaryselector maybe_attribute
 		{
 		  $$ = objc_build_method_signature (NULL_TREE, $1, NULL_TREE);
+		  objc_method_attributes = $2;
 		}
 
-	| '(' objc_typename ')' keywordselector optparmlist
+	| '(' objc_typename ')' keywordselector maybe_attribute optparmlist
 		{
-		  $$ = objc_build_method_signature ($2, $4, $5);
+		  $$ = objc_build_method_signature ($2, $4, $6);
+		  /* Check for ... at the end. */
+		  if (!TREE_OVERFLOW ($6))
+		    objc_method_attributes = $5;
+		  else if ($5)
+		    error ("method attributes must be specified at the end only");
 		}
 
-	| keywordselector optparmlist
+	| keywordselector maybe_attribute optparmlist
 		{
-		  $$ = objc_build_method_signature (NULL_TREE, $1, $2);
+		  $$ = objc_build_method_signature (NULL_TREE, $1, $3);
+		  /* Check for ... at the end. */
+		  if (!TREE_OVERFLOW ($3))
+		    objc_method_attributes = $2;
+		  else if ($2)
+		    error ("method attributes must be specified at the end only");
 		}
+	/* APPLE LOCAL end radar 3803157 - objc attribute (in 4.2 y) */
 	;
 
 /* Optional ObjC method parameters follow the C syntax, and may include '...'
@@ -3275,10 +3655,13 @@ optellipsis:
 		{
 		  $$ = 0;
 		}
-	| ',' ELLIPSIS
+	/* APPLE LOCAL begin radar 3803157 - objc attribute (in 4.2 y) */
+	| ',' ELLIPSIS maybe_attribute
 		{
 		  $$ = 1;
+		  objc_method_attributes = $3;
 		}
+	/* APPLE LOCAL end radar 3803157 - objc attribute (in 4.2 y) */
 	;
 
 unaryselector:
@@ -3315,7 +3698,8 @@ objc_qual:
 objc_quals:
 	  objc_quals objc_qual
 		{
-		  $$ = chainon ($1, build_tree_list (NULL_TREE, $2));
+		  /* APPLE LOCAL radar 4301047 (in 4.2 z) */
+		  $$ = chainon (build_tree_list (NULL_TREE, $2), $1);
 		}
 	| /* NULL */
 		{
@@ -3485,6 +3869,8 @@ static const struct resword reswords[] =
 {
   { "_Bool",		RID_BOOL,	0 },
   { "_Complex",		RID_COMPLEX,	0 },
+  /* APPLE LOCAL CW asm blocks (in 4.2 h) */
+  { "_asm",		RID_ASM,	0 },
   { "__FUNCTION__",	RID_FUNCTION_NAME, 0 },
   { "__PRETTY_FUNCTION__", RID_PRETTY_FUNCTION_NAME, 0 },
   { "__alignof",	RID_ALIGNOF,	0 },
@@ -3508,7 +3894,7 @@ static const struct resword reswords[] =
   { "__inline",		RID_INLINE,	0 },
   { "__inline__",	RID_INLINE,	0 },
   { "__label__",	RID_LABEL,	0 },
-  /* APPLE LOCAL private extern */
+  /* APPLE LOCAL private extern (in 4.2 i) */
   { "__private_extern__", RID_PRIVATE_EXTERN, 0 },
   { "__real",		RID_REALPART,	0 },
   { "__real__",		RID_REALPART,	0 },
@@ -3569,6 +3955,14 @@ static const struct resword reswords[] =
   { "end",		RID_AT_END,		D_OBJC },
   { "implementation",	RID_AT_IMPLEMENTATION,	D_OBJC },
   { "interface",	RID_AT_INTERFACE,	D_OBJC },
+  /* APPLE LOCAL begin C* language (in 4.2 j) */
+  { "optional",		RID_AT_OPTIONAL,	D_OBJC },
+  { "required",		RID_AT_REQUIRED,	D_OBJC },
+  /* APPLE LOCAL end C* language (in 4.2 j) */
+  /* APPLE LOCAL C* property (Radar 4436866) (in 4.2 k) */
+  { "property",		RID_AT_PROPERTY,	D_OBJC },
+  /* APPLE LOCAL radar 4564694 */
+  { "package",		RID_AT_PACKAGE,		D_OBJC },
   { "private",		RID_AT_PRIVATE,		D_OBJC },
   { "protected",	RID_AT_PROTECTED,	D_OBJC },
   { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
@@ -3587,6 +3981,26 @@ static const struct resword reswords[] =
   { "inout",		RID_INOUT,		D_OBJC },
   { "oneway",		RID_ONEWAY,		D_OBJC },
   { "out",		RID_OUT,		D_OBJC },
+  /* APPLE LOCAL begin C* property (Radar 4436866) (in 4.2 l) */
+  /* These are recognized inside a property attribute list */
+  { "readonly",		RID_READONLY,		D_OBJC }, 
+   /* APPLE LOCAL Radar 4591909 */
+  { "dynamic",		RID_DYNAMIC,		D_OBJC },
+  { "getter",		RID_GETTER,		D_OBJC }, 
+  { "setter",		RID_SETTER,		D_OBJC }, 
+  /* APPLE LOCAL radar 4621020 */
+  { "weak",		RID_WEAK,		D_OBJC }, 
+  { "ivar",		RID_IVAR,		D_OBJC }, 
+  /* APPLE LOCAL end C* property (Radar 4436866) (in 4.2 l)*/
+  /* APPLE LOCAL begin objc new property	       */
+  { "synthesize",	RID_AT_SYNTHESIZE,	D_OBJC },
+  { "readwrite",	RID_READWRITE,		D_OBJC }, 
+  { "assign",		RID_ASSIGN,		D_OBJC },
+  { "retain",		RID_RETAIN,		D_OBJC },
+  { "copy",		RID_COPY,		D_OBJC },
+  /* APPLE LOCAL end objc new property		       */
+  /* APPLE LOCAL radar 4947014 - objc atomic property */
+  { "nonatomic",	RID_NONATOMIC,		D_OBJC },
 @@end_ifobjc
 };
 #define N_reswords (sizeof reswords / sizeof (struct resword))
@@ -3616,7 +4030,7 @@ static const short rid_to_yy[RID_MAX] =
   /* C extensions */
   /* RID_COMPLEX */	TYPESPEC,
   /* RID_THREAD */	SCSPEC,
-  /* APPLE LOCAL private extern */
+  /* APPLE LOCAL private extern (in 4.2 aa) */
   /* RID_PRIVATE_EXTERN */	SCSPEC,
 
   /* C++ */
@@ -3711,6 +4125,8 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_AT_CLASS */		AT_CLASS,
   /* RID_AT_ALIAS */		AT_ALIAS,
   /* RID_AT_DEFS */		AT_DEFS,
+  /* APPLE LOCAL radar 4564694 */
+  /* RID_AT_PACKAGE */		AT_PACKAGE,
   /* RID_AT_PRIVATE */		AT_PRIVATE,
   /* RID_AT_PROTECTED */	AT_PROTECTED,
   /* RID_AT_PUBLIC */		AT_PUBLIC,
@@ -3722,6 +4138,16 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_AT_FINALLY */		AT_FINALLY,
   /* RID_AT_SYNCHRONIZED */	AT_SYNCHRONIZED,
   /* RID_AT_INTERFACE */	AT_INTERFACE,
+  /* APPLE LOCAL begin C* language (in 4.2 not needed) */
+  /* RID_AT_OPTIONAL */		AT_OPTIONAL,
+  /* RID_AT_REQUIRED */		AT_REQUIRED,
+  /* APPLE LOCAL end C* language (in 4.2 not needed) */
+  /* APPLE LOCAL C* property (Radar 4436866) (in 4.2 not needed) */
+  /* RID_AT_PROPERTY */		AT_PROPERTY,
+  /* APPLE LOCAL begin objc new property */
+  /* RID_AT_SYNTHESIZE */	AT_SYNTHESIZE,
+  /* RID_AT_DYNAMIC    */	AT_DYNAMIC, 
+  /* APPLE LOCAL end objc new property */
   /* RID_AT_IMPLEMENTATION */	AT_IMPLEMENTATION
 };
 
@@ -3745,7 +4171,10 @@ init_reswords (void)
 	continue;
 
       id = get_identifier (reswords[i].word);
-      C_RID_CODE (id) = reswords[i].rid;
+      /* APPLE LOCAL begin objc new property */
+      C_RID_CODE (id) = (!flag_objc_new_property || reswords[i].rid != RID_DYNAMIC) 
+			? reswords[i].rid : RID_AT_DYNAMIC;
+      /* APPLE LOCAL end objc new property */
       C_IS_RESERVED_WORD (id) = 1;
       ridpointers [(int) reswords[i].rid] = id;
     }
@@ -3765,6 +4194,12 @@ yylexname (void)
   tree decl;
 
 @@ifobjc
+/* APPLE LOCAL begin Radar 4591909 */
+#define OBJC_IS_PATTR_EXT_KEYWORD(RID) (OBJC_IS_PATTR_KEYWORD(RID) \
+					|| (objc_property_attr_context \
+					    && ((unsigned int) (RID) == RID_BYCOPY \
+					        || (unsigned int) (RID) == RID_BYREF)))
+/* APPLE LOCAL end Radar 4591909 */
   int objc_force_identifier = objc_need_raw_identifier;
   OBJC_NEED_RAW_IDENTIFIER (0);
 @@end_ifobjc
@@ -3775,10 +4210,16 @@ yylexname (void)
 
 @@ifobjc
       if (!OBJC_IS_AT_KEYWORD (rid_code)
+	  /* APPLE LOCAL begin objc new property */
+	  && !OBJC_IS_NEW_AT_KEYWORD (rid_code)
+	  && !OBJC_IS_NEW_PATTR_KEYWORD (rid_code)
+	  /* APPLE LOCAL end objc new property */
+	  /* APPLE LOCAL C* property (Radar 4436866, 4591909) (in 4.2 ab, except for 4591909) */
+	  && !OBJC_IS_PATTR_EXT_KEYWORD (rid_code)
 	  && (!OBJC_IS_PQ_KEYWORD (rid_code) || objc_pq_context))
 @@end_ifobjc
       {
-	/* APPLE LOCAL begin CW asm blocks */
+	/* APPLE LOCAL begin CW asm blocks (in 4.2 ac) */
 	/* Outside of function bodies, "asm" either indicates a CW asm
 	   function, or a GNU asm statement, which must be immediately
 	   followed by '(', so sniff the next token to see which kind
@@ -3795,22 +4236,106 @@ yylexname (void)
 	    /* Change the code.  No need to change the name though,
 	       won't matter to parser.  */
 	    if (next_tok_type != CPP_OPEN_PAREN)
-	      yycode = CW_ASM_KEYWORD;
+	      yycode = IASM_ASM_KEYWORD;
 	  }
-	if (CW_SEE_OPCODE (TYPESPEC, yylval.ttype) == IDENTIFIER
-	    && cw_asm_state >= cw_asm_decls
-	    && cw_asm_in_operands == 0)
+	/* APPLE LOCAL end CW asm blocks (in 4.2 ac) */
+	/* APPLE LOCAL begin CW asm blocks (in 4.2 ad) */
+	if (IASM_SEE_OPCODE (TYPESPEC, yylval.ttype) == IDENTIFIER
+	    && iasm_state >= iasm_decls
+	    && iasm_in_operands == false)
 	  {
 	    /* If this was an opcode, prefer it.  */
 	    return IDENTIFIER;
 	  }
-	/* APPLE LOCAL end CW asm blocks */
+	/* APPLE LOCAL end CW asm blocks (in 4.2 ad) */
 	/* Return the canonical spelling for this keyword.  */
 	yylval.ttype = ridpointers[(int) rid_code];
-	/* APPLE LOCAL CW asm blocks */
+	/* APPLE LOCAL CW asm blocks (in 4.2 not needed) */
 	return yycode;
 	return rid_to_yy[(int) rid_code];
       }
+/* APPLE LOCAL begin C* language (in 4.2 ae) */
+@@ifobjc
+      else if (c_dialect_objc () &&
+	       objc_foreach_context && rid_code == RID_IN)
+	{
+	  tree next_tok;
+          /* Take a sneak peek at the next token in the stream.  */
+          enum cpp_ttype next_tok_type = c_lex (&next_tok);
+          /* Now put it back.  */
+          _cpp_backup_tokens (parse_in, 1);
+	  switch (next_tok_type)
+	    {
+	      case CPP_NAME:
+	      case CPP_OPEN_PAREN:
+	      case CPP_MULT:
+	      case CPP_PLUS: case CPP_PLUS_PLUS:
+	      case CPP_MINUS: case CPP_MINUS_MINUS:
+	      /* APPLE LOCAL radar 4529200 (in 4.2 af) */
+	      case CPP_OPEN_SQUARE:
+	       return AT_IN;
+
+	      default:
+	       break;
+	    }
+	}
+       /* APPLE LOCAL begin C* property (Radar 4436866, 4591909) (in 4.2 ag, except for 4591909) */
+       else if (c_dialect_objc () &&
+		objc_property_attr_context &&
+		/* APPLE LOCAL begin objc new property */
+		(OBJC_IS_PATTR_EXT_KEYWORD (rid_code) || 
+		 (flag_objc_new_property && OBJC_IS_NEW_PATTR_KEYWORD (rid_code))))
+		/* APPLE LOCAL end objc new property */
+	 {
+	   tree next_tok;
+	   enum cpp_ttype next_tok_type = c_lex (&next_tok);
+	   /* Now put it back.  */
+	   _cpp_backup_tokens (parse_in, 1);
+	   if (rid_code == RID_READONLY)
+	     return AT_READONLY;
+	   if (rid_code == RID_BYCOPY)
+	     return AT_PROP_BYCOPY;
+	   if (rid_code == RID_BYREF)
+	    return AT_PROP_BYREF;
+	   if (rid_code == RID_DYNAMIC)
+	    return AT_PROP_DYNAMIC;
+	   if (rid_code == RID_IVAR)
+	    return AT_IVAR;
+	   /* APPLE LOCAL begin radar 4621020 */
+	   if (rid_code == RID_WEAK)
+	    return AT_WEAK;
+	   /* APPLE LOCAL end radar 4621020 */
+	   /* APPLE LOCAL begin objc new property */
+	   if (rid_code == RID_READWRITE)
+	     return AT_READWRITE;
+	   if (rid_code == RID_ASSIGN)
+	     return AT_ASSIGN;
+	   if (rid_code == RID_RETAIN)
+	     return AT_RETAIN;
+	   if (rid_code == RID_COPY)
+	     return AT_COPY;
+	   /* APPLE LOCAL end objc new property */
+	   /* APPLE LOCAL begin radar 4947014 - objc atomic property */
+	   if (rid_code == RID_NONATOMIC)
+	     return AT_NONATOMIC;
+	   /* APPLE LOCAL end radar 4947014 - objc atomic property */
+	   if (next_tok_type == CPP_EQ)
+	     {
+	       switch (rid_code)
+		 {
+		   case RID_GETTER:
+		     return AT_GETTER;
+		   case RID_SETTER:
+		     return AT_SETTER;
+
+		   default:
+		     break;
+		 }
+	     }
+	 }
+       /* APPLE LOCAL end C* property (Radar 4436866) (in 4.2 ag) */
+@@end_ifobjc
+/* APPLE LOCAL end C* language (in 4.2 ae) */
     }
 
   decl = lookup_name (yylval.ttype);
@@ -3899,7 +4424,7 @@ _yylex (void)
     case CPP_CLOSE_PAREN:	OBJC_NEED_RAW_IDENTIFIER (0);	return ')';
     case CPP_SEMICOLON:		OBJC_NEED_RAW_IDENTIFIER (0);	return ';';
 
-      /* APPLE LOCAL begin CW asm blocks */
+      /* APPLE LOCAL begin CW asm blocks (in 4.2 not needed) */
     case CPP_ATSIGN:
       /* If we're doing CW assembly, return this as a regular token
 	 (indicates labels).  */
@@ -3921,6 +4446,15 @@ _yylex (void)
       return rid_to_yy [(int) C_RID_CODE (yylval.ttype)];
 
     case CPP_NUMBER:
+      /* APPLE LOCAL begin CW asm blocks (in 4.2 ak) */
+      if (cpp_get_options (parse_in)->h_suffix
+	  && yylval.exprtype.value == error_mark_node)
+	{
+	  /* This was previously deferred.  */
+	  cpp_error (parse_in, CPP_DL_ERROR, "invalid suffix on integer constant");
+	  goto get_next;
+	}
+      /* APPLE LOCAL end CW asm blocks (in 4.2 ak) */
     case CPP_CHAR:
     case CPP_WCHAR:
       return CONSTANT;
@@ -3929,13 +4463,13 @@ _yylex (void)
     case CPP_WSTRING:
       return STRING;
 
-      /* APPLE LOCAL begin CW asm blocks */
+      /* APPLE LOCAL begin CW asm blocks (in 4.2 not needed) */
       /* Convert a lexer-returned beginning-of-line token into a
 	 parser token.  */
     case CPP_BOL:
-      return CW_ASM_BOL;
+      return IASM_BOL;
     case CPP_EOL:
-      return CW_ASM_EOL;
+      return IASM_EOL;
       /* APPLE LOCAL end CW asm blocks */
 
     case CPP_OBJC_STRING:
@@ -3955,6 +4489,10 @@ _yylex (void)
     case CPP_PASTE:
     /* APPLE LOCAL CW asm blocks C++ comments 4248139 */
     case CPP_OTHER:
+      /* APPLE LOCAL begin ARM CW asm */
+      if (inside_iasm_block && last_token == CPP_HASH)
+	return '#';
+      /* APPLE LOCAL end ARM CW asm */
       error ("syntax error at %qs token", NAME(last_token));
       goto get_next;
 
@@ -4024,13 +4562,13 @@ c_parse_file (void)
     }
 }
 
-/* APPLE LOCAL begin CW asm blocks */
+/* APPLE LOCAL begin CW asm blocks (in 4.2 an) */
 static tree
-c_parse_cw_maybe_prefix (tree id)
+c_parse_iasm_maybe_prefix (tree id)
 {
   tree prefix_list = NULL_TREE;;
 
-  while (cw_is_prefix (id))
+  while (iasm_is_prefix (id))
     {
       if (yychar == YYEMPTY)
 	yychar = YYLEX;

@@ -5,13 +5,11 @@
 #include "config.h"
 #include "defines.h"
 #include <stdio.h>
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
 #include <string.h>
 #include "st.h"
-
-#ifdef _WIN32
-#include <malloc.h>
-#endif
 
 typedef struct st_table_entry st_table_entry;
 
@@ -48,22 +46,15 @@ static struct st_hash_type type_strhash = {
     strhash,
 };
 
-#ifdef RUBY_PLATFORM
-#define xmalloc ruby_xmalloc
-#define xcalloc ruby_xcalloc
-#define xrealloc ruby_xrealloc
-#define xfree ruby_xfree
-
-void *xmalloc(long);
-void *xcalloc(long, long);
-void *xrealloc(void *, long);
-void xfree(void *);
-#endif
-
 static void rehash(st_table *);
 
-#define alloc(type) (type*)xmalloc((unsigned)sizeof(type))
-#define Calloc(n,s) (char*)xcalloc((n),(s))
+#ifdef RUBY
+#define malloc xmalloc
+#define calloc xcalloc
+#endif
+
+#define alloc(type) (type*)malloc((unsigned)sizeof(type))
+#define Calloc(n,s) (char*)calloc((n),(s))
 
 #define EQUAL(table,x,y) ((x)==(y) || (*table->type->compare)((x),(y)) == 0)
 
@@ -480,7 +471,7 @@ st_cleanup_safe(table, never)
     table->num_entries = num_entries;
 }
 
-void
+int
 st_foreach(table, func, arg)
     st_table *table;
     int (*func)();
@@ -493,7 +484,7 @@ st_foreach(table, func, arg)
     for(i = 0; i < table->num_bins; i++) {
 	last = 0;
 	for(ptr = table->bins[i]; ptr != 0;) {
-	    retval = (*func)(ptr->key, ptr->record, arg, 0);
+	    retval = (*func)(ptr->key, ptr->record, arg);
 	    switch (retval) {
 	    case ST_CHECK:	/* check if hash is modified during iteration */
 	        tmp = 0;
@@ -504,8 +495,7 @@ st_foreach(table, func, arg)
 		}
 		if (!tmp) {
 		    /* call func with error notice */
-		    retval = (*func)(0, 0, arg, 1);
-		    return;
+		    return 1;
 		}
 		/* fall through */
 	    case ST_CONTINUE:
@@ -513,7 +503,7 @@ st_foreach(table, func, arg)
 		ptr = ptr->next;
 		break;
 	    case ST_STOP:
-		return;
+	        return 0;
 	    case ST_DELETE:
 		tmp = ptr;
 		if (last == 0) {
@@ -528,6 +518,7 @@ st_foreach(table, func, arg)
 	    }
 	}
     }
+    return 0;
 }
 
 static int
@@ -546,7 +537,7 @@ strhash(string)
 	h &= ~g;
     }
     return h;
-#elif HASH_PERL
+#elif defined(HASH_PERL)
     register int val = 0;
 
     while ((c = *string++) != '\0') {

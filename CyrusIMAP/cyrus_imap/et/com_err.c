@@ -130,7 +130,8 @@ typedef void (*errf) ();
 
 errf com_err_hook = default_com_err_proc;
 
-/*
+#ifndef APPLE_OS_X_SERVER
+
 void com_err_va (whoami, code, fmt, args)
     const char *whoami;
     long code;
@@ -139,9 +140,7 @@ void com_err_va (whoami, code, fmt, args)
 {
     (*com_err_hook) (whoami, code, fmt, args);
 }
-*/
 
-/*
 #ifndef VARARGS
 void INTERFACE_C com_err (const char *whoami,
 	      long code,
@@ -169,9 +168,7 @@ void INTERFACE_C com_err (va_alist)
     com_err_va (whoami, code, fmt, pvar);
     va_end(pvar);
 }
-*/
 
-/*
 errf set_com_err_hook (new_proc)
     errf new_proc;
 {
@@ -184,12 +181,11 @@ errf set_com_err_hook (new_proc)
 
     return x;
 }
-*/
 
-/*
 errf reset_com_err_hook () {
     errf x = com_err_hook;
     com_err_hook = default_com_err_proc;
     return x;
 }
-*/
+
+#endif /* APPLE_OS_X_SERVER */

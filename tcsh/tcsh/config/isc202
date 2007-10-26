@@ -66,12 +66,6 @@
 #undef BSDLIMIT
 
 /*
- * BSDNICE	Your system uses setpriority() instead of nice, to
- *		change a processes scheduling priority
- */
-#undef BSDNICE
-
-/*
  * TERMIO	You have struct termio instead of struct sgttyb.
  * 		This is usually the case for SYSV systems, where
  *		BSD uses sgttyb. POSIX systems should define this
@@ -94,35 +88,8 @@
  */
 #undef YPBUGS
 
-/*
- * SIGVOID	Define this if your signal handlers return void.  On older
- *		systems, signal returns int, but on newer ones, it returns void.
- */
-#define SIGVOID 
-
-/*
- * HAVEDUP2	Define this if your system supports dup2().
- */
-#undef HAVEDUP2
-
-/*
- * UTHOST	Does the utmp file have a host field?
- */
-#undef UTHOST
-
-/*
- * DIRENT	Your system has <dirent.h> instead of <sys/dir.h>
- */
-#define DIRENT
 /****************** local defines *********************/
 #define ISC202
-#define PW_SHADOW
-#ifdef notdef
-#define NEEDgethostname 	/* If networking is not installed */
-#endif
-/****************** configurable hacks ****************/
-/* have been moved to config_f.h */
-#include "config_f.h"
 
 #undef NLS
 #undef NLS_CATALOGS

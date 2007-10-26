@@ -30,7 +30,6 @@
 
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/refcount.h>
-#include <security_utilities/osxcode.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <string>
 #include <vector>
@@ -73,6 +72,38 @@ public:
 	
 	void update();
 };
+
+
+//
+// The generic implementation of update works with subclasses of GenericBundle,
+// represented through CFBundleRefs collected via CFBundle.
+// (Technically, this would work with anything that has a constructor from CFBundleRef.)
+// If we ever wanted a CodeRepository<ExecutableTool>, we'd specialize update() to deal with
+// ExecutableTool's slightly different constructor.
+//
+template <class Code>
+void CodeRepository<Code>::update()
+{
+	vector<RefPointer<Code> > result;
+	for (vector<string>::const_iterator it = mPaths.begin(); it != mPaths.end(); it++) {
+		if (CFRef<CFArrayRef> bundles = CFBundleCreateBundlesFromDirectory(NULL,
+				CFTempURL(*it, true), mSuffix.empty() ? NULL : CFStringRef(CFTempString(mSuffix)))) {
+			CFIndex count = CFArrayGetCount(bundles);
+			secdebug("coderep", "%p directory %s has %ld entries", this, it->c_str(), count);
+			for (CFIndex n = 0; n < count; n++)
+				try {
+					result.push_back(new Code((CFBundleRef)CFArrayGetValueAtIndex(bundles, n)));
+				} catch (...) {
+					secdebug("coderep", "%p exception creating %s (skipped)",
+						this, cfString(CFBundleRef(CFArrayGetValueAtIndex(bundles, n))).c_str());
+				}
+		} else
+			secdebug("coderep", "directory %s bundle read failed", it->c_str());
+	}
+	secdebug("coderep", "%p total of %ld items in list", this, result.size());
+	this->swap(result);
+}
+
 
 } // end namespace Security
 

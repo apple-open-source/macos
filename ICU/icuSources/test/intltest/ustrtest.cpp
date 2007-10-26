@@ -11,6 +11,7 @@
 #include "unicode/locid.h"
 #include "unicode/ucnv.h"
 #include "cmemory.h"
+#include "charstr.h"
 
 #if 0
 #include "unicode/ustream.h"
@@ -55,6 +56,7 @@ void UnicodeStringTest::runIndexedTest( int32_t index, UBool exec, const char* &
         case 13: name = "TestUnescape"; if (exec) TestUnescape(); break;
         case 14: name = "TestCountChar32"; if (exec) TestCountChar32(); break;
         case 15: name = "TestStringEnumeration"; if (exec) TestStringEnumeration(); break;
+        case 16: name = "TestCharString"; if (exec) TestCharString(); break;
 
         default: name = ""; break; //needed to end loop
     }
@@ -201,6 +203,9 @@ UnicodeStringTest::TestBasicManipulation()
 
         if(0!=s.caseCompare(buffer, -1, U_FOLD_CASE_DEFAULT)) {
             errln("UnicodeString.caseCompare(const UChar *, length, options) does not work with length==-1");
+        }
+        if(0!=s.caseCompare(0, s.length(), buffer, U_FOLD_CASE_DEFAULT)) {
+            errln("UnicodeString.caseCompare(start, _length, const UChar *, options) does not work");
         }
 
         buffer[u_strlen(buffer)]=0xe4;
@@ -589,6 +594,15 @@ UnicodeStringTest::TestExtract()
                 U_FAILURE(errorCode)
             ) {
                 errln("UnicodeString::extract(UConverter) conversion failed (length=%ld, %s)",
+                      length, u_errorName(errorCode));
+            }
+            // Test again with just the converter name.
+            if( (length=s.extract(0, s.length(), buffer, sizeof(buffer), "UTF-8"))!=13 ||
+                uprv_memcmp(buffer, expect, 13)!=0 ||
+                buffer[13]!=0 ||
+                U_FAILURE(errorCode)
+            ) {
+                errln("UnicodeString::extract(\"UTF-8\") conversion failed (length=%ld, %s)",
                       length, u_errorName(errorCode));
             }
 
@@ -1623,3 +1637,14 @@ UnicodeStringTest::TestStringEnumeration() {
         errln("StringEnumeration.clone()!=NULL");
     }
 }
+
+void
+UnicodeStringTest::TestCharString() {
+    static const char originalCStr[] =
+        "This is a large string that is meant to over flow the internal buffer of CharString. At the time of writing this test, the internal buffer is 128 bytes.";
+    CharString chStr(originalCStr);
+    if (strcmp(originalCStr, chStr) != 0) {
+        errln("CharString doesn't work with large strings.");
+    }
+}
+

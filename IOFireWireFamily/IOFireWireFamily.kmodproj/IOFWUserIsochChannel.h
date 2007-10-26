@@ -33,10 +33,17 @@
 
 class IOFWUserIsochChannel: public IOFWIsochChannel
 {
+	typedef IOFWIsochChannel super ;
+	
 	OSDeclareDefaultStructors(IOFWUserIsochChannel)
 	
 	public :
 	
+		virtual bool					init(	IOFireWireController *		control, 
+													bool 						doIRM,
+													UInt32 						packetSize, 
+													IOFWSpeed 					prefSpeed ) ;
+
 		// IOFWIsochChannel
 		virtual IOReturn 				allocateChannel();
 		virtual IOReturn 				releaseChannel();
@@ -44,13 +51,6 @@ class IOFWUserIsochChannel: public IOFWIsochChannel
 		virtual IOReturn 				stop();
 		
 		// me
-//		IOReturn						userAllocateChannelBegin(
-//														IOFWSpeed	inSpeed,
-//														UInt32		inAllowedChansHi,
-//														UInt32		inAllowedChansLo,
-//														IOFWSpeed*	outActualSpeed,
-//														UInt32*		outActualChannel) ;
-//		IOReturn						userReleaseChannelComplete() ;
 		IOReturn						allocateChannelBegin(
 												IOFWSpeed		speed,
 												UInt64			allowedChans,
@@ -60,10 +60,16 @@ class IOFWUserIsochChannel: public IOFWIsochChannel
 		IOReturn						allocateTalkerPort() ;
 		static void						s_exporterCleanup( IOFWUserIsochChannel * channel ) ;
 		
-		inline natural_t *				getAsyncRef()									{ return (natural_t*)fStopRefCon ; }
-		inline void						setAsyncRef( OSAsyncReference asyncRef )		{ fStopRefCon = asyncRef ; }
+		inline io_user_reference_t *	getUserAsyncRef()									{ return fAsyncRef ; }
+		inline void						setUserAsyncRef( OSAsyncReference64 asyncRef )		{ fAsyncRef = asyncRef ; }
 		
 	protected:
 	
-		bool			fBandwidthAllocated ;
+		bool					fBandwidthAllocated ;
+		io_user_reference_t *   fAsyncRef ;
+
+	public :
+
+		static IOReturn						isochChannel_ForceStopHandler( void * self, IOFWIsochChannel*, UInt32 stopCondition ) ;
+	
 } ;

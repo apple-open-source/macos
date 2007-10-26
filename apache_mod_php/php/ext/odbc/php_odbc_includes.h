@@ -1,13 +1,13 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | http://www.php.net/license/3_0.txt.                                  |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_odbc_includes.h,v 1.2.4.3.2.3 2007/01/01 09:46:45 sebastian Exp $ */
+/* $Id: php_odbc_includes.h,v 1.12.2.1.2.4 2007/03/13 00:04:38 stas Exp $ */
 
 #ifndef PHP_ODBC_INCLUDES_H
 #define PHP_ODBC_INCLUDES_H
@@ -126,6 +126,20 @@ PHP_FUNCTION(solid_fetch_prev);
 #include <sqlext.h>
 #define HAVE_SQL_EXTENDED_FETCH 1
 
+#elif defined(HAVE_ODBC_ROUTER) /* ODBCRouter.com */
+
+#ifdef CHAR
+#undef CHAR
+#endif
+
+#ifdef SQLCHAR
+#undef SQLCHAR
+#endif
+
+#define ODBC_TYPE "ODBCRouter"
+#include <odbcsdk.h>
+#undef HAVE_SQL_EXTENDED_FETCH
+
 #elif defined(HAVE_OPENLINK) /* OpenLink ODBC drivers */
 
 #define ODBC_TYPE "Openlink"
@@ -222,7 +236,6 @@ typedef struct odbc_result_value {
 
 typedef struct odbc_result {
 	ODBC_SQL_STMT_T stmt;
-	int id;
 	odbc_result_value *values;
 	SWORD numcols;
 	SWORD numparams;
@@ -235,7 +248,7 @@ typedef struct odbc_result {
 	odbc_connection *conn_ptr;
 } odbc_result;
 
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(odbc)
 	char *defDB;
 	char *defUser;
 	char *defPW;
@@ -252,7 +265,7 @@ typedef struct {
     char lasterrormsg[SQL_MAX_MESSAGE_LENGTH];
 	HashTable *resource_list;
 	HashTable *resource_plist;
-} php_odbc_globals;
+ZEND_END_MODULE_GLOBALS(odbc)
 
 int odbc_add_result(HashTable *list, odbc_result *result);
 odbc_result *odbc_get_result(HashTable *list, int count);
@@ -270,10 +283,10 @@ void odbc_sql_error(ODBC_SQL_ERROR_PARAMS);
 #define IS_SQL_BINARY(x) (x == SQL_BINARY || x == SQL_VARBINARY || x == SQL_LONGVARBINARY)
 
 #ifdef ZTS
-# define ODBCG(v) TSRMG(odbc_globals_id, php_odbc_globals *, v)
+# define ODBCG(v) TSRMG(odbc_globals_id, zend_odbc_globals *, v)
 #else
 # define ODBCG(v) (odbc_globals.v)
-extern ZEND_API php_odbc_globals odbc_globals;
+extern ZEND_API zend_odbc_globals odbc_globals;
 #endif
 
 #endif /* HAVE_UODBC */

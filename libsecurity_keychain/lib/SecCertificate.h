@@ -31,12 +31,13 @@
 #ifndef _SECURITY_SECCERTIFICATE_H_
 #define _SECURITY_SECCERTIFICATE_H_
 
+#include <CoreFoundation/CFBase.h>
+#include <CoreFoundation/CFArray.h>
+#include <CoreFoundation/CFDate.h>
 #include <Security/SecBase.h>
 #include <Security/cssmtype.h>
-
-// @@@ Here for X509 specific defines
 #include <Security/x509defs.h>
-
+#include <AvailabilityMacros.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -48,7 +49,7 @@ extern "C" {
 	@abstract Indicates the type of a certificate item attribute.
 	@constant kSecSubjectItemAttr Indicates a DER-encoded subject distinguished name.
 	@constant kSecIssuerItemAttr Indicates a DER-encoded issuer distinguished name.
-	@constant kSecSerialNumberItemAttr Indicates a DER-encoded certificate serial number.
+	@constant kSecSerialNumberItemAttr Indicates a DER-encoded certificate serial number (without the tag and length).
 	@constant kSecPublicKeyHashItemAttr Indicates a public key hash.
 	@constant kSecSubjectKeyIdentifierItemAttr Indicates a subject key identifier.
 	@constant kSecCertTypeItemAttr Indicates a certificate type.
@@ -72,7 +73,7 @@ enum
 */
 CFTypeID SecCertificateGetTypeID(void);
 
-#pragma mark ÑÑÑÑ Certificate Operations ÑÑÑÑ
+#pragma mark ---- Certificate Operations ----
 
 /*!
 	@function SecCertificateCreateFromData
@@ -80,18 +81,18 @@ CFTypeID SecCertificateGetTypeID(void);
     @param data A pointer to the certificate data.
     @param type The certificate type as defined in cssmtype.h.
     @param encoding The certificate encoding as defined in cssmtype.h.
-	@param certificate On return, a pointer to the newly created certificate reference.
-    @result A result code.  See "Security Error Codes" (SecBase.h).
+	@param certificate On return, a reference to the newly created certificate.
+    @result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecCertificateCreateFromData(const CSSM_DATA *data, CSSM_CERT_TYPE type, CSSM_CERT_ENCODING encoding, SecCertificateRef *certificate);
 
 /*!
 	@function SecCertificateAddToKeychain
-	@abstract Adds a certificate to the keychain specified.
-    @param certificate A reference to the certificate to add to the keychain.
-    @param keychain A reference to the keychain to which to add the certificate. Pass NULL to add the certificate to the default keychain.
-    @result A result code.  See "Security Error Codes" (SecBase.h).
-	@discussion This function call only works if the certificate was created using the SecCertificateCreateFromData function and the certificate has not yet been added to a keychain.
+	@abstract Adds a certificate to the specified keychain.
+    @param certificate A reference to a certificate.
+    @param keychain A reference to the keychain in which to add the certificate. Pass NULL to add the certificate to the default keychain.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+	@discussion This function is successful only if the certificate was created using the SecCertificateCreateFromData function and the certificate has not yet been added to a keychain.
 */
 OSStatus SecCertificateAddToKeychain(SecCertificateRef certificate, SecKeychainRef keychain);
 
@@ -99,8 +100,8 @@ OSStatus SecCertificateAddToKeychain(SecCertificateRef certificate, SecKeychainR
 	@function SecCertificateGetData
 	@abstract Retrieves the data for a given certificate.
     @param certificate A reference to the certificate from which to retrieve the data.
-    @param data On return, a pointer to the data for the certificate specified.  The caller must allocate the space for a CSSM_DATA structure before calling this function.  This data pointer is only guaranteed to remain valid as long as the certificate remains unchanged and valid.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+    @param data On return, the CSSM_DATA structure pointed to by data is filled in. You must allocate the space for a CSSM_DATA structure before calling this function. This data pointer is only guaranteed to remain valid as long as the certificate remains unchanged and valid.
+	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecCertificateGetData(SecCertificateRef certificate, CSSM_DATA_PTR data);
 
@@ -108,37 +109,110 @@ OSStatus SecCertificateGetData(SecCertificateRef certificate, CSSM_DATA_PTR data
 	@function SecCertificateGetType
 	@abstract Retrieves the type for a given certificate.
     @param certificate A reference to the certificate from which to obtain the type.
-    @param certificateType On return, a pointer to the certificate type of the certificate specified. Certificate types are defined in cssmtype.h
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+    @param certificateType On return, the certificate type of the certificate. Certificate types are defined in cssmtype.h.
+	@result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecCertificateGetType(SecCertificateRef certificate, CSSM_CERT_TYPE *certificateType);
 
 /*!
-	@function SecCertificateGetSubject
-	@abstract Retrieves the subject for a given certificate.
-    @param certificate A reference to the certificate from which to obtain the subject.
-    @param subject On return, a pointer to the subject of the given certificate.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+    @function SecCertificateGetSubject
+    @abstract Retrieves the subject name for a given certificate.
+    @param certificate A reference to the certificate from which to obtain the subject name.
+    @param subject On return, a pointer to a CSSM_X509_NAME struct which contains the subject's X.509 name (x509defs.h). This pointer remains valid until the certificate reference is released. The caller should not attempt to free this pointer.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+    @discussion Prior to Mac OS X 10.5, this function did not return any output in the subject parameter. Your code should check the returned pointer value (in addition to the function result) before attempting to use it.
+        For example:
+        const CSSM_X509_NAME *subject = NULL;
+        OSStatus status = SecCertificateGetSubject(certificate, &subject);
+        if ( (status == noErr) && (subject != NULL) ) {
+            // subject is valid
+        }
 */
-OSStatus SecCertificateGetSubject(SecCertificateRef certificate, CSSM_X509_NAME *subject);
+OSStatus SecCertificateGetSubject(SecCertificateRef certificate, const CSSM_X509_NAME **subject);
 
 /*!
-	@function SecCertificateGetIssuer
-	@abstract Retrieves the issuer of a given certificate.
-    @param certificate A reference to the certificate from which to obtain the issuer.
-    @param issuer On return, a pointer to the issuer of the given certificate.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+    @function SecCertificateGetIssuer
+    @abstract Retrieves the issuer name for a given certificate.
+    @param certificate A reference to the certificate from which to obtain the issuer name.
+    @param issuer On return, a pointer to a CSSM_X509_NAME struct which contains the issuer's X.509 name (x509defs.h). This pointer remains valid until the certificate reference is released. The caller should not attempt to free this pointer.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+    @discussion Prior to Mac OS X 10.5, this function did not return any output in the issuer parameter. Your code should check the returned pointer value (in addition to the function result) before attempting to use it.
+        For example:
+        const CSSM_X509_NAME *issuer = NULL;
+        OSStatus status = SecCertificateGetIssuer(certificate, &issuer);
+        if ( (status == noErr) && (issuer != NULL) ) {
+            // issuer is valid
+        }
 */
-OSStatus SecCertificateGetIssuer(SecCertificateRef certificate, CSSM_X509_NAME *issuer);
+OSStatus SecCertificateGetIssuer(SecCertificateRef certificate, const CSSM_X509_NAME **issuer);
 
 /*!
-	@function SecCertificateGetCLHandle
-	@abstract Retrieves the certificate library handle for a given certificate.
+    @function SecCertificateGetCLHandle
+    @abstract Retrieves the certificate library handle for a given certificate.
     @param certificate A reference to the certificate from which to obtain the certificate library handle.
-    @param clHandle On return, a pointer to the certificate library handle of the given certificate.  This handle remains valid at least as long as the certificate does.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+    @param clHandle On return, the certificate library handle of the given certificate. This handle remains valid at least as long as the certificate does.
+    @result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecCertificateGetCLHandle(SecCertificateRef certificate, CSSM_CL_HANDLE *clHandle);
+
+/*!
+    @function SecCertificateGetAlgorithmID
+    @abstract Retrieves the algorithm identifier for a given certificate.
+    @param certificate A reference to the certificate from which to retrieve the algorithm identifier.
+    @param algid On return, a pointer to a CSSM_X509_ALGORITHM_IDENTIFIER struct which identifies the algorithm for this certificate (x509defs.h). This pointer remains valid until the certificate reference is released. The caller should not attempt to free this pointer.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecCertificateGetAlgorithmID(SecCertificateRef certificate, const CSSM_X509_ALGORITHM_IDENTIFIER **algid);
+
+/*!
+    @function SecCertificateCopyPublicKey
+    @abstract Retrieves the public key for a given certificate.
+    @param certificate A reference to the certificate from which to retrieve the public key.
+    @param key On return, a reference to the public key for the specified certificate. Your code must release this reference by calling the CFRelease function.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef *key);
+
+/*!
+    @function SecCertificateCopyCommonName
+    @abstract Retrieves the common name of the subject of a given certificate.
+    @param certificate A reference to the certificate from which to retrieve the common name.
+    @param key On return, a reference to the common name. Your code must release this reference by calling the CFRelease function.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecCertificateCopyCommonName(SecCertificateRef certificate, CFStringRef *commonName);
+
+/*!
+    @function SecCertificateCopyEmailAddresses
+    @abstract Returns an array of zero or more email addresses for the subject of a given certificate.
+    @param certificate A reference to the certificate from which to retrieve the common name.
+    @param emailAddresses On return, an array of zero or more CFStringRef elements corresponding to each email address found. Your code must release this array reference by calling the CFRelease function.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/
+OSStatus SecCertificateCopyEmailAddresses(SecCertificateRef certificate, CFArrayRef *emailAddresses);
+
+/*!
+    @function SecCertificateCopyPreference
+    @abstract Returns the preferred certificate for the specified name and key usage. If a preferred certificate does not exist for the specified name and key usage, NULL is returned.
+    @param name A string containing an email address (RFC822) or other name for which a preferred certificate is requested.
+    @param keyUsage A key usage value, as defined in cssmtype.h. Pass 0 to ignore this parameter.
+    @param certificate On return, a reference to the preferred certificate, or NULL if none was found. You are responsible for releasing this reference by calling the CFRelease function.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+    @discussion This function will typically be used to obtain the preferred encryption certificate for an email recipient.
+*/
+OSStatus SecCertificateCopyPreference(CFStringRef name, CSSM_KEYUSE keyUsage, SecCertificateRef *certificate);
+
+/*!
+    @function SecCertificateSetPreference
+    @abstract Sets the preferred certificate for a specified name, key usage, and date.
+    @param certificate A reference to the certificate which will be preferred.
+    @param name A string containing an email address (RFC822) or other name for which a preferred certificate will be associated.
+    @param keyUsage A key usage value, as defined in cssmtype.h. Pass 0 to avoid specifying a particular key usage.
+    @param date (optional) A date reference. If supplied, the preferred certificate will be changed only if this date is later than the currently saved setting. Pass NULL if this preference should not be restricted by date.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+    @discussion This function will typically be used to set the preferred encryption certificate for an email recipient, either manually (when encrypting email to a recipient) or automatically upon receipt of encrypted email.
+*/
+OSStatus SecCertificateSetPreference(SecCertificateRef certificate, CFStringRef name, CSSM_KEYUSE keyUsage, CFDateRef date);
 
 
 #if defined(__cplusplus)

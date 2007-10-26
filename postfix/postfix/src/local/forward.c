@@ -53,8 +53,8 @@
 /* System library. */
 
 #include <sys_defs.h>
+#include <sys/time.h>
 #include <unistd.h>
-#include <time.h>
 
 /* Utility library. */
 
@@ -78,6 +78,7 @@
 #include <mark_corrupt.h>
 #include <mail_date.h>
 #include <mail_params.h>
+#include <dsn_mask.h>
 
 /* Application-specific. */
 
@@ -91,7 +92,7 @@ static HTABLE *forward_dt;
 typedef struct FORWARD_INFO {
     VSTREAM *cleanup;			/* clean up service handle */
     char   *queue_id;			/* forwarded message queue id */
-    time_t  posting_time;		/* posting time */
+    struct timeval posting_time;	/* posting time */
 } FORWARD_INFO;
 
 /* forward_init - prepare for forwarding */
@@ -111,7 +112,7 @@ int     forward_init(void)
 
 /* forward_open - open connection to cleanup service */
 
-static FORWARD_INFO *forward_open(char *sender)
+static FORWARD_INFO *forward_open(DELIVER_REQUEST *request, const char *sender)
 {
     VSTRING *buffer = vstring_alloc(100);
     FORWARD_INFO *info;
@@ -138,21 +139,52 @@ static FORWARD_INFO *forward_open(char *sender)
     }
     info = (FORWARD_INFO *) mymalloc(sizeof(FORWARD_INFO));
     info->cleanup = cleanup;
-    info->queue_id = mystrdup(vstring_str(buffer));
-    info->posting_time = time((time_t *) 0);
+    info->queue_id = mystrdup(STR(buffer));
+    GETTIMEOFDAY(&info->posting_time);
 
 #define FORWARD_CLEANUP_FLAGS (CLEANUP_FLAG_BOUNCE | CLEANUP_FLAG_MASK_INTERNAL)
 
     attr_print(cleanup, ATTR_FLAG_NONE,
-	       ATTR_TYPE_NUM, MAIL_ATTR_FLAGS, FORWARD_CLEANUP_FLAGS,
+	       ATTR_TYPE_INT, MAIL_ATTR_FLAGS, FORWARD_CLEANUP_FLAGS,
 	       ATTR_TYPE_END);
 
     /*
      * Send initial message envelope information. For bounces, set the
      * designated sender: mailing list owner, posting user, whatever.
      */
-    rec_fprintf(cleanup, REC_TYPE_TIME, "%ld", (long) info->posting_time);
+    rec_fprintf(cleanup, REC_TYPE_TIME, REC_TYPE_TIME_FORMAT,
+		REC_TYPE_TIME_ARG(info->posting_time));
     rec_fputs(cleanup, REC_TYPE_FROM, sender);
+
+    /*
+     * Don't send the original envelope ID or full/headers return mask if it
+     * was reset due to mailing list expansion.
+     */
+    if (request->dsn_ret)
+	rec_fprintf(cleanup, REC_TYPE_ATTR, "%s=%d",
+		    MAIL_ATTR_DSN_RET, request->dsn_ret);
+    if (request->dsn_envid && *(request->dsn_envid))
+	rec_fprintf(cleanup, REC_TYPE_ATTR, "%s=%s",
+		    MAIL_ATTR_DSN_ENVID, request->dsn_envid);
+
+    /*
+     * Zero-length attribute values are place holders for unavailable
+     * attribute values. See qmgr_message.c. They are not meant to be
+     * propagated to queue files.
+     */
+#define PASS_ATTR(fp, name, value) do { \
+    if ((value) && *(value)) \
+	rec_fprintf((fp), REC_TYPE_ATTR, "%s=%s", (name), (value)); \
+    } while (0)
+
+    PASS_ATTR(cleanup, MAIL_ATTR_LOG_CLIENT_NAME, request->client_name);
+    PASS_ATTR(cleanup, MAIL_ATTR_LOG_CLIENT_ADDR, request->client_addr);
+    PASS_ATTR(cleanup, MAIL_ATTR_LOG_PROTO_NAME, request->client_proto);
+    PASS_ATTR(cleanup, MAIL_ATTR_LOG_HELO_NAME, request->client_helo);
+    PASS_ATTR(cleanup, MAIL_ATTR_SASL_METHOD, request->sasl_method);
+    PASS_ATTR(cleanup, MAIL_ATTR_SASL_USERNAME, request->sasl_username);
+    PASS_ATTR(cleanup, MAIL_ATTR_SASL_SENDER, request->sasl_sender);
+    PASS_ATTR(cleanup, MAIL_ATTR_RWR_CONTEXT, request->rewrite_context);
 
     vstring_free(buffer);
     return (info);
@@ -170,7 +202,7 @@ int     forward_append(DELIVER_ATTR attr)
      */
     if (msg_verbose)
 	msg_info("forward delivered=%s sender=%s recip=%s",
-		 attr.delivered, attr.sender, attr.recipient);
+		 attr.delivered, attr.sender, attr.rcpt.address);
     if (forward_dt == 0)
 	msg_panic("forward_append: missing forward_init call");
 
@@ -183,18 +215,25 @@ int     forward_append(DELIVER_ATTR attr)
 	htable_enter(forward_dt, attr.delivered, (char *) table_snd);
     }
     if ((info = (FORWARD_INFO *) htable_find(table_snd, attr.sender)) == 0) {
-	if ((info = forward_open(attr.sender)) == 0)
+	if ((info = forward_open(attr.request, attr.sender)) == 0)
 	    return (-1);
 	htable_enter(table_snd, attr.sender, (char *) info);
     }
 
     /*
      * Append the recipient to the message envelope. Don't send the original
-     * recipient if it was reset due to mailing list expansion.
+     * recipient or notification mask if it was reset due to mailing list
+     * expansion.
      */
-    if (*attr.orig_rcpt)
-	rec_fputs(info->cleanup, REC_TYPE_ORCP, attr.orig_rcpt);
-    rec_fputs(info->cleanup, REC_TYPE_RCPT, attr.recipient);
+    if (*attr.rcpt.dsn_orcpt)
+	rec_fprintf(info->cleanup, REC_TYPE_ATTR, "%s=%s",
+		    MAIL_ATTR_DSN_ORCPT, attr.rcpt.dsn_orcpt);
+    if (attr.rcpt.dsn_notify)
+	rec_fprintf(info->cleanup, REC_TYPE_ATTR, "%s=%d",
+		    MAIL_ATTR_DSN_NOTIFY, attr.rcpt.dsn_notify);
+    if (*attr.rcpt.orig_addr)
+	rec_fputs(info->cleanup, REC_TYPE_ORCP, attr.rcpt.orig_addr);
+    rec_fputs(info->cleanup, REC_TYPE_RCPT, attr.rcpt.address);
 
     return (vstream_ferror(info->cleanup));
 }
@@ -204,7 +243,7 @@ int     forward_append(DELIVER_ATTR attr)
 static int forward_send(FORWARD_INFO *info, DELIVER_REQUEST *request,
 			        DELIVER_ATTR attr, char *delivered)
 {
-    char   *myname = "forward_send";
+    const char *myname = "forward_send";
     VSTRING *buffer = vstring_alloc(100);
     int     status;
     int     rec_type = 0;
@@ -219,10 +258,10 @@ static int forward_send(FORWARD_INFO *info, DELIVER_REQUEST *request,
     rec_fprintf(info->cleanup, REC_TYPE_NORM, "Received: by %s (%s)",
 		var_myhostname, var_mail_name);
     rec_fprintf(info->cleanup, REC_TYPE_NORM, "\tid %s; %s",
-		info->queue_id, mail_date(info->posting_time));
+		info->queue_id, mail_date(info->posting_time.tv_sec));
     if (local_deliver_hdr_mask & DELIVER_HDR_FWD)
 	rec_fprintf(info->cleanup, REC_TYPE_NORM, "Delivered-To: %s",
-		    lowercase(vstring_str(buffer)));
+		    lowercase(STR(buffer)));
     if ((status = vstream_ferror(info->cleanup)) == 0)
 	if (vstream_fseek(attr.fp, attr.offset, SEEK_SET) < 0)
 	    msg_fatal("%s: seek queue file %s: %m:",
@@ -232,8 +271,11 @@ static int forward_send(FORWARD_INFO *info, DELIVER_REQUEST *request,
 	    break;
 	status = (REC_PUT_BUF(info->cleanup, rec_type, buffer) != rec_type);
     }
-    if (status == 0 && rec_type != REC_TYPE_XTRA)
+    if (status == 0 && rec_type != REC_TYPE_XTRA) {
+	msg_warn("%s: bad record type: %d in message content",
+		 info->queue_id, rec_type);
 	status |= mark_corrupt(attr.fp);
+    }
 
     /*
      * Send the end-of-data marker only when there were no errors.
@@ -250,16 +292,24 @@ static int forward_send(FORWARD_INFO *info, DELIVER_REQUEST *request,
     if (status == 0)
 	if (vstream_fflush(info->cleanup)
 	    || attr_scan(info->cleanup, ATTR_FLAG_MISSING,
-			 ATTR_TYPE_NUM, MAIL_ATTR_STATUS, &status,
+			 ATTR_TYPE_INT, MAIL_ATTR_STATUS, &status,
 			 ATTR_TYPE_END) != 1)
 	    status = 1;
 
     /*
      * Log successful forwarding.
+     * 
+     * XXX DSN alias and .forward expansion already report SUCCESS, so don't do
+     * it again here.
      */
-    if (status == 0)
-	status = sent(BOUNCE_FLAGS(request), SENT_ATTR(attr),
-		      "forwarded as %s", info->queue_id);
+    if (status == 0) {
+	attr.rcpt.dsn_notify =
+	    (attr.rcpt.dsn_notify == DSN_NOTIFY_SUCCESS ?
+	     DSN_NOTIFY_NEVER : attr.rcpt.dsn_notify & ~DSN_NOTIFY_SUCCESS);
+	dsb_update(attr.why, "2.0.0", "relayed", DSB_SKIP_RMTA, DSB_SKIP_REPLY,
+		   "forwarded as %s", info->queue_id);
+	status = sent(BOUNCE_FLAGS(request), SENT_ATTR(attr));
+    }
 
     /*
      * Cleanup.

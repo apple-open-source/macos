@@ -1,0 +1,20 @@
+--- src/fileio.c.orig	2005-05-18 09:51:53.000000000 -0700
++++ src/fileio.c	2005-05-18 09:47:41.000000000 -0700
+@@ -1973,6 +1973,17 @@ rewind_retry:
+ 	    }
+ 	}
+ 
++	if (p_bf) {
++		/* beautify throws away all non-printable characters on input
++		   except tab, newline, and form-feed	*/
++		int i=0;
++		for (p = ptr; p < ptr + size; ++p) {
++		    if (isprint(*p) || *p == '\t' || *p == '\n' || *p == '\f') 
++			ptr[i++] = *p;
++		}
++		size=i;
++	}
++
+ 	/*
+ 	 * This loop is executed once for every character read.
+ 	 * Keep it fast!

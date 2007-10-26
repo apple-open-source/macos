@@ -29,10 +29,11 @@
 
 #define NMBSTATET	10
 #define C_LOCALE_INITIALIZER	{	\
+	0, NULL,			\
 	{}, {}, {}, {}, {},		\
 	{}, {}, {}, {}, {},		\
 	XMAGIC,				\
-	1, 0, 0, 0, 0, 0, 1, 1,		\
+	1, 0, 0, 0, 0, 0, 1, 1, 0,	\
 	NULL,				\
 	&_DefaultRuneXLocale,		\
 }
@@ -51,6 +52,8 @@ extern int __monetary_load_locale(const char *, locale_t);
 extern int __numeric_load_locale(const char *, locale_t);
 extern int __setrunelocale(const char *, locale_t);
 extern int __time_load_locale(const char *, locale_t);
+
+static void _releaselocale(locale_t loc);
 
 /*
  * check that the encoding is the right size, isn't . or .. and doesn't
@@ -99,6 +102,8 @@ _duplocale(locale_t loc)
 
 	if ((new = (locale_t)malloc(sizeof(struct _xlocale))) == NULL)
 		return NULL;
+	new->__refcount = 1;
+	new->__free_extra = (__free_extra_t)_releaselocale;
 	if (loc == NULL)
 		loc = __current_locale();
 	else if (loc == LC_GLOBAL_LOCALE)
@@ -109,7 +114,8 @@ _duplocale(locale_t loc)
 	}
 	_copylocale(new, loc);
 	/* __mbs_mblen is the first of NMBSTATET mbstate_t buffers */
-	bzero(&new->__mbs_mblen, NMBSTATET * sizeof(new->__mbs_mblen));
+	bzero(&new->__mbs_mblen, offsetof(struct _xlocale, __magic)
+	    - offsetof(struct _xlocale, __mbs_mblen));
 	/* collate */
 	XL_RETAIN(new->__lc_collate);
 	/* ctype */
@@ -120,6 +126,7 @@ _duplocale(locale_t loc)
 	XL_RETAIN(new->__lc_monetary);
 	/* numeric */
 	XL_RETAIN(new->__lc_numeric);
+	XL_RETAIN(new->__lc_numeric_loc);
 	/* time */
 	XL_RETAIN(new->__lc_time);
 	/* newale_t */
@@ -175,9 +182,13 @@ _modifylocale(locale_t loc, int mask, __const char *locale)
 						return -1;
 					}
 				}
-				if (strcmp(enc, loc->__lc_ctype->__ctype_encoding) != 0 && (ret = __setrunelocale(enc, loc)) != 0) {
-					errno = ret;
-					return -1;
+				if (strcmp(enc, loc->__lc_ctype->__ctype_encoding) != 0) {
+					if ((ret = __setrunelocale(enc, loc)) != 0) {
+						errno = ret;
+						return -1;
+					}
+					if (loc->__numeric_fp_cvt == LC_NUMERIC_FP_SAME_LOCALE)
+						loc->__numeric_fp_cvt = LC_NUMERIC_FP_UNINITIALIZED;
 				}
 				break;
 			case LC_MESSAGES_MASK:
@@ -213,8 +224,13 @@ _modifylocale(locale_t loc, int mask, __const char *locale)
 					}
 				}
 				oenc = (loc->_numeric_using_locale ? loc->__lc_numeric->_numeric_locale_buf : C);
-				if (strcmp(enc, oenc) != 0 && __numeric_load_locale(enc, loc) == _LDP_ERROR)
-					return -1;
+				if (strcmp(enc, oenc) != 0) {
+					if (__numeric_load_locale(enc, loc) == _LDP_ERROR)
+						return -1;
+					loc->__numeric_fp_cvt = LC_NUMERIC_FP_UNINITIALIZED;
+					XL_RELEASE(loc->__lc_numeric_loc);
+					loc->__lc_numeric_loc = NULL;
+				}
 				break;
 			case LC_TIME_MASK:
 				if (!*locale) {
@@ -251,6 +267,7 @@ _releaselocale(locale_t loc)
 	XL_RELEASE(loc->__lc_monetary);
 	/* numeric */
 	XL_RELEASE(loc->__lc_numeric);
+	XL_RELEASE(loc->__lc_numeric_loc);
 	/* time */
 	XL_RELEASE(loc->__lc_time);
 	/* locale_t */
@@ -280,12 +297,11 @@ int
 freelocale(locale_t loc)
 {
 	if (!loc || _checklocale(loc) < 0 || loc == &__global_locale
-	    || loc == LC_GLOBAL_LOCALE) {
+	    || loc == LC_GLOBAL_LOCALE || loc == &__c_locale) {
 		errno = EINVAL;
 		return -1;
 	}
-	_releaselocale(loc);
-	free(loc);
+	XL_RELEASE(loc);
 	return 0;
 }
 
@@ -321,6 +337,40 @@ newlocale(int mask, __const char *locale, locale_t base)
 		return NULL;
 	}
 	return new;
+}
+
+/*
+ * PRIVATE EXTERNAL: Returns the locale that can be used by wcstod and
+ * family, to convert the wide character string to a multi-byte string
+ * (the LC_NUMERIC and LC_CTYPE locales may be different).
+ */
+__private_extern__ locale_t
+__numeric_ctype(locale_t loc)
+{
+	switch(loc->__numeric_fp_cvt) {
+	case LC_NUMERIC_FP_UNINITIALIZED: {
+		const char *ctype = loc->__lc_ctype->__ctype_encoding;
+		const char *numeric = (loc->_numeric_using_locale ? loc->__lc_numeric->_numeric_locale_buf : C);
+		if (strcmp(ctype, numeric) == 0) {
+			loc->__numeric_fp_cvt = LC_NUMERIC_FP_SAME_LOCALE;
+			return loc;
+		} else {
+			loc->__lc_numeric_loc = newlocale(LC_CTYPE_MASK, numeric, &__c_locale);
+			if (loc->__lc_numeric_loc) {
+				loc->__numeric_fp_cvt = LC_NUMERIC_FP_USE_LOCALE;
+				return loc->__lc_numeric_loc;
+			} else { /* shouldn't happen, but just use the same locale */
+				loc->__numeric_fp_cvt = LC_NUMERIC_FP_SAME_LOCALE;
+				return loc;
+			}
+		}
+	}
+	case LC_NUMERIC_FP_SAME_LOCALE:
+		return loc;
+	case LC_NUMERIC_FP_USE_LOCALE:
+		return loc->__lc_numeric_loc;
+	}
+	return loc;	/* shouldn't happen */
 }
 
 /*
@@ -414,9 +464,17 @@ ___mb_cur_max_l(locale_t loc)
 /*
  * Called from the Libc initializer to setup the thread-specific key.
  */
+/*
+ * Partition _pthread_keys in a lower part that dyld can use, and an upper
+ * part for libSystem.  The libSystem part starts at __pthread_tsd_first = 10.
+ * dyld will set this value to 1.
+ */
+extern int __pthread_tsd_first;
+
 __private_extern__ void
 __xlocale_init(void)
 {
 	if (__locale_key == (pthread_key_t)-1)
-		pthread_key_create(&__locale_key, NULL);
+		__locale_key = __pthread_tsd_first;
 }
+

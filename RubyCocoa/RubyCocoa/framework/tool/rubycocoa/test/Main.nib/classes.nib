@@ -1,0 +1,73 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {
+                about = id; 
+                quit = id; 
+                toggleHide = id; 
+                toggleIgnoreMouseEvent = id; 
+                toggleStealthMode = id; 
+                toggleTimeout = id; 
+            }; 
+            CLASS = AppController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                configController = id; 
+                menu = id; 
+                menuToggleHide = id; 
+                menuToggleIgnoreMouseEvent = id; 
+                menuToggleStealthMode = id; 
+                menuToggleTimeout = id; 
+                winConfig = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {
+                addKeyword = id; 
+                changeConfig = id; 
+                changeMaxAlphaValue = id; 
+                changeMinAlphaValue = id; 
+                deleteKeyword = id; 
+                "load_config" = id; 
+                relunch = id; 
+                selectFont = id; 
+                show = id; 
+            }; 
+            CLASS = ConfigController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                chkDontFadeout = id; 
+                chkIgnoreMouseEvent = id; 
+                chkStealthMode = id; 
+                sldrMaxAlphaValue = id; 
+                sldrMinAlphaValue = id; 
+                stpLineHeight = id; 
+                stpLines = id; 
+                stpWidth = id; 
+                tblKeywords = id; 
+                txtFont = id; 
+                txtLineHeight = id; 
+                txtLines = id; 
+                txtWidth = id; 
+                window = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                addKeyword = id; 
+                changeConfig = id; 
+                changeMaxAlphaValue = id; 
+                changeMinAlphaValue = id; 
+                deleteKeyword = id; 
+                selectFont = id; 
+            }; 
+            CLASS = NSTabViewItem; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

@@ -168,3 +168,21 @@ NO_TROFF
 	"error: no TROFF command specified in %s\n"
 NO_CAT_FOR_NONSTD_LL
 	"no cat page stored because of nonstandard line length\n"
+BROWSER_IS
+	"\nusing %s as browser\n"
+HTMLPAGER_IS
+	"\nusing %s to dump HTML pages as text"
+FOUND_FILE
+	"manfile_from_sec_and_dir() found %s\n"
+CALLTRACE1
+	"manfile_from_sec_and_dir(dir=%s, sec=%s, name=%s, flags=0x%0x)\n"
+CALLTRACE2
+	"glob_for_file(dir=%s, sec=%s, name=%s, type=0x%0x, ...)\n"
+NO_MATCH
+	"glob_for_file found no matches.\n"
+GLOB_FOR_FILE
+	"glob_for_file returns %s.\n"
+CALLTRACE3
+	 "glob_for_file_ext_glob(dir=%s, sec=%s, name=%s, ext=%s, hpx=%s, glob=%d, type=0x%0x);\n"
+ABOUT_TO_GLOB
+	"glob_for_file_ext_glob will expand %s\n"

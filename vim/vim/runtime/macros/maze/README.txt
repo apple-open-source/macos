@@ -5,7 +5,6 @@ To run the maze macros with Vim:
 
 The "-u maze.mac" loads the maze macros and skips loading your .vimrc, which
 may contain settings and mappings that get in the way.
-The maze program doesn't work on x86 systems, probably a byte order problem.
 
 
 The original README:

@@ -6,7 +6,14 @@
 
 #define ST_INCLUDED
 
+#if SIZEOF_LONG == SIZEOF_VOIDP
 typedef unsigned long st_data_t;
+#elif SIZEOF_LONG_LONG == SIZEOF_VOIDP
+typedef unsigned LONG_LONG st_data_t;
+#else
+# error ---->> st.c requires sizeof(void*) == sizeof(long) to be compiled. <<---
+-
+#endif
 #define ST_DATA_T_DEFINED
 
 typedef struct st_table st_table;
@@ -48,7 +55,7 @@ int st_delete _((st_table *, st_data_t *, st_data_t *));
 int st_delete_safe _((st_table *, st_data_t *, st_data_t *, st_data_t));
 int st_insert _((st_table *, st_data_t, st_data_t));
 int st_lookup _((st_table *, st_data_t, st_data_t *));
-void st_foreach _((st_table *, int (*)(ANYARGS), st_data_t));
+int st_foreach _((st_table *, int (*)(ANYARGS), st_data_t));
 void st_add_direct _((st_table *, st_data_t, st_data_t));
 void st_free_table _((st_table *));
 void st_cleanup_safe _((st_table *, st_data_t));

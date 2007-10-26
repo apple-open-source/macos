@@ -1,0 +1,52 @@
+/^#include <ctype.h>/a
+
+#ifdef ENABLE_DTRACE
+
+#include "pydtrace.h"
+
+#define PYTHON_DTRACE_ENTER(py_frame)					\
+	if (PYTHON_ENTRY_ENABLED()) {					\
+		char *fl_name = ((PyStringObject *)py_frame->f_code->	\
+				 co_filename)->ob_sval;			\
+		char *fn_name = ((PyStringObject *)py_frame->f_code->	\
+				 co_name)->ob_sval;			\
+									\
+		PYTHON_ENTRY(fl_name, fn_name, py_frame->f_lineno,	\
+			      py_frame->f_code->co_argcount);		\
+	}
+
+#define PYTHON_DTRACE_EXIT(py_frame, object)				\
+	if (PYTHON_EXIT_ENABLED()) {					\
+		char *fl_name = ((PyStringObject *)py_frame->f_code->	\
+				 co_filename)->ob_sval;			\
+		char *fn_name = ((PyStringObject *)py_frame->f_code->	\
+				 co_name)->ob_sval;			\
+									\
+		PYTHON_EXIT(fl_name, fn_name, object);			\
+	}
+
+#else
+
+#define PYTHON_DTRACE_ENTER(py_frame) /* nothing */
+#define PYTHON_DTRACE_EXIT(py_frame, object) /* nothing */
+
+#endif /* ENABLE_DTRACE */
+.
+/case CALL_FUNCTION:/a
+.
+/#ifdef WITH_TSC/i
+
+			PYTHON_DTRACE_ENTER(f);
+
+.
+/if (x != NULL)/c
+			if (x != NULL) {
+				PYTHON_DTRACE_EXIT(f, (char *)x->ob_type->tp_name);
+.
+/continue;/a
+			}
+
+			PYTHON_DTRACE_EXIT(f, "error");
+
+.
+w

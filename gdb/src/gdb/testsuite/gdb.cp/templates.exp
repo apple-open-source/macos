@@ -35,6 +35,7 @@ if [get_compiler_info ${binfile} "c++"] {
     return -1
 }
 
+# APPLE LOCAL quiet about long doubles
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug c++ additional_flags=-Wno-long-double}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
@@ -399,7 +400,7 @@ gdb_expect {
     -re "type = class Baz<int, ?'s'> {\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*int baz\\(int, int\\);\r\n}\r\n$gdb_prompt $"
     { # GCC 3.1, DWARF-2 output.
 	kfail "gdb/57" "ptype Baz" }
-    -re "type = class Baz<int, ?115> {\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*int baz\\(int, int\\);\r\n}\r\n$gdb_prompt $"
+    -re "type = class Baz<int, ?(\\(char\\))?115> {\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*int baz\\(int, int\\);\r\n}\r\n$gdb_prompt $"
     { # GCC 3.x, DWARF-2 output, running into gdb/57 and gdb/1512.
 	kfail "gdb/57" "ptype Baz" }
     -re "No symbol \"Baz\" in current context.\r\n$gdb_prompt $"
@@ -453,10 +454,10 @@ gdb_expect {
 
 send_gdb "ptype quxint\n"   
 gdb_expect {   
-   -re "type = class Qux<int, ?&string> \\{\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*.*int qux\\(int, int\\);\r\n\\}\r\n$gdb_prompt $" { pass "ptype quxint" }
-   -re "type = class Qux<int, ?&string> \\{\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*int qux\\(int, int\\);.*\r\n\\}\r\n$gdb_prompt $" { pass "ptype quxint" }
-   -re "type = class Qux<int, ?\\(char ?\\*\\) ?\\(& ?string\\)> \\{\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*int qux\\(int, int\\);.*\r\n\\}\r\n$gdb_prompt $" { pass "ptype quxint" }
-   -re "type = class Qux<int, ?&\\(string\\)> \\{\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*int qux\\(int, int\\);.*\r\n\\}\r\n$gdb_prompt $" {
+   -re "type = class Qux<int, ?& ?string> \\{\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*.*int qux\\(int, int\\);\r\n\\}\r\n$gdb_prompt $" { pass "ptype quxint" }
+   -re "type = class Qux<int, ?& ?string> \\{\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*int qux\\(int, int\\);.*\r\n\\}\r\n$gdb_prompt $" { pass "ptype quxint" }
+   -re "type = class Qux<int, ?\\(char ?\\*\\)\\(& ?string\\)> \\{\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*int qux\\(int, int\\);.*\r\n\\}\r\n$gdb_prompt $" { pass "ptype quxint" }
+   -re "type = class Qux<int, ?& ?\\(string\\)> \\{\r\n\[ \t\]*public:\r\n\[ \t\]*int x;\r\n\[ \t\]*int t;\r\n\r\n\[ \t\]*int qux\\(int, int\\);.*\r\n\\}\r\n$gdb_prompt $" {
        kfail "gdb/1512" "ptype quxint"
    }
    -re "$gdb_prompt $"                     { fail "ptype quxint" }

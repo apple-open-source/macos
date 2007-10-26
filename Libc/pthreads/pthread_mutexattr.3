@@ -57,33 +57,73 @@
 .Dt PTHREAD_MUTEXATTR 3
 .Os
 .Sh NAME
-.Nm pthread_mutexattr_init ,
 .Nm pthread_mutexattr_destroy ,
-.Nm pthread_mutexattr_setprioceiling ,
 .Nm pthread_mutexattr_getprioceiling ,
-.Nm pthread_mutexattr_setprotocol ,
 .Nm pthread_mutexattr_getprotocol ,
-.Nm pthread_mutexattr_settype ,
-.Nm pthread_mutexattr_gettype
+.Nm pthread_mutexattr_gettype ,
+.Nm pthread_mutexattr_init ,
+.Nm pthread_mutexattr_setprioceiling ,
+.Nm pthread_mutexattr_setprotocol ,
+.Nm pthread_mutexattr_settype
 .Nd mutex attribute operations
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_mutexattr_init "pthread_mutexattr_t *attr"
+.Fo pthread_mutexattr_destroy
+.Fa "pthread_mutexattr_t *attr"
+.Fc
 .Ft int
-.Fn pthread_mutexattr_destroy "pthread_mutexattr_t *attr"
+.Fo pthread_mutexattr_getprioceiling
+.Fa "const pthread_mutexattr_t *attr"
+.Fa "int *prioceiling"
+.Fc
+.\" To match the SUS, this should be:
+.\" .Ft int
+.\" .Fo pthread_mutexattr_getprioceiling
+.\" .Fa "pthread_mutexattr_t *restrict attr"
+.\" .Fa "int *restrict prioceiling"
+.\" .Fc
 .Ft int
-.Fn pthread_mutexattr_setprioceiling "pthread_mutexattr_t *attr" "int prioceiling"
+.Fo pthread_mutexattr_getprotocol
+.Fa "const pthread_mutexattr_t *attr"
+.Fa "int *protocol"
+.Fc
+.\" To match the SUS, this should be:
+.\" .Ft int
+.\" .Fo pthread_mutexattr_getprotocol
+.\" .Fa "pthread_mutexattr_t *restrict attr"
+.\" .Fa "int *restrict protocol"
+.\" .Fc
 .Ft int
-.Fn pthread_mutexattr_getprioceiling "pthread_mutexattr_t *attr" "int *prioceiling"
+.Fo pthread_mutexattr_gettype
+.Fa "const pthread_mutexattr_t *attr"
+.Fa "int *type"
+.Fc
+.\" To match the SUS, this should be:
+.\" .Ft int
+.\" .Fo pthread_mutexattr_gettype
+.\" .Fa "pthread_mutexattr_t *restrict attr"
+.\" .Fa "int *restrict type"
+.\" .Fc
 .Ft int
-.Fn pthread_mutexattr_setprotocol "pthread_mutexattr_t *attr" "int protocol"
+.Fo pthread_mutexattr_init
+.Fa "pthread_mutexattr_t *attr"
+.Fc
 .Ft int
-.Fn pthread_mutexattr_getprotocol "pthread_mutexattr_t *attr" "int *protocol"
+.Fo pthread_mutexattr_setprioceiling
+.Fa "pthread_mutexattr_t *attr"
+.Fa "int prioceiling"
+.Fc
 .Ft int
-.Fn pthread_mutexattr_settype "pthread_mutexattr_t *attr" "int type"
+.Fo pthread_mutexattr_setprotocol
+.Fa "pthread_mutexattr_t *attr"
+.Fa "int protocol"
+.Fc
 .Ft int
-.Fn pthread_mutexattr_gettype "pthread_mutexattr_t *attr" "int *type"
+.Fo pthread_mutexattr_settype
+.Fa "pthread_mutexattr_t *attr"
+.Fa "int type"
+.Fc
 .Sh DESCRIPTION
 Mutex attributes are used to specify parameters to
 .Fn pthread_mutex_init .
@@ -95,7 +135,7 @@ The
 .Fn pthread_mutexattr_init
 function initializes
 .Fa attr
-with all the default mutex attributes.
+with all of the default mutex attributes.
 .Pp
 The
 .Fn pthread_mutexattr_destroy
@@ -104,7 +144,7 @@ function destroys
 .Pp
 The
 .Fn pthread_mutexattr_settype
-functions set the mutex type value of the attribute.  Valid mutex types are:
+function sets the mutex type value of the attribute.  Valid mutex types are:
 .Dv PTHREAD_MUTEX_NORMAL ,
 .Dv PTHREAD_MUTEX_ERRORCHECK ,
 .Dv PTHREAD_MUTEX_RECURSIVE ,
@@ -115,7 +155,7 @@ The default mutex type for
 is
 .Dv PTHREAD_MUTEX_DEFAULT .
 .Pp
-.Dv PTHREAD_MUXEX_NORMAL
+.Dv PTHREAD_MUTEX_NORMAL
 mutexes do not check for usage errors.
 .Dv PTHREAD_MUTEX_NORMAL
 mutexes will deadlock if reentered, and result in undefined behavior if a
@@ -128,14 +168,13 @@ mutex will result in undefined behavior.
 mutexes do check for usage errors.
 If an attempt is made to relock a
 .Dv PTHREAD_MUTEX_ERRORCHECK
-mutex without first dropping the lock an error will be returned.  If a thread
-attempts to unlock a
+mutex without first dropping the lock, an error will be returned.
+If a thread attempts to unlock a
 .Dv PTHREAD_MUTEX_ERRORCHECK
 mutex that is locked by another thread, an error will be returned.  If a
-thread attemps to unlock a
+thread attempts to unlock a
 .Dv PTHREAD_MUTEX_ERRORCHECK
-thread that is unlocked, an error will be
-returned.
+thread that is unlocked, an error will be returned.
 .Pp
 .Dv PTHREAD_MUTEX_RECURSIVE
 mutexes allow recursive locking.

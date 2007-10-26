@@ -12,15 +12,17 @@ NAME = lookup
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = aliasdb.h bootparams.h lookup_types.h lu_overrides.h\
-         lu_host.h lu_utils.h netdb.h netdb_async.h netgr.h printerdb.h
+HFILES = aliasdb.h bootparams.h kvbuf.h lookup_types.h lu_overrides.h\
+         lu_host.h lu_utils.h netdb.h netdb_async.h printerdb.h
 
 CFILES = getaddrinfo.c lu_alias.c lu_bootp.c lu_bootparam.c lu_fstab.c\
          lu_group.c lu_host.c lu_host_async.c lu_netgroup.c lu_network.c\
-		 lu_printer.c lu_protocol.c lu_rpc.c lu_service.c lu_user.c lu_utils.c
+         lu_printer.c lu_protocol.c lu_rpc.c lu_service.c lu_user.c lu_utils.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble getaddrinfo.3\
-            getnameinfo.3 lookup.defs _lu_types.x
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
+         bootparams.5 gai_strerror.3 getaddrinfo.3 getfsent.3 getgrent.3 getgrouplist.3\
+         getnameinfo.3 getnetgrent.3 getpwent.3 initgroups.3\
+         DSlibinfoMIG_types.h DSlibinfoMIG.defs DSlibinfoMIGAsyncReply.defs lookup.defs _lu_types.x
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

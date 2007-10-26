@@ -1,0 +1,22 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>python_dateutil</string>
+	<key>OpenSourceVersion</key>
+	<string>1.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://labix.org/python-dateutil</string>
+	<key>OpenSourceURL</key>
+	<string>http://labix.org/download/python-dateutil/python-dateutil-1.2.tar.bz2</string>
+	<key>OpenSourceMD5</key>
+	<string>6ff3de3ab61fd4ad92dceea36f7121b4</string>
+	<key>OpenSourceImportDate</key>
+	<string>2007-07-02</string>
+	<key>OpenSourceModifications</key>
+	<array/>
+	<key>OpenSourceLicense</key>
+	<string>Python</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>python_dateutil.txt</string>
+</dict>
+</plist>

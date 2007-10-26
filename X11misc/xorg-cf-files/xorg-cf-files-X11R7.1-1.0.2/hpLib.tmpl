@@ -1,0 +1,39 @@
+XCOMM $Xorg: hpLib.tmpl,v 1.3 2000/08/17 19:41:47 cpqbld Exp $
+
+
+
+XCOMM $XFree86$
+
+/*
+ * HP shared library template
+ */
+
+#define SharedThreadReqs	/**/
+#define SharedOldXReqs		$(XONLYLIB)
+#define SharedX11Reqs		SharedThreadReqs
+#define SharedXtReqs		$(XONLYLIB) $(SMLIB) $(ICELIB) SharedThreadReqs
+#define SharedXawReqs		$(XMULIB) $(XTOOLLIB) $(EXTRAXAWREQS) $(XLIB)
+#define SharedXmuReqs		$(XTOOLLIB) $(XLIB)
+#define SharedXextReqs		$(XONLYLIB)
+#define SharedXiReqs		$(XLIB)
+#define SharedXtstReqs		$(XLIB)
+#define SharedSMReqs		$(ICELIB)
+#define SharedXpReqs		$(XLIB)
+
+#define SharedXReqs		$(XTOOLLIB) $(XPLIB) $(XLIB) SharedThreadReqs
+#define SharedXmReqs		SharedXReqs
+#define SharedMrmReqs		$(XMLIB) SharedXReqs
+#define SharedUilReqs		$(MRESOURCELIB) $(XMLIB) SharedXReqs
+
+/* #define SharedPamReqs */
+#define SharedTtReqs		$(XTOOLLIB) $(XLIB) SharedThreadReqs $(CXXLIB)
+#define SharedDtSvcReqs		$(TTLIB) $(XMLIB) SharedXReqs -lm $(CXXLIB)
+#define SharedDtMmdbReqs	$(DTSVCLIB) $(TTLIB) $(XMLIB) SharedXReqs -lm $(CXXLIB)
+#define SharedDtSearchReqs	-lm
+#define SharedDtWidgetReqs	$(DTSVCLIB) $(XMLIB) SharedXReqs -lm $(CXXLIB)
+#define SharedDtHelpReqs	$(DTSVCLIB) $(XMLIB) SharedXReqs -lm
+#define SharedDtPrintReqs	$(DTSVCLIB) $(DTHELPLIB) $(XMLIB) SharedXReqs -lm $(CXXLIB)
+#define SharedDtTermReqs	$(DTHELPLIB) $(DTSVCLIB) $(XMLIB) SharedXReqs -lm
+#define SharedDtMrmReqs		$(DTTERMLIB) $(DTPRINTLIB) $(DTHELPLIB) $(DTWIDGETLIB) $(MRESOURCELIB) $(XMLIB) SharedXReqs -lm
+#define SharedDtMailReqs	$(DTHELPLIB) $(DTSVCLIB) $(XMLIB) SharedXReqs -lm $(CXXLIB)
+#define SharedCsaReqs		$(DTSVCLIB) $(XMLIB) SharedXReqs -lm

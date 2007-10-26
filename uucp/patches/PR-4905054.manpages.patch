@@ -1,0 +1,12 @@
+--- Makefile.in.ORIG	2007-01-03 17:46:32.000000000 -0800
++++ Makefile.in	2007-01-03 17:46:55.000000000 -0800
+@@ -90,7 +90,8 @@
+ bin_SCRIPTS = uuto
+ noinst_PROGRAMS = tstuu
+ info_TEXINFOS = uucp.texi
+-man_MANS = uux.1 uucp.1 uustat.1 cu.1 uucico.8 uuxqt.8
++man_MANS = uux.1 uucp.1 uustat.1 cu.1 uucico.8 uuxqt.8 \
++	uuchk.8 uusched.8 uuconv.1 uulog.1 uuname.1 uupick.1 uuto.1
+ 
+ # If you do not have the mkdir system call, this will install uudir as
+ # an suid root program.  This is necessary because invoking /bin/mkdir

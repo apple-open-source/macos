@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,9 +25,10 @@
  *  bless
  *
  *  Created by Shantonu Sen on 12/2/05.
- *  Copyright 2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2005-2007 Apple Inc. All Rights Reserved.
  *
  */
+#include <TargetConditionals.h>
 
 #import <IOKit/IOKitLib.h>
 #import <IOKit/IOCFSerialize.h>
@@ -35,7 +36,6 @@
 #import <IOKit/IOKitKeys.h>
 #import <IOKit/storage/IOMedia.h>
 
-#include <DiskArbitration/DiskArbitration.h>
 #import <CoreFoundation/CoreFoundation.h>
 
 #include <string.h>
@@ -48,12 +48,14 @@
 extern int addMatchingInfoForBSDName(BLContextPtr context,
                               mach_port_t masterPort,
                               CFMutableDictionaryRef dict,
-                              const char *bsdName);
+                              const char *bsdName,
+                              bool shortForm);
 
 int BLCreateEFIXMLRepresentationForDevice(BLContextPtr context,
                                         const char *bsdName,
                                         const char *optionalData,
-                                        CFStringRef *xmlString)
+                                        CFStringRef *xmlString,
+                                        bool shortForm)
 {
     int ret;
     mach_port_t masterPort;
@@ -75,7 +77,7 @@ int BLCreateEFIXMLRepresentationForDevice(BLContextPtr context,
     dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
                                      &kCFTypeDictionaryValueCallBacks);
     
-    ret = addMatchingInfoForBSDName(context, masterPort, dict, bsdName);
+    ret = addMatchingInfoForBSDName(context, masterPort, dict, bsdName, shortForm);
     if(ret) {
         CFRelease(dict);
         CFRelease(array);

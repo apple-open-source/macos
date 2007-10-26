@@ -1,0 +1,337 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Wed Feb  7 14:01:47 2007 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>SYNC_CLIENT</title>
+</head>
+<body>
+
+<h1 align=center>SYNC_CLIENT</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHORS">AUTHORS</a><br>
+
+<hr>
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>sync_client &minus; client side of the synchronization
+(replication) engine</p>
+</td>
+</table>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>sync_client</b> [ <b>&minus;v</b> ] [ <b>&minus;l</b>
+] [ <b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;S</b>
+<i>servername</i> ]<br>
+[ <b>&minus;f</b> <i>input-file</i> ] [ <b>&minus;F</b>
+<i>shutdown_file</i> ] [ <b>&minus;w</b>
+<i>wait_interval</i> ]<br>
+[ <b>&minus;t</b> <i>timeout</i> ] [ <b>&minus;d</b>
+<i>delay</i> ] [ <b>&minus;r</b> ] [ <b>&minus;u</b> ] [
+<b>&minus;m</b> ]<br>
+[ <b>&minus;s</b> ] <i>objects</i>...</p>
+</td>
+</table>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>Sync_client</i> is the client side of the replication
+system. It runs on the client (master) system and connects
+to the target (replica) system and generates an appropriate
+sequence of transactions to synchronize the replica system
+with the master system.</p>
+</td>
+</table>
+<a name="OPTIONS"></a>
+<h2>OPTIONS</h2>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;v</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Verbose mode.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;l</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Verbose logging mode.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;o</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Only attempt to connect to the backend server once
+rather than waiting up to 1000 seconds before giving up.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;C</b> <i>config-file</i></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Read configuration options from <i>config-file</i>.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;S</b> <i>servername</i></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Tells <b>sync_client</b> which server to communicate
+with. Overrides the <i>sync_host</i> configuration
+option.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;f</b> <i>input-file</i></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>In mailbox or user replication mode: provides list of
+users or mailboxes to replicate. In rolling replication
+mode, specifies an alternate log file (sync_client will exit
+after processing the log file).</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;F</b> <i>shutdown-file</i></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Rolling replication checks for this file at the end of
+each replication cycle and shuts down if it is present. Used
+to request nice clean shutdown at first convenient point.
+The file in question is removed on shutdown. Overrides
+<i>sync_shutdown_file</i> option in <i>imapd.conf</i></p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;w</b> <i>interval</i></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Wait this long before starting. Typically used so that we
+can attach a debugger to one end of the replication system
+or the other.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;t</b> <i>timeout</i></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Timeout for single replication run in rolling
+replication. <b>sync_client</b> will negotiate a restart
+after this many seconds. Default: 600 seconds</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;d</b> <i>delay</i></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Minimum delay between replication runs in rolling
+replication mode. Larger values provide better efficiency as
+transactions can be merged. Smaller values mean that the
+replica system is more up to date and that you don&rsquo;t
+end up with large blocks of replication transactions as a
+single group. Default: 3 seconds.</p>
+</td>
+</table>
+<!-- TABS -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;r</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Rolling (repeat) replication mode. Pick up a list of
+actions recorded by the <b>lmtpd(8), imapd(8), popd(8) and
+nntpd(8)</b> daemons from the file specified in
+<i>sync_log_file.</i> Repeat until <i>sync_shutdwon_file</i>
+appears.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;u</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>User mode. Remaining arguments are list of users who
+should be replicated.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;m</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Mailbox mode. Remaining arguments are list of mailboxes
+which should be replicated.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;s</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Sieve mode. Remaining arguments are list of users whose
+Sieve files should be replicated. Principally used for
+debugging purposes: not exposed to
+<b>sync_client(8).</b></p>
+</td>
+</table>
+<a name="FILES"></a>
+<h2>FILES</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>/etc/imapd.conf</b></p></td>
+</table>
+<a name="SEE ALSO"></a>
+<h2>SEE ALSO</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>sync_server(8)</b></p>
+</td>
+</table>
+<a name="AUTHORS"></a>
+<h2>AUTHORS</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>David Carter (dpc22@cam.ac.uk), Ken Murchison
+(ken@oceana.com)</p>
+</td>
+</table>
+<hr>
+</body>
+</html>

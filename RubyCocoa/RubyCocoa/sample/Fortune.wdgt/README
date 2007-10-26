@@ -1,0 +1,14 @@
+RubyCocoa version of /Developer/Examples/Dashboard/Fortune
+
+how to build the widget
+-----------------------
+
+  cd PATH/TO/Fortune.wdgt/SimplePlugin
+  xcodebuild
+  cp -r build/Default/SimplePlugin.widgetplugin ../
+
+how to install the widget
+-------------------------
+
+  # make sure the directory ~/Library/Widgets/Fortune.wdgt does not exist
+  cp -r PATH/TO/Fortune.wdgt ~/Library/Widgets/Fortune.wdgt

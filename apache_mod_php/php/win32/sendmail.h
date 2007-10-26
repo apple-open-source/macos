@@ -1,6 +1,8 @@
 #if !defined(sendmail_h)		/* Sentry, use file only if it's not already included. */
 #define sendmail_h
+#ifndef NETWARE
 #include <windows.h>
+#endif
 
 #define HOST_NAME_LEN	256
 #define MAX_APPNAME_LENGHT 100
@@ -34,7 +36,7 @@
 
 PHPAPI int TSendMail(char *smtpaddr, int *returnerror, char **error_message,
 			  char *RPath, char *Subject, char *mailTo, char *data,
-			  char *mailCc, char *mailBcc, char *mailRPath);
+			  char *mailCc, char *mailBcc, char *mailRPath TSRMLS_DC);
 PHPAPI void TSMClose(void);
 static int SendText(char *RPath, char *Subject, char *mailTo, char *mailCc, char *mailBcc, char *data, 
 			 char *headers, char *headers_lc, char **error_message TSRMLS_DC);

@@ -31,60 +31,6 @@
 // ----------------------------------------------------------------------------------------
 
 // ----------------------------------------------------------------------------------------
-//  ConvertXMLPolicyToSpaceDelimited
-//
-//  Returns: -1 fail, or 0 success. 
-//  <outPolicyStr> is malloc'd memory, caller must free.
-// ----------------------------------------------------------------------------------------
-
-int ConvertXMLPolicyToSpaceDelimited( const char *inXMLDataStr, char **outPolicyStr )
-{
-	if ( inXMLDataStr == NULL || outPolicyStr == NULL )
-		return -1;
-	
-	CPolicyXML policyObj( inXMLDataStr );
-	*outPolicyStr = policyObj.GetPolicyAsSpaceDelimitedData();
-	
-	if ( *outPolicyStr == NULL )
-		return -1;
-	
-	return 0;
-}
-
-
-// ----------------------------------------------------------------------------------------
-//  ConvertSpaceDelimitedPolicyToXML
-//
-//  Returns: -1 fail, or 0 success. 
-//  <outXMLDataStr> is malloc'd memory, caller must free.
-// ----------------------------------------------------------------------------------------
-
-int ConvertSpaceDelimitedPolicyToXML( const char *inPolicyStr, char **outXMLDataStr )
-{
-	PWAccessFeatures policies;
-	PWMoreAccessFeatures morePolicies = {0};
-	
-	if ( inPolicyStr == NULL || outXMLDataStr == NULL )
-		return -1;
-	
-	GetDefaultUserPolicies( &policies );
-	if ( ! StringToPWAccessFeaturesExtra( inPolicyStr, &policies, &morePolicies ) )
-		return -1;
-	
-	CPolicyXML policyObj;
-	
-	policyObj.AddMiscPolicies( inPolicyStr );
-	policyObj.SetPolicyExtra( &policies, &morePolicies );
-	*outXMLDataStr = policyObj.GetPolicyAsXMLData();
-	
-	if ( *outXMLDataStr == NULL )
-		return -1;
-	
-	return 0;
-}
-
-
-// ----------------------------------------------------------------------------------------
 //  GetDefaultUserPolicies
 //
 //  Returns: void
@@ -371,6 +317,9 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresMixedCase), &aBoolValue ) )
 		mExtraPolicy.requiresMixedCase = aBoolValue;
 	
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_isComputerAccount), &aBoolValue ) )
+		mExtraPolicy.isComputerAccount = aBoolValue;
+	
 	// notGuessablePattern
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_notGuessablePattern), (const void **)&valueRef ) &&
 		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
@@ -468,6 +417,10 @@ CPolicyXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPolicyDi
 	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_isSessionKeyAgent), &aBoolValue ) )
 		mPolicy.isSessionKeyAgent = aBoolValue;
 	
+	// isComputerAccount
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_isComputerAccount), &aBoolValue ) )
+		mExtraPolicy.isComputerAccount = aBoolValue;
+	
 	// warnOfExpirationMinutes
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_warnOfExpirationMinutes), (const void **)&valueRef ) &&
 		CFGetTypeID(valueRef) == CFNumberGetTypeID() &&
@@ -556,6 +509,9 @@ CPolicyXML::ConvertStructToPropertyListPolicy( void )
 	
 	aBoolVal = (mPolicy.isSessionKeyAgent != 0);
 	CFNumberRef isSessionKeyAgentRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &aBoolVal );
+
+	aBoolVal = (mExtraPolicy.isComputerAccount != 0);
+	CFNumberRef isComputerAccountRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &aBoolVal );
 	
 	CFNumberRef maxMinutesUntilChangePasswordRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &mPolicy.maxMinutesUntilChangePassword );
 	CFNumberRef maxMinutesUntilDisabledRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &mPolicy.maxMinutesUntilDisabled );
@@ -679,6 +635,12 @@ CPolicyXML::ConvertStructToPropertyListPolicy( void )
 	{
 		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_isSessionKeyAgent), isSessionKeyAgentRef );
 		CFRelease( isSessionKeyAgentRef );
+	}
+
+	if ( isComputerAccountRef != NULL )
+	{
+		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_isComputerAccount), isComputerAccountRef );
+		CFRelease( isComputerAccountRef );
 	}
 	
 	if ( warnOfExpirationRef != NULL )

@@ -5,7 +5,7 @@
         FRAMEWORKS = (); 
         H_FILES = (pathnames.h); 
         M_FILES = (); 
-        OTHER_LIBS = (disk); 
+        OTHER_LIBS = (util, disk); 
         OTHER_LINKED = (mount.c, mount_ufs.c); 
         OTHER_SOURCES = (
             Makefile.preamble, 

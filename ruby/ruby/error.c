@@ -2,8 +2,8 @@
 
   error.c -
 
-  $Author: nobu $
-  $Date: 2004/11/10 16:53:26 $
+  $Author: shyouhei $
+  $Date: 2007-05-23 01:28:10 +0900 (Wed, 23 May 2007) $
   created at: Mon Aug  9 16:11:34 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -303,7 +303,7 @@ VALUE rb_eNoMethodError;
 VALUE rb_eSecurityError;
 VALUE rb_eNotImpError;
 VALUE rb_eNoMemError;
-static VALUE rb_cNameErrorMesg;
+VALUE rb_cNameErrorMesg;
 
 VALUE rb_eScriptError;
 VALUE rb_eSyntaxError;
@@ -553,7 +553,7 @@ exit_initialize(argc, argv, exc)
 	status = *argv++;
 	--argc;
     }
-    exc_initialize(argc, argv, exc);
+    rb_call_super(argc, argv);
     rb_iv_set(exc, "status", status);
     return exc;
 }
@@ -633,7 +633,7 @@ name_err_initialize(argc, argv, self)
     VALUE name;
 
     name = (argc > 1) ? argv[--argc] : Qnil;
-    exc_initialize(argc, argv, self);
+    rb_call_super(argc, argv);
     rb_iv_set(self, "name", name);
     return self;
 }
@@ -678,7 +678,7 @@ name_err_to_s(exc)
  * call-seq:
  *   NoMethodError.new(msg, name [, args])  => no_method_error
  *
- * Contruct a NoMethodError exception for a method of the given name
+ * Construct a NoMethodError exception for a method of the given name
  * called with the given arguments. The name may be accessed using
  * the <code>#name</code> method on the resulting object, and the
  * arguments using the <code>#args</code> method.
@@ -907,16 +907,19 @@ syserr_initialize(argc, argv, self)
     else err = "unknown error";
     if (!NIL_P(mesg)) {
 	VALUE str = mesg;
+	size_t len;
+
 	StringValue(str);
-	mesg = rb_str_new(0, strlen(err)+RSTRING(str)->len+3);
-	sprintf(RSTRING(mesg)->ptr, "%s - %.*s", err,
+	len = strlen(err)+RSTRING(str)->len+3;
+	mesg = rb_str_new(0, len);
+	snprintf(RSTRING(mesg)->ptr, len+1, "%s - %.*s", err,
 		(int)RSTRING(str)->len, RSTRING(str)->ptr);
 	rb_str_resize(mesg, strlen(RSTRING(mesg)->ptr));
     }
     else {
 	mesg = rb_str_new2(err);
     }
-    exc_initialize(1, &mesg, self);
+    rb_call_super(1, &mesg);
     rb_iv_set(self, "errno", error);
     return self;
 }
@@ -1080,7 +1083,7 @@ void
 rb_notimplement()
 {
     rb_raise(rb_eNotImpError,
-	     "The %s() function is unimplemented on this machine",
+	     "%s() function is unimplemented on this machine",
 	     rb_id2name(ruby_frame->last_func));
 }
 
@@ -1108,7 +1111,6 @@ void
 rb_sys_fail(mesg)
     const char *mesg;
 {
-    extern int errno;
     int n = errno;
     VALUE arg;
 

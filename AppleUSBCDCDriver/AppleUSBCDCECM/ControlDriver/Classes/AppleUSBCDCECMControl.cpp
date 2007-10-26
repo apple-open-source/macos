@@ -61,10 +61,6 @@ extern "C"
 #include "AppleUSBCDCECM.h"
 #include "AppleUSBCDCECMControl.h"
 
-#if USE_ELG
-    com_apple_iokit_XTrace	*gXTrace = 0;
-#endif
-
 static IOPMPowerState gOurPowerStates[kNumCDCStates] =
 {
     {1,0,0,0,0,0,0,0,0,0,0,0},
@@ -91,72 +87,81 @@ UInt16	stats[numStats] = { kXMIT_OK_REQ,
 
 OSDefineMetaClassAndStructors(AppleUSBCDCECMControl, IOService);
 
-#if USE_ELG
 /****************************************************************************************************/
 //
-//		Function:	findKernelLoggerEC
+//		Function:	findCDCDriverEC
 //
-//		Inputs:		
+//		Inputs:		controlAddr - my address
 //
 //		Outputs:	
 //
-//		Desc:		Just like the name says
+//		Desc:		Finds the initiating CDC driver
 //
 /****************************************************************************************************/
 
-IOReturn findKernelLoggerEC()
+AppleUSBCDC *findCDCDriverEC(void *controlAddr)
 {
+    AppleUSBCDCECMControl	*me = (AppleUSBCDCECMControl *)controlAddr;
+    AppleUSBCDC		*CDCDriver = NULL;
+    bool		driverOK = false;
     OSIterator		*iterator = NULL;
     OSDictionary	*matchingDictionary = NULL;
-    IOReturn		error = 0;
-	
-	// Get matching dictionary
-	
-    matchingDictionary = IOService::serviceMatching("com_apple_iokit_XTrace");
+    
+    XTRACE(me, 0, 0, "findCDCDriverEC");
+        
+        // Get matching dictionary
+       	
+    matchingDictionary = IOService::serviceMatching("AppleUSBCDC");
     if (!matchingDictionary)
     {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerEC] Couldn't create a matching dictionary.\n");
-        goto exit;
+        XTRACE(me, 0, 0, "findCDCDriverEC - Couldn't create a matching dictionary");
+        return NULL;
     }
-	
+    
 	// Get an iterator
 	
     iterator = IOService::getMatchingServices(matchingDictionary);
     if (!iterator)
     {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerEC] No XTrace logger found.\n");
-        goto exit;
-    }
-	
-	// User iterator to find each com_apple_iokit_XTrace instance. There should be only one, so we
-	// won't iterate
-	
-    gXTrace = (com_apple_iokit_XTrace*)iterator->getNextObject();
-    if (gXTrace)
-    {
-        IOLog(DEBUG_NAME "[findKernelLoggerEC] Found XTrace logger at %p.\n", gXTrace);
-    }
-	
-exit:
-	
-    if (error != kIOReturnSuccess)
-    {
-        gXTrace = NULL;
-        IOLog(DEBUG_NAME "[findKernelLoggerEC] Could not find a logger instance. Error = %X.\n", error);
-    }
-	
-    if (matchingDictionary)
+        XTRACE(me, 0, 0, "findCDCDriverEC - No AppleUSBCDC driver found!");
         matchingDictionary->release();
-            
-    if (iterator)
-        iterator->release();
-		
-    return error;
+        return NULL;
+    }
+
+    	// Iterate until we find our matching CDC driver
+                
+    CDCDriver = (AppleUSBCDC *)iterator->getNextObject();
+    while (CDCDriver)
+    {
+        XTRACE(me, 0, CDCDriver, "findCDCDriverEC - CDC driver candidate");
+        
+        if (me->fControlInterface->GetDevice() == CDCDriver->getCDCDevice())
+        {
+            XTRACE(me, 0, CDCDriver, "findCDCDriverEC - Found our CDC driver");
+            driverOK = CDCDriver->confirmControl(kUSBEthernetControlModel, me->fControlInterface);
+            break;
+        }
+        CDCDriver = (AppleUSBCDC *)iterator->getNextObject();
+    }
+
+    matchingDictionary->release();
+    iterator->release();
     
-}/* end findKernelLoggerEC */
-#endif
+    if (!CDCDriver)
+    {
+        XTRACE(me, 0, 0, "findCDCDriverEC - CDC driver not found");
+        return NULL;
+    }
+   
+    if (!driverOK)
+    {
+        XTRACE(me, kUSBEthernetControlModel, 0, "findCDCDriverEC - Not my interface");
+        return NULL;
+    }
+
+    return CDCDriver;
+    
+}/* end findCDCDriverAC */
 
 /****************************************************************************************************/
 //
@@ -470,22 +475,7 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
     fpNetStats = NULL;
     fpEtherStats = NULL;
 	fDataDriver = NULL;
-	
-#if USE_ELG
-    XTraceLogInfo	*logInfo;
-    
-    findKernelLoggerEC();
-    if (gXTrace)
-    {
-        gXTrace->retain();		// don't let it unload ...
-        XTRACE(this, 0, 0xbeefbeef, "Hello from start");
-        logInfo = gXTrace->LogGetInfo();
-        IOLog("AppleUSBCDCECMControl: start - Log is at %x\n", (unsigned int)logInfo);
-    } else {
-        return false;
-    }
-#endif
-        
+	        
     if(!super::start(provider))
     {
         ALERT(0, 0, "start - super failed");
@@ -500,6 +490,13 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
         ALERT(0, 0, "start - provider invalid");
         return false;
     }
+	
+	fCDCDriver = findCDCDriverEC(this);
+	if (!fCDCDriver)
+	{
+		ALERT(0, 0, "start - Failed to find the CDC driver");
+        return false;
+	}
     
     if (!configureECM())
     {

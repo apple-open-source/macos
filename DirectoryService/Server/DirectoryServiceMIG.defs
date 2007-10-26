@@ -38,7 +38,7 @@ serverprefix dsmig_do_;
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
 
-import "DirectoryServiceMIG_types.h";
+import <DirectoryServiceMIG_types.h>;
 
 type sComDataPtr = array [*:16384] of char;
 type sStringPtr = c_string [*:512];
@@ -77,7 +77,7 @@ routine api_call
 (
         server              : mach_port_poly_t;
         msg_data            : sComDataPtr;
-        msg_data_ool        : pointer_t;
+        msg_data_ool        : pointer_t, Dealloc;
     out reply_msg           : sComDataPtr;
     out reply_msg_ool       : pointer_t, Dealloc;
 	

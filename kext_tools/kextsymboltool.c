@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <libc.h>
@@ -34,15 +56,15 @@
 __private_extern__ KXKextManagerError
 readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize);
 __private_extern__ KXKextManagerError
-writeFile(int fd, const void * data, vm_size_t length);
+writeFile(int fd, const void * data, size_t length);
 
 
 __private_extern__ KXKextManagerError
-writeFile(int fd, const void * data, vm_size_t length)
+writeFile(int fd, const void * data, size_t length)
 {
     KXKextManagerError err;
 
-    if (length != write(fd, data, length))
+    if (length != (size_t)write(fd, data, length))
         err = kKXKextManagerErrorDiskFull;
     else
         err = kKXKextManagerErrorNone;
@@ -74,9 +96,21 @@ readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize)
         if (0 == (stat_buf.st_mode & S_IFREG)) 
             continue;
 
+       /* Don't try to map an empty file, it fails now due to conformance
+        * stuff (PR 4611502).
+        */
+        if (0 == stat_buf.st_size) {
+            err = kKXKextManagerErrorNone;
+            continue;
+        }
+
 	*objSize = stat_buf.st_size;
 
-	if( KERN_SUCCESS != map_fd(fd, 0, objAddr, TRUE, *objSize)) {
+        *objAddr = (vm_offset_t)mmap(NULL /* address */, *objSize,
+            PROT_READ|PROT_WRITE, MAP_FILE|MAP_PRIVATE /* flags */,
+            fd, 0 /* offset */);
+
+	if ((void *)*objAddr == MAP_FAILED) {
             *objAddr = 0;
             *objSize = 0;
 	    continue;
@@ -107,7 +141,7 @@ struct symbol {
 
 static bool issymchar( char c )
 {
-    return ((c > ' ') && (c != ':'));
+    return ((c > ' ') && (c <= '~') && (c != ':'));
 }
 
 static bool iswhitespace( char c )
@@ -140,109 +174,184 @@ bsearch_cmp( const void * _key, const void * _cmp)
 }
 
 static uint32_t
-count_symbols(char * file)
+count_symbols(char * file, vm_size_t file_size)
 {
-    char *   where;
+    uint32_t nsyms = 0;
+    char *   scan;
     char *   eol;
     char *   next;
-    uint32_t nsyms;
 
-    for (nsyms = 0, where = file; true; where = next)
-    {
-	eol = strchr(where, '\n');
-	if (!eol)
-	    break;
+    for (scan = file; true; scan = next) {
 
-	next = eol + 1;
-	if (eol == where)
-	    continue;
-	if (where[0] == '#')
-	    continue;
+        eol = memchr(scan, '\n', file_size - (scan - file));
+        if (eol == NULL) {
+            break;
+        }
+        next = eol + 1;
 
-	while (!issymchar(*eol))
-	    eol--;
+       /* Skip empty lines.
+        */
+        if (eol == scan) {
+            continue;
+        }
 
-	where = eol - 1;
-	while (issymchar(*where))
-	    where--;
-	where++;
+       /* Skip comment lines.
+        */
+        if (scan[0] == '#') {
+            continue;
+        }
 
-	if (where[0] == '.')
-	    continue;
+       /* Scan past any non-symbol characters at the beginning of the line. */
+        while ((scan < eol) && !issymchar(*scan)) {
+            scan++;
+        }
 
-	nsyms++;
+       /* No symbol on line? Move along.
+        */
+        if (scan == eol) {
+            continue;
+        }
+
+       /* Skip symbols starting with '.'.
+        */
+        if (scan[0] == '.') {
+            continue;
+        }
+        nsyms++;
     }
-
+    
     return nsyms;
 }
 
 static uint32_t
-store_symbols(char * file, struct symbol * symbols, uint32_t idx, uint32_t max_symbols)
+store_symbols(char * file, vm_size_t file_size, struct symbol * symbols, uint32_t idx, uint32_t max_symbols)
 {
-    char *   where;
-    char *   name;
+    char *   scan;
+    char *   line;
     char *   eol;
     char *   next;
+
     uint32_t strtabsize;
-    char *   indirect;
-    uint32_t indirect_len;
 
     strtabsize = 0;
 
-    for (where = file; true; where = next)
-    {
-	eol = strchr(where, '\n');
-	if (!eol)
-	    break;
-	next = eol + 1;
-	if (eol == where)
-	    continue;
-	if (where[0] == '#')
-	    continue;
+    for (scan = file, line = file; true; scan = next, line = next) {
 
-	while (!issymchar(*eol))
-	    eol--;
-	eol++;
+        char *       name = NULL;
+        char *       name_term = NULL;
+        unsigned int name_len = 0;
+        char *       indirect = NULL;
+        char *       indirect_term = NULL;
+        unsigned int indirect_len = 0;
 
-	*eol = 0;
-	where = eol - 1;
-	indirect = NULL;
-	indirect_len = 0;
-	while (issymchar(*where))
-	    where--;
-        name = where + 1;
-	while (iswhitespace(*where))
-	    where--;
-        if (':' == *where)
-        {
-            indirect = name;
-            indirect_len = (eol - indirect + 1);
+        eol = memchr(scan, '\n', file_size - (scan - file));
+        if (eol == NULL) {
+            break;
+        }
+        next = eol + 1;
 
-            eol = where - 1;
-            while (!issymchar(*eol))
-                eol--;
-            eol++;
-            *eol = 0;
-            where = eol - 1;
-            while (issymchar(*where))
-                where--;
-            name = where + 1;
+       /* Skip empty lines.
+        */
+        if (eol == scan) {
+            continue;
         }
 
-	if (name[0] == '.')
-	    continue;
+        *eol = '\0';
 
-	if(idx >= max_symbols)
-	{
-	    fprintf(stderr, "symbol[%d] overflow %s\n", idx, where);
-	    exit(1);
-	}
-	symbols[idx].name = name;
-	symbols[idx].name_len = (eol - name + 1);
-	symbols[idx].indirect = indirect;
-	symbols[idx].indirect_len = indirect_len;
-	strtabsize += symbols[idx].name_len + symbols[idx].indirect_len;
-	idx++;
+       /* Skip comment lines.
+        */
+        if (scan[0] == '#') {
+            continue;
+        }
+
+       /* Scan past any non-symbol characters at the beginning of the line. */
+        while ((scan < eol) && !issymchar(*scan)) {
+            scan++;
+        }
+
+       /* No symbol on line? Move along.
+        */
+        if (scan == eol) {
+            continue;
+        }
+
+       /* Skip symbols starting with '.'.
+        */
+        if (scan[0] == '.') {
+            continue;
+        }
+
+        name = scan;
+
+       /* Find the end of the symbol.
+        */
+        while ((*scan != '\0') && issymchar(*scan)) {
+            scan++;
+        }
+
+       /* Note char past end of symbol.
+        */
+        name_term = scan;
+
+       /* Stored length must include the terminating nul char.
+        */
+        name_len = name_term - name + 1;
+
+       /* Now look for an indirect.
+        */
+        if (*scan != '\0') {
+            while ((*scan != '\0') && iswhitespace(*scan)) {
+                scan++;
+            }
+            if (*scan == ':') {
+                scan++;
+                while ((*scan != '\0') && iswhitespace(*scan)) {
+                    scan++;
+                }
+                if (issymchar(*scan)) {
+                    indirect = scan;
+
+                   /* Find the end of the symbol.
+                    */
+                    while ((*scan != '\0') && issymchar(*scan)) {
+                        scan++;
+                    }
+
+                   /* Note char past end of symbol.
+                    */
+                    indirect_term = scan;
+
+                   /* Stored length must include the terminating nul char.
+                    */
+                    indirect_len = indirect_term - indirect + 1;
+
+                } else if (*scan == '\0') {
+		    fprintf(stderr, "bad format in symbol line: %s\n", line);
+		    exit(1);
+		}
+            } else if (*scan != '\0') {
+                fprintf(stderr, "bad format in symbol line: %s\n", line);
+                exit(1);
+            }
+        }
+
+        if(idx >= max_symbols) {
+            fprintf(stderr, "symbol[%d/%d] overflow: %s\n", idx, max_symbols, line);
+            exit(1);
+        }
+
+        *name_term = '\0';
+        if (indirect_term) {
+            *indirect_term = '\0';
+        }
+
+        symbols[idx].name = name;
+        symbols[idx].name_len = name_len;
+        symbols[idx].indirect = indirect;
+        symbols[idx].indirect_len = indirect_len;
+
+        strtabsize += symbols[idx].name_len + symbols[idx].indirect_len;
+        idx++;
     }
 
     return strtabsize;
@@ -251,9 +360,9 @@ store_symbols(char * file, struct symbol * symbols, uint32_t idx, uint32_t max_s
 int main(int argc, char * argv[])
 {
     KXKextManagerError	err;
-    int			fd;
+    int			i, fd;
     const char *	output_name = NULL;
-    uint32_t		i, zero = 0, num_files = 0;
+    uint32_t		zero = 0, num_files = 0;
     uint32_t		filenum;
     uint32_t		strx, strtabsize, strtabpad;
     struct symbol *	import_symbols;
@@ -354,7 +463,7 @@ int main(int argc, char * argv[])
     num_export_syms = 0;
     for (filenum = 0; filenum < num_files; filenum++)
     {
-        files[filenum].nsyms = count_symbols((char *) files[filenum].mapped);
+        files[filenum].nsyms = count_symbols((char *) files[filenum].mapped, files[filenum].mapped_size);
 	if (files[filenum].import)
 	    num_import_syms += files[filenum].nsyms;
 	else
@@ -377,13 +486,13 @@ int main(int argc, char * argv[])
     {
 	if (files[filenum].import)
 	{
-	    store_symbols((char *) files[filenum].mapped,
+	    store_symbols((char *) files[filenum].mapped, files[filenum].mapped_size,
 					import_symbols, import_idx, num_import_syms);
 	    import_idx += files[filenum].nsyms;
 	}
 	else
 	{
-	    strtabsize += store_symbols((char *) files[filenum].mapped,
+	    strtabsize += store_symbols((char *) files[filenum].mapped, files[filenum].mapped_size,
 					export_symbols, export_idx, num_export_syms);
 	    export_idx += files[filenum].nsyms;
 	}
@@ -552,6 +661,17 @@ int main(int argc, char * argv[])
 
 
 finish:
+    for (filenum = 0; filenum < num_files; filenum++) {
+        // unmap file
+        if (files[filenum].mapped_size)
+        {
+            munmap((caddr_t)files[filenum].mapped, files[filenum].mapped_size);
+            files[filenum].mapped     = 0;
+            files[filenum].mapped_size = 0;
+        }
+
+    }
+
     if (kKXKextManagerErrorNone != err)
     {
 	if (output_name)

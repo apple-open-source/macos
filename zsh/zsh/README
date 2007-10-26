@@ -5,7 +5,10 @@ THE Z SHELL (ZSH)
 Version
 -------
 
-This is zsh version 4.2.3.  This is a stable version.
+This is version 4.3.4 of the shell.  This is a development release,
+but is believed to be reasonably stable.  Sites where the users need to
+edit command lines with multibyte characters (in particular UTF-8)
+will probably want to upgrade.
 
 Installing Zsh
 --------------
@@ -24,78 +27,93 @@ details, see the documentation.
 Possible incompatibilities
 ---------------------------
 
-Currently the only known incompatibilities between 4.2.0 and later
-versions are minor:
+Since 4.2:
 
+The option SH_WORD_SPLIT, used in Bourne/Korn/Posix shell compatibility
+mode, has been made more like other shells in the case of substitutions of
+the form ${1+"$@"} (a common trick used to work around problems in older
+Bourne shells) or any of the related forms with the + replaced by - or =
+with an optional colon preceding.  Previously, with SH_WORD_SPLIT in
+effect, this expression would cause splitting on all white space in the
+shell arguments.  (This was always regarded as a bug but was long-standing
+behaviour.)  Now it is treated identically to "$@".  The same change
+applies to expressions with forced splitting such as ${=1+"$@"}, but
+otherwise the case where SH_WORD_SPLIT is not set is unaffected.
 
-Since 4.2.1:
+The "unset" builtin now does not regard the unsetting of non-existent
+variables as an error, so can still return status 0 (depending on the
+handling of other arguments).  This appears to be the standard shell
+behaviour.
 
-The "test" and "[" builtins now behave more like relevant Unix standards
-suggest they should.  Previously they were a simple front-end to the same
-tests used by zsh's "[[" syntax.  (The documentation was previously cagey
-about what "test" and "[" actually did.)  "[[" has always been the
-recommended way of implementing tests within zsh.
+The variable BAUD is no longer set automatically by the shell.
+In previous versions it was set to the baud rate reported by
+the terminal driver in order to initialise the line editor's
+compensation mechanism for slow baud rates.  However, the baud
+rate so reported is very rarely related to the limiting speed of
+screen updates on modern systems.  Users who need the compensation
+mechanism should set BAUD to an appropriate rate by hand.
 
-In recent versions of zsh, typing the end-of-file (EOF) character
-(typically ^D, although this can be altered with the "stty" command)
-repeatedly in the line editor printed a warning message, but never exited the
-shell.  This was a departure from the traditional behaviour of zsh and
-other shells where the shell would exit after 10 EOFs.  The traditional
-behaviour has been restored.  Also, binding a user-defined editor command
-to the EOF character now suppresses the EOF behaviour inside the line
-editor; it is possible to emulate it if desired.
+The variable HOME is no longer set by the shell if zsh is emulating any
+other shell at startup; it must be present in the environment or set
+subsequently by the user.  It is valid for the variable to be unset.
 
+Parameter substitutions in the form ${param//#%search/replace} match
+against "search" anchored at both ends of the parameter value.  Previously
+this syntax would have matched against "%search", anchored only at the head
+of the value.  The form ${param//#$search/replace} where the value
+$search starts with "%" considers the "%" to be part of the search
+string as before.
 
-From 4.2.0 to 4.2.1:
+The MULTIBYTE option is on by default where it is available; this
+causes many operations to recognise characters as in the current locale.
+Older versions of the shell always assumed a character was one byte.
+In some places the width of the character will be used; this is transparent
+when used for calculations of screen position, but also occurs, for
+example, in calculations of padding width.
 
-IPv6 addresses must be specified in square brackets in the zftp module and
-the function system built on top of the zftp module.
+Zsh has previously been lax about whether it allows octets with the
+top bit set to be part of a shell identifier.  Older versions of the shell
+assumed all such octets were allowed in identifiers, however the POSIX
+standard does not allow such characters in identifiers.  The older
+behaviour is still obtained with --disable-multibyte in effect.
+With --enable-multibyte in effect (this is now the default anywhere
+it is supported) there are three possible cases:
+  MULTIBYTE option unset:  only ASCII characters are allowed; the
+    shell does not attempt to identify non-ASCII characters at all.
+  MULTIBYTE option set, POSIX_IDENTIFIERS option unset: in addition
+    to the POSIX characters, any alphanumeric characters in the
+    local character set are allowed.  Note that scripts and functions that
+    take advantage of this are non-portable; however, this is in the spirit
+    of previous versions of the shell.  Note also that the options must
+    be set before the shell parses the script or function; setting
+    them during execution is not sufficient.
+  MULITBYTE option set, POSIX_IDENTIFIERS set:  only ASCII characters
+    are allowed in identifiers even though the shell will recognise
+    alphanumeric multibyte characters.
 
-Special traps for pseudosignals ZERR, DEBUG and EXIT are no longer executed
-inside other traps.  Users may well have assumed this was the case anyway
-since the behaviour was not explicity documented.  See the NEWS file for
-more detail.
+The sched builtin now keeps entries in time order.  This means that
+after adding an entry the index of an existing entry used for deletion
+may change, if that entry had a later time than the new entry.  However,
+deleting a entry with a later time will now never change the index of an
+entry with an earlier time, which could happen with the previous method.
 
-By default, a maximum function depth of 4096 is now compiled into the
-shell.  This may be altered during configuration; see `Function depth' in
-INSTALL.
+The completion style pine-directory must now be set to use completion
+for PINE mailbox folders; previously it had the default ~/mail.  This
+change was necessary because otherwise recursive directories under
+~/mail were searched by default, which could be a considerable unnecessary
+hit for anyone not using PINE.  The previous default can be restored with:
+  zstyle ':completion:*' pine-directory ~/mail
 
+The default maximum function depth (configurable with
+--enable-max-function-depth) has been decreased to 1000 from 4096.  The
+previous value was observed to be large enough that crashes still occurred
+on some fairly common PC configurations.  This change is only likely to
+affect some highly specialised uses of the shell.
 
-Some particular differences you may notice between the 4.0 and 4.2 series
-of releases:
-
-The bash-compatibility zle functions described in the zshcontrib manual
-page have been removed as a more configurable set of editing widgets for
-dealing with words have been added.  The following code in .zshrc will set
-up for bash-style word handling:
-  autoload -U select-word-style
-  select-word-style bash
-
-The `=prog' facility for expanding command paths (provided the EQUALS
-option is enabled, as it is by default) no longer expands aliases.  It was
-felt this feature was underused and confusing.
-
-In 4.0, a literal `/' was quoted in the `src' text of a substitution of the
-form `${foo/src/rep}' or ${foo//src/rep} with two backslashes.  This was
-documented, but inconsistent with normal quoting conventions and poorly
-implemented.  The `/' now requires only one backslash to quote it whether
-or not the expression occurs in double quotes.  For example:
-  % foo=word/bird
-  % print ${foo/\//-} "${foo/\//+}"
-  word-bird word+bird
-Note also the following workaround which is valid in all versions of the
-shell that support this syntax:
-  % slash=/
-  % foo=word/bird
-  % print ${foo/$slash/-} "${foo/$slash/+}"
-
-In 4.0, the -M option to bindkey used the first non-option argument to
-specify the keymap, whereas it now uses an argument to the option.  Hence:
-  bindkey -M -R keymap a-z self-insert
-needs to be rewritten as
-  bindkey -M keymap -R a-z self-insert
-The following form works in both versions:
-  bindkey -R -M keymap a-z self-insert
+The variables HISTCHARS and histchars now reject any attempt to
+set non-ASCII characters for history or comments.  Multibyte characters
+have never worked and the most consistent change was to restrict the
+set to portable characters only.
 
 Documentation
 -------------
@@ -107,7 +125,7 @@ Doc/Zsh/*.yo	The master source for the zsh documentation is written in
 		It is not required by zsh but but it is a nice program so
 		you might want to get it anyway, especially if you are a
 		zsh developer.  It can be downloaded from
-		ftp://ftp.lilypond.org/pub/yodl/
+		ftp://yodl.sourceforge.net/
 
 Doc/zsh*.1	Man pages in nroff format.  These will be installed
 		by "make install.man" or "make install".  By default,
@@ -135,9 +153,9 @@ Doc/intro.ms	An introduction to zsh in troff format using the ms
 
 For more information, see the website, as described in the META-FAQ.
 
-If you do not have the necessary tools to process these documents,
-PostScript, ASCII, Info and DVI versions are available in the separate
-file zsh-doc.tar.gz at the archive sites listed in the META-FAQ.
+If you do not have the necessary tools to process these documents, PDF,
+Info and DVI versions are available in the separate file zsh-doc.tar.gz at
+the archive sites listed in the META-FAQ.
 
 The distribution also contains a Perl script in Utils/helpfiles which
 can be used to extract the descriptions of builtin commands from the

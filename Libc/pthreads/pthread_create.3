@@ -39,7 +39,12 @@
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_create "pthread_t *thread" "const pthread_attr_t *attr" "void *(*start_routine)(void *)" "void *arg"
+.Fo pthread_create
+.Fa "pthread_t *restrict thread"
+.Fa "const pthread_attr_t *restrict attr"
+.Fa "void *(*start_routine)(void *)"
+.Fa "void *restrict arg"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_create
@@ -52,21 +57,20 @@ is NULL, the default attributes are used.
 If the attributes specified by
 .Fa attr
 are modified later, the thread's attributes are not affected.
-Upon
-successful completion
+Upon successful completion,
 .Fn pthread_create
 will store the ID of the created thread in the location specified by
 .Fa thread .
 .Pp
-The thread is created executing
-.Fa start_routine
+Upon its creation, the thread executes
+.Fa start_routine ,
 with
 .Fa arg
 as its sole argument.
-If the
+If
 .Fa start_routine
 returns, the effect is as if there was an implicit call to
-.Fn pthread_exit
+.Fn pthread_exit ,
 using the return value of
 .Fa start_routine
 as the exit status.
@@ -76,7 +80,7 @@ was originally invoked differs from this.
 When it returns from
 .Fn main ,
 the effect is as if there was an implicit call to
-.Fn exit
+.Fn exit ,
 using the return value of
 .Fn main
 as the exit status.
@@ -92,7 +96,7 @@ The set of signals pending for the new thread is empty.
 If successful,  the
 .Fn pthread_create
 function will return zero.
-Otherwise an error number will be returned to
+Otherwise, an error number will be returned to
 indicate the error.
 .Sh ERRORS
 .Fn pthread_create

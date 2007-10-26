@@ -22,7 +22,6 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include "stuff/target_arch.h"
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
@@ -31,6 +30,7 @@
 #include "stuff/symbol.h"
 #include "otool.h"
 #include "ofile_print.h"
+#include "ppc_disasm.h"
 
 #define	RT(x)		(((x) >> 21) & 0x1f)
 #define	RA(x)		(((x) >> 16) & 0x1f)
@@ -134,7 +134,8 @@ static void print_immediate(
     unsigned long sect_offset,
     struct relocation_info *sorted_relocs,
     unsigned long nsorted_relocs,
-    nlist_t *symbols,
+    struct nlist *symbols,
+    struct nlist_64 *symbols64,
     unsigned long nsymbols,
     struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
@@ -161,16 +162,18 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-nlist_t *symbols,
+struct nlist *symbols,
+struct nlist_64 *symbols64,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
-unsigned long *indirect_symbols,
+uint32_t *indirect_symbols,
 unsigned long nindirect_symbols,
-mach_header_t *mh,
 struct load_command *load_commands,
+uint32_t ncmds,
+uint32_t sizeofcmds,
 enum bool verbose)
 {
     enum byte_sex host_byte_sex;
@@ -213,8 +216,8 @@ enum bool verbose)
 	    else
 		printf("addi\tr%lu,r%lu,", RT(opcode), RA(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols,
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x3c000000:
@@ -223,36 +226,36 @@ enum bool verbose)
 	    else
 		printf("addis\tr%lu,r%lu,", RT(opcode), RA(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols,
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x30000000:
 	    printf("addic\tr%lu,r%lu,", RT(opcode), RA(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols,
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x34000000:
 	    printf("addic.\tr%lu,r%lu,", RT(opcode), RA(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x20000000:
 	    printf("subfic\tr%lu,r%lu,", RT(opcode), RA(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x1c000000:
 	    printf("mulli\tr%lu,r%lu,", RT(opcode), RA(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x28000000:
@@ -265,8 +268,8 @@ enum bool verbose)
 		printf("cmpl%si\tcr%lu,r%lu,", L(opcode) == 0 ?"w":"d",
 		       BF(opcode), RA(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x2c000000:
@@ -279,8 +282,8 @@ enum bool verbose)
 		printf("cmp%si\tcr%lu,r%lu,", L(opcode) == 0 ?"w":"d",
 		       BF(opcode), RA(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x48000000:
@@ -308,19 +311,21 @@ enum bool verbose)
 		disp = (opcode & 0x03fffffc) | 0xfc000000;
 	    if(jbsr == TRUE){
 		print_immediate(sect_addr, sect_offset,
-		    relocs, nrelocs, symbols, nsymbols, sorted_symbols,
-		    nsorted_symbols, strings, strings_size, verbose);
+		    relocs, nrelocs, symbols, symbols64, nsymbols,
+		    sorted_symbols, nsorted_symbols, strings, strings_size,
+		    verbose);
 		printf(",0x%x\n", (unsigned int)(base + disp));
 	    }
 	    else{
 		print_immediate(base + disp, sect_offset,
-			relocs, nrelocs, symbols, nsymbols, sorted_symbols,
-			nsorted_symbols, strings, strings_size, verbose);
+			relocs, nrelocs, symbols, symbols64,  nsymbols,
+			sorted_symbols, nsorted_symbols, strings, strings_size,
+			verbose);
 		if(verbose){
 		    indirect_symbol_name = guess_indirect_symbol(base + disp,
-			mh, load_commands, object_byte_sex, indirect_symbols,
-			nindirect_symbols, symbols, nsymbols, strings,
-			strings_size);
+			ncmds, sizeofcmds, load_commands, object_byte_sex,
+			indirect_symbols, nindirect_symbols, symbols, symbols64,
+			nsymbols, strings, strings_size);
 		    if(indirect_symbol_name != NULL)
 			printf("\t; symbol stub for: %s", indirect_symbol_name);
 		}
@@ -338,20 +343,22 @@ enum bool verbose)
 		base = addr;
 	    if((opcode & 0x00008000) == 0)
 		print_immediate(base + (opcode & 0x0000fffc), sect_offset,
-		    relocs, nrelocs, symbols, nsymbols, sorted_symbols,
-		    nsorted_symbols, strings, strings_size, verbose);
+		    relocs, nrelocs, symbols, symbols64, nsymbols,
+		    sorted_symbols, nsorted_symbols, strings, strings_size,
+		    verbose);
 	    else
 		print_immediate(base +
 		    ((opcode & 0x0000fffc) | 0xffff0000), sect_offset,
-		    relocs, nrelocs, symbols, nsymbols, sorted_symbols,
-		    nsorted_symbols, strings, strings_size, verbose);
+		    relocs, nrelocs, symbols, symbols64, nsymbols,
+		    sorted_symbols, nsorted_symbols, strings, strings_size,
+		    verbose);
 	    printf("\n");
 	    break;
 	case 0x88000000:
 	    printf("lbz\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -360,8 +367,8 @@ enum bool verbose)
 	case 0x8c000000:
 	    printf("lbzu\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -370,8 +377,8 @@ enum bool verbose)
 	case 0xa0000000:
 	    printf("lhz\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -380,8 +387,8 @@ enum bool verbose)
 	case 0xa4000000:
 	    printf("lhzu\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -390,8 +397,8 @@ enum bool verbose)
 	case 0xa8000000:
 	    printf("lha\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -400,15 +407,15 @@ enum bool verbose)
 	case 0xac000000:
 	    printf("lhau\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("(r%lu)\n", RA(opcode));
 	    break;
 	case 0x80000000:
 	    printf("lwz\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -417,15 +424,15 @@ enum bool verbose)
 	case 0x84000000:
 	    printf("lwzu\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("(r%lu)\n", RA(opcode));
 	    break;
 	case 0x98000000:
 	    printf("stb\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -434,15 +441,15 @@ enum bool verbose)
 	case 0x9c000000:
 	    printf("stbu\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("(r%lu)\n", RA(opcode));
 	    break;
 	case 0xb0000000:
 	    printf("sth\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -451,15 +458,15 @@ enum bool verbose)
 	case 0xb4000000:
 	    printf("sthu\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("(r%lu)\n", RA(opcode));
 	    break;
 	case 0x90000000:
 	    printf("stw\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -468,15 +475,15 @@ enum bool verbose)
 	case 0x94000000:
 	    printf("stwu\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("(r%lu)\n", RA(opcode));
 	    break;
 	case 0xb8000000:
 	    printf("lmw\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -485,8 +492,8 @@ enum bool verbose)
 	case 0xbc000000:
 	    printf("stmw\tr%lu,", RT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -495,29 +502,29 @@ enum bool verbose)
 	case 0x08000000:
 	    trap("d", opcode);
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x0c000000:
 	    trap("w", opcode);
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x70000000:
 	    printf("andi.\tr%lu,r%lu,", RA(opcode), RS(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x74000000:
 	    printf("andis.\tr%lu,r%lu,", RA(opcode), RS(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x60000000:
@@ -526,7 +533,7 @@ enum bool verbose)
 	    else{
 		printf("ori\tr%lu,r%lu,", RA(opcode), RS(opcode));
 		print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-				symbols, nsymbols, sorted_symbols,
+				symbols, symbols64, nsymbols, sorted_symbols,
 				nsorted_symbols, strings, strings_size,verbose);
 		printf("\n");
 	    }
@@ -534,29 +541,29 @@ enum bool verbose)
 	case 0x64000000:
 	    printf("oris\tr%lu,r%lu,", RA(opcode), RS(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x68000000:
 	    printf("xori\tr%lu,r%lu,", RA(opcode), RS(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0x6c000000:
 	    printf("xoris\tr%lu,r%lu,", RA(opcode), RS(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("\n");
 	    break;
 	case 0xc0000000:
 	    printf("lfs\tf%lu,", FRT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -565,15 +572,15 @@ enum bool verbose)
 	case 0xc4000000:
 	    printf("lfsu\tf%lu,", FRT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("(r%lu)\n", RA(opcode));
 	    break;
 	case 0xc8000000:
 	    printf("lfd\tf%lu,", FRT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -582,15 +589,15 @@ enum bool verbose)
 	case 0xcc000000:
 	    printf("lfdu\tf%lu,", FRT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("(r%lu)\n", RA(opcode));
 	    break;
 	case 0xd0000000:
 	    printf("stfs\tf%lu,", FRT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -599,15 +606,15 @@ enum bool verbose)
 	case 0xd4000000:
 	    printf("stfsu\tf%lu,", FRT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("(r%lu)\n", RA(opcode));
 	    break;
 	case 0xd8000000:
 	    printf("stfd\tf%lu,", FRT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    if(RA(opcode) == 0)
 		printf("(0)\n");
 	    else
@@ -616,23 +623,22 @@ enum bool verbose)
 	case 0xdc000000:
 	    printf("stfdu\tf%lu,", FRT(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    printf("(r%lu)\n", RA(opcode));
 	    break;
 	case 0x24000000:
 	    printf("dozi\tr%lu,r%lu,", RT(opcode), RA(opcode));
 	    print_immediate(opcode & 0xffff, sect_offset, relocs, nrelocs,
-			    symbols, nsymbols, sorted_symbols, nsorted_symbols,
-			    strings, strings_size, verbose);
-	    printf("\n");
+			    symbols, symbols64, nsymbols, sorted_symbols, 
+			    nsorted_symbols, strings, strings_size, verbose);
 	    break;
 	case 0xe8000000:
 	    switch(opcode & 0x3){
 	    case 0:
 		printf("ld\tr%lu,", RT(opcode));
 		print_immediate(opcode & 0xfffc, sect_offset, relocs, nrelocs,
-				symbols, nsymbols, sorted_symbols,
+				symbols, symbols64, nsymbols, sorted_symbols,
 				nsorted_symbols, strings, strings_size,verbose);
 		if(RA(opcode) == 0)
 		    printf("(0)\n");
@@ -642,14 +648,14 @@ enum bool verbose)
 	    case 1:
 		printf("ldu\tr%lu,", RT(opcode));
 		print_immediate(opcode & 0xfffc, sect_offset, relocs, nrelocs,
-				symbols, nsymbols, sorted_symbols,
+				symbols, symbols64, nsymbols, sorted_symbols,
 				nsorted_symbols, strings, strings_size,verbose);
 		printf("(r%lu)\n", RA(opcode));
 		break;
 	    case 2:
 		printf("lwa\tr%lu,", RT(opcode));
 		print_immediate(opcode & 0xfffc, sect_offset, relocs, nrelocs,
-				symbols, nsymbols, sorted_symbols,
+				symbols, symbols64, nsymbols, sorted_symbols,
 				nsorted_symbols, strings, strings_size,verbose);
 		if(RA(opcode) == 0)
 		    printf("(0)\n");
@@ -666,7 +672,7 @@ enum bool verbose)
 	    case 0:
 		printf("std\tr%lu,", RT(opcode));
 		print_immediate(opcode & 0xfffc, sect_offset, relocs, nrelocs,
-				symbols, nsymbols, sorted_symbols,
+				symbols, symbols64, nsymbols, sorted_symbols,
 				nsorted_symbols, strings, strings_size,verbose);
 		if(RA(opcode) == 0)
 		    printf("(0)\n");
@@ -676,7 +682,7 @@ enum bool verbose)
 	    case 1:
 		printf("stdu\tr%lu,", RT(opcode));
 		print_immediate(opcode & 0xfffc, sect_offset, relocs, nrelocs,
-				symbols, nsymbols, sorted_symbols,
+				symbols, symbols64, nsymbols, sorted_symbols,
 				nsorted_symbols, strings, strings_size,verbose);
 		printf("(r%lu)\n", RA(opcode));
 		break;
@@ -3086,7 +3092,8 @@ unsigned long value,
 unsigned long sect_offset,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-nlist_t *symbols,
+struct nlist *symbols,
+struct nlist_64 *symbols64,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
@@ -3101,6 +3108,7 @@ enum bool verbose)
     const char *name, *add, *sub;
     struct relocation_info *rp, *pairp;
     struct scattered_relocation_info *srp, *spairp;
+    uint32_t n_strx;
 
 	r_symbolnum = 0;
 	r_type = 0;
@@ -3210,11 +3218,14 @@ enum bool verbose)
 	}
 
 	if(reloc_found && r_extern == 1){
-	    if(symbols[r_symbolnum].n_un.n_strx < 0 ||
-	       (unsigned long)symbols[r_symbolnum].n_un.n_strx >= strings_size)
+	    if(symbols != NULL)
+		n_strx = symbols[r_symbolnum].n_un.n_strx;
+	    else
+		n_strx = symbols64[r_symbolnum].n_un.n_strx;
+	    if(n_strx >= strings_size)
 		name = "bad string offset";
 	    else
-		name = strings + symbols[r_symbolnum].n_un.n_strx;
+		name = strings + n_strx;
 	    if(value != 0){
 		switch(r_type){
 		case PPC_RELOC_HI16:
@@ -3343,7 +3354,7 @@ enum bool verbose)
 	high = nsorted_symbols - 1;
 	mid = (high - low) / 2;
 	while(high >= low){
-	    if(sorted_symbols[mid].nl.n_value == value){
+	    if(sorted_symbols[mid].n_value == value){
 		if(reloc_found){
 		    switch(r_type){
 		    case PPC_RELOC_HI16:
@@ -3394,7 +3405,7 @@ enum bool verbose)
 		}
 		return;
 	    }
-	    if(sorted_symbols[mid].nl.n_value > value){
+	    if(sorted_symbols[mid].n_value > value){
 		high = mid - 1;
 		mid = (high + low) / 2;
 	    }

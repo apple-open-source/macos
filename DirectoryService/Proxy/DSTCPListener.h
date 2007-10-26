@@ -51,8 +51,8 @@ typedef struct
 	DSTCPConnection	   *pConnection;
 	struct timeval		startTime;
 	char				fRemoteIP[kMaxHostNameLength];
-	uInt32				fRemotePID;
-	unsigned long		fNumberAPICalls;
+	UInt32				fRemotePID;
+	UInt32				fNumberAPICalls;
 } tConnectStruct;
 
 #define kDefaultMaxConnections 8
@@ -65,8 +65,8 @@ class DSTCPListener: public DSCThread
 	public:
 
 		// Constructor and Destructor
-							DSTCPListener ( const uInt16 inPort );
-							DSTCPListener ( const uInt16 inPort, const uInt32 inMaxConnections );
+							DSTCPListener ( const UInt16 inPort );
+							DSTCPListener ( const UInt16 inPort, const UInt32 inMaxConnections );
 		virtual				~DSTCPListener (void);
 		
 		static Boolean		Initialize(void);
@@ -74,17 +74,17 @@ class DSTCPListener: public DSCThread
 		enum { kTCPIPListener = 11 }; //magic number 11 chosen
 
 		Boolean		IsListening (void)	{ return mListening; }
-		uInt32		ConnectionType (void)	{ return mConnectionType; }
-		uInt16		TCPPort	(void)		{ return mPort; }
+		UInt32		ConnectionType (void)	{ return mConnectionType; }
+		UInt16		TCPPort	(void)		{ return mPort; }
 	
-		long				ThreadMain				( void );
+		SInt32				ThreadMain				( void );
 		virtual	void		StartThread				( void );
 		virtual	void		StopThread				( void );
-		Boolean				SetMaxConnections		( uInt32 inMaxConnections );
-		uInt32				GetMaxConnections		( void );
-		uInt32				GetUsedConnections		( void );
+		Boolean				SetMaxConnections		( UInt32 inMaxConnections );
+		UInt32				GetMaxConnections		( void );
+		UInt32				GetUsedConnections		( void );
 		void				ConnectionClosed		( DSTCPConnection *inConnection );
-		void				AddPIDForConnectionStat ( DSTCPConnection *inConnection, uInt32 inPID );
+		void				AddPIDForConnectionStat ( DSTCPConnection *inConnection, UInt32 inPID );
 		
 	protected:
 
@@ -93,7 +93,7 @@ class DSTCPListener: public DSCThread
 		
 	private:
 	
-		sInt32		CreateTCPEndpoint ( void );	// create TCP endpoint, initialize and
+		SInt32		CreateTCPEndpoint ( void );	// create TCP endpoint, initialize and
 												// set up to listen on our port
 		Boolean		WaitForConnection (void);	// wait for connection to come in
 		void		CreateConnection (void);	// bind the new connection to a connection
@@ -101,11 +101,11 @@ class DSTCPListener: public DSCThread
 	
 		Boolean		mListening;				//track whether this is actually listening or not
 		Boolean		mStop;					//whether the listener is stopped not aborted
-		uInt16		mPort;					//actual port number
-		uInt32		mType;					//this is only kTCPIPListener
-		uInt32		mConnectionType;		//this is the tag kDSPXType
-		uInt32		fMaxConnections;		//Max number of TCP connections
-		uInt32		fUsedConnections;		//used number of TCP connections
+		UInt16		mPort;					//actual port number
+		UInt32		mType;					//this is only kTCPIPListener
+		UInt32		mConnectionType;		//this is the tag kDSPXType
+		UInt32		fMaxConnections;		//Max number of TCP connections
+		UInt32		fUsedConnections;		//used number of TCP connections
 		DSMutexSemaphore
 				   *fConnectionLock;
 		tConnectStruct

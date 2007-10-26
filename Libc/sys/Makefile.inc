@@ -6,9 +6,11 @@
 # MDASM names override the default syscall names in MIASM.
 # NOASM will prevent the default syscall code from being generated.
 #
+.ifnmake autopatch
 .if exists(${.CURDIR}/${MACHINE_ARCH}/sys/Makefile.inc)
 .include "${.CURDIR}/${MACHINE_ARCH}/sys/Makefile.inc"
 .endif
+.endif # !autopatch
 
 # sys sources
 .PATH: ${.CURDIR}/sys
@@ -20,21 +22,115 @@
 # Sources common to both syscall interfaces:
 
 # 3375657: patches for sem_open() sem_unlink() shm_open() shm_unlink()
-MISRCS+= errno.c gettimeofday.c sigcatch.c sigsuspend.c \
-	sigaction.c sigtramp.c crt_externs.c \
-	sem_open.c sem_unlink.c shm_open.c shm_unlink.c fix-3375657.c \
-	accessx_np.c chmodx_np.c getsgroups_np.c \
-	getwgroups_np.c openx_np.c mmap.c \
-	pthread_getuid_np.c pthread_setuid_np.c setsgroups_np.c \
-	setwgroups_np.c statx_np.c umaskx_np.c \
-	semctl.c shmctl.c msgctl.c \
-	mprotect.c msync.c munmap.c other_libc_init.c
+MISRCS+= chmod.c chmodx_np.c crt_externs.c \
+	errno.c fchmod.c fix-3375657.c \
+	getiopolicy_np.c getrlimit.c gettimeofday.c \
+	kill.c __libc_init.c \
+	mmap.c \
+	openx_np.c \
+	posix_spawn.c \
+	select.c sem_open.c sem_unlink.c semctl.c \
+	setrlimit.c \
+	shm_open.c shm_unlink.c sigaction.c sigcatch.c sigsuspend.c \
+	sigtramp.c statx_np.c \
+	umaskx_np.c
+
+.if (${MACHINE_ARCH} != ppc)
+.if (${MACHINE_ARCH} != i386)
+MISRCS+= context-stubs.c
+.endif
+.endif
+
+.ifdef LP64
+MISRCS+= fcntl.c ioctl.c
+PRE1050SRCS+= select.c
+.endif
+
+.include "Makefile.obsd_begin"
+OBSDMISRCS= stack_protector.c
+.include "Makefile.obsd_end"
 
 .for _src in sem_open.c sem_unlink.c shm_open.c shm_unlink.c fix-3375657.c
 CFLAGS-${_src} += -D__APPLE_PR3375657_HACK__
 .endfor
 
-UNIX03SRCS += mmap.c mprotect.c msgctl.c msync.c munmap.c semctl.c shmctl.c
+INODE32SRCS += statx_np.c
+
+CANCELABLESRCS += select.c sigsuspend.c
+
+.ifdef LP64
+CANCELABLESRCS+= fcntl.c
+.endif
+
+LEGACYSRCS += accept.c bind.c connect.c \
+	getattrlist.c getpeername.c getsockname.c \
+	kill.c lchown.c listen.c \
+	mprotect.c msgctl.c msync.c munmap.c \
+	open.c \
+	recvfrom.c recvmsg.c \
+	select.c semctl.c sendmsg.c sendto.c setattrlist.c \
+	shmctl.c sigsuspend.c socketpair.c
+
+# we need to create open.h, which just contains a definition for O_NOCTTY
+open.do open.o open.po open.So: open.h
+open.h :
+	${CC} -E -dD ${CFLAGS} -include fcntl.h -x c /dev/null | grep O_NOCTTY > ${.TARGET}
+
+.for _src in msgctl.c semctl.c shmctl.c
+CFLAGS-${_src} += -DKERNEL
+.endfor
+
+# sigtramp.c can only compile with __DARWIN_UNIX03=0 (for ppc64) because
+# the structure field names are renamed with __ prefix when __DARWIN_UNIX03=1.
+# If sigtramp.c ever needs to build variant, this will have to be fix properly
+CFLAGS-sigtramp.c = -U__DARWIN_UNIX03 -D__DARWIN_UNIX03=0
+
+# set the LIBC_ALIAS_* macros so we can decorate the symbol independent
+# of other macro settings
+CFLAGS-accept.c += -DLIBC_ALIAS_ACCEPT
+#CFLAGS-aio_suspend.c += -DLIBC_ALIAS_AIO_SUSPEND
+CFLAGS-bind.c += -DLIBC_ALIAS_BIND
+CFLAGS-chmod.c += -DLIBC_ALIAS_CHMOD
+#CFLAGS-close.c += -DLIBC_ALIAS_CLOSE
+CFLAGS-connect.c += -DLIBC_ALIAS_CONNECT
+CFLAGS-fchmod.c += -DLIBC_ALIAS_FCHMOD
+CFLAGS-fcntl.c += -DLIBC_ALIAS_FCNTL
+#CFLAGS-fsync.c += -DLIBC_ALIAS_FSYNC
+CFLAGS-getattrlist.c += -DLIBC_ALIAS_GETATTRLIST
+CFLAGS-getpeername.c += -DLIBC_ALIAS_GETPEERNAME
+CFLAGS-getrlimit.c += -DLIBC_ALIAS_GETRLIMIT
+CFLAGS-getsockname.c += -DLIBC_ALIAS_GETSOCKNAME
+CFLAGS-kill.c += -DLIBC_ALIAS_KILL
+CFLAGS-lchmod.c += -DLIBC_ALIAS_LCHMOD
+CFLAGS-listen.c += -DLIBC_ALIAS_LISTEN
+CFLAGS-mmap.c += -DLIBC_ALIAS_MMAP
+CFLAGS-mprotect.c += -DLIBC_ALIAS_MPROTECT
+CFLAGS-msgctl.c += -DLIBC_ALIAS_MSGCTL
+#CFLAGS-msgrcv.c += -DLIBC_ALIAS_MSGRCV
+#CFLAGS-msgsnd.c += -DLIBC_ALIAS_MSGSND
+CFLAGS-msync.c += -DLIBC_ALIAS_MSYNC
+CFLAGS-munmap.c += -DLIBC_ALIAS_MUNMAP
+CFLAGS-open.c += -DLIBC_ALIAS_OPEN
+#CFLAGS-poll.c += -DLIBC_ALIAS_POLL
+#CFLAGS-pread.c += -DLIBC_ALIAS_PREAD
+#CFLAGS-pwrite.c += -DLIBC_ALIAS_PWRITE
+#CFLAGS-read.c += -DLIBC_ALIAS_READ
+#CFLAGS-readv.c += -DLIBC_ALIAS_READV
+CFLAGS-recvfrom.c += -DLIBC_ALIAS_RECVFROM
+CFLAGS-recvmsg.c += -DLIBC_ALIAS_RECVMSG
+CFLAGS-select.c += -DLIBC_ALIAS_SELECT
+#CFLAGS-sem_wait.c += -DLIBC_ALIAS_SEM_WAIT
+CFLAGS-semctl.c += -DLIBC_ALIAS_SEMCTL
+CFLAGS-sendmsg.c += -DLIBC_ALIAS_SENDMSG
+CFLAGS-sendto.c += -DLIBC_ALIAS_SENDTO
+CFLAGS-setattrlist.c += -DLIBC_ALIAS_SETATTRLIST
+CFLAGS-setrlimit.c += -DLIBC_ALIAS_SETRLIMIT
+CFLAGS-shmctl.c += -DLIBC_ALIAS_SHMCTL
+CFLAGS-sigsuspend.c += -DLIBC_ALIAS_SIGSUSPEND
+CFLAGS-socketpair.c += -DLIBC_ALIAS_SOCKETPAIR
+#CFLAGS-waitid.c += -DLIBC_ALIAS_WAITID
+#CFLAGS-write.c += -DLIBC_ALIAS_WRITE
+#CFLAGS-writev.c += -DLIBC_ALIAS_WRITEV
 
 # Add machine dependent asm sources:
 SRCS+=${MDASM}
@@ -63,36 +159,73 @@ SRCS+=	${SASM} ${SPSEUDO}
 CLEANFILES+=	${SASM} ${SPSEUDO}
 
 ${SASM}:
-	printf '#include "SYS.h"\nRSYSCALL(${.PREFIX})\n' > ${.TARGET}
+	printf '#include <SYS.h>\nRSYSCALL(${.PREFIX})\n' > ${.TARGET}
 
 ${SPSEUDO}:
-	printf '#include "SYS.h"\nPSEUDO(${.PREFIX:S/_//})\n' \
+	printf '#include <SYS.h>\nPSEUDO(${.PREFIX:S/_//})\n' \
 	    > ${.TARGET}
+
+COPYFILES+= ${.CURDIR}/sys/libc.syscall
 
 .if ${LIB} == "c"
 MAN2+= pthread_kill.2 pthread_sigmask.2 \
-	sem_close.2 sem_open.2 sem_post.2 sem_trywait.2 \
+	sem_close.2 sem_open.2 sem_post.2 \
 	sem_unlink.2 sem_wait.2 shm_open.2 shm_unlink.2 \
 	sigwait.2 getdtablesize.2 setreuid.2 setregid.2 \
-	nanosleep.2
-MAN3+= atomic.3 barrier.3 spinlock.3
+	nanosleep.2 undelete.2
+MAN3+= atomic.3 barrier.3 getiopolicy_np.3 spinlock.3 cache.3
 MLINKS+= atomic.3 OSAtomicAdd32.3
-MLINKS+= atomic.3 OSAtomicIncrement32.3
-MLINKS+= atomic.3 OSAtomicDecrement32.3
-MLINKS+= atomic.3 OSAtomicOr32.3
-MLINKS+= atomic.3 OSAtomicAnd32.3
-MLINKS+= atomic.3 OSAtomicXor32.3
+MLINKS+= atomic.3 OSAtomicAdd32Barrier.3
 MLINKS+= atomic.3 OSAtomicAdd64.3
-MLINKS+= atomic.3 OSAtomicIncrement64.3
-MLINKS+= atomic.3 OSAtomicDecrement64.3
+MLINKS+= atomic.3 OSAtomicAdd64Barrier.3
+MLINKS+= atomic.3 OSAtomicAnd32.3
+MLINKS+= atomic.3 OSAtomicAnd32Barrier.3
+MLINKS+= atomic.3 OSAtomicAnd32Orig.3
+MLINKS+= atomic.3 OSAtomicAnd32OrigBarrier.3
 MLINKS+= atomic.3 OSAtomicCompareAndSwap32.3
+MLINKS+= atomic.3 OSAtomicCompareAndSwap32Barrier.3
 MLINKS+= atomic.3 OSAtomicCompareAndSwap64.3
-MLINKS+= atomic.3 OSAtomicTestAndSet.3
+MLINKS+= atomic.3 OSAtomicCompareAndSwap64Barrier.3
+MLINKS+= atomic.3 OSAtomicCompareAndSwapInt.3
+MLINKS+= atomic.3 OSAtomicCompareAndSwapIntBarrier.3
+MLINKS+= atomic.3 OSAtomicCompareAndSwapLong.3
+MLINKS+= atomic.3 OSAtomicCompareAndSwapLongBarrier.3
+MLINKS+= atomic.3 OSAtomicCompareAndSwapPtr.3
+MLINKS+= atomic.3 OSAtomicCompareAndSwapPtrBarrier.3
+MLINKS+= atomic.3 OSAtomicDecrement32.3
+MLINKS+= atomic.3 OSAtomicDecrement32Barrier.3
+MLINKS+= atomic.3 OSAtomicDecrement64.3
+MLINKS+= atomic.3 OSAtomicDecrement64Barrier.3
+MLINKS+= atomic.3 OSAtomicDequeue.3
+MLINKS+= atomic.3 OSAtomicEnqueue.3
+MLINKS+= atomic.3 OSAtomicIncrement32.3
+MLINKS+= atomic.3 OSAtomicIncrement32Barrier.3
+MLINKS+= atomic.3 OSAtomicIncrement64.3
+MLINKS+= atomic.3 OSAtomicIncrement64Barrier.3
+MLINKS+= atomic.3 OSAtomicOr32.3
+MLINKS+= atomic.3 OSAtomicOr32Barrier.3
+MLINKS+= atomic.3 OSAtomicOr32Orig.3
+MLINKS+= atomic.3 OSAtomicOr32OrigBarrier.3
 MLINKS+= atomic.3 OSAtomicTestAndClear.3
+MLINKS+= atomic.3 OSAtomicTestAndClearBarrier.3
+MLINKS+= atomic.3 OSAtomicTestAndSet.3
+MLINKS+= atomic.3 OSAtomicTestAndSetBarrier.3
+MLINKS+= atomic.3 OSAtomicXor32.3
+MLINKS+= atomic.3 OSAtomicXor32Barrier.3
+MLINKS+= atomic.3 OSAtomicXor32Orig.3
+MLINKS+= atomic.3 OSAtomicXor32OrigBarrier.3
 MLINKS+= barrier.3 OSMemoryBarrier.3
-MLINKS+= spinlock.3 OSSpinLockTry.3
-MLINKS+= spinlock.3 OSSpinLockLock.3
-MLINKS+= spinlock.3 OSSpinLockUnlock.3
+
+MLINKS+= getiopolicy_np.3 setiopolicy_np.3
+
+MLINKS+= sem_wait.2 sem_trywait.2
+MLINKS+= cache.3 sys_cache_control.3
+MLINKS+= cache.3 sys_icache_invalidate.3
+MLINKS+= cache.3 sys_dcache_flush.3
+
+MLINKS+= spinlock.3 OSSpinLockLock.3			\
+         spinlock.3 OSSpinLockTry.3			\
+         spinlock.3 OSSpinLockUnlock.3
 
 #MAN+=	_exit.2 accept.2 access.2 acct.2 adjtime.2 \
 #	aio_cancel.2 aio_error.2 aio_read.2 aio_return.2 \
@@ -108,7 +241,7 @@ MLINKS+= spinlock.3 OSSpinLockUnlock.3
 #	getsockopt.2 gettimeofday.2 getuid.2 \
 #	intro.2 ioctl.2 issetugid.2 jail.2 kill.2 \
 #	kldfind.2 kldfirstmod.2 kldload.2 kldnext.2 kldstat.2 kldsym.2 \
-#	kldunload.2 ktrace.2 kqueue.2 link.2 listen.2 lseek.2 \
+#	kldunload.2 kqueue.2 link.2 listen.2 lseek.2 \
 #	madvise.2 mincore.2 minherit.2 mkdir.2 mkfifo.2 mknod.2 mlock.2 mmap.2 \
 #	modfind.2 modnext.2 modstat.2 \
 #	mount.2 mprotect.2 msync.2 munmap.2 nanosleep.2 \

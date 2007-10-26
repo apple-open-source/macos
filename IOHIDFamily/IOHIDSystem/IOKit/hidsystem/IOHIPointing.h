@@ -42,8 +42,8 @@ typedef void (*RelativePointerEventAction)(OSObject * target,
 
 typedef void (*AbsolutePointerEventAction)(OSObject * target,
                         /* buttons */      int        buttons,
-                        /* at */           Point *    newLoc,
-                        /* withBounds */   Bounds *   bounds,
+                        /* at */           IOGPoint * newLoc,
+                        /* withBounds */   IOGBounds *bounds,
                         /* inProximity */  bool       proximity,
                         /* withPressure */ int        pressure,
                         /* withAngle */    int        stylusAngle,
@@ -69,8 +69,8 @@ typedef void (*RelativePointerEventCallback)(
 typedef void (*AbsolutePointerEventCallback)(
                         /* target */       OSObject * target,
                         /* buttons */      int        buttons,
-                        /* at */           Point *    newLoc,
-                        /* withBounds */   Bounds *   bounds,
+                        /* at */           IOGPoint * newLoc,
+                        /* withBounds */   IOGBounds *bounds,
                         /* inProximity */  bool       proximity,
                         /* withPressure */ int        pressure,
                         /* withAngle */    int        stylusAngle,
@@ -95,6 +95,11 @@ typedef void (*ScrollWheelEventCallback)(
                         /* refcon */       void *     refcon);
 
 /* End Action Definitions */
+
+/* Default accel level parameters */
+#define EV_DEFAULTPOINTERACCELLEVEL 0x0000b000
+#define EV_DEFAULTSCROLLACCELLEVEL  0x00005000
+
 class IOHIDPointingDevice;
 struct ScrollAccelInfo;
 
@@ -112,7 +117,7 @@ private:
     bool		_convertAbsoluteToRelative;
     bool		_contactToMove;
     bool		_hadContact;
-    Point		_previousLocation;
+    IOGPoint    _previousLocation;
     UInt8		_pressureThresholdToClick;	// A scale factor of 0 to 255 to determine how much pressure is necessary to generate a primary mouse click - a value of 255 means no click will be generated
     void *		_scaleSegments;
     IOItemCount		_scaleSegCount;
@@ -146,6 +151,9 @@ private:
         
         bool		isSeized;
         UInt32        accelerateMode;
+        
+        UInt32      scrollZoomMask;
+        bool        scrollOff;
     };
 
     ExpansionData *  _reserved;
@@ -167,8 +175,8 @@ protected:
                                             UInt32     buttonState,
                                             AbsoluteTime ts);
     
-  virtual void dispatchAbsolutePointerEvent(Point *	newLoc,
-                                            Bounds *	bounds,
+  virtual void dispatchAbsolutePointerEvent(IOGPoint *	newLoc,
+                                            IOGBounds *	bounds,
                                             UInt32	buttonState,
                                             bool	proximity,
                                             int		pressure,
@@ -236,8 +244,9 @@ private:
   // RY: We have to make sure that subclasses that will 
   // take advantage of this have their defined resolution 
   // in their property table.
-  /*virtual*/ IOFixed	scrollResolution();
+  /*virtual*/ IOFixed	scrollResolutionForType(SInt32 type=-1);
   /*virtual*/ IOFixed   scrollReportRate();
+  /*virtual*/ OSData *  copyScrollAccelerationTableForType(SInt32 type=-1);
   
 private:
   static void _relativePointerEvent( IOHIPointing * self,
@@ -249,8 +258,8 @@ private:
   /* Tablet event reporting */
   static void _absolutePointerEvent(IOHIPointing * self,
 				    int        buttons,
-                 /* at */           Point *    newLoc,
-                 /* withBounds */   Bounds *   bounds,
+                 /* at */           IOGPoint * newLoc,
+                 /* withBounds */   IOGBounds *bounds,
                  /* inProximity */  bool       proximity,
                  /* withPressure */ int        pressure,
                  /* withAngle */    int        stylusAngle,

@@ -63,14 +63,25 @@ tDirStatus	dsOpenDirService			(	tDirReference	   *outDirReference	);
  * @param inIPPort either the client defined port or "0" which then allows use of the default
  */
 #define DSPROXY 1
-tDirStatus	dsOpenDirServiceProxy 		(	tDirReference	   *outDirRef,
-											const char		   *inIPAddress,
-											unsigned long		inIPPort,
-											tDataNodePtr		inAuthMethod,
-											tDataBufferPtr		inAuthStepData,
-											tDataBufferPtr		outAuthStepDataResponse,
-											tContextData	   *ioContinueData )
+tDirStatus	dsOpenDirServiceProxy 		(	tDirReference		   *outDirRef,
+											const char			   *inIPAddress,
+											UInt32					inIPPort,
+											tDataNodePtr			inAuthMethod,
+											tDataBufferPtr			inAuthStepData,
+											tDataBufferPtr			outAuthStepDataResponse,
+											tContextData		   *ioContinueData )
 AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER;
+	
+/*!
+ * @function dsOpenDirServiceLocal
+ * @discussion Opens Directory Services API reference to Local Access only daemon. Must be called before any other
+ * 		Directory Services API calls because this reference is needed for any other call.
+ * @param outDirRef reference to use in subsequent Directory Services API calls
+ * @param inFilePath unix file path for a ds local node database [if either NULL or "Default" input then the default node is used]
+ */
+tDirStatus	dsOpenDirServiceLocal 		(	tDirReference		   *outDirRef,
+											const char			   *inFilePath )
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 	
 /*!
  * @function dsCloseDirService
@@ -82,59 +93,20 @@ tDirStatus	dsCloseDirService			(	tDirReference		inDirReference		);
 /*!
  * @function dsAddChildPIDToReference
  */
-tDirStatus dsAddChildPIDToReference		(	tDirReference		inDirRef,
-											long				inValidChildPID,
-											unsigned long		inValidAPIReferenceToGrantChild );
+tDirStatus dsAddChildPIDToReference		(	tDirReference			inDirRef,
+											SInt32					inValidChildPID,
+											UInt32					inValidAPIReferenceToGrantChild );
 
 /*!
  * @function dsIsDirServiceRunning
  */
 tDirStatus dsIsDirServiceRunning		( );
 
-//-------------------------------------------------------------------------
-// register custom allocate/deallocate routines
-tDirStatus	dsRegisterCustomMemory		(	tDirReference		inDirReference,
-											fpCustomAllocate	inCustomAllocate,
-											fpCustomDeAllocate	inCustomDeAllocate,
-											tClientData			inClientData		)
-AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
-	
-tDirStatus	dsGetCustomAllocate			(	tDirReference		inDirReference,
-											fpCustomAllocate	*outCustomAllocate,
-											fpCustomDeAllocate	*outCustomDeAllocate,
-											tClientData			*outClientData		)
-AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
-
-tDirStatus	dsUnRegisterCustomMemory	(	tDirReference		inDirReference,
-											fpCustomAllocate	inCustomAllocate,
-											fpCustomDeAllocate	inCustomDeAllocate,
-											tClientData			inClientData		)
-AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
-
-//------------------------------------------------------------
-// register custom thread routines
-tDirStatus	dsRegisterCustomThread		(	tDirReference			inDirReference,
-											fpCustomThreadBlock		inCustomBlock,
-											fpCustomThreadUnBlock	inCustomUnBlock,
-											fpCustomThreadYield		inCustomYield,
-											tClientData				inClientData	)
-AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
-
-tDirStatus	dsGetCustomThread			(	tDirReference			inDirReference,
-											fpCustomThreadBlock		*outCustomBlock,
-											fpCustomThreadUnBlock	*outCustomUnBlock,
-											fpCustomThreadYield		*outCustomYield,
-											tClientData				*outClientData	)
-AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
-
-tDirStatus	dsUnRegisterCustomThread	(	tDirReference			inDirReference,
-											fpCustomThreadBlock		inCustomBlock,
-											fpCustomThreadUnBlock	inCustomUnBlock,
-											fpCustomThreadYield		inCustomYield,
-											tClientData				inClientData	)
-AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
-
-//-----------------------------------------------
+/*!
+ * @function dsIsDirServiceLocalRunning
+ */
+tDirStatus dsIsDirServiceLocalRunning	( )
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
  * @function dsGetDirNodeCount
@@ -142,8 +114,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
  * @param inDirReference Directory reference established with dsOpenDirService.
  * @param outDirectoryNodeCount Contains count of the total number of directory nodes.
  */
-tDirStatus	dsGetDirNodeCount		(	tDirReference	inDirReference,
-										unsigned long	*outDirectoryNodeCount	)
+tDirStatus	dsGetDirNodeCount		(	tDirReference		inDirReference,
+										UInt32			   *outDirectoryNodeCount	)
 AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER;
 
 /*!
@@ -155,9 +127,9 @@ AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER;
  * @param outDirectoryNodeCount Contains count of the total number of nodes in the directory
  * @param outDirectoryNodeChangeToken Contains token that changes upon any registered node changes.
  */
-tDirStatus	dsGetDirNodeCountWithInfo		(	tDirReference	inDirReference,
-										unsigned long	*outDirectoryNodeCount,
-										unsigned long	*outDirectoryNodeChangeToken	);
+tDirStatus	dsGetDirNodeCountWithInfo		(	tDirReference		inDirReference,
+												UInt32			   *outDirectoryNodeCount,
+												UInt32			   *outDirectoryNodeChangeToken	);
 
 /*!
  * @function dsGetDirNodeList
@@ -170,10 +142,10 @@ tDirStatus	dsGetDirNodeCountWithInfo		(	tDirReference	inDirReference,
  * 		if client does not use  if (*inOutCountinueData != NULL) and the client doesn't wish to continue
  * 		then dsReleaseContinueData should be called to clean up..
  */
-tDirStatus	dsGetDirNodeList		(	tDirReference	inDirReference,
-										tDataBufferPtr	inOutDataBufferPtr,
-										unsigned long	*outDirNodeCount,
-										tContextData	*inOutContinueData		);
+tDirStatus	dsGetDirNodeList		(	tDirReference		inDirReference,
+										tDataBufferPtr		inOutDataBufferPtr,
+										UInt32			   *outDirNodeCount,
+										tContextData	   *inOutContinueData		);
 
 /*!
  * @function dsReleaseContinueData
@@ -207,12 +179,12 @@ tDirStatus	dsReleaseContinueData	(	tDirReference	inDirReference,
  * 		if client does not use  if (*inOutCountinueData != NULL) and the client doesn't wish to continue
  * 		then dsReleaseContinueData should be called to clean up.
  */
-tDirStatus	dsFindDirNodes			(	tDirReference		inDirReference,
-										tDataBufferPtr		inOutDataBufferPtr,
-										tDataListPtr		inNodeNamePattern,
-										tDirPatternMatch	inPatternMatchType,
-										unsigned long		*outDirNodeCount,
-										tContextData		*inOutContinueData );
+tDirStatus	dsFindDirNodes			(	tDirReference			inDirReference,
+										tDataBufferPtr			inOutDataBufferPtr,
+										tDataListPtr			inNodeNamePattern,
+										tDirPatternMatch		inPatternMatchType,
+										UInt32				   *outDirNodeCount,
+										tContextData		   *inOutContinueData );
 
 										
 /*!
@@ -226,10 +198,10 @@ tDirStatus	dsFindDirNodes			(	tDirReference		inDirReference,
  * @param inOutDataList Address of tDataListPtr that is built by this call.
  * 		The client is responsible for disposing of it with dsDataListDeAllocate.
  */
-tDirStatus	dsGetDirNodeName		(	tDirReference	inDirReference,
-										tDataBufferPtr	inOutDataBuffer,
-										unsigned long	inDirNodeIndex,
-										tDataListPtr	*inOutDataList			);
+tDirStatus	dsGetDirNodeName		(	tDirReference		inDirReference,
+										tDataBufferPtr		inOutDataBuffer,
+										UInt32				inDirNodeIndex,
+										tDataListPtr	   *inOutDataList			);
 
 /*!
  * @function dsOpenDirNode
@@ -237,7 +209,7 @@ tDirStatus	dsGetDirNodeName		(	tDirReference	inDirReference,
  * @param inDirReference Directory reference established with dsOpenDirService.
  * @param inDirNodeName Directory node name to open. Should be split into path
  * 		components, for example as a result of dsBuildListFromPath
- * @param outDirNodeReference Valid call with noErr, results in a directory node session reference.
+ * @param outDirNodeReference Valid call with eDSNoErr, results in a directory node session reference.
  * 		This reference represents the client's session context for the contents of the given directory node.
  */
 tDirStatus	dsOpenDirNode				(	tDirReference	inDirReference,
@@ -268,13 +240,13 @@ tDirStatus	dsCloseDirNode				(	tDirNodeReference	inDirNodeReference		);
  * 		the remainder of the information. If client does not use non-NULL continue data,
  * 		then dsReleaseContinueData should be called to clean up.
  */
-tDirStatus	dsGetDirNodeInfo		(	tDirNodeReference	inDirNodeReference,
-										tDataListPtr		inDirNodeInfoTypeList,
-										tDataBufferPtr		inOutDataBuffer,
-										dsBool				inAttributeInfoOnly,
-										unsigned long		*outAttributeInfoCount,
-										tAttributeListRef	*outAttributeListRef,
-										tContextData		*inOutContinueData			);
+tDirStatus	dsGetDirNodeInfo		(	tDirNodeReference		inDirNodeReference,
+										tDataListPtr			inDirNodeInfoTypeList,
+										tDataBufferPtr			inOutDataBuffer,
+										dsBool					inAttributeInfoOnly,
+										UInt32				   *outAttributeInfoCount,
+										tAttributeListRef	   *outAttributeListRef,
+										tContextData		   *inOutContinueData			);
 
 /*!
  * @function dsGetRecordList
@@ -302,8 +274,8 @@ tDirStatus	dsGetRecordList		(	tDirNodeReference		inDirNodeReference,
 									tDataListPtr			inRecordTypeList,
 									tDataListPtr			inAttributeTypeList,
 									dsBool					inAttributeInfoOnly,
-									unsigned long			*inOutRecordEntryCount,
-									tContextData			*inOutContinueData		);
+									UInt32				   *inOutRecordEntryCount,
+									tContextData		   *inOutContinueData		);
 /*!
  * @function dsGetRecordEntry
  * @discussion Get a record entry from a buffer.
@@ -312,7 +284,7 @@ tDirStatus	dsGetRecordList		(	tDirNodeReference		inDirNodeReference,
  */
 tDirStatus	dsGetRecordEntry	(	tDirNodeReference	inDirNodeReference,
 									tDataBufferPtr		inOutDataBuffer,
-									unsigned long		inRecordEntryIndex,
+									UInt32				inRecordEntryIndex,
 
 									tAttributeListRef	*outAttributeListRef,
 									tRecordEntryPtr		*outRecordEntryPtr		);
@@ -324,7 +296,7 @@ tDirStatus	dsGetRecordEntry	(	tDirNodeReference	inDirNodeReference,
 tDirStatus	dsGetAttributeEntry	(	tDirNodeReference		inDirNodeReference,
 									tDataBufferPtr			inOutDataBuffer,
 									tAttributeListRef		inAttributeListRef,
-									unsigned long			inAttributeInfoIndex,
+									UInt32					inAttributeInfoIndex,
 									tAttributeValueListRef	*outAttributeValueListRef,
 									tAttributeEntryPtr		*outAttributeInfoPtr			);
 
@@ -334,9 +306,38 @@ tDirStatus	dsGetAttributeEntry	(	tDirNodeReference		inDirNodeReference,
  */
 tDirStatus	dsGetAttributeValue			(	tDirNodeReference		inDirNodeReference,
 											tDataBufferPtr			inOutDataBuffer,
-											unsigned long			inAttributeValueIndex,
+											UInt32					inAttributeValueIndex,
 											tAttributeValueListRef	inAttributeValueListRef,
 											tAttributeValueEntryPtr	*outAttributeValue		);
+
+
+/*!
+* @function dsGetNextAttributeEntry
+* @discussion Get the next attribute entry from a buffer. Optimized buffer extraction with offset value.
+* Intent is to only service this call in the FW unless falling through to old call.
+*/
+tDirStatus	dsGetNextAttributeEntry		(	tDirNodeReference			inDirNodeReference,
+											tDataBufferPtr				inOutDataBuffer,
+											tAttributeListRef			inAttributeListRef,
+											UInt32						inAttributeInfoIndex,
+											SInt32					   *inOutAttributeOffset,
+											tAttributeValueListRef	   *outAttributeValueListRef,
+											tAttributeEntryPtr		   *outAttributeInfoPtr )
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+
+/*!
+* @function dsGetNextAttributeValue
+* @discussion Get the next attribute value from a buffer. Optimized buffer extraction with offset value.
+* Intent is to only service this call in the FW unless falling through to old call.
+*/
+tDirStatus	dsGetNextAttributeValue		(	tDirNodeReference			inDirNodeReference,
+											tDataBufferPtr				inOutDataBuffer,
+											UInt32						inAttributeValueIndex,
+											SInt32					   *inOutAttributeValueOffset,
+											tAttributeValueListRef		inAttributeValueListRef,
+											tAttributeValueEntryPtr	   *outAttributeValue )
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
  * @function dsCloseAttributeList
@@ -375,14 +376,14 @@ tDirStatus	dsGetRecordAttributeInfo			(	tRecordReference	inRecordReference,
  */
 tDirStatus	dsGetRecordAttributeValueByID		(	tRecordReference		inRecordReference,
 													tDataNodePtr			inAttributeType,											
-													unsigned long			inValueID,
+													UInt32					inValueID,
 													tAttributeValueEntryPtr	*outEntryPtr		);
 /*!
  * @function dsGetRecordAttributeValueByIndex
  */
 tDirStatus	dsGetRecordAttributeValueByIndex	(	tRecordReference		inRecordReference,
 													tDataNodePtr			inAttributeType,											
-													unsigned long			inValueIndex,
+													UInt32					inValueIndex,
 													tAttributeValueEntryPtr	*outEntryPtr		);
 
 /*!
@@ -472,7 +473,7 @@ tDirStatus	dsAddAttributeValue		(	tRecordReference		inRecordReference,
  */
 tDirStatus	dsRemoveAttributeValue	(	tRecordReference		inRecordReference,
 										tDataNodePtr			inAttributeType,
-										unsigned long			inAttributeValueID			);
+										UInt32					inAttributeValueID			);
 
 /*!
  * @function dsSetAttributeValue
@@ -608,8 +609,8 @@ tDirStatus	dsDoAttributeValueSearch	(	tDirNodeReference	inDirNodeReference,
 											tDataNodePtr		inAttributeType,
 											tDirPatternMatch	inPatternMatchType,
 											tDataNodePtr		inPattern2Match,
-											unsigned long		*inOutMatchRecordCount,
-											tContextData		*inOutContinueData			);
+											UInt32			   *inOutMatchRecordCount,
+											tContextData	   *inOutContinueData			);
 
 
 /*!
@@ -632,8 +633,8 @@ tDirStatus	dsDoMultipleAttributeValueSearch
 											tDataNodePtr		inAttributeType,
 											tDirPatternMatch	inPatternMatchType,
 											tDataListPtr		inPatterns2Match,
-											unsigned long		*inOutMatchRecordCount,
-											tContextData		*inOutContinueData			)
+											UInt32			   *inOutMatchRecordCount,
+											tContextData	   *inOutContinueData			)
 AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 
@@ -659,8 +660,8 @@ tDirStatus	dsDoAttributeValueSearchWithData	(	tDirNodeReference	inDirNodeReferen
 													tDataNodePtr		inPatternToMatch,
 													tDataListPtr		inAttributeTypeRequestList,
 													dsBool				inAttributeInfoOnly,
-													unsigned long		*inOutMatchRecordCount,
-													tContextData		*inOutContinueData			);
+													UInt32			   *inOutMatchRecordCount,
+													tContextData	   *inOutContinueData			);
 
 /*!
  * @function dsDoMultipleAttributeValueSearchWithData
@@ -684,8 +685,8 @@ tDirStatus	dsDoMultipleAttributeValueSearchWithData
 													tDataListPtr		inPatternsToMatch,
 													tDataListPtr		inAttributeTypeRequestList,
 													dsBool				inAttributeInfoOnly,
-													unsigned long		*inOutMatchRecordCount,
-													tContextData		*inOutContinueData			)
+													UInt32			   *inOutMatchRecordCount,
+													tContextData	   *inOutContinueData			)
 AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 /*!
@@ -693,9 +694,9 @@ AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
  * @discussion Used for custom direct communications with plugs-ins.
  */
 tDirStatus	dsDoPlugInCustomCall		(	tDirNodeReference	inDirNodeReference,
-											unsigned long	inCustomRequestCode,
-											tDataBufferPtr	inCustomRequestData,
-											tDataBufferPtr	outCustomRequestResponse	);
+											UInt32				inCustomRequestCode,
+											tDataBufferPtr		inCustomRequestData,
+											tDataBufferPtr		outCustomRequestResponse	);
 											
 
 /*!

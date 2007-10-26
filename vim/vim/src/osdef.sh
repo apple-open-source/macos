@@ -11,6 +11,7 @@
 #
 # 31.10.95 jw.
 
+CC=cc
 if test -z "$CC"; then
   CC=cc
 fi
@@ -21,7 +22,9 @@ fi
 rm -f core* *.core
 
 cat << EOF > osdef0.c
-#define select select_declared_wrong
+#ifndef __APPLE__
+# define select select_declared_wrong
+#endif
 #define tgetstr tgetstr_declared_wrong
 #include "auto/config.h"
 #include "os_unix.h"	/* bring in most header files, more follow below */
@@ -39,10 +42,17 @@ cat << EOF > osdef0.c
 # include <sys/types.h>
 # include <sys/statfs.h>	/* only for memfile.c */
 #endif
+
+#ifdef HAVE_X11
+# include <X11/Intrinsic.h>
+#endif
 EOF
 
-CC=$(echo $CC | sed -e 's/-arch i386//g') # build fat
-$CC -I. -I$srcdir -E osdef0.c >osdef0.cc
+# Mac uses precompiled headers, but we need real headers here.
+case `uname` in
+    Darwin)	$CC -I. -I$srcdir -E -no-cpp-precomp osdef0.c >osdef0.cc;;
+    *)		$CC -I. -I$srcdir -E osdef0.c >osdef0.cc;;
+esac
 
 # insert a space in front of each line, so that a function name at the
 # start of the line is matched with "[)*, 	]\1[ 	(]"

@@ -1,4 +1,4 @@
-$ $Id: set31,v 1.1.1.2 2001/06/28 23:11:06 bbraun Exp $
+$ $Id: set31,v 1.2 1995/03/19 18:07:15 christos Exp $
 $ vms.termcap.c
 $set 31 
 1 Can't open TERMCAP: [%s]\n

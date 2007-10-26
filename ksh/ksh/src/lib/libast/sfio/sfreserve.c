@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"sfhdr.h"
 
 /*	Reserve a segment of data or buffer.
@@ -39,130 +35,163 @@ ssize_t		size;	/* size of peek */
 int		type;	/* LOCKR: lock stream, LASTR: last record */
 #endif
 {
-	reg ssize_t	n, sz;
+	reg ssize_t	n, now, sz, iosz;
 	reg Sfrsrv_t*	rsrv;
 	reg Void_t*	data;
-	reg int		mode;
+	reg int		mode, local;
 
 	SFMTXSTART(f,NIL(Void_t*));
 
-	/* initialize io states */
-	rsrv = NIL(Sfrsrv_t*);
-	_Sfi = f->val = -1;
+	sz = size < 0 ? -size : size;
+
+	/* see if we need to bias toward SF_WRITE instead of the default SF_READ */
+	if(type < 0)
+		mode = 0;
+	else if((mode = type&SF_WRITE) )
+		type &= ~SF_WRITE;
 
 	/* return the last record */
 	if(type == SF_LASTR )
-	{	if((rsrv = f->rsrv) && (n = -rsrv->slen) > 0)
+	{	if((n = f->endb - f->next) > 0 && n == f->val )
+		{	data = (Void_t*)f->next;
+			f->next += n;
+		}
+		else if((rsrv = f->rsrv) && (n = -rsrv->slen) > 0)
 		{	rsrv->slen = 0;
 			_Sfi = f->val = n;
-			SFMTXRETURN(f, (Void_t*)rsrv->data);
+			data = (Void_t*)rsrv->data;
 		}
-		else	SFMTXRETURN(f, NIL(Void_t*));
+		else
+		{	_Sfi = f->val = -1;
+			data = NIL(Void_t*);
+		}
+
+		SFMTXRETURN(f, data);
 	}
 
-	if(type > 0 && !(type == SF_LOCKR || type == 1) )
-		SFMTXRETURN(f, NIL(Void_t*));
+	if(type > 0)
+	{	if(type == 1 ) /* upward compatibility mode */
+			type = SF_LOCKR;
+		else if(type != SF_LOCKR)
+			SFMTXRETURN(f, NIL(Void_t*));
+	}
 
-	if((sz = size) == 0 && type != 0)
-	{	/* only return the current status and possibly lock stream */
-		if((f->mode&SF_RDWR) != f->mode && _sfmode(f,0,0) < 0)
+	if(size == 0 && (type < 0 || type == SF_LOCKR) )
+	{	if((f->mode&SF_RDWR) != f->mode && _sfmode(f,0,0) < 0)
 			SFMTXRETURN(f, NIL(Void_t*));
 
 		SFLOCK(f,0);
 		if((n = f->endb - f->next) < 0)
 			n = 0;
 
-		if(!f->data && type > 0)
-			rsrv = _sfrsrv(f,0);
-
 		goto done;
 	}
-	if(sz < 0)
-		sz = -sz;
 
 	/* iterate until get to a stream that has data or buffer space */
-	for(;;)
-	{	/* prefer read mode so that data is always valid */
-		if(!(mode = (f->flags&SF_READ)) )
+	for(local = 0;; local = SF_LOCAL)
+	{	_Sfi = f->val = -1;
+
+		if(!mode && !(mode = f->flags&SF_READ) )
 			mode = SF_WRITE;
-		if((int)f->mode != mode && _sfmode(f,mode,0) < 0)
-		{	n = -1;
-			goto done;
+		if((int)f->mode != mode && _sfmode(f,mode,local) < 0)
+		{	SFOPEN(f,0);
+			SFMTXRETURN(f, NIL(Void_t*));
 		}
 
-		SFLOCK(f,0);
+		SFLOCK(f,local);
 
-		if((n = f->endb - f->next) < 0)	/* possible for string+rw */
+		if((n = now = f->endb - f->next) < 0)
 			n = 0;
-
-		if(n > 0 && n >= sz)	/* all done */
+		if(n > 0 && n >= sz) /* all done */
 			break;
 
+		/* amount to perform IO */
+		if(size == 0 || (f->mode&SF_WRITE) )
+			iosz = -1;
+		else
+		{	iosz = sz - n;
+			if(type != SF_LOCKR && size < 0 && iosz < (f->size - n) )
+				iosz = f->size - n;
+			if(iosz <= 0)
+				break;
+		}
+
 		/* do a buffer refill or flush */
+		now = n;
 		if(f->mode&SF_WRITE)
-			(void)SFFLSBUF(f, -1);
-		else if(type > 0 && f->extent < 0 && (f->flags&SF_SHARE) )
+			(void)SFFLSBUF(f, iosz);
+		else if(type == SF_LOCKR && f->extent < 0 && (f->flags&SF_SHARE) )
 		{	if(n == 0) /* peek-read only if there is no buffered data */
 			{	f->mode |= SF_RV;
-				(void)SFFILBUF(f, sz == 0 ? -1 : (sz-n) );
+				(void)SFFILBUF(f, iosz );
 			}
 			if((n = f->endb - f->next) < sz)
 			{	if(f->mode&SF_PKRD)
 				{	f->endb = f->endr = f->next;
 					f->mode &= ~SF_PKRD;
 				}
-				goto done;
+				break;
 			}
 		}
-		else	(void)SFFILBUF(f, sz == 0 ? -1 : (sz-n) );
+		else	(void)SFFILBUF(f, iosz );
 
-		/* now have data */
-		if((n = f->endb - f->next) > 0)
-			break;
-		else if(n < 0)
+		if((n = f->endb - f->next) <= 0)
 			n = 0;
 
-		/* this test fails only if unstacked to an opposite stream */
-		if((f->mode&mode) != 0)
+		if(n >= sz) /* got it */
+			break;
+
+		if(n == now || sferror(f) || sfeof(f)) /* no progress */
+			break;
+
+		/* request was only to assess data availability */
+		if(type == SF_LOCKR && size > 0 && n > 0 )
 			break;
 	}
 
-	if(n > 0 && n < sz && (f->mode&mode) != 0 )
-	{	/* try to accomodate request size */	
-		if(f->flags&SF_STRING)
-		{	if((f->mode&SF_WRITE) && (f->flags&SF_MALLOC) )
-			{	(void)SFWR(f,f->next,sz,f->disc);
-				n = f->endb - f->next;
-			}
-		}
-		else if(f->mode&SF_WRITE)
-		{	if(type > 0 && (rsrv = _sfrsrv(f,sz)) )
-				n = sz;
-		}
-		else /*if(f->mode&SF_READ)*/
-		{	if(type <= 0 && (rsrv = _sfrsrv(f,sz)) &&
-			   (n = SFREAD(f,(Void_t*)rsrv->data,sz)) < sz)
-				rsrv->slen = -n;
+done:	/* compute the buffer to be returned */
+	data = NIL(Void_t*);
+	if(size == 0 || n == 0)
+	{	if(n > 0) /* got data */
+			data = (Void_t*)f->next;
+		else if(type == SF_LOCKR && size == 0 && (rsrv = _sfrsrv(f,0)) )
+			data = (Void_t*)rsrv->data;
+	}
+	else if(n >= sz) /* got data */
+		data = (Void_t*)f->next;
+	else if(f->flags&SF_STRING) /* try extending string buffer */
+	{	if((f->mode&SF_WRITE) && (f->flags&SF_MALLOC) )
+		{	(void)SFWR(f,f->next,sz,f->disc);
+			if((n = f->endb - f->next) >= sz )
+				data = (Void_t*)f->next;
 		}
 	}
-
-done:
-	/* return true buffer size */
-	_Sfi = f->val = n;
+	else if(f->mode&SF_WRITE) /* allocate side buffer */
+	{	if(type == SF_LOCKR && (rsrv = _sfrsrv(f, sz)) )
+			data = (Void_t*)rsrv->data;
+	}
+	else if(type != SF_LOCKR && sz > f->size && (rsrv = _sfrsrv(f,sz)) )
+	{	if((n = SFREAD(f,(Void_t*)rsrv->data,sz)) >= sz) /* read side buffer */
+			data = (Void_t*)rsrv->data;
+		else	rsrv->slen = -n;
+	}
 
 	SFOPEN(f,0);
 
-	if((sz > 0 && n < sz) || (n == 0 && type <= 0) )
-		SFMTXRETURN(f, NIL(Void_t*));
-
-	if((data = rsrv ? (Void_t*)rsrv->data : (Void_t*)f->next) )
-	{	if(type > 0)
+	if(data)
+	{	if(type == SF_LOCKR)
 		{	f->mode |= SF_PEEK;
+			if((f->mode & SF_READ) && size == 0 && data != f->next)
+				f->mode |= SF_GETR; /* so sfread() will unlock */
 			f->endr = f->endw = f->data;
 		}
-		else if(data == (Void_t*)f->next)
-			f->next += (size >= 0 ? size : n);
+		else
+		{	if(data == (Void_t*)f->next)
+				f->next += (size >= 0 ? size : n);
+		}
 	}
+
+	_Sfi = f->val = n; /* return true buffer size */
 
 	SFMTXRETURN(f, data);
 }

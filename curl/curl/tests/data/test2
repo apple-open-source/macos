@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP GET
+HTTP Basic auth
+</keywords>
+</info>
 #
 # Server-side
 <reply>
@@ -35,7 +43,6 @@ HTTP GET with user and password
 GET /2 HTTP/1.1
 Authorization: Basic ZmFrZTp1c2Vy
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 
 </protocol>
@@ -43,3 +50,4 @@ Accept: */*
 [insert full protocol verifiction dump here]
 </data>
 </verify>
+</testcase>

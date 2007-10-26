@@ -1,5 +1,6 @@
 /* machine description file for WICAT machines.
-   Copyright (C) 1986 Free Software Foundation, Inc.
+   Copyright (C) 1986, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="usg5-2"  */
 
@@ -80,18 +81,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef VIRT_ADDR_VARIES
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-/* For the Wicat C compiler version 4.2, this can be removed
-   and the alloca in alloca.s used.  */
-#define C_ALLOCA
-#define	STACK_DIRECTION	-1  /* grows towards lower addresses on WICAT */
-
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
    when Emacs is dumped.  If you define this, the preloaded Lisp
@@ -123,16 +112,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef BSTRING
 
-#ifdef BSTRING
-#undef bcopy
-#undef bzero
-#undef bcmp
-
-#define bcopy(a,b,s)	memcpy(b,a,s)
-#define bzero(a,s)	memset(a,0,s)
-#define bcmp		memcmp
-#endif
-
 /*
  * Define optimflags if you want to optimize.
  *	- Set to null string for pre-4.2 C compiler
@@ -153,3 +132,6 @@ Boston, MA 02111-1307, USA.  */
 #undef TERMINFO
 #define LIBS_TERMCAP select.o -ltermlib
 #endif
+
+/* arch-tag: b181c512-0275-4d25-9bbc-be0c8ca7bcad
+   (do not change this comment) */

@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -62,21 +58,11 @@
 #include <ast.h>
 #include <regex.h>
 
-typedef struct Cache_s
+static struct State_s
 {
-	regex_t		re;
-	regmatch_t	match[32];
-	unsigned long	serial;
-	int		flags;
-	int		n;
-	int		keep;
-	int		reflags;
-	char		pattern[128];
-} Cache_t;
-
-static Cache_t*		cache[8];
-
-static unsigned long	serial;
+	regmatch_t*	match;
+	int		nmatch;
+} matchstate;
 
 /*
  * subgroup match
@@ -89,16 +75,12 @@ static unsigned long	serial;
  */
 
 int
-strgrpmatch(const char* b, const char* p, int* sub, int n, int flags)
+strgrpmatch(const char* b, const char* p, int* sub, int n, register int flags)
 {
-	register Cache_t*	cp;
+	register regex_t*	re;
 	register int*		end;
 	register int		i;
-	int			m;
-	int			empty;
-	int			unused;
-	int			old;
-	int			once;
+	register regflags_t	reflags;
 
 	/*
 	 * 0 and empty patterns are special
@@ -107,103 +89,57 @@ strgrpmatch(const char* b, const char* p, int* sub, int n, int flags)
 	if (!p || !b)
 	{
 		if (!p && !b)
-		{
-			/*
-			 * flush the cache
-			 */
-
-			for (i = 0; i < elementsof(cache); i++)
-				if (cache[i] && cache[i]->keep)
-				{
-					cache[i]->keep = 0;
-					regfree(&cache[i]->re);
-				}
-		}
+			regcache(NiL, 0, NiL);
 		return 0;
 	}
-	if (!*p)
+	if (!*p) {
+		if (sub) {
+			sub[0] = 0;
+			sub[1] = 0;
+		}
 		return *b == 0;
+	}
 
 	/*
-	 * check if the pattern is in the cache
+	 * convert flags
 	 */
 
-	once = 0;
-	empty = unused = -1;
-	old = 0;
-	for (i = 0; i < elementsof(cache); i++)
-		if (!cache[i])
-			empty = i;
-		else if (!cache[i]->keep)
-			unused = i;
-		else if (streq(cache[i]->pattern, p) && cache[i]->flags == flags && cache[i]->n == n)
-			break;
-		else if (!cache[old] || cache[old]->serial > cache[i]->serial)
-			old = i;
-	if (i >= elementsof(cache))
-	{
-		if (unused < 0)
-		{
-			if (empty < 0)
-				unused = old;
-			else
-				unused = empty;
-		}
-		if (!(cp = cache[unused]) && !(cp = cache[unused] = newof(0, Cache_t, 1, 0)))
-			return 0;
-		if (cp->keep)
-		{
-			cp->keep = 0;
-			regfree(&cp->re);
-		}
-		cp->flags = flags;
-		cp->n = n;
-		if (strlen(p) < sizeof(cp->pattern))
-		{
-			strcpy(cp->pattern, p);
-			p = (const char*)cp->pattern;
-		}
-		else
-			once = 1;
-		cp->reflags = REG_SHELL|REG_AUGMENTED;
-		if (!(flags & STR_MAXIMAL))
-			cp->reflags |= REG_MINIMAL;
-		if (flags & STR_GROUP)
-			cp->reflags |= REG_SHELL_GROUP;
-		if (flags & STR_LEFT)
-			cp->reflags |= REG_LEFT;
-		if (flags & STR_RIGHT)
-			cp->reflags |= REG_RIGHT;
-		if (flags & STR_ICASE)
-			cp->reflags |= REG_ICASE;
-		if (!sub)
-			cp->reflags |= REG_NOSUB;
-		if (regcomp(&cp->re, p, cp->reflags))
-			return 0;
-		cp->keep = 1;
-	}
+	if (flags & REG_ADVANCE)
+		reflags = flags & ~REG_ADVANCE;
 	else
-		cp = cache[i];
-#if 0
-error(-1, "AHA strmatch b=`%s' p=`%s' sub=%p n=%d flags=%08x cp=%d\n", b, p, sub, n, flags, cp - &cache[0]);
-#endif
-	cp->serial = ++serial;
-	m = regexec(&cp->re, b, cp->n, cp->match, cp->reflags);
-	i = cp->re.re_nsub;
-	if (once)
 	{
-		cp->keep = 0;
-		regfree(&cp->re);
+		reflags = REG_SHELL|REG_AUGMENTED;
+		if (!(flags & STR_MAXIMAL))
+			reflags |= REG_MINIMAL;
+		if (flags & STR_GROUP)
+			reflags |= REG_SHELL_GROUP;
+		if (flags & STR_LEFT)
+			reflags |= REG_LEFT;
+		if (flags & STR_RIGHT)
+			reflags |= REG_RIGHT;
+		if (flags & STR_ICASE)
+			reflags |= REG_ICASE;
 	}
-	if (m)
+	if (!sub || n <= 0)
+		reflags |= REG_NOSUB;
+	if (!(re = regcache(p, reflags, NiL)))
 		return 0;
-	if (!sub)
+	if (n > matchstate.nmatch)
+	{
+		if (!(matchstate.match = newof(matchstate.match, regmatch_t, n, 0)))
+			return 0;
+		matchstate.nmatch = n;
+	}
+	if (regexec(re, b, n, matchstate.match, reflags & ~(REG_MINIMAL|REG_SHELL_GROUP|REG_LEFT|REG_RIGHT|REG_ICASE)))
+		return 0;
+	if (!sub || n <= 0)
 		return 1;
+	i = re->re_nsub;
 	end = sub + n * 2;
 	for (n = 0; sub < end && n <= i; n++)
 	{
-		*sub++ = cp->match[n].rm_so;
-		*sub++ = cp->match[n].rm_eo;
+		*sub++ = matchstate.match[n].rm_so;
+		*sub++ = matchstate.match[n].rm_eo;
 	}
 	return i + 1;
 }

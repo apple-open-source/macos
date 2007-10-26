@@ -1,49 +1,49 @@
 /*
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_APACHE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 #ifndef __LAUNCHD_H__
 #define __LAUNCHD_H__
 
-#include <sys/event.h>
+#include <mach/mach.h>
+#include <mach/port.h>
+#include "liblaunch_public.h"
+#include "libbootstrap_public.h"
+#include "launchd_runtime.h"
 
-typedef void (*kq_callback)(void *, struct kevent *);
+#define SHUTDOWN_LOG_DIR "/var/log/shutdown"
 
-extern kq_callback kqsimple_zombie_reaper;
-extern mach_port_t launchd_bootstrap_port;
-extern sigset_t blocked_signals;
+struct kevent;
+struct conncb;
 
-#ifdef PID1_REAP_ADOPTED_CHILDREN
-extern int pid1_child_exit_status;
-#endif
+extern bool debug_shutdown_hangs;
+extern bool network_up;
 
-int kevent_mod(uintptr_t ident, short filter, u_short flags, u_int fflags, intptr_t data, void *udata);
-void launchd_SessionCreate(const char *who);
-
-void init_boot(bool sflag, bool vflag, bool xflag);
-void init_pre_kevent(void);
 bool init_check_pid(pid_t);
 
-void update_ttys(void);
-void catatonia(void);
-void death(void);
+launch_data_t launchd_setstdio(int d, launch_data_t o);
+void launchd_SessionCreate(void);
+void launchd_shutdown(void);
+void launchd_single_user(void);
+boolean_t launchd_mach_ipc_demux(mach_msg_header_t *Request, mach_msg_header_t *Reply);
+
+void mach_start_shutdown(void);
+
+int _fd(int fd);
 
 #endif

@@ -55,10 +55,35 @@ SecIdentitySearchCreate(
 	SecPointer<IdentityCursor> identityCursor(new IdentityCursor (keychains, keyUsage));
 	*searchRef = identityCursor->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecIdentitySearchCreate")
 }
 
-OSStatus SecIdentitySearchCreateWithPolicy(SecPolicyRef policy, CFStringRef idString, CSSM_KEYUSE keyUsage, CFTypeRef keychainOrArray, Boolean returnOnlyValidIdentities, SecIdentitySearchRef* searchRef)
+OSStatus SecIdentitySearchCreateWithAttributes(
+    CFDictionaryRef attributes,
+    SecIdentitySearchRef* searchRef)
+{
+    BEGIN_SECAPI
+
+    //
+    // %%%TBI This function needs a new form of IdentityCursor that takes
+    // the supplied attributes as input.
+    //
+	Required(searchRef);
+	StorageManager::KeychainList keychains;
+	globals().storageManager.getSearchList(keychains);
+	SecPointer<IdentityCursor> identityCursor(new IdentityCursor (keychains, 0));
+	*searchRef = identityCursor->handle();
+
+    END_SECAPI2("SecIdentitySearchCreateWithAttributes")
+}
+
+OSStatus SecIdentitySearchCreateWithPolicy(
+    SecPolicyRef policy,
+    CFStringRef idString,
+    CSSM_KEYUSE keyUsage,
+    CFTypeRef keychainOrArray,
+    Boolean returnOnlyValidIdentities,
+    SecIdentitySearchRef* searchRef)
 {
     BEGIN_SECAPI
 
@@ -70,7 +95,7 @@ OSStatus SecIdentitySearchCreateWithPolicy(SecPolicyRef policy, CFStringRef idSt
 
 	*searchRef = identityCursor->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecIdentitySearchCreateWithPolicy")
 }
 
 OSStatus
@@ -87,5 +112,5 @@ SecIdentitySearchCopyNext(
 
 	*identityRef = identityPtr->handle();
 
-    END_SECAPI
+    END_SECAPI2("SecIdentitySearchCopyNext")
 }

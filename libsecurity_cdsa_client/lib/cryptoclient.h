@@ -70,15 +70,15 @@ public:
 	
 public:
 	// integrated
-	uint32 encrypt(const CssmData *in, uint32 inCount, CssmData *out, uint32 outCount,
+	CSSM_SIZE encrypt(const CssmData *in, uint32 inCount, CssmData *out, uint32 outCount,
 		CssmData &remData);
-	uint32 encrypt(const CssmData &in, CssmData &out, CssmData &remData)
+	CSSM_SIZE encrypt(const CssmData &in, CssmData &out, CssmData &remData)
 	{ return encrypt(&in, 1, &out, 1, remData); }
 	
 	// staged update
 	void init(); // Optional
-	uint32 encrypt(const CssmData *in, uint32 inCount, CssmData *out, uint32 outCount);
-	uint32 encrypt(const CssmData &in, CssmData &out)
+	CSSM_SIZE encrypt(const CssmData *in, uint32 inCount, CssmData *out, uint32 outCount);
+	CSSM_SIZE encrypt(const CssmData &in, CssmData &out)
 	{ return encrypt(&in, 1, &out, 1); }
 	// staged final
 	void final(CssmData &remData);
@@ -94,15 +94,15 @@ public:
 	
 public:
 	// integrated
-	uint32 decrypt(const CssmData *in, uint32 inCount, CssmData *out, uint32 outCount,
+	CSSM_SIZE decrypt(const CssmData *in, uint32 inCount, CssmData *out, uint32 outCount,
 		CssmData &remData);
-	uint32 decrypt(const CssmData &in, CssmData &out, CssmData &remData)
+	CSSM_SIZE decrypt(const CssmData &in, CssmData &out, CssmData &remData)
 	{ return decrypt(&in, 1, &out, 1, remData); }
 
 	// staged update
 	void init(); // Optional
-	uint32 decrypt(const CssmData *in, uint32 inCount, CssmData *out, uint32 outCount);
-	uint32 decrypt(const CssmData &in, CssmData &out)
+	CSSM_SIZE decrypt(const CssmData *in, uint32 inCount, CssmData *out, uint32 outCount);
+	CSSM_SIZE decrypt(const CssmData &in, CssmData &out)
 	{ return decrypt(&in, 1, &out, 1); }
 	// staged final
 	void final(CssmData &remData);

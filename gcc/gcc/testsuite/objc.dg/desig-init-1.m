@@ -1,3 +1,4 @@
+/* APPLE LOCAL file radar 4894756 */
 /* Test Objective-C capability for handling GNU/C99 designated
    initializers, and distinguishing them from message sends.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
@@ -7,7 +8,7 @@
 #include <stdio.h> 
 #include <stdlib.h>
 #include <objc/objc.h>
-#include <objc/Object.h>
+#include "../objc/execute/Object2.h"
 
 @interface Cls : Object
 + (int) meth1;
@@ -24,7 +25,7 @@
     [Cls meth1], 
     [2 + 1] = 3, 
     [2 * 2 ... 5] = (size_t)[0 meth4], /* { dg-warning "invalid receiver type" } */ 
-       /* { dg-warning "no .\\-meth4. method found" "" { target *-*-* } 26 } */
+       /* { dg-warning "no .\\-meth4. method found" "" { target *-*-* } 27 } */
     [2] [Cls meth2],
     /* Since invalid receivers are treated as 'id' for purposes of message
        lookup, we _should_ find a meth2 to call below.  */

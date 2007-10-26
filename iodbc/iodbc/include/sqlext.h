@@ -1,21 +1,25 @@
 /*
  *  sqlext.h
  *
- *  $Id: sqlext.h,v 1.3 2004/11/11 01:52:36 luesang Exp $
+ *  $Id: sqlext.h,v 1.10 2006/01/20 15:58:34 source Exp $
  *
  *  ODBC defines (ext)
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,6 +74,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef	_SQLEXT_H
 #define _SQLEXT_H
 
@@ -85,13 +90,13 @@ extern "C" {
 /*
  *  Useful Constants
  */
-#define SQL_SPEC_MAJOR     			3
+#define SQL_SPEC_MAJOR    			3
 #define SQL_SPEC_MINOR	  			52
 #define SQL_SPEC_STRING  			"03.52"
 
 #define SQL_SQLSTATE_SIZE			5
 #define SQL_MAX_DSN_LENGTH			32
-#define SQL_MAX_OPTION_STRING_LENGTH    	256
+#define SQL_MAX_OPTION_STRING_LENGTH   		256
 
 
 /*
@@ -133,7 +138,7 @@ extern "C" {
 #endif	/* ODBCVER >= 0x0300 */
 #define SQL_TIME				10
 #define SQL_TIMESTAMP				11
-#define SQL_LONGVARCHAR		 		(-1)
+#define SQL_LONGVARCHAR				(-1)
 #define SQL_BINARY				(-2)
 #define SQL_VARBINARY				(-3)
 #define SQL_LONGVARBINARY			(-4)
@@ -168,7 +173,7 @@ extern "C" {
 #define SQL_INTERVAL_DAY			(100 + SQL_CODE_DAY)
 #define SQL_INTERVAL_HOUR			(100 + SQL_CODE_HOUR)
 #define SQL_INTERVAL_MINUTE			(100 + SQL_CODE_MINUTE)
-#define SQL_INTERVAL_SECOND                	(100 + SQL_CODE_SECOND)
+#define SQL_INTERVAL_SECOND               	(100 + SQL_CODE_SECOND)
 #define SQL_INTERVAL_YEAR_TO_MONTH		(100 + SQL_CODE_YEAR_TO_MONTH)
 #define SQL_INTERVAL_DAY_TO_HOUR		(100 + SQL_CODE_DAY_TO_HOUR)
 #define SQL_INTERVAL_DAY_TO_MINUTE		(100 + SQL_CODE_DAY_TO_MINUTE)
@@ -223,11 +228,11 @@ extern "C" {
 /*
  *  C datatype to SQL datatype mapping
  */
-#define SQL_C_CHAR    				SQL_CHAR
-#define SQL_C_LONG    				SQL_INTEGER
-#define SQL_C_SHORT   				SQL_SMALLINT
-#define SQL_C_FLOAT   				SQL_REAL
-#define SQL_C_DOUBLE  				SQL_DOUBLE
+#define SQL_C_CHAR   				SQL_CHAR
+#define SQL_C_LONG   				SQL_INTEGER
+#define SQL_C_SHORT  				SQL_SMALLINT
+#define SQL_C_FLOAT  				SQL_REAL
+#define SQL_C_DOUBLE 				SQL_DOUBLE
 #if (ODBCVER >= 0x0300)
 #define SQL_C_NUMERIC				SQL_NUMERIC
 #endif	 /* ODBCVER >= 0x0300 */
@@ -381,7 +386,7 @@ extern "C" {
 /*
  *  SQLGetConnectAttr - ODBC 2.x attributes
  */
-#define SQL_ACCESS_MODE		 		101
+#define SQL_ACCESS_MODE				101
 #define SQL_AUTOCOMMIT				102
 #define SQL_LOGIN_TIMEOUT			103
 #define SQL_OPT_TRACE				104
@@ -392,7 +397,7 @@ extern "C" {
 #define SQL_CURRENT_QUALIFIER			109
 #define SQL_ODBC_CURSORS			110
 #define SQL_QUIET_MODE				111
-#define SQL_PACKET_SIZE		 		112
+#define SQL_PACKET_SIZE				112
 
 
 /*
@@ -878,8 +883,8 @@ extern "C" {
  */
 #if (ODBCVER >= 0x0300)
 #define SQL_AD_CONSTRAINT_NAME_DEFINITION	0x00000001L
-#define SQL_AD_ADD_DOMAIN_CONSTRAINT	 	0x00000002L
-#define SQL_AD_DROP_DOMAIN_CONSTRAINT	 	0x00000004L
+#define SQL_AD_ADD_DOMAIN_CONSTRAINT		0x00000002L
+#define SQL_AD_DROP_DOMAIN_CONSTRAINT		0x00000004L
 #define SQL_AD_ADD_DOMAIN_DEFAULT		0x00000008L
 #define SQL_AD_DROP_DOMAIN_DEFAULT		0x00000010L
 #define SQL_AD_ADD_CONSTRAINT_INITIALLY_DEFERRED	0x00000020L
@@ -894,7 +899,7 @@ extern "C" {
  */
 #if (ODBCVER >= 0x0300)
 /*
- *	The following 5 bitmasks are defined in sql.h
+	* The following 5 bitmasks are defined in sql.h
  *
  * #define SQL_AT_ADD_COLUMN			0x00000001L
  * #define SQL_AT_DROP_COLUMN			0x00000002L
@@ -954,7 +959,7 @@ extern "C" {
  */
 #define SQL_BP_CLOSE				0x00000001L
 #define SQL_BP_DELETE				0x00000002L
-#define SQL_BP_DROP 				0x00000004L
+#define SQL_BP_DROP				0x00000004L
 #define SQL_BP_TRANSACTION			0x00000008L
 #define SQL_BP_UPDATE				0x00000010L
 #define SQL_BP_OTHER_HSTMT			0x00000020L
@@ -985,17 +990,17 @@ extern "C" {
 /*
  *  SQLGetInfo - SQL_CONCAT_NULL_BEHAVIOR
  */
-#define SQL_CB_NULL 				0x0000
-#define SQL_CB_NON_NULL		 		0x0001
+#define SQL_CB_NULL				0x0000
+#define SQL_CB_NON_NULL				0x0001
 
 
 /*
  *  SQLGetInfo - SQL_CONVERT_* bitmask values
  */
 #define SQL_CVT_CHAR				0x00000001L
-#define SQL_CVT_NUMERIC 			0x00000002L
-#define SQL_CVT_DECIMAL 			0x00000004L
-#define SQL_CVT_INTEGER 			0x00000008L
+#define SQL_CVT_NUMERIC				0x00000002L
+#define SQL_CVT_DECIMAL				0x00000004L
+#define SQL_CVT_INTEGER				0x00000008L
 #define SQL_CVT_SMALLINT			0x00000010L
 #define SQL_CVT_FLOAT				0x00000020L
 #define SQL_CVT_REAL				0x00000040L
@@ -1004,8 +1009,8 @@ extern "C" {
 #define SQL_CVT_LONGVARCHAR			0x00000200L
 #define SQL_CVT_BINARY				0x00000400L
 #define SQL_CVT_VARBINARY			0x00000800L
-#define SQL_CVT_BIT 				0x00001000L
-#define SQL_CVT_TINYINT 			0x00002000L
+#define SQL_CVT_BIT				0x00001000L
+#define SQL_CVT_TINYINT				0x00002000L
 #define SQL_CVT_BIGINT				0x00004000L
 #define SQL_CVT_DATE				0x00008000L
 #define SQL_CVT_TIME				0x00010000L
@@ -1032,7 +1037,7 @@ extern "C" {
 /*
  *  SQLGetInfo - SQL_CORRELATION_NAME
  */
-#define SQL_CN_NONE 				0x0000
+#define SQL_CN_NONE				0x0000
 #define SQL_CN_DIFFERENT			0x0001
 #define SQL_CN_ANY				0x0002
 
@@ -1499,12 +1504,12 @@ extern "C" {
 #define SQL_FN_NUM_FLOOR			0x00000200L
 #define SQL_FN_NUM_LOG				0x00000400L
 #define SQL_FN_NUM_MOD				0x00000800L
-#define SQL_FN_NUM_SIGN			 	0x00001000L
+#define SQL_FN_NUM_SIGN				0x00001000L
 #define SQL_FN_NUM_SIN				0x00002000L
-#define SQL_FN_NUM_SQRT			 	0x00004000L
+#define SQL_FN_NUM_SQRT				0x00004000L
 #define SQL_FN_NUM_TAN				0x00008000L
 #define SQL_FN_NUM_PI				0x00010000L
-#define SQL_FN_NUM_RAND			 	0x00020000L
+#define SQL_FN_NUM_RAND				0x00020000L
 #define SQL_FN_NUM_DEGREES			0x00040000L
 #define SQL_FN_NUM_LOG10			0x00080000L
 #define SQL_FN_NUM_POWER			0x00100000L
@@ -2126,9 +2131,9 @@ extern "C" {
 #define SQL_ADD					4
 #define SQL_SETPOS_MAX_OPTION_VALUE		SQL_ADD
 #if (ODBCVER >= 0x0300)
-#define SQL_UPDATE_BY_BOOKMARK		 	5
-#define SQL_DELETE_BY_BOOKMARK		 	6
-#define SQL_FETCH_BY_BOOKMARK		 	7
+#define SQL_UPDATE_BY_BOOKMARK			5
+#define SQL_DELETE_BY_BOOKMARK			6
+#define SQL_FETCH_BY_BOOKMARK			7
 #endif	/* ODBCVER >= 0x0300 */
 
 
@@ -2201,6 +2206,7 @@ extern "C" {
 "VALUE,VALUES,VARCHAR,VARYING,VIEW,WHEN,WHENEVER,WHERE,WITH,WORK,WRITE,"\
 "YEAR,ZONE"
 
+
 /*
  * ----------------------------------------------------------------------
  *  Level 2 Functions
@@ -2247,12 +2253,12 @@ extern "C" {
 /*
  *  SQLForeignKeys - UPDATE_RULE/DELETE_RULE
  */
-#define SQL_CASCADE 				0
+#define SQL_CASCADE				0
 #define SQL_RESTRICT				1
 #define SQL_SET_NULL				2
 
 #if (ODBCVER >= 0x0250)
-#define SQL_NO_ACTION			 	3
+#define SQL_NO_ACTION				3
 #define SQL_SET_DEFAULT			 	4
 #endif	/* ODBCVER >= 0x0250 */
 
@@ -2356,7 +2362,7 @@ SQLRETURN SQL_API SQLDriverConnect (
     SQLCHAR		* szConnStrOut,
     SQLSMALLINT		  cbConnStrOutMax,
     SQLSMALLINT		* pcbConnStrOut,
-    SQLUSMALLINT fDriverCompletion);
+    SQLUSMALLINT 	  fDriverCompletion);
 
 /*
  *  Level 2 function prototypes
@@ -2561,6 +2567,6 @@ SQLRETURN SQL_API SQLAllocHandleStd (
 }
 #endif
 
-#include "sqlucode.h"
+#include <sqlucode.h>
 
 #endif	/* _SQLEXT_H */

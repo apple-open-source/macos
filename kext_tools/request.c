@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Authorization.h>
 #include <IOKit/IOKitLib.h>
@@ -8,6 +30,7 @@
 #include <mach/bootstrap.h>
 #include <mach/kmod.h>
 
+#include "bootcaches.h"
 #include "globals.h"
 #include <IOKit/kext/KXKextManager.h>
 #include <IOKit/kext/kextmanager_types.h>
@@ -16,9 +39,12 @@
 #include "logging.h"
 #include "queue.h"
 #include "PTLock.h"
+#include "utility.h"
 
 uid_t logged_in_uid = -1;
 AuthorizationRef gAuthRef = NULL;
+
+CFMutableDictionaryRef gKextloadedKextPaths = NULL;
 
 #ifndef NO_CFUserNotification
 
@@ -29,6 +55,8 @@ CFUserNotificationRef gCurrentNotification = NULL;   // must release
 
 #endif /* NO_CFUserNotification */
 
+
+void kextd_rescan(void);
 static KXKextManagerError __kextd_load_kext(KXKextRef theKext,
     const char * kmod_name);
 #ifndef NO_CFUserNotification
@@ -36,10 +64,8 @@ extern void kextd_clear_all_notifications(void);
 void kextd_check_notification_queue(void * info);
 void kextd_handle_finished_notification(CFUserNotificationRef userNotification,
     CFOptionFlags responseFlags);
-static void _kextd_raise_security_notification(CFStringRef kextPath);
 #endif /* NO_CFUserNotification */
 
-extern char * CFURLCopyCString(CFURLRef anURL);
 extern const char * _KXKextCopyCanonicalPathnameAsCString(KXKextRef aKext);
 extern KXKextManagerError _KXKextMakeSecure(KXKextRef aKext);
 extern KXKextManagerError _KXKextRaiseSecurityAlert(KXKextRef aKext, uid_t euid);
@@ -59,7 +85,7 @@ extern KXKextManagerError _KXKextManagerLoadKextUsingOptions(
     const char * symbol_dir,
     IOOptionBits load_options,
     Boolean do_start_kext,
-    int     interactive_level,
+    int interactive_level,
     Boolean ask_overwrite_symbols,
     Boolean overwrite_symbols,
     Boolean get_addrs_from_kernel,
@@ -69,13 +95,11 @@ extern KXKextManagerError _KXKextManagerLoadKextUsingOptions(
 // load_options
 enum 
 {
-    kKXKextManagerLoadNone	= false,
-    kKXKextManagerLoadKernel	= true,
-    kKXKextManagerLoadPrelink	= 2,
-    kKXKextManagerLoadKextd	= 3
+    kKXKextManagerLoadNone    = false,
+    kKXKextManagerLoadKernel    = true,
+    kKXKextManagerLoadPrelink    = 2,
+    kKXKextManagerLoadKextd    = 3
 };
-
-#define	KEXTCACHE_COMMAND	"/usr/sbin/kextcache -Flrc"
 
 /*******************************************************************************
 *
@@ -106,9 +130,6 @@ finish:
         if (gKernelRequestQueueLock) {
             PTLockFree(gKernelRequestQueueLock);
         }
-        if (gRunLoopSourceLock) {
-            PTLockFree(gRunLoopSourceLock);
-        }
     }
 
     return result;
@@ -122,11 +143,12 @@ void * kextd_kernel_request_loop(void * arg)
     kmod_args_t data = 0;         // must vm_deallocate()'d
     mach_msg_type_number_t data_count = 0;
     char * kmod_name = NULL;  // don't free; that's done by the consumer
-    mach_port_t host_port = PORT_NULL;
+    mach_port_t host_port = MACH_PORT_NULL;
 
     host_port = mach_host_self(); /* must be privileged to work */
     if (!MACH_PORT_VALID(host_port)) {
-        // FIXME: Put something here
+            kextd_error_log(
+                "kextd_kernel_request_loop() can't get host port");
     }
 
     while (1) {
@@ -163,7 +185,6 @@ void * kextd_kernel_request_loop(void * arg)
 
         request = (kmod_load_extension_cmd_t *)data;
         request_type = request->type;
-
 
        /* Examine the potential request.
         */
@@ -211,10 +232,8 @@ void * kextd_kernel_request_loop(void * arg)
                 PTLockUnlock(gKernelRequestQueueLock);
 
                 // wake up the runloop
-                PTLockTakeLock(gRunLoopSourceLock);
                 CFRunLoopSourceSignal(gKernelRequestRunLoopSource);
                 CFRunLoopWakeUp(gMainRunLoop);
-                PTLockUnlock(gRunLoopSourceLock);
             }
         }
     }
@@ -225,7 +244,7 @@ finish:
     * leaks. We don't care about the kern_return_t value of this
     * call for now as there's nothing we can do if it fails.
     */
-    if (PORT_NULL != host_port) {
+    if (MACH_PORT_NULL != host_port) {
         mach_port_deallocate(mach_task_self(), host_port);
     }
 
@@ -249,22 +268,29 @@ static int load_request_equal(request_t * a, request_t * b)
 *******************************************************************************/
 void kextd_handle_kernel_request(void * info)
 {
+   /* Don't handle any load requests from the kernel while a kextload process
+    * is running. The run loop gets kicked again when the kextload lock is
+    * released.
+    */
+    if (_kextload_lock) {
+        return;
+    }
+
     PTLockTakeLock(gKernelRequestQueueLock);
 
     while (!queue_empty(&g_request_queue)) {
         request_t * load_request = NULL;       // must free
         request_t * this_load_request = NULL;  // free if duplicate
         unsigned int type;
-        char * kmod_name = NULL; // must release
+        KXKextManagerError load_result = kKXKextManagerErrorNone;
 
         load_request = (request_t *)queue_first(&g_request_queue);
-        queue_remove(&g_request_queue, load_request, request_t *, link);
 
        /*****
         * Scan the request queue for duplicates of the first one and
         * pull them out.
         */
-        this_load_request = (request_t *)queue_first(&g_request_queue);
+        this_load_request = (request_t *)queue_next(&load_request->link);
         while (!queue_end((request_t *)&g_request_queue, this_load_request)) {
             request_t * next_load_request = NULL; // don't free
             next_load_request = (request_t *)
@@ -282,35 +308,61 @@ void kextd_handle_kernel_request(void * info)
         PTLockUnlock(gKernelRequestQueueLock);
 
         type = load_request->type;
-        kmod_name = load_request->kmodname;
 
-        free(load_request);
+        if (load_request->kmodname) {
+            static boolean_t have_forked_prelink = FALSE;
+            
+            kextd_load_kext(load_request->kmodname, &load_result);
 
-        if (kmod_name) {
-	    KXKextManagerError load_result;
-	    static boolean_t have_signalled_load = FALSE;
+           /* If the load didn't fail, and we aren't safe-boot, and
+            * we haven't already started building the prelinked kernel,
+            * then kick off kextcache to do so.
+            */
+            if ((load_result == kKXKextManagerErrorNone ||
+                load_result == kKXKextManagerErrorAlreadyLoaded) &&
+                !g_safe_boot_mode && !have_forked_prelink &&
+                !is_bootroot_active()) {
+                
+                int fork_result;
 
-            kextd_load_kext(kmod_name, &load_result);
-            free(kmod_name);
-
-	    if ((load_result == kKXKextManagerErrorNone ||
-		    load_result == kKXKextManagerErrorAlreadyLoaded)
-		    && !have_signalled_load
-		    && (getppid() > 1)) {
-		// ppid == 1 => parent is no longer waiting
-		have_signalled_load = TRUE;
-		int ret;
-		if (g_verbose_level >= 1) {
-		    kextd_log("running kextcache");
-		}
-		ret = system(KEXTCACHE_COMMAND);
-		if (ret != 0) {
-		    kextd_error_log("kextcache exec(%d)", ret);
-		}
-	    }
+                const char * kextcache_cmd = "/usr/sbin/kextcache";
+                char * const kextcache_argv[] = {
+                    "kextcache",
+                    "-Flrc",
+                    NULL,
+                };
+                have_forked_prelink = TRUE;
+                if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
+                    kextd_log("running kextcache for prelinked kernel");
+                }
+                
+               /* wait:false means the return value is <0 for fork/exec failures and
+                * the pid of the forked process if >0.
+                */
+                fork_result = fork_program(kextcache_cmd, kextcache_argv,
+                    g_first_boot ? KEXTCACHE_DELAY_FIRST_BOOT : KEXTCACHE_DELAY_STD /* delay */,
+                    false /* wait */);
+                    
+                if (fork_result < 0) {
+                    kextd_error_log("couldn't fork/exec kextcache to update prelinked kernel");
+                }
+            }
         }
 
         PTLockTakeLock(gKernelRequestQueueLock);
+
+       /* If the load result revealed a cache inconsistency, the repository has been
+        * reset so we will retry next time we check the queue. With any other result,
+        * the request was processed or can't be processed at all, so remove it.
+        */
+        if (load_result == kKXKextManagerErrorCache) {
+            // load function logged error message and reset/rescanned
+            break;
+        } else {
+            queue_remove(&g_request_queue, load_request, request_t *, link);
+            free(load_request->kmodname);
+            free(load_request);
+        }
     }
 
     PTLockUnlock(gKernelRequestQueueLock);
@@ -329,14 +381,14 @@ void kextd_load_kext(char * kmod_name,
     KXKextManagerError load_result = kKXKextManagerErrorNone;
 
     kextID = CFStringCreateWithCString(kCFAllocatorDefault, kmod_name,
-        kCFStringEncodingMacRoman);
+        kCFStringEncodingUTF8);
 
     if (!kextID) {
         // FIXME: Log no-memory error? Exit?
         return;
     }
 
-    if (g_verbose_level > 0) {
+    if (g_verbose_level > kKXKextManagerLogLevelDefault) {
         kextd_log("kernel requests extension with id %s", kmod_name);
     }
 
@@ -420,10 +472,9 @@ static KXKextManagerError __kextd_load_kext(KXKextRef theKext,
         inauthenticKexts);
 
     if (load_result == kKXKextManagerErrorCache) {
-        kextd_error_log("scheduling rescan of all kexts due to cache "
-            "inconsistency");
-        // do not take the runloop source lock here, we're in the same thread
-        CFRunLoopSourceSignal(gRescanRunLoopSource);
+        kextd_error_log("cache inconsistency detected; rescanning all extensions");
+        kextd_rescan();
+        CFRunLoopSourceSignal(gKernelRequestRunLoopSource);
         CFRunLoopWakeUp(gMainRunLoop);
         goto finish;
 
@@ -459,7 +510,7 @@ static KXKextManagerError __kextd_load_kext(KXKextRef theKext,
             }
         }
 
-        if (logged_in_uid != -1) {
+        if (logged_in_uid != (uid_t)-1) {
             CFRunLoopSourceSignal(gNotificationQueueRunLoopSource);
             CFRunLoopWakeUp(gMainRunLoop);
         }
@@ -471,6 +522,7 @@ static KXKextManagerError __kextd_load_kext(KXKextRef theKext,
         goto post_load;
     }
 
+    PTLockTakeLock(gKernSymfileDataLock);
     load_result = _KXKextManagerLoadKextUsingOptions(
         gKextManager,
         theKext,
@@ -486,6 +538,7 @@ static KXKextManagerError __kextd_load_kext(KXKextRef theKext,
         false, // get addresses from kernel
         0,     // num addresses
         NULL); // load addresses for symbol gen.
+    PTLockUnlock(gKernSymfileDataLock);
 
 post_load:
 
@@ -495,7 +548,7 @@ post_load:
     if (load_result == kKXKextManagerErrorNone ||
         load_result == kKXKextManagerErrorAlreadyLoaded) {
 
-        kern_result = IOCatalogueModuleLoaded(g_io_master_port,
+        kern_result = IOCatalogueModuleLoaded(kIOMasterPortDefault,
             (char *)kmod_name);
         if (kern_result != KERN_SUCCESS) {
             kextd_error_log("failed to notify IOCatalogue that %s loaded",
@@ -526,10 +579,49 @@ finish:
 * This function is executed in the main thread after its run loop gets
 * kicked by a client request.
 *******************************************************************************/
+kern_return_t _kextmanager_record_path_for_bundle_id(
+    mach_port_t server,
+    kext_bundle_id_t bundle_id,
+    posix_path_t path) // PATH_MAX
+{
+    kern_return_t result = KERN_FAILURE;
+    CFStringRef  kextID = NULL;    // must release
+    CFStringRef  kextPath = NULL;  // must release
+
+    if (!bundle_id || !path || bundle_id[0] == '\0' || path[0] == '\0') {
+        goto finish;
+    }
+
+    kextID = CFStringCreateWithCString(kCFAllocatorDefault, bundle_id,
+        kCFStringEncodingUTF8);
+    if (!kextID) {
+        goto finish;
+    }
+
+    kextPath = CFStringCreateWithCString(kCFAllocatorDefault, path,
+        kCFStringEncodingUTF8);
+    if (!kextPath) {
+        goto finish;
+    }
+
+    CFDictionaryAddValue(gKextloadedKextPaths, kextID, kextPath);
+
+    result = KERN_SUCCESS;
+finish:
+    if (kextID)    CFRelease(kextID);
+    if (kextPath)  CFRelease(kextPath);
+    return result;
+}
+
+
+/*******************************************************************************
+* This function is executed in the main thread after its run loop gets
+* kicked by a client request.
+*******************************************************************************/
 kern_return_t _kextmanager_path_for_bundle_id(
     mach_port_t server,
     kext_bundle_id_t bundle_id,
-    posix_path_t path,
+    posix_path_t path,        // PATH_MAX
     KXKextManagerError * kext_result)
 {
     kern_return_t result = KERN_SUCCESS;
@@ -537,18 +629,17 @@ kern_return_t _kextmanager_path_for_bundle_id(
 
     CFStringRef  kextID = NULL;    // must release
     KXKextRef    theKext = NULL;   // don't release
-    CFURLRef     kextURL = NULL;   // must release
-    CFStringRef  kextPath = NULL;  // must release
-    char *       kext_path = NULL; // must free
+    CFURLRef     kextURL = NULL;   // don't release
+    CFStringRef  kextPath = NULL;  // don't release
 
     path[0] = '\0';
     
-    if (g_verbose_level >= 1) {
+    if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
         kextd_log("received client request for path to bundle %s", bundle_id);
     }
 
     kextID = CFStringCreateWithCString(kCFAllocatorDefault, bundle_id,
-        kCFStringEncodingMacRoman);
+        kCFStringEncodingUTF8);
     if (!kextID) {
         kmResult = kKXKextManagerErrorNoMemory;
         goto finish;
@@ -556,38 +647,41 @@ kern_return_t _kextmanager_path_for_bundle_id(
 
     theKext = KXKextManagerGetLoadedOrLatestKextWithIdentifier(
         gKextManager, kextID);
-    if (!theKext) {
-        if (g_verbose_level >= 1) {
+    if (theKext) {
+        kextURL = KXKextGetAbsoluteURL(theKext);
+        if (!kextURL) {
+            kmResult = kKXKextManagerErrorNoMemory;
+            goto finish;
+        }
+
+        if (!CFURLGetFileSystemRepresentation(kextURL, true, (UInt8 *)path, PATH_MAX)) {
+            kmResult = kKXKextManagerErrorUnspecified;
+            goto finish;
+        }
+    } else {
+        kextPath = CFDictionaryGetValue(gKextloadedKextPaths, kextID);
+        if (kextPath) {
+            if (!CFStringGetFileSystemRepresentation(kextPath, (char *)path, PATH_MAX)) {
+                kmResult = kKXKextManagerErrorUnspecified;
+                goto finish;
+            }
+        }
+    }
+
+    if (path[0]) {
+        if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
+            kextd_log("returning bundle path %s", path);
+        }
+    } else {
+        if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
             kextd_log("bundle %s not found", bundle_id);
         }
         kmResult = kKXKextManagerErrorKextNotFound;
         goto finish;
     }
 
-    kextURL = KXKextGetAbsoluteURL(theKext);
-    if (!kextURL) {
-        kmResult = kKXKextManagerErrorNoMemory;
-        goto finish;
-    }
-
-    kext_path = CFURLCopyCString(kextURL);
-    if (!kext_path) {
-        kmResult = kKXKextManagerErrorUnspecified;
-        goto finish;
-    }
-
-    // FIXME: Need to make sure we bounds-check the out parameter
-    // FIXME: ...for the path we got.
-    strcpy(path, kext_path);
-
-    if (g_verbose_level >= 1) {
-        kextd_log("returning bundle path %s", path);
-    }
-
 finish:
     if (kextID)    CFRelease(kextID);
-    if (kextPath)  CFRelease(kextPath);
-    if (kext_path) free(kext_path);
     if (kext_result) {
         *kext_result = kmResult;
     }
@@ -653,7 +747,7 @@ kern_return_t _kextmanager_create_property_value_array(
     
     CFDataRef    xmlData = NULL;      // must release
 
-    if (g_verbose_level >= 1) {
+    if (g_verbose_level >= kKXKextManagerLogLevelBasic) {
         kextd_log("received client request for property value array");
     }
 
@@ -663,7 +757,7 @@ kern_return_t _kextmanager_create_property_value_array(
     }
 
     propertyKey = CFStringCreateWithCString(kCFAllocatorDefault, property_key,
-        kCFStringEncodingMacRoman);
+        kCFStringEncodingUTF8);
     if (!propertyKey) {
         result = KERN_FAILURE;
         goto finish;
@@ -824,8 +918,8 @@ kern_return_t _kextmanager_user_will_log_out(
     kextd_clear_all_notifications();
 #endif NO_CFUserNotification
 
-    logged_in_uid = -1;
-    gClientUID = -1;
+    logged_in_uid = (uid_t)-1;
+    gClientUID = (uid_t)-1;
 
     return result;
 }
@@ -837,9 +931,10 @@ kern_return_t _kextmanager_user_will_log_out(
 *******************************************************************************/
 void kextd_check_notification_queue(void * info)
 {
-    CFStringRef kextPath = NULL;  // do not release
+    CFStringRef kextPath = NULL;                 // do not release
+    CFMutableArrayRef alertMessageArray = NULL;  // must release
 
-    if (logged_in_uid == -1) {
+    if (logged_in_uid == (uid_t)-1) {
         return;
     }
 
@@ -847,21 +942,56 @@ void kextd_check_notification_queue(void * info)
         return;
     }
 
-    if (CFArrayGetCount(gPendedNonsecureKextPaths)) {
-        kextPath = (CFStringRef)CFArrayGetValueAtIndex(gPendedNonsecureKextPaths, 0);
-        _kextd_raise_security_notification(kextPath);
-        CFArrayRemoveValueAtIndex(gPendedNonsecureKextPaths, 0);
+    if (gStaleBootNotificationNeeded) {
+        alertMessageArray = CFArrayCreateMutable(
+            kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        if (!alertMessageArray) {
+            goto finish;
+        }
+        CFArrayAppendValue(alertMessageArray,
+            CFSTR("Important system files in memory do not match those on disk. "
+            "Kernel extensions can not be loaded, and some devices may not work. "
+            "Resetting your startup disk in System Preferences may help."));
+
+        kextd_raise_notification(CFSTR("Inconsistent system files"),
+            alertMessageArray);
+
+        gStaleBootNotificationNeeded = false;
+
+    } else if (CFArrayGetCount(gPendedNonsecureKextPaths)) {
+        kextPath = (CFStringRef)CFArrayGetValueAtIndex(
+            gPendedNonsecureKextPaths, 0);
+        alertMessageArray = CFArrayCreateMutable(
+            kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        if (!kextPath || !alertMessageArray) {
+            goto finish;
+        }
+        
+       /* This is the localized format string for the alert message.
+        */
+        CFArrayAppendValue(alertMessageArray,
+            CFSTR("The system extension \""));
+        CFArrayAppendValue(alertMessageArray, kextPath);
+        CFArrayAppendValue(alertMessageArray,
+            CFSTR("\" was installed improperly and cannot be used. "
+                  "Please try reinstalling it, or contact the product's vendor "
+                  "for an update."));
+
+        kextd_raise_notification(CFSTR("System extension cannot be used"),
+            alertMessageArray);
     }
 
-//finish:
-
+finish:
+    if (alertMessageArray) CFRelease(alertMessageArray);
+    if (kextPath) CFArrayRemoveValueAtIndex(gPendedNonsecureKextPaths, 0);
     return;
 }
 
 /*******************************************************************************
 *
 *******************************************************************************/
-void kextd_handle_finished_notification(CFUserNotificationRef userNotification,
+void kextd_handle_finished_notification(
+    CFUserNotificationRef userNotification,
     CFOptionFlags responseFlags)
 {
 
@@ -886,10 +1016,12 @@ void kextd_handle_finished_notification(CFUserNotificationRef userNotification,
 /*******************************************************************************
 *
 *******************************************************************************/
-static void _kextd_raise_security_notification(CFStringRef kextPath)
+void kextd_raise_notification(
+    CFStringRef alertHeader,
+    CFArrayRef  alertMessageArray)
 {
+#ifndef NO_CFUserNotification
     CFMutableDictionaryRef alertDict = NULL;  // must release
-    CFMutableArrayRef alertMessageArray = NULL; // must release
     CFURLRef iokitFrameworkBundleURL = NULL;  // must release
     SInt32 userNotificationError = 0;
 
@@ -909,26 +1041,10 @@ static void _kextd_raise_security_notification(CFStringRef kextPath)
         goto finish;
     }
 
-    alertMessageArray = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!alertMessageArray) {
-        goto finish;
-    }
-
-   /* This is the localized format string for the alert message.
-    */
-    CFArrayAppendValue(alertMessageArray,
-        CFSTR("The system extension \""));
-    CFArrayAppendValue(alertMessageArray, kextPath);
-    CFArrayAppendValue(alertMessageArray,
-        CFSTR("\" was installed improperly and cannot be used. "
-              "Please try reinstalling it, or contact the product's vendor "
-              "for an update."));
-
     CFDictionarySetValue(alertDict, kCFUserNotificationLocalizationURLKey,
         iokitFrameworkBundleURL);
     CFDictionarySetValue(alertDict, kCFUserNotificationAlertHeaderKey,
-        CFSTR("System extension cannot be used."));
+        alertHeader);
     CFDictionarySetValue(alertDict, kCFUserNotificationDefaultButtonTitleKey,
         CFSTR("OK"));
     CFDictionarySetValue(alertDict, kCFUserNotificationAlertMessageKey,
@@ -939,7 +1055,7 @@ static void _kextd_raise_security_notification(CFStringRef kextPath)
         &userNotificationError, alertDict);
     if (!gCurrentNotification) {
         kextd_error_log(
-            "error creating user notification (%d)", userNotificationError);
+            "error creating user notification (%ld)", userNotificationError);
         goto finish;
     }
 
@@ -956,10 +1072,10 @@ static void _kextd_raise_security_notification(CFStringRef kextPath)
 finish:
 
     if (alertDict)               CFRelease(alertDict);
-    if (alertMessageArray)       CFRelease(alertMessageArray);
     if (iokitFrameworkBundleURL) CFRelease(iokitFrameworkBundleURL);
 
     return;
+#endif
 }
 
 /*******************************************************************************
@@ -994,7 +1110,7 @@ kern_return_t _kextmanager_record_nonsecure_kextload(
     CFStringRef kextPath = NULL; // must release
 
     kextPath = CFStringCreateWithCString(kCFAllocatorDefault, load_data,
-        kCFStringEncodingMacRoman);
+        kCFStringEncodingUTF8);
     if (!kextPath) {
         result = KERN_FAILURE;
         goto finish;
@@ -1006,7 +1122,7 @@ kern_return_t _kextmanager_record_nonsecure_kextload(
             kCFBooleanTrue);
     }
 
-    if (logged_in_uid != -1) {
+    if (logged_in_uid != (uid_t)-1) {
         CFRunLoopSourceSignal(gNotificationQueueRunLoopSource);
         CFRunLoopWakeUp(gMainRunLoop);
     }

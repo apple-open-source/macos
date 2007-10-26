@@ -79,19 +79,17 @@ GlobalNexus::Error::~Error() throw()
 // It seems like it's been a while since anyone made a machine/runtime that
 // violated either of those. But you have been warned.
 //
-#if defined(_HAVE_ATOMIC_OPERATIONS)
-
-AtomicWord ModuleNexusCommon::create(void *(*make)())
+void *ModuleNexusCommon::create(void *(*make)())
 {
     sync++;		// keep mutex alive if needed
   retry:
-    AtomicWord initialPointer = pointer;	// latch pointer
-    if (!initialPointer || (initialPointer & 0x1)) {
+    void *initialPointer = Atomic<void *>::load(pointer);	// latch pointer
+    if (!initialPointer || (uintptr_t(initialPointer) & 0x1)) {
         Mutex *mutex;
         if (initialPointer == 0) {
             mutex = new Mutex(false);	// don't bother debugging this one
             mutex->lock();
-            if (atomicStore(pointer, AtomicWord(mutex) | 0x1, 0) != 0) {
+			if (!Atomic<void *>::casb(0, (void *)(uintptr_t(mutex) | 0x1), pointer)) {
                 // somebody beat us to the lead - back off
                 mutex->unlock();
                 delete mutex;
@@ -100,7 +98,7 @@ AtomicWord ModuleNexusCommon::create(void *(*make)())
             // we have the ball
             try {
                 void *singleton = make();
-                pointer = AtomicWord(singleton);
+                pointer = singleton;
                 // we need a write barrier here, but the mutex->unlock below provides it for free
             } catch (...) {
 				secdebug("nexus", "ModuleNexus %p construction failed", this);
@@ -112,7 +110,7 @@ AtomicWord ModuleNexusCommon::create(void *(*make)())
                 throw;
             }
         } else {
-            mutex = reinterpret_cast<Mutex *>(initialPointer & ~0x1);
+            mutex = reinterpret_cast<Mutex *>(uintptr_t(initialPointer) & ~0x1);
             mutex->lock();	// we'll wait here
         }
         mutex->unlock();
@@ -123,8 +121,12 @@ AtomicWord ModuleNexusCommon::create(void *(*make)())
     return pointer;
 }
 
-#endif //_HAVE_ATOMIC_OPERATIONS
 
+// thread nexus static globals
+ModuleNexus<Mutex> ThreadNexusBase::mInstanceLock;
+
+// Thread nexus globals
+ModuleNexus<RetentionSet> ThreadNexusBase::mInstances;
 
 //
 // Process nexus operation

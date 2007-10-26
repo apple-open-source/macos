@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $Id: cyrperl.h,v 1.5 2005/03/05 00:37:31 dasenbro Exp $ */
+/* $Id: cyrperl.h,v 1.7 2003/02/13 20:15:49 rjs3 Exp $ */
 /*
  * Internal callback rock, used to invoke arbitrary Perl code via a CODE
  * reference ( \&sub ).  Allocate with Perl's New(), free with Safefree().

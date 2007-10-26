@@ -1,6 +1,6 @@
 /* Work-alike for termcap, plus extra features.
-   Copyright (C) 1985, 86, 93, 94, 95, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1993, 1994, 1995, 2000, 2001, 2002, 2003,
+                 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -14,8 +14,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Emacs config.h may rename various library functions such as malloc.  */
 #ifdef HAVE_CONFIG_H
@@ -53,7 +53,7 @@ char *realloc ();
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef _POSIX_VERSION
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
 
@@ -144,9 +144,9 @@ find_capability (bp, cap)
   return NULL;
 }
 
-#ifdef __APPLE_CC__
-__private_extern__
-#endif
+/* These are already defined in the System framework in Mac OS X and
+   cause prebinding to fail.  */
+#ifndef MAC_OSX
 int
 tgetnum (cap)
      char *cap;
@@ -157,9 +157,6 @@ tgetnum (cap)
   return atoi (ptr);
 }
 
-#ifdef __APPLE_CC__
-__private_extern__
-#endif
 int
 tgetflag (cap)
      char *cap;
@@ -173,9 +170,6 @@ tgetflag (cap)
    to store the string.  That pointer is advanced over the space used.
    If AREA is null, space is allocated with `malloc'.  */
 
-#ifdef __APPLE_CC__
-__private_extern__
-#endif
 char *
 tgetstr (cap, area)
      char *cap;
@@ -186,6 +180,7 @@ tgetstr (cap, area)
     return NULL;
   return tgetst1 (ptr, area);
 }
+#endif /* MAC_OSX */
 
 #ifdef IS_EBCDIC_HOST
 /* Table, indexed by a character in range 0200 to 0300 with 0200 subtracted,
@@ -289,6 +284,52 @@ tgetst1 (ptr, area)
 	}
       *r++ = c;
     }
+
+  /* Sometimes entries have "%pN" which means use parameter N in the
+     next %-substitution.  If all such N are continuous in the range
+     [1,9] we can remove each "%pN" because they are redundant, thus
+     reducing bandwidth requirements.  True, Emacs is well beyond the
+     days of 150baud teletypes, but some of its users aren't much so.
+
+     This pass could probably be integrated into the one above but
+     abbreviation expansion makes that effort a little more hairy than
+     its worth; this is cleaner.  */
+  {
+    register int last_p_param = 0;
+    int remove_p_params = 1;
+    struct { char *beg; int len; } cut[11];
+
+    for (cut[0].beg = p = ret; p < r - 3; p++)
+      {
+	if (!remove_p_params)
+	  break;
+	if (*p == '%' && *(p + 1) == 'p')
+	  {
+	    if (*(p + 2) - '0' == 1 + last_p_param)
+	      {
+		cut[last_p_param].len = p - cut[last_p_param].beg;
+		last_p_param++;
+		p += 3;
+		cut[last_p_param].beg = p;
+	      }
+	    else				/* not continuous: bail */
+	      remove_p_params = 0;
+	    if (last_p_param > 10)		/* too many: bail */
+	      remove_p_params = 0;
+	  }
+      }
+    if (remove_p_params && last_p_param)
+      {
+	register int i;
+	char *wp;
+
+	cut[last_p_param].len = r - cut[last_p_param].beg;
+	for (i = 0, wp = ret; i <= last_p_param; wp += cut[i++].len)
+	  bcopy (cut[i].beg, wp, cut[i].len);
+	r = wp;
+      }
+  }
+
   *r = '\0';
   /* Update *AREA.  */
   if (area)
@@ -298,12 +339,19 @@ tgetst1 (ptr, area)
 
 /* Outputting a string with padding.  */
 
+#ifndef emacs
+short ospeed;
 /* If OSPEED is 0, we use this as the actual baud rate.  */
 int tputs_baud_rate;
+#endif
+
+/* Already defined in the System framework in Mac OS X and causes
+   prebinding to fail.  */
+#ifndef MAC_OSX
 char PC;
+#endif  /* MAC_OSX */
 
-#if 0 /* Doesn't seem to be used anymore.  */
-
+#ifndef emacs
 /* Actual baud rate if positive;
    - baud rate / 100 if negative.  */
 
@@ -318,11 +366,11 @@ static int speeds[] =
 #endif /* not VMS */
   };
 
-#endif /* 0  */
+#endif /* not emacs */
 
-#ifdef __APPLE_CC__
-__private_extern__
-#endif
+/* Already defined in the System framework in Mac OS X and causes
+   prebinding to fail.  */
+#ifndef MAC_OSX
 void
 tputs (str, nlines, outfun)
      register char *str;
@@ -332,12 +380,19 @@ tputs (str, nlines, outfun)
   register int padcount = 0;
   register int speed;
 
-  extern int baud_rate;
+#ifdef emacs
+  extern EMACS_INT baud_rate;
   speed = baud_rate;
   /* For quite high speeds, convert to the smaller
      units to avoid overflow.  */
   if (speed > 10000)
     speed = - speed / 100;
+#else
+  if (ospeed == 0)
+    speed = tputs_baud_rate;
+  else
+    speed = speeds[ospeed];
+#endif
 
   if (!str)
     return;
@@ -378,6 +433,7 @@ tputs (str, nlines, outfun)
   while (padcount-- > 0)
     (*outfun) (PC);
 }
+#endif /* MAC_OSX */
 
 /* Finding the termcap entry in the termcap data base.  */
 
@@ -402,6 +458,7 @@ static int name_match ();
 #include <rmsdef.h>
 #include <fab.h>
 #include <nam.h>
+#include <starlet.h>
 
 static int
 valid_filename_p (fn)
@@ -448,9 +505,9 @@ valid_filename_p (fn)
    0 if the data base is accessible but the type NAME is not defined
    in it, and some other value otherwise.  */
 
-#ifdef __APPLE_CC__
-__private_extern__
-#endif
+/* Already defined in the System framework in Mac OS X and causes
+   prebinding to fail.  */
+#ifndef MAC_OSX
 int
 tgetent (bp, name)
      char *bp, *name;
@@ -609,6 +666,7 @@ tgetent (bp, name)
   term_entry = bp;
   return 1;
 }
+#endif /* MAC_OSX */
 
 /* Given file open on FD and buffer BUFP,
    scan the file from the beginning until a line is found
@@ -817,3 +875,6 @@ tprint (cap)
 }
 
 #endif /* TEST */
+
+/* arch-tag: c2e8d427-2271-4fac-95fe-411857238b80
+   (do not change this comment) */

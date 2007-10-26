@@ -84,7 +84,7 @@ unranlib ()
 archive=$2;
 
 if [ -f "${archive}" ] &&
-   file "${archive}" | grep 'Mach-O fat file' > /dev/null; then
+   file "${archive}" | grep 'Mach-O universal binary' > /dev/null; then
 
     # File is fat. Undo ranlib.
     unranlib "${archive}";

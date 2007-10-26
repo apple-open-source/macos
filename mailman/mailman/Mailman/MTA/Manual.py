@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,11 +12,13 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Creation/deletion hooks for manual /etc/aliases files."""
 
 import sys
+import email.Utils
 from cStringIO import StringIO
 
 from Mailman import mm_cfg
@@ -96,8 +98,7 @@ equivalent) file by adding the following lines, and possibly running the
         siteowner, siteowner,
         _('Mailing list creation request for list %(listname)s'),
         sfp.getvalue(), mm_cfg.DEFAULT_SERVER_LANGUAGE)
-    outq = get_switchboard(mm_cfg.OUTQUEUE_DIR)
-    outq.enqueue(msg, recips=[siteowner])
+    msg.send(mlist)
 
 
 
@@ -140,5 +141,6 @@ equivalent) file by removing the following lines, and possibly running the
         siteowner, siteowner,
         _('Mailing list removal request for list %(listname)s'),
         sfp.getvalue(), mm_cfg.DEFAULT_SERVER_LANGUAGE)
+    msg['Date'] = email.Utils.formatdate(localtime=1)
     outq = get_switchboard(mm_cfg.OUTQUEUE_DIR)
-    outq.enqueue(msg, recips=[siteowner])
+    outq.enqueue(msg, recips=[siteowner], nodecorate=1)

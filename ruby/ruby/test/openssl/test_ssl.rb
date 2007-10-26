@@ -151,6 +151,43 @@ class OpenSSL::TestSSL < Test::Unit::TestCase
     }
   end
 
+  def test_client_auth
+    vflag = OpenSSL::SSL::VERIFY_PEER|OpenSSL::SSL::VERIFY_FAIL_IF_NO_PEER_CERT
+    start_server(PORT, vflag, true){|s, p|
+      assert_raises(OpenSSL::SSL::SSLError){
+        sock = TCPSocket.new("127.0.0.1", p)
+        ssl = OpenSSL::SSL::SSLSocket.new(sock)
+        ssl.connect
+      }
+
+      ctx = OpenSSL::SSL::SSLContext.new
+      ctx.key = @cli_key
+      ctx.cert = @cli_cert
+      sock = TCPSocket.new("127.0.0.1", p)
+      ssl = OpenSSL::SSL::SSLSocket.new(sock, ctx)
+      ssl.sync_close = true
+      ssl.connect
+      ssl.puts("foo")
+      assert_equal("foo\n", ssl.gets)
+      ssl.close
+
+      called = nil
+      ctx = OpenSSL::SSL::SSLContext.new
+      ctx.client_cert_cb = Proc.new{|ssl|
+        called = true
+        [@cli_cert, @cli_key]
+      }
+      sock = TCPSocket.new("127.0.0.1", p)
+      ssl = OpenSSL::SSL::SSLSocket.new(sock, ctx)
+      ssl.sync_close = true
+      ssl.connect
+      assert(called)
+      ssl.puts("foo")
+      assert_equal("foo\n", ssl.gets)
+      ssl.close
+    }
+  end
+
   def test_starttls
     start_server(PORT, OpenSSL::SSL::VERIFY_NONE, false){|s, p|
       sock = TCPSocket.new("127.0.0.1", p)
@@ -175,6 +212,7 @@ class OpenSSL::TestSSL < Test::Unit::TestCase
   end
 
   def test_parallel
+    GC.start
     start_server(PORT, OpenSSL::SSL::VERIFY_NONE, true){|s, p|
       ssls = []
       10.times{
@@ -192,6 +230,55 @@ class OpenSSL::TestSSL < Test::Unit::TestCase
         }
       }
       ssls.each{|ssl| ssl.close }
+    }
+  end
+
+  def test_post_connection_check
+    sslerr = OpenSSL::SSL::SSLError
+
+    start_server(PORT, OpenSSL::SSL::VERIFY_NONE, true){|s, p|
+      sock = TCPSocket.new("127.0.0.1", p)
+      ssl = OpenSSL::SSL::SSLSocket.new(sock)
+      ssl.connect
+      assert_raises(sslerr){ssl.post_connection_check("localhost.localdomain")}
+      assert_raises(sslerr){ssl.post_connection_check("127.0.0.1")}
+      assert(ssl.post_connection_check("localhost"))
+      assert_raises(sslerr){ssl.post_connection_check("foo.example.com")}
+    }
+
+    now = Time.now
+    exts = [
+      ["keyUsage","keyEncipherment,digitalSignature",true],
+      ["subjectAltName","DNS:localhost.localdomain",false],
+      ["subjectAltName","IP:127.0.0.1",false],
+    ]
+    @svr_cert = issue_cert(@svr, @svr_key, 4, now, now+1800, exts,
+                           @ca_cert, @ca_key, OpenSSL::Digest::SHA1.new)
+    start_server(PORT, OpenSSL::SSL::VERIFY_NONE, true){|s, p|
+      sock = TCPSocket.new("127.0.0.1", p)
+      ssl = OpenSSL::SSL::SSLSocket.new(sock)
+      ssl.connect
+      assert(ssl.post_connection_check("localhost.localdomain"))
+      assert(ssl.post_connection_check("127.0.0.1"))
+      assert_raises(sslerr){ssl.post_connection_check("localhost")}
+      assert_raises(sslerr){ssl.post_connection_check("foo.example.com")}
+    }
+
+    now = Time.now
+    exts = [
+      ["keyUsage","keyEncipherment,digitalSignature",true],
+      ["subjectAltName","DNS:*.localdomain",false],
+    ]
+    @svr_cert = issue_cert(@svr, @svr_key, 5, now, now+1800, exts,
+                           @ca_cert, @ca_key, OpenSSL::Digest::SHA1.new)
+    start_server(PORT, OpenSSL::SSL::VERIFY_NONE, true){|s, p|
+      sock = TCPSocket.new("127.0.0.1", p)
+      ssl = OpenSSL::SSL::SSLSocket.new(sock)
+      ssl.connect
+      assert(ssl.post_connection_check("localhost.localdomain"))
+      assert_raises(sslerr){ssl.post_connection_check("127.0.0.1")}
+      assert_raises(sslerr){ssl.post_connection_check("localhost")}
+      assert_raises(sslerr){ssl.post_connection_check("foo.example.com")}
     }
   end
 end

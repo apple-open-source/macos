@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,16 +16,18 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: posix.c,v 1.51.2.4.2.3 2007/01/01 09:46:46 sebastian Exp $ */
+/* $Id: posix.c,v 1.70.2.3.2.16 2007/07/25 09:06:22 bjori Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
 #include "php.h"
+#include <unistd.h>
 #include "ext/standard/info.h"
 #include "ext/standard/php_string.h"
 #include "php_posix.h"
+
 
 #if HAVE_POSIX
 
@@ -33,7 +35,6 @@
 #include <sys/time.h>
 #endif
 
-#include <unistd.h>
 #include <sys/resource.h>
 #include <sys/utsname.h>
 #include <sys/types.h>
@@ -43,12 +44,16 @@
 #include <errno.h>
 #include <grp.h>
 #include <pwd.h>
+#if HAVE_SYS_MKDEV_H
+# include <sys/mkdev.h>
+#endif
 
 ZEND_DECLARE_MODULE_GLOBALS(posix)
+static PHP_MINFO_FUNCTION(posix);
 
 /* {{{ posix_functions[]
  */
-function_entry posix_functions[] = {
+zend_function_entry posix_functions[] = {
     /* POSIX.1, 3.3 */
 	PHP_FE(posix_kill,		NULL)
 
@@ -110,7 +115,12 @@ function_entry posix_functions[] = {
 #ifdef HAVE_MKFIFO
 	PHP_FE(posix_mkfifo,	NULL)
 #endif
+#ifdef HAVE_MKNOD
+	PHP_FE(posix_mknod,	NULL)
+#endif
 
+	/* POSIX.1, 5.6 */
+	PHP_FE(posix_access,	NULL)
 	/* POSIX.1, 9.2 */
 	PHP_FE(posix_getgrnam,	NULL)
 	PHP_FE(posix_getgrgid,	NULL)
@@ -124,6 +134,9 @@ function_entry posix_functions[] = {
 	PHP_FE(posix_get_last_error,					NULL)
 	PHP_FALIAS(posix_errno, posix_get_last_error,	NULL)
 	PHP_FE(posix_strerror,							NULL)
+#ifdef HAVE_INITGROUPS
+	PHP_FE(posix_initgroups,	NULL)
+#endif
 
 	{NULL, NULL, NULL}
 };
@@ -134,12 +147,12 @@ function_entry posix_functions[] = {
 static PHP_MINFO_FUNCTION(posix)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "Revision", "$Revision: 1.51.2.4.2.3 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.70.2.3.2.16 $");
 	php_info_print_table_end();
 }
 /* }}} */
 
-static void php_posix_init_globals(zend_posix_globals *posix_globals TSRMLS_DC)
+static PHP_GINIT_FUNCTION(posix)
 {
 	posix_globals->last_error = 0;
 }
@@ -148,12 +161,29 @@ static void php_posix_init_globals(zend_posix_globals *posix_globals TSRMLS_DC)
  */
 static PHP_MINIT_FUNCTION(posix)
 {
-	ZEND_INIT_MODULE_GLOBALS(posix, php_posix_init_globals, NULL);
+	REGISTER_LONG_CONSTANT("POSIX_F_OK", F_OK, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("POSIX_X_OK", X_OK, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("POSIX_W_OK", W_OK, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("POSIX_R_OK", R_OK, CONST_CS | CONST_PERSISTENT);
+#ifdef S_IFREG
+	REGISTER_LONG_CONSTANT("POSIX_S_IFREG", S_IFREG, CONST_CS | CONST_PERSISTENT);
+#endif
+#ifdef S_IFCHR
+	REGISTER_LONG_CONSTANT("POSIX_S_IFCHR", S_IFCHR, CONST_CS | CONST_PERSISTENT);
+#endif
+#ifdef S_IFBLK
+	REGISTER_LONG_CONSTANT("POSIX_S_IFBLK", S_IFBLK, CONST_CS | CONST_PERSISTENT);
+#endif
+#ifdef S_IFIFO
+	REGISTER_LONG_CONSTANT("POSIX_S_IFIFO", S_IFIFO, CONST_CS | CONST_PERSISTENT);
+#endif
+#ifdef S_IFSOCK
+	REGISTER_LONG_CONSTANT("POSIX_S_IFSOCK", S_IFSOCK, CONST_CS | CONST_PERSISTENT);
+#endif
+
 	return SUCCESS;
 }
 /* }}} */
-
-static PHP_MINFO_FUNCTION(posix);
 
 /* {{{ posix_module_entry
  */
@@ -166,14 +196,33 @@ zend_module_entry posix_module_entry = {
 	NULL,
 	NULL, 
 	PHP_MINFO(posix),
-    NO_VERSION_YET,
-	STANDARD_MODULE_PROPERTIES
+	NO_VERSION_YET,
+	PHP_MODULE_GLOBALS(posix),
+	PHP_GINIT(posix),
+	NULL,
+	NULL,
+	STANDARD_MODULE_PROPERTIES_EX
 };
 /* }}} */
 
 #ifdef COMPILE_DL_POSIX
 ZEND_GET_MODULE(posix)
 #endif
+
+#define PHP_POSIX_NO_ARGS	if (ZEND_NUM_ARGS()) WRONG_PARAM_COUNT;
+
+#define PHP_POSIX_RETURN_LONG_FUNC(func_name)	\
+	PHP_POSIX_NO_ARGS	\
+	RETURN_LONG(func_name());
+
+#define PHP_POSIX_SINGLE_ARG_FUNC(func_name)	\
+	long val;	\
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &val) == FAILURE) RETURN_FALSE;	\
+	if (func_name(val) < 0) {	\
+		POSIX_G(last_error) = errno;	\
+		RETURN_FALSE;	\
+	}	\
+	RETURN_TRUE;
 
 /* {{{ proto bool posix_kill(int pid, int sig)
    Send a signal to a process (POSIX.1, 3.3.2) */
@@ -185,7 +234,7 @@ PHP_FUNCTION(posix_kill)
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &pid, &sig) == FAILURE) {
 		RETURN_FALSE;
 	}
-  
+		
 	if (kill(pid, sig) < 0) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
@@ -199,14 +248,7 @@ PHP_FUNCTION(posix_kill)
    Get the current process id (POSIX.1, 4.1.1) */
 PHP_FUNCTION(posix_getpid)
 {
-	pid_t  pid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-	
-	pid = getpid();
-	RETURN_LONG(pid);
+	PHP_POSIX_RETURN_LONG_FUNC(getpid);
 }
 /* }}} */
 
@@ -214,14 +256,7 @@ PHP_FUNCTION(posix_getpid)
    Get the parent process id (POSIX.1, 4.1.1) */
 PHP_FUNCTION(posix_getppid)
 {
-	pid_t  ppid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-
-	ppid = getppid();
-	RETURN_LONG(ppid);
+	PHP_POSIX_RETURN_LONG_FUNC(getppid);
 }
 /* }}} */
 
@@ -229,14 +264,7 @@ PHP_FUNCTION(posix_getppid)
    Get the current user id (POSIX.1, 4.2.1) */
 PHP_FUNCTION(posix_getuid)
 {
-	uid_t  uid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-
-	uid = getuid();
-	RETURN_LONG(uid);
+	PHP_POSIX_RETURN_LONG_FUNC(getuid);
 }
 /* }}} */
 
@@ -244,14 +272,7 @@ PHP_FUNCTION(posix_getuid)
    Get the current group id (POSIX.1, 4.2.1) */
 PHP_FUNCTION(posix_getgid)
 {
-	gid_t  gid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-
-	gid = getgid();
-	RETURN_LONG(gid);
+	PHP_POSIX_RETURN_LONG_FUNC(getgid);
 }
 /* }}} */
 
@@ -259,14 +280,7 @@ PHP_FUNCTION(posix_getgid)
    Get the current effective user id (POSIX.1, 4.2.1) */
 PHP_FUNCTION(posix_geteuid)
 {
-	uid_t  uid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-
-	uid = geteuid();
-	RETURN_LONG(uid);
+	PHP_POSIX_RETURN_LONG_FUNC(geteuid);
 }
 /* }}} */
 
@@ -274,33 +288,15 @@ PHP_FUNCTION(posix_geteuid)
    Get the current effective group id (POSIX.1, 4.2.1) */
 PHP_FUNCTION(posix_getegid)
 {
-	gid_t  gid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-	
-	gid = getegid();
-	RETURN_LONG(gid);
- }
+	PHP_POSIX_RETURN_LONG_FUNC(getegid);
+}
 /* }}} */
 
 /* {{{ proto bool posix_setuid(long uid)
    Set user id (POSIX.1, 4.2.2) */
 PHP_FUNCTION(posix_setuid)
 {
-	long uid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &uid) == FAILURE) {
-		RETURN_FALSE;
-	}
-	
-	if (setuid(uid) < 0) {
-		POSIX_G(last_error) = errno;
-		RETURN_FALSE;
-	}
-	
-	RETURN_TRUE;
+	PHP_POSIX_SINGLE_ARG_FUNC(setuid);
 }
 /* }}} */
 
@@ -308,18 +304,7 @@ PHP_FUNCTION(posix_setuid)
    Set group id (POSIX.1, 4.2.2) */
 PHP_FUNCTION(posix_setgid)
 {
-	long gid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &gid) == FAILURE) {
-		RETURN_FALSE;
-	}
-	
-	if (setgid(gid) < 0) {
-		POSIX_G(last_error) = errno;
-		RETURN_FALSE;
-	}
-	
-	RETURN_TRUE;
+	PHP_POSIX_SINGLE_ARG_FUNC(setgid);
 }
 /* }}} */
 
@@ -328,18 +313,7 @@ PHP_FUNCTION(posix_setgid)
 #ifdef HAVE_SETEUID
 PHP_FUNCTION(posix_seteuid)
 {
-	long euid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &euid) == FAILURE) {
-		RETURN_FALSE;
-	}
-	
-	if (seteuid(euid) < 0) {
-		POSIX_G(last_error) = errno;
-		RETURN_FALSE;
-	}
-	
-	RETURN_TRUE;
+	PHP_POSIX_SINGLE_ARG_FUNC(seteuid);
 }
 #endif
 /* }}} */
@@ -349,18 +323,7 @@ PHP_FUNCTION(posix_seteuid)
 #ifdef HAVE_SETEGID
 PHP_FUNCTION(posix_setegid)
 {
-	long egid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &egid) == FAILURE) {
-		RETURN_FALSE;
-	}
-
-	if (setegid(egid) < 0) {
-		POSIX_G(last_error) = errno;
-		RETURN_FALSE;
-	}
-	
-	RETURN_TRUE;
+	PHP_POSIX_SINGLE_ARG_FUNC(setegid);
 }
 #endif
 /* }}} */
@@ -374,21 +337,14 @@ PHP_FUNCTION(posix_getgroups)
 	int    result;
 	int    i;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-
+	PHP_POSIX_NO_ARGS;
+	
 	if ((result = getgroups(NGROUPS_MAX, gidlist)) < 0) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
 
-	if (array_init(return_value) == FAILURE) {
-		/* TODO: Should we issue a warning here so we don't have ambiguity
-		 * with the above return value ?
-		 */
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 
 	for (i=0; i<result; i++) {
 		add_next_index_long(return_value, gidlist[i]);
@@ -404,9 +360,7 @@ PHP_FUNCTION(posix_getlogin)
 {
 	char *p;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
+	PHP_POSIX_NO_ARGS;
 	
 	if (NULL == (p = getlogin())) {
 		POSIX_G(last_error) = errno;
@@ -422,14 +376,7 @@ PHP_FUNCTION(posix_getlogin)
    Get current process group id (POSIX.1, 4.3.1) */
 PHP_FUNCTION(posix_getpgrp)
 {
-	pid_t  pgrp;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-
-	pgrp = getpgrp();
-	RETURN_LONG(pgrp);
+	PHP_POSIX_RETURN_LONG_FUNC(getpgrp);
 }
 /* }}} */
 
@@ -438,14 +385,7 @@ PHP_FUNCTION(posix_getpgrp)
 #ifdef HAVE_SETSID
 PHP_FUNCTION(posix_setsid)
 {
-	pid_t  sid;
-	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-	
-	sid = setsid();
-	RETURN_LONG(sid);
+	PHP_POSIX_RETURN_LONG_FUNC(setsid);
 }
 #endif
 /* }}} */
@@ -474,19 +414,16 @@ PHP_FUNCTION(posix_setpgid)
 #ifdef HAVE_GETPGID
 PHP_FUNCTION(posix_getpgid)
 {
-	long pid;
-	pid_t pgid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &pid) == FAILURE) {
+	long val;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &val) == FAILURE) {
 		RETURN_FALSE;
 	}
-
-	if ((pgid = getpgid(pid)) < 0) {
+	
+	if ((val = getpgid(val)) < 0) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
-
-	RETURN_LONG(pgid);
+	RETURN_LONG(val);
 }
 #endif
 /* }}} */
@@ -496,19 +433,16 @@ PHP_FUNCTION(posix_getpgid)
 #ifdef HAVE_GETSID
 PHP_FUNCTION(posix_getsid)
 {
-	long pid;
-	pid_t sid;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &pid) == FAILURE) {
+	long val;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &val) == FAILURE) {
 		RETURN_FALSE;
 	}
-
-	if ((sid = getsid(pid)) < 0) {
+	
+	if ((val = getsid(val)) < 0) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
-
-	RETURN_LONG(sid);
+	RETURN_LONG(val);
 }
 #endif
 /* }}} */
@@ -519,21 +453,14 @@ PHP_FUNCTION(posix_uname)
 {
 	struct utsname u;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
+	PHP_POSIX_NO_ARGS;
 
 	if (uname(&u) < 0) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
 
-	if (array_init(return_value) == FAILURE) {
-		/* TODO: Should we issue a warning here so we don't have ambiguity
-		 * with the above return value ?
-		 */
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 
 	add_assoc_string(return_value, "sysname",  u.sysname,  1);
 	add_assoc_string(return_value, "nodename", u.nodename, 1);
@@ -557,21 +484,14 @@ PHP_FUNCTION(posix_times)
 	struct tms t;
 	clock_t    ticks;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
+	PHP_POSIX_NO_ARGS;
 
 	if((ticks = times(&t)) < 0) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
 
-	if (array_init(return_value) == FAILURE) {
-		/* TODO: Should we issue a warning here so we don't have ambiguity
-		 * with the above return value ?
-		 */
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 
 	add_assoc_long(return_value, "ticks",	ticks);			/* clock ticks */
 	add_assoc_long(return_value, "utime",	t.tms_utime);	/* user time */
@@ -592,10 +512,8 @@ PHP_FUNCTION(posix_ctermid)
 {
 	char  buffer[L_ctermid];
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-	
+	PHP_POSIX_NO_ARGS;
+
 	if (NULL == ctermid(buffer)) {
 		/* Found no documentation how the defined behaviour is when this
 		 * function fails
@@ -634,30 +552,46 @@ static int php_posix_stream_get_fd(zval *zfp, int *fd TSRMLS_DC)
    Determine terminal device name (POSIX.1, 4.7.2) */
 PHP_FUNCTION(posix_ttyname)
 {
-	zval *z_fd;
+	zval **z_fd;
 	char *p;
 	int fd;
+#if defined(ZTS) && defined(HAVE_TTYNAME_R) && defined(_SC_TTY_NAME_MAX)
+	long buflen;
+#endif
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &z_fd) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "Z", &z_fd) == FAILURE) {
 		RETURN_FALSE;
 	}
-	
-	switch (Z_TYPE_P(z_fd)) {
+
+	switch (Z_TYPE_PP(z_fd)) {
 		case IS_RESOURCE:
-			if (!php_posix_stream_get_fd(z_fd, &fd TSRMLS_CC)) {
+			if (!php_posix_stream_get_fd(*z_fd, &fd TSRMLS_CC)) {
 				RETURN_FALSE;
 			}
 			break;
 		default:
-			convert_to_long(z_fd);
-			fd = Z_LVAL_P(z_fd);
+			convert_to_long_ex(z_fd);
+			fd = Z_LVAL_PP(z_fd);
 	}
+#if defined(ZTS) && defined(HAVE_TTYNAME_R) && defined(_SC_TTY_NAME_MAX)
+	buflen = sysconf(_SC_TTY_NAME_MAX);
+	if (buflen < 1) {
+		RETURN_FALSE;
+	}
+	p = emalloc(buflen);
 
+	if (ttyname_r(fd, p, buflen)) {
+		POSIX_G(last_error) = errno;
+		efree(p);
+		RETURN_FALSE;
+	}
+	RETURN_STRING(p, 0);
+#else
 	if (NULL == (p = ttyname(fd))) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
-	
+#endif	
 	RETURN_STRING(p, 1);
 }
 /* }}} */
@@ -666,22 +600,22 @@ PHP_FUNCTION(posix_ttyname)
    Determine if filedesc is a tty (POSIX.1, 4.7.1) */
 PHP_FUNCTION(posix_isatty)
 {
-	zval *z_fd;
+	zval **z_fd;
 	int fd;
 	
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &z_fd) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "Z", &z_fd) == FAILURE) {
 		RETURN_FALSE;
 	}
-
-	switch (Z_TYPE_P(z_fd)) {
+	
+	switch (Z_TYPE_PP(z_fd)) {
 		case IS_RESOURCE:
-			if (!php_posix_stream_get_fd(z_fd, &fd TSRMLS_CC)) {
+			if (!php_posix_stream_get_fd(*z_fd, &fd TSRMLS_CC)) {
 				RETURN_FALSE;
 			}
 			break;
 		default:
-			convert_to_long(z_fd);
-			fd = Z_LVAL_P(z_fd);
+			convert_to_long_ex(z_fd);
+			fd = Z_LVAL_PP(z_fd);
 	}
 
 	if (isatty(fd)) {
@@ -708,9 +642,7 @@ PHP_FUNCTION(posix_getcwd)
 	char  buffer[MAXPATHLEN];
 	char *p;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
+	PHP_POSIX_NO_ARGS;
 
 	p = VCWD_GETCWD(buffer, MAXPATHLEN);
 	if (!p) {
@@ -757,6 +689,59 @@ PHP_FUNCTION(posix_mkfifo)
 #endif
 /* }}} */
 
+/* {{{ proto bool posix_mknod(string pathname, int mode [, int major [, int minor]])
+   Make a special or ordinary file (POSIX.1) */
+#ifdef HAVE_MKNOD
+PHP_FUNCTION(posix_mknod)
+{
+	char *path;
+	int path_len;
+	long mode;
+	long major = 0, minor = 0;
+	int result;
+	dev_t php_dev;
+
+	php_dev = 0;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sl|ll", &path, &path_len,
+			&mode, &major, &minor) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir_ex(path, 0 TSRMLS_CC) ||
+			(PG(safe_mode) && (!php_checkuid(path, NULL, CHECKUID_ALLOW_ONLY_DIR)))) {
+		RETURN_FALSE;
+	}
+
+	if ((mode & S_IFCHR) || (mode & S_IFBLK)) {
+		if (ZEND_NUM_ARGS() == 2) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "For S_IFCHR and S_IFBLK you need to pass a major device kernel identifier");
+			RETURN_FALSE;
+		}
+		if (major == 0) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING,
+				"Expects argument 3 to be non-zero for POSIX_S_IFCHR and POSIX_S_IFBLK");
+			RETURN_FALSE;
+		} else {
+#if defined(HAVE_MAKEDEV) || defined(makedev)
+			php_dev = makedev(major, minor);
+#else
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not create a block or character device, creating a normal file instead");
+#endif
+		}
+	}
+
+	result = mknod(path, mode, php_dev);
+	if (result < 0) {
+		POSIX_G(last_error) = errno;
+		RETURN_FALSE;
+	}
+
+	RETURN_TRUE;
+}
+#endif
+/* }}} */
+
 /* Takes a pointer to posix group and a pointer to an already initialized ZVAL
  * array container and fills the array with the posix group member data. */
 int php_posix_group_to_array(struct group *g, zval *array_group) {
@@ -770,8 +755,7 @@ int php_posix_group_to_array(struct group *g, zval *array_group) {
 		return 0;
 
 	MAKE_STD_ZVAL(array_members);
-	if (array_init(array_members) == FAILURE)
-		return 0;
+	array_init(array_members);
 	
 	add_assoc_string(array_group, "name", g->gr_name, 1);
 	add_assoc_string(array_group, "passwd", g->gr_passwd, 1);
@@ -787,15 +771,52 @@ int php_posix_group_to_array(struct group *g, zval *array_group) {
 	POSIX.1, 5.5.1 unlink()
 	POSIX.1, 5.5.2 rmdir()
 	POSIX.1, 5.5.3 rename()
-	POSIX.1, 5.6.x stat(), access(), chmod(), utime()
-		already supported by PHP (access() not supported, because it is
-		braindead and dangerous and gives outdated results).
+	POSIX.1, 5.6.x stat(), chmod(), utime() already supported by PHP.
+*/
 
+/* {{{ proto bool posix_access(string file [, int mode])
+   Determine accessibility of a file (POSIX.1 5.6.3) */
+PHP_FUNCTION(posix_access)
+{
+	long mode = 0;
+	int filename_len, ret;
+	char *filename, *path;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &filename, &filename_len, &mode) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	path = expand_filepath(filename, NULL TSRMLS_CC);
+	if (!path) {
+		POSIX_G(last_error) = EIO;
+		RETURN_FALSE;
+	}
+
+	if (php_check_open_basedir_ex(path, 0 TSRMLS_CC) ||
+			(PG(safe_mode) && (!php_checkuid_ex(filename, NULL, CHECKUID_CHECK_FILE_AND_DIR, CHECKUID_NO_ERRORS)))) {
+		efree(path);
+		POSIX_G(last_error) = EPERM;
+		RETURN_FALSE;
+	}
+
+	ret = access(path, mode);
+	efree(path);
+
+	if (ret) {
+		POSIX_G(last_error) = errno;
+		RETURN_FALSE;
+	}
+
+	RETURN_TRUE;
+}
+/* }}} */
+
+/*
 	POSIX.1, 6.x most I/O functions already supported by PHP.
 	POSIX.1, 7.x tty functions, TODO
 	POSIX.1, 8.x interactions with other C language functions
-	POSIX.1, 9.x system database access	
- */
+	POSIX.1, 9.x system database access
+*/
 
 /* {{{ proto array posix_getgrnam(string groupname)
    Group database access (POSIX.1, 9.2.1) */
@@ -804,29 +825,45 @@ PHP_FUNCTION(posix_getgrnam)
 	char *name;
 	struct group *g;
 	int name_len;
+#if defined(ZTS) && defined(HAVE_GETGRNAM_R) && defined(_SC_GETGR_R_SIZE_MAX)
+	struct group gbuf;
+	long buflen;
+	char *buf;
+#endif
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &name, &name_len) == FAILURE) {
 		RETURN_FALSE;
 	}
 
+#if defined(ZTS) && defined(HAVE_GETGRNAM_R) && defined(_SC_GETGR_R_SIZE_MAX)
+	buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
+	if (buflen < 1) {
+		RETURN_FALSE;
+	}
+	buf = emalloc(buflen);
+	g = &gbuf;
+
+	if (getgrnam_r(name, g, buf, buflen, &g) || g == NULL) {
+		POSIX_G(last_error) = errno;
+		efree(buf);
+		RETURN_FALSE;
+	}
+#else
 	if (NULL == (g = getgrnam(name))) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
-	
-	if (array_init(return_value) == FAILURE) {
-		/* TODO: Should we issue a warning here so we don't have ambiguity
-		 * with the above return value ?
-		 */
-		RETURN_FALSE;
-	}
+#endif
+	array_init(return_value);
 
 	if (!php_posix_group_to_array(g, return_value)) {
 		zval_dtor(return_value);
-		php_error(E_WARNING, "%s() unable to convert posix group to array",
-				  get_active_function_name(TSRMLS_C));
-		RETURN_FALSE;
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to convert posix group to array");
+		RETVAL_FALSE;
 	}
+#if defined(ZTS) && defined(HAVE_GETGRNAM_R) && defined(_SC_GETGR_R_SIZE_MAX)
+	efree(buf);
+#endif
 }
 /* }}} */
 
@@ -835,30 +872,50 @@ PHP_FUNCTION(posix_getgrnam)
 PHP_FUNCTION(posix_getgrgid)
 {
 	long gid;
+#if defined(ZTS) && defined(HAVE_GETGRGID_R) && defined(_SC_GETGR_R_SIZE_MAX)
+	int ret;
+	struct group _g;
+	struct group *retgrptr;
+	long grbuflen;
+	char *grbuf;
+#endif
 	struct group *g;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &gid) == FAILURE) {
 		RETURN_FALSE;
 	}
+#if defined(ZTS) && defined(HAVE_GETGRGID_R) && defined(_SC_GETGR_R_SIZE_MAX)
 	
+	grbuflen = sysconf(_SC_GETGR_R_SIZE_MAX);
+	if (grbuflen < 1) {
+		RETURN_FALSE;
+	}
+
+	grbuf = emalloc(grbuflen);
+
+	ret = getgrgid_r(gid, &_g, grbuf, grbuflen, &retgrptr);
+	if (ret) {
+		POSIX_G(last_error) = ret;
+		efree(grbuf);
+		RETURN_FALSE;
+	}
+	g = &_g;
+#else
 	if (NULL == (g = getgrgid(gid))) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
-
-	if (array_init(return_value) == FAILURE) {
-		/* TODO: Should we issue a warning here so we don't have ambiguity
-		 * with the above return value ?
-		 */
-		RETURN_FALSE;
-	}
+#endif
+	array_init(return_value);
 
 	if (!php_posix_group_to_array(g, return_value)) {
 		zval_dtor(return_value);
-		php_error(E_WARNING, "%s() unable to convert posix group struct to array",
-				  get_active_function_name(TSRMLS_C));
-		RETURN_FALSE;
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to convert posix group struct to array");
+		RETVAL_FALSE;
 	}
+#if defined(ZTS) && defined(HAVE_GETGRGID_R) && defined(_SC_GETGR_R_SIZE_MAX)
+	efree(grbuf);
+#endif
 }
 /* }}} */
 
@@ -885,27 +942,45 @@ PHP_FUNCTION(posix_getpwnam)
 	struct passwd *pw;
 	char *name;
 	int name_len;
-	
+#if defined(ZTS) && defined(_SC_GETPW_R_SIZE_MAX) && defined(HAVE_GETPWNAM_R)
+	struct passwd pwbuf;
+	long buflen;
+	char *buf;
+#endif
+
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &name, &name_len) == FAILURE) {
 		RETURN_FALSE;
 	}
 
+#if defined(ZTS) && defined(_SC_GETPW_R_SIZE_MAX) && defined(HAVE_GETPWNAM_R)
+	buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+	if (buflen < 1) {
+		RETURN_FALSE;
+	}
+	buf = emalloc(buflen);
+	pw = &pwbuf;
+
+	if (getpwnam_r(name, pw, buf, buflen, &pw) || pw == NULL) {
+		efree(buf);
+		POSIX_G(last_error) = errno;
+		RETURN_FALSE;
+	}
+#else
 	if (NULL == (pw = getpwnam(name))) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
-	
-	if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-	}
+#endif	
+	array_init(return_value);
 
 	if (!php_posix_passwd_to_array(pw, return_value)) {
 		zval_dtor(return_value);
-		php_error(E_WARNING, "%s() unable to convert posix passwd struct to array",
-				  get_active_function_name(TSRMLS_C));
-		RETURN_FALSE;
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to convert posix passwd struct to array");
+		RETVAL_FALSE;
 	}
-
+#if defined(ZTS) && defined(_SC_GETPW_R_SIZE_MAX) && defined(HAVE_GETPWNAM_R)
+	efree(buf);
+#endif
 }
 /* }}} */
 
@@ -914,27 +989,48 @@ PHP_FUNCTION(posix_getpwnam)
 PHP_FUNCTION(posix_getpwuid)
 {
 	long uid;
+#if defined(ZTS) && defined(_SC_GETPW_R_SIZE_MAX) && defined(HAVE_GETPWUID_R)
+	struct passwd _pw;
+	struct passwd *retpwptr = NULL;
+	long pwbuflen;
+	char *pwbuf;
+	int ret;
+#endif
 	struct passwd *pw;
-	
+
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &uid) == FAILURE) {
 		RETURN_FALSE;
 	}
-	
+#if defined(ZTS) && defined(_SC_GETPW_R_SIZE_MAX) && defined(HAVE_GETPWUID_R)
+	pwbuflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+	if (pwbuflen < 1) {
+		RETURN_FALSE;
+	}
+	pwbuf = emalloc(pwbuflen);
+
+	ret = getpwuid_r(uid, &_pw, pwbuf, pwbuflen, &retpwptr);
+	if (ret) {
+		POSIX_G(last_error) = ret;
+		efree(pwbuf);
+		RETURN_FALSE;
+	}
+	pw = &_pw;
+#else
 	if (NULL == (pw = getpwuid(uid))) {
 		POSIX_G(last_error) = errno;
 		RETURN_FALSE;
 	}
-
-	if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-	}
+#endif
+	array_init(return_value);
 
 	if (!php_posix_passwd_to_array(pw, return_value)) {
 		zval_dtor(return_value);
-		php_error(E_WARNING, "%s() unable to convert posix passwd struct to array",
-				  get_active_function_name(TSRMLS_C));
-		RETURN_FALSE;
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to convert posix passwd struct to array");
+		RETVAL_FALSE;
 	}
+#if defined(ZTS) && defined(_SC_GETPW_R_SIZE_MAX) && defined(HAVE_GETPWUID_R)
+	efree(pwbuf);
+#endif
 }
 /* }}} */
 
@@ -1035,19 +1131,15 @@ struct limitlist {
 /* }}} */
 
 
-/* {{{ proto int posix_getrlimit(void)
+/* {{{ proto array posix_getrlimit(void)
    Get system resource consumption limits (This is not a POSIX function, but a BSDism and a SVR4ism. We compile conditionally) */
 PHP_FUNCTION(posix_getrlimit)
 {
 	struct limitlist *l = NULL;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-	
-	if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-	}
+	PHP_POSIX_NO_ARGS;
+
+	array_init(return_value);
 
 	for (l=limits; l->name; l++) {
 		if (posix_addlimit(l->limit, l->name, return_value TSRMLS_CC) == FAILURE) {
@@ -1064,10 +1156,8 @@ PHP_FUNCTION(posix_getrlimit)
    Retrieve the error number set by the last posix function which failed. */
 PHP_FUNCTION(posix_get_last_error)
 {
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "") == FAILURE) {
-		RETURN_FALSE;
-	}
-	
+	PHP_POSIX_NO_ARGS;	
+
 	RETURN_LONG(POSIX_G(last_error));
 }
 /* }}} */
@@ -1086,6 +1176,24 @@ PHP_FUNCTION(posix_strerror)
 }
 /* }}} */
 
+#endif
+
+#ifdef HAVE_INITGROUPS
+/* {{{ proto bool posix_initgroups(string name, int base_group_id)
+   Calculate the group access list for the user specified in name. */
+PHP_FUNCTION(posix_initgroups)
+{
+	long basegid;
+	char *name;
+	int name_len;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sl", &name, &name_len, &basegid) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	RETURN_BOOL(!initgroups((const char *)name, basegid));
+}
+/* }}} */
 #endif
 
 /*

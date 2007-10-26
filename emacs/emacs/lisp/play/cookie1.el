@@ -1,6 +1,7 @@
 ;;; cookie1.el --- retrieve random phrases from fortune cookie files
 
-;; Copyright (C) 1993 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Eric S. Raymond <esr@snark.thyrsus.com>
 ;; Maintainer: FSF
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -69,16 +70,18 @@
 
 ;;;###autoload
 (defun cookie (phrase-file startmsg endmsg)
-  "Return a random phrase from PHRASE-FILE.  When the phrase file
-is read in, display STARTMSG at beginning of load, ENDMSG at end."
+  "Return a random phrase from PHRASE-FILE.
+When the phrase file is read in, display STARTMSG at the beginning
+of load, ENDMSG at the end."
   (let ((cookie-vector (cookie-snarf phrase-file startmsg endmsg)))
     (shuffle-vector cookie-vector)
-    (aref cookie-vector 1)))
+    (aref cookie-vector 0)))
 
 ;;;###autoload
 (defun cookie-insert (phrase-file &optional count startmsg endmsg)
-  "Insert random phrases from PHRASE-FILE; COUNT of them.  When the phrase file
-is read in, display STARTMSG at beginning of load, ENDMSG at end."
+  "Insert random phrases from PHRASE-FILE; COUNT of them.
+When the phrase file is read in, display STARTMSG at the beginning
+of load, ENDMSG at the end."
   (let ((cookie-vector (cookie-snarf phrase-file startmsg endmsg)))
     (shuffle-vector cookie-vector)
     (let ((start (point)))
@@ -151,7 +154,7 @@ Optional fifth arg REQUIRE-MATCH non-nil forces a matching cookie."
 ;
 ;;;###autoload
 (defun shuffle-vector (vector)
-  "Randomly permute the elements of VECTOR (all permutations equally likely)"
+  "Randomly permute the elements of VECTOR (all permutations equally likely)."
   (let ((i 0)
 	j
 	temp
@@ -166,4 +169,5 @@ Optional fifth arg REQUIRE-MATCH non-nil forces a matching cookie."
 
 (provide 'cookie1)
 
+;;; arch-tag: 4a8a8712-df6a-4f34-b030-108a1b47f9f2
 ;;; cookie1.el ends here

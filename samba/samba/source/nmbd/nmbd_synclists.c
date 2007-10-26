@@ -29,6 +29,8 @@
 
 #include "includes.h"
 
+extern fstring local_machine;
+
 struct sync_record {
 	struct sync_record *next, *prev;
 	unstring workgroup;
@@ -65,9 +67,8 @@ static void sync_child(char *name, int nm_type,
 		       struct in_addr ip, BOOL local, BOOL servers,
 		       char *fname)
 {
-	extern fstring local_machine;
 	fstring unix_workgroup;
-	static struct cli_state cli;
+	struct cli_state *cli;
 	uint32 local_type = local ? SV_TYPE_LOCAL_LIST_ONLY : 0;
 	struct nmb_name called, calling;
 
@@ -75,50 +76,56 @@ static void sync_child(char *name, int nm_type,
 	 * Patch from Andy Levine andyl@epicrealm.com.
 	 */
 
-	if (!cli_initialise(&cli) || !cli_set_port(&cli, 139) || !cli_connect(&cli, name, &ip)) {
+	cli = cli_initialise();
+	if (!cli) {
+		return;
+	}
+
+	if (!cli_set_port(cli, 139) || !cli_connect(cli, name, &ip)) {
 		return;
 	}
 
 	make_nmb_name(&calling, local_machine, 0x0);
 	make_nmb_name(&called , name, nm_type);
 
-	if (!cli_session_request(&cli, &calling, &called)) {
-		cli_shutdown(&cli);
+	if (!cli_session_request(cli, &calling, &called)) {
+		cli_shutdown(cli);
 		return;
 	}
 
-	if (!cli_negprot(&cli)) {
-		cli_shutdown(&cli);
+	if (!cli_negprot(cli)) {
+		cli_shutdown(cli);
 		return;
 	}
 
-	if (!cli_session_setup(&cli, "", "", 1, "", 0, workgroup)) {
-		cli_shutdown(&cli);
+	if (!NT_STATUS_IS_OK(cli_session_setup(cli, "", "", 1, "", 0,
+					       workgroup))) {
+		cli_shutdown(cli);
 		return;
 	}
 
-	if (!cli_send_tconX(&cli, "IPC$", "IPC", "", 1)) {
-		cli_shutdown(&cli);
+	if (!cli_send_tconX(cli, "IPC$", "IPC", "", 1)) {
+		cli_shutdown(cli);
 		return;
 	}
 
 	/* All the cli_XX functions take UNIX character set. */
-	fstrcpy(unix_workgroup, cli.server_domain?cli.server_domain:workgroup);
+	fstrcpy(unix_workgroup, cli->server_domain ? cli->server_domain : workgroup);
 
 	/* Fetch a workgroup list. */
-	cli_NetServerEnum(&cli, unix_workgroup,
+	cli_NetServerEnum(cli, unix_workgroup,
 			  local_type|SV_TYPE_DOMAIN_ENUM, 
 			  callback, NULL);
 	
 	/* Now fetch a server list. */
 	if (servers) {
 		fstrcpy(unix_workgroup, workgroup);
-		cli_NetServerEnum(&cli, unix_workgroup, 
+		cli_NetServerEnum(cli, unix_workgroup, 
 				  local?SV_TYPE_LOCAL_LIST_ONLY:SV_TYPE_ALL,
 				  callback, NULL);
 	}
 	
-	cli_shutdown(&cli);
+	cli_shutdown(cli);
 }
 
 /*******************************************************************
@@ -293,7 +300,7 @@ void sync_check_completion(void)
 
 	for (s=syncs;s;s=next) {
 		next = s->next;
-		if (!process_exists(s->pid)) {
+		if (!process_exists_by_pid(s->pid)) {
 			/* it has completed - grab the info */
 			complete_sync(s);
 			DLIST_REMOVE(syncs, s);

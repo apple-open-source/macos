@@ -48,10 +48,10 @@ class AppleEmbeddedKeyboard: public IOHIDEventDriver
 {
     OSDeclareDefaultStructors( AppleEmbeddedKeyboard )
     
-    bool                    _fnKeyDown;
+    bool                    _fnKeyDownPhysical;
+    bool                    _fnKeyDownVirtual;
     bool                    _numLockDown;
     bool                    _virtualMouseKeysSupport;
-    bool                    _stickyKeysOn;
     UInt32                  _fKeyMode;
     SecondaryKey    		_secondaryKeys[255];
     IOHIDElement *          _keyboardRollOverElement;

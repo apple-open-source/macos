@@ -1,7 +1,7 @@
 #
 # tmpdir - retrieve temporary directory path
 #
-# $Id: tmpdir.rb,v 1.5 2003/07/26 15:38:58 eban Exp $
+# $Id: tmpdir.rb 11708 2007-02-12 23:01:19Z shyouhei $
 #
 
 class Dir
@@ -17,12 +17,15 @@ class Dir
     rescue RuntimeError
       getdir = Win32API.new('kernel32', 'GetWindowsDirectory', 'PL', 'L')
     end
-    getdir.call(windir, windir.size)
-    windir = File.expand_path(windir.rstrip.untaint)
+    len = getdir.call(windir, windir.size)
+    windir = File.expand_path(windir[0, len])
     temp = File.join(windir, 'temp')
     @@systmpdir = temp if File.directory?(temp) and File.writable?(temp)
   rescue LoadError
   end
+
+  ##
+  # Returns the operating system's temporary file path.
 
   def Dir::tmpdir
     tmp = '.'

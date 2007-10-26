@@ -1,9 +1,9 @@
 " Vim syntax file
 " Language:	Elm Filter rules
-" Maintainer:	Dr. Charles E. Campbell, Jr. <Charles.E.Campbell.1@nasa.gov>
-" Last Change:	Nov 18, 2002
-" Version:	2
-" URL:	http://www.erols.com/astronaut/vim/index.html#vimlinks_syntax
+" Maintainer:	Dr. Charles E. Campbell, Jr. <NdrOchipS@PcampbellAfamily.Mbiz>
+" Last Change:	Sep 06, 2005
+" Version:	4
+" URL:	http://mysite.verizon.net/astronaut/vim/index.html#vimlinks_syntax
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -21,7 +21,7 @@ syn region	elmfiltIf	start="\<if\>" end="\<then\>"	contains=elmfiltParen,elmfilt
 syn region	elmfiltParen	contained	matchgroup=Delimiter start="(" matchgroup=Delimiter end=")"	contains=elmfiltParen,@elmfiltIfGroup,elmfiltThenError
 syn region	elmfiltMatch	contained	matchgroup=Delimiter start="/" skip="\\/" matchgroup=Delimiter end="/"	skipnl skipwhite nextgroup=elmfiltOper,elmfiltOperKey
 syn match	elmfiltThenError	"\<then.*$"
-syn match	elmfiltComment	"^#.*$"
+syn match	elmfiltComment	"^#.*$"		contains=@Spell
 
 syn keyword	elmfiltAction	contained	delete execute executec forward forwardc leave save savecopy skipnl skipwhite nextgroup=elmfiltString
 syn match	elmfiltArg	contained	"[^\\]%[&0-9dDhmrsSty&]"lc=1

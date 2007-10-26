@@ -45,7 +45,6 @@ static void vprinterr (const char *format, va_list args);
 int main (int argc, char * const * argv)
 {
     int         err = 0;
-    KLStatus    klErr = klNoErr;
     KLPrincipal principal = NULL;
 
     /* Remember our program name */
@@ -64,7 +63,7 @@ int main (int argc, char * const * argv)
     }
     
     /* If that fails, try the principal of the current ticket cache */
-    if (!err && (principal == NULL)) {
+    if (!err && !principal) {
         KLBoolean   found = false;
         KLPrincipal foundPrincipal;
         KLStatus    terr = KLCacheHasValidTickets (NULL, kerberosVersion_Any, &found, &foundPrincipal, NULL);
@@ -72,7 +71,7 @@ int main (int argc, char * const * argv)
     }
     
     /* As a last resort, fall back on the passwd database */
-    if (!err && (principal == NULL)) {
+    if (!err && !principal) {
         struct passwd *pw;
         
         /* Try to get the principal name from the password database */
@@ -87,7 +86,7 @@ int main (int argc, char * const * argv)
             
             printiferr (err, "while creating principal for current user");
 
-            if (username != NULL) { free (username); }
+            if (username) { free (username); }
         }
     }
 
@@ -96,7 +95,7 @@ int main (int argc, char * const * argv)
         printiferr (err, "while changing password");
     }
     
-    if (principal != NULL) { KLDisposePrincipal (principal); }
+    if (principal) { KLDisposePrincipal (principal); }
     
     return err ? 1 : 0;    
 }

@@ -34,21 +34,22 @@
  * in the makerules, etc.
  */
 int	machine;
-char	*machinename;
+const char	*machinename;
 
 /*
  * For each machine, a set of CPU's may be specified as supported.
  * These and the options (below) are put in the C flags in the makefile.
  */
-struct cputype  *cputype;
+
+struct cputype  *cputype;
 
 /*
  * In order to configure and build outside the kernel source tree,
  * we may wish to specify where the source tree lives.
  */
-char *source_directory;
+const char *source_directory;
+const char *object_directory;
 char *config_directory;
-char *object_directory;
 
 /*
  * A set of options may also be specified which are like CPU types,

@@ -39,7 +39,6 @@ AppleDotMacTPSession::AppleDotMacTPSession(
 		: TPPluginSession(theHandle, plug, version, subserviceId, 
 							subserviceType,attachFlags, upcalls)
 {
-	printf("Loaded the session\n");
 }
 
 AppleDotMacTPSession::~AppleDotMacTPSession()

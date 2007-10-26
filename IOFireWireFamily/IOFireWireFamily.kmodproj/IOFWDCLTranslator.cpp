@@ -409,7 +409,8 @@ static void	RunTalkingDCLEngine( UInt32* packetHeader, DCLCommand** ppCurrentDCL
 	DCLCallProc*			pDCLCallProc;
 	DCLJump*				pDCLJump;
 	DCLSetTagSyncBits*		pDCLSetTagSyncBits;
-
+	UInt32					host_header;
+	
 	// Run the current DCL command.
 	pCurrentDCLCommand = *ppCurrentDCLCommand;
 	switch (pCurrentDCLCommand->opcode & ~kFWDCLOpFlagMask)
@@ -453,9 +454,11 @@ static void	RunTalkingDCLEngine( UInt32* packetHeader, DCLCommand** ppCurrentDCL
 
 		case kDCLSetTagSyncBitsOp :
 			pDCLSetTagSyncBits = (DCLSetTagSyncBits*) pCurrentDCLCommand;
-			*packetHeader &= ~(kFWIsochTag | kFWIsochSy);
-			*packetHeader |= (pDCLSetTagSyncBits->tagBits << kFWIsochTagPhase);
-			*packetHeader |= (pDCLSetTagSyncBits->syncBits << kFWIsochSyPhase);
+			host_header = OSSwapBigToHostInt32( *packetHeader );
+			host_header &= ~(kFWIsochTag | kFWIsochSy);
+			host_header |= (pDCLSetTagSyncBits->tagBits << kFWIsochTagPhase);
+			host_header |= (pDCLSetTagSyncBits->syncBits << kFWIsochSyPhase);
+			*packetHeader = OSSwapHostToBigInt32( host_header );
 			pCurrentDCLCommand = pCurrentDCLCommand->pNextDCLCommand;
 			*pGetNextPacket = false;
 			break;
@@ -485,7 +488,7 @@ bool IODCLTranslator::init(DCLCommand* toInterpret)
 }
 
 IOReturn 
-IODCLTranslator :: notify (
+IODCLTranslator::notify (
 	IOFWDCLNotificationType 	notificationType,
 	DCLCommand ** 				dclCommandList, 
 	UInt32	 					numDCLCommands )
@@ -546,7 +549,7 @@ IODCLTranslator::ListeningDCLPingPongProc(DCLCommand* pDCLCommand)
         packetBuffer = (UInt8 *)pDCLTransferPacket->buffer;
         packetHeader = *((UInt32 *) packetBuffer);
         packetBuffer += sizeof (UInt32);
-        packetSize = (packetHeader & kFWIsochDataLength) >> kFWIsochDataLengthPhase;
+        packetSize = (OSSwapBigToHostInt32(packetHeader) & kFWIsochDataLength) >> kFWIsochDataLengthPhase;
 
         // Run this packet through DCL program.
         getNextPacket = false;
@@ -605,8 +608,8 @@ void IODCLTranslator::TalkingDCLPingPongProc(DCLCommand* pDCLCommand)
         packetSize -= 4;//zzz not the best way
         packetHeader =
                 (packetSize << kFWIsochDataLengthPhase) |
-                (me->fPacketHeader & ~(kFWIsochDataLength));
-        *((UInt32 *) packetBuffer) = packetHeader;
+                (OSSwapBigToHostInt32(me->fPacketHeader) & ~(kFWIsochDataLength));
+        *((UInt32 *) packetBuffer) = OSSwapHostToBigInt32(packetHeader);
 
         // Update send packet DCL.
         packetSize += 4;//zzz really, not the best way
@@ -641,7 +644,7 @@ IOReturn IODCLTranslateTalk::compile(IOFWSpeed speed, UInt32 chan)
     if(!fHWProgram)
         return kIOReturnInternalError;
 
-    fPacketHeader = chan << kFWIsochChanNumPhase;
+    fPacketHeader = OSSwapHostToBigInt32( chan << kFWIsochChanNumPhase );
 
     // Create label for start of loop.
     fStartLabel.pNextDCLCommand = (DCLCommand*)pDCLTransferPacket;
@@ -705,7 +708,7 @@ IOReturn IODCLTranslateListen::compile(IOFWSpeed speed, UInt32 chan)
     if(!fHWProgram)
         return kIOReturnInternalError;
 
-    fPacketHeader = chan << kFWIsochChanNumPhase;
+    fPacketHeader = OSSwapHostToBigInt32( chan << kFWIsochChanNumPhase );
 
     // Create label for start of loop.
     fStartLabel.pNextDCLCommand = (DCLCommand*)pDCLTransferPacket;

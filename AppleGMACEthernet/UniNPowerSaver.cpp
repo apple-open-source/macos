@@ -74,11 +74,11 @@ IOReturn UniNEnet::registerWithPolicyMaker( IOService *policyMaker )
 	IOReturn	rc;
 
 
-	ELG( IOThreadSelf(), 0, 'RwPM', "registerWithPolicyMaker" );
-
 	if ( fBuiltin )
 		 rc = policyMaker->registerPowerDriver( this, ourPowerStates, kNumOfPowerStates );
 	else rc = super::registerWithPolicyMaker( policyMaker );	// return unsupported
+
+	ELG( IOThreadSelf(), rc, 'RwPM', "registerWithPolicyMaker" );
 
 	return rc;
 }/* end registerWithPolicyMaker */
@@ -160,12 +160,6 @@ void UniNEnet::stopPHY()
 	val32 = READ_REGISTER( MIFConfiguration );
 	val32 &= ~kMIFConfiguration_Poll_Enable;
 	WRITE_REGISTER( MIFConfiguration, val32 );
-
-		// 5th ADDR in Broadcom PHY docs
-	miiReadWord( &val16, MII_LINKPARTNER );	
-
-		// don't know why OS9 writes it back unchanged
-	miiWriteWord( val16, MII_LINKPARTNER );	
 
 	if ( fWOL )
 	{
@@ -349,6 +343,21 @@ void UniNEnet::startPHY()
 
 
 #ifdef NOT_YET
+
+IOReturn UniNEnet::setPowerState( unsigned long powerStateOrdinal, IOService *whatDevice )
+{
+	ELG( IOThreadSelf(), (currentPowerState << 16) | powerStateOrdinal, 'Pwr!', "setPowerState" );
+
+	if ( powerStateOrdinal >= kNumOfPowerStates )
+			return IOPMNoSuchState;                                         // Do nothing if state invalid
+
+	if ( powerStateOrdinal == currentPowerState )
+			return IOPMAckImplied;                                          // no change required
+
+	return IOPMAckImplied;
+}/* end setPowerState */
+
+
 IOReturn UniNEnet::powerStateWillChangeTo(	IOPMPowerFlags	flags,
 											UInt32			stateNumber,
 											IOService*		policyMaker )

@@ -1,6 +1,6 @@
 /*
  ********************************************************************************
- *   Copyright (C) 1997-2004, International Business Machines
+ *   Copyright (C) 1997-2005, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  ********************************************************************************
  *
@@ -23,6 +23,11 @@
 #define FIELDPOS_H
 
 #include "unicode/utypes.h"
+
+/**
+ * \file 
+ * \brief C++ API: FieldPosition identifies the fields in a formatted output.
+ */
 
 #if !UCONFIG_NO_FORMATTING
 
@@ -173,7 +178,7 @@ public:
      * @return a clone of this object
      *
      * @see getDynamicClassID
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     FieldPosition *clone() const;
 

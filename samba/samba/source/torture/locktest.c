@@ -18,8 +18,6 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define NO_SYSLOG
-
 #include "includes.h"
 
 static fstring password[2];
@@ -38,6 +36,9 @@ static unsigned min_length = 0;
 static BOOL exact_error_codes;
 static BOOL zero_zero;
 
+extern char *optarg;
+extern int optind;
+
 #define FILENAME "\\locktest.dat"
 
 #define READ_PCT 50
@@ -52,6 +53,20 @@ static BOOL zero_zero;
 #define NASTY_POSIX_LOCK_HACK 0
 
 enum lock_op {OP_LOCK, OP_UNLOCK, OP_REOPEN};
+
+static const char *lock_op_type(int op)
+{
+	if (op == WRITE_LOCK) return "write";
+	else if (op == READ_LOCK) return "read";
+	else return "other";
+}
+
+static const char *lock_op_name(enum lock_op op)
+{
+	if (op == OP_LOCK) return "lock";
+	else if (op == OP_UNLOCK) return "unlock";
+	else return "reopen";
+}
 
 struct record {
 	enum lock_op lock_op;
@@ -101,9 +116,13 @@ static struct record preset[] = {
 
 static struct record *recorded;
 
-static void print_brl(SMB_DEV_T dev, SMB_INO_T ino, int pid, 
-		      enum brl_type lock_type,
-		      br_off start, br_off size)
+static void print_brl(SMB_DEV_T dev,
+			SMB_INO_T ino,
+			struct process_id pid, 
+			enum brl_type lock_type,
+			enum brl_flavour lock_flav,
+			br_off start,
+			br_off size)
 {
 #if NASTY_POSIX_LOCK_HACK
 	{
@@ -119,8 +138,8 @@ static void print_brl(SMB_DEV_T dev, SMB_INO_T ino, int pid,
 	}
 #endif
 
-	printf("%6d   %05x:%05x    %s  %.0f:%.0f(%.0f)\n", 
-	       (int)pid, (int)dev, (int)ino, 
+	printf("%s   %05x:%05x    %s  %.0f:%.0f(%.0f)\n", 
+	       procid_str_static(&pid), (int)dev, (int)ino, 
 	       lock_type==READ_LOCK?"R":"W",
 	       (double)start, (double)start+size-1,(double)size);
 
@@ -166,7 +185,7 @@ static struct cli_state *connect_one(char *share, int snum)
         zero_ip(&ip);
 
 	/* have to open a new connection */
-	if (!(c=cli_initialise(NULL)) || !cli_connect(c, server_n, &ip)) {
+	if (!(c=cli_initialise()) || !cli_connect(c, server_n, &ip)) {
 		DEBUG(0,("Connection to %s failed\n", server_n));
 		return NULL;
 	}
@@ -204,10 +223,12 @@ static struct cli_state *connect_one(char *share, int snum)
 		fstrcpy(username[1], username[0]);
 	}
 
-	if (!cli_session_setup(c, username[snum], 
-			       password[snum], strlen(password[snum]),
-			       password[snum], strlen(password[snum]),
-			       lp_workgroup())) {
+	if (!NT_STATUS_IS_OK(cli_session_setup(c, username[snum], 
+					       password[snum],
+					       strlen(password[snum]),
+					       password[snum],
+					       strlen(password[snum]),
+					       lp_workgroup()))) {
 		DEBUG(0,("session setup failed: %s\n", cli_errstr(c)));
 		return NULL;
 	}
@@ -423,7 +444,7 @@ static void test_locks(char *share[NSERVERS])
 	ZERO_STRUCT(fnum);
 	ZERO_STRUCT(cli);
 
-	recorded = (struct record *)malloc(sizeof(*recorded) * numops);
+	recorded = SMB_MALLOC_ARRAY(struct record, numops);
 
 	for (n=0; n<numops; n++) {
 #if PRESETS
@@ -522,9 +543,9 @@ static void test_locks(char *share[NSERVERS])
 	close_files(cli, fnum);
 
 	for (i=0;i<n;i++) {
-		printf("{%d, %d, %u, %u, %.0f, %.0f, %u},\n",
-		       recorded[i].lock_op,
-		       recorded[i].lock_type,
+		printf("{%s, %s, conn = %u, file = %u, start = %.0f, len = %.0f, %u},\n",
+		       lock_op_name(recorded[i].lock_op),
+		       lock_op_type(recorded[i].lock_type),
 		       recorded[i].conn,
 		       recorded[i].f,
 		       (double)recorded[i].start,
@@ -563,13 +584,13 @@ static void usage(void)
  int main(int argc,char *argv[])
 {
 	char *share[NSERVERS];
-	extern char *optarg;
-	extern int optind;
 	int opt;
 	char *p;
 	int seed, server;
 
 	setlinebuf(stdout);
+
+	load_case_tables();
 
 	dbf = x_stderr;
 
@@ -588,7 +609,7 @@ static void usage(void)
 	argc -= NSERVERS;
 	argv += NSERVERS;
 
-	lp_load(dyn_CONFIGFILE,True,False,False);
+	lp_load(dyn_CONFIGFILE,True,False,False,True);
 	load_interfaces();
 
 	if (getenv("USER")) {

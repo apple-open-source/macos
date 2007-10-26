@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.7.4.3 2003/11/19 04:44:24 sniper Exp $
+dnl $Id: config.m4,v 1.11 2004/11/03 14:32:50 jorton Exp $
 dnl
 
 PHP_ARG_WITH(gmp, for GNU MP support,
@@ -21,13 +21,13 @@ if test "$PHP_GMP" != "no"; then
     [],[
       AC_MSG_ERROR([GNU MP Library version 4.1.2 or greater required.])
     ],[
-      -L$GMP_DIR/lib
+      -L$GMP_DIR/$PHP_LIBDIR
     ])
   ],[
-    -L$GMP_DIR/lib
+    -L$GMP_DIR/$PHP_LIBDIR
   ])
 
-  PHP_ADD_LIBRARY_WITH_PATH(gmp, $GMP_DIR/lib, GMP_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_WITH_PATH(gmp, $GMP_DIR/$PHP_LIBDIR, GMP_SHARED_LIBADD)
   PHP_ADD_INCLUDE($GMP_DIR/include)
 
   PHP_NEW_EXTENSION(gmp, gmp.c, $ext_shared)

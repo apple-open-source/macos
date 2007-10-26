@@ -23,9 +23,9 @@
 /*	QMGR_QUEUE *qmgr_queue_select(transport)
 /*	QMGR_TRANSPORT *transport;
 /*
-/*	void	qmgr_queue_throttle(queue, reason)
+/*	void	qmgr_queue_throttle(queue, dsn)
 /*	QMGR_QUEUE *queue;
-/*	const char *reason;
+/*	DSN	*dsn;
 /*
 /*	void	qmgr_queue_unthrottle(queue)
 /*	QMGR_QUEUE *queue;
@@ -122,7 +122,7 @@ static void qmgr_queue_unthrottle_wrapper(int unused_event, char *context)
 
 void    qmgr_queue_unthrottle(QMGR_QUEUE *queue)
 {
-    char   *myname = "qmgr_queue_unthrottle";
+    const char *myname = "qmgr_queue_unthrottle";
     QMGR_TRANSPORT *transport = queue->transport;
 
     if (msg_verbose)
@@ -133,10 +133,10 @@ void    qmgr_queue_unthrottle(QMGR_QUEUE *queue)
      */
     if (queue->window == 0) {
 	event_cancel_timer(qmgr_queue_unthrottle_wrapper, (char *) queue);
-	if (queue->reason == 0)
-	    msg_panic("%s: queue %s: window 0 reason 0", myname, queue->name);
-	myfree(queue->reason);
-	queue->reason = 0;
+	if (queue->dsn == 0)
+	    msg_panic("%s: queue %s: window 0 status 0", myname, queue->name);
+	dsn_free(queue->dsn);
+	queue->dsn = 0;
 	queue->window = transport->init_dest_concurrency;
 	return;
     }
@@ -154,18 +154,19 @@ void    qmgr_queue_unthrottle(QMGR_QUEUE *queue)
 
 /* qmgr_queue_throttle - handle destination delivery failure */
 
-void    qmgr_queue_throttle(QMGR_QUEUE *queue, const char *reason)
+void    qmgr_queue_throttle(QMGR_QUEUE *queue, DSN *dsn)
 {
-    char   *myname = "qmgr_queue_throttle";
+    const char *myname = "qmgr_queue_throttle";
 
     /*
      * Sanity checks.
      */
-    if (queue->reason)
+    if (queue->dsn)
 	msg_panic("%s: queue %s: spurious reason %s",
-		  myname, queue->name, queue->reason);
+		  myname, queue->name, queue->dsn->reason);
     if (msg_verbose)
-	msg_info("%s: queue %s: %s", myname, queue->name, reason);
+	msg_info("%s: queue %s: %s %s",
+		 myname, queue->name, dsn->status, dsn->reason);
 
     /*
      * Decrease the destination's concurrency limit until we reach zero, at
@@ -180,9 +181,10 @@ void    qmgr_queue_throttle(QMGR_QUEUE *queue, const char *reason)
      * Special case for a site that just was declared dead.
      */
     if (queue->window == 0) {
-	queue->reason = mystrdup(reason);
+	queue->dsn = DSN_COPY(dsn);
 	event_request_timer(qmgr_queue_unthrottle_wrapper,
 			    (char *) queue, var_min_backoff_time);
+	queue->dflags = 0;
     }
 }
 
@@ -211,7 +213,7 @@ QMGR_QUEUE *qmgr_queue_select(QMGR_TRANSPORT *transport)
 
 void    qmgr_queue_done(QMGR_QUEUE *queue)
 {
-    char   *myname = "qmgr_queue_done";
+    const char *myname = "qmgr_queue_done";
     QMGR_TRANSPORT *transport = queue->transport;
 
     /*
@@ -225,9 +227,9 @@ void    qmgr_queue_done(QMGR_QUEUE *queue)
 	msg_panic("%s: queue not empty: %s", myname, queue->name);
     if (queue->window <= 0)
 	msg_panic("%s: window %d", myname, queue->window);
-    if (queue->reason)
+    if (queue->dsn)
 	msg_panic("%s: queue %s: spurious reason %s",
-		  myname, queue->name, queue->reason);
+		  myname, queue->name, queue->dsn->reason);
 
     /*
      * Clean up this in-core queue.
@@ -254,6 +256,8 @@ QMGR_QUEUE *qmgr_queue_create(QMGR_TRANSPORT *transport, const char *name,
 
     queue = (QMGR_QUEUE *) mymalloc(sizeof(QMGR_QUEUE));
     qmgr_queue_count++;
+    queue->dflags = 0;
+    queue->last_done = 0;
     queue->name = mystrdup(name);
     queue->nexthop = mystrdup(nexthop);
     queue->todo_refcount = 0;
@@ -262,7 +266,7 @@ QMGR_QUEUE *qmgr_queue_create(QMGR_TRANSPORT *transport, const char *name,
     queue->window = transport->init_dest_concurrency;
     QMGR_LIST_INIT(queue->todo);
     QMGR_LIST_INIT(queue->busy);
-    queue->reason = 0;
+    queue->dsn = 0;
     queue->clog_time_to_warn = 0;
     QMGR_LIST_PREPEND(transport->queue_list, queue);
     htable_enter(transport->queue_byname, name, (char *) queue);

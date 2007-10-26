@@ -2,8 +2,8 @@
 
   socket.c -
 
-  $Author: nobu $
-  $Date: 2004/12/09 23:39:37 $
+  $Author: shyouhei $
+  $Date: 2007-05-23 00:08:43 +0900 (Wed, 23 May 2007) $
   created at: Thu Mar 31 12:21:29 JST 1994
 
   Copyright (C) 1993-2001 Yukihiro Matsumoto
@@ -30,6 +30,7 @@
 # include <net/socket.h>
 #else
 # include <sys/socket.h>
+# define pseudo_AF_FTIP pseudo_AF_RTIP	/* workaround for NetBSD and etc. */
 #endif
 #include <netinet/in.h>
 #ifdef HAVE_NETINET_IN_SYSTM_H
@@ -40,6 +41,9 @@
 #endif
 #ifdef HAVE_NETINET_UDP_H
 # include <netinet/udp.h>
+#endif
+#ifdef HAVE_ARPA_INET_H
+# include <arpa/inet.h>
 #endif
 #include <netdb.h>
 #endif
@@ -52,9 +56,15 @@
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
 #endif
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
+#endif
+#ifdef HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
 #endif
 #ifndef EWOULDBLOCK
 #define EWOULDBLOCK EAGAIN
@@ -96,9 +106,6 @@ int Rconnect();
 #define INET_CLIENT 0
 #define INET_SERVER 1
 #define INET_SOCKS  2
-
-/* short-circuit detection brain damage */
-#define HAVE_SOCKADDR_STORAGE
 
 #ifndef HAVE_SOCKADDR_STORAGE
 /*
@@ -167,6 +174,64 @@ ruby_getaddrinfo(nodename, servname, hints, res)
     return error;
 }
 #define getaddrinfo(node,serv,hints,res) ruby_getaddrinfo((node),(serv),(hints),(res))
+#endif
+
+#if defined(_AIX)
+static int
+ruby_getaddrinfo__aix(nodename, servname, hints, res)
+     char *nodename;
+     char *servname;
+     struct addrinfo *hints;
+     struct addrinfo **res;
+{
+    int error = getaddrinfo(nodename, servname, hints, res);
+    struct addrinfo *r;
+    if (error)
+	return error;
+    for (r = *res; r != NULL; r = r->ai_next) {
+	if (r->ai_addr->sa_family == 0)
+	    r->ai_addr->sa_family = r->ai_family;
+	if (r->ai_addr->sa_len == 0)
+	    r->ai_addr->sa_len = r->ai_addrlen;
+    }
+    return 0;
+}
+#undef getaddrinfo
+#define getaddrinfo(node,serv,hints,res) ruby_getaddrinfo__aix((node),(serv),(hints),(res))
+static int
+ruby_getnameinfo__aix(sa, salen, host, hostlen, serv, servlen, flags)
+     const struct sockaddr *sa;
+     size_t salen;
+     char *host;
+     size_t hostlen;
+     char *serv;
+     size_t servlen;
+     int flags;
+{
+  struct sockaddr_in6 *sa6;
+  u_int32_t *a6;
+
+  if (sa->sa_family == AF_INET6) {
+    sa6 = (struct sockaddr_in6 *)sa;
+    a6 = sa6->sin6_addr.u6_addr.u6_addr32;
+
+    if (a6[0] == 0 && a6[1] == 0 && a6[2] == 0 && a6[3] == 0) {
+      strncpy(host, "::", hostlen);
+      snprintf(serv, servlen, "%d", sa6->sin6_port);
+      return 0;
+    }
+  }
+  return getnameinfo(sa, salen, host, hostlen, serv, servlen, flags);
+}
+#undef getnameinfo
+#define getnameinfo(sa, salen, host, hostlen, serv, servlen, flags) \
+            ruby_getnameinfo__aix((sa), (salen), (host), (hostlen), (serv), (servlen), (flags))
+#ifndef CMSG_SPACE
+# define CMSG_SPACE(len) (_CMSG_ALIGN(sizeof(struct cmsghdr)) + _CMSG_ALIGN(len))
+#endif
+#ifndef CMSG_LEN
+# define CMSG_LEN(len) (_CMSG_ALIGN(sizeof(struct cmsghdr)) + (len))
+#endif
 #endif
 
 #ifdef HAVE_CLOSESOCKET
@@ -269,6 +334,51 @@ bsock_close_write(sock)
     return Qnil;
 }
 
+/*
+ * Document-method: setsockopt
+ * call-seq: setsockopt(level, optname, optval)
+ *
+ * Sets a socket option. These are protocol and system specific, see your
+ * local sytem documentation for details.
+ *
+ * === Parameters
+ * * +level+ is an integer, usually one of the SOL_ constants such as
+ *   Socket::SOL_SOCKET, or a protocol level.
+ * * +optname+ is an integer, usually one of the SO_ constants, such
+ *   as Socket::SO_REUSEADDR.
+ * * +optval+ is the value of the option, it is passed to the underlying
+ *   setsockopt() as a pointer to a certain number of bytes. How this is
+ *   done depends on the type:
+ *   - Fixnum: value is assigned to an int, and a pointer to the int is
+ *     passed, with length of sizeof(int).
+ *   - true or false: 1 or 0 (respectively) is assigned to an int, and the
+ *     int is passed as for a Fixnum. Note that +false+ must be passed,
+ *     not +nil+.
+ *   - String: the string's data and length is passed to the socket.
+ *
+ * === Examples
+ *
+ * Some socket options are integers with boolean values, in this case
+ * #setsockopt could be called like this:
+ *   sock.setsockopt(Socket::SOL_SOCKET,Socket::SO_REUSEADDR, true)
+ *
+ * Some socket options are integers with numeric values, in this case
+ * #setsockopt could be called like this:
+ *   sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_TTL, 255)
+ *
+ * Option values may be structs. Passing them can be complex as it involves
+ * examining your system headers to determine the correct definition. An
+ * example is an +ip_mreq+, which may be defined in your system headers as:
+ *   struct ip_mreq {
+ *     struct  in_addr imr_multiaddr;
+ *     struct  in_addr imr_interface;
+ *   };
+ * 
+ * In this case #setsockopt could be called like this:
+ *   optval =  IPAddr.new("224.0.0.251") + Socket::INADDR_ANY
+ *   sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, optval)
+ *
+*/
 static VALUE
 bsock_setsockopt(sock, lev, optname, val)
     VALUE sock, lev, optname, val;
@@ -309,6 +419,46 @@ bsock_setsockopt(sock, lev, optname, val)
     return INT2FIX(0);
 }
 
+/*
+ * Document-method: getsockopt
+ * call-seq: getsockopt(level, optname)
+ *
+ * Gets a socket option. These are protocol and system specific, see your
+ * local sytem documentation for details. The option is returned as
+ * a String with the data being the binary value of the socket option.
+ *
+ * === Parameters
+ * * +level+ is an integer, usually one of the SOL_ constants such as
+ *   Socket::SOL_SOCKET, or a protocol level.
+ * * +optname+ is an integer, usually one of the SO_ constants, such
+ *   as Socket::SO_REUSEADDR.
+ *
+ * === Examples
+ *
+ * Some socket options are integers with boolean values, in this case
+ * #getsockopt could be called like this:
+ *   optval = sock.getsockopt(Socket::SOL_SOCKET,Socket::SO_REUSEADDR)
+ *   optval = optval.unpack "i"
+ *   reuseaddr = optval[0] == 0 ? false : true
+ *
+ * Some socket options are integers with numeric values, in this case
+ * #getsockopt could be called like this:
+ *   optval = sock.getsockopt(Socket::IPPROTO_IP, Socket::IP_TTL)
+ *   ipttl = optval.unpack("i")[0]
+ *
+ * Option values may be structs. Decoding them can be complex as it involves
+ * examining your system headers to determine the correct definition. An
+ * example is a +struct linger+, which may be defined in your system headers
+ * as:
+ *   struct linger {
+ *     int l_onoff;
+ *     int l_linger;
+ *   };
+ * 
+ * In this case #getsockopt could be called like this:
+ *   optval =  sock.getsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER)
+ *   onoff, linger = optval.unpack "ii"
+*/
 static VALUE
 bsock_getsockopt(sock, lev, optname)
     VALUE sock, lev, optname;
@@ -386,11 +536,15 @@ bsock_send(argc, argv, sock)
     rb_thread_fd_writable(fd);
   retry:
     if (!NIL_P(to)) {
+        TRAP_BEG;
 	n = sendto(fd, RSTRING(mesg)->ptr, RSTRING(mesg)->len, NUM2INT(flags),
 		   (struct sockaddr*)RSTRING(to)->ptr, RSTRING(to)->len);
+        TRAP_END;
     }
     else {
+        TRAP_BEG;
 	n = send(fd, RSTRING(mesg)->ptr, RSTRING(mesg)->len, NUM2INT(flags));
+        TRAP_END;
     }
     if (n < 0) {
 	if (rb_io_wait_writable(fd)) {
@@ -403,7 +557,7 @@ bsock_send(argc, argv, sock)
 
 static VALUE ipaddr _((struct sockaddr*));
 #ifdef HAVE_SYS_UN_H
-static VALUE unixaddr _((struct sockaddr_un*));
+static VALUE unixaddr _((struct sockaddr_un*, socklen_t));
 #endif
 
 enum sock_recv_type {
@@ -471,13 +625,14 @@ s_recvfrom(sock, argc, argv, from)
 	    rb_raise(rb_eTypeError, "sockaddr size differs - should not happen");
 	}
 #endif
-	if (alen) /* OSX doesn't return a 'from' result from recvfrom for connection-oriented sockets */
-	  return rb_assoc_new(str, ipaddr((struct sockaddr*)buf));
+	if (alen && alen != sizeof(buf)) /* OSX doesn't return a 'from' result from recvfrom for connection-oriented sockets */
+	    return rb_assoc_new(str, ipaddr((struct sockaddr*)buf));
 	else
-	  return rb_assoc_new(str, Qnil);
+	    return rb_assoc_new(str, Qnil);
+
 #ifdef HAVE_SYS_UN_H
       case RECV_UNIX:
-	return rb_assoc_new(str, unixaddr((struct sockaddr_un*)buf));
+        return rb_assoc_new(str, unixaddr((struct sockaddr_un*)buf, alen));
 #endif
       case RECV_SOCKET:
 	return rb_assoc_new(str, rb_str_new(buf, alen));
@@ -487,12 +642,122 @@ s_recvfrom(sock, argc, argv, from)
 }
 
 static VALUE
+s_recvfrom_nonblock(VALUE sock, int argc, VALUE *argv, enum sock_recv_type from)
+{
+    OpenFile *fptr;
+    VALUE str;
+    char buf[1024];
+    socklen_t alen = sizeof buf;
+    VALUE len, flg;
+    long buflen;
+    long slen;
+    int fd, flags;
+    VALUE addr = Qnil;
+
+    rb_scan_args(argc, argv, "11", &len, &flg);
+
+    if (flg == Qnil) flags = 0;
+    else             flags = NUM2INT(flg);
+    buflen = NUM2INT(len);
+
+#ifdef MSG_DONTWAIT
+    /* MSG_DONTWAIT avoids the race condition between fcntl and recvfrom.
+       It is not portable, though. */
+    flags |= MSG_DONTWAIT;
+#endif
+
+    GetOpenFile(sock, fptr);
+    if (rb_read_pending(fptr->f)) {
+	rb_raise(rb_eIOError, "recvfrom for buffered IO");
+    }
+    fd = fileno(fptr->f);
+
+    str = rb_tainted_str_new(0, buflen);
+
+    rb_io_check_closed(fptr);
+    rb_io_set_nonblock(fptr);
+    slen = recvfrom(fd, RSTRING(str)->ptr, buflen, flags, (struct sockaddr*)buf, &alen);
+
+    if (slen < 0) {
+	rb_sys_fail("recvfrom(2)");
+    }
+    if (slen < RSTRING(str)->len) {
+	RSTRING(str)->len = slen;
+	RSTRING(str)->ptr[slen] = '\0';
+    }
+    rb_obj_taint(str);
+    switch (from) {
+      case RECV_RECV:
+	return str;
+
+      case RECV_IP:
+        if (alen && alen != sizeof(buf)) /* connection-oriented socket may not return a from result */
+            addr = ipaddr((struct sockaddr*)buf);
+        break;
+
+      case RECV_SOCKET:
+        addr = rb_str_new(buf, alen);
+        break;
+
+      default:
+        rb_bug("s_recvfrom_nonblock called with bad value");
+    }
+    return rb_assoc_new(str, addr);
+}
+
+static VALUE
 bsock_recv(argc, argv, sock)
     int argc;
     VALUE *argv;
     VALUE sock;
 {
     return s_recvfrom(sock, argc, argv, RECV_RECV);
+}
+
+/*
+ * call-seq:
+ * 	basicsocket.recv_nonblock(maxlen) => mesg
+ * 	basicsocket.recv_nonblock(maxlen, flags) => mesg
+ * 
+ * Receives up to _maxlen_ bytes from +socket+ using recvfrom(2) after
+ * O_NONBLOCK is set for the underlying file descriptor.
+ * _flags_ is zero or more of the +MSG_+ options.
+ * The result, _mesg_, is the data received.
+ *
+ * When recvfrom(2) returns 0, Socket#recv_nonblock returns
+ * an empty string as data.
+ * The meaning depends on the socket: EOF on TCP, empty packet on UDP, etc.
+ * 
+ * === Parameters
+ * * +maxlen+ - the number of bytes to receive from the socket
+ * * +flags+ - zero or more of the +MSG_+ options 
+ * 
+ * === Example
+ * 	serv = TCPServer.new("127.0.0.1", 0)
+ * 	af, port, host, addr = serv.addr
+ * 	c = TCPSocket.new(addr, port)
+ * 	s = serv.accept
+ * 	c.send "aaa", 0
+ * 	IO.select([s])
+ * 	p s.recv_nonblock(10) #=> "aaa"
+ *
+ * Refer to Socket#recvfrom for the exceptions that may be thrown if the call
+ * to _recv_nonblock_ fails. 
+ *
+ * BasicSocket#recv_nonblock may raise any error corresponding to recvfrom(2) failure,
+ * including Errno::EAGAIN.
+ *
+ * === See
+ * * Socket#recvfrom
+ */
+
+static VALUE
+bsock_recv_nonblock(argc, argv, sock)
+    int argc;
+    VALUE *argv;
+    VALUE sock;
+{
+    return s_recvfrom_nonblock(sock, argc, argv, RECV_RECV);
 }
 
 static VALUE
@@ -758,15 +1023,40 @@ ruby_socket(domain, type, proto)
     return fd;
 }
 
-static void
-thread_write_select(fd)
+static int
+wait_connectable(fd)
     int fd;
 {
-    fd_set fds;
+    int sockerr;
+    socklen_t sockerrlen;
+    fd_set fds_w;
+    fd_set fds_e;
 
-    FD_ZERO(&fds);
-    FD_SET(fd, &fds);
-    rb_thread_select(fd+1, 0, &fds, 0, 0);
+    for (;;) {
+	FD_ZERO(&fds_w);
+	FD_ZERO(&fds_e);
+
+	FD_SET(fd, &fds_w);
+	FD_SET(fd, &fds_e);
+
+	rb_thread_select(fd+1, 0, &fds_w, &fds_e, 0);
+
+	if (FD_ISSET(fd, &fds_w)) {
+	    return 0;
+	}
+	else if (FD_ISSET(fd, &fds_e)) {
+	    sockerrlen = sizeof(sockerr);
+	    if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *)&sockerr,
+			   &sockerrlen) == 0) {
+		if (sockerr == 0)
+		    continue;	/* workaround for winsock */
+		errno = sockerr;
+	    }
+	    return -1;
+	}
+    }
+
+    return 0;
 }
 
 #ifdef __CYGWIN__
@@ -795,11 +1085,16 @@ ruby_connect(fd, sockaddr, len, socks)
     int mode;
 #if WAIT_IN_PROGRESS > 0
     int wait_in_progress = -1;
-    int sockerr, sockerrlen;
+    int sockerr;
+    socklen_t sockerrlen;
 #endif
 
 #if defined(HAVE_FCNTL)
+# if defined(F_GETFL)
     mode = fcntl(fd, F_GETFL, 0);
+# else
+    mode = 0;
+# endif
 
 #ifdef O_NDELAY
 # define NONBLOCKING O_NDELAY
@@ -848,7 +1143,11 @@ ruby_connect(fd, sockaddr, len, socks)
 #if WAIT_IN_PROGRESS > 0
 		wait_in_progress = WAIT_IN_PROGRESS;
 #endif
-		thread_write_select(fd);
+		status = wait_connectable(fd);
+		if (status) {
+		    break;
+		}
+		errno = 0;
 		continue;
 
 #if WAIT_IN_PROGRESS > 0
@@ -947,7 +1246,7 @@ init_inetsock_internal(arg)
 	}
 	arg->fd = fd;
 	if (type == INET_SERVER) {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__CYGWIN__)
 	    status = 1;
 	    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,
 		       (char*)&status, sizeof(status));
@@ -1007,6 +1306,14 @@ init_inetsock(sock, remote_host, remote_serv, local_host, local_serv, type)
 		     inetsock_cleanup, (VALUE)&arg);
 }
 
+/*
+ * call-seq:
+ *    TCPSocket.new(remote_host, remote_port, local_host=nil, local_port=nil)
+ *
+ * Opens a TCP connection to +remote_host+ on +remote_port+.  If +local_host+
+ * and +local_port+ are specified, then those parameters are used on the local
+ * end to establish the connection.
+ */
 static VALUE
 tcp_init(argc, argv, sock)
      int argc;
@@ -1100,7 +1407,13 @@ make_hostent_internal(arg)
     rb_ary_push(ary, names);
     rb_ary_push(ary, INT2NUM(addr->ai_family));
     for (ai = addr; ai; ai = ai->ai_next) {
-	rb_ary_push(ary, (*ipaddr)(ai->ai_addr, ai->ai_addrlen));
+      /* Pushing all addresses regardless of address family is not the
+       * behaviour expected of gethostbyname(). All the addresses in struct
+       * hostent->h_addr_list must be of the same family.
+       */
+       if(ai->ai_family == addr->ai_family) {
+	   rb_ary_push(ary, (*ipaddr)(ai->ai_addr, ai->ai_addrlen));
+       }
     }
 
     return ary;
@@ -1149,6 +1462,20 @@ tcp_svr_init(argc, argv, sock)
 	return init_inetsock(sock, arg1, arg2, Qnil, Qnil, INET_SERVER);
     else
 	return init_inetsock(sock, Qnil, arg1, Qnil, Qnil, INET_SERVER);
+}
+
+static VALUE
+s_accept_nonblock(VALUE klass, OpenFile *fptr, struct sockaddr *sockaddr, socklen_t *len)
+{
+    int fd2;
+
+    rb_secure(3);
+    rb_io_set_nonblock(fptr);
+    fd2 = accept(fileno(fptr->f), (struct sockaddr*)sockaddr, len);
+    if (fd2 < 0) {
+        rb_sys_fail("accept(2)");
+    }
+    return init_sock(rb_obj_alloc(klass), fd2);
 }
 
 static VALUE
@@ -1206,6 +1533,49 @@ tcp_accept(sock)
 		    (struct sockaddr*)&from, &fromlen);
 }
 
+/*
+ * call-seq:
+ * 	tcpserver.accept_nonblock => tcpsocket
+ * 
+ * Accepts an incoming connection using accept(2) after
+ * O_NONBLOCK is set for the underlying file descriptor.
+ * It returns an accepted TCPSocket for the incoming connection.
+ * 
+ * === Example
+ * 	require 'socket'
+ * 	serv = TCPServer.new(2202)
+ * 	begin
+ * 	  sock = serv.accept_nonblock
+ * 	rescue Errno::EAGAIN, Errno::ECONNABORTED, Errno::EPROTO, Errno::EINTR
+ * 	  IO.select([serv])
+ * 	  retry
+ * 	end
+ * 	# sock is an accepted socket.
+ * 
+ * Refer to Socket#accept for the exceptions that may be thrown if the call
+ * to TCPServer#accept_nonblock fails. 
+ *
+ * TCPServer#accept_nonblock may raise any error corresponding to accept(2) failure,
+ * including Errno::EAGAIN.
+ * 
+ * === See
+ * * TCPServer#accept
+ * * Socket#accept
+ */
+static VALUE
+tcp_accept_nonblock(sock)
+    VALUE sock;
+{
+    OpenFile *fptr;
+    struct sockaddr_storage from;
+    socklen_t fromlen;
+
+    GetOpenFile(sock, fptr);
+    fromlen = sizeof(from);
+    return s_accept_nonblock(rb_cTCPSocket, fptr,
+                             (struct sockaddr *)&from, &fromlen);
+}
+
 static VALUE
 tcp_sysaccept(sock)
     VALUE sock;
@@ -1251,8 +1621,11 @@ init_unixsock(sock, path, server)
 
     MEMZERO(&sockaddr, struct sockaddr_un, 1);
     sockaddr.sun_family = AF_UNIX;
-    strncpy(sockaddr.sun_path, RSTRING(path)->ptr, sizeof(sockaddr.sun_path)-1);
-    sockaddr.sun_path[sizeof(sockaddr.sun_path)-1] = '\0';
+    if (sizeof(sockaddr.sun_path) <= RSTRING(path)->len) {
+        rb_raise(rb_eArgError, "too long unix socket path (max: %dbytes)",
+            (int)sizeof(sockaddr.sun_path)-1);
+    }
+    strcpy(sockaddr.sun_path, StringValueCStr(path));
 
     if (server) {
         status = bind(fd, (struct sockaddr*)&sockaddr, sizeof(sockaddr));
@@ -1278,7 +1651,9 @@ init_unixsock(sock, path, server)
 
     init_sock(sock, fd);
     GetOpenFile(sock, fptr);
-    fptr->path = strdup(RSTRING(path)->ptr);
+    if (server) {
+        fptr->path = strdup(RSTRING(path)->ptr);
+    }
 
     return sock;
 }
@@ -1459,12 +1834,67 @@ udp_send(argc, argv, sock)
     return INT2FIX(n);
 }
 
+/*
+ * call-seq:
+ * 	udpsocket.recvfrom_nonblock(maxlen) => [mesg, sender_inet_addr]
+ * 	udpsocket.recvfrom_nonblock(maxlen, flags) => [mesg, sender_inet_addr]
+ * 
+ * Receives up to _maxlen_ bytes from +udpsocket+ using recvfrom(2) after
+ * O_NONBLOCK is set for the underlying file descriptor.
+ * _flags_ is zero or more of the +MSG_+ options.
+ * The first element of the results, _mesg_, is the data received.
+ * The second element, _sender_inet_addr_, is an array to represent the sender address.
+ *
+ * When recvfrom(2) returns 0,
+ * Socket#recvfrom_nonblock returns an empty string as data.
+ * It means an empty packet.
+ * 
+ * === Parameters
+ * * +maxlen+ - the number of bytes to receive from the socket
+ * * +flags+ - zero or more of the +MSG_+ options 
+ * 
+ * === Example
+ * 	require 'socket'
+ * 	s1 = UDPSocket.new
+ * 	s1.bind("127.0.0.1", 0)
+ * 	s2 = UDPSocket.new
+ * 	s2.bind("127.0.0.1", 0)
+ * 	s2.connect(*s1.addr.values_at(3,1))
+ * 	s1.connect(*s2.addr.values_at(3,1))
+ * 	s1.send "aaa", 0
+ * 	IO.select([s2])
+ * 	p s2.recvfrom_nonblock(10)  #=> ["aaa", ["AF_INET", 33302, "localhost.localdomain", "127.0.0.1"]]
+ *
+ * Refer to Socket#recvfrom for the exceptions that may be thrown if the call
+ * to _recvfrom_nonblock_ fails. 
+ *
+ * UDPSocket#recvfrom_nonblock may raise any error corresponding to recvfrom(2) failure,
+ * including Errno::EAGAIN.
+ *
+ * === See
+ * * Socket#recvfrom
+ */
+static VALUE
+udp_recvfrom_nonblock(int argc, VALUE *argv, VALUE sock)
+{
+    return s_recvfrom_nonblock(sock, argc, argv, RECV_IP);
+}
+
 #ifdef HAVE_SYS_UN_H
 static VALUE
 unix_init(sock, path)
     VALUE sock, path;
 {
     return init_unixsock(sock, path, 0);
+}
+
+static char *
+unixpath(struct sockaddr_un *sockaddr, socklen_t len)
+{
+    if (sockaddr->sun_path < (char*)sockaddr + len)
+        return sockaddr->sun_path;
+    else
+        return "";
 }
 
 static VALUE
@@ -1479,7 +1909,7 @@ unix_path(sock)
 	socklen_t len = sizeof(addr);
 	if (getsockname(fileno(fptr->f), (struct sockaddr*)&addr, &len) < 0)
 	    rb_sys_fail(0);
-	fptr->path = strdup(addr.sun_path);
+	fptr->path = strdup(unixpath(&addr, len));
     }
     return rb_str_new2(fptr->path);
 }
@@ -1539,7 +1969,7 @@ unix_send_io(sock, val)
         fd = FIX2INT(val);
     }
     else {
-	rb_raise(rb_eTypeError, "IO nor file descriptor");
+	rb_raise(rb_eTypeError, "neither IO nor file descriptor");
     }
 
     GetOpenFile(sock, fptr);
@@ -1556,9 +1986,9 @@ unix_send_io(sock, val)
 
 #if FD_PASSING_BY_MSG_CONTROL
     msg.msg_control = (caddr_t)&cmsg;
-    msg.msg_controllen = sizeof(struct cmsghdr) + sizeof(int);
+    msg.msg_controllen = CMSG_SPACE(sizeof(int));
     msg.msg_flags = 0;
-    cmsg.hdr.cmsg_len = sizeof(struct cmsghdr) + sizeof(int);
+    cmsg.hdr.cmsg_len = CMSG_LEN(sizeof(int));
     cmsg.hdr.cmsg_level = SOL_SOCKET;
     cmsg.hdr.cmsg_type = SCM_RIGHTS;
     cmsg.fd = fd;
@@ -1631,9 +2061,9 @@ unix_recv_io(argc, argv, sock)
 
 #if FD_PASSING_BY_MSG_CONTROL
     msg.msg_control = (caddr_t)&cmsg;
-    msg.msg_controllen = sizeof(struct cmsghdr) + sizeof(int);
+    msg.msg_controllen = CMSG_SPACE(sizeof(int));
     msg.msg_flags = 0;
-    cmsg.hdr.cmsg_len = sizeof(struct cmsghdr) + sizeof(int);
+    cmsg.hdr.cmsg_len = CMSG_LEN(sizeof(int));
     cmsg.hdr.cmsg_level = SOL_SOCKET;
     cmsg.hdr.cmsg_type = SCM_RIGHTS;
     cmsg.fd = -1;
@@ -1646,18 +2076,34 @@ unix_recv_io(argc, argv, sock)
     if (recvmsg(fileno(fptr->f), &msg, 0) == -1)
 	rb_sys_fail("recvmsg(2)");
 
-    if (
 #if FD_PASSING_BY_MSG_CONTROL
-	msg.msg_controllen != sizeof(struct cmsghdr) + sizeof(int) ||
-        cmsg.hdr.cmsg_len != sizeof(struct cmsghdr) + sizeof(int) ||
-	cmsg.hdr.cmsg_level != SOL_SOCKET ||
-	cmsg.hdr.cmsg_type != SCM_RIGHTS
-#else
-        msg.msg_accrightslen != sizeof(fd)
-#endif
-	) {
-	rb_raise(rb_eSocket, "File descriptor was not passed");
+    if (msg.msg_controllen != CMSG_SPACE(sizeof(int))) {
+      rb_raise(rb_eSocket,
+          "file descriptor was not passed (msg_controllen : %d != %d)",
+          msg.msg_controllen, CMSG_SPACE(sizeof(int)));
     }
+    if (cmsg.hdr.cmsg_len != CMSG_SPACE(0) + sizeof(int)) {
+      rb_raise(rb_eSocket,
+          "file descriptor was not passed (cmsg_len : %d != %d)",
+          cmsg.hdr.cmsg_len, CMSG_SPACE(0) + sizeof(int));
+    }
+    if (cmsg.hdr.cmsg_level != SOL_SOCKET) {
+      rb_raise(rb_eSocket,
+          "file descriptor was not passed (cmsg_level : %d != %d)",
+          cmsg.hdr.cmsg_level, SOL_SOCKET);
+    }
+    if (cmsg.hdr.cmsg_type != SCM_RIGHTS) {
+      rb_raise(rb_eSocket,
+          "file descriptor was not passed (cmsg_type : %d != %d)",
+          cmsg.hdr.cmsg_type, SCM_RIGHTS);
+    }
+#else
+    if (msg.msg_accrightslen != sizeof(fd)) {
+	rb_raise(rb_eSocket,
+            "file descriptor was not passed (accrightslen) : %d != %d",
+            msg.msg_accrightslen, sizeof(fd));
+    }
+#endif
 
 #if FD_PASSING_BY_MSG_CONTROL
     fd = cmsg.fd;
@@ -1696,6 +2142,49 @@ unix_accept(sock)
 		    (struct sockaddr*)&from, &fromlen);
 }
 
+/*
+ * call-seq:
+ * 	unixserver.accept_nonblock => unixsocket
+ * 
+ * Accepts an incoming connection using accept(2) after
+ * O_NONBLOCK is set for the underlying file descriptor.
+ * It returns an accepted UNIXSocket for the incoming connection.
+ * 
+ * === Example
+ * 	require 'socket'
+ * 	serv = UNIXServer.new("/tmp/sock")
+ * 	begin
+ * 	  sock = serv.accept_nonblock
+ * 	rescue Errno::EAGAIN, Errno::ECONNABORTED, Errno::EPROTO, Errno::EINTR
+ * 	  IO.select([serv])
+ * 	  retry
+ * 	end
+ * 	# sock is an accepted socket.
+ * 
+ * Refer to Socket#accept for the exceptions that may be thrown if the call
+ * to UNIXServer#accept_nonblock fails. 
+ *
+ * UNIXServer#accept_nonblock may raise any error corresponding to accept(2) failure,
+ * including Errno::EAGAIN.
+ * 
+ * === See
+ * * UNIXServer#accept
+ * * Socket#accept
+ */
+static VALUE
+unix_accept_nonblock(sock)
+    VALUE sock;
+{
+    OpenFile *fptr;
+    struct sockaddr_un from;
+    socklen_t fromlen;
+
+    GetOpenFile(sock, fptr);
+    fromlen = sizeof(from);
+    return s_accept_nonblock(rb_cUNIXSocket, fptr,
+                             (struct sockaddr *)&from, &fromlen);
+}
+
 static VALUE
 unix_sysaccept(sock)
     VALUE sock;
@@ -1710,11 +2199,12 @@ unix_sysaccept(sock)
 }
 
 static VALUE
-unixaddr(sockaddr)
+unixaddr(sockaddr, len)
     struct sockaddr_un *sockaddr;
+    socklen_t len;
 {
     return rb_assoc_new(rb_str_new2("AF_UNIX"),
-			rb_str_new2(sockaddr->sun_path));
+                        rb_str_new2(unixpath(sockaddr, len)));
 }
 
 static VALUE
@@ -1729,9 +2219,7 @@ unix_addr(sock)
 
     if (getsockname(fileno(fptr->f), (struct sockaddr*)&addr, &len) < 0)
 	rb_sys_fail("getsockname(2)");
-    if (len == 0)
-        addr.sun_path[0] = '\0';
-    return unixaddr(&addr);
+    return unixaddr(&addr, len);
 }
 
 static VALUE
@@ -1745,10 +2233,8 @@ unix_peeraddr(sock)
     GetOpenFile(sock, fptr);
 
     if (getpeername(fileno(fptr->f), (struct sockaddr*)&addr, &len) < 0)
-	rb_sys_fail("getsockname(2)");
-    if (len == 0)
-        addr.sun_path[0] = '\0';
-    return unixaddr(&addr);
+	rb_sys_fail("getpeername(2)");
+    return unixaddr(&addr, len);
 }
 #endif
 
@@ -1806,7 +2292,7 @@ setup_domain_and_type(domain, dv, type, tv)
 	    *dv = PF_IPX;
 #endif
 	else
-	    rb_raise(rb_eSocket, "Unknown socket domain %s", ptr);
+	    rb_raise(rb_eSocket, "unknown socket domain %s", ptr);
     }
     else {
 	*dv = NUM2INT(domain);
@@ -1837,7 +2323,7 @@ setup_domain_and_type(domain, dv, type, tv)
 	    *tv = SOCK_PACKET;
 #endif
 	else
-	    rb_raise(rb_eSocket, "Unknown socket type %s", ptr);
+	    rb_raise(rb_eSocket, "unknown socket type %s", ptr);
     }
     else {
 	*tv = NUM2INT(type);
@@ -1863,16 +2349,18 @@ static VALUE
 sock_s_socketpair(klass, domain, type, protocol)
     VALUE klass, domain, type, protocol;
 {
-#if !defined(_WIN32) && !defined(__BEOS__) && !defined(__EMX__) && !defined(__QNXNTO__) && !defined(__VMS)
-    int d, t, sp[2];
+#if defined HAVE_SOCKETPAIR
+    int d, t, p, sp[2];
+    int ret;
 
     setup_domain_and_type(domain, &d, type, &t);
-  again:
-    if (socketpair(d, t, NUM2INT(protocol), sp) < 0) {
-	if (errno == EMFILE || errno == ENFILE) {
-	    rb_gc();
-	    goto again;
-	}
+    p = NUM2INT(protocol);
+    ret = socketpair(d, t, p, sp);
+    if (ret < 0 && (errno == EMFILE || errno == ENFILE)) {
+        rb_gc();
+        ret = socketpair(d, t, p, sp);
+    }
+    if (ret < 0) {
 	rb_sys_fail("socketpair(2)");
     }
 
@@ -1903,6 +2391,117 @@ unix_s_socketpair(argc, argv, klass)
 }
 #endif
 
+/*
+ * call-seq:
+ * 	socket.connect(server_sockaddr) => 0
+ * 
+ * Requests a connection to be made on the given +server_sockaddr+. Returns 0 if
+ * successful, otherwise an exception is raised.
+ *  
+ * === Parameter
+ * * +server_sockaddr+ - the +struct+ sockaddr contained in a string
+ * 
+ * === Example:
+ * 	# Pull down Google's web page
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ * 	sockaddr = Socket.pack_sockaddr_in( 80, 'www.google.com' )
+ * 	socket.connect( sockaddr )
+ * 	socket.write( "GET / HTTP/1.0\r\n\r\n" )
+ * 	results = socket.read 
+ * 
+ * === Unix-based Exceptions
+ * On unix-based systems the following system exceptions may be raised if 
+ * the call to _connect_ fails:
+ * * Errno::EACCES - search permission is denied for a component of the prefix
+ *   path or write access to the +socket+ is denided
+ * * Errno::EADDRINUSE - the _sockaddr_ is already in use
+ * * Errno::EADDRNOTAVAIL - the specified _sockaddr_ is not available from the
+ *   local machine
+ * * Errno::EAFNOSUPPORT - the specified _sockaddr_ is not a valid address for 
+ *   the address family of the specified +socket+
+ * * Errno::EALREADY - a connection is already in progress for the specified
+ *   socket
+ * * Errno::EBADF - the +socket+ is not a valid file descriptor
+ * * Errno::ECONNREFUSED - the target _sockaddr_ was not listening for connections
+ *   refused the connection request
+ * * Errno::ECONNRESET - the remote host reset the connection request
+ * * Errno::EFAULT - the _sockaddr_ cannot be accessed
+ * * Errno::EHOSTUNREACH - the destination host cannot be reached (probably 
+ *   because the host is down or a remote router cannot reach it)
+ * * Errno::EINPROGRESS - the O_NONBLOCK is set for the +socket+ and the
+ *   connection cnanot be immediately established; the connection will be
+ *   established asynchronously
+ * * Errno::EINTR - the attempt to establish the connection was interrupted by
+ *   delivery of a signal that was caught; the connection will be established
+ *   asynchronously
+ * * Errno::EISCONN - the specified +socket+ is already connected
+ * * Errno::EINVAL - the address length used for the _sockaddr_ is not a valid
+ *   length for the address family or there is an invalid family in _sockaddr_ 
+ * * Errno::ENAMETOOLONG - the pathname resolved had a length which exceeded
+ *   PATH_MAX
+ * * Errno::ENETDOWN - the local interface used to reach the destination is down
+ * * Errno::ENETUNREACH - no route to the network is present
+ * * Errno::ENOBUFS - no buffer space is available
+ * * Errno::ENOSR - there were insufficient STREAMS resources available to 
+ *   complete the operation
+ * * Errno::ENOTSOCK - the +socket+ argument does not refer to a socket
+ * * Errno::EOPNOTSUPP - the calling +socket+ is listening and cannot be connected
+ * * Errno::EPROTOTYPE - the _sockaddr_ has a different type than the socket 
+ *   bound to the specified peer address
+ * * Errno::ETIMEDOUT - the attempt to connect time out before a connection
+ *   was made.
+ * 
+ * On unix-based systems if the address family of the calling +socket+ is
+ * AF_UNIX the follow exceptions may be raised if the call to _connect_
+ * fails:
+ * * Errno::EIO - an i/o error occured while reading from or writing to the 
+ *   file system
+ * * Errno::ELOOP - too many symbolic links were encountered in translating
+ *   the pathname in _sockaddr_
+ * * Errno::ENAMETOOLLONG - a component of a pathname exceeded NAME_MAX 
+ *   characters, or an entired pathname exceeded PATH_MAX characters
+ * * Errno::ENOENT - a component of the pathname does not name an existing file
+ *   or the pathname is an empty string
+ * * Errno::ENOTDIR - a component of the path prefix of the pathname in _sockaddr_
+ *   is not a directory 
+ * 
+ * === Windows Exceptions
+ * On Windows systems the following system exceptions may be raised if 
+ * the call to _connect_ fails:
+ * * Errno::ENETDOWN - the network is down
+ * * Errno::EADDRINUSE - the socket's local address is already in use
+ * * Errno::EINTR - the socket was cancelled
+ * * Errno::EINPROGRESS - a blocking socket is in progress or the service provider
+ *   is still processing a callback function. Or a nonblocking connect call is 
+ *   in progress on the +socket+.
+ * * Errno::EALREADY - see Errno::EINVAL
+ * * Errno::EADDRNOTAVAIL - the remote address is not a valid address, such as 
+ *   ADDR_ANY TODO check ADDRANY TO INADDR_ANY
+ * * Errno::EAFNOSUPPORT - addresses in the specified family cannot be used with
+ *   with this +socket+
+ * * Errno::ECONNREFUSED - the target _sockaddr_ was not listening for connections
+ *   refused the connection request
+ * * Errno::EFAULT - the socket's internal address or address length parameter
+ *   is too small or is not a valid part of the user space address
+ * * Errno::EINVAL - the +socket+ is a listening socket
+ * * Errno::EISCONN - the +socket+ is already connected
+ * * Errno::ENETUNREACH - the network cannot be reached from this host at this time
+ * * Errno::EHOSTUNREACH - no route to the network is present
+ * * Errno::ENOBUFS - no buffer space is available
+ * * Errno::ENOTSOCK - the +socket+ argument does not refer to a socket
+ * * Errno::ETIMEDOUT - the attempt to connect time out before a connection
+ *   was made.
+ * * Errno::EWOULDBLOCK - the socket is marked as nonblocking and the 
+ *   connection cannot be completed immediately
+ * * Errno::EACCES - the attempt to connect the datagram socket to the 
+ *   broadcast address failed
+ * 
+ * === See
+ * * connect manual pages on unix-based systems
+ * * connect function in Microsoft's Winsock functions reference
+ */
 static VALUE
 sock_connect(sock, addr)
     VALUE sock, addr;
@@ -1921,6 +2520,142 @@ sock_connect(sock, addr)
     return INT2FIX(0);
 }
 
+/*
+ * call-seq:
+ * 	socket.connect_nonblock(server_sockaddr) => 0
+ * 
+ * Requests a connection to be made on the given +server_sockaddr+ after
+ * O_NONBLOCK is set for the underlying file descriptor.
+ * Returns 0 if successful, otherwise an exception is raised.
+ *  
+ * === Parameter
+ * * +server_sockaddr+ - the +struct+ sockaddr contained in a string
+ * 
+ * === Example:
+ * 	# Pull down Google's web page
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new(AF_INET, SOCK_STREAM, 0)
+ * 	sockaddr = Socket.sockaddr_in(80, 'www.google.com')
+ * 	begin
+ * 	  socket.connect_nonblock(sockaddr)
+ * 	rescue Errno::EINPROGRESS
+ * 	  IO.select(nil, [socket])
+ * 	  begin
+ * 	    socket.connect_nonblock(sockaddr)
+ * 	  rescue Errno::EISCONN
+ * 	  end
+ * 	end
+ * 	socket.write("GET / HTTP/1.0\r\n\r\n")
+ * 	results = socket.read 
+ * 
+ * Refer to Socket#connect for the exceptions that may be thrown if the call
+ * to _connect_nonblock_ fails. 
+ *
+ * Socket#connect_nonblock may raise any error corresponding to connect(2) failure,
+ * including Errno::EINPROGRESS.
+ *
+ * === See
+ * * Socket#connect
+ */
+static VALUE
+sock_connect_nonblock(sock, addr)
+    VALUE sock, addr;
+{
+    OpenFile *fptr;
+    int n;
+
+    StringValue(addr);
+    addr = rb_str_new4(addr);
+    GetOpenFile(sock, fptr);
+    rb_io_set_nonblock(fptr);
+    n = connect(fileno(fptr->f), (struct sockaddr*)RSTRING(addr)->ptr, RSTRING(addr)->len);
+    if (n < 0) {
+	rb_sys_fail("connect(2)");
+    }
+
+    return INT2FIX(n);
+}
+
+/*
+ * call-seq:
+ * 	socket.bind(server_sockaddr) => 0
+ * 
+ * Binds to the given +struct+ sockaddr.
+ * 
+ * === Parameter
+ * * +server_sockaddr+ - the +struct+ sockaddr contained in a string
+ *
+ * === Example
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ * 	socket.bind( sockaddr )
+ *  
+ * === Unix-based Exceptions
+ * On unix-based based systems the following system exceptions may be raised if 
+ * the call to _bind_ fails:
+ * * Errno::EACCES - the specified _sockaddr_ is protected and the current
+ *   user does not have permission to bind to it
+ * * Errno::EADDRINUSE - the specified _sockaddr_ is already in use
+ * * Errno::EADDRNOTAVAIL - the specified _sockaddr_ is not available from the
+ *   local machine
+ * * Errno::EAFNOSUPPORT - the specified _sockaddr_ isnot a valid address for
+ *   the family of the calling +socket+
+ * * Errno::EBADF - the _sockaddr_ specified is not a valid file descriptor
+ * * Errno::EFAULT - the _sockaddr_ argument cannot be accessed
+ * * Errno::EINVAL - the +socket+ is already bound to an address, and the 
+ *   protocol does not support binding to the new _sockaddr_ or the +socket+
+ *   has been shut down.
+ * * Errno::EINVAL - the address length is not a valid length for the address
+ *   family
+ * * Errno::ENAMETOOLONG - the pathname resolved had a length which exceeded
+ *   PATH_MAX
+ * * Errno::ENOBUFS - no buffer space is available
+ * * Errno::ENOSR - there were insufficient STREAMS resources available to 
+ *   complete the operation
+ * * Errno::ENOTSOCK - the +socket+ does not refer to a socket
+ * * Errno::EOPNOTSUPP - the socket type of the +socket+ does not support 
+ *   binding to an address
+ * 
+ * On unix-based based systems if the address family of the calling +socket+ is
+ * Socket::AF_UNIX the follow exceptions may be raised if the call to _bind_
+ * fails:
+ * * Errno::EACCES - search permission is denied for a component of the prefix
+ *   path or write access to the +socket+ is denided
+ * * Errno::EDESTADDRREQ - the _sockaddr_ argument is a null pointer
+ * * Errno::EISDIR - same as Errno::EDESTADDRREQ
+ * * Errno::EIO - an i/o error occurred
+ * * Errno::ELOOP - too many symbolic links were encountered in translating
+ *   the pathname in _sockaddr_
+ * * Errno::ENAMETOOLLONG - a component of a pathname exceeded NAME_MAX 
+ *   characters, or an entired pathname exceeded PATH_MAX characters
+ * * Errno::ENOENT - a component of the pathname does not name an existing file
+ *   or the pathname is an empty string
+ * * Errno::ENOTDIR - a component of the path prefix of the pathname in _sockaddr_
+ *   is not a directory
+ * * Errno::EROFS - the name would reside on a read only filesystem
+ * 
+ * === Windows Exceptions
+ * On Windows systems the following system exceptions may be raised if 
+ * the call to _bind_ fails:
+ * * Errno::ENETDOWN-- the network is down
+ * * Errno::EACCES - the attempt to connect the datagram socket to the 
+ *   broadcast address failed
+ * * Errno::EADDRINUSE - the socket's local address is already in use
+ * * Errno::EADDRNOTAVAIL - the specified address is not a valid address for this
+ *   computer
+ * * Errno::EFAULT - the socket's internal address or address length parameter
+ *   is too small or is not a valid part of the user space addressed
+ * * Errno::EINVAL - the +socket+ is already bound to an address
+ * * Errno::ENOBUFS - no buffer space is available
+ * * Errno::ENOTSOCK - the +socket+ argument does not refer to a socket
+ * 
+ * === See
+ * * bind manual pages on unix-based systems
+ * * bind function in Microsoft's Winsock functions reference
+ */ 
 static VALUE
 sock_bind(sock, addr)
     VALUE sock, addr;
@@ -1935,6 +2670,76 @@ sock_bind(sock, addr)
     return INT2FIX(0);
 }
 
+/*
+ * call-seq:
+ * 	socket.listen( int ) => 0
+ * 
+ * Listens for connections, using the specified +int+ as the backlog. A call
+ * to _listen_ only applies if the +socket+ is of type SOCK_STREAM or 
+ * SOCK_SEQPACKET.
+ * 
+ * === Parameter
+ * * +backlog+ - the maximum length of the queue for pending connections.
+ * 
+ * === Example 1
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ * 	socket.bind( sockaddr )
+ * 	socket.listen( 5 )
+ * 
+ * === Example 2 (listening on an arbitary port, unix-based systems only):
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ * 	socket.listen( 1 )
+ * 
+ * === Unix-based Exceptions
+ * On unix based systems the above will work because a new +sockaddr+ struct
+ * is created on the address ADDR_ANY, for an arbitrary port number as handed
+ * off by the kernel. It will not work on Windows, because Windows requires that
+ * the +socket+ is bound by calling _bind_ before it can _listen_.
+ * 
+ * If the _backlog_ amount exceeds the implementation-dependent maximum
+ * queue length, the implementation's maximum queue length will be used.
+ * 
+ * On unix-based based systems the following system exceptions may be raised if the
+ * call to _listen_ fails:
+ * * Errno::EBADF - the _socket_ argument is not a valid file descriptor
+ * * Errno::EDESTADDRREQ - the _socket_ is not bound to a local address, and 
+ *   the protocol does not support listening on an unbound socket
+ * * Errno::EINVAL - the _socket_ is already connected
+ * * Errno::ENOTSOCK - the _socket_ argument does not refer to a socket
+ * * Errno::EOPNOTSUPP - the _socket_ protocol does not support listen
+ * * Errno::EACCES - the calling process does not have approriate privileges
+ * * Errno::EINVAL - the _socket_ has been shut down
+ * * Errno::ENOBUFS - insufficient resources are available in the system to 
+ *   complete the call
+ * 
+ * === Windows Exceptions
+ * On Windows systems the following system exceptions may be raised if 
+ * the call to _listen_ fails:
+ * * Errno::ENETDOWN - the network is down
+ * * Errno::EADDRINUSE - the socket's local address is already in use. This 
+ *   usually occurs during the execution of _bind_ but could be delayed
+ *   if the call to _bind_ was to a partially wildcard address (involving
+ *   ADDR_ANY) and if a specific address needs to be commmitted at the 
+ *   time of the call to _listen_
+ * * Errno::EINPROGRESS - a Windows Sockets 1.1 call is in progress or the
+ *   service provider is still processing a callback function
+ * * Errno::EINVAL - the +socket+ has not been bound with a call to _bind_.
+ * * Errno::EISCONN - the +socket+ is already connected
+ * * Errno::EMFILE - no more socket descriptors are available
+ * * Errno::ENOBUFS - no buffer space is available
+ * * Errno::ENOTSOC - +socket+ is not a socket
+ * * Errno::EOPNOTSUPP - the referenced +socket+ is not a type that supports
+ *   the _listen_ method
+ * 
+ * === See
+ * * listen manual pages on unix-based systems
+ * * listen function in Microsoft's Winsock functions reference
+ */
 static VALUE
 sock_listen(sock, log)
     VALUE sock, log;
@@ -1951,6 +2756,111 @@ sock_listen(sock, log)
     return INT2FIX(0);
 }
 
+/*
+ * call-seq:
+ * 	socket.recvfrom(maxlen) => [mesg, sender_sockaddr]
+ * 	socket.recvfrom(maxlen, flags) => [mesg, sender_sockaddr]
+ * 
+ * Receives up to _maxlen_ bytes from +socket+. _flags_ is zero or more
+ * of the +MSG_+ options. The first element of the results, _mesg_, is the data
+ * received. The second element, _sender_sockaddr_, contains protocol-specific information
+ * on the sender.
+ * 
+ * === Parameters
+ * * +maxlen+ - the number of bytes to receive from the socket
+ * * +flags+ - zero or more of the +MSG_+ options 
+ * 
+ * === Example
+ * 	# In one file, start this first
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ * 	socket.bind( sockaddr )
+ * 	socket.listen( 5 )
+ * 	client, client_sockaddr = socket.accept
+ * 	data = client.recvfrom( 20 )[0].chomp
+ * 	puts "I only received 20 bytes '#{data}'"
+ * 	sleep 1
+ * 	socket.close
+ * 
+ * 	# In another file, start this second
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ * 	socket.connect( sockaddr )
+ * 	socket.puts "Watch this get cut short!"
+ * 	socket.close 
+ * 
+ * === Unix-based Exceptions
+ * On unix-based based systems the following system exceptions may be raised if the
+ * call to _recvfrom_ fails:
+ * * Errno::EAGAIN - the +socket+ file descriptor is marked as O_NONBLOCK and no
+ *   data is waiting to be received; or MSG_OOB is set and no out-of-band data
+ *   is available and either the +socket+ file descriptor is marked as 
+ *   O_NONBLOCK or the +socket+ does not support blocking to wait for 
+ *   out-of-band-data
+ * * Errno::EWOULDBLOCK - see Errno::EAGAIN
+ * * Errno::EBADF - the +socket+ is not a valid file descriptor
+ * * Errno::ECONNRESET - a connection was forcibly closed by a peer
+ * * Errno::EFAULT - the socket's internal buffer, address or address length 
+ *   cannot be accessed or written
+ * * Errno::EINTR - a signal interupted _recvfrom_ before any data was available
+ * * Errno::EINVAL - the MSG_OOB flag is set and no out-of-band data is available
+ * * Errno::EIO - an i/o error occurred while reading from or writing to the 
+ *   filesystem
+ * * Errno::ENOBUFS - insufficient resources were available in the system to 
+ *   perform the operation
+ * * Errno::ENOMEM - insufficient memory was available to fulfill the request
+ * * Errno::ENOSR - there were insufficient STREAMS resources available to 
+ *   complete the operation
+ * * Errno::ENOTCONN - a receive is attempted on a connection-mode socket that
+ *   is not connected
+ * * Errno::ENOTSOCK - the +socket+ does not refer to a socket
+ * * Errno::EOPNOTSUPP - the specified flags are not supported for this socket type
+ * * Errno::ETIMEDOUT - the connection timed out during connection establishment
+ *   or due to a transmission timeout on an active connection
+ * 
+ * === Windows Exceptions
+ * On Windows systems the following system exceptions may be raised if 
+ * the call to _recvfrom_ fails:
+ * * Errno::ENETDOWN - the network is down
+ * * Errno::EFAULT - the internal buffer and from parameters on +socket+ are not
+ *   part of the user address space, or the internal fromlen parameter is
+ *   too small to accomodate the peer address
+ * * Errno::EINTR - the (blocking) call was cancelled by an internal call to
+ *   the WinSock function WSACancelBlockingCall
+ * * Errno::EINPROGRESS - a blocking Windows Sockets 1.1 call is in progress or 
+ *   the service provider is still processing a callback function
+ * * Errno::EINVAL - +socket+ has not been bound with a call to _bind_, or an
+ *   unknown flag was specified, or MSG_OOB was specified for a socket with
+ *   SO_OOBINLINE enabled, or (for byte stream-style sockets only) the internal
+ *   len parameter on +socket+ was zero or negative
+ * * Errno::EISCONN - +socket+ is already connected. The call to _recvfrom_ is
+ *   not permitted with a connected socket on a socket that is connetion 
+ *   oriented or connectionless.
+ * * Errno::ENETRESET - the connection has been broken due to the keep-alive 
+ *   activity detecting a failure while the operation was in progress.
+ * * Errno::EOPNOTSUPP - MSG_OOB was specified, but +socket+ is not stream-style
+ *   such as type SOCK_STREAM. OOB data is not supported in the communication
+ *   domain associated with +socket+, or +socket+ is unidirectional and 
+ *   supports only send operations
+ * * Errno::ESHUTDOWN - +socket+ has been shutdown. It is not possible to 
+ *   call _recvfrom_ on a socket after _shutdown_ has been invoked.
+ * * Errno::EWOULDBLOCK - +socket+ is marked as nonblocking and a  call to 
+ *   _recvfrom_ would block.
+ * * Errno::EMSGSIZE - the message was too large to fit into the specified buffer
+ *   and was truncated.
+ * * Errno::ETIMEDOUT - the connection has been dropped, because of a network
+ *   failure or because the system on the other end went down without
+ *   notice
+ * * Errno::ECONNRESET - the virtual circuit was reset by the remote side 
+ *   executing a hard or abortive close. The application should close the
+ *   socket; it is no longer usable. On a UDP-datagram socket this error
+ *   indicates a previous send operation resulted in an ICMP Port Unreachable
+ *   message.
+ */
 static VALUE
 sock_recvfrom(argc, argv, sock)
     int argc;
@@ -1960,6 +2870,152 @@ sock_recvfrom(argc, argv, sock)
     return s_recvfrom(sock, argc, argv, RECV_SOCKET);
 }
 
+/*
+ * call-seq:
+ * 	socket.recvfrom_nonblock(maxlen) => [mesg, sender_sockaddr]
+ * 	socket.recvfrom_nonblock(maxlen, flags) => [mesg, sender_sockaddr]
+ * 
+ * Receives up to _maxlen_ bytes from +socket+ using recvfrom(2) after
+ * O_NONBLOCK is set for the underlying file descriptor.
+ * _flags_ is zero or more of the +MSG_+ options.
+ * The first element of the results, _mesg_, is the data received.
+ * The second element, _sender_sockaddr_, contains protocol-specific information
+ * on the sender.
+ *
+ * When recvfrom(2) returns 0, Socket#recvfrom_nonblock returns
+ * an empty string as data.
+ * The meaning depends on the socket: EOF on TCP, empty packet on UDP, etc.
+ * 
+ * === Parameters
+ * * +maxlen+ - the number of bytes to receive from the socket
+ * * +flags+ - zero or more of the +MSG_+ options 
+ * 
+ * === Example
+ * 	# In one file, start this first
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new(AF_INET, SOCK_STREAM, 0)
+ * 	sockaddr = Socket.sockaddr_in(2200, 'localhost')
+ * 	socket.bind(sockaddr)
+ * 	socket.listen(5)
+ * 	client, client_sockaddr = socket.accept
+ * 	begin
+ * 	  pair = client.recvfrom_nonblock(20)
+ * 	rescue Errno::EAGAIN
+ * 	  IO.select([client])
+ * 	  retry
+ * 	end
+ * 	data = pair[0].chomp
+ * 	puts "I only received 20 bytes '#{data}'"
+ * 	sleep 1
+ * 	socket.close
+ * 
+ * 	# In another file, start this second
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new(AF_INET, SOCK_STREAM, 0)
+ * 	sockaddr = Socket.sockaddr_in(2200, 'localhost')
+ * 	socket.connect(sockaddr)
+ * 	socket.puts "Watch this get cut short!"
+ * 	socket.close 
+ * 
+ * Refer to Socket#recvfrom for the exceptions that may be thrown if the call
+ * to _recvfrom_nonblock_ fails. 
+ *
+ * Socket#recvfrom_nonblock may raise any error corresponding to recvfrom(2) failure,
+ * including Errno::EAGAIN.
+ *
+ * === See
+ * * Socket#recvfrom
+ */
+static VALUE
+sock_recvfrom_nonblock(int argc, VALUE *argv, VALUE sock)
+{
+    return s_recvfrom_nonblock(sock, argc, argv, RECV_SOCKET);
+}
+
+/*
+ * call-seq:
+ * 	socket.accept => [ socket, string ]
+ * 
+ * Accepts an incoming connection returning an array containing a new
+ * Socket object and a string holding the +struct+ sockaddr information about 
+ * the caller.
+ * 
+ * === Example
+ * 	# In one script, start this first
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ * 	socket.bind( sockaddr )
+ * 	socket.listen( 5 )
+ * 	client, client_sockaddr = socket.accept
+ * 	puts "The client said, '#{client.readline.chomp}'"
+ * 	client.puts "Hello from script one!"
+ * 	socket.close
+ * 
+ * 	# In another script, start this second
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ * 	socket.connect( sockaddr )
+ * 	socket.puts "Hello from script 2." 
+ * 	puts "The server said, '#{socket.readline.chomp}'"
+ * 	socket.close 
+ * 
+ * === Unix-based Exceptions
+ * On unix-based based systems the following system exceptions may be raised if the
+ * call to _accept_ fails:
+ * * Errno::EAGAIN - O_NONBLOCK is set for the +socket+ file descriptor and no 
+ *   connections are parent to be accepted
+ * * Errno::EWOULDBLOCK - same as Errno::EAGAIN
+ * * Errno::EBADF - the +socket+ is not a valid file descriptor
+ * * Errno::ECONNABORTED - a connection has been aborted
+ * * Errno::EFAULT - the socket's internal address or address length parameter 
+ *   cannot be access or written
+ * * Errno::EINTR - the _accept_ method was interrupted by a signal that was 
+ *   caught before a valid connection arrived
+ * * Errno::EINVAL - the +socket+ is not accepting connections
+ * * Errno::EMFILE - OPEN_MAX file descriptors are currently open in the calling 
+ *   process
+ * * Errno::ENOBUFS - no buffer space is available
+ * * Errno::ENOMEM - there was insufficient memory available to complete the
+ *   operation
+ * * Errno::ENOSR - there was insufficient STREAMS resources available to 
+ *   complete the operation
+ * * Errno::ENFILE - the maximum number of file descriptors in the system are 
+ *   already open
+ * * Errno::ENOTSOCK - the +socket+ does not refer to a socket
+ * * Errno::EOPNOTSUPP - the socket type for the calling +socket+ does not 
+ *   support accept connections
+ * * Errno::EPROTO - a protocol error has occurred
+ * 
+ * === Windows Exceptions
+ * On Windows systems the following system exceptions may be raised if 
+ * the call to _accept_ fails:
+ * * Errno::ECONNRESET - an incoming connection was indicated, but was 
+ *   terminated by the remote peer prior to accepting the connection
+ * * Errno::EFAULT - the socket's internal address or address length parameter
+ *   is too small or is not a valid part of the user space address
+ * * Errno::EINVAL - the _listen_ method was not invoked prior to calling _accept_
+ * * Errno::EINPROGRESS - a blocking Windows Sockets 1.1 call is in progress or
+ *   the service provider is still processing a callback function
+ * * Errno::EMFILE - the queue is not empty, upong etry to _accept_ and there are
+ *   no socket descriptors available
+ * * Errno::ENETDOWN - the network is down
+ * * Errno::ENOBUFS - no buffer space is available
+ * * Errno::ENOTSOCK - +socket+ is not a socket
+ * * Errno::EOPNOTSUPP - +socket+ is not a type that supports connection-oriented
+ *   service.
+ * * Errno::EWOULDBLOCK - +socket+ is marked as nonblocking and no connections are
+ *   present to be accepted
+ * 
+ * === See
+ * * accept manual pages on unix-based systems
+ * * accept function in Microsoft's Winsock functions reference
+ */
 static VALUE
 sock_accept(sock)
     VALUE sock;
@@ -1975,6 +3031,107 @@ sock_accept(sock)
     return rb_assoc_new(sock2, rb_str_new(buf, len));
 }
 
+/*
+ * call-seq:
+ *    socket.accept_nonblock => [client_socket, client_sockaddr]
+ * 
+ * Accepts an incoming connection using accept(2) after
+ * O_NONBLOCK is set for the underlying file descriptor.
+ * It returns an array containg the accpeted socket
+ * for the incoming connection, _client_socket_,
+ * and a string that contains the +struct+ sockaddr information
+ * about the caller, _client_sockaddr_.
+ * 
+ * === Example
+ * 	# In one script, start this first
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new(AF_INET, SOCK_STREAM, 0)
+ * 	sockaddr = Socket.sockaddr_in(2200, 'localhost')
+ * 	socket.bind(sockaddr)
+ * 	socket.listen(5)
+ * 	begin
+ * 	  client_socket, client_sockaddr = socket.accept_nonblock
+ * 	rescue Errno::EAGAIN, Errno::ECONNABORTED, Errno::EPROTO, Errno::EINTR
+ * 	  IO.select([socket])
+ * 	  retry
+ * 	end
+ * 	puts "The client said, '#{client_socket.readline.chomp}'"
+ * 	client_socket.puts "Hello from script one!"
+ * 	socket.close
+ *
+ * 	# In another script, start this second
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new(AF_INET, SOCK_STREAM, 0)
+ * 	sockaddr = Socket.sockaddr_in(2200, 'localhost')
+ * 	socket.connect(sockaddr)
+ * 	socket.puts "Hello from script 2." 
+ * 	puts "The server said, '#{socket.readline.chomp}'"
+ * 	socket.close
+ * 
+ * Refer to Socket#accept for the exceptions that may be thrown if the call
+ * to _accept_nonblock_ fails. 
+ *
+ * Socket#accept_nonblock may raise any error corresponding to accept(2) failure,
+ * including Errno::EAGAIN.
+ * 
+ * === See
+ * * Socket#accept
+ */
+static VALUE
+sock_accept_nonblock(sock)
+    VALUE sock;
+{
+    OpenFile *fptr;
+    VALUE sock2;
+    char buf[1024];
+    socklen_t len = sizeof buf;
+
+    GetOpenFile(sock, fptr);
+    sock2 = s_accept_nonblock(rb_cSocket, fptr, (struct sockaddr *)buf, &len);
+    return rb_assoc_new(sock2, rb_str_new(buf, len));
+}
+
+/*
+ * call-seq:
+ * 	socket.sysaccept => [client_socket_fd, client_sockaddr]
+ * 
+ * Accepts an incoming connection returnings an array containg the (integer)
+ * file descriptor for the incoming connection, _client_socket_fd_,
+ * and a string that contains the +struct+ sockaddr information
+ * about the caller, _client_sockaddr_.
+ * 
+ * === Example
+ * 	# In one script, start this first
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ * 	socket.bind( sockaddr )
+ * 	socket.listen( 5 )
+ * 	client_fd, client_sockaddr = socket.sysaccept
+ * 	client_socket = Socket.for_fd( client_fd )
+ * 	puts "The client said, '#{client_socket.readline.chomp}'"
+ * 	client_socket.puts "Hello from script one!"
+ * 	socket.close
+ * 
+ * 	# In another script, start this second
+ * 	require 'socket'
+ * 	include Socket::Constants
+ * 	socket = Socket.new( AF_INET, SOCK_STREAM, 0 )
+ * 	sockaddr = Socket.pack_sockaddr_in( 2200, 'localhost' )
+ * 	socket.connect( sockaddr )
+ * 	socket.puts "Hello from script 2." 
+ * 	puts "The server said, '#{socket.readline.chomp}'"
+ * 	socket.close
+ * 
+ * Refer to Socket#accept for the exceptions that may be thrown if the call
+ * to _sysaccept_ fails. 
+ * 
+ * === See
+ * * Socket#accept
+ */
 static VALUE
 sock_sysaccept(sock)
     VALUE sock;
@@ -2050,6 +3207,7 @@ make_addrinfo(res0)
     return base;
 }
 
+/* Returns a String containing the binary value of a struct sockaddr. */
 VALUE
 sock_sockaddr(addr, len)
     struct sockaddr *addr;
@@ -2075,6 +3233,102 @@ sock_sockaddr(addr, len)
     return rb_str_new(ptr, len);
 }
 
+/*
+ * Document-class: IPSocket
+ *
+ * IPSocket is the parent of TCPSocket and UDPSocket and implements
+ * functionality common to them.
+ *
+ * A number of APIs in IPSocket, Socket, and their descendants return an
+ * address as an array. The members of that array are:
+ * - address family: A string like "AF_INET" or "AF_INET6" if it is one of the
+ *   commonly used families, the string "unknown:#" (where `#' is the address
+ *   family number) if it is not one of the common ones.  The strings map to
+ *   the Socket::AF_* constants.
+ * - port: The port number.
+ * - name: Either the canonical name from looking the address up in the DNS, or
+ *   the address in presentation format
+ * - address: The address in presentation format (a dotted decimal string for
+ *   IPv4, a hex string for IPv6).
+ *
+ * The address and port can be used directly to create sockets and to bind or
+ * connect them to the address.
+ */
+
+/*
+ * Document-class: Socket
+ *
+ * Socket contains a number of generally useful singleton methods and
+ * constants, as well as offering low-level interfaces that can be used to
+ * develop socket applications using protocols other than TCP, UDP, and UNIX
+ * domain sockets.
+ */
+
+/*
+ * Document-method: gethostbyname
+ * call-seq: Socket.gethostbyname(host) => hostent
+ *
+ * Resolve +host+ and return name and address information for it, similarly to
+ * gethostbyname(3). +host+ can be a domain name or the presentation format of
+ * an address.
+ *
+ * Returns an array of information similar to that found in a +struct hostent+:
+ *   - cannonical name: the cannonical name for host in the DNS, or a
+ *     string representing the address
+ *   - aliases: an array of aliases for the canonical name, there may be no aliases
+ *   - address family: usually one of Socket::AF_INET or Socket::AF_INET6
+ *   - address: a string, the binary value of the +struct sockaddr+ for this name, in
+ *     the indicated address family
+ *   - ...: if there are multiple addresses for this host,  a series of
+ *     strings/+struct sockaddr+s may follow, not all necessarily in the same
+ *     address family. Note that the fact that they may not be all in the same
+ *     address family is a departure from the behaviour of gethostbyname(3).
+ *
+ * Note: I believe that the fact that the multiple addresses returned are not
+ * necessarily in the same address family may be a bug, since if this function
+ * actually called gethostbyname(3), ALL the addresses returned in the trailing
+ * address list (h_addr_list from struct hostent) would be of the same address
+ * family!  Examples from my system, OS X 10.3:
+ *
+ *   ["localhost", [], 30, "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\001", "\177\000\000\001"]
+ *     and
+ *   ["ensemble.local", [], 30, "\376\200\000\004\000\000\000\000\002\003\223\377\376\255\010\214", "\300\250{\232" ]
+ *
+ * Similar information can be returned by Socket.getaddrinfo if called as:
+ *
+ *    Socket.getaddrinfo(+host+, 0, Socket::AF_UNSPEC, Socket::SOCK_STREAM, nil, Socket::AI_CANONNAME)
+ *
+ * == Examples
+ *   
+ *   Socket.gethostbyname "example.com"                                                           
+ *   => ["example.com", [], 2, "\300\000\"\246"]
+ *   
+ * This name has no DNS aliases, and a single IPv4 address.
+ *   
+ *   Socket.gethostbyname "smtp.telus.net"
+ *   => ["smtp.svc.telus.net", ["smtp.telus.net"], 2, "\307\271\334\371"]
+ *   
+ * This name is an an alias so the canonical name is returned, as well as the
+ * alias and a single IPv4 address.
+ *   
+ *   Socket.gethostbyname "localhost"
+ *   => ["localhost", [], 30, "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\001", "\177\000\000\001"]
+ *   
+ * This machine has no aliases, returns an IPv6 address, and has an additional IPv4 address.
+ *
+ * +host+ can also be an IP address in presentation format, in which case a
+ * reverse lookup is done on the address:
+ *
+ *   Socket.gethostbyname("127.0.0.1")
+ *   => ["localhost", [], 2, "\177\000\000\001"]
+ *
+ *   Socket.gethostbyname("192.0.34.166")
+ *   => ["www.example.com", [], 2, "\300\000\"\246"]
+ *
+ *
+ * == See
+ * See: Socket.getaddrinfo
+ */
 static VALUE
 sock_s_gethostbyname(obj, host)
     VALUE obj, host;
@@ -2135,6 +3389,18 @@ sock_s_gethostbyaddr(argc, argv)
     return ary;
 }
 
+/*
+ * Document-method: getservbyname
+ * call-seq: Socket.getservbyname(name, proto="tcp") => port
+ *
+ * +name+ is a service name ("ftp", "telnet", ...) and proto is a protocol name
+ * ("udp", "tcp", ...). '/etc/services' (or your system's equivalent) is
+ * searched for a service for +name+ and +proto+, and the port number is
+ * returned.
+ *
+ * Note that unlike Socket.getaddrinfo, +proto+ may not be specified using the
+ * Socket::SOCK_* constants, a string must must be used.
+ */
 static VALUE
 sock_s_getservbyaname(argc, argv)
     int argc;
@@ -2165,6 +3431,120 @@ sock_s_getservbyaname(argc, argv)
     return INT2FIX(port);
 }
 
+/*
+Documentation should explain the following:
+
+  $ pp Socket.getaddrinfo("", 1, Socket::AF_UNSPEC, Socket::SOCK_STREAM, 0, Socket::AI_PASSIVE)
+  [["AF_INET", 1, "0.0.0.0", "0.0.0.0", 2, 1, 6]]
+
+  $ pp Socket.getaddrinfo(nil, 1, Socket::AF_UNSPEC, Socket::SOCK_STREAM, 0, Socket::AI_PASSIVE)
+  [["AF_INET6", 1, "::", "::", 30, 1, 6],
+   ["AF_INET", 1, "0.0.0.0", "0.0.0.0", 2, 1, 6]]
+
+  $ pp Socket.getaddrinfo("localhost", 1, Socket::AF_UNSPEC, Socket::SOCK_STREAM, 0, Socket::AI_PASSIVE)
+  [["AF_INET6", 1, "localhost", "::1", 30, 1, 6],
+   ["AF_INET", 1, "localhost", "127.0.0.1", 2, 1, 6]]
+
+  $ pp Socket.getaddrinfo("ensemble.local.", 1, Socket::AF_UNSPEC, Socket::SOCK_STREAM, 0, Socket::AI_PASSIVE)
+  [["AF_INET", 1, "localhost", "192.168.123.154", 2, 1, 6]]
+
+Does it?
+
+API suggestion: this method has too many arguments, it would be backwards compatible and easier
+to understand if limit args were accepted as :family=>..., :flags=>...
+*/
+
+/*
+ * Document-method: getaddrinfo
+ * call-seq: Socket.getaddrinfo(host, service, family=nil, socktype=nil, protocol=nil, flags=nil) => addrinfo
+ *
+ * Return address information for +host+ and +port+. The remaining arguments
+ * are hints that limit the address information returned.
+ *
+ * This method corresponds closely to the POSIX.1g getaddrinfo() definition.
+ *
+ * === Parameters
+ * - +host+ is a host name or an address string (dotted decimal for IPv4, or a hex string
+ *   for IPv6) for which to return information. A nil is also allowed, its meaning
+ *   depends on +flags+, see below.
+ * - +service+ is a service name ("http", "ssh", ...), or 
+ *   a port number (80, 22, ...), see Socket.getservbyname for more
+ *   information. A nil is also allowed, meaning zero.
+ * - +family+ limits the output to a specific address family, one of the
+ *   Socket::AF_* constants. Socket::AF_INET (IPv4) and Socket::AF_INET6 (IPv6)
+ *   are the most commonly used families. You will usually pass either nil or
+ *   Socket::AF_UNSPEC, allowing the IPv6 information to be returned first if
+ *   +host+ is reachable via IPv6, and IPv4 information otherwise.  The two
+ *   strings "AF_INET" or "AF_INET6" are also allowed, they are converted to
+ *   their respective Socket::AF_* constants.
+ * - +socktype+ limits the output to a specific type of socket, one of the
+ *   Socket::SOCK_* constants. Socket::SOCK_STREAM (for TCP) and
+ *   Socket::SOCK_DGRAM (for UDP) are the most commonly used socket types. If
+ *   nil, then information for all types of sockets supported by +service+ will
+ *   be returned. You will usually know what type of socket you intend to
+ *   create, and should pass that socket type in.
+ * - +protocol+ limits the output to a specific protocol numpber, one of the
+ *   Socket::IPPROTO_* constants. It is usually implied by the socket type
+ *   (Socket::SOCK_STREAM => Socket::IPPROTO_TCP, ...), if you pass other than
+ *   nil you already know what this is for.
+ * - +flags+ is one of the Socket::AI_* constants. They mean:
+ *   - Socket::AI_PASSIVE: when set, if +host+ is nil the 'any' address will be
+ *     returned, Socket::INADDR_ANY or 0 for IPv4, "0::0" or "::" for IPv6.  This
+ *     address is suitable for use by servers that will bind their socket and do
+ *     a passive listen, thus the name of the flag. Otherwise the local or
+ *     loopback address will be returned, this is "127.0.0.1" for IPv4 and "::1'
+ *     for IPv6.
+ *   - ...
+ *
+ *
+ * === Returns
+ *
+ * Returns an array of arrays, where each subarray contains:
+ * - address family, a string like "AF_INET" or "AF_INET6"
+ * - port number, the port number for +service+
+ * - host name, either a canonical name for +host+, or it's address in presentation
+ *   format if the address could not be looked up.
+ * - host IP, the address of +host+ in presentation format
+ * - address family, as a numeric value (one of the Socket::AF_* constants).
+ * - socket type, as a numeric value (one of the Socket::SOCK_* constants).
+ * - protocol number, as a numeric value (one of the Socket::IPPROTO_* constants).
+ *
+ * The first four values are identical to what is commonly returned as an
+ * address array, see IPSocket for more information.
+ *
+ * === Examples
+ *
+ * Not all input combinations are valid, and while there are many combinations,
+ * only a few cases are common.
+ *
+ * A typical client will call getaddrinfo with the +host+ and +service+ it
+ * wants to connect to. It knows that it will attempt to connect with either
+ * TCP or UDP, and specifies +socktype+ accordingly. It loops through all
+ * returned addresses, and try to connect to them in turn:
+ *
+ *   addrinfo = Socket::getaddrinfo('www.example.com', 'www', nil, Socket::SOCK_STREAM)
+ *   addrinfo.each do |af, port, name, addr|
+ *     begin
+ *       sock = TCPSocket.new(addr, port)
+ *       # ...
+ *       exit 1
+ *     rescue
+ *     end
+ *   end
+ *
+ * With UDP you don't know if connect suceeded, but if communication fails,
+ * the next address can be tried.
+ *
+ * A typical server will call getaddrinfo with a +host+ of nil, the +service+
+ * it listens to, and a +flags+ of Socket::AI_PASSIVE. It will listen for
+ * connections on the first returned address:
+ *   addrinfo = Socket::getaddrinfo(nil, 'www', nil, Socket::SOCK_STREAM, nil, Socket::AI_PASSIVE)
+ *   af, port, name, addr = addrinfo.first
+ *   sock = TCPServer(addr, port)
+ *   while( client = s.accept )
+ *     # ...
+ *   end
+ */
 static VALUE
 sock_s_getaddrinfo(argc, argv)
     int argc;
@@ -2292,7 +3672,9 @@ sock_s_getnameinfo(argc, argv)
 		 * 4th element holds numeric form, don't resolve.
 		 * see ipaddr().
 		 */
+#ifdef AI_NUMERICHOST /* AIX 4.3.3 doesn't have AI_NUMERICHOST. */
 		hints.ai_flags |= AI_NUMERICHOST;
+#endif
 	    }
 	}
 	else {
@@ -2400,6 +3782,17 @@ sock_s_unpack_sockaddr_in(self, addr)
     VALUE host;
 
     sockaddr = (struct sockaddr_in*)StringValuePtr(addr);
+    if (((struct sockaddr *)sockaddr)->sa_family != AF_INET
+#ifdef INET6
+        && ((struct sockaddr *)sockaddr)->sa_family != AF_INET6
+#endif
+        ) {
+#ifdef INET6
+        rb_raise(rb_eArgError, "not an AF_INET/AF_INET6 sockaddr");
+#else
+        rb_raise(rb_eArgError, "not an AF_INET sockaddr");
+#endif
+    }
     host = make_ipaddr((struct sockaddr*)sockaddr);
     OBJ_INFECT(host, addr);
     return rb_assoc_new(INT2NUM(ntohs(sockaddr->sin_port)), host);
@@ -2411,11 +3804,17 @@ sock_s_pack_sockaddr_un(self, path)
     VALUE self, path;
 {
     struct sockaddr_un sockaddr;
+    char *sun_path;
     VALUE addr;
 
     MEMZERO(&sockaddr, struct sockaddr_un, 1);
     sockaddr.sun_family = AF_UNIX;
-    strncpy(sockaddr.sun_path, StringValuePtr(path), sizeof(sockaddr.sun_path)-1);
+    sun_path = StringValueCStr(path);
+    if (sizeof(sockaddr.sun_path) <= strlen(sun_path)) {
+        rb_raise(rb_eArgError, "too long unix socket path (max: %dbytes)",
+            (int)sizeof(sockaddr.sun_path)-1);
+    }
+    strncpy(sockaddr.sun_path, sun_path, sizeof(sockaddr.sun_path)-1);
     addr = rb_str_new((char*)&sockaddr, sizeof(sockaddr));
     OBJ_INFECT(addr, path);
 
@@ -2427,15 +3826,24 @@ sock_s_unpack_sockaddr_un(self, addr)
     VALUE self, addr;
 {
     struct sockaddr_un * sockaddr;
+    char *sun_path;
     VALUE path;
 
     sockaddr = (struct sockaddr_un*)StringValuePtr(addr);
-    if (RSTRING(addr)->len != sizeof(struct sockaddr_un)) {
-	rb_raise(rb_eTypeError, "sockaddr_un size differs - %ld required; %d given",
+    if (((struct sockaddr *)sockaddr)->sa_family != AF_UNIX) {
+        rb_raise(rb_eArgError, "not an AF_UNIX sockaddr");
+    }
+    if (sizeof(struct sockaddr_un) < RSTRING(addr)->len) {
+        rb_raise(rb_eTypeError, "too long sockaddr_un - %ld longer than %d",
 		 RSTRING(addr)->len, sizeof(struct sockaddr_un));
     }
-    /* xxx: should I check against sun_path size? */
-    path = rb_str_new2(sockaddr->sun_path);
+    sun_path = unixpath(sockaddr, RSTRING(addr)->len);
+    if (sizeof(struct sockaddr_un) == RSTRING(addr)->len &&
+        sun_path == sockaddr->sun_path &&
+        sun_path + strlen(sun_path) == RSTRING(addr)->ptr + RSTRING(addr)->len) {
+        rb_raise(rb_eArgError, "sockaddr_un.sun_path not NUL terminated");
+    }
+    path = rb_str_new2(sun_path);
     OBJ_INFECT(path, addr);
     return path;
 }
@@ -2452,6 +3860,31 @@ sock_define_const(name, value)
     rb_define_const(mConst, name, INT2FIX(value));
 }
 
+/*
+ * Class +Socket+ provides access to the underlying operating system
+ * socket implementations. It can be used to provide more operating system
+ * specific functionality than the protocol-specific socket classes but at the
+ * expense of greater complexity. In particular, the class handles addresses
+ * using +struct sockaddr+ structures packed into Ruby strings, which can be
+ * a joy to manipulate.
+ * 
+ * === Exception Handling
+ * Ruby's implementation of +Socket+ causes an exception to be raised
+ * based on the error generated by the system dependent implementation.
+ * This is why the methods are documented in a way that isolate
+ * Unix-based system exceptions from Windows based exceptions. If more
+ * information on particular exception is needed please refer to the 
+ * Unix manual pages or the Windows WinSock reference.
+ * 
+ * 
+ * === Documentation by
+ * * Zach Dennis
+ * * Sam Roberts
+ * * <em>Programming Ruby</em> from The Pragmatic Bookshelf.  
+ * 
+ * Much material in this documentation is taken with permission from  
+ * <em>Programming Ruby</em> from The Pragmatic Bookshelf.  
+ */
 void
 Init_socket()
 {
@@ -2475,6 +3908,7 @@ Init_socket()
     rb_define_method(rb_cBasicSocket, "getpeername", bsock_getpeername, 0);
     rb_define_method(rb_cBasicSocket, "send", bsock_send, -1);
     rb_define_method(rb_cBasicSocket, "recv", bsock_recv, -1);
+    rb_define_method(rb_cBasicSocket, "recv_nonblock", bsock_recv_nonblock, -1);
 
     rb_cIPSocket = rb_define_class("IPSocket", rb_cBasicSocket);
     rb_define_global_const("IPsocket", rb_cIPSocket);
@@ -2500,6 +3934,7 @@ Init_socket()
     rb_cTCPServer = rb_define_class("TCPServer", rb_cTCPSocket);
     rb_define_global_const("TCPserver", rb_cTCPServer);
     rb_define_method(rb_cTCPServer, "accept", tcp_accept, 0);
+    rb_define_method(rb_cTCPServer, "accept_nonblock", tcp_accept_nonblock, 0);
     rb_define_method(rb_cTCPServer, "sysaccept", tcp_sysaccept, 0);
     rb_define_method(rb_cTCPServer, "initialize", tcp_svr_init, -1);
     rb_define_method(rb_cTCPServer, "listen", sock_listen, 1);
@@ -2510,6 +3945,7 @@ Init_socket()
     rb_define_method(rb_cUDPSocket, "connect", udp_connect, 2);
     rb_define_method(rb_cUDPSocket, "bind", udp_bind, 2);
     rb_define_method(rb_cUDPSocket, "send", udp_send, -1);
+    rb_define_method(rb_cUDPSocket, "recvfrom_nonblock", udp_recvfrom_nonblock, -1);
 
 #ifdef HAVE_SYS_UN_H
     rb_cUNIXSocket = rb_define_class("UNIXSocket", rb_cBasicSocket);
@@ -2528,6 +3964,7 @@ Init_socket()
     rb_define_global_const("UNIXserver", rb_cUNIXServer);
     rb_define_method(rb_cUNIXServer, "initialize", unix_svr_init, 1);
     rb_define_method(rb_cUNIXServer, "accept", unix_accept, 0);
+    rb_define_method(rb_cUNIXServer, "accept_nonblock", unix_accept_nonblock, 0);
     rb_define_method(rb_cUNIXServer, "sysaccept", unix_sysaccept, 0);
     rb_define_method(rb_cUNIXServer, "listen", sock_listen, 1);
 #endif
@@ -2536,12 +3973,15 @@ Init_socket()
 
     rb_define_method(rb_cSocket, "initialize", sock_initialize, 3);
     rb_define_method(rb_cSocket, "connect", sock_connect, 1);
+    rb_define_method(rb_cSocket, "connect_nonblock", sock_connect_nonblock, 1);
     rb_define_method(rb_cSocket, "bind", sock_bind, 1);
     rb_define_method(rb_cSocket, "listen", sock_listen, 1);
     rb_define_method(rb_cSocket, "accept", sock_accept, 0);
+    rb_define_method(rb_cSocket, "accept_nonblock", sock_accept_nonblock, 0);
     rb_define_method(rb_cSocket, "sysaccept", sock_sysaccept, 0);
 
     rb_define_method(rb_cSocket, "recvfrom", sock_recvfrom, -1);
+    rb_define_method(rb_cSocket, "recvfrom_nonblock", sock_recvfrom_nonblock, -1);
 
     rb_define_singleton_method(rb_cSocket, "socketpair", sock_s_socketpair, 3);
     rb_define_singleton_method(rb_cSocket, "pair", sock_s_socketpair, 3);
@@ -2607,6 +4047,195 @@ Init_socket()
 #ifdef INET6
     sock_define_const("PF_INET6", PF_INET6);
 #endif
+#ifdef AF_LOCAL
+    sock_define_const("AF_LOCAL", AF_LOCAL);
+#endif
+#ifdef PF_LOCAL
+    sock_define_const("PF_LOCAL", PF_LOCAL);
+#endif
+#ifdef AF_IMPLINK
+    sock_define_const("AF_IMPLINK", AF_IMPLINK);
+#endif
+#ifdef PF_IMPLINK
+    sock_define_const("PF_IMPLINK", PF_IMPLINK);
+#endif
+#ifdef AF_PUP
+    sock_define_const("AF_PUP", AF_PUP);
+#endif
+#ifdef PF_PUP
+    sock_define_const("PF_PUP", PF_PUP);
+#endif
+#ifdef AF_CHAOS
+    sock_define_const("AF_CHAOS", AF_CHAOS);
+#endif
+#ifdef PF_CHAOS
+    sock_define_const("PF_CHAOS", PF_CHAOS);
+#endif
+#ifdef AF_NS
+    sock_define_const("AF_NS", AF_NS);
+#endif
+#ifdef PF_NS
+    sock_define_const("PF_NS", PF_NS);
+#endif
+#ifdef AF_ISO
+    sock_define_const("AF_ISO", AF_ISO);
+#endif
+#ifdef PF_ISO
+    sock_define_const("PF_ISO", PF_ISO);
+#endif
+#ifdef AF_OSI
+    sock_define_const("AF_OSI", AF_OSI);
+#endif
+#ifdef PF_OSI
+    sock_define_const("PF_OSI", PF_OSI);
+#endif
+#ifdef AF_ECMA
+    sock_define_const("AF_ECMA", AF_ECMA);
+#endif
+#ifdef PF_ECMA
+    sock_define_const("PF_ECMA", PF_ECMA);
+#endif
+#ifdef AF_DATAKIT
+    sock_define_const("AF_DATAKIT", AF_DATAKIT);
+#endif
+#ifdef PF_DATAKIT
+    sock_define_const("PF_DATAKIT", PF_DATAKIT);
+#endif
+#ifdef AF_CCITT
+    sock_define_const("AF_CCITT", AF_CCITT);
+#endif
+#ifdef PF_CCITT
+    sock_define_const("PF_CCITT", PF_CCITT);
+#endif
+#ifdef AF_SNA
+    sock_define_const("AF_SNA", AF_SNA);
+#endif
+#ifdef PF_SNA
+    sock_define_const("PF_SNA", PF_SNA);
+#endif
+#ifdef AF_DEC
+    sock_define_const("AF_DEC", AF_DEC);
+#endif
+#ifdef PF_DEC
+    sock_define_const("PF_DEC", PF_DEC);
+#endif
+#ifdef AF_DLI
+    sock_define_const("AF_DLI", AF_DLI);
+#endif
+#ifdef PF_DLI
+    sock_define_const("PF_DLI", PF_DLI);
+#endif
+#ifdef AF_LAT
+    sock_define_const("AF_LAT", AF_LAT);
+#endif
+#ifdef PF_LAT
+    sock_define_const("PF_LAT", PF_LAT);
+#endif
+#ifdef AF_HYLINK
+    sock_define_const("AF_HYLINK", AF_HYLINK);
+#endif
+#ifdef PF_HYLINK
+    sock_define_const("PF_HYLINK", PF_HYLINK);
+#endif
+#ifdef AF_ROUTE
+    sock_define_const("AF_ROUTE", AF_ROUTE);
+#endif
+#ifdef PF_ROUTE
+    sock_define_const("PF_ROUTE", PF_ROUTE);
+#endif
+#ifdef AF_LINK
+    sock_define_const("AF_LINK", AF_LINK);
+#endif
+#ifdef PF_LINK
+    sock_define_const("PF_LINK", PF_LINK);
+#endif
+#ifdef AF_COIP
+    sock_define_const("AF_COIP", AF_COIP);
+#endif
+#ifdef PF_COIP
+    sock_define_const("PF_COIP", PF_COIP);
+#endif
+#ifdef AF_CNT
+    sock_define_const("AF_CNT", AF_CNT);
+#endif
+#ifdef PF_CNT
+    sock_define_const("PF_CNT", PF_CNT);
+#endif
+#ifdef AF_SIP
+    sock_define_const("AF_SIP", AF_SIP);
+#endif
+#ifdef PF_SIP
+    sock_define_const("PF_SIP", PF_SIP);
+#endif
+#ifdef AF_NDRV
+    sock_define_const("AF_NDRV", AF_NDRV);
+#endif
+#ifdef PF_NDRV
+    sock_define_const("PF_NDRV", PF_NDRV);
+#endif
+#ifdef AF_ISDN
+    sock_define_const("AF_ISDN", AF_ISDN);
+#endif
+#ifdef PF_ISDN
+    sock_define_const("PF_ISDN", PF_ISDN);
+#endif
+#ifdef AF_NATM
+    sock_define_const("AF_NATM", AF_NATM);
+#endif
+#ifdef PF_NATM
+    sock_define_const("PF_NATM", PF_NATM);
+#endif
+#ifdef AF_SYSTEM
+    sock_define_const("AF_SYSTEM", AF_SYSTEM);
+#endif
+#ifdef PF_SYSTEM
+    sock_define_const("PF_SYSTEM", PF_SYSTEM);
+#endif
+#ifdef AF_NETBIOS
+    sock_define_const("AF_NETBIOS", AF_NETBIOS);
+#endif
+#ifdef PF_NETBIOS
+    sock_define_const("PF_NETBIOS", PF_NETBIOS);
+#endif
+#ifdef AF_PPP
+    sock_define_const("AF_PPP", AF_PPP);
+#endif
+#ifdef PF_PPP
+    sock_define_const("PF_PPP", PF_PPP);
+#endif
+#ifdef AF_ATM
+    sock_define_const("AF_ATM", AF_ATM);
+#endif
+#ifdef PF_ATM
+    sock_define_const("PF_ATM", PF_ATM);
+#endif
+#ifdef AF_NETGRAPH
+    sock_define_const("AF_NETGRAPH", AF_NETGRAPH);
+#endif
+#ifdef PF_NETGRAPH
+    sock_define_const("PF_NETGRAPH", PF_NETGRAPH);
+#endif
+#ifdef AF_MAX
+    sock_define_const("AF_MAX", AF_MAX);
+#endif
+#ifdef PF_MAX
+    sock_define_const("PF_MAX", PF_MAX);
+#endif
+#ifdef AF_E164
+    sock_define_const("AF_E164", AF_E164);
+#endif
+#ifdef PF_XTP
+    sock_define_const("PF_XTP", PF_XTP);
+#endif
+#ifdef PF_RTIP
+    sock_define_const("PF_RTIP", PF_RTIP);
+#endif
+#ifdef PF_PIP
+    sock_define_const("PF_PIP", PF_PIP);
+#endif
+#ifdef PF_KEY
+    sock_define_const("PF_KEY", PF_KEY);
+#endif
 
     sock_define_const("MSG_OOB", MSG_OOB);
 #ifdef MSG_PEEK
@@ -2614,6 +4243,42 @@ Init_socket()
 #endif
 #ifdef MSG_DONTROUTE
     sock_define_const("MSG_DONTROUTE", MSG_DONTROUTE);
+#endif
+#ifdef MSG_EOR
+    sock_define_const("MSG_EOR", MSG_EOR);
+#endif
+#ifdef MSG_TRUNC
+    sock_define_const("MSG_TRUNC", MSG_TRUNC);
+#endif
+#ifdef MSG_CTRUNC
+    sock_define_const("MSG_CTRUNC", MSG_CTRUNC);
+#endif
+#ifdef MSG_WAITALL
+    sock_define_const("MSG_WAITALL", MSG_WAITALL);
+#endif
+#ifdef MSG_DONTWAIT
+    sock_define_const("MSG_DONTWAIT", MSG_DONTWAIT);
+#endif
+#ifdef MSG_EOF
+    sock_define_const("MSG_EOF", MSG_EOF);
+#endif
+#ifdef MSG_FLUSH
+    sock_define_const("MSG_FLUSH", MSG_FLUSH);
+#endif
+#ifdef MSG_HOLD
+    sock_define_const("MSG_HOLD", MSG_HOLD);
+#endif
+#ifdef MSG_SEND
+    sock_define_const("MSG_SEND", MSG_SEND);
+#endif
+#ifdef MSG_HAVEMORE
+    sock_define_const("MSG_HAVEMORE", MSG_HAVEMORE);
+#endif
+#ifdef MSG_RCVMORE
+    sock_define_const("MSG_RCVMORE", MSG_RCVMORE);
+#endif
+#ifdef MSG_COMPAT
+    sock_define_const("MSG_COMPAT", MSG_COMPAT);
 #endif
 
     sock_define_const("SOL_SOCKET", SOL_SOCKET);
@@ -2799,6 +4464,9 @@ Init_socket()
     sock_define_const("SO_DEBUG", SO_DEBUG);
 #endif
     sock_define_const("SO_REUSEADDR", SO_REUSEADDR);
+#ifdef SO_REUSEPORT
+    sock_define_const("SO_REUSEPORT", SO_REUSEPORT);
+#endif
 #ifdef SO_TYPE
     sock_define_const("SO_TYPE", SO_TYPE);
 #endif
@@ -2849,6 +4517,33 @@ Init_socket()
 #endif
 #ifdef SO_SNDTIMEO
     sock_define_const("SO_SNDTIMEO", SO_SNDTIMEO);
+#endif
+#ifdef SO_ACCEPTCONN
+    sock_define_const("SO_ACCEPTCONN", SO_ACCEPTCONN);
+#endif
+#ifdef SO_USELOOPBACK
+    sock_define_const("SO_USELOOPBACK", SO_USELOOPBACK);
+#endif
+#ifdef SO_ACCEPTFILTER
+    sock_define_const("SO_ACCEPTFILTER", SO_ACCEPTFILTER);
+#endif
+#ifdef SO_DONTTRUNC
+    sock_define_const("SO_DONTTRUNC", SO_DONTTRUNC);
+#endif
+#ifdef SO_WANTMORE
+    sock_define_const("SO_WANTMORE", SO_WANTMORE);
+#endif
+#ifdef SO_WANTOOBFLAG
+    sock_define_const("SO_WANTOOBFLAG", SO_WANTOOBFLAG);
+#endif
+#ifdef SO_NREAD
+    sock_define_const("SO_NREAD", SO_NREAD);
+#endif
+#ifdef SO_NKE
+    sock_define_const("SO_NKE", SO_NKE);
+#endif
+#ifdef SO_NOSIGPIPE
+    sock_define_const("SO_NOSIGPIPE", SO_NOSIGPIPE);
 #endif
 
 #ifdef SO_SECURITY_AUTHENTICATION

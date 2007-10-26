@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: wire_test.c,v 1.60.12.7 2005/03/17 03:58:29 marka Exp $ */
+/* $Id: wire_test.c,v 1.63.18.2 2005/03/17 03:57:09 marka Exp $ */
 
 #include <config.h>
 

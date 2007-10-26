@@ -70,7 +70,11 @@
 static bool_t
 x_putlong(xdrs, longp)
 	XDR *xdrs;
+#ifdef __LP64__
+	int *longp;
+#else
 	long *longp;
+#endif
 {
 	xdrs->x_handy += BYTES_PER_XDR_UNIT;
 	return (TRUE);
@@ -109,7 +113,7 @@ x_inline(xdrs, len)
 	XDR *xdrs;
 	u_int len;
 {
-	long llen;
+	size_t llen;
 
 	if (len == 0) {
 		return (NULL);
@@ -120,7 +124,7 @@ x_inline(xdrs, len)
 
 	llen = len;
 	
-	if (llen < xdrs->x_base) {
+	if (llen < (size_t)xdrs->x_base) {
 		/* x_private was already allocated */
 		xdrs->x_handy += llen;
 		return ((int32_t *) xdrs->x_private);
@@ -158,7 +162,11 @@ x_destroy(xdrs)
 	return;
 }
 
+#ifdef __LP64__
+unsigned int
+#else
 unsigned long
+#endif
 xdr_sizeof(func, data)
 	xdrproc_t func;
 	void *data;
@@ -167,7 +175,11 @@ xdr_sizeof(func, data)
 	struct xdr_ops ops;
 	bool_t stat;
 	/* to stop ANSI-C compiler from complaining */
+#ifdef __LP64__
+	typedef  bool_t (* dummyfunc1)(XDR *, int *);
+#else
 	typedef  bool_t (* dummyfunc1)(XDR *, long *);
+#endif
 	typedef  bool_t (* dummyfunc2)(XDR *, caddr_t, u_int);
 
 	ops.x_putlong = x_putlong;

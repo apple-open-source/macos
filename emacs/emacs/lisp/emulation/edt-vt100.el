@@ -1,9 +1,10 @@
 ;;; edt-vt100.el --- enhanced EDT keypad mode emulation for VT series terminals
 
-;; Copyright (C) 1986, 1992, 1993, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1986, 1992, 1993, 1995, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Kevin Gallagher <kevingal@onramp.net>
-;; Maintainer: Kevin Gallagher <kevingal@onramp.net>
+;; Author: Kevin Gallagher <Kevin.Gallagher@boeing.com>
+;; Maintainer: Kevin Gallagher <Kevin.Gallagher@boeing.com>
 ;; Keywords: emulations
 
 ;; This file is part of GNU Emacs.
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -46,4 +47,5 @@
   "Set terminal width to 132 columns."
   (vt100-wide-mode 1))
 
+;;; arch-tag: c9f10c95-915f-44b5-93ff-4654abca4dd4
 ;;; edt-vt100.el ends here

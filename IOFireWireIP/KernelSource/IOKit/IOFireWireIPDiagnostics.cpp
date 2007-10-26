@@ -35,7 +35,9 @@ OSObject * IOFireWireIPDiagnostics::createDiagnostics( IOFireWireIP* obj )
 		diagnostics = NULL;
 	}
 	
-	diagnostics->fIPObj = obj;
+	diagnostics->fIPObj		= obj;
+	
+	bzero(&obj->fIPoFWDiagnostics, sizeof(IOFireWireIP::IPoFWDiagnostics));
 	
 	return diagnostics;
 }
@@ -49,40 +51,52 @@ bool IOFireWireIPDiagnostics::serialize( OSSerialize * s ) const
 	if( !dictionary )
 		return false;
 		
-	/////////
-	updateNumberEntry( dictionary, fIPObj->fTxBcast, "TxB");
-	updateNumberEntry( dictionary, fIPObj->fRxBcast, "RxB");
-	updateNumberEntry( dictionary, fIPObj->fTxUni, "TxU");
-	updateNumberEntry( dictionary, fIPObj->fRxUni, "RxU");
-	updateNumberEntry( dictionary, fIPObj->fRxFragmentPkts, "RxF");
-	updateNumberEntry( dictionary, fIPObj->fTxFragmentPkts, "TxF");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fTxBcast, "TxB");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fRxBcast, "RxB");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fTxUni, "TxU");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fRxUni, "RxU");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fRxFragmentPkts, "RxF");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fTxFragmentPkts, "TxF");
 
     updateNumberEntry( dictionary, fIPObj->transmitQueue->getState(), "tqState");
     updateNumberEntry( dictionary, fIPObj->transmitQueue->getStallCount(), "tqStall");
     updateNumberEntry( dictionary, fIPObj->transmitQueue->getRetryCount(), "tqRetries");
     updateNumberEntry( dictionary, fIPObj->transmitQueue->getSize(), "tqSize");
-	updateNumberEntry( dictionary, fIPObj->fMissedQRestarts, "tqMissedRestarts");
 
-	updateNumberEntry( dictionary, fIPObj->fActiveCmds, "activeCmds" );
-	updateNumberEntry( dictionary, fIPObj->fNoCommands, "NoCommands" );
-	updateNumberEntry( dictionary, fIPObj->fNoBCastCommands, "NoBcastCommands" );
-	updateNumberEntry( dictionary, fIPObj->fInActiveCmds, "inActiveCmds" );
-	updateNumberEntry( dictionary, fIPObj->fDoubleCompletes, "attemptedDC" );
-	updateNumberEntry( dictionary, fIPObj->fSubmitErrs, "submitErrs" );
-	updateNumberEntry( dictionary, fIPObj->fCallErrs, "completionErrs" );
-	updateNumberEntry( dictionary, fIPObj->fStalls, "fwStalls");
-	updateNumberEntry( dictionary, fIPObj->fNoResources, "fwIPNoResources");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fActiveBcastCmds, "fwActiveBCastCmds" );
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fInActiveBcastCmds, "fwInActiveBCastCmds" );
+
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fActiveCmds, "fwActiveCmds" );
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fNoCommands, "fwNoCommands" );
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fNoBCastCommands, "fwNoBcastCommands" );
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fInActiveCmds, "fwInActiveCmds" );
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fDoubleCompletes, "fwAttemptedDC" );
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fSubmitErrs, "fwSubmitErrs" );
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fCallErrs, "fwCompletionErrs" );
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fNoResources, "fwIPNoResources");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fMaxQueueSize, "fwMaxQueueSize");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fServiceInOutput, "fwServiceInOP");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fServiceInCallback, "fwServiceInCB");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fLastStarted, "fwLastStarted");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fMaxPacketSize, "fwMaxPacketSize");
 	
-#ifdef IPFIREWIRE_DIAGNOSTICS
-	fIPObj->fDumpLog = true;
-   	updateNumberEntry( dictionary, fIPObj->fMaxInputCount, "MaxInputCount");
-	updateNumberEntry( dictionary, fIPObj->fMaxPktSize, "MaxPktSize");
-	updateNumberEntry( dictionary, fIPObj->fLcb->maxBroadcastPayload, "maxBroadcastPayload");
-	updateNumberEntry( dictionary, fIPObj->fLcb->maxBroadcastSpeed, "currBroadcastSpeed");
-	updateNumberEntry( dictionary, fIPObj->fPrevBroadcastSpeed, "prevBroadcastSpeed");
-#endif	
-	/////////
-	
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fGaspTagError, "fwGASPTagError");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fGaspHeaderError, "fwGASPHeaderError");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fNonRFC2734Gasp, "fwNonRFC2734Error");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fRemoteGaspError, "fwRemoteGaspError");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fEncapsulationHeaderError, "fwRxBHeaderError");	
+
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.inActiveMbufs, "fwInActiveMbufs");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.activeMbufs, "fwActiveMbufs");	
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fNoMbufs, "fwNoMbufs");	
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fBusyAcks, "fwBusyAcks");	
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fFastRetryBusyAcks, "fwFastRetryBusyAcks");	
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fDoFastRetry, "fwFastRetryOn");	
+
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fInCorrectMCAPDesc, "fwInCorrectMCAPDesc");
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fUnknownMCAPDesc, "fwUnknownMCAPDesc");	
+	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fUnknownGroupAddress, "fwUnknownGroupAddress");	
+
 	ok = dictionary->serialize(s);
 	dictionary->release();
 	
@@ -100,12 +114,3 @@ void IOFireWireIPDiagnostics::updateNumberEntry( OSDictionary * dictionary, UInt
 	dictionary->setObject( name, number );
 	number->release();
 }
-
-///////////////////////////
-
-void IOFireWireIPDiagnostics::incrementExecutedORBCount( void )
-{
-	fExecutedORBCount++;
-}
-
-

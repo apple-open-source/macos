@@ -32,7 +32,8 @@
  */
 
 #ifndef lint
-static const char copyright[] =
+#include <sys/cdefs.h>
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1983, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -41,7 +42,7 @@ static const char copyright[] =
 #if 0
 static char sccsid[] = "@(#)uuencode.c	8.2 (Berkeley) 4/2/94";
 #endif
-static const char rcsid[] =
+__unused static const char rcsid[] =
   "$FreeBSD: src/usr.bin/uuencode/uuencode.c,v 1.4.2.4 2002/06/17 05:01:46 jmallett Exp $";
 #endif /* not lint */
 

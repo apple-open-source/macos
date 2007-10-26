@@ -99,35 +99,6 @@ static char rcsid[] = "$Id: res_init.c,v 1.8 2003/02/18 17:29:24 majka Exp $";
 # include "portability.h"
 #endif
 
-/*-------------------------------------- info about "sortlist" --------------
- * Marc Majka		1994/04/16
- * Allan Nathanson	1994/10/29 (BIND 4.9.3.x)
- *
- * NetInfo resolver configuration directory support.
- *
- * Allow a NetInfo directory to be created in the hierarchy which
- * contains the same information as the resolver configuration file.
- *
- * - The local domain name is stored as the value of the "domain" property.
- * - The Internet address(es) of the name server(s) are stored as values
- *   of the "nameserver" property.
- * - The name server addresses are stored as values of the "nameserver"
- *   property.
- * - The search list for host-name lookup is stored as values of the
- *   "search" property.
- * - The sortlist comprised of IP address netmask pairs are stored as
- *   values of the "sortlist" property. The IP address and optional netmask
- *   should be seperated by a slash (/) or ampersand (&) character.
- * - Internal resolver variables can be set from the value of the "options"
- *   property.
- */
-#if defined(__APPLE__) && defined(CONFIGURE_RESOLVER_FROM_NETINFO)
-#  include <netinfo/ni.h>
-#  define NI_PATH_RESCONF "/locations/resolver"
-#  define NI_TIMEOUT 10
-static int netinfo_res_init __P((int *haveenv, int *havesearch));
-#endif
-
 #if defined(USE_OPTIONS_H)
 # include "options.h"
 #endif
@@ -403,9 +374,6 @@ res_init()
 #endif
 	    (void) fclose(fp);
 	}
-#if defined(__APPLE__) && defined(CONFIGURE_RESOLVER_FROM_NETINFO)
-	else netinfo_res_init(&haveenv, &havesearch);
-#endif
 
 	if (_res.defdname[0] == 0 &&
 	    gethostname(buf, sizeof(_res.defdname) - 1) == 0 &&
@@ -509,161 +477,6 @@ net_mask(in)		/* XXX - should really use system's version of this */
 	return (htonl(IN_CLASSC_NET));
 }
 #endif
-
-#if defined(__APPLE__) && defined(CONFIGURE_RESOLVER_FROM_NETINFO)
-static int
-netinfo_res_init(haveenv, havesearch)
-	int *haveenv;
-	int *havesearch;
-{
-    register	int n;
-    void	*domain, *parent;
-    ni_id	dir;
-    ni_status	status;
-    ni_namelist	nl;
-    int		nserv = 0;
-#ifdef RESOLVSORT
-    int		nsort = 0;
-#endif
-
-    status = ni_open(NULL, ".", &domain);
-    if (status == NI_OK) {
-	ni_setreadtimeout(domain, NI_TIMEOUT);
-	ni_setabort(domain, 1);
-
-	/* climb the NetInfo hierarchy to find a resolver directory */
-	while (status == NI_OK) {
-	    status = ni_pathsearch(domain, &dir, NI_PATH_RESCONF);
-	    if (status == NI_OK) {
-	    /* found a resolver directory */
-
-		if (*haveenv == 0) {
-		    /* get the default domain name */
-		    status = ni_lookupprop(domain, &dir, "domain", &nl);
-		    if (status == NI_OK && nl.ni_namelist_len > 0) {
-			(void)strncpy(_res.defdname,
-				      nl.ni_namelist_val[0],
-				      sizeof(_res.defdname) - 1);
-			_res.defdname[sizeof(_res.defdname) - 1] = '\0';
-			ni_namelist_free(&nl);
-			*havesearch = 0;
-		    }
-
-		    /* get search list */
-		    status = ni_lookupprop(domain, &dir, "search", &nl);
-		    if (status == NI_OK && nl.ni_namelist_len > 0) {
-			(void)strncpy(_res.defdname,
-				      nl.ni_namelist_val[0],
-				      sizeof(_res.defdname) - 1);
-			_res.defdname[sizeof(_res.defdname) - 1] = '\0';
-			/* copy  */
-			for (n = 0;
-			     n < nl.ni_namelist_len && n < MAXDNSRCH;
-			     n++) {
-			     /* duplicate up to MAXDNSRCH servers */
-			     char *cp = nl.ni_namelist_val[n];
-			    _res.dnsrch[n] =
-				strcpy((char *)malloc(strlen(cp) + 1), cp);
-			}
-			ni_namelist_free(&nl);
-			*havesearch = 1;
-		    }
-		}
-
-		/* get list of nameservers */
-		status = ni_lookupprop(domain, &dir, "nameserver", &nl);
-		if (status == NI_OK && nl.ni_namelist_len > 0) {
-		    /* copy up to MAXNS servers */
-		    for (n = 0;
-		         n < nl.ni_namelist_len && nserv < MAXNS;
-			 n++) {
-			struct in_addr a;
-
-			if (inet_aton(nl.ni_namelist_val[n], &a)) {
-			    _res.nsaddr_list[nserv].sin_addr = a;
-			    _res.nsaddr_list[nserv].sin_family = AF_INET;
-			    _res.nsaddr_list[nserv].sin_port =
-				htons(NAMESERVER_PORT);
-			    nserv++;
-			}
-		    }
-		    ni_namelist_free(&nl);
-		}
-		
-		if (nserv > 1)
-		    _res.nscount = nserv;
-
-#ifdef RESOLVSORT
-		/* get sort order */
-		status = ni_lookupprop(domain, &dir, "sortlist", &nl);
-		if (status == NI_OK && nl.ni_namelist_len > 0) {
-
-		    /* copy up to MAXRESOLVSORT address/netmask pairs */
-		    for (n = 0;
-		         n < nl.ni_namelist_len && nsort < MAXRESOLVSORT;
-			 n++) {
-			char ch = '\0';
-			char *cp;
-			const char *sp;
-			struct in_addr a;
-
-			cp = NULL;
-			for (sp = sort_mask; *sp; sp++) {
-				char *cp1;
-				cp1 = strchr(nl.ni_namelist_val[n], *sp);
-				if (cp && cp1)
-					cp = (cp < cp1)? cp : cp1;
-				else if (cp1)
-					cp = cp1;
-			}
-			if (cp != NULL) {
-				ch = *cp;
-				*cp = '\0';
-				break;
-			}
-			if (inet_aton(nl.ni_namelist_val[n], &a)) {
-			    _res.sort_list[nsort].addr = a;
-			    if (*cp && ISSORTMASK(ch)) {
-			    	*cp++ = ch;
-			        if (inet_aton(cp, &a)) {
-				    _res.sort_list[nsort].mask = a.s_addr;
-				} else {
-				    _res.sort_list[nsort].mask =
-					net_mask(_res.sort_list[nsort].addr);
-				}
-			    } else {
-				_res.sort_list[nsort].mask =
-				    net_mask(_res.sort_list[nsort].addr);
-			    }
-			    nsort++;
-			}
-		    }
-		    ni_namelist_free(&nl);
-		}
-
-		_res.nsort = nsort;
-#endif
-
-		/* get resolver options */
-		status = ni_lookupprop(domain, &dir, "options", &nl);
-		if (status == NI_OK && nl.ni_namelist_len > 0) {
-		    res_setoptions(nl.ni_namelist_val[0], "conf");
-		    ni_namelist_free(&nl);
-		}
-
-		ni_free(domain);
-		return(1);	/* using DNS configuration from NetInfo */
-	    }
-
-	    status = ni_open(domain, "..", &parent);
-	    ni_free(domain);
-	    if (status == NI_OK)
-		domain = parent;
-	}
-    }
-    return(0);	/* if not using DNS configuration from NetInfo */
-}
-#endif	/* __APPLE__ */
 
 u_int16_t
 res_randomid()

@@ -36,6 +36,12 @@
 
 using namespace __cxxabiv1;
 
+/* APPLE LOCAL begin 4832917 */
+#ifdef __i386__
+#define _keymgr_get_per_thread_data(K) (NULL)
+#define _keymgr_set_per_thread_data(K, D) (0)
+#endif
+/* APPLE LOCAL end 4832917 */
 
 // Single-threaded fallback buffer.
 static __cxa_eh_globals globals_static;

@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language:	NSIS script, for version of NSIS 1.91 and later
 " Maintainer:	Alex Jakushev <Alex.Jakushev@kemek.lt>
-" Last Change:	2002 Jul 24
+" Last Change:	2004 May 12
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -72,6 +72,7 @@ syn keyword nsisBoolean		true false on off
 
 syn keyword nsisAttribOptions	hide show nevershow auto force try ifnewer normal silent silentlog
 syn keyword nsisAttribOptions	smooth colored SET CUR END RO none listonly textonly both current all
+syn keyword nsisAttribOptions	zlib bzip2 lzma
 
 syn match nsisAttribOptions	'\/NOCUSTOM'
 syn match nsisAttribOptions	'\/CUSTOMSTRING'
@@ -132,7 +133,7 @@ syn keyword nsisAttribute	UninstallText UninstallIcon UninstallCaption
 syn keyword nsisAttribute	UninstallSubCaption ShowUninstDetails UninstallButtonText
 
 "COMPILER ATTRIBUTES
-syn keyword nsisCompiler	SetOverwrite SetCompress SetDatablockOptimize SetDateSave
+syn keyword nsisCompiler	SetOverwrite SetCompress SetCompressor SetDatablockOptimize SetDateSave
 
 
 "FUNCTIONS - general purpose
@@ -213,6 +214,9 @@ syn keyword nsisStatement	AddSize
 
 "STATEMENTS - functions
 syn keyword nsisStatement	Function FunctionEnd
+
+"STATEMENTS - pages
+syn keyword nsisStatement	Page UninstPage PageEx PageExEnc PageCallbacks
 
 
 "ERROR

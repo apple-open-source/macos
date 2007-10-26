@@ -2,7 +2,8 @@
 /* { dg-do compile } */
 
 
-#include <objc/Object.h>
+/* APPLE LOCAL radar 4894756 */
+#include "../objc/execute/Object2.h"
 
 @protocol Foo
 - (id)meth1;

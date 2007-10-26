@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,7 @@ __SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 	CFStringRef			sessionKey;
 	CFDictionaryRef			info;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -135,7 +135,7 @@ _notifyviafd(mach_port_t		server,
 	}
 #endif	/* DEBUG */
 
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
 	}
@@ -161,7 +161,7 @@ _notifyviafd(mach_port_t		server,
 	(void) unlink(un.sun_path);
 
 	bufSiz = sizeof(storePrivate->notifyFileIdentifier);
-	if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &bufSiz, sizeof(bufSiz)) < 0) {
+	if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &bufSiz, sizeof(bufSiz)) == -1) {
 		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd setsockopt() failed: %s"), strerror(errno));
 		(void) close(sock);
 		*sc_status = kSCStatusFailed;

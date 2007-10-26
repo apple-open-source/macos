@@ -35,7 +35,7 @@ public:
 		   			CRecNameList			( tDataListPtr inNodeList );
 	virtual		   ~CRecNameList			( void );
 
-	sInt32			GetRecName				( uInt32 inIndex, char **outData );
+	SInt32			GetRecName				( UInt32 inIndex, char **outData );
 
 protected:
 

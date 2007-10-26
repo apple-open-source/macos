@@ -1,5 +1,5 @@
 /* assert.c -- handle assertion failures
- * $Id: assert.c,v 1.5 2005/03/05 00:37:11 dasenbro Exp $
+ * $Id: assert.c,v 1.18 2003/10/22 18:50:12 rjs3 Exp $
  * 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

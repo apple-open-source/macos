@@ -57,6 +57,7 @@ Includes
 
 #include <net/if_types.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <netinet/in_systm.h>
 #include <net/bpf.h>
 #include <net/kpi_interface.h>
@@ -96,7 +97,6 @@ static errno_t  ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
 
 static int 	ppp_if_detach(ifnet_t ifp);
 static struct ppp_if *ppp_if_findunit(u_short unit);
-static u_short 	ppp_if_findfreeunit();
 static int ppp_if_set_bpf_tap(ifnet_t ifp, bpf_tap_mode mode, bpf_packet_func func);
 
 /* -----------------------------------------------------------------------------
@@ -175,7 +175,7 @@ int ppp_if_dispose()
 int ppp_if_attach(u_short *unit)
 {
     int 		ret = 0;	
-    struct ppp_if  	*wan;
+    struct ppp_if  	*wan, *wan1;
 	struct ifnet_init_params init;
 	struct ifnet_stats_param stats;
 	
@@ -184,21 +184,48 @@ int ppp_if_attach(u_short *unit)
         return ENOMEM;
 		
     bzero(wan, sizeof(struct ppp_if));
+	wan->unit = 0xFFFF;
 	
-    // check if number requested is already in use
-    if ((*unit != 0xFFFF) && ppp_if_findunit(*unit)) {
-		lck_mtx_unlock(ppp_domain_mutex);
-		ret = EINVAL;
-		goto error;
+	wan1 = TAILQ_FIRST(&ppp_if_head);
+
+    if (*unit != 0xFFFF) {
+		// if a specific nuber has been requested, find if not in use, and insert it
+		while (wan1) {
+			if (wan1->unit == *unit) {
+				// in use, just return error.
+				lck_mtx_unlock(ppp_domain_mutex);
+				ret = EINVAL;
+				goto error_nolock;
+			}
+			if (wan1->unit > *unit)
+				break;				
+			wan1 = TAILQ_NEXT(wan1, next);
+		}
     }
-    if (*unit == 0xFFFF) 
-		*unit = ppp_if_findfreeunit();
+	else {
+		// find a free unit and insert it, keep the list ordered
+		*unit = 0;
+		wan1 = TAILQ_FIRST(&ppp_if_head);
+		while (wan1) {
+			if (wan1->unit > *unit)
+				break;
+			*unit = wan1->unit + 1;
+			wan1 = TAILQ_NEXT(wan1, next);
+		}
+	}
 	
 	wan->mtx = lck_mtx_alloc_init(ppp_if_lck_grp, ppp_if_lck_attr);
 	if (wan->mtx == 0) {
+		lck_mtx_unlock(ppp_domain_mutex);
 		ret = ENOMEM;
-		goto error;
+		goto error_nolock;
 	}
+
+	wan->unit = *unit;
+	if (wan1)
+		TAILQ_INSERT_BEFORE(wan1, wan, next);
+	else
+		TAILQ_INSERT_TAIL(&ppp_if_head, wan, next);
 
     bzero(&init, sizeof(init));
 	init.name = APPLE_PPP_NAME;
@@ -219,7 +246,7 @@ int ppp_if_attach(u_short *unit)
 
 	ret = ifnet_allocate(&init, &wan->net);
     if (ret)
-        goto error;
+        goto error_nolock;
 
     TAILQ_INIT(&wan->link_head);
 
@@ -230,16 +257,10 @@ int ppp_if_attach(u_short *unit)
 	bzero(&stats, sizeof(stats));
 	ifnet_set_stat(wan->net, &stats);
 	ifnet_touch_lastchange(wan->net);
-
-	lck_mtx_lock(ppp_domain_mutex);
-    TAILQ_INSERT_TAIL(&ppp_if_head, wan, next);
-	lck_mtx_unlock(ppp_domain_mutex);
 	
     ret = ifnet_attach(wan->net, NULL);
-    if (ret) {
-		TAILQ_REMOVE(&ppp_if_head, wan, next);
-        goto error;
-	}
+    if (ret)
+        goto error_nolock;
     
     bpfattach(wan->net, DLT_PPP, PPP_HDRLEN);
 
@@ -252,13 +273,16 @@ int ppp_if_attach(u_short *unit)
 	lck_mtx_lock(ppp_domain_mutex);
     return 0;
 
-error:
+error_nolock:
     if (wan->net)
         ifnet_release(wan->net);
 	if (wan->mtx)
 		lck_mtx_free(wan->mtx, ppp_if_lck_grp);
-    FREE(wan, M_TEMP);
 	lck_mtx_lock(ppp_domain_mutex);
+	if (wan->unit != 0xFFFF) {
+		TAILQ_REMOVE(&ppp_if_head, wan, next);
+	}
+	FREE(wan, M_TEMP);
     return ret;
 }
 
@@ -359,25 +383,6 @@ void ppp_if_detachclient(ifnet_t ifp, void *host)
 }
 
 /* -----------------------------------------------------------------------------
-find a free unit in the interface list
------------------------------------------------------------------------------ */
-u_short ppp_if_findfreeunit()
-{
-    struct ppp_if  	*wan = TAILQ_FIRST(&ppp_if_head);
-    u_short 		unit = 0;
-
-    while (wan) {
-    	if (ifnet_unit(wan->net) == unit) {
-            unit++;
-            wan = TAILQ_FIRST(&ppp_if_head); // restart
-        }
-        else 
-            wan = TAILQ_NEXT(wan, next); // continue
-    }
-    return unit;
-}
-
-/* -----------------------------------------------------------------------------
 find a the unit number in the interface list
 ----------------------------------------------------------------------------- */
 struct ppp_if *ppp_if_findunit(u_short unit)
@@ -385,7 +390,7 @@ struct ppp_if *ppp_if_findunit(u_short unit)
     struct ppp_if  	*wan;
 
     TAILQ_FOREACH(wan, &ppp_if_head, next) {
-        if (ifnet_unit(wan->net) == unit)
+        if (wan->unit == unit)
             return wan; 
     }
     return NULL;
@@ -477,9 +482,16 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
                 LOGDBG(ifp, (LOGVAL, "ppp%d: VJ structure not allocated\n", ifnet_unit(ifp)));
                 goto free;
             }
-    
+                
+			/* get at least ip + tcp header in the mbuf */
+			if (mbuf_len(m) < (sizeof(struct ip) + sizeof(struct tcphdr)) && 
+				mbuf_pullup(&m, (sizeof(struct ip) + sizeof(struct tcphdr)))) {
+                    LOGDBG(ifp, (LOGVAL, "ppp%d: VJ cannot pullup header\n", ifnet_unit(ifp)));
+				goto end;
+			}
+			
             inlen = mbuf_pkthdr_len(m);
-            
+
             if (proto == PPP_VJC_COMP) {
 
                 vjlen = sl_uncompress_tcp_core(p, mbuf_len(m), inlen, TYPE_COMPRESSED_TCP,
@@ -519,6 +531,14 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
                     error = 0;
                     goto free;
                 }
+            }
+            if (wan->npafmode[NP_IP] & NPAFMODE_DHCP_INTERCEPT_SERVER) {
+				if (ppp_ip_bootp_server_in(ifp, mbuf_data(m)))
+					goto reject;
+            }
+            if (wan->npafmode[NP_IP] & NPAFMODE_DHCP_INTERCEPT_CLIENT) {
+                if (ppp_ip_bootp_client_in(ifp, mbuf_data(m)))
+					goto reject;
             }
             break;
         case PPP_IPV6:
@@ -575,6 +595,7 @@ reject:
     
 free:
     mbuf_freem(m);
+end:
 	bzero(&statsinc, sizeof(statsinc));
 	statsinc.errors_in = 1;
 	ifnet_stat_increment(ifp, &statsinc);		
@@ -652,6 +673,7 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
             break;
 
 	case PPPIOCSCOMPRESS:
+	case PPPIOCSCOMPRESS64:
             error = ppp_comp_setcompressor(wan, data);
             break;
 
@@ -907,7 +929,7 @@ errno_t ppp_if_output(ifnet_t ifp, mbuf_t m)
 			ifnet_stat_increment(ifp, &statsinc);		
             return ENOBUFS;
         }
-        *(u_int16_t*)mbuf_data(m) = 0xFF03;
+        *(u_int16_t*)mbuf_data(m) = htons(0xFF03);
 		(*wan->bpf_output)(ifp, m);
         mbuf_adj(m, 2);
     }
@@ -928,9 +950,9 @@ errno_t ppp_if_output(ifnet_t ifp, mbuf_t m)
         return 0;
     }
         
-    ppp_if_send(ifp, m);
+    error = ppp_if_send(ifp, m);
 	lck_mtx_unlock(ppp_domain_mutex);
-    return 0;
+    return error;
 
 bad:
     mbuf_freem(m);
@@ -1085,8 +1107,9 @@ int ppp_if_detachlink(struct ppp_link *link)
 int ppp_if_send(ifnet_t ifp, mbuf_t m)
 {
     struct ppp_if 	*wan = ifnet_softc(ifp);
-    u_int16_t		proto = *(u_int16_t*)mbuf_data(m);	// always the 2 first bytes
+    u_int16_t		proto = ntohs(*(u_int16_t*)mbuf_data(m));	// always the 2 first bytes
 	struct			ifnet_stat_increment_param statsinc;
+	int				error = 0;
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
         
@@ -1119,10 +1142,10 @@ int ppp_if_send(ifnet_t ifp, mbuf_t m)
                     vjtype = sl_compress_tcp(mp, ip, wan->vjcomp, !(wan->sc_flags & SC_NO_TCP_CCID));
                     switch (vjtype) {
                         case TYPE_UNCOMPRESSED_TCP:
-                            *(u_int16_t*)mbuf_data(m) = PPP_VJC_UNCOMP; // update protocol
+                            *(u_int16_t*)mbuf_data(m) = htons(PPP_VJC_UNCOMP); // update protocol
                             break;
                         case TYPE_COMPRESSED_TCP:
-                            *(u_int16_t*)mbuf_data(m) = PPP_VJC_COMP; // header has moved, update protocol
+                            *(u_int16_t*)mbuf_data(m) = htons(PPP_VJC_COMP); // header has moved, update protocol
                         break;
                     }
                     // adjust packet len
@@ -1149,7 +1172,7 @@ int ppp_if_send(ifnet_t ifp, mbuf_t m)
 				ifnet_stat_increment(ifp, &statsinc);		
                 return ENOBUFS;
             }
-            *(u_int16_t*)mbuf_data(m) = PPP_COMP; // update protocol
+            *(u_int16_t*)mbuf_data(m) = htons(PPP_COMP); // update protocol
         } 
     } 
 
@@ -1157,9 +1180,9 @@ int ppp_if_send(ifnet_t ifp, mbuf_t m)
         ppp_enqueue(&wan->sndq, m);
     }
     else 
-       ppp_if_xmit(ifp, m);
+		error = ppp_if_xmit(ifp, m);
     
-    return 0;
+    return error;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1168,7 +1191,7 @@ int ppp_if_xmit(ifnet_t ifp, mbuf_t m)
 {
     struct ppp_if 	*wan = ifnet_softc(ifp);
     struct ppp_link	*link;
-    int 		err, len;
+    int 		error = 0, len;
 	struct		ifnet_stat_increment_param statsinc;
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
@@ -1182,15 +1205,8 @@ int ppp_if_xmit(ifnet_t ifp, mbuf_t m)
         if (link == 0) {
             LOGDBG(ifp, (LOGVAL, "ppp%d: Trying to send data with link detached\n", ifnet_unit(ifp)));
             // just flush everything
-            ifnet_touch_lastchange(ifp);
-            while (m) {
-				bzero(&statsinc, sizeof(statsinc));
-				statsinc.errors_out = 1;
-				ifnet_stat_increment(ifp, &statsinc);		
-                mbuf_freem(m);
-                m = ppp_dequeue(&wan->sndq);
-            };
-            return 1;
+            error = ENXIO;
+			goto flush;
         }
     
         if (link->lk_flags & SC_HOLD) {
@@ -1213,17 +1229,32 @@ int ppp_if_xmit(ifnet_t ifp, mbuf_t m)
         // since we tested the lk_flags, ppp_link_send should not failed
         // except if there is a dramatic error
         link->lk_flags |= SC_XMIT_BUSY;
-        err = ppp_link_send(link, m);
+        error = ppp_link_send(link, m);
         link->lk_flags &= ~SC_XMIT_BUSY;
-        if (err) {
+        if (error) {
             // packet has been freed by link lower layer
-            return err;
+			m = 0;
+			goto flush;
         }
             
          m = ppp_dequeue(&wan->sndq);
     }
      
     return 0;
+	
+flush:
+
+	ifnet_touch_lastchange(ifp);
+	do {
+		bzero(&statsinc, sizeof(statsinc));
+		statsinc.errors_out = 1;
+		ifnet_stat_increment(ifp, &statsinc);
+		if (m)
+			mbuf_freem(m);
+		m = ppp_dequeue(&wan->sndq);
+	}
+	while (m);
+	return error;
 }
 
 /* -----------------------------------------------------------------------------

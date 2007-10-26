@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,8 +31,9 @@ bool AppleRAID::init()
     
     raidSets = OSDictionary::withCapacity(0x10);
     raidMembers = OSDictionary::withCapacity(0x10);
+    logicalVolumes = OSDictionary::withCapacity(0x10);
     
-    return (raidSets && raidMembers);
+    return (raidSets && raidMembers && logicalVolumes);
 }
 
 void AppleRAID::free()
@@ -44,6 +45,10 @@ void AppleRAID::free()
     if (raidMembers) {
         raidMembers->release();
         raidMembers = 0;
+    }
+    if (logicalVolumes) {
+        logicalVolumes->release();
+        logicalVolumes = 0;
     }
 
     super::free();
@@ -69,12 +74,12 @@ void AppleRAID::removeSet(AppleRAIDSet * set)
     }
 }
 
-AppleRAIDSet *AppleRAID::findSet(const OSString *uuid)
+AppleRAIDSet * AppleRAID::findSet(const OSString *uuid)
 {
     return OSDynamicCast(AppleRAIDSet, raidSets->getObject(uuid));
 }
 
-AppleRAIDSet *AppleRAID::findSet(AppleRAIDMember * member)
+AppleRAIDSet * AppleRAID::findSet(AppleRAIDMember * member)
 {
     const OSString * setUUID = member->getSetUUID();
     if (setUUID == 0) return 0;
@@ -104,9 +109,34 @@ void AppleRAID::removeMember(AppleRAIDMember * member)
     }
 }
 
-AppleRAIDMember *AppleRAID::findMember(const OSString *uuid)
+AppleRAIDMember * AppleRAID::findMember(const OSString *uuid)
 {
     return OSDynamicCast(AppleRAIDMember, raidMembers->getObject(uuid));
+}
+
+// **************************************************************************************************
+
+void AppleRAID::addLogicalVolume(AppleLVMVolume *volume)
+{
+    const OSString * uuid = volume->getVolumeUUID();
+
+    if (uuid) {
+	logicalVolumes->setObject(uuid, volume);
+    }
+}
+
+void AppleRAID::removeLogicalVolume(AppleLVMVolume * volume)
+{
+    const OSString * uuid = volume->getVolumeUUID();
+
+    if (uuid) {
+	logicalVolumes->removeObject(uuid);
+    }
+}
+
+AppleLVMVolume * AppleRAID::findLogicalVolume(const OSString *uuid)
+{
+    return OSDynamicCast(AppleLVMVolume, logicalVolumes->getObject(uuid));
 }
 
 // **************************************************************************************************
@@ -175,6 +205,9 @@ IOReturn AppleRAID::newMember(IORegistryEntry * child)
 	    } else 
 	    if (raidLevel->isEqualTo(kAppleRAIDLevelNameStripe)) {
 		set = AppleRAIDStripeSet::createRAIDSet(member);
+            } else 
+	    if (raidLevel->isEqualTo(kAppleRAIDLevelNameLVG)) {
+		set = AppleLVMGroup::createRAIDSet(member);
             }
 
 	    if (set) {
@@ -245,15 +278,22 @@ IOReturn AppleRAID::oldMember(IORegistryEntry * child)
 
 	AppleRAIDMember * member = OSDynamicCast(AppleRAIDMember, child);
 	if (member == 0) break;
-	
+
+	// still tracking this member?
+	const OSString * memberUUID = member->getUUID();
+	if (!memberUUID || findMember(memberUUID) != member) break;
+
+	// does it still belong to a raid set?
 	AppleRAIDSet * set = findSet(member);
 	if (!set) break;
+
+	set->retain();
 
 	removeMember(member);
 	set->removeMember(member, 0);
 
 	// if this member's set is empty then nuke the set as well
-	if ((set->getActiveCount() == 0) && (set->getSpareCount() == 0)) {
+ 	if ((set->getActiveCount() == 0) && (set->getSpareCount() == 0)) {
 
 	    // if this set is part of another set then handle that first
 	    if (set->isRAIDMember()) {
@@ -263,21 +303,24 @@ IOReturn AppleRAID::oldMember(IORegistryEntry * child)
 	    IOLog1("AppleRAID::oldMember(%p) terminating parent raid set %p.\n", child, set);
 	    removeSet(set);
 	} else {
+	    set->release();
 	    set = NULL;
 	}
 
-	IOLog1("AppleRAID::oldMember(%p) was successful.\n", child);
 	gAppleRAIDGlobals.unlock();
 
 	if (set) {
 	    IOLog("AppleRAID: terminating set \"%s\" (%s).\n", set->getSetNameString(), set->getUUIDString());
 	    set->terminate();
+	    set->release();
 	}
+
+	IOLog1("AppleRAID::oldMember(%p) was successful.\n", child);
 
 	return kIOReturnSuccess;
     }
 
-    IOLog1("AppleRAID::oldMember(%p) failed.\n", child);
+    IOLog1("AppleRAID::oldMember(%p) lookup failed.\n", child);
     gAppleRAIDGlobals.unlock();
     return kIOReturnError;
 }
@@ -376,13 +419,14 @@ void AppleRAID::restartSet(AppleRAIDSet *set, bool bump)
 }
 
 
-IOReturn AppleRAID::updateSet(char * setInfoBuffer, char * retBuffer, IOByteCount setInfoBufferSize, IOByteCount * retBufferSize)
+IOReturn AppleRAID::updateSet(char * setInfoBuffer, uint32_t setInfoBufferSize, char * retBuffer, uint32_t * retBufferSize)
 {
     IOReturn rc = kIOReturnSuccess;
     IOLog1("AppleRAID::updateSet() entered\n");
 
     if (!isOpen()) return kIOReturnNotOpen;
     if (!setInfoBuffer || !setInfoBufferSize) return kIOReturnBadArgument;
+    if (!retBuffer || !retBufferSize) return kIOReturnBadArgument;
 
     // this code is running under the global raid lock        
     gAppleRAIDGlobals.lock();
@@ -391,8 +435,10 @@ IOReturn AppleRAID::updateSet(char * setInfoBuffer, char * retBuffer, IOByteCoun
 	OSString * errmsg = 0;
 	OSDictionary * updateInfo = OSDynamicCast(OSDictionary, OSUnserializeXML(setInfoBuffer, &errmsg));
 	if (!updateInfo) {
-	    if (errmsg) IOLog("AppleRAID::updateSet - header parsing failed with %s\n", errmsg->getCStringNoCopy());
-	    errmsg->release();
+	    if (errmsg) {
+		IOLog("AppleRAID::updateSet - header parsing failed with %s\n", errmsg->getCStringNoCopy());
+		errmsg->release();
+	    }
 	    rc = kIOReturnBadArgument;
 	    break;
 	}
@@ -420,7 +466,7 @@ IOReturn AppleRAID::updateSet(char * setInfoBuffer, char * retBuffer, IOByteCoun
 
 	    case kAppleRAIDUpdateResetSet:
 
-		startSet(set);
+		startSet(set);	// rescan raid headers (stacked sets)
 		break;
 
 	    case kAppleRAIDUpdateDestroySet:
@@ -466,7 +512,7 @@ IOReturn AppleRAID::updateSet(char * setInfoBuffer, char * retBuffer, IOByteCoun
 	    if (parentSet) parentSet->arSetCommandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, parentSet, &AppleRAIDSet::unpauseSet));
 	}
 
-	*(UInt32 *)retBuffer = set->getSequenceNumber();
+	*(UInt32 *)retBuffer = set->getSequenceNumber();   // XXX this looks wrong for the destroy case?
 	*retBufferSize = sizeof(UInt32);
 
 	updateInfo->release();
@@ -484,8 +530,7 @@ IOReturn AppleRAID::updateSet(char * setInfoBuffer, char * retBuffer, IOByteCoun
 // *****************************************************************************
 
 
-
-IOReturn AppleRAID::getListOfSets(UInt32 inFlags, char * outList, IOByteCount * outListSize)
+IOReturn AppleRAID::getListOfSets(UInt32 inFlags, char * outList, uint32_t * outListSize)
 {
     OSCollectionIterator * iter = 0;
     OSArray * keys = 0;
@@ -566,7 +611,7 @@ IOReturn AppleRAID::getListOfSets(UInt32 inFlags, char * outList, IOByteCount * 
 }
 
 
-IOReturn AppleRAID::getSetProperties(char * setString, char * outProp, IOByteCount setStringSize, IOByteCount * outPropSize)
+IOReturn AppleRAID::getSetProperties(char * setString, uint32_t setStringSize, char * outProp, uint32_t * outPropSize)
 {
     IOReturn rc = kIOReturnError;
     const OSString * setName = 0;
@@ -574,7 +619,7 @@ IOReturn AppleRAID::getSetProperties(char * setString, char * outProp, IOByteCou
     OSDictionary * props = 0;
     OSSerialize * s = 0;
 
-    IOLog1("AppleRAID::getSetProperties() entered\n");
+    IOLog1("AppleRAID::getSetProperties(%s) entered\n", setString);
 
     if (!isOpen()) return kIOReturnNotOpen;
     if (!setString || !outProp || !outPropSize) return kIOReturnBadArgument;
@@ -629,7 +674,7 @@ IOReturn AppleRAID::getSetProperties(char * setString, char * outProp, IOByteCou
 }
 
 
-IOReturn AppleRAID::getMemberProperties(char * memberString, char * outProp, IOByteCount memberStringSize, IOByteCount * outPropSize)
+IOReturn AppleRAID::getMemberProperties(char * memberString, uint32_t memberStringSize, char * outProp, uint32_t * outPropSize)
 {
     IOReturn rc = kIOReturnError;
     const OSString * memberName = 0;
@@ -637,7 +682,7 @@ IOReturn AppleRAID::getMemberProperties(char * memberString, char * outProp, IOB
     OSDictionary * props = 0;
     OSSerialize * s = 0;
 
-    IOLog1("AppleRAID::getMemberProperties() entered\n");
+    IOLog2("AppleRAID::getMemberProperties(%s) entered\n", memberString);
 
     if (!isOpen()) return kIOReturnNotOpen;
     if (!memberString || !outProp || !outPropSize) return kIOReturnBadArgument;
@@ -688,5 +733,310 @@ IOReturn AppleRAID::getMemberProperties(char * memberString, char * outProp, IOB
 
     gAppleRAIDGlobals.unlock();
 
+    return rc;
+}
+
+// *****************************************************************************
+
+IOReturn AppleRAID::getVolumesForGroup(char * lvgString, uint32_t lvgStringSize, char * arrayString, uint32_t * outArraySize)
+{
+    IOReturn rc = kIOReturnError;
+    const OSString * lvgName = 0;
+    AppleLVMGroup * lvg = 0;
+    const OSString * memberName = 0;
+    AppleRAIDMember * member = 0;
+    OSArray * array = 0;
+    OSSerialize * s = 0;
+
+    IOLog1("AppleRAID::getVolumesForGroup(%s) for member %s entered\n",
+	   lvgString, lvgString[kAppleRAIDMaxUUIDStringSize] ? &lvgString[kAppleRAIDMaxUUIDStringSize] : "<all>");
+
+    if (!isOpen()) return kIOReturnNotOpen;
+    if (!lvgString || !arrayString || !outArraySize) return kIOReturnBadArgument;
+
+    arrayString[0] = 0;
+
+    // this code is running under the global raid lock        
+    gAppleRAIDGlobals.lock();
+
+    while (1) {
+    
+	lvgName = OSString::withCString(lvgString);
+	if (!lvgName) break;
+	lvg = OSDynamicCast(AppleLVMGroup, findSet(lvgName));
+	if (!lvg) break;
+
+	if (lvgString[kAppleRAIDMaxUUIDStringSize]) {
+	    memberName = OSString::withCString(&lvgString[kAppleRAIDMaxUUIDStringSize]);
+	    if (!memberName) break;
+	    member = findMember(memberName);
+	    if (!member) break;
+	}
+
+	// get the prop list from the volume
+	array = lvg->buildLogicalVolumeListFromTOC(member);
+	if (!array) break;
+
+	s = OSSerialize::withCapacity(512);
+	if (!s) break;
+	
+	s->clearText();
+	if (!array->serialize(s)) break;
+
+	if (*outArraySize < s->getLength()) {
+	    IOLog("AppleRAID::getVolumeForGroup() return buffer too small, need %d bytes, received %d.\n",
+		  (int)s->getLength(), (int)*outArraySize);
+	    rc = kIOReturnNoSpace;
+	    break;
+	}
+	
+	IOLog2("AppleRAID::getVolumesForGroup() size = %u array = %s\n", s->getLength(), s->text());
+
+	*outArraySize = s->getLength();
+	bcopy(s->text(), arrayString, *outArraySize);
+
+	rc = kIOReturnSuccess;
+	break;
+    }
+    if (lvgName) lvgName->release();
+    if (memberName) memberName->release();
+    if (array) array->release();
+    if (s) s->release();
+
+    if (rc) *outArraySize = 0;
+
+    gAppleRAIDGlobals.unlock();
+
+    return rc;
+}
+
+IOReturn AppleRAID::getVolumeProperties(char * lvString, uint32_t lvStringSize, char * outProp, uint32_t * outPropSize)
+{
+    IOReturn rc = kIOReturnError;
+    const OSString * lvName = 0;
+    AppleLVMVolume * lv = 0;
+    OSDictionary * props = 0;
+    OSSerialize * s = 0;
+
+    IOLog1("AppleRAID::getVolumeProperties(%s) entered\n", lvString);
+
+    if (!isOpen()) return kIOReturnNotOpen;
+    if (!lvString || !outProp || !outPropSize) return kIOReturnBadArgument;
+
+    outProp[0] = 0;
+
+    // this code is running under the global raid lock        
+    gAppleRAIDGlobals.lock();
+
+    while (1) {
+    
+	lvName = OSString::withCString(lvString);
+	if (!lvName) break;
+
+	lv = findLogicalVolume(lvName);
+	if (!lv) break;
+
+	// get the prop list from the volume
+	props = lv->getVolumeProperties();
+	if (!props) break;
+
+	s = OSSerialize::withCapacity(512);
+	if (!s) break;
+	
+	s->clearText();
+	if (!props->serialize(s)) break;
+
+	if (*outPropSize < s->getLength()) {
+	    IOLog("AppleRAID::getVolumeProperties() return buffer too small, need %d bytes, received %d.\n",
+		  (int)s->getLength(), (int)*outPropSize);
+	    rc = kIOReturnNoSpace;
+	    break;
+	}
+	
+	*outPropSize = s->getLength();
+	bcopy(s->text(), outProp, *outPropSize);
+
+	rc = kIOReturnSuccess;
+	break;
+    }
+    if (lvName) lvName->release();
+    if (props) props->release();
+    if (s) s->release();
+
+    if (rc) *outPropSize = 0;
+
+    gAppleRAIDGlobals.unlock();
+
+    return rc;
+}
+
+
+IOReturn AppleRAID::getVolumeExtents(char * lvString, uint32_t lvStringSize, char * extentsBuffer, uint32_t * extentsSize)
+{
+    IOReturn rc = kIOReturnError;
+    const OSString * lvName = 0;
+    AppleLVMVolume * lv = 0;
+    AppleLVMGroup * lvg = 0;
+
+    IOLog1("AppleRAID::getVolumeExtents(%s) entered\n", lvString);
+
+    if (!isOpen()) return kIOReturnNotOpen;
+    if (!lvString || !extentsBuffer || !extentsSize) return kIOReturnBadArgument;
+
+    // this code is running under the global raid lock        
+    gAppleRAIDGlobals.lock();
+
+    while (1) {
+    
+	lvName = OSString::withCString(lvString);
+	if (!lvName) break;
+
+	// get the extent list from the volume
+	AppleRAIDExtentOnDisk * extent = (AppleRAIDExtentOnDisk *)extentsBuffer;
+
+	lv = findLogicalVolume(lvName);
+	if (!lv) {
+
+	    // the lvg list is special
+	    lvg = OSDynamicCast(AppleLVMGroup, findSet(lvName));
+	    if (!lvg) break;
+
+	    UInt64 extentCount = lvg->getExtentCount();
+	    if (extentCount * sizeof(AppleRAIDExtentOnDisk) > *extentsSize) {
+		extent->extentByteOffset = extentCount;
+		extent->extentByteCount = 0;
+		*extentsSize = sizeof(AppleRAIDExtentOnDisk);
+		rc = kIOReturnSuccess;  // error is indicated via return buffer
+	    } else {
+		if (lvg->buildExtentList(extent)) {
+		    *extentsSize = extentCount * sizeof(AppleRAIDExtentOnDisk);
+		    rc = kIOReturnSuccess;
+		}
+	    }
+	    IOLog1("LVG %s (%p) has %llu total extents.\n", lvString, lvg, extentCount);
+	    break;
+	} 
+
+	UInt64 extentCount = lv->getExtentCount();
+	if (extentCount * sizeof(AppleRAIDExtentOnDisk) > *extentsSize) {
+	    extent->extentByteOffset = extentCount;
+	    extent->extentByteCount = 0;
+	    *extentsSize = sizeof(AppleRAIDExtentOnDisk);
+	    rc = kIOReturnSuccess;  // error is indicated via return buffer
+	} else {
+	    if (lv->buildExtentList(extent)) {
+		*extentsSize = extentCount * sizeof(AppleRAIDExtentOnDisk);
+		rc = kIOReturnSuccess;
+	    }
+	}
+	IOLog1("LV %s (%p) has %llu extents.\n", lvString, lv, extentCount);
+
+	break;
+    }
+    if (lvName) lvName->release();
+
+    if (rc) *extentsSize = 0;
+
+    gAppleRAIDGlobals.unlock();
+
+    return rc;
+}
+
+
+IOReturn AppleRAID::updateLogicalVolume(char * lveBuffer, uint32_t lveBufferSize, char * retBuffer, uint32_t * retBufferSize)
+{
+    OSDictionary * lvProps = NULL;
+    IOReturn rc = kIOReturnBadArgument;
+    IOLog1("AppleRAID::updateLogicalVolume() entered\n");
+
+    if (!isOpen()) return kIOReturnNotOpen;
+    if (!lveBuffer || !lveBufferSize) return kIOReturnBadArgument;
+    if (!retBuffer || !retBufferSize) return kIOReturnBadArgument;
+
+    AppleLVMVolumeOnDisk * lve = (AppleLVMVolumeOnDisk *)lveBuffer;
+
+    // this code is running under the global raid lock        
+    gAppleRAIDGlobals.lock();
+
+    while (1) {
+
+	lvProps = AppleLVMVolume::propsFromHeader(lve);
+	if (!lvProps) break;
+
+	// find the set
+	const OSString * setUUIDString = OSDynamicCast(OSString, lvProps->getObject(kAppleLVMGroupUUIDKey));
+	AppleLVMGroup * lvg = OSDynamicCast(AppleLVMGroup, findSet(setUUIDString));
+	if (!lvg) break;
+
+	// if sequence number has changed then bail, something has changed
+	// the logical volume should be updated with the current LVG sequence number
+	OSNumber * number = OSDynamicCast(OSNumber, lvProps->getObject(kAppleLVMVolumeSequenceKey));
+	if (!number) break;
+	UInt32 seqNum = number->unsigned32BitValue();
+	if (seqNum && seqNum != lvg->getSequenceNumber()) { rc = kIOReturnBadMessageID; break; };
+
+	// look up the volume UUID, this might be an update
+	const OSString * lvUUIDString = OSDynamicCast(OSString, lvProps->getObject(kAppleLVMVolumeUUIDKey));
+	AppleLVMVolume * lv = OSDynamicCast(AppleLVMVolume, findLogicalVolume(lvUUIDString));
+
+	// do something
+
+	if (lv) {
+	    rc = lvg->updateLogicalVolume(lv, lvProps, lve);
+	} else {
+	    rc = lvg->createLogicalVolume(lvProps, lve);
+	}
+
+	*(UInt32 *)retBuffer = lvg->getSequenceNumber();
+	*retBufferSize = sizeof(UInt32);
+
+	break;
+    }
+    
+    gAppleRAIDGlobals.unlock();
+
+    if (lvProps) lvProps->release();
+
+    IOLog1("AppleRAID::updateLogicalVolume() was %ssuccessful.\n", rc ? "un" : "");
+    return rc;
+}
+
+
+IOReturn AppleRAID::destroyLogicalVolume(char * lvString, uint32_t lvStringSize, char * retBuffer, uint32_t * retBufferSize)
+{
+    IOReturn rc = kIOReturnBadArgument;
+    IOLog1("AppleRAID::destroyLogicalVolume() entered\n");
+
+    if (!isOpen()) return kIOReturnNotOpen;
+    if (!lvString || !lvStringSize) return kIOReturnBadArgument;
+    if (!retBuffer || !retBufferSize) return kIOReturnBadArgument;
+
+    // this code is running under the global raid lock        
+    gAppleRAIDGlobals.lock();
+
+    while (1) {
+	OSString * lvName = OSString::withCString(lvString);
+	if (!lvName) break;
+
+	AppleLVMVolume * lv = findLogicalVolume(lvName);
+	if (!lv) break;
+
+	const OSString * lvgUUID = lv->getGroupUUID();
+	if (!lvgUUID) break;
+	AppleLVMGroup * lvg = (AppleLVMGroup *)findSet(lvgUUID);
+	if (!lvg) break;
+	
+	// do something
+	rc = lvg->destroyLogicalVolume(lv);
+
+	*(UInt32 *)retBuffer = lvg->getSequenceNumber();
+	*retBufferSize = sizeof(UInt32);
+
+	break;
+    }
+    
+    gAppleRAIDGlobals.unlock();
+
+    IOLog1("AppleRAID::destroyLogicalVolume() was %ssuccessful.\n", rc ? "un" : "");
     return rc;
 }

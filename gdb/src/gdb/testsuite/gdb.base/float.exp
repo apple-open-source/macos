@@ -69,6 +69,10 @@ if { [istarget "alpha*-*-*"] } then {
     gdb_test "info float" "f0.*f1.*f127.*" "info float"
 } elseif [istarget "m68k-*-*"] then {
     gdb_test "info float" "fp0.*fp1.*fp7.*" "info float"
+} elseif [istarget "mips*-*-*"] then {
+    gdb_test "info float" "f0:.*flt:.*dbl:.*" "info float"
+} elseif [istarget "powerpc*-*-*"] then {
+    gdb_test "info float" "f0.*f1.*f31.*fpscr.*" "info float"
 } elseif [istarget "s390*-*-*"] then {
     gdb_test "info float" "fpc.*f0.*f1.*f15.*" "info float"
 } elseif [istarget "sh*-*"] then {
@@ -83,9 +87,10 @@ if { [istarget "alpha*-*-*"] } then {
     }
 } elseif [istarget "powerpc*-*-*"] then {
     gdb_test "info float" "f0.*${float}\[ \t\]+\\(raw ${hex}\\).*fpscr *${hex}\[ \t\]+${decimal}.*" "info float"
+} elseif [istarget "hppa*-*"] then {
+    gdb_test "info float" "fr4.*fr4R.*fr31R.*" "info float"
 } else {
-    gdb_test "info float" "No floating.point info available for this processor."
- "info float"
+    gdb_test "info float" "No floating.point info available for this processor." "info float (unknown target)"
 }
 
 gdb_test "print 3" "3" "print 3"

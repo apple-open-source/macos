@@ -1,4 +1,25 @@
-/* s- file for building Emacs on AIX 3.2.  */
+/* s- file for building Emacs on AIX 3.2.
+
+   Copyright (C) 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
 
 #include "aix3-1.h"
 
@@ -15,7 +36,6 @@
 #define C_SWITCH_SYSTEM -ma -qmaxmem=4000
 #endif
 
-#define HAVE_ALLOCA
 /* Adrian Colley <Adrian.Colley@three.serpentine.com> says this is needed.  */
 #ifndef NOT_C_CODE
 #ifndef AIX4
@@ -25,8 +45,6 @@
 
 #undef rindex
 #undef index
-
-#define HAVE_FSYNC
 
 /* With this defined, a gcc-compiled Emacs crashed in realloc under AIX
    3.2, and a cc-compiled Emacs works with this undefined.
@@ -52,3 +70,6 @@
    lose declaring char * rindex without this.
    It is just a guess which versions of AIX need this definition.  */
 #undef HAVE_STRING_H
+
+/* arch-tag: 0935754d-67e1-4697-978a-3e9976da05c3
+   (do not change this comment) */

@@ -2,7 +2,7 @@
 
 THIS FILE IS MACHINE GENERATED WITH CGEN.
 
-Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+Copyright 1996-2005 Free Software Foundation, Inc.
 
 This file is part of the GNU Binutils and/or GDB, the GNU debugger.
 
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
 
 */
 
@@ -43,7 +43,7 @@ static const CGEN_ATTR_ENTRY bool_attr[] =
   { 0, 0 }
 };
 
-static const CGEN_ATTR_ENTRY MACH_attr[] =
+static const CGEN_ATTR_ENTRY MACH_attr[] ATTRIBUTE_UNUSED =
 {
   { "base", MACH_BASE },
   { "iq2000", MACH_IQ2000 },
@@ -52,7 +52,7 @@ static const CGEN_ATTR_ENTRY MACH_attr[] =
   { 0, 0 }
 };
 
-static const CGEN_ATTR_ENTRY ISA_attr[] =
+static const CGEN_ATTR_ENTRY ISA_attr[] ATTRIBUTE_UNUSED =
 {
   { "iq2000", ISA_IQ2000 },
   { "max", ISA_MAX },
@@ -122,7 +122,7 @@ const CGEN_ATTR_TABLE iq2000_cgen_insn_attr_table[] =
 /* Instruction set variants.  */
 
 static const CGEN_ISA iq2000_cgen_isa_table[] = {
-  { "iq2000", 32, 32, 23, 32 },
+  { "iq2000", 32, 32, 32, 32 },
   { 0, 0, 0, 0, 0 }
 };
 
@@ -394,8 +394,8 @@ const CGEN_OPERAND iq2000_cgen_operand_table[] =
   { "count", IQ2000_OPERAND_COUNT, HW_H_UINT, 15, 7,
     { 0, { (const PTR) &iq2000_cgen_ifld_table[IQ2000_F_COUNT] } }, 
     { 0, { (1<<MACH_BASE) } }  },
-/* f-index: index */
-  { "f-index", IQ2000_OPERAND_F_INDEX, HW_H_UINT, 8, 9,
+/* _index: index */
+  { "_index", IQ2000_OPERAND__INDEX, HW_H_UINT, 8, 9,
     { 0, { (const PTR) &iq2000_cgen_ifld_table[IQ2000_F_INDEX] } }, 
     { 0, { (1<<MACH_BASE) } }  },
 /* execode: execcode */
@@ -1167,14 +1167,14 @@ static const CGEN_IBASE iq2000_cgen_insn_table[MAX_INSNS] =
     IQ2000_INSN_PKRL, "pkrl", "pkrl", 32,
     { 0|A(YIELD_INSN)|A(USES_RT)|A(USES_RD), { (1<<MACH_IQ2000) } }
   },
-/* pkrlr1 $rt,$count */
+/* pkrlr1 $rt,$_index,$count */
   {
-    IQ2000_INSN_PKRLR1, "pkrlr1", "pkrlr1", 23,
+    IQ2000_INSN_PKRLR1, "pkrlr1", "pkrlr1", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
-/* pkrlr30 $rt,$count */
+/* pkrlr30 $rt,$_index,$count */
   {
-    IQ2000_INSN_PKRLR30, "pkrlr30", "pkrlr30", 23,
+    IQ2000_INSN_PKRLR30, "pkrlr30", "pkrlr30", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
 /* rb $rd,$rt */
@@ -1182,14 +1182,14 @@ static const CGEN_IBASE iq2000_cgen_insn_table[MAX_INSNS] =
     IQ2000_INSN_RB, "rb", "rb", 32,
     { 0|A(YIELD_INSN)|A(USES_RT)|A(USES_RD), { (1<<MACH_IQ2000) } }
   },
-/* rbr1 $rt,$count */
+/* rbr1 $rt,$_index,$count */
   {
-    IQ2000_INSN_RBR1, "rbr1", "rbr1", 23,
+    IQ2000_INSN_RBR1, "rbr1", "rbr1", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
-/* rbr30 $rt,$count */
+/* rbr30 $rt,$_index,$count */
   {
-    IQ2000_INSN_RBR30, "rbr30", "rbr30", 23,
+    IQ2000_INSN_RBR30, "rbr30", "rbr30", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
 /* rfe */
@@ -1202,14 +1202,14 @@ static const CGEN_IBASE iq2000_cgen_insn_table[MAX_INSNS] =
     IQ2000_INSN_RX, "rx", "rx", 32,
     { 0|A(YIELD_INSN)|A(USES_RT)|A(USES_RD), { (1<<MACH_IQ2000) } }
   },
-/* rxr1 $rt,$count */
+/* rxr1 $rt,$_index,$count */
   {
-    IQ2000_INSN_RXR1, "rxr1", "rxr1", 23,
+    IQ2000_INSN_RXR1, "rxr1", "rxr1", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
-/* rxr30 $rt,$count */
+/* rxr30 $rt,$_index,$count */
   {
-    IQ2000_INSN_RXR30, "rxr30", "rxr30", 23,
+    IQ2000_INSN_RXR30, "rxr30", "rxr30", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
 /* sleep */
@@ -1267,24 +1267,24 @@ static const CGEN_IBASE iq2000_cgen_insn_table[MAX_INSNS] =
     IQ2000_INSN_WBU, "wbu", "wbu", 32,
     { 0|A(YIELD_INSN)|A(USES_RT)|A(USES_RD), { (1<<MACH_IQ2000) } }
   },
-/* wbr1 $rt,$count */
+/* wbr1 $rt,$_index,$count */
   {
-    IQ2000_INSN_WBR1, "wbr1", "wbr1", 23,
+    IQ2000_INSN_WBR1, "wbr1", "wbr1", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
-/* wbr1u $rt,$count */
+/* wbr1u $rt,$_index,$count */
   {
-    IQ2000_INSN_WBR1U, "wbr1u", "wbr1u", 23,
+    IQ2000_INSN_WBR1U, "wbr1u", "wbr1u", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
-/* wbr30 $rt,$count */
+/* wbr30 $rt,$_index,$count */
   {
-    IQ2000_INSN_WBR30, "wbr30", "wbr30", 23,
+    IQ2000_INSN_WBR30, "wbr30", "wbr30", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
-/* wbr30u $rt,$count */
+/* wbr30u $rt,$_index,$count */
   {
-    IQ2000_INSN_WBR30U, "wbr30u", "wbr30u", 23,
+    IQ2000_INSN_WBR30U, "wbr30u", "wbr30u", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
 /* wx $rd,$rt */
@@ -1297,24 +1297,24 @@ static const CGEN_IBASE iq2000_cgen_insn_table[MAX_INSNS] =
     IQ2000_INSN_WXU, "wxu", "wxu", 32,
     { 0|A(YIELD_INSN)|A(USES_RT)|A(USES_RD), { (1<<MACH_IQ2000) } }
   },
-/* wxr1 $rt,$count */
+/* wxr1 $rt,$_index,$count */
   {
-    IQ2000_INSN_WXR1, "wxr1", "wxr1", 23,
+    IQ2000_INSN_WXR1, "wxr1", "wxr1", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
-/* wxr1u $rt,$count */
+/* wxr1u $rt,$_index,$count */
   {
-    IQ2000_INSN_WXR1U, "wxr1u", "wxr1u", 23,
+    IQ2000_INSN_WXR1U, "wxr1u", "wxr1u", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
-/* wxr30 $rt,$count */
+/* wxr30 $rt,$_index,$count */
   {
-    IQ2000_INSN_WXR30, "wxr30", "wxr30", 23,
+    IQ2000_INSN_WXR30, "wxr30", "wxr30", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
-/* wxr30u $rt,$count */
+/* wxr30u $rt,$_index,$count */
   {
-    IQ2000_INSN_WXR30U, "wxr30u", "wxr30u", 23,
+    IQ2000_INSN_WXR30U, "wxr30u", "wxr30u", 32,
     { 0|A(YIELD_INSN)|A(USES_RT), { (1<<MACH_IQ2000) } }
   },
 /* ldw $rt,$lo16($base) */
@@ -1863,27 +1863,23 @@ static const CGEN_IBASE iq2000_cgen_insn_table[MAX_INSNS] =
 #undef A
 
 /* Initialize anything needed to be done once, before any cpu_open call.  */
-static void init_tables PARAMS ((void));
 
 static void
-init_tables ()
+init_tables (void)
 {
 }
 
-static const CGEN_MACH * lookup_mach_via_bfd_name
-  PARAMS ((const CGEN_MACH *, const char *));
-static void build_hw_table  PARAMS ((CGEN_CPU_TABLE *));
-static void build_ifield_table  PARAMS ((CGEN_CPU_TABLE *));
-static void build_operand_table PARAMS ((CGEN_CPU_TABLE *));
-static void build_insn_table    PARAMS ((CGEN_CPU_TABLE *));
-static void iq2000_cgen_rebuild_tables PARAMS ((CGEN_CPU_TABLE *));
+static const CGEN_MACH * lookup_mach_via_bfd_name (const CGEN_MACH *, const char *);
+static void build_hw_table      (CGEN_CPU_TABLE *);
+static void build_ifield_table  (CGEN_CPU_TABLE *);
+static void build_operand_table (CGEN_CPU_TABLE *);
+static void build_insn_table    (CGEN_CPU_TABLE *);
+static void iq2000_cgen_rebuild_tables (CGEN_CPU_TABLE *);
 
 /* Subroutine of iq2000_cgen_cpu_open to look up a mach via its bfd name.  */
 
 static const CGEN_MACH *
-lookup_mach_via_bfd_name (table, name)
-     const CGEN_MACH *table;
-     const char *name;
+lookup_mach_via_bfd_name (const CGEN_MACH *table, const char *name)
 {
   while (table->name)
     {
@@ -1897,8 +1893,7 @@ lookup_mach_via_bfd_name (table, name)
 /* Subroutine of iq2000_cgen_cpu_open to build the hardware table.  */
 
 static void
-build_hw_table (cd)
-     CGEN_CPU_TABLE *cd;
+build_hw_table (CGEN_CPU_TABLE *cd)
 {
   int i;
   int machs = cd->machs;
@@ -1924,8 +1919,7 @@ build_hw_table (cd)
 /* Subroutine of iq2000_cgen_cpu_open to build the hardware table.  */
 
 static void
-build_ifield_table (cd)
-     CGEN_CPU_TABLE *cd;
+build_ifield_table (CGEN_CPU_TABLE *cd)
 {
   cd->ifld_table = & iq2000_cgen_ifld_table[0];
 }
@@ -1933,8 +1927,7 @@ build_ifield_table (cd)
 /* Subroutine of iq2000_cgen_cpu_open to build the hardware table.  */
 
 static void
-build_operand_table (cd)
-     CGEN_CPU_TABLE *cd;
+build_operand_table (CGEN_CPU_TABLE *cd)
 {
   int i;
   int machs = cd->machs;
@@ -1942,8 +1935,7 @@ build_operand_table (cd)
   /* MAX_OPERANDS is only an upper bound on the number of selected entries.
      However each entry is indexed by it's enum so there can be holes in
      the table.  */
-  const CGEN_OPERAND **selected =
-    (const CGEN_OPERAND **) xmalloc (MAX_OPERANDS * sizeof (CGEN_OPERAND *));
+  const CGEN_OPERAND **selected = xmalloc (MAX_OPERANDS * sizeof (* selected));
 
   cd->operand_table.init_entries = init;
   cd->operand_table.entry_size = sizeof (CGEN_OPERAND);
@@ -1966,12 +1958,11 @@ build_operand_table (cd)
    operand elements to be in the table [which they mightn't be].  */
 
 static void
-build_insn_table (cd)
-     CGEN_CPU_TABLE *cd;
+build_insn_table (CGEN_CPU_TABLE *cd)
 {
   int i;
   const CGEN_IBASE *ib = & iq2000_cgen_insn_table[0];
-  CGEN_INSN *insns = (CGEN_INSN *) xmalloc (MAX_INSNS * sizeof (CGEN_INSN));
+  CGEN_INSN *insns = xmalloc (MAX_INSNS * sizeof (CGEN_INSN));
 
   memset (insns, 0, MAX_INSNS * sizeof (CGEN_INSN));
   for (i = 0; i < MAX_INSNS; ++i)
@@ -1984,8 +1975,7 @@ build_insn_table (cd)
 /* Subroutine of iq2000_cgen_cpu_open to rebuild the tables.  */
 
 static void
-iq2000_cgen_rebuild_tables (cd)
-     CGEN_CPU_TABLE *cd;
+iq2000_cgen_rebuild_tables (CGEN_CPU_TABLE *cd)
 {
   int i;
   unsigned int isas = cd->isas;
@@ -1997,7 +1987,7 @@ iq2000_cgen_rebuild_tables (cd)
 #define UNSET (CGEN_SIZE_UNKNOWN + 1)
   cd->default_insn_bitsize = UNSET;
   cd->base_insn_bitsize = UNSET;
-  cd->min_insn_bitsize = 65535; /* some ridiculously big number */
+  cd->min_insn_bitsize = 65535; /* Some ridiculously big number.  */
   cd->max_insn_bitsize = 0;
   for (i = 0; i < MAX_ISAS; ++i)
     if (((1 << i) & isas) != 0)
@@ -2009,7 +1999,7 @@ iq2000_cgen_rebuild_tables (cd)
 	if (cd->default_insn_bitsize == UNSET)
 	  cd->default_insn_bitsize = isa->default_insn_bitsize;
 	else if (isa->default_insn_bitsize == cd->default_insn_bitsize)
-	  ; /* this is ok */
+	  ; /* This is ok.  */
 	else
 	  cd->default_insn_bitsize = CGEN_SIZE_UNKNOWN;
 
@@ -2018,7 +2008,7 @@ iq2000_cgen_rebuild_tables (cd)
 	if (cd->base_insn_bitsize == UNSET)
 	  cd->base_insn_bitsize = isa->base_insn_bitsize;
 	else if (isa->base_insn_bitsize == cd->base_insn_bitsize)
-	  ; /* this is ok */
+	  ; /* This is ok.  */
 	else
 	  cd->base_insn_bitsize = CGEN_SIZE_UNKNOWN;
 
@@ -2130,12 +2120,12 @@ iq2000_cgen_cpu_open (enum cgen_cpu_open_arg arg_type, ...)
     }
   va_end (ap);
 
-  /* mach unspecified means "all" */
+  /* Mach unspecified means "all".  */
   if (machs == 0)
     machs = (1 << MAX_MACHS) - 1;
-  /* base mach is always selected */
+  /* Base mach is always selected.  */
   machs |= 1;
-  /* isa unspecified means "all" */
+  /* ISA unspecified means "all".  */
   if (isas == 0)
     isas = (1 << MAX_ISAS) - 1;
   if (endian == CGEN_ENDIAN_UNKNOWN)
@@ -2168,9 +2158,7 @@ iq2000_cgen_cpu_open (enum cgen_cpu_open_arg arg_type, ...)
    MACH_NAME is the bfd name of the mach.  */
 
 CGEN_CPU_DESC
-iq2000_cgen_cpu_open_1 (mach_name, endian)
-     const char *mach_name;
-     enum cgen_endian endian;
+iq2000_cgen_cpu_open_1 (const char *mach_name, enum cgen_endian endian)
 {
   return iq2000_cgen_cpu_open (CGEN_CPU_OPEN_BFDMACH, mach_name,
 			       CGEN_CPU_OPEN_ENDIAN, endian,
@@ -2183,8 +2171,7 @@ iq2000_cgen_cpu_open_1 (mach_name, endian)
    place as some simulator ports use this but they don't use libopcodes.  */
 
 void
-iq2000_cgen_cpu_close (cd)
-     CGEN_CPU_DESC cd;
+iq2000_cgen_cpu_close (CGEN_CPU_DESC cd)
 {
   unsigned int i;
   const CGEN_INSN *insns;
@@ -2193,23 +2180,17 @@ iq2000_cgen_cpu_close (cd)
     {
       insns = cd->macro_insn_table.init_entries;
       for (i = 0; i < cd->macro_insn_table.num_init_entries; ++i, ++insns)
-	{
-	  if (CGEN_INSN_RX ((insns)))
-	    regfree (CGEN_INSN_RX (insns));
-	}
+	if (CGEN_INSN_RX ((insns)))
+	  regfree (CGEN_INSN_RX (insns));
     }
 
   if (cd->insn_table.init_entries)
     {
       insns = cd->insn_table.init_entries;
       for (i = 0; i < cd->insn_table.num_init_entries; ++i, ++insns)
-	{
-	  if (CGEN_INSN_RX (insns))
-	    regfree (CGEN_INSN_RX (insns));
-	}
-    }
-
-  
+	if (CGEN_INSN_RX (insns))
+	  regfree (CGEN_INSN_RX (insns));
+    }  
 
   if (cd->macro_insn_table.init_entries)
     free ((CGEN_INSN *) cd->macro_insn_table.init_entries);

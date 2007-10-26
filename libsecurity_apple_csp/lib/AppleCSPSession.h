@@ -162,13 +162,19 @@ private:
 								const CssmData &Param,
 								CSSM_DATA *keyData);	
 
+	void					DeriveKey_OpenSSH1(
+								const Context &context,
+								CSSM_ALGORITHMS algId,
+								const CssmData &Param,
+								CSSM_DATA *keyData);	
+
 	/* CMS wrap/unwrap, called out from standard wrap/unwrap */
 	void WrapKeyCms(
 		CSSM_CC_HANDLE CCHandle,
 		const Context &Context,
 		const AccessCredentials &AccessCred,
 		const CssmKey &UnwrappedKey,
-	CssmData &rawBlob,
+		CssmData &rawBlob,
 		bool allocdRawBlob,			// callee has to free rawBlob
 		const CssmData *DescriptiveData,
 		CssmKey &WrappedKey,
@@ -184,6 +190,27 @@ private:
 		CSSM_PRIVILEGE Privilege,
 		cspKeyStorage keyStorage);
 
+	/* OpenSSHv1 wrap/unwrap, called out from standard wrap/unwrap */
+	void WrapKeyOpenSSH1(
+		CSSM_CC_HANDLE CCHandle,
+		const Context &Context,
+		const AccessCredentials &AccessCred,
+		BinaryKey &unwrappedBinKey,
+		CssmData &rawBlob,
+		bool allocdRawBlob,			// callee has to free rawBlob
+		const CssmData *DescriptiveData,
+		CssmKey &WrappedKey,
+		CSSM_PRIVILEGE Privilege);
+		
+	void UnwrapKeyOpenSSH1(
+		CSSM_CC_HANDLE CCHandle,
+		const Context &Context,
+		const CssmKey &WrappedKey,
+		const CSSM_RESOURCE_CONTROL_CONTEXT *CredAndAclEntry,
+		CssmKey &UnwrappedKey,
+		CssmData &DescriptiveData,
+		CSSM_PRIVILEGE Privilege,
+		cspKeyStorage keyStorage);
 
 	/* 
 	 * Used for generating crypto contexts at this level. 

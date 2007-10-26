@@ -8,8 +8,9 @@
 </names>
 
 <usage>
-	<arg>filename<desc>This is the filename</desc></arg>
-	<arg optional="1">output_filename<desc>This is the filename</desc></arg>
+	<flag optional="1">f<desc>Force destination file to be overwritten if it exists.</desc></flag>
+	<arg>filename<desc>the file to be processed</desc></arg>
+	<arg optional="1">output_filename<desc>the destination file</desc></arg>
 </usage>
 
 <environment>

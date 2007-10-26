@@ -24,7 +24,7 @@
 /*
  * bsd_signal() function, per POIX 1003.1-2003
  */
-#include <sys/signal.h>
+#include <signal.h>
 
 void
 (*bsd_signal(int sig, void (*func)(int)))(int)

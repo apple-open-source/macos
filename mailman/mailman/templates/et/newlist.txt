@@ -7,7 +7,7 @@ Listi parool on:
 
 Seda parooli läheb tarvis listi konfiguratsiooni muutmiseks. Sama
 parooli kasutatakse ka administreerimiseks, näiteks kirja listi 
-lubamiseks, kui otsustad listi muuta modereeritavaks.
+lubamiseks, kui tegemist on modereeritava listiga
 
 Listi saab konfigureerida aadressilt:
 
@@ -18,7 +18,7 @@ Listi kasutajate jaoks on veebileht aadressil:
     %(listinfo_url)s
 
 Mõlema lehe kujundust on võimalik muuta listi konfigureerimise
-juures, kuid selleks pead tundma HTMLi.
+juures, kuid selleks peab tundma HTMLi.
 
 Eksisteerib ka meilipõhine kasutajaliides listi kasutajatele
 (mitte administraatoritele); selle kohta saab infot saates
@@ -26,11 +26,11 @@ kirja, mille sisus on ainult sõna "help" aadressile:
 
     %(requestaddr)s
 
-Tellija aadressi eemaldamiseks listist ava 'listinfo' veebileht,
+Tellija aadressi kustutamiseks listist ava 'listinfo' veebileht,
 seejärel klikkige vastavale aadressile või sisesta see tekstiväljale.
 Parooliks sisestage listi administraatoriparool. Sealtsamast saab
-muuta ka kõiki selle listi tellija seadistusi, k.a. referaatide
-saatmine, saatmise katkestamine, jne.
+muuta ka kõiki selle listi tellija seadistusi, k.a. kokkuvõtete
+saatmine, tellimuse peatamine, jne.
 
 Võimalikele küsimustele vastab ja probleeme lahendab
 	%(siteowner)s

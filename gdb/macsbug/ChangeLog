@@ -1,3 +1,156 @@
+2007-03-02  Jim Ingham  <jingham@apple.com>
+
+	* Makefile: Use install rather than "cp -p" since the latter
+	has started preserving the user, which is causing verification
+	failures.
+	
+2006-10-30  Jim Ingham  <jingham@apple.com>
+	From Ira:
+
+        2006-08-21  Ira Ruben  <iraruben@acm.org>
+
+	* MacsBug.h: Changed copyright date.
+	(hex_string): Deleted.
+	(comm_max): New field for DisasmData.
+	(DISASM_PC_AREA): New flag for DisasmData.
+	(curr_function): Deleted extern.
+	(macsbug_generation): New counter for run, attach, etc. commands.
+	(show_selectors): New switch for new SET mb-objc-selectors.
+	(comment_insns): New switch for new SET mb-comment-insns.
+	
+	* MacsBug_display.c: Changed copyright date.
+	(pc_wrap): New static global to diefine max pc area length.
+	(write_to_history_area): Recompute len after detabbing line.
+	(info registers fails without this).
+	(display_pc_area): Delay "x/0i" until we need it .
+	Use newly added pc_wrap instead of (max_cols - pc_left).
+	Set new disasm_info.comm_max DisasmData value.
+	Set DISASM_PC_AREA flag.
+	(save_stack): Added arg to gdb_read_memory_from_addr call.
+	(__display_side_bar): Ditto.
+	(define_macsbug_screen_positions): Correct comment.
+	Set pc_wrap.
+	(refresh): Removed CLEAR_LINE from MacsBug screen prompts because
+	it causes the input line to be erased when backspacing over the
+	first char of input (if line is long enough -- why only the first
+	is a mystery). But it appears we can live without the CLEAR_LINE.
+	(update_macsbug_prompt): Ditto.
+	(my_raw_input_prompt_setter): Ditto.
+	(macsbug_off): Reversed order of gdb_close_output() calls.
+	
+	* MacsBug_patches.c: Changed copyright date and fixed some
+	formatting.
+	(macsbug_generation): New "timer" for run, attach, etc. commands.
+	(run_command): Increment new macsbug_generation "timer".
+	(new_breakpoint): Changed format for long long value.
+	
+	* MacsBug_plugins.c: Changed copyright date.
+	(so_and_si): Fixed typo in comment.
+	(init_from_gdb): Fix to not return value from void function.
+	
+	* MacsBug_set.c: Changed copyright date.
+	(show_selectors): Added for SET mb-objc-selectors.
+	(comment_insns): Added for SET mb-comment-insns.
+	(selector_args): Added for SET mb-objc-selectors.
+	(insns_args): Added for SET mb-comment-insns.
+	(macsbug_set): Added period at end of all display messages.
+	(update_pc_area): New function to update pc-area.
+	(set_gdb_demangle): Call update_pc_area.
+	(set_wrap): Confirmation message changed.
+	(set_objc_selector): Added for SET mb-objc-selectors.
+	(set_insns_comments): Added for SET mb-comment-insns.
+	(DITTO_DESCRIPTION): Added period at end of help message.
+	(UNMANGLE_DESCRIPTION): Ditto.
+	(ECHO_DESCRIPTION): Ditto.
+	(WRAP_DESCRIPTION): Reworded to cover asm lines.
+	(SOSI_DESCRIPTION): Added period at end of help message.
+	(DX_DESCRIPTION): Ditto.
+	(SIDEBAR_DESCRIPTION): Ditto.
+	(SELECTOR_DESCRIPTION): Added for SET mb-objc-selectors.
+	(INSNS_DESCRIPTION): Added for SET mb-comment-insns.
+	(TAB_DESCRIPTION): Added period at end of help message.
+	(PC_AREA_DESCRIPTION): Ditto.
+	(CMD_AREA_DESCRIPTION): Ditto.
+	(HISTORY_DESCRIPTION): Ditto.
+	(HEXDUMP_WIDTH_DESCRIPTION): Ditto.
+	(HEXDUMP_GROUP_DESCRIPTION): Ditto.
+	(set_arch): Added period at end of all display messages.
+	(TESTING_DESCRIPTION): Added period at end of help message.
+	(SET_ARCH_DESCRIPTION): Ditto.
+	(init_macsbug_set): Restored for_set_and_show arg.
+	Added SET mb-objc-selectors command.
+	Added SET mb-comment-insns command.
+	
+	* MacsBug_testing.i: Changed copyright date.
+	Added test to debug string_for_ptr and experiment with
+	object file operations.
+	Added tests to validate changed SET/SHOW code.
+	
+	* MacsBug_utils.c: Changed copyright date.
+	Added #include <setjmp.h>
+	(curr_function1): Was curr_function.
+	(curr_function2): Current function name in pc-area.
+	(env_MACSBUG_COMMENT_INSNS): Environment variable setting.
+	(is_printable_string): New routine to comment selected insns.
+	(is_objc_class): Ditto.
+	(is_const_string_object): Ditto.
+	(string_for_ptr): Ditto.
+	(string_for_value): Ditto.
+	(no_reg): Ditto;
+	(try_to_comment_insn): Ditto.
+	(format_disasm_line): Reworked to treat comments distinctly and
+	added display of objc selector at PC.  Also added experimental
+	code to display strings for addresses on selected instructions.
+	Also fixed a infinite loop trying to parse nested '<' and '>'s.
+	(__disasm): Added line trunction subject to SET mb-wrap command.
+	Set new disasm_info.comm_max DisasmData value. 
+	(__printf_stderr): Reversed order of gdb_close_output() calls.
+	(__reset_current_function): Reset curr_function1, curr_function2.
+	
+	* Makefile: Changed copyright date.
+	(VERSION): 1.6
+	(PRIVATE_BUILD): New make obtion to build in private directory.
+	(FIXUP): New macro defining build rules to sudo chgrp procmod.
+	and added to the link step.
+	(debug): New target to build in a private directory outside of
+	gdb's directories and handle setgid.
+	(private): Ditto.
+	
+	* ChangeLog: Added missing changes for 2005-09-14 and moved
+	Klee's gdb_plugin_support 2005-06-15 changes from here to the
+	gdb_plugin_support ChangeLog.
+	Aded missing 2005-09-14 Ira Ruben changes.
+
+	* README.txt: Updated first paragraph and summarize 1.6 changes.
+	* README.html: Ditto.
+	
+	* cp_macsbug - someone changed this script but it still needed
+	fixing and made more general (I assume someone changed it
+	because they actually used it).
+
+2006-07-11  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Build with the pre-conformance header file mode
+	to be consistent with gdb.
+
+2006-04-17  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Make the MacsBug plugin setgid procmod.
+
+2006-02-16  Stan Shebs  <shebs@apple.com>
+
+	* MacsBug_cmdline.c (define_colon): Fix handling of pre-run case.
+
+2006-01-26  Jim Ingham <jingham@apple.com>
+
+	* Macsbug_plugin.c (init_from_gdb): Check the return value 
+	from gdb_initialize.
+
+2005-09-14  Ira Ruben  <iraruben@acm.org>
+	* MacsBug_display.c (save_stack) Replaced gdb_read_memory()
+	call with gdb_read_memory_from_addr().
+	(__display_side_bar): Ditto.
+
 2005-07-25  Ira Ruben  <iraruben@acm.org>
 
 	* MacsBug.h: Changed copyright date.
@@ -193,6 +346,14 @@
 	
 	* gdbinit-MacsBug: Changed copyright date.
 	Fixed typeo in title box.
+
+2005-06-15  Klee Dienes  <kdienes@apple.com>
+
+	* MacsBug.h (find_breakpoint): Rename to
+	find_breakpoint_for_address.
+	* MacsBug_patches.c (find_breakpoint): Rename to
+	find_breakpoint_for_address.
+	* MacsBug_set.c (init_macsbug_set): Update calls to gdb_define_set.
 
 2005-01-21  Jim Ingham  <jingham@apple.com>
 

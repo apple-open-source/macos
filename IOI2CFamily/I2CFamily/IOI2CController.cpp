@@ -22,11 +22,19 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CController.cpp,v 1.8 2005/07/01 16:09:52 bwpang Exp $
+ *	File: $Id: IOI2CController.cpp,v 1.9 2007/02/21 22:48:12 townsle1 Exp $
  *
- *  DRI: Joseph Lehrer
+ * 
+ *		Revision 1.9 2007/02/21 14:40:52  townsle1
+ *		[3987744] IOI2CFamily should not use gcc 3.3 in Leopard
+ *		[4788450] IOI2CFamily tries to change a collection in the registry
  *
  *		$Log: IOI2CController.cpp,v $
+ *		Revision 1.9  2007/02/21 22:48:12  townsle1
+ *		Bug # 3987744  IOI2CFamily should not use gcc 3.3 in Leopard
+ *		Bug # 4788450  IOI2CFamily tries to change a collection in the registry
+ *		Modified Files:  IOI2CController.cpp, IOI2CFamily.xcodeproj/project.pbxproj
+ *		
  *		Revision 1.8  2005/07/01 16:09:52  bwpang
  *		[4086434] added APSL headers
  *		
@@ -548,7 +556,7 @@ IOI2CController::registerPowerStateInterest(
 	IOLockLock(fPowerLock);
 
 	// If we don't already have an interest array property then make one...
-	if (0 == (array = (OSArray *) getProperty( symPowerInterest )))
+	if (0 == (array = OSDynamicCast(OSArray , getProperty(symPowerInterest))))
 	{
 		array = OSArray::withCapacity( 1 );
 		if (array)
@@ -584,13 +592,27 @@ IOI2CController::registerPowerStateInterest(
 	else
 	if (array)
 	{
-		dict = OSDictionary::withCapacity( 1 );
-		if (dict)
-		{
-			dict->setObject(symPowerClient, client);
-			dict->setObject(symPowerAcked, kOSBooleanFalse);
-			array->setObject( dict );
-			dict->release(); // Each client dictionary is retained only by the array.
+		OSArray *newArray = NULL;
+
+		//Copy collection if necessary to avoid making changes to original
+		newArray = (OSArray *)array->copyCollection();
+		
+		if (newArray)
+		{		
+			dict = OSDictionary::withCapacity( 1 );
+			if (dict)
+			{
+				dict->setObject(symPowerClient, client);			
+				dict->setObject(symPowerAcked, kOSBooleanFalse);
+				newArray->setObject( dict );				
+				setProperty( symPowerInterest, newArray );
+				newArray->release();			
+			
+				// Each client dictionary is retained only by the array.
+				dict->release();							
+			}
+			else
+				status = kIOReturnNoMemory;
 		}
 		else
 			status = kIOReturnNoMemory;

@@ -1,0 +1,13 @@
+# $OpenLDAP: pkg/openldap-guide/admin/admin.sdf,v 1.1.2.2 2006/01/03 22:16:03 kurt Exp $
+# Copyright 1999-2006 The OpenLDAP Foundation, All Rights Reserved.
+# COPYING RESTRICTIONS APPLY, see COPYRIGHT.
+#
+# guide.sdf 
+#
+
+!define DOC_TOC 0
+
+!macro build_html_cover
+!endmacro
+
+!include "master.sdf"

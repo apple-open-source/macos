@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,32 +55,50 @@
 
 
 #include <sys/types.h>
-#include <sys/file.h>
 #include <sys/time.h>
-#include <sys/stat.h>
 
+#include <string.h>
 #include <unistd.h>
+#ifdef UTMP_COMPAT
 #include <utmp.h>
+#endif /* UTMP_COMPAT */
+#include <utmpx.h>
+#include <utmpx-darwin.h>
 
-void logwtmp(line, name, host)
-	char *line, *name, *host;
+void
+logwtmp(char *line, char *name, char *host)
 {
-	struct utmp ut;
-	struct stat buf;
-	int fd;
-	time_t time();
-	char *strncpy();
+	struct utmpx utx;
+#ifdef UTMP_COMPAT
+#ifdef __LP64__
+	struct utmp32 u;
+#else /* __LP64__ */
+	struct utmp u;
+#endif /* __LP64__ */
+	int which;
+#endif /* UTMP_COMPAT */
 
-	if ((fd = open(_PATH_WTMP, O_WRONLY|O_APPEND, 0)) < 0)
-		return;
-	if (fstat(fd, &buf) == 0) {
-		(void) strncpy(ut.ut_line, line, sizeof(ut.ut_line));
-		(void) strncpy(ut.ut_name, name, sizeof(ut.ut_name));
-		(void) strncpy(ut.ut_host, host, sizeof(ut.ut_host));
-		(void) time(&ut.ut_time);
-		if (write(fd, (char *)&ut, sizeof(struct utmp)) !=
-		    sizeof(struct utmp))
-			(void) ftruncate(fd, buf.st_size);
+	bzero(&utx, sizeof(utx));
+	/*
+	 * line should never be "|" or "{", because this interface doesn't allow
+	 * setting ut_tv.
+	 */
+	if (strcmp(line, "~") == 0)
+		utx.ut_type = strcmp(name, "reboot") == 0 ? BOOT_TIME : SHUTDOWN_TIME;
+	else {
+		strncpy(utx.ut_user, name, sizeof(utx.ut_user));
+		strncpy(utx.ut_line, line, sizeof(utx.ut_line));
+		utx.ut_pid = getpid();
+		utx.ut_type = *name ? USER_PROCESS : DEAD_PROCESS;
+		strncpy(utx.ut_host, host, sizeof(utx.ut_host));
 	}
-	(void) close(fd);
+	(void)gettimeofday(&utx.ut_tv, NULL);
+	_utmpx_asl(&utx);
+#ifdef UTMP_COMPAT
+	which = _utmp_compat(&utx, &u);
+	if (which & UTMP_COMPAT_WTMP)
+		_write_wtmp(&u);
+	if (which & UTMP_COMPAT_LASTLOG)
+		_write_lastlog(&u, NULL);
+#endif /* UTMP_COMPAT */
 }

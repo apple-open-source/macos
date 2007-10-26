@@ -1,5 +1,5 @@
 /* mkgmtime.c - make time corresponding to a GMT timeval struct
- $Id: mkgmtime.c,v 1.5 2005/03/05 00:37:17 dasenbro Exp $
+ $Id: mkgmtime.c,v 1.10 2003/10/22 18:50:12 rjs3 Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

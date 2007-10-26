@@ -43,9 +43,9 @@ gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load ${binfile}
 
-gdb_test "run" "Starting program:.*${testfile}.*Program received signal.*0x00000000 in \\?\\? \\(\\)" "run to program halt"
+gdb_test "run" "Starting program:.*${testfile}.*Program received signal.*0x00000000* in \\?\\? \\(\\)" "run to program halt"
 
-gdb_test "backtrace" "#0  0x00000000 in \\?\\? \\(\\).*#1 *$hex in func1 .*#2 *$hex in func2 .*#3 *$hex in main.*" "backtrace from pc == 0x0"
+gdb_test "backtrace" "#0  0x0*0000000 in \\?\\? \\(\\).*#1 *$hex in func1 .*#2 *$hex in func2 .*#3 *$hex in main.*" "backtrace from pc == 0x0"
 
 gdb_exit
 return 0

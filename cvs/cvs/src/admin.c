@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (c) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (c) 1989-1992, Brian Berliner
  * 
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -13,12 +18,11 @@
 #ifdef CVS_ADMIN_GROUP
 #include <grp.h>
 #endif
-#include <assert.h>
 
-static Dtype admin_dirproc PROTO ((void *callerdat, const char *dir,
-                                   const char *repos, const char *update_dir,
-                                   List *entries));
-static int admin_fileproc PROTO ((void *callerdat, struct file_info *finfo));
+static Dtype admin_dirproc (void *callerdat, const char *dir,
+                            const char *repos, const char *update_dir,
+                            List *entries);
+static int admin_fileproc (void *callerdat, struct file_info *finfo);
 
 static const char *const admin_usage[] =
 {
@@ -112,47 +116,108 @@ struct admin_data
    happen depends on whether the option was specified as optional to
    getopt).  */
 static void
-arg_add (dat, opt, arg)
-    struct admin_data *dat;
-    int opt;
-    char *arg;
+arg_add (struct admin_data *dat, int opt, char *arg)
 {
-    char *newelt = xmalloc ((arg == NULL ? 0 : strlen (arg)) + 3);
-    strcpy (newelt, "-");
-    newelt[1] = opt;
-    if (arg == NULL)
-	newelt[2] = '\0';
-    else
-	strcpy (newelt + 2, arg);
+    char *newelt = Xasprintf ("-%c%s", opt, arg ? arg : "");
 
     if (dat->av_alloc == 0)
     {
 	dat->av_alloc = 1;
-	dat->av = (char **) xmalloc (dat->av_alloc * sizeof (*dat->av));
+	dat->av = xnmalloc (dat->av_alloc, sizeof (*dat->av));
     }
     else if (dat->ac >= dat->av_alloc)
     {
 	dat->av_alloc *= 2;
-	dat->av = (char **) xrealloc (dat->av,
-				      dat->av_alloc * sizeof (*dat->av));
+	dat->av = xnrealloc (dat->av, dat->av_alloc, sizeof (*dat->av));
     }
     dat->av[dat->ac++] = newelt;
 }
 
+
+
+/*
+ * callback proc to run a script when admin finishes.
+ */
+static int
+postadmin_proc (const char *repository, const char *filter, void *closure)
+{
+    char *cmdline;
+    const char *srepos = Short_Repository (repository);
+
+    TRACE (TRACE_FUNCTION, "postadmin_proc (%s, %s)", repository, filter);
+
+    /* %c = cvs_cmd_name
+     * %R = referrer
+     * %p = shortrepos
+     * %r = repository
+     */
+    /*
+     * Cast any NULL arguments as appropriate pointers as this is an
+     * stdarg function and we need to be certain the caller gets what
+     * is expected.
+     */
+    cmdline = format_cmdline (
+#ifdef SUPPORT_OLD_INFO_FMT_STRINGS
+	                      false, srepos,
+#endif /* SUPPORT_OLD_INFO_FMT_STRINGS */
+	                      filter,
+	                      "c", "s", cvs_cmd_name,
+#ifdef SERVER_SUPPORT
+	                      "R", "s", referrer ? referrer->original : "NONE",
+#endif /* SERVER_SUPPORT */
+	                      "p", "s", srepos,
+	                      "r", "s", current_parsed_root->directory,
+	                      (char *) NULL);
+
+    if (!cmdline || !strlen (cmdline))
+    {
+	if (cmdline) free (cmdline);
+	error (0, 0, "postadmin proc resolved to the empty string!");
+	return 1;
+    }
+
+    run_setup (cmdline);
+
+    free (cmdline);
+
+    /* FIXME - read the comment in verifymsg_proc() about why we use abs()
+     * below() and shouldn't.
+     */
+    return abs (run_exec (RUN_TTY, RUN_TTY, RUN_TTY,
+			  RUN_NORMAL | RUN_SIGIGNORE));
+}
+
+
+
+/*
+ * Call any postadmin procs.
+ */
+static int
+admin_filesdoneproc (void *callerdat, int err, const char *repository,
+                     const char *update_dir, List *entries)
+{
+    TRACE (TRACE_FUNCTION, "admin_filesdoneproc (%d, %s, %s)", err, repository,
+           update_dir);
+    Parse_Info (CVSROOTADM_POSTADMIN, repository, postadmin_proc, PIOPT_ALL,
+                NULL);
+
+    return err;
+}
+
+
+
 int
-admin (argc, argv)
-    int argc;
-    char **argv;
+admin (int argc, char **argv)
 {
     int err;
 #ifdef CVS_ADMIN_GROUP
     struct group *grp;
-    struct group *getgrnam();
+    struct group *getgrnam (const char *);
 #endif
     struct admin_data admin_data;
     int c;
     int i;
-    int only_k_option;
+    bool only_allowed_options;
 
     if (argc <= 1)
 	usage (admin_usage);
@@ -165,12 +230,17 @@ admin (argc, argv)
        example, admin_data->branch should be not `-bfoo' but simply `foo'. */
 
     optind = 0;
-    only_k_option = 1;
+    only_allowed_options = true;
     while ((c = getopt (argc, argv,
 			"+ib::c:a:A:e::l::u::LUn:N:m:o:s:t::IqxV:k:")) != -1)
     {
-	if (c != 'k' && c != 'q')
-	    only_k_option = 0;
+	if (
+# ifdef CLIENT_SUPPORT
+	    !current_parsed_root->isremote &&
+# endif	/* CLIENT_SUPPORT */
+	    c != 'q' && !strchr (config->UserAdminOptions, c)
+	   )
+	    only_allowed_options = false;
 
 	switch (c)
 	{
@@ -191,11 +261,7 @@ admin (argc, argv)
 		if (optarg == NULL)
 		    admin_data.branch = xstrdup ("-b");
 		else
-		{
-		    admin_data.branch = xmalloc (strlen (optarg) + 5);
-		    strcpy (admin_data.branch, "-b");
-		    strcat (admin_data.branch, optarg);
-		}
+		    admin_data.branch = Xasprintf ("-b%s", optarg);
 		break;
 
 	    case 'c':
@@ -204,9 +270,7 @@ admin (argc, argv)
 		    error (0, 0, "duplicate 'c' option");
 		    goto usage_error;
 		}
-		admin_data.comment = xmalloc (strlen (optarg) + 5);
-		strcpy (admin_data.comment, "-c");
-		strcat (admin_data.comment, optarg);
+		admin_data.comment = Xasprintf ("-c%s", optarg);
 		break;
 
 	    case 'a':
@@ -227,12 +291,12 @@ admin (argc, argv)
 		break;
 
 	    case 'l':
-		/* Note that multiple -l options are legal.  */
+		/* Note that multiple -l options are valid.  */
 		arg_add (&admin_data, 'l', optarg);
 		break;
 
 	    case 'u':
-		/* Note that multiple -u options are legal.  */
+		/* Note that multiple -u options are valid.  */
 		arg_add (&admin_data, 'u', optarg);
 		break;
 
@@ -264,7 +328,7 @@ admin (argc, argv)
 		/* Mostly similar to cvs tag.  Could also be parsing
 		   the syntax of optarg, although for now we just pass
 		   it to rcs as-is.  Note that multiple -n options are
-		   legal.  */
+		   valid.  */
 		arg_add (&admin_data, 'n', optarg);
 		break;
 
@@ -272,14 +336,14 @@ admin (argc, argv)
 		/* Mostly similar to cvs tag.  Could also be parsing
 		   the syntax of optarg, although for now we just pass
 		   it to rcs as-is.  Note that multiple -N options are
-		   legal.  */
+		   valid.  */
 		arg_add (&admin_data, 'N', optarg);
 		break;
 
 	    case 'm':
 		/* Change log message.  Could also be parsing the syntax
 		   of optarg, although for now we just pass it to rcs
-		   as-is.  Note that multiple -m options are legal.  */
+		   as-is.  Note that multiple -m options are valid.  */
 		arg_add (&admin_data, 'm', optarg);
 		break;
 
@@ -290,7 +354,7 @@ admin (argc, argv)
 		   Other than that I'm not sure whether it matters much
 		   whether we parse it here or in admin_fileproc.
 
-		   Note that multiple -o options are illegal, in RCS
+		   Note that multiple -o options are invalid, in RCS
 		   as well as here.  */
 
 		if (admin_data.delete_revs != NULL)
@@ -298,13 +362,11 @@ admin (argc, argv)
 		    error (0, 0, "duplicate '-o' option");
 		    goto usage_error;
 		}
-		admin_data.delete_revs = xmalloc (strlen (optarg) + 5);
-		strcpy (admin_data.delete_revs, "-o");
-		strcat (admin_data.delete_revs, optarg);
+		admin_data.delete_revs = Xasprintf ("-o%s", optarg);
 		break;
 
 	    case 's':
-		/* Note that multiple -s options are legal.  */
+		/* Note that multiple -s options are valid.  */
 		arg_add (&admin_data, 's', optarg);
 		break;
 
@@ -379,17 +441,13 @@ admin (argc, argv)
     /* The use of `cvs admin -k' is unrestricted.  However, any other
        option is restricted if the group CVS_ADMIN_GROUP exists on the
        server.  */
-    if (
-# ifdef CLIENT_SUPPORT
-        /* This is only "secure" on the server, since the user could edit the
-	 * RCS file on a local host, but some people like this kind of
-	 * check anyhow.  The alternative would be to check only when
-	 * (server_active) rather than when not on the client.
-	 */
-        !current_parsed_root->isremote &&
-# endif	/* CLIENT_SUPPORT */
-        !only_k_option
-	&& (grp = getgrnam(CVS_ADMIN_GROUP)) != NULL)
+    /* This is only "secure" on the server, since the user could edit the
+     * RCS file on a local host, but some people like this kind of
+     * check anyhow.  The alternative would be to check only when
+     * (server_active) rather than when not on the client.
+     */
+    if (!current_parsed_root->isremote && !only_allowed_options &&
+	(grp = getgrnam(CVS_ADMIN_GROUP)) != NULL)
     {
 #ifdef HAVE_GETGROUPS
 	gid_t *grps;
@@ -399,11 +457,11 @@ admin (argc, argv)
 	n = getgroups (0, NULL);
 	if (n < 0)
 	    error (1, errno, "unable to get number of auxiliary groups");
-	grps = (gid_t *) xmalloc((n + 1) * sizeof *grps);
+	grps = xnmalloc (n + 1, sizeof *grps);
 	n = getgroups (n, grps);
 	if (n < 0)
 	    error (1, errno, "unable to get list of auxiliary groups");
-	grps[n] = getgid();
+	grps[n] = getgid ();
 	for (i = 0; i <= n; i++)
 	    if (grps[i] == grp->gr_gid) break;
 	free (grps);
@@ -411,12 +469,12 @@ admin (argc, argv)
 	    error (1, 0, "usage is restricted to members of the group %s",
 		   CVS_ADMIN_GROUP);
 #else
-	char *me = getcaller();
+	char *me = getcaller ();
 	char **grnam;
 	
 	for (grnam = grp->gr_mem; *grnam; grnam++)
 	    if (strcmp (*grnam, me) == 0) break;
-	if (!*grnam && getgid() != grp->gr_gid)
+	if (!*grnam && getgid () != grp->gr_gid)
 	    error (1, 0, "usage is restricted to members of the group %s",
 		   CVS_ADMIN_GROUP);
 #endif
@@ -515,16 +573,20 @@ admin (argc, argv)
     }
 #endif /* CLIENT_SUPPORT */
 
-    lock_tree_for_write (argc, argv, 0, W_LOCAL, 0);
+    lock_tree_promotably (argc, argv, 0, W_LOCAL, 0);
 
-    err = start_recursion (admin_fileproc, (FILESDONEPROC) NULL, admin_dirproc,
-			   (DIRLEAVEPROC) NULL, (void *)&admin_data,
-			   argc, argv, 0,
-			   W_LOCAL, 0, CVS_LOCK_NONE, (char *) NULL, 1,
-			   (char *) NULL);
+    err = start_recursion
+	    (admin_fileproc, admin_filesdoneproc, admin_dirproc,
+	     NULL, &admin_data,
+	     argc, argv, 0,
+	     W_LOCAL, 0, CVS_LOCK_WRITE, NULL, 1, NULL);
+
     Lock_Cleanup ();
 
+/* This just suppresses a warning from -Wall.  */
+#ifdef CLIENT_SUPPORT
  return_it:
+#endif /* CLIENT_SUPPORT */
     if (admin_data.branch != NULL)
 	free (admin_data.branch);
     if (admin_data.comment != NULL)
@@ -540,17 +602,17 @@ admin (argc, argv)
     if (admin_data.av != NULL)
 	free (admin_data.av);
 
-    return (err);
+    return err;
 }
+
+
 
 /*
  * Called to run "rcs" on a particular file.
  */
 /* ARGSUSED */
 static int
-admin_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+admin_fileproc (void *callerdat, struct file_info *finfo)
 {
     struct admin_data *admin_data = (struct admin_data *) callerdat;
     Vers_TS *vers;
@@ -579,7 +641,7 @@ admin_fileproc (callerdat, finfo)
     }
 
     if (rcs->flags & PARTIAL)
-	RCS_reparsercsfile (rcs, (FILE **) NULL, (struct rcsbuffer *) NULL);
+	RCS_reparsercsfile (rcs, NULL, NULL);
 
     if (!really_quiet)
     {
@@ -816,6 +878,13 @@ admin_fileproc (callerdat, finfo)
 		{
 		    tag = xstrdup (arg + 2);
 		    rev = RCS_head (rcs);
+		    if (!rev)
+		    {
+			error (0, 0, "No head revision in archive file `%s'.",
+			       rcs->path);
+			status = 1;
+			continue;
+		    }
 		}
 		else
 		{
@@ -885,11 +954,11 @@ admin_fileproc (callerdat, finfo)
 		delta = n->data;
 		if (delta->text == NULL)
 		{
-		    delta->text = (Deltatext *) xmalloc (sizeof (Deltatext));
-		    memset ((void *) delta->text, 0, sizeof (Deltatext));
+		    delta->text = xmalloc (sizeof (Deltatext));
+		    memset (delta->text, 0, sizeof (Deltatext));
 		}
 		delta->text->version = xstrdup (delta->version);
-		delta->text->log = make_message_rcslegal (msg);
+		delta->text->log = make_message_rcsvalid (msg);
 		break;
 
 	    case 'l':
@@ -924,19 +993,17 @@ admin_fileproc (callerdat, finfo)
     return status;
 }
 
+
+
 /*
  * Print a warm fuzzy message
  */
 /* ARGSUSED */
 static Dtype
-admin_dirproc (callerdat, dir, repos, update_dir, entries)
-    void *callerdat;
-    const char *dir;
-    const char *repos;
-    const char *update_dir;
-    List *entries;
+admin_dirproc (void *callerdat, const char *dir, const char *repos,
+               const char *update_dir, List *entries)
 {
     if (!quiet)
 	error (0, 0, "Administrating %s", update_dir);
-    return (R_PROCESS);
+    return R_PROCESS;
 }

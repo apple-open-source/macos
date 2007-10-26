@@ -1,0 +1,2071 @@
+# Varobj Tests (C language)
+# Copyright 1998, 2001, 2003 Red Hat, Inc.
+#
+# This Program Is Free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Please email any bugs, comments, and/or additions to this file to:
+# insight@sources.redhat.com
+
+# This file was written by Keith Seitz (keiths@cygnus.com)
+
+# Read in the standard defs file
+if {![gdbtk_read_defs]} {
+  break
+}
+
+global objdir test_ran
+
+# Load in a file
+set program [file join $objdir c_variable]
+if {[catch {gdbtk_test_file $program} t]} {
+  # This isn't a test case, since if this fails, we're hosed.
+  gdbtk_test_error "loading \"$program\": $t"
+}
+
+# The variables that are created are stored in an array called "var".
+
+# proc to tell us which of the variables are changed/out of scope
+proc check_update {} {
+  global var
+
+  set out {}
+  set changed {}
+  foreach ind [array names var] {
+    set ret [$var($ind) update]
+    if {$ret == -1} {
+	lappend out $ind
+    } elseif {$ret != ""} {
+        lappend changed $ret
+    }
+  }
+  return [list $changed $out]
+}
+
+# proc to create a variable
+proc create_variable {expr} {
+  global var
+
+  set err [catch {gdb_variable create "$expr" -expr $expr} v]
+  if {!$err} {
+    set var($expr) $v
+  }
+
+  return $err
+}
+
+# proc to get the children
+# Children are stored in the global "var" as
+# PARENT.child. So for struct _foo {int a; int b} bar;,
+# the children returned are {a b} and var(bar.a) and var(bar.b)
+# map the actual objects to their names.
+proc get_children {parent} {
+  global var
+
+  set kiddies [$var($parent) children]
+  set children {}
+  foreach child $kiddies {
+    set name [lindex [split $child .] end]
+    lappend children $name
+    set var($parent.$name) $child
+  }
+
+  return $children
+}
+
+proc delete_variable {varname} {
+  global var
+
+  if {[info exists var($varname)]} {
+    # This has to be caught, since deleting a parent
+    # will erase all children.
+    $var($varname) delete
+    set vars [array names var $varname*]
+    foreach v $vars {
+      if {[info exists var($v)]} {
+	unset var($v)
+      }
+    }
+  }
+}
+
+# Compare the values of variable V in format FMT
+# with gdb's value.
+proc value {v fmt} {
+  global var
+  global _test
+
+  set value [$var($v) value]
+  set gdb [gdb_cmd "output/$fmt $v"]
+  if {$value == $gdb} {
+    set result ok
+  } else {
+    set result $v
+    puts $_test(logfile) "output/$fmt $v"
+    puts $_test(logfile) "gdbtk: $value <> gdb: $gdb"
+  }
+
+  return $result
+}
+
+proc delete_all_variables {} {
+  global var
+
+  foreach variable [array names var] {
+    delete_variable $variable
+  }
+}
+
+proc editable_variables {} {
+  global var
+
+  set yes {}
+  set no {}
+  foreach name [array names var] {
+    if {[$var($name) editable]} {
+      lappend yes $name
+    } else {
+      lappend no $name
+    }
+  }
+
+  return [list $yes $no]
+}
+
+
+#####                   #####
+#                           #
+#  Variable Creation tests  #
+#                           #
+#####                   #####
+
+# Test:  c_variable-1.1
+# Desc:  Create global variable
+gdbtk_test c_variable-1.1 {create global variable} {
+  create_variable global_simple
+} {0}
+
+# Test: c_variable-1.2
+# Desc: Create non-existent variable
+gdbtk_test c_variable-1.2 {create non-existent variable} {
+  create_variable bogus_unknown_variable
+} {1}
+
+# Test: c_variable-1.3
+# Desc: Create out of scope variable
+gdbtk_test c_variable-1.3 {create out of scope variable} {
+  create_variable argc
+} {1}
+
+# Break in main and run
+gdb_cmd "break do_locals_tests"
+gdbtk_test_run
+
+# Test: c_variable-1.4
+# Desc: create local variables
+gdbtk_test c_variable-1.4 {create local variables} {
+  set results {}
+  foreach v {linteger lpinteger lcharacter lpcharacter llong lplong lfloat lpfloat ldouble lpdouble lsimple lpsimple func} {
+    lappend results [create_variable $v]
+  }
+  set results
+} {0 0 0 0 0 0 0 0 0 0 0 0 0}
+
+# Test: c_variable-1.5
+# Desc: create lsimple.character
+gdbtk_test c_variable-1.5 {create lsimple.character} {
+  create_variable lsimple.character
+} {0}
+
+# Test: c_variable-1.6
+# Desc: create lpsimple->integer
+gdbtk_test c_variable-1.6 {create lpsimple->integer} {
+  create_variable lpsimple->integer
+} {0}
+
+# Test: c_variable-1.7
+# Desc: create lsimple.integer
+gdbtk_test c_variable-1.7 {create lsimple.integer} {
+  create_variable lsimple.integer
+} {0}
+
+# Test: c_variable-1.8
+# Desc: names of editable variables
+gdbtk_test c_variable-1.8 {names of editable variables} {
+  editable_variables
+} {{lsimple.character lsimple.integer lpsimple lcharacter lpcharacter linteger lpinteger lfloat lpfloat func llong lplong lpsimple->integer ldouble lpdouble} {lsimple global_simple}}
+
+# Test: c_variable-1.9
+# Desc: create type name
+#    Type names (like int, long, etc..) are all proper expressions to gdb.
+#    make sure variable code does not allow users to create variables, though.
+gdbtk_test c_variable-1.9 {create type name} {
+  create_variable int
+} {1}
+
+#####             #####
+#                     #
+# Value changed tests #
+#                     #
+#####             #####
+
+# Test: c_variable-2.1
+# Desc: check whether values changed at do_block_tests
+gdbtk_test c_variable-2.1 {check whether values changed at do_block_tests} {
+  check_update
+} {{} {}}
+
+# Step over "linteger = 1234;"
+gdb_cmd "step"
+
+# Test: c_variable-2.2
+# Desc: check whether only linteger changed values
+gdbtk_test c_variable-2.2 {check whether only linteger changed values} {
+  check_update
+} {linteger {}}
+
+# Step over "lpinteger = &linteger;"
+gdb_cmd "step"
+
+# Test: c_variable-2.3
+# Desc: check whether only lpinteger changed
+gdbtk_test c_variable-2.3 {check whether only lpinteger changed} {
+  check_update
+} {lpinteger {}}
+
+# Step over "lcharacter = 'a';"
+gdb_cmd "step"
+
+# Test: c_variable-2.4
+# Desc: check whether only lcharacter changed
+gdbtk_test c_variable-2.4 {check whether only lcharacter changed} {
+  check_update
+} {lcharacter {}}
+
+# Step over "lpcharacter = &lcharacter;"
+gdb_cmd "step"
+
+# Test: c_variable-2.5
+# Desc: check whether only lpcharacter changed
+gdbtk_test c_variable-2.5 {check whether only lpcharacter changed} {
+  check_update
+} {lpcharacter {}}
+
+# Step over:
+#  llong = 2121L;
+#  lplong = &llong;
+#  lfloat = 2.1;
+#  lpfloat = &lfloat;
+#  ldouble = 2.718281828459045;
+#  lpdouble = &ldouble;
+#  lsimple.integer = 1234;
+#  lsimple.unsigned_integer = 255;
+#  lsimple.character = 'a';
+for {set i 0} {$i < 9} {incr i} {
+  gdb_cmd "step"
+}
+
+# Test: c_variable-2.6
+# Desc: check whether llong, lplong, lfloat, lpfloat, ldouble, lpdouble, lsimple.integer,
+#       lsimple.unsigned_character lsimple.integer lsimple.character changed
+gdbtk_test c_variable-2.6 {check whether llong -- lsimple.character changed} {
+  check_update
+} {{lsimple.character lsimple.integer lfloat lpfloat llong lplong ldouble lpdouble} {}}
+
+# Step over:
+#  lsimple.signed_character = 21;
+#  lsimple.char_ptr = &lcharacter;
+#  lpsimple = &lsimple;
+#  func = nothing;
+for {set i 0} {$i < 4} {incr i} {
+  gdb_cmd "step"
+}
+
+# Test: c_variable-2.7
+# Desc: check whether lsimple.signed_character, lsimple.char_ptr, lpsimple, func changed
+gdbtk_test c_variable-2.7 {check whether lsimple.signed_character, lsimple.char_ptr, lpsimple, func changed} {
+  check_update
+} {{lpsimple func lpsimple->integer} {}}
+
+# Step over
+#  linteger = 4321;
+#  lcharacter = 'b';
+#  llong = 1212L;
+#  lfloat = 1.2;
+#  ldouble = 5.498548281828172;
+#  lsimple.integer = 255;
+#  lsimple.unsigned_integer = 4321;
+#  lsimple.character = 'b';
+for {set i 0} {$i < 8} {incr i} {
+  gdb_cmd "step"
+}
+
+# Test: c_variable-2.8
+# Desc: check whether linteger, lcharacter, llong, lfoat, ldouble, lsimple.integer,
+#       lpsimple.integer lsimple.character changed
+# Note: this test also checks that lpsimple->integer and lsimple.integer have
+#       changed (they are the same)
+gdbtk_test c_variable-2.8 {check whether linteger -- lsimple.integer changed} {
+  check_update
+} {{lsimple.character lsimple.integer lcharacter linteger lfloat llong lpsimple->integer ldouble} {}}
+
+gdb_cmd "break subroutine1"
+gdb_cmd "continue"
+
+# Test: c_variable-2.9
+# Desc: stop in subroutine1
+gdbtk_test c_variable-2.9 {stop in subroutine1} {
+  lindex [gdb_loc] 1
+} {subroutine1}
+
+# Test: c_variable-2.10
+# Desc: create variable for locals i,l in subroutine1
+gdbtk_test c_variable-2.10 {create variable for locals i,l in subroutine1} {
+  set r [create_variable i]
+  lappend r [create_variable l]  
+} {0 0}
+
+# Test: c_variable-2.11
+# Desc: create do_locals_tests local in subroutine1
+gdbtk_test c_variable-2.11 {create do_locals_tests local in subroutine1} {
+  create_variable linteger
+} {1}
+
+# Step over
+#  global_simple.integer = i + 3;
+gdb_cmd "step"
+
+# Test: c_variable-2.12
+# Desc: change global_simple.integer
+# Note: This also tests whether we are reporting changes in structs properly.
+#       gdb normally would say that global_simple has changed, but we
+#       special case that, since it is not what a human expects to see.
+gdbtk_test c_variable-2.12 {change global_simple.integer} {
+  check_update
+} {{} {lsimple.character lsimple.integer lpsimple lsimple lcharacter lpcharacter linteger lpinteger lfloat lpfloat func llong lplong lpsimple->integer ldouble lpdouble}}
+
+# Step over
+#  i = 212;
+gdb_cmd "step"
+
+# Test: c_variable-2.13
+# Desc: change subroutine1 local i
+gdbtk_test c_variable-2.13 {change subroutine1 local i} {
+  check_update
+} {i {lsimple.character lsimple.integer lpsimple lsimple lcharacter lpcharacter linteger lpinteger lfloat lpfloat func llong lplong lpsimple->integer ldouble lpdouble}}
+
+# Step over
+#  *l = 12
+gdb_cmd "step"
+
+# This test is no longer valid, since varobj now forces
+# re-evaluation in the current frame by default.
+# Test: c_variable-2.14
+# Desc: change do_locals_tests local llong
+#gdbtk_test c_variable-2.14 {change do_locals_tests local llong} {
+#  check_update
+#} {llong {}}
+
+# Leave subroutine1
+gdb_cmd "next"
+
+# Test: c_variable-2.15
+# Desc: check for out of scope subroutine1 locals
+gdbtk_test c_variable-2.15 {check for out of scope subroutine1 locals} {
+  lindex [check_update] 1
+} {i l}
+
+# Test: c_variable-2.16
+# Desc: names of all editable variables
+gdbtk_test c_variable-2.16 {names of all editable variables} {
+  editable_variables
+} {{lsimple.character lsimple.integer lpsimple i lcharacter lpcharacter linteger lpinteger lfloat lpfloat l func llong lplong lpsimple->integer ldouble lpdouble} {lsimple global_simple}}
+
+# Done with locals/globals tests. Erase all variables
+delete_all_variables
+
+#####     #####
+#             #
+# Block tests #
+#             #
+#####     #####
+gdb_cmd "break do_block_tests"
+gdb_cmd "continue"
+
+# Test: c_variable-3.1
+# Desc: stop in do_block_tests
+gdbtk_test c_variable-3.1 {stop in do_block_tests} {
+  lindex [gdb_loc] 1
+} {do_block_tests}
+
+# Test: c_variable-3.2
+# Desc: create cb and foo
+gdbtk_test c_variable-3.2 {create cb and foo} {
+  set r [create_variable cb]
+  lappend r [create_variable foo]
+} {0 1}
+
+# step to "foo = 123;"
+gdb_cmd "step"
+
+# Be paranoid and assume 3.2 created foo
+delete_variable foo
+
+# Test: c_variable-3.3
+# Desc: create foo
+gdbtk_test c_variable-3.3 {create foo} {
+  create_variable foo
+} {0}
+
+# step to "foo2 = 123;"
+gdb_cmd "step"
+
+# Test: c_variable-3.4
+# Desc: check foo, cb changed
+gdbtk_test c_variable-3.4 {check foo,cb changed} {
+  check_update
+} {{foo cb} {}}
+
+# step to "foo = 321;"
+gdb_cmd "step"
+
+# Test: c_variable-3.5
+# Desc: create inner block foo
+gdbtk_test c_variable-3.5 {create inner block foo} {
+  global var
+  set err [catch {gdb_variable create inner_foo -expr foo} v]
+  if {!$err} {
+    set var(inner_foo) $v
+  }
+  
+  set err
+} {0}
+
+# step to "foo2 = 0;"
+gdb_cmd "step"
+
+# Test: c_variable-3.6
+# Desc: create foo2
+gdbtk_test c_variable-3.6 {create foo2} { 
+  create_variable foo2
+} {0}
+
+# Test: c_variable-3.7
+# Desc: check that outer foo in scope and inner foo out of scope
+
+# Disabled for now because varobjs don't work this way.  If you create a varobj named "foo"
+# it will display the correct value for any variable named "foo" in scope. So inner_foo 
+# is not out of scope because there is another variable named "foo" in scope. It is
+# instead marked as changed.
+
+#gdbtk_test *c_variable-3.7 {check that outer foo in scope and inner foo out of scope} {
+#  check_update
+#} {{} inner_foo}
+
+delete_variable inner_foo
+
+# step to "foo = 0;"
+gdb_cmd "step"
+
+# Test: c_variable-3.8
+# Desc: check that foo2 out of scope
+gdbtk_test c_variable-3.8 {check that foo2 out of scope} {
+  check_update
+} {{} foo2}
+
+# step to "cb = 21;"
+gdb_cmd "step"
+
+# Test: c_variable-3.9
+# Desc: check that only cb is in scope
+gdbtk_test c_variable-3.9 {check that only cb is in scope} {
+  check_update
+} {{} {foo foo2}}
+
+# Test: c_variable-3.10
+# Desc: names of editable variables
+gdbtk_test c_variable-3.10 {names of editable variables} {
+  editable_variables
+} {{foo cb foo2} {}}
+
+# Done with block tests
+delete_all_variables
+
+#####        #####
+#                #
+# children tests #
+#                #
+#####        #####
+
+gdb_cmd "break do_children_tests"
+gdb_cmd "continue"
+
+# Test: c_variable-4.1
+# Desc: stopped in do_children_tests
+gdbtk_test c_variable-4.1 {stopped in do_children_tests} {
+  lindex [gdb_loc] 1
+} {do_children_tests}
+
+# Test: c_variable-4.2
+# Desc: create variable "struct_declarations"
+gdbtk_test c_variable-4.2 {create variable "struct_declarations"} {
+  create_variable struct_declarations
+} {0}
+
+# Test: c_variable-4.3
+# Desc: children of struct_declarations
+gdbtk_test c_variable-4.3 {children of struct_declarations} {
+  get_children  struct_declarations
+} {integer character char_ptr long_int int_ptr_ptr long_array func_ptr func_ptr_struct func_ptr_ptr u1 s2}
+
+# Test: c_variable-4.4
+# Desc: number of children of struct_declarations
+gdbtk_test c_variable-4.4 {number of children of struct_declarations} {
+  $var(struct_declarations) numChildren
+} {11}
+
+# Test: c_variable-4.5
+# Desc: children of struct_declarations.integer
+gdbtk_test c_variable-4.5 {children of struct_declarations.integer} {
+  get_children struct_declarations.integer
+} {}
+
+# Test: c_variable-4.6
+# Desc: number of children of struct_declarations.integer
+gdbtk_test c_variable-4.6 {number of children of struct_declarations.integer} {
+  $var(struct_declarations.integer) numChildren
+} {0}
+
+# Test: c_variable-4.7
+# Desc: children of struct_declarations.character
+gdbtk_test c_variable-4.7 {children of struct_declarations.character} {
+  get_children struct_declarations.character
+} {}
+
+# Test: c_variable-4.8
+# Desc: number of children of struct_declarations.character
+gdbtk_test c_variable-4.8 {number of children of struct_declarations.character} {
+  $var(struct_declarations.character) numChildren
+} {0}
+
+# Test: c_variable-4.9
+# Desc: children of struct_declarations.char_ptr
+gdbtk_test c_variable-4.9 {children of struct_declarations.char_ptr} {
+  get_children struct_declarations.char_ptr
+} {*char_ptr}
+
+# Test: c_variable-4.10
+# Desc: number of children of struct_declarations.char_ptr
+gdbtk_test c_variable-4.10 {number of children of struct_declarations.char_ptr} {
+  $var(struct_declarations.char_ptr) numChildren
+} {1}
+
+# Test: c_variable-4.11
+# Desc: children of struct_declarations.long_int
+gdbtk_test c_variable-4.11 {children of struct_declarations.long_int} {
+
+  get_children struct_declarations.long_int
+} {}
+
+# Test: c_variable-4.12
+# Desc: number of children of struct_declarations.long_int
+gdbtk_test c_variable-4.12 {number of children of struct_declarations.long_int} {
+  $var(struct_declarations.long_int) numChildren
+} {0}
+
+# Test: c_variable-4.13
+# Desc: children of int_ptr_ptr
+gdbtk_test c_variable-4.13 {children of int_ptr_ptr} {
+  get_children struct_declarations.int_ptr_ptr
+} {*int_ptr_ptr}
+
+# Test: c_variable-4.14
+# Desc: number of children of int_ptr_ptr
+gdbtk_test c_variable-4.14 {number of children of int_ptr_ptr} {
+  $var(struct_declarations.int_ptr_ptr) numChildren
+} {1}
+
+# Test: c_variable-4.15
+# Desc: children of struct_declarations.long_array
+gdbtk_test c_variable-4.15 {children of struct_declarations.long_array} {
+  get_children struct_declarations.long_array
+} {0 1 2 3 4 5 6 7 8 9}
+
+# Test: c_variable-4.16
+# Desc: number of children of struct_declarations.long_array
+gdbtk_test c_variable-4.16 {number of children of struct_declarations.long_array} {
+  $var(struct_declarations.long_array) numChildren
+} {10}
+
+# Test: c_variable-4.17
+# Desc: children of struct_declarations.func_ptr
+gdbtk_test c_variable-4.17 {children of struct_declarations.func_ptr} {
+  get_children struct_declarations.func_ptr
+} {}
+
+# Test: c_variable-4.18
+# Desc: number of children of struct_declarations.func_ptr
+gdbtk_test c_variable-4.18 {number of children of struct_declarations.func_ptr} {
+  $var(struct_declarations.func_ptr) numChildren
+} {0}
+
+# Test: c_variable-4.19
+# Desc: children of struct_declarations.func_ptr_struct
+gdbtk_test c_variable-4.19 {children of struct_declarations.func_ptr_struct} {
+  get_children struct_declarations.func_ptr_struct
+} {}
+
+# Test: c_variable-4.20
+# Desc: number of children of struct_declarations.func_ptr_struct
+gdbtk_test c_variable-4.20 {number of children of struct_declarations.func_ptr_struct} {
+  $var(struct_declarations.func_ptr_struct) numChildren
+} {0}
+
+# Test: c_variable-4.21
+# Desc: children of struct_declarations.func_ptr_ptr
+gdbtk_test c_variable-4.21 {children of struct_declarations.func_ptr_ptr} {
+  get_children struct_declarations.func_ptr_ptr
+} {}
+
+# Test: c_variable-4.22
+# Desc: number of children of struct_declarations.func_ptr_ptr
+gdbtk_test c_variable-4.22 {number of children of struct_declarations.func_ptr_ptr} {
+  $var(struct_declarations.func_ptr_ptr) numChildren
+} {0}
+
+# Test: c_variable-4.23
+# Desc: children of struct_declarations.u1
+gdbtk_test c_variable-4.23 {children of struct_declarations.u1} {
+  get_children struct_declarations.u1
+} {a b c d}
+
+# Test: c_variable-4.24
+# Desc: number of children of struct_declarations.u1
+gdbtk_test c_variable-4.24 {number of children of struct_declarations.u1} {
+  $var(struct_declarations.u1) numChildren
+} {4}
+
+# Test: c_variable-4.25
+# Desc: children of struct_declarations.s2
+gdbtk_test c_variable-4.25 {children of struct_declarations.s2} {
+  get_children struct_declarations.s2
+} {u2 g h i}
+
+# Test: c_variable-4.26
+# Desc: number of children of struct_declarations.s2
+gdbtk_test c_variable-4.26 {number of children of struct_declarations.s2} {
+  $var(struct_declarations.s2) numChildren
+} {4}
+
+# Test: c_variable-4.27
+# Desc: children of struct_declarations.long_array.1
+gdbtk_test c_variable-4.27 {children of struct_declarations.long_array.1} {
+  get_children struct_declarations.long_array.1
+} {}
+
+# Test: c_variable-4.28
+# Desc: number of children of struct_declarations.long_array.1
+gdbtk_test c_variable-4.28 {number of children of struct_declarations.long_array.1} {
+  $var(struct_declarations.long_array.1) numChildren
+} {0}
+
+# Test: c_variable-4.29
+# Desc: children of struct_declarations.long_array.2
+gdbtk_test c_variable-4.29 {children of struct_declarations.long_array.2} {
+  get_children struct_declarations.long_array.2
+} {}
+
+# Test: c_variable-4.30
+# Desc: number of children of struct_declarations.long_array.2
+gdbtk_test c_variable-4.30 {number of children of struct_declarations.long_array.2} {
+  $var(struct_declarations.long_array.2) numChildren
+} {0}
+
+# Test: c_variable-4.31
+# Desc: children of struct_declarations.long_array.3
+gdbtk_test c_variable-4.31 {children of struct_declarations.long_array.3} {
+  get_children struct_declarations.long_array.3
+} {}
+
+# Test: c_variable-4.32
+# Desc: number of children of struct_declarations.long_array.3
+gdbtk_test c_variable-4.32 {number of children of struct_declarations.long_array.3} {
+  $var(struct_declarations.long_array.3) numChildren
+} {0}
+
+# Test: c_variable-4.33 
+# Desc: children of struct_declarations.long_array.4
+gdbtk_test c_variable-4.33 {children of struct_declarations.long_array.4} {
+  get_children struct_declarations.long_array.4
+} {}
+
+# Test: c_variable-4.34
+# Desc: number of children of struct_declarations.long_array.4
+gdbtk_test c_variable-4.34 {number of children of struct_declarations.long_array.4} {
+  $var(struct_declarations.long_array.4) numChildren
+} {0}
+
+# Test: c_variable-4.35
+# Desc: children of struct_declarations.long_array.5
+gdbtk_test c_variable-4.35 {children of struct_declarations.long_array.5} {
+  get_children struct_declarations.long_array.5
+} {}
+
+# Test: c_variable-4.36
+# Desc: number of children of struct_declarations.long_array.5
+gdbtk_test c_variable-4.36 {number of children of struct_declarations.long_array.5} {
+  $var(struct_declarations.long_array.5) numChildren
+} {0}
+
+# Test: c_variable-4.37
+# Desc: children of struct_declarations.long_array.6
+gdbtk_test c_variable-4.37 {children of struct_declarations.long_array.6} {
+  get_children struct_declarations.long_array.6
+} {}
+
+# Test: c_variable-4.38
+# Desc: number of children of struct_declarations.long_array.6
+gdbtk_test c_variable-4.38 {number of children of struct_declarations.long_array.6} {
+  $var(struct_declarations.long_array.6) numChildren
+} {0}
+
+# Test: c_variable-4.39
+# Desc: children of struct_declarations.long_array.7
+gdbtk_test c_variable-4.39 {children of struct_declarations.long_array.7} {
+  get_children struct_declarations.long_array.7
+} {}
+
+# Test: c_variable-4.40
+# Desc: number of children of struct_declarations.long_array.7
+gdbtk_test c_variable-4.40 {number of children of struct_declarations.long_array.7} {
+  $var(struct_declarations.long_array.7) numChildren
+} {0}
+
+# Test: c_variable-4.41
+# Desc: children of struct_declarations.long_array.8
+gdbtk_test c_variable-4.41 {children of struct_declarations.long_array.8} {
+  get_children struct_declarations.long_array.8
+} {}
+
+# Test: c_variable-4.42
+# Desc: number of children of struct_declarations.long_array.8
+gdbtk_test c_variable-4.42 {number of children of struct_declarations.long_array.8} {
+  $var(struct_declarations.long_array.8) numChildren
+} {0}
+
+# Test: c_variable-4.43
+# Desc: children of struct_declarations.long_array.9
+gdbtk_test c_variable-4.43 {children of struct_declarations.long_array.9} {
+  get_children struct_declarations.long_array.9
+} {}
+
+# Test: c_variable-4.44
+# Desc: number of children of struct_declarations.long_array.9
+gdbtk_test c_variable-4.44 {number of children of struct_declarations.long_array.9} {
+  $var(struct_declarations.long_array.9) numChildren
+} {0}
+
+# Test: c_variable-4.45
+# Desc: children of struct_declarations.u1.a
+gdbtk_test c_variable-4.45 {children of struct_declarations.u1.a} {
+  get_children struct_declarations.u1.a
+} {}
+
+# Test: c_variable-4.46
+# Desc: number of children of struct_declarations.u1.a
+gdbtk_test c_variable-4.46 {number of children of struct_declarations.u1.a} {
+  $var(struct_declarations.u1.a) numChildren
+} {0}
+
+# Test: c_variable-4.47
+# Desc: children of struct_declarations.u1.b
+gdbtk_test c_variable-4.47 {children of struct_declarations.u1.b} {
+  get_children struct_declarations.u1.b
+} {*b}
+
+# Test: c_variable-4.48
+# Desc: number of children of struct_declarations.u1.b
+gdbtk_test c_variable-4.48 {number of children of struct_declarations.u1.b} {
+  $var(struct_declarations.u1.b) numChildren
+} {1}
+
+# Test: c_variable-4.49
+# Desc: children of struct_declarations.u1.c
+gdbtk_test c_variable-4.49 {children of struct_declarations.u1.c} {
+  get_children struct_declarations.u1.c
+} {}
+
+# Test: c_variable-4.50
+# Desc: number of children of struct_declarations.u1.c
+gdbtk_test c_variable-4.50 {number of children of struct_declarations.u1.c} {
+  $var(struct_declarations.u1.c) numChildren
+} {0}
+
+# Test: c_variable-4.51
+# Desc: children of struct_declarations.u1.d
+gdbtk_test c_variable-4.51 {children of struct_declarations.u1.d} {
+  get_children struct_declarations.u1.d
+} {}
+
+# Test: c_variable-4.52
+# Desc: number of children of struct_declarations.u1.d
+gdbtk_test c_variable-4.52 {number of children of struct_declarations.u1.d} {
+  $var(struct_declarations.u1.d) numChildren
+} {0}
+
+# Test: c_variable-4.53
+# Desc: children of struct_declarations.s2.u2
+gdbtk_test c_variable-4.53 {children of struct_declarations.s2.u2} {
+  get_children struct_declarations.s2.u2
+} {u1s1 f u1s2}
+
+# Test: c_variable-4.54
+# Desc: number of children of struct_declarations.s2.u2
+gdbtk_test c_variable-4.54 {number of children of struct_declarations.s2.u2} {
+  $var(struct_declarations.s2.u2) numChildren
+} {3}
+
+# Test: c_variable-4.55
+# Desc: children of struct_declarations.s2.g
+gdbtk_test c_variable-4.55 {children of struct_declarations.s2.g} {
+  get_children struct_declarations.s2.g
+} {}
+
+# Test: c_variable-4.56
+# Desc: number of children of struct_declarations.s2.g
+gdbtk_test c_variable-4.56 {number of children of struct_declarations.s2.g} {
+  $var(struct_declarations.s2.g) numChildren
+} {0}
+
+# Test: c_variable-4.57
+# Desc: children of struct_declarations.s2.h
+gdbtk_test c_variable-4.57 {children of struct_declarations.s2.h} {
+  get_children struct_declarations.s2.h
+} {}
+
+# Test: c_variable-4.58
+# Desc: number of children of struct_declarations.s2.h
+gdbtk_test c_variable-4.58 {number of children of struct_declarations.s2.h} {
+  $var(struct_declarations.s2.h) numChildren
+} {0}
+
+# Test: c_variable-4.59
+# Desc: children of struct_declarations.s2.i
+gdbtk_test c_variable-4.59 {children of struct_declarations.s2.i} {
+  get_children struct_declarations.s2.i
+} {0 1 2 3 4 5 6 7 8 9}
+
+# Test: c_variable-4.60
+# Desc: number of children of struct_declarations.s2.i
+gdbtk_test c_variable-4.60 {number of children of struct_declarations.s2.i} {
+  $var(struct_declarations.s2.i) numChildren
+} {10}
+
+# Test: c_variable-4.61
+# Desc: children of struct_declarations.s2.u2.u1s1
+gdbtk_test c_variable-4.61 {children of struct_declarations.s2.u2.u1s1} {
+  get_children struct_declarations.s2.u2.u1s1
+} {d e func foo}
+
+# Test: c_variable-4.62
+# Desc: number of children of struct_declarations.s2.u2.u1s1
+gdbtk_test c_variable-4.62 {number of children of struct_declarations.s2.u2.u1s1} {
+  $var(struct_declarations.s2.u2.u1s1) numChildren
+} {4}
+
+# Test: c_variable-4.63
+# Desc: children of struct_declarations.s2.u2.f
+gdbtk_test c_variable-4.63 {children of struct_declarations.s2.u2.f} {
+  get_children struct_declarations.s2.u2.f
+} {}
+
+# Test: c_variable-4.64
+# Desc: number of children of struct_declarations.s2.u2.f
+gdbtk_test c_variable-4.64 {number of children of struct_declarations.s2.u2.f} {
+  $var(struct_declarations.s2.u2.f) numChildren
+} {0}
+
+# Test: c_variable-4.65
+# Desc: children of struct_declarations.s2.u2.u1s2
+gdbtk_test c_variable-4.65 {children of struct_declarations.s2.u2.u1s2} {
+  get_children struct_declarations.s2.u2.u1s2
+} {array_ptr func}
+
+# Test: c_variable-4.66
+# Desc: number of children of struct_declarations.s2.u2.u1s2
+gdbtk_test c_variable-4.66 {number of children of struct_declarations.s2.u2.u1s2} {
+  $var(struct_declarations.s2.u2.u1s2) numChildren
+} {2}
+
+# Test: c_variable-4.67
+# Desc: children of struct_declarations.s2.u2.u1s1.d
+gdbtk_test c_variable-4.67 {children of struct_declarations.s2.u2.u1s1.d} {
+  get_children struct_declarations.s2.u2.u1s1.d
+} {}
+
+# Test: c_variable-4.68
+# Desc: number of children of struct_declarations.s2.u2.u1s1.d
+gdbtk_test c_variable-4.68 {number of children of struct_declarations.s2.u2.u1s1.d} {
+  $var(struct_declarations.s2.u2.u1s1.d) numChildren
+} {0}
+
+# Test: c_variable-4.69
+# Desc: children of struct_declarations.s2.u2.u1s1.e
+gdbtk_test c_variable-4.69 {children of struct_declarations.s2.u2.u1s1.e} {
+  get_children struct_declarations.s2.u2.u1s1.e
+} {0 1 2 3 4 5 6 7 8 9}
+
+# Test: c_variable-4.70
+# Desc: number of children of struct_declarations.s2.u2.u1s1.e
+gdbtk_test c_variable-4.70 {number of children of struct_declarations.s2.u2.u1s1.e} {
+  $var(struct_declarations.s2.u2.u1s1.e) numChildren
+} {10}
+
+# Test: c_variable-4.71
+# Desc: children of struct_declarations.s2.u2.u1s1.func
+gdbtk_test c_variable-4.71 {children of struct_declarations.s2.u2.u1s1.func} {
+  get_children struct_declarations.s2.u2.u1s1.func
+} {}
+
+# Test: c_variable-4.72
+# Desc: number of children of struct_declarations.s2.u2.u1s1.func
+gdbtk_test c_variable-4.72 {number of children of struct_declarations.s2.u2.u1s1.func} {
+  $var(struct_declarations.s2.u2.u1s1.func) numChildren
+} {0}
+
+# Test: c_variable-4.73
+# Desc: children of struct_declarations.s2.u2.u1s1.foo
+gdbtk_test c_variable-4.73 {children of struct_declarations.s2.u2.u1s1.foo} {
+  get_children struct_declarations.s2.u2.u1s1.foo
+} {}
+
+# Test: c_variable-4.74
+# Desc: number of children of struct_declarations.s2.u2.u1s1.foo
+gdbtk_test c_variable-4.74 {number of children of struct_declarations.s2.u2.u1s1.foo} {
+  $var(struct_declarations.s2.u2.u1s1.foo) numChildren
+} {0}
+
+# Test: c_variable-4.75
+# Desc: children of struct_declarations.s2.u2.u1s2.array_ptr
+gdbtk_test c_variable-4.75 {children of struct_declarations.s2.u2.u1s2.array_ptr} {
+  get_children struct_declarations.s2.u2.u1s2.array_ptr
+} {0 1}
+
+# Test: c_variable-4.76
+# Desc: number of children of struct_declarations.s2.u2.u1s2.array_ptr
+gdbtk_test c_variable-4.76 {number of children of struct_declarations.s2.u2.u1s2.array_ptr} {
+  $var(struct_declarations.s2.u2.u1s2.array_ptr) numChildren
+} {2}
+
+# Test: c_variable-4.77
+# Desc: children of struct_declarations.s2.u2.u1s2.func
+gdbtk_test c_variable-4.77 {children of struct_declarations.s2.u2.u1s2.func} {
+  get_children struct_declarations.s2.u2.u1s2.func
+} {}
+
+# Test: c_variable-4.78
+# Desc: number of children of struct_declarations.s2.u2.u1s2.func
+gdbtk_test c_variable-4.78 {number of children of struct_declarations.s2.u2.u1s2.func} {
+  $var(struct_declarations.s2.u2.u1s2.func) numChildren
+} {0}
+
+# Test: c_variable-4.79
+# Desc: children of struct_declarations.*int_ptr_ptr
+gdbtk_test c_variable-4.79 {children of struct_declarations.*int_ptr_ptr} {
+  get_children struct_declarations.int_ptr_ptr.*int_ptr_ptr
+} {**int_ptr_ptr}
+
+# Test: c_variable-4.80
+# Desc: Number of children of struct_declarations.*int_ptr_ptr
+gdbtk_test c_variable-4.80 {Number of children of struct_declarations.*int_ptr_ptr} {
+  $var(struct_declarations.int_ptr_ptr.*int_ptr_ptr) numChildren
+} {1}
+
+# Step to "struct_declarations.integer = 123;"
+gdb_cmd "step"
+
+# Test: c_variable-4.81
+# Desc: create local variable "weird"
+gdbtk_test c_variable-4.81 {create local variable "weird"} {
+  create_variable weird
+} {0}
+
+# Test: c_variable-4.82
+# Desc: children of weird
+gdbtk_test c_variable-4.82 {children of weird} {
+  get_children weird
+} {integer character char_ptr long_int int_ptr_ptr long_array func_ptr func_ptr_struct func_ptr_ptr u1 s2}
+
+# Test: c_variable-4.83
+# Desc: number of children of weird
+gdbtk_test c_variable-4.83 {number of children of weird} {
+  $var(weird) numChildren
+} {11}
+
+# Test: c_variable-4.84
+# Desc: children of weird->long_array
+gdbtk_test c_variable-4.84 {children of weird->long_array} {
+  get_children weird.long_array
+} {0 1 2 3 4 5 6 7 8 9}
+
+# Test: c_variable-4.85
+# Desc: number of children of weird->long_array
+gdbtk_test c_variable-4.85 {number of children of weird->long_array} {
+  $var(weird.long_array) numChildren
+} {10}
+
+# Test: c_variable-4.86
+# Desc: children of weird->int_ptr_ptr
+gdbtk_test c_variable-4.86 {children of weird->int_ptr_ptr} {
+  get_children weird.int_ptr_ptr
+} {*int_ptr_ptr}
+
+# Test: c_variable-4.87
+# Desc: number of children of weird->int_ptr_ptr
+gdbtk_test c_variable-4.87 {number of children of weird->int_ptr_ptr} {
+  $var(weird.int_ptr_ptr) numChildren
+} {1}
+
+# Test: c_variable-4.88
+# Desc: children of *weird->int_ptr_ptr
+gdbtk_test c_variable-4.88 {children of *weird->int_ptr_ptr} {
+  get_children weird.int_ptr_ptr.*int_ptr_ptr
+} {**int_ptr_ptr}
+
+# Test: c_variable-4.89
+# Desc: number of children *weird->int_ptr_ptr
+gdbtk_test c_variable-4.89 {number of children *weird->int_ptr_ptr} {
+  $var(weird.int_ptr_ptr.*int_ptr_ptr) numChildren
+} {1}
+
+# Test: c_variable-4.90
+# Desc: create weird->int_ptr_ptr
+gdbtk_test c_variable-4.90 {create weird->int_ptr_ptr} {
+  create_variable weird->int_ptr_ptr
+} {0}
+
+# Test: c_variable-4.91
+# Desc: children of weird->int_ptr_ptr
+gdbtk_test c_variable-4.91 {children of weird->int_ptr_ptr} {
+  get_children weird->int_ptr_ptr
+} {*weird->int_ptr_ptr}
+
+# Test: c_variable-4.92
+# Desc: number of children of (weird->int_ptr_ptr)
+gdbtk_test c_variable-4.92 {number of children of (weird->int_ptr_ptr)} {
+  $var(weird->int_ptr_ptr) numChildren
+} {1}
+
+# Test: c_variable-4.93
+# Desc: children of *(weird->int_ptr_ptr)
+gdbtk_test c_variable-4.93 {children of *(weird->int_ptr_ptr)} {
+  get_children weird->int_ptr_ptr.*weird->int_ptr_ptr
+} {**weird->int_ptr_ptr}
+
+# Test: c_variable-4.94
+# Desc: number of children of *(weird->int_ptr_ptr)
+gdbtk_test c_variable-4.94 {number of children of *(weird->int_ptr_ptr)} {
+  $var(weird->int_ptr_ptr.*weird->int_ptr_ptr) numChildren
+} {1}
+
+# Test: c_variable-4.95
+# Desc: children of *(*(weird->int_ptr_ptr))
+gdbtk_test c_variable-4.95 {children of *(*(weird->int_ptr_ptr))} {
+  get_children weird->int_ptr_ptr.*weird->int_ptr_ptr.**weird->int_ptr_ptr
+} {}
+
+# Test: c_variable-4.96
+# Desc: number of children of *(*(weird->int_ptr_ptr))
+gdbtk_test c_variable-4.96 {number of children of **weird->int_ptr_ptr} {
+  $var(weird->int_ptr_ptr.*weird->int_ptr_ptr.**weird->int_ptr_ptr) numChildren
+} {0}
+
+# Test: c_variable-4.97
+# Desc: is weird editable
+gdbtk_test c_variable-4.97 {is weird editable} {
+  $var(weird) editable
+} {1}
+
+# Test: c_variable-4.98
+# Desc: is weird->int_ptr_ptr editable
+gdbtk_test c_variable-4.98 {is weird->int_ptr_ptr editable} {
+  $var(weird.int_ptr_ptr) editable
+} {1}
+
+# Test: c_variable-4.99
+# Desc: is *(weird->int_ptr_ptr) editable
+gdbtk_test c_variable-4.99 {is *(weird->int_ptr_ptr) editable} {
+  $var(weird.int_ptr_ptr.*int_ptr_ptr) editable
+} {1}
+
+# Test: c_variable-4.100
+# Desc: is *(*(weird->int_ptr_ptr)) editable
+gdbtk_test c_variable-4.100 {is *(*(weird->int_ptr_ptr)) editable} {
+  $var(weird.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr) editable
+} {1}
+
+# Test: c_variable-4.101
+# Desc: is weird->u1 editable
+gdbtk_test c_variable-4.101 {is weird->u1 editable} {
+  $var(weird.u1) editable
+} {0}
+
+# Test: c_variable-4.102
+# Desc: is weird->s2 editable
+gdbtk_test c_variable-4.102 {is weird->s2 editable} {
+  $var(weird.s2) editable
+} {0}
+
+# Test: c_variable-4.103
+# Desc: is struct_declarations.u1.a editable
+gdbtk_test c_variable-4.103 {is struct_declarations.u1.a editable} {
+  $var(struct_declarations.u1.a) editable
+} {1}
+
+# Test: c_variable-4.104
+# Desc: is struct_declarations.u1.b editable
+gdbtk_test c_variable-4.104 {is struct_declarations.u1.b editable} {
+  $var(struct_declarations.u1.b) editable
+} {1}
+
+# Test: c_variable-4.105
+# Desc: is struct_declarations.u1.c editable
+gdbtk_test c_variable-4.105 {is struct_declarations.u1.c editable} {
+  $var(struct_declarations.u1.c) editable
+} {1}
+
+# Test: c_variable-4.106
+# Desc: is struct_declarations.long_array editable
+gdbtk_test c_variable-4.106 {is struct_declarations.long_array editable} {
+  $var(struct_declarations.long_array) editable
+} {0}
+
+# Test: c_variable-4.107
+# Desc: is struct_declarations.long_array[0] editable
+gdbtk_test c_variable-4.107 {is struct_declarations.long_array[0] editable} {
+  $var(struct_declarations.long_array.0) editable
+} {1}
+
+# Test: c_variable-4.108
+# Desc: is struct_declarations editable
+gdbtk_test c_variable-4.108 {is struct_declarations editable} {
+  $var(struct_declarations) editable
+} {0}
+
+delete_variable weird
+
+#####                         #####
+#                                 #
+# children and update tests #
+#                                 #
+#####                         #####
+
+# Test: c_variable-5.1
+# Desc: check that nothing changed
+gdbtk_test c_variable-5.1 {check that nothing changed} {
+  check_update
+} {{} {struct_declarations.s2.i.3 struct_declarations.func_ptr_ptr struct_declarations.s2.i.4 struct_declarations.s2.i.5 struct_declarations.s2.i.6 struct_declarations.func_ptr struct_declarations.s2.i.7 struct_declarations.s2.i.8 struct_declarations.s2.i.9 struct_declarations.s2.u2.u1s1.d struct_declarations.func_ptr_struct struct_declarations.s2.u2.u1s1.e struct_declarations.u1 struct_declarations.char_ptr.*char_ptr struct_declarations.long_int struct_declarations.s2.u2.u1s2.func struct_declarations.integer struct_declarations.s2.u2 struct_declarations.s2.u2.u1s1.e.0 struct_declarations.s2.u2.u1s1.e.1 struct_declarations.long_array.0 struct_declarations.s2.u2.u1s1.e.2 struct_declarations.long_array.1 struct_declarations.u1.a struct_declarations.s2.u2.u1s1.e.3 struct_declarations.long_array.2 struct_declarations.u1.b struct_declarations.s2.u2.u1s1.e.4 struct_declarations.long_array.3 struct_declarations.u1.c struct_declarations.s2.u2.u1s1.e.5 struct_declarations.long_array.4 struct_declarations.u1.d struct_declarations.u1.b.*b struct_declarations.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr struct_declarations.s2.u2.u1s1.e.6 struct_declarations.long_array.5 struct_declarations.s2.u2.u1s1.e.7 struct_declarations.long_array.6 struct_declarations.s2.u2.u1s1.e.8 struct_declarations.long_array.7 struct_declarations.s2.u2.u1s1.e.9 struct_declarations.long_array.8 struct_declarations.character struct_declarations.long_array.9 struct_declarations.int_ptr_ptr.*int_ptr_ptr struct_declarations.s2.u2.u1s1.func struct_declarations.s2.u2.u1s2.array_ptr struct_declarations.s2.u2.f struct_declarations.s2.u2.u1s1.foo struct_declarations.s2.u2.u1s1 struct_declarations.s2.u2.u1s2.array_ptr.0 struct_declarations.char_ptr struct_declarations.s2.u2.u1s2 struct_declarations.s2.u2.u1s2.array_ptr.1 struct_declarations.int_ptr_ptr struct_declarations.s2 struct_declarations.long_array struct_declarations.s2.g struct_declarations.s2.i.0 struct_declarations.s2.h struct_declarations.s2.i.1 struct_declarations.s2.i struct_declarations.s2.i.2}}
+
+# Step over "struct_declarations.integer = 123;"
+gdb_cmd "step"
+
+# Test: c_variable-5.2
+# Desc: check that integer changed
+gdbtk_test c_variable-5.2 {check that integer changed} {
+  check_update
+} {struct_declarations.integer {struct_declarations.s2.i.3 struct_declarations.func_ptr_ptr struct_declarations.s2.i.4 struct_declarations.s2.i.5 struct_declarations.s2.i.6 struct_declarations.func_ptr struct_declarations.s2.i.7 struct_declarations.s2.i.8 struct_declarations.s2.i.9 struct_declarations.s2.u2.u1s1.d struct_declarations.func_ptr_struct struct_declarations.s2.u2.u1s1.e struct_declarations.u1 struct_declarations.char_ptr.*char_ptr struct_declarations.long_int struct_declarations.s2.u2.u1s2.func struct_declarations.integer struct_declarations.s2.u2 struct_declarations.s2.u2.u1s1.e.0 struct_declarations.s2.u2.u1s1.e.1 struct_declarations.long_array.0 struct_declarations.s2.u2.u1s1.e.2 struct_declarations.long_array.1 struct_declarations.u1.a struct_declarations.s2.u2.u1s1.e.3 struct_declarations.long_array.2 struct_declarations.u1.b struct_declarations.s2.u2.u1s1.e.4 struct_declarations.long_array.3 struct_declarations.u1.c struct_declarations.s2.u2.u1s1.e.5 struct_declarations.long_array.4 struct_declarations.u1.d struct_declarations.u1.b.*b struct_declarations.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr struct_declarations.s2.u2.u1s1.e.6 struct_declarations.long_array.5 struct_declarations.s2.u2.u1s1.e.7 struct_declarations.long_array.6 struct_declarations.s2.u2.u1s1.e.8 struct_declarations.long_array.7 struct_declarations.s2.u2.u1s1.e.9 struct_declarations.long_array.8 struct_declarations.character struct_declarations.long_array.9 struct_declarations.int_ptr_ptr.*int_ptr_ptr struct_declarations.s2.u2.u1s1.func struct_declarations.s2.u2.u1s2.array_ptr struct_declarations.s2.u2.f struct_declarations.s2.u2.u1s1.foo struct_declarations.s2.u2.u1s1 struct_declarations.s2.u2.u1s2.array_ptr.0 struct_declarations.char_ptr struct_declarations.s2.u2.u1s2 struct_declarations.s2.u2.u1s2.array_ptr.1 struct_declarations.int_ptr_ptr struct_declarations.s2 struct_declarations.long_array struct_declarations.s2.g struct_declarations.s2.i.0 struct_declarations.s2.h struct_declarations.s2.i.1 struct_declarations.s2.i struct_declarations.s2.i.2}}
+
+# Step over:
+#    weird->char_ptr = "hello";
+#    bar = 2121;
+#    foo = &bar;
+for {set i 0} {$i < 3} {incr i} {
+  gdb_cmd "step"
+}
+
+# Test: c_variable-5.3
+# Desc: check that char_ptr changed
+gdbtk_test c_variable-5.3 {check that char_ptr changed} {
+  check_update
+} {{{struct_declarations.char_ptr struct_declarations.char_ptr.*char_ptr}} {struct_declarations.s2.i.3 struct_declarations.func_ptr_ptr struct_declarations.s2.i.4 struct_declarations.s2.i.5 struct_declarations.s2.i.6 struct_declarations.func_ptr struct_declarations.s2.i.7 struct_declarations.s2.i.8 struct_declarations.s2.i.9 struct_declarations.s2.u2.u1s1.d struct_declarations.func_ptr_struct struct_declarations.s2.u2.u1s1.e struct_declarations.u1 struct_declarations.char_ptr.*char_ptr struct_declarations.long_int struct_declarations.s2.u2.u1s2.func struct_declarations.integer struct_declarations.s2.u2 struct_declarations.s2.u2.u1s1.e.0 struct_declarations.s2.u2.u1s1.e.1 struct_declarations.long_array.0 struct_declarations.s2.u2.u1s1.e.2 struct_declarations.long_array.1 struct_declarations.u1.a struct_declarations.s2.u2.u1s1.e.3 struct_declarations.long_array.2 struct_declarations.u1.b struct_declarations.s2.u2.u1s1.e.4 struct_declarations.long_array.3 struct_declarations.u1.c struct_declarations.s2.u2.u1s1.e.5 struct_declarations.long_array.4 struct_declarations.u1.d struct_declarations.u1.b.*b struct_declarations.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr struct_declarations.s2.u2.u1s1.e.6 struct_declarations.long_array.5 struct_declarations.s2.u2.u1s1.e.7 struct_declarations.long_array.6 struct_declarations.s2.u2.u1s1.e.8 struct_declarations.long_array.7 struct_declarations.s2.u2.u1s1.e.9 struct_declarations.long_array.8 struct_declarations.character struct_declarations.long_array.9 struct_declarations.int_ptr_ptr.*int_ptr_ptr struct_declarations.s2.u2.u1s1.func struct_declarations.s2.u2.u1s2.array_ptr struct_declarations.s2.u2.f struct_declarations.s2.u2.u1s1.foo struct_declarations.s2.u2.u1s1 struct_declarations.s2.u2.u1s2.array_ptr.0 struct_declarations.char_ptr struct_declarations.s2.u2.u1s2 struct_declarations.s2.u2.u1s2.array_ptr.1 struct_declarations.int_ptr_ptr struct_declarations.s2 struct_declarations.long_array struct_declarations.s2.g struct_declarations.s2.i.0 struct_declarations.s2.h struct_declarations.s2.i.1 struct_declarations.s2.i struct_declarations.s2.i.2}}
+
+# Step over "struct_declarations.int_ptr_ptr = &foo;"
+gdb_cmd "step"
+
+# Test: c_variable-5.4
+# Desc: check that int_ptr_ptr and children changed
+gdbtk_test c_variable-5.4 {check that int_ptr_ptr and children changed} {
+  check_update
+} {{{struct_declarations.int_ptr_ptr struct_declarations.int_ptr_ptr.*int_ptr_ptr struct_declarations.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr}} {struct_declarations.s2.i.3 struct_declarations.func_ptr_ptr struct_declarations.s2.i.4 struct_declarations.s2.i.5 struct_declarations.s2.i.6 struct_declarations.func_ptr struct_declarations.s2.i.7 struct_declarations.s2.i.8 struct_declarations.s2.i.9 struct_declarations.s2.u2.u1s1.d struct_declarations.func_ptr_struct struct_declarations.s2.u2.u1s1.e struct_declarations.u1 struct_declarations.char_ptr.*char_ptr struct_declarations.long_int struct_declarations.s2.u2.u1s2.func struct_declarations.integer struct_declarations.s2.u2 struct_declarations.s2.u2.u1s1.e.0 struct_declarations.s2.u2.u1s1.e.1 struct_declarations.long_array.0 struct_declarations.s2.u2.u1s1.e.2 struct_declarations.long_array.1 struct_declarations.u1.a struct_declarations.s2.u2.u1s1.e.3 struct_declarations.long_array.2 struct_declarations.u1.b struct_declarations.s2.u2.u1s1.e.4 struct_declarations.long_array.3 struct_declarations.u1.c struct_declarations.s2.u2.u1s1.e.5 struct_declarations.long_array.4 struct_declarations.u1.d struct_declarations.u1.b.*b struct_declarations.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr struct_declarations.s2.u2.u1s1.e.6 struct_declarations.long_array.5 struct_declarations.s2.u2.u1s1.e.7 struct_declarations.long_array.6 struct_declarations.s2.u2.u1s1.e.8 struct_declarations.long_array.7 struct_declarations.s2.u2.u1s1.e.9 struct_declarations.long_array.8 struct_declarations.character struct_declarations.long_array.9 struct_declarations.int_ptr_ptr.*int_ptr_ptr struct_declarations.s2.u2.u1s1.func struct_declarations.s2.u2.u1s2.array_ptr struct_declarations.s2.u2.f struct_declarations.s2.u2.u1s1.foo struct_declarations.s2.u2.u1s1 struct_declarations.s2.u2.u1s2.array_ptr.0 struct_declarations.char_ptr struct_declarations.s2.u2.u1s2 struct_declarations.s2.u2.u1s2.array_ptr.1 struct_declarations.int_ptr_ptr struct_declarations.s2 struct_declarations.long_array struct_declarations.s2.g struct_declarations.s2.i.0 struct_declarations.s2.h struct_declarations.s2.i.1 struct_declarations.s2.i struct_declarations.s2.i.2}}
+
+# Step over "weird->long_array[0] = 1234;"
+gdb_cmd "step"
+
+# Test: c_variable-5.5
+# Desc: check that long_array[0] changed
+gdbtk_test c_variable-5.5 {check that long_array[0] changed} {
+  check_update
+} {struct_declarations.long_array.0 {struct_declarations.s2.i.3 struct_declarations.func_ptr_ptr struct_declarations.s2.i.4 struct_declarations.s2.i.5 struct_declarations.s2.i.6 struct_declarations.func_ptr struct_declarations.s2.i.7 struct_declarations.s2.i.8 struct_declarations.s2.i.9 struct_declarations.s2.u2.u1s1.d struct_declarations.func_ptr_struct struct_declarations.s2.u2.u1s1.e struct_declarations.u1 struct_declarations.char_ptr.*char_ptr struct_declarations.long_int struct_declarations.s2.u2.u1s2.func struct_declarations.integer struct_declarations.s2.u2 struct_declarations.s2.u2.u1s1.e.0 struct_declarations.s2.u2.u1s1.e.1 struct_declarations.long_array.0 struct_declarations.s2.u2.u1s1.e.2 struct_declarations.long_array.1 struct_declarations.u1.a struct_declarations.s2.u2.u1s1.e.3 struct_declarations.long_array.2 struct_declarations.u1.b struct_declarations.s2.u2.u1s1.e.4 struct_declarations.long_array.3 struct_declarations.u1.c struct_declarations.s2.u2.u1s1.e.5 struct_declarations.long_array.4 struct_declarations.u1.d struct_declarations.u1.b.*b struct_declarations.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr struct_declarations.s2.u2.u1s1.e.6 struct_declarations.long_array.5 struct_declarations.s2.u2.u1s1.e.7 struct_declarations.long_array.6 struct_declarations.s2.u2.u1s1.e.8 struct_declarations.long_array.7 struct_declarations.s2.u2.u1s1.e.9 struct_declarations.long_array.8 struct_declarations.character struct_declarations.long_array.9 struct_declarations.int_ptr_ptr.*int_ptr_ptr struct_declarations.s2.u2.u1s1.func struct_declarations.s2.u2.u1s2.array_ptr struct_declarations.s2.u2.f struct_declarations.s2.u2.u1s1.foo struct_declarations.s2.u2.u1s1 struct_declarations.s2.u2.u1s2.array_ptr.0 struct_declarations.char_ptr struct_declarations.s2.u2.u1s2 struct_declarations.s2.u2.u1s2.array_ptr.1 struct_declarations.int_ptr_ptr struct_declarations.s2 struct_declarations.long_array struct_declarations.s2.g struct_declarations.s2.i.0 struct_declarations.s2.h struct_declarations.s2.i.1 struct_declarations.s2.i struct_declarations.s2.i.2}}
+
+# Step over "struct_declarations.long_array[1] = 2345;"
+gdb_cmd "step"
+
+# Test: c_variable-5.6
+# Desc: check that long_array[1] changed
+gdbtk_test c_variable-5.6 {check that long_array[1] changed} {
+  check_update
+} {struct_declarations.long_array.1 {struct_declarations.s2.i.3 struct_declarations.func_ptr_ptr struct_declarations.s2.i.4 struct_declarations.s2.i.5 struct_declarations.s2.i.6 struct_declarations.func_ptr struct_declarations.s2.i.7 struct_declarations.s2.i.8 struct_declarations.s2.i.9 struct_declarations.s2.u2.u1s1.d struct_declarations.func_ptr_struct struct_declarations.s2.u2.u1s1.e struct_declarations.u1 struct_declarations.char_ptr.*char_ptr struct_declarations.long_int struct_declarations.s2.u2.u1s2.func struct_declarations.integer struct_declarations.s2.u2 struct_declarations.s2.u2.u1s1.e.0 struct_declarations.s2.u2.u1s1.e.1 struct_declarations.long_array.0 struct_declarations.s2.u2.u1s1.e.2 struct_declarations.long_array.1 struct_declarations.u1.a struct_declarations.s2.u2.u1s1.e.3 struct_declarations.long_array.2 struct_declarations.u1.b struct_declarations.s2.u2.u1s1.e.4 struct_declarations.long_array.3 struct_declarations.u1.c struct_declarations.s2.u2.u1s1.e.5 struct_declarations.long_array.4 struct_declarations.u1.d struct_declarations.u1.b.*b struct_declarations.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr struct_declarations.s2.u2.u1s1.e.6 struct_declarations.long_array.5 struct_declarations.s2.u2.u1s1.e.7 struct_declarations.long_array.6 struct_declarations.s2.u2.u1s1.e.8 struct_declarations.long_array.7 struct_declarations.s2.u2.u1s1.e.9 struct_declarations.long_array.8 struct_declarations.character struct_declarations.long_array.9 struct_declarations.int_ptr_ptr.*int_ptr_ptr struct_declarations.s2.u2.u1s1.func struct_declarations.s2.u2.u1s2.array_ptr struct_declarations.s2.u2.f struct_declarations.s2.u2.u1s1.foo struct_declarations.s2.u2.u1s1 struct_declarations.s2.u2.u1s2.array_ptr.0 struct_declarations.char_ptr struct_declarations.s2.u2.u1s2 struct_declarations.s2.u2.u1s2.array_ptr.1 struct_declarations.int_ptr_ptr struct_declarations.s2 struct_declarations.long_array struct_declarations.s2.g struct_declarations.s2.i.0 struct_declarations.s2.h struct_declarations.s2.i.1 struct_declarations.s2.i struct_declarations.s2.i.2}}
+
+# Step over "weird->long_array[2] = 3456;"
+gdb_cmd "step"
+
+# Test: c_variable-5.7
+# Desc: check that long_array[2] changed
+gdbtk_test c_variable-5.7 {check that long_array[2] changed} {
+  check_update
+} {struct_declarations.long_array.2 {struct_declarations.s2.i.3 struct_declarations.func_ptr_ptr struct_declarations.s2.i.4 struct_declarations.s2.i.5 struct_declarations.s2.i.6 struct_declarations.func_ptr struct_declarations.s2.i.7 struct_declarations.s2.i.8 struct_declarations.s2.i.9 struct_declarations.s2.u2.u1s1.d struct_declarations.func_ptr_struct struct_declarations.s2.u2.u1s1.e struct_declarations.u1 struct_declarations.char_ptr.*char_ptr struct_declarations.long_int struct_declarations.s2.u2.u1s2.func struct_declarations.integer struct_declarations.s2.u2 struct_declarations.s2.u2.u1s1.e.0 struct_declarations.s2.u2.u1s1.e.1 struct_declarations.long_array.0 struct_declarations.s2.u2.u1s1.e.2 struct_declarations.long_array.1 struct_declarations.u1.a struct_declarations.s2.u2.u1s1.e.3 struct_declarations.long_array.2 struct_declarations.u1.b struct_declarations.s2.u2.u1s1.e.4 struct_declarations.long_array.3 struct_declarations.u1.c struct_declarations.s2.u2.u1s1.e.5 struct_declarations.long_array.4 struct_declarations.u1.d struct_declarations.u1.b.*b struct_declarations.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr struct_declarations.s2.u2.u1s1.e.6 struct_declarations.long_array.5 struct_declarations.s2.u2.u1s1.e.7 struct_declarations.long_array.6 struct_declarations.s2.u2.u1s1.e.8 struct_declarations.long_array.7 struct_declarations.s2.u2.u1s1.e.9 struct_declarations.long_array.8 struct_declarations.character struct_declarations.long_array.9 struct_declarations.int_ptr_ptr.*int_ptr_ptr struct_declarations.s2.u2.u1s1.func struct_declarations.s2.u2.u1s2.array_ptr struct_declarations.s2.u2.f struct_declarations.s2.u2.u1s1.foo struct_declarations.s2.u2.u1s1 struct_declarations.s2.u2.u1s2.array_ptr.0 struct_declarations.char_ptr struct_declarations.s2.u2.u1s2 struct_declarations.s2.u2.u1s2.array_ptr.1 struct_declarations.int_ptr_ptr struct_declarations.s2 struct_declarations.long_array struct_declarations.s2.g struct_declarations.s2.i.0 struct_declarations.s2.h struct_declarations.s2.i.1 struct_declarations.s2.i struct_declarations.s2.i.2}}
+
+# Step over:
+#    struct_declarations.long_array[3] = 4567;
+#    weird->long_array[4] = 5678;
+#    struct_declarations.long_array[5] = 6789;
+#    weird->long_array[6] = 7890;
+#    struct_declarations.long_array[7] = 8901;
+#    weird->long_array[8] = 9012;
+#    struct_declarations.long_array[9] = 1234;
+for {set i 0} {$i < 7} {incr i} {
+  gdb_cmd "step"
+}
+
+# Test: c_variable-5.8
+# Desc: check that long_array[3-9] changed
+gdbtk_test c_variable-5.8 {check that long_array[3-9] changed} {
+  check_update
+} {{{struct_declarations.long_array.3 struct_declarations.long_array.4 struct_declarations.long_array.5 struct_declarations.long_array.6 struct_declarations.long_array.7 struct_declarations.long_array.8 struct_declarations.long_array.9}} {struct_declarations.s2.i.3 struct_declarations.func_ptr_ptr struct_declarations.s2.i.4 struct_declarations.s2.i.5 struct_declarations.s2.i.6 struct_declarations.func_ptr struct_declarations.s2.i.7 struct_declarations.s2.i.8 struct_declarations.s2.i.9 struct_declarations.s2.u2.u1s1.d struct_declarations.func_ptr_struct struct_declarations.s2.u2.u1s1.e struct_declarations.u1 struct_declarations.char_ptr.*char_ptr struct_declarations.long_int struct_declarations.s2.u2.u1s2.func struct_declarations.integer struct_declarations.s2.u2 struct_declarations.s2.u2.u1s1.e.0 struct_declarations.s2.u2.u1s1.e.1 struct_declarations.long_array.0 struct_declarations.s2.u2.u1s1.e.2 struct_declarations.long_array.1 struct_declarations.u1.a struct_declarations.s2.u2.u1s1.e.3 struct_declarations.long_array.2 struct_declarations.u1.b struct_declarations.s2.u2.u1s1.e.4 struct_declarations.long_array.3 struct_declarations.u1.c struct_declarations.s2.u2.u1s1.e.5 struct_declarations.long_array.4 struct_declarations.u1.d struct_declarations.u1.b.*b struct_declarations.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr struct_declarations.s2.u2.u1s1.e.6 struct_declarations.long_array.5 struct_declarations.s2.u2.u1s1.e.7 struct_declarations.long_array.6 struct_declarations.s2.u2.u1s1.e.8 struct_declarations.long_array.7 struct_declarations.s2.u2.u1s1.e.9 struct_declarations.long_array.8 struct_declarations.character struct_declarations.long_array.9 struct_declarations.int_ptr_ptr.*int_ptr_ptr struct_declarations.s2.u2.u1s1.func struct_declarations.s2.u2.u1s2.array_ptr struct_declarations.s2.u2.f struct_declarations.s2.u2.u1s1.foo struct_declarations.s2.u2.u1s1 struct_declarations.s2.u2.u1s2.array_ptr.0 struct_declarations.char_ptr struct_declarations.s2.u2.u1s2 struct_declarations.s2.u2.u1s2.array_ptr.1 struct_declarations.int_ptr_ptr struct_declarations.s2 struct_declarations.long_array struct_declarations.s2.g struct_declarations.s2.i.0 struct_declarations.s2.h struct_declarations.s2.i.1 struct_declarations.s2.i struct_declarations.s2.i.2}}
+
+# Step over "weird->func_ptr = nothing;"
+gdb_cmd "step"
+
+# Test: c_variable-5.9
+# Desc: check that func_ptr changed
+gdbtk_test c_variable-5.9 {check that func_ptr changed} {
+  check_update
+} {struct_declarations.func_ptr {struct_declarations.s2.i.3 struct_declarations.func_ptr_ptr struct_declarations.s2.i.4 struct_declarations.s2.i.5 struct_declarations.s2.i.6 struct_declarations.func_ptr struct_declarations.s2.i.7 struct_declarations.s2.i.8 struct_declarations.s2.i.9 struct_declarations.s2.u2.u1s1.d struct_declarations.func_ptr_struct struct_declarations.s2.u2.u1s1.e struct_declarations.u1 struct_declarations.char_ptr.*char_ptr struct_declarations.long_int struct_declarations.s2.u2.u1s2.func struct_declarations.integer struct_declarations.s2.u2 struct_declarations.s2.u2.u1s1.e.0 struct_declarations.s2.u2.u1s1.e.1 struct_declarations.long_array.0 struct_declarations.s2.u2.u1s1.e.2 struct_declarations.long_array.1 struct_declarations.u1.a struct_declarations.s2.u2.u1s1.e.3 struct_declarations.long_array.2 struct_declarations.u1.b struct_declarations.s2.u2.u1s1.e.4 struct_declarations.long_array.3 struct_declarations.u1.c struct_declarations.s2.u2.u1s1.e.5 struct_declarations.long_array.4 struct_declarations.u1.d struct_declarations.u1.b.*b struct_declarations.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr struct_declarations.s2.u2.u1s1.e.6 struct_declarations.long_array.5 struct_declarations.s2.u2.u1s1.e.7 struct_declarations.long_array.6 struct_declarations.s2.u2.u1s1.e.8 struct_declarations.long_array.7 struct_declarations.s2.u2.u1s1.e.9 struct_declarations.long_array.8 struct_declarations.character struct_declarations.long_array.9 struct_declarations.int_ptr_ptr.*int_ptr_ptr struct_declarations.s2.u2.u1s1.func struct_declarations.s2.u2.u1s2.array_ptr struct_declarations.s2.u2.f struct_declarations.s2.u2.u1s1.foo struct_declarations.s2.u2.u1s1 struct_declarations.s2.u2.u1s2.array_ptr.0 struct_declarations.char_ptr struct_declarations.s2.u2.u1s2 struct_declarations.s2.u2.u1s2.array_ptr.1 struct_declarations.int_ptr_ptr struct_declarations.s2 struct_declarations.long_array struct_declarations.s2.g struct_declarations.s2.i.0 struct_declarations.s2.h struct_declarations.s2.i.1 struct_declarations.s2.i struct_declarations.s2.i.2}}
+
+# Delete all variables
+delete_all_variables
+
+# Step over all lines:
+# ...
+#   psnp = &snp0;
+for {set i 0} {$i < 43} {incr i} {
+  gdb_cmd "step"
+}
+
+# Test: c_variable-5.10
+# Desc: create psnp->char_ptr
+gdbtk_test c_variable-5.10 {create psnp->char_ptr} {
+  create_variable psnp->char_ptr
+} {0}
+
+# Test: c_variable-5.11
+# Desc: children of psnp->char_ptr
+gdbtk_test c_variable-5.11 {children of psnp->char_ptr} {
+  get_children psnp->char_ptr
+} {*psnp->char_ptr}
+
+# Test: c_variable-5.12
+# Desc: number of children of psnp->char_ptr
+gdbtk_test c_variable-5.12 {number of children of psnp->char_ptr} {
+  $var(psnp->char_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.13
+# Desc: children of *(psnp->char_ptr)
+gdbtk_test c_variable-5.13 {children of *(psnp->char_ptr)} {
+  get_children psnp->char_ptr.*psnp->char_ptr
+} {**psnp->char_ptr}
+
+# Test: c_variable-5.14
+# Desc: number of children of *(psnp->char_ptr)
+gdbtk_test c_variable-5.14 {number of children of *(psnp->char_ptr)} {
+  $var(psnp->char_ptr.*psnp->char_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.15
+# Desc: children of *(*(psnp->char_ptr))
+gdbtk_test c_variable-5.15 {children of *(*(psnp->char_ptr))} {
+  get_children psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr
+} {***psnp->char_ptr}
+
+# Test: c_variable-5.16
+# Desc: number of children of *(*(psnp->char_ptr))
+gdbtk_test c_variable-5.16 {number of children of *(*(psnp->char_ptr))} {
+  $var(psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.17
+# Desc: children of *(*(*(psnp->char_ptr)))
+gdbtk_test c_variable-5.17 {children of *(*(*(psnp->char_ptr)))} {
+  get_children psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr
+} {****psnp->char_ptr}
+
+# Test: c_variable-5.18
+# Desc: number of children of *(*(*(psnp->char_ptr)))
+gdbtk_test c_variable-5.18 {number of children of *(*(*(psnp->char_ptr)))} {
+  $var(psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.19
+# Desc: create psnp->long_ptr
+gdbtk_test c_variable-5.19 {create psnp->long_ptr} {
+  create_variable psnp->long_ptr
+} {0}
+
+# Test: c_variable-5.20
+# Desc: children of psnp->long_ptr
+gdbtk_test c_variable-5.20 {children of psnp->long_ptr} {
+  get_children psnp->long_ptr
+} {*psnp->long_ptr}
+
+# Test: c_variable-5.21
+# Desc: number of children of psnp->long_ptr
+gdbtk_test c_variable-5.21 {number of children of psnp->long_ptr} {
+  $var(psnp->long_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.22
+# Desc: children of *(psnp->long_ptr)
+gdbtk_test c_variable-5.22 {children of *(psnp->long_ptr)} {
+  get_children psnp->long_ptr.*psnp->long_ptr
+} {**psnp->long_ptr}
+
+# Test: c_variable-5.23
+# Desc: number of children of *(psnp->long_ptr)
+gdbtk_test c_variable-5.23 {number of children of *(psnp->long_ptr)} {
+  $var(psnp->long_ptr.*psnp->long_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.24
+# Desc: children of *(*(psnp->long_ptr))
+gdbtk_test c_variable-5.24 {children of *(*(psnp->long_ptr))} {
+  get_children psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr
+} {***psnp->long_ptr}
+
+# Test: c_variable-5.25
+# Desc: number of children of *(*(psnp->long_ptr))
+gdbtk_test c_variable-5.25 {number of children of *(*(psnp->long_ptr))} {
+  $var(psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.26
+# Desc: children of *(*(*(psnp->long_ptr)))
+gdbtk_test c_variable-5.26 {children of *(*(*(psnp->long_ptr)))} {
+  get_children psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr
+} {****psnp->long_ptr}
+
+# Test: c_variable-5.27
+# Desc: number of children of *(*(*(psnp->long_ptr)))
+gdbtk_test c_variable-5.27 {number of children of *(*(*(psnp->long_ptr)))} {
+  $var(psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.28
+# Desc: children of *(*(*(*(psnp->long_ptr))))
+gdbtk_test c_variable-5.29 {children of *(*(*(*(psnp->long_ptr))))} {
+  get_children psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr.****psnp->long_ptr
+} {}
+
+# Test: c_variable-5.29
+# Desc: number of children of *(*(*(*(psnp->long_ptr))))
+gdbtk_test c_variable-5.29 {number of children of *(*(*(*(psnp->long_ptr))))} {
+  $var(psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr.****psnp->long_ptr) numChildren
+} {0}
+
+# Test: c_variable-5.30
+# Desc: create psnp->ptrs
+gdbtk_test c_variable-5.30 {create psnp->ptrs} {
+  create_variable psnp->ptrs
+} {0}
+
+# Test: c_variable-5.31
+# Desc: children of psnp->ptrs
+gdbtk_test c_variable-5.31 {children of psnp->ptrs} {
+  get_children psnp->ptrs
+} {0 1 2}
+
+# Test: c_variable-5.32
+# Desc: number of children of psnp->ptrs
+gdbtk_test c_variable-5.32 {number of children of psnp->ptrs} {
+  $var(psnp->ptrs) numChildren
+} {3}
+
+# Test: c_variable-5.33
+# Desc: children of psnp->ptrs[0]
+gdbtk_test c_variable-5.33 {children of psnp->ptrs[0]} {
+  get_children psnp->ptrs.0
+} {char_ptr long_ptr ptrs next}
+
+# Test: c_variable-5.34
+# Desc: number of children of psnp->ptrs[0]
+gdbtk_test c_variable-5.34 {number of children of psnp->ptrs[0]} {
+  $var(psnp->ptrs.0) numChildren
+} {4}
+
+# Test: c_variable-5.35
+# Desc: children of psnp->ptrs[0]->next
+gdbtk_test c_variable-5.35 {children of psnp->ptrs.0.next} {
+  get_children psnp->ptrs.0.next
+} {char_ptr long_ptr ptrs next}
+
+# Test: c_variable-5.36
+# Desc: number of children of psnp->ptrs[0]->next
+gdbtk_test c_variable-5.36 {number of children of psnp->ptrs[0]->next} {
+  $var(psnp->ptrs.0.next) numChildren
+} {4}
+
+# Test: c_variable-5.37
+# Desc: children of psnp->ptrs[0]->next->char_ptr
+gdbtk_test c_variable-5.37 {children of psnp->ptrs[0]->next->char_ptr} {
+  get_children psnp->ptrs.0.next.char_ptr
+} {*char_ptr}
+
+# Test: c_variable-5.38
+# Desc: number of children of psnp->ptrs[0]->next->char_ptr
+gdbtk_test c_variable-5.38 {number of children of psnp->ptrs[0]->next->char_ptr} {
+  $var(psnp->ptrs.0.next.char_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.39
+# Desc: children of *psnp->ptrs[0]->next->char_ptr
+gdbtk_test c_variable-5.39 {children of *psnp->ptrs[0]->next->char_ptr} {
+  get_children psnp->ptrs.0.next.char_ptr.*char_ptr
+} {**char_ptr}
+
+# Test: c_variable-5.40
+# Desc: number of children of *psnp->ptrs[0]->next->char_ptr
+gdbtk_test c_variable-5.40 {number of children of *psnp->ptrs[0]->next->char_ptr} {
+  $var(psnp->ptrs.0.next.char_ptr.*char_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.41
+# Desc: children of **psnp->ptrs[0]->next->char_ptr
+gdbtk_test c_variable-5.41 {children of **psnp->ptrs[0]->next->char_ptr} {
+  get_children psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr
+} {***char_ptr}
+
+# Test: c_variable-5.42
+# Desc: number of children of **psnp->ptrs[0]->next->char_ptr
+gdbtk_test c_variable-5.42 {number of children of **psnp->ptrs[0]->next->char_ptr} {
+  $var(psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.43
+# Desc: children of ***psnp->ptrs[0]->next->char_ptr
+gdbtk_test c_variable-5.43 {children of ***psnp->ptrs[0]->next->char_ptr} {
+  get_children psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr
+} {****char_ptr}
+
+# Test: c_variable-5.44
+# Desc: number of children of ***psnp->ptrs[0]->next->char_ptr
+gdbtk_test c_variable-5.44 {number of children of ***psnp->ptrs[0]->next->char_ptr} {
+  $var(psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr) numChildren
+} {1}
+
+# Test: c_variable-5.45
+# Desc: children of psnp->ptrs[0]->next->next
+gdbtk_test c_variable-5.45 {children of psnp->ptrs[0]->next->next} {
+  get_children psnp->ptrs.0.next.next
+} {char_ptr long_ptr ptrs next}
+
+# Test: c_variable-5.46
+# Desc: children of psnp->ptrs[0]->next->next->ptrs
+gdbtk_test c_variable-5.46 {children of psnp->ptrs[0]->next->next->ptrs} {
+  get_children psnp->ptrs.0.next.next.ptrs
+} {0 1 2}
+
+#  Step over "snp0.char_ptr = &b3;"
+gdb_cmd "step"
+
+# Test: c_variable-5.47
+# Desc: check that psnp->char_ptr (and [0].char_ptr) changed
+gdbtk_test c_variable-5.47 {check that psnp->char_ptr (and [0].char_ptr) changed} {
+  check_update
+} {{psnp->ptrs.0.char_ptr {psnp->char_ptr psnp->char_ptr.*psnp->char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr.****psnp->char_ptr}} {psnp->ptrs.0.next psnp->ptrs.0.next.ptrs psnp->ptrs.0.next.next psnp->ptrs.0.next.next.char_ptr psnp->ptrs.0.next.next.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr.****psnp->char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr psnp->ptrs.0.next.char_ptr psnp->ptrs.0.next.long_ptr psnp->ptrs.0.next.next.ptrs psnp->ptrs.0.next.char_ptr.*char_ptr psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr.****psnp->long_ptr psnp->ptrs.0.next.next.next psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr psnp->char_ptr.*psnp->char_ptr psnp->ptrs.0.next.next.ptrs.0 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr psnp->long_ptr.*psnp->long_ptr psnp->ptrs.0.next.next.ptrs.1 psnp->ptrs.0.next.next.ptrs.2 psnp->ptrs.0.char_ptr psnp->ptrs.0.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr.****char_ptr psnp->ptrs.0.ptrs psnp->ptrs.0 psnp->ptrs.1 psnp->ptrs.2 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr}}
+
+#  Step over "snp1.char_ptr = &c3;"
+gdb_cmd "step"
+
+# Test: c_variable-5.48
+# Desc: check that psnp->next->char_ptr (and [1].char_ptr) changed
+gdbtk_test c_variable-5.48 {check that psnp->next->char_ptr (and [1].char_ptr) changed} {
+  check_update
+} {{{psnp->ptrs.0.next.char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr.****char_ptr}} {psnp->ptrs.0.next psnp->ptrs.0.next.ptrs psnp->ptrs.0.next.next psnp->ptrs.0.next.next.char_ptr psnp->ptrs.0.next.next.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr.****psnp->char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr psnp->ptrs.0.next.char_ptr psnp->ptrs.0.next.long_ptr psnp->ptrs.0.next.next.ptrs psnp->ptrs.0.next.char_ptr.*char_ptr psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr.****psnp->long_ptr psnp->ptrs.0.next.next.next psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr psnp->char_ptr.*psnp->char_ptr psnp->ptrs.0.next.next.ptrs.0 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr psnp->long_ptr.*psnp->long_ptr psnp->ptrs.0.next.next.ptrs.1 psnp->ptrs.0.next.next.ptrs.2 psnp->ptrs.0.char_ptr psnp->ptrs.0.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr.****char_ptr psnp->ptrs.0.ptrs psnp->ptrs.0 psnp->ptrs.1 psnp->ptrs.2 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr}}
+
+#  Step over "snp2.char_ptr = &a3;"
+gdb_cmd "step"
+
+# Test: c_variable-5.49
+# Desc: check that psnp->next->next->char_ptr (and [2].char_ptr) changed
+gdbtk_test c_variable-5.49 {heck that psnp->next->next->char_ptr (and [2].char_ptr) changed} {
+  check_update
+} {psnp->ptrs.0.next.next.char_ptr {psnp->ptrs.0.next psnp->ptrs.0.next.ptrs psnp->ptrs.0.next.next psnp->ptrs.0.next.next.char_ptr psnp->ptrs.0.next.next.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr.****psnp->char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr psnp->ptrs.0.next.char_ptr psnp->ptrs.0.next.long_ptr psnp->ptrs.0.next.next.ptrs psnp->ptrs.0.next.char_ptr.*char_ptr psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr.****psnp->long_ptr psnp->ptrs.0.next.next.next psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr psnp->char_ptr.*psnp->char_ptr psnp->ptrs.0.next.next.ptrs.0 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr psnp->long_ptr.*psnp->long_ptr psnp->ptrs.0.next.next.ptrs.1 psnp->ptrs.0.next.next.ptrs.2 psnp->ptrs.0.char_ptr psnp->ptrs.0.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr.****char_ptr psnp->ptrs.0.ptrs psnp->ptrs.0 psnp->ptrs.1 psnp->ptrs.2 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr}}
+
+#  Step over "snp0.long_ptr = &y3;"
+gdb_cmd "step"
+
+# Test: c_variable-5.50
+# Desc: check that psnp->long_ptr (and [0].long_ptr) changed
+gdbtk_test c_variable-5.50 {check that psnp->long_ptr (and [0].long_ptr) changed} {
+  check_update
+} {{psnp->ptrs.0.long_ptr {psnp->long_ptr psnp->long_ptr.*psnp->long_ptr psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr.****psnp->long_ptr}} {psnp->ptrs.0.next psnp->ptrs.0.next.ptrs psnp->ptrs.0.next.next psnp->ptrs.0.next.next.char_ptr psnp->ptrs.0.next.next.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr.****psnp->char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr psnp->ptrs.0.next.char_ptr psnp->ptrs.0.next.long_ptr psnp->ptrs.0.next.next.ptrs psnp->ptrs.0.next.char_ptr.*char_ptr psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr.****psnp->long_ptr psnp->ptrs.0.next.next.next psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr psnp->char_ptr.*psnp->char_ptr psnp->ptrs.0.next.next.ptrs.0 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr psnp->long_ptr.*psnp->long_ptr psnp->ptrs.0.next.next.ptrs.1 psnp->ptrs.0.next.next.ptrs.2 psnp->ptrs.0.char_ptr psnp->ptrs.0.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr.****char_ptr psnp->ptrs.0.ptrs psnp->ptrs.0 psnp->ptrs.1 psnp->ptrs.2 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr}}
+
+#  Step over "snp1.long_ptr = &x3;"
+gdb_cmd "step"
+
+# Test: c_variable-5.51
+# Desc: check that psnp->next->long_ptr (and [1].long_ptr) changed
+gdbtk_test c_variable-5.51 {check that psnp->next->long_ptr (and [1].long_ptr) changed} {
+  check_update
+} {psnp->ptrs.0.next.long_ptr {psnp->ptrs.0.next psnp->ptrs.0.next.ptrs psnp->ptrs.0.next.next psnp->ptrs.0.next.next.char_ptr psnp->ptrs.0.next.next.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr.****psnp->char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr psnp->ptrs.0.next.char_ptr psnp->ptrs.0.next.long_ptr psnp->ptrs.0.next.next.ptrs psnp->ptrs.0.next.char_ptr.*char_ptr psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr.****psnp->long_ptr psnp->ptrs.0.next.next.next psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr psnp->char_ptr.*psnp->char_ptr psnp->ptrs.0.next.next.ptrs.0 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr psnp->long_ptr.*psnp->long_ptr psnp->ptrs.0.next.next.ptrs.1 psnp->ptrs.0.next.next.ptrs.2 psnp->ptrs.0.char_ptr psnp->ptrs.0.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr.****char_ptr psnp->ptrs.0.ptrs psnp->ptrs.0 psnp->ptrs.1 psnp->ptrs.2 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr}}
+
+#  Step over "snp2.long_ptr = &z3;"
+gdb_cmd "step"
+
+# Test: c_variable-5.52
+# Desc: check that psnp->next->next->long_ptr (and [2].long_ptr) changed
+gdbtk_test c_variable-5.52 {check that psnp->next->next->long_ptr (and [2].long_ptr) changed} {
+  check_update
+} {psnp->ptrs.0.next.next.long_ptr {psnp->ptrs.0.next psnp->ptrs.0.next.ptrs psnp->ptrs.0.next.next psnp->ptrs.0.next.next.char_ptr psnp->ptrs.0.next.next.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr.****psnp->char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr psnp->ptrs.0.next.char_ptr psnp->ptrs.0.next.long_ptr psnp->ptrs.0.next.next.ptrs psnp->ptrs.0.next.char_ptr.*char_ptr psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr.****psnp->long_ptr psnp->ptrs.0.next.next.next psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr psnp->char_ptr.*psnp->char_ptr psnp->ptrs.0.next.next.ptrs.0 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr psnp->long_ptr.*psnp->long_ptr psnp->ptrs.0.next.next.ptrs.1 psnp->ptrs.0.next.next.ptrs.2 psnp->ptrs.0.char_ptr psnp->ptrs.0.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr.****char_ptr psnp->ptrs.0.ptrs psnp->ptrs.0 psnp->ptrs.1 psnp->ptrs.2 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr}}
+
+# Test: c_variable-5.53
+# Desc: names of editable variables
+gdbtk_test c_variable-5.53 {names of editable variables} {
+  editable_variables
+} {{psnp->ptrs.0.next psnp->ptrs.0.next.next psnp->ptrs.0.next.next.char_ptr psnp->ptrs.0.next.next.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr.****psnp->char_ptr psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr psnp->ptrs.0.next.char_ptr psnp->ptrs.0.next.long_ptr psnp->ptrs.0.next.char_ptr.*char_ptr psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr.****psnp->long_ptr psnp->ptrs.0.next.next.next psnp->char_ptr.*psnp->char_ptr.**psnp->char_ptr.***psnp->char_ptr psnp->char_ptr.*psnp->char_ptr psnp->ptrs.0.next.next.ptrs.0 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr.***psnp->long_ptr psnp->long_ptr.*psnp->long_ptr psnp->ptrs.0.next.next.ptrs.1 psnp->ptrs.0.next.next.ptrs.2 psnp->ptrs.0.char_ptr psnp->ptrs.0.long_ptr psnp->char_ptr psnp->ptrs.0.next.char_ptr.*char_ptr.**char_ptr.***char_ptr.****char_ptr psnp->long_ptr psnp->ptrs.0 psnp->ptrs.1 psnp->ptrs.2 psnp->long_ptr.*psnp->long_ptr.**psnp->long_ptr} {psnp->ptrs.0.next.ptrs psnp->ptrs.0.next.next.ptrs psnp->ptrs psnp->ptrs.0.ptrs}}
+
+#####       #####
+#               #
+# Display tests #
+#               #
+#####       #####
+
+delete_all_variables
+
+# Test: c_variable-6.1
+# Desc: create variable bar
+gdbtk_test c_variable-6.1 {create variable bar} {
+  create_variable bar
+} {0}
+
+# Test: c_variable-6.2
+# Desc: type of variable bar
+gdbtk_test c_variable-6.2 {type of variable bar} {
+  $var(bar) type
+} {int}
+
+# Test: c_variable-6.3
+# Desc: format of variable bar
+gdbtk_test c_variable-6.3 {format of variable bar} {
+  $var(bar) format
+} {natural}
+
+# Test: c_variable-6.4
+# Desc: value of variable bar
+gdbtk_test c_variable-6.4 {value of variable bar} {
+  value bar d
+} {ok}
+
+# Test: c_variable-6.5
+# Desc: change format of bar to hex
+gdbtk_test c_variable-6.5 {change format of bar to hex} {
+  $var(bar) format hex
+  $var(bar) format
+} {hexadecimal}
+
+# Test: c_variable-6.6
+# Desc: value of bar with new format
+gdbtk_test c_variable-6.6 {value of bar with new format} {
+  value bar x
+} {ok}
+
+# Test: c_variable-6.7
+# Desc: change value of bar
+gdbtk_test c_variable-6.7 {change value of bar} {
+  $var(bar) value 3
+  value bar x
+} {ok}
+
+# Test: c_variable-6.8
+# Desc: check new value of bar
+gdbtk_test c_variable-6.8 {change value of bar} {
+  $var(bar) format decimal
+  $var(bar) value
+} {3}
+
+delete_variable bar
+
+# Test: c_variable-6.11
+# Desc: create variable foo
+gdbtk_test c_variable-6.11 {create variable foo} {
+  create_variable foo
+} {0}
+
+# Test: c_variable-6.12
+# Desc: type of variable foo
+gdbtk_test c_variable-6.12 {type of variable foo} {
+  $var(foo) type
+} {int *}
+
+# Test: c_variable-6.13
+# Desc: format of variable foo
+gdbtk_test c_variable-6.13 {format of variable foo} {
+  $var(foo) format
+} {natural}
+
+# Test: c_variable-6.14
+# Desc: value of variable foo
+gdbtk_test c_variable-6.14 {value of variable foo} {
+  value foo x
+} {ok}
+
+# Test: c_variable-6.15
+# Desc: change format of var to octal
+gdbtk_test c_variable-6.15 {change format of foo to octal} {
+  $var(foo) format octal
+  $var(foo) format
+} {octal}
+
+# Test: c_variable-6.16
+# Desc: value of foo with new format
+gdbtk_test c_variable-6.16 {value of foo with new format} {
+  value foo o
+} {ok}
+
+# Test: c_variable-6.17
+# Desc: change value of foo
+gdbtk_test c_variable-6.17 {change value of foo} {
+  $var(foo) value 3
+  value foo o
+} {ok}
+
+# Test: c_variable-6.18
+# Desc: check new value of foo
+gdbtk_test c_variable-6.18 {check new value of foo} {
+  $var(foo) format decimal
+  $var(foo) value
+} {3}
+
+delete_variable foo
+
+# Test: c_variable-6.21
+# Desc: create variable weird and children
+gdbtk_test c_variable-6.21 {create variable foo} {
+  if {![create_variable weird]} {
+    lsort [get_children weird]
+  }
+} {char_ptr character func_ptr func_ptr_ptr func_ptr_struct int_ptr_ptr integer long_array long_int s2 u1}
+
+# Test: c_variable-6.22
+# Desc: type of weird and children
+gdbtk_test c_variable-6.22 {type of weird and children} {
+  set types {}
+  foreach v [lsort [array names var]] {
+    lappend types [$var($v) type]
+  }
+
+  set types
+} {{weird_struct *} {char *} char {void (*)(void)} {struct _struct_decl *(*)(int, char *, long int)} {struct _struct_decl (*)(int, char *, long int)} {int **} int {long int [10]} {long int} struct union}
+
+# Test: c_variable-6.23
+# Desc: change format of weird.func_ptr and weird.func_ptr_ptr
+gdbtk_test c_variable-6.23 {change format of weird.func_ptr and weird.func_ptr_ptr} {
+  $var(weird.func_ptr) format hexadecimal
+  $var(weird.func_ptr_ptr) format hexadecimal
+  set result {}
+  lappend result [$var(weird.func_ptr) format]
+  lappend result [$var(weird.func_ptr_ptr) format]
+  set result
+} {hexadecimal hexadecimal}
+
+# Test: c_variable-6.24
+# Desc: format of weird and children
+gdbtk_test c_variable-6.24 {format of weird and children} {
+  set formats {}
+  foreach v [lsort [array names var]] {
+    lappend formats [$var($v) format]
+  }
+
+  set formats
+} {natural natural natural hexadecimal hexadecimal natural natural natural natural natural natural natural}
+
+# Test: c_variable-6.25
+# Desc: value of weird and children
+gdbtk_test c_variable-6.25 {value of weird and children} {
+  set values {}
+  foreach v [lsort [array names var]] f [list x "" "" x x x x d d d d d] {
+    lappend values [value $v $f]
+  }
+
+  set values
+} {ok ok ok ok ok ok ok ok weird.long_array ok weird.s2 weird.u1}
+
+# Test: c_variable-6.26
+# Desc: change format of weird and children to octal
+gdbtk_test c_variable-6.26 {change format of weird and children to octal} {
+  set formats {}
+  foreach v [lsort [array names var]] {
+    $var($v) format octal
+    lappend formats [$var($v) format]
+  }
+
+  set formats
+} {octal octal octal octal octal octal octal octal octal octal octal octal}
+
+# Test: c_variable-6.27
+# Desc: value of weird and children with new format
+gdbtk_test c_variable-6.27 {value of foo with new format} {
+  set values {}
+  foreach v [lsort [array names var]] {
+    lappend values [value $v o]
+  }
+
+  set values
+} {ok ok ok ok ok ok ok ok weird.long_array ok weird.s2 weird.u1}
+
+# Test: c_variable-6.30
+# Desc: create more children of weird
+gdbtk_test c_variable-6.30 {create more children of weird} {
+  foreach v [array names var] {
+    get_children $v
+  }
+
+  # Do it twice to get more children
+  foreach v [array names var] {
+    get_children $v
+  }
+
+  lsort [array names var]
+} {weird weird.char_ptr weird.char_ptr.*char_ptr weird.character weird.func_ptr weird.func_ptr_ptr weird.func_ptr_struct weird.int_ptr_ptr weird.int_ptr_ptr.*int_ptr_ptr weird.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr weird.integer weird.long_array weird.long_array.0 weird.long_array.1 weird.long_array.2 weird.long_array.3 weird.long_array.4 weird.long_array.5 weird.long_array.6 weird.long_array.7 weird.long_array.8 weird.long_array.9 weird.long_int weird.s2 weird.s2.g weird.s2.h weird.s2.i weird.s2.i.0 weird.s2.i.1 weird.s2.i.2 weird.s2.i.3 weird.s2.i.4 weird.s2.i.5 weird.s2.i.6 weird.s2.i.7 weird.s2.i.8 weird.s2.i.9 weird.s2.u2 weird.s2.u2.f weird.s2.u2.u1s1 weird.s2.u2.u1s2 weird.u1 weird.u1.a weird.u1.b weird.u1.b.*b weird.u1.c weird.u1.d}
+
+# Test: c_variable-6.31
+# Desc: check that all children of weird change
+#       Ok, obviously things like weird.s2 and weird.u1 will not change!
+gdbtk_test c_variable-6.31 {check that all children of weird change (ops, we are now reporting array names as changed in this case - seems harmless though)} {
+  $var(weird) value 0x2121
+  check_update
+} {{{weird weird.integer weird.character weird.char_ptr weird.char_ptr.*char_ptr weird.long_int weird.int_ptr_ptr weird.int_ptr_ptr.*int_ptr_ptr weird.long_array.0 weird.long_array.1 weird.long_array.2 weird.long_array.3 weird.long_array.4 weird.long_array.5 weird.long_array.6 weird.long_array.7 weird.long_array.8 weird.long_array.9 weird.func_ptr weird.func_ptr_struct weird.func_ptr_ptr weird.u1.a weird.u1.b weird.u1.c weird.u1.d weird.s2.u2.f weird.s2.g weird.s2.h weird.s2.i.0 weird.s2.i.1 weird.s2.i.2 weird.s2.i.3 weird.s2.i.4 weird.s2.i.5 weird.s2.i.6 weird.s2.i.7 weird.s2.i.8 weird.s2.i.9}} {weird.char_ptr weird.s2.u2.f weird.int_ptr_ptr.*int_ptr_ptr.**int_ptr_ptr weird.s2.g weird.s2.h weird.s2.i weird.func_ptr_ptr weird.func_ptr weird.s2.u2 weird.int_ptr_ptr weird.long_int weird.character weird.s2.u2.u1s1 weird.s2.u2.u1s2 weird.long_array.0 weird.u1.a weird.long_array.1 weird.s2 weird.func_ptr_struct weird.u1.b weird.long_array.2 weird.long_array weird.u1.c weird.long_array.3 weird.u1.d weird.long_array.4 weird.long_array.5 weird.s2.i.0 weird.long_array.6 weird.s2.i.1 weird.long_array.7 weird.s2.i.2 weird.long_array.8 weird.s2.i.3 weird.long_array.9 weird.s2.i.4 weird.integer weird.s2.i.5 weird.s2.i.6 weird.s2.i.7 weird.s2.i.8 weird.int_ptr_ptr.*int_ptr_ptr weird.s2.i.9 weird.char_ptr.*char_ptr weird.u1 weird.u1.b.*b}}
+
+delete_variable weird
+
+#####               #####
+#                       #
+# Special Display Tests #
+#                       #
+#####               #####
+
+# Stop in "do_special_tests"
+gdb_cmd "break do_special_tests"
+gdb_cmd "continue"
+
+# Test: c_variable-7.1
+# Desc: stop in do_special_tests
+gdbtk_test c_variable-7.1 {stop in do_special_tests} {
+  lindex [gdb_loc] 1
+} {do_special_tests}
+
+# Test: c_variable-7.10
+# Desc: create union u
+gdbtk_test c_variable-7.10 {create union u} {
+  create_variable u
+} {0}
+
+# Test: c_variable-7.11
+# Desc: value of u
+gdbtk_test c_variable-7.11 {value of u} {
+  $var(u) value
+} {{...}}
+
+# Test: c_variable-7.12
+# Desc: type of u
+gdbtk_test c_variable-7.12 {type of u} {
+  $var(u) type
+} {union named_union}
+
+# Test: c_variable-7.13
+# Desc: is u editable
+gdbtk_test c_variable-7.13 {is u editable} {
+  $var(u) editable
+} {0}
+
+# Test: c_variable-7.14
+# Desc: number of children of u
+gdbtk_test c_variable-7.14 {number of children of u} {
+  $var(u) numChildren
+} {2}
+
+# Test: c_variable-7.15
+# Desc: children of u
+gdbtk_test c_variable-7.15 {children of u} {
+  get_children u
+} {integer char_ptr}
+
+# Test: c_variable-7.20
+# Desc: create anonu
+gdbtk_test c_variable-7.20 {create anonu} {
+  create_variable anonu
+} {0}
+
+# Test: c_variable-7.21
+# Desc: value of anonu
+gdbtk_test c_variable-7.21 {value of anonu} {
+  $var(anonu) value
+} {{...}}
+
+# Test: c_variable-7.22
+# Desc: type of anonu
+gdbtk_test c_variable-7.22 {type of anonu} {
+  $var(anonu) type
+} {union}
+
+# Test: c_variable-7.23
+# Desc: is anonu editable
+gdbtk_test c_variable-7.23 {is anonu editable} {
+  $var(anonu) editable
+} {0}
+
+# Test: c_variable-7.24
+# Desc: number of children of anonu
+gdbtk_test c_variable-7.24 {number of children of anonu} {
+  $var(anonu) numChildren
+} {3}
+
+# Test: c_variable-7.25
+# Desc: children of anonu
+gdbtk_test c_variable-7.25 {children of anonu} {
+  get_children anonu
+} {a b c}
+
+# Test: c_variable-7.30
+# Desc: create struct s
+gdbtk_test c_variable-7.30 {create struct s} {
+  create_variable s
+} {0}
+
+# Test: c_variable-7.31
+# Desc: value of s
+gdbtk_test c_variable-7.31 {value of s} {
+  $var(s) value
+} {{...}}
+
+# Test: c_variable-7.32
+# Desc: type of s
+gdbtk_test c_variable-7.32 {type of s} {
+  $var(s) type
+} {struct _simple_struct}
+
+# Test: c_variable-7.33
+# Desc: is s editable
+gdbtk_test c_variable-7.33 {is s editable} {
+  $var(s) editable
+} {0}
+
+# Test: c_variable-7.34
+# Desc: number of children of s
+gdbtk_test c_variable-7.34 {number of children of s} {
+  $var(s) numChildren
+} {6}
+
+# Test: c_variable-7.35
+# Desc: children of s
+gdbtk_test c_variable-7.35 {children of s} {
+  get_children s
+} {integer unsigned_integer character signed_character char_ptr array_of_10}
+
+# Test: c_variable-7.40
+# Desc: create anons
+gdbtk_test c_variable-7.40 {create anons} {
+  create_variable anons
+} {0}
+
+# Test: c_variable-7.41
+# Desc: value of anons
+gdbtk_test c_variable-7.41 {value of anons} {
+  $var(anons) value
+} {{...}}
+
+# Test: c_variable-7.42
+# Desc: type of anons
+gdbtk_test c_variable-7.42 {type of anons} {
+  $var(anons) type
+} {struct}
+
+# Test: c_variable-7.43
+# Desc: is anons editable
+gdbtk_test c_variable-7.43 {is anons editable} {
+  $var(anons) editable
+} {0}
+
+# Test: c_variable-7.44
+# Desc: number of children of anons
+gdbtk_test c_variable-7.44 {number of children of anons} {
+  $var(anons) numChildren
+} {3}
+
+# Test: c_variable-7.45
+# Desc: children of anons
+gdbtk_test c_variable-7.45 {children of anons} {
+  get_children anons
+} {a b c}
+
+# Test: c_variable-7.50
+# Desc: create enum e
+gdbtk_test c_variable-7.50 {create enum e} {
+  create_variable e
+} {0}
+
+# Test: c_variable-7.51
+# Desc: value of e
+gdbtk_test c_variable-7.51 {value of e} {
+  $var(e) value bar
+  $var(e) value
+} {bar}
+
+# Test: c_variable-7.52
+# Desc: type of e
+gdbtk_test c_variable-7.52 {type of e} {
+  $var(e) type
+} {enum foo}
+
+# Test: c_variable-7.53
+# Desc: is e editable
+gdbtk_test c_variable-7.53 {is e editable} {
+  $var(e) editable
+} {1}
+
+# Test: c_variable-7.54
+# Desc: number of children of e
+gdbtk_test c_variable-7.54 {number of children of e} {
+  $var(e) numChildren
+} {0}
+
+# Test: c_variable-7.55
+# Desc: children of e
+gdbtk_test c_variable-7.55 {children of e} {
+  get_children e
+} {}
+
+# Test: c_variable-7.60
+# Desc: create anone
+gdbtk_test c_variable-7.60 {create anone} {
+  create_variable anone
+} {0}
+
+# Test: c_variable-7.61
+# Desc: value of anone
+gdbtk_test c_variable-7.61 {value of e} {
+  $var(e) value bar
+  $var(e) value
+} {bar}
+
+# Test: c_variable-7.62
+# Desc: type of e
+gdbtk_test c_variable-7.62 {type of e} {
+  $var(e) type
+} {enum foo}
+
+# Test: c_variable-7.63
+# Desc: is e editable
+gdbtk_test c_variable-7.63 {is e editable} {
+  $var(e) editable
+} {1}
+
+# Test: c_variable-7.64
+# Desc: number of children of e
+gdbtk_test c_variable-7.64 {number of children of e} {
+  $var(e) numChildren
+} {0}
+
+# Test: c_variable-7.65
+# Desc: children of e
+gdbtk_test c_variable-7.65 {children of e} {
+  get_children e
+} {}
+
+# Test: c_variable-7.70
+# Desc: create anone
+gdbtk_test c_variable-7.70 {try to create anone again (duplicate obj name} {
+  create_variable anone
+} {1}
+
+# Test: c_variable-7.71
+# Desc: value of anone
+gdbtk_test c_variable-7.71 {value of anone} {
+  $var(anone) value A
+  $var(anone) value
+} {A}
+
+# Test: c_variable-7.72
+# Desc: type of anone
+gdbtk_test c_variable-7.72 {type of anone} {
+  $var(anone) type
+} {enum}
+
+# Test: c_variable-7.73
+# Desc: is anone editable
+gdbtk_test c_variable-7.73 {is anone editable} {
+  $var(anone) editable
+} {1}
+
+# Test: c_variable-7.74
+# Desc: number of children of anone
+gdbtk_test c_variable-7.74 {number of children of anone} {
+  $var(anone) numChildren
+} {0}
+
+# Test: c_variable-7.75
+# Desc: children of anone
+gdbtk_test c_variable-7.75 {children of anone} {
+  get_children anone
+} {}
+
+# Record fp
+set fp [gdb_cmd "output/x \$fp"]
+gdb_cmd {break incr_a}
+gdb_cmd {continue}
+
+# Test: c_variable-7.80
+# Desc: stop in incr_a
+gdbtk_test c_variable-7.80 {stop in incr_a} {
+  lindex [gdb_loc] 1
+} {incr_a}
+
+# Test: c_variable-7.81
+# Desc: Create variables in different scopes
+gdbtk_test c_variable-7.81 {create variables in different scopes} {
+  set a1 [gdb_variable create -expr a]
+  set a2 [gdb_variable create -expr a -frame $fp]
+
+  set vals {}
+  lappend vals [$a1 value]
+  lappend vals [$a2 value]
+  set vals
+} {2 1}
+
+#  Exit
+#
+gdbtk_test_done
+
+#Local Variables:
+#mode: tcl

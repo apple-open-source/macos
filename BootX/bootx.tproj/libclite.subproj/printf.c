@@ -38,3 +38,68 @@ int printf(const char *format, ...)
     return 0;
 }
 
+
+#if DEBUG
+#include <stdint.h>
+
+#define BTLEN 10
+// ctx and id optional
+void dump_backtrace(char *ctx, int id)
+{
+	void *bt[BTLEN];
+	int cnt;
+
+	if (ctx)
+		printf("%s ", ctx);
+	if (id)
+		printf("(%d)", id);
+	if (ctx || id)
+		printf(":\n");
+
+	cnt = OSBacktrace_ppc(bt, BTLEN);
+	while(cnt <= BTLEN && cnt--)
+		printf("bt[%d]: %x\n", cnt, bt[cnt]);
+}
+
+// ported from xnu/libkern/gen/OSDebug.cpp
+// (non-__ppc__ #if branches and min/maxstackaddr checks omitted)
+unsigned OSBacktrace_ppc(void **bt, unsigned maxAddrs)  
+{
+    unsigned frame;
+
+#if __ppc__
+    uint32_t stackptr, stackptr_prev;
+    const uint32_t * const mem = (uint32_t *) 0;
+    unsigned i = 0;
+
+    __asm__ volatile("mflr %0" : "=r" (stackptr)); 
+    bt[i++] = (void *) stackptr;
+
+    __asm__ volatile("mr %0,r1" : "=r" (stackptr)); 
+    for ( ; i < maxAddrs; i++) {
+    // Validate we have a reasonable stackptr
+    if ( /* !(minstackaddr <= stackptr && stackptr < maxstackaddr)
+			|| */ (stackptr & 3))
+        break;
+
+    stackptr_prev = stackptr;
+    stackptr = mem[stackptr_prev >> 2];
+    if ((stackptr_prev ^ stackptr) > 8 * 1024)  // Sanity check
+        break;
+
+    uint32_t addr = mem[(stackptr >> 2) + 2]; 
+    if ((addr & 3) || (addr < 0x8000))  // More sanity checks
+        break;
+    bt[i] = (void *) addr;
+    }
+    frame = i;
+
+    for ( ; i < maxAddrs; i++)
+        bt[i] = (void *) 0;
+#else
+#warning "BootX's OSBacktrace_ppc() not intended for other architectures"
+#endif
+
+    return frame;
+}
+#endif	// DEBUG

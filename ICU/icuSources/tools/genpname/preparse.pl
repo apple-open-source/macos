@@ -1,7 +1,7 @@
 #!/bin/perl -w
 #*******************************************************************
 # COPYRIGHT:
-# Copyright (c) 2002-2004, International Business Machines Corporation and
+# Copyright (c) 2002-2006, International Business Machines Corporation and
 # others. All Rights Reserved.
 #*******************************************************************
 
@@ -65,6 +65,10 @@ my $UNIDATA_DIR = "$ICU_DIR/source/data/unidata";
 # Get the current year from the system
 my $YEAR = 1900+@{[localtime]}[5]; # Get the current year
 
+# Used to make "n/a" property [value] aliases (Unicode or Synthetic) unique
+my $propNA = 0;
+my $valueNA = 0;
+
 #----------------------------------------------------------------------
 # Top level property keys for binary, enumerated, string, and double props
 my @TOP     = qw( _bp _ep _sp _dp _mp );
@@ -101,6 +105,16 @@ my %UNSUPPORTED = (Composition_Exclusion => 1,
 # properties weren't seen, don't complain about the property values
 # missing.
 my %MISSING_FROM_UCHAR;
+
+# Additional property aliases beyond short and long names,
+# like space in addition to WSpace and White_Space in Unicode 4.1.
+# Hashtable, maps long name to alias.
+# For example, maps White_Space->space.
+#
+# If multiple additional aliases are defined,
+# then they are separated in the value string with '|'.
+# For example, White_Space->space|outer_space
+my %additional_property_aliases;
 
 #----------------------------------------------------------------------
 
@@ -294,7 +308,7 @@ END
                 $i = $groupToInt{$groupString};
             } else {
                 my @names = split(/\|/, $groupString);
-                die "Error: Wrong number of names in " . $groupString if (@names < 2);
+                die "Error: Wrong number of names in " . $groupString if (@names < 1);
                 $i = @nameGroups; # index of group we are making 
                 $groupToInt{$groupString} = $i; # Cache for reuse
                 push @nameGroups, map { $stringToID{$_} } @names;
@@ -415,7 +429,9 @@ sub readAndMerge {
     my $pa = {};
     read_PropertyAliases($pa, "$unidataDir/PropertyAliases.txt");
     read_PropertyAliases($pa, "SyntheticPropertyAliases.txt");
-    my $va = read_PropertyValueAliases("$unidataDir/PropertyValueAliases.txt");
+    my $va = {};
+    read_PropertyValueAliases($va, "$unidataDir/PropertyValueAliases.txt");
+    read_PropertyValueAliases($va, "SyntheticPropertyValueAliases.txt");
     
     # Extract property family hash
     my $fam = $pa->{'_family'};
@@ -574,14 +590,29 @@ sub merge_PropertyAliases {
 
     for my $subh (map { $h->{$_} } @TOP) {
         for my $enum (keys %$subh) {
-            my $name = $subh->{$enum};
-            die "Error: Property $name not found (or used more than once)"
-                unless (exists $pa->{$name});
+            my $long_name = $subh->{$enum};
+            if (!exists $pa->{$long_name}) {
+                die "Error: Property $long_name not found (or used more than once)";
+            }
 
-            $subh->{$enum} = $pa->{$name} . "|" . $name;
-            delete $pa->{$name};
+            my $value;
+            if($pa->{$long_name} =~ m|^n/a\d*$|) {
+                # replace an "n/a" short name with an empty name (nothing before "|");
+                # don't remove it (don't remove the "|"): there must always be a long name,
+                # and if the short name is removed, then the long name becomes the
+                # short name and there is no long name left (unless there is another alias)
+                $value = "|" . $long_name;
+            } else {
+                $value = $pa->{$long_name} . "|" . $long_name;
+            }
+            if (exists $additional_property_aliases{$long_name}) {
+                $value .= "|" . $additional_property_aliases{$long_name};
+            }
+            $subh->{$enum} = $value;
+            delete $pa->{$long_name};
         }
     }
+
     my @err;
     for my $name (keys %$pa) {
         $MISSING_FROM_UCHAR{$pa->{$name}} = 1;
@@ -639,7 +670,7 @@ sub merge_PropertyValueAliases {
             # look up both long and short & ignore case
             my $n;
             if (exists $pva->{$name}) {
-                $n = $name;
+                $n = $name; 
             } else {
                 # iterate (slow)
                 for my $a (keys %$pva) {
@@ -652,7 +683,7 @@ sub merge_PropertyValueAliases {
                     }
                 }
             }
-
+                
             # For blocks, do a loose match from Blocks.txt pseudo-name
             # to PropertyValueAliases long name.
             if (!$n && $prop eq 'blk') {
@@ -672,9 +703,9 @@ sub merge_PropertyValueAliases {
 
             my $l = $n;
             my $r = $pva->{$n};
-            # convert |n/a\d+| to blank
-            $l = '' if ($l =~ m|^n/a\d+$|);
-            $r = '' if ($r =~ m|^n/a\d+$|);
+            # convert |n/a\d*| to blank
+            $l = '' if ($l =~ m|^n/a\d*$|);
+            $r = '' if ($r =~ m|^n/a\d*$|);
 
             $hh->{$enum} = "$l|$r";
             # Don't delete the 'gc' properties because we need to share
@@ -768,14 +799,42 @@ sub read_PropertyAliases {
         s/\#.*//;
         next unless (/\S/);
 
-        if (/^\s*(.+?)\s*;\s*(.+?)\s*$/i) {
-            die "Error: Duplicate property $1 in $filename"
-                if (exists $hash->{$2});
-            $hash->{$2} = $1;
-            $fam->{$2} = $family;
-        }
+        if (/^\s*(.+?)\s*;/) {
+            my $short = $1;
+            my @fields = /;\s*([^\s;]+)/g;
+            if (@fields < 1 || @fields > 2) {
+                my $number = @fields;
+                die "Error: Wrong number of fields ($number) in $filename at $_";
+            }
 
-        else {
+            # Make "n/a" strings unique
+            if ($short eq 'n/a') {
+                $short .= sprintf("%03d", $propNA++);
+            }
+            my $long = $fields[0];
+            if ($long eq 'n/a') {
+                $long .= sprintf("%03d", $propNA++);
+            }
+
+            # Add long name->short name to the hash=pa hash table
+            if (exists $hash->{$long}) {
+                die "Error: Duplicate property $long in $filename"
+            }
+            $hash->{$long} = $short;
+            $fam->{$long} = $family;
+
+            # Add the list of further aliases to the additional_property_aliases hash table,
+            # using the long property name as the key.
+            # For example:
+            #   White_Space->space|outer_space
+            if (@fields > 1) {
+                my $value = pop @fields;
+                while (@fields > 1) {
+                    $value .= "|" . pop @fields;
+                }
+                $additional_property_aliases{$long} = $value;
+            }
+        } else {
             die "Error: Can't parse $_ in $filename";
         }
     }
@@ -797,14 +856,12 @@ sub read_PropertyAliases {
 # @return a hash reference.
 sub read_PropertyValueAliases {
 
-    my $filename = shift; 
+    my $hash = shift;         # result
 
-    my $hash = {};         # result
+    my $filename = shift; 
 
     my $in = new FileHandle($filename, 'r');
     die "Error: Cannot open $filename" if (!defined $in);
-
-    my $sym = 0; # Used to make "n/a" strings unique
 
     while (<$in>) {
 
@@ -822,10 +879,10 @@ sub read_PropertyValueAliases {
         if (/^\s*(.+?)\s*;/i) {
             my $prop = $1;
             my @fields = /;\s*([^\s;]+)/g;
-            die "Error: Wrong number of fields"
+            die "Error: Wrong number of fields in $filename"
                 if (@fields < 2 || @fields > 3);
             # Make "n/a" strings unique
-            $fields[0] .= sprintf("%03d", $sym++) if ($fields[0] eq 'n/a');
+            $fields[0] .= sprintf("%03d", $valueNA++) if ($fields[0] eq 'n/a');
             # Squash extra fields together
             while (@fields > 2) {
                 my $f = pop @fields;
@@ -841,18 +898,21 @@ sub read_PropertyValueAliases {
 
     $in->close();
 
-    # Script Qaac (Coptic) is a special case.  Handle it here.  See UTR#24:
-    # http://www.unicode.org/unicode/reports/tr24/
+    # Script Copt=Qaac (Coptic) is a special case.
+    # Before the Copt code was defined, the private-use code Qaac was used.
+    # Starting with Unicode 4.1, PropertyValueAliases.txt contains
+    # Copt as the short name as well as Qaac as an alias.
+    # For use with older Unicode data files, we add here a Qaac->Coptic entry.
+    # This should not do anything for 4.1-and-later Unicode data files.
+    # See also UAX #24: Script Names http://www.unicode.org/unicode/reports/tr24/
     $hash->{'sc'}->{'Qaac'} = 'Coptic'
-        unless (exists $hash->{'sc'}->{'Qaac'});
+        unless (exists $hash->{'sc'}->{'Qaac'} || exists $hash->{'sc'}->{'Copt'});
 
     # Add T|True and F|False -- these are values we recognize for
     # binary properties (NOT from PropertyValueAliases.txt).  These
     # are of the same form as the 'ccc' value aliases.
     $hash->{'binprop'}->{'0'} = 'F|False';
     $hash->{'binprop'}->{'1'} = 'T|True';
-
-    $hash;
 }
 
 #----------------------------------------------------------------------
@@ -899,7 +959,7 @@ sub read_Blocks {
         s/\#.*//;
         next unless (/\S/);
 
-        if (/^([0-9a-f]+)\.\.[0-9a-f]+;\s*(.+?)\s*$/i) {
+        if (/^([0-9a-f]+)\.\.[0-9a-f]+\s*;\s*(.+?)\s*$/i) {
             die "Error: Duplicate range $1 in $filename"
                 if (exists $hash->{$1});
             $hash->{$1} = $2;
@@ -1129,6 +1189,24 @@ sub read_uchar {
         elsif ($mode eq 'UJoiningGroup') {
             if (/^\s*(U_JG_(\w+))/) {
                 addDatum($hash, 'jg', $1, $2) unless ($2 eq 'COUNT');
+            }
+        }
+
+        elsif ($mode eq 'UGraphemeClusterBreak') {
+            if (m|^\s*(U_GCB_\w+).+?/\*\[(.+?)\]\*/|) {
+                addDatum($hash, 'GCB', $1, $2);
+            }
+        }
+
+        elsif ($mode eq 'UWordBreakValues') {
+            if (m|^\s*(U_WB_\w+).+?/\*\[(.+?)\]\*/|) {
+                addDatum($hash, 'WB', $1, $2);
+            }
+        }
+
+        elsif ($mode eq 'USentenceBreak') {
+            if (m|^\s*(U_SB_\w+).+?/\*\[(.+?)\]\*/|) {
+                addDatum($hash, 'SB', $1, $2);
             }
         }
 

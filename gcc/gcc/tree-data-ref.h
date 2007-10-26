@@ -24,6 +24,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "lambda.h"
 
+/* APPLE LOCAL begin mainline Radar 4382844 */
+enum data_ref_type {   
+  POINTER_REF_TYPE,
+  ARRAY_REF_TYPE
+};
+/* APPLE LOCAL end mainline Radar 4382844 */
+
 struct data_reference
 {
   /* A pointer to the statement that contains this DR.  */
@@ -44,11 +51,17 @@ struct data_reference
   /* True when the data reference is in RHS of a stmt.  */
   bool is_read;
 
+  /* APPLE LOCAL begin mainline Radar 4382844 */
+  /* The type of the data-ref.  */ 
+  enum data_ref_type type;
+  /* APPLE LOCAL end mainline Radar 4382844 */
 };
 
 #define DR_STMT(DR) DR->stmt
 #define DR_REF(DR) DR->ref
 #define DR_BASE_NAME(DR) DR->base_name
+/* APPLE LOCAL mainline Radar 4382844 */
+#define DR_TYPE(DR) (DR)->type
 #define DR_ACCESS_FNS(DR) DR->access_fns
 #define DR_ACCESS_FN(DR, I) VARRAY_TREE (DR_ACCESS_FNS (DR), I)
 #define DR_NUM_DIMENSIONS(DR) VARRAY_ACTIVE_SIZE (DR_ACCESS_FNS (DR))

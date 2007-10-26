@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/lutil.h,v 1.49.2.5 2004/03/19 17:16:47 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/lutil.h,v 1.57.2.5 2006/01/03 22:16:06 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -110,9 +110,12 @@ lutil_authpasswd_hash LDAP_P((
 	struct berval **salt,	/* salt to store */
 	const char *method ));
 
-#if defined( SLAPD_SPASSWD ) && defined( HAVE_CYRUS_SASL )
-	/* cheat to avoid pulling in <sasl.h> */
-LDAP_LUTIL_V( struct sasl_conn * ) lutil_passwd_sasl_conn;
+#ifdef SLAPD_CRYPT
+typedef int (lutil_cryptfunc) LDAP_P((
+	const char *key,
+	const char *salt,
+	char **hash ));
+LDAP_LUTIL_V (lutil_cryptfunc *) lutil_cryptptr;
 #endif
 
 LDAP_LUTIL_F( int )
@@ -146,6 +149,30 @@ lutil_progname LDAP_P((
 	const char* name,
 	int argc,
 	char *argv[] ));
+
+typedef struct lutil_tm {
+	int tm_sec;	/* seconds 0-60 (1 leap second) */
+	int tm_min;	/* minutes 0-59 */
+	int tm_hour;	/* hours 0-23 */
+	int tm_mday;	/* day 1-31 */
+	int tm_mon;	/* month 0-11 */
+	int tm_year;	/* year - 1900 */
+	int tm_usec;	/* microseconds */
+} lutil_tm;
+
+typedef struct lutil_timet {
+	unsigned int tt_sec;	/* seconds since 1900 */
+	int tt_gsec;		/* seconds since 1900, high 7 bits */
+	unsigned int tt_usec;	/* microseconds */
+} lutil_timet;
+
+LDAP_LUTIL_F( int )
+lutil_parsetime LDAP_P((
+	char *atm, struct lutil_tm * ));
+
+LDAP_LUTIL_F( int )
+lutil_tm2time LDAP_P((
+	struct lutil_tm *, struct lutil_timet * ));
 
 #ifdef _WIN32
 LDAP_LUTIL_F( void )
@@ -245,6 +272,29 @@ lutil_LogStoppedEvent( char *svc );
 #define putchar(c)     putc((c), stdout)
 #define putc(c,fp)     do { char x=(c); __atoe_l(&x,1); putc(x,fp); } while(0)
 #endif
+
+LDAP_LUTIL_F (int)
+lutil_atoix( int *v, const char *s, int x );
+
+LDAP_LUTIL_F (int)
+lutil_atoux( unsigned *v, const char *s, int x );
+
+LDAP_LUTIL_F (int)
+lutil_atolx( long *v, const char *s, int x );
+
+LDAP_LUTIL_F (int)
+lutil_atoulx( unsigned long *v, const char *s, int x );
+
+#define lutil_atoi(v, s)	lutil_atoix((v), (s), 10)
+#define lutil_atou(v, s)	lutil_atoux((v), (s), 10)
+#define lutil_atol(v, s)	lutil_atolx((v), (s), 10)
+#define lutil_atoul(v, s)	lutil_atoulx((v), (s), 10)
+
+LDAP_LUTIL_F (int)
+lutil_parse_time( const char *in, unsigned long *tp );
+
+LDAP_LUTIL_F (int)
+lutil_unparse_time( char *buf, size_t buflen, unsigned long t );
 
 LDAP_END_DECL
 

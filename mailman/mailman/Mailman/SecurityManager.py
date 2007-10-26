@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 
 """Handle passwords and sanitize approved messages."""
@@ -53,6 +54,7 @@ import time
 import Cookie
 import marshal
 import binascii
+import urllib
 from types import StringType, TupleType
 from urlparse import urlparse
 
@@ -103,7 +105,8 @@ class SecurityManager:
                 # A bad system error
                 raise TypeError, 'No user supplied for AuthUser context'
             secret = self.getMemberPassword(user)
-            key += 'user+%s' % Utils.ObscureEmail(user)
+            userdata = urllib.quote(Utils.ObscureEmail(user), safe='')
+            key += 'user+%s' % userdata
         elif authcontext == mm_cfg.AuthListModerator:
             secret = self.mod_password
             key += 'moderator'
@@ -345,11 +348,12 @@ splitter = re.compile(';\s*')
 
 def parsecookie(s):
     c = {}
-    for p in splitter.split(s):
-        try:
-            k, v = p.split('=', 1)
-        except ValueError:
-            pass
-        else:
-            c[k] = v
+    for line in s.splitlines():
+        for p in splitter.split(line):
+            try:
+                k, v = p.split('=', 1)
+            except ValueError:
+                pass
+            else:
+                c[k] = v
     return c

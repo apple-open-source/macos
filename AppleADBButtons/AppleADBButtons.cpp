@@ -346,18 +346,25 @@ void AppleADBButtons::dispatchButtonEvent (unsigned int keycode, bool down )
 		{
 			if ( down )
 			{
-				AbsoluteTime	deadline;
-				OSNumber		*plist_time;
+                if ( deviceFlags() )
+                {
+                    dispatchKeyboardEvent( kEject, TRUE, now );
+                }
+                else
+                {
+                    AbsoluteTime	deadline;
+                    OSNumber		*plist_time;
 
-				_eject_released = false;
-				_eject_delay = 250;	//.25 second default
-				plist_time = OSDynamicCast( OSNumber, getProperty("Eject Delay Milliseconds"));
-				if ( plist_time )
-				{
-					_eject_delay = plist_time->unsigned32BitValue();
-				}
-				clock_interval_to_deadline(_eject_delay, kMillisecondScale, &deadline);
-				thread_call_enter_delayed(_peject_timer, deadline);
+                    _eject_released = false;
+                    _eject_delay = 250;	//.25 second default
+                    plist_time = OSDynamicCast( OSNumber, getProperty("Eject Delay Milliseconds"));
+                    if ( plist_time )
+                    {
+                        _eject_delay = plist_time->unsigned32BitValue();
+                    }
+                    clock_interval_to_deadline(_eject_delay, kMillisecondScale, &deadline);
+                    thread_call_enter_delayed(_peject_timer, deadline);
+                }
 			}
 			else
 			{

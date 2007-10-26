@@ -1,6 +1,7 @@
 ;;; 5x5.el --- simple little puzzle game
 
-;; Copyright (C) 1999,2000 Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Dave Pearson <davep@davep.org>
 ;; Maintainer: Dave Pearson <davep@davep.org>
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -146,7 +147,7 @@
     (define-key map [(control c) (control r)] #'5x5-crack-randomly)
     (define-key map [(control c) (control c)] #'5x5-crack-mutating-current)
     (define-key map [(control c) (control b)] #'5x5-crack-mutating-best)
-    (define-key map [(control c) (control x)] #'5x5-crack-xor-mutate)  
+    (define-key map [(control c) (control x)] #'5x5-crack-xor-mutate)
     (define-key map "n"                       #'5x5-new-game)
     (define-key map "q"                       #'5x5-quit-game)
     (setq 5x5-mode-map map)))
@@ -169,7 +170,7 @@
 (put '5x5-mode 'mode-class 'special)
 
 (defun 5x5-mode ()
-  "A mode for playing `5x5'
+  "A mode for playing `5x5'.
 
 The key bindings for 5x5-mode are:
 
@@ -178,10 +179,10 @@ The key bindings for 5x5-mode are:
   (use-local-map 5x5-mode-map)
   (setq major-mode '5x5-mode
         mode-name  "5x5")
-  (run-hooks '5x5-mode-hook)  
+  (run-mode-hooks '5x5-mode-hook)
   (setq buffer-read-only t
         truncate-lines   t)
-  (buffer-disable-undo (current-buffer)))
+  (buffer-disable-undo))
 
 ;;;###autoload
 (defun 5x5 (&optional size)
@@ -192,11 +193,11 @@ squares you must fill the grid.
 
 5x5 keyboard bindings are:
 \\<5x5-mode-map>
-Flip                      \\[5x5-flip-current] 
-Move up                   \\[5x5-up]           
-Move down                 \\[5x5-down]         
-Move left                 \\[5x5-left]         
-Move right                \\[5x5-right]        
+Flip                      \\[5x5-flip-current]
+Move up                   \\[5x5-up]
+Move down                 \\[5x5-down]
+Move left                 \\[5x5-left]
+Move right                \\[5x5-right]
 Start new game            \\[5x5-new-game]
 New game with random grid \\[5x5-randomize]
 Random cracker            \\[5x5-crack-randomly]
@@ -224,9 +225,8 @@ Quit current game         \\[5x5-quit-game]"
           5x5-y-pos (/ 5x5-grid-size 2)
           5x5-moves 0
           5x5-grid  (5x5-make-move (5x5-make-new-grid) 5x5-y-pos 5x5-x-pos))
-    (when (interactive-p)
-      (5x5-draw-grid (list 5x5-grid))
-      (5x5-position-cursor))))
+    (5x5-draw-grid (list 5x5-grid))
+    (5x5-position-cursor)))
 
 (defun 5x5-quit-game ()
   "Quit the current game of `5x5'."
@@ -282,7 +282,7 @@ Quit current game         \\[5x5-quit-game]"
   (loop for y from 0 to (1- 5x5-grid-size) sum (5x5-row-value (aref grid y))))
 
 (defun 5x5-draw-grid-end ()
-  "Draw the top/bottom of the grid"
+  "Draw the top/bottom of the grid."
   (insert "+")
   (loop for x from 0 to (1- 5x5-grid-size) do
         (insert "-" (make-string 5x5-x-scale ?-)))
@@ -347,8 +347,8 @@ Quit current game         \\[5x5-quit-game]"
 
 ;;;###autoload
 (defun 5x5-crack-xor-mutate ()
-  "Attempt to crack 5x5 by xor the current and best solution and then
-mutating the result."
+  "Attempt to crack 5x5 by xoring the current and best solution.
+Mutate the result."
   (interactive)
   (5x5-crack #'5x5-make-xor-with-mutation))
 
@@ -358,7 +358,7 @@ mutating the result."
 
 5x5-crack takes the argument BREEDER which should be a function that takes
 two parameters, the first will be a grid vector array that is the current
-solution and the second will be the best solution so far. The function
+solution and the second will be the best solution so far.  The function
 should return a grid vector array that is the new solution."
 
   (interactive "aBreeder function: ")
@@ -393,7 +393,7 @@ should return a grid vector array that is the new solution."
   (5x5-mutate-solution best))
 
 (defun 5x5-make-xor-with-mutation (current best)
-  "xor current and best solution then mutate the result."
+  "Xor current and best solution then mutate the result."
   (let ((xored (5x5-make-new-grid)))
     (loop for y from 0 to (1- 5x5-grid-size) do
           (loop for x from 0 to (1- 5x5-grid-size) do
@@ -412,8 +412,8 @@ should return a grid vector array that is the new solution."
   solution)
 
 (defun 5x5-play-solution (solution best)
-  "Play a solution on an empty grid. This destroys the current game in
-progress because it is an animated attempt."
+  "Play a solution on an empty grid.  This destroys the current game
+in progress because it is an animated attempt."
   (5x5-new-game)
   (let ((inhibit-quit t))
     (loop for y from 0 to (1- 5x5-grid-size) do
@@ -426,7 +426,7 @@ progress because it is an animated attempt."
                 (5x5-position-cursor)
                 (sit-for 5x5-animate-delay))))
   5x5-grid)
-  
+
 ;; Keyboard response functions.
 
 (defun 5x5-flip-current ()
@@ -512,13 +512,16 @@ progress because it is an animated attempt."
 (defun 5x5-xor (x y)
   "Boolean exclusive-or of X and Y."
   (and (or x y) (not (and x y))))
-                   
+
 (defun 5x5-y-or-n-p (prompt)
-  "5x5 wrapper for y-or-n-p which respects the 5x5-hassle-me setting."
+  "5x5 wrapper for `y-or-n-p' which respects the `5x5-hassle-me' setting."
   (if 5x5-hassle-me
       (y-or-n-p prompt)
     t))
 
+(random t)
+
 (provide '5x5)
 
+;;; arch-tag: ec4dabd5-572d-41ea-b48c-ec5ce0d68fa9
 ;;; 5x5.el ends here

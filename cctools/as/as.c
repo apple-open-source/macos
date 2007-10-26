@@ -204,14 +204,14 @@ char **envp)
 			out_file_name = *++work_argv;
 		    }
 		    else
-			as_warn("%s: I expected a filename after -o. \"%s\" "
+			as_fatal("%s: I expected a filename after -o. \"%s\" "
 				"assumed.", progname, out_file_name);
 		    arg = "";	/* Finished with this arg. */
 		    break;
 
 		case 'R':
 		    /* -R means put data into text segment */
-		    as_warn("%s: -R option not supported (use the "
+		    as_fatal("%s: -R option not supported (use the "
 			    ".const directive)", progname);
 		    flagseen['R'] = FALSE;
 		    break;
@@ -221,7 +221,7 @@ char **envp)
 			    "%s, ", apple_version);
 		    fprintf(stderr, version_string);
 		    if(*arg && strcmp(arg,"ersion"))
-			as_warn("Unknown -v option ignored");
+			as_fatal("Unknown -v option ignored");
 		    while(*arg)
 			arg++;	/* Skip the rest */
 		    break;
@@ -253,7 +253,7 @@ char **envp)
 			dirtmp->fname = *++work_argv;
 		    }
 		    else
-			as_warn("I expected a filename after -I.");
+			as_fatal("I expected a filename after -I.");
 		    arg = "";	/* Finished with this arg. */
 		    break;
 
@@ -638,7 +638,7 @@ char **envp)
 unknown_flag:
 		    --arg;
 		    if(md_parse_option(&arg, &work_argc, &work_argv) == 0)
-			as_warn("%s: I don't understand '%c' flag!", progname,
+			as_fatal("%s: I don't understand '%c' flag!", progname,
 				a);
 		    if(arg && *arg)
 			arg++;

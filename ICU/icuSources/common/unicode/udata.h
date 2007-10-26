@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -35,7 +35,8 @@ U_CDECL_BEGIN
  *
  * See the User Guide Data Management chapter.
  */
-
+ 
+#ifndef U_HIDE_INTERNAL_API
 /**
  * Character used to separate package names from tree names 
  * @internal ICU 3.0
@@ -65,6 +66,8 @@ U_CDECL_BEGIN
  * @internal ICU 3.0
  */
 #define U_ICUDATA_ALIAS "ICUDATA"
+
+#endif /* U_HIDE_INTERNAL_API */
 
 /**
  * UDataInfo contains the properties about the requested data.
@@ -217,7 +220,7 @@ udata_open(const char *path, const char *type, const char *name,
  * logically prepended to the ICU data directory string.</p>
  *
  * <p>For details about ICU data loading see the User Guide
- * Data Management chapter. (http://oss.software.ibm.com/icu/userguide/icudata.html)</p>
+ * Data Management chapter. (http://icu.sourceforge.net/userguide/icudata.html)</p>
  *
  * @param path Specifies an absolute path and/or a basename for the
  *             finding of the data in the file system.
@@ -347,6 +350,39 @@ udata_setCommonData(const void *data, UErrorCode *err);
  */
 U_STABLE void U_EXPORT2
 udata_setAppData(const char *packageName, const void *data, UErrorCode *err);
+
+/**
+ * Possible settings for udata_setFileAccess()
+ * @see udata_setFileAccess
+ * @draft ICU 3.4
+ */
+typedef enum UDataFileAccess {
+    /** ICU does not access the file system for data loading. */
+    UDATA_NO_FILES,
+    /** ICU only loads data from packages, not from single files. */
+    UDATA_ONLY_PACKAGES,
+    /** ICU loads data from packages first, and only from single files
+        if the data cannot be found in a package. */
+    UDATA_PACKAGES_FIRST,
+    /** ICU looks for data in single files first, then in packages. (default) */
+    UDATA_FILES_FIRST,
+    /** An alias for the default access mode. */
+    UDATA_DEFAULT_ACCESS = UDATA_FILES_FIRST,
+    UDATA_FILE_ACCESS_COUNT
+} UDataFileAccess;
+
+/**
+ * This function may be called to control how ICU loads data. It must be called
+ * before any ICU data is loaded, including application data loaded with ures/ResourceBundle or
+ * udata APIs. It should be called before u_init.  This function is not multithread safe.  
+ * The results of calling it while other threads are loading data are undefined.
+ * @param access The type of file access to be used
+ * @param status Error code.
+ * @see UDataFileAccess
+ * @draft ICU 3.4 
+ */
+U_DRAFT void U_EXPORT2
+udata_setFileAccess(UDataFileAccess access, UErrorCode *status);
 
 U_CDECL_END
 

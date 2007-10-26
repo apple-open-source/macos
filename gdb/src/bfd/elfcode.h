@@ -1,6 +1,6 @@
 /* ELF executable support for BFD.
    Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    Written by Fred Fish @ Cygnus Support, from information published
    in "UNIX System V Release 4, Programmers Guide: ANSI C and
@@ -28,12 +28,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Problems and other issues to resolve.
 
    (1)	BFD expects there to be some fixed number of "sections" in
-        the object file.  I.E. there is a "section_count" variable in the
+	the object file.  I.E. there is a "section_count" variable in the
 	bfd structure which contains the number of sections.  However, ELF
 	supports multiple "views" of a file.  In particular, with current
 	implementations, executable files typically have two tables, a
@@ -105,6 +105,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define elf_canonicalize_symtab		NAME(bfd_elf,canonicalize_symtab)
 #define elf_canonicalize_dynamic_symtab \
   NAME(bfd_elf,canonicalize_dynamic_symtab)
+#define elf_get_synthetic_symtab \
+  NAME(bfd_elf,get_synthetic_symtab)
 #define elf_make_empty_symbol		NAME(bfd_elf,make_empty_symbol)
 #define elf_get_symbol_info		NAME(bfd_elf,get_symbol_info)
 #define elf_get_lineno			NAME(bfd_elf,get_lineno)
@@ -115,24 +117,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define elf_no_info_to_howto		NAME(bfd_elf,no_info_to_howto)
 #define elf_no_info_to_howto_rel	NAME(bfd_elf,no_info_to_howto_rel)
 #define elf_find_section		NAME(bfd_elf,find_section)
-#define elf_bfd_link_add_symbols	NAME(bfd_elf,bfd_link_add_symbols)
-#define elf_add_dynamic_entry		NAME(bfd_elf,add_dynamic_entry)
 #define elf_write_shdrs_and_ehdr	NAME(bfd_elf,write_shdrs_and_ehdr)
 #define elf_write_out_phdrs		NAME(bfd_elf,write_out_phdrs)
 #define elf_write_relocs		NAME(bfd_elf,write_relocs)
 #define elf_slurp_reloc_table		NAME(bfd_elf,slurp_reloc_table)
-#define elf_bfd_discard_info		NAME(bfd_elf,discard_info)
-#define elf_reloc_symbol_deleted_p	NAME(_bfd_elf,reloc_symbol_deleted_p)
-#define elf_link_record_dynamic_symbol  _bfd_elf_link_record_dynamic_symbol
-#define elf_bfd_final_link		NAME(bfd_elf,bfd_final_link)
-#define elf_gc_sections			NAME(_bfd_elf,gc_sections)
-#define elf_gc_common_finalize_got_offsets \
-  NAME(_bfd_elf,gc_common_finalize_got_offsets)
-#define elf_gc_common_final_link	NAME(_bfd_elf,gc_common_final_link)
-#define elf_gc_record_vtinherit		NAME(_bfd_elf,gc_record_vtinherit)
-#define elf_gc_record_vtentry		NAME(_bfd_elf,gc_record_vtentry)
-#define elf_link_record_local_dynamic_symbol \
-  NAME(_bfd_elf,link_record_local_dynamic_symbol)
 
 #if ARCH_SIZE == 64
 #define ELF_R_INFO(X,Y)	ELF64_R_INFO(X,Y)
@@ -150,10 +138,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define FILE_ALIGN	4
 #define LOG_FILE_ALIGN	2
 #endif
-
-#define elf_stringtab_init _bfd_elf_stringtab_init
-
-#define section_from_elf_index bfd_section_from_elf_index
 
 #ifdef DEBUG
 static void elf_debug_section (int, Elf_Internal_Shdr *);
@@ -491,7 +475,6 @@ elf_object_p (bfd *abfd)
   Elf_Internal_Shdr i_shdr;
   Elf_Internal_Shdr *i_shdrp;	/* Section header table, internal form */
   unsigned int shindex;
-  char *shstrtab;		/* Internal copy of section header stringtab */
   const struct elf_backend_data *ebd;
   struct bfd_preserve preserve;
   asection *s;
@@ -629,8 +612,13 @@ elf_object_p (bfd *abfd)
 
   if (i_ehdrp->e_shoff != 0)
     {
+      bfd_signed_vma where = i_ehdrp->e_shoff;
+
+      if (where != (file_ptr) where)
+	goto got_wrong_format_error;
+
       /* Seek to the section header table in the file.  */
-      if (bfd_seek (abfd, (file_ptr) i_ehdrp->e_shoff, SEEK_SET) != 0)
+      if (bfd_seek (abfd, (file_ptr) where, SEEK_SET) != 0)
 	goto got_no_match;
 
       /* Read the first section header at index 0, and convert to internal
@@ -642,11 +630,46 @@ elf_object_p (bfd *abfd)
       /* If the section count is zero, the actual count is in the first
 	 section header.  */
       if (i_ehdrp->e_shnum == SHN_UNDEF)
-	i_ehdrp->e_shnum = i_shdr.sh_size;
+	{
+	  i_ehdrp->e_shnum = i_shdr.sh_size;
+	  if (i_ehdrp->e_shnum != i_shdr.sh_size
+	      || i_ehdrp->e_shnum == 0)
+	    goto got_wrong_format_error;
+	}
 
       /* And similarly for the string table index.  */
       if (i_ehdrp->e_shstrndx == SHN_XINDEX)
-	i_ehdrp->e_shstrndx = i_shdr.sh_link;
+	{
+	  i_ehdrp->e_shstrndx = i_shdr.sh_link;
+	  if (i_ehdrp->e_shstrndx != i_shdr.sh_link)
+	    goto got_wrong_format_error;
+	}
+
+      /* Sanity check that we can read all of the section headers.
+	 It ought to be good enough to just read the last one.  */
+      if (i_ehdrp->e_shnum != 1)
+	{
+	  /* Check that we don't have a totally silly number of sections.  */
+	  if (i_ehdrp->e_shnum > (unsigned int) -1 / sizeof (x_shdr)
+	      || i_ehdrp->e_shnum > (unsigned int) -1 / sizeof (i_shdr))
+	    goto got_wrong_format_error;
+
+	  where += (i_ehdrp->e_shnum - 1) * sizeof (x_shdr);
+	  if (where != (file_ptr) where)
+	    goto got_wrong_format_error;
+	  if ((bfd_size_type) where <= i_ehdrp->e_shoff)
+	    goto got_wrong_format_error;
+
+	  if (bfd_seek (abfd, (file_ptr) where, SEEK_SET) != 0)
+	    goto got_no_match;
+	  if (bfd_bread (&x_shdr, sizeof x_shdr, abfd) != sizeof (x_shdr))
+	    goto got_no_match;
+
+	  /* Back to where we were.  */
+	  where = i_ehdrp->e_shoff + sizeof (x_shdr);
+	  if (bfd_seek (abfd, (file_ptr) where, SEEK_SET) != 0)
+	    goto got_no_match;
+	}
     }
 
   /* Allocate space for a copy of the section header table in
@@ -690,23 +713,42 @@ elf_object_p (bfd *abfd)
 	    goto got_no_match;
 	  elf_swap_shdr_in (abfd, &x_shdr, i_shdrp + shindex);
 
+	  /* Sanity check sh_link and sh_info.  */
+	  if (i_shdrp[shindex].sh_link >= num_sec
+	      || (i_shdrp[shindex].sh_link >= SHN_LORESERVE
+		  && i_shdrp[shindex].sh_link <= SHN_HIRESERVE))
+	    goto got_wrong_format_error;
+
+	  if (((i_shdrp[shindex].sh_flags & SHF_INFO_LINK)
+	       || i_shdrp[shindex].sh_type == SHT_RELA
+	       || i_shdrp[shindex].sh_type == SHT_REL)
+	      && (i_shdrp[shindex].sh_info >= num_sec
+		  || (i_shdrp[shindex].sh_info >= SHN_LORESERVE
+		      && i_shdrp[shindex].sh_info <= SHN_HIRESERVE)))
+	    goto got_wrong_format_error;
+
 	  /* If the section is loaded, but not page aligned, clear
 	     D_PAGED.  */
 	  if (i_shdrp[shindex].sh_size != 0
 	      && (i_shdrp[shindex].sh_flags & SHF_ALLOC) != 0
 	      && i_shdrp[shindex].sh_type != SHT_NOBITS
 	      && (((i_shdrp[shindex].sh_addr - i_shdrp[shindex].sh_offset)
-		   % ebd->maxpagesize)
+		   % ebd->minpagesize)
 		  != 0))
 	    abfd->flags &= ~D_PAGED;
 	}
     }
 
-  if (i_ehdrp->e_shstrndx && i_ehdrp->e_shoff)
+  /* A further sanity check.  */
+  if (i_ehdrp->e_shnum != 0)
     {
-      if (! bfd_section_from_shdr (abfd, i_ehdrp->e_shstrndx))
-	goto got_no_match;
+      if (i_ehdrp->e_shstrndx >= elf_numsections (abfd)
+	  || (i_ehdrp->e_shstrndx >= SHN_LORESERVE
+	      && i_ehdrp->e_shstrndx <= SHN_HIRESERVE))
+	goto got_wrong_format_error;
     }
+  else if (i_ehdrp->e_shstrndx != 0)
+    goto got_wrong_format_error;
 
   /* Read in the program headers.  */
   if (i_ehdrp->e_phnum == 0)
@@ -733,19 +775,9 @@ elf_object_p (bfd *abfd)
 	}
     }
 
-  /* Read in the string table containing the names of the sections.  We
-     will need the base pointer to this table later.  */
-  /* We read this inline now, so that we don't have to go through
-     bfd_section_from_shdr with it (since this particular strtab is
-     used to find all of the ELF section names.) */
-
-  if (i_ehdrp->e_shstrndx != 0 && i_ehdrp->e_shoff)
+  if (i_ehdrp->e_shstrndx != 0 && i_ehdrp->e_shoff != 0)
     {
       unsigned int num_sec;
-
-      shstrtab = bfd_elf_get_str_section (abfd, i_ehdrp->e_shstrndx);
-      if (!shstrtab)
-	goto got_no_match;
 
       /* Once all of the section headers have been read and converted, we
 	 can start processing them.  Note that the first section header is
@@ -758,6 +790,10 @@ elf_object_p (bfd *abfd)
 	  if (shindex == SHN_LORESERVE - 1)
 	    shindex += SHN_HIRESERVE + 1 - SHN_LORESERVE;
 	}
+
+      /* Set up group pointers.  */
+      if (! _bfd_elf_setup_group_pointers (abfd))
+	goto got_wrong_format_error;
     }
 
   /* Let the backend double check the format and override global
@@ -837,6 +873,12 @@ elf_write_relocs (bfd *abfd, asection *sec, void *data)
      sometimes the SEC_RELOC flag gets set even when there aren't any
      relocs.  */
   if (sec->reloc_count == 0)
+    return;
+
+  /* If we have opened an existing file for update, reloc_count may be
+     set even though we are not linking.  In that case we have nothing
+     to do.  */
+  if (sec->orelocation == NULL)
     return;
 
   rela_hdr = &elf_section_data (sec)->rel_hdr;
@@ -1038,7 +1080,7 @@ elf_slurp_symbol_table (bfd *abfd, asymbol **symptrs, bfd_boolean dynamic)
 	  || (elf_tdata (abfd)->dynverref_section != 0
 	      && elf_tdata (abfd)->verref == NULL))
 	{
-	  if (! _bfd_elf_slurp_version_tables (abfd))
+	  if (!_bfd_elf_slurp_version_tables (abfd, FALSE))
 	    return -1;
 	}
     }
@@ -1071,7 +1113,7 @@ elf_slurp_symbol_table (bfd *abfd, asymbol **symptrs, bfd_boolean dynamic)
 	     symcount);
 
 	  /* Slurp in the symbols without the version information,
-             since that is more helpful than just quitting.  */
+	     since that is more helpful than just quitting.  */
 	  verhdr = NULL;
 	}
 
@@ -1098,9 +1140,7 @@ elf_slurp_symbol_table (bfd *abfd, asymbol **symptrs, bfd_boolean dynamic)
 	  memcpy (&sym->internal_elf_sym, isym, sizeof (Elf_Internal_Sym));
 	  sym->symbol.the_bfd = abfd;
 
-	  sym->symbol.name = bfd_elf_string_from_elf_section (abfd,
-							      hdr->sh_link,
-							      isym->st_name);
+	  sym->symbol.name = bfd_elf_sym_name (abfd, hdr, isym, NULL);
 
 	  sym->symbol.value = isym->st_value;
 
@@ -1111,8 +1151,8 @@ elf_slurp_symbol_table (bfd *abfd, asymbol **symptrs, bfd_boolean dynamic)
 	  else if (isym->st_shndx < SHN_LORESERVE
 		   || isym->st_shndx > SHN_HIRESERVE)
 	    {
-	      sym->symbol.section = section_from_elf_index (abfd,
-							    isym->st_shndx);
+	      sym->symbol.section = bfd_section_from_elf_index (abfd,
+								isym->st_shndx);
 	      if (sym->symbol.section == NULL)
 		{
 		  /* This symbol is in a section for which we did not
@@ -1138,7 +1178,7 @@ elf_slurp_symbol_table (bfd *abfd, asymbol **symptrs, bfd_boolean dynamic)
 	    sym->symbol.section = bfd_abs_section_ptr;
 
 	  /* If this is a relocatable file, then the symbol value is
-             already section relative.  */
+	     already section relative.  */
 	  if ((abfd->flags & (EXEC_P | DYNAMIC)) != 0)
 	    sym->symbol.value -= sym->symbol.section->vma;
 
@@ -1169,6 +1209,9 @@ elf_slurp_symbol_table (bfd *abfd, asymbol **symptrs, bfd_boolean dynamic)
 	      break;
 	    case STT_OBJECT:
 	      sym->symbol.flags |= BSF_OBJECT;
+	      break;
+	    case STT_TLS:
+	      sym->symbol.flags |= BSF_THREAD_LOCAL;
 	      break;
 	    }
 
@@ -1226,7 +1269,7 @@ error_return:
   return -1;
 }
 
-/* Read  relocations for ASECT from REL_HDR.  There are RELOC_COUNT of
+/* Read relocations for ASECT from REL_HDR.  There are RELOC_COUNT of
    them.  */
 
 static bfd_boolean
@@ -1302,11 +1345,7 @@ elf_slurp_reloc_table_from_section (bfd *abfd,
 	  ps = symbols + ELF_R_SYM (rela.r_info) - 1;
 	  s = *ps;
 
-	  /* Canonicalize ELF section symbols.  FIXME: Why?  */
-	  if ((s->flags & BSF_SECTION_SYM) == 0)
-	    relent->sym_ptr_ptr = ps;
-	  else
-	    relent->sym_ptr_ptr = s->section->symbol_ptr_ptr;
+	  relent->sym_ptr_ptr = ps;
 	}
 
       relent->addend = rela.r_addend;
@@ -1371,7 +1410,7 @@ elf_slurp_reloc_table (bfd *abfd,
 	 case because relocations against this section may use the
 	 dynamic symbol table, and in that case bfd_section_from_shdr
 	 in elf.c does not update the RELOC_COUNT.  */
-      if (asect->_raw_size == 0)
+      if (asect->size == 0)
 	return TRUE;
 
       rel_hdr = &d->this_hdr;
@@ -1531,7 +1570,7 @@ NAME(_bfd_elf,bfd_from_remote_memory)
   (bfd *templ,
    bfd_vma ehdr_vma,
    bfd_vma *loadbasep,
-   int (*target_read_memory) (bfd_vma, char *, int))
+   int (*target_read_memory) (bfd_vma, bfd_byte *, int))
 {
   Elf_External_Ehdr x_ehdr;	/* Elf file header, external form */
   Elf_Internal_Ehdr i_ehdr;	/* Elf file header, internal form */
@@ -1540,13 +1579,13 @@ NAME(_bfd_elf,bfd_from_remote_memory)
   bfd *nbfd;
   struct bfd_in_memory *bim;
   int contents_size;
-  char *contents;
+  bfd_byte *contents;
   int err;
   unsigned int i;
   bfd_vma loadbase;
 
   /* Read in the ELF header in external format.  */
-  err = target_read_memory (ehdr_vma, (char *) &x_ehdr, sizeof x_ehdr);
+  err = target_read_memory (ehdr_vma, (bfd_byte *) &x_ehdr, sizeof x_ehdr);
   if (err)
     {
       bfd_set_error (bfd_error_system_call);
@@ -1606,7 +1645,7 @@ NAME(_bfd_elf,bfd_from_remote_memory)
       bfd_set_error (bfd_error_no_memory);
       return NULL;
     }
-  err = target_read_memory (ehdr_vma + i_ehdr.e_phoff, (char *) x_phdrs,
+  err = target_read_memory (ehdr_vma + i_ehdr.e_phoff, (bfd_byte *) x_phdrs,
 			    i_ehdr.e_phnum * sizeof x_phdrs[0]);
   if (err)
     {
@@ -1623,7 +1662,10 @@ NAME(_bfd_elf,bfd_from_remote_memory)
   for (i = 0; i < i_ehdr.e_phnum; ++i)
     {
       elf_swap_phdr_in (templ, &x_phdrs[i], &i_phdrs[i]);
-      if (i_phdrs[i].p_type == PT_LOAD)
+      /* IA-64 vDSO may have two mappings for one segment, where one mapping
+	 is executable only, and one is read only.  We must not use the
+	 executable one.  */
+      if (i_phdrs[i].p_type == PT_LOAD && (i_phdrs[i].p_flags & PF_R))
 	{
 	  bfd_vma segment_end;
 	  segment_end = (i_phdrs[i].p_offset + i_phdrs[i].p_filesz
@@ -1670,7 +1712,10 @@ NAME(_bfd_elf,bfd_from_remote_memory)
     }
 
   for (i = 0; i < i_ehdr.e_phnum; ++i)
-    if (i_phdrs[i].p_type == PT_LOAD)
+    /* IA-64 vDSO may have two mappings for one segment, where one mapping
+       is executable only, and one is read only.  We must not use the
+       executable one.  */
+    if (i_phdrs[i].p_type == PT_LOAD && (i_phdrs[i].p_flags & PF_R))
       {
 	bfd_vma start = i_phdrs[i].p_offset & -i_phdrs[i].p_align;
 	bfd_vma end = (i_phdrs[i].p_offset + i_phdrs[i].p_filesz
@@ -1737,7 +1782,6 @@ NAME(_bfd_elf,bfd_from_remote_memory)
 }
 
 #include "elfcore.h"
-#include "elflink.h"
 
 /* Size-dependent data and functions.  */
 const struct elf_size_info NAME(_bfd_elf,size_info) = {

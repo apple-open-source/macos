@@ -47,7 +47,7 @@ bool IOFWCmdQ::executeQueue(bool all)
 		fHead = newHead;
 
         cmd->fQueue = NULL;	// Not on this queue anymore
-        cmd->startExecution();
+		cmd->startExecution();
         
 		if(!all)
             break;
@@ -56,6 +56,29 @@ bool IOFWCmdQ::executeQueue(bool all)
     }
 	
     return fHead != NULL;	// ie. more to do
+}
+
+// checkProgress
+//
+//
+
+void IOFWCmdQ::checkProgress( void )
+{
+    IOFWCommand *cmd;
+    cmd = fHead;
+    while(cmd) 
+	{
+        IOFWCommand *next;
+        next = cmd->getNext();
+
+		// see if this command has gone on for too long
+		IOReturn status = cmd->checkProgress();
+		if( status != kIOReturnSuccess )
+		{
+            cmd->complete( status );
+        }
+        cmd = next;
+    }
 }
 
 // headChanged

@@ -1,6 +1,7 @@
 ;;; sort.el --- commands to sort text in an Emacs buffer
 
-;; Copyright (C) 1986, 1987, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1986, 1987, 1994, 1995, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Howie Kaye
 ;; Maintainer: FSF
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -40,9 +41,9 @@
   :type 'boolean)
 
 ;;;###autoload
-(defun sort-subr (reverse nextrecfun endrecfun &optional startkeyfun endkeyfun)
+(defun sort-subr (reverse nextrecfun endrecfun
+			  &optional startkeyfun endkeyfun predicate)
   "General text sorting routine to divide buffer into records and sort them.
-Arguments are REVERSE NEXTRECFUN ENDRECFUN &optional STARTKEYFUN ENDKEYFUN.
 
 We divide the accessible portion of the buffer into disjoint pieces
 called sort records.  A portion of each sort record (perhaps all of
@@ -75,7 +76,10 @@ starts at the beginning of the record.
 
 ENDKEYFUN moves from the start of the sort key to the end of the sort key.
 ENDKEYFUN may be nil if STARTKEYFUN returns a value or if it would be the
-same as ENDRECFUN."
+same as ENDRECFUN.
+
+PREDICATE is the function to use to compare keys.  If keys are numbers,
+it defaults to `<', otherwise it defaults to `string<'."
   ;; Heuristically try to avoid messages if sorting a small amt of text.
   (let ((messages (> (- (point-max) (point-min)) 50000)))
     (save-excursion
@@ -89,32 +93,18 @@ same as ENDRECFUN."
 	  (or reverse (setq sort-lists (nreverse sort-lists)))
 	  (if messages (message "Sorting records..."))
 	  (setq sort-lists
-		(if (fboundp 'sortcar)
-		    (sortcar sort-lists
-			     (cond ((numberp (car (car sort-lists)))
-				    ;; This handles both ints and floats.
-				    '<)
-				   ((consp (car (car sort-lists)))
-				    (function
-				     (lambda (a b)
-				       (> 0 (compare-buffer-substrings 
-					     nil (car a) (cdr a)
-					     nil (car b) (cdr b))))))
-				   (t
-				    'string<)))
-		  (sort sort-lists
-			(cond ((numberp (car (car sort-lists)))
-			       'car-less-than-car)
-			      ((consp (car (car sort-lists)))
-			       (function
-				(lambda (a b)
-				  (> 0 (compare-buffer-substrings 
-					nil (car (car a)) (cdr (car a))
-					nil (car (car b)) (cdr (car b)))))))
-			      (t
-			       (function
-				(lambda (a b)
-				  (string< (car a) (car b)))))))))
+		(sort sort-lists
+		      (cond (predicate
+			     `(lambda (a b) (,predicate (car a) (car b))))
+			    ((numberp (car (car sort-lists)))
+			     'car-less-than-car)
+			    ((consp (car (car sort-lists)))
+			     (lambda (a b)
+			       (> 0 (compare-buffer-substrings
+				     nil (car (car a)) (cdr (car a))
+				     nil (car (car b)) (cdr (car b))))))
+			    (t
+			     (lambda (a b) (string< (car a) (car b)))))))
 	  (if reverse (setq sort-lists (nreverse sort-lists)))
 	  (if messages (message "Reordering buffer..."))
 	  (sort-reorder-buffer sort-lists old)))
@@ -151,53 +141,57 @@ same as ENDRECFUN."
       (cond ((prog1 done (setq done nil)))
 	    (endrecfun (funcall endrecfun))
 	    (nextrecfun (funcall nextrecfun) (setq done t)))
-      (if key (setq sort-lists (cons
-				 ;; consing optimization in case in which key
-				 ;; is same as record.
-				 (if (and (consp key)
-					  (equal (car key) start-rec)
-					  (equal (cdr key) (point)))
-				     (cons key key)
-				   (cons key (cons start-rec (point))))
-				 sort-lists)))
+      (if key (push
+	       ;; consing optimization in case in which key is same as record.
+	       (if (and (consp key)
+			(equal (car key) start-rec)
+			(equal (cdr key) (point)))
+		   (cons key key)
+		 (cons key (cons start-rec (point))))
+	       sort-lists))
       (and (not done) nextrecfun (funcall nextrecfun)))
     sort-lists))
 
 (defun sort-reorder-buffer (sort-lists old)
-  (let ((inhibit-quit t)
-	(last (point-min))
-	(min (point-min)) (max (point-max)))
-    ;; Make sure insertions done for reordering
-    ;; do not go after any markers at the end of the sorted region,
-    ;; by inserting a space to separate them.
-    (goto-char (point-max))
-    (insert-before-markers " ")
-    (narrow-to-region min (1- (point-max)))
-    (while sort-lists
+  (let ((last (point-min))
+	(min (point-min)) (max (point-max))
+	(old-buffer (current-buffer))
+	temp-buffer)
+    (with-temp-buffer
+      ;; Record the temporary buffer.
+      (setq temp-buffer (current-buffer))
+
+      ;; Copy the sorted text into the temporary buffer.
+      (while sort-lists
+	(goto-char (point-max))
+	(insert-buffer-substring old-buffer
+				 last
+				 (nth 1 (car old)))
+	(goto-char (point-max))
+	(insert-buffer-substring old-buffer
+				 (nth 1 (car sort-lists))
+				 (cdr (cdr (car sort-lists))))
+	(setq last (cdr (cdr (car old)))
+	      sort-lists (cdr sort-lists)
+	      old (cdr old)))
       (goto-char (point-max))
-      (insert-buffer-substring (current-buffer)
-			       last
-			       (nth 1 (car old)))
-      (goto-char (point-max))
-      (insert-buffer-substring (current-buffer)
-			       (nth 1 (car sort-lists))
-			       (cdr (cdr (car sort-lists))))
-      (setq last (cdr (cdr (car old)))
-	    sort-lists (cdr sort-lists)
-	    old (cdr old)))
-    (goto-char (point-max))
-    (insert-buffer-substring (current-buffer)
-			     last
-			     max)
-    ;; Delete the original copy of the text.
-    (delete-region min max)
-    ;; Get rid of the separator " ".
-    (goto-char (point-max))
-    (narrow-to-region min (1+ (point)))
-    (delete-region (point) (1+ (point)))))
+      (insert-buffer-substring old-buffer last max)
+
+      ;; Copy the reordered text from the temporary buffer
+      ;; to the buffer we sorted (OLD-BUFFER).
+      (set-buffer old-buffer)
+      (let ((inhibit-quit t))
+	;; Make sure insertions done for reordering
+	;; saves any markers at the end of the sorted region,
+	;; by leaving the last character of the region.
+	(delete-region min (1- max))
+  	;; Now replace the one remaining old character with the sorted text.
+	(goto-char (point-min))
+	(insert-buffer-substring temp-buffer)
+	(delete-region max (1+ max))))))
 
 ;;;###autoload
-(defun sort-lines (reverse beg end) 
+(defun sort-lines (reverse beg end)
   "Sort lines in region alphabetically; argument means descending order.
 Called from a program, there are three arguments:
 REVERSE (non-nil means reverse order), BEG and END (region to sort).
@@ -208,7 +202,9 @@ the sort order."
     (save-restriction
       (narrow-to-region beg end)
       (goto-char (point-min))
-      (sort-subr reverse 'forward-line 'end-of-line))))
+      (let ;; To make `end-of-line' and etc. to ignore fields.
+	  ((inhibit-field-text-motion t))
+	(sort-subr reverse 'forward-line 'end-of-line)))))
 
 ;;;###autoload
 (defun sort-paragraphs (reverse beg end)
@@ -252,7 +248,7 @@ the sort order."
     (while (< i 256)
       (modify-syntax-entry i "w" table)
       (setq i (1+ i)))
-    (modify-syntax-entry ?\  " " table)
+    (modify-syntax-entry ?\s " " table)
     (modify-syntax-entry ?\t " " table)
     (modify-syntax-entry ?\n " " table)
     (modify-syntax-entry ?\. "_" table)	; for floating pt. numbers. -wsr
@@ -274,25 +270,27 @@ With a negative arg, sorts by the ARGth field counted from the right.
 Called from a program, there are three arguments:
 FIELD, BEG and END.  BEG and END specify region to sort."
   (interactive "p\nr")
-  (sort-fields-1 field beg end
-		 (lambda ()
-		   (sort-skip-fields field)
-		   (let* ((case-fold-search t)
-			  (base
-			   (if (looking-at "\\(0x\\)[0-9a-f]\\|\\(0\\)[0-7]")
-			       (cond ((match-beginning 1)
-				      (goto-char (match-end 1))
-				      16)
-				     ((match-beginning 2)
-				      (goto-char (match-end 2))
-				      8)
-				     (t nil)))))
-		     (string-to-number (buffer-substring (point)
-							 (save-excursion
-							   (forward-sexp 1)
-							   (point)))
-				       (or base sort-numeric-base))))
-		 nil))
+  (let ;; To make `end-of-line' and etc. to ignore fields.
+      ((inhibit-field-text-motion t))
+    (sort-fields-1 field beg end
+		   (lambda ()
+		     (sort-skip-fields field)
+		     (let* ((case-fold-search t)
+			    (base
+			     (if (looking-at "\\(0x\\)[0-9a-f]\\|\\(0\\)[0-7]")
+				 (cond ((match-beginning 1)
+					(goto-char (match-end 1))
+					16)
+				       ((match-beginning 2)
+					(goto-char (match-end 2))
+					8)
+				       (t nil)))))
+		       (string-to-number (buffer-substring (point)
+							   (save-excursion
+							     (forward-sexp 1)
+							     (point)))
+					 (or base sort-numeric-base))))
+		   nil)))
 
 ;;;;;###autoload
 ;;(defun sort-float-fields (field beg end)
@@ -325,11 +323,13 @@ FIELD, BEG and END.  BEG and END specify region to sort.
 The variable `sort-fold-case' determines whether alphabetic case affects
 the sort order."
   (interactive "p\nr")
-  (sort-fields-1 field beg end
-		 (function (lambda ()
-			     (sort-skip-fields field)
-			     nil))
-		 (function (lambda () (skip-chars-forward "^ \t\n")))))
+  (let ;; To make `end-of-line' and etc. to ignore fields.
+      ((inhibit-field-text-motion t))
+    (sort-fields-1 field beg end
+		   (function (lambda ()
+			       (sort-skip-fields field)
+			       nil))
+		   (function (lambda () (skip-chars-forward "^ \t\n"))))))
 
 (defun sort-fields-1 (field beg end startkeyfun endkeyfun)
   (let ((tbl (syntax-table)))
@@ -421,7 +421,7 @@ For example: to sort lines in the region by the first word on each line
   ;; using negative prefix arg to mean "reverse" is now inconsistent with
   ;; other sort-.*fields functions but then again this was before, since it
   ;; didn't use the magnitude of the arg to specify anything.
-  (interactive "P\nsRegexp specifying records to sort: 
+  (interactive "P\nsRegexp specifying records to sort:
 sRegexp specifying key within record: \nr")
   (cond ((or (equal key-regexp "") (equal key-regexp "\\&"))
 	 (setq key-regexp 0))
@@ -433,7 +433,7 @@ sRegexp specifying key within record: \nr")
       (goto-char (point-min))
       (let (sort-regexp-record-end
 	    (sort-regexp-fields-regexp record-regexp))
-	(re-search-forward sort-regexp-fields-regexp)
+	(re-search-forward sort-regexp-fields-regexp nil t)
 	(setq sort-regexp-record-end (point))
 	(goto-char (match-beginning 0))
 	(sort-subr reverse
@@ -474,7 +474,9 @@ it uses the `sort' utility program, which doesn't understand tabs.
 Use \\[untabify] to convert tabs to spaces before sorting."
   (interactive "P\nr")
   (save-excursion
-    (let (beg1 end1 col-beg1 col-end1 col-start col-end)
+    (let ;; To make `end-of-line' and etc. to ignore fields.
+	((inhibit-field-text-motion t)
+	 beg1 end1 col-beg1 col-end1 col-start col-end)
       (goto-char (min beg end))
       (setq col-beg1 (current-column))
       (beginning-of-line)
@@ -487,19 +489,32 @@ Use \\[untabify] to convert tabs to spaces before sorting."
       (setq col-end (max col-beg1 col-end1))
       (if (search-backward "\t" beg1 t)
 	  (error "sort-columns does not work with tabs -- use M-x untabify"))
-      (if (not (or (eq system-type 'vax-vms)
-		   (text-properties-at beg1)
-		   (< (next-property-change beg1 nil end1) end1)))
+      (if (not (or (memq system-type '(vax-vms windows-nt))
+		   (let ((pos beg1) plist fontified)
+		     (catch 'found
+		       (while (< pos end1)
+			 (setq plist (text-properties-at pos))
+			 (setq fontified (plist-get plist 'fontified))
+			 (while (consp plist)
+			   (unless (or (eq (car plist) 'fontified)
+				       (and (eq (car plist) 'face)
+					    fontified))
+			     (throw 'found t))
+			   (setq plist (cddr plist)))
+			 (setq pos (next-property-change pos nil end1)))))))
 	  ;; Use the sort utility if we can; it is 4 times as fast.
-	  ;; Do not use it if there are any properties in the region,
-	  ;; since the sort utility would lose the properties.
-	  (let ((sort-args (list (if reverse "-rt\n" "-t\n")
-				 (concat "+0." (int-to-string col-start))
-				 (concat "-0." (int-to-string col-end)))))
+	  ;; Do not use it if there are any non-font-lock properties
+	  ;; in the region, since the sort utility would lose the
+	  ;; properties.  Tabs are used as field separator; on NetBSD,
+	  ;; sort complains if "\n" is used as field separator.
+	  (let ((sort-args (list (if reverse "-rt\t" "-t\t")
+				 (format "-k1.%d,1.%d"
+					 (1+ col-start)
+					 (1+ col-end)))))
 	    (when sort-fold-case
 	      (push "-f" sort-args))
 	    (apply #'call-process-region beg1 end1 "sort" t t nil sort-args))
-	;; On VMS, use Emacs's own facilities.
+	;; On VMS and ms-windows, use Emacs's own facilities.
 	(save-excursion
 	  (save-restriction
 	    (narrow-to-region beg1 end1)
@@ -542,4 +557,5 @@ From a program takes two point or marker arguments, BEG and END."
 
 (provide 'sort)
 
+;;; arch-tag: fbac12be-2a7b-4c8a-9665-264d61f70bd9
 ;;; sort.el ends here

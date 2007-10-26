@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: sock_test.c,v 1.47.12.4 2004/08/28 06:25:32 marka Exp $ */
+/* $Id: sock_test.c,v 1.49.18.1 2004/08/28 06:17:30 marka Exp $ */
 
 #include <config.h>
 

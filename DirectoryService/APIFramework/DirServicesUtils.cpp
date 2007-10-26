@@ -39,13 +39,77 @@
 #include <stdio.h>
 
 #define kDSUserAuthAuthorityMarker					"{*AuthenticationAuthority*}"
+// -- Deprecated -----------------------------------------------------------------------------------
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/*!
+ * @function dsBuildListFromNodes
+ * @discussion Included only for backward compatibility.
+ */
+tDataListPtr	dsBuildListFromNodes		(	tDirReference	inDirReferences,
+												tDataNodePtr	in1stDataNodePtr,
+												... );
+
+/*!
+ * @function dsAppendStringToList
+ * @discussion Included only for backward compatibility.
+ */
+tDirStatus		dsAppendStringToList		(	tDataListPtr	inDataList,
+												const char		* inCString );
+
+/*!
+ * @function dsDataListInsertNode
+ * @discussion Included only for backward compatibility.
+ */
+tDirStatus		dsDataListInsertNode		(	tDataListPtr	inDataList,
+												tDataNodePtr	inAfterDataNode,
+												tDataNodePtr	inInsertDataNode );
+
+/*!
+ * @function dsDataListMergeList
+ * @discussion Included only for backward compatibility.
+ */
+tDirStatus		dsDataListMergeList			(	tDataListPtr	inDataList,
+												tDataNodePtr	inAfterDataNode,
+												tDataListPtr	inMergeDataList );
+
+/*!
+ * @function dsDataListRemoveThisNode
+ * @discussion Included only for backward compatibility.
+ */
+tDirStatus		dsDataListRemoveThisNode	(	tDataListPtr		inDataList,
+												UInt32				inNodeIndex,
+												UInt32				inDeleteCount );
+
+/*!
+ * @function dsDataListRemoveNodes
+ * @discussion Included only for backward compatibility.
+ */
+tDirStatus		dsDataListRemoveNodes		(	tDataListPtr		inDataList,
+												tDataNodePtr		in1stDataNode,
+												UInt32				inDeleteCount );
+
+/*!
+ * @function dsDataListGetNode
+ * @discussion Included only for backward compatibility.
+ */
+tDirStatus		dsDataListGetNode			(	tDataListPtr		inDataListPtr,
+												UInt32				inNodeIndex,
+												tDataNodePtr	   *outDataNode );
+
+#ifdef __cplusplus
+}
+#endif
 
 // -- Static ---------------------------------------------------------------------------------------
 
-static tDataNodePtr	dsGetThisNodePriv 				( tDataNode *inFirsNode, const unsigned long inIndex );
+static tDataNodePtr	dsGetThisNodePriv 				( tDataNode *inFirsNode, const UInt32 inIndex );
 static tDataNodePtr	dsGetLastNodePriv 				( tDataNode *inFirsNode );
 static tDataNodePtr	dsAllocListNodeFromStringPriv	( const char *inString );
-static tDataNodePtr	dsAllocListNodeFromBuffPriv		( const void *inData, const uInt32 inSize );
+static tDataNodePtr	dsAllocListNodeFromBuffPriv		( const void *inData, const UInt32 inSize );
 static tDirStatus	dsVerifyDataListPriv			( const tDataList *inDataList );
 static tDirStatus	dsAppendAuthBufferWithAuthority( const char *inUserName, tDataBufferPtr inAuthAuthorityBuffer,
 														tDataBufferPtr inOutAuthBuffer );
@@ -55,10 +119,10 @@ static tDirStatus	dsAppendAuthBufferWithAuthority( const char *inUserName, tData
 //
 //--------------------------------------------------------------------------------------------------
 
-tDataBufferPtr dsDataBufferAllocate ( tDirReference inDirRef, unsigned long inBufferSize )
+tDataBufferPtr dsDataBufferAllocate ( tDirReference inDirRef, UInt32 inBufferSize )
 {
 #pragma unused ( inDirRef )
-	uInt32				size		= 0;
+	UInt32				size		= 0;
 	tDataBufferPtr		outBuff		= nil;
 
 	size = sizeof( tDataBufferPriv ) + inBufferSize;
@@ -110,10 +174,10 @@ tDirStatus dsDataBufferDeAllocate ( tDirReference inDirRef, tDataBuffer *inDataB
 //
 //--------------------------------------------------------------------------------------------------
 
-tDataNodePtr dsDataNodeAllocateBlock (	tDirReference	inDirRef,
-										unsigned long	inDataNodeSize,
-										unsigned long	inDataNodeLength,
-										tBuffer			inDataNodeBuffer )
+tDataNodePtr dsDataNodeAllocateBlock (	tDirReference		inDirRef,
+										UInt32				inDataNodeSize,
+										UInt32				inDataNodeLength,
+										tBuffer				inDataNodeBuffer )
 {
 	tDataNode		   *pOutBuff	= nil;
 
@@ -151,7 +215,7 @@ tDataNodePtr dsDataNodeAllocateBlock (	tDirReference	inDirRef,
 tDataNodePtr dsDataNodeAllocateString ( tDirReference inDirRef, const char *inCString )
 {
 	tDataNode		   *pOutBuff	= nil;
-	uInt32				len			= 0;
+	UInt32				len			= 0;
 
 	if ( inCString != nil )
 	{
@@ -203,7 +267,7 @@ tDirStatus dsDataNodeDeAllocate ( tDirReference inDirRef, tDataNode *inDataNodeP
 //
 //--------------------------------------------------------------------------------------------------
 
-tDirStatus dsDataNodeSetLength ( tDataNode *inDataNodePtr, unsigned long inDataNodeLength )
+tDirStatus dsDataNodeSetLength ( tDataNode *inDataNodePtr, UInt32 inDataNodeLength )
 {
 	tDirStatus		tResult	= eDSNoErr;
 
@@ -228,9 +292,9 @@ tDirStatus dsDataNodeSetLength ( tDataNode *inDataNodePtr, unsigned long inDataN
 //
 //--------------------------------------------------------------------------------------------------
 
-unsigned long dsDataNodeGetLength ( tDataNode *inDataNodePtr )
+UInt32 dsDataNodeGetLength ( tDataNode *inDataNodePtr )
 {
-	unsigned long		uiResult	= 0;
+	UInt32	uiResult	= 0;
 
 	if ( inDataNodePtr != nil )
 	{
@@ -249,9 +313,9 @@ unsigned long dsDataNodeGetLength ( tDataNode *inDataNodePtr )
 //
 //--------------------------------------------------------------------------------------------------
 
-unsigned long dsDataNodeGetSize ( tDataNode *inDataNodePtr )
+UInt32 dsDataNodeGetSize ( tDataNode *inDataNodePtr )
 {
-	unsigned long		uiResult	= 0;
+	UInt32	uiResult	= 0;
 
 	if ( inDataNodePtr != nil )
 	{
@@ -404,12 +468,12 @@ char* dsGetPathFromList ( tDirReference	inDirRef, const tDataList *inDataList, c
 {
 #pragma unused ( inDirRef )
 	char			   *outStr			= nil;
-	uInt32				uiSafetyCntr	= 0;
-	uInt32				uiStrLen		= 0;
+	UInt32				uiSafetyCntr	= 0;
+	UInt32				uiStrLen		= 0;
 	tDataNode		   *pCurrNode		= nil;
 	tDataBufferPriv	   *pPrivData		= nil;
 	char			   *prevStr			= nil;
-	uInt32				cStrLen			= 256;
+	UInt32				cStrLen			= 256;
 	char			   *nextStr			= nil;
 
 	if ( (inDataList == nil) || (inDelimiter == nil) )
@@ -510,7 +574,7 @@ char** dsAllocStringsFromList( tDirReference inDirRef, const tDataList *inDataLi
 
 	listOfStrings = (char **)calloc(inDataList->fDataNodeCount + 1, sizeof(char *));
 	pCurrNode = inDataList->fDataListHead;
-	uInt32 strCount = 0;
+	UInt32 strCount = 0;
 	while ( pCurrNode != nil )
 	{
 		pPrivData = (tDataBufferPriv *)pCurrNode;
@@ -557,9 +621,9 @@ tDataListPtr dsBuildFromPath ( tDirReference	inDirRef,
 	const char		   *inStr		= nil;
 	char			   *ptr			= nil;
 	const char		   *inDelim		= nil;
-	sInt32				delimLen	= 0;
+	SInt32				delimLen	= 0;
 	dsBool				done		= false;
-	sInt32				len			= 0;
+	SInt32				len			= 0;
 	tDataList		   *outDataList	= nil;
 	char			   *cStr		= nil;
 
@@ -606,7 +670,7 @@ tDataListPtr dsBuildFromPath ( tDirReference	inDirRef,
 			cStr = (char *)calloc(len + 1, sizeof(char));
 			strncpy(cStr,inStr,len);
 
-			::dsAppendStringToListAlloc( 0x00F0F0F0, outDataList, cStr );
+			::dsAppendStringToListAlloc( 0, outDataList, cStr );
 			free(cStr);
 			
 			done = true;
@@ -618,7 +682,7 @@ tDataListPtr dsBuildFromPath ( tDirReference	inDirRef,
 			cStr = (char *)calloc(len + 1, sizeof(char));
 			strncpy(cStr,inStr,len);
 
-			::dsAppendStringToListAlloc( 0x00F0F0F0, outDataList, cStr );
+			::dsAppendStringToListAlloc( 0, outDataList, cStr );
 			free(cStr);
 			
 			inStr += len + delimLen;
@@ -644,9 +708,9 @@ tDirStatus dsBuildListFromPathAlloc ( tDirReference	inDirRef,
 	const char		   *inStr		= nil;
 	char			   *ptr			= nil;
 	const char		   *inDelim		= nil;
-	sInt32				delimLen	= 0;
+	SInt32				delimLen	= 0;
 	dsBool				done		= false;
-	sInt32				len			= 0;
+	SInt32				len			= 0;
 	char			   *cStr		= nil;
 
 	if ( inDataList == nil )
@@ -699,7 +763,7 @@ tDirStatus dsBuildListFromPathAlloc ( tDirReference	inDirRef,
 
 		cStr = (char *)::calloc(len + 1, sizeof(char));
 		::strncpy(cStr,inStr,len);
-		tResult = ::dsAppendStringToListAlloc( 0x00F0F0F0, inDataList, cStr );
+		tResult = ::dsAppendStringToListAlloc( 0, inDataList, cStr );
 		::free(cStr);
 			
 		inStr += len + delimLen;
@@ -1026,10 +1090,10 @@ tDirStatus dsBuildListFromNodesAlloc (	tDirReference	inDirRef,
 //
 //--------------------------------------------------------------------------------------------------
 
-unsigned long dsDataListGetNodeCount ( const tDataList *inDataList )
+UInt32 dsDataListGetNodeCount ( const tDataList *inDataList )
 {
-	tDirStatus		tResult		= eDSNoErr;
-	unsigned long	outCount	= 0;
+	tDirStatus			tResult		= eDSNoErr;
+	UInt32				outCount	= 0;
 
 	if ( inDataList != nil )
 	{
@@ -1055,9 +1119,9 @@ unsigned long dsDataListGetNodeCount ( const tDataList *inDataList )
 //
 //--------------------------------------------------------------------------------------------------
 
-unsigned long dsGetDataLength ( const tDataList *inDataList )
+UInt32 dsGetDataLength ( const tDataList *inDataList )
 {
-	unsigned long		outStrLen	= 0;
+	UInt32				outStrLen	= 0;
 	tDataNode		   *pCurrNode	= nil;
 	tDataBufferPriv    *pPrivData	= nil;
 
@@ -1112,10 +1176,10 @@ tDirStatus dsDataListInsertNode (	tDataList	*inDataList,
 //
 //--------------------------------------------------------------------------------------------------
 
-tDirStatus dsDataListInsertAfter (	tDirReference		inDirRef,
-									tDataList		   *inDataList,
-									tDataNode		   *inDataNode,
-									const unsigned long	inIndex )
+tDirStatus dsDataListInsertAfter (	tDirReference			inDirRef,
+									tDataList			   *inDataList,
+									tDataNode			   *inDataNode,
+									const UInt32			inIndex )
 {
 #pragma unused ( inDirRef )
 	tDirStatus			tResult			= eDSNoErr;
@@ -1257,9 +1321,9 @@ tDirStatus dsDataListMergeList ( tDataListPtr inDataList, tDataNode *inAfterData
 //
 //--------------------------------------------------------------------------------------------------
 
-tDirStatus dsDataListMergeListAfter (	tDataList		   *inTargetList,
-										tDataList		   *inSourceList,
-										const unsigned long	inIndex )
+tDirStatus dsDataListMergeListAfter (	tDataList			   *inTargetList,
+										tDataList			   *inSourceList,
+										const UInt32			inIndex )
 {
 	tDirStatus			tResult			= eDSNoErr;
 	tDataNode		   *pCurrNode		= nil;
@@ -1368,9 +1432,9 @@ tDataListPtr dsDataListCopyList ( tDirReference inDirRef, const tDataList *inSou
 {
 	tDirStatus			tResult			= eDSNoErr;
 	tDataList		   *pOutList		= nil;
-	unsigned long		count			= 0;
-	unsigned long		uiSize			= 0;
-	unsigned long		uiLength		= 0;
+	UInt32				count			= 0;
+	UInt32				uiSize			= 0;
+	UInt32				uiLength		= 0;
 	tDataNode		   *pCurrNode		= nil;
 	tDataNode		   *pNewNode		= nil;
 	tDataNode		   *pPrevNode		= nil;
@@ -1453,7 +1517,7 @@ tDataListPtr dsDataListCopyList ( tDirReference inDirRef, const tDataList *inSou
 //
 //--------------------------------------------------------------------------------------------------
 
-tDirStatus dsDataListRemoveNodes ( tDataListPtr inDataList, tDataNode *in1stDataNode, unsigned long inDeleteCount )
+tDirStatus dsDataListRemoveNodes ( tDataListPtr inDataList, tDataNode *in1stDataNode, UInt32 inDeleteCount )
 {
 #pragma unused ( inDataList, in1stDataNode, inDeleteCount )
 
@@ -1469,7 +1533,7 @@ tDirStatus dsDataListRemoveNodes ( tDataListPtr inDataList, tDataNode *in1stData
 //
 //--------------------------------------------------------------------------------------------------
 
-tDirStatus dsDataListRemoveThisNode ( tDataListPtr inDataList, unsigned long inNodeIndex, unsigned long inDeleteCount )
+tDirStatus dsDataListRemoveThisNode ( tDataListPtr inDataList, UInt32 inNodeIndex, UInt32 inDeleteCount )
 {
 #pragma unused ( inDataList, inNodeIndex, inDeleteCount )
 
@@ -1485,9 +1549,9 @@ tDirStatus dsDataListRemoveThisNode ( tDataListPtr inDataList, unsigned long inN
 //
 //--------------------------------------------------------------------------------------------------
 
-tDirStatus dsDataListDeleteThisNode (	tDirReference	inDirRef,
-										tDataList	   *inDataList,
-										unsigned long	inIndex )
+tDirStatus dsDataListDeleteThisNode (	tDirReference		inDirRef,
+										tDataList		   *inDataList,
+										UInt32				inIndex )
 {
 	tDirStatus			tResult		= eDSNoErr;
 	tDataNode		   *pCurrNode	= nil;
@@ -1552,9 +1616,9 @@ tDirStatus dsDataListDeleteThisNode (	tDirReference	inDirRef,
 //
 //--------------------------------------------------------------------------------------------------
 
-tDirStatus dsDataListGetNode ( tDataListPtr		inDataList,
-								unsigned long	inIndex,
-								tDataNode	  **outDataNode )
+tDirStatus dsDataListGetNode ( tDataListPtr			inDataList,
+								UInt32				inIndex,
+								tDataNode		  **outDataNode )
 {
 #pragma unused ( inDataList, inIndex, outDataNode )
 	return( eNoLongerSupported );
@@ -1565,13 +1629,13 @@ tDirStatus dsDataListGetNode ( tDataListPtr		inDataList,
 //
 //--------------------------------------------------------------------------------------------------
 
-tDirStatus dsDataListGetNodeAlloc ( tDirReference			inDirRef,
-									const tDataList			*inDataList,
-									const unsigned long		inIndex,
-									tDataNode			  **outDataNode )
+tDirStatus dsDataListGetNodeAlloc ( tDirReference				inDirRef,
+									const tDataList			   *inDataList,
+									const UInt32				inIndex,
+									tDataNode				  **outDataNode )
 {
 	tDirStatus			tResult			= eDSNoErr;
-	uInt32				uiLength		= 0;
+	UInt32				uiLength		= 0;
 	tDataBuffer		   *pOutDataNode	= nil;
 	tDataNode		   *pCurrNode		= nil;
 	tDataBufferPriv	   *pPrivData		= nil;
@@ -1626,12 +1690,12 @@ tDirStatus dsDataListGetNodeAlloc ( tDirReference			inDirRef,
 //--------------------------------------------------------------------------------------------------
 
 tAttributeValueEntryPtr dsAllocAttributeValueEntry ( tDirReference		inDirRef,
-													 unsigned long		inAttrValueID,
+													 UInt32				inAttrValueID,
 													 void			   *inAttrValueData,
-													 unsigned long		inAttrValueDataLen )
+													 UInt32				inAttrValueDataLen )
 {
 #pragma unused ( inDirRef )
-	uInt32						uiDataSize	= 0;
+	UInt32						uiDataSize	= 0;
 	tAttributeValueEntryPtr		outEntryPtr	= nil;
 
 	uiDataSize = sizeof( tAttributeValueEntry ) + inAttrValueDataLen + 1;
@@ -1723,9 +1787,9 @@ tDirStatus dsDeallocRecordEntry (	tDirReference		inDirRef,
 tDirStatus dsGetRecordNameFromEntry ( tRecordEntryPtr inRecEntryPtr, char **outRecName )
 {
 	tDirStatus		tResult		= eDSNoErr;
-	uInt32			uiOffset	= 2;
-	uInt32			uiBuffSize	= 0;
-	uInt16			usLength	= 0;
+	UInt32			uiOffset	= 2;
+	UInt32			uiBuffSize	= 0;
+	UInt16			usLength	= 0;
 	tDataNodePtr	dataNode 	= nil;
 	char		   *pData	 	= nil;
 	char		   *pOutData 	= nil;
@@ -1790,9 +1854,9 @@ tDirStatus dsGetRecordNameFromEntry ( tRecordEntryPtr inRecEntryPtr, char **outR
 tDirStatus dsGetRecordTypeFromEntry ( tRecordEntryPtr inRecEntryPtr, char **outRecType )
 {
 	tDirStatus		tResult		= eDSNoErr;
-	uInt16			usLength	= 0;
-	uInt32			uiOffset	= 2;
-	uInt32			uiBuffSize	= 0;
+	UInt16			usLength	= 0;
+	UInt32			uiOffset	= 2;
+	UInt32			uiBuffSize	= 0;
 	tDataNodePtr	dataNode 	= nil;
 	char		   *pData	 	= nil;
 	char		   *pOutData	= nil;
@@ -1870,9 +1934,9 @@ tDirStatus dsGetRecordTypeFromEntry ( tRecordEntryPtr inRecEntryPtr, char **outR
 //
 //--------------------------------------------------------------------------------------------------
 
-tDataNodePtr dsGetThisNodePriv ( tDataNode *inFirsNode, const unsigned long inIndex )
+tDataNodePtr dsGetThisNodePriv ( tDataNode *inFirsNode, const UInt32 inIndex )
 {
-	uInt32				i			= 1;
+	UInt32				i			= 1;
 	tDataNode		   *pCurrNode	= nil;
 	tDataBufferPriv    *pPrivData	= nil;
 
@@ -1927,8 +1991,8 @@ tDataNodePtr dsGetLastNodePriv ( tDataNode *inFirsNode )
 
 tDataNodePtr dsAllocListNodeFromStringPriv ( const char *inString )
 {
-	uInt32				nodeSize	= 0;
-	uInt32				strLen		= 0;
+	UInt32				nodeSize	= 0;
+	UInt32				strLen		= 0;
 	tDataNode		   *pOutNode	= nil;
 	tDataBufferPriv	   *pPrivData	= nil;
 
@@ -1960,9 +2024,9 @@ tDataNodePtr dsAllocListNodeFromStringPriv ( const char *inString )
 //
 //--------------------------------------------------------------------------------------------------
 
-tDataNodePtr dsAllocListNodeFromBuffPriv ( const void *inData, const uInt32 inSize )
+tDataNodePtr dsAllocListNodeFromBuffPriv ( const void *inData, const UInt32 inSize )
 {
-	uInt32				nodeSize	= 0;
+	UInt32				nodeSize	= 0;
 	tDataNode		   *pOutNode	= nil;
 	tDataBufferPriv	   *pPrivData	= nil;
 
@@ -1995,7 +2059,7 @@ tDataNodePtr dsAllocListNodeFromBuffPriv ( const void *inData, const uInt32 inSi
 
 tDirStatus dsVerifyDataListPriv ( const tDataList *inDataList )
 {
-	unsigned long		count		= 0;
+	UInt32				count		= 0;
 	tDataNode		   *pCurrNode	= nil;
 	tDataBufferPriv    *pPrivData	= nil;
 
@@ -2019,7 +2083,7 @@ tDirStatus dsVerifyDataListPriv ( const tDataList *inDataList )
 		return eDSNoErr;
 
 	LOG3( kStdErr, "*** DS DataList (@0x%lX) verification error: File: %s. Line: %d.\n",
-			(unsigned long) inDataList, __FILE__, __LINE__ );
+			(UInt32) inDataList, __FILE__, __LINE__ );
 	// Probably should have a custom error for this condition.
 	return eDSInvalidBuffFormat;
 } // dsVerifyDataListPriv
@@ -2090,15 +2154,114 @@ tDirStatus dsParseAuthAuthority( const char *inAuthAuthority, char **outVersion,
 } // dsParseAuthAuthority
 
 
+// ---------------------------------------------------------------------------
+//	* dsParseAuthAuthorityExtended
+//    retrieve version, tag, and data from authauthority
+//    format is version;tag;data[]
+// ---------------------------------------------------------------------------
+
+tDirStatus dsParseAuthAuthorityExtended( const char *inAuthAuthority, char **outVersion, char **outAuthTag, char ***outAuthData )
+{
+	tDirStatus status = eDSNoErr;
+	CFStringRef aaString = NULL;
+	CFArrayRef aaArray = NULL;
+	CFIndex arrayCount = 0;
+	int index = 0;
+	char *curPtr = NULL;
+	CFIndex curPtrLen = 0;
+	
+	if ( inAuthAuthority == NULL || outVersion == NULL 
+		 || outAuthTag == NULL || outAuthData == NULL )
+	{
+		return eDSAuthFailed;
+	}
+	
+	*outVersion = NULL;
+	*outAuthTag = NULL;
+	*outAuthData = NULL;
+	
+	aaString = CFStringCreateWithCString( kCFAllocatorDefault, inAuthAuthority, kCFStringEncodingUTF8 );
+	if ( aaString == NULL )
+		return eDSAuthFailed;
+	
+	aaArray = CFStringCreateArrayBySeparatingStrings( kCFAllocatorDefault, aaString, CFSTR(";") );
+	DSCFRelease( aaString );
+	
+	if ( aaArray == NULL )
+		return eDSAuthFailed;
+	
+	arrayCount = CFArrayGetCount( aaArray );
+	if ( arrayCount < 2 )
+		return eDSAuthFailed;
+	
+	try
+	{
+		if ( arrayCount >=3 )
+		{
+			*outAuthData = (char **) calloc( arrayCount - 1, sizeof(char *) );
+			if ( *outAuthData == NULL )
+				throw( 1 );
+		}
+		
+		for ( index = 0; index < arrayCount; index++ )
+		{
+			aaString = (CFStringRef) CFArrayGetValueAtIndex( aaArray, index );
+			if ( aaString == NULL )
+				throw( 1 );
+			
+			curPtrLen = CFStringGetMaximumSizeForEncoding( CFStringGetLength(aaString), kCFStringEncodingUTF8 ) + 1;
+			curPtr = (char *) malloc( curPtrLen );
+			if ( curPtr == NULL || !CFStringGetCString(aaString, curPtr, curPtrLen, kCFStringEncodingUTF8) )
+				throw( 1 );
+			
+			switch( index )
+			{
+				case 0:
+					*outVersion = curPtr;
+					break;
+				
+				case 1:
+					*outAuthTag = curPtr;
+					break;
+					
+				default:
+					(*outAuthData)[index - 2] = curPtr;
+					break;
+			}
+		}
+	}
+	catch(...)
+	{
+		status = eDSAuthFailed;
+		
+		DSFreeString( *outVersion );
+		DSFreeString( *outAuthTag );
+		
+		if ( *outAuthData != NULL )
+		{
+			for ( index = 0; (*outAuthData)[index] != NULL && index < arrayCount; index++ )
+				free( (*outAuthData)[index] );
+			
+			free( *outAuthData );
+			*outAuthData = NULL;
+		}
+	}
+	
+	DSCFRelease( aaArray );
+	
+	return status;
+} // dsParseAuthAuthorityExtended
+
+
 //--------------------------------------------------------------------------------------------------
 //	Name:	dsCopyDirStatusName
 //
 //--------------------------------------------------------------------------------------------------
 
-char* dsCopyDirStatusName ( long inDirStatus )
+char* dsCopyDirStatusName ( SInt32 inDirStatus )
 {
-	char		   *outString   = nil;
-	unsigned long   caseIndex   = (-1 * inDirStatus) - 14000;
+	char			   *outString   = nil;
+	UInt32				caseIndex   = (-1 * inDirStatus) - 14000;
 	
 	if (inDirStatus == 0)
 	{
@@ -2146,6 +2309,12 @@ char* dsCopyDirStatusName ( long inDirStatus )
 				break;
 			case 12:
 				outString = strdup("eDSUnRegisterFailed");
+				break;
+			case 15:
+				outString = strdup("eDSLocalDSDaemonInUse");
+				break;
+			case 16:
+				outString = strdup("eDSNormalDSDaemonInUse");
 				break;
 			case 50:
 				outString = strdup("eDSAllocationFailed");
@@ -2311,6 +2480,9 @@ char* dsCopyDirStatusName ( long inDirStatus )
 				break;
 			case 137:
 				outString = strdup("eDSAttributeDoesNotExist");
+				break;
+			case 138:
+				outString = strdup("eDSRecordTypeDisabled");
 				break;
 			case 140:
 				outString = strdup("eDSNoStdMappingAvailable");
@@ -2693,6 +2865,9 @@ char* dsCopyDirStatusName ( long inDirStatus )
 			case 487:
 				outString = strdup("eDSServiceUnavailable");
 				break;
+			case 488:
+				outString = strdup("eDSInvalidFilePath");
+				break;
 			case 501:
 				outString = strdup("eFWGetDirNodeNameErr1");
 				break;
@@ -2784,6 +2959,7 @@ char* dsCopyDirStatusName ( long inDirStatus )
 				outString = strdup("eDSLastValue");
 				break;
 			default:
+				outString = strdup("Not a known DirStatus");
 				break;
 		}
 	}
@@ -2797,14 +2973,14 @@ char* dsCopyDirStatusName ( long inDirStatus )
 
 
 tDirStatus dsFillAuthBuffer (	tDataBufferPtr inOutAuthBuffer,
-								unsigned long inCount,
-								unsigned long inLen,
+								UInt32			inCount,
+								UInt32			inLen,
 								const void *inData, ... )
 {
-	unsigned long		curr		= 0;
-	unsigned long		buffSize	= 0;
-	unsigned long		count		= inCount;
-	unsigned long		len			= inLen;
+	UInt32				curr		= 0;
+	UInt32				buffSize	= 0;
+	UInt32				count		= inCount;
+	UInt32				len			= inLen;
 	const void			*data		= inData;
 	bool				firstPass	= true;
 	char				*p			= NULL;
@@ -2828,7 +3004,7 @@ tDirStatus dsFillAuthBuffer (	tDataBufferPtr inOutAuthBuffer,
 	{
 		if ( !firstPass )
 		{
-			len = va_arg( args, unsigned long );
+			len = va_arg( args, UInt32 );
 			data = va_arg( args, void * );
 		}
 		
@@ -2838,8 +3014,8 @@ tDirStatus dsFillAuthBuffer (	tDataBufferPtr inOutAuthBuffer,
 			return eDSBufferTooSmall;
 		}
 		
-		::memcpy( &(p[curr]), &len, sizeof( sInt32 ) );
-		curr += sizeof( sInt32 );
+		::memcpy( &(p[curr]), &len, sizeof( SInt32 ) );
+		curr += sizeof( SInt32 );
 		
 		if ( len > 0 && data != NULL )
 		{
@@ -2856,14 +3032,14 @@ tDirStatus dsFillAuthBuffer (	tDataBufferPtr inOutAuthBuffer,
 
 
 tDirStatus dsAppendAuthBuffer (	tDataBufferPtr inOutAuthBuffer,
-								unsigned long inCount,
-								unsigned long inLen,
+								UInt32			inCount,
+								UInt32			inLen,
 								const void *inData, ... )
 {
-	unsigned long		curr		= 0;
-	unsigned long		buffSize	= 0;
-	unsigned long		count		= inCount;
-	unsigned long		len			= inLen;
+	UInt32				curr		= 0;
+	UInt32				buffSize	= 0;
+	UInt32				count		= inCount;
+	UInt32				len			= inLen;
 	const void			*data		= inData;
 	bool				firstPass	= true;
 	char				*p			= NULL;
@@ -2887,7 +3063,7 @@ tDirStatus dsAppendAuthBuffer (	tDataBufferPtr inOutAuthBuffer,
 	{
 		if ( !firstPass )
 		{
-			len = va_arg( args, unsigned long );
+			len = va_arg( args, UInt32 );
 			data = va_arg( args, void * );
 		}
 		
@@ -2897,8 +3073,8 @@ tDirStatus dsAppendAuthBuffer (	tDataBufferPtr inOutAuthBuffer,
 			return eDSBufferTooSmall;
 		}
 		
-		::memcpy( &(p[curr]), &len, sizeof( sInt32 ) );
-		curr += sizeof( sInt32 );
+		::memcpy( &(p[curr]), &len, sizeof( SInt32 ) );
+		curr += sizeof( SInt32 );
 		
 		if ( len > 0 && data != NULL )
 		{
@@ -2952,7 +3128,7 @@ tDirStatus dsAppendAuthBufferWithAuthorityAttribute(
 		return eParameterError;
 	
 	attrValCount = inAttributePtr->fAttributeValueCount;
-	innerDataBuff = dsDataBufferAllocate( 0, inAttributePtr->fAttributeDataSize + sizeof(uInt32) * attrValCount );
+	innerDataBuff = dsDataBufferAllocate( 0, inAttributePtr->fAttributeDataSize + sizeof(UInt32) * attrValCount );
 	if ( innerDataBuff != NULL )
 	{
 		// run through the values create a tDataBuffer with the list of authentication authorities.
@@ -3075,5 +3251,259 @@ tDirStatus dsAppendAuthBufferWithAuthority(
 	free( userBuffer );
 	
 	return status;
+}
+
+
+//-----------------------------------------------------------------------------
+/*!
+ * @function dsServiceInformationAllocate
+ * @abstract	Allocate a buffer that contains the xml plist form of a
+ *				CFDictionary.
+ * @discussion	Services can use this function to obtain a buffer suitable for
+ *				providing additional information to dsDoDirNodeAuth(). This buffer
+ *				is also used to return data from an authentication method, so it
+ *				needs to be large enough to handle the context information and
+ *				the data returned by the authentication method.
+ * @param		inServiceInfo A dictionary that contains context information
+				from a service
+ * @param		inBufferSize The desired size of the buffer. It is expanded if
+ *				necessary to fit the context information. The buffer must be large
+ *				enough to hold the data returned by the authentication method used.
+ * @param		outPackedServiceInfo A constructed buffer containing the data
+ *				from inServiceInfo.
+ * @result		tDirStatus code
+*/
+//-----------------------------------------------------------------------------
+
+tDirStatus dsServiceInformationAllocate(
+	CFDictionaryRef inServiceInfo,
+	UInt32 inBufferSize,
+	tDataBufferPtr *outPackedServiceInfo )
+{
+	tDirStatus				status			= eDSNoErr;
+	tDataBufferPtr			outBuff			= nil;
+	CFDataRef				xmlData			= NULL;
+	const UInt8				*sourcePtr		= NULL;
+	long					length			= 0;
+	UInt32					bufferSize		= inBufferSize;
+	
+	if ( outPackedServiceInfo == NULL )
+		return eParameterError;
+	*outPackedServiceInfo = NULL;
+	
+	if ( inServiceInfo == NULL || CFGetTypeID(inServiceInfo) != CFDictionaryGetTypeID() )
+		return eParameterError;
+	
+	xmlData = CFPropertyListCreateXMLData( kCFAllocatorDefault, (CFPropertyListRef)inServiceInfo );
+	if ( xmlData == NULL )
+		return eMemoryError;
+	
+	try
+	{
+		sourcePtr = CFDataGetBytePtr( xmlData );
+		length = CFDataGetLength( xmlData );
+		if ( sourcePtr == NULL || length <= 0 )
+			throw( (tDirStatus)eDSEmptyAuthStepData );
+		
+		// maximize the buffer allocation
+		if ( bufferSize < (UInt32)length )
+			bufferSize = length + 1;
+		
+		// allocate the buffer
+		outBuff = dsDataBufferAllocate( 0, bufferSize );
+		if ( outBuff == NULL )
+			throw( (tDirStatus)eMemoryError );
+		
+		status = dsFillAuthBuffer( outBuff, 1, length, sourcePtr );
+	}
+	catch ( tDirStatus catchErr )
+	{
+		status = catchErr;
+	}
+	
+	if ( status == eDSNoErr )
+		*outPackedServiceInfo = outBuff;
+	else if ( outBuff != NULL )
+		dsDataBufferDeAllocate( 0, outBuff );
+	
+	DSCFRelease( xmlData );
+	return status;
+}
+
+
+CFMutableDictionaryRef dsConvertAuthAuthorityToCFDict( const char *inAuthAuthorityStr )
+{
+	CFMutableDictionaryRef theDict = NULL;
+	CFMutableArrayRef aaDataArray = NULL;
+	CFStringRef aString = NULL;
+	CFNumberRef aNumber = NULL;
+	char *aaVers = NULL;
+	char *aaTag = NULL;
+	char **aaData = NULL;
+	int aaVersion = 0;
+	int index = 0;
+	
+	try
+	{
+		if ( dsParseAuthAuthorityExtended(inAuthAuthorityStr, &aaVers, &aaTag, &aaData) == eDSNoErr )
+		{
+			theDict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+			if ( theDict == NULL )
+				throw(1);
+			
+			sscanf( aaVers, "%d", &aaVersion );
+			if ( aaVersion == 0 )
+				aaVersion = 1;
+			
+			aNumber = CFNumberCreate( kCFAllocatorDefault, kCFNumberSInt32Type, &aaVersion );
+			if ( aNumber == NULL )
+				throw(1);
+			
+			CFDictionaryAddValue( theDict, CFSTR("version"), aNumber );
+			CFRelease( aNumber );
+			
+			aString = CFStringCreateWithCString( kCFAllocatorDefault, aaTag, kCFStringEncodingUTF8 );
+			if ( aString == NULL )
+				throw(1);
+			
+			CFDictionaryAddValue( theDict, CFSTR("tag"), aString );
+			CFRelease( aString );
+			
+			aaDataArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+			if ( aaDataArray == NULL )
+				throw(1);
+			
+			while ( aaData[index] )
+			{
+				aString = CFStringCreateWithCString( kCFAllocatorDefault, aaData[index++], kCFStringEncodingUTF8 );
+				if ( aString == NULL )
+					throw(1);
+				
+				CFArrayAppendValue( aaDataArray, aString );
+				CFRelease( aString );
+				aString = NULL;
+			}
+			
+			CFDictionaryAddValue( theDict, CFSTR("data"), aaDataArray );
+			CFRelease( aaDataArray );
+			aaDataArray = NULL;
+		}
+	}
+	catch(...)
+	{
+		if ( theDict != NULL ) {	
+			CFRelease( theDict );
+			theDict = NULL;
+		}
+		if ( aaDataArray != NULL ) {	
+			CFRelease( aaDataArray );
+			aaDataArray = NULL;
+		}
+	}
+	
+	// clean up
+	DSFreeString( aaVers );
+	DSFreeString( aaTag );
+	for ( index = 0; aaData[index] != NULL; index++ )
+		free( aaData[index] );
+	DSFree( aaData );
+	
+	return theDict;
+}
+
+
+char *dsConvertCFDictToAuthAuthority( CFDictionaryRef inAuthAuthorityDict )
+{
+	char *theAA = NULL;
+	size_t needSize = 0;
+	CFStringRef aaDataString = NULL;
+	int idx = 0;
+	int arrayCount = 0;
+	int aaVersion = 1;
+	char *aaTag = NULL;
+	char *aaData = NULL;
+	
+	if ( inAuthAuthorityDict == NULL )
+		return NULL;
+	
+	CFNumberRef aaVersNumber = (CFNumberRef) CFDictionaryGetValue( inAuthAuthorityDict, CFSTR("version") );
+	CFStringRef aaTagString = (CFStringRef) CFDictionaryGetValue( inAuthAuthorityDict, CFSTR("tag") );
+	CFArrayRef aaDataArray = (CFArrayRef) CFDictionaryGetValue( inAuthAuthorityDict, CFSTR("data") );
+	
+	// must have a tag
+	if ( aaTagString == NULL )
+		return NULL;
+	
+	// SInt32 max is -2100000000 (11 chars)
+	needSize = (aaVersNumber != NULL) ? 12 : 1;
+	
+	// tag is always 7-bit ASCII
+	needSize += (aaTagString != NULL) ? CFStringGetLength( aaTagString ) : 1;
+	
+	// data can be any UTF8
+	if ( aaDataArray != NULL )
+	{
+		arrayCount = CFArrayGetCount( aaDataArray );
+		for ( idx = 0; idx < arrayCount; idx++ )
+		{
+			aaDataString = (CFStringRef) CFArrayGetValueAtIndex( aaDataArray, idx );
+			needSize += (aaDataString != NULL) ? CFStringGetMaximumSizeForEncoding( CFStringGetLength(aaDataString), kCFStringEncodingUTF8 ) : 1;
+		}
+	}
+	
+	// add room for a zero-terminator
+	needSize++;
+	
+	if ( aaVersNumber != NULL )
+	{
+		CFNumberGetValue( aaVersNumber, kCFNumberSInt32Type, &aaVersion );
+		if ( aaVersion == 0 )
+			aaVersion = 1;
+	}
+	
+	aaTag = (char *) malloc( CFStringGetLength(aaTagString) + 1 );
+	if ( aaTag == NULL )
+		return NULL;
+	
+	aaData = (char *) malloc( needSize );
+	if ( aaData == NULL ) {
+		free( aaTag );
+		return NULL;
+	}
+	
+	if ( CFStringGetCString(aaTagString, aaTag, CFStringGetLength(aaTagString) + 1, kCFStringEncodingUTF8) )
+	{
+		theAA = (char *) malloc( needSize );
+		if ( theAA != NULL )
+		{
+			if ( aaVersion != 1 )
+				snprintf( theAA, needSize, "%d;%s;", aaVersion, aaTag );
+			else
+				snprintf( theAA, needSize, ";%s;", aaTag );
+			
+			if ( aaDataArray != NULL )
+			{
+				arrayCount = CFArrayGetCount( aaDataArray );
+				for ( idx = 0; idx < arrayCount; idx++ )
+				{
+					aaDataString = (CFStringRef) CFArrayGetValueAtIndex( aaDataArray, idx );
+					if ( aaDataString != NULL )
+					{
+						if ( CFStringGetCString(aaDataString, aaData, needSize, kCFStringEncodingUTF8) )
+						{
+							strlcat( theAA, aaData, needSize );
+							if ( idx < arrayCount - 1 )
+								strlcat( theAA, ";", needSize );
+						}
+					}
+				}
+			}			
+		}
+	}
+	
+	DSFreeString( aaTag );
+	DSFreeString( aaData );
+	
+	return theAA;
 }
 

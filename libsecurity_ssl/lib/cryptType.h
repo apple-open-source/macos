@@ -54,12 +54,12 @@ typedef struct
     SSLCipherSuite     	cipherSuite;
 } SSLCipherMapping;
 
-typedef OSStatus (*HashInit)(SSLBuffer &digestCtx, SSLContext *sslCtx);
-typedef OSStatus (*HashUpdate)(SSLBuffer &digestCtx, const SSLBuffer &data);
+typedef OSStatus (*HashInit)(SSLBuffer *digestCtx, SSLContext *sslCtx);
+typedef OSStatus (*HashUpdate)(SSLBuffer *digestCtx, const SSLBuffer *data);
 /* HashFinal also does HashClose */
-typedef OSStatus (*HashFinal)(SSLBuffer &digestCtx, SSLBuffer &digest);	
-typedef OSStatus (*HashClose)(SSLBuffer &digestCtx, SSLContext *sslCtx);
-typedef OSStatus (*HashClone)(const SSLBuffer &src, SSLBuffer &dest);
+typedef OSStatus (*HashFinal)(SSLBuffer *digestCtx, SSLBuffer *digest);	
+typedef OSStatus (*HashClose)(SSLBuffer *digestCtx, SSLContext *sslCtx);
+typedef OSStatus (*HashClone)(const SSLBuffer *src, SSLBuffer *dest);
 typedef struct
 {   UInt32      contextSize;
     UInt32      digestSize;

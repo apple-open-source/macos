@@ -32,8 +32,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: rcsutil.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:39  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:39  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:34  wsanchez
  * Import of RCS 5.7
@@ -193,7 +193,7 @@ Report problems and direct all questions to:
 
 #include "rcsbase.h"
 
-libId(utilId, "$Id: rcsutil.c,v 1.1.1.1 1999/04/23 01:43:39 wsanchez Exp $")
+libId(utilId, "$Id: rcsutil.c,v 1.1 1999/04/23 01:43:39 wsanchez Exp $")
 
 #if !has_memcmp
 	int

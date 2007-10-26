@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,10 +12,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
-"""Cleanse a message for archiving.
-"""
+"""Cleanse a message for archiving."""
 
 from __future__ import nested_scopes
 
@@ -27,11 +27,12 @@ import errno
 import binascii
 import tempfile
 from cStringIO import StringIO
-from types import IntType
+from types import IntType, StringType
 
 from email.Utils import parsedate
 from email.Parser import HeaderParser
 from email.Generator import Generator
+from email.Charset import Charset
 
 from Mailman import mm_cfg
 from Mailman import Utils
@@ -110,10 +111,10 @@ class ScrubberGenerator(Generator):
             Generator._write_headers(self, msg)
 
 
-def safe_strftime(fmt, floatsecs):
+def safe_strftime(fmt, t):
     try:
-        return time.strftime(fmt, floatsecs)
-    except (TypeError, ValueError):
+        return time.strftime(fmt, t)
+    except (TypeError, ValueError, OverflowError):
         return None
 
 
@@ -161,15 +162,30 @@ def calculate_attachments_dir(mlist, msg, msgdata):
     return os.path.join('attachments', datedir, digest[:4] + digest[-4:])
 
 
+def replace_payload_by_text(msg, text, charset):
+    # TK: This is a common function in replacing the attachment and the main
+    # message by a text (scrubbing).
+    del msg['content-type']
+    del msg['content-transfer-encoding']
+    msg.set_payload(text, charset)
+
+
 
 def process(mlist, msg, msgdata=None):
     sanitize = mm_cfg.ARCHIVE_HTML_SANITIZER
     outer = True
     if msgdata is None:
         msgdata = {}
+    if msgdata:
+        # msgdata is available if it is in GLOBAL_PIPELINE
+        # ie. not in digest or archiver
+        # check if the list owner want to scrub regular delivery
+        if not mlist.scrub_nondigest:
+            return
     dir = calculate_attachments_dir(mlist, msg, msgdata)
     charset = None
     lcset = Utils.GetCharSet(mlist.preferred_language)
+    lcset_out = Charset(lcset).output_charset or lcset
     # Now walk over all subparts of this message and scrub out various types
     for part in msg.walk():
         ctype = part.get_type(part.get_default_type())
@@ -180,13 +196,28 @@ def process(mlist, msg, msgdata=None):
             # message.
             if charset is None:
                 charset = part.get_content_charset(lcset)
+            # TK: if part is attached then check charset and scrub if none
+            if part.get('content-disposition') and \
+               not part.get_content_charset():
+                omask = os.umask(002)
+                try:
+                    url = save_attachment(mlist, part, dir)
+                finally:
+                    os.umask(omask)
+                filename = part.get_filename(_('not available'))
+                filename = Utils.oneline(filename, lcset)
+                replace_payload_by_text(part, _("""\
+An embedded and charset-unspecified text was scrubbed...
+Name: %(filename)s
+Url: %(url)s
+"""), lcset)
         elif ctype == 'text/html' and isinstance(sanitize, IntType):
             if sanitize == 0:
                 if outer:
                     raise DiscardMessage
-                del part['content-type']
-                part.set_payload(_('HTML attachment scrubbed and removed'),
-                                 # Adding charset arg and removing content-tpe
+                replace_payload_by_text(part,
+                                 _('HTML attachment scrubbed and removed'),
+                                 # Adding charset arg and removing content-type
                                  # sets content-type to text/plain
                                  lcset)
             elif sanitize == 2:
@@ -201,8 +232,7 @@ def process(mlist, msg, msgdata=None):
                     url = save_attachment(mlist, part, dir, filter_html=False)
                 finally:
                     os.umask(omask)
-                del part['content-type']
-                part.set_payload(_("""\
+                replace_payload_by_text(part, _("""\
 An HTML attachment was scrubbed...
 URL: %(url)s
 """), lcset)
@@ -227,8 +257,7 @@ URL: %(url)s
                     url = save_attachment(mlist, part, dir, filter_html=False)
                 finally:
                     os.umask(omask)
-                del part['content-type']
-                part.set_payload(_("""\
+                replace_payload_by_text(part, _("""\
 An HTML attachment was scrubbed...
 URL: %(url)s
 """), lcset)
@@ -244,8 +273,7 @@ URL: %(url)s
             date = submsg.get('date', _('no date'))
             who = submsg.get('from', _('unknown sender'))
             size = len(str(submsg))
-            del part['content-type']
-            part.set_payload(_("""\
+            replace_payload_by_text(part, _("""\
 An embedded message was scrubbed...
 From: %(who)s
 Subject: %(subject)s
@@ -256,9 +284,17 @@ Url: %(url)s
         # If the message isn't a multipart, then we'll strip it out as an
         # attachment that would have to be separately downloaded.  Pipermail
         # will transform the url into a hyperlink.
-        elif not part.is_multipart():
+        elif part and not part.is_multipart():
             payload = part.get_payload(decode=True)
             ctype = part.get_type()
+            # XXX Under email 2.5, it is possible that payload will be None.
+            # This can happen when you have a Content-Type: multipart/* with
+            # only one part and that part has two blank lines between the
+            # first boundary and the end boundary.  In email 3.0 you end up
+            # with a string in the payload.  I think in this case it's safe to
+            # ignore the part.
+            if payload is None:
+                continue
             size = len(payload)
             omask = os.umask(002)
             try:
@@ -267,9 +303,8 @@ Url: %(url)s
                 os.umask(omask)
             desc = part.get('content-description', _('not available'))
             filename = part.get_filename(_('not available'))
-            del part['content-type']
-            del part['content-transfer-encoding']
-            part.set_payload(_("""\
+            filename = Utils.oneline(filename, lcset)
+            replace_payload_by_text(part, _("""\
 A non-text attachment was scrubbed...
 Name: %(filename)s
 Type: %(ctype)s
@@ -281,12 +316,15 @@ Url : %(url)s
     # We still have to sanitize multipart messages to flat text because
     # Pipermail can't handle messages with list payloads.  This is a kludge;
     # def (n) clever hack ;).
-    if msg.is_multipart():
+    if msg.is_multipart() and sanitize <> 2:
         # By default we take the charset of the first text/plain part in the
         # message, but if there was none, we'll use the list's preferred
         # language's charset.
-        if charset is None or charset == 'us-ascii':
-            charset = lcset
+        if not charset or charset == 'us-ascii':
+            charset = lcset_out
+        else:
+            # normalize to the output charset if input/output are different
+            charset = Charset(charset).output_charset or charset
         # We now want to concatenate all the parts which have been scrubbed to
         # text/plain, into a single text/plain payload.  We need to make sure
         # all the characters in the concatenated string are in the same
@@ -294,17 +332,33 @@ Url : %(url)s
         # BAW: Martin's original patch suggested we might want to try
         # generalizing to utf-8, and that's probably a good idea (eventually).
         text = []
-        for part in msg.get_payload():
+        for part in msg.walk():
+            # TK: bug-id 1099138 and multipart
+            if not part or part.is_multipart():
+                continue
             # All parts should be scrubbed to text/plain by now.
             partctype = part.get_content_type()
             if partctype <> 'text/plain':
-                text.append(_('Skipped content of type %(partctype)s'))
+                text.append(_('Skipped content of type %(partctype)s\n'))
                 continue
             try:
                 t = part.get_payload(decode=True)
-            except binascii.Error:
+            # MAS: TypeError exception can occur if payload is None. This
+            # was observed with a message that contained an attached
+            # message/delivery-status part. Because of the special parsing
+            # of this type, this resulted in a text/plain sub-part with a
+            # null body. See bug 1430236.
+            except (binascii.Error, TypeError):
                 t = part.get_payload()
-            partcharset = part.get_content_charset()
+            # TK: get_content_charset() returns 'iso-2022-jp' for internally
+            # crafted (scrubbed) 'euc-jp' text part. So, first try
+            # get_charset(), then get_content_charset() for the parts
+            # which are already embeded in the incoming message.
+            partcharset = part.get_charset()
+            if partcharset:
+                partcharset = str(partcharset)
+            else:
+                partcharset = part.get_content_charset()
             if partcharset and partcharset <> charset:
                 try:
                     t = unicode(t, partcharset, 'replace')
@@ -320,15 +374,13 @@ Url : %(url)s
                 except (UnicodeError, LookupError, ValueError):
                     t = t.encode(lcset, 'replace')
             # Separation is useful
-            if not t.endswith('\n'):
-                t += '\n'
-            text.append(t)
+            if isinstance(t, StringType):
+                if not t.endswith('\n'):
+                    t += '\n'
+                text.append(t)
         # Now join the text and set the payload
         sep = _('-------------- next part --------------\n')
-        del msg['content-type']
-        msg.set_payload(sep.join(text), charset)
-        del msg['content-transfer-encoding']
-        msg.add_header('Content-Transfer-Encoding', '8bit')
+        replace_payload_by_text(msg, sep.join(text), charset)
     return msg
 
 
@@ -339,9 +391,9 @@ def makedirs(dir):
         os.makedirs(dir, 02775)
         # Unfortunately, FreeBSD seems to be broken in that it doesn't honor
         # the mode arg of mkdir().
-        # def twiddle(arg, dirname, names):
-        #     os.chmod(dirname, 02775)
-        # os.path.walk(dir, twiddle, None)
+        def twiddle(arg, dirname, names):
+            os.chmod(dirname, 02775)
+        os.path.walk(dir, twiddle, None)
     except OSError, e:
         if e.errno <> errno.EEXIST: raise
 
@@ -356,8 +408,17 @@ def save_attachment(mlist, msg, dir, filter_html=True):
     # e.g. image/jpg (should be image/jpeg).  For now we just store such
     # things as application/octet-streams since that seems the safest.
     ctype = msg.get_content_type()
-    fnext = os.path.splitext(msg.get_filename(''))[1]
-    ext = guess_extension(ctype, fnext)
+    # i18n file name is encoded
+    lcset = Utils.GetCharSet(mlist.preferred_language)
+    filename = Utils.oneline(msg.get_filename(''), lcset)
+    fnext = os.path.splitext(filename)[1]
+    # For safety, we should confirm this is valid ext for content-type
+    # but we can use fnext if we introduce fnext filtering
+    if mm_cfg.SCRUBBER_USE_ATTACHMENT_FILENAME_EXTENSION:
+        # HTML message doesn't have filename :-(
+        ext = fnext or guess_extension(ctype, fnext)
+    else:
+        ext = guess_extension(ctype, fnext)
     if not ext:
         # We don't know what it is, so assume it's just a shapeless
         # application/octet-stream, unless the Content-Type: is
@@ -376,7 +437,7 @@ def save_attachment(mlist, msg, dir, filter_html=True):
         # Now base the filename on what's in the attachment, uniquifying it if
         # necessary.
         filename = msg.get_filename()
-        if not filename:
+        if not filename or mm_cfg.SCRUBBER_DONT_USE_ATTACHMENT_FILENAME:
             filebase = 'attachment'
         else:
             # Sanitize the filename given in the message headers
@@ -450,5 +511,7 @@ def save_attachment(mlist, msg, dir, filter_html=True):
     # Private archives will likely have a trailing slash.  Normalize.
     if baseurl[-1] <> '/':
         baseurl += '/'
-    url = baseurl + '%s/%s%s%s' % (dir, filebase, extra, ext)
+    # A trailing space in url string may save users who are using
+    # RFC-1738 compliant MUA (Not Mozilla).
+    url = baseurl + '%s/%s%s%s ' % (dir, filebase, extra, ext)
     return url

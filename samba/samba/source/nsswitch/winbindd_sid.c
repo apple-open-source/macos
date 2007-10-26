@@ -28,12 +28,13 @@
 
 /* Convert a string  */
 
-enum winbindd_result winbindd_lookupsid(struct winbindd_cli_state *state)
+static void lookupsid_recv(void *private_data, BOOL success,
+			   const char *dom_name, const char *name,
+			   enum lsa_SidType type);
+
+void winbindd_lookupsid(struct winbindd_cli_state *state)
 {
-	enum SID_NAME_USE type;
 	DOM_SID sid;
-	fstring name;
-	fstring dom_name;
 
 	/* Ensure null termination */
 	state->request.data.sid[sizeof(state->request.data.sid)-1]='\0';
@@ -41,45 +42,51 @@ enum winbindd_result winbindd_lookupsid(struct winbindd_cli_state *state)
 	DEBUG(3, ("[%5lu]: lookupsid %s\n", (unsigned long)state->pid, 
 		  state->request.data.sid));
 
-	/* Lookup sid from PDC using lsa_lookup_sids() */
-
 	if (!string_to_sid(&sid, state->request.data.sid)) {
 		DEBUG(5, ("%s not a SID\n", state->request.data.sid));
-		return WINBINDD_ERROR;
+		request_error(state);
+		return;
 	}
 
-	/* Lookup the sid */
+	winbindd_lookupsid_async(state->mem_ctx, &sid, lookupsid_recv, state);
+}
 
-	if (!winbindd_lookup_name_by_sid(&sid, dom_name, name, &type)) {
-		return WINBINDD_ERROR;
+static void lookupsid_recv(void *private_data, BOOL success,
+			   const char *dom_name, const char *name,
+			   enum lsa_SidType type)
+{
+	struct winbindd_cli_state *state =
+		talloc_get_type_abort(private_data, struct winbindd_cli_state);
+
+	if (!success) {
+		DEBUG(5, ("lookupsid returned an error\n"));
+		request_error(state);
+		return;
 	}
 
 	fstrcpy(state->response.data.name.dom_name, dom_name);
 	fstrcpy(state->response.data.name.name, name);
-
 	state->response.data.name.type = type;
-
-	return WINBINDD_OK;
+	request_ok(state);
 }
-
 
 /**
  * Look up the SID for a qualified name.  
  **/
-enum winbindd_result winbindd_lookupname(struct winbindd_cli_state *state)
+
+static void lookupname_recv(void *private_data, BOOL success,
+			    const DOM_SID *sid, enum lsa_SidType type);
+
+void winbindd_lookupname(struct winbindd_cli_state *state)
 {
-	enum SID_NAME_USE type;
-	fstring sid_str;
 	char *name_domain, *name_user;
-	DOM_SID sid;
-	struct winbindd_domain *domain;
 	char *p;
 
 	/* Ensure null termination */
-	state->request.data.sid[sizeof(state->request.data.name.dom_name)-1]='\0';
+	state->request.data.name.dom_name[sizeof(state->request.data.name.dom_name)-1]='\0';
 
 	/* Ensure null termination */
-	state->request.data.sid[sizeof(state->request.data.name.name)-1]='\0';
+	state->request.data.name.name[sizeof(state->request.data.name.name)-1]='\0';
 
 	/* cope with the name being a fully qualified name */
 	p = strstr(state->request.data.name.name, lp_winbind_separator());
@@ -95,31 +102,124 @@ enum winbindd_result winbindd_lookupname(struct winbindd_cli_state *state)
 	DEBUG(3, ("[%5lu]: lookupname %s%s%s\n", (unsigned long)state->pid,
 		  name_domain, lp_winbind_separator(), name_user));
 
-	if ((domain = find_lookup_domain_from_name(name_domain)) == NULL) {
-		DEBUG(0, ("could not find domain entry for domain %s\n", 
-			  name_domain));
-		return WINBINDD_ERROR;
+	winbindd_lookupname_async(state->mem_ctx, name_domain, name_user,
+				  lookupname_recv, state);
+}
+
+static void lookupname_recv(void *private_data, BOOL success,
+			    const DOM_SID *sid, enum lsa_SidType type)
+{
+	struct winbindd_cli_state *state =
+		talloc_get_type_abort(private_data, struct winbindd_cli_state);
+
+	if (!success) {
+		DEBUG(5, ("lookupname returned an error\n"));
+		request_error(state);
+		return;
 	}
 
-	/* Lookup name from PDC using lsa_lookup_names() */
-	if (!winbindd_lookup_sid_by_name(domain, name_domain, name_user, &sid, &type)) {
-		return WINBINDD_ERROR;
-	}
-
-	sid_to_string(sid_str, &sid);
-	fstrcpy(state->response.data.sid.sid, sid_str);
+	sid_to_string(state->response.data.sid.sid, sid);
 	state->response.data.sid.type = type;
+	request_ok(state);
+	return;
+}
 
-	return WINBINDD_OK;
+void winbindd_lookuprids(struct winbindd_cli_state *state)
+{
+	struct winbindd_domain *domain;
+	DOM_SID domain_sid;
+	
+	/* Ensure null termination */
+	state->request.data.sid[sizeof(state->request.data.sid)-1]='\0';
+
+	DEBUG(10, ("lookup_rids: %s\n", state->request.data.sid));
+
+	if (!string_to_sid(&domain_sid, state->request.data.sid)) {
+		DEBUG(5, ("Could not convert %s to SID\n",
+			  state->request.data.sid));
+		request_error(state);
+		return;
+	}
+
+	domain = find_lookup_domain_from_sid(&domain_sid);
+	if (domain == NULL) {
+		DEBUG(10, ("Could not find domain for name %s\n",
+			   state->request.domain_name));
+		request_error(state);
+		return;
+	}
+
+	sendto_domain(state, domain);
+}
+
+static struct winbindd_child static_idmap_child;
+
+void init_idmap_child(void)
+{
+	setup_domain_child(NULL, &static_idmap_child, "idmap");
+}
+
+struct winbindd_child *idmap_child(void)
+{
+	return &static_idmap_child;
 }
 
 /* Convert a sid to a uid.  We assume we only have one rid attached to the
    sid. */
 
-enum winbindd_result winbindd_sid_to_uid(struct winbindd_cli_state *state)
+static void sid2uid_recv(void *private_data, BOOL success, uid_t uid)
+{
+	struct winbindd_cli_state *state =
+		talloc_get_type_abort(private_data, struct winbindd_cli_state);
+
+	if (!success) {
+		DEBUG(5, ("Could not convert sid %s\n",
+			  state->request.data.sid));
+		request_error(state);
+		return;
+	}
+
+	state->response.data.uid = uid;
+	request_ok(state);
+}
+
+static void sid2uid_lookupsid_recv( void *private_data, BOOL success, 
+				    const char *domain_name, 
+				    const char *name, 
+				    enum lsa_SidType type)
+{
+	struct winbindd_cli_state *state =
+		talloc_get_type_abort(private_data, struct winbindd_cli_state);
+	DOM_SID sid;
+
+	if (!success) {
+		DEBUG(5, ("sid2uid_lookupsid_recv Could not convert get sid type for %s\n",
+			  state->request.data.sid));
+		request_error(state);
+		return;
+	}
+
+	if ( (type!=SID_NAME_USER) && (type!=SID_NAME_COMPUTER) ) {
+		DEBUG(5,("sid2uid_lookupsid_recv: Sid %s is not a user or a computer.\n", 
+			 state->request.data.sid));
+		request_error(state);
+		return;		
+	}
+
+	if (!string_to_sid(&sid, state->request.data.sid)) {
+		DEBUG(1, ("sid2uid_lookupsid_recv: Could not get convert sid %s from string\n",
+			  state->request.data.sid));
+		request_error(state);
+		return;
+	}
+	
+	/* always use the async interface (may block) */
+	winbindd_sid2uid_async(state->mem_ctx, &sid, sid2uid_recv, state);
+}
+
+void winbindd_sid_to_uid(struct winbindd_cli_state *state)
 {
 	DOM_SID sid;
-	NTSTATUS result;
 
 	/* Ensure null termination */
 	state->request.data.sid[sizeof(state->request.data.sid)-1]='\0';
@@ -128,377 +228,333 @@ enum winbindd_result winbindd_sid_to_uid(struct winbindd_cli_state *state)
 		  state->request.data.sid));
 
 	if (!string_to_sid(&sid, state->request.data.sid)) {
-		DEBUG(1, ("Could not get convert sid %s from string\n", state->request.data.sid));
-		return WINBINDD_ERROR;
+		DEBUG(1, ("Could not get convert sid %s from string\n",
+			  state->request.data.sid));
+		request_error(state);
+		return;
 	}
-	
-	/* This gets a little tricky.  If we assume that usernames are syncd between
-	   /etc/passwd and the windows domain (such as a member of a Samba domain),
-	   the we need to get the uid from the OS and not alocate one ourselves */
-	   
-	if ( lp_winbind_trusted_domains_only() ) {
-		struct winbindd_domain *domain = NULL;
-		DOM_SID sid2;
-		uint32 rid;
-		
-		domain = find_our_domain();
-		if ( !domain ) {
-			DEBUG(0,("winbindd_sid_to_uid: can't find my own domain!\n"));
-			return WINBINDD_ERROR;
-		}
 
-		sid_copy( &sid2, &sid );
-		sid_split_rid( &sid2, &rid );
-		
-		if ( sid_equal( &sid2, &domain->sid ) ) {
-		
-			fstring domain_name;
-			fstring user;
-			enum SID_NAME_USE type;
-			struct passwd *pw = NULL;
-			unid_t id;
-			
-			/* ok...here's we know that we are dealing with our
-			   own domain (the one to which we are joined).  And
-			   we know that there must be a UNIX account for this user.
-			   So we lookup the sid and the call getpwnam().*/
-			   
-			
-			/* But first check and see if we don't already have a mapping */
-			   
-			if ( NT_STATUS_IS_OK(idmap_sid_to_uid(&sid, &(state->response.data.uid), ID_QUERY_ONLY)) )
-				return WINBINDD_OK;
-				
-			/* now fall back to the hard way */
-			
-			if ( !winbindd_lookup_name_by_sid(&sid, domain_name, user, &type) )
-				return WINBINDD_ERROR;
-				
-			if ( !(pw = getpwnam(user)) ) {
-				DEBUG(0,("winbindd_sid_to_uid: 'winbind trusted domains only' is "
-					"set but this user [%s] doesn't exist!\n", user));
-				return WINBINDD_ERROR;
-			}
-			
-			state->response.data.uid = pw->pw_uid;
+	/* Validate the SID as a user.  Hopefully this will hit cache.
+	   Needed to prevent DoS by exhausting the uid allocation
+	   range from random SIDs. */
 
-			id.uid = pw->pw_uid;
-			idmap_set_mapping( &sid, id, ID_USERID );
-
-			return WINBINDD_OK;
-		}
-
-	}
-	
-	/* Find uid for this sid and return it */
-
-	result = idmap_sid_to_uid(&sid, &(state->response.data.uid),
-				  ID_QUERY_ONLY);
-
-	if (NT_STATUS_IS_OK(result))
-		return WINBINDD_OK;
-
-	if (state->request.flags & WBFLAG_QUERY_ONLY)
-		return WINBINDD_ERROR;
-
-	/* The query-only did not work, allocate a new uid *if* it's a user */
-
-	{
-		fstring dom_name, name;
-		enum SID_NAME_USE type;
-
-		if (!winbindd_lookup_name_by_sid(&sid, dom_name, name, &type))
-			return WINBINDD_ERROR;
-
-		if ((type != SID_NAME_USER) && (type != SID_NAME_COMPUTER))
-			return WINBINDD_ERROR;
-	}
-	
-	result = idmap_sid_to_uid(&sid, &(state->response.data.uid), 0);
-
-	if (NT_STATUS_IS_OK(result))
-		return WINBINDD_OK;
-
-	DEBUG(4, ("Could not get uid for sid %s\n", state->request.data.sid));
-	return WINBINDD_ERROR;
+	winbindd_lookupsid_async( state->mem_ctx, &sid, sid2uid_lookupsid_recv, state );
 }
 
 /* Convert a sid to a gid.  We assume we only have one rid attached to the
    sid.*/
 
-enum winbindd_result winbindd_sid_to_gid(struct winbindd_cli_state *state)
+static void sid2gid_recv(void *private_data, BOOL success, gid_t gid)
+{
+	struct winbindd_cli_state *state =
+		talloc_get_type_abort(private_data, struct winbindd_cli_state);
+
+	if (!success) {
+		DEBUG(5, ("Could not convert sid %s\n",
+			  state->request.data.sid));
+		request_error(state);
+		return;
+	}
+
+	state->response.data.gid = gid;
+	request_ok(state);
+}
+
+static void sid2gid_lookupsid_recv( void *private_data, BOOL success, 
+				    const char *domain_name, 
+				    const char *name, 
+				    enum lsa_SidType type)
+{
+	struct winbindd_cli_state *state =
+		talloc_get_type_abort(private_data, struct winbindd_cli_state);
+	DOM_SID sid;
+
+	if (!success) {
+		DEBUG(5, ("sid2gid_lookupsid_recv: Could not convert get sid type for %s\n",
+			  state->request.data.sid));
+		request_error(state);
+		return;
+	}
+
+	if ( (type!=SID_NAME_DOM_GRP) &&
+	     (type!=SID_NAME_ALIAS) && 
+	     (type!=SID_NAME_WKN_GRP) ) 
+	{
+		DEBUG(5,("sid2gid_lookupsid_recv: Sid %s is not a group.\n", 
+			 state->request.data.sid));
+		request_error(state);
+		return;		
+	}
+
+	if (!string_to_sid(&sid, state->request.data.sid)) {
+		DEBUG(1, ("sid2gid_lookupsid_recv: Could not get convert sid %s from string\n",
+			  state->request.data.sid));
+		request_error(state);
+		return;
+	}
+	
+	/* always use the async interface (may block) */
+	winbindd_sid2gid_async(state->mem_ctx, &sid, sid2gid_recv, state);
+}
+
+void winbindd_sid_to_gid(struct winbindd_cli_state *state)
 {
 	DOM_SID sid;
-	NTSTATUS result;
 
 	/* Ensure null termination */
 	state->request.data.sid[sizeof(state->request.data.sid)-1]='\0';
 
-	DEBUG(3, ("[%5lu]: sid to gid %s\n", (unsigned long)state->pid, 
+	DEBUG(3, ("[%5lu]: sid to gid %s\n", (unsigned long)state->pid,
 		  state->request.data.sid));
 
 	if (!string_to_sid(&sid, state->request.data.sid)) {
-		DEBUG(1, ("Could not cvt string to sid %s\n", state->request.data.sid));
-		return WINBINDD_ERROR;
+		DEBUG(1, ("Could not get convert sid %s from string\n",
+			  state->request.data.sid));
+		request_error(state);
+		return;
 	}
 
-	/* This gets a little tricky.  If we assume that usernames are syncd between
-	   /etc/passwd and the windows domain (such as a member of a Samba domain),
-	   the we need to get the uid from the OS and not alocate one ourselves */
-	   
-	if ( lp_winbind_trusted_domains_only() ) {
-		struct winbindd_domain *domain = NULL;
-		DOM_SID sid2;
-		uint32 rid;
-		unid_t id;
-		
-		domain = find_our_domain();
-		if ( !domain ) {
-			DEBUG(0,("winbindd_sid_to_uid: can't find my own domain!\n"));
-			return WINBINDD_ERROR;
-		}
-		
-		sid_copy( &sid2, &sid );
-		sid_split_rid( &sid2, &rid );
+	/* Validate the SID as a group.  Hopefully this will hit cache.
+	   Needed to prevent DoS by exhausting the uid allocation
+	   range from random SIDs. */
 
-		if ( sid_equal( &sid2, &domain->sid ) ) {
-		
-			fstring domain_name;
-			fstring group;
-			enum SID_NAME_USE type;
-			struct group *grp = NULL;
-			
-			/* ok...here's we know that we are dealing with our
-			   own domain (the one to which we are joined).  And
-			   we know that there must be a UNIX account for this group.
-			   So we lookup the sid and the call getpwnam().*/
-			
-			/* But first check and see if we don't already have a mapping */
-			   
-			if ( NT_STATUS_IS_OK(idmap_sid_to_gid(&sid, &(state->response.data.gid), ID_QUERY_ONLY)) )
-				return WINBINDD_OK;
-				
-			/* now fall back to the hard way */
-			
-			if ( !winbindd_lookup_name_by_sid(&sid, domain_name, group, &type) )
-				return WINBINDD_ERROR;
-				
-			if ( !(grp = getgrnam(group)) ) {
-				DEBUG(0,("winbindd_sid_to_uid: 'winbind trusted domains only' is "
-					"set but this group [%s] doesn't exist!\n", group));
-				return WINBINDD_ERROR;
-			}
-			
-			state->response.data.gid = grp->gr_gid;
+	winbindd_lookupsid_async( state->mem_ctx, &sid, sid2gid_lookupsid_recv, state );	
+}
 
-			id.gid = grp->gr_gid;
-			idmap_set_mapping( &sid, id, ID_GROUPID );
+static void sids2xids_recv(void *private_data, BOOL success, void *data, int len)
+{
+	struct winbindd_cli_state *state =
+		talloc_get_type_abort(private_data, struct winbindd_cli_state);
 
-			return WINBINDD_OK;
-		}
-
+	if (!success) {
+		DEBUG(5, ("Could not convert sids to xids\n"));
+		request_error(state);
+		return;
 	}
-	
-	/* Find gid for this sid and return it */
 
-	result = idmap_sid_to_gid(&sid, &(state->response.data.gid),
-				  ID_QUERY_ONLY);
+	state->response.extra_data.data = data;
+	state->response.length = sizeof(state->response) + len;
+	request_ok(state);
+}
 
-	if (NT_STATUS_IS_OK(result))
-		return WINBINDD_OK;
+void winbindd_sids_to_unixids(struct winbindd_cli_state *state)
+{
+	DEBUG(3, ("[%5lu]: sids to xids\n", (unsigned long)state->pid));
 
-	if (state->request.flags & WBFLAG_QUERY_ONLY)
-		return WINBINDD_ERROR;
+	winbindd_sids2xids_async(state->mem_ctx,
+			state->request.extra_data.data,
+			state->request.extra_len,
+			sids2xids_recv, state);
+}
 
-	/* The query-only did not work, allocate a new gid *if* it's a group */
+static void set_mapping_recv(void *private_data, BOOL success)
+{
+	struct winbindd_cli_state *state =
+		talloc_get_type_abort(private_data, struct winbindd_cli_state);
 
-	{
-		fstring dom_name, name;
-		enum SID_NAME_USE type;
-
-		if (sid_check_is_in_our_domain(&sid)) {
-			/* This is for half-created aliases... */
-			type = SID_NAME_ALIAS;
-		} else {
-			/* Foreign domains need to be looked up by the DC if
-			 * it's the right type */
-			if (!winbindd_lookup_name_by_sid(&sid, dom_name, name,
-							 &type))
-				return WINBINDD_ERROR;
-		}
-
-		if ((type != SID_NAME_DOM_GRP) && (type != SID_NAME_ALIAS) &&
-		    (type != SID_NAME_WKN_GRP))
-			return WINBINDD_ERROR;
+	if (!success) {
+		DEBUG(5, ("Could not set sid mapping\n"));
+		request_error(state);
+		return;
 	}
-	
-	result = idmap_sid_to_gid(&sid, &(state->response.data.gid), 0);
 
-	if (NT_STATUS_IS_OK(result))
-		return WINBINDD_OK;
+	request_ok(state);
+}
 
-	DEBUG(4, ("Could not get gid for sid %s\n", state->request.data.sid));
-	return WINBINDD_ERROR;
+void winbindd_set_mapping(struct winbindd_cli_state *state)
+{
+	struct id_map map;
+	DOM_SID sid;
+
+	DEBUG(3, ("[%5lu]: set id map\n", (unsigned long)state->pid));
+
+	if ( ! state->privileged) {
+		DEBUG(0, ("Only root is allowed to set mappings!\n"));
+		request_error(state);
+		return;
+	}
+
+	if (!string_to_sid(&sid, state->request.data.dual_idmapset.sid)) {
+		DEBUG(1, ("Could not get convert sid %s from string\n",
+			  state->request.data.sid));
+		request_error(state);
+		return;
+	}
+
+	map.sid = &sid;
+	map.xid.id = state->request.data.dual_idmapset.id;
+	map.xid.type = state->request.data.dual_idmapset.type;
+
+	winbindd_set_mapping_async(state->mem_ctx, &map,
+			set_mapping_recv, state);
+}
+
+static void set_hwm_recv(void *private_data, BOOL success)
+{
+	struct winbindd_cli_state *state =
+		talloc_get_type_abort(private_data, struct winbindd_cli_state);
+
+	if (!success) {
+		DEBUG(5, ("Could not set sid mapping\n"));
+		request_error(state);
+		return;
+	}
+
+	request_ok(state);
+}
+
+void winbindd_set_hwm(struct winbindd_cli_state *state)
+{
+	struct unixid xid;
+
+	DEBUG(3, ("[%5lu]: set hwm\n", (unsigned long)state->pid));
+
+	if ( ! state->privileged) {
+		DEBUG(0, ("Only root is allowed to set mappings!\n"));
+		request_error(state);
+		return;
+	}
+
+	xid.id = state->request.data.dual_idmapset.id;
+	xid.type = state->request.data.dual_idmapset.type;
+
+	winbindd_set_hwm_async(state->mem_ctx, &xid, set_hwm_recv, state);
 }
 
 /* Convert a uid to a sid */
 
-enum winbindd_result winbindd_uid_to_sid(struct winbindd_cli_state *state)
+static void uid2sid_recv(void *private_data, BOOL success, const char *sid)
 {
-	DOM_SID sid;
+	struct winbindd_cli_state *state =
+		(struct winbindd_cli_state *)private_data;
 
+	if (success) {
+		DEBUG(10,("uid2sid: uid %lu has sid %s\n",
+			  (unsigned long)(state->request.data.uid), sid));
+		fstrcpy(state->response.data.sid.sid, sid);
+		state->response.data.sid.type = SID_NAME_USER;
+		request_ok(state);
+		return;
+	}
+
+	request_error(state);
+	return;
+}
+
+void winbindd_uid_to_sid(struct winbindd_cli_state *state)
+{
 	DEBUG(3, ("[%5lu]: uid to sid %lu\n", (unsigned long)state->pid, 
 		  (unsigned long)state->request.data.uid));
 
-	if ( (state->request.data.uid < server_state.uid_low ) 
-		|| (state->request.data.uid > server_state.uid_high) )
-	{
-		struct passwd *pw = NULL;
-		enum SID_NAME_USE type;
-		unid_t id;
-		struct winbindd_domain *domain;
-
-		/* SPECIAL CASE FOR MEMBERS OF SAMBA DOMAINS */
-		
-		/* if we don't trust /etc/password then when can't know 
-		   anything about this uid */
-		   
-		if ( !lp_winbind_trusted_domains_only() )
-			return WINBINDD_ERROR;
-
-
-		/* look for an idmap entry first */
-			
-		if ( NT_STATUS_IS_OK(idmap_uid_to_sid(&sid, state->request.data.uid)) ) 
-			goto done;
-		
-		/* if users exist in /etc/passwd, we should try to 
-		   use that uid. Get the username and the lookup the SID */
-
-		if ( !(pw = getpwuid(state->request.data.uid)) )
-			return WINBINDD_ERROR;
-
-		if ( !(domain = find_our_domain()) ) {
-			DEBUG(0,("winbindd_uid_to_sid: can't find my own domain!\n"));
-			return WINBINDD_ERROR;
-		}
-
-		if ( !winbindd_lookup_sid_by_name(domain, domain->name, pw->pw_name, &sid, &type) )
-			return WINBINDD_ERROR;
-		
-		if ( type != SID_NAME_USER )
-			return WINBINDD_ERROR;
-		
-		/* don't fail if we can't store it */
-
-		id.uid = pw->pw_uid;
-		idmap_set_mapping( &sid, id, ID_USERID );
-		
-		goto done;
-	}
-
-	/* Lookup rid for this uid */
-	
-	if (!NT_STATUS_IS_OK(idmap_uid_to_sid(&sid, state->request.data.uid))) {
-		DEBUG(1, ("Could not convert uid %lu to rid\n",
-			  (unsigned long)state->request.data.uid));
-		return WINBINDD_ERROR;
-	}
-
-done:
-	sid_to_string(state->response.data.sid.sid, &sid);
-	state->response.data.sid.type = SID_NAME_USER;
-
-	return WINBINDD_OK;
+	/* always go via the async interface (may block) */
+	winbindd_uid2sid_async(state->mem_ctx, state->request.data.uid, uid2sid_recv, state);
 }
 
 /* Convert a gid to a sid */
 
-enum winbindd_result winbindd_gid_to_sid(struct winbindd_cli_state *state)
+static void gid2sid_recv(void *private_data, BOOL success, const char *sid)
 {
-	DOM_SID sid;
+	struct winbindd_cli_state *state =
+		(struct winbindd_cli_state *)private_data;
 
-	DEBUG(3, ("[%5lu]: gid to sid %lu\n", (unsigned long)state->pid,
-		  (unsigned long)state->request.data.gid));
-		  
-	if ( (state->request.data.gid < server_state.gid_low) 
-		|| (state->request.data.gid > server_state.gid_high) )
-	{ 		
-		struct group *grp = NULL;
-		enum SID_NAME_USE type;
-		unid_t id;
-		struct winbindd_domain *domain;
-
-		/* SPECIAL CASE FOR MEMBERS OF SAMBA DOMAINS */
-		
-		/* if we don't trust /etc/group then when can't know 
-		   anything about this gid */
-		   
-		if ( !lp_winbind_trusted_domains_only() )
-			return WINBINDD_ERROR;
-
-		/* look for an idmap entry first */
-		
-		if ( NT_STATUS_IS_OK(idmap_gid_to_sid(&sid, state->request.data.gid)) )
-			goto done;
-			
-		/* if users exist in /etc/group, we should try to 
-		   use that gid. Get the username and the lookup the SID */
-
-		if ( !(grp = getgrgid(state->request.data.gid)) )
-			return WINBINDD_ERROR;
-
-		if ( !(domain = find_our_domain()) ) {
-			DEBUG(0,("winbindd_uid_to_sid: can't find my own domain!\n"));
-			return WINBINDD_ERROR;
-		}
-
-		if ( !winbindd_lookup_sid_by_name(domain, domain->name, grp->gr_name, &sid, &type) )
-			return WINBINDD_ERROR;
-		
-		if ( type!=SID_NAME_DOM_GRP && type!=SID_NAME_ALIAS )
-			return WINBINDD_ERROR;
-		
-		/* don't fail if we can't store it */
-		
-		id.gid = grp->gr_gid;
-		idmap_set_mapping( &sid, id, ID_GROUPID );
-		
-		goto done;
+	if (success) {
+		DEBUG(10,("gid2sid: gid %lu has sid %s\n",
+			  (unsigned long)(state->request.data.gid), sid));
+		fstrcpy(state->response.data.sid.sid, sid);
+		state->response.data.sid.type = SID_NAME_DOM_GRP;
+		request_ok(state);
+		return;
 	}
 
-	/* Lookup sid for this uid */
-	
-	if (!NT_STATUS_IS_OK(idmap_gid_to_sid(&sid, state->request.data.gid))) {
-		DEBUG(1, ("Could not convert gid %lu to sid\n",
-			  (unsigned long)state->request.data.gid));
-		return WINBINDD_ERROR;
-	}
-
-done:
-	/* Construct sid and return it */
-	sid_to_string(state->response.data.sid.sid, &sid);
-	state->response.data.sid.type = SID_NAME_DOM_GRP;
-
-	return WINBINDD_OK;
+	request_error(state);
+	return;
 }
 
-enum winbindd_result winbindd_allocate_rid(struct winbindd_cli_state *state)
+
+void winbindd_gid_to_sid(struct winbindd_cli_state *state)
+{
+	DEBUG(3, ("[%5lu]: gid to sid %lu\n", (unsigned long)state->pid, 
+		  (unsigned long)state->request.data.gid));
+
+	/* always use async calls (may block) */
+	winbindd_gid2sid_async(state->mem_ctx, state->request.data.gid, gid2sid_recv, state);
+}
+
+void winbindd_allocate_uid(struct winbindd_cli_state *state)
 {
 	if ( !state->privileged ) {
-		DEBUG(2, ("winbindd_allocate_rid: non-privileged access "
+		DEBUG(2, ("winbindd_allocate_uid: non-privileged access "
 			  "denied!\n"));
-		return WINBINDD_ERROR;
+		request_error(state);
+		return;
 	}
 
-	/* We tell idmap to always allocate a user RID. There might be a good
-	 * reason to keep RID allocation for users to even and groups to
-	 * odd. This needs discussion I think. For now only allocate user
-	 * rids. */
+	sendto_child(state, idmap_child());
+}
 
-	if (!NT_STATUS_IS_OK(idmap_allocate_rid(&state->response.data.rid,
-						USER_RID_TYPE)))
+enum winbindd_result winbindd_dual_allocate_uid(struct winbindd_domain *domain,
+						struct winbindd_cli_state *state)
+{
+	struct unixid xid;
+
+	if (!NT_STATUS_IS_OK(idmap_allocate_uid(&xid))) {
 		return WINBINDD_ERROR;
-
+	}
+	state->response.data.uid = xid.id;
 	return WINBINDD_OK;
 }
+
+void winbindd_allocate_gid(struct winbindd_cli_state *state)
+{
+	if ( !state->privileged ) {
+		DEBUG(2, ("winbindd_allocate_gid: non-privileged access "
+			  "denied!\n"));
+		request_error(state);
+		return;
+	}
+
+	sendto_child(state, idmap_child());
+}
+
+enum winbindd_result winbindd_dual_allocate_gid(struct winbindd_domain *domain,
+						struct winbindd_cli_state *state)
+{
+	struct unixid xid;
+
+	if (!NT_STATUS_IS_OK(idmap_allocate_gid(&xid))) {
+		return WINBINDD_ERROR;
+	}
+	state->response.data.gid = xid.id;
+	return WINBINDD_OK;
+}
+
+static void dump_maps_recv(void *private_data, BOOL success)
+{
+	struct winbindd_cli_state *state =
+		talloc_get_type_abort(private_data, struct winbindd_cli_state);
+
+	if (!success) {
+		DEBUG(5, ("Could not dump maps\n"));
+		request_error(state);
+		return;
+	}
+
+	request_ok(state);
+}
+
+void winbindd_dump_maps(struct winbindd_cli_state *state)
+{
+	if ( ! state->privileged) {
+		DEBUG(0, ("Only root is allowed to ask for an idmap dump!\n"));
+		request_error(state);
+		return;
+	}
+
+	DEBUG(3, ("[%5lu]: dump maps\n", (unsigned long)state->pid));
+
+	winbindd_dump_maps_async(state->mem_ctx,
+			state->request.extra_data.data,
+			state->request.extra_len,
+			dump_maps_recv, state);
+}
+

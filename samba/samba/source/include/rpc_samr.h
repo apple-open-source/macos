@@ -4,7 +4,7 @@
    Copyright (C) Andrew Tridgell              1992-2000
    Copyright (C) Luke Kenneth Casson Leighton 1996-2000
    Copyright (C) Paul Ashton                  1997-2000
-   Copyright (C) Jean François Micouleau      1998-2001
+   Copyright (C) Jean FranÃ§ois Micouleau      1998-2001
    Copyright (C) Jim McDonough <jmcd@us.ibm.com> 2002
    
    
@@ -25,8 +25,6 @@
 
 #ifndef _RPC_SAMR_H /* _RPC_SAMR_H */
 #define _RPC_SAMR_H 
-
-#include "rpc_misc.h"
 
 /*******************************************************************
  the following information comes from a QuickView on samsrv.dll,
@@ -123,12 +121,12 @@ SamrTestPrivateFunctionsUser
 #define SAMR_QUERY_USERGROUPS  0x27
 
 #define SAMR_QUERY_DISPINFO    0x28
-#define SAMR_UNKNOWN_29        0x29
+#define SAMR_GET_DISPENUM_INDEX 0x29
 #define SAMR_UNKNOWN_2a        0x2a
 #define SAMR_UNKNOWN_2b        0x2b
 #define SAMR_GET_USRDOM_PWINFO 0x2c
 #define SAMR_REMOVE_SID_FOREIGN_DOMAIN        0x2d
-#define SAMR_UNKNOWN_2E        0x2e /* looks like an alias for SAMR_QUERY_DOMAIN_INFO */
+#define SAMR_QUERY_DOMAIN_INFO2  0x2e /* looks like an alias for SAMR_QUERY_DOMAIN_INFO */
 #define SAMR_UNKNOWN_2f        0x2f
 #define SAMR_QUERY_DISPINFO3   0x30 /* Alias for SAMR_QUERY_DISPINFO
 				       with info level 3 */
@@ -145,9 +143,13 @@ SamrTestPrivateFunctionsUser
 #define SAMR_CONNECT           0x39
 #define SAMR_SET_USERINFO      0x3A
 #define SAMR_CONNECT4          0x3E
+#define SAMR_CHGPASSWD_USER3   0x3F
+#define SAMR_CONNECT5          0x40
 
 typedef struct logon_hours_info
 {
+	uint32 max_len; /* normally 1260 bytes */
+	uint32 offset;
 	uint32 len; /* normally 21 bytes */
 	uint8 hours[32];
 
@@ -172,7 +174,7 @@ typedef struct sam_user_info_23
 	UNIHDR hdr_profile_path; /* profile path unicode string header */
 	UNIHDR hdr_acct_desc  ;  /* user description */
 	UNIHDR hdr_workstations; /* comma-separated workstations user can log in from */
-	UNIHDR hdr_unknown_str ; /* don't know what this is, yet. */
+	UNIHDR hdr_comment;
 	UNIHDR hdr_munged_dial ; /* munged path name and dial-back tel number */
 
 	uint8 lm_pwd[16];    /* lm user passwords */
@@ -209,11 +211,8 @@ typedef struct sam_user_info_23
 	UNISTR2 uni_profile_path; /* profile path unicode string */
 	UNISTR2 uni_acct_desc  ;  /* user description unicode string */
 	UNISTR2 uni_workstations; /* login from workstations unicode string */
-	UNISTR2 uni_unknown_str ; /* don't know what this is, yet. */
+	UNISTR2 uni_comment;
 	UNISTR2 uni_munged_dial ; /* munged path name and dial-back tel no */
-
-	uint32 unknown_6; /* 0x0000 04ec */
-	uint32 padding4;
 
 	LOGON_HRS logon_hrs;
 
@@ -223,7 +222,7 @@ typedef struct sam_user_info_23
 typedef struct sam_user_info_24
 {
 	uint8 pass[516];
-	uint16 pw_len;
+	uint8 pw_len;
 } SAM_USER_INFO_24;
 
 /*
@@ -251,7 +250,7 @@ typedef struct sam_user_info_25
 	UNIHDR hdr_profile_path; /* profile path unicode string header */
 	UNIHDR hdr_acct_desc  ;  /* user description */
 	UNIHDR hdr_workstations; /* comma-separated workstations user can log in from */
-	UNIHDR hdr_unknown_str ; /* don't know what this is, yet. */
+	UNIHDR hdr_comment;
 	UNIHDR hdr_munged_dial ; /* munged path name and dial-back tel number */
 
 	uint8 lm_pwd[16];    /* lm user passwords */
@@ -261,8 +260,9 @@ typedef struct sam_user_info_25
 	uint32 group_rid;     /* Primary Group ID */
 
 	uint32 acb_info; /* account info (ACB_xxxx bit-mask) */
+	uint32 fields_present;
 
-	uint32 unknown_6[6];
+	uint32 unknown_5[5];
 
 	uint8 pass[532];
 
@@ -274,9 +274,16 @@ typedef struct sam_user_info_25
 	UNISTR2 uni_profile_path; /* profile path unicode string */
 	UNISTR2 uni_acct_desc  ;  /* user description unicode string */
 	UNISTR2 uni_workstations; /* login from workstations unicode string */
-	UNISTR2 uni_unknown_str ; /* don't know what this is, yet. */
+	UNISTR2 uni_comment;
 	UNISTR2 uni_munged_dial ; /* munged path name and dial-back tel no */
 } SAM_USER_INFO_25;
+
+/* SAM_USER_INFO_26 */
+typedef struct sam_user_info_26
+{
+	uint8 pass[532];
+	uint8 pw_len;
+} SAM_USER_INFO_26;
 
 
 /* SAM_USER_INFO_21 */
@@ -297,7 +304,7 @@ typedef struct sam_user_info_21
 	UNIHDR hdr_profile_path; /* profile path unicode string header */
 	UNIHDR hdr_acct_desc  ;  /* user description */
 	UNIHDR hdr_workstations; /* comma-separated workstations user can log in from */
-	UNIHDR hdr_unknown_str ; /* don't know what this is, yet. */
+	UNIHDR hdr_comment;
 	UNIHDR hdr_munged_dial ; /* munged path name and dial-back tel number */
 
 	uint8 lm_pwd[16];    /* lm user passwords */
@@ -333,11 +340,8 @@ typedef struct sam_user_info_21
 	UNISTR2 uni_profile_path; /* profile path unicode string */
 	UNISTR2 uni_acct_desc  ;  /* user description unicode string */
 	UNISTR2 uni_workstations; /* login from workstations unicode string */
-	UNISTR2 uni_unknown_str ; /* don't know what this is, yet. */
+	UNISTR2 uni_comment;
 	UNISTR2 uni_munged_dial ; /* munged path name and dial-back tel number */
-
-	uint32 unknown_6; /* 0x0000 04ec */
-	uint32 padding4;
 
 	LOGON_HRS logon_hrs;
 
@@ -355,8 +359,8 @@ typedef struct sam_user_info_20
 
 } SAM_USER_INFO_20;
 
-/* SAM_USER_INFO_12 */
-typedef struct sam_user_info_12
+/* SAM_USER_INFO_18 */
+typedef struct sam_user_info_18
 {
 	uint8 lm_pwd[16];    /* lm user passwords */
 	uint8 nt_pwd[16];    /* nt user passwords */
@@ -364,10 +368,10 @@ typedef struct sam_user_info_12
 	uint8 lm_pwd_active; 
 	uint8 nt_pwd_active; 
 
-} SAM_USER_INFO_12;
+} SAM_USER_INFO_18;
 
-/* SAM_USER_INFO_11 */
-typedef struct sam_user_info_11
+/* SAM_USER_INFO_17 */
+typedef struct sam_user_info_17
 {
 	uint8  padding_0[16];  /* 0 - padding 16 bytes */
 	NTTIME expiry;         /* expiry time or something? */
@@ -402,16 +406,31 @@ typedef struct sam_user_info_11
 
 	uint8  padding_9[48];  /* 0 - padding 48 bytes */
 
-} SAM_USER_INFO_11;
+} SAM_USER_INFO_17;
 
 
-/* SAM_USER_INFO_10 */
-typedef struct sam_user_info_10
+/* SAM_USER_INFO_16 */
+typedef struct sam_user_info_16
 {
 	uint32 acb_info;
 
-} SAM_USER_INFO_10;
+} SAM_USER_INFO_16;
 
+
+/* SAM_USER_INFO_7 */
+typedef struct sam_user_info_7
+{
+	UNIHDR hdr_name;  /* unicode header for name */
+	UNISTR2 uni_name; /* unicode string for name */
+
+} SAM_USER_INFO_7;
+
+
+/* SAM_USER_INFO_9 */
+typedef struct sam_user_info_9
+{
+	uint32 rid_group;     /* Primary Group RID */
+} SAM_USER_INFO_9;
 
 
 /* SAMR_Q_CLOSE_HND - probably a policy handle close */
@@ -450,9 +469,9 @@ SAMR_R_GET_USRDOM_PWINFO - a "set user info" occurs just after this
 /* SAMR_R_GET_USRDOM_PWINFO */
 typedef struct r_samr_usrdom_pwinfo_info
 {
-	uint16 unknown_0; /* 0000 */
+	uint16 min_pwd_length;
 	uint16 unknown_1; /* 0x0016 or 0x0015 */
-	uint32 unknown_2; /* 0x0000 0000 */
+	uint32 password_properties;
 	NTSTATUS status; 
 
 } SAMR_R_GET_USRDOM_PWINFO;
@@ -513,29 +532,89 @@ typedef struct q_samr_query_domain_info
 
 } SAMR_Q_QUERY_DOMAIN_INFO;
 
+typedef struct sam_unknown_info_1_inf
+{
+	uint16 min_length_password;
+	uint16 password_history;
+	uint32 password_properties;
+	NTTIME expire;
+	NTTIME min_passwordage;
+
+} SAM_UNK_INFO_1;
+
+typedef struct sam_unknown_info_2_inf
+{
+	NTTIME logout; /* whether users are forcibly disconnected when logon hours expire */
+	UNIHDR hdr_comment; /* comment according to samba4 idl */
+	UNIHDR hdr_domain; /* domain name unicode header */
+	UNIHDR hdr_server; /* server name unicode header */
+
+	/* put all the data in here, at the moment, including what the above
+	   pointer is referring to
+	 */
+
+	uint64 seq_num;
+	
+	uint32 unknown_4; /* 0x0000 0001 */
+	uint32 server_role;
+	uint32 unknown_6; /* 0x0000 0001 */
+	uint32 num_domain_usrs; /* number of users in domain */
+	uint32 num_domain_grps; /* number of domain groups in domain */
+	uint32 num_local_grps; /* number of local groups in domain */
+
+	UNISTR2 uni_comment; /* comment unicode string */
+	UNISTR2 uni_domain; /* domain name unicode string */
+	UNISTR2 uni_server; /* server name unicode string */
+
+} SAM_UNK_INFO_2;
+
 typedef struct sam_unknown_info_3_info
 {
 	NTTIME logout;	
 	/* 0x8000 0000 */ /* DON'T forcibly disconnect remote users from server when logon hours expire*/
-
 	/* 0x0000 0000 */ /* forcibly disconnect remote users from server when logon hours expire*/
 
 } SAM_UNK_INFO_3;
 
+typedef struct sam_unknown_info_4_inf
+{
+	UNIHDR hdr_comment; /* comment according to samba4 idl */
+	UNISTR2 uni_comment; /* comment unicode string */
+
+} SAM_UNK_INFO_4;
+
+typedef struct sam_unknown_info_5_inf
+{
+	UNIHDR hdr_domain; /* domain name unicode header */
+	UNISTR2 uni_domain; /* domain name unicode string */
+
+} SAM_UNK_INFO_5;
+
 typedef struct sam_unknown_info_6_info
 {
-	uint32 unknown_0; /* 0x0000 0000 */
-
-	uint32 ptr_0;     /* pointer to unknown structure */
-	uint8  padding[12]; /* 12 bytes zeros */
+	UNIHDR hdr_server; /* server name unicode header */
+	UNISTR2 uni_server; /* server name unicode string */
 
 } SAM_UNK_INFO_6;
 
 typedef struct sam_unknown_info_7_info
 {
-	uint16 unknown_0; /* 0x0003 */
+	uint16 server_role;
 
 } SAM_UNK_INFO_7;
+
+typedef struct sam_unknown_info_8_info
+{
+	uint64 seq_num;
+	NTTIME domain_create_time;
+
+} SAM_UNK_INFO_8;
+
+typedef struct sam_unknown_info_9_info
+{
+	uint32 unknown;
+
+} SAM_UNK_INFO_9;
 
 typedef struct sam_unknown_info_12_inf
 {
@@ -545,54 +624,14 @@ typedef struct sam_unknown_info_12_inf
 
 } SAM_UNK_INFO_12;
 
-typedef struct sam_unknown_info_5_inf
+typedef struct sam_unknown_info_13_info
 {
-	UNIHDR hdr_server; /* server name unicode header */
-	UNISTR2 uni_server; /* server name unicode string */
+	uint64 seq_num;
+	NTTIME domain_create_time;
+	uint32 unknown1;
+	uint32 unknown2;
 
-} SAM_UNK_INFO_5;
-
-typedef struct sam_unknown_info_2_inf
-{
-	uint32 unknown_0; /* 0x0000 0000 */
-	uint32 unknown_1; /* 0x8000 0000 */
-	uint32 unknown_2; /* 0x0000 0000 */
-
-	uint32 ptr_0;     /* pointer to unknown structure */
-	UNIHDR hdr_domain; /* domain name unicode header */
-	UNIHDR hdr_server; /* server name unicode header */
-
-	/* put all the data in here, at the moment, including what the above
-	   pointer is referring to
-	 */
-
-	uint32 seq_num; /* some sort of incrementing sequence number? */
-	uint32 unknown_3; /* 0x0000 0000 */
-	
-	uint32 unknown_4; /* 0x0000 0001 */
-	uint32 unknown_5; /* 0x0000 0003 */
-	uint32 unknown_6; /* 0x0000 0001 */
-	uint32 num_domain_usrs; /* number of users in domain */
-	uint32 num_domain_grps; /* number of domain groups in domain */
-	uint32 num_local_grps; /* number of local groups in domain */
-
-	uint8 padding[12]; /* 12 bytes zeros */
-
-	UNISTR2 uni_domain; /* domain name unicode string */
-	UNISTR2 uni_server; /* server name unicode string */
-
-} SAM_UNK_INFO_2;
-
-typedef struct sam_unknown_info_1_inf
-{
-	uint16 min_length_password;
-	uint16 password_history;
-	uint32 flag;
-	NTTIME expire;
-	NTTIME min_passwordage;
-
-} SAM_UNK_INFO_1;
-
+} SAM_UNK_INFO_13;
 
 typedef struct sam_unknown_ctr_info
 {
@@ -601,10 +640,14 @@ typedef struct sam_unknown_ctr_info
 		SAM_UNK_INFO_1 inf1;
 		SAM_UNK_INFO_2 inf2;
 		SAM_UNK_INFO_3 inf3;
+		SAM_UNK_INFO_4 inf4;
 		SAM_UNK_INFO_5 inf5;
 		SAM_UNK_INFO_6 inf6;
 		SAM_UNK_INFO_7 inf7;
+		SAM_UNK_INFO_8 inf8;
+		SAM_UNK_INFO_9 inf9;
 		SAM_UNK_INFO_12 inf12;
+		SAM_UNK_INFO_13 inf13;
 
 	} info;
 
@@ -720,8 +763,7 @@ typedef struct q_samr_enum_dom_users_info
 	POLICY_HND pol;          /* policy handle */
 
 	uint32 start_idx;   /* number of values (0 indicates unlimited?) */
-	uint16 acb_mask;          /* 0x0000 indicates all */
-	uint16 unknown_1;         /* 0x0000 */
+	uint32 acb_mask;          /* 0x0000 indicates all */
 
 	uint32 max_size;              /* 0x0000 ffff */
 
@@ -824,7 +866,7 @@ typedef struct samr_entry_info1
 	uint32 user_idx;
 
 	uint32 rid_user;
-	uint16 acb_info;
+	uint32 acb_info;
 
 	UNIHDR hdr_acct_name;
 	UNIHDR hdr_user_name;
@@ -855,7 +897,7 @@ typedef struct samr_entry_info2
 	uint32 user_idx;
 
 	uint32 rid_user;
-	uint16 acb_info;
+	uint32 acb_info;
 
 	UNIHDR hdr_srv_name;
 	UNIHDR hdr_srv_desc;
@@ -1005,6 +1047,22 @@ typedef struct r_samr_query_dispinfo_info
 
 } SAMR_R_QUERY_DISPINFO;
 
+/* SAMR_Q_GET_DISPENUM_INDEX */
+typedef struct q_samr_get_dispenum_index
+{
+	POLICY_HND domain_pol;
+	uint16 switch_level;
+	LSA_STRING name;
+
+} SAMR_Q_GET_DISPENUM_INDEX;
+
+/* SAMR_R_GET_DISPENUM_INDEX */
+typedef struct r_samr_get_dispenum_index
+{
+	uint32 idx;
+	NTSTATUS status;
+	
+} SAMR_R_GET_DISPENUM_INDEX;
 
 /* SAMR_Q_DELETE_DOM_GROUP - delete domain group */
 typedef struct q_samr_delete_dom_group_info
@@ -1058,7 +1116,7 @@ typedef struct samr_group_info1
 {
 	UNIHDR hdr_acct_name;
 
-	uint32 unknown_1; /* 0x0000 0003 - number of group members? */
+	uint32 group_attr; /* 0x0000 0003 - group attribute */
 	uint32 num_members; /* 0x0000 0001 - number of group members? */
 
 	UNIHDR hdr_acct_desc;
@@ -1078,7 +1136,7 @@ typedef struct samr_group_info2
 
 typedef struct samr_group_info3
 {
-	uint32 unknown_1; /* 0x0000 0003 - number of group members? */
+	uint32 group_attr; /* 0x0000 0003 - group attribute */
 
 } GROUP_INFO3;
 
@@ -1089,6 +1147,21 @@ typedef struct samr_group_info4
 	UNISTR2 uni_acct_desc;
 
 } GROUP_INFO4;
+
+typedef struct samr_group_info5
+{
+	UNIHDR hdr_acct_name;
+
+	uint32 group_attr; /* 0x0000 0003 - group attribute */
+	uint32 num_members; /* 0x0000 0001 - number of group members? */
+
+	UNIHDR hdr_acct_desc;
+
+	UNISTR2 uni_acct_name;
+	UNISTR2 uni_acct_desc;
+
+} GROUP_INFO5;
+
 
 /* GROUP_INFO_CTR */
 typedef struct group_info_ctr
@@ -1101,7 +1174,7 @@ typedef struct group_info_ctr
 		GROUP_INFO2 info2;
 		GROUP_INFO3 info3;
 		GROUP_INFO4 info4;
-
+		GROUP_INFO5 info5;
 	} group;
 
 } GROUP_INFO_CTR;
@@ -1172,73 +1245,56 @@ typedef struct r_samr_create_dom_alias_info
 
 } SAMR_R_CREATE_DOM_ALIAS;
 
-/* SAMR_Q_QUERY_ALIASINFO - SAM Alias Info */
-typedef struct q_samr_query_alias_info
-{
-	POLICY_HND pol;        /* policy handle */
 
-	uint16 switch_level;    /* 0x0003 seen */
+/********************************************************/
 
-} SAMR_Q_QUERY_ALIASINFO;
-
-typedef struct samr_alias_info1
-{
-	UNIHDR hdr_acct_name;
-	UNIHDR hdr_acct_desc;
+typedef struct {
+	UNISTR4 name;
+	UNISTR4 description;
 	uint32 num_member;
-	UNISTR2 uni_acct_name;
-	UNISTR2 uni_acct_desc;
-
 } ALIAS_INFO1;
 
-typedef struct samr_alias_info3
-{
-	UNIHDR hdr_acct_desc;
-	UNISTR2 uni_acct_desc;
+typedef struct {
+	UNISTR4 name;
+} ALIAS_INFO2;
 
+typedef struct {
+	UNISTR4 description;
 } ALIAS_INFO3;
 
-/* ALIAS_INFO_CTR */
-typedef struct alias_info_ctr
-{
-	uint16 switch_value1;
-	uint16 switch_value2;
+typedef struct {
+	POLICY_HND pol;        /* policy handle */
+	uint16 level;    /* 0x0003 seen */
+} SAMR_Q_QUERY_ALIASINFO;
 
-	union
- 	{
+typedef struct {
+	uint16 level;
+	union {
 		ALIAS_INFO1 info1;
+		ALIAS_INFO2 info2;
 		ALIAS_INFO3 info3;
-
 	} alias;
-
 } ALIAS_INFO_CTR;
 
-/* SAMR_R_QUERY_ALIASINFO - SAM alias info */
-typedef struct r_samr_query_aliasinfo_info
-{
-	uint32 ptr;        
-	ALIAS_INFO_CTR ctr;
-
+typedef struct {
+	ALIAS_INFO_CTR *ctr;
 	NTSTATUS status;
-
 } SAMR_R_QUERY_ALIASINFO;
 
 
-/* SAMR_Q_SET_ALIASINFO - SAM Alias Info */
-typedef struct q_samr_set_alias_info
-{
+/********************************************************/
+
+typedef struct {
 	POLICY_HND alias_pol;        /* policy handle */
 	ALIAS_INFO_CTR ctr;
-
 } SAMR_Q_SET_ALIASINFO;
 
-/* SAMR_R_SET_ALIASINFO - SAM alias info */
-typedef struct r_samr_set_aliasinfo_info
-{
+typedef struct {
 	NTSTATUS status;
-
 } SAMR_R_SET_ALIASINFO;
 
+
+/********************************************************/
 
 /* SAMR_Q_QUERY_USERGROUPS - */
 typedef struct q_samr_query_usergroup_info
@@ -1268,14 +1324,17 @@ typedef struct sam_userinfo_ctr_info
 
 	union
 	{
-		SAM_USER_INFO_10 *id10; /* auth-level 0x10 */
-		SAM_USER_INFO_11 *id11; /* auth-level 0x11 */
-		SAM_USER_INFO_12 *id12; /* auth-level 0x12 */
-		SAM_USER_INFO_20 *id20; /* auth-level 20 */
-		SAM_USER_INFO_21 *id21; /* auth-level 21 */
-		SAM_USER_INFO_23 *id23; /* auth-level 0x17 */
-		SAM_USER_INFO_24 *id24; /* auth-level 0x18 */
-		SAM_USER_INFO_25 *id25; /* auth-level 0x19 */
+		SAM_USER_INFO_7  *id7;
+		SAM_USER_INFO_9  *id9;
+		SAM_USER_INFO_16 *id16;
+		SAM_USER_INFO_17 *id17;
+		SAM_USER_INFO_18 *id18;
+		SAM_USER_INFO_20 *id20;
+		SAM_USER_INFO_21 *id21;
+		SAM_USER_INFO_23 *id23;
+		SAM_USER_INFO_24 *id24;
+		SAM_USER_INFO_25 *id25;
+		SAM_USER_INFO_26 *id26;
 		void* id; /* to make typecasting easy */
 
 	} info;
@@ -1681,13 +1740,10 @@ typedef struct r_samr_open_alias_info
 
 
 /* SAMR_Q_CONNECT_ANON - probably an open */
-typedef struct q_samr_connect_anon_info
-{
+typedef struct q_samr_connect_anon_info {
 	uint32 ptr;                  /* ptr? */
-	uint16 unknown_0;            /* 0x005c */
-	uint16 unknown_1;            /* 0x0001 */
+	uint16 unknown_0;	     /* Only pushed if ptr is non-zero. */
 	uint32 access_mask;
-
 } SAMR_Q_CONNECT_ANON;
 
 /* SAMR_R_CONNECT_ANON - probably an open */
@@ -1712,7 +1768,7 @@ typedef struct q_samr_connect_info
 /* SAMR_R_CONNECT - probably an open */
 typedef struct r_samr_connect_info
 {
-    POLICY_HND connect_pol;       /* policy handle */
+	POLICY_HND connect_pol;       /* policy handle */
 	NTSTATUS status;         /* return status */
 
 } SAMR_R_CONNECT;
@@ -1730,6 +1786,31 @@ typedef struct q_samr_connect4_info
 /* SAMR_R_CONNECT4 - same format as connect */
 typedef struct r_samr_connect_info SAMR_R_CONNECT4;       
 
+/* SAMR_Q_CONNECT5 */
+typedef struct q_samr_connect5_info
+{
+	uint32 ptr_srv_name; /* pointer to server name */
+	UNISTR2 uni_srv_name;
+	uint32 access_mask;
+	uint32 level;
+	/* These following are acutally a level dependent
+	   value. Fudge it for now. JRA */
+	uint32 info1_unk1;
+	uint32 info1_unk2;
+} SAMR_Q_CONNECT5;
+
+/* SAMR_R_CONNECT5 */
+typedef struct r_samr_connect_info5
+{
+	uint32 level;
+	uint32 info1_unk1;
+	uint32 info1_unk2;
+	POLICY_HND connect_pol;       /* policy handle */
+	NTSTATUS status;         /* return status */
+
+} SAMR_R_CONNECT5;
+
+
 /* SAMR_Q_GET_DOM_PWINFO */
 typedef struct q_samr_get_dom_pwinfo
 {
@@ -1739,14 +1820,18 @@ typedef struct q_samr_get_dom_pwinfo
 
 } SAMR_Q_GET_DOM_PWINFO;
 
+#define DOMAIN_PASSWORD_COMPLEX		0x00000001
+#define DOMAIN_PASSWORD_NO_ANON_CHANGE	0x00000002
+#define DOMAIN_PASSWORD_NO_CLEAR_CHANGE	0x00000004
+#define DOMAIN_LOCKOUT_ADMINS		0x00000008
+#define DOMAIN_PASSWORD_STORE_CLEARTEXT	0x00000010
+#define DOMAIN_REFUSE_PASSWORD_CHANGE	0x00000020
+
 /* SAMR_R_GET_DOM_PWINFO */
 typedef struct r_samr_get_dom_pwinfo
 {
-	/*
-	 * See Samba4 IDL
-	 */
-	uint16 unk_0;
-	uint32 unk_1;
+	uint16 min_pwd_length;
+	uint32 password_properties;
 	NTSTATUS status;
 
 } SAMR_R_GET_DOM_PWINFO;
@@ -1795,6 +1880,55 @@ typedef struct r_samr_chgpasswd_user_info
 
 } SAMR_R_CHGPASSWD_USER;
 
+/* SAMR_Q_CHGPASSWD3 */
+typedef struct q_samr_chgpasswd_user3
+{
+	uint32 ptr_0;
+
+	UNIHDR hdr_dest_host; /* server name unicode header */
+	UNISTR2 uni_dest_host; /* server name unicode string */
+
+	UNIHDR hdr_user_name;    /* username unicode string header */
+	UNISTR2 uni_user_name;    /* username unicode string */
+
+	SAMR_ENC_PASSWD nt_newpass;
+	SAMR_ENC_HASH nt_oldhash;
+
+	uint32 lm_change; /* 0x0000 0001 */
+
+	SAMR_ENC_PASSWD lm_newpass;
+	SAMR_ENC_HASH lm_oldhash;
+
+	SAMR_ENC_PASSWD password3;
+
+} SAMR_Q_CHGPASSWD_USER3;
+
+#define REJECT_REASON_OTHER		0x00000000
+#define REJECT_REASON_TOO_SHORT		0x00000001
+#define REJECT_REASON_IN_HISTORY	0x00000002
+#define REJECT_REASON_NOT_COMPLEX	0x00000005
+
+/* SAMR_CHANGE_REJECT */
+typedef struct samr_change_reject
+{
+	uint32 reject_reason;
+	uint32 unknown1;
+	uint32 unknown2;
+
+} SAMR_CHANGE_REJECT;
+
+/* SAMR_R_CHGPASSWD3 */
+typedef struct r_samr_chgpasswd_user3
+{
+	uint32 ptr_info;
+	uint32 ptr_reject;
+	SAM_UNK_INFO_1 *info;
+	SAMR_CHANGE_REJECT *reject;
+	NTSTATUS status; /* 0 == OK, C000006A (NT_STATUS_WRONG_PASSWORD) */
+
+} SAMR_R_CHGPASSWD_USER3;
+
+
 
 /* SAMR_Q_REMOVE_SID_FOREIGN_DOMAIN */
 typedef struct q_samr_remove_sid_foreign_domain_info
@@ -1828,23 +1962,23 @@ typedef struct sid_info_3
 
 } DOM_SID3;
 
-/* SAMR_Q_UNKNOWN_2E */
-typedef struct q_samr_unknown_2e_info
+/* SAMR_Q_QUERY_DOMAIN_INFO2 */
+typedef struct q_samr_query_domain_info2
 {
 	POLICY_HND domain_pol;   /* policy handle */
 	uint16 switch_value;
 
-} SAMR_Q_UNKNOWN_2E;
+} SAMR_Q_QUERY_DOMAIN_INFO2;
 
-/* SAMR_R_UNKNOWN_2E */
-typedef struct r_samr_unknown_2e_info
+/* SAMR_R_QUERY_DOMAIN_INFO2 */
+typedef struct r_samr_query_domain_info2
 {
 	uint32 ptr_0;
 	uint16 switch_value;
 	SAM_UNK_CTR *ctr;
 	NTSTATUS status;         /* return status */
 
-} SAMR_R_UNKNOWN_2E;
+} SAMR_R_QUERY_DOMAIN_INFO2;
 
 /* SAMR_Q_SET_DOMAIN_INFO */
 typedef struct q_samr_set_domain_info

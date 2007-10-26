@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = sysctl.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble sysctl.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble sysctl.8 sysctl.conf.5
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

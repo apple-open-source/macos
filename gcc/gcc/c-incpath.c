@@ -477,7 +477,14 @@ merge_include_chains (cpp_reader *pfile, int verbose)
 	    fprintf (stderr, _("#include <...> search starts here:\n"));
 	  if (!p)
 	    break;
-	  fprintf (stderr, " %s\n", p->name);
+	  /* APPLE LOCAL begin 5033355 */
+	  if (p->construct == 0)
+	    fprintf (stderr, " %s\n", p->name);
+	  else if (p->construct == hmap_construct_pathname)
+	    fprintf (stderr, " %s (headermap)\n", p->name);
+	  else
+	    fprintf (stderr, " %s (framework directory)\n", p->name);
+	  /* APPLE LOCAL end 5033355 */
 	}
       fprintf (stderr, _("End of search list.\n"));
     }

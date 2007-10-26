@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1999-2004, International Business Machines Corporation and
+ * Copyright (c) 1999-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -21,7 +21,7 @@
 #include "unicode/uloc.h"
 #include "unicode/locid.h"
 #include "putilimp.h"
-#if !defined(WIN32) && !defined(XP_MAC) && !defined(U_RHAPSODY)
+#if !defined(U_WINDOWS) && !defined(XP_MAC) && !defined(U_RHAPSODY)
 #define POSIX 1
 #endif
 
@@ -73,6 +73,8 @@
 
 #include "tsmthred.h"
 
+#define TSMTHREAD_FAIL(msg) errln("%s at file %s, line %d", msg, __FILE__, __LINE__)
+#define TSMTHREAD_ASSERT(expr) {if (!(expr)) {TSMTHREAD_FAIL("Fail");}}
 
 MultithreadTest::MultithreadTest()
 {
@@ -86,7 +88,7 @@ MultithreadTest::~MultithreadTest()
 
 #if (ICU_USE_THREADS==0)
 void MultithreadTest::runIndexedTest( int32_t index, UBool exec, 
-                const char* &name, char* par ) {
+                const char* &name, char* /*par*/ ) {
   if (exec) logln("TestSuite MultithreadTest: ");
 
   if(index == 0)
@@ -151,7 +153,7 @@ void SimpleThread::errorFunc() {
 
 
 
-#ifdef WIN32
+#ifdef U_WINDOWS
 #define HAVE_IMP
 
 #   define VC_EXTRALEAN
@@ -549,6 +551,7 @@ void MultithreadTest::TestThreads()
 {
     char threadTestChars[THREADTEST_NRTHREADS + 1];
     SimpleThread *threads[THREADTEST_NRTHREADS];
+    int32_t numThreadsStarted = 0;
 
     int32_t i;
     for(i=0;i<THREADTEST_NRTHREADS;i++)
@@ -564,11 +567,18 @@ void MultithreadTest::TestThreads()
         if (threads[i]->start() != 0) {
             errln("Error starting thread %d", i);
         }
-        SimpleThread::sleep(200);
+        else {
+            numThreadsStarted++;
+        }
+        SimpleThread::sleep(100);
         logln(" Subthread started.");
     }
 
     logln("Waiting for threads to be set..");
+    if (numThreadsStarted == 0) {
+        errln("No threads could be started for testing!");
+        return;
+    }
 
     int32_t patience = 40; // seconds to wait
 
@@ -607,96 +617,129 @@ void MultithreadTest::TestThreads()
 }
 
 
-class TestMutexThread1 : public SimpleThread
+//-----------------------------------------------------------------------
+//
+//  TestMutex  - a simple (non-stress) test to verify that ICU mutexes
+//               are actually mutexing.  Does not test the use of
+//               mutexes within ICU services, but rather that the
+//               platform's mutex support is at least superficially there.
+//
+//----------------------------------------------------------------------
+static UMTX    gTestMutexA = NULL;
+static UMTX    gTestMutexB = NULL;
+
+static int     gThreadsStarted = 0; 
+static int     gThreadsInMiddle = 0;
+static int     gThreadsDone = 0;
+
+static const int TESTMUTEX_THREAD_COUNT = 4;
+
+static int safeIncr(int &var, int amt) {
+    // Thread safe (using global mutex) increment of a variable.
+    // Return the updated value.
+    // Can also be used as a safe load of a variable by incrementing it by 0.
+    Mutex m;
+    var += amt;
+    return var;
+}
+
+class TestMutexThread : public SimpleThread
 {
 public:
-    TestMutexThread1() : fDone(FALSE) {}
     virtual void run()
     {
-        Mutex m;                        // grab the lock first thing
-        SimpleThread::sleep(900);      // then wait
-        fDone = TRUE;                   // finally, set our flag
+        // This is the code that each of the spawned threads runs.
+        // All of the spawned threads bunch up together at each of the two mutexes
+        // because the main holds the mutexes until they do.
+        //
+        safeIncr(gThreadsStarted, 1);
+        umtx_lock(&gTestMutexA);
+        umtx_unlock(&gTestMutexA);
+        safeIncr(gThreadsInMiddle, 1);
+        umtx_lock(&gTestMutexB);
+        umtx_unlock(&gTestMutexB);
+        safeIncr(gThreadsDone, 1);
     }
-public:
-    UBool fDone;
-};
-
-class TestMutexThread2 : public SimpleThread
-{
-public:
-    TestMutexThread2(TestMutexThread1& r) : fOtherThread(r), fDone(FALSE), fErr(FALSE) {}
-    virtual void run()
-    {
-        SimpleThread::sleep(500);          // wait, make sure they aquire the lock
-        fElapsed = uprv_getUTCtime();
-        {
-            Mutex m;                        // wait here
-
-            fElapsed = uprv_getUTCtime() - fElapsed;
-
-            if(fOtherThread.fDone == FALSE) 
-                fErr = TRUE;                // they didnt get to it yet
-
-            fDone = TRUE;               // we're done.
-        }
-    }
-public:
-    TestMutexThread1 & fOtherThread;
-    UBool fDone, fErr;
-    UDate fElapsed;
-private:
-    /**
-     * The assignment operator has no real implementation.
-     * It is provided to make the compiler happy. Do not call.
-     */
-    TestMutexThread2& operator=(const TestMutexThread2&) { return *this; }
 };
 
 void MultithreadTest::TestMutex()
 {
-    /* this test uses printf so that we don't hang by calling UnicodeString inside of a mutex. */
-    //logln("Bye.");
-    //  printf("Warning: MultiThreadTest::Testmutex() disabled.\n");
-    //  return; 
-
-    if(verbose)
-        printf("Before mutex.\n");
-    {
-        Mutex m;
-        if(verbose)
-            printf(" Exited 2nd mutex\n");
+    // Start up the test threads.  They should all pile up waiting on
+    // gTestMutexA, which we (the main thread) hold until the test threads
+    //   all get there.
+    gThreadsStarted = 0;
+    gThreadsInMiddle = 0;
+    gThreadsDone = 0;
+    umtx_lock(&gTestMutexA);
+    TestMutexThread  *threads[TESTMUTEX_THREAD_COUNT];
+    int i;
+    int32_t numThreadsStarted = 0;
+    for (i=0; i<TESTMUTEX_THREAD_COUNT; i++) {
+        threads[i] = new TestMutexThread;
+        if (threads[i]->start() != 0) {
+            errln("Error starting thread %d", i);
+        }
+        else {
+            numThreadsStarted++;
+        }
     }
-    if(verbose)
-        printf("exited 1st mutex. Now testing with threads:");
-
-    TestMutexThread1  thread1;
-    TestMutexThread2  thread2(thread1);
-    if (thread2.start() != 0  || 
-        thread1.start() != 0 ) {
-        errln("Error starting threads.");
+    if (numThreadsStarted == 0) {
+        errln("No threads could be started for testing!");
+        return;
     }
 
-    for(int32_t patience = 12; patience > 0;patience--)
-    {
-        // TODO:  Possible memory coherence issue in looking at fDone values
-        //        that are set in another thread without the mutex here.
-        if(thread1.fDone && verbose)
-            printf("Thread1 done\n");
-
-        if(thread1.fDone && thread2.fDone)
-        {
-            if(thread2.fErr)
-                errln("Thread 2 says: thread1 didn't run before I aquired the mutex.");
-            logln("took %lu seconds for thread2 to aquire the mutex.", (int)(thread2.fElapsed/U_MILLIS_PER_DAY));
+    int patience = 0;
+    while (safeIncr(gThreadsStarted, 0) != TESTMUTEX_THREAD_COUNT) {
+        if (patience++ > 24) {
+            TSMTHREAD_FAIL("Patience Exceeded");
             return;
         }
-        SimpleThread::sleep(1000);
+        SimpleThread::sleep(500);
     }
-    if(verbose)
-        printf("patience exceeded. [WARNING mutex may still be acquired.] ");
+    // None of the test threads should have advanced past the first mutex.
+    TSMTHREAD_ASSERT(gThreadsInMiddle==0);
+    TSMTHREAD_ASSERT(gThreadsDone==0);
+
+    //  All of the test threads have made it to the first mutex.
+    //  We (the main thread) now let them advance to the second mutex,
+    //   where they should all pile up again.
+    umtx_lock(&gTestMutexB);
+    umtx_unlock(&gTestMutexA);
+
+    patience = 0;
+    while (safeIncr(gThreadsInMiddle, 0) != TESTMUTEX_THREAD_COUNT) {
+        if (patience++ > 24) {
+            TSMTHREAD_FAIL("Patience Exceeded");
+            return;
+        }
+        SimpleThread::sleep(500);
+    }
+    TSMTHREAD_ASSERT(gThreadsDone==0);
+
+    //  All test threads made it to the second mutex.
+    //   Now let them proceed from there.  They will all terminate.
+    umtx_unlock(&gTestMutexB);    
+    patience = 0;
+    while (safeIncr(gThreadsDone, 0) != TESTMUTEX_THREAD_COUNT) {
+        if (patience++ > 24) {
+            TSMTHREAD_FAIL("Patience Exceeded");
+            return;
+        }
+        SimpleThread::sleep(500);
+    }
+
+    // All threads made it by both mutexes.
+    // Destroy the test mutexes.
+    umtx_destroy(&gTestMutexA);
+    umtx_destroy(&gTestMutexB);
+    gTestMutexA=NULL;
+    gTestMutexB=NULL;
+
+    for (i=0; i<TESTMUTEX_THREAD_COUNT; i++) {
+        delete threads[i];
+    }
+
 }
-
-
 
 
 //-------------------------------------------------------------------------------------------
@@ -784,11 +827,6 @@ struct FormatThreadTestData
 } ;
 
 
-void errorToString(UErrorCode theStatus, UnicodeString &string)
-{
-    string=u_errorName(theStatus);
-}
-
 // "Someone from {2} is receiving a #{0} error - {1}. Their telephone call is costing {3 number,currency}."
 
 void formatErrorMessage(UErrorCode &realStatus, const UnicodeString& pattern, const Locale& theLocale,
@@ -798,8 +836,7 @@ void formatErrorMessage(UErrorCode &realStatus, const UnicodeString& pattern, co
     if(U_FAILURE(realStatus))
         return; // you messed up
 
-    UnicodeString errString1;
-    errorToString(inStatus0, errString1);
+    UnicodeString errString1(u_errorName(inStatus0));
 
     UnicodeString countryName2;
     inCountry2.getDisplayCountry(theLocale,countryName2);
@@ -824,7 +861,7 @@ void formatErrorMessage(UErrorCode &realStatus, const UnicodeString& pattern, co
     fmt->format(myArgs,4,result,ignore,realStatus);
 
     delete fmt;
-};
+}
 
 
 UBool U_CALLCONV isAcceptable(void *, const char *, const char *, const UDataInfo *) {
@@ -1030,8 +1067,7 @@ public:
                                 countryToCheck,currencyToCheck,result);
             if(U_FAILURE(status))
             {
-                UnicodeString tmp;
-                errorToString(status,tmp);
+                UnicodeString tmp(u_errorName(status));
                 error("Failure on message format, pattern=" + patternToCheck +
                         ", error = " + tmp);
                 goto cleanupAndReturn;
@@ -1063,6 +1099,7 @@ void MultithreadTest::TestThreadedIntl()
     int i;
     UnicodeString theErr;
     UBool   haveDisplayedInfo[kFormatThreadThreads];
+    static const int32_t PATIENCE_SECONDS = 45;
 
     //
     //  Create and start the test threads
@@ -1083,12 +1120,23 @@ void MultithreadTest::TestThreadedIntl()
 
 
     // Spin, waiting for the test threads to finish.
-    //   (An earlier version used a wait in this loop, but that seems to trigger
-    //    a bug in some versions of AIX.)
     UBool   stillRunning;
+    UDate startTime, endTime;
+    startTime = Calendar::getNow();
     do {
         /*  Spin until the test threads  complete. */
         stillRunning = FALSE;
+        endTime = Calendar::getNow();
+        if (((int32_t)(endTime - startTime)/U_MILLIS_PER_SECOND) > PATIENCE_SECONDS) {
+            errln("Patience exceeded. Test is taking too long.");
+            return;
+        }
+        /*
+         The following sleep must be here because the *BSD operating systems
+         have a brain dead thread scheduler. They starve the child threads from
+         CPU time.
+        */
+        SimpleThread::sleep(1); // yield
         for(i=0;i<kFormatThreadThreads;i++) {
             if (tests[i].isRunning()) {
                 stillRunning = TRUE;
@@ -1108,8 +1156,6 @@ void MultithreadTest::TestThreadedIntl()
     //
 cleanupAndReturn:
     delete [] tests;
-    return;
-
 }
 #endif /* #if !UCONFIG_NO_FORMATTING */
 
@@ -1125,7 +1171,7 @@ cleanupAndReturn:
 #if !UCONFIG_NO_COLLATION
 
 #define kCollatorThreadThreads   10  // # of threads to spawn
-#define kCollatorThreadPatience kCollatorThreadThreads*100
+#define kCollatorThreadPatience kCollatorThreadThreads*30
 
 struct Line {
     UChar buff[25];
@@ -1259,7 +1305,7 @@ void MultithreadTest::TestCollators()
                     "INFO: Working with the stub file.\n"
                     "If you need the full conformance test, please\n"
                     "download the appropriate data files from:\n"
-                    "http://oss.software.ibm.com/cvs/icu4j/unicodetools/com/ibm/text/data/");
+                    "http://dev.icu-project.org/cgi-bin/viewcvs.cgi/unicodetools/com/ibm/text/data/");
             }
         }
     }
@@ -1275,7 +1321,7 @@ void MultithreadTest::TestCollators()
 
     while (fgets(buffer, 1024, testFile) != NULL) {
         offset = 0;
-        if(*buffer == 0 || buffer[0] == '#') {
+        if(*buffer == 0 || strlen(buffer) < 3 || buffer[0] == '#') {
             continue;
         }
         offset = u_parseString(buffer, bufferU, 1024, &first, &status);
@@ -1287,8 +1333,10 @@ void MultithreadTest::TestCollators()
         lineNum++;
     }
     fclose(testFile);
-
-
+    if(U_FAILURE(status)) {
+      errln("Couldn't read the test file!");
+      return;
+    }
 
     UCollator *coll = ucol_open("root", &status);
     if(U_FAILURE(status)) {
@@ -1322,9 +1370,12 @@ void MultithreadTest::TestCollators()
         noSpawned++;
     }
     logln("Spawned all");
+    if (noSpawned == 0) {
+        errln("No threads could be spawned.");
+        return;
+    }
 
-    //for(int32_t patience = kCollatorThreadPatience;patience > 0; patience --)
-    for(;;)
+    for(int32_t patience = kCollatorThreadPatience;patience > 0; patience --)
     {
         logln("Waiting...");
 

@@ -31,12 +31,12 @@
 #ifndef __CMessaging_h__
 #define __CMessaging_h__		1
 
-#include "PrivateTypes.h"
-#include "SharedConsts.h"
-#include "DirServicesTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
+#include <DirectoryServiceCore/SharedConsts.h>
+#include <DirectoryService/DirServicesTypes.h>
 
 #ifndef SERVERINTERNAL
-#include "CClientEndPoint.h"
+#include <DirectoryService/CClientEndPoint.h>
 #include "DSTCPEndpoint.h"
 #endif
 
@@ -45,72 +45,75 @@ class		DSMutexSemaphore;
 class CMessaging {
 public:
 
-	   			CMessaging					( void );
-	   			CMessaging					( Boolean inMachEndpoint );
+	   			CMessaging					( Boolean inMachEndpoint, UInt32 inTranslateBit );
 virtual		   ~CMessaging					( void );
 
-		sInt32	ConfigTCP					(	const char *inRemoteIPAddress,
-												uInt32 inRemotePort );
+		SInt32	ConfigTCP					(	const char *inRemoteIPAddress,
+												UInt32 inRemotePort );
 #ifndef SERVERINTERNAL
-		sInt32	SendServerMessage			( void );
-		sInt32	SendRemoteMessage			( void );
+		SInt32	SendServerMessage			( void );
+		SInt32	SendRemoteMessage			( void );
 #endif
-		sInt32	GetReplyMessage				( void );
+		SInt32	GetReplyMessage				( void );
 
-		sInt32	OpenCommPort				( void );
-		sInt32	CloseCommPort				( void );
-		sInt32	OpenTCPEndpoint				( void );
-		sInt32	CloseTCPEndpoint			( void );
+		SInt32	OpenCommPort				( Boolean inLocalDS );
+		SInt32	CloseCommPort				( void );
+		SInt32	OpenTCPEndpoint				( void );
+		SInt32	CloseTCPEndpoint			( void );
 
-		sInt32	Add_tDataBuff_ToMsg			( tDataBuffer *inBuff, eValueType inType );
-		sInt32	Add_tDataList_ToMsg			( tDataList *inList, eValueType inType );
-		sInt32	Add_Value_ToMsg				( uInt32 inValue, eValueType inType );
-		sInt32	Add_tAttrEntry_ToMsg		( tAttributeEntry *inData );
-		sInt32	Add_tAttrValueEntry_ToMsg	( tAttributeValueEntry *inData );
-		sInt32	Add_tRecordEntry_ToMsg		( tRecordEntry *inData );
+		SInt32	Add_tDataBuff_ToMsg			( tDataBuffer *inBuff, eValueType inType );
+		SInt32	Add_tDataList_ToMsg			( tDataList *inList, eValueType inType );
+		SInt32	Add_Value_ToMsg				( UInt32 inValue, eValueType inType );
+		SInt32	Add_tAttrEntry_ToMsg		( tAttributeEntry *inData );
+		SInt32	Add_tAttrValueEntry_ToMsg	( tAttributeValueEntry *inData );
+		SInt32	Add_tRecordEntry_ToMsg		( tRecordEntry *inData );
 
-		sInt32	Get_tDataBuff_FromMsg		( tDataBuffer **outBuff, eValueType inType );
-		sInt32	Get_tDataList_FromMsg		( tDataList **outList, eValueType inType );
-		sInt32	Get_Value_FromMsg			( uInt32 *outValue, eValueType inType );
-		sInt32	Get_tAttrEntry_FromMsg		( tAttributeEntry **outAttrEntry, eValueType inType );
-		sInt32	Get_tAttrValueEntry_FromMsg	( tAttributeValueEntry **outAttrValue, eValueType inType );
-		sInt32	Get_tRecordEntry_FromMsg	( tRecordEntry **outRecEntry, eValueType inType );
+		SInt32	Get_tDataBuff_FromMsg		( tDataBuffer **outBuff, eValueType inType );
+		SInt32	Get_tDataList_FromMsg		( tDataList **outList, eValueType inType );
+		SInt32	Get_Value_FromMsg			( UInt32 *outValue, eValueType inType );
+		SInt32	Get_tAttrEntry_FromMsg		( tAttributeEntry **outAttrEntry, eValueType inType );
+		SInt32	Get_tAttrValueEntry_FromMsg	( tAttributeValueEntry **outAttrValue, eValueType inType );
+		SInt32	Get_tRecordEntry_FromMsg	( tRecordEntry **outRecEntry, eValueType inType );
 
-		sInt32	SendInlineMessage			( uInt32 inMsgType );
+		SInt32	SendInlineMessage			( UInt32 inMsgType );
 
 		void	Lock						( void );
 		void	Unlock						( void );
 		void	ClearMessageBlock			( void );
 		
-		uInt32	GetServerVersion			( void );
-		void	SetServerVersion			( uInt32 inServerVersion );
+		UInt32	GetServerVersion			( void );
+		void	SetServerVersion			( UInt32 inServerVersion );
 		const char	*GetProxyIPAddress		( void );
 		void	ResetMessageBlock			( void );
+		void	ChangeLocalDaemonUse		( dsBool inLocalDaemon ) { fLocalDaemonInUse = inLocalDaemon; }
 #ifdef SERVERINTERNAL
 		static bool	IsThreadUsingInternalDispatchBuffering
-											( OSType inThreadSig );
+											( UInt32 inThreadSig );
 #endif
 		
 private:
-		sInt32	GetEmptyObj					( sComData *inMsg, eValueType inType, sObject **outObj );
-		sInt32	GetThisObj					( sComData *inMsg, eValueType inType, sObject **outObj );
+		SInt32	GetEmptyObj					( sComData *inMsg, eValueType inType, sObject **outObj );
+		SInt32	GetThisObj					( sComData *inMsg, eValueType inType, sObject **outObj );
 		sComData*   GetMsgData				( void );
 
-		bool	Grow						( uInt32 inOffset, uInt32 inSize );
+		bool	Grow						( UInt32 inOffset, UInt32 inSize );
 
 #ifndef SERVERINTERNAL
 		CClientEndPoint	   *fCommPort;
 		
 		DSTCPEndpoint	   *fTCPEndpoint;
-		uInt32				fRemoteIPAddress;
-		uInt32				fRemotePort;
+		UInt32				fRemoteIPAddress;
+		UInt32				fRemotePort;
 #endif
 		
+		dsBool				fLocalDaemonInUse;
+		UInt32				fTranslateBit;
+
 		DSMutexSemaphore   *fLock;
 
 		sComData		   *fMsgData;
 		Boolean				bMachEndpoint;	//mach = true and TCP = false
-		uInt32				fServerVersion; //1 for making sure data buffer not sent in dsGetRecordList call
+		UInt32				fServerVersion; //1 for making sure data buffer not sent in dsGetRecordList call
 };
 
 #endif

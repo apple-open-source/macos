@@ -1,7 +1,7 @@
 /*  
 *******************************************************************************
 *
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -29,11 +29,6 @@
 
 #ifdef UCOL_DEBUG
 #   include <stdio.h>
-#endif
-
-#if defined(UCOL_DEBUG) && defined(WIN32)
-    /* turn off "unreferenced formal parameter" */
-#   pragma warning(disable: 4100)
 #endif
 
 /* collation element weight allocation -------------------------------------- */
@@ -124,7 +119,7 @@ lengthenRange(WeightRange *range, uint32_t maxByte, uint32_t countBytes) {
 }
 
 /* for uprv_sortArray: sort ranges in weight order */
-static U_INLINE int32_t U_CALLCONV
+static int32_t U_CALLCONV
 compareRanges(const void *context, const void *left, const void *right) {
     uint32_t l, r;
 

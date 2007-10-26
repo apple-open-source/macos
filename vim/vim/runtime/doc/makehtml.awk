@@ -119,12 +119,23 @@ substr($0,length($0),1) == "~" { print "<B><FONT COLOR=\"PURPLE\">" substr($0,1,
 
 NR == 1 { nf=split(FILENAME,f,".")
 	print "<HTML>";
-	print "<HEAD><TITLE>Vim documentation: " f[1] "</TITLE></HEAD>";
+
+	print "<HEAD>"
+	if ( FILENAME == "mbyte.txt" ) {
+	    # needs utf-8 as uses many languages
+	    print "<META HTTP-EQUIV=\"Content-type\" content=\"text/html; charset=UTF-8\">";
+	} else {
+	    # common case - Latin1
+	    print "<META HTTP-EQUIV=\"Content-type\" content=\"text/html; charset=ISO-8859-1\">";
+	}
+	print "<TITLE>Vim documentation: " f[1] "</TITLE>";
+	print "</HEAD>";
+
 	print "<BODY BGCOLOR=\"#ffffff\">";
 	print "<H1>Vim documentation: " f[1] "</H1>";
 	print "<A NAME=\"top\"></A>";
 	if ( FILENAME != "help.txt" ) {
-	  print "<A HREF=\"help.html\">main help file</A>\n";
+	  print "<A HREF=\"index.html\">main help file</A>\n";
 	}
 	print "<HR>";
 	print "<PRE>";
@@ -233,7 +244,15 @@ npipe > 2 && nstar < 3 {
 				find_tag1();
 				}
 				else {
+					if ( f[1] == "index" ) {
+		printf "|<A HREF=\"vimindex.html\">" p[i] "</A>|";
+					} else {
+						if ( f[1] == "help" ) {
+		printf "|<A HREF=\"index.html\">" p[i] "</A>|";
+						} else {
 		printf "|<A HREF=\"" f[1] ".html\">" p[i] "</A>|";
+						}
+					}
 				}
 			}
 		}
@@ -362,13 +381,12 @@ END {
 
 #
 # as main we keep index.txt (by default)
-# other candidate, help.txt
 #
 function topback () {
 	if ( FILENAME != "tags" ) {
 	if ( FILENAME != "help.txt" ) {
 	printf("<A HREF=\"#top\">top</A> - ");
-	printf("<A HREF=\"help.html\">main help file</A>\n");
+	printf("<A HREF=\"index.html\">main help file</A>\n");
 	} else {
 	printf("<A HREF=\"#top\">top</A>\n");
 	}
@@ -570,7 +588,7 @@ function find_tag2() {
 	ntags=split(atag,blata,"[ 	]");
 	if ( ntags > 1 ) { return; }
 	if 	( ( allow_one_char == "no" ) && \
-		  ( index("!#$%\&'()+,-./0:;=?@ACINX\\[\\]^_`at\\{\\}~",atag) !=0 ) ) {
+		  ( index("!#$%&'()+,-./0:;=?@ACINX\\[\\]^_`at\\{\\}~",atag) !=0 ) ) {
 		return;
 	}
 	if ( skip_word[atag] == "yes" ) { return; }
@@ -599,7 +617,7 @@ function find_tag3() {
 	ntags=split(btag,blata,"[ 	]");
 	if ( ntags > 1 ) { return; }
 	if 	( ( allow_one_char == "no" ) && \
-		  ( index("!#$%\&'()+,-./0:;=?@ACINX\\[\\]^_`at\\{\\}~",btag) !=0 ) ) {
+		  ( index("!#$%&'()+,-./0:;=?@ACINX\\[\\]^_`at\\{\\}~",btag) !=0 ) ) {
 	  	return;
 	}
 	if ( skip_word[btag] == "yes" ) { return; }

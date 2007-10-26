@@ -130,4 +130,3 @@ private:
 
 #endif /* !_TOKEND_METARECORD_H_ */
 
-/* arch-tag: E9626F11-DF80-11D8-BBDF-000A95C4302E */

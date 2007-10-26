@@ -1,0 +1,77 @@
+# Include standard Apple variables.
+include $(MAKEFILEPATH)/CoreOS/Standard/Variables.make
+
+# Include standard Samba build configuration.
+include make.common
+
+BASENAME := $(shell basename $(shell pwd))
+SRCROOT := $(shell pwd)
+
+BUILDIT_DIR ?= /tmp/$(BASENAME)
+SOURCE := samba/source
+
+# Set the install location that buildit will use. This assumes you use the
+# -notilde option to buildit like I do -- jpeach.
+SYMROOT ?= $(BUILDIT_DIR)/$(BASENAME).roots/$(BASENAME).sym
+
+Buildit_Configure_Flags := \
+	   --prefix="/usr" \
+	   --mandir="$(SMB_MANDIR)" \
+	   --with-configdir="$(SMB_CONFDIR)" \
+	   --with-privatedir="$(SMB_PRIVDIR)" \
+	   --with-libdir="$(SMB_LIBDIR)" \
+	   --with-lockdir="$(SMB_LOCKDIR)" \
+	   --with-logfilebase="$(SMB_LOGDIR)"
+
+AUTOGEN = cd $(SOURCE) && ./autogen.sh
+
+CONFIGURE = cd $(SOURCE) && \
+		CONFIG_SITE=$(SRCROOT)/config.site.leopard \
+		./configure \
+			$(Extra_Configure_Flags) \
+			$(Buildit_Configure_Flags) \
+		CFLAGS="-g $(Extra_CC_Flags)"
+
+# Convenience target to re-run configure
+reconfigure:
+	$(AUTOGEN)
+	$(CONFIGURE)
+
+$(SOURCE)/configure: $(SOURCE)/configure.in
+	$(AUTOGEN)
+
+$(SOURCE)/Makefile: $(SOURCE)/configure
+	$(CONFIGURE)
+
+# Build proto.h and precompile headers. Precompiled headers make the build go
+# fast, but if you change the headers, you will need to run PCH.
+$(SOURCE)/include/proto.h: $(SOURCE)/Makefile
+	cd $(SOURCE) && $(MAKE) proto && $(MAKE) pch
+
+pch: $(SOURCE)/include/proto.h
+	cd $(SOURCE) && $(MAKE) pch
+
+NODEPSpch:
+	cd $(SOURCE) && $(MAKE) pch
+
+build: $(SOURCE)/include/proto.h
+	cd $(SOURCE) && $(MAKE) -j $(NPROCS)
+
+# A build target with no dependencies. Use this if you have pushed and popped
+# some patches and don't want to re-run configure.
+NODEPSbuild:
+	cd $(SOURCE) && $(MAKE) -j $(NPROCS)
+
+modules: $(SOURCE)/include/proto.h
+	cd $(SOURCE) && $(MAKE) -j $(NPROCS) modules
+
+NODEPSmodules:
+	cd $(SOURCE) && $(MAKE) -j $(NPROCS) modules
+
+# By default, just forward the goals to the Samba build system after
+# stripping any NODEPS prefix.
+.DEFAULT:
+	@rm -rf $(SOURCE)/test.dir $(SOURCE)/a.out.dSYM
+	cd  $(SOURCE) && \
+		$(MAKE) DESTDIR=$(SYMROOT) $(subst NODEPS,,$(MAKECMDGOALS))
+

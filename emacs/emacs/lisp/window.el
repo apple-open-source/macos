@@ -1,7 +1,7 @@
 ;;; window.el --- GNU Emacs window commands aside from those written in C
 
-;; Copyright (C) 1985, 1989, 1992, 1993, 1994, 2000, 2001
-;;  Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1989, 1992, 1993, 1994, 2000, 2001, 2002,
+;;   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: internal
@@ -20,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -29,21 +29,91 @@
 
 ;;; Code:
 
+(defvar window-size-fixed nil
+ "*Non-nil in a buffer means windows displaying the buffer are fixed-size.
+If the value is `height', then only the window's height is fixed.
+If the value is `width', then only the window's width is fixed.
+Any other non-nil value fixes both the width and the height.
+Emacs won't change the size of any window displaying that buffer,
+unless you explicitly change the size, or Emacs has no other choice.")
+(make-variable-buffer-local 'window-size-fixed)
+
+(defmacro save-selected-window (&rest body)
+  "Execute BODY, then select the window that was selected before BODY.
+The value returned is the value of the last form in BODY.
+
+This macro saves and restores the current buffer, since otherwise
+its normal operation could potentially make a different
+buffer current.  It does not alter the buffer list ordering.
+
+This macro saves and restores the selected window, as well as
+the selected window in each frame.  If the previously selected
+window of some frame is no longer live at the end of BODY, that
+frame's selected window is left alone.  If the selected window is
+no longer live, then whatever window is selected at the end of
+BODY remains selected."
+  `(let ((save-selected-window-window (selected-window))
+	 ;; It is necessary to save all of these, because calling
+	 ;; select-window changes frame-selected-window for whatever
+	 ;; frame that window is in.
+	 (save-selected-window-alist
+	  (mapcar (lambda (frame) (list frame (frame-selected-window frame)))
+		  (frame-list))))
+     (save-current-buffer
+       (unwind-protect
+	   (progn ,@body)
+	 (dolist (elt save-selected-window-alist)
+	   (and (frame-live-p (car elt))
+		(window-live-p (cadr elt))
+		(set-frame-selected-window (car elt) (cadr elt))))
+	 (if (window-live-p save-selected-window-window)
+	     (select-window save-selected-window-window))))))
+
+(defun window-body-height (&optional window)
+  "Return number of lines in window WINDOW for actual buffer text.
+This does not include the mode line (if any) or the header line (if any)."
+  (or window (setq window (selected-window)))
+  (if (window-minibuffer-p window)
+      (window-height window)
+    (with-current-buffer (window-buffer window)
+      (max 1 (- (window-height window)
+		(if mode-line-format 1 0)
+		(if header-line-format 1 0))))))
+
 (defun one-window-p (&optional nomini all-frames)
-  "Return non-nil if the selected window is the only window (in its frame).
+  "Return non-nil if the selected window is the only window.
 Optional arg NOMINI non-nil means don't count the minibuffer
-even if it is active.
+even if it is active.  Otherwise, the minibuffer is counted
+when it is active.
 
 The optional arg ALL-FRAMES t means count windows on all frames.
 If it is `visible', count windows on all visible frames.
 ALL-FRAMES nil or omitted means count only the selected frame,
 plus the minibuffer it uses (which may be on another frame).
-If ALL-FRAMES is neither nil nor t, count only the selected frame."
+ALL-FRAMES 0 means count all windows in all visible or iconified frames.
+If ALL-FRAMES is anything else, count only the selected frame."
   (let ((base-window (selected-window)))
     (if (and nomini (eq base-window (minibuffer-window)))
 	(setq base-window (next-window base-window)))
     (eq base-window
 	(next-window base-window (if nomini 'arg) all-frames))))
+
+(defun window-current-scroll-bars (&optional window)
+  "Return the current scroll-bar settings in window WINDOW.
+Value is a cons (VERTICAL . HORIZONTAL) where VERTICAL specifies the
+current location of the vertical scroll-bars (left, right, or nil),
+and HORIZONTAL specifies the current location of the horizontal scroll
+bars (top, bottom, or nil)."
+  (let ((vert (nth 2 (window-scroll-bars window)))
+	(hor nil))
+    (when (or (eq vert t) (eq hor t))
+      (let ((fcsb (frame-current-scroll-bars
+		   (window-frame (or window (selected-window))))))
+	(if (eq vert t)
+	    (setq vert (car fcsb)))
+	(if (eq hor t)
+	    (setq hor (cdr fcsb)))))
+    (cons vert hor)))
 
 (defun walk-windows (proc &optional minibuf all-frames)
   "Cycle through all visible windows, calling PROC for each one.
@@ -122,19 +192,21 @@ Anything else means restrict to the selected frame."
 
 (defalias 'some-window 'get-window-with-predicate)
 
+;; This should probably be written in C (i.e., without using `walk-windows').
+(defun get-buffer-window-list (buffer &optional minibuf frame)
+  "Return list of all windows displaying BUFFER, or nil if none.
+BUFFER can be a buffer or a buffer name.
+See `walk-windows' for the meaning of MINIBUF and FRAME."
+  (let ((buffer (if (bufferp buffer) buffer (get-buffer buffer))) windows)
+    (walk-windows (function (lambda (window)
+			      (if (eq (window-buffer window) buffer)
+				  (setq windows (cons window windows)))))
+		  minibuf frame)
+    windows))
+
 (defun minibuffer-window-active-p (window)
   "Return t if WINDOW (a minibuffer window) is now active."
   (eq window (active-minibuffer-window)))
-
-(defmacro save-selected-window (&rest body)
-  "Execute BODY, then select the window that was selected before BODY.
-However, if that window has become dead, don't get an error,
-just refrain from switching to it."
-  `(let ((save-selected-window-window (selected-window)))
-     (unwind-protect
-	 (progn ,@body)
-       (if (window-live-p save-selected-window-window)
-	   (select-window save-selected-window-window)))))
 
 (defun count-windows (&optional minibuf)
    "Return the number of visible windows.
@@ -151,84 +223,242 @@ even if it is inactive."
 (defun window-safely-shrinkable-p (&optional window)
   "Non-nil if the WINDOW can be shrunk without shrinking other windows.
 If WINDOW is nil or omitted, it defaults to the currently selected window."
-  (save-selected-window
-    (when window (select-window window))
-    (or (and (not (eq window (frame-first-window)))
-	     (= (car (window-edges))
-		(car (window-edges (previous-window)))))
-	(= (car (window-edges))
-	   (car (window-edges (next-window)))))))
+  (with-selected-window (or window (selected-window))
+    (let ((edges (window-edges)))
+      (or (= (nth 2 edges) (nth 2 (window-edges (previous-window))))
+	  (= (nth 0 edges) (nth 0 (window-edges (next-window))))))))
 
-(defun balance-windows ()
-  "Make all visible windows the same height (approximately)."
-  (interactive)
-  (let ((count -1) levels newsizes size
-	;; Don't count the lines that are above the uppermost windows.
-	;; (These are the menu bar lines, if any.)
-	(mbl (nth 1 (window-edges (frame-first-window (selected-frame))))))
-    ;; Find all the different vpos's at which windows start,
-    ;; then count them.  But ignore levels that differ by only 1.
-    (save-window-excursion
-      (let (tops (prev-top -2))
-	(walk-windows (function (lambda (w)
-				  (setq tops (cons (nth 1 (window-edges w))
-						   tops))))
-		      'nomini)
-	(setq tops (sort tops '<))
-	(while tops
-	  (if (> (car tops) (1+ prev-top))
-	      (setq prev-top (car tops)
-		    count (1+ count)))
-	  (setq levels (cons (cons (car tops) count) levels))
-	  (setq tops (cdr tops)))
-	(setq count (1+ count))))
-    ;; Subdivide the frame into that many vertical levels.
-    (setq size (/ (- (frame-height) mbl) count))
-    (walk-windows (function
-		   (lambda (w)
-		     (select-window w)
-		     (let ((newtop (cdr (assq (nth 1 (window-edges))
-					      levels)))
-			   (newbot (or (cdr (assq (+ (window-height)
-						     (nth 1 (window-edges)))
-						  levels))
-				       count)))
-		       (setq newsizes
-			     (cons (cons w (* size (- newbot newtop)))
-				   newsizes)))))
-		  'nomini)
-    (walk-windows (function (lambda (w)
-			      (select-window w)
-			      (let ((newsize (cdr (assq w newsizes))))
-				(enlarge-window (- newsize
-						   (window-height))))))
-		  'nomini)))
 
-;;; I think this should be the default; I think people will prefer it--rms.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; `balance-windows' subroutines using `window-tree'
+
+;;; Translate from internal window tree format
+
+(defun bw-get-tree (&optional window-or-frame)
+  "Get a window split tree in our format.
+
+WINDOW-OR-FRAME must be nil, a frame, or a window.  If it is nil,
+then the whole window split tree for `selected-frame' is returned.
+If it is a frame, then this is used instead.  If it is a window,
+then the smallest tree containing that window is returned."
+  (when window-or-frame
+    (unless (or (framep window-or-frame)
+                (windowp window-or-frame))
+      (error "Not a frame or window: %s" window-or-frame)))
+  (let ((subtree (bw-find-tree-sub window-or-frame)))
+    (when subtree
+      (if (integerp subtree)
+	  nil
+	(bw-get-tree-1 subtree)))))
+
+(defun bw-get-tree-1 (split)
+  (if (windowp split)
+      split
+    (let ((dir (car split))
+          (edges (car (cdr split)))
+          (childs (cdr (cdr split))))
+      (list
+       (cons 'dir (if dir 'ver 'hor))
+       (cons 'b (nth 3 edges))
+       (cons 'r (nth 2 edges))
+       (cons 't (nth 1 edges))
+       (cons 'l (nth 0 edges))
+       (cons 'childs (mapcar #'bw-get-tree-1 childs))))))
+
+(defun bw-find-tree-sub (window-or-frame &optional get-parent)
+  (let* ((window (when (windowp window-or-frame) window-or-frame))
+         (frame (when (windowp window) (window-frame window)))
+         (wt (car (window-tree frame))))
+    (when (< 1 (length (window-list frame 0)))
+      (if window
+          (bw-find-tree-sub-1 wt window get-parent)
+        wt))))
+
+(defun bw-find-tree-sub-1 (tree win &optional get-parent)
+  (unless (windowp win) (error "Not a window: %s" win))
+  (if (memq win tree)
+      (if get-parent
+          get-parent
+        tree)
+    (let ((childs (cdr (cdr tree)))
+          child
+          subtree)
+      (while (and childs (not subtree))
+        (setq child (car childs))
+        (setq childs (cdr childs))
+        (when (and child (listp child))
+          (setq subtree (bw-find-tree-sub-1 child win get-parent))))
+      (if (integerp subtree)
+          (progn
+            (if (= 1 subtree)
+                tree
+              (1- subtree)))
+        subtree
+        ))))
+
+;;; Window or object edges
+
+(defun bw-l (obj)
+  "Left edge of OBJ."
+  (if (windowp obj) (nth 0 (window-edges obj)) (cdr (assq 'l obj))))
+(defun bw-t (obj)
+  "Top edge of OBJ."
+  (if (windowp obj) (nth 1 (window-edges obj)) (cdr (assq 't obj))))
+(defun bw-r (obj)
+  "Right edge of OBJ."
+  (if (windowp obj) (nth 2 (window-edges obj)) (cdr (assq 'r obj))))
+(defun bw-b (obj)
+  "Bottom edge of OBJ."
+  (if (windowp obj) (nth 3 (window-edges obj)) (cdr (assq 'b obj))))
+
+;;; Split directions
+
+(defun bw-dir (obj)
+  "Return window split tree direction if OBJ.
+If OBJ is a window return 'both.  If it is a window split tree
+then return its direction."
+  (if (symbolp obj)
+      obj
+    (if (windowp obj)
+        'both
+      (let ((dir (cdr (assq 'dir obj))))
+        (unless (memq dir '(hor ver both))
+          (error "Can't find dir in %s" obj))
+        dir))))
+
+(defun bw-eqdir (obj1 obj2)
+  "Return t if window split tree directions are equal.
+OBJ1 and OBJ2 should be either windows or window split trees in
+our format.  The directions returned by `bw-dir' are compared and
+t is returned if they are `eq' or one of them is 'both."
+  (let ((dir1 (bw-dir obj1))
+        (dir2 (bw-dir obj2)))
+    (or (eq dir1 dir2)
+        (eq dir1 'both)
+        (eq dir2 'both))))
+
+;;; Building split tree
+
+(defun bw-refresh-edges (obj)
+  "Refresh the edge information of OBJ and return OBJ."
+  (unless (windowp obj)
+    (let ((childs (cdr (assq 'childs obj)))
+          (ol 1000)
+          (ot 1000)
+          (or -1)
+          (ob -1))
+      (dolist (o childs)
+        (when (> ol (bw-l o)) (setq ol (bw-l o)))
+        (when (> ot (bw-t o)) (setq ot (bw-t o)))
+        (when (< or (bw-r o)) (setq or (bw-r o)))
+        (when (< ob (bw-b o)) (setq ob (bw-b o))))
+      (setq obj (delq 'l obj))
+      (setq obj (delq 't obj))
+      (setq obj (delq 'r obj))
+      (setq obj (delq 'b obj))
+      (add-to-list 'obj (cons 'l ol))
+      (add-to-list 'obj (cons 't ot))
+      (add-to-list 'obj (cons 'r or))
+      (add-to-list 'obj (cons 'b ob))
+      ))
+  obj)
+
+;;; Balance windows
+
+(defun balance-windows (&optional window-or-frame)
+  "Make windows the same heights or widths in window split subtrees.
+
+When called non-interactively WINDOW-OR-FRAME may be either a
+window or a frame.  It then balances the windows on the implied
+frame.  If the parameter is a window only the corresponding window
+subtree is balanced."
+  (interactive)
+  (let (
+        (wt (bw-get-tree window-or-frame))
+        (w)
+        (h)
+        (tried-sizes)
+        (last-sizes)
+        (windows (window-list nil 0))
+        (counter 0))
+    (when wt
+      (while (not (member last-sizes tried-sizes))
+        (when last-sizes (setq tried-sizes (cons last-sizes tried-sizes)))
+        (setq last-sizes (mapcar (lambda (w)
+                                   (window-edges w))
+                                 windows))
+        (when (eq 'hor (bw-dir wt))
+          (setq w (- (bw-r wt) (bw-l wt))))
+        (when (eq 'ver (bw-dir wt))
+          (setq h (- (bw-b wt) (bw-t wt))))
+        (bw-balance-sub wt w h)))))
+
+(defun bw-adjust-window (window delta horizontal)
+  "Wrapper around `adjust-window-trailing-edge' with error checking.
+Arguments WINDOW, DELTA and HORIZONTAL are passed on to that function."
+  (condition-case err
+      (adjust-window-trailing-edge window delta horizontal)
+    (error
+     ;;(message "adjust: %s" (error-message-string err))
+     )))
+
+(defun bw-balance-sub (wt w h)
+  (setq wt (bw-refresh-edges wt))
+  (unless w (setq w (- (bw-r wt) (bw-l wt))))
+  (unless h (setq h (- (bw-b wt) (bw-t wt))))
+  (if (windowp wt)
+      (progn
+        (when w
+          (let ((dw (- w (- (bw-r wt) (bw-l wt)))))
+            (when (/= 0 dw)
+                (bw-adjust-window wt dw t))))
+        (when h
+          (let ((dh (- h (- (bw-b wt) (bw-t wt)))))
+            (when (/= 0 dh)
+              (bw-adjust-window wt dh nil)))))
+    (let* ((childs (cdr (assq 'childs wt)))
+           (lastchild (car (last childs)))
+           (cw (when w (/ w (if (bw-eqdir 'hor wt) (length childs) 1))))
+           (ch (when h (/ h (if (bw-eqdir 'ver wt) (length childs) 1)))))
+      (dolist (c childs)
+          (bw-balance-sub c cw ch)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; I think this should be the default; I think people will prefer it--rms.
 (defcustom split-window-keep-point t
-  "*If non-nil, split windows keeps the original point in both children.
+  "*If non-nil, \\[split-window-vertically] keeps the original point \
+in both children.
 This is often more convenient for editing.
 If nil, adjust point in each of the two windows to minimize redisplay.
-This is convenient on slow terminals, but point can move strangely."
+This is convenient on slow terminals, but point can move strangely.
+
+This option applies only to `split-window-vertically' and
+functions that call it.  `split-window' always keeps the original
+point in both children."
   :type 'boolean
   :group 'windows)
 
 (defun split-window-vertically (&optional arg)
   "Split current window into two windows, one above the other.
 The uppermost window gets ARG lines and the other gets the rest.
-Negative arg means select the size of the lowermost window instead.
+Negative ARG means select the size of the lowermost window instead.
 With no argument, split equally or close to it.
 Both windows display the same buffer now current.
 
 If the variable `split-window-keep-point' is non-nil, both new windows
 will get the same value of point as the current window.  This is often
-more convenient for editing.
+more convenient for editing.  The upper window is the selected window.
 
-Otherwise, we chose window starts so as to minimize the amount of
+Otherwise, we choose window starts so as to minimize the amount of
 redisplay; this is convenient on slow terminals.  The new selected
 window is the one that the current value of point appears in.  The
 value of point can change if the text around point is hidden by the
-new mode line."
+new mode line.
+
+Regardless of the value of `split-window-keep-point', the upper
+window is the original one and the return value is the new, lower
+window."
   (interactive "P")
   (let ((old-w (selected-window))
 	(old-point (point))
@@ -265,22 +495,24 @@ new mode line."
 (defvar view-return-to-alist)
 
 (defun split-window-save-restore-data (new-w old-w)
-  (save-excursion
-    (set-buffer (window-buffer))
+  (with-current-buffer (window-buffer)
     (if view-mode
 	(let ((old-info (assq old-w view-return-to-alist)))
-	  (setq view-return-to-alist
-		(cons (cons new-w (cons (and old-info (car (cdr old-info))) t))
-		      view-return-to-alist))))
+	  (if old-info
+	      (push (cons new-w (cons (car (cdr old-info)) t))
+		    view-return-to-alist))))
     new-w))
 
 (defun split-window-horizontally (&optional arg)
   "Split current window into two windows side by side.
 This window becomes the leftmost of the two, and gets ARG columns.
-Negative arg means select the size of the rightmost window instead.
+Negative ARG means select the size of the rightmost window instead.
 The argument includes the width of the window's scroll bar; if there
 are no scroll bars, it includes the width of the divider column
-to the window's right, if any.  No arg means split equally."
+to the window's right, if any.  No ARG means split equally.
+
+The original, leftmost window remains selected.
+The return value is the new, rightmost window."
   (interactive "P")
   (let ((old-w (selected-window))
 	(size (and arg (prefix-numeric-value arg))))
@@ -301,7 +533,11 @@ the height exactly, but attempts to be conservative, by allocating more
 lines than are actually needed in the case where some error may be present."
   (let ((delta (- height (window-text-height window))))
     (unless (zerop delta)
-      (let ((window-min-height 1))
+      ;; Setting window-min-height to a value like 1 can lead to very
+      ;; bizarre displays because it also allows Emacs to make *other*
+      ;; windows 1-line tall, which means that there's no more space for
+      ;; the modeline.
+      (let ((window-min-height (min 2 height))) ;One text line plus a modeline.
 	(if (and window (not (eq window (selected-window))))
 	    (save-selected-window
 	      (select-window window)
@@ -321,20 +557,13 @@ lines than are actually needed in the case where some error may be present."
 
 (defun window-buffer-height (window)
   "Return the height (in screen lines) of the buffer that WINDOW is displaying."
-  (save-excursion
-    (set-buffer (window-buffer window))
-    (goto-char (point-min))
-    (let ((ignore-final-newline
-           ;; If buffer ends with a newline, ignore it when counting height
-           ;; unless point is after it.
-           (and (not (eobp)) (eq ?\n (char-after (1- (point-max)))))))
-      (+ 1 (nth 2 (compute-motion (point-min)
-                                  '(0 . 0)
-                                  (- (point-max) (if ignore-final-newline 1 0))
-                                  (cons 0 100000000)
-                                  (window-width window)
-                                  nil
-                                  window))))))
+  (with-current-buffer (window-buffer window)
+    (max 1
+	 (count-screen-lines (point-min) (point-max)
+			     ;; If buffer ends with a newline, ignore it when
+			     ;; counting height unless point is after it.
+			     (eobp)
+			     window))))
 
 (defun count-screen-lines (&optional beg end count-final-newline window)
   "Return the number of screen lines in the region.
@@ -373,7 +602,7 @@ in some window."
         (1+ (vertical-motion (buffer-size) window))))))
 
 (defun fit-window-to-buffer (&optional window max-height min-height)
-  "Make WINDOW the right size to display its contents exactly.
+  "Make WINDOW the right height to display its contents exactly.
 If WINDOW is omitted or nil, it defaults to the selected window.
 If the optional argument MAX-HEIGHT is supplied, it is the maximum height
   the window is allowed to be, defaulting to the frame height.
@@ -464,9 +693,8 @@ If WINDOW is omitted or nil, it defaults to the selected window.
 Do not shrink to less than `window-min-height' lines.
 Do nothing if the buffer contains more lines than the present window height,
 or if some of the window's contents are scrolled out of view,
-or if shrinking this window would also shrink another window.
-or if the window is the only window of its frame.
-Return non-nil if the window was shrunk."
+or if shrinking this window would also shrink another window,
+or if the window is the only window of its frame."
   (interactive)
   (when (null window)
     (setq window (selected-window)))
@@ -483,22 +711,37 @@ Return non-nil if the window was shrunk."
 		       (not (eq frame (window-frame mini-window)))
 		       (< (nth 3 edges)
 			  (nth 1 (window-edges mini-window)))
-		       (> (nth 1 edges) 
+		       (> (nth 1 edges)
 			  (frame-parameter frame 'menu-bar-lines))))))
 	(fit-window-to-buffer window (window-height window)))))
 
 (defun kill-buffer-and-window ()
   "Kill the current buffer and delete the selected window."
   (interactive)
-  (if (yes-or-no-p (format "Kill buffer `%s'? " (buffer-name)))
-      (let ((buffer (current-buffer)))
-	(delete-window (selected-window))
-	(kill-buffer buffer))
-    (error "Aborted")))
+  (let ((window-to-delete (selected-window))
+	(buffer-to-kill (current-buffer))
+	(delete-window-hook (lambda ()
+			      (condition-case nil
+				  (delete-window)
+				(error nil)))))
+    (unwind-protect
+	(progn
+	  (add-hook 'kill-buffer-hook delete-window-hook t t)
+	  (if (kill-buffer (current-buffer))
+	      ;; If `delete-window' failed before, we rerun it to regenerate
+	      ;; the error so it can be seen in the echo area.
+	      (when (eq (selected-window) window-to-delete)
+		(delete-window))))
+      ;; If the buffer is not dead for some reason (probably because
+      ;; of a `quit' signal), remove the hook again.
+      (condition-case nil
+	  (with-current-buffer buffer-to-kill
+	    (remove-hook 'kill-buffer-hook delete-window-hook t))
+	(error nil)))))
 
 (defun quit-window (&optional kill window)
   "Quit the current buffer.  Bury it, and maybe delete the selected frame.
-\(The frame is deleted if it is contains a dedicated window for the buffer.)
+\(The frame is deleted if it contains a dedicated window for the buffer.)
 With a prefix argument, kill the buffer instead.
 
 Noninteractively, if KILL is non-nil, then kill the current buffer,
@@ -542,6 +785,144 @@ and the buffer that is killed or buried is the one in that window."
     ;; Maybe get rid of the window.
     (and window (not window-handled) (not window-solitary)
 	 (delete-window window))))
+
+(defvar mouse-autoselect-window-timer nil
+  "Timer used by delayed window autoselection.")
+
+(defvar mouse-autoselect-window-position nil
+  "Last mouse position recorded by delayed window autoselection.")
+
+(defvar mouse-autoselect-window-window nil
+  "Last window recorded by delayed window autoselection.")
+
+(defvar mouse-autoselect-window-state nil
+  "When non-nil, special state of delayed window autoselection.
+Possible values are `suspend' \(suspend autoselection after a menu or
+scrollbar interaction\) and `select' \(the next invocation of
+'handle-select-window' shall select the window immediately\).")
+
+(defun mouse-autoselect-window-cancel (&optional force)
+  "Cancel delayed window autoselection.
+Optional argument FORCE means cancel unconditionally."
+  (unless (and (not force)
+	       ;; Don't cancel while the user drags a scroll bar.
+	       (eq this-command 'scroll-bar-toolkit-scroll)
+	       (memq (nth 4 (event-end last-input-event))
+		     '(handle end-scroll)))
+    (setq mouse-autoselect-window-state nil)
+    (when (timerp mouse-autoselect-window-timer)
+      (cancel-timer mouse-autoselect-window-timer))
+    (remove-hook 'pre-command-hook 'mouse-autoselect-window-cancel)))
+
+(defun mouse-autoselect-window-start (mouse-position &optional window suspend)
+  "Start delayed window autoselection.
+MOUSE-POSITION is the last position where the mouse was seen as returned
+by `mouse-position'.  Optional argument WINDOW non-nil denotes the
+window where the mouse was seen.  Optional argument SUSPEND non-nil
+means suspend autoselection."
+  ;; Record values for MOUSE-POSITION, WINDOW, and SUSPEND.
+  (setq mouse-autoselect-window-position mouse-position)
+  (when window (setq mouse-autoselect-window-window window))
+  (setq mouse-autoselect-window-state (when suspend 'suspend))
+  ;; Install timer which runs `mouse-autoselect-window-select' after
+  ;; `mouse-autoselect-window' seconds.
+  (setq mouse-autoselect-window-timer
+	(run-at-time
+	 (abs mouse-autoselect-window) nil 'mouse-autoselect-window-select)))
+
+(defun mouse-autoselect-window-select ()
+  "Select window with delayed window autoselection.
+If the mouse position has stabilized in a non-selected window, select
+that window.  The minibuffer window is selected iff the minibuffer is
+active.  This function is run by `mouse-autoselect-window-timer'."
+  (condition-case nil
+      (let* ((mouse-position (mouse-position))
+	     (window
+	      (condition-case nil
+		  (window-at (cadr mouse-position) (cddr mouse-position)
+			     (car mouse-position))
+		(error nil))))
+	(cond
+	 ((or (menu-or-popup-active-p)
+	      (and window
+		   (not (coordinates-in-window-p (cdr mouse-position) window))))
+	  ;; A menu / popup dialog is active or the mouse is on the scroll-bar
+	  ;; of WINDOW, temporarily suspend delayed autoselection.
+	  (mouse-autoselect-window-start mouse-position nil t))
+	 ((eq mouse-autoselect-window-state 'suspend)
+	  ;; Delayed autoselection was temporarily suspended, reenable it.
+	  (mouse-autoselect-window-start mouse-position))
+	 ((and window (not (eq window (selected-window)))
+	       (or (not (numberp mouse-autoselect-window))
+		   (and (> mouse-autoselect-window 0)
+			;; If `mouse-autoselect-window' is positive, select
+			;; window if the window is the same as before.
+			(eq window mouse-autoselect-window-window))
+		   ;; Otherwise select window iff the mouse is at the same
+		   ;; position as before.  Observe that the first test after
+		   ;; starting autoselection usually fails since the value of
+		   ;; `mouse-autoselect-window-position' recorded there is the
+		   ;; position where the mouse has entered the new window and
+		   ;; not necessarily where the mouse has stopped moving.
+		   (equal mouse-position mouse-autoselect-window-position))
+	       ;; The minibuffer is a candidate window iff it's active.
+	       (or (not (window-minibuffer-p window))
+		   (eq window (active-minibuffer-window))))
+	  ;; Mouse position has stabilized in non-selected window: Cancel
+	  ;; delayed autoselection and try to select that window.
+	  (mouse-autoselect-window-cancel t)
+	  ;; Select window where mouse appears unless the selected window is the
+	  ;; minibuffer.  Use `unread-command-events' in order to execute pre-
+	  ;; and post-command hooks and trigger idle timers.  To avoid delaying
+	  ;; autoselection again, set `mouse-autoselect-window-state'."
+	  (unless (window-minibuffer-p (selected-window))
+	    (setq mouse-autoselect-window-state 'select)
+	    (setq unread-command-events
+		  (cons (list 'select-window (list window))
+			unread-command-events))))
+	 ((or (and window (eq window (selected-window)))
+	      (not (numberp mouse-autoselect-window))
+	      (equal mouse-position mouse-autoselect-window-position))
+	  ;; Mouse position has either stabilized in the selected window or at
+	  ;; `mouse-autoselect-window-position': Cancel delayed autoselection.
+	  (mouse-autoselect-window-cancel t))
+	 (t
+	  ;; Mouse position has not stabilized yet, resume delayed
+	  ;; autoselection.
+	  (mouse-autoselect-window-start mouse-position window))))
+    (error nil)))
+
+(defun handle-select-window (event)
+  "Handle select-window events."
+  (interactive "e")
+  (let ((window (posn-window (event-start event))))
+    (when (and (window-live-p window)
+	       ;; Don't switch if we're currently in the minibuffer.
+	       ;; This tries to work around problems where the minibuffer gets
+	       ;; unselected unexpectedly, and where you then have to move
+	       ;; your mouse all the way down to the minibuffer to select it.
+	       (not (window-minibuffer-p (selected-window)))
+	       ;; Don't switch to a minibuffer window unless it's active.
+	       (or (not (window-minibuffer-p window))
+		   (minibuffer-window-active-p window)))
+      (unless (and (numberp mouse-autoselect-window)
+		   (not (zerop mouse-autoselect-window))
+		   (not (eq mouse-autoselect-window-state 'select))
+		   (progn
+		     ;; Cancel any delayed autoselection.
+		     (mouse-autoselect-window-cancel t)
+		     ;; Start delayed autoselection from current mouse position
+		     ;; and window.
+		     (mouse-autoselect-window-start (mouse-position) window)
+		     ;; Executing a command cancels delayed autoselection.
+		     (add-hook
+		      'pre-command-hook 'mouse-autoselect-window-cancel)))
+	;; Reset state of delayed autoselection.
+	(setq mouse-autoselect-window-state nil)
+	(when mouse-autoselect-window
+	  ;; Run `mouse-leave-buffer-hook' when autoselecting window.
+	  (run-hooks 'mouse-leave-buffer-hook))
+	(select-window window)))))
 
 (define-key ctl-x-map "2" 'split-window-vertically)
 (define-key ctl-x-map "3" 'split-window-horizontally)
@@ -551,4 +932,5 @@ and the buffer that is killed or buried is the one in that window."
 (define-key ctl-x-map "+" 'balance-windows)
 (define-key ctl-x-4-map "0" 'kill-buffer-and-window)
 
+;; arch-tag: b508dfcc-c353-4c37-89fa-e773fe10cea9
 ;;; window.el ends here

@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.cpu.mk,v 1.45 2004/10/19 17:25:33 obrien Exp $
+# $FreeBSD: src/share/mk/bsd.cpu.mk,v 1.48 2005/05/24 21:24:40 cognet Exp $
 
 # Set default CPU compile flags and baseline CPUTYPE for each arch.  The
 # compile flags must support the minimum CPU type for each architecture but
@@ -100,9 +100,6 @@ _ICC_CPUCFLAGS = -tpp5
 .  else
 _ICC_CPUCFLAGS =
 .  endif # ICC on 'i386'
-.  if ${CPUTYPE} == "i386"
-CFLAGS += -DI386_CPU
-.  endif
 . elif ${MACHINE_ARCH} == "alpha"
 _CPUCFLAGS = -mcpu=${CPUTYPE}
 . elif ${MACHINE_ARCH} == "amd64"
@@ -111,7 +108,7 @@ _CPUCFLAGS = -march=${CPUTYPE}
 .  if ${CPUTYPE} == "xscale"
 #XXX: gcc doesn't seem to like -mcpu=xscale, and dies while rebuilding itself
 #_CPUCFLAGS = -mcpu=xscale
-_CPUCFLAGS = -D__XSCALE__
+_CPUCFLAGS = -march=armv5te -D__XSCALE__
 .  else
 _CPUCFLAGS = -mcpu=${CPUTYPE}
 .  endif
@@ -168,10 +165,11 @@ MACHINE_CPU = ev4
 .  endif
 . elif ${MACHINE_ARCH} == "amd64"
 .  if ${CPUTYPE} == "opteron" || ${CPUTYPE} == "athlon64" || ${CPUTYPE} == "k8"
-MACHINE_CPU = amd64 k8 athlon-mp athlon k7 3dnow sse2 sse mmx k6 k5 i586 i486 i386
+MACHINE_CPU = k8 3dnow
 .  elif ${CPUTYPE} == "nocona"
-MACHINE_CPU = sse3 sse2 sse mmx
+MACHINE_CPU = sse3
 .  endif
+MACHINE_CPU += amd64 sse2 sse mmx
 . elif ${MACHINE_ARCH} == "ia64"
 .  if ${CPUTYPE} == "itanium"
 MACHINE_CPU = itanium

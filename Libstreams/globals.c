@@ -33,8 +33,8 @@
 #import <stddef.h>
 
 /* buffer and curr-ptr for stack allocation of error buffer */
-char *_NXStreamsUnused1 = NULL;
-int _NXStreamsUnused2 = 0;
+__private_extern__ char *_NXStreamsUnused1 = NULL;
+__private_extern__ int _NXStreamsUnused2 = 0;
 
 /* Handles RAISE's with nowhere to longjmp to */
-void (*_NXUncaughtExceptionHandler)() = NULL;
+__private_extern__ void (*_NXUncaughtExceptionHandler)() = NULL;

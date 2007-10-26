@@ -6,7 +6,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,7 +19,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: memdebug.c,v 1.46 2004/10/13 19:11:46 giva Exp $
+ * $Id: memdebug.c,v 1.52 2007-05-15 00:36:56 danf Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -61,25 +61,33 @@ struct memdebug {
  */
 
 #define logfile curl_debuglogfile
-FILE *curl_debuglogfile;
-static bool memlimit; /* enable memory limit */
-static long memsize;  /* set number of mallocs allowed */
+FILE *curl_debuglogfile = NULL;
+static bool memlimit = FALSE; /* enable memory limit */
+static long memsize = 0;  /* set number of mallocs allowed */
 
 /* this sets the log file name */
 void curl_memdebug(const char *logname)
 {
-  if(logname)
-    logfile = fopen(logname, "w");
-  else
-    logfile = stderr;
+  if (!logfile) {
+    if(logname)
+      logfile = fopen(logname, "w");
+    else
+      logfile = stderr;
+#ifdef MEMDEBUG_LOG_SYNC
+    /* Flush the log file after every line so the log isn't lost in a crash */
+    setvbuf(logfile, (char *)NULL, _IOLBF, 0);
+#endif
+  }
 }
 
 /* This function sets the number of malloc() calls that should return
    successfully! */
 void curl_memlimit(long limit)
 {
-  memlimit = TRUE;
-  memsize = limit;
+  if (!memlimit) {
+    memlimit = TRUE;
+    memsize = limit;
+  }
 }
 
 /* returns TRUE if this isn't allowed! */
@@ -95,7 +103,7 @@ static bool countcheck(const char *func, int line, const char *source)
       if(source)
         fprintf(stderr, "LIMIT %s:%d %s reached memlimit\n",
                 source, line, func);
-      errno = ENOMEM;
+      SET_ERRNO(ENOMEM);
       return TRUE; /* RETURN ERROR! */
     }
     else
@@ -166,7 +174,7 @@ char *curl_dostrdup(const char *str, int line, const char *source)
   char *mem;
   size_t len;
 
-  curlassert(str != NULL);
+  DEBUGASSERT(str != NULL);
 
   if(countcheck("strdup", line, source))
     return NULL;
@@ -201,7 +209,7 @@ void *curl_dorealloc(void *ptr, size_t wantedsize,
 
   mem=(struct memdebug *)(Curl_crealloc)(mem, size);
   if(logfile)
-    fprintf(logfile, "MEM %s:%d realloc(0x%x, %zd) = %p\n",
+    fprintf(logfile, "MEM %s:%d realloc(%p, %zd) = %p\n",
             source, line, ptr, wantedsize, mem?mem->mem:NULL);
 
   if(mem) {
@@ -216,7 +224,7 @@ void curl_dofree(void *ptr, int line, const char *source)
 {
   struct memdebug *mem;
 
-  curlassert(ptr != NULL);
+  DEBUGASSERT(ptr != NULL);
 
   mem = (struct memdebug *)((char *)ptr - offsetof(struct memdebug, mem));
 
@@ -276,7 +284,7 @@ int curl_fclose(FILE *file, int line, const char *source)
 {
   int res;
 
-  curlassert(file != NULL);
+  DEBUGASSERT(file != NULL);
 
   res=(fclose)(file);
   if(logfile)

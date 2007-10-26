@@ -1,7 +1,7 @@
 " Vim filetype plugin file
 " Language:	man
 " Maintainer:	Nam SungHyun <namsh@kldp.org>
-" Last Change:	2003 Mar 25
+" Last Change:	2006 Mar 28
 
 " To make the ":Man" command available before editing a manual page, source
 " this script from your startup vimrc file.
@@ -23,7 +23,7 @@ if &filetype == "man"
     if !hasmapto('<Plug>ManBS')
       nmap <buffer> <LocalLeader>h <Plug>ManBS
     endif
-    nnoremap <buffer> <Plug>ManBS :%s/.\b//g<CR>:set nomod<CR>''
+    nnoremap <buffer> <Plug>ManBS :%s/.\b//g<CR>:setl nomod<CR>''
 
     nnoremap <buffer> <c-]> :call <SID>PreGetPage(v:count)<CR>
     nnoremap <buffer> <c-t> :call <SID>PopPage()<CR>
@@ -32,7 +32,7 @@ if &filetype == "man"
 endif
 
 if exists(":Man") != 2
-  com -nargs=1 Man call s:GetPage(<f-args>)
+  com -nargs=+ Man call s:GetPage(<f-args>)
   nmap <Leader>K :call <SID>PreGetPage(0)<CR>
 endif
 
@@ -41,7 +41,7 @@ if !exists("s:man_tag_depth")
 
 let s:man_tag_depth = 0
 
-if system('uname -s') =~ "SunOS" && system('uname -r') =~ "^5"
+if !has("win32") && $OSTYPE !~ 'cygwin\|linux' && system('uname -s') =~ "SunOS" && system('uname -r') =~ "^5"
   let s:man_sect_arg = "-s"
   let s:man_find_arg = "-l"
 else
@@ -137,9 +137,9 @@ func <SID>GetPage(...)
   endif
   silent exec "edit $HOME/".page.".".sect."~"
   " Avoid warning for editing the dummy file twice
-  set buftype=nofile noswapfile
+  setl buftype=nofile noswapfile
 
-  set ma
+  setl ma
   silent exec "norm 1GdG"
   let $MANWIDTH = winwidth(0)
   silent exec "r!/usr/bin/man ".s:GetCmdArg(sect, page)." | col -b"

@@ -1,4 +1,4 @@
-/*	$OpenBSD: gen_subs.c,v 1.8 1997/09/01 18:29:51 deraadt Exp $	*/
+/*	$OpenBSD: gen_subs.c,v 1.17 2003/06/13 17:51:14 millert Exp $	*/
 /*	$NetBSD: gen_subs.c,v 1.5 1995/03/21 09:07:26 cgd Exp $	*/
 
 /*-
@@ -17,11 +17,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -40,9 +36,9 @@
 
 #ifndef lint
 #if 0
-static char sccsid[] = "@(#)gen_subs.c	8.1 (Berkeley) 5/31/93";
+static const char sccsid[] = "@(#)gen_subs.c	8.1 (Berkeley) 5/31/93";
 #else
-static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: gen_subs.c,v 1.8 1997/09/01 18:29:51 deraadt Exp $";
+static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: gen_subs.c,v 1.17 2003/06/13 17:51:14 millert Exp $";
 #endif
 #endif /* not lint */
 
@@ -56,6 +52,7 @@ static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: gen_subs.c,v 1.8 19
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vis.h>
 #include "pax.h"
 #include "extern.h"
 
@@ -71,53 +68,24 @@ static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: gen_subs.c,v 1.8 19
 #define SIXMONTHS	 ((DAYSPERNYEAR / 2) * SECSPERDAY)
 #define CURFRMT		"%b %e %H:%M"
 #define OLDFRMT		"%b %e  %Y"
-#ifndef UT_NAMESIZE
-#define UT_NAMESIZE	8
-#endif
-#define UT_GRPSIZE	6
+#define NAME_WIDTH	8
 
 /*
- * ls_list()
- *	list the members of an archive in ls format
+ * format_date
+ *       format date of file for printing
  */
 
-#ifdef __STDC__
-void
-ls_list(register ARCHD *arcn, time_t now, FILE *fp)
-#else
-void
-ls_list(arcn, now, fp)
-	register ARCHD *arcn;
-	time_t now;
-	FILE *fp;
-#endif
+static void
+format_date(char * f_date, time_t file_time, time_t current)
 {
-	register struct stat *sbp;
-	char f_mode[MODELEN];
-	char f_date[DATELEN];
-	char *timefrmt;
-
-	/*
-	 * if not verbose, just print the file name
-	 */
-	if (!vflag) {
-		(void)fprintf(fp, "%s\n", arcn->name);
-		(void)fflush(fp);
-		return;
-	}
-
-	/*
-	 * user wants long mode
-	 */
-	sbp = &(arcn->sb);
-	strmode(sbp->st_mode, f_mode);
+	const char *timefrmt;
 
 	if (ltmfrmt == NULL) {
 		/*
-		 * no locale specified format. time format based on age
-		 * compared to the time pax was started.
+		 * no locale specified format. 
 		 */
-		if ((sbp->st_mtime + SIXMONTHS) <= now)
+		/* use the same format that ls -l uses */
+		if ((file_time + SIXMONTHS) <= current || file_time > current)
 			timefrmt = OLDFRMT;
 		else
 			timefrmt = CURFRMT;
@@ -125,26 +93,71 @@ ls_list(arcn, now, fp)
 		timefrmt = ltmfrmt;
 
 	/*
+	 * convert time to string for printing
+	 */
+	if (strftime(f_date,DATELEN,timefrmt,localtime((const time_t *)&(file_time))) == 0)
+		*f_date = '\0';
+}
+
+/*
+ * ls_list()
+ *	list the members of an archive in ls format
+ */
+
+void
+ls_list(ARCHD *arcn, time_t now, FILE *fp)
+{
+	struct stat *sbp;
+	char f_mode[MODELEN];
+	char f_date[DATELEN];
+	int term;
+
+	term = zeroflag ? '\0' : '\n';	/* path termination character */
+
+	/*
+	 * if not verbose, just print the file name
+	 */
+	if (!vflag) {
+		if (zeroflag)
+			(void)fputs(arcn->name, fp);
+		else
+			safe_print(arcn->name, fp);
+		(void)putc(term, fp);
+		(void)fflush(fp);
+		return;
+	}
+
+	if (pax_list_opt_format) {
+		pax_format_list_output(arcn, now, fp, term);
+		return;
+	}
+	/*
+	 * user wants long mode
+	 */
+	sbp = &(arcn->sb);
+	strmode(sbp->st_mode, f_mode);
+
+	format_date(&f_date[0], sbp->st_mtime, now);
+
+	/*
 	 * print file mode, link count, uid, gid and time
 	 */
-	if (strftime(f_date,DATELEN,timefrmt,localtime((const time_t *)&(sbp->st_mtime))) == 0)
-		f_date[0] = '\0';
-	(void)fprintf(fp, "%s%2u %-*s %-*s ", f_mode, sbp->st_nlink,
-		UT_NAMESIZE, name_uid(sbp->st_uid, 1), UT_GRPSIZE,
-		name_gid(sbp->st_gid, 1));
+	(void)fprintf(fp, "%s%2u %-*.*s %-*.*s ", f_mode, sbp->st_nlink,
+		NAME_WIDTH, UT_NAMESIZE, name_uid(sbp->st_uid, 1),
+		NAME_WIDTH, UT_NAMESIZE, name_gid(sbp->st_gid, 1));
 
 	/*
 	 * print device id's for devices, or sizes for other nodes
 	 */
 	if ((arcn->type == PAX_CHR) || (arcn->type == PAX_BLK))
-#		ifdef NET2_STAT
+#		ifdef LONG_OFF_T
 		(void)fprintf(fp, "%4u,%4u ", MAJOR(sbp->st_rdev),
 #		else
 		(void)fprintf(fp, "%4lu,%4lu ", (unsigned long)MAJOR(sbp->st_rdev),
 #		endif
 		    (unsigned long)MINOR(sbp->st_rdev));
 	else {
-#		ifdef NET2_STAT
+#		ifdef LONG_OFF_T
 		(void)fprintf(fp, "%9lu ", sbp->st_size);
 #		else
 		(void)fprintf(fp, "%9qu ", sbp->st_size);
@@ -154,88 +167,56 @@ ls_list(arcn, now, fp)
 	/*
 	 * print name and link info for hard and soft links
 	 */
-	(void)fprintf(fp, "%s %s", f_date, arcn->name);
-	if ((arcn->type == PAX_HLK) || (arcn->type == PAX_HRG))
-		(void)fprintf(fp, " == %s\n", arcn->ln_name);
-	else if (arcn->type == PAX_SLK)
-		(void)fprintf(fp, " => %s\n", arcn->ln_name);
-	else
-		(void)putc('\n', fp);
+	(void)fputs(f_date, fp);
+	(void)putc(' ', fp);
+	safe_print(arcn->name, fp);
+	if ((arcn->type == PAX_HLK) || (arcn->type == PAX_HRG)) {
+		fputs(" == ", fp);
+		safe_print(arcn->ln_name, fp);
+	} else if (arcn->type == PAX_SLK) {
+		fputs(" => ", fp);
+		safe_print(arcn->ln_name, fp);
+	}
+	(void)putc(term, fp);
 	(void)fflush(fp);
 	return;
 }
 
 /*
  * tty_ls()
- * 	print a short summary of file to tty.
+ *	print a short summary of file to tty.
  */
 
-#ifdef __STDC__
 void
-ls_tty(register ARCHD *arcn)
-#else
-void
-ls_tty(arcn)
-	register ARCHD *arcn;
-#endif
+ls_tty(ARCHD *arcn)
 {
 	char f_date[DATELEN];
 	char f_mode[MODELEN];
-	char *timefrmt;
 
-	if (ltmfrmt == NULL) {
-		/*
-		 * no locale specified format
-		 */
-		if ((arcn->sb.st_mtime + SIXMONTHS) <= time(NULL))
-			timefrmt = OLDFRMT;
-		else
-			timefrmt = CURFRMT;
-	} else
-		timefrmt = ltmfrmt;
+	format_date(&f_date[0], arcn->sb.st_mtime, time(NULL));
 
-	/*
-	 * convert time to string, and print
-	 */
-	if (strftime(f_date, DATELEN, timefrmt,
-	    localtime((const time_t *)&(arcn->sb.st_mtime))) == 0)
-		f_date[0] = '\0';
 	strmode(arcn->sb.st_mode, f_mode);
 	tty_prnt("%s%s %s\n", f_mode, f_date, arcn->name);
 	return;
 }
 
-/*
- * l_strncpy()
- *	copy src to dest up to len chars (stopping at first '\0').
- *	when src is shorter than len, pads to len with '\0'. 
- * Return:
- *	number of chars copied. (Note this is a real performance win over
- *	doing a strncpy(), a strlen(), and then a possible memset())
- */
-
-#ifdef __STDC__
-int
-l_strncpy(register char *dest, register char *src, int len)
-#else
-int
-l_strncpy(dest, src, len)
-	register char *dest;
-	register char *src;
-	int len;
-#endif
+void
+safe_print(const char *str, FILE *fp)
 {
-	register char *stop;
-	register char *start;
+	char visbuf[5];
+	const char *cp;
 
-	stop = dest + len;
-	start = dest;
-	while ((dest < stop) && (*src != '\0'))
-		*dest++ = *src++;
-	len = dest - start;
-	while (dest < stop)
-		*dest++ = '\0';
-	return(len);
+	/*
+	 * if printing to a tty, use vis(3) to print special characters.
+	 */
+	if (isatty(fileno(fp))) {
+		for (cp = str; *cp; cp++) {
+			(void)vis(visbuf, cp[0], VIS_CSTYLE, cp[1]);
+			(void)fputs(visbuf, fp);
+		}
+	} else {
+		(void)fputs(str, fp);
+	}
 }
 
 /*
@@ -248,18 +229,10 @@ l_strncpy(dest, src, len)
  *	unsigned long value
  */
 
-#ifdef __STDC__
 u_long
-asc_ul(register char *str, int len, register int base)
-#else
-u_long
-asc_ul(str, len, base)
-	register char *str;
-	int len;
-	register int base;
-#endif
+asc_ul(char *str, int len, int base)
 {
-	register char *stop;
+	char *stop;
 	u_long tval = 0;
 
 	stop = str + len;
@@ -286,7 +259,7 @@ asc_ul(str, len, base)
 				break;
 		}
 	} else {
- 		while ((str < stop) && (*str >= '0') && (*str <= '7'))
+		while ((str < stop) && (*str >= '0') && (*str <= '7'))
 			tval = (tval << 3) + (*str++ - '0');
 	}
 	return(tval);
@@ -299,19 +272,10 @@ asc_ul(str, len, base)
  *	NOTE: the string created is NOT TERMINATED.
  */
 
-#ifdef __STDC__
 int
-ul_asc(u_long val, register char *str, register int len, register int base)
-#else
-int
-ul_asc(val, str, len, base)
-	u_long val;
-	register char *str;
-	register int len;
-	register int base;
-#endif
+ul_asc(u_long val, char *str, int len, int base)
 {
-	register char *pt;
+	char *pt;
 	u_long digit;
 
 	/*
@@ -351,7 +315,7 @@ ul_asc(val, str, len, base)
 	return(0);
 }
 
-#ifndef NET2_STAT
+#ifndef LONG_OFF_T
 /*
  * asc_uqd()
  *	convert hex/octal character string into a u_quad_t. We do not have to
@@ -362,18 +326,10 @@ ul_asc(val, str, len, base)
  *	u_quad_t value
  */
 
-#ifdef __STDC__
 u_quad_t
-asc_uqd(register char *str, int len, register int base)
-#else
-u_quad_t
-asc_uqd(str, len, base)
-	register char *str;
-	int len;
-	register int base;
-#endif
+asc_uqd(char *str, int len, int base)
 {
-	register char *stop;
+	char *stop;
 	u_quad_t tval = 0;
 
 	stop = str + len;
@@ -400,7 +356,7 @@ asc_uqd(str, len, base)
 				break;
 		}
 	} else {
- 		while ((str < stop) && (*str >= '0') && (*str <= '7'))
+		while ((str < stop) && (*str >= '0') && (*str <= '7'))
 			tval = (tval << 3) + (*str++ - '0');
 	}
 	return(tval);
@@ -413,19 +369,10 @@ asc_uqd(str, len, base)
  *	NOTE: the string created is NOT TERMINATED.
  */
 
-#ifdef __STDC__
 int
-uqd_asc(u_quad_t val, register char *str, register int len, register int base)
-#else
-int
-uqd_asc(val, str, len, base)
-	u_quad_t val;
-	register char *str;
-	register int len;
-	register int base;
-#endif
+uqd_asc(u_quad_t val, char *str, int len, int base)
 {
-	register char *pt;
+	char *pt;
 	u_quad_t digit;
 
 	/*

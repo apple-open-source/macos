@@ -1,0 +1,10 @@
+#! /bin/bash
+
+if [ $# -gt 0 ] 
+    then
+    echo "CPU type:       "`arch`; sw_vers | grep BuildVersion
+else
+    echo "CPU type:       "`arch`
+    sw_vers
+    echo "dyld:           "`what /usr/lib/dyld | grep 'PROJECT' | cut -c29- | sed s/BUILT:.*$// | uniq`
+fi

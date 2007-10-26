@@ -59,7 +59,7 @@ typedef struct tfilestruct {
 
 int tundrflw ( TFILE *f, int t ) ;
 int tgetd ( TFILE *f, int t ) ;
-int tput ( TFILE *f, unsigned char *p, int n ) ;
+int tput ( TFILE *f, const char *p, int n ) ;
 int tdata ( TFILE *f, int t ) ;
 int ttyopen ( TFILE *f, char *fname, int reverse, int hwfc ) ;
 int ttyclose ( TFILE *f ) ;
@@ -90,6 +90,17 @@ char *efaxbasename ( char *p ) ;
 
 #ifdef __APPLE__
 
+/* tdata() return values */
+#define TDATA_READY		1
+#define TDATA_TIMEOUT		0
+#define TDATA_SELECTERR		-2
+#define TDATA_SLEEP		-6
+#define TDATA_WAKE		-7
+#define TDATA_MANANSWER		-8
+#define TDATA_CANCEL		-9
+#define TDATA_MODEMADDED	-10
+#define TDATA_MODEMREMOVED	-11
+
 typedef struct syseventstruct		/*** System event data ****/
 {
   unsigned char	event;			/* Event bit field */
@@ -101,6 +112,8 @@ extern sysevent_t sysevent;		/* system event data */
 extern int waiting;			/* blocked waiting for activity (okay to exit on SIGHUP) */
 extern int manual_answer;		/* Manual answer flag (set by client connection) */
 extern int answer_wait;			/* blocked waiting for the first fax frame (inclusive of RING messages) */
+extern char *faxfile;			/* device to use ("/dev/<*>.modem") */
+extern int modem_found;			/* modem found */
 
 extern int  cleanup ( int err );
 extern void notify(CFStringRef status, CFTypeRef value);

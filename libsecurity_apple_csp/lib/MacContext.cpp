@@ -22,45 +22,40 @@
 #include "MacContext.h"
 #include <HMACSHA1.h>
 #include <Security/cssmerr.h>
+#include <CommonCrypto/CommonDigest.h>	/* for digest sizes */
 #ifdef	CRYPTKIT_CSP_ENABLE
 #include <security_cryptkit/HmacSha1Legacy.h>
 #endif	/* CRYPTKIT_CSP_ENABLE */
 
 MacContext::~MacContext()
 {
-	if(mHmac) {
-		hmacFree(mHmac);
-		mHmac = NULL;
-	}
+	memset(&hmacCtx, 0, sizeof(hmacCtx));
 }
 	
 /* called out from CSPFullPluginSession....
- * both generate and verify: */
+ * both generate and verify */
 void MacContext::init(const Context &context, bool isSigning)
 {
-	if(mHmac == NULL) {
-		mHmac = hmacAlloc();
-		if(mHmac == NULL) {
-			CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
-		}
-	}
+	CCHmacAlgorithm ccAlg;
 	
 	/* obtain key from context */
-	UInt32 		keyLen;
-	UInt8 		*keyData 	= NULL;
+	CSSM_SIZE	keyLen;
+	uint8 		*keyData 	= NULL;
 	
 	symmetricKeyBits(context, session(), mAlg, 
 		isSigning ? CSSM_KEYUSE_SIGN : CSSM_KEYUSE_VERIFY,
 		keyData, keyLen);
-	UInt32 minKey = 0;
+	uint32 minKey = 0;
 	switch(mAlg) {
 		case CSSM_ALGID_SHA1HMAC:
 			minKey = HMAC_SHA_MIN_KEY_SIZE;
-			mDigestSize = kHMACSHA1DigestSize;
+			mDigestSize = CC_SHA1_DIGEST_LENGTH;
+			ccAlg = kCCHmacAlgSHA1;
 			break;
 		case CSSM_ALGID_MD5HMAC:
 			minKey = HMAC_MD5_MIN_KEY_SIZE;
-			mDigestSize = kHMACMD5DigestSize;
+			mDigestSize = CC_MD5_DIGEST_LENGTH;
+			ccAlg = kCCHmacAlgMD5;
 			break;
 		default:
 			assert(0);			// factory should not have called us
@@ -69,22 +64,12 @@ void MacContext::init(const Context &context, bool isSigning)
 	if((keyLen < minKey) || (keyLen > HMAC_MAX_KEY_SIZE)) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
 	}
-	
-	CSSM_RETURN crtn = hmacInit(mHmac, keyData, keyLen,
-		(mAlg == CSSM_ALGID_SHA1HMAC) ? CSSM_TRUE : CSSM_FALSE);
-	if(crtn) {
-		CssmError::throwMe(crtn);
-	}
+	CCHmacInit(&hmacCtx, ccAlg, keyData, keyLen);
 }
 
 void MacContext::update(const CssmData &data)
 {
-	CSSM_RETURN crtn = hmacUpdate(mHmac,
-		data.data(),
-		data.length());
-	if(crtn) {
-		CssmError::throwMe(crtn);
-	}
+	CCHmacUpdate(&hmacCtx, data.data(), data.length());
 }
 
 /* generate only */
@@ -93,14 +78,18 @@ void MacContext::final(CssmData &out)
 	if(out.length() < mDigestSize) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	hmacFinal(mHmac, out.data());
+	CCHmacFinal(&hmacCtx, out.data());
+	out.Length = mDigestSize;
 }
 
 /* verify only */
+#define MAX_DIGEST_SIZE		CC_SHA1_DIGEST_LENGTH
+
 void MacContext::final(const CssmData &in)
 {
-	unsigned char mac[kHMACSHA1DigestSize];
-	hmacFinal(mHmac, mac);
+	unsigned char mac[MAX_DIGEST_SIZE];
+	
+	CCHmacFinal(&hmacCtx, mac);
 	if(memcmp(mac, in.data(), mDigestSize)) {
 		CssmError::throwMe(CSSMERR_CSP_VERIFY_FAILED);
 	}
@@ -133,8 +122,8 @@ void MacLegacyContext::init(const Context &context, bool isSigning)
 	}
 	
 	/* obtain key from context */
-	UInt32 		keyLen;
-	UInt8 		*keyData 	= NULL;
+	CSSM_SIZE	keyLen;
+	uint8 		*keyData 	= NULL;
 	
 	/* FIXME - this may require a different key alg */
 	symmetricKeyBits(context, session(), CSSM_ALGID_SHA1HMAC, 

@@ -44,13 +44,13 @@ public:
 					return sInstance; }
 
 public:
-	virtual sInt32	Validate			( const char *inVersionStr, const uInt32 inSignature );
-	virtual sInt32	Initialize			( void );
-	virtual sInt32	Configure			( void );
-	virtual sInt32	SetPluginState		( const uInt32 inState );
-	virtual sInt32	PeriodicTask		( void );
-	virtual sInt32	ProcessRequest		( void *inData );
-	virtual sInt32	Shutdown			( void );
+	virtual SInt32	Validate			( const char *inVersionStr, const UInt32 inSignature );
+	virtual SInt32	Initialize			( void );
+	virtual SInt32	Configure			( void );
+	virtual SInt32	SetPluginState		( const UInt32 inState );
+	virtual SInt32	PeriodicTask		( void );
+	virtual SInt32	ProcessRequest		( void *inData );
+	virtual SInt32	Shutdown			( void );
 
 protected:
 	/**** Instance methods accessible only to class and subclasses. ****/
@@ -68,6 +68,8 @@ protected:
 	static tCreator					sCreator;
 
 	/**** Instance data. ****/
+	FourCharCode	fPlugInSignature;
+	const char		*fPlugInName;
 };
 
 #endif	/* _CDSServerModule_H_ */

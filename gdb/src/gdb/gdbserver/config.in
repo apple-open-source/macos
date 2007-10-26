@@ -1,28 +1,8 @@
-/* config.in.  Generated from configure.in by autoheader.  */
-/* Define if the target supports PTRACE_PEEKUSR for register access.  */
-#undef HAVE_LINUX_USRREGS
+/* config.in.  Generated from configure.ac by autoheader.  */
 
-/* Define if the target supports PTRACE_GETREGS for register access.  */
-#undef HAVE_LINUX_REGSETS
-
-/* Define if the target supports PTRACE_GETFPXREGS for extended
-   register access.  */
-#undef HAVE_PTRACE_GETFPXREGS
-
-/* Define if <sys/procfs.h> has prgregset_t. */
-#undef HAVE_PRGREGSET_T
-
-/* Define if <sys/procfs.h> has prfpregset_t. */
-#undef HAVE_PRFPREGSET_T
-
-/* Define if <sys/procfs.h> has lwpid_t. */
-#undef HAVE_LWPID_T
-
-/* Define if <sys/procfs.h> has psaddr_t. */
-#undef HAVE_PSADDR_T
-
-/* Define if the prfpregset_t type is broken. */
-#undef PRFPREGSET_T_BROKEN
+/* Define to 1 if you have the declaration of `strerror', and to 0 if you
+   don't. */
+#undef HAVE_DECL_STRERROR
 
 /* Define if <sys/procfs.h> has elf_fpregset_t. */
 #undef HAVE_ELF_FPREGSET_T
@@ -32,6 +12,12 @@
 
 /* Define to 1 if you have the <linux/elf.h> header file. */
 #undef HAVE_LINUX_ELF_H
+
+/* Define if the target supports register sets. */
+#undef HAVE_LINUX_REGSETS
+
+/* Define if the target supports PTRACE_PEEKUSR for register access. */
+#undef HAVE_LINUX_USRREGS
 
 /* Define if <sys/procfs.h> has lwpid_t. */
 #undef HAVE_LWPID_T
@@ -51,8 +37,18 @@
 /* Define if <sys/procfs.h> has psaddr_t. */
 #undef HAVE_PSADDR_T
 
+/* Define if the target supports PTRACE_GETFPXREGS for extended register
+   access. */
+#undef HAVE_PTRACE_GETFPXREGS
+
+/* Define if the target supports PTRACE_GETREGS for register access. */
+#undef HAVE_PTRACE_GETREGS
+
 /* Define to 1 if you have the <sgtty.h> header file. */
 #undef HAVE_SGTTY_H
+
+/* Define to 1 if the system has the type `socklen_t'. */
+#undef HAVE_SOCKLEN_T
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -90,9 +86,6 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Define if strerror is not declared in system header files. */
-#undef NEED_DECLARATION_STRERROR
-
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
@@ -107,6 +100,9 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
+
+/* Define if the prfpregset_t type is broken. */
+#undef PRFPREGSET_T_BROKEN
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS

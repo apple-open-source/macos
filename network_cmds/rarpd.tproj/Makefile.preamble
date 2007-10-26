@@ -1,2 +1,3 @@
+OTHER_CFLAGS += -mdynamic-no-pic
 OTHER_GENERATED_OFILES = $(VERS_OFILE)
 -include ../Makefile.include

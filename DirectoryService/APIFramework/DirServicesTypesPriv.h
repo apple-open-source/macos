@@ -30,23 +30,6 @@
 
 #include <stdio.h>
 
-typedef		unsigned char			Byte;
-typedef		signed char				SignedByte;
-
-typedef unsigned char *				StringPtr;
-
-typedef unsigned long 				FourCharCode;
-
-typedef FourCharCode 				OSType;
-typedef FourCharCode 				ResType;
-typedef OSType *					OSTypePtr;
-typedef ResType *					ResTypePtr;
-
-typedef sInt16 						OSErr;
-typedef sInt32 						OSStatus;
-
-typedef uInt32 						OptionBits;
-
 #ifndef nil
 	#define nil NULL
 #endif

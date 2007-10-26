@@ -153,4 +153,3 @@ std::ostream& operator << (std::ostream& strm, const MscStatusInfo& si)
 }
 #endif	// _DEBUG_OSTREAM
 
-/* arch-tag: 9541493A-BE68-11D8-95B0-000A95C4302E */

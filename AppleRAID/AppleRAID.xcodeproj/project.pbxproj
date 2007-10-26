@@ -12,18 +12,6 @@
 			buildConfigurationList = 591B6AA108980EDE000BDB04 /* Build configuration list for PBXAggregateTarget "AppleRAID" */;
 			buildPhases = (
 			);
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleRAID;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 				59532CE50682639100CA9D0A /* PBXTargetDependency */,
 				59532CE70682639100CA9D0A /* PBXTargetDependency */,
@@ -35,7 +23,11 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		00BDB3A00AC8F6FC00FF22E8 /* AppleLVMStorageRequest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 00BDB39E0AC8F6FC00FF22E8 /* AppleLVMStorageRequest.cpp */; };
+		00BDB3A10AC8F6FC00FF22E8 /* AppleLVMStorageRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = 00BDB39F0AC8F6FC00FF22E8 /* AppleLVMStorageRequest.h */; };
 		5920240C06B61456006D5564 /* MediaKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5920240A06B61456006D5564 /* MediaKit.framework */; };
+		5930E3840A4B94E800B01DE9 /* AppleLVMVolume.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5930E3820A4B94E800B01DE9 /* AppleLVMVolume.cpp */; };
+		5930E3850A4B94E800B01DE9 /* AppleLVMVolume.h in Headers */ = {isa = PBXBuildFile; fileRef = 5930E3830A4B94E800B01DE9 /* AppleLVMVolume.h */; };
 		5945426A06C3135D003E58FB /* AppleRAIDStorageRequest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5945426906C3135D003E58FB /* AppleRAIDStorageRequest.cpp */; };
 		59532CEC0682647300CA9D0A /* AppleRAIDUserLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 59532CEB0682647300CA9D0A /* AppleRAIDUserLib.c */; };
 		59532D0E0682683E00CA9D0A /* AppleRAIDUserLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 59532D0D0682683E00CA9D0A /* AppleRAIDUserLib.h */; };
@@ -47,6 +39,8 @@
 		597ABB950898249300D7ED96 /* libAppleRAID.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 59532CCF068261AC00CA9D0A /* libAppleRAID.a */; };
 		598562980662D045008C1FA5 /* AppleRAIDUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 598562960662D045008C1FA5 /* AppleRAIDUserClient.cpp */; };
 		598562990662D045008C1FA5 /* AppleRAIDUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 598562970662D045008C1FA5 /* AppleRAIDUserClient.h */; };
+		59AE1F5E0A437C110079A186 /* AppleLVMGroup.h in Headers */ = {isa = PBXBuildFile; fileRef = 59AE1F5D0A437C110079A186 /* AppleLVMGroup.h */; };
+		59AE1F600A437C200079A186 /* AppleLVMGroup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59AE1F5F0A437C200079A186 /* AppleLVMGroup.cpp */; };
 		59CD7BC90634F4FC00F84FF8 /* AppleRAID.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* AppleRAID.h */; };
 		59CD7BCA0634F4FC00F84FF8 /* AppleRAIDMember.h in Headers */ = {isa = PBXBuildFile; fileRef = 599026930500562B006EB25F /* AppleRAIDMember.h */; };
 		59CD7BCB0634F4FC00F84FF8 /* AppleRAIDGlobals.h in Headers */ = {isa = PBXBuildFile; fileRef = 59CCE30D0505888F0041E990 /* AppleRAIDGlobals.h */; };
@@ -65,33 +59,7 @@
 		59D574BE06ED0FEB00EDB456 /* AppleRAIDUserLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 59532D0D0682683E00CA9D0A /* AppleRAIDUserLib.h */; };
 		59DF8563069E3FF000409DEF /* AppleRAIDStripeSet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 59DF8561069E3FEF00409DEF /* AppleRAIDStripeSet.cpp */; };
 		59DF8564069E3FF000409DEF /* AppleRAIDStripeSet.h in Headers */ = {isa = PBXBuildFile; fileRef = 59DF8562069E3FEF00409DEF /* AppleRAIDStripeSet.h */; };
-		59F2F8100689073E0056EDAE /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59F2F80F0689073E0056EDAE /* Cocoa.framework */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXBuildStyle section */
-		06AA1265FFB2107B11CA28AA /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		06AA1266FFB2107B11CA28AA /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
 
 /* Begin PBXContainerItemProxy section */
 		59532CE40682639100CA9D0A /* PBXContainerItemProxy */ = {
@@ -131,6 +99,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		00BDB39E0AC8F6FC00FF22E8 /* AppleLVMStorageRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleLVMStorageRequest.cpp; sourceTree = "<group>"; };
+		00BDB39F0AC8F6FC00FF22E8 /* AppleLVMStorageRequest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleLVMStorageRequest.h; sourceTree = "<group>"; };
 		1A224C3EFF42367911CA2CB7 /* AppleRAID.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleRAID.h; sourceTree = "<group>"; };
 		590095E80634ECEC001991B1 /* AppleRAIDStorageRequest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDStorageRequest.h; sourceTree = "<group>"; };
 		59026179051973BE003678A3 /* AppleRAIDEventSource.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDEventSource.cpp; sourceTree = "<group>"; };
@@ -138,11 +108,13 @@
 		5902618305197706003678A3 /* AppleRAIDMemoryDescriptor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDMemoryDescriptor.cpp; sourceTree = "<group>"; };
 		5902618405197706003678A3 /* AppleRAIDMemoryDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDMemoryDescriptor.h; sourceTree = "<group>"; };
 		5920240A06B61456006D5564 /* MediaKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaKit.framework; path = /System/Library/PrivateFrameworks/MediaKit.framework; sourceTree = "<absolute>"; };
+		5930E3820A4B94E800B01DE9 /* AppleLVMVolume.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleLVMVolume.cpp; sourceTree = "<group>"; };
+		5930E3830A4B94E800B01DE9 /* AppleLVMVolume.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleLVMVolume.h; sourceTree = "<group>"; };
 		5945426906C3135D003E58FB /* AppleRAIDStorageRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDStorageRequest.cpp; sourceTree = "<group>"; };
 		59532CCF068261AC00CA9D0A /* libAppleRAID.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAppleRAID.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		59532CEB0682647300CA9D0A /* AppleRAIDUserLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = AppleRAIDUserLib.c; sourceTree = "<group>"; };
 		59532D0D0682683E00CA9D0A /* AppleRAIDUserLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDUserLib.h; sourceTree = "<group>"; };
-		59532D260682697700CA9D0A /* artest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = artest; sourceTree = BUILT_PRODUCTS_DIR; };
+		59532D260682697700CA9D0A /* artest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "compiled.mach-o.executable"; path = artest; sourceTree = BUILT_PRODUCTS_DIR; };
 		59532D2D068269D800CA9D0A /* artest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = artest.c; sourceTree = "<group>"; };
 		59532D5506826BE100CA9D0A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		59532D9506826BFE00CA9D0A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
@@ -154,6 +126,8 @@
 		599026930500562B006EB25F /* AppleRAIDMember.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDMember.h; sourceTree = "<group>"; };
 		59A1FE970534BD86003024F9 /* AppleRAIDMirrorSet.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDMirrorSet.cpp; sourceTree = "<group>"; };
 		59A1FE980534BD86003024F9 /* AppleRAIDMirrorSet.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDMirrorSet.h; sourceTree = "<group>"; };
+		59AE1F5D0A437C110079A186 /* AppleLVMGroup.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleLVMGroup.h; sourceTree = "<group>"; };
+		59AE1F5F0A437C200079A186 /* AppleLVMGroup.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleLVMGroup.cpp; sourceTree = "<group>"; };
 		59C2E6D90511A2190079E6CF /* AppleRAIDSet.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDSet.cpp; sourceTree = "<group>"; };
 		59C2E6DA0511A2190079E6CF /* AppleRAIDSet.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDSet.h; sourceTree = "<group>"; };
 		59CCE30C0505888F0041E990 /* AppleRAIDGlobals.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDGlobals.cpp; sourceTree = "<group>"; };
@@ -163,7 +137,6 @@
 		59CD7BE00634F4FC00F84FF8 /* AppleRAID.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleRAID.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		59DF8561069E3FEF00409DEF /* AppleRAIDStripeSet.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleRAIDStripeSet.cpp; sourceTree = "<group>"; };
 		59DF8562069E3FEF00409DEF /* AppleRAIDStripeSet.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleRAIDStripeSet.h; sourceTree = "<group>"; };
-		59F2F80F0689073E0056EDAE /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -173,7 +146,6 @@
 			files = (
 				59532D5606826BE100CA9D0A /* CoreFoundation.framework in Frameworks */,
 				59532D9606826BFE00CA9D0A /* IOKit.framework in Frameworks */,
-				59F2F8100689073E0056EDAE /* Cocoa.framework in Frameworks */,
 				5920240C06B61456006D5564 /* MediaKit.framework in Frameworks */,
 				597ABB950898249300D7ED96 /* libAppleRAID.a in Frameworks */,
 			);
@@ -243,6 +215,7 @@
 				59CD7BDF0634F4FC00F84FF8 /* AppleRAID-Info.plist */,
 				594BF75606EE6F2000C2FDA0 /* AppleRAID */,
 				594BF76C06EE6FF500C2FDA0 /* RAID Plugins */,
+				59AE1F580A437BD90079A186 /* LVM Plugin */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 			);
 			name = Driver;
@@ -281,7 +254,6 @@
 				59532D9506826BFE00CA9D0A /* IOKit.framework */,
 				5920240A06B61456006D5564 /* MediaKit.framework */,
 				59532D5506826BE100CA9D0A /* CoreFoundation.framework */,
-				59F2F80F0689073E0056EDAE /* Cocoa.framework */,
 			);
 			name = "External Frameworks";
 			sourceTree = "<group>";
@@ -292,6 +264,19 @@
 				59532D260682697700CA9D0A /* artest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		59AE1F580A437BD90079A186 /* LVM Plugin */ = {
+			isa = PBXGroup;
+			children = (
+				00BDB39E0AC8F6FC00FF22E8 /* AppleLVMStorageRequest.cpp */,
+				00BDB39F0AC8F6FC00FF22E8 /* AppleLVMStorageRequest.h */,
+				5930E3820A4B94E800B01DE9 /* AppleLVMVolume.cpp */,
+				5930E3830A4B94E800B01DE9 /* AppleLVMVolume.h */,
+				59AE1F5D0A437C110079A186 /* AppleLVMGroup.h */,
+				59AE1F5F0A437C200079A186 /* AppleLVMGroup.cpp */,
+			);
+			name = "LVM Plugin";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -327,6 +312,9 @@
 				598562990662D045008C1FA5 /* AppleRAIDUserClient.h in Headers */,
 				59DF8564069E3FF000409DEF /* AppleRAIDStripeSet.h in Headers */,
 				5977B254069E41FD001BEC49 /* AppleRAIDConcatSet.h in Headers */,
+				59AE1F5E0A437C110079A186 /* AppleLVMGroup.h in Headers */,
+				5930E3850A4B94E800B01DE9 /* AppleLVMVolume.h in Headers */,
+				00BDB3A10AC8F6FC00FF22E8 /* AppleLVMStorageRequest.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,20 +331,6 @@
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
-				GCC_WARN_UNKNOWN_PRAGMAS = NO;
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /usr/local/lib;
-				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleRAID;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
-			};
 			dependencies = (
 			);
 			name = AppleRAIDLib;
@@ -374,20 +348,6 @@
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_PRECOMPILE_PREFIX_HEADER = NO;
-				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
-				GCC_WARN_UNKNOWN_PRAGMAS = NO;
-				INSTALL_PATH = /usr/local/bin;
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = artest;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost";
-			};
 			dependencies = (
 			);
 			name = artest;
@@ -406,30 +366,6 @@
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_CPP_EXCEPTIONS = NO;
-				GCC_ENABLE_CPP_RTTI = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_PRECOMPILE_PREFIX_HEADER = NO;
-				GCC_PREFIX_HEADER = "";
-				GCC_WARN_UNINITIALIZED_AUTOS = NO;
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "AppleRAID-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleRAID;
-				MODULE_VERSION = "";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleRAID;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall";
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = AppleRAIDKext;
@@ -444,12 +380,6 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 591B6AA508980EDE000BDB04 /* Build configuration list for PBXProject "AppleRAID" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				06AA1265FFB2107B11CA28AA /* Development */,
-				06AA1266FFB2107B11CA28AA /* Deployment */,
-			);
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleRAID */;
 			productRefGroup = 59532CD0068261AC00CA9D0A /* Products */;
@@ -516,6 +446,9 @@
 				59DF8563069E3FF000409DEF /* AppleRAIDStripeSet.cpp in Sources */,
 				5977B253069E41FD001BEC49 /* AppleRAIDConcatSet.cpp in Sources */,
 				5945426A06C3135D003E58FB /* AppleRAIDStorageRequest.cpp in Sources */,
+				59AE1F600A437C200079A186 /* AppleLVMGroup.cpp in Sources */,
+				5930E3840A4B94E800B01DE9 /* AppleLVMVolume.cpp in Sources */,
+				00BDB3A00AC8F6FC00FF22E8 /* AppleLVMStorageRequest.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -543,7 +476,9 @@
 		591B6A9608980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
@@ -566,8 +501,10 @@
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386";
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
@@ -577,11 +514,9 @@
 		591B6A9708980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
@@ -601,8 +536,10 @@
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386";
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -613,6 +550,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
@@ -631,8 +569,10 @@
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386";
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -642,6 +582,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -658,6 +599,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386 ppc64 x86_64";
 				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = YES;
 			};
@@ -667,6 +609,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
@@ -679,6 +622,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386 ppc64 x86_64";
 				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = NO;
 			};
@@ -687,6 +631,7 @@
 		591B6A9C08980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
 				GCC_WARN_UNKNOWN_PRAGMAS = NO;
@@ -698,6 +643,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleRAID;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386 ppc64 x86_64";
 				WARNING_CFLAGS = "-Wmost";
 			};
 			name = Default;
@@ -705,7 +651,9 @@
 		591B6A9E08980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -720,8 +668,10 @@
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
 				PRODUCT_NAME = artest;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386";
 				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = YES;
 			};
@@ -730,7 +680,9 @@
 		591B6A9F08980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
@@ -741,8 +693,10 @@
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
 				PRODUCT_NAME = artest;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386";
 				WARNING_CFLAGS = "-Wmost";
 				ZERO_LINK = NO;
 			};
@@ -751,6 +705,8 @@
 		591B6AA008980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
@@ -760,8 +716,10 @@
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
 				PRODUCT_NAME = artest;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "ppc i386";
 				WARNING_CFLAGS = "-Wmost";
 			};
 			name = Default;
@@ -827,18 +785,21 @@
 		591B6AA608980EDE000BDB04 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				SDKROOT = "";
 			};
 			name = Development;
 		};
 		591B6AA708980EDE000BDB04 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				SDKROOT = "";
 			};
 			name = Deployment;
 		};
 		591B6AA808980EDE000BDB04 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				SDKROOT = "";
 			};
 			name = Default;
 		};

@@ -40,9 +40,12 @@ static NTSTATUS do_smb_load_module(const char *module_name, BOOL is_probe)
 	 */
 	handle = sys_dlopen(module_name, RTLD_LAZY);
 
+	/* This call should reset any possible non-fatal errors that 
+	   occured since last call to dl* functions */
+	error = sys_dlerror();
+
 	if(!handle) {
 		int level = is_probe ? 3 : 0;
-		error = sys_dlerror();
 		DEBUG(level, ("Error loading module '%s': %s\n", module_name, error ? error : ""));
 		return NT_STATUS_UNSUCCESSFUL;
 	}
@@ -58,9 +61,13 @@ static NTSTATUS do_smb_load_module(const char *module_name, BOOL is_probe)
 		return NT_STATUS_UNSUCCESSFUL;
 	}
 
-	status = init();
-
 	DEBUG(2, ("Module '%s' loaded\n", module_name));
+
+	status = init();
+	if (!NT_STATUS_IS_OK(status)) {
+		DEBUG(0, ("Module '%s' initialization failed: %s\n",
+			    module_name, get_friendly_nt_error_msg(status)));
+	}
 
 	return status;
 }
@@ -225,80 +232,6 @@ void smb_run_idle_events(time_t now)
 		}
 		event = next;
 	}
-
-	return;
-}
-
-/***************************************************************************
- * This Function registers a exit event
- *
- * the registered functions are run on exit()
- * and maybe shutdown idle connections (e.g. to an LDAP server)
- ***************************************************************************/
-
-struct smb_exit_list_ent {
-	struct smb_exit_list_ent *prev,*next;
-	smb_event_id_t id;
-	smb_exit_event_fn *fn;
-	void *data;
-};
-
-static struct smb_exit_list_ent *smb_exit_event_list = NULL;
-
-smb_event_id_t smb_register_exit_event(smb_exit_event_fn *fn, void *data)
-{
-	struct smb_exit_list_ent *event;
-	static smb_event_id_t smb_exit_event_id = 1;
-
-	if (!fn) {	
-		return SMB_EVENT_ID_INVALID;
-	}
-
-	event = SMB_MALLOC_P(struct smb_exit_list_ent);
-	if (!event) {
-		DEBUG(0,("malloc() failed!\n"));
-		return SMB_EVENT_ID_INVALID;
-	}
-	event->fn = fn;
-	event->data = data;
-	event->id = smb_exit_event_id++;
-
-	DLIST_ADD(smb_exit_event_list,event);
-
-	return event->id;
-}
-
-BOOL smb_unregister_exit_event(smb_event_id_t id)
-{
-	struct smb_exit_list_ent *event = smb_exit_event_list;
-	
-	while(event) {
-		if (event->id == id) {
-			DLIST_REMOVE(smb_exit_event_list,event);
-			SAFE_FREE(event);
-			return True;
-		}
-		event = event->next;
-	}
-	
-	return False;
-}
-
-void smb_run_exit_events(void)
-{
-	struct smb_exit_list_ent *event = smb_exit_event_list;
-	struct smb_exit_list_ent *tmp = NULL;
-
-	while (event) {
-		event->fn(&event->data);
-		tmp = event;
-		event = event->next;
-		/* exit event should only run one time :-)*/
-		SAFE_FREE(tmp);
-	}
-
-	/* the list is empty now...*/
-	smb_exit_event_list = NULL;
 
 	return;
 }

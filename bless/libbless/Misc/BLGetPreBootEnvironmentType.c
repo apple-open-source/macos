@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,7 @@
  *  bless
  *
  *  Created by Shantonu Sen on 7/12/05.
- *  Copyright 2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2005-2007 Apple Inc. All Rights Reserved.
  *
  */
 
@@ -45,6 +45,7 @@
 
 #define kBootRomPath "/openprom"
 #define kEFIPath "/efi"
+#define kiBootPath "/chosen/iBoot"
 
 int BLGetPreBootEnvironmentType(BLContextPtr context,
 				BLPreBootEnvType *pbType) {	
@@ -73,8 +74,18 @@ int BLGetPreBootEnvironmentType(BLContextPtr context,
 		entry = IORegistryEntryFromPath(masterPort, path);
 		
 		if(entry == 0) {
-			*pbType = kBLPreBootEnvType_Unknown;
-			contextprintf(context, kBLLogLevelVerbose,  "No OpenFirmware or EFI.\n");			
+			path = kIODeviceTreePlane ":" kiBootPath;
+			
+			entry = IORegistryEntryFromPath(masterPort, path);
+			
+			if(entry == 0) {
+				*pbType = kBLPreBootEnvType_Unknown;
+				contextprintf(context, kBLLogLevelVerbose,  "No OpenFirmware or EFI.\n");			
+			} else {
+				*pbType = kBLPreBootEnvType_iBoot;
+				IOObjectRelease(entry);
+				contextprintf(context, kBLLogLevelVerbose,  "iBoot found at %s\n", path);			
+			}
 		} else {
 			*pbType = kBLPreBootEnvType_EFI;
 			IOObjectRelease(entry);

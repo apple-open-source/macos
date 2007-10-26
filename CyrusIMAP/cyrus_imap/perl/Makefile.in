@@ -1,5 +1,5 @@
 # SIEVE Makefile for cyrus software
-# $Id: Makefile.in,v 1.7 2005/03/05 00:37:31 dasenbro Exp $
+# $Id: Makefile.in,v 1.14 2003/10/22 18:50:17 rjs3 Exp $
 #
 # @configure_input@
 # 

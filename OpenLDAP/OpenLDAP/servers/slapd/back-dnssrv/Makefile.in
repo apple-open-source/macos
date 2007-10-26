@@ -1,8 +1,8 @@
 # Makefile.in for back-dnssrv
-# $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/Makefile.in,v 1.8.2.3 2004/04/12 18:20:13 kurt Exp $
+# $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/Makefile.in,v 1.12.2.3 2006/01/03 22:16:17 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2004 The OpenLDAP Foundation.
+## Copyright 1998-2006 The OpenLDAP Foundation.
 ## Portions Copyright 1998-2003 Kurt D. Zeilenga.
 ## All rights reserved.
 ##

@@ -17,11 +17,13 @@ tst	output{
 	#include <iconv.h>
 	#endif
 
+	int
 	main()
 	{
 		char*	lib;
 
 		printf("#include <ast_common.h>\n");
+		printf("#include <ccode.h>\n");
 	#if _undef_hdr_iconv
 		printf("#undef	_hdr_iconv\n");
 	#endif
@@ -66,21 +68,9 @@ tst	output{
 		lib = "";
 	#endif
 		printf("\n");
+		printf("typedef Ccmap_t %siconv_list_t;\n", lib);
 		printf("typedef void* %siconv_t;\n", lib);
 		printf("typedef size_t (*%siconv_f)(%siconv_t, char**, size_t*, char**, size_t*);\n", lib, lib);
-		printf("\n");
-		printf("typedef struct\n");
-		printf("{\n");
-		printf("	const char*	name;	/* code set name */\n");
-		printf("	const char*	match;	/* strmatch() pattern */\n");
-		printf("	const char*	desc;	/* code set description */\n");
-		printf("	const char*	canon;	/* canonical name format */\n");
-		printf("	const char*	index;	/* default index */\n");
-		printf("	int		ccode;	/* <ccode.h> code index */\n");
-		printf("#ifdef _ICONV_LIST_PRIVATE_\n");
-		printf("	_ICONV_LIST_PRIVATE_\n");
-		printf("#endif\n");
-		printf("} %siconv_list_t;\n", lib);
 		printf("\n");
 		printf("#if _BLD_ast && defined(__EXPORT__)\n");
 		printf("#define extern		__EXPORT__\n");

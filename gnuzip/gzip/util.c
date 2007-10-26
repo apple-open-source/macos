@@ -1,12 +1,25 @@
 /* util.c -- utility functions for gzip support
- * Copyright (C) 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
- * Copyright (C) 1992-1993 Jean-loup Gailly
- * This is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License, see the file COPYING.
- */
+
+   Copyright (C) 1997, 1998, 1999, 2001, 2002, 2006 Free Software
+   Foundation, Inc.
+   Copyright (C) 1992-1993 Jean-loup Gailly
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: util.c,v 0.15 1993/06/15 09:04:13 jloup Exp $";
+static char rcsid[] = "$Id: util.c,v 1.6 2006/12/11 18:54:39 eggert Exp $";
 #endif
 
 #include <config.h>
@@ -33,10 +46,13 @@ static char rcsid[] = "$Id: util.c,v 0.15 1993/06/15 09:04:13 jloup Exp $";
 
 #include "gzip.h"
 #include "crypt.h"
+#include <xalloc.h>
 
 #ifndef CHAR_BIT
 #  define CHAR_BIT 8
 #endif
+
+static int write_buffer OF((int, voidp, unsigned int));
 
 extern ulg crc_32_tab[];   /* crc table, defined below */
 
@@ -51,7 +67,7 @@ int copy(in, out)
     while (insize != 0 && (int)insize != -1) {
 	write_buf(out, (char*)inbuf, insize);
 	bytes_out += insize;
-	insize = read(in, (char*)inbuf, INBUFSIZ);
+	insize = read_buffer (in, (char *) inbuf, INBUFSIZ);
     }
     if ((int)insize == -1) {
 	read_error();
@@ -106,7 +122,7 @@ int fill_inbuf(eof_ok)
     /* Read as much as possible */
     insize = 0;
     do {
-	len = read(ifd, (char*)inbuf+insize, INBUFSIZ-insize);
+	len = read_buffer (ifd, (char *) inbuf + insize, INBUFSIZ - insize);
 	if (len == 0) break;
 	if (len == -1) {
 	  read_error();
@@ -124,6 +140,35 @@ int fill_inbuf(eof_ok)
     bytes_in += (off_t)insize;
     inptr = 1;
     return inbuf[0];
+}
+
+/* Like the standard read function, except do not attempt to read more
+   than SSIZE_MAX bytes at a time.  */
+int
+read_buffer (fd, buf, cnt)
+     int fd;
+     voidp buf;
+     unsigned int cnt;
+{
+#ifdef SSIZE_MAX
+  if (SSIZE_MAX < cnt)
+    cnt = SSIZE_MAX;
+#endif
+  return read (fd, buf, cnt);
+}
+
+/* Likewise for 'write'.  */
+static int
+write_buffer (fd, buf, cnt)
+     int fd;
+     voidp buf;
+     unsigned int cnt;
+{
+#ifdef SSIZE_MAX
+  if (SSIZE_MAX < cnt)
+    cnt = SSIZE_MAX;
+#endif
+  return write (fd, buf, cnt);
 }
 
 /* ===========================================================================
@@ -166,7 +211,7 @@ void write_buf(fd, buf, cnt)
 {
     unsigned  n;
 
-    while ((n = write(fd, buf, cnt)) != cnt) {
+    while ((n = write_buffer (fd, buf, cnt)) != cnt) {
 	if (n == (unsigned)(-1)) {
 	    write_error();
 	}
@@ -192,7 +237,8 @@ char *strlwr(s)
  * any version suffix). For systems with file names that are not
  * case sensitive, force the base name to lower case.
  */
-char *base_name(fname)
+char *
+gzip_base_name (fname)
     char *fname;
 {
     char *p;
@@ -310,7 +356,7 @@ int strcspn(s, reject)
 
 /* ========================================================================
  * Add an environment variable (if any) before argv, and update argc.
- * Return the expanded environment variable to be freed later, or NULL 
+ * Return the expanded environment variable to be freed later, or NULL
  * if no options were added to argv.
  */
 #define SEPARATOR	" \t"	/* separators in env variable */
@@ -329,8 +375,7 @@ char *add_envopt(argcp, argvp, env)
     env = (char*)getenv(env);
     if (env == NULL) return NULL;
 
-    p = (char*)xmalloc(strlen(env)+1);
-    env = strcpy(p, env);                    /* keep env variable intact */
+    env = xstrdup (env);
 
     for (p = env; *p; nargc++ ) {            /* move through env */
 	p += strspn(p, SEPARATOR);	     /* skip leading separators */
@@ -347,13 +392,13 @@ char *add_envopt(argcp, argvp, env)
     /* Allocate the new argv array, with an extra element just in case
      * the original arg list did not end with a NULL.
      */
-    nargv = (char**)calloc(*argcp+1, sizeof(char *));
-    if (nargv == NULL) error("out of memory");
+    nargv = (char **) xcalloc (*argcp + 1, sizeof (char *));
     oargv  = *argvp;
     *argvp = nargv;
 
     /* Copy the program name first */
-    if (oargc-- < 0) error("argc<=0");
+    if (oargc-- < 0)
+      gzip_error ("argc<=0");
     *(nargv++) = *(oargv++);
 
     /* Then copy the environment args */
@@ -372,23 +417,31 @@ char *add_envopt(argcp, argvp, env)
 /* ========================================================================
  * Error handlers.
  */
-void error(m)
+void
+gzip_error (m)
     char *m;
 {
-    fprintf(stderr, "\n%s: %s: %s\n", progname, ifname, m);
+    fprintf (stderr, "\n%s: %s: %s\n", program_name, ifname, m);
     abort_gzip();
+}
+
+void
+xalloc_die ()
+{
+  fprintf (stderr, "\n%s: memory_exhausted\n", program_name);
+  abort_gzip ();
 }
 
 void warning (m)
     char *m;
 {
-    WARN ((stderr, "%s: %s: warning: %s\n", progname, ifname, m));
+    WARN ((stderr, "%s: %s: warning: %s\n", program_name, ifname, m));
 }
 
 void read_error()
 {
     int e = errno;
-    fprintf(stderr, "\n%s: ", progname);
+    fprintf (stderr, "\n%s: ", program_name);
     if (e != 0) {
 	errno = e;
 	perror(ifname);
@@ -401,7 +454,7 @@ void read_error()
 void write_error()
 {
     int e = errno;
-    fprintf(stderr, "\n%s: ", progname);
+    fprintf (stderr, "\n%s: ", program_name);
     errno = e;
     perror(ofname);
     abort_gzip();
@@ -449,18 +502,6 @@ void fprint_off(file, offset, width)
     }
     for (;  p < buf + sizeof buf;  p++)
 	putc (*p, file);
-}
-
-/* ========================================================================
- * Semi-safe malloc -- never returns NULL.
- */
-voidp xmalloc (size)
-    unsigned size;
-{
-    voidp cp = (voidp)malloc (size);
-
-    if (cp == NULL) error("out of memory");
-    return cp;
 }
 
 /* ========================================================================

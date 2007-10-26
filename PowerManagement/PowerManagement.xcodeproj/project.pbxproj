@@ -1,0 +1,1837 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		409C6E9901A0B1A80ACA2928 /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 72D0ECD008F73D0000CCEA2F /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				72D0ED0F08F7402400CCEA2F /* PBXTargetDependency */,
+				729A75D90A01F7CD000AB587 /* PBXTargetDependency */,
+				729A75DB0A01F7D3000AB587 /* PBXTargetDependency */,
+				729A757A0A01EDA3000AB587 /* PBXTargetDependency */,
+			);
+			name = All;
+			productName = All;
+		};
+		72F39D4B0A02965000271433 /* BatteryFaker */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 72F39D550A02969600271433 /* Build configuration list for PBXAggregateTarget "BatteryFaker" */;
+			buildPhases = (
+			);
+			dependencies = (
+				727D78800A02D497002EBD29 /* PBXTargetDependency */,
+				72F39D4D0A02965F00271433 /* PBXTargetDependency */,
+				72F39D4F0A02966200271433 /* PBXTargetDependency */,
+				72F39D510A02966400271433 /* PBXTargetDependency */,
+			);
+			name = BatteryFaker;
+			productName = BatteryFaker;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		7226093509AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7226093409AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp */; };
+		7227113B0A6DA17900F34043 /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; };
+		724387C60A05CEC50080C1F1 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 724387C50A05CEC50080C1F1 /* ApplicationServices.framework */; };
+		727D788A0A02D513002EBD29 /* suidLauncher.c in Sources */ = {isa = PBXBuildFile; fileRef = 727D78890A02D513002EBD29 /* suidLauncher.c */; };
+		729A74330A01EC0C000AB587 /* pmset.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 40D4F0DD01F4A1F40ACA2928 /* pmset.1 */; };
+		729A75720A01EC19000AB587 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
+		729A75730A01EC19000AB587 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
+		729A75740A01EC19000AB587 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
+		729A75750A01EC2A000AB587 /* pmset.c in Sources */ = {isa = PBXBuildFile; fileRef = 40D4F0DC01F4A1F40ACA2928 /* pmset.c */; };
+		729A758A0A01EE85000AB587 /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
+		729A758B0A01EE8F000AB587 /* IOUPSPlugIn.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828188058E83D30055547B /* IOUPSPlugIn.h */; };
+		729A758C0A01EEA0000AB587 /* ioupsplugin.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupsplugin.defs */; settings = {ATTRIBUTES = (Server, Client, ); }; };
+		729A758D0A01EEA0000AB587 /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
+		729A758E0A01EEA0000AB587 /* upsd.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828185058E83D30055547B /* upsd.c */; };
+		729A758F0A01EEA0000AB587 /* ioupsplugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828187058E83D30055547B /* ioupsplugin.c */; };
+		729A75900A01EEB9000AB587 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
+		729A75910A01EEB9000AB587 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
+		729A75920A01EEB9000AB587 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
+		729A75930A01EED1000AB587 /* ioupsd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA409AE4931003E0C4C /* ioupsd.8 */; };
+		729A75940A01EEED000AB587 /* IOUPSPlugIn.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = F7828188058E83D30055547B /* IOUPSPlugIn.h */; };
+		729A75AA0A01F2C9000AB587 /* AutoWakeScheduler.h in Headers */ = {isa = PBXBuildFile; fileRef = A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */; };
+		729A75AB0A01F2C9000AB587 /* RepeatingAutoWake.h in Headers */ = {isa = PBXBuildFile; fileRef = A999C3F50450D9290018C661 /* RepeatingAutoWake.h */; };
+		729A75AC0A01F2C9000AB587 /* PrivateLib.h in Headers */ = {isa = PBXBuildFile; fileRef = A9FD4B73047C482B00FA82A6 /* PrivateLib.h */; };
+		729A75AD0A01F2C9000AB587 /* IOUPSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F7828186058E83D30055547B /* IOUPSPrivate.h */; };
+		729A75AE0A01F2C9000AB587 /* SetActive.h in Headers */ = {isa = PBXBuildFile; fileRef = 7261962D066EA3120026D41C /* SetActive.h */; };
+		729A75AF0A01F2D7000AB587 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A9E691B70564519800938E2D /* Localizable.strings */; };
+		729A75B10A01F2D7000AB587 /* com.apple.SystemPowerProfileDefaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = 72C2C512062F57BB000F5FC7 /* com.apple.SystemPowerProfileDefaults.plist */; };
+		729A75C20A01F314000AB587 /* pmconfigd.c in Sources */ = {isa = PBXBuildFile; fileRef = 40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */; };
+		729A75C30A01F314000AB587 /* BatteryTimeRemaining.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.c */; };
+		729A75C40A01F314000AB587 /* PMSettings.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF4031ECBBC0ACA28D7 /* PMSettings.c */; };
+		729A75C50A01F314000AB587 /* PSLowPower.c in Sources */ = {isa = PBXBuildFile; fileRef = 40BE9CF6031ECBBC0ACA28D7 /* PSLowPower.c */; };
+		729A75C60A01F314000AB587 /* AutoWakeScheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */; };
+		729A75C70A01F314000AB587 /* RepeatingAutoWake.c in Sources */ = {isa = PBXBuildFile; fileRef = A999C3F40450D9290018C661 /* RepeatingAutoWake.c */; };
+		729A75C80A01F314000AB587 /* PrivateLib.c in Sources */ = {isa = PBXBuildFile; fileRef = A9FD4B72047C482B00FA82A6 /* PrivateLib.c */; };
+		729A75C90A01F314000AB587 /* ioupsplugin.defs in Sources */ = {isa = PBXBuildFile; fileRef = F7828183058E83D30055547B /* ioupsplugin.defs */; settings = {COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
+		729A75CA0A01F314000AB587 /* IOUPSPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = F7828184058E83D30055547B /* IOUPSPrivate.c */; };
+		729A75CB0A01F314000AB587 /* SetActive.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261962C066EA3120026D41C /* SetActive.c */; };
+		729A75CC0A01F314000AB587 /* powermanagement.defs in Sources */ = {isa = PBXBuildFile; fileRef = 720A66C406C2F7C600944335 /* powermanagement.defs */; settings = {ATTRIBUTES = (Server, ); COMPILER_FLAGS = "-D__MigTypeCheck=1"; }; };
+		729A75CD0A01F350000AB587 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
+		729A75CE0A01F350000AB587 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA8019747120ACA2928 /* SystemConfiguration.framework */; };
+		729A75CF0A01F350000AB587 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
+		729A75D00A01F382000AB587 /* upsshutdown in CopyFiles */ = {isa = PBXBuildFile; fileRef = A9D743DA05AF3D4D0075549C /* upsshutdown */; };
+		729A75D10A01F3B3000AB587 /* upsshutdown.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA609AE4942003E0C4C /* upsshutdown.8 */; };
+		72D0ECFF08F73FB600CCEA2F /* AppleSmartBattery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */; };
+		72D0ED0008F73FB600CCEA2F /* AppleSmartBatteryManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */; };
+		72D9844A0B20BE7800D66087 /* TTYKeepAwake.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D984480B20BE7800D66087 /* TTYKeepAwake.c */; };
+		72D9844B0B20BE7800D66087 /* TTYKeepAwake.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D984490B20BE7800D66087 /* TTYKeepAwake.h */; };
+		72FE21760A017B4000885E24 /* BatteryFakerWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 72FE216E0A017B4000885E24 /* BatteryFakerWindowController.m */; };
+		72FE21770A017B4000885E24 /* FakeBatteryObject.m in Sources */ = {isa = PBXBuildFile; fileRef = 72FE21700A017B4000885E24 /* FakeBatteryObject.m */; };
+		72FE21780A017B4000885E24 /* FakeUPSObject.m in Sources */ = {isa = PBXBuildFile; fileRef = 72FE21710A017B4000885E24 /* FakeUPSObject.m */; };
+		72FE21790A017B4000885E24 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 72FE21730A017B4000885E24 /* main.m */; };
+		72FE21940A017B7A00885E24 /* Single_0.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21800A017B7900885E24 /* Single_0.tif */; };
+		72FE21950A017B7A00885E24 /* Single_1.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21810A017B7900885E24 /* Single_1.tif */; };
+		72FE21960A017B7A00885E24 /* Single_2.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21820A017B7900885E24 /* Single_2.tif */; };
+		72FE21970A017B7A00885E24 /* Single_3.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21830A017B7900885E24 /* Single_3.tif */; };
+		72FE21980A017B7A00885E24 /* Single_4.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21840A017B7900885E24 /* Single_4.tif */; };
+		72FE21990A017B7A00885E24 /* Single_5.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21850A017B7900885E24 /* Single_5.tif */; };
+		72FE219A0A017B7A00885E24 /* Single_6.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21860A017B7900885E24 /* Single_6.tif */; };
+		72FE219B0A017B7A00885E24 /* Single_7.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21870A017B7900885E24 /* Single_7.tif */; };
+		72FE219C0A017B7A00885E24 /* Single_8.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21880A017B7900885E24 /* Single_8.tif */; };
+		72FE219D0A017B7A00885E24 /* Single_Charge_0.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21890A017B7900885E24 /* Single_Charge_0.tif */; };
+		72FE219E0A017B7A00885E24 /* Single_Charge_1.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE218A0A017B7900885E24 /* Single_Charge_1.tif */; };
+		72FE219F0A017B7A00885E24 /* Single_Charge_2.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE218B0A017B7900885E24 /* Single_Charge_2.tif */; };
+		72FE21A00A017B7A00885E24 /* Single_Charge_3.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE218C0A017B7900885E24 /* Single_Charge_3.tif */; };
+		72FE21A10A017B7A00885E24 /* Single_Charge_4.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE218D0A017B7900885E24 /* Single_Charge_4.tif */; };
+		72FE21A20A017B7A00885E24 /* Single_Charge_5.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE218E0A017B7900885E24 /* Single_Charge_5.tif */; };
+		72FE21A30A017B7A00885E24 /* Single_Charge_6.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE218F0A017B7900885E24 /* Single_Charge_6.tif */; };
+		72FE21A40A017B7A00885E24 /* Single_Charge_7.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21900A017B7A00885E24 /* Single_Charge_7.tif */; };
+		72FE21A50A017B7A00885E24 /* Single_Charge_8.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21910A017B7A00885E24 /* Single_Charge_8.tif */; };
+		72FE21A60A017B7A00885E24 /* Single_NoBattery.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21920A017B7A00885E24 /* Single_NoBattery.tif */; };
+		72FE21A70A017B7A00885E24 /* Single_Plugged.tif in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21930A017B7A00885E24 /* Single_Plugged.tif */; };
+		72FE21AD0A017BA000885E24 /* PluggedIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 72FE21A90A017BA000885E24 /* PluggedIcon.icns */; };
+		72FE21B70A017BC600885E24 /* fakeups.defs in Sources */ = {isa = PBXBuildFile; fileRef = 72FE21B20A017BC600885E24 /* fakeups.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		72FE21B80A017BC600885E24 /* FakeUPSPlugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72FE21B50A017BC600885E24 /* FakeUPSPlugin.cpp */; };
+		72FE21C60A017D2000885E24 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
+		72FE22960A017D2800885E24 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
+		72FE22970A017D2C00885E24 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
+		72FE22DF0A017D5D00885E24 /* BatteryFakerKEXT.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72FE217D0A017B6000885E24 /* BatteryFakerKEXT.cpp */; };
+		72FE22F00A018A5700885E24 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72FE22EF0A018A5700885E24 /* Cocoa.framework */; };
+		72FE22FA0A018AF800885E24 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 72FE22F60A018AF800885E24 /* InfoPlist.strings */; };
+		72FE22FB0A018AF800885E24 /* TwoBatteryUI.nib in Resources */ = {isa = PBXBuildFile; fileRef = 72FE22F80A018AF800885E24 /* TwoBatteryUI.nib */; };
+		72FE23940A01992300885E24 /* fakeups.defs in Sources */ = {isa = PBXBuildFile; fileRef = 72FE21B20A017BC600885E24 /* fakeups.defs */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		727D787F0A02D497002EBD29 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 727D787C0A02D48D002EBD29;
+			remoteInfo = suidLauncherTool;
+		};
+		727D78810A02D49E002EBD29 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 727D787C0A02D48D002EBD29;
+			remoteInfo = suidLauncherTool;
+		};
+		729A75790A01EDA3000AB587 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 729A742B0A01EBB0000AB587;
+			remoteInfo = pmset;
+		};
+		729A75D80A01F7CD000AB587 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 729A759A0A01F1D7000AB587;
+			remoteInfo = "Power Management Bundle";
+		};
+		729A75DA0A01F7D3000AB587 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 729A757D0A01EDED000AB587;
+			remoteInfo = ioupsd;
+		};
+		72D0ED0E08F7402400CCEA2F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72D0ECDE08F73D3000CCEA2F;
+			remoteInfo = AppleSmartBatteryManager;
+		};
+		72F39D4C0A02965F00271433 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72FE21320A0179A300885E24;
+			remoteInfo = BatteryFakerApp;
+		};
+		72F39D4E0A02966200271433 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72FE213F0A0179F400885E24;
+			remoteInfo = BatteryFakerKEXT;
+		};
+		72F39D500A02966400271433 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72FE21550A017A8F00885E24;
+			remoteInfo = BatteryFakerPlugIn;
+		};
+		72FE21670A017ACB00885E24 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72FE213F0A0179F400885E24;
+			remoteInfo = BatteryFakerKEXT;
+		};
+		72FE21690A017ACE00885E24 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72FE21550A017A8F00885E24;
+			remoteInfo = BatteryFakerPlugIn;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		729A75760A01EC48000AB587 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				729A74330A01EC0C000AB587 /* pmset.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		729A75840A01EE43000AB587 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/ps";
+			dstSubfolderSpec = 0;
+			files = (
+				729A75940A01EEED000AB587 /* IOUPSPlugIn.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		729A75850A01EE43000AB587 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				729A75930A01EED1000AB587 /* ioupsd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		729A75A40A01F239000AB587 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/libexec;
+			dstSubfolderSpec = 0;
+			files = (
+				729A75D00A01F382000AB587 /* upsshutdown in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		729A75A60A01F239000AB587 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				729A75D10A01F3B3000AB587 /* upsshutdown.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		40882BA6019747120ACA2928 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		40882BA7019747120ACA2928 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		40882BA8019747120ACA2928 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
+		40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = BatteryTimeRemaining.c; path = pmconfigd/BatteryTimeRemaining.c; sourceTree = SOURCE_ROOT; };
+		40BE9CF3031ECBBC0ACA28D7 /* BatteryTimeRemaining.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = BatteryTimeRemaining.h; path = pmconfigd/BatteryTimeRemaining.h; sourceTree = SOURCE_ROOT; };
+		40BE9CF4031ECBBC0ACA28D7 /* PMSettings.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = PMSettings.c; path = pmconfigd/PMSettings.c; sourceTree = SOURCE_ROOT; };
+		40BE9CF5031ECBBC0ACA28D7 /* PMSettings.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PMSettings.h; path = pmconfigd/PMSettings.h; sourceTree = SOURCE_ROOT; };
+		40BE9CF6031ECBBC0ACA28D7 /* PSLowPower.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = PSLowPower.c; path = pmconfigd/PSLowPower.c; sourceTree = SOURCE_ROOT; };
+		40BE9CF7031ECBBC0ACA28D7 /* PSLowPower.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PSLowPower.h; path = pmconfigd/PSLowPower.h; sourceTree = SOURCE_ROOT; };
+		40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pmconfigd.c; path = pmconfigd/pmconfigd.c; sourceTree = SOURCE_ROOT; };
+		40D4F0DC01F4A1F40ACA2928 /* pmset.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = pmset.c; sourceTree = "<group>"; };
+		40D4F0DD01F4A1F40ACA2928 /* pmset.1 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = pmset.1; sourceTree = "<group>"; };
+		720A66C406C2F7C600944335 /* powermanagement.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = powermanagement.defs; sourceTree = "<group>"; };
+		7226093309AAAFC8005EB532 /* AppleSmartBatteryManagerUserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleSmartBatteryManagerUserClient.h; path = AppleSmartBatteryManager/AppleSmartBatteryManagerUserClient.h; sourceTree = "<group>"; };
+		7226093409AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 30; name = AppleSmartBatteryManagerUserClient.cpp; path = AppleSmartBatteryManager/AppleSmartBatteryManagerUserClient.cpp; sourceTree = "<group>"; };
+		724387C50A05CEC50080C1F1 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
+		7261962C066EA3120026D41C /* SetActive.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SetActive.c; sourceTree = "<group>"; };
+		7261962D066EA3120026D41C /* SetActive.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SetActive.h; sourceTree = "<group>"; };
+		7265E8180A01A43900BE2B7A /* BatteryFaker_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BatteryFaker_Prefix.pch; sourceTree = "<group>"; };
+		727D787D0A02D48D002EBD29 /* suidLauncherTool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = suidLauncherTool; sourceTree = BUILT_PRODUCTS_DIR; };
+		727D78890A02D513002EBD29 /* suidLauncher.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = suidLauncher.c; sourceTree = "<group>"; };
+		729A742C0A01EBB0000AB587 /* pmset */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pmset; sourceTree = BUILT_PRODUCTS_DIR; };
+		729A757E0A01EDED000AB587 /* ioupsd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioupsd; sourceTree = BUILT_PRODUCTS_DIR; };
+		729A759B0A01F1D7000AB587 /* PowerManagement.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PowerManagement.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		729A759C0A01F1D7000AB587 /* Power Management Bundle-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Power Management Bundle-Info.plist"; sourceTree = "<group>"; };
+		72C2C512062F57BB000F5FC7 /* com.apple.SystemPowerProfileDefaults.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = com.apple.SystemPowerProfileDefaults.plist; sourceTree = "<group>"; };
+		72D0ECDF08F73D3000CCEA2F /* AppleSmartBatteryManager.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleSmartBatteryManager.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleSmartBattery.cpp; path = AppleSmartBatteryManager/AppleSmartBattery.cpp; sourceTree = "<group>"; };
+		72D0ECFA08F73FB600CCEA2F /* AppleSmartBattery.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleSmartBattery.h; path = AppleSmartBatteryManager/AppleSmartBattery.h; sourceTree = "<group>"; };
+		72D0ECFB08F73FB600CCEA2F /* AppleSmartBatteryCommands.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleSmartBatteryCommands.h; path = AppleSmartBatteryManager/AppleSmartBatteryCommands.h; sourceTree = "<group>"; };
+		72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleSmartBatteryManager.cpp; path = AppleSmartBatteryManager/AppleSmartBatteryManager.cpp; sourceTree = "<group>"; };
+		72D0ECFD08F73FB600CCEA2F /* AppleSmartBatteryManager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleSmartBatteryManager.h; path = AppleSmartBatteryManager/AppleSmartBatteryManager.h; sourceTree = "<group>"; };
+		72D0ECFE08F73FB600CCEA2F /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = Info.plist; path = AppleSmartBatteryManager/Info.plist; sourceTree = "<group>"; };
+		72D984480B20BE7800D66087 /* TTYKeepAwake.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = TTYKeepAwake.c; sourceTree = "<group>"; };
+		72D984490B20BE7800D66087 /* TTYKeepAwake.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TTYKeepAwake.h; sourceTree = "<group>"; };
+		72FE21330A0179A300885E24 /* BatteryFaker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BatteryFaker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		72FE21400A0179F400885E24 /* BatteryFaker.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BatteryFaker.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		72FE21560A017A8F00885E24 /* IOUPSPlugIn.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUPSPlugIn.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		72FE216D0A017B4000885E24 /* BatteryFakerWindowController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BatteryFakerWindowController.h; sourceTree = "<group>"; };
+		72FE216E0A017B4000885E24 /* BatteryFakerWindowController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = BatteryFakerWindowController.m; sourceTree = "<group>"; };
+		72FE216F0A017B4000885E24 /* FakeBatteryObject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FakeBatteryObject.h; sourceTree = "<group>"; };
+		72FE21700A017B4000885E24 /* FakeBatteryObject.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = FakeBatteryObject.m; sourceTree = "<group>"; };
+		72FE21710A017B4000885E24 /* FakeUPSObject.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = FakeUPSObject.m; sourceTree = "<group>"; };
+		72FE21720A017B4000885E24 /* FakeUPSObject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FakeUPSObject.h; sourceTree = "<group>"; };
+		72FE21730A017B4000885E24 /* main.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		72FE217B0A017B6000885E24 /* BatteryFakerKEXT.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BatteryFakerKEXT.h; sourceTree = "<group>"; };
+		72FE217C0A017B6000885E24 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		72FE217D0A017B6000885E24 /* BatteryFakerKEXT.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BatteryFakerKEXT.cpp; sourceTree = "<group>"; };
+		72FE21800A017B7900885E24 /* Single_0.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_0.tif; sourceTree = "<group>"; };
+		72FE21810A017B7900885E24 /* Single_1.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_1.tif; sourceTree = "<group>"; };
+		72FE21820A017B7900885E24 /* Single_2.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_2.tif; sourceTree = "<group>"; };
+		72FE21830A017B7900885E24 /* Single_3.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_3.tif; sourceTree = "<group>"; };
+		72FE21840A017B7900885E24 /* Single_4.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_4.tif; sourceTree = "<group>"; };
+		72FE21850A017B7900885E24 /* Single_5.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_5.tif; sourceTree = "<group>"; };
+		72FE21860A017B7900885E24 /* Single_6.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_6.tif; sourceTree = "<group>"; };
+		72FE21870A017B7900885E24 /* Single_7.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_7.tif; sourceTree = "<group>"; };
+		72FE21880A017B7900885E24 /* Single_8.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_8.tif; sourceTree = "<group>"; };
+		72FE21890A017B7900885E24 /* Single_Charge_0.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Charge_0.tif; sourceTree = "<group>"; };
+		72FE218A0A017B7900885E24 /* Single_Charge_1.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Charge_1.tif; sourceTree = "<group>"; };
+		72FE218B0A017B7900885E24 /* Single_Charge_2.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Charge_2.tif; sourceTree = "<group>"; };
+		72FE218C0A017B7900885E24 /* Single_Charge_3.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Charge_3.tif; sourceTree = "<group>"; };
+		72FE218D0A017B7900885E24 /* Single_Charge_4.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Charge_4.tif; sourceTree = "<group>"; };
+		72FE218E0A017B7900885E24 /* Single_Charge_5.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Charge_5.tif; sourceTree = "<group>"; };
+		72FE218F0A017B7900885E24 /* Single_Charge_6.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Charge_6.tif; sourceTree = "<group>"; };
+		72FE21900A017B7A00885E24 /* Single_Charge_7.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Charge_7.tif; sourceTree = "<group>"; };
+		72FE21910A017B7A00885E24 /* Single_Charge_8.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Charge_8.tif; sourceTree = "<group>"; };
+		72FE21920A017B7A00885E24 /* Single_NoBattery.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_NoBattery.tif; sourceTree = "<group>"; };
+		72FE21930A017B7A00885E24 /* Single_Plugged.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Plugged.tif; sourceTree = "<group>"; };
+		72FE21A90A017BA000885E24 /* PluggedIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = PluggedIcon.icns; sourceTree = "<group>"; };
+		72FE21AB0A017BA000885E24 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		72FE21B10A017BC600885E24 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		72FE21B20A017BC600885E24 /* fakeups.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = fakeups.defs; sourceTree = "<group>"; };
+		72FE21B30A017BC600885E24 /* IOUPSPlugIn.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUPSPlugIn.h; sourceTree = "<group>"; };
+		72FE21B40A017BC600885E24 /* FakeUPSPlugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FakeUPSPlugin.h; sourceTree = "<group>"; };
+		72FE21B50A017BC600885E24 /* FakeUPSPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = FakeUPSPlugin.cpp; sourceTree = "<group>"; };
+		72FE22EF0A018A5700885E24 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		72FE22F70A018AF800885E24 /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.strings; name = English; path = InfoPlist.strings; sourceTree = "<group>"; };
+		72FE22F90A018AF800885E24 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = TwoBatteryUI.nib; sourceTree = "<group>"; };
+		72FE7EA409AE4931003E0C4C /* ioupsd.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = ioupsd.8; sourceTree = "<group>"; };
+		72FE7EA609AE4942003E0C4C /* upsshutdown.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = upsshutdown.8; sourceTree = "<group>"; };
+		A999C3F40450D9290018C661 /* RepeatingAutoWake.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = RepeatingAutoWake.c; path = pmconfigd/RepeatingAutoWake.c; sourceTree = SOURCE_ROOT; };
+		A999C3F50450D9290018C661 /* RepeatingAutoWake.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = RepeatingAutoWake.h; path = pmconfigd/RepeatingAutoWake.h; sourceTree = SOURCE_ROOT; };
+		A9D743DA05AF3D4D0075549C /* upsshutdown */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = upsshutdown; path = pmconfigd/upsshutdown; sourceTree = SOURCE_ROOT; };
+		A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = AutoWakeScheduler.c; sourceTree = "<group>"; };
+		A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AutoWakeScheduler.h; sourceTree = "<group>"; };
+		A9E691B80564519800938E2D /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A9FD4B72047C482B00FA82A6 /* PrivateLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = PrivateLib.c; sourceTree = "<group>"; };
+		A9FD4B73047C482B00FA82A6 /* PrivateLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = PrivateLib.h; sourceTree = "<group>"; };
+		F7828183058E83D30055547B /* ioupsplugin.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = ioupsplugin.defs; sourceTree = "<group>"; };
+		F7828184058E83D30055547B /* IOUPSPrivate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOUPSPrivate.c; sourceTree = "<group>"; };
+		F7828185058E83D30055547B /* upsd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = upsd.c; sourceTree = "<group>"; };
+		F7828186058E83D30055547B /* IOUPSPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUPSPrivate.h; sourceTree = "<group>"; };
+		F7828187058E83D30055547B /* ioupsplugin.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ioupsplugin.c; sourceTree = "<group>"; };
+		F7828188058E83D30055547B /* IOUPSPlugIn.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUPSPlugIn.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		727D787B0A02D48D002EBD29 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		729A742A0A01EBB0000AB587 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				729A75720A01EC19000AB587 /* CoreFoundation.framework in Frameworks */,
+				729A75730A01EC19000AB587 /* IOKit.framework in Frameworks */,
+				729A75740A01EC19000AB587 /* SystemConfiguration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		729A757C0A01EDED000AB587 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				729A75900A01EEB9000AB587 /* CoreFoundation.framework in Frameworks */,
+				729A75910A01EEB9000AB587 /* IOKit.framework in Frameworks */,
+				729A75920A01EEB9000AB587 /* SystemConfiguration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		729A75990A01F1D7000AB587 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				729A75CD0A01F350000AB587 /* CoreFoundation.framework in Frameworks */,
+				729A75CE0A01F350000AB587 /* SystemConfiguration.framework in Frameworks */,
+				729A75CF0A01F350000AB587 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72D0ECDD08F73D3000CCEA2F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72FE21310A0179A300885E24 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72FE21C60A017D2000885E24 /* IOKit.framework in Frameworks */,
+				72FE22F00A018A5700885E24 /* Cocoa.framework in Frameworks */,
+				724387C60A05CEC50080C1F1 /* ApplicationServices.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72FE21540A017A8F00885E24 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72FE22970A017D2C00885E24 /* CoreFoundation.framework in Frameworks */,
+				72FE22960A017D2800885E24 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* pmconfigd */ = {
+			isa = PBXGroup;
+			children = (
+				72D0ECF708F73F9D00CCEA2F /* AppleSmartBatteryManager */,
+				08FB7795FE84155DC02AAC07 /* pmconfigd */,
+				40882B98019742A20ACA2928 /* pmset */,
+				F7828182058E83A90055547B /* ioupsd */,
+				72FE21170A01782600885E24 /* BatteryFaker */,
+				40882B99019742A20ACA2928 /* Frameworks */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = pmconfigd;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* pmconfigd */ = {
+			isa = PBXGroup;
+			children = (
+				A9B6F98D054DDD9200F5EC01 /* Resources */,
+				720A66C406C2F7C600944335 /* powermanagement.defs */,
+				72D984480B20BE7800D66087 /* TTYKeepAwake.c */,
+				72D984490B20BE7800D66087 /* TTYKeepAwake.h */,
+				A999C3F40450D9290018C661 /* RepeatingAutoWake.c */,
+				A999C3F50450D9290018C661 /* RepeatingAutoWake.h */,
+				A9E20B7B03EB129200CA28D7 /* AutoWakeScheduler.c */,
+				A9E20B7C03EB129200CA28D7 /* AutoWakeScheduler.h */,
+				40BE9CF2031ECBBC0ACA28D7 /* BatteryTimeRemaining.c */,
+				40BE9CF3031ECBBC0ACA28D7 /* BatteryTimeRemaining.h */,
+				40BE9CF4031ECBBC0ACA28D7 /* PMSettings.c */,
+				40BE9CF5031ECBBC0ACA28D7 /* PMSettings.h */,
+				40BE9CF6031ECBBC0ACA28D7 /* PSLowPower.c */,
+				40BE9CF7031ECBBC0ACA28D7 /* PSLowPower.h */,
+				7261962C066EA3120026D41C /* SetActive.c */,
+				7261962D066EA3120026D41C /* SetActive.h */,
+				A9FD4B72047C482B00FA82A6 /* PrivateLib.c */,
+				A9FD4B73047C482B00FA82A6 /* PrivateLib.h */,
+				40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */,
+				A9D743DA05AF3D4D0075549C /* upsshutdown */,
+				72FE7EA609AE4942003E0C4C /* upsshutdown.8 */,
+			);
+			path = pmconfigd;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				72D0ECDF08F73D3000CCEA2F /* AppleSmartBatteryManager.kext */,
+				72FE21330A0179A300885E24 /* BatteryFaker.app */,
+				72FE21400A0179F400885E24 /* BatteryFaker.kext */,
+				72FE21560A017A8F00885E24 /* IOUPSPlugIn.bundle */,
+				729A742C0A01EBB0000AB587 /* pmset */,
+				729A757E0A01EDED000AB587 /* ioupsd */,
+				729A759B0A01F1D7000AB587 /* PowerManagement.bundle */,
+				727D787D0A02D48D002EBD29 /* suidLauncherTool */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		40882B98019742A20ACA2928 /* pmset */ = {
+			isa = PBXGroup;
+			children = (
+				40D4F0DC01F4A1F40ACA2928 /* pmset.c */,
+				40D4F0DD01F4A1F40ACA2928 /* pmset.1 */,
+			);
+			path = pmset;
+			sourceTree = "<group>";
+		};
+		40882B99019742A20ACA2928 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				724387C50A05CEC50080C1F1 /* ApplicationServices.framework */,
+				72FE22EF0A018A5700885E24 /* Cocoa.framework */,
+				40882BA6019747120ACA2928 /* CoreFoundation.framework */,
+				40882BA7019747120ACA2928 /* IOKit.framework */,
+				40882BA8019747120ACA2928 /* SystemConfiguration.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		727D78760A02D287002EBD29 /* suidLauncherTool */ = {
+			isa = PBXGroup;
+			children = (
+				727D78890A02D513002EBD29 /* suidLauncher.c */,
+			);
+			path = suidLauncherTool;
+			sourceTree = "<group>";
+		};
+		72D0ECF708F73F9D00CCEA2F /* AppleSmartBatteryManager */ = {
+			isa = PBXGroup;
+			children = (
+				72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */,
+				72D0ECFA08F73FB600CCEA2F /* AppleSmartBattery.h */,
+				72D0ECFB08F73FB600CCEA2F /* AppleSmartBatteryCommands.h */,
+				72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */,
+				72D0ECFD08F73FB600CCEA2F /* AppleSmartBatteryManager.h */,
+				7226093409AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp */,
+				7226093309AAAFC8005EB532 /* AppleSmartBatteryManagerUserClient.h */,
+				72D0ECFE08F73FB600CCEA2F /* Info.plist */,
+			);
+			name = AppleSmartBatteryManager;
+			sourceTree = "<group>";
+		};
+		72FE21170A01782600885E24 /* BatteryFaker */ = {
+			isa = PBXGroup;
+			children = (
+				727D78760A02D287002EBD29 /* suidLauncherTool */,
+				72FE211C0A01785F00885E24 /* App */,
+				72FE211B0A01785B00885E24 /* Kext */,
+				72FE211A0A01785300885E24 /* IOUPSPlugIn */,
+				72FE21190A01784D00885E24 /* Images */,
+			);
+			path = BatteryFaker;
+			sourceTree = "<group>";
+		};
+		72FE21180A01783300885E24 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				72FE22F50A018AF800885E24 /* English.lproj */,
+				72FE21A90A017BA000885E24 /* PluggedIcon.icns */,
+				72FE21AB0A017BA000885E24 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		72FE21190A01784D00885E24 /* Images */ = {
+			isa = PBXGroup;
+			children = (
+				72FE21800A017B7900885E24 /* Single_0.tif */,
+				72FE21810A017B7900885E24 /* Single_1.tif */,
+				72FE21820A017B7900885E24 /* Single_2.tif */,
+				72FE21830A017B7900885E24 /* Single_3.tif */,
+				72FE21840A017B7900885E24 /* Single_4.tif */,
+				72FE21850A017B7900885E24 /* Single_5.tif */,
+				72FE21860A017B7900885E24 /* Single_6.tif */,
+				72FE21870A017B7900885E24 /* Single_7.tif */,
+				72FE21880A017B7900885E24 /* Single_8.tif */,
+				72FE21890A017B7900885E24 /* Single_Charge_0.tif */,
+				72FE218A0A017B7900885E24 /* Single_Charge_1.tif */,
+				72FE218B0A017B7900885E24 /* Single_Charge_2.tif */,
+				72FE218C0A017B7900885E24 /* Single_Charge_3.tif */,
+				72FE218D0A017B7900885E24 /* Single_Charge_4.tif */,
+				72FE218E0A017B7900885E24 /* Single_Charge_5.tif */,
+				72FE218F0A017B7900885E24 /* Single_Charge_6.tif */,
+				72FE21900A017B7A00885E24 /* Single_Charge_7.tif */,
+				72FE21910A017B7A00885E24 /* Single_Charge_8.tif */,
+				72FE21920A017B7A00885E24 /* Single_NoBattery.tif */,
+				72FE21930A017B7A00885E24 /* Single_Plugged.tif */,
+			);
+			path = Images;
+			sourceTree = "<group>";
+		};
+		72FE211A0A01785300885E24 /* IOUPSPlugIn */ = {
+			isa = PBXGroup;
+			children = (
+				72FE21B10A017BC600885E24 /* Info.plist */,
+				72FE21B20A017BC600885E24 /* fakeups.defs */,
+				72FE21B30A017BC600885E24 /* IOUPSPlugIn.h */,
+				72FE21B40A017BC600885E24 /* FakeUPSPlugin.h */,
+				72FE21B50A017BC600885E24 /* FakeUPSPlugin.cpp */,
+			);
+			path = IOUPSPlugIn;
+			sourceTree = "<group>";
+		};
+		72FE211B0A01785B00885E24 /* Kext */ = {
+			isa = PBXGroup;
+			children = (
+				72FE217B0A017B6000885E24 /* BatteryFakerKEXT.h */,
+				72FE217C0A017B6000885E24 /* Info.plist */,
+				72FE217D0A017B6000885E24 /* BatteryFakerKEXT.cpp */,
+			);
+			path = Kext;
+			sourceTree = "<group>";
+		};
+		72FE211C0A01785F00885E24 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				72FE216D0A017B4000885E24 /* BatteryFakerWindowController.h */,
+				72FE216E0A017B4000885E24 /* BatteryFakerWindowController.m */,
+				72FE216F0A017B4000885E24 /* FakeBatteryObject.h */,
+				72FE21700A017B4000885E24 /* FakeBatteryObject.m */,
+				72FE21710A017B4000885E24 /* FakeUPSObject.m */,
+				72FE21720A017B4000885E24 /* FakeUPSObject.h */,
+				72FE21730A017B4000885E24 /* main.m */,
+				7265E8180A01A43900BE2B7A /* BatteryFaker_Prefix.pch */,
+				72FE21180A01783300885E24 /* Resources */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		72FE22F50A018AF800885E24 /* English.lproj */ = {
+			isa = PBXGroup;
+			children = (
+				72FE22F60A018AF800885E24 /* InfoPlist.strings */,
+				72FE22F80A018AF800885E24 /* TwoBatteryUI.nib */,
+			);
+			path = English.lproj;
+			sourceTree = "<group>";
+		};
+		A9B6F98D054DDD9200F5EC01 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				729A759C0A01F1D7000AB587 /* Power Management Bundle-Info.plist */,
+				A9E691B70564519800938E2D /* Localizable.strings */,
+				72C2C512062F57BB000F5FC7 /* com.apple.SystemPowerProfileDefaults.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		F7828182058E83A90055547B /* ioupsd */ = {
+			isa = PBXGroup;
+			children = (
+				F7828185058E83D30055547B /* upsd.c */,
+				F7828187058E83D30055547B /* ioupsplugin.c */,
+				F7828183058E83D30055547B /* ioupsplugin.defs */,
+				F7828188058E83D30055547B /* IOUPSPlugIn.h */,
+				F7828184058E83D30055547B /* IOUPSPrivate.c */,
+				F7828186058E83D30055547B /* IOUPSPrivate.h */,
+				72FE7EA409AE4931003E0C4C /* ioupsd.8 */,
+			);
+			path = ioupsd;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		729A75830A01EE43000AB587 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				729A758A0A01EE85000AB587 /* IOUPSPrivate.h in Headers */,
+				729A758B0A01EE8F000AB587 /* IOUPSPlugIn.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		729A75A90A01F2C5000AB587 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				729A75AA0A01F2C9000AB587 /* AutoWakeScheduler.h in Headers */,
+				729A75AB0A01F2C9000AB587 /* RepeatingAutoWake.h in Headers */,
+				729A75AC0A01F2C9000AB587 /* PrivateLib.h in Headers */,
+				729A75AD0A01F2C9000AB587 /* IOUPSPrivate.h in Headers */,
+				729A75AE0A01F2C9000AB587 /* SetActive.h in Headers */,
+				72D9844B0B20BE7800D66087 /* TTYKeepAwake.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		727D787C0A02D48D002EBD29 /* suidLauncherTool */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 727D78830A02D4C1002EBD29 /* Build configuration list for PBXNativeTarget "suidLauncherTool" */;
+			buildPhases = (
+				727D787A0A02D48D002EBD29 /* Sources */,
+				727D787B0A02D48D002EBD29 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = suidLauncherTool;
+			productName = suidLauncherTool;
+			productReference = 727D787D0A02D48D002EBD29 /* suidLauncherTool */;
+			productType = "com.apple.product-type.tool";
+		};
+		729A742B0A01EBB0000AB587 /* pmset */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 729A742E0A01EBD4000AB587 /* Build configuration list for PBXNativeTarget "pmset" */;
+			buildPhases = (
+				729A74290A01EBB0000AB587 /* Sources */,
+				729A742A0A01EBB0000AB587 /* Frameworks */,
+				729A75760A01EC48000AB587 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = pmset;
+			productName = "pmset tool";
+			productReference = 729A742C0A01EBB0000AB587 /* pmset */;
+			productType = "com.apple.product-type.tool";
+		};
+		729A757D0A01EDED000AB587 /* ioupsd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 729A75860A01EE43000AB587 /* Build configuration list for PBXNativeTarget "ioupsd" */;
+			buildPhases = (
+				729A75830A01EE43000AB587 /* Headers */,
+				729A757B0A01EDED000AB587 /* Sources */,
+				729A757C0A01EDED000AB587 /* Frameworks */,
+				729A75840A01EE43000AB587 /* CopyFiles */,
+				729A75850A01EE43000AB587 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ioupsd;
+			productName = "ioupsd tool";
+			productReference = 729A757E0A01EDED000AB587 /* ioupsd */;
+			productType = "com.apple.product-type.tool";
+		};
+		729A759A0A01F1D7000AB587 /* Power Management Bundle */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 729A759D0A01F1D8000AB587 /* Build configuration list for PBXNativeTarget "Power Management Bundle" */;
+			buildPhases = (
+				729A75A90A01F2C5000AB587 /* Headers */,
+				729A75970A01F1D7000AB587 /* Resources */,
+				729A75980A01F1D7000AB587 /* Sources */,
+				729A75990A01F1D7000AB587 /* Frameworks */,
+				729A75A40A01F239000AB587 /* CopyFiles */,
+				729A75A60A01F239000AB587 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Power Management Bundle";
+			productName = "Power Management Bundle";
+			productReference = 729A759B0A01F1D7000AB587 /* PowerManagement.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+		72D0ECDE08F73D3000CCEA2F /* AppleSmartBatteryManager */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72D0ECE108F73D3100CCEA2F /* Build configuration list for PBXNativeTarget "AppleSmartBatteryManager" */;
+			buildPhases = (
+				72D0ECDB08F73D3000CCEA2F /* Sources */,
+				72D0ECDD08F73D3000CCEA2F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleSmartBatteryManager;
+			productName = AppleSmartBattery;
+			productReference = 72D0ECDF08F73D3000CCEA2F /* AppleSmartBatteryManager.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		72FE21320A0179A300885E24 /* BatteryFakerApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72FE21360A0179A400885E24 /* Build configuration list for PBXNativeTarget "BatteryFakerApp" */;
+			buildPhases = (
+				72FE212F0A0179A300885E24 /* Resources */,
+				72FE21300A0179A300885E24 /* Sources */,
+				72FE21310A0179A300885E24 /* Frameworks */,
+				72FE23250A018EBE00885E24 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				727D78820A02D49E002EBD29 /* PBXTargetDependency */,
+				72FE21680A017ACB00885E24 /* PBXTargetDependency */,
+			);
+			name = BatteryFakerApp;
+			productName = BatteryFakerApp;
+			productReference = 72FE21330A0179A300885E24 /* BatteryFaker.app */;
+			productType = "com.apple.product-type.application";
+		};
+		72FE213F0A0179F400885E24 /* BatteryFaker.kext */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72FE21420A0179F500885E24 /* Build configuration list for PBXNativeTarget "BatteryFaker.kext" */;
+			buildPhases = (
+				72FE213C0A0179F400885E24 /* Sources */,
+				72FE23230A018EB300885E24 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				72FE216A0A017ACE00885E24 /* PBXTargetDependency */,
+			);
+			name = BatteryFaker.kext;
+			productName = BatteryFaker;
+			productReference = 72FE21400A0179F400885E24 /* BatteryFaker.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		72FE21550A017A8F00885E24 /* BatteryFakerPlugIn */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72FE215C0A017A9000885E24 /* Build configuration list for PBXNativeTarget "BatteryFakerPlugIn" */;
+			buildPhases = (
+				72FE21530A017A8F00885E24 /* Sources */,
+				72FE21540A017A8F00885E24 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BatteryFakerPlugIn;
+			productName = BatteryFakerPlugIn;
+			productReference = 72FE21560A017A8F00885E24 /* IOUPSPlugIn.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 72D0ECD408F73D0000CCEA2F /* Build configuration list for PBXProject "PowerManagement" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* pmconfigd */;
+			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
+			targets = (
+				409C6E9901A0B1A80ACA2928 /* All */,
+				72D0ECDE08F73D3000CCEA2F /* AppleSmartBatteryManager */,
+				729A759A0A01F1D7000AB587 /* Power Management Bundle */,
+				729A742B0A01EBB0000AB587 /* pmset */,
+				729A757D0A01EDED000AB587 /* ioupsd */,
+				72F39D4B0A02965000271433 /* BatteryFaker */,
+				72FE21320A0179A300885E24 /* BatteryFakerApp */,
+				72FE213F0A0179F400885E24 /* BatteryFaker.kext */,
+				72FE21550A017A8F00885E24 /* BatteryFakerPlugIn */,
+				727D787C0A02D48D002EBD29 /* suidLauncherTool */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		729A75970A01F1D7000AB587 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				729A75AF0A01F2D7000AB587 /* Localizable.strings in Resources */,
+				729A75B10A01F2D7000AB587 /* com.apple.SystemPowerProfileDefaults.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72FE212F0A0179A300885E24 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72FE21AD0A017BA000885E24 /* PluggedIcon.icns in Resources */,
+				72FE21940A017B7A00885E24 /* Single_0.tif in Resources */,
+				72FE21950A017B7A00885E24 /* Single_1.tif in Resources */,
+				72FE21960A017B7A00885E24 /* Single_2.tif in Resources */,
+				72FE21970A017B7A00885E24 /* Single_3.tif in Resources */,
+				72FE21980A017B7A00885E24 /* Single_4.tif in Resources */,
+				72FE21990A017B7A00885E24 /* Single_5.tif in Resources */,
+				72FE219A0A017B7A00885E24 /* Single_6.tif in Resources */,
+				72FE219B0A017B7A00885E24 /* Single_7.tif in Resources */,
+				72FE219C0A017B7A00885E24 /* Single_8.tif in Resources */,
+				72FE219D0A017B7A00885E24 /* Single_Charge_0.tif in Resources */,
+				72FE219E0A017B7A00885E24 /* Single_Charge_1.tif in Resources */,
+				72FE219F0A017B7A00885E24 /* Single_Charge_2.tif in Resources */,
+				72FE21A00A017B7A00885E24 /* Single_Charge_3.tif in Resources */,
+				72FE21A10A017B7A00885E24 /* Single_Charge_4.tif in Resources */,
+				72FE21A20A017B7A00885E24 /* Single_Charge_5.tif in Resources */,
+				72FE21A30A017B7A00885E24 /* Single_Charge_6.tif in Resources */,
+				72FE21A40A017B7A00885E24 /* Single_Charge_7.tif in Resources */,
+				72FE21A50A017B7A00885E24 /* Single_Charge_8.tif in Resources */,
+				72FE21A60A017B7A00885E24 /* Single_NoBattery.tif in Resources */,
+				72FE21A70A017B7A00885E24 /* Single_Plugged.tif in Resources */,
+				72FE22FA0A018AF800885E24 /* InfoPlist.strings in Resources */,
+				72FE22FB0A018AF800885E24 /* TwoBatteryUI.nib in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		72FE23230A018EB300885E24 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/bash;
+			shellScript = "echo \"Correcting permissions on BatteryFaker.kext\"\n\nchown -R root:wheel $DSTROOT/BatteryFaker.kext\nchmod -R 755 $DSTROOT/BatteryFaker.kext\nchmod 644 $DSTROOT/BatteryFaker.kext/Contents/Info.plist\n\necho \"Relocating IOUPSPlugIn\"\n\nmkdir $DSTROOT/BatteryFaker.kext/Contents/PlugIns\nditto $DSTROOT/IOUPSPlugIn.bundle $DSTROOT/BatteryFaker.kext/Contents/PlugIns/IOUPSPlugIn.bundle\n\necho \"Deleting old IOUPSPlugIn\"\n\nrm -rvf $DSTROOT/IOUPSPlugIn.bundle\necho \"exit $?\"\n";
+		};
+		72FE23250A018EBE00885E24 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/bash;
+			shellScript = "echo \"Giving suidLauncherTool permissions\"\nchown root:wheel $DSTROOT/suidLauncherTool\nchmod 4755 $DSTROOT/suidLauncherTool\n\necho \"Relocating suidLauncherTool\"\nditto $DSTROOT/suidLauncherTool $DSTROOT/$CONTENTS_FOLDER_PATH/Resources/suidLauncherTool\n\necho \"Deleting old suidLauncherTool\"\nrm -rf $DSTROOT/suidLauncherTool\n\necho \"Relocating BatteryFaker.kext\"\nditto $DSTROOT/BatteryFaker.kext $DSTROOT/$CONTENTS_FOLDER_PATH/Resources/BatteryFaker.kext\n\necho \"Deleting old BatteryFaker.kext\"\nrm -rf $DSTROOT/BatteryFaker.kext\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		727D787A0A02D48D002EBD29 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				727D788A0A02D513002EBD29 /* suidLauncher.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		729A74290A01EBB0000AB587 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7227113B0A6DA17900F34043 /* powermanagement.defs in Sources */,
+				729A75750A01EC2A000AB587 /* pmset.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		729A757B0A01EDED000AB587 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				729A758C0A01EEA0000AB587 /* ioupsplugin.defs in Sources */,
+				729A758D0A01EEA0000AB587 /* IOUPSPrivate.c in Sources */,
+				729A758E0A01EEA0000AB587 /* upsd.c in Sources */,
+				729A758F0A01EEA0000AB587 /* ioupsplugin.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		729A75980A01F1D7000AB587 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				729A75C20A01F314000AB587 /* pmconfigd.c in Sources */,
+				729A75C30A01F314000AB587 /* BatteryTimeRemaining.c in Sources */,
+				729A75C40A01F314000AB587 /* PMSettings.c in Sources */,
+				729A75C50A01F314000AB587 /* PSLowPower.c in Sources */,
+				729A75C60A01F314000AB587 /* AutoWakeScheduler.c in Sources */,
+				729A75C70A01F314000AB587 /* RepeatingAutoWake.c in Sources */,
+				729A75C80A01F314000AB587 /* PrivateLib.c in Sources */,
+				729A75C90A01F314000AB587 /* ioupsplugin.defs in Sources */,
+				729A75CA0A01F314000AB587 /* IOUPSPrivate.c in Sources */,
+				729A75CB0A01F314000AB587 /* SetActive.c in Sources */,
+				729A75CC0A01F314000AB587 /* powermanagement.defs in Sources */,
+				72D9844A0B20BE7800D66087 /* TTYKeepAwake.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72D0ECDB08F73D3000CCEA2F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72D0ECFF08F73FB600CCEA2F /* AppleSmartBattery.cpp in Sources */,
+				72D0ED0008F73FB600CCEA2F /* AppleSmartBatteryManager.cpp in Sources */,
+				7226093509AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72FE21300A0179A300885E24 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72FE23940A01992300885E24 /* fakeups.defs in Sources */,
+				72FE21760A017B4000885E24 /* BatteryFakerWindowController.m in Sources */,
+				72FE21770A017B4000885E24 /* FakeBatteryObject.m in Sources */,
+				72FE21780A017B4000885E24 /* FakeUPSObject.m in Sources */,
+				72FE21790A017B4000885E24 /* main.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72FE213C0A0179F400885E24 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72FE22DF0A017D5D00885E24 /* BatteryFakerKEXT.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72FE21530A017A8F00885E24 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72FE21B70A017BC600885E24 /* fakeups.defs in Sources */,
+				72FE21B80A017BC600885E24 /* FakeUPSPlugin.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		727D78800A02D497002EBD29 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 727D787C0A02D48D002EBD29 /* suidLauncherTool */;
+			targetProxy = 727D787F0A02D497002EBD29 /* PBXContainerItemProxy */;
+		};
+		727D78820A02D49E002EBD29 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 727D787C0A02D48D002EBD29 /* suidLauncherTool */;
+			targetProxy = 727D78810A02D49E002EBD29 /* PBXContainerItemProxy */;
+		};
+		729A757A0A01EDA3000AB587 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 729A742B0A01EBB0000AB587 /* pmset */;
+			targetProxy = 729A75790A01EDA3000AB587 /* PBXContainerItemProxy */;
+		};
+		729A75D90A01F7CD000AB587 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 729A759A0A01F1D7000AB587 /* Power Management Bundle */;
+			targetProxy = 729A75D80A01F7CD000AB587 /* PBXContainerItemProxy */;
+		};
+		729A75DB0A01F7D3000AB587 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 729A757D0A01EDED000AB587 /* ioupsd */;
+			targetProxy = 729A75DA0A01F7D3000AB587 /* PBXContainerItemProxy */;
+		};
+		72D0ED0F08F7402400CCEA2F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72D0ECDE08F73D3000CCEA2F /* AppleSmartBatteryManager */;
+			targetProxy = 72D0ED0E08F7402400CCEA2F /* PBXContainerItemProxy */;
+		};
+		72F39D4D0A02965F00271433 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72FE21320A0179A300885E24 /* BatteryFakerApp */;
+			targetProxy = 72F39D4C0A02965F00271433 /* PBXContainerItemProxy */;
+		};
+		72F39D4F0A02966200271433 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72FE213F0A0179F400885E24 /* BatteryFaker.kext */;
+			targetProxy = 72F39D4E0A02966200271433 /* PBXContainerItemProxy */;
+		};
+		72F39D510A02966400271433 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72FE21550A017A8F00885E24 /* BatteryFakerPlugIn */;
+			targetProxy = 72F39D500A02966400271433 /* PBXContainerItemProxy */;
+		};
+		72FE21680A017ACB00885E24 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72FE213F0A0179F400885E24 /* BatteryFaker.kext */;
+			targetProxy = 72FE21670A017ACB00885E24 /* PBXContainerItemProxy */;
+		};
+		72FE216A0A017ACE00885E24 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72FE21550A017A8F00885E24 /* BatteryFakerPlugIn */;
+			targetProxy = 72FE21690A017ACE00885E24 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		72FE22F60A018AF800885E24 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				72FE22F70A018AF800885E24 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		72FE22F80A018AF800885E24 /* TwoBatteryUI.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				72FE22F90A018AF800885E24 /* English */,
+			);
+			name = TwoBatteryUI.nib;
+			sourceTree = "<group>";
+		};
+		A9E691B70564519800938E2D /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A9E691B80564519800938E2D /* English */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		727D78840A02D4C1002EBD29 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /;
+				PREBINDING = NO;
+				PRODUCT_NAME = suidLauncherTool;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		727D78850A02D4C1002EBD29 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /;
+				PREBINDING = NO;
+				PRODUCT_NAME = suidLauncherTool;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		727D78860A02D4C1002EBD29 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /;
+				PREBINDING = NO;
+				PRODUCT_NAME = suidLauncherTool;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		729A742F0A01EBD4000AB587 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = pmset;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		729A74300A01EBD4000AB587 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = pmset;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		729A74310A01EBD4000AB587 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = pmset;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		729A75870A01EE43000AB587 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/libexec;
+				PREBINDING = NO;
+				PRODUCT_NAME = ioupsd;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		729A75880A01EE43000AB587 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/libexec;
+				PREBINDING = NO;
+				PRODUCT_NAME = ioupsd;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		729A75890A01EE43000AB587 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/libexec;
+				PREBINDING = NO;
+				PRODUCT_NAME = ioupsd;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		729A759E0A01F1D8000AB587 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
+				INSTALL_PATH = /System/Library/SystemConfiguration;
+				OTHER_LDFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = PowerManagement;
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		729A759F0A01F1D8000AB587 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
+				INSTALL_PATH = /System/Library/SystemConfiguration;
+				OTHER_LDFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = PowerManagement;
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		729A75A00A01F1D8000AB587 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
+				INSTALL_PATH = /System/Library/SystemConfiguration;
+				OTHER_LDFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = PowerManagement;
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = YES;
+			};
+			name = Default;
+		};
+		72D0ECD108F73D0000CCEA2F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		72D0ECD208F73D0000CCEA2F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		72D0ECD308F73D0000CCEA2F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		72D0ECD508F73D0000CCEA2F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+			};
+			name = Development;
+		};
+		72D0ECD608F73D0000CCEA2F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+			};
+			name = Deployment;
+		};
+		72D0ECD708F73D0000CCEA2F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+			};
+			name = Default;
+		};
+		72D0ECE208F73D3100CCEA2F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = i386;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = "compiler-default";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_TREAT_NONCONFORMANT_CODE_ERRORS_AS_WARNINGS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = NO;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = NO;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = NO;
+				GCC_WARN_EFFECTIVE_CPLUSPLUS_VIOLATIONS = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = NO;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = NO;
+				GCC_WARN_MISSING_PARENTHESES = NO;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = NO;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = NO;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = NO;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				GCC_WARN_UNUSED_LABEL = NO;
+				GCC_WARN_UNUSED_PARAMETER = NO;
+				GCC_WARN_UNUSED_VALUE = NO;
+				GCC_WARN_UNUSED_VARIABLE = NO;
+				INFOPLIST_FILE = AppleSmartBatteryManager/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = com.apple.driver.AppleSmartBatteryManager;
+				MODULE_VERSION = 8.0.0;
+				PREBINDING = NO;
+				PRODUCT_NAME = AppleSmartBatteryManager;
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		72D0ECE308F73D3100CCEA2F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = i386;
+				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = "compiler-default";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_TREAT_NONCONFORMANT_CODE_ERRORS_AS_WARNINGS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = NO;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = NO;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = NO;
+				GCC_WARN_EFFECTIVE_CPLUSPLUS_VIOLATIONS = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = NO;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = NO;
+				GCC_WARN_MISSING_PARENTHESES = NO;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = NO;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = NO;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = NO;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				GCC_WARN_UNUSED_LABEL = NO;
+				GCC_WARN_UNUSED_PARAMETER = NO;
+				GCC_WARN_UNUSED_VALUE = NO;
+				GCC_WARN_UNUSED_VARIABLE = NO;
+				INFOPLIST_FILE = AppleSmartBatteryManager/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = com.apple.driver.AppleSmartBatteryManager;
+				MODULE_VERSION = 8.0.0;
+				PREBINDING = NO;
+				PRODUCT_NAME = AppleSmartBatteryManager;
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		72D0ECE408F73D3100CCEA2F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = i386;
+				GCC_C_LANGUAGE_STANDARD = "compiler-default";
+				GCC_TREAT_NONCONFORMANT_CODE_ERRORS_AS_WARNINGS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = NO;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = NO;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = NO;
+				GCC_WARN_EFFECTIVE_CPLUSPLUS_VIOLATIONS = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = NO;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = NO;
+				GCC_WARN_MISSING_PARENTHESES = NO;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = NO;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = NO;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = NO;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = NO;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				GCC_WARN_UNUSED_LABEL = NO;
+				GCC_WARN_UNUSED_PARAMETER = NO;
+				GCC_WARN_UNUSED_VALUE = NO;
+				GCC_WARN_UNUSED_VARIABLE = NO;
+				INFOPLIST_FILE = AppleSmartBatteryManager/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = com.apple.driver.AppleSmartBatteryManager;
+				MODULE_VERSION = 8.0.0;
+				PREBINDING = NO;
+				PRODUCT_NAME = AppleSmartBatteryManager;
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		72F39D560A02969600271433 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = BatteryFaker;
+			};
+			name = Development;
+		};
+		72F39D570A02969600271433 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				PRODUCT_NAME = BatteryFaker;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		72F39D580A02969600271433 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = BatteryFaker;
+			};
+			name = Default;
+		};
+		72FE21370A0179A400885E24 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(FRAMEWORK_SEARCH_PATHS)",
+					"$(SRCROOT)",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = BatteryFaker/App/BatteryFaker_Prefix.pch;
+				INFOPLIST_FILE = BatteryFaker/App/Resources/Info.plist;
+				INSTALL_PATH = /;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = BatteryFaker;
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		72FE21380A0179A400885E24 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(FRAMEWORK_SEARCH_PATHS)",
+					"$(SRCROOT)",
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = BatteryFaker/App/BatteryFaker_Prefix.pch;
+				INFOPLIST_FILE = BatteryFaker/App/Resources/Info.plist;
+				INSTALL_PATH = /;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = BatteryFaker;
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		72FE21390A0179A400885E24 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(FRAMEWORK_SEARCH_PATHS)",
+					"$(SRCROOT)",
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = BatteryFaker/App/BatteryFaker_Prefix.pch;
+				INFOPLIST_FILE = BatteryFaker/App/Resources/Info.plist;
+				INSTALL_PATH = /;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = BatteryFaker;
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		72FE21430A0179F500885E24 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = s;
+				INFOPLIST_FILE = BatteryFaker/Kext/Info.plist;
+				INSTALL_PATH = /;
+				MODULE_NAME = com.apple.driver.BatteryFaker;
+				MODULE_VERSION = 6.0.0;
+				PREBINDING = NO;
+				PRODUCT_NAME = BatteryFaker;
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		72FE21440A0179F500885E24 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = s;
+				INFOPLIST_FILE = BatteryFaker/Kext/Info.plist;
+				INSTALL_PATH = /;
+				MODULE_NAME = com.apple.driver.BatteryFaker;
+				MODULE_VERSION = 6.0.0;
+				PREBINDING = NO;
+				PRODUCT_NAME = BatteryFaker;
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		72FE21450A0179F500885E24 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = s;
+				INFOPLIST_FILE = BatteryFaker/Kext/Info.plist;
+				INSTALL_PATH = /;
+				MODULE_NAME = com.apple.driver.BatteryFaker;
+				MODULE_VERSION = 6.0.0;
+				PREBINDING = NO;
+				PRODUCT_NAME = BatteryFaker;
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		72FE215D0A017A9000885E24 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
+				INFOPLIST_FILE = BatteryFaker/IOUPSPlugIn/Info.plist;
+				INSTALL_PATH = /;
+				OTHER_LDFLAGS = (
+					"-framework",
+					CoreFoundation,
+					"-framework",
+					IOKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = IOUPSPlugIn;
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		72FE215E0A017A9000885E24 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
+				INFOPLIST_FILE = BatteryFaker/IOUPSPlugIn/Info.plist;
+				INSTALL_PATH = /;
+				OTHER_LDFLAGS = (
+					"-framework",
+					CoreFoundation,
+					"-framework",
+					IOKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = IOUPSPlugIn;
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		72FE215F0A017A9000885E24 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
+				INFOPLIST_FILE = BatteryFaker/IOUPSPlugIn/Info.plist;
+				INSTALL_PATH = /;
+				OTHER_LDFLAGS = (
+					"-framework",
+					CoreFoundation,
+					"-framework",
+					IOKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = IOUPSPlugIn;
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = YES;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		727D78830A02D4C1002EBD29 /* Build configuration list for PBXNativeTarget "suidLauncherTool" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				727D78840A02D4C1002EBD29 /* Development */,
+				727D78850A02D4C1002EBD29 /* Deployment */,
+				727D78860A02D4C1002EBD29 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		729A742E0A01EBD4000AB587 /* Build configuration list for PBXNativeTarget "pmset" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				729A742F0A01EBD4000AB587 /* Development */,
+				729A74300A01EBD4000AB587 /* Deployment */,
+				729A74310A01EBD4000AB587 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		729A75860A01EE43000AB587 /* Build configuration list for PBXNativeTarget "ioupsd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				729A75870A01EE43000AB587 /* Development */,
+				729A75880A01EE43000AB587 /* Deployment */,
+				729A75890A01EE43000AB587 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		729A759D0A01F1D8000AB587 /* Build configuration list for PBXNativeTarget "Power Management Bundle" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				729A759E0A01F1D8000AB587 /* Development */,
+				729A759F0A01F1D8000AB587 /* Deployment */,
+				729A75A00A01F1D8000AB587 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		72D0ECD008F73D0000CCEA2F /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72D0ECD108F73D0000CCEA2F /* Development */,
+				72D0ECD208F73D0000CCEA2F /* Deployment */,
+				72D0ECD308F73D0000CCEA2F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		72D0ECD408F73D0000CCEA2F /* Build configuration list for PBXProject "PowerManagement" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72D0ECD508F73D0000CCEA2F /* Development */,
+				72D0ECD608F73D0000CCEA2F /* Deployment */,
+				72D0ECD708F73D0000CCEA2F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		72D0ECE108F73D3100CCEA2F /* Build configuration list for PBXNativeTarget "AppleSmartBatteryManager" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72D0ECE208F73D3100CCEA2F /* Development */,
+				72D0ECE308F73D3100CCEA2F /* Deployment */,
+				72D0ECE408F73D3100CCEA2F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		72F39D550A02969600271433 /* Build configuration list for PBXAggregateTarget "BatteryFaker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72F39D560A02969600271433 /* Development */,
+				72F39D570A02969600271433 /* Deployment */,
+				72F39D580A02969600271433 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		72FE21360A0179A400885E24 /* Build configuration list for PBXNativeTarget "BatteryFakerApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72FE21370A0179A400885E24 /* Development */,
+				72FE21380A0179A400885E24 /* Deployment */,
+				72FE21390A0179A400885E24 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		72FE21420A0179F500885E24 /* Build configuration list for PBXNativeTarget "BatteryFaker.kext" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72FE21430A0179F500885E24 /* Development */,
+				72FE21440A0179F500885E24 /* Deployment */,
+				72FE21450A0179F500885E24 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		72FE215C0A017A9000885E24 /* Build configuration list for PBXNativeTarget "BatteryFakerPlugIn" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72FE215D0A017A9000885E24 /* Development */,
+				72FE215E0A017A9000885E24 /* Deployment */,
+				72FE215F0A017A9000885E24 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

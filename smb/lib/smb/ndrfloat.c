@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -470,7 +473,7 @@
 **
 */
 
-#if IEEE_FLOAT || defined(DEBUG)
+#if IEEE_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_vax_f_to_ieee_single
 (
     CVT_VAX_F input_value,
@@ -541,7 +544,7 @@ INTERNAL void cvt_vax_f_to_ieee_single
 **
 */
 
-#if IEEE_FLOAT || defined(DEBUG)
+#if IEEE_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_vax_g_to_ieee_double
 (
     CVT_VAX_G input_value,
@@ -612,7 +615,7 @@ INTERNAL void cvt_vax_g_to_ieee_double
 **
 */
 
-#if IEEE_FLOAT || defined(DEBUG)
+#if IEEE_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_cray_to_ieee_single
 (
     CVT_CRAY input_value,
@@ -711,7 +714,7 @@ void ndr_cray64_to_ieee32
 **
 */
 
-#if IEEE_FLOAT || defined(DEBUG)
+#if IEEE_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_cray_to_ieee_double
 (
     CVT_CRAY input_value,
@@ -782,7 +785,7 @@ INTERNAL void cvt_cray_to_ieee_double
 **
 */
 
-#if IEEE_FLOAT || defined(DEBUG)
+#if IEEE_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ibm_short_to_ieee_single
 (
     CVT_IBM_SHORT input_value,
@@ -856,7 +859,7 @@ INTERNAL void cvt_ibm_short_to_ieee_single
 **
 */
 
-#if IEEE_FLOAT || defined(DEBUG)
+#if IEEE_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ibm_long_to_ieee_double
 (
     CVT_IBM_LONG input_value,
@@ -925,7 +928,7 @@ INTERNAL void cvt_ibm_long_to_ieee_double
 **
 */
 
-#if VAX_FLOAT || defined(DEBUG)
+#if VAX_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ieee_single_to_vax_f
 (
     CVT_IEEE_SINGLE input_value,
@@ -990,7 +993,7 @@ INTERNAL void cvt_ieee_single_to_vax_f
 **
 */
 
-#if VAX_FLOAT || defined(DEBUG)
+#if VAX_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ieee_double_to_vax_g
 (
     CVT_IEEE_DOUBLE input_value,
@@ -1060,7 +1063,7 @@ INTERNAL void cvt_ieee_double_to_vax_g
 **
 */
 
-#if VAX_FLOAT || defined(DEBUG)
+#if VAX_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_cray_to_vax_f
 (
     CVT_CRAY input_value,
@@ -1124,7 +1127,7 @@ INTERNAL void cvt_cray_to_vax_f
 **
 */
 
-#if VAX_FLOAT || defined(DEBUG)
+#if VAX_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_cray_to_vax_g
 (
     CVT_CRAY input_value,
@@ -1188,7 +1191,7 @@ INTERNAL void cvt_cray_to_vax_g
 **
 */
 
-#if VAX_FLOAT || defined(DEBUG)
+#if VAX_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ibm_short_to_vax_f
 (
     CVT_IBM_SHORT input_value,
@@ -1261,7 +1264,7 @@ INTERNAL void cvt_ibm_short_to_vax_f
 **
 */
 
-#if VAX_FLOAT || defined(DEBUG)
+#if VAX_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ibm_long_to_vax_g
 (
     CVT_IBM_LONG input_value,
@@ -1330,7 +1333,7 @@ INTERNAL void cvt_ibm_long_to_vax_g
 **
 */
 
-#if CRAY_FLOAT || defined(DEBUG)
+#if CRAY_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ieee_single_to_cray
 (
     CVT_IEEE_SINGLE input_value,
@@ -1430,7 +1433,7 @@ int ndr_ieee32_to_cray64
 **
 */
 
-#if CRAY_FLOAT || defined(DEBUG)
+#if CRAY_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ieee_double_to_cray
 (
     CVT_IEEE_DOUBLE input_value,
@@ -1494,7 +1497,7 @@ INTERNAL void cvt_ieee_double_to_cray
 **
 */
 
-#if CRAY_FLOAT || defined(DEBUG)
+#if CRAY_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_vax_f_to_cray
 (
     CVT_VAX_F input_value,
@@ -1568,7 +1571,7 @@ INTERNAL void cvt_vax_f_to_cray
 **
 */
 
-#if CRAY_FLOAT || defined(DEBUG)
+#if CRAY_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_vax_g_to_cray
 (
     CVT_VAX_G input_value,
@@ -1627,7 +1630,7 @@ INTERNAL void cvt_vax_g_to_cray
 **
 */
 
-#if CRAY_FLOAT || defined(DEBUG)
+#if CRAY_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ibm_short_to_cray
 (
     CVT_IBM_SHORT input_value,
@@ -1686,7 +1689,7 @@ INTERNAL void cvt_ibm_short_to_cray
 **
 */
 
-#if CRAY_FLOAT || defined(DEBUG)
+#if CRAY_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ibm_long_to_cray
 (
     CVT_IBM_LONG input_value,
@@ -1764,7 +1767,7 @@ INTERNAL void cvt_ibm_long_to_cray
 **
 */
 
-#if IBM_FLOAT || defined(DEBUG)
+#if IBM_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ieee_single_to_ibm_short
 (
     CVT_IEEE_SINGLE input_value,
@@ -1829,7 +1832,7 @@ INTERNAL void cvt_ieee_single_to_ibm_short
 **
 */
 
-#if IBM_FLOAT || defined(DEBUG)
+#if IBM_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_ieee_double_to_ibm_long
 (
     CVT_IEEE_DOUBLE input_value,
@@ -1902,7 +1905,7 @@ INTERNAL void cvt_ieee_double_to_ibm_long
 **
 */
 
-#if IBM_FLOAT || defined(DEBUG)
+#if IBM_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_vax_f_to_ibm_short
 (
     CVT_VAX_F input_value,
@@ -1966,7 +1969,7 @@ INTERNAL void cvt_vax_f_to_ibm_short
 **
 */
 
-#if IBM_FLOAT || defined(DEBUG)
+#if IBM_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_vax_g_to_ibm_long
 (
     CVT_VAX_G input_value,
@@ -2024,7 +2027,7 @@ INTERNAL void cvt_vax_g_to_ibm_long
 **
 */
 
-#if IBM_FLOAT || defined(DEBUG)
+#if IBM_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_cray_to_ibm_short
 (
     CVT_CRAY input_value,
@@ -2082,7 +2085,7 @@ INTERNAL void cvt_cray_to_ibm_short
 **
 */
 
-#if IBM_FLOAT || defined(DEBUG)
+#if IBM_FLOAT || defined(DEBUG_DCE_RPC)
 INTERNAL void cvt_cray_to_ibm_long
 (
     CVT_CRAY input_value,
@@ -2528,7 +2531,7 @@ PUBLIC void ndr_cvt_long_float
               ndr_true);
 }
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 globaldef void (*cvt_vector[])() = {
     cvt_vax_f_to_ieee_single,
     cvt_vax_g_to_ieee_double,

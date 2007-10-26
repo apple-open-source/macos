@@ -1,0 +1,4 @@
+/^WX_CONFIG=/c
+WX_CONFIG=/usr/bin/wx-config
+.
+w

@@ -1,5 +1,5 @@
 # SOAP4R - SOAP elements library
-# Copyright (C) 2000, 2001, 2003, 2004  NAKAMURA, Hiroshi <nahi@ruby-lang.org>.
+# Copyright (C) 2000, 2001, 2003-2005  NAKAMURA, Hiroshi <nahi@ruby-lang.org>.
 
 # This program is copyrighted free software by NAKAMURA, Hiroshi.  You can
 # redistribute it and/or modify it under the same terms of Ruby's license;
@@ -83,10 +83,10 @@ public
     attrs[ns.name(AttrEncodingStyleName)] = EncodingNamespace
     name = ns.name(@elename)
     generator.encode_tag(name, attrs)
-    yield(self.faultcode, false)
-    yield(self.faultstring, false)
-    yield(self.faultactor, false)
-    yield(self.detail, false) if self.detail
+    yield(self.faultcode)
+    yield(self.faultstring)
+    yield(self.faultactor)
+    yield(self.detail) if self.detail
     generator.encode_tag_end(name, true)
   end
 end
@@ -99,7 +99,15 @@ class SOAPBody < SOAPStruct
     super(nil)
     @elename = EleBodyName
     @encodingstyle = nil
-    add(data.elename.name, data) if data
+    if data
+      if data.respond_to?(:elename)
+        add(data.elename.name, data)
+      else
+        data.to_a.each do |datum|
+          add(datum.elename.name, datum)
+        end
+      end
+    end
     @is_fault = is_fault
   end
 
@@ -107,10 +115,10 @@ class SOAPBody < SOAPStruct
     name = ns.name(@elename)
     generator.encode_tag(name, attrs)
     if @is_fault
-      yield(@data, true)
+      yield(@data)
     else
       @data.each do |data|
-	yield(data, true)
+	yield(data)
       end
     end
     generator.encode_tag_end(name, true)
@@ -129,7 +137,7 @@ class SOAPBody < SOAPStruct
       end
     end
 
-    raise SOAPParser::FormatDecodeError.new('No root element.')
+    raise Parser::FormatDecodeError.new('no root element')
   end
 end
 
@@ -163,7 +171,7 @@ public
       @element.extraattr[ns.name(AttrEncodingStyleName)] = @encodingstyle
     end
     @element.encodingstyle = @encodingstyle if !@element.encodingstyle
-    yield(@element, true)
+    yield(@element)
   end
 end
 
@@ -181,7 +189,7 @@ class SOAPHeader < SOAPStruct
     name = ns.name(@elename)
     generator.encode_tag(name, attrs)
     @data.each do |data|
-      yield(data, true)
+      yield(data)
     end
     generator.encode_tag_end(name, true)
   end
@@ -231,13 +239,12 @@ class SOAPEnvelope < XSD::NSDBase
   end
 
   def encode(generator, ns, attrs = {})
-    SOAPGenerator.assign_ns(attrs, ns, EnvelopeNamespace,
-      SOAPNamespaceTag)
+    SOAPGenerator.assign_ns(attrs, ns, elename.namespace, SOAPNamespaceTag)
     name = ns.name(@elename)
     generator.encode_tag(name, attrs)
 
-    yield(@header, true) if @header and @header.length > 0
-    yield(@body, true)
+    yield(@header) if @header and @header.length > 0
+    yield(@body)
 
     generator.encode_tag_end(name, true)
   end

@@ -1,0 +1,192 @@
+# Implements MSR selection dialog class for Insight.
+# Copyright 1999, 2000, 2001 Red Hat, Inc.
+#
+# Written by Fernando Nasser  <fnasser@redhat.com>
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License (GPL) as published by
+# the Free Software Foundation; either version 2 of the License, or (at
+# your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# ------------------------------------------------------------------
+#  NAME:         MsrSelDlg::constructor
+#  DESCRIPTION:  Create a new MSR Selection dialog window.
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+# ------------------------------------------------------------------
+body MsrSelDlg::constructor {args} {
+
+  window_name "MSR Selection"
+  build_win
+  eval itk_initialize $args
+
+}
+
+# ------------------------------------------------------------------
+#  NAME:         protected method MsrSelDlg::build_win
+#  DESCRIPTION:  Builds the MSR dialog window from widgets.
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+#
+#  NOTES:        This method should only be called once for
+#                each MsrSelDlg.
+# ------------------------------------------------------------------
+body MsrSelDlg::build_win {} {
+  
+  # CHOOSE_MSR: the list box with list of MSRs.  Also an entry
+  # for typing in the MSR by hand.
+
+  itk_component add choose_msr {
+    iwidgets::scrolledlistbox $itk_interior.cmsr -visibleitems 30x15 \
+      -labeltext "Choose MSR" -labelpos nw \
+      -labelrelief groove -labelborderwidth 2 \
+      -ipadx 8 -ipady 6 -childsitepos s -hscrollmode none \
+      -textbackground white -exportselection 0 \
+      -selectioncommand [code $this select_msr] \
+      -dblclickcommand [code $this doit]
+  }
+
+  # MSR_ENTRY: this is the MSR entry box.  You can enter the MSR register name
+  # by hand here, or click on the listbox to have it entered for you.
+
+  itk_component add msr_entry {
+    iwidgets::entryfield [$itk_component(choose_msr) childsite].lab \
+      -labeltext MSR: -textbackground white \
+      -focuscommand [code $this clear_msr_selection] \
+      -command [code $this doit]
+  }
+  pack $itk_component(msr_entry) -fill x -side bottom -pady 4
+  
+  itk_component add button_box {
+    frame $itk_interior.b
+  }
+  
+  itk_component add ok {
+    button $itk_component(button_box).ok -text OK -command [code $this doit]
+  }
+  $itk_component(ok) configure -state disabled
+
+  itk_component add cancel {
+    button $itk_component(button_box).cancel -text Cancel \
+      -command [code $this cancel]
+  }
+
+  ::standard_button_box $itk_component(button_box)
+
+  pack $itk_component(button_box) -side bottom -fill x \
+    -pady 4 -padx 4
+  pack $itk_component(choose_msr) -fill both -expand 1 -pady 4 -padx 4
+
+  after idle [list update idletasks;  $this list_msrs]
+
+}
+
+# ------------------------------------------------------------------
+#  NAME:         protected method MsrSelDlg::doit
+#  DESCRIPTION:  Selects the MSR to view and unposts window.
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+#
+#  NOTES:        
+# ------------------------------------------------------------------
+body MsrSelDlg::doit {} {
+  set MsrSelDlg::last_button 1
+  set msr [$itk_component(msr_entry) get]
+  set MsrSelDlg::last_msr $msr
+
+  if {[catch {gdb_cmd "set msr-pointer $msr"} result]} {
+    ManagedWin::open WarningDlg -transient \
+		    -message [list "Could not select this $msr:\n$result"]
+  }
+
+  debug "About to unpost"
+  unpost
+}
+
+# ------------------------------------------------------------------
+#  NAME:         protected method MsrSelDlg::cancel
+#  DESCRIPTION:  Unposts the window without selecting
+#                the MSR to view.
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+#
+#  NOTES:        
+# ------------------------------------------------------------------
+body MsrSelDlg::cancel {} {
+  set MsrSelDlg::last_button 0
+  set MsrSelDlg::last_msr {}
+  unpost
+}
+
+# ------------------------------------------------------------------
+#  NAME:         protected method MsrSelDlg::list_msrs
+#  DESCRIPTION:  List the known MSR names.
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+#
+#  NOTES:        
+# ------------------------------------------------------------------
+body MsrSelDlg::list_msrs {{expr {}}} {
+  set err [catch {gdb_cmd "set msr-pointer" 1} msg ]
+  set msg [string trimright $msg "."]
+  set msrnames [split $msg ,]
+  set msrnames [lrange $msrnames 1 end]
+
+  $itk_component(choose_msr) clear
+  set msr_list {}
+
+  foreach name $msrnames {
+    lappend msr_list [list $name {set msr $name}]
+    $itk_component(choose_msr) insert end $name
+  }
+
+  $itk_component(choose_msr) selection set 0
+  select_msr
+}
+
+# ------------------------------------------------------------------
+#  NAME:         protected method MsrSelDlg::select_msrs
+#  DESCRIPTION:  Grab the selected element from the MSR listbox
+#                and insert the associated MSR into the entry form.
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+#
+#  NOTES:        
+# ------------------------------------------------------------------
+body MsrSelDlg::select_msr {} {
+  set hit [$itk_component(choose_msr) curselection]
+  if {$hit != ""} {
+    $itk_component(msr_entry) clear
+    $itk_component(msr_entry) insert 0 [lindex [lindex $msr_list $hit] 0]
+    $itk_component(ok) configure -state normal
+  }
+}
+
+# ------------------------------------------------------------------
+#  METHOD:  clear_msr_selection - Clear the current MSR selection.
+# ------------------------------------------------------------------
+# ------------------------------------------------------------------
+#  NAME:         protected method MsrSelDlg::clear_msrs_selection
+#  DESCRIPTION:  Clear the current MSR selection.
+#
+#  ARGUMENTS:    None
+#  RETURNS:      Nothing
+#
+#  NOTES:        
+# ------------------------------------------------------------------
+body MsrSelDlg::clear_msr_selection {} {
+  $itk_component(choose_msr) selection clear 0 end
+  $itk_component(msr_entry) selection range 0 end
+}
+

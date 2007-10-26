@@ -1,6 +1,6 @@
 /* example RCS compile-time configuration */
 
-	/* $Id: conf.heg,v 1.1.1.1 1999/04/23 01:43:38 wsanchez Exp $ */
+	/* $Id: conf.heg,v 1.1 1999/04/23 01:43:38 wsanchez Exp $ */
 
 /*
  * This example RCS compile-time configuration describes a host that conforms

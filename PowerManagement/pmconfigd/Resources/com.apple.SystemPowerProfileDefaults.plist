@@ -1,0 +1,583 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>DefaultProfileChoices</key>
+    <dict>
+        <key>AC Power</key>
+        <integer>2</integer>
+        <key>Battery Power</key>
+        <integer>1</integer>
+        <key>UPS Power</key>
+        <integer>1</integer>
+    </dict>
+    <key>SystemProfileDefaults</key>
+    <array>
+        <dict>
+            <key>AC Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>5</integer>
+                <key>Dynamic Power Step</key>
+                <integer>1</integer>
+                <key>Hibernate File</key>
+                <string>/var/vm/sleepimage</string>
+                <key>Hibernate Mode</key>
+                <integer>3</integer>
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>5</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>0</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>0</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>0</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+            <key>Battery Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>1</integer>
+                <key>Dynamic Power Step</key>
+                <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>1</integer>
+                <key>System Sleep Timer</key>
+                <integer>5</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On LAN</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>0</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>1</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+            <key>UPS Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>1</integer>
+                <key>Dynamic Power Step</key>
+                <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>1</integer>
+                <key>System Sleep Timer</key>
+                <integer>5</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On LAN</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>0</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>1</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+        </dict>
+        <dict>
+            <key>AC Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>5</integer>
+                <key>Dynamic Power Step</key>
+                <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>10</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>1</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>1</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>0</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+            <key>Battery Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>2</integer>
+                <key>Dynamic Power Step</key>
+                <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>10</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>0</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>0</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>1</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+            <key>UPS Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>2</integer>
+                <key>Dynamic Power Step</key>
+                <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>1</integer>
+                <key>System Sleep Timer</key>
+                <integer>10</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>0</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>0</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>1</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+        </dict>
+        <dict>
+            <key>AC Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>10</integer>
+                <key>Dynamic Power Step</key>
+                <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>10</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>1</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>1</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>0</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+            <key>Battery Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>5</integer>
+                <key>Dynamic Power Step</key>
+                <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>15</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>0</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>0</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>1</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+            <key>UPS Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>5</integer>
+                <key>Dynamic Power Step</key>
+                <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>15</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>0</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>0</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>1</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+        </dict>
+        <dict>
+            <key>AC Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>20</integer>
+                <key>Dynamic Power Step</key>
+                <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>0</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>1</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>1</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>0</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+            <key>Battery Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>10</integer>
+                <key>Dynamic Power Step</key>
+                <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>30</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>1</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>0</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>0</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+            <key>UPS Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>0</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>10</integer>
+                <key>Display Sleep Timer</key>
+                <integer>10</integer>
+                <key>Dynamic Power Step</key>
+                <integer>1</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>30</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>1</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>0</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>0</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+        </dict>
+        <dict>
+            <key>AC Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>1</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>0</integer>
+                <key>Display Sleep Timer</key>
+                <integer>60</integer>
+                <key>Dynamic Power Step</key>
+                <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>0</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>1</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>1</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>0</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+            <key>Battery Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>1</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>0</integer>
+                <key>Display Sleep Timer</key>
+                <integer>30</integer>
+                <key>Dynamic Power Step</key>
+                <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>0</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>1</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>1</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>0</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+            <key>UPS Power</key>
+            <dict>
+                <key>Sleep On Power Button</key>
+                <integer>1</integer>
+                <key>Automatic Restart On Power Loss</key>
+                <integer>1</integer>
+                <key>Disk Sleep Timer</key>
+                <integer>0</integer>
+                <key>Display Sleep Timer</key>
+                <integer>30</integer>
+                <key>Dynamic Power Step</key>
+                <integer>0</integer>
+                <key>Hibernate File</key>                
+                <string>/var/vm/sleepimage</string>                
+                <key>Hibernate Mode</key>                
+                <integer>3</integer>                
+                <key>Reduce Processor Speed</key>
+                <integer>0</integer>
+                <key>System Sleep Timer</key>
+                <integer>0</integer>
+                <key>Wake On AC Change</key>
+                <integer>0</integer>
+                <key>Wake On Clamshell Open</key>
+                <integer>1</integer>
+                <key>Wake On LAN</key>
+                <integer>1</integer>
+                <key>Wake On Modem Ring</key>
+                <integer>1</integer>
+                <key>Display Sleep Uses Dim</key>
+                <integer>1</integer>
+                <key>ReduceBrightness</key>
+                <integer>0</integer>
+                <key>Mobile Motion Module</key>
+                <integer>1</integer>
+                <key>TTYSPreventSleep</key>
+                <integer>1</integer>
+            </dict>
+        </dict>
+    </array>
+</dict>
+</plist>

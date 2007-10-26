@@ -1,0 +1,73 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from smtp06-01.prod.mesa1.secureserver.net
+	(smtp06-01.prod.mesa1.secureserver.net [64.202.189.20])
+	by sb7.songbird.com (8.12.11/8.12.11) with ESMTP id k1CC35mv013539
+	for <gpc-talk-bounces@grizz.org>; Sun, 12 Feb 2006 04:03:06 -0800
+Message-Id: <200602121203.k1CC35mv013539@sb7.songbird.com>
+Received: (qmail 22373 invoked for bounce); 12 Feb 2006 12:02:26 -0000
+Date: 12 Feb 2006 12:02:26 -0000
+From: MAILER-DAEMON@smtp06-01.prod.mesa1.secureserver.net
+To: gpc-talk-bounces@grizz.org
+Subject: failure notice
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Found to be clean
+X-Songbird-From: 
+
+We're sorry. There's a problem with the e-mail address(es) you're trying
+to send to. Please verify the address(es) and try again. If you continue
+to have problems, please contact Customer Support at (480) 624-2500.
+
+<rauschlo@frontfin.com>:
+The e-mail message could not be delivered because the user's mailfolder is full.
+
+--- Below this line is a copy of the message.
+
+Return-Path: <gpc-talk-bounces@grizz.org>
+Received: (qmail 22370 invoked from network); 12 Feb 2006 12:02:26 -0000
+Received: from unknown (HELO pre-smtp05-01.prod.mesa1.secureserver.net) ([64.202.166.14])
+          (envelope-sender <gpc-talk-bounces@grizz.org>)
+          by smtp06-01.prod.mesa1.secureserver.net (qmail-ldap-1.03) with SMTP
+          for <rauschlo@frontfin.com>; 12 Feb 2006 12:02:26 -0000
+Received: (qmail 28068 invoked from network); 12 Feb 2006 12:02:26 -0000
+Received: from unknown (HELO sb7.songbird.com) ([208.184.79.137])
+          (envelope-sender <gpc-talk-bounces@grizz.org>)
+          by pre-smtp05-01.prod.mesa1.secureserver.net (qmail-ldap-1.03) with SMTP
+          for <rauschlo@frontfin.com>; 12 Feb 2006 12:02:26 -0000
+Received: from sb7.songbird.com (sb7.songbird.com [127.0.0.1])
+	by sb7.songbird.com (8.12.11/8.12.11) with ESMTP id k1CC2oMf013501
+	for <rauschlo@frontfin.com>; Sun, 12 Feb 2006 04:02:50 -0800
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Subject: Your message to GPC-talk awaits moderator approval
+From: gpc-talk-bounces@grizz.org
+To: rauschlo@frontfin.com
+Message-ID: <mailman.6305.1139745768.1568.gpc-talk@grizz.org>
+Date: Sun, 12 Feb 2006 04:02:48 -0800
+Precedence: bulk
+X-BeenThere: gpc-talk@grizz.org
+X-Mailman-Version: 2.1.5
+List-Id: Grizzly Peak Cyclists general discussion list <gpc-talk.grizz.org>
+X-List-Administrivia: yes
+Sender: gpc-talk-bounces@grizz.org
+Errors-To: gpc-talk-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Found to be clean
+X-Songbird-From: gpc-talk-bounces@grizz.org
+
+Your mail to 'GPC-talk' with the subject
+
+    Re: gargoyle nitrite
+
+Is being held until the list moderator can review it for approval.
+
+The reason it is being held:
+
+    Post by non-member to a members-only list
+
+Either the message will get posted to the list, or you will receive
+notification of the moderator's decision.  If you would like to cancel
+this posting, please visit the following URL:
+
+    http://www.grizz.org/mailman/confirm/gpc-talk/d1a43f77baa30fb2317c51033c45d6541bc23533
+

@@ -1122,8 +1122,7 @@ output_headers(void)
 		if((some_symbols_referenced == TRUE &&
 		    some_non_weak_refs == FALSE) ||
 		    mdl->dynamic_library->force_weak_dylib == TRUE){
-		    if(macosx_deployment_target >=
-		       MACOSX_DEPLOYMENT_TARGET_10_2){
+		    if(macosx_deployment_target.major >= 2){
 			dl->cmd = LC_LOAD_WEAK_DYLIB;
 		    }
 		    else{
@@ -1131,7 +1130,7 @@ output_headers(void)
 				"library in output with "
 				"MACOSX_DEPLOYMENT_TARGET environment variable "
 				"set to: %s", mdl->definition_object->file_name,
-				macosx_deployment_target_name);
+				macosx_deployment_target.name);
 			dl->cmd = LC_LOAD_DYLIB;
 		    }
 		}

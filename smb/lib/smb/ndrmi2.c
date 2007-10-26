@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -37,6 +40,7 @@
 #include <dce/idlddefs.h>
 #include <ndrmi.h>
 #include <lsysdep.h>
+#include <asl.h>
 
 static void rpc_ss_ndr_m_f_or_c_arr_ptees
 (
@@ -346,8 +350,7 @@ void rpc_ss_ndr_marsh_pointee
             break;
         default:
 #ifdef DEBUG_INTERP
-            printf("rpc_ss_ndr_marsh_pointee: unrecognized type %d\n",
-                        pointee_type);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_marsh_pointee: unrecognized type %d\n", pointee_type);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);
@@ -634,8 +637,7 @@ void rpc_ss_ndr_m_struct_pointees
                 break;
             default:
 #ifdef DEBUG_INTERP
-                printf("rpc_ss_ndr_m_struct_pointees:unrecognized type %d\n",
-                        type_byte);
+                asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_m_struct_pointees:unrecognized type %d\n", type_byte);
                 exit(0);
 #endif
                 RAISE(rpc_x_coding_error);

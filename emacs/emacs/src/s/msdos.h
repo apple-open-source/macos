@@ -1,6 +1,7 @@
 /* System description file for MS-DOS
 
-   Copyright (C) 1993, 1996, 1997, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1996, 1997, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -16,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Note: lots of stuff here was taken from s-msdos.h in demacs. */
 
@@ -196,7 +197,6 @@ You lose; /* Emacs for DOS must be compiled with DJGPP */
 #define SEPCHAR ';'
 
 #define NULL_DEVICE "nul"
-#define EXEC_SUFFIXES ".exe:.com:.bat:"
 
 #if __DJGPP__ < 2
 #define O_RDONLY        0x0001
@@ -267,7 +267,7 @@ You lose; /* Emacs for DOS must be compiled with DJGPP */
 #define LIBX11_SYSTEM -lxext -lsys
 #else
 /* We need a little extra space, see ../../lisp/loadup.el */
-#define SYSTEM_PURESIZE_EXTRA 60000
+#define SYSTEM_PURESIZE_EXTRA 50000
 #endif
 
 /* Tell the garbage collector that setjmp is known to save all
@@ -276,3 +276,6 @@ You lose; /* Emacs for DOS must be compiled with DJGPP */
 
 #define GC_SETJMP_WORKS 1
 #define GC_MARK_STACK GC_MAKE_GCPROS_NOOPS
+
+/* arch-tag: d184f860-815d-4ff4-8187-d05c0f3c37d0
+   (do not change this comment) */

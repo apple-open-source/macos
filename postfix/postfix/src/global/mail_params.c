@@ -39,6 +39,7 @@
 /*	int	var_dont_remove;
 /*	char	*var_inet_interfaces;
 /*	char	*var_proxy_interfaces;
+/*	char	*var_inet_protocols;
 /*	char	*var_mynetworks;
 /*	char	*var_double_bounce_sender;
 /*	int	var_line_limit;
@@ -103,11 +104,15 @@
 /*	int     var_strict_encoding;
 /*	int     var_verify_neg_cache;
 /*	int	var_oldlog_compat;
-/*#ifdef __APPLE__
+/*#ifdef __APPLE_OS_X_SERVER__
 /*	char	*var_mydomain_fallback;
-/*#endif /* __APPLE__
+/*#endif /* __APPLE_OS_X_SERVER__
+/*	int	var_delay_max_res;
+/*	char	*var_int_filt_classes;
 /*
 /*	void	mail_params_init()
+/*
+/*	const	char null_format_string[1];
 /* DESCRIPTION
 /*	This module (actually the associated include file) define the names
 /*	and defaults of all mail configuration parameters.
@@ -117,6 +122,9 @@
 /*	initialized globally so as to avoid hard-to-find errors due to
 /*	missing initialization. This routine must be called early, at
 /*	least before entering a chroot jail.
+/*
+/*	null_format_string is a workaround for gcc compilers that complain
+/*	about empty or null format strings.
 /* DIAGNOSTICS
 /*	Fatal errors: out of memory; null system or domain name.
 /* LICENSE
@@ -155,25 +163,26 @@
 #ifdef HAS_DB
 #include <dict_db.h>
 #endif
+#include <inet_proto.h>
 
 /* Global library. */
 
-#include "mynetworks.h"
-#include "mail_conf.h"
-#include "mail_version.h"
-#include "mail_proto.h"
-#include "verp_sender.h"
-#include "mail_params.h"
-#include "pfixtls.h"
+#include <mynetworks.h>
+#include <mail_conf.h>
+#include <mail_version.h>
+#include <mail_proto.h>
+#include <verp_sender.h>
+#include <own_inet_addr.h>
+#include <mail_params.h>
 
  /*
   * Special configuration variables.
   */
 char   *var_myhostname;
 char   *var_mydomain;
-#ifdef __APPLE__
+#ifdef __APPLE_OS_X_SERVER__
 char   *var_mydomain_fallback;
-#endif /* __APPLE__ */
+#endif /* __APPLE_OS_X_SERVER__ */
 char   *var_myorigin;
 char   *var_mydest;
 char   *var_relayhost;
@@ -205,6 +214,7 @@ char   *var_pid_dir;
 int     var_dont_remove;
 char   *var_inet_interfaces;
 char   *var_proxy_interfaces;
+char   *var_inet_protocols;
 char   *var_mynetworks;
 char   *var_double_bounce_sender;
 int     var_line_limit;
@@ -238,33 +248,6 @@ char   *var_verp_filter;
 int     var_in_flow_delay;
 char   *var_par_dom_match;
 char   *var_config_dirs;
-#ifdef USE_SSL
-char   *var_tls_rand_exch_name;
-char   *var_smtpd_tls_cert_file;
-char   *var_smtpd_tls_key_file;
-char   *var_smtpd_tls_dcert_file;
-char   *var_smtpd_tls_dkey_file;
-char   *var_smtpd_tls_CAfile;
-char   *var_smtpd_tls_CApath;
-char   *var_smtpd_tls_cipherlist;
-char   *var_smtpd_tls_dh512_param_file;
-char   *var_smtpd_tls_dh1024_param_file;
-int     var_smtpd_tls_loglevel;
-char   *var_smtpd_tls_scache_db;
-int     var_smtpd_tls_scache_timeout;
-char   *var_smtp_tls_cert_file;
-char   *var_smtp_tls_key_file;
-char   *var_smtp_tls_dcert_file;
-char   *var_smtp_tls_dkey_file;
-char   *var_smtp_tls_CAfile;
-char   *var_smtp_tls_CApath;
-char   *var_smtp_tls_cipherlist;
-int     var_smtp_tls_loglevel;
-char   *var_smtp_tls_scache_db;
-int     var_smtp_tls_scache_timeout;
-char   *var_tls_daemon_rand_source;
-int     var_tls_daemon_rand_bytes;
-#endif
 
 char   *var_import_environ;
 char   *var_export_environ;
@@ -296,9 +279,14 @@ int     var_strict_8bit_body;
 int     var_strict_encoding;
 int     var_verify_neg_cache;
 int     var_oldlog_compat;
-#ifdef __APPLE__
+#ifdef __APPLE_OS_X_SERVER__
 bool	var_enable_server_options;
-#endif /* __APPLE__ */
+bool	var_check_for_od_forward;
+#endif /* __APPLE_OS_X_SERVER__ */
+int     var_delay_max_res;
+char   *var_int_filt_classes;
+
+const char null_format_string[1] = "";
 
 /* check_myhostname - lookup hostname and validate */
 
@@ -316,21 +304,18 @@ static const char *check_myhostname(void)
 
     /*
      * If the local machine name is not in FQDN form, try to append the
-     * contents of $mydomain.
+     * contents of $mydomain. Use a default domain as a final workaround.
      */
     name = get_hostname();
     if ((dot = strchr(name, '.')) == 0) {
-#ifdef __APPLE__
+#ifdef __APPLE_OS_X_SERVER__
 	if ((domain = mail_conf_lookup_eval(VAR_MYDOMAIN)) == 0 &&
 	    (domain = mail_conf_lookup_eval(VAR_MYDOMAIN_FALLBACK)) == 0)
 #else
 	if ((domain = mail_conf_lookup_eval(VAR_MYDOMAIN)) == 0)
-#endif /* __APPLE__ */
-	    msg_warn("My hostname %s is not a fully qualified name - set %s or %s in %s/%s",
-		     name, VAR_MYHOSTNAME, VAR_MYDOMAIN,
-		     var_config_dir, MAIN_CONF_FILE);
-	else
-	    name = concatenate(name, ".", domain, (char *) 0);
+#endif /* __APPLE_OS_X_SERVER__ */
+	    domain = DEF_MYDOMAIN;
+	name = concatenate(name, ".", domain, (char *) 0);
     }
     return (name);
 }
@@ -342,11 +327,10 @@ static const char *check_mydomainname(void)
     char   *dot;
 
     /*
-     * Use the hostname when it is not a FQDN ("foo"), or when the hostname
-     * actually is a domain name ("foo.com").
+     * Use a default domain when the hostname is not a FQDN ("foo").
      */
-    if ((dot = strchr(var_myhostname, '.')) == 0 || strchr(dot + 1, '.') == 0)
-	return (var_myhostname);
+    if ((dot = strchr(var_myhostname, '.')) == 0)
+	return (DEF_MYDOMAIN);
     return (dot + 1);
 }
 
@@ -470,6 +454,7 @@ void    mail_params_init()
 {
     static CONFIG_STR_TABLE first_str_defaults[] = {
 	VAR_SYSLOG_FACILITY, DEF_SYSLOG_FACILITY, &var_syslog_facility, 1, 0,
+	VAR_INET_PROTOCOLS, DEF_INET_PROTOCOLS, &var_inet_protocols, 1, 0,
 	0,
     };
     static CONFIG_STR_FN_TABLE function_str_defaults[] = {
@@ -478,9 +463,9 @@ void    mail_params_init()
 	0,
     };
     static CONFIG_STR_TABLE other_str_defaults[] = {
-#ifdef __APPLE__
+#ifdef __APPLE_OS_X_SERVER__
 	VAR_MYDOMAIN_FALLBACK, DEF_MYDOMAIN_FALLBACK, &var_mydomain_fallback, 1, 0,
-#endif /* __APPLE__ */
+#endif /* __APPLE_OS_X_SERVER__ */
 	VAR_MAIL_NAME, DEF_MAIL_NAME, &var_mail_name, 1, 0,
 	VAR_SYSLOG_NAME, DEF_SYSLOG_NAME, &var_syslog_name, 1, 0,
 	VAR_MAIL_OWNER, DEF_MAIL_OWNER, &var_mail_owner, 1, 0,
@@ -523,28 +508,7 @@ void    mail_params_init()
 	VAR_FLUSH_SERVICE, DEF_FLUSH_SERVICE, &var_flush_service, 1, 0,
 	VAR_VERIFY_SERVICE, DEF_VERIFY_SERVICE, &var_verify_service, 1, 0,
 	VAR_TRACE_SERVICE, DEF_TRACE_SERVICE, &var_trace_service, 1, 0,
-#ifdef USE_SSL
-	VAR_TLS_RAND_EXCH_NAME, DEF_TLS_RAND_EXCH_NAME, &var_tls_rand_exch_name, 0, 0,
-	VAR_SMTPD_TLS_CERT_FILE, DEF_SMTPD_TLS_CERT_FILE, &var_smtpd_tls_cert_file, 0, 0,
-	VAR_SMTPD_TLS_KEY_FILE, DEF_SMTPD_TLS_KEY_FILE, &var_smtpd_tls_key_file, 0, 0,
-	VAR_SMTPD_TLS_DCERT_FILE, DEF_SMTPD_TLS_DCERT_FILE, &var_smtpd_tls_dcert_file, 0, 0,
-	VAR_SMTPD_TLS_DKEY_FILE, DEF_SMTPD_TLS_DKEY_FILE, &var_smtpd_tls_dkey_file, 0, 0,
-	VAR_SMTPD_TLS_CA_FILE, DEF_SMTPD_TLS_CA_FILE, &var_smtpd_tls_CAfile, 0, 0,
-	VAR_SMTPD_TLS_CA_PATH, DEF_SMTPD_TLS_CA_PATH, &var_smtpd_tls_CApath, 0, 0,
-	VAR_SMTPD_TLS_CLIST, DEF_SMTPD_TLS_CLIST, &var_smtpd_tls_cipherlist, 0, 0,
-	VAR_SMTPD_TLS_512_FILE, DEF_SMTPD_TLS_512_FILE, &var_smtpd_tls_dh512_param_file, 0, 0,
-	VAR_SMTPD_TLS_1024_FILE, DEF_SMTPD_TLS_1024_FILE, &var_smtpd_tls_dh1024_param_file, 0, 0,
-	VAR_SMTPD_TLS_SCACHE_DB, DEF_SMTPD_TLS_SCACHE_DB, &var_smtpd_tls_scache_db, 0, 0,
-	VAR_SMTP_TLS_CERT_FILE, DEF_SMTP_TLS_CERT_FILE, &var_smtp_tls_cert_file, 0, 0,
-	VAR_SMTP_TLS_KEY_FILE, DEF_SMTP_TLS_KEY_FILE, &var_smtp_tls_key_file, 0, 0,
-	VAR_SMTP_TLS_DCERT_FILE, DEF_SMTP_TLS_DCERT_FILE, &var_smtp_tls_dcert_file, 0, 0,
-	VAR_SMTP_TLS_DKEY_FILE, DEF_SMTP_TLS_DKEY_FILE, &var_smtp_tls_dkey_file, 0, 0,
-	VAR_SMTP_TLS_CA_FILE, DEF_SMTP_TLS_CA_FILE, &var_smtp_tls_CAfile, 0, 0,
-	VAR_SMTP_TLS_CA_PATH, DEF_SMTP_TLS_CA_PATH, &var_smtp_tls_CApath, 0, 0,
-	VAR_SMTP_TLS_CLIST, DEF_SMTP_TLS_CLIST, &var_smtp_tls_cipherlist, 0, 0,
-	VAR_SMTP_TLS_SCACHE_DB, DEF_SMTP_TLS_SCACHE_DB, &var_smtp_tls_scache_db, 0, 0,
-	VAR_TLS_DAEMON_RAND_SOURCE, DEF_TLS_DAEMON_RAND_SOURCE, &var_tls_daemon_rand_source, 0, 0,
-#endif
+	VAR_INT_FILT_CLASSES, DEF_INT_FILT_CLASSES, &var_int_filt_classes, 0, 0,
 	0,
     };
     static CONFIG_STR_FN_TABLE function_str_defaults_2[] = {
@@ -567,11 +531,7 @@ void    mail_params_init()
 	VAR_TOKEN_LIMIT, DEF_TOKEN_LIMIT, &var_token_limit, 1, 0,
 	VAR_MIME_MAXDEPTH, DEF_MIME_MAXDEPTH, &var_mime_maxdepth, 1, 0,
 	VAR_MIME_BOUND_LEN, DEF_MIME_BOUND_LEN, &var_mime_bound_len, 1, 0,
-#ifdef USE_SSL
-	VAR_SMTPD_TLS_LOGLEVEL, DEF_SMTPD_TLS_LOGLEVEL, &var_smtpd_tls_loglevel, 0, 0,
-	VAR_SMTP_TLS_LOGLEVEL, DEF_SMTP_TLS_LOGLEVEL, &var_smtp_tls_loglevel, 0, 0,
-	VAR_TLS_DAEMON_RAND_BYTES, DEF_TLS_DAEMON_RAND_BYTES, &var_tls_daemon_rand_bytes, 0, 0,
-#endif
+	VAR_DELAY_MAX_RES, DEF_DELAY_MAX_RES, &var_delay_max_res, MIN_DELAY_MAX_RES, MAX_DELAY_MAX_RES,
 	0,
     };
     static CONFIG_TIME_TABLE time_defaults[] = {
@@ -584,10 +544,6 @@ void    mail_params_init()
 	VAR_FORK_DELAY, DEF_FORK_DELAY, &var_fork_delay, 1, 0,
 	VAR_FLOCK_DELAY, DEF_FLOCK_DELAY, &var_flock_delay, 1, 0,
 	VAR_FLOCK_STALE, DEF_FLOCK_STALE, &var_flock_stale, 1, 0,
-#ifdef USE_SSL
-	VAR_SMTPD_TLS_SCACHTIME, DEF_SMTPD_TLS_SCACHTIME, &var_smtpd_tls_scache_timeout, 0, 0,
-	VAR_SMTP_TLS_SCACHTIME, DEF_SMTP_TLS_SCACHTIME, &var_smtp_tls_scache_timeout, 0, 0,
-#endif
 	VAR_DAEMON_TIMEOUT, DEF_DAEMON_TIMEOUT, &var_daemon_timeout, 1, 0,
 	VAR_IN_FLOW_DELAY, DEF_IN_FLOW_DELAY, &var_in_flow_delay, 0, 10,
 	0,
@@ -605,12 +561,14 @@ void    mail_params_init()
 	VAR_VERIFY_NEG_CACHE, DEF_VERIFY_NEG_CACHE, &var_verify_neg_cache,
 	VAR_OLDLOG_COMPAT, DEF_OLDLOG_COMPAT, &var_oldlog_compat,
 	VAR_HELPFUL_WARNINGS, DEF_HELPFUL_WARNINGS, &var_helpful_warnings,
-#ifdef __APPLE__
-	VAR_ENABLE_SERVER_OPTIONS, DEV_ENABLE_SERVER_OPTIONS, &var_enable_server_options,
-#endif /* __APPLE__ */
+#ifdef __APPLE_OS_X_SERVER__
+	VAR_ENABLE_SERVER_OPTIONS, DEF_ENABLE_SERVER_OPTIONS, &var_enable_server_options,
+	VAR_CHECK_FOR_OD_FORWARD, DEF_CHECK_FOR_OD_FORWARD, &var_check_for_od_forward,
+#endif /* __APPLE_OS_X_SERVER__ */
 	0,
     };
     const char *cp;
+    INET_PROTO_INFO *proto_info;
 
     /*
      * Extract syslog_facility early, so that from here on all errors are
@@ -622,6 +580,12 @@ void    mail_params_init()
 	msg_fatal("file %s/%s: parameter %s: unrecognized value: %s",
 		  var_config_dir, MAIN_CONF_FILE,
 		  VAR_SYSLOG_FACILITY, var_syslog_facility);
+
+    /*
+     * What protocols should we attempt to support? The result is stored in
+     * the global inet_proto_table variable.
+     */
+    proto_info = inet_proto_init(VAR_INET_PROTOCOLS, var_inet_protocols);
 
     /*
      * Variables whose defaults are determined at runtime. Some sites use
@@ -660,6 +624,13 @@ void    mail_params_init()
      * figure out in what order to evaluate things.
      */
     get_mail_conf_str_fn_table(function_str_defaults_2);
+
+    /*
+     * FIX 200412 The IPv6 patch did not call own_inet_addr_list() before
+     * entering the chroot jail on Linux IPv6 systems. Linux has the IPv6
+     * interface list in /proc, which is not available after chrooting.
+     */
+    (void) own_inet_addr_list();
 
     /*
      * The PID variable cannot be set from the configuration file!!

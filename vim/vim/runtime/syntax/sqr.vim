@@ -6,6 +6,11 @@
 " Modification History:
 "     2002-Apr-12: Updated for SQR v6.x
 "     2002-Jul-30: Added { and } to iskeyword definition
+"     2003-Oct-15: Allow "." in variable names
+"		   highlight entire open '... literal when it contains
+"		      "''" inside it (e.g. "'I can''t say" is treated
+"		      as one open string, not one terminated and one open)
+"		   {} variables can occur inside of '...' literals
 "
 "  Thanks to the previous maintainer of this file, Jeff Lanzarotta:
 "    http://lanzarotta.tripod.com/vim.html
@@ -184,19 +189,19 @@ syn keyword    sqrFunction    transform translate unicode upper wrapdepth
 " END GENERATED SECTION ==============================================
 
 " Variables
-syn match	  sqrVariable	/\(\$\|#\|&\)\k*/
-syn match	  sqrPreProc	/{\k*}/
+syn match	  sqrVariable	/\(\$\|#\|&\)\(\k\|\.\)*/
 
 
 " Debug compiler directives
 syn match	  sqrPreProc	/\s*#debug\a\=\(\s\|$\)/
+syn match	  sqrSubstVar	/{\k*}/
 
 
 " Strings
 " Note: if an undoubled ! is found, this is not a valid string
 " (SQR will treat the end of the line as a comment)
-syn match	  sqrString	/'\(!!\|[^!']\)*'/
-syn match	  sqrStrOpen	/'\(!!\|[^!']\)*$/
+syn match	  sqrString	/'\(!!\|[^!']\)*'/      contains=sqrSubstVar
+syn match	  sqrStrOpen	/'\(!!\|''\|[^!']\)*$/
 " If we find a ' followed by an unmatched ! before a matching ',
 " flag the error.
 syn match	  sqrError	/'\(!!\|[^'!]\)*![^!]/me=e-1
@@ -204,6 +209,7 @@ syn match	  sqrError	/'\(!!\|[^'!]\)*!$/
 
 " Numbers:
 syn match	  sqrNumber	/-\=\<\d*\.\=[0-9_]\>/
+
 
 
 " Comments:
@@ -235,7 +241,7 @@ if version >= 600
   "				  a "!!" anywhere but at the beginning of
   "				  the line is always an error
 else "For versions before 6.0, same idea as above but we are limited
-     "to simple patterns only.	Also, the sqrString patterns above
+     "to simple patterns only.  Also, the sqrString patterns above
      "don't seem to take precedence in v5 as they do in v6, so
      "we split the last rule to ignore comments found inside of
      "string literals.
@@ -267,6 +273,7 @@ if version >= 508 || !exists("did_sqr_syn_inits")
   HiLink sqrReserved Statement
   HiLink sqrParameter Statement
   HiLink sqrPreProc PreProc
+  HiLink sqrSubstVar PreProc
   HiLink sqrCommand Statement
   HiLink sqrParam Type
   HiLink sqrFunction Special

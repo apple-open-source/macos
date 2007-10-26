@@ -197,9 +197,10 @@ main(int argc, char **argv)
 
 	properties1 = IOCFUnserialize(testBuffer, kCFAllocatorDefault, 0, &errorString);
 	if (!properties1) {
-		CFIndex	len = CFStringGetLength(errorString) + 1;
-		char *buffer = malloc(len);
-		if (!buffer || !CFStringGetCString(errorString, buffer, len, 
+		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr),
+		       kCFStringEncodingMacRoman) + sizeof('\0');
+		char *buffer = malloc(bufSize);
+		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, 
 						   kCFStringEncodingMacRoman)) {
 			exit(1);
 		}
@@ -221,9 +222,10 @@ main(int argc, char **argv)
 
 	properties2 = IOCFUnserialize((char *)CFDataGetBytePtr(data1), kCFAllocatorDefault, 0, &errorString);
 	if (!properties2) {
-		CFIndex	len = CFStringGetLength(errorString) + 1;
-		char *buffer = malloc(len);
-		if (!buffer || !CFStringGetCString(errorString, buffer, len, kCFStringEncodingMacRoman)) {
+		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr),
+		       kCFStringEncodingMacRoman) + sizeof('\0');
+		char *buffer = malloc(bufSize);
+		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingMacRoman)) {
 			exit(1);
 		}
 
@@ -251,9 +253,10 @@ main(int argc, char **argv)
 
 	properties3 = IOCFUnserialize((char *)CFDataGetBytePtr(data2), kCFAllocatorDefault, 0, &errorString);
 	if (!properties3) {
-		CFIndex	len = CFStringGetLength(errorString) + 1;
-		char *buffer = malloc(len);
-		if (!buffer || !CFStringGetCString(errorString, buffer, len, kCFStringEncodingMacRoman)) {
+		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr),
+		       kCFStringEncodingMacRoman) + sizeof('\0');
+		char *buffer = malloc(bufSize);
+		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingMacRoman)) {
 		    exit(1);
 		}
 
@@ -281,10 +284,11 @@ main(int argc, char **argv)
 
 	properties4 = IOCFUnserialize((char *)CFDataGetBytePtr(data3), kCFAllocatorDefault, 0, &errorString);
 	if (!properties4) {
-		CFIndex	len = CFStringGetLength(errorString) + 1;
-		char *buffer = malloc(len);
-		if (!buffer || !CFStringGetCString(errorString, buffer, len, kCFStringEncodingMacRoman)) {
-			exit(1);
+		CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr),
+		       kCFStringEncodingMacRoman) + sizeof('\0');
+		char *buffer = malloc(bufSize);
+		if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingMacRoman)) {
+		    exit(1);
 		}
 
 		printf("prop4 error: %s\n", buffer);
@@ -314,10 +318,11 @@ main(int argc, char **argv)
 
 		properties5 = CFPropertyListCreateFromXMLData(kCFAllocatorDefault, data4, kCFPropertyListImmutable, &errorString);
 		if (!properties5) {
-			CFIndex	len = CFStringGetLength(errorString) + 1;
-			char *buffer = malloc(len);
-			if (!buffer || !CFStringGetCString(errorString, buffer, len, kCFStringEncodingMacRoman)) {
-				exit(1);
+			CFIndex bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(errorString),
+			       kCFStringEncodingMacRoman) + sizeof('\0');
+			char *buffer = malloc(bufSize);
+			if (!buffer || !CFStringGetCString(errorString, buffer, bufSize, kCFStringEncodingMacRoman)) {
+			    exit(1);
 			}
 
 			printf("prop5 error: %s\n", buffer);

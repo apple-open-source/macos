@@ -66,7 +66,7 @@ __RCSID("$NetBSD: comsat.c,v 1.14 1998/07/06 06:47:38 mrg Exp $");
 #include <time.h>
 #include <vis.h>
 #include <unistd.h>
-#include <utmp.h>
+#include <utmpx.h>
 
 int	logging;
 int	debug = 0;
@@ -75,13 +75,13 @@ int	debug = 0;
 #define MAXIDLE	120
 
 char	hostname[MAXHOSTNAMELEN+1];
-struct	utmp *utmp = NULL;
+struct	utmpx *utmpx = NULL;
 time_t	lastmsgtime;
-int	nutmp, uf;
+int	nutmpx, uf;
 
 void jkfprintf __P((FILE *, char[], off_t));
 void mailfor __P((char *));
-void notify __P((struct utmp *, off_t));
+void notify __P((struct utmpx *, off_t));
 void onalrm __P((int));
 void reapchildren __P((int));
 int main __P((int, char *[]));
@@ -93,7 +93,7 @@ main(argc, argv)
 {
 	struct sockaddr_in from;
 	int cc, ch;
-	int fromlen;
+	socklen_t fromlen;
 	char msgbuf[100];
 	sigset_t sigset;
 	extern char *__progname;
@@ -121,8 +121,8 @@ main(argc, argv)
 		(void)recv(0, msgbuf, sizeof(msgbuf) - 1, 0);
 		exit(1);
 	}
-	if ((uf = open(_PATH_UTMP, O_RDONLY, 0)) < 0) {
-		syslog(LOG_ERR, "open: %s: %m", _PATH_UTMP);
+	if ((uf = open(_PATH_UTMPX, O_RDONLY, 0)) < 0) {
+		syslog(LOG_ERR, "open: %s: %m", _PATH_UTMPX);
 		(void)recv(0, msgbuf, sizeof(msgbuf) - 1, 0);
 		exit(1);
 	}
@@ -141,7 +141,7 @@ main(argc, argv)
 			errno = 0;
 			continue;
 		}
-		if (!nutmp)		/* no one has logged in yet */
+		if (!nutmpx)		/* no one has logged in yet */
 			continue;
 		sigemptyset(&sigset);
 		sigaddset(&sigset, SIGALRM);
@@ -166,25 +166,26 @@ void
 onalrm(signo)
 	int signo;
 {
-	static u_int utmpsize;		/* last malloced size for utmp */
-	static u_int utmpmtime;		/* last modification time for utmp */
+	static u_int utmpxsize;		/* last malloced size for utmpx */
+	static time_t utmpxmtime;	/* last modification time for utmpx */
 	struct stat statbf;
 
 	if (time(NULL) - lastmsgtime >= MAXIDLE)
 		exit(0);
 	(void)alarm((u_int)15);
 	(void)fstat(uf, &statbf);
-	if (statbf.st_mtime > utmpmtime) {
-		utmpmtime = statbf.st_mtime;
-		if (statbf.st_size > utmpsize) {
-			utmpsize = statbf.st_size + 10 * sizeof(struct utmp);
-			if ((utmp = realloc(utmp, utmpsize)) == NULL) {
+	if (statbf.st_mtime > utmpxmtime) {
+		utmpxmtime = statbf.st_mtime;
+		if (statbf.st_size > utmpxsize) {
+			utmpxsize = statbf.st_size + 10 * sizeof(struct utmpx);
+			if ((utmpx = realloc(utmpx, utmpxsize)) == NULL) {
 				syslog(LOG_ERR, "%s", strerror(errno));
 				exit(1);
 			}
 		}
-		(void)lseek(uf, (off_t)0, SEEK_SET);
-		nutmp = read(uf, utmp, (int)statbf.st_size)/sizeof(struct utmp);
+		/* the first record is just a signature, so it is skipped */
+		(void)lseek(uf, (off_t)sizeof(struct utmpx), SEEK_SET);
+		nutmpx = read(uf, utmpx, statbf.st_size - sizeof(struct utmpx))/sizeof(struct utmpx);
 	}
 }
 
@@ -192,7 +193,7 @@ void
 mailfor(name)
 	char *name;
 {
-	struct utmp *utp = &utmp[nutmp];
+	struct utmpx *utp = &utmpx[nutmpx];
 	char *cp;
 	off_t offset;
 
@@ -200,8 +201,8 @@ mailfor(name)
 		return;
 	*cp = '\0';
 	offset = atoi(cp + 1);
-	while (--utp >= utmp)
-		if (!strncmp(utp->ut_name, name, sizeof(utmp[0].ut_name)))
+	while (--utp >= utmpx)
+		if (utp->ut_type == USER_PROCESS && !strncmp(utp->ut_user, name, sizeof(utp->ut_user)))
 			notify(utp, offset);
 }
 
@@ -209,14 +210,14 @@ static char *cr;
 
 void
 notify(utp, offset)
-	struct utmp *utp;
+	struct utmpx *utp;
 	off_t offset;
 {
 	FILE *tp;
 	struct passwd *p;
 	struct stat stb;
 	struct termios ttybuf;
-	char tty[20], name[sizeof(utmp[0].ut_name) + 1];
+	char tty[40], name[sizeof(utp->ut_user) + 1];
 
 	(void)snprintf(tty, sizeof(tty), "%s%.*s",
 	    _PATH_DEV, (int)sizeof(utp->ut_line), utp->ut_line);
@@ -230,10 +231,10 @@ notify(utp, offset)
 		return;
 	}
 	if (stat(tty, &stb) || !(stb.st_mode & S_IEXEC)) {
-		dsyslog(LOG_DEBUG, "%s: wrong mode on %s", utp->ut_name, tty);
+		dsyslog(LOG_DEBUG, "%s: wrong mode on %s", utp->ut_user, tty);
 		return;
 	}
-	dsyslog(LOG_DEBUG, "notify %s on %s\n", utp->ut_name, tty);
+	dsyslog(LOG_DEBUG, "notify %s on %s\n", utp->ut_user, tty);
 	if (fork())
 		return;
 	(void)signal(SIGALRM, SIG_DFL);
@@ -245,7 +246,7 @@ notify(utp, offset)
 	(void)tcgetattr(fileno(tp), &ttybuf);
 	cr = (ttybuf.c_oflag & ONLCR) && (ttybuf.c_oflag & OPOST) ?
 	    "\n" : "\n\r";
-	(void)strncpy(name, utp->ut_name, sizeof(utp->ut_name));
+	(void)strncpy(name, utp->ut_user, sizeof(utp->ut_user));
 	name[sizeof(name) - 1] = '\0';
 
 	/* Set uid/gid/groups to users in case mail drop is on nfs */

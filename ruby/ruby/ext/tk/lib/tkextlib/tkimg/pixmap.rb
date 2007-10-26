@@ -16,6 +16,11 @@ TkPackage.require('img::pixmap')
 module Tk
   module Img
     module PIXMAP
+      PACKAGE_NAME = 'img::pixmap'.freeze
+      def self.package_name
+        PACKAGE_NAME
+      end
+
       def self.package_version
         begin
           TkPackage.require('img::pixmap')
@@ -34,6 +39,6 @@ class TkPixmapImage<TkImage
 
   def initialize(*args)
     @type = 'pixmap'
-    super
+    super(*args)
   end
 end

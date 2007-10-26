@@ -6,6 +6,48 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFireWireLibDevice.h,v $
+ *	Revision 1.22  2007/06/21 04:08:45  collin
+ *	*** empty log message ***
+ *	
+ *	Revision 1.21  2007/05/12 01:10:45  arulchan
+ *	Asyncstream transmit command interface
+ *	
+ *	Revision 1.20  2007/05/03 01:21:29  arulchan
+ *	Asyncstream transmit APIs
+ *	
+ *	Revision 1.19  2007/04/28 02:54:23  collin
+ *	*** empty log message ***
+ *	
+ *	Revision 1.18  2007/03/23 01:47:17  collin
+ *	*** empty log message ***
+ *	
+ *	Revision 1.17  2007/03/22 00:30:01  collin
+ *	*** empty log message ***
+ *	
+ *	Revision 1.16  2007/03/14 02:29:35  collin
+ *	*** empty log message ***
+ *	
+ *	Revision 1.15  2007/03/06 04:50:21  collin
+ *	*** empty log message ***
+ *	
+ *	Revision 1.14  2007/02/09 20:36:46  ayanowit
+ *	More Leopard IRMAllocation changes.
+ *	
+ *	Revision 1.13  2007/01/02 18:14:12  ayanowit
+ *	Enabled building the plug-in lib 4-way FAT. Also, fixed compile problems for 64-bit.
+ *	
+ *	Revision 1.12  2006/12/13 21:34:24  ayanowit
+ *	For 4222965, replaced all io async method calls with new Leopard API version.
+ *	
+ *	Revision 1.11  2006/09/28 22:31:31  arulchan
+ *	New Feature rdar::3413505
+ *	
+ *	Revision 1.10  2006/09/27 22:42:12  ayanowit
+ *	Merged in Leopard changes for new IRMAllocation API.
+ *	
+ *	Revision 1.9  2006/09/22 06:45:19  collin
+ *	*** empty log message ***
+ *	
  *	Revision 1.8  2004/05/04 22:52:20  niels
  *	*** empty log message ***
  *	
@@ -58,8 +100,6 @@ namespace IOFireWireLib {
 		
 			CFMachPortRef				mAsyncCFPort ;
 			mach_port_t					mAsyncPort ;
-			io_async_ref_t				mBusResetAsyncRef ;
-			io_async_ref_t				mBusResetDoneAsyncRef ;
 			IOFireWireBusResetHandler	mBusResetHandler ;
 			IOFireWireBusResetDoneHandler mBusResetDoneHandler ;
 			void*						mUserRefCon ;
@@ -340,7 +380,52 @@ namespace IOFireWireLib {
 			IOReturn				ClipMaxRec2K( Boolean clipMaxRec ) ;
 			IOFireWireSessionRef	GetSessionRef() ;
 
-			static inline MethodSelector	MakeSelectorWithObject( MethodSelector selector, UserObjectHandle obj )		{ return (MethodSelector)( (UInt32)obj << 16 | selector & 0xFFFF ) ; }		
+			static inline MethodSelector	MakeSelectorWithObject( MethodSelector selector, UserObjectHandle obj )		{ return (MethodSelector)( (unsigned long)obj << 16 | selector & 0xFFFF ) ; }		
+			
+			IOFireWireLibVectorCommandRef CreateVectorCommand( IOFireWireLibCommandCallback callback, void* inRefCon,  REFIID iid );
+			
+			IOReturn AllocateIRMBandwidthInGeneration(UInt32 bandwidthUnits, UInt32 generation) ;
+
+			IOReturn ReleaseIRMBandwidthInGeneration(UInt32 bandwidthUnits, UInt32 generation) ;
+
+			IOReturn AllocateIRMChannelInGeneration(UInt8 isochChannel, UInt32 generation) ;
+
+			IOReturn ReleaseIRMChannelInGeneration(UInt8 isochChannel, UInt32 generation) ;
+
+			IOFireWireLibIRMAllocationRef CreateIRMAllocation(Boolean releaseIRMResourcesOnFree, 
+															  IOFireWireLibIRMAllocationLostNotificationProc callback,
+															  void *pLostNotificationProcRefCon,
+															  REFIID iid) ; 
+
+			IOFWAsyncStreamListenerInterfaceRef	CreateAsyncStreamListener(  UInt32		channel,
+																			IOFWAsyncStreamListenerHandler	callback,																			
+																			void*  		inRefCon, 
+																			UInt32  	inQueueBufferSize, 
+																			REFIID  	iid ) ;
+	
+			IOFireWireLibCommandRef		CreatePHYCommand(	UInt32							data1,
+															UInt32							data2,
+															IOFireWireLibCommandCallback	callback, 
+															Boolean							failOnReset, 
+															UInt32							generation,
+															void*							inRefCon, 
+															REFIID							iid );
+																													   
+			IOFireWireLibPHYPacketListenerRef	CreatePHYPacketListener( UInt32 queueCount, REFIID iid );
+
+			IOFireWireLibCommandRef	CreateAsyncStreamCommand(	UInt32							channel,
+																UInt32							sync,
+																UInt32							tag,
+																void*							buf, 
+																UInt32							size,
+																IOFireWireLibCommandCallback	callback, 
+																Boolean							failOnReset,
+																UInt32							generation,
+																void*							inRefCon,
+																REFIID							iid);
+
+			IOReturn GetCycleTimeAndUpTime(	UInt32*		outCycleTime,
+											UInt64*		outUpTime );
 	} ;
 	
 	
@@ -545,6 +630,13 @@ namespace IOFireWireLib {
 											IOFireWireLibDeviceRef			self,
 											UInt32*					outCycleTime)
 											{ return IOFireWireIUnknown::InterfaceMap<Device>::GetThis(self)->GetCycleTime(outCycleTime); }
+
+			static IOReturn			SGetCycleTimeAndUpTime(
+											IOFireWireLibDeviceRef			self,
+											UInt32*					outCycleTime,
+											UInt64*		outUpTime )
+											{ return IOFireWireIUnknown::InterfaceMap<Device>::GetThis(self)->GetCycleTimeAndUpTime(outCycleTime, outUpTime); }
+											
 			static IOReturn			SGetBusCycleTime(
 											IOFireWireLibDeviceRef			self,
 											UInt32*					outBusTime,
@@ -689,10 +781,14 @@ namespace IOFireWireLib {
 			static IOFireWireLibNuDCLPoolRef				S_CreateNuDCLPool( IOFireWireLibDeviceRef self, UInt32 capacity, REFIID iid ) ;
 			static IOFireWireLibBufferFillIsochPortRef		S_CreateBufferFillIsochPort( IOFireWireLibDeviceRef self, UInt32 interruptMicroseconds, UInt32 numRanges, IOVirtualRange* ranges, REFIID iid ) ;
 
+			//
+			// v7
+			//
+			
 			static IOFireWireSessionRef						S_GetSessionRef( IOFireWireLibDeviceRef self ) ;
 
 			//
-			// v7
+			// v8
 			//
 			
 			static IOFireWireLibLocalIsochPortRef
@@ -709,5 +805,64 @@ namespace IOFireWireLib {
 											UInt32					inBufferRangeCount,
 											IOFWIsochPortOptions	options,
 											REFIID 					iid) ;
+											
+			//
+			// v9
+			//
+
+			static IOFireWireLibVectorCommandRef S_CreateVectorCommand( 
+												IOFireWireLibDeviceRef self,
+												IOFireWireLibCommandCallback callback, 
+												void * inRefCon, 
+												REFIID iid);	
+			
+			static IOReturn S_AllocateIRMBandwidthInGeneration(IOFireWireLibDeviceRef self, UInt32 bandwidthUnits, UInt32 generation) ;
+			
+			static IOReturn S_ReleaseIRMBandwidthInGeneration(IOFireWireLibDeviceRef self, UInt32 bandwidthUnits, UInt32 generation) ;
+			
+			static IOReturn S_AllocateIRMChannelInGeneration(IOFireWireLibDeviceRef self, UInt8 isochChannel, UInt32 generation) ;
+			
+			static IOReturn S_ReleaseIRMChannelInGeneration(IOFireWireLibDeviceRef self, UInt8 isochChannel, UInt32 generation) ;
+			
+			static IOFireWireLibIRMAllocationRef S_CreateIRMAllocation( IOFireWireLibDeviceRef self, 
+																		Boolean releaseIRMResourcesOnFree, 
+																		IOFireWireLibIRMAllocationLostNotificationProc callback,
+																		void *pLostNotificationProcRefCon,
+																		REFIID iid) ; 
+																		
+			static IOFWAsyncStreamListenerInterfaceRef S_CreateAsyncStreamListener( IOFireWireLibDeviceRef			self, 
+																					UInt32							channel,
+																					IOFWAsyncStreamListenerHandler	callback,																			
+																					void*							inRefCon, 
+																					UInt32							inQueueBufferSize, 
+																					REFIID							iid ) ;
+																					
+			static mach_port_t S_GetIsochAsyncPort( IOFireWireLibDeviceRef	self );
+		
+			static IOFireWireLibCommandRef	S_CreatePHYCommand(	IOFireWireLibDeviceRef			self, 
+																	UInt32							data1,
+																	UInt32							data2,
+																	IOFireWireLibCommandCallback	callback, 
+																	Boolean							failOnReset, 
+																	UInt32							generation,
+																	void *							inRefCon, 
+																	REFIID							iid );		
+																	
+			static IOFireWireLibPHYPacketListenerRef S_CreatePHYPacketListener(	IOFireWireLibDeviceRef self,
+																				UInt32	queueCount,  
+																				REFIID iid );
+																				
+			static	IOFireWireLibCommandRef	S_CreateAsyncStreamCommand(	IOFireWireLibDeviceRef			self, 
+																		UInt32							channel,
+																		UInt32							sync,
+																		UInt32							tag,
+																		void*							buf, 
+																		UInt32							size,
+																		IOFireWireLibCommandCallback	callback, 
+																		Boolean							failOnReset,
+																		UInt32							generation,
+																		void*							inRefCon,
+																		REFIID							iid);
+																				
 	} ;
 } // namespace

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>MdsFileDescription</key>
+	<string>SD/CSPDL Generic Smartcard Information</string>
+	<key>MdsRecordType</key>
+	<string>MDS_CDSADIR_CSP_SC_INFO_RECORDTYPE</string>
+	<key>MdsFileType</key>
+	<string>PluginSpecific</string>
+	<key>ScVendor</key>
+	<string>Generic</string>
+	<key>ScVersion</key>
+	<string>unknown</string>
+	<key>ScFirmwareVersion</key>
+	<string>PIVViewerPlugin</string>
+	<key>ScFlags</key>			<!-- @@@ dynamic -->
+	<integer>0</integer>
+	<key>ScCustomFlags</key>
+	<integer>0</integer>
+</dict>
+</plist>

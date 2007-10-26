@@ -18,8 +18,6 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define NO_SYSLOG
-
 #include "includes.h"
 
 static fstring password;
@@ -30,6 +28,9 @@ static BOOL showall;
 static BOOL analyze;
 static BOOL hide_unlock_fails;
 static BOOL use_oplocks;
+
+extern char *optarg;
+extern int optind;
 
 #define FILENAME "\\locktest.dat"
 #define LOCKRANGE 100
@@ -135,12 +136,13 @@ static BOOL try_unlock(struct cli_state *c, int fstype,
 	return False;
 }	
 
-static void print_brl(SMB_DEV_T dev, SMB_INO_T ino, int pid, 
+static void print_brl(SMB_DEV_T dev, SMB_INO_T ino, struct process_id pid, 
 		      enum brl_type lock_type,
+		      enum brl_flavour lock_flav,
 		      br_off start, br_off size)
 {
 	printf("%6d   %05x:%05x    %s  %.0f:%.0f(%.0f)\n", 
-	       (int)pid, (int)dev, (int)ino, 
+	       (int)procid_to_pid(&pid), (int)dev, (int)ino, 
 	       lock_type==READ_LOCK?"R":"W",
 	       (double)start, (double)start+size-1,(double)size);
 
@@ -373,7 +375,7 @@ static void test_locks(char *share1, char *share2, char *nfspath1, char *nfspath
 	ZERO_STRUCT(fnum);
 	ZERO_STRUCT(cli);
 
-	recorded = (struct record *)malloc(sizeof(*recorded) * numops);
+	recorded = SMB_MALLOC_ARRAY(struct record, numops);
 
 	for (n=0; n<numops; n++) {
 		recorded[n].conn = random() % NCONNECTIONS;
@@ -472,8 +474,6 @@ static void usage(void)
  int main(int argc,char *argv[])
 {
 	char *share1, *share2, *nfspath1, *nfspath2;
-	extern char *optarg;
-	extern int optind;
 	int opt;
 	char *p;
 	int seed;
@@ -500,7 +500,7 @@ static void usage(void)
 	argc -= 4;
 	argv += 4;
 
-	lp_load(dyn_CONFIGFILE,True,False,False);
+	lp_load(dyn_CONFIGFILE,True,False,False,True);
 	load_interfaces();
 
 	if (getenv("USER")) {

@@ -1,27 +1,84 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/be.xml
+// * Source File:<path>/common/main/be.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: ../../../locale/icu/main/be.xml
+ *  ICU <specials> source: <path>/xml/main/be.xml
  */
 be{
     Countries{
+        BR{"Бразілія"}
         BY{"Беларусь"}
+        CN{"Кітай"}
+        DE{"Германія"}
+        FR{"Францыя"}
+        GB{"Велікабрытанія"}
+        IN{"Індыя"}
+        IT{"Італія"}
+        JP{"Японія"}
+        RU{"Расія"}
+        US{"Злучаныя Штаты"}
     }
     Currencies{
+        BRL{
+            "BRL",
+            "бразільскі рэал",
+        }
         BYB{
             "Руб",
             "BYB",
         }
+        BYR{
+            "BYR",
+            "беларускі рубель",
+        }
+        CNY{
+            "CNY",
+            "кітайскі юань Renminbi",
+        }
+        EUR{
+            "€",
+            "еўра",
+        }
+        GBP{
+            "£",
+            "англійскі фунт",
+        }
+        INR{
+            "=0#Rs.|1#Re.|1<Rs.",
+            "індыйская рупія",
+        }
+        JPY{
+            "¥",
+            "японская іена",
+        }
+        RUB{
+            "RUB",
+            "рускі рубель",
+        }
+        USD{
+            "$",
+            "долар ЗША",
+        }
     }
-    ExemplarCharacters{"[а-з й-ш ы-я ’ёіў {дж} {дз}]"}
+    ExemplarCharacters{"[’ а-д {дж} {дз} е ё ж з й і к-у ў ф-ш ы-я]"}
     Languages{
+        ar{"арабскі"}
         be{"Беларускі"}
+        de{"нямецкі"}
+        en{"англійскі"}
+        es{"іспанскі"}
+        fr{"французскі"}
+        hi{"хіндзі"}
+        it{"італьянскі"}
+        ja{"японскі"}
+        pt{"партугальскі"}
+        ru{"рускі"}
+        zh{"кітайскі"}
     }
     LocaleScript{
         "Cyrl",
@@ -37,16 +94,16 @@ be{
         "E",
         "‰",
         "∞",
-        "�",
+        "NaN",
         "+",
     }
-    Version{"1.2"}
+    Scripts{
+        Cyrl{"кірылічны"}
+        Latn{"лацінскі"}
+    }
+    Version{"1.52"}
     calendar{
         gregorian{
-            DateTimeElements:intvector{
-                2,
-                1,
-            }
             DateTimePatterns{
                 "HH.mm.ss z",
                 "HH.mm.ss z",
@@ -77,6 +134,17 @@ be{
                         "чацвер",
                         "пятніца",
                         "субота",
+                    }
+                }
+                stand-alone{
+                    narrow{
+                        "н",
+                        "п",
+                        "а",
+                        "с",
+                        "ч",
+                        "п",
+                        "с",
                     }
                 }
             }
@@ -117,8 +185,40 @@ be{
                         "снежань",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "с",
+                        "л",
+                        "с",
+                        "к",
+                        "м",
+                        "ч",
+                        "л",
+                        "ж",
+                        "в",
+                        "к",
+                        "л",
+                        "с",
+                    }
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "1-ы кв.",
+                        "2-ы кв.",
+                        "3-ы кв.",
+                        "4-ы кв.",
+                    }
+                    wide{
+                        "1-ы квартал",
+                        "2-ы квартал",
+                        "3-ы квартал",
+                        "4-ы квартал",
+                    }
+                }
             }
         }
     }
-    localPatternChars{"GanjkHmsSEDFwWxhKzAeugXZ"}
+    localPatternChars{"GanjkHmsSEDFwWxhKzAeugXZvcL"}
 }

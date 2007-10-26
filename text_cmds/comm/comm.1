@@ -1,5 +1,3 @@
-.\"	$NetBSD: comm.1,v 1.5 1997/10/18 13:04:19 lukem Exp $
-.\"
 .\" Copyright (c) 1989, 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -34,9 +32,10 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"     @(#)comm.1	8.1 (Berkeley) 6/6/93
+.\"     From: @(#)comm.1	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD: src/usr.bin/comm/comm.1,v 1.14 2005/01/25 22:28:34 tjr Exp $
 .\"
-.Dd June 6, 1993
+.Dd January 26, 2005
 .Os
 .Dt COMM 1
 .Sh NAME
@@ -44,7 +43,7 @@
 .Nd select or reject lines common to two files
 .Sh SYNOPSIS
 .Nm
-.Op Fl 123
+.Op Fl 123i
 .Ar file1 file2
 .Sh DESCRIPTION
 The
@@ -64,13 +63,15 @@ and lines in both files.
 The filename ``-'' means the standard input.
 .Pp
 The following options are available:
-.Bl -tag -width Ds
+.Bl -tag -width indent
 .It Fl 1
 Suppress printing of column 1.
 .It Fl 2
 Suppress printing of column 2.
 .It Fl 3
 Suppress printing of column 3.
+.It Fl i
+Case insensitive comparison of lines.
 .El
 .Pp
 Each column will have a number of tab characters prepended to it
@@ -79,20 +80,23 @@ For example, if column number two is being suppressed, lines printed
 in column number one will not have any tabs preceding them, and lines
 printed in column number three will have one.
 .Pp
+The
 .Nm
-assumes that the files are lexically sorted; all characters
+utility assumes that the files are lexically sorted; all characters
 participate in line comparisons.
-.\" .Sh ENVIRONMENT
-.\" .Bl -tag -width indent
-.\" .It Ev LANG
-.\" .It Ev LC_ALL
-.\" .It Ev LC_CTYPE
-.\" .It Ev LC_COLLATE
-.\" .It Ev LC_MESSAGES
-.\" .El
-.Sh DIAGNOSTICS
+.Sh ENVIRONMENT
+The
+.Ev LANG ,
+.Ev LC_ALL ,
+.Ev LC_COLLATE ,
+and
+.Ev LC_CTYPE
+environment variables affect the execution of
 .Nm
-exits 0 on success, >0 if an error occurred.
+as described in
+.Xr environ 7 .
+.Sh EXIT STATUS
+.Ex -std
 .Sh SEE ALSO
 .Xr cmp 1 ,
 .Xr diff 1 ,
@@ -101,5 +105,20 @@ exits 0 on success, >0 if an error occurred.
 .Sh STANDARDS
 The
 .Nm
-utility conforms to 
+utility conforms to
 .St -p1003.2-92 .
+.Pp
+The
+.Fl i
+option is an extension to the
+.Tn POSIX
+standard.
+.Sh HISTORY
+A
+.Nm
+command appeared in
+.At v4 .
+.Sh BUGS
+Input lines are limited to
+.Dv LINE_MAX
+(2048) characters in length.

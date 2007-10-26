@@ -30,6 +30,10 @@ subsystem
     KernelUser
     auditd_control 456;
 
+#ifndef __MigTypeCheck
+#define __MigTypeCheck 1
+#endif
+
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
 

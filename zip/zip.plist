@@ -4,45 +4,45 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2004-03-18</string>
+		<string>2006-10-05</string>
 		<key>OpenSourceLicense</key>
 		<string>Info-ZIP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>zip.txt</string>
-		<key>OpenSourceMD5</key>
-		<string>5206a99541f3b0ab90f1baa167392c4f</string>
+		<key>OpenSourceSHA1</key>
+		<string>5bc562bf95d9aee0cb6625e6038898e1f191a4aa</string>
 		<key>OpenSourceModifications</key>
-		<array>
-			<string>Fix for CAN-2004-1010, obtained from http://ftp.info-zip.org/pub/infozip/src/zip23-CAN-2004-1010-patch.txt</string>
-		</array>
+		<array/>
 		<key>OpenSourceProject</key>
 		<string>zip</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.info-zip.org/pub/infozip/src/zip23.tar.gz</string>
+		<string>http://ftp.info-zip.org/pub/infozip/src/zip232.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>2.3</string>
+		<string>2.32</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://ftp.info-zip.org/pub/infozip/Zip.html</string>
+		<string>http://www.info-zip.org/pub/infozip/Zip.html</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2004-06-03</string>
+		<string>2006-10-05</string>
 		<key>OpenSourceLicense</key>
 		<string>Info-ZIP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>unzip.txt</string>
-		<key>OpenSourceMD5</key>
-		<string>8a25712aac642430d87d21491f7c6bd1</string>
+		<key>OpenSourceSHA1</key>
+		<string>1831bd59b9e607a69052f83b263384895e2d4a19</string>
 		<key>OpenSourceModifications</key>
-		<array/>
+		<array>
+		  <string>CVE-2005-2475, obtained from FreeBSD ports/85920</string>
+		</array>
 		<key>OpenSourceProject</key>
 		<string>unzip</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.info-zip.org/pub/infozip/src/unzip551.tar.gz</string>
+		<string>http://ftp.info-zip.org/pub/infozip/src/unzip552.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>5.51</string>
+		<string>5.52</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://ftp.info-zip.org/pub/infozip/UnZip.html</string>
+		<string>http://www.info-zip.org/UnZip.html</string>
 	</dict>
 </array>
 </plist>

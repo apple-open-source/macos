@@ -29,6 +29,7 @@
  */
  
 #include <stdio.h>
+#include <ctype.h>	/* for isspace */
 #include <libc.h>
 
 /*
@@ -42,13 +43,12 @@ typedef enum {
 	IS_IN_END_COMMENT	// within / / comment
 } input_state_t;
 
-static volatile void usage(char **argv);
+static void usage(char **argv);
 
 int main(int argc, char **argv)
 {
-	int fd;
+	FILE *fp;
 	char bufchar;
-	int bytes_read;
 	input_state_t input_state = IS_NORMAL;
 	int exit_code = 0;
 	int remove_whitespace = 0;
@@ -66,23 +66,17 @@ int main(int argc, char **argv)
 		}
 	}	
 	
-	fd = open(argv[1], O_RDONLY, 0);
-	if(fd <= 0) {
+	fp = fopen(argv[1], "r");
+	if(!fp) {
 		fprintf(stderr, "Error opening %s\n", argv[1]);
-		perror("open");
+		perror("fopen");
 		exit(1);
 	}
 	for(;;) {
-		bytes_read = read(fd, &bufchar, 1);
-		if(bytes_read <= 0) {
-			if(bytes_read < 0) {
-				fprintf(stderr, "Error reading %s\n", argv[1]);
-				perror("read");
-				exit_code = 1;
-			}
+		bufchar = getc_unlocked(fp);
+		if (bufchar == EOF)
 			break;
-		}
-		
+
 		switch(input_state) {
 		
 		    case IS_NORMAL:
@@ -94,7 +88,7 @@ int main(int argc, char **argv)
 			}
 			else {
 				if(!(remove_whitespace && isspace(bufchar))) {
-					putchar(bufchar);
+					putchar_unlocked(bufchar);
 				}
 			}
 			break;
@@ -122,9 +116,9 @@ int main(int argc, char **argv)
 				 * entering a comment this time, then the
 				 * current char.
 				 */
-				putchar('/');
+				putchar_unlocked('/');
 				if(!(remove_whitespace && isspace(bufchar))) {
-					putchar(bufchar);
+					putchar_unlocked(bufchar);
 				}
 				input_state = IS_NORMAL;
 				break;
@@ -173,7 +167,7 @@ int main(int argc, char **argv)
 				 * appropriate.
 				 */
 				if(!remove_whitespace) {
-					putchar(bufchar);
+					putchar_unlocked(bufchar);
 				}
 				input_state = IS_NORMAL;
 			}
@@ -188,7 +182,7 @@ int main(int argc, char **argv)
 	return(exit_code);
 }
 
-static volatile void usage(char **argv)
+static void usage(char **argv)
 {
 	printf("usage: %s infile [r(emove whitespace)]\n", argv[0]);
 	exit(1);

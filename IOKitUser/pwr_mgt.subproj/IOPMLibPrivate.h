@@ -26,6 +26,7 @@
 #include <IOKit/IOKitLib.h>
 #include <CoreFoundation/CFArray.h>
 #include <IOKit/pwr_mgt/IOPMLibDefs.h>
+#include <IOKit/pwr_mgt/IOPM.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
@@ -36,6 +37,37 @@ __BEGIN_DECLS
 // For internal use communicating between IOKitUser and PM configd
 // The preferences file
 #define kIOPMAutoWakePrefsPath      "com.apple.AutoWake.xml"
+
+// Type arguments to IOPMSchedulePowerEvent for internal use
+// These types are not cancellable, nor will they appear in any lists of
+// scheduled arguments from IOPMCopyScheduledEvents. These are not acceptable
+// types to pass as Repeating events.
+
+// The 'date' argument to IOPMSchedulePowerEvent is an absolute one for 
+// 'AutoWakeScheduleImmediate' and 'AutoPowerScheduleImmediate'. The effect
+// of these WakeImmediate and PowerOnImmediate types is to schedule the
+// wake/power event directly with the wake/power controller, ignoring all OS
+// queueing and management. This will override a previously scheduled wake event
+// by another application, should one exist. Recommended for testing only. 
+
+#define kIOPMAutoWakeScheduleImmediate      "WakeImmediate"
+#define kIOPMAutoPowerScheduleImmediate     "PowerOnImmediate"
+
+// The 'date' argument to IOPMSchedulePowerEvent is an relative one to 
+// "right now," for 'AutoWakeScheduleImmediate' and 'AutoPowerScheduleImmediate'
+//
+// e.g. In this case, we're setting the system to wake from sleep exactly 10
+// seconds after the system completes going to sleep. We're passing in a date
+// 10 seconds past "right now", but the wakeup controller interprets this as 
+// relative to sleep time.
+//
+//  d = CFDateCreate(0, CFAbsoluteGetCurrent() + 10.0);
+//  IOPMSchedulePowerEvent(d, CFSTR("SleepCycler"), 
+//                            CFSTR(kIOPMAutoWakeRelativeSeconds) );
+
+#define kIOPMAutoWakeRelativeSeconds        kIOPMSettingDebugWakeRelativeKey
+#define kIOPMAutoPowerRelativeSeconds       kIOPMSettingDebugPowerRelativeKey
+
 
 /**************************************************
 *
@@ -78,6 +110,8 @@ __BEGIN_DECLS
 #define kIOPMDisplaySleepUsesDimKey                     "Display Sleep Uses Dim"
 // units - CFNumber 0/1
 #define kIOPMMobileMotionModuleKey                      "Mobile Motion Module"
+// units - CFNumber 0/1
+#define kIOPMTTYSPreventSleepKey                        "TTYSPreventSleep"
 
 typedef void (*IOPMPrefsCallbackType)(void *context);
 
@@ -92,26 +126,96 @@ typedef void (*IOPMPrefsCallbackType)(void *context);
     */
 CFRunLoopSourceRef IOPMPrefsNotificationCreateRunLoopSource(IOPMPrefsCallbackType, void *);
 
+/* Structure of a "pm preferences" dictionary, as referenced below.
+ *
+ * PMPreferencesDictionary = 
+ * {
+ *      "AC Power" = PowerSourcePreferencesDictionary
+ *      "Battery Power" = PowerSourcePreferencesDictionary
+ *      "UPS Power" = PowerSourcePreferencesDictionary
+ *      kIOPMDefaultPreferencesKey = true/false
+ * }
+ *
+ * PowerSourcePreferencesDictionary = 
+ * {
+ *      kIOPMDiskSleepKey = 0 and up
+ *      kIOPMSystemSleepKey = 0 and up
+ *      kIOPMDisplaySleepKey = 0 and up
+ *
+ *      kIOPMWakeOnLANKey = 0/1
+ *      kIOPMWakeOnRingKey = 0/1
+ *      kIOPMWakeOnACChangeKey = 0/1
+ *      ... etc
+ * }
+ *
+ *
+ * Notes: 
+ * * If battery power or UPS power are not present on a system, they will
+ *   be absent from the PM Preferences dictionary.
+ * * If a given setting, like ReduceBrightness is unsupported on a given
+ *   system, it will not appear in the PowerSourcePreferencesDictionary.
+ * * If the property kIOPMDefaultPreferencesKey is present and set to true,
+ *   then the user has not specified any custom PM preferences. These are all
+ *   "hardcoded" default properties. As such, the settings in a default custom
+ *   dict do NOT factor in power profile settings.
+ *
+ * * See IOPMCopyActivePMPreferences() for settings that account for PM profile
+ *   selections.
+ */
 
     /*!
-@function IOPMCopyPMPreferences.
-@abstract Returns a CFDictionary of Power Management preferences. A preference is a CFDictionary
-    of Energy Saver settings. They are indexed within the dictionary by CFStrings. ("Battery Power", "AC Power")
-@discussion The CFString key kIOPMDefaultPreferencesKey will be present in the top-level dictionary
-    if the returned value is default (as in the case of a first boot after clean install) rather 
-    than a user-selected set of preferences.
-@result Returns a CFDictionary or NULL if request failed. It's the caller's responsibility to CFRelease the dictionary.
+@function IOPMCopyCustomPMPreferences.
+@abstract Returns a dictionary of user-selected custom PM preferences. 
+    The CFString key kIOPMDefaultPreferencesKey will be present in the top-level 
+    dictionary if the returned settings are defaults, as in the case of a clean 
+    install
+@result Returns a CFDictionaryRef or NULL. Caller must CFRelease the dictionary.
      */
+CFDictionaryRef     IOPMCopyCustomPMPreferences(void);
+
+/*!
+@function IOPMCopyPMPreferences
+@abstract Identical to IOPMCopyCustomPMPreferences; Renamed to 
+    IOPMCopyCustomPMPreferences for clarity.
+ */
 CFMutableDictionaryRef IOPMCopyPMPreferences(void);
 
+
+/*!
+@function IOPMCopyActivePMPreferences
+@abstract Returns the _actual_ PM settings _currently_ in use by the system.
+@discussion Incorporates the active power profiles as well as custom settings.
+        Does not return any settings unsupported on the running computer.
+ */
+CFDictionaryRef     IOPMCopyActivePMPreferences(void);
+
+/*!
+@function IOPMCopyUnabridgedActivePMPreferences
+@abstract Returns the _actual_ PM settings _currently_ in use by the system.
+@discussion Behaves identically to IOPMCopyActivePMPreferences, except 
+        IOPMCopyUnabridgedActivePMPreferences returns all settings, including
+        those settings unsupported on the running machine.
+        i.e. the returned dictionary will include a setting for WakeOnRing
+        on a computer without a modem.
+ */
+CFDictionaryRef     IOPMCopyUnabridgedActivePMPreferences(void);
+
+
     /*!
-@function IOPMSetPMPreferences.
-@abstract Writes a dictionary of (name, preference) pairs back to the preferences file on disk.
-    Also activates these preferences and sends notifications to "interested" applications. An
-    application can be notified of changes to these prefs through SystemConfiguration.
+@function IOPMSetCustomPMPreferences
+@abstract Writes a PM preferences dictionary to disk.
+    Also activates these preferences and sends notifications to interested 
+    applications via SystemConfiguration.
 @param ESPrefs  Dictionary of Power Management preferences to write out to disk.
 @result Returns kIOReturnSuccess or an error condition if request failed.
      */
+IOReturn IOPMSetCustomPMPreferences(CFDictionaryRef ESPrefs);
+
+/*!
+@function IOPMSetPMPreferences
+@abstract Identical to IOPMSetCustomPMPreferences. Renamed to 
+    IOPMSetCustomPMPreferencs for clarity.
+ */
 IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs);
 
     /*!
@@ -120,9 +224,15 @@ IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs);
     Energy Saver settings according to profile name.
 @param SystemProfiles  The dictionary of preferences from IOPMCopyPMPreferences
 @param profile The name of the set of preferences defined in ESPrefs to activate.
+@param removeUnsupportedSettings Specifies whether to send settings to kernel for
+settings that are currently unsupported (i.e. WakeOnRing with no modem present). True
+means do not activate unsupported settings, false means DO activate unsupported settings.
 @result Returns kIOReturnSuccess or an error condition if request failed.
      */
-IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStringRef profile);
+IOReturn IOPMActivatePMPreference(
+    CFDictionaryRef SystemProfiles, 
+    CFStringRef profile,
+    bool removeUnsupportedSettings);
 
     /*!
 @function IOPMFetaureIsAvailable
@@ -134,82 +244,49 @@ IOReturn IOPMActivatePMPreference(CFDictionaryRef SystemProfiles, CFStringRef pr
      */
 bool IOPMFeatureIsAvailable(CFStringRef feature, CFStringRef power_source);
 
-/**************************************************
-*
-* Dynamic Power Assertions
-* Allows any application to dynamically request "Highest Performance"
-*
-**************************************************/
-// Keeps the CPU at its highest level
-#define kIOPMCPUBoundAssertion                    CFSTR("CPUBoundAssertion")
-
-// UNSUPPORTED: kIOPMPreventIdleSleepAssertion is UNSUPPORTED in 10.4
-#define kIOPMPreventIdleSleepAssertion            CFSTR("NoIdleSleepAssertion")
-
-enum {
-    kIOPMAssertionDisable = 0,
-    kIOPMAssertionEnable  = 255
- };
-
-typedef int IOPMAssertionID;
+/**************************************************/
 
     /*!
-@function IOPMAssertionCreate
-@abstract Dynamically requests a system behavior from the power management system.
-@discussion No special privileges necessary to make this call - any process may
-        activate a power profile.
-@param assertion The CFString profile to request from the PM system.
-@param level Pass kIOPMProfileEnable or kIOPMProfileDisable.
-@param assertion_id On success, a unique id will be returned in this parameter.
-@result Returns kIOReturnSuccess on success, any other return indicates
-        PM could not successfully activate the specified profile.
+    @function IOPMSleepSystemWithOptions
+    @abstract Request that the system initiate sleep.
+    @discussion For security purposes, caller must be root or the console user.
+    @param userClient  Port used to communicate to the kernel,  from IOPMFindPowerManagement.
+    @param sleepOptions a dictionary defining optional arguments to sleep.
+    @result Returns kIOReturnSuccess or an error condition if request failed.
      */
-IOReturn IOPMAssertionCreate(CFStringRef  assertion, 
-                           int level,
-                           IOPMAssertionID *assertion_id);                           
-                           
-    /*!
-@function IOPMAssertionRelease
-@abstract Releases the behavior requested in IOPMAssertionCreate
-@discussion All calls to IOPMAssertionCreate must be paired with calls to  
-        IOPMAssertionRelease.
-@param assertion_id The assertion_id, returned from IOPMAssertionCreate, to cancel.
-@result Returns kIOReturnSuccess on success
-     */
-IOReturn IOPMAssertionRelease(IOPMAssertionID assertion_id);
+IOReturn IOPMSleepSystemWithOptions ( io_connect_t userClient, CFDictionaryRef sleepOptions );
 
-// Use these keys to examine assertion dictionaries returned
-// in IOPMCopyAssertionsByProcess() return value.
-#define kIOPMAssertionTypeKey       CFSTR("assert_type")
-#define kIOPMAssertionValueKey      CFSTR("assert_value")
+/**************************************************/
+
+/* 
+ * kIOPMSystemSleepAvailableAtAll
+ *      System Power Setting (not power source specific)
+ *      value = true/false
+ */
+#define	kIOPMSleepDisabledKey	CFSTR("SleepDisabled")
 
     /*!
-@function IOPMCopyAssertionsByProcess
-@abstract Returns a dictionary mapping active profiles to the processes that activated them (by pid).
-@discussion Notes: One process may have multiple profiles asserted. Several processes may
-            have asserted the same profile to different levels.
-@param assertions_by_pid On success, this returns a terribly complicated nested data structure 
-        of assertions per process.
-        At the top level, keys to the CFDictionary are pids stored as CFNumbers (kCFNumberIntType).
-        The value associated with each CFNumber pid is a CFArray of active assertions.
-        Each entry in the CFArray is an assertion represented as a CFDictionary. See the keys
-            kIOPMAssertionTypeKey and kIOPMAssertionValueKey           
-@result Returns kIOReturnSuccess on success.
+@function IOPMCopySystemPowerSettings
+@abstract Returns System power settings. 
+          System-wide power settings are not power source dependent.
      */
-IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *assertions_by_pid);
+CFDictionaryRef IOPMCopySystemPowerSettings( void );
+
+    /*
+@function IOPMSetSystemPowerSetting
+@abstract Set a system-wide power management setting
+@param key Setting name
+@param value Setting value
+@result kIOReturnSuccess; or IOReturn error otherwise
+     */
+IOReturn IOPMSetSystemPowerSetting( CFStringRef key, CFTypeRef value );
 
     /*!
-@function IOPMCopyAssertionsStatus
-a@bstract Returns a list of available profiles and their currently aggregated state.
-@discussion Notes: One process may have multiple profiles asserted. Several processes may
-            have asserted the same profile to different levels.
-@param assertions_status On success, this returns a CFDictionary of all profiles currently available.
-       The keys in the dictionary are the profile names, and the value of each is a CFNumber that
-       represents the aggregate level for that profile.  Caller must CFRelease() this dictionary when done.
-@result Returns kIOReturnSuccess on success.
+@function IOPMActivateSystemPowerSettings
+@abstract Re-send system power settings to kernel.
+@result   kIOReturnSuccess on success; IOReturn error otherwise
      */
-IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *assertions_status);
-
+IOReturn IOPMActivateSystemPowerSettings( void );
 
 
 /**************************************************
@@ -321,7 +398,31 @@ IOReturn IOPMScheduleRepeatingPowerEvent(CFDictionaryRef events);
  */ 
 IOReturn IOPMCancelAllRepeatingPowerEvents(void);
 
+/**************************************************
+*
+* Assertions
+* Private assertions; not published publicly
+*
+**************************************************/
+// Keeps the CPU at its highest level
+#define kIOPMAssertionTypeNeedsCPU              CFSTR("CPUBoundAssertion")
+#define kIOPMCPUBoundAssertion                  kIOPMAssertionTypeNeedsCPU
 
+// Disables AC Power Inflow (requires root to initiate)
+#define kIOPMAssertionTypeDisableInflow         CFSTR("DisableInflow")
+#define kIOPMInflowDisableAssertion             kIOPMAssertionTypeDisableInflow
+
+// Disables battery charging (requires root to initiate)
+#define kIOPMAssertionTypeInhibitCharging       CFSTR("ChargeInhibit")
+#define kIOPMChargeInhibitAssertion             kIOPMAssertionTypeInhibitCharging
+
+// Disables low power battery warnings
+#define kIOPMAssertionTypeDisableLowBatteryWarnings     CFSTR("DisableLowPowerBatteryWarnings")
+#define kIOPMDisableLowBatteryWarningsAssertion         kIOPMAssertionTypeDisableLowBatteryWarnings
+
+// Once initially asserted, the machine may only idle sleep while this assertion
+// is asserted. For embedded use only.
+#define kIOPMAssertionTypeEnableIdleSleep           CFSTR("EnableIdleSleep")
 
 __END_DECLS
 

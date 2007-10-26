@@ -1,5 +1,6 @@
-/* amdahl machine description file 
-   Copyright (C) 1987, 1999 Free Software Foundation, Inc.
+/* amdahl machine description file
+   Copyright (C) 1987, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /*
 This file for amdahl_uts created by modifying the template.h
@@ -90,20 +91,6 @@ compiler is so brain damaged that it is not even worth trying to use it.
 
 /* #define VIRT_ADDR_VARIES*/
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#define C_ALLOCA
-/*#define HAVE_ALLOCA */
-
-#ifdef HAVE_ALLOCA
-#define LIB_STANDARD -lPW -lc
-#endif
-
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
    when Emacs is dumped.  If you define this, the preloaded Lisp
@@ -137,7 +124,7 @@ extern int sign_extend_temp;
 
 /* Put text and data on non-segment boundary; makes image smaller */
 
-#define LD_SWITCH_MACHINE	-N 
+#define LD_SWITCH_MACHINE	-N
 
 /* When writing the 'xemacs' file, make text segment ro */
 #define EXEC_MAGIC	0410
@@ -146,8 +133,8 @@ extern int sign_extend_temp;
 #define SEGSIZ 0x10000		/* Should this not be defined elsewhere ? */
 #define SEGMENT_MASK (SEGSIZ - 1)
 
-/* Tell alloca.c which direction stack grows.  */
-#define STACK_DIRECTION -1
-
 /* Compensate for error in signal.h.  */
 #define NSIG_MINIMUM 20
+
+/* arch-tag: cf665976-ddb1-49b0-b383-371e17f36acf
+   (do not change this comment) */

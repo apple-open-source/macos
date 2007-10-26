@@ -7,12 +7,13 @@ session.use_cookies=0
 session.cache_limiter=
 register_globals=1
 session.serialize_handler=php
+session.save_handler=files
 --FILE--
 <?php
 error_reporting(E_ALL);
 
 class foo {
-	var $bar = "ok";
+	public $bar = "ok";
 	function method() { $this->yes++; }
 }
 
@@ -27,7 +28,7 @@ var_dump($baz);
 var_dump($arr);
 session_destroy();
 --EXPECT--
-object(foo)(2) {
+object(foo)#1 (2) {
   ["bar"]=>
   string(2) "ok"
   ["yes"]=>
@@ -35,7 +36,7 @@ object(foo)(2) {
 }
 array(1) {
   [3]=>
-  &object(foo)(2) {
+  object(foo)#2 (2) {
     ["bar"]=>
     string(2) "ok"
     ["yes"]=>

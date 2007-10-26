@@ -157,7 +157,7 @@
 #define HAVE_UNISTD_H 1
 
 /* define if your compiler has __attribute__ */
-#define HAVE___ATTRIBUTE__ 1
+/* #undef HAVE___ATTRIBUTE__ */
 
 /* Using Heimdal */
 /* #undef KRB5_HEIMDAL */
@@ -201,6 +201,9 @@
 /* Use NDBM for SASLdb */
 /* #undef SASL_NDBM */
 
+/* The size of a `long', as computed by sizeof. */
+#define SIZEOF_LONG 4
+
 /* User KERBEROS_V4 Staticly */
 /* #undef STATIC_KERBEROS4 */
 
@@ -217,7 +220,7 @@
 /* #undef USE_DOORS */
 
 /* Version number of package */
-#define VERSION "2.1.18"
+#define VERSION "2.1.22"
 
 /* Use DES */
 #define WITH_DES 
@@ -288,6 +291,13 @@ struct iovec {
 #define getnameinfo     sasl_getnameinfo
 #define gai_strerror    sasl_gai_strerror
 #include "gai.h"
+#endif
+
+#ifndef AI_NUMERICHOST   /* support glibc 2.0.x */
+#define	AI_NUMERICHOST	4
+#define NI_NUMERICHOST	2
+#define NI_NAMEREQD	4
+#define NI_NUMERICSERV	8
 #endif
 
 /* handy string manipulation functions */

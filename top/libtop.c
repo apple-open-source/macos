@@ -27,15 +27,14 @@
 #include <mach/mach_error.h>
 #include <mach/mach_host.h>
 #include <mach/mach_port.h>
+#include <mach/mach_vm.h>
 #include <mach/mach_types.h>
 #include <mach/message.h>
 #include <mach/processor_set.h>
 #include <mach/task.h>
 #include <mach/thread_act.h>
-#include <mach/vm_region.h>
+#include <mach/shared_region.h>
 #include <mach/vm_map.h>
-#include <mach/vm_prot.h>
-#include <mach/shared_memory_server.h>
 
 #define IOKIT 1 /* For io_name_t in device/device_types.h. */
 #include <device/device_types.h>
@@ -53,6 +52,8 @@
 
 #include <sys/socket.h>
 #include <net/if.h>
+#include <net/route.h>
+#include <net/if_types.h>
 #include <ifaddrs.h>
 
 #define LIBTOP_DBG
@@ -140,9 +141,9 @@ struct libtop_oinfo_s {
 	 * when another reference to the same memory region is encountered.
 	 */
 	int			rb_share_type; /* SM_EMPTY == "no rollback" */
-	vm_size_t		rb_aliased;
-	vm_size_t		rb_vprvt;
-	vm_size_t		rb_rshrd;
+	unsigned long long	rb_aliased;
+	unsigned long long	rb_vprvt;
+	unsigned long long	rb_rshrd;
 };
 
 /*
@@ -155,6 +156,8 @@ struct libtop_user_s {
 	uid_t	uid;
 	char	username[9];
 };
+
+static boolean_t ignore_PPP;
 
 /* Sample data that are exposed to the library user. */
 static libtop_tsamp_t tsamp;
@@ -175,6 +178,8 @@ static char *libtop_arg;
 static int libtop_argmax;
 
 static mach_port_t libtop_master_port;
+
+static unsigned interval;
 
 /*
  * Memory object hash table and list.  For each sample, a hash table of memory
@@ -219,6 +224,10 @@ static boolean_t
 libtop_p_load_get(host_cpu_load_info_t r_load);
 static boolean_t
 libtop_p_loadavg_update(void);
+static bool 
+in_shared_region(mach_vm_address_t addr);
+static void
+libtop_p_fw_scan(task_t a_task, mach_vm_address_t region_base, mach_vm_address_t region_size);
 static void
 libtop_p_fw_sample(boolean_t a_fw);
 static boolean_t
@@ -229,6 +238,10 @@ static boolean_t
 libtop_p_disks_sample(void);
 static boolean_t
 libtop_p_proc_table_read(boolean_t a_reg);
+static cpu_type_t
+libtop_p_cputype(int pid);
+static mach_vm_size_t
+libtop_p_shreg_size(libtop_pinfo_t *a_pinfo);
 static boolean_t
 libtop_p_task_update(task_t a_task, boolean_t a_reg);
 static boolean_t
@@ -252,15 +265,13 @@ libtop_p_oinfo_fini(void);
 static libtop_oinfo_t *
 libtop_p_oinfo_insert(int a_obj_id, int a_share_type, int a_resident_page_count,
     int a_ref_count, int a_size, libtop_pinfo_t *a_pinfo);
-static void
-libtop_p_oinfo_reset(void);
+/*static void
+  libtop_p_oinfo_reset(void); */
 
 
 boolean_t
 libtop_init(libtop_print_t *a_print, void *a_user_data)
 {
-	boolean_t	retval;
-
 	if (a_print != NULL) {
 		libtop_print = a_print;
 		libtop_user_data = a_user_data;
@@ -271,6 +282,7 @@ libtop_init(libtop_print_t *a_print, void *a_user_data)
 	}
 
 	tsamp.seq = 0;
+	interval = 1;
 	libtop_port = mach_host_self();
 	host_page_size(libtop_port, &tsamp.pagesize);
 
@@ -299,15 +311,11 @@ libtop_init(libtop_print_t *a_print, void *a_user_data)
 			libtop_print(libtop_user_data,
 			    "%s(): Error in sysctl(): %s",
 			    __FUNCTION__, strerror(errno));
-			retval = TRUE;
-			goto RETURN;
+			return TRUE;
 		}
 
 		libtop_arg = (char *)malloc(libtop_argmax);
-		if (libtop_arg == NULL) {
-			retval = TRUE;
-			goto RETURN;
-		}
+		if (libtop_arg == NULL) return TRUE;
 	}
 
 	/*
@@ -316,15 +324,12 @@ libtop_init(libtop_print_t *a_print, void *a_user_data)
 
 	if (IOMasterPort(bootstrap_port, &libtop_master_port)) {
 		libtop_print(libtop_user_data, "Error in IOMasterPort()");
-		retval = TRUE;
-		goto RETURN;
+		return TRUE;
 	}
 
 	/* Initialize the load statistics. */
-	if (libtop_p_load_get(&tsamp.b_cpu)) {
-		retval = TRUE;
-		goto RETURN;
-	}
+	if (libtop_p_load_get(&tsamp.b_cpu)) return TRUE;
+
 	tsamp.p_cpu = tsamp.b_cpu;
 	tsamp.cpu = tsamp.b_cpu;
 
@@ -333,9 +338,8 @@ libtop_init(libtop_print_t *a_print, void *a_user_data)
 	tsamp.p_time = tsamp.b_time;
 	tsamp.time = tsamp.b_time;
 
-	retval = FALSE;
-	RETURN:
-	return retval;
+	ignore_PPP = FALSE;
+	return FALSE;
 }
 
 void
@@ -372,12 +376,25 @@ libtop_fini(void)
 	dch_delete(&libtop_uhash);
 }
 
+/*
+ * Set the interval between framework updates.
+ *
+ * FALSE : Success.
+ * TRUE : Error.
+ */
+boolean_t
+libtop_set_interval(unsigned ival)
+{
+	if(ival > 0 && ival < LIBTOP_MAX_INTERVAL) {
+		interval=ival;
+		return FALSE;
+	} else return TRUE;
+}
+	
 /* Take a sample. */
 boolean_t
 libtop_sample(boolean_t a_reg, boolean_t a_fw)
 {
-	boolean_t		retval;
-
 	/* Increment the sample sequence number. */
 	tsamp.seq++;
 
@@ -402,17 +419,11 @@ libtop_sample(boolean_t a_reg, boolean_t a_fw)
 	 * Get load averages.
 	 */
 	if (libtop_p_proc_table_read(a_reg)
-	    || libtop_p_loadavg_update()) {
-		retval = TRUE;
-		goto RETURN;
-	}
+	    || libtop_p_loadavg_update()) return TRUE;
 
 	/* Get CPU usage counters. */
 	tsamp.p_cpu = tsamp.cpu;
-	if (libtop_p_load_get(&tsamp.cpu)) {
-		retval = TRUE;
-		goto RETURN;
-	}
+	if (libtop_p_load_get(&tsamp.cpu)) return TRUE;
 
 	/*
 	 * Get shared library (framework) information.
@@ -422,10 +433,7 @@ libtop_sample(boolean_t a_reg, boolean_t a_fw)
 	/*
 	 * Get system-wide memory usage.
 	 */
-	if (libtop_p_vm_sample()) {
-		retval = TRUE;
-		goto RETURN;
-	}
+	if (libtop_p_vm_sample()) return TRUE;
 
 	/*
 	 * Get network statistics.
@@ -435,14 +443,9 @@ libtop_sample(boolean_t a_reg, boolean_t a_fw)
 	/*
 	 * Get disk statistics.
 	 */
-	if (libtop_p_disks_sample()) {
-		retval = TRUE;
-		goto RETURN;
-	}
+	if (libtop_p_disks_sample()) return TRUE;
 
-	retval = FALSE;
-	RETURN:
-	return retval;
+	return FALSE;
 }
 
 /* Return a pointer to the structure that contains libtop-wide data. */
@@ -588,37 +591,25 @@ libtop_piterate(void)
 boolean_t
 libtop_preg(pid_t a_pid, libtop_preg_t a_preg)
 {
-	boolean_t	retval;
 	libtop_pinfo_t	*pinfo;
 
 	pinfo = libtop_p_psearch(a_pid);
-	if (pinfo == NULL) {
-		retval = TRUE;
-		goto RETURN;
-	}
+	if (pinfo == NULL) return TRUE;
 	pinfo->preg = a_preg;
 
-	retval = FALSE;
-	RETURN:
-	return retval;
+	return FALSE;
 }
 
 /* Return a pointer to the username string associated with a_uid. */
 const char *
 libtop_username(uid_t a_uid)
 {
-	const char	*retval;
 	libtop_user_t	*user;
 
 	user = libtop_p_usearch(a_uid);
-	if (user == NULL) {
-		retval = NULL;
-		goto RETURN;
-	}
-	retval = user->username;
+	if (user == NULL) return NULL;
 
-	RETURN:
-	return retval;
+	return user->username;
 }
 
 /* Return a pointer to a string representation of a process state. */
@@ -699,7 +690,6 @@ libtop_p_mach_state_order(int a_state, long a_sleep_time)
 static boolean_t
 libtop_p_load_get(host_cpu_load_info_t r_load)
 {
-	boolean_t		retval;
 	kern_return_t		error;
 	mach_msg_type_number_t	count;
 
@@ -709,118 +699,126 @@ libtop_p_load_get(host_cpu_load_info_t r_load)
 	if (error != KERN_SUCCESS) {
 		libtop_print(libtop_user_data, "Error in host_statistics(): %s",
 		    mach_error_string(error));
-		retval = TRUE;
-		goto RETURN;
+		return TRUE;
 	}
 
-	retval = FALSE;
-	RETURN:
-	return retval;
+	return FALSE;
 }
 
 /* Update load averages. */
 static boolean_t
 libtop_p_loadavg_update(void)
 {
-	boolean_t	retval;
 	double avg[3];
 
 	if (getloadavg(avg, sizeof(avg)) < 0) {
 		libtop_print(libtop_user_data,
 		    "%s(): Error in getloadavg(): %s",
 		    __FUNCTION__, strerror(errno));
-		retval = TRUE;
-		goto RETURN;
+		return TRUE;
 	}
 
 	tsamp.loadavg[0] = avg[0];
 	tsamp.loadavg[1] = avg[1];
 	tsamp.loadavg[2] = avg[2];
 
-	retval = FALSE;
-	RETURN:
-	return retval;
+	return FALSE;
+}
+
+static bool 
+in_shared_region(mach_vm_address_t addr) {
+  if (addr >= SHARED_REGION_BASE_PPC &&
+      addr <= (SHARED_REGION_BASE_PPC + SHARED_REGION_SIZE_PPC))
+    return true;
+  if (addr >= SHARED_REGION_BASE_PPC64 &&
+      addr <= (SHARED_REGION_BASE_PPC64 + SHARED_REGION_SIZE_PPC64))
+    return true;
+  if (addr >= SHARED_REGION_BASE_I386 &&
+      addr <= (SHARED_REGION_BASE_I386 + SHARED_REGION_SIZE_I386))
+    return true;
+  if (addr >= SHARED_REGION_BASE_X86_64 &&
+      addr <= (SHARED_REGION_BASE_X86_64 + SHARED_REGION_SIZE_X86_64))
+    return true;
+  return false;
+}
+
+/* Iterate through a given region of memory, adding up the various
+   submap regions found therein.  Modifies tsamp. */
+static void
+libtop_p_fw_scan(task_t a_task, mach_vm_address_t region_base, mach_vm_address_t region_size) {
+  vm_region_submap_info_data_64_t	sinfo;
+  mach_msg_type_number_t		count;
+  mach_vm_size_t			size;
+  unsigned			        depth;
+  mach_vm_address_t		        addr;
+
+  for (addr = region_base; addr < (region_base + region_size); addr += size) {
+    // Get the next submap in the specified region of memory
+    depth = 1;
+    count = VM_REGION_SUBMAP_INFO_COUNT_64;
+    if (mach_vm_region_recurse(a_task, &addr, &size,
+			       &depth, (vm_region_recurse_info_t)&sinfo, &count)
+	!= KERN_SUCCESS) break;
+    
+    if (!in_shared_region(addr)) break;
+    
+    /* Update framework code/data/linkedit sizes. */
+    if (sinfo.share_mode == SM_SHARED
+	|| sinfo.share_mode == SM_COW
+	|| sinfo.share_mode == SM_TRUESHARED) {
+      if (sinfo.max_protection & VM_PROT_EXECUTE) {   // Code
+	tsamp.fw_code += sinfo.pages_resident * tsamp.pagesize;
+	tsamp.fw_count++;
+      } else if (sinfo.max_protection & VM_PROT_WRITE) { // Data
+	tsamp.fw_data += sinfo.pages_resident * tsamp.pagesize;
+      } else { // LINKEDIT
+	tsamp.fw_linkedit += sinfo.pages_resident * tsamp.pagesize;
+      }
+    }
+    
+    /* Update framework vsize. */
+    tsamp.fw_vsize += size;
+  }
 }
 
 /* Sample framework memory statistics (if a_fw is TRUE). */
 static void
 libtop_p_fw_sample(boolean_t a_fw)
 {
-	boolean_t			fw_seen;
-	vm_region_submap_info_data_64_t	sinfo;
-	mach_msg_type_number_t		count;
-	vm_size_t			size;
-	int				depth;
-	vm_address_t			addr;
+  if (!a_fw) return;
+  if ((interval != 1) && ((tsamp.seq % interval) != 1)) return;
 
-	tsamp.fw_count = 0;
-	tsamp.fw_code = 0;
-	tsamp.fw_data = 0;
-	tsamp.fw_linkedit = 0;
-	if (a_fw) {
-		for (fw_seen = FALSE, addr = GLOBAL_SHARED_TEXT_SEGMENT;
-		     addr < (GLOBAL_SHARED_DATA_SEGMENT
-		     + SHARED_DATA_REGION_SIZE);
-		     addr += size
-		     ) {
-			/*
-			 * Get the next submap in the globally shared segment.
-			 */
-			depth = 1;
-			count = VM_REGION_SUBMAP_INFO_COUNT_64;
-			if (vm_region_recurse_64(mach_task_self(), &addr, &size,
-			    &depth, (vm_region_info_t)&sinfo, &count)
-			    != KERN_SUCCESS) {
-				break;
-			}
-			if (addr >= (GLOBAL_SHARED_DATA_SEGMENT
-				+ SHARED_DATA_REGION_SIZE)) {
-				break;
-			}
+  tsamp.fw_count = 0;
+  tsamp.fw_code = 0;
+  tsamp.fw_data = 0;
+  tsamp.fw_linkedit = 0;
+  tsamp.fw_vsize = 0;
+  tsamp.fw_private = 0;
+	  
+// PPC region: 0x90000000ULL to 0x90000000ULL + 0x20000000ULL
+  libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_PPC, SHARED_REGION_SIZE_PPC);
+  
+// PPC64 region: 0x00007FFF60000000ULL to 0x00007FFF60000000ULL + 0x00000000A0000000ULL
+  libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_PPC64, SHARED_REGION_SIZE_PPC64);
 
-			/* Update framework code/data/linkedit sizes. */
-			if (addr < GLOBAL_SHARED_DATA_SEGMENT) {
-				if (sinfo.share_mode == SM_SHARED
-				    || sinfo.share_mode == SM_COW) {
-					if (sinfo.max_protection
-					    & VM_PROT_EXECUTE) {
-						/* Code. */
-						tsamp.fw_code
-						    += sinfo.pages_resident
-						    * tsamp.pagesize;
-						if (fw_seen == FALSE) {
-							tsamp.fw_count++;
-							fw_seen = TRUE;
-						}
-					} else {
-						/* Linkedit. */
-						tsamp.fw_linkedit
-						    += sinfo.pages_resident
-						    * tsamp.pagesize;
-						fw_seen = FALSE;
-					}
-				}
-			} else {
-				if (sinfo.share_mode == SM_SHARED
-				    || sinfo.share_mode == SM_COW
-				    || sinfo.share_mode == SM_TRUESHARED) {
-					/* Data. */
-					tsamp.fw_data += sinfo.pages_resident
-					    * tsamp.pagesize;
-				}
-			}
+// I386 region: 0x90000000ULL to 0x90000000ULL + 0x20000000ULL
+// we can skip this because it falls entirely within the PPC region
+//libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_I386, SHARED_REGION_SIZE_I386);
 
-			/* Update framework vsize. */
-			tsamp.fw_vsize += size;
-		}
-	}
+// X86_64 region: 0x00007FFF60000000ULL to 0x00007FFF60000000ULL + 0x000000009FE00000ULL
+// we can skip this because it falls entirely within the PPC64 region
+//libtop_p_fw_scan(mach_task_self(), SHARED_REGION_BASE_X86_64, SHARED_REGION_SIZE_X86_64);
+
+// Iterate through all processes, collecting their individual fw stats
+  libtop_piter = NULL;
+  while(libtop_piterate()!=NULL) 
+    tsamp.fw_private += libtop_piter->psamp.fw_private;
 }
 
 /* Sample general VM statistics. */
 static boolean_t
 libtop_p_vm_sample(void)
 {
-	boolean_t		retval;
 	mach_msg_type_number_t	count;
 	kern_return_t		error;
 	unsigned		i, ocount;
@@ -836,8 +834,7 @@ libtop_p_vm_sample(void)
 	if (error != KERN_SUCCESS) {
 		libtop_print(libtop_user_data, "Error in host_statistics(): %s",
 		    mach_error_string(error));
-		retval = TRUE;
-		goto RETURN;
+		return TRUE;
 	}
 	if (count == sizeof (tsamp.vm_stat) / sizeof (natural_t)) {
 		tsamp.purgeable_is_valid = TRUE;
@@ -873,8 +870,7 @@ libtop_p_vm_sample(void)
 			libtop_print(libtop_user_data,
 				     "Error in sysctl(VM_SWAPUSAGE): %s",
 				     strerror(errno));
-			retval = TRUE;
-			goto RETURN;
+			return TRUE;
 		}
 	} else {
 		/* we got valid swap usage information */
@@ -885,6 +881,7 @@ libtop_p_vm_sample(void)
 	 * Iterate through the oinfo hash table and add up the collective size
 	 * of the shared objects.
 	 */
+
 	tsamp.rshrd = 0;
 	for (i = 0, ocount = dch_count(&libtop_oinfo_hash);
 	     i < ocount;
@@ -897,34 +894,46 @@ libtop_p_vm_sample(void)
 	}
 	tsamp.rshrd *= tsamp.pagesize;
 
-	retval = FALSE;
-	RETURN:
-	return retval;
+	tsamp.reg=0;
+	tsamp.rprvt=0;
+	tsamp.vsize=0;
+
+	/* Iterate through all processes, collecting their individual vm stats */
+	libtop_piter = NULL;
+	while(libtop_piterate()!=NULL) {
+	  tsamp.reg += libtop_piter->psamp.reg;
+	  tsamp.rprvt += libtop_piter->psamp.rprvt;
+	  tsamp.vsize += libtop_piter->psamp.vsize;
+	}
+
+	return FALSE;
 }
 
 /*
  * Sample network usage.
  *
- * The algorithm used does not deal with the following conditions, which can
+ * The algorithm used does not deal with the following condition, which can
  * cause the statistics to be invalid:
  *
- * 1) Interface counters are 32 bit counters.  Given the speed of current
- *    interfaces, the counters can overflow (wrap) in a matter of seconds.  No
- *    effort is made to detect or correct counter overflow.
+ *  Interfaces are dynamic -- they can appear and disappear at any time.
+ *  There is no way to get statistics on an interface that has disappeared, so
+ *  it isn't possible to determine the amount of data transfer between the
+ *  previous sample and when the interface went away.
  *
- * 2) Interfaces are dynamic -- they can appear and disappear at any time.
- *    There is no way to get statistics on an interface that has disappeared, so
- *    it isn't possible to determine the amount of data transfer between the
- *    previous sample and when the interface went away.
- *
- *    Due to this problem, if an interface disappears, it is possible for the
- *    current sample values to be lower than those of the beginning or previous
- *    samples.
+ *  Due to this problem, if an interface disappears, it is possible for the
+ *  current sample values to be lower than those of the beginning or previous
+ *  samples.
  */
 static void
 libtop_p_networks_sample(void)
 {
-    struct ifaddrs *ifa_list = 0, *ifa;
+	short network_layer;
+	short link_layer;
+ 	int mib[6];
+     	char *buf = NULL, *lim, *next;
+	size_t len;
+	struct if_msghdr *ifm;
+
 
 	tsamp.p_net_ipackets = tsamp.net_ipackets;
 	tsamp.p_net_opackets = tsamp.net_opackets;
@@ -936,28 +945,45 @@ libtop_p_networks_sample(void)
 	tsamp.net_ibytes = 0;
 	tsamp.net_obytes = 0;
 
-	if (getifaddrs(&ifa_list) == -1)
-	    goto RETURN;
-	for (ifa = ifa_list; ifa; ifa = ifa->ifa_next) {
-		if (AF_LINK != ifa->ifa_addr->sa_family)
-				continue;
-		if (!(ifa->ifa_flags & IFF_UP) && !(ifa->ifa_flags & IFF_RUNNING))
-			continue;
-		if (ifa->ifa_data == 0)
-			continue;
-
-		/* Not a loopback device. */
-		if (strncmp(ifa->ifa_name, "lo", 2)) {
-			struct if_data *if_data = (struct if_data *)ifa->ifa_data;
-
-			tsamp.net_ipackets += if_data->ifi_ipackets;
-			tsamp.net_opackets += if_data->ifi_opackets;
-
-			tsamp.net_ibytes += if_data->ifi_ibytes;
-			tsamp.net_obytes += if_data->ifi_obytes;
-		}
-		
+	mib[0]	= CTL_NET;			// networking subsystem
+	mib[1]	= PF_ROUTE;			// type of information
+	mib[2]	= 0;				// protocol (IPPROTO_xxx)
+	mib[3]	= 0;				// address family
+	mib[4]	= NET_RT_IFLIST2;	// operation
+	mib[5]	= 0;
+	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0) return;
+	if ((buf = malloc(len)) == NULL) {
+		printf("malloc failed\n");
+		exit(1);
 	}
+	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
+		if (buf) free(buf);
+		return;
+	}
+
+	lim = buf + len;
+	for (next = buf; next < lim; ) {
+		network_layer = link_layer = 0;
+	        ifm = (struct if_msghdr *)next;
+		next += ifm->ifm_msglen;
+
+	        if (ifm->ifm_type == RTM_IFINFO2) {
+			struct if_msghdr2 	*if2m = (struct if_msghdr2 *)ifm;
+
+			if(if2m->ifm_data.ifi_type==IFT_ETHER)  /* If we've seen any ethernet traffic, */
+				ignore_PPP=TRUE; 		/* ignore any PPP traffic (PPPoE or VPN) */
+
+
+			if((if2m->ifm_data.ifi_type!=IFT_LOOP)   /* do not count loopback traffic */
+			   && !(ignore_PPP && if2m->ifm_data.ifi_type==IFT_PPP)) { /* or VPN/PPPoE */
+				tsamp.net_opackets += if2m->ifm_data.ifi_opackets;
+				tsamp.net_ipackets += if2m->ifm_data.ifi_ipackets;
+				tsamp.net_obytes   += if2m->ifm_data.ifi_obytes;
+				tsamp.net_ibytes   += if2m->ifm_data.ifi_ibytes;
+			}
+		} 
+	}
+
 	if (tsamp.seq == 1) {
 		tsamp.b_net_ipackets = tsamp.net_ipackets;
 		tsamp.p_net_ipackets = tsamp.net_ipackets;
@@ -971,9 +997,8 @@ libtop_p_networks_sample(void)
 		tsamp.b_net_obytes = tsamp.net_obytes;
 		tsamp.p_net_obytes = tsamp.net_obytes;
 	}
-RETURN:
-	if(ifa_list)
-	    freeifaddrs(ifa_list);
+
+	free(buf);
 }
 
 /*
@@ -989,14 +1014,13 @@ libtop_p_disks_sample(void)
 	CFNumberRef		number;
 	CFDictionaryRef		properties, statistics;
 	UInt64			value;
-
+	
 	/* Get the list of all drive objects. */
 	if (IOServiceGetMatchingServices(libtop_master_port,
 	    IOServiceMatching("IOBlockStorageDriver"), &drive_list)) {
 		libtop_print(libtop_user_data,
 		    "Error in IOServiceGetMatchingServices()");
-		retval = TRUE;
-		goto ERROR_NOLIST;
+		return TRUE;
 	}
 
 	tsamp.p_disk_rops = tsamp.disk_rops;
@@ -1021,7 +1045,7 @@ libtop_p_disks_sample(void)
 			libtop_print(libtop_user_data,
 			    "Error in IORegistryEntryCreateCFProperties()");
 			retval = TRUE;
-			goto RETURN;
+			goto RETURN;  // We must use a goto here to clean up drive_list 
 		}
 
 		if (properties != 0) {
@@ -1098,7 +1122,6 @@ libtop_p_disks_sample(void)
 	RETURN:
 	/* Release. */
 	IOObjectRelease(drive_list);
-	ERROR_NOLIST:
 	return retval;
 }
 
@@ -1106,7 +1129,6 @@ libtop_p_disks_sample(void)
 static boolean_t
 libtop_p_proc_table_read(boolean_t a_reg)
 {
-	boolean_t	retval;
 	kern_return_t	error;
 	processor_set_t	*psets, pset;
 	task_t		*tasks;
@@ -1117,8 +1139,7 @@ libtop_p_proc_table_read(boolean_t a_reg)
 		libtop_print(libtop_user_data,
 		    "Error in host_processor_sets(): %s",
 		    mach_error_string(error));
-		retval = TRUE;
-		goto RETURN;
+		return TRUE;
 	}
 
 	for (i = 0; i < pcnt; i++) {
@@ -1127,8 +1148,7 @@ libtop_p_proc_table_read(boolean_t a_reg)
 			libtop_print(libtop_user_data, 
 			    "Error in host_processor_set_priv(): %s",
 			    mach_error_string(error));
-			retval = TRUE;
-			goto RETURN;
+			return TRUE;
 		}
 
 		error = processor_set_tasks(pset, &tasks, &tcnt);
@@ -1136,28 +1156,17 @@ libtop_p_proc_table_read(boolean_t a_reg)
 			libtop_print(libtop_user_data,
 			    "Error in processor_set_tasks(): %s",
 			    mach_error_string(error));
-			retval = TRUE;
-			goto RETURN;
+			return TRUE;
 		}
 
 		tsamp.reg = 0;
-		tsamp.fw_private = 0;
-		tsamp.fw_vsize = 0;
 		tsamp.rprvt = 0;
 		tsamp.vsize = 0;
 		tsamp.threads = 0;
-		libtop_p_oinfo_reset();
+//		libtop_p_oinfo_reset();
 		for (j = 0; j < tcnt; j++) {
-			if (libtop_p_task_update(tasks[j], a_reg)) {
-				retval = TRUE;
-				goto RETURN;
-			}
-
-			/* Delete task port if it isn't our own. */
-			if (tasks[j] != mach_task_self()) {
-				mach_port_deallocate(mach_task_self(),
-				    tasks[j]);
-			}
+		  if (libtop_p_task_update(tasks[j], a_reg)) return TRUE;
+		  mach_port_deallocate(mach_task_self(),tasks[j]);
 		}
 
 		error = vm_deallocate((vm_map_t)mach_task_self(),
@@ -1166,8 +1175,7 @@ libtop_p_proc_table_read(boolean_t a_reg)
 			libtop_print(libtop_user_data,
 			    "Error in vm_deallocate(): %s",
 			    mach_error_string(error));
-			retval = TRUE;
-			goto RETURN;
+			return TRUE;
 		}
 		if ((error = mach_port_deallocate(mach_task_self(),
 			 pset)) != KERN_SUCCESS
@@ -1176,8 +1184,7 @@ libtop_p_proc_table_read(boolean_t a_reg)
 			libtop_print(libtop_user_data,
 			    "Error in mach_port_deallocate(): %s",
 			    mach_error_string(error));
-			retval = TRUE;
-			goto RETURN;
+			return TRUE;
 		}
 	}
 
@@ -1187,13 +1194,47 @@ libtop_p_proc_table_read(boolean_t a_reg)
 		libtop_print(libtop_user_data,
 		    "Error in vm_deallocate(): %s",
 		    mach_error_string(error));
-		retval = TRUE;
-		goto RETURN;
+		return TRUE;
 	}
 
-	retval = FALSE;
-	RETURN:
-	return retval;
+	return FALSE;
+}
+
+/* Get cputype for a given pid. */
+static cpu_type_t
+libtop_p_cputype(int pid) {
+  cpu_type_t cpuType = 0;
+ 
+  int mib[CTL_MAXNAME];
+  size_t len = CTL_MAXNAME;
+  if (sysctlnametomib("sysctl.proc_cputype", mib, &len) != -1) {
+    mib[len] = pid;
+    len++;
+    
+    size_t cputypelen = sizeof(cpuType);
+    if (sysctl(mib, len, &cpuType, &cputypelen, 0, 0) == -1)  cpuType = 0;
+  }
+  return cpuType;
+}
+
+static mach_vm_size_t
+libtop_p_shreg_size(libtop_pinfo_t *a_pinfo) {
+  switch(a_pinfo->psamp.cputype) {
+  case CPU_TYPE_POWERPC:
+    return SHARED_REGION_SIZE_PPC;
+    break;
+  case CPU_TYPE_POWERPC64:
+    return SHARED_REGION_SIZE_PPC64;
+    break;
+  case CPU_TYPE_I386:
+    return SHARED_REGION_SIZE_I386;
+    break;
+  case CPU_TYPE_X86_64:
+    return SHARED_REGION_SIZE_X86_64;
+    break;
+  default: // unknown CPU type
+    return 0;
+  }
 }
 
 /* Update statistics for task a_task. */
@@ -1206,15 +1247,15 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 	size_t			kinfosize;
 	int			pid, mib[4];
 	mach_msg_type_number_t	count;
-	vm_size_t		aliased;
+	mach_vm_size_t		aliased;
 	libtop_pinfo_t		*pinfo;
 	libtop_oinfo_t		*oinfo;
-	task_basic_info_data_t	ti;
+	struct task_basic_info_64	ti;
 	struct timeval		tv;
-	vm_address_t		address;
+	mach_vm_address_t	address;
 	mach_port_t		object_name;
 	vm_region_top_info_data_t info;
-	vm_size_t		size;
+	mach_vm_size_t		size;
 	int			state, tstate;
 	thread_array_t		thread_table;
 	unsigned int		table_size;
@@ -1228,11 +1269,7 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 
 	/* Get pid for this task. */
 	error = pid_for_task(a_task, &pid);
-	if (error != KERN_SUCCESS) {
-		/* Not a process, or the process is gone. */
-		retval = FALSE;
-		goto GONE;
-	}
+	if (error != KERN_SUCCESS) return FALSE; // Not a process, or the process is gone.
 
 	/* Get kinfo structure for this task. */
 	kinfosize = sizeof(struct kinfo_proc);
@@ -1268,6 +1305,7 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 		}
 		pinfo->psamp.pid = (pid_t)pid;
 		libtop_p_pinsert(pinfo);
+		pinfo->psamp.cputype = libtop_p_cputype(pid);
 	}
 
 	/* Get command name/args. */
@@ -1280,6 +1318,7 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 	pinfo->psamp.ppid = kinfo.kp_eproc.e_ppid;
 	pinfo->psamp.pgrp = kinfo.kp_eproc.e_pgid;
 	pinfo->flag = kinfo.kp_proc.p_flag;
+	pinfo->psamp.started = kinfo.kp_proc.p_starttime;
 
 	pinfo->psamp.p_seq = pinfo->psamp.seq;
 	pinfo->psamp.seq = tsamp.seq;
@@ -1288,12 +1327,11 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 	 * Get task_info, which is used for memory usage and CPU usage
 	 * statistics.
 	 */
-	count = TASK_BASIC_INFO_COUNT;
-	error = task_info(a_task, TASK_BASIC_INFO, (task_info_t)&ti, &count);
+	count = TASK_BASIC_INFO_64_COUNT;
+	error = task_info(a_task, TASK_BASIC_INFO_64, (task_info_t)&ti, &count);
 	if (error != KERN_SUCCESS) {
 		state = LIBTOP_STATE_ZOMBIE;
-		retval = FALSE;
-		goto GONE;
+		return FALSE;
 	}
 
 	/*
@@ -1306,24 +1344,22 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 	pinfo->psamp.p_rprvt = pinfo->psamp.rprvt;
 	pinfo->psamp.p_vprvt = pinfo->psamp.vprvt;
 	pinfo->psamp.p_rshrd = pinfo->psamp.rshrd;
+	pinfo->psamp.p_empty = pinfo->psamp.empty;
 
 	/* Clear sizes in preparation for determining their current values. */
 	aliased = 0;
 	pinfo->psamp.rprvt = 0;
 	pinfo->psamp.vprvt = 0;
 	pinfo->psamp.rshrd = 0;
+	pinfo->psamp.empty = 0;
 	pinfo->psamp.reg = 0;
-
-	/*
-	 * Set rsize and vsize; they require no calculation.  (Well, actually,
-	 * we adjust vsize if traversing memory objects to not include the
-	 * globally shared text and data regions).
-	 */
+	pinfo->psamp.fw_private = 0;
+	
 	pinfo->psamp.rsize = ti.resident_size;
 	pinfo->psamp.vsize = ti.virtual_size;
-
+	
 	/*
-	 * Do memory object traversaal if any of the following is true:
+	 * Do memory object traversal if any of the following is true:
 	 *
 	 * 1) Region reporting is enabled for this sample, and it isn't
 	 *    explicitly disabled for this process.
@@ -1336,12 +1372,13 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 	 *    segments were mapped in, but if we were to subtract them out,
 	 *    the process's calculated vsize would be less than 0.
 	 */
+
 	if ((a_reg && pinfo->preg != LIBTOP_PREG_off)
-	    || pinfo->preg == LIBTOP_PREG_on
-	    || pinfo->psamp.p_seq == 0
-	    || (pinfo->split && pinfo->psamp.vsize
-	    < (SHARED_TEXT_REGION_SIZE + SHARED_DATA_REGION_SIZE))
-	    ) {
+		|| pinfo->preg == LIBTOP_PREG_on
+		|| pinfo->psamp.p_seq == 0
+		|| (pinfo->split && ti.virtual_size
+		    < libtop_p_shreg_size(pinfo))) {
+		
 		/*
 		 * Iterate through the VM regions of the process and determine
 		 * the amount of memory of various types it has mapped.
@@ -1351,19 +1388,17 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 		     address += size) {
 			/* Get memory region. */
 			count = VM_REGION_TOP_INFO_COUNT;
-			if (vm_region(a_task, &address, &size,
+			if (mach_vm_region(a_task, &address, &size,
 			    VM_REGION_TOP_INFO, (vm_region_info_t)&info, &count,
 			    &object_name) != KERN_SUCCESS) {
 				/* No more memory regions. */
 				break;
 			}
 
-			if (address >= GLOBAL_SHARED_TEXT_SEGMENT
-			    && address < (GLOBAL_SHARED_DATA_SEGMENT
-			    + SHARED_DATA_REGION_SIZE)) {
+			if (in_shared_region(address)) {
 				/* This region is private shared. */
 
-				tsamp.fw_private += info.private_pages_resident
+				pinfo->psamp.fw_private += info.private_pages_resident
 				    * tsamp.pagesize;
 
 				/*
@@ -1377,7 +1412,7 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 					vm_region_basic_info_data_64_t	b_info;
 
 					count = VM_REGION_BASIC_INFO_COUNT_64;
-					if (vm_region_64(a_task, &address,
+					if (mach_vm_region(a_task, &address,
 					    &size, VM_REGION_BASIC_INFO,
 					    (vm_region_info_t)&b_info, &count,
 					    &object_name) != KERN_SUCCESS) {
@@ -1405,6 +1440,7 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 			/*
 			 * Update counters according to the region type.
 			 */
+
 			switch (info.share_mode) {
 			case SM_COW: {
 				if (info.ref_count == 1) {
@@ -1483,8 +1519,8 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 						    += oinfo->size;
 					}
 
-					if (oinfo->share_type
-					    != SM_PRIVATE_ALIASED) {
+					if (oinfo->share_type != SM_PRIVATE_ALIASED 
+					    && oinfo->share_type != SM_EMPTY) {
 						oinfo->rb_rshrd
 						    += oinfo->resident_page_count
 						    * tsamp.pagesize;
@@ -1511,7 +1547,7 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 				break;
 			}
 			case SM_EMPTY:
-				/* Do nothing. */
+				pinfo->psamp.empty += size;
 				break;
 			case SM_SHARED: {
 				if (pinfo->psamp.pid == 0) {
@@ -1580,19 +1616,19 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 			}
 		}
 		pinfo->psamp.rprvt += aliased;
-
-		/* Update global memory statistics. */
-		tsamp.reg += pinfo->psamp.reg;
-		tsamp.rprvt += pinfo->psamp.rprvt;
-	}
-
-	if (pinfo->split) {
+		
 		/* Subtract out the globally shared text and data regions. */
-		pinfo->psamp.vsize -= (SHARED_TEXT_REGION_SIZE
-		    + SHARED_DATA_REGION_SIZE);
+		if (pinfo->split) pinfo->psamp.vsize -= libtop_p_shreg_size(pinfo);
+		/* Subtract out the empty pages (pagezero, stack guard, etc) */
+		pinfo->psamp.vsize -= pinfo->psamp.empty;
+	} else if(!a_reg) {
+		/* If we're not processing regions, we still need to copy over
+		   VSIZE and RSIZE. */
+		pinfo->psamp.p_rsize = pinfo->psamp.rsize;
+		pinfo->psamp.p_vsize = pinfo->psamp.vsize;
+		pinfo->psamp.rsize = ti.resident_size;
+		pinfo->psamp.vsize = ti.virtual_size;
 	}
-	/* Update global memory statistics. */
-	tsamp.vsize += pinfo->psamp.vsize;
 
 	/*
 	 * Get CPU usage statistics.
@@ -1726,7 +1762,6 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 	retval = FALSE;
 	RETURN:
 	tsamp.state_breakdown[state]++;
-	GONE:
 	return retval;
 }
 
@@ -1743,7 +1778,6 @@ libtop_p_task_update(task_t a_task, boolean_t a_reg)
 static boolean_t
 libtop_p_proc_command(libtop_pinfo_t *a_pinfo, struct kinfo_proc *a_kinfo)
 {
-	boolean_t	retval;
 	unsigned	len;
 
 	if (a_pinfo->psamp.command != NULL) {
@@ -1756,12 +1790,8 @@ libtop_p_proc_command(libtop_pinfo_t *a_pinfo, struct kinfo_proc *a_kinfo)
 	if (strncmp(a_kinfo->kp_proc.p_comm, "LaunchCFMApp",len)) {
 		/* Normal program. */
 		a_pinfo->psamp.command = (char *)malloc(len + 1);
-		if (a_pinfo->psamp.command == NULL) {
-			retval = TRUE;
-			goto RETURN;
-		}
-		memcpy(a_pinfo->psamp.command, a_kinfo->kp_proc.p_comm,
-		    len + 1);
+		if (a_pinfo->psamp.command == NULL) return TRUE;
+		memcpy(a_pinfo->psamp.command, a_kinfo->kp_proc.p_comm, len + 1);
 	} else {
 		int	mib[3];
 		size_t	procargssize;
@@ -1833,8 +1863,7 @@ libtop_p_proc_command(libtop_pinfo_t *a_pinfo, struct kinfo_proc *a_kinfo)
 			libtop_print(libtop_user_data,
 			    "%s(): Error in sysctl(): %s",
 			    __FUNCTION__, strerror(errno));
-			retval = TRUE;
-			goto RETURN;
+			return TRUE;
 		}
 
 #ifdef TOP_JAGUAR
@@ -1883,10 +1912,7 @@ libtop_p_proc_command(libtop_pinfo_t *a_pinfo, struct kinfo_proc *a_kinfo)
 		/* Allocate space for the command and copy. */
 		len = command_end - command;
 		a_pinfo->psamp.command = (char *)malloc(len + 1);
-		if (a_pinfo->psamp.command == NULL) {
-			retval = TRUE;
-			goto RETURN;
-		}
+		if (a_pinfo->psamp.command == NULL) return TRUE;
 		memcpy(a_pinfo->psamp.command, command, len + 1);
 #else
 		/* Skip the saved exec_path. */
@@ -1939,17 +1965,12 @@ libtop_p_proc_command(libtop_pinfo_t *a_pinfo, struct kinfo_proc *a_kinfo)
 		/* Allocate space for the command and copy. */
 		len = command_end - command;
 		a_pinfo->psamp.command = (char *)malloc(len + 1);
-		if (a_pinfo->psamp.command == NULL) {
-			retval = TRUE;
-			goto RETURN;
-		}
+		if (a_pinfo->psamp.command == NULL) return TRUE;
 		memcpy(a_pinfo->psamp.command, command, len + 1);
 #endif
 	}
 
-	retval = FALSE;
-	RETURN:
-	return retval;
+	return FALSE;
 
 	ERROR:
 	{
@@ -1960,14 +1981,10 @@ libtop_p_proc_command(libtop_pinfo_t *a_pinfo, struct kinfo_proc *a_kinfo)
 		 * "(LaunchCFMApp)".
 		 */
 		a_pinfo->psamp.command = malloc(sizeof(s));
-		if (a_pinfo->psamp.command == NULL) {
-			retval = TRUE;
-			goto RETURN;
-		}
+		if (a_pinfo->psamp.command == NULL) return TRUE;
 		memcpy(a_pinfo->psamp.command, s, sizeof(s));
 
-		retval = FALSE;
-		goto RETURN;
+		return FALSE;
 	}
 }
 
@@ -2047,27 +2064,19 @@ libtop_p_usearch(uid_t a_uid)
 
 		/* Not in the cache. */
 		retval = (libtop_user_t *)malloc(sizeof(libtop_user_t));
-		if (retval == NULL) {
-			goto RETURN;
-		}
+		if (retval == NULL) return NULL;
 		retval->uid = a_uid;
 
 		setpwent();
 		pwd = getpwuid(a_uid);
-		if (pwd == NULL) {
-			retval = NULL;
-			goto RETURN;
-		} else {
-			snprintf(retval->username, sizeof(retval->username),
-			    "%s", pwd->pw_name);
-		}
+		if (pwd == NULL) return NULL;
+		else snprintf(retval->username, sizeof(retval->username), "%s", pwd->pw_name);
 		endpwent();
 
 		dch_insert(&libtop_uhash, (void *)retval->uid, (void *)retval,
 		    &retval->chi);
 	}
 
-	RETURN:
 	return retval;
 }
 
@@ -2133,9 +2142,7 @@ libtop_p_oinfo_insert(int a_obj_id, int a_share_type, int a_resident_page_count,
 			assert(libtop_oinfo_nspares == 0);
 			oinfo
 			    = (libtop_oinfo_t *)malloc(sizeof(libtop_oinfo_t));
-			if (oinfo == NULL) {
-				goto RETURN;
-			}
+			if (oinfo == NULL) return NULL;
 			ql_elm_new(oinfo, link);
 			ql_tail_insert(&libtop_oinfo_list, oinfo, link);
 		}
@@ -2152,14 +2159,13 @@ libtop_p_oinfo_insert(int a_obj_id, int a_share_type, int a_resident_page_count,
 		    &oinfo->chi);
 	}
 
-	RETURN:
 	return oinfo;
 }
 
-/* Reset the memory object info hash.  This is done between samples. */
+/* Reset the memory object info hash.  This is done between samples.
 static void
 libtop_p_oinfo_reset(void)
 {
 	libtop_oinfo_nspares += dch_count(&libtop_oinfo_hash);
 	dch_clear(&libtop_oinfo_hash);
-}
+	} */

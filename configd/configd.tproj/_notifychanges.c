@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,7 +43,7 @@ __SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store, CFArrayRef *notifierKe
 	CFDictionaryRef			info;
 	CFMutableDictionaryRef		newInfo;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -52,7 +52,7 @@ __SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store, CFArrayRef *notifierKe
 	if ((info == NULL) ||
 	    (CFDictionaryContainsKey(info, kSCDChangedKeys) == FALSE)) {
 		CFRelease(sessionKey);
-		*notifierKeys = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);;
+		*notifierKeys = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
 		return kSCStatusOK;
 	}
 	newInfo = CFDictionaryCreateMutableCopy(NULL, 0, info);
@@ -88,7 +88,7 @@ _notifychanges(mach_port_t			server,
 	*listRef = NULL;
 	*listLen = 0;
 
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
 	}

@@ -111,7 +111,16 @@ static XFontSet current_fontset = NULL;
 	    if (current_fontset != NULL) \
 		XwcDrawString(dpy, win, current_fontset, gc, x, y, (wchar_t *)str, n); \
 	    else \
-		XDrawString16(dpy, win, gc, x, y, str, n); \
+		XDrawString16(dpy, win, gc, x, y, (XChar2b *)str, n); \
+	} while (0)
+
+#define XDrawImageString16(dpy, win, gc, x, y, str, n) \
+	do \
+	{ \
+	    if (current_fontset != NULL) \
+		XwcDrawImageString(dpy, win, current_fontset, gc, x, y, (wchar_t *)str, n); \
+	    else \
+		XDrawImageString16(dpy, win, gc, x, y, (XChar2b *)str, n); \
 	} while (0)
 
 static int check_fontset_sanity __ARGS((XFontSet fs));
@@ -121,6 +130,7 @@ static int fontset_ascent __ARGS((XFontSet fs));
 
 static guicolor_T	prev_fg_color = INVALCOLOR;
 static guicolor_T	prev_bg_color = INVALCOLOR;
+static guicolor_T	prev_sp_color = INVALCOLOR;
 
 #if defined(FEAT_GUI_MOTIF) && defined(FEAT_MENU)
 static XButtonPressedEvent last_mouse_event;
@@ -145,6 +155,7 @@ static void gui_x11_send_event_handler __ARGS((Widget, XtPointer, XEvent *, Bool
 static void gui_x11_wm_protocol_handler __ARGS((Widget, XtPointer, XEvent *, Boolean *));
 static void gui_x11_blink_cb __ARGS((XtPointer timed_out, XtIntervalId *interval_id));
 static Cursor gui_x11_create_blank_mouse __ARGS((void));
+static void draw_curl __ARGS((int row, int col, int cells));
 
 
 /*
@@ -533,7 +544,7 @@ static XrmOptionDescRec cmdline_options[] =
     {"+reverse",	"*reverseVideo",    XrmoptionNoArg,	"False"},
     {"+rv",		"*reverseVideo",    XrmoptionNoArg,	"False"},
     {"-display",	".display",	    XrmoptionSepArg,	NULL},
-    {"-iconic",		"*iconic",	    XrmoptionNoArg,	"True"},
+    {"-iconic",		".iconic",	    XrmoptionNoArg,	"True"},
     {"-name",		".name",	    XrmoptionSepArg,	NULL},
     {"-bw",		".borderWidth",	    XrmoptionSepArg,	NULL},
     {"-borderwidth",	".borderWidth",	    XrmoptionSepArg,	NULL},
@@ -626,6 +637,48 @@ gui_x11_expose_cb(w, dud, event, dum)
     /* This is needed for when redrawing is slow. */
     gui_mch_update();
 }
+
+#if (defined(FEAT_NETBEANS_INTG) || defined(FEAT_SUN_WORKSHOP)) \
+	|| defined(PROTO)
+/*
+ * This function fills in the XRectangle object with the current x,y
+ * coordinates and height, width so that an XtVaSetValues to the same shell of
+ * those resources will restore the window to its formar position and
+ * dimensions.
+ *
+ * Note: This function may fail, in which case the XRectangle will be
+ * unchanged.  Be sure to have the XRectangle set with the proper values for a
+ * failed condition prior to calling this function.
+ */
+    static void
+shellRectangle(Widget shell, XRectangle *r)
+{
+    Window		rootw, shellw, child, parentw;
+    int			absx, absy;
+    XWindowAttributes	a;
+    Window		*children;
+    unsigned int	childrenCount;
+
+    shellw = XtWindow(shell);
+    if (shellw == 0)
+	return;
+    for (;;)
+    {
+	XQueryTree(XtDisplay(shell), shellw, &rootw, &parentw,
+						   &children, &childrenCount);
+	XFree(children);
+	if (parentw == rootw)
+	    break;
+	shellw = parentw;
+    }
+    XGetWindowAttributes(XtDisplay(shell), shellw, &a);
+    XTranslateCoordinates(XtDisplay(shell), shellw, a.root, 0, 0,
+							&absx, &absy, &child);
+    r->x = absx;
+    r->y = absy;
+    XtVaGetValues(shell, XmNheight, &r->height, XmNwidth, &r->width, NULL);
+}
+#endif
 
 /* ARGSUSED */
     static void
@@ -854,11 +907,17 @@ gui_x11_key_hit_cb(w, dud, event, dum)
 #endif
 
     /* Check for Alt/Meta key (Mod1Mask), but not for a BS, DEL or character
-     * that already has the 8th bit set. */
+     * that already has the 8th bit set.  And not when using a double-byte
+     * encoding, setting the 8th bit may make it the lead byte of a
+     * double-byte character. */
     if (len == 1
 	    && (ev_press->state & Mod1Mask)
 	    && !(key_sym == XK_BackSpace || key_sym == XK_Delete)
-	    && (string[0] & 0x80) == 0)
+	    && (string[0] & 0x80) == 0
+#ifdef FEAT_MBYTE
+	    && !enc_dbcs
+#endif
+	    )
     {
 #if defined(FEAT_MENU) && defined(FEAT_GUI_MOTIF)
 	/* Ignore ALT keys when they are used for the menu only */
@@ -932,10 +991,15 @@ gui_x11_key_hit_cb(w, dud, event, dum)
     if (len == 0)
 	goto theend;
 
-    /* Special keys (and a few others) may have modifiers */
+    /* Special keys (and a few others) may have modifiers.  Also when using a
+     * double-byte encoding (can't set the 8th bit). */
     if (len == -3 || key_sym == XK_space || key_sym == XK_Tab
-	|| key_sym == XK_Return || key_sym == XK_Linefeed
-	|| key_sym == XK_Escape)
+	    || key_sym == XK_Return || key_sym == XK_Linefeed
+	    || key_sym == XK_Escape
+#ifdef FEAT_MBYTE
+	    || (enc_dbcs && len == 1 && (ev_press->state & Mod1Mask))
+#endif
+       )
     {
 	modifiers = 0;
 	if (ev_press->state & ShiftMask)
@@ -944,6 +1008,8 @@ gui_x11_key_hit_cb(w, dud, event, dum)
 	    modifiers |= MOD_MASK_CTRL;
 	if (ev_press->state & Mod1Mask)
 	    modifiers |= MOD_MASK_ALT;
+	if (ev_press->state & Mod4Mask)
+	    modifiers |= MOD_MASK_META;
 
 	/*
 	 * For some keys a shift modifier is translated into another key
@@ -1174,15 +1240,18 @@ gui_mch_prepare(argc, argv)
 							    * sizeof(char *));
 		}
 	    }
+	    argv[*argc] = NULL;
 	}
 	else
 #ifdef FEAT_SUN_WORKSHOP
 	    if (strcmp("-ws", argv[arg]) == 0)
 	{
 	    usingSunWorkShop++;
+	    p_acd = TRUE;
 	    gui.dofork = FALSE;	/* don't fork() when starting GUI */
 	    mch_memmove(&argv[arg], &argv[arg + 1],
 					    (--*argc - arg) * sizeof(char *));
+	    argv[*argc] = NULL;
 # ifdef WSDEBUG
 	    wsdebug_wait(WT_ENV | WT_WAIT | WT_STOP, "SPRO_GVIM_WAIT", 20);
 	    wsdebug_log_init("SPRO_GVIM_DEBUG", "SPRO_GVIM_DLEVEL");
@@ -1198,6 +1267,7 @@ gui_mch_prepare(argc, argv)
 	    netbeansArg = argv[arg];
 	    mch_memmove(&argv[arg], &argv[arg + 1],
 					    (--*argc - arg) * sizeof(char *));
+	    argv[*argc] = NULL;
 	}
 	else
 #endif
@@ -1228,8 +1298,8 @@ gui_mch_init_check()
     open_app_context();
     if (app_context != NULL)
 	gui.dpy = XtOpenDisplay(app_context, 0, VIM_NAME, VIM_CLASS,
-	    cmdline_options, XtNumber(cmdline_options),
-	    CARDINAL &gui_argc, gui_argv);
+		cmdline_options, XtNumber(cmdline_options),
+		CARDINAL &gui_argc, gui_argv);
 
     if (app_context == NULL || gui.dpy == NULL)
     {
@@ -1367,7 +1437,11 @@ gui_mch_init()
 	if (mask & WidthValue)
 	    Columns = w;
 	if (mask & HeightValue)
+	{
+	    if (p_window > h - 1 || !option_was_set((char_u *)"window"))
+		p_window = h - 1;
 	    Rows = h;
+	}
 	/*
 	 * Set the (x,y) position of the main window only if specified in the
 	 * users geometry, so we get good defaults when they don't. This needs
@@ -1482,10 +1556,6 @@ gui_mch_init()
     if (usingSunWorkShop)
 	workshop_connect(app_context);
 #endif
-#ifdef FEAT_NETBEANS_INTG
-    if (usingNetbeans)
-	netbeans_Xt_connect(app_context);
-#endif
 
 #ifdef FEAT_BEVAL
     gui_init_tooltip_font();
@@ -1511,9 +1581,7 @@ gui_mch_init()
 gui_mch_uninit()
 {
     gui_x11_destroy_widgets();
-#ifndef LESSTIF_VERSION
     XtCloseDisplay(gui.dpy);
-#endif
     gui.dpy = NULL;
     vimShell = (Widget)0;
 }
@@ -1555,7 +1623,8 @@ gui_mch_new_colors()
 gui_mch_open()
 {
     /* Actually open the window */
-    XtPopup(vimShell, XtGrabNone);
+    XtRealizeWidget(vimShell);
+    XtManageChild(XtNameToWidget(vimShell, "*vimForm"));
 
     gui.wid = gui_x11_get_wid();
     gui.blank_pointer = gui_x11_create_blank_mouse();
@@ -1723,16 +1792,21 @@ gui_mch_set_winpos(x, y)
 	NULL);
 }
 
+/*ARGSUSED*/
     void
 gui_mch_set_shellsize(width, height, min_width, min_height,
-		    base_width, base_height)
+		    base_width, base_height, direction)
     int		width;
     int		height;
     int		min_width;
     int		min_height;
     int		base_width;
     int		base_height;
+    int		direction;
 {
+#ifdef FEAT_XIM
+    height += xim_get_status_area_height(),
+#endif
     XtVaSetValues(vimShell,
 	XtNwidthInc,	gui.char_width,
 	XtNheightInc,	gui.char_height,
@@ -1743,16 +1817,12 @@ gui_mch_set_shellsize(width, height, min_width, min_height,
 	XtNminWidth,	min_width,
 	XtNminHeight,	min_height,
 	XtNwidth,	width,
-#ifdef FEAT_XIM
-	XtNheight,	height + xim_get_status_area_height(),
-#else
 	XtNheight,	height,
-#endif
 	NULL);
 }
 
 /*
- * Allow 10 pixels for horizontal borders, 30 for vertical borders.
+ * Allow 10 pixels for horizontal borders, 'guiheadroom' for vertical borders.
  * Is there no way in X to find out how wide the borders really are?
  */
     void
@@ -1780,7 +1850,16 @@ gui_mch_init_font(font_name, do_fontset)
 
 #ifdef FEAT_XFONTSET
     XFontSet	fontset = NULL;
+#endif
 
+#ifdef FEAT_GUI_MOTIF
+    /* A font name equal "*" is indicating, that we should activate the font
+     * selection dialogue to get a new font name. So let us do it here. */
+    if (font_name != NULL && STRCMP(font_name, "*") == 0)
+	font_name = gui_xm_select_font(hl_get_font_name());
+#endif
+
+#ifdef FEAT_XFONTSET
     if (do_fontset)
     {
 	/* If 'guifontset' is set, VIM treats all font specifications as if
@@ -1882,6 +1961,10 @@ gui_mch_init_font(font_name, do_fontset)
 	}
     }
 
+#ifdef FEAT_GUI_MOTIF
+    gui_motif_synch_fonts();
+#endif
+
     return OK;
 }
 
@@ -1934,8 +2017,28 @@ gui_mch_get_font(name, giveErrorIfMissing)
     return (GuiFont)font;
 }
 
+#if defined(FEAT_EVAL) || defined(PROTO)
+/*
+ * Return the name of font "font" in allocated memory.
+ * Don't know how to get the actual name, thus use the provided name.
+ */
+/*ARGSUSED*/
+    char_u *
+gui_mch_get_fontname(font, name)
+    GuiFont font;
+    char_u  *name;
+{
+    if (name == NULL)
+	return NULL;
+    return vim_strsave(name);
+}
+#endif
+
+/*
+ * Adjust gui.char_height (after 'linespace' was changed).
+ */
     int
-gui_mch_adjust_charsize()
+gui_mch_adjust_charheight()
 {
 #ifdef FEAT_XFONTSET
     if (gui.fontset != NOFONTSET)
@@ -1988,24 +2091,6 @@ gui_mch_set_fontset(fontset)
 {
     current_fontset = (XFontSet)fontset;
     gui.char_ascent = fontset_ascent(current_fontset) + p_linespace / 2;
-}
-#endif
-
-#if 0 /* not used */
-/*
- * Return TRUE if the two fonts given are equivalent.
- */
-    int
-gui_mch_same_font(f1, f2)
-    GuiFont	f1;
-    GuiFont	f2;
-{
-#ifdef FEAT_XFONTSET
-    if (gui.fontset != NULL)
-	return f1 == f2;
-    else
-#endif
-    return ((XFontStruct *)f1)->fid == ((XFontStruct *)f2)->fid;
 }
 #endif
 
@@ -2123,7 +2208,7 @@ check_fontset_sanity(fs)
 	    EMSG2(_("E253: Fontset name: %s\n"), base_name);
 	    EMSG2(_("Font0: %s\n"), font_name[min_font_idx]);
 	    EMSG2(_("Font1: %s\n"), font_name[i]);
-	    EMSGN(_("Font%d width is not twice that of font0\n"), i);
+	    EMSGN(_("Font%ld width is not twice that of font0\n"), i);
 	    EMSGN(_("Font0 width: %ld\n"), xfs[min_font_idx]->max_bounds.width);
 	    EMSGN(_("Font1 width: %ld\n\n"), xfs[i]->max_bounds.width);
 	    return FAIL;
@@ -2215,6 +2300,24 @@ gui_mch_get_color(reqname)
 	{"DarkMagenta",	"#BB00BB"},
 	{"DarkGrey",	"#BBBBBB"},
 	{"DarkYellow",	"#BBBB00"},
+	{"Gray10",	"#1A1A1A"},
+	{"Grey10",	"#1A1A1A"},
+	{"Gray20",	"#333333"},
+	{"Grey20",	"#333333"},
+	{"Gray30",	"#4D4D4D"},
+	{"Grey30",	"#4D4D4D"},
+	{"Gray40",	"#666666"},
+	{"Grey40",	"#666666"},
+	{"Gray50",	"#7F7F7F"},
+	{"Grey50",	"#7F7F7F"},
+	{"Gray60",	"#999999"},
+	{"Grey60",	"#999999"},
+	{"Gray70",	"#B3B3B3"},
+	{"Grey70",	"#B3B3B3"},
+	{"Gray80",	"#CCCCCC"},
+	{"Grey80",	"#CCCCCC"},
+	{"Gray90",	"#E5E5E5"},
+	{"Grey90",	"#E5E5E5"},
 	{NULL, NULL}
     };
 
@@ -2348,6 +2451,9 @@ find_closest_color(colormap, colorPtr)
     return OK;
 }
 
+/*
+ * Set the current text foreground color.
+ */
     void
 gui_mch_set_fg_color(color)
     guicolor_T	color;
@@ -2374,6 +2480,16 @@ gui_mch_set_bg_color(color)
 }
 
 /*
+ * Set the current text special color.
+ */
+    void
+gui_mch_set_sp_color(color)
+    guicolor_T	color;
+{
+    prev_sp_color = color;
+}
+
+/*
  * create a mouse pointer that is blank
  */
     static Cursor
@@ -2387,6 +2503,29 @@ gui_x11_create_blank_mouse()
 	    (XColor*)&gui.norm_pixel, (XColor*)&gui.norm_pixel, 0, 0);
 }
 
+/*
+ * Draw a curled line at the bottom of the character cell.
+ */
+    static void
+draw_curl(row, col, cells)
+    int row;
+    int col;
+    int cells;
+{
+    int			i;
+    int			offset;
+    const static int	val[8] = {1, 0, 0, 0, 1, 2, 2, 2 };
+
+    XSetForeground(gui.dpy, gui.text_gc, prev_sp_color);
+    for (i = FILL_X(col); i < FILL_X(col + cells); ++i)
+    {
+	offset = val[i % 8];
+	XDrawPoint(gui.dpy, gui.wid, gui.text_gc, i,
+						FILL_Y(row + 1) - 1 - offset);
+    }
+    XSetForeground(gui.dpy, gui.text_gc, prev_fg_color);
+}
+
     void
 gui_mch_draw_string(row, col, s, len, flags)
     int		row;
@@ -2397,7 +2536,7 @@ gui_mch_draw_string(row, col, s, len, flags)
 {
     int			cells = len;
 #ifdef FEAT_MBYTE
-    static XChar2b	*buf = NULL;
+    static void		*buf = NULL;
     static int		buflen = 0;
     char_u		*p;
     int			wlen = 0;
@@ -2411,7 +2550,8 @@ gui_mch_draw_string(row, col, s, len, flags)
 	if (buflen < len)
 	{
 	    XtFree((char *)buf);
-	    buf = (XChar2b *)XtMalloc(len * sizeof(XChar2b));
+	    buf = (void *)XtMalloc(len * (sizeof(XChar2b) < sizeof(wchar_t)
+					? sizeof(wchar_t) : sizeof(XChar2b)));
 	    buflen = len;
 	}
 	p = s;
@@ -2419,13 +2559,24 @@ gui_mch_draw_string(row, col, s, len, flags)
 	while (p < s + len)
 	{
 	    c = utf_ptr2char(p);
-	    if (c >= 0x10000)	/* show chars > 0xffff as ? */
-		c = 0xbf;
-	    buf[wlen].byte1 = (unsigned)c >> 8;
-	    buf[wlen].byte2 = c;
+# ifdef FEAT_XFONTSET
+	    if (current_fontset != NULL)
+	    {
+		if (c >= 0x10000 && sizeof(wchar_t) <= 2)
+		    c = 0xbf;		/* show chars > 0xffff as ? */
+		((wchar_t *)buf)[wlen] = c;
+	    }
+	    else
+# endif
+	    {
+		if (c >= 0x10000)
+		    c = 0xbf;		/* show chars > 0xffff as ? */
+		((XChar2b *)buf)[wlen].byte1 = (unsigned)c >> 8;
+		((XChar2b *)buf)[wlen].byte2 = c;
+	    }
 	    ++wlen;
 	    cells += utf_char2cells(c);
-	    p += utf_ptr2len_check(p);
+	    p += utf_ptr2len(p);
 	}
     }
     else if (has_mbyte)
@@ -2434,7 +2585,7 @@ gui_mch_draw_string(row, col, s, len, flags)
 	for (p = s; p < s + len; )
 	{
 	    cells += ptr2cells(p);
-	    p += (*mb_ptr2len_check)(p);
+	    p += (*mb_ptr2len)(p);
 	}
     }
 
@@ -2478,6 +2629,7 @@ gui_mch_draw_string(row, col, s, len, flags)
 	XFillRectangle(gui.dpy, gui.wid, gui.text_gc, FILL_X(col),
 		FILL_Y(row), gui.char_width * cells, gui.char_height);
 	XSetForeground(gui.dpy, gui.text_gc, prev_fg_color);
+
 #ifdef FEAT_MBYTE
 	if (enc_utf8)
 	    XDrawString16(gui.dpy, gui.wid, gui.text_gc, TEXT_X(col),
@@ -2513,10 +2665,22 @@ gui_mch_draw_string(row, col, s, len, flags)
 		    TEXT_Y(row), (char *)s, len);
     }
 
+    /* Undercurl: draw curl at the bottom of the character cell. */
+    if (flags & DRAW_UNDERC)
+	draw_curl(row, col, cells);
+
     /* Underline: draw a line at the bottom of the character cell. */
     if (flags & DRAW_UNDERL)
+    {
+	int	y = FILL_Y(row + 1) - 1;
+
+	/* When p_linespace is 0, overwrite the bottom row of pixels.
+	 * Otherwise put the line just below the character. */
+	if (p_linespace > 1)
+	    y -= p_linespace - 1;
 	XDrawLine(gui.dpy, gui.wid, gui.text_gc, FILL_X(col),
-	     FILL_Y(row + 1) - 1, FILL_X(col + cells) - 1, FILL_Y(row + 1) - 1);
+		y, FILL_X(col + cells) - 1, y);
+    }
 
 #ifdef FEAT_XFONTSET
     if (current_fontset != NULL)
@@ -3195,33 +3359,23 @@ gui_x11_callbacks(textArea, vimForm)
 }
 
 /*
- * Get current y mouse coordinate in text window.
- * Return -1 when unknown.
+ * Get current mouse coordinates in text window.
  */
-    int
-gui_mch_get_mouse_x()
+    void
+gui_mch_getmouse(int *x, int *y)
 {
     int		rootx, rooty, winx, winy;
     Window	root, child;
     unsigned int mask;
 
     if (gui.wid && XQueryPointer(gui.dpy, gui.wid, &root, &child,
-					 &rootx, &rooty, &winx, &winy, &mask))
-	return winx;
-    return -1;
-}
-
-    int
-gui_mch_get_mouse_y()
-{
-    int		rootx, rooty, winx, winy;
-    Window	root, child;
-    unsigned int mask;
-
-    if (gui.wid && XQueryPointer(gui.dpy, gui.wid, &root, &child,
-					 &rootx, &rooty, &winx, &winy, &mask))
-	return winy;
-    return -1;
+					 &rootx, &rooty, &winx, &winy, &mask)) {
+	*x = winx;
+	*y = winy;
+    } else {
+	*x = -1;
+	*y = -1;
+    }
 }
 
     void
@@ -3418,244 +3572,6 @@ mch_set_mouse_shape(shape)
     }
     if (shape != MSHAPE_HIDE)
 	last_shape = shape;
-}
-#endif
-
-#if defined(FEAT_TOOLBAR) || defined(PROTO)
-/*
- * Icons used by the toolbar code.
- */
-#include "../pixmaps/tb_new.xpm"
-#include "../pixmaps/tb_open.xpm"
-#include "../pixmaps/tb_close.xpm"
-#include "../pixmaps/tb_save.xpm"
-#include "../pixmaps/tb_print.xpm"
-#include "../pixmaps/tb_cut.xpm"
-#include "../pixmaps/tb_copy.xpm"
-#include "../pixmaps/tb_paste.xpm"
-#include "../pixmaps/tb_find.xpm"
-#include "../pixmaps/tb_find_next.xpm"
-#include "../pixmaps/tb_find_prev.xpm"
-#include "../pixmaps/tb_find_help.xpm"
-#include "../pixmaps/tb_exit.xpm"
-#include "../pixmaps/tb_undo.xpm"
-#include "../pixmaps/tb_redo.xpm"
-#include "../pixmaps/tb_help.xpm"
-#include "../pixmaps/tb_macro.xpm"
-#include "../pixmaps/tb_make.xpm"
-#include "../pixmaps/tb_save_all.xpm"
-#include "../pixmaps/tb_jump.xpm"
-#include "../pixmaps/tb_ctags.xpm"
-#include "../pixmaps/tb_load_session.xpm"
-#include "../pixmaps/tb_save_session.xpm"
-#include "../pixmaps/tb_new_session.xpm"
-#include "../pixmaps/tb_blank.xpm"
-#include "../pixmaps/tb_maximize.xpm"
-#include "../pixmaps/tb_split.xpm"
-#include "../pixmaps/tb_minimize.xpm"
-#include "../pixmaps/tb_shell.xpm"
-#include "../pixmaps/tb_replace.xpm"
-#include "../pixmaps/tb_vsplit.xpm"
-#include "../pixmaps/tb_maxwidth.xpm"
-#include "../pixmaps/tb_minwidth.xpm"
-
-/*
- * Those are the pixmaps used for the default buttons.
- */
-static char **(built_in_pixmaps[]) =
-{
-    tb_new_xpm,
-    tb_open_xpm,
-    tb_save_xpm,
-    tb_undo_xpm,
-    tb_redo_xpm,
-    tb_cut_xpm,
-    tb_copy_xpm,
-    tb_paste_xpm,
-    tb_print_xpm,
-    tb_help_xpm,
-    tb_find_xpm,
-    tb_save_all_xpm,
-    tb_save_session_xpm,
-    tb_new_session_xpm,
-    tb_load_session_xpm,
-    tb_macro_xpm,
-    tb_replace_xpm,
-    tb_close_xpm,
-    tb_maximize_xpm,
-    tb_minimize_xpm,
-    tb_split_xpm,
-    tb_shell_xpm,
-    tb_find_prev_xpm,
-    tb_find_next_xpm,
-    tb_find_help_xpm,
-    tb_make_xpm,
-    tb_jump_xpm,
-    tb_ctags_xpm,
-    tb_vsplit_xpm,
-    tb_maxwidth_xpm,
-    tb_minwidth_xpm,
-    tb_exit_xpm
-};
-
-static void createXpmImages __ARGS((char_u *path, char **xpm, Pixmap *sen, Pixmap *insen));
-
-/*
- * Allocated a pixmap for toolbar menu "menu".
- * Return in "sen" and "insen".  "insen" can be NULL.
- */
-    void
-get_toolbar_pixmap(menu, sen, insen)
-    vimmenu_T	*menu;
-    Pixmap	*sen;
-    Pixmap	*insen;
-{
-    char_u	buf[MAXPATHL];		/* buffer storing expanded pathname */
-    char	**xpm = NULL;		/* xpm array */
-
-    buf[0] = NUL;			/* start with NULL path */
-
-    if (menu->iconfile != NULL)
-    {
-	/* Use the "icon="  argument. */
-	gui_find_iconfile(menu->iconfile, buf, "xpm");
-	createXpmImages(buf, NULL, sen, insen);
-
-	/* If it failed, try using the menu name. */
-	if (*sen == (Pixmap)0 && gui_find_bitmap(menu->name, buf, "xpm") == OK)
-	    createXpmImages(buf, NULL, sen, insen);
-	if (*sen != (Pixmap)0)
-	    return;
-    }
-
-    if (menu->icon_builtin || gui_find_bitmap(menu->name, buf, "xpm") == FAIL)
-    {
-	if (menu->iconidx >= 0 && menu->iconidx
-		   < (sizeof(built_in_pixmaps) / sizeof(built_in_pixmaps[0])))
-	    xpm = built_in_pixmaps[menu->iconidx];
-	else
-	    xpm = tb_blank_xpm;
-    }
-
-    if (xpm != NULL || buf[0] != NUL)
-	createXpmImages(buf, xpm, sen, insen);
-}
-
-/* Indices for named colors */
-#define BACKGROUND	0
-#define FOREGROUND	1
-#define BOTTOM_SHADOW	2
-#define TOP_SHADOW	3
-#define HIGHLIGHT	4
-
-/*
- * Read an Xpm file, doing color substitutions for the foreground and
- * background colors. If there is an error reading a color xpm file,
- * drop back and read the monochrome file. If successful, create the
- * insensitive Pixmap too.
- */
-    static void
-createXpmImages(path, xpm, sen, insen)
-    char_u	*path;
-    char	**xpm;
-    Pixmap	*sen;
-    Pixmap	*insen;	    /* can be NULL */
-{
-    Window	rootWindow;
-    XpmAttributes attrs;
-    XpmColorSymbol color[5] =
-    {
-	{"none", "none", 0},
-	{"iconColor1", NULL, 0},
-	{"bottomShadowColor", NULL, 0},
-	{"topShadowColor", NULL, 0},
-	{"selectColor", NULL, 0}
-    };
-    int		screenNum;
-    int		status;
-    Pixmap	mask;
-    Pixmap	map;
-
-    gui_mch_get_toolbar_colors(
-	    &color[BACKGROUND].pixel,
-	    &color[FOREGROUND].pixel,
-	    &color[BOTTOM_SHADOW].pixel,
-	    &color[TOP_SHADOW].pixel,
-	    &color[HIGHLIGHT].pixel);
-
-    /* Setup the color subsititution table */
-    attrs.valuemask = XpmColorSymbols;
-    attrs.colorsymbols = color;
-    attrs.numsymbols = 5;
-
-    screenNum = DefaultScreen(gui.dpy);
-    rootWindow = RootWindow(gui.dpy, screenNum);
-
-    /* Create the "sensitive" pixmap */
-    if (xpm != NULL)
-	status = XpmCreatePixmapFromData(gui.dpy, rootWindow, xpm,
-							 &map, &mask, &attrs);
-    else
-	status = XpmReadFileToPixmap(gui.dpy, rootWindow, (char *)path,
-							 &map, &mask, &attrs);
-    if (status == XpmSuccess && map != 0)
-    {
-	XGCValues   gcvalues;
-	GC	    back_gc;
-	GC	    mask_gc;
-
-	/* Need to create new Pixmaps with the mask applied. */
-	gcvalues.foreground = color[BACKGROUND].pixel;
-	back_gc = XCreateGC(gui.dpy, map, GCForeground, &gcvalues);
-	mask_gc = XCreateGC(gui.dpy, map, GCForeground, &gcvalues);
-	XSetClipMask(gui.dpy, mask_gc, mask);
-
-	/* Create the "sensitive" pixmap. */
-	*sen = XCreatePixmap(gui.dpy, rootWindow,
-		 attrs.width, attrs.height,
-		 DefaultDepth(gui.dpy, screenNum));
-	XFillRectangle(gui.dpy, *sen, back_gc, 0, 0,
-		attrs.width, attrs.height);
-	XCopyArea(gui.dpy, map, *sen, mask_gc, 0, 0,
-		attrs.width, attrs.height, 0, 0);
-
-#ifdef FEAT_GUI_MOTIF	/* not used for Athena */
-	if (insen != NULL)
-	{
-	    int		x, y;
-	    int		startX;
-
-	    /* Create the "insensitive" pixmap.  It's a copy of the "sensitive"
-	     * pixmap with half the pixels set to the background color. */
-	    *insen = XCreatePixmap(gui.dpy, rootWindow,
-		    attrs.width, attrs.height,
-		    DefaultDepth(gui.dpy, screenNum));
-	    XCopyArea(gui.dpy, *sen, *insen, back_gc, 0, 0,
-		    attrs.width, attrs.height, 0, 0);
-	    for (y = 0; y < attrs.height; y++)
-	    {
-		if (y % 2 == 0)
-		    startX = 0;
-		else
-		    startX = 1;
-		for (x = startX; x < attrs.width; x += 2)
-		    XDrawPoint(gui.dpy, *insen, back_gc, x, y);
-	    }
-
-	}
-#endif
-	XFreeGC(gui.dpy, back_gc);
-	XFreeGC(gui.dpy, mask_gc);
-	XFreePixmap(gui.dpy, map);
-    }
-    else
-    {
-	*sen = 0;
-	if (insen != NULL)
-	    *insen = 0;
-    }
-
-    XpmFreeAttributes(&attrs);
 }
 #endif
 

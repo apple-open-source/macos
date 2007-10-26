@@ -28,7 +28,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -no-cpp-precomp -Wno-error -DSUCKAGE=1000000000000
+NEXTSTEP_PB_CFLAGS = -no-cpp-precomp -Wno-error -DHAVE_KVM=0 -DHAVE_UTMPX=1
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

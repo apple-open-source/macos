@@ -405,7 +405,8 @@ install: $(OFILE_DIRS) $(SYMROOT) ld_build $(RC_OS)_lib_ofiles $(RC_OS)_install
 
 macos_install:
 	$(MKDIRS) $(DSTROOT)$(USRBINDIR)
-	install -c -s -m 555 $(SYMROOT)/ld_dir/ld.NEW $(DSTROOT)$(USRBINDIR)/ld
+	install -c -s -m 555 $(SYMROOT)/ld_dir/ld.NEW \
+		$(DSTROOT)$(USRBINDIR)/ld_classic
 
 teflon_install: common_install
 	$(MKDIRS) $(DSTROOT)$(USRBINDIR)

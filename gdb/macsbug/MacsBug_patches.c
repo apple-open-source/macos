@@ -5,7 +5,7 @@
  |               Patches to GDB Commands And Other GDB-Related Overrides                |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2005                       |
+ |                       Copyright Apple Computer, Inc. 2000-2006                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -30,7 +30,9 @@ Gdb_Plugin gdb_printf_command = NULL;
 
 int control_level = 0;				/* if, while, etc. nesting level	*/
 int reading_raw   = 0;				/* reading raw data for if, while, etc.	*/
-    
+
+int macsbug_generation = 1;			/* "time" of most recent run,attach,etc.*/
+
 static GDB_ADDRESS *bkpt_tbl      = NULL;	/* table of sorted breakpoint addresses	*/
 static int         bkpt_tbl_sz    = 0;   	/* current max size of the bkpt_tbl	*/
 static int         bkpt_tbl_index = -1;		/* index of last entry in the bkpt_tbl	*/
@@ -181,6 +183,7 @@ void run_command(char *arg, int from_tty)
     gdb_set_int("$__prev_dma_n__", 0);
     gdb_set_int("$macsbug_screen", macsbug_screen);
     need_CurApName = 1;
+    ++macsbug_generation;
     init_sidebar_and_pc_areas();
 }
 
@@ -410,6 +413,7 @@ static void cmd ## _command(char *arg, int from_tty)					\
     immediate_flush = NORMAL_REFRESH;							\
     target_arch = force_arch ? force_arch : gdb_target_arch();				\
     need_CurApName = 1;									\
+    ++macsbug_generation;								\
     define_macsbug_screen_positions(pc_area_lines, cmd_area_lines);			\
     gdb_set_int("$__lastcmd__", -1);							\
 }
@@ -612,7 +616,7 @@ static void new_breakpoint(GDB_ADDRESS address, int enabled)
     if (!enabled)				/* can this ever happen?		*/
     	return;
 	
-    i = find_breakpt(address);			/* find the breakpoint			*/
+    i = find_breakpt(address);   		/* find the breakpoint			*/
     if (i >= 0)					/* if already recorded...		*/
     	return;					/* ...don't record duplicates		*/
 	

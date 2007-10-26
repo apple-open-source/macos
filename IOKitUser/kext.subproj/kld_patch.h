@@ -1,3 +1,5 @@
+#if !__LP64__
+
 /*
  * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
  *
@@ -37,6 +39,13 @@ extern Boolean kld_file_map(const char *pathName,
 #else
 extern Boolean kld_file_map(const char *pathName);
 
+// This function is used to map the kernel in cases where no
+// usable kernel symbol file can be found on disk. It has not
+// been tested with kext executables.
+extern Boolean kld_file_map_from_memory(const char *pathName,
+    const void * file_data,
+    unsigned int file_size);
+
 extern void *
     kld_file_lookupsymbol(const char *pathName, const char *symbolname);
 
@@ -54,3 +63,4 @@ extern Boolean kld_file_prepare_for_link();
 extern void kld_file_cleanup_all_resources();
 
 __END_DECLS
+#endif // !__LP64__

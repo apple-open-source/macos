@@ -26,6 +26,97 @@
 #include <security_utilities/errors.h>
 #include <security_utilities/debugging.h>
 
+#include <list>
+#include <security_utilities/globalizer.h>
+
+SecPointerBase::SecPointerBase(const SecPointerBase& p)
+{
+	if (p.ptr)
+	{
+		CFRetain(p.ptr->operator CFTypeRef());
+	}
+	ptr = p.ptr;
+}
+
+
+
+
+SecPointerBase::SecPointerBase(SecCFObject *p)
+{
+	if (p && !p->isNew())
+	{
+		CFRetain(p->operator CFTypeRef());
+	}
+	ptr = p;
+}
+
+
+
+SecPointerBase::~SecPointerBase()
+{
+	if (ptr)
+	{
+		CFRelease(ptr->operator CFTypeRef());
+	}
+}
+
+
+
+SecPointerBase& SecPointerBase::operator = (const SecPointerBase& p)
+{
+	if (p.ptr)
+	{
+		CFRetain(p.ptr->operator CFTypeRef());
+	}
+	if (ptr)
+	{
+		CFRelease(ptr->operator CFTypeRef());
+	}
+	ptr = p.ptr;
+	return *this;
+}
+
+
+
+void SecPointerBase::assign(SecCFObject * p)
+{
+	if (p && !p->isNew())
+	{
+		CFRetain(p->operator CFTypeRef());
+	}
+	if (ptr)
+	{
+		CFRelease(ptr->operator CFTypeRef());
+	}
+	ptr = p;
+}
+
+
+
+void SecPointerBase::copy(SecCFObject * p)
+{
+	if (ptr)
+	{
+		CFRelease(ptr->operator CFTypeRef());
+	}
+	
+	ptr = p;
+}
+
+
+
+// define information about a deletable object
+typedef std::list<CFTypeRef> DeferredObjectList;
+
+struct DeferredObjectInfo
+{
+	DeferredObjectList objectList;
+};
+
+
+
+ModuleNexus<DeferredObjectInfo> gDeferredObjects;
+
 //
 // SecCFObject
 //
@@ -48,17 +139,45 @@ SecCFObject::required(CFTypeRef cfTypeRef, OSStatus error)
 	return object;
 }
 
+void
+SecCFObject::clearDeletedObjects() throw()
+{
+	// we don't need to worry about protecting this code as it is only called from a Sec call, which is protected
+	// by the global mutex
+	DeferredObjectList::iterator it;
+	it = gDeferredObjects().objectList.begin();
+	
+	while (it != gDeferredObjects().objectList.end())
+	{
+		DeferredObjectList::iterator current = it++;
+		CFTypeRef t = *current;
+		CFIndex rCount = CFGetRetainCount(t);
+		
+		if (rCount == 1)
+		{
+			CFRelease(t);
+			gDeferredObjects().objectList.erase(current);
+		}
+	}
+}
+				
 void *
 SecCFObject::allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc)
 {
-	void *p = const_cast<void *>(_CFRuntimeCreateInstance(cfclass.allocator, cfclass.typeID,
-		size + kAlignedRuntimeSize - sizeof(CFRuntimeBase), NULL));
+	CFTypeRef p = _CFRuntimeCreateInstance(NULL, cfclass.typeID,
+		size + kAlignedRuntimeSize - sizeof(CFRuntimeBase), NULL);
 	if (p == NULL)
 		throw std::bad_alloc();
 
-	reinterpret_cast<SecRuntimeBase *>(p)->isNew = true;
+	if (cfclass.isDeferrable)
+	{
+		gDeferredObjects().objectList.push_front(p);
+		CFRetain(p);
+	}
+	
+	((SecRuntimeBase*) p)->isNew = true;
 
-	void *q = reinterpret_cast<void *>(reinterpret_cast<uint8_t *>(p) + kAlignedRuntimeSize);
+	void *q = ((u_int8_t*) p) + kAlignedRuntimeSize;
 
 #if !defined(NDEBUG)
 	const CFRuntimeClass *runtimeClass = _CFRuntimeGetClassWithTypeID(cfclass.typeID);
@@ -72,7 +191,6 @@ SecCFObject::allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc)
 void
 SecCFObject::operator delete(void *object) throw()
 {
-	secdebug("sec", "SecCFObject operator delete %p", object);
 	CFTypeRef cfType = reinterpret_cast<CFTypeRef>(reinterpret_cast<const uint8_t *>(object) - kAlignedRuntimeSize);
 	CFRelease(cfType);
 }

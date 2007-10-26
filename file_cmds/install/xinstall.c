@@ -67,7 +67,7 @@ static const char rcsid[] =
 
 #ifdef __APPLE__
 #include <copyfile.h>
-#endif
+#endif	/* __APPLE__ */
 
 #include "pathnames.h"
 
@@ -442,6 +442,13 @@ install(from_name, to_name, fset, flags)
 			err(EX_OSERR, "%s", to_name);
 	}
 
+#ifdef __APPLE__
+	/* in case mtime is modified */
+	if (!devnull && (S_ISLNK(from_sb.st_mode) || S_ISREG(from_sb.st_mode)) &&
+	    fcopyfile(from_fd, to_fd, NULL, COPYFILE_XATTR) < 0) {
+	        warn("%s: unable to copy extended attributes from %s", to_name, from_name);
+	}
+#endif	/* __APPLE__ */
 	/*
 	 * Preserve the timestamp of the source file if necessary.
 	 */
@@ -490,14 +497,14 @@ install(from_name, to_name, fset, flags)
 	/*
 	 * If provided a set of flags, set them, otherwise, preserve the
 	 * flags, except for the dump flag.
-	 * NFS does not support flags.  Ignore EOPNOTSUPP flags if we're just
+	 * NFS does not support flags.  Ignore ENOTSUP flags if we're just
 	 * trying to turn off UF_NODUMP.  If we're trying to set real flags,
 	 * then warn if the the fs doesn't support it, otherwise fail.
 	 */
 	if (!devnull && fchflags(to_fd,
 	    flags & SETFLAGS ? fset : from_sb.st_flags & ~UF_NODUMP)) {
 		if (flags & SETFLAGS) {
-			if (errno == EOPNOTSUPP)
+			if (errno == ENOTSUP)
 				warn("%s: chflags", to_name);
 			else {
 				serrno = errno;
@@ -507,15 +514,13 @@ install(from_name, to_name, fset, flags)
 			}
 		}
 	}
-
-#if __APPLE__
-	{
-	    if (copyfile(from_name, to_name, NULL, COPYFILE_ACL | COPYFILE_XATTR) < 0)
-	    {
-		warn("%s: copyfile", to_name);
-	    }
+#ifdef __APPLE__
+	/* the ACL could prevent credential/permission system calls later on... */
+	if (!devnull && (S_ISLNK(from_sb.st_mode) || S_ISREG(from_sb.st_mode)) &&
+	    (fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL) < 0)) {
+		warn("%s: unable to copy ACL from %s", to_name, from_name);
 	}
-#endif
+#endif	/* __APPLE__ */
 
 	(void)close(to_fd);
 	if (!devnull)

@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -37,6 +40,7 @@
 #include <dce/idlddefs.h>
 #include <ndrmi.h>
 #include <lsysdep.h>
+#include <asl.h>
 
 /*
  *  Forward function references
@@ -676,8 +680,7 @@ void rpc_ss_ndr_marsh_struct
                 break;
             default:
 #ifdef DEBUG_INTERP
-                printf("rpc_ss_ndr_marsh_struct:unrecognized type %d\n",
-                        type_byte);
+                asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_marsh_struct:unrecognized type %d\n", type_byte);
                 exit(0);
 #endif
                 RAISE(rpc_x_coding_error);
@@ -862,10 +865,8 @@ void rpc_ss_ndr_marsh_by_looping
                 break;
             default:
 #ifdef DEBUG_INTERP
-                printf(
-                      "rpc_ss_ndr_marsh_by_looping:unrecognized type %d\n",
-                        base_type);
-                exit(0);
+				asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_marsh_by_looping:unrecognized type %d\n", base_type);
+				exit(0);
 #endif
                 RAISE(rpc_x_coding_error);
         }
@@ -1560,8 +1561,7 @@ void rpc_ss_discard_allocate_ref
             break;
         default:
 #ifdef DEBUG_INTERP
-            printf("rpc_ss_discard_allocate_ref:unrecognized type %d\n",
-                        type_byte);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_discard_allocate_ref:unrecognized type %d\n", type_byte);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);
@@ -1944,8 +1944,7 @@ void rpc_ss_ndr_marsh_interp
                     break;
                 default:
 #ifdef DEBUG_INTERP
-                    printf("rpc_ss_ndr_marsh_interp:unrecognized type %d\n",
-                        type_byte);
+                    asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_marsh_interp:unrecognized type %d\n", type_byte);
                     exit(0);
 #endif
                     RAISE(rpc_x_coding_error);

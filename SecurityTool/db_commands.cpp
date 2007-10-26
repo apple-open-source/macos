@@ -135,7 +135,7 @@ db_create(int argc, char * const *argv)
 	int ch, result = 0;
 	bool do_autocommit = true, do_mode = false;
 	bool do_openparams = false, do_version_0_params = false;
-	mode_t mode;
+	mode_t mode = 0666;
 	CSSM_GUID guid = gGuidAppleFileDL;
 
 	while ((ch = getopt(argc, argv, "0ahg:m:o")) != -1)

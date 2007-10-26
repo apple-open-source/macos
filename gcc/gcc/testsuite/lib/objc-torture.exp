@@ -157,7 +157,8 @@ proc objc-torture-execute { src args } {
 	verbose "Testing $testcase, $option" 1
 
 	set options ""
-	lappend options "additional_flags=-w $option"
+	# APPLE LOCAL testsuite nested functions
+	lappend options "additional_flags=-w -fnested-functions $option"
 	if { $additional_flags != "" } {
 	    lappend options "additional_flags=$additional_flags";
 	}

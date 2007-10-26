@@ -1,3 +1,2 @@
-g/-arch/s/-arch [a-z0-9]* *//g
-g/LIBRUBYARG_STATIC/s/-l[^"]*//
+g/LIBRUBYARG_STATIC/s/-static[^"]*//
 w

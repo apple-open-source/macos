@@ -22,7 +22,6 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include "stuff/target_arch.h"
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
@@ -150,12 +149,12 @@ static char *cache[] = { "dc", "ic", "bc" };
 
 #define PRINT_SYMBOL(sect, addr) \
 	print_symbol((sect), (addr) - sect_addr, 0, sorted_relocs, \
-		nsorted_relocs, symbols, nsymbols, sorted_symbols, \
+		nsorted_relocs, symbols, NULL, nsymbols, sorted_symbols, \
 		nsorted_symbols, strings, strings_size, verbose)
 
 #define PRINT_SYMBOL_DOT(sect, addr, dot) \
 	print_symbol((sect), (addr) - sect_addr, dot, sorted_relocs, \
-		nsorted_relocs, symbols, nsymbols, sorted_symbols, \
+		nsorted_relocs, symbols, NULL, nsymbols, sorted_symbols, \
 		nsorted_symbols, strings, strings_size, verbose)
 
 #define PRINT_EF(mode, reg, sect, size) \
@@ -174,7 +173,7 @@ static unsigned long print_ef(
     unsigned long size,
     struct relocation_info *sorted_relocs,
     unsigned long nsorted_relocs,
-    nlist_t *symbols,
+    struct nlist *symbols,
     unsigned long nsymbols,
     struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
@@ -193,15 +192,16 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *sorted_relocs,
 unsigned long nsorted_relocs,
-nlist_t *symbols,
+struct nlist *symbols,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
-unsigned long *indirect_symbols,
+uint32_t *indirect_symbols,
 unsigned long nindirect_symbols,
-mach_header_t *mh,
+uint32_t ncmds,
+uint32_t sizeofcmds,
 struct load_command *load_commands,
 enum bool verbose)
 {
@@ -1162,9 +1162,9 @@ enum bool verbose)
 		    if(verbose){
 			indirect_symbol_name = guess_indirect_symbol(
 			   (addr + length - sizeof(unsigned long) + l),
-			    mh, load_commands, object_byte_sex,indirect_symbols,
-			    nindirect_symbols, symbols, nsymbols, strings,
-			    strings_size);
+			    ncmds, sizeofcmds, load_commands, object_byte_sex,
+			    indirect_symbols, nindirect_symbols, symbols, NULL,
+			    nsymbols, strings, strings_size);
 			if(indirect_symbol_name != NULL)
 			    printf("\t; symbol stub for: %s",
 				indirect_symbol_name);
@@ -2209,7 +2209,7 @@ unsigned long *left,
 unsigned long size,
 struct relocation_info *sorted_relocs,
 unsigned long nsorted_relocs,
-nlist_t *symbols,
+struct nlist *symbols,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,

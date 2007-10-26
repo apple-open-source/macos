@@ -79,8 +79,6 @@ static char *rcsid = "$Id: pmap_rmt.c,v 1.6 2004/12/19 22:45:44 zarzycki Exp $";
 #include <arpa/inet.h>
 #define MAX_BROADCAST_SIZE 1400
 
-#include "pmap_wakeup.h"
-
 static struct timeval timeout = { 3, 0 };
 
 
@@ -93,20 +91,27 @@ static struct timeval timeout = { 3, 0 };
 */
 enum clnt_stat
 pmap_rmtcall(addr, prog, vers, proc, xdrargs, argsp, xdrres, resp, tout, port_ptr)
+#ifdef __LP64__
+	struct sockaddr_in *addr;
+	uint32_t prog, vers, proc;
+	xdrproc_t xdrargs, xdrres;
+	caddr_t argsp, resp;
+	struct timeval tout;
+	uint32_t *port_ptr;
+#else
 	struct sockaddr_in *addr;
 	u_long prog, vers, proc;
 	xdrproc_t xdrargs, xdrres;
 	caddr_t argsp, resp;
 	struct timeval tout;
 	u_long *port_ptr;
+#endif
 {
 	int socket = -1;
 	register CLIENT *client;
 	struct rmtcallargs a;
 	struct rmtcallres r;
 	enum clnt_stat stat;
-
-	pmap_wakeup();
 
 	addr->sin_port = htons(PMAPPORT);
 	client = clntudp_create(addr, PMAPPROG, PMAPVERS, timeout, &socket);
@@ -119,8 +124,7 @@ pmap_rmtcall(addr, prog, vers, proc, xdrargs, argsp, xdrres, resp, tout, port_pt
 		r.port_ptr = port_ptr;
 		r.results_ptr = resp;
 		r.xdr_results = xdrres;
-		stat = CLNT_CALL(client, PMAPPROC_CALLIT, xdr_rmtcall_args, &a,
-		    xdr_rmtcallres, &r, tout);
+		stat = CLNT_CALL(client, PMAPPROC_CALLIT, (xdrproc_t)xdr_rmtcall_args, &a, (xdrproc_t)xdr_rmtcallres, &r, tout);
 		CLNT_DESTROY(client);
 	} else {
 		stat = RPC_FAILED;
@@ -174,9 +178,12 @@ xdr_rmtcallres(xdrs, crp)
 	caddr_t port_ptr;
 
 	port_ptr = (caddr_t)crp->port_ptr;
-	if (xdr_reference(xdrs, &port_ptr, sizeof (u_long),
-	    xdr_u_long) && xdr_u_long(xdrs, &crp->resultslen)) {
-		crp->port_ptr = (u_long *)port_ptr;
+	if (xdr_reference(xdrs, &port_ptr, sizeof (u_long), (xdrproc_t)xdr_u_long) && xdr_u_long(xdrs, &crp->resultslen)) {
+#ifdef __LP64__
+		crp->port_ptr = (unsigned int *)port_ptr;
+#else
+		crp->port_ptr = (unsigned long *)port_ptr;
+#endif
 		return ((*(crp->xdr_results))(xdrs, crp->results_ptr));
 	}
 	return (FALSE);
@@ -245,6 +252,16 @@ typedef bool_t (*resultproc_t)();
 
 enum clnt_stat 
 clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
+#ifdef __LP64__
+	uint32_t prog;		/* program number */
+	uint32_t vers;		/* version number */
+	uint32_t proc;		/* procedure number */
+	xdrproc_t xargs;		/* xdr routine for args */
+	caddr_t argsp;		/* pointer to args */
+	xdrproc_t xresults;	/* xdr routine for results */
+	caddr_t resultsp;	/* pointer to results */
+	resultproc_t eachresult;	/* call with each result obtained */
+#else
 	u_long		prog;		/* program number */
 	u_long		vers;		/* version number */
 	u_long		proc;		/* procedure number */
@@ -253,20 +270,26 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 	xdrproc_t	xresults;	/* xdr routine for results */
 	caddr_t		resultsp;	/* pointer to results */
 	resultproc_t	eachresult;	/* call with each result obtained */
+#endif
 {
 	enum clnt_stat stat;
 	AUTH *unix_auth = authunix_create_default();
 	XDR xdr_stream;
 	register XDR *xdrs = &xdr_stream;
-	int outlen, inlen, fromlen, nets;
+	int outlen, inlen, nets;
+	unsigned int fromlen;
 	register int sock;
 	int on = 1;
 	fd_set mask;
 	fd_set readfds;
 	register int i;
 	bool_t done = FALSE;
-	u_long xid;
-	u_long port;
+	uint32_t xid;
+#ifdef __LP64__
+	unsigned int port;
+#else
+	unsigned long port;
+#endif
 	struct in_addr addrs[20];
 	struct sockaddr_in baddr, raddr; /* broadcast and response addresses */
 	struct rmtcallargs a;
@@ -275,6 +298,8 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 	struct timeval t; 
 	char outbuf[MAX_BROADCAST_SIZE], inbuf[UDPMSGSIZE];
 	int rfd;
+
+	stat = RPC_SUCCESS;
 
 	/*
 	 * initialization: create a socket, a broadcast address, and
@@ -355,7 +380,7 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 	recv_again:
 		msg.acpted_rply.ar_verf = _null_auth;
 		msg.acpted_rply.ar_results.where = (caddr_t)&r;
-                msg.acpted_rply.ar_results.proc = xdr_rmtcallres;
+		msg.acpted_rply.ar_results.proc = (xdrproc_t)xdr_rmtcallres;
 		readfds = mask;
 		switch (select(sock+1, &readfds, NULL, NULL, &t)) {
 
@@ -373,8 +398,7 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 		}  /* end of select results switch */
 	try_again:
 		fromlen = sizeof(struct sockaddr);
-		inlen = recvfrom(sock, inbuf, UDPMSGSIZE, 0,
-			(struct sockaddr *)&raddr, &fromlen);
+		inlen = recvfrom(sock, inbuf, UDPMSGSIZE, 0, (struct sockaddr *)&raddr, &fromlen);
 		if (inlen < 0) {
 			if (errno == EINTR)
 				goto try_again;
@@ -406,7 +430,7 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 #endif
 		}
 		xdrs->x_op = XDR_FREE;
-		msg.acpted_rply.ar_results.proc = xdr_void;
+		msg.acpted_rply.ar_results.proc = (xdrproc_t)xdr_void;
 		(void)xdr_replymsg(xdrs, &msg);
 		(void)(*xresults)(xdrs, resultsp);
 		xdr_destroy(xdrs);

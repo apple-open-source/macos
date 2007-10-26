@@ -56,4 +56,4 @@
 */
 
 void stopDoingSomething(void);
-void finallyDoSomethingWithThisDevice(IOUSBInterfaceInterface **intf);
+void finallyDoSomethingWithThisDevice(IOUSBInterfaceInterface245 **intf);

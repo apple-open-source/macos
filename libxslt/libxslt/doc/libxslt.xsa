@@ -8,13 +8,15 @@
   </vendor>
   <product id="libxslt">
     <name>libxslt</name>
-    <version>1.1.10</version>
-    <last-release> Aug 31 2004</last-release>
+    <version>1.1.11</version>
+    <last-release> Sep 29 2004</last-release>
     <info-url>http://xmlsoft.org/XSLT/</info-url>
-    <changes>   - build fix: NUL in c file blocking compilation on Solaris, Windows build
-    (Igor Zlatkovic)
-   - fix: key initialization problem (William Brack)
-   - documentation: fixed missing man page description for --path
+    <changes>   - bug fixes: xsl:include problems (William Brack), UTF8 number pattern
+    (William), date-time validation (William), namespace fix (William),
+    various Exslt date fixes (William), error callback fixes, leak with
+    namespaced global variable, attempt to fix a weird problem #153137
+   - improvements: exslt:date-sum tests (Derek Poon)
+   - documentation: second tutorial by Panagiotis Lourida
 
 </changes>
   </product>

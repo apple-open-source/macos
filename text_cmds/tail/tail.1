@@ -33,7 +33,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)tail.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/tail/tail.1,v 1.10 2002/06/10 22:59:54 jmallett Exp $
+.\" $FreeBSD: src/usr.bin/tail/tail.1,v 1.12 2005/01/17 07:44:30 ru Exp $
 .\"
 .Dd June 6, 1993
 .Dt TAIL 1
@@ -140,7 +140,7 @@ header consisting of the string
 where
 .Dq XXX
 is the name of the file.
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 .Ex -std
 .Sh SEE ALSO
 .Xr cat 1 ,
@@ -172,7 +172,7 @@ and
 .Fl n
 options modify the
 .Fl r
-option, i.e. ``-r -c 4'' displays the last 4 characters of the last line
+option, i.e., ``-r -c 4'' displays the last 4 characters of the last line
 of the input, while the historic tail (using the historic syntax ``-4cr'')
 would ignore the
 .Fl c

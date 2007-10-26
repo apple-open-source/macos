@@ -1,0 +1,77 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from mta107.biz.mail.re2.yahoo.com (mta107.biz.mail.re2.yahoo.com [68.142.229.208])
+	by sb7.songbird.com (8.12.11/8.12.11) with SMTP id k11HWQXJ004484
+	for <century-announce-bounces@grizz.org>; Wed, 1 Feb 2006 09:32:26 -0800
+Date: Wed, 1 Feb 2006 09:32:26 -0800
+Message-Id: <200602011732.k11HWQXJ004484@sb7.songbird.com>
+From: MAILER-DAEMON@hamiltonpacific.com
+To: century-announce-bounces@grizz.org
+X-Loop: MAILER-DAEMON@hamiltonpacific.com
+Subject: Delivery failure
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Found to be clean
+X-Songbird-From: 
+
+Message from hamiltonpacific.com.
+Unable to deliver message to the following address(es).
+
+<dlyle@hamiltonpacific.com>:
+This user doesn't have a hamiltonpacific.com account (dlyle@hamiltonpacific.com) [0]
+
+--- Original message follows.
+
+X-Originating-IP: [209.182.169.133]
+Return-Path: <century-announce-bounces@grizz.org>
+Authentication-Results: mta107.biz.mail.re2.yahoo.com
+  from=grizz.org; domainkeys=neutral (no sig)
+Received: from 209.182.169.133  (EHLO localhost) (209.182.169.133)
+  by mta107.biz.mail.re2.yahoo.com with SMTP; Wed, 01 Feb 2006 09:31:44 -0800
+Received: from localhost ([127.0.0.1] helo=[192.168.0.2])
+	by localhost with esmtp (Exim 4.52)
+	id IU0R6J-0002Y8-9G; Wed, 01 Feb 2006 09:27:55 -0800
+To: century-announce@grizz.org
+Date: Wed, 1 Feb 2006 09:27:00 -0800
+Message-ID: <PC1740200602010819360171d6899f4f@grizz.org>
+From: Grizzly Peak Century Announcements <century-announce@grizz.org>
+Subject: [GPC Century] GPC Century is May 7, 2006
+X-BeenThere: century-announce@grizz.org
+X-Mailman-Version: 2.1.7
+Precedence: list
+Reply-To: century@grizz.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Sender: century-announce-bounces@grizz.org
+Errors-To: century-announce-bounces@grizz.org
+
+Thank you for registering for the Grizzly Peak Century in 2005 - we'd
+like to see you again! Once again our favorite rolling feast takes
+place on the first Sunday in May - the 7th. We've tweaked the route a
+little bit, we're including a great GPC Water Bottle for each rider,
+and more. But we've still got the fantastic food, the beautiful Bay
+Area vistas, and a wonderful time. More information is available on
+our website at <http://www.GrizzlyPeakCyclists.org/century>.
+
+Registration opens on February 5, 2006. You can fill-out and print an
+application from our website, or you can register "instantly" for
+about 3 bucks through Active.com at
+<http://www.active.com/event_detail.cfm?event_id=1283704>. And if you
+really want a paper flyer, reply to this email with your address, and
+we'll mail you one.
+
+We hope to see you again!
+
+- Jeff Kurtock
+
+Century Chair
+
+_______________________________________________
+Century-Announce mailing list
+Grizzly Peak Century Announcements
+
+*** MESSAGE TRUNCATED ***
+
+
+.
+
+

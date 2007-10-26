@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- $Header: /cvs/gnome/gnome-xml/test/schemas/vdv-first5_0.xml,v 1.1 2003/11/25 15:38:59 veillard Exp $ -->
+<!-- $Header: /cvs/gnome/gnome-xml/test/schemas/vdv-first0_0.xml,v 1.1 2003/11/22 20:37:51 veillard Exp $ -->
 <library>
 	<book id="b0836217462" available="true">
 		<isbn>0836217462</isbn>

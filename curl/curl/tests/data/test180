@@ -1,3 +1,4 @@
+<testcase>
 <reply>
 <data>
 HTTP/1.0 200 OK swsclose
@@ -31,7 +32,7 @@ the
    PUT
       feature
 </file>
-</reply>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -41,7 +42,6 @@ the
 <protocol>
 PUT /we/want/180 HTTP/1.0
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Content-Length: 78
 
@@ -56,3 +56,4 @@ the
       feature
 </protocol>
 </verify>
+</testcase>

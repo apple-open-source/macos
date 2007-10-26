@@ -38,7 +38,9 @@
 #define kFSFormatArgumentsKey        "FSFormatArguments"
 #define kFSFormatContentMaskKey      "FSFormatContentMask"
 #define kFSFormatExecutableKey       "FSFormatExecutable"
+#define kFSFormatInteractiveKey      "FSFormatInteractive"
 #define kFSFormatMinimumSizeKey      "FSFormatMinimumSize"
+#define kFSFormatMaximumSizeKey      "FSFormatMaximumSize"
 #define kFSMountArgumentsKey         "FSMountArguments"
 #define kFSMountExecutableKey        "FSMountExecutable"
 #define kFSNameKey                   "FSName"
@@ -46,5 +48,6 @@
 #define kFSRepairExecutableKey       "FSRepairExecutable"
 #define kFSVerificationArgumentsKey  "FSVerificationArguments"
 #define kFSVerificationExecutableKey "FSVerificationExecutable"
+#define kFSSubTypeKey                "FSSubType"
 
 #endif /* _FSPROPERTIES_H_ */

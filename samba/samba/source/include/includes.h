@@ -21,24 +21,38 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#ifndef NO_CONFIG_H /* for some tests */
-#include "config.h"
+/* work around broken krb5.h on sles9 */
+#ifdef SIZEOF_LONG
+#undef SIZEOF_LONG
 #endif
 
-#ifdef WITH_OPENDIRECTORY
-#include <DirectoryService/DirectoryService.h>
-#include <CoreFoundation/CoreFoundation.h>
+#include "lib/replace/replace.h"
+
+/* make sure we have included the correct config.h */
+#ifndef NO_CONFIG_H /* for some tests */
+#ifndef CONFIG_H_IS_FROM_SAMBA
+#error "make sure you have removed all config.h files from standalone builds!"
+#error "the included config.h isn't from samba!"
 #endif
- 
-#ifdef WITH_MEMBERD
-#include <membership.h>
+#endif /* NO_CONFIG_H */
+
+/* only do the C++ reserved word check when we compile
+   to include --with-developer since too many systems
+   still have comflicts with their header files (e.g. IRIX 6.4) */
+
+#if !defined(__cplusplus) && defined(DEVELOPER)
+#define class #error DONT_USE_CPLUSPLUS_RESERVED_NAMES
+#define private #error DONT_USE_CPLUSPLUS_RESERVED_NAMES
+#define public #error DONT_USE_CPLUSPLUS_RESERVED_NAMES
+#define protected #error DONT_USE_CPLUSPLUS_RESERVED_NAMES
+#define template #error DONT_USE_CPLUSPLUS_RESERVED_NAMES
+#define this #error DONT_USE_CPLUSPLUS_RESERVED_NAMES
+#define new #error DONT_USE_CPLUSPLUS_RESERVED_NAMES
+#define delete #error DONT_USE_CPLUSPLUS_RESERVED_NAMES
+#define friend #error DONT_USE_CPLUSPLUS_RESERVED_NAMES
 #endif
 
 #include "local.h"
-
-#ifdef WITH_BRLM
-#include <ByteRangeLocking/BRLM.h>
-#endif
 
 #ifdef AIX
 #define DEFAULT_PRINTING PRINT_AIX
@@ -58,17 +72,15 @@
 #undef HAVE_TERMIOS_H
 #endif
 
-#if (__GNUC__ >= 3 ) && (__GNUC_MINOR__ >= 1 )
-/** Use gcc attribute to check printf fns.  a1 is the 1-based index of
- * the parameter containing the format, and a2 the index of the first
- * argument. Note that some gcc 2.x versions don't handle this
- * properly **/
-#define PRINTF_ATTRIBUTE(a1, a2) __attribute__ ((format (__printf__, a1, a2)))
+#ifndef _PUBLIC_
+#ifdef HAVE_VISIBILITY_ATTR
+#  define _PUBLIC_ __attribute__((visibility("default")))
 #else
-#define PRINTF_ATTRIBUTE(a1, a2)
+#  define _PUBLIC_
+#endif
 #endif
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__cplusplus)
 /** gcc attribute used on function parameters so that it does not emit
  * warnings about them being unused. **/
 #  define UNUSED(param) param __attribute__ ((unused))
@@ -87,299 +99,22 @@
 #endif
 #endif /* RELIANTUNIX */
 
-#include <sys/types.h>
-
-#ifdef TIME_WITH_SYS_TIME
-#include <sys/time.h>
-#include <time.h>
-#else
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#else
-#include <time.h>
-#endif
-#endif
-
-#ifdef HAVE_SYS_RESOURCE_H
-#include <sys/resource.h>
-#endif
-
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
-#include <stdio.h>
-#include <stddef.h>
-
-#ifdef HAVE_SYS_PARAM_H
-#include <sys/param.h>
-#endif
-
-#ifdef HAVE_STDLIB_H
-#include <stdlib.h>
-#endif
-
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-
-#ifdef HAVE_UNIXSOCKET
-#include <sys/un.h>
-#endif
-
-#ifdef HAVE_SYS_SYSCALL_H
-#include <sys/syscall.h>
-#elif HAVE_SYSCALL_H
-#include <syscall.h>
-#endif
-
-#ifdef HAVE_STRING_H
-#include <string.h>
-#endif
-
-#ifdef HAVE_STRINGS_H
-#include <strings.h>
-#endif
-
-#ifdef HAVE_MEMORY_H
-#include <memory.h>
-#endif
-
-#ifdef HAVE_MALLOC_H
-#include <malloc.h>
-#endif
-
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
-#else
-#ifdef HAVE_SYS_FCNTL_H
-#include <sys/fcntl.h>
-#endif
-#endif
-
-#include <sys/stat.h>
-
-#ifdef HAVE_LIMITS_H
-#include <limits.h>
-#endif
-
-#ifdef HAVE_SYS_IOCTL_H
-#include <sys/ioctl.h>
-#endif
-
-#ifdef HAVE_SYS_FILIO_H
-#include <sys/filio.h>
-#endif
-
-#include <signal.h>
-
-#ifdef HAVE_SYS_WAIT_H
-#include <sys/wait.h>
-#endif
-#ifdef HAVE_CTYPE_H
-#include <ctype.h>
-#endif
-#ifdef HAVE_GRP_H
-#include <grp.h>
-#endif
-#ifdef HAVE_SYS_PRIV_H
-#include <sys/priv.h>
-#endif
-#ifdef HAVE_SYS_ID_H
-#include <sys/id.h>
-#endif
-
-#include <errno.h>
-
-#ifdef HAVE_UTIME_H
-#include <utime.h>
-#endif
-
-#ifdef HAVE_SYS_SELECT_H
-#include <sys/select.h>
-#endif
-
-#ifdef HAVE_SYS_MODE_H
-/* apparently AIX needs this for S_ISLNK */
-#ifndef S_ISLNK
-#include <sys/mode.h>
-#endif
-#endif
-
-#ifdef HAVE_GLOB_H
-#include <glob.h>
-#endif
-
-#include <pwd.h>
-
-#ifdef HAVE_STDARG_H
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-
-#ifdef HAVE_SYSLOG_H
-#include <syslog.h>
-#else
-#ifdef HAVE_SYS_SYSLOG_H
-#include <sys/syslog.h>
-#endif
-#endif
-
-#include <sys/file.h>
-
-#ifdef HAVE_NETINET_TCP_H
-#include <netinet/tcp.h>
-#endif
-
-/*
- * The next three defines are needed to access the IPTOS_* options
- * on some systems.
- */
-
-#ifdef HAVE_NETINET_IN_SYSTM_H
-#include <netinet/in_systm.h>
-#endif
-
-#ifdef HAVE_NETINET_IN_IP_H
-#include <netinet/in_ip.h>
-#endif
-
-#ifdef HAVE_NETINET_IP_H
-#include <netinet/ip.h>
-#endif
-
-#if defined(HAVE_TERMIOS_H)
-/* POSIX terminal handling. */
-#include <termios.h>
-#elif defined(HAVE_TERMIO_H)
-/* Older SYSV terminal handling - don't use if we can avoid it. */
-#include <termio.h>
-#elif defined(HAVE_SYS_TERMIO_H)
-/* Older SYSV terminal handling - don't use if we can avoid it. */
-#include <sys/termio.h>
-#endif
-
-#if HAVE_DIRENT_H
-# include <dirent.h>
-# define NAMLEN(dirent) strlen((dirent)->d_name)
-#else
-# define dirent direct
-# define NAMLEN(dirent) (dirent)->d_namlen
-# if HAVE_SYS_NDIR_H
-#  include <sys/ndir.h>
-# endif
-# if HAVE_SYS_DIR_H
-#  include <sys/dir.h>
-# endif
-# if HAVE_NDIR_H
-#  include <ndir.h>
-# endif
-#endif
-
-#ifdef HAVE_SYS_MMAN_H
-#include <sys/mman.h>
-#endif
-
-#ifdef HAVE_NET_IF_H
-#include <net/if.h>
-#endif
-
-
-#ifdef HAVE_SYS_MOUNT_H
-#include <sys/mount.h>
-#endif
-
-#ifdef HAVE_SYS_VFS_H
-#include <sys/vfs.h>
-#endif
-
-#ifdef HAVE_SYS_ACL_H
-#include <sys/acl.h>
-#endif
-
-#ifdef HAVE_SYS_FS_S5PARAM_H 
-#include <sys/fs/s5param.h>
-#endif
-
-#if defined (HAVE_SYS_FILSYS_H) && !defined (_CRAY)
-#include <sys/filsys.h> 
-#endif
-
-#ifdef HAVE_SYS_STATFS_H
-# include <sys/statfs.h>
-#endif
-
-#ifdef HAVE_DUSTAT_H              
-#include <sys/dustat.h>
-#endif
-
-#ifdef HAVE_SYS_STATVFS_H          
-#include <sys/statvfs.h>
-#endif
-
-#ifdef HAVE_SHADOW_H
-/*
- * HP-UX 11.X has TCP_NODELAY and TCP_MAXSEG defined in <netinet/tcp.h> which
- * was included above.  However <rpc/rpc.h> includes <sys/xti.h> which defines
- * them again without checking if they already exsist.  This generates
- * two "Redefinition of macro" warnings for every single .c file that is
- * compiled.
- */
-#if defined(HPUX) && defined(TCP_NODELAY)
-#undef TCP_NODELAY
-#endif
-#if defined(HPUX) && defined(TCP_MAXSEG)
-#undef TCP_MAXSEG
-#endif
-#include <shadow.h>
-#endif
-
-#ifdef HAVE_GETPWANAM
-#include <sys/label.h>
-#include <sys/audit.h>
-#include <pwdadj.h>
-#endif
-
-#ifdef HAVE_SYS_SECURITY_H
-#include <sys/security.h>
-#include <prot.h>
-#define PASSWORD_LENGTH 16
-#endif  /* HAVE_SYS_SECURITY_H */
-
-#ifdef HAVE_STROPTS_H
-#include <stropts.h>
-#endif
-
-#ifdef HAVE_POLL_H
-#include <poll.h>
-#endif
-
-#ifdef HAVE_EXECINFO_H
-#include <execinfo.h>
-#endif
-
-#ifdef HAVE_SYS_CAPABILITY_H
-
-#if defined(BROKEN_REDHAT_7_SYSTEM_HEADERS) && !defined(_I386_STATFS_H) && !defined(_PPC_STATFS_H)
-#define _I386_STATFS_H
-#define _PPC_STATFS_H
-#define BROKEN_REDHAT_7_STATFS_WORKAROUND
-#endif
-
-#include <sys/capability.h>
-
-#ifdef BROKEN_REDHAT_7_STATFS_WORKAROUND
-#undef _I386_STATFS_H
-#undef _PPC_STATFS_H
-#undef BROKEN_REDHAT_7_STATFS_WORKAROUND
-#endif
-
-#endif
+#include "system/capability.h"
+#include "system/dir.h"
+#include "system/filesys.h"
+#include "system/glob.h"
+#include "system/iconv.h"
+#include "system/locale.h"
+#include "system/network.h"
+#include "system/passwd.h"
+#include "system/printing.h"
+#include "system/readline.h"
+#include "system/select.h"
+#include "system/shmem.h"
+#include "system/syslog.h"
+#include "system/terminal.h"
+#include "system/time.h"
+#include "system/wait.h"
 
 #if defined(HAVE_RPC_RPC_H)
 /*
@@ -423,33 +158,12 @@
 #if defined(HPUX) && defined(TCP_MAXSEG)
 #undef TCP_MAXSEG
 #endif
-#define BOOL_DEFINED
 #include <rpcsvc/yp_prot.h>
 #endif
 #if defined(HAVE_RPCSVC_YPCLNT_H)
 #include <rpcsvc/ypclnt.h>
 #endif
 #endif /* HAVE_NETGROUP */
-
-#if defined(HAVE_SYS_IPC_H)
-#include <sys/ipc.h>
-#endif /* HAVE_SYS_IPC_H */
-
-#if defined(HAVE_SYS_SHM_H)
-#include <sys/shm.h>
-#endif /* HAVE_SYS_SHM_H */
-
-#ifdef HAVE_NATIVE_ICONV
-#ifdef HAVE_ICONV
-#include <iconv.h>
-#endif
-#ifdef HAVE_GICONV
-#include <giconv.h>
-#endif
-#ifdef HAVE_BICONV
-#include <biconv.h>
-#endif
-#endif
 
 #if HAVE_KRB5_H
 #include <krb5.h>
@@ -459,10 +173,38 @@
 
 #if HAVE_LBER_H
 #include <lber.h>
+#ifdef HPUX
+/* Define ber_tag_t and ber_int_t for using
+ * HP LDAP-UX Integration products' LDAP libraries.
+*/
+#ifndef ber_tag_t
+typedef unsigned long ber_tag_t;
+typedef int ber_int_t;
+#endif
+#endif /* HPUX */
+#ifndef LBER_USE_DER
+#define LBER_USE_DER 0x01
+#endif
 #endif
 
 #if HAVE_LDAP_H
 #include <ldap.h>
+#ifndef LDAP_CONST
+#define LDAP_CONST const
+#endif
+#ifndef LDAP_OPT_SUCCESS
+#define LDAP_OPT_SUCCESS 0
+#endif
+/* Solaris 8 and maybe other LDAP implementations spell this "..._INPROGRESS": */
+#if defined(LDAP_SASL_BIND_INPROGRESS) && !defined(LDAP_SASL_BIND_IN_PROGRESS)
+#define LDAP_SASL_BIND_IN_PROGRESS LDAP_SASL_BIND_INPROGRESS
+#endif
+/* Solaris 8 defines SSL_LDAP_PORT, not LDAPS_PORT and it only does so if
+   LDAP_SSL is defined - but SSL is not working. We just want the
+   port number! Let's just define LDAPS_PORT correct. */
+#if !defined(LDAPS_PORT)
+#define LDAPS_PORT 636
+#endif
 #else
 #undef HAVE_LDAP
 #endif
@@ -490,14 +232,28 @@
 #include <sys/xattr.h>
 #endif
 
-#if HAVE_LOCALE_H
-#include <locale.h>
+#ifdef HAVE_SYS_EA_H
+#include <sys/ea.h>
+#endif
+
+#ifdef HAVE_SYS_EXTATTR_H
+#include <sys/extattr.h>
+#endif
+
+#ifdef HAVE_SYS_UIO_H
+#include <sys/uio.h>
 #endif
 
 #if HAVE_LANGINFO_H
 #include <langinfo.h>
 #endif
 
+#if defined(HAVE_AIO_H) && defined(WITH_AIO)
+#include <aio.h>
+#endif
+
+/* skip valgrind headers on 64bit AMD boxes */
+#ifndef HAVE_64BIT_LINUX
 /* Special macros that are no-ops except when run under Valgrind on
  * x86.  They've moved a little bit from valgrind 1.0.4 to 1.9.4 */
 #if HAVE_VALGRIND_MEMCHECK_H
@@ -506,12 +262,15 @@
 #elif HAVE_VALGRIND_H
 #include <valgrind.h>
 #endif
+#endif
 
 /* If we have --enable-developer and the valgrind header is present,
  * then we're OK to use it.  Set a macro so this logic can be done only
  * once. */
-#if defined(DEVELOPER) && (HAVE_VALGRIND_H || HAVE_VALGRIND_VALGRIND_H)
+#if defined(DEVELOPER) && !defined(HAVE_64BIT_LINUX)
+#if (HAVE_VALGRIND_H || HAVE_VALGRIND_VALGRIND_H)
 #define VALGRIND
+#endif
 #endif
 
 
@@ -542,6 +301,7 @@ typedef int VOLATILE SIG_ATOMIC_T;
 #endif
 
 #ifndef HAVE_SOCKLEN_T_TYPE
+#define HAVE_SOCKLEN_T_TYPE
 typedef int socklen_t;
 #endif
 
@@ -570,11 +330,13 @@ typedef int socklen_t;
 #endif
 
 #if !defined(int16) && !defined(HAVE_INT16_FROM_RPC_RPC_H)
-#if (SIZEOF_SHORT == 4)
-#define int16 __ERROR___CANNOT_DETERMINE_TYPE_FOR_INT16;
-#else /* SIZEOF_SHORT != 4 */
-#define int16 short
-#endif /* SIZEOF_SHORT != 4 */
+#  if (SIZEOF_SHORT == 4)
+#    define int16 __ERROR___CANNOT_DETERMINE_TYPE_FOR_INT16;
+#  else /* SIZEOF_SHORT != 4 */
+#    define int16 short
+#  endif /* SIZEOF_SHORT != 4 */
+   /* needed to work around compile issue on HP-UX 11.x */
+#  define _INT16	1
 #endif
 
 /*
@@ -591,16 +353,18 @@ typedef int socklen_t;
 #endif
 
 #if !defined(int32) && !defined(HAVE_INT32_FROM_RPC_RPC_H)
-#if (SIZEOF_INT == 4)
-#define int32 int
-#elif (SIZEOF_LONG == 4)
-#define int32 long
-#elif (SIZEOF_SHORT == 4)
-#define int32 short
-#else
-/* uggh - no 32 bit type?? probably a CRAY. just hope this works ... */
-#define int32 int
-#endif
+#  if (SIZEOF_INT == 4)
+#    define int32 int
+#  elif (SIZEOF_LONG == 4)
+#    define int32 long
+#  elif (SIZEOF_SHORT == 4)
+#    define int32 short
+#  else
+     /* uggh - no 32 bit type?? probably a CRAY. just hope this works ... */
+#    define int32 int
+#  endif
+   /* needed to work around compile issue on HP-UX 11.x */
+#  define _INT32	1
 #endif
 
 /*
@@ -622,6 +386,27 @@ typedef int socklen_t;
 #endif
 
 /*
+ * check for 8 byte long long
+ */
+
+#if !defined(uint64)
+#if (SIZEOF_LONG == 8)
+#define uint64 unsigned long
+#elif (SIZEOF_LONG_LONG == 8)
+#define uint64 unsigned long long
+#endif	/* don't lie.  If we don't have it, then don't use it */
+#endif
+
+#if !defined(int64)
+#if (SIZEOF_LONG == 8)
+#define int64 long
+#elif (SIZEOF_LONG_LONG == 8)
+#define int64 long long
+#endif	/* don't lie.  If we don't have it, then don't use it */
+#endif
+
+
+/*
  * Types for devices, inodes and offsets.
  */
 
@@ -631,6 +416,20 @@ typedef int socklen_t;
 #  else
 #    define SMB_DEV_T dev_t
 #  endif
+#endif
+
+#ifndef LARGE_SMB_DEV_T
+#  if (defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_DEV64_T)) || (defined(SIZEOF_DEV_T) && (SIZEOF_DEV_T == 8))
+#    define LARGE_SMB_DEV_T 1
+#  endif
+#endif
+
+#ifdef LARGE_SMB_DEV_T
+#define SDEV_T_VAL(p, ofs, v) (SIVAL((p),(ofs),(v)&0xFFFFFFFF), SIVAL((p),(ofs)+4,(v)>>32))
+#define DEV_T_VAL(p, ofs) ((SMB_DEV_T)(((SMB_BIG_UINT)(IVAL((p),(ofs))))| (((SMB_BIG_UINT)(IVAL((p),(ofs)+4))) << 32)))
+#else 
+#define SDEV_T_VAL(p, ofs, v) (SIVAL((p),(ofs),v),SIVAL((p),(ofs)+4,0))
+#define DEV_T_VAL(p, ofs) ((SMB_DEV_T)(IVAL((p),(ofs))))
 #endif
 
 /*
@@ -652,9 +451,11 @@ typedef int socklen_t;
 #endif
 
 #ifdef LARGE_SMB_INO_T
-#define SINO_T(p, ofs, v) (SIVAL(p,ofs,(v)&0xFFFFFFFF), SIVAL(p,(ofs)+4,(v)>>32))
+#define SINO_T_VAL(p, ofs, v) (SIVAL((p),(ofs),(v)&0xFFFFFFFF), SIVAL((p),(ofs)+4,(v)>>32))
+#define INO_T_VAL(p, ofs) ((SMB_INO_T)(((SMB_BIG_UINT)(IVAL(p,ofs)))| (((SMB_BIG_UINT)(IVAL(p,(ofs)+4))) << 32)))
 #else 
-#define SINO_T(p, ofs, v) (SIVAL(p,ofs,v),SIVAL(p,(ofs)+4,0))
+#define SINO_T_VAL(p, ofs, v) (SIVAL(p,ofs,v),SIVAL(p,(ofs)+4,0))
+#define INO_T_VAL(p, ofs) ((SMB_INO_T)(IVAL((p),(ofs))))
 #endif
 
 #ifndef SMB_OFF_T
@@ -732,6 +533,18 @@ typedef int socklen_t;
 #endif
 
 /*
+ * Type for DIR structure.
+ */
+
+#ifndef SMB_STRUCT_DIR
+#  if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_STRUCT_DIR64)
+#    define SMB_STRUCT_DIR DIR64
+#  else
+#    define SMB_STRUCT_DIR DIR
+#  endif
+#endif
+
+/*
  * Defines for 64 bit fcntl locks.
  */
 
@@ -767,6 +580,29 @@ typedef int socklen_t;
 #  endif
 #endif
 
+/*
+ * Type for aiocb structure.
+ */
+
+#ifndef SMB_STRUCT_AIOCB
+#  if defined(WITH_AIO)
+#    if defined(HAVE_EXPLICIT_LARGEFILE_SUPPORT) && defined(HAVE_AIOCB64)
+#      define SMB_STRUCT_AIOCB struct aiocb64
+#    else
+#      define SMB_STRUCT_AIOCB struct aiocb
+#    endif
+#  else
+#    define SMB_STRUCT_AIOCB int /* AIO not being used but we still need the define.... */
+#  endif
+#endif
+
+#ifndef HAVE_STRUCT_TIMESPEC
+struct timespec {
+	time_t tv_sec;            /* Seconds.  */
+	long tv_nsec;           /* Nanoseconds.  */
+};
+#endif
+
 #ifndef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #endif
@@ -775,13 +611,9 @@ typedef int socklen_t;
 #define MAX(a,b) ((a)>(b)?(a):(b))
 #endif
 
-#ifndef HAVE_STRERROR
-extern char *sys_errlist[];
-#define strerror(i) sys_errlist[i]
-#endif
-
-#ifndef HAVE_ERRNO_DECL
-extern int errno;
+#ifndef _UPPER_BOOL
+typedef int BOOL;
+#define _UPPER_BOOL
 #endif
 
 #ifdef HAVE_BROKEN_GETGROUPS
@@ -800,15 +632,20 @@ extern int errno;
 /* Lists, trees, caching, database... */
 #include "xfile.h"
 #include "intl.h"
-#include "ubi_sLinkList.h"
-#include "ubi_dLinkList.h"
 #include "dlinklist.h"
-#include "tdb/tdb.h"
-#include "tdb/spinlock.h"
-#include "tdb/tdbutil.h"
-#include "talloc.h"
+#include "tdb.h"
+#include "util_tdb.h"
+#include "tdbback.h"
+
+#include "lib/talloc/talloc.h"
+/* And a little extension. Abort on type mismatch */
+#define talloc_get_type_abort(ptr, type) \
+	(type *)talloc_check_name_abort(ptr, #type)
+
 #include "nt_status.h"
 #include "ads.h"
+#include "gpo.h"
+#include "ads_dns.h"
 #include "interfaces.h"
 #include "trans2.h"
 #include "nterr.h"
@@ -816,74 +653,60 @@ extern int errno;
 #include "messages.h"
 #include "charset.h"
 #include "dynconfig.h"
-#include "adt_tree.h"
-
 #include "util_getent.h"
-
-#ifndef UBI_BINTREE_H
-#include "ubi_Cache.h"
-#endif /* UBI_BINTREE_H */
-
 #include "debugparse.h"
-
 #include "version.h"
-
-#include "smb.h"
-
-#include "nameserv.h"
-
-#include "secrets.h"
-
-#include "byteorder.h"
-
 #include "privileges.h"
-
-#include "rpc_creds.h"
-
-#include "mapping.h"
-
-#include "passdb.h"
-
-#include "ntdomain.h"
-
+#include "locking.h"
+#include "smb.h"
+#include "ads_cldap.h"
+#include "nameserv.h"
+#include "secrets.h"
+#include "byteorder.h"
+#include "privileges.h"
 #include "rpc_misc.h"
-
+#include "rpc_dce.h"
+#include "mapping.h"
+#include "passdb.h"
 #include "rpc_secdes.h"
-
-#include "nt_printing.h"
-
+#include "authdata.h"
 #include "msdfs.h"
-
-#include "smbprofile.h"
-
 #include "rap.h"
-
 #include "md5.h"
 #include "hmacmd5.h"
-
 #include "ntlmssp.h"
-
 #include "auth.h"
-
+#include "ntdomain.h"
+#include "rpc_svcctl.h"
+#include "rpc_ntsvcs.h"
+#include "rpc_lsa.h"
+#include "rpc_netlogon.h"
+#include "reg_objects.h"
+#include "rpc_reg.h"
+#include "rpc_samr.h"
+#include "rpc_srvsvc.h"
+#include "rpc_spoolss.h"
+#include "rpc_eventlog.h"
+#include "rpc_dfs.h"
+#include "rpc_ds.h"
+#include "rpc_echo.h"
+#include "rpc_shutdown.h"
+#include "rpc_perfcount.h"
+#include "rpc_perfcount_defs.h"
+#include "librpc/gen_ndr/notify.h"
+#include "nt_printing.h"
 #include "idmap.h"
-
 #include "client.h"
 
-#include "smbw.h"
-
 #include "session.h"
-
 #include "asn_1.h"
-
 #include "popt.h"
-
 #include "mangle.h"
-
 #include "module.h"
-
 #include "nsswitch/winbind_client.h"
-
 #include "spnego.h"
+#include "rpc_client.h"
+#include "event.h"
 
 /*
  * Type for wide character dirent structure.
@@ -914,6 +737,11 @@ struct functable {
 	int (*fn)(int argc, const char **argv);
 };
 
+struct functable2 {
+	const char *funcname;
+	int (*fn)(int argc, const char **argv);
+	const char *helptext;
+};
 
 /* Defines for wisXXX functions. */
 #define UNI_UPPER    0x1
@@ -935,10 +763,37 @@ struct smb_ldap_privates;
 
 #include "smbldap.h"
 
+#include "smb_ldap.h"
+
+/*
+ * Reasons for cache flush.
+ */
+
+enum flush_reason_enum {
+    SEEK_FLUSH,
+    READ_FLUSH,
+    WRITE_FLUSH,
+    READRAW_FLUSH,
+    OPLOCK_RELEASE_FLUSH,
+    CLOSE_FLUSH,
+    SYNC_FLUSH,
+    SIZECHANGE_FLUSH,
+    /* NUM_FLUSH_REASONS must remain the last value in the enumeration. */
+    NUM_FLUSH_REASONS};
+
+#include "nss_info.h"
+
 /***** automatically generated prototypes *****/
 #ifndef NO_PROTO_H
 #include "proto.h"
 #endif
+
+#ifdef HAVE_LDAP
+#include "ads_protos.h"
+#endif
+
+/* We need this after proto.h to reference GetTimeOfDay(). */
+#include "smbprofile.h"
 
 /* String routines */
 
@@ -998,10 +853,6 @@ struct smb_ldap_privates;
 #define PASSWORD_LENGTH 8
 #endif
 
-#ifdef REPLACE_INET_NTOA
-#define inet_ntoa rep_inet_ntoa
-#endif
-
 #ifndef HAVE_PIPE
 #define SYNC_DNS 1
 #endif
@@ -1030,71 +881,12 @@ struct smb_ldap_privates;
 #define ULTRIX_AUTH 1
 #endif
 
-#ifndef HAVE_STRDUP
-char *strdup(const char *s);
-#endif
-
-#ifndef HAVE_STRNDUP
-char *strndup(const char *s, size_t size);
-#endif
-
-#ifndef HAVE_MEMMOVE
-void *memmove(void *dest,const void *src,int size);
-#endif
-
-#ifndef HAVE_INITGROUPS
-int initgroups(char *name,gid_t id);
-#endif
-
-#ifndef HAVE_RENAME
-int rename(const char *zfrom, const char *zto);
-#endif
-
-#ifndef HAVE_MKTIME
-time_t mktime(struct tm *t);
-#endif
-
-#ifndef HAVE_STRLCPY
-size_t strlcpy(char *d, const char *s, size_t bufsize);
-#endif
-
-#ifndef HAVE_STRLCAT
-size_t strlcat(char *d, const char *s, size_t bufsize);
-#endif
-
-#ifndef HAVE_FTRUNCATE
-int ftruncate(int f,long l);
-#endif
-
-#ifndef HAVE_STRNDUP
-char *strndup(const char *s, size_t n);
-#endif
-
-#ifndef HAVE_STRNLEN
-size_t strnlen(const char *s, size_t n);
-#endif
-
-#ifndef HAVE_STRTOUL
-unsigned long strtoul(const char *nptr, char **endptr, int base);
-#endif
-
-#ifndef HAVE_SETENV
-int setenv(const char *name, const char *value, int overwrite); 
-#endif
-
 #if (defined(USE_SETRESUID) && !defined(HAVE_SETRESUID_DECL))
 /* stupid glibc */
 int setresuid(uid_t ruid, uid_t euid, uid_t suid);
 #endif
 #if (defined(USE_SETRESUID) && !defined(HAVE_SETRESGID_DECL))
 int setresgid(gid_t rgid, gid_t egid, gid_t sgid);
-#endif
-#ifndef HAVE_VASPRINTF_DECL
-int vasprintf(char **ptr, const char *format, va_list ap);
-#endif
-
-#ifdef REPLACE_GETPASS
-#define getpass(prompt) getsmbpass((prompt))
 #endif
 
 /*
@@ -1120,15 +912,9 @@ int vasprintf(char **ptr, const char *format, va_list ap);
 /* default socket options. Dave Miller thinks we should default to TCP_NODELAY
    given the socket IO pattern that Samba uses */
 #ifdef TCP_NODELAY
-#define DEFAULT_SOCKET_OPTIONS "TCP_NODELAY SO_RCVBUF=64240"
+#define DEFAULT_SOCKET_OPTIONS "TCP_NODELAY"
 #else
-#define DEFAULT_SOCKET_OPTIONS "SO_RCVBUF=64240"
-#endif
-
-/* Load header file for dynamic linking stuff */
-
-#ifdef HAVE_DLFCN_H
-#include <dlfcn.h>
+#define DEFAULT_SOCKET_OPTIONS ""
 #endif
 
 /* dmalloc -- free heap debugger (dmalloc.org).  This should be near
@@ -1216,15 +1002,6 @@ int vasprintf(char **ptr, const char *format, va_list ap);
 #define LOG_DEBUG       7       /* debug-level messages */
 #endif
 
-/* NetBSD doesn't have these */
-#ifndef SHM_R
-#define SHM_R 0400
-#endif
-
-#ifndef SHM_W
-#define SHM_W 0200
-#endif
-
 #if HAVE_KERNEL_SHARE_MODES
 #ifndef LOCK_MAND 
 #define LOCK_MAND	32	/* This is a mandatory flock */
@@ -1234,7 +1011,7 @@ int vasprintf(char **ptr, const char *format, va_list ap);
 #endif
 #endif
 
-extern int SAMBA_DEBUGLEVEL;
+extern int DEBUGLEVEL;
 
 #define MAX_SEC_CTX_DEPTH 8    /* Maximum number of security contexts */
 
@@ -1272,28 +1049,19 @@ extern int SAMBA_DEBUGLEVEL;
 #endif
 
 /* add varargs prototypes with printf checking */
+/*PRINTFLIKE2 */
 int fdprintf(int , const char *, ...) PRINTF_ATTRIBUTE(2,3);
+/*PRINTFLIKE1 */
 int d_printf(const char *, ...) PRINTF_ATTRIBUTE(1,2);
+/*PRINTFLIKE2 */
 int d_fprintf(FILE *f, const char *, ...) PRINTF_ATTRIBUTE(2,3);
-#ifndef HAVE_SNPRINTF_DECL
-int snprintf(char *,size_t ,const char *, ...) PRINTF_ATTRIBUTE(3,4);
-#endif
-#ifndef HAVE_ASPRINTF_DECL
-int asprintf(char **,const char *, ...) PRINTF_ATTRIBUTE(2,3);
-#endif
 
-/* Fix prototype problem with non-C99 compliant snprintf implementations, esp
-   HPUX 11.  Don't change the sense of this #if statement.  Read the comments
-   in lib/snprint.c if you think you need to.  See also bugzilla bug 174. */
-
-#if !defined(HAVE_SNPRINTF) || !defined(HAVE_C99_VSNPRINTF)
-#define snprintf smb_snprintf
-#define vsnprintf smb_vsnprintf
-#endif
-
+/* PRINTFLIKE2 */
 void sys_adminlog(int priority, const char *format_str, ...) PRINTF_ATTRIBUTE(2,3);
 
+/* PRINTFLIKE2 */
 int pstr_sprintf(pstring s, const char *fmt, ...) PRINTF_ATTRIBUTE(2,3);
+/* PRINTFLIKE2 */
 int fstr_sprintf(fstring s, const char *fmt, ...) PRINTF_ATTRIBUTE(2,3);
 
 int d_vfprintf(FILE *f, const char *format, va_list ap) PRINTF_ATTRIBUTE(2,0);
@@ -1304,7 +1072,6 @@ int smb_xvasprintf(char **ptr, const char *format, va_list ap) PRINTF_ATTRIBUTE(
    for snprintf and vsnprintf */
 #define slprintf snprintf
 #define vslprintf vsnprintf
-
 
 /* we need to use __va_copy() on some platforms */
 #ifdef HAVE_VA_COPY
@@ -1317,10 +1084,6 @@ int smb_xvasprintf(char **ptr, const char *format, va_list ap) PRINTF_ATTRIBUTE(
 #endif
 #endif
 
-#ifndef HAVE_TIMEGM
-time_t timegm(struct tm *tm);
-#endif
-
 /*
  * Veritas File System.  Often in addition to native.
  * Quotas different.
@@ -1330,6 +1093,14 @@ time_t timegm(struct tm *tm);
 #endif
 
 #if defined(HAVE_KRB5)
+
+krb5_error_code smb_krb5_parse_name(krb5_context context,
+				const char *name, /* in unix charset */
+                                krb5_principal *principal);
+
+krb5_error_code smb_krb5_unparse_name(krb5_context context,
+				krb5_const_principal principal,
+				char **unix_name);
 
 #ifndef HAVE_KRB5_SET_REAL_TIME
 krb5_error_code krb5_set_real_time(krb5_context context, int32_t seconds, int32_t microseconds);
@@ -1347,21 +1118,88 @@ krb5_error_code krb5_auth_con_setuseruserkey(krb5_context context, krb5_auth_con
 void krb5_free_unparsed_name(krb5_context ctx, char *val);
 #endif
 
+/* Stub out initialize_krb5_error_table since it is not present in all
+ * Kerberos implementations. If it's not present, it's not necessary to
+ * call it.
+ */
+#ifndef HAVE_INITIALIZE_KRB5_ERROR_TABLE
+#define initialize_krb5_error_table()
+#endif
+
 /* Samba wrapper function for krb5 functionality. */
 void setup_kaddr( krb5_address *pkaddr, struct sockaddr *paddr);
 int create_kerberos_key_from_string(krb5_context context, krb5_principal host_princ, krb5_data *password, krb5_keyblock *key, krb5_enctype enctype);
 int create_kerberos_key_from_string_direct(krb5_context context, krb5_principal host_princ, krb5_data *password, krb5_keyblock *key, krb5_enctype enctype);
-void get_auth_data_from_tkt(DATA_BLOB *auth_data, krb5_ticket *tkt);
+BOOL get_auth_data_from_tkt(TALLOC_CTX *mem_ctx, DATA_BLOB *auth_data, krb5_ticket *tkt);
 krb5_const_principal get_principal_from_tkt(krb5_ticket *tkt);
+krb5_error_code smb_krb5_locate_kdc(krb5_context ctx, const krb5_data *realm, struct sockaddr **addr_pp, int *naddrs, int get_masters);
+#if defined(HAVE_KRB5_LOCATE_KDC)
 krb5_error_code krb5_locate_kdc(krb5_context ctx, const krb5_data *realm, struct sockaddr **addr_pp, int *naddrs, int get_masters);
+#endif
 krb5_error_code get_kerberos_allowed_etypes(krb5_context context, krb5_enctype **enctypes);
-void free_kerberos_etypes(krb5_context context, krb5_enctype *enctypes);
 BOOL get_krb5_smb_session_key(krb5_context context, krb5_auth_context auth_context, DATA_BLOB *session_key, BOOL remote);
 krb5_error_code smb_krb5_kt_free_entry(krb5_context context, krb5_keytab_entry *kt_entry);
 krb5_principal kerberos_fetch_salt_princ_for_host_princ(krb5_context context, krb5_principal host_princ, int enctype);
 void kerberos_set_creds_enctype(krb5_creds *pcreds, int enctype);
 BOOL kerberos_compatible_enctypes(krb5_context context, krb5_enctype enctype1, krb5_enctype enctype2);
 void kerberos_free_data_contents(krb5_context context, krb5_data *pdata);
+NTSTATUS decode_pac_data(TALLOC_CTX *mem_ctx,
+			 DATA_BLOB *pac_data_blob,
+			 krb5_context context, 
+			 krb5_keyblock *service_keyblock,
+			 krb5_const_principal client_principal,
+			 time_t tgs_authtime,
+			 PAC_DATA **pac_data);
+void smb_krb5_checksum_from_pac_sig(krb5_checksum *cksum, 
+				    PAC_SIGNATURE_DATA *sig);
+krb5_error_code smb_krb5_verify_checksum(krb5_context context,
+					 krb5_keyblock *keyblock,
+					 krb5_keyusage usage,
+					 krb5_checksum *cksum,
+					 uint8 *data,
+					 size_t length);
+time_t get_authtime_from_tkt(krb5_ticket *tkt);
+void smb_krb5_free_ap_req(krb5_context context, 
+			  krb5_ap_req *ap_req);
+krb5_error_code smb_krb5_get_keyinfo_from_ap_req(krb5_context context, 
+						 const krb5_data *inbuf, 
+						 krb5_kvno *kvno, 
+						 krb5_enctype *enctype);
+krb5_error_code krb5_rd_req_return_keyblock_from_keytab(krb5_context context,
+							krb5_auth_context *auth_context,
+							const krb5_data *inbuf,
+							krb5_const_principal server,
+							krb5_keytab keytab,
+							krb5_flags *ap_req_options,
+							krb5_ticket **ticket, 
+							krb5_keyblock **keyblock);
+krb5_error_code smb_krb5_parse_name_norealm(krb5_context context, 
+					    const char *name, 
+					    krb5_principal *principal);
+BOOL smb_krb5_principal_compare_any_realm(krb5_context context, 
+					  krb5_const_principal princ1, 
+					  krb5_const_principal princ2);
+int cli_krb5_get_ticket(const char *principal, time_t time_offset, 
+			DATA_BLOB *ticket, DATA_BLOB *session_key_krb5, uint32 extra_ap_opts, const char *ccname, time_t *tgs_expire);
+PAC_LOGON_INFO *get_logon_info_from_pac(PAC_DATA *pac_data);
+krb5_error_code smb_krb5_renew_ticket(const char *ccache_string, const char *client_string, const char *service_string, time_t *expire_time);
+krb5_error_code kpasswd_err_to_krb5_err(krb5_error_code res_code);
+krb5_error_code smb_krb5_gen_netbios_krb5_address(smb_krb5_addresses **kerb_addr);
+krb5_error_code smb_krb5_free_addresses(krb5_context context, smb_krb5_addresses *addr);
+NTSTATUS krb5_to_nt_status(krb5_error_code kerberos_error);
+krb5_error_code nt_status_to_krb5(NTSTATUS nt_status);
+void smb_krb5_free_error(krb5_context context, krb5_error *krberror);
+krb5_error_code handle_krberror_packet(krb5_context context,
+                                         krb5_data *packet);
+
+void smb_krb5_get_init_creds_opt_free(krb5_context context,
+				    krb5_get_init_creds_opt *opt);
+krb5_error_code smb_krb5_get_init_creds_opt_alloc(krb5_context context,
+				    krb5_get_init_creds_opt **opt);
+krb5_error_code smb_krb5_mk_error(krb5_context context,
+					krb5_error_code error_code,
+					const krb5_principal server,
+					krb5_data *reply);
 #endif /* HAVE_KRB5 */
 
 
@@ -1392,6 +1230,27 @@ LDAP *ldap_open_with_timeout(const char *server, int port, unsigned int to);
 
 #ifdef MMAP_BLACKLIST
 #undef HAVE_MMAP
+#endif
+
+#define CONST_DISCARD(type, ptr)      ((type) ((void *) (ptr)))
+#define CONST_ADD(type, ptr)          ((type) ((const void *) (ptr)))
+
+#ifndef NORETURN_ATTRIBUTE
+#if (__GNUC__ >= 3)
+#define NORETURN_ATTRIBUTE __attribute__ ((noreturn))
+#else
+#define NORETURN_ATTRIBUTE
+#endif
+#endif
+
+void smb_panic( const char *why ) NORETURN_ATTRIBUTE ;
+void dump_core(void) NORETURN_ATTRIBUTE ;
+void exit_server(const char *const reason) NORETURN_ATTRIBUTE ;
+void exit_server_cleanly(const char *const reason) NORETURN_ATTRIBUTE ;
+void exit_server_fault(void) NORETURN_ATTRIBUTE ;
+
+#ifdef HAVE_LIBNSCD
+#include "libnscd.h"
 #endif
 
 #endif /* _INCLUDES_H */

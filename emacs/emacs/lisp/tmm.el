@@ -1,7 +1,7 @@
 ;;; tmm.el --- text mode access to menu-bar
 
-;; Copyright (C) 1994, 1995, 1996, 2000, 2001, 2002
-;;   Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1995, 1996, 2000, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Ilya Zakharevich <ilya@math.mps.ohio-state.edu>
 ;; Maintainer: FSF
@@ -21,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -41,7 +41,7 @@
 (defvar tmm-short-cuts)
 (defvar tmm-old-mb-map nil)
 (defvar tmm-old-comp-map)
-(defvar tmm-c-prompt)
+(defvar tmm-c-prompt nil)
 (defvar tmm-km-list)
 (defvar tmm-next-shortcut-digit)
 (defvar tmm-table-undef)
@@ -71,17 +71,22 @@ we make that menu bar item (the one at that position) the default choice."
 				   (list this-one)))))
 	(setq list (cdr list))))
     (if x-position
-	(let ((tail menu-bar)
-	      this-one
-	      (column 0))
-	  (while (and tail (< column x-position))
+	(let ((tail menu-bar) (column 0)
+	      this-one name visible)
+	  (while (and tail (<= column x-position))
 	    (setq this-one (car tail))
-	    (if (and (consp (car tail))
-		     (consp (cdr (car tail)))
-		     (stringp (nth 1 (car tail))))
-		(setq column (+ column
-				(length (nth 1 (car tail)))
-				1)))
+	    (if (and (consp this-one)
+		     (consp (cdr this-one))
+		     (setq name  ;simple menu
+			   (cond ((stringp (nth 1  this-one))
+				  (nth 1  this-one))
+				 ;extended menu
+				 ((stringp (nth 2 this-one))
+				  (setq visible (plist-get
+						 (nthcdr 4 this-one) :visible))
+				  (unless (and visible (not (eval visible)))
+				    (nth 2 this-one))))))
+		(setq column (+ column (length name) 1)))
 	    (setq tail (cdr tail)))
 	  (setq menu-bar-item (car this-one))))
     (tmm-prompt menu-bar nil menu-bar-item)))
@@ -96,7 +101,7 @@ See the documentation for `tmm-prompt'."
   (tmm-menubar (car (posn-x-y (event-start event)))))
 
 (defcustom tmm-mid-prompt "==>"
-  "*String to insert between shortcut and menu item. 
+  "*String to insert between shortcut and menu item.
 If nil, there will be no shortcuts. It should not consist only of spaces,
 or else the correct item might not be found in the `*Completions*' buffer."
   :type 'string
@@ -105,10 +110,10 @@ or else the correct item might not be found in the `*Completions*' buffer."
 (defvar tmm-mb-map nil
   "A place to store minibuffer map.")
 
-(defcustom tmm-completion-prompt 
-  "Press PageUp Key to reach this buffer from the minibuffer.
+(defcustom tmm-completion-prompt
+  "Press PageUp key to reach this buffer from the minibuffer.
 Alternatively, you can use Up/Down keys (or your History keys) to change
-the item in the minibuffer, and press RET when you are done, or press the 
+the item in the minibuffer, and press RET when you are done, or press the
 marked letters to pick up your choice.  Type C-g or ESC ESC ESC to cancel.
 "
   "*Help text to insert on the top of the completion buffer.
@@ -118,8 +123,8 @@ in which case the standard introduction text is deleted too."
   :group 'tmm)
 
 (defcustom tmm-shortcut-style '(downcase upcase)
-  "*What letters to use as menu shortcuts. 
-Must be either one of the symbols `downcase' or `upcase', 
+  "*What letters to use as menu shortcuts.
+Must be either one of the symbols `downcase' or `upcase',
 or else a list of the two in the order you prefer."
   :type '(choice (const downcase)
 		 (const upcase)
@@ -128,9 +133,14 @@ or else a list of the two in the order you prefer."
 
 (defcustom tmm-shortcut-words 2
   "*How many successive words to try for shortcuts, nil means all.
-If you use only one of `downcase' or `upcase' for `tmm-shortcut-style', 
+If you use only one of `downcase' or `upcase' for `tmm-shortcut-style',
 specify nil for this variable."
   :type '(choice integer (const nil))
+  :group 'tmm)
+
+(defface tmm-inactive
+  '((t :inherit shadow))
+  "Face used for inactive menu items."
   :group 'tmm)
 
 ;;;###autoload
@@ -183,36 +193,52 @@ Its value should be an event that has a binding in MENU."
 	     ;; We use this to decide the initial minibuffer contents
 	     ;; and initial history position.
 	     (if default-item
-		 (let ((tail menu))
+		 (let ((tail menu) visible)
 		   (while (and tail
 			       (not (eq (car-safe (car tail)) default-item)))
 		     ;; Be careful to count only the elements of MENU
 		     ;; that actually constitute menu bar items.
 		     (if (and (consp (car tail))
 			      (or (stringp (car-safe (cdr (car tail))))
-				  (eq (car-safe (cdr (car tail))) 'menu-item)))
+				  (and
+				   (eq (car-safe (cdr (car tail))) 'menu-item)
+				   (progn
+				     (setq visible
+					   (plist-get
+					    (nthcdr 4 (car tail)) :visible))
+				     (or (not visible) (eval visible))))))
 			 (setq index-of-default (1+ index-of-default)))
 		     (setq tail (cdr tail)))))
-	     (setq history (reverse (mapcar 'car tmm-km-list)))
+             (let ((prompt (concat "^." (regexp-quote tmm-mid-prompt))))
+               (setq history
+                     (reverse (delq nil
+                                    (mapcar
+                                     (lambda (elt)
+                                       (if (string-match prompt (car elt))
+                                           (car elt)))
+                                     tmm-km-list)))))
 	     (setq history-len (length history))
 	     (setq history (append history history history history))
 	     (setq tmm-c-prompt (nth (- history-len 1 index-of-default) history))
 	     (add-hook 'minibuffer-setup-hook 'tmm-add-prompt)
-	     (save-excursion
-	       (unwind-protect
-		   (setq out
-			 (completing-read
-			  (concat gl-str " (up/down to change, PgUp to menu): ")
-			  tmm-km-list nil t nil
-			  (cons 'history (- (* 2 history-len) index-of-default))))
-		 (save-excursion
-		   (remove-hook 'minibuffer-setup-hook 'tmm-add-prompt)
-		   (if (get-buffer "*Completions*")
-		       (progn
-			 (set-buffer "*Completions*")
-			 (use-local-map tmm-old-comp-map)
-			 (bury-buffer (current-buffer)))))
-		 ))))
+	     (if default-item
+		 (setq out (car (nth index-of-default tmm-km-list)))
+	       (save-excursion
+		 (unwind-protect
+		     (setq out
+			   (completing-read
+			    (concat gl-str
+				    " (up/down to change, PgUp to menu): ")
+			    tmm-km-list nil t nil
+			    (cons 'history
+				  (- (* 2 history-len) index-of-default))))
+		   (save-excursion
+		     (remove-hook 'minibuffer-setup-hook 'tmm-add-prompt)
+		     (if (get-buffer "*Completions*")
+			 (progn
+			   (set-buffer "*Completions*")
+			   (use-local-map tmm-old-comp-map)
+			   (bury-buffer (current-buffer))))))))))
       (setq choice (cdr (assoc out tmm-km-list)))
       (and (null choice)
 	   (> (length out) (length tmm-c-prompt))
@@ -229,7 +255,7 @@ Its value should be an event that has a binding in MENU."
 	   ;; We just did the inner level of a -popup menu.
 	   choice)
 	  ;; We just did the outer level.  Do the inner level now.
-	  (not-menu (tmm-prompt choice t)) 
+	  (not-menu (tmm-prompt choice t))
 	  ;; We just handled a menu keymap and found another keymap.
 	  ((keymapp choice)
 	   (if (symbolp choice)
@@ -259,37 +285,43 @@ Stores a list of all the shortcuts in the free variable `tmm-short-cuts'."
 
 (defsubst tmm-add-one-shortcut (elt)
 ;; uses the free vars tmm-next-shortcut-digit and tmm-short-cuts
-  (let* ((str (car elt))
-        (paren (string-match "(" str))  
-        (pos 0) (word 0) char)
-    (catch 'done                        ; ??? is this slow?
-      (while (and (or (not tmm-shortcut-words) ; no limit on words
-                      (< word tmm-shortcut-words)) ; try n words
-                  (setq pos (string-match "\\w+" str pos)) ; get next word
-                  (not (and paren (> pos paren)))) ; don't go past "(binding.."
-        (if (or (= pos 0)
-                (/= (aref str (1- pos)) ?.)) ; avoid file extensions
-            (let ((shortcut-style                 
-                   (if (listp tmm-shortcut-style) ; convert to list
-                       tmm-shortcut-style
-                     (list tmm-shortcut-style))))
-              (while shortcut-style     ; try upcase and downcase variants
-                (setq char (funcall (car shortcut-style) (aref str pos)))
-                (if (not (memq char tmm-short-cuts)) (throw 'done char))
-                (setq shortcut-style (cdr shortcut-style)))))
-        (setq word (1+ word))
-        (setq pos (match-end 0)))
-      (while (<= tmm-next-shortcut-digit ?9) ; no letter shortcut, pick a digit
-        (setq char tmm-next-shortcut-digit)
-        (setq tmm-next-shortcut-digit (1+ tmm-next-shortcut-digit))
-        (if (not (memq char tmm-short-cuts)) (throw 'done char)))
-      (setq char nil))
-    (if char (setq tmm-short-cuts (cons char tmm-short-cuts)))
-    (cons (concat (if char (concat (char-to-string char) tmm-mid-prompt)
-                    ;; keep them lined up in columns
-                    (make-string (1+ (length tmm-mid-prompt)) ?\ ))
-                  str)
-          (cdr elt))))
+  (cond
+   ((eq (cddr elt) 'ignore)
+    (cons (concat " " (make-string (length tmm-mid-prompt) ?\-)
+                  (car elt))
+          (cdr elt)))
+   (t
+    (let* ((str (car elt))
+           (paren (string-match "(" str))
+           (pos 0) (word 0) char)
+      (catch 'done                             ; ??? is this slow?
+        (while (and (or (not tmm-shortcut-words)   ; no limit on words
+                        (< word tmm-shortcut-words)) ; try n words
+                    (setq pos (string-match "\\w+" str pos)) ; get next word
+                    (not (and paren (> pos paren)))) ; don't go past "(binding.."
+          (if (or (= pos 0)
+                  (/= (aref str (1- pos)) ?.)) ; avoid file extensions
+              (let ((shortcut-style
+                     (if (listp tmm-shortcut-style) ; convert to list
+                         tmm-shortcut-style
+                       (list tmm-shortcut-style))))
+                (while shortcut-style ; try upcase and downcase variants
+                  (setq char (funcall (car shortcut-style) (aref str pos)))
+                  (if (not (memq char tmm-short-cuts)) (throw 'done char))
+                  (setq shortcut-style (cdr shortcut-style)))))
+          (setq word (1+ word))
+          (setq pos (match-end 0)))
+        (while (<= tmm-next-shortcut-digit ?9) ; no letter shortcut, pick a digit
+          (setq char tmm-next-shortcut-digit)
+          (setq tmm-next-shortcut-digit (1+ tmm-next-shortcut-digit))
+          (if (not (memq char tmm-short-cuts)) (throw 'done char)))
+        (setq char nil))
+      (if char (setq tmm-short-cuts (cons char tmm-short-cuts)))
+      (cons (concat (if char (concat (char-to-string char) tmm-mid-prompt)
+                      ;; keep them lined up in columns
+                      (make-string (1+ (length tmm-mid-prompt)) ?\s))
+                    str)
+            (cdr elt))))))
 
 ;; This returns the old map.
 (defun tmm-define-keys (minibuffer)
@@ -319,14 +351,31 @@ Stores a list of all the shortcuts in the free variable `tmm-short-cuts'."
   (goto-char 1)
   (delete-region 1 (search-forward "Possible completions are:\n")))
 
+(defun tmm-remove-inactive-mouse-face ()
+  "Remove the mouse-face property from inactive menu items."
+  (let ((inhibit-read-only t)
+        (inactive-string
+         (concat " " (make-string (length tmm-mid-prompt) ?\-)))
+        next)
+    (save-excursion
+      (goto-char (point-min))
+      (while (not (eobp))
+        (setq next (next-single-char-property-change (point) 'mouse-face))
+        (when (looking-at inactive-string)
+          (remove-text-properties (point) next '(mouse-face))
+          (add-text-properties (point) next '(face tmm-inactive)))
+        (goto-char next)))
+    (set-buffer-modified-p nil)))
+
 (defun tmm-add-prompt ()
   (remove-hook 'minibuffer-setup-hook 'tmm-add-prompt)
-  (make-local-hook 'minibuffer-exit-hook)
   (add-hook 'minibuffer-exit-hook 'tmm-delete-map nil t)
+  (unless tmm-c-prompt
+    (error "No active menu entries"))
   (let ((win (selected-window)))
     (setq tmm-old-mb-map (tmm-define-keys t))
     ;; Get window and hide it for electric mode to get correct size
-    (save-window-excursion 
+    (save-window-excursion
       (let ((completions
 	     (mapcar 'car minibuffer-completion-table)))
         (or tmm-completion-prompt
@@ -335,8 +384,9 @@ Stores a list of all the shortcuts in the free variable `tmm-short-cuts'."
 	(with-output-to-temp-buffer "*Completions*"
 	  (display-completion-list completions))
         (remove-hook 'completion-setup-hook 'tmm-completion-delete-prompt))
+      (set-buffer "*Completions*")
+      (tmm-remove-inactive-mouse-face)
       (when tmm-completion-prompt
-	(set-buffer "*Completions*")
 	(let ((buffer-read-only nil))
 	  (goto-char (point-min))
 	  (insert tmm-completion-prompt))))
@@ -346,7 +396,6 @@ Stores a list of all the shortcuts in the free variable `tmm-short-cuts'."
       (Electric-pop-up-window "*Completions*")
       (with-current-buffer "*Completions*"
 	(setq tmm-old-comp-map (tmm-define-keys nil))))
-
     (insert tmm-c-prompt)))
 
 (defun tmm-delete-map ()
@@ -363,7 +412,7 @@ Stores a list of all the shortcuts in the free variable `tmm-short-cuts'."
     (if (memq c tmm-short-cuts)
 	(if (equal (buffer-name) "*Completions*")
 	    (progn
-	      (beginning-of-buffer)
+	      (goto-char (point-min))
 	      (re-search-forward
 	       (concat "\\(^\\|[ \t]\\)" (char-to-string c) tmm-mid-prompt))
 	      (choose-completion))
@@ -371,7 +420,7 @@ Stores a list of all the shortcuts in the free variable `tmm-short-cuts'."
 	  (delete-region (minibuffer-prompt-end) (point-max))
 	  (mapc (lambda (elt)
 		  (if (string=
-		       (substring (car elt) 0 
+		       (substring (car elt) 0
 				  (min (1+ (length tmm-mid-prompt))
 				       (length (car elt))))
 		       (concat (char-to-string c) tmm-mid-prompt))
@@ -389,14 +438,14 @@ Stores a list of all the shortcuts in the free variable `tmm-short-cuts'."
   (search-forward tmm-c-prompt)
   (search-backward tmm-c-prompt))
 
-(defun tmm-get-keymap (elt &optional in-x-menu) 
+(defun tmm-get-keymap (elt &optional in-x-menu)
   "Prepends (DOCSTRING EVENT BINDING) to free variable `tmm-km-list'.
 The values are deduced from the argument ELT, that should be an
 element of keymap, an `x-popup-menu' argument, or an element of
 `x-popup-menu' argument (when IN-X-MENU is not-nil).
 This function adds the element only if it is not already present.
 It uses the free variable `tmm-table-undef' to keep undefined keys."
-  (let (km str cache plist filter visible (event (car elt)))
+  (let (km str cache plist filter visible enable (event (car elt)))
     (setq elt (cdr elt))
     (if (eq elt 'undefined)
 	(setq tmm-table-undef (cons (cons event nil) tmm-table-undef))
@@ -437,6 +486,9 @@ It uses the free variable `tmm-table-undef' to keep undefined keys."
 	       (setq visible (plist-get plist :visible))
 	       (if visible
 		   (setq km (and (eval visible) km)))
+	       (setq enable (plist-get plist :enable))
+	       (if enable
+                   (setq km (if (eval enable) km 'ignore)))
 	       (and str
 		    (consp (nth 3 elt))
 		    (stringp (cdr (nth 3 elt))) ; keyseq cache
@@ -465,8 +517,7 @@ It uses the free variable `tmm-table-undef' to keep undefined keys."
       ;; Verify that the command is enabled;
       ;; if not, don't mention it.
       (when (and km (symbolp km) (get km 'menu-enable))
-	(unless (eval (get km 'menu-enable))
-	  (setq km nil)))
+	  (setq km (if (eval (get km 'menu-enable)) km 'ignore)))
       (and km str
 	   (or (assoc str tmm-km-list)
 	       (push (cons str (cons event km)) tmm-km-list))))))
@@ -477,7 +528,7 @@ If KEYSEQ is a prefix key that has local and global bindings,
 we merge them into a single keymap which shows the proper order of the menu.
 However, for the menu bar itself, the value does not take account
 of `menu-bar-final-items'."
-  (let (allbind bind)
+  (let (allbind bind minorbind localbind globalbind)
     (setq bind (key-binding keyseq))
     ;; If KEYSEQ is a prefix key, then BIND is either nil
     ;; or a symbol defined as a keymap (which satisfies keymapp).
@@ -488,9 +539,21 @@ of `menu-bar-final-items'."
 	(progn
 	  ;; Otherwise, it is a prefix, so make a list of the subcommands.
 	  ;; Make a list of all the bindings in all the keymaps.
-	  (setq allbind (mapcar 'cdr (minor-mode-key-binding keyseq))) 
-	  (setq allbind (cons (local-key-binding keyseq) allbind))
-	  (setq allbind (cons (global-key-binding keyseq) allbind))
+	  (setq minorbind (mapcar 'cdr (minor-mode-key-binding keyseq)))
+	  (setq localbind (local-key-binding keyseq))
+	  (setq globalbind (copy-sequence (cdr (global-key-binding keyseq))))
+
+	  ;; If items have been redefined/undefined locally, remove them from
+	  ;; the global list.
+	  (dolist (minor minorbind)
+	    (dolist (item (cdr minor))
+	      (setq globalbind (assq-delete-all (car-safe item) globalbind))))
+	  (dolist (item (cdr localbind))
+	    (setq globalbind (assq-delete-all (car-safe item) globalbind)))
+
+	  (setq globalbind (cons 'keymap globalbind))
+	  (setq allbind (cons globalbind (cons localbind minorbind)))
+
 	  ;; Merge all the elements of ALLBIND into one keymap.
 	  (mapc (lambda (in)
 		  (if (and (symbolp in) (keymapp in))
@@ -507,4 +570,5 @@ of `menu-bar-final-items'."
 
 (provide 'tmm)
 
+;;; arch-tag: e7ddbdb6-4b95-4da3-afbe-ad6063d112f4
 ;;; tmm.el ends here

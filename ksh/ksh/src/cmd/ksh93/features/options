@@ -24,11 +24,6 @@ tst	cross{
 		esac
 	}
 	
-	case `pwd` in
-	/usr/src/*|/opt/ast/*)
-		option CMDLIB_DIR 0
-		;;
-	esac
 	test -d /dev/fd
 	option DEVFD $?
 	case  `echo a | tr a '\012' | wc -l` in
@@ -38,6 +33,8 @@ tst	cross{
 	option PFSH $?
 	/bin/test ! -l . 2> /dev/null
 	option TEST_L $?
+	test -f /etc/ksh.kshrc -o -f /etc/bash.bashrc &&
+	option SYSRC 0
 	test -f /bin/universe && univ=`/bin/universe` > /dev/null 2>&1 -a ucb = "$univ"
 	option UCB $?
 }end

@@ -25,23 +25,14 @@
  * @header DSLDAPUtils
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <ldap.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include "CLDAPDefines.h"
 
-#define kLDAPDefaultOpenCloseTimeoutInSeconds			15
-#define kLDAPDefaultRebindTryTimeoutInSeconds			120
-#define kLDAPDefaultSearchTimeoutInSeconds				120
+__BEGIN_DECLS
 
-#define kLDAPDefaultNetworkTimeoutInSeconds				10
+CFMutableDictionaryRef GetXMLFromBuffer( tDataBufferPtr inBuffer );
+SInt32 PutXMLInBuffer( CFDictionaryRef inXMLDict, tDataBufferPtr outBuffer );
+char *BuildEscapedRDN( const char *inLDAPRDN );
 
-
-void DSSearchCleanUp (	LDAP		   *inHost,
-						int				inMsgId );
-
-void SetNetworkTimeoutsForHost( LDAP* host, int numSeconds );
-
-#ifdef __cplusplus
-}
-#endif
-
+__END_DECLS

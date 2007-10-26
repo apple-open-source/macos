@@ -22,6 +22,7 @@ Boston, MA 02111-1307, USA.  */
 /* This is the contribution to the `default_compilers' array in gcc.c for
    objc.  */
 
+  /* APPLE LOCAL begin radar 5082000 */
   {".m", "@objective-c", 0, 0, 0},
   {"@objective-c",
      "%{E|M|MM:cc1obj -E %{traditional|ftraditional|traditional-cpp:-traditional-cpp}\
@@ -30,13 +31,13 @@ Boston, MA 02111-1307, USA.  */
 	%{traditional|ftraditional|traditional-cpp:\
 %eGNU Objective C no longer supports traditional compilation}\
 	%{save-temps|no-integrated-cpp:cc1obj -E %(cpp_options) -o %{save-temps:%b.mi} %{!save-temps:%g.mi} \n\
-	    cc1obj -fpreprocessed %{save-temps:%b.mi} %{!save-temps:%g.mi} %(cc1_options) %{print-objc-runtime-info} %{gen-decls}}\
+	    cc1obj -fpreprocessed %{save-temps:%b.mi} %{!save-temps:%g.mi} %(cc1_options) %{print-objc-ivar-layout} %{print-objc-runtime-info} %{gen-decls}}\
 	%{!save-temps:%{!no-integrated-cpp:\
-	    cc1obj %(cpp_unique_options) %(cc1_options) %{print-objc-runtime-info} %{gen-decls}}}\
+	    cc1obj %(cpp_unique_options) %(cc1_options) %{print-objc-ivar-layout} %{print-objc-runtime-info} %{gen-decls}}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0, 0, 0},
   {".mi", "@objc-cpp-output", 0, 0, 0},
   {"@objc-cpp-output",
-     "%{!M:%{!MM:%{!E:cc1obj -fpreprocessed %i %(cc1_options) %{print-objc-runtime-info} %{gen-decls}\
+     "%{!M:%{!MM:%{!E:cc1obj -fpreprocessed %i %(cc1_options) %{print-objc-ivar-layout} %{print-objc-runtime-info} %{gen-decls}\
 			     %{!fsyntax-only:%(invoke_as)}}}}", 0, 0, 0},
   {"@objective-c-header",
      "%{E|M|MM:cc1obj -E %{traditional|ftraditional|traditional-cpp:-traditional-cpp}\
@@ -45,12 +46,13 @@ Boston, MA 02111-1307, USA.  */
 	%{traditional|ftraditional|traditional-cpp:\
 %eGNU Objective C no longer supports traditional compilation}\
 	%{save-temps|no-integrated-cpp:cc1obj -E %(cpp_options) -o %{save-temps:%b.mi} %{!save-temps:%g.mi} \n\
-	    cc1obj -fpreprocessed %b.mi %(cc1_options) %{print-objc-runtime-info} %{gen-decls}\
+	    cc1obj -fpreprocessed %b.mi %(cc1_options) %{print-objc-ivar-layout} %{print-objc-runtime-info} %{gen-decls}\
                         -o %g.s %{!o*:--output-pch=%i.gch}\
                         "/* APPLE LOCAL ss2 */" \
-                        %W{o*:--output-pch=%*} %{fsave-repository=*: \n as -o %w%* %g.s %A}%V}\
+                        %W{o*:--output-pch=%*} %{fsave-repository=*: \n as %a -o %w%* %g.s %A}%V}\
 	%{!save-temps:%{!no-integrated-cpp:\
-	    cc1obj %(cpp_unique_options) %(cc1_options) %{print-objc-runtime-info} %{gen-decls}\
+	    cc1obj %(cpp_unique_options) %(cc1_options) %{print-objc-ivar-layout} %{print-objc-runtime-info} %{gen-decls}\
                         -o %g.s %{!o*:--output-pch=%i.gch}\
                         "/* APPLE LOCAL ss2 */ " \
-                        %W{o*:--output-pch=%*} %{fsave-repository=*: \n as -o %w%* %g.s %A}%V}}}}}", 0, 0, 0},
+                        %W{o*:--output-pch=%*} %{fsave-repository=*: \n as %a -o %w%* %g.s %A}%V}}}}}", 0, 0, 0},
+  /* APPLE LOCAL end radar 5082000 */

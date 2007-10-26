@@ -1,0 +1,219 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN""http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>FcUtf8Len</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="String utilities"
+HREF="x93.html#AEN3051"><LINK
+REL="PREVIOUS"
+TITLE="FcUcs4ToUtf8"
+HREF="r3083.html"><LINK
+REL="NEXT"
+TITLE="FcUtf16ToUcs4"
+HREF="r3140.html"></HEAD
+><BODY
+CLASS="REFENTRY"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="r3083.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="r3140.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="FCUTF8LEN"
+></A
+>FcUtf8Len</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN3112"
+></A
+><H2
+>Name</H2
+>FcUtf8Len&nbsp;--&nbsp;count UTF-8 encoded chars</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN3115"
+></A
+><H2
+>Synopsis</H2
+><DIV
+CLASS="FUNCSYNOPSIS"
+><P
+></P
+><A
+NAME="AEN3116"
+></A
+><PRE
+CLASS="FUNCSYNOPSISINFO"
+>#include &lt;fontconfig.h&gt;
+	</PRE
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcBool FcUtf8Len</CODE
+>(FcChar8 *src, intlen, int *nchar, int *wchar);</CODE
+></P
+><P
+></P
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN3129"
+></A
+><H2
+>Description</H2
+><P
+>Counts the number of Unicode chars in <CODE
+CLASS="PARAMETER"
+>len</CODE
+> bytes of
+<CODE
+CLASS="PARAMETER"
+>src</CODE
+>.  Places that count in
+<CODE
+CLASS="PARAMETER"
+>nchar</CODE
+>.  <CODE
+CLASS="PARAMETER"
+>wchar</CODE
+> contains 1, 2 or
+4 depending on the number of bytes needed to hold the largest unicode char
+counted.  The return value indicates whether <CODE
+CLASS="PARAMETER"
+>src</CODE
+> is a
+well-formed UTF8 string.
+	    </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN3137"
+></A
+><H2
+>Version</H2
+><P
+>Fontconfig version 2.4.1
+
+	    </P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="r3083.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="r3140.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>FcUcs4ToUtf8</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="x93.html#AEN3051"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>FcUtf16ToUcs4</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

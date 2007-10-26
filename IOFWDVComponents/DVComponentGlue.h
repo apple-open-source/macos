@@ -1,3 +1,12 @@
+/*
+ File:       DVComponentGlue/DVComponentGlue.h
+ 
+ Contains:   Top-level header file for the DVComponentGlue.framework
+ 
+ Copyright:  © 1997-2006 by Apple Computer, Inc., all rights reserved.
+ 
+ */
+
 #ifndef __DVCOMPONENTGLUE__
 #define __DVCOMPONENTGLUE__
 

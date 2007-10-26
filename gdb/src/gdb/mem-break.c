@@ -42,7 +42,7 @@
    is accomplished via BREAKPOINT_MAX).  */
 
 int
-default_memory_insert_breakpoint (CORE_ADDR addr, char *contents_cache)
+default_memory_insert_breakpoint (CORE_ADDR addr, bfd_byte *contents_cache)
 {
   int val;
   const unsigned char *bp;
@@ -51,42 +51,66 @@ default_memory_insert_breakpoint (CORE_ADDR addr, char *contents_cache)
   /* Determine appropriate breakpoint contents and size for this address.  */
   bp = BREAKPOINT_FROM_PC (&addr, &bplen);
   if (bp == NULL)
-    error ("Software breakpoints not implemented for this target.");
+    error (_("Software breakpoints not implemented for this target."));
 
   /* Save the memory contents.  */
   val = target_read_memory (addr, contents_cache, bplen);
 
   /* Write the breakpoint.  */
   if (val == 0)
-    val = target_write_memory (addr, (char *) bp, bplen);
+    val = target_write_memory (addr, bp, bplen);
 
   return val;
 }
 
 
 int
-default_memory_remove_breakpoint (CORE_ADDR addr, char *contents_cache)
+default_memory_remove_breakpoint (CORE_ADDR addr, bfd_byte *contents_cache)
 {
-  const unsigned char *bp;
+  const bfd_byte *bp;
   int bplen;
+  int val;
+  unsigned char cur_contents[BREAKPOINT_MAX];
+
 
   /* Determine appropriate breakpoint contents and size for this address.  */
   bp = BREAKPOINT_FROM_PC (&addr, &bplen);
   if (bp == NULL)
-    error ("Software breakpoints not implemented for this target.");
+    error (_("Software breakpoints not implemented for this target."));
 
-  return target_write_memory (addr, contents_cache, bplen);
+  /* APPLE LOCAL: If a program has self modifying code, it might have
+     overwritten our trap between the time we last inserted it and
+     now.  So if the current contents is not our trap, let's use what
+     got written there as the contents_cache..  */
+  
+  val = target_read_memory (addr, cur_contents, bplen);
+  
+  /* I don't know why we wouldn't be able to read the memory where we
+     plan to re-insert to old code, but if we can't we aren't going
+     to write it either, most likely...  */
+  
+  if (val != 0)
+    return val;
+
+  if (memcmp (cur_contents, bp, bplen) != 0)
+    {
+      memcpy (contents_cache, cur_contents, bplen);
+      return 0;
+    }
+  else
+    return target_write_memory (addr, contents_cache, bplen);
+  /* END APPLE LOCAL */
 }
 
 
 int
-memory_insert_breakpoint (CORE_ADDR addr, char *contents_cache)
+memory_insert_breakpoint (CORE_ADDR addr, bfd_byte *contents_cache)
 {
   return MEMORY_INSERT_BREAKPOINT(addr, contents_cache);
 }
 
 int
-memory_remove_breakpoint (CORE_ADDR addr, char *contents_cache)
+memory_remove_breakpoint (CORE_ADDR addr, bfd_byte *contents_cache)
 {
   return MEMORY_REMOVE_BREAKPOINT(addr, contents_cache);
 }

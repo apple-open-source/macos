@@ -106,6 +106,7 @@
 		4.75, May 16, 2005
 		4.76, August 30, 2005
 		4.77, April 10, 2006
+		4.78, April 24, 2007
 
 
 Dialects Supported
@@ -116,22 +117,17 @@ selected Unix systems.  Version 4 is a source reorganization of
 version 3, itself a major revision of version 2.  Version 4 has
 been tested on:
 
-	AIX 5.[123]
+	AIX 5.[23] and 5.3-ML1
 	Apple Darwin 7.x and 8.x for Power Macintosh systems
-	FreeBSD 4.x, 4.1x, 5.x and [67].x for x86-based systems
-	FreeBSD 5.x and [67].x for Alpha, AMD64 and Sparc64-based
-	    systems
-	HP-UX 11.00, 11.11 and 11.23
+	FreeBSD 4.9 for x86-based systems
+	FreeBSD 7.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
 	NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
 	    systems
 	NEXTSTEP 3.[13]
 	OpenBSD 2.[89] and 3.[0-9] for x86-based systems
-	OPENSTEP 4.x
 	SCO OpenServer Release 5.0.6 for x86-based systems
-	SCO|Caldera UnixWare 7.1.4 for x86-based systems
-	Solaris 2.6, 8, 9 and 10
-	Tru64 UNIX 5.1
+	Solaris 9 and 10
 
 (The pub/tools/unix/lsof/contrib directory on lsof.itap.purdue.edu
 contains information on other ports.)
@@ -4107,5 +4103,66 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		with the ending of access to a test system.  Lsof
 		continues to be tested on 64 bit Solaris 8.
 
+4.78		April 24, 2007
+		Added more information to the lsof FAQ about missing
+		link counts and sizes on Linux files.
+
+		Simplified Linux stat() and lstat() usage.
+
+		Relocated #define's that prevent OpenBSD compilation on
+		systems without a /proc file system.  Pieter Bowman
+		<bowman@math.utah.edu> reported the problem.
+
+		Added code to avoid processing Linux /proc/<PID>/maps
+		file entries with zero device and node numbers.  Some
+		such entries now have names associated with them that
+		are not path names -- e.g., "[heap]", "[stack]" or
+		"[vdso]".  Scott Worley <sworley@chkno.net> reported
+		lsof's mishandling of such entries.
+
+		Added SELinux security context support, provided by
+		James Antill <james.antill@redhat.com>.  I have not
+		tested this, but James and Karel Zak <kzak@redhat.com>
+		have.
+
+		Added the #include of <sys/types.h> to Solaris lsof to
+		enabled compilation on Solaris 10 6/06.  Peter Harvey
+		Peter.Harvey@Sun.COM diagnosed the problem and supplied
+		a patch.
+
+		Added better support for JFS2 on AIX 5.2 and 5.3, based
+		on bug reports and help from Thomas Braunbeck
+		<BRAUNBEC@de.ibm.com> and Tom Whitty <TWHITTY@cerner.com>.
+
+		Documented that lsof supports AIX 5.3 only up through
+		maintenance level 1 (ML1).
+
+		Enabled Solaris lsof to locate the AFS vnode operation
+		address for OpenAFS 1.4.1.  The fix was supplied by
+		Robert Jelinek <Robert.Jelinek@MorganStanley.com>.
+
+		Enabled support for Solaris 10 ZFS.  If the necessary
+		ZFS header files aren't found, lsof offers the option
+		to drop ZFS support, to use internal, possibly
+		inaccurate structure definitions, or to supply a path
+		to the missing header files.  Horst Scheuermann
+		<Horst.Scheuermann@uni-trier.de> provided a development
+		system and helped test the support.
+
+		Corrected a typo in the man page, reported by Eric S.
+		Raymond <esr@thyrsus.com>.
+
+		Changed the spelling of macroes to macros in lsof
+		source and documentations files, based on a suggestion
+		from Josh Soref <timeless@gmail.com> and verification
+		with the OED.
+
+		The following dialects are no longer supported: 32 bit
+		AIX 5.2, HP-UX 11, OpenStep 4.2, Solaris 2.6, Solaris
+		8, True Unix 64 and UnixWare 7.1.4.  Lsof may work on
+		them, but I no longer have test systems for them.
+		Support for OpenBSD ends at its version 3.9 for lack of
+		interest in the port.
+
 Vic Abell <abe@purdue.edu>
-April 10, 2006
+April 24, 2007

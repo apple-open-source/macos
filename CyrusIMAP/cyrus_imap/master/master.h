@@ -1,10 +1,12 @@
 #ifndef HAVE_MASTER_H
 #define HAVE_MASTER_H
 
-/* $Id: master.h,v 1.5 2005/03/05 00:37:29 dasenbro Exp $ */
+/* $Id: master.h,v 1.14 2006/11/30 17:11:23 murch Exp $ */
 
 #include <config.h>
 #include <sys/resource.h> /* for rlim_t */
+
+#include "libconfig.h" /* for config_dir and IMAPOPT_SYNC_MACHINEID */
 
 /* needed for possible SNMP monitoring */
 struct service {
@@ -13,6 +15,7 @@ struct service {
     char *proto;		/* protocol to accept */
     char *const *exec;		/* command (with args) to execute */
     int babysit;		/* babysit this service? */
+    int provide_uuid;           /* Service assigns UUIDS */
     
     /* multiple address family support */
     int associate;		/* are we primary or additional instance? */
@@ -39,6 +42,35 @@ struct service {
     time_t last_interval_start;
     unsigned int interval_forks;
 };
+
+#ifdef APPLE_OS_X_SERVER
+#define	SRVR_MGR_COM_FILE	"/var/imap/.smd.imap.com"
+#define SRVR_MGR_DATA_OPEN \
+"<dict>\n \
+\t<key>IMAP</key>\n \
+\t<integer>%d</integer>\n \
+\t<key>POP</key>\n \
+\t<integer>%d</integer>\n \
+\t<key>conns</key>\n \
+\t<array>\n"
+
+#define SRVR_MGR_DATA_USER_DICT \
+"\t\t<dict>\n \
+\t\t\t<key>type</key>\n \
+\t\t\t<string>%s</string>\n \
+\t\t\t<key>user</key>\n \
+\t\t\t<string>%s</string>\n \
+\t\t\t<key>host</key>\n \
+\t\t\t<string>%s</string>\n \
+\t\t\t<key>time</key>\n \
+\t\t\t<integer>%d</integer>\n \
+\t\t</dict>\n"
+
+#define SRVR_MGR_DATA_CLOSE \
+"\t</array>\n \
+</dict>\n"
+
+#endif
 
 extern struct service *Services;
 extern int allocservices;

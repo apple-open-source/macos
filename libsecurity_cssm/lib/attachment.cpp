@@ -90,7 +90,7 @@ Attachment::Attachment(Module *parent,
             CssmError::throwMe(CSSMERR_CSSM_INVALID_ADDIN_FUNCTION_TABLE);
         mIsActive = true;	// now officially attached to plugin
 		secdebug("cssm", "%p attached module %p(%s) (ssid %ld type %ld)",
-			this, parent, parent->name().c_str(), ssId, ssType);
+			this, parent, parent->name().c_str(), (long)ssId, (long)ssType);
         // subclass is responsible for taking spiFunctionTable and build
         // whatever dispatch is needed
     } catch (...) {

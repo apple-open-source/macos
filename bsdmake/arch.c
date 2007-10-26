@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1988, 1989, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 1989 by Berkeley Softworks
@@ -39,6 +39,7 @@
  */
 
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/make/arch.c,v 1.66 2005/05/24 15:58:34 harti Exp $");
 
 /*-
  * arch.c --
@@ -51,109 +52,143 @@
  * is referenced.
  *
  * The interface to this module is:
- *	Arch_ParseArchive   	Given an archive specification, return a list
- *	    	  	    	of GNode's, one for each member in the spec.
- *	    	  	    	FAILURE is returned if the specification is
- *	    	  	    	invalid for some reason.
+ *	Arch_ParseArchive	Given an archive specification, return a list
+ *				of GNode's, one for each member in the spec.
+ *				FALSE is returned if the specification is
+ *				invalid for some reason.
  *
- *	Arch_Touch	    	Alter the modification time of the archive
- *	    	  	    	member described by the given node to be
- *	    	  	    	the current time.
+ *	Arch_Touch		Alter the modification time of the archive
+ *				member described by the given node to be
+ *				the current time.
  *
- *	Arch_TouchLib	    	Update the modification time of the library
- *	    	  	    	described by the given node. This is special
- *	    	  	    	because it also updates the modification time
- *	    	  	    	of the library's table of contents.
+ *	Arch_TouchLib		Update the modification time of the library
+ *				described by the given node. This is special
+ *				because it also updates the modification time
+ *				of the library's table of contents.
  *
- *	Arch_MTime	    	Find the modification time of a member of
- *	    	  	    	an archive *in the archive*. The time is also
- *	    	  	    	placed in the member's GNode. Returns the
- *	    	  	    	modification time.
+ *	Arch_MTime		Find the modification time of a member of
+ *				an archive *in the archive*. The time is also
+ *				placed in the member's GNode. Returns the
+ *				modification time.
  *
- *	Arch_MemTime	    	Find the modification time of a member of
- *	    	  	    	an archive. Called when the member doesn't
- *	    	  	    	already exist. Looks in the archive for the
- *	    	  	    	modification time. Returns the modification
- *	    	  	    	time.
+ *	Arch_MemTime		Find the modification time of a member of
+ *				an archive. Called when the member doesn't
+ *				already exist. Looks in the archive for the
+ *				modification time. Returns the modification
+ *				time.
  *
- *	Arch_FindLib	    	Search for a library along a path. The
- *	    	  	    	library name in the GNode should be in
- *	    	  	    	-l<name> format.
+ *	Arch_FindLib		Search for a library along a path. The
+ *				library name in the GNode should be in
+ *				-l<name> format.
  *
- *	Arch_LibOODate	    	Special function to decide if a library node
- *	    	  	    	is out-of-date.
+ *	Arch_LibOODate		Special function to decide if a library node
+ *				is out-of-date.
  *
- *	Arch_Init 	    	Initialize this module.
- *
- *	Arch_End 	    	Cleanup this module.
+ *	Arch_Init		Initialize this module.
  */
 
-#include    <sys/types.h>
-#include    <sys/stat.h>
-#include    <sys/time.h>
-#include    <sys/param.h>
-#include    <ctype.h>
-#include    <ar.h>
-#include    <utime.h>
-#include    <stdio.h>
-#include    <stdlib.h>
-#include    "make.h"
-#include    "hash.h"
-#include    "dir.h"
-#include    "config.h"
+#include <sys/param.h>
+#include <sys/queue.h>
+#include <sys/types.h>
+#include <ar.h>
+#include <ctype.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <regex.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <utime.h>
 
-static Lst	  archives;   /* Lst of archives we've already examined */
+#include "arch.h"
+#include "buf.h"
+#include "config.h"
+#include "dir.h"
+#include "globals.h"
+#include "GNode.h"
+#include "hash.h"
+#include "make.h"
+#include "parse.h"
+#include "targ.h"
+#include "util.h"
+#include "var.h"
 
 typedef struct Arch {
-    char	  *name;      /* Name of archive */
-    Hash_Table	  members;    /* All the members of the archive described
-			       * by <name, struct ar_hdr *> key/value pairs */
-    char	  *fnametab;  /* Extended name table strings */
-    size_t	  fnamesize;  /* Size of the string table */
+	char		*name;		/* Name of archive */
+
+	/*
+	 * All the members of the archive described
+	 * by <name, struct ar_hdr *> key/value pairs
+	 */
+	Hash_Table	members;
+
+	TAILQ_ENTRY(Arch) link;		/* link all cached archives */
 } Arch;
 
-static int ArchFindArchive(void *, void *);
-static void ArchFree(void *);
-static struct ar_hdr *ArchStatMember(char *, char *, Boolean);
-static FILE *ArchFindMember(char *, char *, struct ar_hdr *, char *);
-#if defined(__svr4__) || defined(__SVR4) || defined(__ELF__)
-#define	SVR4ARCHIVES
-static int ArchSVR4Entry(Arch *, char *, size_t, FILE *);
-#endif
+/* Lst of archives we've already examined */
+static TAILQ_HEAD(, Arch) archives = TAILQ_HEAD_INITIALIZER(archives);
 
-/*-
- *-----------------------------------------------------------------------
- * ArchFree --
- *	Free memory used by an archive
- *
- * Results:
- *	None.
- *
- * Side Effects:
- *	None.
- *
- *-----------------------------------------------------------------------
+
+/* size of the name field in the archive member header */
+#define	AR_NAMSIZ	sizeof(((struct ar_hdr *)0)->ar_name)
+
+/*
+ * This structure is used while reading/writing an archive
  */
-static void
-ArchFree(void *ap)
-{
-    Arch *a = (Arch *) ap;
-    Hash_Search	  search;
-    Hash_Entry	  *entry;
+struct arfile {
+	FILE		*fp;		/* archive file */
+	char		*fname;		/* name of the file */
+	struct ar_hdr	hdr;		/* current header */
+	char		sname[AR_NAMSIZ + 1]; /* short name */
+	char		*member;	/* (long) member name */
+	size_t		mlen;		/* size of the above */
+	char		*nametab;	/* name table */
+	size_t		nametablen;	/* size of the table */
+	int64_t		time;		/* from ar_date */
+	uint64_t	size;		/* from ar_size */
+	off_t		pos;		/* header pos of current entry */
+};
 
-    /* Free memory from hash entries */
-    for (entry = Hash_EnumFirst(&a->members, &search);
-	 entry != NULL;
-	 entry = Hash_EnumNext(&search))
-	free(Hash_GetValue(entry));
+/*
+ * Name of the symbol table. The original BSD used "__.SYMDEF". Rumours go
+ * that this name may have a slash appended sometimes. Actually FreeBSD
+ * uses "/" which probably came from SVR4.
+ */
+#define	SVR4_RANLIBMAG	"/"
+#define	BSD_RANLIBMAG	"__.SYMDEF"
 
-    free(a->name);
-    free(a->fnametab);
-    Hash_DeleteTable(&a->members);
-    free(a);
-}
+/*
+ * Name of the filename table. The 4.4BSD ar format did not use this, but
+ * puts long filenames directly between the member header and the object
+ * file.
+ */
+#define	SVR4_NAMEMAG	"//"
+#define	BSD_NAMEMAG	"ARFILENAMES/"
 
+/*
+ * 44BSD long filename key. Use a local define here instead of relying
+ * on ar.h because we want this to continue working even when the
+ * definition is removed from ar.h.
+ */
+#define	BSD_EXT1	"#1/"
+#define	BSD_EXT1LEN	3
 
+/* if this is TRUE make archive errors fatal */
+Boolean arch_fatal = TRUE;
+
+/**
+ * ArchError
+ *	An error happend while handling an archive. BSDmake traditionally
+ *	ignored these errors. Now this is dependend on the global arch_fatal
+ *	which, if true, makes these errors fatal and, if false, just emits an
+ *	error message.
+ */
+#define	ArchError(ARGS) do {					\
+	if (arch_fatal)						\
+		Fatal ARGS;					\
+	else							\
+		Error ARGS;					\
+    } while (0)
 
 /*-
  *-----------------------------------------------------------------------
@@ -165,7 +200,7 @@ ArchFree(void *ap)
  *	in which to expand variables.
  *
  * Results:
- *	SUCCESS if it was a valid specification. The linePtr is updated
+ *	TRUE if it was a valid specification. The linePtr is updated
  *	to point to the first non-space after the archive spec. The
  *	nodes for the members are placed on the given list.
  *
@@ -174,268 +209,653 @@ ArchFree(void *ap)
  *
  *-----------------------------------------------------------------------
  */
-ReturnStatus
-Arch_ParseArchive (char **linePtr, Lst nodeLst, GNode *ctxt)
+Boolean
+Arch_ParseArchive(char **linePtr, Lst *nodeLst, GNode *ctxt)
 {
-    char            *cp;	    /* Pointer into line */
-    GNode	    *gn;     	    /* New node */
-    char	    *libName;  	    /* Library-part of specification */
-    char	    *memName;  	    /* Member-part of specification */
-    char	    *nameBuf;	    /* temporary place for node name */
-    char	    saveChar;  	    /* Ending delimiter of member-name */
-    Boolean 	    subLibName;	    /* TRUE if libName should have/had
-				     * variable substitution performed on it */
+	char	*cp;		/* Pointer into line */
+	GNode	*gn;		/* New node */
+	char	*libName;	/* Library-part of specification */
+	char	*memName;	/* Member-part of specification */
+	char	*nameBuf;	/* temporary place for node name */
+	char	saveChar;	/* Ending delimiter of member-name */
+	Boolean	subLibName;	/* TRUE if libName should have/had
+				 * variable substitution performed on it */
 
-    libName = *linePtr;
+	libName = *linePtr;
 
-    subLibName = FALSE;
+	subLibName = FALSE;
 
-    for (cp = libName; *cp != '(' && *cp != '\0'; cp++) {
-	if (*cp == '$') {
-	    /*
-	     * Variable spec, so call the Var module to parse the puppy
-	     * so we can safely advance beyond it...
-	     */
-	    int 	length;
-	    Boolean	freeIt;
-	    char	*result;
+	for (cp = libName; *cp != '(' && *cp != '\0'; cp++) {
+		if (*cp == '$') {
+			/*
+			 * Variable spec, so call the Var module to parse the
+			 * puppy so we can safely advance beyond it...
+			 */
+			size_t	length = 0;
+			Boolean	freeIt;
+			char	*result;
 
-	    result=Var_Parse(cp, ctxt, TRUE, &length, &freeIt);
-	    if (result == var_Error) {
-		return(FAILURE);
-	    } else {
-		subLibName = TRUE;
-	    }
+			result = Var_Parse(cp, ctxt, TRUE, &length, &freeIt);
+			if (result == var_Error) {
+				return (FALSE);
+			}
+			subLibName = TRUE;
 
-	    if (freeIt) {
-		free(result);
-	    }
-	    cp += length-1;
+			if (freeIt) {
+				free(result);
+			}
+			cp += length - 1;
+		}
 	}
-    }
 
-    *cp++ = '\0';
-    if (subLibName) {
-	libName = Var_Subst(NULL, libName, ctxt, TRUE);
-    }
-
-
-    for (;;) {
-	/*
-	 * First skip to the start of the member's name, mark that
-	 * place and skip to the end of it (either white-space or
-	 * a close paren).
-	 */
-	Boolean	doSubst = FALSE; /* TRUE if need to substitute in memName */
-
-	while (*cp != '\0' && *cp != ')' && isspace ((unsigned char) *cp)) {
-	    cp++;
+	*cp++ = '\0';
+	if (subLibName) {
+		libName = Buf_Peel(Var_Subst(libName, ctxt, TRUE));
 	}
-	memName = cp;
-	while (*cp != '\0' && *cp != ')' && !isspace ((unsigned char) *cp)) {
-	    if (*cp == '$') {
+
+	for (;;) {
 		/*
-		 * Variable spec, so call the Var module to parse the puppy
-		 * so we can safely advance beyond it...
+		 * First skip to the start of the member's name, mark that
+		 * place and skip to the end of it (either white-space or
+		 * a close paren).
 		 */
-		int 	length;
-		Boolean	freeIt;
-		char	*result;
 
-		result=Var_Parse(cp, ctxt, TRUE, &length, &freeIt);
-		if (result == var_Error) {
-		    return(FAILURE);
+		/*
+		 * TRUE if need to substitute in memName
+		 */
+		Boolean	doSubst = FALSE;
+
+		while (*cp != '\0' && *cp != ')' &&
+		    isspace((unsigned char)*cp)) {
+			cp++;
+		}
+
+		memName = cp;
+		while (*cp != '\0' && *cp != ')' &&
+		    !isspace((unsigned char)*cp)) {
+			if (*cp == '$') {
+				/*
+				 * Variable spec, so call the Var module to
+				 * parse the puppy so we can safely advance
+				 * beyond it...
+				 */
+				size_t	length = 0;
+				Boolean	freeIt;
+				char	*result;
+
+				result = Var_Parse(cp, ctxt, TRUE,
+				    &length, &freeIt);
+				if (result == var_Error) {
+					return (FALSE);
+				}
+				doSubst = TRUE;
+
+				if (freeIt) {
+					free(result);
+				}
+				cp += length;
+			} else {
+				cp++;
+			}
+		}
+
+		/*
+		 * If the specification ends without a closing parenthesis,
+		 * chances are there's something wrong (like a missing
+		 * backslash), so it's better to return failure than allow
+		 * such things to happen
+		 */
+		if (*cp == '\0') {
+			printf("No closing parenthesis in archive "
+			    "specification\n");
+			return (FALSE);
+		}
+
+		/*
+		 * If we didn't move anywhere, we must be done
+		 */
+		if (cp == memName) {
+			break;
+		}
+
+		saveChar = *cp;
+		*cp = '\0';
+
+		/*
+		 * XXX: This should be taken care of intelligently by
+		 * SuffExpandChildren, both for the archive and the member
+		 * portions.
+		 */
+		/*
+		 * If member contains variables, try and substitute for them.
+		 * This will slow down archive specs with dynamic sources, of
+		 * course, since we'll be (non-)substituting them three times,
+		 * but them's the breaks -- we need to do this since
+		 * SuffExpandChildren calls us, otherwise we could assume the
+		 * thing would be taken care of later.
+		 */
+		if (doSubst) {
+			char	*buf;
+			char	*sacrifice;
+			char	*oldMemName = memName;
+			size_t	sz;
+			Buffer	*buf1;
+
+			/*
+			 * Now form an archive spec and recurse to deal with
+			 * nested variables and multi-word variable values....
+			 * The results are just placed at the end of the
+			 * nodeLst we're returning.
+			 */
+			buf1 = Var_Subst(memName, ctxt, TRUE);
+			memName = Buf_Data(buf1);
+
+			sz = strlen(memName) + strlen(libName) + 3;
+			buf = emalloc(sz);
+
+			snprintf(buf, sz, "%s(%s)", libName, memName);
+
+			sacrifice = buf;
+
+			if (strchr(memName, '$') &&
+			    strcmp(memName, oldMemName) == 0) {
+				/*
+				 * Must contain dynamic sources, so we can't
+				 * deal with it now.
+				 * Just create an ARCHV node for the thing and
+				 * let SuffExpandChildren handle it...
+				 */
+				gn = Targ_FindNode(buf, TARG_CREATE);
+
+				if (gn == NULL) {
+					free(buf);
+					Buf_Destroy(buf1, FALSE);
+					return (FALSE);
+				}
+				gn->type |= OP_ARCHV;
+				Lst_AtEnd(nodeLst, (void *)gn);
+			} else if (!Arch_ParseArchive(&sacrifice, nodeLst,
+			    ctxt)) {
+				/*
+				 * Error in nested call -- free buffer and
+				 * return FALSE ourselves.
+				 */
+				free(buf);
+				Buf_Destroy(buf1, FALSE);
+				return (FALSE);
+			}
+
+			/* Free buffer and continue with our work. */
+			free(buf);
+			Buf_Destroy(buf1, FALSE);
+
+		} else if (Dir_HasWildcards(memName)) {
+			Lst	members = Lst_Initializer(members);
+			char	*member;
+			size_t	sz = MAXPATHLEN;
+			size_t	nsz;
+
+			nameBuf = emalloc(sz);
+
+			Path_Expand(memName, &dirSearchPath, &members);
+			while (!Lst_IsEmpty(&members)) {
+				member = Lst_DeQueue(&members);
+				nsz = strlen(libName) + strlen(member) + 3;
+				if (nsz > sz) {
+					sz = nsz * 2;
+					nameBuf = erealloc(nameBuf, sz);
+				}
+
+				snprintf(nameBuf, sz, "%s(%s)",
+				    libName, member);
+				free(member);
+				gn = Targ_FindNode(nameBuf, TARG_CREATE);
+				if (gn == NULL) {
+					free(nameBuf);
+					/* XXXHB Lst_Destroy(&members) */
+					return (FALSE);
+				}
+				/*
+				 * We've found the node, but have to make sure
+				 * the rest of the world knows it's an archive
+				 * member, without having to constantly check
+				 * for parentheses, so we type the thing with
+				 * the OP_ARCHV bit before we place it on the
+				 * end of the provided list.
+				 */
+				gn->type |= OP_ARCHV;
+				Lst_AtEnd(nodeLst, gn);
+			}
+			free(nameBuf);
 		} else {
-		    doSubst = TRUE;
+			size_t	sz = strlen(libName) + strlen(memName) + 3;
+
+			nameBuf = emalloc(sz);
+			snprintf(nameBuf, sz, "%s(%s)", libName, memName);
+			gn = Targ_FindNode(nameBuf, TARG_CREATE);
+			free(nameBuf);
+			if (gn == NULL) {
+				return (FALSE);
+			}
+			/*
+			 * We've found the node, but have to make sure the
+			 * rest of the world knows it's an archive member,
+			 * without having to constantly check for parentheses,
+			 * so we type the thing with the OP_ARCHV bit before
+			 * we place it on the end of the provided list.
+			 */
+			gn->type |= OP_ARCHV;
+			Lst_AtEnd(nodeLst, gn);
+		}
+		if (doSubst) {
+			free(memName);
 		}
 
-		if (freeIt) {
-		    free(result);
-		}
-		cp += length;
-	    } else {
+		*cp = saveChar;
+	}
+
+	/*
+	 * If substituted libName, free it now, since we need it no longer.
+	 */
+	if (subLibName) {
+		free(libName);
+	}
+
+	/*
+	 * We promised the pointer would be set up at the next non-space, so
+	 * we must advance cp there before setting *linePtr... (note that on
+	 * entrance to the loop, cp is guaranteed to point at a ')')
+	 */
+	do {
 		cp++;
-	    }
+	} while (*cp != '\0' && isspace((unsigned char)*cp));
+
+	*linePtr = cp;
+	return (TRUE);
+}
+
+/*
+ * Close an archive file an free all resources
+ */
+static void
+ArchArchiveClose(struct arfile *ar)
+{
+
+	if (ar->nametab != NULL)
+		free(ar->nametab);
+	free(ar->member);
+	if (ar->fp != NULL) {
+		if (fclose(ar->fp) == EOF)
+			ArchError(("%s: close error", ar->fname));
+	}
+	free(ar->fname);
+	free(ar);
+}
+
+/*
+ * Open an archive file.
+ */
+static struct arfile *
+ArchArchiveOpen(const char *archive, const char *mode)
+{
+	struct arfile *ar;
+	char	magic[SARMAG];
+
+	ar = emalloc(sizeof(*ar));
+	ar->fname = estrdup(archive);
+	ar->mlen = 100;
+	ar->member = emalloc(ar->mlen);
+	ar->nametab = NULL;
+	ar->nametablen = 0;
+
+	if ((ar->fp = fopen(ar->fname, mode)) == NULL) {
+		DEBUGM(ARCH, ("%s", ar->fname));
+		ArchArchiveClose(ar);
+		return (NULL);
 	}
 
-	/*
-	 * If the specification ends without a closing parenthesis,
-	 * chances are there's something wrong (like a missing backslash),
-	 * so it's better to return failure than allow such things to happen
-	 */
-	if (*cp == '\0') {
-	    printf("No closing parenthesis in archive specification\n");
-	    return (FAILURE);
+	/* read MAGIC */
+	if (fread(magic, SARMAG, 1, ar->fp) != 1 ||
+	    strncmp(magic, ARMAG, SARMAG) != 0) {
+		ArchError(("%s: bad archive magic\n", ar->fname));
+		ArchArchiveClose(ar);
+		return (NULL);
 	}
 
+	ar->pos = 0;
+	return (ar);
+}
+
+/*
+ * Read the next header from the archive. The return value will be +1 if
+ * the header is read successfully, 0 on EOF and -1 if an error happend.
+ * On a successful return sname contains the truncated member name and
+ * member the full name. hdr contains the member header. For the symbol table
+ * names of length 0 are returned. The entry for the file name table is never
+ * returned.
+ */
+static int
+ArchArchiveNext(struct arfile *ar)
+{
+	char	*end;
+	int	have_long_name;
+	u_long	offs;
+	char	*ptr;
+	size_t	ret;
+	char	buf[MAX(sizeof(ar->hdr.ar_size), sizeof(ar->hdr.ar_date)) + 1];
+
+  next:
 	/*
-	 * If we didn't move anywhere, we must be done
+	 * Seek to the next header.
 	 */
-	if (cp == memName) {
-	    break;
-	}
-
-	saveChar = *cp;
-	*cp = '\0';
-
-	/*
-	 * XXX: This should be taken care of intelligently by
-	 * SuffExpandChildren, both for the archive and the member portions.
-	 */
-	/*
-	 * If member contains variables, try and substitute for them.
-	 * This will slow down archive specs with dynamic sources, of course,
-	 * since we'll be (non-)substituting them three times, but them's
-	 * the breaks -- we need to do this since SuffExpandChildren calls
-	 * us, otherwise we could assume the thing would be taken care of
-	 * later.
-	 */
-	if (doSubst) {
-	    char    *buf;
-	    char    *sacrifice;
-	    char    *oldMemName = memName;
-	    size_t   sz;
-
-	    memName = Var_Subst(NULL, memName, ctxt, TRUE);
-
-	    /*
-	     * Now form an archive spec and recurse to deal with nested
-	     * variables and multi-word variable values.... The results
-	     * are just placed at the end of the nodeLst we're returning.
-	     */
-
-	    sz = strlen(memName) + strlen(libName) + 3;
-	    buf = sacrifice = emalloc(sz);
-
-	    snprintf(buf, sz, "%s(%s)", libName, memName);
-
-	    if (strchr(memName, '$') && strcmp(memName, oldMemName) == 0) {
-		/*
-		 * Must contain dynamic sources, so we can't deal with it now.
-		 * Just create an ARCHV node for the thing and let
-		 * SuffExpandChildren handle it...
-		 */
-		gn = Targ_FindNode(buf, TARG_CREATE);
-
-		if (gn == NULL) {
-		    free(buf);
-		    return(FAILURE);
-		} else {
-		    gn->type |= OP_ARCHV;
-		    (void)Lst_AtEnd(nodeLst, (void *)gn);
-		}
-	    } else if (Arch_ParseArchive(&sacrifice, nodeLst, ctxt)!=SUCCESS) {
-		/*
-		 * Error in nested call -- free buffer and return FAILURE
-		 * ourselves.
-		 */
-		free(buf);
-		return(FAILURE);
-	    }
-	    /*
-	     * Free buffer and continue with our work.
-	     */
-	    free(buf);
-	} else if (Dir_HasWildcards(memName)) {
-	    Lst	  members = Lst_Init(FALSE);
-	    char  *member;
-	    size_t sz = MAXPATHLEN;
-	    size_t nsz;
-	    nameBuf = emalloc(sz);
-
-	    Dir_Expand(memName, dirSearchPath, members);
-	    while (!Lst_IsEmpty(members)) {
-		member = (char *)Lst_DeQueue(members);
-		nsz = strlen(libName) + strlen(member) + 3;
-		if (sz > nsz)
-			nameBuf = erealloc(nameBuf, sz = nsz * 2);
-
-		snprintf(nameBuf, sz, "%s(%s)", libName, member);
-		free(member);
-		gn = Targ_FindNode (nameBuf, TARG_CREATE);
-		if (gn == NULL) {
-		    free(nameBuf);
-		    return (FAILURE);
-		} else {
-		    /*
-		     * We've found the node, but have to make sure the rest of
-		     * the world knows it's an archive member, without having
-		     * to constantly check for parentheses, so we type the
-		     * thing with the OP_ARCHV bit before we place it on the
-		     * end of the provided list.
-		     */
-		    gn->type |= OP_ARCHV;
-		    (void) Lst_AtEnd (nodeLst, (void *)gn);
-		}
-	    }
-	    Lst_Destroy(members, NOFREE);
-	    free(nameBuf);
+	if (ar->pos == 0) {
+		ar->pos = SARMAG;
 	} else {
-	    size_t sz = strlen(libName) + strlen(memName) + 3;
-	    nameBuf = emalloc(sz);
-	    snprintf(nameBuf, sz, "%s(%s)", libName, memName);
-	    gn = Targ_FindNode (nameBuf, TARG_CREATE);
-	    free(nameBuf);
-	    if (gn == NULL) {
-		return (FAILURE);
-	    } else {
+		ar->pos += sizeof(ar->hdr) + ar->size;
+		if (ar->size % 2 == 1)
+			ar->pos++;
+	}
+
+	if (fseeko(ar->fp, ar->pos, SEEK_SET) == -1) {
+		ArchError(("%s: cannot seek to %jd: %s", ar->fname,
+		    (intmax_t)ar->pos, strerror(errno)));
+		return (-1);
+	}
+
+	/*
+	 * Read next member header
+	 */
+	ret = fread(&ar->hdr, sizeof(ar->hdr), 1, ar->fp);
+	if (ret != 1) {
+		if (feof(ar->fp))
+			return (0);
+		ArchError(("%s: error reading member header: %s", ar->fname,
+		    strerror(errno)));
+		return (-1);
+	}
+	if (strncmp(ar->hdr.ar_fmag, ARFMAG, sizeof(ar->hdr.ar_fmag)) != 0) {
+		ArchError(("%s: bad entry magic", ar->fname));
+		return (-1);
+	}
+
+	/*
+	 * looks like a member - get name by stripping trailing spaces
+	 * and NUL terminating.
+	 */
+	strncpy(ar->sname, ar->hdr.ar_name, AR_NAMSIZ);
+	ar->sname[AR_NAMSIZ] = '\0';
+	for (ptr = ar->sname + AR_NAMSIZ; ptr > ar->sname; ptr--)
+		if (ptr[-1] != ' ')
+			break;
+
+	*ptr = '\0';
+
+	/*
+	 * Parse the size. All entries need to have a size. Be careful
+	 * to not allow buffer overruns.
+	 */
+	strncpy(buf, ar->hdr.ar_size, sizeof(ar->hdr.ar_size));
+	buf[sizeof(ar->hdr.ar_size)] = '\0';
+
+	errno = 0;
+	ar->size = strtoumax(buf, &end, 10);
+	if (errno != 0 || strspn(end, " ") != strlen(end)) {
+		ArchError(("%s: bad size format in archive '%s'",
+		    ar->fname, buf));
+		return (-1);
+	}
+
+	/*
+	 * Look for the extended name table. Do this before parsing
+	 * the date because this table doesn't need a date.
+	 */
+	if (strcmp(ar->sname, BSD_NAMEMAG) == 0 ||
+	    strcmp(ar->sname, SVR4_NAMEMAG) == 0) {
+		/* filename table - read it in */
+		ar->nametablen = ar->size;
+		ar->nametab = emalloc(ar->nametablen);
+
+		ret = fread(ar->nametab, 1, ar->nametablen, ar->fp);
+		if (ret != ar->nametablen) {
+			if (ferror(ar->fp)) {
+				ArchError(("%s: cannot read nametab: %s",
+				    ar->fname, strerror(errno)));
+			} else {
+				ArchError(("%s: cannot read nametab: "
+				    "short read", ar->fname, strerror(errno)));
+			}
+			return (-1);
+		}
+
 		/*
-		 * We've found the node, but have to make sure the rest of the
-		 * world knows it's an archive member, without having to
-		 * constantly check for parentheses, so we type the thing with
-		 * the OP_ARCHV bit before we place it on the end of the
-		 * provided list.
+		 * NUL terminate the entries. Entries are \n terminated
+		 * and may have a trailing / or \.
 		 */
-		gn->type |= OP_ARCHV;
-		(void) Lst_AtEnd (nodeLst, (void *)gn);
-	    }
+		ptr = ar->nametab;
+		while (ptr < ar->nametab + ar->nametablen) {
+			if (*ptr == '\n') {
+				if (ptr[-1] == '/' || ptr[-1] == '\\')
+					ptr[-1] = '\0';
+				*ptr = '\0';
+			}
+			ptr++;
+		}
+
+		/* get next archive entry */
+		goto next;
 	}
-	if (doSubst) {
-	    free(memName);
+
+	/*
+	 * Now parse the modification date. Be careful to not overrun
+	 * buffers.
+	 */
+	strncpy(buf, ar->hdr.ar_date, sizeof(ar->hdr.ar_date));
+	buf[sizeof(ar->hdr.ar_date)] = '\0';
+
+	errno = 0;
+	ar->time = (int64_t)strtoll(buf, &end, 10);
+	if (errno != 0 || strspn(end, " ") != strlen(end)) {
+		ArchError(("%s: bad date format in archive '%s'",
+		    ar->fname, buf));
+		return (-1);
 	}
 
-	*cp = saveChar;
-    }
+	/*
+	 * Now check for the symbol table. This should really be the first
+	 * entry, but we don't check this.
+	 */
+	if (strcmp(ar->sname, BSD_RANLIBMAG) == 0 ||
+	    strcmp(ar->sname, SVR4_RANLIBMAG) == 0) {
+		/* symbol table - return a zero length name */
+		ar->member[0] = '\0';
+		ar->sname[0] = '\0';
+		return (1);
+	}
 
-    /*
-     * If substituted libName, free it now, since we need it no longer.
-     */
-    if (subLibName) {
-	free(libName);
-    }
+	have_long_name = 0;
 
-    /*
-     * We promised the pointer would be set up at the next non-space, so
-     * we must advance cp there before setting *linePtr... (note that on
-     * entrance to the loop, cp is guaranteed to point at a ')')
-     */
-    do {
-	cp++;
-    } while (*cp != '\0' && isspace ((unsigned char) *cp));
+	/*
+	 * Look whether this is a long name. There are several variants
+	 * of long names:
+	 *	"#1/12           "	- 12 length of following filename
+	 *	"/17             "	- index into name table
+	 *	" 17             "	- index into name table
+	 * Note that in the last case we must also check that there is no
+	 * slash in the name because of filenames with leading spaces:
+	 *	" 777.o/           "	- filename 777.o
+	 */
+	if (ar->sname[0] == '/' || (ar->sname[0] == ' ' &&
+	    strchr(ar->sname, '/') == NULL)) {
+		/* SVR4 extended name */
+		errno = 0;
+		offs = strtoul(ar->sname + 1, &end, 10);
+		if (errno != 0 || *end != '\0' || offs >= ar->nametablen ||
+		    end == ar->sname + 1) {
+			ArchError(("%s: bad extended name '%s'", ar->fname,
+			    ar->sname));
+			return (-1);
+		}
 
-    *linePtr = cp;
-    return (SUCCESS);
+		/* fetch the name */
+		if (ar->mlen <= strlen(ar->nametab + offs)) {
+			ar->mlen = strlen(ar->nametab + offs) + 1;
+			ar->member = erealloc(ar->member, ar->mlen);
+		}
+		strcpy(ar->member, ar->nametab + offs);
+
+		have_long_name = 1;
+
+	} else if (strncmp(ar->sname, BSD_EXT1, BSD_EXT1LEN) == 0 &&
+	    isdigit(ar->sname[BSD_EXT1LEN])) {
+		/* BSD4.4 extended name */
+		errno = 0;
+		offs = strtoul(ar->sname + BSD_EXT1LEN, &end, 10);
+		if (errno != 0 || *end != '\0' ||
+		    end == ar->sname + BSD_EXT1LEN) {
+			ArchError(("%s: bad extended name '%s'", ar->fname,
+			    ar->sname));
+			return (-1);
+		}
+
+		/* read it from the archive */
+		if (ar->mlen <= offs) {
+			ar->mlen = offs + 1;
+			ar->member = erealloc(ar->member, ar->mlen);
+		}
+		ret = fread(ar->member, 1, offs, ar->fp);
+		if (ret != offs) {
+			if (ferror(ar->fp)) {
+				ArchError(("%s: reading extended name: %s",
+				    ar->fname, strerror(errno)));
+			} else {
+				ArchError(("%s: reading extended name: "
+				    "short read", ar->fname));
+			}
+			return (-1);
+		}
+		ar->member[offs] = '\0';
+
+		have_long_name = 1;
+	}
+
+	/*
+	 * Now remove the trailing slash that Svr4 puts at
+	 * the end of the member name to support trailing spaces in names.
+	 */
+	if (ptr > ar->sname && ptr[-1] == '/')
+		*--ptr = '\0';
+
+	if (!have_long_name) {
+		if (strlen(ar->sname) >= ar->mlen) {
+			ar->mlen = strlen(ar->sname) + 1;
+			ar->member = erealloc(ar->member, ar->mlen);
+		}
+		strcpy(ar->member, ar->sname);
+	}
+
+	return (1);
+}
+
+/*
+ * Touch the current archive member by writing a new header with an
+ * updated timestamp. The return value is 0 for success and -1 for errors.
+ */
+static int
+ArchArchiveTouch(struct arfile *ar, int64_t ts)
+{
+
+	/* seek to our header */
+	if (fseeko(ar->fp, ar->pos, SEEK_SET) == -1) {
+		ArchError(("%s: cannot seek to %jd: %s", ar->fname,
+		    (intmax_t)ar->pos, strerror(errno)));
+		return (-1);
+	}
+
+	/*
+	 * change timestamp, be sure to not NUL-terminated it, but
+	 * to fill with spaces.
+	 */
+	snprintf(ar->hdr.ar_date, sizeof(ar->hdr.ar_date), "%jd",
+	    (intmax_t)ts);
+	memset(ar->hdr.ar_date + strlen(ar->hdr.ar_date),
+	    ' ', sizeof(ar->hdr.ar_date) - strlen(ar->hdr.ar_date));
+
+	if (fwrite(&ar->hdr, sizeof(ar->hdr), 1, ar->fp) != 1) {
+		ArchError(("%s: cannot touch: %s", ar->fname, strerror(errno)));
+		return (-1);
+	}
+	return (0);
 }
 
 /*-
  *-----------------------------------------------------------------------
- * ArchFindArchive --
- *	See if the given archive is the one we are looking for. Called
- *	From ArchStatMember and ArchFindMember via Lst_Find with the
- *	current list element and the name we want.
+ * ArchFindMember --
+ *	Locate a member of an archive, given the path of the archive and
+ *	the path of the desired member. If the archive is to be modified,
+ *	the mode should be "r+", if not, it should be "r".  The archive
+ *	file is returned positioned at the correct header.
  *
  * Results:
- *	0 if it is, non-zero if it isn't.
- *
- * Side Effects:
- *	None.
+ *	A struct arfile *, opened for reading and, possibly writing,
+ *	positioned at the member's header, or NULL if the member was
+ *	nonexistent.
  *
  *-----------------------------------------------------------------------
  */
-static int
-ArchFindArchive (void *ar, void *archName)
+static struct arfile *
+ArchFindMember(const char *archive, const char *member, const char *mode)
 {
-    return (strcmp ((char *) archName, ((Arch *) ar)->name));
+	struct arfile	*ar;
+	const char	*cp;	/* Useful character pointer */
+
+	if ((ar = ArchArchiveOpen(archive, mode)) == NULL)
+		return (NULL);
+
+	/*
+	 * Because of space constraints and similar things, files are archived
+	 * using their final path components, not the entire thing, so we need
+	 * to point 'member' to the final component, if there is one, to make
+	 * the comparisons easier...
+	 */
+	if (member != NULL) {
+		cp = strrchr(member, '/');
+		if (cp != NULL) {
+			member = cp + 1;
+		}
+	}
+
+	while (ArchArchiveNext(ar) > 0) {
+		/*
+		 * When comparing there are actually three cases:
+		 * (1) the name fits into the limit og af_name,
+		 * (2) the name is longer and the archive supports long names,
+		 * (3) the name is longer and the archive doesn't support long
+		 * names.
+		 * Because we don't know whether the archive supports long
+		 * names or not we need to be carefull.
+		 */
+		if (member == NULL) {
+			/* special case - symbol table */
+			if (ar->member[0] == '\0')
+				return (ar);
+		} else if (strlen(member) <= AR_NAMSIZ) {
+			/* case (1) */
+			if (strcmp(ar->member, member) == 0)
+				return (ar);
+		} else if (strcmp(ar->member, member) == 0) {
+			/* case (3) */
+			return (ar);
+		} else {
+			/* case (2) */
+			if (strlen(ar->member) == AR_NAMSIZ &&
+			    strncmp(member, ar->member, AR_NAMSIZ) == 0)
+				return (ar);
+		}
+	}
+
+	/* not found */
+	ArchArchiveClose(ar);
+	return (NULL);
 }
 
 /*-
@@ -456,437 +876,102 @@ ArchFindArchive (void *ar, void *archName)
  *
  *-----------------------------------------------------------------------
  */
-static struct ar_hdr *
-ArchStatMember (char *archive, char *member, Boolean hash)
+static int64_t
+ArchStatMember(const char *archive, const char *member, Boolean hash)
 {
-#define	AR_MAX_NAME_LEN	    (sizeof(arh.ar_name)-1)
-    FILE *	  arch;	      /* Stream to archive */
-    int		  size;       /* Size of archive member */
-    char	  *cp;	      /* Useful character pointer */
-    char	  magic[SARMAG];
-    LstNode	  ln;	      /* Lst member containing archive descriptor */
-    Arch	  *ar;	      /* Archive descriptor */
-    Hash_Entry	  *he;	      /* Entry containing member's description */
-    struct ar_hdr arh;        /* archive-member header for reading archive */
-    char	  memName[MAXPATHLEN+1];
-    	    	    	    /* Current member name while hashing. */
+	struct arfile	*arf;
+	int64_t		ret;
+	int		t;
+	char		*cp;	/* Useful character pointer */
+	Arch		*ar;	/* Archive descriptor */
+	Hash_Entry	*he;	/* Entry containing member's description */
+	char		copy[AR_NAMSIZ + 1];
 
-    /*
-     * Because of space constraints and similar things, files are archived
-     * using their final path components, not the entire thing, so we need
-     * to point 'member' to the final component, if there is one, to make
-     * the comparisons easier...
-     */
-    cp = strrchr (member, '/');
-    if ((cp != NULL) && (strcmp(member, RANLIBMAG) != 0))
-	member = cp + 1;
-
-    ln = Lst_Find (archives, (void *) archive, ArchFindArchive);
-    if (ln != NULL) {
-	ar = (Arch *) Lst_Datum (ln);
-
-	he = Hash_FindEntry (&ar->members, member);
-
-	if (he != NULL) {
-	    return ((struct ar_hdr *) Hash_GetValue (he));
-	} else {
-	    /* Try truncated name */
-	    char copy[AR_MAX_NAME_LEN+1];
-	    size_t len = strlen (member);
-
-	    if (len > AR_MAX_NAME_LEN) {
-		len = AR_MAX_NAME_LEN;
-		strncpy(copy, member, AR_MAX_NAME_LEN);
-		copy[AR_MAX_NAME_LEN] = '\0';
-	    }
-	    if ((he = Hash_FindEntry (&ar->members, copy)) != NULL)
-		return ((struct ar_hdr *) Hash_GetValue (he));
-	    return (NULL);
-	}
-    }
-
-    if (!hash) {
 	/*
-	 * Caller doesn't want the thing hashed, just use ArchFindMember
-	 * to read the header for the member out and close down the stream
-	 * again. Since the archive is not to be hashed, we assume there's
-	 * no need to allocate extra room for the header we're returning,
-	 * so just declare it static.
+	 * Because of space constraints and similar things, files are archived
+	 * using their final path components, not the entire thing, so we need
+	 * to point 'member' to the final component, if there is one, to make
+	 * the comparisons easier...
 	 */
-	 static struct ar_hdr	sarh;
-
-	 arch = ArchFindMember(archive, member, &sarh, "r");
-
-	if (arch == NULL) {
-	    return (NULL);
-	} else {
-	    fclose(arch);
-	    return (&sarh);
+	if (member != NULL) {
+		cp = strrchr(member, '/');
+		if (cp != NULL)
+			member = cp + 1;
 	}
-    }
 
-    /*
-     * We don't have this archive on the list yet, so we want to find out
-     * everything that's in it and cache it so we can get at it quickly.
-     */
-    arch = fopen (archive, "r");
-    if (arch == NULL) {
-	return (NULL);
-    }
+	TAILQ_FOREACH(ar, &archives, link) {
+		if (strcmp(archive, ar->name) == 0)
+			break;
+	}
+	if (ar == NULL) {
+		/* archive not found */
+		if (!hash) {
+			/*
+			 * Caller doesn't want the thing hashed, just use
+			 * ArchFindMember to read the header for the member
+			 * out and close down the stream again.
+			 */
+			arf = ArchFindMember(archive, member, "r");
+			if (arf == NULL) {
+				return (INT64_MIN);
+			}
+			ret = arf->time;
+			ArchArchiveClose(arf);
+			return (ret);
+		}
 
-    /*
-     * We use the ARMAG string to make sure this is an archive we
-     * can handle...
-     */
-    if ((fread (magic, SARMAG, 1, arch) != 1) ||
-    	(strncmp (magic, ARMAG, SARMAG) != 0)) {
-	    fclose (arch);
-	    return (NULL);
-    }
-
-    ar = (Arch *)emalloc (sizeof (Arch));
-    ar->name = estrdup (archive);
-    ar->fnametab = NULL;
-    ar->fnamesize = 0;
-    Hash_InitTable (&ar->members, -1);
-    memName[AR_MAX_NAME_LEN] = '\0';
-
-    while (fread ((char *)&arh, sizeof (struct ar_hdr), 1, arch) == 1) {
-	if (strncmp ( arh.ar_fmag, ARFMAG, sizeof (arh.ar_fmag)) != 0) {
-	    /*
-	     * The header is bogus, so the archive is bad
-	     * and there's no way we can recover...
-	     */
-	    goto badarch;
-	} else {
-	    /*
-	     * We need to advance the stream's pointer to the start of the
-	     * next header. Files are padded with newlines to an even-byte
-	     * boundary, so we need to extract the size of the file from the
-	     * 'size' field of the header and round it up during the seek.
-	     */
-	    arh.ar_size[sizeof(arh.ar_size)-1] = '\0';
-	    size = (int) strtol(arh.ar_size, NULL, 10);
-
-	    (void) strncpy (memName, arh.ar_name, sizeof(arh.ar_name));
-	    for (cp = &memName[AR_MAX_NAME_LEN]; *cp == ' '; cp--) {
-		continue;
-	    }
-	    cp[1] = '\0';
-
-#ifdef SVR4ARCHIVES
-	    /*
-	     * svr4 names are slash terminated. Also svr4 extended AR format.
-	     */
-	    if (memName[0] == '/') {
 		/*
-		 * svr4 magic mode; handle it
+		 * We don't have this archive on the list yet, so we want to
+		 * find out everything that's in it and cache it so we can get
+		 * at it quickly.
 		 */
-		switch (ArchSVR4Entry(ar, memName, size, arch)) {
-		case -1:  /* Invalid data */
-		    goto badarch;
-		case 0:	  /* List of files entry */
-		    continue;
-		default:  /* Got the entry */
-		    break;
+		arf = ArchArchiveOpen(archive, "r");
+		if (arf == NULL) {
+			return (INT64_MIN);
 		}
-	    }
-	    else {
-		if (cp[0] == '/')
-		    cp[0] = '\0';
-	    }
-#endif
 
-#ifdef AR_EFMT1
-	    /*
-	     * BSD 4.4 extended AR format: #1/<namelen>, with name as the
-	     * first <namelen> bytes of the file
-	     */
-	    if (strncmp(memName, AR_EFMT1, sizeof(AR_EFMT1) - 1) == 0 &&
-		isdigit(memName[sizeof(AR_EFMT1) - 1])) {
+		/* create archive data structure */
+		ar = emalloc(sizeof(*ar));
+		ar->name = estrdup(archive);
+		Hash_InitTable(&ar->members, -1);
 
-		unsigned int elen = atoi(&memName[sizeof(AR_EFMT1)-1]);
-
-		if (elen > MAXPATHLEN)
-			goto badarch;
-		if (fread (memName, elen, 1, arch) != 1)
-			goto badarch;
-		memName[elen] = '\0';
-		fseek (arch, -elen, SEEK_CUR);
-		/* XXX Multiple levels may be asked for, make this conditional
-		 * on one, and use DEBUGF.
-		 */
-		if (DEBUG(ARCH) || DEBUG(MAKE)) {
-		    fprintf(stderr, "ArchStat: Extended format entry for %s\n", memName);
+		while ((t = ArchArchiveNext(arf)) > 0) {
+			he = Hash_CreateEntry(&ar->members, arf->member, NULL);
+			Hash_SetValue(he, emalloc(sizeof(int64_t)));
+			*(int64_t *)Hash_GetValue(he) = arf->time;
 		}
-	    }
-#endif
 
-	    he = Hash_CreateEntry (&ar->members, memName, NULL);
-	    Hash_SetValue (he, (void *)emalloc (sizeof (struct ar_hdr)));
-	    memcpy (Hash_GetValue (he), &arh,
-		sizeof (struct ar_hdr));
-	}
-	fseek (arch, (size + 1) & ~1, SEEK_CUR);
-    }
+		ArchArchiveClose(arf);
 
-    fclose (arch);
+		if (t < 0) {
+			/* error happend - throw away everything */
+			Hash_DeleteTable(&ar->members);
+			free(ar->name);
+			free(ar);
+			return (INT64_MIN);
+		}
 
-    (void) Lst_AtEnd (archives, (void *) ar);
-
-    /*
-     * Now that the archive has been read and cached, we can look into
-     * the hash table to find the desired member's header.
-     */
-    he = Hash_FindEntry (&ar->members, member);
-
-    if (he != NULL) {
-	return ((struct ar_hdr *) Hash_GetValue (he));
-    } else {
-	return (NULL);
-    }
-
-badarch:
-    fclose (arch);
-    Hash_DeleteTable (&ar->members);
-    free(ar->fnametab);
-    free (ar);
-    return (NULL);
-}
-
-#ifdef SVR4ARCHIVES
-/*-
- *-----------------------------------------------------------------------
- * ArchSVR4Entry --
- *	Parse an SVR4 style entry that begins with a slash.
- *	If it is "//", then load the table of filenames
- *	If it is "/<offset>", then try to substitute the long file name
- *	from offset of a table previously read.
- *
- * Results:
- *	-1: Bad data in archive
- *	 0: A table was loaded from the file
- *	 1: Name was successfully substituted from table
- *	 2: Name was not successfully substituted from table
- *
- * Side Effects:
- *	If a table is read, the file pointer is moved to the next archive
- *	member
- *
- *-----------------------------------------------------------------------
- */
-static int
-ArchSVR4Entry(Arch *ar, char *name, size_t size, FILE *arch)
-{
-#define	ARLONGNAMES1 "//"
-#define	ARLONGNAMES2 "/ARFILENAMES"
-    size_t entry;
-    char *ptr, *eptr;
-
-    if (strncmp(name, ARLONGNAMES1, sizeof(ARLONGNAMES1) - 1) == 0 ||
-	strncmp(name, ARLONGNAMES2, sizeof(ARLONGNAMES2) - 1) == 0) {
-
-	if (ar->fnametab != NULL) {
-	    DEBUGF(ARCH, ("Attempted to redefine an SVR4 name table\n"));
-	    return -1;
+		TAILQ_INSERT_TAIL(&archives, ar, link);
 	}
 
 	/*
-	 * This is a table of archive names, so we build one for
-	 * ourselves
+	 * Now that the archive has been read and cached, we can look into
+	 * the hash table to find the desired member's header.
 	 */
-	ar->fnametab = emalloc(size);
-	ar->fnamesize = size;
+	he = Hash_FindEntry(&ar->members, member);
+	if (he != NULL)
+		return (*(int64_t *)Hash_GetValue (he));
 
-	if (fread(ar->fnametab, size, 1, arch) != 1) {
-	    DEBUGF(ARCH, ("Reading an SVR4 name table failed\n"));
-	    return -1;
+	if (member != NULL && strlen(member) > AR_NAMSIZ) {
+		/* Try truncated name */
+		strncpy(copy, member, AR_NAMSIZ);
+		copy[AR_NAMSIZ] = '\0';
+
+		if ((he = Hash_FindEntry(&ar->members, copy)) != NULL)
+			return (*(int64_t *)Hash_GetValue(he));
 	}
-	eptr = ar->fnametab + size;
-	for (entry = 0, ptr = ar->fnametab; ptr < eptr; ptr++)
-	    switch (*ptr) {
-	    case '/':
-		entry++;
-		*ptr = '\0';
-		break;
 
-	    case '\n':
-		break;
-
-	    default:
-		break;
-	    }
-	DEBUGF(ARCH, ("Found svr4 archive name table with %zu entries\n", entry));
-	return 0;
-    }
-
-    if (name[1] == ' ' || name[1] == '\0')
-	return 2;
-
-    entry = (size_t) strtol(&name[1], &eptr, 0);
-    if ((*eptr != ' ' && *eptr != '\0') || eptr == &name[1]) {
-	DEBUGF(ARCH, ("Could not parse SVR4 name %s\n", name));
-	return 2;
-    }
-    if (entry >= ar->fnamesize) {
-	DEBUGF(ARCH, ("SVR4 entry offset %s is greater than %zu\n",
-	       name, ar->fnamesize));
-	return 2;
-    }
-
-    DEBUGF(ARCH, ("Replaced %s with %s\n", name, &ar->fnametab[entry]));
-
-    (void) strncpy(name, &ar->fnametab[entry], MAXPATHLEN);
-    name[MAXPATHLEN] = '\0';
-    return 1;
-}
-#endif
-
-
-/*-
- *-----------------------------------------------------------------------
- * ArchFindMember --
- *	Locate a member of an archive, given the path of the archive and
- *	the path of the desired member. If the archive is to be modified,
- *	the mode should be "r+", if not, it should be "r".  arhPtr is a
- *	poitner to the header structure to fill in.
- *
- * Results:
- *	An FILE *, opened for reading and writing, positioned at the
- *	start of the member's struct ar_hdr, or NULL if the member was
- *	nonexistent. The current struct ar_hdr for member.
- *
- * Side Effects:
- *	The passed struct ar_hdr structure is filled in.
- *
- *-----------------------------------------------------------------------
- */
-static FILE *
-ArchFindMember (char *archive, char *member, struct ar_hdr *arhPtr, char *mode)
-{
-    FILE *	  arch;	      /* Stream to archive */
-    int		  size;       /* Size of archive member */
-    char	  *cp;	      /* Useful character pointer */
-    char	  magic[SARMAG];
-    size_t	  len, tlen;
-
-    arch = fopen (archive, mode);
-    if (arch == NULL) {
-	return (NULL);
-    }
-
-    /*
-     * We use the ARMAG string to make sure this is an archive we
-     * can handle...
-     */
-    if ((fread (magic, SARMAG, 1, arch) != 1) ||
-    	(strncmp (magic, ARMAG, SARMAG) != 0)) {
-	    fclose (arch);
-	    return (NULL);
-    }
-
-    /*
-     * Because of space constraints and similar things, files are archived
-     * using their final path components, not the entire thing, so we need
-     * to point 'member' to the final component, if there is one, to make
-     * the comparisons easier...
-     */
-    cp = strrchr (member, '/');
-    if ((cp != NULL) && (strcmp(member, RANLIBMAG) != 0)) {
-	member = cp + 1;
-    }
-    len = tlen = strlen (member);
-    if (len > sizeof (arhPtr->ar_name)) {
-	tlen = sizeof (arhPtr->ar_name);
-    }
-
-    while (fread ((char *)arhPtr, sizeof (struct ar_hdr), 1, arch) == 1) {
-	if (strncmp(arhPtr->ar_fmag, ARFMAG, sizeof (arhPtr->ar_fmag) ) != 0) {
-	     /*
-	      * The header is bogus, so the archive is bad
-	      * and there's no way we can recover...
-	      */
-	     fclose (arch);
-	     return (NULL);
-	} else if (strncmp (member, arhPtr->ar_name, tlen) == 0) {
-	    /*
-	     * If the member's name doesn't take up the entire 'name' field,
-	     * we have to be careful of matching prefixes. Names are space-
-	     * padded to the right, so if the character in 'name' at the end
-	     * of the matched string is anything but a space, this isn't the
-	     * member we sought.
-	     */
-	    if (tlen != sizeof(arhPtr->ar_name) && arhPtr->ar_name[tlen] != ' '){
-		goto skip;
-	    } else {
-		/*
-		 * To make life easier, we reposition the file at the start
-		 * of the header we just read before we return the stream.
-		 * In a more general situation, it might be better to leave
-		 * the file at the actual member, rather than its header, but
-		 * not here...
-		 */
-		fseek (arch, -sizeof(struct ar_hdr), SEEK_CUR);
-		return (arch);
-	    }
-	} else
-#ifdef AR_EFMT1
-		/*
-		 * BSD 4.4 extended AR format: #1/<namelen>, with name as the
-		 * first <namelen> bytes of the file
-		 */
-	    if (strncmp(arhPtr->ar_name, AR_EFMT1,
-					sizeof(AR_EFMT1) - 1) == 0 &&
-		isdigit(arhPtr->ar_name[sizeof(AR_EFMT1) - 1])) {
-
-		unsigned int elen = atoi(&arhPtr->ar_name[sizeof(AR_EFMT1)-1]);
-		char ename[MAXPATHLEN];
-
-		if (elen > MAXPATHLEN) {
-			fclose (arch);
-			return NULL;
-		}
-		if (fread (ename, elen, 1, arch) != 1) {
-			fclose (arch);
-			return NULL;
-		}
-		ename[elen] = '\0';
-		/*
-		 * XXX choose one.
-		 */
-		if (DEBUG(ARCH) || DEBUG(MAKE)) {
-		    printf("ArchFind: Extended format entry for %s\n", ename);
-		}
-		if (strncmp(ename, member, len) == 0) {
-			/* Found as extended name */
-			fseek (arch, -sizeof(struct ar_hdr) - elen, SEEK_CUR);
-			return (arch);
-		}
-		fseek (arch, -elen, SEEK_CUR);
-		goto skip;
-	} else
-#endif
-	{
-skip:
-	    /*
-	     * This isn't the member we're after, so we need to advance the
-	     * stream's pointer to the start of the next header. Files are
-	     * padded with newlines to an even-byte boundary, so we need to
-	     * extract the size of the file from the 'size' field of the
-	     * header and round it up during the seek.
-	     */
-	    arhPtr->ar_size[sizeof(arhPtr->ar_size)-1] = '\0';
-	    size = (int) strtol(arhPtr->ar_size, NULL, 10);
-	    fseek (arch, (size + 1) & ~1, SEEK_CUR);
-	}
-    }
-
-    /*
-     * We've looked everywhere, but the member is not to be found. Close the
-     * archive and return NULL -- an error.
-     */
-    fclose (arch);
-    return (NULL);
+	return (INT64_MIN);
 }
 
 /*-
@@ -905,23 +990,17 @@ skip:
  *-----------------------------------------------------------------------
  */
 void
-Arch_Touch (GNode *gn)
+Arch_Touch(GNode *gn)
 {
-    FILE *	  arch;	  /* Stream open to archive, positioned properly */
-    struct ar_hdr arh;	  /* Current header describing member */
-    char *p1, *p2;
+	struct arfile	*ar;
 
-    arch = ArchFindMember(Var_Value (ARCHIVE, gn, &p1),
-			  Var_Value (TARGET, gn, &p2),
-			  &arh, "r+");
-    free(p1);
-    free(p2);
-    snprintf(arh.ar_date, sizeof(arh.ar_date), "%-12ld", (long) now);
+	ar = ArchFindMember(Var_Value(ARCHIVE, gn),
+	    Var_Value(TARGET, gn), "r+");
 
-    if (arch != NULL) {
-	(void)fwrite ((char *)&arh, sizeof (struct ar_hdr), 1, arch);
-	fclose (arch);
-    }
+	if (ar != NULL) {
+		ArchArchiveTouch(ar, (int64_t)now);
+		ArchArchiveClose(ar);
+	}
 }
 
 /*-
@@ -940,24 +1019,19 @@ Arch_Touch (GNode *gn)
  *-----------------------------------------------------------------------
  */
 void
-Arch_TouchLib (GNode *gn)
+Arch_TouchLib(GNode *gn)
 {
-#ifdef RANLIBMAG
-    FILE *	    arch;	/* Stream open to archive */
-    struct ar_hdr   arh;      	/* Header describing table of contents */
-    struct utimbuf  times;	/* Times for utime() call */
+	struct arfile	*ar;	/* Open archive */
+	struct utimbuf	times;	/* Times for utime() call */
 
-    arch = ArchFindMember (gn->path, RANLIBMAG, &arh, "r+");
-    snprintf(arh.ar_date, sizeof(arh.ar_date), "%-12ld", (long) now);
+	ar = ArchFindMember(gn->path, NULL, "r+");
+	if (ar != NULL) {
+		ArchArchiveTouch(ar, (int64_t)now);
+		ArchArchiveClose(ar);
 
-    if (arch != NULL) {
-	(void)fwrite ((char *)&arh, sizeof (struct ar_hdr), 1, arch);
-	fclose (arch);
-
-	times.actime = times.modtime = now;
-	utime(gn->path, &times);
-    }
-#endif
+		times.actime = times.modtime = now;
+		utime(gn->path, &times);
+	}
 }
 
 /*-
@@ -967,7 +1041,8 @@ Arch_TouchLib (GNode *gn)
  *	name.
  *
  * Results:
- *	The modification time (seconds).
+ *	The modification time(seconds).
+ *	XXXHB this should be a long.
  *
  * Side Effects:
  *	The mtime field of the given node is filled in with the value
@@ -978,24 +1053,16 @@ Arch_TouchLib (GNode *gn)
 int
 Arch_MTime(GNode *gn)
 {
-    struct ar_hdr *arhPtr;    /* Header of desired member */
-    int		  modTime;    /* Modification time as an integer */
-    char *p1, *p2;
+	int64_t	mtime;
 
-    arhPtr = ArchStatMember (Var_Value (ARCHIVE, gn, &p1),
-			     Var_Value (TARGET, gn, &p2),
-			     TRUE);
-    free(p1);
-    free(p2);
+	mtime = ArchStatMember(Var_Value(ARCHIVE, gn),
+	    Var_Value(TARGET, gn), TRUE);
 
-    if (arhPtr != NULL) {
-	modTime = (int) strtol(arhPtr->ar_date, NULL, 10);
-    } else {
-	modTime = 0;
-    }
-
-    gn->mtime = modTime;
-    return (modTime);
+	if (mtime == INT_MIN) {
+		mtime = 0;
+	}
+	gn->mtime = (int)mtime;			/* XXX */
+	return (gn->mtime);
 }
 
 /*-
@@ -1013,48 +1080,42 @@ Arch_MTime(GNode *gn)
  *-----------------------------------------------------------------------
  */
 int
-Arch_MemMTime (GNode *gn)
+Arch_MemMTime(GNode *gn)
 {
-    LstNode 	  ln;
-    GNode   	  *pgn;
-    char    	  *nameStart,
-		  *nameEnd;
+	LstNode	*ln;
+	GNode	*pgn;
+	char	*nameStart;
+	char	*nameEnd;
 
-    if (Lst_Open (gn->parents) != SUCCESS) {
-	gn->mtime = 0;
-	return (0);
-    }
-    while ((ln = Lst_Next (gn->parents)) != NULL) {
-	pgn = (GNode *) Lst_Datum (ln);
+	for (ln = Lst_First(&gn->parents); ln != NULL; ln = Lst_Succ(ln)) {
+		pgn = Lst_Datum(ln);
 
-	if (pgn->type & OP_ARCHV) {
-	    /*
-	     * If the parent is an archive specification and is being made
-	     * and its member's name matches the name of the node we were
-	     * given, record the modification time of the parent in the
-	     * child. We keep searching its parents in case some other
-	     * parent requires this child to exist...
-	     */
-	    nameStart = strchr (pgn->name, '(') + 1;
-	    nameEnd = strchr (nameStart, ')');
+		if (pgn->type & OP_ARCHV) {
+			/*
+			 * If the parent is an archive specification and is
+			 * being made and its member's name matches the name of
+			 * the node we were given, record the modification time
+			 * of the parent in the child. We keep searching its
+			 * parents in case some other parent requires this
+			 * child to exist...
+			 */
+			nameStart = strchr(pgn->name, '(') + 1;
+			nameEnd = strchr(nameStart, ')');
 
-	    if (pgn->make &&
-		strncmp(nameStart, gn->name, nameEnd - nameStart) == 0) {
-				     gn->mtime = Arch_MTime(pgn);
-	    }
-	} else if (pgn->make) {
-	    /*
-	     * Something which isn't a library depends on the existence of
-	     * this target, so it needs to exist.
-	     */
-	    gn->mtime = 0;
-	    break;
+			if (pgn->make && strncmp(nameStart, gn->name,
+			    nameEnd - nameStart) == 0) {
+				gn->mtime = Arch_MTime(pgn);
+			}
+		} else if (pgn->make) {
+			/*
+			 * Something which isn't a library depends on the
+			 * existence of this target, so it needs to exist.
+			 */
+			gn->mtime = 0;
+			break;
+		}
 	}
-    }
-
-    Lst_Close (gn->parents);
-
-    return (gn->mtime);
+	return (gn->mtime);
 }
 
 /*-
@@ -1078,23 +1139,23 @@ Arch_MemMTime (GNode *gn)
  *-----------------------------------------------------------------------
  */
 void
-Arch_FindLib (GNode *gn, Lst path)
+Arch_FindLib(GNode *gn, struct Path *path)
 {
-    char	    *libName;   /* file name for archive */
-    size_t	    sz;
+	char	*libName;	/* file name for archive */
+	size_t	sz;
 
-    sz = strlen(gn->name) + 4;
-    libName = (char *)emalloc(sz);
-    snprintf(libName, sz, "lib%s.a", &gn->name[2]);
+	sz = strlen(gn->name) + 4;
+	libName = emalloc(sz);
+	snprintf(libName, sz, "lib%s.a", &gn->name[2]);
 
-    gn->path = Dir_FindFile (libName, path);
+	gn->path = Path_FindFile(libName, path);
 
-    free (libName);
+	free(libName);
 
 #ifdef LIBRARIES
-    Var_Set (TARGET, gn->name, gn);
+	Var_Set(TARGET, gn->name, gn);
 #else
-    Var_Set (TARGET, gn->path == NULL ? gn->name : gn->path, gn);
+	Var_Set(TARGET, gn->path == NULL ? gn->name : gn->path, gn);
 #endif /* LIBRARIES */
 }
 
@@ -1114,13 +1175,13 @@ Arch_FindLib (GNode *gn, Lst path)
  *	A library will be considered out-of-date for any of these reasons,
  *	given that it is a target on a dependency line somewhere:
  *	    Its modification time is less than that of one of its
- *	    	  sources (gn->mtime < gn->cmtime).
+ *		  sources (gn->mtime < gn->cmtime).
  *	    Its modification time is greater than the time at which the
- *	    	  make began (i.e. it's been modified in the course
- *	    	  of the make, probably by archiving).
+ *		  make began (i.e. it's been modified in the course
+ *		  of the make, probably by archiving).
  *	    The modification time of one of its sources is greater than
  *		  the one of its RANLIBMAG member (i.e. its table of contents
- *	    	  is out-of-date). We don't compare of the archive time
+ *		  is out-of-date). We don't compare of the archive time
  *		  vs. TOC time because they can be too close. In my
  *		  opinion we should not bother with the TOC at all since
  *		  this is used by 'ar' rules that affect the data contents
@@ -1136,81 +1197,31 @@ Arch_FindLib (GNode *gn, Lst path)
  *-----------------------------------------------------------------------
  */
 Boolean
-Arch_LibOODate (GNode *gn)
+Arch_LibOODate(GNode *gn)
 {
-    Boolean 	  oodate;
+	int64_t	mtime;	/* The table-of-contents's mod time */
 
-    if (OP_NOP(gn->type) && Lst_IsEmpty(gn->children)) {
-	oodate = FALSE;
-    } else if ((gn->mtime > now) || (gn->mtime < gn->cmtime)) {
-	oodate = TRUE;
-    } else {
-#ifdef RANLIBMAG
-	struct ar_hdr  	*arhPtr;    /* Header for __.SYMDEF */
-	int 	  	modTimeTOC; /* The table-of-contents's mod time */
-
-	arhPtr = ArchStatMember (gn->path, RANLIBMAG, FALSE);
-
-	if (arhPtr != NULL) {
-	    modTimeTOC = (int) strtol(arhPtr->ar_date, NULL, 10);
-
-	    /* XXX choose one. */
-	    if (DEBUG(ARCH) || DEBUG(MAKE)) {
-		printf("%s modified %s...", RANLIBMAG, Targ_FmtTime(modTimeTOC));
-	    }
-	    oodate = (gn->cmtime > modTimeTOC);
-	} else {
-	    /*
-	     * A library w/o a table of contents is out-of-date
-	     */
-	    if (DEBUG(ARCH) || DEBUG(MAKE)) {
-		printf("No t.o.c....");
-	    }
-	    oodate = TRUE;
+	if (OP_NOP(gn->type) && Lst_IsEmpty(&gn->children)) {
+		return (FALSE);
 	}
-#else
-	oodate = (gn->mtime == 0); /* out-of-date if not present */
-#endif
-    }
-    return (oodate);
-}
+	if (gn->mtime > now || gn->mtime < gn->cmtime) {
+		return (TRUE);
+	}
 
-/*-
- *-----------------------------------------------------------------------
- * Arch_Init --
- *	Initialize things for this module.
- *
- * Results:
- *	None.
- *
- * Side Effects:
- *	The 'archives' list is initialized.
- *
- *-----------------------------------------------------------------------
- */
-void
-Arch_Init (void)
-{
-    archives = Lst_Init (FALSE);
-}
+	mtime = ArchStatMember(gn->path, NULL, FALSE);
+	if (mtime == INT64_MIN) {
+		/*
+		 * Not found. A library w/o a table of contents is out-of-date
+		 */
+		if (DEBUG(ARCH) || DEBUG(MAKE)) {
+			Debug("No TOC...");
+		}
+		return (TRUE);
+	}
 
-
-
-/*-
- *-----------------------------------------------------------------------
- * Arch_End --
- *	Cleanup things for this module.
- *
- * Results:
- *	None.
- *
- * Side Effects:
- *	The 'archives' list is freed
- *
- *-----------------------------------------------------------------------
- */
-void
-Arch_End (void)
-{
-    Lst_Destroy(archives, ArchFree);
+	/* XXX choose one. */
+	if (DEBUG(ARCH) || DEBUG(MAKE)) {
+		Debug("TOC modified %s...", Targ_FmtTime(mtime));
+	}
+	return (gn->cmtime > mtime);
 }

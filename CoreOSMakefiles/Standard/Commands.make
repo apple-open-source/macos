@@ -46,6 +46,7 @@ ZCAT       = $(GZCAT)
 # Compilers and Binary Tools
 ##
 AR      = /usr/bin/ar
+ARSH    = $(MAKEFILEPATH)/bin/ar.sh
 BISON   = /usr/bin/bison
 BSDMAKE = /usr/bin/bsdmake
 CC      = /usr/bin/cc
@@ -117,6 +118,7 @@ PACKAGE   = /usr/bin/package
 # Miscellaneous
 ##
 ARCH        = /usr/bin/arch
+COMPRESSMANPAGES = $(MAKEFILEPATH)/bin/compress-man-pages.pl -d $(DSTROOT)
 FALSE       = /usr/bin/false
 PWD         = /bin/pwd
 SLEEP       = /bin/sleep

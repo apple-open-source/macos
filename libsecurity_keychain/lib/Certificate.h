@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,11 +70,12 @@ public:
     CSSM_CERT_TYPE type();
 	CSSM_CERT_ENCODING encoding();
 	CFStringRef commonName();
+	CFStringRef distinguishedName(const CSSM_OID *sourceOid, const CSSM_OID *componentOid);
 	CFStringRef copyFirstEmailAddress();
 	CFArrayRef copyEmailAddresses();
-    void getSubject(CSSM_X509_NAME &outSubject);
-    void getIssuer(CSSM_X509_NAME &outName);
-	const CSSM_X509_ALGORITHM_IDENTIFIER *algorithmID();
+    const CSSM_X509_NAME_PTR subjectName();
+    const CSSM_X509_NAME_PTR issuerName();
+	const CSSM_X509_ALGORITHM_IDENTIFIER_PTR algorithmID();
    	CSSM_CL_HANDLE clHandle();
 	void inferLabel(bool addLabel, CFStringRef *rtnString = NULL);
 	SecPointer<KeyItem> publicKey();
@@ -101,6 +102,7 @@ public:
 
 	CSSM_DATA_PTR *copyFieldValues(const CSSM_OID &field);
 	void releaseFieldValues(const CSSM_OID &field, CSSM_DATA_PTR *fieldValues);
+	Boolean isSelfSigned();
 
 protected:
 	virtual void willRead();
@@ -122,6 +124,8 @@ private:
 	CssmData mPublicKeyHash;
 	uint8 mPublicKeyHashBytes[20];
 	CSSM_DATA_PTR mV1SubjectPublicKeyCStructValue; // Hack to prevent algorithmID() from leaking.
+    CSSM_DATA_PTR mV1SubjectNameCStructValue;
+    CSSM_DATA_PTR mV1IssuerNameCStructValue;
 };
 
 } // end namespace KeychainCore

@@ -1,6 +1,6 @@
 /* netconn.c -- is a particular file descriptor a network connection?. */
 
-/* Copyright (C) 2002 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2005 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -22,7 +22,7 @@
 #include <config.h>
 
 #include <bashtypes.h>
-#ifndef _MINIX
+#if ! defined(_MINIX) && defined (HAVE_SYS_FILE_H)
 #  include <sys/file.h>
 #endif
 #include <posixstat.h>
@@ -52,8 +52,8 @@ isnetconn (fd)
 
   l = sizeof(sa);
   rv = getpeername(fd, &sa, &l);
-  /* Solaris 2.5 getpeername() returns EINVAL if the fd is not a socket. */
-  return ((rv < 0 && (errno == ENOTSOCK || errno == EINVAL)) ? 0 : 1);
+  /* Posix.2 says getpeername can return these errors. */
+  return ((rv < 0 && (errno == ENOTSOCK || errno == ENOTCONN || errno == EINVAL)) ? 0 : 1);
 #else /* !HAVE_GETPEERNAME || SVR4_2 || __BEOS__ */
 #  if defined (SVR4) || defined (SVR4_2)
   /* Sockets on SVR4 and SVR4.2 are character special (streams) devices. */

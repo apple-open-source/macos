@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rui Hirokawa <rui_hirokawa@ybb.ne.jp>                       |
-   |          Stig Bakken <ssb@fast.no>                                   |
+   |          Stig Bakken <ssb@php.net>                                   |
    +----------------------------------------------------------------------+
  */
 
-/* $Revision: 1.12.2.8.2.2 $ */
+/* $Revision: 1.28.2.2.2.1 $ */
 
 #ifndef PHP_ICONV_H
 #define PHP_ICONV_H
@@ -27,7 +27,7 @@
 #define PHP_ICONV_API __declspec(dllexport)
 #else
 #define PHP_ICONV_API __declspec(dllimport)
-#endif
+#endif 
 #else
 #define PHP_ICONV_API
 #endif
@@ -55,6 +55,13 @@ PHP_NAMED_FUNCTION(php_if_iconv);
 PHP_FUNCTION(ob_iconv_handler);
 PHP_FUNCTION(iconv_get_encoding);
 PHP_FUNCTION(iconv_set_encoding);
+PHP_FUNCTION(iconv_strlen);
+PHP_FUNCTION(iconv_substr);
+PHP_FUNCTION(iconv_strpos);
+PHP_FUNCTION(iconv_strrpos);
+PHP_FUNCTION(iconv_mime_encode);
+PHP_FUNCTION(iconv_mime_decode);
+PHP_FUNCTION(iconv_mime_decode_headers);
 
 ZEND_BEGIN_MODULE_GLOBALS(iconv)
 	char *input_encoding;
@@ -80,11 +87,13 @@ typedef enum _php_iconv_err_t {
 	PHP_ICONV_ERR_TOO_BIG           = 3,
 	PHP_ICONV_ERR_ILLEGAL_SEQ       = 4,
 	PHP_ICONV_ERR_ILLEGAL_CHAR      = 5,
-	PHP_ICONV_ERR_UNKNOWN           = 6
+	PHP_ICONV_ERR_UNKNOWN           = 6,
+	PHP_ICONV_ERR_MALFORMED         = 7,
+	PHP_ICONV_ERR_ALLOC             = 8
 } php_iconv_err_t;
 /* }}} */
 
-PHP_ICONV_API php_iconv_err_t php_iconv_string(const char * in_p, size_t in_len, char **out, size_t *out_len, const char *in_charset, const char *out_charset);
+PHP_ICONV_API php_iconv_err_t php_iconv_string(const char * in_p, size_t in_len, char **out, size_t *out_len, const char *out_charset, const char *in_charset);
 
 #else
 

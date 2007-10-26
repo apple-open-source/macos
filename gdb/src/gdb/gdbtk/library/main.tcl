@@ -1,5 +1,5 @@
 # GDBtk (Insight) entry point
-# Copyright 1997, 1998, 1999, 2002, 2003 Red Hat, Inc.
+# Copyright 1997, 1998, 1999, 2002, 2003, 2004 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -179,6 +179,13 @@ update
 
 # Uncomment the next line if you want a splash screen at startup...
 # ManagedWin::open About -transient -expire 5000
+
+# initialize IPC to enable multiple Insight's to communicate
+# with each other.
+set iipc 0
+if {[pref get gdb/ipc/enabled]} {
+  set ::insight_ipc [Iipc \#auto]
+}
 
 gdbtk_idle
 

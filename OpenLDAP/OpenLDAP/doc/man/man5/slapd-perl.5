@@ -1,9 +1,9 @@
 .TH SLAPD-PERL 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-perl.5,v 1.5 2002/06/13 01:59:25 kurt Exp $
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-perl.5,v 1.5.4.2 2005/07/10 04:36:40 kurt Exp $
 .SH NAME
 slapd-perl \- Perl backend to slapd
 .SH SYNOPSIS
-/etc/openldap/slapd.conf
+ETCDIR/slapd.conf
 .SH DESCRIPTION
 The Perl backend to
 .BR slapd (8)
@@ -58,7 +58,7 @@ It arguments are as follows:
   * object reference
   * base DN
   * scope
-  * alias deferencing policy
+  * alias dereferencing policy
   * size limit
   * time limit
   * filter string
@@ -161,13 +161,27 @@ filter in the search request), rather than search results to be
 returned directly to the client.
 .SH EXAMPLE
 There is an example Perl module `SampleLDAP' in the slapd/back-perl/
-direcetory in the OpenLDAP source tree.
+directory in the OpenLDAP source tree.
+.SH ACCESS CONTROL
+The
+.B passwd
+backend does not honor any of the access control semantics described in
+.BR slapd.access (5);
+all access control is delegated to the underlying PERL scripting.
+Only
+.B read (=r)
+access to the
+.B entry
+pseudo-attribute and to the other attribute values of the entries
+returned by the
+.B search
+operation is honored, which is performed by the frontend.
 .SH WARNING
 The interface of this backend to the perl module MAY change.
 Any suggestions would greatly be appreciated.
 .SH FILES
 .TP
-/etc/openldap/slapd.conf
+ETCDIR/slapd.conf
 default slapd configuration file
 .SH SEE ALSO
 .BR slapd.conf (5),

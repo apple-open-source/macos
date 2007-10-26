@@ -1,4 +1,4 @@
-/* $Header: /cvs/root/tcsh/tcsh/tc.os.c,v 1.1.1.3 2003/01/17 03:41:18 nicolai Exp $ */
+/* $Header: /src/pub/tcsh/tc.os.c,v 3.58 2005/01/18 20:24:51 christos Exp $ */
 /*
  * tc.os.c: OS Dependent builtin functions
  */
@@ -32,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tc.os.c,v 1.1.1.3 2003/01/17 03:41:18 nicolai Exp $")
+RCSID("$Id: tc.os.c,v 3.58 2005/01/18 20:24:51 christos Exp $")
 
 #include "tw.h"
 #include "ed.h"
@@ -362,7 +362,7 @@ dosetspath(v, c)
     dont_free = 1;
     for (i = 0, v++; *v && *v[0] != '\0'; v++, i++) {
 	s = short2str(*v);
-	if (Isdigit(*s))
+	if (isdigit(*s))
 	    p[i] = atoi(s);
 	else if (strcmp(s, "LOCAL") == 0)
 	    p[i] = NULLSITE;
@@ -583,7 +583,7 @@ dodmmode(v, c)
 
 static jmp_buf sigsys_buf;
 
-static  sigret_t
+static RETSIGTYPE
 catch_sigsys()
 {
     longjmp(sigsys_buf, 1);
@@ -653,14 +653,14 @@ dowarp(v, c)
 /*ARGSUSED*/
 void
 douniverse(v, c)
-    register Char **v;
+    Char **v;
     struct command *c;
 {
-    register Char *cp = v[1];
-    register Char *cp2;		/* dunno how many elements v comes in with */
+    Char *cp = v[1];
+    Char *cp2;		/* dunno how many elements v comes in with */
     char    ubuf[100];
 #ifdef BSDSIGS
-    register sigmask_t omask = 0;
+    sigmask_t omask = 0;
 #endif /* BSDSIGS */
 
     if (cp == 0) {
@@ -697,17 +697,225 @@ douniverse(v, c)
 }
 #endif /* masscomp || _CX_UX */
 
+/***
+ *** BS2000/OSD POSIX (Fujitsu Siemens Computers)
+ ***/
+#if defined(_OSD_POSIX)
+static int
+bs2upcase(char *str)
+{
+    enum { outside = ' ', singlequote='\'', doublequote='"'} string = outside;
+
+    char *white;
+
+    for (white = str + strlen(str) - 1; isspace(*white) && white > str; --white)
+        *white = '\0';
+
+    for (; *str != '\0'; ++str)
+    {
+        if (string == outside)
+        {
+            *str = toupper (*str);
+        }
+        if (*str == '\'')
+        {
+            if (string == outside)
+                string = singlequote;
+            else if (string != doublequote)
+                string = outside;
+        }
+        else if (*str == '"')
+        {
+            if (string == outside)
+                string = doublequote;
+            else if (string != singlequote)
+                string = outside;
+        }
+    }
+    if (string != outside)
+    {
+        stderror(ERR_NAME | ERR_UNMATCHED, (Char) string);
+        return 1;
+    }
+    return 0;
+}
+static int
+bs2cmdlist(char *str)
+{
+    char *str_beg = NULL;
+    int ret = 0;
+
+    enum { outside = ' ', singlequote='\'', doublequote='"'} string = outside;
+
+    while (*str != '\0')
+    {
+        while (isspace(*str))
+            ++str;
+
+        if (*str == '\0')
+            break;
+
+        str_beg = str;
+        
+        for (; *str != '\0'; ++str)
+        {
+            if (string == outside && *str == ';') /* End of command */
+            {
+                *str++ = '\0';
+                break;    /* continue with next command */
+            }
+            if (*str == '\'')
+            {
+                if (string == outside)
+                    string = singlequote;
+                else if (string != doublequote)
+                    string = outside;
+            }
+            else if (*str == '"')
+            {
+                if (string == outside)
+                    string = doublequote;
+                else if (string != singlequote)
+                    string = outside;
+            }
+        }
+        if (strlen(str_beg) != 0)
+        {
+            ret = bs2system(str_beg);
+	    flush();
+            if (ret != 0 /*&& !option.err_ignore*/)
+                break; /* do not continue after errors */
+        }
+    }
+
+    if (string != outside)
+    {
+        stderror(ERR_NAME | ERR_UNMATCHED, (Char) string);
+        return -1;
+    }
+
+    return ret;
+}
+/*ARGSUSED*/
+void
+dobs2cmd(v, c)
+    Char **v;
+    struct command *c;
+{
+    Char *cp;
+    int  i = 0, len = 0;
+    char *cmd = NULL;
+    int     pvec[2];
+    struct command faket;
+    Char   *fakecom[2];
+    char    tibuf[BUFSIZE];
+    int     icnt;
+    static const Char STRbs2cmd[] = { 'b','s','2','c','m','d','\0' };
+
+    if (setintr)
+#ifdef BSDSIGS
+	(void) sigsetmask(sigblock((sigmask_t) 0) & ~sigmask(SIGINT));
+#else /* !BSDSIGS */
+	(void) sigrelse (SIGINT);
+#endif /* BSDSIGS */
+    v++;
+    gflag = 0, tglob(v);
+    if (gflag) {
+	v = globall(v);
+	if (v == 0)
+	    stderror(ERR_NAME | ERR_NOMATCH);
+    }
+    else {
+	v = gargv = saveblk(v);
+	trim(v);
+    }
+
+    /* First round: count the string lengths */
+    for (i=0; v[i]; ++i) {
+	len += s_strlen(v[i]) + (v[i+1] != NULL);
+    }
+
+    cmd = xmalloc(len+1); /* 1 for the final '\0' */
+
+    /* 2nd round: fill cmd buffer */
+    i = 0;
+    while ((cp = *v++) != 0) {
+	int c;
+	while (c = *cp++)
+	    cmd[i++] = (char)c;
+        if (*v)
+	    cmd[i++] = ' ';
+    }
+    cmd[i] = '\0';
+
+    /* Make upper case */
+    bs2upcase(cmd);
+
+    faket.t_dtyp = NODE_COMMAND;
+    faket.t_dflg = F_BACKQ|F_STDERR;
+    faket.t_dlef = 0;
+    faket.t_drit = 0;
+    faket.t_dspr = 0;
+    faket.t_dcom = fakecom;
+    fakecom[0] = STRbs2cmd;
+    fakecom[1] = 0;
+
+    mypipe(pvec);
+    if (pfork(&faket, -1) == 0) {
+        /* child */
+        (void) close(pvec[0]);
+        (void) dmove(pvec[1], 1);
+        (void) dmove(SHDIAG,  2);
+        initdesc();
+/*        closem();*/
+#ifdef SIGTSTP
+        (void) sigignore(SIGTSTP);
+#endif
+#ifdef SIGTTIN
+        (void) sigignore(SIGTTIN);
+#endif
+#ifdef SIGTTOU
+        (void) sigignore(SIGTTOU);
+#endif
+        xexit(bs2cmdlist(cmd));
+    }
+    (void) close(pvec[1]);
+    for(;;) {
+        do
+            icnt = read(pvec[0], tibuf, BUFSIZE);
+        while (icnt == -1 && errno == EINTR);
+        if (icnt <= 0)
+            break;
+        for (i = 0; i < icnt; i++)
+            xputchar((unsigned char) tibuf[i]);
+    }
+    (void) close(pvec[0]);
+    pwait();
+
+    flush();
+
+    if (setintr)
+#ifdef BSDSIGS
+	(void) sigblock(sigmask(SIGINT));
+#else /* !BSDSIGS */
+	(void) sighold(SIGINT);
+#endif /* BSDSIGS */
+    if (gargv)
+	blkfree(gargv), gargv = 0;
+}
+#endif /* _OSD_POSIX */
+
 #if defined(_CX_UX)
 /*ARGSUSED*/
 void
 doatt(v, c)
-    register Char **v;
+    Char **v;
     struct command *c;
 {
-    register Char *cp = v[1];
+    Char *cp = v[1];
     char    ubuf[100];
 #ifdef BSDSIGS
-    register sigmask_t omask = 0;
+    sigmask_t omask = 0;
 #endif /* BSDSIGS */
 
     if (cp == 0)
@@ -736,13 +944,13 @@ doatt(v, c)
 /*ARGSUSED*/
 void
 doucb(v, c)
-    register Char **v;
+    Char **v;
     struct command *c;
 {
-    register Char *cp = v[1];
+    Char *cp = v[1];
     char    ubuf[100];
 #ifdef BSDSIGS
-    register sigmask_t omask = 0;
+    sigmask_t omask = 0;
 #endif /* BSDSIGS */
 
     if (cp == 0)
@@ -812,7 +1020,7 @@ pr_stat_sub(p2, p1, pr)
 #endif /* _SEQUENT_ */
 
 
-#ifdef NEEDmemset
+#ifndef HAVE_MEMSET
 /* This is a replacement for a missing memset function */
 ptr_t xmemset(loc, value, len)
     ptr_t loc;
@@ -825,10 +1033,10 @@ ptr_t xmemset(loc, value, len)
 	*ptr++ = value;
     return loc;
 }
-#endif /* NEEDmemset */
+#endif /* !HAVE_MEMSET */
 
 
-#ifdef NEEDmemmove
+#ifndef HAVE_MEMMOVE
 /* memmove():
  * 	This is the ANSI form of bcopy() with the arguments backwards...
  *	Unlike memcpy(), it handles overlaps between source and 
@@ -858,11 +1066,11 @@ xmemmove(vdst, vsrc, len)
     }
     return vdst;
 }
-#endif /* NEEDmemmove */
+#endif /* HAVE_MEMMOVE */
 
 
 #ifndef WINNT_NATIVE
-#ifdef tcgetpgrp
+#ifdef NEEDtcgetpgrp
 int
 xtcgetpgrp(fd)
     int     fd;
@@ -888,7 +1096,7 @@ xtcsetpgrp(fd, pgrp)
     return ioctl(fd, TIOCSPGRP, (ioctl_t) &pgrp);
 }
 
-#endif	/* tcgetpgrp */
+#endif	/* NEEDtcgetpgrp */
 #endif /* WINNT_NATIVE */
 
 
@@ -935,7 +1143,7 @@ fix_strcoll_bug()
     static char *root = "/";
 
     if (!didfds)
-	fd = open(root, O_RDONLY);
+	fd = open(root, O_RDONLY|O_LARGEFILE);
 
     (void) strcoll(root, root);
 
@@ -981,7 +1189,7 @@ osinit()
 #endif /* _SX */
 }
 
-#ifdef strerror
+#ifndef HAVE_STRERROR
 char *
 xstrerror(i)
     int i;
@@ -996,9 +1204,9 @@ xstrerror(i)
 	return errbuf;
     }
 }
-#endif /* strerror */
+#endif /* !HAVE_STRERROR */
     
-#ifdef gethostname
+#ifndef HAVE_GETHOSTNAME
 # if !defined(_MINIX) && !defined(__EMX__) && !defined(WINNT_NATIVE)
 #  include <sys/utsname.h>
 # endif /* !_MINIX && !__EMX__ && !WINNT_NATIVE */
@@ -1037,9 +1245,9 @@ xgethostname(name, namlen)
     return(0);
 #endif /* _MINIX && !__EMX__ */
 } /* end xgethostname */
-#endif /* gethostname */
+#endif /* !HAVE_GETHOSTNAME */
 
-#ifdef nice
+#ifndef HAVE_NICE
 # if defined(_MINIX) && defined(NICE)
 #  undef _POSIX_SOURCE	/* redefined in <lib.h> */
 #  undef _MINIX		/* redefined in <lib.h> */
@@ -1056,9 +1264,9 @@ xnice(incr)
     return /* incr ? 0 : */ 0;
 #endif /* _MINIX && NICE */
 } /* end xnice */
-#endif /* nice */
+#endif /* !HAVE_NICE */
 
-#ifdef NEEDgetcwd
+#ifndef HAVE_GETCWD
 static char *strnrcpy __P((char *, char *, size_t));
 
 /* xgetcwd():
@@ -1160,9 +1368,6 @@ fail:
 
 # else /* ! hp9000s500 */
 
-#  if (SYSVREL != 0 && !defined(d_fileno)) || defined(_VMS_POSIX) || defined(WINNT) || defined(_MINIX_VMD)
-#   define d_fileno d_ino
-#  endif
 
 char *
 xgetcwd(pathname, pathlen)
@@ -1228,10 +1433,10 @@ xgetcwd(pathname, pathlen)
 	    /* Parent has same device. No need to stat every member */
 	    for (d = readdir(dp); d != NULL; d = readdir(dp)) {
 #ifdef __clipper__
-		if (((unsigned long)d->d_fileno & 0xffff) == st_cur.st_ino)
+		if (((unsigned long)d->d_ino & 0xffff) == st_cur.st_ino)
 		    break;
 #else
-		if (d->d_fileno == st_cur.st_ino)
+		if (d->d_ino == st_cur.st_ino)
 		    break;
 #endif
 	    }
@@ -1287,10 +1492,10 @@ xgetcwd(pathname, pathlen)
  */
 static char *
 strnrcpy(ptr, str, siz)
-    register char *ptr, *str;
+    char *ptr, *str;
     size_t siz;
 {
-    register int len = strlen(str);
+    int len = strlen(str);
     if (siz == 0)
 	return ptr;
 
@@ -1299,7 +1504,7 @@ strnrcpy(ptr, str, siz)
 
     return (ptr);
 } /* end strnrcpy */
-#endif /* getcwd */
+#endif /* !HAVE_GETCWD */
 
 #ifdef apollo
 /***

@@ -36,8 +36,10 @@ extern void mkmap_close(MKMAP *);
 #define mkmap_append(map, key, val) dict_put((map)->dict, (key), (val))
 
 extern MKMAP *mkmap_dbm_open(const char *);
+extern MKMAP *mkmap_cdb_open(const char *);
 extern MKMAP *mkmap_hash_open(const char *);
 extern MKMAP *mkmap_btree_open(const char *);
+extern MKMAP *mkmap_sdbm_open(const char *);
 
 /* LICENSE
 /* .ad

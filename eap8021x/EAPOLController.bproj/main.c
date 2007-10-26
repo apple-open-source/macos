@@ -46,7 +46,7 @@ void
 load(CFBundleRef bundle, Boolean bundleVerbose)
 {
     Boolean		ok;
-    char		path[MAXPATHLEN];
+    uint8_t		path[MAXPATHLEN];
     CFURLRef		url;
 
     /* get a path to eapolclient */
@@ -63,7 +63,7 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 	       "EAPOLController: failed to get path for eapolclient");
 	return;
     }
-    eapolclient_path = strdup(path);
+    eapolclient_path = strdup((const char *)path);
 #if 0
     S_bundle = (CFBundleRef)CFRetain(bundle);
     S_verbose = bundleVerbose;
@@ -74,18 +74,22 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 void
 start(const char *bundleName, const char *bundleDir)
 {
+    if (eapolclient_path != NULL) {
+	if (server_active()) {
+	    fprintf(stderr, "ipconfig server already active\n");
+	    return;
+	}
+	_ControllerInitialize();
+    }
+    return;
 }
 
 void
 prime()
 {
     if (eapolclient_path != NULL) {
-	ControllerInitialize();
-	
-	if (server_active()) {
-	    return;
-	}
 	server_init();
+	_ControllerBegin();
     }
     return;
 }

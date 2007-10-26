@@ -1,6 +1,7 @@
 ;;; esh-util.el --- general utilities
 
-;; Copyright (C) 1999, 2000, 2001 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'esh-util)
 
@@ -236,7 +237,7 @@ then quoting is done by a backslash, rather than a doubled delimiter."
 (defun eshell-sublist (l &optional n m)
   "Return from LIST the N to M elements.
 If N or M is nil, it means the end of the list."
-  (let* ((a (eshell-copy-list l))
+  (let* ((a (copy-sequence l))
 	 result)
     (if (and m (consp (nthcdr m a)))
 	(setcdr (nthcdr m a) nil))
@@ -253,14 +254,13 @@ If N or M is nil, it means the end of the list."
 	parts)
     (if (and (eshell-under-windows-p)
 	     (> len 2)
-	     (eq (aref path 0) directory-sep-char)
-	     (eq (aref path 1) directory-sep-char))
+	     (eq (aref path 0) ?/)
+	     (eq (aref path 1) ?/))
 	(setq i 2))
     (while (< i len)
-      (if (and (eq (aref path i) directory-sep-char)
+      (if (and (eq (aref path i) ?/)
 	       (not (get-text-property i 'escaped path)))
-	  (setq parts (cons (if (= li i)
-				(char-to-string directory-sep-char)
+	  (setq parts (cons (if (= li i) "/"
 			      (substring path li (1+ i))) parts)
 		li (1+ i)))
       (setq i (1+ i)))
@@ -268,9 +268,7 @@ If N or M is nil, it means the end of the list."
 	(setq parts (cons (substring path li i) parts)))
     (if (and (eshell-under-windows-p)
 	     (string-match "\\`[A-Za-z]:\\'" (car (last parts))))
-	(setcar (last parts)
-		(concat (car (last parts))
-			(char-to-string directory-sep-char))))
+	(setcar (last parts) (concat (car (last parts)) "/")))
     (nreverse parts)))
 
 (defun eshell-to-flat-string (value)
@@ -450,8 +448,8 @@ list."
 				 (point) (progn (end-of-line)
 						(point))) ":")))
 	    (if (and (and fields (nth 0 fields) (nth 2 fields))
-		     (not (assq (string-to-int (nth 2 fields)) names)))
-		(setq names (cons (cons (string-to-int (nth 2 fields))
+		     (not (assq (string-to-number (nth 2 fields)) names)))
+		(setq names (cons (cons (string-to-number (nth 2 fields))
 					(nth 0 fields))
 				  names))))
 	  (forward-line))))
@@ -588,14 +586,20 @@ Unless optional argument INPLACE is non-nil, return a new string."
 	string)))
 
 (unless (fboundp 'directory-files-and-attributes)
-  (defun directory-files-and-attributes (dir &optional full match nosort)
-    (documentation 'directory-files)
-    (let ((dir (expand-file-name dir)) ange-cache)
+  (defun directory-files-and-attributes (directory &optional full match nosort)
+    "Return a list of names of files and their attributes in DIRECTORY.
+There are three optional arguments:
+If FULL is non-nil, return absolute file names.  Otherwise return names
+ that are relative to the specified directory.
+If MATCH is non-nil, mention only file names that match the regexp MATCH.
+If NOSORT is non-nil, the list is not sorted--its order is unpredictable.
+ NOSORT is useful if you plan to sort the result yourself."
+    (let ((directory (expand-file-name directory)) ange-cache)
       (mapcar
        (function
 	(lambda (file)
-	  (cons file (eshell-file-attributes (expand-file-name file dir)))))
-       (directory-files dir full match nosort)))))
+         (cons file (eshell-file-attributes (expand-file-name file directory)))))
+       (directory-files directory full match nosort)))))
 
 (eval-when-compile
   (defvar ange-cache))
@@ -710,32 +714,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
 		      (setq entry nil)))))))
       (or entry (funcall handler 'file-attributes file)))))
 
-(defun eshell-copy-list (list)
-  "Return a copy of a list, which may be a dotted list.
-The elements of the list are not copied, just the list structure itself."
-  (if (consp list)
-      (let ((res nil))
-	(while (consp list) (push (pop list) res))
-	(prog1 (nreverse res) (setcdr res list)))
-    (car list)))
-
-(defun eshell-copy-tree (tree &optional vecp)
-  "Make a copy of TREE.
-If TREE is a cons cell, this recursively copies both its car and its cdr.
-Contrast to copy-sequence, which copies only along the cdrs.  With second
-argument VECP, this copies vectors as well as conses."
-  (if (consp tree)
-      (let ((p (setq tree (eshell-copy-list tree))))
-	(while (consp p)
-	  (if (or (consp (car p)) (and vecp (vectorp (car p))))
-	      (setcar p (eshell-copy-tree (car p) vecp)))
-	  (or (listp (cdr p)) (setcdr p (eshell-copy-tree (cdr p) vecp)))
-	  (cl-pop p)))
-    (if (and vecp (vectorp tree))
-	(let ((i (length (setq tree (copy-sequence tree)))))
-	  (while (>= (setq i (1- i)) 0)
-	    (aset tree i (eshell-copy-tree (aref tree i) vecp))))))
-  tree)
+(defalias 'eshell-copy-tree 'copy-tree)
 
 (defsubst eshell-processp (proc)
   "If the `processp' function does not exist, PROC is not a process."
@@ -808,4 +787,5 @@ argument VECP, this copies vectors as well as conses."
 
 ;;; Code:
 
+;;; arch-tag: 70159778-5c7a-480a-bae4-3ad332fca19d
 ;;; esh-util.el ends here

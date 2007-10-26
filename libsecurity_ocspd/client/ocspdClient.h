@@ -28,6 +28,7 @@
 #define _OCSPD_CLIENT_H_
 
 #include <Security/cssmtype.h>
+#include <Security/SecTrustSettings.h>
 #include <security_utilities/alloc.h>
 
 #ifdef	__cplusplus
@@ -72,10 +73,14 @@ CSSM_RETURN ocspdCertFetch(
  * fetch a CRL from the net with optional cache lookup and/or store.
  * VerifyTime argument only used for cache lookup; it must be in 
  * CSSM_TIMESTRING format. 
+ * crlIssuer is optional, and is only specified when the client knows
+ * that the issuer of the CRL is the same as the issuer of the cert
+ * being verified. 
  */
 CSSM_RETURN ocspdCRLFetch(
 	Allocator			&alloc,
 	const CSSM_DATA		&crlURL,
+	const CSSM_DATA		*crlIssuer,		// optional
 	bool				cacheReadEnable,
 	bool				cacheWriteEnable,
 	CSSM_TIMESTRING 	verifyTime,
@@ -97,6 +102,22 @@ CSSM_RETURN ocspdCRLRefresh(
 CSSM_RETURN ocspdCRLFlush(
 	const CSSM_DATA		&crlURL);
 	
+/*
+ * Obtain TrustSettings. 
+ */
+OSStatus ocspdTrustSettingsRead(
+	Allocator				&alloc,
+	SecTrustSettingsDomain 	domain,
+	CSSM_DATA				&trustSettings);		// mallocd via alloc and RETURNED
+
+/*
+ * Write TrustSettings to disk. Results in authentication dialog.
+ */
+OSStatus ocspdTrustSettingsWrite(
+	SecTrustSettingsDomain 	domain,
+	const CSSM_DATA			&authBlob,
+	const CSSM_DATA			&trustSettings);
+
 #ifdef	__cplusplus
 }
 #endif

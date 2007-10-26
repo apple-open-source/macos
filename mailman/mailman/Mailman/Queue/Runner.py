@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Generic queue runner class.
 """
@@ -28,8 +29,8 @@ from Mailman import Errors
 from Mailman import MailList
 from Mailman import i18n
 
-from Mailman.Queue.Switchboard import Switchboard
 from Mailman.Logging.Syslog import syslog
+from Mailman.Queue.Switchboard import Switchboard
 
 import email.Errors
 
@@ -49,7 +50,7 @@ class Runner:
         self._kids = {}
         # Create our own switchboard.  Don't use the switchboard cache because
         # we want to provide slice and numslice arguments.
-        self._switchboard = Switchboard(self.QDIR, slice, numslices)
+        self._switchboard = Switchboard(self.QDIR, slice, numslices, True)
         # Create the shunt switchboard
         self._shunt = Switchboard(mm_cfg.SHUNTQUEUE_DIR)
         self._stop = False
@@ -109,6 +110,7 @@ class Runner:
                 continue
             try:
                 self._onefile(msg, msgdata)
+                self._switchboard.finish(filebase)
             except Exception, e:
                 # All runners that implement _dispose() must guarantee that
                 # exceptions are caught and dealt with properly.  Still, there
@@ -119,8 +121,9 @@ class Runner:
                 self._log(e)
                 # Put a marker in the metadata for unshunting
                 msgdata['whichq'] = self._switchboard.whichq()
-                filebase = self._shunt.enqueue(msg, msgdata)
-                syslog('error', 'SHUNTING: %s', filebase)
+                new_filebase = self._shunt.enqueue(msg, msgdata)
+                syslog('error', 'SHUNTING: %s', new_filebase)
+                self._switchboard.finish(filebase)
             # Other work we want to do each time through the loop
             Utils.reap(self._kids, once=True)
             self._doperiodic()

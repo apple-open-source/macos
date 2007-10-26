@@ -1,5 +1,5 @@
 /* Program name management.
-   Copyright (C) 2001-2003 Free Software Foundation, Inc.
+   Copyright (C) 2001-2004 Free Software Foundation, Inc.
    Written by Bruno Haible <haible@clisp.cons.org>, 2001.
 
    This program is free software; you can redistribute it and/or modify
@@ -14,23 +14,23 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #ifndef _PROGNAME_H
 #define _PROGNAME_H
 
-#include <stdbool.h>
-
-/* This file supports selectively prefixing or nor prefixing error messages
-   with the program name.
-
-   Programs using this file should do the following in main():
+/* Programs using this file should do the following in main():
      set_program_name (argv[0]);
-     error_print_progname = maybe_print_progname;
  */
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /* String containing name the program is called with.  */
-extern const char *program_name;
+extern DLL_VARIABLE const char *program_name;
 
 /* Set program_name, based on argv[0].  */
 extern void set_program_name (const char *argv0);
@@ -51,14 +51,10 @@ extern char *get_full_program_name (void);
 
 #endif
 
-/* Indicates whether errors and warnings get prefixed with program_name.
-   Default is true.
-   A reason to omit the prefix is for better interoperability with Emacs'
-   compile.el.  */
-extern bool error_with_progname;
 
-/* Print program_name prefix on stderr if and only if error_with_progname
-   is true.  */
-extern void maybe_print_progname (void);
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif /* _PROGNAME_H */

@@ -2,11 +2,11 @@ Listi administraatorina peate autoriseerima allpool kirjeldatud
 kirja listi saatmise
 
     List:    %(listname)s@%(hostname)s
-    From:    %(sender)s
-    Subject: %(subject)s
-    Reason:  %(reason)s
+    Kellelt:    %(sender)s
+    Teema: %(subject)s
+    Põhjus:  %(reason)s
 
-Postitust saate autoriseerida või sellest keelduda aadressil
+Kirja saab autoriseerida või kustutada aadressil
 
     %(admindb_url)s
 

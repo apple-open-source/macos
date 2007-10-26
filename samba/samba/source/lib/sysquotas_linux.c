@@ -24,6 +24,12 @@
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_QUOTA
 
+#ifndef HAVE_SYS_QUOTAS
+#ifdef HAVE_QUOTACTL_LINUX
+#undef HAVE_QUOTACTL_LINUX
+#endif
+#endif
+
 #ifdef HAVE_QUOTACTL_LINUX 
 
 #include "samba_linux_quota.h"
@@ -388,6 +394,7 @@ static int sys_set_linux_gen_quota(const char *path, const char *bdev, enum SMB_
 		D.dqb_ihardlimit = (dp->ihardlimit*dp->bsize)/bsize;
 		D.dqb_isoftlimit = (dp->isoftlimit*dp->bsize)/bsize;
 	}
+	D.dqb_valid = QIF_LIMITS;
 
 	qflags = dp->qflags;
 
@@ -519,9 +526,9 @@ int sys_set_vfs_quota(const char *path, const char *bdev, enum SMB_QUOTA_TYPE qt
 		case SMB_USER_FS_QUOTA_TYPE:
 			id.uid = getuid();
 
-			if ((ret=sys_get_linux_gen_quota(path, bdev, qtype, id, dp))) {
-				if ((ret=sys_get_linux_v2_quota(path, bdev, qtype, id, dp))) {
-					ret=sys_get_linux_v1_quota(path, bdev, qtype, id, dp);
+			if ((ret=sys_set_linux_gen_quota(path, bdev, qtype, id, dp))) {
+				if ((ret=sys_set_linux_v2_quota(path, bdev, qtype, id, dp))) {
+					ret=sys_set_linux_v1_quota(path, bdev, qtype, id, dp);
 				}
 			}
 
@@ -534,9 +541,9 @@ int sys_set_vfs_quota(const char *path, const char *bdev, enum SMB_QUOTA_TYPE qt
 		case SMB_GROUP_FS_QUOTA_TYPE:
 			id.gid = getgid();
 
-			if ((ret=sys_get_linux_gen_quota(path, bdev, qtype, id, dp))) {
-				if ((ret=sys_get_linux_v2_quota(path, bdev, qtype, id, dp))) {
-					ret=sys_get_linux_v1_quota(path, bdev, qtype, id, dp);
+			if ((ret=sys_set_linux_gen_quota(path, bdev, qtype, id, dp))) {
+				if ((ret=sys_set_linux_v2_quota(path, bdev, qtype, id, dp))) {
+					ret=sys_set_linux_v1_quota(path, bdev, qtype, id, dp);
 				}
 			}
 
@@ -556,5 +563,7 @@ int sys_set_vfs_quota(const char *path, const char *bdev, enum SMB_QUOTA_TYPE qt
 }
 
 #else /* HAVE_QUOTACTL_LINUX */
+ void dummy_sysquotas_linux(void);
+
  void dummy_sysquotas_linux(void){}
 #endif /* HAVE_QUOTACTL_LINUX */

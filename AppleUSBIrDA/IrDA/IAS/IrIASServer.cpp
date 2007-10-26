@@ -79,7 +79,7 @@ EventTraceCauseDesc TraceEvents[] = {
 };
 
 
-#define XTRACE(x, y, z) IrDALogAdd ( x, y, z, TraceEvents, true)
+#define XTRACE(x, y, z) IrDALogAdd ( x, y, ((int)z & 0xffff), TraceEvents, true)
 #else
 
 #define XTRACE(x, y, z) ((void)0)
@@ -100,7 +100,7 @@ TIASServer *
 TIASServer::tIASServer(TIrGlue* irda, TIASService *nameService)
 {
     TIASServer *obj = new TIASServer;
-    XTRACE(kNullEvent, (int)obj >> 16, (short)obj);
+    XTRACE(kNullEvent, (int)obj >> 16, obj);
 	
     if (obj && !obj->Init(irda, nameService)) {
 	obj->release();
@@ -116,7 +116,7 @@ TIASServer::tIASServer(TIrGlue* irda, TIASService *nameService)
 void
 TIASServer::free()
 {
-    XTRACE(kDestroy, (int)this >> 16, (short)this);
+    XTRACE(kDestroy, (int)this >> 16, this);
     
 #define FREE(x) { if (x) { (x)->release(); x = nil; } }
 
@@ -142,7 +142,7 @@ TIASServer::free()
 //--------------------------------------------------------------------------------
 Boolean TIASServer::Init(TIrGlue* irda, TIASService *nameService)
 {
-    XTRACE(kInit, (int)this >> 16, (short)this);
+    XTRACE(kInit, (int)this >> 16, this);
     int Listen_Start_Commented_Out;
 
     fOpCode         = kIASOpUnassigned;
@@ -204,7 +204,7 @@ void TIASServer::NextState(ULong event)
     if (reqOrReply->fResult != noErr) {     // if previous request failed and
 	if (reqOrReply->fEvent != kIrDisconnectReplyEvent &&    // neither a disconnect or listen reply
 	    reqOrReply->fEvent != kIrListenReplyEvent) {            // then let's do a disconnect to clean up
-	    XTRACE(kDisconnectRequestEvent, (int)this >> 16, (short)this);
+	    XTRACE(kDisconnectRequestEvent, (int)this >> 16, this);
 	    reqOrReply->fEvent = kIrDisconnectRequestEvent;     // request a disconnect
 	    fLSAPConn->EnqueueEvent(reqOrReply);
 	    return;
@@ -221,7 +221,7 @@ void TIASServer::NextState(ULong event)
 	    break;
 
 	case kIrListenReplyEvent:
-	    XTRACE(kListenReplyEvent, (int)this >> 16, (short)this);
+	    XTRACE(kListenReplyEvent, (int)this >> 16, this);
 	    if (reqOrReply->fResult == noErr) {         // if listen worked
 		XTRACE(kAcceptRequestEvent, 0, 0);
 		// Send the listen reply back as the accept
@@ -235,17 +235,17 @@ void TIASServer::NextState(ULong event)
 	    break;
 
 	case kIrAcceptReplyEvent:
-	    XTRACE(kAcceptReplyEvent, (int)this >> 16, (short)this);
+	    XTRACE(kAcceptReplyEvent, (int)this >> 16, this);
 	    GetStart();
 	    break;
 
 	case kIrPutDataReplyEvent:
-	    XTRACE(kPutDataReplyEvent, (int)this >> 16, (short)this);
+	    XTRACE(kPutDataReplyEvent, (int)this >> 16, this);
 	    GetStart();
 	    break;
 
 	case kIrGetDataReplyEvent:
-	    XTRACE(kGetDataReplyEvent, (int)this >> 16, (short)this);
+	    XTRACE(kGetDataReplyEvent, (int)this >> 16, this);
 	    ParseInput();
 	    break;
 
@@ -452,7 +452,7 @@ void TIASServer::SendResponse(UByte iasReturnCode, TIASAttribute* attrEntry)
 //--------------------------------------------------------------------------------
 void TIASServer::ListenStart()
 {
-    XTRACE(kListenRequestEvent, (int)this >> 16, (short)this);
+    XTRACE(kListenRequestEvent, (int)this >> 16, this);
 
     TIrConnLstnRequest* listenRequest = (TIrConnLstnRequest*)fRequestReply;
     listenRequest->fEvent = kIrListenRequestEvent;
@@ -474,7 +474,7 @@ void TIASServer::ListenStart()
 //--------------------------------------------------------------------------------
 void TIASServer::GetStart()
 {
-    XTRACE(kGetDataRequestEvent, (int)this >> 16, (short)this);
+    XTRACE(kGetDataRequestEvent, (int)this >> 16, this);
 
     TIrGetRequest* getRequest = (TIrGetRequest*)fRequestReply;
     getRequest->fEvent = kIrGetDataRequestEvent;
@@ -491,7 +491,7 @@ void TIASServer::GetStart()
 //--------------------------------------------------------------------------------
 void TIASServer::PutStart()
 {
-    XTRACE(kPutDataRequestEvent, (int)this >> 16, (short)this);
+    XTRACE(kPutDataRequestEvent, (int)this >> 16, this);
 
     TIrPutRequest* putRequest = (TIrPutRequest*)fRequestReply;
     putRequest->fEvent = kIrPutDataRequestEvent;

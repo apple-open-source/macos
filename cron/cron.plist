@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2007-02-15</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>cron.txt</string>
+		<key>OpenSourceProject</key>
+		<string>cron</string>
+		<key>OpenSourceVersion</key>
+		<string>2007-02-15</string>
+		<key>OpenSourceCVS</key>
+		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co usr.sbin/cron</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.freebsd.org/</string>
+	</dict>
+</array>
+</plist>

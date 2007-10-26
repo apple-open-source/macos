@@ -54,6 +54,7 @@
  */
 
 #include <sys/types.h>
+#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/syslog.h>
 #include <sys/uio.h>
@@ -65,10 +66,13 @@
 #include <paths.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 #include <notify.h>
+#include <asl.h>
+#include <asl_private.h>
 
 #ifdef __STDC__
 #include <stdarg.h>
@@ -79,6 +83,7 @@
 #include <crt_externs.h>
 
 #define	LOG_NO_NOTIFY	0x1000
+#define	INTERNALLOG	LOG_ERR|LOG_CONS|LOG_PERROR|LOG_PID
 
 #ifdef BUILDING_VARIANT
 __private_extern__ int	_sl_LogFile;		/* fd for log */
@@ -108,8 +113,8 @@ __private_extern__ void _sl_init_notify();
 #define NOTIFY_STATE_OFFSET 1000
 
 /* notify SPI */
-uint32_t notify_get_state(int token, int *state);
 uint32_t notify_register_plain(const char *name, int *out_token);
+const char *asl_syslog_faciliy_num_to_name(int);
 
 /*
  * syslog, vsyslog --
@@ -137,27 +142,30 @@ syslog(pri, fmt, va_alist)
 }
 
 void
-vsyslog(pri, fmt, ap)
-	int pri;
-	register const char *fmt;
-	va_list ap;
+vsyslog(int pri, const char *fmt, va_list ap)
 {
-	register int cnt;
-	register char ch, *p, *t;
-	time_t now;
-	int fd, saved_errno, filter, cval, rc_filter, primask;
-#define	TBUF_LEN	2048
-#define	FMT_LEN		1024
-	char *stdp, tbuf[TBUF_LEN], fmt_cpy[FMT_LEN];
-	int tbuf_left, fmt_left, prlen;
-	
-#define	INTERNALLOG	LOG_ERR|LOG_CONS|LOG_PERROR|LOG_PID
+	int status, i, saved_errno, filter, rc_filter;
+	time_t tick;
+	pid_t pid;
+	uint32_t elen, count;
+	char *p, *str, *expanded, *err_str, hname[MAXHOSTNAMELEN+1];
+	uint64_t cval;
+	int fd, mask, level, facility;
+	aslmsg msg;
+
+	saved_errno = errno;
+
 	/* Check for invalid bits. */
-	if (pri & ~(LOG_PRIMASK|LOG_FACMASK))
+	if (pri & ~(LOG_PRIMASK | LOG_FACMASK))
 	{
 		syslog(INTERNALLOG, "syslog: unknown facility/priority: %x", pri);
-		pri &= LOG_PRIMASK|LOG_FACMASK;
+		pri &= (LOG_PRIMASK | LOG_FACMASK);
 	}
+
+	level = LOG_PRI(pri);
+	facility = pri & LOG_FACMASK;
+
+	if (facility == 0) facility = _sl_LogFacility;
 
 	/* Get remote-control priority filter */
 	filter = _sl_LogMask;
@@ -188,136 +196,201 @@ vsyslog(pri, fmt, ap)
 		}
 	}
 
-	primask = LOG_MASK(LOG_PRI(pri));
-	if ((primask & filter) == 0) return;
-
-	saved_errno = errno;
-
-	/* Set default facility if none specified. */
-	if ((pri & LOG_FACMASK) == 0) pri |= _sl_LogFacility;
+	mask = LOG_MASK(level);
+	if ((mask & filter) == 0) return;
 
 	/* Build the message. */
-	
-	/*
- 	 * Although it's tempting, we can't ignore the possibility of
-	 * overflowing the buffer when assembling the "fixed" portion
-	 * of the message.  Strftime's "%h" directive expands to the
-	 * locale's abbreviated month name, but if the user has the
-	 * ability to construct to his own locale files, it may be
-	 * arbitrarily long.
-	 */
-	(void)time(&now);
-
-	p = tbuf;  
-	tbuf_left = TBUF_LEN;
-	
-#define	DEC()	\
-	do {					\
-		if (prlen >= tbuf_left)		\
-			prlen = tbuf_left - 1;	\
-		p += prlen;			\
-		tbuf_left -= prlen;		\
-	} while (0)
-
-	prlen = snprintf(p, tbuf_left, "<%d>", pri);
-	DEC();
-
-	prlen = strftime(p, tbuf_left, "%h %e %T ", localtime(&now));
-	DEC();
-
-	if (_sl_LogStat & LOG_PERROR) stdp = p;
+	msg = asl_new(ASL_TYPE_MSG);
 
 	if (_sl_LogTag == NULL) _sl_LogTag = *(*_NSGetArgv());
-
 	if (_sl_LogTag != NULL) 
 	{
-		prlen = snprintf(p, tbuf_left, "%s", _sl_LogTag);
-		DEC();
+		asl_set(msg, ASL_KEY_SENDER, _sl_LogTag);
 	}
 
-	if (_sl_LogStat & LOG_PID)
+	str = (char *)asl_syslog_faciliy_num_to_name(facility);
+	if (str != NULL) asl_set(msg, ASL_KEY_FACILITY, str);
+
+	str = NULL;
+	tick = time(NULL);
+	asprintf(&str, "%lu", tick);
+	if (str != NULL)
 	{
-		prlen = snprintf(p, tbuf_left, "[%d]", getpid());
-		DEC();
+		asl_set(msg, ASL_KEY_TIME, str);
+		free(str);
 	}
 
-	if (_sl_LogTag != NULL)
+	str = NULL;
+	pid = getpid();
+	asprintf(&str, "%u", pid);
+	if (str != NULL)
 	{
-		if (tbuf_left > 1)
-		{
-			*p++ = ':';
-			tbuf_left--;
-		}
-		if (tbuf_left > 1)
-		{
-			*p++ = ' ';
-			tbuf_left--;
-		}
+		asl_set(msg, ASL_KEY_PID, str);
+		free(str);
 	}
 
-	/* 
-	 * We wouldn't need this mess if printf handled %m, or if 
-	 * strerror() had been invented before syslog().
-	 */
-	for (t = fmt_cpy, fmt_left = FMT_LEN; (ch = *fmt); ++fmt)
+	str = NULL;
+	asprintf(&str, "%d", getuid());
+	if (str != NULL)
 	{
-		if (ch == '%' && fmt[1] == 'm')
-		{
-			++fmt;
-			prlen = snprintf(t, fmt_left, "%s", strerror(saved_errno));
-			if (prlen >= fmt_left) prlen = fmt_left - 1;
-			t += prlen;
-			fmt_left -= prlen;
-		}
+		asl_set(msg, ASL_KEY_UID, str);
+		free(str);
+	}
+
+	str = NULL;
+	asprintf(&str, "%u", getgid());
+	if (str != NULL)
+	{
+		asl_set(msg, ASL_KEY_GID, str);
+		free(str);
+	}
+
+	str = NULL;
+	asprintf(&str, "%u", level);
+	if (str != NULL)
+	{
+		asl_set(msg, ASL_KEY_LEVEL, str);
+		free(str);
+	}
+
+	status = gethostname(hname, MAXHOSTNAMELEN);
+	if (status < 0) asl_set(msg, ASL_KEY_HOST, "localhost");
+	else asl_set(msg, ASL_KEY_HOST, hname);
+
+	/* check for %m */
+	count = 0;
+	for (i = 0; fmt[i] != '\0'; i++)
+	{
+		if ((fmt[i] == '%') && (fmt[i+1] == 'm')) count++;
+	}
+
+	expanded = NULL;
+	elen = 0;
+	err_str = NULL;
+
+	/* deal with malloc failures gracefully */
+	if (count > 0)
+	{
+		err_str = strdup(strerror(saved_errno));
+		if (err_str == NULL) count = 0;
 		else
 		{
-			if (fmt_left > 1)
-			{
-				*t++ = ch;
-				fmt_left--;
-			}
+			elen = strlen(err_str);
+			expanded = malloc(i + (count * elen));
+			if (expanded == NULL) count = 0;
 		}
 	}
 
-	*t = '\0';
-
-	prlen = vsnprintf(p, tbuf_left, fmt_cpy, ap);
-	DEC();
-	cnt = p - tbuf;
-
-	/* Output to stderr if requested. */
-	if (_sl_LogStat & LOG_PERROR)
+	if (expanded == NULL) expanded = (char *)fmt;
+	if (count > 0)
 	{
-		struct iovec iov[2];
+		p = expanded;
 
-		iov[0].iov_base = stdp;
-		iov[0].iov_len = cnt - (stdp - tbuf);
-		iov[1].iov_base = "\n";
-		iov[1].iov_len = 1;
-		(void)writev(STDERR_FILENO, iov, 2);
+		for (i = 0; fmt[i] != '\0'; i++)
+		{
+			if ((fmt[i] == '%') && (fmt[i+1] == 'm'))
+			{
+				memcpy(p, err_str, elen);
+				p += elen;
+				i++;
+			}
+			else
+			{
+				*p++ = fmt[i];
+			}
+		}
+
+		*p = '\0';
+	}
+
+	if (err_str != NULL) free(err_str);
+
+	vasprintf(&str, expanded, ap);
+	if (count > 0) free(expanded);
+
+	if (str != NULL)
+	{
+		asl_set(msg, ASL_KEY_MSG, str);
+
+		/* Output to stderr if requested. */
+		if (_sl_LogStat & LOG_PERROR)
+		{
+			p = NULL;
+			if (_sl_LogStat & LOG_PID) asprintf(&p, "%s[%u]: %s", (_sl_LogTag == NULL) ? "???" : _sl_LogTag, pid, str);
+			else asprintf(&p, "%s: %s", (_sl_LogTag == NULL) ? "???" : _sl_LogTag, str);
+
+			if (p != NULL)
+			{
+				struct iovec iov[2];
+
+				iov[0].iov_base = p;
+				iov[0].iov_len = strlen(p);
+				iov[1].iov_base = "\n";
+				iov[1].iov_len = 1;
+				writev(STDERR_FILENO, iov, 2);
+				free(p);
+			}
+		}
+
+		free(str);
 	}
 
 	/* Get connected, output the message to the local logger. */
-	if (_sl_connected == 0) openlog(_sl_LogTag, _sl_LogStat | LOG_NDELAY, 0);
-	if (send(_sl_LogFile, tbuf, cnt, 0) >= 0) return;
+	str = asl_format_message(msg, ASL_MSG_FMT_RAW, ASL_TIME_FMT_SEC, &count);
+	if (str != NULL)
+	{
+		p = NULL;
+		asprintf(&p, "%10u %s", count, str);
+		free(str);
+
+		if (p != NULL)
+		{
+			count += 12;
+			if (_sl_connected == 0) openlog(_sl_LogTag, _sl_LogStat | LOG_NDELAY, 0);
+
+			status = send(_sl_LogFile, p, count, 0);
+			if (status< 0)
+			{
+				closelog();
+				openlog(_sl_LogTag, _sl_LogStat | LOG_NDELAY, 0);
+				status = send(_sl_LogFile, p, count, 0);
+			}
+
+			if (status >= 0)
+			{
+				free(p);
+				asl_free(msg);
+				return;
+			}
+
+			free(p);
+		}
+	}
 
 	/*
-	 * Output the message to the console; don't worry about blocking,
-	 * if console blocks everything will.  Make sure the error reported
-	 * is the one from the syslogd failure.
+	 * Output the message to the console.
 	 */
-	if (_sl_LogStat & LOG_CONS && (fd = open(_PATH_CONSOLE, O_WRONLY, 0)) >= 0)
+	if (_sl_LogStat & LOG_CONS && (fd = open(_PATH_CONSOLE, O_WRONLY | O_NOCTTY | O_NONBLOCK)) >= 0)
 	{
-		struct iovec iov[2];
-		
-		p = strchr(tbuf, '>') + 1;
-		iov[0].iov_base = p;
-		iov[0].iov_len = cnt - (p - tbuf);
-		iov[1].iov_base = "\r\n";
-		iov[1].iov_len = 2;
-		(void)writev(fd, iov, 2);
-		(void)close(fd);
+		count = 0;
+
+		p = asl_format_message(msg, ASL_MSG_FMT_STD, ASL_TIME_FMT_LCL, &count);
+		if (p != NULL)
+		{
+			struct iovec iov;
+
+			/* count includes trailing nul */
+			iov.iov_len = count - 1;
+			iov.iov_base = p;
+			writev(fd, &iov, 1);
+	
+			free(p);
+		}
+
+		close(fd);
 	}
+
+	asl_free(msg);
 }
 
 #ifndef BUILDING_VARIANT
@@ -330,29 +403,29 @@ _sl_init_notify()
 	int status;
 	char *notify_name;
 	const char *prefix;
-	
+
 	if (_sl_LogStat & LOG_NO_NOTIFY)
 	{
 		_sl_NotifyMaster = -2;
 		_sl_NotifyToken = -2;
 		return;
 	}
-	
+
 	if (_sl_NotifyMaster == -1)
 	{
 		status = notify_register_plain(NOTIFY_SYSTEM_MASTER, &_sl_NotifyMaster);
 		if (status != NOTIFY_STATUS_OK) _sl_NotifyMaster = -2;
 	}
-	
+
 	if (_sl_NotifyToken == -1)
 	{
 		_sl_NotifyToken = -2;
-		
+
 		notify_name = NULL;
 		prefix = NOTIFY_PREFIX_USER;
 		if (getuid() == 0) prefix = NOTIFY_PREFIX_SYSTEM;
 		asprintf(&notify_name, "%s.%d", prefix, getpid());
-		
+
 		if (notify_name != NULL)
 		{
 			status = notify_register_plain(notify_name, &_sl_NotifyToken);
@@ -403,8 +476,10 @@ openlog(ident, logstat, logfac)
 void
 closelog()
 {
-	(void)close(_sl_LogFile);
-	_sl_LogFile = -1;
+	if (_sl_LogFile >= 0) {
+		(void)close(_sl_LogFile);
+		_sl_LogFile = -1;
+	}
 	_sl_connected = 0;
 }
 

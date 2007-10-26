@@ -2,8 +2,8 @@
 
   sdbminit.c -
 
-  $Author: usa $
-  $Date: 2004/12/09 07:31:22 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Fri May  7 08:34:24 JST 1999
 
   Copyright (C) 1995-2001 Yukihiro Matsumoto
@@ -60,6 +60,21 @@ fsdbm_close(obj)
     dbmp->di_dbm = 0;
 
     return Qnil;
+}
+
+static VALUE
+fsdbm_closed(obj)
+    VALUE obj;
+{
+    struct dbmdata *dbmp;
+
+    Data_Get_Struct(obj, struct dbmdata, dbmp);
+    if (dbmp == 0)
+	return Qtrue;
+    if (dbmp->di_dbm == 0)
+	return Qtrue;
+
+    return Qfalse;
 }
 
 static VALUE fsdbm_alloc _((VALUE));
@@ -244,8 +259,6 @@ fsdbm_select(argc, argv, obj)
 		rb_ary_push(new, assoc);
 	    }
 	    GetDBM2(obj, dbmp, dbm);
-            if (RTEST(rb_yield(assoc)))
-                rb_ary_push(new, assoc);
         }
     }
     else {
@@ -734,6 +747,7 @@ Init_sdbm()
 
     rb_define_method(rb_cDBM, "initialize", fsdbm_initialize, -1);
     rb_define_method(rb_cDBM, "close", fsdbm_close, 0);
+    rb_define_method(rb_cDBM, "closed?", fsdbm_closed, 0);
     rb_define_method(rb_cDBM, "[]", fsdbm_aref, 1);
     rb_define_method(rb_cDBM, "fetch", fsdbm_fetch_m, -1);
     rb_define_method(rb_cDBM, "[]=", fsdbm_store, 2);

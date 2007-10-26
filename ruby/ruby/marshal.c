@@ -2,8 +2,8 @@
 
   marshal.c -
 
-  $Author: nobu $
-  $Date: 2004/10/18 14:37:42 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Thu Apr 27 16:30:01 JST 1995
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -111,7 +111,7 @@ class2path(klass)
 		 n);
     }
     if (rb_path2class(n) != rb_class_real(klass)) {
-	rb_raise(rb_eTypeError, "%s cannot be referred", n);
+	rb_raise(rb_eTypeError, "%s can't be referred", n);
     }
     return path;
 }
@@ -615,7 +615,7 @@ w_object(obj, arg, limit)
 	    }
 	    else if (FL_TEST(obj, FL_USER2)) {
 		/* FL_USER2 means HASH_PROC_DEFAULT (see hash.c) */
-		rb_raise(rb_eTypeError, "cannot dump hash with default proc");
+		rb_raise(rb_eTypeError, "can't dump hash with default proc");
 	    }
 	    else {
 		w_byte(TYPE_HASH_DEF, arg);
@@ -1107,7 +1107,7 @@ r_object0(arg, proc, ivp, extmod)
 	{
 	    long len;
 	    BDIGIT *digits;
-	    VALUE data;
+	    volatile VALUE data;
 
 	    NEWOBJ(big, struct RBignum);
 	    OBJSETUP(big, rb_cBignum, T_BIGNUM);

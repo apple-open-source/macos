@@ -26,7 +26,7 @@
  
 #include "pkcs7Templates.h"
 #include <Security/keyTemplates.h>	/* NSS_AlgorithmIDTemplate */
-#include <Security/asn1Templates.h>
+#include <Security/SecAsn1Templates.h>
 #include <security_asn1/nssUtils.h>
 #include "pkcs12Utils.h"
 #include <Security/oidsattr.h>

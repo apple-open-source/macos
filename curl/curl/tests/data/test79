@@ -1,8 +1,17 @@
+<testcase>
+<info>
+<keywords>
+FTP
+HTTP
+HTTP GET
+HTTP proxy
+</keywords>
+</info>
 #
 # Server-side
 <reply>
 <data>
-HTTP/1.1 200 OK
+HTTP/1.0 200 OK
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake swsclose
 Content-Type: text/html
@@ -18,6 +27,9 @@ contents
 <server>
 http
 </server>
+<features>
+ftp
+</features>
  <name>
 FTP over HTTP proxy
  </name>
@@ -37,6 +49,8 @@ GET ftp://127.0.0.1:%HTTPPORT/we/want/that/page/79 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 </protocol>
 </verify>
+</testcase>

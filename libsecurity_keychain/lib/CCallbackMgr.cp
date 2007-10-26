@@ -38,9 +38,13 @@
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include "Globals.h"
 #include <security_keychain/SecCFTypes.h>
+#include <securityd_client/SharedMemoryCommon.h>
+#include <securityd_client/ssnotify.h>
+#include <notify.h>
 
 using namespace KeychainCore;
 using namespace CssmClient;
+using namespace SecurityServer;
 
 #pragma mark ÑÑÑÑ CallbackInfo ÑÑÑÑ
 
@@ -71,11 +75,29 @@ bool CallbackInfo::operator!=(const CallbackInfo& other) const
 
 #pragma mark ÑÑÑÑ CCallbackMgr ÑÑÑÑ
 
-CCallbackMgr *CCallbackMgr::mCCallbackMgr;
 
-CCallbackMgr::CCallbackMgr() :
-    // register for receiving Keychain events via CF
-    Observer(SecurityServer::kNotificationDomainDatabase, SecurityServer::kNotificationAllEvents)
+class CallbackMaker
+{
+protected:
+	RefPointer<CCallbackMgr> mCallbackManager;
+
+public:
+	CallbackMaker();
+	CCallbackMgr& instance() {return *mCallbackManager;}
+};
+
+
+CallbackMaker::CallbackMaker()
+{
+	CCallbackMgr* manager = new CCallbackMgr();
+	mCallbackManager = manager;
+}
+
+
+
+ModuleNexus<CallbackMaker> gCallbackMaker;
+
+CCallbackMgr::CCallbackMgr() : EventListener (kNotificationDomainDatabase, kNotificationAllEvents)
 {
 }
 
@@ -85,10 +107,7 @@ CCallbackMgr::~CCallbackMgr()
 
 CCallbackMgr& CCallbackMgr::Instance()
 {
-	if (!mCCallbackMgr)
-		mCCallbackMgr = new CCallbackMgr();	
-
-	return *mCCallbackMgr;
+	return gCallbackMaker().instance();
 }
 
 void CCallbackMgr::AddCallback( SecKeychainCallback inCallbackFunction, 
@@ -163,20 +182,12 @@ void CCallbackMgr::AlertClients(const list<CallbackInfo> &eventCallbacks,
 	}
 }
 
-/***********************************************************************************
-*	Event() - Overriden function of the KCEventObserver object.
-*			  Each instance of KeychainCore will receive events from CF
-*			  that was initiated by another KeychainCore instance that
-*			  triggered the event.
-*
-* 	We <could> care about which KeychainCore posted the event: 
-* 		Example (KCDeleteItem event):
-*			If it was 'us', we don't do anything; we already processed the event. 
-* 			If it wasn't 'us', we should remove our cached reference to the item that was deleted.
-*
-***********************************************************************************/
-void CCallbackMgr::Event (SecurityServer::NotificationDomain domain, SecurityServer::NotificationEvent whichEvent, NameValueDictionary &dictionary)
+
+
+void CCallbackMgr::consume (SecurityServer::NotificationDomain domain, SecurityServer::NotificationEvent whichEvent, const CssmData &data)
 {
+	NameValueDictionary dictionary (data);
+
     // Decode from userInfo the event type, 'keychain' CFDict, and 'item' CFDict
 	SecKeychainEvent thisEvent = whichEvent;
 
@@ -188,7 +199,7 @@ void CCallbackMgr::Event (SecurityServer::NotificationDomain domain, SecuritySer
 	}
 	else
 	{
-		thisPid = *reinterpret_cast<pid_t*>(pidRef->Value().data ());
+		thisPid = n2h(*reinterpret_cast<pid_t*>(pidRef->Value().data ()));
 	}
 
 	Keychain thisKeychain;

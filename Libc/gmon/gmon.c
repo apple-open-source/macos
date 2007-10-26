@@ -103,9 +103,6 @@ static char sccsid[] = "@(#)gmon.c	5.2 (Berkeley) 6/21/85";
 
 #include <stdio.h>
 #include <libc.h>
-extern const struct section *getsectbyname(
-	const char *segname, 
-	const char *sectname);
 #include <monitor.h>
 #include <sys/types.h>
 #include <sys/gmon.h>
@@ -114,6 +111,7 @@ extern const struct section *getsectbyname(
 #include <mach/mach.h>
 #include <mach-o/loader.h>
 #include <mach-o/dyld.h>
+#include <mach-o/getsect.h>
 
 /*
  * These are defined in here and these declarations need to be moved to libc.h
@@ -137,70 +135,74 @@ static char init = 0;		/* set while moninit() is being serviced */
 
 static unsigned long order = 0;	/* call order */
 
-struct mon_t {
+typedef struct {
     /* the address range and size this mon struct refers to */
     char		*lowpc;
     char		*highpc;
     unsigned long	textsize;
     /* the data structures to support the arc's and their counts */
     unsigned short	*froms; /* froms is unsigned shorts indexing into tos */
-    struct tostruct	*tos;
+    tostruct_t		*tos;
     long		tolimit;
     /* the pc-sample buffer, it's size and scale */
     char		*sbuf;
-    int			ssiz;	/* includes the gmonhdr struct */
-    int			scale;
-};
-static struct mon_t *mon = NULL;
+    long		ssiz;	/* includes the gmonhdr_t */
+    long		scale;
+} mon_t;
+static mon_t *mon = NULL;
 static unsigned long nmon = 0;
 
 static void monsetup(
-    struct mon_t *m,
+    mon_t *m,
     char *lowpc,
     char *highpc);
-static int getprofhz(
+static long getprofhz(
     void);
 
 void
 moninit(
 void)
 {
+#ifndef __LP64__
     const struct section *section;
+#else
+    const struct section_64 *section;
+#endif
     char *lowpc, *highpc;
     unsigned long i;
 
 	monreset();
 	init = 1;
 
-	section = getsectbyname ("__TEXT", "__text");
+	section = getsectbyname("__TEXT", "__text");
 	lowpc = (char *)section->addr,
 	highpc = (char *)(section->addr + section->size);
 
 	if(mon == NULL){
-	    if((mon = malloc(sizeof(struct mon_t))) == NULL){
+	    if((mon = malloc(sizeof(mon_t))) == NULL){
 		write(2, MSG, sizeof(MSG) - 1);
 		return;
 	    }
 	    nmon = 1;
-	    memset(mon, '\0', sizeof(struct mon_t));
+	    memset(mon, '\0', sizeof(mon_t));
 	}
 	/*
 	 * To continue to make monstartup() and the functions that existed
 	 * before adding multiple profiling areas working correctly the new
 	 * calls to get the dyld loaded code profiled are made after
-	 * the first mon_t struct is allocated so that they will not use the 
-	 * first mon_t and the old calls will always use the first mon_t struct
+	 * the first mon_t is allocated so that they will not use the 
+	 * first mon_t and the old calls will always use the first mon_t
 	 * in the list.
 	 */
 	monsetup(mon, lowpc, highpc);
 
-	profil(mon->sbuf + sizeof(struct gmonhdr),
-	       mon->ssiz - sizeof(struct gmonhdr),
-	       (int)mon->lowpc, mon->scale);
+	profil(mon->sbuf + sizeof(gmonhdr_t),
+	       mon->ssiz - sizeof(gmonhdr_t),
+	       (u_long)mon->lowpc, mon->scale);
 	for(i = 1; i < nmon; i++)
-	    add_profil(mon[i].sbuf + sizeof(struct gmonhdr),
-		       mon[i].ssiz - sizeof(struct gmonhdr),
-		       (int)mon[i].lowpc, mon[i].scale);
+	    add_profil(mon[i].sbuf + sizeof(gmonhdr_t),
+		       mon[i].ssiz - sizeof(gmonhdr_t),
+		       (u_long)mon[i].lowpc, mon[i].scale);
 	init = 0;
 	profiling = 0;
 
@@ -222,12 +224,12 @@ char *highpc)
 {
 	monreset();
 	if(mon == NULL){
-	    if((mon = malloc(sizeof(struct mon_t))) == NULL){
+	    if((mon = malloc(sizeof(mon_t))) == NULL){
 		write(2, MSG, sizeof(MSG) - 1);
 		return;
 	    }
 	    nmon = 1;
-	    memset(mon, '\0', sizeof(struct mon_t));
+	    memset(mon, '\0', sizeof(mon_t));
 	}
 	monsetup(mon, lowpc, highpc);
 }
@@ -242,7 +244,7 @@ char *lowpc,
 char *highpc)
 {
     char save_profiling;
-    struct mon_t *m;
+    mon_t *m;
 
 	if(mon == NULL){
 	    monstartup(lowpc, highpc);
@@ -250,12 +252,12 @@ char *highpc)
 	}
 	save_profiling = profiling;
 	profiling = -1;
-	if((mon = realloc(mon, (nmon + 1) * sizeof(struct mon_t))) == NULL){
+	if((mon = realloc(mon, (nmon + 1) * sizeof(mon_t))) == NULL){
 	    write(2, MSG, sizeof(MSG) - 1);
 	    return;
 	}
 	m = mon + nmon;
-	memset(m, '\0', sizeof(struct mon_t));
+	memset(m, '\0', sizeof(mon_t));
 	nmon++;
 	monsetup(m, lowpc, highpc);
 	profiling = save_profiling;
@@ -264,24 +266,24 @@ char *highpc)
 static
 void
 monsetup(
-struct mon_t *m,
+mon_t *m,
 char *lowpc,
 char *highpc)
 {
-    int monsize;
+    long monsize;
     char *buffer;
     kern_return_t ret;
-    struct gmonhdr *p;
-    unsigned int o;
+    gmonhdr_t *p;
+    uintptr_t o;
 
 	/*
 	 * round lowpc and highpc to multiples of the density we're using
-	 * so the rest of the scaling (here and in gprof) stays in ints.
+	 * so the rest of the scaling (here and in gprof) stays in longs.
 	 */
-	lowpc = (char *)ROUNDDOWN((unsigned)lowpc,
+	lowpc = (char *)ROUNDDOWN((uintptr_t)lowpc,
 				  HISTFRACTION * sizeof(HISTCOUNTER));
 	m->lowpc = lowpc;
-	highpc = (char *)ROUNDUP((unsigned)highpc,
+	highpc = (char *)ROUNDUP((uintptr_t)highpc,
 				 HISTFRACTION * sizeof(HISTCOUNTER));
 	m->highpc = highpc;
 
@@ -304,7 +306,7 @@ char *highpc)
 	    vm_deallocate(mach_task_self(),
 			  (vm_address_t)m->sbuf,
 			  (vm_size_t)m->ssiz);
-	monsize = (m->textsize / HISTFRACTION) + sizeof(struct gmonhdr);
+	monsize = (m->textsize / HISTFRACTION) + sizeof(gmonhdr_t);
 	ret = vm_allocate(mach_task_self(),
 			  (vm_address_t *)&buffer,
 			  (vm_size_t)monsize,
@@ -318,7 +320,7 @@ char *highpc)
 	if(m->tos)
 	    vm_deallocate(mach_task_self(),
 			  (vm_address_t)m->tos,
-			  (vm_size_t)(m->tolimit * sizeof(struct tostruct)));
+			  (vm_size_t)(m->tolimit * sizeof(tostruct_t)));
 	m->tolimit = m->textsize * ARCDENSITY / 100;
 	if(m->tolimit < MINARCS){
 	    m->tolimit = MINARCS;
@@ -328,7 +330,7 @@ char *highpc)
 	}
 	ret =  vm_allocate(mach_task_self(), 
 			   (vm_address_t *)&m->tos,
-			   (vm_size_t)(m->tolimit * sizeof(struct tostruct)),
+			   (vm_size_t)(m->tolimit * sizeof(tostruct_t)),
 			    TRUE);
 	if(ret != KERN_SUCCESS){
 	    write(2, MSG, sizeof(MSG) - 1);
@@ -354,28 +356,28 @@ char *highpc)
 	    /* monitor() functionality */
 	    m->sbuf = buffer;
 	    m->ssiz = monsize;
-	    p = (struct gmonhdr *)m->sbuf;
-	    memset(p, '\0', sizeof(struct gmonhdr));
-	    p->lpc = (unsigned long)m->lowpc;
-	    p->hpc = (unsigned long)m->highpc;
+	    p = (gmonhdr_t *)m->sbuf;
+	    memset(p, '\0', sizeof(gmonhdr_t));
+	    p->lpc = (uintptr_t)m->lowpc;
+	    p->hpc = (uintptr_t)m->highpc;
 	    p->ncnt = m->ssiz;
 	    p->version = GMONVERSION;
 	    p->profrate = getprofhz();
 	    o = highpc - lowpc;
-	    if((monsize - sizeof(struct gmonhdr)) < o)
-/* POSSIBLE BUG, if "(float) (monsize - sizeof(struct gmonhdr))/ o)" is zero
+	    if((monsize - sizeof(gmonhdr_t)) < o)
+/* POSSIBLE BUG, if "(float) (monsize - sizeof(gmonhdr_t))/ o)" is zero
  * then m->scale will be set to zero and the add_profil() call will disable
  * profiling */
-		m->scale = ((float) (monsize - sizeof(struct gmonhdr))/ o) *
+		m->scale = ((float) (monsize - sizeof(gmonhdr_t))/ o) *
 			   SCALE_1_TO_1;
 	    else
 		m->scale = SCALE_1_TO_1;
 
             /* moncontrol(mode == 1) functionality */
 	    if(!init)
-		add_profil(m->sbuf + sizeof(struct gmonhdr),
-			   m->ssiz - sizeof(struct gmonhdr),
-			   (int)m->lowpc, m->scale);
+		add_profil(m->sbuf + sizeof(gmonhdr_t),
+			   m->ssiz - sizeof(gmonhdr_t),
+			   (long)m->lowpc, m->scale);
 	}
 }
 
@@ -384,8 +386,8 @@ monreset(
 void)
 {
     unsigned long i;
-    struct mon_t *m;
-    struct gmonhdr *p;
+    mon_t *m;
+    gmonhdr_t *p;
 
 	moncontrol(0);
 	if(mon == NULL)
@@ -394,9 +396,9 @@ void)
 	    m = mon + i;
 	    if(m->sbuf != NULL){
 		memset(m->sbuf, '\0', m->ssiz);
-		p = (struct gmonhdr *)m->sbuf;
-		p->lpc = (unsigned long)m->lowpc;
-		p->hpc = (unsigned long)m->highpc;
+		p = (gmonhdr_t *)m->sbuf;
+		p->lpc = (uintptr_t)m->lowpc;
+		p->hpc = (uintptr_t)m->highpc;
 		p->ncnt = m->ssiz;
 		p->version = GMONVERSION;
 		p->profrate = getprofhz();
@@ -404,7 +406,7 @@ void)
 	    if(m->froms != NULL)
 		memset(m->froms, '\0', m->textsize / HASHFRACTION);
 	    if(m->tos != NULL)
-		memset(m->tos, '\0', m->tolimit * sizeof (struct tostruct));
+		memset(m->tos, '\0', m->tolimit * sizeof(tostruct_t));
 	}
 	order = 0;
 	moncontrol(1);
@@ -415,12 +417,14 @@ monoutput(
 const char *filename)
 {
     int fd;
-    unsigned long magic, i, fromindex, endfrom, toindex;
-    struct gmon_data sample_data, arc_data, dyld_data;
+    unsigned long i, fromindex, endfrom, toindex;
+    uint32_t magic;
+    gmon_data_t sample_data, arc_data, dyld_data;
     char *frompc;
-    struct rawarc_order rawarc_order;
-    struct mon_t *m;
-    unsigned long image_count, vmaddr_slide;
+    rawarc_order_t rawarc_order;
+    mon_t *m;
+    uint32_t image_count;
+    intptr_t image_header;
     char *image_name;
 
 	moncontrol(0);
@@ -433,8 +437,12 @@ const char *filename)
 	    return;
 	}
 
+#ifndef __LP64__
 	magic = GMON_MAGIC;
-	write(fd, &magic, sizeof(unsigned long));
+#else
+	magic = GMON_MAGIC_64;
+#endif
+	write(fd, &magic, sizeof(uint32_t));
 
 #if defined(__DYNAMIC__)
         if(_dyld_present()){
@@ -443,8 +451,8 @@ const char *filename)
 #ifdef DYLD_DEBUG
 		printf("image_count = %lu\n", image_count - 1);
 		for(i = 1; i < image_count; i++){
-		    vmaddr_slide = _dyld_get_image_vmaddr_slide(i);
-		    printf("\tvmaddr_slide 0x%x\n", (unsigned int)vmaddr_slide);
+		    image_header = _dyld_get_image_header(i);
+		    printf("\timage_header %p\n", image_header);
 		    image_name = _dyld_get_image_name(i);
 		    printf("\timage_name %s\n", image_name);
 		}
@@ -452,9 +460,9 @@ const char *filename)
 		/*
 		 * Calculate the dyld_data.size.
 		 */
-		dyld_data.type = GMONTYPE_DYLD_STATE;
-		dyld_data.size = sizeof(unsigned long) +
-		    sizeof(unsigned long) * (image_count - 1);
+		dyld_data.type = GMONTYPE_DYLD2_STATE;
+		dyld_data.size = sizeof(uint32_t) +
+		    sizeof(intptr_t) * (image_count - 1);
 		for(i = 1; i < image_count; i++){
 		    image_name = _dyld_get_image_name(i);
 		    dyld_data.size += strlen(image_name) + 1;
@@ -463,13 +471,13 @@ const char *filename)
 		/*
 		 * Write the dyld_data.
 		 */
-		write(fd, &dyld_data, sizeof(struct gmon_data));
+		write(fd, &dyld_data, sizeof(gmon_data_t));
 		image_count--;
-		write(fd, &image_count, sizeof(unsigned long));
+		write(fd, &image_count, sizeof(uint32_t));
 		image_count++;
 		for(i = 1; i < image_count; i++){
-		    vmaddr_slide = _dyld_get_image_vmaddr_slide(i);
-		    write(fd, &vmaddr_slide, sizeof(unsigned long));
+		    image_header = _dyld_get_image_header(i);
+		    write(fd, &image_header, sizeof(intptr_t));
 		    image_name = _dyld_get_image_name(i);
 		    write(fd, image_name, strlen(image_name) + 1);
 		}
@@ -479,15 +487,14 @@ const char *filename)
 	for(i = 0; i < nmon; i++){
 	    m = mon + i;
 #ifdef DEBUG
-	    fprintf(stderr, "[monoutput] sbuf 0x%x ssiz %d\n",
-		    m->sbuf, m->ssiz);
+	    fprintf(stderr, "[monoutput] sbuf %p ssiz %d\n", m->sbuf, m->ssiz);
 #endif
 	    sample_data.type = GMONTYPE_SAMPLES;
 	    sample_data.size = m->ssiz;
-	    write(fd, &sample_data, sizeof(struct gmon_data));
+	    write(fd, &sample_data, sizeof(gmon_data_t));
 	    /*
-	     * Write the gmonhdr struct and the pc-sample buffer.  Note the
-	     * gmonhdr struct is in sbuf at the beginning of sbuf already
+	     * Write the gmonhdr_t and the pc-sample buffer.  Note the
+	     * gmonhdr_t is in sbuf at the beginning of sbuf already
 	     * filled in.
 	     */
 	    write(fd, m->sbuf, m->ssiz);
@@ -498,19 +505,26 @@ const char *filename)
 	    endfrom = m->textsize / (HASHFRACTION * sizeof(*m->froms));
 	    arc_data.type = GMONTYPE_ARCS_ORDERS;
 	    arc_data.size = 0;
+#ifdef DEBUG
+	    fprintf(stderr, "[monoutput] raw arcs, total %lu\n", endfrom);
+#endif
 	    for(fromindex = 0; fromindex < endfrom; fromindex++){
 		if(m->froms[fromindex] == 0){
 		    continue;
 		}
+#ifdef DEBUG
+		fprintf(stderr, "[monoutput] raw arc count at index[%lu] %u\n",
+			fromindex, m->froms[fromindex]);
+#endif
 		frompc = m->lowpc +
 			 (fromindex * HASHFRACTION * sizeof(*m->froms));
 		for(toindex = m->froms[fromindex];
 		    toindex != 0;
 		    toindex = m->tos[toindex].link){
-		    arc_data.size += sizeof(struct rawarc_order);
+		    arc_data.size += sizeof(rawarc_order_t);
 		}
 	    }
-	    write(fd, &arc_data, sizeof(struct gmon_data));
+	    write(fd, &arc_data, sizeof(gmon_data_t));
 
 	    for(fromindex = 0; fromindex < endfrom; fromindex++){
 		if(m->froms[fromindex] == 0){
@@ -522,17 +536,17 @@ const char *filename)
 		    toindex != 0;
 		    toindex = m->tos[toindex].link){
 #ifdef DEBUG
-		    fprintf(stderr, "[monoutput] frompc 0x%x selfpc 0x%x "
-			    "count %ld order %lu\n", (unsigned int)frompc,
-			    (unsigned int)m->tos[toindex].selfpc,
+		    fprintf(stderr, "[monoutput] frompc %p selfpc %p "
+			    "count %ld order %lu\n", frompc,
+			    m->tos[toindex].selfpc,
 			    m->tos[toindex].count, m->tos[toindex].order);
 #endif
-		    rawarc_order.raw_frompc = (unsigned long)frompc;
-		    rawarc_order.raw_selfpc = (unsigned long)
+		    rawarc_order.raw_frompc = (uintptr_t)frompc;
+		    rawarc_order.raw_selfpc = (uintptr_t)
 					       m->tos[toindex].selfpc;
 		    rawarc_order.raw_count = m->tos[toindex].count;
 		    rawarc_order.raw_order = m->tos[toindex].order;
-		    write(fd, &rawarc_order, sizeof(struct rawarc_order));
+		    write(fd, &rawarc_order, sizeof(rawarc_order_t));
 		}
 	    }
 	}
@@ -547,9 +561,9 @@ char *buf,
 int bufsiz,
 int nfunc) /* nfunc is not used; available for compatability only. */
 {
-    unsigned int o;
-    struct gmonhdr *p;
-    struct mon_t *m;
+    intptr_t o;
+    gmonhdr_t *p;
+    mon_t *m;
 
 	moncontrol(0);
 	m = mon;
@@ -562,14 +576,14 @@ int nfunc) /* nfunc is not used; available for compatability only. */
 	}
 	m->sbuf = buf;
 	m->ssiz = bufsiz;
-	p = (struct gmonhdr *)buf;
-	memset(p, '\0', sizeof(struct gmonhdr));
-	p->lpc = (unsigned long)lowpc;
-	p->hpc = (unsigned long)highpc;
+	p = (gmonhdr_t *)buf;
+	memset(p, '\0', sizeof(gmonhdr_t));
+	p->lpc = (uintptr_t)lowpc;
+	p->hpc = (uintptr_t)highpc;
 	p->ncnt = m->ssiz;
 	p->version = GMONVERSION;
 	p->profrate = getprofhz();
-	bufsiz -= sizeof(struct gmonhdr);
+	bufsiz -= sizeof(gmonhdr_t);
 	if(bufsiz <= 0)
 	    return;
 	o = highpc - lowpc;
@@ -589,20 +603,20 @@ void
 moncontrol(
 int mode)
 {
-    struct mon_t *m;
+    mon_t *m;
     unsigned long i;
 
 	if(mode){
 	    /* start */
 	    m = mon;
 	    if(m != NULL){
-		profil(m->sbuf + sizeof(struct gmonhdr),
-		       m->ssiz - sizeof(struct gmonhdr),
-		       (int)m->lowpc, m->scale);
+		profil(m->sbuf + sizeof(gmonhdr_t),
+		       m->ssiz - sizeof(gmonhdr_t),
+		       (u_long)m->lowpc, m->scale);
 		for(i = 1; i < nmon; i++)
-		    add_profil(mon[i].sbuf + sizeof(struct gmonhdr),
-			       mon[i].ssiz - sizeof(struct gmonhdr),
-			       (int)mon[i].lowpc, mon[i].scale);
+		    add_profil(mon[i].sbuf + sizeof(gmonhdr_t),
+			       mon[i].ssiz - sizeof(gmonhdr_t),
+			       (u_long)mon[i].lowpc, mon[i].scale);
 		profiling = 0;
 	    }
 	}
@@ -619,9 +633,9 @@ char *frompc,
 char *selfpc)
 {
     unsigned short *frompcindex;
-    struct tostruct *top, *prevtop;
+    tostruct_t *top, *prevtop;
     unsigned long i, toindex;
-    struct mon_t *m;
+    mon_t *m;
 
 	m = mon;
 	if(m == NULL)
@@ -637,8 +651,7 @@ char *selfpc)
 
 
 #ifdef DEBUG
-	fprintf(stderr, "[moncount] frompc 0x%x selfpc 0x%x\n",
-		(unsigned int)frompc, (unsigned int)selfpc);
+	fprintf(stderr, "[moncount] frompc %p selfpc %p\n", frompc, selfpc);
 #endif
 	frompcindex = (unsigned short *)frompc;
 
@@ -649,8 +662,8 @@ char *selfpc)
 	 */
 	for(i = 0; i < nmon; i++){
 	    m = mon + i;
-	    if((unsigned long)frompcindex >= (unsigned long)m->lowpc &&
-	       (unsigned long)frompcindex <  (unsigned long)m->highpc)
+	    if((uintptr_t)frompcindex >= (uintptr_t)m->lowpc &&
+	       (uintptr_t)frompcindex <  (uintptr_t)m->highpc)
 		break;
 	}
 	if(i == nmon){
@@ -658,7 +671,7 @@ char *selfpc)
 	}
 	else{
 	    frompcindex = (unsigned short *)
-		  ((unsigned long)frompcindex - (unsigned long)m->lowpc);
+		  ((uintptr_t)frompcindex - (uintptr_t)m->lowpc);
 	}
 	frompcindex =
 	    &m->froms[((long)frompcindex) / (HASHFRACTION * sizeof(*m->froms))];
@@ -673,14 +686,14 @@ char *selfpc)
 	    }
 	    *frompcindex = toindex;
 	    top = &m->tos[toindex];
-	    top->selfpc = (unsigned long)selfpc;
+	    top->selfpc = (uintptr_t)selfpc;
 	    top->count = 1;
 	    top->link = 0;
 	    top->order = ++order;
 	    goto done;
 	}
 	top = &m->tos[toindex];
-	if(top->selfpc == (unsigned long)selfpc){
+	if(top->selfpc == (uintptr_t)selfpc){
 	    /*
 	     * arc at front of chain; usual case.
 	     */
@@ -698,7 +711,7 @@ char *selfpc)
 		/*
 		 * top is end of the chain and none of the chain
 		 * had top->selfpc == selfpc.
-		 * so we allocate a new tostruct
+		 * so we allocate a new tostruct_t
 		 * and link it to the head of the chain.
 		 */
 		toindex = ++m->tos[0].link;
@@ -706,7 +719,7 @@ char *selfpc)
 		    goto overflow;
 		}
 		top = &m->tos[toindex];
-		top->selfpc = (unsigned long)selfpc;
+		top->selfpc = (uintptr_t)selfpc;
 		top->count = 1;
 		top->link = *frompcindex;
 		top->order = ++order;
@@ -718,7 +731,7 @@ char *selfpc)
 	     */
 	    prevtop = top;
 	    top = &m->tos[top->link];
-	    if(top->selfpc == (unsigned long)selfpc){
+	    if(top->selfpc == (uintptr_t)selfpc){
 		/*
 		 * there it is.
 		 * increment its count
@@ -746,7 +759,7 @@ overflow:
  * Get the profiling rate.
  */
 static
-int
+long
 getprofhz(void)
 {
     int mib[2];

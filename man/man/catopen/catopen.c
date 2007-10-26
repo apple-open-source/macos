@@ -10,7 +10,11 @@ extern char *index (const char *, int);         /* not always in <string.h> */
 extern char *my_malloc(int);	/* in util.c */
 
 #ifndef DEFAULT_NLSPATH
-#define DEFAULT_NLSPATH "/usr/lib/locale/%N/%L"
+# if __GLIBC__ >= 2
+#  define DEFAULT_NLSPATH "/usr/share/locale/%L/%N"
+# else
+#  define DEFAULT_NLSPATH "/usr/lib/locale/%N/%L"
+# endif
 #endif
 
 static nl_catd my_catopenpath(char *name, char *path);
@@ -21,6 +25,11 @@ my_catopen(char *name, int oflag) {
   nl_catd fd;
 
   fd = catopen(name, oflag);
+
+  if (fd == (nl_catd) -1 && oflag) {
+    oflag = 0;
+    fd = catopen(name, oflag);
+  }
 
   if (fd == (nl_catd) -1) {
     char *nlspath;

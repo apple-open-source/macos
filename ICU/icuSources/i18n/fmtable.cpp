@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2004, International Business Machines Corporation and    *
+* Copyright (C) 1997-2006, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -43,22 +43,35 @@ UOBJECT_DEFINE_RTTI_IMPLEMENTATION(Formattable)
 // of the Measure class, which is true as of 3.0.  [alan]
 
 // Return TRUE if *a == *b.
-inline UBool objectEquals(const UObject* a, const UObject* b) {
+static inline UBool objectEquals(const UObject* a, const UObject* b) {
     // LATER: return *a == *b;
     return *((const Measure*) a) == *((const Measure*) b);
 }
 
 // Return a clone of *a.
-inline UObject* objectClone(const UObject* a) {
+static inline UObject* objectClone(const UObject* a) {
     // LATER: return a->clone();
     return ((const Measure*) a)->clone();
 }
 
 // Return TRUE if *a is an instance of Measure.
-inline UBool instanceOfMeasure(const UObject* a) {
+static inline UBool instanceOfMeasure(const UObject* a) {
     // LATER: return a->instanceof(Measure::getStaticClassID());
     return a->getDynamicClassID() ==
         CurrencyAmount::getStaticClassID();
+}
+
+/**
+ * Creates a new Formattable array and copies the values from the specified
+ * original.
+ * @param array the original array
+ * @param count the original array count
+ * @return the new Formattable array.
+ */
+static inline Formattable* createArrayCopy(const Formattable* array, int32_t count) {
+    Formattable *result = new Formattable[count];
+    for (int32_t i=0; i<count; ++i) result[i] = array[i]; // Don't memcpy!
+    return result;
 }
 
 //-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
@@ -66,7 +79,7 @@ inline UBool instanceOfMeasure(const UObject* a) {
 /**
  * Set 'ec' to 'err' only if 'ec' is not already set to a failing UErrorCode.
  */
-inline void setError(UErrorCode& ec, UErrorCode err) {
+static inline void setError(UErrorCode& ec, UErrorCode err) {
     if (U_SUCCESS(ec)) {
         ec = err;
     }
@@ -121,16 +134,6 @@ Formattable::Formattable(int64_t value)
 {
     fBogus.setToBogus();
     fValue.fInt64 = value;
-}
-
-// -------------------------------------
-// Creates a formattable object with a char* string.
-
-Formattable::Formattable(const char* stringToCopy)
-    :   UObject(), fType(kString)
-{
-    fBogus.setToBogus();
-    fValue.fString = new UnicodeString(stringToCopy);
 }
 
 // -------------------------------------

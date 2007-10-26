@@ -164,6 +164,8 @@ extern struct tree_opt_pass pass_pre;
 extern struct tree_opt_pass pass_profile;
 extern struct tree_opt_pass pass_pre_expand;
 extern struct tree_opt_pass pass_lower_vector_ssa;
+/* APPLE LOCAL mainline */
+extern struct tree_opt_pass pass_object_sizes;
 extern struct tree_opt_pass pass_fold_builtins;
 extern struct tree_opt_pass pass_early_warn_uninitialized;
 extern struct tree_opt_pass pass_late_warn_uninitialized;

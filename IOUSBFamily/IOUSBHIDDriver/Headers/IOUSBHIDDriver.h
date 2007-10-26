@@ -76,6 +76,18 @@
 #define	kUSBHIDReportLoggingLevel	"USB HID Report Logging Level"
 
 
+// power states for the driver (awake or suspended)
+enum
+{
+	kUSBHIDPowerStateOff		= 0,
+	kUSBHIDPowerStateRestart	= 1,
+	kUSBHIDPowerStateSleep		= 2,			// this could be system sleep or idle sleep
+	kUSBHIDPowerStateLowPower	= 3,			// this is idling
+	kUSBHIDPowerStateOn			= 4,			// this is fully on
+	kUSBHIDNumberPowerStates	= 5
+};
+
+
 class IOUSBHIDDriver : public IOHIDDevice
 {
     OSDeclareDefaultStructors(IOUSBHIDDriver)
@@ -116,6 +128,12 @@ class IOUSBHIDDriver : public IOHIDDevice
 		UInt8							_interfaceNumber;
 		bool							_logHIDReports;
 		UInt8							_hidLoggingLevel;
+		bool							_needToClearPipeStall;
+		SInt32							_queuedReports;
+		AbsoluteTime					_interruptTimeStamp;
+		bool							_powerStateChanging;
+		unsigned long					_myPowerState;
+		bool							_pendingRead;
     };
     IOUSBHIDDriverExpansionData *_usbHIDExpansionData;
     
@@ -135,6 +153,7 @@ class IOUSBHIDDriver : public IOHIDDevice
     virtual void 		processPacket(void *data, UInt32 size);		// Obsolete
 
     static IOReturn		ChangeOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+    static IOReturn		ClaimPendingRead(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 
     static void			SuspendPortTimer(OSObject *target, IOTimerEventSource *sender);
 
@@ -142,13 +161,19 @@ public:
         
     // IOService methods
     //
-    virtual bool		init(OSDictionary *properties);
-    virtual bool		start(IOService * provider);
-    virtual bool		didTerminate( IOService * provider, IOOptionBits options, bool * defer );
-    virtual bool		willTerminate( IOService * provider, IOOptionBits options );
-    virtual void		free();
-    virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
-    
+    virtual bool			init(OSDictionary *properties);
+    virtual bool			start(IOService * provider);
+    virtual bool			didTerminate( IOService * provider, IOOptionBits options, bool * defer );
+    virtual bool			willTerminate( IOService * provider, IOOptionBits options );
+    virtual void			stop(IOService *  provider);
+    virtual void			free();
+    virtual IOReturn		message( UInt32 type, IOService * provider,  void * argument = 0 );
+	virtual unsigned long	maxCapabilityForDomainState ( IOPMPowerFlags domainState );
+	virtual IOReturn		powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice);
+	virtual IOReturn		setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice );
+	virtual IOReturn		powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice);
+ 	virtual void			powerChangeDone ( unsigned long fromState);
+  
 
     // IOHIDDevice methods
     //
@@ -182,6 +207,8 @@ public:
     virtual IOReturn 	setReport( IOMemoryDescriptor * report,
                                 IOHIDReportType      reportType,
                                 IOOptionBits         options = 0 );
+	
+	virtual OSNumber * newReportIntervalNumber() const;
 			
     // HID driver methods
     //
@@ -235,7 +262,9 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBHIDDriver,  3);
     virtual void		LogMemReport(UInt8 level, IOMemoryDescriptor * reportBuffer, IOByteCount size);
 
-    OSMetaClassDeclareReservedUnused(IOUSBHIDDriver,  4);
+    OSMetaClassDeclareReservedUsed(IOUSBHIDDriver,  4);
+	virtual IOReturn	InitializeUSBHIDPowerManagement(IOService *provider);
+	
     OSMetaClassDeclareReservedUnused(IOUSBHIDDriver,  5);
     OSMetaClassDeclareReservedUnused(IOUSBHIDDriver,  6);
     OSMetaClassDeclareReservedUnused(IOUSBHIDDriver,  7);

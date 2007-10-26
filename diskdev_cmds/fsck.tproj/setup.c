@@ -89,6 +89,9 @@ static int readsb __P((int listerr));
 int dkdisklabel __P((int fd, struct disklabel * lp));
 #endif
 
+/* prevent compiler from complaining about the definition in sys/disklabel.h */
+char **lamehack = dktypenames;
+
 static int
 check_cg_offsets(struct cg *cg) {
 	char *base = (char*)cg,
@@ -132,6 +135,11 @@ check_cg_offsets(struct cg *cg) {
 		return 0;
 	}
 #undef CHECKSIZE
+
+	if ((unsigned int)sblock.fs_nrpos > INT_MAX / (unsigned int)sblock.fs_cpg) {
+		pfatal("CG:  nrpos * cpg overflows\n");
+		return 0;
+	}
 
 	return 1;
 }
@@ -203,7 +211,7 @@ setup(dev)
 	asblk.b_un.b_buf = malloc(SBSIZE);
 	if (sblk.b_un.b_buf == NULL || asblk.b_un.b_buf == NULL)
 		errx(EEXIT, "cannot allocate space for superblock");
-	if (lp = getdisklabel(NULL, fsreadfd))
+	if ((lp = getdisklabel(NULL, fsreadfd)))
 		dev_bsize = secsize = lp->d_secsize;
 	else
 		dev_bsize = secsize = DEV_BSIZE;
@@ -283,11 +291,11 @@ setup(dev)
 	}
 	maxfsblock = sblock.fs_size;
 	if (sblock.fs_ipg != 0 &&
-			+ (unsigned)sblock.fs_ncg > INT_MAX / (unsigned)sblock.fs_ipg) {
+		(unsigned)sblock.fs_ncg > INT_MAX / (unsigned)sblock.fs_ipg) {
 		printf("NCG * IPG OVERFLOWS\n");
 		goto badsb;
 	}
-		
+
 	maxino = sblock.fs_ncg * sblock.fs_ipg;
 	/*
 	 * Check and potentially fix certain fields in the super block.
@@ -423,22 +431,23 @@ setup(dev)
 		    (unsigned)(maxino + 1));
 		goto badsb;
 	}
-	
-	if ((size_t)(maxino + 1) > SIZE_T_MAX / sizeof(short)) {
-		printf("integer overflow detected allocating for lncntp\n");
-		goto badsb;
-	}
-
 	typemap = calloc((unsigned)(maxino + 1), sizeof(char));
 	if (typemap == NULL) {
 		printf("cannot alloc %u bytes for typemap\n",
 		    (unsigned)(maxino + 1));
 		goto badsb;
 	}
+
+	if ((size_t)(maxino + 1) > SIZE_T_MAX / sizeof(short)) {
+		printf("integer overflow detected allocating for lncntp\n");
+		goto badsb;
+	}
+
+
 	lncntp = (short *)calloc((unsigned)(maxino + 1), sizeof(short));
 	if (lncntp == NULL) {
-		printf("cannot alloc %u bytes for lncntp\n", 
-		    (unsigned int)(maxino + 1) * sizeof(short));
+		printf("cannot alloc %lu bytes for lncntp\n", 
+		    (unsigned)(maxino + 1) * sizeof(short));
 		goto badsb;
 	}
 	numdirs = sblock.fs_cstotal.cs_ndir;
@@ -455,8 +464,8 @@ setup(dev)
 	inphead = (struct inoinfo **)calloc((unsigned)numdirs,
 	    sizeof(struct inoinfo *));
 	if (inpsort == NULL || inphead == NULL) {
-		printf("cannot alloc %u bytes for inphead\n", 
-		    (unsigned int)numdirs * sizeof(struct inoinfo *));
+		printf("cannot alloc %lu bytes for inphead\n", 
+		    (unsigned)numdirs * sizeof(struct inoinfo *));
 		goto badsb;
 	}
 
@@ -507,6 +516,10 @@ readsb(listerr)
 		{ badsb(listerr, "NCG OUT OF RANGE"); return (0); }
 	if (sblock.fs_cpg < 1)
 		{ badsb(listerr, "CPG OUT OF RANGE"); return (0); }
+	if (sblock.fs_ncg > INT_MAX / sblock.fs_cpg) 
+		{ badsb(listerr, "NCG overflows"); return (0); }
+	if (sblock.fs_ncg * sblock.fs_cpg > sblock.fs_size)
+		{ badsb(listerr, "NCG * CPG larger than filesystem"); return (0); }
 	if (sblock.fs_ncg * sblock.fs_cpg < sblock.fs_ncyl ||
 	    (sblock.fs_ncg - 1) * sblock.fs_cpg >= sblock.fs_ncyl)
 		{ badsb(listerr, "NCYL LESS THAN NCG*CPG"); return (0); }
@@ -583,7 +596,7 @@ readsb(listerr)
 				if (*olp == *nlp)
 					continue;
 				printf("offset %ld, original %ld, alternate %ld\n",
-				    olp - (long *)&sblock, *olp, *nlp);
+				    (long)(olp - (long *)&sblock), *olp, *nlp);
 			}
 		}
 		badsb(listerr,

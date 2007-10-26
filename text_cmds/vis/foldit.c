@@ -1,5 +1,3 @@
-/*	$NetBSD: foldit.c,v 1.5 1997/10/20 03:06:47 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,16 +32,16 @@
  */
 
 #include <sys/cdefs.h>
+
+__FBSDID("$FreeBSD: src/usr.bin/vis/foldit.c,v 1.6 2001/12/11 23:02:44 markm Exp $");
+
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)foldit.c	8.1 (Berkeley) 6/6/93";
+static const char sccsid[] = "@(#)foldit.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: foldit.c,v 1.5 1997/10/20 03:06:47 lukem Exp $");
-#endif /* not lint */
 
 #include <stdio.h>
 
-int foldit __P((char *, int, int));
+#include "extern.h"
 
 int
 foldit(chunk, col, max)
@@ -77,7 +75,7 @@ again:
 			printf("\\\n");
 			col = 0;
 			goto again;
-		} 
+		}
 		cp++;
 	}
 	return (col);

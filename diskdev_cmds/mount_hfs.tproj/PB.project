@@ -3,9 +3,9 @@
     FILESTABLE = {
         CLASSES = (); 
         FRAMEWORKS = (); 
-        H_FILES = (hfs_endian.h); 
-        OTHER_LIBS = (disk); 
-        OTHER_LINKED = (mount_hfs.c); 
+        H_FILES = (hfs_endian.h, optical.h); 
+        OTHER_LIBS = (util); 
+        OTHER_LINKED = (mount_hfs.c, optical.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, mount_hfs.8); 
         SUBPROJECTS = (); 
     }; 

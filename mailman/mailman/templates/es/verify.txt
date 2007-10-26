@@ -3,7 +3,7 @@ Mensaje de confirmación para la subscripción a la lista de distribución
 
 Se ha recibido una solicitud de subscripción de su dirección "%(email)s",
 a la lista %(listaddr)s, %(remote)s. Para confirmar que quiere ser dado de
-alta en esta lista de distribución, solo tiene que responder a este mensaje
+alta en esta lista de distribución, sólo tiene que responder a este mensaje
 manteniendo el asunto intacto o visitar la siguiente página web:
 
     %(confirmurl)s
@@ -16,7 +16,7 @@ a la dirección %(requestaddr)s:
 
 Responder a este mensaje, debería funcionar con la mayoria de los programas
 de correo electrónico, ya que suelen dejar el asunto de la forma adecuada (el
-texto adicional "Re:" que suelen poner en el asunto funcionará correctamente))
+texto adicional "Re:" que suelen poner en el asunto funcionará correctamente)
 
 Si no desea subscribirse a esta lista, por favor, ignore este mensaje. Si cree
 que alguien de forma malintencionada está intentando subscribirle a la lista o

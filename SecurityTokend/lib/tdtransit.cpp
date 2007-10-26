@@ -156,13 +156,24 @@ RecordHandle ClientSession::findFirst(const CssmQuery &query,
 	void *dataPtr; mach_msg_type_number_t dataLength;
 	RecordHandle hRecord;
 	CssmDbRecordAttributeData *outAttributesBase;
+	CssmDbRecordAttributeData *tmpOutAttributes = NULL;
 	IPC(tokend_client_findFirst(TOKEND_ARGS, COPY(theQuery), COPYFLAT(inAttributes),
 		outData != NULL, &dataPtr, &dataLength, &hKey,
-		&outAttributes, &outAttributesLength, &outAttributesBase,
+		&tmpOutAttributes, &outAttributesLength, &outAttributesBase,
 		&hSearch, &hRecord));
-	relocate(outAttributes, outAttributesBase);
+//	DataOutput out_data(data, returnAllocator);
+	if (outAttributesLength)
+	{
+		outAttributes = static_cast<CssmDbRecordAttributeData *>(malloc(outAttributesLength));
+		memcpy(outAttributes, tmpOutAttributes, outAttributesLength);
+		relocate(outAttributes, outAttributesBase);
+	}
+	else
+		outAttributes = NULL;
 	if (outData)
 		*outData = CssmData(dataPtr, dataLength);
+	if (tmpOutAttributes)
+		mig_deallocate(reinterpret_cast<vm_address_t>(tmpOutAttributes), outAttributesLength);
 	return hRecord;
 }
 
@@ -174,11 +185,19 @@ RecordHandle ClientSession::findNext(SearchHandle hSearch,
 	void *dataPtr; mach_msg_type_number_t dataLength;
 	RecordHandle hRecord;
 	CssmDbRecordAttributeData *outAttributesBase;
+	CssmDbRecordAttributeData *tmpOutAttributes = NULL;
 	IPC(tokend_client_findNext(TOKEND_ARGS, hSearch, COPYFLAT(inAttributes),
 		outData != NULL, &dataPtr, &dataLength, &hKey,
-		&outAttributes, &outAttributesLength, &outAttributesBase,
+		&tmpOutAttributes, &outAttributesLength, &outAttributesBase,
 		&hRecord));
-	relocate(outAttributes, outAttributesBase);
+	if (outAttributesLength)
+	{
+		outAttributes = static_cast<CssmDbRecordAttributeData *>(malloc(outAttributesLength));
+		memcpy(outAttributes, tmpOutAttributes, outAttributesLength);
+		relocate(outAttributes, outAttributesBase);
+	}
+	else
+		outAttributes = NULL;
 	if (outData)
 		*outData = CssmData(dataPtr, dataLength);
 	return hRecord;
@@ -191,10 +210,18 @@ void ClientSession::findRecordHandle(RecordHandle hRecord,
 {
 	void *dataPtr; mach_msg_type_number_t dataLength;
 	CssmDbRecordAttributeData *outAttributesBase;
+	CssmDbRecordAttributeData *tmpOutAttributes = NULL;
 	IPC(tokend_client_findRecordHandle(TOKEND_ARGS, hRecord, COPYFLAT(inAttributes),
 		outData != NULL, &dataPtr, &dataLength, &hKey,
-		&outAttributes, &outAttributesLength, &outAttributesBase));
-	relocate(outAttributes, outAttributesBase);
+		&tmpOutAttributes, &outAttributesLength, &outAttributesBase));
+	if (outAttributesLength)
+	{
+		outAttributes = static_cast<CssmDbRecordAttributeData *>(malloc(outAttributesLength));
+		memcpy(outAttributes, tmpOutAttributes, outAttributesLength);
+		relocate(outAttributes, outAttributesBase);
+	}
+	else
+		outAttributes = NULL;
 	if (outData)
 		*outData = CssmData(dataPtr, dataLength);
 }

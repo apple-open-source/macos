@@ -52,6 +52,7 @@ if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable {debug
 remote_exec build "perl -pi -e s#/usr/lib/dyld#/tmp/dyld-tst# $binfile"
 remote_exec build "rm -f ${objdir}/${subdir}/dyld"
 remote_exec build "cp /usr/lib/dyld ${objdir}/${subdir}/dyld"
+remote_exec build "rm -f /tmp/dyld-tst"
 remote_exec build "ln -s ${objdir}/${subdir}/dyld /tmp/dyld-tst"
 
 set dyld_before_event __dyld__ZN4dyld24initializeMainExecutableEv

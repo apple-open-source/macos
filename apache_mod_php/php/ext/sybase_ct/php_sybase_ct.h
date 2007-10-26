@@ -1,13 +1,13 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
-   | http://www.php.net/license/3_0.txt.                                  |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_sybase_ct.h,v 1.14.2.3.4.3 2007/01/01 09:46:49 sebastian Exp $ */
+/* $Id: php_sybase_ct.h,v 1.19.2.2.2.1 2007/01/01 09:36:09 sebastian Exp $ */
 
 #ifndef PHP_SYBASE_CT_H
 #define PHP_SYBASE_CT_H
@@ -96,7 +96,7 @@ typedef struct {
 } sybase_field;
 
 typedef struct {
-	pval **data;
+	zval **data;
 	sybase_field *fields;
 	sybase_link *sybase_ptr;
 	int cur_row,cur_field;

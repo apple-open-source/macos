@@ -1,0 +1,19 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {resetBtnClicked = id; startBtnClicked = id; }; 
+            CLASS = AppCtrl; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {playingView = id; startBtn = id; }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            CLASS = PlayingView; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {appCtrl = id; }; 
+            SUPERCLASS = NSView; 
+        }
+    ); 
+    IBVersion = 1; 
+}

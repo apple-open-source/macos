@@ -51,6 +51,10 @@ struct vpn_channel {
     int (*refuse) __P((void));
     /* we're finished with the channel */
     void (*close) __P((void));
+    /* health check function */
+    int (*health_check) __P((int *, int));
+    /* load balance redirect function */
+    int (*lb_redirect) __P((struct in_addr *, struct in_addr *));
 };
    
 void init_address_lists(void);

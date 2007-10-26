@@ -313,7 +313,7 @@
 1448|Spacetec IMC Corporation
 1449|OmniVision Technologies, Inc.
 1451|In-System Design
-1452|Apple Computer
+1452|Apple Inc.
 1453|Y.C. Cable U.S.A., Inc
 1454|Jing-Mold Enterprise Co., Ltd.
 1456|Fountain Technologies, Inc

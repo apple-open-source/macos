@@ -8,7 +8,7 @@
  */
 
 #ifndef lint
-/*char sdbm_rcsid[] = "$Id: _sdbm.c,v 1.5 2001/05/28 16:07:34 eban Exp $";*/
+/*char sdbm_rcsid[] = "$Id: _sdbm.c 11708 2007-02-12 23:01:19Z shyouhei $";*/
 #endif
 
 #include "sdbm.h"
@@ -103,7 +103,7 @@ static int   duppair proto((char *, datum));
 /*
  * externals
  */
-#if !defined sun && !defined MSDOS && !defined _WIN32 && !defined __CYGWIN__
+#if !defined sun && !defined MSDOS && !defined _WIN32 && !defined __CYGWIN__ && !defined(errno)
 extern int errno;
 #endif
 
@@ -626,7 +626,7 @@ register DBM *db;
  */
 
 #ifndef lint
-/*char pair_rcsid[] = "$Id: _sdbm.c,v 1.5 2001/05/28 16:07:34 eban Exp $";*/
+/*char pair_rcsid[] = "$Id: _sdbm.c 11708 2007-02-12 23:01:19Z shyouhei $";*/
 #endif
 
 #ifndef BSD42

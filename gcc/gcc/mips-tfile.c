@@ -667,12 +667,16 @@ main (void)
 
 #include <signal.h>
 
-#ifndef CROSS_COMPILE
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #include <a.out.h>
 #else
 #include "mips/a.out.h"
-#endif /* CROSS_COMPILE */
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#endif /* CROSS_DIRECTORY_STRUCTURE */
 
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #include "gstab.h"
 
 #define STAB_CODE_TYPE enum __stab_debug_code

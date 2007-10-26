@@ -74,6 +74,7 @@ Tokend::Attribute *CACCertificateRecord::getDataAttribute(Tokend::TokenContext *
 	uint8 uncompressed[CAC_MAXSIZE_CERT];
 	size_t certificateLength = 0;
 
+	try
 	{
 		PCSC::Transaction _(cacToken);
 		cacToken.select(mApplication);
@@ -97,7 +98,11 @@ Tokend::Attribute *CACCertificateRecord::getDataAttribute(Tokend::TokenContext *
 			command[4] = cacreturn & 0xFF;
 		} while ((cacreturn & 0xFF00) == 0x6300);
 	}
-
+	catch (...)
+	{
+		return NULL;
+	}
+	
 	if (certificate[0] == 1)
 	{
 		/* The certificate is compressed */
@@ -242,7 +247,25 @@ CACTBRecord::getSize(CACToken &cacToken, size_t &tbsize, size_t &vbsize)
     vbsize = result[0x1E] + (result[0x1F] << 8);
 }
 
-#define MAX_READ 0xFF
+#define MAX_READ 0xFF	// 200 redefine to avoid SCardTransmitExt -- was 0xFF
+
+#if 0
+		// With extended APDUs, we can get another 0x61xx result
+		if (resultLength == 2 && result[0] == 0x61)
+		{
+			apdusize = 5;
+			apdu[0] = 0x00; apdu[1] = 0xC0; apdu[2] = 0x00; apdu[3] = 0x00; apdu[4] = result[1];
+			continue;
+		}
+#endif
+
+/*
+	See NIST IR 6887 – 2003 EDITION, GSC-IS VERSION 2.1
+	5.3.4 Generic Container Provider Virtual Machine Card Edge Interface
+	for a description of how this command works
+	
+	READ BUFFER 0x80 0x52 Off/H Off/L 0x02 <buffer & number bytes to read> – 
+*/
 
 Tokend::Attribute *CACTBRecord::getDataAttribute(CACToken &cacToken,
 	bool getTB)
@@ -257,17 +280,20 @@ Tokend::Attribute *CACTBRecord::getDataAttribute(CACToken &cacToken,
 
     unsigned char outputData[size + 2];
     unsigned int offset, bytes_left;
+	
     for (offset = 0, bytes_left = size; bytes_left;)
     {
+    //    resultLength = size + 2 - offset;
         unsigned char toread = bytes_left > MAX_READ ? MAX_READ : bytes_left;
-        unsigned char apdu[] = { 0x80, 0x52,
-            offset >> 8, offset & 0xFF,
-            0x02, (getTB ? 0x01 : 0x02),
-            toread };
-        resultLength = size + 2 - offset;
+		unsigned char apdu[] = { 0x80, 0x52,
+				offset >> 8, offset & 0xFF,
+				0x02, (getTB ? 0x01 : 0x02),
+				toread };
+		resultLength = toread + 2;
         uint32_t cacresult = cacToken.exchangeAPDU(apdu, sizeof(apdu),
                                                    outputData + offset,
 												   resultLength);
+
         CACError::check(cacresult);
 
         if (resultLength - 2 != toread)
@@ -280,6 +306,25 @@ Tokend::Attribute *CACTBRecord::getDataAttribute(CACToken &cacToken,
 
     return new Tokend::Attribute(outputData, offset);
 }
+
+#if 0
+Tokend::Attribute *CACTBRecord::getDataAttribute(CACToken &cacToken, bool getTB)
+{
+    size_t size, tbsize, vbsize;
+	cacToken.select(mApplication);
+	size_t resultLength;
+
+	PCSC::Transaction _(cacToken);
+	getSize(cacToken, tbsize, vbsize);
+	size = getTB ? tbsize : vbsize;
+
+	CssmData data;
+	
+	cacToken.getDataCore(mApplication, mApplicationSize, mDescription, mIsCertificate, mAllowCaching, data);
+	
+	return new Tokend::Attribute(data.Data, data.Length);
+}
+#endif
 
 Tokend::Attribute *CACTBRecord::getDataAttribute(Tokend::TokenContext *tokenContext)
 {
@@ -314,5 +359,3 @@ void CACVBRecord::getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
 	acls = mAclEntries.entries();
 }
 
-
-/* arch-tag: 9703BFF8-0E73-11D9-ACDD-000A9595DEEE */

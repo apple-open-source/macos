@@ -28,6 +28,7 @@
 #ifndef __CPlugInList_h__
 #define __CPlugInList_h__	1
 
+#include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFPlugIn.h>
 
 #include "PrivateTypes.h"
@@ -35,7 +36,42 @@
 #include "DSEventSemaphore.h"
 #include "PluginData.h"
 
-class	CServerPlugin;
+#define	kRecTypeRestrictionsFilePath "/Library/Preferences/DirectoryService/DSRecordTypeRestrictions.plist"
+#define	kRecTypeRestrictionsCorruptedFilePath "/Library/Preferences/DirectoryService/DSRecordTypeRestrictionsCorrupted.plist"
+#define kDefaultRecTypeRestrictionsConfig \
+"<dict>\
+	<key>Version</key>\
+	<string>1.0</string>\
+	<key>BSD</key>\
+	<dict>\
+	<key>/BSD/local</key>\
+	<dict>\
+	<key>Deny Record Types</key>\
+	<array>\
+	<string>dsRecTypeStandard:Users</string>\
+	<string>dsRecTypeStandard:Groups</string>\
+	</array>\
+	</dict>\
+	</dict>\
+</dict>"
+
+#define kDefaultDisableBSDUsersAndGroups \
+"<dict>\
+	<key>/BSD/local</key>\
+	<dict>\
+	<key>Deny Record Types</key>\
+	<array>\
+	<string>dsRecTypeStandard:Users</string>\
+	<string>dsRecTypeStandard:Groups</string>\
+	</array>\
+	</dict>\
+</dict>"
+
+#define kRTRVersionKey		"Version"
+#define	kRTRAllowKey		"Allow Record Types"
+#define kRTRDenyKey			"Deny Record Types"
+
+#include "CServerPlugin.h"
 
 // Typedefs --------------------------------------------------------------------
 
@@ -50,9 +86,11 @@ typedef struct sTableData
 	CServerPlugin		*fPluginPtr;
 	CFPlugInRef			fPluginRef;
 	CFUUIDRef			fCFuuidFactory;
-	uInt32				fULVers;
+	UInt32				fULVers;
 	FourCharCode		fKey;
-	uInt32				fState;
+	UInt32				fState;
+	UInt32				fValidDataStamp; //perhaps better if uuid can seed this mod count?
+	eDSPluginLevel		fLevel;
 	sTableData		   *pNext;
 } sTableData;
 
@@ -64,37 +102,56 @@ public:
 				CPlugInList			( void );
 	virtual	   ~CPlugInList			( void );
 
-	sInt32	   	AddPlugIn			(	const char 		*inName,
+	SInt32	   	AddPlugIn			(	const char 		*inName,
 										const char 		*inVersion,
 										const char 		*inConfigAvail,
 										const char 		*inConfigFile,
+										eDSPluginLevel	 inLevel,
 										FourCharCode	 inKey,
 										CServerPlugin	*inPlugin,
 										CFPlugInRef 	 inPluginRef = NULL,
 										CFUUIDRef		 inCFuuidFactory = NULL,
-										uInt32			 inULVers = 0 );
+										UInt32			 inULVers = 0 );
+
 										
 	void		LoadPlugin			( sTableData *inTableEntry );
-	void		InitPlugIns			( void );
+	void		InitPlugIns			( eDSPluginLevel inLevel );
 
-	sInt32	 	IsPresent			( const char *inName );
+	SInt32	 	IsPresent			( const char *inName );
 
-	sInt32		GetState			( const char *inName, uInt32 *outState );
-	sInt32		SetState			( const char *inName, const uInt32 inState );
+	SInt32		GetState			( const char *inName, UInt32 *outState );
+	SInt32		SetState			( const char *inName, const UInt32 inState );
 
-	uInt32		GetPlugInCount		( void );
-	uInt32		GetActiveCount		( void );
+	SInt32		UpdateValidDataStamp( const char *inName );
+	UInt32		GetValidDataStamp	( const char *inName );
 
-	sTableData*	GetPlugInInfo		( uInt32 inIndex );
+	UInt32		GetPlugInCount		( void );
+	UInt32		GetActiveCount		( void );
 
-CServerPlugin*	Next				( uInt32 *inIndex );
+	sTableData*	GetPlugInInfo		( UInt32 inIndex );
+
+CServerPlugin*	Next				( UInt32 *inIndex );
 
 CServerPlugin* 	GetPlugInPtr		( const char *inName, bool loadIfNeeded = true );
-CServerPlugin* 	GetPlugInPtr		( const uInt32 inKey, bool loadIfNeeded = true );
+CServerPlugin* 	GetPlugInPtr		( const UInt32 inKey, bool loadIfNeeded = true );
+
+	SInt32		ReadRecordTypeRestrictions( void );
+	bool		IsOKToServiceQuery	( const char *inPluginName, const char *inNodeName, const char *inRecordTypeList, UInt32 inNumberRecordTypes );
+	
+	CFMutableDictionaryRef	CopyRecordTypeRestrictionsDictionary( void );
+	void					SetRecordTypeRestrictionsDictionary( CFMutableDictionaryRef inDictionary );
+
+protected:
+	bool		CreatePrefDirectory	( void );
+	sTableData*	MakeTableEntryCopy	( sTableData* inEntry );
+	void		SetPluginState		( sTableData *inTableEntry );
+
+
+	CFDictionaryRef		fCFRecordTypeRestrictions;
 
 private:
-	uInt32				fPICount;
-	DSMutexSemaphore	fMutex;
+	UInt32				fPICount;
+	DSMutexSemaphore		fMutex;
 	sTableData			*fTable;
 	sTableData			*fTableTail;
 	DSEventSemaphore   	fWaitToInit;

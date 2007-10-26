@@ -20,13 +20,17 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <sys/cdefs.h>
+
 #include <mach/mach.h>
 #include <mach/thread_switch.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <libc.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFBundlePriv.h>
@@ -37,7 +41,6 @@
 #include <IOKit/graphics/IOGraphicsLibPrivate.h>
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 #include <IOKit/graphics/IOGraphicsEngine.h>
-#include <IOKit/iokitmig.h>
 
 #include "IOGraphicsLibInternal.h"
 
@@ -51,7 +54,7 @@ Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void **byte
 Boolean _IOWriteBytesToFile(const char *path, const void *bytes, CFIndex length);
 
 __private_extern__ IOReturn
-readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize)
+readFile(const char *path, vm_address_t * objAddr, vm_size_t * objSize)
 {
     int fd;
     int err;
@@ -77,8 +80,8 @@ readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize)
         }
 	*objSize = stat_buf.st_size;
 
-	if( KERN_SUCCESS != map_fd(fd, 0, objAddr, TRUE, *objSize)) {
-            *objAddr = 0;
+	*objAddr = (vm_address_t) mmap(NULL, round_page(stat_buf.st_size), PROT_READ, MAP_FILE|MAP_PRIVATE, fd, 0);
+	if(!*objAddr) {
             *objSize = 0;
 	    err = errno;
 	    continue;
@@ -92,7 +95,6 @@ readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize)
 
     return( err );
 }
-
 
 __private_extern__ CFMutableDictionaryRef
 readPlist( const char * path, UInt32 key )
@@ -122,7 +124,7 @@ readPlist( const char * path, UInt32 key )
 }
 
 __private_extern__ Boolean
-writePlist( const char * path, CFMutableDictionaryRef dict, UInt32 key )
+writePlist( const char * path, CFMutableDictionaryRef dict, UInt32 key __unused )
 {
     Boolean   result = false;
     CFDataRef data;
@@ -150,7 +152,7 @@ writePlist( const char * path, CFMutableDictionaryRef dict, UInt32 key )
 static CFMutableDictionaryRef
 IODisplayCreateOverrides( IOOptionBits options, 
                             IODisplayVendorID vendor, IODisplayProductID product,
-                            UInt32 serialNumber, CFAbsoluteTime manufactureDate,
+                            UInt32 serialNumber __unused, CFAbsoluteTime manufactureDate __unused,
 			    Boolean isDigital )
 {
 
@@ -160,10 +162,10 @@ IODisplayCreateOverrides( IOOptionBits options,
 
     if( 0 == (options & kIODisplayMatchingInfo)) {
 
-        sprintf( path, "/System/Library/Displays/Overrides"
-                        "/" kDisplayVendorID "-%lx"
-                        "/" kDisplayProductID "-%lx",
-                        vendor, product );
+        snprintf( path, sizeof(path), "/System/Library/Displays/Overrides"
+                        "/" kDisplayVendorID "-%x"
+                        "/" kDisplayProductID "-%x",
+                        (unsigned) vendor, (unsigned) product );
     
         obj = readPlist( path, ((vendor & 0xffff) << 16) | (product & 0xffff) );
         if( obj) {
@@ -221,7 +223,7 @@ IODisplayCreateOverrides( IOOptionBits options,
 	if((kIODisplayMatchingInfo | kIODisplayNoProductName) & options)
 	    continue;
 
-        sprintf( path, "/System/Library/Displays/Overrides");
+        snprintf( path, sizeof(path), "/System/Library/Displays/Overrides");
 //                            "/" kDisplayVendorID "-%lx", vendor );
     
         string = CFStringCreateWithCString( kCFAllocatorDefault, path,
@@ -306,7 +308,7 @@ EDIDName( EDID * edid, char * name )
         if( 0xfc != desc->general.type)
             continue;
 
-        for( j = 0; j < sizeof(desc->general.data); j++) {
+        for( j = 0; j < (int) sizeof(desc->general.data); j++) {
             c = desc->general.data[j];
             if( c != 0x0a)
                 *oname++ = c;
@@ -423,7 +425,7 @@ static void GenerateProductName( CFMutableDictionaryRef dict,
 	    name = "Unknown Display";
         else {
 
-            if( displayType < (sizeof( type2Name) / sizeof(type2Name[0])))
+            if( displayType < (int) (sizeof( type2Name) / sizeof(type2Name[0])))
                 name = type2Name[displayType];
             if( !name)
                 name = "Unknown Display";
@@ -436,27 +438,30 @@ static void GenerateProductName( CFMutableDictionaryRef dict,
     }
 
     if( bdl) {
-        ctx.bdl = bdl;
-        ctx.dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
-                        &kCFTypeDictionaryKeyCallBacks,
-                        &kCFTypeDictionaryValueCallBacks);
-        ctx.key = key;
-    
 	localizations = CFBundleCopyBundleLocalizations( bdl);
-	if( kIODisplayOnlyPreferredName & options) {
-	    CFArrayRef temp = localizations;
-	    localizations = CFBundleCopyPreferredLocalizationsFromArray( temp );
-	    CFRelease( temp );
-	}
-
-	CFArrayApplyFunction( localizations,
-			    CFRangeMake(0, CFArrayGetCount(localizations)),
-			    &MakeOneLocalization,
-			    &ctx);
-        CFDictionarySetValue( dict, CFSTR(kDisplayProductName), ctx.dict);
+	if (localizations)
+	{
+	    ctx.bdl = bdl;
+	    ctx.dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
+			    &kCFTypeDictionaryKeyCallBacks,
+			    &kCFTypeDictionaryValueCallBacks);
+	    ctx.key = key;
     
-        CFRelease( localizations );
-        CFRelease( ctx.dict );
+	    if( kIODisplayOnlyPreferredName & options) {
+		CFArrayRef temp = localizations;
+		localizations = CFBundleCopyPreferredLocalizationsFromArray( temp );
+		CFRelease( temp );
+	    }
+
+	    CFArrayApplyFunction( localizations,
+				CFRangeMake(0, CFArrayGetCount(localizations)),
+				&MakeOneLocalization,
+				&ctx);
+	    CFDictionarySetValue( dict, CFSTR(kDisplayProductName), ctx.dict);
+	
+	    CFRelease( localizations );
+	    CFRelease( ctx.dict );
+	}
     }
     CFRelease( key );
 }
@@ -697,7 +702,7 @@ TimingToHost( const IODetailedTimingInformationV2 * _t1, IODetailedTimingInforma
 }
 
 static IOReturn
-StandardResolutionToDetailedTiming( IOFBConnectRef connectRef, EDID * edid, 
+StandardResolutionToDetailedTiming( IOFBConnectRef connectRef, EDID * edid __unused, 
 				    IOFBResolutionSpec * spec,
 				    IOTimingInformation * timing )
 {
@@ -712,7 +717,7 @@ StandardResolutionToDetailedTiming( IOFBConnectRef connectRef, EDID * edid,
     if (!stdModes)
 	return (kIOReturnUnsupportedMode);
 
-    key = (const void *) spec->timingID;
+    key = (const void *) (uintptr_t) spec->timingID;
     if (!key)
     {
 	CFStringRef timingKey;
@@ -723,7 +728,7 @@ StandardResolutionToDetailedTiming( IOFBConnectRef connectRef, EDID * edid,
 	timingIDs = CFDictionaryGetValue(connectRef->iographicsProperties, timingKey);
 	if (!timingIDs)
 	    return (kIOReturnUnsupportedMode);
-	key = (const void *)((spec->width << 20) | (spec->height << 8) | ((UInt32)(spec->refreshRate + 0.5)));
+	key = (const void *)(uintptr_t)((spec->width << 20) | (spec->height << 8) | ((UInt32)(spec->refreshRate + 0.5)));
 	key = CFDictionaryGetValue(timingIDs, key);
     }
     dict = CFDictionaryGetValue(stdModes, key);
@@ -736,7 +741,7 @@ StandardResolutionToDetailedTiming( IOFBConnectRef connectRef, EDID * edid,
 
     TimingToHost( (const IODetailedTimingInformationV2 *) CFDataGetBytePtr(data), &timing->detailedInfo.v2 );
 
-    timing->appleTimingID = (UInt32) key;
+    timing->appleTimingID = (UInt32) (uintptr_t) key;
 
     return (kIOReturnSuccess);
 }
@@ -1175,7 +1180,7 @@ GetAssumedPixelRepetition( IODetailedTimingInformation * timing )
 }
 
 static int
-CheckTimingWithRange( IOFBConnectRef connectRef,
+CheckTimingWithRange( IOFBConnectRef connectRef __unused,
 		      IODisplayTimingRange * range, IODetailedTimingInformation * timing )
 {
     UInt64	pixelClock;
@@ -1479,10 +1484,6 @@ InstallTiming( IOFBConnectRef                connectRef,
     if (InvalidTiming(connectRef, timing))
 	return (kIOReturnUnsupportedMode);
 
-    err = IOCheckTimingWithDisplay( connectRef, desc, modeGenFlags );
-    if (kIOReturnUnsupportedMode == err)
-        return( err );
-
     if ((kIOFBEDIDStdEstMode | kIOFBEDIDDetailedMode) & modeGenFlags)
     {
 	if ((0xffffffff == connectRef->dimensions.width)
@@ -1492,7 +1493,12 @@ InstallTiming( IOFBConnectRef                connectRef,
 	 || (timing->detailedInfo.v2.verticalActive > connectRef->dimensions.height))
 	    connectRef->dimensions.height = timing->detailedInfo.v2.verticalActive;
     }
-    else
+
+    err = IOCheckTimingWithDisplay( connectRef, desc, modeGenFlags );
+    if (kIOReturnUnsupportedMode == err)
+        return( err );
+
+    if (0 == ((kIOFBEDIDStdEstMode | kIOFBEDIDDetailedMode) & modeGenFlags))
     {
 	if( (timing->detailedInfo.v2.horizontalActive > connectRef->dimensions.width)
 	    || (timing->detailedInfo.v2.verticalActive > connectRef->dimensions.height)) {
@@ -1749,10 +1755,11 @@ InstallGTFResolution( IOFBConnectRef connectRef, EDID * edid,
     CFTypeRef	 	obj;
     CFIndex	 	count, i;
     IOOptionBits	dmFlags;
-    IOFBResolutionSpec	spec = { 0 };
+    IOFBResolutionSpec	spec;
     UInt32       	width  = (UInt32) h;
     UInt32       	height = (UInt32) v;		    // rounding?
 
+    memset(&spec, 0, sizeof(spec));
     if (width > connectRef->dimensions.width)
         return (kIOReturnNoSpace);
     if (height > connectRef->dimensions.height)
@@ -1810,9 +1817,11 @@ static void
 InstallStandardEstablishedTimings( IOFBConnectRef connectRef, EDID * edid  )
 {
     CFDataRef		data;
-    IOFBResolutionSpec	spec = { 0 };
+    IOFBResolutionSpec	spec;
     UInt32 *		establishedIDs;
     UInt32		i;
+
+    memset(&spec, 0, sizeof(spec));
 
     data = CFDictionaryGetValue(connectRef->iographicsProperties, CFSTR("established-ids"));
     if (data)
@@ -1849,8 +1858,10 @@ InstallCVTStandardTimings( IOFBConnectRef connectRef, EDID * edid  )
     CFDataRef		data;
     CFArrayRef		array;
     CFIndex		i, count;
-    IOFBResolutionSpec	spec = { 0 };
+    IOFBResolutionSpec	spec;
     UInt8 *		bits;
+
+    memset(&spec, 0, sizeof(spec));
 
     connectRef->gtfDisplay = (0 != (edid->featureSupport & 1));
 
@@ -1992,9 +2003,8 @@ static kern_return_t
 InstallGTFTimings( IOFBConnectRef connectRef, EDID * edid )
 {
     IOReturn		err = kIOReturnSuccess;
-    UInt32		i;
     CFArrayRef		array;
-    CFIndex		count;
+    CFIndex		i, count;
     CFStringRef		key;
     float		h, v, nativeAspect;
     Boolean		wide, displayNot4By3;
@@ -2041,7 +2051,7 @@ InstallGTFTimings( IOFBConnectRef connectRef, EDID * edid )
 }
 
 static void
-InstallDIEXT( IOFBConnectRef connectRef, EDID * edid, DIEXT * ext )
+InstallDIEXT( IOFBConnectRef connectRef, EDID *edid __unused, DIEXT * ext )
 {
     UInt16 minPixelClockPerLink, maxPixelClockPerLink, crossover;
     
@@ -2227,7 +2237,7 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
     fbRange = (CFDataRef) IORegistryEntryCreateCFProperty( service, 
 							    CFSTR(kIOFBTimingRangeKey),
 							    kCFAllocatorDefault, kNilOptions);
-    if (fbRange && CFDataGetLength(fbRange) >= sizeof(IODisplayTimingRange))
+    if (fbRange && (size_t) CFDataGetLength(fbRange) >= sizeof(IODisplayTimingRange))
 	connectRef->fbRange = (IODisplayTimingRange *) CFDataGetBytePtr(fbRange);
 
 
@@ -2267,7 +2277,7 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
         // EDID timings
 
         data = CFDictionaryGetValue( connectRef->overrides, CFSTR(kIODisplayEDIDKey) );
-        if( !data || (CFDataGetLength(data) < sizeof( EDID)) )
+        if( !data || ((size_t) CFDataGetLength(data) < sizeof( EDID)) )
             continue;
 #if RLOG
 	if (connectRef->logfile)
@@ -2293,7 +2303,7 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
             continue;
 	}
 	count = CFDataGetLength(data);
-	if (count > sizeof(EDID))
+	if ((size_t) count > sizeof(EDID))
 	    LookExtensions(connectRef, edid, (UInt8 *)(edid + 1), count - sizeof(EDID));
 
 #if RLOG
@@ -2416,7 +2426,7 @@ SInt32
 IODisplayMatchDictionaries(
         CFDictionaryRef		matching1,
         CFDictionaryRef		matching2,
-	IOOptionBits		options )
+	IOOptionBits	options __unused )
 {
     CFNumberRef		num1, num2;
     CFStringRef		str1, str2;
@@ -2460,14 +2470,17 @@ IODisplayMatchDictionaries(
 io_service_t
 IODisplayForFramebuffer(
 	io_service_t		framebuffer,
-	IOOptionBits		options )
+	IOOptionBits	options __unused )
 {
     IOReturn		kr;
     io_iterator_t	iter;
     io_service_t	service = 0;
 
     if( IOObjectConformsTo( framebuffer, "IODisplay"))
+    {
+	IOObjectRetain(framebuffer);
         return( framebuffer );
+    }
 
     kr = IORegistryEntryCreateIterator( framebuffer, kIOServicePlane,
 					kIORegistryIterateRecursively, &iter);
@@ -2494,7 +2507,7 @@ enum {
 
 CFDictionaryRef
 _IODisplayCreateInfoDictionary(
-    IOFBConnectRef		connectRef,
+    IOFBConnectRef	connectRef __unused,
     io_service_t		framebuffer,
     IOOptionBits		options )
 {
@@ -2781,6 +2794,9 @@ _IODisplayCreateInfoDictionary(
 
     } while( false );
 
+    if (service)
+	IOObjectRelease(service);
+
     if( regDict)
         CFRelease( regDict );
         
@@ -2794,8 +2810,11 @@ IODisplayCopyParameters(
         CFDictionaryRef * params )
 {
     if( (service = IODisplayForFramebuffer( service, options)))
+    {
         *params = IORegistryEntryCreateCFProperty( service, CFSTR(kIODisplayParametersKey),
                                                     kCFAllocatorDefault, kNilOptions );
+	IOObjectRelease(service);
+    }
     else
         *params = 0;
 
@@ -2804,9 +2823,9 @@ IODisplayCopyParameters(
 
 IOReturn
 IODisplayCopyFloatParameters(
-	io_service_t	  service,
-	IOOptionBits	  options,
-        CFDictionaryRef * params )
+	io_service_t  service __unused,
+	IOOptionBits  options __unused,
+        CFDictionaryRef * params __unused )
 {
     return( kIOReturnUnsupported );
 }
@@ -2902,13 +2921,15 @@ IODisplaySetParameters(
 
     err = IORegistryEntrySetCFProperties( service, params );
 
+    IOObjectRelease(service);
+
     return( err );
 }
 
 IOReturn
 IODisplaySetIntegerParameter(
 	io_service_t	service,
-	IOOptionBits	options,
+	IOOptionBits options __unused,
         CFStringRef	parameterName,
         SInt32 		value )
 {

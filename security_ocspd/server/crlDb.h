@@ -40,12 +40,14 @@ extern "C" {
 #endif
 
 /*
- * Lookup cached CRL by URL and verifyTime. 
+ * Lookup cached CRL by URL or issuer, and verifyTime. 
  * Just a boolean returned; we found it, or not.
+ * Exactly one of {url, issuer} should be non-NULL.
  */
 bool crlCacheLookup(
 	Allocator			&alloc,
-	const CSSM_DATA		&url,
+	const CSSM_DATA		*url,
+	const CSSM_DATA		*issuer,			// optional
 	const CSSM_DATA		&verifyTime,
 	CSSM_DATA			&crlData);			// allocd in alloc space and RETURNED
 
@@ -70,7 +72,8 @@ void crlCacheRefresh(
 	unsigned			staleDays,
 	unsigned			expireOverlapSeconds,
 	bool				purgeAll,
-	bool				fullCryptoVerify);
+	bool				fullCryptoVerify,
+	bool				doRefresh);
 
 #ifdef __cplusplus
 }

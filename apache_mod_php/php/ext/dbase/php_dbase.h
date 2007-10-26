@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_dbase.h,v 1.10.8.1.8.2 2007/01/01 09:46:41 sebastian Exp $ */
+/* $Id: php_dbase.h,v 1.15.2.1.2.1 2007/01/01 09:36:00 sebastian Exp $ */
 
 #ifndef PHP_DBASE_H
 #define PHP_DBASE_H
@@ -35,6 +35,7 @@ PHP_FUNCTION(dbase_get_record);
 PHP_FUNCTION(dbase_delete_record);
 PHP_FUNCTION(dbase_pack);
 PHP_FUNCTION(dbase_get_record_with_names);
+PHP_FUNCTION(dbase_get_header_info);
 #else
 #define dbase_module_ptr NULL
 #endif

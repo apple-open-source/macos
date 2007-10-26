@@ -95,6 +95,10 @@ struct mntopt {
 #define MOPT_BROWSE		{ "browse",	1, MNT_DONTBROWSE, 0 }
 #define MOPT_AUTOMOUNTED	{ "automounted",0, MNT_AUTOMOUNTED, 0 }
 #define MOPT_DEFWRITE   	{ "defwrite", 	0, MNT_DEFWRITE, 0}
+#define MOPT_NOATIME		{ "atime",	1, MNT_NOATIME, 0 }
+#define MOPT_IGNORE_OWNERSHIP	{ "owners", 	1, MNT_IGNORE_OWNERSHIP, 0}
+/* alias the deprecated name for compatibility */
+#define MOPT_PERMISSIONS	{ "perm", 	1, MNT_IGNORE_OWNERSHIP, 0}
 
 /* Control flags. */
 #define MOPT_FORCE		{ "force",	0, MNT_FORCE, 0 }
@@ -122,7 +126,8 @@ struct mntopt {
 	MOPT_UNION,							\
         MOPT_BROWSE,							\
         MOPT_AUTOMOUNTED,						\
-	MOPT_DEFWRITE
+	MOPT_DEFWRITE,							\
+	MOPT_NOATIME
 	
 void getmntopts __P((const char *, const struct mntopt *, int *, int *));
 void checkpath __P((const char *, char resolved_path[]));

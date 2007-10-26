@@ -105,7 +105,7 @@ extern "C"
 	 */
 
 	short ATRDecodeAtr(PSMARTCARD_EXTENSION psExtension,
-		PUCHAR pucAtr, DWORD dwLength);
+		const unsigned char *pucAtr, DWORD dwLength);
 
 #ifdef __cplusplus
 }

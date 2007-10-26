@@ -6,7 +6,8 @@ public:
 };
 
 class Type {
-    enum Class { ENUM, INTEGER };
+    // APPLE LOCAL mainline 2006-10-13 3904173
+    enum Klasse { ENUM, INTEGER };
 
     class Description {
     public:

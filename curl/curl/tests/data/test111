@@ -1,3 +1,12 @@
+<testcase>
+<info>
+<keywords>
+FTP
+EPSV
+Resume
+FAILURE
+</keywords>
+</info>
 # Server-side
 <reply>
 <size>
@@ -23,11 +32,9 @@ ftp://%HOSTIP:%FTPPORT/111 -C 2000
 <errorcode>
 36
 </errorcode>
-<strip>
-</strip>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 EPSV
 TYPE I
@@ -35,3 +42,4 @@ SIZE 111
 QUIT
 </protocol>
 </verify>
+</testcase>

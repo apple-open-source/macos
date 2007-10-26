@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: print.c,v 1.47 2006/03/27 23:04:25 abe Exp $";
+static char *rcsid = "$Id: print.c,v 1.48 2006/09/17 17:49:34 abe Exp $";
 #endif
 
 
@@ -651,8 +651,13 @@ print_file()
 
 #if	defined(HASZONES)
 	    if (Fzone)
-	        (void) printf(" %-*s", ZoneColW, ZONETTL);
+		(void) printf(" %-*s", ZoneColW, ZONETTL);
 #endif	/* defined(HASZONES) */
+
+#if	defined(HASSELINUX)
+	    if (Fcntx)
+		(void) printf(" %-*s", CntxColW, CNTXTTL);
+#endif /* defined(HASSELINUX) */
 
 #if	defined(HASPPID)
 	    if (Fppid)
@@ -740,6 +745,21 @@ print_file()
 		(void) printf(" %-*s", ZoneColW, Lp->zn ? Lp->zn : "");
 	}
 #endif	/* defined(HASZONES) */
+
+#if	defined(HASSELINUX)
+/*
+ * Size or print the context.
+ */
+	if (Fcntx) {
+	    if (!PrPass) {
+		if (Lp->cntx) {
+		    if ((len = strlen(Lp->cntx)) > CntxColW)
+			CntxColW = len;
+		}
+	    } else
+		(void) printf(" %-*s", CntxColW, Lp->cntx ? Lp->cntx : "");
+	}
+#endif	/* defined(HASSELINUX) */
 
 #if	defined(HASPPID)
 	if (Fppid) {
@@ -1229,6 +1249,11 @@ print_init()
 	NiColW = strlen(NiTtl);
 # endif	/* !defined(HASNOFSNADDR) */
 #endif	/* defined(HASFSTRUCT) */
+
+#if	defined(HASSELINUX)
+	if (Fcntx)
+	    CntxColW = strlen(CNTXTTL);
+#endif	/* defined(HASSELINUX) */
 
 #if	defined(HASZONES)
 	if (Fzone)
@@ -2269,7 +2294,7 @@ printuid(uid, ty)
 			}
 		    }
 		    sbs = sb;
-	        }
+		}
 		CkPasswd = 0;
 	    }
 	/*

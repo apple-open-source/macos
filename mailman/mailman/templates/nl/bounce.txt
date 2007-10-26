@@ -1,12 +1,13 @@
-Dit is een actie lijst voor bouncende berichten:
+Dit is een bounce notificatie van een Mailman maillijst:
 
-    Lijst:       %(listname)s
-    Member:     %(addr)s
-    Actie :     lidmaatschap %(negative)s%(did)s.
-    Reden :     Maximale aantal bounces bereikt.
+    Lijst:      %(listname)s
+    Lid:        %(addr)s
+    Actie :     Lidmaatschap %(negative)s%(did)s.
+    Reden :     Excessieve of fatale bounces.
     %(but)s
 
 %(reenable)s
-De veroorzakende bounce is bijgesloten.
+Het betreffende bounce-bericht is hieronder bijgevoegd.
+
 Vragen?
-Neem contact op met de Mailman site administrator op: %(owneraddr)s.
+Neem contact op met de Mailman lijstbeheerder op: %(owneraddr)s.

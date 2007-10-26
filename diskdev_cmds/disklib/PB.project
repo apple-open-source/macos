@@ -26,7 +26,7 @@
         ); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
         PRECOMPILED_HEADERS = (); 
-        PROJECT_HEADERS = (mntopts.h, fsck.h, pathnames.h, dump.h); 
+        PROJECT_HEADERS = (fsck.h, pathnames.h, dump.h); 
         PUBLIC_HEADERS = (); 
         SUBPROJECTS = (); 
     }; 

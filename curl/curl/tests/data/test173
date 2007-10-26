@@ -1,9 +1,11 @@
+<testcase>
 # Server-side
 <reply>
 <data>
 HTTP/1.1 200 OK swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
+Content-Length: 11
 
 blablabla
 
@@ -43,7 +45,6 @@ line8
 POST /we/want/173 HTTP/1.1
 User-Agent: curl/7.12.1-CVS (i686-pc-linux-gnu) libcurl/7.12.1-CVS OpenSSL/0.9.6b ipv6 zlib/1.1.4 GSS libidn/0.4.6
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Content-Length: 359
 Expect: 100-continue
@@ -69,3 +70,4 @@ line8
 ------------------------------5dbea401cd8c--
 </protocol>
 </verify>
+</testcase>

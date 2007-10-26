@@ -1,4 +1,4 @@
-.ds VN 4.77
+.ds VN 4.78
 .TH LSOF 8 Revision-\*(VN
 .if !\n()P .nr )P 1v
 .SH NAME
@@ -52,6 +52,8 @@ lsof \- list open files
 ] [
 .BI \-z " [z]"
 ] [
+.BI \-Z " [Z]"
+] [
 .B --
 ] [\fInames\fP]
 .SH DESCRIPTION
@@ -60,23 +62,16 @@ revision \*(VN lists information about files opened by processes for the
 following UNIX dialects:
 .PP
 .nf
-	AIX 5.[123]
-	Apple Darwin 7.x and 8.x for Power Macintosh and x86-based
-	    systems
-	FreeBSD 4.x, 4.1x, 5.x and [67].x for x86-based systems
-	FreeBSD 5.x and [67].x for Alpha, AMD64 and Sparc64-based
-	    systems
-	HP-UX 11.00, 11.11 and 11.23
+	AIX 5.[12] and 5.3-ML1
+	Apple Darwin 7.x and 8.x for Power Macintosh systems
+	FreeBSD 4.9 for x86-based systems
+	FreeBSD 7.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
 	NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
 	    systems
 	NEXTSTEP 3.[13] for NEXTSTEP architectures
-	OpenBSD 2.[89] and 3.[0-9] for x86-based systems
-	OPENSTEP 4.x
 	SCO OpenServer Release 5.0.6 for x86-based systems
-	SCO|Caldera UnixWare 7.1.4 for x86-based systems
-	Solaris 2.6, 8, 9 and 10
-	Tru64 UNIX 5.1
+	Solaris 9 and 10
 .fi
 .PP
 (See the
@@ -166,9 +161,9 @@ Wherever
 is placed, it causes the ANDing of all selection options.
 .PP
 Items of the same selection set \- command names, file descriptors,
-network addresses, process identifiers, user identifiers, zone names \-
-are joined in a single ORed set and applied before the result participates
-in ANDing.
+network addresses, process identifiers, user identifiers, zone names,
+security contexts \- are joined in a single ORed set and applied
+before the result participates in ANDing.
 Thus, for example, specifying \fB\-i\fP@aaa.bbb, \fB\-i\fP@ccc.ddd,
 .BR \-a ,
 and \fB\-u\fPfff,ggg will select the listing of files that belong to
@@ -669,7 +664,8 @@ section for a description of the field identification characters and
 the field output process.
 .IP
 When the field selection character list is empty, all standard fields are
-selected (except the raw device field and zone field for compatibility reasons)
+selected (except the raw device field, security context and zone field for
+compatibility reasons)
 and the NL field terminator is used.
 .IP
 When the field selection character list contains only a zero (`0'),
@@ -1624,6 +1620,30 @@ option and argument pairs may be specified to form a list of named zones.
 Any open file of any process in any of the zones will be listed, subject
 to other conditions specified by other options and arguments.
 .TP \w'names'u+4
+.BI \-Z " [Z]"
+specifies how SELinux security contexts are to be handled.
+.IP
+Without a following argument \- e.g., NO
+.IR Z " \-"
+the option specifies that security contexts are to be listed in the
+SECURITY\-CONTEXT output column.
+.IP
+The
+.B \-Z
+option may be followed by a wildcard security context name,
+.BI Z .
+That causes lsof to list only open files for processes in that security
+context.
+Multiple
+.BI \-Z " Z"
+option and argument pairs may be specified to form a list of security
+contexts.
+Any open file of any process in any of the security contexts will be listed,
+subject to other conditions specified by other options and arguments.
+Note that
+.I Z
+can be A:B:C or *:B:C or A:B:* or *:*:C to match against the A:B:C context.
+.TP \w'names'u+4
 .B --
 The double minus sign option is a marker that signals the end of
 the keyed options.
@@ -2052,6 +2072,12 @@ ZONE
 is the Solaris 10 and higher zone name.
 This column must be selected with the
 .B \-z
+option.
+.TP
+SECURITY\-CONTEXT
+is the SELinux security context.
+This column must be selected with the
+.B -Z
 option.
 .TP
 PPID
@@ -2925,7 +2951,7 @@ The single character listed first is the field identifier.
 	u	process user ID
 	z	Solaris 10 and higher zone name
 	0	use NUL field terminator character in place of NL
-	1-\9	dialect\-specific field identifiers (The output
+	1\-9	dialect\-specific field identifiers (The output
 		of \fB\-F?\fP identifies the information to be found
 		in dialect\-specific fields.)
 .fi
@@ -3449,8 +3475,8 @@ distribution recommends that versions for these dialects run setgid
 and be allowed to surrender setgid permission.
 .PP
 .nf
-	AIX 5.[123]
-	Apple Darwin 7.x for Power Macintosh systems
+	AIX 5.[12] and 5.3-ML1
+	Apple Darwin 7.x Power Macintosh systems
 	FreeBSD 4.x, 4.1x, 5.x and [67].x for x86-based systems
 	FreeBSD 5.x and [67].x for Alpha, AMD64 and Sparc64-based
 	    systems

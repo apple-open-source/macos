@@ -62,10 +62,10 @@ typedef enum{
 
 #define SSL2_CONNECTION_ID_LENGTH   16
 
-typedef OSStatus (*EncodeSSL2MessageFunc)(SSLBuffer &msg, SSLContext *ctx);
-OSStatus SSL2ReadRecord(SSLRecord &rec, SSLContext *ctx);
-OSStatus SSL2WriteRecord(SSLRecord &rec, SSLContext *ctx);
-OSStatus SSL2ProcessMessage(SSLRecord &rec, SSLContext *ctx);
+typedef OSStatus (*EncodeSSL2MessageFunc)(SSLBuffer *msg, SSLContext *ctx);
+OSStatus SSL2ReadRecord(SSLRecord *rec, SSLContext *ctx);
+OSStatus SSL2WriteRecord(SSLRecord *rec, SSLContext *ctx);
+OSStatus SSL2ProcessMessage(SSLRecord *rec, SSLContext *ctx);
 OSStatus SSL2SendError(SSL2ErrorCode error, SSLContext *ctx);
 OSStatus SSL2AdvanceHandshake(SSL2MessageType msg, SSLContext *ctx);
 OSStatus SSL2PrepareAndQueueMessage(EncodeSSL2MessageFunc encodeFunc, SSLContext *ctx);
@@ -75,17 +75,17 @@ OSStatus SSL2GenerateSessionID(SSLContext *ctx);
 OSStatus SSL2InitCiphers(SSLContext *ctx);
 
 OSStatus SSL2ProcessClientHello(SSLBuffer msgContents, SSLContext *ctx);
-OSStatus SSL2EncodeClientHello(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2EncodeClientHello(SSLBuffer *msg, SSLContext *ctx);
 OSStatus SSL2ProcessClientMasterKey(SSLBuffer msgContents, SSLContext *ctx);
-OSStatus SSL2EncodeClientMasterKey(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2EncodeClientMasterKey(SSLBuffer *msg, SSLContext *ctx);
 OSStatus SSL2ProcessClientFinished(SSLBuffer msgContents, SSLContext *ctx);
-OSStatus SSL2EncodeClientFinished(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2EncodeClientFinished(SSLBuffer *msg, SSLContext *ctx);
 OSStatus SSL2ProcessServerHello(SSLBuffer msgContents, SSLContext *ctx);
-OSStatus SSL2EncodeServerHello(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2EncodeServerHello(SSLBuffer *msg, SSLContext *ctx);
 OSStatus SSL2ProcessServerVerify(SSLBuffer msgContents, SSLContext *ctx);
-OSStatus SSL2EncodeServerVerify(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2EncodeServerVerify(SSLBuffer *msg, SSLContext *ctx);
 OSStatus SSL2ProcessServerFinished(SSLBuffer msgContents, SSLContext *ctx);
-OSStatus SSL2EncodeServerFinished(SSLBuffer &msg, SSLContext *ctx);
+OSStatus SSL2EncodeServerFinished(SSLBuffer *msg, SSLContext *ctx);
 
 #ifdef __cplusplus
 }

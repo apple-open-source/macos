@@ -1,5 +1,6 @@
 /* Definitions and headers for communication on the Microsoft W32 API.
-   Copyright (C) 1995, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1995, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,15 +16,13 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Added by Kevin Gallo */
 
 #include "w32gui.h"
 
-/* The class of this X application.  */
-#define EMACS_CLASS "Emacs"
 
 #define BLACK_PIX_DEFAULT(f) PALETTERGB(0,0,0)
 #define WHITE_PIX_DEFAULT(f) PALETTERGB(255,255,255)
@@ -63,17 +62,10 @@ extern BOOL bUseDflt;
 
 extern struct frame *x_window_to_frame ();
 
-enum text_cursor_kinds {
-  NO_CURSOR = -1,
-  FILLED_BOX_CURSOR,
-  HOLLOW_BOX_CURSOR,
-  BAR_CURSOR
-};
-
 /* Structure recording bitmaps and reference count.
    If REFCOUNT is 0 then this record is free to be reused.  */
 
-struct w32_bitmap_record 
+struct w32_bitmap_record
 {
   Pixmap pixmap;
   char *file;
@@ -141,6 +133,9 @@ struct w32_display_info
   /* The cursor to use for vertical scroll bars.  */
   Cursor vertical_scroll_bar_cursor;
 
+  /* Resource data base */
+  XrmDatabase xrdb;
+
   /* color palette information.  */
   int has_palette;
   struct w32_palette_entry * color_list;
@@ -195,6 +190,9 @@ struct w32_display_info
   /* Nonzero means defer mouse-motion highlighting.  */
   int mouse_face_defer;
 
+  /* Nonzero means that the mouse highlight should not be shown.  */
+  int mouse_face_hidden;
+
   int mouse_face_image_state;
 
   char *w32_id_name;
@@ -231,7 +229,7 @@ struct w32_display_info
      event).  It points to the focus frame's selected window's
      frame.  It differs from w32_focus_frame when we're using a global
      minibuffer.  */
-  struct frame *w32_highlight_frame;
+  struct frame *x_highlight_frame;
 
   /* Cache of images.  */
   struct image_cache *image_cache;
@@ -250,10 +248,11 @@ extern Lisp_Object w32_display_name_list;
 /* Regexp matching a font name whose width is the same as `PIXEL_SIZE'.  */
 extern Lisp_Object Vx_pixel_size_width_font_regexp;
 
-/* A flag to control how to display unibyte 8-bit character.  */
-extern int unibyte_display_via_language_environment;
-
 struct w32_display_info *x_display_info_for_name ();
+
+Lisp_Object display_x_get_resource P_ ((struct w32_display_info *,
+					Lisp_Object, Lisp_Object,
+					Lisp_Object, Lisp_Object));
 
 extern struct w32_display_info *w32_term_init ();
 
@@ -275,8 +274,25 @@ struct x_output
 {
   PIX_TYPE background_pixel;
   PIX_TYPE foreground_pixel;
+
+  /* Keep track of focus.  May be EXPLICIT if we received a FocusIn for this
+     frame, or IMPLICIT if we received an EnterNotify.
+     FocusOut and LeaveNotify clears EXPLICIT/IMPLICIT. */
+  int focus_state;
+
 };
 
+enum
+{
+  /* Values for focus_state, used as bit mask.
+     EXPLICIT means we received a FocusIn for the frame and know it has
+     the focus.  IMPLICIT means we recevied an EnterNotify and the frame
+     may have the focus if no window manager is running.
+     FocusOut and LeaveNotify clears EXPLICIT/IMPLICIT. */
+  FOCUS_NONE     = 0,
+  FOCUS_IMPLICIT = 1,
+  FOCUS_EXPLICIT = 2
+};
 
 struct w32_output
 {
@@ -289,26 +305,8 @@ struct w32_output
   /* Original palette (used to deselect real palette after drawing) */
   HPALETTE old_palette;
 
-  /* Position of the W32 window (x and y offsets in root window).  */
-  int left_pos;
-  int top_pos;
-
-  /* Border width of the W32 window as known by the window system.  */
-  int border_width;
-
-  /* Size of the W32 window in pixels.  */
-  int pixel_height, pixel_width;
-
-  /* Height of a line, in pixels.  */
-  int line_height;
-
   /* Here are the Graphics Contexts for the default font.  */
   XGCValues *cursor_gc;				/* cursor drawing */
-
-  /* Width of the internal border.  This is a line of background color
-     just inside the window's border.  When the frame is selected,
-     a highlighting is displayed inside the internal border.  */
-  int internal_border_width;
 
   /* The window used for this frame.
      May be zero while the frame object is being created
@@ -341,7 +339,7 @@ struct w32_output
   /* Foreground color for scroll bars.  A value of -1 means use the
      default (black for non-toolkit scroll bars).  */
   COLORREF scroll_bar_foreground_pixel;
-  
+
   /* Background color for scroll bars.  A value of -1 means use the
      default (background color of the frame for non-toolkit scroll
      bars).  */
@@ -351,47 +349,21 @@ struct w32_output
   Cursor text_cursor;
   Cursor nontext_cursor;
   Cursor modeline_cursor;
-  Cursor cross_cursor;
+  Cursor hand_cursor;
   Cursor hourglass_cursor;
   Cursor horizontal_drag_cursor;
 
   /* Window whose cursor is hourglass_cursor.  This window is
      temporarily mapped to display an hourglass cursor.  */
   Window hourglass_window;
-  
+
   /* Non-zero means hourglass cursor is currently displayed.  */
   unsigned hourglass_p : 1;
 
   /* Flag to set when the window needs to be completely repainted.  */
   int needs_exposure;
 
-  /* What kind of text cursor is drawn in this window right now?
-     (If there is no cursor (phys_cursor_x < 0), then this means nothing.)  */
-  enum text_cursor_kinds current_cursor;
-
-  /* What kind of text cursor should we draw in the future?
-     This should always be filled_box_cursor or bar_cursor.  */
-  enum text_cursor_kinds desired_cursor;
-
-  /* Width of bar cursor (if we are using that).  */
-  int cursor_width;
-
   DWORD dwStyle;
-
-  /* The size of the extra width currently allotted for vertical
-     scroll bars, in pixels.  */
-  int vertical_scroll_bar_extra;
-
-  /* The extra width currently allotted for the areas in which
-     truncation marks, continuation marks, and overlay arrows are
-     displayed.  */
-  int flags_areas_extra;
-
-  /* This is the gravity value for the specified window position.  */
-  int win_gravity;
-
-  /* The geometry flags for this window.  */
-  int size_hint_flags;
 
   /* This is the Emacs structure for the display this frame is on.  */
   /* struct w32_display_info *display_info; */
@@ -426,32 +398,28 @@ struct w32_output
 
 extern struct w32_output w32term_display;
 
+/* Return the X output data for frame F.  */
+#define FRAME_X_OUTPUT(f) ((f)->output_data.w32)
+
 /* Return the window associated with the frame F.  */
 #define FRAME_W32_WINDOW(f) ((f)->output_data.w32->window_desc)
+#define FRAME_X_WINDOW(f) ((f)->output_data.w32->window_desc)
 
 #define FRAME_FOREGROUND_PIXEL(f) ((f)->output_data.x->foreground_pixel)
 #define FRAME_BACKGROUND_PIXEL(f) ((f)->output_data.x->background_pixel)
 #define FRAME_FONT(f) ((f)->output_data.w32->font)
 #define FRAME_FONTSET(f) ((f)->output_data.w32->fontset)
-#define FRAME_INTERNAL_BORDER_WIDTH(f) ((f)->output_data.w32->internal_border_width)
-#define FRAME_LINE_HEIGHT(f) ((f)->output_data.w32->line_height)
-/* Width of the default font of frame F.  Must be defined by each
-   terminal specific header.  */
-#define FRAME_DEFAULT_FONT_WIDTH(F) 	FONT_WIDTH (FRAME_FONT (F))
 #define FRAME_BASELINE_OFFSET(f) ((f)->output_data.w32->baseline_offset)
 
 /* This gives the w32_display_info structure for the display F is on.  */
 #define FRAME_W32_DISPLAY_INFO(f) (&one_w32_display_info)
 #define FRAME_X_DISPLAY_INFO(f) (&one_w32_display_info)
 
+/* This is the `Display *' which frame F is on.  */
+#define FRAME_X_DISPLAY(f) (0)
+
 /* This is the 'font_info *' which frame F has.  */
 #define FRAME_W32_FONT_TABLE(f) (FRAME_W32_DISPLAY_INFO (f)->font_table)
-
-/* These two really ought to be called FRAME_PIXEL_{WIDTH,HEIGHT}.  */
-#define PIXEL_WIDTH(f) ((f)->output_data.w32->pixel_width)
-#define PIXEL_HEIGHT(f) ((f)->output_data.w32->pixel_height)
-
-#define FRAME_DESIRED_CURSOR(f) ((f)->output_data.w32->desired_cursor)
 
 /* Value is the smallest width of any character in any font on frame F.  */
 
@@ -466,41 +434,6 @@ extern struct w32_output w32term_display;
 /* Return a pointer to the image cache of frame F.  */
 
 #define FRAME_X_IMAGE_CACHE(F) FRAME_W32_DISPLAY_INFO ((F))->image_cache
-
-
-/* Pixel width of the bitmaps drawn to indicate truncation,
-   continuation etc.  */
-
-#define FRAME_FLAGS_BITMAP_WIDTH(f)	8
-#define FRAME_FLAGS_BITMAP_HEIGHT(f)	8
-
-/* Total width of areas reserved for drawing truncation bitmaps,
-   continuation bitmaps and alike.  The width is in canonical char
-   units of the frame.  This must currently be the case because window
-   sizes aren't pixel values.  If it weren't the case, we wouldn't be
-   able to split windows horizontally nicely.  */
-
-#define FRAME_X_FLAGS_AREA_COLS(F)				\
-     ((2 * FRAME_FLAGS_BITMAP_WIDTH ((F)) + CANON_X_UNIT ((F)) - 1)	\
-      / CANON_X_UNIT ((F)))
-
-/* Total width of flags areas in pixels.  */
-
-#define FRAME_X_FLAGS_AREA_WIDTH(F) \
-     (FRAME_X_FLAGS_AREA_COLS ((F)) * CANON_X_UNIT ((F)))
-
-/* Pixel-width of the left flags area.  */
-
-#define FRAME_X_LEFT_FLAGS_AREA_WIDTH(F) \
-     (FRAME_X_FLAGS_AREA_WIDTH (F) / 2)
-
-/* Pixel-width of the right flags area.  Note that we are doing
-   integer arithmetic here, so don't loose a pixel if the total
-   width is an odd number.  */
-
-#define FRAME_X_RIGHT_FLAGS_AREA_WIDTH(F) 	\
-     (FRAME_X_FLAGS_AREA_WIDTH (F) - FRAME_X_FLAGS_AREA_WIDTH (F) / 2)
-
 
 
 /* W32-specific scroll bar stuff.  */
@@ -601,7 +534,7 @@ struct scroll_bar {
 
 /* Return the length of the rectangle within which the top of the
    handle must stay.  This isn't equivalent to the inside height,
-   because the scroll bar handle has a minimum height.  
+   because the scroll bar handle has a minimum height.
 
    This is the real range of motion for the scroll bar, so when we're
    scaling buffer positions to scroll bar positions, we use this, not
@@ -639,52 +572,6 @@ struct scroll_bar {
 #define VERTICAL_SCROLL_BAR_WIDTH_TRIM (0)
 
 
-/* Manipulating pixel sizes and character sizes.
-   Knowledge of which factors affect the overall size of the window should
-   be hidden in these macros, if that's possible.
-
-   Return the upper/left pixel position of the character cell on frame F
-   at ROW/COL.  */
-#define CHAR_TO_PIXEL_ROW(f, row) \
-  ((f)->output_data.w32->internal_border_width \
-   + (row) * (f)->output_data.w32->line_height)
-#define CHAR_TO_PIXEL_COL(f, col) \
-  ((f)->output_data.w32->internal_border_width \
-   + (col) * FONT_WIDTH ((f)->output_data.w32->font))
-
-/* Return the pixel width/height of frame F if it has
-   WIDTH columns/HEIGHT rows.  */
-#define CHAR_TO_PIXEL_WIDTH(f, width) \
-  (CHAR_TO_PIXEL_COL (f, width) \
-   + (f)->output_data.w32->vertical_scroll_bar_extra \
-   + (f)->output_data.w32->flags_areas_extra \
-   + (f)->output_data.w32->internal_border_width)
-#define CHAR_TO_PIXEL_HEIGHT(f, height) \
-  (CHAR_TO_PIXEL_ROW (f, height) \
-   + (f)->output_data.w32->internal_border_width)
-
-
-/* Return the row/column (zero-based) of the character cell containing 
-   the pixel on FRAME at ROW/COL.  */
-#define PIXEL_TO_CHAR_ROW(f, row) \
-  (((row) - (f)->output_data.w32->internal_border_width) \
-   / (f)->output_data.w32->line_height)
-#define PIXEL_TO_CHAR_COL(f, col) \
-  (((col) - (f)->output_data.w32->internal_border_width) \
-   / FONT_WIDTH ((f)->output_data.w32->font))
-
-/* How many columns/rows of text can we fit in WIDTH/HEIGHT pixels on
-   frame F?  */
-#define PIXEL_TO_CHAR_WIDTH(f, width) \
-  (PIXEL_TO_CHAR_COL (f, ((width) \
-			  - (f)->output_data.w32->internal_border_width \
-			  - (f)->output_data.w32->flags_areas_extra \
-			  - (f)->output_data.w32->vertical_scroll_bar_extra)))
-#define PIXEL_TO_CHAR_HEIGHT(f, height) \
-  (PIXEL_TO_CHAR_ROW (f, ((height) \
-			  - (f)->output_data.w32->internal_border_width)))
-
-
 extern void w32_fill_rect ();
 extern void w32_clear_window ();
 
@@ -714,6 +601,10 @@ extern void w32_unload_font ();
 #ifndef MSH_MOUSEWHEEL
 #define MSH_MOUSEWHEEL		       "MSWHEEL_ROLLMSG"
 #endif /* MSH_MOUSEWHEEL */
+#ifndef WM_XBUTTONDOWN
+#define WM_XBUTTONDOWN                 (WM_MOUSEWHEEL + 1)
+#define WM_XBUTTONUP                   (WM_MOUSEWHEEL + 2)
+#endif /* WM_XBUTTONDOWN */
 
 #define WM_EMACS_START                 (WM_USER + 1)
 #define WM_EMACS_KILL                  (WM_EMACS_START + 0)
@@ -731,13 +622,18 @@ extern void w32_unload_font ();
 #define WM_EMACS_REGISTER_HOT_KEY      (WM_EMACS_START + 12)
 #define WM_EMACS_UNREGISTER_HOT_KEY    (WM_EMACS_START + 13)
 #define WM_EMACS_TOGGLE_LOCK_KEY       (WM_EMACS_START + 14)
-#define WM_EMACS_END                   (WM_EMACS_START + 15)
+#define WM_EMACS_TRACK_CARET           (WM_EMACS_START + 15)
+#define WM_EMACS_DESTROY_CARET         (WM_EMACS_START + 16)
+#define WM_EMACS_SHOW_CARET            (WM_EMACS_START + 17)
+#define WM_EMACS_HIDE_CARET            (WM_EMACS_START + 18)
+#define WM_EMACS_SETCURSOR             (WM_EMACS_START + 19)
+#define WM_EMACS_END                   (WM_EMACS_START + 20)
 
-#define WND_FONTWIDTH_INDEX    (0) 
-#define WND_LINEHEIGHT_INDEX   (4) 
-#define WND_BORDER_INDEX       (8) 
-#define WND_SCROLLBAR_INDEX    (12) 
-#define WND_BACKGROUND_INDEX   (16) 
+#define WND_FONTWIDTH_INDEX    (0)
+#define WND_LINEHEIGHT_INDEX   (4)
+#define WND_BORDER_INDEX       (8)
+#define WND_SCROLLBAR_INDEX    (12)
+#define WND_BACKGROUND_INDEX   (16)
 #define WND_LAST_INDEX         (20)
 
 #define WND_EXTRA_BYTES     (WND_LAST_INDEX)
@@ -819,11 +715,46 @@ extern BOOL parse_button ();
 #define RIGHT_WIN_PRESSED      0x4000
 #define APPS_PRESSED           0x2000
 
+/* When compiling on Windows 9x/ME and NT 3.x, the following are not defined
+   (even though they are supported on 98 and ME.  */
+#ifndef WM_MOUSELEAVE
+#define WM_MOUSELEAVE 0x02A3
+#define TME_LEAVE 0x00000002;
+
+typedef struct tagTRACKMOUSEEVENT
+{
+  DWORD cbSize;
+  DWORD dwFlags;
+  HWND hwndTrack;
+  DWORD dwHoverTime;
+} TRACKMOUSEEVENT;
+#endif
+
 struct image;
 struct face;
 
 XGCValues *XCreateGC (void *, Window, unsigned long, XGCValues *);
 struct frame * check_x_frame (Lisp_Object);
+Lisp_Object vga_stdcolor_name (int);
+
 EXFUN (Fx_display_color_p, 1);
 EXFUN (Fx_display_grayscale_p, 1);
-int image_ascent P_ ((struct image *, struct face *));
+
+#define FONT_TYPE_FOR_UNIBYTE(font, ch)			\
+  ((font)->bdf ? BDF_1D_FONT : ANSI_FONT)
+
+#define FONT_TYPE_FOR_MULTIBYTE(font, ch)		\
+  (!(font)->bdf						\
+   ? UNICODE_FONT					\
+   : ((CHARSET_DIMENSION (CHAR_CHARSET ((ch))) == 1)	\
+      ? BDF_1D_FONT : BDF_2D_FONT))
+
+typedef DWORD (WINAPI * ClipboardSequence_Proc) ();
+typedef BOOL (WINAPI * AppendMenuW_Proc) (
+    IN HMENU,
+    IN UINT,
+    IN UINT_PTR,
+    IN LPCWSTR);
+
+/* arch-tag: f201d05a-1240-4fc5-8ea4-ca24d4ee5671
+   (do not change this comment) */

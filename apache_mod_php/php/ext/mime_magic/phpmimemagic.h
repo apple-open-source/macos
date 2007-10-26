@@ -1,6 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP Version 4                                                        |
+  | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
   | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
@@ -15,7 +15,7 @@
   | Author:                                                              |
   +----------------------------------------------------------------------+
 
-  $Id: phpmimemagic.h,v 1.1.2.1.4.2 2007/01/01 09:46:44 sebastian Exp $ 
+  $Id: phpmimemagic.h,v 1.3.2.2.2.1 2007/01/01 09:36:03 sebastian Exp $ 
 */
 
 #ifndef PHPMIMEMAGIC_H
@@ -58,17 +58,6 @@ struct magic {
     unsigned char reln;		/* relation (0=eq, '>'=gt, etc) */
     char type;			/* int, short, long or string. */
     char vallen;		/* length of string value, if any */
-#define BYTE    1
-#define SHORT    2
-#define LONG    4
-#define STRING    5
-#define DATE    6
-#define BESHORT    7
-#define BELONG    8
-#define BEDATE    9
-#define LESHORT    10
-#define LELONG    11
-#define LEDATE    12
     union VALUETYPE {
 		unsigned char b;
 		unsigned short h;
@@ -354,7 +343,6 @@ typedef struct magic_rsl_s {
 
 /* per-server info */
 typedef struct {
-    char *magicfile;		/* where magic be found */
     struct magic *magic;	/* head of magic config list */
     struct magic *last;
 } magic_server_config_rec;
@@ -367,9 +355,12 @@ typedef struct {
 } magic_req_rec;
 
 
+/* Globals */
 ZEND_BEGIN_MODULE_GLOBALS(mime_magic)
 	char *magicfile;
 	magic_req_rec *req_dat;
+	int    debug;           /* shall magic file parser errors be shown? */
+	char *status;           /* status message for phpinfo() */
 ZEND_END_MODULE_GLOBALS(mime_magic)
 
 #ifdef ZTS

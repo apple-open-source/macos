@@ -70,6 +70,7 @@ public:
 	
 	void decryptBlock(
 		const void		*cipherText,		// length implied (one cipher block)
+		size_t			cipherTextLen,
 		void			*plainText,	
 		size_t			&plainTextLen,		// in/out, throws on overflow
 		bool			final)

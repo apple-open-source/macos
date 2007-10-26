@@ -1,7 +1,7 @@
 
 /*
  *
- * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2006 - All Rights Reserved
  *
  */
 
@@ -9,6 +9,11 @@
 #define __LAYOUTENGINE_H
 
 #include "LETypes.h"
+
+/**
+ * \file 
+ * \brief C++ API: Virtual base class for complex text layout.
+ */
 
 U_NAMESPACE_BEGIN
 
@@ -96,19 +101,28 @@ protected:
     le_int32 fLanguageCode;
 
     /**
+     * The typographic control flags
+     *
+     * @internal
+     */
+    le_int32 fTypoFlags;
+
+    /**
      * This constructs an instance for a given font, script and language. Subclass constructors
      * must call this constructor.
      *
      * @param fontInstance - the font for the text
      * @param scriptCode - the script for the text
      * @param languageCode - the language for the text
+     * @param typoFlags - the typographic control flags for the text.  Set bit 1 if kerning
+     * is desired, set bit 2 if ligature formation is desired.  Others are reserved.
      *
      * @see LEFontInstance
      * @see ScriptAndLanguageTags.h
      *
      * @internal
      */
-    LayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode);
+    LayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode, le_int32 typoFlags);
 
     /**
      * This overrides the default no argument constructor to make it
@@ -240,6 +254,7 @@ protected:
      * @param count - the number of characters to be mapped
      * @param reverse - if <code>TRUE</code>, the output will be in reverse order
      * @param mirror - if <code>TRUE</code>, do character mirroring
+     * @param filterZeroWidth - if <code>TRUE</code> replace ZWJ / ZWNJ with a glyph with no contours.
      * @param glyphStorage - the object which holds the per-glyph storage. The glyph and char
      *                       indices arrays will be filled in.
      * @param success - set to an error code if the operation fails
@@ -248,7 +263,7 @@ protected:
      *
      * @internal
      */
-    virtual void mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool mirror, LEGlyphStorage &glyphStorage, LEErrorCode &success);
+    virtual void mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool mirror, le_bool filterZeroWidth, LEGlyphStorage &glyphStorage, LEErrorCode &success);
 
     /**
      * This is a convenience method that forces the advance width of mark
@@ -299,7 +314,7 @@ public:
 
     /**
      * This method will invoke the layout steps in their correct order by calling
-     * the computeGlyphs, positionGlyphs and adjustGlyphPosition methods.. It will
+     * the computeGlyphs, positionGlyphs and adjustGlyphPosition methods. It will
      * compute the glyph, character index and position arrays.
      *
      * @param chars - the input character context
@@ -313,8 +328,12 @@ public:
      *
      * @return the number of glyphs in the glyph array
      *
-     * Note; the glyph, character index and position array can be accessed
-     * using the getter method below.
+     * Note: The glyph, character index and position array can be accessed
+     * using the getter methods below.
+     *
+     * Note: If you call this method more than once, you must call the reset()
+     * method first to free the glyph, character index and position arrays
+     * allocated by the previous call.
      *
      * @stable ICU 2.8
      */
@@ -437,6 +456,12 @@ public:
      * @stable ICU 2.8
      */
     static LayoutEngine *layoutEngineFactory(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode, LEErrorCode &success);
+
+    /**
+     * Override of existing call that provides flags to control typography.
+     * @draft ICU 3.4
+     */
+    static LayoutEngine *layoutEngineFactory(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode, le_int32 typo_flags, LEErrorCode &success);
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.

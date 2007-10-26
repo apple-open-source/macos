@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -207,7 +207,7 @@ ListElement *walk(Action &operate, ListElement * &elem)
 	case CSSM_LIST_ELEMENT_WORDID:
 		break;
 	default:
-		secdebug("walkers", "invalid list element type (%lx)", elem->type());
+		secdebug("walkers", "invalid list element type (%ux)", (unsigned)elem->type());
 		break;
 	}
 	if (elem->next())		

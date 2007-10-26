@@ -68,7 +68,12 @@ DEFINE_API( ComponentResult ) IDHGetDeviceList(ComponentInstance idh, QTAtomCont
 
 	#else
 	struct IDHGetDeviceListGluePB myIDHGetDeviceListGluePB;
-	*((unsigned long*)&myIDHGetDeviceListGluePB) = 0x00040001;
+//	*((unsigned long*)&myIDHGetDeviceListGluePB) = 0x00040001;
+	
+	myIDHGetDeviceListGluePB.componentFlags = 0;
+	myIDHGetDeviceListGluePB.componentParamSize = 4;
+	myIDHGetDeviceListGluePB.componentWhat = 1;
+
 	#endif
 
 	myIDHGetDeviceListGluePB.deviceList = deviceList;
@@ -117,7 +122,12 @@ DEFINE_API( ComponentResult ) IDHGetDeviceConfiguration(ComponentInstance idh, Q
 
 	#else
 	struct IDHGetDeviceConfigurationGluePB myIDHGetDeviceConfigurationGluePB;
-	*((unsigned long*)&myIDHGetDeviceConfigurationGluePB) = 0x00040002;
+//	*((unsigned long*)&myIDHGetDeviceConfigurationGluePB) = 0x00040002;
+
+	myIDHGetDeviceConfigurationGluePB.componentFlags = 0;
+	myIDHGetDeviceConfigurationGluePB.componentParamSize = 4;
+	myIDHGetDeviceConfigurationGluePB.componentWhat = 2;
+	
 	#endif
 
 	myIDHGetDeviceConfigurationGluePB.configurationID = configurationID;
@@ -166,7 +176,12 @@ DEFINE_API( ComponentResult ) IDHSetDeviceConfiguration(ComponentInstance idh, c
 
 	#else
 	struct IDHSetDeviceConfigurationGluePB myIDHSetDeviceConfigurationGluePB;
-	*((unsigned long*)&myIDHSetDeviceConfigurationGluePB) = 0x00040003;
+	//*((unsigned long*)&myIDHSetDeviceConfigurationGluePB) = 0x00040003;
+	
+	myIDHSetDeviceConfigurationGluePB.componentFlags = 0;
+	myIDHSetDeviceConfigurationGluePB.componentParamSize = 4;
+	myIDHSetDeviceConfigurationGluePB.componentWhat = 3;
+	
 	#endif
 
 	myIDHSetDeviceConfigurationGluePB.configurationID = configurationID;
@@ -216,7 +231,12 @@ DEFINE_API( ComponentResult ) IDHGetDeviceStatus(ComponentInstance idh, const QT
 
 	#else
 	struct IDHGetDeviceStatusGluePB myIDHGetDeviceStatusGluePB;
-	*((unsigned long*)&myIDHGetDeviceStatusGluePB) = 0x00080004;
+//	*((unsigned long*)&myIDHGetDeviceStatusGluePB) = 0x00080004;
+
+	myIDHGetDeviceStatusGluePB.componentFlags = 0;
+	myIDHGetDeviceStatusGluePB.componentParamSize = 8;
+	myIDHGetDeviceStatusGluePB.componentWhat = 4;
+	
 	#endif
 
 	myIDHGetDeviceStatusGluePB.status = status;
@@ -266,7 +286,12 @@ DEFINE_API( ComponentResult ) IDHGetDeviceClock(ComponentInstance idh, Component
 
 	#else
 	struct IDHGetDeviceClockGluePB myIDHGetDeviceClockGluePB;
-	*((unsigned long*)&myIDHGetDeviceClockGluePB) = 0x00040005;
+//	*((unsigned long*)&myIDHGetDeviceClockGluePB) = 0x00040005;
+
+	myIDHGetDeviceClockGluePB.componentFlags = 0;
+	myIDHGetDeviceClockGluePB.componentParamSize = 4;
+	myIDHGetDeviceClockGluePB.componentWhat = 5;
+	
 	#endif
 
 	myIDHGetDeviceClockGluePB.clock = clock;
@@ -315,7 +340,12 @@ DEFINE_API( ComponentResult ) IDHOpenDevice(ComponentInstance idh, UInt32 permis
 
 	#else
 	struct IDHOpenDeviceGluePB myIDHOpenDeviceGluePB;
-	*((unsigned long*)&myIDHOpenDeviceGluePB) = 0x00040006;
+//	*((unsigned long*)&myIDHOpenDeviceGluePB) = 0x00040006;
+
+	myIDHOpenDeviceGluePB.componentFlags = 0;
+	myIDHOpenDeviceGluePB.componentParamSize = 4;
+	myIDHOpenDeviceGluePB.componentWhat = 6;
+	
 	#endif
 
 	myIDHOpenDeviceGluePB.permissions = permissions;
@@ -363,7 +393,12 @@ DEFINE_API( ComponentResult ) IDHCloseDevice(ComponentInstance idh)
 
 	#else
 	struct IDHCloseDeviceGluePB myIDHCloseDeviceGluePB;
-	*((unsigned long*)&myIDHCloseDeviceGluePB) = 0x00000007;
+	//*((unsigned long*)&myIDHCloseDeviceGluePB) = 0x00000007;
+	
+	myIDHCloseDeviceGluePB.componentFlags = 0;
+	myIDHCloseDeviceGluePB.componentParamSize = 0;
+	myIDHCloseDeviceGluePB.componentWhat = 7;
+	
 	#endif
 
 	myIDHCloseDeviceGluePB.idh = idh;
@@ -411,7 +446,12 @@ DEFINE_API( ComponentResult ) IDHRead(ComponentInstance idh, IDHParameterBlock* 
 
 	#else
 	struct IDHReadGluePB myIDHReadGluePB;
-	*((unsigned long*)&myIDHReadGluePB) = 0x00040008;
+	//*((unsigned long*)&myIDHReadGluePB) = 0x00040008;
+	
+	myIDHReadGluePB.componentFlags = 0;
+	myIDHReadGluePB.componentParamSize = 4;
+	myIDHReadGluePB.componentWhat = 8;
+	
 	#endif
 
 	myIDHReadGluePB.pb = pb;
@@ -461,6 +501,11 @@ DEFINE_API( ComponentResult ) IDHWrite(ComponentInstance idh, IDHParameterBlock*
 	#else
 	struct IDHWriteGluePB myIDHWriteGluePB;
 	*((unsigned long*)&myIDHWriteGluePB) = 0x00040009;
+	
+	myIDHWriteGluePB.componentFlags = 0;
+	myIDHWriteGluePB.componentParamSize = 4;
+	myIDHWriteGluePB.componentWhat = 9;
+	
 	#endif
 
 	myIDHWriteGluePB.pb = pb;
@@ -478,6 +523,8 @@ DEFINE_API( ComponentResult ) IDHWrite(ComponentInstance idh, IDHParameterBlock*
 #ifndef TRAPGLUE_NO_COMPONENT_CALL
 DEFINE_API( ComponentResult ) IDHNewNotification(ComponentInstance idh, IDHDeviceID deviceID, IDHNotificationUPP notificationProc, void* userData, IDHNotificationID* notificationID)
 {
+	//printf( "IDHNewNotification\n" );
+	
 	#if PRAGMA_STRUCT_ALIGN
 	  #pragma options align=mac68k
 	#elif PRAGMA_STRUCT_PACKPUSH
@@ -512,7 +559,11 @@ DEFINE_API( ComponentResult ) IDHNewNotification(ComponentInstance idh, IDHDevic
 
 	#else
 	struct IDHNewNotificationGluePB myIDHNewNotificationGluePB;
-	*((unsigned long*)&myIDHNewNotificationGluePB) = 0x0010000A;
+	//*((unsigned long*)&myIDHNewNotificationGluePB) = 0x0010000A;
+	
+	myIDHNewNotificationGluePB.componentFlags = 0;
+	myIDHNewNotificationGluePB.componentParamSize = 16;
+	myIDHNewNotificationGluePB.componentWhat = 10;
 	#endif
 
 	myIDHNewNotificationGluePB.notificationID = notificationID;
@@ -565,7 +616,12 @@ DEFINE_API( ComponentResult ) IDHNotifyMeWhen(ComponentInstance idh, IDHNotifica
 
 	#else
 	struct IDHNotifyMeWhenGluePB myIDHNotifyMeWhenGluePB;
-	*((unsigned long*)&myIDHNotifyMeWhenGluePB) = 0x0008000B;
+	//*((unsigned long*)&myIDHNotifyMeWhenGluePB) = 0x0008000B;
+	
+	myIDHNotifyMeWhenGluePB.componentFlags = 0;
+	myIDHNotifyMeWhenGluePB.componentParamSize = 8;
+	myIDHNotifyMeWhenGluePB.componentWhat = 11;
+	
 	#endif
 
 	myIDHNotifyMeWhenGluePB.events = events;
@@ -615,7 +671,12 @@ DEFINE_API( ComponentResult ) IDHCancelNotification(ComponentInstance idh, IDHNo
 
 	#else
 	struct IDHCancelNotificationGluePB myIDHCancelNotificationGluePB;
-	*((unsigned long*)&myIDHCancelNotificationGluePB) = 0x0004000C;
+//	*((unsigned long*)&myIDHCancelNotificationGluePB) = 0x0004000C;
+	
+	myIDHCancelNotificationGluePB.componentFlags = 0;
+	myIDHCancelNotificationGluePB.componentParamSize = 4;
+	myIDHCancelNotificationGluePB.componentWhat = 12;
+	
 	#endif
 
 	myIDHCancelNotificationGluePB.notificationID = notificationID;
@@ -664,7 +725,12 @@ DEFINE_API( ComponentResult ) IDHDisposeNotification(ComponentInstance idh, IDHN
 
 	#else
 	struct IDHDisposeNotificationGluePB myIDHDisposeNotificationGluePB;
-	*((unsigned long*)&myIDHDisposeNotificationGluePB) = 0x0004000D;
+//	*((unsigned long*)&myIDHDisposeNotificationGluePB) = 0x0004000D;
+	
+	myIDHDisposeNotificationGluePB.componentFlags = 0;
+	myIDHDisposeNotificationGluePB.componentParamSize = 4;
+	myIDHDisposeNotificationGluePB.componentWhat = 13;
+	
 	#endif
 
 	myIDHDisposeNotificationGluePB.notificationID = notificationID;
@@ -713,7 +779,12 @@ DEFINE_API( ComponentResult ) IDHReleaseBuffer(ComponentInstance idh, IDHParamet
 
 	#else
 	struct IDHReleaseBufferGluePB myIDHReleaseBufferGluePB;
-	*((unsigned long*)&myIDHReleaseBufferGluePB) = 0x0004000E;
+//	*((unsigned long*)&myIDHReleaseBufferGluePB) = 0x0004000E;
+	
+	myIDHReleaseBufferGluePB.componentFlags = 0;
+	myIDHReleaseBufferGluePB.componentParamSize = 4;
+	myIDHReleaseBufferGluePB.componentWhat = 14;
+	
 	#endif
 
 	myIDHReleaseBufferGluePB.pb = pb;
@@ -762,7 +833,12 @@ DEFINE_API( ComponentResult ) IDHCancelPendingIO(ComponentInstance idh, IDHParam
 
 	#else
 	struct IDHCancelPendingIOGluePB myIDHCancelPendingIOGluePB;
-	*((unsigned long*)&myIDHCancelPendingIOGluePB) = 0x0004000F;
+//	*((unsigned long*)&myIDHCancelPendingIOGluePB) = 0x0004000F;
+	
+	myIDHCancelPendingIOGluePB.componentFlags = 0;
+	myIDHCancelPendingIOGluePB.componentParamSize = 4;
+	myIDHCancelPendingIOGluePB.componentWhat = 15;
+	
 	#endif
 
 	myIDHCancelPendingIOGluePB.pb = pb;
@@ -811,7 +887,12 @@ DEFINE_API( ComponentResult ) IDHGetDeviceControl(ComponentInstance idh, Compone
 
 	#else
 	struct IDHGetDeviceControlGluePB myIDHGetDeviceControlGluePB;
-	*((unsigned long*)&myIDHGetDeviceControlGluePB) = 0x00040010;
+//	*((unsigned long*)&myIDHGetDeviceControlGluePB) = 0x00040010;
+	
+	myIDHGetDeviceControlGluePB.componentFlags = 0;
+	myIDHGetDeviceControlGluePB.componentParamSize = 4;
+	myIDHGetDeviceControlGluePB.componentWhat = 16;
+		
 	#endif
 
 	myIDHGetDeviceControlGluePB.deviceControl = deviceControl;
@@ -860,7 +941,12 @@ DEFINE_API( ComponentResult ) IDHUpdateDeviceList(ComponentInstance idh, QTAtomC
 
 	#else
 	struct IDHUpdateDeviceListGluePB myIDHUpdateDeviceListGluePB;
-	*((unsigned long*)&myIDHUpdateDeviceListGluePB) = 0x00040011;
+//	*((unsigned long*)&myIDHUpdateDeviceListGluePB) = 0x00040011;
+
+	myIDHUpdateDeviceListGluePB.componentFlags = 0;
+	myIDHUpdateDeviceListGluePB.componentParamSize = 4;
+	myIDHUpdateDeviceListGluePB.componentWhat = 17;
+	
 	#endif
 
 	myIDHUpdateDeviceListGluePB.deviceList = deviceList;
@@ -909,7 +995,12 @@ DEFINE_API( ComponentResult ) IDHGetDeviceTime(ComponentInstance idh, TimeRecord
 
 	#else
 	struct IDHGetDeviceTimeGluePB myIDHGetDeviceTimeGluePB;
-	*((unsigned long*)&myIDHGetDeviceTimeGluePB) = 0x00040012;
+//	*((unsigned long*)&myIDHGetDeviceTimeGluePB) = 0x00040012;
+	
+	myIDHGetDeviceTimeGluePB.componentFlags = 0;
+	myIDHGetDeviceTimeGluePB.componentParamSize = 4;
+	myIDHGetDeviceTimeGluePB.componentWhat = 18;
+		
 	#endif
 
 	myIDHGetDeviceTimeGluePB.deviceTime = deviceTime;
@@ -958,7 +1049,12 @@ DEFINE_API( ComponentResult ) IDHSetFormat(ComponentInstance idh, UInt32 format)
 
 	#else
 	struct IDHSetFormatGluePB myIDHSetFormatGluePB;
-	*((unsigned long*)&myIDHSetFormatGluePB) = 0x00040013;
+//	*((unsigned long*)&myIDHSetFormatGluePB) = 0x00040013;
+	
+	myIDHSetFormatGluePB.componentFlags = 0;
+	myIDHSetFormatGluePB.componentParamSize = 4;
+	myIDHSetFormatGluePB.componentWhat = 19;
+		
 	#endif
 
 	myIDHSetFormatGluePB.format = format;
@@ -1007,7 +1103,12 @@ DEFINE_API( ComponentResult ) IDHGetFormat(ComponentInstance idh, UInt32* format
 
 	#else
 	struct IDHGetFormatGluePB myIDHGetFormatGluePB;
-	*((unsigned long*)&myIDHGetFormatGluePB) = 0x00040014;
+//	*((unsigned long*)&myIDHGetFormatGluePB) = 0x00040014;
+
+	myIDHGetFormatGluePB.componentFlags = 0;
+	myIDHGetFormatGluePB.componentParamSize = 4;
+	myIDHGetFormatGluePB.componentWhat = 20;	
+	
 	#endif
 
 	myIDHGetFormatGluePB.format = format;

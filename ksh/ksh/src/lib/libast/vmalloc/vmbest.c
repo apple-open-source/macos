@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #if defined(_UWIN) && defined(_BLD_ast)
 
 void _STUB_vmbest(){}
@@ -50,7 +46,7 @@ static int	N_reclaim;	/* # of bestreclaim calls		*/
 #define	VM_TRUST	0
 #endif /*DEBUG*/
 
-int		_Vmcheck = 0;	/* _VM_[a-z]* assert/check/debug flags	*/
+#define COMPACT		8	/* factor to decide when to compact	*/
 
 /* Check to see if a block is in the free tree */
 #if __STD_C
@@ -183,7 +179,7 @@ Block_t*	freeb; /* known to be free but not on any free list */
 	reg Block_t	*b, *endb, *nextb;
 	int		rv = 0;
 
-	if(!(_Vmcheck & _VM_check))
+	if(!CHECK())
 		return 0;
 
 	/* make sure the free tree is still in shape */
@@ -412,13 +408,15 @@ int		c;
 			if(!ISJUNK(size))	/* already done */
 				continue;
 
-			/* see if this address is from region */
-			for(seg = vd->seg; seg; seg = seg->next)
-				if(fp >= SEGBLOCK(seg) && fp < (Block_t*)seg->baddr )
-					break;
-			if(!seg) /* must be a bug in application code! */
-			{	/**/ ASSERT(seg != NIL(Seg_t*));
-				continue;
+			if(_Vmassert & VM_region)
+			{	/* see if this address is from region */
+				for(seg = vd->seg; seg; seg = seg->next)
+					if(fp >= SEGBLOCK(seg) && fp < (Block_t*)seg->baddr )
+						break;
+				if(!seg) /* must be a bug in application code! */
+				{	/**/ ASSERT(seg != NIL(Seg_t*));
+					continue;
+				}
 			}
 
 			if(ISPFREE(size))	/* backward merge */
@@ -544,7 +542,7 @@ Vmalloc_t*	vm;
 {
 	reg Seg_t	*seg, *next;
 	reg Block_t	*bp, *t;
-	reg size_t	size, segsize;
+	reg size_t	size, segsize, round;
 	reg int		local;
 	reg Vmdata_t*	vd = vm->data;
 
@@ -567,7 +565,28 @@ Vmalloc_t*	vm;
 		bp = LAST(bp);	/**/ASSERT(vmisfree(vd,bp));
 		size = SIZE(bp);
 		if(bp == vd->wild)
+		{	/* During large block allocations, _Vmextend might
+			** have been enlarged the rounding factor. Reducing
+			** it a bit help avoiding getting large raw memory.
+			*/
+			if((round = vm->disc->round) == 0)
+				round = _Vmpagesize;
+			if(size > COMPACT*vd->incr && vd->incr > round)
+				vd->incr /= 2;
+
+			/* for the bottom segment, we don't necessarily want
+			** to return raw memory too early. vd->pool has an
+			** approximation of the average size of recently freed
+			** blocks. If this is large, the application is managing
+			** large blocks so we throttle back memory chopping
+			** to avoid thrashing the underlying memory system.
+			*/
+			if(size <= COMPACT*vd->incr || size <= COMPACT*vd->pool)
+				continue;
+
 			vd->wild = NIL(Block_t*);
+			vd->pool = 0;
+		}
 		else	REMOVE(vd,bp,INDEX(size),t,bestsearch);
 		CLRPFREE(SIZE(NEXT(bp)));
 
@@ -585,7 +604,7 @@ Vmalloc_t*	vm;
 		}
 
 		if(bp)
-		{	/**/ ASSERT(SIZE(bp) >= TINYSIZE);
+		{	/**/ ASSERT(SIZE(bp) >= BODYSIZE);
 			/**/ ASSERT(SEGWILD(bp));
 			/**/ ASSERT(!vd->root || !vmintree(vd->root,bp));
 			SIZE(bp) |= BUSY|JUNK;
@@ -617,39 +636,63 @@ reg size_t	size;	/* desired block size		*/
 	reg int		local;
 	size_t		orgsize = 0;
 
-#ifdef DEBUG
-	if(!(_Vmcheck & _VM_init))
+	if(!(_Vmassert & VM_init))
 	{	char	*chk = getenv("VMCHECK");
-		_Vmcheck = _VM_init;
+		_Vmassert = VM_init|VM_primary|VM_secondary;
 		if(chk)
-			for(;;)
+		{	int	set = 1;
+			for(;; set ? (_Vmassert |= n) : (_Vmassert &= ~n))
 			{
 				switch (*chk++)
 				{
 				case 0:
 					break;
+				case '-':
+				case '!':
+					set = 0;
+					n = 0;
+					continue;
+				case '+':
+					set = 1;
+					n = 0;
+					continue;
 				case '1':
-					_Vmcheck |= _VM_assert|_VM_check;
+					n = VM_check;
+					continue;
+				case '2':
+					n = VM_abort;
+					continue;
+				case '3':
+					n = VM_check|VM_abort;
 					continue;
 				case 'a':
 				case 'A':
-					_Vmcheck |= _VM_assert;
+					n = VM_abort;
 					continue;
 				case 'c':
 				case 'C':
-					_Vmcheck |= _VM_check;
+					n = VM_check;
 					continue;
-				case 'w':
-				case 'W':
-					_Vmcheck |= _VM_warn;
+				case 'p':
+				case 'P':
+					n = VM_primary;
+					continue;
+				case 'r':
+				case 'R':
+					n = VM_region;
+					continue;
+				case 's':
+				case 'S':
+					n = VM_secondary;
 					continue;
 				default:
+					n = 0;
 					continue;
 				}
 				break;
 			}
+		}
 	}
-#endif
 	/**/COUNT(N_alloc);
 
 	if(!(local = vd->mode&VM_TRUST))
@@ -666,11 +709,11 @@ reg size_t	size;	/* desired block size		*/
 	/**/ ASSERT((ALIGN%(BITS+1)) == 0 );
 	/**/ ASSERT((sizeof(Head_t)%ALIGN) == 0 );
 	/**/ ASSERT((sizeof(Body_t)%ALIGN) == 0 );
-	/**/ ASSERT((TINYSIZE%ALIGN) == 0 );
+	/**/ ASSERT((BODYSIZE%ALIGN) == 0 );
 	/**/ ASSERT(sizeof(Block_t) == (sizeof(Body_t)+sizeof(Head_t)) );
 
 	/* for ANSI requirement that malloc(0) returns non-NULL pointer */
-	size = size <= TINYSIZE ? TINYSIZE : ROUND(size,ALIGN);
+	size = size <= BODYSIZE ? BODYSIZE : ROUND(size,ALIGN);
 
 	if((tp = vd->free) )	/* reuse last free piece if appropriate */
 	{	/**/ASSERT(ISBUSY(SIZE(tp)) );
@@ -679,7 +722,7 @@ reg size_t	size;	/* desired block size		*/
 
 		vd->free = NIL(Block_t*);
 		if((s = SIZE(tp)) >= size && s < (size << 1) )
-		{	if(s >= size + (sizeof(Head_t)+TINYSIZE) )
+		{	if(s >= size + (sizeof(Head_t)+BODYSIZE) )
 			{	SIZE(tp) = size;
 				np = NEXT(tp);
 				SEG(np) = SEG(tp);
@@ -729,7 +772,7 @@ got_block:
 	/* tell next block that we are no longer a free block */
 	CLRPFREE(SIZE(NEXT(tp)));	/**/ ASSERT(ISBUSY(SIZE(NEXT(tp))));
 
-	if((s = SIZE(tp)-size) >= (sizeof(Head_t)+TINYSIZE) )
+	if((s = SIZE(tp)-size) >= (sizeof(Head_t)+BODYSIZE) )
 	{	SIZE(tp) = size;
 
 		np = NEXT(tp);
@@ -830,17 +873,17 @@ Void_t*		data;
 	reg int		local;
 
 #ifdef DEBUG
-	if((int)data <= 1)
-	{	_Vmcheck |= _VM_check;
+	if((local = (int)data) >= 0 && local <= 0xf)
+	{	int	vmassert = _Vmassert;
+		_Vmassert = local ? local : vmassert ? vmassert : (VM_check|VM_abort);
 		_vmbestcheck(vd, NIL(Block_t*));
-		if(!data)
-			_Vmcheck &= ~_VM_check;
+		_Vmassert = local ? local : vmassert;
 		return 0;
 	}
-#else
+#endif
+
 	if(!data) /* ANSI-ism */
 		return 0;
-#endif
 
 	/**/COUNT(N_free);
 
@@ -855,6 +898,13 @@ Void_t*		data;
 
 	/**/ASSERT(_vmbestcheck(vd, NIL(Block_t*)) == 0);
 	bp = BLOCK(data); s = SIZE(bp);
+
+	/* Keep an approximate average free block size.
+	** This is used in bestcompact() to decide when to release
+	** raw memory back to the underlying memory system.
+	*/
+	vd->pool = (vd->pool + (s&~BITS))/2;
+
 	if(ISBUSY(s) && !ISJUNK(s))
 	{	SETJUNK(SIZE(bp));
 	        if(s < MAXCACHE)
@@ -873,7 +923,7 @@ Void_t*		data;
 		/* coalesce on freeing large blocks to avoid fragmentation */
 		if(SIZE(bp) >= 2*vd->incr)
 		{	bestreclaim(vd,NIL(Block_t*),0);
-			if(vd->wild && SIZE(vd->wild) >= 4*vd->incr)
+			if(vd->wild && SIZE(vd->wild) >= COMPACT*vd->incr)
 				KPVCOMPACT(vm,bestcompact);
 		}
 	}
@@ -909,7 +959,7 @@ int		type;		/* !=0 to move, <0 for not copy */
 	if(!data)
 	{	if((data = bestalloc(vm,size)) )
 		{	oldsize = 0;
-			size = size <= TINYSIZE ? TINYSIZE : ROUND(size,ALIGN);
+			size = size <= BODYSIZE ? BODYSIZE : ROUND(size,ALIGN);
 		}
 		goto done;
 	}
@@ -931,7 +981,7 @@ int		type;		/* !=0 to move, <0 for not copy */
 	}
 
 	/**/ASSERT(_vmbestcheck(vd, NIL(Block_t*)) == 0);
-	size = size <= TINYSIZE ? TINYSIZE : ROUND(size,ALIGN);
+	size = size <= BODYSIZE ? BODYSIZE : ROUND(size,ALIGN);
 	rp = BLOCK(data);	/**/ASSERT(ISBUSY(SIZE(rp)) && !ISJUNK(SIZE(rp)));
 	oldsize = SIZE(rp); CLRBITS(oldsize);
 	if(oldsize < size)
@@ -1012,7 +1062,7 @@ int		type;		/* !=0 to move, <0 for not copy */
 	CLRLOCK(vd,local);
 	ANNOUNCE(local, vm, VM_RESIZE, data, vm->disc);
 
-done:	if(data && (type&VM_RSZERO) && size > oldsize )
+done:	if(data && (type&VM_RSZERO) && (size = SIZE(BLOCK(data))&~BITS) > oldsize )
 		memset((Void_t*)((Vmuchar_t*)data + oldsize), 0, size-oldsize);
 
 	return data;
@@ -1092,7 +1142,7 @@ size_t		align;
 	}
 
 	/**/ASSERT(_vmbestcheck(vd, NIL(Block_t*)) == 0);
-	size = size <= TINYSIZE ? TINYSIZE : ROUND(size,ALIGN);
+	size = size <= BODYSIZE ? BODYSIZE : ROUND(size,ALIGN);
 	align = MULTIPLE(align,ALIGN);
 
 	/* hack so that dbalign() can store header data */
@@ -1235,41 +1285,65 @@ Vmdisc_t*	disc;	/* discipline structure			*/
 
 	if(csize == 0) /* allocating new memory */
 	{
+#if ( _mem_sbrk || _mem_mmap_anon || _mem_mmap_zero )
+#define ALTERNATES	VM_primary
+#endif
 #if _mem_sbrk	/* try using sbrk() and brk() */
-		addr = (Vmuchar_t*)sbrk(0); /* old break value */
-		if(addr && addr != (Vmuchar_t*)BRK_FAILED )
-			if(brk(addr+nsize) == 0 ) 
-				return addr;
+#if ALTERNATES
+		if (_Vmassert & ALTERNATES)
+#undef	ALTERNATES
+#define ALTERNATES	VM_secondary
+#endif
+		{
+			addr = (Vmuchar_t*)sbrk(0); /* old break value */
+			if(addr && addr != (Vmuchar_t*)BRK_FAILED )
+				if(brk(addr+nsize) == 0 ) 
+					return addr;
+		}
 #endif /* _mem_sbrk */
 
 #if _mem_mmap_anon /* anonymous mmap */
-		addr = (Vmuchar_t*)mmap(0, nsize, PROT_READ|PROT_WRITE,
-                                        MAP_ANON|MAP_PRIVATE, -1, 0);
-		if(addr && addr != (Vmuchar_t*)MAP_FAILED)
-			return addr;
+#if ALTERNATES
+		if (_Vmassert & ALTERNATES)
+#undef	ALTERNATES
+#define ALTERNATES	VM_secondary
+#endif
+		{
+			addr = (Vmuchar_t*)mmap(0, nsize, PROT_READ|PROT_WRITE,
+                                        	MAP_ANON|MAP_PRIVATE, -1, 0);
+			if(addr && addr != (Vmuchar_t*)MAP_FAILED)
+				return addr;
+		}
 #endif /* _mem_mmap_anon */
 
 #if _mem_mmap_zero /* mmap from /dev/zero */
-		if(mmdc->fd < 0)
-		{	int	fd;
-			if(mmdc->fd != -1)
-				return NIL(Void_t*);
-			if((fd = open("/dev/zero", O_RDONLY)) < 0 )
-			{	mmdc->fd = -2;
-				return NIL(Void_t*);
-			}
-			if(fd >= OPEN_PRIVATE || (mmdc->fd = dup2(fd,OPEN_PRIVATE)) < 0 )
-				mmdc->fd = fd;
-			else	close(fd);
-#ifdef FD_CLOEXEC
-			fcntl(mmdc->fd, F_SETFD, FD_CLOEXEC);
+#if ALTERNATES
+		if (_Vmassert & ALTERNATES)
+#undef	ALTERNATES
+#define ALTERNATES	VM_secondary
 #endif
-		}
-		addr = (Vmuchar_t*)mmap(0, nsize, PROT_READ|PROT_WRITE,
-					MAP_PRIVATE, mmdc->fd, mmdc->offset);
-		if(addr && addr != (Vmuchar_t*)MAP_FAILED)
-		{	mmdc->offset += nsize;
-			return addr;
+		{
+			if(mmdc->fd < 0)
+			{	int	fd;
+				if(mmdc->fd != -1)
+					return NIL(Void_t*);
+				if((fd = open("/dev/zero", O_RDONLY)) < 0 )
+				{	mmdc->fd = -2;
+					return NIL(Void_t*);
+				}
+				if(fd >= OPEN_PRIVATE || (mmdc->fd = dup2(fd,OPEN_PRIVATE)) < 0 )
+					mmdc->fd = fd;
+				else	close(fd);
+#ifdef FD_CLOEXEC
+				fcntl(mmdc->fd, F_SETFD, FD_CLOEXEC);
+#endif
+			}
+			addr = (Vmuchar_t*)mmap(0, nsize, PROT_READ|PROT_WRITE,
+						MAP_PRIVATE, mmdc->fd, mmdc->offset);
+			if(addr && addr != (Vmuchar_t*)MAP_FAILED)
+			{	mmdc->offset += nsize;
+				return addr;
+			}
 		}
 #endif /* _mem_mmap_zero */
 
@@ -1277,22 +1351,40 @@ Vmdisc_t*	disc;	/* discipline structure			*/
 	}
 	else
 	{	addr = caddr; /* in case !_mem_sbrk */
+#if ( _mem_sbrk || _mem_mmap_anon || _mem_mmap_zero )
+#undef	ALTERNATES
+#define ALTERNATES	VM_primary
+#endif
 #if _mem_sbrk
-		addr = (Vmuchar_t*)sbrk(0);
-		if(!addr || addr == (Vmuchar_t*)BRK_FAILED)
-			addr = caddr;
-		else if(((Vmuchar_t*)caddr+csize) == addr) /* in sbrk-space */
-		{	if(nsize > csize)
-				addr += nsize-csize;
-			else	addr -= csize-nsize;
-			return brk(addr) == 0 ? caddr : NIL(Void_t*);
+#if ALTERNATES
+		if (_Vmassert & ALTERNATES)
+#undef	ALTERNATES
+#define ALTERNATES	VM_secondary
+#endif
+		{
+			addr = (Vmuchar_t*)sbrk(0);
+			if(!addr || addr == (Vmuchar_t*)BRK_FAILED)
+				addr = caddr;
+			else if(((Vmuchar_t*)caddr+csize) == addr) /* in sbrk-space */
+			{	if(nsize > csize)
+					addr += nsize-csize;
+				else	addr -= csize-nsize;
+				return brk(addr) == 0 ? caddr : NIL(Void_t*);
+			}
 		}
 #endif /* _mem_sbrk */
 
 #if _mem_mmap_zero || _mem_mmap_anon
-		if(((Vmuchar_t*)caddr+csize) > addr) /* in mmap-space */
-			if(nsize == 0 && munmap(caddr,csize) == 0)
-				return caddr;
+#if ALTERNATES
+		if (_Vmassert & ALTERNATES)
+#undef	ALTERNATES
+#define ALTERNATES	VM_secondary
+#endif
+		{
+			if(((Vmuchar_t*)caddr+csize) > addr) /* in mmap-space */
+				if(nsize == 0 && munmap(caddr,csize) == 0)
+					return caddr;
+		}
 #endif /* _mem_mmap_zero || _mem_mmap_anon */
 
 		return NIL(Void_t*);

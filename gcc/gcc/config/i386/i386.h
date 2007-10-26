@@ -96,13 +96,11 @@ extern int target_flags;
 
 /* configure can arrange to make this 2, to force a 486.  */
 
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
 #ifndef TARGET_CPU_DEFAULT
-#ifdef TARGET_64BIT_DEFAULT
-#define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_k8
-#else
-#define TARGET_CPU_DEFAULT 0
+#define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_generic
 #endif
-#endif
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
 
 /* APPLE LOCAL begin mainline 2005-04-11 4010614 */
 #ifndef TARGET_FPMATH_DEFAULT
@@ -139,11 +137,13 @@ extern int target_flags;
 #define MASK_SSEREGPARM		0x01000000	/* Pass float & double in SSE regs */
 #define TARGET_SSEREGPARM (target_flags & MASK_SSEREGPARM)
 /* APPLE LOCAL end regparmandstackparm; delete at 4.1 merge (when i386.opt file appears) */
-
+/* APPLE LOCAL ssse3 */
+#define MASK_SSSE3		0x02000000
 /* Unused:			0x03e0000	*/
 
-/* APPLE LOCAL AT&T-style stub 4164563 */
+/* APPLE LOCAL begin AT&T-style stub 4164563 */
 #define MACHOPIC_NL_SYMBOL_PTR_SECTION ".section __IMPORT,__pointers,non_lazy_symbol_pointers"
+/* APPLE LOCAL end AT&T-style stub 4164563 */
 
 /* ... overlap with subtarget options starts by 0x04000000.  */
 #define MASK_NO_RED_ZONE	0x04000000	/* Do not use red zone */
@@ -240,11 +240,15 @@ extern int target_flags;
 #define TARGET_K8 (ix86_tune == PROCESSOR_K8)
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 #define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
+#define TARGET_GENERIC32 (ix86_tune == PROCESSOR_GENERIC32)
+#define TARGET_GENERIC64 (ix86_tune == PROCESSOR_GENERIC64)
+#define TARGET_GENERIC (TARGET_GENERIC32 || TARGET_GENERIC64)
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
-/* APPLE LOCAL mainline 2005-03-16 4054919 */
-extern const int x86_use_bit_test, x86_cmove, x86_fisttp, x86_deep_branch;
+extern const int x86_use_bit_test, x86_cmove, x86_deep_branch;
 extern const int x86_branch_hints, x86_unroll_strlen;
 extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
 extern const int x86_use_loop, x86_use_fiop, x86_use_mov0;
@@ -263,6 +267,10 @@ extern const int x86_sse_typeless_stores, x86_sse_load0_by_pxor;
 extern const int x86_use_ffreep;
 extern const int x86_inter_unit_moves, x86_schedule;
 extern const int x86_use_bt;
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
+extern const int x86_use_incdec;
+extern const int x86_pad_returns;
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
@@ -273,11 +281,8 @@ extern int x86_prefetch_sse;
 /* For sane SSE instruction set generation we need fcomi instruction.  It is
    safe to enable all CMOVE instructions.  */
 #define TARGET_CMOVE ((x86_cmove & (1 << ix86_arch)) || TARGET_SSE)
-/* APPLE LOCAL mainline 2005-03-16 4054919 */
-/* APPLE LOCAL begin mainline 2005-10-05 4196991 */
-#define TARGET_FISTTP (((x86_fisttp & (1 << ix86_arch)) || TARGET_SSE3) \
-			&& TARGET_80387)
-/* APPLE LOCAL end mainline 2005-10-05 4196991 */
+/* APPLE LOCAL mainline 4196991 4632262 */
+#define TARGET_FISTTP (TARGET_SSE3 && TARGET_80387)
 #define TARGET_DEEP_BRANCH_PREDICTION (x86_deep_branch & TUNEMASK)
 #define TARGET_BRANCH_PREDICTION_HINTS (x86_branch_hints & TUNEMASK)
 #define TARGET_DOUBLE_WITH_ADD (x86_double_with_add & TUNEMASK)
@@ -312,7 +317,8 @@ extern int x86_prefetch_sse;
 #define TARGET_MEMORY_MISMATCH_STALL (x86_memory_mismatch_stall & TUNEMASK)
 #define TARGET_PROLOGUE_USING_MOVE (x86_prologue_using_move & TUNEMASK)
 #define TARGET_EPILOGUE_USING_MOVE (x86_epilogue_using_move & TUNEMASK)
-#define TARGET_DECOMPOSE_LEA (x86_decompose_lea & TUNEMASK)
+/* APPLE LOCAL mainline 2006-04-19 4434601 */
+/* TARGET_DECOMPOSE_LEA removed */
 #define TARGET_PREFETCH_SSE (x86_prefetch_sse)
 #define TARGET_SHIFT1 (x86_shift1 & TUNEMASK)
 #define TARGET_USE_FFREEP (x86_use_ffreep & TUNEMASK)
@@ -321,6 +327,10 @@ extern int x86_prefetch_sse;
 #define TARGET_FOUR_JUMP_LIMIT (x86_four_jump_limit & TUNEMASK)
 #define TARGET_SCHEDULE (x86_schedule & TUNEMASK)
 #define TARGET_USE_BT (x86_use_bt & TUNEMASK)
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
+#define TARGET_USE_INCDEC (x86_use_incdec & TUNEMASK)
+#define TARGET_PAD_RETURNS (x86_pad_returns & TUNEMASK)
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
 
 #define TARGET_STACK_PROBE (target_flags & MASK_STACK_PROBE)
 
@@ -338,6 +348,8 @@ extern int x86_prefetch_sse;
 #define TARGET_MMX ((target_flags & MASK_MMX) != 0)
 #define TARGET_3DNOW ((target_flags & MASK_3DNOW) != 0)
 #define TARGET_3DNOW_A ((target_flags & MASK_3DNOW_A) != 0)
+/* APPLE LOCAL ssse3 */
+#define TARGET_SSSE3 ((target_flags & MASK_SSSE3) != 0)
 
 #define TARGET_RED_ZONE (!(target_flags & MASK_NO_RED_ZONE))
 
@@ -431,6 +443,12 @@ extern int x86_prefetch_sse;
     N_("Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
   { "no-sse3",			 -MASK_SSE3,				      \
     N_("Do not support MMX, SSE, SSE2 and SSE3 built-in functions and code generation") },\
+    /* APPLE LOCAL begin ssse3 4424835 */						      \
+  { "ssse3",			 MASK_SSSE3,				      \
+    N_("Support SSSE3 built-in functions and code generation") },		      \
+  { "no-ssse3",			 -MASK_SSSE3,				      \
+    N_("Do not support SSSE3 built-in functions and code generation") },	      \
+  /* APPLE LOCAL end ssse3 */						      \
   { "128bit-long-double",	 MASK_128BIT_LONG_DOUBLE,		      \
     N_("sizeof(long double) is 16") },					      \
   { "96bit-long-double",	-MASK_128BIT_LONG_DOUBLE,		      \
@@ -472,6 +490,10 @@ extern int x86_prefetch_sse;
    it's analogous to similar code for Mach-O on PowerPC.  darwin.h
    redefines this to 1.  */
 #define TARGET_MACHO 0
+/* APPLE LOCAL begin mach-o cleanup */
+#define MACHOPIC_INDIRECT 0
+#define MACHOPIC_PURE 0
+/* APPLE LOCAL end mach-o cleanup */
 
 /* Subtargets may reset this to 1 in order to enable 96-bit long double
    with the rounding mode forced to 53 bits.  */
@@ -516,6 +538,11 @@ extern int x86_prefetch_sse;
     N_("Use given assembler dialect"), 0},			\
   { "tls-dialect=", &ix86_tls_dialect_string,			\
     N_("Use given thread-local storage dialect"), 0},		\
+  /* APPLE LOCAL begin 4356747 stack realign */			\
+  { "stackrealign",						\
+    &ix86_force_align_arg_pointer,				\
+    N_("Realign stack in prologue"), 0},			\
+  /* APPLE LOCAL end 4356747 stack realign */			\
   SUBTARGET_OPTIONS						\
 }
 
@@ -538,11 +565,15 @@ extern int x86_prefetch_sse;
 #define OPTIMIZATION_OPTIONS(LEVEL, SIZE) \
   optimization_options ((LEVEL), (SIZE))
 
-/* Support for configure-time defaults of some command line options.  */
+/* APPLE LOCAL begin mainline */
+/* Support for configure-time defaults of some command line options.
+   The order here is important so that -march doesn't squash the tune
+   or cpu values.  */
 #define OPTION_DEFAULT_SPECS \
-  {"arch", "%{!march=*:-march=%(VALUE)}"}, \
   {"tune", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }, \
-  {"cpu", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }
+  {"cpu", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }, \
+  {"arch", "%{!march=*:-march=%(VALUE)}"}
+/* APPLE LOCAL end mainline */
 
 /* Specs for the compiler proper */
 
@@ -652,6 +683,10 @@ extern int x86_prefetch_sse;
 	builtin_define ("__SSE2__");				\
       if (TARGET_SSE3)						\
 	builtin_define ("__SSE3__");				\
+      /* APPLE LOCAL begin ssse3 4424835 */			\
+      if (TARGET_SSSE3)						\
+	builtin_define ("__SSSE3__");				\
+      /* APPLE LOCAL end ssse3 */				\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
@@ -732,12 +767,19 @@ extern int x86_prefetch_sse;
 #define TARGET_CPU_DEFAULT_pentium_m 14
 #define TARGET_CPU_DEFAULT_prescott 15
 #define TARGET_CPU_DEFAULT_nocona 16
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
+#define TARGET_CPU_DEFAULT_generic 17
+/* APPLE LOCAL begin apple cpu */
+#define TARGET_CPU_DEFAULT_apple 18
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
 				  "athlon", "athlon-4", "k8", \
-				  "pentium-m", "prescott", "nocona"}
+				  "pentium-m", "prescott", "nocona", \
+				  "generic", "apple"}
+/* APPLE LOCAL end apple cpu */
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -938,8 +980,12 @@ extern int x86_prefetch_sse;
    for details.  */
 
 #define STACK_REGS
+/* APPLE LOCAL begin mainline */
 #define IS_STACK_MODE(MODE)					\
-  ((MODE) == DFmode || (MODE) == SFmode || (MODE) == XFmode)	\
+  (((MODE) == SFmode && (!TARGET_SSE || !TARGET_SSE_MATH))	\
+   || ((MODE) == DFmode && (!TARGET_SSE2 || !TARGET_SSE_MATH))  \
+   || (MODE) == XFmode)
+/* APPLE LOCAL end mainline */
 
 /* Number of actual hardware registers.
    The hardware registers are assigned numbers for the compiler
@@ -1120,7 +1166,8 @@ do {									\
 
 #define VALID_MMX_REG_MODE(MODE)					\
     ((MODE) == DImode || (MODE) == V8QImode || (MODE) == V4HImode	\
-     || (MODE) == V2SImode || (MODE) == SImode)
+/* APPLE LOCAL 4656532 use V1DImode for _m64 */				\
+     || (MODE) == V2SImode || (MODE) == SImode || (MODE) == V1DImode)
 
 /* ??? No autovectorization into MMX or 3DNOW until we can reliably
    place emms and femms instructions.  */
@@ -1267,6 +1314,11 @@ do {									\
 
 #define RETURN_IN_MEMORY(TYPE) \
   ix86_return_in_memory (TYPE)
+
+/* APPLE LOCAL begin radar 4781080 */
+#define OBJC_FPRETURN_MSGCALL(TYPE,WHICH) \
+  ix86_objc_fpreturn_msgcall (TYPE, WHICH)
+/* APPLE LOCAL end radar 4781080 */
 
 /* This is overridden by <cygwin.h>.  */
 #define MS_AGGREGATE_RETURN 0
@@ -1649,7 +1701,8 @@ enum reg_class
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-#define FRAME_GROWS_DOWNWARD
+/* APPLE LOCAL mainline */
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -2187,7 +2240,11 @@ do {							\
    subsequent accesses occur to other fields in the same word of the
    structure, but to different bytes.  */
 
-#define SLOW_BYTE_ACCESS 0
+/* APPLE LOCAL begin radar 4287182 */
+/* Temporarily set it to two targets. Please sync it with main line
+   when its patch is approved. */
+#define SLOW_BYTE_ACCESS (TARGET_GENERIC | TARGET_NOCONA)
+/* APPLE LOCAL end radar 4287182 */
 
 /* Nonzero if access to memory by shorts is slow and undesirable.  */
 #define SLOW_SHORT_ACCESS 0
@@ -2287,9 +2344,11 @@ number as al, and ax.
 #define DBX_REGISTER_NUMBER(N) \
   (TARGET_64BIT ? dbx64_register_map[(N)] : dbx_register_map[(N)])
 
-extern int const dbx_register_map[FIRST_PSEUDO_REGISTER];
-extern int const dbx64_register_map[FIRST_PSEUDO_REGISTER];
-extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+extern int const dbx_register_map[FIRST_PSEUDO_REGISTER+1];
+extern int const dbx64_register_map[FIRST_PSEUDO_REGISTER+1];
+extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER+1];
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 /* Before the prologue, RA is at 0(%esp).  */
 #define INCOMING_RETURN_ADDR_RTX \
@@ -2359,11 +2418,17 @@ do {									\
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
   ix86_output_addr_diff_elt ((FILE), (VALUE), (REL))
 
-/* Under some conditions we need jump tables in the text section, because
-   the assembler cannot handle label differences between sections.  */
+/* APPLE LOCAL begin x86_64 support 2006-02-02 */
+
+/* Under some conditions we need jump tables in the text section,
+   because the assembler cannot handle label differences between
+   sections.  This is the case for x86_64 on Mach-O for example. */
 
 #define JUMP_TABLES_IN_TEXT_SECTION \
-  (!TARGET_64BIT && flag_pic && !HAVE_AS_GOTOFF_IN_DATA)
+  (flag_pic && ((TARGET_MACHO && TARGET_64BIT) \
+   || (!TARGET_64BIT && !HAVE_AS_GOTOFF_IN_DATA)))
+
+/* APPLE LOCAL end x86_64 support 2006-02-02 */
 
 /* Emit a dtp-relative reference to a TLS variable.  */
 
@@ -2421,6 +2486,12 @@ enum processor_type
   PROCESSOR_PENTIUM4,
   PROCESSOR_K8,
   PROCESSOR_NOCONA,
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
+  PROCESSOR_GENERIC32,
+  PROCESSOR_GENERIC64,
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
+/* APPLE LOCAL apple cpu */
+  PROCESSOR_APPLE,
   PROCESSOR_max
 };
 
@@ -2500,6 +2571,8 @@ extern enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER];
 
 extern rtx ix86_compare_op0;	/* operand 0 for comparisons */
 extern rtx ix86_compare_op1;	/* operand 1 for comparisons */
+/* APPLE LOCAL mainline */
+extern rtx ix86_compare_emitted;
 
 /* To properly truncate FP values into integers, we need to set i387 control
    word.  We can't emit proper mode switching code before reload, as spills
@@ -2586,6 +2659,8 @@ struct machine_function GTY(())
 {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
+  /* APPLE LOCAL mainline 2006-02-17 4356747 stack realign */
+  rtx force_align_arg_pointer;
   int save_varrargs_registers;
   int accesses_prev_frame;
   int optimize_mode_switching;
@@ -2606,21 +2681,22 @@ struct machine_function GTY(())
 #define X86_FILE_START_FLTUSED false
 
 /* APPLE LOCAL begin CW asm blocks */
-#undef TARGET_CW_EXTRA_INFO
-#define TARGET_CW_EXTRA_INFO			\
+#undef TARGET_IASM_EXTRA_INFO
+#define TARGET_IASM_EXTRA_INFO			\
   char mod[3];					\
   bool as_immediate;				\
-  bool as_offset;
+  bool as_offset;				\
+  bool pseudo;
 
-#define TARGET_CW_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)	\
+#define TARGET_IASM_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)	\
   do {									\
     /* If we are outputting AT&T style assembly language, the argument	\
        numbering is reversed.  */					\
-    if (cw_x86_needs_swapping (opcode))					\
+    if (iasm_x86_needs_swapping (opcode))					\
       NEWARGNUM = NUM_ARGS - ARGNUM + 1;				\
   } while (0)
 
-#define CW_SYNTH_CONSTRAINTS(R, ARGNUM, NUM_ARGS, DB)					\
+#define IASM_SYNTH_CONSTRAINTS(R, ARGNUM, NUM_ARGS, DB)					\
   do {											\
     /* On x86, operand 2 or 3 can be left out and the assembler will deal with it.	\
 											\
@@ -2650,18 +2726,18 @@ struct machine_function GTY(())
       }											\
   } while (0)
 
-#define TARGET_CW_PRINT_OP(BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E) \
- cw_print_op (BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E)
+#define TARGET_IASM_PRINT_OP(BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E) \
+ iasm_print_op (BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E)
 
-extern tree x86_canonicalize_operands (const char **, tree, void *);
+extern tree iasm_x86_canonicalize_operands (const char **, tree, void *);
 /* On x86, we can rewrite opcodes, change argument ordering and so no... */
-#define CW_CANONICALIZE_OPERANDS(OPCODE, NEW_OPCODE, IARGS, E)	\
+#define IASM_CANONICALIZE_OPERANDS(OPCODE, NEW_OPCODE, IARGS, E)		\
   do {								\
     NEW_OPCODE = OPCODE;					\
-    IARGS = x86_canonicalize_operands (&NEW_OPCODE, IARGS, E);	\
+    IARGS = iasm_x86_canonicalize_operands (&NEW_OPCODE, IARGS, E);	\
   } while (0)
 
-#define CW_SEE_OPCODE(YYCHAR, T)					\
+#define IASM_SEE_OPCODE(YYCHAR, T)					\
     /* If we see an int, arrange to see it as an identifier (opcode),	\
        not as a type.  */						\
     ((YYCHAR == TYPESPEC						\
@@ -2670,7 +2746,7 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
 
 /* Return true iff the ID is a prefix for an instruction.  */
 
-#define CW_IS_PREFIX(ID)				\
+#define IASM_IS_PREFIX(ID)				\
   do {							\
     const char *myname = IDENTIFIER_POINTER (ID);	\
     if (strcasecmp (myname, "lock") == 0		\
@@ -2682,54 +2758,56 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
       return true;					\
   } while (0)
 
-#define CW_PRINT_PREFIX(BUF, PREFIX_LIST) x86_cw_print_prefix(BUF, PREFIX_LIST)
+#define IASM_PRINT_PREFIX(BUF, PREFIX_LIST) iasm_x86_print_prefix(BUF, PREFIX_LIST)
 
-#define CW_IMMED_PREFIX(E, BUF)			\
+#define IASM_IMMED_PREFIX(E, BUF)		\
   do {						\
-    if (! E->as_immediate)			\
+    if (!E->pseudo && ! E->as_immediate)	\
       sprintf (BUF + strlen (BUF), "$");	\
   } while (0)
 
-#define CW_OFFSET_PREFIX(E, BUF)		\
+#define IASM_OFFSET_PREFIX(E, BUF)		\
   do {						\
     if (E->as_offset)				\
       sprintf (BUF + strlen (BUF), "$");	\
   } while (0)
 
 /* We can't yet expose ST(x) to reg-stack.c, don't try.  */
-#define CW_HIDE_REG(R) FP_REGNO_P (R)
+#define IASM_HIDE_REG(R) FP_REGNO_P (R)
 
-#define CW_SEE_IMMEDIATE(E)			\
+#define IASM_SEE_IMMEDIATE(E)			\
   E->as_immediate = true
 
-#define CW_SEE_NO_IMMEDIATE(E)			\
+#define IASM_SEE_NO_IMMEDIATE(E)			\
   E->as_immediate = false
 
 /* Table of instructions that need extra constraints.  Keep this table sorted.  */
-#undef TARGET_CW_OP_CONSTRAINT
-#define TARGET_CW_OP_CONSTRAINT \
+#undef TARGET_IASM_OP_CONSTRAINT
+#define TARGET_IASM_OP_CONSTRAINT \
   { "adc", 1, "+rm,r" },	\
   { "adc", 2, "ir,m" },		\
   { "add", 1, "+rm,r" },	\
   { "add", 2, "ir,m" },		\
+  { "addps", 1, "+x"},		\
+  { "addps", 2, "xm"},		\
   { "addsd", 1, "+x"},		\
-  { "addsd", 2, "m"},		\
+  { "addsd", 2, "xm"},		\
   { "addss", 1, "+x"},		\
-  { "addss", 2, "m"},		\
+  { "addss", 2, "xm"},		\
   { "addsubpd", 1, "+x"},      	\
-  { "addsubpd", 2, "m"},	\
+  { "addsubpd", 2, "xm"},	\
   { "addsubps", 1, "+x"},	\
-  { "addsubps", 2, "m"},      	\
+  { "addsubps", 2, "xm"},      	\
   { "and", 1, "+rm,r"},		\
   { "and", 2, "ir,m"},		\
   { "andnpd", 1, "+x"},		\
-  { "andnpd", 2, "m"},		\
+  { "andnpd", 2, "xm"},		\
   { "andnps", 1, "+x"},		\
-  { "andnps", 2, "m"},		\
+  { "andnps", 2, "xm"},		\
   { "andpd", 1, "+x"},		\
-  { "andpd", 2, "m"},		\
+  { "andpd", 2, "xm"},		\
   { "andps", 1, "+x"},		\
-  { "andps", 2, "m"},		\
+  { "andps", 2, "xm"},		\
   { "arpl", 1, "+" rm16},	\
   { "arpl", 2, r16},		\
   { "bound", 1, U("r")},	\
@@ -2780,6 +2858,62 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "cmovz", 2, U("rm")},	\
   { "cmp", 1, "rm,r"},    	\
   { "cmp", 2, "ir,m"},    	\
+  { "cmpeqpd", 1, "=x"},	\
+  { "cmpeqpd", 2, "xm"},	\
+  { "cmpeqps", 1, "=x"},	\
+  { "cmpeqps", 2, "xm"},	\
+  { "cmpeqsd", 1, "=x"},	\
+  { "cmpeqsd", 2, "xm"},	\
+  { "cmpeqss", 1, "=x"},	\
+  { "cmpeqss", 2, "xm"},	\
+  { "cmplepd", 1, "=x"},	\
+  { "cmplepd", 2, "xm"},	\
+  { "cmpleps", 1, "=x"},	\
+  { "cmpleps", 2, "xm"},	\
+  { "cmplesd", 1, "=x"},	\
+  { "cmplesd", 2, "xm"},	\
+  { "cmpless", 1, "=x"},	\
+  { "cmpless", 2, "xm"},	\
+  { "cmpltpd", 1, "=x"},	\
+  { "cmpltpd", 2, "xm"},	\
+  { "cmpltps", 1, "=x"},	\
+  { "cmpltps", 2, "xm"},	\
+  { "cmpltsd", 1, "=x"},	\
+  { "cmpltsd", 2, "xm"},	\
+  { "cmpltss", 1, "=x"},	\
+  { "cmpltss", 2, "xm"},	\
+  { "cmpneqpd", 1, "=x"},	\
+  { "cmpneqpd", 2, "xm"},	\
+  { "cmpneqps", 1, "=x"},	\
+  { "cmpneqps", 2, "xm"},	\
+  { "cmpneqsd", 1, "=x"},	\
+  { "cmpneqsd", 2, "xm"},	\
+  { "cmpneqss", 1, "=x"},	\
+  { "cmpneqss", 2, "xm"},	\
+  { "cmpnlepd", 1, "=x"},	\
+  { "cmpnlepd", 2, "xm"},	\
+  { "cmpnleps", 1, "=x"},	\
+  { "cmpnleps", 2, "xm"},	\
+  { "cmpnlesd", 1, "=x"},	\
+  { "cmpnlesd", 2, "xm"},	\
+  { "cmpnless", 1, "=x"},	\
+  { "cmpnless", 2, "xm"},	\
+  { "cmpnltpd", 1, "=x"},	\
+  { "cmpnltpd", 2, "xm"},	\
+  { "cmpnltps", 1, "=x"},	\
+  { "cmpnltps", 2, "xm"},	\
+  { "cmpnltsd", 1, "=x"},	\
+  { "cmpnltsd", 2, "xm"},	\
+  { "cmpnltss", 1, "=x"},	\
+  { "cmpnltss", 2, "xm"},	\
+  { "cmpordpd", 1, "=x"},	\
+  { "cmpordpd", 2, "xm"},	\
+  { "cmpordps", 1, "=x"},	\
+  { "cmpordps", 2, "xm"},	\
+  { "cmpordsd", 1, "=x"},	\
+  { "cmpordsd", 2, "xm"},	\
+  { "cmpordss", 1, "=x"},	\
+  { "cmpordss", 2, "xm"},	\
   { "cmppd", 1, "=x"},		\
   { "cmppd", 2, "xm"},		\
   { "cmppd", 3, "i"},		\
@@ -2792,50 +2926,60 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "cmpss", 1, "=x"},		\
   { "cmpss", 2, "xm"},		\
   { "cmpss", 3, "i"},		\
+  { "cmpunordpd", 1, "=x"},	\
+  { "cmpunordpd", 2, "xm"},	\
+  { "cmpunordps", 1, "=x"},	\
+  { "cmpunordps", 2, "xm"},	\
+  { "cmpunordsd", 1, "=x"},	\
+  { "cmpunordsd", 2, "xm"},	\
+  { "cmpunordss", 1, "=x"},	\
+  { "cmpunordss", 2, "xm"},	\
   { "cmpxchg", 1, "+mr"},      	\
   { "cmpxchg", 2, "r"},      	\
   { "comisd", 1, "x"},		\
-  { "comisd", 2, "m"},		\
+  { "comisd", 2, "xm"},		\
   { "comiss", 1, "x"},		\
-  { "comiss", 2, "m"},		\
+  { "comiss", 2, "xm"},		\
   { "cvtdq2pd", 1, "=x"},	\
-  { "cvtdq2pd", 2, "m"},	\
+  { "cvtdq2pd", 2, "xm"},	\
   { "cvtdq2ps", 1, "=x"},	\
-  { "cvtdq2ps", 2, "m"},	\
+  { "cvtdq2ps", 2, "xm"},	\
+  { "cvtpd2dq", 1, "=x"},	\
+  { "cvtpd2dq", 2, "xm"},	\
   { "cvtpd2pi", 1, "=y"},	\
-  { "cvtpd2pi", 2, "m"},	\
+  { "cvtpd2pi", 2, "xm"},	\
   { "cvtpd2ps", 1, "=x"},	\
-  { "cvtpd2ps", 2, "m"},	\
+  { "cvtpd2ps", 2, "xm"},	\
   { "cvtpi2pd", 1, "=x"},	\
-  { "cvtpi2pd", 2, "m"},	\
+  { "cvtpi2pd", 2, "ym"},	\
   { "cvtpi2ps", 1, "=x"},	\
-  { "cvtpi2ps", 2, "m"},	\
+  { "cvtpi2ps", 2, "ym"},	\
   { "cvtps2dq", 1, "=x"},	\
-  { "cvtps2dq", 2, "m"},	\
+  { "cvtps2dq", 2, "xm"},	\
   { "cvtps2pd", 1, "=x"},	\
-  { "cvtps2pd", 2, "m"},	\
+  { "cvtps2pd", 2, "xm"},	\
   { "cvtps2pi", 1, "=y"},	\
-  { "cvtps2pi", 2, "m"},	\
+  { "cvtps2pi", 2, "xm"},	\
   { "cvtsd2si", 1, "=r"},	\
   { "cvtsd2si", 2, "xm"},	\
   { "cvtsd2ss", 1, "=x"},	\
-  { "cvtsd2ss", 2, "m"},	\
+  { "cvtsd2ss", 2, "xm"},	\
   { "cvtsi2sd", 1, "=x"},	\
-  { "cvtsi2sd", 2, "m"},	\
+  { "cvtsi2sd", 2, U("r") "m"},	\
   { "cvtsi2ss", 1, "=x"},	\
-  { "cvtsi2ss", 2, "m"},	\
+  { "cvtsi2ss", 2, U("r") "m"},	\
   { "cvtss2sd", 1, "=x"},	\
-  { "cvtss2sd", 2, "m"},	\
+  { "cvtss2sd", 2, "xm"},	\
   { "cvtss2si", 1, "=r"},	\
   { "cvtss2si", 2, "xm"},	\
   { "cvttpd2dq", 1, "=x"},	\
-  { "cvttpd2dq", 2, "m"},	\
+  { "cvttpd2dq", 2, "xm"},	\
   { "cvttpd2pi", 1, "=y"},	\
-  { "cvttpd2pi", 2, "m"},	\
+  { "cvttpd2pi", 2, "xm"},	\
   { "cvttps2dq", 1, "=x"},	\
-  { "cvttps2dq", 2, "m"},	\
+  { "cvttps2dq", 2, "xm"},	\
   { "cvttps2pi", 1, "=y"},	\
-  { "cvttps2pi", 2, "m"},	\
+  { "cvttps2pi", 2, "xm"},	\
   { "cvttsd2si", 1, "=r"},	\
   { "cvttsd2si", 2, "xm"},	\
   { "cvttss2si", 1, "=r"},	\
@@ -2843,13 +2987,13 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "dec", 1, "+" rm8rm16rm32},	\
   { "div", 1, rm8rm16rm32},	\
   { "divpd", 1, "+x"},		\
-  { "divpd", 2, "m"},		\
+  { "divpd", 2, "xm"},		\
   { "divps", 1, "+x"},		\
-  { "divps", 2, "m"},		\
+  { "divps", 2, "xm"},		\
   { "divsd", 1, "+x"},		\
-  { "divsd", 2, "m"},		\
+  { "divsd", 2, "xm"},		\
   { "divss", 1, "+x"},		\
-  { "divss", 2, "m"},		\
+  { "divss", 2, "xm"},		\
   { "enter", 1, "i"},		\
   { "enter", 2, "i"},		\
   { "fadd", 1, "+t,f,@"},	\
@@ -2885,34 +3029,28 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "fdivp", 1, "+f"},		\
   { "fdivp", 2, "t"},		\
   { "fdivr", 1, "+t,@"},	\
-  { "fdivr", 2, "f,m"},		\
+  { "fdivr", 2, "f," m32fpm64fp},\
   { "fdivrp", 1, "+f"},		\
   { "fdivrp", 2, "t"},		\
   { "ffree", 1, "f"},		\
-  { "fiadd", 1, m2m4},		\
-  { "ficom", 1, m2m4},		\
-  { "ficomp", 1, m2m4},		\
-  { "fidiv", 1, m2m4},		\
-  { "fidivl", 1, "m"},		\
-  { "fidivr", 1, m2m4},		\
-  { "fidivrl", 1, "m"},		\
-  { "fild", 1, "m"},		\
-  { "fildl", 1, "m"},		\
-  { "fildll", 1, "m"},		\
-  { "fimul", 1, m2m4},		\
-  { "fist", 1, "=m"},		\
-  { "fistp", 1, "=m"},		\
-  { "fistpll", 1, "=m"},       	\
-  { "fisttp", 1, "=" m2m4},	\
-  { "fisttpll", 1, "=m"},	\
-  { "fisub", 1, m2m4},		\
-  { "fisubr", 1, m2m4},		\
+  { "fiadd", 1, m16m32},	\
+  { "ficom", 1, m16m32},	\
+  { "ficomp", 1, m16m32},	\
+  { "fidiv", 1, m16m32},	\
+  { "fidivr", 1, m16m32},	\
+  { "fild", 1, m16m32m64},	\
+  { "fimul", 1, m16m32},	\
+  { "fist", 1, "=" m16m32},	\
+  { "fistp", 1, "=" m16m32m64},	\
+  { "fisttp", 1, "=" m16m32m64},\
+  { "fisub", 1, m16m32},	\
+  { "fisubr", 1, m16m32},	\
   { "fld", 1, "f" m32fpm64fpm80fp},\
   { "fldcw", 1, m16},		\
   { "fldenv", 1, "m"},		\
   { "fldt", 1, "m"},		\
   { "fmul", 1, "=f,t,@"},	\
-  { "fmul", 2, "t,f," m2m4},	\
+  { "fmul", 2, "t,f," m32fpm64fp},\
   { "fmulp", 1, "=f"},		\
   { "fmulp", 2, "t"},		\
   { "fnsave", 1, "=m"},		\
@@ -2947,13 +3085,13 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "hsubpd", 2, "xm"},		\
   { "hsubps", 1, "+x"},		\
   { "hsubps", 2, "xm"},		\
-  { "idiv", 1, "r" m4},		\
+  { "idiv", 1, rm8rm16rm32 U(rm64)},\
   { "imul", 1, "+r"},		\
   { "imul", 2, "rm"},		\
   { "imul", 3, "i"},		\
   { "in", 1, "=a"},		\
   { "in", 2, "i"},		\
-  { "inc", 1, "+r" m4},		\
+  { "inc", 1, "+" rm8rm16rm32 U(rm64)},\
   { "ins", 1, U("=m")},		\
   { "ins", 2, U("d")},		\
   { "int", 1, "i"},		\
@@ -2970,7 +3108,7 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "jge", 1, "s"},		\
   { "jl", 1, "s"},		\
   { "jle", 1, "s"},		\
-  { "jmp", 1, "sm"},		\
+  { "jmp", 1, "s" rm32},	\
   { "jna", 1, "s"},		\
   { "jnae", 1, "s"},		\
   { "jnb", 1, "s"},		\
@@ -2995,19 +3133,19 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "lddqu", 1, "=x"},		\
   { "lddqu", 2, "m"},		\
   { "ldmxcsr", 1, "m"},		\
-  { "lds", 1, "=r"},		\
-  { "lds", 2, m4},		\
+  { "lds", 1, "=" U(r16 ",") r32},\
+  { "lds", 2, U(m16 ",") m32},	\
   { "lea", 1, "=r"},		\
   { "lea", 2, "m"},		\
-  { "les", 1, "=r"},		\
-  { "les", 2, "m"},		\
-  { "lfs", 1, "=r"},		\
-  { "lfs", 2, "m"},		\
+  { "les", 1, "=" U(r16 ",") r32},\
+  { "les", 2, U(m16 ",") m32},	\
+  { "lfs", 1, "=" U(r16 ",") r32 U("," r64)},\
+  { "lfs", 2, U(m16 ",") m32 U("," m64)},\
   { "lgdt", 1, "m"},		\
-  { "lgs", 1, "=r"},		\
-  { "lgs", 2, "m"},		\
+  { "lgs", 1, "=" U(r16 ",") r32 U("," r64)},\
+  { "lgs", 2, U(m16 ",") m32 U("," m64)},\
   { "lidt", 1, "m"},		\
-  { "lldt", 1, "rm"},		\
+  { "lldt", 1, rm16},		\
   { "lmsw", 1, "m"},		\
   { "lods", 1, U("m")},		\
   { "loop", 1, rel8},		\
@@ -3017,9 +3155,9 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "loopz", 1, rel8},		\
   { "lsl", 1, "=" r16 "," r32},	\
   { "lsl", 2, rm16 "," rm32},	\
-  { "lss", 1, "=r"},		\
-  { "lss", 2, m4},		\
-  { "ltr", 1, "rm"},		\
+  { "lss", 1, "=" U(r16 ",") r32 U("," r64)},\
+  { "lss", 2, U(m16 ",") m32 U("," m64)},\
+  { "ltr", 1, rm16},		\
   { "maskmovdqu", 1, "x"},	\
   { "maskmovdqu", 2, "x"},	\
   { "maskmovq", 1, "y"},	\
@@ -3136,7 +3274,7 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "paddd", 1, "+x,y"},	\
   { "paddd", 2, "xm,ym"},	\
   { "paddq", 1, "+x,y"},	\
-  { "paddq", 2, "x,,ym"},	\
+  { "paddq", 2, "xm,ym"},	\
   { "paddsb", 1, "+x,y"},       \
   { "paddsb", 2, "xm,ym"},      \
   { "paddsw", 1, "+x,y"},       \
@@ -3167,11 +3305,11 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "pcmpgtd", 2, "xm,ym"},	\
   { "pcmpgtw", 1, "+x,y"},	\
   { "pcmpgtw", 2, "xm,ym"},	\
-  { "pextrw", 1, "=q"},		\
+  { "pextrw", 1, "=" r32r64},	\
   { "pextrw", 2, "xy"},		\
   { "pextrw", 3, "i"},		\
   { "pinsrw", 1, "=xy"},	\
-  { "pinsrw", 2, "qm"},		\
+  { "pinsrw", 2, r32r64 "m"},	\
   { "pinsrw", 3, "i"},		\
   { "pmaddwd", 1, "+x,y"},	\
   { "pmaddwd", 2, "xm,ym"},	\
@@ -3326,14 +3464,14 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "sgdt", 1, "=m"},		\
   { "shl", 1, "+" rm8rm16rm32},	\
   { "shl", 2, "ic"},		\
-  { "shld", 1, "+" rm16 "," rm16},\
-  { "shld", 2, r16 "," r32},	\
-  { "shld", 3, "ic"},		\
+  { "shld", 1, "+" rm16 "," rm32 "," rm64},\
+  { "shld", 2, r16 "," r32 "," r64},\
+  { "shld", 3, "ic,ic,ic"},	\
   { "shr", 1, "+" rm8rm16rm32},	\
   { "shr", 2, "ic"},		\
-  { "shrd", 1, "+" rm16 "," rm32},\
-  { "shrd", 2, r16 "," r32},	\
-  { "shrd", 3, "ic"},		\
+  { "shrd", 1, "+" rm16 "," rm32 "," rm64},\
+  { "shrd", 2, r16 "," r32 "," r64},\
+  { "shrd", 3, "ic,ic,ic"},	\
   { "shufpd", 1, "+x"},		\
   { "shufpd", 2, "xm"},		\
   { "shufpd", 3, "i"},		\
@@ -3383,7 +3521,7 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "xadd", 1, "+" rm8 "," rm16 "," rm32},\
   { "xadd", 2, r8 "," r16 "," r32},\
   { "xchg", 1, "+rm,r"},	\
-  { "xchg", 2, "&r,m"},		\
+  { "xchg", 2, "+r,m"},		\
   { "xlat", 1, U("m")},		\
   { "xor", 1, "+rm,r"},		\
   { "xor", 2, "ri,m"},		\
@@ -3391,6 +3529,14 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "xorpd", 2, "xm"},		\
   { "xorps", 1, "+x"},		\
   { "xorps", 2, "xm"},
+
+#define TARGET_IASM_EXTRA_CLOBBERS \
+  { "rdtsc", { "edx", "eax"} }
+
+#define IASM_FUNCTION_MODIFIER "P"
+
+#define IASM_REGISTER_NAME(STR, BUF) i386_iasm_register_name (STR, BUF)
+
 /* APPLE LOCAL end CW asm blocks */
 
 /*

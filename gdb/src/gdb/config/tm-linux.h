@@ -30,13 +30,9 @@
 
 /* We need this file for the SOLIB_TRAMPOLINE stuff. */
 
-#include "config/tm-sysv4.h"
+/* If PC is in a shared library trampoline code, return the PC
+   where the function itself actually starts.  If not, return 0.  */
 
-/* We define SVR4_SHARED_LIBS unconditionally, on the assumption that
-   link.h is available on all linux platforms.  For I386 and SH3/4, 
-   we hard-code the information rather than use link.h anyway (for 
-   the benefit of cross-debugging).  We may move to doing that for
-   other architectures as well.  */
+#define SKIP_TRAMPOLINE_CODE(pc)  find_solib_trampoline_target (pc)
 
-#define SVR4_SHARED_LIBS
 #include "solib.h"		/* Support for shared libraries. */

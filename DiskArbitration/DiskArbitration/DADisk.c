@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,7 +24,7 @@
 #include "DADisk.h"
 
 #include "DAInternal.h"
-#include "DAServerUser.h"
+#include "DAServer.h"
 #include "DASession.h"
 
 #include <paths.h>
@@ -125,7 +125,7 @@ static CFHashCode __DADiskHash( CFTypeRef object )
 {
     DADiskRef disk = ( DADiskRef ) object;
 
-    return CFHashBytes( disk->_id, MIN( strlen( disk->_id ), 16 ) );
+    return CFHashBytes( ( void * ) disk->_id, MIN( strlen( disk->_id ), 16 ) );
 }
 
 __private_extern__ DADiskRef _DADiskCreate( CFAllocatorRef allocator, DASessionRef session, const char * id )
@@ -138,7 +138,7 @@ __private_extern__ DADiskRef _DADiskCreate( CFAllocatorRef allocator, DASessionR
 
         if ( disk )
         {
-            if ( strncmp( id, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) == 0 )
+            if ( strncmp( id, _PATH_DEV, strlen( _PATH_DEV ) ) == 0 )
             {
                 disk->_device = strdup( id + strlen( _PATH_DEV ) );
             }
@@ -168,7 +168,7 @@ __private_extern__ DADiskRef _DADiskCreateFromSerialization( CFAllocatorRef allo
             {
                 const char * id;
 
-                id = CFDataGetBytePtr( data );
+                id = ( void * ) CFDataGetBytePtr( data );
 
                 if ( id )
                 {
@@ -202,19 +202,24 @@ __private_extern__ DADiskRef _DADiskCreateFromVolumePath( CFAllocatorRef allocat
 
         if ( _path )
         {
-            struct statfs fs;
+            char name[MAXPATHLEN];
 
-            if ( ___statfs( _path, &fs, MNT_NOWAIT ) == 0 )
+            if ( realpath( _path, name ) )
             {
-                char * id;
+                struct statfs fs;
 
-                id = _DAVolumeCopyID( &fs );
-
-                if ( id )
+                if ( ___statfs( name, &fs, MNT_NOWAIT ) == 0 )
                 {
-                    disk = _DADiskCreate( allocator, session, id );
+                    char * id;
 
-                    free( id );
+                    id = _DAVolumeCopyID( &fs );
+
+                    if ( id )
+                    {
+                        disk = _DADiskCreate( allocator, session, id );
+
+                        free( id );
+                    }
                 }
             }
 
@@ -379,7 +384,6 @@ DADiskRef DADiskCreateFromBSDName( CFAllocatorRef allocator, DASessionRef sessio
         else
         {
             strcpy( id, name );
-            name += strlen( _PATH_DEV );
         }
 
         disk = _DADiskCreate( allocator, session, id );

@@ -238,7 +238,6 @@ dch_remove_iterate(libtop_dch_t *a_dch, void **r_key, void **r_data,
 static boolean_t
 dch_p_grow(libtop_dch_t *a_dch)
 {
-	boolean_t	retval;
 	libtop_ch_t	*t_ch;
 	libtop_chi_t	*chi;
 	unsigned	count, i;
@@ -250,10 +249,7 @@ dch_p_grow(libtop_dch_t *a_dch)
 		t_ch = (libtop_ch_t *)malloc(
 		    LIBTOP_CH_TABLE2SIZEOF(a_dch->base_table
 		    * a_dch->grow_factor * 2));
-		if (t_ch == NULL) {
-			retval = NULL;
-			goto RETURN;
-		}
+		if (t_ch == NULL) return FALSE;
 		ch_new(t_ch, a_dch->base_table * a_dch->grow_factor * 2,
 		    a_dch->hash, a_dch->key_comp);
 		for (i = 0; i < count; i++) {
@@ -279,9 +275,7 @@ dch_p_grow(libtop_dch_t *a_dch)
 		a_dch->ch = t_ch;
 	}
 
-	retval = FALSE;
-	RETURN:
-	return retval;
+	return FALSE;
 }
 
 /*
@@ -292,7 +286,6 @@ dch_p_grow(libtop_dch_t *a_dch)
 static boolean_t
 dch_p_shrink(libtop_dch_t *a_dch)
 {
-	boolean_t	retval;
 	libtop_ch_t	*t_ch;
 	libtop_chi_t	*chi;
 	unsigned	count, i;
@@ -317,10 +310,8 @@ dch_p_shrink(libtop_dch_t *a_dch)
 
 		t_ch = (libtop_ch_t *)malloc(
 		    LIBTOP_CH_TABLE2SIZEOF(a_dch->base_table * new_factor));
-		if (t_ch == NULL) {
-			retval = NULL;
-			goto RETURN;
-		}
+		if (t_ch == NULL) return FALSE;
+
 		ch_new(t_ch, a_dch->base_table * new_factor, a_dch->hash,
 		    a_dch->key_comp);
 		for (i = 0; i < count; i++) {
@@ -346,9 +337,7 @@ dch_p_shrink(libtop_dch_t *a_dch)
 		a_dch->ch = t_ch;
 	}
 
-	retval = FALSE;
-	RETURN:
-	return retval;
+	return FALSE;
 }
 
 /*

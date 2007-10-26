@@ -1,7 +1,7 @@
 
 /*
  *
- * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
  *
  */
 
@@ -17,8 +17,8 @@ U_NAMESPACE_BEGIN
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ThaiLayoutEngine)
 
-ThaiLayoutEngine::ThaiLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode)
-    : LayoutEngine(fontInstance, scriptCode, languageCode)
+ThaiLayoutEngine::ThaiLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode, le_int32 typoFlags)
+    : LayoutEngine(fontInstance, scriptCode, languageCode, typoFlags)
 {
     fErrorChar = 0x25CC;
 
@@ -83,7 +83,7 @@ le_int32 ThaiLayoutEngine::computeGlyphs(const LEUnicode chars[], le_int32 offse
     }
 
     glyphCount = ThaiShaping::compose(chars, offset, count, fGlyphSet, fErrorChar, outChars, glyphStorage);
-    mapCharsToGlyphs(outChars, 0, glyphCount, FALSE, FALSE, glyphStorage, success);
+    mapCharsToGlyphs(outChars, 0, glyphCount, FALSE, FALSE, TRUE, glyphStorage, success);
 
     LE_DELETE_ARRAY(outChars);
 

@@ -42,44 +42,30 @@
 .Nm
 .Op Fl AaLlnW
 .Op Fl f Ar address_family | Fl p Ar protocol
-.Op Fl M Ar core
-.Op Fl N Ar system
 .Nm
 .Op Fl gilns
 .Op Fl f Ar address_family
-.Op Fl M Ar core
-.Op Fl N Ar system
 .Nm
 .Fl i | I Ar interface
 .Op Fl w Ar wait
 .Op Fl abdgt
-.Op Fl M Ar core
-.Op Fl N Ar system
 .Nm
 .Fl s Op Fl s
 .Op Fl f Ar address_family | Fl p Ar protocol
-.Op Fl M Ar core
-.Op Fl N Ar system
+.Op Fl w Ar wait
 .Nm
 .Fl i | I Ar interface Fl s
 .Op Fl f Ar address_family | Fl p Ar protocol
-.Op Fl M Ar core
-.Op Fl N Ar system
 .Nm
 .Fl m
-.Op Fl M Ar core
-.Op Fl N Ar system
+.Op Fl m
 .Nm
 .Fl r
 .Op Fl Aaln
 .Op Fl f Ar address_family
-.Op Fl M Ar core
-.Op Fl N Ar system
 .Nm
 .Fl rs
 .Op Fl s
-.Op Fl M Ar core
-.Op Fl N Ar system
 .\"-----------------------------------------------------------------------------------------
 .Sh DESCRIPTION
 .\"-----------------------------------------------------------------------------------------
@@ -94,7 +80,9 @@ to the option selected. Using the third form, with a
 interval specified,
 .Nm
 will continuously display the information regarding packet traffic on the configured network
-interfaces.  The fourth form displays statistics for the specified protocol or address family.
+interfaces.  The fourth form displays statistics for the specified protocol or address family. If a
+.Ar wait
+interval is specified, the protocol information over the last interval seconds will be displayed.
 The fifth form displays per-interface statistics for the specified protocol or address family.
 The sixth form displays
 .Xr mbuf 9
@@ -173,16 +161,13 @@ unaccepted connections.  The second count shows the amount of unaccepted incompl
 connections.  The third count is the maximum number of queued connections.
 .It Fl l
 Print full IPv6 address.
-.It Fl M
-Extract values associated with the name list from the specified core instead of the
-default
-.Pa /dev/kmem .
 .It Fl m
-Show statistics recorded by the memory management routines (the network manages a
-private pool of memory buffers).
-.It Fl N
-Extract the name list from the specified system instead of the default
-.Pa /kernel .
+Show statistics recorded by the memory management routines (the network stack manages a private pool of memory buffers). More detailed information about the buffers, which includes their cache related statistics, can be obtained by using
+.Fl mm
+or
+.Fl m
+.Fl m
+option.
 .It Fl n
 Show network addresses as numbers (normally
 .Nm
@@ -219,7 +204,7 @@ zero are suppressed.
 In certain displays, avoid truncating addresses even if this causes some fields to
 overflow.
 .It Fl w Ar wait
-Show network interface statistics at intervals of
+Show network interface or protocol statistics at intervals of
 .Ar wait
 seconds.
 .El
@@ -345,7 +330,7 @@ is invoked with the
 option and a
 .Ar wait
 interval argument, it displays a running count of statistics related to
-network interfaces.  An obsolete version of this option used a numeric
+network interfaces or protocols.  An obsolete version of this option used a numeric
 parameter with no option, and is currently supported for backward
 compatibility.  By default, this display summarizes information for all
 interfaces.  Information for a specific interface may be displayed with the
@@ -372,12 +357,5 @@ command appeared in
 .Bx 4.2 .
 .Pp
 IPv6 support was added by WIDE/KAME project.
-.Sh FILES
-.Bl -tag -width /dev/kmem -compact
-.It Pa /kernel
-default kernel namelist
-.It Pa /dev/kmem
-default memory file
-.El
 .Sh BUGS
 The notion of errors is ill-defined.

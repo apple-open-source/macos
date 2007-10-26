@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/mods.c,v 1.31.2.8 2004/09/27 20:08:03 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/mods.c,v 1.47.2.9 2006/02/13 20:22:46 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,7 @@
 #include <ac/string.h>
 
 #include "slap.h"
+#include "lutil.h"
 
 int
 modify_add_values(
@@ -73,11 +74,15 @@ modify_add_values(
 		}
 
 		if ( permissive ) {
-			for ( i = 0; !BER_BVISNULL( &mod->sm_values[i] ); i++ ) /* count 'em */;
-			pmod.sm_values = (BerVarray)ch_malloc( (i + 1)*sizeof( struct berval ) );
+			for ( i = 0; !BER_BVISNULL( &mod->sm_values[i] ); i++ ) {
+				/* EMPTY -- just counting 'em */;
+			}
+
+			pmod.sm_values = (BerVarray)ch_malloc(
+				(i + 1) * sizeof( struct berval ));
 			if ( pmod.sm_nvalues != NULL ) {
 				pmod.sm_nvalues = (BerVarray)ch_malloc(
-					(i + 1)*sizeof( struct berval ) );
+					(i + 1) * sizeof( struct berval ));
 			}
 		}
 
@@ -90,17 +95,17 @@ modify_add_values(
 		for ( p = i = 0; !BER_BVISNULL( &mod->sm_values[i] ); i++ ) {
 			int	match;
 
-			assert( a->a_vals[0].bv_val );
+			assert( a->a_vals[0].bv_val != NULL );
 			for ( j = 0; !BER_BVISNULL( &a->a_vals[j] ); j++ ) {
 				if ( mod->sm_nvalues ) {
-					rc = value_match( &match, mod->sm_desc, mr,
+					rc = ordered_value_match( &match, mod->sm_desc, mr,
 						SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ASSERTION_SYNTAX
 							| SLAP_MR_ASSERTED_VALUE_NORMALIZED_MATCH
 							| SLAP_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH,
 						&a->a_nvals[j], &mod->sm_nvalues[i], text );
 				} else {
-					rc = value_match( &match, mod->sm_desc, mr,
-						SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
+					rc = ordered_value_match( &match, mod->sm_desc, mr,
+						SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ASSERTION_SYNTAX,
 						&a->a_vals[j], &mod->sm_values[i], text );
 				}
 
@@ -143,7 +148,12 @@ modify_add_values(
 	}
 
 	/* no - add them */
-	rc = attr_merge( e, mod->sm_desc, pmod.sm_values, pmod.sm_nvalues );
+	if ( mod->sm_desc->ad_type->sat_flags & SLAP_AT_ORDERED_VAL ) {
+		rc = ordered_value_add( e, mod->sm_desc, a,
+			pmod.sm_values, pmod.sm_nvalues );
+	} else {
+		rc = attr_merge( e, mod->sm_desc, pmod.sm_values, pmod.sm_nvalues );
+	}
 
 	if ( a != NULL && permissive ) {
 		ch_free( pmod.sm_values );
@@ -165,16 +175,28 @@ modify_add_values(
 int
 modify_delete_values(
 	Entry	*e,
+	Modification	*m,
+	int	perm,
+	const char	**text,
+	char *textbuf, size_t textlen )
+{
+	return modify_delete_vindex( e, m, perm, text, textbuf, textlen, NULL );
+}
+
+int
+modify_delete_vindex(
+	Entry	*e,
 	Modification	*mod,
 	int	permissive,
 	const char	**text,
-	char *textbuf, size_t textlen )
+	char *textbuf, size_t textlen,
+	int *idx )
 {
 	int		i, j, k, rc = LDAP_SUCCESS;
 	Attribute	*a;
 	MatchingRule 	*mr = mod->sm_desc->ad_type->sat_equality;
 	char		dummy = '\0';
-	int			match = 0;
+	int		match = 0;
 
 	/*
 	 * If permissive is set, then the non-existence of an 
@@ -228,23 +250,19 @@ modify_delete_values(
 			}
 
 			if( mod->sm_nvalues ) {
-				assert( a->a_nvals );
-				rc = (*mr->smr_match)( &match,
-					SLAP_MR_VALUE_OF_ASSERTION_SYNTAX
+				assert( a->a_nvals != NULL );
+				rc = ordered_value_match( &match, a->a_desc, mr,
+					SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ASSERTION_SYNTAX
 						| SLAP_MR_ASSERTED_VALUE_NORMALIZED_MATCH
 						| SLAP_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH,
-					a->a_desc->ad_type->sat_syntax,
-					mr, &a->a_nvals[j],
-					&mod->sm_nvalues[i] );
+					&a->a_nvals[j], &mod->sm_nvalues[i], text );
 			} else {
 #if 0
 				assert( a->a_nvals == NULL );
 #endif
-				rc = (*mr->smr_match)( &match,
-					SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
-					a->a_desc->ad_type->sat_syntax,
-					mr, &a->a_vals[j],
-					&mod->sm_values[i] );
+				rc = ordered_value_match( &match, a->a_desc, mr,
+					SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ASSERTION_SYNTAX,
+					&a->a_vals[j], &mod->sm_values[i], text );
 			}
 
 			if ( rc != LDAP_SUCCESS ) {
@@ -260,6 +278,9 @@ modify_delete_values(
 			}
 
 			found = 1;
+
+			if ( idx )
+				idx[i] = j;
 
 			/* delete value and mark it as dummy */
 			free( a->a_vals[j].bv_val );
@@ -287,10 +308,10 @@ modify_delete_values(
 	}
 
 	/* compact array skipping dummies */
-	for ( k = 0, j = 0; a->a_vals[k].bv_val != NULL; k++ ) {
+	for ( k = 0, j = 0; !BER_BVISNULL( &a->a_vals[k] ); k++ ) {
 		/* skip dummies */
 		if( a->a_vals[k].bv_val == &dummy ) {
-			assert( a->a_nvals == NULL || a->a_nvals[k].bv_val == &dummy );
+			assert( a->a_nvals[k].bv_val == &dummy );
 			continue;
 		}
 		if ( j != k ) {
@@ -303,11 +324,13 @@ modify_delete_values(
 		j++;
 	}
 
-	a->a_vals[j].bv_val = NULL;
-	if (a->a_nvals != a->a_vals) a->a_nvals[j].bv_val = NULL;
+	BER_BVZERO( &a->a_vals[j] );
+	if (a->a_nvals != a->a_vals) {
+		BER_BVZERO( &a->a_nvals[j] );
+	}
 
 	/* if no values remain, delete the entire attribute */
-	if ( a->a_vals[0].bv_val == NULL ) {
+	if ( BER_BVISNULL( &a->a_vals[0] ) ) {
 		if ( attr_delete( &e->e_attrs, mod->sm_desc ) ) {
 			*text = textbuf;
 			snprintf( textbuf, textlen,
@@ -315,6 +338,9 @@ modify_delete_values(
 				mod->sm_desc->ad_cname.bv_val );
 			rc = LDAP_NO_SUCH_ATTRIBUTE;
 		}
+	} else if ( a->a_desc->ad_type->sat_flags & SLAP_AT_ORDERED_VAL ) {
+		/* For an ordered attribute, renumber the value indices */
+		ordered_value_sort( a, 1 );
 	}
 
 return_results:;
@@ -351,32 +377,50 @@ modify_increment_values(
 
 	a = attr_find( e->e_attrs, mod->sm_desc );
 	if( a == NULL ) {
-		*text = textbuf;
-		snprintf( textbuf, textlen,
-			"modify/increment: %s: no such attribute",
-			mod->sm_desc->ad_cname.bv_val );
-		return LDAP_NO_SUCH_ATTRIBUTE;
+		if ( permissive ) {
+			Modification modReplace = *mod;
+
+			modReplace.sm_op = LDAP_MOD_REPLACE;
+
+			return modify_add_values(e, &modReplace, permissive, text, textbuf, textlen);
+		} else {
+			*text = textbuf;
+			snprintf( textbuf, textlen,
+				"modify/increment: %s: no such attribute",
+				mod->sm_desc->ad_cname.bv_val );
+			return LDAP_NO_SUCH_ATTRIBUTE;
+		}
 	}
 
 	if ( !strcmp( a->a_desc->ad_type->sat_syntax_oid, SLAPD_INTEGER_SYNTAX )) {
 		int i;
 		char str[sizeof(long)*3 + 2]; /* overly long */
-		long incr = atol( mod->sm_values[0].bv_val );
+		long incr;
+
+		if ( lutil_atol( &incr, mod->sm_values[0].bv_val ) != 0 ) {
+			*text = "modify/increment: invalid syntax of increment";
+			return LDAP_INVALID_SYNTAX;
+		}
 
 		/* treat zero and errors as a no-op */
 		if( incr == 0 ) {
 			return LDAP_SUCCESS;
 		}
 
-		for( i=0; a->a_nvals[i].bv_val != NULL; i++ ) {
+		for( i = 0; !BER_BVISNULL( &a->a_nvals[i] ); i++ ) {
 			char *tmp;
-			long value = atol( a->a_nvals[i].bv_val );
-			size_t strln = snprintf( str, sizeof(str), "%ld", value+incr );
+			long value;
+			size_t strln;
+			if ( lutil_atol( &value, a->a_nvals[i].bv_val ) != 0 ) {
+				*text = "modify/increment: invalid syntax of original value";
+				return LDAP_INVALID_SYNTAX;
+			}
+			strln = snprintf( str, sizeof(str), "%ld", value+incr );
 
 			tmp = SLAP_REALLOC( a->a_nvals[i].bv_val, strln+1 );
 			if( tmp == NULL ) {
 				*text = "modify/increment: reallocation error";
-				return LDAP_OTHER;;
+				return LDAP_OTHER;
 			}
 			a->a_nvals[i].bv_val = tmp;
 			a->a_nvals[i].bv_len = strln;
@@ -411,14 +455,16 @@ slap_mod_free(
 
 void
 slap_mods_free(
-    Modifications	*ml )
+    Modifications	*ml,
+    int			freevals )
 {
 	Modifications *next;
 
 	for ( ; ml != NULL; ml = next ) {
 		next = ml->sml_next;
 
-		slap_mod_free( &ml->sml_mod, 0 );
+		if ( freevals )
+			slap_mod_free( &ml->sml_mod, 0 );
 		free( ml );
 	}
 }

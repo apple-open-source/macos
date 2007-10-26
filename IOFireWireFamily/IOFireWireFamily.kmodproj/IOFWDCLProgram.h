@@ -75,7 +75,7 @@ class IODCLProgram : public OSObject
 	
 	public:
 	
-		virtual bool 			init ( IOFireWireBus :: DCLTaskInfo * info = NULL ) ;
+		virtual bool 			init ( IOFireWireBus::DCLTaskInfo * info = NULL ) ;
 		virtual IOReturn 		allocateHW (
 										IOFWSpeed 			speed, 
 										UInt32 				chan) = 0;

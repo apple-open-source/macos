@@ -1,39 +1,57 @@
-#
-# xbs-compatible Makefile for lukemftp.
-#
+##
+# Makefile for lukemftp.
+##
 
-SHELL := /bin/sh
+# Project Info
+Project         = tnftp
+Extra_CC_Flags  = -no-cpp-precomp -mdynamic-no-pic -O
+GnuNoBuild          = YES
+GnuAfterInstall     = post-install install-plist
+Extra_Configure_Flags     += --prefix=/usr --enable-ipv6 --bindir=$(DSTROOT)/usr/bin --mandir=$(DSTROOT)/usr/share/man
 
-# Sane defaults, which are typically overridden on the command line.
-SRCROOT=.
-OBJROOT=$(SRCROOT)
-SYMROOT=$(OBJROOT)
-DSTROOT=/usr/local
-RC_ARCHS=
+# It's a GNU Source project
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-PROJNAME=lukemftp
+Install_Target      = install
+Install_Flags       = DESTDIR=$(DSTROOT)
 
-ENV=	CFLAGS="$(RC_ARCHS:%=-arch %) -no-cpp-precomp -mdynamic-no-pic -O"
+build:: configure
+	$(_v) $(MAKE) -C $(BuildDirectory)
 
-.PHONY : installsrc installhdrs install clean
 
-installsrc :
-	tar cf - . | (cd $(SRCROOT) ; tar xfp -)
-	for i in `find $(SRCROOT) | grep "CVS$$"` ; do \
-		if test -d $$i ; then \
-			rm -rf $$i; \
-		fi; \
+post-install:
+	$(STRIP) -x $(DSTROOT)/usr/bin/ftp
+
+OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
+OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses
+
+install-plist:
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/lukemftp.plist $(OSV)/lukemftp.plist
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/lukemftp.txt
+
+# Automatic Extract & Patch
+AEP            = YES
+AEP_Project    = $(Project)
+AEP_Version    = 20050625
+AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
+AEP_Filename   = $(AEP_ProjVers).tar.gz
+AEP_ExtractDir = $(AEP_ProjVers)
+AEP_Patches    = \
+		Makefile.in.patch \
+		PR-4305547.fetch.c.patch \
+		PR-4074918.ftp.c.patch \
+		PR-4856624.CID.patch
+
+install_source::
+ifeq ($(AEP),YES)
+	$(TAR) -C $(SRCROOT) -zxf $(SRCROOT)/$(AEP_Filename)
+	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
+	for patchfile in $(AEP_Patches); do \
+            (cd $(SRCROOT)/$(Project) && patch -lp0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
 	done
+endif
 
-installhdrs :
 
-install :
-	$(SHELL) -ec \
-	'mkdir -p $(OBJROOT)/$(PROJNAME); \
-	cd $(OBJROOT)/$(PROJNAME); \
-	$(ENV) $(SRCROOT)/$(PROJNAME)/configure --prefix=/usr --enable-ipv6 ; \
-	$(MAKE); \
-	$(MAKE) bindir=$(DSTROOT)/usr/bin mandir=$(DSTROOT)/usr/share/man install; \
-	strip -x $(DSTROOT)/usr/bin/ftp'
 
-clean:

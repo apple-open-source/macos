@@ -1,3 +1,175 @@
+2006-07-14  Bruno Haible  <bruno@clisp.org>
+
+	* Makefile.in (clean): Remove also *.stackdump.
+
+2006-06-17  Bruno Haible  <bruno@clisp.org>
+
+	* config.charset: Update for NetBSD 3.0.
+
+2006-05-17  Bruno Haible  <bruno@clisp.org>
+
+	Cygwin portability.
+	* localcharset.c (WIN32_NATIVE): Renamed from WIN32.
+
+2006-05-16  Bruno Haible  <bruno@clisp.org>
+
+	* localcharset.c [CYGWIN]: Include <windows.h>.
+	(get_charset_aliases): For Cygwin, return the same CPxxx aliases list
+	as under WIN32.
+	(locale_charset) [CYGWIN]: Try to retrieve the encoding from the
+	environment variables. Fall back to GetACP().
+
+2006-04-05  Bruno Haible  <bruno@clisp.org>
+
+	* config.charset: Update Juan Manuel Guerrero's address.
+
+2006-01-10  Bruno Haible  <bruno@clisp.org>
+
+	* localcharset.c: Assume ANSI C. Fixes a gcc warning.
+	Reported by Werner Lemberg <wl@gnu.org>.
+
+2005-12-04  Bruno Haible  <bruno@clisp.org>
+
+	Cygwin portability.
+	* relocatable.c: Include <windows.h> also on Cygwin.
+	(DllMain): Add support for Cygwin.
+	(get_shared_library_fullname): Update.
+
+2005-07-24  Bruno Haible  <bruno@clisp.org>
+
+	Tidy up exported symbols.
+	* Makefile.in (CFLAGS): Add @CFLAG_VISIBILITY@.
+	(DEFS): Also define BUILDING_LIBCHARSET and BUILDING_DLL.
+	* relocatable.h (RELOCATABLE_DLL_EXPORTED) [HAVE_VISIBILITY]:
+	Define to the gcc visibility attribute.
+
+2005-07-02  Bruno Haible  <bruno@clisp.org>
+
+	* localcharset.c (get_charset_aliases) [WIN32]: Add CP65001 and others.
+	Reported by <mus1876@gmx.info> via Alain Bench <messtic@oreka.com>.
+
+2005-03-22  Bruno Haible  <bruno@clisp.org>
+
+	* Makefile.in (mkinstalldirs): Update.
+
+2005-01-06  Bruno Haible  <bruno@clisp.org>
+
+	* Makefile.msvc (CFLAGS): Define also INSTALLPREFIX.
+	* Makefile.vms (DEFS): Likewise.
+	Reported by Troels Walsted Hansen <Troels.W.Hansen@fast.no>.
+
+2004-09-01  Bruno Haible  <bruno@clisp.org>
+
+	* config.charset: Add support for Darwin 7.
+
+2004-04-28  Bruno Haible  <bruno@clisp.org>
+
+	* localcharset.c (ISSLASH): Treat Cygwin like Windows, since it now
+	accepts Windows pathnames.
+
+2004-04-23  Bruno Haible  <bruno@clisp.org>
+
+	* localcharset.c (get_charset_aliases): Allow the CHARSETALIASDIR
+	environment variable to override LIBDIR.
+	Suggested by Matthias Clasen <mclasen@redhat.com>.
+
+2004-04-20  Jim Meyering  <jim@meyering.net>
+            Bruno Haible  <bruno@clisp.org>
+
+	* localcharset.c (get_charset_aliases) [!VMS && !WIN32]: Don't leak
+	memory when realloc fails.
+
+2004-01-20  Bruno Haible  <bruno@clisp.org>
+
+	Upgrade from gettext-0.14.
+
+	2003-10-09  Bruno Haible  <bruno@clisp.org>
+	* relocatable.c: Include xalloc.h instead of xmalloc.h.
+
+	2003-08-24  Bruno Haible  <bruno@clisp.org>
+	* relocatable.h: Make this file includable in C++ mode: add extern "C".
+
+	2003-08-01  Bruno Haible  <bruno@clisp.org>
+	* relocatable.c (find_shared_library_fullname): Disable the code on
+	Linux/libc5. Reported by Alain Guibert <derogaton+bgli@oreka.com>.
+
+	2003-06-27  Bruno Haible  <bruno@clisp.org>
+	Avoid use of *_unlocked functions on Solaris 2.5.1.
+	* localcharset.c: Test HAVE_DECL_GETC_UNLOCKED, not HAVE_GETC_UNLOCKED.
+	Reported by Eric Botcazou <ebotcazou@libertysurf.fr>.
+
+	2003-06-22  Bruno Haible  <bruno@clisp.org>
+	* relocatable.c (compute_curr_prefix): Comment out this function in
+	the case when it is not used.
+	Reported by Pavel Roskin <proski@gnu.org>.
+
+2004-01-21  Bruno Haible  <bruno@clisp.org>
+
+	Upgrade from gettext-0.14.
+
+	2004-01-21  Bruno Haible  <bruno@clisp.org>
+	* config.charset: Add support for MacOS X (Darwin).
+
+	2003-12-02  Bruno Haible  <bruno@clisp.org>
+	* config.charset: Treat the new country name CS like the old country
+	name YU.
+
+	2003-08-20  Bruno Haible  <bruno@clisp.org>
+	* config.charset (linux-gnulibc1*): Change hr_HR, ro_RO to ISO-8859-2.
+	Reported by Alain Guibert <derogaton+bgli@oreka.com>.
+
+	2003-08-14  Bruno Haible  <bruno@clisp.org>
+	* config.charset: Add support for Linux libc5. Based on data from
+	Alain Guibert <derogaton+bgli@oreka.com>.
+
+2003-06-27  Bruno Haible  <bruno@clisp.org>
+
+	Avoid use of *_unlocked functions on Solaris 2.5.1.
+	* localcharset.c: Test HAVE_DECL_GETC_UNLOCKED, not HAVE_GETC_UNLOCKED.
+	Reported by Eric Botcazou <ebotcazou@libertysurf.fr>.
+
+2003-08-20  Bruno Haible  <bruno@clisp.org>
+
+	* config.charset (linux-gnulibc1*): Change hr_HR, ro_RO to ISO-8859-2.
+	Reported by Alain Guibert <derogaton+bgli@oreka.com>.
+
+2003-08-14  Bruno Haible  <bruno@clisp.org>
+
+	* config.charset: Add support for Linux libc5. Based on data from
+	Alain Guibert <derogaton+bgli@oreka.com>.
+
+2003-08-01  Bruno Haible  <bruno@clisp.org>
+
+	* relocatable.c (find_shared_library_fullname): Disable the code on
+	Linux/libc5. Reported by Alain Guibert <derogaton+bgli@oreka.com>.
+
+2003-06-22  Bruno Haible  <bruno@clisp.org>
+
+	Portability to mingw32.
+	* relocatable.c [WIN32]: Include <windows.h>.
+	Reported by Jeff Bonggren <jbon@cfl.rr.com>.
+
+2003-06-22  Bruno Haible  <bruno@clisp.org>
+
+	* relocatable.c (compute_curr_prefix): Comment out this function in
+	the case when it is not used.
+	Reported by Pavel Roskin <proski@gnu.org>.
+
+2003-06-07  Bruno Haible  <bruno@clisp.org>
+
+	Support for relocatable data files even on VMS.
+	* Makefile.vms (bindir): New variable.
+	(DEFS): Add flags for relocatability.
+	Reported by Jouk Jansen <joukj@hrem.stm.tudelft.nl>.
+
+2003-06-07  Bruno Haible  <bruno@clisp.org>
+
+	Support for relocatable data files even on Woe32.
+	* Makefile.msvc (IIPREFIX, IIprefix, IIexec_prefix, IIbindir,
+	IIlibdir): New variables.
+	(PICFLAGS): Also define PIC. Define BUILDING_* flags here.
+	(CFLAGS): ... not here. Add flags for relocatability.
+
 2003-05-18  Bruno Haible  <bruno@clisp.org>
 
 	* Makefile.msvc (DEBUGFLAGS): New variable.
@@ -232,4 +404,3 @@
 	CP874, CP949, CP950, CP1250, CP1253, CP1254, CP1255, CP1256, CP1257
 	to the list of canonical encodings. Rename EUC-CN to GB2312.
 	* localcharset.c (locale_charset): Add support for Win32.
-

@@ -32,7 +32,7 @@
 /* "Private" routines to bcmath. */
 
 /* variables */
-#ifdef SANDER_0
+#if SANDER_0
 extern bc_num _bc_Free_list;
 #endif
 

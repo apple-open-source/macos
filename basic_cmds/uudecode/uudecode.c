@@ -71,6 +71,7 @@ static const char rcsid[] =
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 int             b64_ntop __P((u_char const *, size_t, char *, size_t));
 int             b64_pton __P((char const *, u_char *, size_t));
@@ -262,8 +263,15 @@ decode2(flag)
 			(void)fprintf(stderr, "not overwritten: %s\n", buf);
 			ignore++;
 		} else if (!freopen(buf, "w", stdout) || fchmod(fileno(stdout), newmode)) {
-			warn("%s: %s", buf, filename);
-			return(1);
+			if (COMPAT_MODE("bin/uudecode", "Unix2003")) {
+				if (EPERM != errno) {	/* Ignore chmod error EPERM: test 24 */
+					warn("%s: %s", buf, filename);
+					return(1);
+				}
+			} else {
+				warn("%s: %s", buf, filename);
+				return(1);
+			}
 		}
 		free(mode_handle);
 		free(mode);

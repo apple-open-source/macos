@@ -1,6 +1,6 @@
 --- expand.c.orig	Fri Oct 29 17:27:40 2004
 +++ expand.c	Fri Oct 29 17:32:45 2004
-@@ -75,7 +75,11 @@
+@@ -76,7 +76,11 @@
  
  /* Return a pointer to the beginning of the variable buffer.  */
  
@@ -9,10 +9,10 @@
 +#else
  static char *
 +#endif
- initialize_variable_output ()
+ initialize_variable_output (void)
  {
    /* If we don't have a variable output buffer yet, get one.  */
-@@ -89,6 +93,35 @@
+@@ -90,6 +94,35 @@
  
    return variable_buffer;
  }

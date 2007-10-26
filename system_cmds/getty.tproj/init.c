@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -55,8 +32,11 @@
  */
 
 #ifndef lint
-/*static char sccsid[] = "from: @(#)init.c	8.1 (Berkeley) 6/4/93";*/
-static char rcsid[] = "$Id: init.c,v 1.1.1.2 2000/01/11 02:10:14 wsanchez Exp $";
+#if 0
+static char sccsid[] = "@(#)from: init.c	8.1 (Berkeley) 6/4/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/getty/init.c,v 1.16 2005/04/06 17:42:24 stefanf Exp $";
 #endif /* not lint */
 
 /*
@@ -66,36 +46,46 @@ static char rcsid[] = "$Id: init.c,v 1.1.1.2 2000/01/11 02:10:14 wsanchez Exp $"
  */
 #include <termios.h>
 #include "gettytab.h"
+#include "extern.h"
 #include "pathnames.h"
 
-extern	struct termios tmode;
-extern	char hostname[];
+static char loginmsg[] = "login: ";
+static char nullstr[] = "";
+static char loginprg[] = _PATH_LOGIN;
+static char datefmt[] = "%+";
 
 struct	gettystrs gettystrs[] = {
 	{ "nx" },			/* next table */
 	{ "cl" },			/* screen clear characters */
 	{ "im" },			/* initial message */
-	{ "lm", "login: " },		/* login message */
-	{ "er", &tmode.c_cc[VERASE] },	/* erase character */
-	{ "kl", &tmode.c_cc[VKILL] },	/* kill character */
-	{ "et", &tmode.c_cc[VEOF] },	/* eof chatacter (eot) */
-	{ "pc", "" },			/* pad character */
+	{ "lm", loginmsg },		/* login message */
+	{ "er", (char*)&omode.c_cc[VERASE] },	/* erase character */
+	{ "kl", (char*)&omode.c_cc[VKILL] },	/* kill character */
+	{ "et", (char*)&omode.c_cc[VEOF] },	/* eof chatacter (eot) */
+	{ "pc", nullstr },		/* pad character */
 	{ "tt" },			/* terminal type */
 	{ "ev" },			/* enviroment */
-	{ "lo", _PATH_LOGIN },		/* login program */
+	{ "lo", loginprg },		/* login program */
 	{ "hn", hostname },		/* host name */
 	{ "he" },			/* host name edit */
-	{ "in", &tmode.c_cc[VINTR] },	/* interrupt char */
-	{ "qu", &tmode.c_cc[VQUIT] },	/* quit char */
-	{ "xn", &tmode.c_cc[VSTART] },	/* XON (start) char */
-	{ "xf", &tmode.c_cc[VSTOP] },	/* XOFF (stop) char */
-	{ "bk", &tmode.c_cc[VEOL] },	/* brk char (alt \n) */
-	{ "su", &tmode.c_cc[VSUSP] },	/* suspend char */
-	{ "ds", &tmode.c_cc[VDSUSP] },	/* delayed suspend */
-	{ "rp", &tmode.c_cc[VREPRINT] },/* reprint char */
-	{ "fl", &tmode.c_cc[VDISCARD] },/* flush output */
-	{ "we", &tmode.c_cc[VWERASE] },	/* word erase */
-	{ "ln", &tmode.c_cc[VLNEXT] },	/* literal next */
+	{ "in", (char*)&omode.c_cc[VINTR] },	/* interrupt char */
+	{ "qu", (char*)&omode.c_cc[VQUIT] },	/* quit char */
+	{ "xn", (char*)&omode.c_cc[VSTART] },	/* XON (start) char */
+	{ "xf", (char*)&omode.c_cc[VSTOP] },	/* XOFF (stop) char */
+	{ "bk", (char*)&omode.c_cc[VEOL] },	/* brk char (alt \n) */
+	{ "su", (char*)&omode.c_cc[VSUSP] },	/* suspend char */
+	{ "ds", (char*)&omode.c_cc[VDSUSP] },	/* delayed suspend */
+	{ "rp", (char*)&omode.c_cc[VREPRINT] },/* reprint char */
+	{ "fl", (char*)&omode.c_cc[VDISCARD] },/* flush output */
+	{ "we", (char*)&omode.c_cc[VWERASE] },	/* word erase */
+	{ "ln", (char*)&omode.c_cc[VLNEXT] },	/* literal next */
+	{ "Lo" },			/* locale for strftime() */
+	{ "pp" },			/* ppp login program */
+	{ "if" },			/* sysv-like 'issue' filename */
+	{ "ic" },			/* modem init-chat */
+	{ "ac" },			/* modem answer-chat */
+	{ "al" },			/* user to auto-login */
+	{ "df", datefmt},		/* format for strftime() */
 	{ 0 }
 };
 
@@ -125,8 +115,13 @@ struct	gettynums gettynums[] = {
 	{ "o0" },			/* output o_flags */
 	{ "o1" },			/* input o_flags */
 	{ "o2" },			/* user mode o_flags */
-	{ 0 }
+ 	{ "de" },   	    	    	/* delay before sending 1st prompt */
+	{ "rt" },			/* reset timeout */
+	{ "ct" },			/* chat script timeout */
+	{ "dc" },			/* debug chat script value */
+  	{ 0 }
 };
+  
 
 struct	gettyflags gettyflags[] = {
 	{ "ht",	0 },			/* has tabs */
@@ -152,5 +147,8 @@ struct	gettyflags gettyflags[] = {
 	{ "dx", 0 },			/* set decctlq */
 	{ "np", 0 },			/* no parity at all (8bit chars) */
 	{ "mb", 0 },			/* do MDMBUF flow control */
+	{ "hw", 0 },			/* do CTSRTS flow control */
+	{ "nc", 0 },			/* set clocal (no carrier) */
+	{ "pl", 0 },			/* use PPP instead of login(1) */
 	{ 0 }
 };

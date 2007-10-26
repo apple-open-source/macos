@@ -23,5 +23,6 @@
 	<string>/System/Library/PrivateFrameworks/Syndication.framework/Resources/SyndicationAgent.app/Contents/MacOS/SyndicationAgent</string>
 	<string>/usr/sbin/mDNSResponder</string>
 	<string>/System/Library/PreferencePanes/Mac.prefPane</string>
+	<string>/System/Library/CoreServices/Certificate Assistant.app</string>
 </array>
 </plist>

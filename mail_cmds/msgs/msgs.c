@@ -31,8 +31,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1980, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -43,7 +44,6 @@ static char sccsid[] = "@(#)msgs.c	8.2 (Berkeley) 4/28/95";
 #endif /* not lint */
 #endif
 
-#include <sys/cdefs.h>
 __RCSID("$FreeBSD: src/usr.bin/msgs/msgs.c,v 1.24 2002/09/04 23:29:04 dwmalone Exp $");
 
 /*
@@ -787,12 +787,12 @@ ask(const char *prompt)
 		}
 
 		if (inch == 's') {
-			in = nxtfld(inbuf);
+			in = nxtfld((unsigned char *)inbuf);
 			if (*in) {
 				for (n=0; in[n] > ' '; n++) { /* sizeof fname? */
 					fname[n] = in[n];
 				}
-				fname[n] = NULL;
+				fname[n] = 0;
 			}
 			else
 				strcpy(fname, "Messages");
@@ -842,7 +842,7 @@ gfrsub(FILE *infile)
 
 	seensubj = seenfrom = NO;
 	local = YES;
-	subj[0] = from[0] = date[0] = NULL;
+	subj[0] = from[0] = date[0] = 0;
 
 	/*
 	 * Is this a normal message?
@@ -855,7 +855,7 @@ gfrsub(FILE *infile)
 			seenfrom = YES;
 			frompos = ftello(infile);
 			ptr = from;
-			in = nxtfld(inbuf);
+			in = nxtfld((unsigned char *)inbuf);
 			if (*in) {
 				count = sizeof(from) - 1;
 				while (*in && *in > ' ' && count-- > 0) {
@@ -865,12 +865,12 @@ gfrsub(FILE *infile)
 					*ptr++ = *in++;
 				}
 			}
-			*ptr = NULL;
-			if (*(in = nxtfld(in)))
+			*ptr = 0;
+			if (*(in = nxtfld((unsigned char *)in)))
 				strncpy(date, in, sizeof date);
 			else {
 				date[0] = '\n';
-				date[1] = NULL;
+				date[1] = 0;
 			}
 		}
 		else {
@@ -898,7 +898,7 @@ gfrsub(FILE *infile)
 		if (!seensubj && strncmp(inbuf, "Subj", 4)==0) {
 			seensubj = YES;
 			frompos = ftello(infile);
-			strncpy(subj, nxtfld(inbuf), sizeof subj);
+			strncpy(subj, nxtfld((unsigned char *)inbuf), sizeof subj);
 		}
 	}
 	if (!blankline)
@@ -919,5 +919,5 @@ nxtfld(unsigned char *s)
 {
 	if (*s) while (*s && !isspace(*s)) s++;     /* skip over this field */
 	if (*s) while (*s && isspace(*s)) s++;    /* find start of next field */
-	return (s);
+	return ((char *)s);
 }

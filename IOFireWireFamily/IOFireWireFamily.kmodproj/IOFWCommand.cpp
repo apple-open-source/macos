@@ -41,13 +41,12 @@
 
 // system
 #include <IOKit/assert.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommand.h>
 
 OSDefineMetaClass( IOFWCommand, IOCommand )
 OSDefineAbstractStructors(IOFWCommand, IOCommand)
-OSMetaClassDefineReservedUnused(IOFWCommand, 0);
+OSMetaClassDefineReservedUsed(IOFWCommand, 0);
 OSMetaClassDefineReservedUnused(IOFWCommand, 1);
 
 #pragma mark -
@@ -75,6 +74,7 @@ bool IOFWCommand::initWithController(IOFireWireController *control)
 	if( success )
 	{
 		bzero( fMembers, sizeof(MemberVariables) );
+		fMembers->fFlush = true;
 	}
 	
 	return success;
@@ -114,7 +114,7 @@ IOReturn IOFWCommand::submit(bool queue)
     }
     
     if(fSync) {
-        fSyncWakeup = IOSyncer::create();
+        fSyncWakeup = IOFWSyncer::create();
         if(!fSyncWakeup)
             return kIOReturnNoMemory;
     }
@@ -125,25 +125,31 @@ IOReturn IOFWCommand::submit(bool queue)
 	retain();
 	
 	fControl->closeGate();
-    if(queue) {
+	IOFWCommand::fMembers->fSubmitTimeLatched = false;
+    if( queue ) 
+	{
         IOFWCmdQ &pendingQ = fControl->getPendingQ();
         IOFWCommand *prev = pendingQ.fTail;
-        if(!prev) {
-            setHead(pendingQ);
+        if( !prev ) 
+		{
+            setHead( pendingQ );
         }
-        else {
-            insertAfter(*prev);
+        else 
+		{
+            insertAfter( *prev );
         }
         res = fStatus = kIOFireWirePending;
     }
-    else {
+    else 
+	{
         res = fStatus = startExecution();
     }
     fControl->openGate();
 
     if(res == kIOReturnBusy || res == kIOFireWirePending)
         res = kIOReturnSuccess;
-    if(fSync) {
+    if(fSync) 
+	{
 		if(res == kIOReturnSuccess)
 		{
 			res = fSyncWakeup->wait();
@@ -160,12 +166,15 @@ IOReturn IOFWCommand::submit(bool queue)
 
 //	IOLog( "IOFWCommand::submit - res = 0x%08lx\n", res );
 	
-	fControl->closeGate();
+	if( fMembers->fFlush )
+	{
+		fControl->closeGate();
 
-	fControl->fFWIM->flushWaitingPackets();
+		fControl->fFWIM->flushWaitingPackets();
+		
+		fControl->openGate();
+	}
 	
-	fControl->openGate();
-
 	release();
 	
     return res;
@@ -177,8 +186,27 @@ IOReturn IOFWCommand::submit(bool queue)
 
 IOReturn IOFWCommand::startExecution()
 {
-    updateTimer();
+	// latch the very first time we start to work on this command
+	// so we can abort if the process takes to long
+	if( !IOFWCommand::fMembers->fSubmitTimeLatched )
+	{
+		IOFWCommand::fMembers->fSubmitTimeLatched = true;
+		clock_get_uptime( &(IOFWCommand::fMembers->fSubmitTime) );	// remember when we started
+	}
+	
+	updateTimer();
     return execute();
+}
+
+// checkProgress
+//
+//
+
+IOReturn IOFWCommand::checkProgress( void )
+{
+	IOReturn status = kIOReturnSuccess;		// all is well
+	
+	return status;
 }
 
 // complete

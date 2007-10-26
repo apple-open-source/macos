@@ -1,7 +1,7 @@
 /* SASL server API implementation
  * Rob Siemborski
  * Tim Martin
- * $Id: external.c,v 1.4 2004/07/07 22:48:35 snsimon Exp $
+ * $Id: external.c,v 1.6 2006/02/03 22:33:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -57,7 +57,7 @@
 
 /*****************************  Common Section  *****************************/
 
-//static const char plugin_id[] = "$Id: external.c,v 1.4 2004/07/07 22:48:35 snsimon Exp $";
+//static const char plugin_id[] = "$Id: external.c,v 1.6 2006/02/03 22:33:14 snsimon Exp $";
 
 /*****************************  Server Section  *****************************/
 
@@ -310,7 +310,7 @@ external_client_mech_step(void *conn_context,
     
     *clientoutlen = user ? (unsigned) strlen(user) : 0;
     
-    result = _buf_alloc(&text->out_buf, &text->out_buf_len, *clientoutlen + 1);
+    result = _buf_alloc((void **)&text->out_buf, &text->out_buf_len, *clientoutlen + 1);
     
     if (result != SASL_OK) return result;
     
@@ -362,7 +362,7 @@ external_client_mech_dispose(void *conn_context,
     sasl_FREE(text);
 }
 
-static const long external_required_prompts[] = {
+static const unsigned long external_required_prompts[] = {
     SASL_CB_LIST_END
 };
 

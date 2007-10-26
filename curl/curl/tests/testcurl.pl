@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -19,7 +19,7 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: testcurl.pl,v 1.20 2004/10/10 07:51:25 bagder Exp $
+# $Id: testcurl.pl,v 1.51 2007-04-01 13:59:50 gknauf Exp $
 ###########################################################################
 
 ###########################
@@ -28,77 +28,140 @@
 
 # testcurl.pl is the master script to use for automatic testing of CVS-curl.
 # This is written for the purpose of being run from a crontab job or similar
-# at a regular interval. The output will be suitable to be mailed automaticly
-# to "curl-autocompile@haxx.se" to be dealt with automatically.  The most
-# current build status (with a resonable backlog) will be published on the
-# curl site, at http://curl.haxx.se/auto/
+# at a regular interval. The output is suitable to be mailed to
+# curl-autocompile@haxx.se to be dealt with automatically (make sure the
+# subject includes the word "autobuild" as the mail gets silently discarded
+# otherwise).  The most current build status (with a resonable backlog) will
+# be published on the curl site, at http://curl.haxx.se/auto/
 
 # USAGE:
-# testcurl.pl [--target=your_os] [curl-daily-name] > output
+# testcurl.pl [options] [curl-daily-name] > output
 
-# Updated:
-# v1.7 22-Jun-04 - added --target option for other platform targets.
-# v1.2  8-Mar-04 - rewritten in perl
-# v1.1  6-Nov-03 - to take an optional parameter, the name of a daily-build
-#                  directory.  If present, build from that directory, otherwise
-#                  perform a normal CVS build.
+# Options:
+#
+# --configure=[options]    Configure options
+# --crosscompile           This is a crosscompile
+# --desc=[desc]            Description of your test system
+# --email=[email]          Set email address to report as
+# --mktarball=[command]    Command to run after completed test
+# --name=[name]            Set name to report as
+# --nocvsup                Don't update from CVS even though it is a CVS tree
+# --nobuildconf            Don't run buildconf
+# --runtestopts=[options]  Options to pass to runtests.pl
+# --setup=[file name]      File name to read setup from (deprecated)
+# --target=[your os]       Specify your target environment.
+#
+# if [curl-daily-name] is omitted, a 'curl' CVS directory is assumed.
+#
 
 use strict;
 
 use Cwd;
 
 # Turn on warnings (equivalent to -w, which can't be used with /usr/bin/env)
-BEGIN { $^W = 1; }
+#BEGIN { $^W = 1; }
 
 use vars qw($version $fixed $infixed $CURLDIR $CVS $pwd $build $buildlog
-            $buildlogname $gnulikebuild $targetos $confsuffix $binext $libext);
-use vars qw($name $email $desc $confopts $setupfile $mktarball);
+            $buildlogname $configurebuild $targetos $confsuffix $binext
+            $libext);
+use vars qw($name $email $desc $confopts $runtestopts $setupfile $mktarball
+            $nocvsup $nobuildconf $crosscompile $timestamp);
 
 # version of this script
-$version='$Revision: 1.20 $';
+$version='$Revision: 1.51 $';
 $fixed=0;
 
 # Determine if we're running from CVS or a canned copy of curl,
 # or if we got a specific target option or setup file option.
 $CURLDIR="curl";
 $CVS=1;
-$targetos = '';
 $setupfile = 'setup';
-$mktarball = '';
 while ($ARGV[0]) {
   if ($ARGV[0] =~ /--target=/) {
     $targetos = (split(/=/, shift @ARGV))[1];
-  } elsif ($ARGV[0] =~ /--setup=/) {
+  }
+  elsif ($ARGV[0] =~ /--setup=/) {
     $setupfile = (split(/=/, shift @ARGV))[1];
-  } elsif ($ARGV[0] =~ /--mktarball=/) {
+  }
+  elsif ($ARGV[0] =~ /--mktarball=/) {
     $mktarball = (split(/=/, shift @ARGV))[1];
-  } else {
+  }
+  elsif ($ARGV[0] =~ /--name=/) {
+    $name = (split(/=/, shift @ARGV))[1];
+  }
+  elsif ($ARGV[0] =~ /--email=/) {
+    $email = (split(/=/, shift @ARGV))[1];
+  }
+  elsif ($ARGV[0] =~ /--desc=/) {
+    $desc = (split(/=/, shift @ARGV))[1];
+  }
+  elsif ($ARGV[0] =~ /--configure=/) {
+    $confopts = (split(/=/, shift @ARGV))[1];
+  }
+  elsif ($ARGV[0] =~ /--nocvsup/) {
+    $nocvsup=1;
+    shift @ARGV;
+  }
+  elsif ($ARGV[0] =~ /--nobuildconf/) {
+    $nobuildconf=1;
+    shift @ARGV;
+  }
+  elsif ($ARGV[0] =~ /--crosscompile/) {
+    $crosscompile=1;
+    shift @ARGV;
+  }
+  elsif ($ARGV[0] =~ /--runtestopts=/) {
+    $runtestopts = (split(/=/, shift @ARGV, 2))[1];
+  }
+  else {
     $CURLDIR=shift @ARGV;
     $CVS=0;
   }
 }
 
 # Do the platform-specific stuff here
-$gnulikebuild = 1;
+$configurebuild = 1;
 $confsuffix = '';
 $binext = '';
 $libext = '.la'; # .la since both libcurl and libcares are made with libtool
-if ($^O eq 'MSWin32' || $targetos ne '') {
-  $gnulikebuild = 0;
-  if ($targetos eq '') {
+if ($^O eq 'MSWin32' || $targetos) {
+  if (!$targetos) {
     # If no target defined on Win32 lets assume vc
     $targetos = 'vc';
   }
-  if ($targetos =~ /vc/ || $targetos =~ /mingw32/ || $targetos =~ /borland/) {
-    $confsuffix = '-win32';
+  if ($targetos =~ /vc/ || $targetos =~ /borland/) {
     $binext = '.exe';
-    $libext = '.lib' if ($targetos =~ /vc/ || $targetos =~ /borland/);
-    $libext = '.a' if ($targetos =~ /mingw32/);
-  } elsif ($targetos =~ /netware/) {
-    $binext = '.nlm';
     $libext = '.lib';
   }
+  elsif ($targetos =~ /mingw32/) {
+    $binext = '.exe';
+    if ($^O eq 'MSWin32') {
+      $libext = '.a';
+    }
+  }
+  elsif ($targetos =~ /netware/) {
+    $configurebuild = 0;
+    $binext = '.nlm';
+    if ($^O eq 'MSWin32') {
+      $libext = '.lib';
+    }
+    else {
+      $libext = '.a';
+    }
+  }
 }
+
+if (($^O eq 'MSWin32') &&
+    ($targetos =~ /vc/ || $targetos =~ /mingw32/ || $targetos =~ /borland/)) {
+
+  # Set these things only when building ON Windows and for Win32 platform.
+  # FOR Windows since we might be cross-compiling on another system. Non-
+  # Windows builds still default to configure-style builds with no confsuffix.
+
+  $configurebuild = 0;
+  $confsuffix = '-win32';
+}
+
 
 $ENV{LANG}="C";
 
@@ -192,31 +255,42 @@ if (!$confopts) {
     print "examples: --with-ssl --enable-debug --enable-ipv6 --with-krb4\n";
     $confopts = <>;
     chomp $confopts;
-    $fixed=4;
   }
 }
 
 
-if ($fixed > 0) {
-  open(F, ">$setupfile") or die;
-  print F "name='$name'\n";
-  print F "email='$email'\n";
-  print F "desc='$desc'\n";
-  print F "confopts='$confopts'\n";
-  print F "fixed='$fixed'\n";
-  close(F);
+if ($fixed < 4) {
+    $fixed=4;
+    open(F, ">$setupfile") or die;
+    print F "name='$name'\n";
+    print F "email='$email'\n";
+    print F "desc='$desc'\n";
+    print F "confopts='$confopts'\n";
+    print F "fixed='$fixed'\n";
+    close(F);
 }
 
-logit "STARTING HERE"; # first line logged
+my $str1066os = 'o' x 1066;
+
+# Set timestamp to the UTC this script is running. Its value might
+# be changed later in the script to the value present in curlver.h
+$timestamp = scalar(gmtime)." UTC";
+
+logit "STARTING HERE"; # first line logged, for scripts to trigger on
+logit 'TRANSFER CONTROL ==== 1120 CHAR LINE' . $str1066os . 'LINE_END';
 logit "NAME = $name";
 logit "EMAIL = $email";
 logit "DESC = $desc";
 logit "CONFOPTS = $confopts";
-logit "CFLAGS = ".($ENV{CFLAGS} ? $ENV{CFLAGS} : "");
-logit "CC = ".($ENV{CC} ? $ENV{CC} : "");
-logit "target = ".($targetos ? $targetos : "");
-logit "version = $version";
-logit "date = ".(scalar gmtime)." UTC";
+logit "CPPFLAGS = ".$ENV{CPPFLAGS};
+logit "CFLAGS = ".$ENV{CFLAGS};
+logit "LDFLAGS = ".$ENV{LDFLAGS};
+logit "CC = ".$ENV{CC};
+logit "target = ".$targetos;
+logit "version = $version"; # script version
+logit "date = $timestamp";  # When the test build starts
+
+$str1066os = undef;
 
 # Make $pwd to become the path without newline. We'll use that in order to cut
 # off that path from all possible logs and error messages etc.
@@ -269,8 +343,14 @@ if ($CVS) {
 
   sub cvsup() {
     # update quietly to the latest CVS
-    logit "run cvs up";
-    system("cvs -Q up -dP 2>&1");
+    if($nocvsup) {
+        logit "Skipping CVS update (--nocvsup)";
+        return 1;
+    }
+    else {
+        logit "run cvs up";
+        system("cvs -Q up -dP 2>&1");
+    }
 
     $cvsstat=$?;
 
@@ -293,12 +373,19 @@ if ($CVS) {
   if ($cvsstat != 0) {
     mydie "failed to update from CVS ($cvsstat), exiting";
   }
+  elsif (!$nocvsup) {
+    # Set timestamp to the UTC the CVS update took place.
+    $timestamp = scalar(gmtime)." UTC";
+  }
 
-  # remove possible left-overs from the past
-  unlink "configure";
-  unlink "autom4te.cache";
+  if($nobuildconf) {
+      logit "told to not run buildconf";
+  }
+  elsif ($configurebuild) {
+    # remove possible left-overs from the past
+    unlink "configure";
+    unlink "autom4te.cache";
 
-  if ($gnulikebuild) {
     # generate the build files
     logit "invoke buildconf, but filter off the silly aclocal warnings";
     open(F, "./buildconf 2>&1 |") or die;
@@ -313,44 +400,74 @@ if ($CVS) {
 
     if (grepfile("^buildconf: OK", $buildlog)) {
       logit "buildconf was successful";
-    } else {
+    }
+    else {
       mydie "buildconf was NOT successful";
     }
-
-    if($confopts =~ /--enable-ares/) {
-        logit "run buildconf for ares";
-        chdir "ares";
-        open(F, "./buildconf 2>&1 |") or die;
-        open(LOG, ">$buildlog") or die;
-        while (<F>) {
-            next if /warning: underquoted definition of/;
-            print;
-            print LOG;
-        }
-        close(F);
-        close(LOG);
-        chdir "..";
-    }
-
-  } else {
-      logit "buildconf was successful (dummy message)";
+  }
+  else {
+    logit "buildconf was successful (dummy message)";
   }
 }
 
-if ($gnulikebuild) {
+# Set timestamp to the one in curlver.h if this isn't a CVS test build.
+if ((-f "include/curl/curlver.h") &&
+    (open(F, "<include/curl/curlver.h"))) {
+  while (<F>) {
+    chomp;
+    if ($_ =~ /^\#define\s+LIBCURL_TIMESTAMP\s+\"(.+)\".*$/) {
+      my $stampstring = $1;
+      if ($stampstring !~ /CVS/) {
+          $stampstring =~ s/\s+UTC//;
+          $timestamp = $stampstring." UTC";
+      }
+      last;
+    }
+  }
+  close(F);
+}
+
+# Show timestamp we are using for this test build.
+logit "timestamp = $timestamp";
+
+if ($configurebuild) {
   if (-f "configure") {
-    logit "configure created";
+    logit "configure created (at least it exists)";
   } else {
-    mydie "no configure created";
+    mydie "no configure created/found";
   }
 } else {
   logit "configure created (dummy message)"; # dummy message to feign success
 }
 
+sub findinpath {
+  my $c;
+  my $e;
+  my $x='';
+  $x='.exe' if ($^O eq 'MSWin32');
+  my $s=':';
+  $s=';' if ($^O eq 'MSWin32');
+  my $p=$ENV{'PATH'};
+  my @pa = split($s, $p);
+  for $c (@_) {
+    for $e (@pa) {
+      if( -x "$e/$c$x") {
+        return $c;
+      }
+    }
+  }
+}
+
+my $make = findinpath("gmake", "make", "nmake");
+if(!$make) {
+    mydie "Couldn't find make in the PATH";
+}
+logit "going with $make as make";
+
 # change to build dir
 chdir "$pwd/$build";
 
-if ($gnulikebuild) {
+if ($configurebuild) {
   # run configure script
   print `../$CURLDIR/configure $confopts 2>&1`;
 
@@ -363,11 +480,12 @@ if ($gnulikebuild) {
   if (($^O eq 'MSWin32') && ($targetos !~ /netware/)) {
     system("xcopy /s /q ..\\$CURLDIR .");
     system("buildconf.bat");
-  } elsif (($^O eq 'linux') || ($targetos =~ /netware/)) {
+  }
+  elsif (($^O eq 'linux') || ($targetos =~ /netware/)) {
     system("cp -afr ../$CURLDIR/* ."); 
     system("cp -af ../$CURLDIR/Makefile.dist Makefile"); 
-    system("make -i -C lib -f Makefile.$targetos prebuild");
-    system("make -i -C src -f Makefile.$targetos prebuild");
+    system("$make -i -C lib -f Makefile.$targetos prebuild");
+    system("$make -i -C src -f Makefile.$targetos prebuild");
   }
 }
 
@@ -378,23 +496,27 @@ while (<F>) {
 }
 close(F);
 
-logit "display src/config$confsuffix.h";
-open(F, "src/config$confsuffix.h") or die "src/config$confsuffix.h: $!";
-while (<F>) {
-  print if /^ *#/;
-}
-close(F);
-
 if (grepfile("define USE_ARES", "lib/config$confsuffix.h")) {
   logit "setup to build ares";
+
+  logit "display ares/config$confsuffix.h";
+  if(open(F, "ares/config$confsuffix.h")) {
+      while (<F>) {
+          print if /^ *#/;
+      }
+      close(F);
+  }
 
   logit "build ares";
   chdir "ares";
 
-  if ($targetos ne '') {
-      open(F, "make -f Makefile.$targetos 2>&1 |") or die;
-  } else {
-      open(F, "make 2>&1 |") or die;
+  if ($targetos && !$configurebuild) {
+      logit "$make -f Makefile.$targetos";
+      open(F, "$make -f Makefile.$targetos 2>&1 |") or die;
+  }
+  else {
+      logit "$make";
+      open(F, "$make 2>&1 |") or die;
   }
   while (<F>) {
     s/$pwd//g;
@@ -412,23 +534,27 @@ if (grepfile("define USE_ARES", "lib/config$confsuffix.h")) {
   chdir "$pwd/$build";
 }
 
-logit "run make";
-if ($gnulikebuild) {
-  open(F, "make -i 2>&1 |") or die;
+if ($configurebuild) {
+  logit "$make -i";
+  open(F, "$make -i 2>&1 |") or die;
   while (<F>) {
     s/$pwd//g;
     print;
   }
   close(F);
-} else {
+}
+else {
+  logit "$make -i $targetos";
   if ($^O eq 'MSWin32') {
     if ($targetos =~ /vc/) {
       open(F, "nmake -i $targetos|") or die;
-    } else {
-      open(F, "make -i $targetos |") or die;
     }
-  } else {
-    open(F, "make -i $targetos 2>&1 |") or die;
+    else {
+      open(F, "$make -i $targetos |") or die;
+    }
+  }
+  else {
+    open(F, "$make -i $targetos 2>&1 |") or die;
   }
   while (<F>) {
     s/$pwd//g;
@@ -438,29 +564,41 @@ if ($gnulikebuild) {
 }
 
 if (-f "lib/libcurl$libext") {
-  logit "lib/libcurl was created fine (libcurl$libext)";
-} else {
-  logit "lib/libcurl was not created (libcurl$libext)";
+  logit "libcurl was created fine (libcurl$libext)";
+}
+else {
+  mydie "libcurl was not created (libcurl$libext)";
 }
 
 if (-f "src/curl$binext") {
-  logit "src/curl was created fine (curl$binext)";
-} else {
-  mydie "src/curl was not created (curl$binext)";
+  logit "curl was created fine (curl$binext)";
+}
+else {
+  mydie "curl was not created (curl$binext)";
 }
 
-if ($targetos ne '' && $targetos =~ /netware/) {
+if ($targetos =~ /netware/) {
   if (-f '../../curlver') {
     system('../../curlver');
   }
-} else {
+}
+elsif(!$crosscompile) {
   logit "display curl$binext --version output";
-  system("./src/curl$binext --version");
+  open(F, "./src/curl$binext --version|");
+  while(<F>) {
+      print;
+      print LOG;
+  }
+  close(F);
 }
 
-if ($gnulikebuild) {
-  logit "run make test-full";
-  open(F, "make test-full 2>&1 |") or die;
+if ($configurebuild && !$crosscompile) {
+  my $o;
+  if($runtestopts) {
+      $o = "TEST_F=\"$runtestopts\" ";
+  }
+  logit "$make -k ${o}test-full";
+  open(F, "$make -k ${o}test-full 2>&1 |") or die;
   open(LOG, ">$buildlog") or die;
   while (<F>) {
     s/$pwd//g;
@@ -482,7 +620,11 @@ if ($gnulikebuild) {
     logit "the tests were successful!";
   }
 } else {
-  print "TESTDONE: 1 tests out of 0 (dummy message)\n"; # dummy message to feign success
+  # dummy message to feign success
+  if($crosscompile) {
+    logit "cross-compiling, can't run tests";
+  }
+  print "TESTDONE: 1 tests out of 0 (dummy message)\n";
 }
 
 # create a tarball if we got that option.

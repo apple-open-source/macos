@@ -115,6 +115,7 @@
 #    OTHER_SOURCEFILES: other source files maintained by .pre/postamble
 #    OTHER_GARBAGE: additional files to be removed by `make clean'
 OTHER_GARBAGE += *~ #*#
+INCLUDED_ARCHS = i386 ppc
 
 # Set this to YES if you don't want a final libtool call for a library/framework.
 #    BUILD_OFILES_LIST_ONLY

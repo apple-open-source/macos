@@ -6,7 +6,7 @@
 /* SYNOPSIS
 /*	#include <iostuff.h>
 /*
-/*	int	peekfd(fd)
+/*	ssize_t	peekfd(fd)
 /*	int	fd;
 /* DESCRIPTION
 /*	peekfd() attempts to find out how many bytes are available to
@@ -15,6 +15,10 @@
 /* DIAGNOSTICS
 /*	peekfd() returns -1 in case of trouble. The global \fIerrno\fR
 /*	variable reflects the nature of the problem.
+/* BUGS
+/*	On some systems, non-blocking read() may fail even after a
+/*	positive return from peekfd(). The smtp-sink program works
+/*	around this by using the readable() function instead.
 /* LICENSE
 /* .ad
 /* .fi
@@ -44,17 +48,17 @@
 
 /* peekfd - return amount of data ready to read */
 
-int     peekfd(int fd)
+ssize_t peekfd(int fd)
 {
-    int     count;
 
     /*
      * Anticipate a series of system-dependent code fragments.
      */
 #ifdef FIONREAD
+    int     count;
+
     return (ioctl(fd, FIONREAD, (char *) &count) < 0 ? -1 : count);
 #else
 #error "don't know how to look ahead"
 #endif
 }
-

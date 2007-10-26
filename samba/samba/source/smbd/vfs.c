@@ -4,6 +4,7 @@
    VFS initialisation and support functions
    Copyright (C) Tim Potter 1999
    Copyright (C) Alexander Bokovoy 2002
+   Copyright (C) James Peach 2006
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -27,6 +28,8 @@
 #undef DBGC_CLASS
 #define DBGC_CLASS DBGC_VFS
 
+static_decl_vfs;
+
 struct vfs_init_function_entry {
 	char *name;
  	vfs_op_tuple *vfs_op_tuples;
@@ -34,117 +37,6 @@ struct vfs_init_function_entry {
 };
 
 static struct vfs_init_function_entry *backends = NULL;
-
-/* Some structures to help us initialise the vfs operations table */
-
-struct vfs_syminfo {
-	char *name;
-	void *fptr;
-};
-
-/* Default vfs hooks.  WARNING: The order of these initialisers is
-   very important.  They must be in the same order as defined in
-   vfs.h.  Change at your own peril. */
-
-static struct vfs_ops default_vfs = {
-
-	{
-		/* Disk operations */
-	
-		vfswrap_dummy_connect,
-		vfswrap_dummy_disconnect,
-		vfswrap_disk_free,
-		vfswrap_get_quota,
-		vfswrap_set_quota,
-		vfswrap_get_shadow_copy_data,
-	
-		/* Directory operations */
-	
-		vfswrap_opendir,
-		vfswrap_readdir,
-		vfswrap_mkdir,
-		vfswrap_rmdir,
-		vfswrap_closedir,
-	
-		/* File operations */
-	
-		vfswrap_open,
-		vfswrap_close,
-		vfswrap_read,
-		vfswrap_pread,
-		vfswrap_write,
-		vfswrap_pwrite,
-		vfswrap_lseek,
-		vfswrap_sendfile,
-		vfswrap_rename,
-		vfswrap_fsync,
-		vfswrap_stat,
-		vfswrap_fstat,
-		vfswrap_lstat,
-		vfswrap_unlink,
-		vfswrap_chmod,
-		vfswrap_fchmod,
-		vfswrap_chown,
-		vfswrap_fchown,
-		vfswrap_chdir,
-		vfswrap_getwd,
-		vfswrap_utime,
-		vfswrap_ftruncate,
-		vfswrap_lock,
-		vfswrap_symlink,
-		vfswrap_readlink,
-		vfswrap_link,
-		vfswrap_mknod,
-		vfswrap_realpath,
-	
-		/* Windows ACL operations. */
-		vfswrap_fget_nt_acl,
-		vfswrap_get_nt_acl,
-		vfswrap_fset_nt_acl,
-		vfswrap_set_nt_acl,
-	
-		/* POSIX ACL operations. */
-		vfswrap_chmod_acl,
-		vfswrap_fchmod_acl,
-
-		vfswrap_sys_acl_get_entry,
-		vfswrap_sys_acl_get_tag_type,
-		vfswrap_sys_acl_get_permset,
-		vfswrap_sys_acl_get_qualifier,
-		vfswrap_sys_acl_get_file,
-		vfswrap_sys_acl_get_fd,
-		vfswrap_sys_acl_clear_perms,
-		vfswrap_sys_acl_add_perm,
-		vfswrap_sys_acl_to_text,
-		vfswrap_sys_acl_init,
-		vfswrap_sys_acl_create_entry,
-		vfswrap_sys_acl_set_tag_type,
-		vfswrap_sys_acl_set_qualifier,
-		vfswrap_sys_acl_set_permset,
-		vfswrap_sys_acl_valid,
-		vfswrap_sys_acl_set_file,
-		vfswrap_sys_acl_set_fd,
-		vfswrap_sys_acl_delete_def_file,
-		vfswrap_sys_acl_get_perm,
-		vfswrap_sys_acl_free_text,
-		vfswrap_sys_acl_free_acl,
-		vfswrap_sys_acl_free_qualifier,
-
-		/* EA operations. */
-		vfswrap_getxattr,
-		vfswrap_lgetxattr,
-		vfswrap_fgetxattr,
-		vfswrap_listxattr,
-		vfswrap_llistxattr,
-		vfswrap_flistxattr,
-		vfswrap_removexattr,
-		vfswrap_lremovexattr,
-		vfswrap_fremovexattr,
-		vfswrap_setxattr,
-		vfswrap_lsetxattr,
-		vfswrap_fsetxattr
-	}
-};
 
 /****************************************************************************
     maintain the list of available backends
@@ -201,14 +93,19 @@ NTSTATUS smb_register_vfs(int version, const char *name, vfs_op_tuple *vfs_op_tu
 static void vfs_init_default(connection_struct *conn)
 {
 	DEBUG(3, ("Initialising default vfs hooks\n"));
-
-	memcpy(&conn->vfs.ops, &default_vfs.ops, sizeof(default_vfs.ops));
-	memcpy(&conn->vfs_opaque.ops, &default_vfs.ops, sizeof(default_vfs.ops));
+	vfs_init_custom(conn, DEFAULT_VFS_MODULE_NAME);
 }
 
 /****************************************************************************
   initialise custom vfs hooks
  ****************************************************************************/
+
+static inline void vfs_set_operation(struct vfs_ops * vfs, vfs_op_type which,
+				struct vfs_handle_struct * handle, void * op)
+{
+	((struct vfs_handle_struct **)&vfs->handles)[which] = handle;
+	((void **)(void *)&vfs->ops)[which] = op;
+}
 
 BOOL vfs_init_custom(connection_struct *conn, const char *vfs_object)
 {
@@ -224,13 +121,15 @@ BOOL vfs_init_custom(connection_struct *conn, const char *vfs_object)
 		return False;
 	}
 
-	if(!backends) static_init_vfs;
+	if(!backends) {
+		static_init_vfs;
+	}
 
 	DEBUG(3, ("Initialising custom vfs hooks from [%s]\n", vfs_object));
 
 	module_name = smb_xstrdup(vfs_object);
 
-	p = strchr(module_name, ':');
+	p = strchr_m(module_name, ':');
 
 	if (p) {
 		*p = 0;
@@ -260,7 +159,7 @@ BOOL vfs_init_custom(connection_struct *conn, const char *vfs_object)
 
 	handle = TALLOC_ZERO_P(conn->mem_ctx,vfs_handle_struct);
 	if (!handle) {
-		DEBUG(0,("talloc_zero() failed!\n"));
+		DEBUG(0,("TALLOC_ZERO() failed!\n"));
 		SAFE_FREE(module_name);
 		return False;
 	}
@@ -272,25 +171,99 @@ BOOL vfs_init_custom(connection_struct *conn, const char *vfs_object)
 	DLIST_ADD(conn->vfs_handles, handle);
 
  	for(i=0; ops[i].op != NULL; i++) {
- 	  DEBUG(5, ("Checking operation #%d (type %d, layer %d)\n", i, ops[i].type, ops[i].layer));
- 	  if(ops[i].layer == SMB_VFS_LAYER_OPAQUE) {
- 	    /* Check whether this operation was already made opaque by different module */
- 	    if(((void**)&conn->vfs_opaque.ops)[ops[i].type] == ((void**)&default_vfs.ops)[ops[i].type]) {
- 	      /* No, it isn't overloaded yet. Overload. */
- 	      DEBUGADD(5, ("Making operation type %d opaque [module %s]\n", ops[i].type, vfs_object));
- 	      ((void**)&conn->vfs_opaque.ops)[ops[i].type] = ops[i].op;
- 	      ((vfs_handle_struct **)&conn->vfs_opaque.handles)[ops[i].type] = handle;
- 	    }
- 	  }
- 	  /* Change current VFS disposition*/
- 	  DEBUGADD(5, ("Accepting operation type %d from module %s\n", ops[i].type, vfs_object));
- 	  ((void**)&conn->vfs.ops)[ops[i].type] = ops[i].op;
- 	  ((vfs_handle_struct **)&conn->vfs.handles)[ops[i].type] = handle;
+		DEBUG(5, ("Checking operation #%d (type %d, layer %d)\n", i, ops[i].type, ops[i].layer));
+		if(ops[i].layer == SMB_VFS_LAYER_OPAQUE) {
+			/* If this operation was already made opaque by different module, it
+			 * will be overridden here.
+			 */
+			DEBUGADD(5, ("Making operation type %d opaque [module %s]\n", ops[i].type, vfs_object));
+			vfs_set_operation(&conn->vfs_opaque, ops[i].type, handle, ops[i].op);
+		}
+		/* Change current VFS disposition*/
+		DEBUGADD(5, ("Accepting operation type %d from module %s\n", ops[i].type, vfs_object));
+		vfs_set_operation(&conn->vfs, ops[i].type, handle, ops[i].op);
 	}
 
 	SAFE_FREE(module_name);
 	return True;
 }
+
+/*****************************************************************
+ Allow VFS modules to extend files_struct with VFS-specific state.
+ This will be ok for small numbers of extensions, but might need to
+ be refactored if it becomes more widely used.
+******************************************************************/
+
+#define EXT_DATA_AREA(e) ((uint8 *)(e) + sizeof(struct vfs_fsp_data))
+
+void *vfs_add_fsp_extension_notype(vfs_handle_struct *handle, files_struct *fsp, size_t ext_size)
+{
+	struct vfs_fsp_data *ext;
+	void * ext_data;
+
+	/* Prevent VFS modules adding multiple extensions. */
+	if ((ext_data = vfs_fetch_fsp_extension(handle, fsp))) {
+		return ext_data;
+	}
+
+	ext = (struct vfs_fsp_data *)TALLOC_ZERO(
+		handle->conn->mem_ctx, sizeof(struct vfs_fsp_data) + ext_size);
+	if (ext == NULL) {
+		return NULL;
+	}
+
+	ext->owner = handle;
+	ext->next = fsp->vfs_extension;
+	fsp->vfs_extension = ext;
+	return EXT_DATA_AREA(ext);
+}
+
+void vfs_remove_fsp_extension(vfs_handle_struct *handle, files_struct *fsp)
+{
+	struct vfs_fsp_data *curr;
+	struct vfs_fsp_data *prev;
+
+	for (curr = fsp->vfs_extension, prev = NULL;
+	     curr;
+	     prev = curr, curr = curr->next) {
+		if (curr->owner == handle) {
+		    if (prev) {
+			    prev->next = curr->next;
+		    } else {
+			    fsp->vfs_extension = curr->next;
+		    }
+		    TALLOC_FREE(curr);
+		    return;
+		}
+	}
+}
+
+void *vfs_memctx_fsp_extension(vfs_handle_struct *handle, files_struct *fsp)
+{
+	struct vfs_fsp_data *head;
+
+	for (head = fsp->vfs_extension; head; head = head->next) {
+		if (head->owner == handle) {
+			return head;
+		}
+	}
+
+	return NULL;
+}
+
+void *vfs_fetch_fsp_extension(vfs_handle_struct *handle, files_struct *fsp)
+{
+	struct vfs_fsp_data *head;
+
+	head = vfs_memctx_fsp_extension(handle, fsp);
+	if (head != NULL) {
+		return EXT_DATA_AREA(head);
+	}
+
+	return NULL;
+}
+
+#undef EXT_DATA_AREA
 
 /*****************************************************************
  Generic VFS init.
@@ -301,9 +274,17 @@ BOOL smbd_vfs_init(connection_struct *conn)
 	const char **vfs_objects;
 	unsigned int i = 0;
 	int j = 0;
-	
+
 	/* Normal share - initialise with disk access functions */
 	vfs_init_default(conn);
+
+	/* Don't bother loading VFS for IPC or printer connections. VFS
+	 * modules only apply to disk shares.
+	 */
+	if (conn->ipc || conn->printer) {
+		return True;
+	}
+
 	vfs_objects = lp_vfs_objects(SNUM(conn));
 
 	/* Override VFS functions if 'vfs object' was not specified*/
@@ -342,31 +323,6 @@ BOOL vfs_directory_exist(connection_struct *conn, const char *dname, SMB_STRUCT_
 	if(!ret)
 		errno = ENOTDIR;
 
-	return ret;
-}
-
-/*******************************************************************
- vfs mkdir wrapper 
-********************************************************************/
-
-int vfs_MkDir(connection_struct *conn, const char *name, mode_t mode)
-{
-	int ret;
-	SMB_STRUCT_STAT sbuf;
-
-	if(!(ret=SMB_VFS_MKDIR(conn, name, mode))) {
-
-		inherit_access_acl(conn, name, mode);
-
-		/*
-		 * Check if high bits should have been set,
-		 * then (if bits are missing): add them.
-		 * Consider bits automagically set by UNIX, i.e. SGID bit from parent dir.
-		 */
-		if(mode & ~(S_IRWXU|S_IRWXG|S_IRWXO) &&
-				!SMB_VFS_STAT(conn,name,&sbuf) && (mode & ~sbuf.st_mode))
-			SMB_VFS_CHMOD(conn,name,sbuf.st_mode | (mode & ~sbuf.st_mode));
-	}
 	return ret;
 }
 
@@ -416,7 +372,7 @@ ssize_t vfs_read_data(files_struct *fsp, char *buf, size_t byte_count)
 
 	while (total < byte_count)
 	{
-		ssize_t ret = SMB_VFS_READ(fsp, fsp->fd, buf + total,
+		ssize_t ret = SMB_VFS_READ(fsp, fsp->fh->fd, buf + total,
 					byte_count - total);
 
 		if (ret == 0) return total;
@@ -438,7 +394,7 @@ ssize_t vfs_pread_data(files_struct *fsp, char *buf,
 
 	while (total < byte_count)
 	{
-		ssize_t ret = SMB_VFS_PREAD(fsp, fsp->fd, buf + total,
+		ssize_t ret = SMB_VFS_PREAD(fsp, fsp->fh->fd, buf + total,
 					byte_count - total, offset + total);
 
 		if (ret == 0) return total;
@@ -463,7 +419,7 @@ ssize_t vfs_write_data(files_struct *fsp,const char *buffer,size_t N)
 	ssize_t ret;
 
 	while (total < N) {
-		ret = SMB_VFS_WRITE(fsp,fsp->fd,buffer + total,N - total);
+		ret = SMB_VFS_WRITE(fsp,fsp->fh->fd,buffer + total,N - total);
 
 		if (ret == -1)
 			return -1;
@@ -482,7 +438,7 @@ ssize_t vfs_pwrite_data(files_struct *fsp,const char *buffer,
 	ssize_t ret;
 
 	while (total < N) {
-		ret = SMB_VFS_PWRITE(fsp, fsp->fd, buffer + total,
+		ret = SMB_VFS_PWRITE(fsp, fsp->fh->fd, buffer + total,
                                 N - total, offset + total);
 
 		if (ret == -1)
@@ -518,10 +474,11 @@ int vfs_allocate_file_space(files_struct *fsp, SMB_BIG_UINT len)
 
 	if (((SMB_OFF_T)len) < 0) {
 		DEBUG(0,("vfs_allocate_file_space: %s negative len requested.\n", fsp->fsp_name ));
+		errno = EINVAL;
 		return -1;
 	}
 
-	ret = SMB_VFS_FSTAT(fsp,fsp->fd,&st);
+	ret = SMB_VFS_FSTAT(fsp,fsp->fh->fd,&st);
 	if (ret == -1)
 		return ret;
 
@@ -535,7 +492,7 @@ int vfs_allocate_file_space(files_struct *fsp, SMB_BIG_UINT len)
 				fsp->fsp_name, (double)st.st_size ));
 
 		flush_write_cache(fsp, SIZECHANGE_FLUSH);
-		if ((ret = SMB_VFS_FTRUNCATE(fsp, fsp->fd, (SMB_OFF_T)len)) != -1) {
+		if ((ret = SMB_VFS_FTRUNCATE(fsp, fsp->fh->fd, (SMB_OFF_T)len)) != -1) {
 			set_filelen_write_cache(fsp, len);
 		}
 		return ret;
@@ -548,7 +505,10 @@ int vfs_allocate_file_space(files_struct *fsp, SMB_BIG_UINT len)
 
 	len -= st.st_size;
 	len /= 1024; /* Len is now number of 1k blocks needed. */
-	space_avail = SMB_VFS_DISK_FREE(conn,fsp->fsp_name,False,&bsize,&dfree,&dsize);
+	space_avail = get_dfree_info(conn,fsp->fsp_name,False,&bsize,&dfree,&dsize);
+	if (space_avail == (SMB_BIG_UINT)-1) {
+		return -1;
+	}
 
 	DEBUG(10,("vfs_allocate_file_space: file %s, grow. Current size %.0f, needed blocks = %.0f, space avail = %.0f\n",
 			fsp->fsp_name, (double)st.st_size, (double)len, (double)space_avail ));
@@ -574,10 +534,81 @@ int vfs_set_filelen(files_struct *fsp, SMB_OFF_T len)
 	release_level_2_oplocks_on_change(fsp);
 	DEBUG(10,("vfs_set_filelen: ftruncate %s to len %.0f\n", fsp->fsp_name, (double)len));
 	flush_write_cache(fsp, SIZECHANGE_FLUSH);
-	if ((ret = SMB_VFS_FTRUNCATE(fsp, fsp->fd, len)) != -1)
+	if ((ret = SMB_VFS_FTRUNCATE(fsp, fsp->fh->fd, len)) != -1) {
 		set_filelen_write_cache(fsp, len);
+		notify_fname(fsp->conn, NOTIFY_ACTION_MODIFIED,
+			     FILE_NOTIFY_CHANGE_SIZE
+			     | FILE_NOTIFY_CHANGE_ATTRIBUTES,
+			     fsp->fsp_name);
+	}
 
 	return ret;
+}
+
+/****************************************************************************
+ A vfs fill sparse call.
+ Writes zeros from the end of file to len, if len is greater than EOF.
+ Used only by strict_sync.
+ Returns 0 on success, -1 on failure.
+****************************************************************************/
+
+static char *sparse_buf;
+#define SPARSE_BUF_WRITE_SIZE (32*1024)
+
+int vfs_fill_sparse(files_struct *fsp, SMB_OFF_T len)
+{
+	int ret;
+	SMB_STRUCT_STAT st;
+	SMB_OFF_T offset;
+	size_t total;
+	size_t num_to_write;
+	ssize_t pwrite_ret;
+
+	release_level_2_oplocks_on_change(fsp);
+	ret = SMB_VFS_FSTAT(fsp,fsp->fh->fd,&st);
+	if (ret == -1) {
+		return ret;
+	}
+
+	if (len <= st.st_size) {
+		return 0;
+	}
+
+	DEBUG(10,("vfs_fill_sparse: write zeros in file %s from len %.0f to len %.0f (%.0f bytes)\n",
+		fsp->fsp_name, (double)st.st_size, (double)len, (double)(len - st.st_size)));
+
+	flush_write_cache(fsp, SIZECHANGE_FLUSH);
+
+	if (!sparse_buf) {
+		sparse_buf = SMB_CALLOC_ARRAY(char, SPARSE_BUF_WRITE_SIZE);
+		if (!sparse_buf) {
+			errno = ENOMEM;
+			return -1;
+		}
+	}
+
+	offset = st.st_size;
+	num_to_write = len - st.st_size;
+	total = 0;
+
+	while (total < num_to_write) {
+		size_t curr_write_size = MIN(SPARSE_BUF_WRITE_SIZE, (num_to_write - total));
+
+		pwrite_ret = SMB_VFS_PWRITE(fsp, fsp->fh->fd, sparse_buf, curr_write_size, offset + total);
+		if (pwrite_ret == -1) {
+			DEBUG(10,("vfs_fill_sparse: SMB_VFS_PWRITE for file %s failed with error %s\n",
+				fsp->fsp_name, strerror(errno) ));
+			return -1;
+		}
+		if (pwrite_ret == 0) {
+			return 0;
+		}
+
+		total += pwrite_ret;
+	}
+
+	set_filelen_write_cache(fsp, len);
+	return 0;
 }
 
 /****************************************************************************
@@ -602,7 +633,7 @@ SMB_OFF_T vfs_transfer_file(files_struct *in, files_struct *out, SMB_OFF_T n)
 	in_fsp = in;
 	out_fsp = out;
 
-	return transfer_file_internal(in_fsp->fd, out_fsp->fd, n, read_fn, write_fn);
+	return transfer_file_internal(in_fsp->fh->fd, out_fsp->fh->fd, n, read_fn, write_fn);
 }
 
 /*******************************************************************
@@ -611,13 +642,13 @@ SMB_OFF_T vfs_transfer_file(files_struct *in, files_struct *out, SMB_OFF_T n)
 
 char *vfs_readdirname(connection_struct *conn, void *p)
 {
-	struct dirent *ptr= NULL;
+	SMB_STRUCT_DIRENT *ptr= NULL;
 	char *dname;
 
 	if (!p)
 		return(NULL);
 
-	ptr = (struct dirent *)SMB_VFS_READDIR(conn,p);
+	ptr = SMB_VFS_READDIR(conn, (DIR *)p);
 	if (!ptr)
 		return(NULL);
 
@@ -628,7 +659,7 @@ char *vfs_readdirname(connection_struct *conn, void *p)
 		return(NULL);
 #endif
 
-#ifdef HAVE_BROKEN_READDIR
+#ifdef HAVE_BROKEN_READDIR_NAME
 	/* using /usr/ucb/cc is BAD */
 	dname = dname - 2;
 #endif
@@ -725,7 +756,9 @@ char *vfs_GetWd(connection_struct *conn, char *path)
 		in trouble :-) */
 
 	if (SMB_VFS_STAT(conn, ".",&st) == -1) {
-		DEBUG(0,("Very strange, couldn't stat \".\" path=%s\n", path));
+		/* Known to fail for root: the directory may be
+		 * NFS-mounted and exported with root_squash (so has no root access). */
+		DEBUG(1,("vfs_GetWd: couldn't stat \".\" path=%s error %s (NFS problem ?)\n", path, strerror(errno) ));
 		return(SMB_VFS_GETWD(conn,path));
 	}
 
@@ -784,37 +817,12 @@ char *vfs_GetWd(connection_struct *conn, char *path)
 	return (path);
 }
 
-BOOL canonicalize_path(connection_struct *conn, pstring path)
-{
-#ifdef REALPATH_TAKES_NULL
-	char *resolved_name = SMB_VFS_REALPATH(conn,path,NULL);
-	if (!resolved_name) {
-		return False;
-	}
-	pstrcpy(path, resolved_name);
-	SAFE_FREE(resolved_name);
-	return True;
-#else
-#ifdef PATH_MAX
-        char resolved_name_buf[PATH_MAX+1];
-#else
-        pstring resolved_name_buf;
-#endif
-	char *resolved_name = SMB_VFS_REALPATH(conn,path,resolved_name_buf);
-	if (!resolved_name) {
-		return False;
-	}
-	pstrcpy(path, resolved_name);
-	return True;
-#endif /* REALPATH_TAKES_NULL */
-}
-
 /*******************************************************************
  Reduce a file name, removing .. elements and checking that
  it is below dir in the heirachy. This uses realpath.
 ********************************************************************/
 
-BOOL reduce_name(connection_struct *conn, const pstring fname)
+NTSTATUS reduce_name(connection_struct *conn, const pstring fname)
 {
 #ifdef REALPATH_TAKES_NULL
 	BOOL free_resolved_name = True;
@@ -829,7 +837,6 @@ BOOL reduce_name(connection_struct *conn, const pstring fname)
 	char *resolved_name = NULL;
 	size_t con_path_len = strlen(conn->connectpath);
 	char *p = NULL;
-	int saved_errno = errno;
 
 	DEBUG(3,("reduce_name [%s] [%s]\n", fname, conn->connectpath));
 
@@ -843,8 +850,7 @@ BOOL reduce_name(connection_struct *conn, const pstring fname)
 		switch (errno) {
 			case ENOTDIR:
 				DEBUG(3,("reduce_name: Component not a directory in getting realpath for %s\n", fname));
-				errno = saved_errno;
-				return False;
+				return map_nt_error_from_unix(errno);
 			case ENOENT:
 			{
 				pstring tmp_fname;
@@ -868,8 +874,7 @@ BOOL reduce_name(connection_struct *conn, const pstring fname)
 #endif
 				if (!resolved_name) {
 					DEBUG(3,("reduce_name: couldn't get realpath for %s\n", fname));
-					errno = saved_errno;
-					return False;
+					return map_nt_error_from_unix(errno);
 				}
 				pstrcpy(tmp_fname, resolved_name);
 				pstrcat(tmp_fname, "/");
@@ -879,14 +884,13 @@ BOOL reduce_name(connection_struct *conn, const pstring fname)
 				resolved_name = SMB_STRDUP(tmp_fname);
 				if (!resolved_name) {
 					DEBUG(0,("reduce_name: malloc fail for %s\n", tmp_fname));
-					errno = saved_errno;
-					return False;
+					return NT_STATUS_NO_MEMORY;
 				}
 #else
 #ifdef PATH_MAX
 				safe_strcpy(resolved_name_buf, tmp_fname, PATH_MAX);
 #else
-				pstrcpy(pstring resolved_name_buf, tmp_fname);
+				pstrcpy(resolved_name_buf, tmp_fname);
 #endif
 				resolved_name = resolved_name_buf;
 #endif
@@ -894,8 +898,7 @@ BOOL reduce_name(connection_struct *conn, const pstring fname)
 			}
 			default:
 				DEBUG(1,("reduce_name: couldn't get realpath for %s\n", fname));
-				errno = saved_errno;
-				return False;
+				return map_nt_error_from_unix(errno);
 		}
 	}
 
@@ -903,19 +906,19 @@ BOOL reduce_name(connection_struct *conn, const pstring fname)
 
 	if (*resolved_name != '/') {
 		DEBUG(0,("reduce_name: realpath doesn't return absolute paths !\n"));
-		if (free_resolved_name)
+		if (free_resolved_name) {
 			SAFE_FREE(resolved_name);
-		errno = saved_errno;
-		return False;
+		}
+		return NT_STATUS_OBJECT_NAME_INVALID;
 	}
 
 	/* Check for widelinks allowed. */
 	if (!lp_widelinks(SNUM(conn)) && (strncmp(conn->connectpath, resolved_name, con_path_len) != 0)) {
 		DEBUG(2, ("reduce_name: Bad access attempt: %s is a symlink outside the share path", fname));
-		if (free_resolved_name)
+		if (free_resolved_name) {
 			SAFE_FREE(resolved_name);
-		errno = EACCES;
-		return False;
+		}
+		return NT_STATUS_ACCESS_DENIED;
 	}
 
         /* Check if we are allowing users to follow symlinks */
@@ -927,18 +930,18 @@ BOOL reduce_name(connection_struct *conn, const pstring fname)
                 SMB_STRUCT_STAT statbuf;
                 if ( (SMB_VFS_LSTAT(conn,fname,&statbuf) != -1) &&
                                 (S_ISLNK(statbuf.st_mode)) ) {
-			if (free_resolved_name)
+			if (free_resolved_name) {
 				SAFE_FREE(resolved_name);
+			}
                         DEBUG(3,("reduce_name: denied: file path name %s is a symlink\n",resolved_name));
-                        errno = EACCES;
-			return False;
+			return NT_STATUS_ACCESS_DENIED;
                 }
         }
 #endif
 
-	DEBUG(3,("reduce_name: %s reduced to %s\n", fname, p));
-	if (free_resolved_name)
+	DEBUG(3,("reduce_name: %s reduced to %s\n", fname, resolved_name));
+	if (free_resolved_name) {
 		SAFE_FREE(resolved_name);
-	errno = saved_errno;
-	return(True);
+	}
+	return NT_STATUS_OK;
 }

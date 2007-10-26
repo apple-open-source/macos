@@ -39,7 +39,7 @@
 #define MY_ID "klog_in"
 #define MAXLINE 4096
 
-static int kfd = -1;
+int kfd = -1;
 
 static int kx = 0;
 static char kline[MAXLINE + 1];
@@ -64,7 +64,7 @@ klog_in_acceptmsg(int fd)
 	kline[kx] = '\0';
 	kx = 0;
 
-	return asl_syslog_input_convert(kline, n, NULL, 1);
+	return asl_input_parse(kline, n, NULL, 1);
 }
 
 int
@@ -88,7 +88,7 @@ klog_in_init(void)
 		return -1;
 	}
 
-	return aslevent_addfd(kfd, klog_in_acceptmsg, NULL, NULL);
+	return aslevent_addfd(kfd, ADDFD_FLAGS_LOCAL, klog_in_acceptmsg, NULL, NULL);
 }
 
 int

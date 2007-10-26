@@ -38,12 +38,12 @@ using namespace MachPlusPlus;
 //
 static const SCARD_READERSTATE *cbStartupReaderInfo()
 {
-	return &server.startupReaderState();
+	return &server->startupReaderState();
 }
 
 static const char *cbTokenUid()
 {
-	return server.tokenUid();
+	return server->tokenUid();
 }
 
 static void *cbMalloc(uint32 size)
@@ -100,13 +100,20 @@ int SecTokendMain(int argc, const char * argv[],
 	}
 	secdebug("tokenlib", "API interface version %d", callbacks->version);
 
+	server = new Server();
+	if (!server)
+	{
+		secdebug("tokenlib", "can't create server object");
+		exit(1);
+	}
+	
 	// set globals (we know by now that the version is okay)
-	server.callbacks() = *callbacks;
+	server->callbacks() = *callbacks;
 	if (support)
 		*support = supportVector;
 
 	try {
-		return server(argc, argv, callbacks->flags);
+		return (*server)(argc, argv, callbacks->flags);
 	} catch (...) {
 		secdebug("tokenlib", "server aborted with exception");
 		return 1;

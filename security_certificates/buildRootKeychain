@@ -1,0 +1,48 @@
+#! /bin/csh -f
+#
+# Build SystemRootCertificates.keychain and SystemTrustSettings.plist from
+# all the certs in cwd/roots. Creates these two files in ./BuiltKeychains/.
+#
+set CWD=`pwd`
+set ROOT_CERT_DIR=$CWD/roots
+set KC_DIR=$CWD/BuiltKeychains
+
+if((! -e "$ROOT_CERT_DIR") || (! -e "$KC_DIR")) then
+   echo "You do not seem to be in a current security_certificates directory. Aborting."
+   exit(1)
+endif
+
+set ROOT_CERT_KC=SystemRootCertificates.keychain
+set ROOT_CERT_KC_PATH="$KC_DIR/$ROOT_CERT_KC"
+set SETTINGS_FILE=SystemTrustSettings.plist
+set SETTINGS_FILE_PATH="$KC_DIR/$SETTINGS_FILE"
+set SECURITY=/usr/bin/security
+
+# save keychain list so we don't add SystemRootCertificates to it
+set SAVED_KC_LIST=`$SECURITY list`
+
+echo Creating empty $ROOT_CERT_KC...
+rm -f "$ROOT_CERT_KC_PATH" || exit(1)
+$SECURITY create-keychain -p $ROOT_CERT_KC "$ROOT_CERT_KC_PATH" || exit(1)
+
+echo Creating empty $SETTINGS_FILE...
+rm -f "$SETTINGS_FILE_PATH" || exit(1)
+$SECURITY add-trusted-cert -o "$SETTINGS_FILE_PATH" || exit(1)
+
+echo Adding root certs to $ROOT_CERT_KC...
+
+cd "$ROOT_CERT_DIR" || exit(1)
+
+set GOT_ERROR=NO
+
+foreach root (*)
+	echo Processing $root...
+	$SECURITY -q add-trusted-cert -i "$SETTINGS_FILE_PATH" -o "$SETTINGS_FILE_PATH" -k "$ROOT_CERT_KC_PATH" "$root" || exit(1)
+end
+
+chmod 0644 "$SETTINGS_FILE_PATH" || exit(1)
+chmod 0644 "$ROOT_CERT_KC_PATH" || exit(1)
+
+$SECURITY list -s $SAVED_KC_LIST
+
+echo "=== System Root Certificate Processing complete. ==="

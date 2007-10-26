@@ -29,18 +29,18 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-proc do_tests {c_flags {use_es 1} {use_ld 1}} {
+proc do_tests {use_ld} {
     global srcdir objdir subdir gdb_prompt
+    global debug_default_format_is_dwarf gdb_test_apple_dsym
 
-    if {$use_es} {
-	set ld_flags "-Wl,-Sp"
-    } else {
-	set ld_flags {}
-    }
+    set ld_flags {}
 
-    set test_name "cflags: \"$c_flags\" - ldflags: \"$ld_flags\""
+    set test_name "ld-r testing"
     if {!$use_ld} {
-	append testname " - ar"
+	append test_name " - ar"
+    }
+    if {$debug_default_format_is_dwarf && $gdb_test_apple_dsym == 0} {
+	append test_name " - debug info in .o files"
     }
     set testfile "test-ld-r"
     set ld_r_file "ld-r.o"
@@ -56,7 +56,7 @@ proc do_tests {c_flags {use_es 1} {use_ld 1}} {
 
     
     set binfile  "${objdir}/${subdir}/${testfile}"
-    set additional_flags additional_flags=$c_flags
+    set additional_flags additional_flags=""
     
     # This is a bit complicated seeming.  What I want to make sure is that I have
     #  1) two "ld -r" .o files.
@@ -64,23 +64,23 @@ proc do_tests {c_flags {use_es 1} {use_ld 1}} {
     #  3) two BINCL/EINCL's with the same filename but different hashes.
 
     foreach {src} {main foo foo-2 bar bar-2} {
-	if  { [gdb_compile "$srcdir/$subdir/$src.cc" "$objdir/$subdir/$src.o" object [list $additional_flags c++]] != "" } {
+	if  { [gdb_compile "$srcdir/$subdir/$src.cc" "$objdir/$subdir/$src.o" object [list debug $additional_flags c++]] != "" } {
 	    gdb_suppress_entire_file "Testcase compile failed for $test_name, so all tests in this file will automatically fail."
 	}
     }
     
-    if  { [gdb_compile "$srcdir/$subdir/multiplier.cc" "$objdir/$subdir/multiplier.o" object [list $additional_flags c++]] != "" } {
+    if  { [gdb_compile "$srcdir/$subdir/multiplier.cc" "$objdir/$subdir/multiplier.o" object [list debug $additional_flags c++]] != "" } {
 	gdb_suppress_entire_file "Testcase compile failed for $test_name, so all tests in this file will automatically fail."
     }
 
-    set additional_flags "additional_flags=$c_flags -DUSE_LONG"
+    set additional_flags "additional_flags= -DUSE_LONG"
 
-    if  { [gdb_compile "$srcdir/$subdir/multiplier.cc" "$objdir/$subdir/multiplier-long.o" object [list $additional_flags c++]] != "" } {
+    if  { [gdb_compile "$srcdir/$subdir/multiplier.cc" "$objdir/$subdir/multiplier-long.o" object [list debug $additional_flags c++]] != "" } {
 	gdb_suppress_entire_file "Testcase compile failed for $test_name, so all tests in this file will automatically fail."
     }
 
     foreach {src} {baz baz-2} {
-	if  { [gdb_compile "$srcdir/$subdir/$src.cc" "$objdir/$subdir/$src.o" object [list $additional_flags c++]] != "" } {
+	if  { [gdb_compile "$srcdir/$subdir/$src.cc" "$objdir/$subdir/$src.o" object [list debug $additional_flags c++]] != "" } {
 	    gdb_suppress_entire_file "Testcase compile failed for $test_name, so all tests in this file will automatically fail."
 	}
     }
@@ -93,12 +93,23 @@ proc do_tests {c_flags {use_es 1} {use_ld 1}} {
 	file delete $intermediate_obj
 	set command "ar -c -q \"$intermediate_obj\" \"$objdir/$subdir/foo.o\" \"$objdir/$subdir/bar.o\" \"$objdir/$subdir/baz.o\""
     }
-	set status [remote_exec  host $command]
+    set status [remote_exec  host $command]
     if {[lindex $status 0] != 0} {
 	puts [lindex $status 1]
 	gdb_suppress_entire_file "Testcase ld -r failed for $test_name, so all tests in this file will automatically fail."
     }
     
+    if {!$use_ld} {
+	set command "ranlib \"$intermediate_obj\""
+	
+	set status [remote_exec  host $command]
+	if {[lindex $status 0] != 0} {
+	    puts [lindex $status 1]
+	    gdb_suppress_entire_file "Testcase ld -r failed for $test_name, so all tests in this file will automatically fail."
+	}
+    }
+
+
     set command "ld -r \"$objdir/$subdir/foo-2.o\" \"$objdir/$subdir/bar-2.o\" \"$objdir/$subdir/baz-2.o\" -o \"$objdir/$subdir/ld-r-2.o\""
     set status [remote_exec  host $command]
     if {[lindex $status 0] != 0} {
@@ -114,8 +125,8 @@ proc do_tests {c_flags {use_es 1} {use_ld 1}} {
     }
     
     
-    set additional_flags additional_flags=$ld_flags
-    if  { [gdb_compile "$objdir/$subdir/ld-r-2.o $objdir/$subdir/ld-r-3.o $objdir/$subdir/main.o $intermediate_obj" "${binfile}" executable [list $additional_flags c++]] != "" } {
+    set additional_flags additional_flags=""
+    if  { [gdb_compile "$objdir/$subdir/ld-r-2.o $objdir/$subdir/ld-r-3.o $objdir/$subdir/main.o $intermediate_obj" "${binfile}" executable [list debug $additional_flags c++]] != "" } {
 	gdb_suppress_entire_file "Testcase compile failed for $test_name, so all tests in this file will automatically fail."
     }
 
@@ -168,19 +179,19 @@ proc do_tests {c_flags {use_es 1} {use_ld 1}} {
 
     gdb_exit
 
-    # Then for the "Essential Symbols" case, let's make sure our time
+    # If the debug info was left in the .o files, let's make sure our time
     # check is working correctly.
 
-    if {$use_es} {
+    if {$debug_default_format_is_dwarf == 1&& $gdb_test_apple_dsym == 0} {
 	# Start with a fresh gdb
 	gdb_exit
 	gdb_start
 	gdb_reinitialize_dir $srcdir/$subdir
 	gdb_file_cmd "${binfile}"
 	
+       
 	send_gdb "set width 0\n"
 	gdb_expect -re "$gdb_prompt $"
-
 
 	if {$use_ld == 0} {
 	    # If this is the "ar" case, we have to rebuild the .a file as well,
@@ -214,29 +225,22 @@ proc do_tests {c_flags {use_es 1} {use_ld 1}} {
 	    set status [remote_exec  host $command]
 	    if {[lindex $status 0] != 0} {
 		puts [lindex $status 1]
-		fail "Could not rebuild .a file: $testname"
+		fail "Could not rebuild .a file: $test_name"
 	    }
-	    gdb_test "break fooFunc" "(warning:.*\r\n)+Breakpoint 2.*foo.cc.*" "Got warnings for mismatched timestamp: $test_name"
+	    gdb_test "break fooFunc" "(warning:.*\r\n)+Breakpoint 2.*foo.cc.*" "Got warnings for mismatched timestamp1: $test_name"
 
 	} else {
 	    file mtime $objdir/$subdir/ld-r.o [clock seconds]
-	    gdb_test "break fooFunc" "(warning:.*\r\n)+Breakpoint 1.*foo.cc.*" "Got warnings for mismatched timestamp: $test_name"
+	    if  { [gdb_compile "$srcdir/$subdir/foo.cc" "$objdir/$subdir/foo.o" object [list debug $additional_flags c++]] != "" } {
+	        gdb_suppress_entire_file "Testcase compile failed for $test_name, so all tests in this file will automatically fail."
+	    }
+	    gdb_test "break fooFunc" "warning: .o file.*more recent than executable timestamp.*Breakpoint 1.*foo.cc.*" "Got warnings for mismatched timestamp2: $test_name"
 	}
     }
 }
 
-#  These two just test ordinary gused & gfull operation.
-#do_tests -gused 0
-#do_tests -gfull 0
-
-# These two test the "Essential Symbols"
-do_tests -gused 1
-do_tests -gfull 1
-
-# This one test "Essentials Symbols" with 
-# one of the "ld-r" intermediate files an archive instead.
-do_tests -gfull 1 0
+do_tests 0
+do_tests 1
 
 return 0
-
 

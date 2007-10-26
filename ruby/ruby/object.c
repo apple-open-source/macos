@@ -2,8 +2,8 @@
 
   object.c -
 
-  $Author: matz $
-  $Date: 2004/12/18 02:07:28 $
+  $Author: knu $
+  $Date: 2007-03-03 16:09:24 +0900 (Sat, 03 Mar 2007) $
   created at: Thu Jul 15 12:01:24 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -19,6 +19,12 @@
 #include <errno.h>
 #include <ctype.h>
 #include <math.h>
+
+#ifdef ENABLE_DTRACE
+#include "dtrace.h"
+#include "node.h"
+extern NODE* ruby_current_node;
+#endif
 
 VALUE rb_mKernel;
 VALUE rb_cObject;
@@ -96,46 +102,6 @@ rb_obj_equal(obj1, obj2)
 {
     if (obj1 == obj2) return Qtrue;
     return Qfalse;
-}
-
-
-/*
- *  Document-method: __id__
- *  Document-method: object_id
- *
- *  call-seq:
- *     obj.__id__       => fixnum
- *     obj.object_id    => fixnum
- *  
- *  Returns an integer identifier for <i>obj</i>. The same number will
- *  be returned on all calls to <code>id</code> for a given object, and
- *  no two active objects will share an id.
- *  <code>Object#object_id</code> is a different concept from the
- *  <code>:name</code> notation, which returns the symbol id of
- *  <code>name</code>. Replaces the deprecated <code>Object#id</code>.
- */
-
-
-
-/*
- *  call-seq:
- *     obj.hash    => fixnum
- *  
- *  Generates a <code>Fixnum</code> hash value for this object. This
- *  function must have the property that <code>a.eql?(b)</code> implies
- *  <code>a.hash == b.hash</code>. The hash value is used by class
- *  <code>Hash</code>. Any hash value that exceeds the capacity of a
- *  <code>Fixnum</code> will be truncated before being used.
- */
-
-VALUE
-rb_obj_id(obj)
-    VALUE obj;
-{
-    if (SPECIAL_CONST_P(obj)) {
-	return LONG2NUM((long)obj);
-    }
-    return (VALUE)((long)obj|FIXNUM_FLAG);
 }
 
 /*
@@ -303,6 +269,7 @@ rb_obj_dup(obj)
     return dup;
 }
 
+/* :nodoc: */
 VALUE
 rb_obj_init_copy(obj, orig)
     VALUE obj, orig;
@@ -354,10 +321,12 @@ rb_any_to_s(obj)
     VALUE obj;
 {
     char *cname = rb_obj_classname(obj);
+    size_t len;
     VALUE str;
 
-    str = rb_str_new(0, strlen(cname)+6+16+1); /* 6:tags 16:addr 1:nul */
-    sprintf(RSTRING(str)->ptr, "#<%s:0x%lx>", cname, obj);
+    len = strlen(cname)+6+16;
+    str = rb_str_new(0, len); /* 6:tags 16:addr */
+    snprintf(RSTRING(str)->ptr, len+1, "#<%s:0x%lx>", cname, obj);
     RSTRING(str)->len = strlen(RSTRING(str)->ptr);
     if (OBJ_TAINTED(obj)) OBJ_TAINT(str);
 
@@ -433,17 +402,20 @@ rb_obj_inspect(obj)
 	&& ROBJECT(obj)->iv_tbl
 	&& ROBJECT(obj)->iv_tbl->num_entries > 0) {
 	VALUE str;
+	size_t len;
 	char *c;
 
 	c = rb_obj_classname(obj);
 	if (rb_inspecting_p(obj)) {
-	    str = rb_str_new(0, strlen(c)+10+16+1); /* 10:tags 16:addr 1:nul */
-	    sprintf(RSTRING(str)->ptr, "#<%s:0x%lx ...>", c, obj);
+	    len = strlen(c)+10+16+1;
+	    str = rb_str_new(0, len); /* 10:tags 16:addr 1:nul */
+	    snprintf(RSTRING(str)->ptr, len, "#<%s:0x%lx ...>", c, obj);
 	    RSTRING(str)->len = strlen(RSTRING(str)->ptr);
 	    return str;
 	}
-	str = rb_str_new(0, strlen(c)+6+16+1); /* 6:tags 16:addr 1:nul */
-	sprintf(RSTRING(str)->ptr, "-<%s:0x%lx", c, obj);
+	len = strlen(c)+6+16+1;
+	str = rb_str_new(0, len);     /* 6:tags 16:addr 1:nul */
+	snprintf(RSTRING(str)->ptr, len, "-<%s:0x%lx", c, obj);
 	RSTRING(str)->len = strlen(RSTRING(str)->ptr);
 	return rb_protect_inspect(inspect_obj, obj, str);
     }
@@ -527,6 +499,34 @@ rb_obj_is_kind_of(obj, c)
     return Qfalse;
 }
 
+
+/*
+ * Document-method: inherited
+ *
+ * call-seq:
+ *    inherited(subclass)
+ *
+ * Callback invoked whenever a subclass of the current class is created.
+ *
+ * Example:
+ *
+ *    class Foo
+ *       def self.inherited(subclass)
+ *          puts "New subclass: #{subclass}"
+ *       end
+ *    end
+ *
+ *    class Bar < Foo
+ *    end
+ *
+ *    class Baz < Bar
+ *    end
+ *
+ * produces:
+ *
+ *    New subclass: Bar
+ *    New subclass: Baz
+ */
 
 /*
  * Document-method: singleton_method_added
@@ -638,7 +638,6 @@ rb_obj_dummy()
 {
     return Qnil;
 }
-
 
 /*
  *  call-seq:
@@ -1168,7 +1167,7 @@ sym_inspect(sym)
     str = rb_str_new(0, strlen(name)+1);
     RSTRING(str)->ptr[0] = ':';
     strcpy(RSTRING(str)->ptr+1, name);
-    if (rb_is_junk_id(id)) {
+    if (!rb_symname_p(name)) {
 	str = rb_str_dump(str);
 	strncpy(RSTRING(str)->ptr, ":\"", 2);
     }
@@ -1560,7 +1559,25 @@ rb_obj_alloc(klass)
     if (FL_TEST(klass, FL_SINGLETON)) {
 	rb_raise(rb_eTypeError, "can't create instance of virtual class");
     }
+
+    #ifdef ENABLE_DTRACE
+    if (RUBY_OBJECT_CREATE_START_ENABLED()) {
+	char *file = ruby_current_node == NULL ? "" : ruby_current_node->nd_file;
+	int   line = ruby_current_node == NULL ? 0  : nd_line(ruby_current_node);
+	RUBY_OBJECT_CREATE_START(rb_class2name(klass), file, line);
+    }
+    #endif
+
     obj = rb_funcall(klass, ID_ALLOCATOR, 0, 0);
+
+    #ifdef ENABLE_DTRACE
+    if (RUBY_OBJECT_CREATE_DONE_ENABLED()) {
+	char *file = ruby_current_node == NULL ? "" : ruby_current_node->nd_file;
+	int   line = ruby_current_node == NULL ? 0  : nd_line(ruby_current_node);
+	RUBY_OBJECT_CREATE_DONE(rb_class2name(klass), file, line);
+    }
+    #endif
+
     if (rb_obj_class(obj) != rb_class_real(klass)) {
 	rb_raise(rb_eTypeError, "wrong instance allocation");
     }
@@ -1624,6 +1641,9 @@ rb_class_superclass(klass)
     if (!super) {
 	rb_raise(rb_eTypeError, "uninitialized class");
     }
+    if (FL_TEST(klass, FL_SINGLETON)) {
+	super = RBASIC(klass)->klass;
+    }
     while (TYPE(super) == T_ICLASS) {
 	super = RCLASS(super)->super;
     }
@@ -1637,10 +1657,9 @@ static ID
 str_to_id(str)
     VALUE str;
 {
-    if (!RSTRING(str)->ptr || RSTRING(str)->len == 0) {
-	rb_raise(rb_eArgError, "empty symbol string");
-    }
-    return rb_intern(RSTRING(str)->ptr);
+    VALUE sym = rb_str_intern(str);
+
+    return SYM2ID(sym);
 }
 
 ID
@@ -1871,7 +1890,6 @@ rb_mod_const_defined(mod, name)
  *     k.methods.length   #=> 42
  */
 
-
 static VALUE
 rb_obj_methods(argc, argv, obj)
     int argc;
@@ -1972,10 +1990,12 @@ rb_obj_public_methods(argc, argv, obj)
 /*
  *  call-seq:
  *     obj.instance_variable_get(symbol)    => obj
- *  
- *  Returns the value of the given instance variable (or throws a
- *  <code>NameError</code> exception). The <code>@</code> part of the
- *  variable name should be included for regular instance variables
+ *
+ *  Returns the value of the given instance variable, or nil if the
+ *  instance variable is not set. The <code>@</code> part of the
+ *  variable name should be included for regular instance
+ *  variables. Throws a <code>NameError</code> exception if the
+ *  supplied symbol is not valid as an instance variable name.
  *     
  *     class Fred
  *       def initialize(p1, p2)
@@ -1999,14 +2019,14 @@ rb_obj_ivar_get(obj, iv)
     return rb_ivar_get(obj, id);
 }
 
-
 /*
  *  call-seq:
  *     obj.instance_variable_set(symbol, obj)    => obj
  *  
  *  Sets the instance variable names by <i>symbol</i> to
  *  <i>object</i>, thereby frustrating the efforts of the class's
- *  author to attempt to provide proper encapsulation.
+ *  author to attempt to provide proper encapsulation. The variable
+ *  did not have to exist prior to this call.
  *     
  *     class Fred
  *       def initialize(p1, p2)
@@ -2015,7 +2035,8 @@ rb_obj_ivar_get(obj, iv)
  *     end
  *     fred = Fred.new('cat', 99)
  *     fred.instance_variable_set(:@a, 'dog')   #=> "dog"
- *     fred.inspect                             #=> "#<Fred:0x401b3da8 @a=\"dog\", @b=99>"
+ *     fred.instance_variable_set(:@c, 'cat')   #=> "cat"
+ *     fred.inspect                             #=> "#<Fred:0x401b3da8 @a=\"dog\", @b=99, @c=\"cat\">"
  */
 
 static VALUE
@@ -2030,6 +2051,125 @@ rb_obj_ivar_set(obj, iv, val)
     return rb_ivar_set(obj, id, val);
 }
 
+/*
+ *  call-seq:
+ *     obj.instance_variable_defined?(symbol)    => true or false
+ *
+ *  Returns <code>true</code> if the given instance variable is
+ *  defined in <i>obj</i>.
+ *
+ *     class Fred
+ *       def initialize(p1, p2)
+ *         @a, @b = p1, p2
+ *       end
+ *     end
+ *     fred = Fred.new('cat', 99)
+ *     fred.instance_variable_defined?(:@a)    #=> true
+ *     fred.instance_variable_defined?("@b")   #=> true
+ *     fred.instance_variable_defined?("@c")   #=> false
+ */
+
+static VALUE
+rb_obj_ivar_defined(obj, iv)
+    VALUE obj, iv;
+{
+    ID id = rb_to_id(iv);
+
+    if (!rb_is_instance_id(id)) {
+	rb_name_error(id, "`%s' is not allowed as an instance variable name", rb_id2name(id));
+    }
+    return rb_ivar_defined(obj, id);
+}
+
+/*
+ *  call-seq:
+ *     mod.class_variable_get(symbol)    => obj
+ *  
+ *  Returns the value of the given class variable (or throws a
+ *  <code>NameError</code> exception). The <code>@@</code> part of the
+ *  variable name should be included for regular class variables
+ *     
+ *     class Fred
+ *       @@foo = 99
+ *     end
+ *
+ *     def Fred.foo
+ *       class_variable_get(:@@foo)     #=> 99
+ *     end
+ */
+
+static VALUE
+rb_mod_cvar_get(obj, iv)
+    VALUE obj, iv;
+{
+    ID id = rb_to_id(iv);
+
+    if (!rb_is_class_id(id)) {
+	rb_name_error(id, "`%s' is not allowed as a class variable name", rb_id2name(id));
+    }
+    return rb_cvar_get(obj, id);
+}
+
+/*
+ *  call-seq:
+ *     obj.class_variable_set(symbol, obj)    => obj
+ *  
+ *  Sets the class variable names by <i>symbol</i> to
+ *  <i>object</i>.
+ *     
+ *     class Fred
+ *       @@foo = 99
+ *       def foo
+ *         @@foo
+ *       end
+ *     end
+ *
+ *     def Fred.foo
+ *       class_variable_set(:@@foo, 101)      #=> 101
+ *     end
+ *     Fred.foo
+ *     Fred.new.foo                             #=> 101
+ */
+
+static VALUE
+rb_mod_cvar_set(obj, iv, val)
+    VALUE obj, iv, val;
+{
+    ID id = rb_to_id(iv);
+
+    if (!rb_is_class_id(id)) {
+	rb_name_error(id, "`%s' is not allowed as a class variable name", rb_id2name(id));
+    }
+    rb_cvar_set(obj, id, val, Qfalse);
+    return val;
+}
+
+/*
+ *  call-seq:
+ *     obj.class_variable_defined?(symbol)    => true or false
+ *
+ *  Returns <code>true</code> if the given class variable is defined
+ *  in <i>obj</i>.
+ *
+ *     class Fred
+ *       @@foo = 99
+ *     end
+ *     Fred.class_variable_defined?(:@@foo)    #=> true
+ *     Fred.class_variable_defined?(:@@bar)    #=> false
+ */
+
+static VALUE
+rb_mod_cvar_defined(obj, iv)
+    VALUE obj, iv;
+{
+    ID id = rb_to_id(iv);
+
+    if (!rb_is_class_id(id)) {
+	rb_name_error(id, "`%s' is not allowed as a class variable name", rb_id2name(id));
+    }
+    return rb_cvar_defined(obj, id);
+}
+
 static VALUE
 convert_type(val, tname, method, raise)
     VALUE val;
@@ -2041,7 +2181,7 @@ convert_type(val, tname, method, raise)
     m = rb_intern(method);
     if (!rb_respond_to(val, m)) {
 	if (raise) {
-	    rb_raise(rb_eTypeError, "cannot convert %s into %s",
+	    rb_raise(rb_eTypeError, "can't convert %s into %s",
 		     NIL_P(val) ? "nil" :
 		     val == Qtrue ? "true" :
 		     val == Qfalse ? "false" :
@@ -2095,7 +2235,7 @@ rb_check_convert_type(val, type, tname, method)
 static VALUE
 rb_to_integer(val, method)
     VALUE val;
-    char *method;
+    const char *method;
 {
     VALUE v = convert_type(val, "Integer", method, Qtrue);
     if (!rb_obj_is_kind_of(v, rb_cInteger)) {
@@ -2175,6 +2315,9 @@ rb_cstr_to_dbl(p, badcheck)
     const char *q;
     char *end;
     double d;
+    const char *ellipsis = "";
+    int w;
+#define OutOfRange() (((w = end - p) > 20) ? (w = 20, ellipsis = "...") : (ellipsis = ""))
 
     if (!p) return 0.0;
     q = p;
@@ -2186,7 +2329,8 @@ rb_cstr_to_dbl(p, badcheck)
     }
     d = strtod(p, &end);
     if (errno == ERANGE) {
-	rb_warn("Float %*s out of range", end-p, p);
+	OutOfRange();
+	rb_warn("Float %.*s%s out of range", w, p, ellipsis);
 	errno = 0;
     }
     if (p == end) {
@@ -2220,18 +2364,20 @@ rb_cstr_to_dbl(p, badcheck)
 	p = buf;
 	d = strtod(p, &end);
 	if (errno == ERANGE) {
-	    rb_warn("Float %*s out of range", end-p, p);
+	    OutOfRange();
+	    rb_warn("Float %.*s%s out of range", w, p, ellipsis);
 	    errno = 0;
 	}
 	if (badcheck) {
-	    if (p == end) goto bad;
+	    if (!end || p == end) goto bad;
 	    while (*end && ISSPACE(*end)) end++;
 	    if (*end) goto bad;
 	}
     }
     if (errno == ERANGE) {
 	errno = 0;
-	rb_raise(rb_eArgError, "Float %s out of range", q);
+	OutOfRange();
+	rb_raise(rb_eArgError, "Float %.*s%s out of range", w, q, ellipsis);
     }
     return d;
 }
@@ -2280,7 +2426,7 @@ rb_Float(val)
 	return rb_float_new(rb_str_to_dbl(val, Qtrue));
 
       case T_NIL:
-	rb_raise(rb_eTypeError, "cannot convert nil into Float");
+	rb_raise(rb_eTypeError, "can't convert nil into Float");
 	break;
 
       default:
@@ -2463,7 +2609,7 @@ VALUE ruby_top_self;
  *     Creating a new Name
  *     
  *  Classes, modules, and objects are interrelated. In the diagram
- *  that follows, the arrows represent inheritance, and the
+ *  that follows, the vertical arrows represent inheritance, and the
  *  parentheses meta-classes. All metaclasses are instances 
  *  of the class `Class'.
  *
@@ -2536,10 +2682,7 @@ Init_Object()
 
     rb_define_method(rb_mKernel, "eql?", rb_obj_equal, 1);
 
-    rb_define_method(rb_mKernel, "hash", rb_obj_id, 0);
     rb_define_method(rb_mKernel, "id", rb_obj_id_obsolete, 0);
-    rb_define_method(rb_mKernel, "__id__", rb_obj_id, 0);
-    rb_define_method(rb_mKernel, "object_id", rb_obj_id, 0);
     rb_define_method(rb_mKernel, "type", rb_obj_type, 0);
     rb_define_method(rb_mKernel, "class", rb_obj_class, 0);
 
@@ -2567,6 +2710,7 @@ Init_Object()
 		     rb_obj_instance_variables, 0); /* in variable.c */
     rb_define_method(rb_mKernel, "instance_variable_get", rb_obj_ivar_get, 1);
     rb_define_method(rb_mKernel, "instance_variable_set", rb_obj_ivar_set, 2);
+    rb_define_method(rb_mKernel, "instance_variable_defined?", rb_obj_ivar_defined, 1);
     rb_define_private_method(rb_mKernel, "remove_instance_variable",
 			     rb_obj_remove_instance_variable, 1); /* in variable.c */
 
@@ -2624,7 +2768,7 @@ Init_Object()
     rb_define_method(rb_cModule, "<=", rb_class_inherited_p, 1);
     rb_define_method(rb_cModule, ">",  rb_mod_gt, 1);
     rb_define_method(rb_cModule, ">=", rb_mod_ge, 1);
-    rb_define_method(rb_cModule, "initialize_copy", rb_mod_init_copy, 1);
+    rb_define_method(rb_cModule, "initialize_copy", rb_mod_init_copy, 1); /* in class.c */
     rb_define_method(rb_cModule, "to_s", rb_mod_to_s, 0);
     rb_define_method(rb_cModule, "included_modules", 
 		     rb_mod_included_modules, 0); /* in class.c */
@@ -2648,6 +2792,7 @@ Init_Object()
     rb_define_method(rb_cModule, "private_instance_methods", 
 		     rb_class_private_instance_methods, -1);   /* in class.c */
 
+    rb_define_method(rb_cModule, "class_variable_defined?", rb_mod_cvar_defined, 1);
     rb_define_method(rb_cModule, "constants", rb_mod_constants, 0); /* in variable.c */
     rb_define_method(rb_cModule, "const_get", rb_mod_const_get, 1);
     rb_define_method(rb_cModule, "const_set", rb_mod_const_set, 2);
@@ -2660,11 +2805,13 @@ Init_Object()
 		     rb_mod_class_variables, 0); /* in variable.c */
     rb_define_private_method(rb_cModule, "remove_class_variable", 
 			     rb_mod_remove_cvar, 1); /* in variable.c */
+    rb_define_private_method(rb_cModule, "class_variable_get", rb_mod_cvar_get, 1);
+    rb_define_private_method(rb_cModule, "class_variable_set", rb_mod_cvar_set, 2);
 
     rb_define_method(rb_cClass, "allocate", rb_obj_alloc, 0);
     rb_define_method(rb_cClass, "new", rb_class_new_instance, -1);
     rb_define_method(rb_cClass, "initialize", rb_class_initialize, -1);
-    rb_define_method(rb_cClass, "initialize_copy", rb_class_init_copy, 1);
+    rb_define_method(rb_cClass, "initialize_copy", rb_class_init_copy, 1); /* in class.c */
     rb_define_method(rb_cClass, "superclass", rb_class_superclass, 0);
     rb_define_alloc_func(rb_cClass, rb_class_s_alloc);
     rb_undef_method(rb_cClass, "extend_object");
@@ -2673,8 +2820,8 @@ Init_Object()
     rb_cData = rb_define_class("Data", rb_cObject);
     rb_undef_alloc_func(rb_cData);
 
-    ruby_top_self = rb_obj_alloc(rb_cObject);
     rb_global_variable(&ruby_top_self);
+    ruby_top_self = rb_obj_alloc(rb_cObject);
     rb_define_singleton_method(ruby_top_self, "to_s", main_to_s, 0);
 
     rb_cTrueClass = rb_define_class("TrueClass", rb_cObject);

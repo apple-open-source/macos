@@ -1,3 +1,10 @@
+2004-12-08  Keith Seitz  <kseitz@sources.redhat.com>
+
+	From Ben Elliston (bje@gnu.org):
+	* rhabout.c (extra_text): Convert to object interface.
+	(Rhabout_Init): Use Tcl_CreateObjCommand instead of older argc/argv
+	Tcl_CreateCommand.
+
 2003-03-12  Martin M. Hunt  <hunt@redhat.com>
 
 	* rhabout.itcl (RHAbout): Fix call

@@ -40,19 +40,17 @@ class	CServerPlugin;
 //Extern
 extern DSMutexSemaphore	   *gTCPHandlerLock;
 
-struct sRefEntry;
-
 class CHandlerThread : public CInternalDispatchThread
 {
 public:
-					CHandlerThread			( const FourCharCode inThreadSignature, uInt32 iThread );
+					CHandlerThread			( const UInt32 inThreadSignature, UInt32 iThread );
 	virtual		   ~CHandlerThread			( void );
 	
-	virtual	long	ThreadMain			( void );		// we manage our own thread top level
+	virtual	SInt32	ThreadMain			( void );		// we manage our own thread top level
 	virtual	void	StartThread			( void );
 	virtual	void	StopThread			( void );
-			uInt32	GetOurThreadRunState( void );
-	static	sInt32	RefDeallocProc		( uInt32 inRefNum, uInt32 inRefType, CServerPlugin *inPluginPtr );
+			UInt32	GetOurThreadRunState( void );
+	static	SInt32	RefDeallocProc		( UInt32 inRefNum, UInt32 inRefType, CServerPlugin *inPluginPtr );
 
 protected:
 	virtual	void	LastChance			( void );
@@ -63,17 +61,30 @@ private:
 		void	HandleMessage					( void );
 		void	LogQueueDepth					( void );
 
-	uInt32				fThreadIndex;
+	UInt32				fThreadIndex;
+};
+
+class CPluginRunLoopThread : public CInternalDispatchThread
+{
+	public:
+						CPluginRunLoopThread	( void );
+		virtual		   ~CPluginRunLoopThread	( void );
+		
+		virtual	SInt32	ThreadMain				( void );		// we manage our own thread top level
+		virtual	void	StartThread				( void );
+		virtual	void	StopThread				( void );
+	
+	protected:
+		virtual	void	LastChance				( void );
 };
 
 class CMigHandlerThread : public CInternalDispatchThread
 {
 public:
-					CMigHandlerThread			( void );
-					CMigHandlerThread			( const FourCharCode inThreadSignature, bool bMigHelper );
+					CMigHandlerThread			( const UInt32 inThreadSignature, bool bMigHelper );
 	virtual		   ~CMigHandlerThread			( void );
 	
-	virtual	long	ThreadMain			( void );		// we manage our own thread top level
+	virtual	SInt32	ThreadMain			( void );		// we manage our own thread top level
 	virtual	void	StartThread			( void );
 	virtual	void	StopThread			( void );
 
@@ -84,95 +95,108 @@ private:
 	bool			bMigHelperThread;
 };
 
+class CMemberdKernelHandlerThread : public CInternalDispatchThread
+{
+public:
+					CMemberdKernelHandlerThread			( const UInt32 inThreadSignature );
+	virtual		   ~CMemberdKernelHandlerThread			( void );
+	
+	virtual	SInt32	ThreadMain			( void );		// we manage our own thread top level
+	virtual	void	StartThread			( void );
+	virtual	void	StopThread			( void );
+
+protected:
+	virtual	void	LastChance			( void );
+			
+private:
+};
+
 class CRequestHandler
 {
 public:
 					CRequestHandler		( void );
 	
 			bool	HandleRequest		( sComData **inRequest );
-            static char*	GetCallName				( sInt32 inType );
+            static char*	GetCallName				( SInt32 inType );
 			
 			// for mig handler to be able to call directly
-			sInt32	DoCheckUserNameAndPassword		( const char *userName, const char *password,
+			SInt32	DoCheckUserNameAndPassword		( const char *userName, const char *password,
 													  tDirPatternMatch inPatternMatch,
 													  uid_t *outUID, char **outShortName );
-			char*	BuildAPICallDebugDataTag		(	uInt32			inIPAddress,
-														sInt32			inClientPID,
+			char*	BuildAPICallDebugDataTag		(	UInt32			inIPAddress,
+														SInt32			inClientPID,
 														char		   *inCallName,
 														char		   *inName);
 			
 protected:
-			sInt32	HandleServerCall	( sComData **inRequest );
-			sInt32	HandlePluginCall	( sComData **inRequest );
-			sInt32	HandleUnknownCall	( sComData *inRequest );
+			SInt32	HandleServerCall	( sComData **inRequest );
+			SInt32	HandlePluginCall	( sComData **inRequest );
+			SInt32	HandleUnknownCall	( sComData *inRequest );
 			//methods that call Add methods for sComData need ptr to ptr since the buffer can grow and the ptr might change
 
 			bool	IsServerRequest		( sComData *inRequest );
 			bool	IsPluginRequest		( sComData *inRequest );
 
-			void*	GetRequestData		( sComData *inRequest, sInt32 *outResult, bool *outShouldProcess );
-			sInt32	PackageReply		( void *inData, sComData **inRequest );
-			uInt32	GetMsgType			( sComData *inRequest );
-			sInt32	FailedCallRefCleanUp( void *inData, sInt32 inClientPID, uInt32 inMsgType, uInt32 inIPAddress );
+			void*	GetRequestData		( sComData *inRequest, SInt32 *outResult, bool *outShouldProcess );
+			SInt32	PackageReply		( void *inData, sComData **inRequest );
+			UInt32	GetMsgType			( sComData *inRequest );
+			SInt32	FailedCallRefCleanUp( void *inData, SInt32 inClientPID, UInt32 inMsgType, UInt32 inIPAddress );
 
 			void	DoFreeMemory		( void *inData );
 
 private:
 
 	
-		sInt32	SetRequestResult				( sComData *inMsg, sInt32 inResult );
+		SInt32	SetRequestResult				( sComData *inMsg, SInt32 inResult );
 
-		void*	DoOpenDirNode					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoFlushRecord					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoReleaseContinueData			( sComData *inRequest, sInt32 *outStatus );
-		void*	DoPlugInCustomCall				( sComData *inRequest, sInt32 *outStatus );
-		void*	DoAttributeValueSearch			( sComData *inRequest, sInt32 *outStatus );
-		void*	DoAttributeValueSearchWithData	( sComData *inRequest, sInt32 *outStatus );
-		void*	DoMultipleAttributeValueSearch			( sComData *inRequest, sInt32 *outStatus );
-		void*	DoMultipleAttributeValueSearchWithData	( sComData *inRequest, sInt32 *outStatus );
-		void*	DoFindDirNodes					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoCloseDirNode					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoGetDirNodeInfo				( sComData *inRequest, sInt32 *outStatus );
-		void*	DoGetRecordList					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoGetRecordEntry				( sComData *inRequest, sInt32 *outStatus );
-		void*	DoGetAttributeEntry				( sComData *inRequest, sInt32 *outStatus );
-		void*	DoGetAttributeValue				( sComData *inRequest, sInt32 *outStatus );
-		void*	DoCloseAttributeList			( sComData *inRequest, sInt32 *outStatus );
-		void*	DoCloseAttributeValueList		( sComData *inRequest, sInt32 *outStatus );
-		void*	DoOpenRecord					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoGetRecRefInfo					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoGetRecAttribInfo				( sComData *inRequest, sInt32 *outStatus );
-		void*	DoGetRecordAttributeValueByIndex( sComData *inRequest, sInt32 *outStatus );
-		void*	DoGetRecordAttributeValueByValue( sComData *inRequest, sInt32 *outStatus );
-		void*	DoGetRecordAttributeValueByID	( sComData *inRequest, sInt32 *outStatus );
-		void*	DoCloseRecord					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoSetRecordName					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoSetRecordType					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoDeleteRecord					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoCreateRecord					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoAddAttribute					( sComData *inRequest, sInt32 *outStatus );
-		void*	DoRemoveAttribute				( sComData *inRequest, sInt32 *outStatus );
-		void*	DoAddAttributeValue				( sComData *inRequest, sInt32 *outStatus );
-		void*	DoRemoveAttributeValue			( sComData *inRequest, sInt32 *outStatus );
-		void*	DoSetAttributeValue				( sComData *inRequest, sInt32 *outStatus );
-		void*   DoSetAttributeValues			( sComData *inRequest, sInt32 *outStatus );
-		void*	DoAuthentication				( sComData *inRequest, sInt32 *outStatus );
-		void*	DoAuthenticationOnRecordType	( sComData *inRequest, sInt32 *outStatus );
+		void*	DoOpenDirNode					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoFlushRecord					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoReleaseContinueData			( sComData *inRequest, SInt32 *outStatus );
+		void*	DoPlugInCustomCall				( sComData *inRequest, SInt32 *outStatus );
+		void*	DoAttributeValueSearch			( sComData *inRequest, SInt32 *outStatus );
+		void*	DoAttributeValueSearchWithData	( sComData *inRequest, SInt32 *outStatus );
+		void*	DoMultipleAttributeValueSearch			( sComData *inRequest, SInt32 *outStatus );
+		void*	DoMultipleAttributeValueSearchWithData	( sComData *inRequest, SInt32 *outStatus );
+		void*	DoFindDirNodes					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoCloseDirNode					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoGetDirNodeInfo				( sComData *inRequest, SInt32 *outStatus );
+		void*	DoGetRecordList					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoGetRecordEntry				( sComData *inRequest, SInt32 *outStatus );
+		void*	DoGetAttributeEntry				( sComData *inRequest, SInt32 *outStatus );
+		void*	DoGetAttributeValue				( sComData *inRequest, SInt32 *outStatus );
+		void*	DoCloseAttributeList			( sComData *inRequest, SInt32 *outStatus );
+		void*	DoCloseAttributeValueList		( sComData *inRequest, SInt32 *outStatus );
+		void*	DoOpenRecord					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoGetRecRefInfo					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoGetRecAttribInfo				( sComData *inRequest, SInt32 *outStatus );
+		void*	DoGetRecordAttributeValueByIndex( sComData *inRequest, SInt32 *outStatus );
+		void*	DoGetRecordAttributeValueByValue( sComData *inRequest, SInt32 *outStatus );
+		void*	DoGetRecordAttributeValueByID	( sComData *inRequest, SInt32 *outStatus );
+		void*	DoCloseRecord					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoSetRecordName					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoSetRecordType					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoDeleteRecord					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoCreateRecord					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoAddAttribute					( sComData *inRequest, SInt32 *outStatus );
+		void*	DoRemoveAttribute				( sComData *inRequest, SInt32 *outStatus );
+		void*	DoAddAttributeValue				( sComData *inRequest, SInt32 *outStatus );
+		void*	DoRemoveAttributeValue			( sComData *inRequest, SInt32 *outStatus );
+		void*	DoSetAttributeValue				( sComData *inRequest, SInt32 *outStatus );
+		void*   DoSetAttributeValues			( sComData *inRequest, SInt32 *outStatus );
+		void*	DoAuthentication				( sComData *inRequest, SInt32 *outStatus );
+		void*	DoAuthenticationOnRecordType	( sComData *inRequest, SInt32 *outStatus );
 
-		void*	GetNodeList						( sComData *inRequest, sInt32 *outStatus );
-		void*	FindDirNodes					( sComData *inRequest, sInt32 *outStatus, char *inDebugDataTag );
-		bool	UserIsAdmin						( const char* shortName );
-		bool	UserIsMemberOfGroup				( tDirReference inDirRef, tDirNodeReference inDirNodeRef,
-												  const char* shortName, const char* groupName );
-		char*	GetNameForProcessID				( pid_t inPID );
+		void*	GetNodeList						( sComData *inRequest, SInt32 *outStatus );
+		void*	FindDirNodes					( sComData *inRequest, SInt32 *outStatus, char *inDebugDataTag );
+		bool	UserInGivenGroup				( const char* shortName, const char* groupName );
 		void	LogAPICall						(	double			inTime,
 													char		   *inDebugDataTag,
-													sInt32			inResult);
+													SInt32			inResult);
 		void	DebugAPIPluginCall				(	void		   *inData,
 													char		   *inDebugDataTag );
 		void	DebugAPIPluginResponse			(	void		   *inData,
 													char		   *inDebugDataTag,
-													sInt32			inResult);
+													SInt32			inResult);
 		
 	CServerPlugin	   *fPluginPtr;
 	bool				bClosePort;

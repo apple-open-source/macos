@@ -73,7 +73,7 @@ INSTALL_FILES = $(CFILES) $(HFILES) shlib.ofileList dylib.ofileList Makefile \
 
 OBJS = arch.o getsecbyname.o getsegbyname.o get_end.o swap.o \
        hppa_swap.o i386_swap.o m68k_swap.o sparc_swap.o ppc_swap.o \
-       i860_swap.o m88k_swap.o
+       i860_swap.o m88k_swap.o vers.o
 
 all: lib_ofiles
 
@@ -274,6 +274,10 @@ else
 		-o $(OFILE_DIR)/$*.o $<
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
 endif
+
+vers.c:
+	vers_string -l $(VERS_STRING_FLAGS) libmacho > $(OFILE_DIR)/$@
+	echo "const char *libmacho_version= SGS_VERS;" >> $(OFILE_DIR)/$@
 
 clean:
 	-rm -r -f $(OFILE_DIRS) $(OBJROOT)/static_obj

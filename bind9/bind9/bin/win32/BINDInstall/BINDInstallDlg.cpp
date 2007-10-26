@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: BINDInstallDlg.cpp,v 1.6.2.6.2.16.4.1 2007/06/27 01:16:43 marka Exp $ */
+/* $Id: BINDInstallDlg.cpp,v 1.15.18.10.12.2 2007/06/27 01:06:14 marka Exp $ */
 
 /*
  * Copyright (c) 1999-2000 by Nortel Networks Corporation
@@ -113,6 +113,18 @@ const FileData installFiles[] =
 	{"msvcrt.dll", FileData::WinSystem, FileData::Critical, TRUE},
 #  endif
 #endif
+#if _MSC_VER >= 1400
+	{"MFC80CHS.dll", FileData::BinDir, FileData::Critical, FALSE},
+	{"MFC80CHT.dll", FileData::BinDir, FileData::Critical, FALSE},
+	{"MFC80DEU.dll", FileData::BinDir, FileData::Critical, FALSE},
+	{"MFC80ENU.dll", FileData::BinDir, FileData::Critical, FALSE},
+	{"MFC80ESP.dll", FileData::BinDir, FileData::Critical, FALSE},
+	{"MFC80FRA.dll", FileData::BinDir, FileData::Critical, FALSE},
+	{"MFC80ITA.dll", FileData::BinDir, FileData::Critical, FALSE},
+	{"MFC80JPN.dll", FileData::BinDir, FileData::Critical, FALSE},
+	{"MFC80KOR.dll", FileData::BinDir, FileData::Critical, FALSE},
+	{"Microsoft.VC80.MFCLOC.manifest", FileData::BinDir, FileData::Critical, FALSE},
+#endif
 #if _MSC_VER < 1400
 #if _MSC_VER >= 1310
 	{"mfc71.dll", FileData::WinSystem, FileData::Critical, TRUE},
@@ -142,6 +154,7 @@ const FileData installFiles[] =
 	{"dnssec-signzone.exe", FileData::BinDir, FileData::Normal, FALSE},
 	{"named-checkconf.exe", FileData::BinDir, FileData::Normal, FALSE},
 	{"named-checkzone.exe", FileData::BinDir, FileData::Normal, FALSE},
+	{"named-compilezone.exe", FileData::BinDir, FileData::Normal, FALSE},
 	{"readme1st.txt", FileData::BinDir, FileData::Trivial, FALSE},
 	{NULL, -1, -1}
 };

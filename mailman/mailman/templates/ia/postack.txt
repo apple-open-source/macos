@@ -1,0 +1,8 @@
+Tu message con le titulo
+
+    %(subject)s
+
+esseva recipite successosemente per le lista de correspondentia %(listname)s.
+
+Pagina de information del lista: %(listinfo_url)s
+Tu preferentias: %(optionsurl)s

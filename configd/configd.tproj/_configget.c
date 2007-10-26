@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,7 @@ __SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef *v
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	CFDictionaryRef			dict;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -95,7 +95,7 @@ _configget(mach_port_t			server,
 		goto done;
 	}
 
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		goto done;
 	}
@@ -120,7 +120,7 @@ _configget(mach_port_t			server,
 
     done :
 
-	if (key)	CFRelease(key);
+	if (key != NULL)	CFRelease(key);
 	return KERN_SUCCESS;
 }
 
@@ -184,7 +184,7 @@ __SCDynamicStoreCopyMultiple(SCDynamicStoreRef store, CFArrayRef keys, CFArrayRe
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	addSpecific			myContext;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
@@ -242,16 +242,12 @@ _configget_m(mach_port_t		server,
 	*dataRef = NULL;
 	*dataLen = 0;
 
+	*sc_status = kSCStatusOK;
+
 	if (keysRef && (keysLen > 0)) {
 		/* un-serialize the keys */
 		if (!_SCUnserialize((CFPropertyListRef *)&keys, NULL, (void *)keysRef, keysLen)) {
 			*sc_status = kSCStatusFailed;
-			goto done;
-		}
-
-		if (!isA_CFArray(keys)) {
-			*sc_status = kSCStatusInvalidArgument;
-			goto done;
 		}
 	}
 
@@ -259,16 +255,24 @@ _configget_m(mach_port_t		server,
 		/* un-serialize the patterns */
 		if (!_SCUnserialize((CFPropertyListRef *)&patterns, NULL, (void *)patternsRef, patternsLen)) {
 			*sc_status = kSCStatusFailed;
-			goto done;
-		}
-
-		if (!isA_CFArray(patterns)) {
-			*sc_status = kSCStatusInvalidArgument;
-			goto done;
 		}
 	}
 
-	if (!mySession) {
+	if (*sc_status != kSCStatusOK) {
+		goto done;
+	}
+
+	if ((keys != NULL) && !isA_CFArray(keys)) {
+		*sc_status = kSCStatusInvalidArgument;
+		goto done;
+	}
+
+	if ((patterns != NULL) && !isA_CFArray(patterns)) {
+		*sc_status = kSCStatusInvalidArgument;
+		goto done;
+	}
+
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		goto done;
 	}

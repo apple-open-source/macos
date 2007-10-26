@@ -215,4 +215,3 @@ public:
 
 #endif /* !_TOKEND_ATTRIBUTECODER_H_ */
 
-/* arch-tag: BA06D3C6-F13E-11D8-83F1-000A95C4302E */

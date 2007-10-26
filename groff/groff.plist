@@ -3,17 +3,18 @@
 	<key>OpenSourceProject</key>
 	<string>groff</string>
 	<key>OpenSourceVersion</key>
-	<string>1.19.1</string>
+	<string>1.19.2</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.gnu.org/software/groff/</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.gnu.org/pub/gnu/groff/groff-1.19.1.tar.gz</string>
-	<key>OpenSourceMD5</key>
-	<string>57d155378640c12a80642664dfdfc892</string>
+	<string>http://ftp.gnu.org/pub/gnu/groff/groff-1.19.2.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>cfad99a5c52933a6a9180e394bd94fbaec0ac956</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Added Darwin to the list of valid .Os values.</string>
 		<string>Disabled SGR by default (color codes).</string>
+		<string>Added -susv3 standards definition.</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>

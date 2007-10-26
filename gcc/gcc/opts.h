@@ -43,6 +43,9 @@ struct cl_option
   int set_value;
 };
 
+/* APPLE LOCAL begin mainline 4840357 */
+extern bool no_unit_at_a_time_default;
+/* APPLE LOCAL end mainline 4840357 */
 extern const struct cl_option cl_options[];
 extern const unsigned int cl_options_count;
 extern const char *const lang_names[];
@@ -51,6 +54,8 @@ extern const char *const lang_names[];
 #define CL_VARUINT		(1 << 20) /* Associated vbl is uint not bool. */
 #define CL_PERFUNC		(1 << 21) /* Changeable per function.  */
 /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
+/* APPLE LOCAL mainline */
+#define CL_TARGET		(1 << 22) /* Target-specific option.  */
 #define CL_REPORT		(1 << 23) /* Report argument with -fverbose-asm  */
 #define CL_JOINED		(1 << 24) /* If takes joined argument.  */
 #define CL_SEPARATE		(1 << 25) /* If takes a separate argument.  */

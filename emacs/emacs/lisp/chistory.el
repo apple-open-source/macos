@@ -1,9 +1,11 @@
 ;;; chistory.el --- list command history
 
-;; Copyright (C) 1985 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: K. Shane Hartman
 ;; Maintainer: FSF
+;; Keywords: convenience
 
 ;; This file is part of GNU Emacs.
 
@@ -19,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -124,13 +126,27 @@ The buffer is left in Command History mode."
 	  (error "No command history")
 	(command-history-mode)))))
 
+(defvar command-history-map nil)
+(unless command-history-map
+  (setq command-history-map (make-sparse-keymap))
+  (set-keymap-parent command-history-map lisp-mode-shared-map)
+  (suppress-keymap command-history-map)
+  (define-key command-history-map "x" 'command-history-repeat)
+  (define-key command-history-map "\n" 'next-line)
+  (define-key command-history-map "\r" 'next-line)
+  (define-key command-history-map "\177" 'previous-line))
+
 (defun command-history-mode ()
-  "Major mode for listing and repeating recent commands."
+  "Major mode for listing and repeating recent commands.
+
+Keybindings:
+\\{command-history-map}"
+  (interactive)
   (Command-history-setup)
   (setq major-mode 'command-history-mode)
   (setq mode-name "Command History")
   (use-local-map command-history-map)
-  (run-hooks 'command-history-mode-hook))
+  (run-mode-hooks 'command-history-mode-hook))
 
 (defun Command-history-setup ()
   (kill-all-local-variables)
@@ -143,16 +159,6 @@ The buffer is left in Command History mode."
   "If non-nil, its value is called on entry to `command-history-mode'."
   :type 'hook
   :group 'chistory)
-
-(defvar command-history-map nil)
-(unless command-history-map
-  (setq command-history-map (make-sparse-keymap))
-  (set-keymap-parent command-history-map lisp-mode-shared-map)
-  (suppress-keymap command-history-map)
-  (define-key command-history-map "x" 'command-history-repeat)
-  (define-key command-history-map "\n" 'next-line)
-  (define-key command-history-map "\r" 'next-line)
-  (define-key command-history-map "\177" 'previous-line))
 
 (defun command-history-repeat ()
   "Repeat the command shown on the current line.
@@ -186,4 +192,5 @@ and runs the normal hook `command-history-hook'."
 
 (provide 'chistory)
 
+;;; arch-tag: c201a0cd-89f2-4d39-a532-4cb309391dbd
 ;;; chistory.el ends here

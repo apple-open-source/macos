@@ -1,0 +1,23 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>libxml-ruby</string>
+        <key>OpenSourceVersion</key>
+        <string>0.3.8.4</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://libxml.rubyforge.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>7d2ec4c424363d7cde6b48dbbd23d5c5ddd1ade2</string>
+        <key>OpenSourceImportDate</key>
+        <string>2007-03-04</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>libxml-ruby.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+	</array>
+</dict>
+</array>
+</plist>

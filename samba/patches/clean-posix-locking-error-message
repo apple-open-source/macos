@@ -1,0 +1,26 @@
+Index: samba/source/locking/posix.c
+===================================================================
+--- samba/source/locking/posix.c.orig
++++ samba/source/locking/posix.c
+@@ -199,8 +199,8 @@ static BOOL posix_fcntl_lock(files_struc
+ 
+ 		DEBUG(0,("posix_fcntl_lock: WARNING: lock request at offset %.0f, length %.0f returned\n",
+ 					(double)offset,(double)count));
+-		DEBUG(0,("an %s error. This can happen when using 64 bit lock offsets\n", strerror(errno)));
+-		DEBUG(0,("on 32 bit NFS mounted file systems.\n"));
++		DEBUGADD(0,("an %s error. This can happen when using 64 bit lock offsets\n", strerror(errno)));
++		DEBUGADD(0,("on 32 bit NFS mounted file systems.\n"));
+ 
+ 		/*
+ 		 * If the offset is > 0x7FFFFFFF then this will cause problems on
+@@ -248,8 +248,8 @@ static BOOL posix_fcntl_getlock(files_st
+ 
+ 		DEBUG(0,("posix_fcntl_getlock: WARNING: lock request at offset %.0f, length %.0f returned\n",
+ 					(double)*poffset,(double)*pcount));
+-		DEBUG(0,("an %s error. This can happen when using 64 bit lock offsets\n", strerror(errno)));
+-		DEBUG(0,("on 32 bit NFS mounted file systems.\n"));
++		DEBUGADD(0,("an %s error. This can happen when using 64 bit lock offsets\n", strerror(errno)));
++		DEBUGADD(0,("on 32 bit NFS mounted file systems.\n"));
+ 
+ 		/*
+ 		 * If the offset is > 0x7FFFFFFF then this will cause problems on

@@ -4,21 +4,17 @@
 <array>
 	<dict>
 		<key>Options</key>
-		<string>attempts:4</string>
-		<key>ServerAddresses</key>
-		<array>
-			<string>224.0.0.251</string>
-			<string>ff02::fb</string>
-		</array>
-		<key>ServerPort</key>
-		<integer>5353</integer>
+		<string>mdns</string>
 		<key>ServerTimeout</key>
 		<integer>2</integer>
 		<key>SupplementalMatchDomains</key>
 		<array>
 			<string>local</string>
 			<string>254.169.in-addr.arpa</string>
-			<string>0.8.e.f.ip6.arpa</string>
+			<string>8.e.f.ip6.arpa</string>
+			<string>9.e.f.ip6.arpa</string>
+			<string>a.e.f.ip6.arpa</string>
+			<string>b.e.f.ip6.arpa</string>
 		</array>
 	</dict>
 </array>

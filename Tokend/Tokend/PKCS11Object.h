@@ -89,4 +89,3 @@ private:
 
 #endif /* !_TOKEND_PKCS11OBJECT_H_ */
 
-/* arch-tag: 9266465C-FE04-11D8-9E28-000A95C4302E */

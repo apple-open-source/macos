@@ -1,10 +1,10 @@
 " Vim settings file
 " Language:     LambdaProlog (Teyjus)
-" Maintainer:   Markus Mottl  <markus@oefai.at>
-" URL:		http://www.ai.univie.ac.at/~markus/vim/ftplugin/lprolog.vim
-" Last Change:	2003 May 11
-"		2001 Sep 16 - fixed 'no_mail_maps'-bug (MM)
-"		2001 Sep 02 - initial release  (MM)
+" Maintainer:   Markus Mottl  <markus.mottl@gmail.com>
+" URL:          http://www.ocaml.info/vim/ftplugin/lprolog.vim
+" Last Change:  2006 Feb 05
+"               2001 Sep 16 - fixed 'no_mail_maps'-bug (MM)
+"               2001 Sep 02 - initial release  (MM)
 
 " Only do these settings when not done yet for this buffer
 if exists("b:did_ftplugin")

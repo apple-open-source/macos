@@ -1,178 +1,285 @@
---- samba/source/rpc_server/srv_netlog_nt.c.orig	2004-12-10 16:41:32.000000000 -0800
-+++ samba/source/rpc_server/srv_netlog_nt.c	2004-12-10 16:39:49.000000000 -0800
-@@ -312,11 +312,55 @@
- 	DOM_CHAL srv_cred;
- 	UTIME srv_time;
- 	fstring mach_acct;
-+#ifdef WITH_OPENDIRECTORY
-+	tDirStatus dirStatus = eDSNullParameter;
-+#endif
+Index: samba/source/rpc_server/srv_netlog_nt.c
+===================================================================
+--- samba/source/rpc_server/srv_netlog_nt.c.orig
++++ samba/source/rpc_server/srv_netlog_nt.c
+@@ -25,6 +25,7 @@
+ /* This is the implementation of the netlogon pipe. */
  
- 	srv_time.time = 0;
+ #include "includes.h"
++#include "opendirectory.h"
  
- 	rpcstr_pull(mach_acct, q_u->clnt_id.uni_acct_name.buffer,sizeof(fstring),q_u->clnt_id.uni_acct_name.uni_str_len*2,0);
+ extern userdom_struct current_user_info;
  
-+#ifdef WITH_OPENDIRECTORY
-+	if (p->dc.challenge_sent) {
+@@ -361,6 +362,7 @@ NTSTATUS _net_auth(pipes_struct *p, NET_
+ 	fstring remote_machine;
+ 	DOM_CHAL srv_chal_out;
+ 
 +
-+		/* from client / server challenges and md4 password, generate sess key */
-+		if (lp_opendirectory()) {
-+			//check acct_ctrl flags
-+			become_root();
-+			dirStatus = opendirectory_cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal, mach_acct, p->dc.sess_key, NULL);
-+			unbecome_root();
-+			DEBUG(4, ("_net_auth opendirectory_cred_session_key [%d]\n", dirStatus));
-+		} else if (get_md4pw((char *)p->dc.md4pw, mach_acct)) {
-+			cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal,
-+					 p->dc.md4pw, p->dc.sess_key);
-+		} else {
-+			status = NT_STATUS_ACCESS_DENIED;
-+			goto exit;
-+		}
-+		
-+		/* check that the client credentials are valid */
-+		if (cred_assert(&q_u->clnt_chal, p->dc.sess_key, &p->dc.clnt_cred.challenge, srv_time)) {
-+			
-+			/* create server challenge for inclusion in the reply */
-+			cred_create(p->dc.sess_key, &p->dc.srv_cred.challenge, srv_time, &srv_cred);
-+		
-+			/* copy the received client credentials for use next time */
-+			memcpy(p->dc.clnt_cred.challenge.data, q_u->clnt_chal.data, sizeof(q_u->clnt_chal.data));
-+			memcpy(p->dc.srv_cred .challenge.data, q_u->clnt_chal.data, sizeof(q_u->clnt_chal.data));
-+			
-+			/* Save the machine account name. */
-+			fstrcpy(p->dc.mach_acct, mach_acct);
-+		
-+			p->dc.authenticated = True;
+ 	if (!p->dc || !p->dc->challenge_sent) {
+ 		return NT_STATUS_ACCESS_DENIED;
+ 	}
+@@ -370,7 +372,23 @@ NTSTATUS _net_auth(pipes_struct *p, NET_
+ 	rpcstr_pull(remote_machine, q_u->clnt_id.uni_comp_name.buffer,sizeof(fstring),
+ 				q_u->clnt_id.uni_comp_name.uni_str_len*2,0);
+ 
+-	status = get_md4pw((char *)p->dc->mach_pw, mach_acct, q_u->clnt_id.sec_chan);
++	if (lp_opendirectory()) {
++		tDirStatus dirStatus;
++		become_root();
++		dirStatus = opendirectory_cred_session_key(&p->dc->clnt_chal,
++				&p->dc->srv_chal, mach_acct,
++				p->dc->sess_key);
++		unbecome_root();
++		DEBUG(4, ("_net_auth opendirectory_cred_session_key [%d]\n",
++				dirStatus));
 +
-+		} else {
-+			status = NT_STATUS_ACCESS_DENIED;
-+		}
++		status = (dirStatus == eDSNoErr) ? NT_STATUS_OK
++						 : NT_STATUS_UNSUCCESSFUL;
 +	} else {
-+		status = NT_STATUS_ACCESS_DENIED;
++		status = get_md4pw((char *)p->dc->mach_pw, mach_acct,
++				q_u->clnt_id.sec_chan);
 +	}
-+exit:
-+#else
- 	if (p->dc.challenge_sent && get_md4pw((char *)p->dc.md4pw, mach_acct)) {
- 
- 		/* from client / server challenges and md4 password, generate sess key */
-@@ -344,6 +388,7 @@
- 	} else {
- 		status = NT_STATUS_ACCESS_DENIED;
- 	}
-+#endif
- 	
- 	/* set up the LSA AUTH response */
- 	init_net_r_auth(r_u, &srv_cred, status);
-@@ -374,6 +419,9 @@
- 	UTIME srv_time;
- 	NEG_FLAGS srv_flgs;
- 	fstring mach_acct;
-+#ifdef WITH_OPENDIRECTORY
-+	tDirStatus dirStatus = eDSNullParameter;
-+#endif
- 
- 	srv_time.time = 0;
- 
-@@ -385,7 +433,49 @@
- 	}
- 
- 	rpcstr_pull(mach_acct, q_u->clnt_id.uni_acct_name.buffer,sizeof(fstring),q_u->clnt_id.uni_acct_name.uni_str_len*2,0);
-+#ifdef WITH_OPENDIRECTORY
-+	if (p->dc.challenge_sent) {
-+		
-+		/* from client / server challenges and md4 password, generate sess key */
-+		if (lp_opendirectory()) {
-+			//check acct_ctrl flags
-+			become_root();
-+			dirStatus = opendirectory_cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal, mach_acct, p->dc.sess_key, NULL);
-+			unbecome_root();
-+			DEBUG(4, ("_net_auth_2 opendirectory_cred_session_key [%d]\n", dirStatus));
-+		} else if (get_md4pw((char *)p->dc.md4pw, mach_acct)) {
-+		cred_session_key(&p->dc.clnt_chal, &p->dc.srv_chal,
-+				 p->dc.md4pw, p->dc.sess_key);
-+		} else {
-+			DEBUG(0, ("_net_auth_2 CAN NOT COMPUTE SESSION KEY \n"));
-+			status = NT_STATUS_ACCESS_DENIED;
-+			goto exit;
-+		}
-+		
-+		/* check that the client credentials are valid */
-+		if (cred_assert(&q_u->clnt_chal, p->dc.sess_key, &p->dc.clnt_cred.challenge, srv_time)) {
-+			
-+			/* create server challenge for inclusion in the reply */
-+			cred_create(p->dc.sess_key, &p->dc.srv_cred.challenge, srv_time, &srv_cred);
- 
-+			/* copy the received client credentials for use next time */
-+			memcpy(p->dc.clnt_cred.challenge.data, q_u->clnt_chal.data, sizeof(q_u->clnt_chal.data));
-+			memcpy(p->dc.srv_cred .challenge.data, q_u->clnt_chal.data, sizeof(q_u->clnt_chal.data));
-+			
-+			/* Save the machine account name. */
-+			fstrcpy(p->dc.mach_acct, mach_acct);
-+			
-+			p->dc.authenticated = True;
 +
-+		} else {
-+			status = NT_STATUS_ACCESS_DENIED;
-+		}
-+	} else {
-+		status = NT_STATUS_ACCESS_DENIED;
-+	}
-+	
-+exit:
-+#else
- 	if (p->dc.challenge_sent && get_md4pw((char *)p->dc.md4pw, mach_acct)) {
- 		
- 		/* from client / server challenges and md4 password, generate sess key */
-@@ -413,7 +503,7 @@
- 	} else {
- 		status = NT_STATUS_ACCESS_DENIED;
+ 	if (!NT_STATUS_IS_OK(status)) {
+ 		DEBUG(0,("_net_auth: creds_server_check failed. Failed to "
+ 			"get password for machine account %s "
+@@ -454,7 +472,38 @@ NTSTATUS _net_auth_2(pipes_struct *p, NE
+ 		return NT_STATUS_ACCESS_DENIED;
  	}
--	
-+#endif	
- 	srv_flgs.neg_flags = 0x000001ff;
  
- 	if (lp_server_schannel() != False) {
-@@ -446,6 +536,9 @@
- 	int i;
- 	uint32 acct_ctrl;
- 	const uchar *old_pw;
-+#ifdef WITH_OPENDIRECTORY
-+	tDirStatus dirStatus = eDSNullParameter;
-+#endif
- 
- 	/* checks and updates credentials.  creates reply credentials */
- 	if (!(p->dc.authenticated && deal_with_creds(p->dc.sess_key, &p->dc.clnt_cred, &q_u->clnt_id.cred, &srv_cred)))
-@@ -490,6 +583,21 @@
+-	status = get_md4pw((char *)p->dc->mach_pw, mach_acct, q_u->clnt_id.sec_chan);
++	if (lp_opendirectory()) {
++
++		/* XXX Open Directory doesn't support 128bit challenges yet. */
++		if (q_u->clnt_flgs.neg_flags & NETLOGON_NEG_128BIT) {
++			DEBUG(2, ("refusing NETLOGON_NEG_128BIT auth attempt\n"));
++			status = NT_STATUS_NOT_SUPPORTED;
++		} else {
++
++			//check acct_ctrl flags
++			tDirStatus dirStatus;
++			become_root();
++			dirStatus =
++			    opendirectory_cred_session_key(&p->dc->clnt_chal,
++					    &p->dc->srv_chal, mach_acct,
++					    p->dc->sess_key);
++			unbecome_root();
++			DEBUG(4, ("_net_auth_2: "
++				"opendirectory_cred_session_key [%d]\n",
++				    dirStatus));
++
++			/* FIXME: there should be a proper error mapping from
++			 * tDirStatus to NT_ERROR types -- jpeach
++			 */
++			status = (dirStatus == eDSNoErr) ? NT_STATUS_OK
++							: NT_STATUS_UNSUCCESSFUL;
++		}
++
++	} else {
++		status = get_md4pw((char *)p->dc->mach_pw, mach_acct,
++				q_u->clnt_id.sec_chan);
++	}
++
+ 	if (!NT_STATUS_IS_OK(status)) {
+ 		DEBUG(0,("_net_auth2: failed to get machine password for "
+ 			"account %s: %s\n",
+@@ -603,35 +652,52 @@ NTSTATUS _net_srv_pwset(pipes_struct *p,
  		DEBUG(100,("%02X ", pwd[i]));
  	DEBUG(100,("\n"));
  
-+#ifdef WITH_OPENDIRECTORY
+-	old_pw = pdb_get_nt_passwd(sampass);
 +	if (lp_opendirectory()) {
-+		become_root();
-+		dirStatus = opendirectory_set_workstation_nthash(p->dc.mach_acct, pwd, NULL);
-+		unbecome_root();
-+		DEBUG(2, ("_net_srv_pwset opendirectory_set_workstation_nthash [%d]\n", dirStatus));
-+		if (dirStatus != eDSNoErr) {
-+			pdb_free_sam(&sampass);
-+			return NT_STATUS_UNSUCCESSFUL;
-+		} else {
-+			status = NT_STATUS_OK;
-+		}
-+	} else {
-+#endif
-+
- 	old_pw = pdb_get_nt_passwd(sampass);
++		tDirStatus dirStatus = eDSNullParameter;
  
- 	if (old_pw && memcmp(pwd, old_pw, 16) == 0) {
-@@ -522,7 +630,9 @@
- 	}
- 	if (ret)
- 		status = NT_STATUS_OK;
+-	if (old_pw && memcmp(pwd, old_pw, 16) == 0) {
+-		/* Avoid backend modificiations and other fun if the 
+-		   client changed the password to the *same thing* */
 -
-+#ifdef WITH_OPENDIRECTORY
-+ 	}
-+#endif
+-		ret = True;
+-	} else {
++		become_root();
++		dirStatus =
++		    opendirectory_set_workstation_nthash(p->dc->mach_acct, pwd);
++		unbecome_root();
+ 
+-		/* LM password should be NULL for machines */
+-		if (!pdb_set_lanman_passwd(sampass, NULL, PDB_CHANGED)) {
+-			TALLOC_FREE(sampass);
+-			return NT_STATUS_NO_MEMORY;
+-		}
+-		
+-		if (!pdb_set_nt_passwd(sampass, pwd, PDB_CHANGED)) {
++		DEBUG(2, ("_net_srv_pwset "
++			"opendirectory_set_workstation_nthash [%d]\n",
++			dirStatus));
++		if (dirStatus != eDSNoErr) {
+ 			TALLOC_FREE(sampass);
+-			return NT_STATUS_NO_MEMORY;
++			return NT_STATUS_UNSUCCESSFUL;
+ 		}
+-		
++	} else {
++		old_pw = pdb_get_nt_passwd(sampass);
++
++		if (old_pw && memcmp(pwd, old_pw, 16) == 0) {
++			/* Avoid backend modificiations and other fun if the
++			   client changed the password to the *same thing* */
++
++			ret = True;
++		} else {
++
++			/* LM password should be NULL for machines */
++			if (!pdb_set_lanman_passwd(sampass, NULL, PDB_CHANGED)) {
++				TALLOC_FREE(sampass);
++				return NT_STATUS_NO_MEMORY;
++			}
++
++			if (!pdb_set_nt_passwd(sampass, pwd, PDB_CHANGED)) {
++				TALLOC_FREE(sampass);
++				return NT_STATUS_NO_MEMORY;
++			}
++
+ 		if (!pdb_set_pass_last_set_time(sampass, time(NULL), PDB_CHANGED)) {
+-			TALLOC_FREE(sampass);
+-			/* Not quite sure what this one qualifies as, but this will do */
+-			return NT_STATUS_UNSUCCESSFUL; 
++				TALLOC_FREE(sampass);
++				/* Not quite sure what this one qualifies as, but this will do */
++				return NT_STATUS_UNSUCCESSFUL;
++			}
++
++			become_root();
++			r_u->status = pdb_update_sam_account(sampass);
++			unbecome_root();
+ 		}
+-		
+-		become_root();
+-		r_u->status = pdb_update_sam_account(sampass);
+-		unbecome_root();
+ 	}
+ 
  	/* set up the LSA Server Password Set response */
- 	init_net_r_srv_pwset(r_u, &srv_cred, status);
+@@ -964,14 +1030,11 @@ static NTSTATUS _net_sam_logon_internal(
+ 	{
+ 		DOM_GID *gids = NULL;
+ 		const DOM_SID *user_sid = NULL;
+-		const DOM_SID *group_sid = NULL;
+ 		DOM_SID domain_sid;
+ 		uint32 user_rid, group_rid; 
+ 
+ 		int num_gids = 0;
+ 		pstring my_name;
+-		fstring user_sid_string;
+-		fstring group_sid_string;
+ 		unsigned char user_session_key[16];
+ 		unsigned char lm_session_key[16];
+ 		unsigned char pipe_session_key[16];
+@@ -983,28 +1046,14 @@ static NTSTATUS _net_sam_logon_internal(
+ 		usr_info->ptr_user_info = 0;
+ 
+ 		user_sid = pdb_get_user_sid(sampw);
+-		group_sid = pdb_get_group_sid(sampw);
+ 
+-		if ((user_sid == NULL) || (group_sid == NULL)) {
+-			DEBUG(1, ("_net_sam_logon: User without group or user SID\n"));
++		if ((user_sid == NULL)) {
++			DEBUG(1, ("_net_sam_logon: User without user SID\n"));
+ 			return NT_STATUS_UNSUCCESSFUL;
+ 		}
+ 
+ 		sid_copy(&domain_sid, user_sid);
+ 		sid_split_rid(&domain_sid, &user_rid);
+-
+-		if (!sid_peek_check_rid(&domain_sid, group_sid, &group_rid)) {
+-			DEBUG(1, ("_net_sam_logon: user %s\\%s has user sid "
+-				  "%s\n but group sid %s.\n"
+-				  "The conflicting domain portions are not "
+-				  "supported for NETLOGON calls\n", 	    
+-				  pdb_get_domain(sampw),
+-				  pdb_get_username(sampw),
+-				  sid_to_string(user_sid_string, user_sid),
+-				  sid_to_string(group_sid_string, group_sid)));
+-			return NT_STATUS_UNSUCCESSFUL;
+-		}
+-		
+ 		
+ 		if(server_info->login_server) {
+ 		        pstrcpy(my_name, server_info->login_server);
+Index: samba/source/libsmb/credentials.c
+===================================================================
+--- samba/source/libsmb/credentials.c.orig
++++ samba/source/libsmb/credentials.c
+@@ -87,6 +87,39 @@ static void creds_init_128(struct dcinfo
+ 	memcpy(dc->seed_chal.data, dc->clnt_chal.data, 8);
+ }
+ 
++/* In the OpenDirectory case, DirectoryService has already provided us
++ * the generated session key because we can't get at the trust account
++ * password hash.
++ */
++static void creds_init_64_od(struct dcinfo *dc,
++			const DOM_CHAL *clnt_chal_in,
++			const DOM_CHAL *srv_chal_in,
++			const unsigned char mach_pw[16])
++{
++	SMB_ASSERT(lp_opendirectory());
++
++	/* debug output */
++	DEBUG(5,("creds_init_64\n"));
++	DEBUG(5,("\tclnt_chal_in: %s\n", credstr(clnt_chal_in->data)));
++	DEBUG(5,("\tsrv_chal_in : %s\n", credstr(srv_chal_in->data)));
++	DEBUG(5,("\tsess_key_out : %s\n", credstr(dc->sess_key)));
++
++	/* Generate the next client and server creds. */
++
++	des_crypt112(dc->clnt_chal.data,		/* output */
++			clnt_chal_in->data,		/* input */
++			dc->sess_key,			/* input */
++			1);
++
++	des_crypt112(dc->srv_chal.data,			/* output */
++			srv_chal_in->data,		/* input */
++			dc->sess_key,			/* input */
++			1);
++
++	/* Seed is the client chal. */
++	memcpy(dc->seed_chal.data, dc->clnt_chal.data, 8);
++}
++
+ /****************************************************************************
+  Setup the session key and the client and server creds in dc.
+  Used by both client and server creds setup.
+@@ -193,10 +226,13 @@ void creds_server_init(uint32 neg_flags,
+ 			srv_chal,
+ 			mach_pw);
+ 	} else {
+-		creds_init_64(dc,
+-			clnt_chal,
+-			srv_chal,
+-			mach_pw);
++		if (lp_opendirectory()) {
++			creds_init_64_od(dc, clnt_chal,
++				srv_chal, mach_pw);
++		} else {
++			creds_init_64(dc, clnt_chal,
++				srv_chal, mach_pw);
++		}
+ 	}
+ 
+ 	dump_data_pw("creds_server_init: session key", dc->sess_key, 16);
+Index: samba/source/libsmb/ntlmssp.c
+===================================================================
+--- samba/source/libsmb/ntlmssp.c.orig
++++ samba/source/libsmb/ntlmssp.c
+@@ -935,6 +935,11 @@ NTSTATUS ntlmssp_server_start(NTLMSSP_ST
+ 		NTLMSSP_NEGOTIATE_SIGN |
+ 		NTLMSSP_NEGOTIATE_SEAL;
+ 
++	/* OD Password Server doesn't support 128bit keys yet. */
++	if (lp_opendirectory) {
++		(*ntlmssp_state)->neg_flags &= ~NTLMSSP_NEGOTIATE_128;
++	}
++
+ 	return NT_STATUS_OK;
+ }
  

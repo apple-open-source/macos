@@ -99,7 +99,6 @@ typedef struct {
     bool			handshake_complete;
     OSStatus			trust_ssl_error;
     EAPClientStatus		trust_status;
-    int32_t			trust_proceed_id;
     bool			trust_proceed;
     bool			key_data_valid;
     char			key_data[128];
@@ -202,7 +201,6 @@ eaptls_start(EAPClientPluginDataRef plugin)
     context->last_client_status = kEAPClientStatusOK;
     context->handshake_complete = FALSE;
     context->trust_proceed = FALSE;
-    context->trust_proceed_id++;
     context->key_data_valid = FALSE;
     context->last_write_size = 0;
     context->session_was_resumed = FALSE;
@@ -244,7 +242,6 @@ eaptls_init(EAPClientPluginDataRef plugin, CFArrayRef * required_props,
     }
     bzero(context, sizeof(*context));
     context->mtu = plugin->mtu;
-    context->trust_proceed_id = random();
     status = copy_identity(plugin->properties, &context->certs);
     if (status != noErr) {
 	result = kEAPClientStatusSecurityError;
@@ -310,7 +307,7 @@ EAPTLSPacketCreateAck(u_char identifier)
 
 static EAPPacketRef
 eaptls_verify_server(EAPClientPluginDataRef plugin,
-		      int identifier, EAPClientStatus * client_status)
+		     int identifier, EAPClientStatus * client_status)
 {
     EAPTLSPluginDataRef 	context = (EAPTLSPluginDataRef)plugin->private;
     EAPPacketRef		pkt = NULL;
@@ -326,7 +323,6 @@ eaptls_verify_server(EAPClientPluginDataRef plugin,
     }
     context->trust_status
 	= EAPTLSVerifyServerCertificateChain(plugin->properties, 
-					     context->trust_proceed_id,
 					     context->server_certs,
 					     &context->trust_ssl_error);
     if (context->trust_status != kEAPClientStatusOK) {
@@ -782,7 +778,7 @@ eaptls_require_props(EAPClientPluginDataRef plugin)
 	goto done;
     }
     if (context->trust_proceed == FALSE) {
-	CFStringRef	str = kEAPClientPropTLSUserTrustProceed;
+	CFStringRef	str = kEAPClientPropTLSUserTrustProceedCertificateChain;
 	array = CFArrayCreate(NULL, (const void **)&str,
 			      1, &kCFTypeArrayCallBacks);
     }
@@ -829,10 +825,6 @@ eaptls_publish_props(EAPClientPluginDataRef plugin)
 	num = CFNumberCreate(NULL, kCFNumberSInt32Type,
 			     &context->trust_status);
 	CFDictionarySetValue(dict, kEAPClientPropTLSTrustClientStatus, num);
-	CFRelease(num);
-	num = CFNumberCreate(NULL, kCFNumberSInt32Type,
-			     &context->trust_proceed_id);
-	CFDictionarySetValue(dict, kEAPClientPropTLSUserTrustProceed, num);
 	CFRelease(num);
     }
     return (dict);

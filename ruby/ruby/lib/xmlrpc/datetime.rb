@@ -126,6 +126,10 @@ class DateTime
     [@year, @month, @day, @hour, @min, @sec]
   end
 
+  def ==(o)
+    Array(self) == Array(o)
+  end
+
 end
 
 
@@ -134,5 +138,5 @@ end # module XMLRPC
 
 =begin
 = History
-    $Id: datetime.rb,v 1.1 2003/07/19 10:05:54 matz Exp $
+    $Id: datetime.rb 11708 2007-02-12 23:01:19Z shyouhei $
 =end

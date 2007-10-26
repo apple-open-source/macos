@@ -35,7 +35,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * @(#) $Header: /cvs/root/tcpdump/tcpdump/sll.h,v 1.1.1.2 2003/03/17 18:42:20 rbraun Exp $ (LBL)
+ * @(#) $Header: /tcpdump/master/tcpdump/sll.h,v 1.7 2002/12/11 07:14:11 guy Exp $ (LBL)
  */
 
 /*

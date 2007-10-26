@@ -1,0 +1,52 @@
+# Process this file with autom4te to create testsuite. -*- Autotest -*-
+
+# Test suite for GNU tar.
+# Copyright (C) 2004 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+# Recognition of compressed formats, introduced with tar 1.15, broke
+# untarring of archives from standard input.
+# References:
+# 1) <20041221040834.GA9635@tigers-lfs.nsw.bigpond.net.au>
+#    http://lists.gnu.org/archive/html/bug-tar/2004-12/msg00031.html
+# 2) <20041221093801.GA55537@engelschall.com>
+#    http://lists.gnu.org/archive/html/bug-tar/2004-12/msg00026.html
+
+AT_SETUP([decompressing from stdin])
+
+AT_KEYWORDS([pipe])
+
+AT_TAR_CHECK([
+mkdir directory
+genfile --length 10240 --pattern zeros > directory/file1
+genfile --length 13 > directory/file2
+tar cf archive directory
+mv directory orig
+cat archive | tar xfv -
+echo "separator"
+cmp orig/file1 directory/file1
+echo "separator"
+cmp orig/file2 directory/file2],
+[0],
+[directory/
+directory/file1
+directory/file2
+separator
+separator
+])
+
+AT_CLEANUP

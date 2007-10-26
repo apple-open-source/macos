@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,10 +29,9 @@
 #define _H_CONNECTION
 
 #include <security_agent_client/agentclient.h>
-#include <security_utilities/osxcode.h>
 #include "process.h"
 #include "session.h"
-#include "key.h"
+#include "notifications.h"
 #include <string>
 
 using MachPlusPlus::Port;
@@ -43,12 +42,15 @@ class Session;
 
 //
 // A Connection object represents an established connection between a client
-// and securityd. Note that in principle, a client process can have
-// multiple Connections (each represented by an IPC channel), though there will
-// usually be only one.
+// and securityd. There is a separate Connection object for each Mach reply port
+// that was (ever) used to talk to securityd. In practice, this maps to one reply
+// port (and thus one Connection) for each client thread that (ever) talks to securityd.
 //
-class Connection : public PerConnection {
-	typedef Key::Handle KeyHandle;
+// If a client tricked us into using multiple reply ports from one thread, we'd treat
+// them as distinct client threads (which really doesn't much matter to us). The standard
+// client library (libsecurityd) won't let you do that.
+//
+class Connection : public PerConnection, public Listener::JitterBuffer {
 public:
 	Connection(Process &proc, Port rPort);
 	virtual ~Connection();
@@ -56,28 +58,31 @@ public:
 	void abort(bool keepReplyPort = false); // abnormal termination
 	
     Port clientPort() const	{ return mClientPort; }
+	
+	// Code Signing guest management - tracks current guest id in client
+	SecGuestRef guestRef() const { return mGuestRef; }
+	void guestRef(SecGuestRef newGuest, SecCSFlags flags = 0);
 
 	// work framing - called as work threads pick up connection work
 	void beginWork();		// I've got it
 	void checkWork();		// everything still okay?
-	void endWork();			// Done with this
+	void endWork(CSSM_RETURN &rcode); // Done with this
 	
 	// notify that a SecurityAgent call may hang the active worker thread for a while
 	void useAgent(SecurityAgent::Client *client)
 	{ StLock<Mutex> _(*this); agentWait = client; }
 	
-	// special UI convenience - set a don't-ask-again trigger for Keychain-style ACLs
-	void setAclUpdateTrigger(const SecurityServerAcl &object)
-	{ aclUpdateTrigger = &object; aclUpdateTriggerCount = aclUpdateTriggerLimit + 1; }
-	bool aclWasSetForUpdateTrigger(const SecurityServerAcl &object) const
-	{ return aclUpdateTriggerCount > 0 && aclUpdateTrigger == &object; }
+	// set an overriding CSSM_RETURN to return instead of success
+	void overrideReturn(CSSM_RETURN rc) { mOverrideReturn = rc; }
 	
 	Process &process() const { return parent<Process>(); }
 	Session &session() const { return process().session(); }
 	
 private:
 	// peer state: established during connection startup; fixed thereafter
-	Port mClientPort;
+	Port mClientPort;			// client's Mach reply port
+	SecGuestRef mGuestRef;		// last known Code Signing guest reference for this client thread
+	CSSM_RETURN mOverrideReturn; // override successful return code (only)
 	
 	// transient state (altered as we go)
 	enum State {
@@ -86,11 +91,6 @@ private:
 		dying					// busy and scheduled to die as soon as possible
 	} state;
 	SecurityAgent::Client *agentWait;	// SA client session we may be waiting on
-	
-	// see KeychainPromptAclSubject in acl_keychain.cpp for more information on this
-	const SecurityServerAcl *aclUpdateTrigger; // update trigger set for this (NULL if none)
-    uint8 aclUpdateTriggerCount; // number of back-to-back requests honored
-    static const uint8 aclUpdateTriggerLimit = 3;	// 3 calls (getAcl+getOwner+changeAcl)
 };
 
 

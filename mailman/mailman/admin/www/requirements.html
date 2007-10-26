@@ -2,7 +2,7 @@
                       "http://www.w3.org/TR/html4/loose.dtd" >
 <html>
 <!-- THIS PAGE IS AUTOMATICALLY GENERATED.  DO NOT EDIT. -->
-<!-- Sun Sep 21 23:42:31 2003 -->
+<!-- Tue Sep 12 23:12:42 2006 -->
 <!-- USING HT2HTML 2.0 -->
 <!-- SEE http://ht2html.sf.net -->
 <!-- User-specified headers:
@@ -12,8 +12,8 @@ Title: Mailman Requirements
 
 <head>
 <title>Mailman Requirements</title>
-<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
-<meta name="generator" content="HT2HTML/2.0" />
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" >
+<meta name="generator" content="HT2HTML/2.0" >
 <style type="text/css">
 body { margin: 0px; }
 </style>
@@ -38,19 +38,25 @@ body { margin: 0px; }
 <td width="90%" bgcolor="#eecfa1" class="banner">
 <!-- start of site links table -->
 <table width="100%" border="0"
-CELLSPACING=0 CELLPADDING=0
+       CELLSPACING=0 CELLPADDING=0
        bgcolor="#ffffff">
 <tr>
     <td bgcolor="#eecfa1">
 <a href="./index.html">Home</a>
     </td>
     <td bgcolor="#eecfa1">
+<a href="./security.html">Security</a>
+    </td>
+    <td bgcolor="#eecfa1">
 <a href="./docs.html">Documentation</a>
     </td>
     <td bgcolor="#eecfa1">
-<a href="./lists.html">Mailing lists</a>
+<a href="./lists.html">Mailing Lists</a>
     </td>
 </tr><tr>
+    <td bgcolor="#eecfa1">
+<a href="http://wiki.list.org/x/DQ">Community</a>
+    </td>
     <td bgcolor="#eecfa1">
 <a href="./help.html">Help</a>
     </td>
@@ -75,41 +81,45 @@ CELLSPACING=0 CELLPADDING=0
 Overview
 </font></b></td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="index.html">Home</a>
+<a href="index.html">Home</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="features.html">Features</a>
+<a href="security.html">Security</li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="i18n.html">Internationalization</a>
+<a href="features.html">Features</a></li>
+</td></tr>
+<tr><td bgcolor="#eecfa1">&nbsp;</td></tr>
+<tr><td bgcolor="#36648b"><b><font color="#ffffff">
+More Information
+</font></b></td></tr>
+<tr><td bgcolor="#eecfa1">
+<a href="http://wiki.list.org">Wiki</a> <i>(exit)</i></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="otherstuff.html">Rants, Papers, and Logos</a>
+<a href="lists.html">Discussion Lists</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="inthenews.html">Mailman in Use</a>
+<a href="http://sf.net/projects/mailman">SF Project Page</a>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="prev.html">Previous Releases</a>
+<a href="otherstuff.html">Rants, Papers, and Logos</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="bugs.html">Bugs and Patches</a>
+<a href="bugs.html">Bugs and Patches</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="mirrors.html">Mirrors</a>
+<a href="mirrors.html">Mirrors</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">&nbsp;</td></tr>
 <tr><td bgcolor="#36648b"><b><font color="#ffffff">
 Downloading
 </font></b></td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="download.html">Downloading</a>
-</td></tr>
-<tr><td bgcolor="#eecfa1">
-<a href="version.html">Latest Version</a>
-</td></tr>
-<tr><td bgcolor="#eecfa1">
 <b>Requirements</b>
+</td></tr>
+<tr><td bgcolor="#eecfa1">
+<a href="download.html">Downloading</a>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
 <a href="install.html">Installing</a>
@@ -162,7 +172,7 @@ Email Us
 &nbsp;
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-&copy; 1998-2003
+&copy; 1998-2006
 Free Software Foundation, Inc.  Verbatim copying and distribution of this
 entire article is permitted in any medium, provided this notice is preserved.
 
@@ -173,51 +183,61 @@ entire article is permitted in any medium, provided this notice is preserved.
 <td width="15">&nbsp;&nbsp;</td><!--spacer-->
 <!-- end of sidebar cell -->
 <!-- start of body cell -->
-<td valign="top" width="90%" class="body"><br />
+<td valign="top" width="90%" class="body"><br>
 <h3>Requirements</h3>
 
 <p>Mailman currently runs only on GNU/Linux and any other Un*x-like
-operating system, such as *BSD, Solaris, etc.  It should work on
-MacOSX but not earlier versions of MacOS.  It probably does not work
+operating system, such as *BSD, Solaris, etc.  It works on
+MacOS X but not on MacOS 9.  It probably does not work
 on Windows, although it's possible you could get it running on a
 Cygwin system (please <a
 href="mailto:mailman-developers@python.org">let the developer
 community know</a> if you have success with this!)
 
-<p>Before you can run Mailman, you need to make sure that
-<a href="http://www.python.org/">Python</a> is installed.  Mailman 2.1
-requires at least Python 2.1.3, although Python 2.2.2 is
-recommended. Most GNU/Linux systems come with Python pre-installed, so
-you just need to make sure you're running an up-to-date version.  You
-can do this by executing the following at your shell's command line:
+<p>You must have the
+<a href="http://www.python.org/">Python</a>
+interpreter installed somewhere on your system.  Currently Python 2.1
+or newer is required, with Python 2.3 or 2.4 being recommended.  Mailman
+should work with latest patch release on any Python branch from 2.1 to
+2.4, which as of this writing (29-Aug-2006) is
+<a href="http://www.python.org/2.1.3/">Python 2.1.3</a>,
+<a href="http://www.python.org/2.2.3/">Python 2.2.3</a>,
+<a href="http://www.python.org/2.3.5/">Python 2.3.5</a>, and
+<a href="http://www.python.org/2.4.1/">Python 2.4.3</a>.
+
+<p><em>Note that because Python 2.1 and 2.2 are no longer being developed, and
+only critical bugs are being fixed on the Python 2.3 branch, it is recommended
+that you upgrade to Python 2.4.  It is possible that support for Python 2.1
+and 2.2 will be dropped in a future release of Mailman.  Python 2.3 support
+will most likely be maintained for the duration of the Mailman 2.1 series.</em>
+
+<p>Most GNU/Linux systems and MacOSX come with Python pre-installed, so you
+just need to make sure you're running an up-to-date version.  You can do this
+by executing the following at your shell's command line:
 
 <blockquote>
 <pre>
 % python -V
-Python 2.1.3
+Python 2.4.3
 </pre>
 </blockquote>
 
 If your Python executable doesn't understand the <code>-V</code>
 option, it's definitely too old!
 
-<p>You will also need an SMTP server (a.k.a. mail transport agent or
-<em>MTA</em>) for mail delivery and reception.  Mailman should work
-well with any of the most popular Unix mail servers such as
-<a href="http://www.postfix.org/">Postfix</a>,
-<a href="http://www.exim.org/">Exim</a>,
-<a href="http://www.sendmail.org/">Sendmail</a> and
-<a href="http://www.qmail.org/">qmail</a>.
+<p>You must have a mail server (MTA) that you can send messages to, and a
+web server that supports the CGI/1.1 API.
+<a href="http://httpd.apache.org">Apache</a> makes a fine choice
+for web server, and MTAs such as
+<a href="http://www.postfix.org">Postfix</a>,
+<a href="http://www.exim.org">Exim</a>,
+<a href="http://www.sendmail.org">Sendmail</a>, and
+<a href="http://www.qmail.org">qmail</a>
+should work just fine.
 
-<p>You will also need a web server.
-<a href="http://www.apache.org/">Apache</a> is certainly the most
-popular, is available for all Unix systems, and works great with
-Mailman.
-
-<p>To install Mailman from the sources, you will also need an ANSI C
-compiler.  The
-<a href="http://www.gnu.org/software/gcc/">GNU C compiler</a>
-gcc 2.8.1 or later is known to work well.
+<p>You will need an ANSI C compiler to build Mailman's security
+wrappers.  All modern versions of the
+<a href="http://gcc.gnu.org/">GNU C compiler</a> should work well.
 
 </td><!-- end of body cell -->
 </tr><!-- end of sidebar/body row -->

@@ -1,6 +1,6 @@
 /***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation
+ * Copyright (c) 1997-2006, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
 
@@ -90,18 +90,21 @@ NumberFormatRoundTripTest::start()
     logln("Default Locale");
 
     fmt = NumberFormat::createInstance(status);
-    failure(status, "NumberFormat::createInstance");
-    test(fmt);
+    if (!failure(status, "NumberFormat::createInstance")){
+        test(fmt);
+    }
     delete fmt;
 
     fmt = NumberFormat::createCurrencyInstance(status);
-    failure(status, "NumberFormat::createCurrencyInstance");
-    test(fmt);
+    if (!failure(status, "NumberFormat::createCurrencyInstance")){
+        test(fmt);
+    }
     delete fmt;
 
     fmt = NumberFormat::createPercentInstance(status);
-    failure(status, "NumberFormat::createPercentInstance");
-    test(fmt);
+    if (!failure(status, "NumberFormat::createPercentInstance")){
+        test(fmt);
+    }
     delete fmt;
 
 
@@ -222,7 +225,9 @@ void
 NumberFormatRoundTripTest::test(NumberFormat *fmt, const Formattable& value)
 {
     fmt->setMaximumFractionDigits(999);
-    
+    if(fmt->getDynamicClassID() == DecimalFormat::getStaticClassID()) {
+        ((DecimalFormat *)fmt)->setRoundingIncrement(0.0);
+    }
     UErrorCode status = U_ZERO_ERROR;
     UnicodeString s, s2, temp;
     if(isDouble(value))

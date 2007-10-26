@@ -3,11 +3,11 @@ require 'tk'
 require 'tkextlib/iwidgets'
 
 def get_files(file)
-  dir = (file.empty?)? ENV['HOME'] : file
+  dir = (file.empty?)? ENV['HOME'] : TkComm._fromUTF8(file)
   Dir.chdir(dir) rescue return ''
-  rlist = []
-  Dir['*'].sort.each{|f| rlist << File.join(dir, f) }
-  rlist
+  Dir['*'].sort.collect{|f|
+    [TkComm._toUTF8(File.join(dir, f)), TkComm._toUTF8(f)]
+  }
 end
 
 Tk::Iwidgets::Hierarchy.new(:querycommand=>proc{|arg| get_files(arg.node)}, 

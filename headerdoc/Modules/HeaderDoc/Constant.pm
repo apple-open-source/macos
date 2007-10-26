@@ -4,7 +4,7 @@
 # Synopsis: Holds constant info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/10/13 00:09:27 $
+# Last Updated: $Date: 2007/07/19 18:44:59 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -30,7 +30,7 @@
 ######################################################################
 package HeaderDoc::Constant;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash validTag);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::APIOwner;
 
@@ -38,7 +38,7 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.9.2.9.2.20 $';
+$VERSION = '$Revision: 1.9.2.9.2.26 $';
 
 sub new {
     my($param) = shift;
@@ -80,9 +80,17 @@ sub processComment {
     my $linenum = $self->linenum();
     my $localDebug = 0;
 
-	foreach my $field (@fields) {
+    foreach my $field (@fields) {
     	print "Constant field is |$field|\n" if ($localDebug);
-		SWITCH: {
+	my $fieldname = "";
+	my $top_level_field = 0;
+	if ($field =~ /^(\w+)(\s|$)/) {
+		$fieldname = $1;
+		# print "FIELDNAME: $fieldname\n";
+		$top_level_field = validTag($fieldname, 1);
+	}
+	# print "TLF: $top_level_field, FN: \"$fieldname\"\n";
+	SWITCH: {
             ($field =~ /^\/\*\!/o)&& do {
                                 my $copy = $field;
                                 $copy =~ s/^\/\*\!\s*//s;
@@ -91,35 +99,26 @@ sub processComment {
                                 }
                         last SWITCH;
                         };
-            ($field =~ s/^const(ant)?(\s+)//o) && 
-            do {
-		if (length($2)) { $field = "$2$field"; }
-		else { $field = "$1$field"; }
-                my ($name, $disc);
-                ($name, $disc) = &getAPINameAndDisc($field); 
-                $self->name($name);
-                if (length($disc)) {$self->discussion($disc);};
-                last SWITCH;
-            };
 	    ($field =~ s/^serial\s+//io) && do {$self->attribute("Serial Field Info", $field, 1); last SWITCH;};
-            ($field =~ s/^abstract\s+//o) && do {$self->abstract($field); last SWITCH;};
-            ($field =~ s/^discussion\s+//o) && do {$self->discussion($field); last SWITCH;};
-            ($field =~ s/^availability\s+//o) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^since\s+//o) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^author\s+//o) && do {$self->attribute("Author", $field, 0); last SWITCH;};
-            ($field =~ s/^version\s+//o) && do {$self->attribute("Version", $field, 0); last SWITCH;};
-            ($field =~ s/^deprecated\s+//o) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
-            ($field =~ s/^updated\s+//o) && do {$self->updated($field); last SWITCH;};
-	    ($field =~ s/^attribute\s+//o) && do {
-		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+            ($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
+            ($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
+            ($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
+            ($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+            ($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
+            ($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
+            ($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
+	    ($field =~ s/^attribute\s+//io) && do {
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 0);
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attribute\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attribute\n";
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ s/^attributelist\s+//o) && do {
+	    ($field =~ s/^attributelist\s+//io) && do {
 		    $field =~ s/^\s*//so;
 		    $field =~ s/\s*$//so;
 		    my ($name, $lines) = split(/\n/, $field, 2);
@@ -133,28 +132,48 @@ sub processComment {
 			    $self->attributelist($name, $line);
 			}
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attributelist\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attributelist\n";
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ s/^attributeblock\s+//o) && do {
-		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+	    ($field =~ s/^attributeblock\s+//io) && do {
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 1);
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attributeblock\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attributeblock\n";
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ /^see(also|)\s+/o) &&
+	    ($field =~ /^see(also|)\s+/io) &&
 		do {
 		    $self->see($field);
 		    last SWITCH;
 		};
+		($top_level_field == 1) && do {
+			my $keepname = 1;
+ 			if ($field =~ s/^(const(?:ant)?)(\s+|$)/$2/io) {
+				$keepname = 1;
+			} else {
+				$field =~ s/(\w+)(\s|$)/$2/io;
+				$keepname = 0;
+			}
+                	my ($name, $disc, $namedisc);
+                	($name, $disc, $namedisc) = &getAPINameAndDisc($field); 
+                	$self->name($name);
+                	if (length($disc)) {
+				if ($namedisc) {
+					$self->nameline_discussion($disc);
+				} else {
+					$self->discussion($disc);
+				}
+			}
+                	last SWITCH;
+            	};
 	    # my $filename = $HeaderDoc::headerObject->filename();
-            # warn "$filename:$linenum:Unknown field in constant comment: $field\n";
+            # warn "$filename:$linenum: warning: Unknown field in constant comment: $field\n";
 		{
-		    if (length($field)) { warn "$filename:$linenum:Unknown field (\@$field) in constant comment (".$self->name().")\n"; }
+		    if (length($field)) { warn "$filename:$linenum: warning: Unknown field (\@$field) in constant comment (".$self->name().")\n"; }
 		};
 	    }
 	}

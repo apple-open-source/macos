@@ -10,14 +10,18 @@ policy decisions to an external server that runs outside Postfix.
 
 With this policy delegation mechanism, a simple greylist policy can be
 implemented with only a dozen lines of Perl, as is shown at the end of this
-document. Another example of policy delegation is the SPF policy server by Meng
-Wong at http://spf.pobox.com/. Examples of both policies can be found in the
-Postfix source code, in the directory examples/smtpd-policy.
+document. A complete example can be found in the Postfix source code, in the
+directory examples/smtpd-policy.
+
+Another example of policy delegation is the SPF policy server at http://
+www.openspf.org/Software.
 
 Policy delegation is now the preferred method for adding policies to Postfix.
-It's much easier to develop a new feature in few lines of Perl, than trying to
-do the same in C code. The difference in performance will be unnoticeable
-except in the most demanding environments.
+It's much easier to develop a new feature in few lines of Perl, Python, Ruby,
+or TCL, than trying to do the same in C code. The difference in performance
+will be unnoticeable except in the most demanding environments. On active
+systems a policy daemon process is used multiple times, for up to $max_use
+incoming SMTP connections.
 
 This document covers the following topics:
 
@@ -39,6 +43,7 @@ terminated by an empty line.
 Here is an example of all the attributes that the Postfix SMTP server sends in
 a delegated SMTPD access policy request:
 
+    PPoossttffiixx vveerrssiioonn 22..11 aanndd llaatteerr::
     request=smtpd_access_policy
     protocol_state=RCPT
     protocol_name=SMTP
@@ -46,13 +51,24 @@ a delegated SMTPD access policy request:
     queue_id=8045F2AB23
     sender=foo@bar.tld
     recipient=bar@foo.tld
+    recipient_count=0
     client_address=1.2.3.4
     client_name=another.domain.tld
+    reverse_client_name=another.domain.tld
     instance=123.456.7
+    PPoossttffiixx vveerrssiioonn 22..22 aanndd llaatteerr::
     sasl_method=plain
     sasl_username=you
     sasl_sender=
     size=12345
+    ccert_subject=solaris9.porcupine.org
+    ccert_issuer=Wietse+20Venema
+    ccert_fingerprint=C2:9D:F4:87:71:73:73:D9:18:E7:C2:F3:C1:DA:6E:04
+    PPoossttffiixx vveerrssiioonn 22..33 aanndd llaatteerr::
+    encryption_protocol=TLSv1/SSLv3
+    encryption_cipher=DHE-RSA-AES256-SHA
+    encryption_keysize=256
+    etrn_domain=
     [empty line]
 
 Notes:
@@ -67,7 +83,23 @@ Notes:
     the first value or the last attribute value.
 
   * When an attribute value is unavailable, the client either does not send the
-    attribute, or sends the attribute with an empty value ("name=").
+    attribute, sends the attribute with an empty value ("name="), or sends a
+    zero value ("name=0") in the case of a numerical attribute.
+
+  * The "recipient" attribute is available only in the "RCPT TO" stage, and in
+    the "DATA" and "END-OF-MESSAGE" stages when Postfix accepted only one
+    recipient for the current message.
+
+  * The "recipient_count" attribute (Postfix 2.3 and later) is non-zero only in
+    the "DATA" and "END-OF-MESSAGE" stages. It specifies the number of
+    recipients that Postfix accepted for the current message.
+
+  * The client address is an IPv4 dotted quad in the form 1.2.3.4 or it is an
+    IPv6 address in the form 1:2:3::4:5:6.
+
+  * For a discussion of the differences between reverse and verified
+    client_name information, see the reject_unknown_client_hostname discussion
+    in the postconf(5) document.
 
   * An attribute name must not contain "=", null or newline, and an attribute
     value must not contain null or newline.
@@ -75,15 +107,35 @@ Notes:
   * The "instance" attribute value can be used to correlate different requests
     regarding the same message delivery.
 
+  * The "size" attribute value specifies the message size that the client
+    specified in the MAIL FROM command (zero if none was specified). With
+    Postfix 2.2 and later, it specifies the actual message size when the client
+    sends the END-OF-DATA command.
+
+  * The "sasl_*" attributes (Postfix 2.2 and later) specify information about
+    how the client was authenticated via SASL. These attributes are empty in
+    case of no SASL authentication.
+
+  * The "ccert_*" attributes (Postfix 2.2 and later) specify information about
+    how the client was authenticated via TLS. These attributes are empty in
+    case of no certificate authentication. As of Postfix 2.2.11 these attribute
+    values are encoded as xtext: some characters are represented by +XX, where
+    XX is the two-digit hexadecimal representation of the character value.
+
+  * The "encryption_*" attributes (Postfix 2.3 and later) specify information
+    about how the connection is encrypted. With plaintext connections the
+    protocol and cipher attributes are empty and the keysize is zero.
+
+  * The "etrn_domain" attribute is defined only in the context of the ETRN
+    command, and specifies the ETRN command parameter.
+
 The following is specific to SMTPD delegated policy requests:
 
   * Protocol names are ESMTP or SMTP.
 
-  * Protocol states are CONNECT, EHLO, HELO, MAIL, RCPT, DATA, VRFY or ETRN;
-    these are the SMTP protocol states where the Postfix SMTP server makes an
-    OK/REJECT/HOLD/etc. decision.
-
-  * The SASL attributes are sent only when SASL support is built into Postfix.
+  * Protocol states are CONNECT, EHLO, HELO, MAIL, RCPT, DATA, END-OF-MESSAGE,
+    VRFY or ETRN; these are the SMTP protocol states where the Postfix SMTP
+    server makes an OK/REJECT/HOLD/etc. decision.
 
 The policy server replies with any action that is allowed in a Postfix SMTPD
 access(5) table. Example:
@@ -119,7 +171,7 @@ To create a policy service that listens on a UNIX-domain socket called
 use something like this:
 
      1 /etc/postfix/master.cf:
-     2     policy  unix  -       n       n       -       -       spawn
+     2     policy  unix  -       n       n       -       0       spawn
      3       user=nobody argv=/some/where/policy-server
      4
      5 /etc/postfix/main.cf:
@@ -139,13 +191,17 @@ NOTES:
     "policy_time_limit" setting. The name of the parameter is the name of the
     master.cf entry ("policy") concatenated with the "_time_limit" suffix.
 
+  * Line 2: specify a "0" process limit instead of the default "-", to avoid
+    "connection refused" and other problems when the smtpd process limit
+    exceeds the default_process_limit setting.
+
   * Lines 8, 9: always specify "check_policy_service" AFTER
     "reject_unauth_destination" or else your system could become an open relay.
 
   * Solaris UNIX-domain sockets do not work reliably. Use TCP sockets instead:
 
      1 /etc/postfix/master.cf:
-     2     127.0.0.1:9998  inet  n       n       n       -       -       spawn
+     2     127.0.0.1:9998  inet  n       n       n       -       0       spawn
      3       user=nobody argv=/some/where/policy-server
      4
      5 /etc/postfix/main.cf:
@@ -213,7 +269,7 @@ daemon. For example, to run the script as user "nobody", using a UNIX-domain
 socket that is accessible by Postfix processes only:
 
     1 /etc/postfix/master.cf:
-    2     policy  unix  -       n       n       -       -       spawn
+    2     policy  unix  -       n       n       -       0       spawn
     3       user=nobody argv=/usr/bin/perl /usr/libexec/postfix/greylist.pl
     4
     5 /etc/postfix/main.cf:
@@ -231,11 +287,15 @@ Notes:
     "policy_time_limit" setting. The name of the parameter is the name of the
     master.cf entry ("policy") concatenated with the "_time_limit" suffix.
 
+  * Line 2: specify a "0" process limit instead of the default "-", to avoid
+    "connection refused" and other problems when the smtpd process limit
+    exceeds the default_process_limit setting.
+
 On Solaris you must use inet: style sockets instead of unix: style, as detailed
 in the "Policy client/server configuration" section above.
 
     1 /etc/postfix/master.cf:
-    2     127.0.0.1:9998  inet  n       n       n       -       -       spawn
+    2     127.0.0.1:9998  inet  n       n       n       -       0       spawn
     3       user=nobody argv=/usr/bin/perl /usr/libexec/postfix/greylist.pl
     4
     5 /etc/postfix/main.cf:
@@ -247,8 +307,9 @@ To invoke this service you would specify "check_policy_service inet:127.0.0.1:
 GGrreeyylliissttiinngg mmaaiill ffrroomm ffrreeqquueennttllyy ffoorrggeedd ddoommaaiinnss
 
 It is relatively safe to turn on greylisting for specific domains that often
-appear in forged email. A list of frequently forged MAIL FROM domains can be
-found at http://www.monkeys.com/anti-spam/filtering/sender-domain-validate.in.
+appear in forged email. At some point in cyberspace/time a list of frequently
+forged MAIL FROM domains could be found at http://www.monkeys.com/anti-spam/
+filtering/sender-domain-validate.in.
 
      1 /etc/postfix/main.cf:
      2     smtpd_recipient_restrictions =
@@ -257,7 +318,7 @@ found at http://www.monkeys.com/anti-spam/filtering/sender-domain-validate.in.
      5         reject_unauth_destination
      6         check_sender_access hash:/etc/postfix/sender_access
      7         ...
-     8     restriction_classes = greylist
+     8     smtpd_restriction_classes = greylist
      9     greylist = check_policy_service unix:private/policy
     10
     11 /etc/postfix/sender_access:

@@ -1,7 +1,15 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP FORMPOST
+HTTP replaced headers
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
-HTTP/1.1 200 OK swsclose
+HTTP/1.0 200 OK swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
 
@@ -38,7 +46,6 @@ bar
 POST /we/want/44 HTTP/1.1
 User-Agent: curl/7.10.4 (i686-pc-linux-gnu) libcurl/7.10.4 OpenSSL/0.9.7a ipv6 zlib/1.1.3
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Content-Length: 408
 Content-Type: multipart/form-data; boundary=----------------------------7c633d5c27ce
@@ -62,3 +69,4 @@ bar
 ------------------------------7c633d5c27ce--
 </protocol>
 </verify>
+</testcase>

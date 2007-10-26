@@ -1,6 +1,11 @@
 /*! @functiongroup  Operators */
 
 /*!
+    @function
+ */
+foo_t operator new();
+
+/*!
     @function       operator <<
     @abstract       Inequality operator
     @discussion     All message contents, including the parameters, are checked.

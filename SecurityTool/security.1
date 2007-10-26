@@ -115,23 +115,47 @@ Show the settings for keychain.
 .It Nm dump-keychain
 Dump the contents of one or more keychains.
 .It Nm create-keypair
-Create an assymetric keypair.
+Create an asymmetric key pair.
+.It Nm add-generic-password
+Add a generic password item.
 .It Nm add-internet-password
 Add an internet password item.
 .It Nm add-certificates
 Add certificates to a keychain.
+.It Nm find-generic-password
+Find a generic password item.
 .It Nm find-internet-password
 Find an internet password item.
 .It Nm find-certificate
 Find a certificate item.
 .It Nm create-db
-Create an db using the DL.
+Create a db using the DL.
 .It Nm import
 Import item(s) into a keychain.
 .It Nm export
 Export item(s) from a keychain.
 .It Nm install-mds
 Install (or re-install) the MDS database.
+.It Nm add-trusted-cert
+Add a certificate to Trust Settings.
+.It Nm remove-trusted-cert
+Remove a certificate to Trust Settings.
+.It Nm dump-trust-settings
+Display contents of Trust Settings.
+.It Nm user-trust-settings-enable
+Display or manipulate user-level Trust Settings.
+.It Nm trust-settings-export
+Export Trust Settings.
+.It Nm trust-settings-import
+Import Trust Settings.
+.It Nm verify-cert
+Verify certificate(s).
+.It Nm authorize
+Authorize rights.
+.It Nm authorizationdb
+Make changes to the authorization policy database.
+.It Nm execute-with-privileges
+Execute tool with privileges.
 .It Nm leaks
 Run
 .Pa /usr/bin/leaks
@@ -321,7 +345,17 @@ Dump raw (possibly ciphertext) data of items.
 .Op Fl n Ar name
 .Op Fl A Ns | Ns Fl T Ar app1:app2:...
 .Bl -item -offset -indent
-Create an assymetric keypair.
+Create an asymmetric key pair.
+.El
+.It
+.Nm add-generic-password
+.Op Fl h
+.Op Fl a Ar account_name
+.Op Fl s Ar service_name
+.Op Fl w Ar password_data
+.Op Ar keychain
+.Bl -item -offset -indent
+Add a generic password item.
 .El
 .It
 .Nm add-internet-password
@@ -353,6 +387,15 @@ Use
 .Ar keychain
 rather than the default keychain.
 .El
+.El
+.It
+.Nm find-generic-password
+.Op Fl gh
+.Op Fl a Ar account-name
+.Op Fl s Ar service-name
+.Op Fl Ar keychain...
+.Bl -item -offset -indent
+Find a generic password item.
 .El
 .It
 .Nm find-internet-password
@@ -396,9 +439,9 @@ Output certificate in pem form.  The default is to dump the attributes and keych
 .It
 .Sy Examples
 .Bl -tag -width -indent
-.Dl security> find-certificate -a -p > allcerts.pem
+.It security> find-certificate -a -p > allcerts.pem
 Exports all certificates from all keychains into a pem file called allcerts.pem.
-.Dl security> find-certificate -a -e me@foo.com -p > certs.pem
+.It security> find-certificate -a -e me@foo.com -p > certs.pem
 Exports all certificates from all keychains with the email address
 mb@foo.com into a pem file called certs.pem.
 .El
@@ -410,7 +453,7 @@ mb@foo.com into a pem file called certs.pem.
 .Op Fl m Ar mode
 .Op Ar name
 .Bl -item -offset -indent
-Create an db using the DL.  If
+Create a db using the DL.  If
 .Ar name
 isn't provided
 .Nm
@@ -434,8 +477,8 @@ Force using version 0 openparams
 .It
 .Sy Examples
 .Bl -tag -width -indent
-.Dl security> create-db -m 0644 test.db
-.Dl security> create-db -g cspdl -a test2.db
+.It security> create-db -m 0644 test.db
+.It security> create-db -g cspdl -a test2.db
 .El
 .\"new import/export commands.
 .El
@@ -460,7 +503,7 @@ Specify keychain from which item(s) will be exported.
 .It Fl t Ar item_type
 Specify the type of items to export. Possible types are certs, allKeys, pubKeys, privKeys, identities, and all. The default is all. An identity consists of both a certificate and the corresponding provate key. 
 .It Fl f Ar item_format
-Specify the format of the exported data. Possible formats are openssl, bsafe, pkcs7, pkcs8, pkcs12, x509, and pemseq. The default is pemseq if more than one item is being exported. The default is openssl if one key is being exported. The default is x509 if one certificate is being exported.
+Specify the format of the exported data. Possible formats are openssl, bsafe, pkcs7, pkcs8, pkcs12, x509, openssh1, openssh2, and pemseq. The default is pemseq if more than one item is being exported. The default is openssl if one key is being exported. The default is x509 if one certificate is being exported.
 .It Fl w
 Specifies that private keys are to be wrapped on export. 
 .It Fl p 
@@ -475,8 +518,8 @@ Write the output data to
 .It
 .Sy Examples
 .Bl -tag -width -indent
-.Dl security> export -k login.keychain -t certs -o /tmp/certs.pem
-.Dl security> export -k newcert.keychain -t identities -f pkcs12 -o /tmp/mycerts.p12
+.It security> export -k login.keychain -t certs -o /tmp/certs.pem
+.It security> export -k newcert.keychain -t identities -f pkcs12 -o /tmp/mycerts.p12
 .El
 .\"marker.
 .El
@@ -488,6 +531,7 @@ inputfile
 .Op Fl f Ar item_format
 .Op Fl w
 .Op Fl P Ar passphrase
+.Op Fl a Ar attributeName Ar attributeValue
 .Bl -item -offset -indent
 Import one or more items from 
 .Ar inputfile Ns
@@ -502,24 +546,270 @@ Specify keychain into which item(s) will be imported.
 .It Fl t Ar item_type
 Specify the type of items to import. Possible types are cert, pub, priv, session, cert, and agg. Pub, priv, and session refer to keys; agg is one of the aggregate types (pkcs12 and PEM sequence). The command can often figure out what item_type an item contains based in the filename and/or item_format.
 .It Fl f Ar item_format
-Specify the format of the exported data. Possible formats are openssl, bsafe, raw, pkcs7, pkcs8, pkcs12, x509, and pemseq. The command can often figure out what format an item is in based in the filename and/or item_type. 
+Specify the format of the exported data. Possible formats are openssl, bsafe, raw, pkcs7, pkcs8, pkcs12, x509, openssh1, openssh2, and pemseq. The command can often figure out what format an item is in based in the filename and/or item_type. 
 .It Fl w
 Specifies that private keys are wrapped and must be unwrapped on import. 
 .It Fl P Ar passphrase
 Specify the unwrapping passphrase immediately. The default is to obtain a secure passphrase via GUI.
+.It Fl a Ar attributeName Ar attributeValue
+Specify Optional extended attribute name and value. Can be used multiple times. This is only valid when importing keys (only). 
 .El
 .It
 .Sy Examples
 .Bl -tag -width -indent
-.Dl security> import /tmp/certs.pem -k 
-.Dl security> import /tmp/mycerts.p12 -t agg -k newcert.keychain
-.Dl security> import /tmp/mycerts.p12 -f pkcs12 -k newcert.keychain
+.It security> import /tmp/certs.pem -k 
+.It security> import /tmp/mycerts.p12 -t agg -k newcert.keychain
+.It security> import /tmp/mycerts.p12 -f pkcs12 -k newcert.keychain
 .El
 .\"end of new import/export commands.
+.El
 .It
 .Nm install-mds
 .Bl -item -offset -indent
 Install (or re-install) the Module Directory Services (MDS) database. This is a system tool which is not normally used by users. There are no options. 
+.El
+.It
+.Nm add-trusted-cert
+.Op Fl d
+.Op Fl r Ar resultType
+.Op Fl p Ar policy
+.Op Fl a Ar appPath
+.Op Fl s Ar policyString
+.Op Fl e Ar allowedError
+.Op Fl u Ar keyUsage
+.Op Fl k Ar keychain
+.Op Fl i Ar settingsFileIn
+.Op Fl o Ar settingsFileOut
+.Op Fl D
+certFile
+.Bl -item -offset -indent
+Add certificate (in DER or PEM format) from  
+.Ar certFile Ns
+\& to per-user or local Admin Trust Settings. When modifying per-user Trust Settings, user authentication is required via an authentication dialog. When modifying admin Trust Settings, the process must be running as root, or admin authentication is required. 
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl d
+Add to admin cert store; default is user. 
+.It Fl r Ar resultType
+resultType = trustRoot|trustAsRoot|deny|unspecified; default is trustRoot.
+.It Fl p Ar policy
+Specify policy constraint (ssl, smime, codeSign, IPSec, iChat, basic, swUpdate, pkgSign, pkinitClient, pkinitServer, eap).
+.It Fl r Ar resultType
+resultType = trustRoot|trustAsRoot|deny|unspecified; default is trustRoot.
+.It Fl a Ar appPath
+Specify application constraint.
+.It Fl s Ar policyString
+Specify policy-specific string.
+.It Fl e Ar allowedError
+Specify allowed error, an integer.
+.It Fl u Ar keyUsage
+Specify key usage, an integer.
+.It Fl k Ar keychain
+Specify keychain to which cert is added.
+.It Fl i Ar settingsFileIn
+Input trust settings file; default is user domain.
+.It Fl o Ar settingsFileOut
+Output trust settings file; default is user domain.
+.It Fl D
+Add default setting instead of per-cert setting. No certFile is specified when using this option
+.El
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.Dl security> add-trusted-cert /tmp/cert.der
+.Dl security> add-trusted-cert -d .tmp/cert.der
+.El
+.\"marker.
+.It
+.Nm remove-trusted-cert
+.Op Fl d
+.Op Fl D
+certFile
+.Bl -item -offset -indent
+Remove certificate (in DER or PEM format) in  
+.Ar certFile Ns
+\& from per-user or local Admin Trust Settings. When modifying per-user Trust Settings, user authentication is required via an authentication dialog. When modifying admin Trust Settings, the process must be running as root, or admin authentication is required. 
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl d
+Remove from admin cert store; default is user. 
+.It Fl D
+Remove Default Root Cert setting instead of an actual cert setting. No certFile is specified when using this option. 
+.El
+.\"marker.
+.El
+.It
+.Nm dump-trust-settings
+.Op Fl s
+.Op Fl d
+.Bl -item -offset -indent
+Display Trust Settings. 
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl s
+Display trusted system certs; default is user. 
+.It Fl d
+Display trusted admin certs; default is user. 
+.El
+.\"marker.
+.El
+.It
+.Nm user-trust-settings-enable
+.Op Fl d
+.Op Fl e
+.Bl -item -offset -indent
+Display or manipulate user-level Trust Settings. With no arguments, shows the current state of the user-level Trust Settings enable. Otherwise enables or disables user-level Trust Settings. 
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl d
+Disable user-level Trust Settings. 
+.It Fl e
+Enable user-level Trust Settings. 
+.El
+.\"marker.
+.El
+.It
+.Nm trust-settings-export
+.Op Fl s
+.Op Fl d
+settings_file
+.Bl -item -offset -indent
+Export Trust Settings to the specified file.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl s
+Export system Trust Settings; default is user.
+.It Fl d
+Export admin Trust Settings; default is user.
+.El
+.\"marker.
+.El
+.It
+.Nm trust-settings-import
+.Op Fl d
+settings_file
+.Bl -item -offset -indent
+Import Trust Settings from the specified file. When modifying per-user Trust Settings, user authentication is required via an authentication dialog. When modifying admin Trust Settings, the process must be running as root, or admin authentication is required.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl d
+Import admin Trust Settings; default is user.
+.El
+.\"marker.
+.El
+.It
+.Nm verify-cert
+.Op Fl c Ar certFile
+.Op Fl r Ar rootCertFile
+.Op Fl p Ar policy
+.Op Fl k Ar keychain
+.Op Fl n
+.Op Fl l
+.Op Fl e Ar emailAddress
+.Op Fl s Ar sslHost
+.Op Fl q
+.Bl -item -offset -indent
+Verify one or more certificates. 
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl c Ar certFile
+Certificate to verify, in DER or PEM format. Can be specified more than once; leaf certificate has to be specified first.
+.It Fl r Ar rootCertFile
+Root certificate, in DER or PEM format. Can be specified more than once. If not specified, the system anchor certificates are used. If one root certificate is specified, and zero (non-root) certificates are specified, the root certificate is verified against itself. 
+.It Fl p Ar policy
+Specify verification policy (ssl, smime, codeSign, IPSec, iChat, basic, swUpdate, pkgSign, pkinitClient, pkinitServer, eap). Default is basic.
+.It Fl k Ar keychain
+Keychain to search for intermediate certs. Can be specified multiple times. Default is the current user's keychain search list.
+.It Fl n
+Avoid searching any keychains.
+.It Fl l
+Species that the leaf certificate is a CA cert. By default, a leaf certificate with a Basic Constraints extension with the CA bit set fails verification.
+.It Fl e Ar emailAddress
+Specify email address for the smime policy.
+.It Fl s Ar sslHost
+Specify SSL host name for the ssl policy.
+.It Fl q
+Quiet, no stdout or stderr.
+.El
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.It security> verify-cert -c applestore0.cer -c applestore1.cer -p ssl -s store.apple.com
+.It security> verify-cert -r serverbasic.crt
+.El
+.\"marker.
+.El
+.It
+.Nm authorize
+.Op Fl updPiew
+.Op Ar right...
+.Bl -item -offset -indent
+Authorize requested right(s).  The extend-rights flag will be passed by default.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl u
+Allow user interaction.
+.It Fl p
+Allow returning partial rights.
+.It Fl d
+Destroy acquired rights.
+.It Fl P
+Pre-authorize rights only.
+.It Fl l
+Operate authorization in least privileged mode.
+.It Fl i
+Internalize authref passed on stdin.
+.It Fl e
+Externalize authref to stdout
+.It Fl w
+Wait while holding AuthorizationRef until stdout is closed. This will allow client to read externalized AuthorizationRef from pipe.
+.El
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.It security> security authorize -ud my-right
+Basic authorization of my-right.
+.It security> security -q authorize -uew my-right | security -q authorize -i my-right
+Authorizing a right and passing it to another command as a way to add authorization to shell scripts.
+.El
+.El
+.It
+.Nm authorizationdb
+.Ar read <right-name>
+.It
+.Nm authorizationdb
+.Ar write <right-name> [allow|deny|<rulename>]
+.It
+.Nm authorizationdb
+.Ar remove <right-name>
+.Bl -item -offset -indent
+Read/Modify authorization policy database. Without a rulename write will read a dictionary as a plist from stdin.
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.It security> security authorizationdb read system.privilege.admin > /tmp/aewp-def
+Read definition of system.privilege.admin right.
+.It security> security authorizationdb write system.preferences < /tmp/aewp-def
+Set system.preferences to definition of system.privilege.admin right.
+.It security> security authorizationdb write system.preferences authenticate-admin
+Every change to preferences requires an Admin user to authenticate.
+.El
+.El
+.It
+.Nm execute-with-privileges
+.Ar <program> 
+.Op Ar args...
+.Bl -item -offset -indent
+Execute tool with privileges. 
+On success stdin will be read and forwarded to the tool.
 .El
 .It
 .Nm leaks

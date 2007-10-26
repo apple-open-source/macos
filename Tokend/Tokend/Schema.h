@@ -128,4 +128,3 @@ protected:
 
 #endif /* !_TOKEND_SCHEMA_H_ */
 
-/* arch-tag: BA0C467A-F13E-11D8-BE5A-000A95C4302E */

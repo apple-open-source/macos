@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2002  Mark Nudelman
+ * Copyright (C) 1984-2005  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -29,6 +29,11 @@ extern void constant *ml_examine;
 extern char openquote;
 extern char closequote;
 #endif
+
+extern int file_errors;
+extern int unix2003_compat;
+extern char * active_dashp_command;
+extern char * dashp_commands;
 
 #if LOGFILE
 extern int logfile;
@@ -322,6 +327,14 @@ edit_ifile(ifile)
 		/*
 		 * Re-open the current file.
 		 */
+		if (was_curr_ifile == ifile)
+		{
+			/*
+			 * Whoops.  The "current" ifile is the one we just deleted.
+			 * Just give up.
+			 */
+			quit(QUIT_ERROR);
+		}
 		reedit_ifile(was_curr_ifile);
 		return (1);
 	} else if ((f = open(qopen_filename, OPEN_READ)) < 0)
@@ -367,6 +380,12 @@ edit_ifile(ifile)
 	curr_altfilename = alt_filename;
 	curr_altpipe = alt_pipe;
 	set_open(curr_ifile); /* File has been opened */
+	if (unix2003_compat) {
+		/* support the -p command line option */
+		if (dashp_commands) {
+			active_dashp_command = dashp_commands;
+		}
+	}
 	get_pos(curr_ifile, &initial_scrpos);
 	new_file = TRUE;
 	ch_init(f, chflags);
@@ -498,7 +517,7 @@ edit_last()
 
 
 /*
- * Edit the next or previous file in the command line (ifile) list.
+ * Edit the n-th next or previous file in the command line (ifile) list.
  */
 	static int
 edit_istep(h, n, dir)
@@ -518,6 +537,7 @@ edit_istep(h, n, dir)
 		{
 			if (edit_ifile(h) == 0)
 				break;
+			file_errors++;
 		}
 		if (next == NULL_IFILE)
 		{
@@ -547,14 +567,14 @@ edit_inext(h, n)
 	IFILE h;
 	int n;
 {
-	return (edit_istep(h, n, 1));
+	return (edit_istep(h, n, +1));
 }
 
 	public int
 edit_next(n)
 	int n;
 {
-	return edit_istep(curr_ifile, n, 1);
+	return edit_istep(curr_ifile, n, +1);
 }
 
 	static int

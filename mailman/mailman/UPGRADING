@@ -1,13 +1,15 @@
 Mailman - The GNU Mailing List Management System
 Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 
 UPGRADING FROM PREVIOUS VERSIONS
 
-    For the most part, upgrading Mailman is as easy as just installing the
-    latest version over the existing version.  However, there are some changes
-    that need to be taken care of manually.
+    For the most part, upgrading Mailman entails installing the latest version
+    over the existing version.  Usually, you can unpack the new release, run
+    'configure' with the same options you used in your previous install, and
+    then do a 'make install'.  However, there are some changes that may need
+    to be taken care of manually.
 
     What you need to do depends on the version you are using and the version
     you are upgrading to.  In all cases, you should first turn off your mail
@@ -15,7 +17,7 @@ UPGRADING FROM PREVIOUS VERSIONS
     a database, and it's usually a good idea to make sure the database cannot
     be modified in the middle of the upgrade.
 
-    My recommendations are
+    My recommendations are:
 
     - Turn off your incoming mail daemon.  Most remote smtp servers will
       simply queue up messages destined for your domain if port 25 is shut
@@ -25,16 +27,6 @@ UPGRADING FROM PREVIOUS VERSIONS
       turning off your web server temporarily, or by setting up a temporary
       redirect to a "service unavailable" page for the Mailman URLs.  Refer to
       your web server documentation for details.
-
-    Mailman will NOT upgrade the template files for existing lists.  Chuq Von
-    Rospach gives some useful advice in this message to the users mailing
-    list:
-
-    http://mail.python.org/pipermail/mailman-users/2000-September/006826.html
-
-    [Actually, the upgrade to MM2.1a2 /will/ shuffle template files,
-     deleting any that it detects are unchanged from the original defaults
-     (calculated via md5 checksums).]
 
 
 UPGRADING FROM 2.1.4 to 2.1.5

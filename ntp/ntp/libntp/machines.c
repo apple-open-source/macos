@@ -18,7 +18,7 @@
 #endif
 
 #ifdef SYS_WINNT
-# include <conio.h>
+int _getch(void);	/* Declare the one function rather than include conio.h */
 #else
 
 #ifdef SYS_VXWORKS
@@ -445,7 +445,16 @@ ntp_set_tod(
 #endif /* HAVE_CLOCK_SETTIME */
 #ifdef HAVE_SETTIMEOFDAY
 	if (rc) {
+		struct timeval adjtv;
+
 		set_tod_using = "settimeofday";
+		/*
+		 * Some broken systems don't reset adjtime() when the
+		 * clock is stepped.
+		 */
+		adjtv.tv_sec = adjtv.tv_usec = 0;
+		adjtime(&adjtv, NULL);
+		errno = 0;
 		rc = SETTIMEOFDAY(tvp, tzp);
 #ifdef DEBUG
 		if (debug) {
@@ -460,6 +469,7 @@ ntp_set_tod(
 		long tp = tvp->tv_sec;
 
 		set_tod_using = "stime";
+		errno = 0;
 		rc = stime(&tp); /* lie as bad as SysVR4 */
 #ifdef DEBUG
 		if (debug) {

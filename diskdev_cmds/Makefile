@@ -14,12 +14,12 @@ PROJECT_TYPE = Aggregate
 
 TOOLS = clri.tproj dev_mkdb.tproj dump.tproj\
         dumpfs.tproj edquota.tproj fdisk.tproj fsck.tproj\
-        fsck_hfs.tproj fsck_msdos.tproj mount.tproj\
-        mountd.tproj mount_cd9660.tproj mount_devfs.tproj\
-        mount_fdesc.tproj mount_hfs.tproj mount_nfs.tproj\
-        mount_synthfs.tproj newfs.tproj newfs_hfs.tproj\
-        newfs_msdos.tproj quot.tproj quota.tproj quotacheck.tproj\
-        quotaon.tproj repquota.tproj restore.tproj showmount.tproj\
+        fsck_hfs.tproj fstyp.tproj fuser.tproj mount.tproj\
+        mount_cd9660.tproj mount_devfs.tproj\
+        mount_fdesc.tproj mount_hfs.tproj \
+        newfs.tproj newfs_hfs.tproj\
+        quot.tproj quota.tproj quotacheck.tproj\
+        quotaon.tproj repquota.tproj restore.tproj\
         tunefs.tproj umount.tproj ufs.tproj vsdbutil.tproj\
         vndevice.tproj
 
@@ -37,7 +37,7 @@ PROF_LIBS = $(LIBS)
 
 
 NEXTSTEP_PB_CFLAGS = -no-cpp-precomp
-
+OTHER_LDFLAGS = -dead_strip
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/BUILD
 

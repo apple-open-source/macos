@@ -88,6 +88,8 @@ static Cell	tempcell	={ OCELL, CTEMP, 0, "", 0.0, NUM|STR|DONTFREE };
 
 Node	*curnode = NULL;	/* the node being executed, for debugging */
 
+static Awkfloat prev_srand, tmp_srand;
+
 /* buffer memory management */
 int adjbuf(char **pbuf, int *psiz, int minlen, int quantum, char **pbptr,
 	const char *whatrtn)
@@ -193,6 +195,7 @@ Cell *program(Node **a, int n)	/* execute an awk program */
 	if (setjmp(env) != 0)	/* handles exit within END */
 		goto ex1;
 	if (a[2]) {		/* END */
+		donefld = 1;	/* avoid updating NF */
 		x = execute(a[2]);
 		if (isbreak(x) || isnext(x) || iscont(x))
 			FATAL("illegal break, continue, next or nextfile from END");
@@ -895,7 +898,7 @@ int format(char **pbuf, int *pbufsize, const char *s, Node *a)	/* printf-like co
 			break;
 		case 'f':	sprintf(p, fmt, getfval(x)); break;
 		case 'd':	sprintf(p, fmt, (long) getfval(x)); break;
-		case 'u':	sprintf(p, fmt, (int) getfval(x)); break;
+		case 'u':	sprintf(p, fmt, (unsigned int) getfval(x)); break;
 		case 's':
 			t = getsval(x);
 			n = strlen(t);
@@ -1021,6 +1024,7 @@ Cell *arith(Node **a, int n)	/* a[0] + a[1], etc.  also -a[0] */
 			FATAL("division by zero in mod");
 		modf(i/j, &v);
 		i = i - j * v;
+		if (i == -0) i = 0;
 		break;
 	case UMINUS:
 		i = -i;
@@ -1118,6 +1122,7 @@ Cell *assign(Node **a, int n)	/* a[0] = a[1], a[0] += a[1], etc. */
 			FATAL("division by zero in %%=");
 		modf(xf/yf, &v);
 		xf = xf - yf * v;
+		if (xf == -0) xf = 0;
 		break;
 	case POWEQ:
 		if (yf >= 0 && modf(yf, &v) == 0.0)	/* pos integer exponent */
@@ -1509,6 +1514,9 @@ Cell *bltin(Node **a, int n)	/* builtin functions. a[0] is type, a[1] is arg lis
 		else
 			u = getfval(x);
 		srand((unsigned int) u);
+		tmp_srand = u;
+		u = prev_srand;		/* return the previous value	*/
+		prev_srand = tmp_srand;	/* remember for next time	*/
 		break;
 	case FTOUPPER:
 	case FTOLOWER:

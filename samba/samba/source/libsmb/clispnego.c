@@ -26,7 +26,7 @@
   generate a negTokenInit packet given a GUID, a list of supported
   OIDs (the mechanisms) and a principal name string 
 */
-DATA_BLOB spnego_gen_negTokenInit(uint8 guid[16], 
+DATA_BLOB spnego_gen_negTokenInit(char guid[16], 
 				  const char *OIDs[], 
 				  const char *principal)
 {
@@ -140,7 +140,7 @@ BOOL spnego_parse_negTokenInit(DATA_BLOB blob,
 
 	asn1_start_tag(&data,ASN1_CONTEXT(0));
 	asn1_start_tag(&data,ASN1_SEQUENCE(0));
-	for (i=0; asn1_tag_remaining(&data) > 0 && i < ASN1_MAX_OIDS; i++) {
+	for (i=0; asn1_tag_remaining(&data) > 0 && i < ASN1_MAX_OIDS-1; i++) {
 		char *oid_str = NULL;
 		asn1_read_OID(&data,&oid_str);
 		OIDs[i] = oid_str;
@@ -149,13 +149,16 @@ BOOL spnego_parse_negTokenInit(DATA_BLOB blob,
 	asn1_end_tag(&data);
 	asn1_end_tag(&data);
 
-	asn1_start_tag(&data, ASN1_CONTEXT(3));
-	asn1_start_tag(&data, ASN1_SEQUENCE(0));
-	asn1_start_tag(&data, ASN1_CONTEXT(0));
-	asn1_read_GeneralString(&data,principal);
-	asn1_end_tag(&data);
-	asn1_end_tag(&data);
-	asn1_end_tag(&data);
+	*principal = NULL;
+	if (asn1_tag_remaining(&data) > 0) {
+		asn1_start_tag(&data, ASN1_CONTEXT(3));
+		asn1_start_tag(&data, ASN1_SEQUENCE(0));
+		asn1_start_tag(&data, ASN1_CONTEXT(0));
+		asn1_read_GeneralString(&data,principal);
+		asn1_end_tag(&data);
+		asn1_end_tag(&data);
+		asn1_end_tag(&data);
+	}
 
 	asn1_end_tag(&data);
 	asn1_end_tag(&data);
@@ -163,10 +166,17 @@ BOOL spnego_parse_negTokenInit(DATA_BLOB blob,
 	asn1_end_tag(&data);
 
 	ret = !data.has_error;
+	if (data.has_error) {
+		int j;
+		SAFE_FREE(*principal);
+		for(j = 0; j < i && j < ASN1_MAX_OIDS-1; j++) {
+			SAFE_FREE(OIDs[j]);
+		}
+	}
+
 	asn1_free(&data);
 	return ret;
 }
-
 
 /*
   generate a negTokenTarg packet given a list of OIDs and a security blob
@@ -212,7 +222,6 @@ DATA_BLOB gen_negTokenTarg(const char *OIDs[], DATA_BLOB blob)
 	return ret;
 }
 
-
 /*
   parse a negTokenTarg packet giving a list of OIDs and a security blob
 */
@@ -229,7 +238,7 @@ BOOL parse_negTokenTarg(DATA_BLOB blob, char *OIDs[ASN1_MAX_OIDS], DATA_BLOB *se
 
 	asn1_start_tag(&data, ASN1_CONTEXT(0));
 	asn1_start_tag(&data, ASN1_SEQUENCE(0));
-	for (i=0; asn1_tag_remaining(&data) > 0 && i < ASN1_MAX_OIDS; i++) {
+	for (i=0; asn1_tag_remaining(&data) > 0 && i < ASN1_MAX_OIDS-1; i++) {
 		char *oid_str = NULL;
 		asn1_read_OID(&data,&oid_str);
 		OIDs[i] = oid_str;
@@ -237,6 +246,18 @@ BOOL parse_negTokenTarg(DATA_BLOB blob, char *OIDs[ASN1_MAX_OIDS], DATA_BLOB *se
 	OIDs[i] = NULL;
 	asn1_end_tag(&data);
 	asn1_end_tag(&data);
+
+	/* Skip any optional req_flags that are sent per RFC 4178 */
+	if (asn1_check_tag(&data, ASN1_CONTEXT(1))) {
+		uint8 flags;
+
+		asn1_start_tag(&data, ASN1_CONTEXT(1));
+		asn1_start_tag(&data, ASN1_BITFIELD);
+		while (asn1_tag_remaining(&data) > 0)
+			asn1_read_uint8(&data, &flags);
+		asn1_end_tag(&data);
+		asn1_end_tag(&data);
+	}
 
 	asn1_start_tag(&data, ASN1_CONTEXT(2));
 	asn1_read_OctetString(&data,secblob);
@@ -248,6 +269,11 @@ BOOL parse_negTokenTarg(DATA_BLOB blob, char *OIDs[ASN1_MAX_OIDS], DATA_BLOB *se
 	asn1_end_tag(&data);
 
 	if (data.has_error) {
+		int j;
+		data_blob_free(secblob);
+		for(j = 0; j < i && j < ASN1_MAX_OIDS-1; j++) {
+			SAFE_FREE(OIDs[j]);
+		}
 		DEBUG(1,("Failed to parse negTokenTarg at offset %d\n", (int)data.ofs));
 		asn1_free(&data);
 		return False;
@@ -260,7 +286,7 @@ BOOL parse_negTokenTarg(DATA_BLOB blob, char *OIDs[ASN1_MAX_OIDS], DATA_BLOB *se
 /*
   generate a krb5 GSS-API wrapper packet given a ticket
 */
-DATA_BLOB spnego_gen_krb5_wrap(DATA_BLOB ticket, const uint8 tok_id[2])
+DATA_BLOB spnego_gen_krb5_wrap(const DATA_BLOB ticket, const uint8 tok_id[2])
 {
 	ASN1_DATA data;
 	DATA_BLOB ret;
@@ -313,6 +339,10 @@ BOOL spnego_parse_krb5_wrap(DATA_BLOB blob, DATA_BLOB *ticket, uint8 tok_id[2])
 
 	ret = !data.has_error;
 
+	if (data.has_error) {
+		data_blob_free(ticket);
+	}
+
 	asn1_free(&data);
 
 	return ret;
@@ -325,14 +355,17 @@ BOOL spnego_parse_krb5_wrap(DATA_BLOB blob, DATA_BLOB *ticket, uint8 tok_id[2])
 */
 int spnego_gen_negTokenTarg(const char *principal, int time_offset, 
 			    DATA_BLOB *targ, 
-			    DATA_BLOB *session_key_krb5)
+			    DATA_BLOB *session_key_krb5, uint32 extra_ap_opts,
+			    time_t *expire_time)
 {
 	int retval;
 	DATA_BLOB tkt, tkt_wrapped;
 	const char *krb_mechs[] = {OID_KERBEROS5_OLD, OID_NTLMSSP, NULL};
 
 	/* get a kerberos ticket for the service and extract the session key */
-	retval = cli_krb5_get_ticket(principal, time_offset, &tkt, session_key_krb5);
+	retval = cli_krb5_get_ticket(principal, time_offset,
+					&tkt, session_key_krb5, extra_ap_opts, NULL, 
+					expire_time);
 
 	if (retval)
 		return retval;
@@ -389,6 +422,12 @@ BOOL spnego_parse_challenge(const DATA_BLOB blob,
 	asn1_end_tag(&data);
 
 	ret = !data.has_error;
+
+	if (data.has_error) {
+		data_blob_free(chal1);
+		data_blob_free(chal2);
+	}
+
 	asn1_free(&data);
 	return ret;
 }
@@ -437,6 +476,7 @@ BOOL spnego_parse_auth(DATA_BLOB blob, DATA_BLOB *auth)
 
 	if (data.has_error) {
 		DEBUG(3,("spnego_parse_auth failed at %d\n", (int)data.ofs));
+		data_blob_free(auth);
 		asn1_free(&data);
 		return False;
 	}
@@ -536,4 +576,3 @@ BOOL spnego_parse_auth_response(DATA_BLOB blob, NTSTATUS nt_status,
 	asn1_free(&data);
 	return True;
 }
-

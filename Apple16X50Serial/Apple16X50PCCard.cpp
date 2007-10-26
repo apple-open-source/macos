@@ -215,7 +215,7 @@ bool Apple16X50PCCard::start(IOService *provider)
     if (WindowCount < 1) goto fail;
 
     if (Map) delete [] Map;
-    Map = new (IOMemoryMap*)[WindowCount];
+    Map = new IOMemoryMap *[WindowCount];
     if (!Map) goto fail;
 
     UARTInstance=0;

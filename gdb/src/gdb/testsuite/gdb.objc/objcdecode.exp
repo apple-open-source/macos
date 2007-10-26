@@ -23,7 +23,7 @@ if $tracelevel then {
 }
 
 # APPLE LOCAL: We don't support Objective-C on 64-bit PowerPC
-if [istarget "powerpc64-apple-darwin*"] {
+if [target_info exists noobjc64] {
     verbose "Disable Objective-C tests on 64-bit PowerPC."
     return
 }

@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: html.h,v 1.15.2.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: html.h,v 1.20.2.1.2.3 2007/05/22 12:37:00 iliaa Exp $ */
 
 #ifndef HTML_H
 #define HTML_H
@@ -33,9 +33,12 @@ void register_html_constants(INIT_FUNC_ARGS);
 
 PHP_FUNCTION(htmlspecialchars);
 PHP_FUNCTION(htmlentities);
+PHP_FUNCTION(htmlspecialchars_decode);
 PHP_FUNCTION(html_entity_decode);
 PHP_FUNCTION(get_html_translation_table);
 
 PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newlen, int all, int quote_style, char *hint_charset TSRMLS_DC);
+PHPAPI char *php_escape_html_entities_ex(unsigned char *old, int oldlen, int *newlen, int all, int quote_style, char *hint_charset, zend_bool double_encode TSRMLS_DC);
+PHPAPI char *php_unescape_html_entities(unsigned char *old, int oldlen, int *newlen, int all, int quote_style, char *hint_charset TSRMLS_DC);
 
 #endif /* HTML_H */

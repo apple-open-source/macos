@@ -110,6 +110,9 @@ UserPasswordDialogue_response(CFUserNotificationRef notif,
 	if (str != NULL && CFStringGetLength(str) > 0) {
 	    response.password = CFRetain(str);
 	}
+	if (response_flags & CFUserNotificationCheckBoxChecked(0)) {
+	    response.one_time_password = TRUE;
+	}
 	break;
     default:
 	response.user_cancelled = TRUE;
@@ -202,6 +205,12 @@ make_notif_dict(CFStringRef message, CFStringRef user, CFStringRef password)
     }
     CFDictionaryAddValue(dict, kCFUserNotificationTextFieldValuesKey, array);
     my_CFRelease(&array);
+
+    /* checkbox */
+    array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(array, CFSTR("Only use this password once"));
+    CFDictionaryAddValue(dict, kCFUserNotificationCheckBoxTitlesKey, array);
+    my_CFRelease(&array);
     return (dict);
 
  failed:
@@ -213,13 +222,14 @@ UserPasswordDialogueRef
 UserPasswordDialogue_create(UserPasswordDialogueResponseCallBack func,
 			    const void * arg1, const void * arg2,
 			    CFStringRef message, 
-			    CFStringRef user, CFStringRef password)
+			    CFStringRef user, CFStringRef password,
+			    bool one_time_password)
 {
     CFUserNotificationRef 	notif = NULL;
     UserPasswordDialogueRef			dialogue_p;
     CFDictionaryRef		dict = NULL;
     SInt32			error = 0;
-    CFOptionFlags		flags = CFUserNotificationSecureTextField(1);
+    CFOptionFlags		flags;
     CFRunLoopSourceRef		rls = NULL;
 
     dialogue_p = malloc(sizeof(*dialogue_p));
@@ -228,10 +238,16 @@ UserPasswordDialogue_create(UserPasswordDialogueResponseCallBack func,
 	return (NULL);
     }
     bzero(dialogue_p, sizeof(*dialogue_p));
-    dict = make_notif_dict(message, user, password);
+    dict = make_notif_dict(message, user,
+			   one_time_password ? NULL : password);
     if (dict == NULL) {
 	goto failed;
     }
+    flags = CFUserNotificationSecureTextField(1);
+    if (one_time_password) {
+	flags |= CFUserNotificationCheckBoxChecked(0);
+    }
+
     notif = CFUserNotificationCreate(NULL, 0, flags, &error, dict);
     if (notif == NULL) {
 	my_log(LOG_NOTICE, "CFUserNotificationCreate failed, %d",
@@ -537,9 +553,14 @@ my_callback(const void * arg1, const void * arg2, UserPasswordDialogueResponseRe
     if (response->user_cancelled) {
 	printf("User cancelled\n");
     }
+    if (response->one_time_password) {
+	printf("One-time password\n");
+    }
     *dialogue_p_p = UserPasswordDialogue_create(my_callback, dialogue_p_p, NULL,
-				    CFSTR("message is this"), 
-				    CFSTR("dieter"), CFSTR("siegmund"));
+						CFSTR("message is this"), 
+						CFSTR("dieter"), 
+						CFSTR("siegmund"),
+						response->one_time_password);
     UserPasswordDialogue_free(&temp);
     return;
 }
@@ -555,9 +576,12 @@ main(int argc, char * argv[])
     UserPasswordDialogueRef * p3 = &dialogue_p3;
 
     dialogue_p = UserPasswordDialogue_create(my_callback, p, NULL,
-				 NULL, CFSTR("dieter"), CFSTR("siegmund"));
-    dialogue_p2 = UserPasswordDialogue_create(my_callback, p2, NULL, NULL, NULL, NULL);
-    dialogue_p3 = UserPasswordDialogue_create(my_callback, p3, NULL, NULL, NULL, NULL);
+					     NULL, CFSTR("dieter"),
+					     CFSTR("siegmund"), FALSE);
+    dialogue_p2 = UserPasswordDialogue_create(my_callback, p2, NULL, NULL, 
+					      NULL, NULL, FALSE);
+    dialogue_p3 = UserPasswordDialogue_create(my_callback, p3, NULL, NULL, 
+					      NULL, NULL, FALSE);
     CFRunLoopRun();
     exit(0);
     return (0);

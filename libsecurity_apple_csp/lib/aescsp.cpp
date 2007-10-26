@@ -106,8 +106,8 @@ void AESContext::init(
 		return;
 	}
 	
-	UInt32 		keyLen;
-	UInt8 		*keyData = NULL;
+	CSSM_SIZE	keyLen;
+	uint8 		*keyData = NULL;
 	unsigned	lastBlockSize = mBlockSize;		// may be 0 (first time thru)
 	bool		sameKeyAndBlockSizes = false;
 	
@@ -224,6 +224,7 @@ void AESContext::encryptBlock(
 
 void AESContext::decryptBlock(
 	const void		*cipherText,		// length implied (one cipher block)
+	size_t			cipherTextLen,	
 	void			*plainText,	
 	size_t			&plainTextLen,		// in/out, throws on overflow
 	bool			final)				// ignored

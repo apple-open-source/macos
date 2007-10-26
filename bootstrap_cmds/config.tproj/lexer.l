@@ -32,6 +32,13 @@
 #include "y.tab.h"
 #include "config.h"
 
+#define YY_NO_UNPUT	/* suppress yyunput generation */
+
+int	kw_lookup(char *word);
+int	octal(char *str);
+int	hex(char *str);
+int	yylex(void);
+
 #define tprintf if (do_trace) printf
 
 /*
@@ -39,7 +46,7 @@
  */
 
 struct kt {
-	char *kt_name;
+	const char *kt_name;
 	int kt_val;
 } key_words[] = {
 	{ "and",	AND },
@@ -58,9 +65,7 @@ struct kt {
 	{ "flags",	FLAGS },
 	{ "hz",		HZ },
 	{ "ident",	IDENT },
-#if	NeXT
 	{ "init",	INIT },
-#endif	NeXT
 	{ "machine",	MACHINE },
 	{ "major",	MAJOR },
 	{ "makeoptions", MAKEOPTIONS },
@@ -183,8 +188,8 @@ m68k|m88k|m98k	{	yylval.str = yytext;
  *	string is not a keyword otherwise it returns the keyword number
  */
 
-kw_lookup(word)
-register char *word;
+int
+kw_lookup(char *word)
 {
 	register struct kt *kp;
 
@@ -198,8 +203,8 @@ register char *word;
  * Number conversion routines
  */
 
-octal(str)
-char *str;
+int
+octal(char *str)
 {
 	int num;
 
@@ -207,8 +212,8 @@ char *str;
 	return num;
 }
 
-hex(str)
-char *str;
+int
+hex(char *str)
 {
 	int num;
 

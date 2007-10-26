@@ -76,7 +76,9 @@ public:
     SecTrustResultType result() const			{ return mResult; }
 	OSStatus cssmResultCode() const				{ return mTpReturn; }
     TP getTPHandle() const						{ return mTP; }
-    
+    CFRef<CFArrayRef> policies() const          { return mPolicies; }
+    CFRef<CFArrayRef> anchors() const           { return mAnchors; }
+
 	// an independent release function for TP evidence results
 	// (yes, we could hand this out to the C layer if desired)
 	static void releaseTPEvidence(TPVerifyResult &result, Allocator &allocator);
@@ -114,17 +116,20 @@ private:
     CFRef<CFArrayRef> mPolicies;	// array of policy objects to control verification
     CFRef<CFArrayRef> mAnchors;		// array of anchor certs
     StorageManager::KeychainList mSearchLibs; // array of databases to search
-    
+
     // evaluation results: set as a result of evaluate()
     SecTrustResultType mResult;		// result classification
     uint32 mResultIndex;			// which result cert made the decision?
     OSStatus mTpReturn;				// return code from TP Verify
     TPVerifyResult mTpResult;		// result of latest TP verify
+    StorageManager::KeychainList mSearchLibsUsed; // augmented mSearchLibs used
 
     vector< SecPointer<Certificate> > mCertChain; // distilled certificate chain
 
     // information returned to caller but owned by us
     CFRef<CFArrayRef> mEvidenceReturned; // evidence chain returned
+
+	bool mUsingTrustSettings;
 
 public:
     static ModuleNexus<TrustStore> Trust::gStore;

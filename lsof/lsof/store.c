@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: store.c,v 1.35 2005/08/08 19:44:35 abe Exp $";
+static char *rcsid = "$Id: store.c,v 1.36 2006/09/15 18:58:03 abe Exp $";
 #endif
 
 
@@ -65,6 +65,13 @@ struct str_lst *Cmdl = (struct str_lst *)NULL;
 int CmdLim = CMDL;		/* COMMAND column width limit */
 lsof_rx_t *CmdRx = (lsof_rx_t *)NULL;
 				/* command regular expression table */
+
+#if	defined(HASSELINUX)
+cntxlist_t *CntxArg = (cntxlist_t *)NULL;
+				/* security context arguments supplied with
+				 * -Z */
+int CntxColW;			/* security context  column width */
+#endif	/* defined(HASSELINUX) */
 
 #if	defined(HASDCACHE)
 unsigned DCcksum;		/* device cache file checksum */
@@ -115,6 +122,7 @@ int ErrStat = 0;		/* path stat() error count */
 uid_t Euid;			/* effective UID of this lsof process */
 int Fand = 0;			/* -a option status */
 int Fblock = 0;			/* -b option status */
+int Fcntx = 0;			/* -Z option status */
 int FdColW;			/* FD column width */
 int Ffilesys = 0;		/* -f option status:
 				 *    0 = paths may be file systems
@@ -211,7 +219,8 @@ struct fieldsel FieldSel[] = {
     { LSOF_FID_TCPTPI, 0,  LSOF_FNM_TCPTPI, &Ftcptpi, TCPTPI_ALL }, /* 24 */
     { LSOF_FID_UID,    0,  LSOF_FNM_UID,    NULL,     0		 }, /* 25 */
     { LSOF_FID_ZONE,   0,  LSOF_FNM_ZONE,   &Fzone,   1		 }, /* 26 */
-    { LSOF_FID_TERM,   0,  LSOF_FNM_TERM,   NULL,     0		 }, /* 27 */
+    { LSOF_FID_CNTX,   0,  LSOF_FNM_CNTX,   &Fcntx,   1		 }, /* 27 */
+    { LSOF_FID_TERM,   0,  LSOF_FNM_TERM,   NULL,     0		 }, /* 28 */
 
 #if	defined(HASFIELDAP1)
     { '1',	       0,  HASFIELDAP1,     NULL,     0		 }, /* TERM+1 */

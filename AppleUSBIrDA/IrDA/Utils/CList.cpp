@@ -24,7 +24,7 @@ EventTraceCauseDesc TraceEvents[] = {
     {kLogFree,          "CList: free, obj="},
     {kLogInit,          "CList: init, obj="}
 };
-#define XTRACE(x, y, z) IrDALogAdd( x, y, z, TraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, TraceEvents, true )
 #else
 #define XTRACE(x, y, z) ((void) 0)
 #endif
@@ -41,7 +41,7 @@ CList::cList(long chunkSize)
 {
     CList *obj = new CList;
     
-    XTRACE(kLogNew, (int)obj >> 16, (short)obj);
+    XTRACE(kLogNew, (int)obj >> 16, obj);
     
     if (obj && !obj->init(chunkSize)) {
 	obj->release();
@@ -52,14 +52,14 @@ CList::cList(long chunkSize)
 
 Boolean CList::init(ArrayIndex size)
 {
-    XTRACE(kLogInit, (int)this >> 16, (short)this);
+    XTRACE(kLogInit, (int)this >> 16, this);
     
     return super::init(kDefaultElementSize, size);
 }
 
 void CList::free(void)
 {
-    XTRACE(kLogFree, (int)this >> 16, (short)this);
+    XTRACE(kLogFree, (int)this >> 16, this);
     
     super::free();
 }

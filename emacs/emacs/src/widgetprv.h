@@ -1,5 +1,6 @@
 /* The emacs frame widget private header file.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Emacs 19 face widget ported by Fred Pierresteguy */
 
@@ -38,7 +39,7 @@ typedef struct {
   /* The rest of this is crap and should be deleted.
    */
   int		minibuffer;	/* 0: normal frames with minibuffers.
-				 * 1: frames without minibuffers 
+				 * 1: frames without minibuffers
 				 * 2: minibuffer only. */
   Boolean	unsplittable;	/* frame can only have one window */
 
@@ -77,3 +78,6 @@ extern EmacsFrameClassRec emacsFrameClassRec;	 /* class pointer */
 
 
 #endif /* _EmacsFrameP_h */
+
+/* arch-tag: 2b579b4c-f697-4f86-b27a-35b7cb1a4a1c
+   (do not change this comment) */

@@ -1,0 +1,11 @@
+--- ruby.c	2006-08-16 04:11:21.000000000 +0200
++++ ruby.c.new	2006-09-24 19:48:43.000000000 +0200
+@@ -971,7 +971,7 @@
+ VALUE rb_argv;
+ VALUE rb_argv0;
+ 
+-#if defined(PSTAT_SETCMD) || defined(HAVE_SETPROCTITLE)
++#if defined(__APPLE__) || (defined(PSTAT_SETCMD) || defined(HAVE_SETPROCTITLE))
+ #elif defined(_WIN32)
+ #elif defined(HAVE_SETENV) && defined(HAVE_UNSETENV)
+ #else

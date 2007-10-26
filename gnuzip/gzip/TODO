@@ -1,27 +1,12 @@
 TODO file for gzip.
 
-	Copyright (C) 1999, 2001 Free Software Foundation, Inc.
-	Copyright (C) 1992, 1993 Jean-loup Gailly
-
-	This file is part of gzip (GNU zip).
-
-	gzip is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation; either version 2, or (at your option)
-	any later version.
-
-	gzip is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with tar; see the file COPYING.  If not, write to
-	the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-	Boston, MA 02111-1307, USA.
-
-
 Some of the planned features include:
+
+- Remove some of the old porting cruft, since we no longer support
+  PRIMOS etc. any more.
+
+- Separate out the shell scripts like gzexe into a new little package;
+  these scripts are less used and less reliable and should be optional.
 
 - Internationalize by using gettext and setlocale.
 
@@ -81,5 +66,18 @@ Some of the planned features include:
   'compress' currently handles better than gzip.
 
 - Implement the -e (encrypt) option.
-   
+
 Send comments to <bug-gzip@gnu.org>.
+
+
+========================================================================
+
+Copyright (C) 1999, 2001, 2006 Free Software Foundation, Inc.
+Copyright (C) 1992, 1993 Jean-loup Gailly
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with no Front-Cover Texts, and with no Back-Cover
+Texts.  A copy of the license is included in the ``GNU Free
+Documentation License'' file as part of this distribution.

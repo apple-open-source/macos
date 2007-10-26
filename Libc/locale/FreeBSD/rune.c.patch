@@ -1,6 +1,6 @@
 --- rune.c.orig	2004-11-25 11:38:19.000000000 -0800
-+++ rune.c	2005-02-14 19:25:48.000000000 -0800
-@@ -34,28 +34,96 @@
++++ rune.c	2005-04-12 17:18:12.000000000 -0700
+@@ -34,28 +34,98 @@
   * SUCH DAMAGE.
   */
  
@@ -26,7 +26,8 @@
  #include <sys/stat.h>
  #include "un-namespace.h"
 +#endif /* !RUNEOFF32 */
-+
+ 
+-_RuneLocale *
 +#if defined(__LP64__) || defined(RUNEOFF32)
 +/*
 + * Because the LC_CTYPE files were created with a 32-bit program, we need
@@ -41,7 +42,7 @@
 +#define BYTES32BITS		4
 +#define BYTES64BITS		8
 +/* whether to skip over a pointer or not (one-to-one with off64) */
-+static int skip[] = {
++int skip[] = {
 +	1,
 +	1,
 +	0,
@@ -49,12 +50,13 @@
 +	0,
 +	1,
 +	0,
++	1,
 +	1,
 +	1,
 +	0
 +};
 +#endif /* !RUNEOFF32 */
-+static int off64[] = {
++int off64[] = {
 +	offsetof(_RuneLocale, __sgetrune),
 +	offsetof(_RuneLocale, __sputrune),
 +	offsetof(_RuneLocale, __runetype_ext),
@@ -64,6 +66,7 @@
 +	offsetof(_RuneLocale, __mapupper_ext),
 +	offsetof(_RuneLocale, __mapupper_ext) + offsetof(_RuneRange, __ranges),
 +	offsetof(_RuneLocale, __variable),
++	offsetof(_RuneLocale, __charclasses),
 +	sizeof(_RuneLocale)
 +};
 +#define	NOFF			(sizeof(off64) / sizeof(int))
@@ -77,7 +80,7 @@
 +	int i;
 +	printf("#define SIZEOF32_RUNEENTRY %d\n", sizeof(_RuneEntry));
 +	printf("#define SIZEOF32_RUNELOCALE %d\n", sizeof(_RuneLocale));
-+	printf("static int off32[] = {\n");
++	printf("int off32[] = {\n");
 +	for(i = 0; i < NOFF; i++)
 +		printf("\t%d,\n", off64[i]);
 +	printf("};\n");
@@ -87,8 +90,7 @@
 +#else /* !__LP64__ && !RUNEOFF32 */
 +#define	SIZEOF32_RUNELOCALE	sizeof(_RuneLocale)
 +#endif /* __LP64__ || RUNEOFF32 */
- 
--_RuneLocale *
++
 +#ifndef RUNEOFF32
 +struct __xlocale_st_runelocale *
  _Read_RuneMagi(fp)
@@ -99,7 +101,7 @@
  	void *lastp;
  	_RuneLocale *rl;
  	_RuneEntry *rr;
-@@ -65,13 +133,20 @@
+@@ -65,13 +135,20 @@
  	if (_fstat(fileno(fp), &sb) < 0)
  		return (NULL);
  
@@ -122,7 +124,7 @@
  
  	errno = 0;
  	rewind(fp); /* Someone might have read the magic number once already */
-@@ -82,17 +157,25 @@
+@@ -82,26 +159,43 @@
  		return (NULL);
  	}
  
@@ -149,9 +151,10 @@
  	rl->__variable = rl + 1;
 +#endif /* __LP64__ */
  
- 	if (memcmp(rl->__magic, _RUNE_MAGIC_1, sizeof(rl->__magic))) {
+-	if (memcmp(rl->__magic, _RUNE_MAGIC_1, sizeof(rl->__magic))) {
++	if (memcmp(rl->__magic, _RUNE_MAGIC_A, sizeof(rl->__magic))) {
  		free(data);
-@@ -100,6 +183,14 @@
+ 		errno = EFTYPE;
  		return (NULL);
  	}
  
@@ -165,28 +168,33 @@
 +#if __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN
  	rl->__invalid_rune = ntohl(rl->__invalid_rune);
  	rl->__variable_len = ntohl(rl->__variable_len);
++	rl->__ncharclasses = ntohl(rl->__ncharclasses);
  	rl->__runetype_ext.__nranges = ntohl(rl->__runetype_ext.__nranges);
-@@ -111,7 +202,43 @@
+ 	rl->__maplower_ext.__nranges = ntohl(rl->__maplower_ext.__nranges);
+ 	rl->__mapupper_ext.__nranges = ntohl(rl->__mapupper_ext.__nranges);
+@@ -111,7 +205,54 @@
  		rl->__maplower[x] = ntohl(rl->__maplower[x]);
  		rl->__mapupper[x] = ntohl(rl->__mapupper[x]);
  	}
 +#endif /* __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN */
-+
+ 
 +#ifdef __LP64__
 +	{
 +	int count = rl->__runetype_ext.__nranges + rl->__maplower_ext.__nranges
 +	    + rl->__mapupper_ext.__nranges;
-+	int extra = sb.st_size - SIZEOF32_RUNELOCALE - count * SIZEOF32_RUNEENTRY;
++	int extra = sb.st_size - SIZEOF32_RUNELOCALE - count * SIZEOF32_RUNEENTRY - rl->__ncharclasses * sizeof(_RuneCharClass);
 +	_RuneEntry *rp;
- 
++
 +	if (extra < 0) {
 +		saverr = errno;
 +		free(data);
 +		errno = saverr;
 +		return (NULL);
 +	}
-+	if ((data = (struct __xlocale_st_runelocale *)reallocf(data, sizeof(struct __xlocale_st_runelocale) +
-+	    count * sizeof(_RuneEntry) + extra)) == NULL)
++	if ((data = (struct __xlocale_st_runelocale *)reallocf(data, sizeof(struct __xlocale_st_runelocale)
++	    + count * sizeof(_RuneEntry)
++	    + rl->__ncharclasses * sizeof(_RuneCharClass)
++	    + extra)) == NULL)
 +		return (NULL);
 +	rl = &data->_CurrentRuneLocale;
 +	rl->__variable = rl + 1;
@@ -198,6 +206,15 @@
 +			errno = saverr;
 +			return (NULL);
 +		}
++	if (rl->__ncharclasses > 0) {
++		if (fread(rp, sizeof(_RuneCharClass), rl->__ncharclasses, fp) != rl->__ncharclasses) {
++			saverr = errno;
++			free(data);
++			errno = saverr;
++			return (NULL);
++		}
++		rp = (_RuneEntry *)((char *)rp + rl->__ncharclasses * sizeof(_RuneCharClass));
++	}
 +	if (extra > 0 && fread(rp, extra, 1, fp) != 1) {
 +		saverr = errno;
 +		free(data);
@@ -210,7 +227,7 @@
  	rl->__runetype_ext.__ranges = (_RuneEntry *)rl->__variable;
  	rl->__variable = rl->__runetype_ext.__ranges +
  	    rl->__runetype_ext.__nranges;
-@@ -142,8 +269,10 @@
+@@ -142,8 +283,10 @@
  	for (x = 0; x < rl->__runetype_ext.__nranges; ++x) {
  		rr = rl->__runetype_ext.__ranges;
  
@@ -221,7 +238,7 @@
  		if ((rr[x].__map = ntohl(rr[x].__map)) == 0) {
  			int len = rr[x].__max - rr[x].__min + 1;
  			rr[x].__types = rl->__variable;
-@@ -153,12 +282,15 @@
+@@ -153,12 +296,15 @@
  				errno = EFTYPE;
  				return (NULL);
  			}
@@ -237,15 +254,30 @@
  	for (x = 0; x < rl->__maplower_ext.__nranges; ++x) {
  		rr = rl->__maplower_ext.__ranges;
  
-@@ -174,6 +306,7 @@
+@@ -174,6 +320,22 @@
  		rr[x].__max = ntohl(rr[x].__max);
  		rr[x].__map = ntohl(rr[x].__map);
  	}
 +#endif /* __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN */
++
++	if (rl->__ncharclasses > 0) {
++		rl->__charclasses = (_RuneCharClass *)rl->__variable;
++		rl->__variable = (void *)(rl->__charclasses + rl->__ncharclasses);
++		if (rl->__variable > lastp) {
++			free(data);
++			errno = EFTYPE;
++			return (NULL);
++		}
++#if __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN
++		for (x = 0; x < rl->__ncharclasses; ++x)
++			rl->__charclasses[x].__mask = ntohl(rl->__charclasses[x].__mask);
++#endif /* __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN */
++	}
++
  	if (((char *)rl->__variable) + rl->__variable_len > (char *)lastp) {
  		free(data);
  		errno = EFTYPE;
-@@ -195,5 +328,7 @@
+@@ -195,5 +357,7 @@
  	if (!rl->__mapupper_ext.__nranges)
  		rl->__mapupper_ext.__ranges = 0;
  

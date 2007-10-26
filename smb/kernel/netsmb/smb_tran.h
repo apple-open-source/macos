@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_tran.h,v 1.2 2001/12/21 02:41:30 conrad Exp $
  */
 
 #ifndef _NETSMB_SMB_TRAN_H_
@@ -55,18 +56,17 @@ struct smb_tran_ops;
 
 struct smb_tran_desc {
 	sa_family_t	tr_type;
-	int	(*tr_create)(struct smb_vc *vcp, struct proc *p);
-	int	(*tr_done)(struct smb_vc *vcp, struct proc *p);
-	int	(*tr_bind)(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p);
-	int	(*tr_connect)(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p);
-	int	(*tr_disconnect)(struct smb_vc *vcp, struct proc *p);
-	int	(*tr_send)(struct smb_vc *vcp, struct mbuf *m0, struct proc *p);
-	int	(*tr_recv)(struct smb_vc *vcp, struct mbuf **mpp, struct proc *p);
-	void	(*tr_timo)(struct smb_vc *vcp);
-	void	(*tr_intr)(struct smb_vc *vcp);
-	int	(*tr_getparam)(struct smb_vc *vcp, int param, void *data);
-	int	(*tr_setparam)(struct smb_vc *vcp, int param, void *data);
-	int	(*tr_fatal)(struct smb_vc *vcp, int error);
+	int	(*tr_create)(struct smb_vc *vcp);							/* smb_nbst_create */
+	int	(*tr_done)(struct smb_vc *vcp);								/* smb_nbst_done */
+	int	(*tr_bind)(struct smb_vc *vcp, struct sockaddr *sap);		/* smb_nbst_bind */
+	int	(*tr_connect)(struct smb_vc *vcp, struct sockaddr *sap);	/* smb_nbst_connect */
+	int	(*tr_disconnect)(struct smb_vc *vcp);						/* smb_nbst_disconnect */
+	int	(*tr_send)(struct smb_vc *vcp, mbuf_t m0);					/* smb_nbst_send */
+	int	(*tr_recv)(struct smb_vc *vcp, mbuf_t *mpp);				/* smb_nbst_recv */
+	void (*tr_timo)(struct smb_vc *vcp);							/* smb_nbst_timo */
+	int	(*tr_getparam)(struct smb_vc *vcp, int param, void *data);	/* smb_nbst_getparam */
+	int	(*tr_setparam)(struct smb_vc *vcp, int param, void *data);	/* smb_nbst_setparam */
+	int	(*tr_fatal)(struct smb_vc *vcp, int error);					/* smb_nbst_fatal */
 #ifdef notyet
 	int	(*tr_poll)(struct smb_vc *vcp, struct proc *p);
 	int	(*tr_cmpaddr)(void *addr1, void *addr2);
@@ -74,15 +74,14 @@ struct smb_tran_desc {
 	LIST_ENTRY(smb_tran_desc)	tr_link;
 };
 
-#define SMB_TRAN_CREATE(vcp,p)		(vcp)->vc_tdesc->tr_create(vcp,p)
-#define SMB_TRAN_DONE(vcp,p)		(vcp)->vc_tdesc->tr_done(vcp,p)
-#define	SMB_TRAN_BIND(vcp,sap,p)	(vcp)->vc_tdesc->tr_bind(vcp,sap,p)
-#define	SMB_TRAN_CONNECT(vcp,sap,p)	(vcp)->vc_tdesc->tr_connect(vcp,sap,p)
-#define	SMB_TRAN_DISCONNECT(vcp,p)	(vcp)->vc_tdesc->tr_disconnect(vcp,p)
-#define	SMB_TRAN_SEND(vcp,m0,p)		(vcp)->vc_tdesc->tr_send(vcp,m0,p)
-#define	SMB_TRAN_RECV(vcp,m,p)		(vcp)->vc_tdesc->tr_recv(vcp,m,p)
+#define SMB_TRAN_CREATE(vcp)		(vcp)->vc_tdesc->tr_create(vcp)
+#define SMB_TRAN_DONE(vcp)		(vcp)->vc_tdesc->tr_done(vcp)
+#define	SMB_TRAN_BIND(vcp,sap)		(vcp)->vc_tdesc->tr_bind(vcp,sap)
+#define	SMB_TRAN_CONNECT(vcp,sap)	(vcp)->vc_tdesc->tr_connect(vcp,sap)
+#define	SMB_TRAN_DISCONNECT(vcp)	(vcp)->vc_tdesc->tr_disconnect(vcp)
+#define	SMB_TRAN_SEND(vcp,m0)		(vcp)->vc_tdesc->tr_send(vcp,m0)
+#define	SMB_TRAN_RECV(vcp,m)		(vcp)->vc_tdesc->tr_recv(vcp,m)
 #define	SMB_TRAN_TIMO(vcp)		(vcp)->vc_tdesc->tr_timo(vcp)
-#define	SMB_TRAN_INTR(vcp)		(vcp)->vc_tdesc->tr_intr(vcp)
 #define	SMB_TRAN_GETPARAM(vcp,par,data)	(vcp)->vc_tdesc->tr_getparam(vcp, par, data)
 #define	SMB_TRAN_SETPARAM(vcp,par,data)	(vcp)->vc_tdesc->tr_setparam(vcp, par, data)
 #define	SMB_TRAN_FATAL(vcp, error)	(vcp)->vc_tdesc->tr_fatal(vcp, error)

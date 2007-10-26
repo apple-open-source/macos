@@ -18,8 +18,6 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define NO_SYSLOG
-
 #include "includes.h"
 
 /****************************************************************************
@@ -48,10 +46,12 @@ static BOOL cli_issue_read(struct cli_state *cli, int fnum, off_t offset,
 	SIVAL(cli->outbuf,smb_vwv3,offset);
 	SSVAL(cli->outbuf,smb_vwv5,size);
 	SSVAL(cli->outbuf,smb_vwv6,size);
+	SSVAL(cli->outbuf,smb_vwv7,((size >> 16) & 1));
 	SSVAL(cli->outbuf,smb_mid,cli->mid + i);
 
-	if (bigoffset)
-		SIVAL(cli->outbuf,smb_vwv10,(offset>>32) & 0xffffffff);
+	if (bigoffset) {
+		SIVAL(cli->outbuf,smb_vwv10,(((SMB_BIG_UINT)offset)>>32) & 0xffffffff);
+	}
 
 	return cli_send_smb(cli);
 }
@@ -75,7 +75,15 @@ ssize_t cli_read(struct cli_state *cli, int fnum, char *buf, off_t offset, size_
 	 * rounded down to a multiple of 1024.
 	 */
 
-	readsize = (cli->max_xmit - (smb_size+32)) & ~1023;
+	if (cli->capabilities & CAP_LARGE_READX) {
+		if (cli->is_samba) {
+			readsize = CLI_SAMBA_MAX_LARGE_READX_SIZE;
+		} else {
+			readsize = CLI_WINDOWS_MAX_LARGE_READX_SIZE;
+		}
+	} else {
+		readsize = (cli->max_xmit - (smb_size+32)) & ~1023;
+	}
 
 	while (total < size) {
 		readsize = MIN(readsize, size-total);
@@ -117,6 +125,7 @@ ssize_t cli_read(struct cli_state *cli, int fnum, char *buf, off_t offset, size_
 		}
 
 		size2 = SVAL(cli->inbuf, smb_vwv5);
+		size2 |= (((unsigned int)(SVAL(cli->inbuf, smb_vwv7) & 1)) << 16);
 
 		if (size2 > readsize) {
 			DEBUG(5,("server returned more than we wanted!\n"));
@@ -253,23 +262,29 @@ static BOOL cli_issue_write(struct cli_state *cli, int fnum, off_t offset,
 			    size_t size, int i)
 {
 	char *p;
-	BOOL bigoffset = False;
+	BOOL large_writex = False;
 
 	if (size > cli->bufsize) {
-		cli->outbuf = SMB_REALLOC(cli->outbuf, size + 1024);
-		cli->inbuf = SMB_REALLOC(cli->inbuf, size + 1024);
-		if (cli->outbuf == NULL || cli->inbuf == NULL)
+		cli->outbuf = (char *)SMB_REALLOC(cli->outbuf, size + 1024);
+		if (!cli->outbuf) {
 			return False;
+		}
+		cli->inbuf = (char *)SMB_REALLOC(cli->inbuf, size + 1024);
+		if (cli->inbuf == NULL) {
+			SAFE_FREE(cli->outbuf);
+			return False;
+		}
 		cli->bufsize = size + 1024;
 	}
 
 	memset(cli->outbuf,'\0',smb_size);
 	memset(cli->inbuf,'\0',smb_size);
 
-	if ((SMB_BIG_UINT)offset >> 32) 
-		bigoffset = True;
+	if (((SMB_BIG_UINT)offset >> 32) || (size > 0xFFFF)) {
+		large_writex = True;
+	}
 
-	if (bigoffset)
+	if (large_writex)
 		set_message(cli->outbuf,14,0,True);
 	else
 		set_message(cli->outbuf,12,0,True);
@@ -297,8 +312,9 @@ static BOOL cli_issue_write(struct cli_state *cli, int fnum, off_t offset,
 	SSVAL(cli->outbuf,smb_vwv11,
 	      smb_buf(cli->outbuf) - smb_base(cli->outbuf));
 
-	if (bigoffset)
-		SIVAL(cli->outbuf,smb_vwv12,(offset>>32) & 0xffffffff);
+	if (large_writex) {
+		SIVAL(cli->outbuf,smb_vwv12,(((SMB_BIG_UINT)offset)>>32) & 0xffffffff);
+	}
 	
 	p = smb_base(cli->outbuf) + SVAL(cli->outbuf,smb_vwv11);
 	memcpy(p, buf, size);
@@ -318,13 +334,13 @@ static BOOL cli_issue_write(struct cli_state *cli, int fnum, off_t offset,
               0x0008 start of message mode named pipe protocol
 ****************************************************************************/
 
-size_t cli_write(struct cli_state *cli,
+ssize_t cli_write(struct cli_state *cli,
     	         int fnum, uint16 write_mode,
 		 const char *buf, off_t offset, size_t size)
 {
-	int bwritten = 0;
-	int issued = 0;
-	int received = 0;
+	ssize_t bwritten = 0;
+	unsigned int issued = 0;
+	unsigned int received = 0;
 	int mpx = 1;
 	int block = cli->max_xmit - (smb_size+32);
 	int blocks = (size + (block-1)) / block;
@@ -338,8 +354,8 @@ size_t cli_write(struct cli_state *cli,
 	while (received < blocks) {
 
 		while ((issued - received < mpx) && (issued < blocks)) {
-			int bsent = issued * block;
-			int size1 = MIN(block, size - bsent);
+			ssize_t bsent = issued * block;
+			ssize_t size1 = MIN(block, size - bsent);
 
 			if (!cli_issue_write(cli, fnum, offset + bsent,
 			                write_mode,
@@ -397,7 +413,7 @@ ssize_t cli_smbwrite(struct cli_state *cli,
 		p = smb_buf(cli->outbuf);
 		*p++ = 1;
 		SSVAL(p, 0, size); p += 2;
-		memcpy(p, buf, size); p += size;
+		memcpy(p, buf + total, size); p += size;
 
 		cli_setup_bcc(cli, p);
 		

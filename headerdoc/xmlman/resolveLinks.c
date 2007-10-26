@@ -2,7 +2,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/dirent.h>
+#include <dirent.h>
+#include <sys/param.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/HTMLtree.h>
 #include <libxml/tree.h>
@@ -19,7 +20,8 @@ typedef struct _xrefnode {
     char *filename;
     char *xref;
     char *title;
-    struct _xrefnode *left, *right;
+    int fromseed;
+    struct _xrefnode *left, *right, *dup;
 } *xrefnode_t;
 
 struct nodelistitem
@@ -44,6 +46,7 @@ int debugging = 0;
 int filedebug = 0;
 int writedebug = 0;
 int debug_relpath = 0;
+int warn_each = 0;
 
 int debug_reparent = 0;
 
@@ -55,7 +58,7 @@ int stderrfd = -1;
 int nullfd = -1;
 
 char *xmlNodeGetRawString(htmlDocPtr dp, xmlNode *node, int whatever);
-char *resolve(char *xref, char *filename, int retarget);
+char *resolve(char *xref, char *filename, int *retarget, char **frametgt);
 static void *resolve_main(void *ref);
 void setup_redirection(void);
 
@@ -68,14 +71,15 @@ int resolved = 0, unresolved = 0, nfiles = 0, broken = 0, plain = 0;
 int thread_exit[MAXTHREADS];
 int thread_processed_files[MAXTHREADS];
 int nthreads = 2;
+int duplicates = 0;
+int seeding_in_progress = 0;
 
-char *striplines(char *line);
-
-#define MAX(a, b) ((a<b) ? b : a)
+// #define MAX(a, b) ((a<b) ? b : a)
 
 void redirect_stderr_to_null(void);
 void restore_stderr(void);
-void writeXRefFile(void);
+void writeXRefFile(char *filename);
+int readXRefFile(char *filename);
 void writeFile(xmlNode *node, htmlDocPtr dp, char *filename);
 void gatherXRefs(xmlNode *node, htmlDocPtr dp, char *filename);
 void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename);
@@ -107,19 +111,16 @@ void *db_malloc(size_t length);
 void db_free(void *ptr);
 // #define malloc db_malloc
 // #define free db_free
+void printusage();
+int printNodeRange(xmlNode *start, xmlNode *end);
 
-/*!
-	This function returns a malloc-allocated copy of a string.
-	This is used for data to be inserted into the tree so that
-	it can later be freed with <code>free()</code>.
- */
-char *malloccopy(char *string) {
-	char *ret = malloc((strlen(string)+1)*sizeof(char));
-	strcpy(ret, string);
-	return ret;
-}
+#define MAXSEEDFILES 1024
+#define MAXEXTREFS 1024
 
+int nextrefs = 0;
+char *extrefs[MAXEXTREFS];
 fileref_t threadfiles[MAXTHREADS];
+char *progname;
 
 /*! This tool processes links (both in anchor form and in a commented-out
     form) and named anchors, rewriting link destinations to point to those
@@ -136,11 +137,17 @@ int main(int argc, char *argv[])
     char *filename;
     char *cwd;
     fileref_t files, curfile;
+    char *directory;
+    char *xref_output_file = NULL;
+    char *seedfiles[MAXSEEDFILES];
+    int nseedfiles = 0;
+    int nowrite = 0;
 
     setup_redirection();
 
     if (argc < 1) {
 	fprintf(ERRS, "resolveLinks: No arguments given.\n");
+	printusage();
 	exit(-1);
     }
 
@@ -154,30 +161,105 @@ int main(int argc, char *argv[])
 	sleep(5);
     }
 
+#ifdef LIBXML_TEST_VERSION
     LIBXML_TEST_VERSION;
+#endif
 
     if (argc < 2) {
-	fprintf(ERRS, "Usage: resolveLinks <directory>\n");
+	// fprintf(ERRS, "Usage: resolveLinks <directory>\n");
+	printusage();
 	exit(-1);
     }
+    progname = argv[0];
+
+    {
+	int temp, debug_flags;
+	while ((temp = getopt(argc, argv, "d:s:t:r:"))) {
+		if (temp == -1) break;
+		switch(temp) {
+			case 'r':
+				if (nextrefs > MAXEXTREFS) {
+					fprintf(ERRS, "Maximum number of external reference anchor types (%d) exceeded.  Extra files ignored.\n", MAXSEEDFILES);
+				} else {
+					extrefs[nextrefs++] = optarg;
+					// printf("EXT REF: %s\n", extrefs[nextrefs-1]);
+				}
+				break;
+			case 's':
+				if (nseedfiles > MAXSEEDFILES) {
+					fprintf(ERRS, "Maximum number of seed files (%d) exceeded.  Extra files ignored.\n", MAXSEEDFILES);
+				} else {
+					seedfiles[nseedfiles++] = optarg;
+				}
+				break;
+			case 'x':
+				xref_output_file = optarg;
+				break;
+			case 't':
+				nthreads = atoi(optarg);
+				break;
+			case 'd':
+				debug_flags = atoi(optarg);
+				debugging =      ((debug_flags &  1) != 0);
+				filedebug =      ((debug_flags &  2) != 0);
+				writedebug =     ((debug_flags &  4) != 0);
+				debug_relpath =  ((debug_flags &  8) != 0);
+				debug_reparent = ((debug_flags & 16) != 0);
+				warn_each =      ((debug_flags & 32) != 0);
+				break;
+			case 'n':
+				nowrite = 1;
+				break;
+			case ':':
+			case '?':
+			default:
+				printusage(); exit(-1);
+		}
+	}
+	directory = argv[optind];
+    // *argc = *argc - optind;
+    // *argv = *argv + optind;
+    }
+
+    // printf("Number of seed files: %d\nNumber of threads: %d\nDirectory: %s\n", nseedfiles, nthreads, directory);
+    // { int i; for (i=0; i<nseedfiles; i++) { printf("Seed file %d: %s\n", i, seedfiles[i]); }}
 
     cwd = getcwd(NULL, 0);
-    if (chdir(argv[1])) {
-	if (errno == ENOTDIR) {
-		perror(argv[1]);
-		fprintf(ERRS, "Usage: resolveLinks <directory> [nthreads]\n");
-	} else {
-		perror(argv[1]);
-		fprintf(ERRS, "Usage: resolveLinks <directory> [nthreads]\n");
-	}
+    if (chdir(directory)) {
+	// if (errno == ENOTDIR) {
+		perror(directory);
+		// fprintf(ERRS, "Usage: resolveLinks <directory> [nthreads]\n");
+		printusage();
+	// } else {
+		// perror(directory);
+		// // fprintf(ERRS, "Usage: resolveLinks <directory> [nthreads]\n");
+		// printusage();
+	// }
 	exit(-1);
     }
     chdir(cwd);
 
-    if (argc == 3) { nthreads = atoi(argv[2]); }
+    // if (argc == 3) { nthreads = atoi(argv[2]); }
+
+    if (nseedfiles) {
+	int i;
+
+	seeding_in_progress = 1;
+	printf("Loading seed files.\n");
+	for (i=0; i<nseedfiles; i++) {
+		// printf("Seed file %d: %s\n", i, seedfiles[i]);
+		int ret = readXRefFile(seedfiles[i]);
+		if (!ret) {
+			fprintf(ERRS, "%s: xref seed file %s missing or malformed.\n", progname, seedfiles[i]);
+		}
+	}
+
+	seeding_in_progress = 0;
+    }
+    duplicates = 0;
 
     {
-      chdir(argv[1]);
+      chdir(directory);
       char *newdir = getcwd(NULL, 0);
       char *allyourbase = basename(newdir);
       free(newdir);
@@ -209,7 +291,7 @@ int main(int argc, char *argv[])
 	if (!(dp = htmlParseFile(filename, "")))
 	{
 	    restore_stderr();
-	    fprintf(ERRS, "resolveLinks: could not parse XML file %s\n", filename);
+	    fprintf(ERRS, "error: resolveLinks: could not parse XML file %s\n", filename);
 	    fprintf(ERRS, "CWD is %s\n", getcwd(NULL, 0));
 	    exit(-1);
 	}
@@ -220,11 +302,14 @@ int main(int argc, char *argv[])
 	xmlFreeDoc(dp);
       }
 
+
       printf("\nWriting xref file\n");
-      writeXRefFile();
+      writeXRefFile(xref_output_file);
     } else {
 	quick_test = 1;
     }
+
+    if (nowrite) exit(0); // We're done.
 
 #ifdef OLD_CODE
     {
@@ -274,7 +359,7 @@ int main(int argc, char *argv[])
 	}
     } else {
 	/* Resolve links in the main thread */
-	if (!nthreads) printf("\nResolving links (multithreaded)\n");
+	if (!nthreads) printf("\nResolving links (single threaded)\n");
 	cumulative_exit = resolve_mainsub(0);
     }
     printf("\nDone\n");
@@ -322,11 +407,6 @@ int resolve_mainsub(int pos)
 
 #endif
 
-    // if (nthreads > 0) {
-	// sprintf(tempname, "/tmp/resolveLinks.%d.%d", getpid(), (int)pthread_self());
-    // } else {
-	snprintf(tempname, MAXNAMLEN, "%s-temp%d", filename, getpid());
-    // }
 
     files = threadfiles[pos];
     thread_processed_files[pos] = 0;
@@ -338,13 +418,20 @@ int resolve_mainsub(int pos)
 	thread_processed_files[pos]++;
 
 	filename = curfile->name;
+
+    // if (nthreads > 0) {
+	// sprintf(tempname, "/tmp/resolveLinks.%d.%d", getpid(), (int)pthread_self());
+    // } else {
+	snprintf(tempname, MAXNAMLEN, "%s-temp%d-%d", filename, getpid(), pos);
+    // }
+
 	redirect_stderr_to_null();
 #ifdef OLD_LIBXML
 	if (!(dp = htmlParseFile(filename, "")))
 #else
 	ctxt = htmlCreateFileParserCtxt(filename, "");
 
-	if (!ctxt) { fprintf(ERRS, "Could not create context\n"); exit(-1); }
+	if (!ctxt) { fprintf(ERRS, "error: could not create context\n"); exit(-1); }
 
 	// if (!(dp = htmlCtxtReadFile(ctxt, filename, "", options)))
 	ctxt->options = options;
@@ -352,19 +439,19 @@ int resolve_mainsub(int pos)
 	ctxt->sax->ignorableWhitespace = NULL;
 	ctxt->keepBlanks = 1;
 	printf("PRE:\n");
-	printf("SAX: %d IWS: %d\n", ctxt->sax, ctxt->sax ? ctxt->sax->ignorableWhitespace : 0);
+	printf("SAX: %p IWS: %p\n", ctxt->sax, ctxt->sax ? ctxt->sax->ignorableWhitespace : 0);
 	printf("KB: %d\n", ctxt->keepBlanks);
 	htmlParseDocument(ctxt);
 	dp = ctxt->myDoc;
 	printf("POST: \n");
-	printf("SAX: %d IWS: %d\n", ctxt->sax, ctxt->sax ? ctxt->sax->ignorableWhitespace : 0);
+	printf("SAX: %p IWS: %p\n", ctxt->sax, ctxt->sax ? ctxt->sax->ignorableWhitespace : 0);
 	printf("KB: %d\n", ctxt->keepBlanks);
 	htmlFreeParserCtxt(ctxt);
 	if (!dp)
 #endif
 	{
 	    restore_stderr();
-	    fprintf(ERRS, "resolveLinks: could not parse XML file\n");
+	    fprintf(ERRS, "error: resolveLinks: could not parse XML file\n");
 	    return -1;
 	}
 
@@ -387,7 +474,7 @@ int resolve_mainsub(int pos)
 
 	xmlFreeDoc(dp);
 	if (rename(tempname, filename)) {
-	    fprintf(ERRS, "error renaming temp file over original.\n");
+	    fprintf(ERRS, "error: error renaming temp file over original.\n");
 	    perror("resolveLinks");
 	    return -1;
 	}
@@ -404,12 +491,15 @@ xmlNode *nodematching(char *name, xmlNode *cur, int recurse);
     its components, and adds the xref into the xref tree.
 
  */
-void addXRefFromLine(char *line)
+int addXRefFromLine(char *line)
 {
     char *iter = line;
     char *xref = NULL;
     char *title = NULL;
     xrefnode_t newnode;
+
+    if (!strcmp(line, "Cross-references seen (for debugging only)")) return -1;
+    if (!strlen(line)) return -1;
 
     while (*iter && *iter != 1) {
 	iter++;
@@ -428,20 +518,25 @@ void addXRefFromLine(char *line)
 	title = iter;
     }
     if (!xref || !title) {
-	fprintf(ERRS, "Corrupted line in xref file.\n");
-	return;
+	fprintf(ERRS, "warning: Corrupted line in xref file.\n");
+	// fprintf(ERRS, "%x %x\n", xref, title);
+	return 0;
     }
 
     if (!((newnode = malloc(sizeof(*newnode))))) {
-	fprintf(ERRS, "Out of memory reading xref file.\n");
+	fprintf(ERRS, "error: Out of memory reading xref file.\n");
 	exit(-1);
     }
 
-    newnode->filename = malloccopy(line);
-    newnode->xref = malloccopy(xref);
-    newnode->title = malloccopy(title);
+    newnode->filename = strdup(line);
+    newnode->xref = strdup(xref);
+    newnode->title = strdup(title);
     newnode->left = NULL;
     newnode->right = NULL;
+    newnode->dup = NULL;
+    newnode->fromseed = seeding_in_progress;
+
+    // printf("From File: Title was %s\n", title);
 
     if (nodehead) {
 	addXRefSub(newnode, nodehead);
@@ -449,6 +544,7 @@ void addXRefFromLine(char *line)
 	nodehead = newnode;
     }
 
+    return 1;
 }
 
 /*! This function reads a cross-reference cache file.  This is intended
@@ -456,10 +552,11 @@ void addXRefFromLine(char *line)
     in the same directory (or even on the same machine.  It is currently
     unused.
  */
-int readXRefFileSub(char *filename)
+int readXRefFile(char *filename)
 {
     FILE *fp;
     char line[4098];
+    int ret = 1;
 
     if (!((fp = fopen(filename, "r")))) {
 	return 0;
@@ -468,15 +565,16 @@ int readXRefFileSub(char *filename)
     while (1) {
 	if (fgets(line, 4096, fp) == NULL) break;
 	if (line[strlen(line)-1] != '\n') {
-		fprintf(ERRS, "Warning: ridiculously long line in xref file.\n");
+		fprintf(ERRS, "warning: ridiculously long line in xref file.\n");
+		ret = 0;
 	} else {
 		line[strlen(line)-1] = '\0';
 	}
-	addXRefFromLine(line);
+	if (!addXRefFromLine(line)) ret = 0;
     }
 
     fclose(fp);
-    return 1;
+    return ret;
 }
 
 /*! This function is the recursive tree walk subroutine used by
@@ -489,10 +587,11 @@ void writeXRefFileSub(xrefnode_t node, FILE *fp)
     writeXRefFileSub(node->left, fp);
 
     //fprintf(fp, "filename=\"%s\" id=\"%s\" title=\"%s\"\n",
-		// node->filename, node->xref, node->title);
+		// node->filename, node->xref, node->title ? node->title : "");
     fprintf(fp, "%s%c%s%c%s\n",
-		node->filename, 1, node->xref, 1, node->title);
+		node->filename, 1, node->xref, 1, node->title ? node->title : "");
 
+    writeXRefFileSub(node->dup, fp);
     writeXRefFileSub(node->right, fp);
 }
 
@@ -501,11 +600,13 @@ void writeXRefFileSub(xrefnode_t node, FILE *fp)
     in the same directory (or even on the same machine.  It is currently
     called, but the resulting file is not yet used.
  */
-void writeXRefFile(void)
+void writeXRefFile(char *filename)
 {
     FILE *fp;
+    char *outfile = "/tmp/xref_out";
+    if (filename) outfile = filename;
 
-    if (!((fp = fopen("/tmp/xref_out", "w")))) {
+    if (!((fp = fopen(outfile, "w")))) {
 	return;
     }
     fprintf(fp, "Cross-references seen (for debugging only)\n\n");
@@ -521,11 +622,44 @@ void writeXRefFile(void)
 void addXRefSub(xrefnode_t newnode, xrefnode_t tree)
 {
     int pos = strcmp(newnode->xref, tree->xref);
+
+    if (!newnode->title) newnode->title = strdup("");
+    // tree->fromseed = seeding_in_progress;
+
     if (pos < 0) {
 	/* We go left */
 	if (tree->left) addXRefSub(newnode, tree->left);
 	else {
 		tree->left = newnode;
+	}
+    } else if (!pos) {
+	xrefnode_t iter;
+	int oops = 0, drop = 0;
+
+	for (iter = tree; iter; iter = iter->dup) {
+		if (!strcmp(newnode->filename, iter->filename)) {
+		    if (!strcmp(newnode->title, iter->title)) {
+				// printf("Exact dup.  Dropping.\n");
+				drop = 1;
+				if (!newnode->fromseed) iter->fromseed = 0;
+		    }
+		}
+		// if (iter->title) printf("TITLE FOUND: %s\n", iter->title);
+		if (debugging) printf("Dup: %s %s %s == %s %s %s\n", iter->title, iter->filename,
+			iter->xref, newnode->title, newnode->filename, newnode->xref);
+		if (!iter->fromseed) {
+			oops = 1;
+		};
+		if (!iter->dup) {
+			// end of the chain.
+			if (!drop) {
+				iter->dup = newnode;
+			}
+			if (oops) {
+				duplicates++;
+			}
+			break;
+		}
 	}
     } else {
 	/* We go right */
@@ -548,12 +682,12 @@ void addXRef(xmlNode *node, char *filename)
     char *pt;
 
     if (!node) {
-	printf("WARNING: addXRef called on null node\n");
+	printf("warning: addXRef called on null node\n");
     }
 
     pt = proptext("name", node->properties);
     if (!pt) {
-	printf("WARNING: addXRef called on anchor with no name property\n");
+	printf("warning: addXRef called on anchor with no name property\n");
     }
 
     if (debugging) {printf("STRL %ld\n",  strlen(pt)); fflush(stdout);}
@@ -576,6 +710,8 @@ void addXRef(xmlNode *node, char *filename)
 		newnode->title = proptext("title", node->properties);
 		newnode->left = NULL;
 		newnode->right = NULL;
+		newnode->dup = NULL;
+		newnode->fromseed = seeding_in_progress;
 
 		if (nodehead) {
 			addXRefSub(newnode, nodehead);
@@ -595,7 +731,7 @@ void addXRef(xmlNode *node, char *filename)
 void gatherXRefs(xmlNode *node, htmlDocPtr dp, char *filename)
 {
     if (!node) return;
-    if (node->name && !strcmp(node->name, "a")) {
+    if (node->name && !strcmp((char *)node->name, "a")) {
 	char *pt = proptext("name", node->properties);
 	char *pos = pt;
 
@@ -623,8 +759,11 @@ void gatherXRefs(xmlNode *node, htmlDocPtr dp, char *filename)
  */
 int isStartOfLinkRequest(char *text)
 {
-    if (getLogicalPath(text)) return 1;
-    return 0;
+    char *retval = getLogicalPath(text);
+    if (debug_reparent) {
+	printf("isSOLR: %s: %d\n", text, retval ? 1 : 0);
+    }
+    return retval ? 1 : 0;
 }
 
 /*! Returns true if the text (from an HTML comment) represents the
@@ -654,29 +793,32 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 {
     if (!node) return;
 
-    if (node->name && !strcmp(node->name, "comment")) {
+    if (node->name && !strcmp((char *)node->name, "comment")) {
 	if (debugging) { printf("comment: \"%s\"\n", node->content); }
-	if (isStartOfLinkRequest(node->content)) {
+	if (isStartOfLinkRequest((char *)node->content)) {
 		xmlNode *close = NULL;
 		struct nodelistitem *nodelisthead = NULL;
 		struct nodelistitem *nodelistiterator = NULL;
 
 		if (debugging || debug_reparent) printf("SOLR\n");
 		if (node->next) {
-			/* The node list is in reverse order of match. Skip to the end and
-			   work our way back to the beginning.
+			/* The node list is in reverse order of match. Skip to the last node.
+			   Later, we'll work backwards so that we find the first link end
+			   comment.
 			 */
 			nodelisthead = nodelist("comment", node->next);
 			while (nodelisthead && nodelisthead->next) nodelisthead = nodelisthead->next;
 		}
 		nodelistiterator = nodelisthead;
 
+		/* Iterate backwards. */
 		while (nodelistiterator && !close) {
 
 			if (debugging || debug_reparent) printf("NODE: %s\n", nodelistiterator->node->name);
+			if (debugging || debug_reparent) printf("NODETEXT: %s\nEONODETEXT\n", nodelistiterator->node->content ? (char *)nodelistiterator->node->content : "(null)");
 
-			if (nodelistiterator->node->name && !strcmp(nodelistiterator->node->name, "comment") &&
-					isEndOfLinkRequest(nodelistiterator->node->content)) {
+			if (nodelistiterator->node->name && !strcmp((char *)nodelistiterator->node->name, "comment") &&
+					isEndOfLinkRequest((char *)nodelistiterator->node->content)) {
 				if (debugging || debug_reparent) printf("Is EOLR\n");
 				close = nodelistiterator->node;
 			} else {
@@ -688,12 +830,18 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 			nodelistiterator = nodelistiterator->prev;
 		}
 		if (close) {
+			if (debug_reparent) {
+				printf("Printing nodes between start and end.\n");
+				printNodeRange(node, close);
+				printf("Done printing nodes between start and end.\n");
+			}
+
 			/* Link Request. */
-			char *lp = getLogicalPath(node->content);
-			char *frametgt = getTargetAttFromString(node->content);
+			char *lp = getLogicalPath((char *)node->content);
+			char *frametgt = getTargetAttFromString((char *)node->content);
 			int retarget = (!frametgt || !strlen(frametgt));
-			char *target = resolve(lp, filename, retarget);
-			if (debugging) printf("RETARGET SHOULD HAVE BEEN %d (frametgt is 0x%p)\n", retarget, frametgt);
+			char *target = resolve(lp, filename, &retarget, &frametgt);
+			if (debugging) printf("RETARGET SHOULD HAVE BEEN %d (frametgt is %p)\n", retarget, frametgt);
 			if (debugging) printf("EOLR\n");
 
 			if (debugging) {printf("LP: \"%s\"\n", lp);}
@@ -716,29 +864,11 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 					lastnode->next = close->next;
 					if (close->next) close->next->prev = close->prev;
 				} else {
-#if 0
-					if (close->prev) {
-						/* Make element after close tag
-						   be after elemenet prior to cloes tag */
-						close->prev->next = close->next;
-						if (close->next) {
-							close->next->prev = close->prev;
-						}
-					} else {
-						/* Make element after close tag
-						   a child of close tag's parent. */
-						close->parent->children = close->next;
-						if (close->next) {
-							close->next->prev = NULL;
-							close->next->parent = close->parent;
-						}
-					}
-#else
 					/* Just change the end tag to an empty text container.  It's safer. */
-					close->name=malloccopy("text");
-					close->content=malloccopy("");
+					close->name=(unsigned char *)strdup("text");
+					close->content=(unsigned char *)strdup("");
 					close->type=XML_TEXT_NODE;
-#endif
+
 					lastnode = close->parent;
 					while (lastnode && !onSameLevel(lastnode, node)) {
 						lastnode = lastnode->parent;
@@ -784,7 +914,7 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 					   requiring as much effort).
 					 */
 
-					node->name = malloccopy("a");
+					node->name = (unsigned char *)strdup("a");
 					node->type = XML_ELEMENT_NODE;
 					addAttribute(node, "href", target);
 					addAttribute(node, "logicalPath", lp);
@@ -811,18 +941,24 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 					node->content = NULL; /* @@@ LEAK? @@@ */
 					/* Reparent everything from the open comment to the close comment under an anchor tag. */
 					node->children = node->next;
-					node->children->prev = NULL;
-					for (iter = node->children; iter && iter != lastnode; iter = iter->next) {
-						
-						iter->parent = node;
-						if (debug_reparent) {
-							printf("REPARENTING: \n");
-							writeFile_sub(node, dp, stdout, 1);
-							printf("DONE REPARENTING\n");
-						}
+					if(node->children != NULL){
+                        node->children->prev = NULL;
+                        for (iter = node->children; iter && iter != lastnode; iter = iter->next) {
+                            
+                            iter->parent = node;
+                            if (debug_reparent) {
+                                printf("REPARENTING: \n");
+                                writeFile_sub(node, dp, stdout, 1);
+                                printf("DONE REPARENTING\n");
+                            }
+                        }
+                        if (iter != lastnode) {
+                            fprintf(stderr, "warning: reparenting failed.\n");
+                        }
 					}
-					if (iter != lastnode) {
-						fprintf(stderr, "Warning: reparenting failed.\n");
+					else{
+					   // ERROR: could happen when the @link is missing the second (text) element after the apiref!
+                        fprintf(stderr, "error: some @link is missing the second field; see resulting file %s to find out which one.\n", filename);
 					}
 					lastnode->parent = node;
 					if (lastnode->next) {
@@ -835,14 +971,31 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 					fprintf(ERRS, "NESTING PROBLEM: close link request marker nested higher than open marker.\n");
 					fprintf(ERRS, "Giving up.\n");
 				}
+				free(target);
 			} else {
+/*                char    *full_filename = malloc(PATH_MAX * sizeof(char));
+                char    *printed_filename = full_filename;
+
+                // Let's get full file name to display error messages containing full path to file
+                if(!realpath(filename, full_filename))
+                    printed_filename = filename;
+                    if (warn_each) fprintf(ERRS, "\n%s:0: error: unable to resolve link %s.\n", printed_filename, lp);
+                free(full_filename);*/
 				unresolved++;
 			}
 		} else {
+            char    *full_filename = malloc(PATH_MAX * sizeof(char));
+            char    *printed_filename = full_filename;
+
+            // Let's get full file name to display error messages containing full path to file
+            if(!realpath(filename, full_filename))
+                printed_filename = filename;
+            fprintf(ERRS, "\n%s:0: error: broken link.\n", printed_filename);
+            free(full_filename);
 			broken++;
 		}
 	}
-    } else if (node->name && !strcmp(node->name, "a")) {
+    } else if (node->name && !strcmp((char *)node->name, "a")) {
 		/* Handle the already-live link */
 		int retarget = (!has_target(node));
 		char *lp = proptext("logicalPath", node->properties);
@@ -850,12 +1003,14 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 		char *href = proptext("href", node->properties);
 
 		if (lp && href) {
-			char *target = resolve(lp, filename, retarget);
+			char *frametgt = getTargetAttFromString((char *)node->content);
+			char *target = resolve(lp, filename, &retarget, &frametgt);
 
 			if (target) {
 				if (debugging) printf("FOUND!\n");
 				addAttribute(node, "href", target);
 				resolved++;
+				free(target);
 			} else {
 				xmlNode *iter = node->children, *tailnode;
 
@@ -864,7 +1019,15 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 				   a close comment tag after its last child
 				   and reparenting its children as children
 				   of its parent (as its "next" node). */
+/*
+                char    *full_filename = malloc(PATH_MAX * sizeof(char));
+                char    *printed_filename = full_filename;
 
+                // Let's get full file name to display error messages containing full path to file
+                if(!realpath(filename, full_filename))
+                    printed_filename = filename;
+                    if (warn_each) fprintf(ERRS, "%s:0: error: unable to resolve link %s.\n", printed_filename, lp);
+                free(full_filename);*/
 				unresolved++;
 
 				if (debugging) printf("Disabling link\n");
@@ -893,18 +1056,21 @@ void resolveLinks(xmlNode *node, htmlDocPtr dp, char *filename)
 				}
 				node->children = NULL;
 
-				node->name = malloccopy("comment");
+				node->name = (unsigned char *)strdup("comment");
 				node->type = XML_COMMENT_NODE;
-				tailnode->name = malloccopy("comment");
+				tailnode->name = (unsigned char *)strdup("comment");
 				tailnode->type = XML_COMMENT_NODE;
-				tailnode->content = malloccopy(" /a ");
-				node->content = propString(node);
+				tailnode->content = (unsigned char *)strdup(" /a ");
+				node->content = (unsigned char *)propString(node);
 				if (debugging) printf("PS: \"%s\"\n", node->content);
 			}
 		} else {
 			if (debugging) printf("Not a logicalPath link.  Skipping.\n");
 			plain++;
 		}
+    }
+    else{
+	if (debugging) { printf("%s: \"%s\"\n", node->name, node->content); }
     }
 
     resolveLinks(node->children, dp, filename);
@@ -941,7 +1107,7 @@ void writeFile(xmlNode *node, htmlDocPtr dp, char *filename)
     FILE *fp;
     if (debugging) writeFile_sub(node, dp, stdout, 0);
     if (!((fp = fopen(filename, "w")))) {
-	fprintf(ERRS, "Could not open file %s for writing\n", filename);
+	fprintf(ERRS, "error: could not open file %s for writing\n", filename);
 	exit(-1);
     }
 
@@ -975,7 +1141,7 @@ char *propString(xmlNode *node)
     while (prop) {
 	// fprintf(fp, " %s=\"%s\"", prop->name, prop->children->content);
 	if (prop->children) {
-		len += strlen(prop->name) + strlen(prop->children->content) + 4;
+		len += strlen((char *)prop->name) + strlen((char *)prop->children->content) + 4;
 	}
 	prop = prop->next;
     }
@@ -987,9 +1153,9 @@ char *propString(xmlNode *node)
     while (prop) {
 	if (prop->children) {
 		strcat(propstring, " ");
-		strcat(propstring, prop->name);
+		strcat(propstring, (char *)prop->name);
 		strcat(propstring, "=\"");
-		strcat(propstring, prop->children->content);
+		strcat(propstring, (char *)prop->children->content);
 		strcat(propstring, "\"");
 	}
 
@@ -1026,9 +1192,9 @@ void writeFile_sub(xmlNode *node, htmlDocPtr dp, FILE *fp, int this_node_and_chi
     // fprintf(fp, "RS: %s\n", xmlNodeListGetRawString(dp, node, 0));
 
     if (node->name) {
-      if (!strcmp(node->name, "text")) {
+      if (!strcmp((char *)node->name, "text")) {
 	fprintf(fp, "%s", xmlNodeGetRawString(dp, node, 0));
-      } else if (!strcmp(node->name, "comment")) {
+      } else if (!strcmp((char *)node->name, "comment")) {
 	fprintf(fp, "<!--%s-->", node->content);
       } else {
 	fprintf(fp, "<%s", node->name);
@@ -1039,7 +1205,7 @@ void writeFile_sub(xmlNode *node, htmlDocPtr dp, FILE *fp, int this_node_and_chi
 
     writeFile_sub(node->children, dp, fp, 0);
 
-    if (strcmp(node->name, "text") && strcmp(node->name, "comment")) {
+    if (strcmp((char *)node->name, "text") && strcmp((char *)node->name, "comment")) {
 	fprintf(fp, "</%s>", node->name);
     }
 
@@ -1064,7 +1230,7 @@ xmlNode *nodematching(char *name, xmlNode *cur, int recurse)
     xmlNode *temp = NULL;
     while (cur) {
 	if (!cur->name) break;
-	if (!strcasecmp(cur->name, name)) break;
+	if (!strcasecmp((char *)cur->name, name)) break;
 	if (recurse) {
 		if ((temp=nodematching(name, cur->children, recurse))) {
 			return temp;
@@ -1096,9 +1262,9 @@ char *textmatching(char *name, xmlNode *node, int missing_ok, int recurse)
 		fprintf(ERRS, "Invalid or missing contents for %s.\n", name);
 	}
     } else if (cur && cur->children && cur->children->content) {
-		ret = cur->children->content;
+		ret = (char *)cur->children->content;
     } else if (!strcasecmp(name, "text")) {
-		ret = cur->content;
+		ret = (char *)cur->content;
     } else {
 	fprintf(ERRS, "Missing/invalid contents for %s.\n", name);
     }
@@ -1111,9 +1277,9 @@ char *textmatching(char *name, xmlNode *node, int missing_ok, int recurse)
 char *proptext(char *name, struct _xmlAttr *prop)
 {
     for (; prop; prop=prop->next) {
-	if (!strcasecmp(prop->name, name)) {
+	if (!strcasecmp((char *)prop->name, name)) {
 		if (prop->children && prop->children->content) {
-			return prop->children->content;
+			return (char *)prop->children->content;
 		}
 	}
     }
@@ -1129,9 +1295,9 @@ char *proptext(char *name, struct _xmlAttr *prop)
 int propval(char *name, struct _xmlAttr *prop)
 {
     for (; prop; prop=prop->next) {
-	if (!strcasecmp(prop->name, name)) {
+	if (!strcasecmp((char *)prop->name, name)) {
 		if (prop->children && prop->children->content) {
-			return atoi(prop->children->content);
+			return atoi((char *)prop->children->content);
 		}
 	}
     }
@@ -1209,12 +1375,12 @@ char *getTargetAttFromString(char *commentString)
     while (*ptr && (*ptr != ' ')) ptr++;
     while (*ptr && (*ptr == ' ')) ptr++;
 
-    if (!strncasecmp(ptr, "target", 11)) {
+    if (!strncasecmp(ptr, "target", 6)) {
 	char *startptr; int count=0;
 
 	if (debugging) printf("STARTTARGET\n");
 
-	ptr += 11;
+	ptr += 6;
 	while (*ptr == ' ') ptr++;
 	if (*ptr != '=') return NULL;
 	ptr++;
@@ -1247,7 +1413,7 @@ char *xmlNodeGetRawString(htmlDocPtr dp, xmlNode *node, int whatever)
     bcopy(node, &copynode, sizeof(copynode));
     copynode.next = NULL;
 
-    return xmlNodeListGetRawString(dp, &copynode, whatever);
+    return (char *)xmlNodeListGetRawString(dp, &copynode, whatever);
 }
 
 
@@ -1285,7 +1451,7 @@ refparts_t getrefparts(char *origref)
     rest++;
 
     if (!strlen(refpart) || !strlen(langpart) ||!strlen(rest)) {
-	fprintf(ERRS, "WARNING: malformed apple_ref has less than three parts.\n");
+	fprintf(ERRS, "warning: malformed apple_ref has less than three parts.\n");
 	return NULL;
     }
 
@@ -1307,6 +1473,30 @@ refparts_t getrefparts(char *origref)
 }
 
 /*! This function takes an apple_ref and rewrites it, changing the
+    apple_ref bit to the external ref specified by <code>extref</code>.
+ */
+char *refRefChange(char *ref, char *extref)
+{
+    refparts_t rp = getrefparts(ref);
+    char *langpart, *rest, *retval;
+    int length;
+
+    if (!rp) return NULL;
+    langpart = rp->langpart;
+    rest = rp->rest;
+
+    // printf("LANGPART: \"%s\"\n", rp->langpart);
+
+    /* length = "//" + refpart + "/" + "C" + "/" + rest + "\0" */
+    length = 2 + strlen(extref) + 1 + strlen(langpart) + 1 + strlen(rest) + 1;
+
+    retval = malloc((length + 1) * sizeof(char));
+    sprintf(retval, "//%s/%s/%s", extref, langpart, rest);
+
+    return retval;
+}
+
+/*! This function takes an apple_ref and rewrites it, changing the
     language to the language specified by <code>lang</code>.
  */
 char *refLangChange(char *ref, char *lang)
@@ -1322,10 +1512,10 @@ char *refLangChange(char *ref, char *lang)
     // printf("LANGPART: \"%s\"\n", rp->langpart);
 
     /* length = "//" + refpart + "/" + "C" + "/" + rest + "\0" */
-    length = 2 + strlen(refpart) + 1 + 1 + 1 + strlen(rest) + 1;
+    length = 2 + strlen(refpart) + 1 + strlen(lang) + 1 + strlen(rest) + 1;
 
     retval = malloc((length + 1) * sizeof(char));
-    sprintf(retval, "//%s/c/%s", refpart, rest);
+    sprintf(retval, "//%s/%s/%s", refpart, lang, rest);
 
     return retval;
 }
@@ -1348,7 +1538,7 @@ char *makeurl(char *filename, char *offset, int retarget)
 if (debugging) printf("RETARGET (INITIAL): %d\n", retarget);
 
     sprintf(indexpath, "%s/index.html", updir);
-    if (!strcmp(base, "index.html") || !strcmp(base, "CompositePage.html")) {
+    if (retarget && (!strcmp(base, "index.html") || !strcmp(base, "CompositePage.html"))) {
 	if (debugging) printf("Going to an index.html file.  Not retargetting.\n");
 	if (debugging) printf("FILENAME: %s\nOFFSET: %s\n", filename, offset);
 	retarget = 0;
@@ -1360,8 +1550,8 @@ if (debugging) printf("RETARGET (INITIAL): %d\n", retarget);
     }
 
     if (retarget && !exists(indexpath)) {
-	fprintf(stderr, "No index found at %s.\n", indexpath);
-	fprintf(stderr, "DIR: %s\nBASE: %s\nUPDIR: %s\nUPBASE: %s\nORIG_FILENAME: %s\n", dir, base, updir, upbase, filename);
+	fprintf(stderr, "\nNo index found at %s.\n", indexpath);
+	if (debugging) fprintf(stderr, "DIR: %s\nBASE: %s\nUPDIR: %s\nUPBASE: %s\nORIG_FILENAME: %s\n", dir, base, updir, upbase, filename);
 	retarget = 0;
 	free(dir);
 	free(base);
@@ -1395,15 +1585,76 @@ if (debugging) printf("RETARGET: %d\n", retarget);
 
     return buf;
 #else
-    return malloccopy(filename);
+    return strdup(filename);
 #endif
 }
+
+int matchingPathParts(char *a, char *b, int *isbelowme)
+{
+    char *aiter, *biter;
+    int found;
+
+    /* Remove leading ./ and any extra slashes after it. */
+    found = 0;
+    for (aiter=a; *aiter; ) {
+	if (*aiter == '.' && *(aiter+1) == '/') {
+		aiter+=2; found = 1;
+	} else if (found && *aiter == '/') {
+		aiter++;
+	} else break;
+    }
+    found = 0;
+    for (biter=b; *biter; ) {
+	if (*biter == '.' && *(biter+1) == '/') {
+		biter+=2; found = 1;
+	} else if (found && *biter == '/') {
+		biter++;
+	} else break;
+    }
+
+    found = 0;
+    for (; ; aiter++,biter++)
+    {
+	// printf("CMP: %c %c\n", *aiter, *biter);
+	if (*aiter == '/' && !(*biter)) {
+		char *aiterx; int moreslashes = 0;
+		for (aiterx = aiter + 1; *aiterx; aiterx++) {
+			if (*aiterx == '/') moreslashes = 1;
+		}
+		*isbelowme = !moreslashes;
+		// printf("SlashEnd-1\n");
+		found++;
+	}
+	if (!(*aiter) && *biter == '/' ) {
+		char *biterx; int moreslashes = 0;
+		for (biterx = biter + 1; *biterx; biterx++) {
+			if (*biterx == '/') moreslashes = 1;
+		}
+		*isbelowme = !moreslashes;
+		// printf("SlashEnd-2\n");
+		found++;
+	}
+	if (*aiter != *biter) {
+		// printf("NE\n");
+		break;
+	}
+	if (*aiter == '/') {
+		// printf("Slash\n");
+		found++;
+	}
+	if (!(*aiter && *biter)) break;
+    }
+
+    // printf("Compare: %s to %s: %d\n", a, b, found);
+    return found;
+}
+
 
 /*! This function recursively searches for an xref in the xref tree,
     returning the filename and anchor within that file, concatenated with
     makeurl.
  */
-char *searchref(char *xref, xrefnode_t tree, int retarget)
+char *searchref(char *xref, xrefnode_t tree, int retarget, char *basepath)
 {
     int pos;
 
@@ -1412,14 +1663,40 @@ char *searchref(char *xref, xrefnode_t tree, int retarget)
     pos = strcmp(xref, tree->xref);
 
     if (!pos) {
-	/* We found it. */
+	/* We found one.  Find the closest match. */
+	xrefnode_t iter, maxmatchnode = NULL, maxmatchnode_nocache = NULL;
+	int maxmatch = -1;
+	int maxmatch_nocache = -1;
+
+	for (iter = tree; iter; iter = iter->dup) {
+		int belowme;
+		int match = matchingPathParts(iter->filename, basepath, &belowme);
+
+		// printf("Checking %s: ", iter->filename);
+		if (match > maxmatch || (match == maxmatch && belowme)) {
+			// printf("%d is better than %d.  ", match, maxmatch);
+			maxmatch = match;
+			maxmatchnode = iter;
+		}
+		if (!iter->fromseed) {
+			if (match > maxmatch_nocache || (match == maxmatch_nocache && belowme)) {
+				// printf("Ooh.  a real one!  ");
+				maxmatch_nocache = match;
+				maxmatchnode_nocache = iter;
+			}
+		}
+		// printf("\n");
+	}
+	if (maxmatchnode) tree = maxmatchnode;
+	if (maxmatchnode_nocache) tree = maxmatchnode_nocache;
+
 	return makeurl(tree->filename, tree->xref, retarget);
     } else if (pos < 0) {
         /* We go left */
-        return searchref(xref, tree->left, retarget);
+        return searchref(xref, tree->left, retarget, basepath);
     } else {
         /* We go right */
-        return searchref(xref, tree->right, retarget);
+        return searchref(xref, tree->right, retarget, basepath);
     }
 }
 
@@ -1427,7 +1704,7 @@ char *searchref(char *xref, xrefnode_t tree, int retarget)
     cross-references, allowing language fallback (c++ to C, etc.),
     and returns the URL associated with it.
  */
-char *resolve(char *xref, char *filename, int retarget)
+char *resolve(char *xref, char *filename, int *retarget, char **frametgt)
 {
     char *curref = xref;
     char *writeptr = xref;
@@ -1441,26 +1718,59 @@ char *resolve(char *xref, char *filename, int retarget)
 	else writeptr = 0;
 
 	if (strlen(curref)) {
-		char *altLangRef = NULL;
+		char *altLangRef1 = NULL;
+		char *altLangRef2 = NULL;
+		char *altLangRef3 = NULL;
 		refparts_t rp;
+		int i;
 
 		if (debugging) { printf("SEARCHING FOR \"%s\"\n", curref); }
 
-		if ((rp = getrefparts(curref))) {
+		for (i=-1; i<=nextrefs; i++) {
+		    char *newcurref = NULL;
+		    char *refpart;
+
+		    if ((rp = getrefparts(curref))) {
+			if (i == nextrefs) {
+				refpart = "apple_ref";
+			} else if (i == -1) {
+				refpart = strdup(rp->refpart);
+			} else {
+				refpart = extrefs[i];
+			}
+			newcurref = refRefChange(curref, refpart);
+
 			if (!strcmp(rp->langpart, "cpp") ||
 			    !strcmp(rp->langpart, "occ") ||
 			    !strcmp(rp->langpart, "C")) {
-				altLangRef = refLangChange(curref, "c");
+				altLangRef1 = refLangChange(newcurref, "c");
+				altLangRef2 = refLangChange(newcurref, "cpp");
+				altLangRef3 = refLangChange(newcurref, "occ");
 			}
+		    } else {
+			newcurref = curref;
+		    }
+
+		    if (altLangRef1 && debugging) { printf("ALSO SEARCHING FOR \"%s\"\n", altLangRef1); }
+		    if (altLangRef2 && debugging) { printf("ALSO SEARCHING FOR \"%s\"\n", altLangRef2); }
+		    if (altLangRef3 && debugging) { printf("ALSO SEARCHING FOR \"%s\"\n", altLangRef3); }
+
+		    target = searchref(newcurref, nodehead, *retarget, dirname(filename));
+		    if (!target && altLangRef1) target = searchref(altLangRef1, nodehead, *retarget, dirname(filename));
+		    if (!target && altLangRef2) target = searchref(altLangRef2, nodehead, *retarget, dirname(filename));
+		    if (!target && altLangRef3) target = searchref(altLangRef3, nodehead, *retarget, dirname(filename));
+		    if (target) break;
 		}
 
-		if (altLangRef && debugging) { printf("ALSO SEARCHING FOR \"%s\"\n", altLangRef); }
-
-		target = searchref(curref, nodehead, retarget);
-		if (!target && altLangRef) target = searchref(altLangRef, nodehead, retarget);
 		if (target) {
 			if (debugging) printf("Mapping %s to %s\n", xref, target);
-			return relpath(target, filename);
+			if(strlen(target) > 7 && (strncmp(target, "file://", 7) == 0 || strncmp(target, "http://", 7) == 0)){
+				*retarget = 1;
+				*frametgt = "_top";
+				return target;
+			} else {
+				return relpath(target, filename);
+			}
 		}
 	}
 
@@ -1496,7 +1806,7 @@ void nodelist_rec(char *name, xmlNode *cur, struct nodelistitem **nl)
 
     if (!cur) return;
 
-    if (cur->name && !strcmp(cur->name, name)) {
+    if (cur->name && !strcmp((char *)cur->name, name)) {
         nli = malloc(sizeof(*nli));
         if (nli) {
             nli->node = cur;
@@ -1528,13 +1838,13 @@ void addAttribute(xmlNode *node, char *attname, char *attstring)
     bzero(mypropnode, sizeof(*mypropnode));
 
     myprop->type = XML_ATTRIBUTE_NODE;
-    myprop->name = malloccopy(attname);
+    myprop->name = (unsigned char *)strdup(attname);
     myprop->children = mypropnode;
     myprop->parent = node;
     myprop->doc = node->doc;
     mypropnode->type = XML_TEXT_NODE;
-    mypropnode->name = malloccopy("text");
-    mypropnode->content = malloccopy(attstring);
+    mypropnode->name = (unsigned char *)strdup("text");
+    mypropnode->content = (unsigned char *)strdup(attstring);
     mypropnode->parent = (void *)&myprop;
     mypropnode->doc = node->doc;
 
@@ -1545,7 +1855,7 @@ void addAttribute(xmlNode *node, char *attname, char *attstring)
 		// free(delprop); /* @@@ */
 		delprop = NULL;
 	}
-	if (!strcasecmp(properties->name, attname)) {
+	if (!strcasecmp((char *)properties->name, attname)) {
 		delprop = properties;
 		if (delprop->prev) delprop->prev->next = delprop->next;
 		else node->properties = delprop->next;
@@ -1589,7 +1899,7 @@ fileref_t getFiles(char *curPath)
 			perror("resolveLinks"); return NULL;
 		}
 
-		if (debugging || localDebug) printf("CURPATH: \"%s\" NP: 0x%lx\n", curPath, (long)newpath);
+		if (debugging || localDebug) printf("CURPATH: \"%s\" NP: %p\n", curPath, newpath);
 
 		strcpy(newpath, curPath);
 		strcat(newpath, "/");
@@ -1702,6 +2012,7 @@ void print_statistics(void)
     printf("    unresolved: %3d\n", unresolved);
     printf("        broken: %3d\n", broken);
     printf("         plain: %3d\n", plain);
+    printf("    duplicates: %3d\n", duplicates);
     printf("         total: %3d\n", plain+broken+resolved+unresolved);
 
     if (ttlreqs) {
@@ -1741,7 +2052,7 @@ void db_free(void *ptr)
 
     intptr--;
     if (*intptr != 0xdeadbeef) {
-	printf("WARNING: freeing region not allocated by db_malloc\n");
+	printf("warning: freeing region not allocated by db_malloc\n");
 	free(ptr);
     } else {
 	intptr--;
@@ -1749,7 +2060,7 @@ void db_free(void *ptr)
 	intcheckptr = (int *)tail;
 	// printf("Length was %d\n", *intptr);
 	if (*intcheckptr != 0xdeadbeef) {
-		printf("WARNING: region scribbled off end\n");
+		printf("warning: region scribbled off end\n");
 	}
 	free(intptr);
     }
@@ -1763,11 +2074,11 @@ void setup_redirection(void)
     stderrfd = dup(STDERR_FILENO);
 
     if (nullfd == -1) {
-	fprintf(ERRS, "WARNING: Could not open /dev/null!\n");
+	fprintf(ERRS, "warning: Could not open /dev/null!\n");
 	fail = 1;
     }
     if (stderrfd == -1) {
-	fprintf(ERRS, "WARNING: Could not dup stderr!\n");
+	fprintf(ERRS, "warning: Could not dup stderr!\n");
 	fail = 1;
     }
     if (!fail && localDebug) {
@@ -1917,6 +2228,44 @@ int exists(char *filename)
     if (!(fp = fopen(filename, "r"))) return 0;
     fclose(fp);
     return 1;
+}
+
+
+int printNodeRangeSub(xmlNode *start, xmlNode *end, int leading);
+
+int printNodeRange(xmlNode *start, xmlNode *end) {
+	return printNodeRangeSub(start, end, 0);
+}
+
+int printNodeRangeSub(xmlNode *start, xmlNode *end, int leading)
+{
+	xmlNode *iter = start;
+	char *leadspace=malloc(leading + 1);
+	memset(leadspace, ' ', leading);
+	leadspace[leading] = '\0';
+
+	while (iter && iter != end) {
+		printf("%sNODE: %s CONTENT: %s\n", leadspace, iter->name ? (char *) iter->name : "(no name)", iter->content ? (char *)iter->content : "(null)");
+		if (iter->children) {
+			printf("%sCHILDREN:\n", leadspace);
+ 			if (printNodeRangeSub(iter->children, end, leading + 8)) { free(leadspace); return 1; }
+		}
+		iter = iter->next;
+	}
+	if (iter == end) printf("%sNODE: %s CONTENT: %s\n", leadspace, iter->name ? (char *) iter->name : "(no name)", iter->content ? (char *)iter->content : "(null)");
+	free(leadspace);
+	return (iter == end);
+}
+
+void printusage()
+{
+    fprintf(ERRS, "Usage: resolveLinks [-s xref_seed_file] [-t nthreads] [-d debug_level] [ -r ext_ref ] <directory>\n");
+    // fprintf(ERRS, "Usage: resolveLinks [options] <directory>\n");
+    fprintf(ERRS, "Options are:\n");
+    fprintf(ERRS, "\t-d <debug flags>                (default 0)\n");
+    fprintf(ERRS, "\t-r <alternative to apple_ref>   (can be used multiple times)\n");
+    fprintf(ERRS, "\t-s <seed file>                  (can be used multiple times)\n");
+    fprintf(ERRS, "\t-t <number of threads>          (default 2)\n");
 }
 
 // #if ((LIBXML_VERSION < 20609) || ((LIBXML_VERSION == 20609) && !defined(__APPLE__)))

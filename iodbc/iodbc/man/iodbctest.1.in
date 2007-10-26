@@ -1,5 +1,5 @@
 .nh
-.TH iodbctest 1 "16 June 2004" "@VERSION@" "@PACKAGE_NAME@"
+.TH iodbctest 1 "3 August 2005" "@VERSION@" "@PACKAGE_NAME@"
 
 .SH NAME
 iodbctest, iodbctestw \- iODBC Demonstration programs
@@ -79,6 +79,12 @@ Show a list of tables types using the SQLTables catalog call.
 Show a list of data types using the SQLGetTypeInfo catalog call.
 
 .TP 8
+.B reconnect
+.br
+Perform a disconnect/reconnect with the information saved during the
+first SQLDriverConnect.
+
+.TP 8
 .B quit (or exit)
 .br
 Exit the program and return to the shell.
@@ -132,7 +138,7 @@ odbc.ini file:
 .fi
 
 .SH COPYRIGHT
-Copyright \(co 1996-2004 by OpenLink Software
+Copyright \(co 1996-2005 by OpenLink Software
 
 .SH AUTHOR
 iODBC Administrator <iodbc@openlinksw.com>

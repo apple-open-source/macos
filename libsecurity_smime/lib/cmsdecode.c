@@ -59,13 +59,13 @@ struct SecCmsDecoderStr {
     void *				cb_arg;
 };
 
-static void nss_cms_decoder_update_filter (void *arg, const char *data, unsigned long len,
+static void nss_cms_decoder_update_filter (void *arg, const char *data, size_t len,
                           int depth, SEC_ASN1EncodingPart data_kind);
 static OSStatus nss_cms_before_data(SecCmsDecoderRef p7dcx);
 static OSStatus nss_cms_after_data(SecCmsDecoderRef p7dcx);
 static OSStatus nss_cms_after_end(SecCmsDecoderRef p7dcx);
 static void nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx, 
-			     const unsigned char *data, unsigned long len, Boolean final);
+			     const unsigned char *data, size_t len, Boolean final);
 
 extern const SecAsn1Template SecCmsMessageTemplate[];
 
@@ -89,7 +89,7 @@ nss_cms_decoder_notify(void *arg, Boolean before, void *dest, int depth)
     /* XXX error handling: need to set p7dcx->error */
 
 #ifdef CMSDEBUG 
-    fprintf(stderr, "%6.6s, dest = 0x%08x, depth = %d\n", before ? "before" : "after", dest, depth);
+    fprintf(stderr, "%6.6s, dest = %p, depth = %d\n", before ? "before" : "after", dest, depth);
 #endif
 
     /* so what are we working on right now? */
@@ -110,6 +110,7 @@ nss_cms_decoder_notify(void *arg, Boolean before, void *dest, int depth)
 	}
 	break;
     case SEC_OID_PKCS7_DATA:
+    case SEC_OID_OTHER:
 	/* this can only happen if the outermost cinfo has DATA in it */
 	/* otherwise, we handle this type implicitely in the inner decoders */
 
@@ -248,8 +249,13 @@ nss_cms_before_data(SecCmsDecoderRef p7dcx)
     
     cinfo = SecCmsContentGetContentInfo(p7dcx->content.pointer, p7dcx->type);
     childtype = SecCmsContentInfoGetContentTypeTag(cinfo);
-
-    if (childtype == SEC_OID_PKCS7_DATA) {
+    
+    /* special case for SignedData: "unknown" child type maps to SEC_OID_OTHER */
+    if((childtype == SEC_OID_UNKNOWN) && (p7dcx->type == SEC_OID_PKCS7_SIGNED_DATA)) {
+	childtype = SEC_OID_OTHER;
+    }
+    
+    if ((childtype == SEC_OID_PKCS7_DATA) || (childtype == SEC_OID_OTHER)){
 	cinfo->content.data = SECITEM_AllocItem(poolp, NULL, 0);
 	if (cinfo->content.data == NULL)
 	    /* set memory error */
@@ -276,6 +282,9 @@ nss_cms_before_data(SecCmsDecoderRef p7dcx)
     if (childp7dcx->content.pointer == NULL)
 	goto loser;
 
+    /* Apple: link the new content to parent ContentInfo */
+    cinfo->content.pointer = childp7dcx->content.pointer;
+    
     /* start the child decoder */
     childp7dcx->dcx = SEC_ASN1DecoderStart(poolp, childp7dcx->content.pointer, template, NULL);
     if (childp7dcx->dcx == NULL)
@@ -406,7 +415,7 @@ nss_cms_after_end(SecCmsDecoderRef p7dcx)
  */
 static void
 nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx, 
-			     const unsigned char *data, unsigned long len,
+			     const unsigned char *data, size_t len,
 			     Boolean final)
 {
     SecCmsContentInfoRef cinfo;
@@ -415,7 +424,7 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
     unsigned int offset;
     OSStatus rv;
     CSSM_DATA_PTR storage;
-
+    
     /*
      * We should really have data to process, or we should be trying
      * to finish/flush the last block.  (This is an overly paranoid
@@ -440,8 +449,8 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
 	 * sending the data back and they want to know that.
 	 */
 
-	unsigned int outlen = 0;	/* length of decrypted data */
-	unsigned int buflen;		/* length available for decrypted data */
+	CSSM_SIZE outlen = 0;	/* length of decrypted data */
+	CSSM_SIZE buflen;		/* length available for decrypted data */
 
 	/* find out about the length of decrypted data */
 	buflen = SecCmsCipherContextDecryptLength(cinfo->ciphcx, len, final);
@@ -510,7 +519,11 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
 #if 1
     else
 #endif
-    if (SecCmsContentInfoGetContentTypeTag(cinfo) == SEC_OID_PKCS7_DATA) {
+    switch(SecCmsContentInfoGetContentTypeTag(cinfo)) {
+	default:
+	    break;
+	case SEC_OID_PKCS7_DATA:
+	case SEC_OID_OTHER:
 	/* store it in "inner" data item as well */
 	/* find the DATA item in the encapsulated cinfo and store it there */
 	storage = cinfo->content.data;
@@ -551,7 +564,7 @@ loser:
  * nss_cms_decoder_work_data().
  */
 static void
-nss_cms_decoder_update_filter (void *arg, const char *data, unsigned long len,
+nss_cms_decoder_update_filter (void *arg, const char *data, size_t len,
 			  int depth, SEC_ASN1EncodingPart data_kind)
 {
     SecCmsDecoderRef p7dcx;

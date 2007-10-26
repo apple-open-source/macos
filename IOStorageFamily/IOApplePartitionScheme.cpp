@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,6 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
-#include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/storage/IOApplePartitionScheme.h>
 #include <libkern/OSByteOrder.h>
@@ -34,7 +33,7 @@ OSDefineMetaClassAndStructors(IOApplePartitionScheme, IOPartitionScheme);
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // Notes
 //
-// o the on-disk structure's fields are: 16-bit packed, big-endian formatted
+// o the on-disk structure's fields are big-endian formatted
 // o the dpme_pblock_start and dpme_pblocks block values are:
 //   o for media without a driver map:
 //     o natural block size based
@@ -183,6 +182,44 @@ void IOApplePartitionScheme::stop(IOService * provider)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+IOReturn IOApplePartitionScheme::requestProbe(IOOptionBits options)
+{
+    //
+    // Request that the provider media be re-scanned for partitions.
+    //
+
+    OSSet * partitions    = 0;
+    OSSet * partitionsNew;
+    SInt32  score         = 0;
+
+    // Scan the provider media for partitions.
+
+    partitionsNew = scan( &score );
+
+    if ( partitionsNew )
+    {
+        if ( lockForArbitration( false ) )
+        {
+            partitions = juxtaposeMediaObjects( _partitions, partitionsNew );
+
+            if ( partitions )
+            {
+                _partitions->release( );
+
+                _partitions = partitions;
+            }
+
+            unlockForArbitration( );
+        }
+
+        partitionsNew->release( );
+    }
+
+    return partitions ? kIOReturnSuccess : kIOReturnError;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 {
     //
@@ -232,7 +269,7 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
     // Open the media with read access.
 
-    mediaIsOpen = media->open(this, 0, kIOStorageAccessReader);
+    mediaIsOpen = open(this, 0, kIOStorageAccessReader);
     if ( mediaIsOpen == false )  goto scanErr;
 
     // Read the driver map into our buffer.
@@ -320,9 +357,9 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
         // Obtain an accurate number of entries in the partition map.
 
-        if ( !strcmp(dpmeMap->dpme_type, "Apple_partition_map") ||
-             !strcmp(dpmeMap->dpme_type, "Apple_Partition_Map") ||
-             !strcmp(dpmeMap->dpme_type, "Apple_patition_map" ) )
+        if ( !strncmp(dpmeMap->dpme_type, "Apple_partition_map", sizeof(dpmeMap->dpme_type)) ||
+             !strncmp(dpmeMap->dpme_type, "Apple_Partition_Map", sizeof(dpmeMap->dpme_type)) ||
+             !strncmp(dpmeMap->dpme_type, "Apple_patition_map",  sizeof(dpmeMap->dpme_type)) )
         {
             dpmeCount    = OSSwapBigToHostInt32(dpmeMap->dpme_map_entries);
             dpmeMaxCount = OSSwapBigToHostInt32(dpmeMap->dpme_pblocks);
@@ -336,12 +373,12 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
         if ( dpmeOldSchool && (dpmeID % 4) == 0 )
         {
-            if ( !strcmp(dpmeMap->dpme_type, "Apple_Driver"      ) ||
-                 !strcmp(dpmeMap->dpme_type, "Apple_Driver43"    ) ||
-                 !strcmp(dpmeMap->dpme_type, "Apple_Driver43_CD" ) ||
-                 !strcmp(dpmeMap->dpme_type, "Apple_Driver_ATA"  ) ||
-                 !strcmp(dpmeMap->dpme_type, "Apple_Driver_ATAPI") ||
-                 !strcmp(dpmeMap->dpme_type, "Apple_Patches"     ) )
+            if ( !strncmp(dpmeMap->dpme_type, "Apple_Driver",       sizeof(dpmeMap->dpme_type)) ||
+                 !strncmp(dpmeMap->dpme_type, "Apple_Driver43",     sizeof(dpmeMap->dpme_type)) ||
+                 !strncmp(dpmeMap->dpme_type, "Apple_Driver43_CD",  sizeof(dpmeMap->dpme_type)) ||
+                 !strncmp(dpmeMap->dpme_type, "Apple_Driver_ATA",   sizeof(dpmeMap->dpme_type)) ||
+                 !strncmp(dpmeMap->dpme_type, "Apple_Driver_ATAPI", sizeof(dpmeMap->dpme_type)) ||
+                 !strncmp(dpmeMap->dpme_type, "Apple_Patches",      sizeof(dpmeMap->dpme_type)) )
             {
                 partitionBlockSize = 2048;
             }
@@ -387,7 +424,7 @@ OSSet * IOApplePartitionScheme::scan(SInt32 * score)
 
     // Release our resources.
 
-    media->close(this);
+    close(this);
     buffer->release();
 
     return partitions;
@@ -396,7 +433,7 @@ scanErr:
 
     // Release our resources.
 
-    if ( mediaIsOpen )  media->close(this);
+    if ( mediaIsOpen )  close(this);
     if ( partitions )  partitions->release();
     if ( buffer )  buffer->release();
 
@@ -495,16 +532,16 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
     // Determine whether the new partition type is Apple_Free, which we choose
     // not to publish because it is an internal concept to the partition map.
 
-    if ( !strcmp(partitionHint, "Apple_Free") )  return 0;
+    if ( !strncmp(partitionHint, "Apple_Free", sizeof(partitionHint)) )  return 0;
 
     // Determine whether the new partition is read-only.
     //
     // Note that we treat the misspelt Apple_patition_map entries as equivalent
     // to Apple_partition_map entries due to the messed up CDs noted in 2513960.
 
-    if ( !strcmp(partition->dpme_type, "Apple_partition_map")                ||
-         !strcmp(partition->dpme_type, "Apple_Partition_Map")                ||
-         !strcmp(partition->dpme_type, "Apple_patition_map" )                ||
+    if ( !strncmp(partition->dpme_type, "Apple_partition_map", sizeof(partition->dpme_type)) ||
+         !strncmp(partition->dpme_type, "Apple_Partition_Map", sizeof(partition->dpme_type)) ||
+         !strncmp(partition->dpme_type, "Apple_patition_map",  sizeof(partition->dpme_type)) ||
          ( OSSwapBigToHostInt32(partition->dpme_flags) &
            ( DPME_FLAGS_WRITABLE | DPME_FLAGS_VALID )  ) == DPME_FLAGS_VALID )
     {
@@ -532,13 +569,13 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
             // Set a name for this partition.
 
             char name[24];
-            sprintf(name, "Untitled %ld", partitionID);
+            snprintf(name, sizeof(name), "Untitled %ld", partitionID);
             newMedia->setName(partitionName[0] ? partitionName : name);
 
             // Set a location value (the partition number) for this partition.
 
             char location[12];
-            sprintf(location, "%ld", partitionID);
+            snprintf(location, sizeof(location), "%ld", partitionID);
             newMedia->setLocation(location);
 
             // Set the "Partition ID" key for this partition.
@@ -571,59 +608,24 @@ IOMedia * IOApplePartitionScheme::instantiateDesiredMediaObject(
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOApplePartitionScheme::attachMediaObjectToDeviceTree( IOMedia * media )
+bool IOApplePartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
 {
     //
     // Attach the given media object to the device tree plane.
     //
 
-    IORegistryEntry * parent = this;
-
-    while ( (parent = parent->getParentEntry(gIOServicePlane)) )
-    {
-        if ( parent->inPlane(gIODTPlane) )
-        {
-            char         location[ 32 ];
-            const char * locationOfParent = parent->getLocation(gIODTPlane);
-            const char * nameOfParent     = parent->getName(gIODTPlane);
-
-            if ( locationOfParent == 0 )  break;
-
-            if ( OSDynamicCast(IOMedia, parent) == 0 )  break;
-
-            parent = parent->getParentEntry(gIODTPlane);
-
-            if ( parent == 0 )  break;
-
-            if ( media->attachToParent(parent, gIODTPlane) == false )  break;
-
-            strcpy(location, locationOfParent);
-            if ( strchr(location, ':') )  *(strchr(location, ':') + 1) = 0;
-            strcat(location, media->getLocation());
-            media->setLocation(location, gIODTPlane);
-            media->setName(nameOfParent, gIODTPlane);
-
-            return true;
-        }
-    }
-
-    return false;
+    return super::attachMediaObjectToDeviceTree(media);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOApplePartitionScheme::detachMediaObjectFromDeviceTree( IOMedia * media )
+void IOApplePartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
 {
     //
     // Detach the given media object from the device tree plane.
     //
 
-    IORegistryEntry * parent;
-
-    if ( (parent = media->getParentEntry(gIODTPlane)) )
-    {
-        media->detachFromParent(parent, gIODTPlane);
-    }
+    super::detachMediaObjectFromDeviceTree(media);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

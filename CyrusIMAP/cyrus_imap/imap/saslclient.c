@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: saslclient.c,v 1.5 2005/03/05 00:37:03 dasenbro Exp $ */
+/* $Id: saslclient.c,v 1.15 2006/11/30 17:11:20 murch Exp $ */
 
 #include <config.h>
 
@@ -151,7 +151,7 @@ sasl_callback_t *mysasl_callbacks(const char *username,
 	    return NULL;
 	}
 
-	strcpy(secret->data,password);
+	strcpy((char *) secret->data, password);
 	secret->len = len;
 		
 	/* password */
@@ -217,41 +217,45 @@ int saslclient(sasl_conn_t *conn, struct sasl_cmd_t *sasl_cmd,
 	sprintf(cmdbuf, "%s %s", sasl_cmd->cmd, mech);
     prot_printf(pout, "%s", cmdbuf);
 
-    if (clientout) { /* initial response */
-	if (!clientoutlen) { /* zero-length initial response */
-	    prot_printf(pout, " =");
+    if (!clientout) goto noinitresp;  /* no initial response */
 
-	    clientout = NULL;
-	}
-	else if (!sendliteral &&
-		 ((strlen(cmdbuf) + clientoutlen + 3) > sasl_cmd->maxlen)) {
-	    /* initial response is too long for auth command,
-	       so wait for a server challenge before sending it */
-	    goto noinitresp;
-	}
-	else { /* full response -- encoded below */
-	    prot_printf(pout, " ");
-	}
+    /* initial response */
+    if (!clientoutlen) { /* zero-length initial response */
+	prot_printf(pout, " =");
+
+	clientout = NULL;
+    }
+    else if (!sendliteral &&
+	     ((strlen(cmdbuf) + clientoutlen + 3) > sasl_cmd->maxlen)) {
+	/* initial response is too long for auth command,
+	   so wait for a server challenge before sending it */
+	goto noinitresp;
+    }
+    else { /* full response -- encoded below */
+	prot_printf(pout, " ");
     }
 
     do {
 	char *p;
 
+	base64 = buf;
+	*base64 = '\0';
+
 	if (clientout) { /* response */
 	    /* convert to base64 */
-	    base64 = buf;
 	    r = sasl_encode64(clientout, clientoutlen,
 			      base64, BASE64_BUF_SIZE, NULL);
 
 	    clientout = NULL;
-
-	    /* send to server */
-	    if (sendliteral) {
-		prot_printf(pout, "{%d+}\r\n", strlen(base64));
-		prot_flush(pout);
-	    }
-	    prot_printf(pout, "%s", base64);
 	}
+
+	/* send to server */
+	if (sendliteral) {
+	    prot_printf(pout, "{%d+}\r\n", strlen(base64));
+	    prot_flush(pout);
+	}
+	prot_printf(pout, "%s", base64);
+
       noinitresp:
 	prot_printf(pout, "\r\n");
 	prot_flush(pout);
@@ -281,9 +285,22 @@ int saslclient(sasl_conn_t *conn, struct sasl_cmd_t *sasl_cmd,
 	    r = SASL_BADAUTH;
 	    break;
 	}
-	else if (!strncasecmp(buf, sasl_cmd->cont, strlen(sasl_cmd->cont))) {
+	else if (sasl_cmd->cont &&
+		 !strncasecmp(buf, sasl_cmd->cont, strlen(sasl_cmd->cont))) {
 	    /* continue */
 	    base64 = buf + strlen(sasl_cmd->cont);
+	}
+	else if (!sasl_cmd->cont && buf[0] == '{') {
+	    unsigned int litsize = atoi(buf+1);
+
+	    /* get actual literal data */
+	    if (!prot_fgets(buf, AUTH_BUF_SIZE, pin)) {
+		if (sasl_result) *sasl_result = SASL_FAIL;
+		if (status) *status = "EOF from server";
+		return IMAP_SASL_PROTERR;
+	    }
+
+	    base64 = buf;
 	}
 	else {
 	    /* unknown response */

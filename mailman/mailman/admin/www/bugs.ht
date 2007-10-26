@@ -7,11 +7,11 @@ Other-links:
 
 <h3>Bugs and Patches</h3>
 
-<p>Mailman is being <a
-href="http://sourceforge.net/projects/mailman">developed on
-SourceForge</a>.  Please use the SourceForge <a
-href="http://sourceforge.net/bugs/?group_id=103">bug tracker</a> to
-report any bugs..  If you have patches you'd like to submit, the best
+<p>Although we are currently transitioning to 
+<a href="http://www.atlassian.com">Atlassian's</a> the fine bug tracker called
+Jira, we are still accepting bugs via the Please use the SourceForge 
+<a href="http://sourceforge.net/bugs/?group_id=103">bug tracker</a>.
+For now, if you have patches you'd like to submit, the best
 place to do that is on the SourceForge <a
 href="http://sourceforge.net/patch/?group_id=103">patch manager</a>.
 
@@ -23,3 +23,5 @@ your submission to the
 >mailman-developers</a> mailing list, but don't rely on just the email
 to get the attention of the Mailman developers.
 
+<p>Please see the <a href="security.html">Mailman security page</a> for
+instructions on reporting security related issues.

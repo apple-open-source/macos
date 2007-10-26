@@ -9,6 +9,7 @@ module Tk
   module Tile
     class TNotebook < TkWindow
     end
+    Notebook = TNotebook
   end
 end
 
@@ -17,49 +18,57 @@ class Tk::Tile::TNotebook < TkWindow
   include TkItemConfigMethod
   
   def __item_cget_cmd(id)
-    [self.path, 'tabcget', id]
+    [self.path, 'tab', id]
   end
   private :__item_cget_cmd
 
   def __item_config_cmd(id)
-    [self.path, 'tabconfigure', id]
+    [self.path, 'tab', id]
   end
   private :__item_config_cmd
 
-
-  def __item_listval_optkeys
+  def __item_listval_optkeys(id)
     []
   end
   private :__item_listval_optkeys
 
-  def __item_methodcall_optkeys  # { key=>method, ... }
+  def __item_methodcall_optkeys(id)  # { key=>method, ... }
     {}
   end
-  private :__item_listval_optkeys
+  private :__item_methodcall_optkeys
 
-  alias tabcget itemcget
+  #alias tabcget itemcget
   alias tabconfigure itemconfigure
   alias tabconfiginfo itemconfiginfo
   alias current_tabconfiginfo current_itemconfiginfo
+
+  def tabcget(tagOrId, option)
+    tabconfigure(tagOrId, option)[-1]
+  end
   ################################
 
   include Tk::Tile::TileWidget
 
-  TkCommandNames = ['tnotebook'.freeze].freeze
+  if Tk::Tile::USE_TTK_NAMESPACE
+    TkCommandNames = ['::ttk::notebook'.freeze].freeze
+  else
+    TkCommandNames = ['::tnotebook'.freeze].freeze
+  end
   WidgetClassName = 'TNotebook'.freeze
   WidgetClassNames[WidgetClassName] = self
 
-  def create_self(keys)
-    if keys and keys != None
-      tk_call_without_enc('tnotebook', @path, *hash_kv(keys, true))
-    else
-      tk_call_without_enc('tnotebook', @path)
-    end
+  def self.style(*args)
+    [self::WidgetClassName, *(args.map!{|a| _get_eval_string(a)})].join('.')
   end
-  private :create_self
 
   def enable_traversal()
-    tk_call_without_end('tile::enableNotebookTraversal', @path)
+    if Tk::Tile::TILE_SPEC_VERSION_ID < 5
+      tk_call_without_enc('::tile::enableNotebookTraversal', @path)
+    elsif Tk::Tile::TILE_SPEC_VERSION_ID < 7
+      tk_call_without_enc('::tile::notebook::enableTraversal', @path)
+    else
+      tk_call_without_enc('::ttk::notebook::enableTraversal', @path)
+    end
     self
   end
 
@@ -81,9 +90,22 @@ class Tk::Tile::TNotebook < TkWindow
     number(tk_send('index', idx))
   end
 
+  def insert(idx, subwin, keys=nil)
+    if keys && keys != None
+      tk_send('insert', idx, subwin, *hash_kv(keys))
+    else
+      tk_send('insert', idx, subwin)
+    end
+    self
+  end
+
   def select(idx)
     tk_send('select', idx)
     self
+  end
+
+  def selected
+    window(tk_send_without_enc('select'))
   end
 
   def tabs

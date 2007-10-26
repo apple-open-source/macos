@@ -22,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <IOKit/IOLib.h>    // IOMalloc/IOFree
 #include "IOHIDInterface.h"
 #include "IOHIDDevice.h"
 #include "IOHIDElementPrivate.h"
@@ -32,6 +33,10 @@
 #define super IOService
 
 OSDefineMetaClassAndStructors( IOHIDInterface, super )
+
+// RESERVED IOHIDInterface CLASS VARIABLES
+// Defined here to avoid conflicts from within header file
+#define _reportInterval             _reserved->reportInterval
 
 //---------------------------------------------------------------------------
 // IOHIDInterface::free
@@ -44,6 +49,11 @@ void IOHIDInterface::free()
 		_elementArray = 0;
 	}
 
+    if ( _reserved )
+    {        
+        IODelete( _reserved, ExpansionData, 1 );
+    }
+
     super::free();
 }
 
@@ -54,6 +64,14 @@ bool IOHIDInterface::init( OSDictionary * dictionary )
 {
     if ( !super::init(dictionary) )
         return false;
+
+    _reserved = IONew( ExpansionData, 1 );
+
+    if (!_reserved)
+        return false;
+		
+	bzero(_reserved, sizeof(ExpansionData));
+            
         
     bzero(_maxReportSize, sizeof(IOByteCount) * kIOHIDReportTypeCount);
         
@@ -123,6 +141,9 @@ bool IOHIDInterface::start( IOService * provider )
 
     number = OSDynamicCast(OSNumber, _owner->getProperty(kIOHIDMaxFeatureReportSizeKey));
     if ( number ) _maxReportSize[kIOHIDReportTypeFeature] = number->unsigned32BitValue();
+    
+    number = OSDynamicCast(OSNumber, _owner->getProperty(kIOHIDReportIntervalKey));
+    if ( number ) _reportInterval = number->unsigned32BitValue();
     
     registerService();
     
@@ -336,7 +357,12 @@ IOReturn IOHIDInterface::getReport (
 }
 
 
-OSMetaClassDefineReservedUnused(IOHIDInterface,  0);
+OSMetaClassDefineReservedUsed(IOHIDInterface,  0);
+UInt32 IOHIDInterface::getReportInterval ()
+{
+    return _reportInterval;
+}
+
 OSMetaClassDefineReservedUnused(IOHIDInterface,  1);
 OSMetaClassDefineReservedUnused(IOHIDInterface,  2);
 OSMetaClassDefineReservedUnused(IOHIDInterface,  3);

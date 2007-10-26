@@ -33,6 +33,14 @@
 #include <security_ocspd/ocspdDebug.h>
 #include <security_utilities/daemon.h>
 #include <security_utilities/logging.h>
+#include <CoreFoundation/CoreFoundation.h>
+
+using namespace Security;
+
+Mutex gTimeMutex;
+
+const CFAbsoluteTime kTimeoutInterval = 300;
+const int kTimeoutCheckTime = 60;
 
 static void usage(char **argv)
 {
@@ -43,8 +51,58 @@ static void usage(char **argv)
 	exit(1);
 }
 
+void HandleSigTerm (int sig)
+{
+	exit (1);
+}
+
+CFAbsoluteTime gLastActivity;
+
+void ServerActivity()
+{
+	StLock<Mutex> _mutexLock(gTimeMutex);
+	gLastActivity = CFAbsoluteTimeGetCurrent();
+}
+
+class TimeoutTimer : public MachPlusPlus::MachServer::Timer
+{
+protected:
+	OcspdServer &mServer;
+
+public:
+	TimeoutTimer(OcspdServer &server) : mServer(server) {}
+	void action();
+};
+
+
+void TimeoutTimer::action()
+{
+	bool doExit = false;
+	{
+		StLock<Mutex> _mutexLock(gTimeMutex);
+		CFAbsoluteTime thisTime = CFAbsoluteTimeGetCurrent();
+		if (thisTime - gLastActivity > kTimeoutInterval)
+		{
+			doExit = true;
+		}
+	
+		if (!doExit)
+		{
+			// reinstall us as a timer
+			mServer.setTimer(this, Time::Interval(kTimeoutCheckTime));
+		}
+	}
+
+	if (doExit)
+	{
+		exit(0);
+	}
+}
+
 int main(int argc, char **argv)
 {
+	signal (SIGTERM, HandleSigTerm);
+	
 	/* user-specified variables */
 	char *bootStrapName = NULL;
 	bool debugMode = false;
@@ -103,9 +161,18 @@ int main(int argc, char **argv)
 	/* FIXME - any signal handlers? */
 	
 	ocspdDebug("ocspd: starting main run loop");
-	server.run();
+
+	/* These options copied from securityd - they enable the audit trailer */
+	ServerActivity();
+	TimeoutTimer tt(server);
+	server.setTimer(&tt, Time::Interval(kTimeoutCheckTime));
 	
+	server.run(4096,		// copied from machserver default
+		MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) |
+		MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT));
+
 	/* fell out of runloop (should not happen) */
 	Syslog::alert("Aborting");
-    return 1;
+    
+	return 1;
 }

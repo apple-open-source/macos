@@ -102,7 +102,10 @@ void Sym8xxSCSIController::executeCommand( IOSCSIParallelCommand *scsiCommand )
     len = scsiCDB.cdbLength;
 
     nexus->cdb.length = OSSwapHostToLittleInt32( len );
-    nexus->cdbData    = scsiCDB.cdb;
+    // implicit copying of arrays is not desireable.  explicitly spell out what is being copied
+    // [rdar://problem/4092008]
+    // nexus->cdbData    = scsiCDB.cdb;
+    bcopy( &scsiCDB.cdb, &nexus->cdbData, sizeof( nexus->cdbData ) );
 
     Sym8xxCalcMsgs( scsiCommand );
     

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2000-2004, International Business Machines
+*   Copyright (C) 2000-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -23,6 +23,7 @@
 #include "cmemory.h"
 #include "putilimp.h"
 #include "ustr_imp.h"
+#include "ubidi_props.h"
 
 #if UTF_SIZE<16
     /*
@@ -224,8 +225,17 @@ static void
 _shapeToArabicDigitsWithContext(UChar *s, int32_t length,
                                 UChar digitBase,
                                 UBool isLogical, UBool lastStrongWasAL) {
+    const UBiDiProps *bdp;
+    UErrorCode errorCode;
+
     int32_t i;
     UChar c;
+
+    errorCode=U_ZERO_ERROR;
+    bdp=ubidi_getSingleton(&errorCode);
+    if(U_FAILURE(errorCode)) {
+        return;
+    }
 
     digitBase-=0x30;
 
@@ -233,7 +243,7 @@ _shapeToArabicDigitsWithContext(UChar *s, int32_t length,
     if(isLogical) {
         for(i=0; i<length; ++i) {
             c=s[i];
-            switch(u_charDirection(c)) {
+            switch(ubidi_getClass(bdp, c)) {
             case U_LEFT_TO_RIGHT: /* L */
             case U_RIGHT_TO_LEFT: /* R */
                 lastStrongWasAL=FALSE;
@@ -253,7 +263,7 @@ _shapeToArabicDigitsWithContext(UChar *s, int32_t length,
     } else {
         for(i=length; i>0; /* pre-decrement in the body */) {
             c=s[--i];
-            switch(u_charDirection(c)) {
+            switch(ubidi_getClass(bdp, c)) {
             case U_LEFT_TO_RIGHT: /* L */
             case U_RIGHT_TO_LEFT: /* R */
                 lastStrongWasAL=FALSE;
@@ -304,26 +314,20 @@ invertBuffer(UChar *buffer,int32_t size,uint32_t options,int32_t *spacesCountl,i
  *           later it'll be converted into the 0xFExx LamAlefs
  *           in the shaping function.
  */
-static UChar
+static U_INLINE UChar
 changeLamAlef(UChar ch) {
 
     switch(ch) {
     case 0x0622 :
-        return(0x065C);
-        break;
+        return 0x065C;
     case 0x0623 :
-        return(0x065D);
-        break;
+        return 0x065D;
     case 0x0625 :
-        return(0x065E);
-        break;
+        return 0x065E;
     case 0x0627 :
-        return(0x065F);
-        break;
-    default :
-        return(0);
-        break;
+        return 0x065F;
     }
+    return 0;
 }
 
 /*
@@ -338,11 +342,9 @@ specialChar(UChar ch) {
         (ch>0x0647 && ch<0x064a)||(ch==0x0629) ) {
         return (1);
     }
-    else
-    if( ch>=0x064B && ch<= 0x0652 )
+    else if( ch>=0x064B && ch<= 0x0652 )
         return (2);
-    else
-    if( (ch>=0x0653 && ch<= 0x0655) || ch == 0x0670 ||
+    else if( (ch>=0x0653 && ch<= 0x0655) || ch == 0x0670 ||
         (ch>=0xFE70 && ch<= 0xFE7F) )
         return (3);
     else
@@ -398,39 +400,27 @@ countSpaces(UChar *dest,int32_t size,uint32_t options,int32_t *spacesCountl,int3
  *Name     : isTashkeelChar
  *Function : Returns 1 for Tashkeel characters else return 0
  */
-static int32_t
+static U_INLINE int32_t
 isTashkeelChar(UChar ch) {
-
-    if( ch>=0x064B && ch<= 0x0652 )
-        return (1);
-    else
-        return (0);
+    return (int32_t)( ch>=0x064B && ch<= 0x0652 );
 }
 
 /*
  *Name     : isAlefChar
  *Function : Returns 1 for Alef characters else return 0
  */
-static int32_t
+static U_INLINE int32_t
 isAlefChar(UChar ch) {
-
-    if( (ch==0x0622)||(ch==0x0623)||(ch==0x0625)||(ch==0x0627) )
-        return (1);
-    else
-        return (0);
+    return (int32_t)( (ch==0x0622)||(ch==0x0623)||(ch==0x0625)||(ch==0x0627) );
 }
 
 /*
  *Name     : isLamAlefChar
  *Function : Returns 1 for LamAlef characters else return 0
  */
-static int32_t
+static U_INLINE int32_t
 isLamAlefChar(UChar ch) {
-
-    if( (ch>=0xFEF5)&&(ch<=0xFEFC) )
-        return (1);
-    else
-        return (0);
+    return (int32_t)( (ch>=0xFEF5)&&(ch<=0xFEFC) );
 }
 
 /*
@@ -796,7 +786,7 @@ shapeUnicode(UChar *dest, int32_t sourceLength,
 
     int32_t          i, iend;
     int32_t          step;
-    int32_t          prevPos, lastPos,Nx, Nw;
+    int32_t          lastPos,Nx, Nw;
     unsigned int     Shape;
     int32_t          flag;
     int32_t          lamalef_found = 0;
@@ -830,7 +820,6 @@ shapeUnicode(UChar *dest, int32_t sourceLength,
      */
     currLink = getLink(dest[i]);
 
-    prevPos = i;
     lastPos = i;
     Nx = -2, Nw = 0;
 
@@ -877,13 +866,14 @@ shapeUnicode(UChar *dest, int32_t sourceLength,
              if (flag == 1) {
                  Shape = (Shape == 1 || Shape == 3) ? 1 : 0;
              }
-             else
-             if(flag == 2) {
+             else if(flag == 2) {
                  if( (lastLink & LINKL) && (nextLink & LINKR) && (tashkeelFlag == 1) &&
-                      dest[i] != 0x064C && dest[i] != 0x064D ) {
+                      dest[i] != 0x064C && dest[i] != 0x064D )
+                 {
                      Shape = 1;
-                     if( (nextLink&ALEFTYPE) == ALEFTYPE && (lastLink&LAMTYPE) == LAMTYPE )
+                     if( (nextLink&ALEFTYPE) == ALEFTYPE && (lastLink&LAMTYPE) == LAMTYPE ) {
                          Shape = 0;
+                     }
                  }
                  else {
                      Shape = 0;
@@ -901,7 +891,6 @@ shapeUnicode(UChar *dest, int32_t sourceLength,
         if ((currLink & IRRELEVANT) == 0) {
               prevLink = lastLink;
               lastLink = currLink;
-              prevPos = lastPos;
               lastPos = i;
         }
 
@@ -987,7 +976,7 @@ u_shapeArabic(const UChar *source, int32_t sourceLength,
     if(sourceLength==-1) {
         sourceLength=u_strlen(source);
     }
-    if(sourceLength==0) {
+    if(sourceLength<=0) {
         return u_terminateUChars(dest, destCapacity, 0, pErrorCode);
     }
 

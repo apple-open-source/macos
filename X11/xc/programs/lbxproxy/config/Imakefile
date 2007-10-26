@@ -1,5 +1,0 @@
-XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:53:53 cpqbld Exp $
-
-all::
-
-InstallNonExecFile(AtomControl,$(LBXPROXYDIR))

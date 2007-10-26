@@ -1,4 +1,6 @@
 // { dg-do assemble  }
+// APPLE LOCAL mainline
+// { dg-options "-Wconversion" }
 
 // Copyright (C) 1999 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 21 Nov 1999 <nathan@acm.org>

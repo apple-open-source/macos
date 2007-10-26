@@ -3,12 +3,14 @@ unset($_SESSION["name"]); should work with register_globals=off
 --SKIPIF--
 <?php include('skipif.inc'); ?>
 --INI--
+register_long_arrays=1
 session.use_cookies=0
 session.cache_limiter=
 register_globals=0
 session.bug_compat_42=1
 session.bug_compat_warn=0
 session.serialize_handler=php
+session.save_handler=files
 --FILE--
 <?php
 error_reporting(E_ALL);

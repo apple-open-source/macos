@@ -36,7 +36,7 @@
 #include "SecBridge.h"
 #include "KCExceptions.h"
 #include "Access.h"
-
+#include "SecKeychainItemExtendedAttributes.h"
 
 //
 // Given a polymorphic Sec type object, return
@@ -107,7 +107,7 @@ SecKeychainItemCreateFromContent(SecItemClass itemClass, SecKeychainAttributeLis
         keychain->add(item);
         if (itemRef)
         	*itemRef = item->handle();
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemCreateFromContent")
 }
 
 
@@ -118,7 +118,7 @@ SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeychainAttrib
 		secdebug("kcitem", "SecKeychainItemModifyContent(%p, %p, %lu, %p)", itemRef, attrList, length, data);
 		Item item = ItemImpl::required(itemRef);
 		item->modifyContent(attrList, length, data);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemModifyContent")
 }
 
 
@@ -130,7 +130,7 @@ SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass *itemClass, 
 			itemRef, itemClass, attrList, length, outData);
 		Item item = ItemImpl::required(itemRef);
 		item->getContent(itemClass, attrList, length, outData);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemCopyContent")
 }
 
 
@@ -140,7 +140,7 @@ SecKeychainItemFreeContent(SecKeychainAttributeList *attrList, void *data)
 	BEGIN_SECAPI
 		secdebug("kcitem", "SecKeychainItemFreeContent(%p, %p)", attrList, data);
 		ItemImpl::freeContent(attrList, data);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemFreeContent")
 }
 
 
@@ -151,7 +151,7 @@ SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, const SecKeyc
 		secdebug("kcitem", "SecKeychainItemModifyAttributesAndData(%p, %p, %lu, %p)", itemRef, attrList, length, data);
 		Item item = ItemImpl::required(itemRef);
 		item->modifyAttributesAndData(attrList, length, data);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemModifyAttributesAndData")
 }
 
 
@@ -162,7 +162,7 @@ SecKeychainItemCopyAttributesAndData(SecKeychainItemRef itemRef, SecKeychainAttr
 		secdebug("kcitem", "SecKeychainItemCopyAttributesAndData(%p, %p, %p, %p, %p, %p)", itemRef, info, itemClass, attrList, length, outData);
 		Item item = ItemImpl::required(itemRef);
 		item->getAttributesAndData(info, itemClass, attrList, length, outData);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemCopyAttributesAndData")
 }
 
 
@@ -172,7 +172,7 @@ SecKeychainItemFreeAttributesAndData(SecKeychainAttributeList *attrList, void *d
 	BEGIN_SECAPI
 		secdebug("kcitem", "SecKeychainItemFreeAttributesAndData(%p, %p)", attrList, data);
 		ItemImpl::freeAttributesAndData(attrList, data);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemFreeAttributesAndData")
 }
 
 
@@ -183,10 +183,27 @@ SecKeychainItemDelete(SecKeychainItemRef itemRef)
 		secdebug("kcitem", "SecKeychainItemFreeAttributesAndData(%p)", itemRef);
 		Item item = ItemImpl::required( itemRef );
 		Keychain keychain = item->keychain();
+		// item must be persistent.
 		KCThrowIf_( !keychain, errSecInvalidItemRef );
 		
-        keychain->deleteItem( item ); // item must be persistent.
-	END_SECAPI
+		/*
+		 * Before deleting the item, delete any existing Extended Attributes.
+		 */
+		OSStatus ortn;
+		CFArrayRef attrNames = NULL;
+		ortn = SecKeychainItemCopyAllExtendedAttributes(itemRef, &attrNames, NULL);
+		if(ortn == noErr) {
+			CFIndex numAttrs = CFArrayGetCount(attrNames);
+			for(CFIndex dex=0; dex<numAttrs; dex++) {
+				CFStringRef attrName = (CFStringRef)CFArrayGetValueAtIndex(attrNames, dex);
+				/* setting value to NULL ==> delete */
+				SecKeychainItemSetExtendedAttribute(itemRef, attrName, NULL);
+			}
+		}
+		
+		/* now delete the item */
+        keychain->deleteItem( item ); 
+	END_SECAPI2("SecKeychainItemDelete")
 }
 
 
@@ -203,7 +220,7 @@ SecKeychainItemCopyKeychain(SecKeychainItemRef itemRef, SecKeychainRef* keychain
 		}
 		
 		Required(keychainRef) = kc->handle();
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemCopyKeychain")
 }
 
 
@@ -218,7 +235,7 @@ SecKeychainItemCreateCopy(SecKeychainItemRef itemRef, SecKeychainRef destKeychai
 		Item copy = ItemImpl::required(itemRef)->copyTo(Keychain::optional(destKeychainRef), Access::optional(initialAccess));
 		if (itemCopy)
 			*itemCopy = copy->handle();
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemCreateCopy")
 }
 
 
@@ -228,7 +245,7 @@ SecKeychainItemGetUniqueRecordID(SecKeychainItemRef itemRef, const CSSM_DB_UNIQU
     BEGIN_SECAPI
 		secdebug("kcitem", "SecKeychainItemGetUniqueRecordID(%p, %p)", itemRef, uniqueRecordID);
         Required(uniqueRecordID) = ItemImpl::required(itemRef)->dbUniqueRecord();
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemGetUniqueRecordID")
 }
 
 
@@ -238,7 +255,7 @@ SecKeychainItemGetDLDBHandle(SecKeychainItemRef itemRef, CSSM_DL_DB_HANDLE* dldb
     BEGIN_SECAPI
 		secdebug("kcitem", "SecKeychainItemGetDLDBHandle(%p, %p)", itemRef, dldbHandle);
         *dldbHandle = ItemImpl::required(itemRef)->keychain()->database()->handle();
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemGetDLDBHandle")
 }
 
 
@@ -250,7 +267,7 @@ OSStatus SecAccessCreateFromObject(CFTypeRef sourceRef,
 	Required(accessRef);	// preflight
 	SecPointer<Access> access = new Access(*aclBearer(sourceRef));
 	*accessRef = access->handle();
-	END_SECAPI
+	END_SECAPI2("SecAccessCreateFromObject")
 }
 
 
@@ -261,7 +278,7 @@ OSStatus SecAccessModifyObject(SecAccessRef accessRef, CFTypeRef sourceRef)
 	BEGIN_SECAPI
 	secdebug("kcitem", "SecAccessModifyObject(%p, %p)", accessRef, sourceRef);
 	Access::required(accessRef)->setAccess(*aclBearer(sourceRef), true);
-	END_SECAPI
+	END_SECAPI2("SecAccessModifyObject")
 }
 
 OSStatus
@@ -274,7 +291,7 @@ SecKeychainItemCopyAccess(SecKeychainItemRef itemRef, SecAccessRef* accessRef)
 	SecPointer<Access> access = new Access(*aclBearer(reinterpret_cast<CFTypeRef>(itemRef)));
 	*accessRef = access->handle();
 
-    END_SECAPI
+    END_SECAPI2("SecKeychainItemCopyAccess")
 }
 
 
@@ -286,7 +303,9 @@ SecKeychainItemSetAccess(SecKeychainItemRef itemRef, SecAccessRef accessRef)
 	secdebug("kcitem", "SecKeychainItemSetAccess(%p, %p)", itemRef, accessRef);
 	Access::required(accessRef)->setAccess(*aclBearer(reinterpret_cast<CFTypeRef>(itemRef)), true);
 
-    END_SECAPI
+	ItemImpl::required(itemRef)->postItemEvent (kSecUpdateEvent);
+	
+    END_SECAPI2("SecKeychainItemSetAccess")
 }
 
 /*  Sets an item's data for legacy "KC" CoreServices APIs.
@@ -297,7 +316,7 @@ OSStatus SecKeychainItemSetData(SecKeychainItemRef itemRef, UInt32 length, const
 {
     BEGIN_SECAPI
 		ItemImpl::required(itemRef)->setData(length, data);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemSetData")
 }
 
 /*  Gets an item's data for legacy "KC" CoreServices APIs.
@@ -322,7 +341,7 @@ OSStatus SecKeychainItemGetData(SecKeychainItemRef itemRef, UInt32 maxLength, vo
 				MacOSError::throwMe(errKCBufferTooSmall);
 			memcpy(data, aData.data(), aData.length());
 		}
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemGetData")
 }
 
 /*  Update a keychain item for legacy "KC" CoreServices APIs.
@@ -332,7 +351,7 @@ OSStatus SecKeychainItemUpdate(SecKeychainItemRef itemRef)
 {
     BEGIN_SECAPI
         ItemImpl::required(itemRef)->update();
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemUpdate")
 }
 
 /* Add a 'floating' keychain item without UI for legacy "KC" CoreServices APIs.
@@ -342,7 +361,7 @@ OSStatus SecKeychainItemAddNoUI(SecKeychainRef keychainRef, SecKeychainItemRef i
     BEGIN_SECAPI
         Item item = ItemImpl::required(itemRef);
         Keychain::optional(keychainRef)->add(item);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemAddNoUI")
 }
 
 /* Add a 'floating' keychain item to the default keychain with possible UI for legacy "KC" Carbon APIs.
@@ -353,7 +372,7 @@ OSStatus SecKeychainItemAdd(SecKeychainItemRef itemRef)
         Item item = ItemImpl::required(itemRef);
         Keychain defaultKeychain = globals().storageManager.defaultKeychainUI(item);
         defaultKeychain->add(item);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemAdd")
 }
 
 /* Creates a floating keychain item for legacy "KC" CoreServices APIs
@@ -362,7 +381,7 @@ OSStatus SecKeychainItemCreateNew(SecItemClass itemClass, OSType itemCreator, UI
 {
     BEGIN_SECAPI
         RequiredParam(itemRef) = Item(itemClass, itemCreator, length, data, false)->handle();
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemCreateNew")
 }
 
 /* Gets an individual attribute for legacy "KC" CoreServices APIs
@@ -371,7 +390,7 @@ OSStatus SecKeychainItemGetAttribute(SecKeychainItemRef itemRef, SecKeychainAttr
 {
     BEGIN_SECAPI
         ItemImpl::required(itemRef)->getAttribute(RequiredParam(attribute), actualLength);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemGetAttribute")
 }
 
 /* Sets an individual attribute for legacy "KC" CoreServices APIs
@@ -380,7 +399,7 @@ OSStatus SecKeychainItemSetAttribute(SecKeychainItemRef itemRef, SecKeychainAttr
 {
     BEGIN_SECAPI
         ItemImpl::required(itemRef)->setAttribute(RequiredParam(attribute));
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemSetAttribute")
 }
 
 /*  Finds a keychain item for legacy "KC" CoreServices APIs.
@@ -404,7 +423,7 @@ OSStatus SecKeychainItemFindFirst(SecKeychainRef keychainRef, const SecKeychainA
         *itemRef=item->handle();
         if (searchRef)
             *searchRef=cursor->handle();
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemFindFirst")
 }
 
 OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CFDataRef *persistentItemRef)
@@ -412,26 +431,8 @@ OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CF
     BEGIN_SECAPI
 		KCThrowParamErrIf_(!itemRef || !persistentItemRef);
 		Item item = ItemImpl::required(itemRef);
-		DLDbIdentifier dlDbIdentifier = item->keychain()->dlDbIdentifier();
-		DLDbIdentifier newDlDbIdentifier(dlDbIdentifier.ssuid(),
-			DLDbListCFPref::AbbreviatedPath(item->keychain()->name()).c_str(),
-			dlDbIdentifier.dbLocation());
-		PrimaryKey primaryKey = item->primaryKey();
-		KCThrowIf_( !dlDbIdentifier || !primaryKey, errSecItemNotFound ); // item not in any keychain?
-
-		NameValueDictionary dict;
-		NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier(newDlDbIdentifier, dict);
-
-		CssmData* pKey = primaryKey;
-		dict.Insert (new NameValuePair(ITEM_KEY, *pKey));
-
-		// flatten the NameValueDictionary
-		CssmData dictData;
-		dict.Export(dictData);
-		*persistentItemRef = ::CFDataCreate(kCFAllocatorDefault, dictData.Data, dictData.Length);
-		free (dictData.Data);
-		
-	END_SECAPI
+        item->copyPersistentReference(*persistentItemRef);
+	END_SECAPI2("SecKeychainItemCreatePersistentReference")
 }
 
 OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef, SecKeychainItemRef *itemRef)
@@ -466,7 +467,7 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
 		}
 		KCThrowIf_( !item, errSecItemNotFound );
 		*itemRef = item->handle();
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemCopyFromPersistentReference")
 }
 
 OSStatus SecKeychainItemCopyRecordIdentifier(SecKeychainItemRef itemRef, CFDataRef *recordIdentifier)
@@ -478,7 +479,7 @@ OSStatus SecKeychainItemCopyRecordIdentifier(SecKeychainItemRef itemRef, CFDataR
 		item->copyRecordIdentifier (data);
 		*recordIdentifier = ::CFDataCreate(kCFAllocatorDefault, (UInt8*) data.Data, data.Length);
 		free (data.Data);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemCopyRecordIdentifier")
 }
 
 OSStatus
@@ -532,7 +533,7 @@ SecKeychainItemCopyFromRecordIdentifier(SecKeychainRef keychainRef,
 		{
 			*itemRef = item->handle();
 		}
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemCopyFromRecordIdentifier")
 }
 
 OSStatus SecKeychainItemCreateFromEncryptedContent(SecItemClass itemClass,
@@ -602,8 +603,9 @@ OSStatus SecKeychainItemCreateFromEncryptedContent(SecItemClass itemClass,
 		CSSM_DATA recordID;
 		item->copyRecordIdentifier (recordID);
 		
-		*localID = CFDataCreate(kCFAllocatorDefault, (UInt8*) &recordID, sizeof (localID));
-	END_SECAPI
+		*localID = CFDataCreate(kCFAllocatorDefault, (UInt8*) recordID.Data, recordID.Length);
+		free (recordID.Data);
+	END_SECAPI2("SecKeychainItemCreateFromEncryptedContent")
 }
 
 OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRef, SecKeychainAttributeInfo *info,
@@ -615,7 +617,7 @@ OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRe
 		Item item = ItemImpl::required(itemRef);
 		item->doNotEncrypt ();
 		item->getAttributesAndData(info, itemClass, attrList, length, outData);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemCopyAttributesAndEncryptedData")
 }
 
 OSStatus SecKeychainItemModifyEncryptedData(SecKeychainItemRef itemRef, UInt32 length, const void *data)
@@ -625,5 +627,5 @@ OSStatus SecKeychainItemModifyEncryptedData(SecKeychainItemRef itemRef, UInt32 l
 		Item item = ItemImpl::required(itemRef);
 		item->doNotEncrypt ();
 		item->modifyAttributesAndData(NULL, length, data);
-	END_SECAPI
+	END_SECAPI2("SecKeychainItemModifyEncryptedData")
 }

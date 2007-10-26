@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,6 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
-#include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/storage/IOFDiskPartitionScheme.h>
 #include <IOKit/storage/IOGUIDPartitionScheme.h>
@@ -55,7 +54,7 @@ static size_t ucs2_to_utf8( const uint16_t * ucs2str,
 
     utf8_encodestr( ucs2str,
                     ucs2strlen * sizeof(uint16_t),
-                    (u_int8_t *) utf8str,
+                    (uint8_t *) utf8str,
                     &utf8strlen,
                     utf8strsiz,
                     '/',
@@ -117,7 +116,7 @@ void IOGUIDPartitionScheme::free()
 IOService * IOGUIDPartitionScheme::probe(IOService * provider, SInt32 * score)
 {
     //
-    // Determine whether the provider media contains an GUID partition map.
+    // Determine whether the provider media contains a GUID partition map.
     //
 
     // State our assumptions.
@@ -128,7 +127,7 @@ IOService * IOGUIDPartitionScheme::probe(IOService * provider, SInt32 * score)
 
     if ( super::probe(provider, score) == 0 )  return 0;
 
-    // Scan the provider media for an GUID partition map.
+    // Scan the provider media for a GUID partition map.
 
     _partitions = scan(score);
 
@@ -208,6 +207,44 @@ void IOGUIDPartitionScheme::stop(IOService * provider)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+IOReturn IOGUIDPartitionScheme::requestProbe(IOOptionBits options)
+{
+    //
+    // Request that the provider media be re-scanned for partitions.
+    //
+
+    OSSet * partitions    = 0;
+    OSSet * partitionsNew;
+    SInt32  score         = 0;
+
+    // Scan the provider media for partitions.
+
+    partitionsNew = scan( &score );
+
+    if ( partitionsNew )
+    {
+        if ( lockForArbitration( false ) )
+        {
+            partitions = juxtaposeMediaObjects( _partitions, partitionsNew );
+
+            if ( partitions )
+            {
+                _partitions->release( );
+
+                _partitions = partitions;
+            }
+
+            unlockForArbitration( );
+        }
+
+        partitionsNew->release( );
+    }
+
+    return partitions ? kIOReturnSuccess : kIOReturnError;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 OSSet * IOGUIDPartitionScheme::scan(SInt32 * score)
 {
     //
@@ -260,7 +297,7 @@ OSSet * IOGUIDPartitionScheme::scan(SInt32 * score)
 
     // Open the media with read access.
 
-    mediaIsOpen = media->open(this, 0, kIOStorageAccessReader);
+    mediaIsOpen = open(this, 0, kIOStorageAccessReader);
     if ( mediaIsOpen == false )  goto scanErr;
 
     // Read the protective map into our buffer.
@@ -314,6 +351,11 @@ OSSet * IOGUIDPartitionScheme::scan(SInt32 * score)
     headerSize  = OSSwapLittleToHostInt32(headerMap->hdr_size);
 
     if ( headerSize < offsetof(gpt_hdr, padding) )
+    {
+        goto scanErr;
+    }
+
+    if ( headerSize > mediaBlockSize )
     {
         goto scanErr;
     }
@@ -403,7 +445,7 @@ OSSet * IOGUIDPartitionScheme::scan(SInt32 * score)
 
     // Release our resources.
 
-    media->close(this);
+    close(this);
     buffer->release();
 
     return partitions;
@@ -412,7 +454,7 @@ scanErr:
 
     // Release our resources.
 
-    if ( mediaIsOpen )  media->close(this);
+    if ( mediaIsOpen )  close(this);
     if ( partitions )  partitions->release();
     if ( buffer )  buffer->release();
 
@@ -535,13 +577,13 @@ IOMedia * IOGUIDPartitionScheme::instantiateMediaObject( gpt_ent * partition,
             // Set a name for this partition.
 
             char name[24];
-            sprintf(name, "Untitled %ld", partitionID);
+            snprintf(name, sizeof(name), "Untitled %ld", partitionID);
             newMedia->setName(partitionName[0] ? partitionName : name);
 
             // Set a location value (the partition number) for this partition.
 
             char location[12];
-            sprintf(location, "%ld", partitionID);
+            snprintf(location, sizeof(location), "%ld", partitionID);
             newMedia->setLocation(location);
 
             // Set the "Partition ID" key for this partition.
@@ -579,59 +621,24 @@ IOMedia * IOGUIDPartitionScheme::instantiateDesiredMediaObject(
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOGUIDPartitionScheme::attachMediaObjectToDeviceTree( IOMedia * media )
+bool IOGUIDPartitionScheme::attachMediaObjectToDeviceTree(IOMedia * media)
 {
     //
     // Attach the given media object to the device tree plane.
     //
 
-    IORegistryEntry * parent = this;
-
-    while ( (parent = parent->getParentEntry(gIOServicePlane)) )
-    {
-        if ( parent->inPlane(gIODTPlane) )
-        {
-            char         location[ 32 ];
-            const char * locationOfParent = parent->getLocation(gIODTPlane);
-            const char * nameOfParent     = parent->getName(gIODTPlane);
-
-            if ( locationOfParent == 0 )  break;
-
-            if ( OSDynamicCast(IOMedia, parent) == 0 )  break;
-
-            parent = parent->getParentEntry(gIODTPlane);
-
-            if ( parent == 0 )  break;
-
-            if ( media->attachToParent(parent, gIODTPlane) == false )  break;
-
-            strcpy(location, locationOfParent);
-            if ( strchr(location, ':') )  *(strchr(location, ':') + 1) = 0;
-            strcat(location, media->getLocation());
-            media->setLocation(location, gIODTPlane);
-            media->setName(nameOfParent, gIODTPlane);
-
-            return true;
-        }
-    }
-
-    return false;
+    return super::attachMediaObjectToDeviceTree(media);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOGUIDPartitionScheme::detachMediaObjectFromDeviceTree( IOMedia * media )
+void IOGUIDPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia * media)
 {
     //
     // Detach the given media object from the device tree plane.
     //
 
-    IORegistryEntry * parent;
-
-    if ( (parent = media->getParentEntry(gIODTPlane)) )
-    {
-        media->detachFromParent(parent, gIODTPlane);
-    }
+    super::detachMediaObjectFromDeviceTree(media);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

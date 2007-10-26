@@ -67,10 +67,11 @@ checkvfsname(vfsname, vfslist)
 
 const char **
 makevfslist(fslist)
-	char *fslist;
+	const char *fslist;
 {
 	const char **av;
 	int i;
+	const char *cnextcp;
 	char *nextcp;
 
 	if (fslist == NULL)
@@ -79,14 +80,14 @@ makevfslist(fslist)
 		fslist += 2;
 		skipvfs = 1;
 	}
-	for (i = 0, nextcp = fslist; *nextcp; nextcp++)
-		if (*nextcp == ',')
+	for (i = 0, cnextcp = fslist; *cnextcp; cnextcp++)
+		if (*cnextcp == ',')
 			i++;
 	if ((av = malloc((size_t)(i + 2) * sizeof(char *))) == NULL) {
 		warnx("malloc failed");
 		return (NULL);
 	}
-	nextcp = fslist;
+	nextcp = strdup(fslist);
 	i = 0;
 	av[i++] = nextcp;
 	while ((nextcp = strchr(nextcp, ',')) != NULL) {

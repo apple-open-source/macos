@@ -1,0 +1,432 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A108E3A30A409E22008545E5 /* kim_os_preferences.c in Sources */ = {isa = PBXBuildFile; fileRef = A108E3A20A409E22008545E5 /* kim_os_preferences.c */; };
+		A108E4F20A40C482008545E5 /* kim_os_string.c in Sources */ = {isa = PBXBuildFile; fileRef = A108E4D40A40C37A008545E5 /* kim_os_string.c */; };
+		A1305ECB0A54570000C5B7BC /* kim_selection_hints.c in Sources */ = {isa = PBXBuildFile; fileRef = A1305ECA0A54570000C5B7BC /* kim_selection_hints.c */; };
+		A1305F1A0A546D0D00C5B7BC /* kim_os_selection_hints.c in Sources */ = {isa = PBXBuildFile; fileRef = A1305F190A546D0D00C5B7BC /* kim_os_selection_hints.c */; };
+		A1B062CE0A42047800AED262 /* kim_library.c in Sources */ = {isa = PBXBuildFile; fileRef = A1B062CD0A42047800AED262 /* kim_library.c */; };
+		A1B063CF0A4213EA00AED262 /* kim_os_library.c in Sources */ = {isa = PBXBuildFile; fileRef = A1B063CE0A4213EA00AED262 /* kim_os_library.c */; };
+		A1D548810A4B3A27006A21A5 /* kim_os_identity.c in Sources */ = {isa = PBXBuildFile; fileRef = A1D548800A4B3A27006A21A5 /* kim_os_identity.c */; };
+		A1D5490E0A4B4DDB006A21A5 /* kim_credential.c in Sources */ = {isa = PBXBuildFile; fileRef = A1D5490D0A4B4DDB006A21A5 /* kim_credential.c */; };
+		A1DE151F0A5062D90000E1AB /* kim_ccache.c in Sources */ = {isa = PBXBuildFile; fileRef = A1DE151E0A5062D90000E1AB /* kim_ccache.c */; };
+		A1E711AA0A3F3A7E007BE3E3 /* kim_options.c in Sources */ = {isa = PBXBuildFile; fileRef = A1E7117E0A3F32D5007BE3E3 /* kim_options.c */; };
+		A1E711D10A3F3B63007BE3E3 /* kim_preferences.c in Sources */ = {isa = PBXBuildFile; fileRef = A1E711D00A3F3B63007BE3E3 /* kim_preferences.c */; };
+		A1EBEC940A13D0E000394165 /* kim_error_code.et in Sources */ = {isa = PBXBuildFile; fileRef = A17BAB9F09884951009B4B67 /* kim_error_code.et */; };
+		A1EBECC40A13D3FD00394165 /* kim_error.c in Sources */ = {isa = PBXBuildFile; fileRef = A1EBECBD0A13D3FD00394165 /* kim_error.c */; };
+		A1EBECC70A13D3FD00394165 /* kim_string.c in Sources */ = {isa = PBXBuildFile; fileRef = A1EBECC00A13D3FD00394165 /* kim_string.c */; };
+		A1EBEF360A15269400394165 /* kim_identity.c in Sources */ = {isa = PBXBuildFile; fileRef = A1EBEF350A15269400394165 /* kim_identity.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		A1EBEC870A13D08300394165 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.et";
+			fileType = pattern.proxy;
+			isEditable = 1;
+			outputFiles = (
+				"${BUILT_PRODUCTS_DIR}/${TARGET_NAME}.intermediates/${INPUT_FILE_BASE}.h",
+				"${BUILT_PRODUCTS_DIR}/${TARGET_NAME}.intermediates/${INPUT_FILE_BASE}.strings",
+			);
+			script = "COMPILE_ET=\"${SRCROOT}/../../KerberosErrors/Scripts/compile_et\"\nOUTPUT_DIR=\"${BUILT_PRODUCTS_DIR}/${TARGET_NAME}.intermediates/kim\"\n\nmkdir -p \"${OUTPUT_DIR}\"\nperl \"${COMPILE_ET}\" --etout \"${OUTPUT_DIR}\" \"${INPUT_FILE_PATH}\"\n";
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXFileReference section */
+		A108E3A20A409E22008545E5 /* kim_os_preferences.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_os_preferences.c; sourceTree = "<group>"; };
+		A108E3E10A40ABAB008545E5 /* kim_string_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_string_private.h; sourceTree = "<group>"; };
+		A108E3E50A40ABF9008545E5 /* kim_error_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_error_private.h; sourceTree = "<group>"; };
+		A108E3E90A40AC62008545E5 /* kim_preferences_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_preferences_private.h; sourceTree = "<group>"; };
+		A108E4D40A40C37A008545E5 /* kim_os_string.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_os_string.c; sourceTree = "<group>"; };
+		A108E4E00A40C41E008545E5 /* kim_os_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_os_private.h; sourceTree = "<group>"; };
+		A108E6130A41E020008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E6140A41E020008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1305ECA0A54570000C5B7BC /* kim_selection_hints.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_selection_hints.c; sourceTree = "<group>"; };
+		A1305F120A546CB100C5B7BC /* kim_selection_hints_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_selection_hints_private.h; sourceTree = "<group>"; };
+		A1305F190A546D0D00C5B7BC /* kim_os_selection_hints.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_os_selection_hints.c; sourceTree = "<group>"; };
+		A13292EA0948B781008F0069 /* kim.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kim.h; sourceTree = "<group>"; };
+		A15FF3A909EC5877004FCB88 /* kim_identity.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kim_identity.h; sourceTree = "<group>"; };
+		A17657D60A264DBE00AC4A09 /* kim.exports */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = kim.exports; sourceTree = "<group>"; };
+		A176581E0A26534700AC4A09 /* kim.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim.h; sourceTree = "<group>"; };
+		A176581F0A26534700AC4A09 /* kim_ccache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_ccache.h; sourceTree = "<group>"; };
+		A17658200A26534700AC4A09 /* kim_credential.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_credential.h; sourceTree = "<group>"; };
+		A17658210A26534700AC4A09 /* kim_error.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_error.h; sourceTree = "<group>"; };
+		A17658220A26534700AC4A09 /* kim_error_code.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_error_code.h; sourceTree = "<group>"; };
+		A17658230A26534700AC4A09 /* kim_identity.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_identity.h; sourceTree = "<group>"; };
+		A17658240A26534700AC4A09 /* kim_options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_options.h; sourceTree = "<group>"; };
+		A17658250A26534700AC4A09 /* kim_preferences.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_preferences.h; sourceTree = "<group>"; };
+		A17658260A26534700AC4A09 /* kim_selection_hints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_selection_hints.h; sourceTree = "<group>"; };
+		A17658270A26534700AC4A09 /* kim_string.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_string.h; sourceTree = "<group>"; };
+		A17658280A26534700AC4A09 /* kim_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_types.h; sourceTree = "<group>"; };
+		A17BA9FA09880D6D009B4B67 /* kim_options.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kim_options.h; sourceTree = "<group>"; };
+		A17BA9FB09880D6D009B4B67 /* kim_preferences.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kim_preferences.h; sourceTree = "<group>"; };
+		A17BA9FD09880D6D009B4B67 /* kim_selection_hints.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kim_selection_hints.h; sourceTree = "<group>"; };
+		A17BAA0F09880F5C009B4B67 /* kim_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kim_types.h; sourceTree = "<group>"; };
+		A17BAA1809881027009B4B67 /* kim_string.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_string.h; sourceTree = "<group>"; };
+		A17BAA2809881151009B4B67 /* kim_credential.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_credential.h; sourceTree = "<group>"; };
+		A17BAA6B098812BE009B4B67 /* kim_error.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_error.h; sourceTree = "<group>"; };
+		A17BAACD09882FEC009B4B67 /* kim_ccache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_ccache.h; sourceTree = "<group>"; };
+		A17BAB9F09884951009B4B67 /* kim_error_code.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = kim_error_code.et; sourceTree = "<group>"; };
+		A1B062CD0A42047800AED262 /* kim_library.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_library.c; sourceTree = "<group>"; };
+		A1B063490A420FB800AED262 /* kim_library_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_library_private.h; sourceTree = "<group>"; };
+		A1B0637E0A42113D00AED262 /* kim_options_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_options_private.h; sourceTree = "<group>"; };
+		A1B063CE0A4213EA00AED262 /* kim_os_library.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_os_library.c; sourceTree = "<group>"; };
+		A1C6D4800997F39900B1BA2D /* Doxyfile */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = Doxyfile; sourceTree = "<group>"; };
+		A1C792D209FED91900BE0BE4 /* libkim.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libkim.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1D545980A49E206006A21A5 /* kim_identity_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_identity_private.h; sourceTree = "<group>"; };
+		A1D548800A4B3A27006A21A5 /* kim_os_identity.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_os_identity.c; sourceTree = "<group>"; };
+		A1D5490D0A4B4DDB006A21A5 /* kim_credential.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_credential.c; sourceTree = "<group>"; };
+		A1DE151E0A5062D90000E1AB /* kim_ccache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_ccache.c; sourceTree = "<group>"; };
+		A1E7117E0A3F32D5007BE3E3 /* kim_options.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_options.c; sourceTree = "<group>"; };
+		A1E711D00A3F3B63007BE3E3 /* kim_preferences.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_preferences.c; sourceTree = "<group>"; };
+		A1EBECBD0A13D3FD00394165 /* kim_error.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_error.c; sourceTree = "<group>"; };
+		A1EBECBF0A13D3FD00394165 /* kim_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kim_private.h; sourceTree = "<group>"; };
+		A1EBECC00A13D3FD00394165 /* kim_string.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_string.c; sourceTree = "<group>"; };
+		A1EBECE40A13D81600394165 /* kim_error_code.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = kim_error_code.c; sourceTree = "<group>"; };
+		A1EBECE50A13D81600394165 /* kim_error_code.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = kim_error_code.h; sourceTree = "<group>"; };
+		A1EBECE60A13D81600394165 /* kim_error_code.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = kim_error_code.strings; sourceTree = "<group>"; };
+		A1EBEF350A15269400394165 /* kim_identity.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kim_identity.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1C792D009FED91900BE0BE4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A108E3A10A409E22008545E5 /* mac */ = {
+			isa = PBXGroup;
+			children = (
+				A108E4E00A40C41E008545E5 /* kim_os_private.h */,
+				A108E3A20A409E22008545E5 /* kim_os_preferences.c */,
+				A108E4D40A40C37A008545E5 /* kim_os_string.c */,
+				A1D548800A4B3A27006A21A5 /* kim_os_identity.c */,
+				A1B063CE0A4213EA00AED262 /* kim_os_library.c */,
+				A1305F190A546D0D00C5B7BC /* kim_os_selection_hints.c */,
+			);
+			path = mac;
+			sourceTree = "<group>";
+		};
+		A13292E80948B781008F0069 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				A13292E90948B781008F0069 /* kim */,
+			);
+			name = Headers;
+			path = ../Headers;
+			sourceTree = "<group>";
+		};
+		A13292E90948B781008F0069 /* kim */ = {
+			isa = PBXGroup;
+			children = (
+				A13292EA0948B781008F0069 /* kim.h */,
+				A17BAA6B098812BE009B4B67 /* kim_error.h */,
+				A17BAACD09882FEC009B4B67 /* kim_ccache.h */,
+				A17BAA2809881151009B4B67 /* kim_credential.h */,
+				A15FF3A909EC5877004FCB88 /* kim_identity.h */,
+				A17BA9FB09880D6D009B4B67 /* kim_preferences.h */,
+				A17BA9FA09880D6D009B4B67 /* kim_options.h */,
+				A17BA9FD09880D6D009B4B67 /* kim_selection_hints.h */,
+				A17BAA1809881027009B4B67 /* kim_string.h */,
+				A17BAA0F09880F5C009B4B67 /* kim_types.h */,
+			);
+			path = kim;
+			sourceTree = "<group>";
+		};
+		A176581D0A26534700AC4A09 /* Kerberos */ = {
+			isa = PBXGroup;
+			children = (
+				A176581E0A26534700AC4A09 /* kim.h */,
+				A176581F0A26534700AC4A09 /* kim_ccache.h */,
+				A17658200A26534700AC4A09 /* kim_credential.h */,
+				A17658210A26534700AC4A09 /* kim_error.h */,
+				A17658220A26534700AC4A09 /* kim_error_code.h */,
+				A17658230A26534700AC4A09 /* kim_identity.h */,
+				A17658240A26534700AC4A09 /* kim_options.h */,
+				A17658250A26534700AC4A09 /* kim_preferences.h */,
+				A17658260A26534700AC4A09 /* kim_selection_hints.h */,
+				A17658270A26534700AC4A09 /* kim_string.h */,
+				A17658280A26534700AC4A09 /* kim_types.h */,
+			);
+			path = Kerberos;
+			sourceTree = "<group>";
+		};
+		A17BAB9E09884951009B4B67 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A17BAB9F09884951009B4B67 /* kim_error_code.et */,
+			);
+			name = Resources;
+			path = ../Resources;
+			sourceTree = "<group>";
+		};
+		A1B00BF4094798730097074C = {
+			isa = PBXGroup;
+			children = (
+				A108E6130A41E020008545E5 /* Release.xcconfig */,
+				A108E6140A41E020008545E5 /* Debug.xcconfig */,
+				A17657D60A264DBE00AC4A09 /* kim.exports */,
+				A1C6D4800997F39900B1BA2D /* Doxyfile */,
+				A1EBECE20A13D81600394165 /* kim.intermediates */,
+				A13292E80948B781008F0069 /* Headers */,
+				A1C7929F09FECDBD00BE0BE4 /* Sources */,
+				A17BAB9E09884951009B4B67 /* Resources */,
+				A1C792D309FED91900BE0BE4 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A1C7929F09FECDBD00BE0BE4 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A1EBECBC0A13D3FD00394165 /* library */,
+				A1EBECC30A13D3FD00394165 /* server */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		A1C792D309FED91900BE0BE4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1C792D209FED91900BE0BE4 /* libkim.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1EBECBC0A13D3FD00394165 /* library */ = {
+			isa = PBXGroup;
+			children = (
+				A1EBECBF0A13D3FD00394165 /* kim_private.h */,
+				A1EBECBD0A13D3FD00394165 /* kim_error.c */,
+				A108E3E50A40ABF9008545E5 /* kim_error_private.h */,
+				A1DE151E0A5062D90000E1AB /* kim_ccache.c */,
+				A1D5490D0A4B4DDB006A21A5 /* kim_credential.c */,
+				A1EBEF350A15269400394165 /* kim_identity.c */,
+				A1D545980A49E206006A21A5 /* kim_identity_private.h */,
+				A1B062CD0A42047800AED262 /* kim_library.c */,
+				A1B063490A420FB800AED262 /* kim_library_private.h */,
+				A1E7117E0A3F32D5007BE3E3 /* kim_options.c */,
+				A1B0637E0A42113D00AED262 /* kim_options_private.h */,
+				A1E711D00A3F3B63007BE3E3 /* kim_preferences.c */,
+				A108E3E90A40AC62008545E5 /* kim_preferences_private.h */,
+				A1305ECA0A54570000C5B7BC /* kim_selection_hints.c */,
+				A1305F120A546CB100C5B7BC /* kim_selection_hints_private.h */,
+				A1EBECC00A13D3FD00394165 /* kim_string.c */,
+				A108E3E10A40ABAB008545E5 /* kim_string_private.h */,
+				A108E3A10A409E22008545E5 /* mac */,
+			);
+			path = library;
+			sourceTree = "<group>";
+		};
+		A1EBECC30A13D3FD00394165 /* server */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = server;
+			sourceTree = "<group>";
+		};
+		A1EBECE20A13D81600394165 /* kim.intermediates */ = {
+			isa = PBXGroup;
+			children = (
+				A176581D0A26534700AC4A09 /* Kerberos */,
+				A1EBECE30A13D81600394165 /* kim */,
+			);
+			path = kim.intermediates;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		A1EBECE30A13D81600394165 /* kim */ = {
+			isa = PBXGroup;
+			children = (
+				A1EBECE40A13D81600394165 /* kim_error_code.c */,
+				A1EBECE50A13D81600394165 /* kim_error_code.h */,
+				A1EBECE60A13D81600394165 /* kim_error_code.strings */,
+			);
+			path = kim;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A1C792D109FED91900BE0BE4 /* kim */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1C792D409FED91A00BE0BE4 /* Build configuration list for PBXNativeTarget "kim" */;
+			buildPhases = (
+				A1C792CF09FED91900BE0BE4 /* Sources */,
+				A1C792D009FED91900BE0BE4 /* Frameworks */,
+				A17658050A264E8300AC4A09 /* ShellScript */,
+			);
+			buildRules = (
+				A1EBEC870A13D08300394165 /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = kim;
+			productName = kim;
+			productReference = A1C792D209FED91900BE0BE4 /* libkim.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1B00BF6094798730097074C /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1B00BF7094798730097074C /* Build configuration list for PBXProject "KerberosIdentityManagement" */;
+			hasScannedForEncodings = 0;
+			mainGroup = A1B00BF4094798730097074C;
+			productRefGroup = A1C792D309FED91900BE0BE4 /* Products */;
+			projectDirPath = "";
+			targets = (
+				A1C792D109FED91900BE0BE4 /* kim */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A17658050A264E8300AC4A09 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Headers/kim/kim.h",
+				"$(SRCROOT)/../Headers/kim/kim_error.h",
+				"$(SRCROOT)/../Headers/kim/kim_ccache.h",
+				"$(SRCROOT)/../Headers/kim/kim_credential.h",
+				"$(SRCROOT)/../Headers/kim/kim_identity.h",
+				"$(SRCROOT)/../Headers/kim/kim_preferences.h",
+				"$(SRCROOT)/../Headers/kim/kim_options.h",
+				"$(SRCROOT)/../Headers/kim/kim_selection_hints.h",
+				"$(SRCROOT)/../Headers/kim/kim_string.h",
+				"$(SRCROOT)/../Headers/kim/kim_types.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim/kim_error_code.h",
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim_error.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim_ccache.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim_credential.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim_identity.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim_preferences.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim_options.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim_selection_hints.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim_string.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim_types.h",
+				"$(BUILT_PRODUCTS_DIR)/kim.intermediates/kim_error_code.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /usr/bin/python;
+			shellScript = "import os\n\nheaderDir = os.environ[\"SRCROOT\"] + \"/../Headers/kim\"\nintermediatesDir = os.environ[\"BUILT_PRODUCTS_DIR\"] + \"/kim.intermediates\"\nframeworkHeaderDir = intermediatesDir + \"/Kerberos\"\nkimHeaders = [\"kim.h\",           \"kim_error.h\",\n              \"kim_ccache.h\",    \"kim_credential.h\", \n              \"kim_identity.h\",  \"kim_preferences.h\",  \n              \"kim_options.h\",   \"kim_selection_hints.h\", \n              \"kim_string.h\",    \"kim_types.h\"];\n\ndef MakeFrameworkHeader(fileName, inputDir, outputDir):\n\tinput = open (inputDir + \"/\" + fileName, 'r')\n\tif not os.path.exists(outputDir):\n\t\tos.makedirs (outputDir)\n\toutput = open (outputDir + \"/\" + fileName, \"w+\")\n\tcontents = input.read();\n\tcontents = contents.replace (\"<com_err.h>\",                   \"<Kerberos/com_err.h>\")\n\tcontents = contents.replace (\"<profile.h>\",                   \"<Kerberos/profile.h>\")\n\tcontents = contents.replace (\"<krb5.h>\",                      \"<Kerberos/krb5.h>\")\n\tcontents = contents.replace (\"<krb5/krb5.h>\",                 \"<Kerberos/krb5.h>\")\n\tcontents = contents.replace (\"<krb5/locate_plugin.h>\",        \"<Kerberos/locate_plugin.h>\")\n\tcontents = contents.replace (\"<gssapi/gssapi.h>\",             \"<Kerberos/gssapi.h>\")\n\tcontents = contents.replace (\"<gssapi/gssapi_krb5.h>\",        \"<Kerberos/gssapi_krb5.h>\")\n\tcontents = contents.replace (\"<gssapi/gssapi_generic.h>\",     \"<Kerberos/gssapi_generic.h>\")\n\tfor header in kimHeaders:\n\t\tcontents = contents.replace (\"<kim/\" + header, \"<Kerberos\" + \"/\" + header)\n\tcontents = contents.replace (\"<kim/kim_error_code.h\", \"<Kerberos/kim_error_code.h\")\n\toutput.write (contents)\n\toutput.close ()\n\tinput.close ()\n\nfor header in kimHeaders:\n\tMakeFrameworkHeader (header, headerDir, frameworkHeaderDir)\nMakeFrameworkHeader (\"kim_error_code.h\", intermediatesDir + \"/kim\", frameworkHeaderDir)\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1C792CF09FED91900BE0BE4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1EBEC940A13D0E000394165 /* kim_error_code.et in Sources */,
+				A1EBECC40A13D3FD00394165 /* kim_error.c in Sources */,
+				A1EBEF360A15269400394165 /* kim_identity.c in Sources */,
+				A1B062CE0A42047800AED262 /* kim_library.c in Sources */,
+				A1E711AA0A3F3A7E007BE3E3 /* kim_options.c in Sources */,
+				A1B063CF0A4213EA00AED262 /* kim_os_library.c in Sources */,
+				A108E3A30A409E22008545E5 /* kim_os_preferences.c in Sources */,
+				A108E4F20A40C482008545E5 /* kim_os_string.c in Sources */,
+				A1E711D10A3F3B63007BE3E3 /* kim_preferences.c in Sources */,
+				A1EBECC70A13D3FD00394165 /* kim_string.c in Sources */,
+				A1D548810A4B3A27006A21A5 /* kim_os_identity.c in Sources */,
+				A1D5490E0A4B4DDB006A21A5 /* kim_credential.c in Sources */,
+				A1DE151F0A5062D90000E1AB /* kim_ccache.c in Sources */,
+				A1305ECB0A54570000C5B7BC /* kim_selection_hints.c in Sources */,
+				A1305F1A0A546D0D00C5B7BC /* kim_os_selection_hints.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A108E6150A41E06C008545E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6140A41E020008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/kim.intermediates",
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosErrors/Headers",
+					"$(SRCROOT)/../../KerberosIPC/Headers",
+					"$(SRCROOT)/../../Kerberos5/Sources/include",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include",
+				);
+				PRODUCT_NAME = kim;
+			};
+			name = Debug;
+		};
+		A108E6160A41E06C008545E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6140A41E020008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A1B00BF9094798730097074C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6130A41E020008545E5 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		A1C792D609FED91A00BE0BE4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6130A41E020008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/kim.intermediates",
+					"$(SRCROOT)/../Headers",
+					"$(SRCROOT)/../../KerberosDebug/Headers",
+					"$(SRCROOT)/../../KerberosErrors/Headers",
+					"$(SRCROOT)/../../KerberosIPC/Headers",
+					"$(SRCROOT)/../../Kerberos5/Sources/include",
+					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include",
+				);
+				PRODUCT_NAME = kim;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1B00BF7094798730097074C /* Build configuration list for PBXProject "KerberosIdentityManagement" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B00BF9094798730097074C /* Release */,
+				A108E6160A41E06C008545E5 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1C792D409FED91A00BE0BE4 /* Build configuration list for PBXNativeTarget "kim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1C792D609FED91A00BE0BE4 /* Release */,
+				A108E6150A41E06C008545E5 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A1B00BF6094798730097074C /* Project object */;
+}

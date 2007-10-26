@@ -26,7 +26,7 @@
 #import <NSSystemDirectories.h>
 
 // Names of directories; index into this with NSSearchPathDirectory - 1
-#define numDirs 14
+#define numDirs 15
 static const struct {
     unsigned char invalidDomainMask;	// Domains in which this dir does not appear
     unsigned char alternateDomainMask;	// Domains in which this dir uses the alternate domain path
@@ -45,7 +45,8 @@ static const struct {
     {0xe, 0,   "Documents/Autosaved"},         // Only valid in user domain; not public API yet
     {0xe, 0,   "Desktop"},                     // Only valid in user domain
     {0,   0,   "Library/Caches"},  			
-    {0,   0,   "Library/Application Support"}
+    {0,   0,   "Library/Application Support"},
+    {0xe, 0,   "Downloads"},                   // Only valid in user domain
 };
 
 // Unpublicized values for NSSearchPathDirectory

@@ -1,0 +1,25 @@
+Mới tạo hộp thư chung « %(listname)s »  dành cho bạn. Dưới đây có một phần thông tin cơ bản về hộp thư chung của bạn.
+
+Mật khẩu của hộp thư chung này:
+
+    %(password)s
+
+Bạn cần phải sử dụng mật khẩu này để cấu hình hộp thư này. Bạn cũng cần phải sử dụng nó để xử lý yêu cầu quản trị, như việc tán thành thư nếu bạn chọn chạy hộp thư đã điều tiết.
+
+Bạn có thể cấu hình hộp thư này trên trang Mạng:
+
+    %(admin_url)s
+
+Trang Mạng cho các người dùng hộp thư này:
+
+    %(listinfo_url)s
+
+Bạn cũng có khả năng tùy chỉnh những trang Mạng này, từ trang cấu hình hộp thư. Tùy nhiên, cần phải hiểu mã HTML để làm như thế.
+
+Có giao diện đựa vào thư điện tử cho các người dùng hộp thư này (không phải quản trị). Bạn có thể xem thông tin về cách sử dụng nó bằng cách gởi thư chứa chỉ từ "help" (trợ giúp) (không gồm dấu trích dẫn) là Chủ đề hay thân thư, cho địa chỉ
+
+    %(requestaddr)s
+
+Để hủy đăng ký người dùng nào ra hộp thư chung này, bạn thăm trang thông tin hộp thư chung (listinfo), và nhắp vào hay nhập địa chỉ thư của người dùng đó, đúng như bạn là người dùng đó. Sau đó, bạn hãy nhập mật khẩu quản trị, không phải mật khẩu của người dùng đó. Bạn cũng có thể sử dụng mật khẩu quản trị để thay đổi các tùy chọn của người dùng, gồm khả năng nhận bó thư và bật/tắt nhận thư.
+
+Mỗi câu hỏi, vui lòng gởi cho người sở hữu nơi Mạng: %(siteowner)s.

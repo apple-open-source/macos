@@ -1,0 +1,686 @@
+# Browser Window Tests
+# Copyright 1998, 2001 Red Hat, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# This file was written by Keith Seitz (keiths@cygnus.com)
+
+# Read in the standard defs file
+
+if {![gdbtk_read_defs]} {
+  break
+}
+
+global objdir test_ran
+set _files(stupid_initializer) -100
+
+#####                            #####
+#                                    #
+#  Helper functions for this module  #
+#                                    #
+#####                            #####
+
+# Set the search expression
+proc set_regexp {exp} {
+  global browser
+
+  $browser component filt_entry delete 0 end
+  $browser component filt_entry insert 0 $exp
+}
+
+# Do the search
+proc do_search {} {
+  global browser
+  $browser search
+  set m [$browser component func_box get 0 end]
+
+  return $m
+}
+
+# Set search to use regular expressions.
+proc set_search_mode {val} {
+  global browser
+  pref set gdb/search/filter_mode $val
+
+  # Use configure instead of entryset: need to have
+  # combobox's command fire
+  $browser component filt_type configure -value $val
+}
+
+# Highlight a file
+proc select {filename} {
+  global browser _files
+
+  if {[info exists _files($filename)]} {
+    $browser component file_box selection set $_files($filename)
+  } else {
+    set files [$browser component file_box get 0 end]
+    set i [lsearch $files $filename]
+    set _files($filename) $i
+    $browser component file_box selection set $i
+  }
+  $browser search
+}
+
+proc select_all {} {
+  global browser
+  
+  $browser component file_all invoke
+
+}
+
+# clear all files
+proc clear {} {
+  global browser
+
+  $browser component file_box selection clear 0 end
+  $browser search
+}
+
+#####         #####
+#                 #
+#  BROWSER TESTS  #
+#                 #
+#####         #####
+
+# Load the test executable
+set program [file join $objdir stack]
+if {[catch {gdbtk_test_file $program} t]} {
+  # This isn't a test case, since if this fails, we're hosed.
+  gdbtk_test_error "loading \"$program\": $t"
+}
+
+# Open a browser
+set browser [ManagedWin::open BrowserWin]
+
+# Test:  browser-1.1
+# Desc:  Check file listbox contents
+gdbtk_test browser-1.1 {file listbox contents} {
+  set m [$browser component file_box get 0 end]
+  set f {}
+  if {[lsearch $m stack1.c] == -1} {
+    lappend f 0
+  } else {
+    lappend f 1
+  }
+  if {[lsearch $m stack2.c] == -1} {
+    lappend f 0
+  } else {
+    lappend f 1
+  }
+
+  join $f \ 
+} {1 1}
+
+# Tests 2.* test starts with search mode.
+# Test:  browser-2.1
+# Desc:  Check all files/all funcs
+gdbtk_test browser-2.1 {all files/all funcs} {
+  set_search_mode "starts with"
+  set_regexp ""
+  select_all
+  set m [do_search]
+  set r 0
+  foreach f {extern_func1_1 extern_func1_10 extern_func1_11 extern_func1_12 \
+	       extern_func1_13 extern_func1_14 extern_func1_15 extern_func1_2 \
+	       extern_func1_3 extern_func1_4 extern_func1_5 extern_func1_6 \
+	       extern_func1_7 extern_func1_8 extern_func1_9 func_1 \
+	       func_10 func_11 func_12 func_13 \
+	       func_14 func_15 func_2 func_3 \
+	       func_4 func_5 func_6 func_7 \
+	       func_8 func_9 main static_func_1 \
+	       static_func_10 static_func_11 static_func_12 static_func_13 \
+	       static_func_14 static_func_15 static_func_2 static_func_3 \
+	       static_func_4 static_func_5 static_func_6 static_func_7 \
+	       static_func_8 static_func_9} {
+    if {[lsearch $m $f] != -1} {
+      incr r
+    }
+  }
+
+  set r
+} {46}
+
+# Test:  browser-2.2
+# Desc:  Check all functions in stack1.c
+gdbtk_test browser-2.2 {all functions in stack1.c} {
+  set_regexp ""
+  clear
+  select stack1.c
+  set m [do_search]
+
+  set r 0
+  foreach f {func_1 func_10 func_11 func_12 \
+	       func_13 func_14 func_15 func_2 \
+	       func_3 func_4 func_5 func_6 \
+	       func_7 func_8 func_9 main \
+	       static_func_1 static_func_10 static_func_11 static_func_12 \
+	       static_func_13 static_func_14 static_func_15 static_func_2 \
+	       static_func_3 static_func_4 static_func_5 static_func_6 \
+	       static_func_7 static_func_8 static_func_9} {
+    if {[lsearch $m $f] != -1} {
+      incr r
+    }
+  }
+
+  set r
+} {31}
+if {$test_ran} {
+  clear
+}
+
+# Test:  browser-2.3
+# Desc:  Check all functions in stack2.c
+gdbtk_test browser-2.3 {all functions in stack2.c} {
+  set_regexp ""
+  clear
+  select stack2.c
+  set m [do_search]
+
+  set r 0
+  foreach f {extern_func1_1 extern_func1_10 extern_func1_11 \
+	       extern_func1_12 extern_func1_13 extern_func1_14 extern_func1_15 \
+	       extern_func1_2 extern_func1_3 extern_func1_4 extern_func1_5 \
+	       extern_func1_6 extern_func1_7 extern_func1_8 extern_func1_9} {
+    if {[lsearch $m $f] != -1} {
+      incr r
+    }
+  }
+
+  set r
+} {15}
+if {$test_ran} {
+  clear
+}
+
+# Test:  browser-2.4
+# Desc:  Check for all functions matching "func" - mode starts with
+gdbtk_test browser-2.4 {all functions matching "func" - "mode starts with"} {
+  set_search_mode "starts with"
+  select_all
+  set_regexp func
+  do_search
+} {func_1 func_10 func_11 func_12 func_13 func_14 func_15 func_2 func_3 func_4 func_5 func_6 func_7 func_8 func_9}
+
+# Test:  browser-2.5
+# Desc:  Check all functions matching "func" in stack1.c - mode starts with
+gdbtk_test browser-2.5 {all functions matching "func" in stack1.c - "mode starts with"} {
+  set_search_mode "starts with"
+  set_regexp func
+  clear
+  select stack1.c
+  do_search
+} {func_1 func_10 func_11 func_12 func_13 func_14 func_15 func_2 func_3 func_4 func_5 func_6 func_7 func_8 func_9}
+
+# Test:  browser-2.6
+# Desc:  Check all functions matching "funcs" in stack2.c - mode starts with
+gdbtk_test browser-2.6 {all functions matching "func" in stack2.c - mode "starts with"} {
+  set_search_mode "starts with"
+  set_regexp func
+  clear
+  select stack2.c
+  do_search
+} {}
+if {$test_ran} {
+  clear
+}
+
+# Test:  browser-2.7
+# Desc:  Check all functions matching "foobar"
+gdbtk_test browser-2.7 {all functions matching "foobar"} {
+  set_search_mode "starts with"
+  select_all
+  set_regexp foobar
+  do_search
+} {}
+
+# Test:  browser-2.8
+# Desc:  Check all functions matching "foobar" in stack1.c
+gdbtk_test browser-2.8 {functions matching "foobar" in stack1.c} {
+  set_search_mode "starts with"
+  set_regexp foobar
+  clear
+  select stack1.c
+  do_search
+} {}
+
+# Tests 3.* test "contains" search mode.
+# Test:  browser-3.1
+# Desc:  Check all files/all funcs
+gdbtk_test browser-3.1 {all files/all funcs} {
+  set_search_mode "contains"
+  set_regexp ""
+  select_all
+  set m [do_search]
+  set r 0
+  foreach f {extern_func1_1 extern_func1_10 extern_func1_11 extern_func1_12 \
+	       extern_func1_13 extern_func1_14 extern_func1_15 extern_func1_2 \
+	       extern_func1_3 extern_func1_4 extern_func1_5 extern_func1_6 \
+	       extern_func1_7 extern_func1_8 extern_func1_9 func_1 \
+	       func_10 func_11 func_12 func_13 \
+	       func_14 func_15 func_2 func_3 \
+	       func_4 func_5 func_6 func_7 \
+	       func_8 func_9 main static_func_1 \
+	       static_func_10 static_func_11 static_func_12 static_func_13 \
+	       static_func_14 static_func_15 static_func_2 static_func_3 \
+	       static_func_4 static_func_5 static_func_6 static_func_7 \
+	       static_func_8 static_func_9} {
+    if {[lsearch $m $f] != -1} {
+      incr r
+    }
+  }
+
+  set r
+} {46}
+
+# Test:  browser-3.2
+# Desc:  Check all functions in stack1.c
+gdbtk_test browser-3.2 {all functions in stack1.c} {
+  set_regexp ""
+  set_search_mode "contains"
+  clear
+  select stack1.c
+  set m [do_search]
+
+  set r 0
+  foreach f {func_1 func_10 func_11 func_12 \
+	       func_13 func_14 func_15 func_2 \
+	       func_3 func_4 func_5 func_6 \
+	       func_7 func_8 func_9 main \
+	       static_func_1 static_func_10 static_func_11 static_func_12 \
+	       static_func_13 static_func_14 static_func_15 static_func_2 \
+	       static_func_3 static_func_4 static_func_5 static_func_6 \
+	       static_func_7 static_func_8 static_func_9} {
+    if {[lsearch $m $f] != -1} {
+      incr r
+    }
+  }
+
+  set r
+} {31}
+
+if {$test_ran} {
+  clear
+}
+
+# Test:  browser-3.3
+# Desc:  Check all functions in stack2.c
+gdbtk_test browser-3.3 {all functions in stack2.c} {
+  set_regexp ""
+  set_search_mode "contains"
+  clear
+  select stack2.c
+  set m [do_search]
+
+  set r 0
+  foreach f {extern_func1_1 extern_func1_10 extern_func1_11 \
+	       extern_func1_12 extern_func1_13 extern_func1_14 extern_func1_15 \
+	       extern_func1_2 extern_func1_3 extern_func1_4 extern_func1_5 \
+	       extern_func1_6 extern_func1_7 extern_func1_8 extern_func1_9} {
+    if {[lsearch $m $f] != -1} {
+      incr r
+    }
+  }
+
+  set r
+} {15}
+if {$test_ran} {
+  clear
+}
+
+# Test:  browser-3.4
+# Desc:  Check for all functions matching "func" - mode contains
+gdbtk_test browser-3.4 {all functions matching "func_1" - "mode contains"} {
+  set_search_mode "contains"
+  set_regexp "func_1"
+  select_all
+  do_search
+} {func_1 func_10 func_11 func_12 func_13 func_14 func_15 static_func_1 static_func_10 static_func_11 static_func_12 static_func_13 static_func_14 static_func_15}
+
+# Test:  browser-3.5
+# Desc:  Check all functions matching "func_1" in stack1.c - mode contains
+gdbtk_test browser-3.5 {all functions matching "func_1" in stack1.c - "mode contains"} {
+  set_search_mode "contains"
+  set_regexp "func_1"
+  clear
+  select stack1.c
+  do_search
+} {func_1 func_10 func_11 func_12 func_13 func_14 func_15 static_func_1 static_func_10 static_func_11 static_func_12 static_func_13 static_func_14 static_func_15}
+
+# Test:  browser-3.6
+# Desc:  Check all functions matching "func_1" in stack2.c - mode contains
+gdbtk_test browser-3.6 {all functions matching "func" in stack2.c - mode "contains"} {
+  set_search_mode "contains"
+  set_regexp func_1
+  clear
+  select stack2.c
+  do_search
+} {}
+
+# Test:  browser-3.7
+# Desc:  Check all functions matching "foobar"
+gdbtk_test browser-3.7 {all functions matching "foobar"} {
+  set_search_mode "contains"
+  select_all
+  set_regexp foobar
+  do_search
+} {}
+
+# Test:  browser-3.8
+# Desc:  Check all functions matching "foobar" in stack1.c
+gdbtk_test browser-3.8 {functions matching "foobar" in stack1.c} {
+  set_search_mode "contains"
+  set_regexp foobar
+  clear
+  select stack1.c
+  do_search
+} {}
+
+# Tests 4.* test "ends with" search mode.
+# Test:  browser-4.1
+# Desc:  Check all files/all funcs
+gdbtk_test browser-4.1 {all files/all funcs} {
+  set_search_mode "ends with"
+  set_regexp ""
+  select_all
+  set m [do_search]
+  set r 0
+  foreach f {extern_func1_1 extern_func1_10 extern_func1_11 extern_func1_12 \
+	       extern_func1_13 extern_func1_14 extern_func1_15 extern_func1_2 \
+	       extern_func1_3 extern_func1_4 extern_func1_5 extern_func1_6 \
+	       extern_func1_7 extern_func1_8 extern_func1_9 func_1 \
+	       func_10 func_11 func_12 func_13 \
+	       func_14 func_15 func_2 func_3 \
+	       func_4 func_5 func_6 func_7 \
+	       func_8 func_9 main static_func_1 \
+	       static_func_10 static_func_11 static_func_12 static_func_13 \
+	       static_func_14 static_func_15 static_func_2 static_func_3 \
+	       static_func_4 static_func_5 static_func_6 static_func_7 \
+	       static_func_8 static_func_9} {
+    if {[lsearch $m $f] > -1} {
+      incr r
+    }
+  }
+
+  set r
+} {46}
+
+# Test:  browser-4.2
+# Desc:  Check all functions in stack1.c
+gdbtk_test browser-4.2 {all functions in stack1.c} {
+  set_regexp ""
+  set_search_mode "ends with"
+  clear
+  select stack1.c
+  set m [do_search]
+
+  set r 0
+  foreach f {func_1 func_10 func_11 func_12 \
+	       func_13 func_14 func_15 func_2 \
+	       func_3 func_4 func_5 func_6 \
+	       func_7 func_8 func_9 main \
+	       static_func_1 static_func_10 static_func_11 static_func_12 \
+	       static_func_13 static_func_14 static_func_15 static_func_2 \
+	       static_func_3 static_func_4 static_func_5 static_func_6 \
+	       static_func_7 static_func_8 static_func_9} {
+    if {[lsearch $m $f] != -1} {
+      incr r
+    }
+  }
+
+  set r
+} {31}
+
+if {$test_ran} {
+  clear
+}
+
+# Test:  browser-4.3
+# Desc:  Check all functions in stack2.c
+gdbtk_test browser-4.3 {all functions in stack2.c} {
+  set_regexp ""
+  set_search_mode "ends with"
+  clear
+  select stack2.c
+  set m [do_search]
+
+  set r 0
+  foreach f {extern_func1_1 extern_func1_10 extern_func1_11 \
+	       extern_func1_12 extern_func1_13 extern_func1_14 extern_func1_15 \
+	       extern_func1_2 extern_func1_3 extern_func1_4 extern_func1_5 \
+	       extern_func1_6 extern_func1_7 extern_func1_8 extern_func1_9} {
+    if {[lsearch $m $f] != -1} {
+      incr r
+    }
+  }
+
+  set r
+} {15}
+if {$test_ran} {
+  clear
+}
+
+# Test:  browser-4.4
+# Desc:  Check for all functions matching "func_1" - mode ends with
+gdbtk_test browser-4.4 {all functions matching "func_1" - "mode ends with"} {
+  set_search_mode "ends with"
+  set_regexp "func_1"
+  select_all
+  do_search
+} {func_1 static_func_1}
+
+# Test:  browser-4.5
+# Desc:  Check all functions matching "func_1" in stack1.c - mode ends with
+gdbtk_test browser-4.5 {all functions matching "func_1" in stack1.c - "mode ends with"} {
+  set_search_mode "ends with"
+  set_regexp "func_1"
+  clear
+  select stack1.c
+  do_search
+} {func_1 static_func_1}
+if {$test_ran} {
+  clear
+}
+
+# Test:  browser-4.6
+# Desc:  Check all functions matching "func_1" in stack2.c - mode ends with
+gdbtk_test browser-4.6 {all functions matching "func" in stack2.c - mode "ends with"} {
+  set_search_mode "ends with"
+  set_regexp func_1
+  clear
+  select stack2.c
+  do_search
+} {}
+
+# Test:  browser-4.7
+# Desc:  Check all functions matching "foobar"
+gdbtk_test browser-4.7 {all functions matching "foobar"} {
+  set_search_mode "ends with"
+  select_all
+  set_regexp foobar
+  do_search
+} {}
+
+# Test:  browser-4.8
+# Desc:  Check all functions matching "foobar" in stack1.c
+gdbtk_test browser-4.8 {functions matching "foobar" in stack1.c} {
+  set_search_mode "ends with"
+  set_regexp foobar
+  clear
+  select stack1.c
+  do_search
+} {}
+if {$test_ran} {
+  clear
+}
+
+# Test:  browser-5.10
+# Desc:  Check all functions matching regexp "func"
+gdbtk_test browser-5.10 {all functions matching regexp "func"} {
+  set_search_mode "matches regexp"
+  set_regexp func
+  select_all
+  do_search
+} {extern_func1_1 extern_func1_10 extern_func1_11 extern_func1_12 extern_func1_13 extern_func1_14 extern_func1_15 extern_func1_2 extern_func1_3 extern_func1_4 extern_func1_5 extern_func1_6 extern_func1_7 extern_func1_8 extern_func1_9 func_1 func_10 func_11 func_12 func_13 func_14 func_15 func_2 func_3 func_4 func_5 func_6 func_7 func_8 func_9 static_func_1 static_func_10 static_func_11 static_func_12 static_func_13 static_func_14 static_func_15 static_func_2 static_func_3 static_func_4 static_func_5 static_func_6 static_func_7 static_func_8 static_func_9}
+
+# Test:  browser-5.11
+# Desc:  Check all functions matching regexp "func" in stack1.c
+gdbtk_test browser-5.11 {all functions matching regexp "func" in stack1.c} {
+  set_search_mode "matches regexp"
+  set_regexp func
+  clear
+  select stack1.c
+  do_search
+} {func_1 func_10 func_11 func_12 func_13 func_14 func_15 func_2 func_3 func_4 func_5 func_6 func_7 func_8 func_9 static_func_1 static_func_10 static_func_11 static_func_12 static_func_13 static_func_14 static_func_15 static_func_2 static_func_3 static_func_4 static_func_5 static_func_6 static_func_7 static_func_8 static_func_9}
+
+# Test:  browser-5.12
+# Desc:  Check all functions matching regexp "func" in stack2.c
+gdbtk_test browser-5.12 {all functions matching regexp "func" in stack2.c} {
+  set_regexp func
+  clear
+  select stack2.c
+  do_search
+} {extern_func1_1 extern_func1_10 extern_func1_11 extern_func1_12 extern_func1_13 extern_func1_14 extern_func1_15 extern_func1_2 extern_func1_3 extern_func1_4 extern_func1_5 extern_func1_6 extern_func1_7 extern_func1_8 extern_func1_9}
+
+# Test:  browser-5.13
+# Desc:  Check all functions matching regexp "\_1$"
+gdbtk_test browser-5.13 {all functions matching regexp "\_1$"} {
+  set_search_mode "matches regexp"
+  set_regexp {\_1$}
+  select_all
+  do_search
+} {extern_func1_1 func_1 static_func_1}
+
+# Test:  browser-5.14
+# Desc:  Check all functions matching regexp "\_1$" in stack1.c
+gdbtk_test browser-5.14 {all functions matching regexp "\_1$" in stack1.c} {
+  set_search_mode "matches regexp"
+  set_regexp {\_1$}
+  clear
+  select stack1.c
+  do_search
+} {func_1 static_func_1}
+
+# Test:  browser-5.15
+# Desc:  Check all functions matching regexp "\_1$" in stack2.c
+gdbtk_test browser-5.15 {all functions matching regexp "\_1$" in stack2.c} {
+  set_search_mode "matches regexp"
+  set_regexp {\_1$}
+  clear
+  select stack2.c
+  do_search
+} {extern_func1_1}
+
+# Test:  browser-5.16
+# Desc:  Check all functions matching regexp "foobar"
+gdbtk_test browser-5.16 {all functions matching regexp "foobar"} {
+  set_search_mode "matches regexp"
+  set_regexp foobar
+  select_all
+  do_search
+} {}
+
+# Test:  browser-5.17
+# Desc:  Check all functions matching regexp "foobar" in stack1.c
+gdbtk_test browser-5.17 {all functions matching regexp "foobar" in stack1.c} {
+  set_search_mode "matches regexp"
+  set_regexp foobar
+  clear
+  select stack1.c
+  do_search
+} {}
+
+
+# Test:  browser-6.1
+# Desc:  Check select button function
+gdbtk_test browser-6.1 {select button - select all} {
+  clear
+  select_all
+  set m [$browser component file_box curselection]
+
+  expr {[llength $m] >= 2}
+} {1}
+
+# Test:  browser-6.2
+# Desc:  Check that search expressions are saved
+gdbtk_test browser-6.2 {save last search expression} {
+  set_regexp hello
+  select_all
+  do_search
+  pref get gdb/search/last_symbol
+} {hello}
+
+# Test:  browser-7.1
+# Desc:  Toggle all bps on
+gdbtk_test browser-7.1 {toggle_all_bp on} {
+  set_regexp {\_1$}
+  set_search_mode "matches regexp"
+  select_all
+  set funcs [do_search]
+
+  # select all to set bp on
+  $browser component func_box selection set 0 end
+  $browser component func_add_bp invoke
+
+  set bps {}
+  foreach f $funcs {
+    if {![catch {gdb_loc $f} ls]} {
+      if {[bp_exists $ls] != -1} {
+	lappend bps $f
+      }
+    }
+  }
+
+  catch {gdb_cmd "delete" 0}
+  join [lsort $bps]
+} {extern_func1_1 func_1 static_func_1}
+
+# Test:  browser-7.2
+# Desc:  Toggle some bps off
+gdbtk_test browser-7.2 {toggle_some_bp off} {
+  set_regexp {\_1$}
+  set_search_mode "matches regexp"
+  select_all
+  set funcs [do_search]
+
+  $browser component func_box selection set 0 end
+  $browser component func_add_bp invoke
+
+  # Turn off all the "static_func_*" bps
+  set_regexp {^static.*_1$}
+  do_search
+  $browser component func_box selection set 0 end
+  $browser component func_remove_bp invoke
+  set bps {}
+  foreach f $funcs {
+    if {![catch {gdb_loc $f} ls]} {
+      if {[bp_exists $ls] != -1} {
+	lappend bps $f
+      }
+    }
+  }
+
+  catch {gdb_cmd "delete" 0}
+
+  join [lsort $bps]
+} {extern_func1_1 func_1}
+
+#
+#  Exit
+#
+gdbtk_test_done

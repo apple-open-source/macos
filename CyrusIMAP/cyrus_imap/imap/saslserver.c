@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: saslserver.c,v 1.5 2005/03/05 00:37:04 dasenbro Exp $ */
+/* $Id: saslserver.c,v 1.10 2006/11/30 17:11:20 murch Exp $ */
 
 #include <config.h>
 
@@ -68,46 +68,6 @@ int saslserver(sasl_conn_t *conn, const char *mech,
     int r = SASL_OK;
 
     if (success_data) *success_data = NULL;
-
-	if ( strcmp( mech, "OD-CHECKPASS" ) == 0 )
-	{
-		r = sasl_server_start( conn, mech, init_resp, strlen( init_resp ),
-								&serverout, &serveroutlen );
-
-		if ( r == SASL_CONTINUE )
-		{
-			r = sasl_server_step( conn, resp_prefix, strlen( resp_prefix ),
-									&serverout, &serveroutlen );
-		}
-
-		if ( sasl_result )
-		{
-			*sasl_result = r;
-		}
-
-		return( r == SASL_OK ? 0 : IMAP_SASL_FAIL );
-	}
-	else if ( strcmp( mech, "OD-CRAM-MD5" ) == 0 )
-	{
-	}
-	else if ( strcmp( mech, "OD-APOP" ) == 0 )
-	{
-		r = sasl_server_start( conn, mech, init_resp, strlen( init_resp ),
-								&serverout, &serveroutlen );
-
-		if ( r == SASL_CONTINUE )
-		{
-			r = sasl_server_step( conn, resp_prefix, strlen( resp_prefix ),
-									&serverout, &serveroutlen );
-		}
-
-		if ( sasl_result )
-		{
-			*sasl_result = r;
-		}
-
-		return( r == SASL_OK ? 0 : IMAP_SASL_FAIL );
-	}
 
     /* initial response */
     if (init_resp) {
@@ -142,6 +102,7 @@ int saslserver(sasl_conn_t *conn, const char *mech,
 	}
 
 	prot_printf(pout, "%s%s\r\n", continuation, serverout);
+	prot_flush(pout);
 
 	/* get response from the client */
 	if (!prot_fgets(base64, BASE64_BUF_SIZE, pin) ||

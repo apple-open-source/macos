@@ -1,15 +1,11 @@
 dnl
-dnl $Id: config.m4,v 1.15 2002/03/07 14:19:47 sas Exp $
+dnl $Id: config.m4,v 1.15.22.1 2007/07/11 23:20:36 jani Exp $
 dnl
 
-AC_MSG_CHECKING(for AOLserver support)
-AC_ARG_WITH(aolserver,
-[  --with-aolserver=DIR    Specify path to the installed AOLserver],[
-  PHP_AOLSERVER=$withval
-],[
-  PHP_AOLSERVER=no
-])
-AC_MSG_RESULT($PHP_AOLSERVER)
+PHP_ARG_WITH(aolserver,,
+[  --with-aolserver=DIR    Specify path to the installed AOLserver], no, no)
+
+AC_MSG_CHECKING([for AOLserver support])
 
 if test "$PHP_AOLSERVER" != "no"; then
   if test -d "$PHP_AOLSERVER/include"; then
@@ -27,6 +23,8 @@ if test "$PHP_AOLSERVER" != "no"; then
   PHP_SELECT_SAPI(aolserver, shared, aolserver.c)
   INSTALL_IT="\$(INSTALL) -m 0755 $SAPI_SHARED \$(INSTALL_ROOT)$PHP_AOLSERVER/bin/"
 fi
+
+AC_MSG_RESULT([$PHP_AOLSERVER])
 
 dnl ## Local Variables:
 dnl ## tab-width: 4

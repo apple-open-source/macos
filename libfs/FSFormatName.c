@@ -21,6 +21,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
  
+#include <libkern/OSByteOrder.h>
+#include <stdio.h>
+#include <unistd.h>
+
 #include "FSFormatName.h"
 
 static CFMutableDictionaryRef __FSLocalizedNameTable = NULL;
@@ -30,6 +34,7 @@ CFStringRef FSCopyFormatNameForFSType(CFStringRef fsType, int16_t fsSubtype, boo
 {
     CFStringRef formatName;
     CFStringRef formatNameTableKey;
+    CFIndex indx;
 
     if (NULL == fsType) return NULL;
 
@@ -42,24 +47,76 @@ CFStringRef FSCopyFormatNameForFSType(CFStringRef fsType, int16_t fsSubtype, boo
     OSSpinLockUnlock(&__FSLocalizedNameTableLock);
 
     if (NULL == formatName) { // not in the cache
-        CFBundleRef bundle;
+        CFBundleRef bundle = NULL;
         CFURLRef bundleURL;
         CFStringRef fsTypeName;
-        static CFURLRef systemLibraryURL = NULL;
+	static CFArrayRef searchPaths = NULL;
 
-        /* Construct a bundle path URL from the fsType argument and create a CFBundle.  Ideally this should search all the standard Library locations (/Library/Filesystems, /Network/Library/Filesystems, and /System/Library/Filesystems).  See CFCopySearchPathForDirectoriesInDomains in CoreFoundation/CFPriv.h */
+        /* Construct a bundle path URL from the fsType argument and create a CFBundle.  We search (using CFCopySearchPathForDirectoriesInDomains) /Network/Library/Filesystems, /Library/Filesystems, and /System/Library/Filesystems. */
 
         // Create CFURL for /System/Library/Filesystems and cache it
-        if (NULL == systemLibraryURL) systemLibraryURL = CFURLCreateWithFileSystemPath(NULL, kFSSystemLibraryFileSystemsPath, kCFURLPOSIXPathStyle, true);
+	if (NULL == searchPaths) {
+		CFArrayRef tmpPaths = CFCopySearchPathForDirectoriesInDomains(kCFLibraryDirectory, kCFSystemDomainMask | kCFNetworkDomainMask | kCFLocalDomainMask, true);
+		CFMutableArrayRef tmpStrings;
+		CFIndex i;
 
-        fsTypeName = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@.fs"), fsType);
+		if (NULL == tmpPaths)
+			return NULL;	// No directories to search?!?!
 
-        bundleURL = CFURLCreateWithFileSystemPathRelativeToBase(NULL, fsTypeName, kCFURLPOSIXPathStyle, true, systemLibraryURL);
+		tmpStrings = CFArrayCreateMutable(NULL, CFArrayGetCount(tmpPaths), NULL);
+		if (tmpStrings == NULL)
+			goto done;
+		for (i = 0; i < CFArrayGetCount(tmpPaths); i++) {
+			CFStringRef tStr;
+			CFURLRef tURL;
+			char path[PATH_MAX + 1];
+			CFTypeRef tobject = CFArrayGetValueAtIndex(tmpPaths, i);
 
-        bundle = CFBundleCreate(NULL, bundleURL);
+			if (CFGetTypeID(tobject) == CFURLGetTypeID()) {
+				if (false ==
+					CFURLGetFileSystemRepresentation(
+						tobject,
+						false,
+						(UInt8*)path,
+						sizeof(path))) {
+					goto done;
+				}
+			} else if (CFGetTypeID(tobject) == CFStringGetTypeID()) {
+				CFStringGetCString(tobject, path, sizeof(path), kCFStringEncodingUTF8);
+			} else {
+				goto done;
+			}
+			strlcat(path, "/Filesystems", sizeof(path));
+			tStr = CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8);
+			if (tStr == NULL)
+				goto done;
+			tURL = CFURLCreateWithFileSystemPath(NULL, tStr, kCFURLPOSIXPathStyle, true);
+			if (tURL) {
+				CFArrayAppendValue(tmpStrings, tURL);
+			}
+			CFRelease(tStr);
+		}
+		searchPaths = CFArrayCreateCopy(NULL, tmpStrings);
+done:
+		CFRelease(tmpStrings);
+		CFRelease(tmpPaths);
+		if (searchPaths == NULL)
+			return NULL;
+	}
 
-        CFRelease(fsTypeName);
-        CFRelease(bundleURL);
+	for (indx = 0; indx < CFArrayGetCount(searchPaths); indx++) {
+		CFURLRef libRef = CFArrayGetValueAtIndex(searchPaths, indx);
+
+		fsTypeName = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@.fs"), fsType);
+		bundleURL = CFURLCreateWithFileSystemPathRelativeToBase(NULL, fsTypeName, kCFURLPOSIXPathStyle, true, libRef);
+		bundle = CFBundleCreate(NULL, bundleURL);
+
+		CFRelease(fsTypeName);
+		CFRelease(bundleURL);
+		if (NULL != bundle) {
+			break;
+		}
+	}
 
         if (NULL != bundle) { // the bundle exists at path	
 			CFDictionaryRef localPersonalities = NULL;
@@ -161,7 +218,7 @@ CFStringRef _FSCopyLocalizedNameForVolumeFormatAtURL(CFURLRef url)
     if ((NULL != url) && CFURLGetFileSystemRepresentation(url, true, buffer, MAXPATHLEN)) {
 	struct statfs fsInfo;
 
-        if (statfs(buffer, &fsInfo) == 0) {
+        if (statfs((char *)buffer, &fsInfo) == 0) {
             CFStringRef fsType = CFStringCreateWithCString(NULL, fsInfo.f_fstypename, kCFStringEncodingASCII);
 
             formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_reserved1, true);
@@ -181,7 +238,7 @@ CFStringRef _FSCopyNameForVolumeFormatAtURL(CFURLRef url)
     if ((NULL != url) && CFURLGetFileSystemRepresentation(url, true, buffer, MAXPATHLEN)) {
 	struct statfs fsInfo;
 
-        if (statfs(buffer, &fsInfo) == 0) {
+        if (statfs((char *)buffer, &fsInfo) == 0) {
             CFStringRef fsType = CFStringCreateWithCString(NULL, fsInfo.f_fstypename, kCFStringEncodingASCII);
 
             formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_reserved1, false);
@@ -205,13 +262,14 @@ CFStringRef _FSCopyLocalizedNameForVolumeFormatAtNode(CFStringRef devnode)
 	
 		/* get fsname and fssubtype */
 		memset(fsname, MAX_FSNAME, 0);
-		getfstype(devnodename, fsname, &fssubtype);
+		if (getfstype(devnodename, fsname, &fssubtype) == true) {
 		
-		/* get unlocalized string */
-        CFStringRef fsType = CFStringCreateWithCString(NULL, fsname, kCFStringEncodingASCII);
-        formatName = FSCopyFormatNameForFSType(fsType, fssubtype, true);
-		CFRelease(fsType);
-    }
+			/* get unlocalized string */
+			CFStringRef fsType = CFStringCreateWithCString(NULL, fsname, kCFStringEncodingASCII);
+			formatName = FSCopyFormatNameForFSType(fsType, fssubtype, true);
+			CFRelease(fsType);
+		}
+	}
 	return formatName;
 }
 
@@ -227,33 +285,37 @@ CFStringRef _FSCopyNameForVolumeFormatAtNode(CFStringRef devnode)
 	
 		/* get fsname and fssubtype */
 		memset(fsname, MAX_FSNAME, 0);
-		getfstype(devnodename, fsname, &fssubtype);
+		if (getfstype(devnodename, fsname, &fssubtype) == true) {
 		
-		/* get unlocalized string */
-        CFStringRef fsType = CFStringCreateWithCString(NULL, fsname, kCFStringEncodingASCII);
-        formatName = FSCopyFormatNameForFSType(fsType, fssubtype, false);
-		CFRelease(fsType);
-    }
+			/* get unlocalized string */
+			CFStringRef fsType = CFStringCreateWithCString(NULL, fsname, kCFStringEncodingASCII);
+			formatName = FSCopyFormatNameForFSType(fsType, fssubtype, false);
+			CFRelease(fsType);
+		}
+	}
 	return formatName;
 }
 
 /* Return the fsname and subtype number for devnode */
-void getfstype(char *devnode, char *fsname, int *fssubtype)
+bool getfstype(char *devnode, char *fsname, int *fssubtype)
 {
 	/* Check if HFS */
 	if (is_hfs(devnode, fssubtype) == true) {
 		strcpy(fsname, HFS_NAME); 
-		return;
+		return true;
 	}
 		
 	/* Check if MSDOS */
 	if (is_msdos(devnode, fssubtype) == true) {
 		strcpy(fsname, MSDOS_NAME);
-		return;
+		return true;
 	}
 
-	return;
+	return false;
 }
+
+#define SW16(x)	OSSwapBigToHostInt16(x)
+#define SW32(x)	OSSwapBigToHostInt32(x)
 
 /* Check if the disk is HFS disk and return its subtypes */
 bool is_hfs(char *devnode, int *fssubtype)
@@ -293,16 +355,16 @@ bool is_hfs(char *devnode, int *fssubtype)
 	vhp = (HFSPlusVolumeHeader *)buffer;
 	
 	/* Validate signature */
-	switch (vhp->signature) {
+	switch (SW16(vhp->signature)) {
 		case kHFSPlusSigWord: {
-			if (vhp->version != kHFSPlusVersion) {
+			if (SW16(vhp->version) != kHFSPlusVersion) {
 				goto out;
 			}
 			break;
 		}
 
 		case kHFSXSigWord: {
-			if (vhp->version != kHFSXVersion) {
+			if (SW16(vhp->version) != kHFSXVersion) {
 				goto out;
 			} 
 			break;
@@ -320,23 +382,23 @@ bool is_hfs(char *devnode, int *fssubtype)
 		}
 	};
 
-	if ((vhp->journalInfoBlock != 0) && (vhp->attributes & kHFSVolumeJournaledMask)) {
+	if ((vhp->journalInfoBlock != 0) && (SW32(vhp->attributes) & kHFSVolumeJournaledMask)) {
 		/* Journaled */
 		*fssubtype = kHFSJSubType;
 	}
 
-	if (vhp->signature == kHFSXSigWord) {
+	if (SW16(vhp->signature) == kHFSXSigWord) {
 		BTHeaderRec *  bthp;
 		off_t  foffset;
 	
-		foffset = (off_t)vhp->catalogFile.extents[0].startBlock * (off_t)vhp->blockSize;
+		foffset = (off_t)SW32(vhp->catalogFile.extents[0].startBlock) * (off_t)SW32(vhp->blockSize);
 		if (getblk(fd, (offset/MAX_HFS_BLOCK_READ) + (foffset/MAX_HFS_BLOCK_READ) , MAX_HFS_BLOCK_READ, buffer) < MAX_HFS_BLOCK_READ) {
 			goto out;
 		}
 		
 		bthp = (BTHeaderRec *)&buffer[sizeof(BTNodeDescriptor)];
 
-		if ((bthp->maxKeyLength == kHFSPlusCatalogKeyMaximumLength) &&
+		if ((SW16(bthp->maxKeyLength) == kHFSPlusCatalogKeyMaximumLength) &&
 			(bthp->keyCompareType == kHFSBinaryCompare)) {
 			/* HFSX */
 			if (*fssubtype == kHFSJSubType) {
@@ -486,12 +548,12 @@ static int getblk(int fd, unsigned long blknum, int blksize, char* buf)
 /* get HFS wrapper information */
 static int getwrapper(const HFSMasterDirectoryBlock *mdbp, off_t *offset)
 {
-	if ((mdbp->drSigWord != kHFSSigWord) ||
-	    (mdbp->drEmbedSigWord != kHFSPlusSigWord)) {
+	if ((SW16(mdbp->drSigWord) != kHFSSigWord) ||
+	    (SW16(mdbp->drEmbedSigWord) != kHFSPlusSigWord)) {
 		return(0);
 	}
-	*offset = mdbp->drAlBlSt * 512;
-	*offset += (u_int64_t)mdbp->drEmbedExtent.startBlock * (u_int64_t)mdbp->drAlBlkSiz;
+	*offset = SW16(mdbp->drAlBlSt) * 512;
+	*offset += (u_int64_t)SW16(mdbp->drEmbedExtent.startBlock) * (u_int64_t)SW32(mdbp->drAlBlkSiz);
 	
 	return (1);
 }

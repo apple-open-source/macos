@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: xbm.c,v 1.2.2.1.8.2 2007/01/01 09:46:42 sebastian Exp $ */
+/* $Id: xbm.c,v 1.7.2.2.2.2 2007/08/09 12:08:29 mattias Exp $ */
 
 #include <stdio.h>
 #include <math.h>
@@ -29,8 +29,8 @@
 
 #define MAX_XBM_LINE_SIZE 255
 
-gdImagePtr
-gdImageCreateFromXbm (FILE * fd)
+/* {{{ gdImagePtr gdImageCreateFromXbm */
+gdImagePtr gdImageCreateFromXbm(FILE * fd)
 {
 	char fline[MAX_XBM_LINE_SIZE];
 	char iname[MAX_XBM_LINE_SIZE];
@@ -46,7 +46,7 @@ gdImageCreateFromXbm (FILE * fd)
 	int ch;
 	char h[8];
 	unsigned int b;
-	
+
 	rewind(fd);
 	while (fgets(fline, MAX_XBM_LINE_SIZE, fd)) {
 		fline[MAX_XBM_LINE_SIZE-1] = '\0';
@@ -59,7 +59,7 @@ gdImageCreateFromXbm (FILE * fd)
 			} else {
 				type++;
 			}
-	
+
 			if (!strcmp("width", type)) {
 				width = (unsigned int) value;
 			}
@@ -96,7 +96,9 @@ gdImageCreateFromXbm (FILE * fd)
 		return 0;
 	}
 
-	im = gdImageCreate(width, height);
+	if(!(im = gdImageCreate(width, height))) {
+		return 0;
+	}
 	gdImageColorAllocate(im, 255, 255, 255);
 	gdImageColorAllocate(im, 0, 0, 0);
 	h[2] = '\0';
@@ -147,7 +149,93 @@ gdImageCreateFromXbm (FILE * fd)
 		}
 	}
 
-	php_gd_error("EOF before image was complete\n");
+	php_gd_error("EOF before image was complete");
 	gdImageDestroy(im);
 	return 0;
 }
+/* }}} */
+
+/* {{{ gdCtxPrintf */
+void gdCtxPrintf(gdIOCtx * out, const char *format, ...)
+{
+	char *buf;
+	int len;
+	va_list args;
+
+	va_start(args, format);
+	len = vspprintf(&buf, 0, format, args);
+	va_end(args);
+	out->putBuf(out, buf, len);
+	efree(buf);
+}
+/* }}} */
+
+/* {{{ gdImageXbmCtx */
+void gdImageXbmCtx(gdImagePtr image, char* file_name, int fg, gdIOCtx * out)
+{
+	int x, y, c, b, sx, sy, p;
+	char *name, *f;
+	size_t i, l;
+
+	name = file_name;
+	if ((f = strrchr(name, '/')) != NULL) name = f+1;
+	if ((f = strrchr(name, '\\')) != NULL) name = f+1;
+	name = estrdup(name);
+	if ((f = strrchr(name, '.')) != NULL && !strcasecmp(f, ".XBM")) *f = '\0';
+	if ((l = strlen(name)) == 0) {
+		efree(name);
+		name = estrdup("image");
+	} else {
+		for (i=0; i<l; i++) {
+			/* only in C-locale isalnum() would work */
+			if (!isupper(name[i]) && !islower(name[i]) && !isdigit(name[i])) {
+				name[i] = '_';
+			}
+		}
+	}
+
+	gdCtxPrintf(out, "#define %s_width %d\n", name, gdImageSX(image));
+	gdCtxPrintf(out, "#define %s_height %d\n", name, gdImageSY(image));
+	gdCtxPrintf(out, "static unsigned char %s_bits[] = {\n  ", name);
+
+	efree(name);
+
+	b = 1;
+	p = 0;
+	c = 0;
+	sx = gdImageSX(image);
+	sy = gdImageSY(image);
+	for (y = 0; y < sy; y++) {
+		for (x = 0; x < sx; x++) {
+			if (gdImageGetPixel(image, x, y) == fg) {
+				c |= b;
+			}
+			if ((b == 128) || (x == sx && y == sy)) {
+				b = 1;
+				if (p) {
+					gdCtxPrintf(out, ", ");
+					if (!(p%12)) {
+						gdCtxPrintf(out, "\n  ");
+						p = 12;
+					}
+				}
+				p++;
+				gdCtxPrintf(out, "0x%02X", c);
+				c = 0;
+			} else {
+				b <<= 1;
+			}
+		}
+	}
+	gdCtxPrintf(out, "};\n");
+}
+/* }}} */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
+ */

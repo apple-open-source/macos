@@ -25,11 +25,30 @@
 #define _XLOCALE__TIME_H_
 
 __BEGIN_DECLS
+//Begin-Libc
+#ifndef LIBC_ALIAS_STRFTIME_L
+//End-Libc
 size_t	 strftime_l(char * __restrict, size_t, const char * __restrict,
 		const struct tm * __restrict, locale_t)
 		__DARWIN_ALIAS(strftime_l);
+//Begin-Libc
+#else /* LIBC_ALIAS_STRFTIME_L */
+size_t	 strftime_l(char * __restrict, size_t, const char * __restrict,
+		const struct tm * __restrict, locale_t)
+		LIBC_ALIAS(strftime_l);
+#endif /* !LIBC_ALIAS_STRFTIME_L */
+//End-Libc
+//Begin-Libc
+#ifndef LIBC_ALIAS_STRPTIME_L
+//End-Libc
 char	*strptime_l(const char * __restrict, const char * __restrict,
-		struct tm * __restrict, locale_t);
+		struct tm * __restrict, locale_t) __DARWIN_ALIAS(strptime_l);
+//Begin-Libc
+#else /* LIBC_ALIAS_STRPTIME_L */
+char	*strptime_l(const char * __restrict, const char * __restrict,
+		struct tm * __restrict, locale_t) LIBC_ALIAS(strptime_l);
+#endif /* !LIBC_ALIAS_STRPTIME_L */
+//End-Libc
 __END_DECLS
 
 #endif /* _XLOCALE__TIME_H_ */

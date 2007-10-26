@@ -1,0 +1,2 @@
+%(member)s đã bị gỡ bỏ ra hộp thư chung %(listname)s.
+

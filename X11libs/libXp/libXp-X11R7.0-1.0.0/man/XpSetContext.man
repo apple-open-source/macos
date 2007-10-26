@@ -1,0 +1,112 @@
+.\" $XdotOrg: $
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004 Sun Microsystems, Inc.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpSetContext 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+.SH NAME
+XpSetContext \-  Sets or unsets a print context with the specified display 
+connection to the X Print Server.
+.SH SYNOPSIS
+.br
+      cc [ flag... ] file... -lXp [ library... ]	
+.br
+      #include <X11/extensions/Print.h>
+.LP    
+.B void XpSetContext
+(
+.I display,
+.I print_context
+)
+.br
+      Display *\fIdisplay\fP\^;
+.br
+      XPContext \fIprint_context\fP\^;
+.if n .ti +5n
+.if t .ti +.5i
+.SH ARGUMENTS
+.TP
+.I display
+Specifies a pointer to the Display structure; returned from XOpenDisplay.
+.TP
+.I print_context
+A pre-existing print context on the same X Server.
+.SH DESCRIPTION
+.LP
+XpSetContext sets the print context for a display connection. All subsequent 
+print operations that do not explicitly take a print context-id (for example, 
+XpStartJob) on display will use and act upon the print context set by this call, 
+until the print context is unset or XpDestroyContext is called. The print 
+context can be set and used on multiple jobs, if not destroyed.
+
+If 
+.I print_context 
+is None, XpSetContext will unset (disassociate) the print 
+context previously associated with display. If there was no previously 
+associated print context, no action is taken. The content of the formerly 
+associated print context is not affected by this call, and other display 
+connections may continue to use the print context.
+
+Since font capabilities can vary from printer to printer, XpSetContext may 
+modify the list of available fonts (see XListFonts) on display, and the actual 
+set of usable fonts (see XLoadFont). A unique combination of fonts may be 
+available from within a given print context; a client should not assume that all 
+the fonts available when no print context is set will be available when a print 
+context is set.
+
+When a print context is set on a display connection, the default behavior of 
+ListFonts and ListFontsWithInfo is to list all of the fonts normally associated 
+with the X print server (i.e. fonts containing glyphs) as well as any internal 
+printer fonts defined for the printer. The xp-listfonts-modes attribute is 
+provided so that applications can control the behavior of ListFonts and 
+ListFontsWithInfo and is typically used to show just internal printer fonts. 
+Using only internal printer fonts is useful for performance reasons; the glyphs 
+associated with the font are contained within the printer and do not have to be 
+downloaded.
+
+If the value of xp-listfonts-modes includes xp-list-glyph-fonts, ListFonts and 
+ListFontsWithInfo will include all of the fonts available to the server that 
+have glyphs associated with them. If the value of xp-listfonts-modes includes 
+xp-list-internal-printer-fonts, then ListFonts and ListFontsWithInfo will 
+include all of the fonts defined as internal printer fonts.
+
+When the print context is unset or XpDestroyContext is called, the available 
+fonts on display revert back to what they were previously.
+.SH DIAGNOSTICS
+.TP 15
+.SM XPBadContext
+A valid print context-id has not been set prior to making this call.
+.SH "SEE ALSO"
+.BR XpDestroyContext (3Xp),
+.BR XpStartJob (3Xp)
+

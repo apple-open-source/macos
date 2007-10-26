@@ -61,4 +61,4 @@ void dsindex_delete_dsid(dsindex *x, u_int32_t dsid);
 
 void dsindex_print(dsindex *, FILE *);
 
-#endif __DSINDEX_H__
+#endif /* __DSINDEX_H__ */

@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+FTP
+PORT
+STOR
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -30,7 +38,7 @@ Moooooooooooo
 </strip>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 CWD CWD
 CWD STOR
@@ -45,3 +53,4 @@ Moooooooooooo
  upload this
 </upload>
 </verify>
+</testcase>

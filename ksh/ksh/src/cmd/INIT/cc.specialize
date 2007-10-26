@@ -1,0 +1,30 @@
+: -O to CCSPECIALIZE cc wrapper : 2005-07-17 :
+
+case $* in
+-dumpmachine) echo $HOSTTYPE; exit ;;
+esac
+
+cc=cc
+
+CCSPECIALZE='-O3 -march=mips4'
+
+case " $* " in
+*" -O "*)
+	set '' "$@" ''
+	shift
+	while	:
+	do	a=$1
+		shift
+		case $a in
+		'')	break
+			;;
+		-O)	set '' "$@" $CCSPECIALZE
+			;;
+		*)	set '' "$@" $a
+			;;
+		esac
+		shift
+	done
+	;;
+esac
+$cc "$@"

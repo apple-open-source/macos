@@ -9,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,7 +26,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)chpass.1	8.2 (Berkeley) 12/30/93
-.\" $FreeBSD: src/usr.bin/chpass/chpass.1,v 1.34 2002/12/24 13:41:47 ru Exp $
+.\" $FreeBSD: src/usr.bin/chpass/chpass.1,v 1.38.2.1 2005/09/24 01:59:39 keramida Exp $
 .\"
 .Dd December 30, 1993
 .Dt CHPASS 1
@@ -38,13 +34,18 @@
 .Sh NAME
 .Nm chpass ,
 .Nm chfn ,
-.Nm chsh ,
+.Nm chsh
+.\".Nm ypchpass ,
+.\".Nm ypchfn ,
+.\".Nm ypchsh
 .Nd add or change user database information
 .Sh SYNOPSIS
 .Nm
-.Op Fl a Ar list
-.Op Fl p Ar encpass
-.Op Fl e Ar expiretime
+.\".Op Fl a Ar list
+.\".Op Fl p Ar encpass
+.\".Op Fl e Ar expiretime
+.Op Fl l Ar location
+.Op Fl u Ar authname
 .Op Fl s Ar newshell
 .Op user
 .Sh DESCRIPTION
@@ -57,9 +58,22 @@ with
 or, by default, the current user.
 .Pp
 The
+.Nm
+utility 
+.Em cannot 
+change the user's password on Open Directory
+systems.  Use the
+.Xr passwd 1
+utility instead.
+.Pp
+The
 .Nm chfn ,
 and
 .Nm chsh
+.\".Nm ypchpass ,
+.\".Nm ypchfn
+.\"and
+.\".Nm ypchsh
 utilities behave identically to
 .Nm .
 (There is only one program.)
@@ -70,29 +84,36 @@ Only the information that the user is allowed to change is displayed.
 .Pp
 The options are as follows:
 .Bl -tag -width indent
-.It Fl a
-The super-user is allowed to directly supply a user database
-entry, in the format specified by
-.Xr passwd 5 ,
-as an argument.
-This argument must be a colon
-.Pq Dq \&:
-separated list of all the
-user database fields, although they may be empty.
-[Note that this only changes the user database,
-.Li master.passwd Ns .]
-.It Fl p
-The super-user is allowed to directly supply an encrypted password field,
-in the format used by
-.Xr crypt 3 ,
-as an argument.
-[See the discussion in
-.Xr getpwent 3
-about types of passwords; this option may not be appropriate.]
-.It Fl e Ar expiretime
-Change the account expire time.
-This option is used to set the expire time
-from a script as if it was done in the interactive editor.
+.\".It Fl a
+.\"The super-user is allowed to directly supply a user database
+.\"entry, in the format specified by
+.\".Xr passwd 5 ,
+.\"as an argument.
+.\"This argument must be a colon
+.\".Pq Dq \&:
+.\"separated list of all the
+.\"user database fields, although they may be empty.
+.\".It Fl p
+.\"The super-user is allowed to directly supply an encrypted password field,
+.\"in the format used by
+.\".Xr crypt 3 ,
+.\"as an argument.
+.\".It Fl e Ar expiretime
+.\"Change the account expire time.
+.\"This option is used to set the expire time
+.\"from a script as if it were done in the interactive editor.
+.It Fl l Ar location
+If not specified,
+.Nm
+will perform a search for the user record on all available
+Open Directory nodes.
+When specified,
+.Nm
+will edit the user record on the directory node at the given
+.Ar location .
+.It Fl u Ar authname
+The user name to use when authenticating to the directory node containing the
+user.
 .It Fl s Ar newshell
 Attempt to change the user's shell to
 .Ar newshell .
@@ -103,60 +124,47 @@ Possible display items are as follows:
 .Bl -tag -width "Other Information:" -compact -offset indent
 .It Login:
 user's login name
-.It Password:
-user's encrypted password
-[do
-.Em not
-use this to change a password; use
-.Xr passwd 1
-instead]
+.\".It Password:
+.\"user's encrypted password
 .It Uid:
 user's login
 .It Gid:
 user's login group
-.It Class:
-user's general classification
-.It Change:
-password change time
-.It Expire:
-account expiration time
+.It Generated uid:
+user's UUID
+.\".It Class:
+.\"user's general classification
+.\".It Change:
+.\"password change time
+.\".It Expire:
+.\"account expiration time
 .It Full Name:
-user's real name (*)
-.\"user's real name
-.\".It Office Location:
-.\"user's office location (1)
-.\".It Office Phone:
-.\"user's office phone (1)
-.\".It Home Phone:
-.\"user's home phone (1)
+user's real name
+.It Office Location:
+user's office location
+.It Office Phone:
+user's office phone
+.It Home Phone:
+user's home phone
 .\".It Other Information:
-.\"any locally defined parameters for user (1)
+.\"any locally defined parameters for user
 .It Home Directory:
 user's home directory
 .It Shell:
 user's login shell
 .Pp
-.It NOTE(*) -
+.\".It NOTE(1) -
 .\"In the actual master.passwd file, these fields are comma-delimited
 .\"fields embedded in the FullName field.
-Historically, the so-call
-.Qq GECOS
-field in the user database entry contain the full name plus other information.
-Only the full name is currently supported.
 .El
 .Pp
 The
 .Ar login
 field is the user name used to access the computer account.
-.Pp
-The
-.Ar password
-field contains the encrypted form of the user's password.
-Do
-.Em not
-use this to change a password; use
-.Xr passwd 1
-instead.
+.\".Pp
+.\"The
+.\".Ar password
+.\"field contains the encrypted form of the user's password.
 .Pp
 The
 .Ar uid
@@ -167,7 +175,8 @@ Both of these fields should be unique across the system (and often
 across a group of systems) as they control file access.
 .Pp
 While it is possible to have multiple entries with identical login names
-and/or identical user id's, it is usually a mistake to do so.  Routines
+and/or identical user id's, it is usually a mistake to do so.
+Routines
 that manipulate these files will often return only one of the multiple
 entries, and that one by random selection.
 .Pp
@@ -183,34 +192,38 @@ This field may be filled in with either a number or a group name (see
 .Xr group 5 ) .
 .Pp
 The
-.Ar class
-field references class descriptions in
-.Pa /etc/login.conf
-and is typically used to initialize the user's system resource limits
-when they login.
-.Pp
-The
-.Ar change
-field is the date by which the password must be changed.
-.Pp
-The
-.Ar expire
-field is the date on which the account expires.
-.Pp
-Both the
-.Ar change
-and
-.Ar expire
-fields should be entered in the form
-.Dq month day year
-where
-.Ar month
-is the month name (the first three characters are sufficient),
-.Ar day
-is the day of the month, and
-.Ar year
-is the year.
-.Pp
+.Ar generated uid
+field is the globally unique identifier (UUID) for the user.
+.\".Pp
+.\"The
+.\".Ar class
+.\"field references class descriptions in
+.\".Pa /etc/login.conf
+.\"and is typically used to initialize the user's system resource limits
+.\"when they login.
+.\".Pp
+.\"The
+.\".Ar change
+.\"field is the date by which the password must be changed.
+.\".Pp
+.\"The
+.\".Ar expire
+.\"field is the date on which the account expires.
+.\".Pp
+.\"Both the
+.\".Ar change
+.\"and
+.\".Ar expire
+.\"fields should be entered in the form
+.\".Dq month day year
+.\"where
+.\".Ar month
+.\"is the month name (the first three characters are sufficient),
+.\".Ar day
+.\"is the day of the month, and
+.\".Ar year
+.\"is the year.
+.\".Pp
 .\"Five fields are available for storing the user's
 .\".Ar full name , office location ,
 .\".Ar work
@@ -250,24 +263,22 @@ shell.
 Non-standard is defined as a shell not found in
 .Pa /etc/shells .
 .Pp
-Once the information has been verified,
-.Nm
-uses
-.Xr pwd_mkdb 8
-to update the user database.
-.Sh LOOKUPD AND DIRECTORY SERVICE AWARENESS
-User database entries (among other things) are under the control of
-.Xr lookupd 8
-and may be physically located in many different places, including local
-and remote
-.Xr netinfo 5
-databases, directory service agents such as LDAP servers and flat file databases
-such as
-.Li master.passwd .
+The
+.Ar picture
+field is the path to a picture to be displayed for the user.
+.Sh OPEN DIRECTORY
+User database entries are under the control of
+.Xr DirectoryService 8
+and may be physically located in many different places,
+including the local Directory Service node, 
+and remote LDAP servers.
 This version of
 .Nm
-is currently limited to changing user database entries in the flat file
-and local netinfo databases.
+uses Open Directory to change user database information.
+It does not interact with the historic flat file
+database
+.Pa /etc/master.passwd
+.
 .Sh ENVIRONMENT
 The
 .Xr vi 1
@@ -279,40 +290,24 @@ When the editor terminates, the information is re-read and used to
 update the user database itself.
 Only the user, or the super-user, may edit the information associated
 with the user.
-.Pp
-See
-.Xr pwd_mkdb 8
-for an explanation of the impact of setting the
-.Ev PW_SCAN_BIG_IDS
-environment variable.
 .Sh FILES
-.Bl -tag -width /etc/master.passwd -compact
-.It Pa /etc/master.passwd
-the user database
-.It Pa /etc/passwd
-a Version 7 format password file
-.It Pa /etc/chpass.XXXXXX
-temporary copy of the password file
+.Bl -tag -width /tmp/chpass.XXXXXX -compact
+.It Pa /tmp/chpass.XXXXXX
+temporary copy of the data to edit
 .It Pa /etc/shells
 the list of approved shells
 .El
 .Sh SEE ALSO
-.Xr finger 1 ,
+.\".Xr finger 1 ,
 .Xr login 1 ,
 .Xr passwd 1 ,
 .Xr getusershell 3 ,
-.Xr login.conf 5 ,
-.Xr passwd 5 ,
-.Xr pwd_mkdb 8 ,
-.Xr vipw 8
+.Xr passwd 5
 .Rs
 .%A Robert Morris
-and
 .%A Ken Thompson
 .%T "UNIX Password security"
 .Re
-.Sh BUGS
-User information should (and eventually will) be stored elsewhere.
 .Sh HISTORY
 The
 .Nm

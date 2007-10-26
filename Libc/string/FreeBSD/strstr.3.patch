@@ -1,25 +1,75 @@
---- strstr.3.orig	Fri Mar 11 08:33:31 2005
-+++ strstr.3	Fri Mar 11 08:35:28 2005
-@@ -41,7 +41,7 @@
+--- _SB/Libc/string/FreeBSD/strstr.3	2003-05-20 15:23:55.000000000 -0700
++++ _SB/Libc/string/FreeBSD/strstr.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -41,26 +41,47 @@
  .Dt STRSTR 3
  .Os
  .Sh NAME
 -.Nm strstr , strcasestr , strnstr
-+.Nm strstr , strcasestr , strnstr , strcasestr_l
++.Nm strcasestr ,
++.Nm strcasestr_l ,
++.Nm strnstr ,
++.Nm strstr
  .Nd locate a substring in a string
  .Sh LIBRARY
  .Lb libc
-@@ -53,6 +53,9 @@
- .Fn strcasestr "const char *big" "const char *little"
+ .Sh SYNOPSIS
+ .In string.h
  .Ft char *
- .Fn strnstr "const char *big" "const char *little" "size_t len"
+-.Fn strstr "const char *big" "const char *little"
++.Fo strcasestr
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fc
+ .Ft char *
+-.Fn strcasestr "const char *big" "const char *little"
++.Fo strnstr
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fa "size_t n"
++.Fc
+ .Ft char *
+-.Fn strnstr "const char *big" "const char *little" "size_t len"
++.Fo strstr
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fc
++.In string.h
 +.In xlocale.h
 +.Ft char *
-+.Fn strcasestr_l "const char *big" "const char *little" "locale_t loc"
++.Fo strcasestr_l
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn strstr
-@@ -86,6 +89,14 @@
+ function
+ locates the first occurrence of the null-terminated string
+-.Fa little
++.Fa s2
+ in the null-terminated string
+-.Fa big .
++.Fa s1 .
+ .Pp
+ The
+ .Fn strcasestr
+@@ -72,11 +93,11 @@
+ .Fn strnstr
+ function
+ locates the first occurrence of the null-terminated string
+-.Fa little
++.Fa s2
+ in the string
+-.Fa big ,
++.Fa s1 ,
+ where not more than
+-.Fa len
++.Fa n
+ characters are searched.
+ Characters that appear after a
+ .Ql \e0
+@@ -86,20 +107,28 @@
  function is a
  .Fx
  specific API, it should only be used when portability is not a concern.
@@ -33,8 +83,27 @@
 +for more information.
  .Sh RETURN VALUES
  If
- .Fa little
-@@ -138,7 +149,8 @@
+-.Fa little
++.Fa s2
+ is an empty string,
+-.Fa big
++.Fa s1
+ is returned;
+ if
+-.Fa little
++.Fa s2
+ occurs nowhere in
+-.Fa big ,
++.Fa s1 ,
+ .Dv NULL
+ is returned;
+ otherwise a pointer to the first character of the first occurrence of
+-.Fa little
++.Fa s2
+ is returned.
+ .Sh EXAMPLES
+ The following sets the pointer
+@@ -138,7 +167,8 @@
  .Xr strrchr 3 ,
  .Xr strsep 3 ,
  .Xr strspn 3 ,

@@ -79,6 +79,9 @@
    this is either `int' or `gid_t'. */
 #undef GETGROUPS_T
 
+/* mcontext_t fields start with __ */
+#undef HAS_MCONTEXT_T_UNDERSCORES
+
 /* Define to 1 if you have the `alphasort' function. */
 #undef HAVE_ALPHASORT
 
@@ -154,6 +157,10 @@
 /* Define to 1 if we found a declaration for 'abort', otherwise define to 0.
    */
 #undef HAVE_DECL_ABORT
+
+/* Define to 1 if we found a declaration for 'asprintf', otherwise define to
+   0. */
+#undef HAVE_DECL_ASPRINTF
 
 /* Define to 1 if we found a declaration for 'atof', otherwise define to 0. */
 #undef HAVE_DECL_ATOF
@@ -291,6 +298,10 @@
    0. */
 #undef HAVE_DECL_SETRLIMIT
 
+/* Define to 1 if we found a declaration for 'sigaltstack', otherwise define
+   to 0. */
+#undef HAVE_DECL_SIGALTSTACK
+
 /* Define to 1 if we found a declaration for 'snprintf', otherwise define to
    0. */
 #undef HAVE_DECL_SNPRINTF
@@ -303,14 +314,9 @@
    */
 #undef HAVE_DECL_STRSTR
 
-/* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 /* Define to 1 if we found a declaration for 'strverscmp', otherwise define to
    0. */
-#ifndef USED_FOR_TARGET
 #undef HAVE_DECL_STRVERSCMP
-#endif
-
-/* APPLE LOCAL end mainline 2005-09-01 3449986 */
 
 /* Define to 1 if we found a declaration for 'times', otherwise define to 0.
    */
@@ -376,6 +382,9 @@
 
 /* Define if your assembler and linker support .hidden. */
 #undef HAVE_GAS_HIDDEN
+
+/* Define if your assembler supports .literal16. */
+#undef HAVE_GAS_LITERAL16
 
 /* Define if your assembler supports specifying the maximum number of bytes to
    skip when using the GAS .p2align command. */
@@ -472,10 +481,8 @@
 /* Define if your compiler supports the \`long long' type. */
 #undef HAVE_LONG_LONG
 
-/* APPLE LOCAL begin Mach time */
 /* Define to 1 if you have the <mach/mach_time.h> header file. */
 #undef HAVE_MACH_MACH_TIME_H
-/* APPLE LOCAL end Mach time */
 
 /* Define to 1 if you have the <malloc.h> header file. */
 #undef HAVE_MALLOC_H

@@ -1,6 +1,6 @@
 /* Machine independent support for SVR4 /proc (process file system) for GDB.
 
-   Copyright 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001, 2003, 2005 Free Software Foundation, Inc.
 
    Written by Michael Snyder at Cygnus Solutions.
    Based on work by Fred Fish, Stu Grossman, Geoff Noer, and others.
@@ -780,18 +780,17 @@ _initialize_proc_api (void)
 {
   struct cmd_list_element *c;
 
-  c = add_set_cmd ("procfs-trace", no_class,
-		   var_boolean, (char *) &procfs_trace, 
-		   "Set tracing for /proc api calls.\n", &setlist);
+  add_setshow_boolean_cmd ("procfs-trace", no_class, &procfs_trace, _("\
+Set tracing for /proc api calls."), _("\
+Show tracing for /proc api calls."), NULL,
+			   set_procfs_trace_cmd,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 
-  add_show_from_set (c, &showlist);
-  set_cmd_sfunc (c, set_procfs_trace_cmd);
-  set_cmd_completer (c, filename_completer);
-
-  c = add_set_cmd ("procfs-file", no_class, var_filename,
-		   (char *) &procfs_filename, 
-		   "Set filename for /proc tracefile.\n", &setlist);
-
-  add_show_from_set (c, &showlist);
-  set_cmd_sfunc (c, set_procfs_file_cmd);
+  add_setshow_filename_cmd ("procfs-file", no_class, &procfs_filename, _("\
+Set filename for /proc tracefile."), _("\
+Show filename for /proc tracefile."), NULL,
+			    set_procfs_file_cmd,
+			    NULL, /* FIXME: i18n: */
+			    &setlist, &showlist);
 }

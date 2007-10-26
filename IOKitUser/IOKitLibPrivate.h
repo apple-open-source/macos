@@ -1,4 +1,3 @@
-
 struct IONotificationPort
 {
     mach_port_t		masterPort;
@@ -26,12 +25,12 @@ kern_return_t
 iokit_user_client_trap(
                        io_connect_t	connect,
                        unsigned int	index,
-                       void *p1,
-                       void *p2,
-                       void *p3,
-                       void *p4,
-                       void *p5,
-                       void *p6 );
+                       uintptr_t p1,
+                       uintptr_t p2,
+                       uintptr_t p3,
+                       uintptr_t p4,
+                       uintptr_t p5,
+                       uintptr_t p6 );
 
 kern_return_t
 IOServiceGetState(

@@ -1,0 +1,169 @@
+<!DOCTYPE linuxdoc PUBLIC "-//Xorg//DTD linuxdoc//EN" [
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+]>
+<article>
+
+<!-- TitleS information -->
+
+<title>Information for SCO OpenServer Users
+<author>J. Kean Johnston (jkj@sco.com)
+<date>1 November 2005
+
+<ident>
+$XdotOrg: doc/xorg-docs/sgml/SCO.sgml,v 1.4 2005/11/08 06:33:28 jkj Exp $
+</ident>
+
+<!-- Table of contents -->
+<toc>
+
+<!-- Begin the document -->
+
+<sect>Requirements<p>
+
+Before you can either compile or execute a binary distribution of
+X11R&relvers, the following conditions must be met:
+<itemize>
+  <item>Ensure that you are running Release 5.0.4 or later. This is required
+    because OSS646 is only supported on those platforms. There are no plans
+    to support X11R&relvers; on earlier releases of OpenServer.
+  <item>Ensure that OSS646, the ``Execution Environment Update'' package is
+    installed, if appropriate.  Check the release notes for that update
+    to see whether or not your current operating system requires this
+    update.  At least version OSS646B is required.  If you are running
+    SCO OpenServer Release 5.0.7, you must have Maintenance Pack 4 installed.
+  <item>Ensure that the "Graphics, Web and X11 Libraries" package is
+    installed.  At least version 2.1.0Ba is required.  You should always
+    install the latest possible version of this supplement that is valid
+    for your operating system release.  From time to time this release is
+    bundled with Maintenance Packs, so if you are running 5.0.7 or later,
+    the latest version may be in the latest Maintenance Pack.  Always check
+    the release notes for GWXLIBS to see if your platform requires the
+    update.  The latest version can always be found at the
+    <url name="SCO FTP site" url="ftp://ftp.sco.com/pub/openserver5/opensrc">.
+  <item>To compile X11R&relvers;, you must use the SCO-supported version of
+    the GNU C Compiler.  It is possible that Skunkware versions of the
+    compiler will work too, but this has not been tested.  The ``GNU
+    Development System'' is available for all releases from (and including)
+    SCO OpenServer Release 5.0.5.  It is provided with the operating system
+    in all versions from Release 5.0.7, although you need to run ``custom''
+    to install it from the media.  You can always download the latest
+    latest version of the GNU Development System from the
+    <url name="SCO FTP site" url="ftp://ftp.sco.com/pub/openserver5/opensrc">.
+  <item>If you are not using OSR 5.0.7 or later, you need to get an updated
+    console driver.  See <url url="http://www.sco.com"> for details on
+    OpenServer supplements.  If you can't or don't want to upgrade your
+    console driver, X11R&relvers; will still compile, but you may run into
+    problems with some cards such as the Riva TNT and ATI Rage cards.
+    The problem with the console driver in 5.0.6A and earlier is that
+    when the X server sets graphics mode, the driver does not set a
+    status bit, so any text that is sent directly to <tt>/dev/console</tt>,
+    such as kernel warning or notice messages when you access tape drives
+    or NFS notices, will be sent to the console video memory.  This just
+    happens to be slap bang in the middle of palette data for the Riva
+    TNT, so you get color map corruption.  The updated console driver
+    also has an improved mechanism for allocating video memory that
+    X11R&relvers; detects at compile time, and it will use it if it exists.
+    It is STRONGLY recommended that you get the console driver update.
+
+</itemize>
+
+<sect>Compiling X11R&relvers;<p>
+
+Using the GNU Development System, compiling the distribution should be fairly
+straightforward.  Before attempting to compile the system though, you
+should make sure that you have met all of the requirements above.
+To actually start the compilation, perform the following steps:
+
+<itemize>
+  <item>Copy the unmodified <tt>xorgsite.def</tt> in <tt>xc/config/cf</tt>
+    to <tt>host.def</tt>. Edit <tt>host.def</tt> and make any changes you
+    think you need. The most useful options to change are <tt>HasTcl</tt>,
+    <tt>HasTk</tt>, <tt>HasXdmAuth</tt> if you have the file
+    <tt>WrapHelp.c</tt> and <tt>GccWarningOptions</tt>. Due to the nature
+    of OpenServer's header files, the default options for this last setting
+    are a bit aggressive, and I recommend you set this option to
+    <tt>-Wpointer-arith</tt>.
+
+  <item>Make sure that the official version of the GNU Development System
+    is first in your <tt>PATH</tt>.  The official version lives in
+    <tt>/usr/gnu/bin</tt>, and the Skunkware version (if any) lives in
+    <tt>/usr/local/bin</tt>. You must ensure that <tt>/usr/gnu/bin</tt>
+    appears first in your <tt>PATH</tt>.
+
+  <item>Go to the top level of the source tree and execute the command
+    <tt>CC=gcc make World BOOTSTRAPCFLAGS=-DSCO5 2&gt;&amp;1 | tee world.log</tt>.
+    This will do a full build, and send all of the build results to the
+    file <tt>world.log</tt>.
+    
+  <item>If the build succeeded, install the new server by executing the
+    command <tt>make install 2&gt;&amp;1 | tee install.log</tt> as root.
+    This will send the install results to the file <tt>install.log</tt>.
+
+  <item>If you want to install the manual pages, execute the command
+    <tt>make install.man 2&gt;&amp;1 | tee -a install.log</tt> as root.
+</itemize>
+
+<sect>Before Running X11R&relvers;<p><label id="sec-runxorg">
+
+The SCO <tt/xterm/ terminfo description is not compatible with the <tt/xterm/
+in the R5 distribution.<p>
+
+To use a Bus/Keyboard or PS2 mouse you should configure the mouse drivers
+using '<tt>mkdev mouse</tt>'.  You may then use the 
+<tt>OsMouse</tt> option in your <tt>xorg.conf</tt> to specify that X
+should use the SCO mouse drivers.  To do this, set the <tt>Protocol</tt> to
+"<tt>OsMouse</tt>" in the <tt>Pointer</tt> section of your
+<tt>xorg.conf</tt> file.  You can also use "<tt>OsMouse</tt>" for your 
+serial mouse, especially if you are having trouble getting your mouse to
+work using the X mouse drivers.<p>
+
+<sect>Switching Consoles<p>
+
+X11R&relvers; uses similar console switching keys as the SCO R4 and R5
+servers.  That is, <tt>Ctrl-PrntScr</tt> takes you to the next console along
+from the one X is running on.  If this is the last console it will take
+you to console 1. <tt>Ctrl-Alt-FXX</tt>, where <tt>XX</tt> is a function
+key between <tt>F1</tt> and <tt>F12</tt> will switch you to the console
+number assigned to that function key. <tt>F1</tt> corresponds to
+<tt>tty01</tt> (or console 1), <tt>F2</tt> corresponds to <tt>tty02</tt>
+(or console 2) etc.<p>
+
+Unlike the SCO X server, the "kill me now" key is <tt>Alt+Ctrl+Backspace</tt>.
+This does not ask for confirmation, it simply kills the X server as
+immediately as possible.  Use with extreme caution.  This may cause
+applications to terminate in an unpredictable way.  You can set the
+<tt>DontZap</tt> option in the <tt>ServerFlags</tt> section of your
+<tt>XF86Config</tt> file to disable this.
+
+<sect>Setting up Man Pages<p>
+
+After compiling the tree, or after installing the binary distribution you
+can get <tt>man</tt> to recognise the Xorg man pages by adding 
+<tt>/usr/X11R6/man</tt> to
+the <tt>MANPATH</tt> in <tt>/etc/default/man</tt>. The line should 
+look similar to:
+<tscreen><verb>
+    MANPATH=/usr/man:/usr/gnu/man:/usr/X11R6/man:/usr/local/man
+</verb></tscreen>
+This allows all users to view the X man pages.  You may change your own
+<tt>MANPATH</tt> environment variable if you do not want everyone to access the
+man pages.<p>
+
+By default the man pages are compressed using ``<tt>compress</tt>'' to
+conserve space.  If you do not want to compress the man pages change
+<tt>CompressManPages</tt> to <tt>NO</tt> in your ``<tt>host.def</tt>''
+file.  Those using the binary distribution can use ``<tt>uncompress</tt>''
+to uncompress the man pages.  Binary distributions contain pre-formatted
+versions of all man pages.  If you are compiling the server yourself, you
+need to have the GNU Tools package installed to get groff, the GNU
+nroff replacement, to format the man pages.  Use the <tt>manroff</tt>
+script to format the manual pages yourself.
+
+<sect>Using SCO binaries/servers.<p>
+
+X11R&relvers; will accept connections from SCO binaries (R3 upwards) and the
+SCO R5 server will also accept connections from X11R&relvers binaries. This
+means you may mix and match the two if you have ODT.  For example you may
+still use the Panning Motif window manager (pmwm) if you prefer.
+
+</article>

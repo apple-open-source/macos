@@ -1,9 +1,10 @@
 ;;; edt-mapper.el --- create an EDT LK-201 map file for X-Windows Emacs
 
-;; Copyright (C) 1994, 1995, 2000, 2001  Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1995, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Kevin Gallagher <kevingal@onramp.net>
-;; Maintainer: Kevin Gallagher <kevingal@onramp.net>
+;; Author: Kevin Gallagher <Kevin.Gallagher@boeing.com>
+;; Maintainer: Kevin Gallagher <Kevin.Gallagher@boeing.com>
 ;; Keywords: emulations
 
 ;; This file is part of GNU Emacs.
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 ;;
@@ -91,7 +92,7 @@
 ;;  can try to figure out why the key is being ignored.
 
 ;;; History:
-;; 
+;;
 
 ;;  Version 4.0    2000    Added 2 New Features
 
@@ -113,13 +114,12 @@
   (sit-for 600)
   (kill-emacs t)))
 
-
 ;;;
 ;;;  Decide Emacs Variant, GNU Emacs or XEmacs (aka Lucid Emacs).
 ;;;  Determine Window System, and X Server Vendor (if appropriate).
 ;;;
 (defconst edt-x-emacs-p (string-match "XEmacs" emacs-version)
-  "Non-NIL if we are running XEmacs version 19, or higher.")
+  "Non-nil if we are running XEmacs version 19, or higher.")
 
 (defconst edt-emacs-variant (if edt-x-emacs-p "xemacs" "gnu")
   "Indicates Emacs variant:  GNU Emacs or XEmacs \(aka Lucid Emacs\).")
@@ -129,8 +129,12 @@
 
 (defconst edt-xserver (if (eq edt-window-system 'x)
 			  (if edt-x-emacs-p
-			      (replace-in-string (x-server-vendor) "[ _]" "-")
-			    (subst-char-in-string ?  ?- (x-server-vendor)))
+			      ;; The Cygwin window manager has a `/' in its
+			      ;; name, which breaks the generated file name of
+			      ;; the custom key map file.  Replace `/' with a
+			      ;; `-' to work around that.
+			      (replace-in-string (x-server-vendor) "[ /]" "-")
+			    (subst-char-in-string ?/ ?- (subst-char-in-string ?  ?- (x-server-vendor))))
 			nil)
   "Indicates X server vendor name, if applicable.")
 
@@ -146,7 +150,12 @@
 (defvar edt-return-seq nil)
 (defvar edt-term nil)
 
-;;;  
+;; To silence the byte-compiler
+(eval-when-compile
+  (defvar EDT-key-name)
+  (defvar edt-save-function-key-map))
+
+;;;
 ;;;  Determine Terminal Type (if appropriate).
 ;;;
 
@@ -157,7 +166,7 @@
 ;;;
 ;;;  Make sure the window is big enough to display the instructions,
 ;;;  except where window cannot be re-sized.
-;;;  
+;;;
 
 (if (and edt-window-system (not (eq edt-window-system 'tty)))
     (set-frame-size (selected-frame) 80 36))
@@ -197,7 +206,7 @@
 
     Sometimes, edt-mapper will ignore a key you press, and just continue to
     prompt for the same key.  This can happen when your window manager sucks
-    up the key and doesn't pass it on to emacs, or it could be an emacs bug.
+    up the key and doesn't pass it on to Emacs, or it could be an Emacs bug.
     Either way, there's nothing that edt-mapper can do about it.  You must
     press RETURN, to skip the current key and continue.  Later, you and/or
     your local system guru can try to figure out why the key is being ignored.
@@ -217,7 +226,7 @@
     series terminal keyboard.  (The LK-201 keyboard is the standard
     keyboard attached to VT-200 series terminals, and above.)
 
-    If you are using an real LK-201 keyboard, you should map the keys
+    If you are using a real LK-201 keyboard, you should map the keys
     exactly as they are on the keyboard.
 
     Start by pressing the RETURN key, and continue by pressing the keys
@@ -234,7 +243,7 @@
 ;;;
 ;;;  For GNU Emacs, running in a Window System, first hide bindings in
 ;;;  function-key-map.
-;;;  
+;;;
 (cond
  (edt-x-emacs-p
   (setq edt-return-seq (read-key-sequence "Hit carriage-return <CR> to continue "))
@@ -252,7 +261,7 @@
 ;;;
 (global-unset-key [f1])
 (global-unset-key [f2])
-  
+
 ;;;
 ;;;   Display Keypad Diagram and Begin Prompting for Keys
 ;;;
@@ -459,7 +468,7 @@
     Your keyboard may have additional function keys which do not correspond
     to any LK-201 keys.  The EDT Emulation can be configured to recognize
     those keys, since you may wish to add your own key bindings to those keys.
-    
+
     For example, suppose your keyboard has a keycap marked \"Line Del\" and
     you wish to add it to the list of keys which can be customized by the EDT
     Emulation.  First, assign a unique single-word name to the key for use by
@@ -484,7 +493,7 @@
 ")
 ;;;
 ;;;  Restore function-key-map.
-;;;  
+;;;
 (if (and edt-window-system (not edt-x-emacs-p))
     (setq function-key-map edt-save-function-key-map))
 (setq EDT-key-name "")
@@ -521,4 +530,5 @@
 (sit-for 600)
 (kill-emacs t)
 
+;;; arch-tag: 9eea59c8-b8b7-4d66-b858-c8920624c518
 ;;; edt-mapper.el ends here

@@ -1,9 +1,11 @@
 ;;; cal-tex.el --- calendar functions for printing calendars with LaTeX
 
-;; Copyright (C) 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
 
 ;; Author: Steve Fisk <fisk@bowdoin.edu>
 ;;      Edward M. Reingold <reingold@cs.uiuc.edu>
+;; Maintainer: Glenn Morris <rgm@gnu.org>
 ;; Keywords: calendar
 ;; Human-Keywords: Calendar, LaTeX
 
@@ -21,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -43,12 +45,12 @@
 
 (require 'calendar)
 
-(autoload 'list-diary-entries "diary-lib" nil t)
+(autoload 'diary-list-entries "diary-lib" nil t)
 (autoload 'calendar-holiday-list "holidays" nil t)
 (autoload 'calendar-iso-from-absolute "cal-iso" nil t)
 
 ;;;
-;;; Customizable variables 
+;;; Customizable variables
 ;;;
 
 (defcustom cal-tex-which-days '(0 1 2 3 4 5 6)
@@ -119,23 +121,60 @@ will put the Hebrew date at the bottom of each day."
   :type 'integer
   :group 'calendar-tex)
 
+(defcustom cal-tex-preamble-extra nil
+  "A string giving extra LaTeX commands to insert in the calendar preamble.
+For example, to include extra packages:
+\"\\\\usepackage{foo}\\n\\\\usepackage{bar}\\n\"."
+  :type 'string
+  :group 'calendar-tex
+  :version "22.1")
+
+(defcustom cal-tex-hook nil
+  "*List of functions called after any LaTeX calendar buffer is generated.
+You can use this to do postprocessing on the buffer.  For example, to change
+characters with diacritical marks to their LaTeX equivalents, use
+     (add-hook 'cal-tex-hook
+               '(lambda () (iso-iso2tex (point-min) (point-max))))"
+  :type 'hook
+  :group 'calendar-tex)
+
+(defcustom cal-tex-year-hook nil
+  "*List of functions called after a LaTeX year calendar buffer is generated."
+  :type 'hook
+  :group 'calendar-tex)
+
+(defcustom cal-tex-month-hook nil
+  "*List of functions called after a LaTeX month calendar buffer is generated."
+  :type 'hook
+  :group 'calendar-tex)
+
+(defcustom cal-tex-week-hook nil
+  "*List of functions called after a LaTeX week calendar buffer is generated."
+  :type 'hook
+  :group 'calendar-tex)
+
+(defcustom cal-tex-daily-hook nil
+  "*List of functions called after a LaTeX daily calendar buffer is generated."
+  :type 'hook
+  :group 'calendar-tex)
+
 ;;;
 ;;; Definitions for LaTeX code
 ;;;
 
 (defvar  cal-tex-day-prefix "\\caldate{%s}{%s}"
-  "The initial LaTeX code for a day.  
+  "The initial LaTeX code for a day.
 The holidays, diary entries, bottom string, and the text follow.")
- 
+
 (defvar cal-tex-day-name-format "\\myday{%s}%%"
   "The format for LaTeX code for a day name.  The names are taken from
-calendar-day-name-array.")
+`calendar-day-name-array'.")
 
 (defvar cal-tex-cal-one-month
 "\\def\\calmonth#1#2%
 {\\begin{center}%
 \\Huge\\bf\\uppercase{#1} #2 \\\\[1cm]%
-\\end{center}}% 
+\\end{center}}%
 \\vspace*{-1.5cm}%
 %
 "
@@ -145,7 +184,7 @@ calendar-day-name-array.")
 "\\def\\calmonth#1#2#3#4%
 {\\begin{center}%
 \\Huge\\bf #1 #2---#3 #4\\\\[1cm]%
-\\end{center}}% 
+\\end{center}}%
 \\vspace*{-1.5cm}%
 %
 "
@@ -209,7 +248,7 @@ This definition is the heart of the calendar!")
   "Generate a list of all diary-entries from absolute date D1 to D2."
   (let ((diary-list-include-blanks nil)
         (diary-display-hook 'ignore))
-    (list-diary-entries
+    (diary-list-entries
      (calendar-gregorian-from-absolute d1)
      (1+ (- d2 d1)))))
 
@@ -219,11 +258,13 @@ Preamble Includes initial definitions for various LaTeX commands.
 Optional ARGS are included."
   (set-buffer (get-buffer-create cal-tex-buffer))
   (erase-buffer)
-  (insert "\\documentstyle")
+  (insert "\\documentclass")
   (if args
       (insert "[" args "]"))
-  (insert "{article}\n"
-          "\\hbadness 20000
+  (insert "{article}\n")
+  (if (stringp cal-tex-preamble-extra)
+      (insert cal-tex-preamble-extra "\n"))
+  (insert "\\hbadness 20000
 \\hfuzz=1000pt
 \\vbadness 20000
 \\lineskip 0pt
@@ -253,14 +294,14 @@ Optional ARGS are included."
 (defun cal-tex-cursor-year (&optional arg)
   "Make a buffer with LaTeX commands for the year cursor is on.
 Optional prefix argument specifies number of years."
-  (interactive "P")
+  (interactive "p")
   (cal-tex-year (extract-calendar-year (calendar-cursor-to-date t))
                 (if arg arg 1)))
 
 (defun cal-tex-cursor-year-landscape (&optional arg)
   "Make a buffer with LaTeX commands for the year cursor is on.
 Optional prefix argument specifies number of years."
-  (interactive "P")
+  (interactive "p")
   (cal-tex-year (extract-calendar-year (calendar-cursor-to-date t))
                 (if arg arg 1)
                 t))
@@ -304,7 +345,7 @@ four months each."
 (defun cal-tex-cursor-filofax-year (&optional arg)
   "Make a Filofax one page yearly calendar of year indicated by cursor.
 Optional parameter specifies number of years."
-  (interactive "P")
+  (interactive "p")
   (let* ((n (if arg arg 1))
          (year (extract-calendar-year (calendar-cursor-to-date t))))
     (cal-tex-preamble "twoside")
@@ -325,10 +366,15 @@ Optional parameter specifies number of years."
        (insert "\n")
        (cal-tex-noindent)
        (cal-tex-nl)
-       (calendar-for-loop i from 1 to 12 do
-          (insert (cal-tex-mini-calendar i year
-                                         (calendar-month-name i)
-                                         "1in" ".9in" "tiny" "0.6mm")))
+       (let ((month-names; don't use default in case user changed it
+              ;; These are only used to define the command names, not
+              ;; the names of the months they insert.
+              ["January" "February" "March" "April" "May" "June"
+               "July" "August" "September" "October" "November" "December"]))
+         (calendar-for-loop i from 1 to 12 do
+            (insert (cal-tex-mini-calendar i year
+                                           (aref month-names (1- i))
+                                           "1in" ".9in" "tiny" "0.6mm"))))
        (insert
 "\\noindent\\fbox{\\January}\\fbox{\\February}\\fbox{\\March}\\\\
 \\noindent\\fbox{\\April}\\fbox{\\May}\\fbox{\\June}\\\\
@@ -353,7 +399,7 @@ Optional parameter specifies number of years."
   "Make a buffer with LaTeX commands for the month cursor is on.
 Optional prefix argument specifies number of months to be produced.
 The output is in landscape format, one month to a page."
-  (interactive "P")
+  (interactive "p")
   (let* ((n (if arg arg 1))
          (date (calendar-cursor-to-date t))
          (month (extract-calendar-month date))
@@ -414,7 +460,8 @@ The output is in landscape format, one month to a page."
                                       year)))
                                  7)))
              (insert "\\vspace*{-\\cellwidth}\\hspace*{-2\\cellwidth}"
-                     "\\lastmonth\\nextmonth"))
+                     "\\lastmonth\\nextmonth%
+"))
          (if (/= i n)
              (progn
                (run-hooks 'cal-tex-month-hook)
@@ -430,7 +477,7 @@ The output is in landscape format, one month to a page."
   "Make a buffer with LaTeX commands for the month cursor is on.
 Optional prefix argument specifies number of months to be produced.
 Calendar is condensed onto one page."
-  (interactive "P")
+  (interactive "p")
   (let* ((date (calendar-cursor-to-date t))
          (month (extract-calendar-month date))
          (year (extract-calendar-year date))
@@ -470,12 +517,21 @@ Calendar is condensed onto one page."
          (setq other-year year)
          (cal-tex-insert-days month year diary-list holidays
                               cal-tex-day-prefix)
+         (if (= (mod (calendar-absolute-from-gregorian
+                          (list month
+                                (calendar-last-day-of-month month year)
+                                year))
+                         7)
+                6); last day of month was Saturday
+           (progn
+             (cal-tex-hfill)
+             (cal-tex-nl)))
          (increment-calendar-month month year 1))
       (cal-tex-insert-blank-days-at-end end-month end-year cal-tex-day-prefix)
       (cal-tex-end-document)))
   (run-hooks 'cal-tex-hook))
 
-(defun cal-tex-insert-days (month year diary-list holidays day-format) 
+(defun cal-tex-insert-days (month year diary-list holidays day-format)
   "Insert LaTeX commands for a range of days in monthly calendars.
 LaTeX commands are inserted for the days of the MONTH in YEAR.
 Diary entries on DIARY-LIST are included. Holidays on HOLIDAYS are included.
@@ -490,8 +546,8 @@ Each day is formatted using format DAY-FORMAT."
     (calendar-for-loop i from 1 to last do
        (setq date (list month i year))
        (if (memq (calendar-day-of-week date) cal-tex-which-days)
-           (progn 
-             (insert (format day-format (calendar-month-name month) i))
+           (progn
+             (insert (format day-format (cal-tex-month-name month) i))
              (cal-tex-arg (cal-tex-latexify-list diary-list date))
              (cal-tex-arg (cal-tex-latexify-list holidays date))
              (cal-tex-arg (eval cal-tex-daily-string))
@@ -507,20 +563,21 @@ Each day is formatted using format DAY-FORMAT."
   "Insert the names of the days at top of a monthly calendar."
   (calendar-for-loop i from 0 to 6 do
      (if (memq i cal-tex-which-days)
-         (insert (format cal-tex-day-name-format 
-                         (aref calendar-day-name-array 
-                               (mod (+ calendar-week-start-day i) 7)))))
+         (insert (format cal-tex-day-name-format
+                         (cal-tex-LaTeXify-string
+                          (aref calendar-day-name-array
+                                (mod (+ calendar-week-start-day i) 7))))))
      (cal-tex-comment)))
 
 (defun cal-tex-insert-month-header (n month year end-month end-year)
   "Create a title for a calendar.
-A title is inserted for a calendar with N months starting with 
+A title is inserted for a calendar with N months starting with
 MONTH YEAR and ending with END-MONTH END-YEAR."
-  (let ( (month-name (calendar-month-name  month))
-         (end-month-name (calendar-month-name  end-month)))
+  (let ((month-name (cal-tex-month-name  month))
+         (end-month-name (cal-tex-month-name  end-month)))
     (if (= 1 n)
         (insert (format "\\calmonth{%s}{%s}\n\\vspace*{-0.5cm}"
-                month-name year) )       
+                month-name year) )
         (insert (format "\\calmonth{%s}{%s}{%s}{%s}\n\\vspace*{-0.5cm}"
                 month-name year end-month-name end-year))))
   (cal-tex-comment))
@@ -536,7 +593,7 @@ blank, no days are inserted."
                (- (calendar-day-of-week (list month 1 year))
                   calendar-week-start-day)
                7)))
-        (calendar-for-loop i from 0 to (1- blank-days) do 
+        (calendar-for-loop i from 0 to (1- blank-days) do
             (if (memq i cal-tex-which-days)
                 (insert (format day-format " " " ") "{}{}{}{}%\n"))))))
 
@@ -551,7 +608,7 @@ The entry is formatted using DAY-FORMAT."
                (- (calendar-day-of-week (list month last-day year))
                   calendar-week-start-day)
                7)))
-        (calendar-for-loop i from (1+ blank-days) to 6 do 
+        (calendar-for-loop i from (1+ blank-days) to 6 do
            (if (memq i cal-tex-which-days)
                (insert (format day-format "" "") "{}{}{}{}%\n"))))))
 
@@ -588,8 +645,8 @@ in the calendar starting in MONTH YEAR."
 
 (defun cal-tex-number-weeks (month year n)
   "Determine the number of weeks in a range of dates.
-Compute the number of  weeks in the calendar starting with MONTH and YEAR, 
-and lasting N months, including only the days in WHICH-DAYS. As it stands, 
+Compute the number of  weeks in the calendar starting with MONTH and YEAR,
+and lasting N months, including only the days in WHICH-DAYS. As it stands,
 this is only an upper bound."
   (let ((d (list month 1 year)))
     (increment-calendar-month month year (1- n))
@@ -606,12 +663,17 @@ this is only an upper bound."
 ;;; Weekly calendars
 ;;;
 
+(defvar cal-tex-LaTeX-hourbox
+  "\\newcommand{\\hourbox}[2]%
+{\\makebox[2em]{\\rule{0cm}{#2ex}#1}\\rule{3in}{.15mm}}\n"
+  "One hour and a line on the right.")
+
 (defun cal-tex-cursor-week (&optional arg)
   "Make a buffer with LaTeX commands for a two-page one-week calendar.
 It applies to the week that point is in.
 Optional prefix argument specifies number of weeks.
 Holidays are included if `cal-tex-holidays' is t."
-  (interactive "P")
+  (interactive "p")
   (let* ((n (if arg arg 1))
          (date (calendar-gregorian-from-absolute
                 (calendar-dayname-on-or-before
@@ -637,14 +699,14 @@ Holidays are included if `cal-tex-holidays' is t."
        (cal-tex-vspace "-1.5in")
        (cal-tex-b-center)
        (cal-tex-Huge-bf (format "\\uppercase{%s}"
-                                (calendar-month-name month)))
+                                (cal-tex-month-name month)))
        (cal-tex-hspace "2em")
        (cal-tex-Huge-bf (number-to-string year))
        (cal-tex-nl ".5cm")
        (cal-tex-e-center)
        (cal-tex-hspace "-.2in")
        (cal-tex-b-parbox "l" "7in")
-       (calendar-for-loop j from 1 to 7 do 
+       (calendar-for-loop j from 1 to 7 do
           (cal-tex-week-hours date holidays "3.1")
           (setq date (cal-tex-incr-date date)))
        (cal-tex-e-parbox)
@@ -662,7 +724,7 @@ Holidays are included if `cal-tex-holidays' is t."
 It applies to the week that point is in.
 Optional prefix argument specifies number of weeks.
 Holidays are included if `cal-tex-holidays' is t."
-  (interactive "P")
+  (interactive "p")
   (let* ((n (if arg arg 1))
          (date (calendar-gregorian-from-absolute
                 (calendar-dayname-on-or-before
@@ -689,14 +751,14 @@ Holidays are included if `cal-tex-holidays' is t."
        (cal-tex-vspace "-1.5in")
        (cal-tex-b-center)
        (cal-tex-Huge-bf (format "\\uppercase{%s}"
-                                (calendar-month-name month)))
+                                (cal-tex-month-name month)))
        (cal-tex-hspace "2em")
        (cal-tex-Huge-bf (number-to-string year))
        (cal-tex-nl ".5cm")
        (cal-tex-e-center)
        (cal-tex-hspace "-.2in")
        (cal-tex-b-parbox "l" "\\textwidth")
-       (calendar-for-loop j from 1 to 3 do 
+       (calendar-for-loop j from 1 to 3 do
           (cal-tex-week-hours date holidays "5")
           (setq date (cal-tex-incr-date date)))
        (cal-tex-e-parbox)
@@ -724,7 +786,7 @@ Holidays are included if `cal-tex-holidays' is t."
        (insert "}")
        (cal-tex-nl)
        (cal-tex-b-parbox "l" "\\textwidth")
-       (calendar-for-loop j from 4 to 7 do 
+       (calendar-for-loop j from 4 to 7 do
                           (cal-tex-week-hours date holidays "5")
                           (setq date (cal-tex-incr-date date)))
        (cal-tex-e-parbox)
@@ -742,7 +804,7 @@ Holidays are included if `cal-tex-holidays' is t."
 Optional prefix argument specifies number of weeks.
 Diary entries are included if `cal-tex-diary' is t.
 Holidays are included if `cal-tex-holidays' is t."
-  (interactive "P")
+  (interactive "p")
   (let* ((n (if arg arg 1))
          (date (calendar-gregorian-from-absolute
                 (calendar-dayname-on-or-before
@@ -782,15 +844,15 @@ Holidays are included if `cal-tex-holidays' is t."
        (cal-tex-nl ".5cm")
        (cal-tex-e-center)
        (cal-tex-b-parbox "l" "\\textwidth")
-       (calendar-for-loop j from 1 to 7 do 
+       (calendar-for-loop j from 1 to 7 do
           (cal-tex-b-parbox "t" "\\textwidth")
           (cal-tex-b-parbox "t" "\\textwidth")
           (cal-tex-rule "0pt" "\\textwidth" ".2mm")
           (cal-tex-nl)
           (cal-tex-b-parbox "t" "\\textwidth")
-          (cal-tex-large-bf (calendar-day-name date))
+          (cal-tex-large-bf (cal-tex-LaTeXify-string (calendar-day-name date)))
           (insert ", ")
-          (cal-tex-large-bf (calendar-month-name month))
+          (cal-tex-large-bf (cal-tex-month-name month))
           (insert " ")
           (cal-tex-large-bf (number-to-string day))
           (if (not (string= "" (cal-tex-latexify-list holidays date)))
@@ -827,13 +889,8 @@ Holidays are included if `cal-tex-holidays' is t."
     (cal-tex-end-document)
     (run-hooks 'cal-tex-hook)))
 
-(defvar cal-tex-LaTeX-hourbox 
-  "\\newcommand{\\hourbox}[2]%
-{\\makebox[2em]{\\rule{0cm}{#2ex}#1}\\rule{3in}{.15mm}}\n"
-  "One hour and a line on the right.")
-
 (defun cal-tex-week-hours (date holidays height)
-  "Insert hourly entries for DATE with HOLIDAYS, with line height HEIGHT." 
+  "Insert hourly entries for DATE with HOLIDAYS, with line height HEIGHT."
   (let ((month (extract-calendar-month date))
         (day   (extract-calendar-day date))
         (year  (extract-calendar-year date))
@@ -842,9 +899,9 @@ Holidays are included if `cal-tex-holidays' is t."
   (cal-tex-cmd  "\\ \\\\[-.2cm]")
   (cal-tex-cmd "\\noindent")
   (cal-tex-b-parbox "l" "6.8in")
-  (cal-tex-large-bf (calendar-day-name date))
+  (cal-tex-large-bf (cal-tex-LaTeXify-string (calendar-day-name date)))
   (insert ", ")
-  (cal-tex-large-bf (calendar-month-name month))
+  (cal-tex-large-bf (cal-tex-month-name month))
   (insert " ")
   (cal-tex-large-bf (number-to-string day))
   (if (not (string= "" (cal-tex-latexify-list holidays date)))
@@ -873,7 +930,7 @@ Holidays are included if `cal-tex-holidays' is t."
 It applies to the week that point is in, and starts on Monday.
 Optional prefix argument specifies number of weeks.
 Holidays are included if `cal-tex-holidays' is t."
-  (interactive "P")
+  (interactive "p")
   (let* ((n (if arg arg 1))
          (date (calendar-gregorian-from-absolute
                 (calendar-dayname-on-or-before
@@ -911,12 +968,12 @@ Holidays are included if `cal-tex-holidays' is t."
 	(day (extract-calendar-day date))
 	(month (extract-calendar-month date))
 	(year (extract-calendar-year date))
-	(dayname (calendar-day-name date))
+	(dayname (cal-tex-LaTeXify-string (calendar-day-name date)))
 	(date1 (cal-tex-incr-date date))
 	(day1 (extract-calendar-day date1))
 	(month1 (extract-calendar-month date1))
 	(year1 (extract-calendar-year date1))
-	(dayname1 (calendar-day-name date1))
+	(dayname1 (cal-tex-LaTeXify-string (calendar-day-name date1)))
 	)
     (cal-tex-b-framebox "8cm" "l")
     (cal-tex-b-parbox "b" "7.5cm")
@@ -928,14 +985,14 @@ Holidays are included if `cal-tex-holidays' is t."
 	  (calendar-for-loop i from 8 to 12 do
 	     (insert (format "{\\large\\sf %d}\\\\\n" i)))
 	  (calendar-for-loop i from 1 to 5 do
-	     (insert (format "{\\large\\sf %d}\\\\\n" 
+	     (insert (format "{\\large\\sf %d}\\\\\n"
 			     (if cal-tex-24 (+ i 12) i))))))
     (cal-tex-nl ".5cm")
     (if weekend
 	(progn
 	  (cal-tex-vspace "1cm")
 	  (insert "\\ \\vfill")
-	  (insert (format "{\\Large\\bf %s,} %s/%s/%s\\\\\n" 
+	  (insert (format "{\\Large\\bf %s,} %s/%s/%s\\\\\n"
 			  dayname1 month1 day1 year1))
 	  (cal-tex-rule "0pt" "7.5cm" ".5mm")
 	  (cal-tex-nl "1.5cm")
@@ -949,7 +1006,7 @@ Holidays are included if `cal-tex-holidays' is t."
 Optional prefix argument specifies number of weeks.
 Diary entries are included if `cal-tex-diary' is t.
 Holidays are included if `cal-tex-holidays' is t."
-  (interactive "P")
+  (interactive "p")
   (let* ((n (if arg arg 1))
          (date (calendar-gregorian-from-absolute
                 (calendar-dayname-on-or-before
@@ -1009,29 +1066,29 @@ Holidays are included if `cal-tex-holidays' is t."
           (if (= (extract-calendar-month date)
                  (extract-calendar-month d))
               (format "%s %s"
-                      (calendar-month-name
+                      (cal-tex-month-name
                        (extract-calendar-month date))
                       (extract-calendar-year date))
             (if (=  (extract-calendar-year date)
                     (extract-calendar-year d))
                 (format "%s---%s %s"
-                        (calendar-month-name
+                        (cal-tex-month-name
                          (extract-calendar-month date))
-                        (calendar-month-name
+                        (cal-tex-month-name
                          (extract-calendar-month d))
                         (extract-calendar-year date))
               (format "%s %s---%s %s"
-                      (calendar-month-name
+                      (cal-tex-month-name
                        (extract-calendar-month date))
                       (extract-calendar-year date)
-                      (calendar-month-name (extract-calendar-month d))
+                      (cal-tex-month-name (extract-calendar-month d))
                       (extract-calendar-year d))))))
        (insert "%\n")
-       (calendar-for-loop j from 1 to 7 do 
+       (calendar-for-loop j from 1 to 7 do
           (if (= (mod i 2) 1)
               (insert "\\rightday")
             (insert "\\leftday"))
-          (cal-tex-arg (calendar-day-name date))
+          (cal-tex-arg (cal-tex-LaTeXify-string (calendar-day-name date)))
           (cal-tex-arg (int-to-string (extract-calendar-day date)))
           (cal-tex-arg (cal-tex-latexify-list diary-list date))
           (cal-tex-arg (cal-tex-latexify-list holidays date))
@@ -1048,10 +1105,10 @@ Holidays are included if `cal-tex-holidays' is t."
 (defun cal-tex-cursor-filofax-week (&optional arg)
   "One-week-at-a-glance Filofax style calendar for week indicated by cursor.
 Optional prefix argument specifies number of weeks.
-Weeks start on Monday. 
+Weeks start on Monday.
 Diary entries are included if `cal-tex-diary' is t.
 Holidays are included if `cal-tex-holidays' is t."
-  (interactive "P")
+  (interactive "p")
   (let* ((n (if arg arg 1))
          (date (calendar-gregorian-from-absolute
                 (calendar-dayname-on-or-before
@@ -1118,27 +1175,27 @@ Holidays are included if `cal-tex-holidays' is t."
           (if (= (extract-calendar-month date)
                  (extract-calendar-month d))
               (format "%s %s"
-                      (calendar-month-name
+                      (cal-tex-month-name
                        (extract-calendar-month date))
                       (extract-calendar-year date))
             (if (=  (extract-calendar-year date)
                     (extract-calendar-year d))
                 (format "%s---%s %s"
-                        (calendar-month-name
+                        (cal-tex-month-name
                          (extract-calendar-month date))
-                        (calendar-month-name
+                        (cal-tex-month-name
                          (extract-calendar-month d))
                         (extract-calendar-year date))
               (format "%s %s---%s %s"
-                      (calendar-month-name
+                      (cal-tex-month-name
                        (extract-calendar-month date))
                       (extract-calendar-year date)
-                      (calendar-month-name (extract-calendar-month d))
+                      (cal-tex-month-name (extract-calendar-month d))
                       (extract-calendar-year d))))))
        (insert "%\n")
-       (calendar-for-loop j from 1 to 3 do 
+       (calendar-for-loop j from 1 to 3 do
           (insert "\\leftday")
-          (cal-tex-arg (calendar-day-name date))
+          (cal-tex-arg (cal-tex-LaTeXify-string (calendar-day-name date)))
           (cal-tex-arg (int-to-string (extract-calendar-day date)))
           (cal-tex-arg (cal-tex-latexify-list diary-list date))
           (cal-tex-arg (cal-tex-latexify-list holidays date))
@@ -1153,36 +1210,36 @@ Holidays are included if `cal-tex-holidays' is t."
           (if (= (extract-calendar-month date)
                  (extract-calendar-month d))
               (format "%s %s"
-                      (calendar-month-name
+                      (cal-tex-month-name
                        (extract-calendar-month date))
                       (extract-calendar-year date))
             (if (=  (extract-calendar-year date)
                     (extract-calendar-year d))
                 (format "%s---%s %s"
-                        (calendar-month-name
+                        (cal-tex-month-name
                          (extract-calendar-month date))
-                        (calendar-month-name
+                        (cal-tex-month-name
                          (extract-calendar-month d))
                         (extract-calendar-year date))
               (format "%s %s---%s %s"
-                      (calendar-month-name
+                      (cal-tex-month-name
                        (extract-calendar-month date))
                       (extract-calendar-year date)
-                      (calendar-month-name (extract-calendar-month d))
+                      (cal-tex-month-name (extract-calendar-month d))
                       (extract-calendar-year d))))))
        (insert "%\n")
-       (calendar-for-loop j from 1 to 2 do 
+       (calendar-for-loop j from 1 to 2 do
           (insert "\\rightday")
-          (cal-tex-arg (calendar-day-name date))
+          (cal-tex-arg (cal-tex-LaTeXify-string (calendar-day-name date)))
           (cal-tex-arg (int-to-string (extract-calendar-day date)))
           (cal-tex-arg (cal-tex-latexify-list diary-list date))
           (cal-tex-arg (cal-tex-latexify-list holidays date))
           (cal-tex-arg (eval cal-tex-daily-string))
           (insert "%\n")
           (setq date (cal-tex-incr-date date)))
-       (calendar-for-loop j from 1 to 2 do 
+       (calendar-for-loop j from 1 to 2 do
           (insert "\\weekend")
-          (cal-tex-arg (calendar-day-name date))
+          (cal-tex-arg (cal-tex-LaTeXify-string (calendar-day-name date)))
           (cal-tex-arg (int-to-string (extract-calendar-day date)))
           (cal-tex-arg (cal-tex-latexify-list diary-list date))
           (cal-tex-arg (cal-tex-latexify-list holidays date))
@@ -1198,11 +1255,11 @@ Holidays are included if `cal-tex-holidays' is t."
 
 (defun cal-tex-cursor-filofax-daily (&optional arg)
   "Day-per-page Filofax style calendar for week indicated by cursor.
-Optional prefix argument specifies number of weeks.  Weeks start on Monday. 
+Optional prefix argument specifies number of weeks.  Weeks start on Monday.
 Diary entries are included if `cal-tex-diary' is t.
 Holidays are included if `cal-tex-holidays' is t.
 Pages are ruled if `cal-tex-rules' is t."
-  (interactive "P")
+  (interactive "p")
   (let* ((n (if arg arg 1))
          (date (calendar-gregorian-from-absolute
                 (calendar-dayname-on-or-before
@@ -1266,7 +1323,7 @@ Pages are ruled if `cal-tex-rules' is t."
     (cal-tex-b-document)
     (cal-tex-cmd "\\pagestyle{empty}")
     (calendar-for-loop i from 1 to n do
-       (calendar-for-loop j from 1 to 5 do 
+       (calendar-for-loop j from 1 to 5 do
 	  (let ((odd (/= 0 (% j 2))))
 	    (insert (if odd "\\righthead" "\\lefthead"))
 	    (cal-tex-arg (calendar-date-string date))
@@ -1282,7 +1339,7 @@ Pages are ruled if `cal-tex-rules' is t."
 	  (cal-tex-newpage)
 	  (setq date (cal-tex-incr-date date)))
        (insert "%\n")
-       (calendar-for-loop j from 1 to 2 do 
+       (calendar-for-loop j from 1 to 2 do
 	  (insert "\\lefthead")
           (cal-tex-arg (calendar-date-string date))
           (insert "\\weekend")
@@ -1311,7 +1368,7 @@ Pages are ruled if `cal-tex-rules' is t."
 (defun cal-tex-cursor-day (&optional arg)
   "Make a buffer with LaTeX commands for the day cursor is on.
 Optional prefix argument specifies number of days."
-  (interactive "P")
+  (interactive "p")
   (let ((n (if arg arg 1))
         (date (calendar-absolute-from-gregorian (calendar-cursor-to-date t))))
     (cal-tex-preamble "12pt")
@@ -1333,7 +1390,7 @@ Optional prefix argument specifies number of days."
 (defun cal-tex-daily-page (date)
   "Make a calendar page for Gregorian DATE on 8.5 by 11 paper."
   (let* ((hour)
-         (month-name (calendar-month-name (extract-calendar-month date))))
+         (month-name (cal-tex-month-name (extract-calendar-month date))))
     (cal-tex-banner "cal-tex-daily-page")
     (cal-tex-b-makebox "4cm" "l")
     (cal-tex-b-parbox "b" "3.8cm")
@@ -1348,7 +1405,7 @@ Optional prefix argument specifies number of days."
     (cal-tex-e-makebox)
     (cal-tex-hfill)
     (cal-tex-b-makebox "4cm" "r")
-    (cal-tex-bf (calendar-day-name date))
+    (cal-tex-bf (cal-tex-LaTeXify-string (calendar-day-name date)))
     (cal-tex-e-makebox)
     (cal-tex-nl)
     (cal-tex-hspace ".4cm")
@@ -1393,7 +1450,7 @@ Optional prefix argument specifies number of days."
     (cal-tex-hfill)
     (insert "}")
     (cal-tex-banner "end of cal-tex-daily-page")))
-    
+
 ;;;
 ;;;  Mini calendars
 ;;;
@@ -1420,18 +1477,20 @@ COLSEP gives the column separation; 1mm is the default."
                       "}}r@{\\hspace{" colsep "}}r@{\\hspace{" colsep
                       "}}r@{\\hspace{" colsep "}}r@{\\hspace{0mm}}}%\n"
                       "\\multicolumn{7}{c}{"
-                      (calendar-month-name month)
+                      (cal-tex-month-name month)
                       " "
                       (int-to-string year)
                       "}\\\\[1mm]\n")))
     (calendar-for-loop i from 0 to 6 do
-      (setq str (concat str
-                        (substring (aref calendar-day-name-array 
-                                         (mod (+ calendar-week-start-day i) 7))
-                                   0 2)
-                        (if (/= i 6)
-                            " & "
-                          "\\\\[0.7mm]\n"))))
+      (setq str
+            (concat str
+                    (cal-tex-LaTeXify-string
+                     (substring (aref calendar-day-name-array
+                                      (mod (+ calendar-week-start-day i) 7))
+                                0 2))
+                    (if (/= i 6)
+                        " & "
+                      "\\\\[0.7mm]\n"))))
     (calendar-for-loop i from 1 to blank-days do
       (setq str (concat str " & ")))
     (calendar-for-loop i from 1 to last do
@@ -1453,7 +1512,7 @@ If optional N is given, the date of N days after DATE."
    (+ (if n n 1) (calendar-absolute-from-gregorian date))))
 
 (defun cal-tex-latexify-list (date-list date &optional separator final-separator)
-  "Return string with concatenated, LaTeXified entries in DATE_LIST for DATE.
+  "Return string with concatenated, LaTeXified entries in DATE-LIST for DATE.
 Use double backslash as a separator unless optional SEPARATOR is given.
 If resulting string is not empty, put separator at end if optional
 FINAL-SEPARATOR is t."
@@ -1493,12 +1552,12 @@ FINAL-SEPARATOR is t."
 
 (defun cal-tex-end-document ()
   "Finish the LaTeX document.
-Insert the trailer to LaTeX document, pop to LaTeX buffer, add 
+Insert the trailer to LaTeX document, pop to LaTeX buffer, add
 informative header, and run HOOK."
   (cal-tex-e-document)
   (latex-mode)
   (pop-to-buffer cal-tex-buffer)
-  (goto-char (point-min))    
+  (goto-char (point-min))
   (cal-tex-comment "       This buffer was produced by cal-tex.el.")
   (cal-tex-comment "       To print a calendar, type")
   (cal-tex-comment "          M-x tex-buffer RET")
@@ -1507,8 +1566,8 @@ informative header, and run HOOK."
 
 (defun cal-tex-insert-preamble (weeks landscape size &optional append)
   "Initialize the output buffer.
-Select the output buffer, and insert the preamble for a calendar of 
-WEEKS weeks.  Insert code for landscape mode if LANDSCAPE is true. 
+Select the output buffer, and insert the preamble for a calendar of
+WEEKS weeks.  Insert code for landscape mode if LANDSCAPE is true.
 Use pointsize SIZE.  Optional argument APPEND, if t, means add to end of
 without erasing current contents."
   (let ((width "18cm")
@@ -1520,7 +1579,7 @@ without erasing current contents."
     (if (not append)
         (progn
           (cal-tex-preamble size)
-          (if (not landscape) 
+          (if (not landscape)
             (progn
               (cal-tex-cmd "\\oddsidemargin -1.75cm")
               (cal-tex-cmd "\\def\\holidaymult{.06}"))
@@ -1538,16 +1597,16 @@ without erasing current contents."
                     (/ 1.1 (length cal-tex-which-days))))
     (cal-tex-cmd "\\setlength{\\cellheight}" height)
     (insert (format "\\setlength{\\cellheight}{%f\\cellheight}\n"
-                    (/ 1.0 weeks)))              
+                    (/ 1.0 weeks)))
     (cal-tex-cmd "\\ \\par")
     (cal-tex-vspace "-3cm")))
 
 (defvar cal-tex-LaTeX-subst-list
   '(("\"". "``")
     ("\"". "''");; Quote changes meaning when list is reversed.
-    ("@" . "\\verb|@|") 
-    ("&" . "\\&") 
-    ("%" . "\\%") 
+    ("@" . "\\verb|@|")
+    ("&" . "\\&")
+    ("%" . "\\%")
     ("$" . "\\$")
     ("#" . "\\#")
     ("_" . "\\_")
@@ -1573,6 +1632,10 @@ without erasing current contents."
           (setq tail (substring tail 1))
           (setq head (concat head (if pair (cdr pair) ch)))))
       head)))
+
+(defun cal-tex-month-name (month)
+  "The name of MONTH, LaTeXified."
+  (cal-tex-LaTeXify-string (calendar-month-name month)))
 
 (defun cal-tex-hfill () "Insert hfill." (insert "\\hfill"))
 
@@ -1609,11 +1672,11 @@ without erasing current contents."
 (defun cal-tex-nl (&optional skip comment)
   "End a line with \\.  If SKIP, then add that much spacing.
    Add COMMENT if present"
-  (insert "\\\\")       
-  (if skip 
+  (insert "\\\\")
+  (if skip
       (insert "[" skip "]"))
   (cal-tex-comment comment))
-    
+
 (defun cal-tex-arg (&optional text)
   "Insert optional TEXT surrounded by braces."
   (insert "{")
@@ -1732,4 +1795,5 @@ without erasing current contents."
 
 (provide 'cal-tex)
 
+;;; arch-tag: ca8168a4-5a00-4508-a565-17e3bccce6d0
 ;;; cal-tex.el ends here

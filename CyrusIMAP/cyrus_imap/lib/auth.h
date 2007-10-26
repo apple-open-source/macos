@@ -1,5 +1,5 @@
 /* auth.h -- Site authorization module
- * $Id: auth.h,v 1.5 2005/03/05 00:37:11 dasenbro Exp $
+ * $Id: auth.h,v 1.17 2006/11/30 17:11:22 murch Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -44,20 +44,37 @@
 #ifndef INCLUDED_AUTH_H
 #define INCLUDED_AUTH_H
 
-extern const char *auth_method_desc;
-
 struct auth_state;
+
+struct auth_mech {
+    const char *name;
+
+    char *(*canonifyid)(const char *identifier, size_t len);
+    int (*memberof)(struct auth_state *auth_state, 
+             const char *identifier);
+    struct auth_state *(*newstate)(const char *identifier);
+    void (*freestate)(struct auth_state *auth_state);
+};
+
+extern struct auth_mech *auth_mechs[];
+
+/* Note that some of these may be undefined symbols
+ * if libcyrus was not built with support for them */
+extern struct auth_mech auth_unix;
+extern struct auth_mech auth_pts;
+extern struct auth_mech auth_krb;
+extern struct auth_mech auth_krb5;
 
 /* auth_canonifyid: canonify the given identifier and return a pointer
  *                  to a static buffer with the canonified ID, or NULL on
  *                  failure */
 /* identifier: id to canonify */
 /* len: length of id, or 0 to do strlen(identifier) */
-extern char *auth_canonifyid(const char *identifier, size_t len);
+char *auth_canonifyid(const char *identifier, size_t len);
 
-extern int auth_memberof(struct auth_state *auth_state, 
-			 const char *identifier);
-extern struct auth_state *auth_newstate(const char *identifier);
-extern void auth_freestate(struct auth_state *auth_state);
+int auth_memberof(struct auth_state *auth_state, 
+ 	 const char *identifier);
+struct auth_state *auth_newstate(const char *identifier);
+void auth_freestate(struct auth_state *auth_state);
 
 #endif /* INCLUDED_AUTH_H */

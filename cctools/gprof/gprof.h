@@ -120,8 +120,8 @@ extern char *gmonname;
 struct arcstruct {
     struct nl		*arc_parentp;	/* pointer to parent's nl entry */
     struct nl		*arc_childp;	/* pointer to child's nl entry */
-    long		arc_count;	/* how calls from parent to child */
-    unsigned long	arc_order;	/* order called */
+    uint32_t		arc_count;	/* how calls from parent to child */
+    uint32_t		arc_order;	/* order called */
     double		arc_time;	/* time inherited along arc */
     double		arc_childtime;	/* childtime inherited along arc */
     struct arcstruct	*arc_parentlist; /* parents-of-this-child list */
@@ -136,11 +136,11 @@ typedef struct arcstruct	arctype;
  */
 struct nl {
     char		*name;		/* the name */
-    unsigned long	value;		/* the pc entry point */
-    unsigned long	svalue;		/* entry point aligned to histograms */
+    uint64_t		value;		/* the pc entry point */
+    uint64_t		svalue;		/* entry point aligned to histograms */
     double		time;		/* ticks in this routine */
     double		childtime;	/* cumulative ticks in children */
-    unsigned long	order;		/* order called */
+    uint32_t		order;		/* order called */
     long		ncall;		/* how many times called */
     long		selfcalls;	/* how many calls to self */
     double		propfraction;	/* what % of time propagates */
@@ -166,8 +166,8 @@ extern unsigned long nname;		/* the number of function names */
  * order files with the -S option.
  */
 struct file { 
-    unsigned long firstpc;
-    unsigned long lastpc; 
+    uint64_t firstpc;
+    uint64_t lastpc; 
     char *name;
     char *what_name;
 }; 
@@ -192,20 +192,20 @@ extern int	ncycle;		/* number of cycles discovered */
  * The information for the pc sample sets from the gmon.out file.
  */
 struct sample_set {
-    unsigned long s_lowpc;	/* lowpc from the profile file */
-    unsigned long s_highpc;	/* highpc from the profile file */
-    unsigned lowpc;		/* range profiled, in UNIT's */
-    unsigned highpc;
-    unsigned sampbytes;		/* number of bytes of samples */
-    unsigned long nsamples;	/* number of samples */
+    uint64_t s_lowpc;		/* lowpc from the profile file */
+    uint64_t s_highpc;		/* highpc from the profile file */
+    uint64_t lowpc;		/* range profiled, in UNIT's */
+    uint64_t highpc;
+    uint64_t sampbytes;		/* number of bytes of samples */
+    uint64_t nsamples;		/* number of samples */
     unsigned UNIT *samples;	/* in core accumulated samples */
     double scale;		/* scale factor converting samples to
 				   pc values: each sample covers scale
 				   bytes */
 #ifndef __OPENSTEP__
-    int version;
-    int profrate;
-    int spare[3];
+    int32_t version;
+    int32_t profrate;
+    int32_t spare[3];
 #endif
 };
 extern struct sample_set *sample_sets;
@@ -225,9 +225,10 @@ extern void get_rld_state_symbols(void);
  */
 struct dyld_image {
     char *name;
-    unsigned long vmaddr_slide;
+    uint64_t vmaddr_slide;
+    uint64_t image_header;
 };
-extern unsigned long image_count;
+extern uint32_t image_count;
 extern struct dyld_image *dyld_images;
 extern void get_dyld_state_symbols(void);
 
@@ -300,8 +301,8 @@ extern unsigned long nshlib_text_ranges;
     extern void addarc(
 	nltype *parentp,
 	nltype *childp,
-	unsigned long count,
-	unsigned long order);
+	uint32_t count,
+	uint32_t order);
 
     extern nltype **doarcs(
 	void);
@@ -321,8 +322,8 @@ extern unsigned long nshlib_text_ranges;
 	    void);
 
     extern void get_text_min_max(
-	unsigned long *text_min,
-	unsigned long *text_max);
+	uint64_t *text_min,
+	uint64_t *text_max);
 
 /* hertz.c */
     extern unsigned long hertz(
@@ -330,7 +331,7 @@ extern unsigned long nshlib_text_ranges;
 
 /* lookup.c */
     extern nltype *nllookup(
-	unsigned long address);
+	uint64_t address);
 
     extern arctype *arclookup(
 	nltype *parentp,

@@ -34,6 +34,8 @@ DbQueryKey::DbQueryKey(const DbConstIndex &index)
 // kUseQueryKeyOffset means to use the key provided as part of the
 // query; otherwise, the key comes from the database.
 
+const uint32 DbKeyComparator::kUseQueryKeyOffset;
+
 bool
 DbKeyComparator::operator () (uint32 offset1, uint32 offset2) const
 {
@@ -174,7 +176,7 @@ DbConstIndex::matchesQuery(const CSSM_QUERY &query, DbQueryKey *&queryKey) const
 	// determine which index attributes are used in the query
 	
 	auto_array<uint32> attributeUsed(mAttributes.size());
-	for (uint32 i = 0; i < mAttributes.size(); attributeUsed[i++] = ~0UL);
+	for (uint32 i = 0; i < mAttributes.size(); attributeUsed[i++] = ~(uint32)0);
 	
 	for (uint32 i = 0, j; i < numPredicates; i++) {
 		const MetaAttribute &tableAttribute =
@@ -182,7 +184,7 @@ DbConstIndex::matchesQuery(const CSSM_QUERY &query, DbQueryKey *&queryKey) const
 		
 		for (j = 0; j < mAttributes.size(); j++) {
 			if (tableAttribute.attributeId() == mAttributes[j]->attributeId()) {
-				if (attributeUsed[j] != ~0UL)
+				if (attributeUsed[j] != ~(uint32)0)
 					// invalid query: attribute appears twice
 					CssmError::throwMe(CSSMERR_DL_INVALID_QUERY);
 				else {
@@ -203,7 +205,7 @@ DbConstIndex::matchesQuery(const CSSM_QUERY &query, DbQueryKey *&queryKey) const
 	// the first N index components are the N query predicates in some order
 	
 	uint32 lastIndex;
-	for (lastIndex = mAttributes.size() - 1; (lastIndex >= 0) && (attributeUsed[lastIndex] == ~0UL);
+	for (lastIndex = mAttributes.size() - 1; (lastIndex >= 0) && (attributeUsed[lastIndex] == ~(uint32)0);
 		lastIndex--);
 		
 	if (lastIndex != numPredicates - 1)
@@ -274,13 +276,13 @@ DbConstIndex::performQuery(const DbQueryKey &queryKey,
 	case CSSM_DB_LESS_THAN:
 		begin = mKeyOffsetVector.begin();
 		end = lower_bound(begin, mKeyOffsetVector.end(),
-			DbKeyComparator::kUseQueryKeyOffset, cmp);
+				DbKeyComparator::kUseQueryKeyOffset, cmp);
 		break;
 		
 	case CSSM_DB_GREATER_THAN:
 		end = mKeyOffsetVector.end();
 		begin = lower_bound(mKeyOffsetVector.begin(), end,
-			DbKeyComparator::kUseQueryKeyOffset, cmp);
+				DbKeyComparator::kUseQueryKeyOffset, cmp);
 		break;
 		
 	default:

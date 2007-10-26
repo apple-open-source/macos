@@ -1,6 +1,7 @@
 ;;; em-cmpl.el --- completion using the TAB key
 
-;; Copyright (C) 1999, 2000 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,12 +19,13 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'em-cmpl)
 
 (eval-when-compile (require 'esh-maint))
+(require 'esh-util)
 
 (defgroup eshell-cmpl nil
   "This module provides a programmable completion function bound to
@@ -116,8 +118,9 @@ is non-nil."
     ("CC"       . "\\.[Cc]\\([Cc]\\|[Pp][Pp]\\)?\\'")
     ("acc"      . "\\.[Cc]\\([Cc]\\|[Pp][Pp]\\)?\\'")
     ("bcc"      . "\\.[Cc]\\([Cc]\\|[Pp][Pp]\\)?\\'")
-    ("objdump"  . "\\(\\`[^.]*\\|\\.[ao]\\)\\'")
-    ("nm"       . "\\(\\`[^.]*\\|\\.[ao]\\)\\'")
+    ("readelf"  . "\\(\\`[^.]*\\|\\.\\([ao]\\|so\\)\\)\\'")
+    ("objdump"  . "\\(\\`[^.]*\\|\\.\\([ao]\\|so\\)\\)\\'")
+    ("nm"       . "\\(\\`[^.]*\\|\\.\\([ao]\\|so\\)\\)\\'")
     ("gdb"      . "\\`\\([^.]*\\|a\\.out\\)\\'")
     ("dbx"      . "\\`\\([^.]*\\|a\\.out\\)\\'")
     ("sdb"      . "\\`\\([^.]*\\|a\\.out\\)\\'")
@@ -134,8 +137,7 @@ to writing a completion function."
   :type (get 'pcomplete-file-ignore 'custom-type)
   :group 'eshell-cmpl)
 
-(defcustom eshell-cmpl-dir-ignore
-  (format "\\`\\(\\.\\.?\\|CVS\\)%c\\'" directory-sep-char)
+(defcustom eshell-cmpl-dir-ignore "\\`\\(\\.\\.?\\|CVS\\)/\\'"
   (documentation-property 'pcomplete-dir-ignore
 			  'variable-documentation)
   :type (get 'pcomplete-dir-ignore 'custom-type)
@@ -153,7 +155,7 @@ to writing a completion function."
   :type (get 'pcomplete-autolist 'custom-type)
   :group 'eshell-cmpl)
 
-(defcustom eshell-cmpl-suffix-list (list directory-sep-char ?:)
+(defcustom eshell-cmpl-suffix-list (list ?/ ?:)
   (documentation-property 'pcomplete-suffix-list
 			  'variable-documentation)
   :type (get 'pcomplete-suffix-list 'custom-type)
@@ -277,13 +279,11 @@ to writing a completion function."
   ;; `pcomplete-arg-quote-list' should only be set after all the
   ;; load-hooks for any other extension modules have been run, which
   ;; is true at the time `eshell-mode-hook' is run
-  (make-local-hook 'eshell-mode-hook)
   (add-hook 'eshell-mode-hook
 	    (function
 	     (lambda ()
 	       (set (make-local-variable 'pcomplete-arg-quote-list)
 		    eshell-special-chars-outside-quoting))) nil t)
-  (make-local-hook 'pcomplete-quote-arg-hook)
   (add-hook 'pcomplete-quote-arg-hook 'eshell-quote-backslash nil t)
   (define-key eshell-mode-map [(meta tab)] 'lisp-complete-symbol)
   (define-key eshell-mode-map [(meta control ?i)] 'lisp-complete-symbol)
@@ -370,7 +370,8 @@ to writing a completion function."
 	   (setq args (nthcdr (1+ l) args)
 		 posns (nthcdr (1+ l) posns))))
     (assert (= (length args) (length posns)))
-    (when (and args (eq (char-syntax (char-before end)) ? ))
+    (when (and args (eq (char-syntax (char-before end)) ? )
+	       (not (eq (char-before (1- end)) ?\\)))
       (nconc args (list ""))
       (nconc posns (list (point))))
     (cons (mapcar
@@ -449,4 +450,5 @@ to writing a completion function."
 
 ;;; Code:
 
+;;; arch-tag: 0e914699-673a-45f8-8cbf-82e1dbc571bc
 ;;; em-cmpl.el ends here

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -87,7 +87,8 @@ public:
     UInt8									_pollM1;	
     UInt8									_offset;	
     UInt8									_responseToStall;
-    UInt8									_queueType;
+    UInt8									_queueType;						// Control, interrupt, etc.
+    UInt16									_functionNumber;
 	UInt8									_bandwidthUsed[8];
 };
 

@@ -62,6 +62,8 @@ public:
 	void 				Disable ( void );
 	void 				CancelTimeout ( void );
 	bool				Rearm ( void );
+	void				BeginTimeoutContext ( void );
+	void				EndTimeoutContext ( void );
 	
 	IOReturn 			SetTimeout (
 							SCSIParallelTaskIdentifier	taskIdentifier,
@@ -86,6 +88,7 @@ protected:
 private:
 	
 	SCSIParallelTask *		fTimeoutTaskListHead;
+	bool					fHandlingTimeout;
 	
 };
 

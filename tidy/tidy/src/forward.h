@@ -3,14 +3,14 @@
 
 /* forward.h -- Forward declarations for major Tidy structures
 
-  (c) 1998-2003 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
 
   CVS Info :
 
-    $Author: rbraun $ 
-    $Date: 2004/05/04 20:05:14 $ 
-    $Revision: 1.1.1.1 $ 
+    $Author: iccir $ 
+    $Date: 2007/02/03 02:31:29 $ 
+    $Revision: 1.4 $ 
 
   Avoids many include file circular dependencies.
 
@@ -23,6 +23,18 @@
 
 #include "platform.h"
 #include "tidy.h"
+
+/* Internal symbols are prefixed to avoid clashes with other libraries */
+#define TYDYAPPEND(str1,str2) str1##str2
+#define TY_(str) TYDYAPPEND(prvTidy,str)
+
+/* Apple Inc. Changes:
+   2007-01-29 iccir Do not prefix symbols
+*/
+#ifdef TIDY_APPLE_CHANGES
+#undef TY_
+#define TY_(str) str
+#endif
 
 struct _StreamIn;
 typedef struct _StreamIn StreamIn;

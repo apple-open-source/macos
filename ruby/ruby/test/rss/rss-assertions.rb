@@ -15,10 +15,10 @@ module RSS
   module Assertions
     
     def assert_parse(rss, assert_method, *args)
-      send("assert_#{assert_method}", *args) do
+      __send__("assert_#{assert_method}", *args) do
         ::RSS::Parser.parse(rss)
       end
-      send("assert_#{assert_method}", *args) do
+      __send__("assert_#{assert_method}", *args) do
         ::RSS::Parser.parse(rss, false).validate
       end
     end
@@ -71,19 +71,20 @@ module RSS
       end
     end
     
-    def assert_not_excepted_tag(tag, parent)
+    def assert_not_expected_tag(tag, uri, parent)
       _wrap_assertion do
         begin
           yield
-          flunk("Not raise NotExceptedTagError")
-        rescue ::RSS::NotExceptedTagError => e
+          flunk("Not raise NotExpectedTagError")
+        rescue ::RSS::NotExpectedTagError => e
           assert_equal(tag, e.tag)
+          assert_equal(uri, e.uri)
           assert_equal(parent, e.parent)
         end
       end
     end
     
-    def assert_not_available_value(tag, value)
+    def assert_not_available_value(tag, value, attribute=nil)
       _wrap_assertion do
         begin
           yield
@@ -91,6 +92,7 @@ module RSS
         rescue ::RSS::NotAvailableValueError => e
           assert_equal(tag, e.tag)
           assert_equal(value, e.value)
+          assert_equal(attribute, e.attribute)
         end
       end
     end
@@ -119,7 +121,7 @@ module RSS
       _wrap_assertion do
         n_attrs = normalized_attrs(attrs)
         ::RSS::XMLStyleSheet::ATTRIBUTES.each do |name|
-          assert_equal(n_attrs[name], xsl.send(name))
+          assert_equal(n_attrs[name], xsl.__send__(name))
         end
       end
     end
@@ -139,16 +141,16 @@ module RSS
       end
     end
     
-    def assert_xml_stylesheet_pis(attrs_ary)
+    def assert_xml_stylesheet_pis(attrs_ary, rss=nil)
       _wrap_assertion do
-        rdf = ::RSS::RDF.new()
+        rss ||= ::RSS::RDF.new()
         xss_strs = []
         attrs_ary.each do |attrs|
           xss = ::RSS::XMLStyleSheet.new(*attrs)
           xss_strs.push(xss.to_s)
-          rdf.xml_stylesheets.push(xss)
+          rss.xml_stylesheets.push(xss)
         end
-        pi_str = rdf.to_s.gsub(/<\?xml .*\n/, "").gsub(/\s*<rdf:RDF.*\z/m, "")
+        pi_str = rss.to_s.gsub(/<\?xml .*\n/, "").gsub(/\s*<[^\?].*\z/m, "")
         assert_equal(xss_strs.join("\n"), pi_str)
       end
     end
@@ -193,6 +195,7 @@ module RSS
 
     def assert_channel10_items(attrs, items)
       _wrap_assertion do
+        assert_equal(items.resources, items.Seq.lis.collect {|x| x.resource})
         items.Seq.lis.each_with_index do |li, i|
           assert_attributes(attrs[i], %w(resource), li)
         end
@@ -255,14 +258,16 @@ module RSS
       _wrap_assertion do
         hours = skipHours.hours
         contents.each_with_index do |content, i|
-          assert_equal(content, hours[i].content)
+          assert_equal(content.to_i, hours[i].content)
         end
       end
     end
     
     def assert_image09(attrs, image)
       _wrap_assertion do
-        names = %w(url link title description width height)
+        names = %w(url link title description)
+        names << ["width", :integer]
+        names << ["height", :integer]
         assert_attributes(attrs, names, image)
       end
     end
@@ -290,7 +295,8 @@ module RSS
         
         names = %w(title link description language copyright
                    managingEditor webMaster pubDate
-                   lastBuildDate generator docs ttl rating)
+                   lastBuildDate generator docs rating)
+        names << ["ttl", :integer]
         assert_attributes(attrs, names, channel)
 
         %w(cloud categories skipHours skipDays).each do |name|
@@ -313,7 +319,8 @@ module RSS
     
     def assert_channel20_cloud(attrs, cloud)
       _wrap_assertion do
-        names = %w(domain port path registerProcedure protocol)
+        names = %w(domain path registerProcedure protocol)
+        names << ["port", :integer]
         assert_attributes(attrs, names, cloud)
       end
     end
@@ -329,7 +336,9 @@ module RSS
     
     def assert_image20(attrs, image)
       _wrap_assertion do
-        names = %w(url link title description width height)
+        names = %w(url link title description)
+        names << ["width", :integer]
+        names << ["height", :integer]
         assert_attributes(attrs, names, image)
       end
     end
@@ -361,7 +370,7 @@ module RSS
     
     def assert_items20_enclosure(attrs, enclosure)
       _wrap_assertion do
-        names = %w(url length type)
+        names = ["url", ["length", :integer], "type"]
         assert_attributes(attrs, names, enclosure)
       end
     end
@@ -374,7 +383,8 @@ module RSS
     
     def assert_items20_guid(attrs, guid)
       _wrap_assertion do
-        assert_attributes(attrs, %w(isPermaLink content), guid)
+        names = [["isPermaLink", :boolean], ["content"]]
+        assert_attributes(attrs, names, guid)
       end
     end
 
@@ -394,10 +404,22 @@ module RSS
       end
     end
     
+    def assert_multiple_dublin_core(elems, target)
+      _wrap_assertion do
+        elems.each do |name, values, plural|
+          plural ||= "#{name}s"
+          actual = target.__send__("dc_#{plural}").collect{|x| x.value}
+          assert_equal(values, actual)
+        end
+      end
+    end
+    
     def assert_syndication(elems, target)
       _wrap_assertion do
         elems.each do |name, value|
-          assert_equal(value, target.__send__("sy_#{name}"))
+          meth = "sy_#{name}"
+          value = value.to_i if meth == "sy_updateFrequency"
+          assert_equal(value, target.__send__(meth ))
         end
       end
     end
@@ -424,17 +446,48 @@ module RSS
       end
     end
 
+    def assert_taxo_topic(topics, target)
+      _wrap_assertion do
+        topics.each_with_index do |topic, i|
+          taxo_topic = target.taxo_topics[i]
+          topic.each do |name, value|
+            case name
+            when :link
+              assert_equal(value, taxo_topic.about)
+              assert_equal(value, taxo_topic.taxo_link)
+            when :topics
+              assert_equal(value, taxo_topic.taxo_topics.resources)
+            else
+              assert_equal(value, taxo_topic.__send__("dc_#{name}"))
+            end
+          end
+        end
+      end
+    end
+
 
     def assert_attributes(attrs, names, target)
       _wrap_assertion do
         n_attrs = normalized_attrs(attrs)
-        names.each do |name|
+        names.each do |info|
+          if info.is_a?(String)
+            name = info
+            type = nil
+          else
+            name, type = info
+          end
           value = n_attrs[name]
           if value.is_a?(Time)
             actual = target.__send__(name)
             assert_instance_of(Time, actual)
             assert_equal(value.to_i, actual.to_i)
           elsif value
+            case type
+            when :integer
+              value = value.to_i
+            when :boolean
+              value = value == "true" if value.is_a?(String)
+            end
             assert_equal(value, target.__send__(name))
           end
         end

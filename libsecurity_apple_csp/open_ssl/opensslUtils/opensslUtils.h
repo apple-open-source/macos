@@ -44,6 +44,9 @@ private:
 	int mIrtn;
 };
 
+/* Clear openssl error stack. */
+void clearOpensslErrors();
+
 unsigned long logSslErrInfo(const char *op);
 
 void throwRsaDsa(

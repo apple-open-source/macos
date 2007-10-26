@@ -1,12 +1,12 @@
 .\"
-.\" Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+.\" Copyright (c) 2002-2006 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd August 19, 2002
+.Dd April 1, 2006
 .Dt PMSET 1
 .Os Darwin
 .Sh NAME
 .Nm pmset
-.Nd modify power management settings
+.Nd manipulate power management settings
 .Sh SYNOPSIS
 .Nm
 .Op Fl a | b | c | u
@@ -32,7 +32,7 @@
 .Op haltremain Ar minutes
 .Nm
 .Fl g
-.Op disk | live | cap | sched | ups | ps | pslog
+.Op disk | live | cap | sched | ups | ps | pslog | rawlog
 .Nm
 schedule
 .Op cancel 
@@ -42,6 +42,8 @@ type date+time
 repeat cancel
 .Nm
 repeat type weekdays time
+.Nm
+.Op touch | sleepnow | noidle | lock
 .\.Nm
 .\.Op Fl a b c u
 .\.Op dim
@@ -62,73 +64,160 @@ The
 .Fl b,
 .Fl c,
 .Fl u
-flags determine whether the settings apply to battery (-b), charger (wall power) (-c), UPS (-u) or all (-a).
+flags determine whether the settings apply to battery (
+.Fl b
+),
+charger (wall power) (
+.Fl c
+), UPS (
+.Fl u
+) or all (
+.Fl a
+).
 .Pp
 Use a minutes argument of 0 to set the idle time to never.
 .Pp
 .Nm
-must be run as root.
+must be run as root in order to modify any settings.
 .Pp
 The boot argument tells power management that system bootup is complete. Loginwindow handles this on a normal Mac OS X system.
 .Sh GETTING
-The
 .Fl g
-flag outputs the settings currently in use (same as
-.Fl g
-live
-).
+(with no argument) will display the settings currently in use.
 .br
 .Fl g
-disk
-will display settings on disk.
+.Ar live
+will also display the settings currently in use.
 .br
 .Fl g
-cap
+.Ar disk
+will display settings for all power sources, including those not currently in use.
+.br
+.Fl g
+.Ar cap
 will display which power management features the machine supports.
 .br
 .Fl g
-sched 
+.Ar sched 
 will display scheduled startup/wake and shutdown/sleep events.
 .br
 .Fl g
-ups
+.Ar ups
 will display UPS emergency thresholds.
 .br
 .Fl g
-ps
+.Ar ps
 will display status of batteries and UPSs.
 .br
 .Fl g
-pslog
-will display an ongoing log of power source state.
+.Ar pslog
+will display an ongoing log of power source (battery and UPS) state.
+.br
+.Fl g
+.Ar rawlog
+will display an ongoing log of battery state as read directly from battery.
+.br
+.Fl g
+.Ar profiles
+will display the settings associated with each Energy Saver profile.
 .Sh ARGUMENTS
-displaysleep - display sleep timer; replaces 'dim' argument in 10.4 (value in minutes)
+.Ar displaysleep
+- display sleep timer; replaces 'dim' argument in 10.4 (value in minutes, or 0 to disable)
 .br
-disksleep - disk spindown timer; replaces 'spindown' argument in 10.4 (value in minutes)
+.Ar disksleep 
+- disk spindown timer; replaces 'spindown' argument in 10.4 (value in minutes, or 0 to disable)
 .br
-sleep - system sleep timer (value in minutes)
+.Ar sleep
+- system sleep timer (value in minutes, or 0 to disable)
 .br
-womp - wake on ethernet magic packet (value = 0/1)
+.Ar womp
+- wake on ethernet magic packet (value = 0/1)
 .br
-ring - wake on modem ring (value = 0/1)
+.Ar ring
+- wake on modem ring (value = 0/1)
 .br
-autorestart - automatic restart on power loss (value = 0/1)
+.Ar autorestart
+- automatic restart on power loss (value = 0/1)
 .br
-dps - dynamically change processor speed based on load (value = 0/1)
+.Ar dps
+- dynamically change processor speed based on load (value = 0/1)
 .br
-reduce - reduce processor speed (value = 0/1)
+.Ar reduce
+- reduce processor speed (value = 0/1)
 .br
-powerbutton - sleep the machine when power button is pressed (value = 0/1)
+.Ar powerbutton
+- sleep the machine when power button is pressed (value = 0/1)
 .br
-lidwake - wake the machine when the laptop lid(or clamshell) is opened (value = 0/1)
+.Ar lidwake
+- wake the machine when the laptop lid (or clamshell) is opened (value = 0/1)
 .br
-acwake - wake the machine when power source (AC/battery) is changed (value = 0/1)
+.Ar acwake 
+- wake the machine when power source (AC/battery) is changed (value = 0/1)
 .br
-lessbright - slightly turn down display brightness when switching to this power source (value = 0/1)
+.Ar lessbright
+- slightly turn down display brightness when switching to this power source (value = 0/1)
 .br
-halfdim - display sleep will use an intermediate half-brightness state between full brightness and fully off  (value = 0/1)
+.Ar halfdim
+- display sleep will use an intermediate half-brightness state between full brightness and fully off  (value = 0/1)
 .br
-sms - use Sudden Motion Sensor to park disk heads on sudden changes in G force (value = 0/1)
+.Ar sms
+- use Sudden Motion Sensor to park disk heads on sudden changes in G force (value = 0/1)
+.br
+.Ar hibernatemode
+- change hibernation mode. Please use caution. (value = integer)
+.br
+.Ar hibernatefile
+- change hibernation image file location. Image may only be located on the root volume. Please use caution. (value = path)
+.br
+.Ar ttyskeepawake
+- prevent idle system sleep when any tty (e.g. remote login session) is 'active'. A tty is 'inactive' only when its idle time exceeds the system sleep timer. (value = 0/1)
+.Sh SETTINGS PROFILES
+Mac OS X stores sets of pre-defined Energy Saver settings in a few numbered profiles (1, 2, 3). 
+All user-modified settings are stored in the custom profile (-1). 
+The two numbered profiles 0 and 4 are unused.
+.Pp
+Profiles are set per-power source. Default profile selections are 
+.br
+(AC=2, Batt=1, UPS=1). See 
+.Pa Examples 
+for ways to set profiles.
+.Pp
+Any modifications made to Energy Saver settings via Energy Saver or pmset will automatically switch your active profile to Custom if it was not already Custom. OS X tracks the selected profiles and the settings for the Custom profile in 
+.Pa com.apple.PowerManagement.plist
+discussed in
+.Pa Files
+below.
+.Pp
+.Ar 1
+corresponds to Energy Saver Optimization for "Better Energy Savings"
+.br
+.Ar 2
+corresponds to Energy Saver Optimization for "Normal"
+.br
+.Ar 3
+corresponds to Energy Saver Optimization for "Better Performance"
+.br
+.Ar -1
+corresponds to Energy Saver Optimization for "Custom"
+.Sh SAFE SLEEP ARGUMENTS
+.Ar hibernatemode
+takes a bitfield argument defining SafeSleep behavior. Passing 0 disables SafeSleep altogether, forcing the computer into a regular sleep.
+.Pp
+.Ar 0001 
+(bit 0) enables hibernation; causes OS X to write memory state to hibernation image at sleep time. On wake (without bit 1 set) OS X will resume from the hibernation image. Bit 0 set (without bit 1 set) causes OS X to write memory state and immediately hibernate at sleep time.
+.Pp
+.Ar 0010
+(bit 1), in conjunction with bit 0, causes OS X to maintain system state in memory and leave system power on until battery level drops below a near empty threshold (This enables quicker wakeup from memory while battery power is available). Upon nearly emptying the battery, OS X shuts off all system power and hibernates; on wake the system will resume from hibernation image, not from memory. 
+.Pp
+.Ar hibernatemode 
+is set to 3 (binary 0011) by default on supported portables.
+.Pp
+.Ar hibernatemode 
+is set to 0 (binary 0000) by default on supported desktops.
+.Pp
+Please note that
+.Ar hibernatefile
+may only point to a file located on the root volume.
 .Sh UPS SPECIFIC ARGUMENTS
 .br
 UPS-specific arguments are only valid following the 
@@ -137,11 +226,16 @@ option. UPS settings also have an on/off value. Use a -1 argument instead of per
 or minutes to turn any of these settings off. If multiple halt conditions are specified,
 the system will halt on the first condition that occurs in a low power situation.
 .Pp
-haltlevel - when draining UPS battery, battery level at which to trigger an emergency shutdown (value in %)
+.Ar haltlevel
+- when draining UPS battery, battery level at which to trigger an emergency shutdown (value in %)
 .br
-haltafter - when draining UPS battery, trigger emergency shutdown after this long running on UPS power (value in minutes)
+.Ar haltafter
+- when draining UPS battery, trigger emergency shutdown after this long running on UPS power (value in minutes, or 0 to disable)
 .br
-haltremain - when draining UPS battery, trigger emergency shutdown when this much time remaining on UPS power is estimated (value in minutes)
+.Ar haltremain
+- when draining UPS battery, trigger emergency shutdown when this much time remaining on UPS power is estimated (value in minutes, or 0 to disable)
+.Pp
+Note: None of these settings are observed on a system with support for an internal battery, such as a laptop. UPS emergency shutdown settings are for desktop and server only.
 .Sh SCHEDULED EVENT ARGUMENTS
 .br
 pmset allows you to schedule system sleep, shutdown, wakeup and/or power on. "schedule"
@@ -149,42 +243,134 @@ is for setting up one-time power events, and "repeat" is for setting up daily/we
 power on and power off events. Note that you may only have one pair of repeating events
 scheduled - a "power on" event and a "power off" event.
 .Pp
-type - one of sleep, wake, poweron, shutdown, wakeorpoweron
+.Ar type 
+- one of sleep, wake, poweron, shutdown, wakeorpoweron
 .br
-date/time - MM/dd/yy HH:mm:ss (in 24 hour format)
+.Ar date/time
+- "MM/dd/yy HH:mm:ss" (in 24 hour format; must be in quotes)
 .br
-time - HH:mm:ss
+.Ar time 
+- HH:mm:ss
 .br
-weekdays - a subset of MTWRFSU ("M" and "MTWRF" are valid strings)
+.Ar weekdays
+- a subset of MTWRFSU ("M" and "MTWRF" are valid strings)
 .br
-owner - a string describing the person or program who is scheduling this one-time power event (optional)
+.Ar owner 
+- a string describing the person or program who is scheduling this one-time power event (optional)
+.Sh POWER SOURCE ARGUMENTS
+.Fl g 
+with a 'batt' or 'ps' argument will show the state of all attached power sources.
+A health estimate for the battery is appended to the end of the line, in the form
+(Fair/Good), indicating the battery is in 'Fair' health and we have 'Good' confidence
+in that estimate.
+.Pp
+Certain Apple battery calibration tools may temporarily disable battery charging, 
+even though your Apple portable is plugged into AC power. Such tools will never
+surprise you with this behavior; you will know it's happening. This state will be 
+reflected in an additional line of output to 'batt' or 'ps' readings, including the pid of the app inducing
+this behavior. 
+.Pp
+    'ChargeInhibit':    1432
+.Pp
+.Fl g 
+with a 'pslog' or 'rawlog' argument is normally used for debugging, such as isolating
+a problem with an aging battery.
 .Sh OTHER ARGUMENTS
-boot - tell the kernel that system boot is complete (normally LoginWindow does this). May be useful to Darwin users.
+.Ar boot 
+- tell the kernel that system boot is complete (normally LoginWindow does this). May be useful to Darwin users.
 .br
-force - tells PM to immediately activate these settings. Does not write them to disk, and the settings may easily be overwritten. Useful in circumstances where PM's configd plugin happens not to be running.
+.Ar force 
+- tells PM to immediately activate these settings. Does not write them to disk, and the settings may easily be overwritten. Useful in circumstances where PM's configd plugin happens not to be running.
 .br
-dim - deprecated in 10.4 in favor of 'displaysleep'. 'dim' will continue to work.
+.Ar touch
+- PM re-reads existing settings from disk.
 .br
-spindown - deprecated in 10.4 in favor of 'disksleep'. 'spindown' will continue to work.
+.Ar noidle
+- while continuousy running, pmset prevents idle sleep.
+.br
+.Ar sleepnow
+- causes an immediate system sleep
+.br
+.Ar dim 
+- deprecated in 10.4 in favor of 'displaysleep'. 'dim' will continue to work.
+.br
+.Ar spindown 
+- deprecated in 10.4 in favor of 'disksleep'. 'spindown' will continue to work.
 .Sh EXAMPLES
+This command sets displaysleep to a 5 minute timer on battery power, leaving
+other settings on battery power and other power sources unperturbed.
+.Pp
 .Nm
 .Fl b
 displaysleep 5
+.Pp
+Sets displaysleep to 10, disksleep to 10, system sleep to 30, and
+turns on WakeOnMagicPacket for ALL power sources (AC, Battery, and UPS) as appropriate
 .Pp
 .Nm
 .Fl a
 displaysleep 10 disksleep 10 sleep 30 womp 1
 .Pp
+Restores the system's energy settings to their default values. Any user modifications are preserved under the custom profile -1.
+.Pp
+.Nm
+-c 2 -b 1 -u 1
+.Pp
+Changes energy settings for all power sources to the Custom settings set via pmset or Energy Saver.
+.Pp
+.Nm
+-a -1
+.Pp
+For a system with an attached and supported UPS, this instructs the system to
+perform an emergency shutdown when UPS battery drains to below 40%.
+.Pp
 .Nm
 .Fl u
 haltlevel 40
 .Pp
+For a system with an attached and supported UPS, this instructs the system to
+perform an emergency shutdown when UPS battery drains to below 25%, or when the
+UPS estimates it has less than 30 minutes remaining runtime. The system shuts down
+as soon as either of these conditions is met.
+.Pp
+.Nm
+.Fl u
+haltlevel 25 haltremain 30
+.Pp
+For a system with an attached and supported UPS, this instructs the system to
+perform an emergency shutdown after 2 minutes of running on UPS battery power.
+.Pp
+.Nm
+.Fl u
+haltafter 2
+.Pp
+Schedules the system to automatically wake from sleep on July 4, 2009, at 8PM.
+.Pp
+.Nm
+schedule wake "07/04/09 20:00:00"
+.Pp
+Schedules a repeating shutdown to occur each day, Tuesday through Saturday, at 11AM.
+.Pp
+.Nm
+repeat shutdown TWRFS 11:00:00
+.Pp
+Prints the power management settings in use by the system.
+.Pp
 .Nm
 .Fl g
+.Pp
+Prints a snapshot of battery/power source state at the moment. 
 .Pp
 .Nm
 .Fl g
 batt
+.Pp
+If your system suddenly sleeps on battery power with 20-50% of capacity remaining, leave this command running in a Terminal window. When you see the problem and later power and wake the
+computer, you'll be able to detect sudden discontinuities (like a jump from 30% to 0%) indicative of an aging battery.
+.Pp
+.Nm
+.Fl g
+pslog
 .Pp
 .Sh Files
 All changes made through

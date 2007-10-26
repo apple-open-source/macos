@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,7 +26,7 @@
 #include <IOKit/IOPlatformExpert.h>           // superclass
 #include <IOKit/acpi/IOACPIPlatformDevice.h>  // children
 
-class IOACPIPlatformExpert : public IOPlatformExpert
+class IOACPIPlatformExpert : public IODTPlatformExpert
 {
     OSDeclareAbstractStructors( IOACPIPlatformExpert )
 

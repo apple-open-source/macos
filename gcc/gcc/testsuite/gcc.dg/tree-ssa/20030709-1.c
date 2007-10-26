@@ -2,7 +2,9 @@
 /* { dg-options "-O1 -fdump-tree-optimized" } */
                                                                                 
 static int copying_arguments;
-static int
+/* APPLE LOCAL begin mainline 4840357 */
+int
+/* APPLE LOCAL end mainline 4840357 */
 foo ()
 {
   unsigned int regno;

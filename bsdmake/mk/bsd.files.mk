@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.files.mk,v 1.3 2002/07/29 09:40:12 ru Exp $
+# $FreeBSD: src/share/mk/bsd.files.mk,v 1.4 2005/04/11 07:13:29 harti Exp $
 
 .if !target(__<bsd.init.mk>__)
 .error bsd.files.mk cannot be included directly.
@@ -60,10 +60,10 @@ _${group}INS: ${_${group}FILES}
 .endif
 .endif
 
-.endif defined(${group}) && !empty(${group})
+.endif # defined(${group}) && !empty(${group})
 .endfor
 
-.endif !target(installfiles)
+.endif # !target(installfiles)
 
 realinstall: installfiles
 .ORDER: beforeinstall installfiles

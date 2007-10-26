@@ -21,16 +21,15 @@
   * Global library.
   */
 #include <deliver_request.h>
+#include <bounce.h>
 
  /*
   * External interface.
   */
 #define SENT_FLAG_NONE	(0)
 
-extern int PRINTFLIKE(8, 9) sent(int, const char *, const char *, const char *,
-		              long, const char *, time_t, const char *,...);
-extern int vsent(int, const char *, const char *, const char *, long,
-		         const char *, time_t, const char *, va_list);
+extern int sent(int, const char *, MSG_STATS *, RECIPIENT *, const char *, 
+			DSN *);
 
 /* LICENSE
 /* .ad

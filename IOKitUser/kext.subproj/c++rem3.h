@@ -1,3 +1,5 @@
+#if !__LP64__
+
 /*
  * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
@@ -43,3 +45,4 @@ extern Rem3Return
 rem3_remangle_name(char *gcc3, int *gcc3size, const char *gcc295);
 
 __END_DECLS
+#endif // !__LP64__

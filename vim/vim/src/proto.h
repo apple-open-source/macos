@@ -62,9 +62,6 @@ extern int _stricoll __ARGS((char *a, char *b));
 # ifdef __BEOS__
 #  include "os_beos.pro"
 # endif
-# ifdef MACOS
-#  include "os_mac.pro"
-# endif
 # ifdef RISCOS
 #  include "os_riscos.pro"
 # endif
@@ -92,27 +89,39 @@ extern int _stricoll __ARGS((char *a, char *b));
 # ifdef FEAT_HANGULIN
 #  include "hangulin.pro"
 # endif
+# include "hardcopy.pro"
+# include "hashtab.pro"
 # include "main.pro"
 # include "mark.pro"
-# if !defined MESSAGE_FILE || defined(HAVE_STDARG_H)
-    /* These prototypes cannot be produced automatically and conflict with
-     * the old-style prototypes in message.c. */
-int
-#ifdef __BORLANDC__
-_RTLENTRYF
-#endif
-smsg __ARGS((char_u *, ...));
-int
-#ifdef __BORLANDC__
-_RTLENTRYF
-#endif
-smsg_attr __ARGS((int, char_u *, ...));
-# endif
 # include "memfile.pro"
 # include "memline.pro"
 # ifdef FEAT_MENU
 #  include "menu.pro"
 # endif
+
+# if !defined MESSAGE_FILE || defined(HAVE_STDARG_H)
+    /* These prototypes cannot be produced automatically and conflict with
+     * the old-style prototypes in message.c. */
+int
+#  ifdef __BORLANDC__
+_RTLENTRYF
+#  endif
+smsg __ARGS((char_u *, ...));
+int
+#  ifdef __BORLANDC__
+_RTLENTRYF
+#  endif
+smsg_attr __ARGS((int, char_u *, ...));
+int
+#  ifdef __BORLANDC__
+_RTLENTRYF
+#  endif
+vim_snprintf __ARGS((char *, size_t, char *, ...));
+#  if defined(HAVE_STDARG_H)
+int vim_vsnprintf(char *str, size_t str_m, char *fmt, va_list ap, typval_T *tvs);
+#  endif
+# endif
+
 # include "message.pro"
 # include "misc1.pro"
 # include "misc2.pro"
@@ -131,10 +140,14 @@ void qsort __ARGS((void *base, size_t elm_count, size_t elm_size, int (*cmp)(con
 # include "normal.pro"
 # include "ops.pro"
 # include "option.pro"
-# include "quickfix.pro"
+# include "popupmnu.pro"
+# ifdef FEAT_QUICKFIX
+#  include "quickfix.pro"
+# endif
 # include "regexp.pro"
 # include "screen.pro"
 # include "search.pro"
+# include "spell.pro"
 # include "syntax.pro"
 # include "tag.pro"
 # include "term.pro"
@@ -145,6 +158,10 @@ void qsort __ARGS((void *base, size_t elm_count, size_t elm_size, int (*cmp)(con
 # include "undo.pro"
 # include "version.pro"
 # include "window.pro"
+
+# ifdef FEAT_MZSCHEME
+#  include "if_mzsch.pro"
+# endif
 
 # ifdef FEAT_PYTHON
 #  include "if_python.pro"
@@ -172,6 +189,11 @@ extern char_u *vimpty_getenv __ARGS((const char_u *string));	/* from pty.c */
 #  ifdef FEAT_GUI_W16
 #   include "gui_w16.pro"
 #  endif
+    /* Ugly solution for "BalloonEval" not being defined while it's used in
+     * the prototypes. */
+#  ifndef FEAT_BEVAL
+#   define BalloonEval int
+#  endif
 #  ifdef FEAT_GUI_W32
 #   include "gui_w32.pro"
 #  endif
@@ -181,24 +203,19 @@ extern char_u *vimpty_getenv __ARGS((const char_u *string));	/* from pty.c */
 #  endif
 #  ifdef FEAT_GUI_MOTIF
 #   include "gui_motif.pro"
+#   include "gui_xmdlg.pro"
 #  endif
 #  ifdef FEAT_GUI_ATHENA
 #   include "gui_athena.pro"
-#ifdef FEAT_BROWSE
+#   ifdef FEAT_BROWSE
 extern char *vim_SelFile __ARGS((Widget toplevel, char *prompt, char *init_path, int (*show_entry)(), int x, int y, guicolor_T fg, guicolor_T bg, guicolor_T scroll_fg, guicolor_T scroll_bg));
-#endif
-#  endif
-#  ifdef FEAT_GUI_BEOS
-#   include "gui_beos.pro"
+#   endif
 #  endif
 #  ifdef FEAT_GUI_MAC
 #   include "gui_mac.pro"
 #  endif
 #  ifdef FEAT_GUI_X11
 #   include "gui_x11.pro"
-#  endif
-#  if defined(FEAT_GUI_AMIGA)
-#    include "gui_amiga.pro"
 #  endif
 #  ifdef RISCOS
 #   include "gui_riscos.pro"
@@ -222,7 +239,7 @@ extern char *vim_SelFile __ARGS((Widget toplevel, char *prompt, char *init_path,
 # endif
 
 /*
- * The perl include files pollute the namespace, therfore proto.h must be
+ * The perl include files pollute the namespace, therefore proto.h must be
  * included before the perl include files.  But then CV is not defined, which
  * is used in if_perl.pro.  To get around this, the perl prototype files are
  * not included here for the perl files.  Use a dummy define for CV for the
@@ -231,13 +248,17 @@ extern char *vim_SelFile __ARGS((Widget toplevel, char *prompt, char *init_path,
 #if defined(FEAT_PERL) && !defined(IN_PERL_FILE)
 # define CV void
 # ifdef __BORLANDC__
-#  pragma option -pc
+  #pragma option -pc
 # endif
 # include "if_perl.pro"
 # ifdef __BORLANDC__
-#  pragma option -p.
+  #pragma option -p.
 # endif
 # include "if_perlsfio.pro"
+#endif
+
+#ifdef MACOS_CONVERT
+# include "os_mac_conv.pro"
 #endif
 
 #ifdef __BORLANDC__

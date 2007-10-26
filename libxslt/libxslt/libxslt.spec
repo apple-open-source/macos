@@ -1,14 +1,14 @@
 Summary: Library providing the Gnome XSLT engine
 Name: libxslt
-Version: 1.1.11
+Version: 1.1.12
 Release: 1
 License: MIT
 Group: Development/Libraries
 Source: ftp://xmlsoft.org/XSLT/libxslt-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
 URL: http://xmlsoft.org/XSLT/
-Requires: libxml2 >= 2.6.8
-BuildRequires: libxml2-devel >= 2.6.8
+Requires: libxml2 >= 2.6.15
+BuildRequires: libxml2-devel >= 2.6.15
 BuildRequires: python python-devel
 BuildRequires: libxml2-python
 Prefix: %{_prefix}
@@ -17,7 +17,7 @@ Docdir: %{_docdir}
 %description
 This C library allows to transform XML files into other XML files
 (or HTML, text, ...) using the standard XSLT stylesheet transformation
-mechanism. To use it you need to have a version of libxml2 >= 2.6.8
+mechanism. To use it you need to have a version of libxml2 >= 2.6.15
 installed. The xsltproc command is a command line interface to the XSLT engine
 
 %package devel
@@ -29,15 +29,15 @@ Requires: libxml2-devel >= 2.5.6
 %description devel
 This C library allows to transform XML files into other XML files
 (or HTML, text, ...) using the standard XSLT stylesheet transformation
-mechanism. To use it you need to have a version of libxml2 >= 2.6.8
+mechanism. To use it you need to have a version of libxml2 >= 2.6.15
 installed.
 
 %package python
 Summary: Python bindings for the libxslt library
 Group: Development/Libraries
 Requires: libxslt = %{version}
-Requires: libxml2 >= 2.6.8
-Requires: libxml2-python >= 2.6.8
+Requires: libxml2 >= 2.6.15
+Requires: libxml2-python >= 2.6.15
 Requires: %{_libdir}/python%(echo `python -c "import sys; print sys.version[0:3]"`)
 
 %description python
@@ -77,6 +77,7 @@ rm -fr %{buildroot}
 
 %doc AUTHORS ChangeLog.gz NEWS README Copyright TODO FEATURES
 %doc doc/*.html doc/html doc/tutorial doc/tutorial2 doc/*.gif
+%doc doc/EXSLT
 %doc %{_mandir}/man1/xsltproc.1*
 %{_libdir}/lib*.so.*
 %{prefix}/bin/xsltproc
@@ -113,8 +114,8 @@ rm -fr %{buildroot}
 %doc python/tests/*.xsl
 
 %changelog
-* Wed Sep 29 2004 Daniel Veillard <veillard@redhat.com>
-- upstream release 1.1.11 see http://xmlsoft.org/XSLT/news.html
+* Fri Oct 29 2004 Daniel Veillard <veillard@redhat.com>
+- upstream release 1.1.12 see http://xmlsoft.org/XSLT/news.html
 
 * Sun Nov  2 2003 Daniel Veillard <veillard@redhat.com>
 - cleanup, removal of the deprecated breakpoint library and

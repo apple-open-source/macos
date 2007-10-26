@@ -31,4 +31,4 @@ void cache_sweep(cache_t *c);
 void cache_free(cache_t *c);
 void cache_print(cache_t *c, FILE *f);
 
-#endif _CACHE_H_
+#endif /* _CACHE_H_ */

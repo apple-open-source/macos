@@ -36,7 +36,7 @@
 static char sccsid[] = "@(#)if.c	8.3 (Berkeley) 4/28/95";
 */
 static const char rcsid[] =
-	"$Id: if.c,v 1.6.40.1 2006/01/10 05:26:27 lindak Exp $";
+	"$Id: if.c,v 1.7 2006/01/16 04:53:59 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -209,11 +209,21 @@ multipr(int family, char *buf, char *lim)
 			}
 	#ifdef INET6
 			case AF_INET6: {
-				struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)sa;
+				struct sockaddr_in6 sin6;
+
+				memcpy(&sin6, sa, sizeof(struct sockaddr_in6));
+
+				if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr) ||
+					IN6_IS_ADDR_MC_LINKLOCAL(&sin6.sin6_addr)) {
+					sin6.sin6_scope_id =
+						ntohs(*(u_int16_t *)&sin6.sin6_addr.s6_addr[2]);
+					sin6.sin6_addr.s6_addr[2] = 0;
+					sin6.sin6_addr.s6_addr[3] = 0;
+				}
 
 				printf("%23s %-19.19s(refs: %d)\n", "",
 						inet_ntop(AF_INET6,
-						&sin6->sin6_addr,
+						&sin6.sin6_addr,
 						ntop_buf,
 						sizeof(ntop_buf)),
 						ifmam->ifmam_refcount);
@@ -506,12 +516,15 @@ sidewaysintpr()
 {
 	struct iftot *total, *sum, *interesting;
 	register int line;
-	int oldmask, first;
+	int first;
 	int name[6];
 	size_t len;
 	unsigned int ifcount, i;
 	struct ifmibdata *ifmdall = 0;
 	int interesting_row;
+	sigset_t sigset, oldsigset;
+	struct itimerval timer_interval;
+
 
 	/* Common OID prefix */
 	name[0] = CTL_NET;
@@ -552,10 +565,14 @@ sidewaysintpr()
 	if ((sum = calloc(1, sizeof(struct iftot))) == NULL)
 		err(1, "malloc failed");
 
-
+	/* create a timer that fires repeatedly every interval seconds */
+	timer_interval.it_value.tv_sec = interval;
+	timer_interval.it_value.tv_usec = 0;
+	timer_interval.it_interval.tv_sec = interval;
+	timer_interval.it_interval.tv_usec = 0;
 	(void)signal(SIGALRM, catchalarm);
 	signalled = NO;
-	(void)alarm(interval);
+	(void)setitimer(ITIMER_REAL, &timer_interval, NULL);
 	first = 1;
 banner:
 	printf("%17s %14s %16s", "input",
@@ -662,13 +679,16 @@ loop:
 	if (!first)
 		putchar('\n');
 	fflush(stdout);
-	oldmask = sigblock(sigmask(SIGALRM));
-	if (! signalled) {
-		sigpause(0);
+	sigemptyset(&sigset);
+	sigaddset(&sigset, SIGALRM);
+	(void)sigprocmask(SIG_BLOCK, &sigset, &oldsigset);
+	if (!signalled) {
+	    sigemptyset(&sigset);
+	    sigsuspend(&sigset);
 	}
-	sigsetmask(oldmask);
+	(void)sigprocmask(SIG_SETMASK, &oldsigset, NULL);
+
 	signalled = NO;
-	(void)alarm(interval);
 	line++;
 	first = 0;
 	if (line == 21)
@@ -676,6 +696,37 @@ loop:
 	else
 		goto loop;
 	/*NOTREACHED*/
+}
+
+void
+intervalpr(void (*pr)(u_long, char *, int), u_long off, char *name , int af)
+{
+	struct itimerval timer_interval;
+	sigset_t sigset, oldsigset;
+
+	/* create a timer that fires repeatedly every interval seconds */
+	timer_interval.it_value.tv_sec = interval;
+	timer_interval.it_value.tv_usec = 0;
+	timer_interval.it_interval.tv_sec = interval;
+	timer_interval.it_interval.tv_usec = 0;
+	(void) signal(SIGALRM, catchalarm);
+	signalled = NO;
+	(void) setitimer(ITIMER_REAL, &timer_interval, NULL);
+
+	for (;;) {
+		pr(off, name, af);
+
+		fflush(stdout);
+		sigemptyset(&sigset);
+		sigaddset(&sigset, SIGALRM);
+		(void) sigprocmask(SIG_BLOCK, &sigset, &oldsigset);
+		if (!signalled) {
+			sigemptyset(&sigset);
+			sigsuspend(&sigset);
+		}
+		(void) sigprocmask(SIG_SETMASK, &oldsigset, NULL);
+		signalled = NO;
+	}
 }
 
 /*

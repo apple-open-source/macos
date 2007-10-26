@@ -1,6 +1,8 @@
 /* Fork a Unix child process, and set up to debug it, for GDB.
-   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000,
-   2001 Free Software Foundation, Inc.
+
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999,
+   2000, 2001, 2004 Free Software Foundation, Inc.
+
    Contributed by Cygnus Support.
 
    This file is part of GDB.
@@ -32,25 +34,28 @@
 #include "gdbthread.h"
 #include "gdbcmd.h"
 #include "command.h" /* for dont_repeat () */
-
+#include "solib.h"
+#include "osabi.h"
 #include <signal.h>
+#ifdef USE_POSIX_SPAWN
+#include <spawn.h>
+#endif
 
 char *exec_argv0 = NULL;
 char *exec_pathname = NULL;
 
-/* This just gets used as a default if we can't find SHELL */
+/* This just gets used as a default if we can't find SHELL.  */
 #ifndef SHELL_FILE
 #define SHELL_FILE "/bin/sh"
 #endif
 
 extern char **environ;
 
-/* This function breaks up an argument string into an argument
- * vector suitable for passing to execvp().
- * E.g., on "run a b c d" this routine would get as input
- * the string "a b c d", and as output it would fill in argv with
- * the four arguments "a", "b", "c", "d".
- */
+/* Break up SCRATCH into an argument vector suitable for passing to
+   execvp and store it in ARGV.  E.g., on "run a b c d" this routine
+   would get as input the string "a b c d", and as output it would
+   fill in ARGV with the four arguments "a", "b", "c", "d".  */
+
 static void
 breakup_args (char *scratch, char **argv)
 {
@@ -58,18 +63,15 @@ breakup_args (char *scratch, char **argv)
 
   for (;;)
     {
-
       /* Scan past leading separators */
       while (*cp == ' ' || *cp == '\t' || *cp == '\n')
-	{
-	  cp++;
-	}
+	cp++;
 
-      /* Break if at end of string */
+      /* Break if at end of string.  */
       if (*cp == '\0')
 	break;
 
-      /* Take an arg */
+      /* Take an arg.  */
       *argv++ = cp;
 
       /* Scan for next arg separator */
@@ -82,24 +84,23 @@ breakup_args (char *scratch, char **argv)
       if (*cp == '\0')
 	break;
 
-      /* Replace the separator with a terminator */
+      /* Replace the separator with a terminator.  */
       *cp++ = '\0';
     }
 
-  /* execv requires a null-terminated arg vector */
+  /* Null-terminate the vector.  */
   *argv = NULL;
-
 }
 
-/* When executing a command under the given shell, return non-zero
-   if the '!' character should be escaped when embedded in a quoted
+/* When executing a command under the given shell, return non-zero if
+   the '!' character should be escaped when embedded in a quoted
    command-line argument.  */
 
 static int
 escape_bang_in_quoted_argument (const char *shell_file)
 {
   const int shell_file_len = strlen (shell_file);
-  
+
   /* Bang should be escaped only in C Shells.  For now, simply check
      that the shell name ends with 'csh', which covers at least csh
      and tcsh.  This should be good enough for now.  */
@@ -115,14 +116,14 @@ escape_bang_in_quoted_argument (const char *shell_file)
   return 0;
 }
 
-/* Start an inferior Unix child process and sets inferior_ptid to its pid.
-   EXEC_FILE is the file to run.
-   ALLARGS is a string containing the arguments to the program.
-   ENV is the environment vector to pass.  SHELL_FILE is the shell file,
-   or NULL if we should pick one.  Errors reported with error().  */
+/* Start an inferior Unix child process and sets inferior_ptid to its
+   pid.  EXEC_FILE is the file to run.  ALLARGS is a string containing
+   the arguments to the program.  ENV is the environment vector to
+   pass.  SHELL_FILE is the shell file, or NULL if we should pick
+   one.  */
 
-/* This function is NOT-REENTRANT.  Some of the variables have been
-   made static to ensure that they survive the vfork() call.  */
+/* This function is NOT reentrant.  Some of the variables have been
+   made static to ensure that they survive the vfork call.  */
 
 void
 fork_inferior (char *exec_file_arg, char *allargs, char **env,
@@ -143,9 +144,10 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
   char **save_our_env;
   int shell = 0;
   static char **argv;
+  const char *inferior_io_terminal = get_inferior_io_terminal ();
 
-  /* If no exec file handed to us, get it from the exec-file command -- with
-     a good, common error message if none is specified.  */
+  /* If no exec file handed to us, get it from the exec-file command
+     -- with a good, common error message if none is specified.  */
   exec_file = exec_file_arg;
   if (exec_file == 0)
     exec_file = get_exec_file (1);
@@ -156,7 +158,7 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
   shell_file = shell_file_arg;
   if (start_with_shell_flag)
     {
-      /* Figure out what shell to start up the user program under. */
+      /* Figure out what shell to start up the user program under.  */
       if (shell_file == NULL)
 	shell_file = getenv ("SHELL");
       if (shell_file == NULL)
@@ -164,10 +166,17 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
       shell = 1;
     }
 
-  /* Multiplying the length of exec_file by 4 is to account for the fact
-     that it may expand when quoted; it is a worst-case number based on
-     every character being '.  */
-  len = 5 + 4 * strlen (exec_file) + 1 + strlen (allargs) + 1 + /*slop */ 12;
+  /* Multiplying the length of exec_file by 4 is to account for the
+     fact that it may expand when quoted; it is a worst-case number
+     based on every character being '.  */
+  /* APPLE LOCAL 5 = "exec ", but we have "exec arch -arch x86_64 " at most.
+     so 5->24.  */
+#ifdef USE_ARCH_FOR_EXEC
+  len = 24;
+#else
+  len = 5;
+#endif
+  len += 4 * strlen (exec_file) + 1 + strlen (allargs) + 1 + /*slop */ 12;
   /* If desired, concat something onto the front of ALLARGS.
      SHELL_COMMAND is the result.  */
 #ifdef SHELL_COMMAND_CONCAT
@@ -208,6 +217,7 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
     }
   else
     {
+      /* We're going to call a shell.  */
 
       /* We're going to call a shell */
 
@@ -217,11 +227,33 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
       int need_to_quote;
       const int escape_bang = escape_bang_in_quoted_argument (shell_file);
 
+#ifdef USE_ARCH_FOR_EXEC
+      {
+	char *arch_string = NULL;
+	const char *osabi_name = gdbarch_osabi_name (gdbarch_osabi (current_gdbarch));
+#if defined (TARGET_POWERPC)
+	if (strcmp (osabi_name, "Darwin") == 0)
+	  arch_string = "ppc";
+	else if (strcmp (osabi_name, "Darwin64") == 0)
+	  arch_string = "ppc64";
+#elif defined (TARGET_I386)
+	if (strcmp (osabi_name, "Darwin") == 0)
+	  arch_string = "i386";
+	else if (strcmp (osabi_name, "Darwin64") == 0)
+	  arch_string = "x86_64";
+#endif
+	if (arch_string != NULL)
+	  sprintf (shell_command, "%s exec arch -arch %s ", shell_command, arch_string);
+	else
+	  strcat (shell_command, "exec ");
+      }
+#else
       strcat (shell_command, "exec ");
+#endif
 
-      /* Quoting in this style is said to work with all shells.  But csh
-         on IRIX 4.0.1 can't deal with it.  So we only quote it if we need
-         to.  */
+      /* Quoting in this style is said to work with all shells.  But
+         csh on IRIX 4.0.1 can't deal with it.  So we only quote it if
+         we need to.  */
       p = exec_file;
       while (1)
 	{
@@ -272,45 +304,50 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
 
       strcat (shell_command, " ");
       strcat (shell_command, allargs);
-
     }
 
-  /* exec is said to fail if the executable is open.  */
+  /* On some systems an exec will fail if the executable is open.  */
   close_exec_file ();
 
   /* Retain a copy of our environment variables, since the child will
-     replace the value of  environ  and if we're vforked, we have to
+     replace the value of environ and if we're vforked, we have to
      restore it.  */
   save_our_env = environ;
 
   /* Tell the terminal handling subsystem what tty we plan to run on;
      it will just record the information for later.  */
-
   new_tty_prefork (inferior_io_terminal);
 
   /* It is generally good practice to flush any possible pending stdio
-     output prior to doing a fork, to avoid the possibility of both the
-     parent and child flushing the same data after the fork. */
-
+     output prior to doing a fork, to avoid the possibility of both
+     the parent and child flushing the same data after the fork. */
   gdb_flush (gdb_stdout);
   gdb_flush (gdb_stderr);
 
-  /* If there's any initialization of the target layers that must happen
-     to prepare to handle the child we're about fork, do it now...
-   */
+  /* If there's any initialization of the target layers that must
+     happen to prepare to handle the child we're about fork, do it
+     now...  */
   if (pre_trace_fun != NULL)
     (*pre_trace_fun) ();
 
-  /* Create the child process.  Note that the apparent call to vfork()
-     below *might* actually be a call to fork() due to the fact that
-     autoconf will ``#define vfork fork'' on certain platforms.  */
-  if (debug_fork)
+  /* Create the child process.  Since the child process is going to
+     exec(3) shortlty afterwards, try to reduce the overhead by
+     calling vfork(2).  However, if PRE_TRACE_FUN is non-null, it's
+     likely that this optimization won't work since there's too much
+     work to do between the vfork(2) and the exec(3).  This is known
+     to be the case on ttrace(2)-based HP-UX, where some handshaking
+     between parent and child needs to happen between fork(2) and
+     exec(2).  However, since the parent is suspended in the vforked
+     state, this doesn't work.  Also note that the vfork(2) call might
+     actually be a call to fork(2) due to the fact that autoconf will
+     ``#define vfork fork'' on certain platforms.  */
+  if (pre_trace_fun || debug_fork)
     pid = fork ();
   else
     pid = vfork ();
 
   if (pid < 0)
-    perror_with_name ("vfork");
+    perror_with_name (("vfork"));
 
   if (pid == 0)
     {
@@ -322,9 +359,9 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
       if (debug_setpgrp == -1)
 	perror ("setpgrp failed in child");
 
-      /* Ask the tty subsystem to switch to the one we specified earlier
-         (or to share the current terminal, if none was specified).  */
-
+      /* Ask the tty subsystem to switch to the one we specified
+         earlier (or to share the current terminal, if none was
+         specified).  */
       new_tty ();
 
       /* Changing the signal handlers for the inferior after
@@ -335,14 +372,15 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
 
       /* "Trace me, Dr. Memory!" */
       (*traceme_fun) ();
+
       /* The call above set this process (the "child") as debuggable
-       * by the original gdb process (the "parent").  Since processes
-       * (unlike people) can have only one parent, if you are
-       * debugging gdb itself (and your debugger is thus _already_ the
-       * controller/parent for this child),  code from here on out
-       * is undebuggable.  Indeed, you probably got an error message
-       * saying "not parent".  Sorry--you'll have to use print statements!
-       */
+        by the original gdb process (the "parent").  Since processes
+        (unlike people) can have only one parent, if you are debugging
+        gdb itself (and your debugger is thus _already_ the
+        controller/parent for this child), code from here on out is
+        undebuggable.  Indeed, you probably got an error message
+        saying "not parent".  Sorry; you'll have to use print
+        statements!  */
 
       /* There is no execlpe call, so we have to set the environment
          for our child in the global variable.  If we've vforked, this
@@ -356,19 +394,17 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
          inferior process.  */
       setgid (getgid ());
 
-      /* If we decided above to start up with a shell,
-       * we exec the shell,
-       * "-c" says to interpret the next arg as a shell command
-       * to execute, and this command is "exec <target-program> <args>".
-       * "-f" means "fast startup" to the c-shell, which means
-       * don't do .cshrc file. Doing .cshrc may cause fork/exec
-       * events which will confuse debugger start-up code.
-       */
+      /* If we decided above to start up with a shell, we exec the
+        shell, "-c" says to interpret the next arg as a shell command
+        to execute, and this command is "exec <target-program>
+        <args>".  "-f" means "fast startup" to the c-shell, which
+        means don't do .cshrc file. Doing .cshrc may cause fork/exec
+        events which will confuse debugger start-up code.  */
       if (shell)
 	{
 	  execlp (shell_file, shell_file, "-c", shell_command, (char *) 0);
 
-	  /* If we get here, it's an error */
+	  /* If we get here, it's an error.  */
 	  fprintf_unfiltered (gdb_stderr, "Cannot exec %s: %s.\n", shell_file,
 			      safe_strerror (errno));
 	  gdb_flush (gdb_stderr);
@@ -376,16 +412,88 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
 	}
       else
 	{
-	  /* Otherwise, we directly exec the target program with execvp. */
+	  /* Otherwise, we directly exec the target program with
+	     execvp.  */
 	  int i;
 	  char *errstring;
 
+#ifdef USE_POSIX_SPAWN
+	  {
+	    posix_spawnattr_t attr;
+	    int retval;
+	    size_t copied;
+	    cpu_type_t cpu;
+	    int count = 0;
+	    pid_t pid;
+	    const char *osabi_name = gdbarch_osabi_name (gdbarch_osabi (current_gdbarch));
+	    char *fileptr;
+
+	    if (exec_pathname[0] != '\0')
+	      fileptr = exec_pathname;
+	    else
+	      fileptr = exec_file;
+
+#if defined (TARGET_POWERPC)
+	    if (strcmp (osabi_name, "Darwin") == 0)
+	      {
+		cpu = CPU_TYPE_POWERPC;
+		count = 1;
+	      }
+	    else if (strcmp (osabi_name, "Darwin64") == 0)
+	      {
+		cpu = CPU_TYPE_POWERPC64;
+		count = 1;
+	      }
+#elif defined (TARGET_I386)
+	    if (strcmp (osabi_name, "Darwin") == 0)
+	      {
+		cpu = CPU_TYPE_I386;
+		count = 1;
+	      }
+	    else if (strcmp (osabi_name, "Darwin64") == 0)
+	      {
+		cpu = CPU_TYPE_X86_64;
+		count = 1;
+	      }
+#endif
+	    retval = posix_spawnattr_init (&attr);
+	    if (retval != 0)
+	      {
+		warning ("Couldn't initialize attributes for posix_spawn, error: %d", retval);
+		goto try_execvp;
+	      }
+	    retval = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC);
+	    if (retval != 0)
+	      {
+		warning ("Couldn't add POSIX_SPAWN_SETEXEC to attributes, error: %d", retval);
+		goto try_execvp;
+	      }
+	    if (count == 1)
+	      {
+		retval = posix_spawnattr_setbinpref_np(&attr, 1, &cpu, &copied);
+		if (retval != 0 || copied != 1)
+		  {
+		    warning ("Couldn't set the binary preferences, error: %d", retval);
+		    goto try_execvp;
+		  }
+	      }
+	    retval = posix_spawnattr_setpgroup (&attr, debug_setpgrp);
+	    if (retval != 0 || copied != 1)
+	      {
+		warning ("Couldn't set the process group, error: %d", retval);
+		goto try_execvp;
+	      }
+	    retval = posix_spawnp (&pid, fileptr, NULL,  &attr, argv, env);
+	    warning ("posix_spawn failed, trying execvp, error: %d", retval);
+	  }
+#endif
+	try_execvp:
 	  if (exec_pathname[0] != '\0')
 	    execvp (exec_pathname, argv);
 	  else
 	    execvp (exec_file, argv);
 
-	  /* If we get here, it's an error */
+	  /* If we get here, it's an error.  */
 	  errstring = safe_strerror (errno);
 	  fprintf_unfiltered (gdb_stderr, "Cannot exec %s ", exec_file);
 
@@ -398,7 +506,10 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
 	      i++;
 	    }
 	  fprintf_unfiltered (gdb_stderr, ".\n");
+#if 0
+	  /* This extra info seems to be useless.  */
 	  fprintf_unfiltered (gdb_stderr, "Got error %s.\n", errstring);
+#endif
 	  gdb_flush (gdb_stderr);
 	  _exit (0177);
 	}
@@ -409,49 +520,45 @@ fork_inferior (char *exec_file_arg, char *allargs, char **env,
 
   init_thread_list ();
 
-  inferior_ptid = pid_to_ptid (pid);	/* Needed for wait_for_inferior stuff below */
+  /* Needed for wait_for_inferior stuff below.  */
+  inferior_ptid = pid_to_ptid (pid);
 
   /* Now that we have a child process, make it our target, and
-     initialize anything target-vector-specific that needs initializing.  */
-
+     initialize anything target-vector-specific that needs
+     initializing.  */
   (*init_trace_fun) (pid);
 
   /* We are now in the child process of interest, having exec'd the
      correct program, and are poised at the first instruction of the
      new program.  */
 
-  /* Allow target dependent code to play with the new process.  This might be
-     used to have target-specific code initialize a variable in the new process
-     prior to executing the first instruction.  */
+  /* Allow target dependent code to play with the new process.  This
+     might be used to have target-specific code initialize a variable
+     in the new process prior to executing the first instruction.  */
   TARGET_CREATE_INFERIOR_HOOK (pid);
 
 #ifdef SOLIB_CREATE_INFERIOR_HOOK
   SOLIB_CREATE_INFERIOR_HOOK (pid);
+#else
+  solib_create_inferior_hook ();
 #endif
 }
 
 /* Accept NTRAPS traps from the inferior.  */
 
 void
-startup_inferior ()
+startup_inferior (int ntraps)
 {
-  int pending_execs;
-  int terminal_initted;
+  int pending_execs = ntraps;
+  int terminal_initted = 0;
 
-  /* The process was started by the fork that created it,
-     but it will have stopped one instruction after execing the shell.
-     Here we must get it up to actual execution of the real program.  */
+  /* The process was started by the fork that created it, but it will
+     have stopped one instruction after execing the shell.  Here we
+     must get it up to actual execution of the real program.  */
 
   clear_proceed_status ();
 
   init_wait_for_inferior ();
-
-  terminal_initted = 0;
-
-  if (start_with_shell_flag)
-    pending_execs = START_INFERIOR_TRAPS_EXPECTED;
-  else
-    pending_execs = START_INFERIOR_TRAPS_EXPECTED_NOSHELL;
 
   inferior_ignoring_startup_exec_events = pending_execs;
   inferior_ignoring_leading_exec_events =
@@ -459,13 +566,34 @@ startup_inferior ()
 
   while (1)
     {
-      /* Make wait_for_inferior be quiet */
+      /* Make wait_for_inferior be quiet. */
       stop_soon = STOP_QUIETLY;
       wait_for_inferior ();
       if (stop_signal != TARGET_SIGNAL_TRAP)
 	{
-	  /* Let shell child handle its own signals in its own way */
-	  /* FIXME, what if child has exit()ed?  Must exit loop somehow */
+        /* APPLE LOCAL: If we are getting a bad access or bad
+           instruction here, don't just send it back to the app,
+           since then we'll just loop forever here.  This can
+           happen when you have "start-with-shell" non-zero, and
+           the shell crashes.  */
+#ifdef NM_NEXTSTEP
+        if (stop_signal == TARGET_EXC_BAD_ACCESS 
+          || stop_signal == TARGET_EXC_BAD_INSTRUCTION)
+          {
+            warning ("The target crashed on startup, maybe the shell is crashing.\n"
+                    "\"Try set start-with-shell 0\" to workaround.");
+	    /* For now we don't seem to be able to unwind successfully
+		from this error, so I am just aborting.  Throwing
+		an error or just breaking both lead to gdb just
+		hanging, which isn't helpful...  */
+            abort ();
+          }
+#endif
+        /* END APPLE LOCAL */
+
+	  /* Let shell child handle its own signals in its own way.
+	     FIXME: what if child has exited?  Must exit loop
+	     somehow.  */
 	  if (PIDGET (inferior_ptid) == 0)
 	    break;
 	  resume (0, stop_signal);
@@ -475,9 +603,10 @@ startup_inferior ()
 	  /* We handle SIGTRAP, however; it means child did an exec.  */
 	  if (!terminal_initted)
 	    {
-	      /* Now that the child has exec'd we know it has already set its
-	         process group.  On POSIX systems, tcsetpgrp will fail with
-	         EPERM if we try it before the child's setpgid.  */
+	      /* Now that the child has exec'd we know it has already
+	         set its process group.  On POSIX systems, tcsetpgrp
+	         will fail with EPERM if we try it before the child's
+	         setpgid.  */
 
 	      /* Set up the "saved terminal modes" of the inferior
 	         based on what modes we are starting it with.  */
@@ -489,40 +618,43 @@ startup_inferior ()
 	      terminal_initted = 1;
 	    }
 
-	  pending_execs = pending_execs - 1;
-	  if (0 == pending_execs)
+	  if (--pending_execs == 0)
 	    break;
 
-	  resume (0, TARGET_SIGNAL_0);	/* Just make it go on */
+	  resume (0, TARGET_SIGNAL_0);	/* Just make it go on.  */
 	}
     }
   stop_soon = NO_STOP_QUIETLY;
 }
 
+/* APPLE LOCAL begin start with shell */
 void
 _initialize_fork_child (void)
 {
-  struct cmd_list_element *cmd;
-
   exec_pathname = savestring ("", 1);
   exec_argv0 = savestring ("", 1);
 
-  cmd = add_set_cmd ("exec-pathname", no_class, var_string,
-		    (char *) &exec_pathname,
-		    "Set the pathname to be used to start the target executable.",
-		    &setlist);
-  add_show_from_set (cmd, &showlist);
+  add_setshow_string_cmd ("exec-pathname", no_class,
+			  &exec_pathname, _("\
+Set the pathname to be used to start the target executable."), _("\
+Show the pathname to be used to start the target executable."), NULL,
+			  NULL, NULL,
+			  &setlist, &showlist);
 
-  cmd = add_set_cmd ("exec-argv0", no_class, var_string,
-		    (char *) &exec_argv0,
-		    "Set the value of argv[0] to be passed to the target executable.\n"
-		    "This will be used only if 'start-with-shell' is set to 'off'.",
-		    &setlist);
-  add_show_from_set (cmd, &showlist);
+  add_setshow_string_cmd ("exec-argv0", no_class,
+			  &exec_argv0, _("\
+Set the value of argv[0] to be passed to the target executable.\n\
+This will be used only if 'start-with-shell' is set to 'off'."), _("\
+x"), NULL,
+			  NULL, NULL,
+			  &setlist, &showlist);
 
-  cmd = add_set_cmd ("start-with-shell", class_obscure, var_boolean,
-		     (char *) &start_with_shell_flag,
-		     "Set if GDB should use shell to invoke inferior (performs argument expansion in shell).",
-		     &setlist);
-  add_show_from_set (cmd, &showlist);
+  add_setshow_boolean_cmd ("start-with-shell", class_obscure,
+			   &start_with_shell_flag, _("\
+Set if GDB should use shell to invoke inferior (performs argument expansion in shell)."), _("\
+Show if GDB should use shell to invoke inferior (performs argument expansion in shell)."), NULL,
+			   NULL, NULL,
+			   &setlist, &showlist);
+
 }
+/* APPLE LOCAL end start with shell */

@@ -26,7 +26,7 @@ int c1=0, c20=0 ;		/* use class 1/class 2.0 */
 int c2=0 ;			/* force class 2 */
 int cmdpause = T_CMD ;		/* delay before each init command */
 int vfc = 0 ;			/* virtual flow control */
-uchar startchar = DC2 ;	/* character to start reception */
+char startchar = DC2 ;		/* character to start reception */
 
 				/* response detector lookup tables */
 uchar rd_nexts [ 256 ] = { 0 }, rd_allowed [ 256 ] = { 0 } ;
@@ -111,7 +111,7 @@ int sendbuf ( TFILE *f, uchar *p, int n, int dcecps )
 	if ( over > 0 ) msleep ( over * 1000 / dcecps ) ;
       }
 
-      if ( tput ( f, buf, i ) < 0 )
+      if ( tput ( f, (char*)buf, i ) < 0 )
 	err = msg ( "ES2fax device write error:" ) ;
 
       i = 0 ;
@@ -260,13 +260,14 @@ int cmd ( TFILE *f, char *s, int t )
 
     while ( ( p = tgets ( f, buf, CMDBUFSIZE, t ) ) ) {
 
+      msg ( "C- response \"%s\"", buf ) ;
+
       if ( ( resplen += strlen ( buf ) + 1 ) <= MAXRESPB ) {
 	strcpy ( lresponse, buf ) ;
 	lresponse += strlen ( buf ) + 1 ;
       }
       
       if ( ( p = strtabmatch ( (char**) prompts, buf ) ) ) {
-	msg ( "C- response \"%s\"", buf ) ;
 	break ;
       }
       
@@ -427,8 +428,9 @@ int begin_session ( TFILE *f, char *fname, int reverse, int hwfc,
 	minbusy = minbusy ? minbusy*2 : 1 ;
       }
 
-      if (tdata ( f, lockpolldelay / 100 ) == -6)
-	err = -6;		/* machine is about to sleep... */
+      waiting = 1;
+      if (tdata ( f, lockpolldelay / 100 ) == TDATA_SLEEP)
+	err = TDATA_SLEEP;		/* machine is about to sleep... */
     }
   } while ( err == 1 ) ;
   

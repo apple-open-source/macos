@@ -1,4 +1,4 @@
-#   Copyright (C) 1999, 2000, 2002, 2004 Free Software Foundation
+# Copyright 1999, 2000, 2001, 2002, 2004, 2005 Free Software Foundation
 
 # This Program Is Free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,9 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-# Please email any bugs, comments, and/or additions to this file to:
-# bug-gdb@prep.ai.mit.edu
 
 # Test essential Machine interface (MI) operations
 #
@@ -37,7 +34,7 @@ if [mi_gdb_start] {
     continue
 }
 
-set testfile "var-cmd"
+set testfile "mi-var-child"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug additional_flags=-DFAKEARGV}] != "" } {
@@ -56,6 +53,10 @@ mi_runto do_children_tests
 #                #
 #####        #####
 
+# Step past the initialization of struct_declarations.
+set line_weird [gdb_get_line_number "weird = &struct_declarations;"]
+mi_execute_to "exec-next" "end-stepping-range" do_children_tests {} ".*${srcfile}" \
+    [expr $line_weird] {} "step \$line_weird"
 
 # Test: c_variable-4.2
 # Desc: create variable "struct_declarations"
@@ -68,7 +69,7 @@ mi_gdb_test "-var-create struct_declarations * struct_declarations" \
 # STABS doesn't give us argument types for the func ptr structs, but
 # Dwarf 2 does.
 mi_gdb_test "-var-list-children struct_declarations" \
-	"\\^done,numchild=\"11\",children=\\\[child=\{name=\"struct_declarations.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"struct_declarations.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child={name=\"struct_declarations.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\},child=\{name=\"struct_declarations.long_int\",exp=\"long_int\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.int_ptr_ptr\",exp=\"int_ptr_ptr\",numchild=\"1\",type=\"int \\*\\*\"\},child=\{name=\"struct_declarations.long_array\",exp=\"long_array\",numchild=\"10\",type=\"long int \\\[10\\\]\"\},child=\{name=\"struct_declarations.func_ptr\",exp=\"func_ptr\",numchild=\"0\",type=\"void \\(\\*\\)\\((void)?\\)\"\},child=\{name=\"struct_declarations.func_ptr_struct\",exp=\"func_ptr_struct\",numchild=\"0\",type=\"struct _struct_decl \\(\\*\\)\\((int, char \\*, long int)?\\)\"\},child=\{name=\"struct_declarations.func_ptr_ptr\",exp=\"func_ptr_ptr\",numchild=\"0\",type=\"struct _struct_decl \\*\\(\\*\\)\\((int, char \\*, long int)?\\)\"\},child=\{name=\"struct_declarations.u1\",exp=\"u1\",numchild=\"4\",type=\"union \{\\.\\.\\.\}\"\},child=\{name=\"struct_declarations.s2\",exp=\"s2\",numchild=\"4\",type=\"struct \{\\.\\.\\.\}\"\}\\\]" \
+	"\\^done,numchild=\"11\",children=\\\[child=\{name=\"struct_declarations.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"struct_declarations.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child={name=\"struct_declarations.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\},child=\{name=\"struct_declarations.long_int\",exp=\"long_int\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.int_ptr_ptr\",exp=\"int_ptr_ptr\",numchild=\"1\",type=\"int \\*\\*\"\},child=\{name=\"struct_declarations.long_array\",exp=\"long_array\",numchild=\"12\",type=\"long int \\\[12\\\]\"\},child=\{name=\"struct_declarations.func_ptr\",exp=\"func_ptr\",numchild=\"0\",type=\"void \\(\\*\\)\\((void)?\\)\"\},child=\{name=\"struct_declarations.func_ptr_struct\",exp=\"func_ptr_struct\",numchild=\"0\",type=\"struct _struct_decl \\(\\*\\)\\((int, char \\*, long int)?\\)\"\},child=\{name=\"struct_declarations.func_ptr_ptr\",exp=\"func_ptr_ptr\",numchild=\"0\",type=\"struct _struct_decl \\*\\(\\*\\)\\((int, char \\*, long int)?\\)\"\},child=\{name=\"struct_declarations.u1\",exp=\"u1\",numchild=\"4\",type=\"union \{\\.\\.\\.\}\"\},child=\{name=\"struct_declarations.s2\",exp=\"s2\",numchild=\"4\",type=\"struct \{\\.\\.\\.\}\"\}\\\]" \
 	"get children of struct_declarations"
 
 #gdbtk_test c_variable-4.3 {children of struct_declarations} {
@@ -149,13 +150,13 @@ mi_gdb_test "-var-info-num-children struct_declarations.int_ptr_ptr" \
 # Test: c_variable-4.15
 # Desc: children of struct_declarations.long_array
 mi_gdb_test "-var-list-children struct_declarations.long_array" \
-	"\\^done,numchild=\"10\",children=\\\[child=\{name=\"struct_declarations.long_array.0\",exp=\"0\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.1\",exp=\"1\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.2\",exp=\"2\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.3\",exp=\"3\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.4\",exp=\"4\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.5\",exp=\"5\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.6\",exp=\"6\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.7\",exp=\"7\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.8\",exp=\"8\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.9\",exp=\"9\",numchild=\"0\",type=\"long int\"\}\\\]" \
+	"\\^done,numchild=\"12\",children=\\\[child=\{name=\"struct_declarations.long_array.0\",exp=\"0\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.1\",exp=\"1\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.2\",exp=\"2\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.3\",exp=\"3\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.4\",exp=\"4\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.5\",exp=\"5\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.6\",exp=\"6\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.7\",exp=\"7\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.8\",exp=\"8\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.9\",exp=\"9\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.10\",exp=\"10\",numchild=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.11\",exp=\"11\",numchild=\"0\",type=\"long int\"\}\\\]" \
 	"get children of struct_declarations.long_array"
 
 # Test: c_variable-4.16
 # Desc: number of children of struct_declarations.long_array
 mi_gdb_test "-var-info-num-children struct_declarations.long_array" \
-	"\\^done,numchild=\"10\"" \
+	"\\^done,numchild=\"12\"" \
 	"get number of children of struct_declarations.long_array"
 
 # Test: c_variable-4.17
@@ -561,8 +562,9 @@ mi_gdb_test "-var-info-num-children struct_declarations.int_ptr_ptr.*int_ptr_ptr
 
 
 # Step to "struct_declarations.integer = 123;"
-set line 192
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step to line $line"
+set line_dct_123 [gdb_get_line_number "struct_declarations.integer = 123;"]
+mi_step_to do_children_tests {} ".*${srcfile}" \
+      $line_dct_123 "step to line \$line_dct_123"
 
 # Test: c_variable-4.81
 # Desc: create local variable "weird"
@@ -573,7 +575,7 @@ mi_gdb_test "-var-create weird * weird" \
 # Test: c_variable-4.82
 # Desc: children of weird
 mi_gdb_test "-var-list-children weird" \
-	"\\^done,numchild=\"11\",children=\\\[child=\{name=\"weird.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"weird.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child=\{name=\"weird.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\},child=\{name=\"weird.long_int\",exp=\"long_int\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.int_ptr_ptr\",exp=\"int_ptr_ptr\",numchild=\"1\",type=\"int \\*\\*\"\},child=\{name=\"weird.long_array\",exp=\"long_array\",numchild=\"10\",type=\"long int \\\[10\\\]\"\},child=\{name=\"weird.func_ptr\",exp=\"func_ptr\",numchild=\"0\",type=\"void \\(\\*\\)\\((void)?\\)\"\},child=\{name=\"weird.func_ptr_struct\",exp=\"func_ptr_struct\",numchild=\"0\",type=\"struct _struct_decl \\(\\*\\)\\((int, char \\*, long int)?\\)\"\},child=\{name=\"weird.func_ptr_ptr\",exp=\"func_ptr_ptr\",numchild=\"0\",type=\"struct _struct_decl \\*\\(\\*\\)\\((int, char \\*, long int)?\\)\"\},child=\{name=\"weird.u1\",exp=\"u1\",numchild=\"4\",type=\"union \{\\.\\.\\.\}\"\},child=\{name=\"weird.s2\",exp=\"s2\",numchild=\"4\",type=\"struct \{\\.\\.\\.\}\"\}\\\]" \
+	"\\^done,numchild=\"11\",children=\\\[child=\{name=\"weird.integer\",exp=\"integer\",numchild=\"0\",type=\"int\"\},child=\{name=\"weird.character\",exp=\"character\",numchild=\"0\",type=\"char\"\},child=\{name=\"weird.char_ptr\",exp=\"char_ptr\",numchild=\"1\",type=\"char \\*\"\},child=\{name=\"weird.long_int\",exp=\"long_int\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.int_ptr_ptr\",exp=\"int_ptr_ptr\",numchild=\"1\",type=\"int \\*\\*\"\},child=\{name=\"weird.long_array\",exp=\"long_array\",numchild=\"12\",type=\"long int \\\[12\\\]\"\},child=\{name=\"weird.func_ptr\",exp=\"func_ptr\",numchild=\"0\",type=\"void \\(\\*\\)\\((void)?\\)\"\},child=\{name=\"weird.func_ptr_struct\",exp=\"func_ptr_struct\",numchild=\"0\",type=\"struct _struct_decl \\(\\*\\)\\((int, char \\*, long int)?\\)\"\},child=\{name=\"weird.func_ptr_ptr\",exp=\"func_ptr_ptr\",numchild=\"0\",type=\"struct _struct_decl \\*\\(\\*\\)\\((int, char \\*, long int)?\\)\"\},child=\{name=\"weird.u1\",exp=\"u1\",numchild=\"4\",type=\"union \{\\.\\.\\.\}\"\},child=\{name=\"weird.s2\",exp=\"s2\",numchild=\"4\",type=\"struct \{\\.\\.\\.\}\"\}\\\]" \
 	"get children of weird"
 
 # Test: c_variable-4.83
@@ -586,16 +588,16 @@ mi_gdb_test "-var-info-num-children weird" \
 # Test: c_variable-4.84
 # Desc: children of weird->long_array
 mi_gdb_test "-var-list-children weird.long_array" \
-	"\\^done,numchild=\"10\",children=\\\[child=\{name=\"weird.long_array.0\",exp=\"0\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.1\",exp=\"1\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.2\",exp=\"2\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.3\",exp=\"3\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.4\",exp=\"4\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.5\",exp=\"5\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.6\",exp=\"6\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.7\",exp=\"7\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.8\",exp=\"8\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.9\",exp=\"9\",numchild=\"0\",type=\"long int\"\}\\\]" \
+	"\\^done,numchild=\"12\",children=\\\[child=\{name=\"weird.long_array.0\",exp=\"0\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.1\",exp=\"1\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.2\",exp=\"2\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.3\",exp=\"3\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.4\",exp=\"4\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.5\",exp=\"5\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.6\",exp=\"6\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.7\",exp=\"7\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.8\",exp=\"8\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.9\",exp=\"9\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.10\",exp=\"10\",numchild=\"0\",type=\"long int\"\},child=\{name=\"weird.long_array.11\",exp=\"11\",numchild=\"0\",type=\"long int\"\}\\\]" \
 	"get children of weird.long_array"
 #gdbtk_test c_variable-4.84 {children of weird->long_array} {
 #  get_children weird.long_array
-#} {0 1 2 3 4 5 6 7 8 9}
+#} {0 1 2 3 4 5 6 7 8 9 10 11}
 
 # Test: c_variable-4.85
 # Desc: number of children of weird.long_array
 mi_gdb_test "-var-info-num-children weird.long_array" \
-	"\\^done,numchild=\"10\"" \
+	"\\^done,numchild=\"12\"" \
 	"get number of children of weird.long_array"
 
 # Test: c_variable-4.86
@@ -744,7 +746,7 @@ mi_gdb_test "-var-show-attributes struct_declarations" \
 	"is struct_declarations editable"
 
 mi_gdb_test "-var-delete weird" \
-	"\\^done,ndeleted=\"24\"" \
+	"\\^done,ndeleted=\"26\"" \
 	"delete var weird"
 
 #####                         #####
@@ -760,8 +762,8 @@ mi_gdb_test "-var-update *" \
 	"update all vars. None changed"
 
 # Step over "struct_declarations.integer = 123;"
-set line 193
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_123 + 1] "step \$line_dct_123 + 1"
 
 # Test: c_variable-5.2
 # Desc: check that integer changed
@@ -773,8 +775,8 @@ mi_gdb_test "-var-update *" \
 #    weird->char_ptr = "hello";
 #    bar = 2121;
 #    foo = &bar;
-set line 196
-mi_execute_to "exec-step 3" "end-stepping-range" do_children_tests {} {.*var-cmd.c} $line {} "step $line"
+mi_execute_to "exec-step 3" "end-stepping-range" do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_123 + 4] {} "step \$line_dct_123 + 4"
 
 # Test: c_variable-5.3
 # Desc: check that char_ptr changed
@@ -783,8 +785,8 @@ mi_gdb_test "-var-update *" \
 	"update all vars struct_declarations.char_ptr"
 
 # Step over "struct_declarations.int_ptr_ptr = &foo;"
-set line 197
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_123 + 5] "step \$line_dct_123 + 5"
 
 # Test: c_variable-5.4
 # Desc: check that int_ptr_ptr and children changed
@@ -793,8 +795,8 @@ mi_gdb_test "-var-update *" \
 	"update all vars int_ptr_ptr and children changed"
 
 # Step over "weird->long_array[0] = 1234;"
-set line 198
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_123 + 6] "step \$line_dct_123 + 6"
 
 # Test: c_variable-5.5
 # Desc: check that long_array[0] changed
@@ -803,8 +805,8 @@ mi_gdb_test "-var-update *" \
 	"update all vars struct_declarations.long_array.0 changed"
 
 # Step over "struct_declarations.long_array[1] = 2345;"
-set line 199
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_123 + 7] "step \$line_dct_123 + 7"
 
 # Test: c_variable-5.6
 # Desc: check that long_array[1] changed
@@ -813,8 +815,8 @@ mi_gdb_test "-var-update *" \
 	"update all vars struct_declarations.long_array.1 changed"
 
 # Step over "weird->long_array[2] = 3456;"
-set line 200
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_123 + 8] "step \$line_dct_123 + 8"
 
 # Test: c_variable-5.7
 # Desc: check that long_array[2] changed
@@ -830,8 +832,10 @@ mi_gdb_test "-var-update *" \
 #    struct_declarations.long_array[7] = 8901;
 #    weird->long_array[8] = 9012;
 #    struct_declarations.long_array[9] = 1234;
-set line 208
-mi_execute_to "exec-step 7" "end-stepping-range" do_children_tests {} {.*var-cmd.c} $line {} "step $line"
+
+set line_dct_nothing [gdb_get_line_number "weird->func_ptr = nothing;"]
+mi_execute_to "exec-step 7" "end-stepping-range" do_children_tests {} ".*${srcfile}" \
+    $line_dct_nothing {} "step \$line_dct_nothing"
 
 # Test: c_variable-5.8
 # Desc: check that long_array[3-9] changed
@@ -839,13 +843,10 @@ mi_gdb_test "-var-update *" \
 	"\\^done,changelist=\\\[\{name=\"struct_declarations.long_array.3\",in_scope=\"true\",type_changed=\"false\"\},\{name=\"struct_declarations.long_array.4\",in_scope=\"true\",type_changed=\"false\"\},\{name=\"struct_declarations.long_array.5\",in_scope=\"true\",type_changed=\"false\"\},\{name=\"struct_declarations.long_array.6\",in_scope=\"true\",type_changed=\"false\"\},\{name=\"struct_declarations.long_array.7\",in_scope=\"true\",type_changed=\"false\"\},\{name=\"struct_declarations.long_array.8\",in_scope=\"true\",type_changed=\"false\"\},\{name=\"struct_declarations.long_array.9\",in_scope=\"true\",type_changed=\"false\"\}\\\]" \
 	"update all vars struct_declarations.long_array.3-9 changed"
 
-mi_gdb_test "-var-list-children --all-values struct_declarations.long_array" \
-        "\\^done,numchild=\"10\",children=\\\[child=\{name=\"struct_declarations.long_array.0\",exp=\"0\",numchild=\"0\",value=\"1234\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.1\",exp=\"1\",numchild=\"0\",value=\"2345\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.2\",exp=\"2\",numchild=\"0\",value=\"3456\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.3\",exp=\"3\",numchild=\"0\",value=\"4567\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.4\",exp=\"4\",numchild=\"0\",value=\"5678\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.5\",exp=\"5\",numchild=\"0\",value=\"6789\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.6\",exp=\"6\",numchild=\"0\",value=\"7890\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.7\",exp=\"7\",numchild=\"0\",value=\"8901\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.8\",exp=\"8\",numchild=\"0\",value=\"9012\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.9\",exp=\"9\",numchild=\"0\",value=\"1234\",type=\"long int\"\}\\\]" \
-                "listing of names and values of children"
 
-# Step over "weird->func_ptr = nothing;"
-set line 211
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+# Step over "weird->func_ptr = nothing";
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_nothing + 1] "step \$line_dct_nothing + 1"
 
 # Test: c_variable-5.9
 # Desc: check that func_ptr changed
@@ -853,9 +854,34 @@ mi_gdb_test "-var-update *" \
 	"\\^done,changelist=\\\[\{name=\"struct_declarations.func_ptr\",in_scope=\"true\",type_changed=\"false\"\}\\\]" \
 	"update all vars struct_declarations.func_ptr changed"
 
+# Step over "struct_declarations.long_array[10] = 3456";
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_nothing + 2] "step \$line_dct_nothing + 2"
+
+mi_gdb_test "-var-update --no-values *" \
+	"\\^done,changelist=\\\[\{name=\"struct_declarations.long_array.10\",in_scope=\"true\",type_changed=\"false\"\}\\\]" \
+ "update all vars struct_declarations.long_array.10 changed, don't print values."
+
+# Step over "struct_declarations.long_array[11] = 5678";
+set line_dct_a0_0 [gdb_get_line_number "a0 = '0';"]
+mi_step_to  do_children_tests {} ".*${srcfile}" \
+    $line_dct_a0_0 "step \$line_dct_a0_0"
+
+mi_gdb_test "-var-update --all-values *" \
+	"\\^done,changelist=\\\[\{name=\"struct_declarations.long_array.11\",value=\"5678\",in_scope=\"true\",type_changed=\"false\"\}\\\]" \
+ "update all vars struct_declarations.long_array.11 changed, print values."
+
+mi_gdb_test "-var-list-children --all-values struct_declarations.long_array" \
+        "\\^done,numchild=\"12\",children=\\\[child=\{name=\"struct_declarations.long_array.0\",exp=\"0\",numchild=\"0\",value=\"1234\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.1\",exp=\"1\",numchild=\"0\",value=\"2345\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.2\",exp=\"2\",numchild=\"0\",value=\"3456\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.3\",exp=\"3\",numchild=\"0\",value=\"4567\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.4\",exp=\"4\",numchild=\"0\",value=\"5678\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.5\",exp=\"5\",numchild=\"0\",value=\"6789\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.6\",exp=\"6\",numchild=\"0\",value=\"7890\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.7\",exp=\"7\",numchild=\"0\",value=\"8901\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.8\",exp=\"8\",numchild=\"0\",value=\"9012\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.9\",exp=\"9\",numchild=\"0\",value=\"1234\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.10\",exp=\"10\",numchild=\"0\",value=\"3456\",type=\"long int\"\},child=\{name=\"struct_declarations.long_array.11\",exp=\"11\",numchild=\"0\",value=\"5678\",type=\"long int\"\}\\\]" \
+                "listing of names and values of children"
+
+mi_gdb_test "-var-list-children --simple-values struct_declarations" \
+        "\\^done,numchild=\"11\",children=\\\[child=\{name=\"struct_declarations.integer\",exp=\"integer\",numchild=\"0\",value=\"123\",type=\"int\"\},child=\{name=\"struct_declarations.character\",exp=\"character\",numchild=\"0\",value=\"0 '\\\\\\\\0'\",type=\"char\"\},child=\{name=\"struct_declarations.char_ptr\",exp=\"char_ptr\",numchild=\"1\",value=\"$hex \\\\\"hello\\\\\"\",type=\"char \\*\"\},child=\{name=\"struct_declarations.long_int\",exp=\"long_int\",numchild=\"0\",value=\"0\",type=\"long int\"\},child=\{name=\"struct_declarations.int_ptr_ptr\",exp=\"int_ptr_ptr\",numchild=\"1\",value=\"$hex\",type=\"int \\*\\*\"\},child=\{name=\"struct_declarations.long_array\",exp=\"long_array\",numchild=\"12\",type=\"long int \\\[12\\\]\"\},child=\{name=\"struct_declarations.func_ptr\",exp=\"func_ptr\",numchild=\"0\",value=\"$hex <nothing>\",type=\"void \\(\\*\\)\\(void\\)\"\},child=\{name=\"struct_declarations.func_ptr_struct\",exp=\"func_ptr_struct\",numchild=\"0\",value=\"0\",type=\"struct _struct_decl \\(\\*\\)\\(int, char \\*, long int\\)\"\},child=\{name=\"struct_declarations.func_ptr_ptr\",exp=\"func_ptr_ptr\",numchild=\"0\",value=\"0\",type=\"struct _struct_decl \\*\\(\\*\\)\\(int, char \\*, long int\\)\"\},child=\{name=\"struct_declarations.u1\",exp=\"u1\",numchild=\"4\",type=\"union \{...\}\"\},child=\{name=\"struct_declarations.s2\",exp=\"s2\",numchild=\"4\",type=\"struct \{...\}\"\}\\\]" \
+  "listing of children, simple types: names, type and values, complex types: names and types"
+
 # Delete all variables
 mi_gdb_test "-var-delete struct_declarations" \
-	"\\^done,ndeleted=\"65\"" \
+	"\\^done,ndeleted=\"67\"" \
 	"delete var struct_declarations"
 
 mi_gdb_test "-var-delete weird->int_ptr_ptr" \
@@ -865,10 +891,10 @@ mi_gdb_test "-var-delete weird->int_ptr_ptr" \
 # Step over all lines:
 # ...
 #   psnp = &snp0;
-set line 254
-mi_execute_to "exec-step 43" "end-stepping-range" do_children_tests {} {.*var-cmd.c} $line {} "step $line"
 
-sleep 4
+set line_dct_snp0 [gdb_get_line_number "psnp = &snp0;"]
+mi_execute_to "exec-step 43" "end-stepping-range" do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_snp0 + 1] {} "step \$line_dct_snp0 + 1"
 
 # Test: c_variable-5.10
 # Desc: create psnp->char_ptr
@@ -1138,8 +1164,8 @@ mi_gdb_test "-var-list-children psnp->ptrs.0.next.next.ptrs" \
 	"get children of psnp->ptrs.0.next.next.ptrs"
 
 #  Step over "snp0.char_ptr = &b3;"
-set line 255
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_snp0 + 2] "step \$line_dct_snp0 + 2"
 
 # Test: c_variable-5.47
 # Desc: check that psnp->char_ptr (and [0].char_ptr) changed
@@ -1148,8 +1174,8 @@ mi_gdb_test "-var-update *" \
 	"update all vars psnp->char_ptr (and 0.char_ptr) changed"
 
 #  Step over "snp1.char_ptr = &c3;"
-set line 256
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_snp0 + 3] "step \$line_dct_snp0 + 3"
 
 # Test: c_variable-5.48
 # Desc: check that psnp->next->char_ptr (and [1].char_ptr) changed
@@ -1159,8 +1185,8 @@ mi_gdb_test "-var-update *" \
 
 
 #  Step over "snp2.char_ptr = &a3;"
-set line 257
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_snp0 + 4] "step \$line_dct_snp0 + 4"
 
 # Test: c_variable-5.49
 # Desc: check that psnp->next->next->char_ptr (and [2].char_ptr) changed
@@ -1170,8 +1196,8 @@ mi_gdb_test "-var-update *" \
 
 
 #  Step over "snp0.long_ptr = &y3;"
-set line 258
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_snp0 + 5] "step \$line_dct_snp0 + 5"
 
 # Test: c_variable-5.50
 # Desc: check that psnp->long_ptr (and [0].long_ptr) changed
@@ -1181,8 +1207,8 @@ mi_gdb_test "-var-update *" \
 
 
 #  Step over "snp1.long_ptr = &x3;"
-set line 259
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_snp0 + 6] "step \$line_dct_snp0 + 6"
 
 # Test: c_variable-5.51
 # Desc: check that psnp->next->long_ptr (and [1].long_ptr) changed
@@ -1198,8 +1224,8 @@ clear_xfail *-*-*
 #
 
 #  Step over "snp2.long_ptr = &z3;"
-set line 260
-mi_step_to do_children_tests {} {.*var-cmd.c} $line "step $line"
+mi_step_to do_children_tests {} ".*${srcfile}" \
+    [expr $line_dct_snp0 + 7] "step \$line_dct_snp0 + 7"
 
 # Test: c_variable-5.52
 # Desc: check that psnp->next->next->long_ptr (and [2].long_ptr) changed

@@ -1,0 +1,83 @@
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook V4.2//EN" 'http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd'>
+
+<!-- Process this file with DocBook tools to generate the output format
+(such as manual pages or HTML documents).
+
+Note that strings like __appmansuffix__, __filemansuffix__, __libmansuffix__,
+__miscmansuffix__ etc. have to be replaced first (in theory that's the
+job of ENTITIES but some XML tools are highly allergic to such stuff... ;-().
+A quick way to do that is to filter this document via
+/usr/bin/sed "s/__appmansuffix__/${MANSUFFIX}/g;s/__filemansuffix__/${FILEMANSUFFIX}/g;s/__libmansuffix__/${LIBMANSUFFIX}/g;s/__misc
+mansuffix__/${MISCMANSUFFIX}/g"
+assuming that env vars like MANSUFFIX etc. have been set to the matching
+manual volume numbers.
+  -->
+
+<refentry>
+  <refmeta>
+    <refentrytitle>xmore</refentrytitle>
+    <manvolnum>__appmansuffix__</manvolnum>
+  </refmeta>
+  <refnamediv>
+    <refname>xmore</refname>
+
+    <refpurpose>plain text display program for the X Window System</refpurpose>
+  </refnamediv>
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>xmore</command>
+
+      <arg><option><replaceable>filename</replaceable></option></arg>     
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1>
+    <title>DESCRIPTION</title>
+
+    <para><command>xmore</command> is a plain text browser.
+    </para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>ENVIRONMENT</title>
+    <variablelist>
+      <varlistentry>
+        <term><envar>XPSERVERLIST</envar>
+        </term>
+        <listitem>
+	    <para>
+              <envar>${XPSERVERLIST}</envar> must be set,
+	      identifying the available Xprint servers.
+              See <citerefentry><refentrytitle>Xprint</refentrytitle><manvolnum>__miscmansuffix__</manvolnum></citerefentry>
+	      for more details.
+	  </para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+<!-- not yet
+  <refsect1>
+    <title>KNOWN BUGS</title>
+    <para>
+    </para>
+  </refsect1>
+-->
+
+  <refsect1>
+    <title>SEE ALSO</title>
+    <para>
+      <simplelist type="inline">
+        <!-- specific references -->
+        <!-- none -->
+        
+        <!-- Xprint general references -->
+        <member><citerefentry><refentrytitle>X11</refentrytitle><manvolnum>__miscmansuffix__</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>xman</refentrytitle><manvolnum>__appmansuffix__</manvolnum></citerefentry></member>
+      </simplelist>
+    </para>
+  </refsect1>
+
+</refentry>
+
+

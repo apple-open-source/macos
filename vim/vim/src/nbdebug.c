@@ -27,8 +27,6 @@
 
 #ifdef NBDEBUG
 
-#include <stdarg.h>
-
 #include "vim.h"
 
 FILE		*nb_debug = NULL;
@@ -38,8 +36,9 @@ void		 nbdb(char *, ...);
 void		 nbtrace(char *, ...);
 
 static int	 lookup(char *);
+#ifndef FEAT_GUI_W32
 static int	 errorHandler(Display *, XErrorEvent *);
-
+#endif
 
 /*
  * nbdebug_wait	-   This function can be used to delay or stop execution of vim.
@@ -83,17 +82,16 @@ nbdebug_log_init(
 	char		*cp;		/* nb_dlevel pointer */
 
 	if (log_var && (file = getenv(log_var)) != NULL) {
-		char buf[BUFSIZ];
+		time_t now;
 
-		sprintf(buf, "date > %s", file);
-		system(buf);
 		nb_debug = fopen(file, "a");
+		time(&now);
+		fprintf(nb_debug, "%s", asctime(localtime(&now)));
 		if (level_var && (cp = getenv(level_var)) != NULL) {
 			nb_dlevel = strtoul(cp, NULL, 0);
 		} else {
 			nb_dlevel = NB_TRACE;	/* default level */
 		}
-		/* XSetErrorHandler(errorHandler); */
 	}
 
 }    /* end nbdebug_log_init */
@@ -125,7 +123,7 @@ nbdbg(
 {
 	va_list		 ap;
 
-	if (nb_debug != NULL) {
+	if (nb_debug != NULL && nb_dlevel & NB_TRACE) {
 		va_start(ap, fmt);
 		vfprintf(nb_debug, fmt, ap);
 		va_end(ap);
@@ -135,6 +133,23 @@ nbdbg(
 }    /* end nbdbg */
 
 
+void
+nbprt(
+	char		*fmt,
+	...)
+{
+	va_list		 ap;
+
+	if (nb_debug != NULL && nb_dlevel & NB_PRINT) {
+		va_start(ap, fmt);
+		vfprintf(nb_debug, fmt, ap);
+		va_end(ap);
+		fflush(nb_debug);
+	}
+
+}    /* end nbprt */
+
+
 static int
 lookup(
 	char		*file)
@@ -142,10 +157,16 @@ lookup(
 	char		 buf[BUFSIZ];
 
 	expand_env((char_u *) file, (char_u *) buf, BUFSIZ);
-	return (access(buf, F_OK) == 0);
+	return
+#ifndef FEAT_GUI_W32
+		(access(buf, F_OK) == 0);
+#else
+		(access(buf, 0) == 0);
+#endif
 
 }    /* end lookup */
 
+#ifndef FEAT_GUI_W32
 static int
 errorHandler(
 	Display		*dpy,
@@ -169,7 +190,7 @@ errorHandler(
 
 	return 0;
 }
-
+#endif
 
 
 #endif /* NBDEBUG */

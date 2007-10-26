@@ -125,11 +125,52 @@ void sys_utmp_yield(const char *username, const char *hostname,
 
 #else /* WITH_UTMP */
 
+#ifndef __APPLE__
 #include <utmp.h>
+#endif
 
 #ifdef HAVE_UTMPX_H
 #include <utmpx.h>
 #endif
+
+#if defined(__APPLE__)
+
+/* force HAVE_UT_UT_ID so that ut_id_encode() is defined */
+#ifndef HAVE_UT_UT_ID
+#define HAVE_UT_UT_ID
+#endif
+
+static int ut_id_encode(int i, char *fourbyte);
+
+static void
+utxcommon(const char *username, const char *hostname,
+                   const char *id_str, int id_num, int type)
+{
+       struct utmpx u;
+       bzero(&u, sizeof(u));
+       strncpy(u.ut_user, username, sizeof(u.ut_user));
+       strncpy(u.ut_host, hostname, sizeof(u.ut_host));
+       strncpy(u.ut_line, id_str, sizeof(u.ut_line));
+       ut_id_encode(id_num, u.ut_id);
+       u.ut_type = type | UTMPX_AUTOFILL_MASK;
+       pututxline(&u);
+}
+
+void sys_utmp_claim(const char *username, const char *hostname,
+                   struct in_addr *ipaddr,
+                   const char *id_str, int id_num)
+{
+       utxcommon(username, hostname, id_str, id_num, USER_PROCESS);
+}
+
+void sys_utmp_yield(const char *username, const char *hostname,
+                   struct in_addr *ipaddr,
+                   const char *id_str, int id_num)
+{
+       utxcommon(username, hostname, id_str, id_num, DEAD_PROCESS);
+}
+
+#else /* !__APPLE__ */
 
 /* BSD systems: some may need lastlog.h (SunOS 4), some may not (FreeBSD) */
 /* Some System-V systems (e.g. Solaris 2) declare this too. */
@@ -440,6 +481,8 @@ static void sys_utmp_update(struct utmp *u, const char *hostname, BOOL claim)
 #endif /* HAVE_UTMPX_H */
 }
 
+#endif /* __APPLE__ */
+
 #if defined(HAVE_UT_UT_ID)
 /****************************************************************************
  Encode the unique connection number into "ut_id".
@@ -469,6 +512,8 @@ static int ut_id_encode(int i, char *fourbyte)
 }
 #endif /* defined(HAVE_UT_UT_ID) */
 
+
+#ifndef __APPLE__
 
 /*
   fill a system utmp structure given all the info we can gather 
@@ -592,4 +637,5 @@ void sys_utmp_claim(const char *username, const char *hostname,
 	sys_utmp_update(&u, hostname, True);
 }
 
+#endif /* __APPLE__ */
 #endif /* WITH_UTMP */

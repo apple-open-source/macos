@@ -81,7 +81,8 @@
 /* save room for 12 VRs (v20-v31), or 0xC0 bytes */
 #define JMP_fp_base_addr 0x144
 /* save room for 18 FPRs (f14-f31), or 0x90 bytes */
-#define JMP_buf_end 0x1d4
+#define	JMP_ss_flags	 0x1d4
+#define JMP_buf_end 0x1d8
 
  
  /* 64-bit-mode layout */
@@ -121,7 +122,8 @@
 /* save room for 12 VRs (v20-v31), or 0xC0 bytes */
 #define JMP_fp_base_addr 0x1ac
 /* save room for 18 FPRs (f14-f31), or 0x90 bytes */
-#define JMP_buf_end 0x23c
+#define	JMP_ss_flags	 0x23c
+#define JMP_buf_end 0x240
 
 #else
 #error architecture not supported

@@ -2,7 +2,7 @@
 
 #include "intel386.h"
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="note"
 
@@ -25,3 +25,6 @@ NOTE-END  */
 #define LIBX11_MACHINE -lnsl_s
 
 #define LIBS_DEBUG -lg
+
+/* arch-tag: b6b7e6ec-8b6c-440b-b9c8-961e4bebf0cf
+   (do not change this comment) */

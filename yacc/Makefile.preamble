@@ -1,2 +1,0 @@
-include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common
-AFTER_INSTALL = after_install

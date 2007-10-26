@@ -1,8 +1,0 @@
-XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:46 cpqbld Exp $
-
-     DATAFILES = amiga ataritt
-
-all::
-
-InstallMultiple($(DATAFILES),$(LIBDIR)/xkb/symbols/xfree68)
-DependTarget()

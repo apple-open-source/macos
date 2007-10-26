@@ -1,6 +1,6 @@
 --- table.c.orig	2004-11-25 11:38:19.000000000 -0800
-+++ table.c	2005-02-20 16:31:30.000000000 -0800
-@@ -40,11 +40,14 @@
++++ table.c	2005-03-30 16:33:51.000000000 -0800
+@@ -40,13 +40,16 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/table.c,v 1.26 2004/10/17 06:51:50 tjr Exp $");
  
@@ -13,8 +13,11 @@
  
 +/* _DefaultRuneLocale is depreciated; _DefaultRuneXLocale is used instead */
  _RuneLocale _DefaultRuneLocale = {
-     _RUNE_MAGIC_1,
+-    _RUNE_MAGIC_1,
++    _RUNE_MAGIC_A,
      "NONE",
+     NULL,
+     NULL,
 @@ -249,15 +252,222 @@
      },
  };
@@ -32,7 +35,7 @@
 +    _none_wcsnrtombs,
 +    sizeof(struct __xlocale_st_runelocale),
 +    {
-+	_RUNE_MAGIC_1,
++	_RUNE_MAGIC_A,
 +	"NONE",
 +	NULL,
 +	NULL,

@@ -1,0 +1,4 @@
+Makefile.PL
+lib/Class/Data/Inheritable.pm
+t/Inheritable.t
+MANIFEST

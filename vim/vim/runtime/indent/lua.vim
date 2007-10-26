@@ -1,19 +1,27 @@
 " Vim indent file
 " Language:	Lua script
-" Maintainer:	Marcus Aurelius Farias <marcuscf@vant.com.br>
-" First Author:	Max Ischenko <mfi@ukr.net>
-" Last Change:	2003 Jan 20
+" Maintainer:	Marcus Aurelius Farias <marcus.cf 'at' bol.com.br>
+" First Author:	Max Ischenko <mfi 'at' ukr.net>
+" Last Change:	2005 Jun 23
 
-" Only define the function once.
-if exists("*GetLuaIndent") | finish | endif
+" Only load this indent file when no other was loaded.
+if exists("b:did_indent")
+  finish
+endif
+let b:did_indent = 1
 
 setlocal indentexpr=GetLuaIndent()
 
 " To make Vim call GetLuaIndent() when it finds '\s*end' or '\s*until'
-" on the current line (else is default).
+" on the current line ('else' is default and includes 'elseif').
 setlocal indentkeys+=0=end,0=until
 
 setlocal autoindent
+
+" Only define the function once.
+if exists("*GetLuaIndent")
+  finish
+endif
 
 function! GetLuaIndent()
   " Find a non-blank line above the current line.
@@ -24,25 +32,27 @@ function! GetLuaIndent()
     return 0
   endif
 
-  " Add a 'shiftwidth' after lines beginning with:
-  " function, if, for, while, repeat, else, elseif, '{'
+  " Add a 'shiftwidth' after lines that start a block:
+  " 'function', 'if', 'for', 'while', 'repeat', 'else', 'elseif', '{'
   let ind = indent(lnum)
   let flag = 0
-  if getline(lnum) =~ '^\s*\(function\>\|if\>\|for\>\|while\>\|repeat\>\|else\>\|elseif\>\|do\>\)' || getline(lnum) =~ '{\s*$' || getline(lnum) =~ '\s*=\s*function'
-    let ind = ind + &sw
+  let prevline = getline(lnum)
+  if prevline =~ '^\s*\%(if\>\|for\>\|while\>\|repeat\>\|else\>\|elseif\>\|do\>\|then\>\)'
+        \ || prevline =~ '{\s*$' || prevline =~ '\<function\>\s*\%(\k\|[.:]\)\{-}\s*('
+    let ind = ind + &shiftwidth
     let flag = 1
   endif
 
   " Subtract a 'shiftwidth' after lines ending with
-  " 'end' when they begin with while, if, for, etc.
-  if flag == 1 && getline(lnum) =~ '\<end\>\|\<until\>'
-    let ind = ind - &sw
+  " 'end' when they begin with 'while', 'if', 'for', etc. too.
+  if flag == 1 && prevline =~ '\<end\>\|\<until\>'
+    let ind = ind - &shiftwidth
   endif
 
   " Subtract a 'shiftwidth' on end, else (and elseif), until and '}'
   " This is the part that requires 'indentkeys'.
-  if getline(v:lnum) =~ '^\s*\(end\|else\|until\|}\)'
-    let ind = ind - &sw
+  if getline(v:lnum) =~ '^\s*\%(end\|else\|until\|}\)'
+    let ind = ind - &shiftwidth
   endif
 
   return ind

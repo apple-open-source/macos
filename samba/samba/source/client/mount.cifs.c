@@ -1,6 +1,6 @@
 /* 
    Mount helper utility for Linux CIFS VFS (virtual filesystem) client
-   Copyright (C) 2003 Steve French  (sfrench@us.ibm.com)
+   Copyright (C) 2003,2005 Steve French  (sfrench@us.ibm.com)
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <grp.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -38,17 +40,32 @@
 #include <fcntl.h>
 
 #define MOUNT_CIFS_VERSION_MAJOR "1"
-#define MOUNT_CIFS_VERSION_MINOR "5"
+#define MOUNT_CIFS_VERSION_MINOR "10"
 
 #ifndef MOUNT_CIFS_VENDOR_SUFFIX
-#define MOUNT_CIFS_VENDOR_SUFFIX ""
-#endif
+ #ifdef _SAMBA_BUILD_
+  #include "include/version.h"
+  #ifdef SAMBA_VERSION_VENDOR_SUFFIX
+   #define MOUNT_CIFS_VENDOR_SUFFIX "-"SAMBA_VERSION_OFFICIAL_STRING"-"SAMBA_VERSION_VENDOR_SUFFIX
+  #else
+   #define MOUNT_CIFS_VENDOR_SUFFIX "-"SAMBA_VERSION_OFFICIAL_STRING
+  #endif /* SAMBA_VERSION_OFFICIAL_STRING and SAMBA_VERSION_VENDOR_SUFFIX */
+ #else
+   #define MOUNT_CIFS_VENDOR_SUFFIX ""
+ #endif /* _SAMBA_BUILD_ */
+#endif /* MOUNT_CIFS_VENDOR_SUFFIX */
 
 #ifndef MS_MOVE 
 #define MS_MOVE 8192 
 #endif 
 
-char * thisprogram;
+#ifndef MS_BIND
+#define MS_BIND 4096
+#endif
+
+#define CONST_DISCARD(type, ptr)      ((type) ((void *) (ptr)))
+
+const char *thisprogram;
 int verboseflag = 0;
 static int got_password = 0;
 static int got_user = 0;
@@ -59,7 +76,9 @@ static int got_uid = 0;
 static int got_gid = 0;
 static int free_share_name = 0;
 static char * user_name = NULL;
-char * mountpassword = NULL;
+static char * mountpassword = NULL;
+char * domain_name = NULL;
+char * prefixpath = NULL;
 
 
 /* BB finish BB
@@ -71,6 +90,9 @@ char * mountpassword = NULL;
                 
 BB end finish BB */
 
+static char * check_for_domain(char **);
+
+
 static void mount_cifs_usage(void)
 {
 	printf("\nUsage:  %s <remotetarget> <dir> -o <options>\n", thisprogram);
@@ -78,11 +100,16 @@ static void mount_cifs_usage(void)
 	printf(" to a local directory.\n\nOptions:\n");
 	printf("\tuser=<arg>\n\tpass=<arg>\n\tdom=<arg>\n");
 	printf("\nLess commonly used options:");
-	printf("\n\tcredentials=<filename>,guest,perm,noperm,setuids,nosetuids,\n\trw,ro,sep=<char>,iocharset=<codepage>,suid,nosuid,exec,noexec");
-	printf("\n\nOptions not needed for servers supporting CIFS Unix extensions (e.g. most Samba versions):");
-	printf("\n\tuid=<uid>,gid=<gid>,dir_mode=<mode>,file_mode=<mode>");
+	printf("\n\tcredentials=<filename>,guest,perm,noperm,setuids,nosetuids,rw,ro,");
+	printf("\n\tsep=<char>,iocharset=<codepage>,suid,nosuid,exec,noexec,serverino,");
+	printf("\n\tdirectio,mapchars,nomapchars,nolock,servernetbiosname=<SRV_RFC1001NAME>");
+	printf("\n\nOptions not needed for servers supporting CIFS Unix extensions");
+	printf("\n\t(e.g. unneeded for mounts to most Samba versions):");
+	printf("\n\tuid=<uid>,gid=<gid>,dir_mode=<mode>,file_mode=<mode>,sfu");
 	printf("\n\nRarely used options:");
-	printf("\n\tport=<tcpport>,rsize=<size>,wsize=<size>,unc=<unc_name>,ip=<ip_address>,dev,nodev");
+	printf("\n\tport=<tcpport>,rsize=<size>,wsize=<size>,unc=<unc_name>,ip=<ip_address>,");
+	printf("\n\tdev,nodev,nouser_xattr,netbiosname=<OUR_RFC1001NAME>,hard,soft,intr,");
+	printf("\n\tnointr,ignorecase,noposixpaths,noacl");
 	printf("\n\nOptions are described in more detail in the manual page");
 	printf("\n\tman 8 mount.cifs\n");
 	printf("\nTo display the version number of the mount helper:");
@@ -106,7 +133,7 @@ static char * getusername(void) {
 	return username;
 }
 
-char * parse_cifs_url(char * unc_name)
+static char * parse_cifs_url(char * unc_name)
 {
 	printf("\nMounting cifs URL not implemented yet. Attempt to mount %s\n",unc_name);
 	return NULL;
@@ -121,9 +148,11 @@ static int open_cred_file(char * file_name)
 	fs = fopen(file_name,"r");
 	if(fs == NULL)
 		return errno;
-	line_buf = malloc(4096);
-	if(line_buf == NULL)
+	line_buf = (char *)malloc(4096);
+	if(line_buf == NULL) {
+		fclose(fs);
 		return -ENOMEM;
+	}
 
 	while(fgets(line_buf,4096,fs)) {
 		/* parse line from credential file */
@@ -152,7 +181,7 @@ static int open_cred_file(char * file_name)
 					exit(1);
 				} else {
 					got_user = 1;
-					user_name = calloc(1 + length,1);
+					user_name = (char *)calloc(1 + length,1);
 					/* BB adding free of user_name string before exit,
 						not really necessary but would be cleaner */
 					strncpy(user_name,temp_val, length);
@@ -176,17 +205,45 @@ static int open_cred_file(char * file_name)
 					exit(1);
 				} else {
 					if(mountpassword == NULL) {
-						mountpassword = calloc(65,1);
+						mountpassword = (char *)calloc(65,1);
 					} else
 						memset(mountpassword,0,64);
 					if(mountpassword) {
-						/* BB add handling for commas in password here */
 						strncpy(mountpassword,temp_val,length);
 						got_password = 1;
 					}
 				}
 			}
-		}
+                } else if (strncasecmp("domain",line_buf+i,6) == 0) {
+                        temp_val = strchr(line_buf+i,'=');
+                        if(temp_val) {
+                                /* go past equals sign */
+                                temp_val++;
+				if(verboseflag)
+					printf("\nDomain %s\n",temp_val);
+                                for(length = 0;length<65;length++) {
+                                        if(temp_val[length] == '\n')
+                                                break;
+                                }
+                                if(length > 64) {
+                                        printf("mount.cifs failed: domain in credentials file too long\n");
+                                        if(mountpassword) {
+                                                memset(mountpassword,0,64);
+                                        }
+                                        exit(1);
+                                } else {
+                                        if(domain_name == NULL) {
+                                                domain_name = (char *)calloc(65,1);
+                                        } else
+                                                memset(domain_name,0,64);
+                                        if(domain_name) {
+                                                strncpy(domain_name,temp_val,length);
+                                                got_domain = 1;
+                                        }
+                                }
+                        }
+                }
+
 	}
 	fclose(fs);
 	if(line_buf) {
@@ -203,9 +260,14 @@ static int get_password_from_file(int file_descript, char * filename)
 	char c;
 
 	if(mountpassword == NULL)
-		mountpassword = calloc(65,1);
+		mountpassword = (char *)calloc(65,1);
 	else 
 		memset(mountpassword, 0, 64);
+
+	if (mountpassword == NULL) {
+		printf("malloc failed\n");
+		exit(1);
+	}
 
 	if(filename != NULL) {
 		file_descript = open(filename, O_RDONLY);
@@ -249,21 +311,25 @@ static int get_password_from_file(int file_descript, char * filename)
 	return rc;
 }
 
-static int parse_options(char * options, int * filesys_flags)
+static int parse_options(char ** optionsp, int * filesys_flags)
 {
-	char * data;
+	const char * data;
 	char * percent_char = NULL;
 	char * value = NULL;
 	char * next_keyword = NULL;
+	char * out = NULL;
+	int out_len = 0;
+	int word_len;
 	int rc = 0;
 
-	if (!options)
+	if (!optionsp || !*optionsp)
 		return 1;
-	else
-		data = options;
+	data = *optionsp;
 
 	if(verboseflag)
-		printf("\n parsing options: %s", options);
+		printf("parsing options: %s\n", data);
+
+	/* BB fixme check for separator override BB */
 
 /* while ((data = strsep(&options, ",")) != NULL) { */
 	while(data != NULL) {
@@ -275,33 +341,33 @@ static int parse_options(char * options, int * filesys_flags)
 		/* data  = next keyword */
 		/* value = next value ie stuff after equal sign */
 
-		next_keyword = strchr(data,',');
+		next_keyword = strchr(data,','); /* BB handle sep= */
 	
 		/* temporarily null terminate end of keyword=value pair */
 		if(next_keyword)
-			*next_keyword = 0;
+			*next_keyword++ = 0;
 
-		/* if (!*data)
-			continue; */
-		
 		/* temporarily null terminate keyword to make keyword and value distinct */
 		if ((value = strchr(data, '=')) != NULL) {
 			*value = '\0';
 			value++;
 		}
 
-		if (strncmp(data, "user", 4) == 0) {
+		if (strncmp(data, "users",5) == 0) {
+			if(!value || !*value) {
+				goto nocopy;
+			}
+		} else if (strncmp(data, "user_xattr",10) == 0) {
+		   /* do nothing - need to skip so not parsed as user name */
+		} else if (strncmp(data, "user", 4) == 0) {
+
 			if (!value || !*value) {
 				if(data[4] == '\0') {
 					if(verboseflag)
 						printf("\nskipping empty user mount parameter\n");
 					/* remove the parm since it would otherwise be confusing
 					to the kernel code which would think it was a real username */
-						data[0] = ',';
-						data[1] = ',';
-						data[2] = ',';
-						data[3] = ',';
-					/* BB remove it from mount line so as not to confuse kernel code */
+					goto nocopy;
 				} else {
 					printf("username specified with no parameter\n");
 					return 1;	/* needs_arg; */
@@ -313,7 +379,7 @@ static int parse_options(char * options, int * filesys_flags)
 					if(percent_char) {
 						*percent_char = ',';
 						if(mountpassword == NULL)
-							mountpassword = calloc(65,1);
+							mountpassword = (char *)calloc(65,1);
 						if(mountpassword) {
 							if(got_password)
 								printf("\nmount.cifs warning - password specified twice\n");
@@ -327,6 +393,13 @@ static int parse_options(char * options, int * filesys_flags)
 							}
 						}
 					}
+					/* this is only case in which the user
+					name buf is not malloc - so we have to
+					check for domain name embedded within
+					the user name here since the later
+					call to check_for_domain will not be
+					invoked */
+					domain_name = check_for_domain(&value);
 				} else {
 					printf("username too long\n");
 					return 1;
@@ -345,6 +418,11 @@ static int parse_options(char * options, int * filesys_flags)
 			} else {
 				printf("password too long\n");
 				return 1;
+			}
+		} else if (strncmp(data, "sec", 3) == 0) {
+			if (value) {
+				if (!strcmp(value, "none"))
+					got_password = 1;
 			}
 		} else if (strncmp(data, "ip", 2) == 0) {
 			if (!value || !*value) {
@@ -413,10 +491,34 @@ static int parse_options(char * options, int * filesys_flags)
 		} else if (strncmp(data, "uid", 3) == 0) {
 			if (value && *value) {
 				got_uid = 1;
+				if (!isdigit(*value)) {
+					struct passwd *pw;
+					static char temp[32];
+
+					if (!(pw = getpwnam(value))) {
+						printf("bad user name \"%s\"\n", value);
+						exit(1);
+					}
+					sprintf(temp, "%u", pw->pw_uid);
+					value = temp;
+					endpwent();
+				}
 			}
 		} else if (strncmp(data, "gid", 3) == 0) {
 			if (value && *value) {
 				got_gid = 1;
+				if (!isdigit(*value)) {
+					struct group *gr;
+					static char temp[32];
+
+					if (!(gr = getgrnam(value))) {
+						printf("bad group name \"%s\"\n", value);
+						exit(1);
+					}
+					sprintf(temp, "%u", gr->gr_gid);
+					value = temp;
+					endpwent();
+				}
 			}
        /* fmask and dmask synonyms for people used to smbfs syntax */
 		} else if (strcmp(data, "file_mode") == 0 || strcmp(data, "fmask")==0) {
@@ -459,6 +561,9 @@ static int parse_options(char * options, int * filesys_flags)
 			*filesys_flags &= ~MS_NOSUID;
 		} else if (strncmp(data, "nodev", 5) == 0) {
 			*filesys_flags |= MS_NODEV;
+		} else if ((strncmp(data, "nobrl", 5) == 0) || 
+			   (strncmp(data, "nolock", 6) == 0)) {
+			*filesys_flags &= ~MS_MANDLOCK;
 		} else if (strncmp(data, "dev", 3) == 0) {
 			*filesys_flags &= ~MS_NODEV;
 		} else if (strncmp(data, "noexec", 6) == 0) {
@@ -467,16 +572,12 @@ static int parse_options(char * options, int * filesys_flags)
 			*filesys_flags &= ~MS_NOEXEC;
 		} else if (strncmp(data, "guest", 5) == 0) {
 			got_password=1;
-                        /* remove the parm since it would otherwise be logged by kern */
- 			data[0] = ',';
-                        data[1] = ',';
-                        data[2] = ',';
- 			data[3] = ',';
-			data[4] = ',';
 		} else if (strncmp(data, "ro", 2) == 0) {
 			*filesys_flags |= MS_RDONLY;
 		} else if (strncmp(data, "rw", 2) == 0) {
 			*filesys_flags &= ~MS_RDONLY;
+                } else if (strncmp(data, "remount", 7) == 0) {
+                        *filesys_flags |= MS_REMOUNT;
 		} /* else if (strnicmp(data, "port", 4) == 0) {
 			if (value && *value) {
 				vol->port =
@@ -498,34 +599,164 @@ static int parse_options(char * options, int * filesys_flags)
 		} */ /* nothing to do on those four mount options above.
 			Just pass to kernel and ignore them here */
 
-			/* move to next option */
-		data = next_keyword+1;
+		/* Copy (possibly modified) option to out */
+		word_len = strlen(data);
+		if (value)
+			word_len += 1 + strlen(value);
 
-		/* put overwritten equals sign back */
-		if(value) {
-			value--;
-			*value = '=';
+		out = (char *)realloc(out, out_len + word_len + 2);
+		if (out == NULL) {
+			perror("malloc");
+			exit(1);
 		}
-	
-		/* put previous overwritten comma back */
-		if(next_keyword)
-			*next_keyword = ',';
+
+		if (out_len)
+			out[out_len++] = ',';
+		if (value)
+			sprintf(out + out_len, "%s=%s", data, value);
 		else
-			data = NULL;
+			sprintf(out + out_len, "%s", data);
+		out_len = strlen(out);
+
+nocopy:
+		data = next_keyword;
 	}
+	free(*optionsp);
+	*optionsp = out;
 	return 0;
 }
 
+/* replace all (one or more) commas with double commas */
+static void check_for_comma(char ** ppasswrd)
+{
+	char *new_pass_buf;
+	char *pass;
+	int i,j;
+	int number_of_commas = 0;
+	int len;
+
+	if(ppasswrd == NULL)
+		return;
+	else 
+		(pass = *ppasswrd);
+
+	len = strlen(pass);
+
+	for(i=0;i<len;i++)  {
+		if(pass[i] == ',')
+			number_of_commas++;
+	}
+
+	if(number_of_commas == 0)
+		return;
+	if(number_of_commas > 64) {
+		/* would otherwise overflow the mount options buffer */
+		printf("\nInvalid password. Password contains too many commas.\n");
+		return;
+	}
+
+	new_pass_buf = (char *)malloc(len+number_of_commas+1);
+	if(new_pass_buf == NULL)
+		return;
+
+	for(i=0,j=0;i<len;i++,j++) {
+		new_pass_buf[j] = pass[i];
+		if(pass[i] == ',') {
+			j++;
+			new_pass_buf[j] = pass[i];
+		}
+	}
+	new_pass_buf[len+number_of_commas] = 0;
+
+	free(*ppasswrd);
+	*ppasswrd = new_pass_buf;
+	
+	return;
+}
+
+/* Usernames can not have backslash in them and we use
+   [BB check if usernames can have forward slash in them BB] 
+   backslash as domain\user separator character
+*/
+static char * check_for_domain(char **ppuser)
+{
+	char * original_string;
+	char * usernm;
+	char * domainnm;
+	int    original_len;
+	int    len;
+	int    i;
+
+	if(ppuser == NULL)
+		return NULL;
+
+	original_string = *ppuser;
+
+	if (original_string == NULL)
+		return NULL;
+	
+	original_len = strlen(original_string);
+
+	usernm = strchr(*ppuser,'/');
+	if (usernm == NULL) {
+		usernm = strchr(*ppuser,'\\');
+		if (usernm == NULL)
+			return NULL;
+	}
+
+	if(got_domain) {
+		printf("Domain name specified twice. Username probably malformed\n");
+		return NULL;
+	}
+
+	usernm[0] = 0;
+	domainnm = *ppuser;
+	if (domainnm[0] != 0) {
+		got_domain = 1;
+	} else {
+		printf("null domain\n");
+	}
+	len = strlen(domainnm);
+	/* reset domainm to new buffer, and copy
+	domain name into it */
+	domainnm = (char *)malloc(len+1);
+	if(domainnm == NULL)
+		return NULL;
+
+	strcpy(domainnm,*ppuser);
+
+/*	move_string(*ppuser, usernm+1) */
+	len = strlen(usernm+1);
+
+	if(len >= original_len) {
+		/* should not happen */
+		return domainnm;
+	}
+
+	for(i=0;i<original_len;i++) {
+		if(i<len)
+			original_string[i] = usernm[i+1];
+		else /* stuff with commas to remove last parm */
+			original_string[i] = ',';
+	}
+
+	/* BB add check for more than one slash? 
+	  strchr(*ppuser,'/');
+	  strchr(*ppuser,'\\') 
+	*/
+	
+	return domainnm;
+}
+
 /* Note that caller frees the returned buffer if necessary */
-char * parse_server(char ** punc_name)
+static char * parse_server(char ** punc_name)
 {
 	char * unc_name = *punc_name;
 	int length = strnlen(unc_name,1024);
 	char * share;
 	char * ipaddress_string = NULL;
-	struct hostent * host_entry;
+	struct hostent * host_entry = NULL;
 	struct in_addr server_ipaddr;
-	int rc;
 
 	if(length > 1023) {
 		printf("mount error: UNC name too long");
@@ -539,7 +770,7 @@ char * parse_server(char ** punc_name)
 
 	if(length < 3) {
 		/* BB add code to find DFS root here */
-		printf("\nMounting the DFS root for domain not implemented yet");
+		printf("\nMounting the DFS root for domain not implemented yet\n");
 		return NULL;
 	} else {
 		if(strncmp(unc_name,"//",2) && strncmp(unc_name,"\\\\",2)) {
@@ -547,7 +778,14 @@ char * parse_server(char ** punc_name)
 			share = strchr(unc_name,':');
 			if(share) {
 				free_share_name = 1;
-				*punc_name = malloc(length+3);
+				*punc_name = (char *)malloc(length+3);
+				if(*punc_name == NULL) {
+					/* put the original string back  if 
+					   no memory left */
+					*punc_name = unc_name;
+					return NULL;
+				}
+					
 				*share = '/';
 				strncpy((*punc_name)+2,unc_name,length);
 				unc_name = *punc_name;
@@ -571,14 +809,18 @@ continue_unc_parsing:
 					host_entry = gethostbyname(unc_name);
 				}
 				*(share - 1) = '/'; /* put the slash back */
+				if ((prefixpath = strchr(share, '/'))) {
+					*prefixpath = 0;  /* permanently terminate the string */
+					if (!strlen(++prefixpath))
+						prefixpath = NULL; /* this needs to be done explicitly */
+				}
 				if(got_ip) {
 					if(verboseflag)
 						printf("ip address specified explicitly\n");
 					return NULL;
 				}
 				if(host_entry == NULL) {
-					printf("mount error: could not find target server. TCP name %s not found ", unc_name);
-					printf(" rc = %d\n",rc);
+					printf("mount error: could not find target server. TCP name %s not found\n", unc_name);
 					return NULL;
 				} else {
 					/* BB should we pass an alternate version of the share name as Unicode */
@@ -638,12 +880,11 @@ int main(int argc, char ** argv)
 	int flags = MS_MANDLOCK; /* no need to set legacy MS_MGC_VAL */
 	char * orgoptions = NULL;
 	char * share_name = NULL;
-	char * domain_name = NULL;
 	char * ipaddr = NULL;
 	char * uuid = NULL;
-	char * mountpoint;
-	char * options;
-	char * resolved_path;
+	char * mountpoint = NULL;
+	char * options = NULL;
+	char * resolved_path = NULL;
 	char * temp;
 	int rc;
 	int rsize = 0;
@@ -653,6 +894,7 @@ int main(int argc, char ** argv)
 	int gid = 0;
 	int optlen = 0;
 	int orgoptlen = 0;
+	int retry = 0; /* set when we have to retry mount with uppercase */
 	struct stat statbuf;
 	struct utsname sysinfo;
 	struct mntent mountent;
@@ -664,7 +906,11 @@ int main(int argc, char ** argv)
 
 	if(argc && argv) {
 		thisprogram = argv[0];
+	} else {
+		mount_cifs_usage();
+		exit(1);
 	}
+
 	if(thisprogram == NULL)
 		thisprogram = "mount.cifs";
 
@@ -674,9 +920,10 @@ int main(int argc, char ** argv)
 /* #ifdef _GNU_SOURCE
 	printf(" node: %s machine: %s sysname %s domain %s\n", sysinfo.nodename,sysinfo.machine,sysinfo.sysname,sysinfo.domainname);
 #endif */
-
-	share_name = argv[1];
-	mountpoint = argv[2];
+	if(argc > 2) {
+		share_name = argv[1];
+		mountpoint = argv[2];
+	}
 
 	/* add sharename in opts string as unc= parm */
 
@@ -702,10 +949,20 @@ int main(int argc, char ** argv)
 		    ++nomtab;
 		    break;
 		case 'b':
+#ifdef MS_BIND
 			flags |= MS_BIND;
+#else
+			fprintf(stderr,
+				"option 'b' (MS_BIND) not supported\n");
+#endif
 			break;
 		case 'm':
+#ifdef MS_MOVE		      
 			flags |= MS_MOVE;
+#else
+			fprintf(stderr,
+				"option 'm' (MS_MOVE) not supported\n");
+#endif
 			break;
 		case 'o':
 			orgoptions = strdup(optarg);
@@ -738,21 +995,56 @@ int main(int argc, char ** argv)
 			wsize = atoi(optarg);
 			break;
 		case '1':
-			uid = atoi(optarg);
+			if (isdigit(*optarg)) {
+				char *ep;
+
+				uid = strtoul(optarg, &ep, 10);
+				if (*ep) {
+					printf("bad uid value \"%s\"\n", optarg);
+					exit(1);
+				}
+			} else {
+				struct passwd *pw;
+
+				if (!(pw = getpwnam(optarg))) {
+					printf("bad user name \"%s\"\n", optarg);
+					exit(1);
+				}
+				uid = pw->pw_uid;
+				endpwent();
+			}
 			break;
 		case '2':
-			gid = atoi(optarg);
+			if (isdigit(*optarg)) {
+				char *ep;
+
+				gid = strtoul(optarg, &ep, 10);
+				if (*ep) {
+					printf("bad gid value \"%s\"\n", optarg);
+					exit(1);
+				}
+			} else {
+				struct group *gr;
+
+				if (!(gr = getgrnam(optarg))) {
+					printf("bad user name \"%s\"\n", optarg);
+					exit(1);
+				}
+				gid = gr->gr_gid;
+				endpwent();
+			}
 			break;
 		case 'u':
 			got_user = 1;
 			user_name = optarg;
 			break;
 		case 'd':
-			domain_name = optarg;
+			domain_name = optarg; /* BB fix this - currently ignored */
+			got_domain = 1;
 			break;
 		case 'p':
 			if(mountpassword == NULL)
-				mountpassword = calloc(65,1);
+				mountpassword = (char *)calloc(65,1);
 			if(mountpassword) {
 				got_password = 1;
 				strncpy(mountpassword,optarg,64);
@@ -770,12 +1062,14 @@ int main(int argc, char ** argv)
 		}
 	}
 
-	if(argc < 3)
+	if((argc < 3) || (share_name == NULL) || (mountpoint == NULL)) {
 		mount_cifs_usage();
+		exit(1);
+	}
 
 	if (getenv("PASSWD")) {
 		if(mountpassword == NULL)
-			mountpassword = calloc(65,1);
+			mountpassword = (char *)calloc(65,1);
 		if(mountpassword) {
 			strncpy(mountpassword,getenv("PASSWD"),64);
 			got_password = 1;
@@ -786,18 +1080,19 @@ int main(int argc, char ** argv)
 		get_password_from_file(0, getenv("PASSWD_FILE"));
 	}
 
-        if (orgoptions && parse_options(orgoptions, &flags))
-                return -1;
-	
+        if (orgoptions && parse_options(&orgoptions, &flags)) {
+                rc = -1;
+		goto mount_exit;
+	}
 	ipaddr = parse_server(&share_name);
 	if((ipaddr == NULL) && (got_ip == 0)) {
 		printf("No ip address specified and hostname not found\n");
-		return -1;
+		rc = -1;
+		goto mount_exit;
 	}
 	
-
 	/* BB save off path and pop after mount returns? */
-	resolved_path = malloc(PATH_MAX+1);
+	resolved_path = (char *)malloc(PATH_MAX+1);
 	if(resolved_path) {
 		/* Note that if we can not canonicalize the name, we get
 		another chance to see if it is valid when we chdir to it */
@@ -807,17 +1102,20 @@ int main(int argc, char ** argv)
 	}
 	if(chdir(mountpoint)) {
 		printf("mount error: can not change directory into mount target %s\n",mountpoint);
-		return -1;
+		rc = -1;
+		goto mount_exit;
 	}
 
 	if(stat (".", &statbuf)) {
 		printf("mount error: mount point %s does not exist\n",mountpoint);
-		return -1;
+		rc = -1;
+		goto mount_exit;
 	}
 
 	if (S_ISDIR(statbuf.st_mode) == 0) {
 		printf("mount error: mount point %s is not a directory\n",mountpoint);
-		return -1;
+		rc = -1;
+		goto mount_exit;
 	}
 
 	if((getuid() != 0) && (geteuid() == 0)) {
@@ -833,8 +1131,10 @@ int main(int argc, char ** argv)
 		}
 	}
 
-	if(got_user == 0)
+	if(got_user == 0) {
 		user_name = getusername();
+		got_user = 1;
+	}
        
 	if(got_password == 0) {
 		mountpassword = getpass("Password: "); /* BB obsolete */
@@ -842,6 +1142,7 @@ int main(int argc, char ** argv)
 	}
 	/* FIXME launch daemon (handles dfs name resolution and credential change) 
 	   remember to clear parms and overwrite password field before launching */
+mount_retry:
 	if(orgoptions) {
 		optlen = strlen(orgoptions);
 		orgoptlen = optlen;
@@ -849,13 +1150,20 @@ int main(int argc, char ** argv)
 		optlen = 0;
 	if(share_name)
 		optlen += strlen(share_name) + 4;
+	else {
+		printf("No server share name specified\n");
+		printf("\nMounting the DFS root for server not implemented yet\n");
+                exit(1);
+	}
 	if(user_name)
 		optlen += strlen(user_name) + 6;
 	if(ipaddr)
 		optlen += strlen(ipaddr) + 4;
 	if(mountpassword)
 		optlen += strlen(mountpassword) + 6;
-	options = malloc(optlen + 10);
+	if(options)
+		free(options);
+	options = (char *)malloc(optlen + 10 + 64 /* space for commas in password */ + 8 /* space for domain=  , domain name itself was counted as part of the length username string above */);
 
 	if(options == NULL) {
 		printf("Could not allocate memory for mount options\n");
@@ -873,15 +1181,32 @@ int main(int argc, char ** argv)
 	if(ipaddr) {
 		strncat(options,",ip=",4);
 		strcat(options,ipaddr);
-	} 
+	}
+
 	if(user_name) {
+		/* check for syntax like user=domain\user */
+		if(got_domain == 0)
+			domain_name = check_for_domain(&user_name);
 		strncat(options,",user=",6);
 		strcat(options,user_name);
-	} 
+	}
+	if(retry == 0) {
+		if(domain_name) { 
+			/* extra length accounted for in option string above */
+			strncat(options,",domain=",8);
+			strcat(options,domain_name);
+		}
+	}
 	if(mountpassword) {
+		/* Commas have to be doubled, or else they will
+		look like the parameter separator */
+/*		if(sep is not set)*/
+		if(retry == 0)
+			check_for_comma(&mountpassword);
 		strncat(options,",pass=",6);
 		strcat(options,mountpassword);
 	}
+
 	strncat(options,",ver=",5);
 	strcat(options,MOUNT_CIFS_VERSION_MAJOR);
 
@@ -889,10 +1214,16 @@ int main(int argc, char ** argv)
 		strcat(options,",");
 		strcat(options,orgoptions);
 	}
+	if(prefixpath) {
+		strncat(options,",prefixpath=",12);
+		strcat(options,prefixpath); /* no need to cat the / */
+	}	
 	if(verboseflag)
 		printf("\nmount.cifs kernel mount options %s \n",options);
 	if(mount(share_name, mountpoint, "cifs", flags, options)) {
 	/* remember to kill daemon on error */
+		char * tmp;
+
 		switch (errno) {
 		case 0:
 			printf("mount failed but no error number set\n");
@@ -900,21 +1231,32 @@ int main(int argc, char ** argv)
 		case ENODEV:
 			printf("mount error: cifs filesystem not supported by the system\n");
 			break;
+		case ENXIO:
+			if(retry == 0) {
+				retry = 1;
+				tmp = share_name;
+				while (*tmp && !(((unsigned char)tmp[0]) & 0x80)) {
+					*tmp = toupper((unsigned char)*tmp);
+		        		tmp++;
+				}
+				if(!*tmp) {
+					printf("retrying with upper case share name\n");
+					goto mount_retry;
+				}
+			}
 		default:
 			printf("mount error %d = %s\n",errno,strerror(errno));
 		}
 		printf("Refer to the mount.cifs(8) manual page (e.g.man mount.cifs)\n");
-		if(mountpassword) {
-			memset(mountpassword,0,64);
-		}
-		return -1;
+		rc = -1;
+		goto mount_exit;
 	} else {
 		pmntfile = setmntent(MOUNTED, "a+");
 		if(pmntfile) {
 			mountent.mnt_fsname = share_name;
 			mountent.mnt_dir = mountpoint; 
-			mountent.mnt_type = "cifs"; 
-			mountent.mnt_opts = malloc(220);
+			mountent.mnt_type = CONST_DISCARD(char *,"cifs"); 
+			mountent.mnt_opts = (char *)malloc(220);
 			if(mountent.mnt_opts) {
 				char * mount_user = getusername();
 				memset(mountent.mnt_opts,0,200);
@@ -924,8 +1266,6 @@ int main(int argc, char ** argv)
 					strcat(mountent.mnt_opts,"rw");
 				if(flags & MS_MANDLOCK)
 					strcat(mountent.mnt_opts,",mand");
-				else
-					strcat(mountent.mnt_opts,",nomand");
 				if(flags & MS_NOEXEC)
 					strcat(mountent.mnt_opts,",noexec");
 				if(flags & MS_NOSUID)
@@ -939,7 +1279,7 @@ int main(int argc, char ** argv)
 						strcat(mountent.mnt_opts,",user=");
 						strcat(mountent.mnt_opts,mount_user);
 					}
-					free(mount_user);
+					/* free(mount_user); do not free static mem */
 				}
 			}
 			mountent.mnt_freq = 0;
@@ -952,8 +1292,11 @@ int main(int argc, char ** argv)
 		    printf("could not update mount table\n");
 		}
 	}
+	rc = 0;
+mount_exit:
 	if(mountpassword) {
-		memset(mountpassword,0,64);
+		int len = strlen(mountpassword);
+		memset(mountpassword,0,len);
 		free(mountpassword);
 	}
 
@@ -973,6 +1316,6 @@ int main(int argc, char ** argv)
 	if(free_share_name) {
 		free(share_name);
 		}
-	return 0;
+	return rc;
 }
 

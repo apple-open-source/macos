@@ -50,7 +50,7 @@ void KeyHandle::wrapUsingKey(const Context &context,
 	CssmKey &wrappedKey)
 {
 	/* We are being asked to wrap this key using another key. */
-	secdebug("crypto", "wrapKey alg: %lu", context.algorithm());
+	secdebug("crypto", "wrapKey alg: %u", context.algorithm());
 	IFDUMPING("crypto", context.dump("wrapKey context"));
 	if (wrappingKeyHandle)
 	{
@@ -79,7 +79,7 @@ void KeyHandle::unwrapKey(const Context &context,
 	CSSM_KEYATTR_FLAGS attributes, CssmData *descriptiveData,
 	CSSM_HANDLE &hUnwrappedKey, CssmKey &unwrappedKey)
 {
-	secdebug("crypto", "unwrapKey alg: %lu", context.algorithm());
+	secdebug("crypto", "unwrapKey alg: %u", context.algorithm());
 	IFDUMPING("crypto", context.dump("unwrapKey context"));
 #if 0
 	/* Make sure our key type matches the context type */
@@ -156,4 +156,3 @@ KeyHandleFactory::~KeyHandleFactory()
 } // end namespace Tokend
 
 
-/* arch-tag: 67BC00A5-05B2-11D9-8035-000393D5F80A */

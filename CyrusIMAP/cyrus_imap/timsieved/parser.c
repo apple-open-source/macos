@@ -1,7 +1,7 @@
 /* parser.c -- parser used by timsieved
  * Tim Martin
  * 9/21/99
- * $Id: parser.c,v 1.7 2005/07/28 16:53:33 dasenbro Exp $
+ * $Id: parser.c,v 1.41 2006/11/30 17:11:25 murch Exp $
  */
 /*
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -60,6 +60,7 @@
 #include "libconfig.h"
 #include "global.h"
 #include "auth.h"
+#include "backend.h"
 #include "mboxname.h"
 #include "mboxlist.h"
 #include "xmalloc.h"
@@ -70,10 +71,13 @@
 #include "exitcodes.h"
 #include "telemetry.h"
 
+#ifdef APPLE_OS_X_SERVER
 #include "AppleOD.h"
+#endif
 
 extern char sieved_clienthost[250];
 extern int sieved_domainfromip;
+extern int sieved_userisadmin;
 
 /* xxx these are both leaked, but we only handle one connection at a
  * time... */
@@ -91,15 +95,23 @@ static SSL *tls_conn = NULL;
 /* from elsewhere */
 void fatal(const char *s, int code);
 extern int sieved_logfd;
+extern struct backend *backend;
+
+#ifdef APPLE_OS_X_SERVER
 extern struct od_user_opts	*gUserOpts;
+#endif
 
 /* forward declarations */
 static void cmd_logout(struct protstream *sieved_out,
 		       struct protstream *sieved_in);
 static int cmd_authenticate(struct protstream *sieved_out, struct protstream *sieved_in,
 			    mystring_t *mechanism_name, mystring_t *initial_challenge, const char **errmsg);
+
+#ifdef APPLE_OS_X_SERVER
 static int cmd_od_authenticate(struct protstream *sieved_out, struct protstream *sieved_in,
 			    mystring_t *mechanism_name, mystring_t *initial_challenge, const char **errmsg);
+#endif
+
 static int cmd_starttls(struct protstream *sieved_out, struct protstream *sieved_in);
 
 /* Returns TRUE if we are done */
@@ -182,6 +194,7 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
 
     if (authenticated)
 	prot_printf(sieved_out, "NO \"Already authenticated\"\r\n");
+#ifdef APPLE_OS_X_SERVER
 	else
 	{
 		if ( config_getswitch( IMAPOPT_APPLE_AUTH ) == 0 )
@@ -203,6 +216,14 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
 			}
 		}
 	}
+#else
+    else if (cmd_authenticate(sieved_out, sieved_in, mechanism_name,
+			      initial_challenge, &error_msg)==FALSE)
+    {
+	error_msg = "Authentication Error";
+	goto error;
+    }
+#endif
 
 #if 0 /* XXX - not implemented in sieveshell*/
     /* referral_host is non-null only once we are authenticated */
@@ -668,7 +689,7 @@ static int cmd_authenticate(struct protstream *sieved_out,
       struct namespace sieved_namespace;
       char inboxname[MAX_MAILBOX_NAME];
       char *server;
-      int type, r;
+      int type = 0, r;
       
       /* Set namespace */
       if ((r = mboxname_init_namespace(&sieved_namespace, 0)) != 0) {
@@ -684,28 +705,35 @@ static int cmd_authenticate(struct protstream *sieved_out,
       (*sieved_namespace.mboxname_tointernal)(&sieved_namespace, "INBOX",
 					     username, inboxname);
 
-      r = mboxlist_detail(inboxname, &type, &server, NULL, NULL, NULL);
+      r = mboxlist_detail(inboxname, &type, &server, NULL, NULL, NULL, NULL);
       
-      if(r) {
+      if(r && !sieved_userisadmin) {
 	  /* mboxlist_detail error */
-	  *errmsg = "mailbox unknown";
-	  return FALSE;
+	  syslog(LOG_ERR, error_message(r));
+
+	  if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
+	      fatal("could not reset the sasl_conn_t after failure",
+		    EC_TEMPFAIL);
+
+	  ret = FALSE;
+	  goto cleanup;
       }
 
       if(type & MBTYPE_REMOTE) {
-	  /* It's a remote mailbox, we want to set up a referral */
-	  if (sieved_domainfromip) {
-	      char *authname, *p;
+	  /* It's a remote mailbox */
+	  if (config_getswitch(IMAPOPT_SIEVE_ALLOWREFERRALS)) {
+	      /* We want to set up a referral */
+	      if (sieved_domainfromip) {
+		  char *authname, *p;
 
-	      /* get a new copy of the userid */
-	      free(username);
-	      username = xstrdup(canon_user);
+		  /* get a new copy of the userid */
+		  free(username);
+		  username = xstrdup(canon_user);
 
-	      /* get the authid from SASL */
-	      sasl_result=sasl_getprop(sieved_saslconn, SASL_AUTHUSER,
-				       (const void **) &canon_user);
-	      if (sasl_result!=SASL_OK)
-		  {
+		  /* get the authid from SASL */
+		  sasl_result=sasl_getprop(sieved_saslconn, SASL_AUTHUSER,
+					   (const void **) &canon_user);
+		  if (sasl_result!=SASL_OK) {
 		      *errmsg = "Internal SASL error";
 		      syslog(LOG_ERR, "SASL: sasl_getprop SASL_AUTHUSER: %s",
 			     sasl_errstring(sasl_result, NULL, NULL));
@@ -717,21 +745,46 @@ static int cmd_authenticate(struct protstream *sieved_out,
 		      ret = FALSE;
 		      goto cleanup;
 		  }
-	      authname = xstrdup(canon_user);
+		  authname = xstrdup(canon_user);
 
-	      if ((p = strchr(authname, '@'))) *p = '%';
-	      if ((p = strchr(username, '@'))) *p = '%';
+		  if ((p = strchr(authname, '@'))) *p = '%';
+		  if ((p = strchr(username, '@'))) *p = '%';
 
-	      referral_host =
-		  (char*) xmalloc(strlen(authname)+1+strlen(username)+1+
-				  strlen(server)+1);
-	      sprintf((char*) referral_host, "%s;%s@%s",
-		      authname, username, server);
+		  referral_host =
+		      (char*) xmalloc(strlen(authname)+1+strlen(username)+1+
+				      strlen(server)+1);
+		  sprintf((char*) referral_host, "%s;%s@%s",
+			  authname, username, server);
 
-	      free(authname);
+		  free(authname);
+	      }
+	      else
+		  referral_host = xstrdup(server);
 	  }
-	  else
-	      referral_host = xstrdup(server);
+	  else {
+	      /* We want to set up a connection to the backend for proxying */
+	      const char *statusline = NULL;
+
+	      /* xxx hide the fact that we are storing partitions */
+	      if (server) {
+		  char *c;
+		  c = strchr(server, '!');
+		  if(c) *c = '\0';
+	      }
+
+	      backend = backend_connect(NULL, server, &protocol[PROTOCOL_SIEVE],
+					username, NULL, &statusline);
+
+	      if (!backend) {
+		  syslog(LOG_ERR, "couldn't authenticate to backend server");
+		  prot_printf(sieved_out, "NO \"%s\"\r\n",
+			      statusline ? statusline :
+			      "Authentication to backend server failed");
+		  prot_flush(sieved_out);
+
+		  goto cleanup;
+	      }
+	  }
       } else if (actions_setuser(username) != TIMSIEVE_OK) {
 	  *errmsg = "internal error";
 	  syslog(LOG_ERR, "error in actions_setuser()");
@@ -779,6 +832,7 @@ static int cmd_authenticate(struct protstream *sieved_out,
   return ret;
 }
 
+#ifdef APPLE_OS_X_SERVER
 static int cmd_od_authenticate ( struct protstream *sieved_out,
 								 struct protstream *sieved_in,
 								 mystring_t *mechanism_name,
@@ -896,7 +950,7 @@ static int cmd_od_authenticate ( struct protstream *sieved_out,
 	  (*sieved_namespace.mboxname_tointernal)(&sieved_namespace, "INBOX",
 						 username, inboxname);
 
-	  r = mboxlist_detail(inboxname, &type, &server, NULL, NULL, NULL);
+	  r = mboxlist_detail(inboxname, &type, &server, NULL, NULL, NULL, NULL);
 	  
 	  if(r) {
 	  /* mboxlist_detail error */
@@ -953,6 +1007,8 @@ static int cmd_od_authenticate ( struct protstream *sieved_out,
 
 	return ret;
 }
+#endif
+
 
 #ifdef HAVE_SSL
 static int cmd_starttls(struct protstream *sieved_out, struct protstream *sieved_in)

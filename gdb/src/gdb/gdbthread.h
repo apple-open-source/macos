@@ -45,11 +45,15 @@ struct thread_info
   /* State from wait_for_inferior */
   CORE_ADDR prev_pc;
   struct breakpoint *step_resume_breakpoint;
-  struct breakpoint *through_sigtramp_breakpoint;
   CORE_ADDR step_range_start;
   CORE_ADDR step_range_end;
+  /* APPLE LOCAL begin step ranges.  */
+  /* The following is used in a manner similar to step_range_start 
+     and step_range_end, in those cases (currently inlined subroutines)
+     where the function has multiple, non-contiguous ranges of addresses.  */
+  struct address_range_list *stepping_ranges;
+  /* APPLE LOCAL end step ranges.  */
   struct frame_id step_frame_id;
-  CORE_ADDR step_sp;
   int current_line;
   struct symtab *current_symtab;
   int trap_expected;
@@ -67,20 +71,21 @@ struct thread_info
      when we finally do stop stepping.  */
   bpstat stepping_through_solib_catchpoints;
 
-  /* This is set to TRUE when this thread is in a signal handler
-     trampoline and we're single-stepping through it.  */
-  int stepping_through_sigtramp;
-
+  /* APPLE LOCAL How much have WE suspended (for gdb_suspend_count > 0)
+     or resumed (gdb_suspend_count < 0) the current thread.  */
   int gdb_suspend_count;
 
   /* Private data used by the target vector implementation.  */
   struct private_thread_info *private;
 };
 
+/* APPLE LOCAL begin threads */
 extern struct thread_info *thread_list;
 extern int highest_thread_num;
 
 struct thread_info *find_thread_id (int num);
+void prune_threads (void);
+/* APPLE LOCAL end threads */
 
 /* Create an empty thread list, or empty the existing one.  */
 extern void init_thread_list (void);
@@ -125,18 +130,17 @@ extern void save_infrun_state (ptid_t ptid,
 			       CORE_ADDR prev_pc,
 			       int       trap_expected,
 			       struct breakpoint *step_resume_breakpoint,
-			       struct breakpoint *through_sigtramp_breakpoint,
 			       CORE_ADDR step_range_start,
 			       CORE_ADDR step_range_end,
+			       /* APPLE LOCAL step ranges  */
+			       struct address_range_list *stepping_ranges,
 			       const struct frame_id *step_frame_id,
 			       int       handling_longjmp,
 			       int       another_trap,
 			       int       stepping_through_solib_after_catch,
 			       bpstat    stepping_through_solib_catchpoints,
-			       int       stepping_through_sigtramp,
 			       int       current_line,
-			       struct symtab *current_symtab,
-			       CORE_ADDR step_sp);
+			       struct symtab *current_symtab);
 
 /* infrun context switch: load the debugger state previously saved
    for the given thread.  */
@@ -144,22 +148,22 @@ extern void load_infrun_state (ptid_t ptid,
 			       CORE_ADDR *prev_pc,
 			       int       *trap_expected,
 			       struct breakpoint **step_resume_breakpoint,
-			       struct breakpoint **through_sigtramp_breakpoint,
 			       CORE_ADDR *step_range_start,
 			       CORE_ADDR *step_range_end,
+			       /* APPLE LOCAL step ranges*/
+			       struct address_range_list **stepping_ranges,
 			       struct frame_id *step_frame_id,
 			       int       *handling_longjmp,
 			       int       *another_trap,
 			       int       *stepping_through_solib_affter_catch,
 			       bpstat    *stepping_through_solib_catchpoints,
-			       int       *stepping_through_sigtramp,
 			       int       *current_line,
-			       struct symtab **current_symtab,
-			       CORE_ADDR *step_sp);
+			       struct symtab **current_symtab);
 
 /* Commands with a prefix of `thread'.  */
 extern struct cmd_list_element *thread_cmd_list;
 
+/* APPLE LOCAL */
 extern void switch_to_thread (ptid_t ptid);
 
 #endif /* GDBTHREAD_H */

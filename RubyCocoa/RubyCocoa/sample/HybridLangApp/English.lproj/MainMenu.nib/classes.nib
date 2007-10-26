@@ -1,0 +1,20 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {btnClicked = id; }; 
+            CLASS = ObjcController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {textField = id; }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {btnClicked = id; }; 
+            CLASS = RubyController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {textField = id; }; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

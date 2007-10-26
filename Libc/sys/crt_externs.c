@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,35 +63,78 @@
 #define USE_VAR(var) (& var)
 #endif
 
+DECLARE_VAR(NXArgv, char **);
+DECLARE_VAR(NXArgc, int);
+DECLARE_VAR(environ, char **);
+DECLARE_VAR(_mh_execute_header, struct mach_header);
+DECLARE_PROGNAME(__progname, char *);
+
 char ***_NSGetArgv(void) {
-    DECLARE_VAR(NXArgv, char **);
     SETUP_VAR(NXArgv);
     return(USE_VAR(NXArgv));
 }
 
 int *_NSGetArgc(void) {
-    DECLARE_VAR(NXArgc, int);
     SETUP_VAR(NXArgc);
     return(USE_VAR(NXArgc));
 }
 
 char ***_NSGetEnviron(void) {
-    DECLARE_VAR(environ, char **);
     SETUP_VAR(environ);
     return(USE_VAR(environ));
 }
 
 char **_NSGetProgname(void) {
-    DECLARE_PROGNAME(__progname, char *);
     SETUP_PROGNAME(__progname);
     return(USE_VAR(__progname));
 }
 
 struct mach_header *_NSGetMachExecuteHeader(void) {
-    DECLARE_VAR(_mh_execute_header, struct mach_header);
     SETUP_VAR(_mh_execute_header);
     return(USE_VAR(_mh_execute_header));
 }
+
+#if __DYNAMIC__
+struct ProgramVars
+{
+    void*	mh;
+    int*	NXArgcPtr;
+    char***	NXArgvPtr;
+    char***	environPtr;
+    char**	__prognamePtr;
+};
+
+/*
+ * dyld calls libSystem_initializer() and passes it a ProgramVars struct containing pointers to the
+ * main executable's NXArg* global variables. libSystem_initializer() calls __libc_init() which calls
+ * _program_vars_init() passing the ProgramVars parameter.
+ */
+void __attribute__((visibility("hidden")))
+_program_vars_init(const struct ProgramVars* vars) {
+    // to support transitional 10.5 main executables that don't have extended __dyld section and instead call _NSSetProgramVars,  
+    // don't overwrite values set by _NSSetProgramVars() 
+    if ( NXArgv_pointer != NULL )
+	return;
+    NXArgv_pointer		= vars->NXArgvPtr;
+    NXArgc_pointer		= vars->NXArgcPtr;
+    environ_pointer		= vars->environPtr;
+    __progname_pointer		= vars->__prognamePtr;
+    _mh_execute_header_pointer	= vars->mh;
+}
+
+/*
+ * This is only called by main executables built with pre 10-5 GM crt1.10.5.o.  In those programs, 
+ * there is no extended __dyld section, dyld cannot tell _program_vars_init() where the real program
+ * variables are, so they get temp values and are set for real here.
+ */
+void _NSSetProgramVars(int* crt_argc, char*** crt_argv, char*** crt_environ, struct mach_header* crt_mh, char** crt_progname) {
+    NXArgv_pointer		= crt_argv;
+    NXArgc_pointer		= crt_argc;
+    environ_pointer		= crt_environ;
+    __progname_pointer		= crt_progname;
+    _mh_execute_header_pointer	= crt_mh;
+}
+#endif
 
 /*
  * Fix for Radar bug 2200596 --

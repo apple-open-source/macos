@@ -26,7 +26,7 @@
  */
 
 /*
- * $Id: lex.l,v 1.1.1.1 1999/04/20 23:26:46 wsanchez Exp $
+ * $Id: lex.l,v 1.1 1999/04/20 23:26:46 wsanchez Exp $
  */
 
 #include "defs.h"

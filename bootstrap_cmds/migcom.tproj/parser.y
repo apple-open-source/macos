@@ -134,8 +134,8 @@
 %token	<string>	syFileName
 %token	<flag>		syIPCFlag
 
-%left	syPlus,syMinus
-%left	syStar,syDiv
+%left	syPlus syMinus
+%left	syStar syDiv
 
 
 %type	<statement_kind> ImportIndicant
@@ -162,7 +162,11 @@
 #include "error.h"
 
 static char *import_name();
+extern int yylex(void);
 
+/* forward declaration */
+void yyerror(char *s);
+  
 %}
 
 %union

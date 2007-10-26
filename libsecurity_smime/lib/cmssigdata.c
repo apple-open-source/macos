@@ -49,6 +49,14 @@
 
 #include <security_asn1/secasn1.h>
 #include <security_asn1/secerr.h>
+#include <Security/SecBase.h>
+
+#define SIGDATA_DEBUG	0
+#if	SIGDATA_DEBUG
+#define dprintf(args...)      printf(args)
+#else
+#define dprintf(args...)
+#endif
 
 SecCmsSignedDataRef
 SecCmsSignedDataCreate(SecCmsMessageRef cmsg)
@@ -239,7 +247,7 @@ SecCmsSignedDataEncodeAfterData(SecCmsSignedDataRef sigd)
     /* prepare all the SignerInfos (there may be none) */
     for (i=0; i < SecCmsSignedDataSignerInfoCount(sigd); i++) {
 	signerinfo = SecCmsSignedDataGetSignerInfo(sigd, i);
-
+	
 	/* find correct digest for this signerinfo */
 	digestalgtag = SecCmsSignerInfoGetDigestAlgTag(signerinfo);
 	n = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, digestalgtag);
@@ -377,13 +385,14 @@ SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd)
     SecCmsSignerInfoRef *signerinfos;
     int i;
 
-    /* set cmsg for all the signerinfos */
     signerinfos = sigd->signerInfos;
 
-    /* set cmsg for all the signerinfos */
+    /* set cmsg and sigd backpointers for all the signerinfos */
     if (signerinfos) {
-	for (i = 0; signerinfos[i] != NULL; i++)
+	for (i = 0; signerinfos[i] != NULL; i++) {
 	    signerinfos[i]->cmsg = sigd->cmsg;
+	    signerinfos[i]->sigd = sigd;
+	}
     }
 
     return SECSuccess;
@@ -498,14 +507,25 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
     /* Find digest and contentType for signerinfo */
     algiddata = SecCmsSignerInfoGetDigestAlg(signerinfo);
     digest = SecCmsSignedDataGetDigestByAlgTag(sigd, algiddata->offset);
+	if(digest == NULL) {
+		/* 
+		 * No digests; this probably had detached content the caller has to 
+		 * deal with. 
+		 * FIXME: need some error return for this (as well as many 
+		 * other places in this library).
+		 */
+		return errSecDataNotAvailable;
+	}
     contentType = SecCmsContentInfoGetContentTypeOID(cinfo);
 
     /* verify signature */
     status = SecCmsSignerInfoVerify(signerinfo, digest, contentType);
-
+    
     /* Now verify the certificate.  We do this even if the signature failed to verify so we can
        return a trustRef to the caller for display purposes.  */
-    status2 = SecCmsSignerInfoVerifyCertificate(signerinfo, keychainOrArray, policies, trustRef);
+    status2 = SecCmsSignerInfoVerifyCertificate(signerinfo, keychainOrArray,
+	policies, trustRef);
+    dprintf("SecCmsSignedDataVerifySignerInfo: status %d status2 %d\n", (int) status, (int)status2);
     /* The error from SecCmsSignerInfoVerify() supercedes error from SecCmsSignerInfoVerifyCertificate(). */
     if (status)
 	return status;
@@ -543,7 +563,8 @@ SecCmsSignedDataVerifyCertsOnly(SecCmsSignedDataRef sigd,
 		break;
 	    }
 	}
-	rv |= CERT_VerifyCert(keychainOrArray, cert, policies, CFAbsoluteTimeGetCurrent(), NULL);
+	rv |= CERT_VerifyCert(keychainOrArray, cert, sigd->rawCerts,
+	    policies, CFAbsoluteTimeGetCurrent(), NULL);
 	CFRelease(cert);
     }
 
@@ -646,6 +667,8 @@ SecCmsSignedDataAddSignerInfo(SecCmsSignedDataRef sigd,
     if (rv != SECSuccess)
 	goto loser;
 
+    signerinfo->sigd = sigd;
+    
     /*
      * add empty digest
      * Empty because we don't have it yet. Either it gets created during encoding
@@ -674,6 +697,9 @@ SecCmsSignedDataGetDigestByAlgTag(SecCmsSignedDataRef sigd, SECOidTag algtag)
 {
     int idx;
 
+	if(sigd->digests == NULL) {
+		return NULL;
+	}
     idx = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, algtag);
     return sigd->digests[idx];
 }
@@ -892,6 +918,17 @@ loser:
 	SecCmsSignedDataDestroy(sigd);
     PORT_ArenaRelease(poolp, mark);
     return NULL;
+}
+
+/*
+ * Get SecCmsSignedDataRawCerts - obtain raw certs as a NULL_terminated array 
+ * of pointers.
+ */
+extern OSStatus SecCmsSignedDataRawCerts(SecCmsSignedDataRef sigd,
+    CSSM_DATA_PTR **rawCerts)
+{
+    *rawCerts = sigd->rawCerts;
+    return noErr;
 }
 
 /* TODO:

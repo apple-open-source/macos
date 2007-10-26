@@ -890,6 +890,15 @@ Don't use this macro to turn on various extra optimizations for
 @option{-O}.  That is what @code{OPTIMIZATION_OPTIONS} is for.
 @end defmac
 
+@c APPLE LOCAL begin mainline 2006-02-24 4086777
+@defmac C_COMMON_OVERRIDE_OPTIONS
+This is similar to @code{OVERRIDE_OPTIONS} but is only used in the C
+language frontends (C, Objective-C, C++, Objective-C++) and so can be
+used to alter option flag variables which only exist in those
+frontends.
+@end defmac
+@c APPLE LOCAL end mainline 2006-02-24 4086777
+
 @defmac OPTIMIZATION_OPTIONS (@var{level}, @var{size})
 Some machines may desire to change what optimizations are performed for
 various optimization levels.   This macro, if defined, is executed once
@@ -7644,7 +7653,17 @@ true if this is a placeholder label for an omitted FDE@.
 The default is that FDEs are not given nonlocal labels.
 @end deftypefn
 
-@deftypefn {Taget Hook} void TARGET_UNWIND_EMIT (FILE * @var{stream}, rtx @var{insn})
+/* APPLE LOCAL begin mainline */
+@deftypefn {Target Hook} void TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL (@var{stream})
+This target hook emits a label at the beginning of the exception table.
+It should be defined on targets where it is desirable for the table
+to be broken up according to function.
+
+The default is that no label is emitted.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_UNWIND_EMIT (FILE * @var{stream}, rtx @var{insn})
+/* APPLE LOCAL end mainline */
 This target hook emits and assembly directives required to unwind the
 given instruction.  This is only used when TARGET_UNWIND_INFO is set.
 @end deftypefn
@@ -8215,18 +8234,23 @@ tables, and hence is desirable if it works.
 
 @defmac ASM_OUTPUT_DWARF_DELTA (@var{stream}, @var{size}, @var{label1}, @var{label2})
 A C statement to issue assembly directives that create a difference
-between the two given labels, using an integer of the given size.
+@c APPLE LOCAL mainline 2006-03-16 dwarf 4383509
+@var{lab1} minus @var{lab2}, using an integer of the given @var{size}.
 @end defmac
 
-@defmac ASM_OUTPUT_DWARF_OFFSET (@var{stream}, @var{size}, @var{label})
+@c APPLE LOCAL begin mainline 2006-03-16 dwarf 4383509
+@defmac ASM_OUTPUT_DWARF_OFFSET (@var{stream}, @var{size}, @var{label}, @var{section})
 A C statement to issue assembly directives that create a
-section-relative reference to the given label, using an integer of the
-given size.
+section-relative reference to the given @var{label}, using an integer of the
+given @var{size}.  The label is known to be defined in the section named
+@var{section}.
 @end defmac
+@c APPLE LOCAL end mainline 2006-03-16 dwarf 4383509
 
 @defmac ASM_OUTPUT_DWARF_PCREL (@var{stream}, @var{size}, @var{label})
 A C statement to issue assembly directives that create a self-relative
-reference to the given label, using an integer of the given size.
+@c APPLE LOCAL mainline 2006-03-16 dwarf 4383509
+reference to the given @var{label}, using an integer of the given @var{size}.
 @end defmac
 
 @defmac PUT_SDB_@dots{}
@@ -8684,14 +8708,33 @@ some variants of the ABI, an inline function can never be the key
 method.  The default is to return @code{true}.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_CXX_EXPORT_CLASS_DATA (void)
-If this hook returns false (the default), then virtual tables and RTTI
-data structures will have the ELF visibility of their containing
-class.  If this hook returns true, then these data structures will
-have ELF ``default'' visibility, independently of the visibility of
-the containing class.
+@c APPLE LOCAL begin mainline 4.2 2006-03-01 4311680
+@deftypefn {Target Hook} void TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY (tree @var{decl})
+@var{decl} is a virtual table, virtual table table, typeinfo object,
+or other similar implicit class data object that will be emitted with
+external linkage in this translation unit.  No ELF visibility has been
+explicitly specified.  If the target needs to specify a visibility
+other than that of the containing class, use this hook to set
+@code{DECL_VISIBILITY} and @code{DECL_VISIBILITY_SPECIFIED}.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT (void)
+This hook returns true (the default) if virtual tables and other
+similar implicit class data objects are always COMDAT if they have
+external linkage.  If this hook returns false, then class data for
+classes whose virtual table will be emitted in only one translation
+unit will not be COMDAT.
+@end deftypefn
+
+@c APPLE LOCAL end mainline 4.2 2006-03-01 4311680
+@c APPLE LOCAL begin mainline 4.3 2006-01-10 4871915
+@deftypefn {Target Hook} bool TARGET_CXX_LIBRARY_RTTI_COMDAT (void)
+This hook returns true (the default) if the RTTI information for
+the basic types which is defined in the C++ runtime should always
+be COMDAT, false if it should not be COMDAT.
+@end deftypefn
+
+@c APPLE LOCAL end mainline 4.3 2006-01-10 4871915
 @node Misc
 @section Miscellaneous Parameters
 @cindex parameters, miscellaneous

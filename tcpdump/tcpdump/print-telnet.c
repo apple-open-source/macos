@@ -51,7 +51,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-     "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-telnet.c,v 1.1.1.5 2004/05/21 20:51:30 rbraun Exp $";
+     "@(#) $Header: /tcpdump/master/tcpdump/print-telnet.c,v 1.24 2003/12/29 11:05:10 hannes Exp $";
 #endif
 
 #include <tcpdump-stdinc.h>

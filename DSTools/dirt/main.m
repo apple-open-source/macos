@@ -28,22 +28,121 @@
  */
 
 
-#warning VERIFY the version string before each distinct build submission that changes the dirt tool
-#define DIRTVERSION "20.2"
+#warning VERIFY the version string before each major OS build submission
+#define DIRTVERSION "10.5.0"
 
 #import <Foundation/Foundation.h>
 #import "DSAuthenticate.h"
+#import "DSAuthenticateLM.h"
 #import "DSAuthenticateNT.h"
 #import "DSException.h"
 #import "DSStatus.h"
 #import "dstools_version.h"
 #import <unistd.h>
+#import <termios.h>
+#import <sysexits.h>
 
 BOOL		doVerbose		= NO;
 static BOOL sigIntRaised	= NO;
 
 void catch_int(int sig_num);
 void usage(void);
+
+//-----------------------------------------------------------------------------
+//	intcatch
+//
+//	Helper function for read_passphrase
+//-----------------------------------------------------------------------------
+
+volatile int intr;
+
+void
+intcatch(int dontcare)
+{
+	intr = 1;
+}
+
+
+//-----------------------------------------------------------------------------
+//	read_passphrase
+//
+//	Returns: malloc'd C-str
+//	Provides a secure prompt for inputting passwords
+/*
+ * Reads a passphrase from /dev/tty with echo turned off.  Returns the
+ * passphrase (allocated with xmalloc), being very careful to ensure that
+ * no other userland buffer is storing the password.
+ */
+//-----------------------------------------------------------------------------
+
+char *
+read_passphrase(const char *prompt, int from_stdin)
+{
+	char buf[1024], *p, ch;
+	struct termios tio, saved_tio;
+	sigset_t oset, nset;
+	struct sigaction sa, osa;
+	int input, output, echo = 0;
+    
+	if (from_stdin) {
+		input = STDIN_FILENO;
+		output = STDERR_FILENO;
+	} else
+		input = output = open("/dev/tty", O_RDWR);
+    
+	if (input == -1)
+		fprintf(stderr, "You have no controlling tty.  Cannot read passphrase.\n");
+    
+	/* block signals, get terminal modes and turn off echo */
+	sigemptyset(&nset);
+	sigaddset(&nset, SIGTSTP);
+	(void) sigprocmask(SIG_BLOCK, &nset, &oset);
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = intcatch;
+	(void) sigaction(SIGINT, &sa, &osa);
+    
+	intr = 0;
+    
+	if (tcgetattr(input, &saved_tio) == 0 && (saved_tio.c_lflag & ECHO)) {
+		echo = 1;
+		tio = saved_tio;
+		tio.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
+		(void) tcsetattr(input, TCSANOW, &tio);
+	}
+    
+	fflush(stdout);
+    
+	(void)write(output, prompt, strlen(prompt));
+	for (p = buf; read(input, &ch, 1) == 1 && ch != '\n';) {
+		if (intr)
+			break;
+		if (p < buf + sizeof(buf) - 1)
+			*p++ = ch;
+	}
+	*p = '\0';
+	if (!intr)
+		(void)write(output, "\n", 1);
+    
+	/* restore terminal modes and allow signals */
+	if (echo)
+		tcsetattr(input, TCSANOW, &saved_tio);
+	(void) sigprocmask(SIG_SETMASK, &oset, NULL);
+	(void) sigaction(SIGINT, &osa, NULL);
+    
+	if (intr) {
+		kill(getpid(), SIGINT);
+		sigemptyset(&nset);
+		/* XXX tty has not neccessarily drained by now? */
+		sigsuspend(&nset);
+	}
+    
+	if (!from_stdin)
+		(void)close(input);
+	p = (char *)malloc(strlen(buf)+1);
+    strcpy(p, buf);
+	memset(buf, 0, sizeof(buf));
+	return (p);
+}
 
 int main(int argc, char *argv[])
 {
@@ -80,7 +179,7 @@ int main(int argc, char *argv[])
 				username = [[NSString alloc] initWithCString:optarg];
 				break;
 			case 'p':
-				password = [[NSString alloc] initWithCString:optarg];
+				password = [[NSString alloc] initWithUTF8String:optarg];
 				break;
 			case 'n':
 				// Only list the nodes where the username is found
@@ -137,7 +236,12 @@ int main(int argc, char *argv[])
         signal(SIGINT, catch_int);
         signal(SIGTERM, catch_int);
     }
-
+    // If a username is specified without a password and a password is needed we prompt for it.
+    if (username != nil && password == nil && !listNodesOnly) {
+        password = [[NSString alloc] initWithUTF8String:read_passphrase("User password:",1)];
+        NSLog([NSString stringWithFormat:@"password is : %@",password]);
+    }
+    
     if (username != nil && (password != nil || listNodesOnly))
 	{
         NS_DURING
@@ -145,6 +249,12 @@ int main(int argc, char *argv[])
 			dsauth = [[DSAuthenticate alloc] init];
 		else if ([authMethod isEqualToString:NT_AUTH])
 			dsauth = [[DSAuthenticateNT alloc] init];
+		else if ([authMethod isEqualToString:LM_AUTH])
+			dsauth = [[DSAuthenticateLM alloc] init];
+		else {
+			fprintf(stderr, "Error: the authentication method '%s' is not supported by the dirt tool.\n", [authMethod UTF8String]);
+			exit(EX_USAGE);
+		}
 		
         for (i=0; (queryIterations == 0 ? TRUE : i < queryIterations) && (sigIntRaised == NO); i++ )
 		{

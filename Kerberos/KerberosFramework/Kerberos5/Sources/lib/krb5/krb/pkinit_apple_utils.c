@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <Security/Security.h>
+
 /* 
  * Cruft needed to attach to a module
  */
@@ -45,7 +46,7 @@ static const CSSM_GUID testGuid = { 0xFADE, 0, 0, { 1,2,3,4,5,6,7,0 }};
 /*
  * Standard app-level memory functions required by CDSA.
  */
-static void * cuAppMalloc (uint32 size, void *allocRef) {
+static void * cuAppMalloc (CSSM_SIZE size, void *allocRef) {
 	return( malloc(size) );
 }
 
@@ -54,11 +55,11 @@ static void cuAppFree (void *mem_ptr, void *allocRef) {
  	return;
 }
 
-static void * cuAppRealloc (void *ptr, uint32 size, void *allocRef) {
+static void * cuAppRealloc (void *ptr, CSSM_SIZE size, void *allocRef) {
 	return( realloc( ptr, size ) );
 }
 
-static void * cuAppCalloc (uint32 num, uint32 size, void *allocRef) {
+static void * cuAppCalloc (uint32 num, CSSM_SIZE size, void *allocRef) {
 	return( calloc( num, size ) );
 }
 
@@ -99,7 +100,7 @@ static CSSM_BOOL cuCssmStartup()
     }
 }
 
-static CSSM_CL_HANDLE cuClStartup()
+CSSM_CL_HANDLE pkiClStartup()
 {
     CSSM_CL_HANDLE clHand;
     CSSM_RETURN crtn;
@@ -109,21 +110,21 @@ static CSSM_CL_HANDLE cuClStartup()
     }
     crtn = CSSM_ModuleLoad(&gGuidAppleX509CL,
 	CSSM_KEY_HIERARCHY_NONE,
-	NULL,			// eventHandler
-	NULL);			// AppNotifyCallbackCtx
+	NULL,			/* eventHandler */
+	NULL);			/* AppNotifyCallbackCtx */
     if(crtn) {
 	return 0;
     }
     crtn = CSSM_ModuleAttach (&gGuidAppleX509CL,
 	&vers,
-	&memFuncs,			// memFuncs
-	0,				// SubserviceID
-	CSSM_SERVICE_CL,		// SubserviceFlags - Where is this used?
-	0,				// AttachFlags
+	&memFuncs,		    /* memFuncs */
+	0,			    /* SubserviceID */
+	CSSM_SERVICE_CL,	    /* SubserviceFlags - Where is this used? */
+	0,			    /* AttachFlags */
 	CSSM_KEY_HIERARCHY_NONE,
-	NULL,				// FunctionTable
-	0,				// NumFuncTable
-	NULL,				// reserved
+	NULL,			    /* FunctionTable */
+	0,			    /* NumFuncTable */
+	NULL,			    /* reserved */
 	&clHand);
     if(crtn) {
 	return 0;
@@ -133,7 +134,7 @@ static CSSM_CL_HANDLE cuClStartup()
     }
 }
 
-static CSSM_RETURN cuClDetachUnload(
+CSSM_RETURN pkiClDetachUnload(
 	CSSM_CL_HANDLE  clHand)
 {
     CSSM_RETURN crtn = CSSM_ModuleDetach(clHand);
@@ -145,10 +146,8 @@ static CSSM_RETURN cuClDetachUnload(
 
 /*
  * CSSM_DATA <--> krb5_ui_4
- *
- * dataToInt() returns nonzero on error
  */
-int pkiDataToInt(
+krb5_error_code pkiDataToInt(
     const CSSM_DATA *cdata, 
     krb5_int32       *i)	/* RETURNED */
 {
@@ -162,7 +161,7 @@ int pkiDataToInt(
     }
     len = cdata->Length;
     if(len > sizeof(krb5_int32)) {
-	return -1;
+	return ASN1_BAD_LENGTH;
     }
     
     uint8 *cp = cdata->Data;
@@ -173,7 +172,7 @@ int pkiDataToInt(
     return 0;
 }
 
-int pkiIntToData(
+krb5_error_code pkiIntToData(
     krb5_int32	    num,
     CSSM_DATA       *cdata,
     SecAsn1CoderRef coder)
@@ -209,7 +208,7 @@ int pkiIntToData(
 /*
  * raw data --> krb5_data
  */
-int pkiDataToKrb5Data(
+krb5_error_code pkiDataToKrb5Data(
     const void *data,
     unsigned dataLen,
     krb5_data *kd)
@@ -232,7 +231,7 @@ int pkiDataToKrb5Data(
  *
  * Both return nonzero on error.
  */
-int pkiCssmDataToKrb5Data(
+krb5_error_code pkiCssmDataToKrb5Data(
     const CSSM_DATA *cd, 
     krb5_data *kd)
 {
@@ -240,13 +239,27 @@ int pkiCssmDataToKrb5Data(
     return pkiDataToKrb5Data(cd->Data, cd->Length, kd);
 }
 
-int pkiKrb5DataToCssm(
+krb5_error_code pkiKrb5DataToCssm(
     const krb5_data *kd,
     CSSM_DATA       *cd,
     SecAsn1CoderRef coder)
 {
     assert((cd != NULL) && (kd != NULL));
-    return SecAsn1AllocCopy(coder, kd->data, kd->length, cd);
+    if(SecAsn1AllocCopy(coder, kd->data, kd->length, cd)) {
+	return ENOMEM;
+    }
+    return 0;
+}
+
+/* 
+ * CFDataRef --> krb5_data, mallocing the destination contents.
+ */
+krb5_error_code pkiCfDataToKrb5Data(
+    CFDataRef	    cfData,
+    krb5_data	    *kd)	/* content mallocd and RETURNED */
+{
+    return pkiDataToKrb5Data(CFDataGetBytePtr(cfData),
+	CFDataGetLength(cfData), kd);
 }
 
 krb5_boolean pkiCompareCssmData(
@@ -270,9 +283,9 @@ krb5_boolean pkiCompareCssmData(
 /* 
  * krb5_timestamp --> a mallocd string in generalized format
  */
-int pkiKrbTimestampToStr(
+krb5_error_code pkiKrbTimestampToStr(
     krb5_timestamp kts,
-    char **str)		    // mallocd and RETURNED
+    char **str)		    /* mallocd and RETURNED */
 {
     time_t gmt_time = kts;
     struct tm *utc = gmtime(&gmt_time);
@@ -283,6 +296,9 @@ int pkiKrbTimestampToStr(
 	return ASN1_BAD_GMTIME;
     }
     char *outStr = (char *)malloc(16);
+    if(outStr == NULL) {
+	return ENOMEM;
+    }
     sprintf(outStr, "%04d%02d%02d%02d%02d%02dZ",
 	utc->tm_year + 1900, utc->tm_mon + 1,
 	utc->tm_mday, utc->tm_hour, utc->tm_min, utc->tm_sec);
@@ -290,10 +306,10 @@ int pkiKrbTimestampToStr(
     return 0;
 }
 
-int pkiTimeStrToKrbTimestamp(
+krb5_error_code pkiTimeStrToKrbTimestamp(
     const char		*str,
     unsigned		len,
-    krb5_timestamp      *kts)       // RETURNED
+    krb5_timestamp      *kts)       /* RETURNED */
 {
     char 	szTemp[5];
     unsigned 	x;
@@ -307,7 +323,7 @@ int pkiTimeStrToKrbTimestamp(
     }
 
     if((str == NULL) || (kts == NULL)) {
-    	return -1;
+    	return KRB5_CRYPTO_INTERNAL;
     }
   	
     cp = (char *)str;
@@ -396,78 +412,6 @@ int pkiTimeStrToKrbTimestamp(
 }
 
 /*
- * Convert an OSStatus to a krb5_error_code
- */
-krb5_error_code pkiOsStatusToKrbErr(
-    OSStatus ortn)
-{
-    /* FIXME */
-    return (krb5_error_code)ortn;
-}
-
-/*
- * Given a DER encoded certificate, obtain the associated IssuerAndSerialNumber.
- */
-krb5_error_code pkiGetIssuerAndSerial(
-    const krb5_data *cert,
-    krb5_data       *issuer_and_serial)
-{
-    CSSM_HANDLE cacheHand = 0;
-    CSSM_RETURN crtn = CSSM_OK;
-    CSSM_DATA certData = { cert->length, (uint8 *)cert->data };
-    CSSM_HANDLE resultHand = 0;
-    CSSM_DATA_PTR derIssuer = NULL;
-    CSSM_DATA_PTR serial;
-    krb5_data krb_serial;
-    krb5_data krb_issuer;
-    uint32 numFields;
-    
-    CSSM_CL_HANDLE clHand = cuClStartup();
-    if(clHand == 0) {
-	return CSSMERR_CSSM_ADDIN_LOAD_FAILED;
-    }
-    /* subsequent errors to errOut: */
-    
-    crtn = CSSM_CL_CertCache(clHand, &certData, &cacheHand);
-    if(crtn) {
-	pkiCssmErr("CSSM_CL_CertCache", crtn);
-	goto errOut;
-    }
-    
-    /* obtain the two fields; issuer is DER encoded */
-    crtn = CSSM_CL_CertGetFirstCachedFieldValue(clHand, cacheHand,
-	&CSSMOID_X509V1IssuerNameStd, &resultHand, &numFields, &derIssuer);
-    if(crtn) {
-	pkiCssmErr("CSSM_CL_CertGetFirstCachedFieldValue(issuer)", crtn);
-	goto errOut;
-    }
-    crtn = CSSM_CL_CertGetFirstCachedFieldValue(clHand, cacheHand,
-	&CSSMOID_X509V1SerialNumber, &resultHand, &numFields, &serial);
-    if(crtn) {
-	pkiCssmErr("CSSM_CL_CertGetFirstCachedFieldValue(serial)", crtn);
-	goto errOut;
-    }
-    PKI_CSSM_TO_KRB_DATA(derIssuer, &krb_issuer);
-    PKI_CSSM_TO_KRB_DATA(serial, &krb_serial);
-    crtn = pkinit_issuer_serial_encode(&krb_issuer, &krb_serial, issuer_and_serial);
-    
-errOut:
-    if(derIssuer) {
-	CSSM_CL_FreeFieldValue(clHand, &CSSMOID_X509V1IssuerNameStd, derIssuer);
-    }
-    if(serial) {
-	CSSM_CL_FreeFieldValue(clHand, &CSSMOID_X509V1SerialNumber, serial);
-    }
-    if(cacheHand) {
-	CSSM_CL_CertAbortCache(clHand, cacheHand);
-    }
-    if(clHand) {
-	cuClDetachUnload(clHand);
-    }
-    return crtn;
-}
-
-/*
  * How many items in a NULL-terminated array of pointers?
  */
 unsigned pkiNssArraySize(
@@ -481,4 +425,3 @@ unsigned pkiNssArraySize(
     }
     return count;
 }
-

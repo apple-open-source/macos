@@ -5,19 +5,31 @@
 /*	multi-threaded QMQP test server
 /* SYNOPSIS
 /* .fi
-/*	\fBqmqp-sink\fR [\fB-cv\fR] [\fB-x \fItime\fR]
+/*	\fBqmqp-sink\fR [\fB-46cv\fR] [\fB-x \fItime\fR]
 /*	[\fBinet:\fR][\fIhost\fR]:\fIport\fR \fIbacklog\fR
 /*
-/*	\fBqmqp-sink\fR [\fB-cv\fR] [\fB-x \fItime\fR]
+/*	\fBqmqp-sink\fR [\fB-46cv\fR] [\fB-x \fItime\fR]
 /*	\fBunix:\fR\fIpathname\fR \fIbacklog\fR
 /* DESCRIPTION
 /*	\fBqmqp-sink\fR listens on the named host (or address) and port.
 /*	It receives messages from the network and throws them away.
 /*	The purpose is to measure QMQP client performance, not protocol
 /*	compliance.
-/*	Connections can be accepted on IPV4 endpoints or UNIX-domain sockets.
-/*	IPV4 is the default.
+/*	Connections can be accepted on IPv4 or IPv6 endpoints, or on
+/*	UNIX-domain sockets.
+/*	IPv4 and IPv6 are the default.
 /*	This program is the complement of the \fBqmqp-source\fR(1) program.
+/*
+/*	Note: this is an unsupported test program. No attempt is made
+/*	to maintain compatibility between successive versions.
+/*
+/*	Arguments:
+/* .IP \fB-4\fR
+/*	Support IPv4 only. This option has no effect when
+/*	Postfix is built without IPv6 support.
+/* .IP \fB-6\fR
+/*	Support IPv6 only. This option is not available when
+/*	Postfix is built without IPv6 support.
 /* .IP \fB-c\fR
 /*	Display a running counter that is updated whenever a delivery
 /*	is completed.
@@ -49,10 +61,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
-
-#ifdef STRCASECMP_IN_STRINGS_H
-#include <strings.h>
-#endif
+#include <signal.h>
 
 /* Utility library. */
 
@@ -65,10 +74,12 @@
 #include <iostuff.h>
 #include <msg_vstream.h>
 #include <netstring.h>
+#include <inet_proto.h>
 
 /* Global library. */
 
 #include <qmqp_proto.h>
+#include <mail_version.h>
 
 /* Application-specific. */
 
@@ -80,7 +91,7 @@ typedef struct {
 static int var_tmout;
 static VSTRING *buffer;
 static void disconnect(SINK_STATE *);
-static int count;
+static int count_deliveries;
 static int counter;
 
 /* send_reply - finish conversation */
@@ -90,7 +101,7 @@ static void send_reply(SINK_STATE *state)
     vstring_sprintf(buffer, "%cOk", QMQP_STAT_OK);
     NETSTRING_PUT_BUF(state->stream, buffer);
     netstring_fflush(state->stream);
-    if (count) {
+    if (count_deliveries) {
 	counter++;
 	vstream_printf("%d\r", counter);
 	vstream_fflush(VSTREAM_OUT);
@@ -229,12 +240,26 @@ static void usage(char *myname)
     msg_fatal("usage: %s [-cv] [-x time] [host]:port backlog", myname);
 }
 
+MAIL_VERSION_STAMP_DECLARE;
+
 int     main(int argc, char **argv)
 {
     int     sock;
     int     backlog;
     int     ch;
     int     ttl;
+    const char *protocols = INET_PROTO_NAME_ALL;
+    INET_PROTO_INFO *proto_info;
+
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
+
+    /*
+     * Fix 20051207.
+     */
+    signal(SIGPIPE, SIG_IGN);
 
     /*
      * Initialize diagnostics.
@@ -244,10 +269,16 @@ int     main(int argc, char **argv)
     /*
      * Parse JCL.
      */
-    while ((ch = GETOPT(argc, argv, "cvx:")) > 0) {
+    while ((ch = GETOPT(argc, argv, "46cvx:")) > 0) {
 	switch (ch) {
+	case '4':
+	    protocols = INET_PROTO_NAME_IPV4;
+	    break;
+	case '6':
+	    protocols = INET_PROTO_NAME_IPV6;
+	    break;
 	case 'c':
-	    count++;
+	    count_deliveries++;
 	    break;
 	case 'v':
 	    msg_verbose++;
@@ -269,6 +300,7 @@ int     main(int argc, char **argv)
     /*
      * Initialize.
      */
+    proto_info = inet_proto_init("protocols", protocols);
     buffer = vstring_alloc(1024);
     if (strncmp(argv[optind], "unix:", 5) == 0) {
 	sock = unix_listen(argv[optind] + 5, backlog, BLOCKING);

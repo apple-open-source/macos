@@ -182,9 +182,15 @@ private:
 		uint32 					numAnchorCerts,		// optional
 		const CSSM_DATA			*anchorCerts,
 		
-		/* currently, only CSSM_TP_ACTION_FETCH_CERT_FROM_NET is 
-		 * interesting */
+		/* CSSM_TP_ACTION_FETCH_CERT_FROM_NET, CSSM_TP_ACTION_TRUST_SETTINGS */
 		CSSM_APPLE_TP_ACTION_FLAGS	actionFlags,
+		
+		/* optional user trust parameters */
+		const CSSM_OID			*policyOid,
+		const char				*policyStr,
+		uint32					policyStrLen,
+		CSSM_KEYUSE				keyUse,
+
 		/* 
 		 * Certs to be freed by caller (i.e., TPCertInfo which we allocate
 		 * as a result of using a cert from anchorCerts of dbList) are added
@@ -195,6 +201,7 @@ private:
 		/* returned */
 		CSSM_BOOL				&verifiedToRoot,	// end of chain self-verifies
 		CSSM_BOOL				&verifiedToAnchor,	// end of chain in anchors
+		CSSM_BOOL				&verifiedViaTrustSetting,	// chain ends per Trust Setting
 		TPCertGroup 			&outCertGroup);		// RETURNED
 			
 	/* in tpCredRequest.cp */
@@ -234,10 +241,10 @@ private:
 	/* 
 	 * Per-session storage of SubmitCredRequest results.
 	 *
-	 * A TpCredHandle is just an address of a cert, cast to a uint32. It's 
+	 * A TpCredHandle is just an address of a cert, cast to a CSSM_INTPTR. It's 
 	 * what ReferenceIdentifier.Data points to.
 	 */ 
-	typedef uint32 TpCredHandle;
+	typedef CSSM_INTPTR TpCredHandle;
 	typedef std::map<TpCredHandle, 
 				     const CSSM_DATA * /* the actual cert */ > credMap;
 	credMap					tpCredMap;

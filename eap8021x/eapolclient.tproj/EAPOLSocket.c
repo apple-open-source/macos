@@ -496,21 +496,20 @@ EAPOLSocket_create(int fd, const struct sockaddr_dl * link)
 	goto failed;
     }
     bzero(sock, sizeof(*sock));
+    sock->mtu = 1400; /* XXX - needs to be made generic */
+    bcopy(link->sdl_data, sock->if_name, link->sdl_nlen);
+    sock->if_name[link->sdl_nlen] = '\0';
+    sock->if_name_length = link->sdl_nlen;
 
 #ifndef NO_WIRELESS
     /* is this a wireless interface? */
     if (link->sdl_type == IFT_ETHER) {
-	if (wireless_find((const struct ether_addr *)
-			  (link->sdl_data + link->sdl_nlen), &sock->wref)) {
+	if (wireless_bind(sock->if_name, &sock->wref)) {
 	    is_wireless = TRUE;
 	    ap_mac_valid = wireless_ap_mac(sock->wref, &ap_mac);
 	}
     }
 #endif NO_WIRELESS
-    sock->mtu = 1400; /* XXX - needs to be made generic */
-    bcopy(link->sdl_data, sock->if_name, link->sdl_nlen);
-    sock->if_name[link->sdl_nlen] = '\0';
-    sock->if_name_length = link->sdl_nlen;
 
     /* only add the multicast reception for non-wireless LAN's */
     if (is_wireless == FALSE 
@@ -769,20 +768,5 @@ EAPOLSocket_set_wpa_session_key(EAPOLSocket * sock,
     }
     /* tell the driver the session key used for WPA (if applicable) */
     return (wireless_set_wpa_session_key(sock->wref, key, key_length));
-#endif NO_WIRELESS
-}
-
-boolean_t
-EAPOLSocket_set_wpa_server_key(EAPOLSocket * sock, 
-			       const uint8_t * key, int key_length)
-{
-#ifdef NO_WIRELESS
-    return (FALSE);
-#else NO_WIRELESS
-    if (sock->is_wireless == FALSE) {
-	return (FALSE);
-    }
-    /* tell the driver the server key too, in case it's needed */
-    return (wireless_set_wpa_server_key(sock->wref, key, key_length));
 #endif NO_WIRELESS
 }

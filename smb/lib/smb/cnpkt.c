@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -429,14 +432,14 @@ INTERNAL rpc_cn_auth_tlr_p_t unpack_versions_supported
 
 INTERNAL void force_alignment 
 (
-  unsigned32 boundary,
+  unsigned long boundary,
   unsigned8 **ptr
 )
 {
     union
     {
     	unsigned8 **as_ptr;
-    	unsigned32 *as_int;
+    	unsigned long *as_int;
     } anyptr;
 
     anyptr.as_ptr = ptr;
@@ -751,12 +754,12 @@ PRIVATE void rpc__cn_unpack_hdr
 	    case RPC_C_CN_PKT_ALTER_CONTEXT_RESP:
 	    case RPC_C_CN_PKT_BIND_NAK:
             {
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 		char *p;
 #endif
 
 		authp = RPC_CN_PKT_AUTH_TLR (pkt_p, RPC_CN_PKT_FRAG_LEN (pkt_p));
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 		p = (char *)authp;
 		force_alignment(4, (unsigned8 **)&authp);
 		if (p != (char *)authp) {
@@ -962,12 +965,12 @@ PRIVATE void rpc__cn_stats_print (void)
 PRIVATE char *rpc__cn_pkt_name
 (
   unsigned32      ptype
-#ifndef DEBUG
+#ifndef DEBUG_DCE_RPC
                         __attribute((unused))
 #endif
 )
 {
-#ifndef DEBUG
+#ifndef DEBUG_DCE_RPC
 
     return("");
 

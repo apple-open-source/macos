@@ -39,7 +39,7 @@
 
 #include "protect.h"
 
-#if PLATFORM(WIN)
+#if PLATFORM(WIN_OS)
 #include <WebKitInitializer/WebKitInitializer.h>
 #include <crtdbg.h>
 #include <windows.h>
@@ -204,7 +204,7 @@ int kjsmain(int argc, char** argv);
 
 int main(int argc, char** argv)
 {
-#if PLATFORM(WIN)
+#if PLATFORM(WIN_OS)
     if (!initializeWebKit()) {
         fprintf(stderr, "Failed to initialize WebKit\n");
         abort();

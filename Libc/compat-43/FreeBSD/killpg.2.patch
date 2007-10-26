@@ -1,0 +1,45 @@
+--- killpg.2	2003-05-20 15:20:40.000000000 -0700
++++ killpg.2.edit	2006-07-12 10:52:21.000000000 -0700
+@@ -41,7 +41,6 @@
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+-.In sys/types.h
+ .In signal.h
+ .Ft int
+ .Fn killpg "pid_t pgrp" "int sig"
+@@ -80,21 +79,29 @@
+ .Fa sig
+ argument
+ is not a valid signal number.
++.It Bq Er EPERM
++The sending process is not the super-user and one or more
++of the target processes has an effective user ID different from that
++of the sending process.
+ .It Bq Er ESRCH
+ No process can be found in the process group specified by
+ .Fa pgrp .
+ .It Bq Er ESRCH
+ The process group was given as 0
+ but the sending process does not have a process group.
+-.It Bq Er EPERM
+-The sending process is not the super-user and one or more
+-of the target processes has an effective user ID different from that
+-of the sending process.
+ .El
++.Sh LEGACY SYNOPSIS
++.Fd #include <sys/types.h>
++.Fd #include <signal.h>
++.Pp
++The include file
++.In sys/types.h
++is necessary.
+ .Sh SEE ALSO
+ .Xr getpgrp 2 ,
+ .Xr kill 2 ,
+-.Xr sigaction 2
++.Xr sigaction 2 ,
++.Xr compat 5
+ .Sh HISTORY
+ The
+ .Fn killpg

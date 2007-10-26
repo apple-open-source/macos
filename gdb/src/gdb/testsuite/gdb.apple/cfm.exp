@@ -25,6 +25,11 @@ if ![istarget "powerpc-apple-darwin*"] {
     return
 }
 
+if [target_info exists nocarbon64] {
+    verbose "Skipping Carbon tests on 64-bit PowerPC."
+    return
+}
+
 if $tracelevel then {
         strace $tracelevel
 }
@@ -51,6 +56,8 @@ gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 gdb_load ${binfile}
+
+gdb_test "set inferior-auto-start-cfm on" "" "Enable cfm auto start"
 
 if ![runto_main] then { 
   fail "cfm tests suppressed"

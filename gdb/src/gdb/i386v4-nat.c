@@ -1,6 +1,7 @@
-/* Native-dependent code for SVR4 Unix running on i386's.
+/* Native-dependent code for Unix SVR4 running on i386's.
+
    Copyright 1988, 1989, 1991, 1992, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002
+   2001, 2002, 2004
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -36,7 +37,9 @@
 
 #include <sys/procfs.h>
 
-/* Prototypes for supply_gregset etc. */
+/* We must not compile this code for 64-bit Solaris x86.  */
+#if !defined (PR_MODEL_NATIVE) || (PR_MODEL_NATIVE == PR_MODEL_ILP32)
+
 #include "gregset.h"
 
 /* The `/proc' interface divides the target machine's register set up
@@ -95,7 +98,7 @@ static int regmap[] =
   EAX, ECX, EDX, EBX,
   UESP, EBP, ESI, EDI,
   EIP, EFL, CS, SS,
-  DS, ES, FS, GS,
+  DS, ES, FS, GS
 };
 
 /* Fill GDB's register array with the general-purpose register values
@@ -105,25 +108,25 @@ void
 supply_gregset (gregset_t *gregsetp)
 {
   greg_t *regp = (greg_t *) gregsetp;
-  int i;
+  int regnum;
 
-  for (i = 0; i < I386_NUM_GREGS; i++)
-    supply_register (i, (char *) (regp + regmap[i]));
+  for (regnum = 0; regnum < I386_NUM_GREGS; regnum++)
+    regcache_raw_supply (current_regcache, regnum, regp + regmap[regnum]);
 }
 
-/* Fill register REGNO (if it is a general-purpose register) in
-   *GREGSETPS with the value in GDB's register array.  If REGNO is -1,
+/* Fill register REGNUM (if it is a general-purpose register) in
+   *GREGSETPS with the value in GDB's register array.  If REGNUM is -1,
    do this for all registers.  */
 
 void
-fill_gregset (gregset_t *gregsetp, int regno)
+fill_gregset (gregset_t *gregsetp, int regnum)
 {
   greg_t *regp = (greg_t *) gregsetp;
   int i;
 
   for (i = 0; i < I386_NUM_GREGS; i++)
-    if (regno == -1 || regno == i)
-      regcache_collect (i, regp + regmap[i]);
+    if (regnum == -1 || regnum == i)
+      regcache_raw_collect (current_regcache, i, regp + regmap[i]);
 }
 
 #endif /* HAVE_GREGSET_T */
@@ -156,5 +159,7 @@ fill_fpregset (fpregset_t *fpregsetp, int regno)
 }
 
 #endif /* HAVE_FPREGSET_T */
+
+#endif /* not 64-bit.  */
 
 #endif /* HAVE_SYS_PROCFS_H */

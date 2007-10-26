@@ -25,8 +25,7 @@
 
 #include "includes.h"
 
-extern int ClientNMB;
-extern int ClientDGRAM;
+extern struct in_addr loopback_ip;
 extern int global_nmb_port;
 
 /* This is the broadcast subnets database. */
@@ -50,34 +49,6 @@ static void add_subnet(struct subnet_record *subrec)
 	DLIST_ADD(subnetlist, subrec);
 }
 
-/* ************************************************************************** **
- * Comparison routine for ordering the splay-tree based namelists assoicated
- * with each subnet record.
- *
- *  Input:  Item  - Pointer to the comparison key.
- *          Node  - Pointer to a node the splay tree.
- *
- *  Output: The return value will be <0 , ==0, or >0 depending upon the
- *          ordinal relationship of the two keys.
- *
- * ************************************************************************** **
- */
-static int namelist_entry_compare( ubi_trItemPtr Item, ubi_trNodePtr Node )
-{
-	struct name_record *NR = (struct name_record *)Node;
-
-	if( DEBUGLVL( 10 ) ) {
-		struct nmb_name *Iname = (struct nmb_name *)Item;
-
-		Debug1( "nmbd_subnetdb:namelist_entry_compare()\n" );
-		Debug1( "%d == memcmp( \"%s\", \"%s\", %d )\n",
-			memcmp( Item, &(NR->name), sizeof(struct nmb_name) ),
-			nmb_namestr(Iname), nmb_namestr(&NR->name), (int)sizeof(struct nmb_name) );
-	}
-
-	return( memcmp( Item, &(NR->name), sizeof(struct nmb_name) ) ); 
-}
-
 /****************************************************************************
 stop listening on a subnet
 we don't free the record as we don't have proper reference counting for it
@@ -86,8 +57,6 @@ yet and it may be in use by a response record
 
 void close_subnet(struct subnet_record *subrec)
 {
-	DLIST_REMOVE(subnetlist, subrec);
-
 	if (subrec->dgram_sock != -1) {
 		close(subrec->dgram_sock);
 		subrec->dgram_sock = -1;
@@ -96,6 +65,8 @@ void close_subnet(struct subnet_record *subrec)
 		close(subrec->nmb_sock);
 		subrec->nmb_sock = -1;
 	}
+
+	DLIST_REMOVE(subnetlist, subrec);
 }
 
 /****************************************************************************
@@ -145,6 +116,10 @@ static struct subnet_record *make_subnet(const char *name, enum subnet_type type
 		/* Make sure we can broadcast from these sockets. */
 		set_socket_options(nmb_sock,"SO_BROADCAST");
 		set_socket_options(dgram_sock,"SO_BROADCAST");
+
+		/* Set them non-blocking. */
+		set_blocking(nmb_sock, False);
+		set_blocking(dgram_sock, False);
 	}
 
 	subrec = SMB_MALLOC_P(struct subnet_record);
@@ -155,10 +130,7 @@ static struct subnet_record *make_subnet(const char *name, enum subnet_type type
 		return(NULL);
 	}
   
-	memset( (char *)subrec, '\0', sizeof(*subrec) );
-	(void)ubi_trInitTree( subrec->namelist,
-			namelist_entry_compare,
-			ubi_trOVERWRITE );
+	ZERO_STRUCTP(subrec);
 
 	if((subrec->subnet_name = SMB_STRDUP(name)) == NULL) {
 		DEBUG(0,("make_subnet: malloc fail for subnet name !\n"));
@@ -211,15 +183,30 @@ BOOL create_subnets(void)
 	int num_interfaces = iface_count();
 	int i;
 	struct in_addr unicast_ip, ipzero;
-	extern struct in_addr loopback_ip;
 
 	if(num_interfaces == 0) {
+		void (*saved_handler)(int);
+
 		DEBUG(0,("create_subnets: No local interfaces !\n"));
 		DEBUG(0,("create_subnets: Waiting for an interface to appear ...\n"));
+
+		/* 
+		 * Whilst we're waiting for an interface, allow SIGTERM to
+		 * cause us to exit.
+		 */
+
+		saved_handler = CatchSignal( SIGTERM, SIGNAL_CAST SIG_DFL );
+
 		while (iface_count() == 0) {
 			sleep(5);
 			load_interfaces();
 		}
+
+		/* 
+		 * We got an interface, restore our normal term handler.
+		 */
+
+		CatchSignal( SIGTERM, SIGNAL_CAST saved_handler );
 	}
 
 	num_interfaces = iface_count();
@@ -231,6 +218,11 @@ BOOL create_subnets(void)
 
 	for (i = 0 ; i < num_interfaces; i++) {
 		struct interface *iface = get_interface(i);
+
+		if (!iface) {
+			DEBUG(2,("create_subnets: can't get interface %d.\n", i ));
+			continue;
+		}
 
 		/*
 		 * We don't want to add a loopback interface, in case
@@ -247,9 +239,22 @@ BOOL create_subnets(void)
 			return False;
 	}
 
+        /* We must have at least one subnet. */
+	if (subnetlist == NULL) {
+		DEBUG(0,("create_subnets: unable to create any subnet from "
+				"given interfaces. nmbd is terminating\n"));
+		return False;
+	}
+
 	if (lp_we_are_a_wins_server()) {
 		/* Pick the first interface ip address as the WINS server ip. */
-		unicast_ip = *iface_n_ip(0);
+		struct in_addr *nip = iface_n_ip(0);
+
+		if (!nip) {
+			return False;
+		}
+
+		unicast_ip = *nip;
 	} else {
 		/* note that we do not set the wins server IP here. We just
 			set it at zero and let the wins registration code cope

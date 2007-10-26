@@ -58,7 +58,7 @@ enum {
     L2TP_CMD_GETOURADDR,	// get our IP address
     L2TP_CMD_SETBAUDRATE,	// set tunnel baud rate
     L2TP_CMD_GETBAUDRATE,	// get tunnel baud rate
-    L2TP_CMD_SETRELIABILITY	// turn on/off the reliability layer
+    L2TP_CMD_SETRELIABILITY // turn on/off the reliability layer
 };
 
 typedef int (*l2tp_rfc_input_callback)(void *data, mbuf_t m, struct sockaddr *from, int more);

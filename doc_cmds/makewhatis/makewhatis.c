@@ -591,6 +591,11 @@ process_man_line(char *line)
 			return;
 	} else
 		line = skip_spaces(line);
+#ifdef __APPLE__
+	/* 4454557 */
+	if (*line == '"')
+		++line;
+#endif /* __APPLE__ */
 	if (*line != '\0') {
 		add_nroff(line);
 		sbuf_append(whatis_proto, " ", 1);
@@ -728,7 +733,7 @@ process_page(struct page_info *page, char *section_dir)
 		 * Inside an old-style .SH NAME section.
 		 */
 		case STATE_MANSTYLE:
-			if (strncmp(line, ".SH", 3) == 0)
+			if ((strncmp(line, ".SH", 3) == 0) || (strncmp(line, ".SS", 3) == 0))
 				break;
 			trim_rhs(line);
 			if (strcmp(line, ".") == 0)

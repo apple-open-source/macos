@@ -32,7 +32,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
-#include <sys/socketvar.h>
+
+struct socket;
 
 #include <libbsm.h>
 
@@ -64,7 +65,7 @@
  * text length             2 bytes
  * text                    N bytes + 1 terminating NULL byte
  */
-token_t *au_to_arg32(char n, char *text, u_int32_t v)
+token_t *au_to_arg32(char n, const char *text, u_int32_t v)
 {
 	token_t *t;
 	u_char *dptr = NULL;
@@ -97,7 +98,7 @@ token_t *au_to_arg32(char n, char *text, u_int32_t v)
 
 }
 
-token_t *au_to_arg64(char n, char *text, u_int64_t v)
+token_t *au_to_arg64(char n, const char *text, u_int64_t v)
 {
 	token_t *t;
 	u_char *dptr = NULL;
@@ -203,7 +204,7 @@ token_t *au_to_attr(struct vnode_vattr *attr)
  * data items              (depends on basic unit)
  */
 token_t *au_to_data(char unit_print, char unit_type,
-                    char unit_count, char *p)
+                    char unit_count, unsigned char *p)
 {
 	token_t *t;
 	u_char *dptr = NULL;
@@ -268,7 +269,7 @@ token_t *au_to_exit(int retval, int err)
 
 /*
  */
-token_t *au_to_groups(int *groups)
+token_t *au_to_groups(gid_t *groups)
 {
 	return au_to_newgroups(MAX_GROUPS, groups);	
 }
@@ -455,9 +456,18 @@ token_t *au_to_ipc_perm(struct ipc_perm *perm)
 	ADD_U_INT16(dptr, perm->mode);
 
 	ADD_U_INT16(dptr, pad0);
+#if defined (__DARWIN_UNIX03) || defined(__LP64__)
+	ADD_U_INT16(dptr, perm->_seq);
+#else
 	ADD_U_INT16(dptr, perm->seq);
+#endif
 
+/* XXX  _key (or key) is a _signed_ 32-bit int */
+#if defined (__DARWIN_UNIX03) || defined(__LP64__)
+	ADD_U_INT32(dptr, perm->_key);
+#else
 	ADD_U_INT32(dptr, perm->key);
+#endif
 
 	return t;
 }
@@ -564,7 +574,7 @@ token_t *au_to_file(char *file)
  * text length             2 bytes
  * text                    N bytes + 1 terminating NULL byte
  */
-token_t *au_to_text(char *text)
+token_t *au_to_text(const char *text)
 {
 	token_t *t;
 	u_char *dptr = NULL;
@@ -798,7 +808,7 @@ token_t *au_to_return(char status, u_int32_t ret)
  * token ID                1 byte
  * sequence number         4 bytes
  */
-token_t *au_to_seq(long audit_count)
+token_t *au_to_seq(u_int32_t audit_count)
 {
 	token_t *t;
 	u_char *dptr = NULL;

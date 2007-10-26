@@ -57,6 +57,7 @@ static char sccsid[] = "@(#)finger.c	8.5 (Berkeley) 5/4/95";
 #endif
 
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/finger/finger.c,v 1.36 2005/09/19 10:11:46 dds Exp $");
 
 /*
  * Finger prints out information about users.  It is not portable since
@@ -82,7 +83,7 @@ static char sccsid[] = "@(#)finger.c	8.5 (Berkeley) 5/4/95";
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <utmp.h>
+#include <utmpx.h>
 #include <locale.h>
 
 #include "finger.h"
@@ -90,10 +91,11 @@ static char sccsid[] = "@(#)finger.c	8.5 (Berkeley) 5/4/95";
 
 DB *db;
 time_t now;
-int entries, gflag, lflag, mflag, pplan, sflag, oflag, Tflag;
+int entries, gflag, kflag, lflag, mflag, pplan, sflag, oflag, Tflag;
 sa_family_t family = PF_UNSPEC;
 int d_first = -1;
 char tbuf[1024];
+int invoker_root = 0;
 
 static void loginlist(void);
 static int option(int, char **);
@@ -107,7 +109,11 @@ option(int argc, char **argv)
 
 	optind = 1;		/* reset getopt */
 
-	while ((ch = getopt(argc, argv, "46glmpshoT")) != -1)
+#ifdef __APPLE__
+	while ((ch = getopt(argc, argv, "46gklmpsho")) != -1)
+#else
+	while ((ch = getopt(argc, argv, "46gklmpshoT")) != -1)
+#endif
 		switch(ch) {
 		case '4':
 			family = AF_INET;
@@ -117,6 +123,9 @@ option(int argc, char **argv)
 			break;
 		case 'g':
 			gflag = 1;
+			break;
+		case 'k':
+			kflag = 1;		/* keep going without utmpx */
 			break;
 		case 'l':
 			lflag = 1;		/* long format */
@@ -136,9 +145,11 @@ option(int argc, char **argv)
 		case 'o':
 			oflag = 1;		/* office info */
 			break;
+#ifndef __APPLE__
 		case 'T':
 			Tflag = 1;		/* disable T/TCP */
 			break;
+#endif
 		case '?':
 		default:
 			usage();
@@ -150,7 +161,8 @@ option(int argc, char **argv)
 static void
 usage(void)
 {
-	(void)fprintf(stderr, "usage: finger [-46lmpshoT] [login ...]\n");
+	(void)fprintf(stderr,
+	    "usage: finger [-46gklmpshoT] [user ...] [user@host ...]\n");
 	exit(1);
 }
 
@@ -163,6 +175,7 @@ main(int argc, char **argv)
 	static char myname[] = "finger";
 
 	if (getuid() == 0 || geteuid() == 0) {
+		invoker_root = 1;
 		if ((pw = getpwnam(UNPRIV_NAME)) && pw->pw_uid > 0) {
 			 setgid(pw->pw_gid);
 			 setuid(pw->pw_uid);
@@ -229,26 +242,29 @@ loginlist(void)
 	PERSON *pn;
 	DBT data, key;
 	struct passwd *pw;
-	struct utmp user;
+	struct utmpx *user;
 	int r, sflag1;
-	char name[UT_NAMESIZE + 1];
+	char name[_UTX_USERSIZE + 1];
 
-	if (!freopen(_PATH_UTMP, "r", stdin))
-		err(1, "%s", _PATH_UTMP);
-	name[UT_NAMESIZE] = '\0';
-	while (fread((char *)&user, sizeof(user), 1, stdin) == 1) {
-		if (!user.ut_name[0])
+	if (kflag)
+		errx(1, "can't list logins without reading utmpx");
+
+	setutxent();
+	name[_UTX_USERSIZE] = '\0';
+	while ((user = getutxent()) != NULL) {
+		if (!user->ut_user[0] || user->ut_type != USER_PROCESS)
 			continue;
-		if ((pn = find_person(user.ut_name)) == NULL) {
-			bcopy(user.ut_name, name, UT_NAMESIZE);
+		if ((pn = find_person(user->ut_user)) == NULL) {
+			bcopy(user->ut_user, name, _UTX_USERSIZE);
 			if ((pw = getpwnam(name)) == NULL)
 				continue;
 			if (hide(pw))
 				continue;
 			pn = enter_person(pw);
 		}
-		enter_where(&user, pn);
+		enter_where(user, pn);
 	}
+	endutxent();
 	if (db && lflag)
 		for (sflag1 = R_FIRST;; sflag1 = R_NEXT) {
 			PERSON *tmp;
@@ -268,7 +284,7 @@ userlist(int argc, char **argv)
 {
 	PERSON *pn;
 	DBT data, key;
-	struct utmp user;
+	struct utmpx *user;
 	struct passwd *pw;
 	int r, sflag1, *used, *ip;
 	char **ap, **nargv, **np, **p;
@@ -318,7 +334,7 @@ userlist(int argc, char **argv)
 		    continue;
 		*conf_realname = '\0';               /* Replace : with NUL */
 		for (p = argv; *p; ++p) {
-		    if (strcmp(*p, conf_alias) == NULL) {
+		    if (strcmp(*p, conf_alias) == 0) {
 			if ((*p = strdup(conf_realname+1)) == NULL) {
 			    err(1, NULL);
 			}
@@ -369,19 +385,22 @@ net:	for (p = nargv; *p;) {
 	if (entries == 0)
 		return;
 
+	if (kflag)
+		return;
+
 	/*
 	 * Scan thru the list of users currently logged in, saving
 	 * appropriate data whenever a match occurs.
 	 */
-	if (!freopen(_PATH_UTMP, "r", stdin))
-		err(1, "%s", _PATH_UTMP);
-	while (fread((char *)&user, sizeof(user), 1, stdin) == 1) {
-		if (!user.ut_name[0])
+	setutxent();
+	while ((user = getutxent()) != NULL) {
+		if (!user->ut_user && user->ut_type != USER_PROCESS)
 			continue;
-		if ((pn = find_person(user.ut_name)) == NULL)
+		if ((pn = find_person(user->ut_user)) == NULL)
 			continue;
-		enter_where(&user, pn);
+		enter_where(user, pn);
 	}
+	endutxent();
 	if (db)
 		for (sflag1 = R_FIRST;; sflag1 = R_NEXT) {
 			PERSON *tmp;

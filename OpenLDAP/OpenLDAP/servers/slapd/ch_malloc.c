@@ -1,8 +1,8 @@
 /* ch_malloc.c - malloc routines that test returns from malloc and friends */
-/* $OpenLDAP: pkg/ldap/servers/slapd/ch_malloc.c,v 1.21.2.2 2004/01/01 18:16:33 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/ch_malloc.c,v 1.25.2.3 2006/01/03 22:16:13 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,13 +52,8 @@ ch_malloc(
 	void	*new;
 
 	if ( (new = (void *) ber_memalloc_x( size, NULL )) == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			   "ch_malloc: allocation of %lu bytes failed\n", (long)size, 0,0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "ch_malloc of %lu bytes failed\n",
 			(long) size, 0, 0 );
-#endif
 		assert( 0 );
 		exit( EXIT_FAILURE );
 	}
@@ -80,21 +75,17 @@ ch_realloc(
 
 	if( size == 0 ) {
 		ch_free( block );
+		return NULL;
 	}
 
-	ctx = sl_context( block );
+	ctx = slap_sl_context( block );
 	if ( ctx ) {
-		return sl_realloc( block, size, ctx );
+		return slap_sl_realloc( block, size, ctx );
 	}
 
 	if ( (new = (void *) ber_memrealloc_x( block, size, NULL )) == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			   "ch_realloc: reallocation of %lu bytes failed\n", (long)size, 0,0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "ch_realloc of %lu bytes failed\n",
 			(long) size, 0, 0 );
-#endif
 		assert( 0 );
 		exit( EXIT_FAILURE );
 	}
@@ -111,14 +102,8 @@ ch_calloc(
 	void	*new;
 
 	if ( (new = (void *) ber_memcalloc_x( nelem, size, NULL )) == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			   "ch_calloc: allocation of %lu elements of %lu bytes faild\n",
-			   (long)nelem, (long)size, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "ch_calloc of %lu elems of %lu bytes failed\n",
 		  (long) nelem, (long) size, 0 );
-#endif
 		assert( 0 );
 		exit( EXIT_FAILURE );
 	}
@@ -134,12 +119,7 @@ ch_strdup(
 	char	*new;
 
 	if ( (new = ber_strdup_x( string, NULL )) == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			"chr_strdup: duplication of \"%s\" failed\n", string, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "ch_strdup(%s) failed\n", string, 0, 0 );
-#endif
 		assert( 0 );
 		exit( EXIT_FAILURE );
 	}
@@ -152,9 +132,9 @@ ch_free( void *ptr )
 {
 	void *ctx;
 
-	ctx = sl_context( ptr );
+	ctx = slap_sl_context( ptr );
 	if (ctx) {
-		sl_free( ptr, ctx );
+		slap_sl_free( ptr, ctx );
 	} else {
 		ber_memfree_x( ptr, NULL );
 	}

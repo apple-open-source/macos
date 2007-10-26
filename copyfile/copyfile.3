@@ -1,0 +1,300 @@
+.\"
+.\" Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+.\"
+.Dd April 27, 2006
+.Dt COPYFILE 3
+.Os
+.Sh NAME
+.Nm copyfile , fcopyfile ,
+.Nm copyfile_state_alloc , copyfile_state_free ,
+.Nm copyfile_state_get , copyfile_state_set
+.Nd copy a file
+.Sh LIBRARY
+.Lb libc
+.Sh SYNOPSIS
+.In copyfile.h
+.Ft int
+.Fn copyfile "const char *from" "const char *to" "copyfile_state_t state" "copyfile_flags_t flags"
+.Ft int
+.Fn fcopyfile "int from" "int to" "copyfile_state_t state" "copyfile_flags_t flags"
+.Ft copyfile_state_t
+.Fn copyfile_state_alloc "void"
+.Ft int
+.Fn copyfile_state_free "copyfile_state_t state"
+.Ft int
+.Fn copyfile_state_get "copyfile_state_t state" "uint32_t flag" "void * dst"
+.Ft int
+.Fn copyfile_state_set "copyfile_state_t state" "uint32_t flag" "const void * src"
+.Sh DESCRIPTION
+These functions are used to copy a file's data and/or metadata.  (Metadata
+consists of permissions, extended attributes, access control lists, and so
+forth.)
+.Pp
+The
+.Fn copyfile_state_alloc
+function initializes a
+.Vt copyfile_state_t
+object (which is an opaque data type).
+This object can be passed to
+.Fn copyfile
+and
+.Fn fcopyfile ;
+.Fn copyfile_state_get
+and
+.Fn copyfile_state_set
+can be used to manipulate the state (see below).
+The
+.Fn copyfile_state_free
+function is used to deallocate the object and its contents.
+.Pp
+The
+.Fn copyfile
+function can copy the named
+.Va from
+file to the named
+.Va to
+file; the
+.Fn fcopyfile
+function does the same, but using the file descriptors of already-opened
+files.
+If the
+.Va state
+parameter is the return value from
+.Fn copyfile_state_alloc ,
+then
+.Fn copyfile
+and
+.Fn fcopyfile
+will use the information from the state object; if it is
+.Dv NULL ,
+then both functions will work normally, but less control will be available to the caller.
+The
+.Va flags
+parameter controls which contents are copied:
+.Bl -tag -width COPYFILE_XATTR
+.It Dv COPYFILE_ACL
+Copy the source file's access control lists.
+.It Dv COPYFILE_STAT
+Copy the source file's POSIX information (mode, modification time, etc.).
+.It Dv COPYFILE_XATTR
+Copy the source file's extended attributes.
+.It Dv COPYFILE_DATA
+Copy the source file's data.
+.El
+.Pp
+These values may be or'd together; several convenience macros are provided:
+.Bl -tag -width COPYFILE_SECURITY
+.It Dv COPYFILE_SECURITY
+Copy the source file's POSIX and ACL information; equivalent to
+.Dv (COPYFILE_STAT|COPYFILE_ACL) .
+.It Dv COPYFILE_METADATA
+Copy the metadata; equivalent to
+.Dv (COPYFILE_SECURITY|COPYFILE_XATTR) .
+.It Dv COPYFILE_ALL
+Copy the entire file; equivalent to
+.Dv (COPYFILE_METADATA|COPYFILE_DATA) .
+.El
+.Pp
+The
+.Fn copyfile
+and
+.Fn fcopyfile
+functions can also have their behavior modified by the following flags:
+.Bl -tag -width COPYFILE_NOFOLLOW_SRC
+.It Dv COPYFILE_CHECK
+Return a bitmask (corresponding to the
+.Va flags
+argument) indicating which contents would be copied; no data are actually
+copied.  (E.g., if
+.Va flags
+was set to
+.Dv COPYFILE_CHECK|COPYFILE_METADATA ,
+and the
+.Va from
+file had extended attributes but no ACLs, the return value would be
+.Dv COPYFILE_XATTR .)
+.It Dv COPYFILE_PACK
+Serialize the
+.Va from
+file.  The
+.Va to
+file is an AppleDouble-format file.
+.It Dv COPYFILE_UNPACK
+Unserialize the
+.Va from
+file.  The
+.Va from
+file is an AppleDouble-format file; the
+.Va to
+file will have the extended attributes, ACLs, resource fork, and
+FinderInfo data from the
+.Va to
+file, regardless of the
+.Va flags
+argument passed in.
+.It Dv COPYFILE_EXCL
+Fail if the
+.Va to
+file already exists.  (This is only applicable for the
+.Fn copyfile
+function.)
+.It Dv COPYFILE_NOFOLLOW_SRC
+Do not follow the
+.Va from
+file, if it is a symbolic link.  (This is only applicable for the
+.Fn copyfile
+function.)
+.It Dv COPYFILE_NOFOLLOW_DST
+Do not follow the
+.Va to
+file, if it is a symbolic link.  (This is only applicable for the
+.Fn copyfile
+function.)
+.It Dv COPYFILE_MOVE
+Unlink (remove) the
+.Fa from
+file.  (This is only applicable for the
+.Fn copyfile
+function.)
+.It Dv COPYFILE_UNLINK
+Unlink the
+.Va to
+file before starting.  (This is only applicable for the
+.Fn copyfile
+function.)
+.It Dv COPYFILE_NOFOLLOW
+This is a convenience macro, equivalent to
+.Dv (COPYFILE_NOFOLLOW_DST|COPYFILE_NOFOLLOW_SRC) .
+.El
+.Pp
+The
+.Fn copyfile_state_get
+and
+.Fn copyfile_state_set
+functions can be used to manipulate the
+.Ft copyfile_state_t
+object returned by
+.Fn copyfile_state_alloc .
+In both functions, the
+.Va dst
+parameter's type depends on the
+.Va flag
+parameter that is passed in.
+.Bl -tag -width COPYFILE_STATE_DST_FILENAME
+.It Dv COPYFILE_STATE_SRC_FD
+.It Dv COPYFILE_STATE_DST_FD
+Get or set the file descriptor associated with the source (or destination)
+file.
+If this has not been initialized yet, the value will be -2.
+The
+.Va dst
+(for
+.Fn copyfile_state_get )
+and
+.Va src
+(for
+.Fn copyfile_state_set )
+parameters are pointers to
+.Vt int .
+.It Dv COPYFILE_STATE_SRC_FILENAME
+.It Dv COPYFILE_STATE_DST_FILENAME
+Get or set the filename associated with the source (or destination)
+file.  If it has not been initialized yet, the value will be
+.Dv NULL .
+For
+.Fn copyfile_state_set ,
+the
+.Va src
+parameter is a pointer to a C string
+(i.e.,
+.Vt char* );
+.Fn copyfile_state_set
+makes a private copy of this string.
+For
+.Fn copyfile_state_get
+function, the
+.Va dst
+parameter is a pointer to a pointer to a C string
+(i.e.,
+.Vt char** );
+the returned value is a pointer to the
+.Va state 's
+copy, and must not be modified or released.
+.It Dv COPYFILE_STATE_QUARANTINE
+Get or set the quarantine information with the source file.
+The
+.Va src
+parameter is a pointer to a
+.Vt qtn_file_t
+object (see
+.Pa <quarantine.h> ).
+In the case of
+.Dv COPYFILE_STATE_SET ,
+the object is cloned; in the case of
+.Dv COPYFILE_STATE_GET ,
+the object is simply returned, and it is up to the
+caller to clone it if desired.
+.El
+.Sh RETURN VALUES
+Except when given the
+.Dv COPYFILE_CHECK
+flag,
+.Fn copyfile
+and
+.Fn fcopyfile
+return less than 0 on error, and 0 on success.
+All of the other functions return 0 on success, and less than 0
+on error.
+.Sh ERRORS
+.Fn copyfile
+and
+.Fn fcopyfile
+will fail if:
+.Bl -tag -width Er
+.It Bq Er EINVAL
+Either the
+.Va from
+or
+.Va to
+parameter was a
+.Dv NULL
+pointer (
+.Fn copyfile ),
+or a negative number (
+.Fn fcopyfile ).
+.It Bq Er ENOMEM
+A memory allocation failed.
+.It Bq Er ENOTSUP
+The source file was not a directory, symbolic link, or regular file.
+.El
+In addition, both functions may set
+.Dv errno
+via an underlying library or system call.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+/* Initialize a state variable */
+copyfile_state_t s;
+s = copyfile_state_alloc();
+/* Copy the data and extended attributes of one file to another */
+copyfile("/tmp/f1", "/tmp/f2", s, COPYFILE_DATA | COPYFILE_XATTR);
+/* Convert a file to an AppleDouble file for serialization */
+copyfile("/tmp/f2", "/tmp/tmpfile", NULL, COPYFILE_ALL | COPYFILE_PACK);
+/* Release the state variable */
+copyfile_state_free(s);
+/* A more complex way to call copyfile() */
+s = copyfile_state_alloc();
+copyfile_state_set(s, COPYFILE_STATE_SRC_FILENAME, "/tmp/foo");
+/* One of src or dst must be set... rest can come from the state */
+copyfile(NULL, "/tmp/bar", s, COPYFILE_ALL);
+/* Now copy the same source file to another destination file */
+copyfile(NULL, "/tmp/car", s, COPYFILE_ALL);
+copyfile_state_free(s);
+.Ed
+.Sh BUGS
+Both
+.Fn copyfile
+functions lack a way to set the input or output block size.
+.Sh HISTORY
+The
+.Fn copyfile
+API was introduced in Mac OS X 10.5.

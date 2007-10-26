@@ -272,48 +272,57 @@ WriteSymTabEntries(file, stats)
 
 static void
 WriteRoutineEntries(file, stats)
-    FILE *file;
-    statement_t *stats;
+  FILE *file;
+  statement_t *stats;
 {
-    register u_int current = 0;
-    register statement_t *stat;
-    char *sig_array, *rt_name;
-    int arg_count, descr_count;
-    int offset = 0;
-
-    fprintf(file, "\t{\n");
-    for (stat = stats; stat != stNULL; stat = stat->stNext)
-	if (stat->stKind == skRoutine)
-	{
-	    register routine_t *rt = stat->stRoutine;
-
-	    sig_array = (char *) malloc(strlen(ServerSubsys)+80);
-	    rt_name = (char *) malloc(strlen(rt->rtName)+5);
-	    while (current++ < rt->rtNumber)
-		fprintf(file, "\t\t{0, 0, 0, 0, 0, 0},\n");
-	    if (UseRPCTrap) {
-		sprintf(sig_array, "&%s.arg_descriptor[%d], (mach_msg_size_t)sizeof(__Reply__%s_t)",
-			ServerSubsys, offset, rt->rtName);
-	    } else {
-		sprintf(sig_array, "(routine_arg_descriptor_t)0, (mach_msg_size_t)sizeof(__Reply__%s_t)",
-			rt->rtName);
-	    }
-	    sprintf(rt_name, "_X%s", rt->rtName);
-	    descr_count = rtCountArgDescriptors(rt->rtArgs, &arg_count);
-	    offset += descr_count;
-	    WriteRPCRoutineDescriptor(file, rt,
-				      arg_count, 
-				      (UseRPCTrap) ? descr_count : 0,
-				      rt_name,
-				      sig_array);
-	    fprintf(file, ",\n");
-	    free(sig_array);
-	    free(rt_name);
-	}
-    while (current++ < rtNumber)
-	fprintf(file, "\t\t{0, 0, 0, 0, 0},\n");
-
-    fprintf(file, "\t}");
+  register u_int current = 0;
+  register statement_t *stat;
+  char *sig_array, *rt_name;
+  int arg_count, descr_count;
+  int offset = 0;
+  int serverSubsysNameLen = strlen(ServerSubsys);
+  
+  fprintf(file, "\t{\n");
+  for (stat = stats; stat != stNULL; stat = stat->stNext)
+    if (stat->stKind == skRoutine)
+    {
+      register  routine_t *rt = stat->stRoutine;
+      int       rtNameLen = strlen(rt->rtName);
+      
+      // 10/30/06 - GAB: <rdar://problem/4672570>
+      // Include length of rt->rtName in calculation of necessary buffer size, since that string
+      // is actually written into the buffer along with the Server Subsystem name.
+      sig_array = (char *) malloc(serverSubsysNameLen + rtNameLen + 80);
+      rt_name = (char *) malloc(rtNameLen + 5);
+      while (current++ < rt->rtNumber)
+        fprintf(file, "\t\t{0, 0, 0, 0, 0, 0},\n");
+      // NOTE: if either of the two string constants in the sprintf() function calls below get
+      // much longer, be sure to increase the constant '80' (in the first malloc() call) to ensure
+      // that the allocated buffer is large enough. (Currently, I count 66 characters in the first
+      // string constant, 65 in the second. 80 ought to be enough for now...)
+      if (UseRPCTrap) {
+        sprintf(sig_array, "&%s.arg_descriptor[%d], (mach_msg_size_t)sizeof(__Reply__%s_t)",
+                ServerSubsys, offset, rt->rtName);
+      } else {
+        sprintf(sig_array, "(routine_arg_descriptor_t)0, (mach_msg_size_t)sizeof(__Reply__%s_t)",
+                rt->rtName);
+      }
+      sprintf(rt_name, "_X%s", rt->rtName);
+      descr_count = rtCountArgDescriptors(rt->rtArgs, &arg_count);
+      offset += descr_count;
+      WriteRPCRoutineDescriptor(file, rt,
+                                arg_count, 
+                                (UseRPCTrap) ? descr_count : 0,
+                                rt_name,
+                                sig_array);
+      fprintf(file, ",\n");
+      free(sig_array);
+      free(rt_name);
+    }
+  while (current++ < rtNumber)
+    fprintf(file, "\t\t{0, 0, 0, 0, 0},\n");
+  
+  fprintf(file, "\t}");
 }
 
 static void
@@ -1407,8 +1416,8 @@ WriteDestroyArg(file, arg)
 	}
 	fprintf(file, "\t%s = (vm_offset_t) 0;\n", 
 	    InArgMsgField(arg, ""));
-	fprintf(file, "\tIn%dP->%s.size = (mach_msg_size_t) 0;\n",
-	    arg->argRequestPos, arg->argMsgField); 
+	fprintf(file, "\tIn%dP->%s.%s = (mach_msg_size_t) 0;\n",
+	    arg->argRequestPos, arg->argMsgField, (RPCPortArray(arg) ? "count" : "size")); 
     } else {
 	if (akCheck(arg->argKind, akbVarNeeded))
 	    fprintf(file, "\t%s(%s);\n", it->itDestructor, arg->argVarName);
@@ -2390,7 +2399,7 @@ WriteCheckRequest(file, rt)
 	InitKPD_Disciplines(rt->rtArgs);
 
     fprintf(file, "\n");
-	fprintf(file, "#if (__MigTypeCheck || __NDR_convert__ )\n");
+	fprintf(file, "#if ( __MigTypeCheck || __NDR_convert__ )\n");
 	fprintf(file, "#if __MIG_check__Request__%s_subsystem__\n", SubsystemName);
 	fprintf(file, "#if !defined(__MIG_check__Request__%s_t__defined)\n", rt->rtName);
 	fprintf(file, "#define __MIG_check__Request__%s_t__defined\n", rt->rtName);
@@ -2403,10 +2412,10 @@ WriteCheckRequest(file, rt)
 				  akbSendNdr, "", "");
 	}
 	fprintf(file, "\n");
-	fprintf(file, "mig_internal kern_return_t __MIG_check__Request__%s_t(__Request__%s_t *In0P",
+	fprintf(file, "mig_internal kern_return_t __MIG_check__Request__%s_t(__attribute__((__unused__)) __Request__%s_t *In0P",
 			rt->rtName, rt->rtName);
 	for (i = 1; i <= rt->rtMaxRequestPos; i++)
-		fprintf(file, ", __Request__%s_t **In%dPP", rt->rtName, i);
+		fprintf(file, ", __attribute__((__unused__)) __Request__%s_t **In%dPP", rt->rtName, i);
 	fprintf(file, ")\n{\n");
 
 	fprintf(file, "\n\ttypedef __Request__%s_t __Request;\n", rt->rtName);

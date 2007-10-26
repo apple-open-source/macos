@@ -1,4 +1,4 @@
-/* vi:set ts=8 sts=0 sw=8:
+/* vi:set ts=8 sts=4 sw=4:
  *
  * VIM - Vi IMproved		by Bram Moolenaar
  *
@@ -127,6 +127,15 @@
 #endif
 
 /*
+ * Message history is fixed at 100 message, 20 for the tiny version.
+ */
+#ifdef FEAT_SMALL
+# define MAX_MSG_HIST_LEN 100
+#else
+# define MAX_MSG_HIST_LEN 20
+#endif
+
+/*
  * +jumplist		Jumplist, CTRL-O and CTRL-I commands.
  */
 #ifdef FEAT_SMALL
@@ -202,13 +211,6 @@
 #endif
 
 /*
- * +textobjects		Text objects: "vaw", "das", etc.
- */
-#ifdef FEAT_NORMAL
-# define FEAT_TEXTOBJ
-#endif
-
-/*
  * +visual		Visual mode.
  * +visualextra		Extra features for Visual mode (mostly block operators).
  */
@@ -246,6 +248,7 @@
 
 /*
  * +linebreak		'showbreak', 'breakat'  and 'linebreak' options.
+ *			Also 'numberwidth'.
  */
 #ifdef FEAT_NORMAL
 # define FEAT_LINEBREAK
@@ -379,6 +382,40 @@
 #endif
 
 /*
+ * +profile		Profiling for functions and scripts.
+ */
+#if defined(FEAT_HUGE) \
+	&& defined(FEAT_EVAL) \
+	&& ((defined(HAVE_GETTIMEOFDAY) && defined(HAVE_SYS_TIME_H)) \
+		|| defined(WIN3264))
+# define FEAT_PROFILE
+#endif
+
+/*
+ * +reltime		reltime() function
+ */
+#if defined(FEAT_NORMAL) \
+	&& defined(FEAT_EVAL) \
+	&& ((defined(HAVE_GETTIMEOFDAY) && defined(HAVE_SYS_TIME_H)) \
+		|| defined(WIN3264))
+# define FEAT_RELTIME
+#endif
+
+/*
+ * +textobjects		Text objects: "vaw", "das", etc.
+ */
+#if defined(FEAT_NORMAL) && defined(FEAT_EVAL)
+# define FEAT_TEXTOBJ
+#endif
+
+/*
+ *			Insert mode completion with 'completefunc'.
+ */
+#if defined(FEAT_INS_EXPAND) && defined(FEAT_EVAL)
+# define FEAT_COMPL_FUNC
+#endif
+
+/*
  * +user_commands	Allow the user to define his own commands.
  */
 #ifdef FEAT_NORMAL
@@ -488,6 +525,13 @@
 #endif
 
 /*
+ * +spell		spell checking
+ */
+#if defined(FEAT_NORMAL) || defined(PROTO)
+# define FEAT_SPELL
+#endif
+
+/*
  * +builtin_terms	Choose one out of the following four:
  *
  * NO_BUILTIN_TCAPS	Do not include any builtin termcap entries (used only
@@ -582,6 +626,10 @@
 # define FEAT_MBYTE
 #endif
 
+/* Define this if you want to use 16 bit Unicode only, reduces memory used for
+ * the screen structures. */
+/* #define UNICODE16 */
+
 /*
  * +multi_byte_ime	Win32 IME input method.  Requires +multi_byte.
  *			Only for far-east Windows, so IME can be used to input
@@ -603,21 +651,6 @@
 #if defined(FEAT_MBYTE) && ((defined(HAVE_ICONV_H) && defined(HAVE_ICONV)) \
 		|| defined(DYNAMIC_ICONV))
 # define USE_ICONV
-#endif
-
-/*
- * XSMP - X11 Session Management Protocol
- * It may be preferred to disable this if the GUI supports it (e.g., GNOME/KDE)
- * and implement save-yourself etc. through that, but it may also be cleaner to
- * have all SM-aware vims do the same thing (libSM does not depend upon X11).
- * If your GUI wants to support SM itself, change this ifdef.
- * I'm assuming that any X11 implementation will cope with this for now.
- */
-#if defined(HAVE_X11) && defined(WANT_X11) && defined(HAVE_X11_SM_SMLIB_H)
-# define USE_XSMP
-#endif
-#if defined(USE_XSMP_INTERACT) && !defined(USE_XSMP)
-# undef USE_XSMP_INTERACT
 #endif
 
 /*
@@ -711,21 +744,27 @@
 		|| defined(FEAT_GUI_PHOTON))
 # define FEAT_TOOLBAR
 #endif
+
+
 #if defined(FEAT_TOOLBAR) && !defined(FEAT_MENU)
 # define FEAT_MENU
 #endif
 
 /*
+ * GUI tabline
+ */
+#if defined(FEAT_WINDOWS) && defined(FEAT_NORMAL) \
+    && (defined(FEAT_GUI_GTK) \
+	|| (defined(FEAT_GUI_MOTIF) && defined(HAVE_XM_NOTEBOOK_H)) \
+	|| (defined(FEAT_GUI_MSWIN) && (!defined(_MSC_VER) || _MSC_VER > 1020)))
+# define FEAT_GUI_TABLINE
+#endif
+
+/*
  * +browse		":browse" command.
- *
- * BROWSE_CURRBUF	Open file browser in the directory of the current
- *			buffer, instead of the current directory.
  */
 #if defined(FEAT_NORMAL) && (defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA) || defined(FEAT_GUI_GTK) || defined(FEAT_GUI_PHOTON) || defined(FEAT_GUI_MAC))
 # define FEAT_BROWSE
-#endif
-#if defined(FEAT_NORMAL) && defined(FEAT_GUI_MSWIN)
-# define BROWSE_CURRBUF
 #endif
 
 /*
@@ -734,19 +773,16 @@
  *			When none of these defined there is no dialog support.
  */
 #ifdef FEAT_NORMAL
-# if defined(FEAT_GUI_MSWIN)
-#  define FEAT_GUI_DIALOG
-# else
-#  if ((defined(FEAT_GUI_ATHENA) || defined(FEAT_GUI_MOTIF)) \
+# if ((defined(FEAT_GUI_ATHENA) || defined(FEAT_GUI_MOTIF)) \
 		&& defined(HAVE_X11_XPM_H)) \
 	|| defined(FEAT_GUI_GTK) \
 	|| defined(FEAT_GUI_PHOTON) \
+	|| defined(FEAT_GUI_MSWIN) \
 	|| defined(FEAT_GUI_MAC)
-#   define FEAT_CON_DIALOG
-#   define FEAT_GUI_DIALOG
-#  else
-#   define FEAT_CON_DIALOG
-#  endif
+#  define FEAT_CON_DIALOG
+#  define FEAT_GUI_DIALOG
+# else
+#  define FEAT_CON_DIALOG
 # endif
 #endif
 #if !defined(FEAT_GUI_DIALOG) && (defined(FEAT_GUI_MOTIF) \
@@ -759,6 +795,11 @@
 	 || defined(FEAT_GUI_GTK) || defined(FEAT_GUI_MSWIN) \
 	 || defined(FEAT_GUI_PHOTON) || defined(FEAT_GUI_MAC))
 # define FEAT_GUI_TEXTDIALOG
+#endif
+
+/* Mac specific thing: Codewarrior interface. */
+#ifdef FEAT_GUI_MAC
+# define FEAT_CW_EDITOR
 #endif
 
 /*
@@ -818,11 +859,6 @@
  * GVIMRC_FILE		Name of the .gvimrc file in current dir.
  */
 /* #define GVIMRC_FILE	".gvimrc" */
-
-/*
- * VIEW_FILE		Name of the default ":mkview" file.
- */
-#define VIEW_FILE	"View.vim"
 
 /*
  * SESSION_FILE		Name of the default ":mksession" file.
@@ -944,8 +980,24 @@
  * +X11			Unix only.  Include code for xterm title saving and X
  *			clipboard.  Only works if HAVE_X11 is also defined.
  */
-#if defined(FEAT_NORMAL) || defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA)
+#if (defined(FEAT_NORMAL) || defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA))
 # define WANT_X11
+#endif
+
+/*
+ * XSMP - X11 Session Management Protocol
+ * It may be preferred to disable this if the GUI supports it (e.g.,
+ * GNOME/KDE) and implement save-yourself etc. through that, but it may also
+ * be cleaner to have all SM-aware vims do the same thing (libSM does not
+ * depend upon X11).
+ * If your GUI wants to support SM itself, change this ifdef.
+ * I'm assuming that any X11 implementation will cope with this for now.
+ */
+#if defined(HAVE_X11) && defined(WANT_X11) && defined(HAVE_X11_SM_SMLIB_H)
+# define USE_XSMP
+#endif
+#if defined(USE_XSMP_INTERACT) && !defined(USE_XSMP)
+# undef USE_XSMP_INTERACT
 #endif
 
 /*
@@ -960,7 +1012,7 @@
  * +mouse		Any mouse support (any of the above enabled).
  */
 /* OS/2 and Amiga console have no mouse support */
-#if (!defined(AMIGA) && !defined(OS2) && !defined(MACOS)) || defined(FEAT_GUI_AMIGA)
+#if !defined(AMIGA) && !defined(OS2)
 # ifdef FEAT_NORMAL
 #  define FEAT_MOUSE_XTERM
 # endif
@@ -1027,6 +1079,11 @@
 # define MSWIN_FR_BUFSIZE 256
 #endif
 
+#if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_MOTIF) \
+	|| defined(MSWIN_FIND_REPLACE)
+# define FIND_REPLACE_DIALOG 1
+#endif
+
 /*
  * +clientserver	Remote control via the remote_send() function
  *			and the --remote argument
@@ -1062,8 +1119,15 @@
 
 /* GUI and some consoles can change the shape of the cursor.  The code is also
  * needed for the 'mouseshape' option. */
-#if defined(FEAT_GUI) || defined(MCH_CURSOR_SHAPE) || defined(FEAT_MOUSESHAPE)
+#if defined(FEAT_GUI) || defined(MCH_CURSOR_SHAPE) || defined(FEAT_MOUSESHAPE) \
+	    || (defined(UNIX) && defined(FEAT_NORMAL))
 # define CURSOR_SHAPE
+#endif
+
+#if defined(FEAT_MZSCHEME) && (defined(FEAT_GUI_W32) || defined(FEAT_GUI_GTK)    \
+	|| defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA)	\
+	|| defined(FEAT_GUI_MAC))
+# define MZSCHEME_GUI_THREADS
 #endif
 
 /*
@@ -1075,8 +1139,7 @@
 
 /*
  * +GUI_Athena		To compile Vim with or without the GUI (gvim) you have
- * +GUI_BeOS		to edit the Makefile.
- * +GUI_Motif
+ * +GUI_Motif		to edit the Makefile.
  */
 
 /*
@@ -1086,6 +1149,7 @@
 /*
  * These features can only be included by using a configure argument.  See the
  * Makefile for a line to uncomment.
+ * +mzscheme		MzScheme interface: "--enable-mzscheme"
  * +perl		Perl interface: "--enable-perlinterp"
  * +python		Python interface: "--enable-pythoninterp"
  * +tcl			TCL interface: "--enable-tclinterp"
@@ -1108,10 +1172,10 @@
 #endif
 
 /*
- * The Netbeans features currently only work with Motif and GTK.
+ * The Netbeans features currently only work with Motif and GTK and Win32.
  * It also requires +listcmds and +eval.
  */
-#if ((!defined(FEAT_GUI_MOTIF) && !defined(FEAT_GUI_GTK)) \
+#if ((!defined(FEAT_GUI_MOTIF) && !defined(FEAT_GUI_GTK) && !defined(FEAT_GUI_W32)) \
 		|| !defined(FEAT_LISTCMDS) || !defined(FEAT_EVAL)) \
 	&& defined(FEAT_NETBEANS_INTG)
 # undef FEAT_NETBEANS_INTG
@@ -1135,21 +1199,28 @@
 /*
  * +balloon_eval	Allow balloon expression evaluation. Used with a
  *			debugger and for tooltips.
- *			Currently only for Athena and Motif.
+ *			Only for GUIs where it was implemented.
  */
 #if (defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA) \
-			     || defined(FEAT_GUI_GTK)) \
-	&& (   (defined(FEAT_TOOLBAR) && !defined(FEAT_GUI_GTK)) \
+	|| defined(FEAT_GUI_GTK) || defined(FEAT_GUI_W32)) \
+	&& (   ((defined(FEAT_TOOLBAR) || defined(FEAT_GUI_TABLINE)) \
+		&& !defined(FEAT_GUI_GTK) && !defined(FEAT_GUI_W32)) \
 	    || defined(FEAT_SUN_WORKSHOP) \
-	    || defined(FEAT_NETBEANS_INTG))
+	    || defined(FEAT_NETBEANS_INTG) || defined(FEAT_EVAL))
 # define FEAT_BEVAL
-# if !defined(FEAT_XFONTSET) && !defined(FEAT_GUI_GTK)
+# if !defined(FEAT_XFONTSET) && !defined(FEAT_GUI_GTK) \
+	&& !defined(FEAT_GUI_W32)
 #  define FEAT_XFONTSET
 # endif
 #endif
 
 #if defined(FEAT_BEVAL) && (defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA))
 # define FEAT_BEVAL_TIP		/* balloon eval used for toolbar tooltip */
+#endif
+
+/* both Motif and Athena are X11 and share some code */
+#if defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_ATHENA)
+# define FEAT_GUI_X11
 #endif
 
 #if defined(FEAT_SUN_WORKSHOP) || defined(FEAT_NETBEANS_INTG)
@@ -1177,3 +1248,12 @@
 # define FEAT_FOOTER
 
 #endif
+
+/*
+ * +autochdir		'autochdir' option.
+ */
+#if defined(FEAT_SUN_WORKSHOP) || defined(FEAT_NETBEANS_INTG) \
+	    || defined(FEAT_BIG)
+# define FEAT_AUTOCHDIR
+#endif
+

@@ -152,6 +152,18 @@ private:
 
     enum
     {
+        kConfRegStart =			1 << 0,
+        kConfRegINT_Enable =	1 << 1,
+        kConfRegTHERM_Enable =	1 << 2,
+        kConfRegINT_Clear =		1 << 3,
+        kConfRegRESET =			1 << 4,
+        kConfRegReserved =		1 << 5,
+        kConfRegTHERM_Clear =	1 << 6,
+        kConfRegINIT =			1 << 7,
+    };
+
+    enum
+    {
         k25VinMultiplier 				= 0x0354,
         kVccMultiplier 					= 0x0467,
         k5VinMultiplier 				= 0x06a8,

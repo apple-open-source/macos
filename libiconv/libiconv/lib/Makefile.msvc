@@ -60,7 +60,7 @@ PICFLAGS =
 # mscv4 doesn't know about this flag and ignores it.
 # -DBUILDING_LIBICONV: Change expansion of LIBICONV_DLL_EXPORTED macro.
 # -DBUILDING_DLL: Change expansion of RELOCATABLE_DLL_EXPORTED macro.
-PICFLAGS = -GD -DBUILDING_LIBICONV -DBUILDING_DLL
+PICFLAGS = -GD -DBUILDING_LIBICONV -DBUILDING_DLL -DPIC
 !endif
 
 !if $(DEBUG)
@@ -72,7 +72,7 @@ OPTIMFLAGS = -D_NDEBUG -O1
 DEBUGFLAGS =
 !endif
 
-CFLAGS = $(MFLAGS) $(WARN_CFLAGS) $(OPTIMFLAGS) -DHAVE_CONFIG_H -DENABLE_RELOCATABLE=1 -DIN_LIBRARY -DINSTALLDIR=\"$(IIbindir)\" -DNO_XMALLOC -Dset_relocation_prefix=libiconv_set_relocation_prefix -Drelocate=libiconv_relocate
+CFLAGS = $(MFLAGS) $(WARN_CFLAGS) $(OPTIMFLAGS) -DHAVE_CONFIG_H -DENABLE_RELOCATABLE=1 -DIN_LIBRARY -DINSTALLPREFIX=\"$(IIprefix)\" -DINSTALLDIR=\"$(IIbindir)\" -DNO_XMALLOC -Dset_relocation_prefix=libiconv_set_relocation_prefix -Drelocate=libiconv_relocate
 
 INCLUDES = -I. -I..\include
 

@@ -59,11 +59,17 @@
 /* should we support setpass() for SRP? */
 /* #undef DO_SRP_SETPASS */
 
+/* should we mutex-wrap calls into the GSS library? */
+#define GSS_USE_MUTEXES 
+
 /* Enable 'alwaystrue' password verifier? */
 /* #undef HAVE_ALWAYSTRUE */
 
 /* Include support for Courier's authdaemond? */
 #define HAVE_AUTHDAEMON 
+
+/* Define to 1 if you have the <des.h> header file. */
+#define HAVE_DES_H 1
 
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
@@ -133,6 +139,12 @@
 /* Define to 1 if you have the `krb_get_err_text' function. */
 /* #undef HAVE_KRB_GET_ERR_TEXT */
 
+/* Define to 1 if you have the <lber.h> header file. */
+/* #undef HAVE_LBER_H */
+
+/* Define to 1 if you have the <ldap.h> header file. */
+/* #undef HAVE_LDAP_H */
+
 /* Define to 1 if you have the `resolv' library (-lresolv). */
 #define HAVE_LIBRESOLV 1
 
@@ -163,6 +175,9 @@
 /* Use OPIE for server-side OTP? */
 /* #undef HAVE_OPIE */
 
+/* Define to 1 if you have the <pam/pam_appl.h> header file. */
+#define HAVE_PAM_PAM_APPL_H 1
+
 /* Define to 1 if you have the <paths.h> header file. */
 #define HAVE_PATHS_H 1
 
@@ -174,6 +189,9 @@
 
 /* Include support for saslauthd? */
 #define HAVE_SASLAUTHD 
+
+/* Define to 1 if you have the <security/pam_appl.h> header file. */
+/* #undef HAVE_SECURITY_PAM_APPL_H */
 
 /* Define to 1 if you have the `select' function. */
 #define HAVE_SELECT 1
@@ -189,6 +207,9 @@
 
 /* Do we have a socklen_t? */
 #define HAVE_SOCKLEN_T 
+
+/* Do we have SQLite support? */
+/* #undef HAVE_SQLITE */
 
 /* Is there an ss_family in sockaddr_storage? */
 #define HAVE_SS_FAMILY 
@@ -277,7 +298,7 @@
 #define HAVE_VSNPRINTF 
 
 /* define if your compiler has __attribute__ */
-#define HAVE___ATTRIBUTE__ 1
+/* #undef HAVE___ATTRIBUTE__ */
 
 /* Ignore IP Address in Kerberos 4 tickets? */
 /* #undef KRB4_IGNORE_IP_ADDRESS */
@@ -333,6 +354,9 @@
 /* Use NDBM for SASLdb */
 #define SASL_NDBM 
 
+/* The size of a `long', as computed by sizeof. */
+#define SIZEOF_LONG 4
+
 /* Link ANONYMOUS Staticly */
 /* #undef STATIC_ANONYMOUS */
 
@@ -348,6 +372,9 @@
 /* User KERBEROS_V4 Staticly */
 /* #undef STATIC_KERBEROS4 */
 
+/* Link ldapdb plugin Staticly */
+/* #undef STATIC_LDAPDB */
+
 /* Link LOGIN Staticly */
 /* #undef STATIC_LOGIN */
 
@@ -356,6 +383,9 @@
 
 /* Link OTP Staticly */
 /* #undef STATIC_OTP */
+
+/* Link PASSDSS Staticly */
+/* #undef STATIC_PASSDSS */
 
 /* Link PLAIN Staticly */
 /* #undef STATIC_PLAIN */
@@ -382,7 +412,7 @@
 /* #undef USE_DOORS */
 
 /* Version number of package */
-#define VERSION "2.1.18"
+#define VERSION "2.1.22"
 
 /* Use DES */
 #define WITH_DES 
@@ -504,6 +534,13 @@ struct sockaddr_storage {
 
 #if !defined(HAVE_GETNAMEINFO) || !defined(HAVE_GETADDRINFO)
 #include "gai.h"
+#endif
+
+#ifndef AI_NUMERICHOST   /* support glibc 2.0.x */
+#define AI_NUMERICHOST  4
+#define NI_NUMERICHOST  2
+#define NI_NAMEREQD     4
+#define NI_NUMERICSERV  8
 #endif
 
 /* Defined in RFC 1035. max strlen is only 253 due to length bytes. */

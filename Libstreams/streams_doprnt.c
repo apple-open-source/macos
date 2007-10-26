@@ -73,6 +73,7 @@ typedef struct _PrintfProcData {
 static PrintfProcData *printfProcTable = NULL;
 static unsigned sizePrintfProcTable = 0;
 
+__private_extern__
 void NXRegisterPrintfProc(char special, NXPrintfProc *proc, void *procData) {
     printfProcTable = realloc(printfProcTable, (sizePrintfProcTable+1) * sizeof(PrintfProcData));
     printfProcTable[sizePrintfProcTable].special = special;
@@ -93,6 +94,7 @@ static int isRegisteredPrintfChar(char fcode, NXPrintfProc **proc, void **procDa
     return 0;
 }
 
+__private_extern__
 void
 NXVPrintf(NXStream *stream, register const char *fmt, va_list ap)
 {

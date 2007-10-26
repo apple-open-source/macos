@@ -18,7 +18,7 @@ OSMetaClassDefineReservedUnused(IOFWLocalIsochPort, 0);
 OSMetaClassDefineReservedUnused(IOFWLocalIsochPort, 1);
 
 bool 
-IOFWLocalIsochPort :: init (
+IOFWLocalIsochPort::init (
 		IODCLProgram *			program, 
 		IOFireWireController *	control)
 {
@@ -62,9 +62,7 @@ IOReturn IOFWLocalIsochPort::allocatePort(IOFWSpeed speed, UInt32 chan)
 {
 	IOReturn res;
 
-//	fControl->closeGate();
 	res = fProgram->allocateHW(speed, chan);
-//	fControl->openGate();
 	
 	if(kIOReturnSuccess != res)
 		return res; 
@@ -111,7 +109,7 @@ IOReturn IOFWLocalIsochPort::notify( IOFWDCLNotificationType notificationType,
 }
 
 void
-IOFWLocalIsochPort :: printDCLProgram (
+IOFWLocalIsochPort::printDCLProgram (
 	const DCLCommand *		dcl,
 	UInt32					count,
 	void (*printFN)( const char *format, ...),
@@ -147,7 +145,7 @@ IOFWLocalIsochPort :: printDCLProgram (
 		switch(currentDCL->opcode & ~kFWDCLOpFlagMask)
 		{
 			case kDCLSendPacketStartOp:
-			case kDCLSendPacketWithHeaderStartOp:
+			//case kDCLSendPacketWithHeaderStartOp:
 			case kDCLSendPacketOp:
 			case kDCLReceivePacketStartOp:
 			case kDCLReceivePacketOp:
@@ -238,7 +236,7 @@ IOFWLocalIsochPort :: printDCLProgram (
 }
 
 IOReturn
-IOFWLocalIsochPort :: setIsochResourceFlags (
+IOFWLocalIsochPort::setIsochResourceFlags (
 	IOFWIsochResourceFlags		flags )
 {
 	fProgram->setIsochResourceFlags( flags ) ;
@@ -253,7 +251,7 @@ IOFWLocalIsochPort::getProgramRef() const
 }
 
 IOReturn
-IOFWLocalIsochPort :: synchronizeWithIO()
+IOFWLocalIsochPort::synchronizeWithIO()
 {
 	return fProgram->synchronizeWithIO() ;
 }

@@ -1,32 +1,29 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1982-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#                David Korn <dgk@research.att.com>                 #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                  David Korn <dgk@research.att.com>                   #
+#                                                                      #
+########################################################################
 function err_exit
 {
 	print -u2 -n "\t"
 	print -u2 -r $Command: "$@"
 	let Errors+=1
 }
+alias err_exit='err_exit $LINENO'
 
 function home # id
 {
@@ -39,8 +36,8 @@ function home # id
 	fi
 }
 
+Command=${0##*/}
 integer Errors=0
-Command=$0
 OLDPWD=/bin
 if	[[ ~ != $HOME ]]
 then	err_exit '~' not $HOME
@@ -70,13 +67,9 @@ fi
 for u in root Administrator
 do	h=$(home $u)
 	if	[[ $h != . ]]
-	then	if	[[ ~$u != $h ]]
-		then	err_exit "~$u not $h"
-		fi
+	then	[[ ~$u -ef $h ]] || err_exit "~$u not $h"
 		x=~$u
-		if	[[ $x != $h ]]
-		then	err_exit "x=~$u not $h"
-		fi
+		[[ $x -ef $h ]] || "x=~$u not $h"
 		break
 	fi
 done
@@ -88,4 +81,7 @@ x=~:~
 if	[[ $x != "$HOME:$HOME" ]]
 then	err_exit x=~:~ not $HOME:$HOME
 fi
+HOME=/
+[[ ~ == / ]] || err_exit '~ should be /'
+[[ ~/foo == /foo ]] || err_exit '~/foo should be /foo when ~==/'
 exit $((Errors))

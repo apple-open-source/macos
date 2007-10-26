@@ -2,7 +2,8 @@ drop table persons;
 CREATE TABLE persons (
 	id int NOT NULL,
 	name varchar(255) NOT NULL,
-	surname varchar(255) NOT NULL
+	surname varchar(255) NOT NULL,
+	password varchar(64)
 );
 
 drop table institutes;
@@ -29,6 +30,13 @@ CREATE TABLE phones (
 	id int NOT NULL ,
 	phone varchar(255) NOT NULL ,
 	pers_id int NOT NULL 
+);
+
+drop table referrals;
+CREATE TABLE referrals (
+	id int NOT NULL,
+	name varchar(255) NOT NULL,
+	url varchar(255) NOT NULL
 );
 
 

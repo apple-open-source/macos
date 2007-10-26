@@ -1,10 +1,10 @@
-A sua autorização é requerida para a aprovação da requisição de inscrição
+A sua autorização é requerida para a aprovação da inscrição
 na lista de discussão:
 
     Para:  %(username)s
     Lista: %(listname)s@%(hostname)s
 
-Para sua conveniência, visite:
+Quando lhe for conveniente, visite:
 
     %(admindb_url)s
 

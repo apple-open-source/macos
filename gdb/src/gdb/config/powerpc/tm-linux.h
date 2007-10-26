@@ -28,15 +28,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* We've multi-arched these.  (Note that this completely undoes the
    effect of config/tm-linux.h #including config/tm-sysv4.h.)  */
-#undef IN_SOLIB_CALL_TRAMPOLINE
 #undef SKIP_TRAMPOLINE_CODE
 
 /* Make sure nexti gets the help it needs for debugging assembly code
    without symbols */
 
 extern int ppc_linux_in_sigtramp (CORE_ADDR pc, char *func_name);
-#undef IN_SIGTRAMP
-#define IN_SIGTRAMP(pc,func_name) ppc_linux_in_sigtramp (pc,func_name)
+#undef DEPRECATED_IN_SIGTRAMP
+#define DEPRECATED_IN_SIGTRAMP(pc,func_name) ppc_linux_in_sigtramp (pc,func_name)
 
 #if 0
 #define CANNOT_FETCH_REGISTER(regno) ((regno) >= MQ_REGNUM)

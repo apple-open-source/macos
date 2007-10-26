@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2004,2006 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,7 +26,7 @@
 
 #include <securityd_client/ssclient.h>
 #include <security_utilities/cfmach++.h>
-
+#include <security_utilities/refcount.h>
 
 namespace Security {
 namespace SecurityServer {
@@ -36,18 +36,20 @@ namespace SecurityServer {
 // A CFNotificationDispatcher registers with the local CFRunLoop to automatically
 // receive notification messages and dispatch them.
 //
-class EventListener : private MachPlusPlus::CFAutoPort,
-	protected SecurityServer::ClientSession::NotificationConsumer,
-	private SecurityServer::ClientSession {
+class EventListener : public RefCount
+{
+protected:
+	NotificationDomain mDomain;
+	NotificationMask mMask;
+
 public:
-	EventListener(NotificationDomain domain, NotificationMask eventMask,
-		Allocator &standard = Allocator::standard(), Allocator &returning = Allocator::standard());
+	EventListener(NotificationDomain domain, NotificationMask eventMask);
 	virtual ~EventListener();
 
-	// NotificationConsumer::consume (virtual from NotificationConsumer) is still abstract here
-
-private:
-	void receive(const MachPlusPlus::Message &message);
+	virtual void consume(NotificationDomain domain, NotificationEvent event, const CssmData& data) = 0;
+	
+	NotificationDomain GetDomain () {return mDomain;}
+	NotificationMask GetMask () {return mMask;}
 };
 
 

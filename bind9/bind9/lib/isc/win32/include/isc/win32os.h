@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: win32os.h,v 1.2.176.2.2.2 2004/03/08 09:05:04 marka Exp $ */
+/* $Id: win32os.h,v 1.3 2004/03/05 05:12:06 marka Exp $ */
 
 #ifndef ISC_WIN32OS_H
 #define ISC_WIN32OS_H 1

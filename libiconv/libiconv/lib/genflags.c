@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2002 Free Software Foundation, Inc.
+/* Copyright (C) 2000-2002, 2005-2006 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Library.
 
    The GNU LIBICONV Library is free software; you can redistribute it
@@ -13,8 +13,8 @@
 
    You should have received a copy of the GNU Library General Public
    License along with the GNU LIBICONV Library; see the file COPYING.LIB.
-   If not, write to the Free Software Foundation, Inc., 59 Temple Place -
-   Suite 330, Boston, MA 02111-1307, USA.  */
+   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Creates the flags.h include file. */
 
@@ -28,6 +28,8 @@
 #define USE_EXTRA
 
 struct loop_funcs {};
+struct iconv_fallbacks {};
+struct iconv_hooks {};
 #include "converters.h"
 
 static void emit_encoding (struct wctomb_funcs * ofuncs, const char* c_name)
@@ -103,8 +105,7 @@ int main ()
 #include "encodings_extra.def"
 #undef DEFENCODING
 
-  fflush(stdout);
-  if (ferror(stdout))
+  if (ferror(stdout) || fclose(stdout))
     exit(1);
   exit(0);
 }

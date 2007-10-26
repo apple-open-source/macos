@@ -1,7 +1,7 @@
 /*
  * patchlevel.h
  *
- * Copyright (C) 2004 by the Massachusetts Institute of Technology.
+ * Copyright (C) 2004-2006 by the Massachusetts Institute of Technology.
  * All rights reserved.
  *
  * Export of this software from the United States of America may
@@ -51,8 +51,8 @@
  * organization.
  */
 #define KRB5_MAJOR_RELEASE 1
-#define KRB5_MINOR_RELEASE 4
-#define KRB5_PATCHLEVEL 1
+#define KRB5_MINOR_RELEASE 6
+#define KRB5_PATCHLEVEL 2
 #define KRB5_RELTAIL "postrelease"
 /* #undef KRB5_RELDATE */
-#define KRB5_RELTAG "krb5-1-4"
+#define KRB5_RELTAG "branches/krb5-1-6"

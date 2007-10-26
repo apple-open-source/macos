@@ -1,5 +1,6 @@
 /* Machine description file for Motorola System V/88 machines
-   Copyright (C) 1985 Free Software Foundation, Inc.
+   Copyright (C) 1985, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="usg5-3"  */
 
@@ -54,7 +55,7 @@ Boston, MA 02111-1307, USA.  */
 /* Use type int rather than a union, to represent Lisp_Object */
 /* This is desirable for most machines.  */
 
-#define NO_UNION_TYPE 
+#define NO_UNION_TYPE
 
 /* Define EXPLICIT_SIGN_EXTEND if XINT must explicitly sign-extend
    the 24-bit bit field into an int.  In other words, if bit fields
@@ -84,7 +85,7 @@ Boston, MA 02111-1307, USA.  */
    Otherwise Emacs assumes that text space precedes data space,
    numerically.  */
 
-/* #define VIRT_ADDR_VARIES */ 
+/* #define VIRT_ADDR_VARIES */
 
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
@@ -93,35 +94,16 @@ Boston, MA 02111-1307, USA.  */
 
 #define NO_REMAP
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-/* BEM:  Distributed asm alloca doesn't work.  Don't know about libPW.a.
-   C ALLOCA is safe and fast enough for now. */
-
-#ifdef __GNUC__
-#define HAVE_ALLOCA   /* ... and be sure that no other ones are tried out. */
-#undef C_ALLOCA
-#else /* not __GNUC__ */
-#undef HAVE_ALLOCA
-#define C_ALLOCA      /* Use the alloca() supplied in alloca.c. */
-#define STACK_DIRECTION -1  /* The stack grows towards lower addresses. */
-#endif /* __GNUC__ */
-
 /* Motorola SysV has PTYs.  Not all usg3-5 systems do, so this is defined
    here. */
 
-#define HAVE_PTYS 
+#define HAVE_PTYS
 #define SYSV_PTYS
 
 /* Ditto for IPC. */
 
 
-/* 
+/*
  * we now have job control in R32V1
  */
 #undef NOMULTIPLEJOBS
@@ -153,7 +135,7 @@ Boston, MA 02111-1307, USA.  */
 /* previously defined in usg5-4, if we choose to use that.  */
 #ifndef LIBS_SYSTEM
 #ifdef USG5_4
-#define LIBS_SYSTEM -lsocket -lnsl 
+#define LIBS_SYSTEM -lsocket -lnsl
 #else
 #define LIBS_SYSTEM -lbsd -lg
 #endif /* USG5_4 */
@@ -176,3 +158,6 @@ Boston, MA 02111-1307, USA.  */
 #define NO_PTY_H
 
 #define USE_GETOBAUD
+
+/* arch-tag: c8ea1965-99d7-43df-ba32-29b66fc069be
+   (do not change this comment) */

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 2001 The PHP Group                                     |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,10 +16,10 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.h,v 1.40.2.12.4.5 2006/04/03 13:04:13 masugata Exp $ */
+/* $Id: mbstring.h,v 1.66.2.4.2.5 2007/01/01 09:36:02 sebastian Exp $ */
 
 /*
- * PHP4 Multibyte String module "mbstring" (currently only for Japanese)
+ * PHP 4 Multibyte String module "mbstring" (currently only for Japanese)
  *
  * History:
  *   2000.5.19  Release php-4.0RC2_jstring-1.0
@@ -55,8 +55,10 @@
 # undef MBSTRING_API
 # ifdef MBSTRING_EXPORTS
 #  define MBSTRING_API __declspec(dllexport)
-# else
+# elif defined(COMPILE_DL_MBSTRING)
 #  define MBSTRING_API __declspec(dllimport)
+# else
+#  define MBSTRING_API /* nothing special */
 # endif
 #else
 # undef MBSTRING_API
@@ -102,6 +104,12 @@ PHP_FUNCTION(mb_output_handler);
 PHP_FUNCTION(mb_strlen);
 PHP_FUNCTION(mb_strpos);
 PHP_FUNCTION(mb_strrpos);
+PHP_FUNCTION(mb_stripos);
+PHP_FUNCTION(mb_strripos);
+PHP_FUNCTION(mb_strstr);
+PHP_FUNCTION(mb_strrchr);
+PHP_FUNCTION(mb_stristr);
+PHP_FUNCTION(mb_strrichr);
 PHP_FUNCTION(mb_substr_count);
 PHP_FUNCTION(mb_substr);
 PHP_FUNCTION(mb_strcut);
@@ -109,6 +117,9 @@ PHP_FUNCTION(mb_strwidth);
 PHP_FUNCTION(mb_strimwidth);
 PHP_FUNCTION(mb_convert_encoding);
 PHP_FUNCTION(mb_detect_encoding);
+PHP_FUNCTION(mb_list_encodings);
+PHP_FUNCTION(mb_list_encodings_alias_names);
+PHP_FUNCTION(mb_list_mime_names);
 PHP_FUNCTION(mb_convert_kana);
 PHP_FUNCTION(mb_encode_mimeheader);
 PHP_FUNCTION(mb_decode_mimeheader);
@@ -139,13 +150,16 @@ MBSTRING_API size_t php_mb_mbchar_bytes(const char *s TSRMLS_DC);
 
 MBSTRING_API size_t php_mb_gpc_mbchar_bytes(const char *s TSRMLS_DC);
 
-MBSTRING_API int php_mb_encoding_detector_ex(const char *arg_string, int arg_length, char *arg_list TSRMLS_DC);
+MBSTRING_API int php_mb_encoding_detector_ex(const char *arg_string, int arg_length, 
+											 char *arg_list TSRMLS_DC);
 
 MBSTRING_API int php_mb_encoding_converter_ex(char **str, int *len, const char *encoding_to, 
 											  const char *encoding_from TSRMLS_DC);
 MBSTRING_API int php_mb_gpc_encoding_converter(char **str, int *len, int num, const char *encoding_to, const char *encoding_from TSRMLS_DC);
 
 MBSTRING_API int php_mb_gpc_encoding_detector(char **arg_string, int *arg_length, int num, char *arg_list TSRMLS_DC);
+
+MBSTRING_API int php_mb_stripos(int mode, char *old_haystack, int old_haystack_len, char *old_needle, int old_needle_len, long offset, char *from_encoding TSRMLS_DC);
 
 ZEND_BEGIN_MODULE_GLOBALS(mbstring)
 	enum mbfl_no_language language;
@@ -177,6 +191,7 @@ ZEND_BEGIN_MODULE_GLOBALS(mbstring)
 	int current_filter_illegal_substchar;
 	long func_overload;
 	zend_bool encoding_translation;
+	long strict_detection;
 	long illegalchars;
 	mbfl_buffer_converter *outconv;
 #if HAVE_MBREGEX && defined(PHP_MBREGEX_GLOBALS)
@@ -210,9 +225,6 @@ int php_mb_encoding_converter(char **to, int *to_length, const char *from,
 		TSRMLS_DC);
 int php_mb_oddlen(const char *string, int length, const char *encoding TSRMLS_DC);
 #endif /* ZEND_MULTIBYTE */
-
-SAPI_POST_HANDLER_FUNC(php_mbstr_post_handler);
-MBSTRING_API SAPI_TREAT_DATA_FUNC(mbstr_treat_data);
 
 #else	/* HAVE_MBSTRING */
 

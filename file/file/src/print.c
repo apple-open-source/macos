@@ -12,11 +12,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *    This product includes software developed by Ian F. Darwin and others.
- * 4. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
  *  
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -46,7 +41,7 @@
 #include <time.h>
 
 #ifndef lint
-FILE_RCSID("@(#)$Id: print.c,v 1.44 2003/09/12 19:39:44 christos Exp $")
+FILE_RCSID("@(#)$Id: print.c,v 1.50 2006/03/02 22:07:53 christos Exp $")
 #endif  /* lint */
 
 #define SZOF(a)	(sizeof(a) / sizeof(a[0]))
@@ -55,13 +50,9 @@ FILE_RCSID("@(#)$Id: print.c,v 1.44 2003/09/12 19:39:44 christos Exp $")
 protected void
 file_mdump(struct magic *m)
 {
-	private const char *typ[] = { "invalid", "byte", "short", "invalid",
-				     "long", "string", "date", "beshort",
-				     "belong", "bedate", "leshort", "lelong",
-				     "ledate", "pstring", "ldate", "beldate",
-				     "leldate", "regex" };
-	private const char optyp[] = { '@', '&', '|', '^', '+', '-', 
-				      '*', '/', '%' };
+	private const char *typ[] = { FILE_FORMAT_NAME };
+	private const char optyp[] = { FILE_OPS };
+
 	(void) fputc('[', stderr);
 	(void) fprintf(stderr, ">>>>>>>> %d" + 8 - (m->cont_level & 7),
 		       m->offset);
@@ -88,7 +79,7 @@ file_mdump(struct magic *m)
 			fputc(optyp[m->mask_op&0x7F], stderr);
 		else
 			fputc('?', stderr);
-		if(FILE_STRING != m->type || FILE_PSTRING != m->type)
+		if (FILE_STRING != m->type || FILE_PSTRING != m->type)
 			(void) fprintf(stderr, "%.8x", m->mask);
 		else {
 			if (m->mask & STRING_IGNORE_LOWERCASE) 
@@ -110,24 +101,30 @@ file_mdump(struct magic *m)
 		case FILE_LONG:
 		case FILE_LESHORT:
 		case FILE_LELONG:
+		case FILE_MELONG:
 		case FILE_BESHORT:
 		case FILE_BELONG:
 			(void) fprintf(stderr, "%d", m->value.l);
 			break;
-		case FILE_STRING:
 		case FILE_PSTRING:
+		case FILE_STRING:
 		case FILE_REGEX:
-			file_showstr(stderr, m->value.s, ~0U);
+		case FILE_BESTRING16:
+		case FILE_LESTRING16:
+		case FILE_SEARCH:
+			file_showstr(stderr, m->value.s, m->vallen);
 			break;
 		case FILE_DATE:
 		case FILE_LEDATE:
 		case FILE_BEDATE:
+		case FILE_MEDATE:
 			(void)fprintf(stderr, "%s,",
 			    file_fmttime(m->value.l, 1));
 			break;
 		case FILE_LDATE:
 		case FILE_LELDATE:
 		case FILE_BELDATE:
+		case FILE_MELDATE:
 			(void)fprintf(stderr, "%s,",
 			    file_fmttime(m->value.l, 0));
 			break;
@@ -142,7 +139,7 @@ file_mdump(struct magic *m)
 
 /*VARARGS*/
 protected void
-file_magwarn(const char *f, ...)
+file_magwarn(struct magic_set *ms, const char *f, ...)
 {
 	va_list va;
 	va_start(va, f);
@@ -150,13 +147,14 @@ file_magwarn(const char *f, ...)
 	/* cuz we use stdout for most, stderr here */
 	(void) fflush(stdout); 
 
-	(void) fprintf(stderr, "WARNING: ");
+	(void) fprintf(stderr, "%s, %lu: Warning ", ms->file,
+	    (unsigned long)ms->line);
 	(void) vfprintf(stderr, f, va);
 	va_end(va);
 	fputc('\n', stderr);
 }
 
-protected char *
+protected const char *
 file_fmttime(uint32_t v, int local)
 {
 	char *pp, *rt;
@@ -175,6 +173,8 @@ file_fmttime(uint32_t v, int local)
 			struct tm *tm1;
 			(void)time(&now);
 			tm1 = localtime(&now);
+			if (tm1 == NULL)
+				return "*Invalid time*";
 			daylight = tm1->tm_isdst;
 		}
 #endif /* HAVE_TM_ISDST */
@@ -182,6 +182,8 @@ file_fmttime(uint32_t v, int local)
 		if (daylight)
 			t += 3600;
 		tm = gmtime(&t);
+		if (tm == NULL)
+			return "*Invalid time*";
 		pp = asctime(tm);
 	}
 

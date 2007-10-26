@@ -23,53 +23,19 @@
  
 #include "gladmanContext.h"
 #include "cspdebugging.h"
-
-/* 
- * Global singleton to perform one-time-only init of AES tables.
- */
-class GladmanInit
-{
-public:
-	GladmanInit();
-};
-
-GladmanInit::GladmanInit()
-{
-	/* allocate the tables */
-	Allocator &alloc = Allocator::standard(Allocator::sensitive);
-	pow_tab = (u1byte *)alloc.malloc(POW_TAB_SIZE * sizeof(u1byte));
-	log_tab = (u1byte *)alloc.malloc(LOG_TAB_SIZE * sizeof(u1byte));
-	sbx_tab = (u1byte *)alloc.malloc(SBX_TAB_SIZE * sizeof(u1byte));
-	isb_tab = (u1byte *)alloc.malloc(ISB_TAB_SIZE * sizeof(u1byte));
-	rco_tab = (u4byte *)alloc.malloc(RCO_TAB_SIZE * sizeof(u4byte));
-	ft_tab  = (u4byte (*)[FT_TAB_SIZE_LS])alloc.malloc(
-		FT_TAB_SIZE_LS * FT_TAB_SIZE_MS * sizeof(u4byte));
-	it_tab  = (u4byte (*)[IT_TAB_SIZE_LS])alloc.malloc(
-		IT_TAB_SIZE_LS * IT_TAB_SIZE_MS * sizeof(u4byte));
-	#ifdef  LARGE_TABLES
-	fl_tab  = (u4byte (*)[FL_TAB_SIZE_LS])alloc.malloc(
-		FL_TAB_SIZE_LS * FL_TAB_SIZE_MS * sizeof(u4byte));
-	il_tab  = (u4byte (*)[IL_TAB_SIZE_LS])alloc.malloc(
-		IL_TAB_SIZE_LS * IL_TAB_SIZE_MS * sizeof(u4byte));
-	#endif
-	
-	/* now fill them */
-	gen_tabs();
-}
-
-static ModuleNexus<GladmanInit> gladmanInit;
+#include <CommonCrypto/CommonCryptor.h>
 
 /*
  * AES encrypt/decrypt.
  */
-GAESContext::GAESContext(AppleCSPSession &session) :
+GAESContext::GAESContext(AppleCSPSession &session) : 
 	BlockCryptor(session),
-	mKeyValid(false),
 	mInitFlag(false),
-	mRawKeySize(0)	
+	mRawKeySize(0),
+	mWasEncrypting(false)
 { 
-	/* one-time only init */
-	gladmanInit();
+	cbcCapable(true);
+	multiBlockCapable(true);
 }
 
 GAESContext::~GAESContext()
@@ -81,8 +47,8 @@ GAESContext::~GAESContext()
 	
 void GAESContext::deleteKey()
 {
-	memset(&mAesKey, 0, sizeof(GAesKey));
-	mKeyValid = false;
+	memset(&mAesKey, 0, sizeof(mAesKey));
+	mRawKeySize = 0;
 }
 
 /* 
@@ -98,8 +64,8 @@ void GAESContext::init(
 		return;
 	}
 	
-	UInt32 		keyLen;
-	UInt8 		*keyData = NULL;
+	CSSM_SIZE	keyLen;
+	uint8 		*keyData = NULL;
 	bool		sameKeySize = false;
 	
 	/* obtain key from context */
@@ -126,15 +92,40 @@ void GAESContext::init(
 		deleteKey();
 	}
 	
-	/* init key only if key size or key bits have changed */
-	if(!sameKeySize || memcmp(mRawKey, keyData, mRawKeySize)) {
-		set_key((u4byte *)keyData, keyLen * 8, &mAesKey);
+	/* 
+	 * Init key only if key size or key bits have changed, or 
+	 * we're doing a different operation than the previous key
+	 * was scheduled for.
+	 */
+	if(!sameKeySize || (mWasEncrypting != encrypting) ||
+		memcmp(mRawKey, keyData, mRawKeySize)) {
+		aes_cc_set_key(&mAesKey, keyData, keyLen, encrypting);
 
 		/* save this raw key data */
 		memmove(mRawKey, keyData, keyLen); 
 		mRawKeySize = keyLen;
+		mWasEncrypting = encrypting;
 	}
 
+	/* we handle CBC, and hence the IV, ourselves */
+	CSSM_ENCRYPT_MODE cssmMode = context.getInt(CSSM_ATTRIBUTE_MODE);
+    switch (cssmMode) {
+		/* no mode attr --> 0 == CSSM_ALGMODE_NONE, not currently supported */
+ 		case CSSM_ALGMODE_CBCPadIV8:
+		case CSSM_ALGMODE_CBC_IV8: 
+			CssmData *iv = context.get<CssmData>(CSSM_ATTRIBUTE_INIT_VECTOR);
+			if(iv == NULL) {
+				CssmError::throwMe(CSSMERR_CSP_MISSING_ATTR_INIT_VECTOR);
+			}
+			if(iv->Length != kCCBlockSizeAES128) {
+				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_INIT_VECTOR);
+			}
+			aes_cc_set_iv(&mAesKey, encrypting, iv->Data);
+			break;
+		default:
+			break;
+	}
+	
 	/* Finally, have BlockCryptor do its setup */
 	setup(GLADMAN_BLOCK_SIZE_BYTES, context);
 	mInitFlag = true;
@@ -142,6 +133,7 @@ void GAESContext::init(
 
 /*
  * Functions called by BlockCryptor
+ * FIXME make this multi-block capabl3e 
  */
 void GAESContext::encryptBlock(
 	const void		*plainText,			// length implied (one block)
@@ -150,26 +142,28 @@ void GAESContext::encryptBlock(
 	size_t			&cipherTextLen,		// in/out, throws on overflow
 	bool			final)				// ignored
 {
-	if(plainTextLen != GLADMAN_BLOCK_SIZE_BYTES) {
-		CssmError::throwMe(CSSMERR_CSP_INPUT_LENGTH_ERROR);
-	}
-	if(cipherTextLen < GLADMAN_BLOCK_SIZE_BYTES) {
+	if(cipherTextLen < plainTextLen) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	rEncrypt((u4byte *)plainText, (u4byte *)cipherText, &mAesKey);
-	cipherTextLen = GLADMAN_BLOCK_SIZE_BYTES;
+	aes_encrypt_cbc((const unsigned char *)plainText, NULL, 
+		plainTextLen / GLADMAN_BLOCK_SIZE_BYTES, 
+		(unsigned char *)cipherText, &mAesKey.encrypt);
+	cipherTextLen = plainTextLen;
 }
 
 void GAESContext::decryptBlock(
 	const void		*cipherText,		// length implied (one cipher block)
+	size_t			cipherTextLen,	
 	void			*plainText,	
 	size_t			&plainTextLen,		// in/out, throws on overflow
 	bool			final)				// ignored
 {
-	if(plainTextLen < GLADMAN_BLOCK_SIZE_BYTES) {
+	if(plainTextLen < cipherTextLen) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	rDecrypt((u4byte *)cipherText, (u4byte *)plainText, &mAesKey);
-	plainTextLen = GLADMAN_BLOCK_SIZE_BYTES;
+	aes_decrypt_cbc((const unsigned char *)cipherText, NULL,
+		cipherTextLen / GLADMAN_BLOCK_SIZE_BYTES, 
+		(unsigned char *)plainText, &mAesKey.decrypt);
+	plainTextLen = cipherTextLen;
 }
 

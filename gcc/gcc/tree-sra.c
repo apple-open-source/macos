@@ -1545,7 +1545,8 @@ decide_instantiations (void)
    renaming. This becomes necessary when we modify all of a non-scalar.  */
 
 static void
-mark_all_v_defs (tree stmt)
+/* APPLE LOCAL mainline 4.3 5158236 */
+mark_all_v_defs_1 (tree stmt)
 {
   tree sym;
   ssa_op_iter iter;
@@ -1559,6 +1560,25 @@ mark_all_v_defs (tree stmt)
       bitmap_set_bit (vars_to_rename, var_ann (sym)->uid);
     }
 }
+
+/* APPLE LOCAL begin mainline 4.3 5158236 */
+/* Mark all the variables in virtual operands in all the statements in
+   LIST for renaming.  */
+
+static void
+mark_all_v_defs (tree list)
+{
+  if (TREE_CODE (list) != STATEMENT_LIST)
+    mark_all_v_defs_1 (list);
+  else
+    {
+      tree_stmt_iterator i;
+      for (i = tsi_start (list); !tsi_end_p (i); tsi_next (&i))
+	mark_all_v_defs_1 (tsi_stmt (i));
+    }
+}
+
+/* APPLE LOCAL end mainline 4.3 5158236 */
 
 /* Build a single level component reference to ELT rooted at BASE.  */
 
@@ -1942,7 +1962,8 @@ scalarize_use (struct sra_elt *elt, tree *expr_p, block_stmt_iterator *bsi,
       generate_copy_inout (elt, is_output, generate_element_ref (elt), &list);
       if (list == NULL)
 	return;
-      mark_all_v_defs (expr_first (list));
+      /* APPLE LOCAL mainline 4.3 5158236 */
+      mark_all_v_defs (list);
       if (is_output)
 	sra_insert_after (bsi, list);
       else
@@ -1990,7 +2011,8 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
 			   generate_element_ref (rhs_elt), &list);
       if (list)
 	{
-	  mark_all_v_defs (expr_first (list));
+	  /* APPLE LOCAL mainline 4.3 5158236 */
+	  mark_all_v_defs (list);
 	  sra_insert_before (bsi, list);
 	}
 
@@ -1998,7 +2020,12 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
       generate_copy_inout (lhs_elt, true,
 			   generate_element_ref (lhs_elt), &list);
       if (list)
-	sra_insert_after (bsi, list);
+	/* APPLE LOCAL begin 5158236 */
+	{
+	  mark_all_v_defs (list);
+	  sra_insert_after (bsi, list);
+	}
+	/* APPLE LOCAL end 5158236 */
     }
   else
     {
@@ -2065,7 +2092,8 @@ scalarize_init (struct sra_elt *lhs_elt, tree rhs, block_stmt_iterator *bsi)
 	 exposes constants to later optimizations.  */
       if (list)
 	{
-	  mark_all_v_defs (expr_first (list));
+	  /* APPLE LOCAL mainline 4.3 5158236 */
+	  mark_all_v_defs (list);
 	  sra_insert_after (bsi, list);
 	}
     }

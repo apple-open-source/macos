@@ -1,0 +1,25 @@
+--- fflush.c.orig	2007-07-20 11:15:28.000000000 -0700
++++ fflush.c	2007-07-20 15:47:15.000000000 -0700
+@@ -43,6 +43,7 @@
+ #include "namespace.h"
+ #include <errno.h>
+ #include <stdio.h>
++#include <string.h>
+ #include "un-namespace.h"
+ #include "libc_private.h"
+ #include "local.h"
+@@ -126,6 +127,14 @@
+ 	for (; n > 0; n -= t, p += t) {
+ 		t = _swrite(fp, (char *)p, n);
+ 		if (t <= 0) {
++			/* 5340694: reset _p and _w on EAGAIN */
++			if (t < 0 && errno == EAGAIN) {
++				if (p > fp->_p) /* some was written */
++					memmove(fp->_p, p, n);
++				fp->_p += n;
++				if (!(fp->_flags & (__SLBF|__SNBF)))
++					fp->_w -= n;
++			}
+ 			fp->_flags |= __SERR;
+ 			return (EOF);
+ 		}

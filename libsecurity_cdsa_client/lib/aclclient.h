@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001,2007 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,7 +17,7 @@
 
 
 //
-// keyclient 
+// aclclient 
 //
 #ifndef _H_CDSA_CLIENT_ACLCLIENT
 #define _H_CDSA_CLIENT_ACLCLIENT  1
@@ -103,7 +103,8 @@ public:
 	const AccessCredentials *nullCred() const;			// conforming empty
 	const AccessCredentials *promptCred() const;		// enable interactive prompting
 	const AccessCredentials *unlockCred() const;
-	
+	const AccessCredentials *cancelCred() const;
+
 	const AclOwnerPrototype &anyOwner() const;			// wide-open owner
 	const AclEntryInfo &anyAcl() const;					// wide-open ACL entry (authorizes anything)
 
@@ -185,8 +186,7 @@ public:
 	
 	// PIN (pre-auth) source site
 	struct PinSourceSubject : public Subject {
-		PinSourceSubject(Allocator &alloc, const TypedList &form,
-		CSSM_ACL_PREAUTH_TRACKING_STATE state = CSSM_ACL_PREAUTH_TRACKING_UNKNOWN);
+		PinSourceSubject(Allocator &alloc, const TypedList &form);
 	};
 };
 

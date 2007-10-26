@@ -1,0 +1,11 @@
+--- configure.orig	2006-01-11 13:45:52.000000000 -0800
++++ configure	2006-01-11 13:46:05.000000000 -0800
+@@ -9312,7 +9312,7 @@ case "$target_os" in
+ nextstep*)	;;
+ openstep*)	;;
+ rhapsody*)	;;
+-darwin*)	LIBS="-lobjc $LIBS";;
++#darwin*)	LIBS="-lobjc $LIBS";;
+ hpux*)		LIBS="-lm $LIBS"
+ 		ac_cv_c_inline=no;;
+ human*)		ac_cv_func_getpgrp_void=yes

@@ -1,31 +1,27 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
- * original code (imbedded in bsd find)
+ * original code
  *
  *  	James A. Woods, Informatics General Corporation,
  *	NASA Ames Research Center, 6/81.
@@ -35,6 +31,7 @@
  *
  *	Glenn Fowler
  *	AT&T Research
+ *	modified from the original BSD source
  *
  * 'fastfind' scans a file list for the full pathname of a file
  * given only a piece of the name.  The list is processed with
@@ -63,6 +60,35 @@
  *
  * then the actual shell glob-style regular expression (if in this form)
  * is matched against the candidate pathnames using the slower regexec()
+ *
+ * The original BSD code is covered by the BSD license:
+ *
+ * Copyright (c) 1985, 1993, 1999
+ *	The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
 static const char id[] = "\n@(#)$Id: fastfind (AT&T Research) 2002-10-02 $\0\n";
@@ -196,7 +222,7 @@ findopen(const char* file, const char* pattern, const char* type, Finddisc_t* di
 							for (k = 0; k < elementsof(findnames); k++)
 							{
 								sfsprintf(fp->encode.file, sizeof(fp->encode.file), "%s/%s", path, findnames[k]);
-								if (!access(fp->encode.file, R_OK|W_OK))
+								if (!eaccess(fp->encode.file, R_OK|W_OK))
 								{
 									path = fp->encode.file;
 									break;
@@ -746,7 +772,7 @@ findread(register Find_t* fp)
 					return 0;
 				if (fp->decode.swap >= 0)
 				{
-					c = (_ast_int4_t)((w[0] << 24) | (w[1] << 16) | (w[2] << 8) | w[3]);
+					c = (int32_t)((w[0] << 24) | (w[1] << 16) | (w[2] << 8) | w[3]);
 					if (!fp->decode.swap)
 					{
 						/*
@@ -762,7 +788,7 @@ findread(register Find_t* fp)
 						m = c;
 						if (m < 0)
 							m = -m;
-						n = (_ast_int4_t)((w[3] << 24) | (w[2] << 16) | (w[1] << 8) | w[0]);
+						n = (int32_t)((w[3] << 24) | (w[2] << 16) | (w[1] << 8) | w[0]);
 						if (n < 0)
 							n = -n;
 						if (m < n)
@@ -770,12 +796,12 @@ findread(register Find_t* fp)
 						else
 						{
 							fp->decode.swap = -1;
-							c = (_ast_int4_t)((w[3] << 24) | (w[2] << 16) | (w[1] << 8) | w[0]);
+							c = (int32_t)((w[3] << 24) | (w[2] << 16) | (w[1] << 8) | w[0]);
 						}
 					}
 				}
 				else
-					c = (_ast_int4_t)((w[3] << 24) | (w[2] << 16) | (w[1] << 8) | w[0]);
+					c = (int32_t)((w[3] << 24) | (w[2] << 16) | (w[1] << 8) | w[0]);
 			}
 			fp->decode.count += c - FF_OFF;
 			for (p = fp->decode.path + fp->decode.count; (c = sfgetc(fp->fp)) > FF_ESC;)

@@ -28,7 +28,7 @@ install-links:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 3.80
+AEP_Version    = 3.81
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -45,7 +45,10 @@ AEP_Patches    = patch-Makefile.in \
                  patch-read.c \
                  patch-remake.c \
                  patch-variable.c \
-                 patch-variable.h
+                 patch-variable.h \
+                 PR-3849799.patch \
+                 PR-4339040.patch \
+                 PR-4482353.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -60,7 +63,7 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
 	done
 endif
 

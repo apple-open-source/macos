@@ -1,0 +1,13 @@
+--- src/undo.c.orig	2005-03-04 13:34:20.000000000 -0800
++++ src/undo.c	2005-05-19 17:01:27.000000000 -0700
+@@ -1690,6 +1690,10 @@ u_undoline()
+     t = curbuf->b_u_line_colnr;
+     if (curwin->w_cursor.lnum == curbuf->b_u_line_lnum)
+ 	curbuf->b_u_line_colnr = curwin->w_cursor.col;
++    if (Unix2003_compat) {
++        /* vi_05 test 276: "U" sets column to start of line */
++        t = 0;
++    } 
+     curwin->w_cursor.col = t;
+     curwin->w_cursor.lnum = curbuf->b_u_line_lnum;
+ }

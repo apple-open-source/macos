@@ -149,6 +149,9 @@ private:
 		const SecKeyImportExportParameters	*keyParams,		// optional 
 		CFMutableArrayRef					outArray);		// optional, append here 
 
+	/* optional inferred PrintName attribute */
+	char *mPrintName;	
+	
 public:
 	/* Just keep these public, it simplifies things */
 	CFDataRef				mExternal;	

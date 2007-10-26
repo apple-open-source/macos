@@ -1,0 +1,21 @@
+--- _SB/Libc/string/FreeBSD/strdup.3	2003-05-20 15:23:54.000000000 -0700
++++ _SB/Libc/string/FreeBSD/strdup.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -43,14 +43,16 @@
+ .Sh SYNOPSIS
+ .In string.h
+ .Ft char *
+-.Fn strdup "const char *str"
++.Fo strdup
++.Fa "const char *s1"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn strdup
+ function
+ allocates sufficient memory for a copy
+ of the string
+-.Fa str ,
++.Fa s1 ,
+ does the copy, and returns a pointer to it.
+ The pointer may subsequently be used as an
+ argument to the function

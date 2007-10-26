@@ -233,6 +233,9 @@ permanently_set_uid(struct passwd *pw)
 		fatal("setgid %u: %.100s", (u_int)pw->pw_gid, strerror(errno));
 #endif
 
+	if (initgroups(pw->pw_name, pw->pw_gid) < 0)
+		fatal("setgid %.100s %u: %.100s", pw->pw_name, (u_int)pw->pw_gid, strerror(errno));
+
 #if defined(HAVE_SETRESUID) && !defined(BROKEN_SETRESUID)
 	if (setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid) < 0)
 		fatal("setresuid %u: %.100s", (u_int)pw->pw_uid, strerror(errno));

@@ -1,7 +1,7 @@
 /* saslint.h - internal SASL library definitions
  * Rob Siemborski
  * Tim Martin
- * $Id: saslint.h,v 1.6 2005/03/03 02:29:14 snsimon Exp $
+ * $Id: saslint.h,v 1.8 2006/02/03 22:33:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -123,7 +123,7 @@ typedef struct sasl_string_list
 
 typedef struct buffer_info
 { 
-    char *data;
+    unsigned char *data;
     size_t curlen;
     size_t reallen;
 } buffer_info_t;
@@ -187,13 +187,8 @@ struct sasl_conn {
 
 typedef struct mechanism
 {
-    int version;
-    int condition; /* set to SASL_NOUSER if no available users;
-		      set to SASL_CONTINUE if delayed plugin loading */
-    char *plugname; /* for AUTHSOURCE tracking */
-    const sasl_server_plug_t *plug;
+    server_sasl_mechanism_t m;
     struct mechanism *next;
-    char *f;       /* where should i load the mechanism from? */
 } mechanism_t;
 
 typedef struct mech_list {
@@ -216,6 +211,7 @@ typedef struct context_list
 typedef struct sasl_server_conn {
     sasl_conn_t base; /* parts common to server + client */
 
+    char *appname; /* application name buffer (for sparams) */
     char *user_realm; /* domain the user authenticating is in */
     int sent_last; /* Have we already done the last send? */
     int authenticated;
@@ -228,11 +224,7 @@ typedef struct sasl_server_conn {
 
 typedef struct cmechanism
 {
-    int version;
-
-    char *plugname;
-    const sasl_client_plug_t *plug;
-
+    client_sasl_mechanism_t m;
     struct cmechanism *next;  
 } cmechanism_t;
 
@@ -404,7 +396,7 @@ int _sasl_add_string(char **out, size_t *alloclen,
 extern int _sasl_strdup(const char *in, char **out, size_t *outlen);
 
 /* Basically a conditional call to realloc(), if we need more */
-int _buf_alloc(char **rwbuf, size_t *curlen, size_t newlen);
+int _buf_alloc(void **rwbuf, size_t *curlen, size_t newlen);
 
 /* convert an iovec to a single buffer */
 int _iovec_to_buf(const struct iovec *vec,

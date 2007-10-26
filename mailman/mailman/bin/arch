@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 """Rebuild a list's archive.
 
@@ -163,7 +163,20 @@ def main():
         lock.lock()
         # Maybe wipe the old archives
         if wipe:
+            if mlist.scrub_nondigest:
+                # TK: save the attachments dir because they are not in mbox
+                saved = 0
+                try:
+                    atchdir = os.path.join(mlist.archive_dir(), 'attachments')
+                    savedir = os.path.join(mlist.archive_dir() + '.mbox',
+                                           'attachments')
+                    os.rename(atchdir, savedir)
+                    saved = 1
+                except:
+                    pass
             shutil.rmtree(mlist.archive_dir())
+            if mlist.scrub_nondigest and saved:
+                os.renames(savedir, atchdir)
         try:
             fp = open(mbox)
         except IOError, msg:

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: http_negotiate.c,v 1.13 2005/02/24 18:54:23 danf Exp $
+ * $Id: http_negotiate.c,v 1.19 2007-04-04 23:41:35 danf Exp $
  ***************************************************************************/
 #include "setup.h"
 
@@ -34,7 +34,6 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <errno.h>
 
 #include "urldata.h"
 #include "sendf.h"
@@ -111,7 +110,7 @@ log_gss_error(struct connectdata *conn, OM_uint32 error_status, char *prefix)
     gss_release_buffer(&min_stat, &status_string);
   } while (!GSS_ERROR(maj_stat) && msg_ctx != 0);
 
-  infof(conn->data, buf);
+  infof(conn->data, "%s", buf);
 }
 
 int Curl_input_negotiate(struct connectdata *conn, char *header)
@@ -125,7 +124,7 @@ int Curl_input_negotiate(struct connectdata *conn, char *header)
   bool gss;
   const char* protocol;
 
-  while(*header && isspace((int)*header))
+  while(*header && ISSPACE(*header))
     header++;
   if(checkprefix("GSS-Negotiate", header)) {
     protocol = "GSS-Negotiate";
@@ -161,7 +160,7 @@ int Curl_input_negotiate(struct connectdata *conn, char *header)
     return ret;
 
   header += strlen(neg_ctx->protocol);
-  while(*header && isspace((int)*header))
+  while(*header && ISSPACE(*header))
     header++;
 
   len = strlen(header);
@@ -291,11 +290,12 @@ CURLcode Curl_output_negotiate(struct connectdata *conn)
     }
   }
 #endif
-  len = Curl_base64_encode(neg_ctx->output_token.value,
+  len = Curl_base64_encode(conn->data,
+                           neg_ctx->output_token.value,
                            neg_ctx->output_token.length,
                            &encoded);
 
-  if (len < 0)
+  if (len == 0)
     return CURLE_OUT_OF_MEMORY;
 
   conn->allocptr.userpwd =

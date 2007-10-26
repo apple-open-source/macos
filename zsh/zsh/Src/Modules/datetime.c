@@ -31,6 +31,68 @@
 #include "datetime.pro"
 #include <time.h>
 
+#ifndef HAVE_MKTIME
+#ifdef HAVE_TIMELOCAL
+#define	mktime(x)	timelocal(x)
+#define HAVE_MKTIME	1
+#endif
+#endif
+
+static int
+reverse_strftime(char *nam, char **argv, char *scalar, int quiet)
+{
+#if defined(HAVE_STRPTIME) && defined(HAVE_MKTIME)
+    struct tm tm;
+    zlong mytime;
+    char *endp;
+
+    /*
+     * Initialise all parameters to zero; there's no floating point
+     * so memset() will do the trick.  The exception is that tm_isdst
+     * is set to -1 which, if not overridden, will cause mktime()
+     * to use the current timezone.  This is probably the best guess;
+     * it's the one that will cause dates and times output by strftime
+     * without the -r option and without an explicit timezone to be
+     * converted back correctly.
+     */
+    (void)memset(&tm, 0, sizeof(tm));
+    tm.tm_isdst = -1;
+    endp = strptime(argv[1], argv[0], &tm);
+
+    if (!endp) {
+	/* Conversion failed completely. */
+	if (!quiet)
+	    zwarnnam(nam, "format not matched");
+	return 1;
+    }
+
+    mytime = (zlong)mktime(&tm);
+
+    if (scalar)
+	setiparam(scalar, mytime);
+    else {
+	char buf[DIGBUFSIZE];
+	convbase(buf, mytime, 10);
+	printf("%s\n", buf);
+    }
+
+    if (*endp && !quiet) {
+	/*
+	 * Not everything in the input string was converted.
+	 * This is probably benign, since the format has been satisfied,
+	 * but issue a warning unless the quiet flag is set.
+	 */
+	zwarnnam(nam, "warning: input string not completely matched");
+    }
+
+    return 0;
+#else
+    if (!quiet)
+	zwarnnam(nam, "not implemented on this system");
+    return 2;
+#endif
+}
+
 static int
 bin_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
 {
@@ -42,17 +104,19 @@ bin_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
     if (OPT_ISSET(ops,'s')) {
 	scalar = OPT_ARG(ops, 's');
 	if (!isident(scalar)) {
-	    zwarnnam(nam, "not an identifier: %s", scalar, 0);
+	    zwarnnam(nam, "not an identifier: %s", scalar);
 	    return 1;
 	}
     }
+    if (OPT_ISSET(ops, 'r'))
+	return reverse_strftime(nam, argv, scalar, OPT_ISSET(ops, 'q'));
 
     secs = (time_t)strtoul(argv[1], &endptr, 10);
     if (secs == (time_t)ULONG_MAX) {
 	zwarnnam(nam, "%s: %e", argv[1], errno);
 	return 1;
     } else if (*endptr != '\0') {
-	zwarnnam(nam, "%s: invalid decimal number", argv[1], 0);
+	zwarnnam(nam, "%s: invalid decimal number", argv[1]);
 	return 1;
     }
 
@@ -67,7 +131,7 @@ bin_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
     }
 
     if (scalar) {
-	setsparam(scalar, ztrdup(buffer));
+	setsparam(scalar, metafy(buffer, -1, META_DUP));
     } else {
 	printf("%s\n", buffer);
     }
@@ -83,7 +147,7 @@ getcurrentsecs()
 }
 
 static struct builtin bintab[] = {
-    BUILTIN("strftime",    0, bin_strftime,    2,   2, 0, "s:", NULL),
+    BUILTIN("strftime",    0, bin_strftime,    2,   2, 0, "qrs:", NULL),
 };
 
 static const struct gsu_integer epochseconds_gsu =
@@ -118,8 +182,8 @@ cleanup_(Module m)
 
     deletebuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab));
     pm = (Param) paramtab->getnode(paramtab, "EPOCHSECONDS");
-    if (pm && (pm->flags & PM_SPECIAL)) {
-	pm->flags &= ~PM_READONLY;
+    if (pm && (pm->node.flags & PM_SPECIAL)) {
+	pm->node.flags &= ~PM_READONLY;
 	unsetparam_pm(pm, 0, 1);
     }
     return 0;

@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"sfhdr.h"
 
 /*	Move data from one stream to another.
@@ -48,7 +44,7 @@ reg int		rc;	/* record separator */
 	reg ssize_t	r, w;
 	reg uchar	*endb;
 	reg int		direct;
-	Sfoff_t		n_move;
+	Sfoff_t		n_move, sk, cur;
 	uchar		*rbuf = NIL(uchar*);
 	ssize_t		rsize = 0;
 
@@ -65,9 +61,9 @@ reg int		rc;	/* record separator */
 			{	r = sfvalue(fr);
 				if(fw && (w = SFWRITE(fw, cp, r)) != r)
 				{	if(fr->extent >= 0 )
-						(void)SFSEEK(fr,(Sfoff_t)(-r),1);
+						(void)SFSEEK(fr,(Sfoff_t)(-r),SEEK_CUR);
 					if(fw->extent >= 0 && w > 0)
-						(void)SFSEEK(fw,(Sfoff_t)(-w),1);
+						(void)SFSEEK(fw,(Sfoff_t)(-w),SEEK_CUR);
 					n = 0;
 				}
 				else
@@ -81,7 +77,7 @@ reg int		rc;	/* record separator */
 
 		/* get the streams into the right mode */
 		if(fr->mode != SF_READ && _sfmode(fr,SF_READ,0) < 0)
-			goto done;
+			break;
 
 		SFLOCK(fr,0);
 
@@ -95,6 +91,16 @@ reg int		rc;	/* record separator */
 			    (fw->extent < 0 || (fw->flags&SF_SHARE)) ) )
 				if(SFFLSBUF(fw,-1) < 0 )
 					break;
+		}
+		else if((cur = SFSEEK(fr, (Sfoff_t)0, SEEK_CUR)) >= 0 )
+		{	sk = n > 0 ? SFSEEK(fr, n, SEEK_CUR) : SFSEEK(fr, 0, SEEK_END);
+			if(sk > cur) /* safe to skip over data in current stream */
+			{	n_move += sk - cur;
+				if(n > 0)
+					n -= sk - cur;
+				continue;
+			}
+			/* else: stream unstacking may happen below */
 		}
 
 		/* about to move all, set map to a large amount */
@@ -151,7 +157,6 @@ reg int		rc;	/* record separator */
 				else	r = -1;
 				if((r = SFFILBUF(fr,r)) <= 0)
 					break;
-			done_filbuf:
 				next = fr->next;
 			}
 			else
@@ -203,7 +208,7 @@ reg int		rc;	/* record separator */
 					n_move -= r;
 				}
 				if(fr->extent >= 0)
-					(void)SFSEEK(fr,(Sfoff_t)(-r),1);
+					(void)SFSEEK(fr,(Sfoff_t)(-r),SEEK_CUR);
 				break;
 			}
 		}
@@ -214,7 +219,6 @@ reg int		rc;	/* record separator */
 			SFOPEN(fw,0);
 	}
 
-done:
 	if(n < 0 && (fr->bits&SF_MMAP) && (fr->bits&SF_MVSIZE))
 	{	/* back to normal access mode */
 		SFMVUNSET(fr);

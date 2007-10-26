@@ -127,12 +127,12 @@ struct bpb710 {
 #define getulong(x)	(((u_int8_t *)(x))[0] + (((u_int8_t *)(x))[1] << 8) \
 			 + (((u_int8_t *)(x))[2] << 16)	\
 			 + (((u_int8_t *)(x))[3] << 24))
-#define putushort(p, v)	(((u_int8_t *)(p))[0] = (v),	\
-			 ((u_int8_t *)(p))[1] = (v) >> 8)
-#define putulong(p, v)	(((u_int8_t *)(p))[0] = (v),	\
-			 ((u_int8_t *)(p))[1] = (v) >> 8, \
-			 ((u_int8_t *)(p))[2] = (v) >> 16,\
-			 ((u_int8_t *)(p))[3] = (v) >> 24)
+#define putushort(p, v)	(((u_int8_t *)(p))[0] = (v) & 0xFF,	\
+			 ((u_int8_t *)(p))[1] = ((v) >> 8) & 0xFF)
+#define putulong(p, v)	(((u_int8_t *)(p))[0] = (v) & 0xFF,	\
+			 ((u_int8_t *)(p))[1] = ((v) >> 8) & 0xFF, \
+			 ((u_int8_t *)(p))[2] = ((v) >> 16) & 0xFF, \
+			 ((u_int8_t *)(p))[3] = ((v) >> 24) & 0xFF)
 #endif
 
 /*

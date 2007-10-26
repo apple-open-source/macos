@@ -13,7 +13,9 @@ startmenu()
 menu(Utilities)
 menu(Prompt Themes)
 menu(ZLE Functions)
+menu(Exception Handling)
 menu(MIME Functions)
+menu(Mathematical Functions)
 menu(Other Functions)
 endmenu()
 
@@ -345,7 +347,7 @@ normally call a theme's setup function directly.
 )
 enditem()
 
-texinode(ZLE Functions)(MIME Functions)(Prompt Themes)(User Contributions)
+texinode(ZLE Functions)(Exception Handling)(Prompt Themes)(User Contributions)
 sect(ZLE Functions)
 
 subsect(Widgets)
@@ -382,12 +384,13 @@ tindex(capitalize-word-match)
 tindex(up-case-word-match)
 tindex(down-case-word-match)
 tindex(select-word-style)
+tindex(match-word-context)
 tindex(match-words-by-style)
 xitem(tt(forward-word-match), tt(backward-word-match))
 xitem(tt(kill-word-match), tt(backward-kill-word-match))
 xitem(tt(transpose-words-match), tt(capitalize-word-match))
 xitem(tt(up-case-word-match), tt(down-case-word-match))
-item(tt(select-word-style), tt(match-words-by-style))(
+item(tt(select-word-style), tt(match-word-context), tt(match-words-by-style))(
 The eight `tt(-match)' functions are drop-in replacements for the
 builtin widgets without the suffix.  By default they behave in a similar
 way.  However, by the use of styles and the function tt(select-word-style),
@@ -461,7 +464,7 @@ Words are whitespace-delimited strings of characters.
 )
 enditem()
 
-The first three of those styles usually use tt($WORDCHARS), but the value
+The first three of those rules usually use tt($WORDCHARS), but the value
 in the parameter can be overridden by the style tt(word-chars), which works
 in exactly the same way as tt($WORDCHARS).  In addition, the style
 tt(word-class) uses character class syntax to group characters and takes
@@ -472,7 +475,7 @@ alphanumerics plus the characters `tt(-)' and `tt(:)'.  Be careful
 including `tt(])', `tt(^)' and `tt(-)' as these are special inside
 character classes.
 
-The final style is tt(skip-chars).  This is mostly useful for
+The style tt(skip-chars) is mostly useful for
 tt(transpose-words) and similar functions.  If set, it gives a count of
 characters starting at the cursor position which will not be considered
 part of the word and are treated as space, regardless of what they actually
@@ -483,6 +486,16 @@ example(zstyle ':zle:transpose-words' skip-chars 1)
 has been set, and tt(transpose-words-match) is called with the cursor on
 the var(X) of tt(foo)var(X)tt(bar), where var(X) can be any character, then
 the resulting expression is tt(bar)var(X)tt(foo).
+
+Finer grained control can be obtained by setting the style tt(word-context)
+to an array of pairs of entries.  Each pair of entries consists of a
+var(pattern) and a var(subcontext).  The shell argument the cursor is on is
+matched against each var(pattern) in turn until one matches; if it does,
+the context is extended by a colon and the corresponding var(subcontext).
+Note that the test is made against the original word on the line, with no
+stripping of quotes.  If the cursor is at the end of the line the test is
+performed against an empty string; if it is on whitespace between words the
+test is made against a single space.  Some examples are given below.
 
 Here are some examples of use of the styles, actually taken from the
 simplified interface in tt(select-word-style):
@@ -498,6 +511,21 @@ example(style ':zle:*kill*' word-style space)
 
 Uses space-delimited words for widgets with the word `kill' in the name.
 Neither of the styles tt(word-chars) nor tt(word-class) is used in this case.
+
+Here are some examples of use of the tt(word-context) style to extend
+the context.
+
+example(zstyle ':zle:*' word-context "*/*" file "[[:space:]]" whitespace
+zstyle ':zle:transpose-words:whitespace' word-style shell
+zstyle ':zle:transpose-words:filename' word-style normal
+zstyle ':zle:transpose-words:filename' word-chars '')
+
+This provides two different ways of using tt(transpose-words) depending on
+whether the cursor is on whitespace between words or on a filename, here
+any word containing a tt(/).  On whitespace, complete arguments as defined
+by standard shell rules will be transposed.  In a filename, only
+alphanumerics will be transposed.  Elsewhere, words will be transposed
+using the default style for tt(:zle:transpose-words).
 
 The word matching and all the handling of tt(zstyle) settings is actually
 implemented by the function tt(match-words-by-style).  This can be used to
@@ -525,6 +553,10 @@ endsitem()
 
 For example, tt(match-words-by-style -w shell -c 0) may be used to
 extract the command argument around the cursor.
+
+The tt(word-context) style is implemented by the function
+tt(match-word-context).  This should not usually need to be called
+directly.
 )
 tindex(delete-whole-word-match)
 item(tt(delete-whole-word-match))(
@@ -603,6 +635,29 @@ zle -N history-beginning-search-forward-end \
 bindkey '\e^P' history-beginning-search-backward-end
 bindkey '\e^N' history-beginning-search-forward-end)
 )
+tindex(history-beginning-search-menu)
+item(tt(history-beginning-search-menu))(
+This function implements yet another form of history searching.  The
+text before the cursor is used to select lines from the history,
+as for tt(history-beginning-search-backward) except that all matches are
+shown in a numbered menu.  Typing the appropriate digits inserts the
+full history line.  Note that leading zeroes must be typed (they are only
+shown when necessary for removing ambiguity).  The entire history is
+searched; there is no distinction between forwards and backwards.
+
+With a prefix argument, the search is not anchored to the start of
+the line; the string typed by the use may appear anywhere in the line
+in the history.
+
+If the widget name contains `tt(-end)' the cursor is moved to the end of
+the line inserted.  If the widget name contains `tt(-space)' any space
+in the text typed is treated as a wildcard and can match anything (hence
+a leading space is equivalent to giving a prefix argument).  Both
+forms can be combined, for example:
+
+example(zle -N history-beginning-search-menu-space-end \ 
+       history-beginning-search-menu)
+)
 tindex(history-pattern-search)
 tindex(history-pattern-search-backward)
 tindex(history-pattern-search-forward)
@@ -640,8 +695,8 @@ Typing the keystrokes for this widget with the cursor placed on or to the
 left of an integer causes that integer to be incremented by one.  With a
 numeric prefix argument, the number is incremented by the amount of the
 argument (decremented if the prefix argument is negative).  The shell
-parameter tt(incarg) may be set to change the default increment something
-other than one.
+parameter tt(incarg) may be set to change the default increment to
+something other than one.
 
 example(bindkey '^X+' incarg)
 )
@@ -658,6 +713,201 @@ and tt(^D) to list the matches.
 This works only with the new function based completion system.
 
 example(bindkey '^Xi' incremental-complete-word)
+)
+tindex(insert-composed-char)
+item(tt(insert-composed-char))(
+This function allows you to compose characters that don't appear on the
+keyboard to be inserted into the command line.  The command is followed by
+two keys corresponding to ASCII characters (there is no prompt).  For
+accented characters, the two keys are a base character followed by a code
+for the accent, while for other special characters the two characters
+together form a mnemonic for the character to be inserted.  The
+two-character codes are a subset of those given by RFC 1345 (see for
+example tt(http://www.faqs.org/rfcs/rfc1345.html)).
+
+The function may optionally be followed by up to two characters which
+replace one or both of the characters read from the keyboard; if both
+characters are supplied, no input is read.  For example,
+tt(insert-composed-char a:) can be used within a widget to insert an a with
+umlaut into the command line.  This has the advantages over use of a
+literal character that it is more portable.
+
+For best results zsh should have been built with support for multibyte
+characters (configured with tt(--enable-multibyte)); however, the function
+works for the limited range of characters available in single-byte
+character sets such as ISO-8859-1.
+
+The character is converted into the local representation and
+inserted into the command line at the cursor position.
+(The conversion is done within the shell, using whatever facilities
+the C library provides.)  With a numeric argument, the character and its
+code are previewed in the status line
+
+The function may be run outside zle in which case it prints the character
+(together with a newline) to standard output.  Input is still read from
+keystrokes.
+
+See tt(insert-unicode-char) for an alternative way of inserting Unicode
+characters using their hexadecimal character number.
+
+The set of accented characters is reasonably complete up to Unicode
+character U+0180, the set of special characters less so.  However, it it
+is very sporadic from that point.  Adding new characters is easy,
+however; see the function tt(define-composed-chars).  Please send any
+additions to tt(zsh-workers@sunsite.dk).
+
+The codes for the second character when used to accent the first are as
+follows.  Note that not every character can take every accent.
+startsitem()
+sitem(tt(!))(Grave.)
+sitem(tt(RQUOTE()))(Acute.)
+sitem(tt(>))(Circumflex.)
+sitem(tt(?))(Tilde.  (This is not tt(~) as RFC 1345 does not assume that
+character is present on the keyboard.))
+sitem(tt(-))(Macron.  (A horizonal bar over the base character.))
+sitem(tt(LPAR()))(Breve.  (A shallow dish shape over the base character.))
+sitem(tt(.))(Dot above the base character, or in the case of tt(i) no dot,
+or in the case of tt(L) and tt(l) a centered dot.)
+sitem(tt(:))(Diaeresis (Umlaut).)
+sitem(tt(c))(Cedilla.)
+sitem(tt(_))(Underline, however there are currently no underlined characters.)
+sitem(tt(/))(Stroke through the base character.)
+sitem(tt("))(Double acute (only supported on a few letters).)
+sitem(tt(;))(Ogonek.  (A little forward facing hook at the bottom right
+of the character.))
+sitem(tt(<))(Caron.  (A little v over the letter.))
+sitem(tt(0))(Circle over the base character.)
+sitem(tt(2))(Hook over the base character.)
+sitem(tt(9))(Horn over the base character.)
+endsitem()
+
+The most common characters from the Arabic, Cyrillic, Greek and Hebrew
+alphabets are available; consult RFC 1345 for the appropriate sequences.
+In addition, a set of two letter codes not in RFC 1345 are available for
+the double-width characters corresponding to ASCII characters from tt(!)
+to tt(~) (0x21 to 0x7e) by preceeding the character with tt(^), for
+example tt(^A) for a double-width tt(A).
+
+The following other two-character sequences are understood.
+
+startitem()
+item(ASCII characters)(
+These are already present on most keyboards:
+startsitem()
+sitem(tt(<LPAR()))(Left square bracket)
+sitem(tt(//))(Backslash (solidus))
+sitem(tt(RPAR()>))(Right square bracket)
+sitem(tt(LPAR()!))(Left brace (curly bracket))
+sitem(tt(!!))(Vertical bar (pipe symbol))
+sitem(tt(!RPAR()))(Right brace (curly bracket))
+sitem(tt(RQUOTE()?))(Tilde)
+endsitem()
+)
+item(Special letters)(
+Characters found in various variants of the Latin alphabet:
+startsitem()
+sitem(tt(ss))(Eszett (scafes S))
+sitem(tt(D-), tt(d-))(Eth)
+sitem(tt(TH), tt(th))(Thorn)
+sitem(tt(kk))(Kra)
+sitem(tt(RQUOTE()n))(RQUOTE()n)
+sitem(tt(NG), tt(ng))(Ng)
+sitem(tt(OI), tt(oi))(Oi)
+sitem(tt(yr))(yr)
+sitem(tt(ED))(ezh)
+endsitem()
+)
+item(Currency symbols)(
+startsitem()
+sitem(tt(Ct))(Cent)
+sitem(tt(Pd))(Pound sterling (also lira and others))
+sitem(tt(Cu))(Currency)
+sitem(tt(Ye))(Yen)
+sitem(tt(Eu))(Euro (N.B. not in RFC 1345))
+endsitem()
+)
+item(Punctuation characters)(
+References to "right" quotes indicate the shape (like a 9 rather than 6)
+rather than their grammatical use.  (For example, a "right" low double
+quote is used to open quotations in German.)
+startsitem()
+sitem(tt(!I))(Inverted exclamation mark)
+sitem(tt(BB))(Broken vertical bar)
+sitem(tt(SE))(Section)
+sitem(tt(Co))(Copyright)
+sitem(tt(-a))(Spanish feminine ordinal indicator)
+sitem(tt(<<))(Left guillemet)
+sitem(tt(--))(Soft hyphen)
+sitem(tt(Rg))(Registered trade mark)
+sitem(tt(PI))(Pilcrow (paragraph))
+sitem(tt(-o))(Spanish masculine ordinal indicator)
+sitem(tt(>>))(Right guillemet)
+sitem(tt(?I))(Inverted question mark)
+sitem(tt(-1))(Hyphen)
+sitem(tt(-N))(En dash)
+sitem(tt(-M))(Em dash)
+sitem(tt(-3))(Horizontal bar)
+sitem(tt(:3))(Vertical ellipsis)
+sitem(tt(.3))(Horizontal midline ellipsis)
+sitem(tt(!2))(Double vertical line)
+sitem(tt(=2))(Double low line)
+sitem(tt(RQUOTE()6))(Left single quote)
+sitem(tt(RQUOTE()9))(Right single quote)
+sitem(tt(.9))("Right" low quote)
+sitem(tt(9+RQUOTE()))(Reversed "right" quote)
+sitem(tt("6))(Left double quote)
+sitem(tt("9))(Right double quote)
+sitem(tt(:9))("Right" low double quote)
+sitem(tt(9"))(Reversed "right" double quote)
+sitem(tt(/-))(Dagger)
+sitem(tt(/=))(Double dagger)
+endsitem()
+)
+item(Mathematical symbols)(
+startsitem()
+sitem(tt(DG))(Degree)
+sitem(tt(-2), tt(+-), tt(-+))(- sign, +/- sign, -/+ sign)
+sitem(tt(2S))(Superscript 2)
+sitem(tt(3S))(Superscript 3)
+sitem(tt(1S))(Superscript 1)
+sitem(tt(My))(Micro)
+sitem(tt(.M))(Middle dot)
+sitem(tt(14))(Quarter)
+sitem(tt(12))(Half)
+sitem(tt(34))(Three quarters)
+sitem(tt(*X))(Multiplication)
+sitem(tt(-:))(Division)
+sitem(tt(%0))(Per mille)
+sitem(tt(FA), tt(TE), tt(/0))(For all, there exists, empty set)
+sitem(tt(dP), tt(DE), tt(NB))(Partial derivative, delta (increment), del
+(nabla))
+sitem(tt(LPAR()-), tt(-RPAR()))(Element of, contains)
+sitem(tt(*P), tt(+Z))(Product, sum)
+sitem(tt(*-), tt(Ob), tt(Sb))(Asterisk, ring, bullet)
+sitem(tt(RT), tt(0+LPAR()), tt(00))(Root sign, proportional to, infinity)
+endsitem()
+)
+item(Other symbols)(
+startsitem()
+sitem(tt(cS), tt(cH), tt(cD), tt(cC))(Card suits: spades, hearts, diamonds,
+clubs)
+sitem(tt(Md), tt(M8), tt(M2), tt(Mb), tt(Mx), tt(MX))(Musical notation:
+crotchet (quarter note), quaver (eighth note), semiquavers (sixteenth
+notes), flag sign, natural signa, sharp sign)
+sitem(tt(Fm), tt(Ml))(Female, male)
+endsitem()
+)
+item(Accents on their own)(
+startsitem()
+sitem(tt(RQUOTE()>))(Circumflex (same as caret, tt(^)))
+sitem(tt(RQUOTE()!))(Grave (same as backtick, tt(`)))
+sitem(tt(RQUOTE(),))(Cedilla)
+sitem(tt(RQUOTE():))(Diaeresis (Umlaut))
+sitem(tt(RQUOTE()m))(Macron)
+sitem(tt(RQUOTE()RQUOTE()))(Acute)
+endsitem()
+)
+enditem()
 )
 tindex(insert-files)
 item(tt(insert-files))(
@@ -723,6 +973,17 @@ narrow-to-region -p $'Editing restricted region\n' \
   -P '' -S state
 zle recursive-edit
 narrow-to-region -R state)
+)
+tindex(insert-unicode-char)
+item(tt(insert-unicode-char))(
+When first executed, the user inputs a set of hexadecimal digits.
+This is terminated with another call to tt(insert-unicode-char).
+The digits are then turned into the corresponding Unicode character.
+For example, if the widget is bound to tt(^XU), the character sequence
+`tt(^XU 4 c ^XU)' inserts tt(L) (Unicode U+004c).
+
+See tt(insert-composed-char) for a way of inserting characters
+using a two-character mnemonic.
 )
 tindex(predict-on)
 tindex(predict-off)
@@ -794,8 +1055,10 @@ not used.  Hence it is still possible to call tt(executed-named-cmd) and
 similar functions while reading a value.
 )
 tindex(replace-string)
+tindex(replace-string-again)
 tindex(replace-pattern)
-item(tt(replace-string), tt(replace-pattern))(
+xitem(tt(replace-string), tt(replace-pattern))
+item(tt(replace-string-again), tt(replace-pattern-again))(
 The function tt(replace-string) implements two widgets.
 If defined under the same name as the function, it prompts for two
 strings; the first (source) string will be replaced by the second
@@ -814,11 +1077,26 @@ replaced by the var(N)th parenthesised expression matched.  The form
 `tt(\{)var(N)tt(})' may be used to protect the digit from following
 digits.
 
+By default the previous source or replacement string will not be offered
+for editing.  However, this feature can be activated by setting the style
+tt(edit-previous) in the context tt(:zle:)var(widget) (for example,
+tt(:zle:replace-string)) to tt(true).  In addition, a positive
+numeric argument forces the previous values to be offered, a negative or
+zero argument forces them not to be.
+
+The function tt(replace-string-again) can be used to repeat the
+previous replacement; no prompting is done.  As with tt(replace-string), if
+the name of the widget contains the word `tt(pattern)', pattern matching
+is performed, else a literal string replacement.  Note that the
+previous source and replacement text are the same whether pattern or string
+matching is used.
+
 For example, starting from the line:
 
 example(print This line contains fan and fond)
 
-and invoking tt(replace-pattern) with the source string `tt(f(?)n)' and
+and invoking tt(replace-pattern) with the source string
+`tt(f+LPAR()?+RPAR()n)' and
 the replacment string `tt(c\1r)' produces the not very useful line:
 
 example(print This line contains car and cord)
@@ -849,6 +1127,77 @@ different widgets to use different patterns:
 example(zle -N insert-last-assignment smart-insert-last-word
 zstyle :insert-last-assignment match '[[:alpha:]][][[:alnum:]]#=*'
 bindkey '\e=' insert-last-assignment)
+
+If no interesting word is found and the tt(auto-previous) style is set to
+a true value, the search continues upward through the history.  When
+tt(auto-previous) is unset or false (the default), the widget must be
+invoked repeatedly in order to search earlier history lines.
+)
+tindex(which-command)
+item(tt(which-command))(
+This function is a drop-in replacement for the builtin widget
+tt(which-command).  It has enhanced behaviour, in that it correctly
+detects whether or not the command word needs to be expanded as an
+alias; if so, it continues tracing the command word from the expanded
+alias until it reaches the command that will be executed.
+
+The style tt(whence) is available in the context tt(:zle:$WIDGET); this
+may be set to an array to give the command and options that will be used to
+investigate the command word found.  The default is tt(whence -c).
+)
+enditem()
+
+subsect(Utility Functions)
+
+These functions are useful in constructing widgets.  They
+should be loaded with `tt(autoload -U) var(function)' and called
+as indicated from user-defined widgets.
+
+startitem()
+tindex(split-shell-arguments)
+item(tt(split-shell-arguments))(
+This function splits the line currently being edited into shell arguments
+and whitespace.  The result is stored in the array tt(reply).  The array
+contains all the parts of the line in order, starting with any whitespace
+before the first argument, and finishing with any whitespace after the last
+argument.  Hence (so long as the option tt(KSH_ARRAYS) is not set)
+whitespace is given by odd indices in the array and arguments by
+even indices.  Note that no stripping of quotes is done; joining together
+all the elements of tt(reply) in order is guaranteed to produce the
+original line.
+
+The parameter tt(REPLY) is set to the index of the word in tt(reply) which
+contains the character after the cursor, where the first element has index
+1.  The parameter tt(REPLY2) is set to the index of the character under the
+cursor in that word, where the first character has index 1.
+
+Hence tt(reply), tt(REPLY) and tt(REPLY2) should all be made local to
+the enclosing function.
+
+See the function tt(modify-current-argument), described below, for
+an example of how to call this function.
+)
+tindex(modify-current-argument)
+item(tt(modify-current-argument) var(expr-using-)tt($ARG))(
+This function provides a simple method of allowing user-defined widgets
+to modify the command line argument under the cursor (or immediately to the
+left of the cursor if the cursor is between arguments).  The argument
+should be an expression which when evaluated operates on the shell
+parameter tt(ARG), which will have been set to the command line argument
+under the cursor.  The expression should be suitably quoted to prevent
+it being evaluated too early.
+
+For example, a user-defined widget containing the following code
+converts the characters in the argument under the cursor into all upper
+case:
+
+example(modify-current-word '${(U)ARG}')
+
+The following strips any quoting from the current word (whether backslashes
+or one of the styles of quotes), and replaces it with single quoting
+throughout:
+
+example(modify-current-word '${(qq)${(Q)ARG}}')
 )
 enditem()
 
@@ -1026,7 +1375,93 @@ whether the tt(widget) style is used.
 )
 enditem()
 
-texinode(MIME Functions)(Other Functions)(ZLE Functions)(User Contributions)
+texinode(Exception Handling)(MIME Functions)(ZLE Functions)(User Contributions)
+sect(Exception Handling)
+
+Two functions are provided to enable zsh to provide exception handling in a
+form that should be familiar from other languages.
+
+startitem()
+findex(throw)
+item(tt(throw) var(exception))(
+The function tt(throw) throws the named var(exception).  The name is
+an arbitrary string and is only used by the tt(throw) and tt(catch)
+functions.  An exception is for the most part treated the same as a
+shell error, i.e. an unhandled exception will cause the shell to abort all
+processing in a function or script and to return to the top level in an
+interactive shell.
+)
+item(tt(catch) var(exception-pattern))(
+The function tt(catch) returns status zero if an exception was thrown and
+the pattern var(exception-pattern) matches its name.  Otherwise it
+returns status 1.  var(exception-pattern) is a standard
+shell pattern, respecting the current setting of the tt(EXTENDED_GLOB)
+option.  An alias tt(catch) is also defined to prevent the argument to the
+function from matching filenames, so patterns may be used unquoted.  Note
+that as exceptions are not fundamentally different from other shell errors
+it is possible to catch shell errors by using an empty string as the
+exception name.  The shell variable tt(CAUGHT) is set by tt(catch) to the
+name of the exception caught.  It is possible to rethrow an exception by
+calling the tt(throw) function again once an exception has been caught.
+findex(catch)
+)
+enditem()
+
+The functions are designed to be used together with the tt(always) construct
+described in
+ifzman(zmanref(zshmisc))\
+ifnzman(noderef(Complex Commands)).  This is important as only this
+construct provides the required support for exceptions.  A typical example
+is as follows.
+
+example({
+  # "try" block
+  # ... nested code here calls "throw MyExcept"
+} always {
+  # "always" block
+  if catch MyExcept; then
+    print "Caught exception MyExcept"
+  elif catch ''; then
+    print "Caught a shell error.  Propagating..."
+    throw ''
+  fi
+  # Other exceptions are not handled but may be caught further
+  # up the call stack.
+})
+
+If all exceptions should be caught, the following idiom might be
+preferable.
+
+example({
+  # ... nested code here throws an exception
+} always {
+  if catch *; then
+    case $CAUGHT in
+      LPAR()MyExcept+RPAR()
+      print "Caught my own exception"
+      ;;
+      LPAR()*RPAR()
+      print "Caught some other exception"
+      ;;
+    esac
+  fi
+})
+
+In common with exception handling in other languages, the exception may be
+thrown by code deeply nested inside the `try' block.  However, note that it
+must be thrown inside the current shell, not in a subshell forked for a
+pipeline, parenthesised current-shell construct, or some form of
+command or process substitution.
+
+The system internally uses the shell variable tt(EXCEPTION) to record the
+name of the exception between throwing and catching.  One drawback of this
+scheme is that if the exception is not handled the variable tt(EXCEPTION)
+remains set and may be incorrectly recognised as the name of an exception
+if a shell error subsequently occurs.  Adding tt(unset EXCEPTION) at the
+start of the outermost layer of any code that uses exception handling will
+eliminate this problem.
+
+texinode(MIME Functions)(Mathematical Functions)(Exception Handling)(User Contributions)
 sect(MIME Functions)
 
 Three functions are available to provide handling of files recognised by
@@ -1034,6 +1469,8 @@ extension, for example to dispatch a file tt(text.ps) when executed as a
 command to an appropriate viewer.
 
 startitem()
+findex(zsh-mime-setup)
+findex(zsh-mime-handler)
 xitem(tt(zsh-mime-setup [-flv]))
 item(tt(zsh-mime-handler))(
 These two functions use the files tt(~/.mime.types) and tt(/etc/mime.types),
@@ -1056,7 +1493,7 @@ mapping between suffixes and executable files unless the option tt(-f)
 is given.  Note, however, that this does not override existing suffix
 aliases assigned to handlers other than tt(zsh-mime-handler).
 Calling tt(zsh-mime-setup) with the option tt(-l) lists the existing
-mapping without altering it.  Calling tt(zsh-mime-setup) with the option
+mappings without altering them.  Calling tt(zsh-mime-setup) with the option
 tt(-v) causes verbose output to be shown during the setup operation.
 
 The system respects the tt(mailcap) flags tt(needsterminal) and
@@ -1072,19 +1509,37 @@ It is recommended that a trailing tt(*) (suitably quoted) be appended
 to style patterns in case the system is extended in future.  Some
 examples are given below.
 startitem()
-item(mime-types)(
-A list of files in the format of tt(~/.mime.types) and
-tt(/etc/mime.types) to be read during setup, replacing the default list
-which consists of those two files.  The context is tt(:mime:).
-A tt(PLUS()) in the list will be replaced by the default files.
+item(tt(current-shell))(
+If this boolean style is true, the mailcap handler for the context in
+question is run using the tt(eval) builtin instead of by starting a new
+tt(sh) process.  This is more efficient, but may not work in the occasional
+cases where the mailcap handler uses strict POSIX syntax.
 )
-item(mailcap)(
-A list of files in the format of tt(~/.mailcap) and
-tt(/etc/mailcap) to be read during setup, replacing the default list
-which consists of those two files.  The context is tt(:mime:).
-A tt(PLUS()) in the list will be replaced by the default files.
+item(tt(execute-as-is))(
+This style gives a list of patterns to be matched against files
+passed for execution with a handler program.  If the file matches
+the pattern, the entire command line is executed in its current form,
+with no handler.  This is useful for files which might have suffixes
+but nonetheless be executable in their own right.  If the style
+is not set, the pattern tt(*+LPAR()*+RPAR() *+LPAR()/+RPAR()) is used;
+hence executable files are executed directly and not passed to a
+handler, and the option tt(AUTO_CD) may be used to change to directories
+that happen to have MIME suffixes.
 )
-item(handler)(
+item(tt(flags))(
+Defines flags to go with a handler; the context is as for the
+tt(handler) style, and the format is as for the flags in tt(mailcap).
+)
+item(tt(handle-nonexistent))(
+By default, arguments that don't correspond to files are not passed
+to the MIME handler in order to prevent it from intercepting commands found
+in the path that happen to have suffixes.  This style may be set to
+an array of extended glob patterns for arguments that will be passed to the
+handler even if they don't exist.  If it is not explicitly set it
+defaults to tt([[:alpha:]]#:/*) which allows URLs to be passed to the MIME
+handler even though they don't exist in that format in the file system.
+)
+item(tt(handler))(
 Specifies a handler for a suffix; the suffix is given by the context as
 tt(:mime:.)var(suffix)tt(:), and the format of the handler is exactly
 that in tt(mailcap).  Note in particular the `tt(.)' and trailing colon
@@ -1094,11 +1549,63 @@ the tt(flags) style should be set to include the word tt(needsterminal),
 or if the output is to be displayed through a pager (but not if the
 handler is itself a pager), it should include tt(copiousoutput).
 )
-item(flags)(
-Defines flags to go with a handler; the context is as for the
-tt(handler) style, and the format is as for the flags in tt(mailcap).
+item(tt(mailcap))(
+A list of files in the format of tt(~/.mailcap) and
+tt(/etc/mailcap) to be read during setup, replacing the default list
+which consists of those two files.  The context is tt(:mime:).
+A tt(PLUS()) in the list will be replaced by the default files.
 )
-item(pager)(
+item(tt(mailcap-priorities))(
+This style is used to resolve multiple mailcap entries for the same MIME
+type.  It consists of an array of the following elements, in descending
+order of priority; later entries will be used if earlier entries are
+unable to resolve the entries being compared.  If none of the tests
+resolve the entries, the first entry encountered is retained.
+
+startitem()
+item(tt(files))(
+The order of files (entries in the tt(mailcap) style) read.  Earlier
+files are preferred.  (Note this does not resolve entries in the same file.)
+)
+item(tt(priority))(
+The priority flag from the mailcap entry.  The priority is an integer
+from 0 to 9 with the default value being 5.
+)
+item(tt(flags))(
+The test given by the tt(mailcap-prio-flags) option is used to resolve
+entries.
+)
+item(tt(place))(
+Later entries are preferred; as the entries are strictly ordered, this
+test always succeeds.
+)
+enditem()
+
+Note that as this style is handled during initialisation, the context
+is always tt(:mime:), with no discrimination by suffix.
+)
+item(tt(mailcap-prio-flags))(
+This style is used when the keyword tt(flags) is encountered in the
+list of tests specified by the tt(mailcap-priorities) style.
+It should be set to a list of patterns, each of which is tested against
+the flags specified in the mailcap entry (in other words, the sets of
+assignments found with some entries in the mailcap file).  Earlier
+patterns in the list are preferred to later ones, and matched patterns
+are preferred to unmatched ones.
+)
+item(tt(mime-types))(
+A list of files in the format of tt(~/.mime.types) and
+tt(/etc/mime.types) to be read during setup, replacing the default list
+which consists of those two files.  The context is tt(:mime:).
+A tt(PLUS()) in the list will be replaced by the default files.
+)
+item(tt(never-background))(
+If this boolean style is set, the handler for the given context is
+always run in the foreground, even if the flags provided in the mailcap
+entry suggest it need not be (for example, it doesn't require a
+terminal).
+)
+item(tt(pager))(
 If set, will be used instead of tt($PAGER) or tt(more) to handle
 suffixes where the tt(copiousoutput) flag is set.  The context is
 as for tt(handler), i.e. tt(:mime:.)var(suffix)tt(:) for handling
@@ -1109,8 +1616,8 @@ enditem()
 Examples:
 
 example(zstyle ':mime:*' mailcap ~/.mailcap /usr/local/etc/mailcap
-zstyle ':mime:.txt' handler less %s
-zstyle ':mime:.txt' flags needsterminal)
+zstyle ':mime:.txt:' handler less %s
+zstyle ':mime:.txt:' flags needsterminal)
 
 When tt(zsh-mime-setup) is subsequently run, it will look for
 tt(mailcap) entries in the two files given.  Files of suffix tt(.txt)
@@ -1121,8 +1628,7 @@ terminal.
 As there are several steps to dispatching a command, the following
 should be checked if attempting to execute a file by extension
 tt(.)var(ext) does not have the expected effect.
-starteit()
-eit()(
+
 The command `tt(alias -s) var(ext)' should show
 `tt(ps=zsh-mime-handler)'.  If it shows something else, another suffix
 alias was already installed and was not overwritten.  If it shows
@@ -1130,8 +1636,7 @@ nothing, no handler was installed:  this is most likely because no
 handler was found in the tt(.mime.types) and tt(mailcap) combination for
 tt(.ext) files.  In that case, appropriate handling should be added to
 tt(~/.mime.types) and tt(mailcap).
-)
-eit()(
+
 If the extension is handled by tt(zsh-mime-handler) but the file is
 not opened correctly, either the handler defined for the type is
 incorrect, or the flags associated with it are in appropriate.  Running
@@ -1145,8 +1650,7 @@ An example of a suitable tt(mailcap) entry for such a program is:
 
 example(text/html; /usr/bin/lynx '%s'; needsterminal)
 )
-endeit()
-)
+findex(pick-web-browser)
 item(tt(pick-web-browser))(
 This function is separate from the two MIME functions described above
 and can be assigned directly to a suffix:
@@ -1155,19 +1659,19 @@ example(autoload -U pick-web-browser
 alias -s html=pick-web-browser)
 
 It is provided as an intelligent front end to dispatch a web browser.
-It will check if an X Windows display is available, and if so
-if there is already a browser running which can accept a remote
+It will check if an X Windows display is available, and if so if there
+is already a browser running on the display which can accept a remote
 connection.  In that case, the file will be displayed in that browser;
 you should check explicitly if it has appeared in the running browser's
-window.  Otherwise, it will start a new browser according to a builtin
+window.  Otherwise, it will start a new browser according to a built-in
 set of preferences.
 
 Alternatively, tt(pick-web-browser) can be run as a zsh script.
 
 Two styles are available to customize the choice of browsers:
-tt(x-browsers) when running under the X Windows System, and
+tt(x-browsers) when running under the X Window System, and
 tt(tty-browsers) otherwise.  These are arrays in decreasing order
-of preference consiting of the command name under which to start the
+of preference consisting of the command name under which to start the
 browser.  They are looked up in the context tt(:mime:) (which may
 be extended in future, so appending `tt(*)' is recommended).  For
 example,
@@ -1177,10 +1681,140 @@ example(zstyle ':mime:*' x-browsers opera konqueror netscape)
 specifies that tt(pick-web-browser) should first look for a runing
 instance of Opera, Konqueror or Netscape, in that order, and if it
 fails to find any should attempt to start Opera.
+
+In addition, the style tt(command), if set, is used to pick the command
+used to open a page for a browser.  The context is
+tt(:mime:browser:new:$browser:) to start a new browser or
+tt(:mime:browser:running:$browser:) to open a URL in a browser already
+runing on the current X display.  The escape sequence tt(%b) in the
+style's value will be replaced by the browser, while tt(%u) will be
+replaced by the URL.  If the style is not set, the default for all new
+instances is equivalent to tt(%b %u) and the defaults for using running
+browsers are equivalent to the values tt(kfmclient openURL %u) for
+Konqueror, tt(firefox -new-tab %u) for Firefox and tt(%b -remote
+"openUrl+LPAR()%u+RPAR()") for all others.
 )
 enditem()
 
-texinode(Other Functions)()(MIME Functions)(User Contributions)
+texinode(Mathematical Functions)(Other Functions)(MIME Functions)(User Contributions)
+sect(Mathematical Functions)
+
+startitem()
+findex(zcalc)
+item(tt(zcalc) [ var(expression) ... ])(
+A reasonably powerful calculator based on zsh's arithmetic evaluation
+facility.  The syntax is similar to that of formulae in most programming
+languages; see
+ifzman(the section `Arithmetic Evaluation' in zmanref(zshmisc))\
+ifnzman(noderef(Arithmetic Evaluation)) for details.  The mathematical
+library tt(zsh/mathfunc) will be loaded if it is available; see
+ifzman(the section `The zsh/mathfunc Module' in zmanref(zshmodules))\
+ifnzman(noderef(The zsh/mathfunc Module)).  The mathematical functions
+correspond to the raw system libraries, so trigonometric functions are
+evaluated using radians, and so on.
+
+Each line typed is evaluated as an expression.  The prompt shows a number,
+which corresponds to a positional parameter where the result of that
+calculation is stored.  For example, the result of the calculation on the
+line preceded by `tt(4> )' is available as tt($4).  The last value
+calculated is available as tt(ans).  Full command line editing, including
+the history of previous calculations, is available; the history is saved in
+the file tt(~/.zcalc_history).  To exit, enter a blank line or type `tt(q)'
+on its own.
+
+If arguments are given to tt(zcalc) on start up, they are used to prime the
+first few positional parameters.  A visual indication of this is given when
+the calculator starts.
+
+The constants tt(PI) (3.14159...) and tt(E) (2.71828...) are provided.
+Parameter assignment is possible, but note that all parameters will be put
+into the global namespace.
+
+The output base can be initialised by passing the option `tt(-#)var(base)',
+for example `tt(zcalc -#16)' (the `tt(#)' may have to be quoted, depending
+on the globbing options set).
+
+The prompt is configurable via the parameter tt(ZCALCPROMPT), which
+undergoes standard prompt expansion.  The index of the current entry is
+stored locally in the first element of the array tt(psvar), which can be
+referred to in tt(ZCALCPROMPT) as `tt(%1v)'.  The default prompt is
+`tt(%1v> )'.
+
+The output precision may be specified within zcalc by special commands
+familiar from many calculators:
+startitem()
+item(tt(norm))(
+The default output format.  It corresponds to the printf tt(%g)
+specification.  Typically this shows six decimal digits.
+)
+item(tt(sci) var(digits))(
+Scientific notation, corresponding to the printf tt(%g) output format with
+the precision given by var(digits).  This produces either fixed point or
+exponential notation depending on the value output.
+)
+item(tt(fix) var(digits))(
+Fixed point notation, corresponding to the printf tt(%f) output format with
+the precision given by var(digits).
+)
+item(tt(eng) var(digits))(
+Exponential notation, corresponding to the printf tt(%E) output format with
+the precision given by var(digits).
+)
+enditem()
+
+Other special commands:
+startitem()
+item(tt(local) var(arg) ...)(
+Declare variables local to the function.  Note that certain variables
+are used by the function for its own purposes.  Other variables
+may be used, too, but they will be taken from or put into the global
+scope.
+)
+item(tt(function) var(name) [ var(body) ])(
+Define a mathematical function or (with no var(body)) delete it.
+The function is defined using tt(zmathfuncdef), see below.
+
+Note that tt(zcalc) takes care of all quoting.  Hence for example:
+
+example(function cube $1 * $1 * $1)
+
+defines a function to cube the sole argument.
+)
+item(tt([#)var(base)tt(]))(
+When this syntax appears on a line by itself, the default output radix
+is set to var(base).  Use, for example, `tt([#16])' to display hexadecimal
+output preceded by an indication of the base, or `tt([##16])' just to
+display the raw number in the given base.  Bases themselves are always
+specified in decimal. `tt([#])' restores the normal output format.  Note
+that setting an output base suppresses floating point output; use `tt([#])'
+to return to normal operation.
+
+)
+enditem()
+
+See the comments in the function for a few extra tips.
+)
+findex(zmathfuncdef)
+item(tt(zmathfuncdef) var(mathfunc) [ var(body) ])(
+A convenient front end to tt(functions -M).
+
+With two arguments, define a mathematical function named var(mathfunc)
+which can be used in any form of arithmetic evaluation.  var(body)
+is a mathematical expression to implement the function.  It may
+contain references to position parameters tt($1), tt($2), ...
+to refer to mandatory parameters and tt(${1:-)var(defvalue)tt(}) ...
+to refer to optional parameters.  Note that the forms must be
+strictly adhered to for the function to calculate the correct number
+of arguments.  The implementation is held in a shell function named
+tt(zsh_math_func_)var(mathfunc); usually the user will not need
+to refer to the shell function directly.
+
+With one argument, remove the mathematical function var(mathfunc)
+as well as the shell function implementation.
+)
+enditem()
+
+texinode(Other Functions)()(Mathematical Functions)(User Contributions)
 sect(Other Functions)
 
 There are a large number of helpful functions in the tt(Functions/Misc)
@@ -1346,53 +1980,6 @@ This is a good choice in that example because no plain file can be named
 
 For details of the other tt(zargs) options, see zmanref(xargs) or run
 tt(zargs) with the tt(-)tt(-help) option.
-)
-findex(zcalc)
-item(tt(zcalc) [ var(expression) ... ])(
-A reasonably powerful calculator based on zsh's arithmetic evaluation
-facility.  The syntax is similar to that of formulae in most programming
-languages; see
-ifzman(the section `Arithmetic Evaluation' in zmanref(zshmisc))\
-ifnzman(noderef(Arithmetic Evaluation)) for details.  The mathematical
-library tt(zsh/mathfunc) will be loaded if it is available; see
-ifzman(the section `The zsh/mathfunc Module' in zmanref(zshmodules))\
-ifnzman(noderef(The zsh/mathfunc Module)).  The mathematical functions
-correspond to the raw system libraries, so trigonometric functions are
-evaluated using radians, and so on.
-
-Each line typed is evaluated as an expression.  The prompt shows a number,
-which corresponds to a positional parameter where the result of that
-calculation is stored.  For example, the result of the calculation on the
-line preceded by `tt(4> )' is available as tt($4).  Full command line
-editing, including the history of previous calculations, is available; the
-history is saved in the file tt(~/.zcalc_history).  To exit, enter a blank
-line or type `tt(q)' on its own.
-
-If arguments are given to tt(zcalc) on start up, they are used to prime the
-first few positional parameters.  A visual indication of this is given when
-the calculator starts.
-
-The constants tt(PI) (3.14159...) and tt(E) (2.71828...) are provided.
-Parameter assignment is possible, but note that all parameters will be put
-into the global namespace.
-
-An extra facility is provided for changing the default output base.  Use,
-for example, `tt([#16])' to display hexadecimal output preceded by an
-indication of the base, or `tt([##16])' just to display the raw number in
-the given base.  Bases themselves are always specified in decimal.
-`tt([#])' restores the normal output format.
-
-The output base can be initialised by passing the option `tt(-#)var(base)',
-for example `tt(zcalc -#16)' (the `tt(#)' may have to be quoted, depending
-on the globbing options set).
-
-The prompt is configurable via the parameter tt(ZCALCPROMPT), which
-undergoes standard prompt expansion.  The index of the current entry is
-stored locally in the first element of the array tt(psvar), which can be
-referred to in tt(ZCALCPROMPT) as `tt(%1v)'.  The default prompt is
-`tt(%1v> )'.
-
-See the comments in the function for a few extra tips.
 )
 findex(zed)
 xitem(tt(zed) [ tt(-f) ] var(name))

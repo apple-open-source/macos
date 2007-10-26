@@ -1,3 +1,13 @@
+Sun Oct 15 22:31:42 CEST 2006 Daniel Veillard <daniel@veillard.com>
+
+	* parser.c: fix the patch for unreproductable #343000 but
+	  also fix a line/column keeping error
+	* result/errors/attr1.xml.err result/errors/attr2.xml.err
+	  result/errors/name.xml.err result/errors/name2.xml.err 
+	  result/schemas/anyAttr-processContents-err1_0_0.err 
+	  result/schemas/bug312957_1_0.err: affected lines in error output
+	  of the regression tests
+
 Wed Nov 10 15:35:25 CET 2004 Daniel Veillard <daniel@veillard.com>
 
 	* NEWS configure.in doc/*: preparing release of libxml2-2.6.16

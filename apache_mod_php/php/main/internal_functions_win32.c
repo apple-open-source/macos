@@ -1,6 +1,6 @@
 /* 
 	+----------------------------------------------------------------------+
-	| PHP Version 4                                                        |
+	| PHP Version 5                                                        |
 	+----------------------------------------------------------------------+
 	| Copyright (c) 1997-2007 The PHP Group                                |
 	+----------------------------------------------------------------------+
@@ -15,20 +15,23 @@
 	| Authors: Andi Gutmans <andi@zend.com>                                |
 	|          Zeev Suraski <zeev@zend.com>                                |
 	+----------------------------------------------------------------------+
-
-	$Id: internal_functions_win32.c,v 1.65.2.3.4.2 2007/01/01 09:46:50 sebastian Exp $
 */
+
+/* $Id: internal_functions_win32.c,v 1.87.2.1.2.3 2007/01/01 09:36:11 sebastian Exp $ */
 
 /* {{{ includes
  */
 #include "php.h"
 #include "php_main.h"
 #include "zend_modules.h"
-#include "internal_functions_registry.h"
 #include "zend_compile.h"
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#ifndef ZEND_ENGINE_2
+#error HEAD does not work with ZendEngine1 anymore
+#endif
 
 #include "ext/standard/dl.h"
 #include "ext/standard/file.h"
@@ -45,7 +48,8 @@
 #include "ext/standard/php_lcg.h"
 #include "ext/standard/php_array.h"
 #include "ext/standard/php_assert.h"
-#if WITH_BCMATH
+#include "ext/reflection/php_reflection.h"
+#if HAVE_BCMATH
 #include "ext/bcmath/php_bcmath.h"
 #endif
 #if HAVE_CALENDAR
@@ -54,11 +58,14 @@
 #if HAVE_CTYPE
 #include "ext/ctype/php_ctype.h"
 #endif
-#if HAVE_COM
-#include "ext/com/php_COM.h"
+#if HAVE_DATE
+#include "ext/date/php_date.h"
 #endif
 #if HAVE_FTP
 #include "ext/ftp/php_ftp.h"
+#endif
+#if HAVE_ICONV
+#include "ext/iconv/php_iconv.h"
 #endif
 #include "ext/standard/reg.h"
 #if HAVE_PCRE || HAVE_BUNDLED_PCRE
@@ -70,22 +77,8 @@
 #if HAVE_PHP_SESSION
 #include "ext/session/php_session.h"
 #endif
-#if HAVE_LIBEXPAT
-#include "ext/xml/php_xml.h"
-#endif
-#if HAVE_LIBEXPAT && HAVE_WDDX
-#include "ext/wddx/php_wddx.h"
-#endif
-#if HAVE_MYSQL
-#include "ext/mysql/php_mysql.h"
-#endif
 #if HAVE_MBSTRING
 #include "ext/mbstring/mbstring.h"
-#endif
-#ifndef ZEND_ENGINE_2
-#if HAVE_OVERLOAD
-#include "ext/overload/php_overload.h"
-#endif
 #endif
 #if HAVE_TOKENIZER
 #include "ext/tokenizer/php_tokenizer.h"
@@ -93,67 +86,116 @@
 #if HAVE_ZLIB
 #include "ext/zlib/php_zlib.h"
 #endif
+#if HAVE_LIBXML
+#include "ext/libxml/php_libxml.h"
+#if HAVE_DOM
+#include "ext/dom/php_dom.h"
+#endif
+#if HAVE_SIMPLEXML
+#include "ext/simplexml/php_simplexml.h"
+#endif
+#endif
+#if HAVE_XML
+#include "ext/xml/php_xml.h"
+#endif
+#if HAVE_XML && HAVE_WDDX
+#include "ext/wddx/php_wddx.h"
+#endif
+#ifdef HAVE_SQLITE
+#include "ext/sqlite/php_sqlite.h"
+#endif
+#include "ext/com_dotnet/php_com_dotnet.h"
+#ifdef HAVE_SPL
+#include "ext/spl/php_spl.h"
+#endif
+#if HAVE_XML && HAVE_XMLREADER
+#include "ext/xmlreader/php_xmlreader.h"
+#endif
+#if HAVE_XML && HAVE_XMLWRITER
+#include "ext/xmlwriter/php_xmlwriter.h"
+#endif
 /* }}} */
 
 /* {{{ php_builtin_extensions[]
  */
-zend_module_entry *php_builtin_extensions[] = {
+static zend_module_entry *php_builtin_extensions[] = {
 	phpext_standard_ptr
-#if WITH_BCMATH
+#if HAVE_BCMATH
 	,phpext_bcmath_ptr
 #endif
 #if HAVE_CALENDAR
 	,phpext_calendar_ptr
 #endif
+	,phpext_com_dotnet_ptr
 #if HAVE_CTYPE
 	,phpext_ctype_ptr
 #endif
-#if HAVE_COM
-	,phpext_com_ptr
+#if HAVE_DATE
+	,phpext_date_ptr
 #endif
 #if HAVE_FTP
 	,phpext_ftp_ptr
 #endif
+#if HAVE_HASH
+	,phpext_hash_ptr
+#endif
+#if HAVE_ICONV
+	,phpext_iconv_ptr
+#endif
 #if HAVE_MBSTRING
 	,phpext_mbstring_ptr
-#endif
-#if HAVE_MYSQL
-	,phpext_mysql_ptr
 #endif
 #if HAVE_UODBC
 	,phpext_odbc_ptr
 #endif
-#ifndef ZEND_ENGINE_2
-#if HAVE_OVERLOAD
-  ,phpext_overload_ptr
-#endif
-#endif
 #if HAVE_PCRE || HAVE_BUNDLED_PCRE
 	,phpext_pcre_ptr
 #endif
+	,phpext_reflection_ptr
 #if HAVE_PHP_SESSION
 	,phpext_session_ptr
 #endif
 #if HAVE_TOKENIZER
 	,phpext_tokenizer_ptr
 #endif
-#if HAVE_LIBEXPAT
-	,phpext_xml_ptr
-#endif
-#if HAVE_LIBEXPAT && HAVE_WDDX
-	,phpext_wddx_ptr
-#endif
 #if HAVE_ZLIB
 	,phpext_zlib_ptr
+#endif
+#if HAVE_LIBXML
+	,phpext_libxml_ptr
+#if HAVE_DOM
+	,phpext_dom_ptr
+#endif
+#if HAVE_SIMPLEXML
+	,phpext_simplexml_ptr
+#endif
+#endif
+#if HAVE_XML
+	,phpext_xml_ptr
+#endif
+#if HAVE_XML && HAVE_WDDX
+	,phpext_wddx_ptr
+#endif
+#if HAVE_SQLITE
+	,phpext_sqlite_ptr
+#endif
+#if HAVE_SPL
+	,phpext_spl_ptr
+#endif
+#if HAVE_XML && HAVE_XMLREADER
+	,phpext_xmlreader_ptr
+#endif
+#if HAVE_XML && HAVE_XMLWRITER
+	,phpext_xmlwriter_ptr
 #endif
 };
 /* }}} */
 
 #define EXTCOUNT (sizeof(php_builtin_extensions)/sizeof(zend_module_entry *))
 	
-int php_startup_internal_extensions(void)
+int php_register_internal_extensions(TSRMLS_D)
 {
-	return php_startup_extensions(php_builtin_extensions, EXTCOUNT);
+	return php_register_extensions(php_builtin_extensions, EXTCOUNT TSRMLS_CC);
 }
 
 /*

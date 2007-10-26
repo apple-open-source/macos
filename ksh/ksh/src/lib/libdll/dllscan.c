@@ -1,30 +1,26 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1997-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1997-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
- * AT&T Labs Research
+ * AT&T Research
  */
 
 #define _DLLINFO_PRIVATE_ \
@@ -64,7 +60,6 @@
 #include <ctype.h>
 #include <error.h>
 #include <fts.h>
-#include <sfstr.h>
 #include <vmalloc.h>
 
 typedef struct Uniq_s
@@ -226,7 +221,7 @@ dllsopen(const char* lib, const char* name, const char* version)
 
 	if (!(vm = vmopen(Vmdcheap, Vmlast, 0)))
 		return 0;
-	if (lib)
+	if (lib && *lib && (*lib != '-' || *(lib + 1)))
 	{
 		/*
 		 * grab the local part of the library id
@@ -237,7 +232,10 @@ dllsopen(const char* lib, const char* name, const char* version)
 		i = 2 * sizeof(char**) + strlen(lib) + 5;
 	}
 	else
+	{
+		lib = 0;
 		i = 0;
+	}
 	if (!(scan = vmnewof(vm, 0, Dllscan_t, 1, i)) || !(scan->tmp = sfstropen()))
 	{
 		vmclose(vm);
@@ -252,13 +250,21 @@ dllsopen(const char* lib, const char* name, const char* version)
 	scan->vm = vm;
 	info = dllinfo();
 	scan->flags = info->flags;
-	if (!name)
+	if (!name || !*name || *name == '-' && !*(name + 1))
 	{
 		name = (const char*)"?*";
 		scan->flags |= DLL_MATCH_NAME;
 	}
-	if (!version)
+	else if (t = strrchr(name, '/'))
 	{
+		if (!(scan->pb = vmnewof(vm, 0, char, t - (char*)name, 2)))
+			goto bad;
+		memcpy(scan->pb, name, t - (char*)name);
+		name = (const char*)(t + 1);
+	}
+	if (!version || !*version || *version == '-' && !*(version + 1))
+	{
+		version = 0;
 		scan->flags |= DLL_MATCH_VERSION;
 		sfsprintf(scan->nam, sizeof(scan->nam), "%s%s%s", info->prefix, name, info->suffix);
 	}
@@ -269,7 +275,9 @@ dllsopen(const char* lib, const char* name, const char* version)
 			if (isdigit(*s))
 				sfputc(scan->tmp, *s);
 		sfprintf(scan->tmp, "%s", info->suffix);
-		sfsprintf(scan->nam, sizeof(scan->nam), "%s", sfstruse(scan->tmp));
+		if (!(s = sfstruse(scan->tmp)))
+			goto bad;
+		sfsprintf(scan->nam, sizeof(scan->nam), "%s", s);
 	}
 	else
 	{
@@ -305,6 +313,9 @@ dllsopen(const char* lib, const char* name, const char* version)
 	scan->prelen = strlen(info->prefix);
 	scan->suflen = strlen(info->suffix);
 	return scan;
+ bad:
+	dllsclose(scan);
+	return 0;
 }
 
 /*
@@ -374,8 +385,9 @@ dllsread(register Dllscan_t* scan)
 			if (!(scan->flags & DLL_MATCH_NAME))
 			{
 				sfprintf(scan->tmp, "/%s", scan->nam);
-				p = sfstruse(scan->tmp);
-				if (!access(p, R_OK))
+				if (!(p = sfstruse(scan->tmp)))
+					return 0;
+				if (!eaccess(p, R_OK))
 				{
 					b = scan->nam;
 					goto found;
@@ -385,16 +397,19 @@ dllsread(register Dllscan_t* scan)
 			}
 			if (scan->flags & (DLL_MATCH_NAME|DLL_MATCH_VERSION))
 			{
-				sfstrset(scan->tmp, scan->off);
-				if ((scan->fts = fts_open((char**)sfstruse(scan->tmp), FTS_LOGICAL|FTS_NOPOSTORDER|FTS_ONEPATH, vercmp)) && (scan->ent = fts_read(scan->fts)) && (scan->ent = fts_children(scan->fts, FTS_NOSTAT)))
+				sfstrseek(scan->tmp, scan->off, SEEK_SET);
+				if (!(t = sfstruse(scan->tmp)))
+					return 0;
+				if ((scan->fts = fts_open((char**)t, FTS_LOGICAL|FTS_NOPOSTORDER|FTS_ONEPATH, vercmp)) && (scan->ent = fts_read(scan->fts)) && (scan->ent = fts_children(scan->fts, FTS_NOSTAT)))
 					break;
 			}
 		}
 	} while (!strmatch(scan->ent->fts_name, scan->pat));
 	b = scan->ent->fts_name;
-	sfstrset(scan->tmp, scan->off);
+	sfstrseek(scan->tmp, scan->off, SEEK_SET);
 	sfprintf(scan->tmp, "/%s", b);
-	p = sfstruse(scan->tmp);
+	if (!(p = sfstruse(scan->tmp)))
+		return 0;
  found:
 	b = scan->buf + sfsprintf(scan->buf, sizeof(scan->buf), "%s", b + scan->prelen);
 	if (!(scan->flags & DLL_INFO_PREVER))

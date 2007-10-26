@@ -37,30 +37,6 @@
 		};
 /* End PBXBuildRule section */
 
-/* Begin PBXBuildStyle section */
-		F5C9C3AF021C70CE01650119 /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		F5C9C3B0021C70CE01650119 /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXCopyFilesBuildPhase section */
 		A1592AC706CBC9D2008C2518 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -75,6 +51,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A108E6410A41E4E4008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E6420A41E4E4008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		A11CD93506EFAB420038B69F /* compile_et.M */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; path = compile_et.M; sourceTree = "<group>"; };
 		A14CB4C508EB1A4400601146 /* Code Fragment Manager.et */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "Code Fragment Manager.et"; sourceTree = "<group>"; };
 		A1AB1DAD05DDC34C00526345 /* libKerberosErrors.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libKerberosErrors.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -210,6 +188,8 @@
 		F5C9C3AE021C70CE01650119 = {
 			isa = PBXGroup;
 			children = (
+				A108E6410A41E4E4008545E5 /* Release.xcconfig */,
+				A108E6420A41E4E4008545E5 /* Debug.xcconfig */,
 				F5FCBFA90226913001603B63 /* KerberosErrors.pbexp */,
 				F59DBAF602289C2501D5A565 /* KerberosErrors.intermediates */,
 				A11CD93206EFAB420038B69F /* Documentation */,
@@ -258,25 +238,6 @@
 			buildRules = (
 				A1B706B90872F45A00F0C55D /* PBXBuildRule */,
 			);
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
-					"$(SRCROOT)/../../KerberosDebug/Headers",
-					"$(SRCROOT)/../../KerberosLogin/Headers",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos",
-				);
-				LIBRARY_STYLE = STATIC;
-				PRODUCT_NAME = KerberosErrors;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = KerberosErrors;
@@ -291,12 +252,6 @@
 		F5C9C3AD021C70CE01650119 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = A1518EF6086C85DC0042CBBC /* Build configuration list for PBXProject "KerberosErrors" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				F5C9C3AF021C70CE01650119 /* Development */,
-				F5C9C3B0021C70CE01650119 /* Deployment */,
-			);
 			hasScannedForEncodings = 1;
 			mainGroup = F5C9C3AE021C70CE01650119;
 			productRefGroup = F5C9C3F5021C74A101650119 /* Products */;
@@ -356,16 +311,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A1518EF3086C85DC0042CBBC /* Development */ = {
+		A1518EF3086C85DC0042CBBC /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6420A41E4E4008545E5 /* Debug.xcconfig */;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/../Headers",
 					"$(SRCROOT)/../../KerberosDebug/Headers",
@@ -373,21 +322,14 @@
 					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
 					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos",
 				);
-				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = KerberosErrors;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		A1518EF4086C85DC0042CBBC /* Deployment */ = {
+		A1518EF4086C85DC0042CBBC /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6410A41E4E4008545E5 /* Release.xcconfig */;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/../Headers",
 					"$(SRCROOT)/../../KerberosDebug/Headers",
@@ -395,50 +337,23 @@
 					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
 					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos",
 				);
-				LIBRARY_STYLE = STATIC;
 				PRODUCT_NAME = KerberosErrors;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		A1518EF5086C85DC0042CBBC /* Default */ = {
+		A1518EF7086C85DC0042CBBC /* Debug */ = {
 			isa = XCBuildConfiguration;
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/../Headers",
-					"$(SRCROOT)/../../KerberosDebug/Headers",
-					"$(SRCROOT)/../../KerberosLogin/Headers",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates",
-					"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/Kerberos",
-				);
-				LIBRARY_STYLE = STATIC;
-				PRODUCT_NAME = KerberosErrors;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = "-Wall";
-			};
-			name = Default;
-		};
-		A1518EF7086C85DC0042CBBC /* Development */ = {
-			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6420A41E4E4008545E5 /* Debug.xcconfig */;
 			buildSettings = {
 			};
-			name = Development;
+			name = Debug;
 		};
-		A1518EF8086C85DC0042CBBC /* Deployment */ = {
+		A1518EF8086C85DC0042CBBC /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E6410A41E4E4008545E5 /* Release.xcconfig */;
 			buildSettings = {
 			};
-			name = Deployment;
-		};
-		A1518EF9086C85DC0042CBBC /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -446,22 +361,20 @@
 		A1518EF2086C85DC0042CBBC /* Build configuration list for PBXNativeTarget "KerberosErrors" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1518EF3086C85DC0042CBBC /* Development */,
-				A1518EF4086C85DC0042CBBC /* Deployment */,
-				A1518EF5086C85DC0042CBBC /* Default */,
+				A1518EF3086C85DC0042CBBC /* Debug */,
+				A1518EF4086C85DC0042CBBC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Debug;
 		};
 		A1518EF6086C85DC0042CBBC /* Build configuration list for PBXProject "KerberosErrors" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A1518EF7086C85DC0042CBBC /* Development */,
-				A1518EF8086C85DC0042CBBC /* Deployment */,
-				A1518EF9086C85DC0042CBBC /* Default */,
+				A1518EF7086C85DC0042CBBC /* Debug */,
+				A1518EF8086C85DC0042CBBC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};

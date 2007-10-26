@@ -1,4 +1,4 @@
-$ $Id: set26,v 1.1.1.1 2001/06/28 23:11:07 bbraun Exp $
+$ $Id: set26,v 1.1 2000/01/14 22:57:33 christos Exp $
 $ tc.who.c
 $set 26 
 1 Testaaminen ei onnistu: stat(%s).  Ole hyvä ja suorita "unset watch".\n

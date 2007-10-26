@@ -37,10 +37,12 @@
 #include "DirServicesConst.h"
 #include "PrivateTypes.h"
 
+#define AUGMENT_RECORDS 1
+
 //used for fSearchPolicy
-const uInt32	kNetInfoSearchPolicy	= 1;
-const uInt32	kLocalSearchPolicy		= 2;
-const uInt32	kCustomSearchPolicy		= 3;
+const UInt32	kAutomaticSearchPolicy	= 1;
+const UInt32	kLocalSearchPolicy		= 2;
+const UInt32	kCustomSearchPolicy		= 3;
 
 //XML label tags
 #define	kXMLSearchPathVersionKey		"Search Node PlugIn Version"
@@ -48,9 +50,18 @@ const uInt32	kCustomSearchPolicy		= 3;
 #define kXMLSearchPathArrayKey			"Search Node Custom Path Array"
 #define kXMLSearchDHCPLDAP				"DHCP LDAP"
 
+#if AUGMENT_RECORDS
+#define kXMLAugmentSearchKey			"Augment Search"				//bool deciding whether to attempt to augment search data
+#define kXMLAugmentDirNodeNameKey		"Augment Directory Node Name"	//nodename on which to search for augment record data
+#define kXMLToBeAugmentedDirNodeNameKey	"Augmented Directory Node Name"	//nodename which is augmented with data from another node
+#define kXMLAugmentAttrListDictKey		"Augment Attribute List"		//list of specific augment attributes per record type
+//dictionary of record type keys pointing to arrays of strings holding attribute types
+#endif
+
 typedef struct sSearchList {
 	bool				fOpened;
-	bool				fPreviousOpenFailed;
+	bool				fHasNeverOpened;
+	bool				fNodeReachable;
 	tDirNodeReference	fNodeRef;
 	char			   *fNodeName;
 	tDataList		   *fDataList;
@@ -61,29 +72,42 @@ class CConfigs
 {
 public:
 						CConfigs			( void );
-	sInt32				Init				( const char *inSearchNodeConfigFilePrefix, uInt32 &outSearchPolicy );
+	SInt32				Init				( const char *inSearchNodeConfigFilePrefix, UInt32 &outSearchPolicy );
 	sSearchList		   *GetCustom  			( void );
 	virtual			   ~CConfigs			( void );
-	sInt32				CleanListData		( sSearchList *inList );
-	sInt32				SetListArray		( CFMutableArrayRef inCSPArray );
-	sInt32				WriteConfig			( void );
-	sInt32				SetSearchPolicy		( uInt32 inSearchPolicy );
+	SInt32				CleanListData		( sSearchList *inList );
+	SInt32				SetListArray		( CFMutableArrayRef inCSPArray );
+	SInt32				WriteConfig			( void );
+	SInt32				SetSearchPolicy		( UInt32 inSearchPolicy );
 	void				SetDHCPLDAPDictionary ( CFDictionaryRef dhcpLDAPdict );
 	CFDictionaryRef		GetDHCPLDAPDictionary ( void );
+#if AUGMENT_RECORDS
+	CFDictionaryRef		AugmentAttrListDict ( void );
+	char			   *AugmentDirNodeName	( void );
+	char			   *ToBeAugmentedDirNodeName( void );
+	bool				AugmentSearch		( void );
+	void				UpdateAugmentDict	( CFDictionaryRef inDict );
+#endif
 	bool				IsDHCPLDAPEnabled	( void );
 
 protected:
-	sInt32				ConfigList			( void );
-	sInt32				ConfigSearchPolicy 	( void );
+	SInt32				ConfigList			( void );
+	SInt32				ConfigSearchPolicy 	( void );
 	char			   *GetVersion			( CFDictionaryRef configDict );
-	uInt32				GetSearchPolicy		( CFDictionaryRef configDict );
+#if AUGMENT_RECORDS
+	char			   *GetAugmentDirNodeName ( CFDictionaryRef configDict );
+	char			   *GetToBeAugmentedDirNodeName ( CFDictionaryRef configDict );
+	bool				GetAugmentSearch	( CFDictionaryRef configDict );
+	CFDictionaryRef		GetAugmentAttrListDict ( CFDictionaryRef configDict );
+#endif
+	UInt32				GetSearchPolicy		( CFDictionaryRef configDict );
 	CFArrayRef			GetListArray		( CFDictionaryRef configDict );
 	sSearchList		   *MakeListData		( char *inNodeName );
 
 private:
 	sSearchList	   *pSearchNodeList;
-	uInt32			fSearchNodeListLength;
-	uInt32			fSearchPolicy;
+	UInt32			fSearchNodeListLength;
+	UInt32			fSearchPolicy;
 	tDirReference	fDirRef;
 	CFMutableDictionaryRef	fConfigDict;
 	char		   *fSearchNodeConfigFileName;
@@ -93,7 +117,16 @@ private:
 	CFStringRef		fXMLSearchPolicyKeyString;
 	CFStringRef		fXMLSearchPathArrayKeyString;
 	CFStringRef		fXMLSearchDHCPLDAPString;
-
+#if AUGMENT_RECORDS
+	bool			bAugmentSearch;
+	CFStringRef		fXMLAugmentSearchKeyString;
+	CFStringRef		fXMLToBeAugmentedDirNodeNameKeyString;
+	char		   *fAugmentDirNodeName;
+	char		   *fToBeAugmentedDirNodeName;
+	CFStringRef		fXMLAugmentDirNodeNameKeyString;
+	CFStringRef		fXMLAugmentAttrListDictKeyString;
+	CFDictionaryRef	fAugmentAttrListDict;
+#endif
 };
 
 #endif	// __CConfigs_h__

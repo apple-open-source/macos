@@ -1,0 +1,69 @@
+2006-05-19  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Bump to 1.0.2
+
+2006-04-15  Matthieu Herrb  <matthieu.herrb@laas.fr>
+
+	* Imake.tmpl:
+	rman is not built by modular tree.
+	* X11.tmpl:
+	DefaultRGBDatabase is now in share/X11
+	* configure.ac:
+	Generate site.def from site.def.in to set ProjectRoot to $prefix
+	* site.def.in:
+	Add
+	* site.def:
+	Remove
+
+2006-02-02  Jeremy C. Reed  <reed@reedmedia.net>
+
+	* bsdLib.rules:
+	INSTALLMINORREV = true for DragonFly.  Help DragonFly since
+	the package build system knows and uses these "minor
+	revisions". As discussed with DragonFly developer, Joerg
+	Sonnenberger.  And I was told this is probably just an
+	historic artifact from a.out versioning (but would be hard
+	to change for FreeBSD because many ports pkg-plists would
+	need to be changed).
+
+2005-12-20  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version for X11R7 release.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-10  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	* configure.ac:
+	Add configure option to set config install dir.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-11-18  Adam Jackson  <ajax@freedesktop.org>
+
+	* Makefile.am:
+	Bug #4726: Placate imake by building dummy host.def and friends.
+	(Joshua Baergen)
+
+2005-11-09  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC2 release.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-10-05  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	Initial revision

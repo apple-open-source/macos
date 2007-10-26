@@ -32,7 +32,7 @@
 #include <security_utilities/mach++.h>
 #include <security_utilities/unix++.h>
 #include <security_ocspd/ocspd.h>			/* MIG interface */
-#include <CommonCrypto/CommonDigest.h>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 class ocspdGlobals
 {
@@ -223,6 +223,7 @@ CSSM_RETURN ocspdCertFetch(
 CSSM_RETURN ocspdCRLFetch(
 	Allocator			&alloc,
 	const CSSM_DATA		&crlURL,
+	const CSSM_DATA		*crlIssuer,		// optional
 	bool				cacheReadEnable,
 	bool				cacheWriteEnable,
 	CSSM_TIMESTRING 	verifyTime,
@@ -246,6 +247,7 @@ CSSM_RETURN ocspdCRLFetch(
 	}
 	
 	krtn = ocsp_client_crlFetch(serverPort, crlURL.Data, crlURL.Length,
+		crlIssuer ? crlIssuer->Data : NULL, crlIssuer ? crlIssuer->Length : 0,
 		cacheReadEnable, cacheWriteEnable,
 		verifyTime, strlen(verifyTime),
 		(void **)&rtnData, &rtnLen);
@@ -318,4 +320,78 @@ CSSM_RETURN ocspdCRLFlush(
 		return CSSMERR_APPLETP_NETWORK_FAILURE;
 	}
 	return CSSM_OK;
+}
+
+/*
+ * Obtain TrustSettings. 
+ */
+OSStatus ocspdTrustSettingsRead(
+	Allocator				&alloc,
+	SecTrustSettingsDomain 	domain,
+	CSSM_DATA				&trustSettings)		// mallocd via alloc and RETURNED
+{
+	mach_port_t serverPort = 0;
+	kern_return_t krtn;
+	unsigned char *rtnData = NULL;
+	unsigned rtnLen = 0;
+	OSStatus ortn;
+
+	try {
+		serverPort = OcspdGlobals().serverPort();
+	} 
+	catch(...) {
+		ocspdErrorLog("ocspdTrustSettingsRead: OCSPD server error\n");
+		return internalComponentErr;
+	}
+	
+	krtn = ocsp_client_trustSettingsRead(serverPort, domain,
+		(void **)&rtnData, &rtnLen, &ortn);
+	if(krtn) {
+		ocspdErrorLog("ocspdTrustSettingsRead: RPC returned %d\n", krtn);
+		return errSecNotAvailable;
+	}
+	if(ortn) {
+		/* e.g., errSecNoUserTrustRecord */
+		return ortn;
+	}
+	if((rtnData == NULL) || (rtnLen == 0)) {
+		ocspdErrorLog("ocspdTrustSettingsRead: RPC returned NULL data\n");
+		return errSecItemNotFound;
+	}
+	trustSettings.Data = (uint8 *)alloc.malloc(rtnLen);
+	trustSettings.Length = rtnLen;
+	memmove(trustSettings.Data, rtnData, rtnLen);
+	mig_deallocate((vm_address_t)rtnData, rtnLen);
+	return noErr;
+}
+
+/*
+ * Write TrustSettings to disk. Results in authentication dialog.
+ */
+OSStatus ocspdTrustSettingsWrite(
+	SecTrustSettingsDomain 	domain,
+	const CSSM_DATA			&authBlob,
+	const CSSM_DATA			&trustSettings)
+{
+	mach_port_t serverPort = 0;
+	kern_return_t krtn;
+	OSStatus ortn;
+
+	try {
+		serverPort = OcspdGlobals().serverPort();
+	} 
+	catch(...) {
+		ocspdErrorLog("ocspdTrustSettingsWrite: OCSPD server error\n");
+		return internalComponentErr;
+	}
+
+	krtn = ocsp_client_trustSettingsWrite(serverPort, domain,
+		authBlob.Data, authBlob.Length,
+		trustSettings.Data, trustSettings.Length,
+		&ortn);
+	if(krtn) {
+		ocspdErrorLog("ocspdTrustSettingsWrite: RPC returned %d\n", krtn);
+		return internalComponentErr;
+	}
+	return ortn;
 }

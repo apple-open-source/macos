@@ -1,5 +1,5 @@
-# Local preferences functions for GDBtk.
-# Copyright 2000, 2001, 2002 Red Hat, Inc.
+# Local preferences functions for Insight.
+# Copyright 2000, 2001, 2002, 2004 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -173,7 +173,10 @@ namespace eval Session {
     set values(dirs) $gdb_source_path
     set values(pwd) $gdb_current_directory
     set values(target) $gdb_target_name
+    set values(hostname) [pref getd gdb/load/$gdb_target_name-hostname]
+    set values(port) [pref getd gdb/load/$gdb_target_name-portname]
     set values(target_cmd) $::gdb_target_cmd
+    set values(bg) $::gdb_bg_num
 
     # these prefs need to be made session-dependent
     set values(run_attach) [pref get gdb/src/run_attach]
@@ -184,11 +187,11 @@ namespace eval Session {
     # Breakpoints.
     set values(breakpoints) [_serialize_bps]
 
-    # Recompute list of recent sessions.  Trim to no more than 5 sessions.
+    # Recompute list of recent sessions.  Trim to no more than 20 sessions.
     set recent [concat [list $name] \
 		  [lremove [pref getd gdb/recent-projects] $name]]
-    if {[llength $recent] > 5} then {
-      set recent [lreplace $recent 5 end]
+    if {[llength $recent] > 20} {
+      set recent [lreplace $recent 20 end]
     }
     pref setd gdb/recent-projects $recent
 
@@ -248,7 +251,7 @@ namespace eval Session {
       return
     }
 
-    debug "reloading session for $gdb_exe_name"
+    debug "reloading session for $name"
 
     if {[info exists values(dirs)]} {
       # FIXME: short-circuit confirmation.
@@ -269,9 +272,20 @@ namespace eval Session {
     }
 
     if {[info exists values(target)]} {
-      debug "Restoring Target: $values(target)"
+      #debug "Restoring Target: $values(target)"
       set gdb_target_name $values(target)
-      debug "Restoring Target_Cmd: $values(target_cmd)"
+
+      if {[info exists values(hostname)]} {
+	pref setd gdb/load/$gdb_target_name-hostname $values(hostname)
+	#debug "Restoring Hostname: $values(hostname)"
+      }
+
+      if {[info exists values(port)]} {
+	pref setd gdb/load/$gdb_target_name-portname $values(port)
+	#debug "Restoring Port: $values(port)"
+      }
+
+      #debug "Restoring Target_Cmd: $values(target_cmd)"
       set ::gdb_target_cmd $values(target_cmd)
       set_baud
     }
@@ -281,7 +295,11 @@ namespace eval Session {
       pref set gdb/src/run_load $values(run_load)
       pref set gdb/src/run_run $values(run_run)
       pref set gdb/src/run_cont $values(run_cont)
-    } 
+    }
+
+    if {[info exists values(bg)] && [pref get gdb/use_color_schemes]} {
+      set_bg_colors $values(bg)
+    }
   }
 
   #

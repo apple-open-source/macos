@@ -1,15 +1,16 @@
 dnl libnet.m4--libnet and includes
 dnl Derrick Brashear
 dnl from KTH krb and Arla
+dnl $Id: libnet.m4,v 1.4 2006/01/20 20:21:09 snsimon Exp $
 
-AC_DEFUN(CMU_LIBNET_CFG_WHERE1, [
+AC_DEFUN([CMU_LIBNET_CFG_WHERE1], [
 ac_cv_found_libnet_bin=no
 if test -f "$1/libnet-config" ; then
   ac_cv_found_libnet_cfg=yes
 fi
 ])
 
-AC_DEFUN(CMU_LIBNET_CFG_WHERE, [
+AC_DEFUN([CMU_LIBNET_CFG_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for libnet config in $i)
       CMU_LIBNET_CFG_WHERE1($i)
@@ -23,14 +24,14 @@ AC_DEFUN(CMU_LIBNET_CFG_WHERE, [
     done
 ])
 
-AC_DEFUN(CMU_LIBNET_INC_WHERE1, [
+AC_DEFUN([CMU_LIBNET_INC_WHERE1], [
 ac_cv_found_libnet_inc=no
 if test -f "$1/libnet.h" ; then
   ac_cv_found_libnet_inc=yes
 fi
 ])
 
-AC_DEFUN(CMU_LIBNET_INC_WHERE, [
+AC_DEFUN([CMU_LIBNET_INC_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for libnet header in $i)
       CMU_LIBNET_INC_WHERE1($i)
@@ -44,8 +45,7 @@ AC_DEFUN(CMU_LIBNET_INC_WHERE, [
     done
 ])
 
-AC_DEFUN(CMU_LIBNET_LIB_WHERE1, [
-AC_REQUIRE([AC_PROG_CC_GNU])
+AC_DEFUN([CMU_LIBNET_LIB_WHERE1], [
 saved_LIBS=$LIBS
 LIBS="$saved_LIBS -L$1 -lnet"
 AC_TRY_LINK(,
@@ -62,7 +62,7 @@ ac_cv_found_libnet_lib=no)
 LIBS=$saved_LIBS
 ])
 
-AC_DEFUN(CMU_LIBNET_LIB_WHERE, [
+AC_DEFUN([CMU_LIBNET_LIB_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for libnet library in $i)
       CMU_LIBNET_LIB_WHERE1($i)
@@ -77,7 +77,8 @@ AC_DEFUN(CMU_LIBNET_LIB_WHERE, [
     done
 ])
 
-AC_DEFUN(CMU_LIBNET, [
+AC_DEFUN([CMU_LIBNET], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_ARG_WITH(libnet,
 	[  --with-libnet=PREFIX      Compile with LIBNET support],
 	[if test "X$with_libnet" = "X"; then
@@ -106,7 +107,7 @@ AC_ARG_WITH(libnet-include,
             else
 	      ac_cv_libnet_where_cfg=$with_libnet/bin
             fi
-	    ac_cv_libnet_where_lib=$with_libnet/lib
+	    ac_cv_libnet_where_lib=$with_libnet/$CMU_LIB_SUBDIR
 	    ac_cv_libnet_where_inc=$with_libnet/include
 	  fi
 	fi
@@ -122,7 +123,7 @@ AC_ARG_WITH(libnet-include,
 	  ac_cv_libnet_where_lib=$with_libnet_lib
 	fi
 	if test "X$ac_cv_libnet_where_lib" = "X"; then
-	  CMU_LIBNET_LIB_WHERE(/usr/ng/lib /usr/lib /usr/local/lib)
+	  CMU_LIBNET_LIB_WHERE(/usr/ng/$CMU_LIB_SUBDIR /usr/$CMU_LIB_SUBDIR /usr/local/$CMU_LIB_SUBDIR)
 	fi
 
 	if test "X$with_libnet_include" != "X"; then

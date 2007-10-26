@@ -36,11 +36,11 @@
  * SUCH DAMAGE.
  */
 
-/* $Id: inet_pton.c,v 1.1.1.1 2004/02/05 19:22:28 rbraun Exp $ */
+/* $Id: inet_pton.c,v 1.2 2003/11/15 23:24:06 guy Exp $ */
 
 #ifndef lint
 static const char rcsid[] _U_ =
-     "@(#) $Header: /cvs/root/libpcap/libpcap/Win32/Src/inet_pton.c,v 1.1.1.1 2004/02/05 19:22:28 rbraun Exp $";
+     "@(#) $Header: /tcpdump/master/libpcap/Win32/Src/inet_pton.c,v 1.2 2003/11/15 23:24:06 guy Exp $";
 #endif
 
 #include <errno.h>

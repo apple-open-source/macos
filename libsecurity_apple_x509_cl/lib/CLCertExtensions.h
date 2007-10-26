@@ -42,16 +42,18 @@ getItemFieldFcn getFieldKeyUsage, getFieldBasicConstraints,
 	getFieldSubjectKeyId, getFieldAuthorityKeyId, getFieldSubjAltName,
 	getFieldIssuerAltName,
 	getFieldCertPolicies, getFieldNetscapeCertType, getFieldCrlDistPoints,
-	getFieldAuthInfoAccess, getFieldSubjInfoAccess, getFieldUnknownExt;
+	getFieldAuthInfoAccess, getFieldSubjInfoAccess, getFieldUnknownExt,
+	getFieldQualCertStatements;
 setItemFieldFcn setFieldKeyUsage, setFieldBasicConstraints, 
 	setFieldExtKeyUsage,
 	setFieldSubjectKeyId, setFieldAuthorityKeyId, setFieldSubjIssuerAltName,
 	setFieldCertPolicies, setFieldNetscapeCertType, setFieldCrlDistPoints,
-	setFieldAuthInfoAccess, setFieldUnknownExt;
+	setFieldAuthInfoAccess, setFieldUnknownExt, setFieldQualCertStatements;
 freeFieldFcn freeFieldExtKeyUsage, freeFieldSubjectKeyId,
 	freeFieldAuthorityKeyId, freeFieldSubjIssuerAltName, 
 	freeFieldCertPolicies, 
-	freeFieldCrlDistPoints, freeFieldInfoAccess, freeFieldUnknownExt;
+	freeFieldCrlDistPoints, freeFieldInfoAccess, freeFieldUnknownExt,
+	freeFieldQualCertStatements;
 	
 #ifdef	__cplusplus
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -297,9 +297,6 @@ pushNotifications()
 		 */
 		if ((storePrivate->notifyStatus == Using_NotifierInformViaMachPort) &&
 		    (storePrivate->notifyPort != MACH_PORT_NULL)) {
-			mach_msg_empty_send_t	msg;
-			mach_msg_option_t	options;
-			kern_return_t		status;
 			/*
 			 * Post notification as mach message
 			 */
@@ -310,22 +307,7 @@ pushNotifications()
 				SCLog(TRUE, LOG_DEBUG, CFSTR("  msgid = %d"), storePrivate->notifyPortIdentifier);
 			}
 #endif	/* DEBUG */
-			msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
-			msg.header.msgh_size = sizeof(msg);
-			msg.header.msgh_remote_port = storePrivate->notifyPort;
-			msg.header.msgh_local_port = MACH_PORT_NULL;
-			msg.header.msgh_id = storePrivate->notifyPortIdentifier;
-			options = MACH_SEND_TIMEOUT;
-			status = mach_msg(&msg.header,			/* msg */
-					  MACH_SEND_MSG|options,	/* options */
-					  msg.header.msgh_size,		/* send_size */
-					  0,				/* rcv_size */
-					  MACH_PORT_NULL,		/* rcv_name */
-					  0,				/* timeout */
-					  MACH_PORT_NULL);		/* notify */
-			if (status == MACH_SEND_TIMED_OUT) {
-				mach_msg_destroy(&msg.header);
-			}
+			_SC_sendMachMessage(storePrivate->notifyPort, storePrivate->notifyPortIdentifier);
 		}
 
 		if ((storePrivate->notifyStatus == Using_NotifierInformViaFD) &&

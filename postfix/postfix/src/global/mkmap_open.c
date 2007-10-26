@@ -63,7 +63,9 @@
 #include <msg.h>
 #include <dict.h>
 #include <dict_db.h>
+#include <dict_cdb.h>
 #include <dict_dbm.h>
+#include <dict_sdbm.h>
 #include <sigdelay.h>
 #include <mymalloc.h>
 
@@ -81,6 +83,12 @@ typedef struct {
 } MKMAP_OPEN_INFO;
 
 MKMAP_OPEN_INFO mkmap_types[] = {
+#ifdef HAS_CDB
+    DICT_TYPE_CDB, mkmap_cdb_open,
+#endif
+#ifdef HAS_SDBM
+    DICT_TYPE_SDBM, mkmap_sdbm_open,
+#endif
 #ifdef HAS_DBM
     DICT_TYPE_DBM, mkmap_dbm_open,
 #endif

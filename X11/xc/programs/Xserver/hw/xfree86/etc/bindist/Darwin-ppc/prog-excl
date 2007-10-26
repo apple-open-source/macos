@@ -1,7 +1,0 @@
-lib/Server
-lib/X11
-lib/lib*.dylib
-lib/modules
-include/X11/bitmaps
-include/X11/extensions/applewm.h
-include/X11/extensions/applewmstr.h

@@ -1,5 +1,6 @@
 /* This file is the configuration file for Linux-based GNU systems
-   Copyright (C) 1985, 86, 92, 94, 96, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1992, 1994, 1996, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This file was put together by Michael K. Johnson and Rik Faith.  */
 
@@ -31,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #define USG
 /* #define BSD_SYSTEM */
 #define LINUX
+#define GNU_LINUX
 
 /* SYSTEM_TYPE should indicate the kind of system you are using.
  It sets the Lisp variable system-type.  */
@@ -50,6 +52,9 @@ Boston, MA 02111-1307, USA.  */
 #if LINUX_VERSION_CODE >= 0x20000
 #define LINUX_MAP_SHARED_DOES_WORK
 #endif /* LINUX_VERSION_CODE >= 0x20000 */
+#if LINUX_VERSION_CODE >= 0x20400
+#define LINUX_SIGNALS_VIA_CHARACTERS_DOES_WORK
+#endif /* LINUX_VERSION_CODE >= 0x20400 */
 #endif /* HAVE_LINUX_VERSION_H */
 #endif /* emacs */
 #endif /* NOT_C_CODE */
@@ -129,8 +134,22 @@ Boston, MA 02111-1307, USA.  */
 /* On GNU/Linux systems, both methods are used by various mail
    programs.  I assume that most people are using newer mailers that
    have heard of flock.  Change this if you need to. */
+/* Debian contains a patch which says: ``On Debian/GNU/Linux systems,
+   configure gets the right answers, and that means *NOT* using flock.
+   Using flock is guaranteed to be the wrong thing. See Debian Policy
+   for details.'' and then uses `#ifdef DEBIAN'.  Unfortunately the
+   Debian maintainer hasn't provided a clean fix for Emacs.
+   movemail.c will use `maillock' when MAILDIR, HAVE_LIBMAIL and
+   HAVE_MAILLOCK_H are defined, so the following appears to be the
+   correct logic.  -- fx */
+/* We must check for HAVE_LIBLOCKFILE too, as movemail does.
+   liblockfile is a Free Software replacement for libmail, used on
+   Debian systems and elsewhere. -rfr */
 
+#if !((defined (HAVE_LIBMAIL) || defined (HAVE_LIBLOCKFILE)) &&	\
+      defined (HAVE_MAILLOCK_H))
 #define MAIL_USE_FLOCK
+#endif
 
 /* Define CLASH_DETECTION if you want lock files to be written
    so that Emacs can tell instantly when you try to modify
@@ -235,9 +254,10 @@ Boston, MA 02111-1307, USA.  */
 #define C_DEBUG_SWITCH
 #endif
 
-/* Let's try this out, just in case.
-   Nah.  Rik Faith <faith@cs.unc.edu> says it doesn't work well.  */
-/* #define SIGNALS_VIA_CHARACTERS */
+/* 21 Jun 06: Eric Hanchrow <offby1@blarg.net> says this works.  */
+#ifdef LINUX_SIGNALS_VIA_CHARACTERS_DOES_WORK
+#define SIGNALS_VIA_CHARACTERS
+#endif
 
 /* Rob Malouf <malouf@csli.stanford.edu> says:
    SYSV IPC is standard a standard part of Linux since version 0.99pl10,
@@ -250,6 +270,9 @@ Boston, MA 02111-1307, USA.  */
 /* alane@wozzle.linet.org says that -lipc is not a separate library,
    since libc-4.4.1.  So -lipc was deleted.  */
 #define LIBS_SYSTEM
+/* _BSD_SOURCE is redundant, at least in glibc2, since we define
+   _GNU_SOURCE.  Left in in case it's relevant to libc5 systems and
+   anyone's still using Emacs on those.  --fx 2002-12-14  */
 #define C_SWITCH_SYSTEM -D_BSD_SOURCE
 #endif
 
@@ -331,13 +354,33 @@ Boston, MA 02111-1307, USA.  */
 /* Tell that garbage collector that setjmp is known to save all
    registers relevant for conservative garbage collection in the
    jmp_buf.  */
-/* m68k and alpha aren't tested, but there are Debian packages for SCM
-   and/or Guile on them, so the technique must work.  */
-
+/* Not all the architectures are tested, but there are Debian packages
+   for SCM and/or Guile on them, so the technique must work.  See also
+   comments in alloc.c concerning setjmp and gcc.  Fixme:  it's
+   probably safe to make this conditional just on GCC, except for ia64
+   register window-flushing.  */
 /* Don't use #cpu here since in newest development versions of GCC,
    we must call cpp with -traditional, and that disables #cpu.  */
 
-#if defined __i386__ || defined __sparc__ || defined __m68k__ || defined __alpha__
+#if defined __i386__ || defined __sparc__ || defined __mc68000__ \
+    || defined __alpha__ || defined __mips__ || defined __s390__ \
+    || defined __arm__ || defined __powerpc__ || defined __amd64__ \
+    || defined __ia64__
 #define GC_SETJMP_WORKS 1
 #define GC_MARK_STACK GC_MAKE_GCPROS_NOOPS
+#ifdef __mc68000__
+#define GC_LISP_OBJECT_ALIGNMENT 2
 #endif
+#ifdef __ia64__
+#define GC_MARK_SECONDARY_STACK()				\
+  do {								\
+    extern void *__libc_ia64_register_backing_store_base;	\
+    __builtin_ia64_flushrs ();					\
+    mark_memory (__libc_ia64_register_backing_store_base,	\
+		 __builtin_ia64_bsp (), 0);			\
+  } while (0)
+#endif
+#endif
+
+/* arch-tag: 6244ea2a-abd0-44ec-abec-ff3dcc9afea9
+   (do not change this comment) */

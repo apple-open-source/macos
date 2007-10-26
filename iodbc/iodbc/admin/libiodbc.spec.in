@@ -1,20 +1,24 @@
 #
 #  libiodbc.spec
 #
-#  $Id: libiodbc.spec.in,v 1.2 2004/08/10 22:20:20 luesang Exp $
+#  $Id: libiodbc.spec.in,v 1.23 2006/01/20 15:58:34 source Exp $
 #
 #  RPM specification file to build binary distribution set
 #
 #  The iODBC driver manager.
-#  
-#  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+#
+#  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
 #  All Rights Reserved.
 #
 #  This software is released under the terms of either of the following
 #  licenses:
 #
-#      - GNU Library General Public License (see LICENSE.LGPL) 
+#      - GNU Library General Public License (see LICENSE.LGPL)
 #      - The BSD License (see LICENSE.BSD).
+#
+#  Note that the only valid version of the LGPL license as far as this
+#  project is concerned is the original GNU Library General Public License
+#  Version 2, dated June 1991.
 #
 #  While not mandated by the BSD license, any patches you make to the
 #  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
 #  ============================================
 #  This library is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU Library General Public
-#  License as published by the Free Software Foundation; either
-#  version 2 of the License, or (at your option) any later version.
+#  License as published by the Free Software Foundation; only
+#  Version 2 of the License dated June 1991.
 #
 #  This library is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
 #
 #  You should have received a copy of the GNU Library General Public
 #  License along with this library; if not, write to the Free
-#  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 #
 #  The BSD License
@@ -68,6 +72,7 @@
 #  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
 
 
 # ----------------------------------------------------------------------
@@ -146,7 +151,7 @@ currently maintained by OpenLink Software under a LGPL or BSD license
 %prep
 %setup
 %build
-./configure --prefix=/usr --enable-odbc3 --with-iodbc-inidir=/etc --enable-pthreads
+./configure --prefix=/usr --mandir=%{_mandir} --enable-odbc3 --with-iodbc-inidir=/etc --enable-pthreads
 make
 
 %install
@@ -164,7 +169,8 @@ export LIBRARY_PATH
 #
 #  Install binaries, include files and libraries
 #
-make install prefix=$RPM_BUILD_ROOT/usr
+#make install prefix=$RPM_BUILD_ROOT 
+%makeinstall
 
 #
 #  Install the sample odbc.ini and odbcinst.ini files
@@ -184,10 +190,14 @@ mkdir -p $RPM_BUILD_ROOT/etc
 
 %files 
 %attr(0755, root, root) /usr/bin/iodbctest
+%attr(0755, root, root) /usr/bin/iodbctestw
 %attr(0755, root, root) /usr/lib/libiodbc.so.*
 %attr(0755, root, root) /usr/lib/libiodbcinst.so.*
+%attr(0644, root, root) %{_mandir}/man1/iodbctest.1*
+%attr(0644, root, root) %{_mandir}/man1/iodbctestw.1*
 #%attr(0644, root, root) %config /etc/odbc.ini
 #%attr(0644, root, root) %config /etc/odbcinst.ini
+
 
 %files devel
 %attr(0644, root, root) %doc AUTHORS 
@@ -202,6 +212,7 @@ mkdir -p $RPM_BUILD_ROOT/etc
 %attr(0644, root, root) %doc etc/odbcinst.ini.sample
 %attr(0644, root, root) /usr/include/iodbcext.h
 %attr(0644, root, root) /usr/include/iodbcinst.h
+%attr(0644, root, root) /usr/include/iodbcunix.h
 %attr(0644, root, root) /usr/include/isqlext.h
 %attr(0644, root, root) /usr/include/isql.h
 %attr(0644, root, root) /usr/include/isqltypes.h
@@ -209,6 +220,7 @@ mkdir -p $RPM_BUILD_ROOT/etc
 %attr(0644, root, root) /usr/include/sqltypes.h
 %attr(0644, root, root) /usr/include/sqlucode.h
 %attr(0644, root, root) /usr/include/sqlext.h
+%attr(0644, root, root) /usr/include/odbcinst.h
 %attr(0755, root, root) /usr/bin/iodbc-config
 %attr(0644, root, root) /usr/lib/libiodbc.a
 %attr(0644, root, root) /usr/lib/libiodbc.la
@@ -216,6 +228,10 @@ mkdir -p $RPM_BUILD_ROOT/etc
 %attr(0644, root, root) /usr/lib/libiodbcinst.a
 %attr(0644, root, root) /usr/lib/libiodbcinst.la
 %attr(0755, root, root) /usr/lib/libiodbcinst.so
+%attr(0644, root, root) %{_mandir}/man1/iodbc-config.1*
+%attr(0644, root, root) /usr/share/libiodbc/samples/Makefile
+%attr(0644, root, root) /usr/share/libiodbc/samples/iodbctest.c
+%attr(0644, root, root) /usr/lib/pkgconfig/libiodbc.pc
 
 %files admin
 %attr(0755, root, root) /usr/bin/iodbcadm-gtk
@@ -225,3 +241,4 @@ mkdir -p $RPM_BUILD_ROOT/etc
 %attr(0644, root, root) /usr/lib/libiodbcadm.a
 %attr(0644, root, root) /usr/lib/libiodbcadm.la
 %attr(0755, root, root) /usr/lib/libiodbcadm.so*
+%attr(0644, root, root) %{_mandir}/man1/iodbcadm-gtk.1*

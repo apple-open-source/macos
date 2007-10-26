@@ -1,6 +1,6 @@
 /* mkchartable.c -- Generate character set mapping table
  *
- * $Id: mkchartable.c,v 1.5 2005/03/05 00:37:17 dasenbro Exp $
+ * $Id: mkchartable.c,v 1.25 2003/05/14 18:56:34 rjs3 Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

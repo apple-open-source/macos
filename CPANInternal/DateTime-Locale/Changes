@@ -1,0 +1,100 @@
+0.22   2005-05-31
+
+- Allow id names passed to load() to contain dashes or underscores, in
+order to support RFC 3066 locale names, which use dashes.
+
+- Fix bugs when a custom locale was registered and a "class" parameter
+was passed to register().  Patch from Yann Kerherv.
+
+- Switched to a "traditional" Makefile.PL file at Perrin Harkins'
+request.
+
+
+0.21   2005-02-28
+
+- Fix era() method for year 0.
+
+
+0.20   2005-02-26
+
+* BACKWARDS INCOMPATIBILITY - The way DateTime::Locale::Base
+subclasses work has changed.  Subclasses should no longer implement
+the date_formats() or time_formats() methods.  Instead, they need to
+provide one method per format length (full_date_format(),
+long_date_format(), etc).
+
+- Uses much newer (August, 2004) data from ICU.  This includes a
+number of new locales.  See DateTime::LocaleCatalog for a list.  This
+new data also adds a new type of differentiator for locales, the
+script (Latin vs Cyrillic, for example).
+
+- Added new methods to get the "narrow" forms of a day or month.
+
+- Implemented per-locale eras.
+
+- Fix a number of doc typos and buglets.  Patch by Jean Forget.
+
+
+0.09   2004-03-09
+
+- Added Storable freeze & thaw hooks.
+
+0.08   2004-02-12
+
+- No code changes, just a Makefile.PL update to work with
+Module::Build 0.23.
+
+
+0.07   2003-12-14
+
+- If given an id like 'en_US.UTF-8', DateTime::Locale would die with
+the message 'Can't locate object method "_load_from_id" via package
+"DateTime::Locale" at /usr/share/perl5/DateTime/Locale.pm line 220'.
+Reported by Sylvain Daubert.
+
+
+0.06   2003-12-08
+
+- The DateTime::Locale docs now includes docs for all the methods that
+a locale object has.
+
+
+0.05   2003-10-03
+
+- Really make the documentation and code match!  This time there are
+even tests for this.  Reported by David Hood (again).
+
+- DateTime::Locale won't try to load a class if it already has a new()
+method.  This is so you can define multiple locale subclasses in one
+file and load that file yourself before calling the load() method.
+
+
+0.04   2003-10-03
+
+- The documentation incorrectly showed the DateTime::Locale->register
+method as taking an array, rather than an array of hash references.
+Reported by David Hood.
+
+
+0.03   2003-08-06
+
+- Once a locale is loaded, it is cached in memory, so that locale
+objects are singletons.  Calling methods that change the locale
+registry, like register() or remove_alias(), clear that cache.  This
+should provide a noticeable speed boost when constructing many
+DateTime objects with the same locale.  Based on a patch from John
+Siracusa.
+
+
+0.02   2003-07-25
+
+- Make sure tests pass without requiring DateTime 0.14 to be
+installed.  Reported by Claus Farber.
+
+- Document default formats and format lengths in
+DateTime::Locale::Base.
+
+
+0.01   2003-07-23
+
+- Initial release

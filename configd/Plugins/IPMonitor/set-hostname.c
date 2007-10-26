@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,7 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCDynamicStoreCopyDHCPInfo.h>
 #include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPrivate.h>	// for SCLog(), SCPrint()
+#include <SystemConfiguration/SCPrivate.h>
 
 #include <notify.h>
 
@@ -55,134 +55,10 @@ static Boolean			_verbose	= FALSE;
 
 /* SPI (from SCNetworkReachability.c) */
 Boolean
-_SC_checkResolverReachability(SCDynamicStoreRef         *storeP,
-			      SCNetworkConnectionFlags  *flags,
-			      Boolean                   *haveDNS,
-			      const char *              nodename);
-
-
-/*
- * checkResolverReachabilityByAddress()
- *
- * Given an IP address, determine whether a reverse DNS query can be issued
- * using the current network configuration.
- */
-static Boolean
-checkResolverReachabilityByAddress(SCDynamicStoreRef store, struct sockaddr *sa)
-{
-	SCNetworkConnectionFlags	flags;
-	Boolean				haveDNS;
-	int				i;
-	Boolean				ok		= FALSE;
-	char				ptr_name[128];
-
-	/*
-	 * Ideally, we would have an API that given a local IP
-	 * address would return the DNS server(s) that would field
-	 * a given PTR query.  Fortunately, we do have an SPI which
-	 * which will provide this information given a "name" so we
-	 * take the address, convert it into the inverse query name,
-	 * and find out which servers should be consulted.
-	 */
-
-	switch (sa->sa_family) {
-		case AF_INET : {
-			union {
-				in_addr_t	s_addr;
-				unsigned char	b[4];
-			} rev;
-			struct sockaddr_in	*sin	= (struct sockaddr_in *)sa;
-
-			/*
-			 * build "PTR" query name
-			 *   NNN.NNN.NNN.NNN.in-addr.arpa.
-			 */
-			rev.s_addr = sin->sin_addr.s_addr;
-			(void) snprintf(ptr_name, sizeof(ptr_name), "%u.%u.%u.%u.in-addr.arpa.",
-					rev.b[3],
-					rev.b[2],
-					rev.b[1],
-					rev.b[0]);
-
-			break;
-		}
-
-		case AF_INET6 : {
-			int			s	= 0;
-			struct sockaddr_in6	*sin6	= (struct sockaddr_in6 *)sa;
-			int			x	= sizeof(ptr_name);
-			int			n;
-
-#define	USE_NIBBLE_QUERY
-#ifdef	USE_NIBBLE_QUERY
-			/*
-			 * build IPv6 "nibble" PTR query name (RFC 1886, RFC 3152)
-			 *   N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.N.ip6.arpa.
-			 */
-			for (i = sizeof(sin6->sin6_addr) - 1; i >= 0; i--) {
-				n = snprintf(&ptr_name[s], x, "%x.%x.",
-					     ( sin6->sin6_addr.s6_addr[i]       & 0xf),
-					     ((sin6->sin6_addr.s6_addr[i] >> 4) & 0xf));
-				if ((n == -1) || (n >= x)) {
-					goto done;
-				}
-
-				s += n;
-				x -= n;
-			}
-
-			n = snprintf(&ptr_name[s], x, "ip6.arpa.");
-			if ((n == -1) || (n >= x)) {
-				goto done;
-			}
-#else	/* USE_NIBBLE_QUERY */
-			/*
-			 * build IPv6 "bit-string" PTR query name (RFC 2673)
-			 *   \[xNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN].ip6.arpa.
-			 */
-			n = snprintf(&ptr_name[0], x, "\\[x");
-			if ((n == -1) || (n >= x)) {
-				goto done;
-			}
-
-			s += n;
-			x -= n;
-			for (i = 0; i < 16; i++) {
-				n = snprintf(&ptr_name[s], x, "%2.2x", sin6->sin6_addr.s6_addr[i]);
-				if ((n == -1) || (n >= x)) {
-					goto done;
-				}
-
-				s += n;
-				x -= n;
-			}
-
-			n = snprintf(&ptr_name[s], x, "].ip6.arpa.");
-			if ((n == -1) || (n >= x)) {
-				goto done;
-			}
-#endif	/* USE_NIBBLE_QUERY */
-
-			break;
-		}
-
-		default :
-			goto done;
-	}
-
-	ok = _SC_checkResolverReachability(&store, &flags, &haveDNS, ptr_name);
-	if (ok) {
-		if (!(flags & kSCNetworkFlagsReachable) ||
-			(flags & kSCNetworkFlagsConnectionRequired)) {
-			// if not reachable *OR* connection required
-			ok = FALSE;
-		}
-	}
-
-    done :
-
-	return ok;
-}
+_SC_checkResolverReachabilityByAddress(SCDynamicStoreRef	*storeP,
+				       SCNetworkConnectionFlags	*flags,
+				       Boolean			*haveDNS,
+				       struct sockaddr		*sa);
 
 
 #define	HOSTNAME_NOTIFY_KEY	"com.apple.system.hostname"
@@ -348,11 +224,6 @@ copy_static_name()
 }
 
 
-#ifndef	kSCPropNetHostName
-#define	kSCPropNetHostName	CFSTR("HostName")
-#endif
-
-
 static CFStringRef
 copy_prefs_hostname(SCDynamicStoreRef store)
 {
@@ -370,7 +241,7 @@ copy_prefs_hostname(SCDynamicStoreRef store)
 		goto done;
 	}
 
-	name = isA_CFString(CFDictionaryGetValue(dict, kSCPropNetHostName));
+	name = isA_CFString(CFDictionaryGetValue(dict, kSCPropSystemHostName));
 	if (name == NULL) {
 		goto done;
 	}
@@ -379,7 +250,7 @@ copy_prefs_hostname(SCDynamicStoreRef store)
     done :
 
 	if (dict != NULL)	CFRelease(dict);
-	
+
 	return name;
 }
 
@@ -497,14 +368,19 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 			 */
 			if (host != NULL) {
 				hostname = CFStringCreateWithCString(NULL, host, kCFStringEncodingUTF8);
-				SCLog(TRUE, LOG_INFO, CFSTR("hostname (reverse DNS query) = %@"), hostname);
-				set_hostname(hostname);
-				CFRelease(hostname);
-				goto done;
+				if (hostname != NULL) {
+					SCLog(TRUE, LOG_INFO, CFSTR("hostname (reverse DNS query) = %@"), hostname);
+					set_hostname(hostname);
+					CFRelease(hostname);
+					goto done;
+				}
 			}
 			break;
 
 		case EAI_NONAME :
+#if defined(EAI_NODATA) && (EAI_NODATA != EAI_NONAME)
+		case EAI_NODATA:
+#endif
 			/*
 			 * if no name available
 			 */
@@ -568,14 +444,28 @@ getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, voi
 }
 
 
+static CFStringRef
+replyMPCopyDescription(const void *info)
+{
+	SCDynamicStoreRef	store	= (SCDynamicStoreRef)info;
+
+	return CFStringCreateWithFormat(NULL,
+					NULL,
+					CFSTR("<getnameinfo_async_start reply MP> {store = %p}"),
+					store);
+}
+
+
 static void
 start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 {
-	char			addr[64];
-	Boolean			ok;
-	struct sockaddr		*sa;
-	struct sockaddr_in	sin;
-	struct sockaddr_in6	sin6;
+	char				addr[64];
+	SCNetworkConnectionFlags	flags;
+	Boolean				haveDNS;
+	Boolean				ok;
+	struct sockaddr			*sa;
+	struct sockaddr_in		sin;
+	struct sockaddr_in6		sin6;
 
 	if (_SC_cfstring_to_cstring(address, addr, sizeof(addr), kCFStringEncodingASCII) == NULL) {
 		SCLog(TRUE, LOG_ERR, CFSTR("could not convert [primary] address"));
@@ -603,7 +493,7 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 
 		p = strchr(addr, '%');
 		if (p != NULL) {
-			sin6.sin6_scope_id = if_nametoindex(p+1);
+			sin6.sin6_scope_id = if_nametoindex(p + 1);
 		}
 
 		sa = (struct sockaddr *)&sin6;
@@ -611,9 +501,23 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 		goto done;
 	}
 
-	ok = checkResolverReachabilityByAddress(store, sa);
+
+	ok = _SC_checkResolverReachabilityByAddress(&store, &flags, &haveDNS, sa);
 	if (ok) {
-		CFMachPortContext	context	= { 0, (void *)store, CFRetain, CFRelease, CFCopyDescription };
+		if (!(flags & kSCNetworkFlagsReachable) ||
+			(flags & kSCNetworkFlagsConnectionRequired)) {
+			// if not reachable *OR* connection required
+			ok = FALSE;
+		}
+	}
+
+	if (ok) {
+		CFMachPortContext	context	= { 0
+						  , (void *)store
+						  , CFRetain
+						  , CFRelease
+						  , replyMPCopyDescription
+						  };
 		mach_port_t		port;
 		int32_t			error;
 
@@ -622,7 +526,7 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 		error = getnameinfo_async_start(&port,
 						sa,
 						sa->sa_len,
-						0,		// flags
+						NI_NAMEREQD,	// flags
 						reverseDNSComplete,
 						NULL);
 		if (error != 0) {
@@ -656,7 +560,7 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 	if (dnsPort != NULL) {
 		/* cancel the outstanding DNS query */
-		lu_async_call_cancel(CFMachPortGetPort(dnsPort));
+		getnameinfo_async_cancel(CFMachPortGetPort(dnsPort));
 		CFRunLoopSourceInvalidate(dnsRLS);
 		CFRelease(dnsRLS);
 		dnsRLS = NULL;

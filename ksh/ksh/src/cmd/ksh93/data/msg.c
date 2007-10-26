@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  *	UNIX shell
@@ -71,6 +67,10 @@ const char e_exists[]		= "%s: file already exists";
 const char e_pipe[]		= "cannot create pipe";
 const char e_alarm[]		= "cannot set alarm";
 const char e_open[]		= "%s: cannot open";
+const char e_notseek[]		= "%s: not seekable";
+const char e_badseek[]		= "%s: invalid seek offset";
+const char e_badpattern[]	= "%s: invalid shell pattern";
+const char e_noread[]		= "%s: pattern seek requires read access";
 const char e_logout[]		= "Use 'exit' to terminate this shell";
 const char e_exec[]		= "%s: cannot execute";
 const char e_pwd[]		= "cannot access parent directories";
@@ -91,14 +91,16 @@ const char e_badfield[]		= "%d: negative field size";
 const char e_ident[]		= "%s: is not an identifier";
 const char e_badname[]		= "%s: invalid name";
 const char e_varname[]		= "%s: invalid variable name";
-const char e_funname[]		= "%s: invalid function name";
+const char e_badfun[]		= "%s: invalid function name";
 const char e_aliname[]		= "%s: invalid alias name";
 const char e_badexport[]	= "%s: invalid export name";
 const char e_badref[]		= "%s: reference variable cannot be an array";
+const char e_noarray[]		= "%s: cannot be an array";
 const char e_noref[]		= "%s: no reference name";
 const char e_selfref[]		= "%s: invalid self reference";
 const char e_noalias[]		= "%s: alias not found\n";
 const char e_format[]		= "%s: bad format";
+const char e_redef[]		= "%s: type cannot be redefined";
 const char e_badtformat[]	= "%c: bad format character in time format";
 const char e_nolabels[]		= "%s: label not implemented";
 const char e_notimp[]		= "%s: not implemented";
@@ -159,9 +161,21 @@ const char e_devnull[]		= "/dev/null";
 const char e_traceprompt[]	= "+ ";
 const char e_supprompt[]	= "# ";
 const char e_stdprompt[]	= "$ ";
-const char e_profile[]		= "${HOME}/.profile";
+const char e_profile[]		= "$HOME/.profile";
 const char e_sysprofile[]	= "/etc/profile";
 const char e_suidprofile[]	= "/etc/suid_profile";
+#if SHOPT_SYSRC
+const char e_sysrc[]		= "/etc/ksh.kshrc";
+#endif
+#if SHOPT_BASH
+#if SHOPT_SYSRC
+const char e_bash_sysrc[]	= "/etc/bash.bashrc";
+#endif
+const char e_bash_rc[]		= "$HOME/.bashrc";
+const char e_bash_login[]	= "$HOME/.bash_login";
+const char e_bash_logout[]	= "$HOME/.bash_logout";
+const char e_bash_profile[]	= "$HOME/.bash_profile";
+#endif
 const char e_crondir[]		= "/usr/spool/cron/atjobs";
 const char e_prohibited[]	= "login setuid/setgid shells prohibited";
 #if SHOPT_SUID_EXEC

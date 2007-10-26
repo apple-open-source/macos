@@ -88,9 +88,12 @@ lower_function_body (void)
   /* If the function falls off the end, we need a null return statement.
      If we've already got one in the return_statements list, we don't
      need to do anything special.  Otherwise build one by hand.  */
+  /* APPLE LOCAL begin CW asm blocks */
   if (block_may_fallthru (*body_p)
       && (data.return_statements == NULL
-          || TREE_OPERAND (TREE_VALUE (data.return_statements), 0) != NULL))
+          || TREE_OPERAND (TREE_VALUE (data.return_statements), 0) != NULL)
+      && ! (cfun->iasm_asm_function))
+  /* APPLE LOCAL end CW asm blocks */
     {
       x = build (RETURN_EXPR, void_type_node, NULL);
       SET_EXPR_LOCATION (x, cfun->function_end_locus);

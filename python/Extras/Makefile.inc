@@ -5,9 +5,8 @@ DIR = $(OBJROOT)/$(NAME)/$(NAMEVERSION)
 no_target: $(DIR)/.mark
 
 $(DIR)/.mark: $(DIR) custompatching
-	@echo cd $(DIR) && \
+	@set -x && \
 	cd $(DIR) && \
-	echo $(PYTHONENV) $(ENV) $(PYTHON) setup.py build && \
 	$(PYTHONENV) $(ENV) $(PYTHON) setup.py build
 	touch $@
 
@@ -18,9 +17,8 @@ $(DIR):
 install: realinstall postinstall
 
 realinstall: $(DIR)/.mark
-	@echo cd $(DIR) && \
+	@set -x && \
 	cd $(DIR) && \
-	echo $(PYTHONENV) $(ENV) $(PYTHON) setup.py install --home=$(EXTRAS) && \
 	$(PYTHONENV) $(ENV) $(PYTHON) setup.py install --home=$(EXTRAS)
 
 # allow custom patching before running Makefile.PL

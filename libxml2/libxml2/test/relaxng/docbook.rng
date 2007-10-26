@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- $Id: docbook.rng,v 1.1 2003/03/19 21:02:28 veillard Exp $ -->
+<!-- $Id: docbook.rng,v 1.5 2001/10/23 05:56:47 jjc Exp $ -->
 <grammar xmlns="http://relaxng.org/ns/structure/1.0"
          datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
    <start>

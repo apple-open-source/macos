@@ -1,6 +1,6 @@
 <HTML><HEAD>
 <title>Cyrus SASL for System Administrators</title>
-<!-- $Id: sysadmin.html,v 1.4 2005/01/10 19:13:37 snsimon Exp $ -->
+<!-- $Id: sysadmin.html,v 1.6 2006/01/20 20:15:07 snsimon Exp $ -->
 </HEAD>
 <BODY>
 <H1>Cyrus SASL for System Administrators</H1>
@@ -327,7 +327,7 @@ SASLv2 introduces the concept of Auxilliary Properties.  That is, the ability
 for information related to authentication and authorization to all be looked
 up at once from a directory during the authentication process.  SASL Plugins
 internally take advantage of this to do password lookups in directories
-such as the SASLdb or a SQL database.  Applications can look up arbitrary properties through them.<p>
+such as the SASLdb, LDAP or a SQL database.  Applications can look up arbitrary properties through them.<p>
 
 Note that this means that if your password database is in a SASLdb, and
 you wish to use it for plaintext password lookups through the sasldb, you
@@ -395,7 +395,7 @@ sasldb is completely incompatible.
 
 <p>
 <dt><b>Q:</b> I'm having performance problems on each authentication, there is
-a noticeable slowdown when sasl initilizes, what can I do?
+a noticeable slowdown when sasl initializes, what can I do?
 <dd>
 <p><b>A:</b>libsasl reads from <tt>/dev/random</tt> as part of its
 initialization. <tt>/dev/random</tt> is a "secure" source of entropy,

@@ -1,4 +1,0 @@
-XCOMM X-TrueType Server - TrueType rasterizer for X
-XCOMM $XFree86: xc/lib/font/X-TrueType/GEORGIAN/Imakefile,v 1.1 2000/02/13 06:15:26 dawes Exp $
-/*#include "Imakefile.obj"*/
-#include <xttMod.tmpl>

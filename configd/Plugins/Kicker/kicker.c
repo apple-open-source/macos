@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -317,7 +317,7 @@ booterExit(pid_t pid, int status, struct rusage *rusage, void *context)
 			cleanupKicker(target);
 			target = NULL;
 		}
-	} 
+	}
 	if (target != NULL && target->needsKick) {
 		target->needsKick = FALSE;
 		booter(target);

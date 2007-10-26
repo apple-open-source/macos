@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/compare.c,v 1.18.2.5 2004/04/28 23:23:16 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/compare.c,v 1.23.2.3 2006/01/03 22:16:22 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * Portions Copyright 1999 John C. Quillan.
  * Portions Copyright 2002 myinternet Limited.
  * All rights reserved.
@@ -30,7 +30,7 @@ perl_back_compare(
 	SlapReply	*rs )
 {
 	int count;
-	char *avastr, *ptr;
+	char *avastr;
 
 	PerlBackend *perl_back = (PerlBackend *)op->o_bd->be_private;
 

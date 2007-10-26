@@ -40,10 +40,10 @@ class TestFloat < Test::Unit::TestCase
   end
 
   def test_precision
-    #s = "3.7517675036461267e+17"
-    #assert(s == sprintf("%.16e", s.to_f))
-    f = 3.7517675036461267e+17
-    assert_equal(f, sprintf("%.16e", f).to_f)
+    u = 3.7517675036461267e+17
+    v = sprintf("%.16e", u).to_f
+    assert_in_delta(u, v, u.abs * Float::EPSILON)
+    assert_in_delta(u, v, v.abs * Float::EPSILON)
   end
 
   def test_symmetry_bignum # [ruby-bugs-ja:118]
@@ -73,17 +73,41 @@ class TestFloat < Test::Unit::TestCase
     assert(a.abs < Float::EPSILON)
     a = Float("-.0")
     assert(a.abs < Float::EPSILON)
-    a = Float("0.")
-    assert(a.abs < Float::EPSILON)
-    a = Float("+0.")
-    assert(a.abs < Float::EPSILON)
-    a = Float("-0.")
     assert(a.abs < Float::EPSILON)
     assert_raise(ArgumentError){Float(".")}
     assert_raise(ArgumentError){Float("+")}
     assert_raise(ArgumentError){Float("+.")}
     assert_raise(ArgumentError){Float("-")}
     assert_raise(ArgumentError){Float("-.")}
+    assert_raise(ArgumentError){Float("1e")}
     # add expected behaviour here.
+  end
+
+  def test_divmod
+    assert_equal([2, 3.5], 11.5.divmod(4))
+    assert_equal([-3, -0.5], 11.5.divmod(-4))
+    assert_equal([-3, 0.5], (-11.5).divmod(4))
+    assert_equal([2, -3.5], (-11.5).divmod(-4))
+  end
+
+  def test_div
+    assert_equal(2, 11.5.div(4))
+    assert_equal(-3, 11.5.div(-4))
+    assert_equal(-3, (-11.5).div(4))
+    assert_equal(2, (-11.5).div(-4))
+  end
+
+  def test_modulo
+    assert_equal(3.5, 11.5.modulo(4))
+    assert_equal(-0.5, 11.5.modulo(-4))
+    assert_equal(0.5, (-11.5).modulo(4))
+    assert_equal(-3.5, (-11.5).modulo(-4))
+  end
+
+  def test_remainder
+    assert_equal(3.5, 11.5.remainder(4))
+    assert_equal(3.5, 11.5.remainder(-4))
+    assert_equal(-3.5, (-11.5).remainder(4))
+    assert_equal(-3.5, (-11.5).remainder(-4))
   end
 end

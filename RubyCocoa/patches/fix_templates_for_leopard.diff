@@ -1,0 +1,204 @@
+Index: template/ProjectBuilder/Application/Cocoa-Ruby Document-based Application/CocoaDocApp.xcodeproj/project.pbxproj
+===================================================================
+--- template/ProjectBuilder/Application/Cocoa-Ruby Document-based Application/CocoaDocApp.xcodeproj/project.pbxproj	(revision 1900)
++++ template/ProjectBuilder/Application/Cocoa-Ruby Document-based Application/CocoaDocApp.xcodeproj/project.pbxproj	(working copy)
+@@ -161,7 +161,7 @@
+ 		2A37F4A9FDCFA73011CA2CEA /* Project object */ = {
+ 			isa = PBXProject;
+ 			buildConfigurationList = 4DDA93C30ABF754D00FBC9C8 /* Build configuration list for PBXProject "CocoaDocApp" */;
+-			compatibilityVersion = "Xcode 2.4";
++			compatibilityVersion = "Xcode 3.0";
+ 			hasScannedForEncodings = 0;
+ 			mainGroup = 2A37F4AAFDCFA73011CA2CEA /* «PROJECTNAMEASXML» */;
+ 			projectDirPath = "";
+@@ -255,12 +255,15 @@
+ 		4DA7E49E0ACC9AEB00B17D13 /* Release */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+ 				GCC_MODEL_TUNING = G5;
+ 				INFOPLIST_FILE = Info.plist;
+ 				INSTALL_PATH = "$(HOME)/Applications";
+ 				PRODUCT_NAME = "«PROJECTNAME»";
+ 				WRAPPER_EXTENSION = app;
++				ARCHS = (
++					ppc,
++					i386,
++				);
+ 			};
+ 			name = Release;
+ 		};
+@@ -270,6 +273,7 @@
+ 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				PREBINDING = NO;
++				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
+ 			};
+ 			name = Debug;
+ 		};
+@@ -279,6 +283,12 @@
+ 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				PREBINDING = NO;
++				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
++				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				ARCHS = (
++					ppc,
++					i386,
++				);
+ 			};
+ 			name = Release;
+ 		};
+Index: template/ProjectBuilder/Application/Cocoa-Ruby Core Data Document-based Application/CocoaDocApp.xcodeproj/project.pbxproj
+===================================================================
+--- template/ProjectBuilder/Application/Cocoa-Ruby Core Data Document-based Application/CocoaDocApp.xcodeproj/project.pbxproj	(revision 1901)
++++ template/ProjectBuilder/Application/Cocoa-Ruby Core Data Document-based Application/CocoaDocApp.xcodeproj/project.pbxproj	(working copy)
+@@ -163,7 +163,7 @@
+ 		2A37F4A9FDCFA73011CA2CEA /* Project object */ = {
+ 			isa = PBXProject;
+ 			buildConfigurationList = 4D82A17A0ABF750C0076129F /* Build configuration list for PBXProject "CocoaDocApp" */;
+-			compatibilityVersion = "Xcode 2.4";
++			compatibilityVersion = "Xcode 3.0";
+ 			hasScannedForEncodings = 1;
+ 			mainGroup = 2A37F4AAFDCFA73011CA2CEA /* «PROJECTNAMEASXML» */;
+ 			projectDirPath = "";
+@@ -244,6 +244,7 @@
+ 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				PREBINDING = NO;
++				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
+ 			};
+ 			name = Debug;
+ 		};
+@@ -253,6 +254,12 @@
+ 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				PREBINDING = NO;
++				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
++				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				ARCHS = (
++					ppc,
++					i386,
++				);
+ 			};
+ 			name = Release;
+ 		};
+@@ -275,12 +282,15 @@
+ 		4D82A1800ABF750C0076129F /* Release */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+ 				GCC_MODEL_TUNING = G5;
+ 				INFOPLIST_FILE = Info.plist;
+ 				INSTALL_PATH = "$(HOME)/Applications";
+ 				PRODUCT_NAME = "«PROJECTNAME»";
+ 				WRAPPER_EXTENSION = app;
++				ARCHS = (
++					ppc,
++					i386,
++				);
+ 			};
+ 			name = Release;
+ 		};
+Index: template/ProjectBuilder/Application/Cocoa-Ruby Application/CocoaApp.xcodeproj/project.pbxproj
+===================================================================
+--- template/ProjectBuilder/Application/Cocoa-Ruby Application/CocoaApp.xcodeproj/project.pbxproj	(revision 1900)
++++ template/ProjectBuilder/Application/Cocoa-Ruby Application/CocoaApp.xcodeproj/project.pbxproj	(working copy)
+@@ -152,7 +152,7 @@
+ 		29B97313FDCFA39411CA2CEA /* Project object */ = {
+ 			isa = PBXProject;
+ 			buildConfigurationList = 4D7A7B570ABF745500C2D4C0 /* Build configuration list for PBXProject "CocoaApp" */;
+-			compatibilityVersion = "Xcode 2.4";
++			compatibilityVersion = "Xcode 3.0";
+ 			hasScannedForEncodings = 0;
+ 			mainGroup = 29B97314FDCFA39411CA2CEA /* «PROJECTNAMEASXML» */;
+ 			projectDirPath = "";
+@@ -214,6 +214,7 @@
+ 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				PREBINDING = NO;
++				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
+ 			};
+ 			name = Debug;
+ 		};
+@@ -223,6 +224,12 @@
+ 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				PREBINDING = NO;
++				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
++				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				ARCHS = (
++					ppc,
++					i386,
++				);
+ 			};
+ 			name = Release;
+ 		};
+@@ -245,12 +252,15 @@
+ 		4DDCA7100ACC9A6100E082CE /* Release */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+ 				GCC_MODEL_TUNING = G5;
+ 				INFOPLIST_FILE = Info.plist;
+ 				INSTALL_PATH = "$(HOME)/Applications";
+ 				PRODUCT_NAME = "«PROJECTNAME»";
+ 				WRAPPER_EXTENSION = app;
++				ARCHS = (
++					ppc,
++					i386,
++				);
+ 			};
+ 			name = Release;
+ 		};
+Index: template/ProjectBuilder/Application/Cocoa-Ruby Core Data Application/CocoaApp.xcodeproj/project.pbxproj
+===================================================================
+--- template/ProjectBuilder/Application/Cocoa-Ruby Core Data Application/CocoaApp.xcodeproj/project.pbxproj	(revision 1901)
++++ template/ProjectBuilder/Application/Cocoa-Ruby Core Data Application/CocoaApp.xcodeproj/project.pbxproj	(working copy)
+@@ -157,7 +157,7 @@
+ 		29B97313FDCFA39411CA2CEA /* Project object */ = {
+ 			isa = PBXProject;
+ 			buildConfigurationList = 4D2267290ABF74BD004C5C31 /* Build configuration list for PBXProject "CocoaApp" */;
+-			compatibilityVersion = "Xcode 2.4";
++			compatibilityVersion = "Xcode 3.0";
+ 			hasScannedForEncodings = 1;
+ 			mainGroup = 29B97314FDCFA39411CA2CEA /* «PROJECTNAMEASXML» */;
+ 			projectDirPath = "";
+@@ -220,6 +220,7 @@
+ 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				PREBINDING = NO;
++				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
+ 			};
+ 			name = Debug;
+ 		};
+@@ -229,6 +230,12 @@
+ 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+ 				GCC_WARN_UNUSED_VARIABLE = YES;
+ 				PREBINDING = NO;
++				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
++				SDKROOT = /Developer/SDKs/MacOSX10.5.sdk;
++				ARCHS = (
++					ppc,
++					i386,
++				);
+ 			};
+ 			name = Release;
+ 		};
+@@ -251,12 +258,15 @@
+ 		4D22672F0ABF74BD004C5C31 /* Release */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+ 				GCC_MODEL_TUNING = G5;
+ 				INFOPLIST_FILE = Info.plist;
+ 				INSTALL_PATH = "$(HOME)/Applications";
+ 				PRODUCT_NAME = "«PROJECTNAME»";
+ 				WRAPPER_EXTENSION = app;
++				ARCHS = (
++					ppc,
++					i386,
++				);
+ 			};
+ 			name = Release;
+ 		};

@@ -33,18 +33,18 @@
 #ifdef HAVE_CAP_GET_PROC
 
 static int
-bin_cap(char *nam, char **argv, Options ops, int func)
+bin_cap(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 {
     int ret = 0;
     cap_t caps;
     if(*argv) {
 	caps = cap_from_text(*argv);
 	if(!caps) {
-	    zwarnnam(nam, "invalid capability string", NULL, 0);
+	    zwarnnam(nam, "invalid capability string");
 	    return 1;
 	}
 	if(cap_set_proc(caps)) {
-	    zwarnnam(nam, "can't change capabilites: %e", NULL, errno);
+	    zwarnnam(nam, "can't change capabilites: %e", errno);
 	    ret = 1;
 	}
     } else {
@@ -54,7 +54,7 @@ bin_cap(char *nam, char **argv, Options ops, int func)
 	if(caps)
 	    result = cap_to_text(caps, &length);
 	if(!caps || !result) {
-	    zwarnnam(nam, "can't get capabilites: %e", NULL, errno);
+	    zwarnnam(nam, "can't get capabilites: %e", errno);
 	    ret = 1;
 	} else
 	    puts(result);
@@ -64,7 +64,7 @@ bin_cap(char *nam, char **argv, Options ops, int func)
 }
 
 static int
-bin_getcap(char *nam, char **argv, Options ops, int func)
+bin_getcap(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 {
     int ret = 0;
 
@@ -85,14 +85,14 @@ bin_getcap(char *nam, char **argv, Options ops, int func)
 }
 
 static int
-bin_setcap(char *nam, char **argv, Options ops, int func)
+bin_setcap(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 {
     cap_t caps;
     int ret = 0;
 
     caps = cap_from_text(*argv++);
     if(!caps) {
-	zwarnnam(nam, "invalid capability string", NULL, 0);
+	zwarnnam(nam, "invalid capability string");
 	return 1;
     }
 

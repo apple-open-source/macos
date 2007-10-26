@@ -1,4 +1,4 @@
-/* $Id: cyrdump.c,v 1.5 2005/03/05 00:36:48 dasenbro Exp $
+/* $Id: cyrdump.c,v 1.18 2007/02/05 18:41:46 jeaton Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,8 @@
 #include "mboxlist.h"
 #include "sysexits.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 
 
 /* config.c stuff */
@@ -85,6 +87,7 @@ int imapd_exists;
 struct protstream *imapd_out = NULL;
 struct auth_state *imapd_authstate = NULL;
 char *imapd_userid = NULL;
+int imapd_condstore_client = 0;
 
 struct incremental_record {
     int incruid;
@@ -170,6 +173,7 @@ static int dump_me(char *name, int matchlen __attribute__((unused)),
     int r;
     struct mailbox m;
     char boundary[128];
+    struct imapurl url;
     char imapurl[MAX_MAILBOX_PATH];
     struct incremental_record *irec = (struct incremental_record *) rock;
     struct searchargs searchargs;
@@ -209,7 +213,10 @@ static int dump_me(char *name, int matchlen __attribute__((unused)),
     printf("\n");
 
     printf("<imapdump uniqueid=\"%s\">\n", m.uniqueid);
-    imapurl_toURL(imapurl, config_servername, m.name, NULL);
+    memset(&url, 0, sizeof(struct imapurl));
+    url.server = config_servername;
+    url.mailbox = m.name;
+    imapurl_toURL(imapurl, &url);
     printf("  <mailbox-url>%s</mailbox-url>\n", imapurl);
     printf("  <incremental-uid>%d</incremental-uid>\n", irec->incruid);
     printf("  <nextuid>%ld</nextuid>\n", m.last_uid + 1);
@@ -261,7 +268,7 @@ static int dump_me(char *name, int matchlen __attribute__((unused)),
 	printf("Content-Type: message/rfc822\n");
 	printf("Content-ID: %d\n", uids[i]);
 	printf("\n");
-	r = mailbox_map_message(&m, 0, uids[i], &base, &len);
+	r = mailbox_map_message(&m, uids[i], &base, &len);
 	if (r) {
 	    if (verbose) {
 		printf("error mapping message %d: %s\n", uids[i], 

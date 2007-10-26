@@ -450,6 +450,12 @@ static void recv_generator(char *fname, struct file_struct *file, int i,
 		}
 	}
 
+	if (extended_attributes && !strncmp("._", file->basename, 2)) {
+		write_int(f_out,i);
+		write_sum_head(f_out, NULL);
+		return;
+	}
+
 	if (statret == 0 && !S_ISREG(st.st_mode)) {
 		if (delete_file(fname) != 0)
 			return;

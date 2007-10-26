@@ -1,0 +1,14 @@
+Index: samba/source/libsmb/errormap.c
+===================================================================
+--- samba/source/libsmb/errormap.c.orig
++++ samba/source/libsmb/errormap.c
+@@ -1510,6 +1510,9 @@ const struct unix_error_map unix_dos_nt_
+ 	{ EPERM, ERRDOS, ERRnoaccess, NT_STATUS_ACCESS_DENIED },
+ 	{ EACCES, ERRDOS, ERRnoaccess, NT_STATUS_ACCESS_DENIED },
+ 	{ ENOENT, ERRDOS, ERRbadfile, NT_STATUS_OBJECT_NAME_NOT_FOUND },
++#ifdef ENOATTR
++	{ ENOATTR, ERRDOS, ERRbadfile, NT_STATUS_OBJECT_NAME_NOT_FOUND },
++#endif
+ 	{ ENOTDIR, ERRDOS, ERRbadpath,  NT_STATUS_NOT_A_DIRECTORY },
+ 	{ EIO, ERRHRD, ERRgeneral, NT_STATUS_IO_DEVICE_ERROR },
+ 	{ EBADF, ERRSRV, ERRsrverror, NT_STATUS_INVALID_HANDLE },

@@ -1,0 +1,233 @@
+#!/usr/bin/perl
+
+$target=shift @ARGV;
+
+sub build_app {
+    build("xbitmaps");
+    build("x11perf");
+    build("xterm");
+    build("xload");
+    build("appres");
+    build("bdftopcf");
+    build("bitmap");
+    build("editres");
+    build("fonttosfnt");
+    build("fslsfonts");
+    build("fstobdf");
+    build("iceauth");
+    build("ico");
+    build("listres");
+    build("luit");
+    build("mkfontdir");
+    build("mkfontscale");
+    build("oclock");
+    build("rgb");
+    build("scripts");
+    build("sessreg");
+    build("showfont");
+    build("twm");
+    build("viewres");
+    build("xauth");
+    build("xcalc");
+    build("xclipboard");
+    build("xclock");
+    build("xconsole");
+    build("xcursorgen");
+    build("xditview");
+    build("xdm");
+    build("xdpyinfo");
+    build("xev");
+    build("xeyes");
+    build("xfd");
+    build("xfontsel");
+    build("xfs");
+    build("xfsinfo");
+    build("xgc");
+    build("xhost");
+    build("xkill");
+    build("xlogo");
+    build("xlsatoms");
+    build("xlsclients");
+    build("xlsfonts");
+    build("xmag");
+    build("xman");
+    build("xmessage");
+    build("xmh");
+    build("xmodmap");
+    build("xmore");
+    build("xpr");
+    build("xprop");
+    build("xrandr");
+    build("xrdb");
+    build("xrefresh");
+    build("xset");
+    build("xsetmode");
+    build("xsetpointer");
+    build("xsetroot");
+    build("xsm");
+    build("xstdcmap");
+    build("xtrap");
+    build("xvinfo");
+    build("xwd");
+    build("xwininfo");
+    build("xwud");
+}
+
+if($target eq 'installsrc') {
+    sys_print("mkdir $ENV{SRCROOT}") unless -e $ENV{SRCROOT};
+    sys_print("ditto . $ENV{SRCROOT}");
+    chdir($ENV{SRCROOT});
+    foreach $module (glob('*')) {
+	next if $module =~ /build/;
+	next if $module =~ /Make/;
+	next if $module =~ /uvn/;
+	next if $module =~ /\./;
+	print "installing source for $module\n";
+	chdir($module);
+	sys_print("../uvn extract; ../uvn patch");
+	chdir('..');
+    }
+    exit();
+}
+
+if($target eq 'clean') {
+    print "Cleaning out directory $ENV{SRCROOT}\n";
+    chdir($ENV{SRCROOT});
+    sys_print("find . -name .svn | xargs rm -rf");
+    sys_print("find . -name .uvn | xargs rm -rf");
+    sys_print("find . -name \"*.gz\" | xargs rm");
+    sys_print("find . -name \"*.bz2\" | xargs rm");
+    sys_print("find . -name patches | xargs rm -rf");
+    exit();
+}
+
+if($target eq 'install') {
+    sys_print("mkdir $ENV{DSTROOT}") unless -e $ENV{DSTROOT};
+    sys_print("mkdir $ENV{OBJROOT}") unless -e $ENV{OBJROOT};
+    $ENV{DESTDIR}=$ENV{DSTROOT};
+
+    print "Install phase: \n";
+    $prefix="/usr/X11";
+    
+    ($osx_version)=(`sw_vers -productVersion` =~ /(10\.\d)/);
+    print "Building on $osx_version\n";
+    
+# Must create local aclocal dir or aclocal fails
+    $ACLOCAL_LOCALDIR="$ENV{DSTROOT}$prefix/share/aclocal";
+    system "mkdir -p $ACLOCAL_LOCALDIR";
+    
+# The following is required to make aclocal find our .m4 macros
+    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal";
+    $ENV{LIBTOOLIZE}="/usr/bin/glibtoolize";
+    
+# The following is required to make pkg-config find our .pc metadata files
+    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
+    
+# Set the library path so that locally built libs will be found by apps
+    $ENV{LD_LIBRARY_PATH}="$ENV{DSTROOT}$prefix/lib:$prefix/lib:$ENV{LD_LIBRARY_PATH}";
+    
+    $ENV{PATH}="$ENV{DSTROOT}$prefix/bin:$prefix/bin:$ENV{PATH}";
+    
+    foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
+	$arch_flags_all .= "-arch $arch ";
+	$arch_flags_32 .= "-arch $arch " unless $arch =~ /64/;
+    }
+    
+    $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
+    
+    system "date";
+    
+    set_arch_32();
+
+    build_app();
+    make_dsyms();
+}
+
+sub get_workdir {
+    foreach (glob('*')) {
+	if(-e "$_/configure") {
+	    return $_;
+	}
+    }
+    die "Unable to determine workdir";
+}
+
+sub build {
+    ($module)=@_;
+    $m1=$module;
+
+    print("build($module): ");
+    
+    die "$module not found" unless -e "$ENV{SRCROOT}/$module";
+    chdir ("$ENV{SRCROOT}/$module");
+    $full_path="/$module/".get_workdir();
+    sys_print("mkdir -p $ENV{OBJROOT}/$full_path");
+    sys_print("ditto $ENV{SRCROOT}/$full_path $ENV{OBJROOT}/$full_path");
+    sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
+
+    chdir("$ENV{OBJROOT}/$full_path");
+    sys_print("autoreconf -fvi") unless $module eq 'xterm';
+
+    print "Configuring...\n";
+    if($module eq 'xterm') {
+	$conf_flags=" --prefix=$ENV{DSTROOT}/$prefix --disable-static --disable-dependency-tracking --disable-nls --mandir=$ENV{DSTROOT}$prefix/man ";
+    } else {
+	$conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --mandir=$prefix/man ";
+    }
+
+    $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
+    $post_config_path=$ENV{OBJROOT}."/$module/post-config";
+
+    if(-e $conf_flags_path) {
+	$conf_flags .= `cat $conf_flags_path`;
+	chomp $conf_flags;
+    }
+
+    sys_print("./configure $conf_flags");
+    if(-e $post_config_path) {
+	sys_print("cd .. && $post_config_path");
+    }
+    sys_print("make -j2");
+    sys_print("make install");
+    chdir('../..');
+}
+
+sub make_dsyms {
+    open(FIND,"find $ENV{DSTROOT} -type f -exec file {} +|");
+    while(<FIND>) {
+	if(/(.*): .*Mach-O/) {
+	    $basename=$1;
+	    $fullpath=$1;
+	    $basename =~ s/\/.*\///;
+	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullpath");
+	    sys_print_nodie("strip -S $fullpath");
+	}
+    }
+    close FIND;
+}
+
+sub set_arch_32 {
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_32 -D__DARWIN__ ";
+    $ENV{LDFLAGS}="-pipe $arch_flags_32";
+}
+
+sub set_arch_all {
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_all";
+    $ENV{LDFLAGS}="-pipe $arch_flags_all";
+}
+
+sub sys_print {
+    $command=shift;
+    print "$command\n";
+    system $command;
+    $retval=$? >> 8;
+    die "returned code $retval" if $retval;
+}
+
+sub sys_print_nodie {
+    $command=shift;
+    print "$command\n";
+    system $command;
+    $retval=$? >> 8;
+    print "returned code $retval\n" if $retval;
+}

@@ -36,44 +36,35 @@
 
 /* Maximum number of referrals for each Dfs volume */
 #define MAX_REFERRAL_COUNT   256
+#define MAX_MSDFS_JUNCTIONS 256
 
-struct referral
-{
+typedef struct _client_referral {
+	uint32 proximity;
+	uint32 ttl;
+	pstring dfspath;
+} CLIENT_DFS_REFERRAL;
+
+struct referral {
 	pstring alternate_path; /* contains the path referred */
 	uint32 proximity;
 	uint32 ttl; /* how long should client cache referral */
 };
 
-struct junction_map
-{
-  pstring service_name;
-  pstring volume_name;
-  int referral_count;
-  struct referral* referral_list;
+struct junction_map {
+	fstring service_name;
+	pstring volume_name;
+	pstring comment;
+	int referral_count;
+	struct referral* referral_list;
 };
 
-struct dfs_path
-{
-	pstring hostname;
-	pstring servicename;
+struct dfs_path {
+	fstring hostname;
+	fstring servicename;
 	pstring reqpath;
+	BOOL posix_path;
 };
 
-#define RESOLVE_DFSPATH(name, conn, inbuf, outbuf)           	\
-{ if ((SVAL(inbuf,smb_flg2) & FLAGS2_DFS_PATHNAMES) &&       	\
-      lp_host_msdfs() && lp_msdfs_root(SNUM(conn)) &&		\
-      dfs_redirect(name,conn,False))				\
-             return ERROR_BOTH(NT_STATUS_PATH_NOT_COVERED,	\
-			       ERRSRV, ERRbadpath);; }		
-
-#define RESOLVE_FINDFIRST_DFSPATH(name, conn, inbuf, outbuf) 		\
-{ if ( (SVAL(inbuf,smb_flg2) & FLAGS2_DFS_PATHNAMES) ||      		\
-       ((get_remote_arch() == RA_WIN95) && lp_msdfs_root(SNUM(conn))) )	\
-	 if (lp_host_msdfs() && dfs_redirect(name,conn,True))       	\
-	         return	ERROR_BOTH(NT_STATUS_PATH_NOT_COVERED,		\
-				   ERRSRV, ERRbadpath);; }          
-
- 
 #define init_dfsroot(conn, inbuf, outbuf)                    	\
 { if (lp_msdfs_root(SNUM(conn)) && lp_host_msdfs()) {        	\
         DEBUG(2,("Serving %s as a Dfs root\n", 			\

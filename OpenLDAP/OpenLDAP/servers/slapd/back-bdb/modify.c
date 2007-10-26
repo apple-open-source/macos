@@ -1,8 +1,8 @@
 /* modify.c - bdb backend modify routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/modify.c,v 1.76.2.16 2004/11/24 04:07:17 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/modify.c,v 1.124.2.15 2006/05/10 14:53:20 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,7 +21,6 @@
 #include <ac/time.h>
 
 #include "back-bdb.h"
-#include "external.h"
 
 static struct berval scbva[] = {
 	BER_BVC("glue"),
@@ -63,11 +62,11 @@ int bdb_modify_internal(
 		case LDAP_MOD_REPLACE:
 			if ( mod->sm_desc == slap_schema.si_ad_structuralObjectClass ) {
 				value_match( &match, slap_schema.si_ad_structuralObjectClass,
-				slap_schema.si_ad_structuralObjectClass->ad_type->sat_equality,
-				SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
-				&mod->sm_values[0], &scbva[0], text );
-				if ( !match )
-					glue_attr_delete = 1;
+					slap_schema.si_ad_structuralObjectClass->
+						ad_type->sat_equality,
+					SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
+					&mod->sm_values[0], &scbva[0], text );
+				if ( !match ) glue_attr_delete = 1;
 			}
 		}
 		if ( glue_attr_delete )
@@ -92,7 +91,9 @@ int bdb_modify_internal(
 
 		switch ( mod->sm_op ) {
 		case LDAP_MOD_ADD:
-			Debug(LDAP_DEBUG_ARGS, "bdb_modify_internal: add\n", 0, 0, 0);
+			Debug(LDAP_DEBUG_ARGS,
+				"bdb_modify_internal: add %s\n",
+				mod->sm_desc->ad_cname.bv_val, 0, 0);
 			err = modify_add_values( e, mod, get_permissiveModify(op),
 				text, textbuf, textlen );
 			if( err != LDAP_SUCCESS ) {
@@ -107,7 +108,9 @@ int bdb_modify_internal(
 				break;
 			}
 
-			Debug(LDAP_DEBUG_ARGS, "bdb_modify_internal: delete\n", 0, 0, 0);
+			Debug(LDAP_DEBUG_ARGS,
+				"bdb_modify_internal: delete %s\n",
+				mod->sm_desc->ad_cname.bv_val, 0, 0);
 			err = modify_delete_values( e, mod, get_permissiveModify(op),
 				text, textbuf, textlen );
 			assert( err != LDAP_TYPE_OR_VALUE_EXISTS );
@@ -118,7 +121,9 @@ int bdb_modify_internal(
 			break;
 
 		case LDAP_MOD_REPLACE:
-			Debug(LDAP_DEBUG_ARGS, "bdb_modify_internal: replace\n", 0, 0, 0);
+			Debug(LDAP_DEBUG_ARGS,
+				"bdb_modify_internal: replace %s\n",
+				mod->sm_desc->ad_cname.bv_val, 0, 0);
 			err = modify_replace_values( e, mod, get_permissiveModify(op),
 				text, textbuf, textlen );
 			if( err != LDAP_SUCCESS ) {
@@ -129,7 +134,8 @@ int bdb_modify_internal(
 
 		case LDAP_MOD_INCREMENT:
 			Debug(LDAP_DEBUG_ARGS,
-				"bdb_modify_internal: increment\n", 0, 0, 0);
+				"bdb_modify_internal: increment %s\n",
+				mod->sm_desc->ad_cname.bv_val, 0, 0);
 			err = modify_increment_values( e, mod, get_permissiveModify(op),
 				text, textbuf, textlen );
 			if( err != LDAP_SUCCESS ) {
@@ -140,7 +146,9 @@ int bdb_modify_internal(
 			break;
 
 		case SLAP_MOD_SOFTADD:
-			Debug(LDAP_DEBUG_ARGS, "bdb_modify_internal: softadd\n", 0, 0, 0);
+			Debug(LDAP_DEBUG_ARGS,
+				"bdb_modify_internal: softadd %s\n",
+				mod->sm_desc->ad_cname.bv_val, 0, 0);
  			/* Avoid problems in index_add_mods()
  			 * We need to add index if necessary.
  			 */
@@ -182,9 +190,7 @@ int bdb_modify_internal(
 			e->e_ocflags = 0;
 		}
 
-		if ( glue_attr_delete ) {
-			e->e_ocflags = 0;
-		}
+		if ( glue_attr_delete ) e->e_ocflags = 0;
 
 		/* check if modified attribute was indexed
 		 * but not in case of NOOP... */
@@ -199,7 +205,8 @@ int bdb_modify_internal(
 	}
 
 	/* check that the entry still obeys the schema */
-	rc = entry_schema_check( op->o_bd, e, save_attrs, text, textbuf, textlen );
+	rc = entry_schema_check( op, e, save_attrs, get_manageDIT(op),
+		text, textbuf, textlen );
 	if ( rc != LDAP_SUCCESS || op->o_noop ) {
 		attrs_free( e->e_attrs );
 		/* clear the indexing flags */
@@ -270,8 +277,9 @@ bdb_modify( Operation *op, SlapReply *rs )
 	char textbuf[SLAP_TEXT_BUFLEN];
 	size_t textlen = sizeof textbuf;
 	DB_TXN	*ltid = NULL, *lt2;
-	struct bdb_op_info opinfo;
+	struct bdb_op_info opinfo = {0};
 	Entry		dummy = {0};
+	int			fakeroot = 0;
 
 	u_int32_t	locker = 0;
 	DB_LOCK		lock;
@@ -283,17 +291,14 @@ bdb_modify( Operation *op, SlapReply *rs )
 	LDAPControl *ctrls[SLAP_MAX_RESPONSE_CONTROLS];
 	int num_ctrls = 0;
 
-	Operation* ps_list;
-	struct psid_entry *pm_list, *pm_prev;
 	int rc;
-	EntryInfo	*suffix_ei;
-	Entry		*ctxcsn_e;
-	int			ctxcsn_added = 0;
 
 	Debug( LDAP_DEBUG_ARGS, LDAP_XSTRING(bdb_modify) ": %s\n",
 		op->o_req_dn.bv_val, 0, 0 );
 
 	ctrls[num_ctrls] = NULL;
+
+	slap_mods_opattrs( op, &op->orm_modlist, 1 );
 
 	if( 0 ) {
 retry:	/* transaction retry */
@@ -308,14 +313,6 @@ retry:	/* transaction retry */
 		Debug(LDAP_DEBUG_TRACE,
 			LDAP_XSTRING(bdb_modify) ": retrying...\n", 0, 0, 0);
 
-		pm_list = LDAP_LIST_FIRST(&op->o_pm_list);
-		while ( pm_list != NULL ) {
-			LDAP_LIST_REMOVE ( pm_list, ps_link );
-			pm_prev = pm_list;
-			pm_list = LDAP_LIST_NEXT ( pm_list, ps_link );
-			ch_free( pm_prev );
-		}
-
 		rs->sr_err = TXN_ABORT( ltid );
 		ltid = NULL;
 		op->o_private = NULL;
@@ -325,7 +322,10 @@ retry:	/* transaction retry */
 			rs->sr_text = "internal error";
 			goto return_results;
 		}
-		ldap_pvt_thread_yield();
+		if ( op->o_abandon ) {
+			rs->sr_err = SLAPD_ABANDON;
+			goto return_results;
+		}
 		bdb_trans_backoff( ++num_retries );
 	}
 
@@ -364,6 +364,19 @@ retry:	/* transaction retry */
 		case DB_LOCK_NOTGRANTED:
 			goto retry;
 		case DB_NOTFOUND:
+			if ( BER_BVISEMPTY( &op->o_req_ndn )) {
+				struct berval gluebv = BER_BVC("glue");
+				e = ch_calloc( 1, sizeof(Entry));
+				e->e_name.bv_val = ch_strdup( "" );
+				ber_dupbv( &e->e_nname, &e->e_name );
+				attr_merge_one( e, slap_schema.si_ad_objectClass,
+					&gluebv, NULL );
+				attr_merge_one( e, slap_schema.si_ad_structuralObjectClass,
+					&gluebv, NULL );
+				e->e_private = ei;
+				fakeroot = 1;
+				rs->sr_err = 0;
+			}
 			break;
 		case LDAP_BUSY:
 			rs->sr_text = "ldap server busy";
@@ -375,13 +388,15 @@ retry:	/* transaction retry */
 		}
 	}
 
-	e = ei->bei_e;
+	if ( !fakeroot ) {
+		e = ei->bei_e;
+	}
+
 	/* acquire and lock entry */
 	/* FIXME: dn2entry() should return non-glue entry */
 	if (( rs->sr_err == DB_NOTFOUND ) ||
 		( !manageDSAit && e && is_entry_glue( e )))
 	{
-		BerVarray deref = NULL;
 		if ( e != NULL ) {
 			rs->sr_matched = ch_strdup( e->e_dn );
 			rs->sr_ref = is_entry_referral( e )
@@ -391,18 +406,8 @@ retry:	/* transaction retry */
 			e = NULL;
 
 		} else {
-			if ( !LDAP_STAILQ_EMPTY( &op->o_bd->be_syncinfo )) {
-				syncinfo_t *si;
-				LDAP_STAILQ_FOREACH( si, &op->o_bd->be_syncinfo, si_next ) {
-					struct berval tmpbv;
-					ber_dupbv( &tmpbv, &si->si_provideruri_bv[0] );
-					ber_bvarray_add( &deref, &tmpbv );
-                }
-			} else {
-				deref = default_referral;
-			}
-			rs->sr_ref = referral_rewrite( deref, NULL, &op->o_req_dn,
-					LDAP_SCOPE_DEFAULT );
+			rs->sr_ref = referral_rewrite( default_referral, NULL,
+				&op->o_req_dn, LDAP_SCOPE_DEFAULT );
 		}
 
 		rs->sr_err = LDAP_REFERRAL;
@@ -410,9 +415,6 @@ retry:	/* transaction retry */
 
 		if ( rs->sr_ref != default_referral ) {
 			ber_bvarray_free( rs->sr_ref );
-		}
-		if ( deref != default_referral ) {
-			ber_bvarray_free( deref );
 		}
 		free( (char *)rs->sr_matched );
 		rs->sr_ref = NULL;
@@ -446,20 +448,6 @@ retry:	/* transaction retry */
 		goto return_results;
 	}
 
-	if ( rs->sr_err == LDAP_SUCCESS && !op->o_noop && !op->o_no_psearch ) {
-		ldap_pvt_thread_rdwr_wlock( &bdb->bi_pslist_rwlock );
-		LDAP_LIST_FOREACH ( ps_list, &bdb->bi_psearch_list, o_ps_link ) {
-			rc = bdb_psearch(op, rs, ps_list, e, LDAP_PSEARCH_BY_PREMODIFY );
-			if ( rc ) {
-				Debug( LDAP_DEBUG_TRACE,
-					LDAP_XSTRING(bdb_modify)
-					": persistent search failed (%d,%d)\n",
-					rc, rs->sr_err, 0 );
-			}
-		}
-		ldap_pvt_thread_rdwr_wunlock( &bdb->bi_pslist_rwlock );
-	}
-
 	if( op->o_preread ) {
 		if( preread_ctrl == NULL ) {
 			preread_ctrl = &ctrls[num_ctrls++];
@@ -469,20 +457,18 @@ retry:	/* transaction retry */
 			&slap_pre_read_bv, preread_ctrl ) )
 		{
 			Debug( LDAP_DEBUG_TRACE,
-				"<=- " LDAP_XSTRING(bdb_modify)
-				": pre-read failed!\n", 0, 0, 0 );
+				"<=- " LDAP_XSTRING(bdb_modify) ": pre-read failed!\n",
+				0, 0, 0 );
 			goto return_results;
 		}
 	}
 
 	/* nested transaction */
-	rs->sr_err = TXN_BEGIN( bdb->bi_dbenv, ltid, &lt2, 
-		bdb->bi_db_opflags );
+	rs->sr_err = TXN_BEGIN( bdb->bi_dbenv, ltid, &lt2, bdb->bi_db_opflags );
 	rs->sr_text = NULL;
 	if( rs->sr_err != 0 ) {
 		Debug( LDAP_DEBUG_TRACE,
-			LDAP_XSTRING(bdb_modify) ": txn_begin(2) failed: "
-			"%s (%d)\n",
+			LDAP_XSTRING(bdb_modify) ": txn_begin(2) failed: " "%s (%d)\n",
 			db_strerror(rs->sr_err), rs->sr_err, 0 );
 		rs->sr_err = LDAP_OTHER;
 		rs->sr_text = "internal error";
@@ -514,8 +500,8 @@ retry:	/* transaction retry */
 	rs->sr_err = bdb_id2entry_update( op->o_bd, lt2, &dummy );
 	if ( rs->sr_err != 0 ) {
 		Debug( LDAP_DEBUG_TRACE,
-			LDAP_XSTRING(bdb_modify) ": id2entry update failed "
-			"(%d)\n", rs->sr_err, 0, 0 );
+			LDAP_XSTRING(bdb_modify) ": id2entry update failed " "(%d)\n",
+			rs->sr_err, 0, 0 );
 		switch( rs->sr_err ) {
 		case DB_LOCK_DEADLOCK:
 		case DB_LOCK_NOTGRANTED:
@@ -529,17 +515,6 @@ retry:	/* transaction retry */
 		rs->sr_err = LDAP_OTHER;
 		rs->sr_text = "txn_commit(2) failed";
 		goto return_results;
-	}
-
-	if ( LDAP_STAILQ_EMPTY( &op->o_bd->be_syncinfo )) {
-		rc = bdb_csn_commit( op, rs, ltid, ei, &suffix_ei,
-			&ctxcsn_e, &ctxcsn_added, locker );
-		switch ( rc ) {
-		case BDB_CSN_ABORT :
-			goto return_results;
-		case BDB_CSN_RETRY :
-			goto retry;
-		}
 	}
 
 	if( op->o_postread ) {
@@ -561,56 +536,28 @@ retry:	/* transaction retry */
 		if ( ( rs->sr_err = TXN_ABORT( ltid ) ) != 0 ) {
 			rs->sr_text = "txn_abort (no-op) failed";
 		} else {
-			rs->sr_err = LDAP_NO_OPERATION;
+			rs->sr_err = LDAP_X_NO_OPERATION;
+			ltid = NULL;
 			goto return_results;
 		}
 	} else {
-		rc = bdb_cache_modify( e, dummy.e_attrs, bdb->bi_dbenv, locker, &lock );
-		switch( rc ) {
-		case DB_LOCK_DEADLOCK:
-		case DB_LOCK_NOTGRANTED:
-			goto retry;
+		/* may have changed in bdb_modify_internal() */
+		e->e_ocflags = dummy.e_ocflags;
+		if ( fakeroot ) {
+			e->e_private = NULL;
+			entry_free( e );
+			e = NULL;
+			attrs_free( dummy.e_attrs );
+
+		} else {
+			rc = bdb_cache_modify( e, dummy.e_attrs, bdb->bi_dbenv, locker, &lock );
+			switch( rc ) {
+			case DB_LOCK_DEADLOCK:
+			case DB_LOCK_NOTGRANTED:
+				goto retry;
+			}
 		}
 		dummy.e_attrs = NULL;
-
-		if ( LDAP_STAILQ_EMPTY( &op->o_bd->be_syncinfo )) {
-			if ( ctxcsn_added ) {
-				bdb_cache_add( bdb, suffix_ei, ctxcsn_e,
-					(struct berval *)&slap_ldapsync_cn_bv, locker );
-			}
-		}
-
-		if ( rs->sr_err == LDAP_SUCCESS ) {
-			/* Loop through in-scope entries for each psearch spec */
-			ldap_pvt_thread_rdwr_wlock( &bdb->bi_pslist_rwlock );
-			LDAP_LIST_FOREACH ( ps_list, &bdb->bi_psearch_list, o_ps_link ) {
-				rc = bdb_psearch( op, rs, ps_list, e, LDAP_PSEARCH_BY_MODIFY );
-				if ( rc ) {
-					Debug( LDAP_DEBUG_TRACE,
-						LDAP_XSTRING(bdb_modify)
-						": persistent search failed "
-						"(%d,%d)\n",
-						rc, rs->sr_err, 0 );
-				}
-			}
-			pm_list = LDAP_LIST_FIRST(&op->o_pm_list);
-			while ( pm_list != NULL ) {
-				rc = bdb_psearch(op, rs, pm_list->ps_op,
-							e, LDAP_PSEARCH_BY_SCOPEOUT);
-				if ( rc ) {
-					Debug( LDAP_DEBUG_TRACE,
-						LDAP_XSTRING(bdb_modify)
-						": persistent search failed "
-						"(%d,%d)\n",
-						rc, rs->sr_err, 0 );
-				}
-				LDAP_LIST_REMOVE ( pm_list, ps_link );
-				pm_prev = pm_list;
-				pm_list = LDAP_LIST_NEXT ( pm_list, ps_link );
-				ch_free( pm_prev );
-			}
-			ldap_pvt_thread_rdwr_wunlock( &bdb->bi_pslist_rwlock );
-		}
 
 		rs->sr_err = TXN_COMMIT( ltid, 0 );
 	}
@@ -644,33 +591,27 @@ return_results:
 	send_ldap_result( op, rs );
 
 	if( rs->sr_err == LDAP_SUCCESS && bdb->bi_txn_cp ) {
-		ldap_pvt_thread_yield();
 		TXN_CHECKPOINT( bdb->bi_dbenv,
 			bdb->bi_txn_cp_kbyte, bdb->bi_txn_cp_min, 0 );
 	}
 
 done:
+	slap_graduate_commit_csn( op );
+
 	if( ltid != NULL ) {
-		pm_list = LDAP_LIST_FIRST(&op->o_pm_list);
-		while ( pm_list != NULL ) {
-			LDAP_LIST_REMOVE ( pm_list, ps_link );
-			pm_prev = pm_list;
-			pm_list = LDAP_LIST_NEXT ( pm_list, ps_link );
-			ch_free( pm_prev );
-		}
 		TXN_ABORT( ltid );
-		op->o_private = NULL;
 	}
+	op->o_private = NULL;
 
 	if( e != NULL ) {
 		bdb_unlocked_cache_return_entry_w (&bdb->bi_cache, e);
 	}
 
-	if( preread_ctrl != NULL ) {
+	if( preread_ctrl != NULL && (*preread_ctrl) != NULL ) {
 		slap_sl_free( (*preread_ctrl)->ldctl_value.bv_val, op->o_tmpmemctx );
 		slap_sl_free( *preread_ctrl, op->o_tmpmemctx );
 	}
-	if( postread_ctrl != NULL ) {
+	if( postread_ctrl != NULL && (*postread_ctrl) != NULL ) {
 		slap_sl_free( (*postread_ctrl)->ldctl_value.bv_val, op->o_tmpmemctx );
 		slap_sl_free( *postread_ctrl, op->o_tmpmemctx );
 	}

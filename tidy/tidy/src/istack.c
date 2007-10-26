@@ -1,13 +1,13 @@
 /* istack.c -- inline stack for compatibility with Mosaic
 
-  (c) 1998-2004 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
   
   CVS Info :
 
-    $Author: swilkin $ 
-    $Date: 2005/01/06 02:01:53 $ 
-    $Revision: 1.1.1.3 $ 
+    $Author: iccir $ 
+    $Date: 2007/01/30 23:46:51 $ 
+    $Revision: 1.3 $ 
 
 */
 
@@ -18,22 +18,36 @@
 #include "tmbstr.h"
 
 /* duplicate attributes */
-AttVal *DupAttrs( TidyDocImpl* doc, AttVal *attrs)
+AttVal *TY_(DupAttrs)( TidyDocImpl* doc, AttVal *attrs)
 {
     AttVal *newattrs;
 
     if (attrs == NULL)
         return attrs;
 
-    newattrs = NewAttribute();
+    newattrs = TY_(NewAttribute)();
     *newattrs = *attrs;
-    newattrs->next = DupAttrs( doc, attrs->next );
-    newattrs->attribute = tmbstrdup(attrs->attribute);
-    newattrs->value = tmbstrdup(attrs->value);
-    newattrs->dict = FindAttribute(doc, newattrs);
-    newattrs->asp = attrs->asp ? CloneNode(doc, attrs->asp) : NULL;
-    newattrs->php = attrs->php ? CloneNode(doc, attrs->php) : NULL;
+    newattrs->next = TY_(DupAttrs)( doc, attrs->next );
+    newattrs->attribute = TY_(tmbstrdup)(attrs->attribute);
+    newattrs->value = TY_(tmbstrdup)(attrs->value);
+    newattrs->dict = TY_(FindAttribute)(doc, newattrs);
+    newattrs->asp = attrs->asp ? TY_(CloneNode)(doc, attrs->asp) : NULL;
+    newattrs->php = attrs->php ? TY_(CloneNode)(doc, attrs->php) : NULL;
     return newattrs;
+}
+
+static Bool IsNodePushable( Node *node )
+{
+    if (node->tag == NULL)
+        return no;
+
+    if (!(node->tag->model & CM_INLINE))
+        return no;
+
+    if (node->tag->model & CM_OBJECT)
+        return no;
+
+    return yes;
 }
 
 /*
@@ -52,7 +66,7 @@ AttVal *DupAttrs( TidyDocImpl* doc, AttVal *attrs)
       <p><em>text</em></p>
       <p><em><em>more text</em></em>
 */
-void PushInline( TidyDocImpl* doc, Node *node)
+void TY_(PushInline)( TidyDocImpl* doc, Node *node )
 {
     Lexer* lexer = doc->lexer;
     IStack *istack;
@@ -60,16 +74,10 @@ void PushInline( TidyDocImpl* doc, Node *node)
     if (node->implicit)
         return;
 
-    if (node->tag == NULL)
+    if ( !IsNodePushable(node) )
         return;
 
-    if (!(node->tag->model & CM_INLINE))
-        return;
-
-    if (node->tag->model & CM_OBJECT)
-        return;
-
-    if ( !nodeIsFONT(node) && IsPushed(doc, node) )
+    if ( !nodeIsFONT(node) && TY_(IsPushed)(doc, node) )
         return;
 
     /* make sure there is enough space for the stack */
@@ -86,70 +94,64 @@ void PushInline( TidyDocImpl* doc, Node *node)
     istack = &(lexer->istack[lexer->istacksize]);
     istack->tag = node->tag;
 
-    istack->element = tmbstrdup(node->element);
-    istack->attributes = DupAttrs( doc, node->attributes );
+    istack->element = TY_(tmbstrdup)(node->element);
+    istack->attributes = TY_(DupAttrs)( doc, node->attributes );
     ++(lexer->istacksize);
 }
 
-/* pop inline stack */
-void PopInline( TidyDocImpl* doc, Node *node )
+static void PopIStack( TidyDocImpl* doc )
 {
     Lexer* lexer = doc->lexer;
-    AttVal *av;
     IStack *istack;
+    AttVal *av;
+
+    --(lexer->istacksize);
+    istack = &(lexer->istack[lexer->istacksize]);
+
+    while (istack->attributes)
+    {
+        av = istack->attributes;
+        istack->attributes = av->next;
+        TY_(FreeAttribute)( doc, av );
+    }
+    MemFree(istack->element);
+}
+
+static void PopIStackUntil( TidyDocImpl* doc, TidyTagId tid )
+{
+    Lexer* lexer = doc->lexer;
+    IStack *istack;
+
+    while (lexer->istacksize > 0)
+    {
+        PopIStack( doc );
+        istack = &(lexer->istack[lexer->istacksize]);
+        if ( istack->tag->id == tid )
+            break;
+    }
+}
+
+/* pop inline stack */
+void TY_(PopInline)( TidyDocImpl* doc, Node *node )
+{
+    Lexer* lexer = doc->lexer;
 
     if (node)
     {
-        if (node->tag == NULL)
-            return;
-
-        if (!(node->tag->model & CM_INLINE))
-            return;
-
-        if (node->tag->model & CM_OBJECT)
+        if ( !IsNodePushable(node) )
             return;
 
         /* if node is </a> then pop until we find an <a> */
         if ( nodeIsA(node) )
         {
-            while (lexer->istacksize > 0)
-            {
-                --(lexer->istacksize);
-                istack = &(lexer->istack[lexer->istacksize]);
-
-                while (istack->attributes)
-                {
-                    av = istack->attributes;
-                    istack->attributes = av->next;
-                    FreeAttribute( doc, av );
-                }
-
-                if ( istack->tag->id == TidyTag_A )
-                {
-                    MemFree(istack->element);
-                    break;
-                }
-
-                MemFree(istack->element);
-            }
-
+            PopIStackUntil( doc, TidyTag_A );
             return;
         }
     }
 
     if (lexer->istacksize > 0)
     {
-        --(lexer->istacksize);
-        istack = &(lexer->istack[lexer->istacksize]);
-
-        while (istack->attributes)
-        {
-            av = istack->attributes;
-            istack->attributes = av->next;
-            FreeAttribute( doc, av );
-        }
-
-        MemFree(istack->element);
+        PopIStack( doc );
 
         /* #427822 - fix by Randy Waki 7 Aug 00 */
         if (lexer->insert >= lexer->istack + lexer->istacksize)
@@ -157,7 +159,7 @@ void PopInline( TidyDocImpl* doc, Node *node )
     }
 }
 
-Bool IsPushed( TidyDocImpl* doc, Node *node)
+Bool TY_(IsPushed)( TidyDocImpl* doc, Node *node )
 {
     Lexer* lexer = doc->lexer;
     int i;
@@ -166,6 +168,25 @@ Bool IsPushed( TidyDocImpl* doc, Node *node)
     {
         if (lexer->istack[i].tag == node->tag)
             return yes;
+    }
+
+    return no;
+}
+
+/*
+   Test whether the last element on the stack has the same type than "node".
+*/
+Bool TY_(IsPushedLast)( TidyDocImpl* doc, Node *element, Node *node )
+{
+    Lexer* lexer = doc->lexer;
+
+    if ( element && !IsNodePushable(element) )
+        return no;
+
+    if (lexer->istacksize > 0) {
+        if (lexer->istack[lexer->istacksize - 1].tag == node->tag) {
+            return yes;
+        }
     }
 
     return no;
@@ -188,7 +209,7 @@ Bool IsPushed( TidyDocImpl* doc, Node *node)
   where it gets tokens from the inline stack rather than
   from the input stream.
 */
-int InlineDup( TidyDocImpl* doc, Node* node )
+int TY_(InlineDup)( TidyDocImpl* doc, Node* node )
 {
     Lexer* lexer = doc->lexer;
     int n;
@@ -206,13 +227,13 @@ int InlineDup( TidyDocImpl* doc, Node* node )
  defer duplicates when entering a table or other
  element where the inlines shouldn't be duplicated
 */
-void DeferDup( TidyDocImpl* doc )
+void TY_(DeferDup)( TidyDocImpl* doc )
 {
     doc->lexer->insert = NULL;
     doc->lexer->inode = NULL;
 }
 
-Node *InsertedToken( TidyDocImpl* doc )
+Node *TY_(InsertedToken)( TidyDocImpl* doc )
 {
     Lexer* lexer = doc->lexer;
     Node *node;
@@ -228,8 +249,7 @@ Node *InsertedToken( TidyDocImpl* doc )
     }
 
     /*
-    
-      is this is the "latest" node then update
+      If this is the "latest" node then update
       the position, otherwise use current values
     */
 
@@ -239,7 +259,7 @@ Node *InsertedToken( TidyDocImpl* doc )
         lexer->columns = doc->docIn->curcol;
     }
 
-    node = NewNode(lexer);
+    node = TY_(NewNode)(lexer);
     node->type = StartTag;
     node->implicit = yes;
     node->start = lexer->txtstart;
@@ -252,9 +272,9 @@ Node *InsertedToken( TidyDocImpl* doc )
         fprintf( stderr, "0-size istack!\n" );
 #endif
 
-    node->element = tmbstrdup(istack->element);
+    node->element = TY_(tmbstrdup)(istack->element);
     node->tag = istack->tag;
-    node->attributes = DupAttrs( doc, istack->attributes );
+    node->attributes = TY_(DupAttrs)( doc, istack->attributes );
 
     /* advance lexer to next item on the stack */
     n = (uint)(lexer->insert - &(lexer->istack[0]));
@@ -268,6 +288,11 @@ Node *InsertedToken( TidyDocImpl* doc )
     return node;
 }
 
-
-
-
+/*
+ * local variables:
+ * mode: c
+ * indent-tabs-mode: nil
+ * c-basic-offset: 4
+ * eval: (c-set-offset 'substatement-open 0)
+ * end:
+ */

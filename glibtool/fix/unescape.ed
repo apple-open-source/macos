@@ -1,8 +1,0 @@
-/^delay_variable_subst=/a
-
-# Sed substitution to undo escaping of the cmd sep variable
-unescape_variable_subst='s/\\\(${_S_}\)/\1/g'
-.
-g/$delay_variable_subst/s//&\\" -e \\"\\$unescape_variable_subst/
-w
-q

@@ -1,9 +1,13 @@
---- localtime.c.orig	2004-11-01 23:24:08.000000000 -0800
-+++ localtime.c	2004-11-05 23:43:55.000000000 -0800
-@@ -24,6 +24,18 @@
+--- localtime.c.orig	2007-05-23 18:18:18.000000000 -0700
++++ localtime.c	2007-05-23 18:20:52.000000000 -0700
+@@ -22,8 +22,22 @@
+ #include "namespace.h"
+ #include <sys/types.h>
  #include <sys/stat.h>
++#include <time.h>
  #include <fcntl.h>
  #include <pthread.h>
++#include <errno.h>
 +#ifdef NOTIFY_TZ
 +//#define NOTIFY_TZ_DEBUG
 +//#define NOTIFY_TZ_DEBUG_FILE	"/var/log/localtime.debug"
@@ -19,7 +23,15 @@
  #include "private.h"
  #include "un-namespace.h"
  
-@@ -135,6 +147,16 @@
+@@ -33,6 +47,7 @@
+ 
+ #define	_MUTEX_LOCK(x)		if (__isthreaded) _pthread_mutex_lock(x)
+ #define	_MUTEX_UNLOCK(x)	if (__isthreaded) _pthread_mutex_unlock(x)
++extern int __pthread_tsd_first;
+ 
+ /*
+ ** SunOS 4.1.1 headers lack O_BINARY.
+@@ -135,40 +150,96 @@
  #define DAY_OF_YEAR		1	/* n - day of year */
  #define MONTH_NTH_DAY_OF_WEEK	2	/* Mm.n.d - month, week, day of week */
  
@@ -36,7 +48,52 @@
  /*
  ** Prototypes for static functions.
  */
-@@ -154,6 +176,10 @@
++#define	localsub	_st_localsub
++#define	time1		_st_time1
++#define	tzset_basic	_st_tzset_basic
++__private_extern__
++#ifdef __LP64__
++struct tm *		localsub(const time_t * timep, long offset,
++				struct tm * tmp);
++#else /* !__LP64__ */
++void			localsub(const time_t * timep, long offset,
++				struct tm * tmp);
++#endif /* __LP64__ */
++__private_extern__
++time_t			time1(struct tm * tmp,
++#ifdef __LP64__
++				struct tm *(*funcp) (const time_t *,
++				long, struct tm *),
++#else /* !__LP64__ */
++				void(*funcp) (const time_t *,
++				long, struct tm *),
++#endif /* __LP64__ */
++				long offset,
++			        int unix03);
++__private_extern__
++void			tzset_basic(void);
++
++#define	lcl_mutex	_st_lcl_mutex
+ 
++#if !BUILDING_VARIANT
+ static long		detzcode(const char * codep);
+-static const char *	getzname(const char * strp);
++static const char *	getzname(const char * strp, char **name, size_t *len);
+ static const char *	getnum(const char * strp, int * nump, int min,
+ 				int max);
+ static const char *	getsecs(const char * strp, long * secsp);
+ static const char *	getoffset(const char * strp, long * offsetp);
+ static const char *	getrule(const char * strp, struct rule * rulep);
+ static void		gmtload(struct state * sp);
+-static void		gmtsub(const time_t * timep, long offset,
++#ifdef __LP64__
++static struct tm *	gmtsub(const time_t * timep, long offset,
+ 				struct tm * tmp);
+-static void		localsub(const time_t * timep, long offset,
++#else /* !__LP64__ */
++static void		gmtsub(const time_t * timep, long offset,
+ 				struct tm * tmp);
++#endif /* __LP64__ */
  static int		increment_overflow(int * number, int delta);
  static int		normalize_overflow(int * tensptr, int * unitsptr,
  				int base);
@@ -45,9 +102,42 @@
 +static void		notify_register_tz(char *file, notify_tz_t *p);
 +#endif /* NOTIFY_TZ */
  static void		settzname(void);
- static time_t		time1(struct tm * tmp,
+-static time_t		time1(struct tm * tmp,
+-				void(*funcp) (const time_t *,
+-				long, struct tm *),
+-				long offset);
+ static time_t		time2(struct tm *tmp,
++#ifdef __LP64__
++				struct tm *(*funcp) (const time_t *,
++				long, struct tm*),
++#else /* !__LP64__ */
  				void(*funcp) (const time_t *,
-@@ -194,8 +220,13 @@
+ 				long, struct tm*),
+-				long offset, int * okayp);
++#endif /* __LP64__ */
++				long offset, int * okayp, int unix03);
+ static time_t		time2sub(struct tm *tmp,
++#ifdef __LP64__
++				struct tm *(*funcp) (const time_t *,
++				long, struct tm*),
++#else /* !__LP64__ */
+ 				void(*funcp) (const time_t *,
+ 				long, struct tm*),
+-				long offset, int * okayp, int do_norm_secs);
++#endif /* __LP64__ */
++				long offset, int * okayp, int do_norm_secs,
++				int unix03);
++#ifdef __LP64__
++static struct tm *	timesub(const time_t * timep, long offset,
++				const struct state * sp, struct tm * tmp);
++#else /* !__LP64__ */
+ static void		timesub(const time_t * timep, long offset,
+ 				const struct state * sp, struct tm * tmp);
++#endif /* __LP64__ */
+ static int		tmcomp(const struct tm * atmp,
+ 				const struct tm * btmp);
+ static time_t		transtime(time_t janfirst, int year,
+@@ -194,10 +265,15 @@
  #endif /* !defined TZ_STRLEN_MAX */
  
  static char		lcl_TZname[TZ_STRLEN_MAX + 1];
@@ -57,11 +147,15 @@
 +#else /* ! NOTIFY_TZ */
  static int		lcl_is_set;
  static int		gmt_is_set;
+-static pthread_mutex_t	lcl_mutex = PTHREAD_MUTEX_INITIALIZER;
+-static pthread_mutex_t	gmt_mutex = PTHREAD_MUTEX_INITIALIZER;
 +#endif /* NOTIFY_TZ */
- static pthread_mutex_t	lcl_mutex = PTHREAD_MUTEX_INITIALIZER;
- static pthread_mutex_t	gmt_mutex = PTHREAD_MUTEX_INITIALIZER;
++__private_extern__ pthread_mutex_t	lcl_mutex = PTHREAD_MUTEX_INITIALIZER;
++static		   pthread_mutex_t	gmt_mutex = PTHREAD_MUTEX_INITIALIZER;
  
-@@ -214,15 +245,62 @@
+ char *			tzname[2] = {
+ 	wildabbr,
+@@ -214,15 +290,62 @@
  
  static struct tm	tm;
  
@@ -126,7 +220,7 @@
  static long
  detzcode(codep)
  const char * const	codep;
-@@ -246,14 +324,14 @@
+@@ -246,14 +369,14 @@
  	tzname[1] = wildabbr;
  #ifdef USG_COMPAT
  	daylight = 0;
@@ -143,7 +237,7 @@
  		return;
  	}
  #endif /* defined ALL_STATE */
-@@ -266,7 +344,7 @@
+@@ -266,7 +389,7 @@
  		if (ttisp->tt_isdst)
  			daylight = 1;
  		if (i == 0 || !ttisp->tt_isdst)
@@ -152,7 +246,7 @@
  #endif /* defined USG_COMPAT */
  #ifdef ALTZONE
  		if (i == 0 || ttisp->tt_isdst)
-@@ -286,6 +364,117 @@
+@@ -286,6 +409,119 @@
  	}
  }
  
@@ -192,6 +286,8 @@
 +		NOTIFY_TZ_PRINTF("notify_check_tz: %s unchanged\n", (p == &lcl_notify) ? "lcl" : "gmt");
 +#endif /* NOTIFY_TZ_DEBUG */
 +}
++
++extern uint32_t notify_monitor_file(int token, char *path, int flags);
 +
 +static void
 +notify_register_tz(char *file, notify_tz_t *p)
@@ -270,7 +366,7 @@
  static int
  tzload(name, sp)
  const char *		name;
-@@ -295,6 +484,9 @@
+@@ -295,6 +531,9 @@
  	int		i;
  	int		fid;
  
@@ -280,7 +376,7 @@
  	/* XXX The following is from OpenBSD, and I'm not sure it is correct */
  	if (name != NULL && issetugid() != 0)
  		if ((name[0] == ':' && name[1] == '/') || 
-@@ -312,7 +504,15 @@
+@@ -312,7 +551,15 @@
  		** to hold the longest file name string that the implementation
  		** guarantees can be opened."
  		*/
@@ -296,7 +392,7 @@
  
  		if (name[0] == ':')
  			++name;
-@@ -320,7 +520,11 @@
+@@ -320,7 +567,11 @@
  		if (!doaccess) {
  			if ((p = TZDIR) == NULL)
  				return -1;
@@ -308,7 +404,7 @@
  				return -1;
  			(void) strcpy(fullname, p);
  			(void) strcat(fullname, "/");
-@@ -332,6 +536,10 @@
+@@ -332,6 +583,10 @@
  				doaccess = TRUE;
  			name = fullname;
  		}
@@ -319,7 +415,7 @@
  		if (doaccess && access(name, R_OK) != 0)
  		     	return -1;
  		if ((fid = _open(name, OPEN_MODE)) == -1)
-@@ -350,6 +558,9 @@
+@@ -350,6 +605,9 @@
  		int		ttisstdcnt;
  		int		ttisgmtcnt;
  
@@ -329,7 +425,52 @@
  		i = _read(fid, u.buf, sizeof u.buf);
  		if (_close(fid) != 0)
  			return -1;
-@@ -764,6 +975,9 @@
+@@ -456,14 +714,24 @@
+ */
+ 
+ static const char *
+-getzname(strp)
++getzname(strp, name, len)
+ const char *	strp;
++char **		name;
++size_t *	len;
+ {
+ 	char	c;
++	char *	ket;
+ 
++	if (*strp == '<' && (ket = strchr(strp, '>')) != NULL) {
++		*name = (char *)(strp + 1);
++		*len = ket - strp - 1;
++		return ket + 1;
++	}
++	*name = (char *)strp;
+ 	while ((c = *strp) != '\0' && !is_digit(c) && c != ',' && c != '-' &&
+ 		c != '+')
+ 			++strp;
++	*len = strp - *name;
+ 	return strp;
+ }
+ 
+@@ -743,16 +1011,15 @@
+ 	int			load_result;
+ 
+ 	INITIALIZE(dstname);
+-	stdname = name;
+ 	if (lastditch) {
++		stdname = name;
+ 		stdlen = strlen(name);	/* length of standard zone name */
+ 		name += stdlen;
+ 		if (stdlen >= sizeof sp->chars)
+ 			stdlen = (sizeof sp->chars) - 1;
+ 		stdoffset = 0;
+ 	} else {
+-		name = getzname(name);
+-		stdlen = name - stdname;
++		name = getzname(name, (char **)&stdname, &stdlen);
+ 		if (stdlen < 3)
+ 			return -1;
+ 		if (*name == '\0')
+@@ -764,12 +1031,14 @@
  		}
  	}
  	load_result = tzload(TZDEFRULES, sp);
@@ -339,7 +480,14 @@
  	if (load_result != 0)
  		sp->leapcnt = 0;		/* so, we're off a little */
  	if (*name != '\0') {
-@@ -951,8 +1165,19 @@
+ 		dstname = name;
+-		name = getzname(name);
+-		dstlen = name - dstname;	/* length of DST zone name */
++		name = getzname(name, (char **)&dstname, &dstlen);
+ 		if (dstlen < 3)
+ 			return -1;
+ 		if (*name != '\0' && *name != ',' && *name != ';') {
+@@ -951,8 +1220,19 @@
  static void
  tzsetwall_basic(void)
  {
@@ -359,7 +507,7 @@
  	lcl_is_set = -1;
  
  #ifdef ALL_STATE
-@@ -966,12 +1191,18 @@
+@@ -966,18 +1246,24 @@
  #endif /* defined ALL_STATE */
  	if (tzload((char *) NULL, lclptr) != 0)
  		gmtload(lclptr);
@@ -378,7 +526,14 @@
  	_MUTEX_LOCK(&lcl_mutex);
  	tzsetwall_basic();
  	_MUTEX_UNLOCK(&lcl_mutex);
-@@ -988,8 +1219,18 @@
+ }
+ 
+-static void
++__private_extern__ void
+ tzset_basic(void)
+ {
+ 	const char *	name;
+@@ -988,8 +1274,18 @@
  		return;
  	}
  
@@ -397,7 +552,7 @@
  	lcl_is_set = strlen(name) < sizeof lcl_TZname;
  	if (lcl_is_set)
  		(void) strcpy(lcl_TZname, name);
-@@ -1014,15 +1255,25 @@
+@@ -1014,15 +1310,25 @@
  		lclptr->ttis[0].tt_gmtoff = 0;
  		lclptr->ttis[0].tt_abbrind = 0;
  		(void) strcpy(lclptr->chars, gmt);
@@ -423,7 +578,20 @@
  	_MUTEX_LOCK(&lcl_mutex);
  	tzset_basic();
  	_MUTEX_UNLOCK(&lcl_mutex);
-@@ -1049,6 +1300,9 @@
+@@ -1038,7 +1344,11 @@
+ */
+ 
+ /*ARGSUSED*/
+-static void
++#ifdef __LP64__
++__private_extern__ struct tm *
++#else /* !__LP64__ */
++__private_extern__ void
++#endif /* __LP64__ */
+ localsub(timep, offset, tmp)
+ const time_t * const	timep;
+ const long		offset;
+@@ -1049,11 +1359,18 @@
  	int			i;
  	const time_t			t = *timep;
  
@@ -433,16 +601,100 @@
  	sp = lclptr;
  #ifdef ALL_STATE
  	if (sp == NULL) {
-@@ -1094,7 +1348,7 @@
++#ifdef __LP64__
++		return gmtsub(timep, offset, tmp);
++#else /* !__LP64__ */
+ 		gmtsub(timep, offset, tmp);
+ 		return;
++#endif /* __LP64__ */
+ 	}
+ #endif /* defined ALL_STATE */
+ 	if (sp->timecnt == 0 || t < sp->ats[0]) {
+@@ -1076,12 +1393,20 @@
+ 	**	t += ttisp->tt_gmtoff;
+ 	**	timesub(&t, 0L, sp, tmp);
+ 	*/
++#ifdef __LP64__
++	if (timesub(&t, ttisp->tt_gmtoff, sp, tmp) == NULL)
++		return NULL;
++#else /* !__LP64__ */
+ 	timesub(&t, ttisp->tt_gmtoff, sp, tmp);
++#endif /* __LP64__ */
+ 	tmp->tm_isdst = ttisp->tt_isdst;
+ 	tzname[tmp->tm_isdst] = &sp->chars[ttisp->tt_abbrind];
+ #ifdef TM_ZONE
+ 	tmp->TM_ZONE = &sp->chars[ttisp->tt_abbrind];
+ #endif /* defined TM_ZONE */
++#ifdef __LP64__
++	return tmp;
++#endif /* __LP64__ */
+ }
+ 
+ struct tm *
+@@ -1094,8 +1419,9 @@
  
  	if (__isthreaded != 0) {
  		_pthread_mutex_lock(&localtime_mutex);
 -		if (localtime_key < 0) {
+-			if (_pthread_key_create(&localtime_key, free) < 0) {
 +		if (localtime_key == (pthread_key_t)-1) {
- 			if (_pthread_key_create(&localtime_key, free) < 0) {
++			localtime_key = __pthread_tsd_first + 2;
++			if (pthread_key_init_np(localtime_key, free) < 0) {
  				_pthread_mutex_unlock(&localtime_mutex);
  				return(NULL);
-@@ -1146,14 +1400,30 @@
+ 			}
+@@ -1110,13 +1436,21 @@
+ 		}
+ 		_pthread_mutex_lock(&lcl_mutex);
+ 		tzset_basic();
++#ifdef __LP64__
++		p_tm = localsub(timep, 0L, p_tm);
++#else /* !__LP64__ */
+ 		localsub(timep, 0L, p_tm);
++#endif /* __LP64__ */
+ 		_pthread_mutex_unlock(&lcl_mutex);
+ 		return(p_tm);
+ 	} else {
+ 		tzset_basic();
++#ifdef __LP64__
++		return localsub(timep, 0L, &tm);
++#else /* !__LP64__ */
+ 		localsub(timep, 0L, &tm);
+ 		return(&tm);
++#endif /* __LP64__ */
+ 	}
+ }
+ 
+@@ -1125,13 +1459,15 @@
+ */
+ 
+ struct tm *
+-localtime_r(timep, tm)
+-const time_t * const	timep;
+-struct tm *		tm;
++localtime_r(const time_t * const __restrict timep, struct tm * __restrict tm)
+ {
+ 	_MUTEX_LOCK(&lcl_mutex);
+ 	tzset_basic();
++#ifdef __LP64__
++	tm = localsub(timep, 0L, tm);
++#else /* !__LP64__ */
+ 	localsub(timep, 0L, tm);
++#endif /* __LP64__ */
+ 	_MUTEX_UNLOCK(&lcl_mutex);
+ 	return tm;
+ }
+@@ -1140,23 +1476,48 @@
+ ** gmtsub is to gmtime as localsub is to localtime.
+ */
+ 
++#ifdef __LP64__
++static struct tm *
++#else /* !__LP64__ */
+ static void
++#endif /* __LP64__ */
+ gmtsub(timep, offset, tmp)
+ const time_t * const	timep;
  const long		offset;
  struct tm * const	tmp;
  {
@@ -473,8 +725,16 @@
 +#endif /* NOTIFY_TZ */
  	}
  	_MUTEX_UNLOCK(&gmt_mutex);
++#ifdef __LP64__
++	if(timesub(timep, offset, gmtptr, tmp) == NULL)
++		return NULL;
++#else /* !__LP64__ */
  	timesub(timep, offset, gmtptr, tmp);
-@@ -1168,7 +1438,7 @@
++#endif /* __LP64__ */
+ #ifdef TM_ZONE
+ 	/*
+ 	** Could get fancy here and deliver something such as
+@@ -1168,7 +1529,7 @@
  	else {
  #ifdef ALL_STATE
  		if (gmtptr == NULL)
@@ -483,12 +743,379 @@
  		else	tmp->TM_ZONE = gmtptr->chars;
  #endif /* defined ALL_STATE */
  #ifndef ALL_STATE
-@@ -1188,7 +1458,7 @@
+@@ -1176,6 +1537,9 @@
+ #endif /* State Farm */
+ 	}
+ #endif /* defined TM_ZONE */
++#ifdef __LP64__
++	return tmp;
++#endif /* __LP64__ */
+ }
  
+ struct tm *
+@@ -1186,10 +1550,12 @@
+ 	static pthread_key_t gmtime_key = -1;
+ 	struct tm *p_tm;
+ 
++	
  	if (__isthreaded != 0) {
  		_pthread_mutex_lock(&gmtime_mutex);
 -		if (gmtime_key < 0) {
+-			if (_pthread_key_create(&gmtime_key, free) < 0) {
 +		if (gmtime_key == (pthread_key_t)-1) {
- 			if (_pthread_key_create(&gmtime_key, free) < 0) {
++			gmtime_key = __pthread_tsd_first + 3;
++			if (pthread_key_init_np(gmtime_key, free) < 0) {
  				_pthread_mutex_unlock(&gmtime_mutex);
  				return(NULL);
+ 			}
+@@ -1206,12 +1572,20 @@
+ 			}
+ 			_pthread_setspecific(gmtime_key, p_tm);
+ 		}
++#ifdef __LP64__
++		return gmtsub(timep, 0L, p_tm);
++#else /* !__LP64__ */
+ 		gmtsub(timep, 0L, p_tm);
+ 		return(p_tm);
++#endif /* __LP64__ */
+ 	}
+ 	else {
++#ifdef __LP64__
++		return gmtsub(timep, 0L, &tm);
++#else /* !__LP64__ */
+ 		gmtsub(timep, 0L, &tm);
+ 		return(&tm);
++#endif /* __LP64__ */
+ 	}
+ }
+ 
+@@ -1224,8 +1598,13 @@
+ const time_t * const	timep;
+ struct tm *		tm;
+ {
++
++#ifdef __LP64__
++	return gmtsub(timep, 0L, tm);
++#else /* !__LP64__ */
+ 	gmtsub(timep, 0L, tm);
+ 	return tm;
++#endif /* __LP64__ */
+ }
+ 
+ #ifdef STD_INSPIRED
+@@ -1235,13 +1614,21 @@
+ const time_t * const	timep;
+ const long		offset;
+ {
++#ifdef __LP64__
++	return gmtsub(timep, offset, &tm);
++#else /* !__LP64__ */
+ 	gmtsub(timep, offset, &tm);
+ 	return &tm;
++#endif /* __LP64__ */
+ }
+ 
+ #endif /* defined STD_INSPIRED */
+ 
++#ifdef __LP64__
++static struct tm *
++#else /* !__LP64__ */
+ static void
++#endif /* __LP64__ */
+ timesub(timep, offset, sp, tmp)
+ const time_t * const			timep;
+ const long				offset;
+@@ -1330,7 +1717,16 @@
+ 			LEAPS_THRU_END_OF(y - 1);
+ 		y = newy;
+ 	}
++#ifdef __LP64__
++	y -= TM_YEAR_BASE;
++	if (y < INT_MIN || y > INT_MAX) {
++		errno = EOVERFLOW;
++		return NULL;
++	}
++	tmp->tm_year = y;
++#else /* !__LP64__ */
+ 	tmp->tm_year = y - TM_YEAR_BASE;
++#endif /* __LP64__ */
+ 	tmp->tm_yday = (int) days;
+ 	ip = mon_lengths[yleap];
+ 	for (tmp->tm_mon = 0; days >= (long) ip[tmp->tm_mon]; ++(tmp->tm_mon))
+@@ -1340,6 +1736,9 @@
+ #ifdef TM_GMTOFF
+ 	tmp->TM_GMTOFF = offset;
+ #endif /* defined TM_GMTOFF */
++#ifdef __LP64__
++	return tmp;
++#endif /* __LP64__ */
+ }
+ 
+ char *
+@@ -1427,12 +1826,17 @@
+ }
+ 
+ static time_t
+-time2sub(tmp, funcp, offset, okayp, do_norm_secs)
++time2sub(tmp, funcp, offset, okayp, do_norm_secs, unix03)
+ struct tm * const	tmp;
++#ifdef __LP64__
++struct tm *(* const	funcp)(const time_t*, long, struct tm*);
++#else /* !__LP64__ */
+ void (* const		funcp)(const time_t*, long, struct tm*);
++#endif /* __LP64__ */
+ const long		offset;
+ int * const		okayp;
+ const int		do_norm_secs;
++int			unix03;
+ {
+ 	const struct state *	sp;
+ 	int			dir;
+@@ -1442,6 +1846,9 @@
+ 	time_t				newt;
+ 	time_t				t;
+ 	struct tm			yourtm, mytm;
++#ifdef __LP64__
++	long				year, il;
++#endif /* __LP64__ */
+ 
+ 	*okayp = FALSE;
+ 	yourtm = *tmp;
+@@ -1460,33 +1867,64 @@
+ 	** Turn yourtm.tm_year into an actual year number for now.
+ 	** It is converted back to an offset from TM_YEAR_BASE later.
+ 	*/
++#ifdef __LP64__
++	year = (long)yourtm.tm_year + TM_YEAR_BASE;
++#else /* !__LP64__ */
+ 	if (increment_overflow(&yourtm.tm_year, TM_YEAR_BASE))
+ 		return WRONG;
++#endif /* __LP64__ */
+ 	while (yourtm.tm_mday <= 0) {
++#ifdef __LP64__
++		year--;
++		il = year + (1 < yourtm.tm_mon);
++		yourtm.tm_mday += year_lengths[isleap(il)];
++#else /* !__LP64__ */
+ 		if (increment_overflow(&yourtm.tm_year, -1))
+ 			return WRONG;
+ 		i = yourtm.tm_year + (1 < yourtm.tm_mon);
+ 		yourtm.tm_mday += year_lengths[isleap(i)];
++#endif /* __LP64__ */
+ 	}
+ 	while (yourtm.tm_mday > DAYSPERLYEAR) {
++#ifdef __LP64__
++		il = year + (1 < yourtm.tm_mon);
++		yourtm.tm_mday -= year_lengths[isleap(il)];
++		year++;
++#else /* !__LP64__ */
+ 		i = yourtm.tm_year + (1 < yourtm.tm_mon);
+ 		yourtm.tm_mday -= year_lengths[isleap(i)];
+ 		if (increment_overflow(&yourtm.tm_year, 1))
+ 			return WRONG;
++#endif /* __LP64__ */
+ 	}
+ 	for ( ; ; ) {
++#ifdef __LP64__
++		i = mon_lengths[isleap(year)][yourtm.tm_mon];
++#else /* !__LP64__ */
+ 		i = mon_lengths[isleap(yourtm.tm_year)][yourtm.tm_mon];
++#endif /* __LP64__ */
+ 		if (yourtm.tm_mday <= i)
+ 			break;
+ 		yourtm.tm_mday -= i;
+ 		if (++yourtm.tm_mon >= MONSPERYEAR) {
+ 			yourtm.tm_mon = 0;
++#ifdef __LP64__
++			year++;
++#else /* !__LP64__ */
+ 			if (increment_overflow(&yourtm.tm_year, 1))
+ 				return WRONG;
++#endif /* __LP64__ */
+ 		}
+ 	}
++#ifdef __LP64__
++	year -= TM_YEAR_BASE;
++	if (year > INT_MAX || year < INT_MIN)
++		return WRONG;
++	yourtm.tm_year = year;
++#else /* !__LP64__ */
+ 	if (increment_overflow(&yourtm.tm_year, -TM_YEAR_BASE))
+ 		return WRONG;
++#endif /* __LP64__ */
+ 	/* Don't go below 1900 for POLA */
+ 	if (yourtm.tm_year < 0)
+ 		return WRONG;
+@@ -1527,8 +1965,19 @@
+ 	*/
+ 	t = TYPE_SIGNED(time_t) ? 0 : (((time_t) 1) << bits);
+ 	for ( ; ; ) {
++#ifdef __LP64__
++		if ((*funcp)(&t, offset, &mytm) == NULL) {
++		    /* we overflowed, so t is too big */
++		    dir = 1;
++		    goto skip_tmcomp;
++		}
++#else /* !__LP64__ */
+ 		(*funcp)(&t, offset, &mytm);
++#endif /* __LP64__ */
+ 		dir = tmcomp(&mytm, &yourtm);
++#ifdef __LP64__
++skip_tmcomp:
++#endif /* __LP64__ */
+ 		if (dir != 0) {
+ 			if (bits-- < 0)
+ 				return WRONG;
+@@ -1539,6 +1988,9 @@
+ 			else	t += ((time_t) 1) << bits;
+ 			continue;
+ 		}
++		sp = (funcp == localsub) ? lclptr : gmtptr;
++		if (unix03 && sp->typecnt == 1 && yourtm.tm_isdst > 0) 
++			yourtm.tm_isdst = 0; /* alternative time does not apply */
+ 		if (yourtm.tm_isdst < 0 || mytm.tm_isdst == yourtm.tm_isdst)
+ 			break;
+ 		/*
+@@ -1547,7 +1999,6 @@
+ 		** It's okay to guess wrong since the guess
+ 		** gets checked.
+ 		*/
+-		sp = (funcp == localsub) ? lclptr : gmtptr;
+ #ifdef ALL_STATE
+ 		if (sp == NULL)
+ 			return WRONG;
+@@ -1560,7 +2011,12 @@
+ 					continue;
+ 				newt = t + sp->ttis[j].tt_gmtoff -
+ 					sp->ttis[i].tt_gmtoff;
++#ifdef __LP64__
++				if ((*funcp)(&newt, offset, &mytm) == NULL)
++					return WRONG;
++#else /* !__LP64__ */
+ 				(*funcp)(&newt, offset, &mytm);
++#endif /* __LP64__ */
+ 				if (tmcomp(&mytm, &yourtm) != 0)
+ 					continue;
+ 				if (mytm.tm_isdst != yourtm.tm_isdst)
+@@ -1579,17 +2035,27 @@
+ 	if ((newt < t) != (saved_seconds < 0))
+ 		return WRONG;
+ 	t = newt;
++#ifdef __LP64__
++	if ((*funcp)(&t, offset, tmp) == NULL)
++		return WRONG;
++#else /* !__LP64__ */
+ 	(*funcp)(&t, offset, tmp);
++#endif /* __LP64__ */
+ 	*okayp = TRUE;
+ 	return t;
+ }
+ 
+ static time_t
+-time2(tmp, funcp, offset, okayp)
++time2(tmp, funcp, offset, okayp, unix03)
+ struct tm * const	tmp;
++#ifdef __LP64__
++struct tm *(* const	funcp)(const time_t*, long, struct tm*);
++#else /* !__LP64__ */
+ void (* const		funcp)(const time_t*, long, struct tm*);
++#endif /* __LP64__ */
+ const long		offset;
+ int * const		okayp;
++int			unix03;
+ {
+ 	time_t	t;
+ 
+@@ -1598,15 +2064,20 @@
+ 	** (in case tm_sec contains a value associated with a leap second).
+ 	** If that fails, try with normalization of seconds.
+ 	*/
+-	t = time2sub(tmp, funcp, offset, okayp, FALSE);
+-	return *okayp ? t : time2sub(tmp, funcp, offset, okayp, TRUE);
++	t = time2sub(tmp, funcp, offset, okayp, FALSE, unix03);
++	return *okayp ? t : time2sub(tmp, funcp, offset, okayp, TRUE, unix03);
+ }
+ 
+-static time_t
+-time1(tmp, funcp, offset)
++__private_extern__ time_t
++time1(tmp, funcp, offset, unix03)
+ struct tm * const	tmp;
++#ifdef __LP64__
++struct tm *(* const	funcp)(const time_t *, long, struct tm *);
++#else /* !__LP64__ */
+ void (* const		funcp)(const time_t *, long, struct tm *);
++#endif /* __LP64__ */
+ const long		offset;
++int			unix03;
+ {
+ 	time_t			t;
+ 	const struct state *	sp;
+@@ -1620,7 +2091,7 @@
+ 
+ 	if (tmp->tm_isdst > 1)
+ 		tmp->tm_isdst = 1;
+-	t = time2(tmp, funcp, offset, &okay);
++	t = time2(tmp, funcp, offset, &okay, unix03);
+ #ifdef PCTS
+ 	/*
+ 	** PCTS code courtesy Grant Sullivan (grant@osf.org).
+@@ -1664,7 +2135,7 @@
+ 			tmp->tm_sec += sp->ttis[otheri].tt_gmtoff -
+ 					sp->ttis[samei].tt_gmtoff;
+ 			tmp->tm_isdst = !tmp->tm_isdst;
+-			t = time2(tmp, funcp, offset, &okay);
++			t = time2(tmp, funcp, offset, &okay, unix03);
+ 			if (okay)
+ 				return t;
+ 			tmp->tm_sec -= sp->ttis[otheri].tt_gmtoff -
+@@ -1674,19 +2145,25 @@
+ 	}
+ 	return WRONG;
+ }
++#else  /* BUILDING_VARIANT */
++__private_extern__ pthread_mutex_t	lcl_mutex;
++#endif /* BUILDING_VARIANT */
+ 
+ time_t
+ mktime(tmp)
+ struct tm * const	tmp;
+ {
+ 	time_t mktime_return_value;
++	int serrno = errno;
+ 	_MUTEX_LOCK(&lcl_mutex);
+ 	tzset_basic();
+-	mktime_return_value = time1(tmp, localsub, 0L);
++	mktime_return_value = time1(tmp, localsub, 0L, __DARWIN_UNIX03);
+ 	_MUTEX_UNLOCK(&lcl_mutex);
++	errno = serrno;
+ 	return(mktime_return_value);
+ }
+ 
++#if !BUILDING_VARIANT
+ #ifdef STD_INSPIRED
+ 
+ time_t
+@@ -1702,7 +2179,7 @@
+ struct tm * const	tmp;
+ {
+ 	tmp->tm_isdst = 0;
+-	return time1(tmp, gmtsub, 0L);
++	return time1(tmp, gmtsub, 0L, __DARWIN_UNIX03);
+ }
+ 
+ time_t
+@@ -1711,7 +2188,7 @@
+ const long		offset;
+ {
+ 	tmp->tm_isdst = 0;
+-	return time1(tmp, gmtsub, offset);
++	return time1(tmp, gmtsub, offset, __DARWIN_UNIX03);
+ }
+ 
+ #endif /* defined STD_INSPIRED */
+@@ -1811,3 +2288,4 @@
+ }
+ 
+ #endif /* defined STD_INSPIRED */
++#endif /* !BUILDING_VARIANT */

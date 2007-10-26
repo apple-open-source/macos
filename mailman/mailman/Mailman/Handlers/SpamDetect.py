@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Do more detailed spam detection.
 
@@ -67,7 +68,7 @@ class Tee:
     def write(self, s):
         self._outfp_a.write(s)
         self._outfp_b.write(s)
-        
+
 
 # Class to capture the headers separate from the message body
 class HeaderGenerator(Generator):
@@ -96,30 +97,45 @@ def process(mlist, msg, msgdata):
     # First do site hard coded header spam checks
     for header, regex in mm_cfg.KNOWN_SPAMMERS:
         cre = re.compile(regex, re.IGNORECASE)
-        value = msg[header]
-        if not value:
-            continue
-        mo = cre.search(value)
-        if mo:
-            # we've detected spam, so throw the message away
-            raise SpamDetected
+        for value in msg.get_all(header, []):
+            mo = cre.search(value)
+            if mo:
+                # we've detected spam, so throw the message away
+                raise SpamDetected
     # Now do header_filter_rules
-    g = HeaderGenerator(StringIO())
-    g.flatten(msg)
-    headers = g.header_text()
+    # TK: Collect headers in sub-parts because attachment filename
+    # extension may be a clue to possible virus/spam.
+    headers = ''
+    for p in msg.walk():
+        g = HeaderGenerator(StringIO())
+        g.flatten(p)
+        headers += g.header_text()
+    # Now reshape headers (remove extra CR and connect multiline).
+    headers = re.sub('\n+', '\n', headers)
+    headers = re.sub('\n\s', ' ', headers)
     for patterns, action, empty in mlist.header_filter_rules:
         if action == mm_cfg.DEFER:
             continue
         for pattern in patterns.splitlines():
             if pattern.startswith('#'):
                 continue
-            if re.search(pattern, headers, re.IGNORECASE):
+            if re.search(pattern, headers, re.IGNORECASE|re.MULTILINE):
                 if action == mm_cfg.DISCARD:
                     raise Errors.DiscardMessage
                 if action == mm_cfg.REJECT:
+                    if msgdata.get('toowner'):
+                        # Don't send rejection notice if addressed to '-owner'
+                        # because it may trigger a loop of notices if the
+                        # sender address is forged.  We just discard it here.
+                        raise Errors.DiscardMessage
                     raise Errors.RejectMessage(
                         _('Message rejected by filter rule match'))
                 if action == mm_cfg.HOLD:
+                    if msgdata.get('toowner'):
+                        # Don't hold '-owner' addressed message.  We just
+                        # pass it here but list-owner can set this to be
+                        # discarded on the GUI if he wants.
+                        return
                     hold_for_approval(mlist, msg, msgdata, HeaderMatchHold)
                 if action == mm_cfg.ACCEPT:
                     return

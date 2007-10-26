@@ -104,13 +104,14 @@ firewire_inet_arp(
 	char *datap;
 
 	IOFWInterface *fwIf	   = (IOFWInterface*)ifnet_softc(ifp);
+	
+	if(fwIf == NULL)
+		return EINVAL;
+	
 	IOFireWireIP  *fwIpObj = (IOFireWireIP*)fwIf->getController();
     
 	if(fwIpObj == NULL)
-	{
-		log(LOG_DEBUG, "if_softc is NULL \n");
 		return EINVAL;
-	}
 
 	LCB	*lcb = fwIpObj->getLcb();
 	
@@ -121,7 +122,7 @@ firewire_inet_arp(
 		(target_ip && target_ip->sin_family != AF_INET))
 		return EAFNOSUPPORT;
 
-	result = mbuf_gethdr(MBUF_WAITOK, MBUF_TYPE_DATA, &m);
+	result = mbuf_gethdr(M_DONTWAIT, MBUF_TYPE_DATA, &m);
 	if (result != 0)
 		return result;
 
@@ -137,7 +138,10 @@ firewire_inet_arp(
 	bzero((caddr_t)fwa, sizeof(*fwa));
 	
 	/* Prepend the ethernet header, we will send the raw frame */
-	mbuf_prepend(&m, sizeof(*fwh), MBUF_WAITOK);
+	result = mbuf_prepend(&m, sizeof(*fwh), M_DONTWAIT);
+	if(result != 0)
+		return result;
+	
 	fwh = (struct firewire_header*)mbuf_data(m);
     fwh->fw_type = htons(FWTYPE_ARP);
 	
@@ -225,7 +229,12 @@ inet_firewire_arp_input(
 	struct sockaddr_in	target_ip;
 
 	ifnet_t		  ifp		= mbuf_pkthdr_rcvif((mbuf_t)m);
+
 	IOFWInterface *fwIf		= (IOFWInterface*)ifnet_softc(ifp);
+
+	if(fwIf == NULL)
+		return;
+	
 	IOFireWireIP  *fwIpObj	= (IOFireWireIP*)fwIf->getController();
 
 	if(fwIpObj == NULL)
@@ -233,10 +242,7 @@ inet_firewire_arp_input(
 
     if (mbuf_len(m) < (int)sizeof(IP1394_ARP) &&
 	    mbuf_pullup(&m, sizeof(IP1394_ARP)) != 0) 
-	{
-		log(LOG_ERR, "in_arp: runt packet -- m_pullup failed\n");
 		return;
-	}
 
 	fwa = (IP1394_ARP*)mbuf_data(m);
 		
@@ -244,7 +250,6 @@ inet_firewire_arp_input(
     if (fwa->hardwareType != htons(ARP_HDW_TYPE) || fwa->protocolType != htons(FWTYPE_IP)
         || fwa->hwAddrLen != sizeof(IP1394_HDW_ADDR) || fwa->ipAddrLen != IPV4_ADDR_SIZE)
 	{
-		log(LOG_DEBUG," firewire arp packet corrupt\n");
         mbuf_free(m);
         return;
     }

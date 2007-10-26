@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,14 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
-/*
- *  AuthorizationData.cpp
- *  Authorization
- *
- *  Created by Michael Brouwer on Thu Oct 12 2000.
- *
- */
 #include <security_cdsa_utilities/AuthorizationData.h>
 #include <security_cdsa_utilities/AuthorizationWalkers.h>
 #include <security_cdsa_utilities/walkers.h>
@@ -332,156 +324,5 @@ AuthItemSet::find(const char *name)
 	
 	return NULL;
 }
-
-//
-// CredentialImpl class
-//
-
-// only for testing whether this credential is usable
-CredentialImpl::CredentialImpl(const string &username, const uid_t uid, const gid_t gid, bool shared) :
-mUsername(username), mShared(shared), mUid(uid), mGid(gid), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(true)
-{
-}
-
-// credential with validity based on username/password combination.
-CredentialImpl::CredentialImpl(const string &username, const string &password, bool shared) :
-mUsername(username), mShared(shared), mCreationTime(CFAbsoluteTimeGetCurrent()), mValid(false)
-{
-	// Calling into DirectoryServices can be a long term operation
-//	Server::active().longTermActivity();	//@@@CONV
-
-	// try short name first
-	const char *user = username.c_str();
-	struct passwd *pw = getpwnam(user);
-
-    do {
-
-        if (!pw)
-        {
-            secdebug("autheval", "user %s not found, creating invalid credential", user);
-            break;
-        }
-
-		mUsername = string ( pw->pw_name );
-		mUid = pw->pw_uid;
-		mGid = pw->pw_gid;
-
-        const char *passwd = password.c_str();
-        int checkpw_status = checkpw_internal(pw, passwd);
-
-        if (checkpw_status != CHECKPW_SUCCESS)
-        {
-				secdebug("autheval", "checkpw() for user %s failed with error %d, creating invalid credential", user, checkpw_status);
-				break;
-        }
-
-		secdebug("autheval", "checkpw() for user %s succeeded, creating%s credential",
-			user, mShared ? " shared" : "");
-
-		mValid = true;
-
-        endpwent();
-    }
-	while (0);
-}
-
-
-CredentialImpl::~CredentialImpl()
-{
-}
-
-bool
-CredentialImpl::operator < (const CredentialImpl &other) const
-{
-	if (!mShared && other.mShared)
-		return true;
-	if (!other.mShared && mShared)
-		return false;
-
-	return mUsername < other.mUsername;
-}
-
-// Returns true if this CredentialImpl should be shared.
-bool
-CredentialImpl::isShared() const
-{
-	return mShared;
-}
-
-// Merge with other
-void
-CredentialImpl::merge(const CredentialImpl &other)
-{
-	assert(mUsername == other.mUsername);
-
-	if (other.mValid && (!mValid || mCreationTime < other.mCreationTime))
-	{
-		mCreationTime = other.mCreationTime;
-		mUid = other.mUid;
-		mGid = other.mGid;
-		mValid = true;
-	}
-}
-
-// The time at which this credential was obtained.
-CFAbsoluteTime
-CredentialImpl::creationTime() const
-{
-	return mCreationTime;
-}
-
-// Return true iff this credential is valid.
-bool
-CredentialImpl::isValid() const
-{
-	return mValid;
-}
-
-void
-CredentialImpl::invalidate()
-{
-	mValid = false;
-}
-
-//
-// Credential class
-//
-Credential::Credential() :
-RefPointer<CredentialImpl>(NULL)
-{
-}
-
-Credential::Credential(CredentialImpl *impl) :
-RefPointer<CredentialImpl>(impl)
-{
-}
-
-Credential::Credential(const string &username, const uid_t uid, const gid_t gid, bool shared) :
-RefPointer<CredentialImpl>(new CredentialImpl(username, uid, gid, shared))
-{
-}
-
-Credential::Credential(const string &username, const string &password, bool shared) :
-RefPointer<CredentialImpl>(new CredentialImpl(username, password, shared))
-{
-}
-
-Credential::~Credential()
-{
-}
-
-bool
-Credential::operator < (const Credential &other) const
-{
-	if (!*this)
-		return other;
-
-	if (!other)
-		return false;
-
-	return (**this) < (*other);
-}
-
-
 
 }	// end namespace Authorization

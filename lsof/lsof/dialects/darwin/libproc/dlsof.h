@@ -4,13 +4,13 @@
 
 
 /*
- * Portions Copyright 2005 Apple Computer, Inc.  All rights reserved.
+ * Portions Copyright 2005-2007 Apple Inc.  All rights reserved.
  *
  * Copyright 2005 Purdue Research Foundation, West Lafayette, Indiana
  * 47907.  All rights reserved.
  *
- * Written by Allan Nathanson, Apple Computer, Inc., and Victor A.
- * Abell, Purdue University.
+ * Written by Allan Nathanson, Apple Inc., and Victor A. Abell,
+ * Purdue University.
  *
  * This software is not subject to any license of the American Telephone
  * and Telegraph Company or the Regents of the University of California.
@@ -19,12 +19,12 @@
  * any computer system, and to alter it and redistribute it freely, subject
  * to the following restrictions:
  *
- * 1. Neither the authors, nor Apple Computer, Inc. nor Purdue University
+ * 1. Neither the authors, nor Apple Inc. nor Purdue University
  *    are responsible for any consequences of the use of this software.
  *
  * 2. The origin of this software must not be misrepresented, either
  *    by explicit claim or by omission.  Credit to the authors, Apple
- *    Computer, Inc. and Purdue University must appear in documentation
+ *    Inc. and Purdue University must appear in documentation
  *    and sources.
  *
  * 3. Altered versions must be plainly marked as such, and must not be
@@ -35,7 +35,7 @@
 
 
 /*
- * $Id: dlsof.h,v 1.6 2006/03/23 21:28:26 ajn Exp $
+ * $Id: dlsof.h,v 1.7 2007/05/26 01:18:17 ajn Exp $
  */
 
 
@@ -57,6 +57,16 @@
 #include <rpc/rpc.h>
 #include <rpc/pmap_prot.h>
 #include <libproc.h>
+
+#if DARWINV<900
+#define	vst_blksize	st_blksize
+#define	vst_dev		st_dev
+#define	vst_ino		st_ino
+#define	vst_mode	st_mode
+#define	vst_nlink	st_nlink
+#define	vst_rdev	st_rdev
+#define	vst_size	st_size
+#endif	/* DARWINV<=900 */
 
 #define	COMP_P		const void
 #define	DEVINCR		1024	/* device table malloc() increment */

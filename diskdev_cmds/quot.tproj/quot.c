@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,8 +52,10 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #ifndef lint
-static char rcsid[] = "$Id: quot.c,v 1.1.1.2.296.1 2005/07/20 04:56:00 lindak Exp $";
+__unused static char rcsid[] = "$Id: quot.c,v 1.3 2005/10/28 02:59:31 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -262,11 +264,11 @@ static struct user *user(uid)
 				usr->uid = uid;
 				
 				if (!(pwd = getpwuid(uid))) {
-					if (usr->name = (char *)malloc(7))
+					if ((usr->name = (char *)malloc(7)))
 						sprintf(usr->name,"#%d",uid);
 				} else {
-					if (usr->name = (char *)
-					    malloc(strlen(pwd->pw_name) + 1))
+					if ((usr->name = (char *)
+					    malloc(strlen(pwd->pw_name) + 1)))
 						strcpy(usr->name,pwd->pw_name);
 				}
 				if (!usr->name) {
@@ -383,7 +385,7 @@ static void dofsizes(fd,super,name)
 			}
 #else	/* COMPAT */
 			ksz = SIZE(sz);
-			for (fsp = &fsizes; fp = *fsp; fsp = &fp->fsz_next) {
+			for (fsp = &fsizes; (fp = *fsp); fsp = &fp->fsz_next) {
 				if (ksz < fp->fsz_last)
 					break;
 			}
@@ -602,7 +604,7 @@ int main(argc,argv)
 		cnt = getmntinfo(&mp,MNT_NOWAIT);
 		for (; --cnt >= 0; mp++) {
 			if (!strncmp(mp->f_fstypename, MOUNT_UFS, MFSNAMELEN)) {
-				if (nm = strrchr(mp->f_mntfromname,'/')) {
+				if ((nm = strrchr(mp->f_mntfromname,'/'))) {
 					sprintf(dev,"/dev/r%s",nm + 1);
 					nm = dev;
 				} else

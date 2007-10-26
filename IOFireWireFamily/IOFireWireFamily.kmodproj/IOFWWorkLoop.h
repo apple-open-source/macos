@@ -31,26 +31,32 @@
 #define _IOKIT_IOFWWORKLOOP_H
 
 #include <IOKit/IOWorkLoop.h>
+
 class IOFWWorkLoop : public IOWorkLoop
 {
     OSDeclareDefaultStructors(IOFWWorkLoop)
-    
-protected:
-    void *fSleepToken;
 
+protected:
+    void *				fSleepToken;
+	static SInt32		sLockGroupCount;
+	lck_grp_t *			fLockGroup;
+
+	bool init( void );
+	void free( void );
+	
     // Overrides to check for sleeping
     virtual void closeGate();
     virtual bool tryCloseGate();
-    
+	
 public:
     // Create a workloop
     static IOFWWorkLoop * workLoop();
     
     // Put workloop to sleep (Must have gate closed, opens gate if successful)
-    virtual IOReturn sleep(void *token);
+    virtual IOReturn sleep( void *token );
     
     // Wake workloop up (closes gate if successful)
-    virtual IOReturn wake(void *token);
+    virtual IOReturn wake( void *token );
 };
 
 #endif /* ! _IOKIT_IOFWWORKLOOP_H */

@@ -17,10 +17,15 @@
 #include <vstring.h>
 
  /*
+  * Global library.
+  */
+#include <mail_proto.h>			/* MAIL_ATTR_RWR_LOCAL */
+
+ /*
   * External interface.
   */
 #define REWRITE_ADDR	"rewrite"
-#define REWRITE_CANON	"canonicalize"
+#define REWRITE_CANON	MAIL_ATTR_RWR_LOCAL	/* backwards compatibility */
 
 extern VSTRING *rewrite_clnt(const char *, const char *, VSTRING *);
 extern VSTRING *rewrite_clnt_internal(const char *, const char *, VSTRING *);

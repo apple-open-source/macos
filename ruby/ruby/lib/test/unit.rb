@@ -1,17 +1,7 @@
-#
-# = test/unit.rb
-#
-# Ruby's standard unit testing library/software.
-#
-# Copyright (c) 2000-2003, Nathaniel Talbott.
-#
-# See Test::Unit for documentation.
-#
-
 require 'test/unit/testcase'
 require 'test/unit/autorunner'
 
-module Test
+module Test # :nodoc:
   #
   # = Test::Unit - Ruby Unit Testing Framework
   # 
@@ -240,40 +230,43 @@ module Test
   #  class TS_MyTests
   #    def self.suite
   #      suite = Test::Unit::TestSuite.new
-#      suite << TC_MyFirstTests.suite
-#      suite << TC_MoreTestsByMe.suite
-#      suite << TS_AnotherSetOfTests.suite
-#      return suite
-#    end
-#  end
-#  Test::Unit::UI::Console::TestRunner.run(TS_MyTests)
-#
-# Now, this is a bit cumbersome, so Test::Unit does a little bit more
-# for you, by wrapping these up automatically when you require
-# 'test/unit'. What does this mean? It means you could write the above
-# test case like this instead:
-#
-#  require 'test/unit'
-#  require 'tc_myfirsttests'
-#  require 'tc_moretestsbyme'
-#  require 'ts_anothersetoftests'
-#
-# Test::Unit is smart enough to find all the test cases existing in
-# the ObjectSpace and wrap them up into a suite for you. It then runs
-# the dynamic suite using the console TestRunner.
-#
-#
-# == Questions?
-#
-# I'd really like to get feedback from all levels of Ruby
-# practitioners about typos, grammatical errors, unclear statements,
-# missing points, etc., in this document (or any other).
-#
+  #      suite << TC_MyFirstTests.suite
+  #      suite << TC_MoreTestsByMe.suite
+  #      suite << TS_AnotherSetOfTests.suite
+  #      return suite
+  #    end
+  #  end
+  #  Test::Unit::UI::Console::TestRunner.run(TS_MyTests)
+  #
+  # Now, this is a bit cumbersome, so Test::Unit does a little bit more
+  # for you, by wrapping these up automatically when you require
+  # 'test/unit'. What does this mean? It means you could write the above
+  # test case like this instead:
+  #
+  #  require 'test/unit'
+  #  require 'tc_myfirsttests'
+  #  require 'tc_moretestsbyme'
+  #  require 'ts_anothersetoftests'
+  #
+  # Test::Unit is smart enough to find all the test cases existing in
+  # the ObjectSpace and wrap them up into a suite for you. It then runs
+  # the dynamic suite using the console TestRunner.
+  #
+  #
+  # == Questions?
+  #
+  # I'd really like to get feedback from all levels of Ruby
+  # practitioners about typos, grammatical errors, unclear statements,
+  # missing points, etc., in this document (or any other).
+  #
+
   module Unit
+    # If set to false Test::Unit will not automatically run at exit.
     def self.run=(flag)
       @run = flag
     end
 
+    # Automatically run tests at exit?
     def self.run?
       @run ||= false
     end
@@ -282,6 +275,6 @@ end
 
 at_exit do
   unless $! || Test::Unit.run?
-    exit Test::Unit::AutoRunner.run($0 != "-e" && $0)
+    exit Test::Unit::AutoRunner.run
   end
 end

@@ -24,6 +24,11 @@ if $tracelevel then {
         strace $tracelevel
 }
 
+if [target_info exists darwin64] {
+   verbose "Fix and continue not supported for x86-64/ppc64." 
+   return 
+}
+
 set prms_id 0
 set bug_id 0
 
@@ -51,8 +56,8 @@ gdb_test "next" ".*I am in bar in b.c version 1.*I am in fred.*"  "step over bar
 
 send_gdb "p foo\n"
 gdb_expect {
-  -re ".*$decimal = \{int \\(void\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
-    set stage1_foo_addr $expect_out(1,string)
+  -re ".*$decimal = \{int \\((void|)\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
+    set stage1_foo_addr $expect_out(2,string)
     pass "get addr of foo() at stage1"
   }
   -re ".*$gdb_prompt $" {
@@ -65,14 +70,14 @@ gdb_expect {
 
 # Build a new b.c
 
-gdb_test "shell make -C $objdir/$subdir stage2" ".*gcc.*b.o.*b-bundlized.o.*b.o" "make version 2 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage2" ".*gcc.*b2.o.*b-bundlized.o.*b2.o" "make version 2 of b.c"
 gdb_test "fix $objdir/$subdir/b-bundlized.o2 $objdir/$subdir/b.c" ".*Fix succeeded." "Bring in fixed b.c version 2"
 gdb_test "next" ".*I am in bar in b.c version 2.*I am in fred.*"  "step over bar() version 2"
 
 send_gdb "p foo\n"
 gdb_expect {
-  -re ".*$decimal = \{int \\(void\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
-    set stage2_foo_addr $expect_out(1,string)
+  -re ".*$decimal = \{int \\((void|)\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
+    set stage2_foo_addr $expect_out(2,string)
     pass "get addr of foo() at stage2"
   }
   -re ".*$gdb_prompt $" {
@@ -91,14 +96,14 @@ if { $stage1_foo_addr != $stage2_foo_addr } then {
 
 # Build a newer b.c
 
-gdb_test "shell make -C $objdir/$subdir stage3" ".*gcc.*b.o" "make version 3 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage3" ".*gcc.*b3.o" "make version 3 of b.c"
 gdb_test "fix $objdir/$subdir/b-bundlized.o3 $objdir/$subdir/b.c" ".*Fix succeeded." "Bring in fixed b.c version 3"
 gdb_test "next" ".*I am in bar in b.c version 3.*I am in fred.*"  "step over bar() version 3"
 
 send_gdb "p foo\n"
 gdb_expect {
-  -re ".*$decimal = \{int \\(void\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
-    set stage3_foo_addr $expect_out(1,string)
+  -re ".*$decimal = \{int \\((void|)\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
+    set stage3_foo_addr $expect_out(2,string)
     pass "get addr of foo() at stage3"
   }
   -re ".*$gdb_prompt $" {
@@ -117,14 +122,14 @@ if { $stage2_foo_addr != $stage3_foo_addr } then {
 
 # Build a newest b.c
 
-gdb_test "shell make -C $objdir/$subdir stage4" ".*gcc.*b.o" "make version 4 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage4" ".*gcc.*b4.o" "make version 4 of b.c"
 gdb_test "fix $objdir/$subdir/b-bundlized.o4 $objdir/$subdir/b.c" ".*Fix succeeded." "Bring in fixed b.c version 4"
 gdb_test "next" ".*I am in bar in b.c version 4.*I am in fred.*"  "step over bar() version 4"
 
 send_gdb "p foo\n"
 gdb_expect {
-  -re ".*$decimal = \{int \\(void\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
-    set stage4_foo_addr $expect_out(1,string)
+  -re ".*$decimal = \{int \\((void|)\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
+    set stage4_foo_addr $expect_out(2,string)
     pass "get addr of foo() at stage4"
   }
   -re ".*$gdb_prompt $" {
@@ -143,7 +148,7 @@ if { $stage3_foo_addr != $stage4_foo_addr } then {
 
 # Build invalid b.c #1
 
-gdb_test "shell make -C $objdir/$subdir stage5" ".*-o b-bundlized.o5 b.o" "make version 5 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage5" ".*-o b-bundlized.o5 b5.o" "make version 5 of b.c"
 send_gdb "fix $objdir/$subdir/b-bundlized.o5 $objdir/$subdir/b.c\n"
 gdb_expect {
   -re "Changing the type of global variable 'bss_int' from 'int' to 'float' is not supported.\[\r\n\]+$gdb_prompt $" {
@@ -159,7 +164,7 @@ gdb_expect {
 
 # Build invalid b.c #2
 
-gdb_test "shell make -C $objdir/$subdir stage6" ".*-o b-bundlized.o6 b.o" "make version 6 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage6" ".*-o b-bundlized.o6 b6.o" "make version 6 of b.c"
 send_gdb "fix $objdir/$subdir/b-bundlized.o6 $objdir/$subdir/b.c\n"
 gdb_expect {
   -re "Changing function 'foo' to a variable is not supported.\[\r\n\]+$gdb_prompt $" {
@@ -175,7 +180,7 @@ gdb_expect {
 
 # Build invalid b.c #3
 
-gdb_test "shell make -C $objdir/$subdir stage7" ".*-o b-bundlized.o7 b.o" "make version 7 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage7" ".*-o b-bundlized.o7 b7.o" "make version 7 of b.c"
 send_gdb "fix $objdir/$subdir/b-bundlized.o7 $objdir/$subdir/b.c\n"
 gdb_expect {
   -re "Changing variable 'global_var' to a function is not supported.\[\r\n\]+$gdb_prompt $" {
@@ -191,13 +196,13 @@ gdb_expect {
 
 # Build valid b.c #1
 
-gdb_test "shell make -C $objdir/$subdir stage9" ".*-o b-bundlized.o9 b.o" "make version 9 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage9" ".*-o b-bundlized.o9 b9.o" "make version 9 of b.c"
 gdb_test "fix $objdir/$subdir/b-bundlized.o9 $objdir/$subdir/b.c" ".*Fix succeeded." "fix in b-bundlized version 9"
 gdb_test "next" ".*I am in bar in b.c version 9.*I am in fred.*"  "step over bar() version 9"
 send_gdb "p foo\n"
 gdb_expect {
-  -re ".*$decimal = \{int \\(void\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
-    set stage9_foo_addr $expect_out(1,string)
+  -re ".*$decimal = \{int \\((void|)\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
+    set stage9_foo_addr $expect_out(2,string)
     pass "get addr of foo() at stage9"
   }
   -re ".*$gdb_prompt $" {
@@ -219,7 +224,7 @@ if { $stage4_foo_addr != $stage9_foo_addr } then {
 gdb_test "break bar" "Breakpoint 2 at.*" "Set a breakpoint in bar"
 gdb_test "continue" "Continuing.*Breakpoint 2, bar.*" "Continue to bar"
 
-gdb_test "shell make -C $objdir/$subdir stage10" ".*-o b-bundlized.o10 b.o" "make version 10 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage10" ".*-o b-bundlized.o10 b10.o" "make version 10 of b.c"
 send_gdb "fix $objdir/$subdir/b-bundlized.o10 $objdir/$subdir/b.c\n"
 gdb_expect {
   -re "Changing number of local variables from 0 to 1 for function 'bar' while active on the stack is not supported.\[\r\n\]+$gdb_prompt $" {
@@ -236,7 +241,7 @@ gdb_test "finish" "Value returned is.*" "Finish back to main"
 
 # Build invalid b.c #6
 
-gdb_test "shell make -C $objdir/$subdir stage11" ".*-o b-bundlized.o11 b.o" "make version 11 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage11" ".*-o b-bundlized.o11 b11.o" "make version 11 of b.c"
 send_gdb "fix $objdir/$subdir/b-bundlized.o11 $objdir/$subdir/b.c\n"
 gdb_expect {
   -re "Changing number of arguments from 0 to 1 for function 'bar' is not supported.\[\r\n\]+$gdb_prompt $" {
@@ -252,7 +257,7 @@ gdb_expect {
 
 # Build invalid b.c #7
 
-gdb_test "shell make -C $objdir/$subdir stage12" ".*-o b-bundlized.o12 b.o" "make version 12 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage12" ".*-o b-bundlized.o12 b12.o" "make version 12 of b.c"
 send_gdb "fix $objdir/$subdir/b-bundlized.o12 $objdir/$subdir/b.c\n"
 gdb_expect {
   -re "In function 'slurry', argument 'a' changed from type 'char' to type 'int', which is not supported.\[\r\n\]+$gdb_prompt $" {
@@ -268,7 +273,7 @@ gdb_expect {
 
 # Build invalid b.c #8
 
-gdb_test "shell make -C $objdir/$subdir stage13" ".*-o b-bundlized.o13 b.o" "make version 13 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage13" ".*-o b-bundlized.o13 b13.o" "make version 13 of b.c"
 send_gdb "fix $objdir/$subdir/b-bundlized.o13 $objdir/$subdir/b.c\n"
 gdb_expect {
   -re "In function 'slurry', argument 'a' changed from type 'char' to type 'struct lkj \\*', which is not supported.\[\r\n\]+$gdb_prompt $" {
@@ -284,7 +289,7 @@ gdb_expect {
 
 # Build invalid b.c #9
 
-gdb_test "shell make -C $objdir/$subdir stage14" ".*-o b-bundlized.o14 b.o" "make version 14 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage14" ".*-o b-bundlized.o14 b14.o" "make version 14 of b.c"
 send_gdb "fix $objdir/$subdir/b-bundlized.o14 $objdir/$subdir/b.c\n"
 gdb_expect {
   -re "Function 'slurry' was changed from returning 'int ' to 'struct lkj ', which is not supported.\[\r\n\]+$gdb_prompt $" {
@@ -300,13 +305,13 @@ gdb_expect {
 
 # Build valid b.c #4
 
-gdb_test "shell make -C $objdir/$subdir stage18" ".*-o b-bundlized.o18 b.o" "make version 18 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage18" ".*-o b-bundlized.o18 b18.o" "make version 18 of b.c"
 gdb_test "fix $objdir/$subdir/b-bundlized.o18 $objdir/$subdir/b.c" ".*Fix succeeded." "fix in b-bundlized version 18"
 gdb_test "next" ".*I am in bar in b.c version 18.*I am in fred.*"  "step over bar() version 18"
 send_gdb "p foo\n"
 gdb_expect {
-  -re ".*$decimal = \{int \\(void\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
-    set stage18_foo_addr $expect_out(1,string)
+  -re ".*$decimal = \{int \\((void|)\\)\} ($hex) <foo>\[\r\n\]+$gdb_prompt $" {
+    set stage18_foo_addr $expect_out(2,string)
     pass "get addr of foo() at stage18"
   }
   -re ".*$gdb_prompt $" {
@@ -325,7 +330,7 @@ if { $stage4_foo_addr != $stage18_foo_addr } then {
 
 # Build invalid b.c #10
 
-gdb_test "shell make -C $objdir/$subdir stage17" ".*-o b-bundlized.o17 b.o" "make version 17 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage17" ".*-o b-bundlized.o17 b17.o" "make version 17 of b.c"
 send_gdb "fix $objdir/$subdir/b-bundlized.o17 $objdir/$subdir/b.c\n"
 gdb_expect {
   -re "NSLinkModule was not able to correctly load the Fix bundle, most likely due to unresolved external references.*\[\r\n\]+$gdb_prompt $" {
@@ -342,7 +347,7 @@ gdb_expect {
 
 # Build valid b.c #5
 
-gdb_test "shell make -C $objdir/$subdir stage19" ".*-o b-bundlized.o19 b.o" "make version 19 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage19" ".*-o b-bundlized.o19 b19.o" "make version 19 of b.c"
 gdb_test "fix $objdir/$subdir/b-bundlized.o19 $objdir/$subdir/b.c" ".*Fix succeeded." "fix in b-bundlized version 19"
 gdb_test "next" ".*I am in bar in b.c version 19.*I am in fred.*"  "step over bar() version 19"
 
@@ -371,7 +376,7 @@ gdb_test "print newly_added_integer" "\\$$decimal = 15" "setting of newly_added_
 
 # Build valid b.c #6
 
-gdb_test "shell make -C $objdir/$subdir stage20" ".*-o b-bundlized.o20 b.o" "make version 20 of b.c"
+gdb_test "shell make -C $objdir/$subdir stage20" ".*-o b-bundlized.o20 b20.o" "make version 20 of b.c"
 gdb_test "fix $objdir/$subdir/b-bundlized.o20 $objdir/$subdir/b.c" ".*Fix succeeded." "fix in b-bundlized version 20"
 gdb_test "next" ".*I am in bar in b.c version 20.*I am in fred.*"  "step over bar() version 20"
 

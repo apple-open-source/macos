@@ -1,5 +1,6 @@
 /* Target-vector operations for controlling Windows CE child processes, for GDB.
-   Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
+
+   Copyright 1999, 2000, 2001, 2004 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions, A Red Hat Company.
 
    This file is part of GDB.
@@ -26,13 +27,14 @@
 
 #ifdef SHx
 #undef SH4
-#define SH4			/* Just to get all of the CONTEXT defines. */
+#define SH4		/* Just to get all of the CONTEXT defines.  */
 #endif
 
 #include "defs.h"
-#include "frame.h"		/* required by inferior.h */
+#include "frame.h"	/* required by inferior.h */
 #include "inferior.h"
 #include "target.h"
+#include "exceptions.h"
 #include "gdbcore.h"
 #include "command.h"
 #include <signal.h>
@@ -60,12 +62,9 @@
 #include "mips-tdep.h"
 #endif
 
-/* The ui's event loop. */
-extern int (*ui_loop_hook) (int signo);
-
 /* If we're not using the old Cygwin header file set, define the
    following which never should have been in the generic Win32 API
-   headers in the first place since they were our own invention... */
+   headers in the first place since they were our own invention...  */
 #ifndef _GNU_H_WINDOWS_H
 #define FLAG_TRACE_BIT 0x100
 #ifdef CONTEXT_FLOATING_POINT
@@ -81,7 +80,7 @@ extern int (*ui_loop_hook) (int signo);
 #define CONTEXT_DEBUGGER CONTEXT_DEBUGGER0
 #endif
 /* The string sent by cygwin when it processes a signal.
-   FIXME: This should be in a cygwin include file. */
+   FIXME: This should be in a cygwin include file.  */
 #define CYGWIN_SIGNAL_STRING "cygwin: signal"
 
 #define CHECK(x)	check (x, __FILE__,__LINE__)
@@ -90,12 +89,13 @@ extern int (*ui_loop_hook) (int signo);
 #define DEBUG_MEM(x)	if (debug_memory)	printf x
 #define DEBUG_EXCEPT(x)	if (debug_exceptions)	printf x
 
-static int connection_initialized = 0;	/* True if we've initialized a RAPI session. */
+static int connection_initialized = 0;	/* True if we've initialized a
+					   RAPI session.  */
 
-/* The directory where the stub and executable files are uploaded. */
+/* The directory where the stub and executable files are uploaded.  */
 static const char *remote_directory = "\\gdb";
 
-/* The types automatic upload available. */
+/* The types automatic upload available.  */
 static enum
   {
     UPLOAD_ALWAYS = 0,
@@ -105,7 +105,7 @@ static enum
 upload_when = UPLOAD_NEWER;
 
 /* Valid options for 'set remoteupload'.  Note that options
-   must track upload_when enum. */
+   must track upload_when enum.  */
 static struct opts
   {
     const char *name;
@@ -126,20 +126,17 @@ upload_options[3] =
   }
 };
 
-static char *remote_upload = NULL;	/* Set by set remoteupload */
+static char *remote_upload = NULL;	/* Set by set remoteupload.  */
 static int remote_add_host = 0;
-
-/* Forward declaration */
-extern struct target_ops child_ops;
 
 static int win32_child_thread_alive (ptid_t);
 void child_kill_inferior (void);
 
-static int last_sig = 0;	/* Set if a signal was received from the
-				   debugged process */
+static int last_sig = 0;	/* Set if a signal was received from
+				   the debugged process.  */
 
 /* Thread information structure used to track information that is
-   not available in gdb's thread structure. */
+   not available in gdb's thread structure.  */
 typedef struct thread_info_struct
   {
     struct thread_info_struct *next;
@@ -147,7 +144,7 @@ typedef struct thread_info_struct
     HANDLE h;
     char *name;
     int suspend_count;
-    int stepped;		/* True if stepped. */
+    int stepped;		/* True if stepped.  */
     CORE_ADDR step_pc;
     unsigned long step_prev;
     CONTEXT context;
@@ -158,23 +155,25 @@ static thread_info thread_head =
 {NULL};
 static thread_info * thread_rec (DWORD id, int get_context);
 
-/* The process and thread handles for the above context. */
+/* The process and thread handles for the above context.  */
 
 static DEBUG_EVENT current_event;	/* The current debug event from
-					   WaitForDebugEvent */
-static HANDLE current_process_handle;	/* Currently executing process */
-static thread_info *current_thread;	/* Info on currently selected thread */
-static thread_info *this_thread;	/* Info on thread returned by wait_for_debug_event */
-static DWORD main_thread_id;	/* Thread ID of the main thread */
+					   WaitForDebugEvent.  */
+static HANDLE current_process_handle;	/* Currently executing process.  */
+static thread_info *current_thread;	/* Info on currently selected
+					   thread.  */
+static thread_info *this_thread;	/* Info on thread returned by
+					   wait_for_debug_event.  */
+static DWORD main_thread_id;		/* Thread ID of the main thread.  */
 
-/* Counts of things. */
+/* Counts of things.  */
 static int exception_count = 0;
 static int event_count = 0;
 
-/* User options. */
-static int debug_exec = 0;	/* show execution */
-static int debug_events = 0;	/* show events from kernel */
-static int debug_memory = 0;	/* show target memory accesses */
+/* User options.  */
+static int debug_exec = 0;		/* show execution */
+static int debug_events = 0;		/* show events from kernel */
+static int debug_memory = 0;		/* show target memory accesses */
 static int debug_exceptions = 0;	/* show target exceptions */
 
 /* An array of offset mappings into a Win32 Context structure.
@@ -185,7 +184,7 @@ static int debug_exceptions = 0;	/* show target exceptions */
    register in it's CONTEXT structure.  regptr will return zero for this
    register.
 
-   This is used by the regptr function. */
+   This is used by the regptr function.  */
 #define context_offset(x) ((int)&(((PCONTEXT)NULL)->x))
 static const int mappings[NUM_REGS + 1] =
 {
@@ -409,13 +408,13 @@ regptr (LPCONTEXT c, int r)
    byte 1-2:    length
    byte 3-n:    arbitrary memory.
 
-   The interface is deterministic, i.e., if the stub expects a DWORD then
-   the gdb server should send a DWORD.
+   The interface is deterministic, i.e., if the stub expects a DWORD
+   then the gdb server should send a DWORD.
  */
 
-/* Note:  In the functions below, the `huh' parameter is a string passed from the
-   function containing a descriptive string concerning the current operation.
-   This is used for error reporting.
+/* Note: In the functions below, the `huh' parameter is a string
+   passed from the function containing a descriptive string concerning
+   the current operation.  This is used for error reporting.
 
    The 'what' parameter is a command id as found in wince-stub.h.
 
@@ -426,17 +425,17 @@ static int s;			/* communication socket */
 
 /* v-style interface for handling varying argyment list error messages.
    Displays the error message in a dialog box and exits when user clicks
-   on OK. */
+   on OK.  */
 static void
 vstub_error (LPCSTR fmt, va_list * args)
 {
   char buf[4096];
   vsprintf (buf, fmt, args);
   s = -1;
-  error ("%s", buf);
+  error (("%s"), buf);
 }
 
-/* The standard way to display an error message and exit. */
+/* The standard way to display an error message and exit.  */
 static void
 stub_error (LPCSTR fmt,...)
 {
@@ -445,15 +444,15 @@ stub_error (LPCSTR fmt,...)
   vstub_error (fmt, args);
 }
 
-/* Standard "oh well" can't communicate error.  Someday this might attempt
-   synchronization. */
+/* Standard "oh well" can't communicate error.  Someday this might
+   attempt synchronization.  */
 static void
 attempt_resync (LPCSTR huh, int s)
 {
   stub_error ("lost synchronization with target attempting %s", huh);
 }
 
-/* Read arbitrary stuff from a socket. */
+/* Read arbitrary stuff from a socket.  */
 static int
 sockread (LPCSTR huh, int s, void *str, size_t n)
 {
@@ -465,7 +464,7 @@ sockread (LPCSTR huh, int s, void *str, size_t n)
     }
 }
 
-/* Write arbitrary stuff to a socket. */
+/* Write arbitrary stuff to a socket.  */
 static int
 sockwrite (LPCSTR huh, const void *str, size_t n)
 {
@@ -477,7 +476,7 @@ sockwrite (LPCSTR huh, const void *str, size_t n)
     }
 }
 
-/* Output an id/dword to the host */
+/* Output an id/dword to the host.  */
 static void
 putdword (LPCSTR huh, gdb_wince_id what, DWORD n)
 {
@@ -487,7 +486,7 @@ putdword (LPCSTR huh, gdb_wince_id what, DWORD n)
     stub_error ("error writing %s to host.", huh);
 }
 
-/* Output an id/word to the host */
+/* Output an id/word to the host.  */
 static void
 putword (LPCSTR huh, gdb_wince_id what, WORD n)
 {
@@ -497,23 +496,24 @@ putword (LPCSTR huh, gdb_wince_id what, WORD n)
     stub_error ("error writing %s host.", huh);
 }
 
-/* Convenience define for outputting a "gdb_wince_len" type. */
+/* Convenience define for outputting a "gdb_wince_len" type.  */
 #define putlen(huh, what, n) putword((huh), (what), (gdb_wince_len) (n))
 
 /* Put an arbitrary block of memory to the gdb host.  This comes in
-   two chunks an id/dword representing the length and the stream of memory
-   itself. */
+   two chunks an id/dword representing the length and the stream of
+   memory itself.  */
 static void
-putmemory (LPCSTR huh, gdb_wince_id what, const void *mem, gdb_wince_len len)
+putmemory (LPCSTR huh, gdb_wince_id what, 
+	   const void *mem, gdb_wince_len len)
 {
   putlen (huh, what, len);
   if (((short) len > 0) && sockwrite (huh, mem, len) != len)
     stub_error ("error writing %s to host.", huh);
 }
 
-/* Output the result of an operation to the host.  If res != 0, sends a block of
-   memory starting at mem of len bytes.  If res == 0, sends -GetLastError () and
-   avoids sending the mem. */
+/* Output the result of an operation to the host.  If res != 0, sends
+   a block of memory starting at mem of len bytes.  If res == 0, sends
+   -GetLastError () and avoids sending the mem.  */
 static DWORD
 getdword (LPCSTR huh, gdb_wince_id what_this)
 {
@@ -532,7 +532,7 @@ getdword (LPCSTR huh, gdb_wince_id what_this)
 
 /* Get a an ID (possibly) and a WORD from the host gdb.
    Don't bother with the id if the main loop has already
-   read it. */
+   read it.  */
 static WORD
 getword (LPCSTR huh, gdb_wince_id what_this)
 {
@@ -549,19 +549,21 @@ getword (LPCSTR huh, gdb_wince_id what_this)
   return n;
 }
 
-/* Handy defines for getting/putting various types of values. */
+/* Handy defines for getting/putting various types of values.  */
 #define gethandle(huh, what) (HANDLE) getdword ((huh), (what))
 #define getpvoid(huh, what) (LPVOID) getdword ((huh), (what))
 #define getlen(huh, what) (gdb_wince_len) getword ((huh), (what))
 #define puthandle(huh, what, h) putdword ((huh), (what), (DWORD) (h))
 #define putpvoid(huh, what, p) putdword ((huh), (what), (DWORD) (p))
 
-/* Retrieve the result of an operation from the stub.  If nbytes < 0) then nbytes
-   is actually an error and nothing else follows.  Use SetLastError to remember this.
-   if nbytes > 0, retrieve a block of *nbytes into buf.
+/* Retrieve the result of an operation from the stub.  If nbytes < 0)
+   then nbytes is actually an error and nothing else follows.  Use
+   SetLastError to remember this.  if nbytes > 0, retrieve a block of
+   *nbytes into buf.
  */
 int
-getresult (LPCSTR huh, gdb_wince_id what, LPVOID buf, gdb_wince_len * nbytes)
+getresult (LPCSTR huh, gdb_wince_id what, LPVOID buf, 
+	   gdb_wince_len * nbytes)
 {
   gdb_wince_len dummy;
   if (nbytes == NULL)
@@ -590,23 +592,24 @@ towide (const char *s, gdb_wince_len * out_len)
 {
   static int n = -1;
   static LPWSTR outs[8] =
-  {NULL /*, NULL, etc. */ };
+  {NULL /*, NULL, etc.  */ };
   gdb_wince_len dummy;
 
   if (!out_len)
     out_len = &dummy;
 
-  /* First determine the length required to hold the converted string. */
-  *out_len = sizeof (WCHAR) * MultiByteToWideChar (CP_ACP, 0, s, -1, NULL, 0);
+  /* First determine the length required to hold the converted string.  */
+  *out_len = sizeof (WCHAR) * MultiByteToWideChar (CP_ACP, 0, s, 
+						   -1, NULL, 0);
   if (!*out_len)
-    return NULL;		/* The conversion failed */
+    return NULL;		/* The conversion failed.  */
 
   if (++n >= (sizeof (outs) / sizeof (outs[0])))
     n = 0;			/* wrap */
 
-  /* Allocate space for the converted string, reusing any previously allocated
-     space, if applicable. Note that if outs[n] is NULL, xrealloc will act as
-     a malloc (under cygwin, at least).
+  /* Allocate space for the converted string, reusing any previously
+     allocated space, if applicable. Note that if outs[n] is NULL,
+     xrealloc will act as a malloc (under cygwin, at least).
    */
   outs[n] = (LPWSTR) xrealloc (outs[n], *out_len);
   memset (outs[n], 0, *out_len);
@@ -616,21 +619,24 @@ towide (const char *s, gdb_wince_len * out_len)
 
 /******************** Emulation routines start here. ********************
 
-  The functions below are modelled after their Win32 counterparts.  They are named
-  similarly to Win32 and take exactly the same arguments except where otherwise noted.
-  They communicate with the stub on the hand-held device by sending their arguments
-  over the socket and waiting for results from the socket.
+  The functions below are modelled after their Win32 counterparts.
+  They are named similarly to Win32 and take exactly the same
+  arguments except where otherwise noted.  They communicate with the
+  stub on the hand-held device by sending their arguments over the
+  socket and waiting for results from the socket.
 
-  There is one universal change.  In cases where a length is expected to be returned
-  in a DWORD, we use a gdb_wince_len type instead.  Currently this is an unsigned short
-  which is smaller than the standard Win32 DWORD.  This is done to minimize unnecessary
-  traffic since the connection to Windows CE can be slow.  To change this, modify the
-  typedef in wince-stub.h and change the putlen/getlen macros in this file and in
-  the stub.
+  There is one universal change.  In cases where a length is expected
+  to be returned in a DWORD, we use a gdb_wince_len type instead.
+  Currently this is an unsigned short which is smaller than the
+  standard Win32 DWORD.  This is done to minimize unnecessary traffic
+  since the connection to Windows CE can be slow.  To change this,
+  modify the typedef in wince-stub.h and change the putlen/getlen
+  macros in this file and in the stub.
 */
 
 static int
-create_process (LPSTR exec_file, LPSTR args, DWORD flags, PROCESS_INFORMATION * pi)
+create_process (LPSTR exec_file, LPSTR args, DWORD flags, 
+		PROCESS_INFORMATION * pi)
 {
   gdb_wince_len len;
   LPWSTR buf;
@@ -643,8 +649,8 @@ create_process (LPSTR exec_file, LPSTR args, DWORD flags, PROCESS_INFORMATION * 
   return getresult ("CreateProcess result", GDB_CREATEPROCESS, pi, NULL);
 }
 
-/* Emulate TerminateProcess.  Don't bother with the second argument since CE
-   ignores it.
+/* Emulate TerminateProcess.  
+   Don't bother with the second argument since CE ignores it.
  */
 static int
 terminate_process (HANDLE h)
@@ -653,7 +659,9 @@ terminate_process (HANDLE h)
   if (s < 0)
     return 1;
   puthandle ("TerminateProcess handle", GDB_TERMINATEPROCESS, h);
-  return getresult ("TerminateProcess result", GDB_TERMINATEPROCESS, &res, NULL);
+
+  return getresult ("TerminateProcess result", 
+		    GDB_TERMINATEPROCESS, &res, NULL);
 }
 
 static int
@@ -662,7 +670,9 @@ wait_for_debug_event (DEBUG_EVENT * ev, DWORD ms)
   if (s < 0)
     return 1;
   putdword ("WaitForDebugEvent ms", GDB_WAITFORDEBUGEVENT, ms);
-  return getresult ("WaitForDebugEvent event", GDB_WAITFORDEBUGEVENT, ev, NULL);
+
+  return getresult ("WaitForDebugEvent event", 
+		    GDB_WAITFORDEBUGEVENT, ev, NULL);
 }
 
 static int
@@ -671,8 +681,11 @@ get_thread_context (HANDLE h, CONTEXT * c)
   if (s < 0)
     return 1;
   puthandle ("GetThreadContext handle", GDB_GETTHREADCONTEXT, h);
-  putdword ("GetThreadContext flags", GDB_GETTHREADCONTEXT, c->ContextFlags);
-  return getresult ("GetThreadContext context", GDB_GETTHREADCONTEXT, c, NULL);
+  putdword ("GetThreadContext flags", GDB_GETTHREADCONTEXT, 
+	    c->ContextFlags);
+
+  return getresult ("GetThreadContext context", 
+		    GDB_GETTHREADCONTEXT, c, NULL);
 }
 
 static int
@@ -682,12 +695,17 @@ set_thread_context (HANDLE h, CONTEXT * c)
   if (s < 0)
     return 1;
   puthandle ("SetThreadContext handle", GDB_SETTHREADCONTEXT, h);
-  putmemory ("SetThreadContext context", GDB_SETTHREADCONTEXT, c, sizeof (*c));
-  return getresult ("SetThreadContext context", GDB_SETTHREADCONTEXT, &res, NULL);
+  putmemory ("SetThreadContext context", GDB_SETTHREADCONTEXT, 
+	     c, sizeof (*c));
+
+  return getresult ("SetThreadContext context", 
+		    GDB_SETTHREADCONTEXT, &res, NULL);
 }
 
 static int
-read_process_memory (HANDLE h, LPCVOID where, LPVOID buf, gdb_wince_len len, gdb_wince_len * nbytes)
+read_process_memory (HANDLE h, LPCVOID where, 
+		     LPVOID buf, gdb_wince_len len, 
+		     gdb_wince_len * nbytes)
 {
   if (s < 0)
     return 1;
@@ -695,11 +713,14 @@ read_process_memory (HANDLE h, LPCVOID where, LPVOID buf, gdb_wince_len len, gdb
   putpvoid ("ReadProcessMemory location", GDB_READPROCESSMEMORY, where);
   putlen ("ReadProcessMemory size", GDB_READPROCESSMEMORY, len);
 
-  return getresult ("ReadProcessMemory buf", GDB_READPROCESSMEMORY, buf, nbytes);
+  return getresult ("ReadProcessMemory buf", 
+		    GDB_READPROCESSMEMORY, buf, nbytes);
 }
 
 static int
-write_process_memory (HANDLE h, LPCVOID where, LPCVOID buf, gdb_wince_len len, gdb_wince_len * nbytes)
+write_process_memory (HANDLE h, LPCVOID where, 
+		      LPCVOID buf, gdb_wince_len len, 
+		      gdb_wince_len * nbytes)
 {
   if (s < 0)
     return 1;
@@ -707,15 +728,18 @@ write_process_memory (HANDLE h, LPCVOID where, LPCVOID buf, gdb_wince_len len, g
   putpvoid ("WriteProcessMemory location", GDB_WRITEPROCESSMEMORY, where);
   putmemory ("WriteProcProcessMemory buf", GDB_WRITEPROCESSMEMORY, buf, len);
 
-  return getresult ("WriteProcessMemory result", GDB_WRITEPROCESSMEMORY, nbytes, NULL);
+  return getresult ("WriteProcessMemory result", 
+		    GDB_WRITEPROCESSMEMORY, nbytes, NULL);
 }
 
 static int
 remote_read_bytes (CORE_ADDR memaddr, char *myaddr, int len)
 {
   gdb_wince_len nbytes;
-  if (!read_process_memory (current_process_handle, (LPCVOID) memaddr,
-			    (LPVOID) myaddr, len, &nbytes))
+  if (!read_process_memory (current_process_handle, 
+			    (LPCVOID) memaddr,
+			    (LPVOID) myaddr, 
+			    len, &nbytes))
     return -1;
   return nbytes;
 }
@@ -724,14 +748,16 @@ static int
 remote_write_bytes (CORE_ADDR memaddr, char *myaddr, int len)
 {
   gdb_wince_len nbytes;
-  if (!write_process_memory (current_process_handle, (LPCVOID) memaddr,
-			     (LPCVOID) myaddr, len, &nbytes))
+  if (!write_process_memory (current_process_handle, 
+			     (LPCVOID) memaddr, 
+			     (LPCVOID) myaddr, 
+			     len, &nbytes))
     return -1;
   return nbytes;
 }
 
-/* This is not a standard Win32 function.  It instructs the stub to return TRUE
-   if the thread referenced by HANDLE h is alive.
+/* This is not a standard Win32 function.  It instructs the stub to
+   return TRUE if the thread referenced by HANDLE h is alive.
  */
 static int
 thread_alive (HANDLE h)
@@ -770,7 +796,8 @@ continue_debug_event (DWORD pid, DWORD tid, DWORD status)
   putdword ("ContinueDebugEvent pid", GDB_CONTINUEDEBUGEVENT, pid);
   putdword ("ContinueDebugEvent tid", GDB_CONTINUEDEBUGEVENT, tid);
   putdword ("ContinueDebugEvent status", GDB_CONTINUEDEBUGEVENT, status);
-  return getresult ("ContinueDebugEvent result", GDB_CONTINUEDEBUGEVENT, &res, NULL);
+  return getresult ("ContinueDebugEvent result", 
+		    GDB_CONTINUEDEBUGEVENT, &res, NULL);
 }
 
 static int
@@ -780,11 +807,12 @@ close_handle (HANDLE h)
   if (s < 0)
     return 1;
   puthandle ("CloseHandle handle", GDB_CLOSEHANDLE, h);
-  return (int) getresult ("CloseHandle result", GDB_CLOSEHANDLE, &res, NULL);
+  return (int) getresult ("CloseHandle result", 
+			  GDB_CLOSEHANDLE, &res, NULL);
 }
 
-/* This is not a standard Win32 interface.  This function tells the stub
-   to terminate.
+/* This is not a standard Win32 interface.  This function tells the
+   stub to terminate.
  */
 static void
 stop_stub (void)
@@ -816,7 +844,8 @@ wince_software_single_step (enum target_signal ignore,
 			    int insert_breakpoints_p)
 {
   unsigned long pc;
-  thread_info *th = current_thread;	/* Info on currently selected thread */
+  /* Info on currently selected thread.  */
+  thread_info *th = current_thread;
   CORE_ADDR mips_next_pc (CORE_ADDR pc);
 
   if (!insert_breakpoints_p)
@@ -956,7 +985,8 @@ void
 wince_software_single_step (enum target_signal ignore,
 			    int insert_breakpoints_p)
 {
-  thread_info *th = current_thread;	/* Info on currently selected thread */
+  /* Info on currently selected thread.  */
+  thread_info *th = current_thread;
 
   if (!insert_breakpoints_p)
     {
@@ -1004,7 +1034,8 @@ wince_software_single_step (enum target_signal ignore,
 			    int insert_breakpoints_p)
 {
   unsigned long pc;
-  thread_info *th = current_thread;	/* Info on currently selected thread */
+  /* Info on currently selected thread.  */
+  thread_info *th = current_thread;
   CORE_ADDR mips_next_pc (CORE_ADDR pc);
 
   if (!insert_breakpoints_p)
@@ -1023,8 +1054,8 @@ wince_software_single_step (enum target_signal ignore,
 #endif
 
 /* Find a thread record given a thread id.
-   If get_context then also retrieve the context for this
-   thread. */
+   If get_context then also retrieve the context for this thread.  */
+
 static thread_info *
 thread_rec (DWORD id, int get_context)
 {
@@ -1045,11 +1076,10 @@ thread_rec (DWORD id, int get_context)
 	  }
 	return th;
       }
-
   return NULL;
 }
 
-/* Add a thread to the thread list */
+/* Add a thread to the thread list.  */
 static thread_info *
 child_add_thread (DWORD id, HANDLE h)
 {
@@ -1069,7 +1099,7 @@ child_add_thread (DWORD id, HANDLE h)
 }
 
 /* Clear out any old thread list and reintialize it to a
-   pristine state. */
+   pristine state.  */
 static void
 child_init_thread_list (void)
 {
@@ -1086,7 +1116,7 @@ child_init_thread_list (void)
     }
 }
 
-/* Delete a thread from the list of threads */
+/* Delete a thread from the list of threads.  */
 static void
 child_delete_thread (DWORD id)
 {
@@ -1114,7 +1144,8 @@ static void
 check (BOOL ok, const char *file, int line)
 {
   if (!ok)
-    printf_filtered ("error return %s:%d was %d\n", file, line, GetLastError ());
+    printf_filtered ("error return %s:%d was %d\n", 
+		     file, line, GetLastError ());
 }
 
 static void
@@ -1122,7 +1153,8 @@ do_child_fetch_inferior_registers (int r)
 {
   if (r >= 0)
     {
-      supply_register (r, (char *) regptr (&current_thread->context, r));
+      regcache_raw_supply (current_regcache, r,
+			   (char *) regptr (&current_thread->context, r));
     }
   else
     {
@@ -1150,7 +1182,7 @@ do_child_store_inferior_registers (int r)
     }
 }
 
-/* Store a new register value into the current thread context */
+/* Store a new register value into the current thread context.  */
 static void
 child_store_inferior_registers (int r)
 {
@@ -1210,14 +1242,14 @@ out:
   if (!event->fUnicode)
     memcpy (dll_name, dll_buf, len);
   else
-    WideCharToMultiByte (CP_ACP, 0, (LPCWSTR) dll_buf, len,
-			 dll_name, len, 0, 0);
+    WideCharToMultiByte (CP_ACP, 0, (LPCWSTR) dll_buf,
+			 len, dll_name, len, 0, 0);
 
   while ((p = strchr (dll_name, '\\')))
     *p = '/';
 
-  /* FIXME!! It would be nice to define one symbol which pointed to the
-     front of the dll if we can't find any symbols. */
+  /* FIXME!! It would be nice to define one symbol which pointed to
+     the front of the dll if we can't find any symbols.  */
 
   if (!(dll_basename = strrchr (dll_name, '/')))
     dll_basename = dll_name;
@@ -1236,7 +1268,7 @@ out:
   return 1;
 }
 
-/* Handle DEBUG_STRING output from child process. */
+/* Handle DEBUG_STRING output from child process.  */
 static void
 handle_output_debug_string (struct target_waitstatus *ourstatus)
 {
@@ -1257,8 +1289,8 @@ handle_output_debug_string (struct target_waitstatus *ourstatus)
     return;
 
   memset (s, 0, sizeof (s));
-  WideCharToMultiByte (CP_ACP, 0, (LPCWSTR) p, (int) nbytes_read, s,
-		       sizeof (s) - 1, NULL, NULL);
+  WideCharToMultiByte (CP_ACP, 0, (LPCWSTR) p, (int) nbytes_read,
+		       s, sizeof (s) - 1, NULL, NULL);
   q = strchr (s, '\n');
   if (q != NULL)
     {
@@ -1272,7 +1304,7 @@ handle_output_debug_string (struct target_waitstatus *ourstatus)
   return;
 }
 
-/* Handle target exceptions. */
+/* Handle target exceptions.  */
 static int
 handle_exception (struct target_waitstatus *ourstatus)
 {
@@ -1304,8 +1336,8 @@ handle_exception (struct target_waitstatus *ourstatus)
       DEBUG_EXCEPT (("gdb: Target exception CONTROL_C at 0x%08x\n",
 		     (unsigned) current_event.u.Exception.ExceptionRecord.ExceptionAddress));
       ourstatus->value.sig = TARGET_SIGNAL_INT;
-      /* User typed CTRL-C.  Continue with this status */
-      last_sig = SIGINT;	/* FIXME - should check pass state */
+      /* User typed CTRL-C.  Continue with this status.  */
+      last_sig = SIGINT;	/* FIXME - should check pass state.  */
       break;
     case EXCEPTION_SINGLE_STEP:
       DEBUG_EXCEPT (("gdb: Target exception SINGLE_STEP at 0x%08x\n",
@@ -1314,17 +1346,19 @@ handle_exception (struct target_waitstatus *ourstatus)
       break;
     case EXCEPTION_ILLEGAL_INSTRUCTION:
       DEBUG_EXCEPT (("gdb: Target exception SINGLE_ILL at 0x%08x\n",
-	       current_event.u.Exception.ExceptionRecord.ExceptionAddress));
-      ourstatus->value.sig = check_for_step (&current_event, TARGET_SIGNAL_ILL);
+		     /* (unsigned)? */ current_event.u.Exception.ExceptionRecord.ExceptionAddress));
+      ourstatus->value.sig = check_for_step (&current_event, 
+					     TARGET_SIGNAL_ILL);
       break;
     default:
       /* This may be a structured exception handling exception.  In
 	 that case, we want to let the program try to handle it, and
 	 only break if we see the exception a second time.  */
 
-      printf_unfiltered ("gdb: unknown target exception 0x%08x at 0x%08x\n",
-		    current_event.u.Exception.ExceptionRecord.ExceptionCode,
-		current_event.u.Exception.ExceptionRecord.ExceptionAddress);
+      printf_unfiltered 
+	("gdb: unknown target exception 0x%08x at 0x%08x\n",
+	 current_event.u.Exception.ExceptionRecord.ExceptionCode,
+	 current_event.u.Exception.ExceptionRecord.ExceptionAddress);
       ourstatus->value.sig = TARGET_SIGNAL_UNKNOWN;
       break;
     }
@@ -1333,7 +1367,7 @@ handle_exception (struct target_waitstatus *ourstatus)
 }
 
 /* Resume all artificially suspended threads if we are continuing
-   execution */
+   execution.  */
 static BOOL
 child_continue (DWORD continue_status, int id)
 {
@@ -1342,7 +1376,8 @@ child_continue (DWORD continue_status, int id)
   BOOL res;
 
   DEBUG_EVENTS (("ContinueDebugEvent (cpid=%d, ctid=%d, DBG_CONTINUE);\n",
-		 (unsigned) current_event.dwProcessId, (unsigned) current_event.dwThreadId));
+		 (unsigned) current_event.dwProcessId, 
+		 (unsigned) current_event.dwThreadId));
   res = continue_debug_event (current_event.dwProcessId,
 			      current_event.dwThreadId,
 			      continue_status);
@@ -1439,7 +1474,8 @@ get_child_debug_event (int pid, struct target_waitstatus *ourstatus,
 		     (unsigned) current_event.dwProcessId,
 		     (unsigned) current_event.dwThreadId,
 		     "LOAD_DLL_DEBUG_EVENT"));
-      catch_errors (handle_load_dll, NULL, (char *) "", RETURN_MASK_ALL);
+      catch_errors (handle_load_dll, NULL, 
+		    (char *) "", RETURN_MASK_ALL);
       registers_changed ();	/* mark all regs invalid */
       break;
 
@@ -1481,7 +1517,8 @@ get_child_debug_event (int pid, struct target_waitstatus *ourstatus,
     }
 
   if (breakout)
-    this_thread = current_thread = th ?: thread_rec (current_event.dwThreadId, TRUE);
+    this_thread = current_thread = th ?: thread_rec (current_event.dwThreadId,
+						     TRUE);
   else
     CHECK (child_continue (continue_status, -1));
 
@@ -1489,7 +1526,7 @@ out:
   return breakout;
 }
 
-/* Wait for interesting events to occur in the target process. */
+/* Wait for interesting events to occur in the target process.  */
 static ptid_t
 child_wait (ptid_t ptid, struct target_waitstatus *ourstatus)
 {
@@ -1501,17 +1538,18 @@ child_wait (ptid_t ptid, struct target_waitstatus *ourstatus)
      with a SPURIOUS because resume can try and step or modify things,
      which needs a current_thread->h.  But some of these exceptions mark
      the birth or death of threads, which mean that the current thread
-     isn't necessarily what you think it is. */
+     isn't necessarily what you think it is.  */
 
   while (1)
-    if (get_child_debug_event (pid, ourstatus, EXCEPTION_DEBUG_EVENT, &retval))
+    if (get_child_debug_event (pid, ourstatus, 
+			       EXCEPTION_DEBUG_EVENT, &retval))
       return pid_to_ptid (retval);
     else
       {
 	int detach = 0;
 
-	if (ui_loop_hook != NULL)
-	  detach = ui_loop_hook (0);
+	if (deprecated_ui_loop_hook != NULL)
+	  detach = deprecated_ui_loop_hook (0);
 
 	if (detach)
 	  child_kill_inferior ();
@@ -1530,13 +1568,13 @@ child_files_info (struct target_ops *ignore)
 static void
 child_open (char *arg, int from_tty)
 {
-  error ("Use the \"run\" command to start a child process.");
+  error (_("Use the \"run\" command to start a child process."));
 }
 
 #define FACTOR (0x19db1ded53ea710LL)
 #define NSPERSEC 10000000
 
-/* Convert a Win32 time to "UNIX" format. */
+/* Convert a Win32 time to "UNIX" format.  */
 long
 to_time_t (FILETIME * ptr)
 {
@@ -1546,16 +1584,16 @@ to_time_t (FILETIME * ptr)
 
   long rem;
   long long x = ((long long) ptr->dwHighDateTime << 32) + ((unsigned) ptr->dwLowDateTime);
-  x -= FACTOR;			/* number of 100ns between 1601 and 1970 */
+  x -= FACTOR;			/* Number of 100ns between 1601 and 1970.  */
   rem = x % ((long long) NSPERSEC);
   rem += (NSPERSEC / 2);
-  x /= (long long) NSPERSEC;	/* number of 100ns in a second */
+  x /= (long long) NSPERSEC;	/* Number of 100ns in a second.  */
   x += (long long) (rem / NSPERSEC);
   return x;
 }
 
 /* Upload a file to the remote device depending on the user's
-   'set remoteupload' specification. */
+   'set remoteupload' specification.  */
 char *
 upload_to_device (const char *to, const char *from)
 {
@@ -1572,12 +1610,12 @@ upload_to_device (const char *to, const char *from)
   struct stat st;
   int fd;
 
-  /* Look for a path separator and only use trailing part. */
+  /* Look for a path separator and only use trailing part.  */
   while ((p = strpbrk (to, "/\\")) != NULL)
     to = p + 1;
 
   if (!*to)
-    error ("no filename found to upload - %s.", in_to);
+    error (_("no filename found to upload - %s."), in_to);
 
   len = strlen (dir) + strlen (to) + 2;
   remotefile = (char *) xrealloc (remotefile, len);
@@ -1586,29 +1624,30 @@ upload_to_device (const char *to, const char *from)
   strcat (remotefile, to);
 
   if (upload_when == UPLOAD_NEVER)
-    return remotefile;		/* Don't bother uploading. */
+    return remotefile;		/* Don't bother uploading.  */
 
-  /* Open the source. */
-  if ((fd = openp (getenv ("PATH"), TRUE, (char *) from, O_RDONLY, 0, NULL)) < 0)
-    error ("couldn't open %s", from);
+  /* Open the source.  */
+  if ((fd = openp (getenv ("PATH"), OPF_TRY_CWD_FIRST, (char *) from,
+		   O_RDONLY, 0, NULL)) < 0)
+    error (_("couldn't open %s"), from);
 
-  /* Get the time for later comparison. */
+  /* Get the time for later comparison.  */
   if (fstat (fd, &st))
     st.st_mtime = (time_t) - 1;
 
-  /* Always attempt to create the directory on the remote system. */
+  /* Always attempt to create the directory on the remote system.  */
   wstr = towide (dir, NULL);
   (void) CeCreateDirectory (wstr, NULL);
 
-  /* Attempt to open the remote file, creating it if it doesn't exist. */
+  /* Attempt to open the remote file, creating it if it doesn't exist.  */
   wstr = towide (remotefile, NULL);
   h = CeCreateFile (wstr, GENERIC_READ | GENERIC_WRITE, 0, NULL,
 		    OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
-  /* Some kind of problem? */
+  /* Some kind of problem?  */
   err = CeGetLastError ();
   if (h == NULL || h == INVALID_HANDLE_VALUE)
-    error ("error opening file \"%s\".  Windows error %d.",
+    error (_("error opening file \"%s\".  Windows error %d."),
 	   remotefile, err);
 
   CeGetFileTime (h, &crtime, &actime, &wrtime);
@@ -1621,7 +1660,7 @@ upload_to_device (const char *to, const char *from)
       printf ("%s < %s\n", buf, ctime(&st.st_mtime));
     }
 #endif
-  /* See if we need to upload the file. */
+  /* See if we need to upload the file.  */
   if (upload_when == UPLOAD_ALWAYS ||
       err != ERROR_ALREADY_EXISTS ||
       !CeGetFileTime (h, &crtime, &actime, &wrtime) ||
@@ -1631,21 +1670,21 @@ upload_to_device (const char *to, const char *from)
       char buf[4096];
       int n;
 
-      /* Upload the file. */
+      /* Upload the file.  */
       while ((n = read (fd, buf, sizeof (buf))) > 0)
 	if (!CeWriteFile (h, buf, (DWORD) n, &nbytes, NULL))
-	  error ("error writing to remote device - %d.",
+	  error (_("error writing to remote device - %d."),
 		 CeGetLastError ());
     }
 
   close (fd);
   if (!CeCloseHandle (h))
-    error ("error closing remote file - %d.", CeGetLastError ());
+    error (_("error closing remote file - %d."), CeGetLastError ());
 
   return remotefile;
 }
 
-/* Initialize the connection to the remote device. */
+/* Initialize the connection to the remote device.  */
 static void
 wince_initialize (void)
 {
@@ -1665,11 +1704,10 @@ wince_initialize (void)
 	break;
       default:
 	CeRapiUninit ();
-	error ("Can't initialize connection to remote device.\n");
-	break;
+	error (_("Can't initialize connection to remote device."));
       }
 
-  /* Upload the stub to the handheld device. */
+  /* Upload the stub to the handheld device.  */
   stub_file_name = upload_to_device ("wince-stub.exe", WINCE_STUB);
   strcpy (args, stub_file_name);
 
@@ -1678,39 +1716,42 @@ wince_initialize (void)
       strcat (args, " ");
       hostname = strchr (args, '\0');
       if (gethostname (hostname, sizeof (args) - strlen (args)))
-	error ("couldn't get hostname of this system.");
+	error (_("couldn't get hostname of this system."));
     }
 
-  /* Get a socket. */
+  /* Get a socket.  */
   if ((s0 = socket (AF_INET, SOCK_STREAM, 0)) < 0)
     stub_error ("Couldn't connect to host system.");
 
-  /* Allow rapid reuse of the port. */
+  /* Allow rapid reuse of the port.  */
   tmp = 1;
-  (void) setsockopt (s0, SOL_SOCKET, SO_REUSEADDR, (char *) &tmp, sizeof (tmp));
+  (void) setsockopt (s0, SOL_SOCKET, SO_REUSEADDR, 
+		     (char *) &tmp, sizeof (tmp));
 
 
-  /* Set up the information for connecting to the host gdb process. */
+  /* Set up the information for connecting to the host gdb process.  */
   memset (&sin, 0, sizeof (sin));
   sin.sin_family = AF_INET;
-  sin.sin_port = htons (7000);	/* FIXME: This should be configurable */
+  sin.sin_port = htons (7000);	/* FIXME: This should be configurable.  */
 
   if (bind (s0, (struct sockaddr *) &sin, sizeof (sin)))
-    error ("couldn't bind socket");
+    error (_("couldn't bind socket"));
 
   if (listen (s0, 1))
-    error ("Couldn't open socket for listening.\n");
+    error (_("Couldn't open socket for listening."));
 
-  /* Start up the stub on the remote device. */
-  if (!CeCreateProcess (towide (stub_file_name, NULL), towide (args, NULL),
-			NULL, NULL, 0, 0, NULL, NULL, NULL, &pi))
-    error ("Unable to start remote stub '%s'.  Windows CE error %d.",
+  /* Start up the stub on the remote device.  */
+  if (!CeCreateProcess (towide (stub_file_name, NULL), 
+			towide (args, NULL),
+			NULL, NULL, 0, 0, 
+			NULL, NULL, NULL, &pi))
+    error (_("Unable to start remote stub '%s'.  Windows CE error %d."),
 	   stub_file_name, CeGetLastError ());
 
   /* Wait for a connection */
 
   if ((s = accept (s0, NULL, NULL)) < 0)
-    error ("couldn't set up server for connection.");
+    error (_("couldn't set up server for connection."));
 
   close (s0);
 }
@@ -1718,9 +1759,11 @@ wince_initialize (void)
 /* Start an inferior win32 child process and sets inferior_ptid to its pid.
    EXEC_FILE is the file to run.
    ALLARGS is a string containing the arguments to the program.
-   ENV is the environment vector to pass.  Errors reported with error().  */
+   ENV is the environment vector to pass.  
+   Errors reported with error().  */
 static void
-child_create_inferior (char *exec_file, char *args, char **env)
+child_create_inferior (char *exec_file, char *args, char **env,
+		       int from_tty)
 {
   PROCESS_INFORMATION pi;
   struct target_waitstatus dummy;
@@ -1729,11 +1772,11 @@ child_create_inferior (char *exec_file, char *args, char **env)
   char *exec_and_args;
 
   if (!exec_file)
-    error ("No executable specified, use `target exec'.\n");
+    error (_("No executable specified, use `target exec'."));
 
   flags = DEBUG_PROCESS;
 
-  wince_initialize ();		/* Make sure we've got a connection. */
+  wince_initialize ();		/* Make sure we've got a connection.  */
 
   exec_file = upload_to_device (exec_file, exec_file);
 
@@ -1753,9 +1796,10 @@ child_create_inferior (char *exec_file, char *args, char **env)
     }
 
   memset (&pi, 0, sizeof (pi));
-  /* Execute the process */
+  /* Execute the process.  */
   if (!create_process (exec_file, exec_and_args, flags, &pi))
-    error ("Error creating process %s, (error %d)\n", exec_file, GetLastError ());
+    error (_("Error creating process %s, (error %d)."), 
+	   exec_file, GetLastError ());
 
   exception_count = 0;
   event_count = 0;
@@ -1765,7 +1809,7 @@ child_create_inferior (char *exec_file, char *args, char **env)
   memset (&current_event, 0, sizeof (current_event));
   current_event.dwThreadId = pi.dwThreadId;
   inferior_ptid = pid_to_ptid (current_event.dwThreadId);
-  push_target (&child_ops);
+  push_target (&deprecated_child_ops);
   child_init_thread_list ();
   child_add_thread (pi.dwThreadId, pi.hThread);
   init_wait_for_inferior ();
@@ -1781,21 +1825,22 @@ child_create_inferior (char *exec_file, char *args, char **env)
   proceed ((CORE_ADDR) -1, TARGET_SIGNAL_0, 0);
 }
 
-/* Chile has gone bye-bye. */
+/* Chile has gone bye-bye.  */
 static void
 child_mourn_inferior (void)
 {
   (void) child_continue (DBG_CONTINUE, -1);
-  unpush_target (&child_ops);
+  unpush_target (&deprecated_child_ops);
   stop_stub ();
   CeRapiUninit ();
   connection_initialized = 0;
   generic_mourn_inferior ();
 }
 
-/* Move memory from child to/from gdb. */
+/* Move memory from child to/from gdb.  */
 int
-child_xfer_memory (CORE_ADDR memaddr, char *our, int len, int write,
+child_xfer_memory (CORE_ADDR memaddr, gdb_byte *our, 
+		   int len, int write,
 		   struct mem_attrib *attrib,
 		   struct target_ops *target)
 {
@@ -1810,7 +1855,8 @@ child_xfer_memory (CORE_ADDR memaddr, char *our, int len, int write,
   return res;
 }
 
-/* Terminate the process and wait for child to tell us it has completed. */
+/* Terminate the process and wait for child to tell us it has
+   completed.  */
 void
 child_kill_inferior (void)
 {
@@ -1828,16 +1874,16 @@ child_kill_inferior (void)
 
   CHECK (close_handle (current_process_handle));
   close_handle (current_thread->h);
-  target_mourn_inferior ();	/* or just child_mourn_inferior? */
+  target_mourn_inferior ();	/* or just child_mourn_inferior?  */
 }
 
-/* Resume the child after an exception. */
+/* Resume the child after an exception.  */
 void
 child_resume (ptid_t ptid, int step, enum target_signal sig)
 {
   thread_info *th;
   DWORD continue_status = last_sig > 0 && last_sig < NSIG ?
-  DBG_EXCEPTION_NOT_HANDLED : DBG_CONTINUE;
+    DBG_EXCEPTION_NOT_HANDLED : DBG_CONTINUE;
   int pid = PIDGET (ptid);
 
   DEBUG_EXEC (("gdb: child_resume (pid=%d, step=%d, sig=%d);\n",
@@ -1853,9 +1899,11 @@ child_resume (ptid_t ptid, int step, enum target_signal sig)
     }
 
   /* Allow continuing with the same signal that interrupted us.
-     Otherwise complain. */
+     Otherwise complain.  */
   if (sig && sig != last_sig)
-    fprintf_unfiltered (gdb_stderr, "Can't send signals to the child.  signal %d\n", sig);
+    fprintf_unfiltered (gdb_stderr, 
+			"Can't send signals to the child.  signal %d\n", 
+			sig);
 
   last_sig = 0;
   child_continue (continue_status, pid);
@@ -1877,7 +1925,7 @@ static void
 child_close (void)
 {
   DEBUG_EVENTS (("gdb: child_close, inferior_ptid=%d\n",
-                PIDGET (inferior_ptid)));
+		 PIDGET (inferior_ptid)));
 }
 
 /* Explicitly upload file to remotedir */
@@ -1888,54 +1936,53 @@ child_load (char *file, int from_tty)
   upload_to_device (file, file);
 }
 
-struct target_ops child_ops;
-
 static void
 init_child_ops (void)
 {
-  memset (&child_ops, 0, sizeof (child_ops));
-  child_ops.to_shortname = (char *) "child";
-  child_ops.to_longname = (char *) "Windows CE process";
-  child_ops.to_doc = (char *) "Windows CE process (started by the \"run\" command).";
-  child_ops.to_open = child_open;
-  child_ops.to_close = child_close;
-  child_ops.to_resume = child_resume;
-  child_ops.to_wait = child_wait;
-  child_ops.to_fetch_registers = child_fetch_inferior_registers;
-  child_ops.to_store_registers = child_store_inferior_registers;
-  child_ops.to_prepare_to_store = child_prepare_to_store;
-  child_ops.to_xfer_memory = child_xfer_memory;
-  child_ops.to_files_info = child_files_info;
-  child_ops.to_insert_breakpoint = memory_insert_breakpoint;
-  child_ops.to_remove_breakpoint = memory_remove_breakpoint;
-  child_ops.to_terminal_init = terminal_init_inferior;
-  child_ops.to_terminal_inferior = terminal_inferior;
-  child_ops.to_terminal_ours_for_output = terminal_ours_for_output;
-  child_ops.to_terminal_ours = terminal_ours;
-  child_ops.to_terminal_save_ours = terminal_save_ours;
-  child_ops.to_terminal_info = child_terminal_info;
-  child_ops.to_kill = child_kill_inferior;
-  child_ops.to_load = child_load;
-  child_ops.to_create_inferior = child_create_inferior;
-  child_ops.to_mourn_inferior = child_mourn_inferior;
-  child_ops.to_can_run = child_can_run;
-  child_ops.to_thread_alive = win32_child_thread_alive;
-  child_ops.to_stratum = process_stratum;
-  child_ops.to_has_all_memory = 1;
-  child_ops.to_has_memory = 1;
-  child_ops.to_has_stack = 1;
-  child_ops.to_has_registers = 1;
-  child_ops.to_has_execution = 1;
-  child_ops.to_magic = OPS_MAGIC;
+  memset (&deprecated_child_ops, 0, sizeof (deprecated_child_ops));
+  deprecated_child_ops.to_shortname = (char *) "child";
+  deprecated_child_ops.to_longname = (char *) "Windows CE process";
+  deprecated_child_ops.to_doc = (char *) "Windows CE process (started by the \"run\" command).";
+  deprecated_child_ops.to_open = child_open;
+  deprecated_child_ops.to_close = child_close;
+  deprecated_child_ops.to_resume = child_resume;
+  deprecated_child_ops.to_wait = child_wait;
+  deprecated_child_ops.to_fetch_registers = child_fetch_inferior_registers;
+  deprecated_child_ops.to_store_registers = child_store_inferior_registers;
+  deprecated_child_ops.to_prepare_to_store = child_prepare_to_store;
+  deprecated_child_ops.deprecated_xfer_memory = child_xfer_memory;
+  deprecated_child_ops.to_files_info = child_files_info;
+  deprecated_child_ops.to_insert_breakpoint = memory_insert_breakpoint;
+  deprecated_child_ops.to_remove_breakpoint = memory_remove_breakpoint;
+  deprecated_child_ops.to_terminal_init = terminal_init_inferior;
+  deprecated_child_ops.to_terminal_inferior = terminal_inferior;
+  deprecated_child_ops.to_terminal_ours_for_output = terminal_ours_for_output;
+  deprecated_child_ops.to_terminal_ours = terminal_ours;
+  deprecated_child_ops.to_terminal_save_ours = terminal_save_ours;
+  deprecated_child_ops.to_terminal_info = child_terminal_info;
+  deprecated_child_ops.to_kill = child_kill_inferior;
+  deprecated_child_ops.to_load = child_load;
+  deprecated_child_ops.to_create_inferior = child_create_inferior;
+  deprecated_child_ops.to_mourn_inferior = child_mourn_inferior;
+  deprecated_child_ops.to_can_run = child_can_run;
+  deprecated_child_ops.to_thread_alive = win32_child_thread_alive;
+  deprecated_child_ops.to_stratum = process_stratum;
+  deprecated_child_ops.to_has_all_memory = 1;
+  deprecated_child_ops.to_has_memory = 1;
+  deprecated_child_ops.to_has_stack = 1;
+  deprecated_child_ops.to_has_registers = 1;
+  deprecated_child_ops.to_has_execution = 1;
+  deprecated_child_ops.to_magic = OPS_MAGIC;
 }
 
 
-/* Handle 'set remoteupload' parameter. */
+/* Handle 'set remoteupload' parameter.  */
 
 #define replace_upload(what) \
-      upload_when = what; \
-      remote_upload = xrealloc (remote_upload, strlen (upload_options[upload_when].name) + 1); \
-      strcpy (remote_upload, upload_options[upload_when].name);
+    upload_when = what; \
+    remote_upload = xrealloc (remote_upload, \
+			      strlen (upload_options[upload_when].name) + 1); \
+    strcpy (remote_upload, upload_options[upload_when].name);
 
 static void
 set_upload_type (char *ignore, int from_tty)
@@ -1952,7 +1999,9 @@ set_upload_type (char *ignore, int from_tty)
     }
 
   len = strlen (remote_upload);
-  for (i = 0; i < (sizeof (upload_options) / sizeof (upload_options[0])); i++)
+  for (i = 0; 
+       i < (sizeof (upload_options) / sizeof (upload_options[0])); 
+       i++)
     if (len >= upload_options[i].abbrev &&
 	strncasecmp (remote_upload, upload_options[i].name, len) == 0)
       {
@@ -1962,7 +2011,7 @@ set_upload_type (char *ignore, int from_tty)
 
   bad_option = remote_upload;
   replace_upload (UPLOAD_NEWER);
-  error ("Unknown upload type: %s.", bad_option);
+  error (_("Unknown upload type: %s."), bad_option);
 }
 
 void
@@ -1971,64 +2020,69 @@ _initialize_wince (void)
   struct cmd_list_element *set;
   init_child_ops ();
 
-  add_show_from_set
-    (add_set_cmd ((char *) "remotedirectory", no_class,
-		  var_string_noescape, (char *) &remote_directory,
-		  (char *) "Set directory for remote upload.\n",
-		  &setlist),
-     &showlist);
+  add_setshow_string_noescape_cmd ("remotedirectory", no_class,
+				   &remote_directory, _("\
+Set directory for remote upload."), _("\
+Show directory for remote upload."), NULL,
+				   NULL, /* FIXME: i18n: */
+				   NULL, NULL,
+				   &setlist, &showlist);
   remote_directory = xstrdup (remote_directory);
 
-  set = add_set_cmd ((char *) "remoteupload", no_class,
-		     var_string_noescape, (char *) &remote_upload,
-	       (char *) "Set how to upload executables to remote device.\n",
-		     &setlist);
-  add_show_from_set (set, &showlist);
-  set_cmd_cfunc (set, set_upload_type);
+  add_setshow_string_noescape_cmd ("remoteupload", no_class,
+				   &remote_upload, _("\
+Set how to upload executables to remote device."), _("\
+Show how to upload executables to remote device."), NULL,
+				   NULL, /* FIXME: i18n: */
+				   set_upload_type, NULL,
+				   &setlist, &showlist);
   set_upload_type (NULL, 0);
 
-  add_show_from_set
-    (add_set_cmd ((char *) "debugexec", class_support, var_boolean,
-		  (char *) &debug_exec,
-	      (char *) "Set whether to display execution in child process.",
-		  &setlist),
-     &showlist);
+  add_setshow_boolean_cmd ("debugexec", class_support, &debug_exec, _("\
+Set whether to display execution in child process."), _("\
+Show whether to display execution in child process."), NULL,
+			   NULL,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 
-  add_show_from_set
-    (add_set_cmd ((char *) "remoteaddhost", class_support, var_boolean,
-		  (char *) &remote_add_host,
-		  (char *) "\
+  add_setshow_boolean_cmd ("remoteaddhost", class_support,
+			   &remote_add_host, _("\
 Set whether to add this host to remote stub arguments for\n\
-debugging over a network.", &setlist),
-     &showlist);
+debugging over a network."), _("\
+Show whether to add this host to remote stub arguments for\n\
+debugging over a network."), NULL,
+			   NULL,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 
-  add_show_from_set
-    (add_set_cmd ((char *) "debugevents", class_support, var_boolean,
-		  (char *) &debug_events,
-	  (char *) "Set whether to display kernel events in child process.",
-		  &setlist),
-     &showlist);
+  add_setshow_boolean_cmd ("debugevents", class_support, &debug_events, _("\
+Set whether to display kernel events in child process."), _("\
+Show whether to display kernel events in child process."), NULL,
+			   NULL,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 
-  add_show_from_set
-    (add_set_cmd ((char *) "debugmemory", class_support, var_boolean,
-		  (char *) &debug_memory,
-	(char *) "Set whether to display memory accesses in child process.",
-		  &setlist),
-     &showlist);
+  add_setshow_boolean_cmd ("debugmemory", class_support, &debug_memory, _("\
+Set whether to display memory accesses in child process."), _("\
+Show whether to display memory accesses in child process."), NULL,
+			   NULL,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 
-  add_show_from_set
-    (add_set_cmd ((char *) "debugexceptions", class_support, var_boolean,
-		  (char *) &debug_exceptions,
-      (char *) "Set whether to display kernel exceptions in child process.",
-		  &setlist),
-     &showlist);
+  add_setshow_boolean_cmd ("debugexceptions", class_support,
+			   &debug_exceptions, _("\
+Set whether to display kernel exceptions in child process."), _("\
+Show whether to display kernel exceptions in child process."), NULL,
+			   NULL,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 
-  add_target (&child_ops);
+  add_target (&deprecated_child_ops);
 }
 
-/* Determine if the thread referenced by "pid" is alive
-   by "polling" it.  If WaitForSingleObject returns WAIT_OBJECT_0
-   it means that the pid has died.  Otherwise it is assumed to be alive. */
+/* Determine if the thread referenced by "pid" is alive by "polling"
+   it.  If WaitForSingleObject returns WAIT_OBJECT_0 it means that the
+   pid has died.  Otherwise it is assumed to be alive.  */
 static int
 win32_child_thread_alive (ptid_t ptid)
 {
@@ -2036,7 +2090,7 @@ win32_child_thread_alive (ptid_t ptid)
   return thread_alive (thread_rec (pid, FALSE)->h);
 }
 
-/* Convert pid to printable format. */
+/* Convert pid to printable format.  */
 char *
 cygwin_pid_to_str (int pid)
 {
@@ -2044,6 +2098,7 @@ cygwin_pid_to_str (int pid)
   if (pid == current_event.dwProcessId)
     sprintf (buf, "process %d", pid);
   else
-    sprintf (buf, "thread %d.0x%x", (unsigned) current_event.dwProcessId, pid);
+    sprintf (buf, "thread %d.0x%x", 
+	     (unsigned) current_event.dwProcessId, pid);
   return buf;
 }

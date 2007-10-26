@@ -38,8 +38,7 @@ extern "C" {
 #endif
 
 /*
- * All symmetric cipher logic goes thru these same four routines, on the 
- * way down to CDSA
+ * CDSA-based symmetric cipher callouts
  */
 OSStatus CDSASymmInit(
 	uint8 *key, 
@@ -57,6 +56,43 @@ OSStatus CDSASymmDecrypt(
 	CipherContext *cipherCtx, 
 	SSLContext *ctx);
 OSStatus CDSASymmFinish(
+	CipherContext *cipherCtx, 
+	SSLContext *ctx);
+
+/*
+ * CommonCrypto-based symmetric cipher callouts
+ */
+OSStatus CCSymmInit(
+	uint8 *key, 
+	uint8* iv, 
+	CipherContext *cipherCtx, 
+	SSLContext *ctx);
+OSStatus CCSymmEncryptDecrypt(
+	SSLBuffer src, 
+	SSLBuffer dest, 
+	CipherContext *cipherCtx, 
+	SSLContext *ctx);
+OSStatus CCSymmFinish(
+	CipherContext *cipherCtx, 
+	SSLContext *ctx);
+ 
+/* AES */
+OSStatus AESSymmInit(
+	uint8 *key, 
+	uint8* iv, 
+	CipherContext *cipherCtx, 
+	SSLContext *ctx);
+OSStatus AESSymmEncrypt(
+	SSLBuffer src, 
+	SSLBuffer dest, 
+	CipherContext *cipherCtx, 
+	SSLContext *ctx);
+OSStatus AESSymmDecrypt(
+	SSLBuffer src, 
+	SSLBuffer dest, 
+	CipherContext *cipherCtx, 
+	SSLContext *ctx);
+OSStatus AESSymmFinish(
 	CipherContext *cipherCtx, 
 	SSLContext *ctx);
 

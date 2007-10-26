@@ -267,6 +267,7 @@ private:
 	OSMetaClassDeclareReservedUnused(IOAudioDevice, 29);
 	OSMetaClassDeclareReservedUnused(IOAudioDevice, 30);
 	OSMetaClassDeclareReservedUnused(IOAudioDevice, 31);
+	
 
 public:
     // Initialization

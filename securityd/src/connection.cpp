@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,8 +49,7 @@
 // Construct a Connection object.
 //
 Connection::Connection(Process &proc, Port rPort)
- : mClientPort(rPort), state(idle), agentWait(NULL),
-   aclUpdateTrigger(NULL)
+ : mClientPort(rPort), mGuestRef(kSecNoGuest), state(idle), agentWait(NULL)
 {
 	parent(proc);
 	
@@ -70,6 +69,16 @@ Connection::~Connection()
 {
 	secdebug("SS", "Connection %p destroyed", this);
 	assert(!agentWait);
+}
+
+
+//
+// Set the (last known) guest handle for this connection.
+//
+void Connection::guestRef(SecGuestRef newGuest, SecCSFlags flags)
+{
+	secdebug("SS", "Connection %p switches to guest 0x%x", this, newGuest);
+	mGuestRef = newGuest;
 }
 
 
@@ -125,6 +134,7 @@ void Connection::beginWork()
 	switch (state) {
 	case idle:
 		state = busy;
+		mOverrideReturn = CSSM_OK;	// clear override
 		break;
 	case busy:
 		secdebug("SS", "Attempt to re-enter connection %p(port %d)", this, mClientPort.port());
@@ -148,20 +158,12 @@ void Connection::checkWork()
 	}
 }
 
-void Connection::endWork()
+void Connection::endWork(CSSM_RETURN &rcode)
 {
 	switch (state) {
 	case busy:
-		// process the n-step aclUpdateTrigger
-		if (aclUpdateTrigger) {
-            if (--aclUpdateTriggerCount == 0) {
-                aclUpdateTrigger = NULL;
-                secdebug("kcacl", "acl update trigger expires");
-            } else
-                secdebug("kcacl", "acl update trigger armed for %d calls",
-                    aclUpdateTriggerCount);
-        }
-		// end involvement
+		if (mOverrideReturn && rcode == CSSM_OK)
+			rcode = mOverrideReturn;
 		state = idle;
 		return;
 	case dying:

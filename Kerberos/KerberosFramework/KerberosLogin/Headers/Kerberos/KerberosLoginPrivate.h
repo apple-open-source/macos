@@ -118,10 +118,16 @@ KLStatus __KLGetTripletFromPrincipal (KLPrincipal         inPrincipal,
                                       char              **outInstance,
                                       char              **outRealm);
 
-KLStatus __KLCreatePrincipalFromKerberos5Principal (krb5_principal inPrincipal,
-                                                    KLPrincipal *outPrincipal);
+KLStatus __KLCreatePrincipalFromKerberos5Principal (krb5_principal  inPrincipal,
+                                                    KLPrincipal    *outPrincipal);
 
-KLBoolean __KLPrincipalIsTicketGrantingService (KLPrincipal inPrincipal, KLKerberosVersion inVersion);
+KLStatus __KLGetKerberos5PrincipalFromPrincipal (KLPrincipal     inPrincipal, 
+                                                 krb5_context    inContext, 
+                                                 krb5_principal *outKrb5Principal);
+
+KLStatus __KLGetRealmFromPrincipal (KLPrincipal inPrincipal, char **outRealm);
+
+KLBoolean __KLPrincipalIsTicketGrantingService (KLPrincipal inPrincipal);
 
 
 #if TARGET_OS_MAC

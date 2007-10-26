@@ -238,9 +238,23 @@ loser:
 static int
 parse_fourcharcode(const char *name, UInt32 *code)
 {
-	/* @@@ Check for errors. */
-	char *p = (char *)code;
-	strncpy(p, name, 4);
+	UInt32 cc = 0;
+	
+	// error check the name
+	if (strlen(name) != 4)
+	{
+		fprintf(stderr, "types must be exactly four characters long.\n");
+		return 1;
+	}
+	
+	int i;
+	for (i = 0; i < 4; ++i)
+	{
+		cc = (cc << 8) | name[i];
+	}
+	
+	*code = cc;
+	
 	return 0;
 }
 
@@ -249,8 +263,8 @@ keychain_find_internet_password(int argc, char * const *argv)
 {
 	char *serverName = NULL, *securityDomain = NULL, *accountName = NULL, *path = NULL;
     UInt16 port = 0;
-    SecProtocolType protocol = NULL;
-    SecAuthenticationType authenticationType = NULL;
+    SecProtocolType protocol = 0;
+    SecAuthenticationType authenticationType = 0;
 	int ch, result = 0;
 	Boolean get_password = FALSE;
 

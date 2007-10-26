@@ -16,7 +16,22 @@
             }; 
             SUPERCLASS = NSWindowController; 
         }, 
-        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {CLASS = SFPasswordAssistantButton; LANGUAGE = ObjC; SUPERCLASS = NSButton; }, 
+        {
+            ACTIONS = {showPasswordAssistantPanel = id; }; 
+            CLASS = SFPasswordAssistantInspectorController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                "_baseWindow" = NSWindow; 
+                "_newPassword" = NSTextField; 
+                "_originalPassword" = NSTextField; 
+                "_passwordAssistantPanel" = NSWindow; 
+                "_passwordAssistantView" = SFPasswordAsstView; 
+                "_verifyPassword" = NSTextField; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }
     ); 
     IBVersion = 1; 
 }

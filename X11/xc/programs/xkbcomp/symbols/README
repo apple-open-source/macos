@@ -1,8 +1,0 @@
-The symbols component of a keyboard mapping specifies primarily the symbols
-bound to each keyboard key. It affects the symbols symbolic name, a key symbol
-mapping for each key, the keyboard modifier mapping, and the symbolic names for
-the keyboard symbol groups.
-
-
-
-/* $XFree86: xc/programs/xkbcomp/symbols/README,v 1.1 2002/11/22 04:19:28 dawes Exp $ */

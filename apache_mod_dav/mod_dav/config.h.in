@@ -1,7 +1,0 @@
-/* config.h.in.  Generated automatically from configure.in by autoheader.  */
-
-/* define to use Expat 2 */
-#undef HAVE_EXPAT_2
-
-/* Define if you have the ANSI C header files. */
-#undef STDC_HEADERS

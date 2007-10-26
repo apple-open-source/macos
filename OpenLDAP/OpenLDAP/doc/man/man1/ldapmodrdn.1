@@ -1,6 +1,6 @@
 .TH LDAPMODRDN 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodrdn.1,v 1.31.2.3 2004/03/06 15:06:48 ando Exp $
-.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodrdn.1,v 1.34.2.4 2006/01/03 22:16:04 kurt Exp $
+.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapmodrdn \- LDAP rename entry tool
@@ -12,10 +12,6 @@ ldapmodrdn \- LDAP rename entry tool
 .BR \-n ]
 [\c
 .BR \-v ]
-[\c
-.BR \-k ]
-[\c
-.BR \-K ]
 [\c
 .BR \-c ]
 [\c
@@ -85,17 +81,6 @@ debugging in conjunction with -v.
 .B \-v
 Use verbose mode, with many diagnostics written to standard output.
 .TP
-.B \-k
-Use Kerberos IV authentication instead of simple authentication.  It is
-assumed that you already have a valid ticket granting ticket.
-.B ldapmodrdn
-must be compiled with Kerberos support for this option to have effect.
-.TP
-.B \-K
-Same as \-k, but only does step 1 of the Kerberos IV bind.  This is useful
-when connecting to a slapd and there is no x500dsa.hostname principal
-registered with your Kerberos Domain Controller(s).
-.TP
 .B \-c
 Continuous operation mode.  Errors  are  reported,  but ldapmodrdn
 will  continue  with  modifications.   The default is to exit after
@@ -134,7 +119,9 @@ Use complete contents of \fIpasswdfile\fP as the password for
 simple authentication.
 .TP
 .BI \-H \ ldapuri
-Specify URI(s) referring to the ldap server(s).
+Specify URI(s) referring to the ldap server(s); only the protocol/host/port
+fields are allowed; a list of URI, separated by whitespace or commas
+is expected.
 .TP
 .BI \-h \ ldaphost
 Specify an alternate host on which the ldap server is running.

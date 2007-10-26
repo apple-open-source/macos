@@ -1,8 +1,295 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 Here is a history of user visible changes to Mailman.
+
+2.1.9 (12-Sep-2006)
+
+  Security
+
+    - A malicious user could visit a specially crafted URI and inject an
+      apparent log message into Mailman's error log which might induce an
+      unsuspecting administrator to visit a phishing site.  This has been
+      blocked.  Thanks to Moritz Naumann for its discovery.
+
+    - Fixed denial of service attack which can be caused by some
+      standards-breaking RFC 2231 formatted headers.  CVE-2006-2941.
+
+    - Several cross-site scripting issues have been fixed.  Thanks to Moritz
+      Naumann for their discovery.  CVE-2006-3636
+
+    - Fixed an unexploitable format string vulnerability.  Discovery and fix
+      by Karl Chen.  Analysis of non-exploitability by Martin 'Joey' Schulze.
+      Also thanks go to Lionel Elie Mamane.  CVE-2006-2191.
+
+  Internationalization
+
+    - New languages: Arabic, Vietnamese.
+
+  Bug fixes and other patches
+
+    - Fixed Decorate.py so that characters in message header/footer which
+      are not in the character set of the list's language are ignored rather
+      than causing shunted messages (1507248).
+
+    - Switchboard.py - Closed very tiny holes at the upper ends of queue
+      slices that could result in unprocessable queue entries.  Improved FIFO
+      processing when two queue entries have the same timestamp.
+
+2.1.8 (15-Apr-2006)
+
+  Security
+
+    - A cross-site scripting hole in the private archive script of 2.1.7
+      has been closed.  Thanks to Moritz Naumann for its discovery.
+
+  Bug fixes and other patches
+
+    - Bouncers support added: 'unknown user', Microsoft SMTPSVC, Prodigy.net
+      and several others.
+
+    - Updated email library to 2.5.7 which will encode payload into qp/base64
+      upon setting.  This enabled backing out the scrubber related patches
+      including 'X-Mailman-Scrubbed' header in 2.1.7.
+
+    - Fix SpamDetect.py potential hold/reject loop problem.
+
+    - A warning message from email package to the stderr can cause error
+      in Logging because stderr may be detached from the process during
+      the qrunner run.  We chose not to output errors to stderr but to
+      the logs/error if the process is running under mailmanctl subprocess.
+
+    - DKIM header cleansing was separated from Cleanse.py and added to
+      -owner messages too.
+
+    - Fixes: Lose Topics when go directly to topics URL (1194419).
+      UnicodeError running bin/arch (1395683).  edithtml.py missing import
+      (1400128).  Bad escape in cleanarch.  Wrong timezone in list archive
+      index pages (1433673).  bin/arch fails with TypeError (1430236).
+      Subscription fails with some Language combinations (1435722).
+      Postfix delayed notification not recognized (863989).  2.1.7 (VERP)
+      mistakes delay notice for bounce (1421285).  show_qfiles: 'str'
+      object has no attribute 'as_string' (1444447).  Utils.get_domain()
+      wrong if VIRTUAL_HOST_OVERVIEW off (1275856).
+
+  Miscellaneous
+
+    - Brad Knowles' mailman daily status report script updated to 0.0.16.
+
+2.1.7 (31-Dec-2005)
+
+  Security
+
+    - The fix for CAN-2005-0202 has been enhanced to issue an appropriate
+      message instead of just quietly dropping ./ and ../ from URLs.
+
+    - A note on CVE-2005-3573: Although the RFC2231 bug example in the CVE has
+      been solved in Mailman 2.1.6, there may be more cases where
+      ToDigest.send_digests() can block regular delivery.  We put the
+      send_digests() calling part in a try/except clause and leave a message
+      in the error log if something happened in send_digests().  Daily call of
+      cron/senddigests will provide more detail to the site administrator.
+
+    - List administrators can no longer change the user's option/subscription
+      globally.  Site admin can change these only if
+      mm_cfg.ALLOW_SITE_ADMIN_COOKIES is set to Yes.
+
+    - <script> tags are HTML-escaped in the edithtml CGI script.
+
+    - Since the probe message for disabled users may reach unintended
+      recipients, the password is excluded from sendProbe() and probe.txt.
+      Note that the default value of VERP_PROBE has been set to `No' from
+      2.1.6., thus this change doesn't affect the default behavior.
+
+  New Features
+
+    - Always remove DomainKey (and similar) headers from messages sent to the
+      list. (1287546)
+
+    - List owners can control the content filter behavior when collapsing
+      multipart/alternative parts to its first subpart.  This allows the
+      option of letting the HTML part pass through after other content
+      filtering is done.
+
+  Internationalization
+
+    - New language: Interlingua.
+
+  Bug fixes and other patches
+
+    - Defaults.py.in: SCRUBBER_DONT_USE_ATTACHMENT_FILENAME is set to True for
+      safer operation.
+
+    - Fixed the bug where Scrubber.py munges quoted-printable by introducing
+      the 'X-Mailman-Scrubbed' header which marks that the payload is
+      scrubber-munged.  The flag is referenced in ToDigest.py, ToArchive.py,
+      Decorate.py and Archiver.  A similar problem in ToDigest.py where the
+      plain digest is generated is also fixed.
+
+    - Fixed Syslog.py to write quopri encoded messages when it fail to write
+      8-bit characters.
+
+    - Fixed MTA/Postfix.py to check aliases group permission in check_perms
+      and fixed mailman-install document on this matter (1378270).
+
+    - Fixed private.py to go to the original URL after authorization
+      (1080943).
+
+    - Fixed bounce log score messages to be more consistent.
+
+    - Fixed bin/remove_members to accept no arguments when both --fromall and
+      --file= options are specified.
+
+    - Changed cgi-bin and mail wrapper "group not found" error message to be
+      more descriptive of the actual problem.
+
+    - The list's ban_list now applies to address changes, admin mass
+      subscribes and invites, and to confirmations/approvals of address
+      changes, subscriptions and invitations.
+
+    - quoted-printable and base64 encoded parts are decoded before passing to
+      HTML_TO_PLAIN_TEXT_COMMAND (1367783).
+
+    - Approve: header is removed from posts, and treated the same as the
+      Approved: header. (1355707)
+
+    - Fixed the removal of the line following Approve[d]: line in body of
+      post.  (1318883)
+
+    - The Approve[d]: <password> header is removed from all text/* parts in
+      addition the initial text/plain part.  It must still be the first
+      non-blank line in the first text/plain part or it won't be found or
+      removed at all. (1181161)
+
+    - Posts are now logged in post log file with the true sender, not
+      listname-bounces. (1287921)
+
+    - Correctly initialize and remember the list's default_member_moderation
+      attribute in the web list creation page. (1263213)
+
+    - PEP263 charset is added to the config_list output. (1343100)
+
+    - Fixed header_filter_rules getting lost if accessed directly and
+      authentication was needed by login page. (1230865)
+
+    - Obscure email when the poster doesn't set full name in 'From:' header.
+
+    - Preambles and epilogues are taken into account when calculating message
+      sizes for holding purposes. (Mark Sapiro)
+
+    - Logging/Logger.py unicode transform option. (1235567)
+
+    - bin/update crashes with bogus files. (949117)
+
+    - Bugs and patches: 1212066/1301983 (Date header in create/remove notice)
+
+2.1.6 (30-May-2005)
+
+  Security
+
+    - Critical security patch for path traversal vulnerability in private
+      archive script  (CAN-2005-0202).
+
+    - Added the ability for Mailman generated passwords (both member and list
+      admin) to be more cryptographically secure.  See new configuration
+      variables USER_FRIENDLY_PASSWORDS, MEMBER_PASSWORD_LENGTH, and
+      ADMIN_PASSWORD_LENGTH.  Also added a new bin/withlist script called
+      reset_pw.py which can be used to reset all member passwords.  Passwords
+      generated by Mailman are now 8 characters by default for members, and 10
+      characters for list administrators.
+
+    - A potential cross-site scripting hole in the driver script has been
+      closed.  Thanks to Florian Weimer for its discovery.  Also, turn
+      STEALTH_MODE on by default.
+
+  Internationalization
+
+    - Chinese languages are now supported.  They have been moved from 'big5'
+      and 'gb' to 'zh_TW' and 'zh_CN' respectively for compliance to the IANA
+      spec.  Note, however, that the character sets were changed from 'Big5'
+      or 'GB2312' to 'UTF-8' to cope with the insufficient codecs support in
+      Python 2.3 and earlier.  You may have to install Chinese capable codecs
+      (like CJKCodecs) separately to handle the incoming messages which are in
+      local charsets, or upgrade your Python to 2.4 or newer.
+
+  Behavior or defaults changes
+
+    - VERP_PROBES is disabled by default.
+
+    - bin/withlist can be run without a list name, but only if -i is given.
+      Also, withlist puts the directory it's found in at the end of sys.path,
+      making it easier to run withlist scripts that live in $prefix/bin.
+
+    - bin/newlist grew two new options: -u/--urlhost and -e/--emailhost which
+      lets the user provide the web and email hostnames for the new mailing
+      list.  This is a better way to specify the domain for the list, rather
+      than the old 'mylist@hostname' syntax (which is still supported for
+      backward compatibility, but deprecated).
+
+  Compatibility
+
+    - Python 2.4 compatibility issue: time.strftime() became strict about the
+      'day of year' range.  (1078482)
+
+  New Features
+
+    - New feature: automatic discards of held messages.  List owners can now
+      set how many days to hold the messages in the moderator request queue.
+      cron/checkdb will automatically discard old messages.  See the
+      max_days_to_hold variable in the General Options and
+      DEFAULT_MAX_DAYS_TO_HOLD in Defaults.py.  This defaults to 0
+      (i.e. disabled). (790494)
+
+    - New feature: subject_prefix can be configured to include a sequence
+      number which is taken from the post_id variable.  Also, the prefix is
+      always put at the start of the subject, i.e. "[list-name] Re: original
+      subject", if mm_cfg.OLD_STYLE_PREFIXING is set No.  The default style
+      is "Re: [list-name]" if numbering is not set, for backward compatibility.
+      If the list owner is using numbering feature by "%d" directive, the new
+      style, "[list-name 123] Re:", is always used.
+
+    - List owners can now cusomize the non-member rejection notice from
+      admin/<listname>/privacy/sender page. (1107169)
+
+    - Allow editing of the welcome message from the admin page (1085501).
+
+    - List owners can now use Scrubber to get the attachments scrubbed (held
+      in the web archive), if the site admin permits it in mm_cfg.py.  New
+      variables introduced are SCRUBBER_DONT_USE_ATTACHMENT_FILENAME and
+      SCRUBBER_USE_ATTACHMENT_FILENAME_EXTENSION in Defaults.py for scrubber
+      behavior.  (904850)
+
+  Documentation
+
+    - Most of the installation instructions have been moved to a latex
+      document.  See admin/www/mailman-install/index.html for details.
+
+  Bug fixes and other patches
+
+    - Mail-to-news gateway now strips subject prefix off from a response
+      by a mail user if news_prefix_subject_too is not set.
+
+    - Date and Message-Id headers are added for digests. (1116952)
+
+    - Improved mail address sanity check.  (1030228)
+
+    - SpamDetect.py now checks attachment header.  (1026977)
+
+    - Filter attachments by filename extensions.  (1027882)
+
+    - Bugs and patches: 955381 (older Python compatibility), 1020102/1013079/
+      1020013 (fix spam filter removed), 665569 (newer Postfix bounce
+      detection), 970383 (moderator -1 admin requests pending), 873035
+      (subject handling in -request mail), 799166/946554 (makefile
+      compatibility), 872068 (add header/footer via unicode), 1032434
+      (KNOWN_SPAMMERS check for multi-header), 1025372 (empty Cc:), 789015
+      (fix pipermail URL), 948152 (Out of date link on Docs),  1099138
+      (Scrubber.py breaks on None part),  1099840/1099840 (deprecated %
+      insertion),  880073/933762 (List-ID RFC compliance),  1090439 (passwd
+      reminder shunted), 1112349 (case insensitivity in acceptable_aliases),
+      1117618 (Don't Cc for personalized anonymous list), 1190404 (wrong
+      permission after editing html)
 
 2.1.5 (15-May-2004)
 

@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2005 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -35,6 +38,7 @@
 
 #include <dce/idlddefs.h>
 #include <lsysdep.h>
+#include <asl.h>
 
 /******************************************************************************/
 /*                                                                            */
@@ -1182,9 +1186,7 @@ idl_ulong_int rpc_ss_ndr_bug_1_align
         default:
             /* Other flags cannot occur in a [v1_struct] */
 #ifdef DEBUG_INTERP
-            printf(
-               "rpc_ss_ndr_bug_1_struct_align:unrecognized alignment type %d\n",
-                        type_byte);
+			asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_bug_1_struct_align:unrecognized alignment type %d\n", type_byte);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);
@@ -1265,9 +1267,7 @@ idl_ulong_int rpc_ss_ndr_bug_1_align
             default:
                 /* Other flags cannot occur in a [v1_struct] */
 #ifdef DEBUG_INTERP
-                printf(
-                   "rpc_ss_ndr_bug_1_struct_align:unrecognized field type %d\n",
-                        type_byte);
+				asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_bug_1_struct_align:unrecognized field type %d\n" type_byte);
                 exit(0);
 #endif
                 RAISE(rpc_x_coding_error);
@@ -1295,7 +1295,7 @@ void rpc_ss_type_vec_vers_check
     if ((interp_major_version != 3) || (interp_minor_version > 2))
     {
 #ifdef DEBUG_INTERP
-        printf("Expecting data structure version 3.0, 3.1 or 3.2 - found %d.%d\n",
+		asl_log(NULL, NULL, ASL_LEVEL_ERR, "Expecting data structure version 3.0, 3.1 or 3.2 - found %d.%d\n",
                 interp_major_version, interp_minor_version);
         exit(0);
 #endif

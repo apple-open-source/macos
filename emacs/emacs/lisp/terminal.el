@@ -1,6 +1,7 @@
 ;;; terminal.el --- terminal emulator for GNU Emacs
 
-;; Copyright (C) 1986,87,88,89,93,94 Free Software Foundation, Inc.
+;; Copyright (C) 1986, 1987, 1988, 1989, 1993, 1994, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Richard Mlynarik <mly@eddie.mit.edu>
 ;; Maintainer: FSF
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -60,7 +61,7 @@ This variable is local to each terminal-emulator buffer."
   :type 'character
   :group 'terminal)
 
-(defcustom terminal-scrolling t ;;>> Setting this to T sort-of defeats my whole aim in writing this package...
+(defcustom terminal-scrolling t ;;>> Setting this to t sort-of defeats my whole aim in writing this package...
   "*If non-nil, the terminal-emulator will losingly `scroll' when output occurs
 past the bottom of the screen.  If nil, output will win and `wrap' to the top
 of the screen.
@@ -100,6 +101,9 @@ performance."
 (if terminal-map
     nil
   (let ((map (make-sparse-keymap)))
+    ;; Prevent defining [menu-bar] as te-pass-through
+    ;; so we allow the global menu bar to be visible.
+    (define-key map [menu-bar] (make-sparse-keymap))
     (define-key map [t] 'te-pass-through)
     (define-key map [switch-frame] 'handle-switch-frame)
     (define-key map "\e" terminal-meta-map)
@@ -206,9 +210,13 @@ performance."
           (use-local-map terminal-escape-map)
           (setq s (read-key-sequence
                     (if current-prefix-arg
-                        (format "Emacs Terminal escape> %d "
+                        (format "Emacs Terminal escape[%s for help]> %d "
+				(substitute-command-keys
+				 "\\<terminal-escape-map>\\[te-escape-help]")
                                 (prefix-numeric-value current-prefix-arg))
-                        "Emacs Terminal escape> "))))
+                        (format "Emacs Terminal escape[%s for help]> "
+				(substitute-command-keys
+				 "\\<terminal-escape-map>\\[te-escape-help]"))))))
       (use-global-map global)
       (use-local-map local))
 
@@ -247,12 +255,9 @@ Other chars following \"%s\" are interpreted as follows:\n"
 			(where-is-internal 'te-escape-extended-command
 					   terminal-escape-map t)
 			'te-escape-extended-command))
-	 (let ((l (if (fboundp 'sortcar)
-		      (sortcar (copy-sequence te-escape-command-alist)
-			       'string<)
-		      (sort (copy-sequence te-escape-command-alist)
-			    (function (lambda (a b)
-                              (string< (car a) (car b))))))))
+	 (let ((l (sort (copy-sequence te-escape-command-alist)
+			(function (lambda (a b)
+				    (string< (car a) (car b)))))))
 	   (while l
 	     (let ((doc (or (documentation (cdr (car l)))
 			    "Not documented")))
@@ -485,7 +490,7 @@ lets you type a terminal emulator command."
 	     (progn
 	       (and terminal-more-processing (null (cdr te-pending-output))
 		    (te-set-more-count nil))
-	       (send-string te-process (make-string 1 last-input-char))
+	       (process-send-string te-process (make-string 1 last-input-char))
 	       (te-process-output t))
 	   (message "Function key `%s' ignored"
 		    (single-key-description last-input-char))))))
@@ -533,7 +538,7 @@ together with a command \\<terminal-edit-map>to return to terminal emulation: \\
   (setq mode-name "Terminal Edit")
   (setq mode-line-modified (default-value 'mode-line-modified))
   (setq mode-line-process nil)
-  (run-hooks 'terminal-edit-mode-hook))
+  (run-mode-hooks 'terminal-edit-mode-hook))
 
 (defun te-edit ()
   "Start editing the terminal emulator buffer with ordinary Emacs commands."
@@ -562,10 +567,10 @@ together with a command \\<terminal-edit-map>to return to terminal emulation: \\
         (let ((p (point)))
           (cond ((search-forward "\n" (+ p width) 'move)
                  (forward-char -1)
-                 (insert-char ?\  (- width (- (point) p)))
+                 (insert-char ?\s (- width (- (point) p)))
                  (forward-char 1))
                 ((eobp)
-                 (insert-char ?\  (- width (- (point) p))))
+                 (insert-char ?\s (- width (- (point) p))))
                 ((= (following-char) ?\n)
                  (forward-char 1))
                 (t
@@ -637,7 +642,7 @@ together with a command \\<terminal-edit-map>to return to terminal emulation: \\
 	   (forward-char 1)
 	   (delete-region (point)
 			  (+ (point) (length terminal-more-break-insertion)))
-	   (insert-char ?\  te-width)
+	   (insert-char ?\s te-width)
 	   (goto-char te-more-old-point)))
     (setq te-more-old-point nil)
     (let ((te-more-count 259259))
@@ -688,7 +693,7 @@ move to start of new line, clear to end of line."
 		   (insert ?\n))))
     (forward-char 1)
     (delete-region (point) (+ (point) te-width)))
-  (insert-char ?\  te-width)
+  (insert-char ?\s te-width)
   (beginning-of-line)
   (te-set-window-start))
 
@@ -712,7 +717,7 @@ move to start of new line, clear to end of line."
   (save-excursion
     (let ((n (- (point) (progn (end-of-line) (point)))))
       (delete-region (point) (+ (point) n))
-      (insert-char ?\  (- n)))))
+      (insert-char ?\s (- n)))))
 
 
 ;; ^p C
@@ -722,7 +727,7 @@ move to start of new line, clear to end of line."
     (while (progn (end-of-line) (not (eobp)))
       (forward-char 1) (end-of-line)
       (delete-region (- (point) te-width) (point))
-      (insert-char ?\  te-width))))
+      (insert-char ?\s te-width))))
 
 
 ;; ^p ^l
@@ -732,7 +737,7 @@ move to start of new line, clear to end of line."
   (let ((i 0))
     (while (< i te-height)
       (setq i (1+ i))
-      (insert-char ?\  te-width)
+      (insert-char ?\s te-width)
       (insert ?\n)))
   (delete-region (1- (point-max)) (point-max))
   (goto-char (point-min))
@@ -745,13 +750,13 @@ move to start of new line, clear to end of line."
       ();(error "fooI")
     (save-excursion
       (let* ((line (- te-height (/ (- (point) (point-min)) (1+ te-width)) -1))
-	     (n (min (- (te-get-char) ?\ ) line))
+	     (n (min (- (te-get-char) ?\s) line))
 	     (i 0))
 	(delete-region (- (point-max) (* n (1+ te-width))) (point-max))
 	(if (eq (point) (point-max)) (insert ?\n))
 	(while (< i n)
 	  (setq i (1+ i))
-	  (insert-char ?\  te-width)
+	  (insert-char ?\s te-width)
 	  (or (eq i line) (insert ?\n))))))
   (setq te-more-count -1))
 
@@ -761,7 +766,7 @@ move to start of new line, clear to end of line."
   (if (not (bolp))
       ();(error "fooD")
     (let* ((line (- te-height (/ (- (point) (point-min)) (1+ te-width)) -1))
-	   (n (min (- (te-get-char) ?\ ) line))
+	   (n (min (- (te-get-char) ?\s) line))
 	   (i 0))
       (delete-region (point)
 		     (min (+ (point) (* n (1+ te-width))) (point-max)))
@@ -769,7 +774,7 @@ move to start of new line, clear to end of line."
 	(goto-char (point-max))
 	(while (< i n)
 	  (setq i (1+ i))
-	  (insert-char ?\  te-width)
+	  (insert-char ?\s te-width)
 	  (or (eq i line) (insert ?\n))))))
   (setq te-more-count -1))
 
@@ -793,7 +798,7 @@ move to start of new line, clear to end of line."
   (if (bolp)
       ()
     (delete-region (1- (point)) (point))
-    (insert ?\ )
+    (insert ?\s)
     (forward-char -1)))
 
 ;; ^p ^g
@@ -810,7 +815,7 @@ move to start of new line, clear to end of line."
 	nil
       (delete-char (- n))
       (goto-char p)
-      (insert-char ?\  n))
+      (insert-char ?\s n))
     (goto-char p)))
 
 ;; ^p d count+32  (should be ^p ^d but cretinous un*x won't send ^d chars!!!)
@@ -820,7 +825,7 @@ move to start of new line, clear to end of line."
 		 (- (progn (end-of-line) (point)) p))))
     (if (<= n 0)
 	nil
-      (insert-char ?\  n)
+      (insert-char ?\s n)
       (goto-char p)
       (delete-char n))
     (goto-char p)))
@@ -857,7 +862,7 @@ move to start of new line, clear to end of line."
 	  (delete-char 1)
 	  (goto-char (point-max))
 	  (insert ?\n)
-	  (insert-char ?\  te-width)
+	  (insert-char ?\s te-width)
 	  (beginning-of-line))
       (forward-line 1))
     (move-to-column column))
@@ -1085,7 +1090,7 @@ This escape character may be changed using the variable `terminal-escape-char'.
 
 `Meta' characters may not currently be sent through the terminal emulator.
 
-Here is a list of some of the variables which control the behaviour
+Here is a list of some of the variables which control the behavior
 of the emulator -- see their documentation for more information:
 terminal-escape-char, terminal-scrolling, terminal-more-processing,
 terminal-redisplay-interval.
@@ -1110,7 +1115,7 @@ subprocess started."
 			 (getenv "SHELL")
 			 "/bin/sh"))
 		   (s (read-string
-		       (format "Run program in emulator: (default %s) "
+		       (format "Run program in emulator (default %s): "
 			       default-s))))
 	      (if (equal s "")
 		  (list default-s '())
@@ -1157,7 +1162,7 @@ subprocess started."
   (setq inhibit-quit t)			;sport death
   (use-local-map terminal-map)
   (run-hooks 'terminal-mode-hook)
-  (message "Entering emacs terminal-emulator...  Type %s %s for help"
+  (message "Entering Emacs terminal-emulator...  Type %s %s for help"
 	   (single-key-description terminal-escape-char)
 	   (mapconcat 'single-key-description
 		      (where-is-internal 'te-escape-help terminal-escape-map t)
@@ -1264,10 +1269,10 @@ of the terminal-emulator"
 (defun te-create-terminfo ()
   "Create and compile a terminfo entry for the virtual terminal. This is kept
 in the directory specified by `te-terminfo-directory'."
-  (if (and system-uses-terminfo
-	   (not (file-exists-p (concat  te-terminfo-directory
-					(substring te-terminal-name-prefix 0 1)
-					"/" te-terminal-name))))
+  (when (and system-uses-terminfo
+	     (not (file-exists-p (concat te-terminfo-directory
+					 (substring te-terminal-name-prefix 0 1)
+					 "/" te-terminal-name))))
     (let ( (terminfo
 	    (concat
 	     ;; The first newline avoids trouble with ncurses.
@@ -1278,24 +1283,30 @@ in the directory specified by `te-terminfo-directory'."
 	     "dch=^Pd%p1%'\\s'%+%c, dch1=^Pd!, dl=^P^K%p1%'\\s'%+%c,"
 	     "dl1=^P^K!, ed=^PC, el=^Pc, home=^P=\\s\\s,"
 	     "ich=^P_%p1%'\\s'%+%c, ich1=^P_!, il=^P^O%p1%'\\s'%+%c,"
+	     ;; The last newline avoids trouble with ncurses.
 	     "il1=^P^O!, ind=^P\\n, nel=\\n,\n"))
-	   ;; The last newline avoids trouble with ncurses.
+	   ;; This is the desired name for the source file.
 	   (file-name (concat te-terminfo-directory te-terminal-name ".tif")) )
       (make-directory te-terminfo-directory t)
-      (save-excursion
-	(set-buffer (create-file-buffer file-name))
-	(insert terminfo)
-	(write-file file-name)
-	(kill-buffer nil)
-	)
-      (let ( (process-environment
-	      (cons (concat "TERMINFO="
-			    (directory-file-name te-terminfo-directory))
-		    process-environment)) )
+      (let ((temp-file
+	     (make-temp-file (expand-file-name "tif" te-terminfo-directory))))
+	;; Store the source file under a random temp name.
+	(with-temp-file temp-file
+	  (insert terminfo))
+	;; Rename it to the desired name.
+	;; We use this roundabout approach
+	;; to avoid any risk of writing a name that
+	;; was michievouslyt set up as a symlink.
+	(rename-file temp-file file-name))
+      ;; Now compile that source to make the binary that the
+      ;; programs actually use.
+      (let ((process-environment
+	     (cons (concat "TERMINFO="
+			   (directory-file-name te-terminfo-directory))
+		   process-environment)))
 	(set-process-sentinel (start-process "tic" nil "tic" file-name)
 			      'te-tic-sentinel))))
-    (directory-file-name te-terminfo-directory)
-)
+    (directory-file-name te-terminfo-directory))
 
 (defun te-create-termcap ()
   "Create a termcap entry for the virtual terminal"
@@ -1335,4 +1346,5 @@ in the directory specified by `te-terminfo-directory'."
 
 (provide 'terminal)
 
+;;; arch-tag: 0ae1d7d7-90ef-4566-a531-6e7ff8c79b2f
 ;;; terminal.el ends here

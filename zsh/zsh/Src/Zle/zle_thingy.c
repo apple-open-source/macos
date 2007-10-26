@@ -363,18 +363,17 @@ bin_zle(char *name, char **args, Options ops, UNUSED(int func))
     if(op->o)
 	for(opp = op; (++opp)->o; )
 	    if(OPT_ISSET(ops,STOUC(opp->o))) {
-		zwarnnam(name, "incompatible operation selection options",
-		    NULL, 0);
+		zwarnnam(name, "incompatible operation selection options");
 		return 1;
 	    }
 
     /* check number of arguments */
     for(n = 0; args[n]; n++) ;
     if(n < op->min) {
-	zwarnnam(name, "not enough arguments for -%c", NULL, op->o);
+	zwarnnam(name, "not enough arguments for -%c", op->o);
 	return 1;
     } else if(op->max != -1 && n > op->max) {
-	zwarnnam(name, "too many arguments for -%c", NULL, op->o);
+	zwarnnam(name, "too many arguments for -%c", op->o);
 	return 1;
     }
 
@@ -407,7 +406,7 @@ bin_zle_list(UNUSED(char *name), char **args, Options ops, UNUSED(char func))
 static int
 bin_zle_refresh(UNUSED(char *name), char **args, Options ops, UNUSED(char func))
 {
-    char *s = statusline;
+    ZLE_STRING_T s = statusline;
     int sl = statusll, ocl = clearlist;
 
     if (!zleactive)
@@ -415,10 +414,8 @@ bin_zle_refresh(UNUSED(char *name), char **args, Options ops, UNUSED(char func))
     statusline = NULL;
     statusll = 0;
     if (*args) {
-	if (**args) {
-	    statusline = *args;
-	    statusll = strlen(statusline);
-	}
+	if (**args)
+	    statusline = stringaszleline(*args, 0, &statusll, NULL, NULL);
 	if (*++args) {
 	    LinkList l = newlinklist();
 	    int zmultsav = zmult;
@@ -442,6 +439,9 @@ bin_zle_refresh(UNUSED(char *name), char **args, Options ops, UNUSED(char func))
     }
     zrefresh();
 
+    if (statusline)
+	free(statusline);
+
     clearlist = ocl;
     statusline = s;
     statusll = sl;
@@ -453,7 +453,7 @@ static int
 bin_zle_mesg(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     if (!zleactive) {
-	zwarnnam(name, "can only be called from widget function", NULL, 0);
+	zwarnnam(name, "can only be called from widget function");
 	return 1;
     }
     showmsg(*args);
@@ -469,11 +469,11 @@ bin_zle_unget(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
     char *b = *args, *p = b + strlen(b);
 
     if (!zleactive) {
-	zwarnnam(name, "can only be called from widget function", NULL, 0);
+	zwarnnam(name, "can only be called from widget function");
 	return 1;
     }
     while (p > b)
-	ungetkey((int) *--p);
+	ungetbyte((int) *--p);
     return 0;
 }
 
@@ -482,7 +482,7 @@ static int
 bin_zle_keymap(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     if (!zleactive) {
-	zwarnnam(name, "can only be called from widget function", NULL, 0);
+	zwarnnam(name, "can only be called from widget function");
 	return 1;
     }
     return selectkeymap(*args, 0);
@@ -540,10 +540,10 @@ bin_zle_del(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
     do {
 	Thingy t = (Thingy) thingytab->getnode(thingytab, *args);
 	if(!t) {
-	    zwarnnam(name, "no such widget `%s'", *args, 0);
+	    zwarnnam(name, "no such widget `%s'", *args);
 	    ret = 1;
 	} else if(unbindwidget(t, 0)) {
-	    zwarnnam(name, "widget name `%s' is protected", *args, 0);
+	    zwarnnam(name, "widget name `%s' is protected", *args);
 	    ret = 1;
 	}
     } while(*++args);
@@ -557,10 +557,10 @@ bin_zle_link(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
     Thingy t = (Thingy) thingytab->getnode(thingytab, args[0]);
 
     if(!t) {
-	zwarnnam(name, "no such widget `%s'", args[0], 0);
+	zwarnnam(name, "no such widget `%s'", args[0]);
 	return 1;
     } else if(bindwidget(t->widget, rthingy(args[1]))) {
-	zwarnnam(name, "widget name `%s' is protected", args[1], 0);
+	zwarnnam(name, "widget name `%s' is protected", args[1]);
 	return 1;
     }
     return 0;
@@ -579,7 +579,7 @@ bin_zle_new(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
     if(!bindwidget(w, rthingy(args[0])))
 	return 0;
     freewidget(w);
-    zwarnnam(name, "widget name `%s' is protected", args[0], 0);
+    zwarnnam(name, "widget name `%s' is protected", args[0]);
     return 1;
 }
 
@@ -591,14 +591,14 @@ bin_zle_complete(char *name, char **args, UNUSED(Options ops), UNUSED(char func)
     Widget w, cw;
 
     if (!require_module(name, "zsh/complete", 0, 0)) {
-	zwarnnam(name, "can't load complete module", NULL, 0);
+	zwarnnam(name, "can't load complete module");
 	return 1;
     }
     t = rthingy((args[1][0] == '.') ? args[1] : dyncat(".", args[1]));
     cw = t->widget;
     unrefthingy(t);
     if (!cw || !(cw->flags & ZLE_ISCOMP)) {
-	zwarnnam(name, "invalid widget `%s'", args[1], 0);
+	zwarnnam(name, "invalid widget `%s'", args[1]);
 	return 1;
     }
     w = zalloc(sizeof(*w));
@@ -609,7 +609,7 @@ bin_zle_complete(char *name, char **args, UNUSED(Options ops), UNUSED(char func)
     w->u.comp.func = ztrdup(args[2]);
     if (bindwidget(w, rthingy(args[0]))) {
 	freewidget(w);
-	zwarnnam(name, "widget name `%s' is protected", args[0], 0);
+	zwarnnam(name, "widget name `%s' is protected", args[0]);
 	return 1;
     }
     hascompwidgets++;
@@ -639,20 +639,19 @@ static int
 bin_zle_call(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     Thingy t;
-    struct modifier modsave;
-    int ret, saveflag = 0;
-    char *wname = *args++;
+    struct modifier modsave = zmod;
+    int ret, saveflag = 0, setbindk = 0;
+    char *wname = *args++, *keymap_restore = NULL, *keymap_tmp;
 
-    if (!wname) {
-	if (saveflag)
-	    zmod = modsave;
+    if (!wname)
 	return !zle_usable();
-    }
+
     if(!zle_usable()) {
-	zwarnnam(name, "widgets can only be called when ZLE is active",
-	    NULL, 0);
+	zwarnnam(name, "widgets can only be called when ZLE is active");
 	return 1;
     }
+
+    UNMETACHECK();
 
     while (*args && **args == '-') {
 	char *num;
@@ -665,24 +664,37 @@ bin_zle_call(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 	    case 'n':
 		num = args[0][1] ? args[0]+1 : args[1];
 		if (!num) {
-		    zwarnnam(name, "number expected after -%c", NULL, **args);
+		    zwarnnam(name, "number expected after -%c", **args);
 		    return 1;
 		}
 		if (!args[0][1])
 		    *++args = "" - 1;
-		modsave = zmod;
 		saveflag = 1;
 		zmod.mult = atoi(num);
 		zmod.flags |= MOD_MULT;
 		break;
 	    case 'N':
-		modsave = zmod;
 		saveflag = 1;
 		zmod.mult = 1;
 		zmod.flags &= ~MOD_MULT;
 		break;
+	    case 'K':
+		keymap_tmp = args[0][1] ? args[0]+1 : args[1];
+		if (!keymap_tmp) {
+		    zwarnnam(name, "keymap expected after -%c", **args);
+		    return 1;
+		}
+		if (!args[0][1])
+		    *++args = "" - 1;
+		keymap_restore = dupstring(curkeymapname);
+		if (selectkeymap(keymap_tmp, 0))
+		    return 1;
+		break;
+	    case 'w':
+		setbindk = 1;
+		break;
 	    default:
-		zwarnnam(name, "unknown option: %s", *args, 0);
+		zwarnnam(name, "unknown option: %s", *args);
 		return 1;
 	    }
 	}
@@ -690,10 +702,12 @@ bin_zle_call(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
     }
 
     t = rthingy(wname);
-    ret = execzlefunc(t, args);
+    ret = execzlefunc(t, args, setbindk);
     unrefthingy(t);
     if (saveflag)
 	zmod = modsave;
+    if (keymap_restore)
+	selectkeymap(keymap_restore, 0);
     return ret;
 }
 
@@ -707,8 +721,7 @@ bin_zle_invalidate(UNUSED(char *name), UNUSED(char **args), UNUSED(Options ops),
      * true if a completion widget is active.
      */
     if (zleactive) {
-	if (!trashedzle)
-	    trashzle();
+	trashzle();
 	return 0;
     } else
 	return 1;
@@ -725,7 +738,7 @@ bin_zle_fd(char *name, char **args, Options ops, UNUSED(char func))
 	fd = (int)zstrtol(*args, &endptr, 10);
 
 	if (*endptr || fd < 0) {
-	    zwarnnam(name, "Bad file descriptor number for -F: %s", *args, 0);
+	    zwarnnam(name, "Bad file descriptor number for -F: %s", *args);
 	    return 1;
 	}
     }
@@ -733,7 +746,7 @@ bin_zle_fd(char *name, char **args, Options ops, UNUSED(char func))
     if (OPT_ISSET(ops,'L') || !*args) {
 	/* Listing handlers. */
 	if (*args && args[1]) {
-	    zwarnnam(name, "too many arguments for -FL", NULL, 0);
+	    zwarnnam(name, "too many arguments for -FL");
 	    return 1;
 	}
 	for (i = 0; i < nwatch; i++) {
@@ -808,7 +821,7 @@ bin_zle_fd(char *name, char **args, Options ops, UNUSED(char func))
 	    }
 	}
 	if (!found) {
-	    zwarnnam(name, "No handler installed for fd %d", NULL, fd);
+	    zwarnnam(name, "No handler installed for fd %d", fd);
 	    return 1;
 	}
     }

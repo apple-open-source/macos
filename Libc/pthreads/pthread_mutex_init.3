@@ -36,7 +36,10 @@
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_mutex_init "pthread_mutex_t *mutex" "const pthread_mutexattr_t *attr"
+.Fo pthread_mutex_init
+.Fa "pthread_mutex_t *restrict mutex"
+.Fa "const pthread_mutexattr_t *restrict attr"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_mutex_init
@@ -44,25 +47,25 @@ function creates a new mutex, with attributes specified with
 .Fa attr .
 If
 .Fa attr
-is NULL the default attributes are used.
+is NULL, the default attributes are used.
 .Sh RETURN VALUES
 If successful,
 .Fn pthread_mutex_init
 will return zero and put the new mutex id into
-.Fa mutex ,
-otherwise an error number will be returned to indicate the error.
+.Fa mutex .
+Otherwise, an error number will be returned to indicate the error.
 .Sh ERRORS
 .Fn pthread_mutex_init
 will fail if:
 .Bl -tag -width Er
+.It Bq Er EAGAIN
+The system temporarily lacks the resources to create another mutex.
 .It Bq Er EINVAL
 The value specified by
 .Fa attr
 is invalid.
 .It Bq Er ENOMEM
 The process cannot allocate enough memory to create another mutex.
-.It Bq Er EAGAIN
-The temporarily lacks the resources to create another mutex.
 .El
 .Sh SEE ALSO
 .Xr pthread_mutex_destroy 3 ,

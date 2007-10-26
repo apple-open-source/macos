@@ -1,5 +1,7 @@
 /* GNU/Linux on ARM target support.
-   Copyright 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+
+   Copyright 1999, 2000, 2001, 2002, 2003, 2005 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -37,29 +39,18 @@
    is to execute a particular software interrupt, rather than use a
    particular undefined instruction to provoke a trap.  Upon exection
    of the software interrupt the kernel stops the inferior with a
-   SIGTRAP, and wakes the debugger.  Since ARM GNU/Linux doesn't support
-   Thumb at the moment we only override the ARM breakpoints.  */
+   SIGTRAP, and wakes the debugger.  */
 
 static const char arm_linux_arm_le_breakpoint[] = { 0x01, 0x00, 0x9f, 0xef };
 
 static const char arm_linux_arm_be_breakpoint[] = { 0xef, 0x9f, 0x00, 0x01 };
 
-/* DEPRECATED_CALL_DUMMY_WORDS:
-   This sequence of words is the instructions
+static const char arm_linux_thumb_be_breakpoint[] = {0xde, 0x01};
 
-   mov  lr, pc
-   mov  pc, r4
-   swi	bkpt_swi
-
-   Note this is 12 bytes.  */
-
-LONGEST arm_linux_call_dummy_words[] =
-{
-  0xe1a0e00f, 0xe1a0f004, 0xef9f001
-};
+static const char arm_linux_thumb_le_breakpoint[] = {0x01, 0xde};
 
 /* Description of the longjmp buffer.  */
-#define ARM_LINUX_JB_ELEMENT_SIZE	INT_REGISTER_RAW_SIZE
+#define ARM_LINUX_JB_ELEMENT_SIZE	INT_REGISTER_SIZE
 #define ARM_LINUX_JB_PC			21
 
 /* Extract from an array REGBUF containing the (raw) register state
@@ -124,13 +115,13 @@ arm_linux_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
       int len;
       struct type *arg_type;
 
-      arg_type = check_typedef (VALUE_TYPE (args[argnum]));
+      arg_type = check_typedef (value_type (args[argnum]));
       len = TYPE_LENGTH (arg_type);
 
       /* ANSI C code passes float arguments as integers, K&R code
          passes float arguments as doubles.  Correct for this here.  */
       if (TYPE_CODE_FLT == TYPE_CODE (arg_type) && DEPRECATED_REGISTER_SIZE == len)
-	nstack_size += FP_REGISTER_VIRTUAL_SIZE;
+	nstack_size += TARGET_DOUBLE_BIT / TARGET_CHAR_BIT;
       else
 	nstack_size += len;
     }
@@ -163,11 +154,11 @@ arm_linux_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
       enum type_code typecode;
       struct type *arg_type, *target_type;
 
-      arg_type = check_typedef (VALUE_TYPE (args[argnum]));
+      arg_type = check_typedef (value_type (args[argnum]));
       target_type = TYPE_TARGET_TYPE (arg_type);
       len = TYPE_LENGTH (arg_type);
       typecode = TYPE_CODE (arg_type);
-      val = (char *) VALUE_CONTENTS (args[argnum]);
+      val = (char *) value_contents (args[argnum]);
 
       /* ANSI C code passes float arguments as integers, K&R code
          passes float arguments as doubles.  The .stabs record for 
@@ -477,12 +468,20 @@ arm_linux_init_abi (struct gdbarch_info info,
 
   tdep->lowest_pc = 0x8000;
   if (info.byte_order == BFD_ENDIAN_BIG)
-    tdep->arm_breakpoint = arm_linux_arm_be_breakpoint;
+    {
+      tdep->arm_breakpoint = arm_linux_arm_be_breakpoint;
+      tdep->thumb_breakpoint = arm_linux_thumb_be_breakpoint;
+    }
   else
-    tdep->arm_breakpoint = arm_linux_arm_le_breakpoint;
+    {
+      tdep->arm_breakpoint = arm_linux_arm_le_breakpoint;
+      tdep->thumb_breakpoint = arm_linux_thumb_le_breakpoint;
+    }
   tdep->arm_breakpoint_size = sizeof (arm_linux_arm_le_breakpoint);
+  tdep->thumb_breakpoint_size = sizeof (arm_linux_thumb_le_breakpoint);
 
-  tdep->fp_model = ARM_FLOAT_FPA;
+  if (tdep->fp_model == ARM_FLOAT_AUTO)
+    tdep->fp_model = ARM_FLOAT_FPA;
 
   tdep->jb_pc = ARM_LINUX_JB_PC;
   tdep->jb_elt_size = ARM_LINUX_JB_ELEMENT_SIZE;
@@ -490,17 +489,17 @@ arm_linux_init_abi (struct gdbarch_info info,
   set_solib_svr4_fetch_link_map_offsets
     (gdbarch, arm_linux_svr4_fetch_link_map_offsets);
 
-  set_gdbarch_deprecated_call_dummy_words (gdbarch, arm_linux_call_dummy_words);
-  set_gdbarch_deprecated_sizeof_call_dummy_words (gdbarch, sizeof (arm_linux_call_dummy_words));
-
   /* The following two overrides shouldn't be needed.  */
   set_gdbarch_deprecated_extract_return_value (gdbarch, arm_linux_extract_return_value);
   set_gdbarch_deprecated_push_arguments (gdbarch, arm_linux_push_arguments);
 
   /* Shared library handling.  */
-  set_gdbarch_in_solib_call_trampoline (gdbarch, in_plt_section);
   set_gdbarch_skip_trampoline_code (gdbarch, find_solib_trampoline_target);
   set_gdbarch_skip_solib_resolver (gdbarch, glibc_skip_solib_resolver);
+
+  /* Enable TLS support.  */
+  set_gdbarch_fetch_tls_load_module_address (gdbarch,
+                                             svr4_fetch_objfile_link_map);
 }
 
 void

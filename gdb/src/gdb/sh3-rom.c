@@ -228,7 +228,7 @@ init_sh3_cmds (void)
   sh3_cmds.getreg.term_cmd = ".\r";	/* getreg.term_cmd */
   sh3_cmds.dump_registers = "r\r";	/* dump_registers */
   sh3_cmds.register_pattern = "\\(\\w+\\)=\\([0-9a-fA-F]+\\( +[0-9a-fA-F]+\\b\\)*\\)";
-  sh3_cmds.supply_register = sh3_supply_register;	/* supply_register */
+  sh3_cmds.supply_register = sh3_supply_register;
   sh3_cmds.load_routine = sh3_load;	/* load_routine */
   sh3_cmds.load = NULL;		/* download command */
   sh3_cmds.loadresp = NULL;	/* Load response */
@@ -276,7 +276,7 @@ sh3_open (char *args, int from_tty)
       parallel = serial_open (parallel_port_name);
 
       if (!parallel)
-	perror_with_name ("Unable to open parallel port.");
+	perror_with_name (_("Unable to open parallel port."));
 
       parallel_in_use = 1;
     }
@@ -288,7 +288,7 @@ sh3_open (char *args, int from_tty)
     gdbarch_info_init (&info);
     info.bfd_arch_info = bfd_lookup_arch (bfd_arch_sh, bfd_mach_sh3);
     if (!gdbarch_update_p (info))
-      error ("Target is not an SH3");
+      error (_("Target is not an SH3"));
   }
 }
 
@@ -330,7 +330,7 @@ sh3e_open (char *args, int from_tty)
       parallel = serial_open (parallel_port_name);
 
       if (!parallel)
-	perror_with_name ("Unable to open parallel port.");
+	perror_with_name (_("Unable to open parallel port."));
 
       parallel_in_use = 1;
     }
@@ -341,7 +341,7 @@ sh3e_open (char *args, int from_tty)
     gdbarch_info_init (&info);
     info.bfd_arch_info = bfd_lookup_arch (bfd_arch_sh, bfd_mach_sh3);
     if (!gdbarch_update_p (info))
-      error ("Target is not an SH3");
+      error (_("Target is not an SH3"));
   }
 }
 

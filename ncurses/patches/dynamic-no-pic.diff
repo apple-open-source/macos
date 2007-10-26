@@ -1,0 +1,13 @@
+--- progs/Makefile.in	Sat Sep 24 17:42:08 2005
++++ progs/Makefile.in	Fri Jul 28 13:40:39 2006
+@@ -78,7 +78,7 @@
+ 
+ CC		= @CC@
+ CPP		= @CPP@
+-CFLAGS		= @CFLAGS@
++CFLAGS		= @CFLAGS@ -mdynamic-no-pic
+ 
+ INCDIR		= $(top_srcdir)/include
+ CPPFLAGS	= -I../progs -I$(srcdir) -DHAVE_CONFIG_H @CPPFLAGS@
+
+Diff finished.  Fri Jul 28 13:40:59 2006

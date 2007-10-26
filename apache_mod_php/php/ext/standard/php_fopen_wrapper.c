@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_fopen_wrapper.c,v 1.29.2.4.8.4 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: php_fopen_wrapper.c,v 1.45.2.4.2.7 2007/06/21 12:42:36 dmitry Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -100,7 +100,7 @@ static size_t php_stream_input_read(php_stream *stream, char *buf, size_t count 
 
 	*position += read_bytes;
 	SG(read_post_bytes) += read_bytes;
-	return read_bytes;
+    return read_bytes;
 }
 
 static int php_stream_input_close(php_stream *stream, int close_handle TSRMLS_DC)
@@ -127,37 +127,178 @@ php_stream_ops php_stream_input_ops = {
 	NULL  /* set_option */
 };
 
+static void php_stream_apply_filter_list(php_stream *stream, char *filterlist, int read_chain, int write_chain TSRMLS_DC) {
+	char *p, *token;
+	php_stream_filter *temp_filter;
+
+	p = php_strtok_r(filterlist, "|", &token);
+	while (p) {
+		if (read_chain) {
+			if ((temp_filter = php_stream_filter_create(p, NULL, php_stream_is_persistent(stream) TSRMLS_CC))) {
+				php_stream_filter_append(&stream->readfilters, temp_filter);
+			} else {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to create filter (%s)", p);
+			}
+		}
+		if (write_chain) {
+			if ((temp_filter = php_stream_filter_create(p, NULL, php_stream_is_persistent(stream) TSRMLS_CC))) {
+				php_stream_filter_append(&stream->writefilters, temp_filter);
+			} else {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to create filter (%s)", p);
+			}
+		}
+		p = php_strtok_r(NULL, "|", &token);
+	}
+}
+
+
 php_stream * php_stream_url_wrap_php(php_stream_wrapper *wrapper, char *path, char *mode, int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC)
 {
 	int fd = -1;
-	php_stream *stream = NULL;
+	int mode_rw = 0;
+	php_stream * stream = NULL;
+	char *p, *token, *pathdup;
+	long max_memory;
+	FILE *file = NULL;
 
-	if (!strncasecmp(path, "php://", 6))
+	if (!strncasecmp(path, "php://", 6)) {
 		path += 6;
+	}
+	
+	if (!strncasecmp(path, "temp", 4)) {
+		path += 4;
+		max_memory = PHP_STREAM_MAX_MEM;
+		if (!strncasecmp(path, "/maxmemory:", 11)) {
+			path += 11;
+			max_memory = strtol(path, NULL, 10);
+			if (max_memory < 0) {
+				php_error_docref(NULL TSRMLS_CC, E_RECOVERABLE_ERROR, "Max memory must be >= 0");
+				return NULL;
+			}
+		}
+		return php_stream_temp_create(TEMP_STREAM_DEFAULT, max_memory);		
+	}
+	
+	if (!strcasecmp(path, "memory")) {
+		return php_stream_memory_create(TEMP_STREAM_DEFAULT);
+	}
 	
 	if (!strcasecmp(path, "output")) {
 		return php_stream_alloc(&php_stream_output_ops, NULL, 0, "wb");
 	}
 	
 	if (!strcasecmp(path, "input")) {
+		if ((options & STREAM_OPEN_FOR_INCLUDE) && !PG(allow_url_include) ) {
+			if (options & REPORT_ERRORS) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "URL file-access is disabled in the server configuration");
+			}
+			return NULL;
+		}
 		return php_stream_alloc(&php_stream_input_ops, ecalloc(1, sizeof(off_t)), 0, "rb");
-	}  
+	}
 	
 	if (!strcasecmp(path, "stdin")) {
-		fd = STDIN_FILENO;
+		if ((options & STREAM_OPEN_FOR_INCLUDE) && !PG(allow_url_include) ) {
+			if (options & REPORT_ERRORS) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "URL file-access is disabled in the server configuration");
+			}
+			return NULL;
+		}
+		if (!strcmp(sapi_module.name, "cli")) {
+			static int cli_in = 0;
+			fd = STDIN_FILENO;
+			if (cli_in) {
+				fd = dup(fd);
+			} else {
+				cli_in = 1;
+				file = stdin;
+			}
+		} else {
+			fd = dup(STDIN_FILENO);
+		}
 	} else if (!strcasecmp(path, "stdout")) {
-		fd = STDOUT_FILENO;
+		if (!strcmp(sapi_module.name, "cli")) {
+			static int cli_out = 0;
+			fd = STDOUT_FILENO;
+			if (cli_out++) {
+				fd = dup(fd);
+			} else {
+				cli_out = 1;
+				file = stdout;
+			}
+		} else {
+			fd = dup(STDOUT_FILENO);
+		}
 	} else if (!strcasecmp(path, "stderr")) {
-		fd = STDERR_FILENO;
+		if (!strcmp(sapi_module.name, "cli")) {
+			static int cli_err = 0;
+			fd = STDERR_FILENO;
+			if (cli_err++) {
+				fd = dup(fd);
+			} else {
+				cli_err = 1;
+				file = stderr;
+			}
+		} else {
+			fd = dup(STDERR_FILENO);
+		}
+	} else if (!strncasecmp(path, "filter/", 7)) {
+		/* Save time/memory when chain isn't specified */
+		if (strchr(mode, 'r') || strchr(mode, '+')) {
+			mode_rw |= PHP_STREAM_FILTER_READ;
+		}
+		if (strchr(mode, 'w') || strchr(mode, '+') || strchr(mode, 'a')) {
+			mode_rw |= PHP_STREAM_FILTER_WRITE;
+		}
+		pathdup = estrndup(path + 6, strlen(path + 6));
+		p = strstr(pathdup, "/resource=");
+		if (!p) {
+			php_error_docref(NULL TSRMLS_CC, E_RECOVERABLE_ERROR, "No URL resource specified.");
+			efree(pathdup);
+			return NULL;
+		}
+		if (!(stream = php_stream_open_wrapper(p + 10, mode, options, opened_path))) {
+			efree(pathdup);
+			return NULL;
+		}
+
+		*p = '\0';
+
+		p = php_strtok_r(pathdup + 1, "/", &token);
+		while (p) {
+			if (!strncasecmp(p, "read=", 5)) {
+				php_stream_apply_filter_list(stream, p + 5, 1, 0 TSRMLS_CC);
+			} else if (!strncasecmp(p, "write=", 6)) {
+				php_stream_apply_filter_list(stream, p + 6, 0, 1 TSRMLS_CC);
+			} else {
+				php_stream_apply_filter_list(stream, p, mode_rw & PHP_STREAM_FILTER_READ, mode_rw & PHP_STREAM_FILTER_WRITE TSRMLS_CC);
+			}
+			p = php_strtok_r(NULL, "/", &token);
+		}
+		efree(pathdup);
+
+		return stream;
+ 	} else {
+		/* invalid php://thingy */
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid php:// URL specified");
+		return NULL;
+	}
+	
+	/* must be stdin, stderr or stdout */
+	if (fd == -1)	{
+		/* failed to dup */
+		return NULL;
 	}
 
-	if (fd != -1) {
-		int nfd = dup(fd);
-
-		stream = php_stream_fopen_from_fd(nfd, mode, NULL);
-
-		if (!stream) close(nfd);
+	if (file) {
+		stream = php_stream_fopen_from_file(file, mode);
+	} else {	
+		stream = php_stream_fopen_from_fd(fd, mode, NULL);
+		if (stream == NULL) {
+			close(fd);
+		}
 	}
+ 
 	return stream;
 }
 
@@ -167,7 +308,11 @@ static php_stream_wrapper_ops php_stdio_wops = {
 	NULL, /* fstat */
 	NULL, /* stat */
 	NULL, /* opendir */
-	"PHP"
+	"PHP",
+	NULL, /* unlink */
+	NULL, /* rename */
+	NULL, /* mkdir */
+	NULL  /* rmdir */
 };
 
 php_stream_wrapper php_stream_php_wrapper =	{

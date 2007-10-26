@@ -4,6 +4,8 @@
 
 /* { dg-do compile { target *-*-darwin* } } */
 /* { dg-options "-Os -mdynamic-no-pic" } */
+/* APPLE LOCAL radar 5297325 */
+/* { dg-require-effective-target ilp32 } */
 
 typedef struct objc_object { } *id ;
 int x = 41 ;

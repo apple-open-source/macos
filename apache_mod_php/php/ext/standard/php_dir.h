@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_dir.h,v 1.19.4.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: php_dir.h,v 1.24.2.1.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
 #ifndef PHP_DIR_H
 #define PHP_DIR_H
@@ -35,5 +35,6 @@ PHP_FUNCTION(rewinddir);
 PHP_NAMED_FUNCTION(php_if_readdir);
 PHP_FUNCTION(getdir);
 PHP_FUNCTION(glob);
+PHP_FUNCTION(scandir);
 
 #endif /* PHP_DIR_H */

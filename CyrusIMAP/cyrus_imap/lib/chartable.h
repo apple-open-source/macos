@@ -41,7 +41,7 @@
  *
  */
 
-/* $Id: chartable.h,v 1.5 2005/03/05 00:37:12 dasenbro Exp $ */
+/* $Id: chartable.h,v 1.5 2003/02/13 20:15:39 rjs3 Exp $ */
 
 /* note that these are all uppercase letters. since the translation
    tables canonicalize to lower case letters, we never see these bytes

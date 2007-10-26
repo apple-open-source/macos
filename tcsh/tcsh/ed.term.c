@@ -1,4 +1,4 @@
-/* $Header: /cvs/root/tcsh/tcsh/ed.term.c,v 1.1.1.3 2003/01/17 03:41:07 nicolai Exp $ */
+/* $Header: /src/pub/tcsh/ed.term.c,v 1.31 2004/11/23 02:10:48 christos Exp $ */
 /*
  * ed.term.c: Low level terminal interface
  */
@@ -33,7 +33,7 @@
 #include "sh.h"
 #ifndef WINNT_NATIVE
 
-RCSID("$Id: ed.term.c,v 1.1.1.3 2003/01/17 03:41:07 nicolai Exp $")
+RCSID("$Id: ed.term.c,v 1.31 2004/11/23 02:10:48 christos Exp $")
 
 #include "ed.h"
 
@@ -85,7 +85,7 @@ ttyperm_t ttylist = {
 };
 
 static struct tcshmodes {
-    char *m_name;
+    const char *m_name;
 #ifdef SOLARIS2
     unsigned long m_value;
 #else /* !SOLARIS2 */
@@ -553,7 +553,7 @@ static struct tcshmodes {
 
 #if defined(EAGAIN) && defined(EWOULDBLOCK) && (EWOULDBLOCK != EAGAIN)
 # define OKERROR(e) (((e) == EAGAIN) || ((e) == EWOULDBLOCK) || ((e) == EINTR))
-#elif defined(EGAIN)
+#elif defined(EAGAIN)
 # define OKERROR(e) (((e) == EAGAIN) || ((e) == EINTR))
 #elif defined(EWOULDBLOCK)
 # define OKERROR(e) (((e) == EWOULDBLOCK) || ((e) == EINTR))
@@ -1092,7 +1092,7 @@ tty_setdisc(fd, dis)
     int fd;
     int dis;
 {
-    static bool edit_discipline = 0;
+    static int edit_discipline = 0;
     static union txname tx_disc;
     extern char strPOSIX[];
 

@@ -117,8 +117,8 @@ IOFindPlugIns( io_service_t service,
 
 kern_return_t
 IOCreatePlugInInterfaceForService(io_service_t service,
-                    CFUUIDRef pluginType, CFUUIDRef interfaceType,
-                    IOCFPlugInInterface *** theInterface, SInt32 * theScore)
+                CFUUIDRef pluginType, CFUUIDRef interfaceType,
+                IOCFPlugInInterface *** theInterface, SInt32 * theScore)
 {
     CFDictionaryRef	plist = 0;
     CFArrayRef		plists;
@@ -183,11 +183,11 @@ IOCreatePlugInInterfaceForService(io_service_t service,
             if (kIOReturnSuccess == kr) {
                 CFIndex numscores = CFArrayGetCount(scores);
                 for (insert = 0; insert < numscores; insert++) {
-                    if (score > ((SInt32) CFArrayGetValueAtIndex(scores, insert)))
+                    if (score > (SInt32) ((intptr_t) CFArrayGetValueAtIndex(scores, insert)))
                         break;
                 }
                 CFArrayInsertValueAtIndex(candidates, insert, (void *) interface);
-                CFArrayInsertValueAtIndex(scores, insert, (void *) score);
+                CFArrayInsertValueAtIndex(scores, insert, (void *) (intptr_t) score);
             } else
                 (*interface)->Release(interface);
         }
@@ -211,7 +211,8 @@ IOCreatePlugInInterfaceForService(io_service_t service,
             freeIt = !haveOne;
             if (haveOne) {
                 *theInterface = interface;
-                *theScore = (SInt32) CFArrayGetValueAtIndex(scores, index );
+                *theScore = (SInt32) (intptr_t)
+		    CFArrayGetValueAtIndex(scores, index );
             }
         } else
             freeIt = true;

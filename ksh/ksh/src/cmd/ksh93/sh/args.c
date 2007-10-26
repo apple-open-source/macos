@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * UNIX shell
@@ -35,6 +31,8 @@
 #include	"path.h"
 #include	"builtins.h"
 #include	"terminal.h"
+#include	"edit.h"
+#include	"FEATURE/poll"
 #if SHOPT_KIA
 #   include	"shlex.h"
 #   include	"io.h"
@@ -45,7 +43,7 @@
 #   define PFSHOPT
 #endif
 #if SHOPT_BASH
-#   define BASHOPT	"l\375\374\373"
+#   define BASHOPT	"\374"
 #else
 #   define BASHOPT
 #endif
@@ -54,7 +52,6 @@
 #else
 #   define HFLAG        ""
 #endif
-
 
 #define SORT		1
 #define PRINT		2
@@ -66,19 +63,20 @@ static int 		arg_expand(struct argnod*,struct argnod**,int);
 static	char		*null;
 
 /* The following order is determined by sh_optset */
-static  const char optksh[] =  PFSHOPT BASHOPT "DircabefhkmnpstuvxCG" HFLAG;
+static  const char optksh[] =  PFSHOPT BASHOPT "DircabefhkmnpstuvxBCGEl" HFLAG;
 static const int flagval[]  =
 {
 #if SHOPT_PFSH
 	SH_PFSH,
 #endif
 #if SHOPT_BASH
-	SH_LOGIN_SHELL, SH_NOPROFILE, SH_NORC, SH_POSIX,
+	SH_POSIX,
 #endif
 	SH_DICTIONARY, SH_INTERACTIVE, SH_RESTRICTED, SH_CFLAG,
 	SH_ALLEXPORT, SH_NOTIFY, SH_ERREXIT, SH_NOGLOB, SH_TRACKALL,
 	SH_KEYWORD, SH_MONITOR, SH_NOEXEC, SH_PRIVILEGED, SH_SFLAG, SH_TFLAG,
-	SH_NOUNSET, SH_VERBOSE,  SH_XTRACE, SH_NOCLOBBER, SH_GLOBSTARS,
+	SH_NOUNSET, SH_VERBOSE,  SH_XTRACE, SH_BRACEEXPAND, SH_NOCLOBBER,
+	SH_GLOBSTARS, SH_RC, SH_LOGIN_SHELL,
 #if SHOPT_HISTEXPAND
         SH_HISTEXPAND,
 #endif
@@ -146,7 +144,7 @@ int sh_argopts(int argc,register char *argv[])
 	int setflag=0, action=0, trace=(int)sh_isoption(SH_XTRACE);
 	Namval_t *np = NIL(Namval_t*);
 	const char *cp;
-	int verbose;
+	int verbose,f;
 	Optdisc_t disc;
 	newflags=sh.options;
 	memset(&disc, 0, sizeof(disc));
@@ -161,11 +159,12 @@ int sh_argopts(int argc,register char *argv[])
 	while((n = optget(argv,setflag?sh_optset:sh_optksh)))
 	{
 		o=0;
+		f=*opt_info.option=='-' && (opt_info.num || opt_info.arg);
 		switch(n)
 		{
 	 	    case 'A':
 			np = nv_open(opt_info.arg,sh.var_tree,NV_NOASSIGN|NV_ARRAY|NV_VARNAME);
-			if(*opt_info.option=='-')
+			if(f)
 				nv_unset(np);
 			continue;
 #if SHOPT_BASH
@@ -174,52 +173,59 @@ int sh_argopts(int argc,register char *argv[])
 				errormsg(SH_DICT,ERROR_exit(1), e_option, opt_info.name);
 #endif
 		    case 'o':	/* set options */
-			if(!opt_info.arg)
+		    byname:
+			if(!opt_info.arg||!*opt_info.arg||*opt_info.arg=='-')
 			{
 				action = PRINT;
 				/* print style: -O => shopt options
 				 * bash => print unset options also, no heading
 				 */
-				verbose = (*opt_info.option=='-'?PRINT_VERBOSE:PRINT_NO_HEADER)|
+				verbose = (f?PRINT_VERBOSE:PRINT_NO_HEADER)|
 					  (n=='O'?PRINT_SHOPT:0)|
-					  (sh_isoption(SH_BASH)?PRINT_ALL|PRINT_NO_HEADER:0);
+					  (sh_isoption(SH_BASH)?PRINT_ALL|PRINT_NO_HEADER:0)|
+					  ((opt_info.arg&&(!*opt_info.arg||*opt_info.arg=='-'))?(PRINT_TABLE|PRINT_NO_HEADER):0);
 				continue;
 			}
-			o = sh_lookup(opt_info.arg,shtab_options);
+			o = sh_lookopt(opt_info.arg,&f);
 			if(o<=0
 				|| (!sh_isoption(SH_BASH) && (o&SH_BASHEXTRA))
 				|| ((!sh_isoption(SH_BASH) || n=='o') && (o&SH_BASHOPT))
+
 				|| (setflag && (o&SH_COMMANDLINE)))
 			{
 				errormsg(SH_DICT,2, e_option, opt_info.arg);
 				error_info.errors++;
 			}
 			o &= 0xff;
+			if(sh_isoption(SH_RESTRICTED) && !f && o==SH_RESTRICTED)
+				errormsg(SH_DICT,ERROR_exit(1), e_restricted, opt_info.arg);
 			break;
 #if SHOPT_BASH
 		    case -1:	/* --rcfile */
 			sh.rcfile = opt_info.arg;
 			continue;
-		    case -6:	/* --version */
+		    case -2:	/* --noediting */
+			if (!f)
+			{
+				off_option(&newflags,SH_VI);
+				off_option(&newflags,SH_EMACS);
+				off_option(&newflags,SH_GMACS);
+			}
+			continue;
+		    case -3:	/* --profile */
+			n = 'l';
+			goto skip;
+		    case -4:	/* --posix */
+			/* mask lower 8 bits to find char in optksh string */
+			n&=0xff;
+			goto skip;
+		    case -5:	/* --version */
 			sfputr(sfstdout, "ksh bash emulation, version ",-1);
 			np = nv_open("BASH_VERSION",sh.var_tree,0);
 			sfputr(sfstdout, nv_getval(np),-1);
 			np = nv_open("MACHTYPE",sh.var_tree,0);
 			sfprintf(sfstdout, " (%s)\n", nv_getval(np));
 			sh_exit(0);
-
-		    case -2:	/* --noediting */
-			off_option(&newflags,SH_VI);
-			off_option(&newflags,SH_EMACS);
-			off_option(&newflags,SH_GMACS);
-			continue;
-
-		    case -3:	/* --noprofile */
-		    case -4:	/* --norc */
-		    case -5:	/* --posix */
-			/* mask lower 8 bits to find char in optksh string */
-			n&=0xff;
-			goto skip;
 #endif
 	 	    case 'D':
 			on_option(&newflags,SH_NOEXEC);
@@ -248,13 +254,19 @@ int sh_argopts(int argc,register char *argv[])
 				o = flagval[cp-optksh];
 			break;
 		    case ':':
+			if(opt_info.name[0]=='-'&&opt_info.name[1]=='-')
+			{
+				opt_info.arg = argv[opt_info.index-1] + 2;
+				f = 1;
+				goto byname;
+			}
 			errormsg(SH_DICT,2, "%s", opt_info.arg);
 			continue;
 		    case '?':
 			errormsg(SH_DICT,ERROR_usage(0), "%s", opt_info.arg);
 			return(-1);
 		}
-		if(*opt_info.option=='-')
+		if(f)
 		{
 			if(o==SH_VI || o==SH_EMACS || o==SH_GMACS)
 			{
@@ -263,12 +275,15 @@ int sh_argopts(int argc,register char *argv[])
 				off_option(&newflags,SH_GMACS);
 			}
 			on_option(&newflags,o);
+			off_option(&sh.offoptions,o);
 		}
 		else
 		{
 			if(o==SH_XTRACE)
 				trace = 0;
 			off_option(&newflags,o);
+			if(setflag==0)
+				on_option(&sh.offoptions,o);
 		}
 	}
 	if(error_info.errors)
@@ -321,6 +336,8 @@ int sh_argopts(int argc,register char *argv[])
 #if SHOPT_KIA
 	if(ap->kiafile)
 	{
+		if(!argv[0])
+			errormsg(SH_DICT,ERROR_usage(2),"-R requires scriptname");
 		if(!(shlex.kiafile=sfopen(NIL(Sfio_t*),ap->kiafile,"w+")))
 			errormsg(SH_DICT,ERROR_system(3),e_create,ap->kiafile);
 		if(!(shlex.kiatmp=sftmp(2*SF_BUFSIZE)))
@@ -347,22 +364,24 @@ void sh_applyopts(Shopt_t newflags)
 	/* cannot set -n for interactive shells since there is no way out */
 	if(sh_isoption(SH_INTERACTIVE))
 		off_option(&newflags,SH_NOEXEC);
-	if(is_option(&newflags,SH_PRIVILEGED) && !sh_isoption(SH_PRIVILEGED))
+	if(is_option(&newflags,SH_PRIVILEGED))
+		on_option(&newflags,SH_NOUSRPROFILE);
+	if(is_option(&newflags,SH_PRIVILEGED) != sh_isoption(SH_PRIVILEGED))
 	{
-		if((sh.userid!=sh.euserid && setuid(sh.euserid)<0) ||
+		if(sh_isoption(SH_PRIVILEGED))
+		{
+			setuid(sh.userid);
+			setgid(sh.groupid);
+			if(sh.euserid==0)
+			{
+				sh.euserid = sh.userid;
+				sh.egroupid = sh.groupid;
+			}
+		}
+		else if((sh.userid!=sh.euserid && setuid(sh.euserid)<0) ||
 			(sh.groupid!=sh.egroupid && setgid(sh.egroupid)<0) ||
 			(sh.userid==sh.euserid && sh.groupid==sh.egroupid))
-			off_option(&newflags,SH_PRIVILEGED);
-	}
-	else if(!is_option(&newflags,SH_PRIVILEGED) && sh_isoption(SH_PRIVILEGED))
-	{
-		setuid(sh.userid);
-		setgid(sh.groupid);
-		if(sh.euserid==0)
-		{
-			sh.euserid = sh.userid;
-			sh.egroupid = sh.groupid;
-		}
+				off_option(&newflags,SH_PRIVILEGED);
 	}
 #if SHOPT_BASH
 	on_option(&newflags,SH_CMDHIST);
@@ -375,13 +394,13 @@ void sh_applyopts(Shopt_t newflags)
 	on_option(&newflags,SH_NOEMPTYCMDCOMPL);
 
 	if(!is_option(&newflags,SH_XPG_ECHO) && sh_isoption(SH_XPG_ECHO))
-		astgetconf("UNIVERSE", 0, "ucb", 0);
+		astconf("UNIVERSE", 0, "ucb");
 	if(is_option(&newflags,SH_XPG_ECHO) && !sh_isoption(SH_XPG_ECHO))
-		astgetconf("UNIVERSE", 0, "att", 0);
+		astconf("UNIVERSE", 0, "att");
 	if(!is_option(&newflags,SH_PHYSICAL) && sh_isoption(SH_PHYSICAL))
-		astgetconf("PATH_RESOLVE", 0, "metaphysical", 0);
+		astconf("PATH_RESOLVE", 0, "metaphysical");
 	if(is_option(&newflags,SH_PHYSICAL) && !sh_isoption(SH_PHYSICAL))
-		astgetconf("PATH_RESOLVE", 0, "physical", 0);
+		astconf("PATH_RESOLVE", 0, "physical");
 	if(is_option(&newflags,SH_HISTORY2) && !sh_isoption(SH_HISTORY2))
 	{
 		sh_onstate(SH_HISTORY);
@@ -541,15 +560,67 @@ struct dolnod *sh_arguse(void)
 
 /*
  *  Print option settings on standard output
- *  if mode==1 for -o format, otherwise +o format
+ *  if mode is inclusive or of PRINT_*
  *  if <mask> is set, only options with this mask value are displayed
  */
 void sh_printopts(Shopt_t oflags,register int mode, Shopt_t *mask)
 {
 	register const Shtable_t *tp;
+	const char *name;
+	int on;
 	int value;
-	if(!(mode&PRINT_NO_HEADER))	/* bash doesn't print heading */
+	if(!(mode&PRINT_NO_HEADER))
 		sfputr(sfstdout,sh_translate(e_heading),'\n');
+	if(mode&PRINT_TABLE)
+	{
+		int	w;
+		int	c;
+		int	r;
+		int	i;
+
+		c = 0;
+		for(tp=shtab_options; value=tp->sh_number; tp++)
+		{
+			if(mask && !is_option(mask,value&0xff))
+				continue;
+			name = tp->sh_name;
+			if(name[0] == 'n' && name[1] == 'o' && name[2] != 't')
+				name += 2;
+			if(c<(w=strlen(name)))
+				c = w;
+		}
+		c += 4;
+		if((w = ed_window()) < (2*c))
+			w = 2*c;
+		r = w / c;
+		i = 0;
+		for(tp=shtab_options; value=tp->sh_number; tp++)
+		{
+			if(mask && !is_option(mask,value&0xff))
+				continue;
+			on = !!is_option(&oflags,value);
+			value &= 0xff;
+			name = tp->sh_name;
+			if(name[0] == 'n' && name[1] == 'o' && name[2] != 't')
+			{
+				name += 2;
+				on = !on;
+			}
+			if(++i>=r)
+			{
+				i = 0;
+				sfprintf(sfstdout, "%s%s\n", on ? "" : "no", name);
+			}
+			else
+				sfprintf(sfstdout, "%s%-*s", on ? "" : "no", on ? c : (c-2), name);
+		}
+		if(i)
+			sfputc(sfstdout,'\n');
+		return;
+	}
+#if SHOPT_RAWONLY
+	on_option(&oflags,SH_VIRAW);
+#endif
 	if(!(mode&(PRINT_ALL|PRINT_VERBOSE))) /* only print set options */
 	{
 		if(mode&PRINT_SHOPT)
@@ -557,47 +628,43 @@ void sh_printopts(Shopt_t oflags,register int mode, Shopt_t *mask)
 		else
 			sfwrite(sfstdout,"set",3);
 	}
-#if SHOPT_RAWONLY
-	on_option(&oflags,SH_VIRAW);
-#endif
 	for(tp=shtab_options; value=tp->sh_number; tp++)
 	{
 		if(mask && !is_option(mask,value&0xff))
 			continue;
-		if(!sh_isoption(SH_BASH) && (value&(SH_BASHEXTRA|SH_BASHOPT)))
+		if(sh_isoption(SH_BASH))
+		{
+			if (!(mode&PRINT_SHOPT) != !(value&SH_BASHOPT))
+				continue;
+		}
+		else if (value&(SH_BASHEXTRA|SH_BASHOPT))
 			continue;
-		if(sh_isoption(SH_BASH) && (mode&PRINT_SHOPT) && !(value&SH_BASHOPT))
-			continue;
-		if(sh_isoption(SH_BASH) && !(mode&PRINT_SHOPT) && (value&SH_BASHOPT))
-			continue;
-		value &= 0xff;
+		on = !!is_option(&oflags,value);
+		name = tp->sh_name;
+		if(name[0] == 'n' && name[1] == 'o' && name[2] != 't')
+		{
+			name += 2;
+			on = !on;
+		}
 		if(mode&PRINT_VERBOSE)
 		{
-			char const *msg;
-			sfputr(sfstdout,tp->sh_name,' ');
-			sfnputc(sfstdout,' ',24-strlen(tp->sh_name));
-			if(is_option(&oflags,value))
-				msg = sh_translate(e_on);
-			else
-				msg = sh_translate(e_off);
-			sfputr(sfstdout,msg,'\n');
+			sfputr(sfstdout,name,' ');
+			sfnputc(sfstdout,' ',24-strlen(name));
+			sfputr(sfstdout,on ? sh_translate(e_on) : sh_translate(e_off),'\n');
 		}
-		else 
+		else if(mode&PRINT_ALL) /* print unset options also */
 		{
-			if(mode&PRINT_ALL) /* print unset options also */
-			{
-				if(mode&PRINT_SHOPT)
-					sfprintf(sfstdout, "shopt -%c %s\n",
-						is_option(&oflags,value)?'s':'u',
-						tp->sh_name);
-				else
-					sfprintf(sfstdout, "set %co %s\n",
-						is_option(&oflags,value)?'-':'+',
-						tp->sh_name);
-			}
-			else if(value!=SH_INTERACTIVE && value!=SH_RESTRICTED && value!=SH_PFSH && is_option(&oflags,value))
-				sfprintf(sfstdout,"%s %s",(mode&PRINT_SHOPT)?"":" -o",tp->sh_name);
+			if(mode&PRINT_SHOPT)
+				sfprintf(sfstdout, "shopt -%c %s\n",
+					on?'s':'u',
+					name);
+			else
+				sfprintf(sfstdout, "set %co %s\n",
+					on?'-':'+',
+					name);
 		}
+		else if(!(value&SH_COMMANDLINE) && is_option(&oflags,value&0xff))
+			sfprintf(sfstdout," %s%s%s",(mode&PRINT_SHOPT)?"":"--",on?"":"no",name);
 	}
 	if(!(mode&(PRINT_VERBOSE|PRINT_ALL)))
 		sfputc(sfstdout,'\n');
@@ -688,6 +755,26 @@ char **sh_argbuild(int *nargs, const struct comnod *comptr,int flag)
 	}
 }
 
+#if _pipe_socketpair && !_socketpair_devfd
+#   define sh_pipe	arg_pipe
+/*
+ * create a real pipe (not a socket) and print message on failure
+ */
+static int	arg_pipe(register int pv[])
+{
+	int fd[2];
+	if(pipe(fd)<0 || (pv[0]=fd[0])<0 || (pv[1]=fd[1])<0)
+		errormsg(SH_DICT,ERROR_system(1),e_pipe);
+	pv[0] = sh_iomovefd(pv[0]);
+	pv[1] = sh_iomovefd(pv[1]);
+	sh.fdstatus[pv[0]] = IONOSEEK|IOREAD;
+	sh.fdstatus[pv[1]] = IONOSEEK|IOWRITE;
+	sh_subsavefd(pv[0]);
+	sh_subsavefd(pv[1]);
+	return(0);
+}
+#endif
+
 /* Argument expansion */
 static int arg_expand(register struct argnod *argp, struct argnod **argchain,int flag)
 {
@@ -716,12 +803,12 @@ static int arg_expand(register struct argnod *argp, struct argnod **argchain,int
 		if(fd)
 		{
 			sh.inpipe = pv;
-			sh_exec((union anynode*)argp->argchn.ap,(int)sh_isstate(SH_ERREXIT));
+			sh_exec((Shnode_t*)argp->argchn.ap,(int)sh_isstate(SH_ERREXIT));
 		}
 		else
 		{
 			sh.outpipe = pv;
-			sh_exec((union anynode*)argp->argchn.ap,(int)sh_isstate(SH_ERREXIT));
+			sh_exec((Shnode_t*)argp->argchn.ap,(int)sh_isstate(SH_ERREXIT));
 		}
 		if(monitor)
 			sh_onstate(SH_MONITOR);

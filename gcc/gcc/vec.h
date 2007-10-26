@@ -126,6 +126,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define VEC_length(TDEF,V)	(VEC_OP(TDEF,length)(V))
 
+/* APPLE LOCAL begin pubtypes, approved for 4.3 4535968  */
+/* Check if vector is empty
+   int VEC_T_empty(const VEC(T) *v);
+
+   Return nonzero if V is an empty vector (or V is NULL), zero otherwise.  */
+
+#define VEC_empty(T,V)  (VEC_length (T,V) == 0)
+/* APPLE LOCAL end pubtypes, approved for 4.3 4535968  */
 /* Get the final element of the vector.
    T VEC_T_last(VEC(T) *v); // Pointer
    T *VEC_T_last(VEC(T) *v); // Object

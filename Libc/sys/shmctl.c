@@ -22,19 +22,19 @@
  */
 #include <unistd.h>
 #include <sys/shm.h>
-#include <sys/syscall.h>
 
 /*
  * Stub function to account for the differences in the ipc_perm structure,
  * while maintaining binary backward compatibility.
+ *
+ * This is only the legacy behavior.
  */
+extern int __shmctl(int, int, void *);
+
 int
 shmctl(int shmid, int cmd, struct shmid_ds *ds)
 {
-#ifdef __DARWIN_UNIX03
-	return syscall(SYS_shmctl, shmid, cmd, ds);
-#else	/* !__DARWIN_UNIX03 */
-	struct __shmid_ds_old	*ds_old = ds;
+	struct __shmid_ds_old	*ds_old = (struct __shmid_ds_old *)ds;
 	struct __shmid_ds_new	ds2;
 	struct __shmid_ds_new	*ds_new = &ds2;
 	int			rv;
@@ -61,7 +61,7 @@ shmctl(int shmid, int cmd, struct shmid_ds *ds)
 		_UP_CVT(shm_internal);
 	}
 
-	rv = syscall(SYS_shmctl, shmid, cmd, ds_new);
+	rv = __shmctl(shmid, cmd, (void *)ds_new);
 
 	if (cmd == IPC_STAT) {
 		/* convert after call */
@@ -70,18 +70,17 @@ shmctl(int shmid, int cmd, struct shmid_ds *ds)
 		_DN_CVT(shm_perm.cuid);	/* warning!  precision loss! */
 		_DN_CVT(shm_perm.cgid);	/* warning!  precision loss! */
 		_DN_CVT(shm_perm.mode);
-		ds_new->shm_perm.seq = ds_old->shm_perm._seq;
-		ds_new->shm_perm.key = ds_old->shm_perm._key;
-		_UP_CVT(shm_segsz);
-		_UP_CVT(shm_lpid);
-		_UP_CVT(shm_cpid);
-		_UP_CVT(shm_nattch);
-		_UP_CVT(shm_atime);
-		_UP_CVT(shm_dtime);
-		_UP_CVT(shm_ctime);
-		_UP_CVT(shm_internal);
+		ds_old->shm_perm.seq = ds_new->shm_perm._seq;
+		ds_old->shm_perm.key = ds_new->shm_perm._key;
+		_DN_CVT(shm_segsz);
+		_DN_CVT(shm_lpid);
+		_DN_CVT(shm_cpid);
+		_DN_CVT(shm_nattch);
+		_DN_CVT(shm_atime);
+		_DN_CVT(shm_dtime);
+		_DN_CVT(shm_ctime);
+		_DN_CVT(shm_internal);
 	}
 
 	return (rv);
-#endif	/* !__DARWIN_UNIX03 */
 }

@@ -27,51 +27,13 @@
  */
 
 #import "KerberosController.h"
-#import "ErrorAlert.h"
+#import "KerberosErrorAlert.h"
+#import "KerberosCredential.h"
 #import "Utilities.h"
 #import <IOKit/pwr_mgt/IOPMLib.h>
 #import <IOKit/IOMessage.h>
 #import <Kerberos/KerberosLoginPrivate.h>
 
-
-static io_connect_t gRootPort = MACH_PORT_NULL;
-
-
-// ---------------------------------------------------------------------------
-
-static void HandlePowerManagerEvent (void *inContext,
-                                     io_service_t inIOService,
-                                     natural_t inMessageType,
-                                     void *inMessageArgument)
-{
-    switch (inMessageType) {
-        case kIOMessageSystemWillSleep:
-            IOAllowPowerChange (gRootPort, (long) inMessageArgument);
-            dprintf("Going to sleep...");
-            break;
-        case kIOMessageCanSystemSleep:
-            IOAllowPowerChange (gRootPort, (long) inMessageArgument);
-            dprintf("Allowing system to go to sleep...");
-            break;
-        case kIOMessageSystemHasPoweredOn:
-            // Post notification to things with timers which fire on a particular date
-            // so that they can be reset to fire now if the fire time already passed
-            dprintf("Waking from sleep...");
-            // Note that we cannot post the notification directly from this callback
-            // so insert it into the notification queue instead
-            NSNotification *notification = [NSNotification notificationWithName: WakeFromSleepNotification 
-                                                                         object: (KerberosController *) inContext];
-            if (notification != NULL) {
-                [[NSNotificationQueue defaultQueue] enqueueNotification: notification
-                                                           postingStyle: NSPostWhenIdle
-                                                           coalesceMask: NSNotificationCoalescingOnName 
-                                                               forModes: NULL];
-            }
-            dprintf ("Done waking from sleep.");
-            break;
-    }
-    
-}
 
 @implementation KerberosController
 
@@ -82,8 +44,8 @@ static void HandlePowerManagerEvent (void *inContext,
 - (id) init
 {
     if ((self = [super init])) {
-        cacheCollection = [[CacheCollection sharedCacheCollection] retain];
-        if (cacheCollection == NULL) {
+        cacheCollection = [[KerberosCacheCollection sharedCacheCollection] retain];
+        if (!cacheCollection) {
             [self release];
             return NULL;
         }
@@ -107,15 +69,16 @@ static void HandlePowerManagerEvent (void *inContext,
 - (void) dealloc
 {
     [[NSNotificationCenter defaultCenter] removeObserver: self];
+    [[[NSWorkspace sharedWorkspace] notificationCenter] removeObserver: self];
     
-    if (cacheCollection            != NULL) { [cacheCollection release]; }
-    if (minuteTimer                != NULL) { [minuteTimer release]; }
-    if (preferencesController      != NULL) { [preferencesController release]; }
-    if (ticketListController       != NULL) { [ticketListController release]; }
-    if (ticketsKerberosIconImage   != NULL) { [ticketsKerberosIconImage release]; }
-    if (warningKerberosIconImage   != NULL) { [warningKerberosIconImage release]; }
-    if (noTicketsKerberosIconImage != NULL) { [noTicketsKerberosIconImage release]; }
-    if (kerberosAppIconImage       != NULL) { [kerberosAppIconImage release]; }
+    if (cacheCollection           ) { [cacheCollection release]; }
+    if (minuteTimer               ) { [minuteTimer release]; }
+    if (preferencesController     ) { [preferencesController release]; }
+    if (ticketListController      ) { [ticketListController release]; }
+    if (ticketsKerberosIconImage  ) { [ticketsKerberosIconImage release]; }
+    if (warningKerberosIconImage  ) { [warningKerberosIconImage release]; }
+    if (noTicketsKerberosIconImage) { [noTicketsKerberosIconImage release]; }
+    if (kerberosAppIconImage      ) { [kerberosAppIconImage release]; }
     
     [super dealloc];
 }
@@ -126,12 +89,12 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (IBAction) getTickets: (id) sender
 {
-    KLStatus err = [Principal getTickets];
-    if (err == klNoErr) {
+    KLStatus err = [KerberosPrincipal getTickets];
+    if (!err) {
         [cacheCollection update];
     } else if (err != klUserCanceledErr) {
-        [ErrorAlert alertForError: err
-                           action: KerberosGetTicketsAction];
+        [KerberosErrorAlert alertForError: err
+                                   action: KerberosGetTicketsAction];
     }        
 }
 
@@ -148,14 +111,14 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (IBAction) changePasswordForActiveUser: (id) sender
 {
-    Cache *cache = [cacheCollection defaultCache];
-    if (cache != NULL) {
+    KerberosCache *cache = [cacheCollection defaultCache];
+    if (cache) {
         KLStatus err = [[cache principal] changePassword];
-        if (err == klNoErr) {
+        if (!err) {
             [cacheCollection update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosChangePasswordAction];
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosChangePasswordAction];
         }        
     }
 }
@@ -173,14 +136,14 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (IBAction) destroyTicketsForActiveUser: (id) sender
 {
-    Cache *cache = [cacheCollection defaultCache];
-    if (cache != NULL) {
+    KerberosCache *cache = [cacheCollection defaultCache];
+    if (cache) {
         KLStatus err = [[cache principal] destroyTickets];
-        if (err == klNoErr) {
+        if (!err) {
             [cacheCollection update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosDestroyTicketsAction];
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosDestroyTicketsAction];
         }        
     }
 }
@@ -198,14 +161,14 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (IBAction) renewTicketsForActiveUser: (id) sender
 {
-    Cache *cache = [cacheCollection defaultCache];
-    if (cache != NULL) {
+    KerberosCache *cache = [cacheCollection defaultCache];
+    if (cache) {
         KLStatus err = [[cache principal] renewTickets];
-        if (err == klNoErr) {
+        if (!err) {
             [cacheCollection update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosRenewTicketsAction];
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosRenewTicketsAction];
         }        
     }
 }
@@ -223,14 +186,14 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (IBAction) validateTicketsForActiveUser: (id) sender
 {
-    Cache *cache = [cacheCollection defaultCache];
-    if (cache != NULL) {
+    KerberosCache *cache = [cacheCollection defaultCache];
+    if (cache) {
         KLStatus err = [[cache principal] validateTickets];
-        if (err == klNoErr) {
+        if (!err) {
             [cacheCollection update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosValidateTicketsAction];
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosValidateTicketsAction];
         }        
     }
 }
@@ -248,14 +211,14 @@ static void HandlePowerManagerEvent (void *inContext,
         }
         
         if ([cacheCollection numberOfCaches] > 0) {
-            Cache *cache = [cacheCollection cacheAtIndex: ([menu indexOfItem: item] - offset)];
+            KerberosCache *cache = [cacheCollection cacheAtIndex: ([menu indexOfItem: item] - offset)];
             if (![cache isDefault]) {
                 KLStatus err = [[cache principal] setDefault];
-                if (err == klNoErr) {
+                if (!err) {
                     [cacheCollection update];
                 } else if (err != klUserCanceledErr) {
-                    [ErrorAlert alertForError: err
-                                       action: KerberosChangeActiveUserAction];
+                    [KerberosErrorAlert alertForError: err
+                                               action: KerberosChangeActiveUserAction];
                 }        
             }
         }
@@ -275,7 +238,7 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (IBAction) showPreferences: (id) sender
 {
-    if (preferencesController == NULL) {
+    if (!preferencesController) {
         preferencesController = [[PreferencesController alloc] init];
     }
     [preferencesController showWindow: self];
@@ -293,10 +256,10 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (IBAction) showTicketList: (id) sender
 {
-    if (ticketListController == NULL) {
+    if (!ticketListController) {
         ticketListController = [[TicketListController alloc] init];
     }
-    if (ticketListController != NULL) {
+    if (ticketListController) {
         [ticketListController showWindow: self];
         [self menuNeedsUpdate: ticketsMenu];
     }
@@ -306,7 +269,7 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (IBAction) editRealms: (id) sender
 {
-    if (realmsEditorController == NULL) {
+    if (!realmsEditorController) {
         realmsEditorController = [[RealmsEditorController alloc] init];
     }
     [realmsEditorController showWindow: self];
@@ -319,9 +282,6 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (void) awakeFromNib
 {
-    IONotificationPortRef notify;
-    io_object_t iterator;
-
     dprintf ("Entering awakeFromNib...");
 
     // Make sure we are always prompted with the dialog even if we have a controlling terminal
@@ -367,33 +327,33 @@ static void HandlePowerManagerEvent (void *inContext,
                                                object: nil];    
 
     [[NSNotificationCenter defaultCenter] addObserver: self
-                                         selector: @selector (listSelectionDidChange:)
-                                             name: CacheSelectionDidChangeNotification
-                                           object: nil];    
-
+                                             selector: @selector (cacheSelectionDidChange:)
+                                                 name: CacheSelectionDidChangeNotification
+                                               object: nil];    
+    
+    [[NSNotificationCenter defaultCenter] addObserver: self
+                                             selector: @selector (ticketSelectionDidChange:)
+                                                 name: TicketSelectionDidChangeNotification
+                                               object: nil];    
+    
     [[NSNotificationCenter defaultCenter] addObserver: self
                                              selector: @selector (windowWillClose:)
                                                  name: NSWindowWillCloseNotification 
                                                object: nil];    
     
+    [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver: self
+                                                           selector: @selector (wakeFromSleep:)
+                                                               name: NSWorkspaceDidWakeNotification 
+                                                             object: nil];    
+    
     // disable items before ticket list opens to set up default state
     [self ticketListDidChange: NULL];  
     
     // Open ticket list, if needed (will send notification if opened)
-    if (([[Preferences sharedPreferences] launchAction] == LaunchActionAlwaysOpenTicketWindow) ||
-        (([[Preferences sharedPreferences] launchAction] == LaunchActionRememberOpenTicketWindow) &&
-         ([[Preferences sharedPreferences] ticketWindowLastOpen]))) {
+    if (([[KerberosPreferences sharedPreferences] launchAction] == LaunchActionAlwaysOpenTicketWindow) ||
+        (([[KerberosPreferences sharedPreferences] launchAction] == LaunchActionRememberOpenTicketWindow) &&
+         ([[KerberosPreferences sharedPreferences] ticketWindowLastOpen]))) {
         [self showTicketList: self];
-    }
-
-    // Register for wake/sleep power events so we can reset our credential timers
-    gRootPort = IORegisterForSystemPower (self, &notify, HandlePowerManagerEvent, &iterator);
-    if (gRootPort == MACH_PORT_NULL) {
-        NSLog (@"IORegisterForSystemPower failed.");
-    } else {
-        CFRunLoopAddSource (CFRunLoopGetCurrent (),
-                            IONotificationPortGetRunLoopSource (notify),
-                            kCFRunLoopDefaultMode);
     }
 
     // Set up default cache state
@@ -424,7 +384,7 @@ static void HandlePowerManagerEvent (void *inContext,
     } else if (menu == activeUserMenu) {
         dprintf ("Kerberos Controller active user menu updating...");
         [Utilities synchronizeCacheMenu: menu 
-                               fontSize: 0 // default size
+                                  popup: NO
                  staticPrefixItemsCount: 0
                              headerItem: NO
                       checkDefaultCache: YES
@@ -442,7 +402,7 @@ static void HandlePowerManagerEvent (void *inContext,
         [dockChangePasswordMenuItem  setEnabled: haveDefaultCache];            
         
         [Utilities synchronizeCacheMenu: menu 
-                               fontSize: 0 // default size
+                                  popup: NO
                  staticPrefixItemsCount: [dockMenu indexOfItem: dockSeparatorItem] + 1
                              headerItem: YES
                       checkDefaultCache: YES
@@ -467,7 +427,7 @@ static void HandlePowerManagerEvent (void *inContext,
     // preferenceand displaying the window on app launch.  However, applications 
     // get an activate event when launched, so we ignore the first call.
     
-    if (!firstTime && ((ticketListController == NULL) || ![[ticketListController window] isVisible])) {
+    if (!firstTime && (!ticketListController || ![[ticketListController window] isVisible])) {
         [self showTicketList: self];
     }
     
@@ -480,12 +440,12 @@ static void HandlePowerManagerEvent (void *inContext,
 {
     // Put the dock icon back
     NSImage *applicationIconImage = [NSImage imageNamed: @"NSApplicationIcon"];
-    if (applicationIconImage != NULL) {
+    if (applicationIconImage) {
         [NSApp setApplicationIconImage: applicationIconImage];
     }
 
     // Remember the ticket window state on quit.
-    [[Preferences sharedPreferences] setTicketWindowLastOpen: [self haveTicketListWindow]];
+    [[KerberosPreferences sharedPreferences] setTicketWindowLastOpen: [self haveTicketListWindow]];
     
     [minuteTimer invalidate];
 }
@@ -525,7 +485,17 @@ static void HandlePowerManagerEvent (void *inContext,
 
 // ---------------------------------------------------------------------------
 
-- (void) listSelectionDidChange: (NSNotification *) notification
+- (void) cacheSelectionDidChange: (NSNotification *) notification
+{
+    if (ticketListController == [notification object]) {
+        dprintf ("Kerberos Controller noticed KerberosCache List selection change...");
+        [self menuNeedsUpdate: ticketsMenu];
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+- (void) ticketSelectionDidChange: (NSNotification *) notification
 {
     if (ticketListController == [notification object]) {
         dprintf ("Kerberos Controller noticed Ticket List selection change...");
@@ -552,6 +522,27 @@ static void HandlePowerManagerEvent (void *inContext,
     }
 }
 
+// ---------------------------------------------------------------------------
+
+- (void) wakeFromSleep: (NSNotification *) notification
+{
+    dprintf("KerberosController waking from sleep...");
+    // Since the computer was just asleep, credential renewal timers need 
+    // to be adjusted to reflect the current time.
+    // Note that we don't want to post the notification directly from here
+    // because that would slow down the machine's wake from sleep process.
+    // Just queue it up.
+    NSNotification *credentialNotification = [NSNotification notificationWithName: KerberosCredentialTimersNeedResetNotification 
+                                                                           object: self];
+    if (credentialNotification) {
+        [[NSNotificationQueue defaultQueue] enqueueNotification: credentialNotification
+                                                   postingStyle: NSPostWhenIdle
+                                                   coalesceMask: NSNotificationCoalescingOnName 
+                                                       forModes: NULL];
+    }
+    dprintf ("KerberosController done waking from sleep.");
+}
+
 #pragma mark -- Callbacks --
 
 // ---------------------------------------------------------------------------
@@ -574,7 +565,7 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (BOOL) ticketListWindowHasSelectedCache
 {
-    return ([self haveTicketListWindow] && [ticketListController haveSelectedCache]);
+    return ([self haveTicketListWindow] && [ticketListController hasSelectedCache]);
 }
 
 // ---------------------------------------------------------------------------
@@ -588,7 +579,7 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (BOOL) ticketListWindowHasSelectedCredential
 {
-    return ([self haveTicketListWindow] && [ticketListController haveSelectedCredential]);
+    return ([self haveTicketListWindow] && [ticketListController hasSelectedCredential]);
 }
 
 // ---------------------------------------------------------------------------
@@ -602,7 +593,7 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (BOOL) defaultCacheNeedsValidation
 {
-    Cache *defaultCache = [cacheCollection defaultCache];
+    KerberosCache *defaultCache = [cacheCollection defaultCache];
     return ((defaultCache != NULL) && [defaultCache needsValidation]);
 }
 
@@ -613,11 +604,11 @@ static void HandlePowerManagerEvent (void *inContext,
 - (void) synchronizeDockIcon
 {
     static BOOL sDockIconIsDynamic = NO;  // Use so we don't refresh icon when not dynamic
-    Cache *defaultCache = [cacheCollection defaultCache];
+    KerberosCache *defaultCache = [cacheCollection defaultCache];
     
-    if ([[Preferences sharedPreferences] showTimeInDockIcon]) {        
+    if ([[KerberosPreferences sharedPreferences] showTimeInDockIcon]) {        
         NSImage *iconImage = [self dockIconImageForCache: defaultCache];
-        if (iconImage != NULL) {
+        if (iconImage) {
             [NSApp setApplicationIconImage: iconImage];
         }
         
@@ -625,7 +616,7 @@ static void HandlePowerManagerEvent (void *inContext,
     } else {
         if (sDockIconIsDynamic) {
             NSImage *applicationIconImage = [NSImage imageNamed: @"NSApplicationIcon"];
-            if (applicationIconImage != NULL) {
+            if (applicationIconImage) {
                 [NSApp setApplicationIconImage: applicationIconImage];
                 sDockIconIsDynamic = NO;  // remember so we don't keep doing this over and over
             }
@@ -637,10 +628,10 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (NSImage *) ticketsKerberosIconImage
 {
-    if (ticketsKerberosIconImage == NULL) {
+    if (!ticketsKerberosIconImage) {
         NSString *iconPathString = [[NSBundle mainBundle] pathForResource: @"DockHasTickets"
                                                                    ofType: @"tiff"];
-        if (iconPathString != NULL) {
+        if (iconPathString) {
             ticketsKerberosIconImage = [[NSImage alloc] initWithContentsOfFile: iconPathString];
         }
     }
@@ -651,10 +642,10 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (NSImage *) warningKerberosIconImage
 {
-    if (warningKerberosIconImage == NULL) {
+    if (!warningKerberosIconImage) {
         NSString *iconPathString = [[NSBundle mainBundle] pathForResource: @"DockTicketsWarning"
                                                                    ofType: @"tiff"];
-        if (iconPathString != NULL) {
+        if (iconPathString) {
             warningKerberosIconImage = [[NSImage alloc] initWithContentsOfFile: iconPathString];
         }
     }
@@ -665,10 +656,10 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (NSImage *) noTicketsKerberosIconImage
 {
-    if (noTicketsKerberosIconImage == NULL) {
+    if (!noTicketsKerberosIconImage) {
         NSString *iconPathString = [[NSBundle mainBundle] pathForResource: @"DockNoTickets"
                                                                    ofType: @"tiff"];
-        if (iconPathString != NULL) {
+        if (iconPathString) {
             noTicketsKerberosIconImage = [[NSImage alloc] initWithContentsOfFile: iconPathString];
         }
     }
@@ -679,10 +670,10 @@ static void HandlePowerManagerEvent (void *inContext,
 
 - (NSImage *) kerberosAppIconImage
 {
-    if (kerberosAppIconImage == NULL) {
+    if (!kerberosAppIconImage) {
         NSString *iconPathString = [[NSBundle mainBundle] pathForResource: @"KerberosApp"
                                                                    ofType: @"icns"];
-        if (iconPathString != NULL) {
+        if (iconPathString) {
             kerberosAppIconImage = [[NSImage alloc] initWithContentsOfFile: iconPathString];
         }
     }
@@ -692,19 +683,17 @@ static void HandlePowerManagerEvent (void *inContext,
 
 // ---------------------------------------------------------------------------
 
-- (NSImage *) dockIconImageForCache: (Cache *) cache
+- (NSImage *) dockIconImageForCache: (KerberosCache *) cache
 {
     NSImage *newDockIconImage = NULL;
     NSImage  *baseImage = [self kerberosAppIconImage];
-    NSString *string = NULL; // NSLocalizedStringFromTable (@"LifetimeStringExpired", @"LifetimeFormatter", NULL);
+    NSString *string = NULL;
     
-    if (cache != NULL) {
-        time_t now = time (NULL);
-        
-        if ([cache stateAtTime: now] == CredentialValid) {
-            string = [cache stringValueForDockIcon];
+    if (cache) {
+        if ([cache state] == CredentialValid) {
+            string = [cache shortTimeRemainingString];
             
-            if ([cache timeRemainingAtTime: now] > kFiveMinutes) {
+            if ([cache timeRemaining] > kFiveMinutes) {
                 baseImage = [self ticketsKerberosIconImage];
             } else {
                 baseImage = [self warningKerberosIconImage];
@@ -712,22 +701,32 @@ static void HandlePowerManagerEvent (void *inContext,
         }
     }
     
-    if (baseImage != NULL) {
+    if (baseImage) {
         NSSize iconSize = [[self kerberosAppIconImage] size];
         newDockIconImage = [[[NSImage alloc] initWithSize: iconSize] autorelease];
-        if (newDockIconImage != NULL) {
+        if (newDockIconImage) {
             [newDockIconImage lockFocus];
             [baseImage setScalesWhenResized: YES];
             [baseImage setSize: [newDockIconImage size]];
             [baseImage compositeToPoint: NSMakePoint (0.0, 0.0) operation: NSCompositeSourceOver];
-            if (string != NULL) {
-                NSDictionary *attributes = [Utilities attributesForDockIcon];
-                NSSize textSize = [string sizeWithAttributes: attributes];
+            if (string) {
+                static NSDictionary *dockAttributes = NULL;
+                
+                if (!dockAttributes) {
+                    NSMutableParagraphStyle *style = [[[NSParagraphStyle defaultParagraphStyle] mutableCopy] autorelease];
+                    [style setAlignment: NSLeftTextAlignment];
+                    
+                    dockAttributes = [[NSDictionary dictionaryWithObjectsAndKeys: 
+                        [NSFont boldSystemFontOfSize: 22], NSFontAttributeName, 
+                        style, NSParagraphStyleAttributeName, NULL] retain];
+                }
+                
+                NSSize textSize = [string sizeWithAttributes: dockAttributes];
                 
                 // Add the time remaining string
                 [string drawAtPoint: NSMakePoint (((iconSize.width - textSize.width) / 2) + 19, 
                                                   19.0 - (textSize.height / 2))
-                     withAttributes: attributes];
+                     withAttributes: dockAttributes];
                 
                 [newDockIconImage unlockFocus];
             }

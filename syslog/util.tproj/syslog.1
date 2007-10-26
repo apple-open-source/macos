@@ -51,11 +51,21 @@ key val
 .Li ...
 .D1 ""
 .Nm
-.Op Fl w
+.Fl C
+.D1 ""
+.Nm
+.Op Fl db Op Ar file ...
+.Op Fl w Op Ar n
 .Op Fl F Ar format
+.Op Fl T Ar format
 .Ar expression
 .D1 ""
 .Nm
+.Op Fl db Op Ar file ...
+.Fl x Ar expression
+.D1 ""
+.Nm
+.Op Fl db Op Ar file ...
 .Fl p Ar expression
 .D1 ""
 .Nm
@@ -64,7 +74,7 @@ key val
 .Nm
 is a command-line utility for a variety of tasks relating to the Apple System Log facility.
 It provides mechanisms for sending and viewing log messages,
-pruning the contents of the system's log message data store,
+pruning the contents of the log message databases,
 and for controlling the flow of log messages from client processes.
 .Pp
 When invoked with the
@@ -125,6 +135,11 @@ The string
 .Dq Panic
 is an alias for 
 .Dq Emergency .
+.Pp
+If the
+.Fl l
+option is omitted, the log level defaults to 7 (Debug).
+.Pp
 .Nm
 only requires one or two leading characters for a level specification.
 A single character suffices in most cases.
@@ -140,47 +155,104 @@ for Error).
 .Ss READING MESSAGES
 The 
 .Nm syslogd
-daemon receives messages from a variety of input sources.
-Received messages are processed by a set of output modules,
-each of which may act on messages in different ways.
-.Pp
-Two of the standard modules filter messages using criteria like the sender and the priority level of the message,
-and write copies of these messages to different output streams.
-One module does this filtering and filing task using the configuration specified in the
+daemon filters and saves log messages to different output streams.
+One module saves messages to files specified in the
 .Xr syslog.conf 5
 file.
-The output files specified in that configuration may be examined by any file printing or editing utility, 
+Those log files may be examined with any file printing or editing utility, 
 e.g.
 .Pp
 .Dl cat /var/log/system.log
 .Pp
-Another module saves messages in a data store, which may be searched using the
-.Nm
-command.
+Another module saves messages in an active database, 
+and may also be configured to keep archive databases.
 .Pp
 If invoked with no arguments,
 .Nm
-simply prints all of the messages saved in the data store.  If the
-.Fl w
-option is used, 
+sends a query to
+.Nm syslogd
+to fetch all messages from the active database.
+The messages are then printed to standard output, subject to formatting options and character encoding as described below.
+.Pp
+If invoked with the
+.Fl C
+option,
 .Nm
-waits for new messages to be added to the data store.
-Messages already in the store are ignored.
+fetches and prints console messages.
+The 
+.Fl C
+option is actually an alias for the expression:
+.Pp
+.Dl -k Facility com.apple.console
+.Pp
+See the EXPRESSIONS section below for more details.
+.Pp
+If the system is running in single-user mode,
+.Nm
+will open the ASL active database file (/var/log/asl.db) directly, rather than queying
+.Nm syslogd
+for messages. 
+The database file is opened in read-only mode, and read access permissions are required.
+Specifying the 
+.Fl db
+option with no argument also forces raw database access. 
+.Pp
+Archive log databases may be read by providing one or more database names as arguments to the
+.Fl db
+option.
+Each database is read in sequence.
+As a special case, the name
+.Dq -
+may be used in place of a database file name.
+In this case,
+.Nm
+will connect to
+.Nm syslogd 
+and query for the contents of the active database.
+.Pp
+The
+.Fl w
+option causes
+.Nm
+to wait for new messages.
+By default, 
+.Nm
+prints the last 10 messages,
+then waits for new messages to be added to the database.
+A number following the
+.Fl w
+option specifies the number of messages to print and overrides the default value of 10.
+For example:
+.Pp
+.Dl syslog -w 20
+.Pp
 This usage is similar to watching a log file using, e.g.
 .Pp
 .Dl tail -f /var/log/system.log
 .Pp
+The
+.Fl w
+option can only be used for a single database, and when printing messages to standard output.
+.Pp
+If the 
+.Fl x Ar database
+option is specified, messages are copied to the named
+.Ar database 
+file rather than being printed.
+The 
+.Ar database
+file will be created if it does not exist.
+.Pp
+When called without the
+.Fl x
+option, messages are printed to standard output.
 Messages are printed in a format similar to that used in the system.log file,
 except that the message priority level is printed between angle-brackets.
-.Pp
-The 
-.Fl u
-option forces all time stamps to be printed using UTC.
-This overrides printing of time stamps using the local time zone.
 .Pp
 The output format may by changed by specifying the
 .Fl F Ar format
 option.
+Non-printable and control characters are encoded in the output, as described below.
 The value of
 .Ar format 
 may be one of the following:
@@ -199,7 +271,15 @@ but includes the message priority level.
 Prints the complete message structure.
 Each key/value pair is enclosed in square brackets.
 Embedded closing brackets and white space are escaped.
-Time stamps are printed using UTC rather than being converted to the local time zone.
+Time stamps are printed as seconds since the epoch by default, but may also be
+printed in local time or UTC if the
+.Fl T
+option is specified (see below).
+.It xml
+The list of messages is printed as an XML property list.
+Each message is represented as a dictionary in a array.
+Dictionary keys represent message keys.
+Dictionary values are strings.
 .El
 .Pp
 The value of the
@@ -222,13 +302,68 @@ produces output similar to the
 .Dq bsd
 format.
 .Pp
+Timestamps may be printed in three formats.
+Times are generally converted to local time, except when the
+.Fl F Ar sec
+option is used, in which case times are printed as the number of seconds since the epoch.
+The
+.Fl T Ar format
+option may be used to explicity control the format used for timestamps.
+The value of
+.Ar format 
+may be one of the following:
+.Pp
+.Bl -tag -width "local"
+.It sec
+Times are printed as the number of seconds since the epoch.
+.It local
+Times are converted to the local time zone, and printed with the format
+.Dl MMM DD HH:MM:SS
+.It utc
+Times are converted to UTC, and printed with the format
+.Dl YYYY.MM.DD HH:MM:SS UTC
+.El
+.Pp
+The 
+.Fl u
+option is a short form for 
+.Fl T Ar utc . 
+.Pp
+Control characters and non-printable characters are encoded in the output stream.
+In some cases this may make messages slightly less natural in appearance.
+However, the encoding is designed to preserve all the information in the log message,
+and to prevent malicious users from spoofing or obsucring information in log messages.
+.Pp
+Output in the
+.Dq std ,
+.Dq bsd ,
+and
+.Dq raw
+formats is encoded as it is by the
+.Xr vis
+utility with the
+.Fl c
+option.
+Newlines and tabs are also encoded as "\\n" and "\\t" respectively.
+In 
+.Dq raw
+format, space chanacters embedded in log message keys are encoded as "\\s"
+and embedded brackets are escaped to print as "\\[" and "\\]".
+.Pp
+XML format output requires that keys are valid UTF8 strings.
+Keys which are not valid UTF8 are ignored, and the associated value is not printed.
+.Pp
+Values that contain legal UTF8 are printed as strings.
+Ampersand, less than, greater than, quotation mark, and apostrophe characters are encoded according to XML conventions.
+Embedded control characters are encoded as
+.Dq &#xNN;
+where NN is the character's hexidecimal value.
+.Pp
+Values that do not contain legal UTF8 are encoded in base-64 and printed as data objects.
+.Pp
 If no further command line options are specified,
 .Nm
-displays all messages,
-either all those saved in the data store,
-or all new messages if
-.Fl w
-is used.
+displays all messages, or copies all messages to a database file.
 However, an expression may be specified using the
 .Fl k
 and
@@ -236,16 +371,24 @@ and
 options.
 .Ss EXPRESSIONS
 Expressions specify matching criteria.
-They may be used when reading messages to filter for messages of interest.
+They may be used to search for messages of interest.
 Expressions are also required when pruning the system log file with the
 .Fl p
 option.
 .Pp
 A simple expression is a list of one or more key/value pairs.
 A match is made when a message has the given value for the specified key.
-For example, to find all messages send by the portmap process:
+For example, to find all messages sent by the portmap process:
 .Pp
 .Dl syslog -k Sender portmap
+.Pp
+Note that the
+.Fl C
+option is treated as an alias for the expression:
+.Pp
+.Dl -k Facility com.apple.console
+.Pp
+This provides a quick way to search for console messages.
 .Pp
 The
 .Fl k
@@ -327,30 +470,40 @@ A week is taken to be 7 complete days (i.e. 604800 seconds).
 .Ss PRUNING
 The Apple System Log facility saves received messages, subject to filtering criteria described in the 
 FILTERING CONTROLS section below.  
-Pruning is required to prevent unlimited growth of the data store.
-.Pp
 The 
 .Nm syslogd
-daemon itself will prune the data store shortly after it starts up.
+daemon deletes messages after given time-to-live values to prevent the database from growing too large.
+When messages expire, they are either removed entirely, or copied to an archive database.
 See the 
 .Xr syslogd 8
-manual for more details on startup pruning.
-During extended operation of
-.Nm syslogd ,
-pruning is accomplished by using the
+manual for more details on archiving messages.
+.Pp
+Messages may be removed from either the active database or from an archive database by using the
 .Fl p
 option of 
 .Nm syslog .
 The 
 .Fl p 
 option must be followed by an expression (see above).
-The contents of the data store are filtered using the given expression.
 Messages that match the expression are deleted.
 .Pp
-A daily pruning operation is performed by the
-.Nm cron
-utility.
-The command is specified in the /etc/periodic/daily/500.daily file.
+If the 
+.Fl db
+option is not specified
+.Nm
+sends a request to 
+.Nm syslogd
+to perform the requested pruning operation.
+If
+.Fl db
+is given without a database file name,
+.Nm
+prunes the active database file.
+This may only be done if the
+.Nm syslogd
+server is not running.
+If one or more database file names are given, those databases are pruned subject to the specified expression.
+Read and write access to the database files are required.
 .Ss FILTERING CONTROLS
 Clients of the Apple System Log facility using either the
 .Xr asl 3

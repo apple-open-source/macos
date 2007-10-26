@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -15,7 +15,7 @@
    | Author: Chris Schneider <cschneid@relog.ch>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: pack.c,v 1.40.2.7.2.6 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: pack.c,v 1.57.2.5.2.5 2007/06/06 22:04:04 iliaa Exp $ */
 
 #include "php.h"
 
@@ -26,8 +26,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #ifdef PHP_WIN32
-#include <windows.h>
-#include <winsock.h>
 #define O_RDONLY _O_RDONLY
 #include "win32/param.h"
 #elif defined(NETWARE)
@@ -57,7 +55,7 @@
 #endif
 
 #define INC_OUTPUTPOS(a,b) \
-	if ((a) < 0 || ((INT_MAX - outputpos)/(b)) < (a)) { \
+	if ((a) < 0 || ((INT_MAX - outputpos)/((int)b)) < (a)) { \
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Type %c: integer overflow in format string", code); \
 		RETURN_FALSE; \
 	} \
@@ -122,7 +120,7 @@ PHP_FUNCTION(pack)
 		WRONG_PARAM_COUNT;
 	}
 
-	argv = safe_emalloc(sizeof(zval **), argc, 0);
+	argv = safe_emalloc(argc, sizeof(zval **), 0);
 
 	if (zend_get_parameters_array_ex(argc, argv) == FAILURE) {
 		efree(argv);
@@ -186,6 +184,7 @@ PHP_FUNCTION(pack)
 				}
 
 				if (arg < 0) {
+					convert_to_string_ex(argv[currentarg]);
 					arg = Z_STRLEN_PP(argv[currentarg]);
 				}
 
@@ -636,6 +635,12 @@ PHP_FUNCTION(unpack)
 			case 'd':
 				size = sizeof(double);
 				break;
+
+			default:
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid format type %c", type);
+				zval_dtor(return_value);
+				RETURN_FALSE;
+				break;
 		}
 
 		/* Do actual unpacking */
@@ -645,10 +650,10 @@ PHP_FUNCTION(unpack)
 
 			if (arg != 1 || namelen == 0) {
 				/* Need to add element number to name */
-				sprintf(n, "%.*s%d", namelen, name, i + 1);
+				snprintf(n, sizeof(n), "%.*s%d", namelen, name, i + 1);
 			} else {
 				/* Truncate name to next format code or end of string */
-				sprintf(n, "%.*s", namelen, name);
+				snprintf(n, sizeof(n), "%.*s", namelen, name);
 			}
 
 			if (size != 0 && size != -1 && INT_MAX - size + 1 < inputpos) {
@@ -754,14 +759,16 @@ PHP_FUNCTION(unpack)
 
 					case 'i': 
 					case 'I': {
-						long v;
+						long v = 0;
 						int issigned = 0;
 
 						if (type == 'i') {
 							issigned = input[inputpos + (machine_little_endian ? (sizeof(int) - 1) : 0)] & 0x80;
+						} else if (sizeof(long) > 4 && (input[inputpos + machine_endian_long_map[3]] & 0x80) == 0x80) {
+							v = ~INT_MAX;
 						}
 
-						v = php_unpack(&input[inputpos], sizeof(int), issigned, int_map);
+						v |= php_unpack(&input[inputpos], sizeof(int), issigned, int_map);
 						add_assoc_long(return_value, n, v);
 						break;
 					}
@@ -772,17 +779,23 @@ PHP_FUNCTION(unpack)
 					case 'V': {
 						int issigned = 0;
 						int *map = machine_endian_long_map;
-						long v;
+						long v = 0;
 
-						if (type == 'l') {
+						if (type == 'l' || type == 'L') {
 							issigned = input[inputpos + (machine_little_endian ? 3 : 0)] & 0x80;
 						} else if (type == 'N') {
+							issigned = input[inputpos] & 0x80;
 							map = big_endian_long_map;
 						} else if (type == 'V') {
+							issigned = input[inputpos + 3] & 0x80;
 							map = little_endian_long_map;
 						}
 
-						v = php_unpack(&input[inputpos], 4, issigned, map);
+						if (sizeof(long) > 4 && issigned) {
+							v = ~INT_MAX;
+						}
+
+						v |= php_unpack(&input[inputpos], 4, issigned, map);
 						add_assoc_long(return_value, n, v);
 						break;
 					}
@@ -865,7 +878,7 @@ PHP_MINIT_FUNCTION(pack)
 		/* Where to get lo to hi bytes from */
 		byte_map[0] = 0;
 
-		for (i = 0; i < sizeof(int); i++) {
+		for (i = 0; i < (int)sizeof(int); i++) {
 			int_map[i] = i;
 		}
 
@@ -897,7 +910,7 @@ PHP_MINIT_FUNCTION(pack)
 		/* Where to get hi to lo bytes from */
 		byte_map[0] = size - 1;
 
-		for (i = 0; i < sizeof(int); i++) {
+		for (i = 0; i < (int)sizeof(int); i++) {
 			int_map[i] = size - (sizeof(int) - i);
 		}
 

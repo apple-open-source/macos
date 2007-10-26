@@ -1,7 +1,7 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/InsSel.c,v 1.1.1.4 2002/09/10 23:34:45 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -32,7 +32,7 @@ XMenuInsertSelection(menu, p_num, s_num, data, label, active)
 
     int label_length;		/* Label length in characters. */
     int label_width;		/* Label width in pixels. */
-    
+
     /*
      * Check for NULL pointers!
      */
@@ -114,3 +114,6 @@ XMenuInsertSelection(menu, p_num, s_num, data, label, active)
     _XMErrorCode = XME_NO_ERROR;
     return(s_num);
 }
+
+/* arch-tag: 8398626f-81cb-4e13-8ebc-aac1b9237663
+   (do not change this comment) */

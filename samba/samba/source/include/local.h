@@ -198,7 +198,7 @@
 /* the maximum age in seconds of a password. Should be a lp_ parameter */
 #define MAX_PASSWORD_AGE (21*24*60*60)
 
-/* Allocation roundup. */
+/* Default allocation roundup. */
 #define SMB_ROUNDUP_ALLOCATION_SIZE 0x100000
 
 /* shall we deny oplocks to clients that get timeouts? */
@@ -234,5 +234,20 @@
 #define SHARING_VIOLATION_USEC_WAIT 950000
 
 #define MAX_LDAP_REPLICATION_SLEEP_TIME 5000 /* In milliseconds. */
+
+/* tdb hash size for the open database. */
+#define SMB_OPEN_DATABASE_TDB_HASH_SIZE 10007
+
+/* Characters we disallow in sharenames. */
+#define INVALID_SHARENAME_CHARS "%<>*?|/\\+=;:\","
+
+/* Seconds between connection attempts to a remote server. */
+#define FAILED_CONNECTION_CACHE_TIMEOUT 30
+
+/* Default hash size for the winbindd cache. */
+#define WINBINDD_CACHE_TDB_DEFAULT_HASH_SIZE 5000
+
+/* Windows minimum lock resolution timeout in ms */
+#define WINDOWS_MINIMUM_LOCK_TIMEOUT_MS 200
 
 #endif

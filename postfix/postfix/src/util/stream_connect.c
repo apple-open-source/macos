@@ -62,7 +62,7 @@
 int     stream_connect(const char *path, int block_mode, int unused_timeout)
 {
 #ifdef STREAM_CONNECTIONS
-    char   *myname = "stream_connect";
+    const char *myname = "stream_connect";
     int     pair[2];
     int     fifo;
 
@@ -72,6 +72,12 @@ int     stream_connect(const char *path, int block_mode, int unused_timeout)
      */
     if ((fifo = open(path, O_WRONLY | O_NONBLOCK, 0)) < 0)
 	return (-1);
+
+    /*
+     * This is for {unix,inet}_connect() compatibility.
+     */
+    if (block_mode == BLOCKING)
+	non_blocking(fifo, BLOCKING);
 
     /*
      * Create a pipe, and send one pipe end to the server.

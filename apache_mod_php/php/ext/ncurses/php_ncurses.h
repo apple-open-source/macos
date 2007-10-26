@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
+   | Author: Hartmut Holzgraefe <hholzgra@php.net>                        |
    +----------------------------------------------------------------------+
  */
 
@@ -36,7 +36,7 @@ extern int le_ncurses_panels;
 extern zend_module_entry ncurses_module_entry;
 #define phpext_ncurses_ptr &ncurses_module_entry
 
-extern function_entry ncurses_functions[];
+extern zend_function_entry ncurses_functions[];
 #include "php_ncurses_fe.h"
 
 #ifdef PHP_WIN32
@@ -47,8 +47,6 @@ extern function_entry ncurses_functions[];
 
 PHP_MINIT_FUNCTION(ncurses);
 PHP_MSHUTDOWN_FUNCTION(ncurses);
-PHP_RINIT_FUNCTION(ncurses);
-PHP_RSHUTDOWN_FUNCTION(ncurses);
 PHP_MINFO_FUNCTION(ncurses);
 
 ZEND_BEGIN_MODULE_GLOBALS(ncurses)

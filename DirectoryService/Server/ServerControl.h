@@ -33,31 +33,43 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 
 #include "PrivateTypes.h"
-#include "DSSemaphore.h"
-#include "DSMutexSemaphore.h"
 #include "SharedConsts.h"
+#include "CCachePlugin.h"
 
-const uInt32 kMaxHandlerThreads			= 8; // this is used for both mach and TCP handler thread max
-const uInt32 kMaxCheckpwHandlerThreads	= 1; // single thread is enough since we now have direct dispatch
-const uInt32 kMaxInternalHandlerThreads	= kMaxHandlerThreads + 64 + 1;	// make sure this is one more than ALL external threads
-																		// usual handler threads, max TCP connection threads, extra one
-																		//safety net here since
-																		//hopefully this is never used ie. case of third party plugins 
-																		//that incorrectly link in the DS FW and call back to DS
+const UInt32 kMaxHandlerThreads			= 256; // this is used for both mach and TCP handler thread max
 
 #define kDSDefaultListenPort 625				//TODO need final port number
 #define kDSActOnThisNumberOfFlushRequests 25	//even if requests are close together send a flush after 25 requests
 
-#define	kDSDebugConfigFilePath  "/Library/Preferences/DirectoryService/DirectoryServiceDebug.plist"
-#define kXMLDSDebugLoggingKey		"Debug Logging"				//debug logging on/off
-#define kXMLDSCSBPDebugLoggingKey   "CSBP FW Debug Logging"		//DS FW CSBP debug logging on/off
+#define	kDSDebugConfigFilePath		"/Library/Preferences/DirectoryService/DirectoryServiceDebug.plist"
+#define kXMLDSDebugLoggingKey		"Debug Logging"					//debug logging on/off
+#define kXMLDSDebugLoggingPriority	"Debug Logging Priority Level"	//priority level 1 (low - everything) through 5 (high - critical things)
+#define kXMLDSCSBPDebugLoggingKey   "CSBP FW Debug Logging"			//DS FW CSBP debug logging on/off
+#define kXMLDSDebugTurnOffNISearch	"Turn Off NetInfo Search"		//turns off NetInfo use in the search policy
+#define kXMLDSDebugLoadNIPlugin		"Load NetInfo Plugin"			//determines whether to load NetInfo plugin
+#define kXMLDSIgnoreSunsetTimeKey   "Ignore syslog Sunset Time"		//ignore sunset time for API timing logging
 
-#define kDefaultDebugConfig		"<dict>\
-	<key>Version</key>\
-	<string>1.0</string>\
-	<key>Debug Logging</key>\
-	<true/>\
-</dict>"
+#define kDefaultDebugConfig		\
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
+<plist version=\"1.0\">\n\
+<dict>\n\
+	<key>Version</key>\n\
+	<string>1.0</string>\n\
+	<key>Debug Logging</key>\n\
+	<true/>\n\
+	<key>CSBP FW Debug Logging</key>\n\
+	<false/>\n\
+	<key>Turn Off NetInfo Search</key>\n\
+	<true/>\n\
+	<key>Load NetInfo Plugin</key>\n\
+	<false/>\n\
+	<key>Debug Logging Priority Level</key>\n\
+	<integer>5</integer>\n\
+	<key>Ignore syslog Sunset Time</key>\n\
+	<false/>\n\
+</dict>\n\
+</plist>\n"
 #define BUILD_IN_PERFORMANCE
 
 #ifdef BUILD_IN_PERFORMANCE
@@ -65,14 +77,71 @@ const uInt32 kMaxInternalHandlerThreads	= kMaxHandlerThreads + 64 + 1;	// make s
 
 #define	kNumErrorsToTrack			5
 
+//eDSLookupProcedureNumber MUST be SYNC'ed with lookupProcedures
+typedef enum {
+    kDSLUfirstprocnum = 0,
+    
+    kDSLUgetpwnam,
+    kDSLUgetpwuuid,
+    kDSLUgetpwuid,
+    kDSLUgetpwent,
+    kDSLUgetgrnam,
+    kDSLUgetgruuid,
+    kDSLUgetgrgid,
+    kDSLUgetgrent,
+    kDSLUgetservbyname,
+    kDSLUgetservbyport,
+    kDSLUgetservent,
+    kDSLUgetprotobyname,
+    kDSLUgetprotobynumber,
+    kDSLUgetprotoent,
+    kDSLUgetrpcbyname,
+    kDSLUgetrpcbynumber,
+    kDSLUgetrpcent,
+    kDSLUgetfsbyname,
+    kDSLUgetfsent,
+//    kDSLUprdb_getbyname,
+//    kDSLUprdb_get,
+//    kDSLUbootparams_getbyname,
+//    kDSLUbootparams_getent,
+    kDSLUalias_getbyname,
+    kDSLUalias_getent,
+    kDSLUgetnetent,
+    kDSLUgetnetbyname,
+    kDSLUgetnetbyaddr,
+//    kDSLUbootp_getbyip,
+//    kDSLUbootp_getbyether,
+    kDSLUinnetgr,
+    kDSLUgetnetgrent,
+    
+    kDSLUgetaddrinfo,
+    kDSLUgetnameinfo,
+    kDSLUgethostbyname,
+    kDSLUgethostbyaddr,
+    kDSLUgethostent,
+    kDSLUgetmacbyname,
+    kDSLUgethostbymac,
+	
+	kDSLUgetbootpbyhw,
+	kDSLUgetbootpbyaddr,
+
+	// other types of calls
+	kDSLUdns_proxy,
+
+	kDSLUflushcache,
+    kDSLUflushentry,
+
+    kDSLUlastprocnum // this number will increment automatically
+} eDSLookupProcedureNumber;
+
 typedef struct {
-	sInt32						clientPID;
-	sInt32						error;
+	SInt32						clientPID;
+	SInt32						error;
 } ErrorByPID;
 
 typedef struct {
-	uInt32						msgCnt;
-	uInt32						errCnt;
+	UInt32						msgCnt;
+	UInt32						errCnt;
 	double						minTime;
 	double						maxTime;
 	double						totTime;
@@ -92,7 +161,6 @@ typedef struct {
 
 class	DSTCPListener;
 class	CHandlerThread;
-class	CMigHandlerThread;
 class	CNodeList;
 class	CPlugInList;
 
@@ -113,44 +181,40 @@ public:
 						ServerControl		 ( void );
 	virtual			   ~ServerControl		 ( void );
 
-	virtual sInt32		StartUpServer		( void );
-	virtual sInt32		ShutDownServer		( void );
-			sInt32		StartAHandler		( const FourCharCode inThreadSignature );
-			sInt32		StopAHandler		( const FourCharCode inThreadSignature, uInt32 iThread, CHandlerThread *inThread );
+	virtual SInt32		StartUpServer		( void );
+	virtual SInt32		ShutDownServer		( void );
+			SInt32		StartAHandler		( const FourCharCode inThreadSignature );
+			SInt32		StopAHandler		( const FourCharCode inThreadSignature, UInt32 iThread, CHandlerThread *inThread );
 			void		WakeAHandler		( const FourCharCode inThreadSignature );
-			void		SleepAHandler		( const FourCharCode inThreadSignature, uInt32 waitTime );
-			uInt32		GetHandlerCount		( const FourCharCode inThreadSignature );
-			sInt32		StartTCPListener	( uInt32 inPort );
-			sInt32		StopTCPListener		( void );
+			void		SleepAHandler		( const FourCharCode inThreadSignature, UInt32 waitTime );
+			UInt32		GetHandlerCount		( const FourCharCode inThreadSignature );
+			SInt32		StartTCPListener	( UInt32 inPort );
+			SInt32		StopTCPListener		( void );
 
-			sInt32		HandleNetworkTransition	( void );
-			sInt32		HandleSystemWillSleep	( void );
-			sInt32		HandleSystemWillPowerOn	( void );
-			sInt32		FlushLookupDaemonCache	( void );
-			sInt32		FlushMemberDaemonCache	( void );
-			sInt32		NIAutoSwitchCheck	( void );
-			sInt32		SetUpPeriodicTask	( void );
-			sInt32		ResetDebugging		( void );
+			SInt32		HandleNetworkTransition	( void );
+			SInt32		HandleSystemWillSleep	( void );
+			SInt32		HandleSystemWillPowerOn	( void );
+			SInt32		FlushMemberDaemonCache	( void );
+			SInt32		SetUpPeriodicTask	( void );
+			SInt32		ResetDebugging		( void );
 
 #ifdef BUILD_IN_PERFORMANCE
 			void		ActivatePeformanceStatGathering( void ) { fPerformanceStatGatheringActive = true; }
 			void		DeactivatePeformanceStatGathering( void ) { fPerformanceStatGatheringActive = false; LogStats(); DeletePerfStatTable(); }
 			
-			void		HandlePerformanceStats		( uInt32 msgType, FourCharCode pluginSig, sInt32 siResult, sInt32 clientPID, double inTime, double outTime );
+			void		HandlePerformanceStats		( UInt32 msgType, FourCharCode pluginSig, SInt32 siResult, SInt32 clientPID, double inTime, double outTime );
 			void		LogStats					( void );
 #endif
 
-			void		HandleLookupDaemonFlushCache( void );
-			void		HandleMemberDaemonFlushCache( void );
 			bool		IsPeformanceStatGatheringActive
 													( void ) { return fPerformanceStatGatheringActive; }
 			void		NotifyDirNodeAdded			( const char* newNode );
 			void		NotifyDirNodeDeleted		( char* oldNode );
 			
+			void		SearchPolicyChangedNotify	( void );
+			void		DoSearchPolicyChangedNotify	( void ); // should only be called by Timer
 			void		NodeSearchPolicyChanged		( void );
-			void		DoNodeSearchPolicyChange	( void );
-			void		NotifySearchPolicyFoundNIParent
-													( void );
+			void		DoNodeSearchPolicyChange	( void ); // should only be called by Timer
 
 protected:
 #ifdef BUILD_IN_PERFORMANCE
@@ -159,38 +223,31 @@ protected:
 						CreatePerfStatTable			( void );
 #endif
 
-			sInt32		RegisterForSystemPower		( void );
-			sInt32		UnRegisterForSystemPower	( void );
-			sInt32		RegisterForNetworkChange	( void );
-			sInt32		UnRegisterForNetworkChange	( void );
-			sInt32		UnbindToNetInfo				( void );
-			void		HandleMultipleNetworkTransitionsForNIAutoSwitch ( void );
-			void		LaunchKerberosAutoConfigTool( void );
+			SInt32		RegisterForSystemPower		( void );
+			SInt32		UnRegisterForSystemPower	( void );
+			SInt32		RegisterForNetworkChange	( void );
+			SInt32		UnRegisterForNetworkChange	( void );
+			void		CreateDebugPrefFileIfNecessary	( bool bForceCreate = false );
 private:
 
-	uInt32				fTCPHandlerThreadsCnt;
+	UInt32				fTCPHandlerThreadsCnt;
+	UInt32              fLibinfoHandlerThreadCnt;
 
 #ifdef BUILD_IN_PERFORMANCE
-	uInt32				fLastPluginCalled;
+	UInt32				fLastPluginCalled;
 	PluginPerformanceStats	**fPerfTable;
-	uInt32				fPerfTableNumPlugins;
+	UInt32				fPerfTableNumPlugins;
 #endif
 	
 	DSTCPListener	   *fTCPListener;
-	CMigHandlerThread  *fMigListener;
 	CHandlerThread	  **fTCPHandlers;
-	DSSemaphore		   *fTCPHandlerSemaphore;
+	CHandlerThread    **fLibinfoHandlers;
 	SCDynamicStoreRef	fSCDStore;
 	bool				fPerformanceStatGatheringActive;
-	uInt32				fLookupDaemonFlushCacheRequestCount;
-	uInt32				fMemberDaemonFlushCacheRequestCount;
-	SCDynamicStoreRef	fHoldStore;
+	UInt32				fMemberDaemonFlushCacheRequestCount;
 	CFStringRef			fServiceNameString;
 	static	CFRunLoopTimerRef	fNSPCTimerRef; //NSPC = Node Search Policy Change
-	static	CFRunLoopTimerRef	fLDFCTimerRef; //LDFC = lookupd daemon flush cache
-	static	CFRunLoopTimerRef	fMDFCTimerRef; //MDFC = memberd daemon flush cache
-	static	CFRunLoopTimerRef	fNIASTimerRef; //NIAS = netinfo auto switch
-
+	static	CFRunLoopTimerRef	fSPCNTimerRef; //SPCN = Search Policy Changed Notify
 };
 
 extern ServerControl	*gSrvrCntl;

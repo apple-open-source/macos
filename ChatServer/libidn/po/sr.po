@@ -1,0 +1,180 @@
+# Serbian translation of `libidn'.
+# Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+# This file is distributed under the same license as the `libidn' package.
+# Aleksandar Jelenak <jelenak@verizon.net>, 2004, 2005.
+msgid ""
+msgstr ""
+"Project-Id-Version: libidn 0.5.16\n"
+"Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
+"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"PO-Revision-Date: 2005-09-04 15:02-0400\n"
+"Last-Translator: Aleksandar Jelenak <jelenak@verizon.net>\n"
+"Language-Team: Serbian <gnu@prevod.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Success"
+msgstr "Успех"
+
+msgid "String preparation failed"
+msgstr "Неуспешна припрема ниске"
+
+msgid "Punycode failed"
+msgstr "Punycode није успео"
+
+msgid "Non-digit/letter/hyphen in input"
+msgstr "Нецифра/слово/цртица у улазу"
+
+msgid "Forbidden leading or trailing minus sign (`-')"
+msgstr "Забрањен водећи или пратећи знак минус („-“)"
+
+msgid "Output would be too large or too small"
+msgstr "Излаз би био превелик или премали"
+
+msgid "Input does not start with ACE prefix (`xn--')"
+msgstr "Улаз не почиње са ACE префиксом („xn--“)"
+
+msgid "String not idempotent under ToASCII"
+msgstr "Ниска није идемпотентна под ToASCII"
+
+msgid "Input already contain ACE prefix (`xn--')"
+msgstr "Улаз већ садржи ACE префикс („xn--“)"
+
+msgid "System iconv failed"
+msgstr "Системски iconv није успео"
+
+msgid "Cannot allocate memory"
+msgstr "Не може обезбедити меморију"
+
+msgid "System dlopen failed"
+msgstr "Неуспешан системски dlopen"
+
+msgid "Unknown error"
+msgstr "Непозната грешка"
+
+msgid "String not idempotent under Unicode NFKC normalization"
+msgstr "Ниска није идемпотентна под Unicode NFKC нормализацијом"
+
+msgid "Invalid input"
+msgstr "Неважећи улаз"
+
+msgid "Output would exceed the buffer space provided"
+msgstr "Излаз би премашио предвиђену величину бафера"
+
+msgid "String size limit exceeded"
+msgstr "Ограничење величине ниске премашено"
+
+msgid "Forbidden unassigned code points in input"
+msgstr "Забрањене недодељене кодне тачке у улазу"
+
+msgid "Prohibited code points in input"
+msgstr "Ускраћене кодне тачке у улазу"
+
+msgid "Conflicting bidirectional properties in input"
+msgstr "Супротстављена двосмерна својства у улазу"
+
+msgid "Malformed bidirectional string"
+msgstr "Наказна двосмерна ниска"
+
+msgid "Prohibited bidirectional code points in input"
+msgstr "Ускраћене двосмерне кодне тачке у улазу"
+
+msgid "Error in stringprep profile definition"
+msgstr "Грешка у дефиницији stringprep профила"
+
+msgid "Flag conflict with profile"
+msgstr "Сукоб заставица са профилом"
+
+msgid "Unknown profile"
+msgstr "Непознат профил"
+
+msgid "Unicode normalization failed (internal error)"
+msgstr "Уникод нормализације није успела (унутрашња грешка)"
+
+msgid "Code points prohibited by top-level domain"
+msgstr "Кодне тачке забрањене највишим доменом"
+
+msgid "Missing input"
+msgstr "Недостаје улаз"
+
+msgid "No top-level domain found in input"
+msgstr "Највиши домен није нађен у улазу"
+
+msgid "Only one of -s, -e, -d, -a or -u can be specified."
+msgstr "Може бити задато само једно од: -s, -e, -d, -a или -u."
+
+#, c-format
+msgid "Charset `%s'.\n"
+msgstr "Скуп знакова „%s“.\n"
+
+#, c-format
+msgid ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+msgstr ""
+"Куцајте улазну ниску на засебној линији, завршавајући знаком за нови ред.\n"
+
+msgid "Input error"
+msgstr "Улазна грешка"
+
+#, c-format
+msgid "Could not convert from %s to UTF-8."
+msgstr "Није могао да претвори из %s у UTF-8."
+
+msgid "Could not convert from UTF-8 to UCS-4."
+msgstr "Није могао да претвори из UTF-8 у UCS-4."
+
+#, c-format
+msgid "input[%d] = U+%04x\n"
+msgstr "улаз[%d] = U+%04x\n"
+
+#, c-format
+msgid "stringprep_profile: %s"
+msgstr "stringprep_profile: %s"
+
+#, c-format
+msgid "output[%d] = U+%04x\n"
+msgstr "излаз[%d] = U+%04x\n"
+
+#, c-format
+msgid "Could not convert from UTF-8 to %s."
+msgstr "Није могао да претвори из UTF-8 у %s."
+
+#, c-format
+msgid "punycode_encode: %s"
+msgstr "punycode_encode: %s"
+
+msgid "malloc"
+msgstr "malloc"
+
+#, c-format
+msgid "punycode_decode: %s"
+msgstr "punycode_decode: %s"
+
+msgid "Could not convert from UCS-4 to UTF-8."
+msgstr "Није могао да претвори из UCS-4 у UTF-8."
+
+#, c-format
+msgid "idna_to_ascii_4z: %s"
+msgstr "idna_to_ascii_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z (TLD): %s"
+msgstr "idna_to_unicode_8z4z (TLD): %s"
+
+#, c-format
+msgid "tld[%d] = U+%04x\n"
+msgstr "tld[%d] = U+%04x\n"
+
+#, c-format
+msgid "tld_check_4z (position %d): %s"
+msgstr "tld_check_4z (положај %d): %s"
+
+#, c-format
+msgid "tld_check_4z: %s"
+msgstr "tld_check_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z: %s"
+msgstr "idna_to_unicode_8z4z: %s"

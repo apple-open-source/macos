@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2005 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -580,8 +583,11 @@ INTERNAL void addr_free
 )
 {
     CODING_ERROR (status);
-    
-    /*
+    /* If we still have a pipe path free it */
+	if ((*rpc_addr)->pipe_path)
+		RPC_MEM_FREE ((*rpc_addr)->pipe_path, RPC_C_MEM_SOCKADDR);
+	(*rpc_addr)->pipe_path = NULL;
+   /*
      * free memory of RPC addr
      */
     RPC_MEM_FREE (*rpc_addr, RPC_C_MEM_RPC_ADDR);

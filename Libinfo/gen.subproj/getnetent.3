@@ -36,26 +36,37 @@
 .Dt GETNETENT 3
 .Os
 .Sh NAME
-.Nm getnetent ,
+.Nm endnetent ,
 .Nm getnetbyaddr ,
 .Nm getnetbyname ,
-.Nm setnetent ,
-.Nm endnetent
+.Nm getnetent ,
+.Nm setnetent
 .Nd get network entry
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .Fd #include <netdb.h>
-.Ft struct netent *
-.Fn getnetent void
-.Ft struct netent *
-.Fn getnetbyname "const char *name"
-.Ft struct netent *
-.Fn getnetbyaddr "uint32_t net" "int type"
 .Ft void
-.Fn setnetent "int stayopen"
+.Fo endnetent
+.Fa void
+.Fc
+.Ft struct netent *
+.Fo getnetbyaddr
+.Fa "uint32_t net"
+.Fa "int type"
+.Fc
+.Ft struct netent *
+.Fo getnetbyname
+.Fa "const char *name"
+.Fc
+.Ft struct netent *
+.Fo getnetent
+.Fa void
+.Fc
 .Ft void
-.Fn endnetent void
+.Fo setnetent
+.Fa "int stayopen"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn getnetent ,

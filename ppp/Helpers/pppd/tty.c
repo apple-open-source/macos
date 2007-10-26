@@ -184,6 +184,14 @@ uid_t	connector_uid = -1;	/* uid for connect script */
 uid_t	disconnector_uid = -1;	/*uid for disconnect script */
 char	*terminal_script = NULL;/* Script to etablish connection once modem is connected */
 char	*altconnect_script = NULL;/* alternate script to establish physical link */
+char	*altconnect_data = NULL;/* alternate connect data top pipe to the script */
+int		altconnect_data_len = 0;/* alternate connect data length */
+char	*connect_data = NULL;/* connect data top pipe to the script */
+int		connect_data_len = 0;/* connect data length */
+char	*disconnect_data = NULL;/* disconnect data top pipe to the script */
+int		disconnect_data_len = 0;/* disconnect data length */
+char	*terminal_data = NULL;/* terminal data top pipe to the script */
+int		terminal_data_len = 0;/* terminal data length */
 int 	pty_delay = 0;		/* timeout to wait for the pty command */
 #endif
 char	*disconnect_script = NULL; /* Script to disestablish physical link */
@@ -591,8 +599,8 @@ int connect_tty(int *errorcode)
 int connect_tty()
 #endif
 {
-	char *connector;
-	int fdflags;
+	char *connector, *connector_data = NULL;
+	int fdflags, connector_data_len = 0;
 	struct stat statbuf;
 	char numbuf[16];
 
@@ -644,6 +652,7 @@ int connect_tty()
 	 * in order to wait for the carrier detect signal from the modem.
 	 */
 	hungup = 0;
+	do_modem_hungup = 0;
 
 #ifdef __APPLE__
     // race condition, we can get the SIGTERM before we had time to start the connector
@@ -652,10 +661,23 @@ int connect_tty()
 #endif
 #ifdef __APPLE__
         // Fix me : alternate with call back
-        if (redialingalternate && altconnect_script)
+        if (redialingalternate && altconnect_script) {
             connector = altconnect_script;
-        else
-            connector = doing_callback? callback_script: connect_script;
+            connector_data = altconnect_data;
+            connector_data_len = altconnect_data_len;
+		}
+        else {
+			if (doing_callback) {
+				connector = callback_script;
+				connector_data = NULL;
+				connector_data_len = 0;
+			}
+			else {
+				connector = connect_script;
+				connector_data = connect_data;
+				connector_data_len = connect_data_len;
+			}
+		}
 #else
 	connector = doing_callback? callback_script: connect_script;
 #endif
@@ -754,7 +776,7 @@ int connect_tty()
 			(void) fcntl(ipipe[0], F_SETFD, FD_CLOEXEC);
 			(void) fcntl(opipe[1], F_SETFD, FD_CLOEXEC);
 
-			ok = device_script(ptycommand, opipe[0], ipipe[1], 1, -1) == 0
+			ok = device_script(ptycommand, opipe[0], ipipe[1], 1, -1, 0, 0) == 0
 				&& start_charshunt(ipipe[0], opipe[1]);
 			close(ipipe[0]);
 			close(ipipe[1]);
@@ -766,7 +788,7 @@ int connect_tty()
 #ifdef __APPLE__
                         notify(connectscript_started_notify, 0);
 #endif                                
-			if (device_script(ptycommand, pty_master, pty_master, 1, -1) < 0)
+			if (device_script(ptycommand, pty_master, pty_master, 1, -1, 0, 0) < 0)
 				return -1;
 			ttyfd = pty_slave;
 			close(pty_master);
@@ -807,7 +829,7 @@ int connect_tty()
 			if (kill_link) 	/* check if SIGTERM arrived before we had time to start the script */
                             return -1;
                         notify(initscript_started_notify, 0);
-			if (device_script(initializer, ttyfd, ttyfd, 0, -1) != 0) {
+			if (device_script(initializer, ttyfd, ttyfd, 0, -1, 0, 0) != 0) {
 #else
 			if (device_script(initializer, ttyfd, ttyfd, 0) < 0) {
 #endif
@@ -830,7 +852,7 @@ int connect_tty()
 			if (kill_link) 	/* check if SIGTERM arrived before we had time to start the script */
                             return -1;
                         notify(connectscript_started_notify, 0);
-			if ((*errorcode = device_script(connector, ttyfd, ttyfd, 0, connector_uid)) != 0) {
+			if ((*errorcode = device_script(connector, ttyfd, ttyfd, 0, connector_uid, connector_data, connector_data_len)) != 0) {
 #else
 			if (device_script(connector, ttyfd, ttyfd, 0) < 0) {
 #endif
@@ -890,8 +912,11 @@ int connect_tty()
 			set_up_tty(real_ttyfd, 0);
 #endif
 
-		if (doing_callback == CALLBACK_DIALIN)
+		if (doing_callback == CALLBACK_DIALIN) {
 			connector = NULL;
+			connector_data = NULL;
+			connector_data_len = 0;
+		}
 	}
 
 	/* reopen tty if necessary to wait for carrier */
@@ -937,7 +962,7 @@ int connect_tty()
                 if (terminal_window_hook)
                     *errorcode = (*terminal_window_hook)(terminal_script, ttyfd, ttyfd);
                 else
-                    *errorcode = device_script(terminal_script, ttyfd, ttyfd, 0, -1);
+                    *errorcode = device_script(terminal_script, ttyfd, ttyfd, 0, -1, terminal_data, terminal_data_len);
 
                 if (*errorcode) {
                     if (cancelcode != -1 && *errorcode == cancelcode) {
@@ -959,7 +984,7 @@ int connect_tty()
 	/* run welcome script, if any */
 	if (welcomer && welcomer[0]) {
 #ifdef __APPLE__
-		if (device_script(welcomer, ttyfd, ttyfd, 0, -1) != 0)
+		if (device_script(welcomer, ttyfd, ttyfd, 0, -1, 0, 0) != 0)
 #else
 		if (device_script(welcomer, ttyfd, ttyfd, 0) < 0)
 #endif
@@ -991,7 +1016,7 @@ void disconnect_tty()
 		set_up_tty(real_ttyfd, 1);
 #endif
 #ifdef __APPLE__
-	if (device_script(disconnect_script, ttyfd, ttyfd, 0, disconnector_uid) != 0) {
+	if (device_script(disconnect_script, ttyfd, ttyfd, 0, disconnector_uid, disconnect_data, disconnect_data_len) != 0) {
 #else
 	if (device_script(disconnect_script, ttyfd, ttyfd, 0) < 0) {
 #endif
@@ -1545,14 +1570,12 @@ sighup_tty(arg, sig)
     }
     
     if (!clocal && (state & TIOCM_CD) == 0) {
-        notice("Modem hangup");
         hungup = 1;
+		do_modem_hungup = 1;
         // it's OK to get a hangup during terminate phase
         if (phase != PHASE_TERMINATE && phase != PHASE_DISCONNECT) {
             status = EXIT_HANGUP;
         }
-        lcp_lowerdown(0);	/* serial link is no longer available */
-        link_terminated(0);
         return;
         }
     

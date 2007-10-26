@@ -7,6 +7,7 @@ BEGIN {
 
   if (-e 'test_dir') {            # running from test directory, not ..
     unshift(@INC, '../blib/lib');
+    unshift(@INC, '../lib');
   }
 }
 
@@ -23,7 +24,7 @@ use Digest::SHA1;
 my %files = (
 	"$prefix/t/data/nice/mime1" => [
 	  join("\n", 'multipart/alternative','text/plain',
-	             'multipart/mixed,text/richtext','application/andrew-inset'),
+	             'multipart/mixed,text/plain','application/andrew-inset'),
 	],
 
 	"$prefix/t/data/nice/mime2" => [
@@ -87,7 +88,17 @@ my %files = (
 	],
 );
 
-my $numtests = 0;
+# initialize SpamAssassin
+my $sa = Mail::SpamAssassin->new({
+    rules_filename => "$prefix/t/log/test_rules_copy",
+    site_rules_filename => "$prefix/t/log/test_default.cf",
+    userprefs_filename  => "$prefix/masses/spamassassin/user_prefs",
+    local_tests_only    => 1,
+    debug             => 0,
+    dont_copy_prefs   => 1,
+});
+
+my $numtests = 5;
 while ( my($k,$v) = each %files ) {
   $numtests += @{$v};
 }
@@ -96,12 +107,13 @@ plan tests => $numtests;
 
 foreach my $k ( sort keys %files ) {
   open(INP, $k) || die "Can't find $k:$!";
-  my $mail = Mail::SpamAssassin->parse(\*INP, 1);
+  my $mail = $sa->parse(\*INP, 1);
   close(INP);
 
   my $res = join("\n",$mail->content_summary());
-# print "---\n$res\n---\n";
-  ok( $res eq shift @{$files{$k}} );
+  my $want = shift @{$files{$k}};
+#  print "---$k---\n---\nGOT: $res\n---\nEXPECTED: $want\n---\n";
+  ok( $res eq $want );
   if ( @{$files{$k}} ) {
     my @parts = $mail->find_parts(qr/./,1);
 
@@ -118,10 +130,46 @@ foreach my $k ( sort keys %files ) {
 	  $res = Digest::SHA1::sha1_hex($parts[0]->decode());
 	}
 #	print ">> ",$parts[0]->{'type'}," = $res\n";
+#	print ">> ",$parts[0]->{'type'}," expected $_\n";
         $res = $res eq $_;
       }
       ok ( $res );
       shift @parts;
     }
   }
+  $mail->finish();
 }
+
+my @msg;
+my $subject;
+my $mail;
+
+@msg = ("Subject: =?ISO-8859-1?Q?a?=\n", "\n");
+$mail = $sa->parse(\@msg);
+$subject = $mail->get_header("Subject");
+$mail->finish();
+ok($subject eq "a\n");
+
+@msg = ("Subject: =?ISO-8859-1?Q?a?= b\n", "\n");
+$mail = $sa->parse(\@msg);
+$subject = $mail->get_header("Subject");
+$mail->finish();
+ok($subject eq "a b\n");
+
+@msg = ("Subject: =?ISO-8859-1?Q?a?=   \t =?ISO-8859-1?Q?b?=\n", "\n");
+$mail = $sa->parse(\@msg);
+$subject = $mail->get_header("Subject");
+$mail->finish();
+ok($subject eq "ab\n");
+
+@msg = ("Subject: =?ISO-8859-1?Q?a?=\n", " =?ISO-8859-1?Q?_b?=\n", "\n");
+$mail = $sa->parse(\@msg);
+$subject = $mail->get_header("Subject");
+$mail->finish();
+ok($subject eq "a b\n");
+
+@msg = ("Subject: =?ISO-8859-1?Q?a?=\n", " =?ISO-8859-1?Q?_b?= mem_brain =?  invalid ?=\n", "\n");
+$mail = $sa->parse(\@msg);
+$subject = $mail->get_header("Subject");
+$mail->finish();
+ok($subject eq "a b mem_brain =?  invalid ?=\n");

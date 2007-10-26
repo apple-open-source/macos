@@ -1,0 +1,245 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from ns1.hbc.co.jp (ns1.hbc.co.jp [61.198.23.22])
+	by sb7.songbird.com (8.12.11/8.12.11) with SMTP id k2R85CVU014206
+	for <gpc-talk-bounces@grizz.org>; Mon, 27 Mar 2006 00:05:13 -0800
+Message-Id: <200603270805.k2R85CVU014206@sb7.songbird.com>
+Received: (qmail 25914 invoked from network); 27 Mar 2006 17:04:37 +0900
+Received: from unknown (HELO pop.hbc.co.jp) (192.168.0.122)
+	by ns1.hbc.co.jp with SMTP; 27 Mar 2006 17:04:37 +0900
+Received: (qmail 29689 invoked for bounce); 27 Mar 2006 17:04:37 +0900
+Date: 27 Mar 2006 17:04:37 +0900
+From: MAILER-DAEMON@pop.hbc.co.jp
+To: gpc-talk-bounces@grizz.org
+Subject: failure notice
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: 
+
+He/Her is not HBC e-mail users.
+Check your send e-mail address.
+
+<crown@hbc.co.jp>:
+Sorry, no mailbox here by that name. vpopmail (#5.1.1)
+
+--- Below this line is a copy of the message.
+
+Return-Path: <gpc-talk-bounces@grizz.org>
+Received: (qmail 29686 invoked from network); 27 Mar 2006 17:04:37 +0900
+Received: from unknown (HELO PUMPKIN) (172.16.16.22)
+  by pop.hbc.co.jp with SMTP; 27 Mar 2006 17:04:37 +0900
+Received: from ns1.hbc.co.jp ([192.168.0.22]) by PUMPKIN with InterScan Messaging Security Suite; Mon, 27 Mar 2006 17:24:52 +0900
+Received: (qmail 25911 invoked from network); 27 Mar 2006 17:04:36 +0900
+Received: from unknown (HELO sb7.songbird.com) (208.184.79.137)
+  by ns1.hbc.co.jp with SMTP; 27 Mar 2006 17:04:36 +0900
+Received: from sb7.songbird.com (sb7.songbird.com [127.0.0.1])
+	by sb7.songbird.com (8.12.11/8.12.11) with ESMTP id k2R853Ol014177
+	for <crown@hbc.co.jp>; Mon, 27 Mar 2006 00:05:03 -0800
+Subject: The results of your email commands
+From: gpc-talk-bounces@grizz.org
+To: crown@hbc.co.jp
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============0630961367=="
+Message-ID: <mailman.2720.1143446702.1567.gpc-talk@grizz.org>
+Date: Mon, 27 Mar 2006 00:05:02 -0800
+Precedence: bulk
+X-BeenThere: gpc-talk@grizz.org
+X-Mailman-Version: 2.1.5
+List-Id: Grizzly Peak Cyclists general discussion list <gpc-talk.grizz.org>
+X-List-Administrivia: yes
+Sender: gpc-talk-bounces@grizz.org
+Errors-To: gpc-talk-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: gpc-talk-bounces@grizz.org
+
+--===============0630961367==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+The results of your email command are provided below. Attached is your
+original message.
+
+- Results:
+    Ignoring non-text/plain MIME parts
+
+- Unprocessed:
+    =20
+    Do you want to b O f V e E u R w P l A f Y for your c M l e b d d i b c
+    i a l t w i x o o n x s?
+    =20
+    I don't think you need it, c S y A o V d E p 5 w 0 h % with
+    http://soki65.kapermet.com
+
+- Done.
+
+
+--===============0630961367==
+Content-Type: message/rfc822
+MIME-Version: 1.0
+
+Return-Path: <crown@hbc.co.jp>
+Received: from hbc.co.jp (200-202-221-208.caboja.speeduol.com.br
+	[200.202.221.208])
+	by sb7.songbird.com (8.12.11/8.12.11) with SMTP id k2R84qts014129
+	for <gpc-talk-request@grizz.org>; Mon, 27 Mar 2006 00:04:55 -0800
+Message-ID: <000001c65174$f9cbb150$e45ea8c0@xxe54>
+Reply-To: "Radomila Crown" <crown@hbc.co.jp>
+From: "Radomila Crown" <crown@hbc.co.jp>
+To: gpc-talk-request@grizz.org
+Subject: Re: new
+Date: Mon, 27 Mar 2006 03:03:47 -0500
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_000_0001_01C6514B.10F5A950"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2800.1106
+X-MimeOLE: Produced By Microsoft MimeOLE V6.00.2800.1106
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: crown@hbc.co.jp
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0001_01C6514B.10F5A950
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+Hi,
+=20
+Do you want to b O f V e E u R w P l A f Y for your c M l e b d d i b c
+i a l t w i x o o n x s?
+=20
+I don't think you need it, c S y A o V d E p 5 w 0 h % with
+http://soki65.kapermet.com
+
+------=_NextPart_000_0001_01C6514B.10F5A950
+Content-Type: text/html;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=3DContent-Type content=3D"text/html; =
+charset=3Dus-ascii">
+<META content=3D"MSHTML 6.00.2800.1106" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV>Hi,</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>Do you want to <span style=3D"
+float
+:
+right
+"> b </span>O<span style=3D"
+float
+:
+right
+"> f </span>V<span style=3D"
+float
+:
+right
+"> e </span>E<span style=3D"
+float
+:
+right
+"> u </span>R<span style=3D"
+float
+:
+right
+"> w </span>P<span style=3D"
+float
+:
+right
+"> l </span>A<span style=3D"
+float
+:
+right
+"> f </span>Y for your <span style=3D"
+float
+:
+right
+"> c </span>M<span style=3D"
+float
+:
+right
+"> l </span>e<span style=3D"
+float
+:
+right
+"> b </span>d<span style=3D"
+float
+:
+right
+"> d </span>i<span style=3D"
+float
+:
+right
+"> b </span>c<span style=3D"
+float
+:
+right
+"> i </span>a<span style=3D"
+float
+:
+right
+"> l </span>t<span style=3D"
+float
+:
+right
+"> w </span>i<span style=3D"
+float
+:
+right
+"> x </span>o<span style=3D"
+float
+:
+right
+"> o </span>n<span style=3D"
+float
+:
+right
+"> x </span>s?</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>I don't think you need it, <span style=3D"
+float
+:
+right
+"> c </span>S<span style=3D"
+float
+:
+right
+"> y </span>A<span style=3D"
+float
+:
+right
+"> o </span>V<span style=3D"
+float
+:
+right
+"> d </span>E <span style=3D"
+float
+:
+right
+"> p </span>5<span style=3D"
+float
+:
+right
+"> w </span>0<span style=3D"
+float
+:
+right
+"> h </span>% with <A =
+href=3D"http://soki65.kapermet.com">http://soki65.kapermet.com</A></DIV><=
+/BODY></HTML>
+------=_NextPart_000_0001_01C6514B.10F5A950--
+
+
+
+
+--===============0630961367==--
+
+

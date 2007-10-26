@@ -1,0 +1,15 @@
+--- src/move.c.orig	2005-05-13 12:34:54.000000000 -0700
++++ src/move.c	2005-05-13 11:06:06.000000000 -0700
+@@ -2614,6 +2614,12 @@ get_scroll_overlap(lp, dir)
+ 	return;
+     }
+ 
++    if (Unix2003_compat) {
++	if (p_window_unix2003) {
++		*lp = loff1;	/* one line overlap only */
++		return;
++	}
++    }
+     loff2 = *lp;
+     if (dir > 0)
+ 	botline_forw(lp);

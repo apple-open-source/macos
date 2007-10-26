@@ -26,6 +26,7 @@
 #include "event-top.h"
 #include "inf-loop.h"
 #include "remote.h"
+#include "exceptions.h"
 
 static int fetch_inferior_event_wrapper (gdb_client_data client_data);
 static void complete_execution (void);
@@ -44,10 +45,12 @@ void
 inferior_event_handler (enum inferior_event_type event_type, 
 			gdb_client_data client_data)
 {
+  struct gdb_exception e;
+
   switch (event_type)
     {
     case INF_ERROR:
-      printf_unfiltered ("error detected from target.\n");
+      printf_unfiltered (_("error detected from target.\n"));
       target_async (NULL, 0);
       pop_target ();
       discard_all_continuations ();
@@ -59,13 +62,25 @@ inferior_event_handler (enum inferior_event_type event_type,
 	 fetch_inferior_event (i.e. readchar) can return meaningful
 	 error status.  If an error occurs while getting an event from
 	 the target, just get rid of the target. */
-      if (!catch_errors (fetch_inferior_event_wrapper, 
-			 client_data, "", RETURN_MASK_ALL))
+
+      TRY_CATCH (e, RETURN_MASK_ERROR)
+	{
+	  fetch_inferior_event (client_data);
+	}
+
+      if (e.reason == RETURN_ERROR)
 	{
 	  target_async (NULL, 0);
+	  warning ("Got an error handling event: \"%s\".",
+		   e.message);
+	  if (ui_out_is_mi_like_p (uiout))
+	    ui_out_field_string (uiout, "message", e.message);
+
 	  /* pop_target (); */
 	  discard_all_continuations ();
+	  
 	  do_exec_error_cleanups (ALL_CLEANUPS);
+
           /* FIXME: We don't really have enough information to know
              what happened to the inferior here.  However, we are
              treating it like the target is not running, so we better
@@ -122,7 +137,7 @@ inferior_event_handler (enum inferior_event_type event_type,
 
     case INF_TIMER:
     default:
-      printf_unfiltered ("Event type not recognized.\n");
+      printf_unfiltered (_("Event type not recognized.\n"));
       break;
     }
 }
@@ -151,5 +166,7 @@ complete_execution (void)
   if (sync_execution)
     {
       do_exec_error_cleanups (ALL_CLEANUPS);
+      /* APPLE LOCAL async */
+      /* Remove chatty code.  */
     }
 }

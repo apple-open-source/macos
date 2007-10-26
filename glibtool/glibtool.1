@@ -2,56 +2,56 @@
 .Dt GLIBTOOL 1
 .Os GNU
 .Sh NAME
-.Nm glibtool
-.Nd generic library support script
+.Nm glibtool ,
+.Nm glibtoolize
+.Nd generic shared library support
 .Sh SYNOPSIS
-.Nm
+.Nm glibtool
+.Op arguments
+.Nm glibtoolize
 .Op arguments
 .Sh DESCRIPTION
-.Nm
-is a script that allows package
-developers to provide generic shared library support.
-It is actual the GNU
+.Nm glibtool
+and
+.Nm glibtoolize
+are scripts that provide generic shared library support to package
+developers.
+It is actually the GNU
 .Nm libtool
-script, renamed to avoid conflict with the Apple-provided
+and
+.Nm libtoolize
+scripts, renamed to avoid conflict with the Apple-provided
 .Xr libtool 1 .
 .Pp
-This manual page describes the additional features added to
+As of version 1.5.22, better Mac OS X support is provided.
+The
+.Fl arch ,
+.Fl framework
+and
+.Fl isysroot
+options are now passed to the compiler/linker as would be expected.
+Bundles can be built using the
+.Fl "-undefined dynamic_lookup"
+link option, if
+the MACOSX_DEPLOYMENT_TARGET environment variable is set to
+.Li 10.3
+or greater.
+.Pp
+The rest of this manual page describes the additional features added to
 .Nm glibtool
 for Mac OS X.
 More general documentation is listed below.
 .Sh ADDITIONS
-.Nm
+.Nm glibtool
 uses the tilde ``~'' character to separate command sequences.
 Obviously, pathnames containing tildes can cause problems.
 So an environment variable, LIBTOOL_CMD_SEP, was added to specify an
 alternate separator character.
 Note that same control characters are ignored by the shell; CTRL-B and CTRL-Z
 seem to work fine, while CTRL-A and DELETE do not.
-.Pp
-Multi-architecture support is improved.
-Projects can build fat, and fat binaries can now be extracted from fat archives
-(an
-.Xr ar 1
-archive containing fat binaries is converted by
-.Xr ranlib 1
-to a fat file containing multiple archives, which
-.Xr ar 1
-can no longer process).
-.Pp
-Bundles can be built with the new
-.Fl "-undefined dynamic_lookup"
-link option, if:
-.Bl -enum -offset indent -compact
-.It
-The MACOSX_DEPLOYMENT_TARGET environment variable is set to
-.Li 10.3 ,
-.It
-The LD_TWOLEVEL_NAMESPACE environment variable is non-empty.
-.El
 .Sh SEE ALSO
 .Xr ar 1 ,
 .Xr libtool 1 ,
 .Xr ranlib 1
 .Pp
-.Pa /Developer/Documentation/DeveloperTools/glibtool
+.Pa "/Developer/ADC Reference Library/documentation/DeveloperTools/glibtool"

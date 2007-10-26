@@ -25,41 +25,9 @@
 #define __PPPCONTROLLERPRIV_H__
 
 /*
- * OnDemand keys 
+ * Keys have moved to SystemConfiguration Framework
+ *  SCSchemaDefinitions.h and SCSchemaDefinitionsPrivate.h 
  */
-
-/*
- * Keys passed by the Application or by CFNetwork 
- */
-
-#define kSCPropNetPPPOnDemandHostName			CFSTR("OnDemandHostName")
-#define kSCPropNetPPPOnDemandPriority			CFSTR("OnDemandPriority")
-#define kSCValNetPPPOnDemandPriorityHigh		CFSTR("High")
-#define kSCValNetPPPOnDemandPriorityLow			CFSTR("Low")
-#define kSCValNetPPPOnDemandPriorityDefault		CFSTR("Default")
-
-/*
- * Keys set in the Preferences 
- */
-
-#define kSCPropNetPPPOnDemandEnabled			CFSTR("OnDemandEnabled")
-#define kSCPropNetPPPOnDemandDomains			CFSTR("OnDemandDomains")
-#define kSCPropNetPPPOnDemandMode				CFSTR("OnDemandMode")
-
-#define kSCValNetPPPOnDemandModeAggressive		CFSTR("Aggressive")
-#define kSCValNetPPPOnDemandModeConservative	CFSTR("Conservative")
-#define kSCValNetPPPOnDemandModeCompatible		CFSTR("Compatible")
-
-
-/*
- * IPSec keys 
- */
-
-#define kSCEntNetIPSec							CFSTR("IPSec")
-
-#define kSCPropNetIPSecSharedSecret				CFSTR("SharedSecret")
-#define kSCPropNetIPSecSharedSecretEncryption	CFSTR("SharedSecretEncryption")
-#define kSCValNetIPSecSharedSecretEncryptionKeychain	CFSTR("Keychain")
 
 
 #endif

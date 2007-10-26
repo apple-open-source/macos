@@ -12,8 +12,8 @@ NAME = file_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = chflags chmod chown compress cp dd df du install ipcrm ipcs ln ls\
-        mkdir mkfifo mknod mtree mv pathchk pax rm rmdir rmt shar stat tcopy\
+TOOLS = chflags chmod chown cksum compress cp dd df du install ipcrm ipcs ln ls\
+        mkdir mkfifo mknod mtree mv pathchk pax rm rmdir rmt shar stat\
         touch
 
 OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble

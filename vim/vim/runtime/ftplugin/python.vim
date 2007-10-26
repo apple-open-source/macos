@@ -1,7 +1,7 @@
 " Vim filetype plugin file
 " Language:	python
 " Maintainer:	Johannes Zellner <johannes@zellner.org>
-" Last Change:	Sat, 24 May 2003 12:23:01 CEST
+" Last Change:	Wed, 21 Apr 2004 13:13:08 CEST
 
 if exists("b:did_ftplugin") | finish | endif
 let b:did_ftplugin = 1
@@ -9,12 +9,12 @@ let b:did_ftplugin = 1
 setlocal cinkeys-=0#
 setlocal indentkeys-=0#
 setlocal include=\s*\\(from\\\|import\\)
+setlocal includeexpr=substitute(v:fname,'\\.','/','g')
 setlocal suffixesadd=.py
-" setlocal comments-=:%
+setlocal comments-=:%
 setlocal commentstring=#%s
 
-" Python always uses a 'tabstop' of 8.
-setlocal ts=8
+setlocal omnifunc=pythoncomplete#Complete
 
 set wildignore+=*.pyc
 

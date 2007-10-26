@@ -114,7 +114,7 @@
 			struct pam_response *resp;
 
 			pmsg[0] = &msg[0];
-			msg[0].msg = text;
+			msg[0].msg = CONST_DISCARD(char *, text);
 			msg[0].msg_style = type;
 			resp = NULL;
 
@@ -167,7 +167,7 @@ int set_ctrl( int flags, int argc, const char **argv )
 
     /* Read some options from the Samba config. Can be overridden by
        the PAM config. */
-    if(lp_load(service_file,True,False,False) == False) {
+    if(lp_load(service_file,True,False,False,True) == False) {
 	_log_err( LOG_ERR, "Error loading service file %s", service_file );
     }
 
@@ -232,23 +232,23 @@ void _cleanup( pam_handle_t * pamh, void *x, int error_status )
  */
 char * smbpXstrDup( const char *x )
 {
-    register char *new = NULL;
+    register char *newstr = NULL;
 
     if (x != NULL) {
         register int i;
 
         for (i = 0; x[i]; ++i); /* length of string */
-        if ((new = malloc(++i)) == NULL) {
+        if ((newstr = SMB_MALLOC_ARRAY(char, ++i)) == NULL) {
             i = 0;
             _log_err( LOG_CRIT, "out of memory in smbpXstrDup" );
         } else {
             while (i-- > 0) {
-                new[i] = x[i];
+                newstr[i] = x[i];
             }
         }
         x = NULL;
     }
-    return new;			/* return the duplicate or NULL on error */
+    return newstr;			/* return the duplicate or NULL on error */
 }
 
 /* ************************************************************** *
@@ -305,7 +305,7 @@ void _cleanup_failures( pam_handle_t * pamh, void *fl, int err )
     }
 }
 
-int _smb_verify_password( pam_handle_t * pamh, SAM_ACCOUNT *sampass,
+int _smb_verify_password( pam_handle_t * pamh, struct samu *sampass,
 			  const char *p, unsigned int ctrl )
 {
     uchar lm_pw[16];
@@ -344,7 +344,7 @@ int _smb_verify_password( pam_handle_t * pamh, SAM_ACCOUNT *sampass,
         }
     }
 
-    data_name = (char *) malloc( sizeof(FAIL_PREFIX) + strlen( name ));
+    data_name = SMB_MALLOC_ARRAY(char, sizeof(FAIL_PREFIX) + strlen( name ));
     if (data_name == NULL) {
         _log_err( LOG_CRIT, "no memory for data-name" );
     }
@@ -374,22 +374,21 @@ int _smb_verify_password( pam_handle_t * pamh, SAM_ACCOUNT *sampass,
         pam_get_item( pamh, PAM_SERVICE, (const void **)&service );
 
         if (data_name != NULL) {
-            struct _pam_failed_auth *new = NULL;
+            struct _pam_failed_auth *newauth = NULL;
             const struct _pam_failed_auth *old = NULL;
 
             /* get a failure recorder */
 
-            new = (struct _pam_failed_auth *)
-                      malloc( sizeof(struct _pam_failed_auth) );
+            newauth = SMB_MALLOC_P( struct _pam_failed_auth );
 
-            if (new != NULL) {
+            if (newauth != NULL) {
 
                 /* any previous failures for this user ? */
                 pam_get_data(pamh, data_name, (const void **) &old);
 
                 if (old != NULL) {
-                    new->count = old->count + 1;
-                    if (new->count >= SMB_MAX_RETRIES) {
+                    newauth->count = old->count + 1;
+                    if (newauth->count >= SMB_MAX_RETRIES) {
                         retval = PAM_MAXTRIES;
                     }
                 } else {
@@ -397,17 +396,17 @@ int _smb_verify_password( pam_handle_t * pamh, SAM_ACCOUNT *sampass,
                       "failed auth request by %s for service %s as %s",
                       uidtoname(getuid()),
                       service ? service : "**unknown**", name);
-                    new->count = 1;
+                    newauth->count = 1;
                 }
-		if (!NT_STATUS_IS_OK(sid_to_uid(pdb_get_user_sid(sampass), &(new->id)))) {
+		if (!sid_to_uid(pdb_get_user_sid(sampass), &(newauth->id))) {
                     _log_err(LOG_NOTICE,
                       "failed auth request by %s for service %s as %s",
                       uidtoname(getuid()),
                       service ? service : "**unknown**", name);
 		}		
-                new->user = smbpXstrDup( name );
-                new->agent = smbpXstrDup( uidtoname( getuid() ) );
-                pam_set_data( pamh, data_name, new, _cleanup_failures );
+                newauth->user = smbpXstrDup( name );
+                newauth->agent = smbpXstrDup( uidtoname( getuid() ) );
+                pam_set_data( pamh, data_name, newauth, _cleanup_failures );
 
             } else {
                 _log_err( LOG_CRIT, "no memory for failure recorder" );
@@ -438,7 +437,7 @@ int _smb_verify_password( pam_handle_t * pamh, SAM_ACCOUNT *sampass,
  * - to avoid prompting for one in such cases (CG)
  */
 
-int _smb_blankpasswd( unsigned int ctrl, SAM_ACCOUNT *sampass )
+int _smb_blankpasswd( unsigned int ctrl, struct samu *sampass )
 {
 	int retval;
 
@@ -516,7 +515,7 @@ int _smb_read_password( pam_handle_t * pamh, unsigned int ctrl,
     if (comment != NULL && off(SMB__QUIET, ctrl)) {
         pmsg[0] = &msg[0];
         msg[0].msg_style = PAM_TEXT_INFO;
-        msg[0].msg = comment;
+        msg[0].msg = CONST_DISCARD(char *, comment);
         i = 1;
     } else {
         i = 0;
@@ -524,12 +523,12 @@ int _smb_read_password( pam_handle_t * pamh, unsigned int ctrl,
 
     pmsg[i] = &msg[i];
     msg[i].msg_style = PAM_PROMPT_ECHO_OFF;
-    msg[i++].msg = prompt1;
+    msg[i++].msg = CONST_DISCARD(char *, prompt1);
 
     if (prompt2 != NULL) {
         pmsg[i] = &msg[i];
         msg[i].msg_style = PAM_PROMPT_ECHO_OFF;
-        msg[i++].msg = prompt2;
+        msg[i++].msg = CONST_DISCARD(char *, prompt2);
         expect = 2;
     } else
         expect = 1;

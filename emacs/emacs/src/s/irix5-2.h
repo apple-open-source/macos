@@ -1,8 +1,8 @@
 #include "irix5-0.h"
 
-/* as of version 5.2, irix no longer uses flock, 
+/* as of version 5.2, irix no longer uses flock,
    according to jackr@wpd.sgi.com.  */
-#undef MAIL_USE_FLOCK 
+#undef MAIL_USE_FLOCK
 
 /* C-g in select is not handled properly with restartable
    system calls.  So don't use them.  */
@@ -16,3 +16,6 @@
    for jpff@maths.bath.ac.uk.
    Note that irix6-0.h does not include this file, only irix5-0.h.  */
 #define NO_WTMP_FILE
+
+/* arch-tag: e2f820c1-2a3e-4cee-b5f1-6ce8ab21f439
+   (do not change this comment) */

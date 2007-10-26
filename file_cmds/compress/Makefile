@@ -17,7 +17,7 @@ CFILES = compress.c zopen.c
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble compress.1\
             zopen.3 uncompress.1 zopen.h
 
-NEXTSTEP_PB_CFLAGS += -D__FBSDID=__RCSID -D"__printflike(a,b)="
+NEXTSTEP_PB_CFLAGS += -D__FBSDID=__RCSID
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

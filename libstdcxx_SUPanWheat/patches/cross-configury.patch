@@ -1,0 +1,124 @@
+diff -upr libstdcxx-orig/libstdcxx/libstdc++-v3/acinclude.m4 libstdc++-v3/acinclude.m4
+--- libstdcxx-orig/libstdcxx/libstdc++-v3/acinclude.m4	2005-08-03 10:39:07.000000000 -0700
++++ libstdc++-v3/acinclude.m4	2005-08-03 14:45:02.000000000 -0700
+@@ -626,13 +626,13 @@ dnl Substs:
+ dnl  baseline_dir
+ dnl
+ AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
+-  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes; then
+-    # Do checks for resource limit functions.
+-    GLIBCXX_CHECK_SETRLIMIT
++  # Do checks for resource limit functions.
++  GLIBCXX_CHECK_SETRLIMIT
+ 
+-    # Look for setenv, so that extended locale tests can be performed.
+-    GLIBCXX_CHECK_STDLIB_DECL_AND_LINKAGE_3(setenv)
++  # Look for setenv, so that extended locale tests can be performed.
++  GLIBCXX_CHECK_STDLIB_DECL_AND_LINKAGE_3(setenv)
+ 
++  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes; then
+     if test $enable_symvers = no; then
+       enable_abi_check=no
+     else
+diff -upr libstdcxx-orig/libstdcxx/libstdc++-v3/configure libstdc++-v3/configure
+--- libstdcxx-orig/libstdcxx/libstdc++-v3/configure	2005-08-03 10:39:07.000000000 -0700
++++ libstdc++-v3/configure	2005-08-03 14:45:58.000000000 -0700
+@@ -1542,7 +1542,24 @@ target_alias=${target_alias-$host_alias}
+ if test "$build" != "$host"; then
+   # We are being configured with some form of cross compiler.
+   GLIBCXX_IS_NATIVE=false
++  case "$host","$target" in
++    # Darwin crosses can use the host system's libraries and headers,
++    # because of the fat library support.  Of course, it must be the
++    # same version of Darwin on both sides.  Allow the user to
++    # just say --target=foo-darwin without a version number to mean
++    # "the version on this system".
++      *-*-darwin*,*-*-darwin*)
++	hostos=`echo $host | sed 's/.*-darwin/darwin/'`
++	targetos=`echo $target | sed 's/.*-darwin/darwin/'`
++	if test $hostos = $targetos -o $targetos = darwin ; then
++	  GLIBCXX_IS_NATIVE=true
++	fi
++	;;
++
++      *)
+ 
++	;;
++  esac
+ else
+   GLIBCXX_IS_NATIVE=true
+ fi
+@@ -4390,7 +4407,7 @@ test x"$pic_mode" = xno && libtool_flags
+ case $host in
+ *-*-irix6*)
+   # Find out which ABI we are using.
+-  echo '#line 4393 "configure"' > conftest.$ac_ext
++  echo '#line 4410 "configure"' > conftest.$ac_ext
+   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+   (eval $ac_compile) 2>&5
+   ac_status=$?
+@@ -5011,7 +5028,7 @@ fi;
+     #
+     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
+     cat > conftest.$ac_ext << EOF
+-#line 5014 "configure"
++#line 5031 "configure"
+ struct S { ~S(); };
+ void bar();
+ void foo()
+@@ -98357,8 +98374,7 @@ echo "$as_me: versioning on shared libra
+ 
+ # This depends on GLIBCXX_ENABLE_SYMVERS and GLIBCXX_IS_NATIVE.
+ 
+-  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes; then
+-    # Do checks for resource limit functions.
++  # Do checks for resource limit functions.
+ 
+   setrlimit_have_headers=yes
+ 
+@@ -98869,7 +98885,7 @@ _ACEOF
+ echo "${ECHO_T}$ac_res_limits" >&6
+ 
+ 
+-    # Look for setenv, so that extended locale tests can be performed.
++  # Look for setenv, so that extended locale tests can be performed.
+ 
+   echo "$as_me:$LINENO: checking for setenv declaration" >&5
+ echo $ECHO_N "checking for setenv declaration... $ECHO_C" >&6
+@@ -99054,6 +99070,7 @@ done
+   fi
+ 
+ 
++  if $GLIBCXX_IS_NATIVE && test $is_hosted = yes; then
+     if test $enable_symvers = no; then
+       enable_abi_check=no
+     else
+diff -upr libstdcxx-orig/libstdcxx/libstdc++-v3/configure.ac libstdc++-v3/configure.ac
+--- libstdcxx-orig/libstdcxx/libstdc++-v3/configure.ac	2005-01-03 13:31:33.000000000 -0800
++++ libstdc++-v3/configure.ac	2005-08-03 14:44:28.000000000 -0700
+@@ -42,7 +42,24 @@ target_alias=${target_alias-$host_alias}
+ if test "$build" != "$host"; then
+   # We are being configured with some form of cross compiler.
+   GLIBCXX_IS_NATIVE=false
+-  GCC_NO_EXECUTABLES
++  case "$host","$target" in
++    # Darwin crosses can use the host system's libraries and headers,
++    # because of the fat library support.  Of course, it must be the
++    # same version of Darwin on both sides.  Allow the user to
++    # just say --target=foo-darwin without a version number to mean
++    # "the version on this system".
++      *-*-darwin*,*-*-darwin*)
++	hostos=`echo $host | sed 's/.*-darwin/darwin/'`
++	targetos=`echo $target | sed 's/.*-darwin/darwin/'`
++	if test $hostos = $targetos -o $targetos = darwin ; then
++	  GLIBCXX_IS_NATIVE=true
++	fi
++	;;
++
++      *)
++	GCC_NO_EXECUTABLES
++	;;
++  esac
+ else
+   GLIBCXX_IS_NATIVE=true
+ fi

@@ -2,8 +2,9 @@
 /* Test if ObjC strings play nice with -fwritable-strings.  */
 /* Author: Ziemowit Laski  */
 
-/* { dg-options "-fno-constant-cfstrings -fwritable-strings -fconstant-string-class=Foo" } */
+/* { dg-options "-fno-constant-cfstrings -fwritable-strings -fconstant-string-class=Foo -mmacosx-version-min=10.4" } */
 /* { dg-do run { target *-*-darwin* } } */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 #include <objc/Object.h>
 #include <stdlib.h>

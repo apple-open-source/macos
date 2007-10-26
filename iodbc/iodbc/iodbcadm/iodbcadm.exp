@@ -4,6 +4,9 @@ _iodbcdm_drvchoose_dialbox
 _iodbcdm_trschoose_dialbox
 _iodbcdm_nativeerrorbox
 _iodbcdm_errorbox
+_iodbcdm_errorboxw
 _iodbcdm_messagebox
+_iodbcdm_messageboxw
 _iodbcdm_admin_dialbox
 iodbcadm_version
+create_confirm

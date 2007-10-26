@@ -2,8 +2,8 @@
 
   inits.c -
 
-  $Author: dave $
-  $Date: 2003/12/19 03:58:57 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Tue Dec 28 16:01:58 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -45,6 +45,7 @@ void Init_Struct _((void));
 void Init_Time _((void));
 void Init_var_tables _((void));
 void Init_version _((void));
+void Init_DTracer _((void));
 
 void
 rb_call_inits()
@@ -81,4 +82,5 @@ rb_call_inits()
     Init_GC();
     Init_marshal();
     Init_version();
+    Init_DTracer();
 }

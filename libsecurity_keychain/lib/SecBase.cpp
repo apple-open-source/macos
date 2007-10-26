@@ -23,6 +23,7 @@
 
 #include <Security/SecBasePriv.h>
 #include <Security/SecKeychainPriv.h>
+#include <security_utilities/threading.h>
 #include "SecBridge.h"
 
 static CFStringRef copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName);
@@ -37,7 +38,24 @@ SecCopyErrorMessageString(OSStatus status, void *reserved)
 {
 	try
 	{
-		return copyErrorMessageFromBundle(status,CFSTR("SecErrorMessages"));
+		CFStringRef result = copyErrorMessageFromBundle(status,CFSTR("SecErrorMessages"));
+		if (result == NULL)
+			result = copyErrorMessageFromBundle(status,CFSTR("SecDebugErrorMessages"));
+		
+		if (result == NULL)
+		{
+			if (status >= errSecErrnoBase && status <= errSecErrnoLimit)
+			{
+				result = CFStringCreateWithFormat (NULL, NULL, CFSTR("UNIX[%s]"), strerror(status-errSecErrnoBase));
+			}
+			else
+			{
+				// no error message found, so format a faked-up error message from the status
+				result = CFStringCreateWithFormat(NULL, NULL, CFSTR("OSStatus %d"), status);
+			}
+		}
+		
+		return result;
 	}
 	catch (...)
 	{
@@ -51,25 +69,12 @@ cssmPerror(const char *how, CSSM_RETURN error)
 {
 	try
 	{
-		string err;
-		if (CFStringRef errs = copyErrorMessageFromBundle(error, CFSTR("SecErrorMessages")))
-		{
-			err = cfString(errs);
-			CFRelease(errs);
-		}
-
-		if (err.empty())
-		{
-			fprintf(stderr, "%s: %ld\n", how ? how : "error", error);
-		}
-		else
-		{
-			fprintf(stderr, "%s: %s\n", how ? how : "error", err.c_str());
-		}
+		const char* errMsg = cssmErrorString(error);
+		fprintf(stderr, "%s: %s\n", how ? how : "error", errMsg);
 	}
 	catch (...)
 	{
-		fprintf(stderr, "failed to print error: %ld\n", error);
+		fprintf(stderr, "failed to print error: %lu\n", (unsigned long)error);
 	}
 }
 
@@ -77,29 +82,50 @@ cssmPerror(const char *how, CSSM_RETURN error)
 const char *
 cssmErrorString(CSSM_RETURN error)
 {
+	static ThreadNexus<string> lastError;
+	
 	try {
-		string err = cfString(copyErrorMessageFromBundle(error, CFSTR("SecErrorMessages")), true);
+		string err;
+		
+		if (error >= errSecErrnoBase && error <= errSecErrnoLimit)
+		{
+			err = string ("UNIX[") + strerror(error - errSecErrnoBase) + "]";
+		}
+		else
+		{
+			CFStringRef result = copyErrorMessageFromBundle(error,CFSTR("SecErrorMessages"));
+			if (result == NULL)
+				result = copyErrorMessageFromBundle(error,CFSTR("SecDebugErrorMessages"));
+			err = cfString(result, true);
+		}
+		
 		if (err.empty())
 		{
 			char buf[200];
-			snprintf(buf, sizeof(buf), "unknown error %ld=%lx", error, error);
+			snprintf(buf, sizeof(buf), "unknown error %ld=%lx", (long) error, (long) error);
 			err = buf;
 		}
 
-		static ThreadNexus<string> lastError;
 		lastError() = err;
 		return lastError().c_str();
 	}
 	catch (...)
 	{
-		return "cannot translate error code";
+		char buf[256];
+		snprintf (buf, sizeof (buf), "unknown error %ld=%lx", (long) error, (long) error);
+		lastError() = buf;
+		return lastError().c_str();
 	}
 }
 
 
+static ModuleNexus<Mutex> gBundleLock;
+
 CFStringRef
 copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName)
 {
+	StLock<Mutex> _lock(gBundleLock());
+
     CFStringRef errorString = nil;
     CFStringRef keyString = nil;
     CFBundleRef secBundle = NULL;
@@ -115,7 +141,12 @@ copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName)
         goto xit;
 
 	errorString = CFCopyLocalizedStringFromTableInBundle(keyString,tableName,secBundle,NULL);
-    
+    if (CFStringCompare(errorString, keyString, 0)==kCFCompareEqualTo)	// no real error message
+	{
+		if (errorString)
+			CFRelease(errorString);	
+		 errorString = nil;
+	}
 xit:
     if (keyString)
         CFRelease(keyString);	

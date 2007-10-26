@@ -1,5 +1,6 @@
 /* Implementation of BDF font handling on the Microsoft W32 API.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,14 +16,18 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Based heavily on code by H. Miyashita for Meadow (a descendant of
    MULE for W32). */
 
 #include <windows.h>
-#include "config.h"
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "lisp.h"
 #include "charset.h"
 #include "keyboard.h"
@@ -33,9 +38,6 @@ Boston, MA 02111-1307, USA.  */
 #include "w32gui.h"
 #include "w32term.h"
 #include "w32bdf.h"
-
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#define max(a, b) ((a) > (b) ? (a) : (b))
 
 /* 10 planes */
 #define BDF_CODEPOINT_HEAP_INITIAL_SIZE (96 * 10)
@@ -53,7 +55,7 @@ cache_bitmap *pcached_bitmap_latest = cached_bitmap_slots;
 
 #define FONT_CACHE_SLOT_OVER_P(p) ((p) >= cached_bitmap_slots + BDF_FONT_CACHE_SIZE)
 
-static int 
+static int
 search_file_line(char *key, char *start, int len, char **val, char **next)
 {
   unsigned int linelen;
@@ -72,7 +74,7 @@ search_file_line(char *key, char *start, int len, char **val, char **next)
       *val = start + strlen(key);
       return 1;
     }
-  
+
   return 0;
 }
 
@@ -246,7 +248,7 @@ w32_init_bdf_font(char *filename)
     hbdf_bmp_heap = HeapCreate(0, BDF_BITMAP_HEAP_INITIAL_SIZE, 0);
 
   if (!hbdf_cp_heap || !hbdf_bmp_heap)
-    error("Fail to create heap for BDF.");
+    error("Fail to create heap for BDF");
 
   hfile = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
 		     OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -256,13 +258,13 @@ w32_init_bdf_font(char *filename)
       (fileinfo.nFileSizeLow > BDF_FILE_SIZE_MAX))
     {
       CloseHandle(hfile);
-      error("Fail to open BDF file.");
+      error("Fail to open BDF file");
     }
   hfilemap = CreateFileMapping(hfile, NULL, PAGE_READONLY, 0, 0, NULL);
   if (hfilemap == INVALID_HANDLE_VALUE)
     {
       CloseHandle(hfile);
-      error("Can't map font.");
+      error("Can't map font");
     }
 
   font = MapViewOfFile(hfilemap, FILE_MAP_READ, 0, 0, 0);
@@ -271,11 +273,11 @@ w32_init_bdf_font(char *filename)
     {
       CloseHandle(hfile);
       CloseHandle(hfilemap);
-      error("Can't view font.");
+      error("Can't view font");
     }
 
   bdffontp = (bdffont *) xmalloc(sizeof(bdffont));
-  
+
   for(i = 0;i < BDF_FIRST_OFFSET_TABLE;i++)
     bdffontp->chtbl[i] = NULL;
   bdffontp->size = fileinfo.nFileSizeLow;
@@ -284,7 +286,7 @@ w32_init_bdf_font(char *filename)
   bdffontp->hfilemap = hfilemap;
   bdffontp->filename = (char*) xmalloc(strlen(filename) + 1);
   strcpy(bdffontp->filename, filename);
-  
+
   if (!set_bdf_font_info(bdffontp))
     {
       w32_free_bdf_font(bdffontp);
@@ -363,7 +365,7 @@ cache_char_offset(bdffont *fontp, int index, unsigned char *offset)
     {
       pch = fontp->chtbl[BDF_FIRST_OFFSET(index)] =
 	(font_char*) HeapAlloc(hbdf_cp_heap,
-			       HEAP_ZERO_MEMORY, 
+			       HEAP_ZERO_MEMORY,
 			       sizeof(font_char) *
                                BDF_SECOND_OFFSET_TABLE);
       if (!pch) return NULL;
@@ -577,7 +579,7 @@ get_bitmap_with_cache(bdffont *fontp, int index)
   pcb->row_byte_size = glyph.row_byte_size;
 
   pch->pcbmp = pcb;
-  
+
   pcached_bitmap_latest++;
   if (FONT_CACHE_SLOT_OVER_P(pcached_bitmap_latest))
     pcached_bitmap_latest = cached_bitmap_slots;
@@ -603,7 +605,7 @@ create_offscreen_bitmap(HDC hdc, int width, int height, unsigned char **bitsp)
   info.c[1].rgbRed = info.c[1].rgbGreen = info.c[1].rgbBlue = 255;
 
   return CreateDIBSection(hdc, (LPBITMAPINFO)&info,
-			  DIB_RGB_COLORS, bitsp, NULL, 0);
+			  DIB_RGB_COLORS, (void **)bitsp, NULL, 0);
 }
 
 glyph_metric *
@@ -648,7 +650,7 @@ w32_BDF_TextOut(bdffont *fontp, HDC hdc, int left,
     return 0;
 
   textalign = GetTextAlign(hdc);
-  
+
   hFgBrush = CreateSolidBrush(GetTextColor(hdc));
   hOrgBrush = SelectObject(hdc, hFgBrush);
 
@@ -678,7 +680,7 @@ w32_BDF_TextOut(bdffont *fontp, HDC hdc, int left,
 	{
 	  width = pcb->metric.bbw;
 	  height = pcb->metric.bbh;
-	  
+
 	  if (!(hBMP
 		&& (DIBsection_hdc == hdc)
 		&& (DIBsection_width == width)
@@ -767,12 +769,16 @@ struct font_info *w32_load_bdf_font (struct frame *f, char *fontname,
 
   /* Now fill in the slots of *FONTP.  */
   BLOCK_INPUT;
+  bzero (fontp, sizeof (*fontp));
   fontp->font = font;
   fontp->font_idx = dpyinfo->n_fonts;
   fontp->name = (char *) xmalloc (strlen (fontname) + 1);
   bcopy (fontname, fontp->name, strlen (fontname) + 1);
   fontp->full_name = fontp->name;
-  fontp->size = FONT_WIDTH (font);
+  /* FIXME: look at BDF spec to see if there are better ways of finding
+     average_width and space_width, hopefully that don't involve working out
+     the values for ourselves from the data.  */
+  fontp->size = fontp->average_width = fontp->space_width = FONT_WIDTH (font);
   fontp->height = FONT_HEIGHT (font);
 
     /* The slot `encoding' specifies how to map a character
@@ -789,12 +795,19 @@ struct font_info *w32_load_bdf_font (struct frame *f, char *fontname,
     fontp->relative_compose = bdf_font->relative_compose;
     fontp->default_ascent = bdf_font->default_ascent;
 
+    /* Set global flag fonts_changed_p to non-zero if the font loaded
+       has a character with a smaller width than any other character
+       before, or if the font loaded has a smaller height than any
+       other font loaded before.  If this happens, it will make a
+       glyph matrix reallocation necessary.  */
+    fonts_changed_p |= x_compute_min_glyph_bounds (f);
+
     UNBLOCK_INPUT;
     dpyinfo->n_fonts++;
     return fontp;
 }
 
-/* Check a file for an XFLD string describing it.  */
+/* Check a file for an XLFD string describing it.  */
 int w32_BDF_to_x_font (char *file, char* xstr, int len)
 {
   HANDLE hfile, hfilemap;
@@ -858,3 +871,6 @@ int w32_BDF_to_x_font (char *file, char* xstr, int len)
   CloseHandle (hfilemap);
   return retval;
 }
+
+/* arch-tag: 2e9a45de-0c54-4a0e-95c8-2d67b2b1fa32
+   (do not change this comment) */

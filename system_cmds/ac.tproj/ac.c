@@ -37,7 +37,8 @@
  */
 
 #ifndef lint
-static char rcsid[] = "$Id: ac.c,v 1.1.1.2 2000/01/11 02:09:57 wsanchez Exp $";
+#include <sys/cdefs.h>
+__unused static char rcsid[] = "$Id: ac.c,v 1.2 2006/02/07 05:51:22 lindak Exp $";
 #endif
 
 #include <sys/types.h>
@@ -49,15 +50,17 @@ static char rcsid[] = "$Id: ac.c,v 1.1.1.2 2000/01/11 02:09:57 wsanchez Exp $";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <utmp.h>
+#include <utmpx.h>
 #include <unistd.h>
+
+#define UT_NAMESIZE 8 /* from utmp.h; only for formatting */
 
 /*
  * this is for our list of currently logged in sessions
  */
 struct utmp_list {
 	struct utmp_list *next;
-	struct utmp usr;
+	struct utmpx usr;
 };
 
 /*
@@ -65,7 +68,7 @@ struct utmp_list {
  */
 struct user_list {
 	struct user_list *next;
-	char	name[UT_NAMESIZE+1];
+	char	name[_UTX_USERSIZE+1];
 	time_t	secs;
 };
 
@@ -74,7 +77,7 @@ struct user_list {
  */
 struct tty_list {
 	struct tty_list *next;
-	char	name[UT_LINESIZE+3];
+	char	name[_UTX_USERSIZE+3];
 	int	len;
 	int	ret;
 };
@@ -104,12 +107,11 @@ static int Debug = 0;
 #endif
 
 int			main __P((int, char **));
-int			ac __P((FILE *));
+int			ac __P((void));
 struct tty_list		*add_tty __P((char *));
 int			do_tty __P((char *));
-FILE			*file __P((char *));
-struct utmp_list	*log_in __P((struct utmp_list *, struct utmp *));
-struct utmp_list	*log_out __P((struct utmp_list *, struct utmp *));
+struct utmp_list	*log_in __P((struct utmp_list *, struct utmpx *));
+struct utmp_list	*log_out __P((struct utmp_list *, struct utmpx *));
 int			on_console __P((struct utmp_list *));
 void			show __P((char *, time_t));
 void			show_today __P((struct user_list *, struct utmp_list *,
@@ -117,23 +119,6 @@ void			show_today __P((struct user_list *, struct utmp_list *,
 void			show_users __P((struct user_list *));
 struct user_list	*update_user __P((struct user_list *, char *, time_t));
 void			usage __P((void));
-
-/*
- * open wtmp or die
- */
-FILE *
-file(name)
-	char *name;
-{
-	FILE *fp;
-
-	if ((fp = fopen(name, "r")) == NULL)
-		err(1, "%s", name);
-	/* in case we want to discriminate */
-	if (strcmp(_PATH_WTMP, name))
-		Flags |= AC_W;
-	return fp;
-}
 
 struct tty_list *
 add_tty(name)
@@ -273,7 +258,7 @@ main(argc, argv)
 			add_tty(optarg);
 			break;
 		case 'w':
-			fp = file(optarg);
+			wtmpxname(optarg);
 			break;
 		case '?':
 		default:
@@ -292,16 +277,7 @@ main(argc, argv)
 	}
 	if (Flags & AC_D)
 		Flags &= ~AC_P;
-	if (fp == NULL) {
-		/*
-		 * if _PATH_WTMP does not exist, exit quietly
-		 */
-		if (access(_PATH_WTMP, 0) != 0 && errno == ENOENT)
-			return 0;
-		
-		fp = file(_PATH_WTMP);
-	}
-	ac(fp);
+	ac();
 	
 	return 0;
 }
@@ -349,9 +325,9 @@ show_today(users, logins, secs)
 	yesterday++;
 	
 	for (lp = logins; lp != NULL; lp = lp->next) {
-		secs = yesterday - lp->usr.ut_time;
-		Users = update_user(Users, lp->usr.ut_name, secs);
-		lp->usr.ut_time = yesterday;	/* as if they just logged in */
+		secs = yesterday - lp->usr.ut_tv.tv_sec;
+		Users = update_user(Users, lp->usr.ut_user, secs);
+		lp->usr.ut_tv.tv_sec = yesterday;	/* as if they just logged in */
 	}
 	secs = 0;
 	for (up = users; up != NULL; up = up->next) {
@@ -370,22 +346,22 @@ show_today(users, logins, secs)
 struct utmp_list *
 log_out(head, up)
 	struct utmp_list *head;
-	struct utmp *up;
+	struct utmpx *up;
 {
 	struct utmp_list *lp, *lp2, *tlp;
 	time_t secs;
 	
 	for (lp = head, lp2 = NULL; lp != NULL; )
-		if (*up->ut_line == '~' || strncmp(lp->usr.ut_line, up->ut_line,
+		if (up->ut_type == BOOT_TIME || up->ut_type == SHUTDOWN_TIME || strncmp(lp->usr.ut_line, up->ut_line,
 		    sizeof (up->ut_line)) == 0) {
-			secs = up->ut_time - lp->usr.ut_time;
-			Users = update_user(Users, lp->usr.ut_name, secs);
+			secs = up->ut_tv.tv_sec - lp->usr.ut_tv.tv_sec;
+			Users = update_user(Users, lp->usr.ut_user, secs);
 #ifdef DEBUG
 			if (Debug)
 				printf("%-.*s %-.*s: %-.*s logged out (%2d:%02d:%02d)\n",
-				    19, ctime(&up->ut_time),
-				    sizeof (lp->usr.ut_line), lp->usr.ut_line,
-				    sizeof (lp->usr.ut_name), lp->usr.ut_name,
+				    19, ctime(&up->ut_tv.tv_sec),
+				    (int)sizeof (lp->usr.ut_line), lp->usr.ut_line,
+				    (int)sizeof (lp->usr.ut_user), lp->usr.ut_user,
 				    secs / 3600, (secs % 3600) / 60, secs % 60);
 #endif
 			/*
@@ -412,7 +388,7 @@ log_out(head, up)
 struct utmp_list *
 log_in(head, up)
 	struct utmp_list *head;
-	struct utmp *up;
+	struct utmpx *up;
 {
 	struct utmp_list *lp;
 
@@ -437,9 +413,9 @@ log_in(head, up)
 			return head;
 		/*
 		 * ok, no recorded login, so they were here when wtmp
-		 * started!  Adjust ut_time! 
+		 * started!  Adjust ut_tv.tv_sec! 
 		 */
-		up->ut_time = FirstTime;
+		up->ut_tv.tv_sec = FirstTime;
 		/*
 		 * this allows us to pick the right logout
 		 */
@@ -462,14 +438,14 @@ log_in(head, up)
 		err(1, "malloc");
 	lp->next = head;
 	head = lp;
-	memmove((char *)&lp->usr, (char *)up, sizeof (struct utmp));
+	memmove((char *)&lp->usr, (char *)up, sizeof (struct utmpx));
 #ifdef DEBUG
 	if (Debug) {
 		printf("%-.*s %-.*s: %-.*s logged in", 19,
-		    ctime(&lp->usr.ut_time), sizeof (up->ut_line),
-		       up->ut_line, sizeof (up->ut_name), up->ut_name);
+		    ctime(&lp->usr.ut_tv.tv_sec), (int)sizeof (up->ut_line),
+		       up->ut_line, (int)sizeof (up->ut_user), up->ut_user);
 		if (*up->ut_host)
-			printf(" (%-.*s)", sizeof (up->ut_host), up->ut_host);
+			printf(" (%-.*s)", (int)sizeof (up->ut_host), up->ut_host);
 		putchar('\n');
 	}
 #endif
@@ -477,26 +453,26 @@ log_in(head, up)
 }
 
 int
-ac(fp)
-	FILE	*fp;
+ac()
 {
 	struct utmp_list *lp, *head = NULL;
-	struct utmp usr;
+	struct utmpx *u, end;
 	struct tm *ltm;
 	time_t secs = 0;
 	int day = -1;
 	
-	while (fread((char *)&usr, sizeof(usr), 1, fp) == 1) {
+	setutxent_wtmp(1); /* read in forward direction */
+	while ((u = getutxent_wtmp()) != NULL) {
 		if (!FirstTime)
-			FirstTime = usr.ut_time;
+			FirstTime = u->ut_tv.tv_sec;
 		if (Flags & AC_D) {
-			ltm = localtime(&usr.ut_time);
+			ltm = localtime(&u->ut_tv.tv_sec);
 			if (day >= 0 && day != ltm->tm_yday) {
 				day = ltm->tm_yday;
 				/*
 				 * print yesterday's total
 				 */
-				secs = usr.ut_time;
+				secs = u->ut_tv.tv_sec;
 				secs -= ltm->tm_sec;
 				secs -= 60 * ltm->tm_min;
 				secs -= 3600 * ltm->tm_hour;
@@ -504,48 +480,50 @@ ac(fp)
 			} else
 				day = ltm->tm_yday;
 		}
-		switch(*usr.ut_line) {
-		case '|':
-			secs = usr.ut_time;
+		switch(u->ut_type) {
+		case OLD_TIME:
+			secs = u->ut_tv.tv_sec;
 			break;
-		case '{':
-			secs -= usr.ut_time;
+		case NEW_TIME:
+			secs -= u->ut_tv.tv_sec;
 			/*
 			 * adjust time for those logged in
 			 */
 			for (lp = head; lp != NULL; lp = lp->next)
-				lp->usr.ut_time -= secs;
+				lp->usr.ut_tv.tv_sec -= secs;
 			break;
-		case '~':			/* reboot or shutdown */
-			head = log_out(head, &usr);
-			FirstTime = usr.ut_time; /* shouldn't be needed */
+		case BOOT_TIME:			/* reboot or shutdown */
+		case SHUTDOWN_TIME:
+			head = log_out(head, u);
+			FirstTime = u->ut_tv.tv_sec; /* shouldn't be needed */
 			break;
-		default:
+		case USER_PROCESS:
 			/*
 			 * if they came in on tty[p-y]*, then it is only
 			 * a login session if the ut_host field is non-empty
 			 */
-			if (*usr.ut_name) {
-				if (strncmp(usr.ut_line, "tty", 3) != 0 ||
-				    strchr("pqrstuvwxy", usr.ut_line[3]) == 0 ||
-				    *usr.ut_host != '\0')
-					head = log_in(head, &usr);
-			} else
-				head = log_out(head, &usr);
+			if (strncmp(u->ut_line, "tty", 3) != 0 ||
+			    strchr("pqrstuvwxy", u->ut_line[3]) == 0 ||
+			    *u->ut_host != '\0')
+				head = log_in(head, u);
+			break;
+		case DEAD_PROCESS:
+			head = log_out(head, u);
 			break;
 		}
 	}
-	(void)fclose(fp);
-	usr.ut_time = time((time_t *)0);
-	(void)strcpy(usr.ut_line, "~");
+	endutxent_wtmp();
+	bzero(&end, sizeof(end));
+	end.ut_tv.tv_sec = time((time_t *)0);
+	end.ut_type = SHUTDOWN_TIME;
 	
 	if (Flags & AC_D) {
-		ltm = localtime(&usr.ut_time);
+		ltm = localtime(&end.ut_tv.tv_sec);
 		if (day >= 0 && day != ltm->tm_yday) {
 			/*
 			 * print yesterday's total
 			 */
-			secs = usr.ut_time;
+			secs = end.ut_tv.tv_sec;
 			secs -= ltm->tm_sec;
 			secs -= 60 * ltm->tm_min;
 			secs -= 3600 * ltm->tm_hour;
@@ -555,7 +533,7 @@ ac(fp)
 	/*
 	 * anyone still logged in gets time up to now
 	 */
-	head = log_out(head, &usr);
+	head = log_out(head, &end);
 
 	if (Flags & AC_D)
 		show_today(Users, head, time((time_t *)0));

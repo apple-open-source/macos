@@ -1,3 +1,13 @@
+/*****************************************************************************
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
+ *                             \___|\___/|_| \_\_____|
+ *
+ * $Id: lib506.c,v 1.14 2007-02-04 12:12:02 giva Exp $
+ */
+
 #include "test.h"
 #include <stdlib.h>
 #include <ctype.h>
@@ -14,7 +24,7 @@ void lock(CURL *handle, curl_lock_data data, curl_lock_access access,
 void unlock(CURL *handle, curl_lock_data data, void *useptr );
 struct curl_slist *sethost(struct curl_slist *headers);
 void *fire(void *ptr);
-char *suburl(char *base, int i);
+char *suburl(const char *base, int i);
 
 /* struct containing data of a thread */
 struct Tdata {
@@ -39,13 +49,13 @@ void lock(CURL *handle, curl_lock_data data, curl_lock_access access,
 
   switch ( data ) {
     case CURL_LOCK_DATA_SHARE:
-      what = "share";  
+      what = "share";
       break;
     case CURL_LOCK_DATA_DNS:
-      what = "dns";  
+      what = "dns";
       break;
     case CURL_LOCK_DATA_COOKIE:
-      what = "cookie";  
+      what = "cookie";
       break;
     default:
       fprintf(stderr, "lock: no such data: %d\n", (int)data);
@@ -63,13 +73,13 @@ void unlock(CURL *handle, curl_lock_data data, void *useptr )
   (void)handle;
   switch ( data ) {
     case CURL_LOCK_DATA_SHARE:
-      what = "share";  
+      what = "share";
       break;
     case CURL_LOCK_DATA_DNS:
-      what = "dns";  
+      what = "dns";
       break;
     case CURL_LOCK_DATA_COOKIE:
-      what = "cookie";  
+      what = "cookie";
       break;
     default:
       fprintf(stderr, "unlock: no such data: %d\n", (int)data);
@@ -94,8 +104,13 @@ void *fire(void *ptr)
   CURLcode code;
   struct curl_slist *headers;
   struct Tdata *tdata = (struct Tdata*)ptr;
-  CURL *curl = curl_easy_init();
+  CURL *curl;
   int i=0;
+
+  if ((curl = curl_easy_init()) == NULL) {
+    fprintf(stderr, "curl_easy_init() failed\n");
+    return NULL;
+  }
 
   headers = sethost(NULL);
   curl_easy_setopt(curl, CURLOPT_VERBOSE,    1);
@@ -120,7 +135,7 @@ void *fire(void *ptr)
 
 
 /* build request url */
-char *suburl(char *base, int i)
+char *suburl(const char *base, int i)
 {
   return curl_maprintf("%s000%c", base, 48+i);
 }
@@ -130,7 +145,7 @@ char *suburl(char *base, int i)
 int test(char *URL)
 {
   int res;
-  CURLSHcode scode;
+  CURLSHcode scode = CURLSHE_OK;
   char *url;
   struct Tdata tdata;
   CURL *curl;
@@ -141,32 +156,55 @@ int test(char *URL)
 
   user.text = (char *)"Pigs in space";
   user.counter = 0;
-  
+
   printf( "GLOBAL_INIT\n" );
-  curl_global_init( CURL_GLOBAL_ALL );
+  if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
+    fprintf(stderr, "curl_global_init() failed\n");
+    return TEST_ERR_MAJOR_BAD;
+  }
 
   /* prepare share */
   printf( "SHARE_INIT\n" );
-  share = curl_share_init();
-  scode = curl_share_setopt( share, CURLSHOPT_LOCKFUNC, lock);
-  scode += curl_share_setopt( share, CURLSHOPT_UNLOCKFUNC, unlock);
-  scode += curl_share_setopt( share, CURLSHOPT_USERDATA, &user);
-  printf( "CURL_LOCK_DATA_COOKIE\n" );
-  scode += curl_share_setopt( share, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
-  printf( "CURL_LOCK_DATA_DNS\n" );
-  scode += curl_share_setopt( share, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
-
-  if(scode) {
-    curl_share_cleanup(share);
-    return 2;
+  if ((share = curl_share_init()) == NULL) {
+    fprintf(stderr, "curl_share_init() failed\n");
+    curl_global_cleanup();
+    return TEST_ERR_MAJOR_BAD;
   }
 
-  
+  if ( CURLSHE_OK == scode ) {
+    printf( "CURLSHOPT_LOCKFUNC\n" );
+    scode = curl_share_setopt( share, CURLSHOPT_LOCKFUNC, lock);
+  }
+  if ( CURLSHE_OK == scode ) {
+    printf( "CURLSHOPT_UNLOCKFUNC\n" );
+    scode = curl_share_setopt( share, CURLSHOPT_UNLOCKFUNC, unlock);
+  }
+  if ( CURLSHE_OK == scode ) {
+    printf( "CURLSHOPT_USERDATA\n" );
+    scode = curl_share_setopt( share, CURLSHOPT_USERDATA, &user);
+  }
+  if ( CURLSHE_OK == scode ) {
+    printf( "CURL_LOCK_DATA_COOKIE\n" );
+    scode = curl_share_setopt( share, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
+  }
+  if ( CURLSHE_OK == scode ) {
+    printf( "CURL_LOCK_DATA_DNS\n" );
+    scode = curl_share_setopt( share, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+  }
+
+  if ( CURLSHE_OK != scode ) {
+    fprintf(stderr, "curl_share_setopt() failed\n");
+    curl_share_cleanup(share);
+    curl_global_cleanup();
+    return TEST_ERR_MAJOR_BAD;
+  }
+
+
   res = 0;
 
   /* start treads */
   for (i=1; i<=THREADS; i++ ) {
-    
+
     /* set thread data */
     tdata.url   = suburl( URL, i ); /* must be curl_free()d */
     tdata.share = share;
@@ -182,7 +220,12 @@ int test(char *URL)
 
   /* fetch a another one and save cookies */
   printf( "*** run %d\n", i );
-  curl = curl_easy_init();
+  if ((curl = curl_easy_init()) == NULL) {
+    fprintf(stderr, "curl_easy_init() failed\n");
+    curl_share_cleanup(share);
+    curl_global_cleanup();
+    return TEST_ERR_MAJOR_BAD;
+  }
 
   url = suburl( URL, i );
   headers = sethost( NULL );
@@ -213,17 +256,17 @@ int test(char *URL)
   curl_slist_free_all( headers );
 
   curl_free(url);
-  
+
   /* free share */
   printf( "SHARE_CLEANUP\n" );
   scode = curl_share_cleanup( share );
   if ( scode!=CURLSHE_OK )
     fprintf(stderr, "curl_share_cleanup failed, code errno %d\n",
             (int)scode);
-  
+
   printf( "GLOBAL_CLEANUP\n" );
   curl_global_cleanup();
- 
+
   return res;
 }
 

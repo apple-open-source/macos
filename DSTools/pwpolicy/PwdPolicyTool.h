@@ -105,16 +105,17 @@ typedef enum {
 class PwdPolicyTool
 {
 public:
-				PwdPolicyTool			( void );
-	virtual	   ~PwdPolicyTool			( void );
-
-	long		Initialize				( void );
-	long		Deinitialize			( void );
+						PwdPolicyTool			( void );
+	virtual				~PwdPolicyTool			( void );
+	
+	tDirStatus			Initialize				( void );
+	tDirStatus			Deinitialize			( void );
 
 	tDirNodeReference	GetLocalNodeRef			( void );
 	tDirNodeReference	GetSearchNodeRef		( void );
-	long				GetUserByName			( tDirNodeReference inNode,
+	tDirStatus			GetUserByName			( tDirNodeReference inNode,
 													const char *inUserName,
+													const char *inRecordType,
 													char **outAuthAuthority,
 													char **outNodeName );
 												
@@ -127,17 +128,19 @@ public:
 	void				ChangeAuthAuthorityToShadowHash( tRecordReference inRecordRef );
 	int					SetUserHashList( tRecordReference inRecordRef, int firstArg, int argc, char * const *argv );
 	
-	long				FindDirectoryNodes		( char *inNodeName, tDirPatternMatch inMatch, char **outNodeName, bool inPrintNames = false );
-	long				OpenDirNode				( char *inNodeName, tDirNodeReference *outNodeRef );
-	long				CloseDirectoryNode		( tDirNodeReference inNodeRef );
-    long				DoNodePWAuth			( tDirNodeReference inNode,
+	tDirStatus			FindDirectoryNodes		( char *inNodeName, tDirPatternMatch inMatch, char **outNodeNameList[], bool inPrintNames = false );
+	tDirStatus			OpenLocalNode			( tDirNodeReference *outNodeRef );
+	tDirStatus			OpenDirNode				( char *inNodeName, tDirNodeReference *outNodeRef );
+	tDirStatus			CloseDirectoryNode		( tDirNodeReference inNodeRef );
+    tDirStatus			DoNodePWAuth			( tDirNodeReference inNode,
                                                     const char *inUserName,
-                                                    char *inPasswd,
+                                                    const char *inPasswd,
 													const char *inMethod,
                                                     char *inUserName,
                                                     const char *inOther,
+													const char *inRecordType,
 													char *outResult );
-	long				DoNodeNativeAuth		( tDirNodeReference inNode, const char *inName, char *inPasswd );
+	tDirStatus			DoNodeNativeAuth		( tDirNodeReference inNode, const char *inName, char *inPasswd );
 	
 	long				GetHashTypes			( char **outHashTypesStr, bool inExcludeLMHash = false );
 	long				SetHashTypes			( const char *inName, char *inPasswd, int arg1, int argc, char * const *argv );
@@ -146,13 +149,13 @@ public:
 	tDirReference		GetDirRef				(void) { return fDSRef; };
 	
 protected:
-	long		OpenDirectoryServices	( void );
-	long		CloseDirectoryServices	( void );
-	long		AllocateTDataBuff		( void );
-	long		DeallocateTDataBuff		( void );
-	long		DoGetRecordList			( tDirNodeReference inNodeRef,
+	tDirStatus	OpenDirectoryServices	( void );
+	tDirStatus	CloseDirectoryServices	( void );
+	tDirStatus	AllocateTDataBuff		( void );
+	tDirStatus	DeallocateTDataBuff		( void );
+	tDirStatus	DoGetRecordList			( tDirNodeReference inNodeRef,
 											const char *inRecName,
-											char *inRecType,
+											const char *inRecType,
 											char *inAttrType,
 											tDirPatternMatch inMatchType,
 											char **outAuthAuthority,
@@ -160,13 +163,12 @@ protected:
 	void		AppendHashTypeToArray	( const char *inHashType, CFMutableArrayRef inHashTypeArray );
 	
 private:
-	long		FillAuthBuff			( tDataBuffer *inAuthBuff, unsigned long inCount, unsigned long inLen, const void *inData ... );
-	long		SetUpAuthBuffs			( tDataBuffer **inAuthBuff, unsigned long inAuthBuffSize, tDataBuffer **inStepBuff, unsigned long inStepBuffSize, tDataBuffer **inTypeBuff, const char *inAuthMethod );
+	tDirStatus	SetUpAuthBuffs			( tDataBuffer **inAuthBuff, UInt32 inAuthBuffSize, tDataBuffer **inStepBuff, UInt32 inStepBuffSize, tDataBuffer **inTypeBuff, const char *inAuthMethod );
 
 	void		PrintError				( long inErrCode, const char *messageTag = NULL );
-	long		GetDataFromDataBuff		( tDirNodeReference inNodeRef,
+	tDirStatus	GetDataFromDataBuff		( tDirNodeReference inNodeRef,
 											tDataBuffer *inTDataBuff,
-											unsigned long inRecCount,
+											UInt32 inRecCount,
 											char **outAuthAuthority,
 											char **outNodeName );
 

@@ -196,6 +196,26 @@ CSSM_KEYUSE DecodedCert::inferKeyUsage() const
 			else if(clCompareCssmData(thisUse, &CSSMOID_OCSPSigning)) {
 				keyUse |= CSSM_KEYUSE_VERIFY;	
 			}
+			else if(clCompareCssmData(thisUse, &CSSMOID_APPLE_EKU_SYSTEM_IDENTITY)) {
+				/* system identity - fairly liberal: CMS as well as SSL */
+				keyUse |= 
+					(CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_WRAP | CSSM_KEYUSE_ENCRYPT);
+			}
+			else if(clCompareCssmData(thisUse, &CSSMOID_KERBv5_PKINIT_KP_CLIENT_AUTH)) {
+				/* 
+				 * Kerberos PKINIT client: 
+				 * -- KDC verifies client signature in a CMS msg in AS-REQ
+				 * -- KDC encrypts for client in a CMS msg in AS-REP
+				 */
+				keyUse |= (CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_WRAP);
+			}
+			else if(clCompareCssmData(thisUse, &CSSMOID_KERBv5_PKINIT_KP_KDC)) {
+				/* 
+				 * Kerberos PKINIT server: 
+				 * -- client verifies KDC signature in a CMS msg in AS-REP
+				 */
+				keyUse |= CSSM_KEYUSE_VERIFY;
+			}
 		}
 	}
 	if(keyUse == 0) {

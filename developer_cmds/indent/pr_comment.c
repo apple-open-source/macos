@@ -1,8 +1,35 @@
-/*	$NetBSD: pr_comment.c,v 1.6 1997/10/19 03:17:29 lukem Exp $	*/
+/*	$NetBSD: pr_comment.c,v 1.9 2003/08/07 11:14:09 agc Exp $	*/
 
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
+/*
  * Copyright (c) 1976 Board of Trustees of the University of Illinois.
  * Copyright (c) 1985 Sun Microsystems, Inc.
  * All rights reserved.
@@ -41,12 +68,13 @@
 #if 0
 static char sccsid[] = "@(#)pr_comment.c	8.1 (Berkeley) 6/6/93";
 #else
-__RCSID("$NetBSD: pr_comment.c,v 1.6 1997/10/19 03:17:29 lukem Exp $");
+__RCSID("$NetBSD: pr_comment.c,v 1.9 2003/08/07 11:14:09 agc Exp $");
 #endif
 #endif				/* not lint */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "indent_globs.h"
 
 /*
@@ -82,7 +110,7 @@ __RCSID("$NetBSD: pr_comment.c,v 1.6 1997/10/19 03:17:29 lukem Exp $");
 
 
 void
-pr_comment()
+pr_comment(void)
 {
 	int     now_col;	/* column we are in now */
 	int     adj_max_col;	/* Adjusted max_col for when we decide to
@@ -184,7 +212,7 @@ pr_comment()
 
 	while (1) {		/* this loop will go until the comment is
 				 * copied */
-		if (*buf_ptr > 040 && *buf_ptr != '*')
+		if (!iscntrl((unsigned char)*buf_ptr) && *buf_ptr != '*')
 			ps.last_nl = 0;
 		CHECK_SIZE_COM;
 		switch (*buf_ptr) {	/* this checks for various spcl cases */
@@ -376,7 +404,9 @@ pr_comment()
 			/* remember we saw a blank */
 
 			++e_com;
-			if (now_col > adj_max_col && !ps.box_com && unix_comment == 1 && e_com[-1] > ' ') {
+			if (now_col > adj_max_col && !ps.box_com && unix_comment == 1
+				&& !iscntrl((unsigned char)e_com[-1])
+				&& !isblank((unsigned char)e_com[-1])) {
 				/*
 				 * the comment is too long, it must be broken up
 				 */
@@ -399,7 +429,7 @@ pr_comment()
 				}
 				*e_com = '\0';	/* print what we have */
 				*last_bl = '\0';
-				while (last_bl > s_com && last_bl[-1] < 040)
+				while (last_bl > s_com && iscntrl((unsigned char)last_bl[-1]) )
 					*--last_bl = 0;
 				e_com = last_bl;
 				dump_line();

@@ -11,8 +11,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
  *  
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -37,7 +35,6 @@
 #include <sys/types.h>
 #include <sys/param.h>	/* for MAXPATHLEN */
 #include <sys/stat.h>
-#include <fcntl.h>	/* for open() */
 #ifdef QUICK
 #include <sys/mman.h>
 #endif
@@ -65,8 +62,14 @@
 #include "patchlevel.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$Id: magic.c,v 1.22 2004/07/24 19:55:17 christos Exp $")
+FILE_RCSID("@(#)$Id: magic.c,v 1.32 2005/10/17 15:31:10 christos Exp $")
 #endif	/* lint */
+
+#ifdef __APPLE__
+#include "get_compat.h"
+#else
+#define COMPAT_MODE(func, mode) 1
+#endif
 
 #ifdef __EMX__
 private char *apptypeName = NULL;
@@ -78,6 +81,10 @@ private void free_mlist(struct mlist *);
 private void close_and_restore(const struct magic_set *, const char *, int,
     const struct stat *);
 
+#ifndef	STDIN_FILENO
+#define	STDIN_FILENO	0
+#endif
+
 public struct magic_set *
 magic_open(int flags)
 {
@@ -87,34 +94,34 @@ magic_open(int flags)
 		return NULL;
 
 	if (magic_setflags(ms, flags) == -1) {
-		free(ms);
 		errno = EINVAL;
-		return NULL;
+		goto free1;
 	}
 
 	ms->o.ptr = ms->o.buf = malloc(ms->o.size = 1024);
-	ms->o.len = 0;
-	if (ms->o.buf == NULL) {
-		free(ms);
-		return NULL;
-	}
+	if (ms->o.buf == NULL)
+		goto free1;
+
 	ms->o.pbuf = malloc(ms->o.psize = 1024);
-	if (ms->o.pbuf == NULL) {
-		free(ms->o.buf);
-		free(ms);
-		return NULL;
-	}
+	if (ms->o.pbuf == NULL)
+		goto free2;
+
 	ms->c.off = malloc((ms->c.len = 10) * sizeof(*ms->c.off));
-	if (ms->c.off == NULL) {
-		free(ms->o.pbuf);
-		free(ms->o.buf);
-		free(ms);
-		return NULL;
-	}
+	if (ms->c.off == NULL)
+		goto free3;
+	
+	ms->o.len = 0;
 	ms->haderr = 0;
 	ms->error = -1;
 	ms->mlist = NULL;
 	return ms;
+free3:
+	free(ms->o.pbuf);
+free2:
+	free(ms->o.buf);
+free1:
+	free(ms);
+	return NULL;
 }
 
 private void
@@ -140,6 +147,7 @@ magic_close(ms)
     struct magic_set *ms;
 {
 	free_mlist(ms->mlist);
+	free(ms->o.pbuf);
 	free(ms->o.buf);
 	free(ms->c.off);
 	free(ms);
@@ -180,8 +188,11 @@ private void
 close_and_restore(const struct magic_set *ms, const char *name, int fd,
     const struct stat *sb)
 {
+	if (fd == STDIN_FILENO)
+		return;
 	(void) close(fd);
-	if (fd != STDIN_FILENO && (ms->flags & MAGIC_PRESERVE_ATIME) != 0) {
+
+	if ((ms->flags & MAGIC_PRESERVE_ATIME) != 0) {
 		/*
 		 * Try to restore access, modification times if read it.
 		 * This is really *bad* because it will modify the status
@@ -212,41 +223,64 @@ public const char *
 magic_file(struct magic_set *ms, const char *inname)
 {
 	int	fd = 0;
-	unsigned char buf[HOWMANY+1];	/* one extra for terminating '\0' */
+	int	rv = -1;
+	unsigned char *buf;
 	struct stat	sb;
 	ssize_t nbytes = 0;	/* number of bytes read from a datafile */
 
-	if (file_reset(ms) == -1)
+	/*
+	 * one extra for terminating '\0', and
+	 * some overlapping space for matches near EOF
+	 */
+#define SLOP (1 + sizeof(union VALUETYPE))
+	if ((buf = malloc(HOWMANY + SLOP)) == NULL)
 		return NULL;
+
+	if (file_reset(ms) == -1)
+		goto done;
 
 	switch (file_fsmagic(ms, inname, &sb)) {
 	case -1:
-		return NULL;
+		goto done;
 	case 0:
 		break;
 	default:
-		return file_getbuffer(ms);
+		rv = 0;
+		goto done;
 	}
 
-#ifndef	STDIN_FILENO
-#define	STDIN_FILENO	0
-#endif
 	if (inname == NULL)
 		fd = STDIN_FILENO;
-	else if ((fd = open(inname, O_RDONLY)) < 0) {
+	else if ((fd = open(inname, O_RDONLY|O_BINARY)) < 0) {
+#ifdef __CYGWIN__
+	    char *tmp = alloca(strlen(inname) + 5);
+	    (void)strcat(strcpy(tmp, inname), ".exe");
+	    if ((fd = open(tmp, O_RDONLY|O_BINARY)) < 0) {
+#endif
 		/* We cannot open it, but we were able to stat it. */
-		if (sb.st_mode & 0222)
-			if (file_printf(ms, "writable, ") == -1)
-				return NULL;
-		if (sb.st_mode & 0111)
-			if (file_printf(ms, "executable, ") == -1)
-				return NULL;
-		if (S_ISREG(sb.st_mode))
-			if (file_printf(ms, "regular file, ") == -1)
-				return NULL;
-		if (file_printf(ms, "no read permission") == -1)
-			return NULL;
-		return file_getbuffer(ms);
+		if (COMPAT_MODE("bin/file", "unix2003")) {
+		    if (file_printf(ms, "cannot open %s: %s", inname, strerror(errno)) == -1)
+		    	goto done;
+		    rv = 0;
+		    goto done;
+		} else {
+			if (sb.st_mode & 0222)
+				if (file_printf(ms, "writable, ") == -1)
+					goto done;
+			if (sb.st_mode & 0111)
+				if (file_printf(ms, "executable, ") == -1)
+					goto done;
+			if (S_ISREG(sb.st_mode))
+				if (file_printf(ms, "regular file, ") == -1)
+					goto done;
+			if (file_printf(ms, "no read permission") == -1)
+				goto done;
+			rv = 0;
+			goto done;
+		}
+#ifdef __CYGWIN__
+	    }
+#endif
 	}
 
 	/*
@@ -261,13 +295,11 @@ magic_file(struct magic_set *ms, const char *inname)
 		if (file_printf(ms, (ms->flags & MAGIC_MIME) ?
 		    "application/x-empty" : "empty") == -1)
 			goto done;
-		goto gotit;
 	} else if (nbytes == 1) {
 		if (file_printf(ms, "very short file (no magic)") == -1)
 			goto done;
-		goto gotit;
 	} else {
-		buf[nbytes] = '\0';	/* null-terminate it */
+		(void)memset(buf + nbytes, 0, SLOP); /* NUL terminate */
 #ifdef __EMX__
 		switch (file_os2_apptype(ms, inname, buf, nbytes)) {
 		case -1:
@@ -275,10 +307,11 @@ magic_file(struct magic_set *ms, const char *inname)
 		case 0:
 			break;
 		default:
-			goto gotit;
+			rv = 0;
+			goto done;
 		}
 #endif
-		if (file_buffer(ms, buf, (size_t)nbytes) == -1)
+		if (file_buffer(ms, fd, buf, (size_t)nbytes) == -1)
 			goto done;
 #ifdef BUILTIN_ELF
 		if (nbytes > 5) {
@@ -293,16 +326,15 @@ magic_file(struct magic_set *ms, const char *inname)
 			file_tryelf(ms, fd, buf, (size_t)nbytes);
 		}
 #endif
-#ifdef BUILTIN_FAT
-		file_tryfat(ms, fd, buf, (size_t)nbytes, inname);
-#endif /* BUILTIN_FAT */
+#ifdef BUILTIN_MACHO
+		file_trymacho(ms, fd, buf, (size_t)nbytes, inname);
+#endif /* BUILTIN_MACHO */
 	}
-gotit:
-	close_and_restore(ms, inname, fd, &sb);
-	return file_getbuffer(ms);
+	rv = 0;
 done:
+	free(buf);
 	close_and_restore(ms, inname, fd, &sb);
-	return NULL;
+	return rv == 0 ? file_getbuffer(ms) : NULL;
 }
 
 
@@ -315,7 +347,7 @@ magic_buffer(struct magic_set *ms, const void *buf, size_t nb)
 	 * The main work is done here!
 	 * We have the file name and/or the data buffer to be identified. 
 	 */
-	if (file_buffer(ms, buf, nb) == -1) {
+	if (file_buffer(ms, -1, buf, nb) == -1) {
 		return NULL;
 	}
 	return file_getbuffer(ms);

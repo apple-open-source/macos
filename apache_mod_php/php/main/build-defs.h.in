@@ -1,8 +1,8 @@
 /*                                                                -*- C -*-
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Stig Sæther Bakken <ssb@fast.no>                             |
+   | Author: Stig Sæther Bakken <ssb@php.net>                             |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: build-defs.h.in,v 1.11.14.1 2006/01/01 13:46:59 sniper Exp $ */
+/* $Id: build-defs.h.in,v 1.15.2.2.2.2 2007/07/15 15:10:04 jani Exp $ */
 
 #define CONFIGURE_COMMAND "@CONFIGURE_COMMAND@"
 #define PHP_ADA_INCLUDE		""
@@ -31,7 +31,6 @@
 #define PHP_DBASE_LIB		""
 #define PHP_BUILD_DEBUG		"@DEBUG_CFLAGS@"
 #define PHP_GDBM_INCLUDE	""
-#define PHP_HSREGEX		""
 #define PHP_IBASE_INCLUDE	""
 #define PHP_IBASE_LFLAGS	""
 #define PHP_IBASE_LIBS		""
@@ -62,7 +61,6 @@
 #define PHP_PGSQL_LFLAGS	""
 #define PHP_PGSQL_LIBS		""
 #define PHP_PROG_SENDMAIL	"@PROG_SENDMAIL@"
-#define PHP_REGEX_LIB		""
 #define PHP_SOLID_INCLUDE	""
 #define PHP_SOLID_LIBS		""
 #define PHP_EMPRESS_INCLUDE	""
@@ -88,4 +86,4 @@
 #define PHP_LOCALSTATEDIR       "@EXPANDED_LOCALSTATEDIR@"
 #define PHP_CONFIG_FILE_PATH    "@EXPANDED_PHP_CONFIG_FILE_PATH@"
 #define PHP_CONFIG_FILE_SCAN_DIR    "@EXPANDED_PHP_CONFIG_FILE_SCAN_DIR@"
-#define PHP_SHLIB_SUFFIX        "@SHLIB_SUFFIX_NAME@"
+#define PHP_SHLIB_SUFFIX        "@SHLIB_DL_SUFFIX_NAME@"

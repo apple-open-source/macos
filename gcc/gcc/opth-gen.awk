@@ -163,6 +163,8 @@ for (i = 0; i < n_langs; i++) {
 	s = substr("            ", length (macros[i]))
 	print "#define " macros[i] s " (1 << " i ")"
     }
+# APPLE LOCAL iframework for 4.3 4094959
+print "#define CL_LANG_ALL   ((1 << " n_langs ") - 1)"
 
 print ""
 print "enum opt_code"

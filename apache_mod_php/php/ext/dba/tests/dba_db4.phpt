@@ -9,14 +9,16 @@ DBA DB4 handler test
 <?php
 	$handler = 'db4';
 	require_once('test.inc');
+	$lock_flag = ''; // lock in library
 	require_once('dba_handler.inc');
 ?>
+===DONE===
 --EXPECT--
 database handler: db4
 3NYNYY
 Content String 2
 Content 2 replaced
-Read during write: not allowed
+Read during write: allowed
 Content 2 replaced 2nd time
 The 6th value
 array(3) {
@@ -27,3 +29,4 @@ array(3) {
   ["key5"]=>
   string(23) "The last content string"
 }
+===DONE===

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,7 +51,7 @@ namespace Security
 //
 class CommentAclSubject : public AclSubject {
 public:
-	CommentAclSubject::CommentAclSubject(CSSM_LIST *list, uint32 size)
+	CommentAclSubject::CommentAclSubject(CSSM_LIST *list, size_t size)
 	: AclSubject(CSSM_ACL_SUBJECT_TYPE_COMMENT), mComment(list), mSize(size) { }
 	~CommentAclSubject() { Allocator::standard().free(mComment); }
 	
@@ -72,7 +72,7 @@ public:
 	
 private:
 	CSSM_LIST *mComment;		// list form preserved
-	uint32 mSize;				// size of mComment blob
+	size_t mSize;				// size of mComment blob
 };
 
 } // end namespace Security

@@ -22,7 +22,7 @@
 /* Define to non-zero for forcing old ctime format instead of ISO format.  */
 #undef USE_OLD_CTIME
 
-#include "system.h"
+#include <system.h>
 #include <quotearg.h>
 
 #if HAVE_COPYFILE
@@ -50,7 +50,7 @@ size_t recent_long_name_blocks;	/* number of blocks in recent_long_name */
 size_t recent_long_link_blocks;	/* likewise, for long link */
 
 static uintmax_t from_header (const char *, size_t, const char *,
-			      uintmax_t, uintmax_t);
+			      uintmax_t, uintmax_t, bool);
 
 /* Base 64 digits; see Internet RFC 2045 Table 1.  */
 static char const base_64_digits[64] =
@@ -90,8 +90,8 @@ read_and (void (*do_something) (void))
 
   base64_init ();
   name_gather ();
-  open_archive (ACCESS_READ);
 
+  open_archive (ACCESS_READ);
   do
     {
       prev_status = status;
@@ -137,6 +137,8 @@ read_and (void (*do_something) (void))
 			   quotearg_colon (current_stat_info.file_name)));
 		  /* Fall through.  */
 		default:
+		  decode_header (current_header,
+				 &current_stat_info, &current_format, 0);
 		  skip_member ();
 		  continue;
 		}
@@ -219,7 +221,7 @@ read_and (void (*do_something) (void))
 #ifdef HAVE_COPYFILE
       LIST_FOREACH(cle, &copyfile_list, link)
 	{
-	  if(disable_copyfile || copyfile(cle->tmp, cle->dst, 0, COPYFILE_UNPACK | COPYFILE_XATTR | COPYFILE_ACL))
+	  if(disable_copyfile || copyfile(cle->tmp, cle->dst, 0, COPYFILE_UNPACK | COPYFILE_NOFOLLOW | COPYFILE_ACL | COPYFILE_XATTR))
 	    {    
 	      rename(cle->tmp, cle->src);
 	    } else
@@ -298,6 +300,61 @@ list_archive (void)
     assign_string (&save_name, 0);
 }
 
+/* Check header checksum */
+/* The standard BSD tar sources create the checksum by adding up the
+   bytes in the header as type char.  I think the type char was unsigned
+   on the PDP-11, but it's signed on the Next and Sun.  It looks like the
+   sources to BSD tar were never changed to compute the checksum
+   correctly, so both the Sun and Next add the bytes of the header as
+   signed chars.  This doesn't cause a problem until you get a file with
+   a name containing characters with the high bit set.  So tar_checksum
+   computes two checksums -- signed and unsigned.  */
+
+enum read_header
+tar_checksum (union block *header, bool silent)
+{
+  size_t i;
+  int unsigned_sum = 0;		/* the POSIX one :-) */
+  int signed_sum = 0;		/* the Sun one :-( */
+  int recorded_sum;
+  uintmax_t parsed_sum;
+  char *p;
+  
+  p = header->buffer;
+  for (i = sizeof *header; i-- != 0;)
+    {
+      unsigned_sum += (unsigned char) *p;
+      signed_sum += (signed char) (*p++);
+    }
+
+  if (unsigned_sum == 0)
+    return HEADER_ZERO_BLOCK;
+
+  /* Adjust checksum to count the "chksum" field as blanks.  */
+
+  for (i = sizeof header->header.chksum; i-- != 0;)
+    {
+      unsigned_sum -= (unsigned char) header->header.chksum[i];
+      signed_sum -= (signed char) (header->header.chksum[i]);
+    }
+  unsigned_sum += ' ' * sizeof header->header.chksum;
+  signed_sum += ' ' * sizeof header->header.chksum;
+
+  parsed_sum = from_header (header->header.chksum,
+			    sizeof header->header.chksum, 0,
+			    (uintmax_t) 0,
+			    (uintmax_t) TYPE_MAXIMUM (int), silent);
+  if (parsed_sum == (uintmax_t) -1)
+    return HEADER_FAILURE;
+
+  recorded_sum = parsed_sum;
+  
+  if (unsigned_sum != recorded_sum && signed_sum != recorded_sum)
+    return HEADER_FAILURE;
+
+  return HEADER_SUCCESS;
+}
+
 /* Read a block that's supposed to be a header block.  Return its
    address in "current_header", and if it is good, the file's size in
    current_stat_info.stat.st_size.
@@ -311,23 +368,9 @@ list_archive (void)
    You must always set_next_block_after(current_header) to skip past
    the header which this routine reads.  */
 
-/* The standard BSD tar sources create the checksum by adding up the
-   bytes in the header as type char.  I think the type char was unsigned
-   on the PDP-11, but it's signed on the Next and Sun.  It looks like the
-   sources to BSD tar were never changed to compute the checksum
-   correctly, so both the Sun and Next add the bytes of the header as
-   signed chars.  This doesn't cause a problem until you get a file with
-   a name containing characters with the high bit set.  So read_header
-   computes two checksums -- signed and unsigned.  */
-
 enum read_header
 read_header (bool raw_extended_headers)
 {
-  size_t i;
-  int unsigned_sum;		/* the POSIX one :-) */
-  int signed_sum;		/* the Sun one :-( */
-  int recorded_sum;
-  uintmax_t parsed_sum;
   char *p;
   union block *header;
   union block *header_copy;
@@ -341,44 +384,15 @@ read_header (bool raw_extended_headers)
 
   while (1)
     {
+      enum read_header status;
+      
       header = find_next_block ();
       current_header = header;
       if (!header)
 	return HEADER_END_OF_FILE;
 
-      unsigned_sum = 0;
-      signed_sum = 0;
-      p = header->buffer;
-      for (i = sizeof *header; i-- != 0;)
-	{
-	  unsigned_sum += (unsigned char) *p;
-	  signed_sum += (signed char) (*p++);
-	}
-
-      if (unsigned_sum == 0)
-	return HEADER_ZERO_BLOCK;
-
-      /* Adjust checksum to count the "chksum" field as blanks.  */
-
-      for (i = sizeof header->header.chksum; i-- != 0;)
-	{
-	  unsigned_sum -= (unsigned char) header->header.chksum[i];
-	  signed_sum -= (signed char) (header->header.chksum[i]);
-	}
-      unsigned_sum += ' ' * sizeof header->header.chksum;
-      signed_sum += ' ' * sizeof header->header.chksum;
-
-      parsed_sum = from_header (header->header.chksum,
-				sizeof header->header.chksum, 0,
-				(uintmax_t) 0,
-				(uintmax_t) TYPE_MAXIMUM (int));
-      if (parsed_sum == (uintmax_t) -1)
-	return HEADER_FAILURE;
-
-      recorded_sum = parsed_sum;
-
-      if (unsigned_sum != recorded_sum && signed_sum != recorded_sum)
-	return HEADER_FAILURE;
+      if ((status = tar_checksum (header, false)) != HEADER_SUCCESS)
+	return status;
 
       /* Good block.  Decode file size and return.  */
 
@@ -564,8 +578,10 @@ decode_header (union block *header, struct tar_stat_info *stat_info,
 
   stat_info->stat.st_mode = MODE_FROM_HEADER (header->header.mode);
   stat_info->stat.st_mtime = TIME_FROM_HEADER (header->header.mtime);
-  assign_string (&stat_info->uname, header->header.uname);
-  assign_string (&stat_info->gname, header->header.gname);
+  assign_string (&stat_info->uname,
+		 header->header.uname[0] ? header->header.uname : NULL);
+  assign_string (&stat_info->gname,
+		 header->header.gname[0] ? header->header.gname : NULL);
   stat_info->devmajor = MAJOR_FROM_HEADER (header->header.devmajor);
   stat_info->devminor = MINOR_FROM_HEADER (header->header.devminor);
 
@@ -629,16 +645,19 @@ decode_header (union block *header, struct tar_stat_info *stat_info,
       sparse_fixup_header (stat_info);
       stat_info->is_sparse = true;
     }
+  else
+    stat_info->is_sparse = false;
 }
 
 /* Convert buffer at WHERE0 of size DIGS from external format to
    uintmax_t.  The data is of type TYPE.  The buffer must represent a
    value in the range -MINUS_MINVAL through MAXVAL.  DIGS must be
-   positive.  Return -1 on error, diagnosing the error if TYPE is
-   nonzero.  */
+   positive. SILENT=true inhibits printing diagnostic messages.
+   Return -1 on error, diagnosing the error if TYPE is
+   nonzero. */
 static uintmax_t
 from_header (char const *where0, size_t digs, char const *type,
-	     uintmax_t minus_minval, uintmax_t maxval)
+	     uintmax_t minus_minval, uintmax_t maxval, bool silent)
 {
   uintmax_t value;
   char const *where = where0;
@@ -654,7 +673,7 @@ from_header (char const *where0, size_t digs, char const *type,
     {
       if (where == lim)
 	{
-	  if (type)
+	  if (type && !silent)
 	    ERROR ((0, 0,
 		    _("Blanks in header where numeric %s value expected"),
 		    type));
@@ -708,16 +727,17 @@ from_header (char const *where0, size_t digs, char const *type,
 
 	  if (!overflow && value <= minus_minval)
 	    {
-	      WARN ((0, 0,
-		     _("Archive octal value %.*s is out of %s range; assuming two's complement"),
-		     (int) (where - where1), where1, type));
+	      if (!silent)
+		WARN ((0, 0,
+		       _("Archive octal value %.*s is out of %s range; assuming two's complement"),
+		       (int) (where - where1), where1, type));
 	      negative = 1;
 	    }
 	}
 
       if (overflow)
 	{
-	  if (type)
+	  if (type && !silent)
 	    ERROR ((0, 0,
 		    _("Archive octal value %.*s is out of %s range"),
 		    (int) (where - where1), where1, type));
@@ -734,8 +754,9 @@ from_header (char const *where0, size_t digs, char const *type,
       if (! warned_once)
 	{
 	  warned_once = 1;
-	  WARN ((0, 0,
-		 _("Archive contains obsolescent base-64 headers")));
+	  if (!silent)
+	    WARN ((0, 0,
+		   _("Archive contains obsolescent base-64 headers")));
 	}
       negative = *where++ == '-';
       while (where != lim
@@ -746,7 +767,7 @@ from_header (char const *where0, size_t digs, char const *type,
 	      char *string = alloca (digs + 1);
 	      memcpy (string, where0, digs);
 	      string[digs] = '\0';
-	      if (type)
+	      if (type && !silent)
 		ERROR ((0, 0,
 			_("Archive signed base-64 string %s is out of %s range"),
 			quote (string), type));
@@ -777,7 +798,7 @@ from_header (char const *where0, size_t digs, char const *type,
 	    break;
 	  if (((value << LG_256 >> LG_256) | topbits) != value)
 	    {
-	      if (type)
+	      if (type && !silent)
 		ERROR ((0, 0,
 			_("Archive base-256 value is out of %s range"),
 			type));
@@ -805,9 +826,10 @@ from_header (char const *where0, size_t digs, char const *type,
 	  while (where0 != lim && ! lim[-1])
 	    lim--;
 	  quotearg_buffer (buf, sizeof buf, where0, lim - where, o);
-	  ERROR ((0, 0,
-		  _("Archive contains %.*s where numeric %s value expected"),
-		  (int) sizeof buf, buf, type));
+	  if (!silent)
+	    ERROR ((0, 0,
+		    _("Archive contains %.*s where numeric %s value expected"),
+		    (int) sizeof buf, buf, type));
 	}
 
       return -1;
@@ -816,7 +838,7 @@ from_header (char const *where0, size_t digs, char const *type,
   if (value <= (negative ? minus_minval : maxval))
     return negative ? -value : value;
 
-  if (type)
+  if (type && !silent)
     {
       char minval_buf[UINTMAX_STRSIZE_BOUND + 1];
       char maxval_buf[UINTMAX_STRSIZE_BOUND];
@@ -840,7 +862,8 @@ gid_from_header (const char *p, size_t s)
 {
   return from_header (p, s, "gid_t",
 		      - (uintmax_t) TYPE_MINIMUM (gid_t),
-		      (uintmax_t) TYPE_MAXIMUM (gid_t));
+		      (uintmax_t) TYPE_MAXIMUM (gid_t),
+		      false);
 }
 
 major_t
@@ -848,7 +871,7 @@ major_from_header (const char *p, size_t s)
 {
   return from_header (p, s, "major_t",
 		      - (uintmax_t) TYPE_MINIMUM (major_t),
-		      (uintmax_t) TYPE_MAXIMUM (major_t));
+		      (uintmax_t) TYPE_MAXIMUM (major_t), false);
 }
 
 minor_t
@@ -856,7 +879,7 @@ minor_from_header (const char *p, size_t s)
 {
   return from_header (p, s, "minor_t",
 		      - (uintmax_t) TYPE_MINIMUM (minor_t),
-		      (uintmax_t) TYPE_MAXIMUM (minor_t));
+		      (uintmax_t) TYPE_MAXIMUM (minor_t), false);
 }
 
 mode_t
@@ -865,7 +888,7 @@ mode_from_header (const char *p, size_t s)
   /* Do not complain about unrecognized mode bits.  */
   unsigned u = from_header (p, s, "mode_t",
 			    - (uintmax_t) TYPE_MINIMUM (mode_t),
-			    TYPE_MAXIMUM (uintmax_t));
+			    TYPE_MAXIMUM (uintmax_t), false);
   return ((u & TSUID ? S_ISUID : 0)
 	  | (u & TSGID ? S_ISGID : 0)
 	  | (u & TSVTX ? S_ISVTX : 0)
@@ -886,14 +909,14 @@ off_from_header (const char *p, size_t s)
   /* Negative offsets are not allowed in tar files, so invoke
      from_header with minimum value 0, not TYPE_MINIMUM (off_t).  */
   return from_header (p, s, "off_t", (uintmax_t) 0,
-		      (uintmax_t) TYPE_MAXIMUM (off_t));
+		      (uintmax_t) TYPE_MAXIMUM (off_t), false);
 }
 
 size_t
 size_from_header (const char *p, size_t s)
 {
   return from_header (p, s, "size_t", (uintmax_t) 0,
-		      (uintmax_t) TYPE_MAXIMUM (size_t));
+		      (uintmax_t) TYPE_MAXIMUM (size_t), false);
 }
 
 time_t
@@ -901,7 +924,7 @@ time_from_header (const char *p, size_t s)
 {
   return from_header (p, s, "time_t",
 		      - (uintmax_t) TYPE_MINIMUM (time_t),
-		      (uintmax_t) TYPE_MAXIMUM (time_t));
+		      (uintmax_t) TYPE_MAXIMUM (time_t), false);
 }
 
 uid_t
@@ -909,14 +932,14 @@ uid_from_header (const char *p, size_t s)
 {
   return from_header (p, s, "uid_t",
 		      - (uintmax_t) TYPE_MINIMUM (uid_t),
-		      (uintmax_t) TYPE_MAXIMUM (uid_t));
+		      (uintmax_t) TYPE_MAXIMUM (uid_t), false);
 }
 
 uintmax_t
 uintmax_from_header (const char *p, size_t s)
 {
   return from_header (p, s, "uintmax_t", (uintmax_t) 0,
-		      TYPE_MAXIMUM (uintmax_t));
+		      TYPE_MAXIMUM (uintmax_t), false);
 }
 
 
@@ -1111,7 +1134,8 @@ print_header (struct tar_stat_info *st, off_t block_ordinal)
 	  uintmax_t u = from_header (current_header->header.uid,
 				     sizeof current_header->header.uid, 0,
 				     (uintmax_t) 0,
-				     (uintmax_t) TYPE_MAXIMUM (uintmax_t));
+				     (uintmax_t) TYPE_MAXIMUM (uintmax_t),
+				     false);
 	  if (u != -1)
 	    user = STRINGIFY_BIGINT (u, uform);
 	  else
@@ -1133,7 +1157,8 @@ print_header (struct tar_stat_info *st, off_t block_ordinal)
 	  uintmax_t g = from_header (current_header->header.gid,
 				     sizeof current_header->header.gid, 0,
 				     (uintmax_t) 0,
-				     (uintmax_t) TYPE_MAXIMUM (uintmax_t));
+				     (uintmax_t) TYPE_MAXIMUM (uintmax_t),
+				     false);
 	  if (g != -1)
 	    group = STRINGIFY_BIGINT (g, gform);
 	  else
@@ -1236,7 +1261,7 @@ print_header (struct tar_stat_info *st, off_t block_ordinal)
 
 /* Print a similar line when we make a directory automatically.  */
 void
-print_for_mkdir (char *pathname, int length, mode_t mode)
+print_for_mkdir (char *dirname, int length, mode_t mode)
 {
   char modes[11];
 
@@ -1255,7 +1280,7 @@ print_for_mkdir (char *pathname, int length, mode_t mode)
 	}
 
       fprintf (stdlis, "%s %*s %.*s\n", modes, ugswidth + DATEWIDTH,
-	       _("Creating directory:"), length, quotearg (pathname));
+	       _("Creating directory:"), length, quotearg (dirname));
     }
 }
 
@@ -1271,6 +1296,19 @@ skip_file (off_t size)
       save_sizeleft = size;
     }
 
+  if (seekable_archive)
+    {
+      off_t nblk = seek_archive (size);
+      if (nblk >= 0)
+	{
+	  size -= nblk * BLOCKSIZE;
+	  if (multi_volume_option) /* Argh.. */
+	    save_sizeleft -= nblk * BLOCKSIZE;
+	}
+      else
+	seekable_archive = false;
+    }
+  
   while (size > 0)
     {
       x = find_next_block ();
@@ -1284,16 +1322,17 @@ skip_file (off_t size)
     }
 }
 
-/* Skip the current member in the archive.  */
+/* Skip the current member in the archive.
+   NOTE: Current header must be decoded before calling this function. */
 void
 skip_member (void)
 {
   char save_typeflag = current_header->header.typeflag;
   set_next_block_after (current_header);
-
+  
   assign_string (&save_name, current_stat_info.file_name);
 
-  if (sparse_member_p (&current_stat_info))
+  if (current_stat_info.is_sparse)
     sparse_skip_file (&current_stat_info);
   else if (save_typeflag != DIRTYPE)
     skip_file (current_stat_info.stat.st_size);

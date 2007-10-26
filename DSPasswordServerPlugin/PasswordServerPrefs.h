@@ -24,19 +24,25 @@
 #ifndef __PasswordServerPrefs__
 #define __PasswordServerPrefs__
 
-#include "PasswordServerPrefsDefs.h"
-#import <Cocoa/Cocoa.h>
+#import "PasswordServerPrefsDefs.h"
+#import <objc/Object.h>
+#import <CoreFoundation/CoreFoundation.h>
 
-@interface PasswordServerPrefsObject : NSObject {
-	NSMutableDictionary *mPrefsDict;
-	NSMutableCharacterSet *mExternalToolIllegalChars;
+typedef struct SASLPluginListConverterContext {
+	short arrayIndex;
+	SASLPluginEntry *saslPluginState;
+} SASLPluginListConverterContext;
+
+@interface PasswordServerPrefsObject : Object {
+	CFMutableDictionaryRef mPrefsDict;
+	CFCharacterSetRef mExternalToolIllegalChars;
 	PasswordServerPrefs mPrefs;
 	struct timespec mPrefsFileModDate;
 }
 
 // constructor/destructor
 -(id)init;
--(void)dealloc;
+-free;
 
 // public methods
 -(void)getPrefs:(PasswordServerPrefs *)outPrefs;
@@ -47,8 +53,10 @@
 -(int)savePrefs;
 
 -(void)setRealm:(const char *)inRealm;
+-(void)buildSASLMechPrefsFromCurrentSASLState;
+-(CFDictionaryRef)saslMechArrayToCFDictionary;
 -(SASLPluginStatus)getSASLPluginStatus:(const char *)inSASLPluginName foundAtIndex:(int *)outIndex;
--(BOOL)methodExists:(const char *)method inArray:(NSArray *)inActivePluginArray;
+-(BOOL)methodExists:(const char *)method inArray:(CFArrayRef)inActivePluginArray;
 
 // accessors
 -(BOOL)passiveReplicationOnly;
@@ -60,13 +68,17 @@
 -(BOOL)testSpillBucket;
 -(const char *)realm;
 -(const char *)passwordToolPath;
--(unsigned long)getKerberosCacheLimit;
+-(unsigned long)kerberosCacheLimit;
 -(BOOL)syncSASLPluginList;
+-(time_t)deleteWait;
+-(time_t)purgeWait;
+-(const PWSDebugLogOptions *)logOptions;
 
 // protected methods
 -(int)statPrefsFileAndGetModDate:(struct timespec *)outModDate;
 -(int)loadXMLData;
 -(int)saveXMLData;
+-(long)longValueForKey:(CFStringRef)key inDictionary:(CFDictionaryRef)dict;
 
 @end
 

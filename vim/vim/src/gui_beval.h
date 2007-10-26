@@ -13,7 +13,9 @@
 #ifdef FEAT_GUI_GTK
 # include <gtk/gtkwidget.h>
 #else
-# include <X11/Intrinsic.h>
+# if defined(FEAT_GUI_X11)
+#  include <X11/Intrinsic.h>
+# endif
 #endif
 
 typedef enum
@@ -24,7 +26,7 @@ typedef enum
     ShS_SHOWING				/* the balloon is being displayed */
 } BeState;
 
-typedef struct
+typedef struct BalloonEvalStruct
 {
 #ifdef FEAT_GUI_GTK
     GtkWidget		*target;	/* widget we are monitoring */
@@ -36,6 +38,7 @@ typedef struct
     int			y;
     unsigned int	state;		/* Button/Modifier key state */
 #else
+# if !defined(FEAT_GUI_W32)
     Widget		target;		/* widget we are monitoring */
     Widget		balloonShell;
     Widget		balloonLabel;
@@ -47,12 +50,19 @@ typedef struct
     Position		x_root;
     Position		y_root;
     int			state;		/* Button/Modifier key state */
+# else
+    HWND		target;
+    HWND		balloon;
+    int			x;
+    int			y;
+    BeState		showState;	/* tells us whats currently going on */
+# endif
 #endif
     int			ts;		/* tabstop setting for this buffer */
     char_u		*msg;
-    void		(*msgCB)();
+    void		(*msgCB)__ARGS((struct BalloonEvalStruct *, int));
     void		*clientData;	/* For callback */
-#ifndef FEAT_GUI_GTK
+#if !defined(FEAT_GUI_GTK) && !defined(FEAT_GUI_W32)
     Dimension		screen_width;	/* screen width in pixels */
     Dimension		screen_height;	/* screen height in pixels */
 #endif

@@ -13,7 +13,7 @@
 +			if (mpool_write(mp, bp) == RET_ERROR) {
 +				return (RET_ERROR);
 +			} else {
-+				/* 4892134: Re-run through the user's pgin filter. */
++				/* 4874757: Re-run through the user's pgin filter. */
 +				if (mp->pgin != NULL)
 +					(mp->pgin)(mp->pgcookie, bp->pgno, bp->page);
 +			}

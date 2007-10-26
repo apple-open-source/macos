@@ -1,3 +1,4 @@
+/* APPLE LOCAL file -falign-loops-max-skip */
 /* { dg-do compile { target "powerpc*-*-darwin*" } } */
 /* Test -falign-loops-max-skip */
 /* { dg-options "-O3 -falign-loops=16 -falign-loops-max-skip=11" } */

@@ -1,6 +1,78 @@
---- wprintf.3.orig	Fri Mar 11 17:09:07 2005
-+++ wprintf.3	Fri Mar 11 17:03:23 2005
-@@ -87,6 +87,12 @@
+--- wprintf.3.orig	2007-04-08 18:49:37.000000000 -0700
++++ wprintf.3	2007-04-08 20:12:12.000000000 -0700
+@@ -41,8 +41,12 @@
+ .Dt WPRINTF 3
+ .Os
+ .Sh NAME
+-.Nm wprintf , fwprintf , swprintf ,
+-.Nm vwprintf , vfwprintf , vswprintf
++.Nm fwprintf ,
++.Nm swprintf ,
++.Nm vfwprintf ,
++.Nm vswprintf ,
++.Nm vwprintf ,
++.Nm wprintf
+ .Nd formatted wide character output conversion
+ .Sh LIBRARY
+ .Lb libc
+@@ -50,23 +54,49 @@
+ .In stdio.h
+ .In wchar.h
+ .Ft int
+-.Fn fwprintf "FILE * restrict stream" "const wchar_t * restrict format" ...
++.Fo fwprintf
++.Fa "FILE *restrict stream"
++.Fa "const wchar_t *restrict format"
++.Fa ...
++.Fc
+ .Ft int
+-.Fn swprintf "wchar_t * restrict ws" "size_t n" "const wchar_t * restrict format" ...
++.Fo swprintf
++.Fa "wchar_t *restrict ws"
++.Fa "size_t n"
++.Fa "const wchar_t *restrict format"
++.Fa ...
++.Fc
+ .Ft int
+-.Fn wprintf "const wchar_t * restrict format" ...
++.Fo wprintf
++.Fa "const wchar_t *restrict format"
++.Fa ...
++.Fc
+ .In stdarg.h
++.In stdio.h
++.In wchar.h
+ .Ft int
+-.Fn vfwprintf "FILE * restrict stream" "const wchar_t * restrict" "va_list ap"
++.Fo vfwprintf
++.Fa "FILE *restrict stream"
++.Fa "const wchar_t *restrict format"
++.Fa "va_list arg"
++.Fc
+ .Ft int
+-.Fn vswprintf "wchar_t * restrict ws" "size_t n" "const wchar_t *restrict format" "va_list ap"
++.Fo vswprintf
++.Fa "wchar_t *restrict ws"
++.Fa "size_t n"
++.Fa "const wchar_t *restrict format"
++.Fa "va_list arg"
++.Fc
+ .Ft int
+-.Fn vwprintf "const wchar_t * restrict format" "va_list ap"
++.Fo vwprintf
++.Fa "const wchar_t *restrict format"
++.Fa "va_list arg"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn wprintf
+ family of functions produces output according to a
+-.Fa format
++.Fa format ,
+ as described below.
+ The
+ .Fn wprintf
+@@ -87,6 +117,12 @@
  write to the wide character string
  .Fa ws .
  .Pp
@@ -13,63 +85,29 @@
  These functions write the output under the control of a
  .Fa format
  string that specifies how subsequent arguments
-@@ -224,6 +230,20 @@
- .Xr localeconv 3 .
- .El
- .It
-+An optional separator character (
-+.Cm \ , | \;  | \ : | _
-+) used for separating multiple values when printing an AltiVec vector,
-+or other multi-value unit.
-+.Pp
-+NOTE: This is an AltiVec only extension onto the
-+.Fn printf
-+specification.
-+Behaviour of these values for
-+.Fn printf 
-+is only defined for operating systems conforming to the 
-+AltiVec Technology Programming Interface Manual.
-+(At time of writing this includes only Mac OS X 10.2 and later.)
-+.It
- An optional decimal digit string specifying a minimum field width.
- If the converted value has fewer characters than the field width, it will
- be padded with spaces on the left (or right, if the left-adjustment
-@@ -314,6 +334,28 @@
- .It Sy Modifier Ta Cm c Ta Cm s
- .It Cm l No (ell) Ta Vt wint_t Ta Vt "wchar_t *"
- .El
-+.Pp
-+The AltiVec Technology Programming Interface Manual also defines five additional length modifiers
-+which can be used (in place of the conventional length modifiers) for the printing of AltiVec vectors:
-+.Bl -tag -compact
-+.It Cm v
-+Treat the argument as a vector value, unit length will be determined by the conversion
-+specifier (default = 16 8-bit units for all integer conversions, 
-+4 32-bit units for floating point conversions).
-+.It Cm vh, hv
-+Treat the argument as a vector of 8 16-bit units.
-+.It Cm vl, lv
-+Treat the argument as a vector of 4 32-bit units.
-+.El
-+.Pp
-+NOTE: The vector length specifiers are AltiVec only extensions onto the
-+.Fn printf
-+specification.
-+Behaviour of these values for
-+.Fn printf 
-+is only defined for operating systems conforming to the 
-+AltiVec Technology Programming Interface Manual.
-+(At time of writing this includes only Mac OS X 10.2 and later.)
- .It
- A character that specifies the type of conversion to be applied.
- .El
-@@ -602,7 +644,8 @@
+@@ -96,7 +132,7 @@
+ .Pp
+ These functions return the number of characters printed
+ (not including the trailing
+-.Ql \e0
++.Ql \e0 ,
+ used to end output to strings).
+ .Pp
+ The
+@@ -602,6 +638,7 @@
  .Xr putwc 3 ,
  .Xr setlocale 3 ,
  .Xr wcsrtombs 3 ,
--.Xr wscanf 3
-+.Xr wscanf 3 ,
-+.Xr wprintf_l 3
++.Xr wprintf_l 3 ,
+ .Xr wscanf 3
  .Sh STANDARDS
  Subject to the caveats noted in the
- .Sx BUGS
+@@ -614,7 +651,7 @@
+ .Fn fwprintf ,
+ .Fn swprintf ,
+ .Fn vwprintf ,
+-.Fn vfwprintf
++.Fn vfwprintf ,
+ and
+ .Fn vswprintf
+ functions

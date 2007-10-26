@@ -99,5 +99,9 @@ Here's an example:
 	</p>
 	<p>I think that pretty much covers it.</p>
 </bugs>
+
+<topic><name>Some other heading</name>
+	<p>Here is what goes under that heading.</p>
+</topic>
 </manpage>
 

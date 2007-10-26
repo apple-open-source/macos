@@ -1,5 +1,5 @@
 #	@(#)bsd.README	8.2 (Berkeley) 4/2/94
-# $FreeBSD: src/share/mk/bsd.README,v 1.27 2004/08/13 14:30:26 ru Exp $
+# $FreeBSD: src/share/mk/bsd.README,v 1.28 2004/12/21 08:46:54 ru Exp $
 
 This is the README file for the "include" files for the FreeBSD
 source tree.  The files are installed in /usr/share/mk, and are by
@@ -308,7 +308,7 @@ To build foo from foo.c with a manual page foo.2, add the line:
 
 If foo does not have a manual page at all, add the line:
 
-	NOMAN=	noman
+	NO_MAN=	noman
 
 If foo has multiple source files, add the line:
 

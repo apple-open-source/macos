@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -166,8 +166,14 @@ bool SourceAclSubject::SourceAclSubject::validate(const AclValidationContext &ba
 {
 	// try to authenticate our sub-subject
 	if (Environment *env = baseCtx.environment<Environment>()) {
-		bool &accepted = env->store(this).attachment<Store>(this).accepted;
+		AclAuthorization auth = baseCtx.authorization();
+		if (!CSSM_ACL_AUTHORIZATION_IS_PREAUTH(auth))	// all muddled up; bail
+			CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+		uint32 slot = CSSM_ACL_AUTHORIZATION_PREAUTH_SLOT(auth);
+		secdebug("preauth", "using state %d@%p", slot, &env->store(this));
+		bool &accepted = env->store(this).attachment<AclState>((void *)slot).accepted;
 		if (!accepted) {
+			secdebug("preauth", "%p needs to authenticate its subject", this);
 			SourceValidationContext ctx(baseCtx);
 			if (mSourceSubject->validate(ctx)) {
 				secdebug("preauth", "%p pre-authenticated", this);
@@ -183,15 +189,13 @@ bool SourceAclSubject::SourceAclSubject::validate(const AclValidationContext &ba
 CssmList SourceAclSubject::toList(Allocator &alloc) const
 {
 	return TypedList(alloc, CSSM_ACL_SUBJECT_TYPE_PREAUTH_SOURCE,
-		new(alloc) ListElement(mSourceSubject->toList(alloc)),
-		new(alloc) ListElement(mTrackingState));
+		new(alloc) ListElement(mSourceSubject->toList(alloc)));
 }
 
 
 SourceAclSubject::SourceAclSubject(AclSubject *subSubject, CSSM_ACL_PREAUTH_TRACKING_STATE state)
 	: AclSubject(CSSM_ACL_SUBJECT_TYPE_PREAUTH),
-	  mSourceSubject(subSubject),
-	  mTrackingState(state)
+	  mSourceSubject(subSubject)
 {
 }
 
@@ -215,7 +219,7 @@ void SourceAclSubject::exportBlob(Writer &pub, Writer &priv)
 
 void OriginAclSubject::debugDump() const
 {
-	Debug::dump("Preauth(to slot %ld)", mAuthTag - CSSM_ACL_AUTHORIZATION_PREAUTH_BASE);
+	Debug::dump("Preauth(to slot %d)", mAuthTag - CSSM_ACL_AUTHORIZATION_PREAUTH_BASE);
 }
 
 void SourceAclSubject::debugDump() const
@@ -225,13 +229,6 @@ void SourceAclSubject::debugDump() const
 		mSourceSubject->debugDump();
 	else
 		Debug::dump("NULL?");
-	if (mTrackingState & CSSM_ACL_PREAUTH_TRACKING_UNKNOWN) {
-		Debug::dump(" track=unknown");
-	} else {
-		Debug::dump(" retries=%d", trackingRetries());
-		if (trackingAuthorized())
-			Debug::dump(" authorized");
-	}
 }
 
 #endif //DEBUGDUMP

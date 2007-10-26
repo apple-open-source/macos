@@ -23,21 +23,70 @@
 #ifndef _privatelib_h_
 #define _privatelib_h_
 
-__private_extern__ void _askNicelyThenShutdownSystem(void);
+#include <TargetConditionals.h>
 
+#if !TARGET_OS_EMBEDDED
+  #define HAVE_CF_USER_NOTIFICATION     1
+  #define HAVE_HID_SYSTEM               1
+  #define HAVE_SMART_BATTERY            1
+#endif
+
+struct IOPMBattery {
+    io_registry_entry_t     me;
+    io_object_t             msg_port;
+    CFMutableDictionaryRef  properties;
+    bool                    externalConnected:1;
+    bool                    externalChargeCapable:1;
+    bool                    isCharging:1;
+    bool                    isPresent:1;
+    int                     currentCap;
+    int                     maxCap;
+    int                     designCap;
+    int                     voltage;
+    int                     avgAmperage;
+    int                     instantAmperage;
+    int                     maxerr;
+    int                     cycleCount;
+    int                     location;
+    int                     hwAverageTR;
+    int                     hwInstantTR;
+    int                     swCalculatedTR;
+    int                     invalidWakeSecs;
+    int                     health;
+    int                     healthConfidence;
+    CFStringRef             failureDetected;
+    CFStringRef             name;
+    CFStringRef             dynamicStoreKey;
+};
+typedef struct IOPMBattery IOPMBattery;
+
+__private_extern__ IOPMBattery **_batteries(void);
+__private_extern__ IOPMBattery *_newBatteryFound(io_registry_entry_t);
+__private_extern__ void _batteryChanged(IOPMBattery *);
+__private_extern__ bool _batteryHas(IOPMBattery *, CFStringRef);
+__private_extern__ int  _batteryCount(void);
+__private_extern__ void  _removeBattery(io_registry_entry_t);
+
+// Returns 10.0 - 10.4 style IOPMCopyBatteryInfo dictionary, when possible.
+__private_extern__ CFArrayRef _copyLegacyBatteryInfo(void);
+
+__private_extern__ void _askNicelyThenShutdownSystem(void);
 __private_extern__ void _askNicelyThenSleepSystem(void);
 
-//__private_extern__ void _doNiceShutdown(void);
-
-__private_extern__ CFArrayRef _copyBatteryInfo(void);
-
+#if !TARGET_OS_EMBEDDED
 __private_extern__ CFUserNotificationRef _showUPSWarning(void);
-
-//__private_extern__ CFUserNotificationRef _showLowBatteryWarning(void);
+#endif
 
 __private_extern__ IOReturn _setRootDomainProperty(
                                     CFStringRef     key,
                                     CFTypeRef       val);
+
+__private_extern__ int callerIsRoot(int uid, int gid);
+__private_extern__ int callerIsAdmin(int uid, int gid);
+__private_extern__ int callerIsConsole(int uid, int gid);
+
+
+__private_extern__ void _oneOffHacksSetup(void);
 
 #endif
 

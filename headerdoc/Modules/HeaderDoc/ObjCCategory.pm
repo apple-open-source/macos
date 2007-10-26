@@ -6,7 +6,7 @@
 #
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/10/04 23:11:24 $
+# Last Updated: $Date: 2006/03/13 19:27:37 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -45,7 +45,7 @@ use HeaderDoc::ObjCContainer;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.3.2.4.2.11 $';
+$VERSION = '$Revision: 1.3.2.4.2.13 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -103,8 +103,7 @@ sub getMethodType {
 		my $filename = $self->filename();
 		my $linenum = $self->linenum();
 		if (!$HeaderDoc::ignore_apiuid_errors) {
-			print "$filename:$linenum:Unable to determine whether declaration is for an instance or class method[cat].\n";
-			print "$filename:$linenum:     '$declaration'\n";
+			print "$filename:$linenum: warning: Unable to determine whether declaration is for an instance or class method[cat]. '$declaration'\n";
 		}
 	}
 	return $methodType;
@@ -130,8 +129,8 @@ sub docNavigatorComment {
     my $navComment = "<!-- headerDoc=cat; uid=$uid; $igstring name=$name-->";
     my $appleRef = "<a name=\"$uid\"></a>";
 
-    unregisterUID($olduid, $name);
-    registerUID($uid, $name);
+    unregisterUID($olduid, $name, $self);
+    registerUID($uid, $name, $self);
     
     return "$navComment\n$appleRef";
 }
@@ -154,14 +153,13 @@ sub getClassAndCategoryName {
     	$className = $1;
     	$categoryName =$3;
     	if (!length ($className)) {
-            print "$filename:$linenum:Couldn't determine class name from category name '$fullName'.\n";
+            print "$filename:$linenum: warning: Couldn't determine class name from category name '$fullName'.\n";
     	}
     	if (!length ($categoryName)) {
-            print "$filename:$linenum:Couldn't determine category name from category name '$fullName'.\n";
+            print "$filename:$linenum: warning: Couldn't determine category name from category name '$fullName'.\n";
     	}
     } else {
-        print "$filename:$linenum:Specified category name '$fullName' isn't complete.\n";
-        print "$filename:$linenum:Expecting a name of the form 'MyClass(CategoryName)'\n";
+        print "$filename:$linenum: warning: Specified category name '$fullName' isn't complete. Expecting a name of the form 'MyClass(CategoryName)'\n";
     }
     return ($className, $categoryName);
 }

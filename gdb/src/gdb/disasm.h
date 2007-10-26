@@ -36,4 +36,8 @@ extern int gdb_print_insn (CORE_ADDR memaddr, struct ui_file *stream);
 
 extern int find_pc_offset (CORE_ADDR start, CORE_ADDR *result, int offset, int funclimit, int peeklimit);
 
+/* APPLE LOCAL: Use this to truncate the symbolic name in disassembly output.  It is set
+   in printcmd.c, and used in disasm.c  */
+extern int disassembly_name_length;
+
 #endif

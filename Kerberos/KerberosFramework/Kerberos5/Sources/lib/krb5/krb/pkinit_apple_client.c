@@ -40,56 +40,105 @@
 /*
  * Create a PA-PK-AS-REQ message.
  */
-krb5_error_code pkinit_as_req_create(
-    krb5_timestamp	    ctime,      
-    krb5_ui_4		    cusec,	    // microseconds
-    krb5_ui_4		    nonce,
-    const krb5_checksum     *cksum,
-    pkinit_signing_cert_t   client_cert,    // required
-    const krb5_data	    *kdc_cert,      // optional
-    krb5_data		    *as_req)	    // mallocd and RETURNED
+krb5_error_code krb5int_pkinit_as_req_create(
+    krb5_context		context,
+    krb5_timestamp		kctime,      
+    krb5_int32			cusec,		/* microseconds */
+    krb5_ui_4			nonce,
+    const krb5_checksum		*cksum,
+    krb5_pkinit_signing_cert_t   client_cert,	/* required */
+    const krb5_data		*trusted_CAs,	/* optional list of CA certs */
+    krb5_ui_4			num_trusted_CAs,
+    const krb5_data		*kdc_cert,	/* optional KDC cert */
+    krb5_data			*as_req)	/* mallocd and RETURNED */
 {
-    krb5_data auth_pack = {0, 0, NULL};
+    krb5_data auth_pack = {0};
     krb5_error_code krtn;
-    krb5_data content_info = {0, 0, NULL};
-    krb5_data issuerSerial = {0, 0, NULL};
-    krb5_data *isp = NULL;
+    krb5_data content_info = {0};
+    krb5int_algorithm_id *cms_types = NULL;
+    krb5_ui_4 num_cms_types = 0;
     
-    /* encode the core authPack */
-    krtn = pkinit_auth_pack_encode(ctime, cusec, nonce, cksum, &auth_pack);
+    /* issuer/serial numbers for trusted_CAs and kdc_cert, if we have them */
+    krb5_data *ca_issuer_sn = NULL;	    /* issuer/serial_num for trusted_CAs */
+    krb5_data kdc_issuer_sn = {0};	    /* issuer/serial_num for kdc_cert */
+    krb5_data *kdc_issuer_sn_p = NULL;
+    
+    /* optional platform-dependent CMS algorithm preference */
+    krtn = krb5int_pkinit_get_cms_types(&cms_types, &num_cms_types);
     if(krtn) {
 	return krtn;
     }
+    
+    /* encode the core authPack */
+    krtn = krb5int_pkinit_auth_pack_encode(kctime, cusec, nonce, cksum, 
+	cms_types, num_cms_types,
+	&auth_pack);
+    if(krtn) {
+	goto errOut;
+    }
 
     /* package the AuthPack up in a SignedData inside a ContentInfo */
-    krtn = pkinit_create_signed_data(&auth_pack, client_cert, TRUE, ECT_PkAuthData, 
+    krtn = krb5int_pkinit_create_cms_msg(&auth_pack, 
+	client_cert,
+	NULL,		/* recip_cert */
+	ECT_PkAuthData,
+	0, NULL,	/* cms_types */
 	&content_info);
     if(krtn) {
 	goto errOut;
     }
     
-    /* If we have a KDC cert, extract its issuer/serial */
+    /* if we have trusted_CAs, get issuer/serials */
+    if(trusted_CAs) {
+	unsigned dex;
+	ca_issuer_sn = (krb5_data *)malloc(num_trusted_CAs * sizeof(krb5_data));
+	if(ca_issuer_sn == NULL) {
+	    krtn = ENOMEM;
+	    goto errOut;
+	}
+	for(dex=0; dex<num_trusted_CAs; dex++) {
+	    krtn = krb5int_pkinit_get_issuer_serial(&trusted_CAs[dex], 
+		&ca_issuer_sn[dex]);
+	    if(krtn) {
+		goto errOut;
+	    }
+	}
+    }
+    
+    /* If we have a KDC cert, get its issuer/serial */
     if(kdc_cert) {
-	krtn = pkiGetIssuerAndSerial(kdc_cert, &issuerSerial);
+	krtn = krb5int_pkinit_get_issuer_serial(kdc_cert, &kdc_issuer_sn);
 	if(krtn) {
 	    goto errOut;
 	}
-	isp = &issuerSerial;
+	kdc_issuer_sn_p = &kdc_issuer_sn;
     }
     
     /* cook up PA-PK-AS-REQ */
-    krtn = pkinit_pa_pk_as_req_encode(&content_info, 
-	0, NULL,	    // trusted CAs - we don't use them
-	isp,		    // optional
-	NULL,		    // encryption_cert - we don't use
+    krtn = krb5int_pkinit_pa_pk_as_req_encode(&content_info, 
+	ca_issuer_sn, num_trusted_CAs,	
+	kdc_issuer_sn_p,
 	as_req);
     
 errOut:
+    if(cms_types) {
+       krb5int_pkinit_free_cms_types(cms_types, num_cms_types); 
+    }
     if(auth_pack.data) {
 	free(auth_pack.data);
     }
     if(content_info.data) {
 	free(content_info.data);
+    }
+    if(trusted_CAs) {
+	unsigned dex;
+	for(dex=0; dex<num_trusted_CAs; dex++) {
+	    free(ca_issuer_sn[dex].data);
+	}
+	free(ca_issuer_sn);
+    }
+    if(kdc_cert) {
+	free(kdc_issuer_sn.data);
     }
     return krtn;
 }
@@ -98,19 +147,14 @@ errOut:
  * Parse PA-PK-AS-REP message. Optionally evaluates the message's certificate chain. 
  * Optionally returns various components. 
  */
-krb5_error_code pkinit_as_rep_parse(
-    const krb5_data	    *as_rep,
-    pkinit_signing_cert_t   client_cert,    // required
-    krb5_keyblock	    *key_block,     // RETURNED
-    krb5_ui_4		    *nonce,		// RETURNED
-    pki_cert_sig_status     *cert_status,   // RETURNED
-    
-    /*
-     * Describe the ContentInfos : signed and/or encrypted. 
-     * Both should be true for a valid PA-PK-AS-REP.
-     */
-    krb5_boolean	    *is_signed,
-    krb5_boolean	    *is_encrypted,
+krb5_error_code krb5int_pkinit_as_rep_parse(
+    krb5_context		context,
+    const krb5_data		*as_rep,
+    krb5_pkinit_signing_cert_t   client_cert,	/* required */
+    krb5_keyblock		*key_block,     /* RETURNED */
+    krb5_checksum		*checksum,	/* checksum of corresponding AS-REQ */
+						/*   contents mallocd and RETURNED */
+    krb5int_cert_sig_status	*cert_status,   /* RETURNED */
 
     /*
      * Cert fields, all optionally RETURNED.
@@ -119,110 +163,86 @@ krb5_error_code pkinit_as_rep_parse(
      * all_certs is an array of all of the certs in the incoming SignedData,
      *    in full X.509 form. 
      */
-    krb5_data		    *signer_cert,   // content mallocd
-    unsigned		    *num_all_certs, // sizeof *all_certs
-    krb5_data		    **all_certs)    // krb5_data's and their content mallocd
+    krb5_data		    *signer_cert,   /* content mallocd */
+    unsigned		    *num_all_certs, /* sizeof *all_certs */
+    krb5_data		    **all_certs)    /* krb5_data's and their content mallocd */
 {
     krb5_data reply_key_pack = {0, 0, NULL};
     krb5_error_code krtn;
-    krb5_data signed_data = {0, 0, NULL};
     krb5_data enc_key_pack = {0, 0, NULL};
     krb5_data dh_signed_data = {0, 0, NULL};
-    PKI_ContentType content_type;
-    krb5_boolean local_signed = FALSE;
-    krb5_boolean local_encrypted = FALSE;
-    pkinit_cert_db_t cert_db = NULL;
+    krb5int_cms_content_type content_type;
+    krb5_pkinit_cert_db_t cert_db = NULL;
+    krb5_boolean is_signed;
+    krb5_boolean is_encrypted;
     
-    assert((as_rep != NULL) && (is_signed != NULL) && (is_encrypted != NULL) &&
-	   (nonce != NULL) && (key_block != NULL) && (cert_status != NULL));
-    
-    *is_signed = FALSE;
-    *is_encrypted = FALSE;
+    assert((as_rep != NULL) && (checksum != NULL) && 
+           (key_block != NULL) && (cert_status != NULL));
     
     /* 
      * Decode the top-level PA-PK-AS-REP
      */
-    krtn = pkinit_pa_pk_as_rep_decode(as_rep, &dh_signed_data, &enc_key_pack);
+    krtn = krb5int_pkinit_pa_pk_as_rep_decode(as_rep, &dh_signed_data, &enc_key_pack);
     if(krtn) {
-	pkiCssmErr("pkinit_pa_pk_as_rep_decode", krtn);
+	pkiCssmErr("krb5int_pkinit_pa_pk_as_rep_decode", krtn);
 	return krtn;
     }
     if(dh_signed_data.data) {
 	/* not for this implementation... */
-	pkiDebug("pkinit_as_rep_parse: unexpected dh_signed_data\n");
+	pkiDebug("krb5int_pkinit_as_rep_parse: unexpected dh_signed_data\n");
 	krtn = ASN1_BAD_FORMAT;
 	goto err_out;
     }
     if(enc_key_pack.data == NULL) {
-	/* REQUIRED for this imnplementation... */
-	pkiDebug("pkinit_as_rep_parse: no enc_key_pack\n");
+	/* REQUIRED for this implementation... */
+	pkiDebug("krb5int_pkinit_as_rep_parse: no enc_key_pack\n");
 	krtn = ASN1_BAD_FORMAT;
 	goto err_out;
     }
    
+    krtn = krb5_pkinit_get_client_cert_db(NULL, client_cert, &cert_db);
+    if(krtn) {
+	pkiDebug("krb5int_pkinit_as_rep_parse: error in krb5_pkinit_get_client_cert_db\n");
+	goto err_out;
+    }
+
     /*
-     * enc_key_pack is an EnvelopedData, encrypted with our cert (which 
-     * pkinit_parse_content_info() finds implicitly).
+     * enc_key_pack is an EnvelopedData(SignedData(keyPack), encrypted 
+     * with our cert (which krb5int_pkinit_parse_content_info() finds 
+     * implicitly).
      */
-    krtn = pkinit_parse_content_info(&enc_key_pack, NULL, 
-	&local_signed, &local_encrypted,
-	&signed_data, &content_type,
-	/* remaining fields for for SignedData only, haven't gotten there yet */
-	NULL, NULL, NULL, NULL);
-    if(krtn) {
-	pkiDebug("pkinit_as_rep_parse: error decoding EnvelopedData\n");
-	goto err_out;
-    }
-    if(local_encrypted) {
-	*is_encrypted = TRUE;
-    }
-    if(local_signed) {
-	pkiDebug("**WARNING: pkinit_as_rep_parse: first CMS parse yielded signed data!\n");
-	/* proceed, though we're probably hosed */
-    }
-    
-    /* 
-     * The Content of that EnvelopedData is a SignedData...
-     */
-    krtn = pkinit_get_client_cert_db(NULL, client_cert, &cert_db);
-    if(krtn) {
-	pkiDebug("pkinit_as_rep_parse: error in pkinit_get_client_cert_db\n");
-	goto err_out;
-    }
-    krtn = pkinit_parse_content_info(&signed_data, cert_db, 
-	&local_signed, &local_encrypted,
+    krtn = krb5int_pkinit_parse_cms_msg(&enc_key_pack, cert_db, FALSE,
+	&is_signed, &is_encrypted,
 	&reply_key_pack, &content_type,
-	/* now pass in the caller's requested fields */
 	signer_cert, cert_status, num_all_certs, all_certs);
     if(krtn) {
-	pkiDebug("pa_pk_as_rep_parse: error decoding SignedData\n");
+	pkiDebug("krb5int_pkinit_as_rep_parse: error decoding EnvelopedData\n");
 	goto err_out;
     }
-    if(local_encrypted) {
-	pkiDebug("**WARNING: pkinit_as_rep_parse: 2nd CMS parse yielded encrypted!\n");
+    if(!is_encrypted || !is_signed) {
+	pkiDebug("krb5int_pkinit_as_rep_parse: not signed and encrypted!\n");
+	krtn = KRB5_PARSE_MALFORMED;
+	goto err_out;
     }
-    if(local_signed) {
-	*is_signed = TRUE;
+    if(content_type != ECT_PkReplyKeyKata) {
+	pkiDebug("replyKeyPack eContentType %d!\n", (int)content_type);
+	krtn = KRB5_PARSE_MALFORMED;
+	goto err_out;
     }
-    
-    /* FIXME: verify content_type when our CMS module can handle custom OIDs there */
      
     /* 
-     * Finally, decode that SignedData's Content as the ReplyKeyPack which contains
+     * Finally, decode that inner content as the ReplyKeyPack which contains
      * the actual key and nonce
      */
-    krtn = pkinit_reply_key_pack_decode(&reply_key_pack, key_block, nonce);
+    krtn = krb5int_pkinit_reply_key_pack_decode(&reply_key_pack, key_block, checksum);
     if(krtn) {
-	pkiDebug("pkinit_as_rep_parse: error decoding ReplyKeyPack\n");
+	pkiDebug("krb5int_pkinit_as_rep_parse: error decoding ReplyKeyPack\n");
     }
     
 err_out:
     /* free temp mallocd data that we didn't pass back to caller */
     if(reply_key_pack.data) {
 	free(reply_key_pack.data);
-    }
-    if(signed_data.data) {
-	free(signed_data.data);
     }
     if(enc_key_pack.data) {
 	free(enc_key_pack.data);
@@ -231,30 +251,7 @@ err_out:
 	free(dh_signed_data.data);
     }
     if(cert_db) {
-	pkinit_release_cert_db(cert_db);
+	krb5_pkinit_release_cert_db(cert_db);
     }
     return krtn;
 }
-
-/*
- * Handy place to have a platform-dependent random number generator, e.g., /dev/random. 
- */
-krb5_error_code pkinit_rand(
-    void *dst,
-    size_t len)
-{
-    int fd = open("/dev/random", O_RDONLY, 0);
-    int rtn;
-    
-    if(fd <= 0) {
-	return EIO;
-    }
-    rtn = read(fd, dst, len);
-    close(fd);
-    if(rtn != len) {
-	pkiDebug("pkinit_rand: short read\n");
-	return EIO;
-    }
-    return 0;
-}
-

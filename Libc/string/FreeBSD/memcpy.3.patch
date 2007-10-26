@@ -1,6 +1,6 @@
---- memcpy.3.orig	Fri May 28 17:44:25 2004
-+++ memcpy.3	Fri May 28 17:45:22 2004
-@@ -41,7 +41,7 @@
+--- _SB/Libc/string/FreeBSD/memcpy.3	2003-05-20 15:23:54.000000000 -0700
++++ _SB/Libc/string/FreeBSD/memcpy.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -41,29 +41,45 @@
  .Os
  .Sh NAME
  .Nm memcpy
@@ -9,32 +9,52 @@
  .Sh LIBRARY
  .Lb libc
  .Sh SYNOPSIS
-@@ -54,10 +54,22 @@
+ .In string.h
+ .Ft void *
+-.Fn memcpy "void *dst" "const void *src" "size_t len"
++.Fo memcpy
++.Fa "void *restrict s1"
++.Fa "const void *restrict s2"
++.Fa "size_t n"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn memcpy
  function
  copies
- .Fa len
+-.Fa len
 -bytes from string
-+bytes from memory area
- .Fa src
+-.Fa src
 -to string
+-.Fa dst .
++.Fa n
++bytes from memory area
++.Fa s2
 +to memory area
- .Fa dst .
++.Fa s1 .
 +If 
-+.Fa src
++.Fa s1
 +and 
-+.Fa dst
++.Fa s2
 +overlap, behavior is undefined.
 +Applications in which
-+.Fa src
++.Fa s1
 +and 
-+.Fa dst 
++.Fa s2 
 +might overlap should use
 +.Xr memmove 3
 +instead.
  .Sh RETURN VALUES
  The
  .Fn memcpy
-@@ -75,17 +87,3 @@
+ function
+ returns the original value of
+-.Fa dst .
++.Fa s1 .
+ .Sh SEE ALSO
+ .Xr bcopy 3 ,
+ .Xr memccpy 3 ,
+@@ -75,17 +91,3 @@
  function
  conforms to
  .St -isoC .

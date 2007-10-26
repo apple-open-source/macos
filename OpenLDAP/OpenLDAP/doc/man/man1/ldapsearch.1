@@ -1,6 +1,6 @@
 .TH LDAPSEARCH 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapsearch.1,v 1.43.2.5 2004/06/29 21:55:44 kurt Exp $
-.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapsearch.1,v 1.49.2.7 2006/07/31 18:22:07 quanah Exp $
+.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapsearch \- LDAP search tool
@@ -12,10 +12,6 @@ ldapsearch \- LDAP search tool
 .BR \-u ]
 [\c
 .BR \-v ]
-[\c
-.BR \-k ]
-[\c
-.BR \-K ]
 [\c
 .BR \-t ]
 [\c
@@ -47,7 +43,7 @@ ldapsearch \- LDAP search tool
 [\c
 .BI \-b \ searchbase\fR]
 [\c
-.BI \-s \ base\fR\||\|\fIone\fR\||\|\fIsub\fR]
+.BI \-s \ base\fR\||\|\fIone\fR\||\|\fIsub\fR\||\|\fIchildren\fR]
 [\c
 .BI \-a \ never\fR\||\|\fIalways\fR\||\|\fIsearch\fR\||\|\fIfind\fR]
 [\c
@@ -88,7 +84,8 @@ the string representation for search filters as defined in RFC 2254.
 If not provided, the default filter, (objectClass=*), is used.
 .LP
 If
-.B ldapsearch finds one or more entries, the attributes specified by
+.B ldapsearch
+finds one or more entries, the attributes specified by
 \fIattrs\fP are returned.  If * is listed, all user attributes are
 returned.  If + is listed, all operational attributes are returned.
 If no \fIattrs\fP are listed, all user attributes are returned.  If only
@@ -105,17 +102,6 @@ in the output.
 .TP
 .B \-v
 Run in verbose mode, with many diagnostics written to standard output.
-.TP
-.B \-k
-Use Kerberos IV authentication instead of simple authentication.  It is
-assumed that you already have a valid ticket granting ticket.
-.B ldapsearch
-must be compiled with Kerberos support for this option to have any effect.
-.TP
-.B \-K
-Same as \-k, but only does step 1 of the Kerberos IV bind.  This is useful
-when connecting to a slapd and there is no x500dsa.hostname principal
-registered with your Kerberos Domain Controller(s).
 .TP
 .B \-t
 Write retrieved non-printable values to a set of temporary files.  This
@@ -143,7 +129,7 @@ makes control critical.
 .BI \-S \ attribute
 Sort the entries returned based on \fIattribute\fP. The default is not
 to sort entries returned.  If \fIattribute\fP is a zero-length string (""),
-the entries are sorted by the components of their Distingished Name.  See
+the entries are sorted by the components of their Distinguished Name.  See
 .BR ldap_sort (3)
 for more details. Note that
 .B ldapsearch
@@ -182,7 +168,9 @@ Use complete contents of \fIpasswdfile\fP as the password for
 simple authentication.
 .TP
 .BI \-H \ ldapuri
-Specify URI(s) referring to the ldap server(s).
+Specify URI(s) referring to the ldap server(s); only the protocol/host/port
+fields are allowed; a list of URI, separated by whitespace or commas
+is expected.
 .TP
 .BI \-h \ ldaphost
 Specify an alternate host on which the ldap server is running.
@@ -196,15 +184,19 @@ Deprecated in favor of -H.
 Use \fIsearchbase\fP as the starting point for the search instead of
 the default.
 .TP
-.BI \-s \ base\fR\||\|\fIone\fR\||\|\fIsub
+.BI \-s \ base\fR\||\|\fIone\fR\||\|\fIsub\fR\||\|\fIchildren
 Specify the scope of the search to be one of
 .IR base ,
 .IR one ,
+.IR sub ,
 or
-.I sub
-to specify a base object, one-level, or subtree search.  The default
-is
+.I children
+to specify a base object, one-level, subtree, or children search.
+The default is
 .IR sub .
+Note:
+.I children
+scope requires LDAPv3 subordinate feature extension.
 .TP
 .BI \-a \ never\fR\||\|\fIalways\fR\||\|\fIsearch\fR\||\|\fIfind
 Specify how aliases dereferencing is done.  Should be one of
@@ -227,6 +219,9 @@ A timelimit of
 (zero) or
 .I none
 means no limit.
+A timelimit of
+.I max
+means the maximum integer allowable by the protocol.
 A server may impose a maximal timelimit which only
 the root user may override.
 .TP
@@ -237,6 +232,9 @@ A sizelimit of
 (zero) or
 .I none
 means no limit.
+A sizelimit of
+.I max
+means the maximum integer allowable by the protocol.
 A server may impose a maximal sizelimit which only
 the root user may override.
 .TP

@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mbregex.h,v 1.2.2.2.8.2 2007/01/01 09:46:44 sebastian Exp $ */
+/* $Id: php_mbregex.h,v 1.12.2.1.2.1 2007/01/01 09:36:02 sebastian Exp $ */
  
 #ifndef _PHP_MBREGEX_H
 #define _PHP_MBREGEX_H
@@ -25,26 +25,68 @@
 
 #include "php.h"
 #include "zend.h"
-#include "mbregex.h"
+#include "oniguruma/oniguruma.h"
 
 /* {{{ PHP_MBREGEX_GLOBALS */
 #define PHP_MBREGEX_GLOBALS \
-	int default_mbctype; \
-	int current_mbctype; \
+	OnigEncoding default_mbctype; \
+	OnigEncoding current_mbctype; \
 	HashTable ht_rc; \
-	zval **search_str; \
+	zval *search_str; \
 	zval *search_str_val; \
 	unsigned int search_pos; \
-	mb_regex_t *search_re; \
-	struct mbre_registers *search_regs; \
-	int regex_default_options;
+	php_mb_regex_t *search_re; \
+	OnigRegion *search_regs; \
+	OnigOptionType regex_default_options; \
+	OnigSyntaxType *regex_default_syntax;
 /* }}} */
+
+/* {{{ PHP_MBREGEX_FUNCTION_ENTRIES */
+#define PHP_MBREGEX_FUNCTION_ENTRIES \
+	PHP_FE(mb_regex_encoding,	NULL) \
+	PHP_FE(mb_regex_set_options,	NULL) \
+	PHP_FE(mb_ereg,			third_arg_force_ref) \
+	PHP_FE(mb_eregi,			third_arg_force_ref) \
+	PHP_FE(mb_ereg_replace,			NULL) \
+	PHP_FE(mb_eregi_replace,			NULL) \
+	PHP_FE(mb_split,					NULL) \
+	PHP_FE(mb_ereg_match,			NULL) \
+	PHP_FE(mb_ereg_search,			NULL) \
+	PHP_FE(mb_ereg_search_pos,		NULL) \
+	PHP_FE(mb_ereg_search_regs,		NULL) \
+	PHP_FE(mb_ereg_search_init,		NULL) \
+	PHP_FE(mb_ereg_search_getregs,	NULL) \
+	PHP_FE(mb_ereg_search_getpos,	NULL) \
+	PHP_FE(mb_ereg_search_setpos,	NULL) \
+	PHP_FALIAS(mbregex_encoding,	mb_regex_encoding,	NULL) \
+	PHP_FALIAS(mbereg,	mb_ereg,	NULL) \
+	PHP_FALIAS(mberegi,	mb_eregi,	NULL) \
+	PHP_FALIAS(mbereg_replace,	mb_ereg_replace,	NULL) \
+	PHP_FALIAS(mberegi_replace,	mb_eregi_replace,	NULL) \
+	PHP_FALIAS(mbsplit,	mb_split,	NULL) \
+	PHP_FALIAS(mbereg_match,	mb_ereg_match,	NULL) \
+	PHP_FALIAS(mbereg_search,	mb_ereg_search,	NULL) \
+	PHP_FALIAS(mbereg_search_pos,	mb_ereg_search_pos,	NULL) \
+	PHP_FALIAS(mbereg_search_regs,	mb_ereg_search_regs,	NULL) \
+	PHP_FALIAS(mbereg_search_init,	mb_ereg_search_init,	NULL) \
+	PHP_FALIAS(mbereg_search_getregs,	mb_ereg_search_getregs,	NULL) \
+	PHP_FALIAS(mbereg_search_getpos,	mb_ereg_search_getpos,	NULL) \
+	PHP_FALIAS(mbereg_search_setpos,	mb_ereg_search_setpos,	NULL)
+/* }}} */
+
+typedef struct _zend_mbstring_globals * zend_mbstring_globals_ptr;
 
 #define PHP_MBREGEX_MAXCACHE 50
 
-int php_mb_regex_name2mbctype(const char *pname);
-int php_mb_regex_set_options(int options TSRMLS_DC);
-int php_mb_regex_set_options_by_string(const char *optstr, int len TSRMLS_DC);
+PHP_MINIT_FUNCTION(mb_regex);
+PHP_MSHUTDOWN_FUNCTION(mb_regex);
+PHP_RINIT_FUNCTION(mb_regex);
+PHP_RSHUTDOWN_FUNCTION(mb_regex);
+void _php_mb_regex_globals_ctor(zend_mbstring_globals_ptr pglobals TSRMLS_DC);
+void php_mb_regex_set_options(OnigOptionType options, OnigSyntaxType *syntax, OnigOptionType *prev_options, OnigSyntaxType **prev_syntax TSRMLS_DC);
+void _php_mb_regex_globals_dtor(zend_mbstring_globals_ptr pglobals TSRMLS_DC);
+OnigEncoding php_mb_regex_name2mbctype(const char *pname);
+const char *php_mb_regex_mbctype2name(OnigEncoding mbctype);
 
 PHP_FUNCTION(mb_regex_encoding);
 PHP_FUNCTION(mb_ereg);

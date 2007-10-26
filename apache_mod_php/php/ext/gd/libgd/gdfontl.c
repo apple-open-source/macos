@@ -14,7 +14,7 @@
 
 #include "gdfontl.h"
 
-char gdFontLargeData[] =
+static const char gdFontLargeData[] =
 {
 /* Char 0 */
   0, 0, 0, 0, 0, 0, 0, 0,
@@ -4633,7 +4633,7 @@ gdFont gdFontLargeRep =
   0,
   8,
   16,
-  gdFontLargeData
+  (char*)gdFontLargeData
 };
 
 gdFontPtr gdFontLarge = &gdFontLargeRep;

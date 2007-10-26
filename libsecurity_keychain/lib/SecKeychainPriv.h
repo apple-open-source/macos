@@ -24,13 +24,19 @@
 #ifndef _SECURITY_SECKEYCHAINPRIV_H_
 #define _SECURITY_SECKEYCHAINPRIV_H_
 
-#include <Security/SecBase.h>
 #include <Security/Security.h>
+#include <Security/SecBasePriv.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
+
+enum {kSecKeychainEnteredBatchModeEvent = 14,
+	  kSecKeychainLeftBatchModeEvent = 15};
+enum {kSecKeychainEnteredBatchModeEventMask = 1 << kSecKeychainEnteredBatchModeEvent,
+	  kSecKeychainLeftBatchModeEventMask = 1 << kSecKeychainLeftBatchModeEvent};
+
 
 /* Keychain management */
 OSStatus SecKeychainCreateNew(SecKeychainRef keychainRef, UInt32 passwordLength, const char* inPassword);
@@ -38,6 +44,7 @@ OSStatus SecKeychainMakeFromFullPath(const char *fullPathName, SecKeychainRef *k
 OSStatus SecKeychainIsValid(SecKeychainRef keychainRef, Boolean* isValid);
 OSStatus SecKeychainChangePassword(SecKeychainRef keychainRef, UInt32 oldPasswordLength, const void *oldPassword,  UInt32 newPasswordLength, const void *newPassword);
 OSStatus SecKeychainOpenWithGuid(const CSSM_GUID *guid, uint32 subserviceId, uint32 subserviceType, const char* dbName, const CSSM_NET_ADDRESS *dbLocation, SecKeychainRef *keychain);
+OSStatus SecKeychainSetBatchMode (SecKeychainRef kcRef, Boolean mode, Boolean rollback);
 
 /* Keychain list management */
 UInt16 SecKeychainListGetCount(void);
@@ -63,13 +70,16 @@ OSStatus SecKeychainCopyBlob(SecKeychainRef keychainRef, CFDataRef *dbBlob);
 OSStatus SecKeychainRecodeKeychain(SecKeychainRef keychainRef, CFDataRef dbBlob, CFDataRef extraData);
 OSStatus SecKeychainCreateWithBlob(const char* fullPathName, CFDataRef dbBlob, SecKeychainRef *kcRef);
 
-/* Utility routines */
-OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus); /* Should be moved to SecBasePriv.h */
-
 /* Keychain list manipulation */
 OSStatus SecKeychainAddDBToKeychainList (SecPreferencesDomain domain, const char* dbName, const CSSM_GUID *guid, uint32 subServiceType);
 OSStatus SecKeychainDBIsInKeychainList (SecPreferencesDomain domain, const char* dbName, const CSSM_GUID *guid, uint32 subServiceType);
 OSStatus SecKeychainRemoveDBFromKeychainList (SecPreferencesDomain domain, const char* dbName, const CSSM_GUID *guid, uint32 subServiceType);
+
+/* server operation (keychain inhibit) */
+void SecKeychainSetServerMode();
+
+/* special calls */
+OSStatus SecKeychainCleanupHandles();
 
 #if defined(__cplusplus)
 }

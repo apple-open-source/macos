@@ -1,0 +1,93 @@
+#
+# The "sys" configuration file is used to describe all known sites to the local host.
+# This file should be configured to match your own environment.
+# A minimal set of examples is provided.
+#
+
+#
+# For protection a system should force a login name and password.
+# Example:
+#
+call-login uucp_tst
+call-password sekret
+
+#
+# Paths using a leading ~/ imply the public directory.
+# Example: specify the public directory
+#
+pubdir /var/spool/uucp_pubdir
+
+#
+# To configure the directories for sending and receiving files set the following commands:
+# local-send, local-receive, remote-send, remote-receive
+# These can be space separated lists of directories.
+#
+
+#
+# Example: allow users on the local host to send any files found below root.
+#
+local-send /
+
+#
+# Example: allows users on the local host to request any files below root from a remote system.
+#
+remote-send /
+
+#
+# Example:  allow users on the local host to receive files into /var/spool/uucp_pubdir
+# An administrator must create this as a world-writable directory.
+# Beware: Creating world-writable directories will make the local system less secure.
+#
+local-receive /var/spool/uucp_pubdir 
+
+#
+# Example: allow users on the local host to upload files into /var/spool/uucp_pubdir on a remote system.
+# An administrator must create this as a world-writable directory on the remote system.
+# Beware: Creating world-writable directories will make the remote system less secure.
+#
+remote-receive /var/spool/uucp_pubdir 
+
+#
+# Example: Specify a search path to locate executable commands used by uux.
+# This is a whitespace separated list of directories.
+#
+command-path /bin /sbin /usr/bin /usr/sbin
+
+#
+# Example: List the commands a remote system may execute locally.
+#
+commands ALL
+
+#
+# You must specify a call time.
+# Example: Calls may be placed at any time (least restrictive).
+#
+time any 1
+
+#
+# Limit how frequently a system is called.
+# Example: specify number of seconds before next retry
+# 0 means no limit.
+#
+success-wait 0
+
+#
+# Example:  specify that the system is called using tcp.
+# TCP is easier to configure than a modem setup.
+#
+port type tcp
+protocol t
+
+#
+# Commands above any system line are defaults for all systems following.
+# Example: identify a remote systems. (Multiple system entries are allowed).
+# Example: for a "tcp port type" the phone is an IP address.
+#
+system uucpsys1
+phone  uucpsys1.apple.com
+
+system uucpsys2
+phone uucpsys2.apple.com
+
+
+

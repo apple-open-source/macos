@@ -1,5 +1,6 @@
 /* Machine description file for intel 386.
-   Copyright (C) 1987 Free Software Foundation, Inc.
+   Copyright (C) 1987, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="note"
 
@@ -112,19 +113,11 @@ NOTE-END */
 #ifndef SOLARIS2_4
 /* J.W.hawtin@lut.ac.uk says Solaris 2.1 on the X86 has FSCALE defined in a
    system header. */
-
-#define HAVE_VFORK
-
 #else /* SOLARIS2_4 */
 #ifndef __GNUC__
 #if 0 /* wisner@gryphon.com says this screws up cpp */
 #define C_SWITCH_MACHINE -Xa
 #endif
-#ifndef NOT_C_CODE
-#ifdef HAVE_ALLOCA_H
-#include <alloca.h>
-#endif /* HAVE_ALLOCA_H */
-#endif /* not NOT_C_CODE */
 #endif /* not __GNUC__ */
 #endif /* SOLARIS2_4 */
 
@@ -169,8 +162,6 @@ NOTE-END */
 
 #define NO_REMAP
 
-#define STACK_DIRECTION -1
-
 /* Since cannot purify, use standard Xenix 386 startup code. */
 
 #define START_FILES	/lib/386/Sseg.o pre-crt0.o /lib/386/Scrt0.o
@@ -195,26 +186,10 @@ NOTE-END */
 #endif /* not USG5_4 */
 #endif /* LIB_STANDARD */
 
-/* Paul Abrahams <abrahams@acm.org> says that
-   Unixware does not have alloca when using cc.  */
-#if ! (defined (USG5_4) && ! defined (SOLARIS2) && ! defined (__GNUC__))
-#define HAVE_ALLOCA
-#endif
-
-#define NO_REMAP 
+#define NO_REMAP
 #define TEXT_START 0
 #endif /* USG */
 #endif /* not XENIX */
-
-#ifdef BSD_SYSTEM
-#define HAVE_ALLOCA
-#endif /* BSD_SYSTEM */
-
-/* If compiling with GCC, let GCC implement alloca.  */
-#if defined(__GNUC__) && !defined(alloca)
-#define alloca(n) __builtin_alloca(n)
-#define HAVE_ALLOCA
-#endif
 
 #ifdef USG5_4
 #define DATA_SEG_BITS 0x08000000
@@ -228,7 +203,6 @@ NOTE-END */
 #define VIRT_ADDR_VARIES
 #define DATA_END 	get_data_end ()
 #define DATA_START 	get_data_start ()
-#define HAVE_ALLOCA
 #define NO_ARG_ARRAY
 #endif
 
@@ -239,3 +213,6 @@ NOTE-END */
 
 #define SEGMENT_MASK ((SEGMENT_SIZE)-1)
 #endif
+
+/* arch-tag: 746338f0-cb7b-4f49-a98c-cb50817cf2ec
+   (do not change this comment) */

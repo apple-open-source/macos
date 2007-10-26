@@ -1,10 +1,107 @@
 ==============================================================================
 Kerberos Login Library Version History
 ==============================================================================
-Current version: 1.8.1fc2
-Date           : November 30, 2005
+Current version: 2.0fc4
+Date           : October 9, 2007
 Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
 ========================================================================
+
+Kerberos Login 2.0
+To be released with KfM 6.0
+
+========================================================================
+
+	Kerberos Login 2.0fc4
+	October 9, 2007
+	
+	[RT 5633] Use default realm in login window
+
+	========================================================================
+
+	Kerberos Login 2.0fc3
+	March 28, 2007
+	
+	[RT 5470] __KLPrompter should remap klUserCanceledErr to KRB5_LIBOS_PWDINTR
+	[RT 5474] Make memory handling in __KLAddPrefixToString more robust
+
+	========================================================================
+
+	Kerberos Login 2.0fc2
+	March 9, 2007
+	
+	[RT 5463] "accessible" misspelled in error tables
+	[RT 5464] Fixed file encoding on KerberosLifetimeFormatter.strings
+
+	========================================================================
+
+	Kerberos Login 2.0fc1
+	February 16, 2007
+	
+	Moved to final candidate
+
+	========================================================================
+
+	Kerberos Login 2.0b3
+	February 7, 2007
+	
+	[RT 2851] KfM should use KDC timesyncing now that the CCAPI supports it
+	[RT 5434] Use user's temporary directory on platforms that support it
+
+	========================================================================
+
+	Kerberos Login 2.0b2
+	December 13, 2006
+	
+	[RT 5060] KLL shouldn't check realm config and SRV records itself anymore
+
+	========================================================================
+
+	Kerberos Login 2.0b1
+	November 16, 2006
+	
+	[RT 4660] HiDPI support
+	[RT 4594] KerberosAgent support for KerberosMenu
+	[RT 4635] KLL auto prompting broken by krb4 removal
+	[RT 4685] Missing newline in KerberosLogin strings file
+
+	========================================================================
+
+	Kerberos Login 2.0a4
+	October 27, 2006
+	
+	[RT 4532] Use session uid calls from the kipc api
+	[RT 4478] Renamed Objective-C classes to avoid namespace collisions
+	[RT 4301] Add Mach type checking
+
+	========================================================================
+
+	Kerberos Login 2.0a3
+	August 23, 2006
+	
+	[RTÊ4169]ÊRemove Kerberos v4
+	[RTÊ4150]ÊMach IPC servers should use /System/Library/LaunchAgents plists
+
+	========================================================================
+
+	Kerberos Login 2.0a2
+	May 25, 2006
+	
+	[RTÊ3506]ÊKLL has threading problems with krb524 support
+	[RTÊ3798]Ê__KLV5CredsAreValid returns an error code, not a boolean
+
+	========================================================================
+
+	Kerberos Login 2.0a1
+	November 18, 2005
+	
+	[RT 3076] Ticket Options sheet is resizable
+	[RT 3177] KerberosAgent Change Password dialog should use Password Assistant
+	[RT 3187] KerberosAgent should be a background application
+	[RT 3221] KLL doesn't renew tix when expired or have bad addresses
+	[RT 3244] Esc and Return should control Cancel/OK buttons in the ticket options sheet
+	[RT 3199] kinit -S always stores creds in the CCAPI regardless of KRB5CCNAME
+
+	========================================================================
 
 Kerberos Login 1.8.1
 Released with KfM 5.5.1

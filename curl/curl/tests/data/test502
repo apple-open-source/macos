@@ -1,7 +1,8 @@
+<testcase>
 #
 # Server-side
 <reply>
-<data>
+<data mode="text">
 foo
    bar swsclose
 bar
@@ -38,3 +39,4 @@ moo
 # Verify data after the test has been "shot"
 <verify>
 </verify>
+</testcase>

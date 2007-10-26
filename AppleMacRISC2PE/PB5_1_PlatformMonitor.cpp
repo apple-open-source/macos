@@ -228,7 +228,7 @@ static bool actionFullPower ()
 	if ((conSensorArray[kCPUController].state != kCPUPowerState0) && 
 		(serv = conSensorArray[kCPUController].conSensor)) {
 		conSensorArray[kCPUController].state = kCPUPowerState0;
-		IOLog ("IOPMon::actionFullPower - sending CPU aggressiveness 2\n");
+		debug_msg ("IOPMon::actionFullPower - sending CPU aggressiveness 2\n");
 		serv->setAggressiveness (kPMSetProcessorSpeed, 2);
 		provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonFull);
 	}
@@ -237,7 +237,7 @@ static bool actionFullPower ()
 	if ((conSensorArray[kGPUController].state != kGPUPowerState0) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
 		conSensorArray[kGPUController].state = kGPUPowerState0;
-		IOLog ("IOPMon::actionFullPower - sending GPU aggressiveness 0\n");
+		debug_msg ("IOPMon::actionFullPower - sending GPU aggressiveness 0\n");
 		serv->setAggressiveness (kIOFBLowPowerAggressiveness, 0);
 		provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonFull);
 	}
@@ -258,7 +258,7 @@ static bool actionPower1 ()
 	if ((conSensorArray[kCPUController].state != kCPUPowerState1) && 
 		(serv = conSensorArray[kCPUController].conSensor)) {
 		conSensorArray[kCPUController].state = kCPUPowerState1;
-		IOLog ("IOPMon::actionPower1 - sending CPU aggressiveness 3\n");
+		debug_msg ("IOPMon::actionPower1 - sending CPU aggressiveness 3\n");
 		serv->setAggressiveness (kPMSetProcessorSpeed, 3);
 		provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonReduced);
 	}
@@ -267,7 +267,7 @@ static bool actionPower1 ()
 	if ((conSensorArray[kGPUController].state != kGPUPowerState0) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
 		conSensorArray[kGPUController].state = kGPUPowerState0;
-		IOLog ("IOPMon::actionPower1 - sending GPU aggressiveness 0\n");
+		debug_msg ("IOPMon::actionPower1 - sending GPU aggressiveness 0\n");
 		serv->setAggressiveness (kIOFBLowPowerAggressiveness, 0);
 		provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonFull);
 	}
@@ -287,7 +287,7 @@ static bool actionPower1GPU1 ()
 	if ((conSensorArray[kCPUController].state != kCPUPowerState1) && 
 		(serv = conSensorArray[kCPUController].conSensor)) {
 		conSensorArray[kCPUController].state = kCPUPowerState1;
-		IOLog ("IOPMon::actionPower1GPU1 - CPU sending aggressiveness 3\n");
+		debug_msg ("IOPMon::actionPower1GPU1 - CPU sending aggressiveness 3\n");
 		serv->setAggressiveness (kPMSetProcessorSpeed, 3);
 		provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonReduced);
 	}
@@ -296,7 +296,7 @@ static bool actionPower1GPU1 ()
 	if ((conSensorArray[kGPUController].state != kGPUPowerState1) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
 		conSensorArray[kGPUController].state = kGPUPowerState1;
-		IOLog ("IOPMon::actionPower1GPU1 - sending GPU aggressiveness 1\n");
+		debug_msg ("IOPMon::actionPower1GPU1 - sending GPU aggressiveness 1\n");
 		serv->setAggressiveness (kIOFBLowPowerAggressiveness, 1);
 		provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonReduced);
 	}
@@ -316,7 +316,7 @@ static bool actionPower1GPU2 ()
 	if ((conSensorArray[kCPUController].state != kCPUPowerState1) && 
 		(serv = conSensorArray[kCPUController].conSensor)) {
 		conSensorArray[kCPUController].state = kCPUPowerState1;
-		IOLog ("IOPMon::actionPower1GPU2 - CPU sending aggressiveness 3\n");
+		debug_msg ("IOPMon::actionPower1GPU2 - CPU sending aggressiveness 3\n");
 		serv->setAggressiveness (kPMSetProcessorSpeed, 3);
 		provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonReduced);
 	}
@@ -325,7 +325,7 @@ static bool actionPower1GPU2 ()
 	if ((conSensorArray[kGPUController].state != kGPUPowerState2) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
 		conSensorArray[kGPUController].state = kGPUPowerState2;
-		IOLog ("IOPMon::actionPower1GPU2 - sending GPU aggressiveness 2\n");
+		debug_msg ("IOPMon::actionPower1GPU2 - sending GPU aggressiveness 2\n");
 		serv->setAggressiveness (kIOFBLowPowerAggressiveness, 2);
 		provider->setProperty (gIOPMonGPUActionKey, (OSObject *)gIOPMonSlow);
 	}
@@ -473,7 +473,7 @@ IOReturn PB5_1_PlatformMonitor::powerStateWillChangeTo (IOPMPowerFlags theFlags,
 {	
     if ( ! (theFlags & IOPMPowerOn) ) {
         // Sleep sequence:
-		IOLog ("PB5_1_PlatformMonitor::powerStateWillChangeTo - sleep\n");
+		debug_msg ("PB5_1_PlatformMonitor::powerStateWillChangeTo - sleep\n");
 		savePlatformState();
 
     }
@@ -489,7 +489,7 @@ IOReturn PB5_1_PlatformMonitor::powerStateDidChangeTo (IOPMPowerFlags theFlags, 
 {	
     if (theFlags & IOPMPowerOn) {
         // Wake sequence:
-		IOLog ("PB5_1_PlatformMonitor::powerStateDidChangeTo - wake\n");
+		debug_msg ("PB5_1_PlatformMonitor::powerStateDidChangeTo - wake\n");
 		restorePlatformState();
     } 
     
@@ -518,7 +518,7 @@ IOReturn PB5_1_PlatformMonitor::setAggressiveness(unsigned long selector, unsign
     newLevel &= 0x7FFFFFFF;		// mask off high bit... upcoming kernel change will use the high bit to indicate whether setAggressiveness call
                                 // was user induced (Energy Saver) or not.  Currently not using this info so mask it off.
 	if (selector == kPMSetProcessorSpeed) {
-		IOLog ("PB5_1_PlatformMonitor::setAggressiveness - newLevel %ld\n", newLevel);
+		debug_msg ("PB5_1_PlatformMonitor::setAggressiveness - newLevel %ld\n", newLevel);
 		if (newLevel != currentPowerState) {	// This only works if we have two power states
 			// create and transmit internal event
 			event.event = kIOPMonMessageStateChanged;
@@ -568,7 +568,7 @@ bool PB5_1_PlatformMonitor::restorePowerState ()
         // previously which means when we wake it will still be disabled which would not be in sync
         // with the CPU speed (fast on wake)
         serv = conSensorArray[kCPUController].conSensor;
-        IOLog ("IOPMon::actionFullPower - sending CPU aggressiveness 2\n");
+        debug_msg ("IOPMon::actionFullPower - sending CPU aggressiveness 2\n");
         serv->setAggressiveness (kPMSetProcessorSpeed, 2);
         
 	return (currentPowerState == kPowerState1);	
@@ -792,7 +792,7 @@ bool PB5_1_PlatformMonitor::adjustPlatformState ()
 	IOPlatformMonitorAction		actionToTake;
 	bool						result = true;
 	
-	IOLog ("PB5_1_PlatformMonitor::adjustPlatformState - entered, cps %ld, cts %ld, ccs %ld\n",
+	debug_msg ("PB5_1_PlatformMonitor::adjustPlatformState - entered, cps %ld, cts %ld, ccs %ld\n",
 		currentPowerState, currentThermalState, currentClamshellState);
 	// Look up action to take for current state
 	actionToTake = platformActionGrid[currentPowerState][currentThermalState][currentClamshellState];
@@ -834,7 +834,7 @@ IOReturn PB5_1_PlatformMonitor::registerConSensor (OSDictionary *dict, IOService
 	if (!lookupConSensorInfo (dict, conSensor, &type, &csi, &subsi))
 		return kIOReturnBadArgument;
 		
-	IOLog ("PB5_1_PlatformMonitor::registerConSensor - type %ld, csi %ld, subsi %ld\n", type, csi, subsi);
+	debug_msg ("PB5_1_PlatformMonitor::registerConSensor - type %ld, csi %ld, subsi %ld\n", type, csi, subsi);
 	
 	if (subsi < kMaxSensorIndex)	// Is subsensor index valid? If so use subSensorArray
 		csInfo = &subSensorArray[subsi];
@@ -995,7 +995,7 @@ UInt32 PB5_1_PlatformMonitor::lookupThermalStateFromValue (UInt32 sensorIndex, T
 					return i;
 
 		// This is bad as sensor's already over the limit - need to figure right response
-		IOLog ("PB5_1_PlatformMonitor::lookupStateFromValue - sensor %ld over limit\n", sensorIndex);
+		debug_msg ("PB5_1_PlatformMonitor::lookupStateFromValue - sensor %ld over limit\n", sensorIndex);
 		return kMaxSensorIndex;
 	}
 	
@@ -1056,7 +1056,7 @@ bool PB5_1_PlatformMonitor::handleThermalEvent (IOPMonEventData *eventData)
 			break;
 				
 		default:
-			IOLog ("PB5_1_PlatformMonitor::handleThermalEvent - event %ld not handled\n", 
+			debug_msg ("PB5_1_PlatformMonitor::handleThermalEvent - event %ld not handled\n", 
 				eventData->event);
 			result = false;
 			break;

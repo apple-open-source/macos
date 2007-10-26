@@ -28,45 +28,22 @@
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <Security/cssmtype.h>
 #include <pbkdDigest.h>
+#include <CommonCrypto/CommonDigest.h>
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-#define kHMACSHA1DigestSize  	kSHA1DigestSize
-#define kHMACMD5DigestSize	 	kMD5DigestSize
+#define kHMACSHA1DigestSize  	CC_SHA1_DIGEST_LENGTH
+#define kHMACMD5DigestSize	 	CC_MD5_DIGEST_LENGTH
 
 /* This function create an HMACSHA1 digest of kHMACSHA1DigestSizestSize bytes
  * and outputs it to resultPtr.  See RFC 2104 for details.  */
 void
-hmacsha1 (const void *keyPtr, UInt32 keyLen,
-		  const void *textPtr, UInt32 textLen,
+hmacsha1 (const void *keyPtr, uint32 keyLen,
+		  const void *textPtr, uint32 textLen,
 		  void *resultPtr);
 		  
-/*
- * Staged version.
- *
- * Opaque reference to an hmac session 
- */
-struct hmacContext;
-typedef struct hmacContext *hmacContextRef;
-
-hmacContextRef hmacAlloc();
-void hmacFree(
-	hmacContextRef hmac);
-CSSM_RETURN hmacInit(
-	hmacContextRef hmac,
-	const void *keyPtr,
-	UInt32 keyLen,
-	CSSM_BOOL sha1Digest);		// true -> SHA1; false -> MD5
-CSSM_RETURN hmacUpdate(
-	hmacContextRef hmac,
-	const void *textPtr,
-	UInt32 textLen);
-CSSM_RETURN hmacFinal(
-	hmacContextRef hmac,
-	void *resultPtr);		// caller mallocs, must be kSHA1DigestSize bytes
-
 #ifdef	__cplusplus
 }
 #endif

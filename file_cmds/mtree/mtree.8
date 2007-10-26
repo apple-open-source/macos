@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,17 +26,20 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)mtree.8	8.2 (Berkeley) 12/11/93
-.\" $FreeBSD: src/usr.sbin/mtree/mtree.8,v 1.16.2.9 2001/08/16 15:56:08 ru Exp $
+.\" $FreeBSD: src/usr.sbin/mtree/mtree.8,v 1.53 2005/07/31 03:30:47 keramida Exp $
 .\"
-.Dd February 26, 1999
+.Dd March 29, 2005
 .Dt MTREE 8
 .Os
 .Sh NAME
 .Nm mtree
 .Nd map a directory hierarchy
 .Sh SYNOPSIS
-.Nm
-.Op Fl LPUcdeinqrux
+.Nm mtree
+.Op Fl LPUcdeinqruxw
+.Bk -words
+.Op Fl f Ar spec
+.Ek
 .Bk -words
 .Op Fl f Ar spec
 .Ek
@@ -60,9 +59,9 @@
 .Op Fl X Ar exclude-list
 .Ek
 .Sh DESCRIPTION
-The utility
-.Nm
-compares the file hierarchy rooted in the current directory against a
+The
+.Nm mtree
+utility compares the file hierarchy rooted in the current directory against a
 specification read from the standard input.
 Messages are written to the standard output for any files whose
 characteristics do not match the specifications, or which are
@@ -70,24 +69,34 @@ missing from either the file hierarchy or the specification.
 .Pp
 The options are as follows:
 .Bl -tag -width flag
-.It Fl L
-Follow all symbolic links in the file hierarchy.
-.It Fl P
-Don't follow symbolic links in the file hierarchy, instead consider
-the symbolic link itself in any comparisons. This is the default.
-.It Fl U
-Modify the owner, group and permissions of existing files to match
-the specification and create any missing directories or symbolic links.
-User, group and permissions must all be specified for missing directories
-to be created.
-Corrected mismatches are not considered errors.
+.\" ==========
 .It Fl c
 Print a specification for the file hierarchy to the standard output.
+.\" ==========
 .It Fl d
 Ignore everything except directory type files.
+.\" ==========
 .It Fl e
-Don't complain about files that are in the file hierarchy, but not in the
+Do not complain about files that are in the file hierarchy, but not in the
 specification.
+.\" ==========
+.It Fl f Ar file
+Read the specification from
+.Ar file ,
+instead of from the standard input.
+.Pp
+If this option is specified twice,
+the two specifications are compared with each other,
+rather than to the file hierarchy.
+The specifications be sorted like output generated using
+.Fl c .
+The output format in this case is somewhat remniscent of
+.Xr comm 1 ,
+having "in first spec only", "in second spec only", and "different"
+columns, prefixed by zero, one and two TAB characters respectively.
+Each entry in the "different" column occupies two lines,
+one from each specification.
+.\" ==========
 .It Fl i
 Indent the output 4 spaces each time a directory level is descended when
 create a specification with the
@@ -96,49 +105,73 @@ option.
 This does not affect either the /set statements or the comment before each
 directory.
 It does however affect the comment before the close of each directory.
-.It Fl n
-Do not emit pathname comments when creating a specification.  Normally
-a comment is emitted before each directory and before the close of that
-directory when using the
-.Fl c
-option.
-.It Fl q
-Quiet mode.  Do not complain when a
-.Dq missing
-directory cannot be created because it is already exists.
-This occurs when the directory is a symbolic link.
-.It Fl r
-Remove any files in the file hierarchy that are not described in the
-specification.
-.It Fl u
-Same as
-.Fl U
-except a status of 2 is returned if the file hierarchy did not match
-the specification.
-.It Fl x
-Don't descend below mount points in the file hierarchy.
-.It Fl f Ar file
-Read the specification from
-.Ar file  ,
-instead of from the standard input.
+.\" ==========
 .It Fl K Ar keywords
 Add the specified (whitespace or comma separated)
 .Ar keywords
 to the current set of keywords.
+.\" ==========
 .It Fl k Ar keywords
 Use the ``type'' keyword plus the specified (whitespace or comma separated)
 .Ar keywords
 instead of the current set of keywords.
+.\" ==========
+.It Fl L
+Follow all symbolic links in the file hierarchy.
+.\" ==========
+.It Fl n
+Do not emit pathname comments when creating a specification.
+Normally
+a comment is emitted before each directory and before the close of that
+directory when using the
+.Fl c
+option.
+.\" ==========
+.It Fl P
+Do not follow symbolic links in the file hierarchy, instead consider
+the symbolic link itself in any comparisons.
+This is the default.
+.\" ==========
 .It Fl p Ar path
 Use the file hierarchy rooted in
-.Ar path  ,
+.Ar path ,
 instead of the current directory.
+.\" ==========
+.It Fl q
+Quiet mode.
+Do not complain when a
+.Dq missing
+directory cannot be created because it already exists.
+This occurs when the directory is a symbolic link.
+.\" ==========
+.It Fl r
+Remove any files in the file hierarchy that are not described in the
+specification.
+.\" ==========
 .It Fl s Ar seed
 Display a single checksum to the standard error output that represents all
 of the files for which the keyword
 .Cm cksum
 was specified.
 The checksum is seeded with the specified value.
+.\" ==========
+.It Fl U
+Modify the owner, group, permissions, and modification time of existing
+files to match the specification and create any missing directories or
+symbolic links.
+User, group and permissions must all be specified for missing directories
+to be created.
+Corrected mismatches are not considered errors.
+.\" ==========
+.It Fl u
+Same as
+.Fl U
+except a status of 2 is returned if the file hierarchy did not match
+the specification.
+.\" ==========
+.It Fl w
+Make some error conditions non-fatal warnings.
+.\" ==========
 .It Fl X Ar exclude-list
 The specified file contains
 .Xr fnmatch 3
@@ -148,13 +181,17 @@ If the pattern contains a
 .Ql \&/
 character, it will be matched against entire pathnames (relative to
 the starting directory); otherwise,
-it will be matched against basenames only.  No comments are allowed in
+it will be matched against basenames only.
+No comments are allowed in
 the
 .Ar exclude-list
 file.
+.\" ==========
+.It Fl x
+Do not descend below mount points in the file hierarchy.
 .El
 .Pp
-Specifications are mostly composed of ``keywords'', i.e. strings that
+Specifications are mostly composed of ``keywords'', i.e., strings
 that specify values relating to files.
 No keywords have default values, and if a keyword has no value set, no
 checks based on it are performed.
@@ -167,9 +204,11 @@ the
 .Xr cksum 1
 utility.
 .It Cm flags
-The file flags as a symbolic name.  See
+The file flags as a symbolic name.
+See
 .Xr chflags 1
-for information on these names.  If no flags are to be set the string
+for information on these names.
+If no flags are to be set the string
 .Dq none
 may be used to override the current default.
 .It Cm ignore
@@ -178,18 +217,18 @@ Ignore any file hierarchy below this file.
 The file group as a numeric value.
 .It Cm gname
 The file group as a symbolic name.
-.\" .It Cm md5digest
-.\" The MD5 message digest of the file.
-.\" .It Cm sha1digest
-.\" The
-.\" .Tn FIPS
-.\" 160-1
-.\" .Pq Dq Tn SHA-1
-.\" message digest of the file.
-.\" .It Cm ripemd160digest
-.\" The
-.\" .Tn RIPEMD160
-.\" message digest of the file.
+.It Cm md5digest
+The MD5 message digest of the file.
+.It Cm sha1digest
+The
+.Tn FIPS
+160-1
+.Pq Dq Tn SHA-1
+message digest of the file.
+.It Cm ripemd160digest
+The
+.Tn RIPEMD160
+message digest of the file.
 .It Cm mode
 The current file's permissions as a numeric (octal) or symbolic
 value.
@@ -281,63 +320,43 @@ Empty lines and lines whose first non-whitespace character is a hash
 mark (``#'') are ignored.
 .Pp
 The
-.Nm
+.Nm mtree
 utility exits with a status of 0 on success, 1 if any error occurred,
 and 2 if the file hierarchy did not match the specification.
 A status of 2 is converted to a status of 0 if the
 .Fl U
 option is used.
-.\" .Sh EXAMPLES
-.\" To detect system binaries that have been ``trojan horsed'', it is recommended
-.\" that
-.\" .Nm
-.\" .Fl K
-.\" .Cm sha1digest
-.\" be run on the file systems, and a copy of the results stored on a different
-.\" machine, or, at least, in encrypted form.
-.\" The output file itself should be digested using the
-.\" .Xr md5 1
-.\" utility.
-.\" Then, periodically,
-.\" .Nm
-.\" and
-.\" .Xr md5 1
-.\" should be run against the on-line specifications.
-.\" While it is possible for the bad guys to change the on-line specifications
-.\" to conform to their modified binaries, it is believed to be
-.\" impractical for them to create a modified specification which has
-.\" the same MD5 digest as the original.
-.\" .Pp
-.\" The
-.\" .Fl d
-.\" and
-.\" .Fl u
-.\" options can be used in combination to create directory hierarchies
-.\" for distributions and other such things; the files in
-.\" .Pa /etc/mtree
-.\" were used to create almost all directories in this
-.\" .Fx
-.\" distribution.
 .Sh FILES
 .Bl -tag -width /etc/mtree -compact
 .It Pa /etc/mtree
 system specification directory
 .El
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+The
+.Fl d
+and
+.Fl u
+options can be used in combination to create directory hierarchies
+for distributions and other such things; the files in
+.Pa /etc/mtree
+were used to create almost all directories in this
+.Fx
+distribution.
 .Sh SEE ALSO
 .Xr chflags 1 ,
 .Xr chgrp 1 ,
 .Xr chmod 1 ,
 .Xr cksum 1 ,
-.\" .Xr md5 1 ,
+.Xr md5 1 ,
 .Xr stat 2 ,
 .Xr fts 3 ,
-.\" .Xr md5 3 ,
+.Xr md5 3 ,
 .Xr chown 8
 .Sh HISTORY
 The
-.Nm
+.Nm mtree
 utility appeared in
 .Bx 4.3 Reno .
 The

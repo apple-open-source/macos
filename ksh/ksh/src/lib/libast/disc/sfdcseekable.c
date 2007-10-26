@@ -1,31 +1,30 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"sfdchdr.h"
 
 /*	Discipline to make an unseekable read stream seekable
+**
+**	sfraise(f,SFSK_DISCARD,0) discards previous seek data
+**	but seeks from current offset on still allowed
 **
 **	Written by Kiem-Phong Vo, kpv@research.att.com, 03/18/1998.
 */
@@ -33,6 +32,8 @@
 typedef struct _skable_s
 {	Sfdisc_t	disc;	/* sfio discipline */
 	Sfio_t*		shadow;	/* to shadow data */
+	Sfoff_t		discard;/* sfseek(f,-1,SEEK_SET) discarded data */
+	Sfoff_t		extent; /* shadow extent */
 	int		eof;	/* if eof has been reached */
 } Seek_t;
 
@@ -61,34 +62,38 @@ Sfdisc_t*	disc;	/* discipline */
 {
 	Seek_t*		sk;
 	Sfio_t*		sf;
-	Sfoff_t		addr, extent;
-	ssize_t		r, w;
+	Sfoff_t		addr;
+	ssize_t		r, w, p;
 
 	sk = (Seek_t*)disc;
 	sf = sk->shadow;
 	if(sk->eof)
 		return sfread(sf,buf,n);
 
-	addr = sfseek(sf,(Sfoff_t)0,1);
-	extent = sfsize(sf);
+	addr = sfseek(sf,(Sfoff_t)0,SEEK_CUR);
 
-	if(addr+n <= extent)
+	if(addr+n <= sk->extent)
 		return sfread(sf,buf,n);
 
-	if((r = (ssize_t)(extent-addr)) > 0)
+	if((r = (ssize_t)(sk->extent-addr)) > 0)
 	{	if((w = sfread(sf,buf,r)) != r)
 			return w;
 		buf = (char*)buf + r;
 		n -= r;
 	}
-		
+
 	/* do a raw read */
 	if((w = sfrd(f,buf,n,disc)) <= 0)
 	{	sk->eof = 1;
 		w = 0;
 	}
-	else if(sfwrite(sf,buf,w) != w)
-		sk->eof = 1;
+	else
+	{
+		if((p = sfwrite(sf,buf,w)) != w)
+			sk->eof = 1;
+		if(p > 0)
+			sk->extent += p;
+	}
 
 	return r+w;
 }
@@ -103,50 +108,55 @@ int		type;
 Sfdisc_t*	disc;
 #endif
 {
-	Sfoff_t		extent;
 	Seek_t*		sk;
 	Sfio_t*		sf;
 	char		buf[SF_BUFSIZE];
 	ssize_t		r, w;
 
-	if(type < 0 || type > 2)
-		return (Sfoff_t)(-1);
-
 	sk = (Seek_t*)disc;
 	sf = sk->shadow;
 
-	extent = sfseek(sf,(Sfoff_t)0,2);
-	if(type == 1)
+	switch (type)
+	{
+	case SEEK_SET:
+		addr -= sk->discard;
+		break;
+	case SEEK_CUR:
 		addr += sftell(sf);
-	else if(type == 2)
-		addr += extent;
+		break;
+	case SEEK_END:
+		addr += sk->extent;
+		break;
+	default:
+		return -1;
+	}
 
 	if(addr < 0)
 		return (Sfoff_t)(-1);
-	else if(addr > extent)
+	else if(addr > sk->extent)
 	{	if(sk->eof)
 			return (Sfoff_t)(-1);
 
 		/* read enough to reach the seek point */
-		while(addr > extent)
-		{	if(addr > extent+sizeof(buf) )
+		while(addr > sk->extent)
+		{	if(addr > sk->extent+sizeof(buf) )
 				w = sizeof(buf);
-			else	w = (int)(addr-extent);
+			else	w = (int)(addr-sk->extent);
 			if((r = sfrd(f,buf,w,disc)) <= 0)
 				w = r-1;
 			else if((w = sfwrite(sf,buf,r)) > 0)
-				extent += r;
+				sk->extent += w;
 			if(w != r)
 			{	sk->eof = 1;
 				break;
 			}
 		}
 
-		if(addr > extent)
+		if(addr > sk->extent)
 			return (Sfoff_t)(-1);
 	}
 
-	return sfseek(sf,addr,0);
+	return sfseek(sf,addr,SEEK_SET) + sk->discard;
 }
 
 /* on close, remove the discipline */
@@ -160,9 +170,23 @@ Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
-	if(type == SF_FINAL || type == SF_DPOP)
-	{	sfclose(((Seek_t*)disc)->shadow);
+	Seek_t*		sk;
+
+	sk = (Seek_t*)disc;
+
+	switch (type)
+	{
+	case SF_FINAL:
+	case SF_DPOP:
+		sfclose(sk->shadow);
 		free(disc);
+		break;
+	case SFSK_DISCARD:
+		sk->eof = 0;
+		sk->discard += sk->extent;
+		sk->extent = 0;
+		sfseek(sk->shadow,(Sfoff_t)0,SEEK_SET);
+		break;
 	}
 	return 0;
 }
@@ -177,7 +201,7 @@ Sfio_t*	f;
 	reg Seek_t*	sk;
 
 	/* see if already seekable */
-	if(sfseek(f,(Sfoff_t)0,1) >= 0)
+	if(sfseek(f,(Sfoff_t)0,SEEK_CUR) >= 0)
 		return 0;
 
 	if(!(sk = (Seek_t*)malloc(sizeof(Seek_t))) )
@@ -189,6 +213,8 @@ Sfio_t*	f;
 	sk->disc.seekf = skseek;
 	sk->disc.exceptf = skexcept;
 	sk->shadow = sftmp(SF_BUFSIZE);
+	sk->discard = 0;
+	sk->extent = 0;
 	sk->eof = 0;
 
 	if(sfdisc(f, (Sfdisc_t*)sk) != (Sfdisc_t*)sk)

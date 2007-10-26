@@ -68,7 +68,7 @@ static const char cacheDir[] = "cache";
 static uint32 getFile(const string &path, uint32 defaultValue)
 {
 	try {
-		FileDesc fd(path);
+		AutoFileDesc fd(path);
 		string s; fd.readAll(s);
 		uint32 value; sscanf(s.c_str(), "%ld", &value);
 		return value;
@@ -80,7 +80,7 @@ static uint32 getFile(const string &path, uint32 defaultValue)
 static string getFile(const string &path, const string &defaultValue)
 {
 	try {
-		FileDesc fd(path);
+		AutoFileDesc fd(path);
 		string s; fd.readAll(s);
 		return s;
 	} catch (...) {
@@ -93,12 +93,12 @@ static void putFile(const string &path, uint32 value)
 {
 	char buffer[64];
 	snprintf(buffer, sizeof(buffer), "%ld\n", value);
-	FileDesc(path, O_WRONLY | O_CREAT | O_TRUNC).writeAll(buffer);
+	AutoFileDesc(path, O_WRONLY | O_CREAT | O_TRUNC).writeAll(buffer);
 }
 
 static void putFile(const string &path, const string &value)
 {
-	FileDesc(path, O_WRONLY | O_CREAT | O_TRUNC).writeAll(value);
+	AutoFileDesc(path, O_WRONLY | O_CREAT | O_TRUNC).writeAll(value);
 }
 
 

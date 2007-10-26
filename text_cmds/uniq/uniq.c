@@ -1,5 +1,3 @@
-/*	$NetBSD: uniq.c,v 1.8 1997/10/20 02:27:05 lukem Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -36,61 +34,68 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)uniq.c	8.3 (Berkeley) 5/4/95";
 #endif
-__RCSID("$NetBSD: uniq.c,v 1.8 1997/10/20 02:27:05 lukem Exp $");
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/uniq/uniq.c,v 1.26 2004/09/14 12:01:18 tjr Exp $";
 #endif /* not lint */
 
-#include <err.h>
-#include <errno.h>
-#include <stdio.h>
 #include <ctype.h>
+#include <err.h>
+#include <limits.h>
+#include <locale.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wchar.h>
+#include <wctype.h>
 
 #define	MAXLINELEN	(8 * 1024)
 
 int cflag, dflag, uflag;
 int numchars, numfields, repeats;
 
-FILE	*file __P((char *, char *));
-int	 main __P((int, char **));
-void	 show __P((FILE *, char *));
-char	*skip __P((char *));
-void	 obsolete __P((char *[]));
-void	 usage __P((void));
+FILE	*file(const char *, const char *);
+wchar_t	*getline(wchar_t *, size_t, FILE *);
+void	 show(FILE *, wchar_t *);
+wchar_t	*skip(wchar_t *);
+void	 obsolete(char *[]);
+static void	 usage(void);
+int      wcsicoll(wchar_t *, wchar_t *);
 
 int
-main (argc, argv)
-	int argc;
-	char *argv[];
+main (int argc, char *argv[])
 {
-	char *t1, *t2;
+	wchar_t *t1, *t2;
 	FILE *ifp, *ofp;
 	int ch;
-	char *prevline, *thisline, *p;
+	wchar_t *prevline, *thisline;
+	char *p;
+	const char *ifn;
+	int iflag = 0, comp;
 
-	ifp = ofp = NULL;
+	(void) setlocale(LC_ALL, "");
+
 	obsolete(argv);
-	while ((ch = getopt(argc, argv, "-cdf:s:u")) != -1)
+	while ((ch = getopt(argc, argv, "cdif:s:u")) != -1)
 		switch (ch) {
-		case '-':
-			--optind;
-			goto done;
 		case 'c':
 			cflag = 1;
 			break;
 		case 'd':
 			dflag = 1;
+			break;
+		case 'i':
+			iflag = 1;
 			break;
 		case 'f':
 			numfields = strtol(optarg, &p, 10);
@@ -100,8 +105,7 @@ main (argc, argv)
 		case 's':
 			numchars = strtol(optarg, &p, 10);
 			if (numchars < 0 || *p)
-				errx(1, "illegal character skip value: %s",
-				    optarg);
+				errx(1, "illegal character skip value: %s", optarg);
 			break;
 		case 'u':
 			uflag = 1;
@@ -111,7 +115,7 @@ main (argc, argv)
 			usage();
 	}
 
-done:	argc -= optind;
+	argc -= optind;
 	argv +=optind;
 
 	/* If no flags are set, default is -d -u. */
@@ -121,32 +125,31 @@ done:	argc -= optind;
 	} else if (!dflag && !uflag)
 		dflag = uflag = 1;
 
-	switch(argc) {
-	case 0:
-		ifp = stdin;
-		ofp = stdout;
-		break;
-	case 1:
-		ifp = file(argv[0], "r");
-		ofp = stdout;
-		break;
-	case 2:
-		ifp = file(argv[0], "r");
-		ofp = file(argv[1], "w");
-		break;
-	default:
+	if (argc > 2)
 		usage();
-	}
 
-	prevline = malloc(MAXLINELEN);
-	thisline = malloc(MAXLINELEN);
+	ifp = stdin;
+	ifn = "stdin";
+	ofp = stdout;
+	if (argc > 0 && argv[0] && strcmp(argv[0], "-") != 0)
+		ifp = file(ifn = argv[0], "r");
+	if (argc > 1 && argv[1])
+		ofp = file(argv[1], "w");
+
+	prevline = malloc(MAXLINELEN * sizeof(*prevline));
+	thisline = malloc(MAXLINELEN * sizeof(*thisline));
 	if (prevline == NULL || thisline == NULL)
 		err(1, "malloc");
 
-	if (fgets(prevline, MAXLINELEN, ifp) == NULL)
+	if (getline(prevline, MAXLINELEN, ifp) == NULL) {
+		if (ferror(ifp))
+			err(1, "%s", ifp == stdin ? "stdin" : argv[0]);
 		exit(0);
+	}
+	if (!cflag && uflag && dflag)
+		show(ofp, prevline);
 
-	while (fgets(thisline, MAXLINELEN, ifp)) {
+	while (getline(thisline, MAXLINELEN, ifp)) {
 		/* If requested get the chosen fields + character offsets. */
 		if (numfields || numchars) {
 			t1 = skip(thisline);
@@ -157,17 +160,45 @@ done:	argc -= optind;
 		}
 
 		/* If different, print; set previous to new value. */
-		if (strcmp(t1, t2)) {
-			show(ofp, prevline);
+		if (iflag)
+			comp = wcsicoll(t1, t2);
+		else
+			comp = wcscoll(t1, t2);
+
+		if (comp) {
+			if (cflag || !dflag || !uflag)
+				show(ofp, prevline);
 			t1 = prevline;
 			prevline = thisline;
+			if (!cflag && uflag && dflag)
+				show(ofp, prevline);
 			thisline = t1;
 			repeats = 0;
 		} else
 			++repeats;
 	}
-	show(ofp, prevline);
+	if (ferror(ifp))
+		err(1, "%s", ifp == stdin ? "stdin" : argv[0]);
+	if (cflag || !dflag || !uflag)
+		show(ofp, prevline);
 	exit(0);
+}
+
+wchar_t *
+getline(wchar_t *buf, size_t buflen, FILE *fp)
+{
+	size_t bufpos;
+	wint_t ch;
+
+	bufpos = 0;
+	while (bufpos + 2 != buflen && (ch = getwc(fp)) != WEOF && ch != '\n')
+		buf[bufpos++] = ch;
+	if (bufpos + 1 != buflen)
+		buf[bufpos] = '\0';
+	while (ch != WEOF && ch != '\n')
+		ch = getwc(fp);
+
+	return (bufpos != 0 || ch == '\n' ? buf : NULL);
 }
 
 /*
@@ -176,38 +207,32 @@ done:	argc -= optind;
  *	of the line.
  */
 void
-show(ofp, str)
-	FILE *ofp;
-	char *str;
+show(FILE *ofp, wchar_t *str)
 {
 
-	if (cflag && *str)
-		(void)fprintf(ofp, "%4d %s", repeats + 1, str);
+	if (cflag)
+		(void)fprintf(ofp, "%4d %ls\n", repeats + 1, str);
 	if ((dflag && repeats) || (uflag && !repeats))
-		(void)fprintf(ofp, "%s", str);
+		(void)fprintf(ofp, "%ls\n", str);
 }
 
-char *
-skip(str)
-	char *str;
+wchar_t *
+skip(wchar_t *str)
 {
-	int infield, nchars, nfields;
+	int nchars, nfields;
 
-	for (nfields = numfields, infield = 0; nfields && *str; ++str)
-		if (isspace(*str)) {
-			if (infield) {
-				infield = 0;
-				--nfields;
-			}
-		} else if (!infield)
-			infield = 1;
+	for (nfields = 0; *str != '\0' && nfields++ != numfields; ) {
+		while (iswblank(*str))
+			str++;
+		while (*str != '\0' && !iswblank(*str))
+			str++;
+	}
 	for (nchars = numchars; nchars-- && *str; ++str);
 	return(str);
 }
 
 FILE *
-file(name, mode)
-	char *name, *mode;
+file(const char *name, const char *mode)
 {
 	FILE *fp;
 
@@ -217,20 +242,19 @@ file(name, mode)
 }
 
 void
-obsolete(argv)
-	char *argv[];
+obsolete(char *argv[])
 {
 	int len;
 	char *ap, *p, *start;
 
-	while ((ap = *++argv) != NULL) {
+	while ((ap = *++argv)) {
 		/* Return if "--" or not an option of any form. */
 		if (ap[0] != '-') {
 			if (ap[0] != '+')
 				return;
 		} else if (ap[1] == '-')
 			return;
-		if (!isdigit(ap[1]))
+		if (!isdigit((unsigned char)ap[1]))
 			continue;
 		/*
 		 * Digit signifies an old-style option.  Malloc space for dash,
@@ -246,10 +270,24 @@ obsolete(argv)
 	}
 }
 
-void
-usage()
+static void
+usage(void)
 {
 	(void)fprintf(stderr,
-	    "usage: uniq [-c | -du] [-f fields] [-s chars] [input [output]]\n");
+"usage: uniq [-c | -d | -u] [-i] [-f fields] [-s chars] [input [output]]\n");
 	exit(1);
+}
+
+int
+wcsicoll(wchar_t *s1, wchar_t *s2)
+{
+	wchar_t *p, line1[MAXLINELEN], line2[MAXLINELEN];
+
+	for (p = line1; *s1; s1++)
+		*p++ = towlower(*s1);
+	*p = '\0';
+	for (p = line2; *s2; s2++)
+		*p++ = towlower(*s2);
+	*p = '\0';
+	return (wcscoll(line1, line2));
 }

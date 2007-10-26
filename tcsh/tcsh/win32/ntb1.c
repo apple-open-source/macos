@@ -1,3 +1,4 @@
+/*$Header: /src/pub/tcsh/win32/ntb1.c,v 1.4 2004/05/19 18:22:28 christos Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.

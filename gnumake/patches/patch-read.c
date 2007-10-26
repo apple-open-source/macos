@@ -1,6 +1,6 @@
 --- read.c.orig	Fri Oct 29 16:57:10 2004
 +++ read.c	Fri Oct 29 16:59:17 2004
-@@ -1961,6 +1961,9 @@
+@@ -1972,6 +1972,9 @@
  	    fatal (flocp,
                     _("target file `%s' has both : and :: entries"), f->name);
  
@@ -10,7 +10,7 @@
  	  /* If CMDS == F->CMDS, this target was listed in this rule
  	     more than once.  Just give a warning since this is harmless.  */
  	  if (cmds != 0 && cmds == f->cmds)
-@@ -1980,6 +1983,9 @@
+@@ -1991,6 +1994,9 @@
                       _("warning: ignoring old commands for target `%s'"),
                       f->name);
  	    }

@@ -154,17 +154,18 @@ extern const void *bcache (const void *addr, int length,
 /* Free all the storage used by BCACHE.  */
 extern void bcache_xfree (struct bcache *bcache);
 
-extern void
-bcache_specify_allocation_with_arg
-(struct bcache *b, void * (* alloc) (void *, size_t),
- void (* free) (void *, void *), void *arg);
-
-extern void
-bcache_specify_allocation
-(struct bcache *b, void * (* alloc) (size_t),
- void (* free) (void *));
+/* APPLE LOCAL begin bcache pool */
+extern void bcache_specify_allocation_with_arg (struct bcache *b,
+						void * (* alloc) (void *, size_t),
+						void (* free) (void *, void *),
+						void *arg);
+extern void bcache_specify_allocation (struct bcache *b,
+				       void * (* alloc) (size_t),
+				       void (* free) (void *));
+/* APPLE LOCAL end bcache pool */
 
 /* Create a new bcache object.  */
+/* APPLE LOCAL bcache */
 extern struct bcache *bcache_xmalloc (void *);
 
 /* Print statistics on BCACHE's memory usage and efficacity at

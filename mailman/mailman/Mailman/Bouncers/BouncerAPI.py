@@ -1,4 +1,4 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Contains all the common functionality for msg bounce scanning API.
 
@@ -62,10 +63,7 @@ def ScanMessages(mlist, msg):
         modname = 'Mailman.Bouncers.' + module
         __import__(modname)
         addrs = sys.modules[modname].process(msg)
-        if addrs is Stop:
-            # One of the detectors recognized the bounce, but there were no
-            # addresses to extract.  Return the empty list.
-            return []
-        elif addrs:
+        if addrs:
+            # Return addrs even if it is Stop. BounceRunner needs this info.
             return addrs
     return []

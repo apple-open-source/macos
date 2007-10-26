@@ -1,11 +1,13 @@
-thisconfigdir=./../..
+thisconfigdir=../../..
 myfulldir=kadmin/testing/util
-mydir=testing/util
+mydir=kadmin/testing/util
 BUILDTOP=$(REL)..$(S)..$(S)..
-LOCALINCLUDES = $(TCL_INCLUDES)
+LOCALINCLUDES = $(TCL_INCLUDES) -I$(BUILDTOP)/lib/kdb/
 # Force Tcl headers to use stdarg.h, because krb5 does too, and if
 # Tcl uses varargs.h it'll just mess things up.
 DEFINES= -DHAS_STDARG
+DEFS=
+KRB5_PTHREAD_LIB=$(THREAD_LINKOPTS) 
 
 PROG_LIBPATH=-L$(TOPLIBD) $(TCL_LIBPATH)
 PROG_RPATH=$(KRB5_LIBDIR)$(TCL_RPATH)
@@ -29,11 +31,11 @@ all-tcl:: $(CLNTPROG) $(SRVPROG)
 
 $(SRVPROG): $(OBJS) $(KADMSRV_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 	$(CC_LINK) -o $(SRVPROG) $(OBJS) $(TCL_MAYBE_RPATH) \
-		$(KADMSRV_LIBS) $(KRB5_BASE_LIBS) $(TCL_LIBS)
+		$(KADMSRV_LIBS) $(KRB5_PTHREAD_LIB) $(KRB5_BASE_LIBS) $(TCL_LIBS)
 
 $(CLNTPROG): $(OBJS) $(KADMCLNT_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 	$(CC_LINK) -o $(CLNTPROG) $(OBJS) $(TCL_MAYBE_RPATH) \
-		$(KADMCLNT_LIBS) $(KRB5_BASE_LIBS) $(TCL_LIBS)
+		$(KRB5_PTHREAD_LIB) $(KADMCLNT_LIBS) $(KRB5_BASE_LIBS) $(TCL_LIBS)
 
 bsddb_dump: bsddb_dump.o
 	$(CC_LINK) -o bsddb_dump bsddb_dump.o $(KADMSRV_LIBS)
@@ -45,34 +47,29 @@ clean::
 # Makefile dependencies follow.  This must be the last section in
 # the Makefile.in file
 #
-$(OUTPRE)tcl_ovsec_kadm.$(OBJEXT): tcl_ovsec_kadm.c \
-  $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/gssrpc/rpc.h \
-  $(BUILDTOP)/include/gssrpc/types.h $(BUILDTOP)/include/gssrpc/rename.h \
-  $(BUILDTOP)/include/gssrpc/xdr.h $(BUILDTOP)/include/gssrpc/auth.h \
-  $(BUILDTOP)/include/gssrpc/clnt.h $(BUILDTOP)/include/gssrpc/rpc_msg.h \
-  $(BUILDTOP)/include/gssrpc/auth_unix.h $(BUILDTOP)/include/gssrpc/auth_gss.h \
-  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/svc_auth.h \
-  $(BUILDTOP)/include/gssrpc/svc.h $(BUILDTOP)/include/krb5.h \
-  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-int.h $(BUILDTOP)/include/krb5/osconf.h \
-  $(BUILDTOP)/include/krb5/autoconf.h $(SRCTOP)/include/k5-platform.h \
-  $(SRCTOP)/include/k5-thread.h $(BUILDTOP)/include/profile.h \
-  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
-  $(SRCTOP)/include/krb5/kdb.h $(BUILDTOP)/include/kadm5/kadm_err.h \
-  $(BUILDTOP)/include/kadm5/adb_err.h $(BUILDTOP)/include/kadm5/chpass_util_strings.h \
-  tcl_kadm5.h
-$(OUTPRE)tcl_kadm5.$(OBJEXT): tcl_kadm5.c $(BUILDTOP)/include/kadm5/admin.h \
-  $(BUILDTOP)/include/gssrpc/rpc.h $(BUILDTOP)/include/gssrpc/types.h \
-  $(BUILDTOP)/include/gssrpc/rename.h $(BUILDTOP)/include/gssrpc/xdr.h \
-  $(BUILDTOP)/include/gssrpc/auth.h $(BUILDTOP)/include/gssrpc/clnt.h \
-  $(BUILDTOP)/include/gssrpc/rpc_msg.h $(BUILDTOP)/include/gssrpc/auth_unix.h \
-  $(BUILDTOP)/include/gssrpc/auth_gss.h $(BUILDTOP)/include/gssapi/gssapi.h \
-  $(BUILDTOP)/include/gssrpc/svc_auth.h $(BUILDTOP)/include/gssrpc/svc.h \
-  $(BUILDTOP)/include/krb5.h $(COM_ERR_DEPS) $(SRCTOP)/include/k5-int.h \
-  $(BUILDTOP)/include/krb5/osconf.h $(BUILDTOP)/include/krb5/autoconf.h \
-  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-thread.h \
-  $(BUILDTOP)/include/profile.h $(SRCTOP)/include/port-sockets.h \
-  $(SRCTOP)/include/socket-utils.h $(SRCTOP)/include/krb5/kdb.h \
-  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/kadm5/adb_err.h \
-  $(BUILDTOP)/include/kadm5/chpass_util_strings.h tcl_kadm5.h
-$(OUTPRE)test.$(OBJEXT): test.c tcl_kadm5.h
-
+$(OUTPRE)tcl_ovsec_kadm.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/types.h \
+  $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/kadm5/chpass_util_strings.h \
+  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(BUILDTOP)/lib/kdb/adb_err.h $(COM_ERR_DEPS) $(SRCTOP)/include/gssrpc/auth.h \
+  $(SRCTOP)/include/gssrpc/auth_gss.h $(SRCTOP)/include/gssrpc/auth_unix.h \
+  $(SRCTOP)/include/gssrpc/clnt.h $(SRCTOP)/include/gssrpc/rename.h \
+  $(SRCTOP)/include/gssrpc/rpc.h $(SRCTOP)/include/gssrpc/rpc_msg.h \
+  $(SRCTOP)/include/gssrpc/svc.h $(SRCTOP)/include/gssrpc/svc_auth.h \
+  $(SRCTOP)/include/gssrpc/xdr.h $(SRCTOP)/include/k5-platform.h \
+  $(SRCTOP)/include/k5-thread.h $(SRCTOP)/include/kdb.h \
+  $(SRCTOP)/include/krb5.h tcl_kadm5.h tcl_ovsec_kadm.c
+$(OUTPRE)tcl_kadm5.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/gssapi/gssapi.h $(BUILDTOP)/include/gssrpc/types.h \
+  $(BUILDTOP)/include/kadm5/admin.h $(BUILDTOP)/include/kadm5/chpass_util_strings.h \
+  $(BUILDTOP)/include/kadm5/kadm_err.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(BUILDTOP)/lib/kdb/adb_err.h $(COM_ERR_DEPS) $(SRCTOP)/include/gssrpc/auth.h \
+  $(SRCTOP)/include/gssrpc/auth_gss.h $(SRCTOP)/include/gssrpc/auth_unix.h \
+  $(SRCTOP)/include/gssrpc/clnt.h $(SRCTOP)/include/gssrpc/rename.h \
+  $(SRCTOP)/include/gssrpc/rpc.h $(SRCTOP)/include/gssrpc/rpc_msg.h \
+  $(SRCTOP)/include/gssrpc/svc.h $(SRCTOP)/include/gssrpc/svc_auth.h \
+  $(SRCTOP)/include/gssrpc/xdr.h $(SRCTOP)/include/k5-platform.h \
+  $(SRCTOP)/include/k5-thread.h $(SRCTOP)/include/kdb.h \
+  $(SRCTOP)/include/krb5.h tcl_kadm5.c tcl_kadm5.h
+$(OUTPRE)test.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
+  tcl_kadm5.h test.c

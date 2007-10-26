@@ -51,7 +51,6 @@
 
 @interface KerberosServer : NSObject
 {
-    KLKerberosVersion version;
     unsigned int typeMenuIndex;
     NSString *hostString;
     BOOL hasCustomPort;
@@ -62,7 +61,6 @@
 
 - (id) init;
 - (id) initWithTypeString: (NSString *) serverType 
-                  version: (KLKerberosVersion) serverVersion 
             profileString: (NSString *) profileString;
 - (void) dealloc;
 
@@ -71,9 +69,6 @@
 - (NSString *) typeString;
 - (unsigned int) typeMenuIndex;
 - (void) setTypeMenuIndex: (unsigned int) newTypeMenuIndex;
-
-- (KLKerberosVersion) version;
-- (void) setVersion: (KLKerberosVersion) newVersion;
 
 - (NSString *) host;
 - (void) setHost: (NSString *) newHost;
@@ -90,9 +85,7 @@
 {
     NSString *nameInProfileString;
     NSString *nameString;
-    NSString *v4NameString;
     NSString *defaultDomainString;
-    KLKerberosVersion version;
     BOOL displayInDialogPopup;
     NSMutableArray *serversArray;
     NSMutableArray *domainsArray;
@@ -106,19 +99,14 @@
 
 - (krb5_error_code) flushToProfile: (profile_t) profile;
 
-- (krb5_error_code) addServersForVersion: (KLKerberosVersion) version profile: (profile_t) profile;
-- (krb5_error_code) flushServersForVersion: (KLKerberosVersion) version toProfile: (profile_t) profile; 
-
-- (krb5_error_code) flushDomainsForVersion: (KLKerberosVersion) serverVersion toProfile: (profile_t) profile;
+- (krb5_error_code) addServersFromProfile: (profile_t) profile;
+- (krb5_error_code) flushServersToProfile: (profile_t) profile; 
+- (krb5_error_code) flushDomainsToProfile: (profile_t) profile;
 
 - (NSString *) nameInProfile;
 
 - (NSString *) name;
 - (void) setName: (NSString *) newName;
-
-- (BOOL) hasV4Name;
-- (NSString *) v4Name;
-- (void) setV4Name: (NSString *) newV4Name;
 
 - (BOOL) hasDefaultDomain;
 - (NSString *) defaultDomain;
@@ -173,7 +161,6 @@
 - (void) removeRealm: (KerberosRealm *) realm;
 
 - (KerberosRealm *) findRealmByName: (NSString *) realmName;
-- (KerberosRealm *) findRealmByV4Name: (NSString *) realmName;
 
 - (unsigned int) numberOfRealms;
 - (KerberosRealm *) realmAtIndex: (unsigned int) realmIndex;

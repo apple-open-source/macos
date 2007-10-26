@@ -1,8 +1,10 @@
 ;;; foldout.el --- folding extensions for outline-mode and outline-minor-mode
 
-;; Copyright (C) 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Kevin Broadey <KevinB@bartley.demon.co.uk>
+;; Maintainer: FSF
 ;; Created: 27 Jan 1994
 ;; Version: foldout.el 1.10 dated 94/05/19 at 17:09:12
 ;; Keywords: folding, outlines
@@ -21,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -214,12 +216,12 @@
 (if (not (boundp 'outline-minor-mode))
     (error "Can't find outline-minor-mode"))
 
-(defconst foldout-fold-list nil
+(defvar foldout-fold-list nil
   "List of start and end markers for the folds currently entered.
-An end marker of NIL means the fold ends after (point-max).")
+An end marker of nil means the fold ends after (point-max).")
 (make-variable-buffer-local 'foldout-fold-list)
 
-(defconst foldout-modeline-string nil
+(defvar foldout-modeline-string nil
   "Modeline string announcing that we are in an outline fold.")
 (make-variable-buffer-local 'foldout-modeline-string)
 
@@ -269,7 +271,7 @@ optional arg EXPOSURE \(interactively with prefix arg\) changes this:-
 	   ;; I need a marker that will follow the end of the region even when
 	   ;; text is inserted right at the end.  Text gets inserted *after*
 	   ;; markers, so I need it at end+1.  Unfortunately I can't set a
-	   ;; marker at (point-max)+1, so I use NIL to mean the region ends at
+	   ;; marker at (point-max)+1, so I use nil to mean the region ends at
 	   ;; (point-max).
 	   (end-marker (if (eobp) nil (set-marker (make-marker) (1+ end))))
 	   )
@@ -308,7 +310,8 @@ optional arg EXPOSURE \(interactively with prefix arg\) changes this:-
 Normally causes exited folds to be hidden, but with ARG < 0, -ARG folds are
 exited and text is left visible."
   (interactive "p")
-  (let (start-marker end-marker (hide-fold t))
+  (let ((hide-fold t) start-marker end-marker
+	beginning-of-heading end-of-subtree)
 
     ;; check there are some folds to leave
     (if (null foldout-fold-list)
@@ -318,7 +321,7 @@ exited and text is left visible."
      ;; catch a request to leave all folds
      ((zerop num-folds)
       (setq num-folds (length foldout-fold-list)))
- 
+
      ;; have we been told not to hide the fold?
      ((< num-folds 0)
       (setq hide-fold nil
@@ -355,26 +358,23 @@ exited and text is left visible."
       ;; is \n otherwise it will be hidden.  If there is a newline
       ;; before this one, make it visible too so we do the same as
       ;; outline.el and leave a blank line before the heading.
-      (if (zerop num-folds)
-	  (let ((beginning-of-heading (point))
-		(end-of-subtree (if end-marker
-				    (progn
-				      (forward-char -1)
-				      (if (memq (preceding-char)
-						'(?\n ?\^M))
-					  (forward-char -1))
-				      (point))
-				  (point-max))))
-	    ;; hide the subtree
-	    (if hide-fold
-		(outline-flag-region start-marker end-of-subtree
-				     foldout-hide-flag))
+      (when (zerop num-folds)
+	(if end-marker
+	    (setq beginning-of-heading (point)
+		  end-of-subtree (progn (forward-char -1)
+					(if (memq (preceding-char)
+						  '(?\n ?\^M))
+					    (forward-char -1))
+					(point))))
+	;; hide the subtree
+	(when hide-fold
+	  (goto-char start-marker)
+	  (hide-subtree))
 
-	    ;; make sure the next heading is exposed
-	    (if end-marker
-		(outline-flag-region end-of-subtree beginning-of-heading
-				     foldout-show-flag))
-	    ))
+	;; make sure the next heading is exposed
+	(if end-marker
+	    (outline-flag-region end-of-subtree beginning-of-heading
+				 foldout-show-flag)))
 
       ;; zap the markers so they don't slow down editing
       (set-marker start-marker nil)
@@ -517,7 +517,7 @@ if the event didn't occur on a heading."
 ;;; Keymaps:
 
 (defvar foldout-inhibit-key-bindings nil
-  "Set non-NIL before loading foldout to inhibit key bindings.")
+  "Set non-nil before loading foldout to inhibit key bindings.")
 
 (defvar foldout-mouse-modifiers '(meta control)
   "List of modifier keys to apply to foldout's mouse events.
@@ -567,4 +567,5 @@ Valid modifiers are shift, control, meta, alt, hyper and super.")
 
 (provide 'foldout)
 
+;;; arch-tag: 19d095a2-1f09-42a7-a5ac-e2a3078cfe95
 ;;; foldout.el ends here

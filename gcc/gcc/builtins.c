@@ -47,6 +47,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "basic-block.h"
 #include "tree-mudflap.h"
+/* APPLE LOCAL ARM 4672543 */
+extern bool builtin_function_disabled_p (const char *);
 
 #define CALLED_AS_BUILT_IN(NODE) \
    (!strncmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__builtin_", 10))
@@ -78,7 +80,8 @@ static int get_pointer_alignment (tree, unsigned int);
 static const char *c_getstr (tree);
 static rtx c_readstr (const char *, enum machine_mode);
 static int target_char_cast (tree, char *);
-static rtx get_memory_rtx (tree);
+/* APPLE LOCAL mainline 4.0 5322531 */
+static rtx get_memory_rtx (tree, tree);
 static tree build_string_literal (int, const char *);
 static int apply_args_size (void);
 static int apply_result_size (void);
@@ -188,6 +191,28 @@ static tree fold_builtin_strspn (tree);
 static tree fold_builtin_strcspn (tree);
 static tree fold_builtin_sprintf (tree, int);
 
+/* APPLE LOCAL begin mainline */
+static rtx expand_builtin_object_size (tree);
+static rtx expand_builtin_memory_chk (tree, rtx, enum machine_mode,
+                                      enum built_in_function);
+static void maybe_emit_chk_warning (tree, enum built_in_function);
+static void maybe_emit_sprintf_chk_warning (tree, enum built_in_function);
+static tree fold_builtin_object_size (tree);
+static tree fold_builtin_strcat_chk (tree, tree);
+static tree fold_builtin_strncat_chk (tree, tree);
+static tree fold_builtin_sprintf_chk (tree, enum built_in_function);
+static tree fold_builtin_printf (tree, tree, bool, enum built_in_function);
+static tree fold_builtin_fprintf (tree, tree, bool, enum built_in_function);
+static bool init_target_chars (void);
+
+static unsigned HOST_WIDE_INT target_newline;
+static unsigned HOST_WIDE_INT target_percent;
+static unsigned HOST_WIDE_INT target_c;
+static unsigned HOST_WIDE_INT target_s;
+static char target_percent_c[3];
+static char target_percent_s[3];
+static char target_percent_s_newline[4];
+/* APPLE LOCAL end mainline */
 
 /* Return the alignment in bits of EXP, a pointer valued expression.
    But don't return more than MAX_ALIGN no matter what.
@@ -494,9 +519,16 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
       tem = copy_to_reg (tem);
     }
 
+  /* APPLE LOCAL begin ARM reliable backtraces */
   /* For __builtin_frame_address, return what we've got.  */
   if (fndecl_code == BUILT_IN_FRAME_ADDRESS)
-    return tem;
+    {
+      current_function_calls_builtin_frame_addr = 1;
+      return tem;
+    }
+  else
+    current_function_calls_builtin_ret_addr = 1;
+  /* APPLE LOCAL end ARM reliable backtraces */
 
   /* For __builtin_return_address, Get the return address from that
      frame.  */
@@ -586,7 +618,18 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 #ifdef HAVE_nonlocal_goto
   if (! HAVE_nonlocal_goto)
 #endif
-    emit_move_insn (virtual_stack_vars_rtx, hard_frame_pointer_rtx);
+/* APPLE LOCAL begin ARM reliable backtraces */
+/* If we have chosen a different definition of
+   builtin_setjmp_frame_value, then it's up to us to manually restore
+   it as needed in builtin_setjmp_receiver.  */
+  if (targetm.builtin_setjmp_frame_value () == virtual_stack_vars_rtx)
+    {
+      emit_move_insn (virtual_stack_vars_rtx, hard_frame_pointer_rtx);
+      /* This might change the hard frame pointer in ways that aren't
+         apparent to early optimization passes, so force a clobber.  */
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, hard_frame_pointer_rtx));
+    }
+/* APPLE LOCAL end ARM reliable backtraces */
 
 #if ARG_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
   if (fixed_regs[ARG_POINTER_REGNUM])
@@ -667,6 +710,13 @@ expand_builtin_setjmp (tree arglist, rtx target)
 
   emit_label (next_lab);
 
+  /* APPLE LOCAL begin mainline */
+  /* Because setjmp and longjmp are not represented in the CFG, a cfgcleanup
+     may find that the basic block starting with NEXT_LAB is unreachable.
+     The whole block, along with NEXT_LAB, would be removed (see PR26983).
+     Make sure that never happens.  */
+  LABEL_PRESERVE_P (next_lab) = 1;
+  /* APPLE LOCAL end mainline */
   expand_builtin_setjmp_receiver (next_lab);
 
   /* Set TARGET to one.  */
@@ -976,7 +1026,8 @@ expand_builtin_prefetch (tree arglist)
    to be used to be used in a string instruction (cmpstrsi, movmemsi, ..).  */
 
 static rtx
-get_memory_rtx (tree exp)
+/* APPLE LOCAL mainline 4.0 5322531 */
+get_memory_rtx (tree exp, tree len)
 {
   rtx addr = expand_expr (exp, NULL_RTX, ptr_mode, EXPAND_NORMAL);
   rtx mem = gen_rtx_MEM (BLKmode, memory_address (BLKmode, addr));
@@ -1001,7 +1052,83 @@ get_memory_rtx (tree exp)
      (as stringops may access multiple array elements).  */
   if (exp)
     {
+      /* APPLE LOCAL begin mainline 4.0 5322531 */
       set_mem_attributes (mem, exp, 0);
+
+      /* Allow the string and memory builtins to overflow from one
+	 field into another, see http://gcc.gnu.org/PR23561.
+	 Thus avoid COMPONENT_REFs in MEM_EXPR unless we know the whole
+	 memory accessed by the string or memory builtin will fit
+	 within the field.  */
+      if (MEM_EXPR (mem) && TREE_CODE (MEM_EXPR (mem)) == COMPONENT_REF)
+	{
+	  tree mem_expr = MEM_EXPR (mem);
+	  HOST_WIDE_INT offset = -1, length = -1;
+	  tree inner = exp;
+
+	  while (TREE_CODE (inner) == ARRAY_REF
+		 || TREE_CODE (inner) == NOP_EXPR
+		 || TREE_CODE (inner) == CONVERT_EXPR
+		 || TREE_CODE (inner) == NON_LVALUE_EXPR
+		 || TREE_CODE (inner) == VIEW_CONVERT_EXPR
+		 || TREE_CODE (inner) == SAVE_EXPR)
+	    inner = TREE_OPERAND (inner, 0);
+
+	  gcc_assert (TREE_CODE (inner) == COMPONENT_REF);
+
+	  if (MEM_OFFSET (mem)
+	      && GET_CODE (MEM_OFFSET (mem)) == CONST_INT)
+	    offset = INTVAL (MEM_OFFSET (mem));
+
+	  if (offset >= 0 && len && host_integerp (len, 0))
+	    length = tree_low_cst (len, 0);
+
+	  while (TREE_CODE (inner) == COMPONENT_REF)
+	    {
+	      tree field = TREE_OPERAND (inner, 1);
+	      gcc_assert (! DECL_BIT_FIELD (field));
+	      gcc_assert (TREE_CODE (mem_expr) == COMPONENT_REF);
+	      gcc_assert (field == TREE_OPERAND (mem_expr, 1));
+
+	      if (length >= 0
+		  && TYPE_SIZE_UNIT (TREE_TYPE (inner))
+		  && host_integerp (TYPE_SIZE_UNIT (TREE_TYPE (inner)), 0))
+		{
+		  HOST_WIDE_INT size
+		    = tree_low_cst (TYPE_SIZE_UNIT (TREE_TYPE (inner)), 0);
+		  /* If we can prove the memory starting at XEXP (mem, 0)
+		     and ending at XEXP (mem, 0) + LENGTH will fit into
+		     this field, we can keep that COMPONENT_REF in MEM_EXPR.  */
+		  if (offset <= size
+		      && length <= size
+		      && offset + length <= size)
+		    break;
+		}
+
+	      if (offset >= 0
+		  && host_integerp (DECL_FIELD_OFFSET (field), 0))
+		offset += tree_low_cst (DECL_FIELD_OFFSET (field), 0)
+			  + tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
+			    / BITS_PER_UNIT;
+	      else
+		{
+		  offset = -1;
+		  length = -1;
+		}
+
+	      mem_expr = TREE_OPERAND (mem_expr, 0);
+	      inner = TREE_OPERAND (inner, 0);
+	    }
+
+	  if (mem_expr == NULL)
+	    offset = -1;
+	  if (mem_expr != MEM_EXPR (mem))
+	    {
+	      set_mem_expr (mem, mem_expr);
+	      set_mem_offset (mem, offset >= 0 ? GEN_INT (offset) : NULL_RTX);
+	    }
+	}
+      /* APPLE LOCAL end mainline 4.0 5322531 */
       set_mem_alias_set (mem, 0);
       set_mem_size (mem, NULL_RTX);
     }
@@ -2655,7 +2782,8 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
       if (src_align == 0)
 	return 0;
 
-      dest_mem = get_memory_rtx (dest);
+      /* APPLE LOCAL mainline 4.0 5322531 */
+      dest_mem = get_memory_rtx (dest, len);
       set_mem_align (dest_mem, dest_align);
       len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
       src_str = c_getstr (src);
@@ -2677,7 +2805,8 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 	  return dest_mem;
 	}
 
-      src_mem = get_memory_rtx (src);
+      /* APPLE LOCAL mainline 4.0 5322531 */
+      src_mem = get_memory_rtx (src, len);
       set_mem_align (src_mem, src_align);
 
       /* Copy word part most expediently.  */
@@ -2756,7 +2885,8 @@ expand_builtin_mempcpy (tree arglist, tree type, rtx target, enum machine_mode m
 	  && can_store_by_pieces (INTVAL (len_rtx), builtin_memcpy_read_str,
 				  (void *) src_str, dest_align))
 	{
-	  dest_mem = get_memory_rtx (dest);
+	  /* APPLE LOCAL mainline 4.0 5322531 */
+	  dest_mem = get_memory_rtx (dest, len);
 	  set_mem_align (dest_mem, dest_align);
 	  dest_mem = store_by_pieces (dest_mem, INTVAL (len_rtx),
 				      builtin_memcpy_read_str,
@@ -2770,9 +2900,11 @@ expand_builtin_mempcpy (tree arglist, tree type, rtx target, enum machine_mode m
 	  && can_move_by_pieces (INTVAL (len_rtx),
 				 MIN (dest_align, src_align)))
 	{
-	  dest_mem = get_memory_rtx (dest);
+	  /* APPLE LOCAL mainline 4.0 5322531 */
+	  dest_mem = get_memory_rtx (dest, len);
 	  set_mem_align (dest_mem, dest_align);
-	  src_mem = get_memory_rtx (src);
+	  /* APPLE LOCAL mainline 4.0 5322531 */
+	  src_mem = get_memory_rtx (src, len);
 	  set_mem_align (src_mem, src_align);
 	  dest_mem = move_by_pieces (dest_mem, src_mem, INTVAL (len_rtx),
 				     MIN (dest_align, src_align), endp);
@@ -2900,8 +3032,10 @@ expand_movstr (tree dest, tree src, rtx target, int endp)
   if (!HAVE_movstr)
     return 0;
 
-  dest_mem = get_memory_rtx (dest);
-  src_mem = get_memory_rtx (src);
+  /* APPLE LOCAL begin mainline 4.0 5322531 */
+  dest_mem = get_memory_rtx (dest, NULL);
+  src_mem = get_memory_rtx (src, NULL);
+  /* APPLE LOCAL end mainline 4.0 5322531 */
   if (!endp)
     {
       target = force_reg (Pmode, XEXP (dest_mem, 0));
@@ -2975,7 +3109,14 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
 {
   tree arglist = TREE_OPERAND (exp, 1);
   /* If return value is ignored, transform stpcpy into strcpy.  */
+/* APPLE LOCAL begin ARM 4672543 */
+#ifdef TARGET_ARM
+  if (target == const0_rtx
+      && !builtin_function_disabled_p ("strcpy"))
+#else
   if (target == const0_rtx)
+#endif
+/* APPLE LOCAL end ARM 4672543 */
     {
       tree fn = implicit_built_in_decls[BUILT_IN_STRCPY];
       if (!fn)
@@ -3105,7 +3246,8 @@ expand_builtin_strncpy (tree exp, rtx target, enum machine_mode mode)
 				       (void *) p, dest_align))
 	    return 0;
 
-	  dest_mem = get_memory_rtx (dest);
+	  /* APPLE LOCAL mainline 4.0 5322531 */
+	  dest_mem = get_memory_rtx (dest, len);
 	  store_by_pieces (dest_mem, tree_low_cst (len, 1),
 			   builtin_strncpy_read_str,
 			   (void *) p, dest_align, 0);
@@ -3218,7 +3360,8 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	  val_rtx = expand_expr (val, NULL_RTX, VOIDmode, 0);
 	  val_rtx = force_reg (TYPE_MODE (unsigned_char_type_node),
 			       val_rtx);
-	  dest_mem = get_memory_rtx (dest);
+	  /* APPLE LOCAL mainline 4.0 5322531 */
+	  dest_mem = get_memory_rtx (dest, len);
 	  store_by_pieces (dest_mem, tree_low_cst (len, 1),
 			   builtin_memset_gen_str,
 			   val_rtx, dest_align, 0);
@@ -3239,7 +3382,8 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 				    dest_align))
 	    return 0;
 
-	  dest_mem = get_memory_rtx (dest);
+	  /* APPLE LOCAL mainline 4.0 5322531 */
+	  dest_mem = get_memory_rtx (dest, len);
 	  store_by_pieces (dest_mem, tree_low_cst (len, 1),
 			   builtin_memset_read_str,
 			   &c, dest_align, 0);
@@ -3250,7 +3394,8 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 
       len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
 
-      dest_mem = get_memory_rtx (dest);
+      /* APPLE LOCAL mainline 4.0 5322531 */
+      dest_mem = get_memory_rtx (dest, len);
       set_mem_align (dest_mem, dest_align);
       dest_addr = clear_storage (dest_mem, len_rtx,
 				 CALL_EXPR_TAILCALL (orig_exp)
@@ -3350,8 +3495,10 @@ expand_builtin_memcmp (tree exp ATTRIBUTE_UNUSED, tree arglist, rtx target,
 	   && REGNO (result) >= FIRST_PSEUDO_REGISTER))
       result = gen_reg_rtx (insn_mode);
 
-    arg1_rtx = get_memory_rtx (arg1);
-    arg2_rtx = get_memory_rtx (arg2);
+    /* APPLE LOCAL begin mainline 4.0 5322531 */
+    arg1_rtx = get_memory_rtx (arg1, len);
+    arg2_rtx = get_memory_rtx (arg2, len);
+    /* APPLE LOCAL end mainline 4.0 5322531 */
     arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
 
     /* Set MEM_SIZE as appropriate.  */
@@ -3489,8 +3636,10 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
     arg1 = builtin_save_expr (arg1);
     arg2 = builtin_save_expr (arg2);
 
-    arg1_rtx = get_memory_rtx (arg1);
-    arg2_rtx = get_memory_rtx (arg2);
+    /* APPLE LOCAL begin mainline 4.0 5322531 */
+    arg1_rtx = get_memory_rtx (arg1, len);
+    arg2_rtx = get_memory_rtx (arg2, len);
+    /* APPLE LOCAL end mainline 4.0 5322531 */
     arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
     insn = gen_cmpstrsi (result, arg1_rtx, arg2_rtx, arg3_rtx,
 			 GEN_INT (MIN (arg1_align, arg2_align)));
@@ -3618,8 +3767,10 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
     arg2 = builtin_save_expr (arg2);
     len = builtin_save_expr (len);
 
-    arg1_rtx = get_memory_rtx (arg1);
-    arg2_rtx = get_memory_rtx (arg2);
+    /* APPLE LOCAL begin mainline 4.0 5322531 */
+    arg1_rtx = get_memory_rtx (arg1, len);
+    arg2_rtx = get_memory_rtx (arg2, len);
+    /* APPLE LOCAL end mainline 4.0 5322531 */
     arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
     insn = gen_cmpstrsi (result, arg1_rtx, arg2_rtx, arg3_rtx,
 			 GEN_INT (MIN (arg1_align, arg2_align)));
@@ -4291,6 +4442,13 @@ expand_builtin_alloca (tree arglist, rtx target)
   result = allocate_dynamic_stack_space (op0, target, BITS_PER_UNIT);
   result = convert_memory_address (ptr_mode, result);
 
+  /* APPLE LOCAL begin ARM 5051776 */
+#ifdef TARGET_ARM
+  /* EH with sjlj needs to know when the stack layout has changed.  */
+  emit_note (NOTE_INSN_ALLOCA);
+#endif
+  /* APPLE LOCAL end ARM 5051776 */
+
   return result;
 }
 
@@ -4812,7 +4970,14 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
     return 0;
 
   /* If the format doesn't contain % args or %%, use strcpy.  */
+/* APPLE LOCAL begin ARM 4672543 */
+#ifdef TARGET_ARM
+  if (strchr (fmt_str, '%') == 0
+      && !builtin_function_disabled_p ("strcpy"))
+#else
   if (strchr (fmt_str, '%') == 0)
+#endif
+/* APPLE LOCAL end ARM 4672543 */
     {
       tree fn = implicit_built_in_decls[BUILT_IN_STRCPY];
       tree exp;
@@ -4827,7 +4992,14 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
       return expand_expr (exp, target, mode, EXPAND_NORMAL);
     }
   /* If the format is "%s", use strcpy if the result isn't used.  */
+/* APPLE LOCAL begin ARM 4672543 */
+#ifdef TARGET_ARM
+  else if (strcmp (fmt_str, "%s") == 0
+	   && !builtin_function_disabled_p ("strcpy"))
+#else
   else if (strcmp (fmt_str, "%s") == 0)
+#endif
+/* APPLE LOCAL end ARM 4672543 */
     {
       tree fn, arg, len;
       fn = implicit_built_in_decls[BUILT_IN_STRCPY];
@@ -5753,6 +5925,33 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
+      /* APPLE LOCAL begin mainline */
+    case BUILT_IN_OBJECT_SIZE:
+      return expand_builtin_object_size (exp);
+
+    case BUILT_IN_MEMCPY_CHK:
+    case BUILT_IN_MEMPCPY_CHK:
+    case BUILT_IN_MEMMOVE_CHK:
+    case BUILT_IN_MEMSET_CHK:
+      target = expand_builtin_memory_chk (exp, target, mode, fcode);
+      if (target)
+        return target;
+      break;
+
+    case BUILT_IN_STRCPY_CHK:
+    case BUILT_IN_STPCPY_CHK:
+    case BUILT_IN_STRNCPY_CHK:
+    case BUILT_IN_STRCAT_CHK:
+    case BUILT_IN_SNPRINTF_CHK:
+    case BUILT_IN_VSNPRINTF_CHK:
+      maybe_emit_chk_warning (exp, fcode);
+      break;
+
+    case BUILT_IN_SPRINTF_CHK:
+    case BUILT_IN_VSPRINTF_CHK:
+      maybe_emit_sprintf_chk_warning (exp, fcode);
+      break;
+      /* APPLE LOCAL end mainline */
     /* APPLE LOCAL begin lno */
     case BUILT_IN_MAYBE_INFINITE_LOOP:
       /* This is just a fake statement that expands to nothing.  */
@@ -7927,9 +8126,18 @@ fold_builtin_1 (tree exp, bool ignore)
 {
   tree fndecl = get_callee_fndecl (exp);
   tree arglist = TREE_OPERAND (exp, 1);
-  tree type = TREE_TYPE (TREE_TYPE (fndecl));
+  /* APPLE LOCAL begin radar 4629695 */
+  tree type;
+  /* APPLE LOCAL end radar 4629695 */
   enum built_in_function fcode;
 
+  /* APPLE LOCAL begin radar 4629695 */
+  /* If there is a type cast when calling a builtin function, it is possible that
+     its callee declaration is not available. */
+  if (fndecl == 0)
+    return NULL_TREE;
+  type = TREE_TYPE (TREE_TYPE (fndecl));
+  /* APPLE LOCAL end radar 4629695 */
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return targetm.fold_builtin (exp, ignore);
 
@@ -8263,6 +8471,49 @@ fold_builtin_1 (tree exp, bool ignore)
     case BUILT_IN_VA_START:
       break;
 
+      /* APPLE LOCAL begin mainline */
+    case BUILT_IN_OBJECT_SIZE:
+      return fold_builtin_object_size (arglist);
+    case BUILT_IN_MEMCPY_CHK:
+    case BUILT_IN_MEMPCPY_CHK:
+    case BUILT_IN_MEMMOVE_CHK:
+    case BUILT_IN_MEMSET_CHK:
+      return fold_builtin_memory_chk (fndecl, arglist, NULL_TREE, ignore,
+                                      DECL_FUNCTION_CODE (fndecl));
+    case BUILT_IN_STRCPY_CHK:
+    case BUILT_IN_STPCPY_CHK:
+      return fold_builtin_stxcpy_chk (fndecl, arglist, NULL_TREE, ignore,
+                                      DECL_FUNCTION_CODE (fndecl));
+    case BUILT_IN_STRNCPY_CHK:
+      return fold_builtin_strncpy_chk (arglist, NULL_TREE);
+    case BUILT_IN_STRCAT_CHK:
+      return fold_builtin_strcat_chk (fndecl, arglist);
+    case BUILT_IN_STRNCAT_CHK:
+      return fold_builtin_strncat_chk (fndecl, arglist);
+    case BUILT_IN_SPRINTF_CHK:
+    case BUILT_IN_VSPRINTF_CHK:
+      return fold_builtin_sprintf_chk (arglist, DECL_FUNCTION_CODE (fndecl));
+    case BUILT_IN_SNPRINTF_CHK:
+    case BUILT_IN_VSNPRINTF_CHK:
+      return fold_builtin_snprintf_chk (arglist, NULL_TREE,
+                                        DECL_FUNCTION_CODE (fndecl));
+
+    case BUILT_IN_PRINTF:
+    case BUILT_IN_PRINTF_UNLOCKED:
+    case BUILT_IN_VPRINTF:
+    case BUILT_IN_PRINTF_CHK:
+    case BUILT_IN_VPRINTF_CHK:
+      return fold_builtin_printf (fndecl, arglist, ignore,
+                                  DECL_FUNCTION_CODE (fndecl));
+
+    case BUILT_IN_FPRINTF:
+    case BUILT_IN_FPRINTF_UNLOCKED:
+    case BUILT_IN_VFPRINTF:
+    case BUILT_IN_FPRINTF_CHK:
+    case BUILT_IN_VFPRINTF_CHK:
+      return fold_builtin_fprintf (fndecl, arglist, ignore,
+                                   DECL_FUNCTION_CODE (fndecl));
+      /* APPLE LOCAL end mainline */
     default:
       if (fcode >= BUILT_IN_COMPLEX_MUL_MIN
 	  && fcode <= BUILT_IN_COMPLEX_MUL_MAX)
@@ -8730,8 +8981,16 @@ fold_builtin_strncat (tree arglist)
 
       /* If the requested len is greater than or equal to the string
          length, call strcat.  */
+/* APPLE LOCAL begin ARM 4672543 */
+#ifdef TARGET_ARM
+      if (TREE_CODE (len) == INTEGER_CST && p
+	  && compare_tree_int (len, strlen (p)) >= 0
+	  && !builtin_function_disabled_p ("strcat"))
+#else
       if (TREE_CODE (len) == INTEGER_CST && p
 	  && compare_tree_int (len, strlen (p)) >= 0)
+#endif
+/* APPLE LOCAL end ARM 4672543 */
 	{
 	  tree newarglist
 	    = tree_cons (NULL_TREE, dst, build_tree_list (NULL_TREE, src));
@@ -9037,7 +9296,14 @@ fold_builtin_sprintf (tree arglist, int ignored)
   retval = NULL_TREE;
 
   /* If the format doesn't contain % args or %%, use strcpy.  */
+/* APPLE LOCAL begin ARM 4672543 */
+#ifdef TARGET_ARM
+  if (strchr (fmt_str, '%') == NULL
+      && !builtin_function_disabled_p ("strcpy"))
+#else
   if (strchr (fmt_str, '%') == NULL)
+#endif
+/* APPLE LOCAL end ARM 4672543 */
     {
       tree fn = implicit_built_in_decls[BUILT_IN_STRCPY];
 
@@ -9054,7 +9320,14 @@ fold_builtin_sprintf (tree arglist, int ignored)
     }
 
   /* If the format is "%s", use strcpy if the result isn't used.  */
+/* APPLE LOCAL begin ARM 4672543 */
+#ifdef TARGET_ARM
+  else if (fmt_str && strcmp (fmt_str, "%s") == 0
+	   && !builtin_function_disabled_p ("strcpy"))
+#else
   else if (fmt_str && strcmp (fmt_str, "%s") == 0)
+#endif
+/* APPLE LOCAL end ARM 4672543 */
     {
       tree fn, orig;
       fn = implicit_built_in_decls[BUILT_IN_STRCPY];
@@ -9085,3 +9358,1204 @@ fold_builtin_sprintf (tree arglist, int ignored)
   else
     return call;
 }
+/* APPLE LOCAL begin mainline */
+/* Expand a call to __builtin_object_size.  */
+
+rtx
+expand_builtin_object_size (tree exp)
+{
+  tree ost;
+  int object_size_type;
+  tree fndecl = get_callee_fndecl (exp);
+  tree arglist = TREE_OPERAND (exp, 1);
+  location_t locus = EXPR_LOCATION (exp);
+
+  if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    {
+      error ("%Hfirst argument of %D must be a pointer, second integer constant",
+             &locus, fndecl);
+      expand_builtin_trap ();
+      return const0_rtx;
+    }
+
+  ost = TREE_VALUE (TREE_CHAIN (arglist));
+  STRIP_NOPS (ost);
+
+  if (TREE_CODE (ost) != INTEGER_CST
+      || tree_int_cst_sgn (ost) < 0
+      || compare_tree_int (ost, 3) > 0)
+    {
+      error ("%Hlast argument of %D is not integer constant between 0 and 3",
+             &locus, fndecl);
+      expand_builtin_trap ();
+      return const0_rtx;
+    }
+
+  object_size_type = tree_low_cst (ost, 0);
+
+  return object_size_type < 2 ? constm1_rtx : const0_rtx;
+}
+
+/* Expand EXP, a call to the __mem{cpy,pcpy,move,set}_chk builtin.
+   FCODE is the BUILT_IN_* to use.
+   Return 0 if we failed; the caller should emit a normal call,
+   otherwise try to get the result in TARGET, if convenient (and in
+   mode MODE if that's convenient).  */
+
+static rtx
+expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
+                           enum built_in_function fcode)
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree dest, src, len, size;
+
+  if (!validate_arglist (arglist,
+                         POINTER_TYPE,
+                         fcode == BUILT_IN_MEMSET_CHK
+                         ? INTEGER_TYPE : POINTER_TYPE,
+                         INTEGER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+
+  dest = TREE_VALUE (arglist);
+  src = TREE_VALUE (TREE_CHAIN (arglist));
+  len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  size = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arglist))));
+
+  if (! host_integerp (size, 1))
+    return 0;
+
+  if (host_integerp (len, 1) || integer_all_onesp (size))
+    {
+      tree fn;
+
+      if (! integer_all_onesp (size) && tree_int_cst_lt (size, len))
+        {
+          location_t locus = EXPR_LOCATION (exp);
+          warning ("%Hcall to %D will always overflow destination buffer",
+                   &locus, get_callee_fndecl (exp));
+          return 0;
+        }
+
+      arglist = build_tree_list (NULL_TREE, len);
+      arglist = tree_cons (NULL_TREE, src, arglist);
+      arglist = tree_cons (NULL_TREE, dest, arglist);
+
+      fn = NULL_TREE;
+      /* If __builtin_mem{cpy,pcpy,move,set}_chk is used, assume
+	 mem{cpy,pcpy,move,set} is available.  */
+      switch (fcode)
+        {
+        case BUILT_IN_MEMCPY_CHK:
+          fn = built_in_decls[BUILT_IN_MEMCPY];
+          break;
+        case BUILT_IN_MEMPCPY_CHK:
+          fn = built_in_decls[BUILT_IN_MEMPCPY];
+          break;
+        case BUILT_IN_MEMMOVE_CHK:
+          fn = built_in_decls[BUILT_IN_MEMMOVE];
+          break;
+        case BUILT_IN_MEMSET_CHK:
+          fn = built_in_decls[BUILT_IN_MEMSET];
+          break;
+        default:
+          break;
+        }
+
+      if (! fn)
+        return 0;
+
+      fn = build_function_call_expr (fn, arglist);
+      if (TREE_CODE (fn) == CALL_EXPR)
+        CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
+      return expand_expr (fn, target, mode, EXPAND_NORMAL);
+    }
+  else if (fcode == BUILT_IN_MEMSET_CHK)
+    return 0;
+  else
+    {
+      unsigned int dest_align
+        = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
+
+      /* If DEST is not a pointer type, call the normal function.  */
+      if (dest_align == 0)
+        return 0;
+
+      /* If SRC and DEST are the same (and not volatile), do nothing.  */
+      if (operand_equal_p (src, dest, 0))
+        {
+          tree expr;
+
+          if (fcode != BUILT_IN_MEMPCPY_CHK)
+            {
+              /* Evaluate and ignore LEN in case it has side-effects.  */
+	      expand_expr (len, const0_rtx, VOIDmode, EXPAND_NORMAL);
+              return expand_expr (dest, target, mode, EXPAND_NORMAL);
+            }
+
+          len = fold_convert (TREE_TYPE (dest), len);
+          expr = fold (build2 (PLUS_EXPR, TREE_TYPE (dest), dest, len));
+          return expand_expr (expr, target, mode, EXPAND_NORMAL);
+        }
+
+      /* __memmove_chk special case.  */
+      if (fcode == BUILT_IN_MEMMOVE_CHK)
+        {
+          unsigned int src_align
+            = get_pointer_alignment (src, BIGGEST_ALIGNMENT);
+
+          if (src_align == 0)
+            return 0;
+
+          /* If src is categorized for a readonly section we can use
+             normal __memcpy_chk.  */
+          if (readonly_data_expr (src))
+            {
+              tree fn = built_in_decls[BUILT_IN_MEMCPY_CHK];
+              if (!fn)
+                return 0;
+              fn = build_function_call_expr (fn, arglist);
+              if (TREE_CODE (fn) == CALL_EXPR)
+                CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
+              return expand_expr (fn, target, mode, EXPAND_NORMAL);
+            }
+        }
+      return 0;
+    }
+}
+
+/* Emit warning if a buffer overflow is detected at compile time.  */
+
+static void
+maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
+{
+  int arg_mask, is_strlen = 0;
+  tree arglist = TREE_OPERAND (exp, 1), a;
+  tree len, size;
+  location_t locus;
+
+  switch (fcode)
+    {
+    case BUILT_IN_STRCPY_CHK:
+    case BUILT_IN_STPCPY_CHK:
+    /* For __strcat_chk the warning will be emitted only if overflowing
+       by at least strlen (dest) + 1 bytes.  */
+    case BUILT_IN_STRCAT_CHK:
+      arg_mask = 6;
+      is_strlen = 1;
+      break;
+    case BUILT_IN_STRNCPY_CHK:
+      arg_mask = 12;
+      break;
+    case BUILT_IN_SNPRINTF_CHK:
+    case BUILT_IN_VSNPRINTF_CHK:
+      arg_mask = 10;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  len = NULL_TREE;
+  size = NULL_TREE;
+  for (a = arglist; a && arg_mask; a = TREE_CHAIN (a), arg_mask >>= 1)
+    if (arg_mask & 1)
+      {
+        if (len)
+          size = a;
+        else
+          len = a;
+      }
+
+  if (!len || !size)
+    return;
+
+  len = TREE_VALUE (len);
+  size = TREE_VALUE (size);
+
+  if (! host_integerp (size, 1) || integer_all_onesp (size))
+    return;
+
+  if (is_strlen)
+    {
+      len = c_strlen (len, 1);
+      if (! len || ! host_integerp (len, 1) || tree_int_cst_lt (len, size))
+        return;
+    }
+  else if (! host_integerp (len, 1) || ! tree_int_cst_lt (size, len))
+    return;
+
+  locus = EXPR_LOCATION (exp);
+  warning ("%Hcall to %D will always overflow destination buffer",
+           &locus, get_callee_fndecl (exp));
+}
+
+/* Emit warning if a buffer overflow is detected at compile time
+   in __sprintf_chk/__vsprintf_chk calls.  */
+
+static void
+maybe_emit_sprintf_chk_warning (tree exp, enum built_in_function fcode)
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree dest, size, len, fmt, flag;
+  const char *fmt_str;
+
+  /* Verify the required arguments in the original call.  */
+  if (! arglist)
+    return;
+  dest = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return;
+  flag = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return;
+  size = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return;
+  fmt = TREE_VALUE (arglist);
+  arglist = TREE_CHAIN (arglist);
+
+  if (! host_integerp (size, 1) || integer_all_onesp (size))
+    return;
+
+  /* Check whether the format is a literal string constant.  */
+  fmt_str = c_getstr (fmt);
+  if (fmt_str == NULL)
+    return;
+
+  if (!init_target_chars())
+    return;
+
+  /* If the format doesn't contain % args or %%, we know its size.  */
+  if (strchr (fmt_str, target_percent) == 0)
+    len = build_int_cstu (size_type_node, strlen (fmt_str));
+  /* If the format is "%s" and first ... argument is a string literal,
+     we know it too.  */
+  else if (fcode == BUILT_IN_SPRINTF_CHK && strcmp (fmt_str, target_percent_s) == 0)
+    {
+      tree arg;
+
+      if (! arglist)
+        return;
+      arg = TREE_VALUE (arglist);
+      if (! POINTER_TYPE_P (TREE_TYPE (arg)))
+        return;
+
+      len = c_strlen (arg, 1);
+      if (!len || ! host_integerp (len, 1))
+        return;
+    }
+  else
+    return;
+
+  if (! tree_int_cst_lt (len, size))
+    {
+      location_t locus = EXPR_LOCATION (exp);
+      warning ("%Hcall to %D will always overflow destination buffer",
+               &locus, get_callee_fndecl (exp));
+    }
+}
+
+/* Fold a call to __builtin_object_size, if possible.  */
+
+tree
+fold_builtin_object_size (tree arglist)
+{
+  tree ptr, ost, ret = 0;
+  int object_size_type;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+
+  ptr = TREE_VALUE (arglist);
+  ost = TREE_VALUE (TREE_CHAIN (arglist));
+  STRIP_NOPS (ost);
+
+  if (TREE_CODE (ost) != INTEGER_CST
+      || tree_int_cst_sgn (ost) < 0
+      || compare_tree_int (ost, 3) > 0)
+    return 0;
+
+  object_size_type = tree_low_cst (ost, 0);
+
+  /* __builtin_object_size doesn't evaluate side-effects in its arguments;
+     if there are any side-effects, it returns (size_t) -1 for types 0 and 1
+     and (size_t) 0 for types 2 and 3.  */
+  if (TREE_SIDE_EFFECTS (ptr))
+    return fold_convert (size_type_node,
+                         object_size_type < 2
+                         ? integer_minus_one_node : integer_zero_node);
+
+  if (TREE_CODE (ptr) == ADDR_EXPR)
+    ret = build_int_cstu (size_type_node,
+                        compute_builtin_object_size (ptr, object_size_type));
+
+  else if (TREE_CODE (ptr) == SSA_NAME)
+    {
+      unsigned HOST_WIDE_INT bytes;
+
+      /* If object size is not known yet, delay folding until
+       later.  Maybe subsequent passes will help determining
+       it.  */
+      bytes = compute_builtin_object_size (ptr, object_size_type);
+      if (bytes != (unsigned HOST_WIDE_INT) (object_size_type < 2
+                                             ? -1 : 0))
+        ret = build_int_cstu (size_type_node, bytes);
+    }
+
+  if (ret)
+    {
+      ret = force_fit_type (ret, -1, false, false);
+      if (TREE_CONSTANT_OVERFLOW (ret))
+        ret = 0;
+    }
+
+  return ret;
+}
+
+/* Fold a call to the __mem{cpy,pcpy,move,set}_chk builtin.
+   IGNORE is true, if return value can be ignored.  FCODE is the BUILT_IN_*
+   code of the builtin.  If MAXLEN is not NULL, it is maximum length
+   passed as third argument.  */
+
+tree
+fold_builtin_memory_chk (tree fndecl, tree arglist, tree maxlen, bool ignore,
+                         enum built_in_function fcode)
+{
+  tree dest, src, len, size, fn;
+
+  if (!validate_arglist (arglist,
+			 POINTER_TYPE,
+                         fcode == BUILT_IN_MEMSET_CHK
+                         ? INTEGER_TYPE : POINTER_TYPE,
+                         INTEGER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return 0;
+
+  dest = TREE_VALUE (arglist);
+  /* Actually val for __memset_chk, but it doesn't matter.  */
+  src = TREE_VALUE (TREE_CHAIN (arglist));
+  len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  size = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arglist))));
+
+  /* If SRC and DEST are the same (and not volatile), return DEST
+     (resp. DEST+LEN for __mempcpy_chk).  */
+  if (fcode != BUILT_IN_MEMSET_CHK && operand_equal_p (src, dest, 0))
+    {
+      if (fcode != BUILT_IN_MEMPCPY_CHK)
+        return omit_one_operand (TREE_TYPE (TREE_TYPE (fndecl)), dest, len);
+      else
+        {
+          tree temp = fold_convert (TREE_TYPE (dest), len);
+          temp = fold (build2 (PLUS_EXPR, TREE_TYPE (dest), dest, temp));
+          return fold_convert (TREE_TYPE (TREE_TYPE (fndecl)), temp);
+        }
+    }
+
+  if (! host_integerp (size, 1))
+    return 0;
+
+  if (! integer_all_onesp (size))
+    {
+      if (! host_integerp (len, 1))
+        {
+          /* If LEN is not constant, try MAXLEN too.
+             For MAXLEN only allow optimizing into non-_ocs function
+             if SIZE is >= MAXLEN, never convert to __ocs_fail ().  */
+          if (maxlen == NULL_TREE || ! host_integerp (maxlen, 1))
+            {
+              if (fcode == BUILT_IN_MEMPCPY_CHK && ignore)
+                {
+                  /* (void) __mempcpy_chk () can be optimized into
+                     (void) __memcpy_chk ().  */
+                  fn = built_in_decls[BUILT_IN_MEMCPY_CHK];
+                  if (!fn)
+                    return 0;
+
+		  return build_function_call_expr (fn, arglist);
+                }
+              return 0;
+            }
+        }
+      else
+        maxlen = len;
+
+      if (tree_int_cst_lt (size, maxlen))
+        return 0;
+    }
+
+  arglist = build_tree_list (NULL_TREE, len);
+  arglist = tree_cons (NULL_TREE, src, arglist);
+  arglist = tree_cons (NULL_TREE, dest, arglist);
+
+  fn = NULL_TREE;
+  /* If __builtin_mem{cpy,pcpy,move,set}_chk is used, assume
+     mem{cpy,pcpy,move,set} is available.  */
+  switch (fcode)
+    {
+    case BUILT_IN_MEMCPY_CHK:
+      fn = built_in_decls[BUILT_IN_MEMCPY];
+      break;
+    case BUILT_IN_MEMPCPY_CHK:
+      fn = built_in_decls[BUILT_IN_MEMPCPY];
+      break;
+    case BUILT_IN_MEMMOVE_CHK:
+      fn = built_in_decls[BUILT_IN_MEMMOVE];
+      break;
+    case BUILT_IN_MEMSET_CHK:
+      fn = built_in_decls[BUILT_IN_MEMSET];
+      break;
+    default:
+      break;
+    }
+
+  if (!fn)
+    return 0;
+
+  return build_function_call_expr (fn, arglist);
+}
+
+/* Fold a call to the __st[rp]cpy_chk builtin.
+   IGNORE is true, if return value can be ignored.  FCODE is the BUILT_IN_*
+   code of the builtin.  If MAXLEN is not NULL, it is maximum length of
+   strings passed as second argument.  */
+
+tree
+fold_builtin_stxcpy_chk (tree fndecl, tree arglist, tree maxlen, bool ignore,
+                         enum built_in_function fcode)
+{
+  tree dest, src, size, len, fn;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE,
+                         VOID_TYPE))
+    return 0;
+
+  dest = TREE_VALUE (arglist);
+  src = TREE_VALUE (TREE_CHAIN (arglist));
+  size = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+
+  /* If SRC and DEST are the same (and not volatile), return DEST.  */
+  if (fcode == BUILT_IN_STRCPY_CHK && operand_equal_p (src, dest, 0))
+    return fold_convert (TREE_TYPE (TREE_TYPE (fndecl)), dest);
+
+  if (! host_integerp (size, 1))
+    return 0;
+
+  if (! integer_all_onesp (size))
+    {
+      len = c_strlen (src, 1);
+      if (! len || ! host_integerp (len, 1))
+        {
+          /* If LEN is not constant, try MAXLEN too.
+             For MAXLEN only allow optimizing into non-_ocs function
+             if SIZE is >= MAXLEN, never convert to __ocs_fail ().  */
+          if (maxlen == NULL_TREE || ! host_integerp (maxlen, 1))
+            {
+              if (fcode == BUILT_IN_STPCPY_CHK)
+                {
+                  if (! ignore)
+                    return 0;
+
+                  /* If return value of __stpcpy_chk is ignored,
+                     optimize into __strcpy_chk.  */
+                  fn = built_in_decls[BUILT_IN_STRCPY_CHK];
+                  if (!fn)
+                    return 0;
+
+                  return build_function_call_expr (fn, arglist);
+                }
+
+	      if (! len || TREE_SIDE_EFFECTS (len))
+                return 0;
+
+              /* If c_strlen returned something, but not a constant,
+                 transform __strcpy_chk into __memcpy_chk.  */
+              fn = built_in_decls[BUILT_IN_MEMCPY_CHK];
+              if (!fn)
+                return 0;
+
+              len = size_binop (PLUS_EXPR, len, ssize_int (1));
+              arglist = build_tree_list (NULL_TREE, size);
+              arglist = tree_cons (NULL_TREE, len, arglist);
+              arglist = tree_cons (NULL_TREE, src, arglist);
+              arglist = tree_cons (NULL_TREE, dest, arglist);
+              return fold_convert (TREE_TYPE (TREE_TYPE (fndecl)),
+                                   build_function_call_expr (fn, arglist));
+            }
+        }
+      else
+        maxlen = len;
+
+      if (! tree_int_cst_lt (maxlen, size))
+        return 0;
+    }
+
+  arglist = build_tree_list (NULL_TREE, src);
+  arglist = tree_cons (NULL_TREE, dest, arglist);
+
+  /* If __builtin_st{r,p}cpy_chk is used, assume st{r,p}cpy is available.  */
+  fn = built_in_decls[fcode == BUILT_IN_STPCPY_CHK
+                      ? BUILT_IN_STPCPY : BUILT_IN_STRCPY];
+  if (!fn)
+    return 0;
+
+  return build_function_call_expr (fn, arglist);
+}
+
+/* Fold a call to the __strncpy_chk builtin.
+   If MAXLEN is not NULL, it is maximum length passed as third argument.  */
+
+tree
+fold_builtin_strncpy_chk (tree arglist, tree maxlen)
+{
+  tree dest, src, size, len, fn;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE,
+			 INTEGER_TYPE, VOID_TYPE))
+    return 0;
+
+  dest = TREE_VALUE (arglist);
+  src = TREE_VALUE (TREE_CHAIN (arglist));
+  len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  size = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arglist))));
+
+  if (! host_integerp (size, 1))
+    return 0;
+
+  if (! integer_all_onesp (size))
+    {
+      if (! host_integerp (len, 1))
+        {
+          /* If LEN is not constant, try MAXLEN too.
+             For MAXLEN only allow optimizing into non-_ocs function
+             if SIZE is >= MAXLEN, never convert to __ocs_fail ().  */
+          if (maxlen == NULL_TREE || ! host_integerp (maxlen, 1))
+            return 0;
+        }
+      else
+        maxlen = len;
+
+      if (tree_int_cst_lt (size, maxlen))
+        return 0;
+    }
+
+  arglist = build_tree_list (NULL_TREE, len);
+  arglist = tree_cons (NULL_TREE, src, arglist);
+  arglist = tree_cons (NULL_TREE, dest, arglist);
+
+  /* If __builtin_strncpy_chk is used, assume strncpy is available.  */
+  fn = built_in_decls[BUILT_IN_STRNCPY];
+  if (!fn)
+    return 0;
+
+  return build_function_call_expr (fn, arglist);
+}
+
+/* Fold a call to the __strcat_chk builtin FNDECL with ARGLIST.  */
+
+static tree
+fold_builtin_strcat_chk (tree fndecl, tree arglist)
+{
+  tree dest, src, size, fn;
+  const char *p;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE,
+                         VOID_TYPE))
+    return 0;
+
+  dest = TREE_VALUE (arglist);
+  src = TREE_VALUE (TREE_CHAIN (arglist));
+  size = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+
+  p = c_getstr (src);
+  /* If the SRC parameter is "", return DEST.  */
+  if (p && *p == '\0')
+    return omit_one_operand (TREE_TYPE (TREE_TYPE (fndecl)), dest, src);
+
+  if (! host_integerp (size, 1) || ! integer_all_onesp (size))
+    return 0;
+
+  arglist = build_tree_list (NULL_TREE, src);
+  arglist = tree_cons (NULL_TREE, dest, arglist);
+
+  /* If __builtin_strcat_chk is used, assume strcat is available.  */
+  fn = built_in_decls[BUILT_IN_STRCAT];
+  if (!fn)
+    return 0;
+
+  return build_function_call_expr (fn, arglist);
+}
+
+/* Fold a call to the __strncat_chk builtin EXP.  */
+
+static tree
+fold_builtin_strncat_chk (tree fndecl, tree arglist)
+{
+  tree dest, src, size, len, fn;
+  const char *p;
+
+  if (!validate_arglist (arglist, POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE,
+                         INTEGER_TYPE, VOID_TYPE))
+    return 0;
+
+  dest = TREE_VALUE (arglist);
+  src = TREE_VALUE (TREE_CHAIN (arglist));
+  len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+  size = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arglist))));
+
+  p = c_getstr (src);
+  /* If the SRC parameter is "" or if LEN is 0, return DEST.  */
+  if (p && *p == '\0')
+    return omit_one_operand (TREE_TYPE (TREE_TYPE (fndecl)), dest, len);
+  else if (integer_zerop (len))
+    return omit_one_operand (TREE_TYPE (TREE_TYPE (fndecl)), dest, src);
+
+  if (! host_integerp (size, 1))
+    return 0;
+
+  if (! integer_all_onesp (size))
+    {
+      tree src_len = c_strlen (src, 1);
+      if (src_len
+          && host_integerp (src_len, 1)
+          && host_integerp (len, 1)
+          && ! tree_int_cst_lt (len, src_len))
+        {
+          /* If LEN >= strlen (SRC), optimize into __strcat_chk.  */
+          fn = built_in_decls[BUILT_IN_STRCAT_CHK];
+          if (!fn)
+            return 0;
+
+          arglist = build_tree_list (NULL_TREE, size);
+          arglist = tree_cons (NULL_TREE, src, arglist);
+          arglist = tree_cons (NULL_TREE, dest, arglist);
+          return build_function_call_expr (fn, arglist);
+        }
+      return 0;
+    }
+
+  arglist = build_tree_list (NULL_TREE, len);
+  arglist = tree_cons (NULL_TREE, src, arglist);
+  arglist = tree_cons (NULL_TREE, dest, arglist);
+
+  /* If __builtin_strncat_chk is used, assume strncat is available.  */
+  fn = built_in_decls[BUILT_IN_STRNCAT];
+  if (!fn)
+    return 0;
+
+  return build_function_call_expr (fn, arglist);
+}
+
+/* Fold a call to __{,v}sprintf_chk with argument list ARGLIST.  Return 0 if
+   a normal call should be emitted rather than expanding the function
+   inline.  FCODE is either BUILT_IN_SPRINTF_CHK or BUILT_IN_VSPRINTF_CHK.  */
+
+static tree
+fold_builtin_sprintf_chk (tree arglist, enum built_in_function fcode)
+{
+  tree dest, size, len, fn, fmt, flag;
+  const char *fmt_str;
+
+  /* Verify the required arguments in the original call.  */
+  if (! arglist)
+    return 0;
+  dest = TREE_VALUE (arglist);
+  if (! POINTER_TYPE_P (TREE_TYPE (dest)))
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return 0;
+  flag = TREE_VALUE (arglist);
+  if (TREE_CODE (TREE_TYPE (flag)) != INTEGER_TYPE)
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return 0;
+  size = TREE_VALUE (arglist);
+  if (TREE_CODE (TREE_TYPE (size)) != INTEGER_TYPE)
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return 0;
+  fmt = TREE_VALUE (arglist);
+  if (! POINTER_TYPE_P (TREE_TYPE (fmt)))
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+
+  if (! host_integerp (size, 1))
+    return 0;
+
+  len = NULL_TREE;
+
+  if (!init_target_chars())
+    return 0;
+
+  /* Check whether the format is a literal string constant.  */
+  fmt_str = c_getstr (fmt);
+  if (fmt_str != NULL)
+    {
+      /* If the format doesn't contain % args or %%, we know the size.  */
+      if (strchr (fmt_str, target_percent) == 0)
+        {
+          if (fcode != BUILT_IN_SPRINTF_CHK || arglist == NULL_TREE)
+            len = build_int_cstu (size_type_node, strlen (fmt_str));
+        }
+      /* If the format is "%s" and first ... argument is a string literal,
+         we know the size too.  */
+      else if (fcode == BUILT_IN_SPRINTF_CHK && strcmp (fmt_str, target_percent_s) == 0)
+        {
+          tree arg;
+
+          if (arglist && !TREE_CHAIN (arglist))
+            {
+              arg = TREE_VALUE (arglist);
+              if (POINTER_TYPE_P (TREE_TYPE (arg)))
+                {
+                  len = c_strlen (arg, 1);
+                  if (! len || ! host_integerp (len, 1))
+                    len = NULL_TREE;
+                }
+            }
+        }
+    }
+
+  if (! integer_all_onesp (size))
+    {
+      if (! len || ! tree_int_cst_lt (len, size))
+        return 0;
+    }
+
+  /* Only convert __{,v}sprintf_chk to {,v}sprintf if flag is 0
+     or if format doesn't contain % chars or is "%s".  */
+  if (! integer_zerop (flag))
+    {
+      if (fmt_str == NULL)
+        return 0;
+      if (strchr (fmt_str, target_percent) != NULL && strcmp (fmt_str, target_percent_s))
+        return 0;
+    }
+
+  arglist = tree_cons (NULL_TREE, fmt, arglist);
+  arglist = tree_cons (NULL_TREE, dest, arglist);
+
+  /* If __builtin_{,v}sprintf_chk is used, assume {,v}sprintf is available.  */
+  fn = built_in_decls[fcode == BUILT_IN_VSPRINTF_CHK
+                      ? BUILT_IN_VSPRINTF : BUILT_IN_SPRINTF];
+
+  if (!fn)
+    return 0;
+
+  return build_function_call_expr (fn, arglist);
+}
+
+/* Fold a call to {,v}snprintf with argument list ARGLIST.  Return 0 if
+   a normal call should be emitted rather than expanding the function
+   inline.  FCODE is either BUILT_IN_SNPRINTF_CHK or
+   BUILT_IN_VSNPRINTF_CHK.  If MAXLEN is not NULL, it is maximum length
+   passed as second argument.  */
+
+tree
+fold_builtin_snprintf_chk (tree arglist, tree maxlen,
+                           enum built_in_function fcode)
+{
+  tree dest, size, len, fn, fmt, flag;
+  const char *fmt_str;
+
+  /* Verify the required arguments in the original call.  */
+  if (! arglist)
+    return 0;
+  dest = TREE_VALUE (arglist);
+  if (! POINTER_TYPE_P (TREE_TYPE (dest)))
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return 0;
+  len = TREE_VALUE (arglist);
+  if (TREE_CODE (TREE_TYPE (len)) != INTEGER_TYPE)
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return 0;
+  flag = TREE_VALUE (arglist);
+  if (TREE_CODE (TREE_TYPE (len)) != INTEGER_TYPE)
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return 0;
+  size = TREE_VALUE (arglist);
+  if (TREE_CODE (TREE_TYPE (size)) != INTEGER_TYPE)
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+  if (! arglist)
+    return 0;
+
+  fmt = TREE_VALUE (arglist);
+  if (! POINTER_TYPE_P (TREE_TYPE (fmt)))
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+
+  if (! host_integerp (size, 1))
+    return 0;
+
+  if (! integer_all_onesp (size))
+    {
+      if (! host_integerp (len, 1))
+        {
+          /* If LEN is not constant, try MAXLEN too.
+             For MAXLEN only allow optimizing into non-_ocs function
+             if SIZE is >= MAXLEN, never convert to __ocs_fail ().  */
+          if (maxlen == NULL_TREE || ! host_integerp (maxlen, 1))
+            return 0;
+        }
+      else
+        maxlen = len;
+
+      if (tree_int_cst_lt (size, maxlen))
+        return 0;
+    }
+
+  if (!init_target_chars())
+    return 0;
+
+  /* Only convert __{,v}snprintf_chk to {,v}snprintf if flag is 0
+     or if format doesn't contain % chars or is "%s".  */
+  if (! integer_zerop (flag))
+    {
+      fmt_str = c_getstr (fmt);
+      if (fmt_str == NULL)
+        return 0;
+      if (strchr (fmt_str, target_percent) != NULL && strcmp (fmt_str, target_percent_s))
+        return 0;
+    }
+
+  arglist = tree_cons (NULL_TREE, fmt, arglist);
+  arglist = tree_cons (NULL_TREE, len, arglist);
+  arglist = tree_cons (NULL_TREE, dest, arglist);
+
+  /* If __builtin_{,v}snprintf_chk is used, assume {,v}snprintf is
+     available.  */
+  fn = built_in_decls[fcode == BUILT_IN_VSNPRINTF_CHK
+		      ? BUILT_IN_VSNPRINTF : BUILT_IN_SNPRINTF];
+  if (!fn)
+    return 0;
+
+  return build_function_call_expr (fn, arglist);
+}
+
+/* Fold a call to the {,v}printf{,_unlocked} and __{,v}printf_chk builtins.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.  FCODE is the BUILT_IN_*
+   code of the function to be simplified.  */
+
+static tree
+fold_builtin_printf (tree fndecl, tree arglist, bool ignore,
+                     enum built_in_function fcode)
+{
+  tree fmt, fn = NULL_TREE, fn_putchar, fn_puts, arg, call;
+  const char *fmt_str = NULL;
+
+  /* If the return value is used, don't do the transformation.  */
+  if (! ignore)
+    return 0;
+
+  /* Verify the required arguments in the original call.  */
+  if (fcode == BUILT_IN_PRINTF_CHK || fcode == BUILT_IN_VPRINTF_CHK)
+    {
+      tree flag;
+
+      if (! arglist)
+        return 0;
+      flag = TREE_VALUE (arglist);
+      if (TREE_CODE (TREE_TYPE (flag)) != INTEGER_TYPE
+          || TREE_SIDE_EFFECTS (flag))
+        return 0;
+      arglist = TREE_CHAIN (arglist);
+    }
+
+  if (! arglist)
+    return 0;
+  fmt = TREE_VALUE (arglist);
+  if (! POINTER_TYPE_P (TREE_TYPE (fmt)))
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+
+  /* Check whether the format is a literal string constant.  */
+  fmt_str = c_getstr (fmt);
+  if (fmt_str == NULL)
+    return NULL_TREE;
+
+  if (fcode == BUILT_IN_PRINTF_UNLOCKED)
+    {
+      /* If we're using an unlocked function, assume the other
+         unlocked functions exist explicitly.  */
+      fn_putchar = built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED];
+      fn_puts = built_in_decls[BUILT_IN_PUTS_UNLOCKED];
+    }
+  else
+    {
+      fn_putchar = implicit_built_in_decls[BUILT_IN_PUTCHAR];
+      fn_puts = implicit_built_in_decls[BUILT_IN_PUTS];
+    }
+
+  if (!init_target_chars())
+    return 0;
+
+  if (strcmp (fmt_str, target_percent_s) == 0 || strchr (fmt_str, target_percent) == NULL)
+    {
+      const char *str;
+
+      if (strcmp (fmt_str, target_percent_s) == 0)
+        {
+          if (fcode == BUILT_IN_VPRINTF || fcode == BUILT_IN_VPRINTF_CHK)
+            return 0;
+
+          if (! arglist
+              || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
+              || TREE_CHAIN (arglist))
+            return 0;
+
+          str = c_getstr (TREE_VALUE (arglist));
+          if (str == NULL)
+            return 0;
+        }
+      else
+        {
+          /* The format specifier doesn't contain any '%' characters.  */
+          if (fcode != BUILT_IN_VPRINTF && fcode != BUILT_IN_VPRINTF_CHK
+              && arglist)
+            return 0;
+          str = fmt_str;
+        }
+
+      /* If the string was "", printf does nothing.  */
+      if (str[0] == '\0')
+        return build_int_cst (TREE_TYPE (TREE_TYPE (fndecl)), 0);
+
+      /* If the string has length of 1, call putchar.  */
+      if (str[1] == '\0')
+        {
+          /* Given printf("c"), (where c is any one character,)
+             convert "c"[0] to an int and pass that to the replacement
+             function.  */
+          arg = build_int_cst (NULL_TREE, str[0]);
+          arglist = build_tree_list (NULL_TREE, arg);
+          fn = fn_putchar;
+        }
+      else
+        {
+          /* If the string was "string\n", call puts("string").  */
+          size_t len = strlen (str);
+          if ((unsigned char)str[len - 1] == target_newline)
+            {
+              /* Create a NUL-terminated string that's one char shorter
+                 than the original, stripping off the trailing '\n'.  */
+              char *newstr = alloca (len);
+              memcpy (newstr, str, len - 1);
+              newstr[len - 1] = 0;
+
+              arg = build_string_literal (len, newstr);
+              arglist = build_tree_list (NULL_TREE, arg);
+              fn = fn_puts;
+            }
+          else
+            /* We'd like to arrange to call fputs(string,stdout) here,
+               but we need stdout and don't have a way to get it yet.  */
+            return 0;
+        }
+    }
+
+  /* The other optimizations can be done only on the non-va_list variants.  */
+  else if (fcode == BUILT_IN_VPRINTF || fcode == BUILT_IN_VPRINTF_CHK)
+    return 0;
+
+  /* If the format specifier was "%s\n", call __builtin_puts(arg).  */
+  else if (strcmp (fmt_str, target_percent_s_newline) == 0)
+    {
+      if (! arglist
+          || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
+	  || TREE_CHAIN (arglist))
+        return 0;
+      fn = fn_puts;
+    }
+
+  /* If the format specifier was "%c", call __builtin_putchar(arg).  */
+  else if (strcmp (fmt_str, target_percent_c) == 0)
+    {
+      if (! arglist
+          || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != INTEGER_TYPE
+          || TREE_CHAIN (arglist))
+        return 0;
+      fn = fn_putchar;
+    }
+
+  if (!fn)
+    return 0;
+
+  call = build_function_call_expr (fn, arglist);
+  return fold_convert (TREE_TYPE (TREE_TYPE (fndecl)), call);
+}
+
+/* Fold a call to the {,v}fprintf{,_unlocked} and __{,v}printf_chk builtins.
+
+   Return 0 if no simplification was possible, otherwise return the
+   simplified form of the call as a tree.  FCODE is the BUILT_IN_*
+   code of the function to be simplified.  */
+
+static tree
+fold_builtin_fprintf (tree fndecl, tree arglist, bool ignore,
+                      enum built_in_function fcode)
+{
+  tree fp, fmt, fn = NULL_TREE, fn_fputc, fn_fputs, arg, call;
+  const char *fmt_str = NULL;
+
+  /* If the return value is used, don't do the transformation.  */
+  if (! ignore)
+    return 0;
+
+  /* Verify the required arguments in the original call.  */
+  if (! arglist)
+    return 0;
+  fp = TREE_VALUE (arglist);
+  if (! POINTER_TYPE_P (TREE_TYPE (fp)))
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+
+  if (fcode == BUILT_IN_FPRINTF_CHK || fcode == BUILT_IN_VFPRINTF_CHK)
+    {
+      tree flag;
+
+      if (! arglist)
+        return 0;
+      flag = TREE_VALUE (arglist);
+      if (TREE_CODE (TREE_TYPE (flag)) != INTEGER_TYPE
+          || TREE_SIDE_EFFECTS (flag))
+        return 0;
+      arglist = TREE_CHAIN (arglist);
+    }
+
+  if (! arglist)
+    return 0;
+  fmt = TREE_VALUE (arglist);
+  if (! POINTER_TYPE_P (TREE_TYPE (fmt)))
+    return 0;
+  arglist = TREE_CHAIN (arglist);
+
+  /* Check whether the format is a literal string constant.  */
+  fmt_str = c_getstr (fmt);
+  if (fmt_str == NULL)
+    return NULL_TREE;
+
+  if (fcode == BUILT_IN_FPRINTF_UNLOCKED)
+    {
+      /* If we're using an unlocked function, assume the other
+         unlocked functions exist explicitly.  */
+      fn_fputc = built_in_decls[BUILT_IN_FPUTC_UNLOCKED];
+      fn_fputs = built_in_decls[BUILT_IN_FPUTS_UNLOCKED];
+    }
+  else
+    {
+      fn_fputc = implicit_built_in_decls[BUILT_IN_FPUTC];
+      fn_fputs = implicit_built_in_decls[BUILT_IN_FPUTS];
+    }
+
+  if (!init_target_chars())
+    return 0;
+
+  /* If the format doesn't contain % args or %%, use strcpy.  */
+  if (strchr (fmt_str, target_percent) == NULL)
+    {
+      if (fcode != BUILT_IN_VFPRINTF && fcode != BUILT_IN_VFPRINTF_CHK
+          && arglist)
+	return 0;
+
+      /* If the format specifier was "", fprintf does nothing.  */
+      if (fmt_str[0] == '\0')
+        {
+          /* If FP has side-effects, just wait until gimplification is
+             done.  */
+          if (TREE_SIDE_EFFECTS (fp))
+            return 0;
+
+          return build_int_cst (TREE_TYPE (TREE_TYPE (fndecl)), 0);
+        }
+
+      /* When "string" doesn't contain %, replace all cases of
+         fprintf (fp, string) with fputs (string, fp).  The fputs
+         builtin will take care of special cases like length == 1.  */
+      arglist = build_tree_list (NULL_TREE, fp);
+      arglist = tree_cons (NULL_TREE, fmt, arglist);
+      fn = fn_fputs;
+    }
+
+  /* The other optimizations can be done only on the non-va_list variants.  */
+  else if (fcode == BUILT_IN_VFPRINTF || fcode == BUILT_IN_VFPRINTF_CHK)
+    return 0;
+
+  /* If the format specifier was "%s", call __builtin_fputs (arg, fp).  */
+  else if (strcmp (fmt_str, target_percent_s) == 0)
+    {
+      if (! arglist
+          || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
+          || TREE_CHAIN (arglist))
+        return 0;
+      arg = TREE_VALUE (arglist);
+      arglist = build_tree_list (NULL_TREE, fp);
+      arglist = tree_cons (NULL_TREE, arg, arglist);
+      fn = fn_fputs;
+    }
+
+  /* If the format specifier was "%c", call __builtin_fputc (arg, fp).  */
+  else if (strcmp (fmt_str, target_percent_c) == 0)
+    {
+      if (! arglist
+          || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != INTEGER_TYPE
+          || TREE_CHAIN (arglist))
+        return 0;
+      arg = TREE_VALUE (arglist);
+      arglist = build_tree_list (NULL_TREE, fp);
+      arglist = tree_cons (NULL_TREE, arg, arglist);
+      fn = fn_fputc;
+    }
+
+  if (!fn)
+    return 0;
+
+  call = build_function_call_expr (fn, arglist);
+  return fold_convert (TREE_TYPE (TREE_TYPE (fndecl)), call);
+}
+
+/* Initialize format string characters in the target charset.  */
+
+static bool
+init_target_chars (void)
+{
+  static bool init;
+  if (!init)
+    {
+      target_newline = lang_hooks.to_target_charset ('\n');
+      target_percent = lang_hooks.to_target_charset ('%');
+      target_c = lang_hooks.to_target_charset ('c');
+      target_s = lang_hooks.to_target_charset ('s');
+      if (target_newline == 0 || target_percent == 0 || target_c == 0
+          || target_s == 0)
+        return false;
+
+      target_percent_c[0] = target_percent;
+      target_percent_c[1] = target_c;
+      target_percent_c[2] = '\0';
+
+      target_percent_s[0] = target_percent;
+      target_percent_s[1] = target_s;
+      target_percent_s[2] = '\0';
+
+      target_percent_s_newline[0] = target_percent;
+      target_percent_s_newline[1] = target_s;
+      target_percent_s_newline[2] = target_newline;
+      target_percent_s_newline[3] = '\0';
+
+      init = true;
+    }
+  return true;
+}
+/* APPLE LOCAL end mainline */

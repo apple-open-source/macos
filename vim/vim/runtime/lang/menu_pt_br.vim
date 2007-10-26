@@ -1,6 +1,6 @@
 " Menu Translations: Português
-" Maintainer: José de Paula <jose_rodrigues@ibest.com.br>
-" Last Change: 2003 Apr 25
+" Maintainer: José de Paula <jose_de_paula@ig.com.br>
+" Last Change: 2003 Jun 12
 "
 
 " Quit when menu translations have already been done.
@@ -76,8 +76,7 @@ menutrans Insert\ mode			Modo\ de\ inserção
 menutrans Block\ and\ Insert		Bloco\ e\ inserção
 menutrans Always			Sempre
 
-menutrans Toggle\ Insert\ &Mode<Tab>:set\ im! Ativar/Desativar\ Modo\ de\
-In&serção<Tab>:set\ im!
+menutrans Toggle\ Insert\ &Mode<Tab>:set\ im! Ativar/Desativar\ Modo\ de\ In&serção<Tab>:set\ im!
 menutrans Toggle\ Vi\ C&ompatible<Tab>:set\ cp! Ativar/Desativar\ Co&mpatibilidade\ com\ Vi<Tab>:set\ cp!
 menutrans Search\ &Path\.\.\.		Camin&ho\ de\ Busca\.\.\.
 menutrans Ta&g\ Files\.\.\.		Arquivos\ de\ Tags\.\.\.

@@ -30,7 +30,9 @@ extern "C" {
 
 #include <stdbool.h>
 #include <time.h>
-#include "sasl.h"
+#include <sasl/sasl.h>
+
+#define kPWPrefsVersion				3
 
 #define kPWExternalToolPath			"/usr/sbin/authserver/tools"
 #define kPWPrefsFile				"/Library/Preferences/com.apple.passwordserver.plist"
@@ -44,9 +46,12 @@ extern "C" {
 #define kPWPrefsKey_TimeSkewMaxSeconds			"TimeSkewMaxSeconds"
 #define kPWPrefsKey_SyncInterval				"SyncInterval"
 #define kPWPrefsKey_ListenerPorts				"ListenerPorts"
+
 #define kPWPrefsKey_ListenerInterfaces			"ListenerInterfaces"
 #define kPWPrefsValue_ListenerEnet				"Ethernet"
 #define kPWPrefsValue_ListenerLocal				"Local"
+#define kPWPrefsValue_ListenerUDSocket			"UNIX Domain Socket"
+
 #define kPWPrefsKey_TestSpillBucket				"TestSpillBucket"
 #define kPWPrefsKey_SASLRealm					"SASLRealm"
 #define kPWPrefsKey_ExternalTool				"ExternalCommand"
@@ -54,12 +59,25 @@ extern "C" {
 #define kPWPrefsKey_KerberosCacheLimit			"KerberosCacheLimit"
 #define kPWPrefsKey_SyncSASLPluginList			"SyncSASLPlugInList"
 #define kPWPrefsKey_SASLPluginList				"SASLPluginStates"
+#define kPWPrefsKey_DeleteWaitInMinutes			"DeleteWaitInMinutes"
+#define kPWPrefsKey_PurgeInMinutes				"PurgeInMinutes"
+#define kPWPrefsKey_PrefsVersion				"Preference File Version"
+
+#define kPWPrefsKey_DebugLogOptions				"Debug Log Options"
+#define kPWPrefsValue_LogChangeList				"Change List"
+#define kPWPrefsValue_LogQuit					"Quit Command"
 
 typedef enum ListenerTypes {
-	kPWPrefsNoListeners		= 0x00,
-	kPWPrefsEnet			= 0x01,
-	kPWPrefsLocal			= 0x02,
-	kPWPrefsEnetAndLocal	= 0x03
+	kPWPrefsNoListeners			= 0x00,
+	kPWPrefsEnet				= 0x01,
+	kPWPrefsLocal				= 0x02,
+	kPWPrefsUnixDomainSocket	= 0x04,
+	
+	// combinations
+	kPWPrefsEnetAndLocal		= 0x03,
+	kPWPrefsEnetAndUDS			= 0x05,
+	kPWPrefsLocalAndUDS			= 0x06,
+	kPWPrefsAll					= 0x07
 } ListenerTypes;
 
 typedef enum SASLPluginStatus {
@@ -72,6 +90,11 @@ typedef struct SASLPluginEntry {
 	char name[SASL_MECHNAMEMAX + 1];
 	SASLPluginStatus state;
 } SASLPluginEntry;
+
+typedef struct PWSDebugLogOptions {
+	bool changeList;
+	bool quit;
+} PWSDebugLogOptions;
 
 typedef struct PasswordServerPrefs {
 	bool passiveReplicationOnly;							// server waits for another server to sync with it
@@ -87,13 +110,15 @@ typedef struct PasswordServerPrefs {
 	bool realmSet;
 	char realm[256];
 	unsigned long kerberosCacheLimit;
-	bool syncSASLPluginList;
-	SASLPluginEntry saslPluginState[kMaxSASLPlugins + 1];
+	bool syncSASLPluginList;	
 	time_t deleteWait;
 	time_t purgeWait;
+	SASLPluginEntry saslPluginState[kMaxSASLPlugins + 1];
+	int prefsVersion;
+	PWSDebugLogOptions logOptions;
 } PasswordServerPrefs;
 
-bool pwsf_SetSASLPluginState( const char *inMechName, bool enabled );
+bool pwsf_SetSASLPluginState( const char *inMechName, bool enable );
 
 #ifdef __cplusplus
 };

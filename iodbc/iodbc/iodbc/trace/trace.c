@@ -1,20 +1,24 @@
 /*
  *  trace.c
  *
- *  $Id: trace.c,v 1.3 2004/11/11 01:52:39 luesang Exp $
+ *  $Id: trace.c,v 1.20 2006/12/21 11:24:58 source Exp $
  *
  *  Trace functions
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1996-2003 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -69,13 +73,24 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <ctype.h>
 #include <pwd.h>
 #include <unistd.h>
+#include <fcntl.h>
+
 #include <time.h>
+#ifdef TIME_WITH_SYS_TIME
+#include <sys/time.h>
+#endif
 
 #include <sql.h>
 #include <sqlext.h>
@@ -87,14 +102,21 @@
 #include "trace.h"
 #include "unicode.h"
 
-
+#define NO_CARBON 1
 #if defined(macintosh)
 # include       <Errors.h>
 # include       <OSUtils.h>
 # include       <Processes.h>
-#elif defined(__APPLE__)
-# include       <CoreFoundation/CoreFoundation.h>
+#elif defined(__APPLE__) && !defined(NO_CARBON)
+# include       <Carbon/Carbon.h>
 #endif
+
+
+/*
+ *  Limit the size of the tracefile, to avoid a core dump when the 
+ *  the RLIMIT_FSIZE is reached.
+ */
+#define	MAX_TRACEFILE_LEN	1000000000L	/* about 1GB */
 
 
 /*
@@ -109,6 +131,10 @@ static int   trace_fp_close = 0;
 
 void trace_emit (char *fmt, ...);
 
+#ifdef HAVE_GETTIMEOFDAY
+static struct timeval starttime = {0};
+#endif
+
 
 /*
  * Internal functions
@@ -121,96 +147,157 @@ trace_set_appname (char *appname)
 }
 
 
-char * 
+char *
 trace_get_filename (void)
 {
   return STRDUP (trace_fname);
 }
 
 
-void
-trace_set_filename (char *fname)
+static void
+trace_strftime_now (char *buf, size_t buflen, char *format)
 {
-  char buf[255];
-  char *s, *p;
-  struct passwd *pwd;
-  size_t i;
-  MEM_FREE (trace_fname);
-
-  memset (buf, '\0', sizeof (buf));
-  for (s = fname, i = 0; i < sizeof (buf) && *s;)
-    {
-      if (*s == '$')
-	{
-	  switch (*(s + 1))
-	    {
-	    case 'p':
-	    case 'P':
-	      sprintf (buf, "%s%ld", buf, (long) getpid());
-	      i = strlen (buf);
-	      s += 2;
-	      break;
-
-	    case 'u':
-	    case 'U':
-	      sprintf (buf, "%s%ld", buf, (long) geteuid());
-	      i = strlen (buf);
-	      s += 2;
-	      break;
-
-	    case 'h':
-	    case 'H':
-	      p = NULL;
-	      if ((p = getenv ("HOME")) == NULL)
-		{
-		  if ((pwd = getpwuid (getuid ())) != NULL)
-		    p = pwd->pw_dir;
-		}
-
-	      if (p)
-		{
-#if defined (HAVE_SNPRINTF)
-		  snprintf (buf, sizeof (buf), "%s%s", buf, p);
-#else
-		  sprintf (buf, "%s%s", buf, p);
+  time_t now;
+  struct tm *timeNow;
+#ifdef HAVE_LOCALTIME_R
+  struct tm keeptime;
 #endif
-		  i = strlen(buf);
-		  s += 2;
-		  continue;
-		}
 
-	      case 't':
-	      case 'T':
-	        {
-		  char tmp[30];
-		  time_t now;
-		  struct tm *timeNow;
+  tzset ();
+  time (&now);
 
-		  tzset ();
-		  time (&now);
-		  timeNow = localtime (&now);
+#ifdef HAVE_LOCALTIME_R
+  timeNow = localtime_r (&now, &keeptime);
+#else
+  timeNow = localtime (&now);
+#endif
 
-		  strftime (tmp, sizeof (tmp), "%Y%m%d%H%M%S", timeNow);
-		  sprintf (buf, "%s%s", buf, tmp);
-		  i = strlen (buf);
-		  s += 2;
-		  continue;
-		  }
-
-
-	    default:
-	       buf[i++] = *s++;
-	    }
-	}
-      else
-       buf[i++] = *s++;
-    }
-
-  trace_fname = STRDUP (buf);
+  strftime (buf, buflen, format, timeNow);
 }
 
 
-void 
+
+
+void
+trace_set_filename (char *fname)
+{
+  char *s, *p;
+  struct passwd *pwd;
+  char *buf;
+  size_t buf_len, buf_pos;
+  char tmp[255];
+
+  /*  Initialize */
+  MEM_FREE (trace_fname);
+  trace_fname = NULL;
+  buf = (char *) malloc (buf_len = strlen (fname) + sizeof (tmp) + 1);
+  if (!buf)
+    return;			/* No more memory */
+  buf_pos = 0;
+  buf[0] = '\0';
+
+  for (s = fname; *s;)
+    {
+      /*
+       *  Make sure we can fit at least 1 more tmp buffer inside
+       */
+      if (buf_len - buf_pos < sizeof (tmp))
+	buf = realloc (buf, buf_len += sizeof (tmp) + 1);
+      if (!buf)
+	return;			/* No more memory */
+
+      if (*s != '$')
+	{
+	  buf[buf_pos++] = *s++;
+	}
+      else
+	{
+	  /* Handle Escape sequences */
+	  switch (*(s + 1))
+	    {
+	    case '$':
+	      {
+		buf[buf_pos++] = '$';
+		break;
+	      }
+
+	    case 'p':
+	    case 'P':
+	      {
+#if defined (HAVE_SNPRINTF)
+		snprintf (tmp, sizeof (tmp), "%ld", (long) getpid ());
+#else
+		sprintf (tmp, "%ld", (long) getpid ());
+#endif
+		strcpy (&buf[buf_pos], tmp);
+		buf_pos += strlen (tmp);
+		break;
+	      }
+
+	    case 'u':
+	    case 'U':
+	      {
+		if ((pwd = getpwuid (getuid ())) != NULL)
+		  {
+#if defined (HAVE_SNPRINTF)
+		    snprintf (tmp, sizeof (tmp), "%s", pwd->pw_name);
+#else
+		    sprintf (tmp, "%s", pwd->pw_name);
+#endif
+		    strcpy (&buf[buf_pos], tmp);
+		    buf_pos += strlen (tmp);
+		  }
+		break;
+	      }
+
+	    case 'h':
+	    case 'H':
+	      {
+		p = NULL;
+		if ((p = getenv ("HOME")) == NULL)
+		  {
+		    if ((pwd = getpwuid (getuid ())) != NULL)
+		      p = pwd->pw_dir;
+		  }
+
+		if (p)
+		  {
+#if defined (HAVE_SNPRINTF)
+		    snprintf (tmp, sizeof (tmp), "%s", p);
+#else
+		    sprintf (tmp, "%s", p);
+#endif
+		    strcpy (&buf[buf_pos], tmp);
+		    buf_pos += strlen (tmp);
+		  }
+		break;
+	      }
+
+	    case 't':
+	    case 'T':
+	      {
+		trace_strftime_now (tmp, sizeof (tmp), "%Y%m%d-%H%M%S");
+		strcpy (&buf[buf_pos], tmp);
+		buf_pos += strlen (tmp);
+		break;
+	      }
+
+	    default:
+	      /* Skip unknown escapes */
+	      break;
+	    }
+	  s += 2;
+	}
+    }
+
+  buf[buf_pos] = '\0';
+  trace_fname = buf;
+
+  return;
+}
+
+
+void
 trace_start(void)
 {
   /*
@@ -218,12 +305,8 @@ trace_start(void)
    */
   trace_stop ();
 
-#if defined (UNIX)
-  /*
-   *  Root is not allowed to trace for security reasons
-   */
-  if (geteuid () == 0)
-    return;
+#ifdef HAVE_GETTIMEOFDAY
+  gettimeofday (&starttime, NULL);
 #endif
 
   /*
@@ -239,8 +322,29 @@ trace_start(void)
     }
 #endif
 
-  else if ((trace_fp = fopen (trace_fname, "w")) != NULL)
+  else
     {
+      int fd;
+      int fd_flags = O_WRONLY | O_CREAT | O_TRUNC;
+      int fd_mode = 0644;
+
+
+#if defined (unix)
+      /*
+       *  As this is a security risk, we do not allow root to overwrite a file
+       */
+      if (geteuid () == 0)
+	{
+	  fd_flags |= O_EXCL;
+	}
+#endif
+
+      fd = open (trace_fname, fd_flags, fd_mode);
+      if (fd < 0 || (trace_fp = fdopen (fd, "w")) == NULL)
+	{
+	  return;		/* no tracing */
+	}
+
       trace_fp_close = 1;
 
       /*
@@ -259,17 +363,23 @@ trace_start(void)
   else
     {
       char mesgBuf[200];
-      time_t now;
-      struct tm *timeNow;
 
-      tzset ();
-      time (&now);
-      timeNow = localtime (&now);
-      strftime (mesgBuf, sizeof (mesgBuf), "** started on %a %b %d, %H:%M **",
-	  timeNow);
+      trace_emit ("** iODBC Trace file\n");
 
-      trace_emit ("** iODBC Trace file **\n");
-      trace_emit ("%s\n\n", mesgBuf);
+      /*
+       *  Show start time
+       */
+      trace_strftime_now (mesgBuf, sizeof (mesgBuf),
+	  "** Trace started on %a %b %d %H:%M:%S %Y");
+      trace_emit ("%s\n", mesgBuf);
+
+      /*
+       *  Show Driver Manager version similar to SQLGetInfo (SQL_DM_VER)
+       */
+      sprintf ((char *) mesgBuf, "%02d.%02d.%04d.%04d",
+	  SQL_SPEC_MAJOR,
+	  SQL_SPEC_MINOR, IODBC_BUILD / 10000, IODBC_BUILD % 10000);
+      trace_emit ("** Driver Manager: %s\n\n", mesgBuf);
     }
 
 #if defined (linux)
@@ -277,17 +387,36 @@ trace_start(void)
     extern char *__progname;
     trace_set_appname (__progname);
   }
-#elif defined(macintosh) || defined(__APPLE__)
+#elif defined(macintosh) || (defined(__APPLE__) && !defined(NO_CARBON))
   {
-    unsigned char *processName = getprogname();
-      
-    if (processName != NULL)
+    ProcessSerialNumber PSN;
+    ProcessInfoRec prec;
+    unsigned char processName[40];
+
+    GetCurrentProcess (&PSN);
+
+    prec.processInfoLength = sizeof (ProcessInfoRec);
+    prec.processName = processName;
+    prec.processAppSpec = NULL;
+
+    if (GetProcessInformation (&PSN, &prec) == noErr)
       {
+	processName[processName[0] + 1] = '\0';
 	trace_set_appname (processName + 1);
       }
     else
       trace_set_appname ("{No Application Name}");
   }
+#elif defined(__APPLE__)
+#ifdef MACOSX102
+  {
+    trace_set_appname ("{No Application Name}");
+  }
+#else
+  {
+    trace_set_appname ((char *) getprogname ());
+  }
+#endif
 #endif
 
   /*
@@ -302,10 +431,24 @@ trace_start(void)
 void
 trace_stop(void)
 {
-  ODBCSharedTraceFlag = SQL_OPT_TRACE_OFF;
+  char mesgBuf[200];
+  time_t now;
+  struct tm *timeNow;
 
-  if (trace_fp_close && trace_fp)
-    fclose (trace_fp);
+  if (trace_fp)
+    {
+      /*
+       * Show end time
+       */
+      trace_strftime_now (mesgBuf, sizeof (mesgBuf),
+	  "** Trace finished on %a %b %d %H:%M:%S %Y");
+      trace_emit ("\n%s\n", mesgBuf);
+
+      if (trace_fp_close)
+	fclose (trace_fp);
+    }
+
+  ODBCSharedTraceFlag = SQL_OPT_TRACE_OFF;
   trace_fp = NULL;
   trace_fp_close = 0;
 }
@@ -421,15 +564,15 @@ trace_emit_string (SQLCHAR *str, int len, int is_utf8)
 	   *  Emit the number of bytes calculated
 	   */
 	  for (j = 0; j < bytes; j++)
-	trace_emitc (*ptr++);
+	    trace_emitc (*ptr++);
 	}
       else
         {
 	  /*
-	   *  Skip this bogus UTF8 character sequence and emit a single # 
+	   *  Skip this bogus UTF8 character sequence and emit a single #
 	   */
 	  for (bytes = 1, ptr++; (*ptr & 0xC0) == 0x80; bytes++)
-	    ptr++;	
+	    ptr++;
 	  trace_emitc ('#');
 	}
 
@@ -527,6 +670,35 @@ _trace_print_function (int func, int trace_leave, int retcode)
   extern char *odbcapi_symtab[];
   char *ptr = "invalid retcode";
 
+  /*
+   * Guard against tracefile getting too big
+   */
+  if (trace_fp && ftell (trace_fp) > MAX_TRACEFILE_LEN)
+    {
+ 	trace_emit ("\n*** TRACEFILE LIMIT REACHED ***\n");
+	trace_stop ();
+ 	return;
+    }
+
+  /*
+   * Calculate timestamp
+   */
+#ifdef HAVE_GETTIMEOFDAY
+  struct timeval tv;
+
+  gettimeofday (&tv, NULL);
+  tv.tv_sec -= starttime.tv_sec;
+  tv.tv_usec -= starttime.tv_usec;
+  if (tv.tv_usec < 0)
+    {
+      tv.tv_sec--;
+      tv.tv_usec += 1000000L;
+    }
+  trace_emit ("\n[%06ld.%06ld]\n", tv.tv_sec, tv.tv_usec);
+#else
+  trace_emit ("\n");
+#endif
+
   switch (retcode)
     {
       _S (SQL_SUCCESS);
@@ -543,11 +715,11 @@ _trace_print_function (int func, int trace_leave, int retcode)
 #endif
 
   if (trace_leave == TRACE_LEAVE)
-    trace_emit ("\n%-15.15s %08lX EXIT  %s with return code %d (%s)\n",
+    trace_emit ("%-15.15s %08lX EXIT  %s with return code %d (%s)\n",
 	trace_appname ? trace_appname : "Application",
 	THREAD_IDENT, odbcapi_symtab[func], retcode, ptr);
   else
-    trace_emit ("\n%-15.15s %08lX ENTER %s\n",
+    trace_emit ("%-15.15s %08lX ENTER %s\n",
 	trace_appname ? trace_appname : "Application",
 	THREAD_IDENT, odbcapi_symtab[func]);
 }
@@ -572,8 +744,10 @@ _trace_handletype (SQLSMALLINT type)
       _S (SQL_HANDLE_ENV);
       _S (SQL_HANDLE_DBC);
       _S (SQL_HANDLE_STMT);
+#if ODBCVER >= 0x0300
       _S (SQL_HANDLE_DESC);
       _S (SQL_HANDLE_SENV);
+#endif
     }
 
   trace_emit ("\t\t%-15.15s   %d (%s)\n", "SQLSMALLINT", (int) type, ptr);
@@ -855,6 +1029,7 @@ _trace_c_type (SQLSMALLINT type)
 #if (ODBCVER >= 0x0350)
       _S (SQL_C_GUID);
 #endif
+#if ODBCVER >= 0x0300
       _S (SQL_C_INTERVAL_DAY);
       _S (SQL_C_INTERVAL_DAY_TO_HOUR);
       _S (SQL_C_INTERVAL_DAY_TO_MINUTE);
@@ -868,9 +1043,12 @@ _trace_c_type (SQLSMALLINT type)
       _S (SQL_C_INTERVAL_SECOND);
       _S (SQL_C_INTERVAL_YEAR);
       _S (SQL_C_INTERVAL_YEAR_TO_MONTH);
+#endif
       _S (SQL_C_LONG);
+#if ODBCVER >= 0x0300
       _S (SQL_C_NUMERIC);
       _S (SQL_C_SBIGINT);
+#endif
       _S (SQL_C_SHORT);
       _S (SQL_C_SLONG);
       _S (SQL_C_SSHORT);
@@ -878,17 +1056,21 @@ _trace_c_type (SQLSMALLINT type)
       _S (SQL_C_TIME);
       _S (SQL_C_TIMESTAMP);
       _S (SQL_C_TINYINT);
+#if ODBCVER >= 0x0300
       _S (SQL_C_TYPE_DATE);
       _S (SQL_C_TYPE_TIME);
       _S (SQL_C_TYPE_TIMESTAMP);
       _S (SQL_C_UBIGINT);
+#endif
       _S (SQL_C_ULONG);
       _S (SQL_C_USHORT);
       _S (SQL_C_UTINYINT);
       /* _S (SQL_C_VARBOOKMARK); */
       _S (SQL_C_WCHAR);
 
+#if ODBCVER >= 0x0300
       _S (SQL_ARD_TYPE);
+#endif
     }
 
   trace_emit ("\t\t%-15.15s   %d (%s)\n", "SQLSMALLINT ", type, ptr);
@@ -947,9 +1129,11 @@ _trace_sql_type (SQLSMALLINT type)
 #endif
       _S (SQL_TIMESTAMP);
       _S (SQL_TINYINT);
+#if ODBCVER >= 0x0300
       _S (SQL_TYPE_DATE);
       _S (SQL_TYPE_TIME);
       _S (SQL_TYPE_TIMESTAMP);
+#endif
       _S (SQL_VARBINARY);
       _S (SQL_VARCHAR);
       _S (SQL_WCHAR);
@@ -1010,9 +1194,11 @@ _trace_sql_type_p (SQLSMALLINT *p, int output)
 #endif
       _S (SQL_TIMESTAMP);
       _S (SQL_TINYINT);
+#if ODBCVER >= 0x0300
       _S (SQL_TYPE_DATE);
       _S (SQL_TYPE_TIME);
       _S (SQL_TYPE_TIMESTAMP);
+#endif
       _S (SQL_VARBINARY);
       _S (SQL_VARCHAR);
       _S (SQL_WCHAR);
@@ -1024,6 +1210,7 @@ _trace_sql_type_p (SQLSMALLINT *p, int output)
 }
 
 
+#if ODBCVER >= 0x0300
 void
 _trace_sql_subtype (SQLSMALLINT *type, SQLSMALLINT *sub, int output)
 {
@@ -1075,6 +1262,7 @@ _trace_sql_subtype (SQLSMALLINT *type, SQLSMALLINT *sub, int output)
   else
     trace_emit ("\t\t%-15.15s * %p (%d)\n", "SQLSMALLINT", sub, *sub);
 }
+#endif
 
 
 void
@@ -1086,11 +1274,13 @@ _trace_bufferlen (SQLINTEGER length)
   switch (length)
    {
 	_S (SQL_NTS);
+#if ODBCVER >= 0x0300
 	_S (SQL_IS_POINTER);
 	_S (SQL_IS_UINTEGER);
 	_S (SQL_IS_INTEGER);
 	_S (SQL_IS_USMALLINT);
 	_S (SQL_IS_SMALLINT);
+#endif
    }
 
   /*

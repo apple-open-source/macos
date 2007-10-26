@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -65,16 +65,14 @@ static UErrorCode gLoadErrorCode=U_ZERO_ERROR;
 
 /*
  * Maximum length of character names (regular & 1.0).
- * Maximum length of ISO comments.
  */
-static int32_t gMaxNameLength=0, gMaxISOCommentLength=0;
+static int32_t gMaxNameLength=0;
 
 /*
  * Set of chars used in character names (regular & 1.0).
- * Set of chars used in ISO comments.
  * Chars are platform-dependent (can be EBCDIC).
  */
-static uint32_t gNameSet[8]={ 0 }, gISOCommentSet[8]={ 0 };
+static uint32_t gNameSet[8]={ 0 };
 
 #define U_NONCHARACTER_CODE_POINT U_CHAR_CATEGORY_COUNT
 #define U_LEAD_SURROGATE U_CHAR_CATEGORY_COUNT + 1
@@ -82,8 +80,41 @@ static uint32_t gNameSet[8]={ 0 }, gISOCommentSet[8]={ 0 };
 
 #define U_CHAR_EXTENDED_CATEGORY_COUNT (U_CHAR_CATEGORY_COUNT + 3)
 
-static const char * const
-charCatNames[U_CHAR_EXTENDED_CATEGORY_COUNT];
+static const char * const charCatNames[U_CHAR_EXTENDED_CATEGORY_COUNT] = {
+    "unassigned",
+    "uppercase letter",
+    "lowercase letter",
+    "titlecase letter",
+    "modifier letter",
+    "other letter",
+    "non spacing mark",
+    "enclosing mark",
+    "combining spacing mark",
+    "decimal digit number",
+    "letter number",
+    "other number",
+    "space separator",
+    "line separator",
+    "paragraph separator",
+    "control",
+    "format",
+    "private use area",
+    "surrogate",
+    "dash punctuation",   
+    "start punctuation",
+    "end punctuation",
+    "connector punctuation",
+    "other punctuation",
+    "math symbol",
+    "currency symbol",
+    "modifier symbol",
+    "other symbol",
+    "initial punctuation",
+    "final punctuation",
+    "noncharacter",
+    "lead surrogate",
+    "trail surrogate"
+};
 
 /* implementation ----------------------------------------------------------- */
 
@@ -121,9 +152,7 @@ isDataLoaded(UErrorCode *pErrorCode) {
     UBool isCached;
 
     /* do this because double-checked locking is broken */
-    umtx_lock(NULL);
-    isCached=uCharNames!=NULL;
-    umtx_unlock(NULL);
+    UMTX_CHECK(NULL, (uCharNames!=NULL), isCached);
 
     if(!isCached) {
         UCharNames *names;
@@ -373,42 +402,6 @@ compareName(UCharNames *names,
     /* complete match? */
     return (UBool)(*otherName==0);
 }
-
-static const char * const charCatNames[U_CHAR_EXTENDED_CATEGORY_COUNT] = {
-    "unassigned",
-    "uppercase letter",
-    "lowercase letter",
-    "titlecase letter",
-    "modifier letter",
-    "other letter",
-    "non spacing mark",
-    "enclosing mark",
-    "combining spacing mark",
-    "decimal digit number",
-    "letter number",
-    "other number",
-    "space separator",
-    "line separator",
-    "paragraph separator",
-    "control",
-    "format",
-    "private use area",
-    "surrogate",
-    "dash punctuation",   
-    "start punctuation",
-    "end punctuation",
-    "connector punctuation",
-    "other punctuation",
-    "math symbol",
-    "currency symbol",
-    "modifier symbol",
-    "other symbol",
-    "initial punctuation",
-    "final punctuation",
-    "noncharacter",
-    "lead surrogate",
-    "trail surrogate"
-};
 
 static uint8_t getCharCat(UChar32 cp) {
     uint8_t cat;
@@ -1335,7 +1328,6 @@ calcGroupNameSetsLengths(int32_t maxNameLength) {
     Group *group;
     const uint8_t *s, *line, *lineLimit;
 
-    int32_t maxISOCommentLength=0;
     int32_t groupCount, lineNumber, length;
 
     tokenLengths=(int8_t *)uprv_malloc(tokenCount);
@@ -1382,10 +1374,7 @@ calcGroupNameSetsLengths(int32_t maxNameLength) {
             }
 
             /* read ISO comment */
-            length=calcNameSetLength(tokens, tokenCount, tokenStrings, tokenLengths, gISOCommentSet, &line, lineLimit);
-            if(length>maxISOCommentLength) {
-                maxISOCommentLength=length;
-            }
+            /*length=calcNameSetLength(tokens, tokenCount, tokenStrings, tokenLengths, gISOCommentSet, &line, lineLimit);*/
         }
 
         ++group;
@@ -1397,7 +1386,6 @@ calcGroupNameSetsLengths(int32_t maxNameLength) {
     }
 
     /* set gMax... - name length last for threading */
-    gMaxISOCommentLength=maxISOCommentLength;
     gMaxNameLength=maxNameLength;
 }
 
@@ -1696,29 +1684,13 @@ uprv_getMaxCharNameLength() {
     }
 }
 
-#if 0
-/* 
-Currently not used but left for future use. Probably by UnicodeSet. 
-urename.h and uprops.h changed accordingly. 
-*/
-U_CAPI int32_t U_EXPORT2
-uprv_getMaxISOCommentLength() {
-    UErrorCode errorCode=U_ZERO_ERROR;
-    if(calcNameSetsLengths(&errorCode)) {
-        return gMaxISOCommentLength;
-    } else {
-        return 0;
-    }
-}
-#endif
-
 /**
  * Converts the char set cset into a Unicode set uset.
  * @param cset Set of 256 bit flags corresponding to a set of chars.
  * @param uset USet to receive characters. Existing contents are deleted.
  */
 static void
-charSetToUSet(uint32_t cset[8], USetAdder *sa) {
+charSetToUSet(uint32_t cset[8], const USetAdder *sa) {
     UChar us[256];
     char cs[256];
 
@@ -1755,24 +1727,9 @@ charSetToUSet(uint32_t cset[8], USetAdder *sa) {
  * @param set USet to receive characters.
  */
 U_CAPI void U_EXPORT2
-uprv_getCharNameCharacters(USetAdder *sa) {
+uprv_getCharNameCharacters(const USetAdder *sa) {
     charSetToUSet(gNameSet, sa);
 }
-
-#if 0
-/* 
-Currently not used but left for future use. Probably by UnicodeSet. 
-urename.h and uprops.h changed accordingly. 
-*/
-/**
- * Fills set with characters that are used in Unicode character names.
- * @param set USetAdder to receive characters.
- */
-U_CAPI void U_EXPORT2
-uprv_getISOCommentCharacters(USetAdder *sa) {
-    charSetToUSet(gISOCommentSet, sa);
-}
-#endif
 
 /* data swapping ------------------------------------------------------------ */
 
@@ -1820,8 +1777,8 @@ makeTokenMap(const UDataSwapper *ds,
                 c1=(uint8_t)i;
                 ds->swapInvChars(ds, &c1, 1, &c2, pErrorCode);
                 if(U_FAILURE(*pErrorCode)) {
-                    udata_printError(ds, "unames/makeTokenMap() finds variant character 0x%02x used (input charset family %d) - %s\n",
-                                     i, ds->inCharset, u_errorName(*pErrorCode));
+                    udata_printError(ds, "unames/makeTokenMap() finds variant character 0x%02x used (input charset family %d)\n",
+                                     i, ds->inCharset);
                     return;
                 }
 
@@ -2000,8 +1957,7 @@ uchar_swapNames(const UDataSwapper *ds,
         udata_swapInvStringBlock(ds, inBytes+tokenStringOffset, (int32_t)(groupsOffset-tokenStringOffset),
                                     outBytes+tokenStringOffset, pErrorCode);
         if(U_FAILURE(*pErrorCode)) {
-            udata_printError(ds, "uchar_swapNames(token strings) failed - %s\n",
-                             u_errorName(*pErrorCode));
+            udata_printError(ds, "uchar_swapNames(token strings) failed\n");
             return 0;
         }
 
@@ -2080,31 +2036,19 @@ uchar_swapNames(const UDataSwapper *ds,
                 ds->swapInvChars(ds, inRange+1, (int32_t)uprv_strlen((const char *)(inRange+1)),
                                     outRange+1, pErrorCode);
                 if(U_FAILURE(*pErrorCode)) {
-                    udata_printError(ds, "uchar_swapNames(prefix string of algorithmic range %u) failed - %s\n",
-                                     i, u_errorName(*pErrorCode));
+                    udata_printError(ds, "uchar_swapNames(prefix string of algorithmic range %u) failed\n",
+                                     i);
                     return 0;
                 }
                 break;
             case 1:
                 {
                     /* swap factors and the prefix and factor strings */
-                    uint16_t factors[8];
-                    uint32_t j, factorsCount;
+                    uint32_t factorsCount;
 
                     factorsCount=inRange->variant;
-                    if(factorsCount==0 || factorsCount>LENGTHOF(factors)) {
-                        udata_printError(ds, "uchar_swapNames(): too many factors (%u) in algorithmic range %u\n",
-                                         factorsCount, i);
-                        *pErrorCode=U_INDEX_OUTOFBOUNDS_ERROR;
-                        return 0;
-                    }
-
-                    /* read and swap the factors */
                     p=(const uint16_t *)(inRange+1);
                     q=(uint16_t *)(outRange+1);
-                    for(j=0; j<factorsCount; ++j) {
-                        factors[j]=ds->readUInt16(p[j]);
-                    }
                     ds->swapArray16(ds, p, (int32_t)(factorsCount*2), q, pErrorCode);
 
                     /* swap the strings, up to the last terminating NUL */

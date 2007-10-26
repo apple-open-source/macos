@@ -1,0 +1,80 @@
+{
+    FILESTABLE = {
+        OTHER_SOURCES = (Makefile, Makefile.include, Makefile.preamble); 
+        SUBPROJECTS = (
+            alias, 
+            timed.tproj, 
+            arp.tproj, 
+            bootparams, 
+            domainname.tproj, 
+            identd.tproj, 
+            ifconfig.tproj, 
+            inetd.tproj, 
+            logger.tproj, 
+            netstat.tproj, 
+            ping.tproj, 
+            rarpd.tproj, 
+            rcp.tproj, 
+            rexecd.tproj, 
+            rlogin.tproj, 
+            rlogind.tproj, 
+            route.tproj, 
+            routed.tproj, 
+            rpcinfo.tproj, 
+            rsh.tproj, 
+            rshd.tproj, 
+            ruptime.tproj, 
+            rwho.tproj, 
+            rwhod.tproj, 
+            slattach.tproj, 
+            spray.tproj, 
+            talk.tproj, 
+            talkd.tproj, 
+            telnet.tproj, 
+            telnetd.tproj, 
+            tftp.tproj, 
+            tftpd.tproj, 
+            traceroute.tproj, 
+            trpt.tproj, 
+            wall.tproj, 
+            ypbind.tproj, 
+            ypcat.tproj, 
+            ypinit.tproj, 
+            ypmatch.tproj, 
+            yppoll.tproj, 
+            yppush.tproj, 
+            ypserv.tproj, 
+            ypset.tproj, 
+            ypwhich.tproj, 
+            ypxfr.tproj, 
+            makedbm.tproj, 
+            revnetgroup.tproj, 
+            rpc_yppasswdd.tproj, 
+            stdethers.tproj, 
+            stdhosts.tproj, 
+            natd.tproj, 
+            ipfw.tproj, 
+            ipsec, 
+            setkey.tproj, 
+            racoon.tproj, 
+            racoonctl.tproj, 
+            eaytest.tproj,
+            ping6.tproj, 
+            traceroute6.tproj, 
+            rtsol.tproj,
+            rtadvd.tproj,
+            ndp.tproj,
+            ip6conf.tproj,
+            ip6fw.tproj,
+	    kdumpd.tproj
+        ); 
+    }; 
+    LANGUAGE = English; 
+    MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
+    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
+    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
+    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
+    PROJECTNAME = network_cmds; 
+    PROJECTTYPE = Aggregate; 
+    PROJECTVERSION = 2.8; 
+}

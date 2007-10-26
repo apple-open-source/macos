@@ -31,7 +31,7 @@
 #include <Security/oidscert.h>
 #include <Security/cssmapple.h>
 #include <Security/csrTemplates.h>
-#include <Security/asn1Templates.h>
+#include <Security/SecAsn1Templates.h>
 
 /* 
  * Generate a DER-encoded CSR.

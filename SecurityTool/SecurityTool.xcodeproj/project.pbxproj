@@ -1,0 +1,575 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		051E643A060F607800FB8A46 /* keychain_import.c in Sources */ = {isa = PBXBuildFile; fileRef = 051E6439060F607800FB8A46 /* keychain_import.c */; };
+		051E6451060F668F00FB8A46 /* keychain_import.h in Headers */ = {isa = PBXBuildFile; fileRef = 051E6450060F668F00FB8A46 /* keychain_import.h */; };
+		051E64EA060F7A5F00FB8A46 /* keychain_export.c in Sources */ = {isa = PBXBuildFile; fileRef = 051E64E8060F7A5F00FB8A46 /* keychain_export.c */; };
+		051E64EB060F7A5F00FB8A46 /* keychain_export.h in Headers */ = {isa = PBXBuildFile; fileRef = 051E64E9060F7A5F00FB8A46 /* keychain_export.h */; };
+		056A9CED0AD57D7C00847C65 /* verify_cert.c in Sources */ = {isa = PBXBuildFile; fileRef = 056A9CEB0AD57D7C00847C65 /* verify_cert.c */; };
+		056A9CEE0AD57D7C00847C65 /* verify_cert.h in Headers */ = {isa = PBXBuildFile; fileRef = 056A9CEC0AD57D7C00847C65 /* verify_cert.h */; };
+		057E14A20A1508B600886CB8 /* user_trust_enable.h in Headers */ = {isa = PBXBuildFile; fileRef = 057E14A00A1508B600886CB8 /* user_trust_enable.h */; };
+		057E14A30A1508B600886CB8 /* user_trust_enable.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 057E14A10A1508B600886CB8 /* user_trust_enable.cpp */; };
+		058C7A8509F6AC1C00DB7E98 /* trusted_cert_dump.c in Sources */ = {isa = PBXBuildFile; fileRef = 058C7A8309F6AC1C00DB7E98 /* trusted_cert_dump.c */; };
+		058C7A8609F6AC1C00DB7E98 /* trusted_cert_dump.h in Headers */ = {isa = PBXBuildFile; fileRef = 058C7A8409F6AC1C00DB7E98 /* trusted_cert_dump.h */; };
+		058C7A8B09F6AC2D00DB7E98 /* trusted_cert_add.c in Sources */ = {isa = PBXBuildFile; fileRef = 058C7A8709F6AC2D00DB7E98 /* trusted_cert_add.c */; };
+		058C7A8C09F6AC2D00DB7E98 /* trusted_cert_add.h in Headers */ = {isa = PBXBuildFile; fileRef = 058C7A8809F6AC2D00DB7E98 /* trusted_cert_add.h */; };
+		058C7A8D09F6AC2D00DB7E98 /* trusted_cert_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 058C7A8909F6AC2D00DB7E98 /* trusted_cert_utils.c */; };
+		058C7A8E09F6AC2D00DB7E98 /* trusted_cert_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 058C7A8A09F6AC2D00DB7E98 /* trusted_cert_utils.h */; };
+		0599C5EF06F77CE300C2A9E0 /* mds_install.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0599C5EE06F77CE300C2A9E0 /* mds_install.cpp */; };
+		0599C5F106F77CED00C2A9E0 /* mds_install.h in Headers */ = {isa = PBXBuildFile; fileRef = 0599C5F006F77CED00C2A9E0 /* mds_install.h */; };
+		05DD14A60A1A498300C46534 /* trust_settings_impexp.h in Headers */ = {isa = PBXBuildFile; fileRef = 05DD14A40A1A498300C46534 /* trust_settings_impexp.h */; };
+		05DD14A70A1A498300C46534 /* trust_settings_impexp.c in Sources */ = {isa = PBXBuildFile; fileRef = 05DD14A50A1A498300C46534 /* trust_settings_impexp.c */; };
+		40F1827B0A4C625B00A6E783 /* authz.c in Sources */ = {isa = PBXBuildFile; fileRef = 40F182790A4C625B00A6E783 /* authz.c */; };
+		40F1827C0A4C625B00A6E783 /* authz.h in Headers */ = {isa = PBXBuildFile; fileRef = 40F1827A0A4C625B00A6E783 /* authz.h */; };
+		4C67F3570468831300CA2E66 /* security.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C67F3550468831300CA2E66 /* security.c */; };
+		4C67F3580468831300CA2E66 /* security.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C67F3560468831300CA2E66 /* security.h */; };
+		4CA9BF2706373C200013F16F /* cmsutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CA9BF2606373C200013F16F /* cmsutil.c */; };
+		4CA9BF2D0637403D0013F16F /* cmsutil.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CA9BF2C0637403D0013F16F /* cmsutil.h */; };
+		4CAEBD850469D90400CA2E66 /* leaks.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAEBD830469D90400CA2E66 /* leaks.h */; };
+		4CAEBD860469D90400CA2E66 /* leaks.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAEBD840469D90400CA2E66 /* leaks.c */; };
+		4CEFD16F07BD8E10002A0D93 /* keychain_recode.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CEFD16D07BD8E10002A0D93 /* keychain_recode.c */; };
+		4CEFD17007BD8E10002A0D93 /* keychain_recode.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEFD16E07BD8E10002A0D93 /* keychain_recode.h */; };
+		83A74959048925570042026C /* keychain_utilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C7A49B70469F0CB00CA2E66 /* keychain_utilities.h */; };
+		83A7495A048925580042026C /* keychain_delete.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C67F3610468866E00CA2E66 /* keychain_delete.h */; };
+		83A7495B048925580042026C /* keychain_unlock.h in Headers */ = {isa = PBXBuildFile; fileRef = 831FF8BD046F4CCE00CC0098 /* keychain_unlock.h */; };
+		83A7495D048925580042026C /* keychain_show_info.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C737568047AE5AD00CA2E66 /* keychain_show_info.h */; };
+		83A7495E048925590042026C /* readline.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C67F3690468892B00CA2E66 /* readline.h */; };
+		83A7495F0489255B0042026C /* keychain_create.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C67F35D046885F400CA2E66 /* keychain_create.h */; };
+		83A749600489255B0042026C /* keychain_create.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C67F35E046885F400CA2E66 /* keychain_create.c */; };
+		83A749610489255C0042026C /* keychain_utilities.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C7A49B80469F0CB00CA2E66 /* keychain_utilities.c */; };
+		83A749620489255C0042026C /* readline.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C67F36A0468892B00CA2E66 /* readline.c */; };
+		83A749630489255D0042026C /* keychain_unlock.c in Sources */ = {isa = PBXBuildFile; fileRef = 831FF8BF046F4CE000CC0098 /* keychain_unlock.c */; };
+		83A749640489255F0042026C /* db_commands.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CFE73F4048809CA00CA2E66 /* db_commands.cpp */; };
+		83A74966048925600042026C /* keychain_find.c in Sources */ = {isa = PBXBuildFile; fileRef = 83A749340488FE6D0042026C /* keychain_find.c */; };
+		83A74967048925600042026C /* keychain_find.h in Headers */ = {isa = PBXBuildFile; fileRef = 83A749330488FE6D0042026C /* keychain_find.h */; };
+		83A74968048925600042026C /* keychain_list.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAF1F4B046C88D300CA2E66 /* keychain_list.c */; };
+		83A74969048925610042026C /* keychain_list.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAF1F4A046C88D300CA2E66 /* keychain_list.h */; };
+		83A7496A048925620042026C /* keychain_set_settings.c in Sources */ = {isa = PBXBuildFile; fileRef = 83CCF86804732AA300C6B016 /* keychain_set_settings.c */; };
+		83A7496B048925620042026C /* keychain_lock.c in Sources */ = {isa = PBXBuildFile; fileRef = 83C76BE804704CEE00E9A8A8 /* keychain_lock.c */; };
+		83A7496C048925620042026C /* keychain_lock.h in Headers */ = {isa = PBXBuildFile; fileRef = 83C76BE704704CED00E9A8A8 /* keychain_lock.h */; };
+		83A7496D048925630042026C /* keychain_set_settings.h in Headers */ = {isa = PBXBuildFile; fileRef = 83CCF86704732AA300C6B016 /* keychain_set_settings.h */; };
+		83A7496E048925630042026C /* keychain_delete.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C67F3620468866E00CA2E66 /* keychain_delete.c */; };
+		83A7496F048925640042026C /* keychain_show_info.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C737567047AE5AD00CA2E66 /* keychain_show_info.c */; };
+		83A74970048925650042026C /* key_create.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C2597F4047EFB4900CA2E66 /* key_create.h */; };
+		83A74971048925650042026C /* key_create.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C2597F5047EFB4900CA2E66 /* key_create.c */; };
+		83A74972048925660042026C /* keychain_add.h in Headers */ = {isa = PBXBuildFile; fileRef = 83C583DC0484475600933075 /* keychain_add.h */; };
+		83A74973048925660042026C /* keychain_add.c in Sources */ = {isa = PBXBuildFile; fileRef = 83C583DD0484475600933075 /* keychain_add.c */; };
+		83A74974048925660042026C /* db_commands.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CFE73F3048809CA00CA2E66 /* db_commands.h */; };
+		C6A0FF2E029079C004C91782 /* security.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C6A0FF2C0290799A04C91782 /* security.1 */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C6A0FF2D029079AD04C91782 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				C6A0FF2E029079C004C91782 /* security.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		034768E8FF38A79811DB9C8B /* security */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = security; sourceTree = BUILT_PRODUCTS_DIR; };
+		051E6439060F607800FB8A46 /* keychain_import.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_import.c; sourceTree = "<group>"; };
+		051E6450060F668F00FB8A46 /* keychain_import.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = keychain_import.h; sourceTree = "<group>"; };
+		051E64E8060F7A5F00FB8A46 /* keychain_export.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = keychain_export.c; sourceTree = "<group>"; };
+		051E64E9060F7A5F00FB8A46 /* keychain_export.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = keychain_export.h; sourceTree = "<group>"; };
+		056A9CEB0AD57D7C00847C65 /* verify_cert.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = verify_cert.c; sourceTree = "<group>"; };
+		056A9CEC0AD57D7C00847C65 /* verify_cert.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = verify_cert.h; sourceTree = "<group>"; };
+		057E14A00A1508B600886CB8 /* user_trust_enable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = user_trust_enable.h; sourceTree = "<group>"; };
+		057E14A10A1508B600886CB8 /* user_trust_enable.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = user_trust_enable.cpp; sourceTree = "<group>"; };
+		058C7A8309F6AC1C00DB7E98 /* trusted_cert_dump.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = trusted_cert_dump.c; sourceTree = "<group>"; };
+		058C7A8409F6AC1C00DB7E98 /* trusted_cert_dump.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = trusted_cert_dump.h; sourceTree = "<group>"; };
+		058C7A8709F6AC2D00DB7E98 /* trusted_cert_add.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = trusted_cert_add.c; sourceTree = "<group>"; };
+		058C7A8809F6AC2D00DB7E98 /* trusted_cert_add.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = trusted_cert_add.h; sourceTree = "<group>"; };
+		058C7A8909F6AC2D00DB7E98 /* trusted_cert_utils.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = trusted_cert_utils.c; sourceTree = "<group>"; };
+		058C7A8A09F6AC2D00DB7E98 /* trusted_cert_utils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = trusted_cert_utils.h; sourceTree = "<group>"; };
+		0599C5EE06F77CE300C2A9E0 /* mds_install.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = mds_install.cpp; sourceTree = "<group>"; };
+		0599C5F006F77CED00C2A9E0 /* mds_install.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mds_install.h; sourceTree = "<group>"; };
+		05DD14A40A1A498300C46534 /* trust_settings_impexp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = trust_settings_impexp.h; sourceTree = "<group>"; };
+		05DD14A50A1A498300C46534 /* trust_settings_impexp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = trust_settings_impexp.c; sourceTree = "<group>"; };
+		40F182790A4C625B00A6E783 /* authz.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = authz.c; sourceTree = "<group>"; };
+		40F1827A0A4C625B00A6E783 /* authz.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = authz.h; sourceTree = "<group>"; };
+		4C2597F4047EFB4900CA2E66 /* key_create.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = key_create.h; sourceTree = "<group>"; };
+		4C2597F5047EFB4900CA2E66 /* key_create.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = key_create.c; sourceTree = "<group>"; };
+		4C67F3550468831300CA2E66 /* security.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = security.c; sourceTree = "<group>"; };
+		4C67F3560468831300CA2E66 /* security.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = security.h; sourceTree = "<group>"; };
+		4C67F35D046885F400CA2E66 /* keychain_create.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_create.h; sourceTree = "<group>"; };
+		4C67F35E046885F400CA2E66 /* keychain_create.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_create.c; sourceTree = "<group>"; };
+		4C67F3610468866E00CA2E66 /* keychain_delete.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_delete.h; sourceTree = "<group>"; };
+		4C67F3620468866E00CA2E66 /* keychain_delete.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_delete.c; sourceTree = "<group>"; };
+		4C67F3690468892B00CA2E66 /* readline.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = readline.h; sourceTree = "<group>"; };
+		4C67F36A0468892B00CA2E66 /* readline.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = readline.c; sourceTree = "<group>"; };
+		4C67F36D0468956400CA2E66 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		4C67F36F0468957300CA2E66 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		4C737567047AE5AD00CA2E66 /* keychain_show_info.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = keychain_show_info.c; sourceTree = "<group>"; };
+		4C737568047AE5AD00CA2E66 /* keychain_show_info.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = keychain_show_info.h; sourceTree = "<group>"; };
+		4C7A49B70469F0CB00CA2E66 /* keychain_utilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_utilities.h; sourceTree = "<group>"; };
+		4C7A49B80469F0CB00CA2E66 /* keychain_utilities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_utilities.c; sourceTree = "<group>"; };
+		4CA9BF2606373C200013F16F /* cmsutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cmsutil.c; sourceTree = "<group>"; };
+		4CA9BF2C0637403D0013F16F /* cmsutil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cmsutil.h; sourceTree = "<group>"; };
+		4CAEBD830469D90400CA2E66 /* leaks.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = leaks.h; sourceTree = "<group>"; };
+		4CAEBD840469D90400CA2E66 /* leaks.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = leaks.c; sourceTree = "<group>"; };
+		4CAF1F4A046C88D300CA2E66 /* keychain_list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_list.h; sourceTree = "<group>"; };
+		4CAF1F4B046C88D300CA2E66 /* keychain_list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_list.c; sourceTree = "<group>"; };
+		4CEFD16D07BD8E10002A0D93 /* keychain_recode.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = keychain_recode.c; sourceTree = "<group>"; };
+		4CEFD16E07BD8E10002A0D93 /* keychain_recode.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = keychain_recode.h; sourceTree = "<group>"; };
+		4CFE73F3048809CA00CA2E66 /* db_commands.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = db_commands.h; sourceTree = "<group>"; };
+		4CFE73F4048809CA00CA2E66 /* db_commands.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = db_commands.cpp; sourceTree = "<group>"; };
+		831FF8BD046F4CCE00CC0098 /* keychain_unlock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = keychain_unlock.h; sourceTree = "<group>"; };
+		831FF8BF046F4CE000CC0098 /* keychain_unlock.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = keychain_unlock.c; sourceTree = "<group>"; };
+		83A749330488FE6D0042026C /* keychain_find.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_find.h; sourceTree = "<group>"; };
+		83A749340488FE6D0042026C /* keychain_find.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_find.c; sourceTree = "<group>"; };
+		83C583DC0484475600933075 /* keychain_add.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_add.h; sourceTree = "<group>"; };
+		83C583DD0484475600933075 /* keychain_add.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_add.c; sourceTree = "<group>"; };
+		83C76BE704704CED00E9A8A8 /* keychain_lock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_lock.h; sourceTree = "<group>"; };
+		83C76BE804704CEE00E9A8A8 /* keychain_lock.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_lock.c; sourceTree = "<group>"; };
+		83CCF86704732AA300C6B016 /* keychain_set_settings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_set_settings.h; sourceTree = "<group>"; };
+		83CCF86804732AA300C6B016 /* keychain_set_settings.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_set_settings.c; sourceTree = "<group>"; };
+		C6A0FF2C0290799A04C91782 /* security.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = security.1; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		08FB77A3FE84155DC02AAC07 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* SecurityTool */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7795FE84155DC02AAC07 /* Source */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				4C67F3710468957A00CA2E66 /* Frameworks */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = SecurityTool;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				0599C5F006F77CED00C2A9E0 /* mds_install.h */,
+				0599C5EE06F77CE300C2A9E0 /* mds_install.cpp */,
+				4CA9BF2606373C200013F16F /* cmsutil.c */,
+				4CA9BF2C0637403D0013F16F /* cmsutil.h */,
+				4CFE73F4048809CA00CA2E66 /* db_commands.cpp */,
+				4CFE73F3048809CA00CA2E66 /* db_commands.h */,
+				058C7A8309F6AC1C00DB7E98 /* trusted_cert_dump.c */,
+				058C7A8409F6AC1C00DB7E98 /* trusted_cert_dump.h */,
+				4C2597F5047EFB4900CA2E66 /* key_create.c */,
+				4C2597F4047EFB4900CA2E66 /* key_create.h */,
+				83C583DD0484475600933075 /* keychain_add.c */,
+				83C583DC0484475600933075 /* keychain_add.h */,
+				4C67F35E046885F400CA2E66 /* keychain_create.c */,
+				4C67F35D046885F400CA2E66 /* keychain_create.h */,
+				4C67F3620468866E00CA2E66 /* keychain_delete.c */,
+				4C67F3610468866E00CA2E66 /* keychain_delete.h */,
+				051E64E8060F7A5F00FB8A46 /* keychain_export.c */,
+				051E64E9060F7A5F00FB8A46 /* keychain_export.h */,
+				83A749340488FE6D0042026C /* keychain_find.c */,
+				83A749330488FE6D0042026C /* keychain_find.h */,
+				051E6439060F607800FB8A46 /* keychain_import.c */,
+				051E6450060F668F00FB8A46 /* keychain_import.h */,
+				4CAF1F4B046C88D300CA2E66 /* keychain_list.c */,
+				4CAF1F4A046C88D300CA2E66 /* keychain_list.h */,
+				83C76BE804704CEE00E9A8A8 /* keychain_lock.c */,
+				83C76BE704704CED00E9A8A8 /* keychain_lock.h */,
+				4CEFD16D07BD8E10002A0D93 /* keychain_recode.c */,
+				4CEFD16E07BD8E10002A0D93 /* keychain_recode.h */,
+				83CCF86804732AA300C6B016 /* keychain_set_settings.c */,
+				83CCF86704732AA300C6B016 /* keychain_set_settings.h */,
+				4C737567047AE5AD00CA2E66 /* keychain_show_info.c */,
+				4C737568047AE5AD00CA2E66 /* keychain_show_info.h */,
+				831FF8BF046F4CE000CC0098 /* keychain_unlock.c */,
+				831FF8BD046F4CCE00CC0098 /* keychain_unlock.h */,
+				4C7A49B80469F0CB00CA2E66 /* keychain_utilities.c */,
+				4C7A49B70469F0CB00CA2E66 /* keychain_utilities.h */,
+				4CAEBD840469D90400CA2E66 /* leaks.c */,
+				4CAEBD830469D90400CA2E66 /* leaks.h */,
+				4C67F36A0468892B00CA2E66 /* readline.c */,
+				4C67F3690468892B00CA2E66 /* readline.h */,
+				4C67F3550468831300CA2E66 /* security.c */,
+				4C67F3560468831300CA2E66 /* security.h */,
+				058C7A8709F6AC2D00DB7E98 /* trusted_cert_add.c */,
+				058C7A8809F6AC2D00DB7E98 /* trusted_cert_add.h */,
+				058C7A8909F6AC2D00DB7E98 /* trusted_cert_utils.c */,
+				058C7A8A09F6AC2D00DB7E98 /* trusted_cert_utils.h */,
+				05DD14A40A1A498300C46534 /* trust_settings_impexp.h */,
+				05DD14A50A1A498300C46534 /* trust_settings_impexp.c */,
+				057E14A00A1508B600886CB8 /* user_trust_enable.h */,
+				057E14A10A1508B600886CB8 /* user_trust_enable.cpp */,
+				40F1827A0A4C625B00A6E783 /* authz.h */,
+				40F182790A4C625B00A6E783 /* authz.c */,
+				056A9CEB0AD57D7C00847C65 /* verify_cert.c */,
+				056A9CEC0AD57D7C00847C65 /* verify_cert.h */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				034768E8FF38A79811DB9C8B /* security */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4C67F3710468957A00CA2E66 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4C67F36F0468957300CA2E66 /* CoreFoundation.framework */,
+				4C67F36D0468956400CA2E66 /* Security.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				C6A0FF2C0290799A04C91782 /* security.1 */,
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		08FB77A0FE84155DC02AAC07 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				83A74974048925660042026C /* db_commands.h in Headers */,
+				83A74970048925650042026C /* key_create.h in Headers */,
+				83A74972048925660042026C /* keychain_add.h in Headers */,
+				83A7495F0489255B0042026C /* keychain_create.h in Headers */,
+				83A7495A048925580042026C /* keychain_delete.h in Headers */,
+				051E64EB060F7A5F00FB8A46 /* keychain_export.h in Headers */,
+				83A74967048925600042026C /* keychain_find.h in Headers */,
+				051E6451060F668F00FB8A46 /* keychain_import.h in Headers */,
+				83A74969048925610042026C /* keychain_list.h in Headers */,
+				83A7496C048925620042026C /* keychain_lock.h in Headers */,
+				83A7496D048925630042026C /* keychain_set_settings.h in Headers */,
+				83A7495D048925580042026C /* keychain_show_info.h in Headers */,
+				83A7495B048925580042026C /* keychain_unlock.h in Headers */,
+				83A74959048925570042026C /* keychain_utilities.h in Headers */,
+				4CAEBD850469D90400CA2E66 /* leaks.h in Headers */,
+				83A7495E048925590042026C /* readline.h in Headers */,
+				4C67F3580468831300CA2E66 /* security.h in Headers */,
+				4CA9BF2D0637403D0013F16F /* cmsutil.h in Headers */,
+				0599C5F106F77CED00C2A9E0 /* mds_install.h in Headers */,
+				4CEFD17007BD8E10002A0D93 /* keychain_recode.h in Headers */,
+				058C7A8609F6AC1C00DB7E98 /* trusted_cert_dump.h in Headers */,
+				058C7A8C09F6AC2D00DB7E98 /* trusted_cert_add.h in Headers */,
+				058C7A8E09F6AC2D00DB7E98 /* trusted_cert_utils.h in Headers */,
+				057E14A20A1508B600886CB8 /* user_trust_enable.h in Headers */,
+				05DD14A60A1A498300C46534 /* trust_settings_impexp.h in Headers */,
+				40F1827C0A4C625B00A6E783 /* authz.h in Headers */,
+				056A9CEE0AD57D7C00847C65 /* verify_cert.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD1BA0987FCDB001272E0 /* Build configuration list for PBXProject "SecurityTool" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* SecurityTool */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				08FB779FFE84155DC02AAC07 /* security */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		08FB77A1FE84155DC02AAC07 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CA9BF2706373C200013F16F /* cmsutil.c in Sources */,
+				83A749640489255F0042026C /* db_commands.cpp in Sources */,
+				83A74971048925650042026C /* key_create.c in Sources */,
+				83A74973048925660042026C /* keychain_add.c in Sources */,
+				83A749600489255B0042026C /* keychain_create.c in Sources */,
+				83A7496E048925630042026C /* keychain_delete.c in Sources */,
+				051E64EA060F7A5F00FB8A46 /* keychain_export.c in Sources */,
+				83A74966048925600042026C /* keychain_find.c in Sources */,
+				051E643A060F607800FB8A46 /* keychain_import.c in Sources */,
+				83A74968048925600042026C /* keychain_list.c in Sources */,
+				83A7496B048925620042026C /* keychain_lock.c in Sources */,
+				83A7496A048925620042026C /* keychain_set_settings.c in Sources */,
+				83A7496F048925640042026C /* keychain_show_info.c in Sources */,
+				83A749630489255D0042026C /* keychain_unlock.c in Sources */,
+				83A749610489255C0042026C /* keychain_utilities.c in Sources */,
+				4CAEBD860469D90400CA2E66 /* leaks.c in Sources */,
+				83A749620489255C0042026C /* readline.c in Sources */,
+				4C67F3570468831300CA2E66 /* security.c in Sources */,
+				0599C5EF06F77CE300C2A9E0 /* mds_install.cpp in Sources */,
+				4CEFD16F07BD8E10002A0D93 /* keychain_recode.c in Sources */,
+				058C7A8509F6AC1C00DB7E98 /* trusted_cert_dump.c in Sources */,
+				058C7A8B09F6AC2D00DB7E98 /* trusted_cert_add.c in Sources */,
+				058C7A8D09F6AC2D00DB7E98 /* trusted_cert_utils.c in Sources */,
+				057E14A30A1508B600886CB8 /* user_trust_enable.cpp in Sources */,
+				05DD14A70A1A498300C46534 /* trust_settings_impexp.c in Sources */,
+				40F1827B0A4C625B00A6E783 /* authz.c in Sources */,
+				056A9CED0AD57D7C00847C65 /* verify_cert.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXToolTarget section */
+		08FB779FFE84155DC02AAC07 /* security */ = {
+			isa = PBXToolTarget;
+			buildConfigurationList = C27AD1B50987FCDB001272E0 /* Build configuration list for PBXToolTarget "security" */;
+			buildPhases = (
+				08FB77A0FE84155DC02AAC07 /* Headers */,
+				08FB77A1FE84155DC02AAC07 /* Sources */,
+				08FB77A3FE84155DC02AAC07 /* Frameworks */,
+				C6A0FF2D029079AD04C91782 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = security;
+			productInstallPath = /usr/bin;
+			productName = SecurityTool;
+			productReference = 034768E8FF38A79811DB9C8B /* security */;
+		};
+/* End PBXToolTarget section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD1B60987FCDB001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CURRENT_PROJECT_VERSION = 32482;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INSTALL_PATH = /usr/bin;
+				LDFLAGS_BUILDFOLDER_SECURITY = "-dylib_file \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A/Security:$(SYMROOT)/Security.framework/Versions/A/Security_debug\" -dylib_file \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A/Security_debug:$(SYMROOT)/Security.framework/Versions/A/Security_debug\"";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS = "$(LDFLAGS_BUILDFOLDER_SECURITY)";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_asn1,_debug\"";
+				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_utilities$(OPT_LDXNOPIC)\" \"-framework\" \"security_utilities$(OPT_LDXNOPIC)\"  \"-framework\" \"security_asn1\"";
+				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\"  \"-framework\" \"security_asn1,_profile\" -pg";
+				PRODUCT_NAME = security;
+				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		C27AD1B70987FCDB001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32482;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/bin;
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS = "$(LDFLAGS_BUILDFOLDER_SECURITY)";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_asn1,_debug\"";
+				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_utilities$(OPT_LDXNOPIC)\" \"-framework\" \"security_utilities$(OPT_LDXNOPIC)\"  \"-framework\" \"security_asn1\"";
+				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\"  \"-framework\" \"security_asn1,_profile\" -pg";
+				PRODUCT_NAME = security;
+				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD1B80987FCDB001272E0 /* normal with debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = normal;
+				CURRENT_PROJECT_VERSION = 32482;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				INSTALL_PATH = /usr/bin;
+				OPT_LDFLAGS = "";
+				OPT_LDXFLAGS = "";
+				OPT_LDXNOPIC = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS = "$(LDFLAGS_BUILDFOLDER_SECURITY)";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_asn1,_debug\"";
+				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_utilities$(OPT_LDXNOPIC)\" \"-framework\" \"security_utilities$(OPT_LDXNOPIC)\"  \"-framework\" \"security_asn1\"";
+				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\"  \"-framework\" \"security_asn1,_profile\" -pg";
+				PRODUCT_NAME = security;
+				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = "normal with debug";
+		};
+		C27AD1B90987FCDB001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32482;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				INSTALL_PATH = /usr/bin;
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS = "$(LDFLAGS_BUILDFOLDER_SECURITY)";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_asn1,_debug\"";
+				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_utilities$(OPT_LDXNOPIC)\" \"-framework\" \"security_utilities$(OPT_LDXNOPIC)\"  \"-framework\" \"security_asn1\"";
+				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\"  \"-framework\" \"security_asn1,_profile\" -pg";
+				PRODUCT_NAME = security;
+				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD1BB0987FCDB001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD1BC0987FCDB001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD1BD0987FCDB001272E0 /* normal with debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = "normal with debug";
+		};
+		C27AD1BE0987FCDB001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD1B50987FCDB001272E0 /* Build configuration list for PBXToolTarget "security" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD1B60987FCDB001272E0 /* Development */,
+				C27AD1B70987FCDB001272E0 /* Deployment */,
+				C27AD1B80987FCDB001272E0 /* normal with debug */,
+				C27AD1B90987FCDB001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD1BA0987FCDB001272E0 /* Build configuration list for PBXProject "SecurityTool" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD1BB0987FCDB001272E0 /* Development */,
+				C27AD1BC0987FCDB001272E0 /* Deployment */,
+				C27AD1BD0987FCDB001272E0 /* normal with debug */,
+				C27AD1BE0987FCDB001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

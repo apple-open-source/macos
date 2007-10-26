@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  *   History file manipulation routines
@@ -50,8 +46,8 @@
 #define HIST_RECENT	600
 #define HIST_UNDO	0201		/* invalidate previous command */
 #define HIST_CMDNO	0202		/* next 3 bytes give command number */
-#define HIST_BSIZE	1024		/* size of history file buffer */
-#define HIST_DFLT	128		/* default size of history list */
+#define HIST_BSIZE	4096		/* size of history file buffer */
+#define HIST_DFLT	512		/* default size of history list */
 
 #define _HIST_PRIVATE \
 	off_t	histcnt;	/* offset into history file */\
@@ -189,7 +185,7 @@ int  sh_histinit(void)
 	register History_t *hp;
 	register char *histname;
 	char *fname=0;
-	int histmask, maxlines, hist_start;
+	int histmask, maxlines, hist_start=0;
 	register char *cp;
 	register off_t hsize = 0;
 
@@ -486,7 +482,7 @@ static int hist_nearend(History_t *hp, Sfio_t *iop, register off_t size)
 		goto begin;
 	/* skip to marker command and return the number */
 	/* numbering commands occur after a null and begin with HIST_CMDNO */
-        while(cp=buff=(unsigned char*)sfreserve(iop,SF_UNBOUND,1))
+        while(cp=buff=(unsigned char*)sfreserve(iop,SF_UNBOUND,SF_LOCKR))
         {
 		n = sfvalue(iop);
                 *(endbuff=cp+n) = 0;
@@ -662,7 +658,7 @@ void hist_flush(register History_t *hp)
 	register char *buff;
 	if(hp)
 	{
-		if(buff=(char*)sfreserve(hp->histfp,0,1))
+		if(buff=(char*)sfreserve(hp->histfp,0,SF_LOCKR))
 		{
 			hp->histflush = sfvalue(hp->histfp)+1;
 			sfwrite(hp->histfp,buff,0);
@@ -841,6 +837,7 @@ Histloc_t hist_find(register History_t*hp,char *string,register int index1,int f
 	Histloc_t location;
 	location.hist_command = -1;
 	location.hist_char = 0;
+	location.hist_line = 0;
 	if(!hp)
 		return(location);
 	/* leading ^ means beginning of line unless escaped */
@@ -1061,8 +1058,6 @@ Histloc_t hist_locate(History_t *hp,register int command,register int line,int l
 		}
 		command = -1;
 	}
-	next.hist_command = command;
-	return(next);
 done:
 	next.hist_line = line;
 	next.hist_command = command;

@@ -9,10 +9,11 @@
 /*	int	qmgr_message_count;
 /*	int	qmgr_recipient_count;
 /*
-/*	QMGR_MESSAGE *qmgr_message_alloc(class, name, qflags)
+/*	QMGR_MESSAGE *qmgr_message_alloc(class, name, qflags, mode)
 /*	const char *class;
 /*	const char *name;
 /*	int	qflags;
+/*	mode_t	mode;
 /*
 /*	QMGR_MESSAGE *qmgr_message_realloc(message)
 /*	QMGR_MESSAGE *message;
@@ -49,6 +50,7 @@
 /*	run through the resolver, and are assigned to destination
 /*	queues. Recipients that cannot be assigned are deferred or
 /*	bounced. Mail that has bounced twice is silently absorbed.
+/*	A non-zero mode means change the queue file permissions.
 /*
 /*	qmgr_message_realloc() resumes reading recipients from the queue
 /*	file, and updates the recipient list and \fIrcpt_offset\fR message
@@ -91,6 +93,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 
 #ifdef STRCASECMP_IN_STRINGS_H
 #include <strings.h>
@@ -122,6 +125,9 @@
 #include <verp_sender.h>
 #include <mail_proto.h>
 #include <qmgr_user.h>
+#include <split_addr.h>
+#include <dsn_mask.h>
+#include <rec_attr_map.h>
 
 /* Client stubs. */
 
@@ -152,18 +158,21 @@ static QMGR_MESSAGE *qmgr_message_create(const char *queue_name,
     message->fp = 0;
     message->refcount = 0;
     message->single_rcpt = 0;
-    message->arrival_time = 0;
+    message->arrival_time.tv_sec = message->arrival_time.tv_usec = 0;
+    message->create_time = 0;
+    GETTIMEOFDAY(&message->active_time);
     message->data_offset = 0;
     message->queue_id = mystrdup(queue_id);
     message->queue_name = mystrdup(queue_name);
     message->encoding = 0;
     message->sender = 0;
-    message->errors_to = 0;
-    message->return_receipt = 0;
+    message->dsn_envid = 0;
+    message->dsn_ret = 0;
     message->filter_xport = 0;
     message->inspect_xport = 0;
     message->redirect_addr = 0;
     message->data_size = 0;
+    message->cont_length = 0;
     message->warn_offset = 0;
     message->warn_time = 0;
     message->rcpt_offset = 0;
@@ -172,7 +181,11 @@ static QMGR_MESSAGE *qmgr_message_create(const char *queue_name,
     message->client_addr = 0;
     message->client_proto = 0;
     message->client_helo = 0;
-    qmgr_rcpt_list_init(&message->rcpt_list);
+    message->sasl_method = 0;
+    message->sasl_username = 0;
+    message->sasl_sender = 0;
+    message->rewrite_context = 0;
+    recipient_list_init(&message->rcpt_list, RCPT_LIST_INIT_QUEUE);
     return (message);
 }
 
@@ -215,8 +228,7 @@ static int qmgr_message_open(QMGR_MESSAGE *message)
 static void qmgr_message_oldstyle_scan(QMGR_MESSAGE *message)
 {
     VSTRING *buf;
-    long    orig_offset,
-            extra_offset;
+    long    orig_offset, extra_offset;
     int     rec_type;
     char   *start;
 
@@ -295,6 +307,9 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
     char   *value;
     char   *orig_rcpt = 0;
     int     count;
+    int     dsn_notify = 0;
+    char   *dsn_orcpt = 0;
+    int     n;
 
     /*
      * Initialize. No early returns or we have a memory leak.
@@ -364,18 +379,45 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 	}
 
 	/*
+	 * Map named attributes to pseudo record types, so that we don't have
+	 * to pollute the queue file with records that are incompatible with
+	 * past Postfix versions. Preferably, people should be able to back
+	 * out from an upgrade without losing mail.
+	 */
+	if (rec_type == REC_TYPE_ATTR) {
+	    if ((error_text = split_nameval(start, &name, &value)) != 0) {
+		msg_warn("%s: ignoring bad attribute: %s: %.200s",
+			 message->queue_id, error_text, start);
+		rec_type = REC_TYPE_ERROR;
+		break;
+	    }
+	    if ((n = rec_attr_map(name)) != 0) {
+		start = value;
+		rec_type = n;
+	    }
+	}
+
+	/*
 	 * Process recipient records.
 	 */
 	if (rec_type == REC_TYPE_RCPT) {
-	    /* See also below for code setting orig_rcpt. */
+	    /* See also below for code setting orig_rcpt etc. */
 #define FUDGE(x)	((x) * (var_qmgr_fudge / 100.0))
 	    if (message->rcpt_offset == 0) {
-		qmgr_rcpt_list_add(&message->rcpt_list, curr_offset,
+		recipient_list_add(&message->rcpt_list, curr_offset,
+				   dsn_orcpt ? dsn_orcpt : "",
+				   dsn_notify ? dsn_notify : 0,
 				   orig_rcpt ? orig_rcpt : "", start);
+		if (dsn_orcpt) {
+		    myfree(dsn_orcpt);
+		    dsn_orcpt = 0;
+		}
 		if (orig_rcpt) {
 		    myfree(orig_rcpt);
 		    orig_rcpt = 0;
 		}
+		if (dsn_notify)
+		    dsn_notify = 0;
 		if (message->rcpt_list.len >= FUDGE(var_qmgr_rcpt_limit)) {
 		    if ((message->rcpt_offset = vstream_ftell(message->fp)) < 0)
 			msg_fatal("vstream_ftell %s: %m",
@@ -401,22 +443,57 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 	    }
 	    continue;
 	}
-	if (rec_type == REC_TYPE_DONE) {
-	    if (orig_rcpt) {
-		myfree(orig_rcpt);
-		orig_rcpt = 0;
+	if (rec_type == REC_TYPE_DONE || rec_type == REC_TYPE_DRCP) {
+	    if (message->rcpt_offset == 0) {
+		if (dsn_orcpt) {
+		    myfree(dsn_orcpt);
+		    dsn_orcpt = 0;
+		}
+		if (orig_rcpt) {
+		    myfree(orig_rcpt);
+		    orig_rcpt = 0;
+		}
+		if (dsn_notify)
+		    dsn_notify = 0;
 	    }
 	    continue;
 	}
-	if (orig_rcpt != 0) {
-	    /* REC_TYPE_ORCP must go before REC_TYPE_RCPT or REC_TYPE DONE. */
-	    msg_warn("%s: ignoring out-of-order original recipient <%.200s>",
-		     message->queue_id, orig_rcpt);
-	    myfree(orig_rcpt);
-	    orig_rcpt = 0;
+	if (rec_type == REC_TYPE_DSN_ORCPT) {
+	    /* See also above for code clearing dsn_orcpt. */
+	    if (dsn_orcpt != 0) {
+		msg_warn("%s: ignoring out-of-order DSN original recipient address <%.200s>",
+			 message->queue_id, dsn_orcpt);
+		myfree(dsn_orcpt);
+		dsn_orcpt = 0;
+	    }
+	    if (message->rcpt_offset == 0)
+		dsn_orcpt = mystrdup(start);
+	    continue;
+	}
+	if (rec_type == REC_TYPE_DSN_NOTIFY) {
+	    /* See also above for code clearing dsn_notify. */
+	    if (dsn_notify != 0) {
+		msg_warn("%s: ignoring out-of-order DSN notify flags <%d>",
+			 message->queue_id, dsn_notify);
+		dsn_notify = 0;
+	    }
+	    if (message->rcpt_offset == 0) {
+		if (!alldig(start) || (n = atoi(start)) == 0 || !DSN_NOTIFY_OK(n))
+		    msg_warn("%s: ignoring malformed DSN notify flags <%.200s>",
+			     message->queue_id, start);
+		else
+		    dsn_notify = n;
+		continue;
+	    }
 	}
 	if (rec_type == REC_TYPE_ORCP) {
 	    /* See also above for code clearing orig_rcpt. */
+	    if (orig_rcpt != 0) {
+		msg_warn("%s: ignoring out-of-order original recipient <%.200s>",
+			 message->queue_id, orig_rcpt);
+		myfree(orig_rcpt);
+		orig_rcpt = 0;
+	    }
 	    if (message->rcpt_offset == 0)
 		orig_rcpt = mystrdup(start);
 	    continue;
@@ -430,9 +507,10 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 	    continue;
 	if (rec_type == REC_TYPE_SIZE) {
 	    if (message->data_offset == 0) {
-		if ((count = sscanf(start, "%ld %ld %d %d",
+		if ((count = sscanf(start, "%ld %ld %d %d %ld",
 				 &message->data_size, &message->data_offset,
-				    &nrcpt, &message->rflags)) >= 3) {
+				    &nrcpt, &message->rflags,
+				    &message->cont_length)) >= 3) {
 		    /* Postfix >= 1.0 (a.k.a. 20010228). */
 		    if (message->data_offset <= 0 || message->data_size <= 0) {
 			msg_warn("%s: invalid size record: %.100s",
@@ -457,11 +535,25 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 		    break;
 		}
 	    }
+	    /* Postfix < 2.4 compatibility. */
+	    if (message->cont_length == 0) {
+		message->cont_length = message->data_size;
+	    } else if (message->cont_length < 0) {
+		msg_warn("%s: invalid size record: %.100s",
+			 message->queue_id, start);
+		rec_type = REC_TYPE_ERROR;
+		break;
+	    }
 	    continue;
 	}
 	if (rec_type == REC_TYPE_TIME) {
-	    if (message->arrival_time == 0)
-		message->arrival_time = atol(start);
+	    if (message->arrival_time.tv_sec == 0)
+		REC_TYPE_TIME_SCAN(start, message->arrival_time);
+	    continue;
+	}
+	if (rec_type == REC_TYPE_CTIME) {
+	    if (message->create_time == 0)
+		message->create_time = atol(start);
 	    continue;
 	}
 	if (rec_type == REC_TYPE_FILT) {
@@ -486,46 +578,101 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 	    if (message->sender == 0) {
 		message->sender = mystrdup(start);
 		opened(message->queue_id, message->sender,
-		       message->data_size, nrcpt,
+		       message->cont_length, nrcpt,
 		       "queue %s", message->queue_name);
 	    }
 	    continue;
 	}
-	if (rec_type == REC_TYPE_ATTR) {
-	    if ((error_text = split_nameval(start, &name, &value)) != 0) {
-		msg_warn("%s: bad attribute: %s: %.200s",
-			 message->queue_id, error_text, start);
-		rec_type = REC_TYPE_ERROR;
-		break;
+	if (rec_type == REC_TYPE_DSN_ENVID) {
+	    if (message->dsn_envid == 0)
+		message->dsn_envid = mystrdup(start);
+	}
+	if (rec_type == REC_TYPE_DSN_RET) {
+	    if (message->dsn_ret == 0) {
+		if (!alldig(start) || (n = atoi(start)) == 0 || !DSN_RET_OK(n))
+		    msg_warn("%s: ignoring malformed DSN RET flags in queue file record:%.100s",
+			     message->queue_id, start);
+		else
+		    message->dsn_ret = n;
 	    }
+	}
+	if (rec_type == REC_TYPE_ATTR) {
 	    /* Allow extra segment to override envelope segment info. */
 	    if (strcmp(name, MAIL_ATTR_ENCODING) == 0) {
 		if (message->encoding != 0)
 		    myfree(message->encoding);
 		message->encoding = mystrdup(value);
 	    }
+
+	    /*
+	     * Backwards compatibility. Before Postfix 2.3, the logging
+	     * attributes were called client_name, etc. Now they are called
+	     * log_client_name. etc., and client_name is used for the actual
+	     * client information. To support old queue files, we accept both
+	     * names for the purpose of logging; the new name overrides the
+	     * old one.
+	     */
+	    else if (strcmp(name, MAIL_ATTR_ACT_CLIENT_NAME) == 0) {
+		if (message->client_name == 0)
+		    message->client_name = mystrdup(value);
+	    } else if (strcmp(name, MAIL_ATTR_ACT_CLIENT_ADDR) == 0) {
+		if (message->client_addr == 0)
+		    message->client_addr = mystrdup(value);
+	    } else if (strcmp(name, MAIL_ATTR_ACT_PROTO_NAME) == 0) {
+		if (message->client_proto == 0)
+		    message->client_proto = mystrdup(value);
+	    } else if (strcmp(name, MAIL_ATTR_ACT_HELO_NAME) == 0) {
+		if (message->client_helo == 0)
+		    message->client_helo = mystrdup(value);
+	    }
 	    /* Original client attributes. */
-	    if (strcmp(name, MAIL_ATTR_CLIENT_NAME) == 0) {
+	    else if (strcmp(name, MAIL_ATTR_LOG_CLIENT_NAME) == 0) {
 		if (message->client_name != 0)
 		    myfree(message->client_name);
 		message->client_name = mystrdup(value);
-	    }
-	    if (strcmp(name, MAIL_ATTR_CLIENT_ADDR) == 0) {
+	    } else if (strcmp(name, MAIL_ATTR_LOG_CLIENT_ADDR) == 0) {
 		if (message->client_addr != 0)
 		    myfree(message->client_addr);
 		message->client_addr = mystrdup(value);
-	    }
-	    if (strcmp(name, MAIL_ATTR_PROTO_NAME) == 0) {
+	    } else if (strcmp(name, MAIL_ATTR_LOG_PROTO_NAME) == 0) {
 		if (message->client_proto != 0)
 		    myfree(message->client_proto);
 		message->client_proto = mystrdup(value);
-	    }
-	    if (strcmp(name, MAIL_ATTR_HELO_NAME) == 0) {
+	    } else if (strcmp(name, MAIL_ATTR_LOG_HELO_NAME) == 0) {
 		if (message->client_helo != 0)
 		    myfree(message->client_helo);
 		message->client_helo = mystrdup(value);
+	    } else if (strcmp(name, MAIL_ATTR_SASL_METHOD) == 0) {
+		if (message->sasl_method == 0)
+		    message->sasl_method = mystrdup(value);
+		else
+		    msg_warn("%s: ignoring multiple %s attribute: %s",
+			   message->queue_id, MAIL_ATTR_SASL_METHOD, value);
+	    } else if (strcmp(name, MAIL_ATTR_SASL_USERNAME) == 0) {
+		if (message->sasl_username == 0)
+		    message->sasl_username = mystrdup(value);
+		else
+		    msg_warn("%s: ignoring multiple %s attribute: %s",
+			 message->queue_id, MAIL_ATTR_SASL_USERNAME, value);
+	    } else if (strcmp(name, MAIL_ATTR_SASL_SENDER) == 0) {
+		if (message->sasl_sender == 0)
+		    message->sasl_sender = mystrdup(value);
+		else
+		    msg_warn("%s: ignoring multiple %s attribute: %s",
+			   message->queue_id, MAIL_ATTR_SASL_SENDER, value);
+	    } else if (strcmp(name, MAIL_ATTR_RWR_CONTEXT) == 0) {
+		if (message->rewrite_context == 0)
+		    message->rewrite_context = mystrdup(value);
+		else
+		    msg_warn("%s: ignoring multiple %s attribute: %s",
+			   message->queue_id, MAIL_ATTR_RWR_CONTEXT, value);
 	    }
-	    /* Optional tracing flags. */
+
+	    /*
+	     * Optional tracing flags (verify, sendmail -v, sendmail -bv).
+	     * This record is killed after a trace logfile report is sent and
+	     * after the logfile is deleted.
+	     */
 	    else if (strcmp(name, MAIL_ATTR_TRACE_FLAGS) == 0) {
 		message->tflags = DEL_REQ_TRACE_FLAGS(atoi(value));
 		if (message->tflags == DEL_REQ_FLAG_RECORD)
@@ -535,20 +682,10 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 	    }
 	    continue;
 	}
-	if (rec_type == REC_TYPE_ERTO) {
-	    if (message->errors_to == 0)
-		message->errors_to = mystrdup(start);
-	    continue;
-	}
-	if (rec_type == REC_TYPE_RRTO) {
-	    if (message->return_receipt == 0)
-		message->return_receipt = mystrdup(start);
-	    continue;
-	}
 	if (rec_type == REC_TYPE_WARN) {
 	    if (message->warn_offset == 0) {
 		message->warn_offset = curr_offset;
-		message->warn_time = atol(start);
+		REC_TYPE_WARN_SCAN(start, message->warn_time);
 	    }
 	    continue;
 	}
@@ -572,6 +709,12 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
     /*
      * Grr.
      */
+    if (dsn_orcpt != 0) {
+	if (rec_type > 0)
+	    msg_warn("%s: ignoring out-of-order DSN original recipient <%.200s>",
+		     message->queue_id, dsn_orcpt);
+	myfree(orig_rcpt);
+    }
     if (orig_rcpt != 0) {
 	if (rec_type > 0)
 	    msg_warn("%s: ignoring out-of-order original recipient <%.200s>",
@@ -584,10 +727,8 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
      * IPC channel, sending an empty string is more convenient than sending a
      * null pointer.
      */
-    if (message->errors_to == 0 && message->sender)
-	message->errors_to = mystrdup(message->sender);
-    if (message->return_receipt == 0)
-	message->return_receipt = mystrdup("");
+    if (message->dsn_envid == 0)
+	message->dsn_envid = mystrdup("");
     if (message->encoding == 0)
 	message->encoding = mystrdup(MAIL_ATTR_ENC_NONE);
     if (message->client_name == 0)
@@ -598,6 +739,17 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 	message->client_proto = mystrdup("");
     if (message->client_helo == 0)
 	message->client_helo = mystrdup("");
+    if (message->sasl_method == 0)
+	message->sasl_method = mystrdup("");
+    if (message->sasl_username == 0)
+	message->sasl_username = mystrdup("");
+    if (message->sasl_sender == 0)
+	message->sasl_sender = mystrdup("");
+    if (message->rewrite_context == 0)
+	message->rewrite_context = mystrdup(MAIL_ATTR_RWR_LOCAL);
+    /* Postfix < 2.3 compatibility. */
+    if (message->create_time == 0)
+	message->create_time = message->arrival_time.tv_sec;
 
     /*
      * Clean up.
@@ -610,7 +762,7 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
      */
     if (rec_type <= 0) {
 	/* Already logged warning. */
-    } else if (message->arrival_time == 0) {
+    } else if (message->arrival_time.tv_sec == 0) {
 	msg_warn("%s: message rejected: missing arrival time record",
 		 message->queue_id);
     } else if (message->sender == 0) {
@@ -637,7 +789,8 @@ void    qmgr_message_update_warn(QMGR_MESSAGE *message)
      */
     if (qmgr_message_open(message)
 	|| vstream_fseek(message->fp, message->warn_offset, SEEK_SET) < 0
-    || rec_fprintf(message->fp, REC_TYPE_WARN, REC_TYPE_WARN_FORMAT, 0L) < 0
+	|| rec_fprintf(message->fp, REC_TYPE_WARN, REC_TYPE_WARN_FORMAT,
+		       REC_TYPE_WARN_ARG(0)) < 0
 	|| vstream_fflush(message->fp))
 	msg_fatal("update queue file %s: %m", VSTREAM_PATH(message->fp));
     qmgr_message_close(message);
@@ -660,8 +813,8 @@ void    qmgr_message_kill_record(QMGR_MESSAGE *message, long offset)
 
 static int qmgr_message_sort_compare(const void *p1, const void *p2)
 {
-    QMGR_RCPT *rcpt1 = (QMGR_RCPT *) p1;
-    QMGR_RCPT *rcpt2 = (QMGR_RCPT *) p2;
+    RECIPIENT *rcpt1 = (RECIPIENT *) p1;
+    RECIPIENT *rcpt2 = (RECIPIENT *) p2;
     QMGR_QUEUE *queue1;
     QMGR_QUEUE *queue2;
     char   *at1;
@@ -674,8 +827,8 @@ static int qmgr_message_sort_compare(const void *p1, const void *p2)
      * assigned an ordinal (we set NULL last).
      */
 
-    queue1 = rcpt1->queue;
-    queue2 = rcpt2->queue;
+    queue1 = rcpt1->u.queue;
+    queue2 = rcpt2->u.queue;
     if (queue1 != 0 && queue2 == 0)
 	return (-1);
     if (queue1 == 0 && queue2 != 0)
@@ -722,8 +875,8 @@ static void qmgr_message_sort(QMGR_MESSAGE *message)
     qsort((char *) message->rcpt_list.info, message->rcpt_list.len,
 	  sizeof(message->rcpt_list.info[0]), qmgr_message_sort_compare);
     if (msg_verbose) {
-	QMGR_RCPT_LIST list = message->rcpt_list;
-	QMGR_RCPT *rcpt;
+	RECIPIENT_LIST list = message->rcpt_list;
+	RECIPIENT *rcpt;
 
 	msg_info("start sorted recipient list");
 	for (rcpt = list.info; rcpt < list.info + list.len; rcpt++)
@@ -734,20 +887,27 @@ static void qmgr_message_sort(QMGR_MESSAGE *message)
 
 /* qmgr_resolve_one - resolve or skip one recipient */
 
-static int qmgr_resolve_one(QMGR_MESSAGE *message, QMGR_RCPT *recipient,
+static int qmgr_resolve_one(QMGR_MESSAGE *message, RECIPIENT *recipient,
 			            const char *addr, RESOLVE_REPLY *reply)
 {
-    if ((message->tflags & DEL_REQ_FLAG_VERIFY) == 0)
-	resolve_clnt_query(addr, reply);
+#define QMGR_REDIRECT(rp, tp, np) do { \
+	(rp)->flags = 0; \
+	vstring_strcpy((rp)->transport, (tp)); \
+	vstring_strcpy((rp)->nexthop, (np)); \
+    } while (0)
+
+    if ((message->tflags & DEL_REQ_FLAG_MTA_VRFY) == 0)
+	resolve_clnt_query_from(message->sender, addr, reply);
     else
-	resolve_clnt_verify(addr, reply);
+	resolve_clnt_verify_from(message->sender, addr, reply);
     if (reply->flags & RESOLVE_FLAG_FAIL) {
-	qmgr_defer_recipient(message, recipient, "address resolver failure");
-	return (-1);
+	QMGR_REDIRECT(reply, MAIL_SERVICE_RETRY,
+		      "4.3.0 address resolver failure");
+	return (0);
     } else if (reply->flags & RESOLVE_FLAG_ERROR) {
-	qmgr_bounce_recipient(message, recipient,
-			      "bad address syntax: \"%s\"", addr);
-	return (-1);
+	QMGR_REDIRECT(reply, MAIL_SERVICE_ERROR,
+		      "5.1.3 bad address syntax");
+	return (0);
     } else {
 	return (0);
     }
@@ -758,8 +918,8 @@ static int qmgr_resolve_one(QMGR_MESSAGE *message, QMGR_RCPT *recipient,
 static void qmgr_message_resolve(QMGR_MESSAGE *message)
 {
     static ARGV *defer_xport_argv;
-    QMGR_RCPT_LIST list = message->rcpt_list;
-    QMGR_RCPT *recipient;
+    RECIPIENT_LIST list = message->rcpt_list;
+    RECIPIENT *recipient;
     QMGR_TRANSPORT *transport = 0;
     QMGR_QUEUE *queue = 0;
     RESOLVE_REPLY reply;
@@ -767,42 +927,52 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
     char   *at;
     char  **cpp;
     char   *nexthop;
-    int     len;
+    ssize_t len;
     int     status;
+    DSN     dsn;
+    MSG_STATS stats;
+    DSN    *saved_dsn;
 
 #define STREQ(x,y)	(strcmp(x,y) == 0)
 #define STR		vstring_str
 #define LEN		VSTRING_LEN
-#define UPDATE(ptr,new)	{ myfree(ptr); ptr = mystrdup(new); }
 
     resolve_clnt_init(&reply);
     queue_name = vstring_alloc(1);
     for (recipient = list.info; recipient < list.info + list.len; recipient++) {
 
 	/*
-	 * Redirect overrides all else. But only once (per batch of
-	 * recipients). For consistency with the remainder of Postfix,
-	 * rewrite the address to canonical form before resolving it.
+	 * Redirect overrides all else. But only once (per entire message).
+	 * For consistency with the remainder of Postfix, rewrite the address
+	 * to canonical form before resolving it.
 	 */
 	if (message->redirect_addr) {
 	    if (recipient > list.info) {
-		recipient->queue = 0;
+		recipient->u.queue = 0;
 		continue;
 	    }
+	    message->rcpt_offset = 0;
 	    rewrite_clnt_internal(REWRITE_CANON, message->redirect_addr,
 				  reply.recipient);
-	    UPDATE(recipient->address, STR(reply.recipient));
+	    RECIPIENT_UPDATE(recipient->address, STR(reply.recipient));
 	    if (qmgr_resolve_one(message, recipient,
 				 recipient->address, &reply) < 0)
 		continue;
 	    if (!STREQ(recipient->address, STR(reply.recipient)))
-		UPDATE(recipient->address, STR(reply.recipient));
+		RECIPIENT_UPDATE(recipient->address, STR(reply.recipient));
 	}
 
 	/*
 	 * Content filtering overrides the address resolver.
+	 * 
+	 * XXX Bypass content_filter inspection for user-generated probes
+	 * (sendmail -bv). MTA-generated probes never have the "please filter
+	 * me" bits turned on, but we handle them here anyway for the sake of
+	 * future proofing.
 	 */
-	else if (message->filter_xport) {
+	else if (message->filter_xport
+		 && (message->tflags & DEL_REQ_TRACE_ONLY_MASK) == 0) {
+	    reply.flags = 0;
 	    vstring_strcpy(reply.transport, message->filter_xport);
 	    if ((nexthop = split_at(STR(reply.transport), ':')) == 0
 		|| *nexthop == 0)
@@ -815,23 +985,12 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 	 * Resolve the destination to (transport, nexthop, address). The
 	 * result address may differ from the one specified by the sender.
 	 */
-	else if (var_sender_routing == 0) {
+	else {
 	    if (qmgr_resolve_one(message, recipient,
 				 recipient->address, &reply) < 0)
 		continue;
 	    if (!STREQ(recipient->address, STR(reply.recipient)))
-		UPDATE(recipient->address, STR(reply.recipient));
-	}
-
-	/*
-	 * XXX Sender-based routing does not work very well, because it has
-	 * problems with sending bounces.
-	 */
-	else {
-	    if (qmgr_resolve_one(message, recipient,
-				 message->sender, &reply) < 0)
-		continue;
-	    vstring_strcpy(reply.recipient, recipient->address);
+		RECIPIENT_UPDATE(recipient->address, STR(reply.recipient));
 	}
 
 	/*
@@ -840,9 +999,8 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 	 * the queue manager process does not help.
 	 */
 	if (recipient->address[0] == 0) {
-	    qmgr_bounce_recipient(message, recipient,
-				  "null recipient address");
-	    continue;
+	    QMGR_REDIRECT(&reply, MAIL_SERVICE_ERROR,
+			  "5.1.3 null recipient address");
 	}
 
 	/*
@@ -857,10 +1015,8 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 	 * where it cannot be bypassed.
 	 */
 	if (var_allow_min_user == 0 && recipient->address[0] == '-') {
-	    qmgr_bounce_recipient(message, recipient,
-				  "invalid recipient syntax: \"%s\"",
-				  recipient->address);
-	    continue;
+	    QMGR_REDIRECT(&reply, MAIL_SERVICE_ERROR,
+			  "5.1.3 bad address syntax");
 	}
 
 	/*
@@ -880,9 +1036,9 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 			    len) == 0
 		&& !var_double_bounce_sender[len]) {
 		status = sent(message->tflags, message->queue_id,
-			      recipient->orig_rcpt, recipient->address,
-			   recipient->offset, "none", message->arrival_time,
-			 "undeliverable postmaster notification discarded");
+			      QMGR_MSG_STATS(&stats, message), recipient,
+			      "none", DSN_SIMPLE(&dsn, "2.0.0",
+			"undeliverable postmaster notification discarded"));
 		if (status == 0) {
 		    deliver_completed(message->fp, recipient->offset);
 		    msg_warn("%s: undeliverable postmaster notification discarded",
@@ -897,15 +1053,15 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 	 * Optionally defer deliveries over specific transports, unless the
 	 * restriction is lifted temporarily.
 	 */
-	if (*var_defer_xports && (message->qflags & QMGR_FLUSH_DEAD) == 0) {
+	if (*var_defer_xports && (message->qflags & QMGR_FLUSH_DFXP) == 0) {
 	    if (defer_xport_argv == 0)
 		defer_xport_argv = argv_split(var_defer_xports, " \t\r\n,");
 	    for (cpp = defer_xport_argv->argv; *cpp; cpp++)
 		if (strcmp(*cpp, STR(reply.transport)) == 0)
 		    break;
 	    if (*cpp) {
-		qmgr_defer_recipient(message, recipient, "deferred transport");
-		continue;
+		QMGR_REDIRECT(&reply, MAIL_SERVICE_RETRY,
+			      "4.3.2 deferred transport");
 	    }
 	}
 
@@ -919,11 +1075,27 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 	}
 
 	/*
+	 * This message is being flushed. If need-be unthrottle the
+	 * transport.
+	 */
+	if ((message->qflags & QMGR_FLUSH_EACH) != 0
+	    && QMGR_TRANSPORT_THROTTLED(transport))
+	    qmgr_transport_unthrottle(transport);
+
+	/*
 	 * This transport is dead. Defer delivery to this recipient.
 	 */
-	if ((transport->flags & QMGR_TRANSPORT_STAT_DEAD) != 0) {
-	    qmgr_defer_recipient(message, recipient, transport->reason);
-	    continue;
+	if (QMGR_TRANSPORT_THROTTLED(transport)) {
+	    saved_dsn = transport->dsn;
+	    if ((transport = qmgr_error_transport(MAIL_SERVICE_RETRY)) != 0) {
+		nexthop = qmgr_error_nexthop(saved_dsn);
+		vstring_strcpy(reply.nexthop, nexthop);
+		myfree(nexthop);
+		queue = 0;
+	    } else {
+		qmgr_defer_recipient(message, recipient, saved_dsn);
+		continue;
+	    }
 	}
 
 	/*
@@ -961,6 +1133,7 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 	 */
 	vstring_strcpy(queue_name, STR(reply.nexthop));
 	if (strcmp(transport->name, MAIL_SERVICE_ERROR) != 0
+	    && strcmp(transport->name, MAIL_SERVICE_RETRY) != 0
 	    && transport->recipient_limit == 1) {
 	    /* Copy the recipient localpart. */
 	    at = strrchr(STR(reply.recipient), '@');
@@ -986,17 +1159,27 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 	}
 
 	/*
+	 * This message is being flushed. If need-be unthrottle the queue.
+	 */
+	if ((message->qflags & QMGR_FLUSH_EACH) != 0
+	    && QMGR_QUEUE_THROTTLED(queue))
+	    qmgr_queue_unthrottle(queue);
+
+	/*
 	 * This queue is dead. Defer delivery to this recipient.
 	 */
-	if (queue->window == 0) {
-	    qmgr_defer_recipient(message, recipient, queue->reason);
-	    continue;
+	if (QMGR_QUEUE_THROTTLED(queue)) {
+	    saved_dsn = queue->dsn;
+	    if ((queue = qmgr_error_queue(MAIL_SERVICE_RETRY, saved_dsn)) == 0) {
+		qmgr_defer_recipient(message, recipient, saved_dsn);
+		continue;
+	    }
 	}
 
 	/*
 	 * This queue is alive. Bind this recipient to this queue instance.
 	 */
-	recipient->queue = queue;
+	recipient->u.queue = queue;
     }
     resolve_clnt_free(&reply);
     vstring_free(queue_name);
@@ -1006,8 +1189,8 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 
 static void qmgr_message_assign(QMGR_MESSAGE *message)
 {
-    QMGR_RCPT_LIST list = message->rcpt_list;
-    QMGR_RCPT *recipient;
+    RECIPIENT_LIST list = message->rcpt_list;
+    RECIPIENT *recipient;
     QMGR_ENTRY *entry = 0;
     QMGR_QUEUE *queue;
 
@@ -1023,19 +1206,20 @@ static void qmgr_message_assign(QMGR_MESSAGE *message)
 #define LIMIT_OK(limit, count) ((limit) == 0 || ((count) < (limit)))
 
     for (recipient = list.info; recipient < list.info + list.len; recipient++) {
-	if ((queue = recipient->queue) != 0) {
+	if ((queue = recipient->u.queue) != 0) {
 	    if (message->single_rcpt || entry == 0 || entry->queue != queue
 		|| !LIMIT_OK(entry->queue->transport->recipient_limit,
 			     entry->rcpt_list.len)) {
 		entry = qmgr_entry_create(queue, message);
 	    }
-	    qmgr_rcpt_list_add(&entry->rcpt_list, recipient->offset,
-			       recipient->orig_rcpt, recipient->address);
+	    recipient_list_add(&entry->rcpt_list, recipient->offset,
+			       recipient->dsn_orcpt, recipient->dsn_notify,
+			       recipient->orig_addr, recipient->address);
 	    qmgr_recipient_count++;
 	}
     }
-    qmgr_rcpt_list_free(&message->rcpt_list);
-    qmgr_rcpt_list_init(&message->rcpt_list);
+    recipient_list_free(&message->rcpt_list);
+    recipient_list_init(&message->rcpt_list, RCPT_LIST_INIT_QUEUE);
 }
 
 /* qmgr_message_free - release memory for in-core message structure */
@@ -1048,16 +1232,14 @@ void    qmgr_message_free(QMGR_MESSAGE *message)
 	msg_panic("qmgr_message_free: queue file is open");
     myfree(message->queue_id);
     myfree(message->queue_name);
+    if (message->dsn_envid)
+	myfree(message->dsn_envid);
     if (message->encoding)
 	myfree(message->encoding);
     if (message->sender)
 	myfree(message->sender);
     if (message->verp_delims)
 	myfree(message->verp_delims);
-    if (message->errors_to)
-	myfree(message->errors_to);
-    if (message->return_receipt)
-	myfree(message->return_receipt);
     if (message->filter_xport)
 	myfree(message->filter_xport);
     if (message->inspect_xport)
@@ -1072,7 +1254,15 @@ void    qmgr_message_free(QMGR_MESSAGE *message)
 	myfree(message->client_proto);
     if (message->client_helo)
 	myfree(message->client_helo);
-    qmgr_rcpt_list_free(&message->rcpt_list);
+    if (message->sasl_method)
+	myfree(message->sasl_method);
+    if (message->sasl_username)
+	myfree(message->sasl_username);
+    if (message->sasl_sender)
+	myfree(message->sasl_sender);
+    if (message->rewrite_context)
+	myfree(message->rewrite_context);
+    recipient_list_free(&message->rcpt_list);
     qmgr_message_count--;
     myfree((char *) message);
 }
@@ -1080,9 +1270,9 @@ void    qmgr_message_free(QMGR_MESSAGE *message)
 /* qmgr_message_alloc - create in-core message structure */
 
 QMGR_MESSAGE *qmgr_message_alloc(const char *queue_name, const char *queue_id,
-				         int qflags)
+				         int qflags, mode_t mode)
 {
-    char   *myname = "qmgr_message_alloc";
+    const char *myname = "qmgr_message_alloc";
     QMGR_MESSAGE *message;
 
     if (msg_verbose)
@@ -1116,11 +1306,22 @@ QMGR_MESSAGE *qmgr_message_alloc(const char *queue_name, const char *queue_id,
     } else {
 
 	/*
+	 * We have validated the queue file content, so it is safe to modify
+	 * the file properties now.
+	 */
+	if (mode != 0 && fchmod(vstream_fileno(message->fp), mode) < 0)
+	    msg_fatal("fchmod %s: %m", VSTREAM_PATH(message->fp));
+
+	/*
 	 * Reset the defer log. This code should not be here, but we must
 	 * reset the defer log *after* acquiring the exclusive lock on the
 	 * queue file and *before* resolving new recipients. Since all those
 	 * operations are encapsulated so nicely by this routine, the defer
 	 * log reset has to be done here as well.
+	 * 
+	 * Note: it is safe to remove the defer logfile from a previous queue
+	 * run of this queue file, because the defer log contains information
+	 * about recipients that still exist in this queue file.
 	 */
 	if (mail_queue_remove(MAIL_QUEUE_DEFER, queue_id) && errno != ENOENT)
 	    msg_fatal("%s: %s: remove %s %s: %m", myname,
@@ -1138,7 +1339,7 @@ QMGR_MESSAGE *qmgr_message_alloc(const char *queue_name, const char *queue_id,
 
 QMGR_MESSAGE *qmgr_message_realloc(QMGR_MESSAGE *message)
 {
-    char   *myname = "qmgr_message_realloc";
+    const char *myname = "qmgr_message_realloc";
 
     /*
      * Sanity checks.

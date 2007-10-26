@@ -3,15 +3,19 @@
 #  link-inclibs.sh
 #
 #  The iODBC driver manager.
-#  
-#  Copyright (C) 1996-2004 by OpenLink Software <iodbc@openlinksw.com>
+#
+#  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
 #  All Rights Reserved.
 #
 #  This software is released under the terms of either of the following
 #  licenses:
 #
-#      - GNU Library General Public License (see LICENSE.LGPL) 
+#      - GNU Library General Public License (see LICENSE.LGPL)
 #      - The BSD License (see LICENSE.BSD).
+#
+#  Note that the only valid version of the LGPL license as far as this
+#  project is concerned is the original GNU Library General Public License
+#  Version 2, dated June 1991.
 #
 #  While not mandated by the BSD license, any patches you make to the
 #  iODBC source code may be contributed back into the iODBC project
@@ -25,8 +29,8 @@
 #  ============================================
 #  This library is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU Library General Public
-#  License as published by the Free Software Foundation; either
-#  version 2 of the License, or (at your option) any later version.
+#  License as published by the Free Software Foundation; only
+#  Version 2 of the License dated June 1991.
 #
 #  This library is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -35,7 +39,7 @@
 #
 #  You should have received a copy of the GNU Library General Public
 #  License along with this library; if not, write to the Free
-#  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 #
 #  The BSD License
@@ -65,6 +69,7 @@
 #  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
 
 
 #
@@ -94,7 +99,6 @@ mkdir -p "$PREFIX/include"
 #
 #  Create symlinks for all header files
 #
-ln -s "$ODBC_FW/Headers/iodbc.h"	"$PREFIX/include/iodbc.h"
 ln -s "$ODBC_FW/Headers/iodbcext.h"	"$PREFIX/include/iodbcext.h"
 ln -s "$ODBC_FW/Headers/iodbcunix.h"	"$PREFIX/include/iodbcunix.h"
 ln -s "$ODBC_FW/Headers/isql.h"		"$PREFIX/include/isql.h"
@@ -114,6 +118,13 @@ ln -s "$INST_FW/Headers/odbcinst.h"	"$PREFIX/include/odbcinst.h"
 #
 ln -s "$ODBC_FW/iODBC"			"$PREFIX/lib/libiodbc.dylib"
 ln -s "$INST_FW/iODBCinst"		"$PREFIX/lib/libiodbcinst.dylib"
+
+
+#
+#  Add special Mac OS X version of iodbc-config 
+#
+cp iodbc-config.macosx			"$PREFIX/bin/iodbc-config"
+chmod 755				"$PREFIX/bin/iodbc-config"
 
 
 #

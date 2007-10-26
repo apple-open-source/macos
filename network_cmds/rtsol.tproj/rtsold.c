@@ -448,7 +448,7 @@ make_packet(struct ifinfo *ifinfo)
 			"memory allocation failed for %s", ifinfo->ifname);
 		return(-1);
 	}
-	ifinfo->rs_data = buf;
+	ifinfo->rs_data = (u_char *)buf;
 
 	/* fill in the message */
 	rs = (struct nd_router_solicit *)buf;

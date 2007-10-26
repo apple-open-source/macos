@@ -2,8 +2,8 @@
 
   ruby.c -
 
-  $Author: matz $
-  $Date: 2004/07/23 07:52:38 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Tue Aug 10 12:47:31 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -192,7 +192,7 @@ ruby_incpush(path)
 	p = path;
 	while (*p) {
 	    while (*p == sep) p++;
-	    if (s = strchr(p, sep)) {
+	    if ((s = strchr(p, sep)) != 0) {
 		rb_ary_push(ary, rubylib_mangled_path(p, (int)(s-p)));
 		p = s + 1;
 	    }
@@ -350,8 +350,11 @@ require_libraries()
     ruby_set_current_source();
     req_list_last = 0;
     while (list) {
+	int state;
+
 	ruby_current_node = 0;
-	rb_require(list->name);
+	rb_protect((VALUE (*)(VALUE))rb_require, (VALUE)list->name, &state);
+	if (state) rb_jump_tag(state);
 	tmp = list->next;
 	free(list->name);
 	free(list);
@@ -379,20 +382,43 @@ process_sflag()
 	    VALUE v = *args++;
 	    char *s = StringValuePtr(v);
 	    char *p;
+	    int hyphen = Qfalse;
 
 	    if (s[0] != '-') break;
 	    n--;
 	    if (s[1] == '-' && s[2] == '\0') break;
 
+	    v = Qtrue;
+	    /* check if valid name before replacing - with _ */
+	    for (p = s + 1; *p; p++) {
+		if (*p == '=') {
+		    *p++ = '\0';
+		    v = rb_str_new2(p);
+		    break;
+		}
+		if (*p == '-') {
+		    hyphen = Qtrue;
+		}
+		else if (*p != '_' && !ISALNUM(*p)) {
+		    VALUE name_error[2];
+		    name_error[0] = rb_str_new2("invalid name for global variable - ");
+		    if (!(p = strchr(p, '='))) {
+			rb_str_cat2(name_error[0], s);
+		    }
+		    else {
+			rb_str_cat(name_error[0], s, p - s);
+		    }
+		    name_error[1] = args[-1];
+		    rb_exc_raise(rb_class_new_instance(2, name_error, rb_eNameError));
+		}
+	    }
 	    s[0] = '$';
-	    if (p = strchr(s, '=')) {
-		*p++ = '\0';
-		rb_gv_set(s, rb_str_new2(p));
+	    if (hyphen) {
+		for (p = s + 1; *p; ++p) {
+		    if (*p == '-') *p = '_';
+		}
 	    }
-	    else {
-		rb_gv_set(s, Qtrue);
-	    }
-	    s[0] = '-';
+	    rb_gv_set(s, v);
 	}
 	n = RARRAY(rb_argv)->len - n;
 	while (n--) {
@@ -678,9 +704,20 @@ proc_options(argc, argv)
 	    }
 	    break;
 
+	  case '\r':
+	    if (!s[1]) break;
+
 	  default:
-	    fprintf(stderr, "%s: invalid option -%c  (-h will show valid options)\n",
-		    origargv[0], *s);
+	    {
+		const char *format;
+		if (ISPRINT(*s)) {
+		    format = "%s: invalid option -%c  (-h will show valid options)\n";
+		}
+		else {
+		    format = "%s: invalid option -\\%03o  (-h will show valid options)\n";
+		}
+		fprintf(stderr, format, origargv[0], (int)(unsigned char)*s);
+	    }
 	    exit(2);
 
 	  case 0:
@@ -693,11 +730,11 @@ proc_options(argc, argv)
 
     if (rb_safe_level() == 0 && (s = getenv("RUBYOPT"))) {
 	while (ISSPACE(*s)) s++;
-	if (*s == '-' && *(s+1) == 'T') {
+	if (*s == 'T' || (*s == '-' && *(s+1) == 'T')) {
 	    int numlen;
 	    int v = 1;
 
-	    s += 2;
+	    if (*s != 'T') ++s;
 	    if (*++s) {
 		v = scan_oct(s, 2, &numlen);
 		if (numlen == 0) v = 1;
@@ -715,7 +752,7 @@ proc_options(argc, argv)
 		}
 		if (!*s) break;
 		if (!strchr("IdvwrK", *s))
-		    rb_raise(rb_eRuntimeError, "Illegal switch in RUBYOPT: -%c", *s);
+		    rb_raise(rb_eRuntimeError, "illegal switch in RUBYOPT: -%c", *s);
 		s = moreswitches(s);
 	    }
 	}
@@ -837,12 +874,12 @@ load_file(fname, script)
 		if (RSTRING(line)->len > 2
 		    && RSTRING(line)->ptr[0] == '#'
 		    && RSTRING(line)->ptr[1] == '!') {
-		    if (p = strstr(RSTRING(line)->ptr, "ruby")) {
+		    if ((p = strstr(RSTRING(line)->ptr, "ruby")) != 0) {
 			goto start_read;
 		    }
 		}
 	    }
-	    rb_raise(rb_eLoadError, "No Ruby script found in input");
+	    rb_raise(rb_eLoadError, "no Ruby script found in input");
 	}
 
 	c = rb_io_getc(f);
@@ -889,7 +926,7 @@ load_file(fname, script)
 		RSTRING(line)->ptr[RSTRING(line)->len-1] = '\0';
 		if (RSTRING(line)->ptr[RSTRING(line)->len-2] == '\r')
 		    RSTRING(line)->ptr[RSTRING(line)->len-2] = '\0';
-		if (p = strstr(p, " -")) {
+		if ((p = strstr(p, " -")) != 0) {
 		    p++;	/* skip space before `-' */
 		    while (*p == '-') {
 			p = moreswitches(p+1);
@@ -934,6 +971,40 @@ VALUE rb_progname;
 VALUE rb_argv;
 VALUE rb_argv0;
 
+#if defined(__APPLE__) || (defined(PSTAT_SETCMD) || defined(HAVE_SETPROCTITLE))
+#elif defined(_WIN32)
+#elif defined(HAVE_SETENV) && defined(HAVE_UNSETENV)
+#else
+#define USE_ENVSPACE_FOR_ARG0
+#endif
+
+#ifdef USE_ENVSPACE_FOR_ARG0
+static struct {
+    char *begin, *end;
+} envspace;
+extern char **environ;
+
+static void
+set_arg0space()
+{
+    char *s;
+    int i;
+
+    if (!environ || (s = environ[0]) == NULL) return;
+    envspace.begin = s;
+    s += strlen(s);
+    for (i = 1; environ[i]; i++) {
+	if (environ[i] == s + 1) {
+	    s++;
+	    s += strlen(s);	/* this one is ok too */
+	}
+    }
+    envspace.end = s;
+}
+#else
+#define set_arg0space() ((void)0)
+#endif
+
 static void
 set_arg0(val, id)
     VALUE val;
@@ -941,25 +1012,27 @@ set_arg0(val, id)
 {
     char *s;
     long i;
+#if !defined(PSTAT_SETCMD) && !defined(HAVE_SETPROCTITLE)
     static int len;
+#endif
 
     if (origargv == 0) rb_raise(rb_eRuntimeError, "$0 not initialized");
     StringValue(val);
     s = RSTRING(val)->ptr;
     i = RSTRING(val)->len;
-#ifdef __hpux
+#if defined(PSTAT_SETCMD)
     if (i >= PST_CLEN) {
-      union pstun j;
-      j.pst_command = s;
-      i = PST_CLEN;
-      RSTRING(val)->len = i;
-      *(s + i) = '\0';
-      pstat(PSTAT_SETCMD, j, PST_CLEN, 0, 0);
+	union pstun j;
+	j.pst_command = s;
+	i = PST_CLEN;
+	RSTRING(val)->len = i;
+	*(s + i) = '\0';
+	pstat(PSTAT_SETCMD, j, PST_CLEN, 0, 0);
     }
     else {
-      union pstun j;
-      j.pst_command = s;
-      pstat(PSTAT_SETCMD, j, i, 0, 0);
+	union pstun j;
+	j.pst_command = s;
+	pstat(PSTAT_SETCMD, j, i, 0, 0);
     }
     rb_progname = rb_tainted_str_new(s, i);
 #elif defined(HAVE_SETPROCTITLE)
@@ -981,23 +1054,24 @@ set_arg0(val, id)
 		break;
 	    }
 	}
+#if defined(USE_ENVSPACE_FOR_ARG0)
+	if (s + 1 == envspace.begin) {
+	    s = envspace.end;
+	    ruby_setenv("", NULL); /* duplicate environ vars */
+	}
+#endif
 	len = s - origargv[0];
     }
 
     if (i >= len) {
 	i = len;
-	memcpy(origargv[0], s, i);
-	origargv[0][i] = '\0';
     }
-    else {
-	memcpy(origargv[0], s, i);
-	s = origargv[0]+i;
-	*s++ = '\0';
-	while (++i < len)
-	    *s++ = ' ';
-	for (i = 1; i < origargc; i++)
-	    origargv[i] = 0;
-    }
+    memcpy(origargv[0], s, i);
+    s = origargv[0] + i;
+    *s = '\0';
+    if (++i < len) memset(s + 1, ' ', len - i);
+    for (i = 1; i < origargc; i++)
+	origargv[i] = s;
     rb_progname = rb_tainted_str_new2(origargv[0]);
 #endif
 }
@@ -1035,11 +1109,11 @@ forbid_setid(s)
     const char *s;
 {
     if (euid != uid)
-        rb_raise(rb_eSecurityError, "No %s allowed while running setuid", s);
+        rb_raise(rb_eSecurityError, "no %s allowed while running setuid", s);
     if (egid != gid)
-        rb_raise(rb_eSecurityError, "No %s allowed while running setgid", s);
+        rb_raise(rb_eSecurityError, "no %s allowed while running setgid", s);
     if (rb_safe_level() > 0)
-        rb_raise(rb_eSecurityError, "No %s allowed in tainted mode", s);
+        rb_raise(rb_eSecurityError, "no %s allowed in tainted mode", s);
 }
 
 static void
@@ -1068,8 +1142,8 @@ ruby_prog_init()
     rb_define_hooked_variable("$0", &rb_progname, 0, set_arg0);
     rb_define_hooked_variable("$PROGRAM_NAME", &rb_progname, 0, set_arg0);
 
-    rb_argv = rb_ary_new();
     rb_define_readonly_variable("$*", &rb_argv);
+    rb_argv = rb_ary_new();
     rb_define_global_const("ARGV", rb_argv);
     rb_define_readonly_variable("$-a", &do_split);
     rb_global_variable(&rb_argv0);
@@ -1116,6 +1190,7 @@ ruby_process_options(argc, argv)
 #if defined(USE_DLN_A_OUT)
     dln_argv0 = argv[0];
 #endif
+    set_arg0space();
     proc_options(argc, argv);
 
     if (do_check && ruby_nerrs == 0) {

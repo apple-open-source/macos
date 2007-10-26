@@ -1,0 +1,23 @@
+
+--- ./src/main/http_main.c.orig	2007-03-13 10:49:34.000000000 -0700
++++ ./src/main/http_main.c	2007-03-13 14:58:09.000000000 -0700
+@@ -3476,7 +3476,7 @@
+     }
+ #endif
+ #ifndef NO_SETSID
+-    if ((pgrp = setsid()) == -1) {
++    if (!ap_exists_config_define("LAUNCHD") && (pgrp = setsid()) == -1) {
+ 	perror("setsid");
+ 	fprintf(stderr, "%s: setsid failed\n", ap_server_argv0);
+ 	if (!do_detach) 
+--- ./src/modules/proxy/proxy_cache.c.orig	2007-03-13 15:00:29.000000000 -0700
++++ ./src/modules/proxy/proxy_cache.c	2007-03-13 15:01:10.000000000 -0700
+@@ -193,7 +193,7 @@
+         case 0:         /* Child */
+             /* The setpgrp() stuff was snarfed from http_main.c */
+ #ifndef NO_SETSID
+-            if ((pgrp = setsid()) == -1) {
++            if (!ap_exists_config_define("LAUNCHD") && (pgrp = setsid()) == -1) {
+                 perror("setsid");
+                 fprintf(stderr, "%s: setsid failed\n",
+                         ap_server_argv0);

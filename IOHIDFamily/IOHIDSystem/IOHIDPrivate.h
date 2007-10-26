@@ -22,14 +22,24 @@
  */
 #ifndef _IOKIT_HID_IOHIDPRIVATE_H
 #define _IOKIT_HID_IOHIDPRIVATE_H
+#include <sys/cdefs.h>
 
+enum {
+    kIOHIDStackShotNotification = 1,
+    kIOHIDStackShotConnectType = 2
+};
+
+#ifdef KERNEL
 #include <IOKit/hidsystem/ev_keymap.h>
 
 #define DISPATCH_POWER_KEY_EVENT(keyDown) \
     _DispatchKeyboardSpecialEvent ( NX_POWER_KEY, keyDown )
 
-extern "C" { 
+__BEGIN_DECLS
     void _DispatchKeyboardSpecialEvent(int key, bool down);
-}
+__END_DECLS
+#endif
+
+
 
 #endif /* !_IOKIT_HID_IOHIDPRIVATE_H */

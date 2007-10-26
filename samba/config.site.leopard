@@ -1,0 +1,74 @@
+# Preload all the cache variables for any test that uses AC_TRY_RUN.
+# We need this to get reproducable builds in a cross-compilation
+# environment. See PR 4854813.
+
+samba_cv_HAVE_Wdeclaration_after_statement=yes
+samba_cv_HAVE_Werror=yes
+samba_cv_HAVE_w2=yes
+
+SMB_BUILD_CC_NEGATIVE_ENUM_VALUES=yes # Whether the C compiler understands
+				      # negative enum values
+
+samba_cv_have_longlong=yes # Whether we have a long long integer
+samba_cv_SIZEOF_OFF_T=yes # Whether off_t is 8 bytes
+samba_cv_HAVE_OFF64_T=no # Whether we have off64_t
+samba_cv_SIZEOF_INO_T=n # Whether ino_t is 8 bytes
+samba_cv_HAVE_INO64_T=yes # Whether we have ino64_t
+samba_cv_SIZEOF_DEV_T=no # Whether dev_t is 8 bytes
+samba_cv_HAVE_DEV64_T=no # Whether we have dev64_t
+samba_cv_HAVE_DEVICE_MAJOR_FN=yes # Whether we have the major() macro
+samba_cv_HAVE_DEVICE_MINOR_FN=yes # Whether we have the minor() macro
+samba_cv_HAVE_MAKEDEV=yes # Whether we have the makedev() macro
+samba_cv_HAVE_UNSIGNED_CHAR=no # Whether char is unsigned
+samba_cv_HAVE_GETTIMEOFDAY_TZ=yes # Whether gettimeofday accepts a NULL tz
+samba_cv_HAVE_C99_VSNPRINTF=yes # Whether snprintf is C99
+samba_cv_HAVE_BROKEN_READDIR_NAME=no
+
+samba_cv_HAVE_KERNEL_OPLOCKS_LINUX=no
+samba_cv_HAVE_KERNEL_CHANGE_NOTIFY=no
+samba_cv_HAVE_KERNEL_SHARE_MODES=no
+samba_cv_HAVE_POSIX_CAPABILITIES=no
+
+samba_cv_HAVE_FTRUNCATE_EXTEND=yes # Whether ftruncate can extend files
+samba_cv_HAVE_WORKING_AF_LOCAL=yes
+samba_cv_HAVE_BROKEN_GETGROUPS=no
+samba_cv_REPLACE_INET_NTOA=no
+samba_cv_HAVE_SECURE_MKSTEMP=yes
+
+# This depends on when libc readdir64 starts using getdirentries64
+samba_cv_HAVE_BROKEN_READDIR=yes
+samba_cv_REPLACE_READDIR=no # replacing doesn't help
+
+samba_cv_HAVE_ROOT=yes # Should be true for running under buildit
+
+samba_cv_HAVE_IFACE_GETIFADDRS=yes
+samba_cv_HAVE_IFACE_AIX=no
+samba_cv_HAVE_IFACE_IFCONF=no
+samba_cv_HAVE_IFACE_IFREQ=no
+
+# Force the use of setuid to change the user
+samba_cv_USE_SETRESUID=no
+samba_cv_USE_SETREUID=no
+samba_cv_USE_SETEUID=yes
+samba_cv_USE_SETUIDX=no
+
+samba_cv_HAVE_MMAP=yes
+
+samba_cv_HAVE_FCNTL_LOCK=yes
+samba_cv_HAVE_BROKEN_FCNTL64_LOCKS=no
+samba_cv_HAVE_STRUCT_FLOCK64=no
+
+samba_cv_REALPATH_TAKES_NULL=no
+samba_cv_HAVE_WRFILE_KEYTAB=yes
+
+samba_cv_HAVE_TRUNCATED_SALT=no
+
+# As of 4768567 we support sysquotas via the quotactl 4B interface on Darwin.
+samba_cv_HAVE_QUOTACTL_4B=yes
+
+fu_cv_sys_stat_statvfs64=no
+fu_cv_sys_stat_statfs3_osf1=no
+fu_cv_sys_stat_statfs2_bsize=no
+fu_cv_sys_stat_statfs4=no
+fu_cv_sys_stat_statfs2_fsize=no
+fu_cv_sys_stat_fs_data=no

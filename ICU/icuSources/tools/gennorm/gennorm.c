@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2004, International Business Machines
+*   Copyright (C) 2001-2005, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -39,10 +39,6 @@ U_CDECL_BEGIN
 #include "gennorm.h"
 U_CDECL_END
 
-#ifdef WIN32
-#   pragma warning(disable: 4100)
-#endif
-
 UBool beVerbose=FALSE, haveCopyright=TRUE;
 
 /* prototypes --------------------------------------------------------------- */
@@ -63,7 +59,9 @@ enum {
     DESTDIR,
     SOURCEDIR,
     UNICODE_VERSION,
-    ICUDATADIR
+    ICUDATADIR,
+    CSOURCE,
+    STORE_FLAGS
 };
 
 static UOption options[]={
@@ -73,8 +71,10 @@ static UOption options[]={
     UOPTION_COPYRIGHT,
     UOPTION_DESTDIR,
     UOPTION_SOURCEDIR,
-    { "unicode", NULL, NULL, NULL, 'u', UOPT_REQUIRES_ARG, 0 },
-    UOPTION_ICUDATADIR
+    UOPTION_DEF("unicode", 'u', UOPT_REQUIRES_ARG),
+    UOPTION_ICUDATADIR,
+    UOPTION_DEF("csource", 'C', UOPT_NO_ARG),
+    UOPTION_DEF("prune", 'p', UOPT_REQUIRES_ARG)
 };
 
 extern int
@@ -118,7 +118,19 @@ main(int argc, char* argv[]) {
             "\t-h or -? or --help  this usage text\n"
             "\t-v or --verbose     verbose output\n"
             "\t-c or --copyright   include a copyright notice\n"
-            "\t-u or --unicode     Unicode version, followed by the version like 3.0.0\n");
+            "\t-u or --unicode     Unicode version, followed by the version like 3.0.0\n"
+            "\t-C or --csource     generate a .c source file rather than the .icu binary\n");
+        fprintf(stderr,
+            "\t-p or --prune flags Prune for data modularization:\n"
+            "\t                    Determine what data is to be stored.\n"
+            "\t        0 (zero) stores minimal data (only for NFD)\n"
+            "\t        lowercase letters turn off data, uppercase turn on (use with 0)\n");
+        fprintf(stderr,
+            "\t        k: compatibility decompositions (NFKC, NFKD)\n"
+            "\t        c: composition data (NFC, NFKC)\n"
+            "\t        f: FCD data (will be generated at load time)\n"
+            "\t        a: auxiliary data (canonical closure etc.)\n"
+            "\t        x: exclusion sets (Unicode 3.2-level normalization)\n");
         fprintf(stderr,
             "\t-d or --destdir     destination directory, followed by the path\n"
             "\t-s or --sourcedir   source directory, followed by the path\n"
@@ -149,7 +161,7 @@ main(int argc, char* argv[]) {
         "gennorm writes a dummy " U_ICUDATA_NAME "_" DATA_NAME "." DATA_TYPE
         " because UCONFIG_NO_NORMALIZATION is set, \n"
         "see icu/source/common/unicode/uconfig.h\n");
-    generateData(destDir);
+    generateData(destDir, options[CSOURCE].doesOccur);
 
 #else
 
@@ -157,6 +169,57 @@ main(int argc, char* argv[]) {
 
     if (options[ICUDATADIR].doesOccur) {
         u_setDataDirectory(options[ICUDATADIR].value);
+    }
+
+    if(options[STORE_FLAGS].doesOccur) {
+        const char *s=options[STORE_FLAGS].value;
+        char c;
+
+        while((c=*s++)!=0) {
+            switch(c) {
+            case '0':
+                gStoreFlags=0;  /* store minimal data (only for NFD) */
+                break;
+
+            /* lowercase letters: omit data */
+            case 'k':
+                gStoreFlags&=~U_MASK(UGENNORM_STORE_COMPAT);
+                break;
+            case 'c':
+                gStoreFlags&=~U_MASK(UGENNORM_STORE_COMPOSITION);
+                break;
+            case 'f':
+                gStoreFlags&=~U_MASK(UGENNORM_STORE_FCD);
+                break;
+            case 'a':
+                gStoreFlags&=~U_MASK(UGENNORM_STORE_AUX);
+                break;
+            case 'x':
+                gStoreFlags&=~U_MASK(UGENNORM_STORE_EXCLUSIONS);
+                break;
+
+            /* uppercase letters: include data (use with 0) */
+            case 'K':
+                gStoreFlags|=U_MASK(UGENNORM_STORE_COMPAT);
+                break;
+            case 'C':
+                gStoreFlags|=U_MASK(UGENNORM_STORE_COMPOSITION);
+                break;
+            case 'F':
+                gStoreFlags|=U_MASK(UGENNORM_STORE_FCD);
+                break;
+            case 'A':
+                gStoreFlags|=U_MASK(UGENNORM_STORE_AUX);
+                break;
+            case 'X':
+                gStoreFlags|=U_MASK(UGENNORM_STORE_EXCLUSIONS);
+                break;
+
+            default:
+                fprintf(stderr, "ignoring undefined prune flag '%c'\n", c);
+                break;
+            }
+        }
     }
 
     /*
@@ -226,7 +289,7 @@ main(int argc, char* argv[]) {
         processData();
 
         /* write the properties data file */
-        generateData(destDir);
+        generateData(destDir, options[CSOURCE].doesOccur);
 
         cleanUpData();
     }
@@ -378,6 +441,12 @@ unicodeDataLineFn(void *context,
 
     /* reset the properties */
     uprv_memset(&norm, 0, sizeof(Norm));
+
+    /*
+     * The combiningIndex must not be initialized to 0 because 0 is the
+     * combiningIndex of the first forward-combining character.
+     */
+    norm.combiningIndex=0xffff;
 
     /* get the character code, field 0 */
     code=(uint32_t)uprv_strtoul(fields[0][0], &end, 16);

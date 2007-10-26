@@ -1,21 +1,11 @@
---- doc/Makefile.in.orig	Sat Nov 20 20:41:52 2004
-+++ doc/Makefile.in	Sat Nov 20 20:42:07 2004
-@@ -40,7 +40,6 @@
- info: m4.info
+--- doc/Makefile.in.orig	2006-09-21 19:42:44.000000000 -0700
++++ doc/Makefile.in	2006-09-21 19:45:29.000000000 -0700
+@@ -506,7 +506,7 @@
  
- m4.info: m4.texinfo version.texi
--	cd $(srcdir) && $(MAKEINFO) m4.texinfo
+ info-am: $(INFO_DEPS)
  
- dvi: m4.dvi
+-install-data-am: install-info-am install-man
++install-data-am: install-man
  
-@@ -57,10 +56,6 @@
- 	date > $(srcdir)/stamp-vti
+ install-exec-am:
  
- install: all
--	$(srcdir)/../mkinstalldirs $(infodir)
--	cd $(srcdir) && for file in m4.info*; do \
--	  $(INSTALL_DATA) $$file $(infodir)/$$file; \
--	done
- 
- uninstall:
- 	rm -f $(infodir)/m4.info*

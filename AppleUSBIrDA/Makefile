@@ -1,23 +1,20 @@
 #
 # silly makefile cause Jim's fingers type 'make' without any cognitive input
 #
-all:	build DumpLog/dumplog IrDAStatus/build  IrDADebugLog/build
+all:	build DumpLog/dumplog 
 
 build:
-	pbxbuild
+	xcodebuild
 
 DumpLog/dumplog: 
 	(cd DumpLog ; make)
 
-IrDAStatus/build:
-	(cd IrDAStatus ; pbxbuild)
-
-IrDADebugLog/build:
-	(cd IrDADebugLog ; pbxbuild)
-	
 clean:
 	(cd DumpLog ; make clean)
-	pbxbuild clean ; rm -rf build
-	(cd IrDAStatus ; pbxbuild clean ; rm -rf build)
-	(cd IrDADebugLog ; pbxbuild clean ; rm -rf build)
+	xcodebuild clean ; rm -rf build
+
+install:
+	sudo xcodebuild install DSTROOT=/
+	sudo touch /System/Library/Extensions
+	sync
 

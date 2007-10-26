@@ -1,0 +1,183 @@
+--- _SB/Libc/string/FreeBSD/wmemchr.3	2003-05-20 15:23:56.000000000 -0700
++++ _SB/Libc/string/FreeBSD/wmemchr.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -43,11 +43,6 @@
+ .Dt WMEMCHR 3
+ .Os
+ .Sh NAME
+-.Nm wmemchr ,
+-.Nm wmemcmp ,
+-.Nm wmemcpy ,
+-.Nm wmemmove ,
+-.Nm wmemset ,
+ .Nm wcscat ,
+ .Nm wcschr ,
+ .Nm wcscmp ,
+@@ -62,57 +57,131 @@
+ .Nm wcspbrk ,
+ .Nm wcsrchr ,
+ .Nm wcsspn ,
+-.Nm wcsstr
++.Nm wcsstr ,
++.Nm wmemchr ,
++.Nm wmemcmp ,
++.Nm wmemcpy ,
++.Nm wmemmove ,
++.Nm wmemset
+ .Nd wide character string manipulation operations
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+ .In wchar.h
+ .Ft wchar_t *
+-.Fn wmemchr "const wchar_t *s" "wchar_t c" "size_t n"
++.Fo wcscat
++.Fa "wchar_t *restrict ws1"
++.Fa "const wchar_t *restrict ws2"
++.Fc
++.Ft wchar_t *
++.Fo wcschr
++.Fa "const wchar_t *ws"
++.Fa "wchar_t wc"
++.Fc
+ .Ft int
+-.Fn wmemcmp "const wchar_t *s1" "const wchar_t *s2" "size_t n"
+-.Ft wchar_t *
+-.Fn wmemcpy "wchar_t * restrict s1" "const wchar_t * restrict s2" "size_t n"
+-.Ft wchar_t *
+-.Fn wmemmove "wchar_t *s1" "const wchar_t *s2" "size_t n"
+-.Ft wchar_t *
+-.Fn wmemset "wchar_t *s" "wchar_t c" "size_t n"
+-.Ft wchar_t *
+-.Fn wcscat "wchar_t * restrict s1" "const wchar_t * restrict s2"
+-.Ft wchar_t *
+-.Fn wcschr "const wchar_t *s" "wchar_t c"
+-.Ft int
+-.Fn wcscmp "const wchar_t *s1" "const wchar_t *s2"
+-.Ft wchar_t *
+-.Fn wcscpy "wchar_t * restrict s1" "const wchar_t * restrict s2"
++.Fo wcscmp
++.Fa "const wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fc
++.Ft wchar_t *
++.Fo wcscpy
++.Fa "wchar_t *restrict ws1"
++.Fa "const wchar_t *restrict ws2"
++.Fc
+ .Ft size_t
+-.Fn wcscspn "const wchar_t *s1" "const wchar_t *s2"
++.Fo wcscspn
++.Fa "const wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fc
+ .Ft size_t
+-.Fn wcslcat "wchar_t *s1" "const wchar_t *s2" "size_t n"
++.Fo wcslcat
++.Fa "wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fa "size_t n"
++.Fc
+ .Ft size_t
+-.Fn wcslcpy "wchar_t *s1" "const wchar_t *s2" "size_t n"
++.Fo wcslcpy
++.Fa "wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fa "size_t n"
++.Fc
+ .Ft size_t
+-.Fn wcslen "const wchar_t *s"
+-.Ft wchar_t *
+-.Fn wcsncat "wchar_t * restrict s1" "const wchar_t * restrict s2" "size_t n"
++.Fo wcslen
++.Fa "const wchar_t *ws"
++.Fc
++.Ft wchar_t *
++.Fo wcsncat
++.Fa "wchar_t *restrict ws1"
++.Fa "const wchar_t *restrict ws2"
++.Fa "size_t n"
++.Fc
+ .Ft int
+-.Fn wcsncmp "const wchar_t *s1" "const wchar_t * s2" "size_t n"
+-.Ft wchar_t *
+-.Fn wcsncpy "wchar_t * restrict s1" "const wchar_t * restrict s2" "size_t n"
+-.Ft wchar_t *
+-.Fn wcspbrk "const wchar_t *s1" "const wchar_t *s2"
+-.Ft wchar_t *
+-.Fn wcsrchr "const wchar_t *s" "wchar_t c"
++.Fo wcsncmp
++.Fa "const wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fa "size_t n"
++.Fc
++.Ft wchar_t *
++.Fo wcsncpy
++.Fa "wchar_t *restrict ws1"
++.Fa "const wchar_t *restrict ws2"
++.Fa "size_t n"
++.Fc
++.Ft wchar_t *
++.Fo wcspbrk
++.Fa "const wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fc
++.Ft wchar_t *
++.Fo wcsrchr
++.Fa "const wchar_t *ws"
++.Fa "wchar_t wc"
++.Fc
+ .Ft size_t
+-.Fn wcsspn "const wchar_t *s1" "const wchar_t *s2"
+-.Ft wchar_t *
+-.Fn wcsstr "const wchar_t * restrict s1" "const wchar_t * restrict s2"
++.Fo wcsspn
++.Fa "const wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fc
++.Ft wchar_t *
++.Fo wcsstr
++.Fa "const wchar_t *restrict ws1"
++.Fa "const wchar_t *restrict ws2"
++.Fc
++.Ft wchar_t *
++.Fo wmemchr
++.Fa "const wchar_t *ws"
++.Fa "wchar_t wc"
++.Fa "size_t n"
++.Fc
++.Ft int
++.Fo wmemcmp
++.Fa "const wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fa "size_t n"
++.Fc
++.Ft wchar_t *
++.Fo wmemcpy
++.Fa "wchar_t *restrict ws1"
++.Fa "const wchar_t *restrict ws2"
++.Fa "size_t n"
++.Fc
++.Ft wchar_t *
++.Fo wmemmove
++.Fa "wchar_t *ws1"
++.Fa "const wchar_t *ws2"
++.Fa "size_t n"
++.Fc
++.Ft wchar_t *
++.Fo wmemset
++.Fa "wchar_t *ws"
++.Fa "wchar_t wc"
++.Fa "size_t n"
++.Fc
+ .Sh DESCRIPTION
+-The functions implement string manipulation operations over wide character
+-strings.
+-For a detailed description, refer to documents for the respective single-byte
+-counterpart, such as
++The functions implement string manipulation operations
++over wide character strings.
++For a detailed description,
++refer to documents for the respective single-byte counterpart, such as
+ .Xr memchr 3 .
+ .Sh SEE ALSO
+ .Xr memchr 3 ,

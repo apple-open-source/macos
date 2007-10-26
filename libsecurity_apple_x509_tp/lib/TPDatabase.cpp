@@ -85,6 +85,8 @@ static CSSM_DB_UNIQUE_RECORD_PTR tpCertLookup(
  * TPCertInfo associated with the raw cert. 
  * A true partialIssuerKey on return indicates that caller must deal
  * with partial public key processing later. 
+ * If verifyCurrent is true, we will not return a cert which is not
+ * temporally valid; else we may well do so. 
  */
 TPCertInfo *tpDbFindIssuerCert(
 	Allocator				&alloc,
@@ -102,7 +104,8 @@ TPCertInfo *tpDbFindIssuerCert(
 	CSSM_DB_UNIQUE_RECORD_PTR	record;
 	TPCertInfo 					*issuerCert = NULL;
 	bool 						foundIt;
-
+	TPCertInfo					*expiredIssuer = NULL;
+	
 	partialIssuerKey = false;
 	if(dbList == NULL) {
 		return NULL;
@@ -111,6 +114,7 @@ TPCertInfo *tpDbFindIssuerCert(
 		dlDb = dbList->DLDBHandle[dbDex];
 		cert.Data = NULL;
 		cert.Length = 0;
+		resultHand = 0;
 		record = tpCertLookup(dlDb,
 			subjectItem->issuerName(),
 			&resultHand,
@@ -124,16 +128,43 @@ TPCertInfo *tpDbFindIssuerCert(
 		if(record != NULL) {
 			/* Found one */
 			assert(cert.Data != NULL);
-			issuerCert = new TPCertInfo(clHand, cspHand, &cert, TIC_CopyData, verifyTime);
+			tpDbDebug("tpDbFindIssuerCert: found cert record %p", record);
+			issuerCert = NULL;
+			CSSM_RETURN crtn = CSSM_OK;
+			try {
+				issuerCert = new TPCertInfo(clHand, cspHand, &cert, TIC_CopyData, verifyTime);
+			}
+			catch(...) {
+				crtn = CSSMERR_TP_INVALID_CERTIFICATE;
+			}
+
 			/* we're done with raw cert data */
-			/* FIXME this assumes that alloc is the same as the 
-			 * allocator associated with DlDB...OK? */
-			tpFreeCssmData(alloc, &cert, CSSM_FALSE);
+			tpFreePluginMemory(dlDb.DLHandle, cert.Data);
 			cert.Data = NULL;
 			cert.Length = 0;
 			
 			/* Does it verify the subject cert? */
-			CSSM_RETURN crtn = subjectItem->verifyWithIssuer(issuerCert);
+			if(crtn == CSSM_OK) {
+				crtn = subjectItem->verifyWithIssuer(issuerCert);
+			}
+			
+			/*
+			 * Handle temporal invalidity - if so and this is the first one 
+			 * we've seen, hold on to it while we search for better one.
+			 */
+			if((crtn == CSSM_OK) && (expiredIssuer == NULL)) {
+				if(issuerCert->isExpired() || issuerCert->isNotValidYet()) {
+					/* 
+					 * Exact value not important here, this just uniquely identifies 
+					 * this situation in the switch below.
+					 */
+					tpDbDebug("tpDbFindIssuerCert: holding expired cert (1)");
+					crtn = CSSM_CERT_STATUS_EXPIRED;
+					expiredIssuer = issuerCert;
+					expiredIssuer->dlDbHandle(dlDb);
+					expiredIssuer->uniqueRecord(record);
+				}
+			}
 			switch(crtn) {
 				case CSSM_OK:
 					break;
@@ -141,17 +172,20 @@ TPCertInfo *tpDbFindIssuerCert(
 					partialIssuerKey = true;
 					break;
 				default:
-					delete issuerCert;
 					issuerCert = NULL;
-					CSSM_DL_FreeUniqueRecord(dlDb, record);
+					if(crtn != CSSM_CERT_STATUS_EXPIRED) {
+						delete issuerCert;
+						CSSM_DL_FreeUniqueRecord(dlDb, record);
+					}
 					
 					/*
-					* Verify fail. Continue searching this DB. Break on 
-					* finding the holy grail or no more records found. 
-					*/
+					 * Continue searching this DB. Break on finding the holy 
+					 * grail or no more records found. 
+					 */
 					for(;;) {
 						cert.Data = NULL;
 						cert.Length = 0;
+						record = NULL;
 						CSSM_RETURN crtn = CSSM_DL_DataGetNext(dlDb, 
 							resultHand,
 							NULL,		// no attrs 
@@ -163,17 +197,36 @@ TPCertInfo *tpDbFindIssuerCert(
 							break;
 						}
 						assert(cert.Data != NULL);
+						tpDbDebug("tpDbFindIssuerCert: found cert record %p", record);
 						
 						/* found one - does it verify subject? */
-						issuerCert = new TPCertInfo(clHand, cspHand, &cert, TIC_CopyData, 
-								verifyTime);
+						try {
+							issuerCert = new TPCertInfo(clHand, cspHand, &cert, TIC_CopyData, 
+									verifyTime);
+						}
+						catch(...) {
+							crtn = CSSMERR_TP_INVALID_CERTIFICATE;
+						}
 						/* we're done with raw cert data */
-						tpFreeCssmData(alloc, &cert, CSSM_FALSE);
+						tpFreePluginMemory(dlDb.DLHandle, cert.Data);
 						cert.Data = NULL;
 						cert.Length = 0;
 	
-						/* FIXME - figure out allowExpire, etc. */
-						crtn = subjectItem->verifyWithIssuer(issuerCert);
+						if(crtn == CSSM_OK) {
+							crtn = subjectItem->verifyWithIssuer(issuerCert);
+						}
+
+						/* temporal validity check, again */
+						if((crtn == CSSM_OK) && (expiredIssuer == NULL)) {
+							if(issuerCert->isExpired() || issuerCert->isNotValidYet()) {
+								tpDbDebug("tpDbFindIssuerCert: holding expired cert (2)");
+								crtn = CSSM_CERT_STATUS_EXPIRED;
+								expiredIssuer = issuerCert;
+								expiredIssuer->dlDbHandle(dlDb);
+								expiredIssuer->uniqueRecord(record);
+							}
+						}
+
 						foundIt = false;
 						switch(crtn) {
 							case CSSM_OK:
@@ -190,29 +243,45 @@ TPCertInfo *tpDbFindIssuerCert(
 							/* yes! */
 							break;
 						}
-						delete issuerCert;
-						CSSM_DL_FreeUniqueRecord(dlDb, record);
+						if(crtn != CSSM_CERT_STATUS_EXPIRED) {
+							delete issuerCert;
+							CSSM_DL_FreeUniqueRecord(dlDb, record);
+						}
 						issuerCert = NULL;
 					} /* searching subsequent records */
 			}	/* switch verify */
 
+			if(record != NULL) {
+				/* NULL record --> end of search --> DB auto-aborted */
+				crtn = CSSM_DL_DataAbortQuery(dlDb, resultHand);
+				assert(crtn == CSSM_OK);
+			}
 			if(issuerCert != NULL) {
 				/* successful return */
-				tpDebug("tpDbFindIssuer: found cert record %p", record);
-				CSSM_DL_DataAbortQuery(dlDb, resultHand);
+				tpDbDebug("tpDbFindIssuer: returning record %p", record);
 				issuerCert->dlDbHandle(dlDb);
 				issuerCert->uniqueRecord(record);
+				if(expiredIssuer != NULL) {
+					/* We found a replacement */
+					tpDbDebug("tpDbFindIssuer: discarding expired cert");
+					expiredIssuer->freeUniqueRecord();
+					delete expiredIssuer;
+				}
 				return issuerCert;
 			}
 		}	/* tpCertLookup, i.e., CSSM_DL_DataGetFirst, succeeded */
 		else {
 			assert(cert.Data == NULL);
+			assert(resultHand == 0);
 		}
-		/* in any case, abort the query for this db */
-		CSSM_DL_DataAbortQuery(dlDb, resultHand);
-		
 	}	/* main loop searching dbList */
 
+	if(expiredIssuer != NULL) {
+		/* OK, we'll take this one */
+		tpDbDebug("tpDbFindIssuer: taking expired cert after all, record %p", 
+			expiredIssuer->uniqueRecord());
+		return expiredIssuer;
+	}
 	/* issuer not found */
 	return NULL;
 }
@@ -429,280 +498,3 @@ TPCrlInfo *tpDbFindIssuerCrl(
 	return NULL;
 }
 
-#if WRITE_FETCHED_CRLS_TO_DB
-/*
- * Update an existing DLDB to be CRL-capable.
- */
-static CSSM_RETURN tpAddCrlSchema(
-	CSSM_DL_DB_HANDLE	dlDbHand)
-{
-	return CSSM_DL_CreateRelation(dlDbHand,
-		CSSM_DL_DB_RECORD_X509_CRL,
-		"CSSM_DL_DB_RECORD_X509_CRL",
-		Security::KeychainCore::Schema::X509CrlSchemaAttributeCount,
-		Security::KeychainCore::Schema::X509CrlSchemaAttributeList,
-		Security::KeychainCore::Schema::X509CrlSchemaIndexCount,
-		Security::KeychainCore::Schema::X509CrlSchemaIndexList);		
-}
-
-/*
- * Search extensions for specified OID, assumed to have underlying
- * value type of uint32; returns the value and true if found.
- */
-static bool tpSearchNumericExtension(
-	const CSSM_X509_EXTENSIONS	*extens,
-	const CSSM_OID				*oid,
-	uint32						*val)
-{
-	for(uint32 dex=0; dex<extens->numberOfExtensions; dex++) {
-		const CSSM_X509_EXTENSION *exten = &extens->extensions[dex];
-		if(!tpCompareOids(&exten->extnId, oid)) {
-			continue;
-		}
-		if(exten->format != CSSM_X509_DATAFORMAT_PARSED) {
-			tpErrorLog("***Malformed CRL extension\n");
-			continue;
-		}
-		*val = *((uint32 *)exten->value.parsedValue);
-		return true;
-	}
-	return false;
-}
-
-/*
- * Store a CRL in a DLDB.
- * We store the following attributes:
- *
- *		CrlType
- * 		CrlEncoding
- *		PrintName (Inferred from issuer)
- *		Issuer
- *		ThisUpdate
- *		NextUpdate
- *		URI (if present)
- * 		CrlNumber (if present)
- *		DeltaCrlNumber (if present)
- */
-#define MAX_CRL_ATTRS	9
-
-CSSM_RETURN tpDbStoreCrl(
-	TPCrlInfo			&crl,
-	CSSM_DL_DB_HANDLE	&dlDbHand)
-{
-	CSSM_DB_ATTRIBUTE_DATA			attrs[MAX_CRL_ATTRS];
-	CSSM_DB_RECORD_ATTRIBUTE_DATA	recordAttrs;
-	CSSM_DB_ATTRIBUTE_DATA_PTR		attr = &attrs[0];
-	CSSM_DATA						crlTypeData;
-	CSSM_DATA						crlEncData;
-	CSSM_RETURN						crtn;
-	CSSM_DB_UNIQUE_RECORD_PTR		recordPtr;
-	CSSM_CRL_ENCODING 				crlEnc = CSSM_CRL_ENCODING_DER;
-	const CSSM_X509_TBS_CERTLIST 	*tbsCrl;
-	CSSM_CRL_TYPE 					crlType;
-	CSSM_DATA 						thisUpdateData = {0, NULL};
-	CSSM_DATA 						nextUpdateData = {0, NULL};
-	char							thisUpdate[CSSM_TIME_STRLEN+1];
-	char							nextUpdate[CSSM_TIME_STRLEN+1];
-	uint32							crlNumber;
-	uint32							deltaCrlNumber;
-	CSSM_DATA						crlNumberData;
-	CSSM_DATA						deltaCrlNumberData;
-	bool							crlNumberPresent = false;
-	bool							deltaCrlPresent = false;
-	
-	tbsCrl = &(crl.x509Crl()->tbsCertList);
-	
-	/* CrlType inferred from version */
-	if(tbsCrl->version.Length == 0) {
-		/* should never happen... */
-		crlType = CSSM_CRL_TYPE_X_509v1;
-	}
-	else {
-		uint8 vers = tbsCrl->version.Data[tbsCrl->version.Length - 1];
-		switch(vers) {
-			case 0:
-				crlType = CSSM_CRL_TYPE_X_509v1;
-				break;
-			case 1:
-				crlType = CSSM_CRL_TYPE_X_509v2;
-				break;
-			default:
-				tpErrorLog("***Unknown version in CRL (%u)\n", vers);
-				crlType = CSSM_CRL_TYPE_X_509v1;
-				break;
-		}
-	}
-	crlTypeData.Data = (uint8 *)&crlType;
-	crlTypeData.Length = sizeof(CSSM_CRL_TYPE);
-	/* encoding more-or-less assumed here */
-	crlEncData.Data = (uint8 *)&crlEnc;
-	crlEncData.Length = sizeof(CSSM_CRL_ENCODING);
-	
-	/* printName inferred from issuer */
-	CSSM_DATA printName;
-	const CSSM_DATA *printNamePtr;
-	printNamePtr = SecInferLabelFromX509Name(&tbsCrl->issuer);
-	if(printNamePtr) {
-		printName = *(const_cast<CSSM_DATA *>(printNamePtr));
-	}
-	else {
-		printName.Data = (uint8 *)"X509 CRL";
-		printName.Length = 8;
-	}
-	
-	/* cook up CSSM_TIMESTRING versions of this/next update */
-	int rtn = tpTimeToCssmTimestring((const char *)tbsCrl->thisUpdate.time.Data, 
-		tbsCrl->thisUpdate.time.Length,
-		thisUpdate);
-	if(rtn) {
-		tpErrorLog("***Badly formatted thisUpdate\n");
-	}
-	else {
-		thisUpdateData.Data = (uint8 *)thisUpdate;
-		thisUpdateData.Length = CSSM_TIME_STRLEN;
-	}
-	if(tbsCrl->nextUpdate.time.Data != NULL) {
-		rtn = tpTimeToCssmTimestring((const char *)tbsCrl->nextUpdate.time.Data, 
-			tbsCrl->nextUpdate.time.Length,
-			nextUpdate);
-		if(rtn) {
-			tpErrorLog("***Badly formatted nextUpdate\n");
-		}
-		else {
-			nextUpdateData.Data = (uint8 *)nextUpdate;
-			nextUpdateData.Length = CSSM_TIME_STRLEN;
-		}
-	}
-	else {
-		/*
-		 * NextUpdate not present; fake it by using "virtual end of time"
-		 */
-		tpTimeToCssmTimestring(CSSM_APPLE_CRL_END_OF_TIME, 
-			strlen(CSSM_APPLE_CRL_END_OF_TIME),	nextUpdate);
-		nextUpdateData.Data = (uint8 *)nextUpdate;
-		nextUpdateData.Length = CSSM_TIME_STRLEN;
-	}
-	
-	/* optional CrlNumber and DeltaCrlNumber */
-	if(tpSearchNumericExtension(&tbsCrl->extensions,
-			&CSSMOID_CrlNumber,
-			&crlNumber)) {
-		crlNumberData.Data = (uint8 *)&crlNumber;
-		crlNumberData.Length = sizeof(uint32);
-		crlNumberPresent = true;
-	}
-	if(tpSearchNumericExtension(&tbsCrl->extensions,
-			&CSSMOID_DeltaCrlIndicator,
-			&deltaCrlNumber)) {
-		deltaCrlNumberData.Data = (uint8 *)&deltaCrlNumber;
-		deltaCrlNumberData.Length = sizeof(uint32);
-		deltaCrlPresent = true;
-	}
-	
-	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "CrlType";
-	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
-	attr->NumberOfValues = 1;
-	attr->Value = &crlTypeData;
-	attr++;
-	
-	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "CrlEncoding";
-	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
-	attr->NumberOfValues = 1;
-	attr->Value = &crlEncData;
-	attr++;
-	
-	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "PrintName";
-	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
-	attr->NumberOfValues = 1;
-	attr->Value = &printName;
-	attr++;
-	
-	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "Issuer";
-	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
-	attr->NumberOfValues = 1;
-	attr->Value = const_cast<CSSM_DATA *>(crl.issuerName());
-	attr++;
-	
-	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "ThisUpdate";
-	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
-	attr->NumberOfValues = 1;
-	attr->Value = &thisUpdateData;
-	attr++;
-	
-	attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	attr->Info.Label.AttributeName = "NextUpdate";
-	attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
-	attr->NumberOfValues = 1;
-	attr->Value = &nextUpdateData;
-	attr++;
-	
-	/* now the optional attributes */
-	CSSM_DATA uri = *crl.uri();
-	if(uri.Data != NULL) {
-		/* ensure URI string does not contain NULL */
-		if(uri.Data[uri.Length - 1] == 0) {
-			uri.Length--;
-		}
-		attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		attr->Info.Label.AttributeName = "URI";
-		attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
-		attr->NumberOfValues = 1;
-		attr->Value = &uri;
-		attr++;
-	}
-	if(crlNumberPresent) {
-		attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		attr->Info.Label.AttributeName = "CrlNumber";
-		attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
-		attr->NumberOfValues = 1;
-		attr->Value = &crlNumberData;
-		attr++;
-	}
-	if(deltaCrlPresent) {
-		attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		attr->Info.Label.AttributeName = "DeltaCrlNumber";
-		attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
-		attr->NumberOfValues = 1;
-		attr->Value = &deltaCrlNumberData;
-		attr++;
-	}
-	
-	recordAttrs.DataRecordType = CSSM_DL_DB_RECORD_X509_CRL;
-	recordAttrs.SemanticInformation = 0;
-	recordAttrs.NumberOfAttributes = attr - attrs;
-	recordAttrs.AttributeData = attrs;
-	
-	crtn = CSSM_DL_DataInsert(dlDbHand,
-		CSSM_DL_DB_RECORD_X509_CRL,
-		&recordAttrs,
-		crl.itemData(),
-		&recordPtr);
-	if(crtn == CSSMERR_DL_INVALID_RECORDTYPE) {
-		/* gross hack of inserting this "new" schema that Keychain 
-		 * didn't specify */
-		crtn = tpAddCrlSchema(dlDbHand);
-		if(crtn == CSSM_OK) {
-			/* Retry with a fully capable DLDB */
-			crtn = CSSM_DL_DataInsert(dlDbHand,
-				CSSM_DL_DB_RECORD_X509_CRL,
-				&recordAttrs,
-				crl.itemData(),
-				&recordPtr);
-		}
-	}
-	if(crtn) {
-		tpErrorLog("CSSM_DL_DataInsert: %ld", crtn);
-	}
-	else {
-		CSSM_DL_FreeUniqueRecord(dlDbHand, recordPtr);
-	}
-	
-	return crtn;
-}
-
-#endif	/* WRITE_FETCHED_CRLS_TO_DB */

@@ -24,12 +24,13 @@
 
 
 /* 
-   cc -I. -DKERNEL_PRIVATE -O -o latency latency.c -lncurses
+   cc -I. -DPRIVATE -D__APPLE_PRIVATE -O -o latency latency.c -lncurses
 */
 
 #include <mach/mach.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <signal.h>
 #include <strings.h>
 #include <nlist.h>
@@ -141,15 +142,14 @@ int need_new_map = 0;
 int total_threads = 0;
 kd_threadmap *mapptr = 0;
 
-#define MAX_ENTRIES 1024
+#define MAX_ENTRIES 4096
 struct ct {
         int type;
         char name[32];
 } codes_tab[MAX_ENTRIES];
 
-/* If NUMPARMS changes from the kernel, then PATHLENGTH will also reflect the change */
+
 #define NUMPARMS 23
-#define PATHLENGTH (NUMPARMS*sizeof(long))
 
 struct th_info {
         int  thread;
@@ -158,7 +158,7 @@ struct th_info {
         int  arg1;
         double stime;
         long *pathptr;
-        char pathname[PATHLENGTH + 1];
+        long pathname[NUMPARMS + 1];
 };
 
 #define MAX_THREADS 512
@@ -173,7 +173,7 @@ int  cur_max = 0;
 #define INTERRUPT         0x01050000
 #define DECR_TRAP         0x01090000
 #define DECR_SET          0x01090004
-#define MACH_vmfault      0x01300000
+#define MACH_vmfault      0x01300008
 #define MACH_sched        0x01400000
 #define MACH_stkhandoff   0x01400008
 #define VFS_LOOKUP        0x03010090
@@ -704,7 +704,7 @@ char *argv[];
 	int      loop_cnt, sample_sc_now;
 	int      decrementer_usec = 0;
         kern_return_t           ret;
-        int                     size;
+        unsigned int            size;
         host_name_port_t        host;
 	void     getdivisor();
 	void     sample_sc();
@@ -1216,7 +1216,7 @@ void sample_sc(uint64_t start, uint64_t stop)
 	        for (i = 0; i < cur_max; i++) {
 			th_state[i].thread = 0;
 			th_state[i].type = -1;
-			th_state[i].pathptr = (long *)0;
+			th_state[i].pathptr = (long *)NULL;
 			th_state[i].pathname[0] = 0;
 		}
 		cur_max = 0;
@@ -1453,14 +1453,17 @@ void sample_sc(uint64_t start, uint64_t stop)
 		    }
 		    while ( (kd < end_of_sample) && ((kd->debugid & DBG_FUNC_MASK) == VFS_LOOKUP))
 		      {
-			if (!ti->pathptr) {
+			if (ti->pathptr == NULL) {
 			    ti->arg1 = kd->arg1;
-			    memset(&ti->pathname[0], 0, (PATHLENGTH + 1));
-			    sargptr = (long *)&ti->pathname[0];
+			    sargptr = ti->pathname;
 				
 			    *sargptr++ = kd->arg2;
 			    *sargptr++ = kd->arg3;
 			    *sargptr++ = kd->arg4;
+			    /*
+			     * NULL terminate the 'string'
+			     */
+			    *sargptr = 0;
 			    ti->pathptr = sargptr;
 
 			} else {
@@ -1472,7 +1475,7 @@ void sample_sc(uint64_t start, uint64_t stop)
                                handle.
 			    */
 
-                            if ((long *)sargptr >= (long *)&ti->pathname[PATHLENGTH])
+                            if (sargptr >= &ti->pathname[NUMPARMS])
 			      {
 				kd++;
 				continue;
@@ -1487,7 +1490,7 @@ void sample_sc(uint64_t start, uint64_t stop)
 
                             if (kd->debugid & DBG_FUNC_START)
                               {
-                                (long *)ti->pathptr = (long *)&ti->pathname[PATHLENGTH];
+                                ti->pathptr = &ti->pathname[NUMPARMS];
                               }
 			    else
 			      {
@@ -1495,16 +1498,22 @@ void sample_sc(uint64_t start, uint64_t stop)
 				*sargptr++ = kd->arg2;
 				*sargptr++ = kd->arg3;
 				*sargptr++ = kd->arg4;
+				/*
+				 * NULL terminate the 'string'
+				 */
+				*sargptr = 0;
+
 				ti->pathptr = sargptr;
 			      }
 			}
 			kd++;
 		    }
+		    p = (char *)ti->pathname;
 
 		    kd--;
 
-				/* print the tail end of the pathname */
-		    len = strlen(ti->pathname);
+		    /* print the tail end of the pathname */
+		    len = strlen(p);
 		    if (len > 42)
 		      len -= 42;
 		    else
@@ -1513,7 +1522,7 @@ void sample_sc(uint64_t start, uint64_t stop)
 		    if (log_fp) {
 		      fprintf(log_fp, "%9.1f %8.1f\t\t%-14.14s %-42s    %-8x   %-8x  %d  %s\n",
 			      timestamp - start_bias, delta, "VFS_LOOKUP", 
-			      &ti->pathname[len], ti->arg1, thread, cpunum, command);
+			      &p[len], ti->arg1, thread, cpunum, command);
 		    }
 
 		    last_timestamp = timestamp;
@@ -1610,7 +1619,7 @@ enter_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, double 
        else
 	       ti->type = -1;
        ti->stime  = timestamp;
-       ti->pathptr = (long *)0;
+       ti->pathptr = (long *)NULL;
 
 #if 0
        if (print_info && fp)
@@ -1625,6 +1634,7 @@ exit_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, double t
        struct th_info *ti;
        int    cpunum;
        char   *p;
+       uint64_t user_addr;
 
        cpunum = CPU_NUMBER(kd->timestamp);
 
@@ -1642,9 +1652,11 @@ exit_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, double t
 	       if ((p = find_code(type))) {
 		       if (type == INTERRUPT) {
 			       fprintf(fp, "INTERRUPT                                                               %-8x  %d  %s\n", thread, cpunum, command);
-		       } else if (type == MACH_vmfault && kd->arg2 <= DBG_CACHE_HIT_FAULT) {
-			       fprintf(fp, "%-28.28s %-8.8s   %-8x                        %-8x  %d  %s\n",
-				       p, fault_name[kd->arg2], kd->arg1,
+		       } else if (type == MACH_vmfault && kd->arg4 <= DBG_CACHE_HIT_FAULT) {
+			       user_addr = ((uint64_t)kd->arg1 << 32) | (uint32_t)kd->arg2;
+
+			       fprintf(fp, "%-28.28s %-8.8s   %-16qx                %-8x  %d  %s\n",
+				       p, fault_name[kd->arg4], user_addr,
 				       thread, cpunum, command);
 		       } else {
 			       fprintf(fp, "%-28.28s %-8x   %-8x                        %-8x  %d  %s\n",
@@ -1665,7 +1677,7 @@ exit_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, double t
 
 		       ti->thread = thread;
 		       ti->child_thread = 0;
-		       ti->pathptr = (long *)0;
+		       ti->pathptr = (long *)NULL;
 	       }
        }
        ti->type = -1;
@@ -1711,7 +1723,7 @@ check_for_thread_update(int thread, int type, kd_buf *kd)
 
 		    ti->thread = thread;
 		    ti->type   = -1;
-		    ti->pathptr = (long *)0;
+		    ti->pathptr = (long *)NULL;
 	    }
 	    ti->child_thread = kd->arg1;
 	    return (1);
@@ -1919,20 +1931,24 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 
 			    ti->thread = thread;
 			    ti->type   = -1;
-			    ti->pathptr = (long *)0;
+			    ti->pathptr = (long *)NULL;
 			    ti->child_thread = 0;
 		    }
 
 		    while ( (kd <= kd_stop) && (kd->debugid & DBG_FUNC_MASK) == VFS_LOOKUP)
 		      {
-			if (!ti->pathptr) {
+			if (ti->pathptr == NULL) {
 			    ti->arg1 = kd->arg1;
-			    memset(&ti->pathname[0], 0, (PATHLENGTH + 1));
-			    sargptr = (long *)&ti->pathname[0];
+			    sargptr = ti->pathname;
 				
 			    *sargptr++ = kd->arg2;
 			    *sargptr++ = kd->arg3;
 			    *sargptr++ = kd->arg4;
+			    /*
+			     * NULL terminate the 'string'
+			     */
+			    *sargptr = 0;
+
 			    ti->pathptr = sargptr;
 
 			} else {
@@ -1944,7 +1960,7 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
                                handle.
 			    */
 
-                            if ((long *)sargptr >= (long *)&ti->pathname[PATHLENGTH])
+                            if (sargptr >= &ti->pathname[NUMPARMS])
 			      {
 				kd++;
 				continue;
@@ -1959,7 +1975,7 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 
                             if (kd->debugid & DBG_FUNC_START)
                               {
-                                (long *)ti->pathptr = (long *)&ti->pathname[PATHLENGTH];
+                                ti->pathptr = &ti->pathname[NUMPARMS];
                               }
 			    else
 			      {
@@ -1967,15 +1983,21 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 				*sargptr++ = kd->arg2;
 				*sargptr++ = kd->arg3;
 				*sargptr++ = kd->arg4;
+				/*
+				 * NULL terminate the 'string'
+				 */
+				*sargptr = 0;
+
 				ti->pathptr = sargptr;
 			      }
 			}
 			kd++;
 		    }
+		    p = (char *)ti->pathname;
 
 		    kd--;
 		    /* print the tail end of the pathname */
-		    len = strlen(ti->pathname);
+		    len = strlen(p);
 		    if (len > 42)
 		      len -= 42;
 		    else
@@ -1983,7 +2005,7 @@ kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, d
 		    
 		    fprintf(log_fp, "%9.1f %8.1f\t\t%-14.14s %-42s    %-8x   %-8x  %d  %s\n",
 			    timestamp - start_bias, delta, "VFS_LOOKUP", 
-			    &ti->pathname[len], ti->arg1, thread, cpunum, command);
+			    &p[len], ti->arg1, thread, cpunum, command);
 
 		    last_timestamp = timestamp;
 		    break;
@@ -2058,7 +2080,7 @@ void init_code_file()
 	        return;
 	}
 	for (i = 0; i < MAX_ENTRIES; i++) {
-	        n = fscanf(fp, "%x%s\n", &code, name);
+	        n = fscanf(fp, "%x%127s\n", &code, name);
 
 		if (n != 2)
 		        break;
@@ -2085,7 +2107,11 @@ do_kernel_nm()
   bzero(tmpstr, 1024);
 
   /* Build the temporary nm file path */
-  sprintf(tmp_nm_file, "/tmp/knm.out.%d", getpid());
+  strcpy(tmp_nm_file,"/tmp/knm.out.XXXXXX");
+  if (!mktemp(tmp_nm_file)) {
+    fprintf(stderr, "Error in mktemp call\n");
+    return;
+  }
 
   /* Build the nm command and create a tmp file with the output*/
   sprintf (tmpstr, "/usr/bin/nm -f -n -s __TEXT __text %s > %s",

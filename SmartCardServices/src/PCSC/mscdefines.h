@@ -47,6 +47,8 @@ extern "C"
 
 #ifdef WIN32
 #include "../win32/win32_pcsclite.h"
+#else
+#include "pcsclite.h"
 #endif
 
 #ifndef __APPLE__
@@ -54,6 +56,8 @@ extern "C"
 #else
 #include <PCSC/winscard.h>
 #endif
+
+#include <stdint.h>
 
 #ifdef MSC_ARCH_WIN32
 #define MAX_BUFFER_SIZE		265
@@ -63,19 +67,19 @@ extern "C"
 	 * Some type defines used in MuscleCard 
 	 */
 
-	typedef unsigned long MSC_RV;
+	typedef uint32_t MSC_RV;
 	typedef char MSCChar8;
-	typedef unsigned char *MSCPUChar8;
-	typedef const unsigned char *MSCPCUChar8;
-	typedef unsigned char MSCUChar8;
-	typedef unsigned short *MSCPUShort16;
-	typedef unsigned short MSCUShort16;
-	typedef short *MSCPShort16;
-	typedef short MSCShort16;
-	typedef unsigned long *MSCPULong32;
-	typedef unsigned long MSCULong32;
-	typedef long *MSCPLong32;
-	typedef long MSCLong32;
+	typedef uint8_t *MSCPUChar8;
+	typedef const uint8_t *MSCPCUChar8;
+	typedef uint8_t MSCUChar8;
+	typedef uint16_t *MSCPUShort16;
+	typedef uint16_t MSCUShort16;
+	typedef int16_t *MSCPShort16;
+	typedef int16_t MSCShort16;
+	typedef uint32_t *MSCPULong32;
+	typedef uint32_t MSCULong32;
+	typedef int32_t *MSCPLong32;
+	typedef int32_t MSCLong32;
 	typedef const void *MSCPCVoid32;
 	typedef void *MSCPVoid32;
 	typedef const char *MSCCString;

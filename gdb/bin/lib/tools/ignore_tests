@@ -1,0 +1,11 @@
+#! /bin/bash
+
+echo "Moving aside useless test packages"
+
+ignore_these="ada fortran gdbserver gdbtk hp server trace"
+for ext in $ignore_these; do 
+    echo "$ext"
+    mv gdb.$ext xxx.$ext
+done
+
+

@@ -1,9 +1,0 @@
-/* code converter: KSC5601 */
-
-#define ModuleName KSC5601
-SRCS = KSC5601toUCS2.c main.c
-OBJS = KSC5601toUCS2.o main.o
-
-#include <xttMod.tmpl>
-
-/* end of file */

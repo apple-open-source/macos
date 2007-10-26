@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"sfhdr.h"
 #include	"FEATURE/float"
 
@@ -471,9 +467,12 @@ int		type;	/* >0: scanf, =0: printf, -1: internal	*/
 }
 
 static const unsigned char	flt_nan[] = { _ast_flt_nan_init };
+static const unsigned char	flt_inf[] = { _ast_flt_inf_init };
 static const unsigned char	dbl_nan[] = { _ast_dbl_nan_init };
-#ifdef LDBL_MAX
+static const unsigned char	dbl_inf[] = { _ast_dbl_inf_init };
+#ifdef _ast_ldbl_nan_init
 static const unsigned char	ldbl_nan[] = { _ast_ldbl_nan_init };
+static const unsigned char	ldbl_inf[] = { _ast_ldbl_inf_init };
 #endif
 
 /* function to initialize conversion tables */
@@ -521,14 +520,18 @@ static int sfcvinit()
 	_Sftype['C'] = SFFMT_CHAR;
 #endif
 
-	/* floating point huge values */
+	/* IEEE floating point computed constants */
 
-	memcpy((char*)&_Sffhuge, (char*)flt_nan, sizeof(_Sffhuge));
-	memcpy((char*)&_Sfdhuge, (char*)dbl_nan, sizeof(_Sfdhuge));
-#ifdef LDBL_MAX
-	memcpy((char*)&_Sflhuge, (char*)ldbl_nan, sizeof(_Sflhuge));
+	memcpy((char*)&_Sffnan, (char*)flt_nan, sizeof(_Sffnan));
+	memcpy((char*)&_Sffinf, (char*)flt_inf, sizeof(_Sffinf));
+	memcpy((char*)&_Sfdnan, (char*)dbl_nan, sizeof(_Sfdnan));
+	memcpy((char*)&_Sfdinf, (char*)dbl_inf, sizeof(_Sfdinf));
+#ifdef _ast_ldbl_nan_init
+	memcpy((char*)&_Sflnan, (char*)ldbl_nan, sizeof(_Sflnan));
+	memcpy((char*)&_Sflinf, (char*)ldbl_inf, sizeof(_Sflinf));
 #else
-	memcpy((char*)&_Sflhuge, (char*)dbl_nan, sizeof(_Sfdhuge));
+	memcpy((char*)&_Sflnan, (char*)dbl_nan, sizeof(_Sfdnan));
+	memcpy((char*)&_Sflinf, (char*)dbl_inf, sizeof(_Sfdinf));
 #endif
 
 	return 1;

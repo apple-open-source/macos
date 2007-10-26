@@ -27,25 +27,12 @@
    overlap on the wire. This size gives us a nice read/write size, which
    will be a multiple of the page size on almost any system */
 #define CLI_BUFFER_SIZE (0xFFFF)
-
+#define CLI_SAMBA_MAX_LARGE_READX_SIZE (127*1024) /* Works for Samba servers */
+#define CLI_WINDOWS_MAX_LARGE_READX_SIZE ((64*1024)-2) /* Windows servers are broken.... */
 
 /*
  * These definitions depend on smb.h
  */
-
-typedef struct file_info
-{
-	SMB_BIG_UINT size;
-	uint16 mode;
-	uid_t uid;
-	gid_t gid;
-	/* these times are normally kept in GMT */
-	time_t mtime;
-	time_t atime;
-	time_t ctime;
-	pstring name;
-	char short_name[13*3]; /* the *3 is to cope with multi-byte */
-} file_info;
 
 struct print_job_info
 {
@@ -55,6 +42,41 @@ struct print_job_info
 	fstring user;
 	fstring name;
 	time_t t;
+};
+
+struct cli_pipe_auth_data {
+	enum pipe_auth_type auth_type; /* switch for the union below. Defined in ntdomain.h */
+	enum pipe_auth_level auth_level; /* defined in ntdomain.h */
+	union {
+		struct schannel_auth_struct *schannel_auth;
+		NTLMSSP_STATE *ntlmssp_state;
+		struct kerberos_auth_struct *kerberos_auth;
+	} a_u;
+	void (*cli_auth_data_free_func)(struct cli_pipe_auth_data *);
+};
+
+struct rpc_pipe_client {
+	struct rpc_pipe_client *prev, *next;
+
+	TALLOC_CTX *mem_ctx;
+
+	struct cli_state *cli;
+
+	int pipe_idx;
+	const char *pipe_name;
+	uint16 fnum;
+
+	const char *domain;
+	const char *user_name;
+	struct pwd_info pwd;
+
+	uint16 max_xmit_frag;
+	uint16 max_recv_frag;
+
+	struct cli_pipe_auth_data auth;
+
+	/* The following is only non-null on a netlogon pipe. */
+	struct dcinfo *dc;
 };
 
 struct cli_state {
@@ -71,8 +93,11 @@ struct cli_state {
 	int privileges;
 
 	fstring desthost;
-	fstring user_name;
+
+	/* The credentials used to open the cli_state connection. */
 	fstring domain;
+	fstring user_name;
+	struct pwd_info pwd;
 
 	/*
 	 * The following strings are the
@@ -90,7 +115,6 @@ struct cli_state {
 	fstring full_dest_host_name;
 	struct in_addr dest_ip;
 
-	struct pwd_info pwd;
 	DATA_BLOB secblob; /* cryptkey or negTokenInit */
 	uint32 sesskey;
 	int serverzone;
@@ -105,7 +129,9 @@ struct cli_state {
 	unsigned int bufsize;
 	int initialised;
 	int win95;
+	BOOL is_samba;
 	uint32 capabilities;
+	BOOL dfsroot;
 
 	TALLOC_CTX *mem_ctx;
 
@@ -115,35 +141,11 @@ struct cli_state {
 	   any per-pipe authenticaion */
 	DATA_BLOB user_session_key;
 
-	/*
-	 * Only used in NT domain calls.
-	 */
-
-	int pipe_idx;                      /* Index (into list of known pipes) 
-					      of the pipe we're talking to, 
-					      if any */
-
-	uint16 nt_pipe_fnum;               /* Pipe handle. */
-
-	/* Secure pipe parameters */
-	int pipe_auth_flags;
-
-	uint16 saved_netlogon_pipe_fnum;   /* The "first" pipe to get
-                                              the session key for the
-                                              schannel. */
-	struct netsec_auth_struct auth_info;
-
-	NTLMSSP_STATE *ntlmssp_pipe_state;
-
-	unsigned char sess_key[16];        /* Current session key. */
-	DOM_CRED clnt_cred;                /* Client credential. */
-	fstring mach_acct;                 /* MYNAME$. */
-	fstring srv_name_slash;            /* \\remote server. */
-	fstring clnt_name_slash;           /* \\local client. */
-	uint16 max_xmit_frag;
-	uint16 max_recv_frag;
+	/* The list of pipes currently open on this connection. */
+	struct rpc_pipe_client *pipe_list;
 
 	BOOL use_kerberos;
+	BOOL fallback_after_kerberos;
 	BOOL use_spnego;
 
 	BOOL use_oplocks; /* should we use oplocks? */
@@ -154,17 +156,25 @@ struct cli_state {
 
 	BOOL force_dos_errors;
 	BOOL case_sensitive; /* False by default. */
-
-	/* was this structure allocated by cli_initialise? If so, then
-           free in cli_shutdown() */
-	BOOL allocated;
-
-	/* Name of the pipe we're talking to, if any */
-	fstring pipe_name;
 };
+
+typedef struct file_info {
+	struct cli_state *cli;
+	SMB_BIG_UINT size;
+	uint16 mode;
+	uid_t uid;
+	gid_t gid;
+	/* these times are normally kept in GMT */
+	struct timespec mtime_ts;
+	struct timespec atime_ts;
+	struct timespec ctime_ts;
+	pstring name;
+	pstring dir;
+	char short_name[13*3]; /* the *3 is to cope with multi-byte */
+} file_info;
 
 #define CLI_FULL_CONNECTION_DONT_SPNEGO 0x0001
 #define CLI_FULL_CONNECTION_USE_KERBEROS 0x0002
-#define CLI_FULL_CONNECTION_ANNONYMOUS_FALLBACK 0x0004
+#define CLI_FULL_CONNECTION_ANONYMOUS_FALLBACK 0x0004
 
 #endif /* _CLIENT_H */

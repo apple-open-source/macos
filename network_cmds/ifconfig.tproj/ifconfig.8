@@ -89,6 +89,10 @@
 .Ar interface
 .Cm -bonddev
 .Ar iface
+.Nm
+.Ar interface
+.Cm bondmode
+.Ar lacp | static
 .Sh DESCRIPTION
 .Nm Ifconfig
 is used to assign an address
@@ -216,8 +220,10 @@ Disable the use of the Address Resolution Protocol
 .It Cm bonddev Ar iface
 If the interface is a bond pseudo device, associate physical interface
 .Ar iface
-with it.  The bond pseudo device conforms
-to the IEEE 802.3ad Link Aggregation specification.
+with it.  By default, the bond pseudo device is in LACP
+(Link Aggregation Control Protocol) mode (see \fBbondmode\fR below).  In
+this mode, the device conforms to the IEEE 802.3ad Link Aggregation 
+specification.
 .Pp
 If this is the first physical interface to be associated with the bond
 interface, the bond interface inherits the ethernet address from the
@@ -270,6 +276,22 @@ no longer aggregatable.
 If the physical
 .Ar iface
 is the last interface in the bond, the bond interface clears its link address.
+.It bondmode Ar lacp | static
+If the interface is a bond pseudo device, this option will set the \fImode\fR
+on the bond interface.  The two currently supported modes are
+.Ar lacp
+and 
+.Ar static .
+The default mode is
+.Ar lacp .
+.Pp
+To enable static mode (and turn off LACP), specify
+.Ar static .
+In static mode, a member interface is made an active part of the 
+link aggregate as long as the link status is active.
+.Pp
+To re-enable LACP mode, specify
+.Ar lacp .
 .It Cm broadcast
 (Inet only.)
 Specify the address to use to represent broadcasts to the
@@ -598,6 +620,15 @@ Only the super-user may modify the configuration of a network interface.
 .Sh NOTES
 The media selection system is relatively new and only some drivers support
 it (or have need for it).
+.Pp
+.Nm ifconfig
+does not change the network settings permanently, it should be used only in a test and debug context. 
+The permanent network settings can be modified using the Network Preferences pane. 
+In addition on Mac OS X Server the permanent network settings can be changed with the  
+.Xr networksetup 8
+command.
+Otherwise public APIs in the SystemConfiguration framework are currently the only supported 
+way to access and control the state of network settings. 
 .Sh DIAGNOSTICS
 Messages indicating the specified interface does not exist, the
 requested address is unknown, or the user is not privileged and
@@ -615,6 +646,9 @@ So, such manual deletions are strongly discouraged.
 .\" .Xr eon 5 ,
 .Xr rc 8 ,
 .Xr routed 8
+.Pp
+.Xr networksetup 8 
+on Mac OS X Server
 .Sh HISTORY
 The
 .Nm

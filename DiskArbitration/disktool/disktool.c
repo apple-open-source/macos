@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -357,7 +357,7 @@ testDevice(char *devname)
 		return 1;
 	}
 
-    sprintf(deviceName, "/dev/%s", devname);
+    snprintf(deviceName, sizeof(deviceName), "/dev/%s", devname);
     
 	if (stat(deviceName, &sb) == 0) {
 		return 1;

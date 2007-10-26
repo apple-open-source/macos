@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/sbind.c,v 1.19.2.3 2004/01/01 18:16:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/sbind.c,v 1.23.2.2 2006/01/03 22:16:09 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,11 +70,7 @@ ldap_simple_bind(
 	int msgid;
 	struct berval cred;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_simple_bind\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_simple_bind\n", 0, 0, 0 );
-#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
@@ -109,11 +105,7 @@ ldap_simple_bind_s( LDAP *ld, LDAP_CONST char *dn, LDAP_CONST char *passwd )
 {
 	struct berval cred;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_simple_bind_s\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_simple_bind_s\n", 0, 0, 0 );
-#endif
 
 	if ( passwd != NULL ) {
 		cred.bv_val = (char *) passwd;

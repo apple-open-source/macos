@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,7 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Sat Feb 23 2002.
- *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2002-2007 Apple Inc. All Rights Reserved.
  *
  */
 
@@ -65,149 +65,237 @@ static const char clut[] =
     0xD6, /* 0xFF = 5*43 = 215 */
   };
 
-static int makeLabelOfSize(const char *label, char *bitmapData,
+static int makeLabelOfSize(const char *label, unsigned char *bitmapData,
         uint16_t width, uint16_t height, uint16_t *newwidth);
 
-static int refitToWidth(char *bitmapData,
+static int refitToWidth(unsigned char *bitmapData,
         uint16_t width, uint16_t height, uint16_t newwidth);
 
 int BLGenerateOFLabel(BLContextPtr context,
                     const char label[],
-                    CFDataRef* data) {
-                    
-                    
-        uint16_t width = 340;
-        uint16_t height = 12;
-        uint16_t newwidth;
-        int err;
-        int i;
-        CFDataRef bits = NULL;
-        char *bitmapData;
-
-        contextprintf(context, kBLLogLevelError,
-		      "CoreGraphics is not available for rendering\n");
-        return 1;
+CFDataRef* data) {
+    
+    
+    uint16_t width = 340;
+    uint16_t height = 12;
+    uint16_t newwidth;
+    int err;
+    int i;
+    CFDataRef bits = NULL;
+    unsigned char *bitmapData;
+    
+    contextprintf(context, kBLLogLevelError,
+    "CoreGraphics is not available for rendering\n");
+    return 1;
 	
-        bitmapData = malloc(width*height+5);
-        if(!bitmapData) {
-                contextprintf(context, kBLLogLevelError,
-                    "Could not alloc CoreGraphics backing store\n");
-                return 1;
-        }
-        bzero(bitmapData, width*height+5);
-
-        err = makeLabelOfSize(label, bitmapData+5, width, height, &newwidth);
+    bitmapData = (unsigned char *)malloc(width*height+5);
+    if(!bitmapData) {
+        contextprintf(context, kBLLogLevelError,
+        "Could not alloc CoreGraphics backing store\n");
+        return 1;
+    }
+    bzero(bitmapData, width*height+5);
+    
+    err = makeLabelOfSize(label, bitmapData+5, width, height, &newwidth);
 	if(err) {
-	  free(bitmapData);
-	  *data = NULL;
-	  return 2;
+        free(bitmapData);
+        *data = NULL;
+        return 2;
 	}
-
+    
 	// cap at 300 pixels wide.
 	if(newwidth > width) newwidth = width;
 	
+    contextprintf(context, kBLLogLevelVerbose, "Refitting to width %d\n", newwidth);
+
+    
 	err = refitToWidth(bitmapData+5, width, height, newwidth);
 	if(err) {
-	  free(bitmapData);
-	  *data = NULL;
-	  return 3;
+        free(bitmapData);
+        *data = NULL;
+        return 3;
 	}
-
+    
 	bitmapData = realloc(bitmapData, newwidth*height+5);
 	if(NULL == bitmapData) {
-                contextprintf(context, kBLLogLevelError,
-                    "Could not realloc to shrink CoreGraphics backing store\n");
+        contextprintf(context, kBLLogLevelError,
+        "Could not realloc to shrink CoreGraphics backing store\n");
 		
-                return 4;
+        return 4;
 	}
-
-        bitmapData[0] = 1;
-        *(uint16_t *)&bitmapData[1] = CFSwapInt16HostToBig(newwidth);
-        *(uint16_t *)&bitmapData[3] = CFSwapInt16HostToBig(height);
-        
-        for(i=5; i < newwidth*height+5; i++) {
-            bitmapData[i] = clut[bitmapData[i] >> 4];
-        }
-
+    
+    bitmapData[0] = 1;
+    *(uint16_t *)&bitmapData[1] = CFSwapInt16HostToBig(newwidth);
+    *(uint16_t *)&bitmapData[3] = CFSwapInt16HostToBig(height);
+    
+    for(i=5; i < newwidth*height+5; i++) {
+        bitmapData[i] = clut[bitmapData[i] >> 4];
+    }
+    
 	//	bits = CFDataCreate(kCFAllocatorDefault, bitmapData, newwidth*height+5);
 	bits = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (UInt8 *)bitmapData, newwidth*height+5, kCFAllocatorMalloc);
 	//        free(bitmapData);
-        
+    
 	if(bits == NULL) {
-                contextprintf(context, kBLLogLevelError,
-                    "Could not create CFDataRef\n");
+        contextprintf(context, kBLLogLevelError,
+        "Could not create CFDataRef\n");
 		return 6;
 	}
-
-        *data = (void *)bits;
-        
-        return 0;
+    
+    *data = (void *)bits;
+    
+    return 0;
 }
 
-#define USE_CG 0
+#undef USE_COREGRAPHICS
+#define USE_COREGRAPHICS 0
 
-
-
-#if USE_CG
+#if USE_COREGRAPHICS
 #include <ApplicationServices/ApplicationServices.h>
 
-static int makeLabelOfSize(const char *label, char *bitmapData,
-        uint16_t width, uint16_t height, uint16_t *newwidth) {
-
-        int bitmapByteCount;
-        int bitmapBytesPerRow;
+static int makeLabelOfSize(const char *label, unsigned char *bitmapData,
+uint16_t width, uint16_t height, uint16_t *newwidth) {
+    
+    int bitmapByteCount;
+    int bitmapBytesPerRow;
+    
+    CGContextRef    context = NULL;
+    CGColorSpaceRef colorSpace = NULL;
+    
+    
+    bitmapBytesPerRow = width*1;
+    bitmapByteCount = bitmapBytesPerRow * height;
+    
+    colorSpace = CGColorSpaceCreateDeviceGray();
+    
+    
+    context = CGBitmapContextCreate( bitmapData,
+    width,
+    height,
+    8,
+    bitmapBytesPerRow,
+    colorSpace,
+    kCGImageAlphaNone);
+    
+    if(context == NULL) {
+        fprintf(stderr, "Could not init CoreGraphics context\n");
+        return 1;
+    }
+    
+    
+#if USE_CORETEXT
+    {
+        CFStringRef s1;
+        CFAttributedStringRef s2;
+        CTLineRef ct1;
+        CGRect rect;
+        CFMutableDictionaryRef dict;
+        CGColorRef color;
+        CTFontRef fontRef;
         
-        CGContextRef    context = NULL;
-        CGColorSpaceRef colorSpace = NULL;
+        // white text on black background, for OF/EFI bitmap
+        const CGFloat components[] = {
+            1.0, 1.0
+        };
+        
+        /* set to white background for testing
+        CGContextSetGrayFillColor(context, 1.0, 1.0);
+        CGContextFillRect(context,CGRectInfinite);
+        */
+        
+        color = CGColorCreate(colorSpace, components);
+        if(color == NULL) return 1;
+        
+        fontRef = CTFontCreateWithName(CFSTR("Helvetica"), 10.0, NULL);
+        if(fontRef == NULL) return 1;
+        
+        dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(dict, kCTForegroundColorAttributeName, color);
+        CFDictionarySetValue(dict, kCTFontAttributeName, fontRef);
+        CFRelease(color);
+        CFRelease(fontRef);
+        
+        s1 = CFStringCreateWithCString(kCFAllocatorDefault, label, kCFStringEncodingUTF8);
+        s2 = CFAttributedStringCreate(kCFAllocatorDefault,s1,dict);
+        CFRelease(s1);
+        CFRelease(dict);
+        
+        ct1 = CTLineCreateWithAttributedString(s2);
+        CFRelease(s2);
+        if(ct1 == NULL) return 2;
+        
+        rect = CTLineGetImageBounds(ct1, context);
+        
+        CGContextSetTextPosition(context, 2.0, 2.0);
+        
+        CTLineDraw(ct1, context);
+        
+        CGContextFlush(context);
+        
+        CFRelease(ct1);
+        
+        if(newwidth) { *newwidth = (int)rect.size.width + 4; }
+ //           printf("[%f,%f] (%f,%f)\n", rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
+        
+    }
+#else
+    {
         CGPoint pt;
-
-
-        bitmapBytesPerRow = width*1;
-        bitmapByteCount = bitmapBytesPerRow * height;
-
-       colorSpace = CGColorSpaceCreateDeviceGray();
-
-
-        context = CGBitmapContextCreate( bitmapData,
-                                        width,
-                                        height,
-                                        8,
-                                        bitmapBytesPerRow,
-                                        colorSpace,
-                                     kCGImageAlphaNone);
-
-        if(context == NULL) {
-                fprintf(stderr, "Could not init CoreGraphics context\n");
-                return 1;
-        }
-
-    CGContextSetTextDrawingMode(context, kCGTextFill);
-    CGContextSelectFont(context, "Helvetica", 10.0, kCGEncodingMacRoman);
-    CGContextSetGrayFillColor(context, 1.0, 1.0);
-    CGContextSetShouldAntialias(context, 1);
-    CGContextSetCharacterSpacing(context, 0.5);
         
-    pt = CGContextGetTextPosition(context);
+        CGContextSetTextDrawingMode(context, kCGTextFill);
+        CGContextSelectFont(context, "Helvetica", 10.0, kCGEncodingMacRoman);
+        CGContextSetGrayFillColor(context, 1.0, 1.0);
+        CGContextSetShouldAntialias(context, 1);
+        CGContextSetCharacterSpacing(context, 0.5);
+        
+        pt = CGContextGetTextPosition(context);
+        
+        CGContextShowTextAtPoint(context, 2.0, 2.0, label, strlen(label));    
+        
+        pt = CGContextGetTextPosition(context);
+        
+        if(newwidth) { *newwidth = (int)pt.x + 2; }
+        
+    }
+#endif
 
-    CGContextShowTextAtPoint(context, 2.0, 2.0, label, strlen(label));
+    
+#if 0
+//    CFShow(CGImageDestinationCopyTypeIdentifiers());
+    CGDataProviderRef dataProvider = CGDataProviderCreateWithData(NULL, bitmapData, height*width, NULL);
+    CGImageRef imageRef = CGImageCreate(width,height,8,8,bitmapBytesPerRow,colorSpace,0, dataProvider, NULL, 0, 0);
+    CFURLRef output = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (UInt8 *)"foo.tiff", strlen("foo.tiff"), 0);
+    CGImageDestinationRef dest = CGImageDestinationCreateWithURL(output, CFSTR("public.tiff"), 1, NULL);
+    
+    CGImageDestinationAddImage(dest, imageRef, NULL);
 
-    pt = CGContextGetTextPosition(context);
-
-    if(newwidth) { *newwidth = (int)pt.x + 2; }
-
+    CGImageDestinationFinalize(dest);
+    
+    CFRelease(dest);
+    CFRelease(output);
+    CFRelease(imageRef);
+    CFRelease(dataProvider);
+    //    write(1, bitmapData, height*width);
+    
+#endif
+    
     CGColorSpaceRelease(colorSpace);
     CGContextRelease(context);
 
+    
     return 0;
-
+    
 }
 
-#else
-static int makeLabelOfSize(const char *label, char *bitmapData,
+#else // !USE_COREGRAPHICS
+static int makeLabelOfSize(const char *label, unsigned char *bitmapData,
 						   uint16_t width, uint16_t height, uint16_t *newwidth) {
-	return 1;
+
+	// just make a blank label
+	*newwidth = 10;
+	return 0;
 }
-#endif // USE_CG
+#endif // !USE_COREGRAPHICS
 
 /*
  * data is of the form:
@@ -215,7 +303,7 @@ static int makeLabelOfSize(const char *label, char *bitmapData,
  *  111111111111111111
  */
 
-static int refitToWidth(char *bitmapData,
+static int refitToWidth(unsigned char *bitmapData,
         uint16_t width, uint16_t height, uint16_t newwidth)
 {
   uint16_t row;

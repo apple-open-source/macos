@@ -1,5 +1,7 @@
 CLEAN_ALL_SUBPROJECTS = YES
 OTHER_GENERATED_OFILES = $(VERS_OFILE)
-OTHER_CFLAGS = -DUSE_PAM -no-cpp-precomp
+ifeq "$(shell tconf --test TARGET_OS_EMBEDDED)" "NO"
+OTHER_CFLAGS = -DUSE_PAM -DUSE_BSM -no-cpp-precomp
+endif
 
 AFTER_INSTALL = after_install

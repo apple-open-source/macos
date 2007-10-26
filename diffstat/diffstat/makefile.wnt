@@ -1,0 +1,34 @@
+#
+# makefile for 'diffstat' on WIN32 using Microsoft Visual C++
+#
+# $Id: makefile.wnt,v 1.1 2004/05/03 13:11:24 tom Exp $
+#
+!include <ntwin32.mak>
+
+P = porting
+
+CFLAGS = $(cvars) $(cdebug) -nologo -G4 -W3 -I. -I$P
+LDFLAGS = -nologo -pdb:none
+
+NAME =	diffstat
+OBJ = 	$(NAME).obj \
+	$P/getopt.obj \
+	$P/wildcard.obj
+
+.c.obj:	
+	$(cc) $(CFLAGS) -c $< -Fo$@ 
+
+all:  $(NAME).exe
+
+$(NAME).exe: 	$(OBJ)
+	$(link) $(LDFLAGS) $(OBJ) setargv.obj $(ldebug) $(conlflags) $(conlibs) -out:$@ user32.lib
+
+$(OBJ) : #system.h
+
+install:  $(NAME).exe
+	copy $(NAME).exe c:\com
+
+clean:
+	- del $(NAME).exe
+	- del /f/s/q *.obj
+	- del /f/s/q *.bak

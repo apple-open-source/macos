@@ -40,12 +40,11 @@
 .Sh DESCRIPTION
 The
 .Fn pthread_cleanup_pop
-function pops the top cleanup routine off of the current threads cleanup
-routine stack, and, if
+function pops the top cleanup routine off
+of the current thread's cleanup routine stack and, if
 .Fa execute
 is non-zero, it will execute the function.
-If there is no cleanup routine
-then
+If there is no cleanup routine,
 .Fn pthread_cleanup_pop
 does nothing.
 .Sh RETURN VALUES

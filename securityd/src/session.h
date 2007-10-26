@@ -77,10 +77,16 @@ public:
     bool attribute(SessionAttributeBits bits) const	{ return mAttributes & bits; }
 	
     virtual void setupAttributes(SessionCreationFlags flags, SessionAttributeBits attrs);
+
 	virtual bool haveOriginatorUid() const = 0;
 	virtual uid_t originatorUid() const = 0;
+    Credential originatorCredential() const { return mOriginatorCredential; }
+
 	virtual CFDataRef copyUserPrefs() = 0;
 
+	static std::string kUsername;
+    static std::string kRealname;
+    
 protected:
     void setAttributes(SessionAttributeBits attrs)	{ mAttributes |= attrs; }
     
@@ -90,7 +96,7 @@ public:
 	OSStatus authCreate(const AuthItemSet &rights, const AuthItemSet &environment,
 		AuthorizationFlags flags, AuthorizationBlob &newHandle, const audit_token_t &auditToken);
 	void authFree(const AuthorizationBlob &auth, AuthorizationFlags flags);
-	OSStatus authGetRights(const AuthorizationBlob &auth,
+	static OSStatus authGetRights(const AuthorizationBlob &auth,
 		const AuthItemSet &requestedRights, const AuthItemSet &environment,
 		AuthorizationFlags flags, AuthItemSet &grantedRights);
 	OSStatus authGetInfo(const AuthorizationBlob &auth, const char *tag, AuthItemSet &contextInfo);
@@ -109,7 +115,10 @@ private:
     };
 	
 protected:
-    AuthorizationToken &authorization(const AuthorizationBlob &blob);
+    static AuthorizationToken &authorization(const AuthorizationBlob &blob);
+	OSStatus authGetRights(AuthorizationToken &auth,
+		const AuthItemSet &requestedRights, const AuthItemSet &environment,
+		AuthorizationFlags flags, AuthItemSet &grantedRights);
 	void mergeCredentials(CredentialSet &creds);
 
 public:
@@ -134,12 +143,13 @@ protected:
 	mutable Mutex mAuthHostLock;
 	AuthHostInstance *mSecurityAgent;
 	AuthHostInstance *mAuthHost;
-
+    
 	CFRef<CFDataRef> mSessionAgentPrefs;
+    Credential mOriginatorCredential;
 	
 	void kill();
 	
-private:
+protected:
 	static PortMap<Session> mSessions;
 };
 
@@ -165,8 +175,8 @@ public:
     RootSession(Server &server, SessionAttributeBits attrs = 0);
 	
 	bool haveOriginatorUid() const		{ return true; }
-	uid_t originatorUid() const;
-	CFDataRef copyUserPrefs();
+	uid_t originatorUid() const         { return 0; }
+	CFDataRef copyUserPrefs()           { return NULL; }
 };
 
 

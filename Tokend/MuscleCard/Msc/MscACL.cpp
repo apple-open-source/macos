@@ -29,4 +29,3 @@
 #include "MscACL.h"
 
 
-/* arch-tag: 9528C27A-BE68-11D8-A836-000A95C4302E */

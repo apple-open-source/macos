@@ -33,6 +33,7 @@
 #include <Security/SecAsn1Coder.h>
 #include "krb5.h"
 #include <Security/cssmapple.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,7 +42,8 @@ extern "C" {
 #ifndef PKI_DEBUG
 #define PKI_DEBUG   0
 #endif
-#if PKI_DEBUG
+
+#if	PKI_DEBUG
 
 #include <stdio.h>
 
@@ -50,7 +52,7 @@ extern "C" {
 #else
 #define pkiDebug(args...)
 #define pkiCssmErr(str, rtn)
-#endif
+#endif	/* PKI_DEBUG */
 
 /*
  * Macros used to initialize a declared CSSM_DATA and krb5_data to zero/NULL values.
@@ -58,16 +60,18 @@ extern "C" {
 #define INIT_CDATA(cd)  cd = {0, NULL}
 #define INIT_KDATA(kd)  kd = {0, 0, NULL}
 
+/* attach/detach to/from CL */
+CSSM_RETURN pkiClDetachUnload(CSSM_CL_HANDLE  clHand);
+CSSM_CL_HANDLE pkiClStartup();
+
 /*
  * CSSM_DATA <--> krb5_ui_4
- *
- * dataToInt() returns nonzero on error
  */
-int pkiDataToInt(
+krb5_error_code pkiDataToInt(
     const CSSM_DATA *cdata, 
     krb5_int32       *i);	/* RETURNED */
 
-int pkiIntToData(
+krb5_error_code pkiIntToData(
     krb5_int32	    num,
     CSSM_DATA       *cdata,     /* allocated in coder space and RETURNED */
     SecAsn1CoderRef coder);
@@ -75,7 +79,7 @@ int pkiIntToData(
 /*
  * raw data --> krb5_data
  */
-int pkiDataToKrb5Data(
+krb5_error_code pkiDataToKrb5Data(
     const void *data,
     unsigned dataLen,
     krb5_data *kd);		/* content mallocd and RETURNED */
@@ -83,20 +87,25 @@ int pkiDataToKrb5Data(
 /* 
  * CSSM_DATA <--> krb5_data
  *
- * CSSM_DATA data is managed by a SecAsn1CoderRef; krb5_data data is mallocd.
- *
- * Both return nonzero on error.
+ * CSSM_DATA data is managed by a SecAsn1CoderRef; krb5_data.data is mallocd.
  */
-int pkiCssmDataToKrb5Data(
+krb5_error_code pkiCssmDataToKrb5Data(
     const CSSM_DATA *cd, 
     krb5_data *kd);		/* content mallocd and RETURNED */
 
 
-int pkiKrb5DataToCssm(
+krb5_error_code pkiKrb5DataToCssm(
     const krb5_data *kd,
     CSSM_DATA       *cdata,     /* allocated in coder space and RETURNED */
     SecAsn1CoderRef coder);
 
+/* 
+ * CFDataRef --> krb5_data, mallocing the destination contents.
+ */
+krb5_error_code pkiCfDataToKrb5Data(
+    CFDataRef	    cfData,
+    krb5_data	    *kd);	/* content mallocd and RETURNED */
+    
 /*
  * Non-mallocing conversion between CSSM_DATA and krb5_data
  */
@@ -118,27 +127,14 @@ krb5_boolean pkiCompareCssmData(
 /* 
  * krb5_timestamp <--> a mallocd string in generalized format
  */
-int pkiKrbTimestampToStr(
+krb5_error_code pkiKrbTimestampToStr(
     krb5_timestamp      kts,
-    char		**str);		// mallocd and RETURNED
+    char		**str);		/* mallocd and RETURNED */
 
-int pkiTimeStrToKrbTimestamp(
+krb5_error_code pkiTimeStrToKrbTimestamp(
     const char		*str,
     unsigned		len,
-    krb5_timestamp      *kts);		// RETURNED
-
-/*
- * Convert an OSStatus to a krb5_error_code
- */
-krb5_error_code pkiOsStatusToKrbErr(
-    OSStatus		ortn);
-    
-/*
- * Given a DER encoded certificate, obtain the associated IssuerAndSerialNumber.
- */
-krb5_error_code pkiGetIssuerAndSerial(
-    const krb5_data *cert,
-    krb5_data       *issuer_and_serial);
+    krb5_timestamp      *kts);		/* RETURNED */
 
 /*
  * How many items in a NULL-terminated array of pointers?
@@ -151,4 +147,3 @@ unsigned pkiNssArraySize(
 #endif
 
 #endif  /* _PKINIT_APPLE_UTILS_H_ */
-

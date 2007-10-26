@@ -1,0 +1,182 @@
+# Swedish translations for libidn package
+# Svenska översättningar för paket libidn.
+# Copyright (C) 2004, 2005 Simon Josefsson
+# This file is distributed under the same license as the libidn package.
+# Simon Josefsson <jas@extundo.com>, 2004.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: libidn 0.4.1\n"
+"Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
+"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"PO-Revision-Date: 2005-01-02 12:44+0100\n"
+"Last-Translator: Simon Josefsson <jas@extundo.com>\n"
+"Language-Team: Swedish <sv@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Success"
+msgstr "Lyckades"
+
+msgid "String preparation failed"
+msgstr "Strängbehandling misslyckades"
+
+msgid "Punycode failed"
+msgstr "Punycode misslyckades"
+
+msgid "Non-digit/letter/hyphen in input"
+msgstr "Icke-siffra/tecken/orddelare i indata"
+
+msgid "Forbidden leading or trailing minus sign (`-')"
+msgstr "Förbjudet ledande eller avslutande minustecken (`-')"
+
+msgid "Output would be too large or too small"
+msgstr "Utdata är för stort eller för litet"
+
+msgid "Input does not start with ACE prefix (`xn--')"
+msgstr "Indata börjar inte med ACE-prefix (`xn--')"
+
+msgid "String not idempotent under ToASCII"
+msgstr "Sträng är inte idempotent under ToASCII"
+
+msgid "Input already contain ACE prefix (`xn--')"
+msgstr "Indata innehåller redan ACE-prefix (`xn--')"
+
+msgid "System iconv failed"
+msgstr "Systemets iconv-operation misslyckades"
+
+msgid "Cannot allocate memory"
+msgstr "Kan inte allokera minne"
+
+msgid "System dlopen failed"
+msgstr "Systemets dlopen-funktion misslyckades"
+
+msgid "Unknown error"
+msgstr "Okänt fel"
+
+msgid "String not idempotent under Unicode NFKC normalization"
+msgstr "Sträng inte idempotent under Unicode NFKC normalisering"
+
+msgid "Invalid input"
+msgstr "Felaktig indata"
+
+msgid "Output would exceed the buffer space provided"
+msgstr "Utdata skulle överskrida tillhandahållen buffertutrymme"
+
+msgid "String size limit exceeded"
+msgstr "Stränglängdsbegränsning överskriden"
+
+msgid "Forbidden unassigned code points in input"
+msgstr "Obekant teckenkod förbjuden i indata"
+
+msgid "Prohibited code points in input"
+msgstr "Förbjuden teckenkod i indata"
+
+msgid "Conflicting bidirectional properties in input"
+msgstr "Indata har olika bidirektionalitetsegenskaper"
+
+msgid "Malformed bidirectional string"
+msgstr "Felaktig bidirektionell sträng"
+
+msgid "Prohibited bidirectional code points in input"
+msgstr "Förbjuden bidirektionell teckenkod i indata"
+
+msgid "Error in stringprep profile definition"
+msgstr "Fel i definition av stringprep-profil"
+
+msgid "Flag conflict with profile"
+msgstr "Angiven parameter strider mot profil"
+
+msgid "Unknown profile"
+msgstr "Okänd profil"
+
+msgid "Unicode normalization failed (internal error)"
+msgstr "Unicode normalisering misslyckades (internt fel)"
+
+msgid "Code points prohibited by top-level domain"
+msgstr "Teckenkod förbjuden av top-nivå domän"
+
+msgid "Missing input"
+msgstr "Indata saknas"
+
+msgid "No top-level domain found in input"
+msgstr "Kunde inte hitta topp-nivå domän i indata"
+
+msgid "Only one of -s, -e, -d, -a or -u can be specified."
+msgstr "Bara en av -s, -e, -d, -a eller -u kan anges."
+
+#, c-format
+msgid "Charset `%s'.\n"
+msgstr "Teckenuppsättning `%s'.\n"
+
+#, c-format
+msgid ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+msgstr "Mata in en sträng per rad.\n"
+
+msgid "Input error"
+msgstr "Fel i indata"
+
+#, c-format
+msgid "Could not convert from %s to UTF-8."
+msgstr "Kunde inte konvertera från %s till UTF-8."
+
+msgid "Could not convert from UTF-8 to UCS-4."
+msgstr "Kunde inte konvertera från UTF-8 till UCS-4."
+
+#, c-format
+msgid "input[%d] = U+%04x\n"
+msgstr "in[%d] = U+%04x\n"
+
+#, c-format
+msgid "stringprep_profile: %s"
+msgstr ""
+
+#, c-format
+msgid "output[%d] = U+%04x\n"
+msgstr "ut[%d] = U+%04x\n"
+
+#, c-format
+msgid "Could not convert from UTF-8 to %s."
+msgstr "Kunde inte konvertera från UTF-8 till %s."
+
+#, c-format
+msgid "punycode_encode: %s"
+msgstr ""
+
+msgid "malloc"
+msgstr ""
+
+#, c-format
+msgid "punycode_decode: %s"
+msgstr ""
+
+msgid "Could not convert from UCS-4 to UTF-8."
+msgstr "Kunde inte konvertera från UCS-4 till UTF-8."
+
+#, c-format
+msgid "idna_to_ascii_4z: %s"
+msgstr ""
+
+#, c-format
+msgid "idna_to_unicode_8z4z (TLD): %s"
+msgstr ""
+
+#, c-format
+msgid "tld[%d] = U+%04x\n"
+msgstr "tld[%d] = U+%04x\n"
+
+#, c-format
+msgid "tld_check_4z (position %d): %s"
+msgstr ""
+
+#, c-format
+msgid "tld_check_4z: %s"
+msgstr ""
+
+#, c-format
+msgid "idna_to_unicode_8z4z: %s"
+msgstr ""

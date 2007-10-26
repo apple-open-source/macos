@@ -217,6 +217,7 @@ namespace IOFireWireLib {
 			UInt32							mDeferredReleaseCount ;
 			FinalizeCallback				mFinalizeCallback ;
 			IOVirtualRange *				mBufferRanges ;
+			IOAddressRange *				mBufferAddressRanges;
 			unsigned						mBufferRangeCount ;
 			
 			pthread_mutex_t					mMutex ;
@@ -247,7 +248,8 @@ namespace IOFireWireLib {
 			// local port methods:
 			
 			IOReturn				ModifyJumpDCL ( DCLJump * jump, DCLLabel * label ) ;
-			IOReturn				ModifyTransferPacketDCLSize ( DCLTransferPacket * dcl, IOByteCount newSize ) ;																				
+			IOReturn				ModifyTransferPacketDCLSize ( DCLTransferPacket * dcl, IOByteCount newSize ) ;	
+			static void				s_DCLStopTokenCallProcHandler ( void * self, IOReturn) ;																						
 			void					DCLStopTokenCallProcHandler ( IOReturn) ;
 #if 0
 			void					S_DCLKernelCallout( DCLCallProc * dcl ) ;
@@ -332,13 +334,13 @@ namespace IOFireWireLib {
 	} ;
 
 	inline void
-	LocalIsochPort :: Lock ()
+	LocalIsochPort::Lock ()
 	{
 		pthread_mutex_lock( & mMutex ) ;
 	}
 	
 	inline void
-	LocalIsochPort :: Unlock ()
+	LocalIsochPort::Unlock ()
 	{
 		pthread_mutex_unlock( & mMutex ) ;
 	}	

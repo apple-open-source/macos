@@ -1,6 +1,7 @@
-;;; morse.el --- convert text to morse code and back
+;;; morse.el --- convert text to morse code and back             -*- coding: utf-8 -*-
 
-;; Copyright (C) 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Rick Farnbach <rick_farnbach@MENTORG.COM>
 ;; Keywords: games
@@ -19,12 +20,12 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
-;; Converts text to Morse code and back with M-x morese-region and
+;; Converts text to Morse code and back with M-x morse-region and
 ;; M-x unmorse-region (though Morse code is no longer official :-().
 
 ;;; Code:
@@ -76,7 +77,21 @@
 		     ("6" . "-....")
 		     ("7" . "--...")
 		     ("8" . "---..")
-		     ("9" . "----."))
+		     ("9" . "----.")
+		     ;; Non-ASCII
+		     ("Ä" . ".-.-")
+		     ("Æ" . ".-.-")
+		     ("Á" . ".--.-")
+		     ("Å" . ".--.-")
+		     ;; ligature character?? ("Ch" . "----")
+		     ("ß" . ".../...")
+		     ("É" . "..-..")
+		     ("Ñ" . "--.--")
+		     ("Ö" . "---.")
+		     ("Ø" . "---.")
+		     ("Ü" . "..--")
+		     ;; Recently standardized
+		     ("@" . ".--.-."))
   "Morse code character set.")
 
 ;;;###autoload
@@ -126,4 +141,5 @@
 
 (provide 'morse)
 
+;;; arch-tag: 3331e6c1-9a9e-453f-abfd-163a9c3f93a6
 ;;; morse.el ends here

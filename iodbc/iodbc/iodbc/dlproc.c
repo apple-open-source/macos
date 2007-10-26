@@ -1,21 +1,25 @@
 /*
  *  dlproc.c
  *
- *  $Id: dlproc.c,v 1.3 2004/11/11 01:52:37 luesang Exp $
+ *  $Id: dlproc.c,v 1.14 2006/01/20 15:58:34 source Exp $
  *
  *  Load driver and resolve driver's function entry point
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,6 +74,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 
 #include <iodbc.h>
 
@@ -123,7 +128,53 @@ static dlproc_t *pRoot = NULL;
 HDLL
 _iodbcdm_dllopen (char *path)
 {
-  return (HDLL) DLL_OPEN (path);
+  dlproc_t *pDrv = NULL, *p;
+
+  /*
+   *  Check if we have already loaded the driver
+   */
+  for (p = pRoot; p; p = p->next)
+    {
+      if (STREQ (p->path, path))
+	{
+	  pDrv = p;
+	  break;
+	}
+    }
+
+  /*
+   *  If already loaded, increase ref counter
+   */
+  if (pDrv)
+    {
+      pDrv->refcount++;
+
+      /*
+       *  If the driver was unloaded, load it again
+       */
+      if (pDrv->dll == NULL)
+	pDrv->dll = (HDLL) DLL_OPEN (path);
+
+      return pDrv->dll;
+    }
+
+  /*
+   *  Initialize new structure
+   */
+  if ((pDrv = calloc (1, sizeof (dlproc_t))) == NULL)
+    return NULL;
+
+  pDrv->refcount = 1;
+  pDrv->path = STRDUP (path);
+  pDrv->dll = (HDLL) DLL_OPEN (path);
+
+  /*
+   *  Add to linked list
+   */
+  pDrv->next = pRoot;
+  pRoot = pDrv;
+
+  return pDrv->dll;
 }
 
 
@@ -137,7 +188,43 @@ _iodbcdm_dllproc (HDLL hdll, char *sym)
 int
 _iodbcdm_dllclose (HDLL hdll)
 {
-  DLL_CLOSE (hdll);
+  dlproc_t *pDrv = NULL, *p;
+
+  /*
+   *  Find loaded driver
+   */
+  for (p = pRoot; p; p = p->next)
+    {
+      if (p->dll == hdll)
+	{
+	  pDrv = p;
+	  break;
+	}
+    }
+
+  /*
+   *  Not found
+   */
+  if (!pDrv)
+    return -1;
+
+  /*
+   *  Decrease reference counter
+   */
+  pDrv->refcount--;
+
+  /*
+   *  Check if it is possible to unload the driver safely
+   * 
+   *  NOTE: Some drivers set explicit on_exit hooks, which makes it
+   *        impossible for the driver manager to unload the driver
+   *        as this would crash the executable at exit.
+   */
+  if (pDrv->refcount == 0 && pDrv->safe_unload)
+    {
+      DLL_CLOSE (pDrv->dll);
+      pDrv->dll = NULL;
+    }
 
   return 0;
 }

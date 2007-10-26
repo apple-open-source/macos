@@ -15,7 +15,7 @@
 # NOTE: You can find Japanese version of this document in
 # the doc/net directory of the standard ruby interpreter package.
 # 
-#   $Id: pop.rb,v 1.62.2.3 2004/05/09 13:42:04 gsinclair Exp $
+#   $Id: pop.rb 11708 2007-02-12 23:01:19Z shyouhei $
 #
 # See Net::POP3 for documentation.
 #
@@ -190,7 +190,7 @@ module Net
   # 
   class POP3 < Protocol
 
-    Revision = %q$Revision: 1.62.2.3 $.split[1]
+    Revision = %q$Revision: 11708 $.split[1]
 
     #
     # Class Parameters
@@ -435,7 +435,7 @@ module Net
     end
 
     def do_start( account, password )
-      @socket = self.class.socket_type.open(@address, @port,
+      @socket = self.class.socket_type.old_open(@address, @port,
                                    @open_timeout, @read_timeout, @debug_output)
       on_connect
       @command = POP3Command.new(@socket)

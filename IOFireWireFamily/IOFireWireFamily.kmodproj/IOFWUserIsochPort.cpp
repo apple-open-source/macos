@@ -36,6 +36,8 @@
 #import <IOKit/firewire/IOFWDCLPool.h>
 #import <IOKit/firewire/IOFWDCL.h>
 #import <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IOKitKeysPrivate.h>
+#include <IOKit/IODMACommand.h>
 
 // protected
 #import <IOKit/firewire/IOFireWireLink.h>
@@ -49,7 +51,7 @@
 class DebugThing
 {
 	public :
-		natural_t * asyncRef ;
+		io_user_reference_t * asyncRef ;
 		IOFWUserLocalIsochPort * port; 
 } ;
 #endif
@@ -59,31 +61,31 @@ class DebugThing
 // ============================================================
 
 // static in IOFWUtils.cpp, shouldn't be included in IOFWUtils.h
-extern bool findOffsetInRanges ( IOVirtualAddress address, unsigned rangeCount, IOVirtualRange ranges[], IOByteCount & outOffset ) ;
+extern bool findOffsetInRanges ( mach_vm_address_t address, unsigned rangeCount, IOAddressRange ranges[], IOByteCount & outOffset ) ;
 
 static bool
 getDCLDataBuffer(
-	const DCLCommand *			dcl,
-	IOVirtualAddress &			outDataBuffer,
-	IOByteCount &				outDataLength )
+	const UserExportDCLCommand *dcl,
+	mach_vm_address_t &			outDataBuffer,
+	mach_vm_size_t &			outDataLength )
 {
 	Boolean	result = false ;
 
 	switch ( dcl->opcode & ~kFWDCLOpFlagMask )
 	{
 		case kDCLSendPacketStartOp:
-		case kDCLSendPacketWithHeaderStartOp:
+		//case kDCLSendPacketWithHeaderStartOp:
 		case kDCLSendPacketOp:
 		case kDCLReceivePacketStartOp:
 		case kDCLReceivePacketOp:
-			outDataBuffer		= (IOVirtualAddress)( (DCLTransferPacket*)dcl )->buffer ;
-			outDataLength		= ( (DCLTransferPacket *)dcl )->size ;
+			outDataBuffer		= ( (UserExportDCLTransferPacket*)dcl )->buffer ;
+			outDataLength		= ( (UserExportDCLTransferPacket *)dcl )->size ;
 			result = true ;
 			break ;
 			
 		case kDCLPtrTimeStampOp:
-			outDataBuffer		= (IOVirtualAddress)( (DCLPtrTimeStamp *) dcl )->timeStampPtr ; 
-			outDataLength		= sizeof ( *( ( (DCLPtrTimeStamp *)dcl )->timeStampPtr) ) ;
+			outDataBuffer		= ( (UserExportDCLPtrTimeStamp *) dcl )->timeStampPtr ; 
+			outDataLength		= sizeof ( mach_vm_address_t ) ;
 			result = true ;
 			break ;
 
@@ -97,13 +99,13 @@ getDCLDataBuffer(
 static void
 setDCLDataBuffer (
 		DCLCommand*					inDCL,
-		IOVirtualAddress			inDataBuffer,
-		IOByteCount					inDataLength )
+		mach_vm_address_t			inDataBuffer,
+		mach_vm_size_t				inDataLength )
 {
 	switch(inDCL->opcode & ~kFWDCLOpFlagMask)
 	{
 		case kDCLSendPacketStartOp:
-		case kDCLSendPacketWithHeaderStartOp:
+		//case kDCLSendPacketWithHeaderStartOp:
 		case kDCLSendPacketOp:
 		case kDCLReceivePacketStartOp:
 		case kDCLReceivePacketOp:
@@ -127,86 +129,57 @@ setDCLDataBuffer (
 }
 
 static IOByteCount
-getDCLSize ( DCLCommand* dcl )
+getDCLSize ( UserExportDCLCommand* dcl )
 {
 	IOByteCount result = 0 ;
 
 	switch(dcl->opcode & ~kFWDCLOpFlagMask)
 	{
 		case kDCLSendPacketStartOp:
-		case kDCLSendPacketWithHeaderStartOp:
+		//case kDCLSendPacketWithHeaderStartOp:
 		case kDCLSendPacketOp:
 		case kDCLReceivePacketStartOp:
 		case kDCLReceivePacketOp:
-			result = sizeof(DCLTransferPacket) ;
+			result = sizeof(UserExportDCLTransferPacket) ;
 			break ;
 			
 		case kDCLSendBufferOp:
 		case kDCLReceiveBufferOp:
-			result = sizeof(DCLTransferBuffer) ;
+			result = sizeof(UserExportDCLTransferBuffer) ;
 			break ;
 
 		case kDCLCallProcOp:
-			result = sizeof(DCLCallProc) ;
+			result = sizeof(UserExportDCLCallProc) ;
 			break ;
 			
 		case kDCLLabelOp:
-			result = sizeof(DCLLabel) ;
+			result = sizeof(UserExportDCLLabel) ;
 			break ;
 			
 		case kDCLJumpOp:
-			result = sizeof(DCLJump) ;
+			result = sizeof(UserExportDCLJump) ;
 			break ;
 			
 		case kDCLSetTagSyncBitsOp:
-			result = sizeof(DCLSetTagSyncBits) ;
+			result = sizeof(UserExportDCLSetTagSyncBits) ;
 			break ;
 			
 		case kDCLUpdateDCLListOp:
-			result = sizeof(DCLUpdateDCLList) ;
+			result = sizeof(UserExportDCLUpdateDCLList) ;
 			break ;
 
 		case kDCLPtrTimeStampOp:
-			result = sizeof(DCLPtrTimeStamp) ;
+			result = sizeof(UserExportDCLPtrTimeStamp) ;
+			break;
 		
 		case kDCLSkipCycleOp:
-			result = sizeof(DCLCommand) ;
+			result = sizeof(UserExportDCLCommand) ;
+			break;
 	}
 	
 	return result ;
 }
 
-#if 0
-static bool
-findOffsetIndexInRanges ( 
-		IOVirtualAddress 		address, 
-		unsigned 				rangeCount, 
-		IOVirtualRange 			ranges[], 
-		unsigned & 				outIndex, 
-		unsigned & 				hint )
-{
-	if ( hint > 0 )
-		--hint ;
-	
-	unsigned index = hint ;
-
-	do
-	{
-		if ( ( ranges[ index ].address <= address ) && ( ( ranges[ index ].address + ranges[ index ].length ) > address ) )
-		{
-			outIndex = index ;
-			hint = index ;
-			
-			return true ;
-		}
-
-		index = ( index + 1 ) % rangeCount ;
-		
-	} while ( index != hint ) ;
-
-	return false ;
-}
-#endif
 
 #pragma mark -
 
@@ -220,7 +193,7 @@ OSDefineMetaClassAndStructors ( IOFWUserLocalIsochPort, super )
 
 #if IOFIREWIREDEBUG > 0
 bool
-IOFWUserLocalIsochPort :: serialize( OSSerialize * s ) const
+IOFWUserLocalIsochPort::serialize( OSSerialize * s ) const
 {
 	const OSString * keys[ 1 ] =
 	{
@@ -245,7 +218,7 @@ IOFWUserLocalIsochPort :: serialize( OSSerialize * s ) const
 #endif // IOFIREWIREDEBUG > 0
 
 void
-IOFWUserLocalIsochPort :: free()
+IOFWUserLocalIsochPort::free()
 {
 	// release DCL pool (if we have one)
 	if ( fDCLPool )
@@ -266,18 +239,135 @@ IOFWUserLocalIsochPort :: free()
 	delete[] fDCLTable ;
 	fDCLTable = NULL ;
 	
-	super :: free() ;
+	super::free() ;
 }
 
+#if 0
+
+IOReturn checkMemoryInRange( IOMemoryDescriptor * memory, UInt64 mask )
+{
+	IOReturn status = kIOReturnSuccess;
+
+	if( memory == NULL )
+	{
+		status = kIOReturnBadArgument;
+	}
+	
+	//
+	// setup
+	//
+	
+	bool memory_prepared = false;
+	if( status == kIOReturnSuccess )
+	{
+		status = memory->prepare( kIODirectionInOut );
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		memory_prepared = true;
+	}
+	
+	UInt64 length = 0;
+	IODMACommand * dma_command = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		length = memory->getLength();
+		dma_command = IODMACommand::withSpecification( 
+												kIODMACommandOutputHost64,		// segment function
+												64,								// max address bits
+												length,							// max segment size
+												IODMACommand::kMapped | IODMACommand::kIterateOnly,		// IO mapped & don't bounce buffer
+												length,							// max transfer size
+												0,								// page alignment
+												NULL,							// mapper
+												NULL );							// refcon
+		if( dma_command == NULL )
+			status = kIOReturnError;
+		
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		// set memory descriptor and don't prepare it
+		status = dma_command->setMemoryDescriptor( memory, false ); 
+	}	
+
+	bool dma_command_prepared = false;
+	if( status == kIOReturnSuccess )
+	{
+		status = dma_command->prepare( 0, length, true );
+	}
+
+	if( status == kIOReturnSuccess )
+	{
+		dma_command_prepared = true;
+	}
+	
+	//
+	// check ranges
+	//
+
+	if( status == kIOReturnSuccess )
+	{
+		UInt64 offset = 0;
+		while( (offset < length) && (status == kIOReturnSuccess) )
+		{
+			IODMACommand::Segment64 segments[10];
+			UInt32 num_segments = 10;
+			status = dma_command->gen64IOVMSegments( &offset, segments, &num_segments );
+			if( status == kIOReturnSuccess )
+			{
+				for( UInt32 i = 0; i < num_segments; i++ )
+				{
+				//	IOLog( "checkSegments - segments[%d].fIOVMAddr = 0x%016llx, fLength = %d\n", i, segments[i].fIOVMAddr, segments[i].fLength  );
+						
+					if( (segments[i].fIOVMAddr & (~mask)) )
+					{
+						IOLog( "checkSegmentsFailed - 0x%016llx & 0x%016llx\n", segments[i].fIOVMAddr, mask );
+						status = kIOReturnNotPermitted;
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	//
+	// clean up
+	//
+	
+	if( dma_command_prepared )
+	{
+		dma_command->complete();
+		dma_command_prepared = false;
+	}
+		
+	if( dma_command )
+	{
+		dma_command->clearMemoryDescriptor(); 
+		dma_command->release();
+		dma_command = NULL;
+	}
+	
+	if( memory_prepared )
+	{
+		memory->complete();
+		memory_prepared = false;
+	}
+	
+	return status;
+}
+
+#endif
+
 bool
-IOFWUserLocalIsochPort :: initWithUserDCLProgram ( 
+IOFWUserLocalIsochPort::initWithUserDCLProgram ( 
 		AllocateParams * 			params,
 		IOFireWireUserClient & 		userclient,
 		IOFireWireController &		controller )
 {
-	
-// sanity checking
-	
+	// sanity checking
 	if ( params->programExportBytes == 0 )
 	{
 		ErrorLog ( "No program!" ) ;
@@ -303,7 +393,7 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 	
 // get user program ranges:
 
-	IOVirtualRange * bufferRanges = new IOVirtualRange[ params->bufferRangeCount ] ;
+	IOAddressRange * bufferRanges = new IOAddressRange[ params->bufferRangeCount ] ;
 	if ( !bufferRanges )
 	{
 		error = kIOReturnNoMemory ;
@@ -311,10 +401,9 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 	
 	if ( !error )
 	{
-		error = fUserClient->copyUserData(	(IOVirtualAddress)params->bufferRanges, (IOVirtualAddress)bufferRanges, 
-											sizeof ( IOVirtualRange ) * params->bufferRangeCount ) ;
+		error = fUserClient->copyUserData(params->bufferRanges,(mach_vm_address_t)bufferRanges, sizeof ( IOAddressRange ) * params->bufferRangeCount ) ;
 	}
-	
+
 // create descriptor for program buffers
 
 	IOMemoryDescriptor * bufferDesc = NULL ;
@@ -328,12 +417,22 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 			}			
 		}
 	
-		bufferDesc = IOMemoryDescriptor :: withRanges (	bufferRanges, params->bufferRangeCount, kIODirectionOutIn, 
+		bufferDesc = IOMemoryDescriptor::withAddressRanges (	bufferRanges, params->bufferRangeCount, kIODirectionOutIn, 
 															fUserClient->getOwningTask() ) ;
 		if ( ! bufferDesc )
+		{
 			error = kIOReturnNoMemory ;
+		}
 		else
-			error = bufferDesc->prepare() ;
+		{
+		
+			// IOLog( "IOFWUserLocalIsochPort::initWithUserDCLProgram - checkMemoryInRange status 0x%08lx\n", checkMemoryInRange( bufferDesc, 0x000000001FFFFFFF ) );
+		
+			error = bufferDesc->prepare( kIODirectionPrepareToPhys32 ) ;
+				
+			// IOLog( "IOFWUserLocalIsochPort::initWithUserDCLProgram - prep 32 checkMemoryInRange status 0x%08lx\n", checkMemoryInRange( bufferDesc, 0x000000001FFFFFFF ) );
+			
+		}
 	}
 	
 // create map for buffers; we will need to get a virtual address for them
@@ -354,11 +453,11 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 	IOMemoryDescriptor * userProgramExportDesc = NULL ;
 	if ( !error )
 	{
-		userProgramExportDesc = IOMemoryDescriptor::withAddress( 
-														params->programData, 
-														params->programExportBytes, 
-														kIODirectionOut, 
-														fUserClient->getOwningTask() ) ;
+		userProgramExportDesc = IOMemoryDescriptor::withAddressRange( 
+																	 params->programData, 
+																	 params->programExportBytes, 
+																	 kIODirectionOut, 
+																	 fUserClient->getOwningTask() ) ;
 	
 	}
 
@@ -373,7 +472,7 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 		DCLCommand * opcodes = NULL ;
 		switch ( params->version )
 		{
-			case 0 :
+			case kDCLExportDataLegacyVersion :
 
 				error = importUserProgram( userProgramExportDesc, params->bufferRangeCount, bufferRanges, bufferMap ) ;
 				ErrorLogCond( error, "importUserProgram returned %x\n", error ) ;
@@ -384,8 +483,8 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 				}
 				
 				break ;
-			
-			case 1 :
+
+			case kDCLExportDataNuDCLRosettaVersion :
 
 				fDCLPool = fUserClient->getOwner()->getBus()->createDCLPool() ;
 				
@@ -435,7 +534,7 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 
 				infoAux.u.v2.bufferMemoryMap = bufferMap ;
 				infoAux.u.v2.workloop = params->options & kFWIsochPortUseSeparateKernelThread ? createRealtimeThread() : NULL ;
-				infoAux.u.v2.options = params->options ;
+				infoAux.u.v2.options = (IOFWIsochPortOptions)params->options ;
 			}
 						
 			IOFireWireBus::DCLTaskInfo info = { 0, 0, 0, 0, 0, 0, & infoAux } ;
@@ -464,14 +563,9 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 		{
 			if ( ! super::init( program, & controller ) )
 			{
-				ErrorLog ( "IOFWUserIsochPort :: init failed\n" ) ;
+				ErrorLog ( "IOFWUserIsochPort::init failed\n" ) ;
 				error = kIOReturnError ;
 			}
-		
-			program->setForceStopProc( IOFireWireUserClient::s_IsochChannel_ForceStopHandler, 0, NULL ) ;
-					
-//			program->release() ;
-//			program = NULL ;
 		}
 		else
 		{
@@ -486,21 +580,43 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 	
 	delete [] bufferRanges ;
 	
-	InfoLog( "-IOFWUserLocalIsochPort :: initWithUserDCLProgram error=%x (build date "__TIME__" "__DATE__")\n", error ) ;
+	InfoLog( "-IOFWUserLocalIsochPort::initWithUserDCLProgram error=%x (build date "__TIME__" "__DATE__")\n", error ) ;
 
 	return ( ! error ) ;
 }
 
 
 IOReturn
-IOFWUserLocalIsochPort :: importUserProgram (
+IOFWUserLocalIsochPort::importUserProgram (
 		IOMemoryDescriptor *		userExportDesc,
 		unsigned 					userBufferRangeCount, 
-		IOVirtualRange				userBufferRanges[],
+		IOAddressRange				userBufferRanges[],
 		IOMemoryMap *				bufferMap )
 {	
 	IOReturn error = kIOReturnSuccess ;
+	UInt8 *pUserImportProgramBuffer;
 	
+	// Allocate a temporary buffer to hold user-space exported program.
+	if ( ! error )
+	{
+		pUserImportProgramBuffer = new UInt8[ userExportDesc->getLength() ] ;
+		if ( !pUserImportProgramBuffer )
+		{
+			error = kIOReturnNoMemory ;
+		}
+	}
+	
+	// copy user program to kernel buffer:
+	if ( !error )
+	{
+		unsigned byteCount = userExportDesc->readBytes( 0, (void*)pUserImportProgramBuffer, userExportDesc->getLength() ) ;
+		if ( byteCount < userExportDesc->getLength() )
+		{
+			error = kIOReturnVMError ;
+		}
+	}
+	
+	// Allocate the buffer for the "real" kernel DCL program.
 	if ( ! error )
 	{
 		fProgramBuffer = new UInt8[ userExportDesc->getLength() ] ;
@@ -510,103 +626,185 @@ IOFWUserLocalIsochPort :: importUserProgram (
 		}
 	}
 	
-	// copy user program to kernel buffer:
-	if ( !error )
+	DCLCommand *pCurrentDCL;
+	UserExportDCLCommand *pExportDCL;
+	UInt32 nextUserExportDCLOffset = 0;
+	DCLCommand *pLastDCL = NULL;
+	unsigned size; 
+	do
 	{
-		unsigned byteCount = userExportDesc->readBytes( 0, (void*)fProgramBuffer, userExportDesc->getLength() ) ;
-		if ( byteCount < userExportDesc->getLength() )
+		pExportDCL = (UserExportDCLCommand*)(pUserImportProgramBuffer + nextUserExportDCLOffset);
+		pCurrentDCL = (DCLCommand*)(fProgramBuffer + nextUserExportDCLOffset);
+		
+		UInt32 opcode = pExportDCL->opcode & ~kFWDCLOpFlagMask;
+		
+		// Sanity check
+		if ( opcode > 15 && opcode != 20 )
 		{
-			error = kIOReturnVMError ;
-		}
-	}
-
-	// convert next pointers...
-	// we can set the next pointer of each kernel DCL to the DCL immediately succeeding it
-	// because we copied the DCLs from user space in the order they're linked together..
-	if ( ! error )
-	{
-		for( DCLCommand * dcl = (DCLCommand*)fProgramBuffer; dcl != NULL && !error; dcl = dcl->pNextDCLCommand )
-		{					
-			{
-				unsigned opcode = dcl->opcode & ~kFWDCLOpFlagMask ;
-				if ( opcode > 15 && opcode != 20 )
-				{
-					ErrorLog("found invalid DCL in export data\n") ;
-					error = kIOFireWireBogusDCLProgram ;
-					break ;
-				}
-			}
-			
-			unsigned size = getDCLSize( dcl ) ;
-			
-			{
-				// Convert the DCL data pointers from user space to kernel space:
-				// (new style programs will have this step performed automatically when the program
-				// is imported to the kernel...)
-				IOVirtualRange tempRange ;
-				if ( getDCLDataBuffer ( dcl, tempRange.address, tempRange.length ) )
-				{
-					if ( tempRange.address != NULL && tempRange.length > 0 )
-					{
-						IOByteCount offset ;
-						if ( ! findOffsetInRanges (	tempRange.address, userBufferRangeCount, userBufferRanges, offset ) )
-						{
-							DebugLog( "IOFWUserLocalIsochPort::initWithUserDCLProgram: couldn't find DCL data buffer in buffer ranges") ;
-						}
-						
-						// set DCL's data pointer to point to same memory in kernel address space
-						setDCLDataBuffer ( dcl, bufferMap->getVirtualAddress() + offset, tempRange.length ) ;					
-					}
-				}
-			}
-			
-			switch( dcl->opcode & ~kFWDCLOpFlagMask )
-			{
-				case kDCLUpdateDCLListOp:
-					size += sizeof( DCLCommand * ) * ((DCLUpdateDCLList*)dcl)->numDCLCommands ;
-					error = convertToKernelDCL( ( DCLUpdateDCLList * ) dcl ) ;
-					
-//					for( unsigned index=0; index < ((DCLUpdateDCLList*)dcl)->numDCLCommands; ++index )  // nnn debug only
-//					{
-//						if ( (IOVirtualAddress)dcl < fProgramBuffer
-//							|| (IOVirtualAddress)((DCLUpdateDCLList*)dcl)->dclCommandList[ index ] > ( fProgramBuffer + userExportDesc->getLength() ) )
-//							panic("oops!\n") ;
-//					}
-					
-					break ;
-				case kDCLCallProcOp :
-					size += sizeof( OSAsyncReference ) ;
-					error = convertToKernelDCL ( (DCLCallProc*) dcl ) ;
-					
-//					if ( (IOVirtualAddress)dcl < fProgramBuffer
-//						|| (IOVirtualAddress)((DCLCallProc*)dcl)->procData > (fProgramBuffer + userExportDesc->getLength() ) ) // nnn debug only
-//					{
-//						panic("oops3\n") ;
-//					}
-						
-					break ;
-				case kDCLJumpOp:
-					error = convertToKernelDCL( ( DCLJump * ) dcl ) ;
-					
-//					if ( ((DCLJump*)dcl)->pJumpDCLLabel )
-//					{
-//						if ( (IOVirtualAddress)dcl < fProgramBuffer
-//							|| (IOVirtualAddress)((DCLJump*)dcl)->pJumpDCLLabel > ( fProgramBuffer + userExportDesc->getLength() ) )  // nnn debug only
-//						{
-//							panic("oops2\n") ;
-//						}
-//					}
-					
-					break ;
-			}
-			
-			if ( dcl->pNextDCLCommand )
-				dcl->pNextDCLCommand = (DCLCommand*)( ((UInt8*)dcl) + size ) ;
-
-			++fProgramCount ;			
+			DebugLog("found invalid DCL in export data\n") ;
+			error = kIOFireWireBogusDCLProgram ;
+			break ;
 		}
 		
-		fDCLTable = new (DCLCommand*)[ fProgramCount ] ;
+		size = getDCLSize( pExportDCL ) ;
+
+		// Set the "next" pointer in the previous DCL
+		if (pLastDCL != NULL)
+			pLastDCL->pNextDCLCommand = pCurrentDCL;
+		pLastDCL = pCurrentDCL;
+		
+		switch ( opcode )
+		{
+			
+			case kDCLSendPacketStartOp:
+			//case kDCLSendPacketWithHeaderStartOp:
+			case kDCLSendPacketOp:
+			case kDCLReceivePacketStartOp:
+			case kDCLReceivePacketOp:
+				{
+					DCLTransferPacket *pDCLTransferPacket = (DCLTransferPacket*) pCurrentDCL; 
+					pDCLTransferPacket->opcode = pExportDCL->opcode;
+					pDCLTransferPacket->compilerData = 0;
+					//pDCLTransferPacket->buffer - handled by calls to getDCLDataBuffer/setDCLDataBuffer, below!
+					//pDCLTransferPacket->size - handled by calls to getDCLDataBuffer/setDCLDataBuffer, below!
+				}
+				break ;
+			
+			case kDCLSendBufferOp:
+			case kDCLReceiveBufferOp:
+				{
+					DCLTransferBuffer *pDCLTransferBuffer = (DCLTransferBuffer*) pCurrentDCL; 
+					pDCLTransferBuffer->opcode = pExportDCL->opcode;
+					pDCLTransferBuffer->compilerData = 0;
+					//pDCLTransferBuffer->buffer - handled by calls to getDCLDataBuffer/setDCLDataBuffer, below!
+					//pDCLTransferBuffer->size - handled by calls to getDCLDataBuffer/setDCLDataBuffer, below!
+					pDCLTransferBuffer->packetSize = ((UserExportDCLTransferBuffer*)pExportDCL)->packetSize;
+					pDCLTransferBuffer->reserved = ((UserExportDCLTransferBuffer*)pExportDCL)->reserved;
+					pDCLTransferBuffer->bufferOffset = ((UserExportDCLTransferBuffer*)pExportDCL)->bufferOffset;
+				}
+				break ;
+			
+			case kDCLCallProcOp:
+				{
+					DCLCallProc *pDCLCallProc = (DCLCallProc*) pCurrentDCL; 
+					pDCLCallProc->opcode = pExportDCL->opcode;
+					pDCLCallProc->compilerData = 0;
+					//pDCLCallProc->proc - handled by call to convertToKernelDCL, below
+					//pDCLCallProc->procData - handled by call to convertToKernelDCL, below
+					size += sizeof( uint64_t[kOSAsyncRef64Count] ) ;
+					error = convertToKernelDCL( ((UserExportDCLCallProc*)pExportDCL), pDCLCallProc ) ;
+				}
+				break ;
+			
+			case kDCLLabelOp:
+				{
+					DCLLabel *pDCLLabel = (DCLLabel*) pCurrentDCL; 
+					pDCLLabel->opcode = pExportDCL->opcode;
+					pDCLLabel->compilerData = 0;
+				}
+				break ;
+			
+			case kDCLJumpOp:
+				{
+					DCLJump *pDCLJump = (DCLJump*) pCurrentDCL; 
+					pDCLJump->opcode = pExportDCL->opcode;
+					pDCLJump->compilerData = 0;
+					//pDCLJump->pJumpDCLLabel - handled by call to convertToKernelDCL, below
+					error = convertToKernelDCL( ((UserExportDCLJump*)pExportDCL), pDCLJump ) ;
+				}
+				break ;
+			
+			case kDCLSetTagSyncBitsOp:
+				{
+					DCLSetTagSyncBits *pDCLSetTagSyncBits = (DCLSetTagSyncBits*) pCurrentDCL; 
+					pDCLSetTagSyncBits->opcode = pExportDCL->opcode;
+					pDCLSetTagSyncBits->compilerData = 0;
+					pDCLSetTagSyncBits->tagBits = ((UserExportDCLSetTagSyncBits*)pExportDCL)->tagBits;
+					pDCLSetTagSyncBits->syncBits = ((UserExportDCLSetTagSyncBits*)pExportDCL)->syncBits;
+				}
+				break ;
+			
+			case kDCLUpdateDCLListOp:
+				{
+					DCLUpdateDCLList *pDCLUpdateDCLList = (DCLUpdateDCLList*) pCurrentDCL; 
+					pDCLUpdateDCLList->opcode = pExportDCL->opcode;
+					pDCLUpdateDCLList->compilerData = 0;
+					//pDCLUpdateDCLList->dclCommandList - handled by call to convertToKernelDCL, below
+					pDCLUpdateDCLList->numDCLCommands = ((UserExportDCLUpdateDCLList*)pExportDCL)->numDCLCommands;
+					size += sizeof( mach_vm_address_t ) * ((UserExportDCLUpdateDCLList*)pExportDCL)->numDCLCommands ;
+					error = convertToKernelDCL( ((UserExportDCLUpdateDCLList*)pExportDCL), pDCLUpdateDCLList ) ;
+				}
+				break ;
+			
+			case kDCLPtrTimeStampOp:
+				{
+					DCLPtrTimeStamp *pDCLPtrTimeStamp = (DCLPtrTimeStamp*) pCurrentDCL; 
+					pDCLPtrTimeStamp->opcode = pExportDCL->opcode;
+					pDCLPtrTimeStamp->compilerData = 0;
+					//pDCLPtrTimeStamp->timeStampPtr - handled by calls to getDCLDataBuffer/setDCLDataBuffer, below!
+				}
+				break ;
+			
+			case kDCLSkipCycleOp:
+				{
+					DCLCommand *pDCLCommand = (DCLCommand*) pCurrentDCL; 
+					pDCLCommand->opcode = pExportDCL->opcode;
+					pDCLCommand->compilerData = 0;
+					pDCLCommand->operands[0] = ((UserExportDCLCommand*)pExportDCL)->operands[0];
+				}
+				break ;
+		}
+		
+		// Break out of the loop if we got an error!
+		if (error)
+			break;
+		
+		// Convert the DCL data pointers from user space to kernel space:
+		// (new style programs will have this step performed automatically when the program
+		// is imported to the kernel...)
+		IOAddressRange tempRange ;
+		tempRange.address = 0;		// supress warning
+		tempRange.length = 0;		// supress warning
+		if ( getDCLDataBuffer ( pExportDCL, tempRange.address, tempRange.length ) )
+		{
+			if ( tempRange.address != NULL && tempRange.length > 0 )
+			{
+				IOByteCount offset ;
+				if ( ! findOffsetInRanges (	tempRange.address, userBufferRangeCount, userBufferRanges, offset ) )
+				{
+					DebugLog( "IOFWUserLocalIsochPort::initWithUserDCLProgram: couldn't find DCL data buffer in buffer ranges") ;
+					error = kIOReturnError;
+					break;
+				}
+				
+				// set DCL's data pointer to point to same memory in kernel address space
+				setDCLDataBuffer ( pCurrentDCL, bufferMap->getVirtualAddress() + offset, tempRange.length ) ;					
+			}
+		}
+		
+		// increment the count of DCLs
+		++fProgramCount ;			
+		
+		// Break out of this loop if we found the end.
+		if (pExportDCL->pNextDCLCommand == NULL)
+			break;
+		else
+			nextUserExportDCLOffset += size;
+		
+		// Sanity Check
+		if (nextUserExportDCLOffset >= userExportDesc->getLength())
+		{
+			error = kIOReturnError;
+			break;
+		}
+	}while(1);
+	
+	if ( ! error )
+	{
+		// Set the "next" pointer in the last DCL to NULL
+		pLastDCL->pNextDCLCommand = NULL;
+		
+		fDCLTable = new DCLCommand*[ fProgramCount ] ;
 		
 		InfoLog( "made DCL table, %d entries\n", fProgramCount ) ;
 		
@@ -626,12 +824,16 @@ IOFWUserLocalIsochPort :: importUserProgram (
 		}
 	}
 
+	// Need to delete the pUserImportProgramBuffer!
+	if (pUserImportProgramBuffer)
+		delete [] pUserImportProgramBuffer;
+	
 	return error ;
 }
 
 #if 0
 IOReturn
-IOFWUserLocalIsochPort :: releasePort ()
+IOFWUserLocalIsochPort::releasePort ()
 {
 //	lock() ;
 //	
@@ -643,7 +845,7 @@ IOFWUserLocalIsochPort :: releasePort ()
 //
 //	unlock() ;
 
-	return super :: releasePort () ;
+	return super::releasePort () ;
 }
 #endif
 
@@ -664,7 +866,7 @@ IOFWUserLocalIsochPort::start()
 }
 
 IOReturn
-IOFWUserLocalIsochPort :: stop ()
+IOFWUserLocalIsochPort::stop()
 {
 	// we are sending a stop token, but take isoch workloop lock to make sure all
 	// callbacks coming from FWIM have already been cleared out.
@@ -676,12 +878,12 @@ IOFWUserLocalIsochPort :: stop ()
 
 	IOReturn error ;
 	
-	// we ignore any errors from above here because we need to call super :: stop() always
-	error = super :: stop() ;
+	// we ignore any errors from above here because we need to call super::stop() always
+	error = super::stop() ;
 	
 	if ( fStarted )
 	{
-		error = IOFireWireUserClient::sendAsyncResult( fStopTokenAsyncRef, kIOFireWireLastDCLToken, NULL, 0 ) ;
+		error = IOFireWireUserClient::sendAsyncResult64( fStopTokenAsyncRef, kIOFireWireLastDCLToken, NULL, 0 ) ;
 		
 		fStarted = false ;
 	}
@@ -694,13 +896,13 @@ IOFWUserLocalIsochPort :: stop ()
 }
 
 void
-IOFWUserLocalIsochPort :: s_dclCallProcHandler( DCLCallProc * dcl )
+IOFWUserLocalIsochPort::s_dclCallProcHandler( DCLCallProc * dcl )
 {
 #if 0
 #if IOFIREWIREUSERCLIENTDEBUG > 0
 	IOFWUserLocalIsochPort * me = (IOFWUserLocalIsochPort *) holder->obj ;
 
-	DebugLog("+IOFWUserLocalIsochPort :: s_dclCallProcHandler, holder=%p, (holder->asyncRef)[0]=0x%x\n", holder, (holder->asyncRef)[0]) ;
+	DebugLog("+IOFWUserLocalIsochPort::s_dclCallProcHandler, holder=%p, (holder->asyncRef)[0]=0x%x\n", holder, (holder->asyncRef)[0]) ;
 
 	me->fUserClient->getStatistics()->getIsochCallbackCounter()->addValue( 1 ) ;
 #endif
@@ -711,27 +913,27 @@ IOFWUserLocalIsochPort :: s_dclCallProcHandler( DCLCallProc * dcl )
 #if 0
 // DEBUG
 		DebugThing * debugThing = (DebugThing*)dcl->procData ;
-		IOFireWireUserClient::sendAsyncResult( (natural_t*)debugThing->asyncRef, kIOReturnSuccess, NULL, 0 ) ;
+		IOFireWireUserClient::sendAsyncResult64( (io_user_reference_t*)debugThing->asyncRef, kIOReturnSuccess, NULL, 0 ) ;
 		DebugLog("send callback port=%p\n", debugThing->port ) ;
 #else
-		IOFireWireUserClient::sendAsyncResult( (natural_t*)dcl->procData, kIOReturnSuccess, NULL, 0 ) ;
+		IOFireWireUserClient::sendAsyncResult64( (io_user_reference_t *)dcl->procData, kIOReturnSuccess, NULL, 0 ) ;
 #endif
 	}	
 }
 
 void
-IOFWUserLocalIsochPort :: s_nuDCLCallout( void * refcon )
+IOFWUserLocalIsochPort::s_nuDCLCallout( void * refcon )
 {
-	natural_t * asyncRef = (natural_t *)refcon ;
+	io_user_reference_t * asyncRef = (io_user_reference_t *)refcon ;
  
-	IOFireWireUserClient :: sendAsyncResult( asyncRef, kIOReturnSuccess, NULL, 0 ) ;
+	IOFireWireUserClient::sendAsyncResult64( asyncRef, kIOReturnSuccess, NULL, 0 ) ;
 }
 
 IOReturn
-IOFWUserLocalIsochPort::setAsyncRef_DCLCallProc( OSAsyncReference asyncRef )
+IOFWUserLocalIsochPort::setAsyncRef_DCLCallProc( OSAsyncReference64 asyncRef )
 {
 	// set up stop token async ref
-	bcopy( asyncRef, fStopTokenAsyncRef, sizeof( OSAsyncReference ) ) ;
+	bcopy( asyncRef, fStopTokenAsyncRef, sizeof( OSAsyncReference64 ) ) ;
 
 	// walk through DCL program and set mach port
 	// for all callproc DCLs
@@ -743,10 +945,10 @@ IOFWUserLocalIsochPort::setAsyncRef_DCLCallProc( OSAsyncReference asyncRef )
 			IOFWDCL * dcl = reinterpret_cast< IOFWDCL * >( program->getObject( index ) ) ;
 			if ( dcl->getCallback() )
 			{
-				natural_t * dclAsyncRef = (natural_t*)dcl->getRefcon() ;
+				io_user_reference_t * dclAsyncRef = (io_user_reference_t*)dcl->getRefcon() ;
 				if ( asyncRef )
 				{
-					bcopy( asyncRef, dclAsyncRef, sizeof( natural_t ) * kIOAsyncReservedCount ) ;
+					bcopy( asyncRef, dclAsyncRef, sizeof( io_user_reference_t ) * kIOAsyncReservedCount ) ;
 				}
 			}
 			
@@ -769,7 +971,7 @@ IOFWUserLocalIsochPort::setAsyncRef_DCLCallProc( OSAsyncReference asyncRef )
 				}
 #else
 				{
-					((natural_t*)((DCLCallProc*)dcl)->procData)[ 0 ] = asyncRef[ 0 ] ;
+					((io_user_reference_t*)((DCLCallProc*)dcl)->procData)[ 0 ] = asyncRef[ 0 ] ;
 				}
 #endif
 			}
@@ -782,7 +984,7 @@ IOFWUserLocalIsochPort::setAsyncRef_DCLCallProc( OSAsyncReference asyncRef )
 }
 
 IOReturn
-IOFWUserLocalIsochPort :: modifyJumpDCL ( UInt32 inJumpDCLCompilerData, UInt32 inLabelDCLCompilerData)
+IOFWUserLocalIsochPort::modifyJumpDCL ( UInt32 inJumpDCLCompilerData, UInt32 inLabelDCLCompilerData)
 {
 	if ( !fProgram )
 	{
@@ -828,7 +1030,7 @@ IOFWUserLocalIsochPort :: modifyJumpDCL ( UInt32 inJumpDCLCompilerData, UInt32 i
 }
 
 IOReturn
-IOFWUserLocalIsochPort :: modifyDCLSize ( UInt32 dclCompilerData, IOByteCount newSize )
+IOFWUserLocalIsochPort::modifyDCLSize ( UInt32 dclCompilerData, IOByteCount newSize )
 {
 	return kIOReturnUnsupported ;
 
@@ -857,16 +1059,19 @@ IOFWUserLocalIsochPort :: modifyDCLSize ( UInt32 dclCompilerData, IOByteCount ne
 }
 
 IOReturn
-IOFWUserLocalIsochPort :: convertToKernelDCL ( 
-		DCLUpdateDCLList * 		dcl )
+IOFWUserLocalIsochPort::convertToKernelDCL (UserExportDCLUpdateDCLList *pUserExportDCL, DCLUpdateDCLList *dcl)
 {
+	UInt8 *pListAddress = (UInt8 *)pUserExportDCL;
+	pListAddress += sizeof(UserExportDCLUpdateDCLList);
+	mach_vm_address_t *pExportListItem = (mach_vm_address_t*)pListAddress;
+	
 	// when the program was imported to the kernel, the update list was placed in
 	// the DCL program export buffer immediately after the DCL
 	dcl->dclCommandList = (DCLCommand**)(dcl + 1) ;
 	
 	for( unsigned index = 0 ; index < dcl->numDCLCommands; ++index )
 	{
-		dcl->dclCommandList[ index ] = (DCLCommand*)( fProgramBuffer + (UInt32)dcl->dclCommandList[ index ] ) ;
+		dcl->dclCommandList[ index ] = (DCLCommand*)( fProgramBuffer + pExportListItem[index]) ;
 		{
 			unsigned opcode = dcl->dclCommandList[ index ]->opcode & ~kFWDCLOpFlagMask ;
 			if ( opcode > 15 && opcode != 20 )
@@ -880,12 +1085,11 @@ IOFWUserLocalIsochPort :: convertToKernelDCL (
 }
 
 IOReturn
-IOFWUserLocalIsochPort :: convertToKernelDCL ( 
-		DCLJump * 				dcl )
+IOFWUserLocalIsochPort::convertToKernelDCL (UserExportDCLJump *pUserExportDCL, DCLJump *dcl )
 {
 	// the label field contains a an offset from the beginning of fProgramBuffer
 	// where the label can be found
-	dcl->pJumpDCLLabel = (DCLLabel*)( fProgramBuffer + (UInt32)dcl->pJumpDCLLabel ) ;
+	dcl->pJumpDCLLabel = (DCLLabel*)( fProgramBuffer + (UInt32)pUserExportDCL->pJumpDCLLabel ) ;
 
 	if ( ( dcl->pJumpDCLLabel->opcode & ~kFWDCLOpFlagMask ) != kDCLLabelOp )
 	{
@@ -898,19 +1102,20 @@ IOFWUserLocalIsochPort :: convertToKernelDCL (
 }
 
 IOReturn
-IOFWUserLocalIsochPort :: convertToKernelDCL ( 
-	DCLCallProc * dcl)
+IOFWUserLocalIsochPort::convertToKernelDCL (UserExportDCLCallProc *pUserExportDCL, DCLCallProc * dcl)
 {
-	if ( !dcl->proc )
-		return NULL ;
+	//if ( !dcl->proc )
+	//	return NULL ;
 	
-	natural_t * asyncRef = (natural_t *)(dcl + 1 ) ;
+	io_user_reference_t * asyncRef = (io_user_reference_t *)(dcl + 1 ) ;
 	
 	asyncRef[0] = 0 ;
-	asyncRef[ kIOAsyncCalloutFuncIndex ] = (natural_t)dcl->proc ;
-	asyncRef[ kIOAsyncCalloutRefconIndex ] = (natural_t)dcl->procData ;
+	asyncRef[ kIOAsyncCalloutFuncIndex ] = (mach_vm_address_t)pUserExportDCL->proc ;
+	asyncRef[ kIOAsyncCalloutRefconIndex ] = (io_user_reference_t)pUserExportDCL->procData ;
 	
 	dcl->proc				= (DCLCallCommandProc*) & s_dclCallProcHandler ;
+	dcl->procData			= (DCLCallProcDataType) asyncRef ;
+
 
 #if 0
 // DEBUG
@@ -926,20 +1131,21 @@ IOFWUserLocalIsochPort :: convertToKernelDCL (
 }
 
 void
-IOFWUserLocalIsochPort :: exporterCleanup ()
+IOFWUserLocalIsochPort::exporterCleanup( const OSObject * self )
 {
-	stop() ;
-	releasePort() ;
+	IOFWUserLocalIsochPort * me = (IOFWUserLocalIsochPort*)self;
+	me->stop() ;
+	me->releasePort() ;
 }
 
 IOReturn
-IOFWUserLocalIsochPort :: userNotify (
+IOFWUserLocalIsochPort::userNotify (
 		UInt32			notificationType,
 		UInt32			numDCLs,
 		void *			data,
 		IOByteCount		dataSize )
 {
-	InfoLog("+IOFWUserLocalIsochPort :: userNotify, numDCLs=%ld\n", numDCLs ) ;
+	InfoLog("+IOFWUserLocalIsochPort::userNotify, numDCLs=%ld\n", numDCLs ) ;
 	if ( __builtin_expect( numDCLs > 64, false ) )
 	{
 		return kIOReturnBadArgument ;
@@ -1016,16 +1222,24 @@ IOFWUserLocalIsochPort :: userNotify (
 					dcls[ pairIndex ] = (IOFWDCL*)program->getObject( dclIndexTable[ index ] ) ;
 					
 					++index ;
-					--dclIndexTable[ index ] ;
 					
-					if ( dclIndexTable[ index ] >= programLength )
+					if (dclIndexTable[ index ])
 					{
-						DebugLog("out of range DCL index=%d, dclIndices[ index ]=%d, programLength=%d\n", index, dclIndexTable[ index ], programLength ) ;
-						error = kIOReturnBadArgument ;
-						break ;						
+						--dclIndexTable[ index ] ;
+						
+						if ( dclIndexTable[ index ] >= programLength )
+						{
+							DebugLog("out of range DCL index=%d, dclIndices[ index ]=%d, programLength=%d\n", index, dclIndexTable[ index ], programLength ) ;
+							error = kIOReturnBadArgument ;
+							break ;						
+						}
+						
+						dcls[ pairIndex ]->setBranch( (IOFWDCL*)program->getObject( dclIndexTable[ index ] ) ) ;
 					}
-
-					dcls[ pairIndex ]->setBranch( (IOFWDCL*)program->getObject( dclIndexTable[ index ] ) ) ;
+					else
+					{
+						dcls[ pairIndex ]->setBranch( 0 ) ;
+					}
 
 					++index ;
 					++pairIndex ;
@@ -1072,7 +1286,7 @@ IOFWUserLocalIsochPort :: userNotify (
 }
 
 IOWorkLoop *
-IOFWUserLocalIsochPort :: createRealtimeThread()
+IOFWUserLocalIsochPort::createRealtimeThread()
 {
 	IOWorkLoop * workloop = IOWorkLoop::workLoop() ;
 	if ( workloop )

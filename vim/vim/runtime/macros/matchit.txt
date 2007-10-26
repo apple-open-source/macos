@@ -1,10 +1,10 @@
 *matchit.txt*   Extended "%" matching
 
 For instructions on installing this file, type
-	:help add-local-help
+	:help matchit-install
 inside Vim.
 
-For Vim version 6.1.  Last change:  2002 May 15
+For Vim version 6.3.  Last change:  2006 Feb 23
 
 
 		  VIM REFERENCE MANUAL    by Benji Fisher
@@ -32,18 +32,23 @@ in your |vimrc| file: >
 %	Cycle forward through matching groups, such as "if", "else", "endif",
 	as specified by |b:match_words|.
 
-							*g%*
+							*g%* *v_g%* *o_g%*
 g%	Cycle backwards through matching groups, as specified by
 	|b:match_words|.  For example, go from "endif" to "else" to "if".
 
-							*[%*
+							*[%* *v_[%* *o_[%*
 [%	Go to [count] previous unmatched group, as specified by
 	|b:match_words|.  Similar to |[{|.
 
-							*]%*
+							*]%* *v_]%* *o_]%*
 ]%	Go to [count] next unmatched group, as specified by
 	|b:match_words|.  Similar to |]}|.
 
+							*v_a%*
+a%	In Visual mode, select the matching group, as specified by
+	|b:match_words|, containing the cursor.  Similar to |v_a[|.
+	A [count] is ignored, and only the first character of the closing
+	pattern is selected.
 
 In Vim, as in plain vi, the percent key, |%|, jumps the cursor from a brace,
 bracket, or paren to its match.  This can be configured with the 'matchpairs'
@@ -187,6 +192,14 @@ can be defined in the |filetype-plugin| or autocommand that defines
 The main variable is |b:match_words|.  It is described in the section below on
 supporting a new language.
 
+				*MatchError* *matchit-hl* *matchit-highlight*
+MatchError is the highlight group for error messages from the script.  By
+default, it is linked to WarningMsg.  If you do not want to be bothered by
+error messages, you can define this to be something invisible.  For example,
+if you use the GUI version of Vim and your command line is normally white, you
+can do >
+	:hi MatchError guifg=white guibg=white
+<
 						*b:match_ignorecase*
 If you >
 	:let b:match_ignorecase = 1
@@ -234,7 +247,7 @@ Examples:
 	comment character) you can >
 		:let b:match_skip = 'r:\(^\|[^\\]\)\(\\\\\)*%'
 <
-	See the $VIMRUNTIME/syntax/vim.vim for an example that uses both
+	See the $VIMRUNTIME/ftplugin/vim.vim for an example that uses both
 	syntax and a regular expression.
 
 ==============================================================================
@@ -248,8 +261,10 @@ Vim's |regular-expression|s.
 
 The format for |b:match_words| is similar to that of the 'matchpairs' option:
 it is a comma (,)-separated list of groups; each group is a colon(:)-separated
-list of patterns (regular expressions).  It is OK to have only one group; the
-effect is undefined if a group has only one pattern.  A simple example is >
+list of patterns (regular expressions).  Commas and backslashes that are part
+of a pattern should be escaped with backslashes ('\:' and '\,').  It is OK to
+have only one group; the effect is undefined if a group has only one pattern.
+A simple example is >
 	:let b:match_words = '\<if\>:\<endif\>,'
 		\ . '\<while\>:\<continue\>:\<break\>:\<endwhile\>'
 (In Vim regular expressions, |\<| and |\>| denote word boundaries.  Thus "if"
@@ -283,9 +298,10 @@ are not enough.  Instead, define a regular expression s:notend that will match
 anything but "end" and use it as follows: >
 	:let s:notend = '\%(\<end\s\+\)\@<!'
 	:let b:match_words = s:notend . '\<if\>:\<end\s\+if\>'
+<							*matchit-s:sol*
 This is a simplified version of what is done for Ada.  The s:notend is a
-|script-variable|.  Similarly, you may want		*matchit-s:sol*
-to define a start-of-line regular expression >
+|script-variable|.  Similarly, you may want to define a start-of-line regular
+expression >
 	:let s:sol = '\%(^\|;\)\s*'
 if keywords are only recognized after the start of a line or after a
 semicolon (;), with optional white space.
@@ -374,8 +390,10 @@ try to respond to reports of bugs that cause real problems.  If it does not
 cause serious problems, or if there is a work-around, a bug may sit there for
 a while.  Moral:  if a bug (known or not) bothers you, let me know.
 
-Changes such as "d%" cannot be repeated with |.|.  This seems to be a
-fundamental limitation of user-defined motions.
+The various |:vmap|s defined in the script (%, |g%|, |[%|, |]%|, |a%|) may
+have undesired effects in Select mode |Select-mode-mapping|.  At least, if you
+want to replace the selection with any character in "ag%[]" there will be a
+pause of |'updatetime'| first.
 
 It would be nice if "\0" were recognized as the entire pattern.  That is, it
 would be nice if "foo:\end\0" had the same effect as "\(foo\):\end\1".  I may

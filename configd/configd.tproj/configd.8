@@ -3,7 +3,7 @@
 .\"
 .Dd November 4, 2003
 .Dt CONFIGD 8
-.Os Mac OS X
+.Os "Mac OS X"
 .Sh NAME
 .Nm configd
 .Nd System Configuration Daemon
@@ -129,7 +129,7 @@ shutdown of the daemon.
 ./".Xr SystemConfiguration.framework 3 ,
 .Xr scutil 8 ,
 .Xr scselect 8
-./".Xr mach_init 8
+./".Xr launchd 8
 .Sh HISTORY
 The
 .Nm
@@ -140,7 +140,7 @@ Unless started with the
 option,
 .Nm
 will register with
-.Xr mach_init 8
+.Xr launchd 8
 such that the daemon will be restarted in the event of a crash.
 This registration will be removed during
 .Qq graceful

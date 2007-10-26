@@ -1,3 +1,4 @@
+<testcase>
 #
 # Server-side
 <reply>
@@ -19,6 +20,7 @@ Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake swsclose
 Content-Type: text/html
 Funny-head: yesyes
+Content-Length: 9
 
 contents
 </data2>
@@ -38,6 +40,7 @@ Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake swsclose
 Content-Type: text/html
 Funny-head: yesyes
+Content-Length: 9
 
 contents
 </datacheck>
@@ -70,6 +73,7 @@ Authorization: Basic aWFtOm15c2VsZg==
 Host: first.host.it.is
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 GET http://goto.second.host.now/2340002 HTTP/1.1
 Proxy-Authorization: Basic dGVzdGluZzp0aGlz
@@ -77,6 +81,8 @@ Authorization: Basic aWFtOm15c2VsZg==
 Host: goto.second.host.now
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 </protocol>
 </verify>
+</testcase>

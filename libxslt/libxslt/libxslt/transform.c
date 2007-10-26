@@ -65,8 +65,6 @@ static int xsltGetHTMLIDs(const xmlChar *version, const xmlChar **publicID,
 
 int xsltMaxDepth = 5000;
 
-xmlDictPtr xmlDictCreateSub(xmlDictPtr sub);
-
 /*
  * Useful macros
  */
@@ -819,7 +817,7 @@ xsltCopyNode(xsltTransformContextPtr ctxt, xmlNodePtr node,
     if ((node->type == XML_TEXT_NODE) ||
 	(node->type == XML_CDATA_SECTION_NODE))
 	return(xsltCopyText(ctxt, insert, node));
-    copy = xmlCopyNode(node, 0);
+    copy = xmlDocCopyNode(node, insert->doc, 0);
     if (copy != NULL) {
 	copy->doc = ctxt->output;
 	xmlAddChild(insert, copy);
@@ -1000,7 +998,7 @@ xsltCopyTree(xsltTransformContextPtr ctxt, xmlNodePtr node,
 	    copy = NULL;
 	return(copy);
     }
-    copy = xmlCopyNode(node, 0);
+    copy = xmlDocCopyNode(node, insert->doc, 0);
     if (copy != NULL) {
 	copy->doc = ctxt->output;
 	xmlAddChild(insert, copy);
@@ -2197,6 +2195,8 @@ xsltDocumentElem(xsltTransformContextPtr ctxt, xmlNodePtr node,
 	    }
 	    if (res == NULL)
 		goto error;
+	    res->dict = ctxt->dict;
+	    xmlDictReference(res->dict);
 	} else if (xmlStrEqual(method, (const xmlChar *) "xhtml")) {
 	    xsltTransformError(ctxt, NULL, inst,
 	     "xsltDocumentElem: unsupported method xhtml\n",
@@ -2205,6 +2205,8 @@ xsltDocumentElem(xsltTransformContextPtr ctxt, xmlNodePtr node,
 	    res = htmlNewDocNoDtD(doctypeSystem, doctypePublic);
 	    if (res == NULL)
 		goto error;
+	    res->dict = ctxt->dict;
+	    xmlDictReference(res->dict);
 	} else if (xmlStrEqual(method, (const xmlChar *) "text")) {
 	    ctxt->type = XSLT_OUTPUT_TEXT;
 	    res = xmlNewDoc(style->version);
@@ -2481,7 +2483,8 @@ xsltCopy(xsltTransformContextPtr ctxt, xmlNodePtr node,
 		XSLT_TRACE(ctxt,XSLT_TRACE_COPY,xsltGenericDebug(xsltGenericDebugContext,
 				 "xsltCopy: PI %s\n", node->name));
 #endif
-		copy = xmlNewPI(node->name, node->content);
+		copy = xmlNewDocPI(ctxt->insert->doc, node->name,
+		                   node->content);
 		xmlAddChild(ctxt->insert, copy);
 		break;
 	    case XML_COMMENT_NODE:
@@ -2786,7 +2789,7 @@ xsltProcessingInstruction(xsltTransformContextPtr ctxt, xmlNodePtr node,
     }
 #endif
 
-    pi = xmlNewPI(name, value);
+    pi = xmlNewDocPI(ctxt->insert->doc, name, value);
     xmlAddChild(ctxt->insert, pi);
 
 error:
@@ -4174,14 +4177,24 @@ xsltApplyStylesheetInternal(xsltStylesheetPtr style, xmlDocPtr doc,
             XSLT_GET_IMPORT_PTR(doctypePublic, style, doctypePublic)
             XSLT_GET_IMPORT_PTR(doctypeSystem, style, doctypeSystem)
             if (((doctypePublic != NULL) || (doctypeSystem != NULL))) {
+	        xmlNodePtr last;
 		/* Need a small "hack" here to assure DTD comes before
 		   possible comment nodes */
 		node = res->children;
+		last = res->last;
 		res->children = NULL;
+		res->last = NULL;
                 res->intSubset = xmlCreateIntSubset(res, doctype,
                                                     doctypePublic,
                                                     doctypeSystem);
-		res->children->next = node;
+		if (res->children != NULL) {
+		    res->children->next = node;
+		    node->prev = res->children;
+		    res->last = last;
+		} else {
+		    res->children = node;
+		    res->last = last;
+		}
 	    }
         }
     }

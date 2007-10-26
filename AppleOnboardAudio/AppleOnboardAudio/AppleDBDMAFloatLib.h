@@ -76,6 +76,8 @@ void 	inputGainConverter (UInt32 inGainIndex, float* ioGainPtr);
 void 	volumeConverter (UInt32 inVolume, UInt32 inMinLinear, UInt32 inMaxLinear, SInt32 inMindB, SInt32 inMaxdB, float* outVolume);
 void 	convertToFourDotTwenty(FourDotTwenty* ioFourDotTwenty, float* inFloatPtr);
 
+void	convertNanosToPercent (UInt64 inNumerator, UInt64 inDenominator, float * percent);
+
 };
 
 #endif

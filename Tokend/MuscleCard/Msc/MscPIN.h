@@ -52,4 +52,3 @@ protected:
 
 #endif /* !_MSCPIN_H_ */
 
-/* arch-tag: 95387B26-BE68-11D8-B8C6-000A95C4302E */

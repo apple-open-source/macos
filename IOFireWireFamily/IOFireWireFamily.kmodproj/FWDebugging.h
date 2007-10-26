@@ -70,7 +70,7 @@
 
 #if IOFIREWIREDEBUG > 0
 #if FIRELOG
-#	import <IOKit/firewire/IOFireLog.h>
+#	import <IOKit/firewire/FireLog.h>
 #endif
 #	define DebugLog(x...)			DoDebugLog( x ) ;
 #	define DebugLogCond( x, y... ) 	{ if (x) DebugLog ( y ) ; }
@@ -94,4 +94,5 @@
 }
 
 #define InfoLog(x...) {}
+
 

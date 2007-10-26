@@ -1,9 +1,9 @@
 #
 #   history.rb - 
-#   	$Release Version: 0.9$
-#   	$Revision: 1.1 $
-#   	$Date: 2002/07/09 11:17:17 $
-#   	by Keiju ISHITSUKA(Nihon Rational Software Co.,Ltd)
+#   	$Release Version: 0.9.5$
+#   	$Revision: 11708 $
+#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
@@ -21,7 +21,7 @@ module IRB
     def set_last_value(value)
       _set_last_value(value)
 
-      @workspace.evaluate self, "_ = IRB.CurrentContext.last_value"
+#      @workspace.evaluate self, "_ = IRB.CurrentContext.last_value"
       if @eval_history #and !@eval_history_values.equal?(llv)
  	@eval_history_values.push @line_no, @last_value
  	@workspace.evaluate self, "__ = IRB.CurrentContext.instance_eval{@eval_history_values}"
@@ -33,7 +33,7 @@ module IRB
     attr_reader :eval_history
     def eval_history=(no)
       if no
-	if @eval_history 
+	if defined?(@eval_history) && @eval_history
 	  @eval_history_values.size(no)
 	else
 	  @eval_history_values = History.new(no)
@@ -49,7 +49,7 @@ module IRB
   end
 
   class History
-    @RCS_ID='-$Id: history.rb,v 1.1 2002/07/09 11:17:17 keiju Exp $-'
+    @RCS_ID='-$Id: history.rb 11708 2007-02-12 23:01:19Z shyouhei $-'
 
     def initialize(size = 16)
       @size = size

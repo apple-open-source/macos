@@ -1,0 +1,101 @@
+.\" $XdotOrg: $
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004 Sun Microsystems, Inc.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpSelectInput 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+.SH NAME
+XpSelectInput \- Specifies which X Print events, from the specified print context, 
+the client is interested in.
+.SH SYNOPSIS
+.B void XpSelectInput
+(
+.I display, 
+.I context, 
+.I event_mask
+)
+.br
+      Display *\fIdisplay\fP\^;
+.br
+      XPContext \fIcontext\fP\^;
+.br
+      unsigned long \fIevent_mask\fP\^;
+.if n .ti +5n
+.if t .ti +.5i
+.SH ARGUMENTS
+.TP
+.I display
+Specifies a pointer to the Display structure; returned from XOpenDisplay.
+.TP
+.I context
+Specifies the print context from which to select events.
+.TP
+.I event_mask
+Specifies the 
+.I event mask. 
+This mask is the bitwise OR one or more of the valid events mask bits 
+(see below).
+.SH DESCRIPTION
+.LP
+XpSelectInput selects which X Print events from the specified print context the 
+client is interest in. The X Print Events are generated from a current print 
+context, and not from a window as is the case with XSelectInput.
+.SH STRUCTURES
+The bits for event_mask are defined in <X11/extensions/Print.h>:
+
+.nf
+    #define XPNoEventMask		0
+    #define XPPrintMask			(1L<<0)
+    #define XPAttributeMask		(1L<<1)
+.LP
+.fi				
+The resulting events are defined in <X11/extensions/Print.h>:
+
+.nf
+    #define XPPrintNotify		0
+    #define XPAttributeNotify		1
+.LP
+.fi
+.SH DIAGNOSTICS
+.TP 15
+.SM BadValue
+The value specified for 
+.I event_mask 
+is not valid.
+.TP 15
+.SM XPBadContext
+The specified print context is not valid.
+.SH FILES
+.PD 0
+.TP 20
+.B <X11/extensions/Print.h>

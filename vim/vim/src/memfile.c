@@ -33,7 +33,7 @@
  */
 
 #if defined MSDOS || defined(WIN32) || defined(_WIN64)
-# include <io.h>	/* for lseek(), must be before vim.h */
+# include "vimio.h"	/* for lseek(), must be before vim.h */
 #endif
 
 #include "vim.h"
@@ -517,6 +517,17 @@ mf_free(mfp, hp)
 	mf_ins_free(mfp, hp);	/* put *hp in the free list */
 }
 
+#if defined(__MORPHOS__)
+/* function is missing in MorphOS libnix version */
+extern unsigned long *__stdfiledes;
+
+    static unsigned long
+fdtofh(int filedescriptor)
+{
+    return __stdfiledes[filedescriptor];
+}
+#endif
+
 /*
  * Sync the memory file *mfp to disk.
  * Flags:
@@ -644,31 +655,41 @@ mf_sync(mfp, flags)
 # endif
 #endif
 #ifdef AMIGA
+# ifdef __AROS__
+	if (fsync(mfp->mf_fd) != 0)
+	    status = FAIL;
+# else
 	/*
 	 * Flush() only exists for AmigaDos 2.0.
 	 * For 1.3 it should be done with close() + open(), but then the risk
 	 * is that the open() may fail and lose the file....
 	 */
-# ifdef FEAT_ARP
+#  ifdef FEAT_ARP
 	if (dos2)
-# endif
-# ifdef SASC
+#  endif
+#  ifdef SASC
 	{
 	    struct UFB *fp = chkufb(mfp->mf_fd);
 
 	    if (fp != NULL)
 		Flush(fp->ufbfh);
 	}
-# else
-#  ifdef _DCC
+#  else
+#   if defined(_DCC) || defined(__GNUC__) || defined(__MORPHOS__)
 	{
+#    if defined(__GNUC__) && !defined(__MORPHOS__)
+	    /* Have function (in libnix at least),
+	     * but ain't got no prototype anywhere. */
+	    extern unsigned long fdtofh(int filedescriptor);
+#    endif
 	    BPTR fh = (BPTR)fdtofh(mfp->mf_fd);
 
 	    if (fh != 0)
 		Flush(fh);
-	    }
-#  else /* assume Manx */
+	}
+#   else /* assume Manx */
 	    Flush(_devtab[mfp->mf_fd].fd);
+#   endif
 #  endif
 # endif
 #endif /* AMIGA */
@@ -677,6 +698,23 @@ mf_sync(mfp, flags)
     got_int |= got_int_save;
 
     return status;
+}
+
+/*
+ * For all blocks in memory file *mfp that have a positive block number set
+ * the dirty flag.  These are blocks that need to be written to a newly
+ * created swapfile.
+ */
+    void
+mf_set_dirty(mfp)
+    memfile_T	*mfp;
+{
+    bhdr_T	*hp;
+
+    for (hp = mfp->mf_used_last; hp != NULL; hp = hp->bh_prev)
+	if (hp->bh_bnum > 0)
+	    hp->bh_flags |= BH_DIRTY;
+    mfp->mf_dirty = TRUE;
 }
 
 /*
@@ -1262,31 +1300,19 @@ mf_do_open(mfp, fname, flags)
     }
     else
 #endif
-
-    /*
-     * try to open the file
-     */
-    mfp->mf_fd = open(
-#ifdef VMS
-	    vms_fixfilename(mfp->mf_fname),
-#else
-	    (char *)mfp->mf_fname,
-#endif
-	    flags | O_EXTRA
+    {
+	/*
+	 * try to open the file
+	 */
+	flags |= O_EXTRA | O_NOFOLLOW;
 #ifdef WIN32
 	/* Prevent handle inheritance that cause problems with Cscope
 	 * (swap file may not be deleted if cscope connection was open after
-	 * the file)
-	 */
-	    |O_NOINHERIT
+	 * the file) */
+	flags |= O_NOINHERIT;
 #endif
-#if defined(UNIX) || defined(RISCOS) || defined(VMS)
-		    , (mode_t)0600		/* open in rw------- mode */
-#endif
-#if defined(MSDOS) || defined(MSWIN) || defined(__EMX__)
-		    , S_IREAD | S_IWRITE	/* open read/write */
-#endif
-		    );
+	mfp->mf_fd = mch_open_rw((char *)mfp->mf_fname, flags);
+    }
 
     /*
      * If the file cannot be opened, use memory only

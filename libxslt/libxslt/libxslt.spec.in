@@ -77,6 +77,7 @@ rm -fr %{buildroot}
 
 %doc AUTHORS ChangeLog.gz NEWS README Copyright TODO FEATURES
 %doc doc/*.html doc/html doc/tutorial doc/tutorial2 doc/*.gif
+%doc doc/EXSLT
 %doc %{_mandir}/man1/xsltproc.1*
 %{_libdir}/lib*.so.*
 %{prefix}/bin/xsltproc

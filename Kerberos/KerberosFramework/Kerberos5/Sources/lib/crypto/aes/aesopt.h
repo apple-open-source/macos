@@ -149,12 +149,14 @@
 
     USE OF DEFINES
   
-    Later in this section there are a number of defines that control the 
-    operation of the code.  In each section, the purpose of each define is 
-    explained so that the relevant form can be included or excluded by 
-    setting either 1's or 0's respectively on the branches of the related 
-    #if clauses.
+    Later in this section there are a number of defines that control
+    the operation of the code.  In each section, the purpose of each
+    define is explained so that the relevant form can be included or
+    excluded by setting either 1's or 0's respectively on the branches
+    of the related #if clauses.
 */
+
+#include "autoconf.h"
 
 /*  1. PLATFORM SPECIFIC INCLUDES */
 
@@ -176,6 +178,8 @@
 #  endif
 #elif defined(_MSC_VER)
 #  include <stdlib.h>
+#elif defined(__m68k__) && defined(__palmos__)
+#  include <FloatMgr.h> /* defines BIG_ENDIAN */
 #elif defined(_MIPSEB)
 #  define PLATFORM_BYTE_ORDER AES_BIG_ENDIAN
 #elif defined(_MIPSEL)
@@ -367,7 +371,7 @@
     unrolling.  The following options allow partial or full loop unrolling 
     to be set independently for encryption and decryption
 */
-#if 1
+#if !defined(CONFIG_SMALL)
 #define ENC_UNROLL  FULL
 #elif 0
 #define ENC_UNROLL  PARTIAL
@@ -375,7 +379,7 @@
 #define ENC_UNROLL  NONE
 #endif
 
-#if 1
+#if !defined(CONFIG_SMALL)
 #define DEC_UNROLL  FULL
 #elif 0
 #define DEC_UNROLL  PARTIAL
@@ -385,7 +389,7 @@
 
 /*  8. FIXED OR DYNAMIC TABLES
 
-    When this section is included the tables used by the code are comipled 
+    When this section is included the tables used by the code are compiled 
     statically into the binary file.  Otherwise they are computed once when 
     the code is first used.
 */
@@ -460,7 +464,7 @@
     of tables used by this implementation.
 */
 
-#if 1   /* set tables for the normal encryption round */
+#if !defined(CONFIG_SMALL)   /* set tables for the normal encryption round */
 #define ENC_ROUND   FOUR_TABLES
 #elif 0
 #define ENC_ROUND   ONE_TABLE
@@ -468,7 +472,7 @@
 #define ENC_ROUND   NO_TABLES
 #endif
 
-#if 1       /* set tables for the last encryption round */
+#if !defined(CONFIG_SMALL)       /* set tables for the last encryption round */
 #define LAST_ENC_ROUND  FOUR_TABLES
 #elif 0
 #define LAST_ENC_ROUND  ONE_TABLE
@@ -476,7 +480,7 @@
 #define LAST_ENC_ROUND  NO_TABLES
 #endif
 
-#if 1   /* set tables for the normal decryption round */
+#if !defined(CONFIG_SMALL)   /* set tables for the normal decryption round */
 #define DEC_ROUND   FOUR_TABLES
 #elif 0
 #define DEC_ROUND   ONE_TABLE
@@ -484,7 +488,7 @@
 #define DEC_ROUND   NO_TABLES
 #endif
 
-#if 1       /* set tables for the last decryption round */
+#if !defined(CONFIG_SMALL)       /* set tables for the last decryption round */
 #define LAST_DEC_ROUND  FOUR_TABLES
 #elif 0
 #define LAST_DEC_ROUND  ONE_TABLE
@@ -496,7 +500,7 @@
     way that the round functions can.  Include or exclude the following 
     defines to set this requirement.
 */
-#if 1
+#if !defined(CONFIG_SMALL)
 #define KEY_SCHED   FOUR_TABLES
 #elif 0
 #define KEY_SCHED   ONE_TABLE

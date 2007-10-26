@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2005, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -16,15 +16,6 @@
 *   This file contains utility functions for ICU tools like genccode.
 */
 
-#ifdef WIN32
-#   define VC_EXTRALEAN
-#   define WIN32_LEAN_AND_MEAN
-#   define NOUSER
-#   define NOSERVICE
-#   define NOIME
-#   define NOMCX
-#   include <windows.h>
-#endif
 #include <stdio.h>
 #include "unicode/utypes.h"
 #include "unicode/putil.h"
@@ -32,9 +23,24 @@
 #include "cstring.h"
 #include "toolutil.h"
 
+#ifdef U_WINDOWS
+#   define VC_EXTRALEAN
+#   define WIN32_LEAN_AND_MEAN
+#   define NOUSER
+#   define NOSERVICE
+#   define NOIME
+#   define NOMCX
+#   include <windows.h>
+#   include <direct.h>
+#else
+#   include <sys/stat.h>
+#   include <sys/types.h>
+#endif
+#include <errno.h>
+
 U_CAPI const char * U_EXPORT2
 getLongPathname(const char *pathname) {
-#ifdef WIN32
+#ifdef U_WINDOWS
     /* anticipate problems with "short" pathnames */
     static WIN32_FIND_DATA info;
     HANDLE file=FindFirstFile(pathname, &info);
@@ -72,6 +78,19 @@ findBasename(const char *filename) {
         return basename+1;
     } else {
         return filename;
+    }
+}
+
+U_CAPI void U_EXPORT2
+uprv_mkdir(const char *pathname, UErrorCode *status) {
+    int retVal = 0;
+#if defined(U_WINDOWS)
+    retVal = _mkdir(pathname);
+#else
+    retVal = mkdir(pathname, S_IRWXU | (S_IROTH | S_IXOTH) | (S_IROTH | S_IXOTH));
+#endif
+    if (retVal && errno != EEXIST) {
+        *status = U_FILE_ACCESS_ERROR;
     }
 }
 

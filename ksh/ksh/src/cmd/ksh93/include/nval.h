@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #ifndef NV_DEFAULT
 /*
@@ -50,6 +46,7 @@ typedef struct Nambfun Nambfun_t;
 typedef struct Namarray Namarr_t;
 typedef struct Nambltin Nambltin_t;
 typedef struct Namtype Namtype_t;
+
 /*
  * This defines the template for nodes that have their own assignment
  * and or lookup functions
@@ -72,9 +69,11 @@ struct Namdisc
 struct Namfun
 {
 	const Namdisc_t	*disc;
-	short		nofree;
+	char		nofree;
+	char		funs;
 	unsigned short	dsize;
 	Namfun_t	*next;
+	char		*last;
 	Namval_t	*type;
 };
 
@@ -92,6 +91,7 @@ struct Namarray
 	Namfun_t	hdr;
 	long		nelem;				/* number of elements */
 	void	*(*fun)(Namval_t*,const char*,int);	/* associative arrays */
+	Namval_t	*parent;		/* for multi-dimensional */
 };
 
 /* Passed as third argument to a builtin when  NV_BLTINOPT is set on node */
@@ -131,7 +131,7 @@ struct Namval
 #endif /* _NV_PRIVATE */
 };
 
-#define NV_CLASS	".sh.type."
+#define NV_CLASS	".sh.type"
 #define NV_MINSZ	(sizeof(struct Namval)-sizeof(Dtlink_t)-sizeof(char*))
 #define nv_namptr(p,n)	((Namval_t*)((char*)(p)+(n)*NV_MINSZ-sizeof(Dtlink_t)))
 
@@ -174,7 +174,8 @@ struct Namval
 					/* add node if not found */
 #define NV_ASSIGN	NV_NOFREE	/* assignment is possible */
 #define NV_NOASSIGN	0		/* backward compatibility */
-#define NV_NOARRAY	NV_ARRAY	/* array name not possible */
+#define NV_NOARRAY	0x200000	/* array name not possible */
+#define NV_IARRAY	0x400000	/* for indexed array */
 #define NV_NOREF	NV_REF		/* don't follow reference */
 #define NV_IDENT	0x80		/* name must be identifier */
 #define NV_VARNAME	0x20000		/* name must be ?(.)id*(.id) */
@@ -187,6 +188,16 @@ struct Namval
 #define NV_BLTINOPT	NV_ZFILL	/* save state for optimization*/
 
 #define NV_PUBLIC	(~(NV_NOSCOPE|NV_ASSIGN|NV_IDENT|NV_VARNAME|NV_NOADD))
+
+/* numeric types */
+#define NV_INT16	(NV_SHORT|NV_INTEGER)
+#define NV_UINT16	(NV_UNSIGN|NV_SHORT|NV_INTEGER)
+#define NV_INT32	(NV_INTEGER)
+#define NV_UNT32	(NV_UNSIGN|NV_INTEGER)
+#define NV_INT64	(NV_LONG|NV_INTEGER)
+#define NV_UINT64	(NV_UNSIGN|NV_LONG|NV_INTEGER)
+#define NV_FLOAT	(NV_SHORT|NV_DOUBLE|NV_INTEGER)
+#define NV_LDOUBLE	(NV_LONG|NV_DOUBLE|NV_INTEGER)
 
 /* name-value pair macros */
 #define nv_isattr(np,f)		((np)->nvflag & (f))
@@ -237,14 +248,14 @@ extern Namval_t	*nv_putsub(Namval_t*, char*, long);
 extern Namval_t	*nv_opensub(Namval_t*);
 
 /* name-value pair function prototypes */
-extern int		nv_adddisc(Namval_t*, const char**names);
+extern int		nv_adddisc(Namval_t*, const char**, Namval_t**);
 extern int		nv_clone(Namval_t*, Namval_t*, int);
 extern void 		nv_close(Namval_t*);
 extern void		*nv_context(Namval_t*);
-extern Namval_t		*nv_create(Namval_t*,const char*,int,Namfun_t*);
+extern Namval_t		*nv_create(const char*, Dt_t*, int,Namfun_t*);
 extern Dt_t		*nv_dict(Namval_t*);
-extern Sfdouble_t 	nv_getn(Namval_t*, Namfun_t*);
-extern Sfdouble_t 	nv_getnum(Namval_t*);
+extern Sfdouble_t	nv_getn(Namval_t*, Namfun_t*);
+extern Sfdouble_t	nv_getnum(Namval_t*);
 extern char 		*nv_getv(Namval_t*, Namfun_t*);
 extern char 		*nv_getval(Namval_t*);
 extern Namfun_t		*nv_hasdisc(Namval_t*, const Namdisc_t*);
@@ -257,7 +268,7 @@ extern void 		nv_putv(Namval_t*,const char*,int,Namfun_t*);
 extern int		nv_scan(Dt_t*,void(*)(Namval_t*,void*),void*,int,int);
 extern Namval_t		*nv_scoped(Namval_t*);
 extern char 		*nv_setdisc(Namval_t*,const char*,Namval_t*,Namfun_t*);
-extern void		nv_setref(Namval_t*);
+extern void		nv_setref(Namval_t*, Dt_t*,int);
 extern int		nv_settype(Namval_t*, Namval_t*, int);
 extern void 		nv_setvec(Namval_t*,int,int,char*[]);
 extern void		nv_setvtree(Namval_t*);
@@ -267,6 +278,7 @@ extern void 		nv_unset(Namval_t*);
 extern Namval_t		*nv_search(const char *, Dt_t*, int);
 extern void		nv_unscope(void);
 extern char		*nv_name(Namval_t*);
+extern Namval_t		*nv_type(Namval_t*);
 extern const Namdisc_t	*nv_discfun(int);
 
 #ifdef _DLL

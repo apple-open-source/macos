@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
+
 
 CFStringRef
 SCDynamicStoreKeyCreateLocation(CFAllocatorRef allocator)
@@ -76,6 +77,7 @@ SCDynamicStoreCopyLocation(SCDynamicStoreRef store)
 	CFRetain(location);
 
     done :
+
 
 	if (tempSession)	CFRelease(store);
 	if (dict)		CFRelease(dict);

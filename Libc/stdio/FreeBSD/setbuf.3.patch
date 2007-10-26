@@ -1,0 +1,79 @@
+--- _SB/Libc/stdio/FreeBSD/setbuf.3	2004-11-25 11:38:35.000000000 -0800
++++ _SB/Libc/stdio/FreeBSD/setbuf.3.edit	2006-06-28 16:55:52.000000000 -0700
+@@ -50,21 +50,37 @@
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft void
+-.Fn setbuf "FILE * restrict stream" "char * restrict buf"
++.Fo setbuf
++.Fa "FILE *restrict stream"
++.Fa "char *restrict buf"
++.Fc
+ .Ft void
+-.Fn setbuffer "FILE *stream" "char *buf" "int size"
++.Fo setbuffer
++.Fa "FILE *stream"
++.Fa "char *buf"
++.Fa "int size"
++.Fc
+ .Ft int
+-.Fn setlinebuf "FILE *stream"
++.Fo setlinebuf
++.Fa "FILE *stream"
++.Fc
+ .Ft int
+-.Fn setvbuf "FILE * restrict stream" "char * restrict buf" "int mode" "size_t size"
++.Fo setvbuf
++.Fa "FILE *restrict stream"
++.Fa "char *restrict buf"
++.Fa "int type"
++.Fa "size_t size"
++.Fc
+ .Sh DESCRIPTION
+-The three types of buffering available are unbuffered, block buffered,
+-and line buffered.
++Three types of buffering are available:
++unbuffered, block buffered, and line buffered.
+ When an output stream is unbuffered, information appears on the
+ destination file or terminal as soon as written;
+-when it is block buffered many characters are saved up and written as a block;
+-when it is line buffered characters are saved up until a newline is
+-output or input is read from any stream attached to a terminal device
++when it is block buffered,
++many characters are saved up and written as a block;
++when it is line buffered,
++characters are saved up until a newline is output
++or input is read from any stream attached to a terminal device
+ (typically
+ .Dv stdin ) .
+ The function
+@@ -73,17 +89,16 @@
+ (See
+ .Xr fclose 3 . )
+ .Pp
+-Normally all files are block buffered.
++Normally, all files are block buffered.
+ When the first
+ .Tn I/O
+ operation occurs on a file,
+ .Xr malloc 3
+-is called,
+-and an optimally-sized buffer is obtained.
++is called and an optimally-sized buffer is obtained.
+ If a stream refers to a terminal
+ (as
+ .Dv stdout
+-normally does) it is line buffered.
++normally does), it is line buffered.
+ The standard error stream
+ .Dv stderr
+ is always unbuffered.
+@@ -93,7 +108,7 @@
+ function
+ may be used to alter the buffering behavior of a stream.
+ The
+-.Fa mode
++.Fa type
+ argument must be one of the following three macros:
+ .Bl -tag -width _IOFBF -offset indent
+ .It Dv _IONBF

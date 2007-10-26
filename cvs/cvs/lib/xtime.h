@@ -11,6 +11,8 @@
 /* This file simply performs the include magic necessary for using time
  * functions
  */
+#ifndef XTIME_HEADER_INCLUDED
+#define XTIME_HEADER_INCLUDED
 
 #ifdef vms
 # include <time.h>
@@ -27,25 +29,6 @@
 #   endif /* !HAVE_SYS_TIME_H */
 # endif /* !TIME_WITH_SYS_TIME */
 
-# ifdef HAVE_SYS_TIMEB_H
-#   include <sys/timeb.h>
-# else /* HAVE_SYS_TIMEB_H */
-/*
- * We use the obsolete `struct timeb' as part of our interface!
- * Since the system doesn't have it, we define it here;
- * our callers must do likewise.
- *
- * At the least we were using this in lib/getdate.y, but lib/system.h used to
- * define it too, so maybe CVS is using it elsewhere.
- */
-struct timeb {
-    time_t		time;		/* Seconds since the epoch	*/
-    unsigned short	millitm;	/* Field not used		*/
-    short		timezone;	/* Minutes west of GMT		*/
-    short		dstflag;	/* Field not used		*/
-};
-# endif /* !HAVE_SYS_TIMEB_H */
-
 # ifdef timezone
 #   undef timezone /* needed for sgi */
 # endif /* timezone */
@@ -55,3 +38,5 @@ extern long timezone;
 # endif /* !defined(HAVE_FTIME) && !defined(HAVE_TIMEZONE) */
 
 #endif /* !vms */
+
+#endif /* !XTIME_HEADER_INCLUDED */

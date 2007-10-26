@@ -1,4 +1,4 @@
-$Id: README.ares,v 1.10 2004/04/06 07:59:11 bagder Exp $
+$Id: README.ares,v 1.12 2007-05-31 11:34:32 bagder Exp $
                                   _   _ ____  _     
                               ___| | | |  _ \| |    
                              / __| | | | |_) | |    
@@ -12,11 +12,10 @@ c-ares:
   http://daniel.haxx.se/projects/c-ares/
 
 NOTE
-  libcurl 7.11.1 builds with c-ares 1.1.0, but 7.11.2 and later require c-ares
-  1.2.0 or alter.
+  The latest libcurl version requires c-ares 1.4.0 or later.
 
   Once upon the time libcurl built fine with the "original" ares. That is no
-  longer true. You need to use c-ares. c-ares is based on ares but improved.
+  longer true. You need to use c-ares.
 
 Build c-ares
 ============

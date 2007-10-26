@@ -62,7 +62,7 @@ static const struct {
 	{ERRDOS,	193,	NT_STATUS_BAD_INITIAL_PC},
 	{ERRDOS,	87,	NT_STATUS_INVALID_CID},
 	{ERRHRD,	ERRgeneral,	NT_STATUS_TIMER_NOT_CANCELED},
-	{ERRDOS,	87,	NT_STATUS_INVALID_PARAMETER},
+	{ERRDOS,	ERRinvalidparam,	NT_STATUS_INVALID_PARAMETER},
 	{ERRDOS,	ERRbadfile,	NT_STATUS_NO_SUCH_DEVICE},
 	{ERRDOS,	ERRbadfile,	NT_STATUS_NO_SUCH_FILE},
 	{ERRDOS,	ERRbadfunc,	NT_STATUS_INVALID_DEVICE_REQUEST},
@@ -124,9 +124,9 @@ static const struct {
 	{ERRHRD,	ERRgeneral,	NT_STATUS_HANDLE_NOT_WAITABLE},
 	{ERRDOS,	ERRbadfid,	NT_STATUS_PORT_DISCONNECTED},
 	{ERRHRD,	ERRgeneral,	NT_STATUS_DEVICE_ALREADY_ATTACHED},
-	{ERRDOS,	161,	NT_STATUS_OBJECT_PATH_INVALID},
+	{ERRDOS,	ERRinvalidpath,	NT_STATUS_OBJECT_PATH_INVALID},
 	{ERRDOS,	ERRbadpath,	NT_STATUS_OBJECT_PATH_NOT_FOUND},
-	{ERRDOS,	161,	NT_STATUS_OBJECT_PATH_SYNTAX_BAD},
+	{ERRDOS,	ERRinvalidpath,	NT_STATUS_OBJECT_PATH_SYNTAX_BAD},
 	{ERRHRD,	ERRgeneral,	NT_STATUS_DATA_OVERRUN},
 	{ERRHRD,	ERRgeneral,	NT_STATUS_DATA_LATE_ERROR},
 	{ERRDOS,	23,	NT_STATUS_DATA_ERROR},
@@ -338,7 +338,7 @@ static const struct {
 	{ERRDOS,	203,	NT_STATUS(0xc0000100)},
 	{ERRDOS,	145,	NT_STATUS_DIRECTORY_NOT_EMPTY},
 	{ERRHRD,	ERRgeneral,	NT_STATUS_FILE_CORRUPT_ERROR},
-	{ERRDOS,	267,	NT_STATUS_NOT_A_DIRECTORY},
+	{ERRDOS,	ERRbaddirectory,	NT_STATUS_NOT_A_DIRECTORY},
 	{ERRHRD,	ERRgeneral,	NT_STATUS_BAD_LOGON_SESSION_STATE},
 	{ERRHRD,	ERRgeneral,	NT_STATUS_LOGON_SESSION_COLLISION},
 	{ERRDOS,	206,	NT_STATUS_NAME_TOO_LONG},
@@ -407,7 +407,7 @@ static const struct {
 	{ERRHRD,	ERRgeneral,	NT_STATUS_APP_INIT_FAILURE},
 	{ERRHRD,	ERRgeneral,	NT_STATUS_PAGEFILE_CREATE_FAILED},
 	{ERRHRD,	ERRgeneral,	NT_STATUS_NO_PAGEFILE},
-	{ERRDOS,	124,	NT_STATUS_INVALID_LEVEL},
+	{ERRDOS,	ERRunknownlevel,	NT_STATUS_INVALID_LEVEL},
 	{ERRDOS,	86,	NT_STATUS_WRONG_PASSWORD_CORE},
 	{ERRHRD,	ERRgeneral,	NT_STATUS_ILLEGAL_FLOAT_CONTEXT},
 	{ERRDOS,	109,	NT_STATUS_PIPE_BROKEN},
@@ -680,7 +680,7 @@ static const struct {
 	{ERRDOS,	121,	NT_STATUS_IO_TIMEOUT},
 	{ERRDOS,	122,	NT_STATUS_BUFFER_TOO_SMALL},
 	{ERRDOS,	ERRinvalidname,	NT_STATUS_OBJECT_NAME_INVALID},
-	{ERRDOS,	124,	NT_STATUS_INVALID_LEVEL},
+	{ERRDOS,	ERRunknownlevel,	NT_STATUS_INVALID_LEVEL},
 	{ERRDOS,	126,	NT_STATUS_DLL_NOT_FOUND},
 	{ERRDOS,	127,	NT_STATUS_PROCEDURE_NOT_FOUND},
 	{ERRDOS,	145,	NT_STATUS_DIRECTORY_NOT_EMPTY},
@@ -1411,6 +1411,13 @@ static const struct {
 	{NT_STATUS(0x80000289), W_ERROR(0x48e)},
 	{NT_STATUS_OK, WERR_OK}};
 
+static const struct {
+	WERROR werror;
+	NTSTATUS ntstatus;
+} werror_to_ntstatus_map[] = {
+	{ W_ERROR(0x5), NT_STATUS_ACCESS_DENIED },
+	{ WERR_OK, NT_STATUS_OK }
+};
 
 /*****************************************************************************
 convert a dos eclas/ecode to a NT status32 code
@@ -1460,6 +1467,14 @@ NTSTATUS werror_to_ntstatus(WERROR error)
 {
 	int i;
 	if (W_ERROR_IS_OK(error)) return NT_STATUS_OK;
+
+	for (i=0; !W_ERROR_IS_OK(werror_to_ntstatus_map[i].werror); i++) {
+		if (W_ERROR_V(error) == 
+		    W_ERROR_V(werror_to_ntstatus_map[i].werror)) {
+			return werror_to_ntstatus_map[i].ntstatus;
+		}
+	}
+
 	for (i=0; NT_STATUS_V(ntstatus_to_werror_map[i].ntstatus); i++) {
 		if (W_ERROR_V(error) == 
 		    W_ERROR_V(ntstatus_to_werror_map[i].werror)) {
@@ -1495,6 +1510,9 @@ const struct unix_error_map unix_dos_nt_errmap[] = {
 	{ EPERM, ERRDOS, ERRnoaccess, NT_STATUS_ACCESS_DENIED },
 	{ EACCES, ERRDOS, ERRnoaccess, NT_STATUS_ACCESS_DENIED },
 	{ ENOENT, ERRDOS, ERRbadfile, NT_STATUS_OBJECT_NAME_NOT_FOUND },
+#ifdef ENOATTR
+	{ ENOATTR, ERRDOS, ERRbadfile, NT_STATUS_OBJECT_NAME_NOT_FOUND },
+#endif
 	{ ENOTDIR, ERRDOS, ERRbadpath,  NT_STATUS_NOT_A_DIRECTORY },
 	{ EIO, ERRHRD, ERRgeneral, NT_STATUS_IO_DEVICE_ERROR },
 	{ EBADF, ERRSRV, ERRsrverror, NT_STATUS_INVALID_HANDLE },
@@ -1505,8 +1523,9 @@ const struct unix_error_map unix_dos_nt_errmap[] = {
 	{ ENOSPC, ERRHRD, ERRdiskfull, NT_STATUS_DISK_FULL },
 	{ ENOMEM, ERRDOS, ERRnomem, NT_STATUS_NO_MEMORY },
 	{ EISDIR, ERRDOS, ERRnoaccess, NT_STATUS_FILE_IS_A_DIRECTORY},
+	{ EMLINK, ERRDOS, ERRgeneral, NT_STATUS_TOO_MANY_LINKS },
 #ifdef EDQUOT
-	{ EDQUOT, ERRHRD, ERRdiskfull, NT_STATUS_DISK_FULL },
+	{ EDQUOT, ERRHRD, ERRdiskfull, NT_STATUS_DISK_FULL }, /* Windows apps need this, not NT_STATUS_QUOTA_EXCEEDED */
 #endif
 #ifdef ENOTEMPTY
 	{ ENOTEMPTY, ERRDOS, ERRnoaccess, NT_STATUS_DIRECTORY_NOT_EMPTY },
@@ -1522,6 +1541,9 @@ const struct unix_error_map unix_dos_nt_errmap[] = {
 #endif
 #ifdef EFBIG
 	{ EFBIG, ERRHRD, ERRdiskfull, NT_STATUS_DISK_FULL },
+#endif
+#ifdef ENOBUFS
+	{ ENOBUFS, ERRDOS, ERRnomem, NT_STATUS_INSUFFICIENT_RESOURCES },
 #endif
 	{ 0, 0, 0, NT_STATUS_OK }
 };

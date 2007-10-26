@@ -3,7 +3,7 @@
 /* This file works under BSD, System V, minix, and Posix systems.  It does
    not implement job control. */
 
-/* Copyright (C) 1987, 1989, 1992 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2006 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -41,16 +41,7 @@
 /* Need to include this up here for *_TTY_DRIVER definitions. */
 #include "shtty.h"
 
-#if !defined (STRUCT_WINSIZE_IN_SYS_IOCTL)
-/* For struct winsize on SCO */
-/*   sys/ptem.h has winsize but needs mblk_t from sys/stream.h */
-#  if defined (HAVE_SYS_PTEM_H) && defined (TIOCGWINSZ) && defined (SIGWINCH)
-#    if defined (HAVE_SYS_STREAM_H)
-#      include <sys/stream.h>
-#    endif
-#    include <sys/ptem.h>
-#  endif /* HAVE_SYS_PTEM_H && TIOCGWINSZ && SIGWINCH */
-#endif /* !STRUCT_WINSIZE_IN_SYS_IOCTL */
+#include "bashintl.h"
 
 #include "shell.h"
 #include "jobs.h"
@@ -63,9 +54,9 @@
 #  define killpg(pg, sig)		kill(-(pg),(sig))
 #endif /* USG || _POSIX_VERSION */
 
-#if !defined (HAVE_SIGINTERRUPT)
+#if !defined (HAVE_SIGINTERRUPT) && !defined (HAVE_POSIX_SIGNALS)
 #  define siginterrupt(sig, code)
-#endif /* !HAVE_SIGINTERRUPT */
+#endif /* !HAVE_SIGINTERRUPT && !HAVE_POSIX_SIGNALS */
 
 #if defined (HAVE_WAITPID)
 #  define WAITPID(pid, statusp, options) waitpid (pid, statusp, options)
@@ -80,13 +71,9 @@
 extern int errno;
 #endif /* !errno */
 
-#if defined (READLINE)
-extern void rl_set_screen_size __P((int, int));
-#endif
-
 extern int interactive, interactive_shell, login_shell;
 extern int subshell_environment;
-extern int last_command_exit_value;
+extern int last_command_exit_value, last_command_exit_signal;
 extern int interrupt_immediately;
 extern sh_builtin_func_t *this_shell_builtin;
 #if defined (HAVE_POSIX_SIGNALS)
@@ -120,6 +107,7 @@ struct proc_status {
 #define PROC_RUNNING	0x01
 #define PROC_NOTIFIED	0x02
 #define PROC_ASYNC	0x04
+#define PROC_SIGNALED	0x10
 
 /* Return values from find_status_by_pid */
 #define PROC_BAD	 -1
@@ -136,18 +124,24 @@ static int find_proc_slot __P((void));
 static int find_index_by_pid __P((pid_t));
 static int find_status_by_pid __P((pid_t));
 static int process_exit_status __P((WAIT));
+static int find_termsig_by_pid __P((pid_t));
+static int get_termsig __P((WAIT));
 static void set_pid_status __P((pid_t, WAIT));
 static void set_pid_flags __P((pid_t, int));
 static void unset_pid_flags __P((pid_t, int));
+static int get_pid_flags __P((pid_t));
 static void add_pid __P((pid_t, int));
 static void mark_dead_jobs_as_notified __P((int));
 
-static void get_new_window_size __P((int));
-static sighandler sigwinch_sighandler __P((int));
 static sighandler wait_sigint_handler __P((int));
+static char *j_strsignal __P((int));
 
 #if defined (HAVE_WAITPID)
 static void reap_zombie_children __P((void));
+#endif
+
+#if !defined (HAVE_SIGINTERRUPT) && defined (HAVE_POSIX_SIGNALS)
+static int siginterrupt __P((int, int));
 #endif
 
 static void restore_sigint_handler __P((void));
@@ -225,6 +219,35 @@ process_exit_status (status)
     return (WEXITSTATUS (status));
 }
 
+/* Return the status of PID as looked up in the PID_LIST array.  A
+   return value of PROC_BAD indicates that PID wasn't found. */
+static int
+find_termsig_by_pid (pid)
+     pid_t pid;
+{
+  int i;
+
+  i = find_index_by_pid (pid);
+  if (i == NO_PID)
+    return (0);
+  if (pid_list[i].flags & PROC_RUNNING)
+    return (0);
+  return (get_termsig (pid_list[i].status));
+}
+
+/* Set LAST_COMMAND_EXIT_SIGNAL depending on STATUS.  If STATUS is -1, look
+   up PID in the pid array and set LAST_COMMAND_EXIT_SIGNAL appropriately
+   depending on its flags and exit status. */
+static int
+get_termsig (status)
+     WAIT status;
+{
+  if (WIFSTOPPED (status) == 0 && WIFSIGNALED (status))
+    return (WTERMSIG (status));
+  else
+    return (0);
+}
+
 /* Give PID the status value STATUS in the PID_LIST array. */
 static void
 set_pid_status (pid, status)
@@ -239,6 +262,8 @@ set_pid_status (pid, status)
 
   pid_list[slot].status = process_exit_status (status);
   pid_list[slot].flags &= ~PROC_RUNNING;
+  if (WIFSIGNALED (status))
+    pid_list[slot].flags |= PROC_SIGNALED;
   /* If it's not a background process, mark it as notified so it gets
      cleaned up. */
   if ((pid_list[slot].flags & PROC_ASYNC) == 0)
@@ -273,6 +298,20 @@ unset_pid_flags (pid, flags)
     return;
 
   pid_list[slot].flags &= ~flags;
+}
+
+/* Return the flags corresponding to PID in the PID_LIST array. */
+static int
+get_pid_flags (pid)
+     pid_t pid;
+{
+  int slot;
+
+  slot = find_index_by_pid (pid);
+  if (slot == NO_PID)
+    return 0;
+
+  return (pid_list[slot].flags);
 }
 
 static void
@@ -368,69 +407,11 @@ initialize_job_control (force)
     get_tty_state ();
 }
 
-#if defined (TIOCGWINSZ) && defined (SIGWINCH)
-static SigHandler *old_winch = (SigHandler *)SIG_DFL;
-
-static void
-get_new_window_size (from_sig)
-     int from_sig;
-{
-  struct winsize win;
-  int tty;
-
-  tty = input_tty ();
-  if (tty >= 0 && (ioctl (tty, TIOCGWINSZ, &win) == 0) &&
-      win.ws_row > 0 && win.ws_col > 0)
-    {
-#if defined (aixpc)
-      shell_tty_info.c_winsize = win;	/* structure copying */
-#endif
-      sh_set_lines_and_columns (win.ws_row, win.ws_col);
-#if defined (READLINE)
-      rl_set_screen_size (win.ws_row, win.ws_col);
-#endif
-    }
-}
-
-static sighandler
-sigwinch_sighandler (sig)
-     int sig;
-{
-#if defined (MUST_REINSTALL_SIGHANDLERS)
-  set_signal_handler (SIGWINCH, sigwinch_sighandler);
-#endif /* MUST_REINSTALL_SIGHANDLERS */
-  get_new_window_size (1);
-}
-#else
-static void
-get_new_window_size (from_sig)
-     int from_sig;
-{
-}
-#endif /* TIOCGWINSZ && SIGWINCH */
-
-void
-set_sigwinch_handler ()
-{
-#if defined (TIOCGWINSZ) && defined (SIGWINCH)
-  old_winch = set_signal_handler (SIGWINCH, sigwinch_sighandler);
-#endif
-}
-
-void
-unset_sigwinch_handler ()
-{
-#if defined (TIOCGWINSZ) && defined (SIGWINCH)
-  set_signal_handler (SIGWINCH, old_winch);
-#endif
-}
-
 /* Setup this shell to handle C-C, etc. */
 void
 initialize_job_signals ()
 {
   set_signal_handler (SIGINT, sigint_sighandler);
-  set_sigwinch_handler ();
 
   /* If this is a login shell we don't wish to be disturbed by
      stop signals. */
@@ -444,15 +425,35 @@ initialize_job_signals ()
 static void
 reap_zombie_children ()
 {
-#if defined (WNOHANG)
+#  if defined (WNOHANG)
   pid_t pid;
   WAIT status;
 
+  CHECK_TERMSIG;
   while ((pid = waitpid (-1, (int *)&status, WNOHANG)) > 0)
     set_pid_status (pid, status);
-#endif
+#  endif /* WNOHANG */
+  CHECK_TERMSIG;
 }
-#endif /* WAITPID && WNOHANG */
+#endif /* WAITPID */
+
+#if !defined (HAVE_SIGINTERRUPT) && defined (HAVE_POSIX_SIGNALS)
+static int
+siginterrupt (sig, flag)
+     int sig, flag;
+{
+  struct sigaction act;
+
+  sigaction (sig, (struct sigaction *)NULL, &act);
+
+  if (flag)
+    act.sa_flags &= ~SA_RESTART;
+  else
+    act.sa_flags |= SA_RESTART;
+
+  return (sigaction (sig, &act, (struct sigaction *)NULL));
+}
+#endif /* !HAVE_SIGINTERRUPT && HAVE_POSIX_SIGNALS */
 
 /* Fork, handling errors.  Returns the pid of the newly made child, or 0.
    COMMAND is just for remembering the name of the command; we don't do
@@ -565,22 +566,27 @@ wait_for_single_pid (pid)
 {
   pid_t got_pid;
   WAIT status;
-  int pstatus;
+  int pstatus, flags;
 
   pstatus = find_status_by_pid (pid);
 
   if (pstatus == PROC_BAD)
     {
-      internal_error ("wait: pid %ld is not a child of this shell", (long)pid);
+      internal_error (_("wait: pid %ld is not a child of this shell"), (long)pid);
       return (127);
     }
 
   if (pstatus != PROC_STILL_ALIVE)
-    return (pstatus);
+    {
+      if (pstatus > 128)
+	last_command_exit_signal = find_termsig_by_pid (pid);
+      return (pstatus);
+    }
 
   siginterrupt (SIGINT, 1);
   while ((got_pid = WAITPID (pid, &status, 0)) != pid)
     {
+      CHECK_TERMSIG;
       if (got_pid < 0)
 	{
 	  if (errno != EINTR && errno != ECHILD)
@@ -688,6 +694,22 @@ wait_sigint_handler (sig)
   SIGRETURN (0);
 }
 
+static char *
+j_strsignal (s)
+     int s;
+{
+  static char retcode_name_buffer[64] = { '\0' };
+  char *x;
+
+  x = strsignal (s);
+  if (x == 0)
+    {
+      x = retcode_name_buffer;
+      sprintf (x, "Signal %d", s);
+    }
+  return x;
+}
+
 /* Wait for pid (one of our children) to terminate.  This is called only
    by the execution code in execute_cmd.c. */
 int
@@ -704,7 +726,11 @@ wait_for (pid)
     return (0);
 
   if (pstatus != PROC_STILL_ALIVE)
-    return (pstatus);
+    {
+      if (pstatus > 128)
+	last_command_exit_signal = find_termsig_by_pid (pid);
+      return (pstatus);
+    }
 
   /* If we are running a script, ignore SIGINT while we're waiting for
      a child to exit.  The loop below does some of this, but not all. */
@@ -714,6 +740,7 @@ wait_for (pid)
 
   while ((got_pid = WAITPID (-1, &status, 0)) != pid) /* XXX was pid now -1 */
     {
+      CHECK_TERMSIG;
       if (got_pid < 0 && errno == ECHILD)
 	{
 #if !defined (_POSIX_VERSION)
@@ -752,7 +779,7 @@ wait_for (pid)
 	  if (maybe_call_trap_handler (SIGINT) == 0)
 	    {
 	      if (temp_handler == SIG_DFL)
-		termination_unwind_protect (SIGINT);
+		termsig_handler (SIGINT);
 	      else if (temp_handler != INVALID_SIGNAL_HANDLER && temp_handler != SIG_IGN)
 		(*temp_handler) (SIGINT);
 	    }
@@ -762,6 +789,7 @@ wait_for (pid)
   /* Default return value. */
   /* ``a full 8 bits of status is returned'' */
   return_val = process_exit_status (status);
+  last_command_exit_signal = get_termsig (status);
 
 #if !defined (DONT_REPORT_SIGPIPE)
   if ((WIFSTOPPED (status) == 0) && WIFSIGNALED (status) &&
@@ -771,7 +799,7 @@ wait_for (pid)
 	(WTERMSIG (status) != SIGINT) && (WTERMSIG (status) != SIGPIPE))
 #endif
     {
-      fprintf (stderr, "%s", strsignal (WTERMSIG (status)));
+      fprintf (stderr, "%s", j_strsignal (WTERMSIG (status)));
       if (WIFCORED (status))
 	fprintf (stderr, " (core dumped)");
       fprintf (stderr, "\n");
@@ -788,10 +816,8 @@ wait_for (pid)
   return (return_val);
 }
 
-/* Give PID SIGNAL.  This determines what job the pid belongs to (if any).
-   If PID does belong to a job, and the job is stopped, then CONTinue the
-   job after giving it SIGNAL.  Returns -1 on failure.  If GROUP is non-null,
-   then kill the process group associated with PID. */
+/* Send PID SIGNAL.  Returns -1 on failure, 0 on success.  If GROUP is non-zero,
+   or PID is less than -1, then kill the process group associated with PID. */
 int
 kill_pid (pid, signal, group)
      pid_t pid;
@@ -799,6 +825,11 @@ kill_pid (pid, signal, group)
 {
   int result;
 
+  if (pid < -1)
+    {
+      pid = -pid;
+      group = 1;
+    }
   result = group ? killpg (pid, signal) : kill (pid, signal);
   return (result);
 }
@@ -817,7 +848,7 @@ get_tty_state ()
       ttgetattr (tty, &shell_tty_info);
       got_tty_state = 1;
       if (check_window_size)
-	get_new_window_size (0);
+	get_new_window_size (0, (int *)0, (int *)0);
     }
 }
 

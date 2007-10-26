@@ -86,6 +86,7 @@ yp_first(indomain, inmap, outkey, outkeylen, outval, outvallen)
 	struct dom_binding *ysd;
 	struct timeval  tv;
 	int tries = 0, r;
+	static int proto = YP_BIND_UDP;
 
 	if (indomain == NULL || *indomain == '\0' ||
 	    strlen(indomain) > YPMAXDOMAIN || inmap == NULL ||
@@ -106,14 +107,18 @@ again:
 	yprnk.map = (char *)inmap;
 	(void)memset(&yprkv, 0, sizeof yprkv);
 
-	r = clnt_call(ysd->dom_client, YPPROC_FIRST,
-	    xdr_ypreq_nokey, &yprnk, xdr_ypresp_key_val, &yprkv, tv);
-	if (r != RPC_SUCCESS) {
-		if (tries++)
-			clnt_perror(ysd->dom_client, "yp_first: clnt_call");
-		ysd->dom_vers = -1;
+	r = clnt_call(ysd->dom_client, YPPROC_FIRST, (xdrproc_t)xdr_ypreq_nokey, &yprnk, (xdrproc_t)xdr_ypresp_key_val, &yprkv, tv);
+	if (r != RPC_SUCCESS)
+	{
+		if (tries++) clnt_perror(ysd->dom_client, "yp_first: clnt_call");
+
+		if (proto == YP_BIND_UDP) proto = YP_BIND_TCP;
+		else proto = YP_BIND_UDP;
+		ysd->dom_vers = proto;
+
 		goto again;
 	}
+
 	if (!(r = ypprot_err(yprkv.stat))) {
 		*outkeylen = yprkv.key.keydat_len;
 		if ((*outkey = malloc(*outkeylen + 1)) == NULL)
@@ -130,7 +135,7 @@ again:
 			(*outval)[*outvallen] = '\0';
 		}
 	}
-	xdr_free(xdr_ypresp_key_val, (char *) &yprkv);
+	xdr_free((xdrproc_t)xdr_ypresp_key_val, (char *) &yprkv);
 	_yp_unbind(ysd);
 	return r;
 }

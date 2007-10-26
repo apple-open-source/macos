@@ -1,6 +1,6 @@
 # Makefile.am for the SASL library
 # Rob Earhart
-# $Id: Makefile.am,v 1.5 2005/01/10 19:13:35 snsimon Exp $
+# $Id: Makefile.am,v 1.7 2006/01/24 20:37:08 snsimon Exp $
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -41,9 +41,9 @@
 #
 
 # Library version info - here at the top, for sanity
-sasl_version = 2:18:0
+sasl_version = 2:22:0
 
-INCLUDES=-I$(top_srcdir)/include -I$(top_srcdir)/plugins -I$(top_builddir)/include
+INCLUDES=-I$(top_srcdir)/include -I$(top_srcdir)/plugins -I$(top_builddir)/include -I$(top_srcdir)/sasldb
 
 EXTRA_DIST = windlopen.c staticopen.h NTMakefile
 EXTRA_LIBRARIES = libsasl2.a
@@ -55,13 +55,14 @@ common_sources = auxprop.c canonusr.c checkpw.c client.c common.c config.c exter
 
 LTLIBOBJS = @LTLIBOBJS@
 LIBOBJS = @LIBOBJS@
+LIB_DOOR= @LIB_DOOR@
 
 lib_LTLIBRARIES = libsasl2.la
 
 libsasl2_la_SOURCES = $(common_sources) $(common_headers)
 libsasl2_la_LDFLAGS = -version-info $(sasl_version)
 libsasl2_la_DEPENDENCIES = $(LTLIBOBJS)
-libsasl2_la_LIBADD = $(LTLIBOBJS) $(SASL_DL_LIB) $(LIB_SOCKET)
+libsasl2_la_LIBADD = $(LTLIBOBJS) $(SASL_DL_LIB) $(LIB_SOCKET) $(LIB_DOOR)
 
 if MACOSX
 framedir = /Library/Frameworks/SASL2.framework
@@ -91,3 +92,9 @@ libsasl2.a: libsasl2.la $(SASL_STATIC_OBJS)
 	libsasl2.la >TMP.$$ && mv TMP.$$ libsasl2.la
 	rm -f $@
 	ln -s .libs/$@ $@
+
+$(SASL_STATIC_OBJS): linksrcs
+
+linksrcs:
+	-ln -s $(SASL_STATIC_SRCS) .
+

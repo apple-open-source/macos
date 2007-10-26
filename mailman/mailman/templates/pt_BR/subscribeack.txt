@@ -1,10 +1,10 @@
 Bem Vindo a lista de discussão %(real_name)s@%(host_name)s!
 %(welcome)s
-Para postar a esta lista, envie uma mensagem para:
+Para postar nesta lista, envie uma mensagem para o endereço:
 
   %(emailaddr)s
 
-Informações gerais sobre esta lista de discussão podem ser encontradas em:
+Informações gerais sobre a lista de discussão podem ser encontradas em:
 
   %(listinfo_url)s
 
@@ -26,7 +26,7 @@ a própria senha) ou para se desinscrever. Ela é:
   %(password)s
 
 Normalmente, o Mailman lhe lembrará de suas senhas em %(host_name)s 
-uma vez por mês, mas pode desativar isto se preferir. Este lembrete 
-também inclui instruções de como se desinscrever ou modificar suas
-opções de conta. Também existe um botão em sua página de opções que
-poderá lhe enviar a senha.
+uma vez por mês, mas pode desativar este recurso se preferir. Este 
+lembrete também inclui instruções de como se desinscrever ou modificar 
+suas opções de conta. Também existe um botão em sua página de opções 
+que poderá lhe enviar a senha.

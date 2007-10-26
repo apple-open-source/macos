@@ -75,7 +75,7 @@ __private_extern__ void _ldbl2array32dd(union IEEEl2bits, uint32_t *);
 
 #define	LDBL_TO_ARRAY32(u, a) _ldbl2array32dd(u, a)
 
-#elif defined(__i386__)
+#elif defined(__i386__) || defined(__x86_64__)
 
 union IEEEl2bits {
 	long double	e;

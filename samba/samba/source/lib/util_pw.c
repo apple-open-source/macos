@@ -22,39 +22,61 @@
 
 #include "includes.h"
 
-static struct passwd *alloc_copy_passwd(const struct passwd *from) 
+struct passwd *tcopy_passwd(TALLOC_CTX *mem_ctx, const struct passwd *from) 
 {
-	struct passwd *ret = SMB_XMALLOC_P(struct passwd);
-	ZERO_STRUCTP(ret);
-	ret->pw_name = smb_xstrdup(from->pw_name);
-	ret->pw_passwd = smb_xstrdup(from->pw_passwd);
+	struct passwd *ret = TALLOC_P(mem_ctx, struct passwd);
+	if (!ret) {
+		return NULL;
+	}
+	ret->pw_name = talloc_strdup(ret, from->pw_name);
+	ret->pw_passwd = talloc_strdup(ret, from->pw_passwd);
 	ret->pw_uid = from->pw_uid;
 	ret->pw_gid = from->pw_gid;
-	ret->pw_gecos = smb_xstrdup(from->pw_gecos);
-	ret->pw_dir = smb_xstrdup(from->pw_dir);
-	ret->pw_shell = smb_xstrdup(from->pw_shell);
+	ret->pw_gecos = talloc_strdup(ret, from->pw_gecos);
+	ret->pw_dir = talloc_strdup(ret, from->pw_dir);
+	ret->pw_shell = talloc_strdup(ret, from->pw_shell);
 	return ret;
 }
 
-void passwd_free (struct passwd **buf)
+#define PWNAMCACHE_SIZE 4
+static struct passwd **pwnam_cache = NULL;
+
+static void init_pwnam_cache(void)
 {
-	if (!*buf) {
-		DEBUG(0, ("attempted double-free of allocated passwd\n"));
+	if (pwnam_cache != NULL)
 		return;
+
+	pwnam_cache = TALLOC_ZERO_ARRAY(NULL, struct passwd *,
+					PWNAMCACHE_SIZE);
+	if (pwnam_cache == NULL) {
+		smb_panic("Could not init pwnam_cache\n");
 	}
 
-	SAFE_FREE((*buf)->pw_name);
-	SAFE_FREE((*buf)->pw_passwd);
-	SAFE_FREE((*buf)->pw_gecos);
-	SAFE_FREE((*buf)->pw_dir);
-	SAFE_FREE((*buf)->pw_shell);
-
-	SAFE_FREE(*buf);
+	return;
 }
 
-struct passwd *getpwnam_alloc(const char *name) 
+void flush_pwnam_cache(void)
 {
+	TALLOC_FREE(pwnam_cache);
+	pwnam_cache = NULL;
+	init_pwnam_cache();
+}
+
+struct passwd *getpwnam_alloc(TALLOC_CTX *mem_ctx, const char *name)
+{
+	int i;
+
 	struct passwd *temp;
+
+	init_pwnam_cache();
+
+	for (i=0; i<PWNAMCACHE_SIZE; i++) {
+		if ((pwnam_cache[i] != NULL) && 
+		    (strcmp(name, pwnam_cache[i]->pw_name) == 0)) {
+			DEBUG(10, ("Got %s from pwnam_cache\n", name));
+			return (struct passwd *)talloc_reference(mem_ctx, pwnam_cache[i]);
+		}
+	}
 
 	temp = sys_getpwnam(name);
 	
@@ -67,10 +89,27 @@ struct passwd *getpwnam_alloc(const char *name)
 		return NULL;
 	}
 
-	return alloc_copy_passwd(temp);
+	for (i=0; i<PWNAMCACHE_SIZE; i++) {
+		if (pwnam_cache[i] == NULL)
+			break;
+	}
+
+	if (i == PWNAMCACHE_SIZE)
+		i = rand() % PWNAMCACHE_SIZE;
+
+	if (pwnam_cache[i] != NULL) {
+		TALLOC_FREE(pwnam_cache[i]);
+	}
+
+	pwnam_cache[i] = tcopy_passwd(pwnam_cache, temp);
+	if (pwnam_cache[i]!= NULL && mem_ctx != NULL) {
+		return (struct passwd *)talloc_reference(mem_ctx, pwnam_cache[i]);
+	}
+
+	return tcopy_passwd(NULL, pwnam_cache[i]);
 }
 
-struct passwd *getpwuid_alloc(uid_t uid) 
+struct passwd *getpwuid_alloc(TALLOC_CTX *mem_ctx, uid_t uid) 
 {
 	struct passwd *temp;
 
@@ -85,5 +124,5 @@ struct passwd *getpwuid_alloc(uid_t uid)
 		return NULL;
 	}
 
-	return alloc_copy_passwd(temp);
+	return tcopy_passwd(mem_ctx, temp);
 }

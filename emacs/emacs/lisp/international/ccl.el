@@ -1,7 +1,11 @@
 ;;; ccl.el --- CCL (Code Conversion Language) compiler
 
-;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
+;; Copyright (C) 1997, 1998, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007  Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Keywords: CCL, mule, multilingual, character set, coding-system
 
@@ -19,25 +23,25 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;; CCL (Code Conversion Language) is a simple programming language to
-;; be used for various kind of code conversion.  CCL program is
-;; compiled to CCL code (vector of integers) and executed by CCL
-;; interpreter of Emacs.
+;; be used for various kind of code conversion.  A CCL program is
+;; compiled to CCL code (vector of integers) and executed by the CCL
+;; interpreter in Emacs.
 ;;
 ;; CCL is used for code conversion at process I/O and file I/O for
-;; non-standard coding-system.  In addition, it is used for
-;; calculating a code point of X's font from a character code.
+;; non-standard coding-systems.  In addition, it is used for
+;; calculating code points of X fonts from character codes.
 ;; However, since CCL is designed as a powerful programming language,
 ;; it can be used for more generic calculation.  For instance,
 ;; combination of three or more arithmetic operations can be
-;; calculated faster than Emacs Lisp.
+;; calculated faster than in Emacs Lisp.
 ;;
-;; Syntax and semantics of CCL program is described in the
+;; The syntax and semantics of CCL programs are described in the
 ;; documentation of `define-ccl-program'.
 
 ;;; Code:
@@ -52,7 +56,8 @@
       read read-if read-branch write call end
       read-multibyte-character write-multibyte-character
       translate-character
-      iterate-multiple-map map-multiple map-single]
+      iterate-multiple-map map-multiple map-single lookup-integer
+      lookup-character]
   "Vector of CCL commands (symbols).")
 
 ;; Put a property to each symbol of CCL commands for the compiler.
@@ -107,6 +112,8 @@
    iterate-multiple-map
    map-multiple
    map-single
+   lookup-int-const-tbl
+   lookup-char-const-tbl
    ]
   "Vector of CCL extended compiled codes (symbols).")
 
@@ -196,8 +203,8 @@
 
 ;; Embed pair of SYMBOL and PROP where (get SYMBOL PROP) should give
 ;; proper index number for SYMBOL.  PROP should be
-;; `translation-table-id', `code-conversion-map-id', or
-;; `ccl-program-idx'.
+;; `translation-table-id', `translation-hash-table-id'
+;; `code-conversion-map-id', or `ccl-program-idx'.
 (defun ccl-embed-symbol (symbol prop)
   (ccl-embed-data (cons symbol prop)))
 
@@ -233,7 +240,7 @@
 
 ;; If REG is a CCL register symbol (e.g. r0, r1...), the register
 ;; number is embedded.  If OP is one of unconditional jumps, DATA is
-;; changed to an relative jump address.
+;; changed to a relative jump address.
 
 (defun ccl-embed-code (op reg data &optional reg2)
   (if (and (> data 0) (get op 'jump-flag))
@@ -505,7 +512,7 @@
 	      (ccl-embed-data op)
 	      (ccl-embed-data arg))
 	  (ccl-check-register arg cmd)
-	  (ccl-embed-code (if read-flag 'read-jump-cond-expr-register 
+	  (ccl-embed-code (if read-flag 'read-jump-cond-expr-register
 			    'jump-cond-expr-register)
 			  rrr 0)
 	  (ccl-embed-data op)
@@ -703,7 +710,7 @@
 	   (error "CCL: Invalid argument %s: %s" arg cmd)))
     (ccl-embed-code 'read-jump rrr ccl-loop-head))
   t)
-			    
+
 ;; Compile READ statement.
 (defun ccl-compile-read (cmd)
   (if (< (length cmd) 2)
@@ -770,7 +777,8 @@
 	       (ccl-check-register right rrr)
 	       (ccl-embed-code 'write-expr-register 0
 			       (logior (ash op 3)
-				       (get right 'ccl-register-number))))))
+				       (get right 'ccl-register-number))
+			       left))))
 
 	  (t
 	   (error "CCL: Invalid argument: %s" cmd))))
@@ -833,6 +841,46 @@
 	   (ccl-embed-extended-command 'translate-character rrr RRR Rrr))))
   nil)
 
+;; Compile lookup-integer
+(defun ccl-compile-lookup-integer (cmd)
+  (if (/= (length cmd) 4)
+      (error "CCL: Invalid number of arguments: %s" cmd))
+  (let ((Rrr (nth 1 cmd))
+	(RRR (nth 2 cmd))
+	(rrr (nth 3 cmd)))
+    (ccl-check-register RRR cmd)
+    (ccl-check-register rrr cmd)
+    (cond ((and (symbolp Rrr) (not (get Rrr 'ccl-register-number)))
+	   (ccl-embed-extended-command 'lookup-int-const-tbl
+				       rrr RRR 0)
+	   (ccl-embed-symbol Rrr 'translation-hash-table-id))
+	  (t
+	   (error "CCL: non-constant table: %s" cmd)
+	   ;; not implemented:
+	   (ccl-check-register Rrr cmd)
+	   (ccl-embed-extended-command 'lookup-int rrr RRR 0))))
+  nil)
+
+;; Compile lookup-character
+(defun ccl-compile-lookup-character (cmd)
+  (if (/= (length cmd) 4)
+      (error "CCL: Invalid number of arguments: %s" cmd))
+  (let ((Rrr (nth 1 cmd))
+	(RRR (nth 2 cmd))
+	(rrr (nth 3 cmd)))
+    (ccl-check-register RRR cmd)
+    (ccl-check-register rrr cmd)
+    (cond ((and (symbolp Rrr) (not (get Rrr 'ccl-register-number)))
+	   (ccl-embed-extended-command 'lookup-char-const-tbl
+				       rrr RRR 0)
+	   (ccl-embed-symbol Rrr 'translation-hash-table-id))
+	  (t
+	   (error "CCL: non-constant table: %s" cmd)
+	   ;; not implemented:
+	   (ccl-check-register Rrr cmd)
+	   (ccl-embed-extended-command 'lookup-char rrr RRR 0))))
+  nil)
+
 (defun ccl-compile-iterate-multiple-map (cmd)
   (ccl-compile-multiple-map-function 'iterate-multiple-map cmd)
   nil)
@@ -855,7 +903,7 @@
 			add 1))
 		(setq arg (cdr arg)
 		      len (+ len add)))
-	      (if mp 
+	      (if mp
 		  (cons (- len) result)
 		result))))
     (setq arg (append (list (nth 0 cmd) (nth 1 cmd) (nth 2 cmd))
@@ -905,7 +953,7 @@
       (setq args (cdr args)))))
 
 
-;;; CCL dump staffs
+;;; CCL dump stuff
 
 ;; To avoid byte-compiler warning.
 (defvar ccl-code)
@@ -946,7 +994,7 @@
 	 (rrr (ash (logand code 255) -5))
 	 (cc (ash code -8)))
     (insert (format "%5d:[%s] " (1- ccl-current-ic) cmd))
-    (funcall (get cmd 'ccl-dump-function) rrr cc))) 
+    (funcall (get cmd 'ccl-dump-function) rrr cc)))
 
 (defun ccl-dump-set-register (rrr cc)
   (insert (format "r%d = r%d\n" rrr cc)))
@@ -1075,7 +1123,8 @@
   (insert (format "write r%d (%d remaining)\n" rrr cc)))
 
 (defun ccl-dump-call (ignore cc)
-  (insert (format "call subroutine #%d\n" cc)))
+  (let ((subroutine (car (ccl-get-next-code))))
+    (insert (format "call subroutine `%s'\n" subroutine))))
 
 (defun ccl-dump-write-const-string (rrr cc)
   (if (= rrr 0)
@@ -1192,6 +1241,14 @@
   (let ((tbl (ccl-get-next-code)))
     (insert (format "translation table(%S) r%d r%d\n" tbl RRR rrr))))
 
+(defun ccl-dump-lookup-int-const-tbl (rrr RRR Rrr)
+  (let ((tbl (ccl-get-next-code)))
+    (insert (format "hash table(%S) r%d r%d\n" tbl RRR rrr))))
+
+(defun ccl-dump-lookup-char-const-tbl (rrr RRR Rrr)
+  (let ((tbl (ccl-get-next-code)))
+    (insert (format "hash table(%S) r%d r%d\n" tbl RRR rrr))))
+
 (defun ccl-dump-iterate-multiple-map (rrr RRR Rrr)
   (let ((notbl (ccl-get-next-code))
 	(i 0) id)
@@ -1221,7 +1278,7 @@
     (insert (format "map-single r%d r%d map(%S)\n" RRR rrr id))))
 
 
-;; CCL emulation staffs 
+;; CCL emulation staffs
 
 ;; Not yet implemented.
 
@@ -1251,7 +1308,9 @@ CCL-PROGRAM has this form:
 
 BUFFER_MAGNIFICATION is an integer value specifying the approximate
 output buffer magnification size compared with the bytes of input data
-text.  If the value is zero, the CCL program can't execute `read' and
+text.  It is assured that the actual output buffer has 256 bytes
+more than the size calculated by BUFFER_MAGNIFICATION.
+If the value is zero, the CCL program can't execute `read' and
 `write' commands.
 
 CCL_MAIN_CODE and CCL_EOF_CODE are CCL program codes.  CCL_MAIN_CODE
@@ -1271,7 +1330,7 @@ CCL_BLOCK := STATEMENT | (STATEMENT [STATEMENT ...])
 
 STATEMENT :=
 	SET | IF | BRANCH | LOOP | REPEAT | BREAK | READ | WRITE | CALL
-	| TRANSLATE | END
+	| TRANSLATE | MAP | LOOKUP | END
 
 SET :=	(REG = EXPRESSION)
 	| (REG ASSIGNMENT_OPERATOR EXPRESSION)
@@ -1420,7 +1479,7 @@ ASSIGNMENT_OPERATOR :=
 	;; (REG <8= ARG) is the same as:
 	;;	((REG <<= 8)
 	;;	 (REG |= ARG))
-	| <8= 
+	| <8=
 
 	;; (REG >8= ARG) is the same as:
 	;;	((r7 = (REG & 255))
@@ -1438,6 +1497,10 @@ TRANSLATE :=
 	(translate-character REG(table) REG(charset) REG(codepoint))
 	| (translate-character SYMBOL REG(charset) REG(codepoint))
         ;; SYMBOL must refer to a table defined by `define-translation-table'.
+LOOKUP :=
+	(lookup-character SYMBOL REG(charset) REG(codepoint))
+	| (lookup-integer SYMBOL REG(integer))
+        ;; SYMBOL refers to a table defined by `define-translation-hash-table'.
 MAP :=
      (iterate-multiple-map REG REG MAP-IDs)
      | (map-multiple REG REG (MAP-SET))
@@ -1483,4 +1546,5 @@ See the documentation of `define-ccl-program' for the detail of CCL program."
 
 (provide 'ccl)
 
+;;; arch-tag: 836bcd27-63a1-4a56-b232-1145ecf823fb
 ;;; ccl.el ends here

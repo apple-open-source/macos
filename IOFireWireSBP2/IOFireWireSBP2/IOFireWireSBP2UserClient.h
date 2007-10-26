@@ -38,31 +38,29 @@ class IOFireWireSBP2UserClient : public IOUserClient
 
 protected:
 
-    static IOExternalMethod 		sMethods[kIOFWSBP2UserClientNumCommands];
-    static IOExternalAsyncMethod 	sAsyncMethods[kIOFWSBP2UserClientNumAsyncCommands];
-
     bool					fOpened;
 	bool					fStarted;
     IOFireWireSBP2Login * 	fLogin;
     task_t					fTask;
 	
     IOFireWireSBP2LUN *		fProviderLUN;
-    OSAsyncReference		fMessageCallbackAsyncRef;
-    OSAsyncReference		fLoginCallbackAsyncRef;
-    OSAsyncReference		fLogoutCallbackAsyncRef;
-    OSAsyncReference		fUnsolicitedStatusNotifyAsyncRef;
-    OSAsyncReference		fStatusNotifyAsyncRef;
-    OSAsyncReference		fFetchAgentResetAsyncRef;
-	OSAsyncReference		fFetchAgentWriteAsyncRef;
+    OSAsyncReference64		fMessageCallbackAsyncRef;
+    OSAsyncReference64		fLoginCallbackAsyncRef;
+    OSAsyncReference64		fLogoutCallbackAsyncRef;
+    OSAsyncReference64		fUnsolicitedStatusNotifyAsyncRef;
+    OSAsyncReference64		fStatusNotifyAsyncRef;
+    OSAsyncReference64		fFetchAgentResetAsyncRef;
+	OSAsyncReference64		fFetchAgentWriteAsyncRef;
 	
-    virtual IOExternalMethod * getTargetAndMethodForIndex(IOService **target, UInt32 index);
-    virtual IOExternalAsyncMethod * getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index);
-
+ 	virtual IOReturn externalMethod(	uint32_t selector, 
+										IOExternalMethodArguments * args,
+										IOExternalMethodDispatch * dispatch, 
+										OSObject * target, 
+										void * reference );
 public:
 
-    static IOFireWireSBP2UserClient* withTask( task_t owningTask );
-
-    virtual bool init( OSDictionary * dictionary = 0 );
+	virtual bool initWithTask( task_t owningTask, void * securityToken, UInt32 type, OSDictionary * properties );
+				
     virtual bool start( IOService * provider );
 
     virtual IOReturn clientClose( void );
@@ -74,49 +72,38 @@ public:
     /////////////////////////////////////////////////
     // IOFireWireSBP2LUN
 
-    virtual IOReturn open( void *, void *, void *, void *, void *, void * );
-	virtual IOReturn openWithSessionRef( IOFireWireSessionRef sessionRef, void *, void *, void *, void *, void * );
-	virtual IOReturn getSessionRef( IOFireWireSessionRef * sessionRef, void *, void *, void *, void *, void * );
-    virtual IOReturn close( void *, void *, void *, void *, void *, void * );
+    IOReturn open( IOExternalMethodArguments * arguments );
+	IOReturn openWithSessionRef( IOExternalMethodArguments * arguments );
+	IOReturn getSessionRef( IOExternalMethodArguments * arguments );
+    IOReturn close( IOExternalMethodArguments * arguments );
 
     // callbacks
-    virtual IOReturn setMessageCallback( OSAsyncReference asyncRef, void * callback, 
-												void * refCon, void *, void *, void *, void * );
+	IOReturn setMessageCallback( IOExternalMethodArguments * arguments );
     virtual IOReturn message( UInt32 type, IOService * provider, void * arg );
 
     /////////////////////////////////////////////////
     // IOFireWireSBP2Login
     
-    virtual IOReturn setLoginCallback( OSAsyncReference asyncRef, void * callback, void * refCon, 
-																void *, void *, void *, void * );
-	virtual IOReturn setLogoutCallback( OSAsyncReference asyncRef, void * callback, void * refCon, 
-																	void *, void *, void *, void * );
-    virtual IOReturn setUnsolicitedStatusNotify( OSAsyncReference asyncRef, void * callback, void * refCon,
-                                                 void *, void *, void *, void * );
-    virtual IOReturn setStatusNotify( OSAsyncReference asyncRef, void * callback, void * refCon, 
-																	void *, void *, void *, void * );
-    virtual IOReturn createLogin( IOFireWireSBP2Login ** outLoginRef, void *, void *, void *, void *, void * );
-    virtual IOReturn releaseLogin( IOFireWireSBP2Login* loginRef, void *, void *, void *, void *, void * );
-    virtual IOReturn submitLogin( IOFireWireSBP2Login * loginRef, void *, void *, void *, void *, void * );
-    virtual IOReturn submitLogout( IOFireWireSBP2Login * loginRef, void *, void *, void *, void *, void * );
-    virtual IOReturn setLoginFlags( IOFireWireSBP2Login * loginRef, UInt32 loginFlags, void *, 
-																				void *, void *, void * );
-    virtual IOReturn getMaxCommandBlockSize( IOFireWireSBP2Login * loginRef, UInt32 * blockSize, 
-																	void *, void *, void *, void * );
-    virtual IOReturn getLoginID( IOFireWireSBP2Login * loginRef, UInt32 * loginID, void *,
-																			void *, void *, void * );
-    virtual IOReturn setReconnectTime( IOFireWireSBP2Login * loginRef, UInt32 time, void *, 
-																			void *, void *, void * );
-    virtual IOReturn setMaxPayloadSize( IOFireWireSBP2Login * loginRef, UInt32 size, void *, 
-																			void *, void *, void * );
+    IOReturn setLoginCallback( IOExternalMethodArguments * arguments );
+	IOReturn setLogoutCallback( IOExternalMethodArguments * arguments );
+    IOReturn setUnsolicitedStatusNotify( IOExternalMethodArguments * arguments );
+    IOReturn setStatusNotify( IOExternalMethodArguments * arguments );
+	IOReturn createLogin( IOExternalMethodArguments * arguments );
+    IOReturn releaseLogin( IOExternalMethodArguments * arguments );
+    IOReturn submitLogin( IOExternalMethodArguments * arguments );
+    IOReturn submitLogout( IOExternalMethodArguments * arguments );
+	IOReturn setLoginFlags( IOExternalMethodArguments * arguments );
+    IOReturn getMaxCommandBlockSize( IOExternalMethodArguments * arguments );
+    IOReturn getLoginID( IOExternalMethodArguments * arguments );
+    IOReturn setReconnectTime( IOExternalMethodArguments * arguments );
+	IOReturn setMaxPayloadSize( IOExternalMethodArguments * arguments );
     
-	virtual IOReturn submitFetchAgentReset( OSAsyncReference asyncRef, IOFireWireSBP2Login * loginRef, void * refCon, void * callback,  void *, void *, void * );
-	virtual IOReturn setFetchAgentWriteCompletion( OSAsyncReference asyncRef, void * refCon, void * callback,  void *, void *, void *, void * );
-	virtual IOReturn ringDoorbell( IOFireWireSBP2Login * loginRef, void *, void *,  void *, void *, void * );
-	virtual IOReturn enableUnsolicitedStatus( IOFireWireSBP2Login * loginRef, void *, void *,  void *, void *, void * );
-	virtual IOReturn setBusyTimeoutRegisterValue( IOFireWireSBP2Login * loginRef, UInt32 timeout, void *,  void *, void *, void * );
-    virtual IOReturn setPassword( IOFireWireSBP2Login * loginRef, vm_address_t buffer, 
-									  IOByteCount length, void *, void *, void * );
+	IOReturn submitFetchAgentReset( IOExternalMethodArguments * arguments );
+	IOReturn setFetchAgentWriteCompletion( IOExternalMethodArguments * arguments );
+	IOReturn ringDoorbell( IOExternalMethodArguments * arguments );
+	IOReturn enableUnsolicitedStatus( IOExternalMethodArguments * arguments );
+	IOReturn setBusyTimeoutRegisterValue( IOExternalMethodArguments * arguments );
+    IOReturn setPassword( IOExternalMethodArguments * arguments );
 
 	// callbacks
 	
@@ -141,51 +128,35 @@ public:
     /////////////////////////////////////////////////
     // IOFireWireSBP2ORB
 
-    virtual IOReturn createORB( IOFireWireSBP2ORB ** outORBRef, void *, void *, void *, void *, void * );
-    virtual IOReturn releaseORB( IOFireWireSBP2ORB * ORBRef, void *, void *, void *, void *, void * );
-	virtual IOReturn submitORB( IOFireWireSBP2ORB * ORBRef, void *, void *, void *, void *, void * );
-    virtual IOReturn setCommandFlags( IOFireWireSBP2ORB * ORBRef, UInt32 flags, void *, void *, void *, void * );
-    virtual IOReturn setORBRefCon( IOFireWireSBP2ORB * ORBRef, UInt32 refCon, void *, void *, void *, void * );
-    virtual IOReturn setMaxORBPayloadSize( IOFireWireSBP2ORB * ORBRef, UInt32 maxPayloadSize, void *, void *, void *, void * );
-    virtual IOReturn setCommandTimeout( IOFireWireSBP2ORB * ORBRef, UInt32 timeout, void *, void *, void *, void * );
-    virtual IOReturn setCommandGeneration( IOFireWireSBP2ORB * ORBRef, UInt32 gen, void *, void *, void *, void * );
-    virtual IOReturn setToDummy( IOFireWireSBP2ORB * ORBRef, void *, void *, void *, void *, void * );
-    virtual IOReturn setCommandBuffersAsRanges( IOFireWireSBP2ORB * ORBRef, vm_address_t ranges, 
-												IOByteCount withCount, IODirection withDirection, 
-												IOByteCount offset, IOByteCount length );
-    virtual IOReturn releaseCommandBuffers( IOFireWireSBP2ORB * ORBRef, void *, void *, 
-											void *, void *, void * );
-    virtual IOReturn setCommandBlock( IOFireWireSBP2ORB * ORBRef, vm_address_t buffer, 
-									  IOByteCount length, void *, void *, void * );
+    IOReturn createORB(  IOExternalMethodArguments * arguments );
+    IOReturn releaseORB(  IOExternalMethodArguments * arguments );
+	IOReturn submitORB(  IOExternalMethodArguments * arguments );
+    IOReturn setCommandFlags(  IOExternalMethodArguments * arguments );
+    IOReturn setORBRefCon(  IOExternalMethodArguments * arguments );
+	IOReturn setMaxORBPayloadSize(  IOExternalMethodArguments * arguments );
+    IOReturn setCommandTimeout(  IOExternalMethodArguments * arguments );
+	IOReturn setCommandGeneration(  IOExternalMethodArguments * arguments );
+    IOReturn setToDummy(  IOExternalMethodArguments * arguments );
+    IOReturn setCommandBuffersAsRanges(  IOExternalMethodArguments * arguments );
+    IOReturn releaseCommandBuffers(  IOExternalMethodArguments * arguments );
+    IOReturn setCommandBlock(  IOExternalMethodArguments * arguments );
 	
 	// LSI workaround
-    virtual IOReturn LSIWorkaroundSetCommandBuffersAsRanges
-				( IOFireWireSBP2ORB * ORBRef, vm_address_t ranges, IOByteCount withCount, 
-						IODirection withDirection, IOByteCount offset, IOByteCount length );
-	virtual IOReturn LSIWorkaroundSyncBuffersForOutput( IOFireWireSBP2ORB * ORBRef, void *, void *,
-														void *, void *, void * );
-	virtual IOReturn LSIWorkaroundSyncBuffersForInput( IOFireWireSBP2ORB * ORBRef, void *, void *,
-													   void *, void *, void * );
+    IOReturn LSIWorkaroundSetCommandBuffersAsRanges(  IOExternalMethodArguments * arguments );
+	IOReturn LSIWorkaroundSyncBuffersForOutput(  IOExternalMethodArguments * arguments );
+	IOReturn LSIWorkaroundSyncBuffersForInput(  IOExternalMethodArguments * arguments );
 															
     /////////////////////////////////////////////////
     // IOFireWireSBP2MgmtORB
 
-    virtual IOReturn createMgmtORB( IOFireWireSBP2ManagementORB ** outORBRef, void *, void *, 
-																	void *, void *, void * );
-    virtual IOReturn releaseMgmtORB( IOFireWireSBP2ManagementORB * ORBRef, void *, void *, 
-																	void *, void *, void * );
-    virtual IOReturn setMgmtORBCallback( OSAsyncReference asyncRef, IOFireWireSBP2ManagementORB * ORBRef, 
-												void * refCon, void * callback,	 void *, void *, void * );
-    virtual IOReturn submitMgmtORB( IOFireWireSBP2ManagementORB * ORBRef, void *, void *, 
-																		void *, void *, void * );	
-	virtual IOReturn setMgmtORBCommandFunction( IOFireWireSBP2ManagementORB * ORBRef, 
-													UInt32 function, void *, void *, void *, void * );
-	virtual IOReturn setMgmtORBManageeORB( IOFireWireSBP2ManagementORB * ORBRef, IOFireWireSBP2ORB * orb, 
-													void *, void *, void *, void * );
-	virtual IOReturn setMgmtORBManageeLogin( IOFireWireSBP2ManagementORB * ORBRef, 
-											IOFireWireSBP2Login * login, void *, void *, void *, void * );
-	virtual IOReturn setMgmtORBResponseBuffer( IOFireWireSBP2ManagementORB * ORBRef, vm_address_t buf,
-												IOByteCount len, void *, void *, void * );
+	IOReturn createMgmtORB(  IOExternalMethodArguments * arguments );
+    IOReturn releaseMgmtORB(  IOExternalMethodArguments * arguments );
+    IOReturn setMgmtORBCallback(  IOExternalMethodArguments * arguments );
+    IOReturn submitMgmtORB(  IOExternalMethodArguments * arguments );	
+	IOReturn setMgmtORBCommandFunction(  IOExternalMethodArguments * arguments );
+	IOReturn setMgmtORBManageeORB(  IOExternalMethodArguments * arguments );
+	IOReturn setMgmtORBManageeLogin(  IOExternalMethodArguments * arguments );
+	IOReturn setMgmtORBResponseBuffer(  IOExternalMethodArguments * arguments );
 
 	// callbacks
     static void staticMgmtORBCallback( void * refCon, IOReturn status, IOFireWireSBP2ManagementORB * orb );
@@ -195,6 +166,13 @@ public:
 	virtual void setMgmtORBAsyncCallbackReference( IOFireWireSBP2ManagementORB * orb, void * asyncRef );    
 	virtual void getMgmtORBAsyncCallbackReference( IOFireWireSBP2ManagementORB * orb, void * asyncRef );
 
+	    uint32_t		   checkScalarInputCount;
+    uint32_t		   checkStructureInputSize;
+    uint32_t		   checkScalarOutputCount;
+    uint32_t		   checkStructureOutputSize;
+    
+    IOReturn checkArguments( IOExternalMethodArguments * args, uint32_t scalarInCount, uint32_t structInCount, 
+    													uint32_t scalarOutCount, uint32_t structOutCount );
 
 };
 

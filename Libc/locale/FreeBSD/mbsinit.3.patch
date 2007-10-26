@@ -1,5 +1,5 @@
---- mbsinit.3.orig	Fri Mar 11 19:44:47 2005
-+++ mbsinit.3	Fri Mar 11 19:55:14 2005
+--- _SB/Libc/locale/FreeBSD/mbsinit.3	2004-11-25 11:38:18.000000000 -0800
++++ _SB/Libc/locale/FreeBSD/mbsinit.3.edit	2006-06-28 16:55:51.000000000 -0700
 @@ -28,7 +28,8 @@
  .Dt MBSINIT 3
  .Os
@@ -10,17 +10,18 @@
  .Nd "determine conversion object status"
  .Sh LIBRARY
  .Lb libc
-@@ -36,6 +37,9 @@
+@@ -36,6 +37,10 @@
  .In wchar.h
  .Ft int
  .Fn mbsinit "const mbstate_t *ps"
++.In wchar.h
 +.In xlocale.h
 +.Ft int
 +.Fn mbsinit_l "const mbstate_t *ps" "locale_t loc"
  .Sh DESCRIPTION
  The
  .Fn mbsinit
-@@ -44,6 +48,14 @@
+@@ -44,6 +49,14 @@
  object pointed to by
  .Fa ps
  describes an initial conversion state.
@@ -35,7 +36,17 @@
  .Sh RETURN VALUES
  The
  .Fn mbsinit
-@@ -59,7 +71,8 @@
+@@ -51,15 +64,16 @@
+ .Fa ps
+ is
+ .Dv NULL
+-or describes an initial conversion state,
+-otherwise it returns zero.
++or describes an initial conversion state;
++otherwise, it returns zero.
+ .Sh SEE ALSO
+ .Xr mbrlen 3 ,
+ .Xr mbrtowc 3 ,
  .Xr mbsrtowcs 3 ,
  .Xr multibyte 3 ,
  .Xr wcrtomb 3 ,

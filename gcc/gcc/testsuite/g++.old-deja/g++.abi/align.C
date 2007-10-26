@@ -1,5 +1,7 @@
 // APPLE LOCAL why is this local?
 // { dg-do run { target i?86-*-linux* i?86-*-freebsd* i?86-*-darwin* } }
+// APPLE LOCAL mainline
+// { dg-require-effective-target ilp32 }
 // { dg-options "-malign-double" }
 // Origin: Alex Samuel <samuel@codesourcery.com>
 

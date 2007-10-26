@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: getpass.c,v 1.13 2005/01/04 16:13:58 giva Exp $
+ * $Id: getpass.c,v 1.18 2007-04-14 16:55:17 gknauf Exp $
  ***************************************************************************/
 
 /* This file is a reimplementation of the previous one, due to license
@@ -124,6 +124,16 @@ char *getpass_r(const char *prompt, char *buffer, size_t buflen)
 #define DONE
 #endif /* WIN32 */
 
+#ifdef NETWARE
+/* NetWare implementation */
+#include <screen.h>
+char *getpass_r(const char *prompt, char *buffer, size_t buflen)
+{
+  return getpassword(prompt, buffer, buflen);
+}
+#define DONE
+#endif /* NETWARE */
+
 #ifndef DONE /* not previously provided */
 
 #ifdef HAVE_TERMIOS_H
@@ -203,7 +213,7 @@ char *getpass_r(const char *prompt, /* prompt to display */
   if(disabled) {
     /* if echo actually was disabled, add a newline */
     fputs("\n", stderr);
-    ttyecho(TRUE, fd); /* enable echo */
+    (void)ttyecho(TRUE, fd); /* enable echo */
   }
 
   if(1 != fd)

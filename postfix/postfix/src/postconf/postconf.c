@@ -5,18 +5,60 @@
 /*	Postfix configuration utility
 /* SYNOPSIS
 /* .fi
-/*	\fBpostconf\fR [\fB-dhmlnv\fR] [\fB-c \fIconfig_dir\fR] 
+/*	\fBpostconf\fR [\fB-dhnv\fR] [\fB-c \fIconfig_dir\fR]
 /*	[\fIparameter ...\fR]
+/*
+/*	\fBpostconf\fR [\fB-aAmlv\fR] [\fB-c \fIconfig_dir\fR]
 /*
 /*	\fBpostconf\fR [\fB-ev\fR] [\fB-c \fIconfig_dir\fR]
 /*	[\fIparameter=value ...\fR]
+/*
+/*	\fBpostconf\fR [\fB-btv\fR] [\fB-c \fIconfig_dir\fR] [\fItemplate_file\fR]
 /* DESCRIPTION
-/*	The \fBpostconf\fR command prints the actual value of
-/*	\fIparameter\fR (all known parameters by default) one
-/*	parameter per line, changes its value, or prints other
-/*	information about the Postfix mail system.
+/*	The \fBpostconf\fR(1) command displays the actual values
+/*	of configuration parameters, changes configuration parameter
+/*	values, or displays other configuration information about
+/*	the Postfix mail system.
 /*
 /*	Options:
+/* .IP \fB-a\fR
+/*	List the available SASL server plug-in types.  The SASL
+/*	plug-in type is selected with the \fBsmtpd_sasl_type\fR
+/*	configuration parameter by specifying one of the names
+/*	listed below.
+/* .RS
+/* .IP \fBcyrus\fR
+/*	This server plug-in is available when Postfix is built with
+/*	Cyrus SASL support.
+/* .IP \fBdovecot\fR
+/*	This server plug-in requires the Dovecot authentication
+/*	server.
+/* .RE
+/* .IP
+/*	This feature is available with Postfix 2.3 and later.
+/* .IP \fB-A\fR
+/*	List the available SASL client plug-in types.  The SASL
+/*	plug-in type is selected with the \fBsmtp_sasl_type\fR or
+/*	\fBlmtp_sasl_type\fR configuration parameters by specifying
+/*	one of the names listed below.
+/* .RS
+/* .IP \fBcyrus\fR
+/*	This client plug-in is available when Postfix is built with
+/*	Cyrus SASL support.
+/* .RE
+/* .IP
+/*	This feature is available with Postfix 2.3 and later.
+/* .IP "\fB-b\fR [\fItemplate_file\fR]"
+/*	Display the message text that appears at the beginning of
+/*	delivery status notification (DSN) messages, with $\fBname\fR
+/*	expressions replaced by actual values.  To override the
+/*	built-in message text, specify a template file at the end
+/*	of the command line, or specify a template file in main.cf
+/*	with the \fBbounce_template_file\fR parameter.
+/*	To force selection of the built-in message text templates,
+/*	specify an empty template file name (in shell language: "").
+/*
+/*	This feature is available with Postfix 2.3 and later.
 /* .IP "\fB-c \fIconfig_dir\fR"
 /*	The \fBmain.cf\fR configuration file is in the named directory
 /*	instead of the default configuration directory.
@@ -36,7 +78,7 @@
 /* .RS
 /* .IP \fBflock\fR
 /*	A kernel-based advisory locking method for local files only.
-/*	This locking method is available only on systems with a BSD
+/*	This locking method is available on systems with a BSD
 /*	compatible library.
 /* .IP \fBfcntl\fR
 /*	A kernel-based advisory locking method for local and remote files.
@@ -47,28 +89,33 @@
 /*	stale lock files that were left behind after abnormal termination.
 /* .RE
 /* .IP \fB-m\fR
-/*	List the names of all supported lookup table types. Postfix
+/*	List the names of all supported lookup table types. In Postfix
+/*	configuration files,
 /*	lookup tables are specified as \fItype\fB:\fIname\fR, where
 /*	\fItype\fR is one of the types listed below. The table \fIname\fR
-/*	syntax depends on the lookup table type.
+/*	syntax depends on the lookup table type as described in the
+/*	DATABASE_README document.
 /* .RS
 /* .IP \fBbtree\fR
 /*	A sorted, balanced tree structure.
-/*	This is available only on systems with support for Berkeley DB
+/*	This is available on systems with support for Berkeley DB
 /*	databases.
+/* .IP \fBcdb\fR
+/*	A read-optimized structure with no support for incremental updates.
+/*	This is available on systems with support for CDB databases.
 /* .IP \fBcidr\fR
 /*	A table that associates values with Classless Inter-Domain Routing
 /*	(CIDR) patterns. This is described in \fBcidr_table\fR(5).
 /* .IP \fBdbm\fR
 /*	An indexed file type based on hashing.
-/*	This is available only on systems with support for DBM databases.
+/*	This is available on systems with support for DBM databases.
 /* .IP \fBenviron\fR
 /*	The UNIX process environment array. The lookup key is the variable
 /*	name. Originally implemented for testing, someone may find this
 /*	useful someday.
 /* .IP \fBhash\fR
 /*	An indexed file type based on hashing.
-/*	This is available only on systems with support for Berkeley DB
+/*	This is available on systems with support for Berkeley DB
 /*	databases.
 /* .IP "\fBldap\fR (read-only)"
 /*	Perform lookups using the LDAP protocol. This is described
@@ -89,31 +136,44 @@
 /* .IP "\fBregexp\fR (read-only)"
 /*	A lookup table based on regular expressions. The file format is
 /*	described in \fBregexp_table\fR(5).
+/* .IP \fBsdbm\fR
+/*	An indexed file type based on hashing.
+/*	This is available on systems with support for SDBM databases.
 /* .IP "\fBstatic\fR (read-only)"
 /*	A table that always returns its name as lookup result. For example,
 /*	\fBstatic:foobar\fR always returns the string \fBfoobar\fR as lookup
 /*	result.
 /* .IP "\fBtcp\fR (read-only)"
 /*	Perform lookups using a simple request-reply protocol that is
-/*	described in tcp_table(5).
-/*	This feature is not included with Postfix 2.1.
+/*	described in \fBtcp_table\fR(5).
+/*	This feature is not included with the stable Postfix release.
 /* .IP "\fBunix\fR (read-only)"
 /*	A limited way to query the UNIX authentication database. The
 /*	following tables are implemented:
 /* .RS
 /*. IP \fBunix:passwd.byname\fR
 /*	The table is the UNIX password database. The key is a login name.
-/*	The result is a password file entry in passwd(5) format.
+/*	The result is a password file entry in \fBpasswd\fR(5) format.
 /* .IP \fBunix:group.byname\fR
 /*	The table is the UNIX group database. The key is a group name.
-/*	The result is a group file entry in group(5) format.
+/*	The result is a group file entry in \fBgroup\fR(5) format.
 /* .RE
 /* .RE
-/* .sp
+/* .IP
 /*	Other table types may exist depending on how Postfix was built.
 /* .IP \fB-n\fR
 /*	Print parameter settings that are not left at their built-in
 /*	default value, because they are explicitly specified in main.cf.
+/* .IP "\fB-t\fR [\fItemplate_file\fR]"
+/*	Display the templates for delivery status notification (DSN)
+/*	messages. To override the built-in templates, specify a
+/*	template file at the end of the command line, or specify a
+/*	template file in main.cf with the \fBbounce_template_file\fR
+/*	parameter.  To force selection of the built-in templates,
+/*	specify an empty template file name (in shell language:
+/*	"").
+/*
+/*	This feature is available with Postfix 2.3 and later.
 /* .IP \fB-v\fR
 /*	Enable verbose logging for debugging purposes. Multiple \fB-v\fR
 /*	options make the software increasingly verbose.
@@ -131,13 +191,16 @@
 /*	this program.
 /*
 /*	The text below provides only a parameter summary. See
-/*	postconf(5) for more details including examples.
+/*	\fBpostconf\fR(5) for more details including examples.
 /* .IP "\fBconfig_directory (see 'postconf -d' output)\fR"
 /*	The default location of the Postfix main.cf and master.cf
 /*	configuration files.
+/* .IP "\fBbounce_template_file (empty)\fR"
+/*	Pathname of a configuration file with bounce message templates.
 /* FILES
 /*	/etc/postfix/main.cf, Postfix configuration parameters
 /* SEE ALSO
+/*	bounce(5), bounce template file format
 /*	postconf(5), configuration parameters
 /* README FILES
 /* .ad
@@ -169,10 +232,6 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#ifdef STRCASECMP_IN_STRINGS_H
-#include <strings.h>
-#endif
-
 #ifdef USE_PATHS_H
 #include <paths.h>
 #endif
@@ -192,6 +251,8 @@
 #include <split_at.h>
 #include <vstring_vstream.h>
 #include <myflock.h>
+#include <inet_proto.h>
+#include <argv.h>
 
 /* Global library. */
 
@@ -203,6 +264,11 @@
 #include <mail_params.h>
 #include <mail_addr.h>
 #include <mbox_conf.h>
+#include <mail_run.h>
+
+/* XSASL library. */
+
+#include <xsasl.h>
 
  /*
   * What we're supposed to be doing.
@@ -214,6 +280,8 @@
 #define EDIT_MAIN	(1<<4)		/* edit main.cf */
 #define SHOW_LOCKS	(1<<5)		/* show mailbox lock methods */
 #define SHOW_EVAL	(1<<6)		/* expand right-hand sides */
+#define SHOW_SASL_SERV	(1<<7)		/* show server auth plugin types */
+#define SHOW_SASL_CLNT	(1<<8)		/* show client auth plugin types */
 
  /*
   * Lookup table for in-core parameter info.
@@ -294,7 +362,7 @@ static CONFIG_STR_FN_TABLE str_fn_table_2[] = {
  /*
   * XXX Global so that call-backs can see it.
   */
-static int mode = SHOW_NAME;
+static int cmd_mode = SHOW_NAME;
 
 /* check_myhostname - lookup hostname and validate */
 
@@ -313,17 +381,12 @@ static const char *check_myhostname(void)
     /*
      * If the local machine name is not in FQDN form, try to append the
      * contents of $mydomain.
-     * 
-     * XXX Do not complain when running as "postconf -d".
      */
     name = get_hostname();
-    if ((mode & SHOW_DEFS) == 0 && (dot = strchr(name, '.')) == 0) {
-	if ((domain = mail_conf_lookup_eval(VAR_MYDOMAIN)) == 0) {
-	    msg_warn("My hostname %s is not a fully qualified name - set %s or %s in %s/main.cf",
-		     name, VAR_MYHOSTNAME, VAR_MYDOMAIN, var_config_dir);
-	} else {
-	    name = concatenate(name, ".", domain, (char *) 0);
-	}
+    if ((dot = strchr(name, '.')) == 0) {
+	if ((domain = mail_conf_lookup_eval(VAR_MYDOMAIN)) == 0)
+	    domain = DEF_MYDOMAIN;
+	name = concatenate(name, ".", domain, (char *) 0);
     }
     return (name);
 }
@@ -352,7 +415,7 @@ static const char *check_mydomainname(void)
     if (var_myhostname == 0)
 	get_myhostname();
     if ((dot = strchr(var_myhostname, '.')) == 0 || strchr(dot + 1, '.') == 0)
-	return (var_myhostname);
+	return (DEF_MYDOMAIN);
     return (dot + 1);
 }
 
@@ -360,19 +423,27 @@ static const char *check_mydomainname(void)
 
 static const char *check_mynetworks(void)
 {
+    INET_PROTO_INFO *proto_info;
     const char *junk;
 
     if (var_inet_interfaces == 0) {
-	if ((mode & SHOW_DEFS)
-	    || !(junk = mail_conf_lookup_eval(VAR_INET_INTERFACES)))
+	if ((cmd_mode & SHOW_DEFS)
+	    || (junk = mail_conf_lookup_eval(VAR_INET_INTERFACES)) == 0)
 	    junk = DEF_INET_INTERFACES;
 	var_inet_interfaces = mystrdup(junk);
     }
     if (var_mynetworks_style == 0) {
-	if ((mode & SHOW_DEFS)
-	    || !(junk = mail_conf_lookup_eval(VAR_MYNETWORKS_STYLE)))
+	if ((cmd_mode & SHOW_DEFS)
+	    || (junk = mail_conf_lookup_eval(VAR_MYNETWORKS_STYLE)) == 0)
 	    junk = DEF_MYNETWORKS_STYLE;
 	var_mynetworks_style = mystrdup(junk);
+    }
+    if (var_inet_protocols == 0) {
+	if ((cmd_mode & SHOW_DEFS)
+	    || (junk = mail_conf_lookup_eval(VAR_INET_PROTOCOLS)) == 0)
+	    junk = DEF_INET_PROTOCOLS;
+	var_inet_protocols = mystrdup(junk);
+	proto_info = inet_proto_init(VAR_INET_PROTOCOLS, var_inet_protocols);
     }
     return (mynetworks());
 }
@@ -833,13 +904,27 @@ static void show_maps(void)
 
 static void show_locks(void)
 {
-    ARGV   *maps_argv;
+    ARGV   *locks_argv;
     int     i;
 
-    maps_argv = mbox_lock_names();
-    for (i = 0; i < maps_argv->argc; i++)
-	vstream_printf("%s\n", maps_argv->argv[i]);
-    argv_free(maps_argv);
+    locks_argv = mbox_lock_names();
+    for (i = 0; i < locks_argv->argc; i++)
+	vstream_printf("%s\n", locks_argv->argv[i]);
+    argv_free(locks_argv);
+}
+
+/* show_sasl - show SASL plug-in types */
+
+static void show_sasl(int what)
+{
+    ARGV   *sasl_argv;
+    int     i;
+
+    sasl_argv = (what & SHOW_SASL_SERV) ? xsasl_server_types() :
+	xsasl_client_types();
+    for (i = 0; i < sasl_argv->argc; i++)
+	vstream_printf("%s\n", sasl_argv->argv[i]);
+    argv_free(sasl_argv);
 }
 
 /* show_parameters - show parameter info */
@@ -875,6 +960,8 @@ static void show_parameters(int mode, char **names)
     }
 }
 
+MAIL_VERSION_STAMP_DECLARE;
+
 /* main */
 
 int     main(int argc, char **argv)
@@ -883,6 +970,12 @@ int     main(int argc, char **argv)
     int     fd;
     struct stat st;
     int     junk;
+    ARGV   *ext_argv = 0;
+
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
 
     /*
      * Be consistent with file permissions.
@@ -907,17 +1000,29 @@ int     main(int argc, char **argv)
     /*
      * Parse JCL.
      */
-    while ((ch = GETOPT(argc, argv, "c:deEhmlnv")) > 0) {
+    while ((ch = GETOPT(argc, argv, "aAbc:deEhmlntv")) > 0) {
 	switch (ch) {
+	case 'a':
+	    cmd_mode |= SHOW_SASL_SERV;
+	    break;
+	case 'A':
+	    cmd_mode |= SHOW_SASL_CLNT;
+	    break;
+	case 'b':
+	    if (ext_argv)
+		msg_fatal("specify one of -b and -t");
+	    ext_argv = argv_alloc(2);
+	    argv_add(ext_argv, "bounce", "-SVnexpand_templates", (char *) 0);
+	    break;
 	case 'c':
 	    if (setenv(CONF_ENV_PATH, optarg, 1) < 0)
 		msg_fatal("out of memory");
 	    break;
 	case 'd':
-	    mode |= SHOW_DEFS;
+	    cmd_mode |= SHOW_DEFS;
 	    break;
 	case 'e':
-	    mode |= EDIT_MAIN;
+	    cmd_mode |= EDIT_MAIN;
 	    break;
 
 	    /*
@@ -928,41 +1033,70 @@ int     main(int argc, char **argv)
 	     */
 #if 0
 	case 'E':
-	    mode |= SHOW_EVAL;
+	    cmd_mode |= SHOW_EVAL;
 	    break;
 #endif
 	case 'h':
-	    mode &= ~SHOW_NAME;
+	    cmd_mode &= ~SHOW_NAME;
 	    break;
 	case 'l':
-	    mode |= SHOW_LOCKS;
+	    cmd_mode |= SHOW_LOCKS;
 	    break;
 	case 'm':
-	    mode |= SHOW_MAPS;
+	    cmd_mode |= SHOW_MAPS;
 	    break;
 	case 'n':
-	    mode |= SHOW_NONDEF;
+	    cmd_mode |= SHOW_NONDEF;
+	    break;
+	case 't':
+	    if (ext_argv)
+		msg_fatal("specify one of -b and -t");
+	    ext_argv = argv_alloc(2);
+	    argv_add(ext_argv, "bounce", "-SVndump_templates", (char *) 0);
 	    break;
 	case 'v':
 	    msg_verbose++;
 	    break;
 	default:
-	    msg_fatal("usage: %s [-c config_dir] [-d (defaults)] [-e (edit)] [-h (no names)] [-l (lock types)] [-m (map types)] [-n (non-defaults)] [-v] [name...]", argv[0]);
+	    msg_fatal("usage: %s [-a (server SASL types)] [-A (client SASL types)] [-b (bounce templates)] [-c config_dir] [-d (defaults)] [-e (edit)] [-h (no names)] [-l (lock types)] [-m (map types)] [-n (non-defaults)] [-v] [name...]", argv[0]);
 	}
     }
 
     /*
      * Sanity check.
      */
-    junk = (mode & (SHOW_DEFS | SHOW_NONDEF | SHOW_MAPS | SHOW_LOCKS | EDIT_MAIN));
-    if (junk != 0 && junk != SHOW_DEFS && junk != SHOW_NONDEF
-	&& junk != SHOW_MAPS && junk != SHOW_LOCKS && junk != EDIT_MAIN)
-	msg_fatal("specify one of -d, -e, -m, -l and -n");
+    junk = (cmd_mode & (SHOW_DEFS | SHOW_NONDEF | SHOW_MAPS | SHOW_LOCKS | EDIT_MAIN | SHOW_SASL_SERV | SHOW_SASL_CLNT));
+    if (junk != 0 && ((junk != SHOW_DEFS && junk != SHOW_NONDEF
+	     && junk != SHOW_MAPS && junk != SHOW_LOCKS && junk != EDIT_MAIN
+		       && junk != SHOW_SASL_SERV && junk != SHOW_SASL_CLNT)
+		      || ext_argv != 0))
+	msg_fatal("specify one of -a, -A, -b, -d, -e, -m, -l and -n");
+
+    /*
+     * Display bounce template information and exit.
+     */
+    if (ext_argv) {
+	if (argv[optind]) {
+	    if (argv[optind + 1])
+		msg_fatal("options -b and -t require at most one template file");
+	    argv_add(ext_argv, "-o",
+		     concatenate(VAR_BOUNCE_TMPL, "=",
+				 argv[optind], (char *) 0),
+		     (char *) 0);
+	}
+	/* Grr... */
+	argv_add(ext_argv, "-o",
+		 concatenate(VAR_QUEUE_DIR, "=", ".", (char *) 0),
+		 (char *) 0);
+	mail_conf_read();
+	mail_run_replace(var_daemon_dir, ext_argv->argv);
+	/* NOTREACHED */
+    }
 
     /*
      * If showing map types, show them and exit
      */
-    if (mode & SHOW_MAPS) {
+    if (cmd_mode & SHOW_MAPS) {
 	mail_dict_init();
 	show_maps();
     }
@@ -970,14 +1104,23 @@ int     main(int argc, char **argv)
     /*
      * If showing locking methods, show them and exit
      */
-    else if (mode & SHOW_LOCKS) {
+    else if (cmd_mode & SHOW_LOCKS) {
 	show_locks();
+    }
+
+    /*
+     * If showing SASL plug-in types, show them and exit
+     */
+    else if (cmd_mode & SHOW_SASL_SERV) {
+	show_sasl(SHOW_SASL_SERV);
+    } else if (cmd_mode & SHOW_SASL_CLNT) {
+	show_sasl(SHOW_SASL_CLNT);
     }
 
     /*
      * Edit main.cf.
      */
-    else if (mode & EDIT_MAIN) {
+    else if (cmd_mode & EDIT_MAIN) {
 	edit_parameters(argc - optind, argv + optind);
     }
 
@@ -985,7 +1128,7 @@ int     main(int argc, char **argv)
      * If showing non-default values, read main.cf.
      */
     else {
-	if ((mode & SHOW_DEFS) == 0) {
+	if ((cmd_mode & SHOW_DEFS) == 0) {
 	    read_parameters();
 	    set_parameters();
 	}
@@ -994,7 +1137,7 @@ int     main(int argc, char **argv)
 	 * Throw together all parameters and show the asked values.
 	 */
 	hash_parameters();
-	show_parameters(mode, argv + optind);
+	show_parameters(cmd_mode, argv + optind);
     }
     vstream_fflush(VSTREAM_OUT);
     exit(0);

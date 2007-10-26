@@ -1,8 +1,8 @@
 /* cancel.c - LDAP cancel extended operation */
-/* $OpenLDAP: pkg/ldap/servers/slapd/cancel.c,v 1.10.2.7 2004/07/16 19:28:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/cancel.c,v 1.16.2.6 2006/01/03 22:16:13 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,10 +32,8 @@ int cancel_extop( Operation *op, SlapReply *rs )
 {
 	Operation *o;
 	int rc;
-	int found = 0;
 	int opid;
 	BerElement *ber;
-	int i;
 
 	assert( ber_bvcmp( &slap_EXOP_CANCEL, &op->ore_reqoid ) == 0 );
 
@@ -62,6 +60,9 @@ int cancel_extop( Operation *op, SlapReply *rs )
 		return LDAP_PROTOCOL_ERROR;
 	}
 
+	Statslog( LDAP_DEBUG_STATS, "%s CANCEL msg=%d\n",
+		op->o_log_prefix, opid, 0, 0, 0 );
+
 	ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
 	LDAP_STAILQ_FOREACH( o, &op->o_conn->c_pending_ops, o_next ) {
 		if ( o->o_msgid == opid ) {
@@ -69,61 +70,52 @@ int cancel_extop( Operation *op, SlapReply *rs )
 			LDAP_STAILQ_NEXT(o, o_next) = NULL;
 			op->o_conn->c_n_ops_pending--;
 			slap_op_free( o );
-			found = 1;
-			break;
+			ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
+			return LDAP_SUCCESS;
 		}
 	}
-	ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
 
-	if ( found ) return LDAP_SUCCESS;
-
-	found = 0;
-	ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
 	LDAP_STAILQ_FOREACH( o, &op->o_conn->c_ops, o_next ) {
 		if ( o->o_msgid == opid ) {
-			found = 1;
+			o->o_abandon = 1;
 			break;
 		}
 	}
 
-	if ( !found ) {
-		for ( i = 0; i < nbackends; i++ ) {
-			op->o_bd = &backends[i];
-			if( !op->o_bd->be_cancel ) continue;
+	ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
 
-			ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
+	if ( o ) {
+		if ( o->o_cancel != SLAP_CANCEL_NONE ) {
+			rs->sr_text = "message ID already being cancelled";
+			return LDAP_PROTOCOL_ERROR;
+		}
+
+		o->o_cancel = SLAP_CANCEL_REQ;
+
+		LDAP_STAILQ_FOREACH( op->o_bd, &backendDB, be_next ) {
+			if( !op->o_bd->be_cancel ) continue;
 
 			op->oq_cancel.rs_msgid = opid;
 			if ( op->o_bd->be_cancel( op, rs ) == LDAP_SUCCESS ) {
 				return LDAP_SUCCESS;
 			}
-			ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
 		}
-		ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
-		rs->sr_text = "message ID not found";
-	 	return LDAP_NO_SUCH_OPERATION;
-	}
 
-	if ( op->o_cancel != SLAP_CANCEL_NONE ) {
-		ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
-		rs->sr_text = "message ID already being cancelled";
-		return LDAP_PROTOCOL_ERROR;
-	}
+		while ( o->o_cancel == SLAP_CANCEL_REQ ) {
+			ldap_pvt_thread_yield();
+		}
 
-	op->o_cancel = SLAP_CANCEL_REQ;
-	ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
+		if ( o->o_cancel == SLAP_CANCEL_ACK ) {
+			rc = LDAP_SUCCESS;
+		} else {
+			rc = o->o_cancel;
+		}
 
-	while ( op->o_cancel == SLAP_CANCEL_REQ ) {
-		ldap_pvt_thread_yield();
-	}
-
-	if ( op->o_cancel == SLAP_CANCEL_ACK ) {
-		rc = LDAP_SUCCESS;
+		o->o_cancel = SLAP_CANCEL_DONE;
 	} else {
-		rc = op->o_cancel;
+		rs->sr_text = "message ID not found";
+	 	rc = LDAP_NO_SUCH_OPERATION;
 	}
-
-	op->o_cancel = SLAP_CANCEL_DONE;
 
 	return rc;
 }

@@ -1,6 +1,7 @@
 ;;; em-glob.el --- extended file name globbing
 
-;; Copyright (C) 1999, 2000 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,12 +19,15 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
+
+;;; Code:
 
 (provide 'em-glob)
 
 (eval-when-compile (require 'esh-maint))
+(require 'esh-util)
 
 (defgroup eshell-glob nil
   "This module provides extended globbing syntax, similar what is used
@@ -93,7 +97,7 @@ This option slows down recursive glob processing by quite a bit."
   :type 'boolean
   :group 'eshell-glob)
 
-(defcustom eshell-glob-chars-list '(?\] ?\[ ?* ?? ?~ ?\( ?\) ?| ?#)
+(defcustom eshell-glob-chars-list '(?\] ?\[ ?* ?? ?~ ?\( ?\) ?| ?# ?^)
   "*List of additional characters used in extended globbing."
   :type '(repeat character)
   :group 'eshell-glob)
@@ -101,6 +105,7 @@ This option slows down recursive glob processing by quite a bit."
 (defcustom eshell-glob-translate-alist
   '((?\] . "]")
     (?\[ . "[")
+    (?^  . "^")
     (??  . ".")
     (?*  . ".*")
     (?~  . "~")
@@ -119,22 +124,15 @@ This option slows down recursive glob processing by quite a bit."
   :type '(repeat (cons character (choice regexp function)))
   :group 'eshell-glob)
 
-;;; Internal Variables:
-
-(defvar eshell-glob-chars-regexp nil)
-
 ;;; Functions:
 
 (defun eshell-glob-initialize ()
   "Initialize the extended globbing code."
   ;; it's important that `eshell-glob-chars-list' come first
-  (set (make-local-variable 'eshell-special-chars-outside-quoting)
-       (append eshell-glob-chars-list eshell-special-chars-outside-quoting))
-  (set (make-local-variable 'eshell-glob-chars-regexp)
-       (format "[%s]+" (apply 'string eshell-glob-chars-list)))
-  (make-local-hook 'eshell-parse-argument-hook)
+  (when (boundp 'eshell-special-chars-outside-quoting)
+    (set (make-local-variable 'eshell-special-chars-outside-quoting)
+	 (append eshell-glob-chars-list eshell-special-chars-outside-quoting)))
   (add-hook 'eshell-parse-argument-hook 'eshell-parse-glob-chars t t)
-  (make-local-hook 'eshell-pre-rewrite-command-hook)
   (add-hook 'eshell-pre-rewrite-command-hook
 	    'eshell-no-command-globbing nil t))
 
@@ -182,6 +180,8 @@ interpretation."
 		  (buffer-substring-no-properties (1- (point)) (1+ end))
 		(goto-char (1+ end))))))))))
 
+(defvar eshell-glob-chars-regexp nil)
+
 (defun eshell-glob-regexp (pattern)
   "Convert glob-pattern PATTERN to a regular expression.
 The basic syntax is:
@@ -202,8 +202,11 @@ set to true, then these characters will match themselves in the
 resulting regular expression."
   (let ((matched-in-pattern 0)          ; How much of PATTERN handled
 	regexp)
-    (while (string-match eshell-glob-chars-regexp
-			 pattern matched-in-pattern)
+    (while (string-match
+	    (or eshell-glob-chars-regexp
+		(set (make-local-variable 'eshell-glob-chars-regexp)
+		     (format "[%s]+" (apply 'string eshell-glob-chars-list))))
+	    pattern matched-in-pattern)
       (let* ((op-begin (match-beginning 0))
 	     (op-char (aref pattern op-begin)))
 	(setq regexp
@@ -230,19 +233,19 @@ resulting regular expression."
 
 (defun eshell-extended-glob (glob)
   "Return a list of files generated from GLOB, perhaps looking for DIRS-ONLY.
- This function almost fully supports zsh style filename generation
- syntax.  Things that are not supported are:
+This function almost fully supports zsh style filename generation
+syntax.  Things that are not supported are:
 
    ^foo        for matching everything but foo
    (foo~bar)   tilde within a parenthesis group
    foo<1-10>   numeric ranges
    foo~x(a|b)  (a|b) will be interpreted as a predicate/modifier list
 
- Mainly they are not supported because file matching is done with Emacs
- regular expressions, and these cannot support the above constructs.
+Mainly they are not supported because file matching is done with Emacs
+regular expressions, and these cannot support the above constructs.
 
- If this routine fails, it returns nil.  Otherwise, it returns a list
- the form:
+If this routine fails, it returns nil.  Otherwise, it returns a list
+the form:
 
    (INCLUDE-REGEXP EXCLUDE-REGEXP (PRED-FUNC-LIST) (MOD-FUNC-LIST))"
   (let ((paths (eshell-split-path glob))
@@ -263,9 +266,6 @@ resulting regular expression."
 (eval-when-compile
   (defvar matches)
   (defvar message-shown))
-
-;; jww (1999-11-18): this function assumes that directory-sep-char is
-;; a forward slash (/)
 
 (defun eshell-glob-entries (path globs &optional recurse-p)
   "Glob the entries in PATHS, possibly recursing if RECURSE-P is non-nil."
@@ -302,11 +302,11 @@ resulting regular expression."
     ;; can't use `directory-file-name' because it strips away text
     ;; properties in the string
     (let ((len (1- (length incl))))
-      (if (eq (aref incl len) directory-sep-char)
+      (if (eq (aref incl len) ?/)
 	  (setq incl (substring incl 0 len)))
       (when excl
 	(setq len (1- (length excl)))
-	(if (eq (aref excl len) directory-sep-char)
+	(if (eq (aref excl len) ?/)
 	    (setq excl (substring excl 0 len)))))
     (setq incl (eshell-glob-regexp incl)
 	  excl (and excl (eshell-glob-regexp excl)))
@@ -328,7 +328,7 @@ resulting regular expression."
     (while entries
       (setq name (car entries)
 	    len (length name)
-	    isdir (eq (aref name (1- len)) directory-sep-char))
+	    isdir (eq (aref name (1- len)) ?/))
       (if (let ((fname (directory-file-name name)))
 	    (and (not (and excl (string-match excl fname)))
 		 (string-match incl fname)))
@@ -355,6 +355,5 @@ resulting regular expression."
       (eshell-glob-entries (car rdirs) globs recurse-p)
       (setq rdirs (cdr rdirs)))))
 
-;;; Code:
-
+;;; arch-tag: d0548f54-fb7c-4978-a88e-f7c26f7f68ca
 ;;; em-glob.el ends here

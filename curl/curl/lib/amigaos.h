@@ -1,3 +1,5 @@
+#ifndef LIBCURL_AMIGAOS_H
+#define LIBCURL_AMIGAOS_H
 /***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
@@ -5,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,11 +20,10 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: amigaos.h,v 1.4 2004/10/06 07:50:18 bagder Exp $
+ * $Id: amigaos.h,v 1.8 2007-02-28 14:45:49 yangtse Exp $
  ***************************************************************************/
 
-#ifndef LIBCURL_AMIGAOS_H
-#define LIBCURL_AMIGAOS_H
+#ifdef __AMIGA__ /* Any AmigaOS flavour */
 
 #ifndef __ixemul__
 
@@ -32,13 +33,19 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 
-#include <bsdsocket.h>
+#include <sys/socket.h>
 
 #include "config-amigaos.h"
 
-#define select(args...) WaitSelect( args, NULL)
-#define inet_ntoa(x)    Inet_NtoA( x ## .s_addr)
-#define ioctl(a,b,c,d)  IoctlSocket( (LONG)a, (ULONG)b, (char*)c)
+#ifndef select
+# define select(args...) WaitSelect( args, NULL)
+#endif
+#ifndef inet_ntoa
+# define inet_ntoa(x)    Inet_NtoA( x ## .s_addr)
+#endif
+#ifndef ioctl
+# define ioctl(a,b,c,d)  IoctlSocket( (LONG)a, (ULONG)b, (char*)c)
+#endif
 #define _AMIGASF        1
 
 extern void amiga_cleanup();
@@ -49,4 +56,6 @@ extern BOOL amiga_init();
 #warning compiling with ixemul...
 
 #endif /* __ixemul__ */
+#endif /* __AMIGA__ */
 #endif /* LIBCURL_AMIGAOS_H */
+

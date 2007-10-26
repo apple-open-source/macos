@@ -81,86 +81,111 @@ bool IOHIDDeviceShim::handleStart( IOService * provider )
 
 OSString * IOHIDDeviceShim::newProductString() const
 {
-    OSString * string;
+    OSString * string       = NULL;
+    OSString * returnString = NULL;
     
     if (_device && (string = OSDynamicCast(OSString, _device->getProperty("USB Product Name"))))
-        return OSString::withString(string);
-
-    if (_hiDevice)
+    {
+        returnString = OSString::withString(string);
+    }
+    else if (_hiDevice)
     {
         if (_hiDevice->hidKind() == kHIRelativePointingDevice)
         {
             if ((string = (OSString *)_hiDevice->getProperty(kIOHIDPointerAccelerationTypeKey)) &&
                 (string->isEqualTo(kIOHIDTrackpadAccelerationType)))
             {
-                return OSString::withCString("Trackpad");
+                returnString = OSString::withCString("Trackpad");
             }
-            return OSString::withCString("Mouse");
+            else 
+            {
+                returnString = OSString::withCString("Mouse");
+            }
         }
         else if (_hiDevice->hidKind() == kHIKeyboardDevice)
         {
-            return OSString::withCString("Keyboard");
+            returnString = (_transport == kIOHIDTransportADB) ? OSString::withCString("Built-in keyboard") : OSString::withCString("Keyboard");
         }
     }
+    
+    if ( _hiDevice && returnString )
+        _hiDevice->setProperty(kIOHIDProductKey, returnString);
 
-    return 0;
+    return returnString;
 }
 
 OSString * IOHIDDeviceShim::newManufacturerString() const
 {
-    OSString * string;
+    OSString * string       = NULL;
+    OSString * returnString = NULL;
     
     if (_device && (string = OSDynamicCast(OSString, _device->getProperty("USB Vendor Name"))))
-        return OSString::withString(string);
+        returnString = OSString::withString(string);
         
-    if (_hiDevice && (_hiDevice->deviceType() > 2))
-        return OSString::withCString("Apple");
+    else if (_hiDevice && (_hiDevice->deviceType() > 2))
+        returnString = OSString::withCString("Apple");
 
-    return 0;
+    if ( _hiDevice && returnString )
+        _hiDevice->setProperty(kIOHIDManufacturerKey, returnString);
+
+    return returnString;
 }
 
 OSString * IOHIDDeviceShim::newTransportString() const
 {
+    OSString * returnString = NULL;
+
     switch (_transport)
     {
         case kIOHIDTransportUSB:
-            return OSString::withCString("USB");
+            returnString = OSString::withCString("USB");
 
         case kIOHIDTransportADB:
-            return OSString::withCString("ADB");
+            returnString = OSString::withCString("ADB");
 
         case kIOHIDTransportPS2:
-            return OSString::withCString("PS2");
+            returnString = OSString::withCString("PS2");
+    }      
+    
+    if ( _hiDevice && returnString )
+        _hiDevice->setProperty(kIOHIDTransportKey, returnString);
 
-        default:
-            return 0;
-    }        
+    return returnString;
 }
 
 OSNumber * IOHIDDeviceShim::newVendorIDNumber() const
 {    
-    OSNumber *  number;
+    OSNumber * number       = NULL;
+    OSNumber * returnNumber = NULL;
     
     if (_device && (number = OSDynamicCast(OSNumber, _device->getProperty("idVendor"))))
-        return OSNumber::withNumber(number->unsigned32BitValue(), 32);
-
-    if (_hiDevice && (_hiDevice->deviceType() > 2))
+    {
+        returnNumber = OSNumber::withNumber(number->unsigned32BitValue(), 32);
+    }
+    else if (_hiDevice && (_hiDevice->deviceType() > 2))
     {
         UInt32	vendorID = kIOHIDAppleVendorID;
-        return OSNumber::withNumber(vendorID, 32);
+        returnNumber = OSNumber::withNumber(vendorID, 32);
     }
     
-    return 0;
+    if ( _hiDevice && returnNumber )
+        _hiDevice->setProperty(kIOHIDVendorIDKey, returnNumber);
+
+    return returnNumber;
 }
 
 OSNumber * IOHIDDeviceShim::newProductIDNumber() const
 {
-    OSNumber * number;
+    OSNumber * number       = NULL;
+    OSNumber * returnNumber = NULL;
     
     if (_device && (number = OSDynamicCast(OSNumber, _device->getProperty("idProduct"))))
-        return OSNumber::withNumber(number->unsigned32BitValue(), 32);
+        returnNumber = OSNumber::withNumber(number->unsigned32BitValue(), 32);
 
-    return 0;
+    if ( _hiDevice && returnNumber )
+        _hiDevice->setProperty(kIOHIDProductIDKey, returnNumber);
+
+    return returnNumber;
 }
 
 OSNumber * IOHIDDeviceShim::newLocationIDNumber() const
@@ -202,3 +227,9 @@ OSString * IOHIDDeviceShim::newSerialNumberString() const
 
     return 0;
 }
+
+bool IOHIDDeviceShim::isSeized()
+{
+    return _reserved->seizedClient != NULL;
+}
+

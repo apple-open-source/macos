@@ -32,19 +32,9 @@
 #define	__CDSRefMap_h__		1
 
 #include "DirServicesTypes.h"
-
-#include "PrivateTypes.h"
 #include "DSMutexSemaphore.h"
+#include "PrivateTypes.h"
 #include "CDSRefTable.h"
-
-#ifdef __LITTLE_ENDIAN__
-#include <map> //STL map class
-#endif
-
-class CDSRefMap;
-
-extern DSMutexSemaphore		*gFWRefMapMutex;
-extern CDSRefMap			*gFWRefMap;
 
 //many constants, enums, and typedefs used from CDSRefTable.h
 //KW: at some point need a base class that can handle this and the other two derived ones
@@ -52,118 +42,107 @@ extern CDSRefMap			*gFWRefMap;
 
 //struct of the main ref entry
 typedef struct sFWRefMapEntry {
-	uInt32			fRefNum;
-	uInt32			fType;
-    uInt32			fRemoteRefNum;
-	uInt32			fParentID;
-	sInt32			fPID;
+	UInt32			fRefNum;
+	UInt32			fType;
+    UInt32			fRemoteRefNum;
+	UInt32			fParentID;
+	SInt32			fPID;
 	sListFWInfo	   *fChildren;
 	sPIDFWInfo	   *fChildPID;
-	uInt32			fMessageTableIndex;
+	UInt32			fMessageTableIndex;
 	char		   *fPluginName;
 } sFWRefMapEntry;
-
-typedef sInt32 RefMapDeallocateProc ( uInt32 inRefNum, sFWRefMapEntry *entry );
 
 // -------------------------------------------
 
 typedef struct sRefMapTable *sRefMapTablePtr;
 
 typedef struct sRefMapTable {
-	uInt32			fTableNum;
-	uInt32			fCurRefNum;
-	uInt32			fItemCnt;
+	UInt32			fTableNum;
+	UInt32			fCurRefNum;
+	UInt32			fItemCnt;
 	sFWRefMapEntry *fTableData[ kMaxFWTableItems ];
 } sRefMapTable;
-
-#ifdef __LITTLE_ENDIAN__
-typedef std::map<uInt32, uInt32> tRefMap;
-typedef tRefMap::iterator tRefMapI;
-#endif
 
 //------------------------------------------------------------------------------------
 //	* CDSRefMap
 //------------------------------------------------------------------------------------
 
-class CDSRefMap {
+class CDSRefMap
+{
 public:
-						CDSRefMap			( RefMapDeallocateProc *deallocProc );
-	virtual			   ~CDSRefMap			( void );
-
-	static tDirStatus	VerifyDirRef		( tDirReference inDirRef, sInt32 inPID );
-	static tDirStatus	VerifyNodeRef		( tDirNodeReference inDirNodeRef, sInt32 inPID );
-	static tDirStatus	VerifyRecordRef		( tRecordReference inRecordRef, sInt32 inPID );
-	static tDirStatus	VerifyAttrListRef	( tAttributeListRef inAttributeListRef, sInt32 inPID );
-	static tDirStatus	VerifyAttrValueRef	( tAttributeValueListRef inAttributeValueListRef, sInt32 inPID );
-
-	static tDirStatus	NewDirRefMap		( uInt32 *outNewRef, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex );
-	static tDirStatus	NewNodeRefMap		( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex, char* inPluginName );
-	static tDirStatus	NewRecordRefMap		( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex );
-	static tDirStatus	NewAttrListRefMap	( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex );
-	static tDirStatus	NewAttrValueRefMap	( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex );
-
-	static tDirStatus	RemoveDirRef		( uInt32 inDirRef, sInt32 inPID );
-	static tDirStatus	RemoveNodeRef		( uInt32 inNodeRef, sInt32 inPID );
-	static tDirStatus	RemoveRecordRef		( uInt32 inRecRef, sInt32 inPID );
-	static tDirStatus	RemoveAttrListRef	( uInt32 inAttrListRef, sInt32 inPID );
-	static tDirStatus	RemoveAttrValueRef	( uInt32 InAttrValueRef, sInt32 inPID );
-
-	static tDirStatus	AddChildPIDToRef	( uInt32 inRefNum, uInt32 inParentPID, sInt32 inChildPID );
+				CDSRefMap			( void );
+				~CDSRefMap			( void );
 	
-    static tDirStatus	SetRemoteRefNum		( uInt32 inRefNum, uInt32 inType, uInt32 inRemoteRefNum, sInt32 inPID );
-
-    static uInt32		GetMessageTableIndex( uInt32 inRefNum, uInt32 inType, sInt32 inPID );
-    static tDirStatus	SetMessageTableIndex( uInt32 inRefNum, uInt32 inType, uInt32 inMsgTableIndex, sInt32 inPID );
-
-	static char*		GetPluginName		( uInt32 inRefNum, sInt32 inPID );
-	static tDirStatus	SetPluginName		( uInt32 inRefNum, uInt32 inType, char* inPluginName, sInt32 inPID );
+	void		ClearAllMaps		( void );
 	
-	static uInt32		GetRefNum			( uInt32 inRefNum, uInt32 inType, sInt32 inPID );
-	static uInt32		GetRefNumMap	 	( uInt32 inRefNum, uInt32 inType, sInt32 inPID );
+	tDirStatus	VerifyDirRef		( tDirReference inDirRef, SInt32 inPID );
+	tDirStatus	VerifyNodeRef		( tDirNodeReference inDirNodeRef, SInt32 inPID );
+	tDirStatus	VerifyRecordRef		( tRecordReference inRecordRef, SInt32 inPID );
+	tDirStatus	VerifyAttrListRef	( tAttributeListRef inAttributeListRef, SInt32 inPID );
+	tDirStatus	VerifyAttrValueRef	( tAttributeValueListRef inAttributeValueListRef, SInt32 inPID );
+
+	tDirStatus	NewDirRefMap		( UInt32 *outNewRef, SInt32 inPID, UInt32 serverRef, UInt32 messageIndex );
+	tDirStatus	NewNodeRefMap		( UInt32 *outNewRef, UInt32 inParentID, SInt32 inPID, UInt32 serverRef, UInt32 messageIndex, char* inPluginName );
+	tDirStatus	NewRecordRefMap		( UInt32 *outNewRef, UInt32 inParentID, SInt32 inPID, UInt32 serverRef, UInt32 messageIndex );
+	tDirStatus	NewAttrListRefMap	( UInt32 *outNewRef, UInt32 inParentID, SInt32 inPID, UInt32 serverRef, UInt32 messageIndex );
+	tDirStatus	NewAttrValueRefMap	( UInt32 *outNewRef, UInt32 inParentID, SInt32 inPID, UInt32 serverRef, UInt32 messageIndex );
+
+	tDirStatus	RemoveDirRef		( UInt32 inDirRef, SInt32 inPID );
+	tDirStatus	RemoveNodeRef		( UInt32 inNodeRef, SInt32 inPID );
+	tDirStatus	RemoveRecordRef		( UInt32 inRecRef, SInt32 inPID );
+	tDirStatus	RemoveAttrListRef	( UInt32 inAttrListRef, SInt32 inPID );
+	tDirStatus	RemoveAttrValueRef	( UInt32 InAttrValueRef, SInt32 inPID );
+
+	UInt32		GetMessageTableIndex( UInt32 inRefNum, UInt32 inType, SInt32 inPID );
+	tDirStatus	SetMessageTableIndex( UInt32 inRefNum, UInt32 inType, UInt32 inMsgTableIndex, SInt32 inPID );
+
+	tDirStatus	SetPluginName		( UInt32 inRefNum, UInt32 inType, char* inPluginName, SInt32 inPID );
+	char*		GetPluginName		( UInt32 inRefNum, SInt32 inPID );
+
+	UInt32		GetRefNum			( UInt32 inRefNum, UInt32 inType, SInt32 inPID );
+	UInt32		GetRefNumMap	 	( UInt32 inRefNum, UInt32 inType, SInt32 inPID );
+	
 #ifdef __LITTLE_ENDIAN__
 	static void			MapServerRefToLocalRef
-											( uInt32 inServerRef, uInt32 inLocalRef );
+											( UInt32 inServerRef, UInt32 inLocalRef );
 	static void			RemoveServerToLocalRefMap
-											( uInt32 inServerRef );
-	static uInt32		GetLocalRefFromServerMap
-											( uInt32 inServerRef );
-	static void			MapMsgIDToServerRef	( uInt32 inMsgID, uInt32 inServerRef );
+											( UInt32 inServerRef );
+	static UInt32		GetLocalRefFromServerMap
+											( UInt32 inServerRef );
+	static void			MapMsgIDToServerRef	( UInt32 inMsgID, UInt32 inServerRef );
 	static void			RemoveMsgIDToServerRefMap
-											( uInt32 inMsgID );
-	static uInt32		GetServerRefFromMsgIDMap
-											( uInt32 inMsgID );
-	static void			MapMsgIDToCustomCode( uInt32 inMsgID, uInt32 inCustomCode );
+											( UInt32 inMsgID );
+	static UInt32		GetServerRefFromMsgIDMap
+											( UInt32 inMsgID );
+	static void			MapMsgIDToCustomCode( UInt32 inMsgID, UInt32 inCustomCode );
 	static void			RemoveMsgIDToCustomCodeMap
-											( uInt32 inMsgID );
-	static uInt32		GetCustomCodeFromMsgIDMap
-											( uInt32 inMsgID );
+											( UInt32 inMsgID );
+	static UInt32		GetCustomCodeFromMsgIDMap
+											( UInt32 inMsgID );
 #endif
 
-
 private:
-	tDirStatus		VerifyReference		( tDirReference inDirRef, uInt32 inType, sInt32 inPID );
-	tDirStatus		GetNewRef			( uInt32 *outRef, uInt32 inParentID, eRefTypes inType, sInt32 inPID, uInt32 serverRef, uInt32 messageIndex );
-	tDirStatus		RemoveRef			( uInt32 inRefNum, uInt32 inType, sInt32 inPID );
+	DSMutexSemaphore	fMapMutex;
+	UInt32				fTableCount;
+	sRefMapTable		*fRefMapTables[ kMaxFWTables + 1 ];	//added 1 since table is 1-based and code depends upon having that last
+															//index in as kMaxFWTables ie. note array is 0-based
+private:
+	tDirStatus		VerifyReference		( tDirReference inDirRef, UInt32 inType, SInt32 inPID );
+	tDirStatus		GetNewRef			( UInt32 *outRef, UInt32 inParentID, eRefTypes inType, SInt32 inPID, UInt32 serverRef, UInt32 messageIndex );
+	tDirStatus		RemoveRef			( UInt32 inRefNum, UInt32 inType, SInt32 inPID );
 
-	tDirStatus		GetReference		( uInt32 inRefNum, sFWRefMapEntry **outRefData );
+	tDirStatus		GetReference		( UInt32 inRefNum, sFWRefMapEntry **outRefData );
 
-	tDirStatus		LinkToParent		( uInt32 inRefNum, uInt32 inType, uInt32 inParentID, sInt32 inPID );
-	tDirStatus		UnlinkFromParent	( uInt32 inRefNum );
+	tDirStatus		LinkToParent		( UInt32 inRefNum, UInt32 inType, UInt32 inParentID, SInt32 inPID );
+	tDirStatus		UnlinkFromParent	( UInt32 inRefNum );
 
-	void			RemoveChildren		( sListFWInfo *inChildList, sInt32 inPID );
+	void			RemoveChildren		( sListFWInfo *inChildList, SInt32 inPID );
 
 	sRefMapTable*	GetNextTable		( sRefMapTable *inCurTable );
-	sRefMapTable*	GetThisTable		( uInt32 inTableNum );
+	sRefMapTable*	GetThisTable		( UInt32 inTableNum );
 
-	sFWRefMapEntry*	GetTableRef			( uInt32 inRefNum );
-
-	uInt32			fTableCount;
-	sRefMapTable   *fRefMapTables[ kMaxFWTables + 1 ];//added 1 since table is 1-based and code depends upon having that last
-													//index in as kMaxFWTables ie. note array is 0-based
-	RefMapDeallocateProc *fDeallocProc;
-	
-	time_t					fSunsetTime;
-
+	sFWRefMapEntry*	GetTableRef			( UInt32 inRefNum );
 };
 
 

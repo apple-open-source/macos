@@ -25,8 +25,57 @@
 #include <security_cdsa_utilities/cssmdb.h>
 #include <Security/cssmapple.h>
 #include <security_utilities/trackingallocator.h>
+#include <security_utilities/logging.h>
 #include <fcntl.h>
 #include <memory>
+#include <libkern/OSAtomic.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+
+static const char *kAppleDatabaseChanged = "com.apple.AppleDatabaseChanged";
+
+/* Number of seconds after which we open/pread/close a db to check it's
+   version number even if we didn't get any notifications.  Note that we always
+   check just after we take a write lock and whenever we get a notification
+   that any db on the system has changed. */
+static const CFTimeInterval kForceReReadTime = 15.0;
+
+/* Token on which we receive notifications and the pthread_once_t protecting
+   it's initialization. */
+pthread_once_t gCommonInitMutex = PTHREAD_ONCE_INIT;
+
+/* Global counter of how many notifications we have received and a lock to
+   protect the counter. */
+static int kSegmentSize = 4;
+int32_t* gSegment = NULL;
+
+/* Registration routine for notifcations. Called inside a pthread_once(). */
+static void initCommon(void)
+{
+	// open the file
+	int segmentDescriptor = shm_open (kAppleDatabaseChanged, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+	if (segmentDescriptor < 0)
+	{
+		return;
+	}
+	
+	// set the segment size
+	ftruncate (segmentDescriptor, kSegmentSize);
+	
+	// map it into memory
+	int32_t* tmp = (int32_t*) mmap (NULL, kSegmentSize, PROT_READ | PROT_WRITE, MAP_SHARED, segmentDescriptor, 0);
+	close (segmentDescriptor);
+
+	if (tmp == (int32_t*) -1) // can't map the memory?
+	{
+		gSegment = NULL;
+	}
+	else
+	{
+		gSegment = tmp;
+	}
+}
 
 //
 // Table
@@ -225,8 +274,8 @@ ModifiedTable::deleteRecord(const RecordId &inRecordId)
 
 		// Remove the inserted (but uncommited) record.  It should already be in mDeletedSet
 		// if it existed previously in mTable.
-		mInsertedMap.erase(anIt);
         delete anIt->second;		
+		mInsertedMap.erase(anIt);
 	}
 }
 
@@ -1329,26 +1378,55 @@ DbModifier::~DbModifier()
 }
 
 const RefPointer<const DbVersion>
-DbModifier::getDbVersion()
+DbModifier::getDbVersion(bool force)
 {
     StLock<Mutex> _(mDbVersionLock);
-	RefPointer <AtomicBufferedFile> atomicBufferedFile(mAtomicFile.read());
-	off_t length = atomicBufferedFile->open();
-	if (mDbVersion)
-	{
-		if (length < AtomSize)
-			CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
 
-		off_t bytesRead = 0;
-		const uint8 *ptr = atomicBufferedFile->read(length - AtomSize, AtomSize, bytesRead);
-		ReadSection aVersionSection(ptr, bytesRead);
-		uint32 aVersionId = aVersionSection[0];
+    /* Initialize the shared memory file change mechanism */
+    pthread_once(&gCommonInitMutex, initCommon);
 
-		if (aVersionId == mDbVersion->getVersionId())
-			return mDbVersion;
-	}
+    /* If we don't have a mDbVersion yet, or we are force to re-read the file
+       before a write transaction, or we have received any notifications after
+       the last time we read the file, or more than kForceReReadTime seconds
+       have passed since the last time we read the file, we open the file and
+       check if it has changed. */
+    if (!mDbVersion ||
+        force ||
+		gSegment == NULL ||
+        mNotifyCount != *gSegment ||
+        CFAbsoluteTimeGetCurrent() > mDbLastRead + kForceReReadTime)
+    {
+        RefPointer <AtomicBufferedFile> atomicBufferedFile(mAtomicFile.read());
+        off_t length = atomicBufferedFile->open();
+        /* Record the number of notifications we've seen and when we last
+           opened the file.  */
+		if (gSegment != NULL)
+		{
+			mNotifyCount = *gSegment;
+		}
+		
+        mDbLastRead = CFAbsoluteTimeGetCurrent();
+
+        /* If we already have a mDbVersion, let's check if we can reuse it. */
+        if (mDbVersion)
+        {
+            if (length < AtomSize)
+                CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+
+            off_t bytesRead = 0;
+            const uint8 *ptr = atomicBufferedFile->read(length - AtomSize,
+                AtomSize, bytesRead);
+            ReadSection aVersionSection(ptr, bytesRead);
+            uint32 aVersionId = aVersionSection[0];
+
+            /* If the version stamp hasn't changed the old mDbVersion is still
+               current. */
+            if (aVersionId == mDbVersion->getVersionId())
+                return mDbVersion;
+        }
 
 	mDbVersion = new DbVersion(mDb, atomicBufferedFile);
+    }
 
     return mDbVersion;
 }
@@ -1406,7 +1484,7 @@ void DbModifier::openDatabase()
 {
 	// No need to do anything on open if we are already writing the database.
 	if (!mAtomicTempFile)
-		getDbVersion();
+		getDbVersion(false);
 }
 
 void DbModifier::closeDatabase()
@@ -1447,7 +1525,7 @@ DbModifier::modifyDatabase()
 		mAtomicTempFile = mAtomicFile.write();
 		// Now we are holding the write lock make sure we get the latest greatest version of the db.
 		// Also set mVersionId to one more that that of the old database.
-		mVersionId = getDbVersion()->getVersionId() + 1;
+		mVersionId = getDbVersion(true)->getVersionId() + 1;
 
 		// Never make a database with mVersionId 0 since it makes bad things happen to Jaguar and older systems
 		if (mVersionId == 0)
@@ -1627,6 +1705,22 @@ DbModifier::commit()
 
 		mAtomicTempFile->commit();
 		mAtomicTempFile = NULL;
+	   /* Initialize the shared memory file change mechanism */
+	   pthread_once(&gCommonInitMutex, initCommon);
+       
+	   if (gSegment != NULL)
+		{
+			/*
+				PLEASE NOTE:
+				
+				The following operation is endian safe because we are not looking 
+				for monotonic increase. I have tested every possible value of 
+				*gSegment, and there is no value for which alternating
+				big and little endian increments will produce the original value.
+			*/
+       
+			OSAtomicIncrement32Barrier (gSegment);
+		}
     }
     catch(...)
     {
@@ -1655,7 +1749,7 @@ DbModifier::getRecord(Table::Id inTableId, const RecordId &inRecordId,
 	}
 	else
 	{
-		return getDbVersion()->getRecord(inTableId, inRecordId,
+		return getDbVersion(false)->getRecord(inTableId, inRecordId,
 			inoutAttributes, inoutData, inAllocator);
 	}
 }
@@ -1680,7 +1774,7 @@ DbModifier::createCursor(const CSSM_QUERY *inQuery)
 
 	// Get the latest and greatest version of the db and create the cursor
 	// on that.
-	return getDbVersion()->createCursor(inQuery);
+	return getDbVersion(false)->createCursor(inQuery);
 }
 
 // Insert schema records for a new table into the metatables of the database. This gets
@@ -1972,6 +2066,10 @@ AppleDatabase::AppleDatabase(const DbName &inDbName, const AppleDatabaseTableNam
 	mDbModifier(mAtomicFile, *this),
 	mTableNames(tableNames)
 {
+	/* temp check for X509Anchors access - this should removed before Leopard GM */
+	if(!strcmp(inDbName.dbName(), "/System/Library/Keychains/X509Anchors")) {
+		Syslog::alert("Warning: accessing obsolete X509Anchors.");
+	}
 }
 
 AppleDatabase::~AppleDatabase()
@@ -2371,12 +2469,11 @@ AppleDatabase::passThrough(DbContext &dbContext,
 	{
 	case CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT:
 		{
-			CSSM_BOOL on = reinterpret_cast<CSSM_BOOL>(inputParams);
 			AppleDbContext &dbc = safer_cast<AppleDbContext &>(dbContext);
 			// Return the old state of the autoCommit flag if requested
 			if (outputParams)
 				*reinterpret_cast<CSSM_BOOL *>(outputParams) = dbc.autoCommit();
-			dbc.autoCommit(on);
+			dbc.autoCommit(inputParams ? CSSM_TRUE : CSSM_FALSE);
 		}
 		break;
 		

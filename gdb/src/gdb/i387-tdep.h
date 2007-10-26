@@ -60,13 +60,13 @@ extern void i387_print_float_info (struct gdbarch *gdbarch,
    return its contents in TO.  */
 
 extern void i387_register_to_value (struct frame_info *frame, int regnum,
-				    struct type *type, void *to);
+				    struct type *type, gdb_byte *to);
 
 /* Write the contents FROM of a value of type TYPE into register
    REGNUM in frame FRAME.  */
 
 extern void i387_value_to_register (struct frame_info *frame, int regnum,
-				    struct type *type, const void *from);
+				    struct type *type, const gdb_byte *from);
 
 
 /* Size of the memory area use by the 'fsave' and 'fxsave'
@@ -82,6 +82,14 @@ extern void i387_swap_fxsave (struct regcache *regcache, const void *fxsave);
 
 extern void i387_supply_fsave (struct regcache *regcache, int regnum,
 			       const void *fsave);
+
+/* Fill register REGNUM (if it is a floating-point register) in *FSAVE
+   with the value from REGCACHE.  If REGNUM is -1, do this for all
+   registers.  This function doesn't touch any of the reserved bits in
+   *FSAVE.  */
+
+extern void i387_collect_fsave (const struct regcache *regcache, int regnum,
+				void *fsave);
 
 /* Fill register REGNUM (if it is a floating-point register) in *FSAVE
    with the value in GDB's register cache.  If REGNUM is -1, do this

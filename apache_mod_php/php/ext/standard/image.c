@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: image.c,v 1.72.2.19.2.3 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: image.c,v 1.114.2.2.2.5 2007/05/08 18:38:20 iliaa Exp $ */
 
 #include "php.h"
 #include <stdio.h>
@@ -427,7 +427,7 @@ static int php_skip_variable(php_stream * stream TSRMLS_DC)
 		return 0;
 	}
 	length = length - 2;
-		php_stream_seek(stream, (long)length, SEEK_CUR);
+	php_stream_seek(stream, (long)length, SEEK_CUR);
 	return 1;
 }
 /* }}} */
@@ -454,7 +454,7 @@ static int php_read_APP(php_stream * stream, unsigned int marker, zval *info TSR
 		return 0;
 	}
 
-	sprintf(markername, "APP%d", marker - M_APP0);
+	snprintf(markername, sizeof(markername), "APP%d", marker - M_APP0);
 
 	if (zend_hash_find(Z_ARRVAL_P(info), markername, strlen(markername)+1, (void **) &tmp) == FAILURE) {
 		/* XXX we onyl catch the 1st tag of it's kind! */
@@ -468,7 +468,7 @@ static int php_read_APP(php_stream * stream, unsigned int marker, zval *info TSR
 
 /* {{{ php_handle_jpeg
    main loop to parse JPEG structure */
-static struct gfxinfo *php_handle_jpeg (php_stream * stream, pval *info TSRMLS_DC) 
+static struct gfxinfo *php_handle_jpeg (php_stream * stream, zval *info TSRMLS_DC) 
 {
 	struct gfxinfo *result = NULL;
 	unsigned int marker = M_PSEUDO;
@@ -542,7 +542,7 @@ static struct gfxinfo *php_handle_jpeg (php_stream * stream, pval *info TSRMLS_D
 			case M_SOS:
 			case M_EOI:
 				return result;	/* we're about to hit image data, or are at EOF. stop processing. */
-
+			
 			default:
 				if (!php_skip_variable(stream TSRMLS_CC)) { /* anything else isn't interesting */
 					return result;
@@ -601,7 +601,7 @@ static struct gfxinfo *php_handle_jpc(php_stream * stream TSRMLS_DC)
 {
 	struct gfxinfo *result = NULL;
 	unsigned short dummy_short;
-	int dummy_int, highest_bit_depth, bit_depth;
+	int highest_bit_depth, bit_depth;
 	unsigned char first_marker_id;
 	unsigned int i;
 
@@ -625,16 +625,16 @@ static struct gfxinfo *php_handle_jpc(php_stream * stream TSRMLS_DC)
 
 	dummy_short = php_read2(stream TSRMLS_CC); /* Lsiz */
 	dummy_short = php_read2(stream TSRMLS_CC); /* Rsiz */
-	result->width = php_read4(stream TSRMLS_CC); /* Ysiz */
-	result->height = php_read4(stream TSRMLS_CC); /* Xsiz */
+	result->width = php_read4(stream TSRMLS_CC); /* Xsiz */
+	result->height = php_read4(stream TSRMLS_CC); /* Ysiz */
 
 #if MBO_0
-	dummy_int = php_read4(stream TSRMLS_CC); /* XOsiz */
-	dummy_int = php_read4(stream TSRMLS_CC); /* YOsiz */
-	dummy_int = php_read4(stream TSRMLS_CC); /* XTsiz */
-	dummy_int = php_read4(stream TSRMLS_CC); /* YTsiz */
-	dummy_int = php_read4(stream TSRMLS_CC); /* XTOsiz */
-	dummy_int = php_read4(stream TSRMLS_CC); /* YTOsiz */
+	php_read4(stream TSRMLS_CC); /* XOsiz */
+	php_read4(stream TSRMLS_CC); /* YOsiz */
+	php_read4(stream TSRMLS_CC); /* XTsiz */
+	php_read4(stream TSRMLS_CC); /* YTsiz */
+	php_read4(stream TSRMLS_CC); /* XTOsiz */
+	php_read4(stream TSRMLS_CC); /* YTOsiz */
 #else
 	if (php_stream_seek(stream, 24, SEEK_CUR)) {
 		efree(result);
@@ -796,7 +796,7 @@ static unsigned php_ifd_get32u(void *Long, int motorola_intel)
 
 /* {{{ php_handle_tiff
    main loop to parse TIFF structure */
-static struct gfxinfo *php_handle_tiff (php_stream * stream, pval *info, int motorola_intel TSRMLS_DC)
+static struct gfxinfo *php_handle_tiff (php_stream * stream, zval *info, int motorola_intel TSRMLS_DC)
 {
 	struct gfxinfo *result = NULL;
 	int i, num_entries;
@@ -917,7 +917,7 @@ static struct gfxinfo *php_handle_iff(php_stream * stream TSRMLS_DC)
 				result->width    = width;
 				result->height   = height;
 				result->bits     = bits;
-			result->channels = 0;
+				result->channels = 0;
 				return result;
 			}
 		} else {
@@ -1130,6 +1130,53 @@ PHP_FUNCTION(image_type_to_mime_type)
 }
 /* }}} */
 
+/* {{{ proto string image_type_to_extension(int imagetype [, bool include_dot])
+   Get file extension for image-type returned by getimagesize, exif_read_data, exif_thumbnail, exif_imagetype */
+PHP_FUNCTION(image_type_to_extension)
+{
+	long image_type;
+	zend_bool inc_dot=1;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|b", &image_type, &inc_dot) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	switch (image_type) {
+		case IMAGE_FILETYPE_GIF:
+			RETURN_STRING(".gif" + !inc_dot, 1);
+		case IMAGE_FILETYPE_JPEG:
+			RETURN_STRING(".jpeg" + !inc_dot, 1);
+		case IMAGE_FILETYPE_PNG:
+			RETURN_STRING(".png" + !inc_dot, 1);
+		case IMAGE_FILETYPE_SWF:
+		case IMAGE_FILETYPE_SWC:
+			RETURN_STRING(".swf" + !inc_dot, 1);
+		case IMAGE_FILETYPE_PSD:
+			RETURN_STRING(".psd" + !inc_dot, 1);
+		case IMAGE_FILETYPE_BMP:
+		case IMAGE_FILETYPE_WBMP:
+			RETURN_STRING(".bmp" + !inc_dot, 1);
+		case IMAGE_FILETYPE_TIFF_II:
+		case IMAGE_FILETYPE_TIFF_MM:
+			RETURN_STRING(".tiff" + !inc_dot, 1);
+		case IMAGE_FILETYPE_IFF:
+			RETURN_STRING(".iff" + !inc_dot, 1);
+		case IMAGE_FILETYPE_JPC:
+			RETURN_STRING(".jpc" + !inc_dot, 1);
+		case IMAGE_FILETYPE_JP2:
+			RETURN_STRING(".jp2" + !inc_dot, 1);
+		case IMAGE_FILETYPE_JPX:
+			RETURN_STRING(".jpx" + !inc_dot, 1);
+		case IMAGE_FILETYPE_JB2:
+			RETURN_STRING(".jb2" + !inc_dot, 1);
+		case IMAGE_FILETYPE_XBM:
+			RETURN_STRING(".xbm" + !inc_dot, 1);
+	}
+
+	RETURN_FALSE;
+}
+/* }}} */
+
 /* {{{ php_imagetype
    detect filetype from first bytes */
 PHPAPI int php_getimagetype(php_stream * stream, char *filetype TSRMLS_DC)
@@ -1138,7 +1185,7 @@ PHPAPI int php_getimagetype(php_stream * stream, char *filetype TSRMLS_DC)
 
 	if ( !filetype) filetype = tmp;
 	if((php_stream_read(stream, filetype, 3)) != 3) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Read error!");
+		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Read error!");
 		return IMAGE_FILETYPE_UNKNOWN;
 	}
 
@@ -1149,7 +1196,7 @@ PHPAPI int php_getimagetype(php_stream * stream, char *filetype TSRMLS_DC)
 		return IMAGE_FILETYPE_JPEG;
 	} else if (!memcmp(filetype, php_sig_png, 3)) {
 		if (php_stream_read(stream, filetype+3, 5) != 5) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Read error!");
+			php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Read error!");
 			return IMAGE_FILETYPE_UNKNOWN;
 		}
 		if (!memcmp(filetype, php_sig_png, 8)) {
@@ -1171,7 +1218,7 @@ PHPAPI int php_getimagetype(php_stream * stream, char *filetype TSRMLS_DC)
 	}
 
 	if (php_stream_read(stream, filetype+3, 1) != 1) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Read error!");
+		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Read error!");
 		return IMAGE_FILETYPE_UNKNOWN;
 	}
 /* BYTES READ: 4 */
@@ -1186,7 +1233,7 @@ PHPAPI int php_getimagetype(php_stream * stream, char *filetype TSRMLS_DC)
 	}
 
 	if (php_stream_read(stream, filetype+4, 8) != 8) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Read error!");
+		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Read error!");
 		return IMAGE_FILETYPE_UNKNOWN;
 	}
 /* BYTES READ: 12 */

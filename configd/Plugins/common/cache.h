@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,7 @@
 
 __BEGIN_DECLS
 
-void			cache_open			();
+void			cache_open			(void);
 
 CFPropertyListRef	cache_SCDynamicStoreCopyValue	(SCDynamicStoreRef	store,
 							 CFStringRef		key);
@@ -56,7 +56,7 @@ void			cache_SCDynamicStoreNotifyValue	(SCDynamicStoreRef	store,
 
 void			cache_write			(SCDynamicStoreRef	store);
 
-void			cache_close			();
+void			cache_close			(void);
 
 __END_DECLS
 

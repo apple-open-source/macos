@@ -58,7 +58,7 @@ const CFStringRef	kDHCPSPropNetBootImageKind = CFSTR(NIPROP_NETBOOT_IMAGE_KIND);
 const CFStringRef	kDHCPSPropNetBootImageIsInstall = CFSTR(NIPROP_NETBOOT_IMAGE_IS_INSTALL);
 
 static CFMutableArrayRef
-read_host_list(u_char * filename)
+read_host_list(const char * filename)
 {
     CFMutableArrayRef		arr = NULL;		
     CFMutableDictionaryRef	dict = NULL;
@@ -183,7 +183,7 @@ cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
 
     range = CFRangeMake(0, CFStringGetLength(cfstr));
     n = CFStringGetBytes(cfstr, range, kCFStringEncodingMacRoman,
-			 0, FALSE, str, len, &l);
+			 0, FALSE, (UInt8 *)str, len, &l);
     str[l] = '\0';
     return (l);
 }
@@ -193,7 +193,7 @@ static void
 dump_gregorian_date(CFGregorianDate d)
 {
     printf("%d/%d/%d %d:%d:%d\n",
-	   d.year, d.month, d.day, d.hour, d.minute, (long)d.second);
+	   (int)d.year, d.month, d.day, d.hour, d.minute, (int)d.second);
     return;
 }
 

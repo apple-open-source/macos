@@ -24,43 +24,23 @@
 #ifndef _CFCLASS_H
 #define _CFCLASS_H
 
+#include <list>
 #include <CoreFoundation/CFRuntime.h>
+#include "threading.h"
 
 namespace Security {
-
-class Mutex;
-
-//
-// CFAllocator
-//
-class CFAllocator
-{
-public:
-	explicit CFAllocator(Mutex &lock);
-	
-	CFAllocatorRef allocator;
-private:
-	static void *allocate(CFIndex allocSize, CFOptionFlags hint, void *info) throw();
-	static void *reallocate(void *ptr, CFIndex newsize, CFOptionFlags hint, void *info) throw();
-	static void deallocate(void *ptr, void *info) throw();
-	static CFIndex preferredSize(CFIndex size, CFOptionFlags hint, void *info) throw();
-	
-	CFAllocatorContext mContext;
-	Mutex &mLock;
-};
-
 
 //
 // CFClass
 //
 class CFClass : protected CFRuntimeClass
 {
-	friend class CFAllocator;
 public:
-    explicit CFClass(const char *name, CFAllocator *allocator = NULL);
+    explicit CFClass(const char *name, bool deferDeletion);
 
 	CFTypeID typeID;
-	CFAllocatorRef allocator;
+	bool isDeferrable;		// if true the final release of this class object will be deferred until the
+							// end of the next call to a security function
 
 private:
 	static void finalizeType(CFTypeRef cf) throw();

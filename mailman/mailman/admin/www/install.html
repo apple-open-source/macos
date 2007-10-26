@@ -2,7 +2,7 @@
                       "http://www.w3.org/TR/html4/loose.dtd" >
 <html>
 <!-- THIS PAGE IS AUTOMATICALLY GENERATED.  DO NOT EDIT. -->
-<!-- Sun Sep 21 23:42:29 2003 -->
+<!-- Tue Sep 12 23:12:41 2006 -->
 <!-- USING HT2HTML 2.0 -->
 <!-- SEE http://ht2html.sf.net -->
 <!-- User-specified headers:
@@ -12,8 +12,8 @@ Title: Installing Mailman
 
 <head>
 <title>Installing Mailman</title>
-<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
-<meta name="generator" content="HT2HTML/2.0" />
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii" >
+<meta name="generator" content="HT2HTML/2.0" >
 <style type="text/css">
 body { margin: 0px; }
 </style>
@@ -38,19 +38,25 @@ body { margin: 0px; }
 <td width="90%" bgcolor="#eecfa1" class="banner">
 <!-- start of site links table -->
 <table width="100%" border="0"
-CELLSPACING=0 CELLPADDING=0
+       CELLSPACING=0 CELLPADDING=0
        bgcolor="#ffffff">
 <tr>
     <td bgcolor="#eecfa1">
 <a href="./index.html">Home</a>
     </td>
     <td bgcolor="#eecfa1">
+<a href="./security.html">Security</a>
+    </td>
+    <td bgcolor="#eecfa1">
 <a href="./docs.html">Documentation</a>
     </td>
     <td bgcolor="#eecfa1">
-<a href="./lists.html">Mailing lists</a>
+<a href="./lists.html">Mailing Lists</a>
     </td>
 </tr><tr>
+    <td bgcolor="#eecfa1">
+<a href="http://wiki.list.org/x/DQ">Community</a>
+    </td>
     <td bgcolor="#eecfa1">
 <a href="./help.html">Help</a>
     </td>
@@ -75,63 +81,61 @@ CELLSPACING=0 CELLPADDING=0
 Overview
 </font></b></td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="index.html">Home</a>
+<a href="index.html">Home</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="features.html">Features</a>
+<a href="security.html">Security</li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="i18n.html">Internationalization</a>
+<a href="features.html">Features</a></li>
+</td></tr>
+<tr><td bgcolor="#eecfa1">&nbsp;</td></tr>
+<tr><td bgcolor="#36648b"><b><font color="#ffffff">
+More Information
+</font></b></td></tr>
+<tr><td bgcolor="#eecfa1">
+<a href="http://wiki.list.org">Wiki</a> <i>(exit)</i></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="otherstuff.html">Rants, Papers, and Logos</a>
+<a href="lists.html">Discussion Lists</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="inthenews.html">Mailman in Use</a>
+<a href="http://sf.net/projects/mailman">SF Project Page</a>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="prev.html">Previous Releases</a>
+<a href="otherstuff.html">Rants, Papers, and Logos</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="bugs.html">Bugs and Patches</a>
+<a href="bugs.html">Bugs and Patches</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="mirrors.html">Mirrors</a>
+<a href="mirrors.html">Mirrors</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">&nbsp;</td></tr>
 <tr><td bgcolor="#36648b"><b><font color="#ffffff">
 Downloading
 </font></b></td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="download.html">Downloading</a>
-</td></tr>
-<tr><td bgcolor="#eecfa1">
-<a href="version.html">Latest Version</a>
-</td></tr>
-<tr><td bgcolor="#eecfa1">
 <a href="requirements.html">Requirements</a>
+</td></tr>
+<tr><td bgcolor="#eecfa1">
+<a href="download.html">Downloading</a>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
 <b>Installing</b>
 </td></tr>
 <tr><td bgcolor="#eecfa1">&nbsp;</td></tr>
 <tr><td bgcolor="#36648b"><b><font color="#ffffff">
-Exits
+Related Links <i>(exits)</i>
 </font></b></td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="http://sf.net/projects/mailman">SF Project Page</a>
+<a href="http://www.python.org/">Python</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="lists.html">Discussion Lists</a>
+<a href="http://www.gnu.org/">GNU</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-<a href="http://www.python.org/">Python</a>
-</td></tr>
-<tr><td bgcolor="#eecfa1">
-<a href="http://www.gnu.org/">GNU</a>
-</td></tr>
-<tr><td bgcolor="#eecfa1">
-<a href="http://barry.warsaw.us/">Barry Warsaw</a>
+<a href="http://barry.warsaw.us/">Barry Warsaw</a></li>
 </td></tr>
 <tr><td bgcolor="#eecfa1">&nbsp;</td></tr>
 <tr><td bgcolor="#36648b"><b><font color="#ffffff">
@@ -155,7 +159,7 @@ Email Us
 &nbsp;
 </td></tr>
 <tr><td bgcolor="#eecfa1">
-&copy; 1998-2003
+&copy; 1998-2006
 Free Software Foundation, Inc.  Verbatim copying and distribution of this
 entire article is permitted in any medium, provided this notice is preserved.
 
@@ -166,19 +170,13 @@ entire article is permitted in any medium, provided this notice is preserved.
 <td width="15">&nbsp;&nbsp;</td><!--spacer-->
 <!-- end of sidebar cell -->
 <!-- start of body cell -->
-<td valign="top" width="90%" class="body"><br />
+<td valign="top" width="90%" class="body"><br>
 <h3>Installing Mailman</h3>
 
 For detailed installation instructions, please see the
-<code>INSTALL</code> file in the source distribution.
+<a href="mailman-install/index.html">GNU Mailman Installation Manual</a>.
 
-<!-- Commented out, but I hope to make this true soon
-
-For detailed installation instructions, see the <em>Installing</em>
-chapter of the <a href="site.html">Site Administrator's Guide</a>. 
--->
-
-Be sure to read the <code>README</code> and <code>UPGRADING</code>
+<p>Be sure to read the <code>README</code> and <code>UPGRADING</code>
 files in the source distribution for additional instructions, hints,
 and warnings.
 

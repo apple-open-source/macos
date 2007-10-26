@@ -148,6 +148,15 @@ static krb5_error_code get_from_os(char *name_buf, int name_size)
 	char *prefix = krb5_cc_dfl_ops->prefix;
         int size;
         char *p;
+        DWORD gle;
+
+	SetLastError(0);
+	GetEnvironmentVariable(KRB5_ENV_CCNAME, name_buf, name_size);
+	gle = GetLastError();
+	if (gle == 0)
+		return 0;
+	else if (gle != ERROR_ENVVAR_NOT_FOUND)
+		return ENOMEM;
 
 	if (get_from_registry(HKEY_CURRENT_USER,
                               name_buf, name_size) != 0)
@@ -296,4 +305,23 @@ krb5_cc_default_name(krb5_context context)
     }
     
     return err ? NULL : os_ctx->default_ccname;
+}
+
+/*
+ * caller must free name
+ */
+krb5_error_code
+krb5int_cc_os_default_name(krb5_context context, char **name)
+{
+    krb5_error_code retval = 0;
+    char *tmpname = NULL;
+
+    *name = NULL;
+    tmpname = malloc(BUFSIZ);
+    if (tmpname == NULL)
+	return ENOMEM;
+
+    retval = get_from_os(tmpname, BUFSIZ);
+    *name = tmpname;
+    return retval;
 }

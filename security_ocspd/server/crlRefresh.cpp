@@ -40,7 +40,7 @@
  * 'expired' means that a CRL's NextUpdate time has passed, relative
  *    to updateTime, and that we need to fetch a new CRL to replace
  *    the expired CRL.
- * 'expireOverlap' is (nowTime - updateTime) in seconds. It's the 
+ * 'expireOverlap' is (updateTime - nowTime) in seconds. It's the 
  *    distance into the future at which we evaluate a CRL's expiration
  *    status.
  * 'stale' means that a CRL is so old that it should be deleted from
@@ -70,6 +70,7 @@
 #include <security_cdsa_utils/cuDbUtils.h>
 #include <security_cdsa_utils/cuTimeStr.h>
 #include <security_utilities/logging.h>
+#include <Security/TrustSettingsSchema.h>
 
 #define DEFAULT_STALE_DAYS				10
 #define DEFAULT_EXPIRE_OVERLAP_SECONDS	3600
@@ -77,7 +78,6 @@
 #define SECONDS_PER_DAY					(60 * 60 * 24)
 
 #define CRL_CACHE_DB	"/var/db/crls/crlcache.db"
-#define X509_CERT_DB	"/System/Library/Keychains/X509Certificates"
 
 #pragma mark ----- DB attribute stuff -----
 
@@ -307,7 +307,7 @@ int CrlInfo::fetchIntAttr(
 		mIsBadlyFormed = true;
 		return 1;
 	}
-	rtn = cuDER_ToInt(val);
+	rtn = *(uint32 *)val->Data;
 	return 0;
 }
 
@@ -440,7 +440,7 @@ static CSSM_RETURN fetchAllCrls(
 			 * for CRL schema; treat it as empty. */
 			return CSSM_OK;
 		default:
-			ocspdErrorLog("fetchAllCrls: DataGetFirst returned %lu", crtn);
+			ocspdErrorLog("fetchAllCrls: DataGetFirst returned %u", (unsigned)crtn);
 			return crtn;
 	}
 
@@ -469,7 +469,7 @@ static CSSM_RETURN fetchAllCrls(
 				/* normal termination */
 				return CSSM_OK;
 			default:
-				ocspdErrorLog("fetchAllCrls: DataGetNext returned %lu", crtn);
+				ocspdErrorLog("fetchAllCrls: DataGetNext returned %u", (unsigned)crtn);
 				return crtn;
 		}
 	}
@@ -500,8 +500,8 @@ static void validateCrls(
 				/* OK */
 				break;
 			default:
-				ocspdErrorLog("validateCrls: bad CRL type (%lu) on CRL %u\n", 
-					i, dex);
+				ocspdErrorLog("validateCrls: bad CRL type (%u) on CRL %u\n", 
+					(unsigned)i, dex);
 				crl->mIsBadlyFormed = true;
 				continue;
 		}
@@ -516,8 +516,8 @@ static void validateCrls(
 				/* OK */
 				break;
 			default:
-				ocspdErrorLog("validateCrls: bad CRL encoding (%lu) on CRL %u\n", 
-					i, dex);
+				ocspdErrorLog("validateCrls: bad CRL encoding (%u) on CRL %u\n", 
+					(unsigned)i, dex);
 				crl->mIsBadlyFormed = true;
 				continue;
 		}
@@ -529,7 +529,7 @@ static void validateCrls(
  * Perform full crypto CRL validation. 
  * We use the system-wide intermediate cert keychain here, but do
  * NOT use the CRL cache we're working on (or any other), since
- * we dont' really want to trust anything at this point. 
+ * we don't really want to trust anything at this point. 
  */
 static void cryptoValidateCrls(
 	CrlInfo			**crlInfo, 
@@ -540,29 +540,19 @@ static void cryptoValidateCrls(
 	CSSM_DL_HANDLE	dlHand)
 {
 	CrlInfo 		*crl;
-	const CSSM_DATA *anchors;
-	uint32 			anchorCount;
-	OSStatus 		ortn;
 	
-	/* just snag these once */
-	ortn = SecTrustGetCSSMAnchorCertificates(&anchors, &anchorCount);
-	if(ortn) {
-		ocspdErrorLog("SecTrustGetCSSMAnchorCertificates returned %d\n", (int)ortn);
-		return;
-	}
-	
-	/* and the system-wide intermediate certs */
+	/* the system-wide intermediate certs */
 	CSSM_DL_DB_HANDLE certDb;
 	CSSM_DL_DB_HANDLE_PTR certDbPtr = NULL;
 	CSSM_RETURN crtn = CSSM_DL_DbOpen(dlHand,
-		X509_CERT_DB, 
+		SYSTEM_CERT_STORE_PATH, 
 		NULL,			// DbLocation
 		CSSM_DB_ACCESS_READ,
 		NULL, 			// CSSM_ACCESS_CREDENTIALS *AccessCred
 		NULL,			// void *OpenParameters
 		&certDb.DBHandle);
 	if(crtn) {
-		ocspdErrorLog("cryptoValidateCrls: CSSM_DL_DbOpen returned %lu", crtn);
+		ocspdErrorLog("cryptoValidateCrls: CSSM_DL_DbOpen returned %u", (unsigned)crtn);
 		/* Oh well, keep trying */
 	}
 	else {
@@ -575,8 +565,8 @@ static void cryptoValidateCrls(
 		crtn = cuCrlVerify(tpHand, clHand, cspHand,
 			&crl->mCrlBlob,
 			certDbPtr,
-			anchors,
-			anchorCount);
+			NULL,		// anchors - use Trust Settings
+			0);			// anchorCount
 		switch(crtn) {
 			case CSSMERR_APPLETP_CRL_EXPIRED:
 				/* special case, we'll handle this via its attrs */
@@ -584,6 +574,7 @@ static void cryptoValidateCrls(
 				break;
 			default:
 				ocspdCrlDebug("...CRL %u FAILED crypto verify", dex);
+				crl->printName("FAILED crypto verify");
 				crl->mIsBadlyFormed = true;
 			break;
 		}
@@ -652,7 +643,7 @@ static void deleteBadCrls(
 			CSSM_RETURN crtn = CSSM_DL_DataDelete(crl->dlDbHand(), 
 				crl->record());
 			if(crtn) {
-				ocspdErrorLog("deleteBadCrls: CSSM_DL_DataDelete returned %ld", crtn);
+				ocspdErrorLog("deleteBadCrls: CSSM_DL_DataDelete returned %u", (unsigned)crtn);
 			}
 		}
 	}
@@ -720,7 +711,7 @@ static void refreshExpiredCrls(
 		Allocator &alloc = Allocator::standard();
 		CSSM_RETURN crtn = ocspdNetFetch(alloc, *uri, LT_Crl, newCrl);
 		if(crtn) {
-			ocspdErrorLog("ocspdNetFetch returned %ld", crtn);
+			ocspdErrorLog("ocspdNetFetch returned %u", (unsigned)crtn);
 			continue;
 		}
 		
@@ -769,7 +760,8 @@ CSSM_RETURN ocspdCrlRefresh(
 	unsigned			staleDays,
 	unsigned			expireOverlapSeconds,
 	bool				purgeAll,
-	bool				fullCryptoVerify)
+	bool				fullCryptoVerify,
+	bool				doRefresh)		// false: just purge stale entries
 {
 	CSSM_TP_HANDLE	tpHand = 0;
 	CSSM_CSP_HANDLE cspHand = 0;
@@ -844,7 +836,9 @@ CSSM_RETURN ocspdCrlRefresh(
 	deleteBadCrls(crlInfo, numCrls);
 	
 	/* refresh the out-of-date CRLs */
-	refreshExpiredCrls(crlInfo, numCrls, clHand);
+	if(doRefresh) {
+		refreshExpiredCrls(crlInfo, numCrls, clHand);
+	}
 	
 	/* clean up */
 	for(unsigned dex=0; dex<numCrls; dex++) {

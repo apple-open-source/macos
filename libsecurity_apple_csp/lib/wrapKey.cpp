@@ -210,6 +210,18 @@ void AppleCSPSession::WrapKey(
 			/* no restrictions (well AES can't be the wrap alg but that will 
 			 * be caught later */
 			break;
+		case CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSH1:
+			/* RSA private key, reference format, only */
+			if(UnwrappedKey.keyClass() != CSSM_KEYCLASS_PRIVATE_KEY) {
+				CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+			}
+			if(UnwrappedKey.algorithm() != CSSM_ALGID_RSA) {
+				CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+			}
+			if(UnwrappedKey.blobType() != CSSM_KEYBLOB_REFERENCE) {
+				CssmError::throwMe(CSSMERR_CSP_KEY_BLOB_TYPE_INCORRECT);
+			}
+			break;
 		case CSSM_KEYBLOB_WRAPPED_FORMAT_NONE:
 			if(isNullWrap) {
 				/* only time this is OK */
@@ -234,7 +246,12 @@ void AppleCSPSession::WrapKey(
 	
 	switch(UnwrappedKey.blobType()) {
 		case CSSM_KEYBLOB_RAW:
-			/* trivial case */
+			/* 
+			 * Trivial case - we already have the blob.
+			 * This op - wrapping a raw key - is not supported for the 
+			 * CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSH1 format since that doesn't
+			 * operate on a key blob.
+			 */
 			rawBlob = CssmData::overlay(UnwrappedKey.KeyData);
 			rawFormat = UnwrappedKey.blobFormat();
 			break;
@@ -251,6 +268,14 @@ void AppleCSPSession::WrapKey(
 				if(!(keyAttr & CSSM_KEYATTR_EXTRACTABLE)) {
 					/* this key not extractable in any form */
 					CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
+				}
+				
+				/* 
+				 * CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSH1: we're ready to roll; 
+				 * all we need is the reference key.
+				 */
+				if(wrapFormat == CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSH1) {
+					break;
 				}
 				
 				/*
@@ -283,6 +308,14 @@ void AppleCSPSession::WrapKey(
 					}
 				}
 
+				/* 
+				 * DescriptiveData for encoding, currently only used for 
+				 * SSH1 keys.
+				 */
+				if((DescriptiveData != NULL) && (DescriptiveData->Length != 0)) {
+					binKey.descData(*DescriptiveData);
+				}
+				
 				/* optional parameter-bearing key */
 				CssmKey *paramKey = Context.get<CssmKey>(CSSM_ATTRIBUTE_PARAM_KEY);
 				binKey.generateKeyBlob(privAllocator,
@@ -323,31 +356,59 @@ void AppleCSPSession::WrapKey(
 	}
 	
 	/* 
-	 * special case - break out here for custom Apple CMS  
+	 * special cases - break out here for Apple Custom and OpenSSHv1  
 	 */
-	if(!isNullWrap && (wrapFormat == CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM)) {
-		try {
-			WrapKeyCms(CCHandle,
-				Context,
-				AccessCred,
-				UnwrappedKey,
-				rawBlob,
-				allocdRawBlob,
-				DescriptiveData,
-				WrappedKey,
-				Privilege);
-		}
-		catch(...) {
-			if(allocdRawBlob) {
-				freeCssmData(rawBlob, privAllocator);
+	if(!isNullWrap) {
+		switch(wrapFormat) {
+			case CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM:
+				try {
+					WrapKeyCms(CCHandle,
+						Context,
+						AccessCred,
+						UnwrappedKey,
+						rawBlob,
+						allocdRawBlob,
+						DescriptiveData,
+						WrappedKey,
+						Privilege);
+				}
+				catch(...) {
+					if(allocdRawBlob) {
+						freeCssmData(rawBlob, privAllocator);
+					}
+					throw;
+				}
+				if(allocdRawBlob) {
+					freeCssmData(rawBlob, privAllocator);
+				}
+				return;
+			case CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSH1:
+			{
+				/*
+				 * 1. We don't have to worry about allocdRawBlob since this 
+				 *    operation only works on reference keys and we did not
+				 *    obtain the raw blob from the BinaryKey. 
+				 * 2. This is a redundant lookupRefKey, I know, but since
+				 *    that returns a reference, it would just be too messy to have
+				 *    the previous call be in the same scope as this.
+				 */
+				BinaryKey &binKey = lookupRefKey(UnwrappedKey);
+				WrapKeyOpenSSH1(CCHandle,
+					Context,
+					AccessCred,
+					binKey,
+					rawBlob,
+					allocdRawBlob,
+					DescriptiveData,
+					WrappedKey,
+					Privilege);
+				return;
 			}
-			throw;
+			default:
+				/* proceed to encrypt blob */
+				break;
 		}
-		if(allocdRawBlob) {
-			freeCssmData(rawBlob, privAllocator);
-		}
-		return;
-	}
+	}	/* !isNullWrap */
 
 	
 	/*
@@ -370,7 +431,7 @@ void AppleCSPSession::WrapKey(
 		else {
 			/* encrypt rawBlob using caller's context, then encode to
 			 * WrappedKey.KeyData */
-			uint32 bytesEncrypted;
+			CSSM_SIZE bytesEncrypted;
 			EncryptData(CCHandle,
 				Context,
 				&rawBlob,			// ClearBufs[]
@@ -568,6 +629,27 @@ void AppleCSPSession::UnwrapKey(
 						Privilege,
 						keyStorage);
 				return;
+			case CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSH1:
+				/* RSA private key, unwrap to ref key only */
+				if(WrappedKey.keyClass() != CSSM_KEYCLASS_PRIVATE_KEY) {
+					CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+				}
+				if(WrappedKey.algorithm() != CSSM_ALGID_RSA) {
+					CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
+				}
+				if(keyStorage != CKS_Ref) {
+					errorLog0("UNwrapKey: OPENSSH1 only wraps to reference key\n");
+					CssmError::throwMe(CSSMERR_CSP_KEY_BLOB_TYPE_INCORRECT);
+				}
+				UnwrapKeyOpenSSH1(CCHandle,
+						Context,
+						WrappedKey,
+						CredAndAclEntry,
+						UnwrappedKey,
+						DescriptiveData,
+						Privilege,
+						keyStorage);
+				return;
 			default:
 				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_WRAPPED_KEY_FORMAT);
 		}
@@ -587,8 +669,8 @@ void AppleCSPSession::UnwrapKey(
 		}
 		else {
 			decodedBlob = CssmData::overlay(WrappedKey.KeyData);
-			uint32 bytesDecrypted;		
-			CssmData *unwrapData = 	
+			CSSM_SIZE bytesDecrypted;		
+			CssmData *unwrapData = 
 				CssmData::overlay(&UnwrappedKey.KeyData);
 				
 			DecryptData(CCHandle,

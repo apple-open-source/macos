@@ -157,6 +157,15 @@ bool RSA_DSA_Factory::setup(
 								CSSM_ALGID_SHA256)));
 					}
 					return true;
+				case CSSM_ALGID_SHA224WithRSA:
+					if(cspCtx == NULL) {
+						cspCtx = new SignatureContext(session,
+							*(new SHA224Object()),
+							*(new RSASigner(*privAllocator,	
+								session,
+								CSSM_ALGID_SHA224)));
+					}
+					return true;
 				case CSSM_ALGID_SHA384WithRSA:
 					if(cspCtx == NULL) {
 						cspCtx = new SignatureContext(session,
@@ -183,6 +192,7 @@ bool RSA_DSA_Factory::setup(
 		case CSSM_ALGCLASS_KEYGEN:
 			switch(context.algorithm()) {
 				case CSSM_ALGID_RSA:
+				case CSSM_ALGMODE_PKCS1_EME_OAEP:
 					if(cspCtx == NULL) {
 						cspCtx = new RSAKeyPairGenContext(session, context);
 					}
@@ -202,6 +212,7 @@ bool RSA_DSA_Factory::setup(
 		case CSSM_ALGCLASS_ASYMMETRIC:
 			switch(context.algorithm()) {
 				case CSSM_ALGID_RSA:
+				case CSSM_ALGMODE_PKCS1_EME_OAEP:
 					if(cspCtx == NULL) {
 						cspCtx = new RSA_CryptContext(session);
 					}

@@ -1,46 +1,92 @@
---- samba/source/smbd/chgpasswd.c.orig	2004-12-13 20:11:25.000000000 -0800
-+++ samba/source/smbd/chgpasswd.c	2004-12-13 20:22:16.000000000 -0800
-@@ -703,7 +703,32 @@
+Index: samba/source/smbd/chgpasswd.c
+===================================================================
+--- samba/source/smbd/chgpasswd.c.orig
++++ samba/source/smbd/chgpasswd.c
+@@ -47,6 +47,7 @@
+    */
+ 
+ #include "includes.h"
++#include "opendirectory.h"
+ 
+ extern struct passdb_ops pdb_ops;
+ 
+@@ -714,21 +715,66 @@ NTSTATUS pass_oem_change(char *user,
  {
  	pstring new_passwd;
- 	SAM_ACCOUNT *sampass = NULL;
+ 	struct samu *sampass = NULL;
 -	NTSTATUS nt_status = check_oem_password(user, password_encrypted_with_lm_hash, 
+-						old_lm_hash_encrypted, 
+-						password_encrypted_with_nt_hash, 
+-						old_nt_hash_encrypted,
+-						&sampass, new_passwd, sizeof(new_passwd));
+-	
+-	if (!NT_STATUS_IS_OK(nt_status))
+-		return nt_status;
 +	NTSTATUS nt_status = NT_STATUS_WRONG_PASSWORD;
-+	
-+#ifdef WITH_OPENDIRECTORY
-+	tDirStatus	dir_status = eDSNullParameter;
-+	u_int8_t passwordFormat = 0;
-+	
+ 
+-	/* We've already checked the old password here.... */
+-	become_root();
+-	nt_status = change_oem_password(sampass, NULL, new_passwd, True, reject_reason);
+-	unbecome_root();
+ 
+-	memset(new_passwd, 0, sizeof(new_passwd));
 +	if (lp_opendirectory()) {
-+		if(password_encrypted_with_nt_hash != NULL && old_nt_hash_encrypted != NULL)
-+			passwordFormat = 1; /* 0 - UTF8 | 1 - UCS2 Unicode, >1 == codepage */
++		tDirStatus dir_status = eDSNullParameter;
++		u_int8_t passwordFormat = 0;
++
++		if (password_encrypted_with_nt_hash && old_nt_hash_encrypted) {
++			/* 0 - UTF8 | 1 - UCS2 Unicode, >1 == codepage */
++                       	passwordFormat = 1;
++		}
++
 +		become_root();
-+		dir_status = opendirectory_lmchap2changepasswd(user, password_encrypted_with_lm_hash, old_lm_hash_encrypted, passwordFormat, NULL);
++		dir_status = opendirectory_lmchap2changepasswd(user,
++					password_encrypted_with_lm_hash,
++					old_lm_hash_encrypted, passwordFormat,
++					NULL);
 +		unbecome_root();
-+		DEBUG(3, ("pass_oem_change: [%d]opendirectory_lmchap2changepasswd passwordFormat(%d)\n", dir_status, passwordFormat));
-+		if (eDSNoErr == dir_status)
-+			nt_status = NT_STATUS_OK;
-+		else if	(eDSAuthPasswordTooShort == dir_status ||
-+				eDSAuthPasswordTooLong == dir_status ||
-+				eDSAuthPasswordNeedsLetter == dir_status ||
-+				eDSAuthPasswordNeedsDigit == dir_status ||
-+				eDSAuthPasswordChangeTooSoon == dir_status ||
-+				eDSAuthPasswordQualityCheckFailed == dir_status) {
-+			nt_status = NT_STATUS_PASSWORD_RESTRICTION;
++
++		DEBUG(3, ("pass_oem_change: "
++			"[%d]opendirectory_lmchap2changepasswd "
++			"passwordFormat(%d)\n", dir_status, passwordFormat));
++
++		switch (dir_status) {
++			case eDSNoErr:
++				nt_status = NT_STATUS_OK;
++				break;
++			case eDSAuthPasswordTooShort:
++                        case eDSAuthPasswordTooLong:
++                        case eDSAuthPasswordNeedsLetter:
++                        case eDSAuthPasswordNeedsDigit:
++                        case eDSAuthPasswordChangeTooSoon:
++                        case eDSAuthPasswordQualityCheckFailed:
++                       		nt_status = NT_STATUS_PASSWORD_RESTRICTION;
++				break;
++			default:
++				nt_status = NT_STATUS_UNSUCCESSFUL;
 +		}
 +	} else {
-+#endif
-+	nt_status = check_oem_password(user, password_encrypted_with_lm_hash, 
- 						old_lm_hash_encrypted, 
- 						password_encrypted_with_nt_hash, 
- 						old_nt_hash_encrypted,
-@@ -720,6 +745,9 @@
- 	memset(new_passwd, 0, sizeof(new_passwd));
- 
- 	pdb_free_sam(&sampass);
-+#ifdef WITH_OPENDIRECTORY
++
++		nt_status = check_oem_password(user,
++				password_encrypted_with_lm_hash,
++				old_lm_hash_encrypted,
++				password_encrypted_with_nt_hash,
++				old_nt_hash_encrypted,
++				&sampass, new_passwd, sizeof(new_passwd));
++
++		if (!NT_STATUS_IS_OK(nt_status))
++			return nt_status;
++
++		/* We've already checked the old password here.... */
++		become_root();
++		nt_status = change_oem_password(sampass, NULL, new_passwd,
++				True, reject_reason);
++		unbecome_root();
 +	}
-+#endif
++
++	if (NT_STATUS_IS_OK(nt_status)) {
++		memset(new_passwd, 0, sizeof(new_passwd));
++	}
  
- 	return nt_status;
- }
+ 	TALLOC_FREE(sampass);
+ 

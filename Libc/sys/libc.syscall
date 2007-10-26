@@ -1,0 +1,18 @@
+__exit	___exit
+_accessx_np	___access_extended
+_fstat$INODE64	___fstat64
+_fstatfs$INODE64	___fstatfs64
+_getfsstat$INODE64	___getfsstat64
+_getsgroups_np	___getsgroups
+_getwgroups_np	___getwgroups
+# initgroups wrapper is defined in Libinfo
+_initgroups
+_lstat$INODE64	___lstat64
+_posix_madvise	___madvise
+_pthread_getugid_np	___gettid
+_pthread_setugid_np	___settid
+_setsgroups_np	___setsgroups
+_setwgroups_np	___setwgroups
+_stat$INODE64	___stat64
+_statfs$INODE64	___statfs64
+_wait4	___wait4_nocancel

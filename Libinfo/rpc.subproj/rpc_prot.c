@@ -162,8 +162,8 @@ xdr_rejected_reply(xdrs, rr)
 }
 
 static struct xdr_discrim reply_dscrm[3] = {
-	{ (int)MSG_ACCEPTED, xdr_accepted_reply },
-	{ (int)MSG_DENIED, xdr_rejected_reply },
+	{ (int)MSG_ACCEPTED, (xdrproc_t)xdr_accepted_reply },
+	{ (int)MSG_DENIED, (xdrproc_t)xdr_rejected_reply },
 	{ __dontcare__, NULL_xdrproc_t } };
 
 /*
@@ -243,8 +243,13 @@ accepted(acpt_stat, error)
 	}
 	/* something's wrong, but we don't know what ... */
 	error->re_status = RPC_FAILED;
+#ifdef __LP64__
+	error->re_lb.s1 = (int)MSG_ACCEPTED;
+	error->re_lb.s2 = (int)acpt_stat;
+#else
 	error->re_lb.s1 = (long)MSG_ACCEPTED;
 	error->re_lb.s2 = (long)acpt_stat;
+#endif
 }
 
 static void 
@@ -266,8 +271,13 @@ rejected(rjct_stat, error)
 	}
 	/* something's wrong, but we don't know what ... */
 	error->re_status = RPC_FAILED;
+#ifdef __LP64__
+	error->re_lb.s1 = (int)MSG_DENIED;
+	error->re_lb.s2 = (int)rjct_stat;
+#else
 	error->re_lb.s1 = (long)MSG_DENIED;
 	error->re_lb.s2 = (long)rjct_stat;
+#endif
 }
 
 /*
@@ -296,7 +306,11 @@ _seterr_reply(msg, error)
 
 	default:
 		error->re_status = RPC_FAILED;
+#ifdef __LP64__
+		error->re_lb.s1 = (int)(msg->rm_reply.rp_stat);
+#else
 		error->re_lb.s1 = (long)(msg->rm_reply.rp_stat);
+#endif
 		break;
 	}
 	switch (error->re_status) {

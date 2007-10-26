@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>generateduid</key>
+	<array>
+		<string>ABCDEFAB-CDEF-ABCD-EFAB-CDEF0000003C</string>
+	</array>
+	<key>gid</key>
+	<array>
+		<string>60</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>_sandbox</string>
+		<string>sandbox</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
+</dict>
+</plist>

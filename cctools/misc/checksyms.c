@@ -465,8 +465,7 @@ enum bool verification)
     struct load_command *lc;
     struct segment_command *sg;
     struct section *s;
-    enum macosx_deployment_target_value macosx_deployment_target;
-    const char *macosx_deployment_target_name;
+    struct macosx_deployment_target macosx_deployment_target;
 
 	/*
 	 * First check for relocation entries in read only segments.
@@ -504,10 +503,8 @@ enum bool verification)
 	 * undefined references it should be prebound unless
 	 * MACOSX_DEPLOYMENT_TARGET is 10.4 or greater.
 	 */
-	get_macosx_deployment_target(&macosx_deployment_target,
-				     &macosx_deployment_target_name,
-				     CPU_TYPE_ANY);
-	if(macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_4)
+	get_macosx_deployment_target(&macosx_deployment_target);
+	if(macosx_deployment_target.major >= 4)
 	    return;
 
 	if((ofile->mh->filetype == MH_EXECUTE ||

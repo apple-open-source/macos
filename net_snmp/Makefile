@@ -1,101 +1,221 @@
 ##
 # Makefile for net-snmp
 ##
-# Project info
-Project               = net-snmp
-UserType              = Administration
-ToolType              = Commands
-GnuAfterInstall       = do-fixups install-startup install-plist
-Extra_Configure_Flags = --with-libwrap --with-defaults --prefix=/usr --with-persistent-directory=/var/db/net-snmp --with-mib-modules=host CPPFLAGS=-I/System/Library/Frameworks/System.framework/PrivateHeaders --sysconfdir=/etc
-Extra_Environment     = AR="$(SRCROOT)/ar.sh"
 
-# It's a GNU Source project
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+# General project info
+Project		= net-snmp
+ProjectName	= net_snmp
+UserType	= Administration
+ToolType	= Commands
+Submission	= 113
+
+#
+# Settings for the net-snmp project.
+#
+# Justification for #defines:
+# CONFORMANCE is to avoid confusing configure
+# UNSTABLE is required to pick up some other required structs
+# PrivateHeaders is so IPv6 can define struct ifnet.
+###
+# Disabled while trying to get build stuff working
+###
+DEFINES			= -DBUILD=$(Submission) \
+			-DMACOSX_DEPLOYMENT_TARGET=$(MACOSX_DEPLOYMENT_TARGET)
+INCLUDES		= -F/System/Library/PrivateFrameworks/ -F/System/Library/Frameworks/
+
+# For Perl to build correctly, both CFLAGS (CC_Flags) and CCFLAGS (Cxx_Flags)
+# must be properly defined.
+Extra_CC_Flags		= $(DEFINES) $(INCLUDES)
+Extra_Cxx_Flags		= $(Extra_CC_Flags)
+
+Extra_Configure_Flags	= --sysconfdir=/etc \
+			--with-install-prefix=$(DSTROOT) \
+			--with-default-snmp-version=2 \
+			--with-persistent-directory=/var/db/net-snmp \
+			--with-defaults \
+			--without-rpm \
+			--with-sys-contact="postmaster@example.com" \
+			--with-mib-modules="host ucd-snmp/diskio ucd-snmp/loadave" \
+			--disable-static \
+			--disable-embedded-perl \
+			--without-kmem-usage
+
+# Old / unused configure flags
+#			--enable-mini-agent \
+#			--with-mib-modules="hardware/memory hardware/cpu host ucd-snmp/diskio ucd-snmp/loadave ucd-snmp/memory" \
+#			--with-out-mib-modules="mibII/icmp host/hr_swrun" \
+#			--enable-ipv6 \
+#			--enable-developer
+#			--with-libwrap=/usr/lib/libwrap.dylib
+
+# The following are sometimes necessary if DESTDIR or --with-install-prefix
+# are not respected.
+#Extra_Install_Flags	= exec_prefix=$(DSTROOT)$(Install_Prefix) \
+#			bindir=$(DSTROOT)$(USRBINDIR) \
+#			sbindir=$(DSTROOT)$(USRSBINDIR) \
+#			sysconfdir=$(DSTROOT)/etc \
+#			datadir=$(DSTROOT)$(SHAREDIR) \
+#			includedir=$(DSTROOT)$(USRINCLUDEDIR)/net-snmp \
+#			libdir=$(DSTROOT)$(USRLIBDIR) \
+#			libexecdir=$(DSTROOT)$(LIBEXECDIR) \
+#			localstatedir=$(DSTROOT)$(SHAREDIR)
+
+# For some reason, the Perl modules Makefiles use the environment
+# version of CCFLAGS instead of the one defined by the Makefile. The
+# wacky "INC=" is to used but not defined by the Makefile, so it's
+# used here to point to the project's headers instead of those already
+# installed on the system (which are out of date).
+Extra_Environment	= AR="$(SRCROOT)/ar.sh" INC="-I../../include"
+GnuAfterInstall		= install-macosx install-mibs install-compat
+
+# Temporarily set for development
+GnuNoInstallHeaders	= YES
+
+# Binaries to strip
+STRIPPED_BINS	= encode_keychange snmpbulkget snmpbulkwalk snmpdelta snmpdf \
+			snmpget snmpget snmpgetnext snmpinform snmpnetstat \
+			snmpset snmpstatus snmptable snmptest snmptranslate \
+			snmptrap snmpusm snmpvacm snmpwalk
+STRIPPED_SBINS	= snmpd 
+STRIPPED_SNMPTRAPD	= snmptrapd
+STRIPPED_LIBS	= libnetsnmp libnetsnmpagent libnetsnmphelpers libnetsnmpmibs libnetsnmptrapd
+# Binary to patch
+CONFIGTOOL	= $(USRBINDIR)/net-snmp-config
+# MIB files to install
+MIBFILES	:= $(wildcard mibs/*.txt)
+MIBDIR		= $(SHAREDIR)/snmp/mibs
 
 
 # Automatic Extract & Patch
-AEP            = YES
-AEP_Project    = $(Project)
-AEP_Version    = 5.2.1
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = NLS_TigerBuild.patch BO_darwin_snmp.patch NLS_PR-3962010.patch NLS_PR-4059242.patch NLS_wrap.patch NLS_PR-4133730.patch
+AEP		= YES
+AEP_Version	= 5.4.1
+AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
+			cache.patch container.patch darwin-header.patch \
+			dir_utils.patch disk.patch host.patch \
+			swinst.patch swrun.patch copying.patch \
+			system.patch table.patch
+AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
+AEP_ConfigDir	= $(ETCDIR)/snmp
+AEP_ConfigFiles	= snmpd.conf
 
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-AEP_ExtractOption = j
-else
-AEP_ExtractOption = z
+
+# Local targets that must be defined before including the following
+# files to get the dependency order correct
+.PHONY: $(GnuAfterInstall)
+
+install::
+
+# Include common makefile targets for B&I
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+include AEP.make
+
+# Override settings from above include
+ifndef MACOSX_DEPLOYMENT_TARGET
+	MACOSX_DEPLOYMENT_TARGET = $(shell sw_vers -productVersion | cut -d. -f1-2)
+endif
+DESTDIR	= $(DSTROOT)
+
+# This project must be built in the source directory because the real
+# project (with configure) is there.
+BuildDirectory	= $(Sources)
+
+# This needs to be overridden because the project properly uses DESTDIR
+# (and supports the configure flag "--with-install-prefix").
+Install_Flags	= DESTDIR="$(DSTROOT)"
+# This project does not support the default "install-strip" target.
+Install_Target	= install 
+
+
+#
+# Post-extract target
+#
+#extract-source::
+#	$(CP) $(SHAREDIR)/libtool/ltmain.sh $(Sources)
+
+#
+# Pre-build targets
+#
+ifneq ($(GnuNoInstallHeaders),YES)
+install_headers:: $(GNUConfigStamp)
+	@echo "Installing headers..."
+	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Environment) installheaders
+	$(_v) $(FIND) $(DSTROOT) $(Find_Cruft) | $(XARGS) $(RMDIR)
+	$(_v) $(FIND) $(SYMROOT) $(Find_Cruft) | $(XARGS) $(RMDIR)
+ifneq ($(GnuNoChown),YES)
+	$(_v)- $(CHOWN) -R $(Install_User):$(Install_Group) $(DSTROOT) $(SYMROOT)
+endif
 endif
 
-# Extract the source.
-install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(AEP_Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
-	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
-        done
-endif
 
-
-Install_Flags         = prefix=$(DSTROOT)/usr \
-                        exec_prefix=$(DSTROOT)/usr \
-                        bindir=$(DSTROOT)/usr/bin \
-                        sbindir=$(DSTROOT)/usr/sbin \
-			sysconfdir=$(DSTROOT)/etc \
-			datadir=$(DSTROOT)/usr/share \
-			includedir=$(DSTROOT)/usr/include/net-snmp \
-			libdir=$(DSTROOT)/usr/lib \
-			libexecdir=$(DSTROOT)/usr/libexec \
-			localstatedir=$(DSTROOT)/usr/share \
-        		mandir=$(DSTROOT)/usr/share/man \
-		        infodir=$(DSTROOT)/usr/share/info
-
-Install_Target = install 
-
-do-fixups:
-	for foo in encode_keychange snmpbulkget snmpbulkwalk snmpdelta snmpdf snmpget snmpgetnext snmpinform snmpnetstat snmpset snmpstatus snmptable snmptest snmptranslate snmptrap snmpusm snmpvacm snmpwalk; \
+#
+# Post-install targets
+#
+install-macosx:
+	@echo "Reorganizing install for Mac OS X..."
+	if [ -d $(DSTROOT)/etc ]; then 				\
+		$(MKDIR) -m 755 $(DSTROOT)/private;		\
+		$(MV) $(DSTROOT)/etc $(DSTROOT)/private;	\
+	fi
+	if [ -d $(DSTROOT)/var ]; then 				\
+		$(MKDIR) -m 755 $(DSTROOT)/private;		\
+		$(MV) $(DSTROOT)/var $(DSTROOT)/private;	\
+	fi
+	$(MKDIR) -m 700 $(DSTROOT)/private/var/agentx
+	@echo "Unzipping man pages..."
+	$(_v) if [ -d $(DSTROOT)$(Install_Man) ]; then		\
+		$(FIND) $(DSTROOT)/$(Install_Man) -name '*.gz' -print -exec gunzip {} \; ;	\
+	fi
+	@echo "Removing pod files..."
+	$(_v) $(RM) $(DSTROOT)/System/Library/Perl/5.8.8/darwin-thread-multi-2level/perllocal.pod
+	@echo "Removing broken tools..."
+	$(_v) $(RM) $(DSTROOT)$(USRBINDIR)/snmpcheck \
+				$(DSTROOT)$(USRBINDIR)/ipf-mod.pl
+	@echo "Stripping unstripped binaries..."
+	if [ ! -d $(SYMROOT) ]; then \
+		$(MKDIR) -m 755 $(SYMROOT); \
+	fi
+	$(_v) for file in $(STRIPPED_BINS); \
 	do \
-		strip $(DSTROOT)/usr/bin/$${foo}; \
+		$(CP) $(DSTROOT)$(USRBINDIR)/$${file} $(SYMROOT); \
+		$(STRIP) $(DSTROOT)$(USRBINDIR)/$${file}; \
 	done
-	for foo in snmpd snmptrapd; \
+	$(_v) for file in $(STRIPPED_SBINS); \
 	do \
-		strip $(DSTROOT)/usr/sbin/$${foo}; \
+		$(CP) $(DSTROOT)$(USRSBINDIR)/$${file} $(SYMROOT); \
+		$(STRIP) $(DSTROOT)$(USRSBINDIR)/$${file}; \
 	done
-	for foo in libnetsnmp libnetsnmpagent libnetsnmphelpers \
-libnetsnmpmibs; \
+	$(_v) for file in $(STRIPPED_SNMPTRAPD); \
 	do \
-		strip -x $(DSTROOT)/usr/lib/$${foo}.$(AEP_Version).dylib; \
-		rm -f $(DSTROOT)/usr/lib/$${foo}.5.dylib; \
-		mv $(DSTROOT)/usr/lib/$${foo}.$(AEP_Version).dylib $(DSTROOT)/usr/lib/$${foo}.5.dylib; \
-		ln -s $${foo}.5.dylib $(DSTROOT)/usr/lib/$${foo}.$(AEP_Version).dylib; \
+		$(CP) $(DSTROOT)$(USRSBINDIR)/$${file} $(SYMROOT); \
+		echo "_SyslogTrap" > $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
+		echo "_dropauth" >> $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
+		$(STRIP) -s $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp $(DSTROOT)$(USRSBINDIR)/$${file}; \
+		$(RM) $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
 	done
-	find  $(DSTROOT)/usr/include/net-snmp -type f | xargs chmod 644
-	find  $(DSTROOT)/usr/share/snmp -type f| xargs chmod 644
-	rm -f $(DSTROOT)/usr/lib/*.a $(DSTROOT)/usr/lib/*.la
-	ln -s net-snmp $(DSTROOT)/usr/include/ucd-snmp 
-	find $(DSTROOT)/usr/share/man/ -type f | xargs chmod 644
-	mkdir -p $(DSTROOT)/private/etc/
-	cp snmpd.conf $(DSTROOT)/private/etc/snmpd.conf
-	mv $(DSTROOT)/usr/bin/net-snmp-config $(DSTROOT)/usr/bin/net-snmp-config.old
-	cat $(DSTROOT)/usr/bin/net-snmp-config.old | sed "s/-arch ppc//g" | sed "s/-arch i386//g" > $(DSTROOT)/usr/bin/net-snmp-config
-	chmod 755 $(DSTROOT)/usr/bin/net-snmp-config
-	rm -f $(DSTROOT)/usr/bin/net-snmp-config.old
+	$(_v) for file in $(STRIPPED_LIBS); \
+	do \
+		$(CP) $(DSTROOT)$(USRLIBDIR)/$${file}*.dylib $(SYMROOT); \
+		$(STRIP) -x $(DSTROOT)$(USRLIBDIR)/$${file}.dylib; \
+	done
+	$(_v) $(FIND) $(DSTROOT)$(NSLIBRARYSUBDIR)/Perl -type f -name '*.bundle' -print -exec strip -S {} \;
+	@echo "Fixing permissions..."
+	$(_v) $(FIND) $(DSTROOT)$(USRINCLUDEDIR)/net-snmp -type f -exec chmod 644 {} \;
+	$(_v) $(FIND) $(DSTROOT)$(SHAREDIR)/snmp -type f -exec chmod 644 {} \;
+	$(_v) $(RM) $(DSTROOT)$(USRLIBDIR)/*.a $(DSTROOT)$(USRLIBDIR)/*.la
+	$(_v) $(FIND) $(DSTROOT)$(MANDIR) -type f -exec chmod 644 {} \;
+	@echo "Eliminating architecture flags from $(CONFIGTOOL)..."
+	$(MV) $(DSTROOT)$(CONFIGTOOL) $(DSTROOT)$(CONFIGTOOL).old
+	$(SED) -Ee 's/-arch [-_a-z0-9]{3,10}//g' \
+		-e '/^NSC_INCLUDEDIR=/s/=.*/=\/usr\/local\/include/' \
+		-e '/^NSC_LIBDIR=/s/=.*/=" "/' $(DSTROOT)$(CONFIGTOOL).old > $(DSTROOT)$(CONFIGTOOL)
+	$(CHMOD) 755 $(DSTROOT)$(CONFIGTOOL)
+	$(RM) $(DSTROOT)$(CONFIGTOOL).old
 
-install-startup:
-	@mkdir -p $(DSTROOT)/System/Library/StartupItems/SNMP/Resources/English.lproj
-	$(INSTALL) -c -m 555 $(SRCROOT)/SNMP $(DSTROOT)/System/Library/StartupItems/SNMP
-	$(INSTALL) -c -m 444 $(SRCROOT)/StartupParameters.plist $(DSTROOT)/System/Library/StartupItems/SNMP
-	$(INSTALL) -c -m 444 $(SRCROOT)/Localizable.strings $(DSTROOT)/System/Library/StartupItems/SNMP/Resources/English.lproj
+install-mibs:
+	$(_v) for file in $(MIBFILES); \
+	do \
+		$(INSTALL_FILE) $${file} $(DSTROOT)$(MIBDIR); \
+	done
 
-OSV     = $(DSTROOT)/usr/local/OpenSourceVersions
-OSL     = $(DSTROOT)/usr/local/OpenSourceLicenses
-
-install-plist:
-	$(MKDIR) $(OSV)
-	$(INSTALL_FILE) $(SRCROOT)/net_snmp.plist $(OSV)/net_snmp.plist
-	$(MKDIR) $(OSL)
-	$(INSTALL_FILE) $(SRCROOT)/net_snmp.txt $(OSL)/net_snmp.txt
-
+install-compat:
+	$(_v) $(TAR) -C $(DSTROOT)$(USRLIBDIR) -xzf $(SRCROOT)/libs-5.2.1.tar.gz

@@ -1,0 +1,62 @@
+--- _SB/Libc/string/FreeBSD/wcstok.3	2003-05-20 15:23:56.000000000 -0700
++++ _SB/Libc/string/FreeBSD/wcstok.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -60,28 +60,32 @@
+ .Sh SYNOPSIS
+ .In wchar.h
+ .Ft wchar_t *
+-.Fn wcstok "wchar_t * restrict str" "const wchar_t * restrict sep" "wchar_t ** restrict last"
++.Fo wcstok
++.Fa "wchar_t *restrict ws1"
++.Fa "const wchar_t *restrict ws2"
++.Fa "wchar_t **restrict ptr"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn wcstok
+ function
+ is used to isolate sequential tokens in a null-terminated wide character
+ string,
+-.Fa str .
++.Fa ws1 .
+ These tokens are separated in the string by at least one of the
+ characters in
+-.Fa sep .
++.Fa ws2 .
+ The first time that
+ .Fn wcstok
+ is called,
+-.Fa str
++.Fa ws1
+ should be specified; subsequent calls, wishing to obtain further tokens
+ from the same string, should pass a null pointer instead.
+ The separator string,
+-.Fa sep ,
++.Fa ws2 ,
+ must be supplied each time, and may change between calls.
+-The context pointer
+-.Fa last
++The context pointer,
++.Fa ptr ,
+ must be provided on each call.
+ .Pp
+ The
+@@ -99,8 +103,8 @@
+ .Sh EXAMPLES
+ The following code fragment splits a wide character string on
+ .Tn ASCII
+-space, tab and newline characters and writes the tokens to
+-standard output:
++space, tab, and newline characters,
++writing the resulting tokens to standard output:
+ .Bd -literal -offset indent
+ const wchar_t *seps = L" \et\en";
+ wchar_t *last, *tok, text[] = L" \enone\ettwo\et\etthree  \en";
+@@ -114,7 +118,7 @@
+ .Fn wcstok
+ omit the
+ context pointer argument,
+-.Fa last ,
++.Fa ptr ,
+ and maintain state across calls in a static variable like
+ .Fn strtok
+ does.

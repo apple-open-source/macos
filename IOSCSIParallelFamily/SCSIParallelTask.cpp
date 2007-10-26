@@ -32,6 +32,7 @@
 // General IOKit includes
 #include <IOKit/IOLib.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IODMACommand.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -60,22 +61,20 @@
 #endif
 
 #if ( SCSI_PARALLEL_TASK_DEBUGGING_LEVEL >= 2 )
-#define ERROR_LOG(x)		IOLog x
+#define ERROR_LOG(x)		kprintf x
 #else
 #define ERROR_LOG(x)
 #endif
 
 #if ( SCSI_PARALLEL_TASK_DEBUGGING_LEVEL >= 3 )
-#define STATUS_LOG(x)		IOLog x
+#define STATUS_LOG(x)		kprintf x
 #else
 #define STATUS_LOG(x)
 #endif
 
 
-#define super IOCommand
-OSDefineMetaClassAndStructors ( SCSIParallelTask, IOCommand );
-
-#define round(x, y)(((int)(x) + (y) - 1) & ~(( y ) - 1 ))
+#define super IODMACommand
+OSDefineMetaClassAndStructors ( SCSIParallelTask, IODMACommand );
 
 
 #if 0
@@ -90,39 +89,70 @@ OSDefineMetaClassAndStructors ( SCSIParallelTask, IOCommand );
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SCSIParallelTask *
-SCSIParallelTask::Create ( UInt32 sizeOfHBAData )
+SCSIParallelTask::Create ( UInt32 sizeOfHBAData, UInt64 alignmentMask )
 {
 	
-	SCSIParallelTask *			newTask = NULL;
-	IOBufferMemoryDescriptor *	buffer	= NULL;
-	IOReturn					result	= kIOReturnSuccess;
-	UInt32						size	= 0;
+	SCSIParallelTask *	newTask = NULL;
+	bool				result	= false;
 	
 	newTask = OSTypeAlloc ( SCSIParallelTask );
 	require_nonzero ( newTask, ErrorExit );
 	
-	size = round ( sizeOfHBAData, 16 );
-	
-	sizeOfHBAData = size;
-	newTask->fHBADataSize = sizeOfHBAData;
-	
-	buffer = IOBufferMemoryDescriptor::withOptions (
-										kIOMemoryPhysicallyContiguous,
-										sizeOfHBAData,
-										16 );
-	require_nonzero ( buffer, FreeTask );
-	
-	result = buffer->prepare ( kIODirectionOutIn );
-	require_success ( result, FreeHBAData );
-	
-	newTask->fHBAData = buffer->getBytesNoCopy ( );
-	require_nonzero ( newTask->fHBAData, CompleteHBAData );
-	
-	bzero ( newTask->fHBAData, newTask->fHBADataSize );
-	
-	newTask->fHBADataDescriptor = buffer;
+	result = newTask->InitWithSize ( sizeOfHBAData, alignmentMask );
+	require ( result, ReleaseTask );
 	
 	return newTask;
+	
+	
+ReleaseTask:
+	
+	
+	newTask->release ( );
+	newTask = NULL;
+	
+	
+ErrorExit:
+	
+	
+	return NULL;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	InitWithSize - Initializes the object with requested HBA data size.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIParallelTask::InitWithSize (
+	UInt32		sizeOfHBAData,
+	UInt64 		alignmentMask )
+{
+	
+	IOBufferMemoryDescriptor *	buffer			= NULL;
+	IOReturn					status			= kIOReturnSuccess;
+	
+	fHBADataSize = sizeOfHBAData;
+	
+	buffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask (
+		kernel_task,
+		kIODirectionOutIn | kIOMemoryPhysicallyContiguous,
+		fHBADataSize,
+		alignmentMask );
+	require_nonzero ( buffer, ErrorExit );
+	
+	status = buffer->prepare ( kIODirectionOutIn );
+	require_success ( status, FreeHBAData );
+	
+	fHBAData = buffer->getBytesNoCopy ( );
+	require_nonzero ( fHBAData, CompleteHBAData );
+	
+	bzero ( fHBAData, fHBADataSize );
+	
+	fHBADataDescriptor = buffer;
+	
+	return true;
 	
 
 CompleteHBAData:
@@ -138,17 +168,10 @@ FreeHBAData:
 	buffer = NULL;
 	
 	
-FreeTask:
-	
-	
-	newTask->release ( );
-	newTask = NULL;
-	
-	
 ErrorExit:
 	
 	
-	return newTask;
+	return false;
 	
 }
 
@@ -170,6 +193,8 @@ SCSIParallelTask::free ( void )
 		
 	}
 	
+	super::free ( );
+	
 }
 
 
@@ -182,6 +207,7 @@ SCSIParallelTask::ResetForNewTask ( void )
 {
 	
 	fTargetID					= 0;
+	fDevice						= NULL;
 	fSCSITask					= NULL;
 	fRealizedTransferCount		= 0;
 	fControllerTaskIdentifier	= 0;
@@ -197,6 +223,8 @@ SCSIParallelTask::ResetForNewTask ( void )
 		fSCSIParallelFeatureResult[loop]	= kSCSIParallelFeature_NegotitiationUnchanged;
 		
 	}
+	
+	clearMemoryDescriptor ( );
 	
 }
 
@@ -246,6 +274,29 @@ SCSITargetIdentifier
 SCSIParallelTask::GetTargetIdentifier ( void )
 {
 	return fTargetID;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	SetDevice - Sets device for this task.							   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+SCSIParallelTask::SetDevice ( IOSCSIParallelInterfaceDevice * device )
+{
+	fDevice = device;
+	return true;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	GetDevice - Gets device for this task.							   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOSCSIParallelInterfaceDevice *
+SCSIParallelTask::GetDevice ( void )
+{
+	return fDevice;
 }
 
 
@@ -806,23 +857,23 @@ IOSCSIParallelFamilyDebugAssert (	const char * componentNameString,
 									int 		 errorCode )
 {
 	
-	IOLog ( "%s Assert failed: %s ", componentNameString, assertionString );
+	kprintf ( "%s Assert failed: %s ", componentNameString, assertionString );
 	
 	if ( exceptionLabelString != NULL )
-		IOLog ( "%s ", exceptionLabelString );
+		kprintf ( "%s ", exceptionLabelString );
 	
 	if ( errorString != NULL )
-		IOLog ( "%s ", errorString );
+		kprintf ( "%s ", errorString );
 	
 	if ( fileName != NULL )
-		IOLog ( "file: %s ", fileName );
+		kprintf ( "file: %s ", fileName );
 	
 	if ( lineNumber != 0 )
-		IOLog ( "line: %ld ", lineNumber );
+		kprintf ( "line: %ld ", lineNumber );
 	
 	if ( ( long ) errorCode != 0 )
-		IOLog ( "error: %ld ", ( long ) errorCode );
+		kprintf ( "error: %ld ", ( long ) errorCode );
 	
-	IOLog ( "\n" );
+	kprintf ( "\n" );
 	
 }

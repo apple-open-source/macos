@@ -212,6 +212,13 @@ cpp_create_reader (enum c_lang lang, hash_table *table,
   _cpp_init_tokenrun (&pfile->base_run, 250);
   pfile->cur_run = &pfile->base_run;
   pfile->cur_token = pfile->base_run.base;
+  /* APPLE LOCAL begin 4137741 */
+
+  /* Initialize buffer for pending CPP_EINCL tokens.  */
+  _cpp_init_tokenrun (&pfile->base_eincl, 250);
+  pfile->cur_eincl = &pfile->base_eincl;
+  pfile->beg_eincl = pfile->end_eincl = pfile->base_eincl.base;
+  /* APPLE LOCAL end 4137741 */
 
   /* Initialize the base context.  */
   pfile->context = &pfile->base_context;

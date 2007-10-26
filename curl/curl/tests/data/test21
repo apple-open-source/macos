@@ -1,3 +1,10 @@
+<testcase>
+<info>
+<keywords>
+FAILURE
+multiple HTTP requests
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -23,3 +30,4 @@ use curl with multiple request methods
 2
 </errorcode>
 </verify>
+</testcase>

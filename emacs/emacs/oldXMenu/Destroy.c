@@ -1,7 +1,7 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/Destroy.c,v 1.1.1.4 2002/09/10 23:34:43 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -80,33 +80,33 @@ XMenuDestroy(display, menu)
      */
     if ((menu->p_bdr_color != BlackPixel(display, DefaultScreen(display))) && (menu->p_bdr_color != WhitePixel(display, DefaultScreen(display))))
 	XFreeColors(
-		    display, 
+		    display,
 		    DefaultColormap(display, DefaultScreen(display)),
-		    &menu->p_bdr_color, 
+		    &menu->p_bdr_color,
 		    1, 0);
     if ((menu->s_bdr_color != BlackPixel(display, DefaultScreen(display))) && (menu->s_bdr_color != WhitePixel(display, DefaultScreen(display))))
 	XFreeColors(
-		    display, 
-		    DefaultColormap(display, DefaultScreen(display)), 
-		    &menu->s_bdr_color, 
+		    display,
+		    DefaultColormap(display, DefaultScreen(display)),
+		    &menu->s_bdr_color,
 		    1, 0);
     if ((menu->p_frg_color != BlackPixel(display, DefaultScreen(display))) && (menu->p_frg_color != WhitePixel(display, DefaultScreen(display))))
 	XFreeColors(
-		    display, 
+		    display,
 		    DefaultColormap(display, DefaultScreen(display)),
-		    &menu->p_frg_color, 
+		    &menu->p_frg_color,
 		    1, 0);
     if ((menu->s_frg_color != BlackPixel(display, DefaultScreen(display))) && (menu->s_frg_color != WhitePixel(display, DefaultScreen(display))))
 	XFreeColors(
-		    display, 
+		    display,
 		    DefaultColormap(display, DefaultScreen(display)),
-		    &menu->s_frg_color, 
+		    &menu->s_frg_color,
 		    1, 0);
     if ((menu->bkgnd_color != BlackPixel(display, DefaultScreen(display))) && (menu->bkgnd_color != WhitePixel(display, DefaultScreen(display))))
 	XFreeColors(
-		    display, 
+		    display,
 		    DefaultColormap(display, DefaultScreen(display)),
-		    &menu->bkgnd_color, 
+		    &menu->bkgnd_color,
 		    1, 0);
 
     /*
@@ -114,3 +114,6 @@ XMenuDestroy(display, menu)
      */
     free(menu);
 }
+
+/* arch-tag: 44c9589f-5893-46fc-bc23-1b03a7f9c015
+   (do not change this comment) */

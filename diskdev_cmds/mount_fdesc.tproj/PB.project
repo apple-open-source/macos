@@ -6,7 +6,7 @@
         HEADERSEARCH = (); 
         H_FILES = (); 
         M_FILES = (); 
-        OTHER_LIBS = (disk); 
+        OTHER_LIBS = (util); 
         OTHER_LINKED = (mount_fdesc.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, Makefile.dist, mount_fdesc.8); 
         SUBPROJECTS = (); 

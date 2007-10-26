@@ -24,6 +24,7 @@
 #ifndef _S_GLOBALS_H
 #define _S_GLOBALS_H
 #include <mach/boolean.h>
+#include "timer.h"
 
 extern u_short 			G_client_port;
 extern boolean_t		G_dhcp_accepts_bootp;
@@ -41,9 +42,11 @@ extern u_long			G_gather_secs;
 extern u_long			G_link_inactive_secs;
 extern u_long			G_max_retries;
 extern boolean_t 		G_must_broadcast;
-extern int			G_verbose;
+extern int			G_IPConfiguration_verbose;
 extern int			G_debug;
 extern boolean_t		G_router_arp;
+extern time_interval_t		G_dhcp_defend_ip_address_interval_secs;
+extern int			G_dhcp_defend_ip_address_count;
 
 extern const unsigned char	G_rfc_magic[4];
 extern const struct sockaddr	G_blank_sin;
